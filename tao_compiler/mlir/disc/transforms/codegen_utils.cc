@@ -14,6 +14,7 @@ limitations under the License.
 ==============================================================================*/
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 
+#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/SCF/Passes.h"
@@ -25,6 +26,47 @@ using mlir::memref::DimOp;
 
 namespace mlir {
 namespace disc_ral {
+
+int getRowReductionScheduleHint(Operation* op) {
+  assert(op);
+  lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
+  // Use schedule 2 by default.
+  if (!fusion) return DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE;
+  IntegerAttr attr =
+      fusion->getAttrOfType<IntegerAttr>(kRowReductionScheduleHint);
+  if (!attr) return DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE;
+  return attr.getInt();
+}
+
+int getVectorizationHint(Operation* op) {
+  assert(op);
+  lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
+  if (!fusion) return 1;
+  IntegerAttr attr = fusion->getAttrOfType<IntegerAttr>(kVectorizationHint);
+  if (!attr) return 1;
+  return attr.getInt();
+}
+
+int getThreadPerBlock(Operation* op) {
+  int thread_per_block = kThreadsRowReduction;
+  if (!op) return thread_per_block;
+  lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
+  if (!fusion) return thread_per_block;
+  IntegerAttr attr = fusion->getAttrOfType<IntegerAttr>(kThreadPerBlockHint);
+  if (!attr) return thread_per_block;
+  return attr.getInt();
+}
+
+int getColReductionScheduleHint(Operation* op) {
+  assert(op);
+  lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
+  // Use schedule 1 by default.
+  if (!fusion) return DISC_TILE_W8_H32;
+  IntegerAttr attr =
+      fusion->getAttrOfType<IntegerAttr>(kColReductionScheduleHint);
+  if (!attr) return DISC_TILE_W8_H32;
+  return attr.getInt();
+}
 
 Value emitNumElementsComputation(OpBuilder& b, Location loc, Value memref) {
   int rank = memref.getType().cast<MemRefType>().getRank();

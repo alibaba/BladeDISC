@@ -140,6 +140,9 @@ std::unique_ptr<mlir::FunctionPass> createDiscStdBufferizePass();
 // CSE of memref.load specific for DISC
 std::unique_ptr<FunctionPass> createDiscMemRefCSEPass();
 
+// GVN of memref.load specific for DISC
+std::unique_ptr<FunctionPass> createDiscMemRefGVNPass();
+
 // Lowering some tensorflow ops.
 std::unique_ptr<OperationPass<FuncOp>> createDiscLowerTfPass();
 

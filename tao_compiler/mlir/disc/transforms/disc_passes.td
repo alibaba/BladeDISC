@@ -233,6 +233,11 @@ def DiscMemRefCSEPass : FunctionPass<"disc-memref-cse"> {
   let constructor = "createDiscMemRefCSEPass()";
 }
 
+def DiscMemRefGVNPass : FunctionPass<"disc-memref-gvn"> {
+  let summary = "Perform GVN on memref.load";
+  let constructor = "createDiscMemRefGVNPass()";
+}
+
 def DiscLowerTfPass : FunctionPass<"disc-lower-tf"> {
   let summary = "Lowering some tensorflow ops";
   let constructor = "createDiscLowerTfPass()";

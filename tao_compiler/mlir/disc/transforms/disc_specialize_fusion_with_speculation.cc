@@ -31,6 +31,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "tensorflow/core/util/env_var.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -54,7 +55,7 @@ bool IsCandidateBroadcastOp(Operation* op) {
   // of the fusion patten.
   // TODO(disc): remove this constraint.
   FusionOp fusion_op = op->getParentOfType<FusionOp>();
-  FusionPattern fusion_pattern{fusion_op};
+  FusionPatternBase fusion_pattern{fusion_op};
 
   Value broadcast_result = op->getOperand(2);
   auto& results = fusion_pattern.getResults();
@@ -88,8 +89,33 @@ bool HasCandidateBroadcastOp(FusionOp fusion_op) {
   return false;
 }
 
+SmallVector<Value> getShapeValuesMayReuseAllocParams(OpBuilder* b,
+                                                     Value memref) {
+  Operation* op = memref.getDefiningOp();
+  if (auto alloc = dyn_cast_or_null<memref::AllocOp>(op)) {
+    auto type = memref.getType().cast<RankedTensorType>();
+    assert(type);
+    SmallVector<Value> result;
+    for (int64_t i = 0; i < type.getRank(); i++) {
+      if (type.isDynamicDim(i)) {  // Only dynamic dims are operands.
+        auto dyn_idx = type.getDynamicDimIndex(i);
+        result.push_back(op->getOperand(dyn_idx));
+      } else {
+        auto loc = memref.getLoc();
+        result.push_back(
+            b->create<arith::ConstantIndexOp>(loc, type.getDimSize(i)));
+      }
+    }
+    return result;
+  } else {
+    return getShapeValues(b, memref);
+  }
+}
+
 Value createViewLike(OpBuilder& b, Location loc, Value from, Value to) {
-  SmallVector<Value> toShape = getShapeValues(&b, to);
+  // Use `getShapeValuesMayReuseAllocParams` rather than `getShapeValues` to
+  // avoid unnecessary memref::DimOp.
+  SmallVector<Value> toShape = getShapeValuesMayReuseAllocParams(&b, to);
   auto toType = to.getType().cast<MemRefType>();
   auto fromType = from.getType().cast<MemRefType>();
   auto targetType =
@@ -213,12 +239,12 @@ struct DiscSpecializeFusionWithSpeculationPass
     DenseMap<Value, Value> viewMap;
     SmallVector<Operation*, 4> op_list;
     for (Operation& op : cloned.region().front()) op_list.push_back(&op);
-    ShapeConstraintAnalysis shape_constraint_analysis(op_list);
+    OpListShapeAnalysis op_list_shape_analysis(op_list);
     for (Operation* op : op_list) {
       for (Value operand : op->getOperands()) {
         if (viewMap.find(operand) != viewMap.end()) continue;
         Value leader =
-            shape_constraint_analysis.GetLeaderValueWithSameShape(operand);
+            op_list_shape_analysis.GetLeaderValueWithSameShape(operand);
         if (!leader || leader == operand) continue;
         // TODO(disc): handle mismatch type case
         auto leaderTy = leader.getType().dyn_cast<MemRefType>();
@@ -246,8 +272,8 @@ struct DiscSpecializeFusionWithSpeculationPass
   }
 
   void DoRowReductionSpeculation(FusionOp fusion_op) {
-    Operation* reduce_op = nullptr;
-    if (!(reduce_op = GetCandidateRowReduceOp(fusion_op))) {
+    FusionType fusion_type = getFusionType(fusion_op.getOperation());
+    if (fusion_type != FusionType::kRowReduction) {
       return;
     }
 
@@ -257,8 +283,12 @@ struct DiscSpecializeFusionWithSpeculationPass
     }
 
     // Already have a hint
-    if (fusion_op->getAttrOfType<IntegerAttr>(kRowReductionScheduleHint))
+    if (fusion_op->getAttrOfType<IntegerAttr>(kRowReductionScheduleHint)) {
       return;
+    }
+
+    Operation* reduce_op = GetCandidateRowReduceOp(fusion_op);
+    assert(reduce_op != nullptr);
 
     // Row reduction schedule selection policy: if col size > 512, use schedule
     // 1; also use schedule 2. The 512 is an empirical value.
@@ -299,11 +329,6 @@ struct DiscSpecializeFusionWithSpeculationPass
 
   // TODO(feiwen): add more kTileW=8/kTileH pairs by if/elseif/else
   void DoColReductionSpeculation(FusionOp fusion_op) {
-    Operation* reduce_op = nullptr;
-    if (!(reduce_op = GetCandidateColReduceOp(fusion_op))) {
-      return;
-    }
-
     // We only do specialization fusion op on GPU a.t.m.
     if (!placement_utils::isGpuMhlo(fusion_op)) {
       return;
@@ -312,6 +337,11 @@ struct DiscSpecializeFusionWithSpeculationPass
     // Already have a hint
     if (fusion_op->getAttrOfType<IntegerAttr>(kColReductionScheduleHint))
       return;
+
+    Operation* reduce_op = nullptr;
+    if (!(reduce_op = GetCandidateColReduceOp(fusion_op))) {
+      return;
+    }
 
     // Col reduction schedule selection policy: if blocks > 80, use schedule
     // kTileW=8/kTileH=32; or use schedule kTileW=8/kTileH=8.
@@ -372,7 +402,12 @@ struct DiscSpecializeFusionWithSpeculationPass
     // Already have a hint
     if (fusion_op->getAttrOfType<IntegerAttr>(kVectorizationHint)) return;
 
-    FusionPattern fusion_pattern(fusion_op);
+    FusionType fusion_type = getFusionType(fusion_op.getOperation());
+    if (fusion_type != FusionType::kLoop &&
+        fusion_type != FusionType::kRowReduction &&
+        fusion_type != FusionType::kStitch) {
+      return;
+    }
 
     // Vectorization policy:
     //
@@ -401,29 +436,29 @@ struct DiscSpecializeFusionWithSpeculationPass
 
     Value out_element_number;
     Value threshold;
-    auto dominant_op = fusion_pattern.getDominantOp();
-    auto fusion_type = fusion_pattern.getFusionType();
-    if (fusion_type == FusionType::kRowReduction) {
-      IntegerAttr thread_per_block_attr =
-          fusion_op->getAttrOfType<IntegerAttr>(kThreadPerBlockHint);
-      assert(thread_per_block_attr);
-      auto block_size = thread_per_block_attr.getInt();
-      IntegerAttr schedule_attr =
-          fusion_op->getAttrOfType<IntegerAttr>(kRowReductionScheduleHint);
-      assert(schedule_attr);
+    if (fusion_type == FusionType::kRowReduction ||
+        fusion_type == FusionType::kStitch) {
+      Operation* dominant_equivalent_op = GetCandidateRowReduceOp(fusion_op);
+      auto block_size = getThreadPerBlock(fusion_op.getOperation());
+
+      int rowred_schedule =
+          getRowReductionScheduleHint(fusion_op.getOperation());
+
       auto row_per_block =
-          (schedule_attr.getInt() == DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE)
+          (rowred_schedule == DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE)
               ? block_size / kWarpSize
               : 1;
       auto threshold_val = max_threads_per_wave / block_size * row_per_block;
       threshold = b.create<arith::ConstantIndexOp>(loc, threshold_val);
-      Value operand = dominant_op->getOperand(0);
+      Value operand = dominant_equivalent_op->getOperand(0);
       // #out-element is row numbers.
       out_element_number = b.create<memref::DimOp>(loc, operand, 0);
     } else if (fusion_type == FusionType::kLoop) {
       threshold = b.create<arith::ConstantIndexOp>(loc, max_threads_per_wave);
-      out_element_number =
-          codegen_utils::emitNumElementsComputation(b, loc, dominant_op);
+      FusionPatternBase fusion_pattern(fusion_op);
+      Operation* dominant_equivalent_op = fusion_pattern.getRootOps().back();
+      out_element_number = codegen_utils::emitNumElementsComputation(
+          b, loc, dominant_equivalent_op);
     } else {
       // Either a column reduction dominanted fusion, or a non-fusion op.
       return;
@@ -475,7 +510,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     Speculator(
         &DiscSpecializeFusionWithSpeculationPass::DoBroadcastSpeculation);
 
-    // Stage #2: speculation of thread-per-block of reduce op
+    // Stage #2: speculation of reduce op
     Speculator(
         &DiscSpecializeFusionWithSpeculationPass::DoRowReductionSpeculation);
     Speculator(

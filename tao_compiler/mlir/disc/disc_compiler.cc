@@ -291,6 +291,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     fusionOptions.max_num_arguments_per_kernel = 4096;
     setGlobalFusionOptions(fusionOptions);
   }
+  if (enable_stitch && gpu_enabled) {
+    pm.addNestedPass<FuncOp>(disc_ral::createDiscMemRefGVNPass());
+  }
   pm.addNestedPass<FuncOp>(disc_ral::createDiscFusionPass(
       gpu_enabled, enable_stitch ? "stitch" : "base"));
   if (gpu_enabled) {
@@ -307,7 +310,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
-  if (enable_stitch) {
+  if (enable_stitch && !gpu_enabled) {
     pm.addNestedPass<FuncOp>(disc_ral::createDiscStitchFusionPass());
   }
 
@@ -323,6 +326,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   // CodeGen passes: lhlo -> gpu.launch_func
   // TODO: move to aicompiler repo and add more schedules/op coverage
+  if (enable_stitch && gpu_enabled) {
+    pm.addNestedPass<FuncOp>(disc_ral::createDiscMemRefGVNPass());
+  }
   pm.addNestedPass<FuncOp>(
       disc_ral::createDiscLhloLegalizeRootsToParallelLoopsPass());
   // Converts `atomic_rmw` to `generic_atomic_rmw` when necessary to use CAS.

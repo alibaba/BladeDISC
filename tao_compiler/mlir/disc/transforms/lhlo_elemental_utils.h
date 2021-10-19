@@ -16,6 +16,7 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_TRANSFORMS_LHLO_ELEMENTAL_UTILS_H_
 #define TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_TRANSFORMS_LHLO_ELEMENTAL_UTILS_H_
 
+#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/IR/Builders.h"
 
 namespace mlir {
@@ -42,20 +43,61 @@ class ReinterpretCastOp;
 
 namespace disc_ral {
 
+class LowerConfig {
+ public:
+  // SpecificLoader is for stitch codegen, which helps to hook the original load
+  // with specific shm memref.
+  using SpecificLoaderFunc = std::function</*output*/ Value(
+      OpBuilder&, /*operand-memref*/ Value, /*indices*/ ValueRange,
+      /*shmem-buffer*/ Value, /*tile-size*/ int64_t)>;
+  struct SpecificLoader {
+    SpecificLoader() {}
+    SpecificLoader(SpecificLoaderFunc f, Value shm, int64_t tile_size)
+        : func_(f), target_shm_(shm), tile_size_(tile_size) {}
+    SpecificLoaderFunc func_;
+    Value target_shm_;
+    int64_t tile_size_;
+    Value operator()(OpBuilder& b, Value memref, ValueRange indices) {
+      return func_(b, memref, indices, target_shm_, tile_size_);
+    }
+  };
+
+  SpecificLoader* getSpecificLoader(Operation* op, Value operand);
+
+  bool isWrittenBack(Operation* op) { return is_written_back_.contains(op); }
+
+  void setWrittenBack(Operation* op) { is_written_back_.insert(op); }
+
+  void setSpecificLoader(std::pair<Operation*, Value> loader_for,
+                         SpecificLoader loader) {
+    specific_loaders_[loader_for] = loader;
+  }
+
+ private:
+  DenseMap<std::pair<Operation*, Value>, SpecificLoader> specific_loaders_;
+  DenseSet<Operation*> is_written_back_;
+};
+
+Value createMaySpecificLoad(OpBuilder& b, Location loc, Operation* op,
+                            Value memref, ValueRange indices,
+                            LowerConfig* lower_config = nullptr);
+
+Value mayCreateStore(OpBuilder* b, Location loc, Operation* op, Value value,
+                     ValueRange out_indices, LowerConfig* lower_config);
+
 using AccumulatorFactory = std::function<Value(Value, Value)>;
 
 AccumulatorFactory getFactory(OpBuilder& b, Location loc, Region& body);
 
-Value createLoadOrUseCachedValue(Location loc, OpBuilder* b, Value memref,
-                                 ValueRange indices,
-                                 OpBuilder::InsertPoint insert_point);
-
-DenseSet<Operation*> NoLoaderUser(SmallVectorImpl<Operation*>& ops);
-void cleanUnusedLhloOps(Block* parent);
+Value createLoadOrUseCachedValue(Location loc, OpBuilder* b, Operation* op,
+                                 Value memref, ValueRange indices,
+                                 OpBuilder::InsertPoint insert_point,
+                                 LowerConfig* lower_config = nullptr);
 
 template <typename LHLO_OpTy>
 Value elementalLower(OpBuilder* b, Location loc, LHLO_OpTy op,
-                     ValueRange output_index, bool check_cache = false);
+                     ValueRange output_index, bool check_cache = false,
+                     LowerConfig* lower_config = nullptr);
 
 scf::ForOp createLoopAndSetInsPt(OpBuilder& b, Location loc, Value& var,
                                  Value lb, Value ub, Value step,
@@ -72,12 +114,6 @@ memref::LoadOp createOffsetLoad(OpBuilder& b, Location loc, Value memref,
                                 Value offset);
 
 arith::AtomicRMWKind getAtomicRMWKind(Region& body);
-
-bool isSameUnderlineBuffer(Value lhs, Value rhs);
-
-// returns the users of the `memref`. The users should be in the same fusion
-// like `op`.
-DenseSet<Operation*> getValueUsersInFusionLike(Value memref, Operation* op);
 
 }  // namespace disc_ral
 }  // namespace mlir

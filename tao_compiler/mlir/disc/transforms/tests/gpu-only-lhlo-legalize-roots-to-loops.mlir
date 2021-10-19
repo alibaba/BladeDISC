@@ -210,6 +210,12 @@ func @multioutput_loop_fusion_without_dependency(%input1: memref<?xf32>, %input2
 // CHECK-LABEL: @kinput_col_reduce
 // CHECK-SAME: (%[[ARG0:.*]]: memref<?x?xf32>, %[[ARG1:.*]]: memref<?x?xf32>, %[[ARG2:.*]]: memref<?xf32>, %[[ARG3:.*]]: memref<f32>) -> memref<?xf32>
 func @kinput_col_reduce(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2: memref<?xf32>, %arg3: memref<f32>) -> memref<?xf32> {
+  // CHECK-NOT: lmhlo.reduce
+  // CHECK-DAG: %[[C0:.*]] = arith.constant 0 : index
+  // CHECK-DAG: %[[C1:.*]] = arith.constant 1 : index
+  // CHECK-DAG: %[[C256:.*]] = arith.constant 256 : index
+  // CHECK-DAG: %[[C8:.*]] = arith.constant 8 : index
+  // CHECK-DAG: %[[C32:.*]] = arith.constant 32 : index
   // initializer for column reduction
   // CHECK: %[[OUTSIZE:.*]] = memref.dim %[[ARG2]], {{.*}} : memref<?xf32>
   // CHECK: scf.parallel (%[[INIT_ITER:.*]]) = (%{{.*}}) to (%{{.*}}) step (%{{.*}}) {
@@ -218,15 +224,8 @@ func @kinput_col_reduce(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2: m
   // CHECK:   memref.store %[[INIT_VALUE]], %[[ARG2]][%[[DELINEARIZE]]] : memref<?xf32>
   // CHECK:   scf.yield
   // CHECK: }
-
-  // CHECK-NOT: lmhlo.reduce
-  // CHECK-DAG: %[[C0:.*]] = arith.constant 0 : index
-  // CHECK-DAG: %[[C1:.*]] = arith.constant 1 : index
   // CHECK: %[[ROWS:.*]] = memref.dim %[[ARG1]], %[[C0]] : memref<?x?xf32>
   // CHECK: %[[COLS:.*]] = memref.dim %[[ARG1]], %[[C1]] : memref<?x?xf32>
-  // CHECK-DAG: %[[C256:.*]] = arith.constant 256 : index
-  // CHECK-DAG: %[[C8:.*]] = arith.constant 8 : index
-  // CHECK-DAG: %[[C32:.*]] = arith.constant 32 : index
   // CHECK-DAG: %[[BLKS_PER_COL:.*]] = arith.ceildivsi %[[COLS]], %[[C8]] : index
   // CHECK-DAG: %[[BLKS_PER_ROW:.*]] = arith.ceildivsi %[[ROWS]], %[[C32]] : index
   // CHECK-DAG: %[[BLKS:.*]] = arith.muli %[[BLKS_PER_COL]], %[[BLKS_PER_ROW]] : index
@@ -312,12 +311,10 @@ func @kinput_row_reduce_schedule_1_no_vec(%arg0: memref<?x?xf32>, %arg1: memref<
   // CHECK-NOT: lmhlo.reduce
   // CHECK-DAG: %[[C0:.*]] = arith.constant 0 : index
   // CHECK-DAG: %[[C1:.*]] = arith.constant 1 : index
+  // CHECK-DAG: %[[BLOCK_SIZE:.*]] = arith.constant 256 : index
   // CHECK-DAG: %[[HIGHT:.*]] = memref.dim %[[ARG1]], %[[C0]] : memref<?x?xf32>
   // CHECK-DAG: %[[WIDTH:.*]] = memref.dim %[[ARG1]], %[[C1]] : memref<?x?xf32>
-  // CHECK-DAG: %[[BLOCK_SIZE:.*]] = arith.constant 256 : index
-  // CHECK: %[[VEC_SIZE:.*]] = arith.constant 1 : index
-  // CHECK: %[[BLOCK_NUMBER:.*]] = arith.divui %[[HIGHT]], %[[VEC_SIZE]] : index
-  // CHECK: scf.parallel (%[[H_IDX:.*]], %[[W_IDX:.*]]) = (%[[C0]], %[[C0]]) to (%[[BLOCK_NUMBER]], %[[BLOCK_SIZE]]) step (%[[C1]], %[[C1]])
+  // CHECK: scf.parallel (%[[H_IDX:.*]], %[[W_IDX:.*]]) = (%[[C0]], %[[C0]]) to (%[[HIGHT]], %[[BLOCK_SIZE]]) step (%[[C1]], %[[C1]])
   // CHECK: %[[SMEM:.*]] = memref.alloc() : memref<32xf32, 3>
   // CHECK: scf.for %[[W_LOCAL_IDX:.*]] = %[[TID:.*]] to %[[WIDTH]] step %[[BLOCK_SIZE]]
   // First round reduce.
@@ -347,10 +344,10 @@ func @kinput_row_reduce_schedule_1_vec2(%arg0: memref<?x?xf32>, %arg1: memref<?x
   // CHECK-NOT: lmhlo.reduce
   // CHECK-DAG: %[[C0:.*]] = arith.constant 0 : index
   // CHECK-DAG: %[[C1:.*]] = arith.constant 1 : index
+  // CHECK-DAG: %[[BLOCK_SIZE:.*]] = arith.constant 256 : index
+  // CHECK-DAG: %[[VEC_SIZE:.*]] = arith.constant 2 : index
   // CHECK-DAG: %[[HIGHT:.*]] = memref.dim %[[ARG1]], %[[C0]] : memref<?x?xf32>
   // CHECK-DAG: %[[WIDTH:.*]] = memref.dim %[[ARG1]], %[[C1]] : memref<?x?xf32>
-  // CHECK-DAG: %[[BLOCK_SIZE:.*]] = arith.constant 256 : index
-  // CHECK: %[[VEC_SIZE:.*]] = arith.constant 2 : index
   // CHECK: %[[BLOCK_NUMBER:.*]] = arith.divui %[[HIGHT]], %[[VEC_SIZE]] : index
   // CHECK: scf.parallel (%[[H_IDX:.*]], %[[W_IDX:.*]]) = (%[[C0]], %[[C0]]) to (%[[BLOCK_NUMBER]], %[[BLOCK_SIZE]]) step (%[[C1]], %[[C1]])
   // CHECK: %[[SMEM:.*]] = memref.alloc() : memref<32xf32, 3>
@@ -379,4 +376,37 @@ func @kinput_row_reduce_schedule_1_vec2(%arg0: memref<?x?xf32>, %arg1: memref<?x
   // CHECK: disc_vectorize_hint = 2
   // CHECK: return %[[ARG2]] : memref<?xf32>
   return %arg2 : memref<?xf32>
+}
+
+// CHECK-LABEL: @kstitch_small_output
+func @kstitch_small_output(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2: memref<?xf32>, %arg3: memref<f32>, %arg4: memref<?xf32>) -> memref<?xf32> {
+  "lmhlo.fusion"() ( {
+    "lmhlo.abs"(%arg0, %arg1) : (memref<?x?xf32>, memref<?x?xf32>) -> ()
+    "lmhlo.reduce"(%arg1, %arg3, %arg2) ( {
+    ^bb0(%arg5: memref<f32>, %arg6: memref<f32>, %arg7: memref<f32>):  // no predecessors
+      "lmhlo.add"(%arg5, %arg6, %arg7) : (memref<f32>, memref<f32>, memref<f32>) -> ()
+      "lmhlo.terminator"() : () -> ()
+    }) {dimensions = dense<1> : tensor<1xi64>} : (memref<?x?xf32>, memref<f32>, memref<?xf32>) -> ()
+    "lmhlo.abs"(%arg2, %arg4) : (memref<?xf32>, memref<?xf32>) -> ()
+    "lmhlo.terminator"() : () -> ()
+  }) {disc.fusion.name = "kstitch_reduce_abs", disc.fusion_type = "kStitch", disc.device = "gpu"} : () -> ()
+  // CHECK: lmhlo.fusion
+  // CHECK: scf.parallel
+
+  // Local reduce and first round reduce.
+  // CHECK: scf.for
+  // CHECK: gpu.shuffle
+  // CHECK: gpu.barrier
+
+  // Second round reduce and store to smem buffer.
+  // CHECK: gpu.shuffle
+  // CHECK: memref.store %[[INTER_RES:.*]], %[[SMEM_BUFFER:.*]]
+  // CHECK: gpu.barrier
+
+  // Local loop for `abs`, which has different shape with the input of reduce.
+  // CHECK: scf.for
+
+  // Load from smem buffer.
+  // CHECK: memref.load %[[SMEM_BUFFER]]
+  return %arg4 : memref<?xf32>
 }

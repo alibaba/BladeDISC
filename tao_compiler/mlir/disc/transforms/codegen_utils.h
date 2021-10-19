@@ -109,6 +109,14 @@ const std::map<std::pair<int, int>, std::pair<int, int>> archToGPUThreadNumber =
         // TODO: add data of A10
 };
 
+int getRowReductionScheduleHint(Operation* op);
+
+int getVectorizationHint(Operation* op);
+
+int getThreadPerBlock(Operation* op);
+
+int getColReductionScheduleHint(Operation* op);
+
 SmallVector<Value> getShapeValues(OpBuilder* b, Value memref);
 
 Value calcLinearIndex(OpBuilder* b, Location loc, const ValueRange multi_index,

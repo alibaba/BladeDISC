@@ -34,7 +34,6 @@ limitations under the License.
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
 
 using mlir::memref::DimOp;
 using mlir::memref::LoadOp;
@@ -43,9 +42,43 @@ using mlir::memref::StoreOp;
 namespace mlir {
 namespace disc_ral {
 
-Value createLoadOrUseCachedValue(Location loc, OpBuilder* b, Value memref,
-                                 ValueRange indices,
-                                 OpBuilder::InsertPoint insert_point) {
+LowerConfig::SpecificLoader* LowerConfig::getSpecificLoader(Operation* op,
+                                                            Value operand) {
+  auto getParentFusionOp = [&](Operation* op) {
+    auto parent = op->getParentOp();
+    while (parent != nullptr && !isa<lmhlo::FusionOp>(parent)) {
+      parent = parent->getParentOp();
+    }
+    return dyn_cast_or_null<lmhlo::FusionOp>(parent);
+  };
+  lmhlo::FusionOp fusion = getParentFusionOp(op);
+  if (fusion == nullptr) {
+    return nullptr;
+  }
+  auto specific_loader =
+      specific_loaders_.find(std::make_pair(fusion, operand));
+  return (specific_loader == specific_loaders_.end())
+             ? nullptr
+             : &specific_loader->second;
+}
+
+Value createMaySpecificLoad(OpBuilder& b, Location loc, Operation* op,
+                            Value memref, ValueRange indices,
+                            LowerConfig* lower_config) {
+  if (lower_config != nullptr) {
+    auto loader = lower_config->getSpecificLoader(op, memref);
+    if (loader != nullptr) {
+      return (*loader)(b, memref, indices);
+    }
+  }
+
+  return b.create<memref::LoadOp>(loc, memref, indices);
+}
+
+Value createLoadOrUseCachedValue(Location loc, OpBuilder* b, Operation* op,
+                                 Value memref, ValueRange indices,
+                                 OpBuilder::InsertPoint insert_point,
+                                 LowerConfig* lower_config) {
   // Check if there are any cached value that can be reused,
   // within the current Block. Alternatively we can do this for
   // all the Blocks that dominant this Block, but that will be
@@ -62,56 +95,21 @@ Value createLoadOrUseCachedValue(Location loc, OpBuilder* b, Value memref,
       });
   if (!store_ops.empty()) return store_ops[0].getOperand(0);
   int rank = memref.getType().cast<MemRefType>().getRank();
-  return rank > 0 ? b->create<LoadOp>(loc, memref, indices)
-                  : b->create<LoadOp>(loc, memref);
+  return rank > 0
+             ? createMaySpecificLoad(*b, loc, op, memref, indices, lower_config)
+             : b->create<LoadOp>(loc, memref);
 }
 
-DenseSet<Operation*> NoLoaderUser(SmallVectorImpl<Operation*>& ops) {
-  SmallVector<Operation*, 4> worklist;
-  DenseSet<Operation*> has_loader_ops;
-  for (Operation* op : ops) {
-    Value memref = cast<lmhlo::LmhloOp>(op).getResultBuffer();
-    if (memref == nullptr) continue;
-    for (Operation* user : getValueUsersInFusionLike(memref, op)) {
-      if (isa<memref::LoadOp>(user)) {
-        worklist.push_back(op);
-        has_loader_ops.insert(op);
-      }
+Value mayCreateStore(OpBuilder* b, Location loc, Operation* op, Value value,
+                     ValueRange out_indices, LowerConfig* lower_config) {
+  if (lower_config != nullptr && lower_config->isWrittenBack(op)) {
+    Value out_memref = cast<lmhlo::LmhloOp>(op).getResultBuffer();
+    if (out_memref == nullptr) {
+      return nullptr;
     }
+    b->create<memref::StoreOp>(loc, value, out_memref, out_indices);
   }
-
-  while (!worklist.empty()) {
-    Operation* op = worklist.pop_back_val();
-    int num_operands = op->getNumOperands();
-    for (int i = 0; i < num_operands - 1; ++i) {
-      Value memref = op->getOperand(i);
-      for (Operation* user : getValueUsersInFusionLike(memref, op)) {
-        if ((!isa<lmhlo::LmhloOp>(user)) || has_loader_ops.count(user))
-          continue;
-        if (isSameUnderlineBuffer(cast<lmhlo::LmhloOp>(user).getResultBuffer(),
-                                  memref)) {
-          worklist.push_back(user);
-          has_loader_ops.insert(user);
-        }
-      }
-    }
-  }
-
-  DenseSet<Operation*> no_loader_ops;
-  for (Operation* op : ops)
-    if (!has_loader_ops.count(op)) no_loader_ops.insert(op);
-  return no_loader_ops;
-}
-
-void cleanUnusedLhloOps(Block* parent) {
-  SmallVector<Operation*, 4> lhlo_ops;
-  for (Operation& op : parent->getOperations()) {
-    if (op.getDialect() == op.getContext()->getLoadedDialect("lmhlo") &&
-        (!isa<lmhlo::TerminatorOp>(op)))
-      lhlo_ops.push_back(&op);
-  }
-  const DenseSet<Operation*>& no_loader_user = NoLoaderUser(lhlo_ops);
-  for (auto* lhlo_op : no_loader_user) lhlo_op->erase();
+  return nullptr;
 }
 
 // TODO: only support the reduce body in the form of
@@ -176,12 +174,14 @@ AccumulatorFactory getFactory(OpBuilder& b, Location loc, Region& body) {
 
 template <typename LHLO_OpTy>
 Value elementalLower(OpBuilder* b, Location loc, LHLO_OpTy op,
-                     ValueRange output_index, bool check_cache);
+                     ValueRange output_index, bool check_cache,
+                     LowerConfig* lower_config);
 
 template <>
 Value elementalLower<lmhlo::SliceOp>(OpBuilder* b, Location loc,
                                      lmhlo::SliceOp op, ValueRange output_index,
-                                     bool check_cache) {
+                                     bool check_cache,
+                                     LowerConfig* lower_config) {
   int rank = output_index.size();
 
   SmallVector<Value> input_index;
@@ -198,16 +198,25 @@ Value elementalLower<lmhlo::SliceOp>(OpBuilder* b, Location loc,
   }
 
   Value operand_memref = op->getOperand(0);
-  if (!check_cache) return b->create<LoadOp>(loc, operand_memref, input_index);
-  return createLoadOrUseCachedValue(loc, b, operand_memref, input_index,
-                                    b->saveInsertionPoint());
+  Value result;
+  if (!check_cache) {
+    result = createMaySpecificLoad(*b, loc, op.getOperation(), operand_memref,
+                                   input_index, lower_config);
+  } else {
+    result = createLoadOrUseCachedValue(loc, b, op.getOperation(),
+                                        operand_memref, input_index,
+                                        b->saveInsertionPoint(), lower_config);
+  }
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 template <>
 Value elementalLower<lmhlo::RealDynamicSliceOp>(OpBuilder* b, Location loc,
                                                 lmhlo::RealDynamicSliceOp op,
                                                 ValueRange output_index,
-                                                bool check_cache) {
+                                                bool check_cache,
+                                                LowerConfig* lower_config) {
   Value start_indices_memref = op->getOperand(1);
   Value strides_memref = op->getOperand(3);
   int rank = output_index.size();
@@ -216,10 +225,12 @@ Value elementalLower<lmhlo::RealDynamicSliceOp>(OpBuilder* b, Location loc,
     SmallVector<Value, 4> dim_index;
     dim_index.push_back(b->create<arith::ConstantIndexOp>(loc, dim));
     auto start_index_load =
-        b->create<LoadOp>(loc, start_indices_memref, ValueRange{dim_index});
+        createMaySpecificLoad(*b, loc, op.getOperation(), start_indices_memref,
+                              ValueRange{dim_index}, lower_config);
     auto start_index = mayConvertToIndexType(start_index_load, b, loc);
     auto stride_load =
-        b->create<LoadOp>(loc, strides_memref, ValueRange{dim_index});
+        createMaySpecificLoad(*b, loc, op.getOperation(), strides_memref,
+                              ValueRange{dim_index}, lower_config);
     auto stride = mayConvertToIndexType(stride_load, b, loc);
     // input_dim = out_dim * stride + start_index
     auto input_dim = b->create<arith::AddIOp>(
@@ -230,9 +241,17 @@ Value elementalLower<lmhlo::RealDynamicSliceOp>(OpBuilder* b, Location loc,
 
   Value operand_memref = *(op->getOperands().begin());
 
-  if (!check_cache) return b->create<LoadOp>(loc, operand_memref, input_index);
-  return createLoadOrUseCachedValue(loc, b, operand_memref, input_index,
-                                    b->saveInsertionPoint());
+  Value result;
+  if (!check_cache) {
+    result = createMaySpecificLoad(*b, loc, op.getOperation(), operand_memref,
+                                   input_index, lower_config);
+  } else {
+    result = createLoadOrUseCachedValue(loc, b, op.getOperation(),
+                                        operand_memref, input_index,
+                                        b->saveInsertionPoint(), lower_config);
+  }
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 namespace {
@@ -241,7 +260,8 @@ template <typename T>
 Value elementalLowerImplForBroadcastInDimOps(OpBuilder* b, Location loc,
                                              T broadcast_in_dim,
                                              ValueRange output_index,
-                                             bool check_cache) {
+                                             bool check_cache,
+                                             LowerConfig* lower_config) {
   auto broadcast_dimensions =
       broadcast_in_dim.broadcast_dimensions().template getValues<int64_t>();
   int out_rank = output_index.size();
@@ -280,13 +300,19 @@ Value elementalLowerImplForBroadcastInDimOps(OpBuilder* b, Location loc,
     }
   }
 
+  Value result;
   if (!check_cache) {
     int rank = operand_memref.getType().dyn_cast<MemRefType>().getRank();
-    return (rank > 0) ? b->create<LoadOp>(loc, operand_memref, input_index)
-                      : b->create<LoadOp>(loc, operand_memref, ValueRange());
+    result = (rank > 0) ? createMaySpecificLoad(
+                              *b, loc, broadcast_in_dim.getOperation(),
+                              operand_memref, input_index, lower_config)
+                        : b->create<LoadOp>(loc, operand_memref, ValueRange());
+  } else {
+    result = createLoadOrUseCachedValue(loc, b, broadcast_in_dim.getOperation(),
+                                        operand_memref, input_index,
+                                        b->saveInsertionPoint(), lower_config);
   }
-  return createLoadOrUseCachedValue(loc, b, operand_memref, input_index,
-                                    b->saveInsertionPoint());
+  return result;
 }
 
 }  // namespace
@@ -294,25 +320,31 @@ Value elementalLowerImplForBroadcastInDimOps(OpBuilder* b, Location loc,
 template <>
 Value elementalLower<lmhlo::DynamicBroadcastInDimOp>(
     OpBuilder* b, Location loc, lmhlo::DynamicBroadcastInDimOp op,
-    ValueRange output_index, bool check_cache) {
-  return elementalLowerImplForBroadcastInDimOps(b, loc, op, output_index,
-                                                check_cache);
+    ValueRange output_index, bool check_cache, LowerConfig* lower_config) {
+  Value result = elementalLowerImplForBroadcastInDimOps(
+      b, loc, op, output_index, check_cache, lower_config);
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 template <>
 Value elementalLower<lmhlo::BroadcastInDimOp>(OpBuilder* b, Location loc,
                                               lmhlo::BroadcastInDimOp op,
                                               ValueRange output_index,
-                                              bool check_cache) {
-  return elementalLowerImplForBroadcastInDimOps(b, loc, op, output_index,
-                                                check_cache);
+                                              bool check_cache,
+                                              LowerConfig* lower_config) {
+  Value result = elementalLowerImplForBroadcastInDimOps(
+      b, loc, op, output_index, check_cache, lower_config);
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 template <>
 Value elementalLower<lmhlo::BroadcastOp>(OpBuilder* b, Location loc,
                                          lmhlo::BroadcastOp op,
                                          ValueRange output_index,
-                                         bool check_cache) {
+                                         bool check_cache,
+                                         LowerConfig* lower_config) {
   Value operand_memref = op->getOperand(0);
   auto operand_type = operand_memref.getType().dyn_cast<MemRefType>();
   int operand_rank = operand_type.getRank();
@@ -325,19 +357,28 @@ Value elementalLower<lmhlo::BroadcastOp>(OpBuilder* b, Location loc,
     input_index.push_back(output_index[i]);
   }
 
-  if (!check_cache)
-    return operand_rank > 0
-               ? b->create<LoadOp>(loc, operand_memref, input_index)
-               : b->create<LoadOp>(loc, operand_memref, ValueRange());
-  return createLoadOrUseCachedValue(loc, b, operand_memref, input_index,
-                                    b->saveInsertionPoint());
+  Value result;
+  if (!check_cache) {
+    result =
+        operand_rank > 0
+            ? createMaySpecificLoad(*b, loc, op.getOperation(), operand_memref,
+                                    input_index, lower_config)
+            : b->create<LoadOp>(loc, operand_memref, ValueRange());
+  } else {
+    result = createLoadOrUseCachedValue(loc, b, op.getOperation(),
+                                        operand_memref, input_index,
+                                        b->saveInsertionPoint(), lower_config);
+  }
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 template <>
 Value elementalLower<lmhlo::ReshapeOp>(OpBuilder* b, Location loc,
                                        lmhlo::ReshapeOp op,
                                        ValueRange output_index,
-                                       bool check_cache) {
+                                       bool check_cache,
+                                       LowerConfig* lower_config) {
   Value operand_memref = op->getOperand(0);
   Value output_memref = op->getOperand(1);
 
@@ -348,17 +389,25 @@ Value elementalLower<lmhlo::ReshapeOp>(OpBuilder* b, Location loc,
   auto operand_shape = getShapeValues(b, operand_memref);
   auto operand_index = calcMultiDimIndex(b, loc, linear_index, operand_shape);
 
-  if (!check_cache)
-    return b->create<LoadOp>(loc, operand_memref, operand_index);
-  return createLoadOrUseCachedValue(loc, b, operand_memref, operand_index,
-                                    b->saveInsertionPoint());
+  Value result;
+  if (!check_cache) {
+    result = createMaySpecificLoad(*b, loc, op.getOperation(), operand_memref,
+                                   operand_index, lower_config);
+  } else {
+    result = createLoadOrUseCachedValue(loc, b, op.getOperation(),
+                                        operand_memref, operand_index,
+                                        b->saveInsertionPoint(), lower_config);
+  }
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 template <>
 Value elementalLower<lmhlo::DynamicReshapeOp>(OpBuilder* b, Location loc,
                                               lmhlo::DynamicReshapeOp op,
                                               ValueRange output_index,
-                                              bool check_cache) {
+                                              bool check_cache,
+                                              LowerConfig* lower_config) {
   Value operand_memref = op->getOperand(0);
   Value output_memref = op->getOperand(2);
 
@@ -371,25 +420,35 @@ Value elementalLower<lmhlo::DynamicReshapeOp>(OpBuilder* b, Location loc,
   auto operand_shape = getShapeValues(b, operand_memref);
   auto operand_index = calcMultiDimIndex(b, loc, linear_index, operand_shape);
 
-  if (!check_cache)
-    return b->create<LoadOp>(loc, operand_memref, operand_index);
-  return createLoadOrUseCachedValue(loc, b, operand_memref, operand_index,
-                                    b->saveInsertionPoint());
+  Value result;
+  if (!check_cache) {
+    result = createMaySpecificLoad(*b, loc, op.getOperation(), operand_memref,
+                                   operand_index, lower_config);
+  } else {
+    result = createLoadOrUseCachedValue(loc, b, op.getOperation(),
+                                        operand_memref, operand_index,
+                                        b->saveInsertionPoint(), lower_config);
+  }
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 // There is no NotOp in std dialect, thus we provide a basic implementation.
 template <>
 Value elementalLower<lmhlo::NotOp>(OpBuilder* b, Location loc, lmhlo::NotOp op,
-                                   ValueRange output_index, bool check_cache) {
+                                   ValueRange output_index, bool check_cache,
+                                   LowerConfig* lower_config) {
   Value operand_memref = op->getOperand(0);
   auto operand_ty = operand_memref.getType().cast<MemRefType>();
 
   Value operandValue;
   if (!check_cache) {
-    operandValue = b->create<LoadOp>(loc, operand_memref, output_index);
+    operandValue = createMaySpecificLoad(
+        *b, loc, op.getOperation(), operand_memref, output_index, lower_config);
   } else {
     operandValue = createLoadOrUseCachedValue(
-        loc, b, operand_memref, output_index, b->saveInsertionPoint());
+        loc, b, op.getOperation(), operand_memref, output_index,
+        b->saveInsertionPoint(), lower_config);
   }
 
   Value falseValue;
@@ -400,15 +459,18 @@ Value elementalLower<lmhlo::NotOp>(OpBuilder* b, Location loc, lmhlo::NotOp op,
         b->create<arith::ConstantIntOp>(loc, 0, operand_ty.getElementType());
   }
 
-  return b->create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq, operandValue,
-                                  falseValue);
+  Value result = b->create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq,
+                                          operandValue, falseValue);
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 template <>
 Value elementalLower<lmhlo::TransposeOp>(OpBuilder* b, Location loc,
                                          lmhlo::TransposeOp op,
                                          ValueRange output_index,
-                                         bool check_cache) {
+                                         bool check_cache,
+                                         LowerConfig* lower_config) {
   Value operand_memref = op->getOperand(0);
   SmallVector<int64_t> permutation(op.permutation().getValues<int64_t>());
   int rank = permutation.size();
@@ -420,17 +482,25 @@ Value elementalLower<lmhlo::TransposeOp>(OpBuilder* b, Location loc,
     operand_index[permutation[dim]] = output_index[dim];
   }
 
-  if (!check_cache)
-    return b->create<LoadOp>(loc, operand_memref, operand_index);
-  return createLoadOrUseCachedValue(loc, b, operand_memref, operand_index,
-                                    b->saveInsertionPoint());
+  Value result;
+  if (!check_cache) {
+    result = createMaySpecificLoad(*b, loc, op.getOperation(), operand_memref,
+                                   operand_index, lower_config);
+  } else {
+    result = createLoadOrUseCachedValue(loc, b, op.getOperation(),
+                                        operand_memref, operand_index,
+                                        b->saveInsertionPoint(), lower_config);
+  }
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 template <>
 Value elementalLower<lmhlo::ReverseOp>(OpBuilder* b, Location loc,
                                        lmhlo::ReverseOp op,
                                        ValueRange output_index,
-                                       bool check_cache) {
+                                       bool check_cache,
+                                       LowerConfig* lower_config) {
   // input_shape = op->getOperand(0).shape()
   // for dim = 0 -> rank:
   //   if dim in axis:
@@ -454,17 +524,26 @@ Value elementalLower<lmhlo::ReverseOp>(OpBuilder* b, Location loc,
       operand_index[dim] = output_index[dim];
     }
   }
-  if (!check_cache)
-    return b->create<LoadOp>(loc, operand_memref, operand_index);
-  return createLoadOrUseCachedValue(loc, b, operand_memref, operand_index,
-                                    b->saveInsertionPoint());
+
+  Value result;
+  if (!check_cache) {
+    result = createMaySpecificLoad(*b, loc, op.getOperation(), operand_memref,
+                                   operand_index, lower_config);
+  } else {
+    result = createLoadOrUseCachedValue(loc, b, op.getOperation(),
+                                        operand_memref, operand_index,
+                                        b->saveInsertionPoint(), lower_config);
+  }
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 template <>
 Value elementalLower<lmhlo::DynamicPadOp>(OpBuilder* b, Location loc,
                                           lmhlo::DynamicPadOp op,
                                           ValueRange output_index,
-                                          bool check_cache) {
+                                          bool check_cache,
+                                          LowerConfig* lower_config) {
   Value operand_memref = *(op->getOperands().begin());
   Value padding_value_memref = *(op->getOperands().begin() + 1);
   Value edge_padding_low_memref = *(op->getOperands().begin() + 2);
@@ -486,10 +565,12 @@ Value elementalLower<lmhlo::DynamicPadOp>(OpBuilder* b, Location loc,
     SmallVector<Value, 4> dim_const;
     dim_const.push_back(b->create<arith::ConstantIndexOp>(loc, dim));
     Value edge_padding_low =
-        b->create<LoadOp>(loc, edge_padding_low_memref, dim_const);
+        createMaySpecificLoad(*b, loc, op.getOperation(),
+                              edge_padding_low_memref, dim_const, lower_config);
     edge_padding_low = mayConvertToIndexType(edge_padding_low, b, loc);
     Value interior_padding =
-        b->create<LoadOp>(loc, interior_padding_memref, dim_const);
+        createMaySpecificLoad(*b, loc, op.getOperation(),
+                              interior_padding_memref, dim_const, lower_config);
     interior_padding = mayConvertToIndexType(interior_padding, b, loc);
     auto x = b->create<arith::SubIOp>(loc, output_index[dim], edge_padding_low);
     auto interior_padding_p1 =
@@ -526,9 +607,11 @@ Value elementalLower<lmhlo::DynamicPadOp>(OpBuilder* b, Location loc,
   b->setInsertionPointToEnd(&if_inbound_op.getThenRegion().front());
   auto ret_value =
       check_cache
-          ? createLoadOrUseCachedValue(loc, b, operand_memref, input_index,
-                                       b->saveInsertionPoint())
-          : b->create<LoadOp>(loc, operand_memref, input_index);
+          ? createLoadOrUseCachedValue(loc, b, op.getOperation(),
+                                       operand_memref, input_index,
+                                       b->saveInsertionPoint(), lower_config)
+          : createMaySpecificLoad(*b, loc, op.getOperation(), operand_memref,
+                                  input_index, lower_config);
   b->create<scf::YieldOp>(loc, ret_value);
 
   b->setInsertionPointToEnd(&if_inbound_op.getElseRegion().front());
@@ -537,11 +620,14 @@ Value elementalLower<lmhlo::DynamicPadOp>(OpBuilder* b, Location loc,
   b->create<scf::YieldOp>(loc, padded_value);
 
   b->setInsertionPointAfter(if_inbound_op);
-  return *(if_inbound_op.getResults().begin());
+  Value result = *(if_inbound_op.getResults().begin());
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 Value lowerGatherOpInternal(OpBuilder* b, Location loc, Operation* op,
-                            ValueRange output_index, bool check_cache) {
+                            ValueRange output_index, bool check_cache,
+                            LowerConfig* lower_config) {
   auto gather = dyn_cast<lmhlo::GatherOp>(op);
   auto d_gather = dyn_cast<lmhlo::DynamicGatherOp>(op);
   assert((gather || d_gather) && "unexpected opcode");
@@ -631,10 +717,11 @@ Value lowerGatherOpInternal(OpBuilder* b, Location loc, Operation* op,
   // update operand_index
   if (start_indices_rank == index_vector_dim) {
     Value gather_dim_component =
-        check_cache ? createLoadOrUseCachedValue(loc, b, start_indices,
-                                                 gather_index_index,
-                                                 b->saveInsertionPoint())
-                    : b->create<LoadOp>(loc, start_indices, gather_index_index);
+        check_cache ? createLoadOrUseCachedValue(
+                          loc, b, op, start_indices, gather_index_index,
+                          b->saveInsertionPoint(), lower_config)
+                    : createMaySpecificLoad(*b, loc, op, start_indices,
+                                            gather_index_index, lower_config);
     add_to_operand_index(gather_dim_component, 0);
   } else {
     int64_t index_vector_size = start_indices_ty.getDimSize(index_vector_dim);
@@ -644,41 +731,50 @@ Value lowerGatherOpInternal(OpBuilder* b, Location loc, Operation* op,
       gather_index_index[index_vector_dim] =
           b->create<arith::ConstantIndexOp>(loc, i);
       Value gather_dim_component =
-          check_cache
-              ? createLoadOrUseCachedValue(loc, b, start_indices,
-                                           gather_index_index,
-                                           b->saveInsertionPoint())
-              : b->create<LoadOp>(loc, start_indices, gather_index_index);
+          check_cache ? createLoadOrUseCachedValue(
+                            loc, b, op, start_indices, gather_index_index,
+                            b->saveInsertionPoint(), lower_config)
+                      : createMaySpecificLoad(*b, loc, op, start_indices,
+                                              gather_index_index, lower_config);
       add_to_operand_index(gather_dim_component, i);
     }
   }
-  return (check_cache
-              ? createLoadOrUseCachedValue(loc, b, operand, operand_index,
-                                           b->saveInsertionPoint())
-              : b->create<LoadOp>(loc, operand, operand_index));
+  return (check_cache ? createLoadOrUseCachedValue(
+                            loc, b, op, operand, operand_index,
+                            b->saveInsertionPoint(), lower_config)
+                      : createMaySpecificLoad(*b, loc, op, operand,
+                                              operand_index, lower_config));
 }
 
 template <>
 Value elementalLower<lmhlo::GatherOp>(OpBuilder* b, Location loc,
                                       lmhlo::GatherOp op,
-                                      ValueRange output_index,
-                                      bool check_cache) {
-  return lowerGatherOpInternal(b, loc, op, output_index, check_cache);
+                                      ValueRange output_index, bool check_cache,
+                                      LowerConfig* lower_config) {
+  Value result = lowerGatherOpInternal(b, loc, op, output_index, check_cache,
+                                       lower_config);
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 template <>
 Value elementalLower<lmhlo::DynamicGatherOp>(OpBuilder* b, Location loc,
                                              lmhlo::DynamicGatherOp op,
                                              ValueRange output_index,
-                                             bool check_cache) {
-  return lowerGatherOpInternal(b, loc, op, output_index, check_cache);
+                                             bool check_cache,
+                                             LowerConfig* lower_config) {
+  Value result = lowerGatherOpInternal(b, loc, op, output_index, check_cache,
+                                       lower_config);
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 template <>
 Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder* b, Location loc,
                                            lmhlo::ConcatenateOp op,
                                            ValueRange output_index,
-                                           bool check_cache) {
+                                           bool check_cache,
+                                           LowerConfig* lower_config) {
   size_t axis = op.dimension();
   size_t rank = output_index.size();
 
@@ -772,9 +868,11 @@ Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder* b, Location loc,
     auto operand_memref = op.getOperand(i);
     auto ret_value =
         check_cache
-            ? createLoadOrUseCachedValue(loc, b, operand_memref, input_index,
-                                         b->saveInsertionPoint())
-            : b->create<LoadOp>(loc, operand_memref, input_index);
+            ? createLoadOrUseCachedValue(loc, b, op.getOperation(),
+                                         operand_memref, input_index,
+                                         b->saveInsertionPoint(), lower_config)
+            : createMaySpecificLoad(*b, loc, op.getOperation(), operand_memref,
+                                    input_index, lower_config);
     b->create<scf::YieldOp>(loc, ret_value);
 
     b->setInsertionPointToEnd(&if_inbound_ops[i].getElseRegion().front());
@@ -786,7 +884,9 @@ Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder* b, Location loc,
     b->setInsertionPointAfter(if_inbound_ops[i]);
   }
   b->setInsertionPointAfter(if_inbound_ops[0]);
-  return *(if_inbound_ops[0].getResults().begin());
+  Value result = *(if_inbound_ops[0].getResults().begin());
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 // There is no 'identityOp' in std dialect, thus we provide a basic
@@ -795,20 +895,28 @@ Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder* b, Location loc,
 template <>
 Value elementalLower<lmhlo::CopyOp>(OpBuilder* b, Location loc,
                                     lmhlo::CopyOp op, ValueRange output_index,
-                                    bool check_cache) {
+                                    bool check_cache,
+                                    LowerConfig* lower_config) {
   Value operand_memref = op->getOperand(0);
   auto input_type = operand_memref.getType().dyn_cast<ShapedType>();
   assert(input_type && "expected operand having ShapedType");
+  Value result;
   if (!check_cache) {
-    return b->create<LoadOp>(loc, operand_memref, output_index);
+    result = createMaySpecificLoad(*b, loc, op.getOperation(), operand_memref,
+                                   output_index, lower_config);
+  } else {
+    result = createLoadOrUseCachedValue(loc, b, op.getOperation(),
+                                        operand_memref, output_index,
+                                        b->saveInsertionPoint(), lower_config);
   }
-  return createLoadOrUseCachedValue(loc, b, operand_memref, output_index,
-                                    b->saveInsertionPoint());
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 Value elementalLowerIota(OpBuilder* b, const Location& loc, Operation* op,
                          const ValueRange& output_index,
-                         const MemRefType& result_ty) {
+                         const MemRefType& result_ty,
+                         LowerConfig* lower_config) {
   auto result_element_ty = result_ty.getElementType();
   if (result_ty.getRank() == 0) {
     if (result_element_ty.dyn_cast<IntegerType>()) {
@@ -856,26 +964,34 @@ template <>
 Value elementalLower<lmhlo::DynamicIotaOp>(OpBuilder* b, Location loc,
                                            lmhlo::DynamicIotaOp op,
                                            ValueRange output_index,
-                                           bool check_cache) {
+                                           bool check_cache,
+                                           LowerConfig* lower_config) {
   auto result_ty = op->getOperand(1).getType().dyn_cast<MemRefType>();
   assert(result_ty && "unexpected result type of DynamicIotaOp");
-  return elementalLowerIota(b, loc, op.getOperation(), output_index, result_ty);
+  Value result = elementalLowerIota(b, loc, op.getOperation(), output_index,
+                                    result_ty, lower_config);
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 template <>
 Value elementalLower<lmhlo::IotaOp>(OpBuilder* b, Location loc,
                                     lmhlo::IotaOp op, ValueRange output_index,
-                                    bool check_cache) {
+                                    bool check_cache,
+                                    LowerConfig* lower_config) {
   auto result_ty = op->getOperand(0).getType().dyn_cast<MemRefType>();
   assert(result_ty && "unexpected result type of IotaOp");
-  return elementalLowerIota(b, loc, op.getOperation(), output_index, result_ty);
+  Value result = elementalLowerIota(b, loc, op.getOperation(), output_index,
+                                    result_ty, lower_config);
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 template <>
 Value elementalLower<lmhlo::ReduceOp>(OpBuilder* b, Location loc,
                                       lmhlo::ReduceOp op,
-                                      ValueRange output_index,
-                                      bool check_cache) {
+                                      ValueRange output_index, bool check_cache,
+                                      LowerConfig* lower_config) {
   auto operand_memref = *(op->getOperands().begin());
   auto init_value_memref = *(op->getOperands().begin() + 1);
   auto init_value = b->create<LoadOp>(loc, init_value_memref);
@@ -914,7 +1030,8 @@ Value elementalLower<lmhlo::ReduceOp>(OpBuilder* b, Location loc,
       output_dim_pos++;
     }
   }
-  auto data = b->create<LoadOp>(loc, operand_memref, input_index);
+  auto data = createMaySpecificLoad(*b, loc, op.getOperation(), operand_memref,
+                                    input_index, lower_config);
   AccumulatorFactory accumFactory =
       getFactory(*b, loc, cast<lmhlo::ReduceOp>(op).body());
   auto acc = accumFactory(*(forOp.getRegionIterArgs().begin()), data);
@@ -922,7 +1039,9 @@ Value elementalLower<lmhlo::ReduceOp>(OpBuilder* b, Location loc,
   yield_values.push_back(acc);
   b->create<scf::YieldOp>(loc, yield_values);
   b->setInsertionPointAfter(forOp);
-  return *(forOp.getResults().begin());
+  Value result = *(forOp.getResults().begin());
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 scf::ForOp createLoopAndSetInsPt(OpBuilder& b, Location loc, Value& var,
@@ -940,7 +1059,8 @@ template <>
 Value elementalLower<lmhlo::IsFiniteOp>(OpBuilder* b, Location loc,
                                         lmhlo::IsFiniteOp op,
                                         ValueRange output_index,
-                                        bool check_cache) {
+                                        bool check_cache,
+                                        LowerConfig* lower_config) {
   Value operand_memref = op->getOperand(0);
   auto tp = op->getOperand(0).getType().dyn_cast<ShapedType>();
   auto elem_tp = tp.getElementType();
@@ -949,10 +1069,12 @@ Value elementalLower<lmhlo::IsFiniteOp>(OpBuilder* b, Location loc,
 
   auto maybe_load_from_cache = [&](Value operand_memref) -> Value {
     if (!check_cache) {
-      return b->create<LoadOp>(loc, operand_memref, output_index);
+      return createMaySpecificLoad(*b, loc, op.getOperation(), operand_memref,
+                                   output_index, lower_config);
     }
-    return createLoadOrUseCachedValue(loc, b, operand_memref, output_index,
-                                      b->saveInsertionPoint());
+    return createLoadOrUseCachedValue(loc, b, op.getOperation(), operand_memref,
+                                      output_index, b->saveInsertionPoint(),
+                                      lower_config);
   };
 
   Value operand = maybe_load_from_cache(operand_memref);
@@ -960,14 +1082,17 @@ Value elementalLower<lmhlo::IsFiniteOp>(OpBuilder* b, Location loc,
   auto float_elem_tp = elem_tp.cast<FloatType>();
   auto INF = b->create<arith::ConstantFloatOp>(
       loc, APFloat::getInf(float_elem_tp.getFloatSemantics()), float_elem_tp);
-  return b->create<arith::CmpFOp>(loc, arith::CmpFPredicate::ONE, abs_operand,
-                                  INF);
+  Value result = b->create<arith::CmpFOp>(loc, arith::CmpFPredicate::ONE,
+                                          abs_operand, INF);
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 template <>
 Value elementalLower<lmhlo::ClampOp>(OpBuilder* b, Location loc,
                                      lmhlo::ClampOp op, ValueRange output_index,
-                                     bool check_cache) {
+                                     bool check_cache,
+                                     LowerConfig* lower_config) {
   Value min_memref = op->getOperand(0);
   Value operand_memref = op->getOperand(1);
   Value max_memref = op->getOperand(2);
@@ -982,12 +1107,13 @@ Value elementalLower<lmhlo::ClampOp>(OpBuilder* b, Location loc,
 
   auto maybe_load_from_memref = [&](Value memref, bool is_scalar) -> Value {
     if (!check_cache) {
-      return b->create<LoadOp>(loc, memref,
-                               is_scalar ? ValueRange{} : output_index);
+      return createMaySpecificLoad(*b, loc, op.getOperation(), memref,
+                                   is_scalar ? ValueRange{} : output_index,
+                                   lower_config);
     }
-    return createLoadOrUseCachedValue(loc, b, memref,
+    return createLoadOrUseCachedValue(loc, b, op.getOperation(), memref,
                                       (is_scalar ? ValueRange{} : output_index),
-                                      b->saveInsertionPoint());
+                                      b->saveInsertionPoint(), lower_config);
   };
   Value min = maybe_load_from_memref(min_memref, min_is_scalar);
   Value max = maybe_load_from_memref(max_memref, max_is_scalar);
@@ -997,9 +1123,12 @@ Value elementalLower<lmhlo::ClampOp>(OpBuilder* b, Location loc,
       mhlo::impl::MapMhloOpToStdScalarOp<lmhlo::LhloToHloOp<lmhlo::MaxOp>>(
           loc, ArrayRef<Type>{elem_ty}, ArrayRef<Type>{elem_ty, elem_ty},
           ArrayRef<Value>{operand, min}, b);
-  return mhlo::impl::MapMhloOpToStdScalarOp<lmhlo::LhloToHloOp<lmhlo::MinOp>>(
-      loc, ArrayRef<Type>{elem_ty}, ArrayRef<Type>{elem_ty, elem_ty},
-      ArrayRef<Value>{lb_clipped, max}, b);
+  Value result =
+      mhlo::impl::MapMhloOpToStdScalarOp<lmhlo::LhloToHloOp<lmhlo::MinOp>>(
+          loc, ArrayRef<Type>{elem_ty}, ArrayRef<Type>{elem_ty, elem_ty},
+          ArrayRef<Value>{lb_clipped, max}, b);
+  mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
+  return result;
 }
 
 memref::ReinterpretCastOp createMemRef1DReinterpretCastWithStaticShape(
@@ -1132,47 +1261,6 @@ arith::AtomicRMWKind getAtomicRMWKind(Region& body) {
   }
   llvm_unreachable("unsupported atomic operation kind");
   return arith::AtomicRMWKind::addf;
-}
-
-Value getRootMemRef(Value memref) {
-  Value rootMemRef = memref;
-  while (Operation* operandOp = rootMemRef.getDefiningOp()) {
-    if (!isa<memref::SubViewOp, memref::ViewOp, memref::CastOp,
-             memref::ReinterpretCastOp>(operandOp))
-      break;
-    rootMemRef = operandOp->getOperand(0);
-  }
-  return rootMemRef;
-}
-
-bool isSameUnderlineBuffer(Value lhs, Value rhs) {
-  return getRootMemRef(lhs) == getRootMemRef(rhs);
-}
-
-// returns the users of the `memref`. The users should be in the same fusion
-// like `op`.
-DenseSet<Operation*> getValueUsersInFusionLike(Value memref, Operation* op) {
-  // rootMemRef is the underline buffer, by passing some memref cast ops.
-  Value rootMemRef = getRootMemRef(memref);
-
-  DenseSet<Operation*> ops;
-  SmallVector<Value, 4> worklist{rootMemRef};
-  while (!worklist.empty()) {
-    Value val = worklist.pop_back_val();
-    for (Operation* user : val.getUsers()) {
-      if (isa<memref::SubViewOp, memref::ViewOp, memref::CastOp,
-              memref::ReinterpretCastOp>(user)) {
-        worklist.push_back(user->getResult(0));
-        continue;
-      }
-      // SpecializeWithSpeculation pass may generate multi versions from a
-      // fusion op. This fusion family accesses a same set of memrefs.
-      if (!inSameFusionOp(user, op)) continue;
-      ops.insert(user);
-    }
-  }
-
-  return ops;
 }
 
 }  // namespace disc_ral

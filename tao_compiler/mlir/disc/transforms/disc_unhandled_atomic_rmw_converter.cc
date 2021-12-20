@@ -1,0 +1,84 @@
+#include "mlir/Dialect/MemRef/IR/MemRef.h"               // TF:llvm-project
+#include "mlir/Dialect/StandardOps/IR/Ops.h"             // TF:llvm-project
+#include "mlir/IR/Location.h"                            // TF:llvm-project
+#include "mlir/IR/MLIRContext.h"                         // TF:llvm-project
+#include "mlir/IR/PatternMatch.h"                        // TF:llvm-project
+#include "mlir/Pass/Pass.h"                              // TF:llvm-project
+#include "mlir/Transforms/DialectConversion.h"           // TF:llvm-project
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // TF:llvm-project
+#include "mlir/Transforms/Passes.h"                      // TF:llvm-project
+#include "transforms/PassDetail.h"
+
+namespace mlir {
+namespace disc_ral {
+
+namespace {
+
+/// Converts `atomic_rmw` that cannot be lowered to a simple atomic op with
+/// AtomicRMWOpLowering pattern, e.g. with "mulf" attributes, to
+/// `generic_atomic_rmw` with the expanded code. This is a supplement to
+/// `StdExpandOpsPass`.
+///
+/// After lowering, the IR looks like:
+///
+/// %x = std.generic_atomic_rmw %F[%i] : memref<10xf32> {
+/// ^bb0(%current: f32):
+///   %new_value = ...
+///   atomic_yield %new_value : f32
+/// }
+struct UnhandledAtomicRMWConverter : public OpRewritePattern<AtomicRMWOp> {
+  using OpRewritePattern<AtomicRMWOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(AtomicRMWOp op,
+                                PatternRewriter& rewriter) const override {
+    // Currently, we only deal with atomic mulf operation. More operations can
+    // be supported easily here.
+    if (op.kind() != AtomicRMWKind::mulf) {
+      return failure();
+    }
+
+    Location loc = op.getLoc();
+    GenericAtomicRMWOp genericOp =
+        rewriter.create<GenericAtomicRMWOp>(loc, op.memref(), op.indices());
+    OpBuilder bodyBuilder =
+        OpBuilder::atBlockEnd(genericOp.getBody(), rewriter.getListener());
+
+    Value lhs = genericOp.getCurrentValue();
+    Value rhs = op.value();
+    Value reductionOp = getReductionOp(op.kind(), bodyBuilder, loc, lhs, rhs);
+    bodyBuilder.create<AtomicYieldOp>(loc, reductionOp);
+
+    rewriter.replaceOp(op, genericOp.getResult());
+    return success();
+  }
+};
+
+struct UnhandledAtomicRMWConverterPass
+    : public UnhandledAtomicRMWConverterPassBase<
+          UnhandledAtomicRMWConverterPass> {
+  void runOnFunction() override {
+    MLIRContext& ctx = getContext();
+
+    RewritePatternSet patterns(&ctx);
+    patterns.add<UnhandledAtomicRMWConverter>(&ctx);
+
+    ConversionTarget target(ctx);
+    target.addLegalDialect<memref::MemRefDialect, StandardOpsDialect>();
+    target.addDynamicallyLegalOp<AtomicRMWOp>(
+        [](AtomicRMWOp op) { return op.kind() != AtomicRMWKind::mulf; });
+
+    if (failed(
+            applyPartialConversion(getFunction(), target, std::move(patterns))))
+      signalPassFailure();
+  }
+};
+
+}  // namespace
+
+std::unique_ptr<OperationPass<FuncOp>>
+createDiscUnhandledAtomicRMWConverterPass() {
+  return std::make_unique<UnhandledAtomicRMWConverterPass>();
+}
+
+}  // namespace disc_ral
+}  // namespace mlir

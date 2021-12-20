@@ -1,0 +1,602 @@
+/*
+ ________________________________________
+/ The number of arguments is unimportant \
+| unless some of them are correct.       |
+|                                        |
+\ -- Ralph Hartley                       /
+ ----------------------------------------
+        \   ^__^
+         \  (oo)\_______
+            (__)\       )\/\
+                ||----w |
+                ||     ||
+**/
+
+syntax = "proto3";
+package tensorflow.tao;
+
+message Dim3DProto {
+  int64 x = 1;
+  int64 y = 2;
+  int64 z = 3;
+}
+
+message LaunchDimensionProto {
+  reserved 1, 2; // old version used int32 type for blocks and threads
+  Dim3DProto blocks = 3;
+  Dim3DProto threads = 4;
+}
+
+// sequential_thunk.h
+// copy_thunk.h
+// cudnn_batchnorm_thunk.h
+// kernel_thunk.h
+// batched_gemm_thunk.h
+// memset_thunk.h
+// gemm_thunk.h
+// convolution_thunk.h
+// infeed_thunk.h
+// for_thunk.h
+// thunk.h
+// while_thunk.h
+// outfeed_thunk.h
+// conditional_thunk.h
+// fft_thunk.h
+// tuple_thunk.h
+
+message SequentialThunkProto {
+  repeated ThunkProto thunks = 1;
+}
+
+message DeviceToDeviceCopyThunkProto  {
+  SliceProto src_data = 1;
+  SliceProto dst_data = 2;
+  uint64 mem_size = 3;
+}
+
+message HostToDeviceCopyThunkProto  {
+  SliceProto dst_data = 1;
+  uint64 src_addr = 2;
+  uint64 mem_size = 3;
+}
+
+message KernelThunkProto  {
+  string kernel_name = 1;
+  LaunchDimensionProto launch_dimension = 2;
+  repeated SliceProto args = 3;
+}
+
+message BatchedGemmThunkProto  {
+  // batched gemm thunk is a combination
+  // of a kernel thunk and a gemm thunk
+  KernelThunkProto kernel_section = 1;
+  GemmThunkProto gemm_section = 2;
+
+  int32 profile_result = 3;
+}
+
+message Memset32BitValueThunkProto {
+  SliceProto dst_data = 1;
+  uint32 value = 2;
+}
+
+message MemzeroThunkProto {
+  SliceProto dst_data = 1;
+}
+
+message CudnnBatchNormBackwardThunkProto {
+  SliceProto operand = 1;
+  SliceProto scale = 2;
+  SliceProto mean = 3;
+  SliceProto inv_stddev = 4;
+  SliceProto grad_output = 5;
+  SliceProto output_grad_data = 6;
+  SliceProto output_grad_scale = 7;
+  SliceProto output_grad_offset = 8;
+
+  reserved "output_tuple";
+  reserved 9;
+
+  float epsilon = 10;
+  int64 feature_index = 11;
+  TensorShapeProto grad_data_shape = 12;
+  LayoutProto grad_data_layout = 13;
+  PrimitiveTypeProto grad_data_dtype = 14;
+}
+
+message CudnnBatchNormForwardInferenceThunkProto {
+  SliceProto operand = 1;
+  SliceProto scale = 2;
+  SliceProto offset = 3;
+  SliceProto mean = 4;
+  SliceProto variance = 5;
+  SliceProto output = 6;
+  float epsilon = 7;
+  int64 feature_index = 8;
+  TensorShapeProto output_shape = 9;
+  LayoutProto output_layout = 10;
+  PrimitiveTypeProto output_dtype = 11;
+}
+
+message CudnnBatchNormForwardTrainingThunkProto {
+  SliceProto operand = 1;
+  SliceProto scale = 2;
+  SliceProto offset = 3;
+  float epsilon = 4;
+  int64 feature_index = 5;
+  SliceProto output_data = 6;
+  SliceProto output_mean = 7;
+  SliceProto output_inv_stddev = 8;
+
+  reserved "output_tuple";
+  reserved 9;  // Deprecated. SliceProto
+
+  TensorShapeProto output_shape = 10;
+  LayoutProto output_layout = 11;
+  PrimitiveTypeProto output_dtype = 12;
+}
+
+message TupleThunkProto {
+  repeated SliceProto tuple_elements = 1;
+  SliceProto dest = 2;
+}
+
+message GemmThunkProto {
+  // lhs descriptor
+  SliceProto lhs_slice = 1;
+  TensorShapeProto lhs_shape = 2;
+  LayoutProto lhs_layout = 3;
+  PrimitiveTypeProto lhs_dtype = 4;
+
+  // rhs descriptor
+  SliceProto rhs_slice = 10;
+  TensorShapeProto rhs_shape = 12;
+  LayoutProto rhs_layout = 13;
+  PrimitiveTypeProto rhs_dtype = 14;
+
+  // output descriptor
+  SliceProto output_slice = 20;
+  TensorShapeProto output_shape = 22;
+  LayoutProto output_layout = 23;
+  PrimitiveTypeProto output_dtype = 24;
+
+  // output
+  DotDimensionNumbers dot_dim_nums = 30;
+
+  double alpha_real = 31;
+  double alpha_imag = 32;
+  double beta = 33;
+
+  int64 best_algorithm = 40;
+}
+
+message BaceGemmThunkProto {
+  // lhs descriptor
+  SliceProto lhs_slice = 1;
+  TensorShapeProto lhs_shape = 2;
+  LayoutProto lhs_layout = 3;
+  PrimitiveTypeProto lhs_dtype = 4;
+
+  // rhs descriptor
+  SliceProto rhs_slice = 10;
+  TensorShapeProto rhs_shape = 12;
+  LayoutProto rhs_layout = 13;
+  PrimitiveTypeProto rhs_dtype = 14;
+
+  // output descriptor
+  SliceProto output_slice = 20;
+  TensorShapeProto output_shape = 22;
+  LayoutProto output_layout = 23;
+  PrimitiveTypeProto output_dtype = 24;
+
+  // scratch descriptor
+  SliceProto scratch_slice = 30;
+  TensorShapeProto scratch_shape = 32;
+  LayoutProto scratch_layout = 33;
+  PrimitiveTypeProto scratch_dtype = 34;
+
+  // tuple
+  SliceProto tuple_slice = 40;
+
+  // double alpha = 31;
+  string compound_plan_info = 60;
+}
+
+message ConvolutionArgProto {
+  SliceProto slice = 1;
+  TensorShapeProto shape = 2;
+  LayoutProto layout = 3;
+  PrimitiveTypeProto dtype = 4;
+}
+
+message WindowDimension {
+  int64 size = 1;
+  int64 stride = 2;
+  int64 padding_low = 3;
+  int64 padding_high = 4;
+  int64 window_dilation = 5;
+  int64 base_dilation = 6;
+  bool window_reversal = 7;
+}
+
+message Window {
+  repeated WindowDimension dimensions = 1;
+}
+
+message ConvolutionDimensionNumbers {
+  int64 input_batch_dimension = 7;
+  int64 input_feature_dimension = 8;
+  repeated int64 input_spatial_dimensions = 11;
+  int64 kernel_input_feature_dimension = 3;
+  int64 kernel_output_feature_dimension = 4;
+  repeated int64 kernel_spatial_dimensions = 6;
+  int64 output_batch_dimension = 9;
+  int64 output_feature_dimension = 10;
+  repeated int64 output_spatial_dimensions = 12;
+}
+
+message CudnnConvBackendConfig {
+  int64 algorithm = 1;
+  bool tensor_ops_enabled = 2;
+  double conv_result_scale = 4;
+  int64 activation_mode = 3;
+  double side_input_scale = 5;
+}
+
+message ConvolutionThunkProto  {
+  enum ConvolutionKind {
+    kBackwardFilter = 0;
+    kBackwardInput = 1;
+    kForward = 2;
+    kForwardActivation = 3;
+  }
+  repeated ConvolutionArgProto operands = 1;
+  ConvolutionArgProto result = 2;
+  ConvolutionKind kind = 3;
+
+  reserved "tuple_result_buffer";
+  reserved 4;  // Deprecated. SliceProto.
+
+  Window window = 5;
+  ConvolutionDimensionNumbers conv_dim_nums = 6;
+  int64 feature_group_count = 7;
+  CudnnConvBackendConfig backend_config = 8;
+
+  bool already_tuned = 9;
+}
+
+message WhileThunkProto  {
+  SliceProto condition_result = 1;
+  SequentialThunkProto condition_thunk_sequence = 2;
+  SequentialThunkProto body_thunk_sequence = 3;
+}
+
+message ConditionalThunkProto {
+  reserved "predicate", "true_operand", "false_operand", "true_thunk",
+      "false_thunk";
+  reserved 1 to 5;
+
+  // when this is true, value pointed by branch_index_buffer_index is bool else
+  // int32
+  // when this is true, branch_thunks = {true_branch, false_branch}
+  bool branch_index_is_bool = 6;
+  // this shoule be equal to branch_thunks.size()
+  int64 branch_count = 7;
+  repeated SequentialThunkProto branch_thunks = 8;
+  // condition value
+  SliceProto branch_index_buffer_index = 9;
+  // This info looks redundant. maybe removed later in tf.
+  // So we just define it here for placeholder now.
+  // Not filled by compiler & not used by bridge now.
+  repeated SliceProto branch_operand_buffer_indexes = 10;
+}
+
+message ForThunkProto {
+  int64 loop_limit = 1;
+  SequentialThunkProto body_thunk_sequence = 2;
+}
+
+message SliceProto {
+  int64 buffer_allocation_index = 1;
+  int64 offset = 2;
+  int64 size = 3;
+}
+
+message DotDimensionNumbers {
+  repeated int64 lhs_contracting_dimensions = 1;
+  repeated int64 rhs_contracting_dimensions = 2;
+  repeated int64 lhs_batch_dimensions = 3;
+  repeated int64 rhs_batch_dimensions = 4;
+};
+
+message ThunkProto  {
+
+  oneof thunk_base {
+    SequentialThunkProto sequential_thunk = 1;
+    HostToDeviceCopyThunkProto host_to_device_copy_thunk = 2;
+    DeviceToDeviceCopyThunkProto device_to_device_copy_thunk = 3;
+    CudnnBatchNormBackwardThunkProto cudnn_bn_bw_thunk = 4;
+    CudnnBatchNormForwardTrainingThunkProto cudnn_bn_fwt_thunk = 5;
+    CudnnBatchNormForwardInferenceThunkProto cudnn_bn_fwi_thunk = 6;
+    KernelThunkProto kernel_thunk = 7;
+    BatchedGemmThunkProto  batched_gemm_thunk = 8;
+    Memset32BitValueThunkProto memset_32bit_value_thunk = 9;
+    MemzeroThunkProto memzero_thunk = 10;
+    GemmThunkProto gemm_thunk = 11;
+    ConvolutionThunkProto convolution_thunk = 12;
+    WhileThunkProto while_thunk = 13;
+    ConditionalThunkProto conditional_thunk = 14;
+    TupleThunkProto tuple_thunk = 15;
+    BaceGemmThunkProto bace_gemm_thunk = 16;
+    ForThunkProto for_thunk = 17;
+  }
+
+}
+
+// TensorShapeProto from tensorflow should also be stable
+// enough to be used here.
+// Dtype is not needed, which can be extracted from OpKernelContext
+message TensorShapeProto {
+  repeated int64 dims = 1;
+}
+
+// expand if necessary in future
+message LayoutProto {
+  repeated int64 minor_to_major = 1;
+}
+
+message OutputDescriptionProto {
+  enum OutputType {
+    DEFAULT = 0;
+    CONSTANT = 1;
+    RESOURCE = 2;
+  }
+  OutputType output_type = 1;
+  TensorShapeProto shape = 2;
+
+  // only for default output
+  SliceProto slice = 3;
+
+  // only for constant output
+  bytes constant_value = 10;
+
+  // only for resource output
+  int64 input_index = 20;
+}
+
+enum PrimitiveTypeProto {
+  // Invalid primitive type to serve as default.
+  PRIMITIVE_TYPE_INVALID = 0;
+
+  // Predicates are two-state booleans.
+  PRED = 1;
+
+  // Signed integral values of fixed width.
+  S8 = 2;
+  S16 = 3;
+  S32 = 4;
+  S64 = 5;
+
+  // Unsigned integral values of fixed width.
+  U8 = 6;
+  U16 = 7;
+  U32 = 8;
+  U64 = 9;
+
+  // Floating-point values of fixed width.
+  //
+  // Note: if f16s are not natively supported on the device, they will be
+  // converted to f16 from f32 at arbirary points in the computation.
+  F16 = 10;
+  F32 = 11;
+
+  // Truncated 16 bit floating-point format. This is similar to IEEE's 16 bit
+  // floating-point format, but uses 1 bit for the sign, 8 bits for the exponent
+  // and 7 bits for the mantissa.
+  BF16 = 16;
+
+  F64 = 12;
+
+  // Complex values of fixed width.
+  C64 = 15;  // Paired F32 (real, imag), as in std::complex<float>.
+
+  // A tuple is a polymorphic sequence; e.g. a shape that holds different
+  // sub-shapes. They are used for things like returning multiple values from a
+  // computation; e.g. a computation that returns weights and biases may have a
+  // signature that results in a tuple like (f32[784x2000], f32[2000])
+  //
+  // If a shape proto has the tuple element type, it may not have any entries
+  // in the dimensions field.
+  TUPLE = 13;
+
+  // An opaque type used for passing context-specific data to a custom
+  // operation. Shapes of this primitive type will have empty dimensions and
+  // tuple_shapes fields.
+  OPAQUE = 14;
+
+  // A token type threaded between side-effecting operations. Shapes of this
+  // primitive type will have empty dimensions and tuple_shapes fields.
+  TOKEN = 17;
+
+  // Next = 18
+}
+
+// borrowed from types.proto
+enum DataTypeProto {
+  // Not a legal value for DataType.  Used to indicate a DataType field
+  // has not been set.
+  DT_INVALID = 0;
+
+  // Data types that all computation devices are expected to be
+  // capable to support.
+  DT_FLOAT = 1;
+  DT_DOUBLE = 2;
+  DT_INT32 = 3;
+  DT_UINT8 = 4;
+  DT_INT16 = 5;
+  DT_INT8 = 6;
+  DT_STRING = 7;
+  DT_COMPLEX64 = 8;  // Single-precision complex
+  DT_INT64 = 9;
+  DT_BOOL = 10;
+  DT_QINT8 = 11;     // Quantized int8
+  DT_QUINT8 = 12;    // Quantized uint8
+  DT_QINT32 = 13;    // Quantized int32
+  DT_BFLOAT16 = 14;  // Float32 truncated to 16 bits.  Only for cast ops.
+  DT_QINT16 = 15;    // Quantized int16
+  DT_QUINT16 = 16;   // Quantized uint16
+  DT_UINT16 = 17;
+  DT_COMPLEX128 = 18;  // Double-precision complex
+  DT_HALF = 19;
+  DT_RESOURCE = 20;
+  DT_VARIANT = 21;  // Arbitrary C++ data types
+  DT_UINT32 = 22;
+  DT_UINT64 = 23;
+
+  // Do not use!  These are only for parameters.  Every enum above
+  // should have a corresponding value below (verified by types_test).
+  DT_FLOAT_REF = 101;
+  DT_DOUBLE_REF = 102;
+  DT_INT32_REF = 103;
+  DT_UINT8_REF = 104;
+  DT_INT16_REF = 105;
+  DT_INT8_REF = 106;
+  DT_STRING_REF = 107;
+  DT_COMPLEX64_REF = 108;
+  DT_INT64_REF = 109;
+  DT_BOOL_REF = 110;
+  DT_QINT8_REF = 111;
+  DT_QUINT8_REF = 112;
+  DT_QINT32_REF = 113;
+  DT_BFLOAT16_REF = 114;
+  DT_QINT16_REF = 115;
+  DT_QUINT16_REF = 116;
+  DT_UINT16_REF = 117;
+  DT_COMPLEX128_REF = 118;
+  DT_HALF_REF = 119;
+  DT_RESOURCE_REF = 120;
+  DT_VARIANT_REF = 121;
+  DT_UINT32_REF = 122;
+  DT_UINT64_REF = 123;
+}
+
+message ResourceUpdateProto {
+  DataTypeProto dtype = 1;
+  TensorShapeProto shape = 2;
+  // The input_index of the CompilationResult,
+  // which is the associated resource handle
+  int64 input_index = 3;
+  // the slice of the updated tensor
+  SliceProto slice = 4;
+}
+
+// The mapping from HLO->Slice is not visible
+// to the TaoOp, but is arranged by the Compiler
+message BufferAllocationProto {
+  int64 size = 1;
+
+  // valid only if is_parameter
+  int64 parameter_index = 2;
+  string parameter_name = 3;
+
+  // these attributes are not fully exclusive
+  bool is_parameter = 11;
+  bool is_maybe_live_out = 12;
+  bool is_thread_local = 13;
+  bool is_constant = 14;
+  bool is_temp_buffer = 15;
+  bool is_tuple = 16;
+
+  // valid only if is_constant
+  bool constant_emitted_in_ir = 20;
+  string constant_global_name = 21;
+  // -- valid only if constant_emitted_in_ir is false
+  bytes constant_tensor = 22;
+}
+
+message MlirResult {
+  string so_lib_filename = 1;
+  string const_proto_filename = 2;
+};
+
+message InputShapeProto {
+  bytes name = 1;
+  TensorShapeProto shape = 2;
+}
+
+message TvmResultProto {
+  repeated InputShapeProto inputs_shape = 1;
+  uint64 func_hash = 2;
+  bytes lib_bytes = 3;
+  bytes params_bytes = 4;
+  bytes graph_bytes = 5;
+  bytes relay_mod = 6;
+}
+
+// A lite version of CompilationResult and Executable for TAO
+message CompilationResultProto {
+  // Path of the cubin file on the disk,
+  // do we still need ptx as backup?
+
+  // for gpu:
+  bytes cubin = 1;
+  repeated ThunkProto execution_plan = 2;
+
+  // TODO for cpu:
+  TvmResultProto tvm_result = 3;
+
+  // for MLIR
+  MlirResult mlir = 9;
+
+  // TODO for fpga:
+  // bytes computation_func;
+  // HalCnnModuleDictionary dic;
+
+  // The map of inputs/outputs seems to be useless, since the
+  // information is already extracted into the args message of each thunk.
+  // These works are offloaded from runtime to compilation.
+  repeated OutputDescriptionProto outputs = 10;
+  repeated ResourceUpdateProto resource_updates = 11;
+
+  // Buffer Assignment
+  // The overall buffers that need to be allocated
+  // at the runtime
+  // TaoOp allocates each allocations at runtime, and
+  // remembers the base address of each allocation
+  repeated BufferAllocationProto buffer_allocation = 20;
+
+  // which device this result proto targets.
+  string target_device = 21;
+}
+
+message TypeRankPair {
+  int32 type = 1;
+  int32 rank = 2;
+}
+
+message TypeShapePair {
+  int32 type = 1;
+  bytes shape = 2;
+}
+
+message EntrySignature {
+  string name = 1;
+
+  repeated TypeRankPair arg_ranks = 2;
+
+  repeated TypeShapePair arg_types = 3;
+
+  repeated bytes arg_values = 4;
+}
+
+message CompilationCacheEntry {
+  EntrySignature sig = 1;
+
+  string filename = 2;
+
+  string target_device = 3;
+}
+
+message CompilationCacheResult {
+  repeated CompilationCacheEntry entries = 1;
+}

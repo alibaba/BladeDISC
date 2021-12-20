@@ -1,0 +1,13 @@
+FROM reg.docker.alibaba-inc.com/pai-tensorflow/tensorflow-release:1.12.2-PAI1911u1-rc1-57737597.gpu_cuda9
+LABEL maintainer="Xiafei Qiu<xiafei.qiuxf@alibaba-inc.com>, Jun Yang<muzhuo.yj@alibaba-inc.com>, Wenyi Zhao<kevin.zwy@alibaba-inc.com>"
+
+RUN mkdir /home/admin/tao_transformer
+COPY ./tao_transformer /home/admin/tao_transformer
+RUN chown admin:admin -R /home/admin/tao_transformer
+
+COPY install_cuda10_toolkit.sh /install/
+RUN /install/install_cuda10_toolkit.sh
+
+ENV PATH=/usr/local/nvidia/bin:/usr/local/cuda/bin:$PATH \
+        LD_LIBRARY_PATH=/usr/local/nvidia/lib64:/usr/local/cuda/lib64:/usr/local/cuda/extras/CUPTI/lib64:/usr/local/lib64:$LD_LIBRARY_PATH
+

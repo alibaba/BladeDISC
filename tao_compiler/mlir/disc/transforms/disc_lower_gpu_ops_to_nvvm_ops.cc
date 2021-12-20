@@ -1,0 +1,143 @@
+//===- LowerGpuOpsToNVVMOps.cpp - MLIR GPU to NVVM lowering passes --------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+//
+// This file implements a pass to generate NVVMIR operations for higher-level
+// GPU operations.
+//
+//===----------------------------------------------------------------------===//
+
+#include "llvm/Support/FormatVariadic.h"
+#include "mlir/Conversion/GPUToNVVM/GPUToNVVMPass.h"
+#include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
+#include "mlir/Conversion/LLVMCommon/LoweringOptions.h"
+#include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
+#include "mlir/Dialect/GPU/GPUDialect.h"
+#include "mlir/Dialect/GPU/Passes.h"
+#include "mlir/Dialect/LLVMIR/NVVMDialect.h"
+#include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
+#include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "mlir/lib/Conversion/GPUCommon/GPUOpsLowering.h"
+#include "mlir/lib/Conversion/GPUCommon/IndexIntrinsicsOpLowering.h"
+#include "mlir/lib/Conversion/GPUCommon/OpToFuncCallLowering.h"
+#include "mlir/lib/Conversion/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/transforms/disc_lower_gpu_ops_common.h"
+
+namespace mlir {
+namespace disc_ral {
+
+namespace {
+
+/// Import the GPU Ops to NVVM Patterns.
+#include "GPUToNVVM.cpp.inc"
+
+/// A pass that replaces all occurrences of GPU device operations with their
+/// corresponding NVVM equivalent.
+///
+/// This pass only handles device code and is not meant to be run on GPU host
+/// code.
+struct DiscLowerGpuOpsToNVVMOpsPass
+    : public DiscLowerGpuOpsToNVVMOpsPassBase<DiscLowerGpuOpsToNVVMOpsPass> {
+  DiscLowerGpuOpsToNVVMOpsPass() = default;
+  DiscLowerGpuOpsToNVVMOpsPass(unsigned indexBitwidth) {
+    this->indexBitwidth = indexBitwidth;
+  }
+
+  void runOnOperation() override {
+    gpu::GPUModuleOp m = getOperation();
+
+    /// Customize the bitwidth used for the device side index computations.
+    LowerToLLVMOptions options(
+        m.getContext(),
+        DataLayout(cast<DataLayoutOpInterface>(m.getOperation())));
+    options.emitCWrappers = true;
+    if (indexBitwidth != kDeriveIndexBitwidthFromDataLayout)
+      options.overrideIndexBitwidth(indexBitwidth);
+
+    /// MemRef conversion for GPU to NVVM lowering. The GPU dialect uses memory
+    /// space 5 for private memory attributions, but NVVM represents private
+    /// memory allocations as local `alloca`s in the default address space. This
+    /// converter drops the private memory space to support the use case above.
+    LLVMTypeConverter converter(m.getContext(), options);
+    converter.addConversion([&](MemRefType type) -> Optional<Type> {
+      if (!type.getMemorySpace().isa<IntegerAttr>() ||
+          type.getMemorySpaceAsInt() !=
+              gpu::GPUDialect::getPrivateAddressSpace())
+        return llvm::None;
+      return converter.convertType(MemRefType::Builder(type).setMemorySpace(0));
+    });
+
+    // Lowering for MMAMatrixType.
+    converter.addConversion([&](gpu::MMAMatrixType type) -> Type {
+      // The number of items in structToReturn are dependent on the the dataType
+      // and the MMA operand that this operation is associated with.
+      llvm::DenseMap<StringRef, int64_t> numElemsPerThreadF16,
+          numElemsPerThreadF32;
+      numElemsPerThreadF16["AOp"] = 8;
+      numElemsPerThreadF16["BOp"] = 8;
+      numElemsPerThreadF16["COp"] = 4;
+      numElemsPerThreadF32["AOp"] = 8;
+      numElemsPerThreadF32["BOp"] = 8;
+      numElemsPerThreadF32["COp"] = 8;
+      Type structToReturn;
+      if (type.getElementType().isF16()) {
+        // Number of f16's in 32-bit.
+        unsigned vecSize = 2;
+        Type vec = VectorType::get(vecSize, FloatType::getF16(&getContext()));
+        unsigned size = numElemsPerThreadF16[type.getOperand()];
+        SmallVector<Type> elements(size, vec);
+        structToReturn =
+            LLVM::LLVMStructType::getLiteral(&getContext(), elements);
+      } else if (type.getElementType().isF32()) {
+        unsigned size = numElemsPerThreadF32[type.getOperand()];
+        SmallVector<Type> elements(size, FloatType::getF32(&getContext()));
+        structToReturn =
+            LLVM::LLVMStructType::getLiteral(&getContext(), elements);
+      }
+      return structToReturn;
+    });
+
+    RewritePatternSet patterns(m.getContext());
+    RewritePatternSet llvmPatterns(m.getContext());
+
+    // Apply in-dialect lowering first. In-dialect lowering will replace ops
+    // which need to be lowered further, which is not supported by a single
+    // conversion pass.
+    populateGpuRewritePatterns(patterns);
+    (void)applyPatternsAndFoldGreedily(m, std::move(patterns));
+
+    // Add the fix before official patterns.
+    llvmPatterns.add<GenericAtomicRMWOpLoweringWithBitcast>(
+        converter, /* PatternBenefit */ 3);
+    llvmPatterns.add<RemoveUselessUnrealizedConversionCastOp>(converter);
+    populateStdToLLVMConversionPatterns(converter, llvmPatterns);
+    populateMemRefToLLVMConversionPatterns(converter, llvmPatterns);
+    populateGpuToNVVMConversionPatterns(converter, llvmPatterns);
+    populateGpuWMMAToNVVMConversionPatterns(converter, llvmPatterns);
+    LLVMConversionTarget target(getContext());
+    configureGpuToNVVMConversionLegality(target);
+    target.addIllegalOp<UnrealizedConversionCastOp>();
+    if (failed(applyPartialConversion(m, target, std::move(llvmPatterns))))
+      signalPassFailure();
+  }
+};
+
+}  // anonymous namespace
+
+std::unique_ptr<OperationPass<gpu::GPUModuleOp>>
+createDiscLowerGpuOpsToNVVMOpsPass(unsigned indexBitwidth) {
+  return std::make_unique<DiscLowerGpuOpsToNVVMOpsPass>(indexBitwidth);
+}
+
+}  // namespace disc_ral
+}  // namespace mlir

@@ -1,0 +1,15 @@
+
+FROM pytorch/pytorch:1.7.1-cuda11.0-cudnn8-runtime
+
+ADD ./docker/scripts /install/scripts
+RUN bash /install/scripts/find-fastest-apt.sh
+
+ADD ./build/torch_addons*.whl  /install/python/
+
+RUN apt-get update -y \
+    && apt-get install -y python3.6 python3-pip protobuf-compiler libprotobuf-dev cmake \
+    && ln -s /usr/bin/python3.6 /usr/bin/python \
+    && python3.6 -m pip install pip --upgrade \
+    && python3.6 -m pip install /install/python/torch_addons*.whl -f https://download.pytorch.org/whl/cu110/torch_stable.html
+
+ENV PATH /usr/bin:$PATH

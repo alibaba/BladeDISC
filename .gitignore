@@ -1,0 +1,5 @@
+.DS_Store
+.ipynb_checkpoints
+*.pyc
+platform_alibaba/ci_build/tao_dev_with_venv.Dockerfile
+.vscode

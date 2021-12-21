@@ -1,0 +1,72 @@
+#!/bin/bash
+
+# Returns the domain name of an URL.
+function get_domain_from_url() {
+    # cut extract the domain, domain is the third field split by '/'
+    echo "$1" | cut -d '/' -f 3
+}
+
+# Find the fastest URL. The parameter consists of URLS separated by whitespace.
+function find_fastest_url() {
+    local speed=99999
+    # shellcheck disable=SC2068
+    for i in $@; do
+        local domain
+        domain=$(get_domain_from_url "$i")
+
+        # c.f. https://stackoverflow.com/a/9634982/724872
+        # redirect log output to stderr
+        local cur_speed
+        cur_speed=$(ping -c 4 -W 2 "$domain" | tail -1 \
+                           | grep "/avg/" | awk '{print $4}'\
+                           | cut -d '/' -f 2)
+        cur_speed=${cur_speed:-99999}
+        cur_speed=${cur_speed/.*/}
+
+        # c.f. https://stackoverflow.com/a/31087503/724872
+        if [[ $cur_speed -lt $speed ]]; then
+            local best_domain="$i"
+            speed="$cur_speed"
+        fi
+    done
+    echo "$best_domain"
+}
+
+# Find fastest apt-get source, you can add mirrors in the 'apt_sources'
+function find_fastest_apt_source() {
+    # We need to specify \t as the terminate indicator character; otherwise, the
+    # read command would return an non-zero exit code.
+    read -r -d '\t' apt_sources <<EOM
+http://mirrors.cloud.aliyuncs.com
+http://archive.ubuntu.com
+\t
+EOM
+
+    # Find the fastest APT source using ping.
+    local fastest
+    # shellcheck disable=SC2086
+    fastest=$(find_fastest_url $apt_sources)/ubuntu/
+
+    # The default Ubuntu version is 18.04, code named bionic.
+    local codename
+    codename=${ubuntu_codename-"bionic"}
+
+    # Write APT source lists.
+    cat <<EOF
+deb $fastest $codename main restricted universe multiverse
+deb $fastest $codename-security main restricted universe multiverse
+deb $fastest $codename-updates main restricted universe multiverse
+deb $fastest $codename-proposed main restricted universe multiverse
+deb $fastest $codename-backports main restricted universe multiverse
+deb-src $fastest $codename main restricted universe multiverse
+deb-src $fastest $codename-security main restricted universe multiverse
+deb-src $fastest $codename-updates main restricted universe multiverse
+deb-src $fastest $codename-proposed main restricted universe multiverse
+deb-src $fastest $codename-backports main restricted universe multiverse
+EOF
+}
+
+apt-get -qq update
+apt-get install -y iputils-ping bc
+find_fastest_apt_source > /etc/apt/sources.list
+apt-get -qq update

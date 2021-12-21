@@ -1,0 +1,3 @@
+decoupling/tao_compiler_input.proto
+decoupling/tao_compilation_result.proto
+decoupling/version.h

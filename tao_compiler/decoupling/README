@@ -1,0 +1,1 @@
+bazel build --config=cuda --define framework_shared_object=false //tensorflow/compiler/decoupling:tao_compiler_main

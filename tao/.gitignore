@@ -1,0 +1,14 @@
+*.o
+*.so
+*.pb.*
+*.d
+*.swp
+*.log
+build
+ci_build/.tao_ci_conf
+ci_build/tao_dev.Dockerfile
+test_dump_**
+tools/tao/tao/VERSION
+.eggs
+dist
+blade_disc_tf.egg-info

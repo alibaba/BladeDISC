@@ -1,0 +1,4 @@
+# relative path under tao_compiler, relative path under tf_community
+decoupling,tensorflow/compiler/decoupling
+mlir/disc,tensorflow/compiler/mlir/disc
+mlir/xla/ral,tensorflow/compiler/mlir/xla/ral

@@ -1,0 +1,13 @@
+
+resolve_env(TORCH_ADDONS_USE_ROCM OFF)
+if (TORCH_ADDONS_USE_ROCM)
+    list(APPEND CMAKE_PREFIX_PATH /opt/rocm/hip /opt/rocm)
+    find_package(rocblas)
+    find_package(rocfft)
+    find_package(hipsparse)
+    find_package(hiprand)
+    find_package(Threads)
+    target_include_directories(torch_addons PUBLIC /opt/)
+    target_compile_definitions(torch_addons PUBLIC -DTORCH_ADDONS_USE_ROCM)
+    set(TORCH_ROCM ON)
+endif (TORCH_ADDONS_USE_ROCM)

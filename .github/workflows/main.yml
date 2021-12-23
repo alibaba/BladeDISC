@@ -4,7 +4,11 @@ name: DISC
 
 # Controls when the action will run. Workflow runs when manually triggered using the UI
 # or API.
-on: [push]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:

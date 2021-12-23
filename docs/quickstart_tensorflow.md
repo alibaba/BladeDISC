@@ -1,18 +1,19 @@
 # Quick Start for TensorFlow Wrapper
 
-It's a quick and simple to try out BladeDISC, please make sure you
-have [installed Nvidia Docker](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+This tutorial is for a quick try with BladeDISC, please make sure you have
+[installed Nvidia Docker](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
 on your host.
 
-To enable BladeDISC, users just need **TWO LINES** codes on native Tensorflow program as the following:
+To enable BladeDISC, only **TWO LINES** of codes are needed on native Tensorflow
+program as the following:
 
 ``` python
 import blade_disc_tf as disc
 disc.enable()
 ```
 
-To experience BladeDISC quickly, just copy and paste the following code on your host
-and execute it in the latest BladeDISC runtime Docker image: `yancey1989/bladedisc:latest-runtime-tf115`.
+It is recommended to fetch the latest BladeDISC runtime Docker image:
+`yancey1989/bladedisc:latest-runtime-tf115` for a smooth setup.
 
 ``` python
 import os
@@ -43,11 +44,3 @@ with g.as_default():
             r = s.run(ret, {x: np_x, y: np_y})
             print("x.shape={}, y.shape={}, ret={}".format(np_x.shape, np_y.shape, r))
 ```
-
-For advantage users, you might want to go on reading:
-
-- Quick start for Pytorch
-- How to build BladeDISC from source code.
-- BladeDISC Tutorials
-- API Guides
-- BladeDISC Design documentations

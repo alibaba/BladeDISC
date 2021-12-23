@@ -16,8 +16,6 @@ jobs:
   CUDA10-TF115:
     # The type of runner that the job will run on
     runs-on: [self-hosted, gpu-t4]
-    env:
-      REMOTE_CACHE_TOKEN: ${{ secrets.REMOTE_CACHE_TOKEN }}
       
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -32,8 +30,6 @@ jobs:
         git submodule update --depth=1 --init --recursive
         docker build -t disc-dev-cuda10 --build-arg BASEIMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04 -f docker/dev/Dockerfile .
     - name: Build And Test DISC
-      env:
-        REMOTE_CACHE_TOKEN: ${{ secrets.REMOTE_CACHE_TOKEN }}
       run: |
         set -e
         nvidia-docker run --rm -t --user $(id -u) \
@@ -42,7 +38,6 @@ jobs:
           -v /etc/group:/etc/group:ro \
           -v $PWD:/disc \
           -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
-          -e TF_REMOTE_CACHE=$REMOTE_CACHE_TOKEN \
           -w /disc \
           disc-dev-cuda10 bash ./scripts/ci/build_and_test.sh
     - name: Deploy Docker
@@ -63,8 +58,6 @@ jobs:
   CUDA11-TF24:
     # The type of runner that the job will run on
     runs-on: [self-hosted, gpu-t4]
-    env:
-      REMOTE_CACHE_TOKEN: ${{ secrets.REMOTE_CACHE_TOKEN }}
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Runs a single command using the runners shell
@@ -85,7 +78,6 @@ jobs:
           -v /etc/group:/etc/group:ro \
           -v $PWD:/disc \
           -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
-          -e TF_REMOTE_CACHE=$REMOTE_CACHE_TOKEN \
           -w /disc \
           disc-dev-cuda11.0 bash ./scripts/ci/build_and_test.sh
     - name: Deploy Docker
@@ -106,8 +98,6 @@ jobs:
   CUDA11-TORCH171:
     # The type of runner that the job will run on
     runs-on: [self-hosted, gpu-t4]
-    env:
-      REMOTE_CACHE_TOKEN: ${{ secrets.REMOTE_CACHE_TOKEN }}
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Runs a single command using the runners shell
@@ -128,7 +118,6 @@ jobs:
           -v /etc/group:/etc/group:ro \
           -v $PWD:/disc \
           -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
-          -e TF_REMOTE_CACHE=$REMOTE_CACHE_TOKEN \
           -w /disc \
           disc-dev-cuda11.0 bash ./scripts/ci/test_pytorch_addons.sh
     - name: Deploy PyTorch Addons
@@ -149,8 +138,6 @@ jobs:
   CPU:
     # The type of runner that the job will run on
     runs-on: [self-hosted, cpu]
-    env:
-        REMOTE_CACHE_TOKEN: ${{ secrets.REMOTE_CACHE_TOKEN }}
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Runs a single command using the runners shell
@@ -172,6 +159,5 @@ jobs:
         #  -v /etc/group:/etc/group:ro \
         #  -v $PWD:/disc \
         #  -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
-        #  -e TF_REMOTE_CACHE=$REMOTE_CACHE_TOKEN \
         #  -w /disc \
         #  disc-dev-cpu bash ./scripts/ci/build_and_test.sh --cpu-only

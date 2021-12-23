@@ -31,6 +31,7 @@ from tao_common import (
     overwrite_file,
     running_on_ci,
     ci_build_flag,
+    remote_cache_token,
 )
 
 PYTHON_BIN_NAME = os.getenv("PYTHON", "python")
@@ -206,12 +207,12 @@ def configure_compiler(root, args):
 
         # TF_REMOTE_CACHE is not supported by tensorflow community
         # just set remote cache here
-        if "TF_REMOTE_CACHE" in os.environ:
-            remote_cache = os.getenv("TF_REMOTE_CACHE")
-            with open(".tf_configure.bazelrc", "a") as cfg:
-                cfg.write("\n")
-                cfg.write("build --remote_cache={}\n".format(remote_cache))
-                cfg.write("test --remote_cache={}\n".format(remote_cache))
+        token = remote_cache_token()
+        if token:
+            with open(".tf_configure.bazelrc", "a") as f:
+                f.write("\n")
+                f.write("build --remote_cache={}\n".format(token))
+                f.write("test --remote_cache={}\n".format(token))
     logger.info("Stage [configure] success.")
 
 @time_stage()

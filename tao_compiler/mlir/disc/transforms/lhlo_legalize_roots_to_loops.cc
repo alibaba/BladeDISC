@@ -826,9 +826,9 @@ LogicalResult getShuffleElemType(OpBuilder& b, Type elemType,
       *shuffleElemType = elemType;
     }
   } else if (auto fp_type = elemType.dyn_cast<FloatType>()) {
-    if (fp_type.getWidth() < 32) {
-      llvm::dbgs() << "not supported row reduction fp" << fp_type.getWidth()
-                   << "\n";
+    std::size_t width = fp_type.getWidth();
+    if (width != 16 && width != 32 && width != 64) {
+      llvm::dbgs() << "not supported row reduction fp" << width << "\n";
       return failure();
     }
     *shuffleElemType = elemType;
@@ -843,7 +843,33 @@ LogicalResult getShuffleElemType(OpBuilder& b, Type elemType,
 Value emitWidthAdaptShuffle(OpBuilder& b, Location loc, Value value,
                             Type shuffleElemType, Value offset, Value width,
                             StringAttr strAttr) {
-  if (shuffleElemType.getIntOrFloatBitWidth() == 32) {
+  auto bit_width = shuffleElemType.getIntOrFloatBitWidth();
+  if (bit_width < 32) {
+    // TODO: modify GPU dialect to support fp16 shuffle.
+    if (shuffleElemType.isa<FloatType>()) {
+      auto f32_ty = b.getF32Type();
+      SmallVector<Type, 2> type = {f32_ty, b.getI1Type()};
+      Value ext = b.create<FPExtOp>(loc, f32_ty, value);
+      auto result =
+          b.create<gpu::ShuffleOp>(loc, type, ext, offset, width, strAttr)
+              .getResult(0);
+      return b.create<FPTruncOp>(loc, shuffleElemType, result);
+    } else if (shuffleElemType.isa<IntegerType>()) {
+      auto i32_ty = b.getIntegerType(32);
+      SmallVector<Type, 2> type = {i32_ty, b.getI1Type()};
+      Value extend;
+      // Special case boolean values, so they get casted to `1` instead of `-1`.
+      if (shuffleElemType.isUnsignedInteger() || bit_width == 1) {
+        extend = b.create<ZeroExtendIOp>(loc, i32_ty, value);
+      } else {
+        extend = b.create<SignExtendIOp>(loc, i32_ty, value);
+      }
+      auto result =
+          b.create<gpu::ShuffleOp>(loc, type, extend, offset, width, strAttr)
+              .getResult(0);
+      return b.create<TruncateIOp>(loc, shuffleElemType, result);
+    }
+  } else if (bit_width == 32) {
     SmallVector<Type, 2> type = {shuffleElemType, b.getI1Type()};
     return b.create<gpu::ShuffleOp>(loc, type, value, offset, width, strAttr)
         .getResult(0);
@@ -860,7 +886,6 @@ Value emitWidthAdaptShuffle(OpBuilder& b, Location loc, Value value,
     // }
     // sum += bitcast(val, integer(bit_width)))
     SmallVector<Type, 2> type = {b.getIntegerType(32), b.getI1Type()};
-    auto bit_width = shuffleElemType.getIntOrFloatBitWidth();
     int segments = llvm::divideCeil(bit_width, 32);
     auto vec_ty = VectorType::get(segments, b.getIntegerType(32));
     // TODO(yancey.yx): when std.bitcast supports casting a value into an array,

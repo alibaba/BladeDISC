@@ -119,8 +119,8 @@ jobs:
           -v $PWD:/disc \
           -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
           -w /disc \
-          disc-dev-cuda11.0 bash ./scripts/ci/test_pytorch_addons.sh
-    - name: Deploy PyTorch Addons
+          disc-dev-cuda11.0 bash ./scripts/ci/test_pytorch_blade.sh
+    - name: Deploy PyTorch Blade
       if: github.event.ref == 'refs/heads/pai_disc'
       env:
         ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
@@ -134,7 +134,7 @@ jobs:
         RUNTIME_BASEIMAGE: pytorch/pytorch:1.7.1-cuda11.0-cudnn8-runtime
       run: |
         set -e
-        bash ./scripts/ci/deploy_pytorch_addons.sh .sh
+        bash ./scripts/ci/deploy_pytorch_blade.sh .sh
   CPU:
     # The type of runner that the job will run on
     runs-on: [self-hosted, cpu]

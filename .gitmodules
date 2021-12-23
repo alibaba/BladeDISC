@@ -1,5 +1,5 @@
-[submodule "pytorch_addons/third_party/googletest"]
-	path = pytorch_addons/third_party/googletest
+[submodule "pytorch_blade/third_party/googletest"]
+	path = pytorch_blade/third_party/googletest
 	url = git@github.com:google/googletest.git
 [submodule "tao/third_party/json"]
 	path = tao/third_party/json

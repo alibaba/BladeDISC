@@ -81,7 +81,7 @@ jobs:
           -w /disc \
           disc-dev-cuda11.0 bash ./scripts/ci/build_and_test.sh
     - name: Deploy Docker
-      if: github.event.ref == 'refs/heads/pai_disc'
+      #if: github.event.ref == 'refs/heads/pai_disc'
       env:
         ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
         ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}

@@ -17,12 +17,12 @@ core.*
 ci_build/venv/
 .coverage
 .cache/
-torch_addons/version.py
+pytorch_blade/version.py
 cpp_test.sh
 *.tar
-torch_addons/lib*
+pytorch_blade/lib*
 *.whl
 src/common/version.h
 /aicompiler_venv/
 /aicompiler_venv_cpu/
-torch_addons/disc_compiler_main
+pytorch_blade/disc_compiler_main

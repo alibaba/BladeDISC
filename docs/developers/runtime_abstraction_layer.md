@@ -38,8 +38,8 @@ all related functions to make sure their first argument is the context. To be
 concrete, we create a custom dialect disc_ral using MLIR infra to model the RAL
 runtime behavior. Inside the dialect, we define a custom type
 disc_ral.RalExecutionContextType to represent the context type in the compiler
-side. Under the hood, disc_ral.RalExecutionContextType will be lowered to a
-pointer in LLVM IR.
+side. Under the hood, the disc_ral.RalExecutionContextType will be lowered to a
+pointer type in LLVM IR.
 
 ### 2.1.2 Inputs/Outputs Binding
 

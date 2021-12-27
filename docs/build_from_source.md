@@ -14,16 +14,16 @@ to launch Docker container on Nvidia GPU host.
 ## Checkout the Source
 
 ``` bash
-git clone git@github.com:pai-disc/aicompiler.git
-cd aicompiler && git submodule update --init --recursive
+git clone git@github.com:alibaba/BladeDISC.git
+cd BladeDISC && git submodule update --init --recursive
 ```
 
 ## Launch a Development Docker Container
 
-Let us launch a Docker container that running a development Docker image:
+Launch a Docker container that running a development Docker image:
 
 ``` bash
-nvidia-docker run --rm -it -v $PWD:/disc yancey1989/bladedisc:latest-devel-cuda11.0 bash
+nvidia-docker run --rm -it -v $PWD:/disc bladedisc/bladedisc:latest-devel-cuda11.0 bash
 ```
 
 you can also find more CUDA version development Docker images on
@@ -31,12 +31,29 @@ you can also find more CUDA version development Docker images on
 
 ## Building BladeDISC for TensorFlow Wrapper
 
-First of all, let us run the configuration stage:
+### Building for CPU backend
+
+### Building for GPU backend
+
+
+### Configuration Stage
+
+run the following configuration command:
 
 ``` bash
 python scripts/python/tao_build.py /opt/venv_disc -s configure --bridge-gcc default --compiler-gcc default
 ```
 
+append `--cpu-only` option for CPU
+for CPU configuration, append the `--cpu-only` option:
+
+``` bash
+python scripts/python/tao_build.py /opt/venv_disc -s configure --bridge-gcc default --compiler-gcc default
+```
+
+### Build Tao Bridge library
+
+### 
 Building tao bridge library and this stage would generate
 generate a dynamic link library on path: `tao/build/libtao_ops.so`
 

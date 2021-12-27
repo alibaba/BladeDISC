@@ -1,6 +1,6 @@
 # TorchBlade Overview
 
-![bladedisc_torch_overview](bladedisc_torch_overview.jpg)
+![bladedisc_torch_overview](./pics/bladedisc_torch_overview.jpg)
 
 The figure shows how a PyTorch `nn.Module` is compiled via TorchBlade, aka
 BladeDISC for PyTorch.
@@ -16,7 +16,7 @@ optimized and lowered for different backends.
 
 TorchBlade only supports AOT compilation currently. While JIT's process should
 not differ too much. Go to
-["Pass Pipeline Walkthrough"](/docs/developers/pass_pipeline.md) for more
+["Pass Pipeline Walkthrough"](./pass_pipeline.md) for more
 details about the compilation phase after the TorchScript is converted to MHLO.
 
 ## Problems to be Resolved
@@ -96,12 +96,12 @@ and lowering from TorchScript to MHLO
   TorchScipt operator to MHLO operator.
 
 To add a new converter from PyTorch to MHLO, please refer to
-["How To Add a New Torch Op Converter"](/docs/developers/torch_add_a_new_converter.md)
+["How To Add a New Torch Op Converter"](./torch_add_a_new_converter.md)
 
 ### Runtime(RAL, Runtime Abstraction Layer)
 
 The runtime of BladeDISC compiler,
-[more details](/docs/developers/runtime_abstraction_layer.md)
+[more details](./runtime_abstraction_layer.md)
 
 ### Some Noteworthy Details
 

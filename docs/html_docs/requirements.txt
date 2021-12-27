@@ -1,0 +1,10 @@
+jupyter
+sphinx
+sphinx-autobuild
+sphinx_copybutton
+sphinx-markdown-tables
+sphinx_rtd_theme
+recommonmark
+karma_sphinx_theme
+nbsphinx
+flake8-rst-docstrings

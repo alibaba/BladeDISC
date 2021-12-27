@@ -54,7 +54,7 @@ jobs:
         RUNTIME_BASEIMAGE: tensorflow/tensorflow:1.15.5-gpu
       run: |
         set -e
-        bash ./scripts/ci/deploy_docker.sh
+        bash ./scripts/ci/deploy_tf_wrapper.sh
   CUDA11-TF24:
     # The type of runner that the job will run on
     runs-on: [self-hosted, gpu-t4]

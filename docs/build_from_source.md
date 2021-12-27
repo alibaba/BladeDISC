@@ -27,7 +27,7 @@ development Docker image.
     nvidia-docker run --rm -it -v $PWD:/disc bladedisc/bladedisc:latest-devel-cuda11.0 bash
     ```
 
-    please goto [this website](https://hub.docker.com/r/yancey1989/bladedisc/tags?page=1&name=devel) to
+    please goto [this website](https://hub.docker.com/r/bladedisc/bladedisc/tags?page=1&name=devel) to
     find more images with various CUDA versions.
 
 1. step1: configuration stage.

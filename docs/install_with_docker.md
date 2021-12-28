@@ -24,7 +24,7 @@ The released Image tag is as the following table:
 | latest-devel-cuda10.0 | latest build of development environment, includes CUDA 11.0 and required development toolkit |
 | latest-devel-cuda11.0 | latest build of development environment, includes CUDA 11.0 and required development toolkit |
 
-**Note**: Users locate in China can use `registry.cn-shanghai.aliyuncs.com/bladedisc/bladedisc` to get
+**Note**: Users located in China can use `registry.cn-shanghai.aliyuncs.com/bladedisc/bladedisc` to get
 higher download speed.
 
 ## Start a Docker Container

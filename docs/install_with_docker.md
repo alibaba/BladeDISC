@@ -20,7 +20,7 @@ The released Image tag is as the following table:
 | -- | -- |
 | latest-runtime-torch1.7.1 | latest release of BladeDISC, includes PyTorch 1.7.1 and CUDA 11.0 |
 | latest-runtime-tensorflow1.15 | latest release of BladeDISC, includes TensorFlow 1.15 and CUDA 11.0 |
-| latest-runtime-tensorflow2.24 | latest release of BladeDISC, includes TensorFlow 1.15 and CUDA 11.0 |
+| latest-runtime-tensorflow2.4 | latest release of BladeDISC, includes TensorFlow 1.15 and CUDA 11.0 |
 | latest-devel-cuda10.0 | latest build of development environment, includes CUDA 11.0 and required development toolkit |
 | latest-devel-cuda11.0 | latest build of development environment, includes CUDA 11.0 and required development toolkit |
 

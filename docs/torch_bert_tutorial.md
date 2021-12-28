@@ -91,7 +91,7 @@ for inp_str, result in zip(input_strs, results):
   print(f" label: {result['label']}, with a score: {round(result['score'], 4)}")
 ```
 
-```
+```text
 We are very happy to show you the story.
  label: 5 stars, with a score: 0.6456
 We hope you don't hate it.
@@ -177,7 +177,7 @@ input_strs = [
 bench_and_report(input_strs)
 ```
 
-```
+```text
 Seqlen: [40, 26]
 Baseline: 14.193938970565796 ms
 BladeDISC: 3.432901382446289 ms
@@ -205,7 +205,7 @@ for inp_str, result in zip(input_strs, results):
   print(f" label: {result['label']}, with a score: {round(result['score'], 4)}")
 ```
 
-```
+```text
 We are very happy to show you the story.
  label: 5 stars, with a score: 0.6456
 We hope you don't hate it.
@@ -239,7 +239,7 @@ for inp_str, result in zip(input_strs, results):
   print(f" label: {result['label']}, with a score: {round(result['score'], 4)}")
 ```
 
-```
+```text
 Predict with Baseline PyTorch model:
 I really like the new design of your website!
  label: 5 stars, with a score: 0.6289
@@ -274,7 +274,7 @@ example:
 print(optimized_ts.code)
 ```
 
-```
+```text
 def forward(self,
   input_ids: Tensor,
   attention_mask: Tensor,
@@ -322,7 +322,7 @@ print(opt_dnn_ts.code)
 !ls dump_dir
 ```
 
-```
+```text
 def forward(self,
   input: Tensor) -> Tensor:
  _0 = (self.disc_grp0_len10_0).forward([input], )

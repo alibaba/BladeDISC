@@ -8,7 +8,7 @@ optimization and compilation for inference workloads.
 
 - [TorchBlade Overview](/docs/developers/bladedisc_torch_overview.md)
 - [How To Add a New Torch Operator Converter](/docs/developers/add_new_torch_ops.md)
-- [Optimize and Inference BERT With TorchBlade](/examples/pytorch/inference/torch_bert_tutorial.md)
+- [Optimize and Inference BERT With TorchBlade](/docs/tutorials/torch_bert_tutorial.md)
 - [BladeDISC Pass Pipeline Walkthough](/docs/developers/pass_pipeline.md)
 - [Runtime Abstraction Layer](/docs/developers/runtime_abstraction_layer.md)
 

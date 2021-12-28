@@ -1,4 +1,4 @@
-# Overview of BladeDISC for PyTorch(TorchBlade)
+# TorchBlade Overview
 
 ![bladedisc_torch_overview](bladedisc_torch_overview.jpg)
 

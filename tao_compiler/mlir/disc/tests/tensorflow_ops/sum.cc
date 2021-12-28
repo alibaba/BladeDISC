@@ -165,6 +165,17 @@ TEST(TFSumOpTest, RowReduceStaticShape2DI64) {
       /*output_descriptors*/ {"i64_X"}));
 }
 
+// static shape 2D row reduction with f16 test case
+TEST(TFSumOpTest, RowReduceStaticShape2DF16) {
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "sum_row_s_2d_f16.mlir",
+      /*backend_types*/ {BackendType::kCuda},
+      /*num_inputs*/ 1,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"110x100xf16_X"},
+      /*output_descriptors*/ {"f16_X"}));
+}
+
 // static shape 3D row reduction test case
 TEST(TFSumOpTest, RowReduceStaticShape3DF32) {
   EXPECT_TRUE(feature_test_main(
@@ -185,6 +196,17 @@ TEST(TFSumOpTest, RowReduceStaticShape3DI64) {
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100x4096xi64_X"},
       /*output_descriptors*/ {"i64_X"}));
+}
+
+// static shape 3D row reduction with f16 test case
+TEST(TFSumOpTest, RowReduceStaticShape3DF16) {
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "sum_row_s_3d_f16.mlir",
+      /*backend_types*/ {BackendType::kCuda},
+      /*num_inputs*/ 1,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"110x100x4096xf16_X"},
+      /*output_descriptors*/ {"f16_X"}));
 }
 
 // partial dynamic shape 2D row reduction test case

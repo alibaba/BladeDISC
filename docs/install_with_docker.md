@@ -6,9 +6,9 @@ the rest of the system. BladeDISC CI system released BladeDISC with different
 tag on [Docker Hub](https://hub.docker.com/repository/docker/bladedisc/bladedisc/tags?page=1&ordering=last_updated)
 repository.
 
-Nvidia Docker is an easy way to use GPU on Linux, please go to
-[install guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
-to install it on your host.
+[Nvidia Container Toolkit](https://github.com/NVIDIA/nvidia-docker/blob/master/README.md#quickstart)
+is an easy way to use GPU on Linux, please make sure you have installed it
+on your host.
 
 ## Download a BladeDISC Docker Image
 
@@ -24,7 +24,7 @@ The released Image tag is as the following table:
 | latest-devel-cuda10.0 | latest build of development environment, includes CUDA 11.0 and required development toolkit |
 | latest-devel-cuda11.0 | latest build of development environment, includes CUDA 11.0 and required development toolkit |
 
-**Note**: Chinese users can use `registry.cn-shanghai.aliyuncs.com/bladedisc/bladedisc` to get
+**Note**: Users locate in China can use `registry.cn-shanghai.aliyuncs.com/bladedisc/bladedisc` to get
 higher download speed.
 
 ## Start a Docker Container
@@ -33,7 +33,7 @@ To launch a BladeDISC Docker container with GPU support, you can use the
 following command:
 
 ``` bash
-nvidia-docker run --rm -it -v [host-src/container-desc] bladedisc/bladedisc:[tag] [command]
+docker run --rm -it --gpus all -v [host-src/container-desc] bladedisc/bladedisc:[tag] [command]
 ```
 
 - `--rm` automatically remove it after the container stops.

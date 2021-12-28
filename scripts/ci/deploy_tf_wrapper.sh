@@ -8,4 +8,4 @@ source ${SCRIPT_DIR}/deploy_docker.sh
 docker build -t ${REMOTE_RUNTIME_DOCKER} -f docker/runtime/Dockerfile.tf \
   --build-arg BASEIMAGE=${RUNTIME_BASEIMAGE} .
 
-push_images()
+push_images

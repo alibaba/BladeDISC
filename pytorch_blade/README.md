@@ -10,7 +10,12 @@ optimization and compilation for inference workloads.
 - [How To Add a New Torch Operator Converter](/docs/developers/add_new_torch_ops.md)
 - [Optimize and Inference BERT With TorchBlade](/examples/pytorch/inference/torch_bert_tutorial.md)
 - [BladeDISC Pass Pipeline Walkthough](/docs/developers/pass_pipeline.md)
-- [Runtime Abstraction Layer](docs/developers/runtime_abstraction_layer.md)
+- [Runtime Abstraction Layer](/docs/developers/runtime_abstraction_layer.md)
+
+## Quick Installation
+
+Please refer to
+[Build BladeDISC for PyTorch](/docs/build_from_source.md#build-bladedisc-for-pytorch.md).
 
 ## Prerequisites
 
@@ -23,11 +28,6 @@ To build the TorchBlade, ensure you meet the following package requirements:
 - [Python3](https://www.python.org/downloads/release/python-365/) >= v3.6.5
 - [PyTorch](https://pytorch.org/) >= v1.6.0
 - [networkx](https://networkx.org/)
-
-## Quick Installation
-
-Please refer to
-[Build BladeDISC for PyTorch](/docs/build_from_source.md#build-bladedisc-for-pytorch.md).
 
 ## Installation
 

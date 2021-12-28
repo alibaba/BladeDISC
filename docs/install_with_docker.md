@@ -1,4 +1,4 @@
-# Install BladeDISC with Docker
+# Install BladeDISC With Docker
 
 [Docker](https://www.docker.com/) is a light container system, it helps
 users to package software and isolate BladeDISC runtime environment from
@@ -12,7 +12,7 @@ on your host.
 
 ## Download a BladeDISC Docker Image
 
-BladeDISC released TensorFlow and PyTorch wrappers in separate Docker images
+BladeDISC released TensorFlow and PyTorch frontend packages in separate Docker images
 on [bladedisc/bladedisc](https://hub.docker.com/repository/docker/bladedisc/bladedisc/tags?page=1&ordering=last_updated).
 The released Image tag is as the following table:
 

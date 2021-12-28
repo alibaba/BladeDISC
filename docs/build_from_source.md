@@ -46,7 +46,7 @@ development Docker image.
 development Docker image.
 
     ``` bash
-    nvidia-docker run --rm -it -v $PWD:/disc bladedisc/bladedisc:latest-devel-cuda11.0 bash
+    docker run --gpus all --rm -it -v $PWD:/disc bladedisc/bladedisc:latest-devel-cuda11.0 bash
     ```
 
 - step2: build and test pytorch_blade with an all-in-one script:

@@ -22,7 +22,15 @@ jobs:
     # Runs a single command using the runners shell
     - name: Checkout
       uses: actions/checkout@v2.4.0
+    - name: Check MarkDown Only
+      id: s1
+      run: |
+        MD_FILES=$(git diff --name-only main | grep -v ".md$")
+        if [ $MD_FILES == "" ]; then
+          exit 1
+        fi
     - name: Build Dev Docker
+      if: steps.s1.conclusion == 'failure'
       shell: bash
       run: |
         set -e

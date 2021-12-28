@@ -2,18 +2,22 @@
 
 This repository provides a script showing how to optimize a DeePMD training model with DISC just-in-time.
 
-## Content.
-
-This model contains a script to run a DeePMD training model with DISC optimization.
-The dataset and model configuration are cloned from https://github.com/deepmodeling/deepmd-kit.git.
 
 ## Run
 
 Install DeePMD-kit according to https://github.com/deepmodeling/deepmd-kit/blob/master/doc/install/install-from-source.md.
-Then execute:
+Then execute the following commands.
+
 ```bash
+# Download data:
+sh download_data.sh
+
+# Run:
 sh run.sh
 ```
+
+Note the dataset downloaded with `download_data.sh` is cloned from https://github.com/deepmodeling/deepmd-kit.git.
+
 
 ## Performance results.
 

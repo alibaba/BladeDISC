@@ -15,7 +15,7 @@ import torch.nn as nn
 import torchvision
 
 from torch_blade.testing.common_utils import TestCase
-from torch_blade.export import export, match_submodules
+from torch_blade.exporter import export, match_submodules
 from torch.testing import FileCheck
 from torch_blade import version
 

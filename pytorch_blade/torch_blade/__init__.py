@@ -17,13 +17,14 @@ except ImportError as e:
 
 from ._torch_blade import *
 
-import torch_blade.utils as utils
+import torch_blade.optimization as optimization
 import torch_blade.tools as tools
+import torch_blade.utils as utils
 import torch_blade.version as version
+import warnings
 
 from torch_blade.config import Config
-import torch_blade.optimize as optimize
-import warnings
+from torch_blade.optimization import optimize
 try:
     import torch_blade.pai_internal
 except ImportError as e:

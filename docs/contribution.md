@@ -1,13 +1,13 @@
 # Contribute Code to BladeDISC
 
 You're welcome to contribute to BladeDISC!
-You have to agree with [CLA](https://cla-assistant.io/alibaba/BladeDISC)
-before contributing to BladeDISC.  This document
+Please sign the [CLA](https://cla-assistant.io/alibaba/BladeDISC)
+before contributing to BladeDISC community.  This document
 introduces how to prepare your local development environment and our workflow.
 
 ## Local Development Environment
 
-Some software is required on your host to contribute to BladeDISC:
+Some software is required on your host:
 
 - [Docker](https://docs.docker.com/get-docker/)
 - [Nvidia Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
@@ -20,7 +20,7 @@ build and test your code:
 docker run --rm -it --gpus all -v $PWD:/workspace bladedisc/bladedisc:latest-devel-cuda11.0 bash
 ```
 
-you can find more images on [install with docker](./install_with_docker.md#download-a-bladedisc-docker-image).
+you can also find more images on [install with docker](./install_with_docker.md#download-a-bladedisc-docker-image).
 
 ## Submit a Pull Request to BladeDISC
 
@@ -57,9 +57,9 @@ the following steps guide the usual contribution.
 
 1. Keep Pulling Upstream
 
-    BladeDISC is growing fast, many features are merged into the official repo, to notice the conflicts early,
-    please pull the official repo often and it's easier to
-    fix the conflicts.
+    BladeDISC is growing fast, many features are merged into the official
+    repo, to notice the conflicts early, please pull the official repo
+    often and it's easier to fix the conflicts.
 
     ``` bash
     git remote add upstream https://github.com/alibaba/BladeDISC
@@ -98,8 +98,8 @@ the following steps guide the usual contribution.
     follows [this article](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request)
     to create a pull request.
 
-    If your pull request is fixing an exiting issue, please fill in the key word
-    [fixes #issue-id](https://help.github.com/articles/closing-issues-using-keywords/)
+    If your pull request is fixing an exiting issue, please fill in the key
+    word [fixes #issue-id](https://help.github.com/articles/closing-issues-using-keywords/)
     to close the issue when the pull request is merged.
 
     Please feel free to assign a reviewer and assign an asocial label on

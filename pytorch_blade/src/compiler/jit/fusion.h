@@ -9,8 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef __FUSION_H__
-#define __FUSION_H__
+#pragma once
 
 #include <torch/script.h>
 
@@ -26,4 +25,3 @@ torch::jit::Node* MergeNodeIntoGroup(
 torch::TypePtr get_list_tensor_type();
 } // namespace blade
 } // namespace torch
-#endif // __FUSION_H__

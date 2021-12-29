@@ -9,8 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef __COMPILER_MLIR_RUNTIME_TEMPFS_H__
-#define __COMPILER_MLIR_RUNTIME_TEMPFS_H__
+#pragma once
 
 #include <cstdio>
 #include <string>
@@ -32,4 +31,3 @@ class TempFile {
 };
 } // namespace blade
 } // namespace torch
-#endif //__COMPILER_MLIR_RUNTIME_TEMPFS_H__

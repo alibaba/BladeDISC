@@ -1,3 +1,5 @@
+#pragma once
+
 #cmakedefine PYTORCH_VERSION_STRING "@PYTORCH_VERSION_STRING@"
 // clang-format off
 #cmakedefine PYTORCH_MAJOR_VERSION @PYTORCH_MAJOR_VERSION@

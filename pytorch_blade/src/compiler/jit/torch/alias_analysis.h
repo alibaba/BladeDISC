@@ -9,8 +9,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef __COMPILER_ALIAS_ANALYSIS_H__
-#define __COMPILER_ALIAS_ANALYSIS_H__
+#pragma once
+
 #include <torch/script.h>
 
 namespace torch {
@@ -22,4 +22,3 @@ bool isMutableType(const torch::jit::Value* v);
 } // namespace blade
 } // namespace torch
 
-#endif //__COMPILER_ALIAS_ANALYSIS_H__

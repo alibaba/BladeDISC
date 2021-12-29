@@ -9,8 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef __COMPILER_MLIR_RUNTIME_RAL_CONTEXT_H__
-#define __COMPILER_MLIR_RUNTIME_RAL_CONTEXT_H__
+#pragma once
 
 #include <memory>
 #include <mutex>
@@ -96,4 +95,3 @@ class RalContext {
 } // namespace blade
 } // namespace torch
 
-#endif //__COMPILER_MLIR_RUNTIME_RAL_CONTEXT_H__

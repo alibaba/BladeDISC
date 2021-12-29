@@ -9,8 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef __COMPILER_MLIR_PYBIND_H__
-#define __COMPILER_MLIR_PYBIND_H__
+#pragma once
 
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
@@ -20,4 +19,3 @@ namespace blade {
 void initMLIRBindings(py::module& m);
 }
 } // namespace torch
-#endif //__COMPILER_MLIR_PYBIND_H__

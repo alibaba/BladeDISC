@@ -1,11 +1,11 @@
 # BladeDISC Quickstart
 
-BladeDISC team developed TensorFlow and PyTorch wrapper to make users
+BladeDISC developed TensorFlow and PyTorch wrapper to make users easier
 to improve machine learning performance on native TensorFlow and PyTorch
 program.
 
-This document introduced a quick and simple demo of BladeDISC. Please
-make sure you have read [Install BladeDISC with Docker].
+This document introduced a quick and simple demo of BladeDISC.  Please
+make sure you have read [Install BladeDISC with Docker](./install_with_docker.md).
 
 ## Quickstart for TensorFlow Users
 

@@ -1,4 +1,4 @@
-# Tutorial: Optimize and Inference BERT With TorchBlade
+# Tutorial: Optimize and Inference BERT with TorchBlade
 
 - [Quick Tour](#quick-tour)
   - [Load the Pre-Trained BERT Module and Tokenizer From HuggingFace](#load-the-pre-trained-bert-module-and-tokenizer-from-huggingface)

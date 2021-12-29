@@ -1,11 +1,17 @@
-# Quick Start for TensorFlow Wrapper
+# Quick Start
 
-This tutorial is for a quick try with BladeDISC, please make sure you have
-[installed Nvidia Docker](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
-on your host.
+BladeDISC team developed TensorFlow and PyTorch wrapper to make users
+to improve machine learning performance on native TensorFlow and PyTorch
+program.  The TensorFlow wrapper named **TensorFlow Blade**, and the
+PyTorch wrapper named **PyTorch Blade**.
 
-To enable BladeDISC, only **TWO LINES** of codes are needed on native Tensorflow
-program as the following:
+This document introduced a quick and simple demo of BladeDISC. Please
+make sure you have read [Install BladeDISC with Docker].
+
+## Quick Start for TensorFlow Blade
+
+TensorFlow Blade provides a simple Python API with just **TWO LINES** of codes on
+native TensorFlow program as the following:
 
 ``` python
 import blade_disc_tf as disc
@@ -13,7 +19,7 @@ disc.enable()
 ```
 
 It is recommended to fetch the latest BladeDISC runtime Docker image:
-`yancey1989/bladedisc:latest-runtime-tf115` for a smooth setup.
+`bladedisc/bladedisc:latest-runtime-tf115` for a smooth setup.
 
 ``` python
 import os
@@ -43,4 +49,13 @@ with g.as_default():
             np_y = np.ones([i, i]).astype(np.float32)
             r = s.run(ret, {x: np_x, y: np_y})
             print("x.shape={}, y.shape={}, ret={}".format(np_x.shape, np_y.shape, r))
+```
+
+## Quick Start for PyTorch Blade
+
+PyTorch Blade provides simple Python API as the following:
+
+``` python
+import torch_addons
+
 ```

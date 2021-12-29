@@ -22,13 +22,15 @@ jobs:
     # Runs a single command using the runners shell
     - name: Checkout
       uses: actions/checkout@v2.4.0
+    - name: Get changed files
+      id: changed-files
+      uses: tj-actions/changed-files@v2.0.0
     - name: Check MarkDown Only
       id: s1
       run: |
-        MD_FILES=$(git diff --name-only main | grep -v ".md$")
-        if [ $MD_FILES == "" ]; then
-          exit 1
-        fi
+        for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
+            echo "$file was changed"
+        done
     - name: Build Dev Docker
       if: steps.s1.conclusion == 'failure'
       shell: bash

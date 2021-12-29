@@ -1,4 +1,4 @@
-# Quick Start
+# BladeDISC Quickstart
 
 BladeDISC team developed TensorFlow and PyTorch wrapper to make users
 to improve machine learning performance on native TensorFlow and PyTorch
@@ -7,7 +7,7 @@ program.
 This document introduced a quick and simple demo of BladeDISC. Please
 make sure you have read [Install BladeDISC with Docker].
 
-## Quick Start for TensorFlow Users
+## Quickstart for TensorFlow Users
 
 TensorFlow Blade provides a simple Python API with just **TWO LINES** of codes
 on native TensorFlow program as the following:
@@ -55,7 +55,7 @@ with g.as_default():
         print("x.shape={}, y.shape={}, ret={}".format(np_x.shape, np_y.shape, r))
 ```
 
-## Quick Start for PyTorch Users
+## Quickstart for PyTorch Users
 
 To make PyTorch users easier to use, BladeDISC provides simple
 Python API is as follows:
@@ -64,8 +64,8 @@ Python API is as follows:
 import torch_addons
 
 with torch.no_grad():
-    # blade_model is the optimized module by TorchBlade
-    blade_model = torch_blade.optimize.optimize(model, allow_tracing=True, model_inputs=tuple(inputs))
+    # blade_model is the optimized module by BladeDISC
+    blade_model = torch_blade.optimize(model, allow_tracing=True, model_inputs=tuple(inputs))
 ```
 
 It is recommended to fetch the latest runtime Docker image with PyTorch
@@ -97,7 +97,7 @@ x = torch.rand(10, 10)
 h = torch.rand(10, 10)
 
 with torch.no_grad():
-    blade_cell = torch_blade.optimize.optimize(my_cell, allow_tracing=True, model_inputs=(x, y))
+    blade_cell = torch_blade.optimize(my_cell, allow_tracing=True, model_inputs=(x, y))
 
 print(blade_cell(x, h))
 ```

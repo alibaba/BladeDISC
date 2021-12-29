@@ -1,34 +1,39 @@
 # Tutorial: Optimize TensorFlow Models with BladeDISC
 
-In this tutorial, we show how to optimize TensorFlow models with BladeDISC for both inference and training.
-Users only need to add two lines of code to optimize the model just-in-time for the examples in this tutorial.
+In this tutorial, we show how to optimize TensorFlow models with BladeDISC for
+both inference and training. Users only need to add two lines of code to
+optimize the model just-in-time for the examples in this tutorial.
 
 These packages are required before going through the tour:
 
 - TensorFlow\[gpu\] (all the codes in the tutorial are verified with TF 2.4)
 - BladeDISC
 
-To build and install `BladeDISC` package, please refer to
-["Install BladeDISC With Docker"](/docs/install_with_docker.md).
+To build and install `BladeDISC` package, please refer to ["Install BladeDISC
+With Docker"](/docs/install_with_docker.md).
 
 
 The content of this tutorial is as following.
 - [BERT inference](#bert-inference)
   - [Prologue: download frozen model](#prologue-download-frozen-model)
   - [All you need are the two lines!](#all-you-need-are-the-two-lines)
-  - [Epilogue: normal process to run inference](#epilogue-normal-process-to-run-inference)
+  - [Epilogue: normal process to run
+    inference](#epilogue-normal-process-to-run-inference)
 - [DeePMD training](#deepmd-training)
-  - [Prologue: install DeePMD-kit and download data](#prologue-install-deepmd-kit-and-download-data)
-  - [Still, all you need are the two lines!](#still-all-you-need-are-the-two-lines)
-  - [Epilogue: normal process to run MD training with DeePMD-kit API](#epilogue-normal-process-to-run-md-training-with-deepmd-kit-api)
+  - [Prologue: install DeePMD-kit and download
+    data](#prologue-install-deepmd-kit-and-download-data)
+  - [Still, all you need are the two
+    lines!](#still-all-you-need-are-the-two-lines)
+  - [Epilogue: normal process to run MD training with DeePMD-kit
+    API](#epilogue-normal-process-to-run-md-training-with-deepmd-kit-api)
 
 
 ## BERT inference
 
-BERT models are usually feed with data of dynamic shapes in real production.
-The dynamic shape mainly comes from two aspects, one is varied batch-size, 
-and the other is varied data shape of each sample (e.g., varied sequence lengths).
-The model we show in this tutorial has varied batch-size.
+BERT models are usually feed with data of dynamic shapes in real production. The
+dynamic shape mainly comes from two aspects, one is varied batch-size, and the
+other is varied data shape of each sample (e.g., varied sequence lengths). The
+model we show in this tutorial has varied batch-size.
 
 ### Prologue: download frozen model
 
@@ -39,7 +44,8 @@ The model we show in this tutorial has varied batch-size.
 
 ### All you need are the two lines!
 
-All you need to do to optimize the inference is to add the following two lines of code.
+All you need to do to optimize the inference is to add the following two lines
+of code.
 ```python
 import blade_disc_tf as disc
 disc.enable()
@@ -47,7 +53,8 @@ disc.enable()
 
 ### Epilogue: normal process to run inference
 
-After enabling BladeDISC with the two lines above, we can load and run the frozen model with normal process.
+After enabling BladeDISC with the two lines above, we can load and run the
+frozen model with normal process.
 
 First, we load the frozen model and configure the session.
 ```python
@@ -73,8 +80,8 @@ session_config.graph_options.rewrite_options.auto_mixed_precision = 1
 sess = tf.Session(graph = graph, config = session_config)
 ```
 
-Finally, we prepare input data and run the session.
-In this example, we fake the input data with varied batch-size to ease the setup.
+Finally, we prepare input data and run the session. In this example, we fake the
+input data with varied batch-size to ease the setup.
 ```python
 for batch in [2, 2, 4, 1, 1, 8, 8, 2, 16, 2]:
     feed_dict = {
@@ -85,15 +92,18 @@ for batch in [2, 2, 4, 1, 1, 8, 8, 2, 16, 2]:
     outs = sess.run(fetch, feed_dict = feed_dict)
 ```
 
-The above code shows the complete process to optimize BERT inference model with BladeDISC.
-Please refer to [TensorFlow BERT Inference Example](/examples/TensorFlow/Inference/BERT) 
-for more scripts to compare the performance of BladeDISC optimization with naive TensorFlow and XLA.
+The above code shows the complete process to optimize BERT inference model with
+BladeDISC. Please refer to [TensorFlow BERT Inference
+Example](/examples/TensorFlow/Inference/BERT) for more scripts to compare the
+performance of BladeDISC optimization with naive TensorFlow and XLA.
 
 
 ## DeePMD training
 
-We take a deep learning based model for molecular dynamics (MD) to show how to optimize a training model with BladeDISC.
-Please refer to [DeePMD-kit](https://github.com/deepmodeling/deepmd-kit) for more information about deep learning based MD.
+We take a deep learning based model for molecular dynamics (MD) to show how to
+optimize a training model with BladeDISC. Please refer to
+[DeePMD-kit](https://github.com/deepmodeling/deepmd-kit) for more information
+about deep learning based MD.
 
 
 
@@ -112,7 +122,8 @@ We need to install DeePMD-kit python interface to run the MD model.
 
 ### Still, all you need are the two lines!
 
-All you need to do to optimize the training is to add the following two lines of code.
+All you need to do to optimize the training is to add the following two lines of
+code.
 ```python
 import blade_disc_tf as disc
 disc.enable()
@@ -135,6 +146,7 @@ sys.argv.append('data/input.json')
 sys.exit(main())
 ```
 
-The above code shows the complete process to optimize MD training model with BladeDISC.
-You can also refer to [TensorFlow DeePMD Training Example](/examples/TensorFlow/Train/DeePMD) 
-for all scripts to optimize MD model.
+The above code shows the complete process to optimize MD training model with
+BladeDISC. You can also refer to [TensorFlow DeePMD Training
+Example](/examples/TensorFlow/Train/DeePMD) for all scripts to optimize MD
+model.

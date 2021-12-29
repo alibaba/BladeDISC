@@ -26,13 +26,16 @@ jobs:
       id: changed-files
       uses: tj-actions/changed-files@v2.0.0
     - name: Check MarkDown Only
-      id: s1
+      id: only-md-files
       run: |
-        for file in ${{ steps.changed-files.outputs.all_changed_files }}; do
-            echo "$file was changed"
-        done
+        CHANGED_FILES=${{ steps.changed-files.outputs.all_changed_files }}
+        EXPECT_MD_FILES=$(echo $CHANGED_FILES| grep -v ".md$")
+        if [[ $EXPECT_MD_FILES == "" ]]; then
+          exit 0
+        fi
+        exit 1
     - name: Build Dev Docker
-      if: steps.s1.conclusion == 'failure'
+      if: steps.only-md-files.conclusion == 'failure'
       shell: bash
       run: |
         set -e
@@ -40,6 +43,7 @@ jobs:
         git submodule update --depth=1 --init --recursive
         docker build -t disc-dev-cuda10 --build-arg BASEIMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04 -f docker/dev/Dockerfile .
     - name: Build And Test DISC
+      if: steps.only-md-files.conclusion == 'failure'
       run: |
         set -e
         nvidia-docker run --rm -t --user $(id -u) \
@@ -51,7 +55,7 @@ jobs:
           -w /disc \
           disc-dev-cuda10 bash ./scripts/ci/build_and_test.sh
     - name: Deploy Docker
-      if: github.event.ref == 'refs/heads/main'
+      if: github.event.ref == 'refs/heads/main' && steps.only-md-files.conclusion == 'failure'
       env:
         ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
         ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}

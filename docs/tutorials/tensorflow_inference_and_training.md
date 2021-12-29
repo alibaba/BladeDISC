@@ -3,46 +3,39 @@
 In this tutorial, we show how to optimize TensorFlow models with BladeDISC for
 both inference and training. Users only need to add two lines of code to
 optimize the model just-in-time for the examples in this tutorial.
-
-These packages are required before going through the tour:
-
-- TensorFlow\[gpu\] (all the codes in the tutorial are verified with TF 2.4)
-- BladeDISC
-
-To build and install `BladeDISC` package, please refer to ["Install BladeDISC
-With Docker"](/docs/install_with_docker.md).
-
+Please refer to ["Install BladeDISC With Docker"](/docs/install_with_docker.md)
+for environment setup.
 
 The content of this tutorial is as following.
-- [BERT inference](#bert-inference)
-  - [Prologue: download frozen model](#prologue-download-frozen-model)
-  - [All you need are the two lines!](#all-you-need-are-the-two-lines)
-  - [Epilogue: normal process to run
-    inference](#epilogue-normal-process-to-run-inference)
+- [BERT Inference](#bert-inference)
+  - [Prologue: Download Frozen Model](#prologue-download-frozen-model)
+  - [All You Need Are the Two Lines!](#all-you-need-are-the-two-lines)
+  - [Epilogue: Normal Process to Run
+    Inference](#epilogue-normal-process-to-run-inference)
 - [DeePMD training](#deepmd-training)
-  - [Prologue: install DeePMD-kit and download
-    data](#prologue-install-deepmd-kit-and-download-data)
-  - [Still, all you need are the two
-    lines!](#still-all-you-need-are-the-two-lines)
-  - [Epilogue: normal process to run MD training with DeePMD-kit
+  - [Prologue: Install DeePMD-kit and Download
+    Data](#prologue-install-deepmd-kit-and-download-data)
+  - [Still, All You Need Are the Two
+    Lines!](#still-all-you-need-are-the-two-lines)
+  - [Epilogue: Normal Process to Run MD Training with DeePMD-kit
     API](#epilogue-normal-process-to-run-md-training-with-deepmd-kit-api)
 
 
-## BERT inference
+## BERT Inference
 
 BERT models are usually feed with data of dynamic shapes in real production. The
 dynamic shape mainly comes from two aspects, one is varied batch-size, and the
 other is varied data shape of each sample (e.g., varied sequence lengths). The
 model we show in this tutorial has varied batch-size.
 
-### Prologue: download frozen model
+### Prologue: Download Frozen Model
 
 ```python
 !mkdir -p model
 !wget -P model http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/bladedisc_notebook_binaries/models/disc_bert_example/frozen.pb
 ```
 
-### All you need are the two lines!
+### All You Need Are the Two Lines!
 
 All you need to do to optimize the inference is to add the following two lines
 of code.
@@ -51,7 +44,7 @@ import blade_disc_tf as disc
 disc.enable()
 ```
 
-### Epilogue: normal process to run inference
+### Epilogue: Normal Process to Run Inference
 
 After enabling BladeDISC with the two lines above, we can load and run the
 frozen model with normal process.
@@ -98,7 +91,7 @@ Example](/examples/TensorFlow/Inference/BERT) for more scripts to compare the
 performance of BladeDISC optimization with naive TensorFlow and XLA.
 
 
-## DeePMD training
+## DeePMD Training
 
 We take a deep learning based model for molecular dynamics (MD) to show how to
 optimize a training model with BladeDISC. Please refer to
@@ -107,7 +100,7 @@ about deep learning based MD.
 
 
 
-### Prologue: install DeePMD-kit and download data
+### Prologue: Install DeePMD-kit and Download Data
 
 We need to install DeePMD-kit python interface to run the MD model.
 ```python
@@ -120,7 +113,7 @@ We need to install DeePMD-kit python interface to run the MD model.
 !tar -xzvf data.tar.gz
 ```
 
-### Still, all you need are the two lines!
+### Still, All You Need Are the Two Lines!
 
 All you need to do to optimize the training is to add the following two lines of
 code.
@@ -129,7 +122,7 @@ import blade_disc_tf as disc
 disc.enable()
 ```
 
-### Epilogue: normal process to run MD training with DeePMD-kit API
+### Epilogue: Normal Process to Run MD Training with DeePMD-kit API
 
 ```python
 import sys

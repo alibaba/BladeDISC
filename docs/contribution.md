@@ -43,7 +43,7 @@ the following steps guide the usual contribution.
     git clone git@github.com:your-github-account/BladeDISC.git
     ```
 
-    please go to [build from source](./build_from_source.md) to check how
+    Please go to [build from source](./build_from_source.md) to check how
     to build and run tests.
 
 1. Create a Local Feature Branch
@@ -86,19 +86,19 @@ the following steps guide the usual contribution.
 
 1. Create a Pull Request
 
-    Once finish the new feature or bugfix, you can push the local
+    Once the new feature or the bugfix is done, you can push the local
     work into your forked repo:
 
     ``` bash
     git push origin new-feature-branch
     ```
 
-    the push allows you to create a new pull request when requesting
+    The push allows you to create a new pull request when requesting
     the [official repo](https://github.com/alibaba/BladeDISC), please
-    follows [this article](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request)
+    follow [this article](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request)
     to create a pull request.
 
-    If your pull request is fixing an exiting issue, please fill in the key
+    If your pull request is to fix an exiting issue, please fill in the key
     word [fixes #issue-id](https://help.github.com/articles/closing-issues-using-keywords/)
     to close the issue when the pull request is merged.
 

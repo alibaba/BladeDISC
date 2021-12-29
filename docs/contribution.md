@@ -102,5 +102,5 @@ the following steps guide the usual contribution.
     word [fixes #issue-id](https://help.github.com/articles/closing-issues-using-keywords/)
     to close the issue when the pull request is merged.
 
-    Please feel free to assign a reviewer and assign an asocial label on
+    Please feel free to assign a reviewer and assign an associate label on
     your pull request page.

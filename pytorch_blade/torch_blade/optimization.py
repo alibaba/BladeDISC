@@ -11,7 +11,7 @@
 
 import torch
 from torch_blade.config import Config, OptPipelines
-from torch_blade.export import export
+from torch_blade.exporter import export
 from torch_blade.pass_manager import _optimize_common
 
 __all__ = ['optimize']

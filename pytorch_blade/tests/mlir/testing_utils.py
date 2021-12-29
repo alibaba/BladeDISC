@@ -36,11 +36,10 @@ class DiscTestCase(TestCase):
         with mlir.testing_context(), support_fusion_group.min_group_nodes(1), cfg:
             nn_module = self._ScriptFunction2Module(nn_module)
             nn_module = nn_module.eval().to(self.device)
-            opt_module = optimize._optimize(
+            opt_module = optimize(
                 nn_module,
                 allow_tracing=True,
                 model_inputs=test_data,
-                static_shape=False,
             )
         return opt_module
 

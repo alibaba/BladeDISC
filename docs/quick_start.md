@@ -9,8 +9,8 @@ make sure you have read [Install BladeDISC with Docker].
 
 ## Quick Start for TensorFlow Users
 
-TensorFlow Blade provides a simple Python API with just **TWO LINES** of codes on
-native TensorFlow program as the following:
+TensorFlow Blade provides a simple Python API with just **TWO LINES** of codes
+on native TensorFlow program as the following:
 
 ``` python
 import blade_disc_tf as disc

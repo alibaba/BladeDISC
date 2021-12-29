@@ -20,9 +20,7 @@ meet our requirements:
 2. argument `env` of `BlockToONNX` is now passed by reference instead of passed
 by value.
 */
-
-#ifndef __JIT_PYBIND_ONNX_H__
-#define __JIT_PYBIND_ONNX_H__
+#pragma once
 
 #include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/onnx/onnx.h>
@@ -45,4 +43,3 @@ void BlockToONNX(
     std::unordered_map<torch::jit::Value*, torch::jit::Value*>& env);
 } // namespace blade
 } // namespace torch
-#endif //__JIT_PYBIND_ONNX_H__

@@ -9,8 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef __JIT_PYBIND_FUNCS_H__
-#define __JIT_PYBIND_FUNCS_H__
+#pragma once
 
 #include <pybind11/pybind11.h>
 namespace py = pybind11;
@@ -20,4 +19,3 @@ namespace blade {
 void initToolsBindings(py::module& m);
 }
 } // namespace torch
-#endif //__JIT_PYBIND_FUNCS_H__

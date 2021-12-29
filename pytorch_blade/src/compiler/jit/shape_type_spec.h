@@ -9,8 +9,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef __COMPILTER_TENSORRT_SHPAE_TYPE_SPEC_H__
-#define __COMPILTER_TENSORRT_SHPAE_TYPE_SPEC_H__
+#pragma once
+
 #include <torch/script.h>
 #include <functional>
 #include <string>
@@ -70,4 +70,3 @@ struct hash<torch::blade::ShapeTypeSpec> {
   }
 };
 } // namespace std
-#endif //__COMPILTER_TENSORRT_SHPAE_TYPE_SPEC_H__

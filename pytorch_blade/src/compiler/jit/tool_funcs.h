@@ -9,8 +9,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef __JIT_TOOL_FUNCS_H__
-#define __JIT_TOOL_FUNCS_H__
+#pragma once
+
 #include <torch/script.h>
 
 namespace torch {
@@ -53,4 +53,3 @@ std::string node_schema_str(const torch::jit::Node& node);
 bool cast_to_tensor_type(torch::jit::Value& value);
 } // namespace blade
 } // namespace torch
-#endif

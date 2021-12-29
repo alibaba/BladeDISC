@@ -9,8 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef __COMMON_MACROS_H__
-#define __COMMON_MACROS_H__
+#pragma once
 
 #define DISALLOW_COPY_AND_ASSIGN(TypeName) \
   TypeName(const TypeName&) = delete;      \
@@ -31,4 +30,3 @@
     return old_flag;                   \
   }
 
-#endif //__COMMON_MACROS_H__

@@ -9,8 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef __COMMON_LOGGING_H__
-#define __COMMON_LOGGING_H__
+#pragma once
 
 #include "c10/util/Logging.h"
 
@@ -20,4 +19,3 @@
 
 #define LOG_ASSERT(condition) FATAL_IF(condition)
 
-#endif

@@ -22,10 +22,7 @@ jobs:
     # Runs a single command using the runners shell
     - name: Checkout
       uses: actions/checkout@v2.4.0
-    - name: pre-commit
-      shell: bash
-      run: |
-        pre-commit run -a --show-diff-on-failure
+    - uses: pre-commit/action@v2.0.3
     - name: Build Dev Docker
       shell: bash
       run: |

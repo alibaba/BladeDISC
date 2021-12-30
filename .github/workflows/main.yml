@@ -15,7 +15,7 @@ jobs:
   # This workflow contains a single job called "greet"
   CUDA10-TF115:
     # The type of runner that the job will run on
-    runs-on: [self-hosted, gpu-t4]
+    runs-on: [self-hosted, gpu-t4-1]
       
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
@@ -25,6 +25,7 @@ jobs:
     - name: pre-commit
       shell: bash
       run: |
+        set -ex
         pre-commit run -a --show-diff-on-failure
     - name: Build Dev Docker
       shell: bash
@@ -69,6 +70,7 @@ jobs:
       uses: actions/checkout@v2.4.0
     - name: Build Dev Docker
       run: |
+        exit 1
         set -e
         git submodule sync
         git submodule update --depth=1 --init --recursive
@@ -109,6 +111,7 @@ jobs:
       uses: actions/checkout@v2.4.0
     - name: Build Dev Docker
       run: |
+        exit 1
         set -e
         git submodule sync
         git submodule update --depth=1 --init --recursive
@@ -149,6 +152,7 @@ jobs:
       uses: actions/checkout@v2.4.0
     - name: Build Dev Docker
       run: |
+        exit 1
         set -e
         git submodule sync
         git submodule update --depth=1 --init --recursive

@@ -26,6 +26,7 @@ jobs:
       shell: bash
       run: |
         set -ex
+        echo $PATH
         pre-commit run -a --show-diff-on-failure
     - name: Build Dev Docker
       shell: bash

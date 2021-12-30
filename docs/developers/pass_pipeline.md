@@ -1,4 +1,35 @@
-# Abstract
+# A Walkthough of the BladeDISC Pass Pipeline
+
+* [Abstract](#abstract)
+* [Pass Pipeline Walkthrough](#pass-pipeline-walkthrough)
+  + [TF-to-HLO Passes](#tf-to-hlo-passes)
+  + [HLO graph optimzation & placement passes](#hlo-graph-optimzation---placement-passes)
+    - [ShapeSimplifier pass](#shapesimplifier-pass)
+    - [Placement Passes](#placement-passes)
+    - [Graph Optimization Passes on Tensor Level](#graph-optimization-passes-on-tensor-level)
+    - [Misc Conversion Passes that Prepare for Further Lowering](#misc-conversion-passes-that-prepare-for-further-lowering)
+  + [Bufferize Passes](#bufferize-passes)
+    - [HLO to LMHLO conversion](#hlo-to-lmhlo-conversion)
+    - [Shape Related Ops Bufferization](#shape-related-ops-bufferization)
+    - [Memory Space Assignment](#memory-space-assignment)
+  + [LHLO Graph Optimization Passes](#lhlo-graph-optimization-passes)
+    - [Fusion Pass](#fusion-pass)
+    - [Speculation Pass](#speculation-pass)
+    - [Memory Optimization Passes](#memory-optimization-passes)
+  + [Runtime & Library Call Related Passes](#runtime---library-call-related-passes)
+  + [CodeGen Passes](#codegen-passes)
+    - [Backbone CodeGen Passes](#backbone-codegen-passes)
+    - [Other Miscellaneous Purposed Passes](#other-miscellaneous-purposed-passes)
+  + [Loops to GPU Passes](#loops-to-gpu-passes)
+  + [GPU Module to CUBIN](#gpu-module-to-cubin)
+    - [Lowering structure control flow ops](#lowering-structure-control-flow-ops)
+    - [Lowering GPU Dialect ops to specific gpu vendor ops](#lowering-gpu-dialect-ops-to-specific-gpu-vendor-ops)
+    - [Compile to GPU binary code](#compile-to-gpu-binary-code)
+  + [Host Side Passes](#host-side-passes)
+    - [Lowering Structure Control Flow Ops](#lowering-structure-control-flow-ops)
+    - [Lowering to LLVM Dialect](#lowering-to-llvm-dialect)
+
+## Abstract
 
 This tutorial will give a brief introduction for the compiler part of BladeDISC
 by walking through the backbone pass pipeline, hoping the readers can quickly
@@ -12,10 +43,10 @@ environment. It's also recommended to use [jupyter
 notebook](https://jupyter.org/index.html) together with
 [jupytext](https://jupytext.readthedocs.io/en/latest/install.html) to run the
 tutorials in this document. Please refer to
-[build_from_source.md](https://github.com/alibaba/BladeDISC/blob/main/docs/build_from_source.md)
+[build_from_source.md](../build_from_source.md)
 to build the binaries if you are in other CUDA environments.
 
-![passpipeline](http://pai-blade.cn-hangzhou.oss.aliyun-inc.com/bladedisc_notebook_binaries%2Fpass_pipeline.png) 
+![passpipeline](./pics/pass_pipeline.png) 
 <center>PassPipeline of DISC</center>
 
 Before we start, let's recap the major problems we need to solve for the
@@ -109,9 +140,7 @@ Runtime Abstraction Layer (RAL) is used to isolate the complexity between the
 compiler and different runtime environments, so that the compiler does not see
 the difference between a PyTorch runtime and a TensorFlow runtime, also it will
 not bother with the management of stateful information at runtime. Refer to
-[Runtime Abstraction
-Layer](https://github.com/alibaba/BladeDISC/blob/main/docs/developers/runtime_abstraction_layer.md)
-for more information.
+[Runtime Abstraction Layer](./runtime_abstraction_layer.md) for more information.
 
 * Performance
 
@@ -148,8 +177,7 @@ tensor. In our observation, this is crucial to the overall performance.
 Besides the TensorFlow frontend, BladeDISC supports PyTorch inference workloads
 via a converter from TorchScript to mhlo. We will take a TensorFlow subgraph as
 a sample and the Torch converter is out of the scope of this document, please
-refer to [torch converter](https://github.com/alibaba/BladeDISC/blob/main/docs/developers/bladedisc_torch_overview.md) for more
-information.
+refer to [torch converter](./bladedisc_torch_overview.md) for more information.
 
 Let's first get prepared with some prebuilt binaries and input IRs for this
 tutorial:
@@ -179,7 +207,9 @@ possible to demo the pass pipeline.
 !cat tutorial.mlir
 ```
 
-# 1 TF-to-HLO Passes
+## Pass Pipeline Walkthrough
+
+### TF-to-HLO Passes
 
 
 ```python
@@ -248,11 +278,11 @@ part of the shape calculation and more will be lowered in the following phases.
 !cat tutorial_mhlo.mlir
 ```
 
-# 2 HLO graph optimzation & placement passes
+### HLO graph optimzation & placement passes
 
 The passes in this phase can be divided into a number of categories:
 
-## 2.1 shape-simplifier pass
+#### ShapeSimplifier pass
 
 When insert-tie-shape is set to false, it works as a reentrant pass to propagate
 some known shape information, to eliminate the unnecessary unknown dim sizes. In
@@ -327,7 +357,7 @@ to:
 3. Simplify the index calculation in the instruction level, since the cost for
    var_a / var_b is usually higher than var_a / const_b.
 
-## 2.2 Placement Passes
+#### Placement Passes
 
 In the case of a host-device joint code generation, an explicit placement logic
 is necessary since some of the mhlo Ops are only for calculating shapes. In a
@@ -340,12 +370,12 @@ shape calculating Op, and the PlaceOpsPass explicitly place the shape
 calculating Ops on CPU by adding an Attr, and insert a memcpy Op incase
 necessary.
 
-## 2.3 Graph Optimization Passes on Tensor Level
+#### Graph Optimization Passes on Tensor Level
 
 Although there aren't many works here for now, it's proper to have ordinary
 graph optimization passes such as algebraic simplifier here in this phase.
 
-## 2.4 Misc Conversion Passes that Prepare for Further Lowering
+#### Misc Conversion Passes that Prepare for Further Lowering
 
 All the other passes of this phase can be categorized into this group, which
 contains some miscellaneous conversions necessary for further lowering. For
@@ -361,7 +391,7 @@ After this phase, the IR is lowered into:
 !sed -n '/After\ DiscShapeSimplifierPass/,/After\ Canonicalizer/p' pass_pipeline.log | sed '1d' | sed -n '/After\ DiscShapeSimplifierPass/,/After\ Canonicalizer/p'
 ```
 
-# 3 Bufferize Passes
+### Bufferize Passes
 
 BladeDISC does both host side and device side compilation. Thus the whole IR
 module will be lowered to an LLVM module eventually. The first step needed for
@@ -370,7 +400,7 @@ optimizations in the tensor world. The passes in this phase are responsible to
 do the bufferization by emitting logic for buffer allocation and deallocation
 explicitly.
 
-## 3.1 HLO to LMHLO conversion
+#### HLO to LMHLO conversion
 
 LMHLO dialect is the bufferized representation for MHLO dialect. Take `mhlo.abs`
 as an example:
@@ -395,7 +425,7 @@ be achieved in a modular way. Each mhlo op first inherits
 InferShapedTypeOpInterface and provides an implementation accordingly. Thus we
 can bufferize all mhlo ops in an uniformed way.
 
-## 3.2 Shape Related Ops Bufferization
+#### Shape Related Ops Bufferization
 
 Some tensor value represents a shape instead of data. Examples are the shape
 operands of some dynamic shape version mhlo ops. The shape tensor may be created
@@ -424,7 +454,7 @@ memref.store %d1, %target_shape[1]
 lmhlo.dynamic_reshape(%in, %target_shape, ...)
 ```
 
-## 3.3 Memory Space Assignment
+#### Memory Space Assignment
 
 As mentioned above, BladeDISC does both host side and device side compilation at
 the same time. Thus, we need to find a way to seperate the host buffer from the
@@ -459,12 +489,12 @@ After this phase, the IR is lowered into buffer level:
 !sed -n '/After\ DiscAssignMemorySpacePass/,/After\ PromoteBuffersToStack/p' pass_pipeline.log
 ```
 
-# 4 LHLO Graph Optimization Passes
+### LHLO Graph Optimization Passes
 
 This phase contains some graph optimization passes that is better to be
 implemented on buffer level rather than tensor level.
 
-## 4.1 Fusion Pass
+#### Fusion Pass
 
 The most important graph optimization pass is the fusion pass, which provides a
 fusion strategy to separate the lmhlo ops into a number of lmhlo.fusion, as the
@@ -489,7 +519,7 @@ GPU version is still ongoing for now, and thus is out of the scope of this
 tutorial. For those who are interested, please refer to the documents in the
 DiscFusionPass and the DiscStitchFusionPass.
 
-## 4.2 Speculation Pass
+#### Speculation Pass
 
 Another important optimization pass is the
 DiscSpecializeFusionWithSpeculationPass. "speculation" pass creates multiple
@@ -536,7 +566,7 @@ scf.if %cond {
 The different "disc_vectorize_hint" attributes will guide the codegen passes to
 generate different versions of kernels.
 
-## 4.3 Memory Optimization Passes
+#### Memory Optimization Passes
 
 The other two passes are related to memory optimization, which can also be
 regarded as part of bufferization.
@@ -557,13 +587,12 @@ and library calls conversions now!
 !sed -n '/After\ BufferDeallocation/,/After\ RalInjectExecutionContextPass/p' pass_pipeline.log
 ```
 
-# 5 Runtime & Library Call Related Passes
+### Runtime & Library Call Related Passes
 
 BladeDISC relies on Runtime Abstraction Layer (RAL) to manage stateful stuff and
 isolate the difference among different targeting environments (e.g. TensorFlow,
 Pytorch, or even standalone execution). For detailed informations of RAL, please
-refer to [Introduction on Runtime Abstraction
-Layer](https://github.com/alibaba/BladeDISC/blob/main/docs/developers/runtime_abstraction_layer.md).
+refer to [Introduction on Runtime Abstraction Layer](./runtime_abstraction_layer.md).
 
 There are two main functions for the passes of this phase:
 
@@ -612,7 +641,7 @@ After the passes of this phase, you'll get the IR like:
 !sed -n '/After\ DiscConstToRALPass/,/After\ DiscLhloLegalizeRootsToParallelLoopsPass/p' pass_pipeline.log
 ```
 
-# 6 CodeGen Passes
+### CodeGen Passes
 
 The main goal of this phase is to lower the mhlo ops into loops. There are a few
 considerations on the design now that may need your attention:
@@ -633,7 +662,7 @@ considerations on the design now that may need your attention:
   strategies, aka "base" and "stitch". The "stitch" mode is out of the scope of
   this tutorial.
 
-## 6.1 Backbone CodeGen Passes
+#### Backbone CodeGen Passes
 
 The two backbone passes of this phase are the
 DiscLhloLegalizeRootsToParallelLoopsPass and the InputInlineFusionPass. The
@@ -642,8 +671,7 @@ the second one iteratively inline fuses the direct lmhlo producer into the
 loops, as shown in the figure. The first pass decides the schedule of the fused
 kernel.
 
-![codegen in 'base'
-mode](http://pai-blade.cn-hangzhou.oss.aliyun-inc.com/disc/fusion_codegen.png)
+![codegen in base mode](./pics/fusion_codegen.png)
 
 Currently, we have multiple schedules for a root Op for the GPU backend. For a
 multioutput fusion, some of the combinations can adapt to each other:
@@ -695,7 +723,7 @@ solve this problem. The redundant linearize/delinearize Ops are optimized by the
 canonicalize pass and the remained ones are lower into index calculation Ops in
 Std Dialect in ConvertShapeToStandardPass pass.
 
-## 6.2 Other Miscellaneous Purposed Passes
+#### Other Miscellaneous Purposed Passes
 
 The std-expand pass and the UnhandledAtomicRMWConverterPass work in cooperation
 to support those atomic operations which are not directly supported by GPU via
@@ -712,7 +740,7 @@ After this pass, a typical mhlo.fusion looks like this:
 !sed -n '/After\ ConvertShapeToStandardPass/,/After\ Canonicalizer/p' pass_pipeline.log 2>&1 | sed -n '/main_kRowReduction_reduce_exponential__6_2_0/,/main_kRowReduction_reduce_exponential__6_2_0/p'
 ```
 
-# 7 Loops to GPU Passes
+### Loops to GPU Passes
 
 Most of the works in this phase are reused from the building blocks of the MLIR
 repository. The flow is basically the same as other applications on the GPU
@@ -774,19 +802,19 @@ Dialect level:
 !sed -n '/After\ ReviseGpuKernelOutliningPass/,/After\ Canonicalizer/p' pass_pipeline.log
 ```
 
-# 8 GPU Module to CUBIN
+### GPU Module to CUBIN
 
-## 8.1 Lowering structure control flow ops
+#### Lowering structure control flow ops
 This part is mainly based on community passes (e.g. the SCFToStandard pass and
 ConvertAffineToStandard pass). Structure control flow ops (e.g. `scf.for` and
 `scf.if`) will be lowered into low level CFG based control flow representations.
 
-## 8.2 Lowering GPU Dialect ops to specific gpu vendor ops
+#### Lowering GPU Dialect ops to specific gpu vendor ops
 The DiscLowerGpuOpsToNVVMOpsPass or DiscLowerGpuOpsToROCDLOpsPass will convert
 general gpu-like ops inside GPU Dialect to a more specific vendor gpu dialect
 (e.g. nvvm for CUDA GPU, or rocm for AMD GPU).
 
-## 8.3 Compile to GPU binary code
+#### Compile to GPU binary code
 After lowering the GPU Dialect to a specific gpu vendor dialect (e.g. cuda or
 rocm), we further export the MLIR IR to LLVM IR and then rely on the device
 compiler to compile the LLVM IR code to the gpu binary code. The compiled binary
@@ -801,7 +829,7 @@ binary ready for launch:
 !sed -n '/After\ GpuKernelToBlobPass/,/After/p' pass_pipeline.log 2>&1 | sed -n '/gpu.module\ @main_kernel_2/,/gpu.module/p'
 ```
 
-# 9 Host Side Passes
+### Host Side Passes
 
 Host side compilation can be roughly divided into two parts.
 
@@ -817,23 +845,23 @@ Host side compilation can be roughly divided into two parts.
    scheduling logic will be lowered to LLVM IR and then be compiled into binary
    code eventually. We'll expand this part in the following section.
 
-## 9.1 Lowering Structure Control Flow Ops
+#### Lowering Structure Control Flow Ops
 Same as device-side This part is mainly based on community passes to lower
 structure control flow ops (e.g. `scf.for` and `scf.if`) to lower level CFG
 based control flow representations.
 
-## 9.2 Lowering to LLVM Dialect
+#### Lowering to LLVM Dialect
 All other Ops will be lowered into LLVM Dialect in the DiscToLLVMPass. In the
 current design, it can be divided into three parts.
 
-### 9.2.1 AllocOp and DeallocOp lowering
+##### AllocOp and DeallocOp lowering
 Device-specific alloc/dealloc op lowering. This includes two parts: a)
 device-agnostic logic to calcalution the bytes of a buffer, b) device-specific
 logic to materialize the allocation and dealloction to a RAL function call
 accordingly.  The RAL function itself is modeled by a `ral.dispatchOp` and will
 be handled uniformly later.
 
-### 9.2.2 CPU/GPU Kernel Launch Op Lowering
+##### CPU/GPU Kernel Launch Op Lowering
 For GPU kernel, we emit an LLVM global string object to hold the CUBIN and
 passed the CUBIN and all related args to a RAL function call, which in turn
 wraps a cuda launch driver API.
@@ -862,7 +890,7 @@ original cpu kernel:
                    kRalCpuLaunch, ...)
 ```
 
-### 9.2.3 RAL Dispatch Op Lowering
+##### RAL Dispatch Op Lowering
 For a `ral.dispatchOp`, it will lowered into a uniform type-erased C language
 form. The basic idea is:
 * Compute the uniform key for each `ral.dispatchOp`. The key is comprised of the
@@ -892,3 +920,4 @@ form. The basic idea is:
 After this phase, the LLVM Dialect will then be converted to LLVM IR, and sent
 to LLVM backend. By this step, we've got a binary, which is executable and will
 link different runtime libraries for different scenarios. 
+

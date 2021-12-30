@@ -34,8 +34,8 @@ These packages are required before going through the tour:
 - torch_blade
 
 To build and install `torch_blade` package, please refer to
-["Installation of TorchBlade"](/docs/build_from_source.md) and
-["Install BladeDISC With Docker"](/docs/install_with_docker.md).
+["Installation of TorchBlade"](../build_from_source.md) and
+["Install BladeDISC With Docker"](../install_with_docker.md).
 
 The system environments and packages used in this tutorial:
 

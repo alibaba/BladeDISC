@@ -1,0 +1,341 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>TorchBlade Overview &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a></li>
+        
+      <li>TorchBlade Overview</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../_sources/docs/developers/bladedisc_torch_overview.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../README.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <div class="section" id="torchblade-overview">
+<h1>TorchBlade Overview<a class="headerlink" href="#torchblade-overview" title="Permalink to this headline">¶</a></h1>
+<p><img alt="bladedisc_torch_overview" src="../../_images/bladedisc_torch_overview.jpg" /></p>
+<p>The figure shows how a PyTorch <code class="docutils literal notranslate"><span class="pre">nn.Module</span></code> is compiled via TorchBlade, aka
+BladeDISC for PyTorch.</p>
+<p>In general, TorchBlade can be regarded as a compiler
+targeting a subset of Python language for deep learning.</p>
+<p>A PyTorch <code class="docutils literal notranslate"><span class="pre">nn.Module</span></code>’s forward method is first traced or scripted to
+TorchScript. After that, some passes are run to simplify the TorchScript graph,
+making it closer to the SSA (Static Single Assignment) semantics. Then, the
+compilable subgraphs are converted to MHLO, which will finally be progressively
+optimized and lowered for different backends.</p>
+<p>TorchBlade only supports AOT compilation currently. While JIT’s process should
+not differ too much. Go to
+<a class="reference internal" href="pass_pipeline.html"><span class="doc">“Pass Pipeline Walkthrough”</span></a> for more
+details about the compilation phase after the TorchScript is converted to MHLO.</p>
+<div class="section" id="problems-to-be-resolved">
+<h2>Problems to be Resolved<a class="headerlink" href="#problems-to-be-resolved" title="Permalink to this headline">¶</a></h2>
+<p>The design principles of PyTorch emphasize simplicity and usability. PyTorch
+models are just Python programs under the full control of its user. The pythonic
+nature of PyTorch makes DSC(Domain Specific Compiler) suffering from <em>language
+subset problems</em> more severe than other frameworks like TensorFlow.</p>
+<p>TorchBlade compiler is put in front of the following challenges:</p>
+<ul class="simple">
+<li><p>PyTorch <code class="docutils literal notranslate"><span class="pre">Tensor</span></code>’s memory buffer is visible to its users</p>
+<ul>
+<li><p>A user can do in-place modifications on the view of a <code class="docutils literal notranslate"><span class="pre">Tensor</span></code> which may
+produce data hazards during compiler optimizations</p></li>
+</ul>
+</li>
+<li><p>The coverage of operators</p>
+<ul>
+<li><p>It’s not practical to support conversions for all operators from PyTorch
+to low-level IR of DSC, especially for productive applications</p></li>
+</ul>
+</li>
+<li><p>The pythonic semantic and syntax</p>
+<ul>
+<li><p>It’s hard to catch and optimize the computation graphs of PyTorch models
+due to the usage of Python such as decorators, <code class="docutils literal notranslate"><span class="pre">try</span> <span class="pre">...</span> <span class="pre">catch</span></code>, and data
+structures such as <code class="docutils literal notranslate"><span class="pre">List</span></code> and <code class="docutils literal notranslate"><span class="pre">Dict</span></code></p></li>
+</ul>
+</li>
+<li><p>The construction of end-to-end performant compiler stack for PyTorch</p></li>
+</ul>
+</div>
+<div class="section" id="how-torchblade-addresses-such-problems">
+<h2>How TorchBlade Addresses Such Problems<a class="headerlink" href="#how-torchblade-addresses-such-problems" title="Permalink to this headline">¶</a></h2>
+<p>TorchBlade is tailored for PyTorch and BladeDISC. It chooses MHLO as the tensor
+level “hub” IR with the considerations:</p>
+<ul class="simple">
+<li><p>Well established by the XLA community and continuous improvements from the
+mlir-hlo project</p></li>
+<li><p>The finer granularity and the expressive ability is suitable to bridge PyTorch
+operators and lower level passes</p></li>
+<li><p>The support for dynamic shapes is well established by BladeDISC-TensorFlow</p></li>
+</ul>
+<div class="section" id="conversion-and-lowering">
+<h3>Conversion and Lowering<a class="headerlink" href="#conversion-and-lowering" title="Permalink to this headline">¶</a></h3>
+<p>The following conversions and optimizations are necessary before a PyTorch
+operator is converted MHLO operators:</p>
+<ul class="simple">
+<li><p>Inline the functions and methods</p></li>
+<li><p>Freeze the parameters while reserving the required attributes</p></li>
+<li><p>Materialize the ranks and data types of the tensors and parameters</p></li>
+<li><p>Statically imitate and fold python operations, such as operations on <code class="docutils literal notranslate"><span class="pre">List</span></code>
+and <code class="docutils literal notranslate"><span class="pre">Dict</span></code></p></li>
+<li><p>Run compiler optimization passes like constant folding and dead code
+elimination</p></li>
+<li><p>Do aliasing analysis and rewrite in-place operations to out-of-place
+corresponding versions, since MHLO is an SSA IR and the in-place semantics
+have to be eliminated</p></li>
+</ul>
+</div>
+<div class="section" id="clustering-and-fallback">
+<h3>Clustering and Fallback<a class="headerlink" href="#clustering-and-fallback" title="Permalink to this headline">¶</a></h3>
+<p>MHLO can only support a subset of operators of TorchScript where tensors are
+immutable values. TorchBlade addresses such issues with a clustering and
+fallback mechanism:</p>
+<ul class="simple">
+<li><p>Iteratively run the “conversion and lowering” passes to clean pythonic IR’s
+and simplify the TorchScript graph closer to computations with SSA semantics</p></li>
+<li><p>Collect the supported subset of nodes from the simplified TorchScript graph</p></li>
+<li><p>Do clustering on the supported subset of nodes, with the consideration to
+avoid cyclic</p></li>
+<li><p>Finally, merge the clustered subgraph and convert it to MHLO; All the left
+nodes will fallback to PyTorch/TorchScript runtime</p></li>
+</ul>
+</div>
+<div class="section" id="ir-converters">
+<h3>IR Converters<a class="headerlink" href="#ir-converters" title="Permalink to this headline">¶</a></h3>
+<p>The IR converters are precisely the primary mechanism that supports converting
+and lowering from TorchScript to MHLO</p>
+<ul class="simple">
+<li><p>Query if the conversion of a graph node can succeed under a certain conversion
+context. It’s required because some aten operators are ambiguous since their
+semantics depend on their inputs. For example, <code class="docutils literal notranslate"><span class="pre">aten::convolution</span></code> can be used
+to represent ‘Conv1D’, ‘Conv2D’, ‘Conv3D’, but a converter for ‘Conv3D’ is not
+supported for now</p></li>
+<li><p>Build an MHLO module by walking the TorchScript subgraph and converting each
+TorchScipt operator to MHLO operator.</p></li>
+</ul>
+<p>To add a new converter from PyTorch to MHLO, please refer to
+<a class="reference internal" href="torch_add_a_new_converter.html"><span class="doc">“How To Add a New Torch Op Converter”</span></a></p>
+</div>
+<div class="section" id="runtime-ral-runtime-abstraction-layer">
+<h3>Runtime(RAL, Runtime Abstraction Layer)<a class="headerlink" href="#runtime-ral-runtime-abstraction-layer" title="Permalink to this headline">¶</a></h3>
+<p>The runtime of BladeDISC compiler,
+<a class="reference internal" href="runtime_abstraction_layer.html"><span class="doc">more details</span></a></p>
+</div>
+<div class="section" id="some-noteworthy-details">
+<h3>Some Noteworthy Details<a class="headerlink" href="#some-noteworthy-details" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="relations-between-aten-tensor-and-mhlo-tensor">
+<h4>Relations Between <code class="docutils literal notranslate"><span class="pre">aten::Tensor</span></code> and <code class="docutils literal notranslate"><span class="pre">MHLO</span> <span class="pre">Tensor</span></code><a class="headerlink" href="#relations-between-aten-tensor-and-mhlo-tensor" title="Permalink to this headline">¶</a></h4>
+<p>An <code class="docutils literal notranslate"><span class="pre">aten::Tensor</span></code> is a memory buffer with shapes that can be viewed and modified
+in place. However, <code class="docutils literal notranslate"><span class="pre">MHLO</span> <span class="pre">Tensor</span></code> is immutable. Any operations on <code class="docutils literal notranslate"><span class="pre">MHLO</span> <span class="pre">Tensors</span></code>
+will create new <code class="docutils literal notranslate"><span class="pre">MHLO</span> <span class="pre">Tensors</span></code>. The memory buffer does not exist in the IR until
+the phrase lowers IR to LMHLO.</p>
+<p>To enlarge the supported region in TorchScript graph, TorchBlade tries to
+eliminate memory-write operations as much as possible and only clusters those
+graph nodes that will not cause data hazards.</p>
+</div>
+<div class="section" id="relations-between-scalar-and-0-rank-tensor">
+<h4>Relations Between <code class="docutils literal notranslate"><span class="pre">Scalar</span></code> and 0-Rank <code class="docutils literal notranslate"><span class="pre">Tensor</span></code><a class="headerlink" href="#relations-between-scalar-and-0-rank-tensor" title="Permalink to this headline">¶</a></h4>
+<ul class="simple">
+<li><p>A torch <code class="docutils literal notranslate"><span class="pre">aten::Tensor</span></code> can be viewed, reshaped, sliced, and modified. But a
+torch <code class="docutils literal notranslate"><span class="pre">Scalar</span></code> can’t</p></li>
+<li><p>A 0-rank <code class="docutils literal notranslate"><span class="pre">Tensor</span></code> in MHLO is equivalent to a <code class="docutils literal notranslate"><span class="pre">Scalar</span></code>, and they can be
+converted to each other. <code class="docutils literal notranslate"><span class="pre">Scalar</span></code> is preferred in TorchBlade, because it’s
+semantic is more precise. And <code class="docutils literal notranslate"><span class="pre">Scalars</span></code> would be converted 0-rank <code class="docutils literal notranslate"><span class="pre">Tensors</span></code> if
+need</p></li>
+<li><p>In TorchBlade, torch <code class="docutils literal notranslate"><span class="pre">Scalar</span></code> was converted to mlir standard dialect operator
+<code class="docutils literal notranslate"><span class="pre">mlir::ConstantOp</span></code> since <code class="docutils literal notranslate"><span class="pre">Scalar</span></code> is immutable</p></li>
+</ul>
+</div>
+<div class="section" id="how-torchblade-converts-list-scalar-and-list-tensor">
+<h4>How TorchBlade Converts <code class="docutils literal notranslate"><span class="pre">List[Scalar]</span></code> and <code class="docutils literal notranslate"><span class="pre">List[Tensor]</span></code><a class="headerlink" href="#how-torchblade-converts-list-scalar-and-list-tensor" title="Permalink to this headline">¶</a></h4>
+<p>TorchBlade only converts <code class="docutils literal notranslate"><span class="pre">List</span></code> of <code class="docutils literal notranslate"><span class="pre">Scalars</span></code> and <code class="docutils literal notranslate"><span class="pre">Tensors</span></code> whose elements can be
+analyzed statically at conversion time for now. Once the elements are known, we
+will imitate the operations of <code class="docutils literal notranslate"><span class="pre">List</span></code> at conversion time, so there is no need to
+preserve <code class="docutils literal notranslate"><span class="pre">List</span></code> anymore. Otherwise, the <code class="docutils literal notranslate"><span class="pre">List</span></code> operations will be left
+unsupported and fall back to PyTorch runtime, so does <code class="docutils literal notranslate"><span class="pre">Dict</span></code>.</p>
+</div>
+</div>
+</div>
+</div>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        </div>
+    </div>  
+
+</body>
+</html>

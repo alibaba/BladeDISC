@@ -1,0 +1,333 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>How to Contribute to Abseil &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a></li>
+        
+      <li>How to Contribute to Abseil</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../_sources/tao/third_party/abseil-cpp/CONTRIBUTING.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../README_.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#for-pytorch-users">For PyTorch Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/quickstart.html">Quickstart for TensorFlow/PyTorch users</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/developers/index.html">Documentation for Developers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/developers/pass_pipeline.html">Tutorial: A Walkthough of the BladeDISC Pass Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/developers/runtime_abstraction_layer.html">Runtime Abstraction Layer Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/developers/bladedisc_torch_overview.html">BladeDISC Torch Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/developers/torch_add_a_new_converter.html">Tutorial: How to add the support of a new Torch Op</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <div class="section" id="how-to-contribute-to-abseil">
+<h1>How to Contribute to Abseil<a class="headerlink" href="#how-to-contribute-to-abseil" title="Permalink to this headline">¶</a></h1>
+<p>We’d love to accept your patches and contributions to this project. There are
+just a few small guidelines you need to follow.</p>
+<p>NOTE: If you are new to GitHub, please start by reading <a class="reference external" href="https://help.github.com/articles/about-pull-requests/">Pull Request
+howto</a></p>
+<div class="section" id="contributor-license-agreement">
+<h2>Contributor License Agreement<a class="headerlink" href="#contributor-license-agreement" title="Permalink to this headline">¶</a></h2>
+<p>Contributions to this project must be accompanied by a Contributor License
+Agreement. You (or your employer) retain the copyright to your contribution,
+this simply gives us permission to use and redistribute your contributions as
+part of the project. Head over to <a class="reference external" href="https://cla.developers.google.com/">https://cla.developers.google.com/</a> to see
+your current agreements on file or to sign a new one.</p>
+<p>You generally only need to submit a CLA once, so if you’ve already submitted one
+(even if it was for a different project), you probably don’t need to do it
+again.</p>
+</div>
+<div class="section" id="contribution-guidelines">
+<h2>Contribution Guidelines<a class="headerlink" href="#contribution-guidelines" title="Permalink to this headline">¶</a></h2>
+<p>Potential contributors sometimes ask us if the Abseil project is the appropriate
+home for their utility library code or for specific functions implementing
+missing portions of the standard. Often, the answer to this question is “no”.
+We’d like to articulate our thinking on this issue so that our choices can be
+understood by everyone and so that contributors can have a better intuition
+about whether Abseil might be interested in adopting a new library.</p>
+<div class="section" id="priorities">
+<h3>Priorities<a class="headerlink" href="#priorities" title="Permalink to this headline">¶</a></h3>
+<p>Although our mission is to augment the C++ standard library, our goal is not to
+provide a full forward-compatible implementation of the latest standard. For us
+to consider a library for inclusion in Abseil, it is not enough that a library
+is useful. We generally choose to release a library when it meets at least one
+of the following criteria:</p>
+<ul class="simple">
+<li><p><strong>Widespread usage</strong> - Using our internal codebase to help gauge usage, most
+of the libraries we’ve released have tens of thousands of users.</p></li>
+<li><p><strong>Anticipated widespread usage</strong> - Pre-adoption of some standard-compliant
+APIs may not have broad adoption initially but can be expected to pick up
+usage when it replaces legacy APIs. <code class="docutils literal notranslate"><span class="pre">absl::from_chars</span></code>, for example,
+replaces existing code that converts strings to numbers and will therefore
+likely see usage growth.</p></li>
+<li><p><strong>High impact</strong> - APIs that provide a key solution to a specific problem,
+such as <code class="docutils literal notranslate"><span class="pre">absl::FixedArray</span></code>, have higher impact than usage numbers may signal
+and are released because of their importance.</p></li>
+<li><p><strong>Direct support for a library that falls under one of the above</strong> - When we
+want access to a smaller library as an implementation detail for a
+higher-priority library we plan to release, we may release it, as we did
+with portions of <code class="docutils literal notranslate"><span class="pre">absl/meta/type_traits.h</span></code>. One consequence of this is that
+the presence of a library in Abseil does not necessarily mean that other
+similar libraries would be a high priority.</p></li>
+</ul>
+</div>
+<div class="section" id="api-freeze-consequences">
+<h3>API Freeze Consequences<a class="headerlink" href="#api-freeze-consequences" title="Permalink to this headline">¶</a></h3>
+<p>Via the
+<a class="reference external" href="https://abseil.io/about/compatibility">Abseil Compatibility Guidelines</a>, we
+have promised a large degree of API stability. In particular, we will not make
+backward-incompatible changes to released APIs without also shipping a tool or
+process that can upgrade our users’ code. We are not yet at the point of easily
+releasing such tools. Therefore, at this time, shipping a library establishes an
+API contract which is borderline unchangeable. (We can add new functionality,
+but we cannot easily change existing behavior.) This constraint forces us to
+very carefully review all APIs that we ship.</p>
+</div>
+</div>
+<div class="section" id="coding-style">
+<h2>Coding Style<a class="headerlink" href="#coding-style" title="Permalink to this headline">¶</a></h2>
+<p>To keep the source consistent, readable, diffable and easy to merge, we use a
+fairly rigid coding style, as defined by the
+<a class="reference external" href="https://github.com/google/styleguide">google-styleguide</a> project. All patches
+will be expected to conform to the style outlined
+<a class="reference external" href="https://google.github.io/styleguide/cppguide.html">here</a>.</p>
+</div>
+<div class="section" id="guidelines-for-pull-requests">
+<h2>Guidelines for Pull Requests<a class="headerlink" href="#guidelines-for-pull-requests" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>If you are a Googler, it is preferable to first create an internal CL and
+have it reviewed and submitted. The code propagation process will deliver
+the change to GitHub.</p></li>
+<li><p>Create <strong>small PRs</strong> that are narrowly focused on <strong>addressing a single
+concern</strong>. We often receive PRs that are trying to fix several things at a
+time, but if only one fix is considered acceptable, nothing gets merged and
+both author’s &amp; review’s time is wasted. Create more PRs to address
+different concerns and everyone will be happy.</p></li>
+<li><p>For speculative changes, consider opening an <a class="reference external" href="https://github.com/abseil/abseil-cpp/issues">Abseil
+issue</a> and discussing it first.
+If you are suggesting a behavioral or API change, consider starting with an
+<a class="reference internal" href="ABSEIL_ISSUE_TEMPLATE.html"><span class="doc">Abseil proposal template</span></a>.</p></li>
+<li><p>Provide a good <strong>PR description</strong> as a record of <strong>what</strong> change is being
+made and <strong>why</strong> it was made. Link to a GitHub issue if it exists.</p></li>
+<li><p>Don’t fix code style and formatting unless you are already changing that
+line to address an issue. Formatting of modified lines may be done using
+<code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">clang-format</span></code>. PRs with irrelevant changes won’t be merged. If
+you do want to fix formatting or style, do that in a separate PR.</p></li>
+<li><p>Unless your PR is trivial, you should expect there will be reviewer comments
+that you’ll need to address before merging. We expect you to be reasonably
+responsive to those comments, otherwise the PR will be closed after 2-3
+weeks of inactivity.</p></li>
+<li><p>Maintain <strong>clean commit history</strong> and use <strong>meaningful commit messages</strong>.
+PRs with messy commit history are difficult to review and won’t be merged.
+Use <code class="docutils literal notranslate"><span class="pre">rebase</span> <span class="pre">-i</span> <span class="pre">upstream/master</span></code> to curate your commit history and/or to
+bring in latest changes from master (but avoid rebasing in the middle of a
+code review).</p></li>
+<li><p>Keep your PR up to date with upstream/master (if there are merge conflicts,
+we can’t really merge your change).</p></li>
+<li><p><strong>All tests need to be passing</strong> before your change can be merged. We
+recommend you <strong>run tests locally</strong> (see below)</p></li>
+<li><p>Exceptions to the rules can be made if there’s a compelling reason for doing
+so. That is - the rules are here to serve us, not the other way around, and
+the rules need to be serving their intended purpose to be valuable.</p></li>
+<li><p>All submissions, including submissions by project members, require review.</p></li>
+</ul>
+</div>
+<div class="section" id="running-tests">
+<h2>Running Tests<a class="headerlink" href="#running-tests" title="Permalink to this headline">¶</a></h2>
+<p>If you have <a class="reference external" href="https://bazel.build/">Bazel</a> installed, use <code class="docutils literal notranslate"><span class="pre">bazel</span> <span class="pre">test</span> <span class="pre">--test_tag_filters=&quot;-benchmark&quot;</span> <span class="pre">...</span></code> to run the unit tests.</p>
+<p>If you are running the Linux operating system and have
+<a class="reference external" href="https://www.docker.com/">Docker</a> installed, you can also run the <code class="docutils literal notranslate"><span class="pre">linux_*.sh</span></code>
+scripts under the <code class="docutils literal notranslate"><span class="pre">ci/</span></code>(https://github.com/abseil/abseil-cpp/tree/master/ci)
+directory to test Abseil under a variety of conditions.</p>
+</div>
+<div class="section" id="abseil-committers">
+<h2>Abseil Committers<a class="headerlink" href="#abseil-committers" title="Permalink to this headline">¶</a></h2>
+<p>The current members of the Abseil engineering team are the only committers at
+present.</p>
+</div>
+<div class="section" id="release-process">
+<h2>Release Process<a class="headerlink" href="#release-process" title="Permalink to this headline">¶</a></h2>
+<p>Abseil lives at head, where latest-and-greatest code can be found.</p>
+</div>
+</div>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        </div>
+    </div>  
+
+</body>
+</html>

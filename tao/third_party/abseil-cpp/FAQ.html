@@ -1,0 +1,355 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Abseil FAQ &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a></li>
+        
+      <li>Abseil FAQ</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../_sources/tao/third_party/abseil-cpp/FAQ.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../README_.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#for-pytorch-users">For PyTorch Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README_.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/quickstart.html">Quickstart for TensorFlow/PyTorch users</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/developers/index.html">Documentation for Developers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/developers/pass_pipeline.html">Tutorial: A Walkthough of the BladeDISC Pass Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/developers/runtime_abstraction_layer.html">Runtime Abstraction Layer Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/developers/bladedisc_torch_overview.html">BladeDISC Torch Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/developers/torch_add_a_new_converter.html">Tutorial: How to add the support of a new Torch Op</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <div class="section" id="abseil-faq">
+<h1>Abseil FAQ<a class="headerlink" href="#abseil-faq" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="is-abseil-the-right-home-for-my-utility-library">
+<h2>Is Abseil the right home for my utility library?<a class="headerlink" href="#is-abseil-the-right-home-for-my-utility-library" title="Permalink to this headline">¶</a></h2>
+<p>Most often the answer to the question is “no.” As both the <a class="reference external" href="https://abseil.io/about/">About
+Abseil</a> page and our <a class="reference external" href="https://github.com/abseil/abseil-cpp/blob/master/CONTRIBUTING.md#contribution-guidelines">contributing
+guidelines</a>
+explain, Abseil contains a variety of core C++ library code that is widely used
+at <a class="reference external" href="https://www.google.com/">Google</a>. As such, Abseil’s primary purpose is to be
+used as a dependency by Google’s open source C++ projects. While we do hope that
+Abseil is also useful to the C++ community at large, this added constraint also
+means that we are unlikely to accept a contribution of utility code that isn’t
+already widely used by Google.</p>
+</div>
+<div class="section" id="how-to-i-set-the-c-dialect-used-to-build-abseil">
+<h2>How to I set the C++ dialect used to build Abseil?<a class="headerlink" href="#how-to-i-set-the-c-dialect-used-to-build-abseil" title="Permalink to this headline">¶</a></h2>
+<p>The short answer is that whatever mechanism you choose, you need to make sure
+that you set this option consistently at the global level for your entire
+project. If, for example, you want to set the C++ dialect to C++17, with
+<a class="reference external" href="https://bazel/build/">Bazel</a> as the build system and <code class="docutils literal notranslate"><span class="pre">gcc</span></code> or <code class="docutils literal notranslate"><span class="pre">clang</span></code> as the
+compiler, there several ways to do this:</p>
+<ul class="simple">
+<li><p>Pass <code class="docutils literal notranslate"><span class="pre">--cxxopt=-std=c++17</span></code> on the command line (for example, <code class="docutils literal notranslate"><span class="pre">bazel</span> <span class="pre">build</span> <span class="pre">--cxxopt=-std=c++17</span> <span class="pre">...</span></code>)</p></li>
+<li><p>Set the environment variable <code class="docutils literal notranslate"><span class="pre">BAZEL_CXXOPTS</span></code> (for example,
+<code class="docutils literal notranslate"><span class="pre">BAZEL_CXXOPTS=-std=c++17</span></code>)</p></li>
+<li><p>Add <code class="docutils literal notranslate"><span class="pre">build</span> <span class="pre">--cxxopt=-std=c++17</span></code> to your <a class="reference external" href="https://docs.bazel.build/versions/master/guide.html#bazelrc"><code class="docutils literal notranslate"><span class="pre">.bazelrc</span></code>
+file</a></p></li>
+</ul>
+<p>If you are using CMake as the build system, you’ll need to add a line like
+<code class="docutils literal notranslate"><span class="pre">set(CMAKE_CXX_STANDARD</span> <span class="pre">17)</span></code> to your top level <code class="docutils literal notranslate"><span class="pre">CMakeLists.txt</span></code> file. If you
+are developing a library designed to be used by other clients, you should
+instead leave <code class="docutils literal notranslate"><span class="pre">CMAKE_CXX_STANDARD</span></code> unset and configure the minimum C++ standard
+required by each of your library targets via <code class="docutils literal notranslate"><span class="pre">target_compile_features</span></code>. See the
+<a class="reference external" href="https://github.com/abseil/abseil-cpp/blob/master/CMake/README.md">CMake build
+instructions</a>
+for more information.</p>
+<p>For a longer answer to this question and to understand why some other approaches
+don’t work, see the answer to <a class="reference external" href="#what-is-abi-and-why-dont-you-recommend-using-a-pre-compiled-version-of-abseil">“What is ABI and why don’t you recommend using a
+pre-compiled version of
+Abseil?”</a></p>
+</div>
+<div class="section" id="what-is-abi-and-why-don-t-you-recommend-using-a-pre-compiled-version-of-abseil">
+<h2>What is ABI and why don’t you recommend using a pre-compiled version of Abseil?<a class="headerlink" href="#what-is-abi-and-why-don-t-you-recommend-using-a-pre-compiled-version-of-abseil" title="Permalink to this headline">¶</a></h2>
+<p>For the purposes of this discussion, you can think of
+<a class="reference external" href="https://en.wikipedia.org/wiki/Application_binary_interface">ABI</a> as the
+compiled representation of the interfaces in code. This is in contrast to
+<a class="reference external" href="https://en.wikipedia.org/wiki/Application_programming_interface">API</a>, which
+you can think of as the interfaces as defined by the code itself. <a class="reference external" href="https://abseil.io/about/compatibility">Abseil has a
+strong promise of API compatibility, but does not make any promise of ABI
+compatibility</a>. Let’s take a look at what
+this means in practice.</p>
+<p>You might be tempted to do something like this in a
+<a class="reference external" href="https://bazel.build/">Bazel</a> <code class="docutils literal notranslate"><span class="pre">BUILD</span></code> file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="c1"># DON&#39;T DO THIS!!!</span>
+<span class="n">cc_library</span><span class="p">(</span>
+    <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;my_library&quot;</span><span class="p">,</span>
+    <span class="n">srcs</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;my_library.cc&quot;</span><span class="p">],</span>
+    <span class="n">copts</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;-std=c++17&quot;</span><span class="p">],</span>  <span class="c1"># May create a mixed-mode compile!</span>
+    <span class="n">deps</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;@com_google_absl//absl/strings&quot;</span><span class="p">],</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>Applying <code class="docutils literal notranslate"><span class="pre">-std=c++17</span></code> to an individual target in your <code class="docutils literal notranslate"><span class="pre">BUILD</span></code> file is going to
+compile that specific target in C++17 mode, but it isn’t going to ensure the
+Abseil library is built in C++17 mode, since the Abseil library itself is a
+different build target. If your code includes an Abseil header, then your
+program may contain conflicting definitions of the same
+class/function/variable/enum, etc. As a rule, all compile options that affect
+the ABI of a program need to be applied to the entire build on a global basis.</p>
+<p>C++ has something called the <a class="reference external" href="https://en.wikipedia.org/wiki/One_Definition_Rule">One Definition
+Rule</a> (ODR). C++ doesn’t
+allow multiple definitions of the same class/function/variable/enum, etc. ODR
+violations sometimes result in linker errors, but linkers do not always catch
+violations. Uncaught ODR violations can result in strange runtime behaviors or
+crashes that can be hard to debug.</p>
+<p>If you build the Abseil library and your code using different compile options
+that affect ABI, there is a good chance you will run afoul of the One Definition
+Rule. Examples of GCC compile options that affect ABI include (but aren’t
+limited to) language dialect (e.g. <code class="docutils literal notranslate"><span class="pre">-std=</span></code>), optimization level (e.g. <code class="docutils literal notranslate"><span class="pre">-O2</span></code>),
+code generation flags (e.g. <code class="docutils literal notranslate"><span class="pre">-fexceptions</span></code>), and preprocessor defines
+(e.g. <code class="docutils literal notranslate"><span class="pre">-DNDEBUG</span></code>).</p>
+<p>If you use a pre-compiled version of Abseil, (for example, from your Linux
+distribution package manager or from something like
+<a class="reference external" href="https://github.com/microsoft/vcpkg">vcpkg</a>) you have to be very careful to
+ensure ABI compatibility across the components of your program. The only way you
+can be sure your program is going to be correct regarding ABI is to ensure
+you’ve used the exact same compile options as were used to build the
+pre-compiled library. This does not mean that Abseil cannot work as part of a
+Linux distribution since a knowledgeable binary packager will have ensured that
+all packages have been built with consistent compile options. This is one of the
+reasons we warn against - though do not outright reject - using Abseil as a
+pre-compiled library.</p>
+<p>Another possible way that you might afoul of ABI issues is if you accidentally
+include two versions of Abseil in your program. Multiple versions of Abseil can
+end up within the same binary if your program uses the Abseil library and
+another library also transitively depends on Abseil (resulting in what is
+sometimes called the diamond dependency problem). In cases such as this you must
+structure your build so that all libraries use the same version of Abseil.
+<a class="reference external" href="https://abseil.io/about/compatibility">Abseil’s strong promise of API compatibility between
+releases</a> means the latest “HEAD” release
+of Abseil is almost certainly the right choice if you are doing as we recommend
+and building all of your code from source.</p>
+<p>For these reasons we recommend you avoid pre-compiled code and build the Abseil
+library yourself in a consistent manner with the rest of your code.</p>
+</div>
+<div class="section" id="what-is-live-at-head-and-how-do-i-do-it">
+<h2>What is “live at head” and how do I do it?<a class="headerlink" href="#what-is-live-at-head-and-how-do-i-do-it" title="Permalink to this headline">¶</a></h2>
+<p>From Abseil’s point-of-view, “live at head” means that every Abseil source
+release (which happens on an almost daily basis) is either API compatible with
+the previous release, or comes with an automated tool that you can run over code
+to make it compatible. In practice, the need to use an automated tool is
+extremely rare. This means that upgrading from one source release to another
+should be a routine practice that can and should be performed often.</p>
+<p>We recommend you update to the <a class="reference external" href="https://github.com/abseil/abseil-cpp/commits/master">latest commit in the <code class="docutils literal notranslate"><span class="pre">master</span></code> branch of
+Abseil</a> as often as
+possible. Not only will you pick up bug fixes more quickly, but if you have good
+automated testing, you will catch and be able to fix any <a class="reference external" href="https://www.hyrumslaw.com/">Hyrum’s
+Law</a> dependency problems on an incremental basis
+instead of being overwhelmed by them and having difficulty isolating them if you
+wait longer between updates.</p>
+<p>If you are using the <a class="reference external" href="https://bazel.build/">Bazel</a> build system and its
+<a class="reference external" href="https://docs.bazel.build/versions/master/external.html">external dependencies</a>
+feature, updating the
+<a class="reference external" href="https://docs.bazel.build/versions/master/repo/http.html#http_archive"><code class="docutils literal notranslate"><span class="pre">http_archive</span></code></a>
+rule in your
+<a class="reference external" href="https://docs.bazel.build/versions/master/be/workspace.html"><code class="docutils literal notranslate"><span class="pre">WORKSPACE</span></code></a> for
+<code class="docutils literal notranslate"><span class="pre">com_google_abseil</span></code> to point to the <a class="reference external" href="https://github.com/abseil/abseil-cpp/commits/master">latest commit in the <code class="docutils literal notranslate"><span class="pre">master</span></code> branch of
+Abseil</a> is all you need to
+do. For example, on February 11, 2020, the latest commit to the master branch
+was <code class="docutils literal notranslate"><span class="pre">98eb410c93ad059f9bba1bf43f5bb916fc92a5ea</span></code>. To update to this commit, you
+would add the following snippet to your <code class="docutils literal notranslate"><span class="pre">WORKSPACE</span></code> file:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">http_archive</span><span class="p">(</span>
+  <span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;com_google_absl&quot;</span><span class="p">,</span>
+  <span class="n">urls</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;https://github.com/abseil/abseil-cpp/archive/98eb410c93ad059f9bba1bf43f5bb916fc92a5ea.zip&quot;</span><span class="p">],</span>  <span class="c1"># 2020-02-11T18:50:53Z</span>
+  <span class="n">strip_prefix</span> <span class="o">=</span> <span class="s2">&quot;abseil-cpp-98eb410c93ad059f9bba1bf43f5bb916fc92a5ea&quot;</span><span class="p">,</span>
+  <span class="n">sha256</span> <span class="o">=</span> <span class="s2">&quot;aabf6c57e3834f8dc3873a927f37eaf69975d4b28117fc7427dfb1c661542a87&quot;</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>To get the <code class="docutils literal notranslate"><span class="pre">sha256</span></code> of this URL, run <code class="docutils literal notranslate"><span class="pre">curl</span> <span class="pre">-sL</span> <span class="pre">--output</span> <span class="pre">-</span> <span class="pre">https://github.com/abseil/abseil-cpp/archive/98eb410c93ad059f9bba1bf43f5bb916fc92a5ea.zip</span> <span class="pre">|</span> <span class="pre">sha256sum</span> <span class="pre">-</span></code>.</p>
+<p>You can commit the updated <code class="docutils literal notranslate"><span class="pre">WORKSPACE</span></code> file to your source control every time
+you update, and if you have good automated testing, you might even consider
+automating this.</p>
+<p>One thing we don’t recommend is using GitHub’s <code class="docutils literal notranslate"><span class="pre">master.zip</span></code> files (for example
+<a class="reference external" href="https://github.com/abseil/abseil-cpp/archive/master.zip">https://github.com/abseil/abseil-cpp/archive/master.zip</a>),
+which are always the latest commit in the <code class="docutils literal notranslate"><span class="pre">master</span></code> branch, to implement live at
+head. Since these <code class="docutils literal notranslate"><span class="pre">master.zip</span></code> URLs are not versioned, you will lose build
+reproducibility. In addition, some build systems, including Bazel, will simply
+cache this file, which means you won’t actually be updating to the latest
+release until your cache is cleared or invalidated.</p>
+</div>
+</div>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        </div>
+    </div>  
+
+</body>
+</html>

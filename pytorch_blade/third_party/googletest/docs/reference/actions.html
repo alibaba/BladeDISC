@@ -1,0 +1,452 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Actions Reference &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../../../index.html">Docs</a></li>
+        
+      <li>Actions Reference</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../../../_sources/pytorch_blade/third_party/googletest/docs/reference/actions.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../README_.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#for-pytorch-users">For PyTorch Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../docs/quickstart.html">Quickstart for TensorFlow/PyTorch users</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../docs/developers/index.html">Documentation for Developers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/developers/pass_pipeline.html">Tutorial: A Walkthough of the BladeDISC Pass Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/developers/runtime_abstraction_layer.html">Runtime Abstraction Layer Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/developers/bladedisc_torch_overview.html">BladeDISC Torch Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/developers/torch_add_a_new_converter.html">Tutorial: How to add the support of a new Torch Op</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <div class="section" id="actions-reference">
+<h1>Actions Reference<a class="headerlink" href="#actions-reference" title="Permalink to this headline">¶</a></h1>
+<p><a class="reference internal" href="../gmock_for_dummies.html#actions-what-should-it-do"><span class="std std-ref">Actions</span></a> specify what a
+mock function should do when invoked. This page lists the built-in actions
+provided by GoogleTest. All actions are defined in the <code class="docutils literal notranslate"><span class="pre">::testing</span></code> namespace.</p>
+<div class="section" id="returning-a-value">
+<h2>Returning a Value<a class="headerlink" href="#returning-a-value" title="Permalink to this headline">¶</a></h2>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th align="left">Action</th>
+<th align="left">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><code>Return()</code></td>
+<td align="left">Return from a <code>void</code> mock function.</td>
+</tr>
+<tr>
+<td align="left"><code>Return(value)</code></td>
+<td align="left">Return <code>value</code>. If the type of <code>value</code> is     different to the mock function's return type, <code>value</code> is converted to the latter type <i>at the time the expectation is set</i>, not when the action is executed.</td>
+</tr>
+<tr>
+<td align="left"><code>ReturnArg&lt;N&gt;()</code></td>
+<td align="left">Return the <code>N</code>-th (0-based) argument.</td>
+</tr>
+<tr>
+<td align="left"><code>ReturnNew&lt;T&gt;(a1, ..., ak)</code></td>
+<td align="left">Return <code>new T(a1, ..., ak)</code>; a different      object is created each time.</td>
+</tr>
+<tr>
+<td align="left"><code>ReturnNull()</code></td>
+<td align="left">Return a null pointer.</td>
+</tr>
+<tr>
+<td align="left"><code>ReturnPointee(ptr)</code></td>
+<td align="left">Return the value pointed to by <code>ptr</code>.</td>
+</tr>
+<tr>
+<td align="left"><code>ReturnRef(variable)</code></td>
+<td align="left">Return a reference to <code>variable</code>.</td>
+</tr>
+<tr>
+<td align="left"><code>ReturnRefOfCopy(value)</code></td>
+<td align="left">Return a reference to a copy of <code>value</code>; the  copy lives as long as the action.</td>
+</tr>
+<tr>
+<td align="left"><code>ReturnRoundRobin({a1, ..., ak})</code></td>
+<td align="left">Each call will return the next <code>ai</code> in the list, starting at the beginning when the end of the list is reached.</td>
+</tr>
+</tbody>
+</table></div>
+<div class="section" id="side-effects">
+<h2>Side Effects<a class="headerlink" href="#side-effects" title="Permalink to this headline">¶</a></h2>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th align="left">Action</th>
+<th align="left">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><code>Assign(&amp;variable, value)</code></td>
+<td align="left">Assign <code>value</code> to variable.</td>
+</tr>
+<tr>
+<td align="left"><code>DeleteArg&lt;N&gt;()</code></td>
+<td align="left">Delete the <code>N</code>-th (0-based) argument, which must be a pointer.</td>
+</tr>
+<tr>
+<td align="left"><code>SaveArg&lt;N&gt;(pointer)</code></td>
+<td align="left">Save the <code>N</code>-th (0-based) argument to <code>*pointer</code>.</td>
+</tr>
+<tr>
+<td align="left"><code>SaveArgPointee&lt;N&gt;(pointer)</code></td>
+<td align="left">Save the value pointed to by the <code>N</code>-th (0-based) argument to <code>*pointer</code>.</td>
+</tr>
+<tr>
+<td align="left"><code>SetArgReferee&lt;N&gt;(value)</code></td>
+<td align="left">Assign <code>value</code> to the variable referenced by the <code>N</code>-th (0-based) argument.</td>
+</tr>
+<tr>
+<td align="left"><code>SetArgPointee&lt;N&gt;(value)</code></td>
+<td align="left">Assign <code>value</code> to the variable pointed by the <code>N</code>-th (0-based) argument.</td>
+</tr>
+<tr>
+<td align="left"><code>SetArgumentPointee&lt;N&gt;(value)</code></td>
+<td align="left">Same as <code>SetArgPointee&lt;N&gt;(value)</code>. Deprecated. Will be removed in v1.7.0.</td>
+</tr>
+<tr>
+<td align="left"><code>SetArrayArgument&lt;N&gt;(first, last)</code></td>
+<td align="left">Copies the elements in source range [<code>first</code>, <code>last</code>) to the array pointed to by the <code>N</code>-th (0-based) argument, which can be either a pointer or an iterator. The action does not take ownership of the elements in the source range.</td>
+</tr>
+<tr>
+<td align="left"><code>SetErrnoAndReturn(error, value)</code></td>
+<td align="left">Set <code>errno</code> to <code>error</code> and return <code>value</code>.</td>
+</tr>
+<tr>
+<td align="left"><code>Throw(exception)</code></td>
+<td align="left">Throws the given exception, which can be any copyable value. Available since v1.1.0.</td>
+</tr>
+</tbody>
+</table></div>
+<div class="section" id="using-a-function-functor-or-lambda-as-an-action">
+<h2>Using a Function, Functor, or Lambda as an Action<a class="headerlink" href="#using-a-function-functor-or-lambda-as-an-action" title="Permalink to this headline">¶</a></h2>
+<p>In the following, by “callable” we mean a free function, <code class="docutils literal notranslate"><span class="pre">std::function</span></code>,
+functor, or lambda.</p>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th align="left">Action</th>
+<th align="left">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><code>f</code></td>
+<td align="left">Invoke <code>f</code> with the arguments passed to the mock function, where <code>f</code> is a callable.</td>
+</tr>
+<tr>
+<td align="left"><code>Invoke(f)</code></td>
+<td align="left">Invoke <code>f</code> with the arguments passed to the mock function, where <code>f</code> can be a global/static function or a functor.</td>
+</tr>
+<tr>
+<td align="left"><code>Invoke(object_pointer, &amp;class::method)</code></td>
+<td align="left">Invoke the method on the object with the arguments passed to the mock function.</td>
+</tr>
+<tr>
+<td align="left"><code>InvokeWithoutArgs(f)</code></td>
+<td align="left">Invoke <code>f</code>, which can be a global/static function or a functor. <code>f</code> must take no arguments.</td>
+</tr>
+<tr>
+<td align="left"><code>InvokeWithoutArgs(object_pointer, &amp;class::method)</code></td>
+<td align="left">Invoke the method on the object, which takes no arguments.</td>
+</tr>
+<tr>
+<td align="left"><code>InvokeArgument&lt;N&gt;(arg1, arg2, ..., argk)</code></td>
+<td align="left">Invoke the mock function's <code>N</code>-th (0-based) argument, which must be a function or a functor, with the <code>k</code> arguments.</td>
+</tr>
+</tbody>
+</table><p>The return value of the invoked function is used as the return value of the
+action.</p>
+<p>When defining a callable to be used with <code class="docutils literal notranslate"><span class="pre">Invoke*()</span></code>, you can declare any unused
+parameters as <code class="docutils literal notranslate"><span class="pre">Unused</span></code>:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">Invoke</span><span class="p">;</span>
+<span class="kt">double</span> <span class="nf">Distance</span><span class="p">(</span><span class="n">Unused</span><span class="p">,</span> <span class="kt">double</span> <span class="n">x</span><span class="p">,</span> <span class="kt">double</span> <span class="n">y</span><span class="p">)</span> <span class="p">{</span> <span class="k">return</span> <span class="n">sqrt</span><span class="p">(</span><span class="n">x</span><span class="o">*</span><span class="n">x</span> <span class="o">+</span> <span class="n">y</span><span class="o">*</span><span class="n">y</span><span class="p">);</span> <span class="p">}</span>
+<span class="p">...</span>
+<span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">mock</span><span class="p">,</span> <span class="n">Foo</span><span class="p">(</span><span class="s">&quot;Hi&quot;</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">)).</span><span class="n">WillOnce</span><span class="p">(</span><span class="n">Invoke</span><span class="p">(</span><span class="n">Distance</span><span class="p">));</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">Invoke(callback)</span></code> and <code class="docutils literal notranslate"><span class="pre">InvokeWithoutArgs(callback)</span></code> take ownership of
+<code class="docutils literal notranslate"><span class="pre">callback</span></code>, which must be permanent. The type of <code class="docutils literal notranslate"><span class="pre">callback</span></code> must be a base
+callback type instead of a derived one, e.g.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span>  <span class="n">BlockingClosure</span><span class="o">*</span> <span class="n">done</span> <span class="o">=</span> <span class="k">new</span> <span class="n">BlockingClosure</span><span class="p">;</span>
+  <span class="p">...</span> <span class="n">Invoke</span><span class="p">(</span><span class="n">done</span><span class="p">)</span> <span class="p">...;</span>  <span class="c1">// This won&#39;t compile!</span>
+
+  <span class="n">Closure</span><span class="o">*</span> <span class="n">done2</span> <span class="o">=</span> <span class="k">new</span> <span class="n">BlockingClosure</span><span class="p">;</span>
+  <span class="p">...</span> <span class="n">Invoke</span><span class="p">(</span><span class="n">done2</span><span class="p">)</span> <span class="p">...;</span>  <span class="c1">// This works.</span>
+</pre></div>
+</div>
+<p>In <code class="docutils literal notranslate"><span class="pre">InvokeArgument&lt;N&gt;(...)</span></code>, if an argument needs to be passed by reference,
+wrap it inside <code class="docutils literal notranslate"><span class="pre">std::ref()</span></code>. For example,</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">InvokeArgument</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="n">InvokeArgument</span><span class="o">&lt;</span><span class="mi">2</span><span class="o">&gt;</span><span class="p">(</span><span class="mi">5</span><span class="p">,</span> <span class="n">string</span><span class="p">(</span><span class="s">&quot;Hi&quot;</span><span class="p">),</span> <span class="n">std</span><span class="o">::</span><span class="n">ref</span><span class="p">(</span><span class="n">foo</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>calls the mock function’s #2 argument, passing to it <code class="docutils literal notranslate"><span class="pre">5</span></code> and <code class="docutils literal notranslate"><span class="pre">string(&quot;Hi&quot;)</span></code> by
+value, and <code class="docutils literal notranslate"><span class="pre">foo</span></code> by reference.</p>
+</div>
+<div class="section" id="default-action">
+<h2>Default Action<a class="headerlink" href="#default-action" title="Permalink to this headline">¶</a></h2>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th align="left">Action</th>
+<th align="left">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><code>DoDefault()</code></td>
+<td align="left">Do the default action (specified by <code>ON_CALL()</code> or the built-in one).</td>
+</tr>
+</tbody>
+</table><p>{: .callout .note}
+<strong>Note:</strong> due to technical reasons, <code class="docutils literal notranslate"><span class="pre">DoDefault()</span></code> cannot be used inside a
+composite action - trying to do so will result in a run-time error.</p>
+</div>
+<div class="section" id="composite-actions">
+<h2>Composite Actions<a class="headerlink" href="#composite-actions" title="Permalink to this headline">¶</a></h2>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th align="left">Action</th>
+<th align="left">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><code>DoAll(a1, a2, ..., an)</code></td>
+<td align="left">Do all actions <code>a1</code> to <code>an</code> and return the result of <code>an</code> in each invocation. The first <code>n - 1</code> sub-actions must return void and will receive a  readonly view of the arguments.</td>
+</tr>
+<tr>
+<td align="left"><code>IgnoreResult(a)</code></td>
+<td align="left">Perform action <code>a</code> and ignore its result. <code>a</code> must not return void.</td>
+</tr>
+<tr>
+<td align="left"><code>WithArg&lt;N&gt;(a)</code></td>
+<td align="left">Pass the <code>N</code>-th (0-based) argument of the mock function to action <code>a</code> and perform it.</td>
+</tr>
+<tr>
+<td align="left"><code>WithArgs&lt;N1, N2, ..., Nk&gt;(a)</code></td>
+<td align="left">Pass the selected (0-based) arguments of the mock function to action <code>a</code> and perform it.</td>
+</tr>
+<tr>
+<td align="left"><code>WithoutArgs(a)</code></td>
+<td align="left">Perform action <code>a</code> without any arguments.</td>
+</tr>
+</tbody>
+</table></div>
+<div class="section" id="defining-actions">
+<h2>Defining Actions<a class="headerlink" href="#defining-actions" title="Permalink to this headline">¶</a></h2>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th align="left">Macro</th>
+<th align="left">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left"><code>ACTION(Sum) { return arg0 + arg1; }</code></td>
+<td align="left">Defines an action <code>Sum()</code> to return the sum of the mock function's argument #0 and #1.</td>
+</tr>
+<tr>
+<td align="left"><code>ACTION_P(Plus, n) { return arg0 + n; }</code></td>
+<td align="left">Defines an action <code>Plus(n)</code> to return the sum of the mock function's argument #0 and <code>n</code>.</td>
+</tr>
+<tr>
+<td align="left"><code>ACTION_Pk(Foo, p1, ..., pk) { statements; }</code></td>
+<td align="left">Defines a parameterized action <code>Foo(p1, ..., pk)</code> to execute the given <code>statements</code>.</td>
+</tr>
+</tbody>
+</table><p>The <code class="docutils literal notranslate"><span class="pre">ACTION*</span></code> macros cannot be used inside a function or class.</p>
+</div>
+</div>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        </div>
+    </div>  
+
+</body>
+</html>

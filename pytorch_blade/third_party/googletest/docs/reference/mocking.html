@@ -1,0 +1,733 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Mocking Reference &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../../../index.html">Docs</a></li>
+        
+      <li>Mocking Reference</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../../../_sources/pytorch_blade/third_party/googletest/docs/reference/mocking.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../README_.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#for-pytorch-users">For PyTorch Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../README_.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../docs/quickstart.html">Quickstart for TensorFlow/PyTorch users</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../docs/developers/index.html">Documentation for Developers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/developers/pass_pipeline.html">Tutorial: A Walkthough of the BladeDISC Pass Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/developers/runtime_abstraction_layer.html">Runtime Abstraction Layer Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/developers/bladedisc_torch_overview.html">BladeDISC Torch Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/developers/torch_add_a_new_converter.html">Tutorial: How to add the support of a new Torch Op</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <div class="section" id="mocking-reference">
+<h1>Mocking Reference<a class="headerlink" href="#mocking-reference" title="Permalink to this headline">¶</a></h1>
+<p>This page lists the facilities provided by GoogleTest for creating and working
+with mock objects. To use them, include the header
+<code class="docutils literal notranslate"><span class="pre">gmock/gmock.h</span></code>.</p>
+<div class="section" id="macros-macros">
+<h2>Macros {#macros}<a class="headerlink" href="#macros-macros" title="Permalink to this headline">¶</a></h2>
+<p>GoogleTest defines the following macros for working with mocks.</p>
+<div class="section" id="mock-method-mock-method">
+<h3>MOCK_METHOD {#MOCK_METHOD}<a class="headerlink" href="#mock-method-mock-method" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">MOCK_METHOD(</span></code><em><code class="docutils literal notranslate"><span class="pre">return_type</span></code></em><code class="docutils literal notranslate"><span class="pre">,</span></code><em><code class="docutils literal notranslate"><span class="pre">method_name</span></code></em><code class="docutils literal notranslate"><span class="pre">,</span> <span class="pre">(</span></code><em><code class="docutils literal notranslate"><span class="pre">args...</span></code></em><code class="docutils literal notranslate"><span class="pre">));</span></code> <br /><code class="docutils literal notranslate"><span class="pre">MOCK_METHOD(</span></code><em><code class="docutils literal notranslate"><span class="pre">return_type</span></code></em><code class="docutils literal notranslate"><span class="pre">,</span></code><em><code class="docutils literal notranslate"><span class="pre">method_name</span></code></em><code class="docutils literal notranslate"><span class="pre">,</span> <span class="pre">(</span></code><em><code class="docutils literal notranslate"><span class="pre">args...</span></code></em><code class="docutils literal notranslate"><span class="pre">),</span> <span class="pre">(</span></code><em><code class="docutils literal notranslate"><span class="pre">specs...</span></code></em><code class="docutils literal notranslate"><span class="pre">));</span></code></p>
+<p>Defines a mock method <em><code class="docutils literal notranslate"><span class="pre">method_name</span></code></em> with arguments <code class="docutils literal notranslate"><span class="pre">(</span></code><em><code class="docutils literal notranslate"><span class="pre">args...</span></code></em><code class="docutils literal notranslate"><span class="pre">)</span></code> and
+return type <em><code class="docutils literal notranslate"><span class="pre">return_type</span></code></em> within a mock class.</p>
+<p>The parameters of <code class="docutils literal notranslate"><span class="pre">MOCK_METHOD</span></code> mirror the method declaration. The optional
+fourth parameter <em><code class="docutils literal notranslate"><span class="pre">specs...</span></code></em> is a comma-separated list of qualifiers. The
+following qualifiers are accepted:</p>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th>Qualifier</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>const</code></td>
+<td>Makes the mocked method a <code>const</code> method. Required if overriding a <code>const</code> method.</td>
+</tr>
+<tr>
+<td><code>override</code></td>
+<td>Marks the method with <code>override</code>. Recommended if overriding a <code>virtual</code> method.</td>
+</tr>
+<tr>
+<td><code>noexcept</code></td>
+<td>Marks the method with <code>noexcept</code>. Required if overriding a <code>noexcept</code> method.</td>
+</tr>
+<tr>
+<td><code>Calltype(</code><em><code>calltype</code></em><code>)</code></td>
+<td>Sets the call type for the method, for example <code>Calltype(STDMETHODCALLTYPE)</code>. Useful on Windows.</td>
+</tr>
+<tr>
+<td><code>ref(</code><em><code>qualifier</code></em><code>)</code></td>
+<td>Marks the method with the given reference qualifier, for example <code>ref(&amp;)</code> or <code>ref(&amp;&amp;)</code>. Required if overriding a method that has a reference qualifier.</td>
+</tr>
+</tbody>
+</table><p>Note that commas in arguments prevent <code class="docutils literal notranslate"><span class="pre">MOCK_METHOD</span></code> from parsing the arguments
+correctly if they are not appropriately surrounded by parentheses. See the
+following example:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">MyMock</span> <span class="p">{</span>
+ <span class="k">public</span><span class="o">:</span>
+  <span class="c1">// The following 2 lines will not compile due to commas in the arguments:</span>
+  <span class="n">MOCK_METHOD</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="kt">bool</span><span class="p">,</span> <span class="kt">int</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">GetPair</span><span class="p">,</span> <span class="p">());</span>              <span class="c1">// Error!</span>
+  <span class="n">MOCK_METHOD</span><span class="p">(</span><span class="kt">bool</span><span class="p">,</span> <span class="n">CheckMap</span><span class="p">,</span> <span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span> <span class="kt">double</span><span class="o">&gt;</span><span class="p">,</span> <span class="kt">bool</span><span class="p">));</span>  <span class="c1">// Error!</span>
+
+  <span class="c1">// One solution - wrap arguments that contain commas in parentheses:</span>
+  <span class="n">MOCK_METHOD</span><span class="p">((</span><span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="kt">bool</span><span class="p">,</span> <span class="kt">int</span><span class="o">&gt;</span><span class="p">),</span> <span class="n">GetPair</span><span class="p">,</span> <span class="p">());</span>
+  <span class="n">MOCK_METHOD</span><span class="p">(</span><span class="kt">bool</span><span class="p">,</span> <span class="n">CheckMap</span><span class="p">,</span> <span class="p">((</span><span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span> <span class="kt">double</span><span class="o">&gt;</span><span class="p">),</span> <span class="kt">bool</span><span class="p">));</span>
+
+  <span class="c1">// Another solution - use type aliases:</span>
+  <span class="k">using</span> <span class="n">BoolAndInt</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">pair</span><span class="o">&lt;</span><span class="kt">bool</span><span class="p">,</span> <span class="kt">int</span><span class="o">&gt;</span><span class="p">;</span>
+  <span class="n">MOCK_METHOD</span><span class="p">(</span><span class="n">BoolAndInt</span><span class="p">,</span> <span class="n">GetPair</span><span class="p">,</span> <span class="p">());</span>
+  <span class="k">using</span> <span class="n">MapIntDouble</span> <span class="o">=</span> <span class="n">std</span><span class="o">::</span><span class="n">map</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span> <span class="kt">double</span><span class="o">&gt;</span><span class="p">;</span>
+  <span class="n">MOCK_METHOD</span><span class="p">(</span><span class="kt">bool</span><span class="p">,</span> <span class="n">CheckMap</span><span class="p">,</span> <span class="p">(</span><span class="n">MapIntDouble</span><span class="p">,</span> <span class="kt">bool</span><span class="p">));</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">MOCK_METHOD</span></code> must be used in the <code class="docutils literal notranslate"><span class="pre">public:</span></code> section of a mock class definition,
+regardless of whether the method being mocked is <code class="docutils literal notranslate"><span class="pre">public</span></code>, <code class="docutils literal notranslate"><span class="pre">protected</span></code>, or
+<code class="docutils literal notranslate"><span class="pre">private</span></code> in the base class.</p>
+</div>
+<div class="section" id="expect-call-expect-call">
+<h3>EXPECT_CALL {#EXPECT_CALL}<a class="headerlink" href="#expect-call-expect-call" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">EXPECT_CALL(</span></code><em><code class="docutils literal notranslate"><span class="pre">mock_object</span></code></em><code class="docutils literal notranslate"><span class="pre">,</span></code><em><code class="docutils literal notranslate"><span class="pre">method_name</span></code></em><code class="docutils literal notranslate"><span class="pre">(</span></code><em><code class="docutils literal notranslate"><span class="pre">matchers...</span></code></em><code class="docutils literal notranslate"><span class="pre">))</span></code></p>
+<p>Creates an <a class="reference internal" href="../gmock_for_dummies.html#setting-expectations"><span class="std std-ref">expectation</span></a> that the
+method <em><code class="docutils literal notranslate"><span class="pre">method_name</span></code></em> of the object <em><code class="docutils literal notranslate"><span class="pre">mock_object</span></code></em> is called with arguments
+that match the given matchers <em><code class="docutils literal notranslate"><span class="pre">matchers...</span></code></em>. <code class="docutils literal notranslate"><span class="pre">EXPECT_CALL</span></code> must precede any
+code that exercises the mock object.</p>
+<p>The parameter <em><code class="docutils literal notranslate"><span class="pre">matchers...</span></code></em> is a comma-separated list of
+<a class="reference internal" href="../gmock_for_dummies.html#matchers-what-arguments-do-we-expect"><span class="std std-ref">matchers</span></a> that
+correspond to each argument of the method <em><code class="docutils literal notranslate"><span class="pre">method_name</span></code></em>. The expectation will
+apply only to calls of <em><code class="docutils literal notranslate"><span class="pre">method_name</span></code></em> whose arguments match all of the
+matchers. If <code class="docutils literal notranslate"><span class="pre">(</span></code><em><code class="docutils literal notranslate"><span class="pre">matchers...</span></code></em><code class="docutils literal notranslate"><span class="pre">)</span></code> is omitted, the expectation behaves as if
+each argument’s matcher were a <a class="reference internal" href="matchers.html#wildcard"><span class="std std-ref">wildcard matcher (_)</span></a>.
+See the <a class="reference internal" href="matchers.html"><span class="doc">Matchers Reference</span></a> for a list of all built-in matchers.</p>
+<p>The following chainable clauses can be used to modify the expectation, and they
+must be used in the following order:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">mock_object</span><span class="p">,</span> <span class="n">method_name</span><span class="p">(</span><span class="n">matchers</span><span class="p">...))</span>
+    <span class="p">.</span><span class="n">With</span><span class="p">(</span><span class="n">multi_argument_matcher</span><span class="p">)</span>  <span class="c1">// Can be used at most once</span>
+    <span class="p">.</span><span class="n">Times</span><span class="p">(</span><span class="n">cardinality</span><span class="p">)</span>            <span class="c1">// Can be used at most once</span>
+    <span class="p">.</span><span class="n">InSequence</span><span class="p">(</span><span class="n">sequences</span><span class="p">...)</span>      <span class="c1">// Can be used any number of times</span>
+    <span class="p">.</span><span class="n">After</span><span class="p">(</span><span class="n">expectations</span><span class="p">...)</span>        <span class="c1">// Can be used any number of times</span>
+    <span class="p">.</span><span class="n">WillOnce</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>              <span class="c1">// Can be used any number of times</span>
+    <span class="p">.</span><span class="n">WillRepeatedly</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>        <span class="c1">// Can be used at most once</span>
+    <span class="p">.</span><span class="n">RetiresOnSaturation</span><span class="p">();</span>        <span class="c1">// Can be used at most once</span>
+</pre></div>
+</div>
+<p>See details for each modifier clause below.</p>
+<div class="section" id="with-expect-call-with">
+<h4>With {#EXPECT_CALL.With}<a class="headerlink" href="#with-expect-call-with" title="Permalink to this headline">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">.With(</span></code><em><code class="docutils literal notranslate"><span class="pre">multi_argument_matcher</span></code></em><code class="docutils literal notranslate"><span class="pre">)</span></code></p>
+<p>Restricts the expectation to apply only to mock function calls whose arguments
+as a whole match the multi-argument matcher <em><code class="docutils literal notranslate"><span class="pre">multi_argument_matcher</span></code></em>.</p>
+<p>GoogleTest passes all of the arguments as one tuple into the matcher. The
+parameter <em><code class="docutils literal notranslate"><span class="pre">multi_argument_matcher</span></code></em> must thus be a matcher of type
+<code class="docutils literal notranslate"><span class="pre">Matcher&lt;std::tuple&lt;A1,</span> <span class="pre">...,</span> <span class="pre">An&gt;&gt;</span></code>, where <code class="docutils literal notranslate"><span class="pre">A1,</span> <span class="pre">...,</span> <span class="pre">An</span></code> are the types of the
+function arguments.</p>
+<p>For example, the following code sets the expectation that
+<code class="docutils literal notranslate"><span class="pre">my_mock.SetPosition()</span></code> is called with any two arguments, the first argument
+being less than the second:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">_</span><span class="p">;</span>
+<span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">Lt</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">SetPosition</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">))</span>
+    <span class="p">.</span><span class="n">With</span><span class="p">(</span><span class="n">Lt</span><span class="p">());</span>
+</pre></div>
+</div>
+<p>GoogleTest provides some built-in matchers for 2-tuples, including the <code class="docutils literal notranslate"><span class="pre">Lt()</span></code>
+matcher above. See Multi-argument Matchers.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">With</span></code> clause can be used at most once on an expectation and must be the
+first clause.</p>
+</div>
+<div class="section" id="times-expect-call-times">
+<h4>Times {#EXPECT_CALL.Times}<a class="headerlink" href="#times-expect-call-times" title="Permalink to this headline">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">.Times(</span></code><em><code class="docutils literal notranslate"><span class="pre">cardinality</span></code></em><code class="docutils literal notranslate"><span class="pre">)</span></code></p>
+<p>Specifies how many times the mock function call is expected.</p>
+<p>The parameter <em><code class="docutils literal notranslate"><span class="pre">cardinality</span></code></em> represents the number of expected calls and can be
+one of the following, all defined in the <code class="docutils literal notranslate"><span class="pre">::testing</span></code> namespace:</p>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th>Cardinality</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>AnyNumber()</code></td>
+<td>The function can be called any number of times.</td>
+</tr>
+<tr>
+<td><code>AtLeast(n)</code></td>
+<td>The function call is expected at least <em>n</em> times.</td>
+</tr>
+<tr>
+<td><code>AtMost(n)</code></td>
+<td>The function call is expected at most <em>n</em> times.</td>
+</tr>
+<tr>
+<td><code>Between(m, n)</code></td>
+<td>The function call is expected between <em>m</em> and <em>n</em> times, inclusive.</td>
+</tr>
+<tr>
+<td><code>Exactly(n)</code> or <code>n</code></td>
+<td>The function call is expected exactly <em>n</em> times. If <em>n</em> is 0, the call should never happen.</td>
+</tr>
+</tbody>
+</table><p>If the <code class="docutils literal notranslate"><span class="pre">Times</span></code> clause is omitted, GoogleTest infers the cardinality as follows:</p>
+<ul class="simple">
+<li><p>If neither <a class="reference external" href="#EXPECT_CALL.WillOnce"><code class="docutils literal notranslate"><span class="pre">WillOnce</span></code></a> nor
+<a class="reference external" href="#EXPECT_CALL.WillRepeatedly"><code class="docutils literal notranslate"><span class="pre">WillRepeatedly</span></code></a> are specified, the inferred
+cardinality is <code class="docutils literal notranslate"><span class="pre">Times(1)</span></code>.</p></li>
+<li><p>If there are <em>n</em> <code class="docutils literal notranslate"><span class="pre">WillOnce</span></code> clauses and no <code class="docutils literal notranslate"><span class="pre">WillRepeatedly</span></code> clause, where
+<em>n</em> &gt;= 1, the inferred cardinality is <code class="docutils literal notranslate"><span class="pre">Times(n)</span></code>.</p></li>
+<li><p>If there are <em>n</em> <code class="docutils literal notranslate"><span class="pre">WillOnce</span></code> clauses and one <code class="docutils literal notranslate"><span class="pre">WillRepeatedly</span></code> clause, where
+<em>n</em> &gt;= 0, the inferred cardinality is <code class="docutils literal notranslate"><span class="pre">Times(AtLeast(n))</span></code>.</p></li>
+</ul>
+<p>The <code class="docutils literal notranslate"><span class="pre">Times</span></code> clause can be used at most once on an expectation.</p>
+</div>
+<div class="section" id="insequence-expect-call-insequence">
+<h4>InSequence {#EXPECT_CALL.InSequence}<a class="headerlink" href="#insequence-expect-call-insequence" title="Permalink to this headline">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">.InSequence(</span></code><em><code class="docutils literal notranslate"><span class="pre">sequences...</span></code></em><code class="docutils literal notranslate"><span class="pre">)</span></code></p>
+<p>Specifies that the mock function call is expected in a certain sequence.</p>
+<p>The parameter <em><code class="docutils literal notranslate"><span class="pre">sequences...</span></code></em> is any number of <a class="reference external" href="#Sequence"><code class="docutils literal notranslate"><span class="pre">Sequence</span></code></a> objects.
+Expected calls assigned to the same sequence are expected to occur in the order
+the expectations are declared.</p>
+<p>For example, the following code sets the expectation that the <code class="docutils literal notranslate"><span class="pre">Reset()</span></code> method
+of <code class="docutils literal notranslate"><span class="pre">my_mock</span></code> is called before both <code class="docutils literal notranslate"><span class="pre">GetSize()</span></code> and <code class="docutils literal notranslate"><span class="pre">Describe()</span></code>, and <code class="docutils literal notranslate"><span class="pre">GetSize()</span></code>
+and <code class="docutils literal notranslate"><span class="pre">Describe()</span></code> can occur in any order relative to each other:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">Sequence</span><span class="p">;</span>
+<span class="n">Sequence</span> <span class="n">s1</span><span class="p">,</span> <span class="n">s2</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">Reset</span><span class="p">())</span>
+    <span class="p">.</span><span class="n">InSequence</span><span class="p">(</span><span class="n">s1</span><span class="p">,</span> <span class="n">s2</span><span class="p">);</span>
+<span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">GetSize</span><span class="p">())</span>
+    <span class="p">.</span><span class="n">InSequence</span><span class="p">(</span><span class="n">s1</span><span class="p">);</span>
+<span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">Describe</span><span class="p">())</span>
+    <span class="p">.</span><span class="n">InSequence</span><span class="p">(</span><span class="n">s2</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">InSequence</span></code> clause can be used any number of times on an expectation.</p>
+<p>See also the <a class="reference external" href="#InSequence"><code class="docutils literal notranslate"><span class="pre">InSequence</span></code> class</a>.</p>
+</div>
+<div class="section" id="after-expect-call-after">
+<h4>After {#EXPECT_CALL.After}<a class="headerlink" href="#after-expect-call-after" title="Permalink to this headline">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">.After(</span></code><em><code class="docutils literal notranslate"><span class="pre">expectations...</span></code></em><code class="docutils literal notranslate"><span class="pre">)</span></code></p>
+<p>Specifies that the mock function call is expected to occur after one or more
+other calls.</p>
+<p>The parameter <em><code class="docutils literal notranslate"><span class="pre">expectations...</span></code></em> can be up to five
+<a class="reference external" href="#Expectation"><code class="docutils literal notranslate"><span class="pre">Expectation</span></code></a> or <a class="reference external" href="#ExpectationSet"><code class="docutils literal notranslate"><span class="pre">ExpectationSet</span></code></a> objects.
+The mock function call is expected to occur after all of the given expectations.</p>
+<p>For example, the following code sets the expectation that the <code class="docutils literal notranslate"><span class="pre">Describe()</span></code>
+method of <code class="docutils literal notranslate"><span class="pre">my_mock</span></code> is called only after both <code class="docutils literal notranslate"><span class="pre">InitX()</span></code> and <code class="docutils literal notranslate"><span class="pre">InitY()</span></code> have been
+called.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">Expectation</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="n">Expectation</span> <span class="n">init_x</span> <span class="o">=</span> <span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">InitX</span><span class="p">());</span>
+<span class="n">Expectation</span> <span class="n">init_y</span> <span class="o">=</span> <span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">InitY</span><span class="p">());</span>
+<span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">Describe</span><span class="p">())</span>
+    <span class="p">.</span><span class="n">After</span><span class="p">(</span><span class="n">init_x</span><span class="p">,</span> <span class="n">init_y</span><span class="p">);</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">ExpectationSet</span></code> object is helpful when the number of prerequisites for an
+expectation is large or variable, for example:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">ExpectationSet</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="n">ExpectationSet</span> <span class="n">all_inits</span><span class="p">;</span>
+<span class="c1">// Collect all expectations of InitElement() calls</span>
+<span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">element_count</span><span class="p">;</span> <span class="n">i</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">all_inits</span> <span class="o">+=</span> <span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">InitElement</span><span class="p">(</span><span class="n">i</span><span class="p">));</span>
+<span class="p">}</span>
+<span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">Describe</span><span class="p">())</span>
+    <span class="p">.</span><span class="n">After</span><span class="p">(</span><span class="n">all_inits</span><span class="p">);</span>  <span class="c1">// Expect Describe() call after all InitElement() calls</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">After</span></code> clause can be used any number of times on an expectation.</p>
+</div>
+<div class="section" id="willonce-expect-call-willonce">
+<h4>WillOnce {#EXPECT_CALL.WillOnce}<a class="headerlink" href="#willonce-expect-call-willonce" title="Permalink to this headline">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">.WillOnce(</span></code><em><code class="docutils literal notranslate"><span class="pre">action</span></code></em><code class="docutils literal notranslate"><span class="pre">)</span></code></p>
+<p>Specifies the mock function’s actual behavior when invoked, for a single
+matching function call.</p>
+<p>The parameter <em><code class="docutils literal notranslate"><span class="pre">action</span></code></em> represents the
+<a class="reference internal" href="../gmock_for_dummies.html#actions-what-should-it-do"><span class="std std-ref">action</span></a> that the function
+call will perform. See the <a class="reference internal" href="actions.html"><span class="doc">Actions Reference</span></a> for a list of
+built-in actions.</p>
+<p>The use of <code class="docutils literal notranslate"><span class="pre">WillOnce</span></code> implicitly sets a cardinality on the expectation when
+<code class="docutils literal notranslate"><span class="pre">Times</span></code> is not specified. See <a class="reference external" href="#EXPECT_CALL.Times"><code class="docutils literal notranslate"><span class="pre">Times</span></code></a>.</p>
+<p>Each matching function call will perform the next action in the order declared.
+For example, the following code specifies that <code class="docutils literal notranslate"><span class="pre">my_mock.GetNumber()</span></code> is expected
+to be called exactly 3 times and will return <code class="docutils literal notranslate"><span class="pre">1</span></code>, <code class="docutils literal notranslate"><span class="pre">2</span></code>, and <code class="docutils literal notranslate"><span class="pre">3</span></code> respectively on
+the first, second, and third calls:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">Return</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">GetNumber</span><span class="p">())</span>
+    <span class="p">.</span><span class="n">WillOnce</span><span class="p">(</span><span class="n">Return</span><span class="p">(</span><span class="mi">1</span><span class="p">))</span>
+    <span class="p">.</span><span class="n">WillOnce</span><span class="p">(</span><span class="n">Return</span><span class="p">(</span><span class="mi">2</span><span class="p">))</span>
+    <span class="p">.</span><span class="n">WillOnce</span><span class="p">(</span><span class="n">Return</span><span class="p">(</span><span class="mi">3</span><span class="p">));</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">WillOnce</span></code> clause can be used any number of times on an expectation.</p>
+</div>
+<div class="section" id="willrepeatedly-expect-call-willrepeatedly">
+<h4>WillRepeatedly {#EXPECT_CALL.WillRepeatedly}<a class="headerlink" href="#willrepeatedly-expect-call-willrepeatedly" title="Permalink to this headline">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">.WillRepeatedly(</span></code><em><code class="docutils literal notranslate"><span class="pre">action</span></code></em><code class="docutils literal notranslate"><span class="pre">)</span></code></p>
+<p>Specifies the mock function’s actual behavior when invoked, for all subsequent
+matching function calls. Takes effect after the actions specified in the
+<a class="reference external" href="#EXPECT_CALL.WillOnce"><code class="docutils literal notranslate"><span class="pre">WillOnce</span></code></a> clauses, if any, have been performed.</p>
+<p>The parameter <em><code class="docutils literal notranslate"><span class="pre">action</span></code></em> represents the
+<a class="reference internal" href="../gmock_for_dummies.html#actions-what-should-it-do"><span class="std std-ref">action</span></a> that the function
+call will perform. See the <a class="reference internal" href="actions.html"><span class="doc">Actions Reference</span></a> for a list of
+built-in actions.</p>
+<p>The use of <code class="docutils literal notranslate"><span class="pre">WillRepeatedly</span></code> implicitly sets a cardinality on the expectation
+when <code class="docutils literal notranslate"><span class="pre">Times</span></code> is not specified. See <a class="reference external" href="#EXPECT_CALL.Times"><code class="docutils literal notranslate"><span class="pre">Times</span></code></a>.</p>
+<p>If any <code class="docutils literal notranslate"><span class="pre">WillOnce</span></code> clauses have been specified, matching function calls will
+perform those actions before the action specified by <code class="docutils literal notranslate"><span class="pre">WillRepeatedly</span></code>. See the
+following example:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">Return</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">GetName</span><span class="p">())</span>
+    <span class="p">.</span><span class="n">WillRepeatedly</span><span class="p">(</span><span class="n">Return</span><span class="p">(</span><span class="s">&quot;John Doe&quot;</span><span class="p">));</span>  <span class="c1">// Return &quot;John Doe&quot; on all calls</span>
+
+<span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">GetNumber</span><span class="p">())</span>
+    <span class="p">.</span><span class="n">WillOnce</span><span class="p">(</span><span class="n">Return</span><span class="p">(</span><span class="mi">42</span><span class="p">))</span>        <span class="c1">// Return 42 on the first call</span>
+    <span class="p">.</span><span class="n">WillRepeatedly</span><span class="p">(</span><span class="n">Return</span><span class="p">(</span><span class="mi">7</span><span class="p">));</span>  <span class="c1">// Return 7 on all subsequent calls</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">WillRepeatedly</span></code> clause can be used at most once on an expectation.</p>
+</div>
+<div class="section" id="retiresonsaturation-expect-call-retiresonsaturation">
+<h4>RetiresOnSaturation {#EXPECT_CALL.RetiresOnSaturation}<a class="headerlink" href="#retiresonsaturation-expect-call-retiresonsaturation" title="Permalink to this headline">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">.RetiresOnSaturation()</span></code></p>
+<p>Indicates that the expectation will no longer be active after the expected
+number of matching function calls has been reached.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">RetiresOnSaturation</span></code> clause is only meaningful for expectations with an
+upper-bounded cardinality. The expectation will <em>retire</em> (no longer match any
+function calls) after it has been <em>saturated</em> (the upper bound has been
+reached). See the following example:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">_</span><span class="p">;</span>
+<span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">AnyNumber</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">SetNumber</span><span class="p">(</span><span class="n">_</span><span class="p">))</span>  <span class="c1">// Expectation 1</span>
+    <span class="p">.</span><span class="n">Times</span><span class="p">(</span><span class="n">AnyNumber</span><span class="p">());</span>
+<span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">SetNumber</span><span class="p">(</span><span class="mi">7</span><span class="p">))</span>  <span class="c1">// Expectation 2</span>
+    <span class="p">.</span><span class="n">Times</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span>
+    <span class="p">.</span><span class="n">RetiresOnSaturation</span><span class="p">();</span>
+</pre></div>
+</div>
+<p>In the above example, the first two calls to <code class="docutils literal notranslate"><span class="pre">my_mock.SetNumber(7)</span></code> match
+expectation 2, which then becomes inactive and no longer matches any calls. A
+third call to <code class="docutils literal notranslate"><span class="pre">my_mock.SetNumber(7)</span></code> would then match expectation 1. Without
+<code class="docutils literal notranslate"><span class="pre">RetiresOnSaturation()</span></code> on expectation 2, a third call to <code class="docutils literal notranslate"><span class="pre">my_mock.SetNumber(7)</span></code>
+would match expectation 2 again, producing a failure since the limit of 2 calls
+was exceeded.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">RetiresOnSaturation</span></code> clause can be used at most once on an expectation and
+must be the last clause.</p>
+</div>
+</div>
+<div class="section" id="on-call-on-call">
+<h3>ON_CALL {#ON_CALL}<a class="headerlink" href="#on-call-on-call" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">ON_CALL(</span></code><em><code class="docutils literal notranslate"><span class="pre">mock_object</span></code></em><code class="docutils literal notranslate"><span class="pre">,</span></code><em><code class="docutils literal notranslate"><span class="pre">method_name</span></code></em><code class="docutils literal notranslate"><span class="pre">(</span></code><em><code class="docutils literal notranslate"><span class="pre">matchers...</span></code></em><code class="docutils literal notranslate"><span class="pre">))</span></code></p>
+<p>Defines what happens when the method <em><code class="docutils literal notranslate"><span class="pre">method_name</span></code></em> of the object
+<em><code class="docutils literal notranslate"><span class="pre">mock_object</span></code></em> is called with arguments that match the given matchers
+<em><code class="docutils literal notranslate"><span class="pre">matchers...</span></code></em>. Requires a modifier clause to specify the method’s behavior.
+<em>Does not</em> set any expectations that the method will be called.</p>
+<p>The parameter <em><code class="docutils literal notranslate"><span class="pre">matchers...</span></code></em> is a comma-separated list of
+<a class="reference internal" href="../gmock_for_dummies.html#matchers-what-arguments-do-we-expect"><span class="std std-ref">matchers</span></a> that
+correspond to each argument of the method <em><code class="docutils literal notranslate"><span class="pre">method_name</span></code></em>. The <code class="docutils literal notranslate"><span class="pre">ON_CALL</span></code>
+specification will apply only to calls of <em><code class="docutils literal notranslate"><span class="pre">method_name</span></code></em> whose arguments match
+all of the matchers. If <code class="docutils literal notranslate"><span class="pre">(</span></code><em><code class="docutils literal notranslate"><span class="pre">matchers...</span></code></em><code class="docutils literal notranslate"><span class="pre">)</span></code> is omitted, the behavior is as if
+each argument’s matcher were a <a class="reference internal" href="matchers.html#wildcard"><span class="std std-ref">wildcard matcher (_)</span></a>.
+See the <a class="reference internal" href="matchers.html"><span class="doc">Matchers Reference</span></a> for a list of all built-in matchers.</p>
+<p>The following chainable clauses can be used to set the method’s behavior, and
+they must be used in the following order:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">ON_CALL</span><span class="p">(</span><span class="n">mock_object</span><span class="p">,</span> <span class="n">method_name</span><span class="p">(</span><span class="n">matchers</span><span class="p">...))</span>
+    <span class="p">.</span><span class="n">With</span><span class="p">(</span><span class="n">multi_argument_matcher</span><span class="p">)</span>  <span class="c1">// Can be used at most once</span>
+    <span class="p">.</span><span class="n">WillByDefault</span><span class="p">(</span><span class="n">action</span><span class="p">);</span>        <span class="c1">// Required</span>
+</pre></div>
+</div>
+<p>See details for each modifier clause below.</p>
+<div class="section" id="with-on-call-with">
+<h4>With {#ON_CALL.With}<a class="headerlink" href="#with-on-call-with" title="Permalink to this headline">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">.With(</span></code><em><code class="docutils literal notranslate"><span class="pre">multi_argument_matcher</span></code></em><code class="docutils literal notranslate"><span class="pre">)</span></code></p>
+<p>Restricts the specification to only mock function calls whose arguments as a
+whole match the multi-argument matcher <em><code class="docutils literal notranslate"><span class="pre">multi_argument_matcher</span></code></em>.</p>
+<p>GoogleTest passes all of the arguments as one tuple into the matcher. The
+parameter <em><code class="docutils literal notranslate"><span class="pre">multi_argument_matcher</span></code></em> must thus be a matcher of type
+<code class="docutils literal notranslate"><span class="pre">Matcher&lt;std::tuple&lt;A1,</span> <span class="pre">...,</span> <span class="pre">An&gt;&gt;</span></code>, where <code class="docutils literal notranslate"><span class="pre">A1,</span> <span class="pre">...,</span> <span class="pre">An</span></code> are the types of the
+function arguments.</p>
+<p>For example, the following code sets the default behavior when
+<code class="docutils literal notranslate"><span class="pre">my_mock.SetPosition()</span></code> is called with any two arguments, the first argument
+being less than the second:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">_</span><span class="p">;</span>
+<span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">Lt</span><span class="p">;</span>
+<span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">Return</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="n">ON_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">SetPosition</span><span class="p">(</span><span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">))</span>
+    <span class="p">.</span><span class="n">With</span><span class="p">(</span><span class="n">Lt</span><span class="p">())</span>
+    <span class="p">.</span><span class="n">WillByDefault</span><span class="p">(</span><span class="n">Return</span><span class="p">(</span><span class="nb">true</span><span class="p">));</span>
+</pre></div>
+</div>
+<p>GoogleTest provides some built-in matchers for 2-tuples, including the <code class="docutils literal notranslate"><span class="pre">Lt()</span></code>
+matcher above. See Multi-argument Matchers.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">With</span></code> clause can be used at most once with each <code class="docutils literal notranslate"><span class="pre">ON_CALL</span></code> statement.</p>
+</div>
+<div class="section" id="willbydefault-on-call-willbydefault">
+<h4>WillByDefault {#ON_CALL.WillByDefault}<a class="headerlink" href="#willbydefault-on-call-willbydefault" title="Permalink to this headline">¶</a></h4>
+<p><code class="docutils literal notranslate"><span class="pre">.WillByDefault(</span></code><em><code class="docutils literal notranslate"><span class="pre">action</span></code></em><code class="docutils literal notranslate"><span class="pre">)</span></code></p>
+<p>Specifies the default behavior of a matching mock function call.</p>
+<p>The parameter <em><code class="docutils literal notranslate"><span class="pre">action</span></code></em> represents the
+<a class="reference internal" href="../gmock_for_dummies.html#actions-what-should-it-do"><span class="std std-ref">action</span></a> that the function
+call will perform. See the <a class="reference internal" href="actions.html"><span class="doc">Actions Reference</span></a> for a list of
+built-in actions.</p>
+<p>For example, the following code specifies that by default, a call to
+<code class="docutils literal notranslate"><span class="pre">my_mock.Greet()</span></code> will return <code class="docutils literal notranslate"><span class="pre">&quot;hello&quot;</span></code>:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">Return</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="n">ON_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">Greet</span><span class="p">())</span>
+    <span class="p">.</span><span class="n">WillByDefault</span><span class="p">(</span><span class="n">Return</span><span class="p">(</span><span class="s">&quot;hello&quot;</span><span class="p">));</span>
+</pre></div>
+</div>
+<p>The action specified by <code class="docutils literal notranslate"><span class="pre">WillByDefault</span></code> is superseded by the actions specified
+on a matching <code class="docutils literal notranslate"><span class="pre">EXPECT_CALL</span></code> statement, if any. See the
+<a class="reference external" href="#EXPECT_CALL.WillOnce"><code class="docutils literal notranslate"><span class="pre">WillOnce</span></code></a> and
+<a class="reference external" href="#EXPECT_CALL.WillRepeatedly"><code class="docutils literal notranslate"><span class="pre">WillRepeatedly</span></code></a> clauses of <code class="docutils literal notranslate"><span class="pre">EXPECT_CALL</span></code>.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">WillByDefault</span></code> clause must be used exactly once with each <code class="docutils literal notranslate"><span class="pre">ON_CALL</span></code>
+statement.</p>
+</div>
+</div>
+</div>
+<div class="section" id="classes-classes">
+<h2>Classes {#classes}<a class="headerlink" href="#classes-classes" title="Permalink to this headline">¶</a></h2>
+<p>GoogleTest defines the following classes for working with mocks.</p>
+<div class="section" id="defaultvalue-defaultvalue">
+<h3>DefaultValue {#DefaultValue}<a class="headerlink" href="#defaultvalue-defaultvalue" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">::testing::DefaultValue&lt;T&gt;</span></code></p>
+<p>Allows a user to specify the default value for a type <code class="docutils literal notranslate"><span class="pre">T</span></code> that is both copyable
+and publicly destructible (i.e. anything that can be used as a function return
+type). For mock functions with a return type of <code class="docutils literal notranslate"><span class="pre">T</span></code>, this default value is
+returned from function calls that do not specify an action.</p>
+<p>Provides the static methods <code class="docutils literal notranslate"><span class="pre">Set()</span></code>, <code class="docutils literal notranslate"><span class="pre">SetFactory()</span></code>, and <code class="docutils literal notranslate"><span class="pre">Clear()</span></code> to manage the
+default value:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// Sets the default value to be returned. T must be copy constructible.</span>
+<span class="n">DefaultValue</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;::</span><span class="n">Set</span><span class="p">(</span><span class="n">value</span><span class="p">);</span>
+
+<span class="c1">// Sets a factory. Will be invoked on demand. T must be move constructible.</span>
+<span class="n">T</span> <span class="nf">MakeT</span><span class="p">();</span>
+<span class="n">DefaultValue</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;::</span><span class="n">SetFactory</span><span class="p">(</span><span class="o">&amp;</span><span class="n">MakeT</span><span class="p">);</span>
+
+<span class="c1">// Unsets the default value.</span>
+<span class="n">DefaultValue</span><span class="o">&lt;</span><span class="n">T</span><span class="o">&gt;::</span><span class="n">Clear</span><span class="p">();</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="nicemock-nicemock">
+<h3>NiceMock {#NiceMock}<a class="headerlink" href="#nicemock-nicemock" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">::testing::NiceMock&lt;T&gt;</span></code></p>
+<p>Represents a mock object that suppresses warnings on
+uninteresting calls. The
+template parameter <code class="docutils literal notranslate"><span class="pre">T</span></code> is any mock class, except for another <code class="docutils literal notranslate"><span class="pre">NiceMock</span></code>,
+<code class="docutils literal notranslate"><span class="pre">NaggyMock</span></code>, or <code class="docutils literal notranslate"><span class="pre">StrictMock</span></code>.</p>
+<p>Usage of <code class="docutils literal notranslate"><span class="pre">NiceMock&lt;T&gt;</span></code> is analogous to usage of <code class="docutils literal notranslate"><span class="pre">T</span></code>. <code class="docutils literal notranslate"><span class="pre">NiceMock&lt;T&gt;</span></code> is a subclass
+of <code class="docutils literal notranslate"><span class="pre">T</span></code>, so it can be used wherever an object of type <code class="docutils literal notranslate"><span class="pre">T</span></code> is accepted. In
+addition, <code class="docutils literal notranslate"><span class="pre">NiceMock&lt;T&gt;</span></code> can be constructed with any arguments that a constructor
+of <code class="docutils literal notranslate"><span class="pre">T</span></code> accepts.</p>
+<p>For example, the following code suppresses warnings on the mock <code class="docutils literal notranslate"><span class="pre">my_mock</span></code> of
+type <code class="docutils literal notranslate"><span class="pre">MockClass</span></code> if a method other than <code class="docutils literal notranslate"><span class="pre">DoSomething()</span></code> is called:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">NiceMock</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="n">NiceMock</span><span class="o">&lt;</span><span class="n">MockClass</span><span class="o">&gt;</span> <span class="n">my_mock</span><span class="p">(</span><span class="s">&quot;some&quot;</span><span class="p">,</span> <span class="s">&quot;args&quot;</span><span class="p">);</span>
+<span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">DoSomething</span><span class="p">());</span>
+<span class="p">...</span> <span class="n">code</span> <span class="n">that</span> <span class="n">uses</span> <span class="n">my_mock</span> <span class="p">...</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">NiceMock&lt;T&gt;</span></code> only works for mock methods defined using the <code class="docutils literal notranslate"><span class="pre">MOCK_METHOD</span></code> macro
+directly in the definition of class <code class="docutils literal notranslate"><span class="pre">T</span></code>. If a mock method is defined in a base
+class of <code class="docutils literal notranslate"><span class="pre">T</span></code>, a warning might still be generated.</p>
+<p><code class="docutils literal notranslate"><span class="pre">NiceMock&lt;T&gt;</span></code> might not work correctly if the destructor of <code class="docutils literal notranslate"><span class="pre">T</span></code> is not virtual.</p>
+</div>
+<div class="section" id="naggymock-naggymock">
+<h3>NaggyMock {#NaggyMock}<a class="headerlink" href="#naggymock-naggymock" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">::testing::NaggyMock&lt;T&gt;</span></code></p>
+<p>Represents a mock object that generates warnings on
+uninteresting calls. The
+template parameter <code class="docutils literal notranslate"><span class="pre">T</span></code> is any mock class, except for another <code class="docutils literal notranslate"><span class="pre">NiceMock</span></code>,
+<code class="docutils literal notranslate"><span class="pre">NaggyMock</span></code>, or <code class="docutils literal notranslate"><span class="pre">StrictMock</span></code>.</p>
+<p>Usage of <code class="docutils literal notranslate"><span class="pre">NaggyMock&lt;T&gt;</span></code> is analogous to usage of <code class="docutils literal notranslate"><span class="pre">T</span></code>. <code class="docutils literal notranslate"><span class="pre">NaggyMock&lt;T&gt;</span></code> is a
+subclass of <code class="docutils literal notranslate"><span class="pre">T</span></code>, so it can be used wherever an object of type <code class="docutils literal notranslate"><span class="pre">T</span></code> is accepted.
+In addition, <code class="docutils literal notranslate"><span class="pre">NaggyMock&lt;T&gt;</span></code> can be constructed with any arguments that a
+constructor of <code class="docutils literal notranslate"><span class="pre">T</span></code> accepts.</p>
+<p>For example, the following code generates warnings on the mock <code class="docutils literal notranslate"><span class="pre">my_mock</span></code> of type
+<code class="docutils literal notranslate"><span class="pre">MockClass</span></code> if a method other than <code class="docutils literal notranslate"><span class="pre">DoSomething()</span></code> is called:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">NaggyMock</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="n">NaggyMock</span><span class="o">&lt;</span><span class="n">MockClass</span><span class="o">&gt;</span> <span class="n">my_mock</span><span class="p">(</span><span class="s">&quot;some&quot;</span><span class="p">,</span> <span class="s">&quot;args&quot;</span><span class="p">);</span>
+<span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">DoSomething</span><span class="p">());</span>
+<span class="p">...</span> <span class="n">code</span> <span class="n">that</span> <span class="n">uses</span> <span class="n">my_mock</span> <span class="p">...</span>
+</pre></div>
+</div>
+<p>Mock objects of type <code class="docutils literal notranslate"><span class="pre">T</span></code> by default behave the same way as <code class="docutils literal notranslate"><span class="pre">NaggyMock&lt;T&gt;</span></code>.</p>
+</div>
+<div class="section" id="strictmock-strictmock">
+<h3>StrictMock {#StrictMock}<a class="headerlink" href="#strictmock-strictmock" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">::testing::StrictMock&lt;T&gt;</span></code></p>
+<p>Represents a mock object that generates test failures on
+uninteresting calls. The
+template parameter <code class="docutils literal notranslate"><span class="pre">T</span></code> is any mock class, except for another <code class="docutils literal notranslate"><span class="pre">NiceMock</span></code>,
+<code class="docutils literal notranslate"><span class="pre">NaggyMock</span></code>, or <code class="docutils literal notranslate"><span class="pre">StrictMock</span></code>.</p>
+<p>Usage of <code class="docutils literal notranslate"><span class="pre">StrictMock&lt;T&gt;</span></code> is analogous to usage of <code class="docutils literal notranslate"><span class="pre">T</span></code>. <code class="docutils literal notranslate"><span class="pre">StrictMock&lt;T&gt;</span></code> is a
+subclass of <code class="docutils literal notranslate"><span class="pre">T</span></code>, so it can be used wherever an object of type <code class="docutils literal notranslate"><span class="pre">T</span></code> is accepted.
+In addition, <code class="docutils literal notranslate"><span class="pre">StrictMock&lt;T&gt;</span></code> can be constructed with any arguments that a
+constructor of <code class="docutils literal notranslate"><span class="pre">T</span></code> accepts.</p>
+<p>For example, the following code generates a test failure on the mock <code class="docutils literal notranslate"><span class="pre">my_mock</span></code>
+of type <code class="docutils literal notranslate"><span class="pre">MockClass</span></code> if a method other than <code class="docutils literal notranslate"><span class="pre">DoSomething()</span></code> is called:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">StrictMock</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="n">StrictMock</span><span class="o">&lt;</span><span class="n">MockClass</span><span class="o">&gt;</span> <span class="n">my_mock</span><span class="p">(</span><span class="s">&quot;some&quot;</span><span class="p">,</span> <span class="s">&quot;args&quot;</span><span class="p">);</span>
+<span class="n">EXPECT_CALL</span><span class="p">(</span><span class="n">my_mock</span><span class="p">,</span> <span class="n">DoSomething</span><span class="p">());</span>
+<span class="p">...</span> <span class="n">code</span> <span class="n">that</span> <span class="n">uses</span> <span class="n">my_mock</span> <span class="p">...</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">StrictMock&lt;T&gt;</span></code> only works for mock methods defined using the <code class="docutils literal notranslate"><span class="pre">MOCK_METHOD</span></code>
+macro directly in the definition of class <code class="docutils literal notranslate"><span class="pre">T</span></code>. If a mock method is defined in a
+base class of <code class="docutils literal notranslate"><span class="pre">T</span></code>, a failure might not be generated.</p>
+<p><code class="docutils literal notranslate"><span class="pre">StrictMock&lt;T&gt;</span></code> might not work correctly if the destructor of <code class="docutils literal notranslate"><span class="pre">T</span></code> is not
+virtual.</p>
+</div>
+<div class="section" id="sequence-sequence">
+<h3>Sequence {#Sequence}<a class="headerlink" href="#sequence-sequence" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">::testing::Sequence</span></code></p>
+<p>Represents a chronological sequence of expectations. See the
+<a class="reference external" href="#EXPECT_CALL.InSequence"><code class="docutils literal notranslate"><span class="pre">InSequence</span></code></a> clause of <code class="docutils literal notranslate"><span class="pre">EXPECT_CALL</span></code> for usage.</p>
+</div>
+<div class="section" id="insequence-insequence">
+<h3>InSequence {#InSequence}<a class="headerlink" href="#insequence-insequence" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">::testing::InSequence</span></code></p>
+<p>An object of this type causes all expectations encountered in its scope to be
+put in an anonymous sequence.</p>
+<p>This allows more convenient expression of multiple expectations in a single
+sequence:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">InSequence</span><span class="p">;</span>
+<span class="p">{</span>
+  <span class="n">InSequence</span> <span class="n">seq</span><span class="p">;</span>
+
+  <span class="c1">// The following are expected to occur in the order declared.</span>
+  <span class="n">EXPECT_CALL</span><span class="p">(...);</span>
+  <span class="n">EXPECT_CALL</span><span class="p">(...);</span>
+  <span class="p">...</span>
+  <span class="n">EXPECT_CALL</span><span class="p">(...);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The name of the <code class="docutils literal notranslate"><span class="pre">InSequence</span></code> object does not matter.</p>
+</div>
+<div class="section" id="expectation-expectation">
+<h3>Expectation {#Expectation}<a class="headerlink" href="#expectation-expectation" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">::testing::Expectation</span></code></p>
+<p>Represents a mock function call expectation as created by
+<a class="reference external" href="#EXPECT_CALL"><code class="docutils literal notranslate"><span class="pre">EXPECT_CALL</span></code></a>:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">Expectation</span><span class="p">;</span>
+<span class="n">Expectation</span> <span class="n">my_expectation</span> <span class="o">=</span> <span class="n">EXPECT_CALL</span><span class="p">(...);</span>
+</pre></div>
+</div>
+<p>Useful for specifying sequences of expectations; see the
+<a class="reference external" href="#EXPECT_CALL.After"><code class="docutils literal notranslate"><span class="pre">After</span></code></a> clause of <code class="docutils literal notranslate"><span class="pre">EXPECT_CALL</span></code>.</p>
+</div>
+<div class="section" id="expectationset-expectationset">
+<h3>ExpectationSet {#ExpectationSet}<a class="headerlink" href="#expectationset-expectationset" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">::testing::ExpectationSet</span></code></p>
+<p>Represents a set of mock function call expectations.</p>
+<p>Use the <code class="docutils literal notranslate"><span class="pre">+=</span></code> operator to add <a class="reference external" href="#Expectation"><code class="docutils literal notranslate"><span class="pre">Expectation</span></code></a> objects to the set:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">using</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">ExpectationSet</span><span class="p">;</span>
+<span class="n">ExpectationSet</span> <span class="n">my_expectations</span><span class="p">;</span>
+<span class="n">my_expectations</span> <span class="o">+=</span> <span class="n">EXPECT_CALL</span><span class="p">(...);</span>
+</pre></div>
+</div>
+<p>Useful for specifying sequences of expectations; see the
+<a class="reference external" href="#EXPECT_CALL.After"><code class="docutils literal notranslate"><span class="pre">After</span></code></a> clause of <code class="docutils literal notranslate"><span class="pre">EXPECT_CALL</span></code>.</p>
+</div>
+</div>
+</div>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        </div>
+    </div>  
+
+</body>
+</html>

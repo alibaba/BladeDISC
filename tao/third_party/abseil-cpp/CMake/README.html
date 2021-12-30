@@ -1,0 +1,381 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Abseil CMake Build Instructions &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../../index.html">Docs</a></li>
+        
+      <li>Abseil CMake Build Instructions</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../../_sources/tao/third_party/abseil-cpp/CMake/README.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../README_.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#for-pytorch-users">For PyTorch Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/quickstart.html">Quickstart for TensorFlow/PyTorch users</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/developers/index.html">Documentation for Developers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/developers/pass_pipeline.html">Tutorial: A Walkthough of the BladeDISC Pass Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/developers/runtime_abstraction_layer.html">Runtime Abstraction Layer Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/developers/bladedisc_torch_overview.html">BladeDISC Torch Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/developers/torch_add_a_new_converter.html">Tutorial: How to add the support of a new Torch Op</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <div class="section" id="abseil-cmake-build-instructions">
+<h1>Abseil CMake Build Instructions<a class="headerlink" href="#abseil-cmake-build-instructions" title="Permalink to this headline">¶</a></h1>
+<p>Abseil comes with a CMake build script (<a class="reference external" href="../CMakeLists.txt">CMakeLists.txt</a>)
+that can be used on a wide range of platforms (“C” stands for cross-platform.).
+If you don’t have CMake installed already, you can download it for free from
+<a class="reference external" href="https://www.cmake.org/">https://www.cmake.org/</a>.</p>
+<p>CMake works by generating native makefiles or build projects that can
+be used in the compiler environment of your choice.</p>
+<p>For API/ABI compatibility reasons, we strongly recommend building Abseil in a
+subdirectory of your project or as an embedded dependency.</p>
+<div class="section" id="incorporating-abseil-into-a-cmake-project">
+<h2>Incorporating Abseil Into a CMake Project<a class="headerlink" href="#incorporating-abseil-into-a-cmake-project" title="Permalink to this headline">¶</a></h2>
+<p>The recommendations below are similar to those for using CMake within the
+googletest framework
+(<a class="reference external" href="https://github.com/google/googletest/blob/master/googletest/README.md#incorporating-into-an-existing-cmake-project">https://github.com/google/googletest/blob/master/googletest/README.md#incorporating-into-an-existing-cmake-project</a>)</p>
+<div class="section" id="step-by-step-instructions">
+<h3>Step-by-Step Instructions<a class="headerlink" href="#step-by-step-instructions" title="Permalink to this headline">¶</a></h3>
+<ol class="simple">
+<li><p>If you want to build the Abseil tests, integrate the Abseil dependency
+<a class="reference external" href="https://github.com/google/googletest">Google Test</a> into your CMake
+project. To disable Abseil tests, you have to pass either
+<code class="docutils literal notranslate"><span class="pre">-DBUILD_TESTING=OFF</span></code> or <code class="docutils literal notranslate"><span class="pre">-DABSL_BUILD_TESTING=OFF</span></code> when configuring your
+project with CMake.</p></li>
+<li><p>Download Abseil and copy it into a subdirectory in your CMake project or add
+Abseil as a <a class="reference external" href="https://git-scm.com/docs/git-submodule">git submodule</a> in your
+CMake project.</p></li>
+<li><p>You can then use the CMake command
+<a class="reference external" href="https://cmake.org/cmake/help/latest/command/add_subdirectory.html"><code class="docutils literal notranslate"><span class="pre">add_subdirectory()</span></code></a>
+to include Abseil directly in your CMake project.</p></li>
+<li><p>Add the <strong>absl::</strong> target you wish to use to the
+<a class="reference external" href="https://cmake.org/cmake/help/latest/command/target_link_libraries.html"><code class="docutils literal notranslate"><span class="pre">target_link_libraries()</span></code></a>
+section of your executable or of your library.<br>
+Here is a short CMakeLists.txt example of an application project using Abseil.</p></li>
+</ol>
+<div class="highlight-cmake notranslate"><div class="highlight"><pre><span></span><span class="nb">cmake_minimum_required</span><span class="p">(</span><span class="s">VERSION</span> <span class="s">3.8.2</span><span class="p">)</span>
+<span class="nb">project</span><span class="p">(</span><span class="s">my_app_project</span><span class="p">)</span>
+
+<span class="c"># Pick the C++ standard to compile with.</span>
+<span class="c"># Abseil currently supports C++11, C++14, and C++17.</span>
+<span class="nb">set</span><span class="p">(</span><span class="s">CMAKE_CXX_STANDARD</span> <span class="s">11</span><span class="p">)</span>
+<span class="nb">set</span><span class="p">(</span><span class="s">CMAKE_CXX_STANDARD_REQUIRED</span> <span class="s">ON</span><span class="p">)</span>
+
+<span class="nb">add_subdirectory</span><span class="p">(</span><span class="s">abseil-cpp</span><span class="p">)</span>
+
+<span class="nb">add_executable</span><span class="p">(</span><span class="s">my_exe</span> <span class="s">source.cpp</span><span class="p">)</span>
+<span class="nb">target_link_libraries</span><span class="p">(</span><span class="s">my_exe</span> <span class="s">absl::base</span> <span class="s">absl::synchronization</span> <span class="s">absl::strings</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Note that if you are developing a library designed for use by other clients, you
+should instead leave <code class="docutils literal notranslate"><span class="pre">CMAKE_CXX_STANDARD</span></code> unset (or only set if being built as
+the current top-level CMake project) and configure the minimum required C++
+standard at the target level. If you require a later minimum C++ standard than
+Abseil does, it’s a good idea to also enforce that <code class="docutils literal notranslate"><span class="pre">CMAKE_CXX_STANDARD</span></code> (which
+will control Abseil library targets) is set to at least that minimum. For
+example:</p>
+<div class="highlight-cmake notranslate"><div class="highlight"><pre><span></span><span class="nb">cmake_minimum_required</span><span class="p">(</span><span class="s">VERSION</span> <span class="s">3.8.2</span><span class="p">)</span>
+<span class="nb">project</span><span class="p">(</span><span class="s">my_lib_project</span><span class="p">)</span>
+
+<span class="c"># Leave C++ standard up to the root application, so set it only if this is the</span>
+<span class="c"># current top-level CMake project.</span>
+<span class="nb">if</span><span class="p">(</span><span class="s">CMAKE_SOURCE_DIR</span> <span class="s">STREQUAL</span> <span class="s">my_lib_project_SOURCE_DIR</span><span class="p">)</span>
+  <span class="nb">set</span><span class="p">(</span><span class="s">CMAKE_CXX_STANDARD</span> <span class="s">17</span><span class="p">)</span>
+  <span class="nb">set</span><span class="p">(</span><span class="s">CMAKE_CXX_STANDARD_REQUIRED</span> <span class="s">ON</span><span class="p">)</span>
+<span class="nb">endif</span><span class="p">()</span>
+
+<span class="nb">add_subdirectory</span><span class="p">(</span><span class="s">abseil-cpp</span><span class="p">)</span>
+
+<span class="nb">add_library</span><span class="p">(</span><span class="s">my_lib</span> <span class="s">source.cpp</span><span class="p">)</span>
+<span class="nb">target_link_libraries</span><span class="p">(</span><span class="s">my_lib</span> <span class="s">absl::base</span> <span class="s">absl::synchronization</span> <span class="s">absl::strings</span><span class="p">)</span>
+
+<span class="c"># Enforce that my_lib requires C++17. Important to document for clients that they</span>
+<span class="c"># must set CMAKE_CXX_STANDARD to 17 or higher for proper Abseil ABI compatibility</span>
+<span class="c"># (since otherwise, Abseil library targets could be compiled with a lower C++</span>
+<span class="c"># standard than my_lib).</span>
+<span class="nb">target_compile_features</span><span class="p">(</span><span class="s">my_lib</span> <span class="s">PUBLIC</span> <span class="s">cxx_std_17</span><span class="p">)</span>
+<span class="nb">if</span><span class="p">(</span><span class="s">CMAKE_CXX_STANDARD</span> <span class="s">LESS</span> <span class="s">17</span><span class="p">)</span>
+  <span class="nb">message</span><span class="p">(</span><span class="s">FATAL_ERROR</span>
+      <span class="s2">&quot;my_lib_project requires CMAKE_CXX_STANDARD &gt;= 17 (got: ${CMAKE_CXX_STANDARD})&quot;</span><span class="p">)</span>
+<span class="nb">endif</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>Then the top-level application project that uses your library is responsible for
+setting a consistent <code class="docutils literal notranslate"><span class="pre">CMAKE_CXX_STANDARD</span></code> that is sufficiently high.</p>
+</div>
+<div class="section" id="running-abseil-tests-with-cmake">
+<h3>Running Abseil Tests with CMake<a class="headerlink" href="#running-abseil-tests-with-cmake" title="Permalink to this headline">¶</a></h3>
+<p>Use the <code class="docutils literal notranslate"><span class="pre">-DABSL_BUILD_TESTING=ON</span></code> flag to run Abseil tests.  Note that
+BUILD_TESTING must also be on (the default).</p>
+<p>You will need to provide Abseil with a Googletest dependency.  There are two
+options for how to do this:</p>
+<ul class="simple">
+<li><p>Use <code class="docutils literal notranslate"><span class="pre">-DABSL_USE_GOOGLETEST_HEAD</span></code>.  This will automatically download the latest
+Googletest source into the build directory at configure time.  Googletest will
+then be compiled directly alongside Abseil’s tests.</p></li>
+<li><p>Manually integrate Googletest with your build.  See
+https://github.com/google/googletest/blob/master/googletest/README.md#using-cmake
+for more information on using Googletest in a CMake project.</p></li>
+</ul>
+<p>For example, to run just the Abseil tests, you could use this script:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cd</span> <span class="n">path</span><span class="o">/</span><span class="n">to</span><span class="o">/</span><span class="n">abseil</span><span class="o">-</span><span class="n">cpp</span>
+<span class="n">mkdir</span> <span class="n">build</span>
+<span class="n">cd</span> <span class="n">build</span>
+<span class="n">cmake</span> <span class="o">-</span><span class="n">DABSL_BUILD_TESTING</span><span class="o">=</span><span class="n">ON</span> <span class="o">-</span><span class="n">DABSL_USE_GOOGLETEST_HEAD</span><span class="o">=</span><span class="n">ON</span> <span class="o">..</span>
+<span class="n">make</span> <span class="o">-</span><span class="n">j</span>
+<span class="n">ctest</span>
+</pre></div>
+</div>
+<p>Currently, we only run our tests with CMake in a Linux environment, but we are
+working on the rest of our supported platforms. See
+https://github.com/abseil/abseil-cpp/projects/1 and
+https://github.com/abseil/abseil-cpp/issues/109 for more information.</p>
+</div>
+<div class="section" id="available-abseil-cmake-public-targets">
+<h3>Available Abseil CMake Public Targets<a class="headerlink" href="#available-abseil-cmake-public-targets" title="Permalink to this headline">¶</a></h3>
+<p>Here’s a non-exhaustive list of Abseil CMake public targets:</p>
+<div class="highlight-cmake notranslate"><div class="highlight"><pre><span></span>absl::algorithm
+absl::base
+absl::debugging
+absl::flat_hash_map
+absl::flags
+absl::memory
+absl::meta
+absl::numeric
+absl::random_random
+absl::strings
+absl::synchronization
+absl::time
+absl::utility
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="traditional-cmake-set-up">
+<h2>Traditional CMake Set-Up<a class="headerlink" href="#traditional-cmake-set-up" title="Permalink to this headline">¶</a></h2>
+<p>For larger projects, it may make sense to use the traditional CMake set-up where you build and install projects separately.</p>
+<p>First, you’d need to build and install Google Test:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cmake</span> <span class="o">-</span><span class="n">S</span> <span class="o">/</span><span class="n">source</span><span class="o">/</span><span class="n">googletest</span> <span class="o">-</span><span class="n">B</span> <span class="o">/</span><span class="n">build</span><span class="o">/</span><span class="n">googletest</span> <span class="o">-</span><span class="n">DCMAKE_BUILD_TYPE</span><span class="o">=</span><span class="n">Release</span> <span class="o">-</span><span class="n">DCMAKE_INSTALL_PREFIX</span><span class="o">=/</span><span class="n">installation</span><span class="o">/</span><span class="nb">dir</span> <span class="o">-</span><span class="n">DBUILD_GMOCK</span><span class="o">=</span><span class="n">ON</span>
+<span class="n">cmake</span> <span class="o">--</span><span class="n">build</span> <span class="o">/</span><span class="n">build</span><span class="o">/</span><span class="n">googletest</span> <span class="o">--</span><span class="n">target</span> <span class="n">install</span>
+</pre></div>
+</div>
+<p>Then you need to configure and build Abseil. Make sure you enable <code class="docutils literal notranslate"><span class="pre">ABSL_USE_EXTERNAL_GOOGLETEST</span></code> and <code class="docutils literal notranslate"><span class="pre">ABSL_FIND_GOOGLETEST</span></code>. You also need to enable <code class="docutils literal notranslate"><span class="pre">ABSL_ENABLE_INSTALL</span></code> so that you can install Abseil itself.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cmake</span> <span class="o">-</span><span class="n">S</span> <span class="o">/</span><span class="n">source</span><span class="o">/</span><span class="n">abseil</span><span class="o">-</span><span class="n">cpp</span> <span class="o">-</span><span class="n">B</span> <span class="o">/</span><span class="n">build</span><span class="o">/</span><span class="n">abseil</span><span class="o">-</span><span class="n">cpp</span> <span class="o">-</span><span class="n">DCMAKE_PREFIX_PATH</span><span class="o">=/</span><span class="n">installation</span><span class="o">/</span><span class="nb">dir</span> <span class="o">-</span><span class="n">DCMAKE_INSTALL_PREFIX</span><span class="o">=/</span><span class="n">installation</span><span class="o">/</span><span class="nb">dir</span> <span class="o">-</span><span class="n">DABSL_ENABLE_INSTALL</span><span class="o">=</span><span class="n">ON</span> <span class="o">-</span><span class="n">DABSL_USE_EXTERNAL_GOOGLETEST</span><span class="o">=</span><span class="n">ON</span> <span class="o">-</span><span class="n">DABSL_FIND_GOOGLETEST</span><span class="o">=</span><span class="n">ON</span>
+<span class="n">cmake</span> <span class="o">--</span><span class="n">build</span> <span class="o">/</span><span class="n">temporary</span><span class="o">/</span><span class="n">build</span><span class="o">/</span><span class="n">abseil</span><span class="o">-</span><span class="n">cpp</span>
+</pre></div>
+</div>
+<p>(<code class="docutils literal notranslate"><span class="pre">CMAKE_PREFIX_PATH</span></code> is where you already have Google Test installed; <code class="docutils literal notranslate"><span class="pre">CMAKE_INSTALL_PREFIX</span></code> is where you want to have Abseil installed; they can be different.)</p>
+<p>Run the tests:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">ctest</span> <span class="o">--</span><span class="n">test</span><span class="o">-</span><span class="nb">dir</span> <span class="o">/</span><span class="n">temporary</span><span class="o">/</span><span class="n">build</span><span class="o">/</span><span class="n">abseil</span><span class="o">-</span><span class="n">cpp</span>
+</pre></div>
+</div>
+<p>And finally install:</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cmake</span> <span class="o">--</span><span class="n">build</span> <span class="o">/</span><span class="n">temporary</span><span class="o">/</span><span class="n">build</span><span class="o">/</span><span class="n">abseil</span><span class="o">-</span><span class="n">cpp</span> <span class="o">--</span><span class="n">target</span> <span class="n">install</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="cmake-option-synposis">
+<h1>CMake Option Synposis<a class="headerlink" href="#cmake-option-synposis" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="enable-standard-cmake-installation">
+<h2>Enable Standard CMake Installation<a class="headerlink" href="#enable-standard-cmake-installation" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">-DABSL_ENABLE_INSTALL=ON</span></code></p>
+</div>
+<div class="section" id="google-test-options">
+<h2>Google Test Options<a class="headerlink" href="#google-test-options" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">-DABSL_BUILD_TESTING=ON</span></code> must be set to enable testing</p>
+<ul class="simple">
+<li><p>Have Abseil download and build Google Test for you: <code class="docutils literal notranslate"><span class="pre">-DABSL_USE_EXTERNAL_GOOGLETEST=OFF</span></code> (default)</p>
+<ul>
+<li><p>Download and build latest Google Test: <code class="docutils literal notranslate"><span class="pre">-DABSL_USE_GOOGLETEST_HEAD=ON</span></code></p></li>
+<li><p>Download specific Google Test version (ZIP archive): <code class="docutils literal notranslate"><span class="pre">-DABSL_GOOGLETEST_DOWNLOAD_URL=https://.../version.zip</span></code></p></li>
+<li><p>Use Google Test from specific local directory: <code class="docutils literal notranslate"><span class="pre">-DABSL_LOCAL_GOOGLETEST_DIR=/path/to/googletest</span></code></p></li>
+</ul>
+</li>
+<li><p>Use Google Test included elsewhere in your project: <code class="docutils literal notranslate"><span class="pre">-DABSL_USE_EXTERNAL_GOOGLETEST=ON</span></code></p></li>
+<li><p>Use standard CMake <code class="docutils literal notranslate"><span class="pre">find_package(CTest)</span></code> to find installed Google Test: <code class="docutils literal notranslate"><span class="pre">-DABSL_USE_EXTERNAL_GOOGLETEST=ON</span> <span class="pre">-DABSL_FIND_GOOGLETEST=ON</span></code></p></li>
+</ul>
+</div>
+</div>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        </div>
+    </div>  
+
+</body>
+</html>

@@ -1,0 +1,384 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Package Managers &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../../../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../../../../../index.html">Docs</a></li>
+        
+      <li>Package Managers</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../../../../../_sources/tao/third_party/json/doc/mkdocs/docs/integration/package_managers.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../../../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../README_.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#for-pytorch-users">For PyTorch Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../docs/quickstart.html">Quickstart for TensorFlow/PyTorch users</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../docs/developers/index.html">Documentation for Developers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/developers/pass_pipeline.html">Tutorial: A Walkthough of the BladeDISC Pass Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/developers/runtime_abstraction_layer.html">Runtime Abstraction Layer Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/developers/bladedisc_torch_overview.html">BladeDISC Torch Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/developers/torch_add_a_new_converter.html">Tutorial: How to add the support of a new Torch Op</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <div class="section" id="package-managers">
+<h1>Package Managers<a class="headerlink" href="#package-managers" title="Permalink to this headline">¶</a></h1>
+<p>Throughout this page, we will describe how to compile the example file <code class="docutils literal notranslate"><span class="pre">example.cpp</span></code> below.</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="o">--</span><span class="mi">8</span><span class="o">&lt;--</span> <span class="s">&quot;integration/example.cpp&quot;</span>
+</pre></div>
+</div>
+<div class="section" id="homebrew">
+<h2>Homebrew<a class="headerlink" href="#homebrew" title="Permalink to this headline">¶</a></h2>
+<p>If you are using OS X and <a class="reference external" href="http://brew.sh">Homebrew</a>, just type</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>brew install nlohmann-json
+</pre></div>
+</div>
+<p>and you’re set. If you want the bleeding edge rather than the latest release, use</p>
+<div class="highlight-sh notranslate"><div class="highlight"><pre><span></span>brew install nlohmann-json --HEAD
+</pre></div>
+</div>
+<p>instead. See <a class="reference external" href="https://formulae.brew.sh/formula/nlohmann-json">nlohmann-json</a> for more information.</p>
+<p>??? example</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>1. Create the following file:
+
+	=== &quot;example.cpp&quot;
+
+		```cpp
+		--8&lt;-- &quot;integration/example.cpp&quot;
+		```
+
+2. Install the package
+
+	```sh
+	brew install nlohmann-json
+	```
+
+3. Determine the include path, which defaults to `/usr/local/Cellar/nlohmann-json/$version/include`, where `$version` is the version of the library, e.g. `3.7.3`. The path of the library can be determined with
+
+	```sh
+	brew list nlohmann-json
+	```
+
+4. Compile the code. For instance, the code can be compiled using Clang with
+
+	```sh
+	clang++ example.cpp -I/usr/local/Cellar/nlohmann-json/3.7.3/include -std=c++11 -o example
+	```
+</pre></div>
+</div>
+</div>
+<div class="section" id="meson">
+<h2>Meson<a class="headerlink" href="#meson" title="Permalink to this headline">¶</a></h2>
+<p>If you are using the <a class="reference external" href="http://mesonbuild.com">Meson Build System</a>, add this source tree as a <a class="reference external" href="https://mesonbuild.com/Subprojects.html#using-a-subproject">meson subproject</a>. You may also use the <code class="docutils literal notranslate"><span class="pre">include.zip</span></code> published in this project’s <a class="reference external" href="https://github.com/nlohmann/json/releases">Releases</a> to reduce the size of the vendored source tree. Alternatively, you can get a wrap file by downloading it from <a class="reference external" href="https://wrapdb.mesonbuild.com/nlohmann_json">Meson WrapDB</a>, or simply use <code class="docutils literal notranslate"><span class="pre">meson</span> <span class="pre">wrap</span> <span class="pre">install</span> <span class="pre">nlohmann_json</span></code>. Please see the meson project for any issues regarding the packaging.</p>
+<p>The provided meson.build can also be used as an alternative to cmake for installing <code class="docutils literal notranslate"><span class="pre">nlohmann_json</span></code> system-wide in which case a pkg-config file is installed. To use it, simply have your build system require the <code class="docutils literal notranslate"><span class="pre">nlohmann_json</span></code> pkg-config dependency. In Meson, it is preferred to use the <a class="reference external" href="https://mesonbuild.com/Reference-manual.html#dependency"><code class="docutils literal notranslate"><span class="pre">dependency()</span></code></a> object with a subproject fallback, rather than using the subproject directly.</p>
+</div>
+<div class="section" id="conan">
+<h2>Conan<a class="headerlink" href="#conan" title="Permalink to this headline">¶</a></h2>
+<p>If you are using <a class="reference external" href="https://www.conan.io/">Conan</a> to manage your dependencies, merely add <code class="docutils literal notranslate"><span class="pre">nlohmann_json/x.y.z</span></code> to your <code class="docutils literal notranslate"><span class="pre">conanfile</span></code>’s requires, where <code class="docutils literal notranslate"><span class="pre">x.y.z</span></code> is the release version you want to use. Please file issues <a class="reference external" href="https://github.com/conan-io/conan-center-index/issues">here</a> if you experience problems with the packages.</p>
+<p>??? example</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>1. Create the following files:
+
+	=== &quot;Conanfile.txt&quot;
+		
+		```ini
+		--8&lt;-- &quot;integration/conan/Conanfile.txt&quot;
+		```
+
+	=== &quot;CMakeLists.txt&quot;
+
+	    ```cmake
+		--8&lt;-- &quot;integration/conan/CMakeLists.txt&quot;
+	    ```
+
+	=== &quot;example.cpp&quot;
+
+		```cpp
+		--8&lt;-- &quot;integration/conan/example.cpp&quot;
+		```
+
+
+2. Build:
+
+	```sh
+	mkdir build
+	cd build
+	conan install ..
+	cmake ..
+	cmake --build .
+	```
+</pre></div>
+</div>
+</div>
+<div class="section" id="spack">
+<h2>Spack<a class="headerlink" href="#spack" title="Permalink to this headline">¶</a></h2>
+<p>If you are using <a class="reference external" href="https://www.spack.io/">Spack</a> to manage your dependencies, you can use the <a class="reference external" href="https://spack.readthedocs.io/en/latest/package_list.html#nlohmann-json"><code class="docutils literal notranslate"><span class="pre">nlohmann-json</span></code> package</a>. Please see the <a class="reference external" href="https://github.com/spack/spack">spack project</a> for any issues regarding the packaging.</p>
+</div>
+<div class="section" id="hunter">
+<h2>Hunter<a class="headerlink" href="#hunter" title="Permalink to this headline">¶</a></h2>
+<p>If you are using <a class="reference external" href="https://github.com/cpp-pm/hunter">hunter</a> on your project for external dependencies, then you can use the <a class="reference external" href="https://hunter.readthedocs.io/en/latest/packages/pkg/nlohmann_json.html">nlohmann_json package</a>. Please see the hunter project for any issues regarding the packaging.</p>
+</div>
+<div class="section" id="buckaroo">
+<h2>Buckaroo<a class="headerlink" href="#buckaroo" title="Permalink to this headline">¶</a></h2>
+<p>If you are using <a class="reference external" href="https://buckaroo.pm">Buckaroo</a>, you can install this library’s module with <code class="docutils literal notranslate"><span class="pre">buckaroo</span> <span class="pre">add</span> <span class="pre">github.com/buckaroo-pm/nlohmann-json</span></code>. Please file issues <a class="reference external" href="https://github.com/buckaroo-pm/nlohmann-json">here</a>. There is a demo repo <a class="reference external" href="https://github.com/njlr/buckaroo-nholmann-json-example">here</a>.</p>
+</div>
+<div class="section" id="vcpkg">
+<h2>vcpkg<a class="headerlink" href="#vcpkg" title="Permalink to this headline">¶</a></h2>
+<p>If you are using <a class="reference external" href="https://github.com/Microsoft/vcpkg/">vcpkg</a> on your project for external dependencies, then you can install the <a class="reference external" href="https://github.com/Microsoft/vcpkg/tree/master/ports/nlohmann-json">nlohmann-json package</a> with <code class="docutils literal notranslate"><span class="pre">vcpkg</span> <span class="pre">install</span> <span class="pre">nlohmann-json</span></code> and follow the then displayed descriptions. Please see the vcpkg project for any issues regarding the packaging.</p>
+<p>??? example</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>1. Create the following files:
+
+	=== &quot;CMakeLists.txt&quot;
+
+	    ```cmake
+		--8&lt;-- &quot;integration/vcpkg/CMakeLists.txt&quot;
+	    ```
+
+	=== &quot;example.cpp&quot;
+
+		```cpp
+		--8&lt;-- &quot;integration/vcpkg/example.cpp&quot;
+		```
+
+2. Install package:
+
+    ```sh
+    vcpkg install nlohmann-json
+    ```
+
+3. Build:
+
+	```sh
+	mkdir build
+	cd build
+	cmake .. -DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake
+	cmake --build .
+	```
+
+Note you need to adjust `/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake` to your system.
+</pre></div>
+</div>
+</div>
+<div class="section" id="cget">
+<h2>cget<a class="headerlink" href="#cget" title="Permalink to this headline">¶</a></h2>
+<p>If you are using <a class="reference external" href="http://cget.readthedocs.io/en/latest/">cget</a>, you can install the latest development version with <code class="docutils literal notranslate"><span class="pre">cget</span> <span class="pre">install</span> <span class="pre">nlohmann/json</span></code>. A specific version can be installed with <code class="docutils literal notranslate"><span class="pre">cget</span> <span class="pre">install</span> <span class="pre">nlohmann/json&#64;v3.1.0</span></code>. Also, the multiple header version can be installed by adding the <code class="docutils literal notranslate"><span class="pre">-DJSON_MultipleHeaders=ON</span></code> flag (i.e., <code class="docutils literal notranslate"><span class="pre">cget</span> <span class="pre">install</span> <span class="pre">nlohmann/json</span> <span class="pre">-DJSON_MultipleHeaders=ON</span></code>).</p>
+</div>
+<div class="section" id="cocoapods">
+<h2>CocoaPods<a class="headerlink" href="#cocoapods" title="Permalink to this headline">¶</a></h2>
+<p>If you are using <a class="reference external" href="https://cocoapods.org">CocoaPods</a>, you can use the library by adding pod <code class="docutils literal notranslate"><span class="pre">&quot;nlohmann_json&quot;,</span> <span class="pre">'~&gt;3.1.2'</span></code> to your podfile (see <a class="reference external" href="https://bitbucket.org/benman/nlohmann_json-cocoapod/src/master/">an example</a>). Please file issues <a class="reference external" href="https://bitbucket.org/benman/nlohmann_json-cocoapod/issues?status=new&amp;status=open">here</a>.</p>
+</div>
+<div class="section" id="nuget">
+<h2>NuGet<a class="headerlink" href="#nuget" title="Permalink to this headline">¶</a></h2>
+<p>If you are using <a class="reference external" href="https://www.nuget.org">NuGet</a>, you can use the package <a class="reference external" href="https://www.nuget.org/packages/nlohmann.json/">nlohmann.json</a>. Please check <a class="reference external" href="https://github.com/nlohmann/json/issues/1132#issuecomment-452250255">this extensive description</a> on how to use the package. Please files issues <a class="reference external" href="https://github.com/hnkb/nlohmann-json-nuget/issues">here</a>.</p>
+</div>
+<div class="section" id="conda">
+<h2>Conda<a class="headerlink" href="#conda" title="Permalink to this headline">¶</a></h2>
+<p>If you are using <a class="reference external" href="https://conda.io/">conda</a>, you can use the package <a class="reference external" href="https://github.com/conda-forge/nlohmann_json-feedstock">nlohmann_json</a> from <a class="reference external" href="https://conda-forge.org">conda-forge</a> executing <code class="docutils literal notranslate"><span class="pre">conda</span> <span class="pre">install</span> <span class="pre">-c</span> <span class="pre">conda-forge</span> <span class="pre">nlohmann_json</span></code>. Please file issues <a class="reference external" href="https://github.com/conda-forge/nlohmann_json-feedstock/issues">here</a>.</p>
+</div>
+<div class="section" id="msys2">
+<h2>MSYS2<a class="headerlink" href="#msys2" title="Permalink to this headline">¶</a></h2>
+<p>If you are using <a class="reference external" href="http://www.msys2.org/">MSYS2</a>, you can use the <a class="reference external" href="https://packages.msys2.org/base/mingw-w64-nlohmann-json">mingw-w64-nlohmann-json</a> package, just type <code class="docutils literal notranslate"><span class="pre">pacman</span> <span class="pre">-S</span> <span class="pre">mingw-w64-i686-nlohmann-json</span></code> or <code class="docutils literal notranslate"><span class="pre">pacman</span> <span class="pre">-S</span> <span class="pre">mingw-w64-x86_64-nlohmann-json</span></code> for installation. Please file issues <a class="reference external" href="https://github.com/msys2/MINGW-packages/issues/new?title=%5Bnlohmann-json%5D">here</a> if you experience problems with the packages.</p>
+</div>
+<div class="section" id="macports">
+<h2>MacPorts<a class="headerlink" href="#macports" title="Permalink to this headline">¶</a></h2>
+<p>If you are using <a class="reference external" href="https://ports.macports.org">MacPorts</a>, execute <code class="docutils literal notranslate"><span class="pre">sudo</span> <span class="pre">port</span> <span class="pre">install</span> <span class="pre">nlohmann-json</span></code> to install the <a class="reference external" href="https://ports.macports.org/port/nlohmann-json/">nlohmann-json</a> package.</p>
+</div>
+<div class="section" id="build2">
+<h2>build2<a class="headerlink" href="#build2" title="Permalink to this headline">¶</a></h2>
+<p>If you are using <a class="reference external" href="https://build2.org"><code class="docutils literal notranslate"><span class="pre">build2</span></code></a>, you can use the <a class="reference external" href="https://cppget.org/nlohmann-json"><code class="docutils literal notranslate"><span class="pre">nlohmann-json</span></code></a> package from the public repository http://cppget.org or directly from the <a class="reference external" href="https://github.com/build2-packaging/nlohmann-json">package’s sources repository</a>. In your project’s <code class="docutils literal notranslate"><span class="pre">manifest</span></code> file, just add <code class="docutils literal notranslate"><span class="pre">depends:</span> <span class="pre">nlohmann-json</span></code> (probably with some <a class="reference external" href="https://build2.org/build2-toolchain/doc/build2-toolchain-intro.xhtml#guide-add-remove-deps">version constraints</a>). If you are not familiar with using dependencies in <code class="docutils literal notranslate"><span class="pre">build2</span></code>, <a class="reference external" href="https://build2.org/build2-toolchain/doc/build2-toolchain-intro.xhtml">please read this introduction</a>.
+Please file issues <a class="reference external" href="https://github.com/build2-packaging/nlohmann-json">here</a> if you experience problems with the packages.</p>
+</div>
+<div class="section" id="wsjcpp">
+<h2>wsjcpp<a class="headerlink" href="#wsjcpp" title="Permalink to this headline">¶</a></h2>
+<p>If you are using <a class="reference external" href="http://wsjcpp.org"><code class="docutils literal notranslate"><span class="pre">wsjcpp</span></code></a>, you can use the command <code class="docutils literal notranslate"><span class="pre">wsjcpp</span> <span class="pre">install</span> <span class="pre">&quot;https://github.com/nlohmann/json:develop&quot;</span></code> to get the latest version. Note you can change the branch “:develop” to an existing tag or another branch.</p>
+</div>
+<div class="section" id="cpm-cmake">
+<h2>CPM.cmake<a class="headerlink" href="#cpm-cmake" title="Permalink to this headline">¶</a></h2>
+<p>If you are using <a class="reference external" href="https://github.com/TheLartians/CPM.cmake"><code class="docutils literal notranslate"><span class="pre">CPM.cmake</span></code></a>, you can check this <a class="reference external" href="https://github.com/TheLartians/CPM.cmake/tree/master/examples/json"><code class="docutils literal notranslate"><span class="pre">example</span></code></a>. After <a class="reference external" href="https://github.com/TheLartians/CPM.cmake#adding-cpm">adding CPM script</a> to your project, implement the following snippet to your CMake:</p>
+<div class="highlight-cmake notranslate"><div class="highlight"><pre><span></span><span class="nb">CPMAddPackage</span><span class="p">(</span>
+    <span class="s">NAME</span> <span class="s">nlohmann_json</span>
+    <span class="s">GITHUB_REPOSITORY</span> <span class="s">nlohmann/json</span>
+    <span class="s">VERSION</span> <span class="s">3.9.1</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+</div>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../../../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../../../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../../../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        </div>
+    </div>  
+
+</body>
+</html>

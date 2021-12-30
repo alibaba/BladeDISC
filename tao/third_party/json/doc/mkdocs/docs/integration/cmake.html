@@ -1,0 +1,337 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>CMake &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../../../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../../../../../index.html">Docs</a></li>
+        
+      <li>CMake</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../../../../../_sources/tao/third_party/json/doc/mkdocs/docs/integration/cmake.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../../../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../README_.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#for-pytorch-users">For PyTorch Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../README_.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../docs/quickstart.html">Quickstart for TensorFlow/PyTorch users</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../docs/developers/index.html">Documentation for Developers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/developers/pass_pipeline.html">Tutorial: A Walkthough of the BladeDISC Pass Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/developers/runtime_abstraction_layer.html">Runtime Abstraction Layer Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/developers/bladedisc_torch_overview.html">BladeDISC Torch Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/developers/torch_add_a_new_converter.html">Tutorial: How to add the support of a new Torch Op</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <div class="section" id="cmake">
+<h1>CMake<a class="headerlink" href="#cmake" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="integration">
+<h2>Integration<a class="headerlink" href="#integration" title="Permalink to this headline">¶</a></h2>
+<p>You can also use the <code class="docutils literal notranslate"><span class="pre">nlohmann_json::nlohmann_json</span></code> interface target in CMake.  This target populates the appropriate usage requirements for <code class="docutils literal notranslate"><span class="pre">INTERFACE_INCLUDE_DIRECTORIES</span></code> to point to the appropriate include directories and <code class="docutils literal notranslate"><span class="pre">INTERFACE_COMPILE_FEATURES</span></code> for the necessary C++11 flags.</p>
+<div class="section" id="external">
+<h3>External<a class="headerlink" href="#external" title="Permalink to this headline">¶</a></h3>
+<p>To use this library from a CMake project, you can locate it directly with <code class="docutils literal notranslate"><span class="pre">find_package()</span></code> and use the namespaced imported target from the generated package configuration:</p>
+<div class="highlight-cmake notranslate"><div class="highlight"><pre><span></span># CMakeLists.txt
+find_package(nlohmann_json 3.2.0 REQUIRED)
+...
+add_library(foo ...)
+...
+target_link_libraries(foo PRIVATE nlohmann_json::nlohmann_json)
+</pre></div>
+</div>
+<p>The package configuration file, <code class="docutils literal notranslate"><span class="pre">nlohmann_jsonConfig.cmake</span></code>, can be used either from an install tree or directly out of the build tree.</p>
+</div>
+<div class="section" id="embedded">
+<h3>Embedded<a class="headerlink" href="#embedded" title="Permalink to this headline">¶</a></h3>
+<p>To embed the library directly into an existing CMake project, place the entire source tree in a subdirectory and call <code class="docutils literal notranslate"><span class="pre">add_subdirectory()</span></code> in your <code class="docutils literal notranslate"><span class="pre">CMakeLists.txt</span></code> file:</p>
+<div class="highlight-cmake notranslate"><div class="highlight"><pre><span></span># If you only include this third party in PRIVATE source files, you do not
+# need to install it when your main project gets installed.
+# set(JSON_Install OFF CACHE INTERNAL &quot;&quot;)
+
+# Don&#39;t use include(nlohmann_json/CMakeLists.txt) since that carries with it
+# unintended consequences that will break the build.  It&#39;s generally
+# discouraged (although not necessarily well documented as such) to use
+# include(...) for pulling in other CMake projects anyways.
+add_subdirectory(nlohmann_json)
+...
+add_library(foo ...)
+...
+target_link_libraries(foo PRIVATE nlohmann_json::nlohmann_json)
+</pre></div>
+</div>
+</div>
+<div class="section" id="embedded-fetchcontent">
+<h3>Embedded (FetchContent)<a class="headerlink" href="#embedded-fetchcontent" title="Permalink to this headline">¶</a></h3>
+<p>Since CMake v3.11,
+<a class="reference external" href="https://cmake.org/cmake/help/v3.11/module/FetchContent.html">FetchContent</a> can
+be used to automatically download the repository as a dependency at configure type.</p>
+<p>Example:</p>
+<div class="highlight-cmake notranslate"><div class="highlight"><pre><span></span><span class="nb">include</span><span class="p">(</span><span class="s">FetchContent</span><span class="p">)</span>
+
+<span class="nb">FetchContent_Declare</span><span class="p">(</span><span class="s">json</span>
+  <span class="s">GIT_REPOSITORY</span> <span class="s">https://github.com/nlohmann/json</span>
+  <span class="s">GIT_TAG</span> <span class="s">v3.7.3</span><span class="p">)</span>
+
+<span class="nb">FetchContent_GetProperties</span><span class="p">(</span><span class="s">json</span><span class="p">)</span>
+<span class="nb">if</span><span class="p">(</span><span class="s">NOT</span> <span class="s">json_POPULATED</span><span class="p">)</span>
+  <span class="nb">FetchContent_Populate</span><span class="p">(</span><span class="s">json</span><span class="p">)</span>
+  <span class="nb">add_subdirectory</span><span class="p">(</span><span class="o">${</span><span class="nv">json_SOURCE_DIR</span><span class="o">}</span> <span class="o">${</span><span class="nv">json_BINARY_DIR</span><span class="o">}</span> <span class="s">EXCLUDE_FROM_ALL</span><span class="p">)</span>
+<span class="nb">endif</span><span class="p">()</span>
+
+<span class="nb">target_link_libraries</span><span class="p">(</span><span class="s">foo</span> <span class="s">PRIVATE</span> <span class="s">nlohmann_json::nlohmann_json</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>!!! Note
+The repository <a class="reference external" href="https://github.com/nlohmann/json">https://github.com/nlohmann/json</a> download size is quite large.
+You might want to depend on a smaller repository. For instance, you might want to replace the URL above by
+<a class="reference external" href="https://github.com/ArthurSonzogni/nlohmann_json_cmake_fetchcontent">https://github.com/ArthurSonzogni/nlohmann_json_cmake_fetchcontent</a>.</p>
+</div>
+<div class="section" id="supporting-both">
+<h3>Supporting Both<a class="headerlink" href="#supporting-both" title="Permalink to this headline">¶</a></h3>
+<p>To allow your project to support either an externally supplied or an embedded JSON library, you can use a pattern akin to the following:</p>
+<div class="highlight-cmake notranslate"><div class="highlight"><pre><span></span># Top level CMakeLists.txt
+project(FOO)
+...
+option(FOO_USE_EXTERNAL_JSON &quot;Use an external JSON library&quot; OFF)
+...
+add_subdirectory(thirdparty)
+...
+add_library(foo ...)
+...
+# Note that the namespaced target will always be available regardless of the
+# import method
+target_link_libraries(foo PRIVATE nlohmann_json::nlohmann_json)
+</pre></div>
+</div>
+<div class="highlight-cmake notranslate"><div class="highlight"><pre><span></span># thirdparty/CMakeLists.txt
+...
+if(FOO_USE_EXTERNAL_JSON)
+  find_package(nlohmann_json 3.2.0 REQUIRED)
+else()
+  set(JSON_BuildTests OFF CACHE INTERNAL &quot;&quot;)
+  add_subdirectory(nlohmann_json)
+endif()
+...
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">thirdparty/nlohmann_json</span></code> is then a complete copy of this source tree.</p>
+</div>
+</div>
+<div class="section" id="cmake-options">
+<h2>CMake Options<a class="headerlink" href="#cmake-options" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="json-buildtests">
+<h3><code class="docutils literal notranslate"><span class="pre">JSON_BuildTests</span></code><a class="headerlink" href="#json-buildtests" title="Permalink to this headline">¶</a></h3>
+<p>Build the unit tests when <a class="reference external" href="https://cmake.org/cmake/help/latest/command/enable_testing.html"><code class="docutils literal notranslate"><span class="pre">BUILD_TESTING</span></code></a> is enabled. This option is <code class="docutils literal notranslate"><span class="pre">ON</span></code> by default if the library’s CMake project is the top project. That is, when integrating the library as described above, the test suite is not built unless explicitly switched on with this option.</p>
+</div>
+<div class="section" id="json-ci">
+<h3><code class="docutils literal notranslate"><span class="pre">JSON_CI</span></code><a class="headerlink" href="#json-ci" title="Permalink to this headline">¶</a></h3>
+<p>Enable CI build targets. The exact targets are used during the several CI steps and are subject to change without notice. This option is <code class="docutils literal notranslate"><span class="pre">OFF</span></code> by default.</p>
+</div>
+<div class="section" id="json-diagnostics">
+<h3><code class="docutils literal notranslate"><span class="pre">JSON_Diagnostics</span></code><a class="headerlink" href="#json-diagnostics" title="Permalink to this headline">¶</a></h3>
+<p>Enable <a class="reference internal" href="../home/exceptions.html#extended-diagnostic-messages"><span class="std std-ref">extended diagnostic messages</span></a> by defining macro JSON_DIAGNOSTICS. This option is <code class="docutils literal notranslate"><span class="pre">OFF</span></code> by default.</p>
+</div>
+<div class="section" id="json-fasttests">
+<h3><code class="docutils literal notranslate"><span class="pre">JSON_FastTests</span></code><a class="headerlink" href="#json-fasttests" title="Permalink to this headline">¶</a></h3>
+<p>Skip expensive/slow test suites. This option is <code class="docutils literal notranslate"><span class="pre">OFF</span></code> by default. Depends on <code class="docutils literal notranslate"><span class="pre">JSON_BuildTests</span></code>.</p>
+</div>
+<div class="section" id="json-implicitconversions">
+<h3><code class="docutils literal notranslate"><span class="pre">JSON_ImplicitConversions</span></code><a class="headerlink" href="#json-implicitconversions" title="Permalink to this headline">¶</a></h3>
+<p>Enable implicit conversions by defining macro JSON_USE_IMPLICIT_CONVERSIONS. This option is <code class="docutils literal notranslate"><span class="pre">ON</span></code> by default.</p>
+</div>
+<div class="section" id="json-install">
+<h3><code class="docutils literal notranslate"><span class="pre">JSON_Install</span></code><a class="headerlink" href="#json-install" title="Permalink to this headline">¶</a></h3>
+<p>Install CMake targets during install step. This option is <code class="docutils literal notranslate"><span class="pre">ON</span></code> by default if the library’s CMake project is the top project.</p>
+</div>
+<div class="section" id="json-multipleheaders">
+<h3><code class="docutils literal notranslate"><span class="pre">JSON_MultipleHeaders</span></code><a class="headerlink" href="#json-multipleheaders" title="Permalink to this headline">¶</a></h3>
+<p>Use non-amalgamated version of the library. This option is <code class="docutils literal notranslate"><span class="pre">OFF</span></code> by default.</p>
+</div>
+<div class="section" id="json-systeminclude">
+<h3><code class="docutils literal notranslate"><span class="pre">JSON_SystemInclude</span></code><a class="headerlink" href="#json-systeminclude" title="Permalink to this headline">¶</a></h3>
+<p>Treat the library headers like system headers (i.e., adding <code class="docutils literal notranslate"><span class="pre">SYSTEM</span></code> to the <a class="reference external" href="https://cmake.org/cmake/help/latest/command/target_include_directories.html"><code class="docutils literal notranslate"><span class="pre">target_include_directories</span></code></a> call) to checks for this library by tools like Clang-Tidy. This option is <code class="docutils literal notranslate"><span class="pre">OFF</span></code> by default.</p>
+</div>
+<div class="section" id="json-valgrind">
+<h3><code class="docutils literal notranslate"><span class="pre">JSON_Valgrind</span></code><a class="headerlink" href="#json-valgrind" title="Permalink to this headline">¶</a></h3>
+<p>Execute test suite with <a class="reference external" href="https://valgrind.org">Valgrind</a>. This option is <code class="docutils literal notranslate"><span class="pre">OFF</span></code> by default. Depends on <code class="docutils literal notranslate"><span class="pre">JSON_BuildTests</span></code>.</p>
+</div>
+</div>
+</div>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../../../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../../../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../../../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        </div>
+    </div>  
+
+</body>
+</html>

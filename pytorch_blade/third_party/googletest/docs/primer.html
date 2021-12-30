@@ -1,0 +1,637 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Googletest Primer &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../../index.html">Docs</a></li>
+        
+      <li>Googletest Primer</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../../_sources/pytorch_blade/third_party/googletest/docs/primer.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../README_.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#for-pytorch-users">For PyTorch Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/quickstart.html">Quickstart for TensorFlow/PyTorch users</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/developers/index.html">Documentation for Developers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/developers/pass_pipeline.html">Tutorial: A Walkthough of the BladeDISC Pass Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/developers/runtime_abstraction_layer.html">Runtime Abstraction Layer Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/developers/bladedisc_torch_overview.html">BladeDISC Torch Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/developers/torch_add_a_new_converter.html">Tutorial: How to add the support of a new Torch Op</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <div class="section" id="googletest-primer">
+<h1>Googletest Primer<a class="headerlink" href="#googletest-primer" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="introduction-why-googletest">
+<h2>Introduction: Why googletest?<a class="headerlink" href="#introduction-why-googletest" title="Permalink to this headline">¶</a></h2>
+<p><em>googletest</em> helps you write better C++ tests.</p>
+<p>googletest is a testing framework developed by the Testing Technology team with
+Google’s specific requirements and constraints in mind. Whether you work on
+Linux, Windows, or a Mac, if you write C++ code, googletest can help you. And it
+supports <em>any</em> kind of tests, not just unit tests.</p>
+<p>So what makes a good test, and how does googletest fit in? We believe:</p>
+<ol class="simple">
+<li><p>Tests should be <em>independent</em> and <em>repeatable</em>. It’s a pain to debug a test
+that succeeds or fails as a result of other tests. googletest isolates the
+tests by running each of them on a different object. When a test fails,
+googletest allows you to run it in isolation for quick debugging.</p></li>
+<li><p>Tests should be well <em>organized</em> and reflect the structure of the tested
+code. googletest groups related tests into test suites that can share data
+and subroutines. This common pattern is easy to recognize and makes tests
+easy to maintain. Such consistency is especially helpful when people switch
+projects and start to work on a new code base.</p></li>
+<li><p>Tests should be <em>portable</em> and <em>reusable</em>. Google has a lot of code that is
+platform-neutral; its tests should also be platform-neutral. googletest
+works on different OSes, with different compilers, with or without
+exceptions, so googletest tests can work with a variety of configurations.</p></li>
+<li><p>When tests fail, they should provide as much <em>information</em> about the problem
+as possible. googletest doesn’t stop at the first test failure. Instead, it
+only stops the current test and continues with the next. You can also set up
+tests that report non-fatal failures after which the current test continues.
+Thus, you can detect and fix multiple bugs in a single run-edit-compile
+cycle.</p></li>
+<li><p>The testing framework should liberate test writers from housekeeping chores
+and let them focus on the test <em>content</em>. googletest automatically keeps
+track of all tests defined, and doesn’t require the user to enumerate them
+in order to run them.</p></li>
+<li><p>Tests should be <em>fast</em>. With googletest, you can reuse shared resources
+across tests and pay for the set-up/tear-down only once, without making
+tests depend on each other.</p></li>
+</ol>
+<p>Since googletest is based on the popular xUnit architecture, you’ll feel right
+at home if you’ve used JUnit or PyUnit before. If not, it will take you about 10
+minutes to learn the basics and get started. So let’s go!</p>
+</div>
+<div class="section" id="beware-of-the-nomenclature">
+<h2>Beware of the nomenclature<a class="headerlink" href="#beware-of-the-nomenclature" title="Permalink to this headline">¶</a></h2>
+<p>{: .callout .note}
+<em>Note:</em> There might be some confusion arising from different definitions of the
+terms <em>Test</em>, <em>Test Case</em> and <em>Test Suite</em>, so beware of misunderstanding these.</p>
+<p>Historically, googletest started to use the term <em>Test Case</em> for grouping
+related tests, whereas current publications, including International Software
+Testing Qualifications Board (<a class="reference external" href="http://www.istqb.org/">ISTQB</a>) materials and
+various textbooks on software quality, use the term
+<em><a class="reference external" href="http://glossary.istqb.org/en/search/test%20suite">Test Suite</a></em> for this.</p>
+<p>The related term <em>Test</em>, as it is used in googletest, corresponds to the term
+<em><a class="reference external" href="http://glossary.istqb.org/en/search/test%20case">Test Case</a></em> of ISTQB and others.</p>
+<p>The term <em>Test</em> is commonly of broad enough sense, including ISTQB’s definition
+of <em>Test Case</em>, so it’s not much of a problem here. But the term <em>Test Case</em> as
+was used in Google Test is of contradictory sense and thus confusing.</p>
+<p>googletest recently started replacing the term <em>Test Case</em> with <em>Test Suite</em>.
+The preferred API is <em>TestSuite</em>. The older TestCase API is being slowly
+deprecated and refactored away.</p>
+<p>So please be aware of the different definitions of the terms:</p>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th align="left">Meaning</th>
+<th align="left">googletest Term</th>
+<th align="left"><a href="http://www.istqb.org/">ISTQB</a> Term</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td align="left">Exercise a particular program path with specific input values and verify the results</td>
+<td align="left"><a href="#simple-tests">TEST()</a></td>
+<td align="left">[Test Case][istqb test case]</td>
+</tr>
+</tbody>
+</table></div>
+<div class="section" id="basic-concepts">
+<h2>Basic Concepts<a class="headerlink" href="#basic-concepts" title="Permalink to this headline">¶</a></h2>
+<p>When using googletest, you start by writing <em>assertions</em>, which are statements
+that check whether a condition is true. An assertion’s result can be <em>success</em>,
+<em>nonfatal failure</em>, or <em>fatal failure</em>. If a fatal failure occurs, it aborts the
+current function; otherwise the program continues normally.</p>
+<p><em>Tests</em> use assertions to verify the tested code’s behavior. If a test crashes
+or has a failed assertion, then it <em>fails</em>; otherwise it <em>succeeds</em>.</p>
+<p>A <em>test suite</em> contains one or many tests. You should group your tests into test
+suites that reflect the structure of the tested code. When multiple tests in a
+test suite need to share common objects and subroutines, you can put them into a
+<em>test fixture</em> class.</p>
+<p>A <em>test program</em> can contain multiple test suites.</p>
+<p>We’ll now explain how to write a test program, starting at the individual
+assertion level and building up to tests and test suites.</p>
+</div>
+<div class="section" id="assertions">
+<h2>Assertions<a class="headerlink" href="#assertions" title="Permalink to this headline">¶</a></h2>
+<p>googletest assertions are macros that resemble function calls. You test a class
+or function by making assertions about its behavior. When an assertion fails,
+googletest prints the assertion’s source file and line number location, along
+with a failure message. You may also supply a custom failure message which will
+be appended to googletest’s message.</p>
+<p>The assertions come in pairs that test the same thing but have different effects
+on the current function. <code class="docutils literal notranslate"><span class="pre">ASSERT_*</span></code> versions generate fatal failures when they
+fail, and <strong>abort the current function</strong>. <code class="docutils literal notranslate"><span class="pre">EXPECT_*</span></code> versions generate nonfatal
+failures, which don’t abort the current function. Usually <code class="docutils literal notranslate"><span class="pre">EXPECT_*</span></code> are
+preferred, as they allow more than one failure to be reported in a test.
+However, you should use <code class="docutils literal notranslate"><span class="pre">ASSERT_*</span></code> if it doesn’t make sense to continue when the
+assertion in question fails.</p>
+<p>Since a failed <code class="docutils literal notranslate"><span class="pre">ASSERT_*</span></code> returns from the current function immediately,
+possibly skipping clean-up code that comes after it, it may cause a space leak.
+Depending on the nature of the leak, it may or may not be worth fixing - so keep
+this in mind if you get a heap checker error in addition to assertion errors.</p>
+<p>To provide a custom failure message, simply stream it into the macro using the
+<code class="docutils literal notranslate"><span class="pre">&lt;&lt;</span></code> operator or a sequence of such operators. See the following example, using
+the ASSERT_EQ and EXPECT_EQ macros to
+verify value equality:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">ASSERT_EQ</span><span class="p">(</span><span class="n">x</span><span class="p">.</span><span class="n">size</span><span class="p">(),</span> <span class="n">y</span><span class="p">.</span><span class="n">size</span><span class="p">())</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;Vectors x and y are of unequal length&quot;</span><span class="p">;</span>
+
+<span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">x</span><span class="p">.</span><span class="n">size</span><span class="p">();</span> <span class="o">++</span><span class="n">i</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">y</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">&lt;&lt;</span> <span class="s">&quot;Vectors x and y differ at index &quot;</span> <span class="o">&lt;&lt;</span> <span class="n">i</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Anything that can be streamed to an <code class="docutils literal notranslate"><span class="pre">ostream</span></code> can be streamed to an assertion
+macro–in particular, C strings and <code class="docutils literal notranslate"><span class="pre">string</span></code> objects. If a wide string
+(<code class="docutils literal notranslate"><span class="pre">wchar_t*</span></code>, <code class="docutils literal notranslate"><span class="pre">TCHAR*</span></code> in <code class="docutils literal notranslate"><span class="pre">UNICODE</span></code> mode on Windows, or <code class="docutils literal notranslate"><span class="pre">std::wstring</span></code>) is
+streamed to an assertion, it will be translated to UTF-8 when printed.</p>
+<p>GoogleTest provides a collection of assertions for verifying the behavior of
+your code in various ways. You can check Boolean conditions, compare values
+based on relational operators, verify string values, floating-point values, and
+much more. There are even assertions that enable you to verify more complex
+states by providing custom predicates. For the complete list of assertions
+provided by GoogleTest, see the <a class="reference internal" href="reference/assertions.html"><span class="doc">Assertions Reference</span></a>.</p>
+</div>
+<div class="section" id="simple-tests">
+<h2>Simple Tests<a class="headerlink" href="#simple-tests" title="Permalink to this headline">¶</a></h2>
+<p>To create a test:</p>
+<ol class="simple">
+<li><p>Use the <code class="docutils literal notranslate"><span class="pre">TEST()</span></code> macro to define and name a test function. These are
+ordinary C++ functions that don’t return a value.</p></li>
+<li><p>In this function, along with any valid C++ statements you want to include,
+use the various googletest assertions to check values.</p></li>
+<li><p>The test’s result is determined by the assertions; if any assertion in the
+test fails (either fatally or non-fatally), or if the test crashes, the
+entire test fails. Otherwise, it succeeds.</p></li>
+</ol>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">TEST</span><span class="p">(</span><span class="n">TestSuiteName</span><span class="p">,</span> <span class="n">TestName</span><span class="p">)</span> <span class="p">{</span>
+  <span class="p">...</span> <span class="n">test</span> <span class="n">body</span> <span class="p">...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">TEST()</span></code> arguments go from general to specific. The <em>first</em> argument is the name
+of the test suite, and the <em>second</em> argument is the test’s name within the test
+suite. Both names must be valid C++ identifiers, and they should not contain any
+underscores (<code class="docutils literal notranslate"><span class="pre">_</span></code>). A test’s <em>full name</em> consists of its containing test suite
+and its individual name. Tests from different test suites can have the same
+individual name.</p>
+<p>For example, let’s take a simple integer function:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="kt">int</span> <span class="nf">Factorial</span><span class="p">(</span><span class="kt">int</span> <span class="n">n</span><span class="p">);</span>  <span class="c1">// Returns the factorial of n</span>
+</pre></div>
+</div>
+<p>A test suite for this function might look like:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">// Tests factorial of 0.</span>
+<span class="n">TEST</span><span class="p">(</span><span class="n">FactorialTest</span><span class="p">,</span> <span class="n">HandlesZeroInput</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">Factorial</span><span class="p">(</span><span class="mi">0</span><span class="p">),</span> <span class="mi">1</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="c1">// Tests factorial of positive numbers.</span>
+<span class="n">TEST</span><span class="p">(</span><span class="n">FactorialTest</span><span class="p">,</span> <span class="n">HandlesPositiveInput</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">Factorial</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="mi">1</span><span class="p">);</span>
+  <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">Factorial</span><span class="p">(</span><span class="mi">2</span><span class="p">),</span> <span class="mi">2</span><span class="p">);</span>
+  <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">Factorial</span><span class="p">(</span><span class="mi">3</span><span class="p">),</span> <span class="mi">6</span><span class="p">);</span>
+  <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">Factorial</span><span class="p">(</span><span class="mi">8</span><span class="p">),</span> <span class="mi">40320</span><span class="p">);</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>googletest groups the test results by test suites, so logically related tests
+should be in the same test suite; in other words, the first argument to their
+<code class="docutils literal notranslate"><span class="pre">TEST()</span></code> should be the same. In the above example, we have two tests,
+<code class="docutils literal notranslate"><span class="pre">HandlesZeroInput</span></code> and <code class="docutils literal notranslate"><span class="pre">HandlesPositiveInput</span></code>, that belong to the same test
+suite <code class="docutils literal notranslate"><span class="pre">FactorialTest</span></code>.</p>
+<p>When naming your test suites and tests, you should follow the same convention as
+for
+<a class="reference external" href="https://google.github.io/styleguide/cppguide.html#Function_Names">naming functions and classes</a>.</p>
+<p><strong>Availability</strong>: Linux, Windows, Mac.</p>
+</div>
+<div class="section" id="test-fixtures-using-the-same-data-configuration-for-multiple-tests-same-data-multiple-tests">
+<h2>Test Fixtures: Using the Same Data Configuration for Multiple Tests {#same-data-multiple-tests}<a class="headerlink" href="#test-fixtures-using-the-same-data-configuration-for-multiple-tests-same-data-multiple-tests" title="Permalink to this headline">¶</a></h2>
+<p>If you find yourself writing two or more tests that operate on similar data, you
+can use a <em>test fixture</em>. This allows you to reuse the same configuration of
+objects for several different tests.</p>
+<p>To create a fixture:</p>
+<ol class="simple">
+<li><p>Derive a class from <code class="docutils literal notranslate"><span class="pre">::testing::Test</span></code> . Start its body with <code class="docutils literal notranslate"><span class="pre">protected:</span></code>, as
+we’ll want to access fixture members from sub-classes.</p></li>
+<li><p>Inside the class, declare any objects you plan to use.</p></li>
+<li><p>If necessary, write a default constructor or <code class="docutils literal notranslate"><span class="pre">SetUp()</span></code> function to prepare
+the objects for each test. A common mistake is to spell <code class="docutils literal notranslate"><span class="pre">SetUp()</span></code> as
+<strong><code class="docutils literal notranslate"><span class="pre">Setup()</span></code></strong> with a small <code class="docutils literal notranslate"><span class="pre">u</span></code> - Use <code class="docutils literal notranslate"><span class="pre">override</span></code> in C++11 to make sure you
+spelled it correctly.</p></li>
+<li><p>If necessary, write a destructor or <code class="docutils literal notranslate"><span class="pre">TearDown()</span></code> function to release any
+resources you allocated in <code class="docutils literal notranslate"><span class="pre">SetUp()</span></code> . To learn when you should use the
+constructor/destructor and when you should use <code class="docutils literal notranslate"><span class="pre">SetUp()/TearDown()</span></code>, read
+the FAQ.</p></li>
+<li><p>If needed, define subroutines for your tests to share.</p></li>
+</ol>
+<p>When using a fixture, use <code class="docutils literal notranslate"><span class="pre">TEST_F()</span></code> instead of <code class="docutils literal notranslate"><span class="pre">TEST()</span></code> as it allows you to
+access objects and subroutines in the test fixture:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">TEST_F</span><span class="p">(</span><span class="n">TestFixtureName</span><span class="p">,</span> <span class="n">TestName</span><span class="p">)</span> <span class="p">{</span>
+  <span class="p">...</span> <span class="n">test</span> <span class="n">body</span> <span class="p">...</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>Like <code class="docutils literal notranslate"><span class="pre">TEST()</span></code>, the first argument is the test suite name, but for <code class="docutils literal notranslate"><span class="pre">TEST_F()</span></code>
+this must be the name of the test fixture class. You’ve probably guessed: <code class="docutils literal notranslate"><span class="pre">_F</span></code>
+is for fixture.</p>
+<p>Unfortunately, the C++ macro system does not allow us to create a single macro
+that can handle both types of tests. Using the wrong macro causes a compiler
+error.</p>
+<p>Also, you must first define a test fixture class before using it in a
+<code class="docutils literal notranslate"><span class="pre">TEST_F()</span></code>, or you’ll get the compiler error “<code class="docutils literal notranslate"><span class="pre">virtual</span> <span class="pre">outside</span> <span class="pre">class</span> <span class="pre">declaration</span></code>”.</p>
+<p>For each test defined with <code class="docutils literal notranslate"><span class="pre">TEST_F()</span></code>, googletest will create a <em>fresh</em> test
+fixture at runtime, immediately initialize it via <code class="docutils literal notranslate"><span class="pre">SetUp()</span></code>, run the test, clean
+up by calling <code class="docutils literal notranslate"><span class="pre">TearDown()</span></code>, and then delete the test fixture. Note that
+different tests in the same test suite have different test fixture objects, and
+googletest always deletes a test fixture before it creates the next one.
+googletest does <strong>not</strong> reuse the same test fixture for multiple tests. Any
+changes one test makes to the fixture do not affect other tests.</p>
+<p>As an example, let’s write tests for a FIFO queue class named <code class="docutils literal notranslate"><span class="pre">Queue</span></code>, which has
+the following interface:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="k">template</span> <span class="o">&lt;</span><span class="k">typename</span> <span class="n">E</span><span class="o">&gt;</span>  <span class="c1">// E is the element type.</span>
+<span class="k">class</span> <span class="nc">Queue</span> <span class="p">{</span>
+ <span class="k">public</span><span class="o">:</span>
+  <span class="n">Queue</span><span class="p">();</span>
+  <span class="kt">void</span> <span class="nf">Enqueue</span><span class="p">(</span><span class="k">const</span> <span class="n">E</span><span class="o">&amp;</span> <span class="n">element</span><span class="p">);</span>
+  <span class="n">E</span><span class="o">*</span> <span class="nf">Dequeue</span><span class="p">();</span>  <span class="c1">// Returns NULL if the queue is empty.</span>
+  <span class="kt">size_t</span> <span class="nf">size</span><span class="p">()</span> <span class="k">const</span><span class="p">;</span>
+  <span class="p">...</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>First, define a fixture class. By convention, you should give it the name
+<code class="docutils literal notranslate"><span class="pre">FooTest</span></code> where <code class="docutils literal notranslate"><span class="pre">Foo</span></code> is the class being tested.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="k">class</span> <span class="nc">QueueTest</span> <span class="o">:</span> <span class="k">public</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">Test</span> <span class="p">{</span>
+ <span class="k">protected</span><span class="o">:</span>
+  <span class="kt">void</span> <span class="n">SetUp</span><span class="p">()</span> <span class="k">override</span> <span class="p">{</span>
+     <span class="n">q0_</span><span class="p">.</span><span class="n">Enqueue</span><span class="p">(</span><span class="mi">1</span><span class="p">);</span>
+     <span class="n">q1_</span><span class="p">.</span><span class="n">Enqueue</span><span class="p">(</span><span class="mi">2</span><span class="p">);</span>
+     <span class="n">q2_</span><span class="p">.</span><span class="n">Enqueue</span><span class="p">(</span><span class="mi">3</span><span class="p">);</span>
+  <span class="p">}</span>
+
+  <span class="c1">// void TearDown() override {}</span>
+
+  <span class="n">Queue</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span> <span class="n">q0_</span><span class="p">;</span>
+  <span class="n">Queue</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span> <span class="n">q1_</span><span class="p">;</span>
+  <span class="n">Queue</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span> <span class="n">q2_</span><span class="p">;</span>
+<span class="p">};</span>
+</pre></div>
+</div>
+<p>In this case, <code class="docutils literal notranslate"><span class="pre">TearDown()</span></code> is not needed since we don’t have to clean up after
+each test, other than what’s already done by the destructor.</p>
+<p>Now we’ll write tests using <code class="docutils literal notranslate"><span class="pre">TEST_F()</span></code> and this fixture.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">TEST_F</span><span class="p">(</span><span class="n">QueueTest</span><span class="p">,</span> <span class="n">IsEmptyInitially</span><span class="p">)</span> <span class="p">{</span>
+  <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">q0_</span><span class="p">.</span><span class="n">size</span><span class="p">(),</span> <span class="mi">0</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="n">TEST_F</span><span class="p">(</span><span class="n">QueueTest</span><span class="p">,</span> <span class="n">DequeueWorks</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kt">int</span><span class="o">*</span> <span class="n">n</span> <span class="o">=</span> <span class="n">q0_</span><span class="p">.</span><span class="n">Dequeue</span><span class="p">();</span>
+  <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="k">nullptr</span><span class="p">);</span>
+
+  <span class="n">n</span> <span class="o">=</span> <span class="n">q1_</span><span class="p">.</span><span class="n">Dequeue</span><span class="p">();</span>
+  <span class="n">ASSERT_NE</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="k">nullptr</span><span class="p">);</span>
+  <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="o">*</span><span class="n">n</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+  <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">q1_</span><span class="p">.</span><span class="n">size</span><span class="p">(),</span> <span class="mi">0</span><span class="p">);</span>
+  <span class="k">delete</span> <span class="n">n</span><span class="p">;</span>
+
+  <span class="n">n</span> <span class="o">=</span> <span class="n">q2_</span><span class="p">.</span><span class="n">Dequeue</span><span class="p">();</span>
+  <span class="n">ASSERT_NE</span><span class="p">(</span><span class="n">n</span><span class="p">,</span> <span class="k">nullptr</span><span class="p">);</span>
+  <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="o">*</span><span class="n">n</span><span class="p">,</span> <span class="mi">2</span><span class="p">);</span>
+  <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">q2_</span><span class="p">.</span><span class="n">size</span><span class="p">(),</span> <span class="mi">1</span><span class="p">);</span>
+  <span class="k">delete</span> <span class="n">n</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The above uses both <code class="docutils literal notranslate"><span class="pre">ASSERT_*</span></code> and <code class="docutils literal notranslate"><span class="pre">EXPECT_*</span></code> assertions. The rule of thumb is
+to use <code class="docutils literal notranslate"><span class="pre">EXPECT_*</span></code> when you want the test to continue to reveal more errors after
+the assertion failure, and use <code class="docutils literal notranslate"><span class="pre">ASSERT_*</span></code> when continuing after failure doesn’t
+make sense. For example, the second assertion in the <code class="docutils literal notranslate"><span class="pre">Dequeue</span></code> test is
+<code class="docutils literal notranslate"><span class="pre">ASSERT_NE(n,</span> <span class="pre">nullptr)</span></code>, as we need to dereference the pointer <code class="docutils literal notranslate"><span class="pre">n</span></code> later, which
+would lead to a segfault when <code class="docutils literal notranslate"><span class="pre">n</span></code> is <code class="docutils literal notranslate"><span class="pre">NULL</span></code>.</p>
+<p>When these tests run, the following happens:</p>
+<ol class="simple">
+<li><p>googletest constructs a <code class="docutils literal notranslate"><span class="pre">QueueTest</span></code> object (let’s call it <code class="docutils literal notranslate"><span class="pre">t1</span></code>).</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">t1.SetUp()</span></code> initializes <code class="docutils literal notranslate"><span class="pre">t1</span></code>.</p></li>
+<li><p>The first test (<code class="docutils literal notranslate"><span class="pre">IsEmptyInitially</span></code>) runs on <code class="docutils literal notranslate"><span class="pre">t1</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">t1.TearDown()</span></code> cleans up after the test finishes.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">t1</span></code> is destructed.</p></li>
+<li><p>The above steps are repeated on another <code class="docutils literal notranslate"><span class="pre">QueueTest</span></code> object, this time
+running the <code class="docutils literal notranslate"><span class="pre">DequeueWorks</span></code> test.</p></li>
+</ol>
+<p><strong>Availability</strong>: Linux, Windows, Mac.</p>
+</div>
+<div class="section" id="invoking-the-tests">
+<h2>Invoking the Tests<a class="headerlink" href="#invoking-the-tests" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">TEST()</span></code> and <code class="docutils literal notranslate"><span class="pre">TEST_F()</span></code> implicitly register their tests with googletest. So,
+unlike with many other C++ testing frameworks, you don’t have to re-list all
+your defined tests in order to run them.</p>
+<p>After defining your tests, you can run them with <code class="docutils literal notranslate"><span class="pre">RUN_ALL_TESTS()</span></code>, which
+returns <code class="docutils literal notranslate"><span class="pre">0</span></code> if all the tests are successful, or <code class="docutils literal notranslate"><span class="pre">1</span></code> otherwise. Note that
+<code class="docutils literal notranslate"><span class="pre">RUN_ALL_TESTS()</span></code> runs <em>all tests</em> in your link unit–they can be from different
+test suites, or even different source files.</p>
+<p>When invoked, the <code class="docutils literal notranslate"><span class="pre">RUN_ALL_TESTS()</span></code> macro:</p>
+<ul class="simple">
+<li><p>Saves the state of all googletest flags.</p></li>
+<li><p>Creates a test fixture object for the first test.</p></li>
+<li><p>Initializes it via <code class="docutils literal notranslate"><span class="pre">SetUp()</span></code>.</p></li>
+<li><p>Runs the test on the fixture object.</p></li>
+<li><p>Cleans up the fixture via <code class="docutils literal notranslate"><span class="pre">TearDown()</span></code>.</p></li>
+<li><p>Deletes the fixture.</p></li>
+<li><p>Restores the state of all googletest flags.</p></li>
+<li><p>Repeats the above steps for the next test, until all tests have run.</p></li>
+</ul>
+<p>If a fatal failure happens the subsequent steps will be skipped.</p>
+<p>{: .callout .important}</p>
+<blockquote>
+<div><p>IMPORTANT: You must <strong>not</strong> ignore the return value of <code class="docutils literal notranslate"><span class="pre">RUN_ALL_TESTS()</span></code>, or
+you will get a compiler error. The rationale for this design is that the
+automated testing service determines whether a test has passed based on its
+exit code, not on its stdout/stderr output; thus your <code class="docutils literal notranslate"><span class="pre">main()</span></code> function must
+return the value of <code class="docutils literal notranslate"><span class="pre">RUN_ALL_TESTS()</span></code>.</p>
+<p>Also, you should call <code class="docutils literal notranslate"><span class="pre">RUN_ALL_TESTS()</span></code> only <strong>once</strong>. Calling it more than
+once conflicts with some advanced googletest features (e.g., thread-safe
+<a class="reference internal" href="advanced.html#death-tests"><span class="std std-ref">death tests</span></a>) and thus is not supported.</p>
+</div></blockquote>
+<p><strong>Availability</strong>: Linux, Windows, Mac.</p>
+</div>
+<div class="section" id="writing-the-main-function">
+<h2>Writing the main() Function<a class="headerlink" href="#writing-the-main-function" title="Permalink to this headline">¶</a></h2>
+<p>Most users should <em>not</em> need to write their own <code class="docutils literal notranslate"><span class="pre">main</span></code> function and instead link
+with <code class="docutils literal notranslate"><span class="pre">gtest_main</span></code> (as opposed to with <code class="docutils literal notranslate"><span class="pre">gtest</span></code>), which defines a suitable entry
+point. See the end of this section for details. The remainder of this section
+should only apply when you need to do something custom before the tests run that
+cannot be expressed within the framework of fixtures and test suites.</p>
+<p>If you write your own <code class="docutils literal notranslate"><span class="pre">main</span></code> function, it should return the value of
+<code class="docutils literal notranslate"><span class="pre">RUN_ALL_TESTS()</span></code>.</p>
+<p>You can start from this boilerplate:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="cp">#include</span> <span class="cpf">&quot;this/package/foo.h&quot;</span><span class="cp"></span>
+
+<span class="cp">#include</span> <span class="cpf">&quot;gtest/gtest.h&quot;</span><span class="cp"></span>
+
+<span class="k">namespace</span> <span class="n">my</span> <span class="p">{</span>
+<span class="k">namespace</span> <span class="n">project</span> <span class="p">{</span>
+<span class="k">namespace</span> <span class="p">{</span>
+
+<span class="c1">// The fixture for testing class Foo.</span>
+<span class="k">class</span> <span class="nc">FooTest</span> <span class="o">:</span> <span class="k">public</span> <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">Test</span> <span class="p">{</span>
+ <span class="k">protected</span><span class="o">:</span>
+  <span class="c1">// You can remove any or all of the following functions if their bodies would</span>
+  <span class="c1">// be empty.</span>
+
+  <span class="n">FooTest</span><span class="p">()</span> <span class="p">{</span>
+     <span class="c1">// You can do set-up work for each test here.</span>
+  <span class="p">}</span>
+
+  <span class="o">~</span><span class="n">FooTest</span><span class="p">()</span> <span class="k">override</span> <span class="p">{</span>
+     <span class="c1">// You can do clean-up work that doesn&#39;t throw exceptions here.</span>
+  <span class="p">}</span>
+
+  <span class="c1">// If the constructor and destructor are not enough for setting up</span>
+  <span class="c1">// and cleaning up each test, you can define the following methods:</span>
+
+  <span class="kt">void</span> <span class="n">SetUp</span><span class="p">()</span> <span class="k">override</span> <span class="p">{</span>
+     <span class="c1">// Code here will be called immediately after the constructor (right</span>
+     <span class="c1">// before each test).</span>
+  <span class="p">}</span>
+
+  <span class="kt">void</span> <span class="n">TearDown</span><span class="p">()</span> <span class="k">override</span> <span class="p">{</span>
+     <span class="c1">// Code here will be called immediately after each test (right</span>
+     <span class="c1">// before the destructor).</span>
+  <span class="p">}</span>
+
+  <span class="c1">// Class members declared here can be used by all tests in the test suite</span>
+  <span class="c1">// for Foo.</span>
+<span class="p">};</span>
+
+<span class="c1">// Tests that the Foo::Bar() method does Abc.</span>
+<span class="n">TEST_F</span><span class="p">(</span><span class="n">FooTest</span><span class="p">,</span> <span class="n">MethodBarDoesAbc</span><span class="p">)</span> <span class="p">{</span>
+  <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="n">input_filepath</span> <span class="o">=</span> <span class="s">&quot;this/package/testdata/myinputfile.dat&quot;</span><span class="p">;</span>
+  <span class="k">const</span> <span class="n">std</span><span class="o">::</span><span class="n">string</span> <span class="n">output_filepath</span> <span class="o">=</span> <span class="s">&quot;this/package/testdata/myoutputfile.dat&quot;</span><span class="p">;</span>
+  <span class="n">Foo</span> <span class="n">f</span><span class="p">;</span>
+  <span class="n">EXPECT_EQ</span><span class="p">(</span><span class="n">f</span><span class="p">.</span><span class="n">Bar</span><span class="p">(</span><span class="n">input_filepath</span><span class="p">,</span> <span class="n">output_filepath</span><span class="p">),</span> <span class="mi">0</span><span class="p">);</span>
+<span class="p">}</span>
+
+<span class="c1">// Tests that Foo does Xyz.</span>
+<span class="n">TEST_F</span><span class="p">(</span><span class="n">FooTest</span><span class="p">,</span> <span class="n">DoesXyz</span><span class="p">)</span> <span class="p">{</span>
+  <span class="c1">// Exercises the Xyz feature of Foo.</span>
+<span class="p">}</span>
+
+<span class="p">}</span>  <span class="c1">// namespace</span>
+<span class="p">}</span>  <span class="c1">// namespace project</span>
+<span class="p">}</span>  <span class="c1">// namespace my</span>
+
+<span class="kt">int</span> <span class="n">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span> <span class="o">**</span><span class="n">argv</span><span class="p">)</span> <span class="p">{</span>
+  <span class="o">::</span><span class="n">testing</span><span class="o">::</span><span class="n">InitGoogleTest</span><span class="p">(</span><span class="o">&amp;</span><span class="n">argc</span><span class="p">,</span> <span class="n">argv</span><span class="p">);</span>
+  <span class="k">return</span> <span class="nf">RUN_ALL_TESTS</span><span class="p">();</span>
+<span class="p">}</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">::testing::InitGoogleTest()</span></code> function parses the command line for
+googletest flags, and removes all recognized flags. This allows the user to
+control a test program’s behavior via various flags, which we’ll cover in the
+<a class="reference internal" href="advanced.html"><span class="doc">AdvancedGuide</span></a>. You <strong>must</strong> call this function before calling
+<code class="docutils literal notranslate"><span class="pre">RUN_ALL_TESTS()</span></code>, or the flags won’t be properly initialized.</p>
+<p>On Windows, <code class="docutils literal notranslate"><span class="pre">InitGoogleTest()</span></code> also works with wide strings, so it can be used
+in programs compiled in <code class="docutils literal notranslate"><span class="pre">UNICODE</span></code> mode as well.</p>
+<p>But maybe you think that writing all those <code class="docutils literal notranslate"><span class="pre">main</span></code> functions is too much work? We
+agree with you completely, and that’s why Google Test provides a basic
+implementation of main(). If it fits your needs, then just link your test with
+the <code class="docutils literal notranslate"><span class="pre">gtest_main</span></code> library and you are good to go.</p>
+<p>{: .callout .note}
+NOTE: <code class="docutils literal notranslate"><span class="pre">ParseGUnitFlags()</span></code> is deprecated in favor of <code class="docutils literal notranslate"><span class="pre">InitGoogleTest()</span></code>.</p>
+</div>
+<div class="section" id="known-limitations">
+<h2>Known Limitations<a class="headerlink" href="#known-limitations" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Google Test is designed to be thread-safe. The implementation is thread-safe
+on systems where the <code class="docutils literal notranslate"><span class="pre">pthreads</span></code> library is available. It is currently
+<em>unsafe</em> to use Google Test assertions from two threads concurrently on
+other systems (e.g. Windows). In most tests this is not an issue as usually
+the assertions are done in the main thread. If you want to help, you can
+volunteer to implement the necessary synchronization primitives in
+<code class="docutils literal notranslate"><span class="pre">gtest-port.h</span></code> for your platform.</p></li>
+</ul>
+</div>
+</div>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        </div>
+    </div>  
+
+</body>
+</html>

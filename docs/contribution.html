@@ -1,0 +1,287 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Contribute to BladeDISC &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Tutorials on Example Use Cases" href="tutorials/index.html" />
+    <link rel="prev" title="BladeDISC Quickstart" href="quickstart.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a></li>
+        
+      <li>Contribute to BladeDISC</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../_sources/docs/contribution.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../README.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../README.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../README.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../README.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../README.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../README.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../README.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <div class="section" id="contribute-to-bladedisc">
+<h1>Contribute to BladeDISC<a class="headerlink" href="#contribute-to-bladedisc" title="Permalink to this headline">¶</a></h1>
+<p>You’re welcome to contribute to BladeDISC!
+Please sign the <a class="reference external" href="https://cla-assistant.io/alibaba/BladeDISC">CLA</a>
+before contributing to BladeDISC community.  This document
+introduces how to prepare your local development environment and our workflow.</p>
+<div class="section" id="local-development-environment">
+<h2>Local Development Environment<a class="headerlink" href="#local-development-environment" title="Permalink to this headline">¶</a></h2>
+<p>Some software is required on your host:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://docs.docker.com/get-docker/">Docker</a></p></li>
+<li><p><a class="reference external" href="https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html">Nvidia Container Toolkit</a></p></li>
+<li><p><a class="reference external" href="https://git-scm.com/">Git</a></p></li>
+</ul>
+<p>It’s recommended to use the official development Docker image to
+build and test your code:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker run --rm -it --gpus all -v <span class="nv">$PWD</span>:/workspace bladedisc/bladedisc:latest-devel-cuda11.0 bash
+</pre></div>
+</div>
+<p>you can also find more images on <a class="reference internal" href="install_with_docker.html#download-a-bladedisc-docker-image"><span class="std std-ref">install with docker</span></a>.</p>
+</div>
+<div class="section" id="submit-a-pull-request-to-bladedisc">
+<h2>Submit a Pull Request to BladeDISC<a class="headerlink" href="#submit-a-pull-request-to-bladedisc" title="Permalink to this headline">¶</a></h2>
+<p>BladeDISC uses <a class="reference external" href="https://nvie.com/posts/a-successful-git-branching-model/">git branching model</a>,
+the following steps guide the usual contribution.</p>
+<ol>
+<li><p>Fork</p>
+<p>Most commonly, forks are used to either propose changes to someone
+else’s project or to use someone else’s project as a starting point
+for your idea.  So, please file Pull Requests from your forked
+repo. To make a fork, just head over to the Github page and click
+<a class="reference external" href="https://help.github.com/articles/fork-a-repo/">“Fork” button</a>.</p>
+</li>
+<li><p>Clone</p>
+<p>To make a copy of your repo on your host, please run:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git clone git@github.com:your-github-account/BladeDISC.git
+</pre></div>
+</div>
+<p>Please go to <a class="reference internal" href="build_from_source.html"><span class="doc">build from source</span></a> to check how
+to build and run tests.</p>
+</li>
+<li><p>Create a Local Feature Branch</p>
+<p>For each feature or fixing a bug, it’s recommended to
+create a new feature branch before coding:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git checkout -b new_feature_branch
+</pre></div>
+</div>
+</li>
+<li><p>Keep Pulling Upstream</p>
+<p>BladeDISC is growing fast, many features are merged into the official
+repo, to notice the conflicts early, please pull the official repo
+often and it’s easier to fix the conflicts.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git remote add upstream https://github.com/alibaba/BladeDISC
+git pull upstream main
+</pre></div>
+</div>
+</li>
+<li><p>Git Commit</p>
+<p>BladeDISC uses the [pre-commit] toolkit to check the code
+the style for each commit, please install the toolkit before committing:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python -m pip install pre-commit
+pre-commit install
+</pre></div>
+</div>
+<p>Once installation, you will see something like the following when
+you run <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">commit</span></code> command:</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>➜  BladeDISC git:(new_feature) ✗ pre-commit run -a
+copyright_checker........................................................Passed
+</pre></div>
+</div>
+</li>
+<li><p>Create a Pull Request</p>
+<p>Once the new feature or the bugfix is done, you can push the local
+work into your forked repo:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git push origin new-feature-branch
+</pre></div>
+</div>
+<p>The push allows you to create a new pull request when requesting
+the <a class="reference external" href="https://github.com/alibaba/BladeDISC">official repo</a>, please
+follow <a class="reference external" href="https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request">this article</a>
+to create a pull request.</p>
+<p>If your pull request is to fix an exiting issue, please fill in the key
+word <a class="reference external" href="https://help.github.com/articles/closing-issues-using-keywords/">fixes #issue-id</a>
+to close the issue when the pull request is merged.</p>
+<p>Please feel free to assign a reviewer and assign an associate label on
+your pull request page.</p>
+</li>
+</ol>
+</div>
+</div>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../',
+            VERSION:'1.0.0',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        </div>
+    </div>  
+
+</body>
+</html>

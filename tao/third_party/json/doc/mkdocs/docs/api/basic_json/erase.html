@@ -1,0 +1,396 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>basic_json::erase &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../../../../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../../../../../../index.html">Docs</a></li>
+        
+      <li>basic_json::erase</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../../../../../../_sources/tao/third_party/json/doc/mkdocs/docs/api/basic_json/erase.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../../../../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../README_.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README_.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README_.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README_.html#for-pytorch-users">For PyTorch Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README_.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README_.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README_.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README_.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README_.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README_.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../docs/quickstart.html">Quickstart for TensorFlow/PyTorch users</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../docs/developers/index.html">Documentation for Developers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/developers/pass_pipeline.html">Tutorial: A Walkthough of the BladeDISC Pass Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/developers/runtime_abstraction_layer.html">Runtime Abstraction Layer Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/developers/bladedisc_torch_overview.html">BladeDISC Torch Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/developers/torch_add_a_new_converter.html">Tutorial: How to add the support of a new Torch Op</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <div class="section" id="basic-json-erase">
+<h1>basic_json::erase<a class="headerlink" href="#basic-json-erase" title="Permalink to this headline">¶</a></h1>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="c1">// (1)</span>
+<span class="n">iterator</span> <span class="nf">erase</span><span class="p">(</span><span class="n">iterator</span> <span class="n">pos</span><span class="p">);</span>
+<span class="n">const_iterator</span> <span class="nf">erase</span><span class="p">(</span><span class="n">const_iterator</span> <span class="n">pos</span><span class="p">);</span>
+
+<span class="c1">// (2)</span>
+<span class="n">iterator</span> <span class="nf">erase</span><span class="p">(</span><span class="n">iterator</span> <span class="n">first</span><span class="p">,</span> <span class="n">iterator</span> <span class="n">last</span><span class="p">);</span>
+<span class="n">const_iterator</span> <span class="nf">erase</span><span class="p">(</span><span class="n">const_iterator</span> <span class="n">first</span><span class="p">,</span> <span class="n">const_iterator</span> <span class="n">last</span><span class="p">);</span>
+
+<span class="c1">// (3)</span>
+<span class="n">size_type</span> <span class="nf">erase</span><span class="p">(</span><span class="k">const</span> <span class="k">typename</span> <span class="n">object_t</span><span class="o">::</span><span class="n">key_type</span><span class="o">&amp;</span> <span class="n">key</span><span class="p">);</span>
+
+<span class="c1">// (4)</span>
+<span class="kt">void</span> <span class="nf">erase</span><span class="p">(</span><span class="k">const</span> <span class="n">size_type</span> <span class="n">idx</span><span class="p">);</span>
+</pre></div>
+</div>
+<ol>
+<li><p>Removes an element from a JSON value specified by iterator <code class="docutils literal notranslate"><span class="pre">pos</span></code>. The iterator <code class="docutils literal notranslate"><span class="pre">pos</span></code> must be valid and
+dereferenceable. Thus the <code class="docutils literal notranslate"><span class="pre">end()</span></code> iterator (which is valid, but is not dereferenceable) cannot be used as a value for
+<code class="docutils literal notranslate"><span class="pre">pos</span></code>.</p>
+<p>If called on a primitive type other than <code class="docutils literal notranslate"><span class="pre">#!json</span> <span class="pre">null</span></code>, the resulting JSON value will be <code class="docutils literal notranslate"><span class="pre">#!json</span> <span class="pre">null</span></code>.</p>
+</li>
+<li><p>Remove an element range specified by <code class="docutils literal notranslate"><span class="pre">[first;</span> <span class="pre">last)</span></code> from a JSON value. The iterator <code class="docutils literal notranslate"><span class="pre">first</span></code> does not need to be
+dereferenceable if <code class="docutils literal notranslate"><span class="pre">first</span> <span class="pre">==</span> <span class="pre">last</span></code>: erasing an empty range is a no-op.</p>
+<p>If called on a primitive type other than <code class="docutils literal notranslate"><span class="pre">#!json</span> <span class="pre">null</span></code>, the resulting JSON value will be <code class="docutils literal notranslate"><span class="pre">#!json</span> <span class="pre">null</span></code>.</p>
+</li>
+<li><p>Removes an element from a JSON object by key.</p></li>
+<li><p>Removes an element from a JSON array by index.</p></li>
+</ol>
+<div class="section" id="parameters">
+<h2>Parameters<a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></h2>
+<p><code class="docutils literal notranslate"><span class="pre">pos</span></code> (in)
+:   iterator to the element to remove</p>
+<p><code class="docutils literal notranslate"><span class="pre">first</span></code> (in)
+:   iterator to the beginning of the range to remove</p>
+<p><code class="docutils literal notranslate"><span class="pre">last</span></code> (in)
+:   iterator past the end of the range to remove</p>
+<p><code class="docutils literal notranslate"><span class="pre">key</span></code> (in)
+:   object key of the elements to remove</p>
+<p><code class="docutils literal notranslate"><span class="pre">idx</span></code> (in)
+:   array index of the element to remove</p>
+</div>
+<div class="section" id="return-value">
+<h2>Return value<a class="headerlink" href="#return-value" title="Permalink to this headline">¶</a></h2>
+<ol class="simple">
+<li><p>Iterator following the last removed element. If the iterator <code class="docutils literal notranslate"><span class="pre">pos</span></code> refers to the last element, the <code class="docutils literal notranslate"><span class="pre">end()</span></code> iterator
+is returned.</p></li>
+<li><p>Iterator following the last removed element. If the iterator <code class="docutils literal notranslate"><span class="pre">last</span></code> refers to the last element, the <code class="docutils literal notranslate"><span class="pre">end()</span></code> iterator
+is returned.</p></li>
+<li><p>Number of elements removed. If <code class="docutils literal notranslate"><span class="pre">ObjectType</span></code> is the default <code class="docutils literal notranslate"><span class="pre">std::map</span></code> type, the return value will always be <code class="docutils literal notranslate"><span class="pre">0</span></code>
+(<code class="docutils literal notranslate"><span class="pre">key</span></code> was not found) or <code class="docutils literal notranslate"><span class="pre">1</span></code> (<code class="docutils literal notranslate"><span class="pre">key</span></code> was found).</p></li>
+<li><p>/</p></li>
+</ol>
+</div>
+<div class="section" id="exceptions">
+<h2>Exceptions<a class="headerlink" href="#exceptions" title="Permalink to this headline">¶</a></h2>
+<ol class="simple">
+<li><p>The function can throw the following exceptions:</p>
+<ul class="simple">
+<li><p>Throws type_error.307 if called on a <code class="docutils literal notranslate"><span class="pre">null</span></code> value;
+example: <code class="docutils literal notranslate"><span class="pre">&quot;cannot</span> <span class="pre">use</span> <span class="pre">erase()</span> <span class="pre">with</span> <span class="pre">null&quot;</span></code></p></li>
+<li><p>Throws invalid_iterator.202 if called on an
+iterator which does not belong to the current JSON value; example: <code class="docutils literal notranslate"><span class="pre">&quot;iterator</span> <span class="pre">does</span> <span class="pre">not</span> <span class="pre">fit</span> <span class="pre">current</span> <span class="pre">value&quot;</span></code></p></li>
+<li><p>Throws invalid_iterator.205 if called on a
+primitive type with invalid iterator (i.e., any iterator which is not <code class="docutils literal notranslate"><span class="pre">begin()</span></code>); example: <code class="docutils literal notranslate"><span class="pre">&quot;iterator</span> <span class="pre">out</span> <span class="pre">of</span> <span class="pre">range&quot;</span></code></p></li>
+</ul>
+</li>
+<li><p>The function can throw the following exceptions:</p>
+<ul class="simple">
+<li><p>Throws type_error.307 if called on a <code class="docutils literal notranslate"><span class="pre">null</span></code> value;
+example: <code class="docutils literal notranslate"><span class="pre">&quot;cannot</span> <span class="pre">use</span> <span class="pre">erase()</span> <span class="pre">with</span> <span class="pre">null&quot;</span></code></p></li>
+<li><p>Throws invalid_iterator.203 if called on iterators
+which does not belong to the current JSON value; example: <code class="docutils literal notranslate"><span class="pre">&quot;iterators</span> <span class="pre">do</span> <span class="pre">not</span> <span class="pre">fit</span> <span class="pre">current</span> <span class="pre">value&quot;</span></code></p></li>
+<li><p>Throws invalid_iterator.204 if called on a
+primitive type with invalid iterators (i.e., if <code class="docutils literal notranslate"><span class="pre">first</span> <span class="pre">!=</span> <span class="pre">begin()</span></code> and <code class="docutils literal notranslate"><span class="pre">last</span> <span class="pre">!=</span> <span class="pre">end()</span></code>); example: <code class="docutils literal notranslate"><span class="pre">&quot;iterators</span> <span class="pre">out</span> <span class="pre">of</span> <span class="pre">range&quot;</span></code></p></li>
+</ul>
+</li>
+<li><p>The function can throw the following exceptions:</p>
+<ul class="simple">
+<li><p>Throws type_error.307 when called on a type other than
+JSON object; example: <code class="docutils literal notranslate"><span class="pre">&quot;cannot</span> <span class="pre">use</span> <span class="pre">erase()</span> <span class="pre">with</span> <span class="pre">null&quot;</span></code></p></li>
+</ul>
+</li>
+<li><p>The function can throw the following exceptions:</p>
+<ul class="simple">
+<li><p>Throws type_error.307 when called on a type other than
+JSON object; example: <code class="docutils literal notranslate"><span class="pre">&quot;cannot</span> <span class="pre">use</span> <span class="pre">erase()</span> <span class="pre">with</span> <span class="pre">null&quot;</span></code></p></li>
+<li><p>Throws out_of_range.401 when <code class="docutils literal notranslate"><span class="pre">idx</span> <span class="pre">&gt;=</span> <span class="pre">size()</span></code>; example:
+<code class="docutils literal notranslate"><span class="pre">&quot;array</span> <span class="pre">index</span> <span class="pre">17</span> <span class="pre">is</span> <span class="pre">out</span> <span class="pre">of</span> <span class="pre">range&quot;</span></code></p></li>
+</ul>
+</li>
+</ol>
+</div>
+<div class="section" id="exception-safety">
+<h2>Exception safety<a class="headerlink" href="#exception-safety" title="Permalink to this headline">¶</a></h2>
+<p>Strong exception safety: if an exception occurs, the original value stays intact.</p>
+</div>
+<div class="section" id="complexity">
+<h2>Complexity<a class="headerlink" href="#complexity" title="Permalink to this headline">¶</a></h2>
+<ol class="simple">
+<li><p>The complexity depends on the type:
+- objects: amortized constant
+- arrays: linear in distance between <code class="docutils literal notranslate"><span class="pre">pos</span></code> and the end of the container
+- strings and binary: linear in the length of the member
+- other types: constant</p></li>
+<li><p>The complexity depends on the type:
+- objects: <code class="docutils literal notranslate"><span class="pre">log(size())</span> <span class="pre">+</span> <span class="pre">std::distance(first,</span> <span class="pre">last)</span></code>
+- arrays: linear in the distance between <code class="docutils literal notranslate"><span class="pre">first</span></code> and <code class="docutils literal notranslate"><span class="pre">last</span></code>, plus linear
+in the distance between <code class="docutils literal notranslate"><span class="pre">last</span></code> and end of the container
+- strings and binary: linear in the length of the member
+- other types: constant</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">log(size())</span> <span class="pre">+</span> <span class="pre">count(key)</span></code></p></li>
+<li><p>Linear in distance between <code class="docutils literal notranslate"><span class="pre">idx</span></code> and the end of the container.</p></li>
+</ol>
+</div>
+<div class="section" id="notes">
+<h2>Notes<a class="headerlink" href="#notes" title="Permalink to this headline">¶</a></h2>
+<ol class="simple">
+<li><p>Invalidates iterators and references at or after the point of the
+erase, including the <code class="docutils literal notranslate"><span class="pre">end()</span></code> iterator.</p></li>
+<li><p>/</p></li>
+<li><p>References and iterators to the erased elements are invalidated. Other references and iterators are not affected.</p></li>
+<li><p>/</p></li>
+</ol>
+</div>
+<div class="section" id="example">
+<h2>Example<a class="headerlink" href="#example" title="Permalink to this headline">¶</a></h2>
+<p>??? example</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>The example shows the effect of `erase()` for different JSON types using an iterator.
+
+```cpp
+--8&lt;-- &quot;examples/erase__IteratorType.cpp&quot;
+```
+
+Output:
+
+```json
+--8&lt;-- &quot;examples/erase__IteratorType.output&quot;
+```
+</pre></div>
+</div>
+<p>??? example</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>The example shows the effect of `erase()` for different JSON types using an iterator range.
+
+```cpp
+--8&lt;-- &quot;examples/erase__IteratorType_IteratorType.cpp&quot;
+```
+
+Output:
+
+```json
+--8&lt;-- &quot;examples/erase__IteratorType_IteratorType.output&quot;
+```
+</pre></div>
+</div>
+<p>??? example</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>The example shows the effect of `erase()` for different JSON types using an object key.
+
+```cpp
+--8&lt;-- &quot;examples/erase__key_type.cpp&quot;
+```
+
+Output:
+
+```json
+--8&lt;-- &quot;examples/erase__key_type.output&quot;
+```
+</pre></div>
+</div>
+<p>??? example</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>The example shows the effect of `erase()` using an array index.
+
+```cpp
+--8&lt;-- &quot;examples/erase__size_type.cpp&quot;
+```
+
+Output:
+
+```json
+--8&lt;-- &quot;examples/erase__size_type.output&quot;
+```
+</pre></div>
+</div>
+</div>
+<div class="section" id="version-history">
+<h2>Version history<a class="headerlink" href="#version-history" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li><p>Added in version 1.0.0.</p></li>
+<li><p>Added support for binary types in version 3.8.0.</p></li>
+</ul>
+</div>
+</div>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../../../../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../../../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        </div>
+    </div>  
+
+</body>
+</html>

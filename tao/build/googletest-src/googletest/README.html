@@ -1,0 +1,403 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Generic Build Instructions &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../../index.html">Docs</a></li>
+        
+      <li>Generic Build Instructions</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../../_sources/tao/build/googletest-src/googletest/README.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../README_.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#for-pytorch-users">For PyTorch Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README_.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/quickstart.html">Quickstart for TensorFlow/PyTorch users</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/developers/index.html">Documentation for Developers</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/developers/pass_pipeline.html">Tutorial: A Walkthough of the BladeDISC Pass Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/developers/runtime_abstraction_layer.html">Runtime Abstraction Layer Introduction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/developers/bladedisc_torch_overview.html">BladeDISC Torch Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/developers/torch_add_a_new_converter.html">Tutorial: How to add the support of a new Torch Op</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <div class="section" id="generic-build-instructions">
+<h1>Generic Build Instructions<a class="headerlink" href="#generic-build-instructions" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="setup">
+<h2>Setup<a class="headerlink" href="#setup" title="Permalink to this headline">¶</a></h2>
+<p>To build GoogleTest and your tests that use it, you need to tell your build
+system where to find its headers and source files. The exact way to do it
+depends on which build system you use, and is usually straightforward.</p>
+</div>
+</div>
+<div class="section" id="build-with-cmake">
+<h1>Build with CMake<a class="headerlink" href="#build-with-cmake" title="Permalink to this headline">¶</a></h1>
+<p>GoogleTest comes with a CMake build script
+(<a class="reference external" href="https://github.com/google/googletest/blob/master/CMakeLists.txt">CMakeLists.txt</a>)
+that can be used on a wide range of platforms (“C” stands for cross-platform.).
+If you don’t have CMake installed already, you can download it for free from
+<a class="reference external" href="http://www.cmake.org/">http://www.cmake.org/</a>.</p>
+<p>CMake works by generating native makefiles or build projects that can be used in
+the compiler environment of your choice. You can either build GoogleTest as a
+standalone project or it can be incorporated into an existing CMake build for
+another project.</p>
+<div class="section" id="standalone-cmake-project">
+<h2>Standalone CMake Project<a class="headerlink" href="#standalone-cmake-project" title="Permalink to this headline">¶</a></h2>
+<p>When building GoogleTest as a standalone project, the typical workflow starts
+with</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">git</span> <span class="n">clone</span> <span class="n">https</span><span class="p">:</span><span class="o">//</span><span class="n">github</span><span class="o">.</span><span class="n">com</span><span class="o">/</span><span class="n">google</span><span class="o">/</span><span class="n">googletest</span><span class="o">.</span><span class="n">git</span> <span class="o">-</span><span class="n">b</span> <span class="n">release</span><span class="o">-</span><span class="mf">1.11</span><span class="o">.</span><span class="mi">0</span>
+<span class="n">cd</span> <span class="n">googletest</span>        <span class="c1"># Main directory of the cloned repository.</span>
+<span class="n">mkdir</span> <span class="n">build</span>          <span class="c1"># Create a directory to hold the build output.</span>
+<span class="n">cd</span> <span class="n">build</span>
+<span class="n">cmake</span> <span class="o">..</span>             <span class="c1"># Generate native build scripts for GoogleTest.</span>
+</pre></div>
+</div>
+<p>The above command also includes GoogleMock by default. And so, if you want to
+build only GoogleTest, you should replace the last command with</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">cmake</span> <span class="o">..</span> <span class="o">-</span><span class="n">DBUILD_GMOCK</span><span class="o">=</span><span class="n">OFF</span>
+</pre></div>
+</div>
+<p>If you are on a *nix system, you should now see a Makefile in the current
+directory. Just type <code class="docutils literal notranslate"><span class="pre">make</span></code> to build GoogleTest. And then you can simply install
+GoogleTest if you are a system administrator.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">make</span>
+<span class="n">sudo</span> <span class="n">make</span> <span class="n">install</span>    <span class="c1"># Install in /usr/local/ by default</span>
+</pre></div>
+</div>
+<p>If you use Windows and have Visual Studio installed, a <code class="docutils literal notranslate"><span class="pre">gtest.sln</span></code> file and
+several <code class="docutils literal notranslate"><span class="pre">.vcproj</span></code> files will be created. You can then build them using Visual
+Studio.</p>
+<p>On Mac OS X with Xcode installed, a <code class="docutils literal notranslate"><span class="pre">.xcodeproj</span></code> file will be generated.</p>
+</div>
+<div class="section" id="incorporating-into-an-existing-cmake-project">
+<h2>Incorporating Into An Existing CMake Project<a class="headerlink" href="#incorporating-into-an-existing-cmake-project" title="Permalink to this headline">¶</a></h2>
+<p>If you want to use GoogleTest in a project which already uses CMake, the easiest
+way is to get installed libraries and headers.</p>
+<ul class="simple">
+<li><p>Import GoogleTest by using <code class="docutils literal notranslate"><span class="pre">find_package</span></code> (or <code class="docutils literal notranslate"><span class="pre">pkg_check_modules</span></code>). For
+example, if <code class="docutils literal notranslate"><span class="pre">find_package(GTest</span> <span class="pre">CONFIG</span> <span class="pre">REQUIRED)</span></code> succeeds, you can use the
+libraries as <code class="docutils literal notranslate"><span class="pre">GTest::gtest</span></code>, <code class="docutils literal notranslate"><span class="pre">GTest::gmock</span></code>.</p></li>
+</ul>
+<p>And a more robust and flexible approach is to build GoogleTest as part of that
+project directly. This is done by making the GoogleTest source code available to
+the main build and adding it using CMake’s <code class="docutils literal notranslate"><span class="pre">add_subdirectory()</span></code> command. This
+has the significant advantage that the same compiler and linker settings are
+used between GoogleTest and the rest of your project, so issues associated with
+using incompatible libraries (eg debug/release), etc. are avoided. This is
+particularly useful on Windows. Making GoogleTest’s source code available to the
+main build can be done a few different ways:</p>
+<ul class="simple">
+<li><p>Download the GoogleTest source code manually and place it at a known
+location. This is the least flexible approach and can make it more difficult
+to use with continuous integration systems, etc.</p></li>
+<li><p>Embed the GoogleTest source code as a direct copy in the main project’s
+source tree. This is often the simplest approach, but is also the hardest to
+keep up to date. Some organizations may not permit this method.</p></li>
+<li><p>Add GoogleTest as a git submodule or equivalent. This may not always be
+possible or appropriate. Git submodules, for example, have their own set of
+advantages and drawbacks.</p></li>
+<li><p>Use CMake to download GoogleTest as part of the build’s configure step. This
+approach doesn’t have the limitations of the other methods.</p></li>
+</ul>
+<p>The last of the above methods is implemented with a small piece of CMake code
+that downloads and pulls the GoogleTest code into the main build.</p>
+<p>Just add to your <code class="docutils literal notranslate"><span class="pre">CMakeLists.txt</span></code>:</p>
+<div class="highlight-cmake notranslate"><div class="highlight"><pre><span></span><span class="nb">include</span><span class="p">(</span><span class="s">FetchContent</span><span class="p">)</span>
+<span class="nb">FetchContent_Declare</span><span class="p">(</span>
+  <span class="s">googletest</span>
+  <span class="c"># Specify the commit you depend on and update it regularly.</span>
+  <span class="s">URL</span> <span class="s">https://github.com/google/googletest/archive/609281088cfefc76f9d0ce82e1ff6c30cc3591e5.zip</span>
+<span class="p">)</span>
+<span class="c"># For Windows: Prevent overriding the parent project&#39;s compiler/linker settings</span>
+<span class="nb">set</span><span class="p">(</span><span class="s">gtest_force_shared_crt</span> <span class="s">ON</span> <span class="s">CACHE</span> <span class="s">BOOL</span> <span class="s2">&quot;&quot;</span> <span class="s">FORCE</span><span class="p">)</span>
+<span class="nb">FetchContent_MakeAvailable</span><span class="p">(</span><span class="s">googletest</span><span class="p">)</span>
+
+<span class="c"># Now simply link against gtest or gtest_main as needed. Eg</span>
+<span class="nb">add_executable</span><span class="p">(</span><span class="s">example</span> <span class="s">example.cpp</span><span class="p">)</span>
+<span class="nb">target_link_libraries</span><span class="p">(</span><span class="s">example</span> <span class="s">gtest_main</span><span class="p">)</span>
+<span class="nb">add_test</span><span class="p">(</span><span class="s">NAME</span> <span class="s">example_test</span> <span class="s">COMMAND</span> <span class="s">example</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Note that this approach requires CMake 3.14 or later due to its use of the
+<code class="docutils literal notranslate"><span class="pre">FetchContent_MakeAvailable()</span></code> command.</p>
+<div class="section" id="visual-studio-dynamic-vs-static-runtimes">
+<h3>Visual Studio Dynamic vs Static Runtimes<a class="headerlink" href="#visual-studio-dynamic-vs-static-runtimes" title="Permalink to this headline">¶</a></h3>
+<p>By default, new Visual Studio projects link the C runtimes dynamically but
+GoogleTest links them statically. This will generate an error that looks
+something like the following: gtest.lib(gtest-all.obj) : error LNK2038: mismatch
+detected for ‘RuntimeLibrary’: value ‘MTd_StaticDebug’ doesn’t match value
+‘MDd_DynamicDebug’ in main.obj</p>
+<p>GoogleTest already has a CMake option for this: <code class="docutils literal notranslate"><span class="pre">gtest_force_shared_crt</span></code></p>
+<p>Enabling this option will make gtest link the runtimes dynamically too, and
+match the project in which it is included.</p>
+</div>
+</div>
+<div class="section" id="c-standard-version">
+<h2>C++ Standard Version<a class="headerlink" href="#c-standard-version" title="Permalink to this headline">¶</a></h2>
+<p>An environment that supports C++11 is required in order to successfully build
+GoogleTest. One way to ensure this is to specify the standard in the top-level
+project, for example by using the <code class="docutils literal notranslate"><span class="pre">set(CMAKE_CXX_STANDARD</span> <span class="pre">11)</span></code> command. If this
+is not feasible, for example in a C project using GoogleTest for validation,
+then it can be specified by adding it to the options for cmake via the
+<code class="docutils literal notranslate"><span class="pre">DCMAKE_CXX_FLAGS</span></code> option.</p>
+</div>
+</div>
+<div class="section" id="tweaking-googletest">
+<h1>Tweaking GoogleTest<a class="headerlink" href="#tweaking-googletest" title="Permalink to this headline">¶</a></h1>
+<p>GoogleTest can be used in diverse environments. The default configuration may
+not work (or may not work well) out of the box in some environments. However,
+you can easily tweak GoogleTest by defining control macros on the compiler
+command line. Generally, these macros are named like <code class="docutils literal notranslate"><span class="pre">GTEST_XYZ</span></code> and you define
+them to either 1 or 0 to enable or disable a certain feature.</p>
+<p>We list the most frequently used macros below. For a complete list, see file
+<a class="reference external" href="https://github.com/google/googletest/blob/master/googletest/include/gtest/internal/gtest-port.h">include/gtest/internal/gtest-port.h</a>.</p>
+</div>
+<div class="section" id="multi-threaded-tests">
+<h1>Multi-threaded Tests<a class="headerlink" href="#multi-threaded-tests" title="Permalink to this headline">¶</a></h1>
+<p>GoogleTest is thread-safe where the pthread library is available. After
+<code class="docutils literal notranslate"><span class="pre">#include</span> <span class="pre">&quot;gtest/gtest.h&quot;</span></code>, you can check the
+<code class="docutils literal notranslate"><span class="pre">GTEST_IS_THREADSAFE</span></code> macro to see whether this is the case (yes if the macro is
+<code class="docutils literal notranslate"><span class="pre">#defined</span></code> to 1, no if it’s undefined.).</p>
+<p>If GoogleTest doesn’t correctly detect whether pthread is available in your
+environment, you can force it with</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span><span class="n">DGTEST_HAS_PTHREAD</span><span class="o">=</span><span class="mi">1</span>
+</pre></div>
+</div>
+<p>or</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span><span class="n">DGTEST_HAS_PTHREAD</span><span class="o">=</span><span class="mi">0</span>
+</pre></div>
+</div>
+<p>When GoogleTest uses pthread, you may need to add flags to your compiler and/or
+linker to select the pthread library, or you’ll get link errors. If you use the
+CMake script, this is taken care of for you. If you use your own build script,
+you’ll need to read your compiler and linker’s manual to figure out what flags
+to add.</p>
+</div>
+<div class="section" id="as-a-shared-library-dll">
+<h1>As a Shared Library (DLL)<a class="headerlink" href="#as-a-shared-library-dll" title="Permalink to this headline">¶</a></h1>
+<p>GoogleTest is compact, so most users can build and link it as a static library
+for the simplicity. You can choose to use GoogleTest as a shared library (known
+as a DLL on Windows) if you prefer.</p>
+<p>To compile <em>gtest</em> as a shared library, add</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span><span class="n">DGTEST_CREATE_SHARED_LIBRARY</span><span class="o">=</span><span class="mi">1</span>
+</pre></div>
+</div>
+<p>to the compiler flags. You’ll also need to tell the linker to produce a shared
+library instead - consult your linker’s manual for how to do it.</p>
+<p>To compile your <em>tests</em> that use the gtest shared library, add</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span><span class="n">DGTEST_LINKED_AS_SHARED_LIBRARY</span><span class="o">=</span><span class="mi">1</span>
+</pre></div>
+</div>
+<p>to the compiler flags.</p>
+<p>Note: while the above steps aren’t technically necessary today when using some
+compilers (e.g. GCC), they may become necessary in the future, if we decide to
+improve the speed of loading the library (see
+<a class="reference external" href="http://gcc.gnu.org/wiki/Visibility">http://gcc.gnu.org/wiki/Visibility</a> for details). Therefore you are recommended
+to always add the above flags when using GoogleTest as a shared library.
+Otherwise a future release of GoogleTest may break your build script.</p>
+</div>
+<div class="section" id="avoiding-macro-name-clashes">
+<h1>Avoiding Macro Name Clashes<a class="headerlink" href="#avoiding-macro-name-clashes" title="Permalink to this headline">¶</a></h1>
+<p>In C++, macros don’t obey namespaces. Therefore two libraries that both define a
+macro of the same name will clash if you <code class="docutils literal notranslate"><span class="pre">#include</span></code> both definitions. In case a
+GoogleTest macro clashes with another library, you can force GoogleTest to
+rename its macro to avoid the conflict.</p>
+<p>Specifically, if both GoogleTest and some other code define macro FOO, you can
+add</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="o">-</span><span class="n">DGTEST_DONT_DEFINE_FOO</span><span class="o">=</span><span class="mi">1</span>
+</pre></div>
+</div>
+<p>to the compiler flags to tell GoogleTest to change the macro’s name from <code class="docutils literal notranslate"><span class="pre">FOO</span></code>
+to <code class="docutils literal notranslate"><span class="pre">GTEST_FOO</span></code>. Currently <code class="docutils literal notranslate"><span class="pre">FOO</span></code> can be <code class="docutils literal notranslate"><span class="pre">ASSERT_EQ</span></code>, <code class="docutils literal notranslate"><span class="pre">ASSERT_FALSE</span></code>, <code class="docutils literal notranslate"><span class="pre">ASSERT_GE</span></code>,
+<code class="docutils literal notranslate"><span class="pre">ASSERT_GT</span></code>, <code class="docutils literal notranslate"><span class="pre">ASSERT_LE</span></code>, <code class="docutils literal notranslate"><span class="pre">ASSERT_LT</span></code>, <code class="docutils literal notranslate"><span class="pre">ASSERT_NE</span></code>, <code class="docutils literal notranslate"><span class="pre">ASSERT_TRUE</span></code>,
+<code class="docutils literal notranslate"><span class="pre">EXPECT_FALSE</span></code>, <code class="docutils literal notranslate"><span class="pre">EXPECT_TRUE</span></code>, <code class="docutils literal notranslate"><span class="pre">FAIL</span></code>, <code class="docutils literal notranslate"><span class="pre">SUCCEED</span></code>, <code class="docutils literal notranslate"><span class="pre">TEST</span></code>, or <code class="docutils literal notranslate"><span class="pre">TEST_F</span></code>. For
+example, with <code class="docutils literal notranslate"><span class="pre">-DGTEST_DONT_DEFINE_TEST=1</span></code>, you’ll need to write</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">GTEST_TEST</span><span class="p">(</span><span class="n">SomeTest</span><span class="p">,</span> <span class="n">DoesThis</span><span class="p">)</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+</pre></div>
+</div>
+<p>instead of</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">TEST</span><span class="p">(</span><span class="n">SomeTest</span><span class="p">,</span> <span class="n">DoesThis</span><span class="p">)</span> <span class="p">{</span> <span class="o">...</span> <span class="p">}</span>
+</pre></div>
+</div>
+<p>in order to define a test.</p>
+</div>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'None',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        </div>
+    </div>  
+
+</body>
+</html>

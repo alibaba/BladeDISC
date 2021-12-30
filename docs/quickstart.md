@@ -55,6 +55,8 @@ with g.as_default():
         print("x.shape={}, y.shape={}, ret={}".format(np_x.shape, np_y.shape, r))
 ```
 
+Read more [TensorFlow tutorial](./tutorials/tensorflow_inference_and_training.md).
+
 ## Quickstart for PyTorch Users
 
 To make PyTorch users easier to use, BladeDISC provides simple
@@ -101,3 +103,5 @@ with torch.no_grad():
 
 print(blade_cell(x, h))
 ```
+
+Read more [PyTorch tutorial](./tutorials/torch_bert_inference.md).

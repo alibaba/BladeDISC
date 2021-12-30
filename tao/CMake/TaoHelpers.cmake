@@ -165,7 +165,7 @@ function(tao_prepare_xflow_sdk)
     "HEADER_DIR;"
     ""
     ${ARGN})
-  set(XFLOW_SRC_DIR "${PROJECT_SOURCE_DIR}/../../platform_alibaba/third_party/algorithms")
+  set(XFLOW_SRC_DIR "${PLATFORM_ALIBABA_DIR}/third_party/algorithms")
   if(NOT EXISTS ${XFLOW_SRC_DIR})
     message(FATAL_ERROR "xflow directory (${XFLOW_SRC_DIR}) does not exits, set TAO_ENABLE_WARMUP_XFLOW to OFF or \
                         run `git submodule update --init --recursive` to fetch xflow source code.")

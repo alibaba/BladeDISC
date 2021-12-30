@@ -68,8 +68,8 @@ target_include_directories(tao_bridge PRIVATE ${CMAKE_BINARY_DIR})
 include_directories("ral")
 
 if(${PLATFORM_ALIBABA})
-  include_directories(../../../platform_alibaba)
-  add_subdirectory(../../../platform_alibaba tao_launch_op)
+  include_directories(${PLATFORM_ALIBABA_DIR})
+  add_subdirectory(${PLATFORM_ALIBABA_DIR} tao_launch_op)
 endif()
 
 add_subdirectory(mlir)

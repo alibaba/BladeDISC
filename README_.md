@@ -100,11 +100,34 @@ with g.as_default():
     with tf.session as sess:
         sess.run(...)
 ```
-For more information, please refer to [QuickStart with
-TensorFlow](/docs/quickstart_tensorflow.md)
+
+For more information, please refer to [QuickStart for TensorFlow
+Users](./docs/quickstart.md#quickstart-for-tensorflow-users)
 
 ## For PyTorch Users
-**TODO**
+
+PyTorch users only need the following few lines of code to enable
+BladeDISC:
+
+``` python
+import torch_blade
+# construct PyTorch Module
+class MyModule(nn.Module):
+    ...
+
+module = MyModule()
+
+with torch.no_grad():
+    # blade_module is the optimized module by BladeDISC
+    blade_module = torch_blade.optimize(module, allow_tracing=True, model_inputs=(x, y))
+
+# run the optimized module
+blade_module(x, y)
+```
+
+`torch_blade.optimize` accepts an `nn.Module` object and outputs the
+optimized module.  For more information, please refer to [Quickstart
+for PyTorch Users](./docs/quickstart.md#quickstart-for-pytorch-users).
 
 # Setup and Examples
 

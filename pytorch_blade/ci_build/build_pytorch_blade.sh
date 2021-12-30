@@ -24,8 +24,8 @@ export LIBRARY_PATH=${CUDA_HOME}/lib64:$LIBRARY_PATH
 # Build TorchBlade with DEBUG
 # export DEBUG=1
 
-# To save time, set USE_AICOMPILER_PRE_BUILD=ON if you has already built aicompiler
-# export USE_AICOMPILER_PRE_BUILD=ON
+# To save time, set USE_BLADE_DISC_PRE_BUILD=ON if you has already built blade_disc
+# export USE_BLADE_DISC_PRE_BUILD=ON
 
 # To save time, set USE_MLIR_DHLO_PRE_BUILD=ON if you has already built llvm-project
 # If the llvm-project has been built, it will be installed in ${PROJECT_SOURCE_DIR}/MLIR_DHLO_LLVM_DIR.

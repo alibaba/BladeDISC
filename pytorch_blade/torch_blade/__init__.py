@@ -1,3 +1,14 @@
+# Copyright 2021 The BladeDISC Authors. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import torch
 try:
     import torchvision
@@ -6,13 +17,14 @@ except ImportError as e:
 
 from ._torch_blade import *
 
-import torch_blade.utils as utils
+import torch_blade.optimization as optimization
 import torch_blade.tools as tools
+import torch_blade.utils as utils
 import torch_blade.version as version
+import warnings
 
 from torch_blade.config import Config
-import torch_blade.optimize as optimize
-import warnings
+from torch_blade.optimization import optimize
 try:
     import torch_blade.pai_internal
 except ImportError as e:

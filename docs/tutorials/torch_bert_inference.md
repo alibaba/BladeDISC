@@ -1,4 +1,4 @@
-# Tutorial: Optimize and Inference BERT With TorchBlade
+# Tutorial: Optimize and Inference BERT with TorchBlade
 
 - [Quick Tour](#quick-tour)
   - [Load the Pre-Trained BERT Module and Tokenizer From HuggingFace](#load-the-pre-trained-bert-module-and-tokenizer-from-huggingface)
@@ -117,7 +117,7 @@ torch_config = torch_blade.config.Config()
 torch_config.enable_mlir_amp = False # disable mix-precision
 with torch.no_grad(), torch_config:
   # BladeDISC torch_blade optimize will return an optimized TorchScript
-  optimized_ts = torch_blade.optimize.optimize(model, allow_tracing=True, model_inputs=tuple(inputs))
+  optimized_ts = torch_blade.optimize(model, allow_tracing=True, model_inputs=tuple(inputs))
 
 # The optimized module could be saved as a TorchScript
 torch.jit.save(optimized_ts, "opt.disc.pt")
@@ -130,7 +130,7 @@ that there could be no gradient calculations because it optimizes inference.
 The optimization configurations could be passing through
 `torch_blade.config.Config()`. Currently, we have turned off the mix-precision.
 
-`torch_blade.optimize.optimize` takes an instance of `torch.nn.Module` or
+`torch_blade.optimize` takes an instance of `torch.nn.Module` or
 `torch.jit.ScriptModule` as input model. Before compiling a `torch.nn.Module`,
 BladeDISC trys to script it into `torch.jit.ScriptModule` recursively.
 
@@ -312,7 +312,7 @@ dnn = torch.nn.Sequential(
       torch.nn.ReLU()).cuda().eval()
 with torch.no_grad():
   # BladeDISC torch_blade optimize will return an optimized TorchScript
-  opt_dnn_ts = torch_blade.optimize.optimize(
+  opt_dnn_ts = torch_blade.optimize(
     dnn, allow_tracing=True, model_inputs=(torch.ones(w, h).cuda(),))
 
 # print optimized code

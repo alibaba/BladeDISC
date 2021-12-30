@@ -1,3 +1,14 @@
+# Copyright 2021 The BladeDISC Authors. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import torch
 import torch_blade
 
@@ -40,7 +51,7 @@ def _jit_add_observer(graph, jit_obs, value):
     call_method = graph.create('prim::CallMethod')
     # record tensor each time prim::CallMethod was called
     #
-    # TODO: support tensorrt dynamic shape, 
+    # TODO: support tensorrt dynamic shape,
     # which need min/max/opt profiler shape.
     call_method.s_('name', 'record')
     value.replaceAllUsesWith(call_method.output())
@@ -54,7 +65,7 @@ def _jit_add_observer(graph, jit_obs, value):
     return get_attr, call_method
 
 def _collect_all_tensors(block):
-    all_tensors = [out for node in block.nodes() for out in node.outputs() 
+    all_tensors = [out for node in block.nodes() for out in node.outputs()
                    if isinstance(out.type(), torch._C.TensorType)]
     for node in block.nodes():
         for inner_blk in node.blocks():
@@ -145,5 +156,4 @@ def record_shape_by_tracing(module, inputs, graph=None):
         loop_inps = loop.input_list()[2:]
         for blk_inp, loop_inp in zip(blk_inps, loop_inps):
             blk_inp.setTypeAs(loop_inp)
-
 

@@ -1,7 +1,18 @@
+# Copyright 2021 The BladeDISC Authors. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import unittest
 import torch
 from torch.testing import FileCheck
-from torch_blade import export
+from torch_blade import exporter
 from torch_blade import pass_manager
 from torch_blade import utils
 from torch_blade.config import Config
@@ -24,7 +35,7 @@ class TestPasses(TestCase):
 
         dummy_input = torch.ones([64, 64])
         model = Model()
-        graph = export.export(Model(), False, dummy_input).graph
+        graph = exporter.export(Model(), False, dummy_input).graph
         pass_manager._jit_pass_freeze_rank(graph)
 
         expect_gstr = """
@@ -77,7 +88,7 @@ class TestPasses(TestCase):
         hidden_size = 256
         model = Model(hidden_size)
         x = torch.randn(1, 10, hidden_size)
-        module = export.export(model, False, x)
+        module = exporter.export(model, False, x)
         pass_manager._jit_pass_freeze_rank(module.graph)
         expected_y = module.forward(x)
         pass_manager._jit_pass_licm(module.graph)

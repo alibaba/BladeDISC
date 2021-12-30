@@ -26,7 +26,7 @@ class TestDiscReduction(DiscTestCase):
         test_data = (x,)
         self._test_cvt_to_disc(reduce_func, test_data, rtol=1e-3, atol=3e-3)
 
-    @skip("need aicompiler support f64")
+    @skip("need blade_disc support f64")
     def test_cvt_to_disc_sum_f64(self):
         @torch.jit.script
         def sum_func(x):
@@ -56,7 +56,7 @@ class TestDiscReduction(DiscTestCase):
 
         self._test_reduction(sum_func)
 
-    @skip("need aicompiler support f64")
+    @skip("need blade_disc support f64")
     def test_cvt_to_disc_sum_dtype_f64(self):
         @torch.jit.script
         def sum_func(x):

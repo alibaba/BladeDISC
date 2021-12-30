@@ -113,7 +113,7 @@ class Config(ConfigContext):
         # ratio of ops that will be fallback to fp32 to
         # get higher accuracy performance
         self._fp16_fallback_op_ratio = 0.0
-        # Allow AICompiler to do some AMP optimization if set.
+        # Allow BladeDISC to do some AMP optimization if set.
         self._enable_mlir_amp = False
         # min/max/opt settings for tuning trt engines with dynamic input shapes
         # looks like:

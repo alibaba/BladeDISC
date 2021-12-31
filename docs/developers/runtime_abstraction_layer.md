@@ -1,5 +1,6 @@
+# Runtime Abstraction Layer Introduction
 
-# 1 Motivation
+## Motivation
 
 BladeDISC is an MHLO based e2e compiler with the consideration of both the
 compiler and the associated runtime. For the runtime side, we have different
@@ -19,14 +20,14 @@ the initialization-free interfaces (for example, load the kernel if it has not
 been loaded and then launch) provided by RAL, the compiler side can focus on its
 core optimization logic and lets the RAL manage the resource status.
 
-# 2 Design Overview
+## Design Overview
 
-## 2.1 From the Perspective of Compiler Side
+### From the Perspective of Compiler Side
 
 In the compiler side, there is a set of transformation passes for RAL to make
 sure the compiled binary is suitable for the RAL runtime.
 
-### 2.1.1 Context Injection
+#### Context Injection
 
 As mentioned above, we prefer to simplify the design of the compiler side and
 let it focus on its core optimization logic. Thus, RAL provides a context object
@@ -41,7 +42,7 @@ disc_ral.RalExecutionContextType to represent the context type in the compiler
 side. Under the hood, the disc_ral.RalExecutionContextType will be lowered to a
 pointer type in LLVM IR.
 
-### 2.1.2 Inputs/Outputs Binding
+#### Inputs/Outputs Binding
 
 For the entry function, RAL also rewrites its inputs and outputs to make it
 suitable to interact with different host environments. To be concrete, all the
@@ -82,7 +83,7 @@ API to achieve partial execution of a compiled binary before all its inputs are
 ready and sending some of the outputs to the context before all its outputs are
 ready.
 
-# 2.1.3 Uniformed type-erased external function call ABI
+#### Uniformed type-erased external function call ABI
 To make the compiled binary have stable and clean ABI, RAL provides a pass to
 rewrite all RAL function calls to a uniformed type-erased style.
 
@@ -160,12 +161,12 @@ Thus, based on the mechanism in the compiler side and the mechanism in the c++
 side, users don't need to worry about the details of c interface implementation
 and can use the c++ level API directly.
 
-## 2.2，From the Perspective of Runtime Side
+### From the Perspective of Runtime Side
 
-### 2.2.1 Overview of the Runtime Side of RAL
+#### Overview of the Runtime Side of RAL
 
 The runtime side of the RAL can be divided into three major parts as shown in
-the following ![diagram](./RAL.png).
+the following ![diagram](./pics/RAL.png).
 
 * Interacting with the host environments (e.g. Tensorflow, PyTorch). This part
   usually includes i/o bindings and other bookkeeping stuff. We need different
@@ -188,7 +189,7 @@ the following ![diagram](./RAL.png).
   RAL driver has already hidden the differences among different host
   environments.
 
-### 2.2.2 RAL Context
+#### RAL Context
 
 We provide different RAL Context implementations for different target host
 environments. The context implementation consists of the above three major
@@ -196,7 +197,7 @@ parts. Currently, we have TF context implementation, which is used to be
 integrated with TensorFlow (both CPU & GPU), and base context implementation,
 which is used to be integrated with Pytorch and sometimes the standalone binary.
 
-### 2.2.3 RAL Execution Context
+#### RAL Execution Context
 
 For a loaded compiled binary, we have one corresponding RAL context to manage
 the stateful resources and some bookkeeping stuff.  The context lifetime is the

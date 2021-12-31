@@ -25,6 +25,7 @@ jobs:
     - name: pre-commit
       shell: bash
       run: |
+        export PATH=$HOME/.local/bin:$PATH
         pre-commit run -a --show-diff-on-failure
     - name: Build Dev Docker
       shell: bash

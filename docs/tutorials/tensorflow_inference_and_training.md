@@ -10,15 +10,11 @@ The content of this tutorial is as following.
 - [BERT Inference](#bert-inference)
   - [Prologue: Download Frozen Model](#prologue-download-frozen-model)
   - [All You Need Are the Two Lines!](#all-you-need-are-the-two-lines)
-  - [Epilogue: Normal Process to Run
-    Inference](#epilogue-normal-process-to-run-inference)
+  - [Epilogue: Normal Process to Run Inference](#epilogue-normal-process-to-run-inference)
 - [DeePMD training](#deepmd-training)
-  - [Prologue: Install DeePMD-kit and Download
-    Data](#prologue-install-deepmd-kit-and-download-data)
-  - [Still, All You Need Are the Two
-    Lines!](#still-all-you-need-are-the-two-lines)
-  - [Epilogue: Normal Process to Run MD Training with DeePMD-kit
-    API](#epilogue-normal-process-to-run-md-training-with-deepmd-kit-api)
+  - [Prologue: Install DeePMD-kit and Download Data](#prologue-install-deepmd-kit-and-download-data)
+  - [Still, All You Need Are the Two Lines!](#still-all-you-need-are-the-two-lines)
+  - [Epilogue: Normal Process to Run MD Training with DeePMD-kit API](#epilogue-normal-process-to-run-md-training-with-deepmd-kit-api)
 
 
 ## BERT Inference

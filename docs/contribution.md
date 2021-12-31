@@ -1,4 +1,4 @@
-# Contribute Code to BladeDISC
+# Contribute to BladeDISC
 
 You're welcome to contribute to BladeDISC!
 Please sign the [CLA](https://cla-assistant.io/alibaba/BladeDISC)

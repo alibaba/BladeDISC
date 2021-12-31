@@ -152,7 +152,8 @@ endif()
 
 if (${PLATFORM_ALIBABA})
   message("Build DISC in Alibaba platform")
-  add_compile_options(-DPLATFORM_ALIBABA) 
+  add_compile_options(-DPLATFORM_ALIBABA)
+  set(PLATFORM_ALIBABA_PATH ../../platform_alibaba)
 endif()
 
 include_directories(${tao_ops_SOURCE_DIR})
@@ -188,10 +189,10 @@ endif()
 ############### libtao_ops.so ###############
 
 if(${TAO_CUDA} AND ${PLATFORM_ALIBABA})
-  set(BACE_DIR ../bace)
-  include_directories(${BACE_DIR})
-  add_subdirectory(${BACE_DIR} bace_src)
-  include_directories(../guard_client)
+  message("including  BACE")
+  include_directories(../../bace)
+  add_subdirectory(../../bace bace_src)
+  include_directories(../../guard_client)
 endif()
 
 
@@ -233,15 +234,15 @@ target_link_options(tao_ops PUBLIC "-Wl,--exclude-libs,ALL,-ldl")
 
 # required by uploader in tao_bridge
 if(${TAO_ENABLE_UPLOAD_TOOL} AND ${PLATFORM_ALIBABA})
-    include_directories(../platform_alibaba/third_party/aliyun-oss-cpp-sdk/sdk/include)
-    add_subdirectory(../platform_alibaba/third_party/aliyun-oss-cpp-sdk aliyun-oss-cpp-sdk)
-    add_subdirectory(../platform_alibaba/tools/tao/uploader uploader)
+    include_directories(${PLATFORM_ALIBABA_PATH}/third_party/aliyun-oss-cpp-sdk/sdk/include)
+    add_subdirectory(${PLATFORM_ALIBABA_PATH}/third_party/aliyun-oss-cpp-sdk aliyun-oss-cpp-sdk)
+    add_subdirectory(${PLATFORM_ALIBABA_PATH}/tools/tao/uploader uploader)
 endif()
 
 add_subdirectory(tao_bridge)
 
 if(${PLATFORM_ALIBABA})
-  add_subdirectory(../platform_alibaba/third_party/PatineClient PatineClient)
+  add_subdirectory(${PLATFORM_ALIBABA_PATH}/third_party/PatineClient PatineClient)
 endif()
 # Unset these CACHE variables to not change the blade project structure
 unset(CMAKE_ARCHIVE_OUTPUT_DIRECTORY CACHE)

@@ -591,7 +591,7 @@ and library calls conversions now!
 
 BladeDISC relies on Runtime Abstraction Layer (RAL) to manage stateful stuff and
 isolate the difference among different targeting environments (e.g. TensorFlow,
-Pytorch, or even standalone execution). For detailed informations of RAL, please
+PyTorch, or even standalone execution). For detailed informations of RAL, please
 refer to [Introduction on Runtime Abstraction Layer](./runtime_abstraction_layer.md).
 
 There are two main functions for the passes of this phase:

@@ -195,7 +195,7 @@ We provide different RAL Context implementations for different target host
 environments. The context implementation consists of the above three major
 parts. Currently, we have TF context implementation, which is used to be
 integrated with TensorFlow (both CPU & GPU), and base context implementation,
-which is used to be integrated with Pytorch and sometimes the standalone binary.
+which is used to be integrated with PyTorch and sometimes the standalone binary.
 
 #### RAL Execution Context
 

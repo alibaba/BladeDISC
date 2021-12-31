@@ -28,7 +28,7 @@ TensorFlow/PyTorch workloads on GPGPU and CPU backends. The architecture
 natively supports dynamic shape workloads, with many considerations in the
 performance of both static and dynamic shape scenarios. It also supports
 multiple and flexible deployment solutions, including both Plugin Mode inside
-TensorFlow/Pytorch runtime, and Standalone Mode for AOT standalone execution.
+TensorFlow/PyTorch runtime, and Standalone Mode for AOT standalone execution.
 The project is based on [MLIR](https://mlir.llvm.org/) and highly related with
 [mlir-hlo](https://github.com/tensorflow/mlir-hlo) project.
 
@@ -40,7 +40,7 @@ documents for developers.
 
 #### Frontend Framework Support Matrix
 
-|           | TensorFlow [1] | Pytorch [2]  |
+|           | TensorFlow [1] | PyTorch [2]  |
 |---------- | -------------- | ------------ |
 | Inference |    Yes         |    Yes       |
 |  Training |    Yes [3]     |  Ongoing     |

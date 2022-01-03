@@ -83,8 +83,9 @@ for batch in [2, 2, 4, 1, 1, 8, 8, 2, 16, 2]:
 
 The above code shows the complete process to optimize BERT inference model with
 BladeDISC. Please refer to [TensorFlow BERT Inference
-Example](/examples/TensorFlow/Inference/BERT) for more scripts to compare the
-performance of BladeDISC optimization with naive TensorFlow and XLA.
+Example](https://github.com/alibaba/BladeDISC/tree/main/examples/TensorFlow/Inference/BERT)
+for more scripts to compare the performance of BladeDISC optimization with naive
+TensorFlow and XLA.
 
 
 ## DeePMD Training
@@ -137,5 +138,5 @@ sys.exit(main())
 
 The above code shows the complete process to optimize MD training model with
 BladeDISC. You can also refer to [TensorFlow DeePMD Training
-Example](/examples/TensorFlow/Train/DeePMD) for all scripts to optimize MD
-model.
+Example](https://github.com/alibaba/BladeDISC/tree/main/examples/TensorFlow/Train/DeePMD)
+for all scripts to optimize MD model.

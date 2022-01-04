@@ -113,25 +113,41 @@ bool ConvertAtenConvolution(
 }
 
 namespace {
-auto mhlo_conversion =
-    MhloConversionPatternRegister()
-        .pattern(
-            R"SIG(aten::_convolution(
-                Tensor input, Tensor weight, Tensor? bias,
-                int[] stride, int[] padding, int[] dilation,
-                bool transposed, int[] output_padding, int groups,
-                bool benchmark, bool deterministic, bool cudnn_enabled) -> Tensor)SIG",
-            ConvertAtenConvolution)
-        .pattern(
-            "aten::conv1d(Tensor input, Tensor weight, Tensor? bias=None, int[1] stride=1, int[1] padding=0, int[1] dilation=1, int groups=1) -> Tensor",
-            ConvertAtenConvolution)
-        .pattern(
-            "aten::conv2d(Tensor input, Tensor weight, Tensor? bias=None, int[2] stride=1, int[2] padding=0, int[2] dilation=1, int groups=1) -> Tensor",
-            ConvertAtenConvolution)
-        .pattern(
-            "aten::conv3d(Tensor input, Tensor weight, Tensor? bias=None, int[3] stride=1, int[3] padding=0, int[3] dilation=1, int groups=1) -> Tensor",
-            ConvertAtenConvolution);
-
+auto mhlo_conversion = MhloConversionPatternRegister()
+                           .pattern(
+                               R"SIG(aten::_convolution.deprecated(
+                                     Tensor input, Tensor weight, Tensor? bias,
+                                     int[] stride, int[] padding, int[] dilation,
+                                     bool transposed, int[] output_padding,
+                                     int groups, bool benchmark, bool deterministic,
+                                     bool cudnn_enabled) -> Tensor)SIG",
+                               ConvertAtenConvolution)
+                           .pattern(
+                               R"SIG(aten::_convolution(
+                                     Tensor input, Tensor weight, Tensor? bias,
+                                     int[] stride, int[] padding, int[] dilation,
+                                     bool transposed, int[] output_padding,
+                                     int groups, bool benchmark, bool deterministic,
+                                     bool cudnn_enabled, bool allow_tf32) -> Tensor)SIG",
+                               ConvertAtenConvolution)
+                           .pattern(
+                               R"SIG(aten::conv1d(
+                                     Tensor input, Tensor weight, Tensor? bias=None,
+                                     int[1] stride=1, int[1] padding=0,
+                                     int[1] dilation=1, int groups=1) -> Tensor)SIG",
+                               ConvertAtenConvolution)
+                           .pattern(
+                               R"SIG(aten::conv2d(
+                                     Tensor input, Tensor weight, Tensor? bias=None,
+                                     int[2] stride=1, int[2] padding=0,
+                                     int[2] dilation=1, int groups=1) -> Tensor)SIG",
+                               ConvertAtenConvolution)
+                           .pattern(
+                               R"SIG(aten::conv3d(
+                                     Tensor input, Tensor weight, Tensor? bias=None,
+                                     int[3] stride=1, int[3] padding=0,
+                                     int[3] dilation=1, int groups=1) -> Tensor)SIG",
+                               ConvertAtenConvolution);
 }
 } // namespace blade
 } // namespace torch

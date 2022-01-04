@@ -2549,7 +2549,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "RandomUniform", "ReluGrad", "Square",
-                      "Pad", "DynamicStitch"
+                      "Pad", "DynamicStitch", "LeakyRelu"
 #else
 #if defined(PLATFORM_ALIBABA) || !defined(TAO_CPU_ONLY)
 // TODO(disc):
@@ -2570,7 +2570,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "LogSoftmax", "Reciprocal",
-                      "RandomUniform", "ReluGrad", "Square", "Pad", "DynamicStitch"
+                      "RandomUniform", "ReluGrad", "Square", "Pad", "DynamicStitch", "LeakyRelu"
 #endif
                     })
                 :
@@ -2594,7 +2594,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "Size", "RandomUniform", "Square",
-                      "Pad", "DynamicStitch"
+                      "Pad", "DynamicStitch", "LeakyRelu"
 #else
 #if defined(PLATFORM_ALIBABA) || !defined(TAO_CPU_ONLY)
                       "MatMul", "BatchMatMul", "Conv2D",
@@ -2614,7 +2614,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "LogSoftmax", "Reciprocal", "Size",
-                      "Conv2D", "RandomUniform", "Square", "Pad", "DynamicStitch"
+                      "Conv2D", "RandomUniform", "Square", "Pad", "DynamicStitch", "LeakyRelu"
 #endif
                     })
             )

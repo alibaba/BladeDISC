@@ -52,23 +52,23 @@ limitations under the License.
 #include <unordered_set>
 #include <utility>
 
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/Shape/IR/Shape.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h" // TF:llvm-project
-#include "mlir/Dialect/Tensor/IR/Tensor.h"   // TF:llvm-project
-#include "mlir/IR/Dominance.h"
-#include "mlir/IR/MLIRContext.h" // TF:llvm-project
-#include "mlir/IR/OpDefinition.h"
-#include "mlir/Pass/Pass.h" // TF:local_config_mlir
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "mlir/Transforms/Passes.h" // TF:llvm-project
-#include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
-#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
+#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Shape/IR/Shape.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
+#include "mlir/Dialect/Tensor/IR/Tensor.h"    // TF:llvm-project
+#include "mlir/IR/Dominance.h"
+#include "mlir/IR/MLIRContext.h"  // TF:llvm-project
+#include "mlir/IR/OpDefinition.h"
+#include "mlir/Pass/Pass.h"  // TF:local_config_mlir
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "mlir/Transforms/Passes.h"  // TF:llvm-project
+#include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
+#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
+#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -84,10 +84,9 @@ struct ExtractFromExtentTensorCanonicalizationPattern
   using OpRewritePattern<tensor::ExtractOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(tensor::ExtractOp op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     auto shape_of_op = op.tensor().getDefiningOp<shape::ShapeOfOp>();
-    if (!shape_of_op)
-      return failure();
+    if (!shape_of_op) return failure();
     Value index = op.indices().front();
     rewriter.replaceOpWithNewOp<tensor::DimOp>(op, shape_of_op.arg(), index);
     return success();
@@ -111,7 +110,7 @@ struct DynamicReshapeOpPartialShapeInference
   using OpRewritePattern<mhlo::DynamicReshapeOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(mhlo::DynamicReshapeOp op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     auto loc = op.getLoc();
     auto output_shape =
         op.output_shape().getDefiningOp<tensor::FromElementsOp>();
@@ -162,14 +161,13 @@ struct DynamicReshapeOpPartialShapeInference
 // %1 = tensor.cast(%t) tensor<?x?x?xf32> -> tensor<axbxcxf32>
 class DynamicReshapeOpShapeInference
     : public OpRewritePattern<mhlo::DynamicReshapeOp> {
-public:
+ public:
   using OpRewritePattern::OpRewritePattern;
 
   LogicalResult matchAndRewrite(mhlo::DynamicReshapeOp op,
-                                PatternRewriter &rewriter) const override {
-    Operation *shape_def_op = op.output_shape().getDefiningOp();
-    if (!shape_def_op)
-      return failure();
+                                PatternRewriter& rewriter) const override {
+    Operation* shape_def_op = op.output_shape().getDefiningOp();
+    if (!shape_def_op) return failure();
     DenseIntElementsAttr cst_attr;
     if (auto cst_shape = dyn_cast<mlir::ConstantOp>(shape_def_op)) {
       cst_attr = cst_shape.getValue().dyn_cast_or_null<DenseIntElementsAttr>();
@@ -177,8 +175,7 @@ public:
       cst_attr =
           mhlo_cst_shape.value().dyn_cast_or_null<DenseIntElementsAttr>();
     }
-    if (!cst_attr)
-      return failure();
+    if (!cst_attr) return failure();
     auto elem_ty = cst_attr.getType().cast<ShapedType>().getElementType();
     SmallVector<int64_t, 4> dims;
     if (elem_ty.isInteger(64) || elem_ty.isIndex()) {
@@ -191,12 +188,10 @@ public:
       return failure();
     }
     auto result_ty = op.getResult().getType().dyn_cast<RankedTensorType>();
-    if (!result_ty)
-      return failure();
+    if (!result_ty) return failure();
     RankedTensorType new_ty =
         RankedTensorType::get(dims, result_ty.getElementType());
-    if (new_ty == result_ty)
-      return failure();
+    if (new_ty == result_ty) return failure();
     auto new_reshape = rewriter.create<mhlo::DynamicReshapeOp>(
         op.getLoc(), new_ty, op.operand(), op.output_shape());
     rewriter.replaceOpWithNewOp<tensor::CastOp>(op, op.getType(), new_reshape);
@@ -220,23 +215,21 @@ public:
 //  tensor<?x?x?xf32>
 class DynamicBroadcastInDimOpSimplifier
     : public OpRewritePattern<mhlo::DynamicBroadcastInDimOp> {
-public:
+ public:
   using OpRewritePattern::OpRewritePattern;
 
   LogicalResult matchAndRewrite(mhlo::DynamicBroadcastInDimOp op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     auto reshapeOp = dyn_cast_or_null<mhlo::DynamicReshapeOp>(
         op->getOperand(0).getDefiningOp());
-    if (!reshapeOp)
-      return failure();
+    if (!reshapeOp) return failure();
 
     auto bcastTy = op.getResult().getType().dyn_cast<RankedTensorType>();
     auto reshapeTy =
         reshapeOp.getResult().getType().dyn_cast<RankedTensorType>();
     auto inputTy =
         reshapeOp->getOperand(0).getType().dyn_cast<RankedTensorType>();
-    if (!bcastTy || !reshapeTy || !inputTy)
-      return failure();
+    if (!bcastTy || !reshapeTy || !inputTy) return failure();
 
     if (bcastTy.getRank() != reshapeTy.getRank() ||
         inputTy.getRank() >= reshapeTy.getRank())
@@ -244,23 +237,20 @@ public:
 
     auto fromElementsOp = dyn_cast_or_null<tensor::FromElementsOp>(
         reshapeOp->getOperand(1).getDefiningOp());
-    if (!fromElementsOp)
-      return failure();
+    if (!fromElementsOp) return failure();
 
     SmallVector<int64_t> bcastDims;
     for (int d = 0; d < inputTy.getRank(); ++d) {
       Value dimValue = fromElementsOp->getOperand(d);
       auto indexCastOp =
           dyn_cast_or_null<IndexCastOp>(dimValue.getDefiningOp());
-      if (indexCastOp)
-        dimValue = indexCastOp->getOperand(0);
+      if (indexCastOp) dimValue = indexCastOp->getOperand(0);
       auto dimOp = dyn_cast_or_null<tensor::DimOp>(dimValue.getDefiningOp());
       if (!dimOp || dimOp.source() != reshapeOp->getOperand(0))
         return failure();
       auto indexOp =
           dyn_cast_or_null<ConstantIndexOp>(dimOp.index().getDefiningOp());
-      if (!indexOp || indexOp.getValue() != d)
-        return failure();
+      if (!indexOp || indexOp.getValue() != d) return failure();
       bcastDims.push_back(d);
     }
 
@@ -276,70 +266,68 @@ public:
 
 // Represents a symbolic dimension.
 class SymbolDim {
-public:
+ public:
   SymbolDim(int64_t dim_size = ShapedType::kDynamicSize) : dimSize_(dim_size) {}
 
   int64_t getDimSize() { return dimSize_; }
 
   bool isDynamic() { return getDimSize() == ShapedType::kDynamicSize; }
 
-  LogicalResult Merge(SymbolDim *other);
+  LogicalResult Merge(SymbolDim* other);
 
-private:
+ private:
   int64_t dimSize_;
 };
 
 // Merge two symbolDim if they are compatible.
-LogicalResult SymbolDim::Merge(SymbolDim *other) {
+LogicalResult SymbolDim::Merge(SymbolDim* other) {
   if (!isDynamic() && !other->isDynamic() &&
       getDimSize() != other->getDimSize())
     return failure();
-  if (isDynamic())
-    dimSize_ = other->getDimSize();
+  if (isDynamic()) dimSize_ = other->getDimSize();
   return success();
 }
 
 // Represents a symbolic ranked shape.
 class SymbolShape {
-public:
-  explicit SymbolShape(SmallVector<SymbolDim *, 4> dims = {})
+ public:
+  explicit SymbolShape(SmallVector<SymbolDim*, 4> dims = {})
       : dims_(std::move(dims)) {}
 
   int rank() { return dims_.size(); }
 
-  void setSymbolDims(SmallVector<SymbolDim *, 4> dims) {
+  void setSymbolDims(SmallVector<SymbolDim*, 4> dims) {
     dims_ = std::move(dims);
   }
 
-  ArrayRef<SymbolDim *> getSymbolDims() { return dims_; }
+  ArrayRef<SymbolDim*> getSymbolDims() { return dims_; }
 
   SmallVector<int64_t, 4> getDimValues() {
     SmallVector<int64_t, 4> dimValues;
-    for (SymbolDim *dim : dims_)
-      dimValues.push_back(dim->getDimSize());
+    for (SymbolDim* dim : dims_) dimValues.push_back(dim->getDimSize());
     return dimValues;
   }
 
-  SymbolDim *getSymbolDim(int dim) {
+  SymbolDim* getSymbolDim(int dim) {
     assert(dim < dims_.size());
     return dims_[dim];
   }
 
-  void setSymbolDim(int dim, SymbolDim *symbolDim) {
+  void setSymbolDim(int dim, SymbolDim* symbolDim) {
     assert(dim < dims_.size());
     dims_[dim] = symbolDim;
   }
 
-  bool operator==(const SymbolShape &other) { return other.dims_ == dims_; }
+  bool operator==(const SymbolShape& other) { return other.dims_ == dims_; }
 
-private:
-  SmallVector<SymbolDim *, 4> dims_;
+ private:
+  SmallVector<SymbolDim*, 4> dims_;
 };
 
 // A simple shape analysis for propagating known shape information in
 // compilation time.
 class ShapeAnalysis {
-public:
+ public:
   explicit ShapeAnalysis(FuncOp func) : func_(func) {}
 
   LogicalResult run();
@@ -357,52 +345,51 @@ public:
   // Insert tie_shape ops to explicit tie dimension equality in the IR level.
   LogicalResult buildTieShapeOps();
 
-private:
+ private:
   LogicalResult buildShapeMap();
   LogicalResult buildValueShape(Value value);
-  LogicalResult buildRegionShapeMap(Region *region);
-  LogicalResult buildBlockShapeMap(Block *block);
-  LogicalResult buildOperationShapeMap(Operation *op);
+  LogicalResult buildRegionShapeMap(Region* region);
+  LogicalResult buildBlockShapeMap(Block* block);
+  LogicalResult buildOperationShapeMap(Operation* op);
 
-  LogicalResult applyOpConstraint(Operation *op);
-  LogicalResult applyTensorOpConstraint(Operation *op);
-  LogicalResult applyMhloOpConstraint(Operation *op);
+  LogicalResult applyOpConstraint(Operation* op);
+  LogicalResult applyTensorOpConstraint(Operation* op);
+  LogicalResult applyMhloOpConstraint(Operation* op);
 
-  SymbolDim *getRootDim(SymbolDim *symbolDim);
-  SymbolDim *getDim(Value value, int dim);
-  SymbolShape *getShape(Value value);
+  SymbolDim* getRootDim(SymbolDim* symbolDim);
+  SymbolDim* getDim(Value value, int dim);
+  SymbolShape* getShape(Value value);
 
-  LogicalResult mapDimEqual(SymbolDim *lhs, SymbolDim *rhs);
-  LogicalResult mapShapeEqual(SymbolShape *lhs, SymbolShape *rhs);
+  LogicalResult mapDimEqual(SymbolDim* lhs, SymbolDim* rhs);
+  LogicalResult mapShapeEqual(SymbolShape* lhs, SymbolShape* rhs);
 
   using SymbolShapeVisitor =
-      std::function<LogicalResult(OpBuilder &, Location &, Value value)>;
+      std::function<LogicalResult(OpBuilder&, Location&, Value value)>;
   using Symbol2InstancesDominantType =
-      DenseMap<SymbolDim *, DenseMap<Value, Value>>;
+      DenseMap<SymbolDim*, DenseMap<Value, Value>>;
   LogicalResult visitSymbolShapes(SymbolShapeVisitor visitor);
   LogicalResult buildSymbolDimInstances(
-      DenseMap<SymbolDim *, SmallVector<Value>> &symbolDim2Instances,
-      DenseMap<Value, SmallVector<Value>> &shapedValue2DimValues);
+      DenseMap<SymbolDim*, SmallVector<Value>>& symbolDim2Instances,
+      DenseMap<Value, SmallVector<Value>>& shapedValue2DimValues);
   LogicalResult buildSymbolDimInstancesDominantMap(
-      DenseMap<SymbolDim *, SmallVector<Value>> &instanceMap,
-      DenseMap<SymbolDim *, DenseMap<Value, Value>> &dominantMap);
+      DenseMap<SymbolDim*, SmallVector<Value>>& instanceMap,
+      DenseMap<SymbolDim*, DenseMap<Value, Value>>& dominantMap);
   void dumpSymbol2InstancesDominant(
       Symbol2InstancesDominantType symbol2InstancesDominant);
 
-private:
+ private:
   bool initialized = false;
   FuncOp func_;
   SmallVector<std::unique_ptr<SymbolDim>, 4> dimVec_;
-  DenseMap<SymbolDim *, int> dimMap_;
+  DenseMap<SymbolDim*, int> dimMap_;
   DenseMap<Value, SymbolShape> shapeMap_;
 };
 
 Type ShapeAnalysis::getRefinedType(Value value) {
-  SymbolShape *symbolShape = getShape(value);
+  SymbolShape* symbolShape = getShape(value);
 
   // not-shaped type
-  if (!symbolShape)
-    return value.getType();
+  if (!symbolShape) return value.getType();
 
   auto ty = value.getType().cast<RankedTensorType>();
   auto dimValues = symbolShape->getDimValues();
@@ -427,14 +414,12 @@ LogicalResult ShapeAnalysis::buildShapeMap() {
 LogicalResult ShapeAnalysis::buildValueShape(Value value) {
   auto ty = value.getType().dyn_cast<ShapedType>();
   // Skip non-shaped value
-  if (!ty)
-    return success();
+  if (!ty) return success();
 
   // Not support dynamic rank a.t.m.
-  if (!ty.hasRank())
-    return failure();
+  if (!ty.hasRank()) return failure();
 
-  SmallVector<SymbolDim *, 4> dims;
+  SmallVector<SymbolDim*, 4> dims;
   for (int64_t dimSize : ty.getShape()) {
     dimVec_.emplace_back(new SymbolDim(dimSize));
     dims.push_back(dimVec_.back().get());
@@ -445,20 +430,19 @@ LogicalResult ShapeAnalysis::buildValueShape(Value value) {
   return success();
 }
 
-LogicalResult ShapeAnalysis::buildRegionShapeMap(Region *region) {
+LogicalResult ShapeAnalysis::buildRegionShapeMap(Region* region) {
   // Only SCF is supported a.t.m.
   if (region->getBlocks().size() != 1) {
     return region->getParentOp()->emitError(
         "only single block region is supported");
   }
-  for (Block &block : *region) {
-    if (failed(buildBlockShapeMap(&block)))
-      return failure();
+  for (Block& block : *region) {
+    if (failed(buildBlockShapeMap(&block))) return failure();
   }
   return success();
 }
 
-LogicalResult ShapeAnalysis::buildBlockShapeMap(Block *block) {
+LogicalResult ShapeAnalysis::buildBlockShapeMap(Block* block) {
   // mapping block arguments
   for (Value value : block->getArguments()) {
     if (failed(buildValueShape(value))) {
@@ -468,15 +452,14 @@ LogicalResult ShapeAnalysis::buildBlockShapeMap(Block *block) {
   }
 
   // mapping each op inside the block
-  for (Operation &op : block->getOperations()) {
-    if (failed(buildOperationShapeMap(&op)))
-      return failure();
+  for (Operation& op : block->getOperations()) {
+    if (failed(buildOperationShapeMap(&op))) return failure();
   }
 
   return success();
 }
 
-LogicalResult ShapeAnalysis::buildOperationShapeMap(Operation *op) {
+LogicalResult ShapeAnalysis::buildOperationShapeMap(Operation* op) {
   // build shapes for the results of op
   for (Value result : op->getResults()) {
     if (failed(buildValueShape(result))) {
@@ -488,10 +471,9 @@ LogicalResult ShapeAnalysis::buildOperationShapeMap(Operation *op) {
   return applyOpConstraint(op);
 }
 
-SymbolShape *ShapeAnalysis::getShape(Value value) {
+SymbolShape* ShapeAnalysis::getShape(Value value) {
   auto it = shapeMap_.find(value);
-  if (it == shapeMap_.end())
-    return nullptr;
+  if (it == shapeMap_.end()) return nullptr;
 
   for (int i = 0; i < it->second.rank(); ++i) {
     it->second.setSymbolDim(i, getDim(value, i));
@@ -499,9 +481,9 @@ SymbolShape *ShapeAnalysis::getShape(Value value) {
   return &it->second;
 }
 
-SymbolDim *ShapeAnalysis::getRootDim(SymbolDim *symbolDim) {
+SymbolDim* ShapeAnalysis::getRootDim(SymbolDim* symbolDim) {
   assert(symbolDim != nullptr);
-  SymbolDim *parentSymbolDim = symbolDim;
+  SymbolDim* parentSymbolDim = symbolDim;
   do {
     symbolDim = parentSymbolDim;
     int dimIdx = dimMap_[symbolDim];
@@ -511,12 +493,11 @@ SymbolDim *ShapeAnalysis::getRootDim(SymbolDim *symbolDim) {
   return parentSymbolDim;
 }
 
-SymbolDim *ShapeAnalysis::getDim(Value value, int dim) {
+SymbolDim* ShapeAnalysis::getDim(Value value, int dim) {
   auto it = shapeMap_.find(value);
-  if (it == shapeMap_.end())
-    return nullptr;
+  if (it == shapeMap_.end()) return nullptr;
 
-  SymbolDim *symbolDim = it->second.getSymbolDim(dim);
+  SymbolDim* symbolDim = it->second.getSymbolDim(dim);
   assert(symbolDim != nullptr);
 
   symbolDim = getRootDim(symbolDim);
@@ -525,7 +506,7 @@ SymbolDim *ShapeAnalysis::getDim(Value value, int dim) {
   return symbolDim;
 }
 
-LogicalResult ShapeAnalysis::mapDimEqual(SymbolDim *lhs, SymbolDim *rhs) {
+LogicalResult ShapeAnalysis::mapDimEqual(SymbolDim* lhs, SymbolDim* rhs) {
   int lhsIdx = dimMap_[getRootDim(lhs)];
   int rhsIdx = dimMap_[getRootDim(rhs)];
 
@@ -542,27 +523,25 @@ LogicalResult ShapeAnalysis::mapDimEqual(SymbolDim *lhs, SymbolDim *rhs) {
   }
 }
 
-LogicalResult ShapeAnalysis::mapShapeEqual(SymbolShape *lhs, SymbolShape *rhs) {
-  if (!lhs || !rhs || lhs->rank() != rhs->rank())
-    return failure();
+LogicalResult ShapeAnalysis::mapShapeEqual(SymbolShape* lhs, SymbolShape* rhs) {
+  if (!lhs || !rhs || lhs->rank() != rhs->rank()) return failure();
 
-  for (auto &&en : llvm::zip(lhs->getSymbolDims(), rhs->getSymbolDims())) {
-    if (failed(mapDimEqual(std::get<0>(en), std::get<1>(en))))
-      return failure();
+  for (auto&& en : llvm::zip(lhs->getSymbolDims(), rhs->getSymbolDims())) {
+    if (failed(mapDimEqual(std::get<0>(en), std::get<1>(en)))) return failure();
   }
   return success();
 }
 
 LogicalResult ShapeAnalysis::mapValueShapeEqual(Value lhs, Value rhs) {
-  SymbolShape *lhsShape = getShape(lhs);
-  SymbolShape *rhsShape = getShape(rhs);
+  SymbolShape* lhsShape = getShape(lhs);
+  SymbolShape* rhsShape = getShape(rhs);
   return mapShapeEqual(lhsShape, rhsShape);
 }
 
 LogicalResult ShapeAnalysis::mapValueDimEqual(Value lhs, int lhsIdx, Value rhs,
                                               int rhsIdx) {
-  SymbolDim *lhsDim = getDim(lhs, lhsIdx);
-  SymbolDim *rhsDim = getDim(rhs, rhsIdx);
+  SymbolDim* lhsDim = getDim(lhs, lhsIdx);
+  SymbolDim* rhsDim = getDim(rhs, rhsIdx);
   return mapDimEqual(lhsDim, rhsDim);
 }
 
@@ -572,14 +551,13 @@ bool ShapeAnalysis::isValueDimEqual(Value lhs, int lhsDim, Value rhs,
 }
 
 bool ShapeAnalysis::isValueShapeEqual(Value lhs, Value rhs) {
-  SymbolShape *lhsShape = getShape(lhs);
-  SymbolShape *rhsShape = getShape(rhs);
-  if (!lhsShape || !lhsShape)
-    return false;
+  SymbolShape* lhsShape = getShape(lhs);
+  SymbolShape* rhsShape = getShape(rhs);
+  if (!lhsShape || !lhsShape) return false;
   return *lhsShape == *rhsShape;
 }
 
-LogicalResult ShapeAnalysis::applyOpConstraint(Operation *op) {
+LogicalResult ShapeAnalysis::applyOpConstraint(Operation* op) {
   if (op->getDialect() == op->getContext()->getLoadedDialect("tensor")) {
     return applyTensorOpConstraint(op);
   } else if (op->getDialect() == op->getContext()->getLoadedDialect("mhlo") ||
@@ -591,42 +569,35 @@ LogicalResult ShapeAnalysis::applyOpConstraint(Operation *op) {
   return success();
 }
 
-LogicalResult ShapeAnalysis::applyTensorOpConstraint(Operation *op) {
+LogicalResult ShapeAnalysis::applyTensorOpConstraint(Operation* op) {
   if (isa<tensor::CastOp>(op)) {
     return mapValueShapeEqual(op->getResult(0), op->getOperand(0));
   }
   return success();
 }
 
-LogicalResult ShapeAnalysis::applyMhloOpConstraint(Operation *op) {
+LogicalResult ShapeAnalysis::applyMhloOpConstraint(Operation* op) {
   if (op->hasTrait<mlir::OpTrait::SameOperandsAndResultType>() ||
       op->hasTrait<mlir::OpTrait::SameOperandsAndResultShape>()) {
     Value ref;
-    if (op->getNumOperands() > 0)
-      ref = op->getOperands().front();
-    if (op->getNumResults() > 0)
-      ref = op->getResults().front();
-    if (!ref)
-      return success();
-    for (Value operand : op->getOperands())
-      mapValueShapeEqual(ref, operand);
-    for (Value result : op->getResults())
-      mapValueShapeEqual(ref, result);
+    if (op->getNumOperands() > 0) ref = op->getOperands().front();
+    if (op->getNumResults() > 0) ref = op->getResults().front();
+    if (!ref) return success();
+    for (Value operand : op->getOperands()) mapValueShapeEqual(ref, operand);
+    for (Value result : op->getResults()) mapValueShapeEqual(ref, result);
     return success();
   }
 
   if (op->hasTrait<mlir::OpTrait::SameTypeOperands>()) {
-    if (op->getNumOperands() == 0)
-      return success();
+    if (op->getNumOperands() == 0) return success();
     Value ref = op->getOperands().front();
-    for (Value operand : op->getOperands())
-      mapValueShapeEqual(ref, operand);
+    for (Value operand : op->getOperands()) mapValueShapeEqual(ref, operand);
   }
 
   if (auto transpose = dyn_cast<mhlo::TransposeOp>(op)) {
     Value operand = op->getOperand(0);
     Value result = op->getResult(0);
-    for (auto &en :
+    for (auto& en :
          llvm::enumerate(transpose.permutation().getValues<int64_t>())) {
       mapValueDimEqual(operand, en.value(), result, en.index());
     }
@@ -636,8 +607,7 @@ LogicalResult ShapeAnalysis::applyMhloOpConstraint(Operation *op) {
     int64_t rank = result.getType().cast<RankedTensorType>().getRank();
     for (Value operand : op->getOperands()) {
       for (int64_t i = 0; i < rank; ++i) {
-        if (i == axis)
-          continue;
+        if (i == axis) continue;
         mapValueDimEqual(operand, i, result, i);
       }
     }
@@ -660,7 +630,7 @@ LogicalResult ShapeAnalysis::applyMhloOpConstraint(Operation *op) {
     Value result = op->getResult(0);
     auto ty = operand.getType().dyn_cast<ShapedType>();
     assert(ty);
-    for (auto &dim : llvm::enumerate(
+    for (auto& dim : llvm::enumerate(
              broadcast_in_dim.broadcast_dimensions().getValues<int64_t>())) {
       // Deal with non-static & non-one dim.
       if (!ty.isDynamicDim(dim.index()) && ty.getDimSize(dim.index()) != 1) {
@@ -754,36 +724,35 @@ LogicalResult ShapeAnalysis::applyMhloOpConstraint(Operation *op) {
 LogicalResult ShapeAnalysis::visitSymbolShapes(SymbolShapeVisitor visitor) {
   for (auto it = shapeMap_.begin(), stop = shapeMap_.end(); it != stop; ++it) {
     Value value = it->first;
-    SymbolShape &symbolShape = it->second;
+    SymbolShape& symbolShape = it->second;
     OpBuilder b(func_);
     Location loc = func_.getLoc();
-    Operation *definingOp = value.getDefiningOp();
+    Operation* definingOp = value.getDefiningOp();
     if (!definingOp) {
-      Block *block = cast<BlockArgument>(value).getOwner();
+      Block* block = cast<BlockArgument>(value).getOwner();
       loc = block->getParentOp()->getLoc();
       b.setInsertionPoint(block, block->begin());
     } else {
       loc = definingOp->getLoc();
       b.setInsertionPointAfter(definingOp);
     }
-    if (failed(visitor(b, loc, value)))
-      return failure();
+    if (failed(visitor(b, loc, value))) return failure();
   }
   return success();
 }
 
 LogicalResult ShapeAnalysis::buildSymbolDimInstances(
-    DenseMap<SymbolDim *, SmallVector<Value>> &symbolDim2Instances,
-    DenseMap<Value, SmallVector<Value>> &shapedValue2DimValues) {
+    DenseMap<SymbolDim*, SmallVector<Value>>& symbolDim2Instances,
+    DenseMap<Value, SmallVector<Value>>& shapedValue2DimValues) {
   // Instantiate each symbol dim and group all instances for each symbol dim.
-  SymbolShapeVisitor visitor = [&](OpBuilder &b, Location &loc, Value value) {
-    SymbolShape *symbolShape = getShape(value);
-    auto &dimValues = shapedValue2DimValues[value];
+  SymbolShapeVisitor visitor = [&](OpBuilder& b, Location& loc, Value value) {
+    SymbolShape* symbolShape = getShape(value);
+    auto& dimValues = shapedValue2DimValues[value];
     for (int i = 0, rank = symbolShape->rank(); i < rank; ++i) {
       Value dimSize = b.create<tensor::DimOp>(loc, value, i);
-      SymbolDim *symbolDim = symbolShape->getSymbolDim(i);
+      SymbolDim* symbolDim = symbolShape->getSymbolDim(i);
       assert(symbolDim);
-      auto &instances = symbolDim2Instances[symbolDim];
+      auto& instances = symbolDim2Instances[symbolDim];
       instances.push_back(dimSize);
       dimValues.push_back(dimSize);
     }
@@ -793,13 +762,13 @@ LogicalResult ShapeAnalysis::buildSymbolDimInstances(
 }
 
 LogicalResult ShapeAnalysis::buildSymbolDimInstancesDominantMap(
-    DenseMap<SymbolDim *, SmallVector<Value>> &instanceMap,
-    DenseMap<SymbolDim *, DenseMap<Value, Value>> &dominantMap) {
+    DenseMap<SymbolDim*, SmallVector<Value>>& instanceMap,
+    DenseMap<SymbolDim*, DenseMap<Value, Value>>& dominantMap) {
   DominanceInfo dominanceInfo(func_);
-  for (auto &it : instanceMap) {
-    auto &symbolDim = it.first;
-    auto &instances = it.second;
-    auto &dominants = dominantMap[symbolDim];
+  for (auto& it : instanceMap) {
+    auto& symbolDim = it.first;
+    auto& instances = it.second;
+    auto& dominants = dominantMap[symbolDim];
 
     // in normal cases, there should be only one root, aka, dominant value
     // of all the values of instances
@@ -807,8 +776,7 @@ LogicalResult ShapeAnalysis::buildSymbolDimInstancesDominantMap(
     for (Value v : instances) {
       bool is_root = true;
       for (Value other : instances) {
-        if (v == other)
-          continue;
+        if (v == other) continue;
         if (dominanceInfo.dominates(other, v.getDefiningOp())) {
           is_root = false;
           continue;
@@ -918,7 +886,7 @@ LogicalResult ShapeAnalysis::buildTieShapeOps() {
   //   {symbol0 : {%0_d0, %1_d0}} // %0_d0 and %1_d0 have the same symbolDim
   // shapedValue2DimValues:
   //   {%0 : {%0_d0}, %1 : {%1_d0}}
-  DenseMap<SymbolDim *, SmallVector<Value>> symbolDim2Instances;
+  DenseMap<SymbolDim*, SmallVector<Value>> symbolDim2Instances;
   DenseMap<Value, SmallVector<Value>> shapedValue2DimValues;
   if (failed(
           buildSymbolDimInstances(symbolDim2Instances, shapedValue2DimValues)))
@@ -934,20 +902,20 @@ LogicalResult ShapeAnalysis::buildTieShapeOps() {
   LLVM_DEBUG(dumpSymbol2InstancesDominant(symbol2InstancesDominant));
 
   // create a tie_shape op for each shaped value.
-  SymbolShapeVisitor visitor = [&](OpBuilder &b, Location &loc, Value value) {
+  SymbolShapeVisitor visitor = [&](OpBuilder& b, Location& loc, Value value) {
     // Skip static shaped values
     if (value.getType().cast<RankedTensorType>().hasStaticShape()) {
       return success();
     }
 
     SmallVector<Value> dominantDimValues;
-    SymbolShape *symbolShape = getShape(value);
-    auto &dimValues = shapedValue2DimValues[value];
-    DenseSet<Operation *> dimOps;
+    SymbolShape* symbolShape = getShape(value);
+    auto& dimValues = shapedValue2DimValues[value];
+    DenseSet<Operation*> dimOps;
     for (int i = 0, rank = symbolShape->rank(); i < rank; ++i) {
-      SymbolDim *symbolDim = symbolShape->getSymbolDim(i);
+      SymbolDim* symbolDim = symbolShape->getSymbolDim(i);
       assert(symbolDim);
-      auto &dominantInfo = symbol2InstancesDominant[symbolDim];
+      auto& dominantInfo = symbol2InstancesDominant[symbolDim];
       dominantDimValues.push_back(dominantInfo[dimValues[i]]);
       // if 'value' is not an BlockArgument, we can guarantee
       // 'dominantDimValues' dominate 'value'
@@ -960,13 +928,11 @@ LogicalResult ShapeAnalysis::buildTieShapeOps() {
     Value newValue = b.create<disc_shape::TieShapeOp>(loc, value.getType(),
                                                       value, dominantDimValues);
     auto users = llvm::to_vector<4>(value.getUsers());
-    for (Operation *user : users) {
+    for (Operation* user : users) {
       // skip those dim ops used to fetch the dim size values of original shaped
       // value.
-      if (dimOps.find(user) != dimOps.end())
-        continue;
-      if (user == newValue.getDefiningOp())
-        continue;
+      if (dimOps.find(user) != dimOps.end()) continue;
+      if (user == newValue.getDefiningOp()) continue;
       user->replaceUsesOfWith(value, newValue);
     }
     return success();
@@ -977,7 +943,7 @@ LogicalResult ShapeAnalysis::buildTieShapeOps() {
 
 struct ShapeSimplifierPass
     : public DiscShapeSimplifierPassBase<ShapeSimplifierPass> {
-  ShapeSimplifierPass(const std::string &entry_func_name, bool insert_tie_shape)
+  ShapeSimplifierPass(const std::string& entry_func_name, bool insert_tie_shape)
       : DiscShapeSimplifierPassBase<
             ShapeSimplifierPass>::DiscShapeSimplifierPassBase() {
     this->entry_func_name_ = entry_func_name;
@@ -985,23 +951,23 @@ struct ShapeSimplifierPass
   }
 
   // Adds canonicalization patterns to the list of patterns.
-  void AddCanonicalizationPatterns(MLIRContext *context,
-                                   OwningRewritePatternList *patterns) {
-    for (auto *op : context->getRegisteredOperations())
+  void AddCanonicalizationPatterns(MLIRContext* context,
+                                   OwningRewritePatternList* patterns) {
+    for (auto* op : context->getRegisteredOperations())
       op->getCanonicalizationPatterns(*patterns, context);
   }
 
-  void populateShapeRefinerPatterns(OwningRewritePatternList &);
+  void populateShapeRefinerPatterns(OwningRewritePatternList&);
 
   void runOnOperation() override;
 
-  LogicalResult applyShapeAnalysis(ShapeAnalysis &, bool &);
+  LogicalResult applyShapeAnalysis(ShapeAnalysis&, bool&);
 
-  LogicalResult applySymbolicShapeOptimization(ShapeAnalysis &, bool &);
+  LogicalResult applySymbolicShapeOptimization(ShapeAnalysis&, bool&);
 };
 
 void ShapeSimplifierPass::populateShapeRefinerPatterns(
-    OwningRewritePatternList &patterns) {
+    OwningRewritePatternList& patterns) {
   // clang-format off
   patterns.insert<
       ExtractFromExtentTensorCanonicalizationPattern,
@@ -1070,8 +1036,8 @@ void ShapeSimplifierPass::runOnOperation() {
   }
 }
 
-LogicalResult ShapeSimplifierPass::applyShapeAnalysis(ShapeAnalysis &analysis,
-                                                      bool &changed) {
+LogicalResult ShapeSimplifierPass::applyShapeAnalysis(ShapeAnalysis& analysis,
+                                                      bool& changed) {
   FuncOp func = analysis.getFunc();
 
   auto updateIfNotSame = [&](Value value) {
@@ -1083,12 +1049,10 @@ LogicalResult ShapeSimplifierPass::applyShapeAnalysis(ShapeAnalysis &analysis,
   };
 
   // apply refined type for each value
-  func.walk([&](Operation *op) {
-    for (Value operand : op->getOperands())
-      updateIfNotSame(operand);
+  func.walk([&](Operation* op) {
+    for (Value operand : op->getOperands()) updateIfNotSame(operand);
 
-    for (Value result : op->getResults())
-      updateIfNotSame(result);
+    for (Value result : op->getResults()) updateIfNotSame(result);
   });
 
   // apply refined function type
@@ -1100,7 +1064,7 @@ LogicalResult ShapeSimplifierPass::applyShapeAnalysis(ShapeAnalysis &analysis,
   // 2, collect output types
   SmallVector<Type, 4> refinedOutputTypes;
   assert(func.getBody().getBlocks().size() == 1);
-  Operation &op = func.getBody().front().getOperations().back();
+  Operation& op = func.getBody().front().getOperations().back();
   for (Value operand : op.getOperands())
     refinedOutputTypes.push_back(analysis.getRefinedType(operand));
 
@@ -1115,18 +1079,17 @@ LogicalResult ShapeSimplifierPass::applyShapeAnalysis(ShapeAnalysis &analysis,
   return success();
 }
 
-LogicalResult
-ShapeSimplifierPass::applySymbolicShapeOptimization(ShapeAnalysis &analysis,
-                                                    bool &changed) {
+LogicalResult ShapeSimplifierPass::applySymbolicShapeOptimization(
+    ShapeAnalysis& analysis, bool& changed) {
   FuncOp func = analysis.getFunc();
 
   // 1, %out = bcast(%in, ...) -> identity if shape_of(%in) == shape_of(%out)
-  SmallVector<Operation *, 4> bcastOps;
+  SmallVector<Operation*, 4> bcastOps;
   func.walk([&](mhlo::DynamicBroadcastInDimOp op) {
     if (analysis.isValueShapeEqual(op.getResult(), op->getOperand(0)))
       bcastOps.push_back(op);
   });
-  for (Operation *op : bcastOps) {
+  for (Operation* op : bcastOps) {
     op->getResult(0).replaceAllUsesWith(op->getOperand(0));
     changed = true;
   }
@@ -1134,14 +1097,13 @@ ShapeSimplifierPass::applySymbolicShapeOptimization(ShapeAnalysis &analysis,
   return success();
 }
 
-} // namespace
+}  // namespace
 
-std::unique_ptr<OperationPass<ModuleOp>>
-createDiscShapeSimplifierPass(const std::string &entry_func_name,
-                              bool insert_tie_shape) {
+std::unique_ptr<OperationPass<ModuleOp>> createDiscShapeSimplifierPass(
+    const std::string& entry_func_name, bool insert_tie_shape) {
   return std::make_unique<ShapeSimplifierPass>(entry_func_name,
                                                insert_tie_shape);
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

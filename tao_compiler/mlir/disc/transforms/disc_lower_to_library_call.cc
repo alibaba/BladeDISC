@@ -25,6 +25,7 @@ limitations under the License.
 //   of one op for different devices and different element types. For example,
 //   we may have GEMM ops with different element types.
 
+#include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/mhlo/IR/disc_ral_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
@@ -46,7 +47,6 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/rewriters.h"
-#include "llvm/Support/Debug.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -66,7 +66,7 @@ using lmhlo_disc::D2HOp;
 using lmhlo_disc::H2DOp;
 
 // Suppose that the first argument of the function is the ctx value
-Value GetContextValueFromFunctionArguments(Operation *op) {
+Value GetContextValueFromFunctionArguments(Operation* op) {
   Value ctx;
   if (auto func = op->getParentOfType<FuncOp>()) {
     if (func.getArgument(0).getType().isa<RalExecutionContextType>()) {
@@ -78,9 +78,9 @@ Value GetContextValueFromFunctionArguments(Operation *op) {
 }
 
 // Currently we only use a single stream. Re-visit this if necessary.
-Value GetDefaultStreamHandle(Operation *op, PatternRewriter &rewriter) {
+Value GetDefaultStreamHandle(Operation* op, PatternRewriter& rewriter) {
   Location loc = op->getLoc();
-  MLIRContext *ctx = rewriter.getContext();
+  MLIRContext* ctx = rewriter.getContext();
   Type llvm_int32_type = IntegerType::get(ctx, 32);
   Value zero = rewriter.create<LLVM::ConstantOp>(loc, llvm_int32_type,
                                                  rewriter.getI32IntegerAttr(0));
@@ -90,8 +90,8 @@ Value GetDefaultStreamHandle(Operation *op, PatternRewriter &rewriter) {
 }
 
 // Insert a sync on stream call.
-void InsertSyncOnStream(Operation *op, Value ctx, Value stream_handle,
-                        PatternRewriter &rewriter) {
+void InsertSyncOnStream(Operation* op, Value ctx, Value stream_handle,
+                        PatternRewriter& rewriter) {
   Location loc = op->getLoc();
   rewriter.create<DispatchOp>(loc, llvm::None, ctx, stream_handle,
                               "sync_on_stream", false, "gpu");
@@ -106,7 +106,7 @@ struct RecvInputOpConvertor : public OpRewritePattern<RecvInputOp> {
   using OpRewritePattern<RecvInputOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(RecvInputOp op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     auto operands = op.getOperands();
     rewriter.replaceOpWithNewOp<DispatchOp>(op, op.getType(), operands.front(),
                                             operands.drop_front(),
@@ -124,7 +124,7 @@ struct SendOutputOpConvertor : public OpRewritePattern<SendOutputOp> {
   using OpRewritePattern<SendOutputOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(SendOutputOp op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     auto operands = op.getOperands();
     rewriter.replaceOpWithNewOp<DispatchOp>(op, llvm::None, operands.front(),
                                             operands.drop_front(),
@@ -145,13 +145,13 @@ struct SendOutputOpConvertor : public OpRewritePattern<SendOutputOp> {
 //     "sync_on_stream", backend_config = "gpu"}
 template <typename OpTy>
 struct GpuCopyOpConvertor : public OpRewritePattern<OpTy> {
-  GpuCopyOpConvertor(MLIRContext *context, StringRef target)
+  GpuCopyOpConvertor(MLIRContext* context, StringRef target)
       : OpRewritePattern<OpTy>::OpRewritePattern(context) {
     this->target_ = target;
   }
 
   LogicalResult matchAndRewrite(OpTy op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     Value ctx = GetContextValueFromFunctionArguments(op);
     if (!ctx) {
       return op->emitOpError(
@@ -173,7 +173,7 @@ struct GpuCopyOpConvertor : public OpRewritePattern<OpTy> {
     return success();
   }
 
-private:
+ private:
   StringRef target_;
 };
 
@@ -181,7 +181,7 @@ struct DotGeneralOpConvertor : public OpRewritePattern<DotGeneralOp> {
   using OpRewritePattern<DotGeneralOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(DotGeneralOp op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     Value ctx = GetContextValueFromFunctionArguments(op);
     if (!ctx) {
       return op->emitOpError()
@@ -205,7 +205,7 @@ struct DotGeneralOpConvertor : public OpRewritePattern<DotGeneralOp> {
     }
 
     int rank = op.getOperand(0).getType().cast<MemRefType>().getRank();
-    for (auto &&z : llvm::zip(lhs_batching_dims, rhs_batching_dims)) {
+    for (auto&& z : llvm::zip(lhs_batching_dims, rhs_batching_dims)) {
       if ((std::get<0>(z) >= rank - 2) || (std::get<1>(z) >= rank - 2)) {
         return op.emitOpError() << "unsupported batch dims.";
       }
@@ -250,7 +250,7 @@ struct DotGeneralOpConvertor : public OpRewritePattern<DotGeneralOp> {
 };
 
 template <typename OpTy>
-Value GetConvMetadata(OpTy op, PatternRewriter &rewriter) {
+Value GetConvMetadata(OpTy op, PatternRewriter& rewriter) {
   // Metadata:
   //   - input layput: each field for one dimension. The order is:
   //     * batch, channel, spatial dimensions
@@ -300,7 +300,7 @@ Value GetConvMetadata(OpTy op, PatternRewriter &rewriter) {
   auto rhs_dilation = disc_ral::ConvertDenseIntAttr(op.rhs_dilation());
   fields.insert(fields.end(), rhs_dilation.begin(), rhs_dilation.end());
 
-  for (auto &&en : llvm::enumerate(fields)) {
+  for (auto&& en : llvm::enumerate(fields)) {
     Value value = rewriter.create<ConstantIntOp>(loc, en.value(), field_type);
     Value offset = rewriter.create<ConstantIndexOp>(loc, en.index());
     SmallVector<Value, 1> ivs(1, offset);
@@ -313,7 +313,7 @@ Value GetConvMetadata(OpTy op, PatternRewriter &rewriter) {
 struct ConvConverter : public OpRewritePattern<ConvOp> {
   using OpRewritePattern<ConvOp>::OpRewritePattern;
 
-  Value GetPadding(ConvOp op, PatternRewriter &rewriter) const {
+  Value GetPadding(ConvOp op, PatternRewriter& rewriter) const {
     Location loc = op.getLoc();
     Type field_type = rewriter.getI32Type();
     int rank = op.output().getType().template cast<ShapedType>().getRank();
@@ -324,7 +324,7 @@ struct ConvConverter : public OpRewritePattern<ConvOp> {
                  StringAttr::get(op->getContext(), placement_utils::kCpu)));
     // padding
     auto padding = disc_ral::ConvertDenseIntAttr(op.padding());
-    for (auto &&en : llvm::enumerate(padding)) {
+    for (auto&& en : llvm::enumerate(padding)) {
       Value value = rewriter.create<ConstantIntOp>(loc, en.value(), field_type);
       Value offset = rewriter.create<ConstantIndexOp>(loc, en.index());
       SmallVector<Value, 1> ivs(1, offset);
@@ -334,7 +334,7 @@ struct ConvConverter : public OpRewritePattern<ConvOp> {
   }
 
   LogicalResult matchAndRewrite(ConvOp op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     Location loc = op.getLoc();
     Value ctx = GetContextValueFromFunctionArguments(op);
     if (!ctx) {
@@ -367,7 +367,7 @@ struct DynamicConvConverter : public OpRewritePattern<DynamicConvOp> {
   using OpRewritePattern<DynamicConvOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(DynamicConvOp op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     Value ctx = GetContextValueFromFunctionArguments(op);
     if (!ctx) {
       op->emitOpError()
@@ -393,10 +393,9 @@ struct DynamicConvConverter : public OpRewritePattern<DynamicConvOp> {
 
 // Return null is not a copy-removable copy-like ops, otherwise return
 // the copied result value.
-Value getCopyRemovableResult(Operation *op) {
+Value getCopyRemovableResult(Operation* op) {
   // Not removable if inside a fusion.
-  if (op->getParentOfType<FusionOp>() != nullptr)
-    return {};
+  if (op->getParentOfType<FusionOp>() != nullptr) return {};
 
   // TODO(disc): add cpu copy removal support.
   if (isa<ReshapeOp, DynamicReshapeOp, CopyOp>(op)) {
@@ -405,8 +404,7 @@ Value getCopyRemovableResult(Operation *op) {
     if (!IsSmallCpuBuffer(result) && !IsSmallCpuBuffer(op->getOperand(0)))
       return result;
 #else
-    if (placement_utils::isGpuMemRef(result))
-      return result;
+    if (placement_utils::isGpuMemRef(result)) return result;
 #endif
   }
 
@@ -415,16 +413,14 @@ Value getCopyRemovableResult(Operation *op) {
 
 Value getRootMemRefIfSafe(Value memref) {
   Value rootMemRef = memref;
-  DenseSet<Operation *> knownSafeOpSet;
+  DenseSet<Operation*> knownSafeOpSet;
   while (auto view = dyn_cast_or_null<ViewLikeOpInterface>(
              rootMemRef.getDefiningOp())) {
     knownSafeOpSet.insert(view);
     if (rootMemRef != memref) {
-      for (Operation *user : rootMemRef.getUsers()) {
-        if (isa<memref::DimOp>(user))
-          continue;
-        if (knownSafeOpSet.contains(user))
-          continue;
+      for (Operation* user : rootMemRef.getUsers()) {
+        if (isa<memref::DimOp>(user)) continue;
+        if (knownSafeOpSet.contains(user)) continue;
         // not safe to elide the copy since the underline view have unsafe
         // users.
         return {};
@@ -433,13 +429,11 @@ Value getRootMemRefIfSafe(Value memref) {
     rootMemRef = view->getOperand(0);
   }
   if (rootMemRef != memref) {
-    for (Operation *user : rootMemRef.getUsers()) {
+    for (Operation* user : rootMemRef.getUsers()) {
       // Only the final rootMemRef is allowed to have dealloc op.
       // Return match failure for other cases.
-      if (isa<memref::DimOp, memref::DeallocOp>(user))
-        continue;
-      if (knownSafeOpSet.contains(user))
-        continue;
+      if (isa<memref::DimOp, memref::DeallocOp>(user)) continue;
+      if (knownSafeOpSet.contains(user)) continue;
       // not safe to elide the copy since the underline view have unsafe users.
       return {};
     }
@@ -463,48 +457,39 @@ struct CopyLikeOpConvertor : public OpRewritePattern<OpTy> {
   using OpRewritePattern<OpTy>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(OpTy op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     Value result = getCopyRemovableResult(op);
-    if (!result)
-      return failure();
+    if (!result) return failure();
     Value rootResult = getRootMemRefIfSafe(result);
-    if (!rootResult)
-      return failure();
+    if (!rootResult) return failure();
 
     // users of original result that are placed after this op.
-    SmallVector<Operation *, 4> users;
+    SmallVector<Operation*, 4> users;
     bool hasDeallocOpUser = false;
-    Block *block = op->getBlock();
-    for (Operation *user : result.getUsers()) {
-      if (user == op)
-        continue;
+    Block* block = op->getBlock();
+    for (Operation* user : result.getUsers()) {
+      if (user == op) continue;
       // shapeOf op should already be lowered before this pass.
-      if (isa<memref::DimOp>(user))
-        continue;
-      Operation *ancestor = block->findAncestorOpInBlock(*user);
+      if (isa<memref::DimOp>(user)) continue;
+      Operation* ancestor = block->findAncestorOpInBlock(*user);
       // not safe to remove the copy in such case.
-      if (!ancestor)
-        return failure();
-      if (!op->isBeforeInBlock(ancestor))
-        return failure();
+      if (!ancestor) return failure();
+      if (!op->isBeforeInBlock(ancestor)) return failure();
       users.push_back(user);
       if (isa<memref::DeallocOp>(user)) {
         // Not able to handle multiple dealloc case
-        if (hasDeallocOpUser)
-          return failure();
+        if (hasDeallocOpUser) return failure();
         hasDeallocOpUser = true;
       }
     }
-    Operation *rootResultDeallocOp = nullptr;
+    Operation* rootResultDeallocOp = nullptr;
     if (!hasDeallocOpUser && (rootResult != result)) {
-      for (Operation *user : rootResult.getUsers()) {
+      for (Operation* user : rootResult.getUsers()) {
         if (isa<memref::DeallocOp>(user)) {
           // Not able to handle multiple dealloc case.
-          if (rootResultDeallocOp)
-            return failure();
+          if (rootResultDeallocOp) return failure();
           // Not safe to insert deallocOp for the newValue in such case.
-          if (!op->isBeforeInBlock(user))
-            return failure();
+          if (!op->isBeforeInBlock(user)) return failure();
           rootResultDeallocOp = user;
         }
       }
@@ -543,8 +528,7 @@ struct CopyLikeOpConvertor : public OpRewritePattern<OpTy> {
                                   targetType, dimSizes);
 
     // replace non-shape-consumer users of original result
-    for (Operation *user : users)
-      user->replaceUsesOfWith(result, newValue);
+    for (Operation* user : users) user->replaceUsesOfWith(result, newValue);
     // Insert a dealloc op to handle following case:
     //  origin:
     //   %0 = memref.alloc() : memref<10xf32>
@@ -576,7 +560,7 @@ struct CustomCallOpConvertor : public OpRewritePattern<CustomCallOp> {
   using OpRewritePattern<CustomCallOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(CustomCallOp op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     Value ctx = GetContextValueFromFunctionArguments(op);
     if (!ctx) {
       return op.emitOpError()
@@ -602,13 +586,13 @@ struct DiscLowerToLibraryCallPass
   using DiscLowerToLibraryCallPassBase<
       DiscLowerToLibraryCallPass>::DiscLowerToLibraryCallPassBase;
 
-  void getDependentDialects(DialectRegistry &registry) const override {
+  void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<LLVM::LLVMDialect>();
   }
 
   void runOnFunction() override {
     FuncOp func = getFunction();
-    MLIRContext *context = &getContext();
+    MLIRContext* context = &getContext();
     OwningRewritePatternList patterns(context);
     // clang-format off
     patterns.insert<
@@ -635,11 +619,11 @@ struct DiscLowerToLibraryCallPass
   }
 };
 
-} // namespace
+}  // namespace
 
 std::unique_ptr<mlir::FunctionPass> createDiscLowerToLibraryCallPass() {
   return std::make_unique<DiscLowerToLibraryCallPass>();
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

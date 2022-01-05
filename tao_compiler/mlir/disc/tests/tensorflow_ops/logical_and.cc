@@ -66,4 +66,4 @@ TEST(TFLogicalAndOpTest, ImplicitBroadcast2DF32) {
       /*output_descriptors*/ {"i1_X"}));
 }
 
-} // namespace mlir_test
+}  // namespace mlir_test

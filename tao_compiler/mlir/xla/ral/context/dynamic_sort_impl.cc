@@ -35,8 +35,8 @@ using gpuStream_t = hipStream_t;
 namespace {
 
 template <typename T>
-void doTfTopK(ExecutionContext *ctx, GPUDriver *gpu_driver, void *stream_handle,
-              const T *ikey, T *okey, int *oval, const SortDescriptor &desc,
+void doTfTopK(ExecutionContext* ctx, GPUDriver* gpu_driver, void* stream_handle,
+              const T* ikey, T* okey, int* oval, const SortDescriptor& desc,
               int64_t top_k) {
   auto stream =
       static_cast<gpuStream_t>(gpu_driver->asCUStream(ctx, stream_handle));
@@ -46,7 +46,7 @@ void doTfTopK(ExecutionContext *ctx, GPUDriver *gpu_driver, void *stream_handle,
 }
 
 template <typename Tkey, typename Tval, unsigned int Rank = 1>
-void ral_dsort(ExecutionContext *ctx, void *stream_handle,
+void ral_dsort(ExecutionContext* ctx, void* stream_handle,
                MemRefType<Tkey, Rank> keys, MemRefType<Tval, Rank> values,
                MemRefType<int32_t, 0> k, MemRefType<Tkey, Rank> out_keys,
                MemRefType<Tval, Rank> out_values, int64_t dimension,
@@ -78,7 +78,7 @@ void ral_dsort(ExecutionContext *ctx, void *stream_handle,
   return;
 }
 
-} // namespace
+}  // namespace
 
 namespace tao {
 namespace ral {
@@ -88,5 +88,5 @@ TAO_RAL_API("ral_dsort", "gpu", ral_dsort<int, int, 1>);
 TAO_RAL_API("ral_dsort", "gpu", ral_dsort<float, int, 2>);
 TAO_RAL_API("ral_dsort", "gpu", ral_dsort<int, int, 2>);
 
-} // namespace ral
-} // namespace tao
+}  // namespace ral
+}  // namespace tao

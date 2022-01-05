@@ -23,10 +23,10 @@ limitations under the License.
 #include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/utils/codegen_utils.h"
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h" // TF:llvm-project
+#include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
 #include "mlir/IR/BlockAndValueMapping.h"
-#include "mlir/IR/MLIRContext.h" // TF:llvm-project
-#include "mlir/Pass/Pass.h"      // TF:local_config_mlir
+#include "mlir/IR/MLIRContext.h"  // TF:llvm-project
+#include "mlir/Pass/Pass.h"       // TF:local_config_mlir
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
@@ -39,18 +39,16 @@ namespace {
 using lmhlo::DynamicBroadcastInDimOp;
 using lmhlo::FusionOp;
 
-bool IsCandidateBroadcastOp(Operation *op) {
+bool IsCandidateBroadcastOp(Operation* op) {
   auto broadcast_op = dyn_cast_or_null<DynamicBroadcastInDimOp>(op);
-  if (!broadcast_op)
-    return false;
+  if (!broadcast_op) return false;
 
   Value operand = op->getOperand(0);
   MemRefType operand_tp = operand.getType().dyn_cast<MemRefType>();
   Value result = op->getOperand(2);
   MemRefType result_tp = result.getType().dyn_cast<MemRefType>();
 
-  if (!operand_tp || !result_tp)
-    return false;
+  if (!operand_tp || !result_tp) return false;
 
   // we do not do speculation if the output of a broadcast op is also the output
   // of the fusion patten.
@@ -59,7 +57,7 @@ bool IsCandidateBroadcastOp(Operation *op) {
   FusionPattern fusion_pattern{fusion_op};
 
   Value broadcast_result = op->getOperand(2);
-  auto &results = fusion_pattern.getResults();
+  auto& results = fusion_pattern.getResults();
   if (llvm::find(results, broadcast_result) != results.end()) {
     return false;
   }
@@ -70,19 +68,18 @@ bool IsCandidateBroadcastOp(Operation *op) {
   }
 
   // Return false if the shapes of input and output are not compatible.
-  for (auto &&e : llvm::zip(operand_tp.getShape(), result_tp.getShape())) {
+  for (auto&& e : llvm::zip(operand_tp.getShape(), result_tp.getShape())) {
     auto lhs = std::get<0>(e);
     auto rhs = std::get<1>(e);
-    if (lhs != rhs)
-      return false;
+    if (lhs != rhs) return false;
   }
 
   return true;
 }
 
 bool HasCandidateBroadcastOp(FusionOp fusion_op) {
-  for (auto &block : fusion_op.region()) {
-    for (auto &op : block) {
+  for (auto& block : fusion_op.region()) {
+    for (auto& op : block) {
       if (IsCandidateBroadcastOp(&op)) {
         return true;
       }
@@ -91,7 +88,7 @@ bool HasCandidateBroadcastOp(FusionOp fusion_op) {
   return false;
 }
 
-Value createViewLike(OpBuilder &b, Location loc, Value from, Value to) {
+Value createViewLike(OpBuilder& b, Location loc, Value from, Value to) {
   SmallVector<Value> toShape = getShapeValues(&b, to);
   auto toType = to.getType().cast<MemRefType>();
   auto fromType = from.getType().cast<MemRefType>();
@@ -101,9 +98,9 @@ Value createViewLike(OpBuilder &b, Location loc, Value from, Value to) {
   return CastMemRefTo(b, loc, from, targetType, toShape);
 }
 
-FusionOp
-cloneWithBroadcastSimplifying(OpBuilder &b, FusionOp fusion_op,
-                              SmallVectorImpl<Operation *> &broadcast_ops) {
+FusionOp cloneWithBroadcastSimplifying(
+    OpBuilder& b, FusionOp fusion_op,
+    SmallVectorImpl<Operation*>& broadcast_ops) {
   FusionOp cloned = dyn_cast<FusionOp>(b.clone(*fusion_op.getOperation()));
 
   // Collects all candidate broadcast ops inside the fusion op.
@@ -113,12 +110,11 @@ cloneWithBroadcastSimplifying(OpBuilder &b, FusionOp fusion_op,
     }
   });
 
-  for (Operation *op : broadcast_ops) {
+  for (Operation* op : broadcast_ops) {
     Value operand = op->getOperand(0);
     Value result = op->getOperand(2);
-    for (Operation *user : llvm::to_vector<4>(result.getUsers())) {
-      if (user == op)
-        continue;
+    for (Operation* user : llvm::to_vector<4>(result.getUsers())) {
+      if (user == op) continue;
       // Skip the user that not inside the same block.
       if (op->getBlock() != user->getBlock()) {
         continue;
@@ -129,9 +125,9 @@ cloneWithBroadcastSimplifying(OpBuilder &b, FusionOp fusion_op,
   return cloned;
 }
 
-Operation *GetCandidateRowReduceOp(FusionOp fusion_op) {
-  for (Block &block : fusion_op.region().getBlocks()) {
-    for (Operation &op : block) {
+Operation* GetCandidateRowReduceOp(FusionOp fusion_op) {
+  for (Block& block : fusion_op.region().getBlocks()) {
+    for (Operation& op : block) {
       // All row reduce op should have the same shape, thus we can return any
       // of them.
       if (isRank2RowReduction(&op)) {
@@ -142,9 +138,9 @@ Operation *GetCandidateRowReduceOp(FusionOp fusion_op) {
   return nullptr;
 }
 
-Operation *GetCandidateColReduceOp(FusionOp fusion_op) {
-  for (Block &block : fusion_op.region().getBlocks()) {
-    for (Operation &op : block) {
+Operation* GetCandidateColReduceOp(FusionOp fusion_op) {
+  for (Block& block : fusion_op.region().getBlocks()) {
+    for (Operation& op : block) {
       // All col reduce op should have the same shape, thus we can return any
       // of them.
       if (isRank2ColReduction(&op)) {
@@ -163,7 +159,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     cc_minor_ = cc_minor;
   }
 
-  void getDependentDialects(DialectRegistry &registry) const override {
+  void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<scf::SCFDialect, memref::MemRefDialect>();
   }
 
@@ -186,13 +182,13 @@ struct DiscSpecializeFusionWithSpeculationPass
 
     // Clone the fusion op and mark all candidate broadcast ops within the
     // fusion op.
-    SmallVector<Operation *, 4> broadcast_ops;
+    SmallVector<Operation*, 4> broadcast_ops;
     FusionOp cloned =
         cloneWithBroadcastSimplifying(b, fusion_op, broadcast_ops);
     addFusionTag(b, cloned, "no_ib");
 
     // Generate the predition.
-    for (Operation *op : broadcast_ops) {
+    for (Operation* op : broadcast_ops) {
       Value operand = op->getOperand(0);
       Value result = op->getOperand(2);
       int rank = operand.getType().cast<MemRefType>().getRank();
@@ -208,24 +204,21 @@ struct DiscSpecializeFusionWithSpeculationPass
     assert(!broadcast_ops.empty());
 
     auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
-    Block *then_block = &if_op.thenRegion().getBlocks().front();
-    Block *else_block = &if_op.elseRegion().getBlocks().front();
+    Block* then_block = &if_op.thenRegion().getBlocks().front();
+    Block* else_block = &if_op.elseRegion().getBlocks().front();
     cloned.getOperation()->moveBefore(then_block, then_block->begin());
     fusion_op.getOperation()->moveBefore(else_block, else_block->begin());
 
     DenseMap<Value, Value> viewMap;
-    SmallVector<Operation *, 4> op_list;
-    for (Operation &op : cloned.region().front())
-      op_list.push_back(&op);
+    SmallVector<Operation*, 4> op_list;
+    for (Operation& op : cloned.region().front()) op_list.push_back(&op);
     ShapeConstraintAnalysis shape_constraint_analysis(op_list);
-    for (Operation *op : op_list) {
+    for (Operation* op : op_list) {
       for (Value operand : op->getOperands()) {
-        if (viewMap.find(operand) != viewMap.end())
-          continue;
+        if (viewMap.find(operand) != viewMap.end()) continue;
         Value leader =
             shape_constraint_analysis.GetLeaderValueWithSameShape(operand);
-        if (!leader || leader == operand)
-          continue;
+        if (!leader || leader == operand) continue;
         // TODO(disc): handle mismatch type case
         auto leaderTy = leader.getType().dyn_cast<MemRefType>();
         auto operandTy = operand.getType().dyn_cast<MemRefType>();
@@ -233,28 +226,26 @@ struct DiscSpecializeFusionWithSpeculationPass
             leaderTy.getRank() != operandTy.getRank())
           continue;
         bool sameShape = true;
-        for (auto &&en : llvm::zip(leaderTy.getShape(), operandTy.getShape())) {
+        for (auto&& en : llvm::zip(leaderTy.getShape(), operandTy.getShape())) {
           if (std::get<0>(en) != std::get<1>(en)) {
             sameShape = false;
             break;
           }
         }
-        if (!sameShape)
-          continue;
+        if (!sameShape) continue;
         OpBuilder viewBuilder(cloned);
         viewMap[operand] =
             createViewLike(viewBuilder, op->getLoc(), operand, leader);
       }
     }
 
-    cloned.walk([&](Operation *op) {
-      for (auto &it : viewMap)
-        op->replaceUsesOfWith(it.first, it.second);
+    cloned.walk([&](Operation* op) {
+      for (auto& it : viewMap) op->replaceUsesOfWith(it.first, it.second);
     });
   }
 
   void DoRowReductionSpeculation(FusionOp fusion_op) {
-    Operation *reduce_op = nullptr;
+    Operation* reduce_op = nullptr;
     if (!(reduce_op = GetCandidateRowReduceOp(fusion_op))) {
       return;
     }
@@ -298,15 +289,15 @@ struct DiscSpecializeFusionWithSpeculationPass
     // one warp one row
     addFusionTag(b, cloned, "1w1r");
 
-    Block *then_block = &if_op.thenRegion().getBlocks().front();
-    Block *else_block = &if_op.elseRegion().getBlocks().front();
+    Block* then_block = &if_op.thenRegion().getBlocks().front();
+    Block* else_block = &if_op.elseRegion().getBlocks().front();
     fusion_op.getOperation()->moveBefore(then_block, then_block->begin());
     cloned.getOperation()->moveBefore(else_block, else_block->begin());
   }
 
   // TODO(feiwen): add more kTileW=8/kTileH pairs by if/elseif/else
   void DoColReductionSpeculation(FusionOp fusion_op) {
-    Operation *reduce_op = nullptr;
+    Operation* reduce_op = nullptr;
     if (!(reduce_op = GetCandidateColReduceOp(fusion_op))) {
       return;
     }
@@ -341,7 +332,7 @@ struct DiscSpecializeFusionWithSpeculationPass
       auto info = thread_number_info->second;
       sm_num = info.first;
     } else {
-      sm_num = 80; // Default is the data of V100.
+      sm_num = 80;  // Default is the data of V100.
     }
     Value ref_blocks = b.create<ConstantIndexOp>(loc, sm_num);
 
@@ -365,8 +356,8 @@ struct DiscSpecializeFusionWithSpeculationPass
     // one 8*16 tile if block# < SM#
     addFusionTag(b, cloned, "8w16h");
 
-    Block *then_block = &if_op.thenRegion().getBlocks().front();
-    Block *else_block = &if_op.elseRegion().getBlocks().front();
+    Block* then_block = &if_op.thenRegion().getBlocks().front();
+    Block* else_block = &if_op.elseRegion().getBlocks().front();
     fusion_op.getOperation()->moveBefore(then_block, then_block->begin());
     cloned.getOperation()->moveBefore(else_block, else_block->begin());
   }
@@ -377,8 +368,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     }
 
     // Already have a hint
-    if (fusion_op->getAttrOfType<IntegerAttr>(kVectorizationHint))
-      return;
+    if (fusion_op->getAttrOfType<IntegerAttr>(kVectorizationHint)) return;
 
     FusionPattern fusion_pattern(fusion_op);
 
@@ -401,7 +391,7 @@ struct DiscSpecializeFusionWithSpeculationPass
       auto info = thread_number_info->second;
       max_threads_per_wave = info.first * info.second;
     } else {
-      max_threads_per_wave = 40 * 1024; // Default is the data of T4.
+      max_threads_per_wave = 40 * 1024;  // Default is the data of T4.
     }
 
     OpBuilder b(fusion_op);
@@ -452,7 +442,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     auto vectorization = b.getIntegerAttr(b.getIntegerType(32), kVectorizeSize);
     fusion_op->setAttr(kVectorizationHint, vectorization);
     addFusionTag(b, fusion_op, "_vec" + std::to_string(kVectorizeSize));
-    Block *then_block = &if_op.thenRegion().getBlocks().front();
+    Block* then_block = &if_op.thenRegion().getBlocks().front();
     fusion_op.getOperation()->moveBefore(then_block, then_block->begin());
 
     // Non-vectorization branch.
@@ -460,12 +450,12 @@ struct DiscSpecializeFusionWithSpeculationPass
     auto no_vectorization = b.getIntegerAttr(b.getIntegerType(32), 1);
     cloned->setAttr(kVectorizationHint, no_vectorization);
     addFusionTag(b, cloned, "_no_vec");
-    Block *else_block = &if_op.elseRegion().getBlocks().front();
+    Block* else_block = &if_op.elseRegion().getBlocks().front();
     cloned.getOperation()->moveBefore(else_block, else_block->begin());
   }
 
   void Speculator(
-      std::function<void(DiscSpecializeFusionWithSpeculationPass *, FusionOp)>
+      std::function<void(DiscSpecializeFusionWithSpeculationPass*, FusionOp)>
           cb) {
     // Collects the fusion ops first since following rewriter may insert new
     // fusion ops.
@@ -495,7 +485,7 @@ struct DiscSpecializeFusionWithSpeculationPass
   }
 };
 
-} // namespace
+}  // namespace
 
 std::unique_ptr<OperationPass<FuncOp>>
 createDiscSpecializeFusionWithSpeculationPass(int cc_major, int cc_minor) {
@@ -503,5 +493,5 @@ createDiscSpecializeFusionWithSpeculationPass(int cc_major, int cc_minor) {
                                                                    cc_minor);
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

@@ -18,11 +18,12 @@ limitations under the License.
 #ifndef TAO_TAO_BRIDGE_PASSES_FUNCTIONALIZE_COND_H_
 #define TAO_TAO_BRIDGE_PASSES_FUNCTIONALIZE_COND_H_
 
+#include <deque>
+
 #include "tao_bridge/common.h"
 #include "tao_bridge/tf/statusor.h"
 #include "tensorflow/core/framework/function.h"
 #include "tensorflow/core/graph/graph.h"
-#include <deque>
 
 namespace tensorflow {
 namespace tao {
@@ -31,7 +32,7 @@ namespace tao {
 // nodes. That is, attempt to transform every remaining switch and merge nodes
 // in the graph into If nodes.
 // Precondition: All while loops have been removed from graph.
-Status FunctionalizeCond(Graph *graph, FunctionLibraryDefinition *library);
+Status FunctionalizeCond(Graph* graph, FunctionLibraryDefinition* library);
 
 // Internal functions/classes exposed for testing purposes.
 namespace functionalize_cond {
@@ -56,12 +57,12 @@ enum class BranchType {
 // CondState (AncestorState) equality comparisons are simply pointer
 // comparisons.
 class StateMap {
-public:
-  explicit StateMap(Graph *graph);
+ public:
+  explicit StateMap(Graph* graph);
 
   // Compare two OutputTensors by (node id, index).
   struct OutputTensorLess {
-    bool operator()(const OutputTensor &lhs, const OutputTensor &rhs) const;
+    bool operator()(const OutputTensor& lhs, const OutputTensor& rhs) const;
   };
 
   // A node in the graph is executed when multiple conditions hold. Keep track
@@ -69,44 +70,44 @@ public:
   using CondState = std::map<OutputTensor, BranchType, OutputTensorLess>;
 
   // Every unique ID is mapped to a CondState.
-  using CondId = const CondState *;
+  using CondId = const CondState*;
 
   // Keep track of which switch/merge node's feed into a node's values.
-  using AncestorState = std::set<Node *>;
+  using AncestorState = std::set<Node*>;
 
   // Every unique ID is mapped to a AncestorState.
-  using AncestorId = const AncestorState *;
+  using AncestorId = const AncestorState*;
 
   // Returns the CondId for a given node.
-  CondId LookupCondId(const Node *node) const;
+  CondId LookupCondId(const Node* node) const;
 
   // Returns the unique CondId for CondState.
-  CondId GetCondId(const CondState &state);
+  CondId GetCondId(const CondState& state);
 
   // Resets the CondId for a given node.
-  void ResetCondId(const Node *node, CondId id);
+  void ResetCondId(const Node* node, CondId id);
 
   // Returns the AncestorId for a given node.
-  AncestorId LookupAncestorId(const Node *node) const;
+  AncestorId LookupAncestorId(const Node* node) const;
 
   // Returns the unique AncestorId for CondState.
-  AncestorId GetAncestorId(const AncestorState &state);
+  AncestorId GetAncestorId(const AncestorState& state);
 
   // Resets the AncestorId for a given node.
-  void ResetAncestorId(const Node *node, AncestorId id);
+  void ResetAncestorId(const Node* node, AncestorId id);
 
   // Marks `node` as dead.
-  void MarkDead(const Node *node);
+  void MarkDead(const Node* node);
 
   // Determine branch execution of CondState.
   BranchType FindBranchOf(CondId id, OutputTensor predicate) const;
 
   // Returns textual representation of node's CondState.
-  string CondStateToString(const Node *node) const;
+  string CondStateToString(const Node* node) const;
   string CondStateToString(CondId id) const;
 
   // Returns textual representation of node's AncestorState.
-  string AncestorStateToString(const Node *node) const;
+  string AncestorStateToString(const Node* node) const;
 
   // Returns whether the cond state is the dead state.
   bool IsDead(CondId id) const;
@@ -114,11 +115,11 @@ public:
   // Returns whether the cond state is the empty state.
   bool IsEmpty(CondId id) const;
 
-private:
+ private:
   // Hash for CondState and AncestorState.
   struct Hash {
-    size_t operator()(const CondState &map) const;
-    size_t operator()(const AncestorState &map) const;
+    size_t operator()(const CondState& map) const;
+    size_t operator()(const AncestorState& map) const;
   };
 
   // Set to keep track of unique CondStates.
@@ -148,30 +149,30 @@ private:
 // FunctionalizeCond groups all the state used by functionalizing conditionals
 // of the given graph together.
 class FunctionalizeCond {
-public:
+ public:
   // Functionalize all the switch-merge nodes of a loop-free graph into If
   // nodes. That is, attempt to transform every remaining switch and merge nodes
   // in the graph into If nodes.
   // Precondition: All while loops have been removed from graph.
-  static Status Functionalize(Graph *graph, FunctionLibraryDefinition *library);
+  static Status Functionalize(Graph* graph, FunctionLibraryDefinition* library);
 
   // Build identity node with the same name as the merge that will be replaced
   // in case the output is fetched/colocated.
-  Status AddIdentityNode(const Node *replacee, Node *if_node, int port);
+  Status AddIdentityNode(const Node* replacee, Node* if_node, int port);
 
   // Add a If node to the graph defined by def that will, amongst other, replace
   // replacee in the graph.
-  xla::tao::StatusOr<Node *> AddIfNode(const NodeDef &def, const Node *replacee,
-                                       const OutputTensor &predicate);
+  xla::tao::StatusOr<Node*> AddIfNode(const NodeDef& def, const Node* replacee,
+                                      const OutputTensor& predicate);
 
   // Propagates the state of a newly inserted node.
-  Status PropagateUpdatedState(const Node *replacee);
+  Status PropagateUpdatedState(const Node* replacee);
 
   // Dump graph with the CondState annotated.
-  void DumpGraphWithCondState(const string &name);
+  void DumpGraphWithCondState(const string& name);
 
-private:
-  FunctionalizeCond(Graph *graph, FunctionLibraryDefinition *library);
+ private:
+  FunctionalizeCond(Graph* graph, FunctionLibraryDefinition* library);
 
   // Performs the actual cond functionalization. Iterate over groups of merge
   // nodes (linked by common predicates & ancestor IDs), from innermost to
@@ -180,51 +181,50 @@ private:
 
   // Returns the forward flow state propagated along edge `e`.
   // This may modify state_map_.
-  StateMap::CondId StateAlongEdge(const Edge *e);
+  StateMap::CondId StateAlongEdge(const Edge* e);
 
   // Determines the CondState and AncestorState of all the nodes in the given
   // vector where the input is expected in reverse topological order.
   // This populates the state_map_.
-  Status DetermineStates(std::vector<Node *> rev_topo_order);
+  Status DetermineStates(std::vector<Node*> rev_topo_order);
 
   // Determine the CondState for a given node using the incomming edges
   // to the node. Note: it is expected that this node's CondState is only
   // determined once its input's CondState is.
-  Status DetermineCondState(Node *dst) {
-    if (IsMerge(dst))
-      return DetermineCondStateMerge(dst);
+  Status DetermineCondState(Node* dst) {
+    if (IsMerge(dst)) return DetermineCondStateMerge(dst);
     return DetermineCondStateNonMerge(dst);
   }
 
   // Helper functions for DetermineCondState.
-  Status DetermineCondStateNonMerge(Node *dst);
-  Status DetermineCondStateMerge(Node *dst);
+  Status DetermineCondStateNonMerge(Node* dst);
+  Status DetermineCondStateMerge(Node* dst);
 
   // Determines the dst node's CondState by joining the src and dst's CondState
   // where either the dst node is a merge or not.
   // These may modify state_map_.
-  xla::tao::StatusOr<StateMap::CondId>
-  JoinCondStatesMerge(Node *merge, StateMap::CondId src, StateMap::CondId dst);
-  xla::tao::StatusOr<StateMap::CondId>
-  JoinCondStatesNonMerge(StateMap::CondId src, StateMap::CondId dst);
+  xla::tao::StatusOr<StateMap::CondId> JoinCondStatesMerge(
+      Node* merge, StateMap::CondId src, StateMap::CondId dst);
+  xla::tao::StatusOr<StateMap::CondId> JoinCondStatesNonMerge(
+      StateMap::CondId src, StateMap::CondId dst);
 
   // Determines which switch/merge nodes are ancestors of this node.
-  Status DetermineAncestorState(Node *dst);
+  Status DetermineAncestorState(Node* dst);
 
   // Checks if a merge node is redundant and if so removes it from the graph.
-  Status RemoveRedundantMerge(Node *node);
+  Status RemoveRedundantMerge(Node* node);
 
   // Checks if a switch node is redundant and if so removes it from the graph.
-  Status RemoveRedundantSwitch(Node *node);
+  Status RemoveRedundantSwitch(Node* node);
 
   // Sorts merge nodes (in reverse topological order) in order of increasing
   // nesting depth.
-  void SortMergeNodes(std::vector<Node *> *merge_order);
+  void SortMergeNodes(std::vector<Node*>* merge_order);
 
   // Deletes all nodes in/consumers reachable from switch/merge nodes that were
   // extracted.
-  void DeleteReachableAndDeadNodes(const std::vector<int> &switch_ids,
-                                   const std::vector<Node *> &merge_order);
+  void DeleteReachableAndDeadNodes(const std::vector<int>& switch_ids,
+                                   const std::vector<Node*>& merge_order);
 
   // Member used to unique the CondState to a unique CondId (AncestorState to a
   // unique AncestorId) and keep track of CondState/CondId
@@ -232,17 +232,17 @@ private:
   StateMap state_map_;
 
   // Mapping from merge nodes to predicate.
-  std::unordered_map<Node *, OutputTensor> merge_to_predicate_;
+  std::unordered_map<Node*, OutputTensor> merge_to_predicate_;
 
-  FunctionLibraryDefinition *library_;
-  Graph *graph_;
+  FunctionLibraryDefinition* library_;
+  Graph* graph_;
 
   friend class FunctionalizeCondTest;
 };
 
-} // namespace functionalize_cond
+}  // namespace functionalize_cond
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TAO_TAO_BRIDGE_PASSES_FUNCTIONALIZE_COND_H_
+#endif  // TAO_TAO_BRIDGE_PASSES_FUNCTIONALIZE_COND_H_

@@ -26,13 +26,14 @@
 #include "tools/tao/uploader/uploader.h"
 #endif
 
-extern char **environ;
+extern char** environ;
 
 namespace tensorflow {
 namespace tao {
 
 namespace {
-template <typename T> T json_num_add(nlohmann::json &value, T val) {
+template <typename T>
+T json_num_add(nlohmann::json& value, T val) {
   auto orig = value.get<T>();
   orig += val;
   value = orig;
@@ -40,31 +41,31 @@ template <typename T> T json_num_add(nlohmann::json &value, T val) {
 }
 
 template <typename T>
-T json_obj_add(nlohmann::json &value, const std::string &key, T val) {
+T json_obj_add(nlohmann::json& value, const std::string& key, T val) {
   if (!value.contains(key)) {
     value[key] = (T)0;
   }
   return json_num_add(value[key], val);
 }
 
-typedef int (*cuDeviceGetName_t)(char *name, int len, int dev);
+typedef int (*cuDeviceGetName_t)(char* name, int len, int dev);
 typedef int (*cuInit_t)(unsigned int Flags);
-typedef int (*cuDeviceGetCount_t)(int *count);
-#define CALL_CUDA(api, args)                                                   \
-  {                                                                            \
-    auto pfunc = (api##_t)dlsym(cudalib, #api);                                \
-    if (!pfunc) {                                                              \
-      VLOG(1) << "ERROR: failed to get " #api " symbol: " << dlerror();        \
-      return #api "_NOT_FOUND";                                                \
-    }                                                                          \
-    auto ret = pfunc args;                                                     \
-    if (ret != 0) {                                                            \
-      VLOG(1) << "ERROR: " #api " failed, error code " << ret;                 \
-      return #api "_RUN_ERROR";                                                \
-    }                                                                          \
+typedef int (*cuDeviceGetCount_t)(int* count);
+#define CALL_CUDA(api, args)                                            \
+  {                                                                     \
+    auto pfunc = (api##_t)dlsym(cudalib, #api);                         \
+    if (!pfunc) {                                                       \
+      VLOG(1) << "ERROR: failed to get " #api " symbol: " << dlerror(); \
+      return #api "_NOT_FOUND";                                         \
+    }                                                                   \
+    auto ret = pfunc args;                                              \
+    if (ret != 0) {                                                     \
+      VLOG(1) << "ERROR: " #api " failed, error code " << ret;          \
+      return #api "_RUN_ERROR";                                         \
+    }                                                                   \
   }
-std::string GetGpuInfo(int &gpu_count) {
-  void *cudalib =
+std::string GetGpuInfo(int& gpu_count) {
+  void* cudalib =
       dlopen("libcuda.so.1", RTLD_NOW | RTLD_GLOBAL | RTLD_NODELETE);
   if (!cudalib) {
     VLOG(1) << "ERROR: failed to load libcuda.so: " << dlerror();
@@ -77,12 +78,12 @@ std::string GetGpuInfo(int &gpu_count) {
   }
   char buf[256];
   CALL_CUDA(cuDeviceGetName, (buf, 256, 0));
-  buf[255] = 0; // in case any error happened
+  buf[255] = 0;  // in case any error happened
   return buf;
 }
 
-void get_binary_version(nlohmann::json &info, const std::string &name,
-                        const std::string &exe_path) {
+void get_binary_version(nlohmann::json& info, const std::string& name,
+                        const std::string& exe_path) {
   tensorflow::tao::SubProcess exe;
   exe.SetProgram(exe_path, {exe_path, "-v"});
   exe.SetChannelAction(tensorflow::tao::CHAN_STDOUT,
@@ -101,20 +102,19 @@ void get_binary_version(nlohmann::json &info, const std::string &name,
   }
 
   auto lines = absl::StrSplit(out, '\n');
-  for (auto &&line : lines) {
+  for (auto&& line : lines) {
     std::vector<std::string> kv = absl::StrSplit(line, '=');
-    if (kv.size() != 2)
-      continue;
+    if (kv.size() != 2) continue;
     info[name][kv[0]] = kv[1];
   }
 }
 
-} // namespace
+}  // namespace
 
-static const TaoCompInfoCollector *_only_for_init_info_collector_dont_use_ =
+static const TaoCompInfoCollector* _only_for_init_info_collector_dont_use_ =
     &TaoCompInfoCollector::Get(true);
 
-TaoCompInfoCollector &TaoCompInfoCollector::Get(bool delay_init) {
+TaoCompInfoCollector& TaoCompInfoCollector::Get(bool delay_init) {
   static TaoCompInfoCollector _obj;
   static std::once_flag _obj_init;
   if (!delay_init) {
@@ -144,8 +144,8 @@ uint64 TaoCompInfoCollector::GetCurTimeUs() {
   return uint64(tv.tv_sec) * 1e6 + tv.tv_usec;
 }
 
-const char *TaoCompInfoCollector::str(CompileStatus s) {
-  const char *status_[] = {"init",
+const char* TaoCompInfoCollector::str(CompileStatus s) {
+  const char* status_[] = {"init",
                            "enqueued",
                            "fail_on_cache_full",
                            "compile_started",
@@ -161,32 +161,31 @@ CompileStatus TaoCompInfoCollector::GetPrevCompileStatus(CompileStatus s) {
   // deduce previous status
   CompileStatus pre = STATUS_INIT;
   switch (s) {
-  case STATUS_COMPILE_STARTED:
-    pre = STATUS_ENQUEUED;
-    break;
-  case STATUS_FAIL_ON_COMPILE:
-  case STATUS_PASS_ON_COMPILE:
-    pre = STATUS_COMPILE_STARTED;
-    break;
-  case STATUS_PROFILE_STARTED:
-    pre = STATUS_PASS_ON_COMPILE;
-    break;
-  case STATUS_FAIL_ON_PERF:
-  case STATUS_PASS_ON_TAO:
-    pre = STATUS_PROFILE_STARTED;
-    break;
-  default:
-    break;
+    case STATUS_COMPILE_STARTED:
+      pre = STATUS_ENQUEUED;
+      break;
+    case STATUS_FAIL_ON_COMPILE:
+    case STATUS_PASS_ON_COMPILE:
+      pre = STATUS_COMPILE_STARTED;
+      break;
+    case STATUS_PROFILE_STARTED:
+      pre = STATUS_PASS_ON_COMPILE;
+      break;
+    case STATUS_FAIL_ON_PERF:
+    case STATUS_PASS_ON_TAO:
+      pre = STATUS_PROFILE_STARTED;
+      break;
+    default:
+      break;
   }
   return pre;
 }
 
 void TaoCompInfoCollector::CaptureEnvVars() {
-  if (opts_.dump_level == 0)
-    return;
+  if (opts_.dump_level == 0) return;
   mutex_lock l(info_mtx_);
   int i = 1;
-  char *s = *environ;
+  char* s = *environ;
   for (; s; i++) {
     std::string kv(s);
     size_t pos = kv.find("=");
@@ -290,8 +289,7 @@ void TaoCompInfoCollector::Init() {
       ts_record_count_ = 0;
       if (ts_csv_file_.is_open()) {
         ts_csv_file_ << "func_id,signature,call_idx,";
-        for (auto &&tag : ts_tag_list_)
-          ts_csv_file_ << tag << ",";
+        for (auto&& tag : ts_tag_list_) ts_csv_file_ << tag << ",";
         ts_csv_file_ << "other_tags" << std::endl;
       } else {
         VLOG(1) << "ERROR: failed to open " << ts_csv_path_;
@@ -312,8 +310,7 @@ TaoCompInfoCollector::TaoCompInfoCollector() {
 }
 
 TaoCompInfoCollector::~TaoCompInfoCollector() {
-  if (opts_.dump_level == 0)
-    return;
+  if (opts_.dump_level == 0) return;
   info_["end_us"] = GetCurTimeUs();
   info_["latency_us"] =
       info_["end_us"].get<uint64>() - info_["begin_us"].get<uint64>();
@@ -336,7 +333,7 @@ TaoCompInfoCollector::~TaoCompInfoCollector() {
   UploadFile("", "--finish");
 }
 
-int TaoCompInfoCollector::GetOrCreateCacheIdx(TaoCompilationCache *cur) {
+int TaoCompInfoCollector::GetOrCreateCacheIdx(TaoCompilationCache* cur) {
   mutex_lock l(obj_id_mtx_);
   auto it = cache_obj_id_.find(cur);
   int idx;
@@ -356,24 +353,21 @@ int TaoCompInfoCollector::GetOrCreateCacheIdx(TaoCompilationCache *cur) {
   return idx;
 }
 
-void TaoCompInfoCollector::DeregisterCache(TaoCompilationCache *cur) {
-  if (opts_.dump_level == 0)
-    return;
+void TaoCompInfoCollector::DeregisterCache(TaoCompilationCache* cur) {
+  if (opts_.dump_level == 0) return;
   auto idx = GetOrCreateCacheIdx(cur);
   mutex_lock l(info_mtx_);
   info_["sessions"][idx]["end_us"] = GetCurTimeUs();
 }
 
 int64 TaoCompInfoCollector::GetFuncNum() {
-  if (opts_.dump_level == 0)
-    return 0;
+  if (opts_.dump_level == 0) return 0;
   mutex_lock l(info_mtx_);
   return info_["calls"].size();
 }
 
-int64 TaoCompInfoCollector::GetFuncShapeNum(const std::string &funcid) {
-  if (opts_.dump_level == 0)
-    return 0;
+int64 TaoCompInfoCollector::GetFuncShapeNum(const std::string& funcid) {
+  if (opts_.dump_level == 0) return 0;
   mutex_lock l(info_mtx_);
   auto iter_func = info_["calls"].find(funcid);
   if (iter_func == info_["calls"].end()) {
@@ -382,32 +376,29 @@ int64 TaoCompInfoCollector::GetFuncShapeNum(const std::string &funcid) {
   return iter_func.value()["shapes"].size();
 }
 
-bool TaoCompInfoCollector::FunctionExists(const std::string &funcid) {
-  if (opts_.dump_level == 0)
-    return false;
+bool TaoCompInfoCollector::FunctionExists(const std::string& funcid) {
+  if (opts_.dump_level == 0) return false;
   mutex_lock l(info_mtx_);
   return info_["calls"].contains(funcid);
 }
 
-void TaoCompInfoCollector::AddFunctionInternal(const std::string &funcid,
-                                               const std::string &funcattr) {
+void TaoCompInfoCollector::AddFunctionInternal(const std::string& funcid,
+                                               const std::string& funcattr) {
   info_["calls"][funcid]["attr"] = funcattr;
   info_["calls"][funcid]["graph"] = "not_set_yet";
   info_["calls"][funcid]["shapes"] = nlohmann::json{};
 }
 
-void TaoCompInfoCollector::AddFunction(const std::string &funcid,
-                                       const std::string &funcattr) {
-  if (opts_.dump_level == 0)
-    return;
+void TaoCompInfoCollector::AddFunction(const std::string& funcid,
+                                       const std::string& funcattr) {
+  if (opts_.dump_level == 0) return;
   mutex_lock l(info_mtx_);
   AddFunctionInternal(funcid, funcattr);
 }
 
-void TaoCompInfoCollector::SetFunctionGraph(const std::string &funcid,
-                                            const std::string &path) {
-  if (opts_.dump_level == 0)
-    return;
+void TaoCompInfoCollector::SetFunctionGraph(const std::string& funcid,
+                                            const std::string& path) {
+  if (opts_.dump_level == 0) return;
   mutex_lock l(info_mtx_);
   auto iter_func = info_["calls"].find(funcid);
   if (iter_func == info_["calls"].end()) {
@@ -421,7 +412,7 @@ void TaoCompInfoCollector::SetFunctionGraph(const std::string &funcid,
 }
 
 nlohmann::json::iterator TaoCompInfoCollector::GetOrCreateShapeInfo(
-    const std::string &funcid, uint64 hash_sig_, bool &exist, bool add_new) {
+    const std::string& funcid, uint64 hash_sig_, bool& exist, bool add_new) {
   exist = true;
   nlohmann::json::iterator iter_func;
   if (funcid.empty()) {
@@ -442,7 +433,7 @@ nlohmann::json::iterator TaoCompInfoCollector::GetOrCreateShapeInfo(
     iter_func = info_["calls"].find(funcid);
   }
 
-  auto &shapes = iter_func.value()["shapes"];
+  auto& shapes = iter_func.value()["shapes"];
   std::string hash_sig;
   nlohmann::json::iterator iter_shape;
   if (hash_sig_ == 0) {
@@ -479,10 +470,9 @@ nlohmann::json::iterator TaoCompInfoCollector::GetOrCreateShapeInfo(
   return iter_shape;
 }
 
-int TaoCompInfoCollector::GetShapeCallCount(const std::string &funcid,
+int TaoCompInfoCollector::GetShapeCallCount(const std::string& funcid,
                                             uint64 hash_sig) {
-  if (opts_.dump_level == 0)
-    return 0;
+  if (opts_.dump_level == 0) return 0;
   mutex_lock l(info_mtx_);
   bool exist;
   auto iter_shape = GetOrCreateShapeInfo(funcid, hash_sig, exist, false);
@@ -492,22 +482,20 @@ int TaoCompInfoCollector::GetShapeCallCount(const std::string &funcid,
   return iter_shape.value()["count"].get<int>();
 }
 
-int TaoCompInfoCollector::AddShapeCallCount(const std::string &funcid,
+int TaoCompInfoCollector::AddShapeCallCount(const std::string& funcid,
                                             uint64 hash_sig) {
-  if (opts_.dump_level == 0)
-    return 0;
+  if (opts_.dump_level == 0) return 0;
   mutex_lock l(info_mtx_);
   bool exist;
   auto iter_shape = GetOrCreateShapeInfo(funcid, hash_sig, exist, true);
   return json_num_add<int>(iter_shape.value()["count"], 1);
 }
 
-void TaoCompInfoCollector::InitShapeInfo(const std::string &funcid,
+void TaoCompInfoCollector::InitShapeInfo(const std::string& funcid,
                                          uint64 hash_sig,
-                                         const std::string &path,
+                                         const std::string& path,
                                          bool compile_ok) {
-  if (opts_.dump_level == 0)
-    return;
+  if (opts_.dump_level == 0) return;
   mutex_lock l(info_mtx_);
   bool exist;
   auto iter_shape = GetOrCreateShapeInfo(funcid, hash_sig, exist, false);
@@ -527,11 +515,10 @@ void TaoCompInfoCollector::InitShapeInfo(const std::string &funcid,
   iter_shape.value()["compile_pass_index"] = compile_ok ? 0 : -1;
 }
 
-void TaoCompInfoCollector::UpdateShapeCallInfo(const std::string &funcid,
+void TaoCompInfoCollector::UpdateShapeCallInfo(const std::string& funcid,
                                                uint64 hash_sig,
                                                bool compile_ok) {
-  if (opts_.dump_level == 0)
-    return;
+  if (opts_.dump_level == 0) return;
   mutex_lock l(info_mtx_);
   bool exist;
   auto iter_shape = GetOrCreateShapeInfo(funcid, hash_sig, exist, false);
@@ -555,10 +542,9 @@ void TaoCompInfoCollector::UpdateShapeCallInfo(const std::string &funcid,
   }
 }
 
-void TaoCompInfoCollector::SetCallTimestamp(TaoCompileFuncCallInfo *call_info,
+void TaoCompInfoCollector::SetCallTimestamp(TaoCompileFuncCallInfo* call_info,
                                             CallTimeTag tag) {
-  if (opts_.dump_level == 0)
-    return;
+  if (opts_.dump_level == 0) return;
   auto old = call_info->ts[tag].exchange(GetCurTimeUs());
   if (old != 0) {
     // set the tag twice
@@ -569,7 +555,7 @@ void TaoCompInfoCollector::SetCallTimestamp(TaoCompileFuncCallInfo *call_info,
 }
 
 void TaoCompInfoCollector::AppendCsvFile(
-    const TaoCompileFuncCallInfo *call_info) {
+    const TaoCompileFuncCallInfo* call_info) {
   // append timestamps to csv file
   if (!ts_csv_file_.is_open()) {
     return;
@@ -584,7 +570,7 @@ void TaoCompInfoCollector::AppendCsvFile(
   ts_csv_file_ << call_info->func_id << ","
                << HashValueToStr(call_info->signature) << ","
                << call_info->call_idx << ",";
-  for (auto &&t : call_info->ts) {
+  for (auto&& t : call_info->ts) {
     ts_csv_file_ << t << ",";
   }
 
@@ -596,11 +582,9 @@ void TaoCompInfoCollector::AppendCsvFile(
 }
 
 void TaoCompInfoCollector::FlushCallTimestamp(
-    const TaoCompileFuncCallInfo *call_info) {
-  if (opts_.dump_level == 0)
-    return;
-  if (!call_info->initialized())
-    return;
+    const TaoCompileFuncCallInfo* call_info) {
+  if (opts_.dump_level == 0) return;
+  if (!call_info->initialized()) return;
 
   mutex_lock l(info_mtx_);
 
@@ -618,35 +602,34 @@ void TaoCompInfoCollector::FlushCallTimestamp(
   }
 }
 
-void TaoCompInfoCollector::UpdateOPHistogram(const std::string &op,
+void TaoCompInfoCollector::UpdateOPHistogram(const std::string& op,
                                              uint64 count) {
   if (opts_.dump_level > 1) {
     mutex_lock l(info_mtx_);
-    auto &op_summary = info_["op_summary"];
+    auto& op_summary = info_["op_summary"];
     json_obj_add<int>(op_summary["all"], op, count);
   }
 }
 
-void TaoCompInfoCollector::UpdateUnclusteredOPHistogram(const std::string &op,
+void TaoCompInfoCollector::UpdateUnclusteredOPHistogram(const std::string& op,
                                                         uint64 count) {
   if (opts_.dump_level > 1) {
     mutex_lock l(info_mtx_);
-    auto &op_summary = info_["op_summary"];
+    auto& op_summary = info_["op_summary"];
     json_obj_add<int>(op_summary["unclustered_op"], op, count);
   }
 }
 
-void TaoCompInfoCollector::UpdateShapeCompileStatus(const std::string &funcid,
+void TaoCompInfoCollector::UpdateShapeCompileStatus(const std::string& funcid,
                                                     uint64 hash_sig,
                                                     CompileStatus s) {
-  if (opts_.dump_level == 0)
-    return;
+  if (opts_.dump_level == 0) return;
   mutex_lock l(info_mtx_);
   bool exist;
   auto iter_shape = GetOrCreateShapeInfo(funcid, hash_sig, exist, false);
   if (exist) {
     // this shape is in sampling range, update its own counters
-    auto &shape = iter_shape.value();
+    auto& shape = iter_shape.value();
     shape["compile_status"] = str(s);
     VLOG(2) << "update shape " << funcid << "." << hash_sig
             << " compile_status: " << str(s);
@@ -654,7 +637,7 @@ void TaoCompInfoCollector::UpdateShapeCompileStatus(const std::string &funcid,
                          shape["compile_main_latency"]);
   } else {
     // this shape is not in sampling range, update overall statistic counters
-    auto &miss = info_["miss_sampled"];
+    auto& miss = info_["miss_sampled"];
     // previous status count -1, current status count +1
     // INIT status is not counted
     CompileStatus pre = GetPrevCompileStatus(s);
@@ -670,10 +653,9 @@ void TaoCompInfoCollector::UpdateShapeCompileStatus(const std::string &funcid,
   }
 }
 
-void TaoCompInfoCollector::UpdateShapeCompileStatus(const Executable *exec,
+void TaoCompInfoCollector::UpdateShapeCompileStatus(const Executable* exec,
                                                     CompileStatus s) {
-  if (opts_.dump_level == 0)
-    return;
+  if (opts_.dump_level == 0) return;
   mutex_lock l(shape_exec_mtx_);
   auto it = shape_exec_.find(exec);
   if (it != shape_exec_.end()) {
@@ -685,11 +667,10 @@ void TaoCompInfoCollector::UpdateShapeCompileStatus(const Executable *exec,
   }
 }
 
-void TaoCompInfoCollector::AddExecutable(const Executable *exec,
-                                         const std::string &funcid,
+void TaoCompInfoCollector::AddExecutable(const Executable* exec,
+                                         const std::string& funcid,
                                          uint64 hash_sig) {
-  if (opts_.dump_level == 0)
-    return;
+  if (opts_.dump_level == 0) return;
   mutex_lock l(shape_exec_mtx_);
   shape_exec_.emplace(exec, std::make_pair(funcid, hash_sig));
 }
@@ -699,11 +680,11 @@ void TaoCompInfoCollector::CleanShapeCompileTimestamps() {
   mutex_lock l2(shape_compile_ts_mtx_);
 
   auto now = GetCurTimeUs();
-  for (auto &&func : shape_compile_ts_) {
-    auto &fid = func.first;
-    for (auto &&shape : func.second) {
-      auto &sid = shape.first;
-      auto &ts = shape.second;
+  for (auto&& func : shape_compile_ts_) {
+    auto& fid = func.first;
+    for (auto&& shape : func.second) {
+      auto& sid = shape.first;
+      auto& ts = shape.second;
       bool exist;
       auto iter_shape = GetOrCreateShapeInfo(fid, sid, exist, false);
       if (ts[1] == 0) {
@@ -729,7 +710,7 @@ void TaoCompInfoCollector::CleanShapeCompileTimestamps() {
 }
 
 void TaoCompInfoCollector::SetCallLatency(
-    const TaoCompileFuncCallInfo *call_info, nlohmann::json &value) {
+    const TaoCompileFuncCallInfo* call_info, nlohmann::json& value) {
   if (call_info->profile_done) {
     value["tf_profile_time"] = call_info->tf_profile_time;
     value["tao_profile_time"] = call_info->tao_profile_time;
@@ -762,9 +743,9 @@ void TaoCompInfoCollector::SetCallLatency(
 }
 
 void TaoCompInfoCollector::MissSampledShapeCallAdd(
-    const TaoCompileFuncCallInfo *call_info) {
+    const TaoCompileFuncCallInfo* call_info) {
   mutex_lock l(miss_func_shape_mtx_);
-  auto &miss = info_["miss_sampled"];
+  auto& miss = info_["miss_sampled"];
 
   if (miss_sampled_shape_count_ < opts_.max_miss_sampled_shape_num) {
     if (!call_info->func_id.empty()) {
@@ -795,73 +776,70 @@ void TaoCompInfoCollector::MissSampledShapeCallAdd(
   SetCallLatency(call_info, miss);
 }
 
-void TaoCompInfoCollector::UpdateCompileLatency(const std::string &funcid,
+void TaoCompInfoCollector::UpdateCompileLatency(const std::string& funcid,
                                                 uint64 hash_sig,
                                                 CompileStatus s,
-                                                nlohmann::json &queue,
-                                                nlohmann::json &main) {
+                                                nlohmann::json& queue,
+                                                nlohmann::json& main) {
   mutex_lock l(shape_compile_ts_mtx_);
   switch (s) {
-  case STATUS_ENQUEUED: {
-    // record enque start time
-    shape_compile_ts_[funcid][hash_sig].resize(2, 0);
-    shape_compile_ts_[funcid][hash_sig][0] = GetCurTimeUs();
-  } break;
-  case STATUS_COMPILE_STARTED: {
-    auto t1 = GetCurTimeUs();
-    shape_compile_ts_[funcid][hash_sig].resize(
-        2, 0); // in case ENQUE is not triggered
-    auto t0 = shape_compile_ts_[funcid][hash_sig][0];
-    if (t0 == 0) {
-      // This may happen when async compiling started before DumpInfo()
-      // finish. Just take t0 = t1 to ignore the latency
-      t0 = t1;
-      shape_compile_ts_[funcid][hash_sig][0] = t0;
-    }
-    json_num_add<uint64_t>(queue, t1 - t0);
-    shape_compile_ts_[funcid][hash_sig][1] = t1;
-  } break;
-  case STATUS_PASS_ON_COMPILE:
-  case STATUS_FAIL_ON_COMPILE: {
-    auto t2 = GetCurTimeUs();
-    shape_compile_ts_[funcid][hash_sig].resize(
-        2, 0); // in case COMP_STARTED is not triggered
-    auto t1 = shape_compile_ts_[funcid][hash_sig][1];
-    if (t1 == 0) {
-      // This may happen when async compiling finished before DumpInfo()
-      // finish Just take t1 = t2
-      t1 = t2;
-    }
-    json_num_add<uint64_t>(main, t2 - t1);
-    // remove temp record
-    shape_compile_ts_[funcid].erase(hash_sig);
-    if (shape_compile_ts_[funcid].empty()) {
-      shape_compile_ts_.erase(funcid);
-    }
-  } break;
-  default:
-    break;
+    case STATUS_ENQUEUED: {
+      // record enque start time
+      shape_compile_ts_[funcid][hash_sig].resize(2, 0);
+      shape_compile_ts_[funcid][hash_sig][0] = GetCurTimeUs();
+    } break;
+    case STATUS_COMPILE_STARTED: {
+      auto t1 = GetCurTimeUs();
+      shape_compile_ts_[funcid][hash_sig].resize(
+          2, 0);  // in case ENQUE is not triggered
+      auto t0 = shape_compile_ts_[funcid][hash_sig][0];
+      if (t0 == 0) {
+        // This may happen when async compiling started before DumpInfo()
+        // finish. Just take t0 = t1 to ignore the latency
+        t0 = t1;
+        shape_compile_ts_[funcid][hash_sig][0] = t0;
+      }
+      json_num_add<uint64_t>(queue, t1 - t0);
+      shape_compile_ts_[funcid][hash_sig][1] = t1;
+    } break;
+    case STATUS_PASS_ON_COMPILE:
+    case STATUS_FAIL_ON_COMPILE: {
+      auto t2 = GetCurTimeUs();
+      shape_compile_ts_[funcid][hash_sig].resize(
+          2, 0);  // in case COMP_STARTED is not triggered
+      auto t1 = shape_compile_ts_[funcid][hash_sig][1];
+      if (t1 == 0) {
+        // This may happen when async compiling finished before DumpInfo()
+        // finish Just take t1 = t2
+        t1 = t2;
+      }
+      json_num_add<uint64_t>(main, t2 - t1);
+      // remove temp record
+      shape_compile_ts_[funcid].erase(hash_sig);
+      if (shape_compile_ts_[funcid].empty()) {
+        shape_compile_ts_.erase(funcid);
+      }
+    } break;
+    default:
+      break;
   }
 }
 
-void TaoCompInfoCollector::UploadFile(const std::string &local_file,
-                                      const std::string &type, int timeout,
+void TaoCompInfoCollector::UploadFile(const std::string& local_file,
+                                      const std::string& type, int timeout,
                                       bool background, bool compress) {
 #ifdef TAO_ENABLE_UPLOAD_TOOL
   static std::atomic<bool> err_printed{false};
 
-  if (opts_.dump_level == 0)
-    return;
+  if (opts_.dump_level == 0) return;
 
-  auto &upload_tool = opts_.tao_upload_tool_path;
+  auto& upload_tool = opts_.tao_upload_tool_path;
 
   // skip uploading if tool is not specified
-  if (upload_tool.empty())
-    return;
+  if (upload_tool.empty()) return;
 
   // skip uploading if we have met uploading error before
-  if (err_printed)
-    return;
+  if (err_printed) return;
 
   // use external uploading tool
   std::stringstream cmd;
@@ -913,14 +891,13 @@ void TaoCompInfoCollector::UploadFile(const std::string &local_file,
               << "' system() call returned non-zero value: " << ret;
     }
   }
-#endif // TAO_ENABLE_UPLOAD_TOOL
+#endif  // TAO_ENABLE_UPLOAD_TOOL
 }
 
-void TaoCompInfoCollector::_UploadInfoFile(const std::string &filename,
-                                           const std::string &type,
+void TaoCompInfoCollector::_UploadInfoFile(const std::string& filename,
+                                           const std::string& type,
                                            bool background) {
-  if (opts_.tao_upload_tool_path.empty())
-    return;
+  if (opts_.tao_upload_tool_path.empty()) return;
 
   // upload FINISH file in the last to indicate the task is done
   // generate finish file in local
@@ -935,27 +912,25 @@ void TaoCompInfoCollector::_UploadInfoFile(const std::string &filename,
 }
 
 void TaoCompInfoCollector::_FlushUploadFiles(
-    const std::list<upload_file_info> &flist) {
-  for (auto &&finfo : flist) {
+    const std::list<upload_file_info>& flist) {
+  for (auto&& finfo : flist) {
     UploadFile(finfo.local_path, finfo.type, -1, false, finfo.compress);
   }
 }
 
-void TaoCompInfoCollector::EnqueUploadFile(const std::string &local_file,
-                                           const std::string &type,
+void TaoCompInfoCollector::EnqueUploadFile(const std::string& local_file,
+                                           const std::string& type,
                                            bool compress) {
-  if (opts_.dump_level == 0)
-    return;
+  if (opts_.dump_level == 0) return;
   mutex_lock l(upload_list_mtx_);
   upload_file_list_.emplace_back(upload_file_info{local_file, type, compress});
 }
 
 void TaoCompInfoCollector::UpdatePerfStats(
-    TaoCompilationCache *cur, int64 total_elapsed_us, int64 total_saved_us,
+    TaoCompilationCache* cur, int64 total_elapsed_us, int64 total_saved_us,
     int64 print_cycle_sec, double speed_up_all, double speed_up_recent,
     bool last_call) {
-  if (opts_.dump_level == 0)
-    return;
+  if (opts_.dump_level == 0) return;
   bool upload = false;
   mutex_lock l(obj_id_mtx_);
   auto it = cache_obj_id_.find(cur);
@@ -979,7 +954,7 @@ void TaoCompInfoCollector::UpdatePerfStats(
   }
 }
 
-void TaoCompInfoCollector::_UploadPerfFile(TaoSessPerfInfo &sinfo,
+void TaoCompInfoCollector::_UploadPerfFile(TaoSessPerfInfo& sinfo,
                                            bool last_call) {
   if (last_call && sinfo.finalized) {
     // this session info has been uploaded
@@ -1000,7 +975,7 @@ void TaoCompInfoCollector::_UploadPerfFile(TaoSessPerfInfo &sinfo,
   std::ofstream out(out_files[0]);
   out << sinfo.total_elapsed_us << "," << sinfo.total_saved_us << ","
       << sinfo.print_cycle_sec << "," << sinfo.speed_up_all << ",";
-  for (const auto &v : sinfo.estimated_speedups) {
+  for (const auto& v : sinfo.estimated_speedups) {
     out << v << ",";
   }
   out.close();
@@ -1020,12 +995,11 @@ void TaoCompInfoCollector::_FinalizePerfStats() {
   }
 }
 
-void TaoCompInfoCollector::AddCompileFailedCase(const std::string &log,
-                                                const std::string &input_file,
+void TaoCompInfoCollector::AddCompileFailedCase(const std::string& log,
+                                                const std::string& input_file,
                                                 bool exited, bool signaled,
                                                 bool coredump, int code) {
-  if (opts_.dump_level == 0)
-    return;
+  if (opts_.dump_level == 0) return;
 
   bool upload{false};
   std::stringstream fail_name;
@@ -1070,21 +1044,19 @@ void TaoCompInfoCollector::AddCompileFailedCase(const std::string &log,
   }
 }
 
-void TaoCompInfoCollector::AddCustomNumValue(const std::string &key,
+void TaoCompInfoCollector::AddCustomNumValue(const std::string& key,
                                              int64 val) {
-  if (opts_.dump_level == 0)
-    return;
+  if (opts_.dump_level == 0) return;
   mutex_lock l(info_mtx_);
   json_obj_add(info_, key, val);
 }
 
 void TaoCompInfoCollector::AddCustomNumValue(
-    const std::vector<std::string> &keys, int64 val) {
-  if (opts_.dump_level == 0)
-    return;
+    const std::vector<std::string>& keys, int64 val) {
+  if (opts_.dump_level == 0) return;
   mutex_lock l(info_mtx_);
-  nlohmann::json *p = &info_;
-  for (auto &&key : keys) {
+  nlohmann::json* p = &info_;
+  for (auto&& key : keys) {
     if (!p->contains(key)) {
       (*p)[key] = nlohmann::json{};
     }
@@ -1093,5 +1065,5 @@ void TaoCompInfoCollector::AddCustomNumValue(
   json_num_add(*p, val);
 }
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

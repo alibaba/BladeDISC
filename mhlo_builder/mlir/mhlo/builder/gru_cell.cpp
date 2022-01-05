@@ -40,11 +40,11 @@ def gru_cell(
 ```
  */
 
-mlir::Value BuildGRUCell(mlir::OpBuilder &builder, const mlir::Location &loc,
-                         const mlir::Value &inp_gates,
-                         const mlir::Value &h_gates, const mlir::Value &h_x,
-                         const mlir::Value &inp_bias,
-                         const mlir::Value &h_bias) {
+mlir::Value BuildGRUCell(mlir::OpBuilder& builder, const mlir::Location& loc,
+                         const mlir::Value& inp_gates,
+                         const mlir::Value& h_gates, const mlir::Value& h_x,
+                         const mlir::Value& inp_bias,
+                         const mlir::Value& h_bias) {
   MHLO_CHECK(IsHloConstant(inp_bias), "The input bias must be constant");
   MHLO_CHECK(IsHloConstant(h_bias), "The hidden bias must be constant");
   auto inp_bias_ranked_type = GetMilrRankedTensorType(inp_bias);
@@ -129,5 +129,5 @@ mlir::Value BuildGRUCell(mlir::OpBuilder &builder, const mlir::Location &loc,
       builder, loc, mul_sigmoid_z, tanh_n, elem_type,
       /* no_implicit_broadcast */ true);
 }
-} // namespace mhlo
-} // namespace mlir
+}  // namespace mhlo
+}  // namespace mlir

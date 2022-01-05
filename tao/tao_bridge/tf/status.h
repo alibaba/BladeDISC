@@ -22,9 +22,9 @@ limitations under the License.
 namespace xla {
 namespace tao {
 
-using tensorflow::Status; // TENSORFLOW_STATUS_OK
+using tensorflow::Status;  // TENSORFLOW_STATUS_OK
 
-} // namespace tao
-} // namespace xla
+}  // namespace tao
+}  // namespace xla
 
-#endif // TAO_TAO_BRIDGE_TF_STATUS_H_
+#endif  // TAO_TAO_BRIDGE_TF_STATUS_H_

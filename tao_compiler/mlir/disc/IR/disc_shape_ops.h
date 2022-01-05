@@ -15,6 +15,7 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_MLIR_DISC_IR_DISC_SHAPE_OPS_H_
 #define TENSORFLOW_COMPILER_MLIR_DISC_IR_DISC_SHAPE_OPS_H_
 
+#include "llvm/ADT/StringRef.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
@@ -29,21 +30,20 @@ limitations under the License.
 #include "mlir/IR/Types.h"
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
-#include "llvm/ADT/StringRef.h"
 
 namespace mlir {
 namespace disc_shape {
 
 class DISCShapeDialect : public Dialect {
-public:
-  explicit DISCShapeDialect(MLIRContext *context);
+ public:
+  explicit DISCShapeDialect(MLIRContext* context);
   static StringRef getDialectNamespace() { return "disc_shape"; }
 };
 
-} // end namespace disc_shape
-} // end namespace mlir
+}  // end namespace disc_shape
+}  // end namespace mlir
 
 #define GET_OP_CLASSES
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h.inc"
 
-#endif //  TENSORFLOW_COMPILER_MLIR_DISC_IR_DISC_SHAPE_OPS_H_
+#endif  //  TENSORFLOW_COMPILER_MLIR_DISC_IR_DISC_SHAPE_OPS_H_

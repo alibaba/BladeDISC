@@ -30,7 +30,7 @@ int64 FeatureDetector::dist_worker_id_{0};
 int64 FeatureDetector::dist_worker_num_{0};
 bool FeatureDetector::is_tao_force_on_{false};
 
-FeatureDetector::FeatureDetector(const std::string &tag, const Graph *graph) {
+FeatureDetector::FeatureDetector(const std::string& tag, const Graph* graph) {
   std::call_once(init_global_flag_, &initGlobalProperties);
   {
     std::stringstream ss;
@@ -45,7 +45,7 @@ FeatureDetector::FeatureDetector(const std::string &tag, const Graph *graph) {
   // FunctionLibraryDefinition. We can only retrieve this info by calling
   // graph->lib_def()->ToProto(). This may be heavy for large graphs.
   for (auto n : graph->nodes()) {
-    auto &op_type = n->type_string();
+    auto& op_type = n->type_string();
     // ends with Grad
     auto len = op_type.size();
     if (len > 4 && op_type.substr(len - 4) == "Grad") {
@@ -56,7 +56,7 @@ FeatureDetector::FeatureDetector(const std::string &tag, const Graph *graph) {
 
   // detect whale op
   for (auto n : graph->nodes()) {
-    auto &name = n->name();
+    auto& name = n->name();
     if (name.find("WHALE_MICRO_BATCH") != std::string::npos ||
         name.find("WHALE_PARALLEL_SCOPE") != std::string::npos) {
       has_whale_op_ = true;
@@ -65,7 +65,7 @@ FeatureDetector::FeatureDetector(const std::string &tag, const Graph *graph) {
   }
 
   // record information for dump
-  auto &collector = TaoCompInfoCollector::Get();
+  auto& collector = TaoCompInfoCollector::Get();
   std::vector<std::string> keys{"features", "graphs", tag_, ""};
   keys[3] = "has_gradient_op";
   collector.SetCustomValue(keys, has_gradient_op_);
@@ -88,7 +88,7 @@ void FeatureDetector::initGlobalProperties() {
   is_tao_force_on_ = ev == "true";
 
   // record information for dump
-  auto &collector = TaoCompInfoCollector::Get();
+  auto& collector = TaoCompInfoCollector::Get();
   std::vector<std::string> keys{"features", "global", ""};
   keys[2] = "is_distributed";
   collector.SetCustomValue(keys, is_distributed_);
@@ -126,5 +126,5 @@ bool FeatureDetector::IsTaoForceOn() {
   return is_tao_force_on_;
 }
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

@@ -67,4 +67,4 @@ TEST(TFIdentityOpTest, ProvidedDataShape2DF32) {
       /*input_vals*/ {{-2.4, -0.1, 0., 0.01, 3.2}}));
 }
 
-} // namespace mlir_test
+}  // namespace mlir_test

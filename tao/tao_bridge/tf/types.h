@@ -16,13 +16,12 @@ limitations under the License.
 #ifndef TAO_TAO_BRIDGE_TF_TYPES_H_
 #define TAO_TAO_BRIDGE_TF_TYPES_H_
 
+#include <Eigen/Core>
 #include <complex>
 
 #include "tensorflow/core/framework/numeric_types.h"
 #include "tensorflow/core/platform/types.h"
 #include "third_party/eigen3/Eigen/Core"
-
-#include <Eigen/Core>
 
 namespace xla {
 
@@ -45,12 +44,12 @@ using complex128 = std::complex<double>;
 
 using ::Eigen::half;
 
-} // namespace xla
+}  // namespace xla
 
 // Alias namespace ::stream_executor as ::xla::se.
 namespace stream_executor {}
 namespace xla {
 namespace se = ::stream_executor;
-} // namespace xla
+}  // namespace xla
 
-#endif // TAO_TAO_BRIDGE_TF_TYPES_H_
+#endif  // TAO_TAO_BRIDGE_TF_TYPES_H_

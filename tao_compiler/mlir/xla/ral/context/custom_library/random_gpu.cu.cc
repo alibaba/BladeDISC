@@ -23,23 +23,24 @@ struct FillPhiloxRandomKernel;
 template <class Distribution>
 struct FillPhiloxRandomKernel<Distribution, false> {
   typedef typename Distribution::ResultElementType T;
-  PHILOX_DEVICE_INLINE void Run(const uint64_t *key, const uint64_t *counter,
-                                random::PhiloxRandom gen, T *data, int64_t size,
+  PHILOX_DEVICE_INLINE void Run(const uint64_t* key, const uint64_t* counter,
+                                random::PhiloxRandom gen, T* data, int64_t size,
                                 Distribution dist);
 };
 
 template <class Distribution>
 struct FillPhiloxRandomKernel<Distribution, true> {
   typedef typename Distribution::ResultElementType T;
-  PHILOX_DEVICE_INLINE void Run(const uint64_t *key, const uint64_t *counter,
-                                random::PhiloxRandom base_gen, T *data,
+  PHILOX_DEVICE_INLINE void Run(const uint64_t* key, const uint64_t* counter,
+                                random::PhiloxRandom base_gen, T* data,
                                 int64_t size, Distribution dist);
 };
 
-template <typename T, int ElementCount> class SampleCopier {
-public:
-  inline __device__ void operator()(T *__restrict__ buf,
-                                    const Array<T, ElementCount> &array) const {
+template <typename T, int ElementCount>
+class SampleCopier {
+ public:
+  inline __device__ void operator()(T* __restrict__ buf,
+                                    const Array<T, ElementCount>& array) const {
 #pragma unroll
     for (int i = 0; i < ElementCount; i++) {
       buf[i] = array[i];
@@ -47,13 +48,14 @@ public:
   }
 };
 
-template <> class SampleCopier<float, 4> {
-public:
+template <>
+class SampleCopier<float, 4> {
+ public:
   // Copies the elements from the array to buf. buf must be 128-bit aligned,
   // which is true for tensor data, and all offsets that are a multiple of the
   // vector size (because the vectors are 128 bits long).
-  inline __device__ void operator()(float *__restrict__ buf,
-                                    const Array<float, 4> &array) const {
+  inline __device__ void operator()(float* __restrict__ buf,
+                                    const Array<float, 4>& array) const {
     // NOTE(ringwalt): It's not safe to cast &array[0] to a float4, because they
     // have 32-bit alignment vs 128-bit alignment. There seems to be no
     // performance loss when assigning each element to a vector.
@@ -62,54 +64,57 @@ public:
     vec.y = array[1];
     vec.z = array[2];
     vec.w = array[3];
-    float4 *buf_vector = reinterpret_cast<float4 *>(buf);
+    float4* buf_vector = reinterpret_cast<float4*>(buf);
     *buf_vector = vec;
   }
 };
 
-template <> class SampleCopier<int32_t, 4> {
-public:
+template <>
+class SampleCopier<int32_t, 4> {
+ public:
   // Copies the elements from the array to buf. buf must be 128-bit aligned,
   // which is true for tensor data, and all offsets that are a multiple of the
   // vector size (because the vectors are 128 bits long).
-  inline __device__ void operator()(int32_t *__restrict__ buf,
-                                    const Array<int32_t, 4> &array) const {
+  inline __device__ void operator()(int32_t* __restrict__ buf,
+                                    const Array<int32_t, 4>& array) const {
     int4 vec;
     vec.x = array[0];
     vec.y = array[1];
     vec.z = array[2];
     vec.w = array[3];
-    int4 *buf_vector = reinterpret_cast<int4 *>(buf);
+    int4* buf_vector = reinterpret_cast<int4*>(buf);
     *buf_vector = vec;
   }
 };
 
-template <> class SampleCopier<double, 2> {
-public:
+template <>
+class SampleCopier<double, 2> {
+ public:
   // Copies the elements from the array to buf. buf must be 128-bit aligned,
   // which is true for tensor data, and all offsets that are a multiple of the
   // vector size (because the vectors are 128 bits long).
-  inline __device__ void operator()(double *__restrict__ buf,
-                                    const Array<double, 2> &array) const {
+  inline __device__ void operator()(double* __restrict__ buf,
+                                    const Array<double, 2>& array) const {
     double2 vec;
     vec.x = array[0];
     vec.y = array[1];
-    double2 *buf_vector = reinterpret_cast<double2 *>(buf);
+    double2* buf_vector = reinterpret_cast<double2*>(buf);
     *buf_vector = vec;
   }
 };
 
-template <> class SampleCopier<int64_t, 2> {
-public:
+template <>
+class SampleCopier<int64_t, 2> {
+ public:
   // Copies the elements from the array to buf. buf must be 128-bit aligned,
   // which is true for tensor data, and all offsets that are a multiple of the
   // vector size (because the vectors are 128 bits long).
-  inline __device__ void operator()(int64_t *__restrict__ buf,
-                                    const Array<int64_t, 2> &array) const {
+  inline __device__ void operator()(int64_t* __restrict__ buf,
+                                    const Array<int64_t, 2>& array) const {
     longlong2 vec;
     vec.x = array[0];
     vec.y = array[1];
-    longlong2 *buf_vector = reinterpret_cast<longlong2 *>(buf);
+    longlong2* buf_vector = reinterpret_cast<longlong2*>(buf);
     *buf_vector = vec;
   }
 };
@@ -118,8 +123,8 @@ public:
 // distribution. Each output takes a fixed number of samples.
 template <class Distribution>
 PHILOX_DEVICE_INLINE void FillPhiloxRandomKernel<Distribution, false>::Run(
-    const uint64_t *key, const uint64_t *counter, random::PhiloxRandom gen,
-    T *data, int64_t size, Distribution dist) {
+    const uint64_t* key, const uint64_t* counter, random::PhiloxRandom gen,
+    T* data, int64_t size, Distribution dist) {
   const int kGroupSize = Distribution::kResultElementCount;
 
   const int32_t thread_id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -152,9 +157,9 @@ PHILOX_DEVICE_INLINE void FillPhiloxRandomKernel<Distribution, false>::Run(
 // A simple launch pad to call the correct function templates to fill the data
 template <class Distribution>
 __global__ void __launch_bounds__(256)
-    FillPhiloxRandomKernelLaunch(const uint64_t *key, const uint64_t *counter,
+    FillPhiloxRandomKernelLaunch(const uint64_t* key, const uint64_t* counter,
                                  random::PhiloxRandom base_gen,
-                                 typename Distribution::ResultElementType *data,
+                                 typename Distribution::ResultElementType* data,
                                  int64_t size, Distribution dist) {
   FillPhiloxRandomKernel<Distribution,
                          Distribution::kVariableSamplesPerOutput>()
@@ -163,11 +168,10 @@ __global__ void __launch_bounds__(256)
 
 template <class Distribution>
 void FillPhiloxRandom<Distribution>::operator()(
-    const uint64_t *key, const uint64_t *counter, PhiloxRandom gen,
-    typename Distribution::ResultElementType *data, int64_t size,
-    Distribution dist, void *stream) {
-  if (size == 0)
-    return;
+    const uint64_t* key, const uint64_t* counter, PhiloxRandom gen,
+    typename Distribution::ResultElementType* data, int64_t size,
+    Distribution dist, void* stream) {
+  if (size == 0) return;
   // TODO: make this tunable?
   const int32_t block_size = 256;
   const int32_t num_blocks = (size + block_size - 1) / block_size;
@@ -183,6 +187,6 @@ void FillPhiloxRandom<Distribution>::operator()(
 
 template struct FillPhiloxRandom<UniformDistribution<PhiloxRandom, float>>;
 
-} // namespace random
-} // namespace ral
-} // namespace tao
+}  // namespace random
+}  // namespace ral
+}  // namespace tao

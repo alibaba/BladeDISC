@@ -22,8 +22,8 @@ namespace ral {
 
 template <typename T, int N>
 inline void print_memref(tao::ral::MemRefType<T, N> memref,
-                         const std::string &msg) {
-  auto *pmemref = &memref;
+                         const std::string& msg) {
+  auto* pmemref = &memref;
   TAO_VLOG(0) << msg << " memref:"
               << "\tbasePtr: " << pmemref->basePtr
               << "\tdata: " << pmemref->data << "\toffset: " << pmemref->offset;
@@ -37,19 +37,19 @@ inline void print_memref(tao::ral::MemRefType<T, N> memref,
 
 template <typename T>
 inline void print_memref_0d(tao::ral::MemRefType<T, 0> memref,
-                            const std::string &msg) {
-  auto *pmemref = &memref;
+                            const std::string& msg) {
+  auto* pmemref = &memref;
   TAO_VLOG(0) << msg << " memref:"
               << "\tbasePtr: " << pmemref->basePtr
               << "\tdata: " << pmemref->data << "\toffset: " << pmemref->offset;
 }
 
 template <typename T, int N>
-tao::ral::MemRefType<T, N> assignMemRef(void *ptr,
-                                        const buffer_shape_t &shape) {
+tao::ral::MemRefType<T, N> assignMemRef(void* ptr,
+                                        const buffer_shape_t& shape) {
   tao::ral::MemRefType<T, N> memref;
-  memref.basePtr = reinterpret_cast<T *>(ptr);
-  memref.data = reinterpret_cast<T *>(ptr);
+  memref.basePtr = reinterpret_cast<T*>(ptr);
+  memref.data = reinterpret_cast<T*>(ptr);
   memref.offset = 0;
   for (int i = 0; i < N; ++i) {
     memref.sizes[i] = shape[i];
@@ -67,10 +67,11 @@ tao::ral::MemRefType<T, N> assignMemRef(void *ptr,
   return memref;
 }
 
-template <typename T> tao::ral::MemRefType<T, 0> assignMemRef_0d(void *ptr) {
+template <typename T>
+tao::ral::MemRefType<T, 0> assignMemRef_0d(void* ptr) {
   tao::ral::MemRefType<T, 0> memref;
-  memref.basePtr = reinterpret_cast<T *>(ptr);
-  memref.data = reinterpret_cast<T *>(ptr);
+  memref.basePtr = reinterpret_cast<T*>(ptr);
+  memref.data = reinterpret_cast<T*>(ptr);
   memref.offset = 0;
 
   if (TAO_VLOG_IS_ON(1)) {
@@ -86,11 +87,13 @@ bool isEmptyMemref(tao::ral::MemRefType<T, N> memref) {
                      [](int64_t dim) { return !dim; });
 }
 
-template <typename T> bool isEmptyMemref(tao::ral::MemRefType<T, 0> memref) {
+template <typename T>
+bool isEmptyMemref(tao::ral::MemRefType<T, 0> memref) {
   return false;
 }
 
-template <typename T, int N> int64_t Size(tao::ral::MemRefType<T, N> memref) {
+template <typename T, int N>
+int64_t Size(tao::ral::MemRefType<T, N> memref) {
   int64_t size = 1;
   for (int i = 0; i < N; ++i) {
     size *= memref.sizes[i];
@@ -98,11 +101,12 @@ template <typename T, int N> int64_t Size(tao::ral::MemRefType<T, N> memref) {
   return size;
 }
 
-template <typename T> int64_t Size(tao::ral::MemRefType<T, 0> memref) {
+template <typename T>
+int64_t Size(tao::ral::MemRefType<T, 0> memref) {
   return 1;
 }
 
-} // namespace ral
-} // namespace tao
+}  // namespace ral
+}  // namespace tao
 
-#endif // TENSORFLOW_COMPILER_MLIR_XLA_RAL_CONTEXT_CONTEXT_UTIL_H_
+#endif  // TENSORFLOW_COMPILER_MLIR_XLA_RAL_CONTEXT_CONTEXT_UTIL_H_

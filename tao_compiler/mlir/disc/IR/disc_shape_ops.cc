@@ -14,21 +14,24 @@ limitations under the License.
 
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 
-#include "mlir/IR/PatternMatch.h"
 #include "llvm/Support/Debug.h"
+#include "mlir/IR/PatternMatch.h"
 
 namespace mlir {
 namespace disc_shape {
 
 using llvm::StringRef;
 
-template <typename T> static LogicalResult Verify(T op) { return success(); }
+template <typename T>
+static LogicalResult Verify(T op) {
+  return success();
+}
 
 //===----------------------------------------------------------------------===//
 // disc shape Dialect Constructor
 //===----------------------------------------------------------------------===//
 
-DISCShapeDialect::DISCShapeDialect(MLIRContext *context)
+DISCShapeDialect::DISCShapeDialect(MLIRContext* context)
     : Dialect(getDialectNamespace(), context, TypeID::get<DISCShapeDialect>()) {
   addOperations<
 #define GET_OP_LIST
@@ -43,29 +46,26 @@ struct LinearizeOfDelinearizeOp : public OpRewritePattern<LinearizeOp> {
   using OpRewritePattern<LinearizeOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(LinearizeOp op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     if (!op.multiDimIndexes().size()) {
       return failure();
     }
 
     auto delinearizeOp = dyn_cast_or_null<DelinearizeOp>(
         op.multiDimIndexes().front().getDefiningOp());
-    if (!delinearizeOp)
-      return failure();
+    if (!delinearizeOp) return failure();
 
     if (op.multiDimIndexes().size() != delinearizeOp->getResults().size())
       return failure();
 
-    for (auto &&z :
+    for (auto&& z :
          llvm::zip(op.multiDimIndexes(), delinearizeOp->getResults())) {
-      if (std::get<0>(z) != std::get<1>(z))
-        return failure();
+      if (std::get<0>(z) != std::get<1>(z)) return failure();
     }
 
-    for (auto &&z :
+    for (auto&& z :
          llvm::zip(delinearizeOp.shapeDimIndexes(), op.shapeDimIndexes())) {
-      if (std::get<0>(z) != std::get<1>(z))
-        return failure();
+      if (std::get<0>(z) != std::get<1>(z)) return failure();
     }
 
     rewriter.replaceOp(op, {delinearizeOp.linearIndex()});
@@ -102,19 +102,18 @@ struct RemoveSizeOneDimOfLinearizeOp : public OpRewritePattern<LinearizeOp> {
   using OpRewritePattern<LinearizeOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(LinearizeOp op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     if (!op.multiDimIndexes().size()) {
       return failure();
     }
 
     SmallVector<Value> newMultiDimIndexes;
     SmallVector<Value> newShapeDimIndexes;
-    for (auto &&z : llvm::zip(op.multiDimIndexes(), op.shapeDimIndexes())) {
+    for (auto&& z : llvm::zip(op.multiDimIndexes(), op.shapeDimIndexes())) {
       Value idx = std::get<0>(z);
       Value dimSize = std::get<1>(z);
       auto constOp = dyn_cast_or_null<ConstantIndexOp>(dimSize.getDefiningOp());
-      if (constOp && constOp.getValue() == 1)
-        continue;
+      if (constOp && constOp.getValue() == 1) continue;
       newMultiDimIndexes.push_back(idx);
       newShapeDimIndexes.push_back(dimSize);
     }
@@ -133,23 +132,21 @@ struct DelinearizeOfLinearizeOp : public OpRewritePattern<DelinearizeOp> {
   using OpRewritePattern<DelinearizeOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(DelinearizeOp op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     if (!op.shapeDimIndexes().size()) {
       return failure();
     }
 
     auto linearizeOp =
         dyn_cast_or_null<LinearizeOp>(op.linearIndex().getDefiningOp());
-    if (!linearizeOp)
-      return failure();
+    if (!linearizeOp) return failure();
 
     if (linearizeOp.shapeDimIndexes().size() != op.shapeDimIndexes().size())
       return failure();
 
-    for (auto &&z :
+    for (auto&& z :
          llvm::zip(linearizeOp.shapeDimIndexes(), op.shapeDimIndexes())) {
-      if (std::get<0>(z) != std::get<1>(z))
-        return failure();
+      if (std::get<0>(z) != std::get<1>(z)) return failure();
     }
 
     rewriter.replaceOp(op, linearizeOp.multiDimIndexes());
@@ -168,7 +165,7 @@ struct RemoveSizeOneDimOfDelinearizeOp
   using OpRewritePattern<DelinearizeOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(DelinearizeOp op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     if (!op.shapeDimIndexes().size()) {
       return failure();
     }
@@ -213,24 +210,22 @@ struct IdentityTieShapeOp : public OpRewritePattern<TieShapeOp> {
   using OpRewritePattern<TieShapeOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(TieShapeOp op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     Value operand = op.value();
     auto operandTy = operand.getType().dyn_cast<RankedTensorType>();
-    if (!operandTy)
-      return failure();
+    if (!operandTy) return failure();
 
     // disc_shape.tie_shape(%0, %d0, %d1, ...), where
     //   %d0 = tensor.dim %0, %c0, or %d0 is a constant
     //   %d1 = tensor.dim %0, %c1, or %d1 is a constant
     bool allDimMatch = true;
-    for (auto &en : llvm::enumerate(
+    for (auto& en : llvm::enumerate(
              llvm::zip(operandTy.getShape(), op.shapeDimIndexes()))) {
       int64_t idx = en.index();
       int64_t staticDim = std::get<0>(en.value());
       Value dynamicDim = std::get<1>(en.value());
       // Skip static known dimension.
-      if (staticDim != ShapedType::kDynamicSize)
-        continue;
+      if (staticDim != ShapedType::kDynamicSize) continue;
 
       auto dimOp = dyn_cast_or_null<tensor::DimOp>(dynamicDim.getDefiningOp());
       if (!dimOp || dimOp.source() != operand) {
@@ -244,18 +239,17 @@ struct IdentityTieShapeOp : public OpRewritePattern<TieShapeOp> {
         break;
       }
     }
-    if (!allDimMatch)
-      return failure();
+    if (!allDimMatch) return failure();
 
     rewriter.replaceOp(op, {operand});
     return success();
   }
 };
 
-} // namespace
+}  // namespace
 
-void LinearizeOp::getCanonicalizationPatterns(OwningRewritePatternList &results,
-                                              MLIRContext *context) {
+void LinearizeOp::getCanonicalizationPatterns(OwningRewritePatternList& results,
+                                              MLIRContext* context) {
   // clang-format off
   results.insert<
     LinearizeOfDelinearizeOp,
@@ -265,7 +259,7 @@ void LinearizeOp::getCanonicalizationPatterns(OwningRewritePatternList &results,
 }
 
 void DelinearizeOp::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
+    OwningRewritePatternList& results, MLIRContext* context) {
   // clang-format off
   results.insert<
     DelinearizeOfLinearizeOp,
@@ -274,13 +268,13 @@ void DelinearizeOp::getCanonicalizationPatterns(
   // clang-format on
 }
 
-void TieShapeOp::getCanonicalizationPatterns(OwningRewritePatternList &results,
-                                             MLIRContext *context) {
+void TieShapeOp::getCanonicalizationPatterns(OwningRewritePatternList& results,
+                                             MLIRContext* context) {
   results.insert<IdentityTieShapeOp>(context);
 }
 
-} // namespace disc_shape
-} // namespace mlir
+}  // namespace disc_shape
+}  // namespace mlir
 
 #define GET_OP_CLASSES
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.cc.inc"

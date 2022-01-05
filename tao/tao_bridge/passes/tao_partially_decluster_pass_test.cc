@@ -66,25 +66,25 @@ REGISTER_OP("Shape")
     .Attr("out_type: {int32, int64} = DT_INT32");
 
 class FakeSinkOp : public OpKernel {
-public:
-  explicit FakeSinkOp(OpKernelConstruction *context) : OpKernel(context) {}
+ public:
+  explicit FakeSinkOp(OpKernelConstruction* context) : OpKernel(context) {}
 
-  void Compute(OpKernelContext *ctx) override { CHECK(false); }
+  void Compute(OpKernelContext* ctx) override { CHECK(false); }
 };
 
 class FakeBinaryOp : public OpKernel {
-public:
-  explicit FakeBinaryOp(OpKernelConstruction *context) : OpKernel(context) {}
+ public:
+  explicit FakeBinaryOp(OpKernelConstruction* context) : OpKernel(context) {}
 
-  void Compute(OpKernelContext *ctx) override { CHECK(false); }
+  void Compute(OpKernelContext* ctx) override { CHECK(false); }
 };
 
 class FakeResourceUpdateOp : public OpKernel {
-public:
-  explicit FakeResourceUpdateOp(OpKernelConstruction *context)
+ public:
+  explicit FakeResourceUpdateOp(OpKernelConstruction* context)
       : OpKernel(context) {}
 
-  void Compute(OpKernelContext *ctx) override { CHECK(false); }
+  void Compute(OpKernelContext* ctx) override { CHECK(false); }
 };
 
 REGISTER_KERNEL_BUILDER(Name("FakeSink").Device(DEVICE_CPU), FakeSinkOp);
@@ -99,11 +99,11 @@ REGISTER_KERNEL_BUILDER(
     Name("FakeResourceUpdate").Device(DEVICE_CPU).HostMemory("something_else"),
     FakeResourceUpdateOp);
 
-Status PartiallyDecluster(std::unique_ptr<Graph> *graph) {
+Status PartiallyDecluster(std::unique_ptr<Graph>* graph) {
   FixupSourceAndSinkEdges(graph->get());
   // Assign all nodes to the CPU device.
-  static const char *kCpuDevice = "/job:localhost/replica:0/task:0/cpu:0";
-  for (Node *n : (*graph)->nodes()) {
+  static const char* kCpuDevice = "/job:localhost/replica:0/task:0/cpu:0";
+  for (Node* n : (*graph)->nodes()) {
     if (n->assigned_device_name().empty()) {
       n->set_assigned_device_name(kCpuDevice);
     }
@@ -115,8 +115,8 @@ Status PartiallyDecluster(std::unique_ptr<Graph> *graph) {
   return pass.Run(opt_options);
 }
 
-Node *FindNodeByName(const Graph &graph, const string &name) {
-  for (Node *node : graph.nodes()) {
+Node* FindNodeByName(const Graph& graph, const string& name) {
+  for (Node* node : graph.nodes()) {
     if (node->name() == name) {
       return node;
     }
@@ -124,13 +124,13 @@ Node *FindNodeByName(const Graph &graph, const string &name) {
   return nullptr;
 }
 
-bool GetInputsForNode(const Graph &graph, const string &node_name,
-                      std::vector<Node *> *inputs) {
-  const Node *node = FindNodeByName(graph, node_name);
+bool GetInputsForNode(const Graph& graph, const string& node_name,
+                      std::vector<Node*>* inputs) {
+  const Node* node = FindNodeByName(graph, node_name);
   if (node == nullptr) {
     return false;
   }
-  for (const Edge *e : node->in_edges()) {
+  for (const Edge* e : node->in_edges()) {
     inputs->push_back(e->src());
   }
   std::sort(inputs->begin(), inputs->end(), NodeComparatorName());
@@ -141,14 +141,14 @@ TEST(PartiallyDeclusterPassTest, ClusteredAndUnclustered) {
   std::unique_ptr<Graph> graph(new Graph(OpRegistry::Global()));
   {
     GraphDefBuilder builder(GraphDefBuilder::kFailImmediately);
-    Node *input =
+    Node* input =
         ops::SourceOp("FakeNullary", builder.opts().WithName("Input"));
-    Node *clustered_producer =
+    Node* clustered_producer =
         ops::BinaryOp("FakeBinary", input, input,
                       builder.opts().WithName("ClusteredProducer"));
     ops::BinaryOp("FakeBinary", clustered_producer, input,
                   builder.opts().WithName("UnclusteredConsumer"));
-    Node *clustered_consumer =
+    Node* clustered_consumer =
         ops::BinaryOp("FakeBinary", {clustered_producer, 1}, input,
                       builder.opts().WithName("ClusteredConsumer"));
     clustered_producer->AddAttr(kXlaClusterAttr, "cluster_0");
@@ -157,7 +157,7 @@ TEST(PartiallyDeclusterPassTest, ClusteredAndUnclustered) {
   }
 
   TF_ASSERT_OK(PartiallyDecluster(&graph));
-  std::vector<Node *> unclustered_consumer_inputs;
+  std::vector<Node*> unclustered_consumer_inputs;
   ASSERT_TRUE(GetInputsForNode(*graph, "UnclusteredConsumer",
                                &unclustered_consumer_inputs));
   ASSERT_EQ(unclustered_consumer_inputs.size(), 2);
@@ -165,7 +165,7 @@ TEST(PartiallyDeclusterPassTest, ClusteredAndUnclustered) {
             "ClusteredProducer/declustered");
   EXPECT_EQ(unclustered_consumer_inputs[1]->name(), "Input");
 
-  std::vector<Node *> clustered_consumer_inputs;
+  std::vector<Node*> clustered_consumer_inputs;
   ASSERT_TRUE(GetInputsForNode(*graph, "ClusteredConsumer",
                                &clustered_consumer_inputs));
   ASSERT_EQ(clustered_consumer_inputs.size(), 2);
@@ -177,15 +177,15 @@ TEST(PartiallyDeclusterPassTest, DifferentClusters) {
   std::unique_ptr<Graph> graph(new Graph(OpRegistry::Global()));
   {
     GraphDefBuilder builder(GraphDefBuilder::kFailImmediately);
-    Node *input =
+    Node* input =
         ops::SourceOp("FakeNullary", builder.opts().WithName("Input"));
-    Node *clustered_producer =
+    Node* clustered_producer =
         ops::BinaryOp("FakeBinary", input, input,
                       builder.opts().WithName("ClusteredProducer"));
-    Node *consumer_in_different_cluster =
+    Node* consumer_in_different_cluster =
         ops::BinaryOp("FakeBinary", clustered_producer, input,
                       builder.opts().WithName("ConsumerInDifferentCluster"));
-    Node *clustered_consumer =
+    Node* clustered_consumer =
         ops::BinaryOp("FakeBinary", input, {clustered_producer, 1},
                       builder.opts().WithName("ClusteredConsumer"));
     clustered_producer->AddAttr(kXlaClusterAttr, "cluster_0");
@@ -195,7 +195,7 @@ TEST(PartiallyDeclusterPassTest, DifferentClusters) {
   }
 
   TF_ASSERT_OK(PartiallyDecluster(&graph));
-  std::vector<Node *> inputs;
+  std::vector<Node*> inputs;
   ASSERT_TRUE(GetInputsForNode(*graph, "ConsumerInDifferentCluster", &inputs));
   ASSERT_EQ(inputs.size(), 2);
   EXPECT_EQ(inputs[0]->name(), "ClusteredProducer/declustered");
@@ -206,16 +206,16 @@ TEST(PartiallyDeclusterPassTest, DontDeclusterIfUserIsDeviceMem) {
   std::unique_ptr<Graph> graph(new Graph(OpRegistry::Global()));
   {
     GraphDefBuilder builder(GraphDefBuilder::kFailImmediately);
-    Node *input =
+    Node* input =
         ops::SourceOp("FakeNullary", builder.opts().WithName("Input"));
-    Node *clustered_producer =
+    Node* clustered_producer =
         ops::BinaryOp("FakeBinary", input, input,
                       builder.opts().WithName("ClusteredProducer"));
     // The first input is hostmem and the second input is devicemem.
-    Node *consumer_in_different_cluster =
+    Node* consumer_in_different_cluster =
         ops::BinaryOp("FakeBinary", input, clustered_producer,
                       builder.opts().WithName("ConsumerInDifferentCluster"));
-    Node *clustered_consumer =
+    Node* clustered_consumer =
         ops::BinaryOp("FakeBinary", input, {clustered_producer, 1},
                       builder.opts().WithName("ClusteredConsumer"));
     clustered_producer->AddAttr(kXlaClusterAttr, "cluster_0");
@@ -225,7 +225,7 @@ TEST(PartiallyDeclusterPassTest, DontDeclusterIfUserIsDeviceMem) {
   }
 
   TF_ASSERT_OK(PartiallyDecluster(&graph));
-  std::vector<Node *> inputs;
+  std::vector<Node*> inputs;
   ASSERT_TRUE(GetInputsForNode(*graph, "ConsumerInDifferentCluster", &inputs));
   ASSERT_EQ(inputs.size(), 2);
   EXPECT_EQ(inputs[0]->name(), "ClusteredProducer");
@@ -236,17 +236,17 @@ TEST(PartiallyDeclusterPassTest, DontDuplicateResourceVarOps) {
   std::unique_ptr<Graph> graph(new Graph(OpRegistry::Global()));
   {
     GraphDefBuilder builder(GraphDefBuilder::kFailImmediately);
-    Node *input =
+    Node* input =
         ops::SourceOp("FakeNullary", builder.opts().WithName("Input"));
-    Node *resource_var = ops::SourceOp("FakeResourceVar",
+    Node* resource_var = ops::SourceOp("FakeResourceVar",
                                        builder.opts().WithName("ResourceVar"));
-    Node *clustered_producer =
+    Node* clustered_producer =
         ops::UnaryOp("FakeResourceUpdate", resource_var,
                      builder.opts().WithName("ClusteredProducer"));
-    Node *consumer_in_different_cluster =
+    Node* consumer_in_different_cluster =
         ops::BinaryOp("FakeBinary", {clustered_producer, 1}, input,
                       builder.opts().WithName("ConsumerInDifferentCluster"));
-    Node *clustered_consumer =
+    Node* clustered_consumer =
         ops::BinaryOp("FakeBinary", input, {clustered_producer, 1},
                       builder.opts().WithName("ClusteredConsumer"));
     clustered_producer->AddAttr(kXlaClusterAttr, "cluster_0");
@@ -256,7 +256,7 @@ TEST(PartiallyDeclusterPassTest, DontDuplicateResourceVarOps) {
   }
 
   TF_ASSERT_OK(PartiallyDecluster(&graph));
-  std::vector<Node *> inputs;
+  std::vector<Node*> inputs;
   ASSERT_TRUE(GetInputsForNode(*graph, "ConsumerInDifferentCluster", &inputs));
   ASSERT_EQ(inputs.size(), 2);
   EXPECT_EQ(inputs[0]->name(), "ClusteredProducer");
@@ -267,17 +267,17 @@ TEST(PartiallyDeclusterPassTest, DeclusterDependentNodes) {
   std::unique_ptr<Graph> graph(new Graph(OpRegistry::Global()));
   {
     GraphDefBuilder builder(GraphDefBuilder::kFailImmediately);
-    Node *input =
+    Node* input =
         ops::SourceOp("FakeNullary", builder.opts().WithName("Input"));
-    Node *clustered_producer_0 =
+    Node* clustered_producer_0 =
         ops::BinaryOp("FakeBinary", input, input,
                       builder.opts().WithName("ClusteredProducer0"));
-    Node *clustered_producer_1 =
+    Node* clustered_producer_1 =
         ops::BinaryOp("FakeBinary", clustered_producer_0, input,
                       builder.opts().WithName("ClusteredProducer1"));
     ops::BinaryOp("FakeBinary", clustered_producer_1, input,
                   builder.opts().WithName("UnclusteredConsumer"));
-    Node *clustered_consumer =
+    Node* clustered_consumer =
         ops::BinaryOp("FakeBinary", {clustered_producer_1, 1}, input,
                       builder.opts().WithName("ClusteredConsumer"));
     clustered_producer_0->AddAttr(kXlaClusterAttr, "cluster_0");
@@ -287,8 +287,7 @@ TEST(PartiallyDeclusterPassTest, DeclusterDependentNodes) {
   }
 
   TF_ASSERT_OK(PartiallyDecluster(&graph));
-  std::vector<Node *> unclustered_consumer_inputs,
-      declustered_producer_1_inputs;
+  std::vector<Node*> unclustered_consumer_inputs, declustered_producer_1_inputs;
 
   ASSERT_TRUE(GetInputsForNode(*graph, "UnclusteredConsumer",
                                &unclustered_consumer_inputs));
@@ -305,9 +304,9 @@ TEST(PartiallyDeclusterPassTest, DeclusterDependentNodes) {
   EXPECT_EQ(declustered_producer_1_inputs[1]->name(), "Input");
 }
 
-void AddToCluster(absl::Span<Node *const> nodes,
+void AddToCluster(absl::Span<Node* const> nodes,
                   absl::string_view cluster_name) {
-  for (Node *n : nodes) {
+  for (Node* n : nodes) {
     n->AddAttr(kXlaClusterAttr, string(cluster_name));
   }
 }
@@ -316,17 +315,17 @@ TEST(PartiallyDeclusterPassTest, DontDeclusterForShape) {
   std::unique_ptr<Graph> graph(new Graph(OpRegistry::Global()));
   {
     GraphDefBuilder builder(GraphDefBuilder::kFailImmediately);
-    Node *input =
+    Node* input =
         ops::SourceOp("FakeNullary", builder.opts().WithName("Input"));
-    Node *clustered_shape = ops::UnaryOp(
+    Node* clustered_shape = ops::UnaryOp(
         "Shape", input,
         builder.opts().WithName("InputShape").WithAttr("T", DT_FLOAT));
     // The first input is hostmem and the second input is devicemem.
-    Node *clustered_consumer =
+    Node* clustered_consumer =
         ops::BinaryOp("FakeBinary", input, input,
                       builder.opts().WithName("ClusteredConsumer"));
 
-    Node *clustered_consumer_1 =
+    Node* clustered_consumer_1 =
         ops::UnaryOp("FakeSink", clustered_shape,
                      builder.opts().WithName("ClusteredConsumer_1"));
 
@@ -335,10 +334,10 @@ TEST(PartiallyDeclusterPassTest, DontDeclusterForShape) {
     clustered_consumer_1->AddAttr(kXlaClusterAttr, "cluster_0");
     TF_EXPECT_OK(GraphDefBuilderToGraph(builder, graph.get()));
   }
-  Node *shape = FindNodeByName(*graph, "InputShape");
+  Node* shape = FindNodeByName(*graph, "InputShape");
   EXPECT_EQ(GetXlaClusterForNode(*shape), "cluster_0");
   TF_ASSERT_OK(PartiallyDecluster(&graph));
-  std::vector<Node *> clustered_consumer_inputs;
+  std::vector<Node*> clustered_consumer_inputs;
 
   ASSERT_TRUE(GetInputsForNode(*graph, "ClusteredConsumer_1",
                                &clustered_consumer_inputs));
@@ -475,6 +474,6 @@ TEST(PartiallyDeclusterPassTest, DontDeclusterForShape) {
 //   }
 // }
 
-} // namespace
-} // namespace tao
-} // namespace tensorflow
+}  // namespace
+}  // namespace tao
+}  // namespace tensorflow

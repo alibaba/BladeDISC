@@ -15,17 +15,17 @@ limitations under the License.
 
 // This file canonicalize conv ops in hlo dialect to match the
 // format of CUDNN library call.
+#include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"            // TF:llvm-project
-#include "mlir/IR/Attributes.h"                         // TF:llvm-project
-#include "mlir/IR/Location.h"                           // TF:llvm-project
-#include "mlir/IR/MLIRContext.h"                        // TF:llvm-project
-#include "mlir/IR/Operation.h"                          // TF:llvm-project
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h" // from @llvm-project
-#include "mlir/Transforms/Passes.h"                     // TF:llvm-project
+#include "mlir/Dialect/StandardOps/IR/Ops.h"             // TF:llvm-project
+#include "mlir/IR/Attributes.h"                          // TF:llvm-project
+#include "mlir/IR/Location.h"                            // TF:llvm-project
+#include "mlir/IR/MLIRContext.h"                         // TF:llvm-project
+#include "mlir/IR/Operation.h"                           // TF:llvm-project
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // from @llvm-project
+#include "mlir/Transforms/Passes.h"                      // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "transforms/PassDetail.h"
-#include "llvm/Support/Debug.h"
 
 #define DEBUG_TYPE "conv-rewriter"
 
@@ -34,9 +34,8 @@ namespace disc_ral {
 
 namespace {
 
-inline DenseIntElementsAttr
-ConvertIntVecToDenseIntElementsAttr(llvm::ArrayRef<int64_t> op_dimensions,
-                                    PatternRewriter &rewriter) {
+inline DenseIntElementsAttr ConvertIntVecToDenseIntElementsAttr(
+    llvm::ArrayRef<int64_t> op_dimensions, PatternRewriter& rewriter) {
   return DenseIntElementsAttr::get(
       RankedTensorType::get(op_dimensions.size(), rewriter.getIntegerType(64)),
       op_dimensions);
@@ -46,7 +45,7 @@ struct ConvToDynamicConvConvert : public OpRewritePattern<mhlo::ConvOp> {
   using OpRewritePattern<mhlo::ConvOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(mhlo::ConvOp op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     Location loc = op.getLoc();
     Value input = op.lhs();
     Value filter = op.rhs();
@@ -78,8 +77,7 @@ struct ConvToDynamicConvConvert : public OpRewritePattern<mhlo::ConvOp> {
 
     SmallVector<Value, 4> newOperands = {input, filter, paddingTensor};
 
-    if (op->getAttr("padding"))
-      op->removeAttr("padding");
+    if (op->getAttr("padding")) op->removeAttr("padding");
 
     Value dynamicConv = rewriter.replaceOpWithNewOp<mhlo::DynamicConvOp>(
         op, op.getType(), newOperands, op->getAttrs());
@@ -113,10 +111,9 @@ struct DiscConvRewriterPass
   Value padding;
   Value output;
 
-  RankedTensorType
-  GetTransposeOutputType(Value value,
-                         const SmallVectorImpl<int64_t> &transpose_permutation,
-                         OpBuilder &b) {
+  RankedTensorType GetTransposeOutputType(
+      Value value, const SmallVectorImpl<int64_t>& transpose_permutation,
+      OpBuilder& b) {
     // Compute the resulting shape.
     llvm::SmallVector<int64_t, 4> transposed_shape;
     ShapedType input_type = value.getType().cast<ShapedType>();
@@ -127,10 +124,9 @@ struct DiscConvRewriterPass
     return RankedTensorType::get(transposed_shape, input_type.getElementType());
   }
 
-  Operation *
-  InsertTranspose(mhlo::DynamicConvOp op, Value value,
-                  const SmallVectorImpl<int64_t> &transpose_permutation,
-                  OpBuilder &b) {
+  Operation* InsertTranspose(
+      mhlo::DynamicConvOp op, Value value,
+      const SmallVectorImpl<int64_t>& transpose_permutation, OpBuilder& b) {
     auto transpose_permutation_attr =
         GetI64ElementsAttr(transpose_permutation, &b);
 
@@ -304,7 +300,7 @@ struct DiscConvRewriterPass
 
   LogicalResult convToDynamicConv() {
     FuncOp func = getFunction();
-    MLIRContext *ctx = func.getContext();
+    MLIRContext* ctx = func.getContext();
     OwningRewritePatternList patterns(ctx);
     patterns.insert<ConvToDynamicConvConvert>(ctx);
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
@@ -326,17 +322,17 @@ struct DiscConvRewriterPass
     // TODO(disc): We rewrite each conv op seperately, thus may lead to
     // unnecessary transpose ops. We may implement another layout optimize pass
     // in case necessary.
-    for (auto &op : ops) {
+    for (auto& op : ops) {
       RewriteOp(op);
     }
   }
 };
 
-} // namespace
+}  // namespace
 
 std::unique_ptr<OperationPass<FuncOp>> createDiscConvRewriter() {
   return std::make_unique<DiscConvRewriterPass>();
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

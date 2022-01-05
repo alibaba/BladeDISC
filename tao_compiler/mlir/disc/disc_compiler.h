@@ -18,7 +18,7 @@ limitations under the License.
 
 #include <string>
 
-#include "mlir/IR/BuiltinOps.h" // from @llvm-project
+#include "mlir/IR/BuiltinOps.h"  // from @llvm-project
 #include "tensorflow/core/platform/status.h"
 
 namespace mlir {
@@ -70,10 +70,11 @@ struct CpuLoweringOptions {
 };
 
 struct DISCLoweringOptions {
-  DISCLoweringOptions(const std::string &output_file_name,
+  DISCLoweringOptions(const std::string& output_file_name,
                       CodeGenMode mode = kGpuCentric)
       : output_file_name(output_file_name),
-        metadata_file_path(output_file_name + ".pbtxt"), mode(mode) {}
+        metadata_file_path(output_file_name + ".pbtxt"),
+        mode(mode) {}
   std::string output_file_name;
   std::string metadata_file_path;
   CodeGenMode mode;
@@ -82,24 +83,24 @@ struct DISCLoweringOptions {
   CpuLoweringOptions cpu_options;
 };
 
-LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions &options);
+LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options);
 
-LogicalResult LowerLLVMToBinary(ModuleOp m, const DISCLoweringOptions &options,
-                                std::string &out);
+LogicalResult LowerLLVMToBinary(ModuleOp m, const DISCLoweringOptions& options,
+                                std::string& out);
 
-LogicalResult BinaryStrToSharedLibrary(const DISCLoweringOptions &options,
-                                       const std::string &binary);
+LogicalResult BinaryStrToSharedLibrary(const DISCLoweringOptions& options,
+                                       const std::string& binary);
 
 LogicalResult LowerHLOToSharedLibrary(ModuleOp m,
-                                      const DISCLoweringOptions &options);
+                                      const DISCLoweringOptions& options);
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir
 
 namespace tensorflow {
 
 Status ConvertTF2MlirHlo(mlir::ModuleOp module_op);
 
-} // namespace tensorflow
+}  // namespace tensorflow
 
-#endif // DISC_DISC_COMPILER_H_
+#endif  // DISC_DISC_COMPILER_H_

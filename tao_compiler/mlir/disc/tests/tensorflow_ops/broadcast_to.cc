@@ -57,4 +57,4 @@ TEST(TFBroadcastOpTest, PartialShape2DF32) {
       /*input_vals*/ {{}, {20, 30, 4}}));
 }
 
-} // namespace mlir_test
+}  // namespace mlir_test

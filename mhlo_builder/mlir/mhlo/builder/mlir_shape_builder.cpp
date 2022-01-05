@@ -23,9 +23,9 @@
 namespace mlir {
 namespace mhlo {
 
-mlir::Value BuildHloDimSizeOfTensor(mlir::OpBuilder &builder,
-                                    const mlir::Location &loc,
-                                    const mlir::Value &tensor,
+mlir::Value BuildHloDimSizeOfTensor(mlir::OpBuilder& builder,
+                                    const mlir::Location& loc,
+                                    const mlir::Value& tensor,
                                     mlir_dim_t dim_index) {
   auto ranked_type = GetMilrRankedTensorType(tensor);
   auto rank = ranked_type.getRank();
@@ -40,10 +40,10 @@ mlir::Value BuildHloDimSizeOfTensor(mlir::OpBuilder &builder,
   }
 }
 
-SmallValueVec4 BuildDimSizeListOfTensor(mlir::OpBuilder &builder,
-                                        const mlir::Location &loc,
-                                        const mlir::Value &tensor,
-                                        const SmallVec4<mlir_dim_t> &dims) {
+SmallValueVec4 BuildDimSizeListOfTensor(mlir::OpBuilder& builder,
+                                        const mlir::Location& loc,
+                                        const mlir::Value& tensor,
+                                        const SmallVec4<mlir_dim_t>& dims) {
   auto rank = GetRankOfMlirValue(tensor);
   auto norm_dims =
       dims.size() ? NormalizeDimIndex(dims, rank) : RangeIndices(0, rank);
@@ -57,9 +57,9 @@ SmallValueVec4 BuildDimSizeListOfTensor(mlir::OpBuilder &builder,
   return shape_values;
 }
 
-mlir::Value BuildShapeOfTensor(mlir::OpBuilder &builder,
-                               const mlir::Location &loc,
-                               const mlir::Value &tensor) {
+mlir::Value BuildShapeOfTensor(mlir::OpBuilder& builder,
+                               const mlir::Location& loc,
+                               const mlir::Value& tensor) {
   auto shape_values = BuildDimSizeListOfTensor(builder, loc, tensor);
   int rank = GetRankOfMlirValue(tensor);
 
@@ -68,10 +68,10 @@ mlir::Value BuildShapeOfTensor(mlir::OpBuilder &builder,
   return shape;
 }
 
-mlir::Value BuildDynamicReshapeTensor(mlir::OpBuilder &builder,
-                                      const mlir::Location &loc,
-                                      const mlir::Value &tensor,
-                                      const SmallValueVec4 &new_shape_vals) {
+mlir::Value BuildDynamicReshapeTensor(mlir::OpBuilder& builder,
+                                      const mlir::Location& loc,
+                                      const mlir::Value& tensor,
+                                      const SmallValueVec4& new_shape_vals) {
   // create mhlo::DynamicReshapeOp
   int new_rank = new_shape_vals.size();
   mlir::Value shape = builder.create<mlir::tensor::FromElementsOp>(
@@ -85,10 +85,9 @@ mlir::Value BuildDynamicReshapeTensor(mlir::OpBuilder &builder,
                                                       shape);
 }
 
-mlir::Value
-BuildUnsqueezeTensorShape(mlir::OpBuilder &builder, const mlir::Location &loc,
-                          const mlir::Value &tensor,
-                          const SmallVec4<mlir_dim_t> &input_unsqz_dims) {
+mlir::Value BuildUnsqueezeTensorShape(
+    mlir::OpBuilder& builder, const mlir::Location& loc,
+    const mlir::Value& tensor, const SmallVec4<mlir_dim_t>& input_unsqz_dims) {
   // Returns a new tensor with dims of size 1 inserted at the specified
   // position.
   //
@@ -122,10 +121,10 @@ BuildUnsqueezeTensorShape(mlir::OpBuilder &builder, const mlir::Location &loc,
   return BuildDynamicReshapeTensor(builder, loc, tensor, new_shape_vals);
 }
 
-mlir::Value BuildSqueezeTensorShape(mlir::OpBuilder &builder,
-                                    const mlir::Location &loc,
-                                    const mlir::Value &tensor,
-                                    const SmallVec4<mlir_dim_t> &sqz_dims) {
+mlir::Value BuildSqueezeTensorShape(mlir::OpBuilder& builder,
+                                    const mlir::Location& loc,
+                                    const mlir::Value& tensor,
+                                    const SmallVec4<mlir_dim_t>& sqz_dims) {
   auto tensor_ranked_type = GetMilrRankedTensorType(tensor);
   int rank = tensor_ranked_type.getRank();
   auto norm_sqz_dims = NormalizeDimIndex(sqz_dims, rank);
@@ -154,10 +153,9 @@ mlir::Value BuildSqueezeTensorShape(mlir::OpBuilder &builder,
   return BuildDynamicReshapeTensor(builder, loc, tensor, new_shape_vals);
 }
 
-std::tuple<mlir::Value, SmallValueVec4>
-BuildCollapseTensorShape(mlir::OpBuilder &builder, const mlir::Location &loc,
-                         const mlir::Value &tensor,
-                         const SmallVec4<mlir_dim_t> &inp_clap_dims) {
+std::tuple<mlir::Value, SmallValueVec4> BuildCollapseTensorShape(
+    mlir::OpBuilder& builder, const mlir::Location& loc,
+    const mlir::Value& tensor, const SmallVec4<mlir_dim_t>& inp_clap_dims) {
   // Ref to XLA:Collapse:
   // https://www.tensorflow.org/xla/operation_semantics#collapse However we use
   // high to low dimension indices.
@@ -221,8 +219,8 @@ BuildCollapseTensorShape(mlir::OpBuilder &builder, const mlir::Location &loc,
 }
 
 mlir::Value BuildExpandTensorShapeWithDhloDims(
-    mlir::OpBuilder &builder, const mlir::Location &loc,
-    const mlir::Value &tensor, const SmallValueVec4 &expand_dims,
+    mlir::OpBuilder& builder, const mlir::Location& loc,
+    const mlir::Value& tensor, const SmallValueVec4& expand_dims,
     mlir_dim_t expand_pos) {
   if (expand_dims.size() == 0) {
     return tensor;
@@ -245,9 +243,9 @@ mlir::Value BuildExpandTensorShapeWithDhloDims(
   return BuildDynamicReshapeTensor(builder, loc, tensor, new_shape);
 }
 
-mlir::Value BuildFromElements(mlir::OpBuilder &builder,
-                              const mlir::Location &loc,
-                              const SmallValueVec4 &values) {
+mlir::Value BuildFromElements(mlir::OpBuilder& builder,
+                              const mlir::Location& loc,
+                              const SmallValueVec4& values) {
   auto mhlo_dim_type = BuildMHloDimType(builder);
   mlir_dim_t len = static_cast<mlir_dim_t>(values.size());
   mlir::Value shape =
@@ -255,9 +253,9 @@ mlir::Value BuildFromElements(mlir::OpBuilder &builder,
   return shape;
 }
 
-mlir::Value BuildFromElements(mlir::OpBuilder &builder,
-                              const mlir::Location &loc,
-                              const mlir::Value &scalar) {
+mlir::Value BuildFromElements(mlir::OpBuilder& builder,
+                              const mlir::Location& loc,
+                              const mlir::Value& scalar) {
   auto mhlo_dim_type = BuildMHloDimType(builder);
   // mlir::tensor::FromElementsOp doesn't support creation of rank
   // 0 tensor. To workaround, we first make an rank 1 tensor, then reshape to
@@ -268,9 +266,9 @@ mlir::Value BuildFromElements(mlir::OpBuilder &builder,
   return shape;
 }
 
-mlir::Value BuildPermute(mlir::OpBuilder &builder, const mlir::Location &loc,
-                         const mlir::Value &input,
-                         const SmallVec4<mlir_dim_t> &trans_dim_vec) {
+mlir::Value BuildPermute(mlir::OpBuilder& builder, const mlir::Location& loc,
+                         const mlir::Value& input,
+                         const SmallVec4<mlir_dim_t>& trans_dim_vec) {
   auto permutation_attr = BuildI64ElementsAttr(builder, trans_dim_vec);
   auto input_ranked_type = GetMilrRankedTensorType(input);
   SmallVec4<mlir_dim_t> ranked_shape(input_ranked_type.getRank(),
@@ -281,5 +279,5 @@ mlir::Value BuildPermute(mlir::OpBuilder &builder, const mlir::Location &loc,
       loc, mlir_tensor_type, input, permutation_attr);
   return result.getResult();
 }
-} // namespace mhlo
-} // namespace mlir
+}  // namespace mhlo
+}  // namespace mlir

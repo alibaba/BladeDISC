@@ -83,4 +83,4 @@ TEST(TFReshapeOpTest, MinusOneDynamicShape2DF32Test2) {
 
 // TODO(disc): testing empty tensor reshape.
 
-} // namespace mlir_test
+}  // namespace mlir_test

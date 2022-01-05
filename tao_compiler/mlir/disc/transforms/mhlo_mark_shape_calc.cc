@@ -9,17 +9,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h" // TF:llvm-project
-#include "mlir/IR/MLIRContext.h"             // TF:llvm-project
-#include "mlir/Pass/Pass.h"                  // TF:local_config_mlir
-#include "mlir/Transforms/Passes.h"          // TF:llvm-project
-#include "transforms/PassDetail.h"
-#include "transforms/placement_utils.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
+#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
+#include "mlir/IR/MLIRContext.h"              // TF:llvm-project
+#include "mlir/Pass/Pass.h"                   // TF:local_config_mlir
+#include "mlir/Transforms/Passes.h"           // TF:llvm-project
+#include "transforms/PassDetail.h"
+#include "transforms/placement_utils.h"
 
 namespace mlir {
 
@@ -39,24 +39,24 @@ namespace {
 //  - GetDimensionSizeOp
 struct DiscMarkShapeCalc
     : public DiscMarkShapeCalculationPassBase<DiscMarkShapeCalc> {
-public:
+ public:
   using DiscMarkShapeCalculationPassBase<
       DiscMarkShapeCalc>::DiscMarkShapeCalculationPassBase;
 
   void runOnOperation() override;
 
-private:
+ private:
   // Mark shape calculation subgraph
   void MarkShapeCalcOps();
 
   // Update marked set.
   // Add some operands of dynamic shape OPs into marked set according to lookup
   // table.
-  void markShapeCalculationOps(FuncOp func, DenseSet<Operation *> &marked_ops);
+  void markShapeCalculationOps(FuncOp func, DenseSet<Operation*>& marked_ops);
 
   // Update marked set.
   // If a OP is in marked set, add all of its operands to marked set.
-  void inferOperands(FuncOp func, llvm::DenseSet<Operation *> &marked_ops);
+  void inferOperands(FuncOp func, llvm::DenseSet<Operation*>& marked_ops);
 };
 
 void DiscMarkShapeCalc::runOnOperation() {
@@ -69,17 +69,16 @@ void DiscMarkShapeCalc::runOnOperation() {
 void DiscMarkShapeCalc::MarkShapeCalcOps() {
   ModuleOp module = getOperation();
   Builder builder(&getContext());
-  llvm::DenseSet<Operation *> shape_calc_ops;
+  llvm::DenseSet<Operation*> shape_calc_ops;
 
   mlir::FuncOp func = module.lookupSymbol<mlir::FuncOp>("main");
-  if (!func)
-    return signalPassFailure();
+  if (!func) return signalPassFailure();
 
   markShapeCalculationOps(func, shape_calc_ops);
 
   inferOperands(func, shape_calc_ops);
 
-  for (Operation *op : shape_calc_ops) {
+  for (Operation* op : shape_calc_ops) {
     // We suppose that mhlo op only has single output, either having tensor
     // type or tuple type.
     if (auto tp = op->getResult(0).getType().dyn_cast<TupleType>()) {
@@ -92,13 +91,12 @@ void DiscMarkShapeCalc::MarkShapeCalcOps() {
 }
 
 void DiscMarkShapeCalc::markShapeCalculationOps(
-    FuncOp func, llvm::DenseSet<Operation *> &marked_ops) {
-  auto &block = func.getBlocks().front();
-  for (Operation &op : block) {
+    FuncOp func, llvm::DenseSet<Operation*>& marked_ops) {
+  auto& block = func.getBlocks().front();
+  for (Operation& op : block) {
     // TODO(disc): If the operand of the op is a nested FuncOp, mark the
     // associated producer in the nested FuncOp
-    if (!placement_utils::isMarkShapeCalcTargetOp(&op))
-      continue;
+    if (!placement_utils::isMarkShapeCalcTargetOp(&op)) continue;
     if (!marked_ops.contains(&op)) {
       // Mark following Ops into shape calculation set
       if (isa<mhlo::GetDimensionSizeOp, tensor::FromElementsOp>(&op)) {
@@ -107,13 +105,12 @@ void DiscMarkShapeCalc::markShapeCalculationOps(
       }
 
       // Mark operands into shape calculation set according to the lookup table.
-      const auto &shape_operand_indices =
+      const auto& shape_operand_indices =
           placement_utils::getShapeCalcOperandList(&op);
 
       for (auto operand_idx : shape_operand_indices) {
         auto operand = op.getOperand(operand_idx).getDefiningOp();
-        if (operand == nullptr)
-          continue;
+        if (operand == nullptr) continue;
         if (!placement_utils::isMarkShapeCalcTargetOp(operand)) {
           continue;
         }
@@ -124,9 +121,9 @@ void DiscMarkShapeCalc::markShapeCalculationOps(
 }
 
 void DiscMarkShapeCalc::inferOperands(FuncOp func,
-                                      llvm::DenseSet<Operation *> &marked_ops) {
-  auto &block = func.getBlocks().front();
-  for (auto &op : llvm::make_early_inc_range(
+                                      llvm::DenseSet<Operation*>& marked_ops) {
+  auto& block = func.getBlocks().front();
+  for (auto& op : llvm::make_early_inc_range(
            llvm::make_range(block.rbegin(), block.rend()))) {
     if (!placement_utils::isMarkShapeCalcTargetOp(&op)) {
       continue;
@@ -135,9 +132,8 @@ void DiscMarkShapeCalc::inferOperands(FuncOp func,
     // operands into shape calculation op set
     if (marked_ops.contains(&op)) {
       for (auto operand_value : op.getOperands()) {
-        Operation *operand = operand_value.getDefiningOp();
-        if (operand == nullptr)
-          continue;
+        Operation* operand = operand_value.getDefiningOp();
+        if (operand == nullptr) continue;
         if (!placement_utils::isMarkShapeCalcTargetOp(operand)) {
           continue;
         }
@@ -150,11 +146,11 @@ void DiscMarkShapeCalc::inferOperands(FuncOp func,
   };
 }
 
-} // namespace
+}  // namespace
 
 std::unique_ptr<OperationPass<ModuleOp>> createDiscMarkShapeCalcOpPass() {
   return std::make_unique<DiscMarkShapeCalc>();
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

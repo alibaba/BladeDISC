@@ -22,6 +22,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/FormatVariadic.h"
 #include "mlir/Conversion/GPUToROCDL/GPUToROCDLPass.h"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "mlir/Conversion/LLVMCommon/LoweringOptions.h"
@@ -44,7 +45,6 @@
 #include "mlir/lib/Conversion/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_lower_gpu_ops_common.h"
-#include "llvm/Support/FormatVariadic.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -66,9 +66,9 @@ struct GPUShuffleOpLowering : public ConvertOpToLLVMPattern<gpu::ShuffleOp> {
   ///     %shfl = rocdl.shfl.sync.bfly %active_mask, %value, %offset,
   ///         %mask_and_clamp : float
   ///
-  LogicalResult
-  matchAndRewrite(gpu::ShuffleOp op, ArrayRef<Value> operands,
-                  ConversionPatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      gpu::ShuffleOp op, ArrayRef<Value> operands,
+      ConversionPatternRewriter& rewriter) const override {
     Location loc = op->getLoc();
     gpu::ShuffleOpAdaptor adaptor(operands);
 
@@ -100,7 +100,7 @@ struct GPUShuffleOpLowering : public ConvertOpToLLVMPattern<gpu::ShuffleOp> {
 /// Import the GPU Ops to ROCDL Patterns.
 #include "GPUToROCDL.cpp.inc"
 
-void configureGpuToROCDLConversionLegality(ConversionTarget &target) {
+void configureGpuToROCDLConversionLegality(ConversionTarget& target) {
   target.addIllegalOp<FuncOp>();
   target.addLegalDialect<::mlir::LLVM::LLVMDialect>();
   target.addLegalDialect<ROCDL::ROCDLDialect>();
@@ -114,8 +114,8 @@ void configureGpuToROCDLConversionLegality(ConversionTarget &target) {
   target.addLegalOp<gpu::YieldOp, gpu::GPUModuleOp, gpu::ModuleEndOp>();
 }
 
-void populateGpuToROCDLConversionPatterns(LLVMTypeConverter &converter,
-                                          RewritePatternSet &patterns) {
+void populateGpuToROCDLConversionPatterns(LLVMTypeConverter& converter,
+                                          RewritePatternSet& patterns) {
   populateWithGenerated(patterns);
   patterns
       .add<GPUIndexIntrinsicOpLowering<gpu::ThreadIdOp, ROCDL::ThreadIdXOp,
@@ -214,12 +214,12 @@ struct DiscLowerGpuOpsToROCDLOpsPass
   }
 };
 
-} // anonymous namespace
+}  // anonymous namespace
 
 std::unique_ptr<OperationPass<gpu::GPUModuleOp>>
 createDiscLowerGpuOpsToROCDLOpsPass(unsigned indexBitwidth) {
   return std::make_unique<DiscLowerGpuOpsToROCDLOpsPass>(indexBitwidth);
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

@@ -11,16 +11,15 @@
 
 #include "placement_utils.h"
 
+#include "llvm/ADT/StringMap.h"
 #include "mlir-hlo/Dialect/mhlo/transforms/map_hlo_to_lhlo_op.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
-#include "llvm/ADT/StringMap.h"
 
 namespace mlir {
 namespace placement_utils {
 
-bool isGpuMhlo(Operation *op) {
-  if (!op)
-    return false;
+bool isGpuMhlo(Operation* op) {
+  if (!op) return false;
   auto attr = op->getAttrOfType<StringAttr>(kDiscPlaceAssignment);
 
   // TODO(disc): OP without placement attribute are supposed to run on gpu ATM.
@@ -41,7 +40,7 @@ using ShapeOperandListMap = DenseMap<TypeID, ShapeOperandList>;
 using CustomCallShapeOperandListMap = llvm::StringMap<ShapeOperandList>;
 
 template <typename HloTy>
-void appendShapeOperandListForHloOp(ShapeOperandListMap &m,
+void appendShapeOperandListForHloOp(ShapeOperandListMap& m,
                                     ShapeOperandList list) {
   m[TypeID::get<HloTy>()] = list;
   using LhloTy = typename mhlo::HloToLhloOp<HloTy>;
@@ -86,7 +85,7 @@ ShapeOperandList getShapeCalcOperandList(TypeID op_type_id) {
   return {};
 }
 
-ShapeOperandList getShapeCalcOperandList(Operation *op) {
+ShapeOperandList getShapeCalcOperandList(Operation* op) {
   if (isa<mhlo_disc::CustomCallOp>(op) || isa<lmhlo_disc::CustomCallOp>(op)) {
     std::string target_name;
     if (isa<mhlo_disc::CustomCallOp>(op)) {
@@ -107,7 +106,7 @@ ShapeOperandList getShapeCalcOperandList(Operation *op) {
 
 LogicalResult parsePlacementAttribute(FuncOp main, bool default_on_gpu,
                                       StringRef attrName, int numAttribute,
-                                      SmallVectorImpl<StringRef> &out) {
+                                      SmallVectorImpl<StringRef>& out) {
   auto dict_attr = main->getAttrOfType<DictionaryAttr>("tf.entry_function");
   if (!dict_attr) {
     main.emitError("entry function must have tf.entry_function attr.");
@@ -153,16 +152,14 @@ LogicalResult parsePlacementAttribute(FuncOp main, bool default_on_gpu,
   return success();
 }
 
-LogicalResult
-parseEntryFunctionInputPlacements(FuncOp main, bool default_on_gpu,
-                                  SmallVectorImpl<StringRef> &out) {
+LogicalResult parseEntryFunctionInputPlacements(
+    FuncOp main, bool default_on_gpu, SmallVectorImpl<StringRef>& out) {
   return parsePlacementAttribute(main, default_on_gpu, kInputPlacementAttr,
                                  main.getNumArguments(), out);
 }
 
-LogicalResult
-parseEntryFunctionOutputPlacements(FuncOp main, bool default_on_gpu,
-                                   SmallVectorImpl<StringRef> &out) {
+LogicalResult parseEntryFunctionOutputPlacements(
+    FuncOp main, bool default_on_gpu, SmallVectorImpl<StringRef>& out) {
   return parsePlacementAttribute(main, default_on_gpu, kOutputPlacementAttr,
                                  main.getNumResults(), out);
 }
@@ -187,9 +184,8 @@ StringRef PlacementToString(PlacementType type) {
   return kConst;
 }
 
-LogicalResult
-parseEntryFunctionInputPlacements(FuncOp main, bool default_on_gpu,
-                                  SmallVectorImpl<PlacementType> &out) {
+LogicalResult parseEntryFunctionInputPlacements(
+    FuncOp main, bool default_on_gpu, SmallVectorImpl<PlacementType>& out) {
   SmallVector<StringRef, 4> str_out;
   if (failed(parseEntryFunctionInputPlacements(main, default_on_gpu, str_out)))
     return failure();
@@ -197,9 +193,8 @@ parseEntryFunctionInputPlacements(FuncOp main, bool default_on_gpu,
   return success();
 }
 
-LogicalResult
-parseEntryFunctionOutputPlacements(FuncOp main, bool default_on_gpu,
-                                   SmallVectorImpl<PlacementType> &out) {
+LogicalResult parseEntryFunctionOutputPlacements(
+    FuncOp main, bool default_on_gpu, SmallVectorImpl<PlacementType>& out) {
   SmallVector<StringRef, 4> str_out;
   if (failed(parseEntryFunctionOutputPlacements(main, default_on_gpu, str_out)))
     return failure();
@@ -207,5 +202,5 @@ parseEntryFunctionOutputPlacements(FuncOp main, bool default_on_gpu,
   return success();
 }
 
-} // namespace placement_utils
-} // namespace mlir
+}  // namespace placement_utils
+}  // namespace mlir

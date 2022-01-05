@@ -30,7 +30,7 @@ namespace tao {
 using se::port::StatusOr;
 
 string TaoCloneConstantsForBetterClusteringPass::GenerateUniqueName(
-    const std::unordered_set<string> &name_set, absl::string_view prefix) {
+    const std::unordered_set<string>& name_set, absl::string_view prefix) {
   string candidate;
   do {
     candidate = absl::StrCat(prefix, "/clone_", unique_name_counter_++);
@@ -38,16 +38,16 @@ string TaoCloneConstantsForBetterClusteringPass::GenerateUniqueName(
   return candidate;
 }
 
-StatusOr<Node *> TaoCloneConstantsForBetterClusteringPass::CloneNode(
-    Graph *g, const std::unordered_set<string> &name_set, Node *n) {
+StatusOr<Node*> TaoCloneConstantsForBetterClusteringPass::CloneNode(
+    Graph* g, const std::unordered_set<string>& name_set, Node* n) {
   NodeDef new_in_def = n->def();
   new_in_def.clear_input();
   new_in_def.set_name(GenerateUniqueName(name_set, new_in_def.name()));
   Status s;
-  Node *new_in = g->AddNode(new_in_def, &s);
+  Node* new_in = g->AddNode(new_in_def, &s);
   TF_RETURN_IF_ERROR(s);
 
-  for (const Edge *e : n->in_edges()) {
+  for (const Edge* e : n->in_edges()) {
     if (e->IsControlEdge()) {
       g->AddControlEdge(e->src(), new_in);
     } else {
@@ -62,7 +62,7 @@ StatusOr<Node *> TaoCloneConstantsForBetterClusteringPass::CloneNode(
 namespace {
 // We only clone host constants for now since we want to avoid increasing memory
 // pressure on GPUs.
-StatusOr<bool> IsSmallHostConstant(Node *n) {
+StatusOr<bool> IsSmallHostConstant(Node* n) {
   if (!n->IsConstant()) {
     return false;
   }
@@ -74,14 +74,14 @@ StatusOr<bool> IsSmallHostConstant(Node *n) {
     return false;
   }
 
-  const TensorProto *proto = nullptr;
+  const TensorProto* proto = nullptr;
   TF_RETURN_IF_ERROR(GetNodeAttr(n->def(), "value", &proto));
 
   // TODO(sanjoy): It may make sense to combine this threshold with XLA's "large
   // constant" threshold, if there is one.
   const int kSmallTensorThreshold = 16;
   int64 total_elements = 1;
-  for (const auto &dim : proto->tensor_shape().dim()) {
+  for (const auto& dim : proto->tensor_shape().dim()) {
     if (dim.size() < 0) {
       return errors::Internal("Unknown dimension size in constant tensor ",
                               n->name());
@@ -95,22 +95,22 @@ bool IsInPlaceOp(absl::string_view op_name) {
   return op_name == "InplaceUpdate" || op_name == "InplaceAdd" ||
          op_name == "InplaceSub";
 }
-} // namespace
+}  // namespace
 
 Status TaoCloneConstantsForBetterClusteringPass::CloneSmallHostConstantInputs(
-    Graph *g, const std::unordered_set<string> &name_set, Node *n) {
-  std::vector<const Edge *> in_edges;
-  for (const Edge *e : n->in_edges()) {
+    Graph* g, const std::unordered_set<string>& name_set, Node* n) {
+  std::vector<const Edge*> in_edges;
+  for (const Edge* e : n->in_edges()) {
     in_edges.push_back(e);
   }
   // absl::c_copy(n->in_edges(), std::back_inserter(in_edges));
-  for (const Edge *e : in_edges) {
-    Node *input = e->src();
+  for (const Edge* e : in_edges) {
+    Node* input = e->src();
     TF_ASSIGN_OR_RETURN(bool is_small_host_constant,
                         IsSmallHostConstant(input));
     if (is_small_host_constant && input->out_edges().size() != 1) {
       VLOG(2) << "Cloning small host constant " << input->name();
-      TF_ASSIGN_OR_RETURN(Node *const input_cloned,
+      TF_ASSIGN_OR_RETURN(Node* const input_cloned,
                           CloneNode(g, name_set, input));
       if (e->IsControlEdge()) {
         g->AddControlEdge(input_cloned, e->dst());
@@ -129,20 +129,20 @@ Status TaoCloneConstantsForBetterClusteringPass::CloneSmallHostConstantInputs(
 }
 
 Status TaoCloneConstantsForBetterClusteringPass::Run(
-    const GraphOptimizationPassOptions &options) {
+    const GraphOptimizationPassOptions& options) {
   if (!use_tvm_) {
     return Status::OK();
   }
 
-  Graph *g = options.graph->get();
+  Graph* g = options.graph->get();
   std::unordered_set<string> name_set;
-  for (Node *n : g->nodes()) {
+  for (Node* n : g->nodes()) {
     name_set.insert(n->name());
   }
   // absl::c_transform(g->nodes(), std::inserter(name_set, name_set.begin()),
   //                [](Node* n) { return n->name(); });
-  std::vector<Node *> nodes;
-  for (Node *n : g->nodes()) {
+  std::vector<Node*> nodes;
+  for (Node* n : g->nodes()) {
     // We rely on the immutability of Tensors to safely clone Const operations.
     // However, "in place" ops do not respect the immutability of Tensors so we
     // avoid this transformation when such ops are present in the graph.
@@ -189,11 +189,11 @@ Status TaoCloneConstantsForBetterClusteringPass::Run(
 
   // Iterate over a copy of the nodes to avoid iterating over g->nodes() while
   // creating more nodes.
-  for (Node *n : nodes) {
+  for (Node* n : nodes) {
     TF_RETURN_IF_ERROR(CloneSmallHostConstantInputs(g, name_set, n));
   }
   return Status::OK();
 }
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

@@ -29,70 +29,71 @@ namespace tao {
 class GpuTFProfiler;
 class CpuTFProfiler;
 
-template <typename T = GpuTFProfiler> class TFProfiler {
-public:
+template <typename T = GpuTFProfiler>
+class TFProfiler {
+ public:
   using Callback = std::function<void(Status, int64, int64)>;
   TFProfiler(Callback cb) : cb_(std::move(cb)) {}
 
-  Status Start(OpKernelContext *ctx) {
-    return static_cast<T *>(this)->Start(ctx);
+  Status Start(OpKernelContext* ctx) {
+    return static_cast<T*>(this)->Start(ctx);
   }
 
-  Status RecordComputationStart(OpKernelContext *ctx) {
-    return static_cast<T *>(this)->RecordComputationStart(ctx);
+  Status RecordComputationStart(OpKernelContext* ctx) {
+    return static_cast<T*>(this)->RecordComputationStart(ctx);
   }
 
-  Status RecordComputationFinish(OpKernelContext *ctx) {
-    return static_cast<T *>(this)->RecordComputationFinish(ctx);
+  Status RecordComputationFinish(OpKernelContext* ctx) {
+    return static_cast<T*>(this)->RecordComputationFinish(ctx);
   }
 
-  void Stop(Status status) { static_cast<T *>(this)->Stop(status); }
+  void Stop(Status status) { static_cast<T*>(this)->Stop(status); }
 
-protected:
+ protected:
   Callback cb_;
 };
 
 class GpuTFProfiler : public TFProfiler<GpuTFProfiler> {
-public:
+ public:
   using Callback = std::function<void(Status, int64, int64)>;
   GpuTFProfiler(Callback cb) : TFProfiler<GpuTFProfiler>(cb) {}
 
-  Status Start(OpKernelContext *ctx);
+  Status Start(OpKernelContext* ctx);
 
-  Status RecordComputationStart(OpKernelContext *ctx);
+  Status RecordComputationStart(OpKernelContext* ctx);
 
-  Status RecordComputationFinish(OpKernelContext *ctx);
+  Status RecordComputationFinish(OpKernelContext* ctx);
 
   void Stop(Status status);
 
-private:
-  se::Stream *stream_ = nullptr;
+ private:
+  se::Stream* stream_ = nullptr;
   std::unique_ptr<se::Timer> timer_;
   std::unique_ptr<se::Timer> comp_timer_;
 };
 
 class CpuTFProfiler : public TFProfiler<CpuTFProfiler> {
-public:
+ public:
   using Callback = std::function<void(Status, int64, int64)>;
   using clock = std::chrono::high_resolution_clock;
   CpuTFProfiler(Callback cb) : TFProfiler<CpuTFProfiler>(cb) {}
 
-  Status Start(OpKernelContext *ctx);
+  Status Start(OpKernelContext* ctx);
 
-  Status RecordComputationStart(OpKernelContext *ctx);
+  Status RecordComputationStart(OpKernelContext* ctx);
 
-  Status RecordComputationFinish(OpKernelContext *ctx);
+  Status RecordComputationFinish(OpKernelContext* ctx);
 
   void Stop(Status status);
 
-private:
+ private:
   clock::time_point timer_start_;
   clock::time_point comp_timer_start_;
   int64 time_in_us_;
   int64 comp_time_in_us_;
 };
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TAO_TAO_BRIDGE_KERNELS_PROFILING_H_
+#endif  // TAO_TAO_BRIDGE_KERNELS_PROFILING_H_

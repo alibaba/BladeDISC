@@ -85,4 +85,4 @@ REGISTER_OP("DiscLaunch")
 DiscLaunchOp using DISC as the backend.)");
 #endif
 
-} // namespace tensorflow
+}  // namespace tensorflow

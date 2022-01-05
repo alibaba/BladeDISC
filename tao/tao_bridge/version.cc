@@ -11,11 +11,12 @@
 
 #include "tao_bridge/version.h"
 
-#include "tensorflow/core/graph/graph.h"
 #include <iostream>
 #include <list>
 #include <string>
 #include <vector>
+
+#include "tensorflow/core/graph/graph.h"
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)

@@ -21,7 +21,7 @@ template <typename Dtype, unsigned nthdsPerCTA>
 __launch_bounds__(nthdsPerCTA) __global__
     void batchedKthBiggestKernel(const unsigned batchSize,
                                  const unsigned iWidth, const unsigned k,
-                                 Dtype *inData, Dtype *outData) {
+                                 Dtype* inData, Dtype* outData) {
   Dtype threadBuf[8];
 
   threadBuf[0] = threadBuf[1] = threadBuf[2] = threadBuf[3] = threadBuf[4] =
@@ -29,7 +29,7 @@ __launch_bounds__(nthdsPerCTA) __global__
           std::numeric_limits<Dtype>::lowest();
 
   const unsigned batch = (blockIdx.x * nthdsPerCTA + threadIdx.x) >> 5;
-  const Dtype *const inDataOff = inData + batch * iWidth;
+  const Dtype* const inDataOff = inData + batch * iWidth;
   const unsigned sortRange = k * 2;
 
   if (batch < batchSize) {
@@ -51,13 +51,13 @@ __launch_bounds__(nthdsPerCTA) __global__
       outData[batch] = threadBuf[(k - 1) >> 5];
     }
 
-  } // if:batch
+  }  // if:batch
 }
 
 template <typename Dtype>
 void batchedKthBiggestGpu(cudaStream_t stream, const unsigned batchSize,
                           const unsigned iWidth, const unsigned k,
-                          Dtype *inData, Dtype *outData) {
+                          Dtype* inData, Dtype* outData) {
   // BS: 128 = 4 warps
   const unsigned BS = 128;
   const unsigned GS = (batchSize + 3) / 4;
@@ -65,4 +65,4 @@ void batchedKthBiggestGpu(cudaStream_t stream, const unsigned batchSize,
       <<<GS, BS, 0, stream>>>(batchSize, iWidth, k, inData, outData);
 }
 
-#endif // DYN_TOP_K_KTH_BIGGEST_H_
+#endif  // DYN_TOP_K_KTH_BIGGEST_H_

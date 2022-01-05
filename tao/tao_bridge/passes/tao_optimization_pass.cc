@@ -35,18 +35,18 @@ namespace tao {
 
 namespace {
 
-void DumpGraph(const GraphOptimizationPassOptions &options,
-               const char *const name) {
+void DumpGraph(const GraphOptimizationPassOptions& options,
+               const char* const name) {
   if (GetTaoBridgeOptions()->dump_pass_output || VLOG_IS_ON(2)) {
-    Graph *graph = options.graph->get();
+    Graph* graph = options.graph->get();
     auto dumped = dump_graph::DumpGraphToFile(name, *graph, options.flib_def);
     VLOG(2) << "TaoOptimizationPass dump graph: " << dumped;
   }
 }
 
-} // namespace
+}  // namespace
 
-Status TaoOptimizationPass::Run(const GraphOptimizationPassOptions &options) {
+Status TaoOptimizationPass::Run(const GraphOptimizationPassOptions& options) {
   static std::atomic<int> optimization_counter{0};
 
   bool enable_tao = GetTaoBridgeOptions()->enable_tao;
@@ -177,5 +177,5 @@ Status TaoOptimizationPass::Run(const GraphOptimizationPassOptions &options) {
 REGISTER_OPTIMIZATION(OptimizationPassRegistry::POST_REWRITE_FOR_EXEC, 0,
                       TaoOptimizationPass);
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

@@ -67,13 +67,13 @@ namespace {
 struct RalInjectExecutionContextPass
     : public DiscRalInjectExecutionContextPassBase<
           RalInjectExecutionContextPass> {
-  explicit RalInjectExecutionContextPass(const std::string &entry_func_name)
+  explicit RalInjectExecutionContextPass(const std::string& entry_func_name)
       : DiscRalInjectExecutionContextPassBase<RalInjectExecutionContextPass>::
             DiscRalInjectExecutionContextPassBase() {
     this->entry_func_name_ = entry_func_name;
   }
 
-  void getDependentDialects(DialectRegistry &registry) const override {
+  void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<RalDialect>();
   }
 
@@ -88,14 +88,14 @@ struct RalInjectExecutionContextPass
     Location loc = main.getLoc();
     FunctionType funcType = main.getType();
     OpBuilder b(&main.getBody());
-    Block *entry_block = &main.getBody().front();
+    Block* entry_block = &main.getBody().front();
     Type ctx_type = RalExecutionContextType::get(b.getContext());
 
     // 1. Prepend context to the entry block arguments
     Value ctx = entry_block->insertArgument(0u, ctx_type);
 
     // 2. remap original arguments to recv_input ops
-    for (auto &&en : llvm::enumerate(
+    for (auto&& en : llvm::enumerate(
              llvm::zip(funcType.getInputs(),
                        entry_block->getArguments().drop_front(1)))) {
       Value idx = b.create<ConstantIndexOp>(loc, en.index());
@@ -106,14 +106,12 @@ struct RalInjectExecutionContextPass
     }
 
     // 3. remap all return-like ops to send_output ops
-    for (auto &block : main.getBody()) {
-      if (block.empty())
-        continue;
-      Operation &operation = block.back();
-      if (!operation.hasTrait<OpTrait::ReturnLike>())
-        continue;
+    for (auto& block : main.getBody()) {
+      if (block.empty()) continue;
+      Operation& operation = block.back();
+      if (!operation.hasTrait<OpTrait::ReturnLike>()) continue;
       b.setInsertionPoint(&operation);
-      for (auto &en : llvm::enumerate(operation.getOperands())) {
+      for (auto& en : llvm::enumerate(operation.getOperands())) {
         Value idx = b.create<ConstantIndexOp>(loc, en.index());
         b.create<SendOutputOp>(loc, ctx, idx, en.value());
       }
@@ -131,12 +129,12 @@ struct RalInjectExecutionContextPass
   }
 };
 
-} // namespace
+}  // namespace
 
-std::unique_ptr<OperationPass<ModuleOp>>
-createDiscInjectExecutionContextPass(const std::string &entry_func_name) {
+std::unique_ptr<OperationPass<ModuleOp>> createDiscInjectExecutionContextPass(
+    const std::string& entry_func_name) {
   return std::make_unique<RalInjectExecutionContextPass>(entry_func_name);
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

@@ -33,14 +33,14 @@ limitations under the License.
 namespace tensorflow {
 namespace tao {
 
-const char *const DEVICE_TAO_CPU_XLA_JIT = "TAO_XLA_CPU_JIT";
-const char *const DEVICE_TAO_GPU_XLA_JIT = "TAO_XLA_GPU_JIT";
-const char *const DEVICE_TAO_PAI_ALIFPGA_XLA_JIT = "TAO_XLA_PAI_ALIFPGA_JIT";
-const char *const DEVICE_TAO_XLA_PAI_ALIFPGA = "TAO_XLA_PAI_ALIFPGA";
+const char* const DEVICE_TAO_CPU_XLA_JIT = "TAO_XLA_CPU_JIT";
+const char* const DEVICE_TAO_GPU_XLA_JIT = "TAO_XLA_GPU_JIT";
+const char* const DEVICE_TAO_PAI_ALIFPGA_XLA_JIT = "TAO_XLA_PAI_ALIFPGA_JIT";
+const char* const DEVICE_TAO_XLA_PAI_ALIFPGA = "TAO_XLA_PAI_ALIFPGA";
 
-static Status LaunchOpHasKernelForDeviceImpl(const DeviceType &device_type,
-                                             const std::string &op_name) {
-  const OpDef *op_def;
+static Status LaunchOpHasKernelForDeviceImpl(const DeviceType& device_type,
+                                             const std::string& op_name) {
+  const OpDef* op_def;
   TF_RETURN_IF_ERROR(OpRegistry::Global()->LookUpOpDef(op_name, &op_def));
   NodeDef node_def;
   node_def.set_name("_" + op_name + "Op");
@@ -55,7 +55,7 @@ static Status LaunchOpHasKernelForDeviceImpl(const DeviceType &device_type,
 
 // Returns true if there is kernel of `TaoLaunch` or `TaoMlirLaunch` for the
 // target device
-static Status LaunchOpHasKernelForDevice(const DeviceType &device_type) {
+static Status LaunchOpHasKernelForDevice(const DeviceType& device_type) {
 #ifdef PLATFORM_ALIBABA
   auto has_tao_launch =
       LaunchOpHasKernelForDeviceImpl(device_type, "TaoLaunch");
@@ -72,12 +72,10 @@ XlaOpRegistry::~XlaOpRegistry() = default;
 
 // TODO(b/64575122) consider adding more sophisticated definitions of
 // compatibility if needed by future use cases.
-/* static */ bool XlaOpRegistry::IsCompatible(const OpRegistration &x,
-                                              const OpRegistration &y) {
-  if (x.name != y.name)
-    return true;
-  if (x.label != y.label)
-    return true;
+/* static */ bool XlaOpRegistry::IsCompatible(const OpRegistration& x,
+                                              const OpRegistration& y) {
+  if (x.name != y.name) return true;
+  if (x.label != y.label) return true;
   // The registrations refer to the same Op: ensures they are compatible and
   // are restricted to different device whitelists.
   if (x.compilation_only != y.compilation_only) {
@@ -106,7 +104,7 @@ XlaOpRegistry::~XlaOpRegistry() = default;
     return false;
   }
   if (x.has_device_whitelist && y.has_device_whitelist) {
-    for (const auto &device : x.device_whitelist) {
+    for (const auto& device : x.device_whitelist) {
       if (y.device_whitelist.count(device) != 0) {
         LOG(WARNING) << "Multiple registrations of " << x.name << " on device "
                      << device;
@@ -128,8 +126,8 @@ XlaOpRegistry::~XlaOpRegistry() = default;
 }
 
 /* static */ void XlaOpRegistry::RegisterCompilationDevice(
-    const string &device_name, const DeviceRegistration &registration) {
-  XlaOpRegistry &registry = Instance();
+    const string& device_name, const DeviceRegistration& registration) {
+  XlaOpRegistry& registry = Instance();
   mutex_lock lock(registry.mutex_);
   auto result =
       registry.compilation_devices_.emplace(device_name, registration);
@@ -137,11 +135,10 @@ XlaOpRegistry::~XlaOpRegistry() = default;
                              registration.compilation_device_name);
 }
 
-/* static */ void
-XlaOpRegistry::RegisterBackend(const string &compilation_device_name,
-                               absl::Span<const DataType> supported_types,
-                               BackendOpFilter op_filter) {
-  XlaOpRegistry &registry = Instance();
+/* static */ void XlaOpRegistry::RegisterBackend(
+    const string& compilation_device_name,
+    absl::Span<const DataType> supported_types, BackendOpFilter op_filter) {
+  XlaOpRegistry& registry = Instance();
   mutex_lock lock(registry.mutex_);
   auto result = registry.backends_.emplace(compilation_device_name, Backend());
   CHECK(result.second) << "Duplicate XLA backend registration "
@@ -151,21 +148,20 @@ XlaOpRegistry::RegisterBackend(const string &compilation_device_name,
   result.first->second.op_filter = op_filter;
 }
 
-/* static */ bool
-XlaOpRegistry::GetCompilationDevice(const string &device_name,
-                                    const DeviceRegistration **registration) {
-  XlaOpRegistry &registry = Instance();
+/* static */ bool XlaOpRegistry::GetCompilationDevice(
+    const string& device_name, const DeviceRegistration** registration) {
+  XlaOpRegistry& registry = Instance();
 
   // Lazily register the CPU and GPU JIT devices the first time
   // GetCompilationDevice is called.
-  static void *registration_init = [&registry]() {
-    MarkForCompilationPassFlags *flags = GetMarkForCompilationPassFlags();
+  static void* registration_init = [&registry]() {
+    MarkForCompilationPassFlags* flags = GetMarkForCompilationPassFlags();
     bool cpu_global_jit = flags->tf_xla_cpu_global_jit;
     VLOG(2) << "tf_xla_cpu_global_jit = " << cpu_global_jit;
 
     mutex_lock lock(registry.mutex_);
     if (LaunchOpHasKernelForDevice(DeviceType(DEVICE_CPU)).ok()) {
-      DeviceRegistration &registration =
+      DeviceRegistration& registration =
           registry.compilation_devices_[DEVICE_CPU];
       registration.compilation_device_name = DEVICE_TAO_CPU_XLA_JIT;
       registration.autoclustering_policy =
@@ -174,7 +170,7 @@ XlaOpRegistry::GetCompilationDevice(const string &device_name,
               : XlaOpRegistry::AutoclusteringPolicy::kIfExplicitlyRequested;
     }
     if (LaunchOpHasKernelForDevice(DeviceType(DEVICE_GPU)).ok()) {
-      DeviceRegistration &registration =
+      DeviceRegistration& registration =
           registry.compilation_devices_[DEVICE_GPU];
       registration.compilation_device_name = DEVICE_TAO_GPU_XLA_JIT;
       registration.autoclustering_policy =
@@ -186,21 +182,19 @@ XlaOpRegistry::GetCompilationDevice(const string &device_name,
 
   mutex_lock lock(registry.mutex_);
   auto it = registry.compilation_devices_.find(device_name);
-  if (it == registry.compilation_devices_.end())
-    return false;
+  if (it == registry.compilation_devices_.end()) return false;
   *registration = &it->second;
   return true;
 }
 
 void XlaOpRegistry::RegisterCompilationKernels() {
-  XlaOpRegistry &registry = Instance();
+  XlaOpRegistry& registry = Instance();
   mutex_lock lock(registry.mutex_);
 
-  if (registry.jit_kernels_registered_)
-    return;
+  if (registry.jit_kernels_registered_) return;
   registry.jit_kernels_registered_ = true;
 
-  OpRegistryInterface *op_registry = OpRegistry::Global();
+  OpRegistryInterface* op_registry = OpRegistry::Global();
   // Order of op registration:
   // The goal is to allow the co-existence of backend-specific kernels and
   // generic kernels. To achieve this, we enforce the following order of
@@ -209,13 +203,13 @@ void XlaOpRegistry::RegisterCompilationKernels() {
   //      this pass registers backend-specific kernels for this op.
   // 2. Process op registration without device whitelists:
   //      this pass registers the kernels for all the other supported backends.
-  for (auto &ops : registry.ops_) {
-    const string &op_name = ops.first;
-    std::vector<std::unique_ptr<OpRegistration>> &op_registrations = ops.second;
+  for (auto& ops : registry.ops_) {
+    const string& op_name = ops.first;
+    std::vector<std::unique_ptr<OpRegistration>>& op_registrations = ops.second;
     // Partition the op registration so that the ones with device whitelists
     // precede the one without device whitelist.
     std::partition(op_registrations.begin(), op_registrations.end(),
-                   [](const std::unique_ptr<OpRegistration> &op_reg) {
+                   [](const std::unique_ptr<OpRegistration>& op_reg) {
                      return op_reg->has_device_whitelist;
                    });
 
@@ -223,15 +217,15 @@ void XlaOpRegistry::RegisterCompilationKernels() {
     // The op registration without whitelists will register a generic kernel
     // for all other backends not in this set.
     std::unordered_set<string> whitelisted_backend;
-    for (auto &op_registration : op_registrations) {
+    for (auto& op_registration : op_registrations) {
       if (op_registration->has_device_whitelist) {
         whitelisted_backend.insert(op_registration->device_whitelist.begin(),
                                    op_registration->device_whitelist.end());
       }
     }
 
-    for (auto &op_registration : op_registrations) {
-      const OpDef *op_def;
+    for (auto& op_registration : op_registrations) {
+      const OpDef* op_def;
       Status lookup_status = op_registry->LookUpOpDef(op_name, &op_def);
       if (!lookup_status.ok()) {
         LOG(ERROR) << lookup_status.error_message();
@@ -243,21 +237,21 @@ void XlaOpRegistry::RegisterCompilationKernels() {
       TF_CHECK_OK(lookup_status);
 
       std::unordered_set<string> type_attrs;
-      for (const OpDef::AttrDef &attr_def : op_def->attr()) {
+      for (const OpDef::AttrDef& attr_def : op_def->attr()) {
         if (attr_def.type() == "type" || attr_def.type() == "list(type)") {
           type_attrs.insert(attr_def.name());
         }
       }
 
       // Checks there are no type constraints referring to unknown attributes.
-      for (const auto &constraint : op_registration->type_constraints) {
+      for (const auto& constraint : op_registration->type_constraints) {
         if (type_attrs.find(constraint.first) == type_attrs.end()) {
           LOG(FATAL) << "Unknown type attribute " << constraint.first
                      << " in XLA op registration for " << op_name;
         }
       }
 
-      for (auto &backend : registry.backends_) {
+      for (auto& backend : registry.backends_) {
         // If the operator has a device whitelist, only register on whitelisted
         // devices.
         if (op_registration->has_device_whitelist &&
@@ -284,20 +278,20 @@ void XlaOpRegistry::RegisterCompilationKernels() {
         // b) the types allowed by the OpDef, and
         // c) the type constraints.
         bool unsatisfiable_type_constraint = false;
-        for (const string &type_attr : type_attrs) {
-          KernelDef::AttrConstraint *attr_constraint = kdef->add_constraint();
+        for (const string& type_attr : type_attrs) {
+          KernelDef::AttrConstraint* attr_constraint = kdef->add_constraint();
           attr_constraint->set_name(type_attr);
-          auto *allowed_values =
+          auto* allowed_values =
               attr_constraint->mutable_allowed_values()->mutable_list();
 
-          const OpDef::AttrDef &op_def_attr = *FindAttr(type_attr, *op_def);
-          const auto *op_def_allowed_types =
+          const OpDef::AttrDef& op_def_attr = *FindAttr(type_attr, *op_def);
+          const auto* op_def_allowed_types =
               op_def_attr.has_allowed_values()
                   ? &op_def_attr.allowed_values().list().type()
                   : nullptr;
           auto constraint_it =
               op_registration->type_constraints.find(type_attr);
-          const std::set<DataType> *type_constraints =
+          const std::set<DataType>* type_constraints =
               constraint_it != op_registration->type_constraints.end()
                   ? &constraint_it->second
                   : nullptr;
@@ -332,8 +326,7 @@ void XlaOpRegistry::RegisterCompilationKernels() {
             break;
           }
         }
-        if (unsatisfiable_type_constraint)
-          continue;
+        if (unsatisfiable_type_constraint) continue;
 
         if (backend.second.op_filter != nullptr &&
             !backend.second.op_filter(kdef.get())) {
@@ -350,18 +343,18 @@ void XlaOpRegistry::RegisterCompilationKernels() {
   }
 }
 
-std::vector<const KernelDef *>
-XlaOpRegistry::DeviceKernels(const string &compilation_device_name,
-                             bool include_compilation_only_kernels) {
+std::vector<const KernelDef*> XlaOpRegistry::DeviceKernels(
+    const string& compilation_device_name,
+    bool include_compilation_only_kernels) {
   // Ensure compilation kernels registered.
   RegisterCompilationKernels();
-  std::vector<const KernelDef *> kernels;
-  XlaOpRegistry &registry = Instance();
+  std::vector<const KernelDef*> kernels;
+  XlaOpRegistry& registry = Instance();
   mutex_lock lock(registry.mutex_);
   auto it = registry.backends_.find(compilation_device_name);
   CHECK(it != registry.backends_.end())
       << "Unknown backend " << compilation_device_name;
-  for (const std::unique_ptr<KernelDef> &k : it->second.kernel_defs) {
+  for (const std::unique_ptr<KernelDef>& k : it->second.kernel_defs) {
     auto op_iter = registry.ops_.find(k->op());
     CHECK(op_iter != registry.ops_.end() && !op_iter->second.empty());
     // The test in IsCompatible ensures that if there are multiple matching
@@ -377,9 +370,9 @@ XlaOpRegistry::DeviceKernels(const string &compilation_device_name,
 
 /*static*/ std::vector<string> XlaOpRegistry::GetAllRegisteredOps() {
   std::vector<string> ops;
-  XlaOpRegistry &registry = Instance();
+  XlaOpRegistry& registry = Instance();
   mutex_lock lock(registry.mutex_);
-  for (const auto &pair : registry.ops_) {
+  for (const auto& pair : registry.ops_) {
     ops.push_back(pair.first);
   }
   std::sort(ops.begin(), ops.end());
@@ -387,8 +380,8 @@ XlaOpRegistry::DeviceKernels(const string &compilation_device_name,
 }
 
 /* static */ Status XlaOpRegistry::CompileTimeConstantInputs(
-    const NodeDef &node_def, const OpKernel *op_kernel, const OpDef *op_def,
-    std::vector<int> *result, CompileTimeConstType type) {
+    const NodeDef& node_def, const OpKernel* op_kernel, const OpDef* op_def,
+    std::vector<int>* result, CompileTimeConstType type) {
   result->clear();
 
   DCHECK(op_def != nullptr || op_kernel != nullptr);
@@ -396,7 +389,7 @@ XlaOpRegistry::DeviceKernels(const string &compilation_device_name,
   std::unordered_set<string> compile_time_special_inputs_from_attr;
   std::vector<string> compile_time_special_inputs_vect_from_attr;
 
-  const std::unordered_set<string> *compile_time_special_inputs;
+  const std::unordered_set<string>* compile_time_special_inputs;
 
   std::string Attr;
   if (type == CompileTimeConstType::kMlirCompileTimeConstantInput) {
@@ -415,9 +408,9 @@ XlaOpRegistry::DeviceKernels(const string &compilation_device_name,
                             compile_time_special_inputs_from_attr.end()));
     compile_time_special_inputs = &compile_time_special_inputs_from_attr;
   } else {
-    const string &op = node_def.op();
+    const string& op = node_def.op();
 
-    XlaOpRegistry &registry = Instance();
+    XlaOpRegistry& registry = Instance();
     mutex_lock lock(registry.mutex_);
     auto it = registry.ops_.find(op);
     if (it == registry.ops_.end() || it->second.empty()) {
@@ -442,7 +435,7 @@ XlaOpRegistry::DeviceKernels(const string &compilation_device_name,
     }
   }
 
-  for (const string &input : *compile_time_special_inputs) {
+  for (const string& input : *compile_time_special_inputs) {
     if (op_def) {
       NameRangeMap input_name_ranges;
       TF_RETURN_IF_ERROR(
@@ -469,8 +462,8 @@ XlaOpRegistry::DeviceKernels(const string &compilation_device_name,
   return Status::OK();
 }
 
-/*static*/ bool XlaOpRegistry::IsMetadataOp(const string &op) {
-  XlaOpRegistry &registry = Instance();
+/*static*/ bool XlaOpRegistry::IsMetadataOp(const string& op) {
+  XlaOpRegistry& registry = Instance();
   mutex_lock lock(registry.mutex_);
   auto it = registry.ops_.find(op);
   if (it == registry.ops_.end() || it->second.empty()) {
@@ -485,22 +478,22 @@ XlaOpRegistry::DeviceKernels(const string &compilation_device_name,
 
 std::vector<string> XlaOpRegistry::BackendNames() {
   std::vector<string> names;
-  XlaOpRegistry &registry = Instance();
+  XlaOpRegistry& registry = Instance();
   mutex_lock lock(registry.mutex_);
-  for (const auto &backend_pair : registry.backends_) {
+  for (const auto& backend_pair : registry.backends_) {
     names.push_back(backend_pair.first);
   }
   return names;
 }
 
-bool XlaOpRegistry::IsBackendRegistered(const string &name) {
-  XlaOpRegistry &registry = Instance();
+bool XlaOpRegistry::IsBackendRegistered(const string& name) {
+  XlaOpRegistry& registry = Instance();
   mutex_lock lock(registry.mutex_);
   return registry.backends_.find(name) != registry.backends_.end();
 }
 
-XlaOpRegistry &XlaOpRegistry::Instance() {
-  static XlaOpRegistry *r = new XlaOpRegistry;
+XlaOpRegistry& XlaOpRegistry::Instance() {
+  static XlaOpRegistry* r = new XlaOpRegistry;
   return *r;
 }
 
@@ -509,14 +502,14 @@ XlaOpRegistrationBuilder::XlaOpRegistrationBuilder(absl::string_view name) {
   registration_->name = string(name);
 }
 
-XlaOpRegistrationBuilder
-XlaOpRegistrationBuilder::Name(absl::string_view name) {
+XlaOpRegistrationBuilder XlaOpRegistrationBuilder::Name(
+    absl::string_view name) {
   XlaOpRegistrationBuilder registration(name);
   return registration;
 }
 
-XlaOpRegistrationBuilder &
-XlaOpRegistrationBuilder::Device(absl::Span<const absl::string_view> devices) {
+XlaOpRegistrationBuilder& XlaOpRegistrationBuilder::Device(
+    absl::Span<const absl::string_view> devices) {
   registration_->has_device_whitelist = true;
   for (absl::string_view device : devices) {
     registration_->device_whitelist.emplace(device);
@@ -524,46 +517,44 @@ XlaOpRegistrationBuilder::Device(absl::Span<const absl::string_view> devices) {
   return *this;
 }
 
-XlaOpRegistrationBuilder &
-XlaOpRegistrationBuilder::Device(absl::string_view device) {
+XlaOpRegistrationBuilder& XlaOpRegistrationBuilder::Device(
+    absl::string_view device) {
   registration_->has_device_whitelist = true;
   registration_->device_whitelist.emplace(device);
   return *this;
 }
 
-XlaOpRegistrationBuilder &XlaOpRegistrationBuilder::CompilationOnly() {
+XlaOpRegistrationBuilder& XlaOpRegistrationBuilder::CompilationOnly() {
   registration_->compilation_only = true;
   return *this;
 }
 
-XlaOpRegistrationBuilder &XlaOpRegistrationBuilder::AllowResourceTypes() {
+XlaOpRegistrationBuilder& XlaOpRegistrationBuilder::AllowResourceTypes() {
   registration_->allow_resource_types = true;
   return *this;
 }
 
-XlaOpRegistrationBuilder &XlaOpRegistrationBuilder::AllowVariantTypes() {
+XlaOpRegistrationBuilder& XlaOpRegistrationBuilder::AllowVariantTypes() {
   registration_->allow_variant_types = true;
   return *this;
 }
 
-XlaOpRegistrationBuilder &XlaOpRegistrationBuilder::AllowStringType() {
+XlaOpRegistrationBuilder& XlaOpRegistrationBuilder::AllowStringType() {
   registration_->allow_string_type = true;
   return *this;
 }
 
-XlaOpRegistrationBuilder &
-XlaOpRegistrationBuilder::TypeConstraint(absl::string_view attr_name,
-                                         DataType allowed) {
-  std::set<DataType> &types =
+XlaOpRegistrationBuilder& XlaOpRegistrationBuilder::TypeConstraint(
+    absl::string_view attr_name, DataType allowed) {
+  std::set<DataType>& types =
       registration_->type_constraints[string(attr_name)];
   types.insert(allowed);
   return *this;
 }
 
-XlaOpRegistrationBuilder &
-XlaOpRegistrationBuilder::TypeConstraint(absl::string_view attr_name,
-                                         absl::Span<const DataType> allowed) {
-  std::set<DataType> &types =
+XlaOpRegistrationBuilder& XlaOpRegistrationBuilder::TypeConstraint(
+    absl::string_view attr_name, absl::Span<const DataType> allowed) {
+  std::set<DataType>& types =
       registration_->type_constraints[string(attr_name)];
   for (DataType t : allowed) {
     types.insert(t);
@@ -571,47 +562,47 @@ XlaOpRegistrationBuilder::TypeConstraint(absl::string_view attr_name,
   return *this;
 }
 
-XlaOpRegistrationBuilder &
-XlaOpRegistrationBuilder::CompileTimeConstInput(absl::string_view input_name) {
+XlaOpRegistrationBuilder& XlaOpRegistrationBuilder::CompileTimeConstInput(
+    absl::string_view input_name) {
   registration_->compile_time_constant_inputs.emplace(input_name);
   return *this;
 }
 
-XlaOpRegistrationBuilder &
+XlaOpRegistrationBuilder&
 XlaOpRegistrationBuilder::MlirCompileTimeFixedShapeInput(
     absl::string_view input_name) {
   registration_->mlir_compile_time_fixed_shape_inputs.emplace(input_name);
   return *this;
 }
 
-XlaOpRegistrationBuilder &XlaOpRegistrationBuilder::MlirCompileTimeConstInput(
+XlaOpRegistrationBuilder& XlaOpRegistrationBuilder::MlirCompileTimeConstInput(
     absl::string_view input_name) {
   registration_->mlir_compile_time_constant_inputs.emplace(input_name);
   return *this;
 }
 
-XlaOpRegistrationBuilder &XlaOpRegistrationBuilder::IsMetadataOp() {
+XlaOpRegistrationBuilder& XlaOpRegistrationBuilder::IsMetadataOp() {
   registration_->is_metadata_op = true;
   return *this;
 }
 
-XlaOpRegistrationBuilder &XlaOpRegistrationBuilder::Label(std::string label) {
+XlaOpRegistrationBuilder& XlaOpRegistrationBuilder::Label(std::string label) {
   registration_->label = label;
   return *this;
 }
 
-std::unique_ptr<XlaOpRegistry::OpRegistration>
-XlaOpRegistrationBuilder::Build(XlaOpRegistry::Factory factory) {
+std::unique_ptr<XlaOpRegistry::OpRegistration> XlaOpRegistrationBuilder::Build(
+    XlaOpRegistry::Factory factory) {
   registration_->factory = factory;
   return std::move(registration_);
 }
 
 XlaOpRegistrar::XlaOpRegistrar(
     std::unique_ptr<XlaOpRegistry::OpRegistration> registration) {
-  XlaOpRegistry &registry = XlaOpRegistry::Instance();
+  XlaOpRegistry& registry = XlaOpRegistry::Instance();
   mutex_lock lock(registry.mutex_);
-  auto &existing_ops = registry.ops_[registration->name];
-  for (auto &existing : existing_ops) {
+  auto& existing_ops = registry.ops_[registration->name];
+  for (auto& existing : existing_ops) {
     if (!XlaOpRegistry::IsCompatible(*existing, *registration)) {
       LOG(FATAL)
           << "XLA op registration " << registration->name
@@ -624,7 +615,7 @@ XlaOpRegistrar::XlaOpRegistrar(
 XlaBackendRegistrar::XlaBackendRegistrar(
     absl::string_view name, absl::Span<const DataType> types,
     XlaOpRegistry::BackendOpFilter op_filter) {
-  XlaOpRegistry &registry = XlaOpRegistry::Instance();
+  XlaOpRegistry& registry = XlaOpRegistry::Instance();
   registry.RegisterBackend(string(name), types, op_filter);
 
 #if TF_MAJOR_VERSION > 1 || TF_MINOR_VERSION > 14
@@ -635,15 +626,15 @@ XlaBackendRegistrar::XlaBackendRegistrar(
 namespace {
 
 void AddDtypeToKernalDefConstraint(absl::string_view name, DataType dtype,
-                                   KernelDef *kdef) {
-  for (KernelDef::AttrConstraint &constraint : *kdef->mutable_constraint()) {
+                                   KernelDef* kdef) {
+  for (KernelDef::AttrConstraint& constraint : *kdef->mutable_constraint()) {
     if (constraint.name() == name) {
       constraint.mutable_allowed_values()->mutable_list()->add_type(dtype);
     }
   }
 }
 
-bool GpuOpFilter(KernelDef *kdef) {
+bool GpuOpFilter(KernelDef* kdef) {
   if (kdef->op() == "Const") {
     AddDtypeToKernalDefConstraint("dtype", DT_STRING, kdef);
   }
@@ -653,7 +644,7 @@ bool GpuOpFilter(KernelDef *kdef) {
   return true;
 }
 
-} // namespace
+}  // namespace
 
 // clang-format off
 REGISTER_XLA_BACKEND_FOR_TAO(DEVICE_TAO_GPU_XLA_JIT, kGpuAllTypes, GpuOpFilter);
@@ -1247,5 +1238,5 @@ REGISTER_XLA_OP_FOR_TAO(Name("FusedBatchNormGradV3"));
 
 // clang-format on
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

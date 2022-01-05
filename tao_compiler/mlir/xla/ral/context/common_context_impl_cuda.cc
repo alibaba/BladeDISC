@@ -28,25 +28,24 @@ namespace tao {
 namespace ral {
 
 using tao::ral::gpu::GPUDriver;
-const char *kRalGpuD2DCopy = "d2d";
-const char *kRalGpuH2DCopy = "h2d";
-const char *kRalGpuD2HCopy = "d2h";
-const char *kRalGpuPrint = "ral_gpu_print";
+const char* kRalGpuD2DCopy = "d2d";
+const char* kRalGpuH2DCopy = "h2d";
+const char* kRalGpuD2HCopy = "d2h";
+const char* kRalGpuPrint = "ral_gpu_print";
 
-void RalGlobalConstantState::onContextFinish(Context *ctx) /* override */ {
+void RalGlobalConstantState::onContextFinish(Context* ctx) /* override */ {
   if (process_level_store) {
     bool owned = ConstStoreRegistrar::Instance().unregisterConstStore(
         process_level_store);
-    if (!owned)
-      return;
+    if (!owned) return;
     auto cpu_driver =
-        static_cast<cpu::CPUDriver *>(ctx->getDriver(cpu::CPUDriver::name()));
+        static_cast<cpu::CPUDriver*>(ctx->getDriver(cpu::CPUDriver::name()));
     auto gpu_driver =
-        static_cast<gpu::GPUDriver *>(ctx->getDriver(gpu::GPUDriver::name()));
-    for (auto &e : process_level_store->state.host_constants) {
+        static_cast<gpu::GPUDriver*>(ctx->getDriver(gpu::GPUDriver::name()));
+    for (auto& e : process_level_store->state.host_constants) {
       cpu_driver->raw_dealloc(ctx, e.second.first);
     }
-    for (auto &e : process_level_store->state.device_constants) {
+    for (auto& e : process_level_store->state.device_constants) {
       gpu_driver->raw_dealloc(ctx, e.second.first);
     }
     delete process_level_store;
@@ -56,11 +55,10 @@ void RalGlobalConstantState::onContextFinish(Context *ctx) /* override */ {
   // const buffer correctly.
 }
 
-static inline buffer_t
-ral_base_cuda_const_cuda_internal(ExecutionContext *ctx, void *stream_handle,
-                                  const char *unique_name,
-                                  buffer_shape_t &shape) {
-  auto *state =
+static inline buffer_t ral_base_cuda_const_cuda_internal(
+    ExecutionContext* ctx, void* stream_handle, const char* unique_name,
+    buffer_shape_t& shape) {
+  auto* state =
       ctx->getResource<RalGlobalConstantState>(kRalGlobalConstantState);
   // if process-level const store is enabled, use it instead of the context
   // level store.
@@ -79,7 +77,7 @@ ral_base_cuda_const_cuda_internal(ExecutionContext *ctx, void *stream_handle,
     if (it == state->device_constants.end()) {
       buffer_shape_t dim_sizes = GetShapeFromConstUniqueName(ctx, unique_name);
       // alloc, get value from metadata file, and then memcpy
-      const auto &constants = state->metadata_proto.device_global_constants();
+      const auto& constants = state->metadata_proto.device_global_constants();
       if (constants.find(key) == constants.end()) {
         std::string msg =
             "const unique_name " + key + "not found in metadata file";
@@ -113,9 +111,9 @@ ral_base_cuda_const_cuda_internal(ExecutionContext *ctx, void *stream_handle,
 }
 
 template <typename T, int N>
-MemRefType<T, N> ral_base_cuda_const_cuda(ExecutionContext *ctx,
-                                          void *stream_handle,
-                                          const char *unique_name) {
+MemRefType<T, N> ral_base_cuda_const_cuda(ExecutionContext* ctx,
+                                          void* stream_handle,
+                                          const char* unique_name) {
   buffer_shape_t shape;
   buffer_t ptr =
       ral_base_cuda_const_cuda_internal(ctx, stream_handle, unique_name, shape);
@@ -128,9 +126,9 @@ MemRefType<T, N> ral_base_cuda_const_cuda(ExecutionContext *ctx,
 }
 
 template <typename T>
-MemRefType<T, 0> ral_base_cuda_const_cuda_0d(ExecutionContext *ctx,
-                                             void *stream_handle,
-                                             const char *unique_name) {
+MemRefType<T, 0> ral_base_cuda_const_cuda_0d(ExecutionContext* ctx,
+                                             void* stream_handle,
+                                             const char* unique_name) {
   buffer_shape_t shape;
   buffer_t ptr =
       ral_base_cuda_const_cuda_internal(ctx, stream_handle, unique_name, shape);
@@ -141,14 +139,14 @@ MemRefType<T, 0> ral_base_cuda_const_cuda_0d(ExecutionContext *ctx,
   return assignMemRef_0d<T>(ptr);
 }
 
-#define RAL_REGISTER_CONST_CUDA_FUNC(T, N)                                     \
-  template MemRefType<T, N> ral_base_cuda_const_cuda<T, N>(                    \
-      ExecutionContext * ctx, void *stream_handle, const char *unique_name);   \
+#define RAL_REGISTER_CONST_CUDA_FUNC(T, N)                                   \
+  template MemRefType<T, N> ral_base_cuda_const_cuda<T, N>(                  \
+      ExecutionContext * ctx, void* stream_handle, const char* unique_name); \
   TAO_RAL_API(tao::ral::kRalCudaConst, "gpu", ral_base_cuda_const_cuda<T, N>);
 
-#define RAL_REGISTER_CONST_CUDA_FUNC_0D(T)                                     \
-  template MemRefType<T, 0> ral_base_cuda_const_cuda_0d<T>(                    \
-      ExecutionContext * ctx, void *stream_handle, const char *unique_name);   \
+#define RAL_REGISTER_CONST_CUDA_FUNC_0D(T)                                   \
+  template MemRefType<T, 0> ral_base_cuda_const_cuda_0d<T>(                  \
+      ExecutionContext * ctx, void* stream_handle, const char* unique_name); \
   TAO_RAL_API(tao::ral::kRalCudaConst, "gpu", ral_base_cuda_const_cuda_0d<T>);
 
 RAL_REGISTER_CONST_CUDA_FUNC_0D(double);
@@ -207,29 +205,28 @@ RAL_REGISTER_CONST_CUDA_FUNC(Eigen::half, 5);
 RAL_REGISTER_CONST_CUDA_FUNC(Eigen::half, 6);
 RAL_REGISTER_CONST_CUDA_FUNC(Eigen::half, 7);
 RAL_REGISTER_CONST_CUDA_FUNC(Eigen::half, 8);
-#endif // TAO_RAL_USE_STREAM_EXECUTOR
+#endif  // TAO_RAL_USE_STREAM_EXECUTOR
 
-static inline void ral_base_cuda_d2d_copy_memref_impl(ExecutionContext *ctx,
-                                                      void *stream_handle,
-                                                      void *from, void *to,
+static inline void ral_base_cuda_d2d_copy_memref_impl(ExecutionContext* ctx,
+                                                      void* stream_handle,
+                                                      void* from, void* to,
                                                       int64_t bytes) {
   auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
   gpu_driver->d2d(ctx, stream_handle, from, to, bytes);
 }
 
 template <typename T, int N>
-void ral_base_cuda_d2d_copy_memref(ExecutionContext *ctx, void *stream_handle,
+void ral_base_cuda_d2d_copy_memref(ExecutionContext* ctx, void* stream_handle,
                                    MemRefType<T, N> from, MemRefType<T, N> to) {
   int64_t bytes = sizeof(T);
-  for (int i = 0; i < N; ++i)
-    bytes *= from.sizes[i];
+  for (int i = 0; i < N; ++i) bytes *= from.sizes[i];
   ral_base_cuda_d2d_copy_memref_impl(ctx, stream_handle, from.data, to.data,
                                      bytes);
 }
 
 template <typename T>
-void ral_base_cuda_d2d_copy_memref_0d(ExecutionContext *ctx,
-                                      void *stream_handle,
+void ral_base_cuda_d2d_copy_memref_0d(ExecutionContext* ctx,
+                                      void* stream_handle,
                                       MemRefType<T, 0> from,
                                       MemRefType<T, 0> to) {
   int64_t bytes = sizeof(T);
@@ -238,18 +235,19 @@ void ral_base_cuda_d2d_copy_memref_0d(ExecutionContext *ctx,
 }
 
 template <typename T>
-static inline void
-ral_base_cuda_print_memref_impl(ExecutionContext *ctx, void *stream_handle,
-                                void *from, void *to, int64_t bytes) {
+static inline void ral_base_cuda_print_memref_impl(ExecutionContext* ctx,
+                                                   void* stream_handle,
+                                                   void* from, void* to,
+                                                   int64_t bytes) {
   for (int64_t i = 0; i < bytes / sizeof(T); ++i) {
-    TAO_VLOG(0) << reinterpret_cast<T *>(from)[i] << ", ";
+    TAO_VLOG(0) << reinterpret_cast<T*>(from)[i] << ", ";
   }
   TAO_VLOG(0) << "] " << std::endl;
   memcpy(to, from, bytes);
 }
 
 template <typename T, int N>
-void ral_base_cuda_print_memref(ExecutionContext *ctx, void *stream_handle,
+void ral_base_cuda_print_memref(ExecutionContext* ctx, void* stream_handle,
                                 MemRefType<T, N> from, MemRefType<T, N> to) {
   int64_t bytes = sizeof(T);
   TAO_VLOG(0) << "DebugPrint F32 shape:";
@@ -264,7 +262,7 @@ void ral_base_cuda_print_memref(ExecutionContext *ctx, void *stream_handle,
 }
 
 template <typename T>
-void ral_base_cuda_print_memref_0d(ExecutionContext *ctx, void *stream_handle,
+void ral_base_cuda_print_memref_0d(ExecutionContext* ctx, void* stream_handle,
                                    MemRefType<T, 0> from, MemRefType<T, 0> to) {
   int64_t bytes = sizeof(T);
   TAO_VLOG(0) << "DebugPrint F32 shape: ";
@@ -274,8 +272,8 @@ void ral_base_cuda_print_memref_0d(ExecutionContext *ctx, void *stream_handle,
 }
 
 template <typename T>
-void ral_base_cuda_print_i32_memref_0d(ExecutionContext *ctx,
-                                       void *stream_handle,
+void ral_base_cuda_print_i32_memref_0d(ExecutionContext* ctx,
+                                       void* stream_handle,
                                        MemRefType<T, 0> from,
                                        MemRefType<T, 0> to) {
   int64_t bytes = sizeof(T);
@@ -284,9 +282,9 @@ void ral_base_cuda_print_i32_memref_0d(ExecutionContext *ctx,
                                       bytes);
 }
 
-static inline void ral_base_cuda_h2d_copy_memref_impl(ExecutionContext *ctx,
-                                                      void *stream_handle,
-                                                      void *from, void *to,
+static inline void ral_base_cuda_h2d_copy_memref_impl(ExecutionContext* ctx,
+                                                      void* stream_handle,
+                                                      void* from, void* to,
                                                       int64_t bytes) {
   TAO_VLOG(1) << "from: " << from << " to: " << to;
   auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
@@ -294,18 +292,17 @@ static inline void ral_base_cuda_h2d_copy_memref_impl(ExecutionContext *ctx,
 }
 
 template <typename T, int N>
-void ral_base_cuda_h2d_copy_memref(ExecutionContext *ctx, void *stream_handle,
+void ral_base_cuda_h2d_copy_memref(ExecutionContext* ctx, void* stream_handle,
                                    MemRefType<T, N> from, MemRefType<T, N> to) {
   int64_t bytes = sizeof(T);
-  for (int i = 0; i < N; ++i)
-    bytes *= from.sizes[i];
+  for (int i = 0; i < N; ++i) bytes *= from.sizes[i];
   ral_base_cuda_h2d_copy_memref_impl(ctx, stream_handle, from.data, to.data,
                                      bytes);
 }
 
 template <typename T>
-void ral_base_cuda_h2d_copy_memref_0d(ExecutionContext *ctx,
-                                      void *stream_handle,
+void ral_base_cuda_h2d_copy_memref_0d(ExecutionContext* ctx,
+                                      void* stream_handle,
                                       MemRefType<T, 0> from,
                                       MemRefType<T, 0> to) {
   int64_t bytes = sizeof(T);
@@ -315,27 +312,26 @@ void ral_base_cuda_h2d_copy_memref_0d(ExecutionContext *ctx,
   TAO_VLOG(1) << "ral_base_cuda_h2d_copy_memref_0d done";
 }
 
-static inline void ral_base_cuda_d2h_copy_memref_impl(ExecutionContext *ctx,
-                                                      void *stream_handle,
-                                                      void *from, void *to,
+static inline void ral_base_cuda_d2h_copy_memref_impl(ExecutionContext* ctx,
+                                                      void* stream_handle,
+                                                      void* from, void* to,
                                                       int64_t bytes) {
   auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
   gpu_driver->d2h(ctx, stream_handle, from, to, bytes);
 }
 
 template <typename T, int N>
-void ral_base_cuda_d2h_copy_memref(ExecutionContext *ctx, void *stream_handle,
+void ral_base_cuda_d2h_copy_memref(ExecutionContext* ctx, void* stream_handle,
                                    MemRefType<T, N> from, MemRefType<T, N> to) {
   int64_t bytes = sizeof(T);
-  for (int i = 0; i < N; ++i)
-    bytes *= from.sizes[i];
+  for (int i = 0; i < N; ++i) bytes *= from.sizes[i];
   ral_base_cuda_d2h_copy_memref_impl(ctx, stream_handle, from.data, to.data,
                                      bytes);
 }
 
 template <typename T>
-void ral_base_cuda_d2h_copy_memref_0d(ExecutionContext *ctx,
-                                      void *stream_handle,
+void ral_base_cuda_d2h_copy_memref_0d(ExecutionContext* ctx,
+                                      void* stream_handle,
                                       MemRefType<T, 0> from,
                                       MemRefType<T, 0> to) {
   int64_t bytes = sizeof(T);
@@ -343,40 +339,40 @@ void ral_base_cuda_d2h_copy_memref_0d(ExecutionContext *ctx,
                                      bytes);
 }
 
-#define RAL_REGISTER_GPU_COPY_MEMREF_FUNC(T, N)                                \
-  template void ral_base_cuda_h2d_copy_memref<T, N>(                           \
-      ExecutionContext * ctx, void *stream_handle, MemRefType<T, N>,           \
-      MemRefType<T, N>);                                                       \
-  template void ral_base_cuda_d2h_copy_memref<T, N>(                           \
-      ExecutionContext * ctx, void *stream_handle, MemRefType<T, N>,           \
-      MemRefType<T, N>);                                                       \
-  template void ral_base_cuda_d2d_copy_memref<T, N>(                           \
-      ExecutionContext * ctx, void *stream_handle, MemRefType<T, N>,           \
-      MemRefType<T, N>);                                                       \
-  TAO_RAL_API(tao::ral::kRalGpuH2DCopy, "gpu",                                 \
-              ral_base_cuda_h2d_copy_memref<T, N>);                            \
-  TAO_RAL_API(tao::ral::kRalGpuD2HCopy, "gpu",                                 \
-              ral_base_cuda_d2h_copy_memref<T, N>);                            \
-  TAO_RAL_API(tao::ral::kRalGpuD2DCopy, "gpu",                                 \
-              ral_base_cuda_d2d_copy_memref<T, N>);                            \
+#define RAL_REGISTER_GPU_COPY_MEMREF_FUNC(T, N)                      \
+  template void ral_base_cuda_h2d_copy_memref<T, N>(                 \
+      ExecutionContext * ctx, void* stream_handle, MemRefType<T, N>, \
+      MemRefType<T, N>);                                             \
+  template void ral_base_cuda_d2h_copy_memref<T, N>(                 \
+      ExecutionContext * ctx, void* stream_handle, MemRefType<T, N>, \
+      MemRefType<T, N>);                                             \
+  template void ral_base_cuda_d2d_copy_memref<T, N>(                 \
+      ExecutionContext * ctx, void* stream_handle, MemRefType<T, N>, \
+      MemRefType<T, N>);                                             \
+  TAO_RAL_API(tao::ral::kRalGpuH2DCopy, "gpu",                       \
+              ral_base_cuda_h2d_copy_memref<T, N>);                  \
+  TAO_RAL_API(tao::ral::kRalGpuD2HCopy, "gpu",                       \
+              ral_base_cuda_d2h_copy_memref<T, N>);                  \
+  TAO_RAL_API(tao::ral::kRalGpuD2DCopy, "gpu",                       \
+              ral_base_cuda_d2d_copy_memref<T, N>);                  \
   TAO_RAL_API(tao::ral::kRalGpuPrint, "gpu", ral_base_cuda_print_memref<T, N>);
 
-#define RAL_REGISTER_GPU_COPY_MEMREF_FUNC_0D(T)                                \
-  template void ral_base_cuda_h2d_copy_memref_0d<T>(                           \
-      ExecutionContext * ctx, void *stream_handle, MemRefType<T, 0>,           \
-      MemRefType<T, 0>);                                                       \
-  template void ral_base_cuda_d2h_copy_memref_0d<T>(                           \
-      ExecutionContext * ctx, void *stream_handle, MemRefType<T, 0>,           \
-      MemRefType<T, 0>);                                                       \
-  template void ral_base_cuda_d2d_copy_memref_0d<T>(                           \
-      ExecutionContext * ctx, void *stream_handle, MemRefType<T, 0>,           \
-      MemRefType<T, 0>);                                                       \
-  TAO_RAL_API(tao::ral::kRalGpuH2DCopy, "gpu",                                 \
-              ral_base_cuda_h2d_copy_memref_0d<T>);                            \
-  TAO_RAL_API(tao::ral::kRalGpuD2HCopy, "gpu",                                 \
-              ral_base_cuda_d2h_copy_memref_0d<T>);                            \
-  TAO_RAL_API(tao::ral::kRalGpuD2DCopy, "gpu",                                 \
-              ral_base_cuda_d2d_copy_memref_0d<T>);                            \
+#define RAL_REGISTER_GPU_COPY_MEMREF_FUNC_0D(T)                      \
+  template void ral_base_cuda_h2d_copy_memref_0d<T>(                 \
+      ExecutionContext * ctx, void* stream_handle, MemRefType<T, 0>, \
+      MemRefType<T, 0>);                                             \
+  template void ral_base_cuda_d2h_copy_memref_0d<T>(                 \
+      ExecutionContext * ctx, void* stream_handle, MemRefType<T, 0>, \
+      MemRefType<T, 0>);                                             \
+  template void ral_base_cuda_d2d_copy_memref_0d<T>(                 \
+      ExecutionContext * ctx, void* stream_handle, MemRefType<T, 0>, \
+      MemRefType<T, 0>);                                             \
+  TAO_RAL_API(tao::ral::kRalGpuH2DCopy, "gpu",                       \
+              ral_base_cuda_h2d_copy_memref_0d<T>);                  \
+  TAO_RAL_API(tao::ral::kRalGpuD2HCopy, "gpu",                       \
+              ral_base_cuda_d2h_copy_memref_0d<T>);                  \
+  TAO_RAL_API(tao::ral::kRalGpuD2DCopy, "gpu",                       \
+              ral_base_cuda_d2d_copy_memref_0d<T>);                  \
   TAO_RAL_API(tao::ral::kRalGpuPrint, "gpu", ral_base_cuda_print_memref_0d<T>);
 
 RAL_REGISTER_GPU_COPY_MEMREF_FUNC_0D(double);
@@ -435,7 +431,7 @@ RAL_REGISTER_GPU_COPY_MEMREF_FUNC(Eigen::half, 5);
 RAL_REGISTER_GPU_COPY_MEMREF_FUNC(Eigen::half, 6);
 RAL_REGISTER_GPU_COPY_MEMREF_FUNC(Eigen::half, 7);
 RAL_REGISTER_GPU_COPY_MEMREF_FUNC(Eigen::half, 8);
-#endif // TAO_RAL_USE_STREAM_EXECUTOR
+#endif  // TAO_RAL_USE_STREAM_EXECUTOR
 
-} // namespace ral
-} // namespace tao
+}  // namespace ral
+}  // namespace tao

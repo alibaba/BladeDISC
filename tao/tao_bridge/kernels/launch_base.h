@@ -40,18 +40,25 @@ enum CompilationMode {
   kAsync = 1,
 };
 
-template <bool> struct assign_if_not_const;
+template <bool>
+struct assign_if_not_const;
 
-template <> struct assign_if_not_const<false> {
-  template <typename T, typename V> void Run(T &&lhs, V &&rhs) { lhs = rhs; }
+template <>
+struct assign_if_not_const<false> {
+  template <typename T, typename V>
+  void Run(T&& lhs, V&& rhs) {
+    lhs = rhs;
+  }
 };
 
-template <> struct assign_if_not_const<true> {
-  template <typename T, typename V> void Run(T &&lhs, V &&rhs) {}
+template <>
+struct assign_if_not_const<true> {
+  template <typename T, typename V>
+  void Run(T&& lhs, V&& rhs) {}
 };
 
 class DoneHelper : public tensorflow::core::RefCounted {
-public:
+ public:
   DoneHelper(AsyncOpKernel::DoneCallback done) {
     done_ = done;
     TaoCompInfoCollector::Get().SetCallTimestamp(&call_info,
@@ -64,61 +71,60 @@ public:
     TaoCompInfoCollector::Get().FlushCallTimestamp(&call_info);
   }
 
-private:
+ private:
   AsyncOpKernel::DoneCallback done_;
 
-public:
+ public:
   TaoCompileFuncCallInfo call_info;
 };
 
 class LaunchBase : public AsyncOpKernel {
-public:
-  explicit LaunchBase(OpKernelConstruction *ctx);
+ public:
+  explicit LaunchBase(OpKernelConstruction* ctx);
 
-  const std::vector<int> &ConstantsAttr() { return constants_; }
-  const std::vector<int> &FixedShapesAttr() { return fixed_shapes_; }
-  const std::vector<int> &HostArgsAttr() { return host_args_; }
-  const std::vector<int> &ResourcesAttr() { return resources_; }
-  PlatformInfo &PlatformInfoCtx() { return platform_info_; }
+  const std::vector<int>& ConstantsAttr() { return constants_; }
+  const std::vector<int>& FixedShapesAttr() { return fixed_shapes_; }
+  const std::vector<int>& HostArgsAttr() { return host_args_; }
+  const std::vector<int>& ResourcesAttr() { return resources_; }
+  PlatformInfo& PlatformInfoCtx() { return platform_info_; }
   std::string DeviceUUIDCtx() { return device_uuid_; }
 
   // return function attr from the given name
-  NameAttrList FunctionAttr(const char *const attr);
+  NameAttrList FunctionAttr(const char* const attr);
   // return bool attr value from the given name
-  bool BoolAttr(const char *const attr);
+  bool BoolAttr(const char* const attr);
 
-  Status DeviceUUIDFromContext(std::string *result_uuid);
+  Status DeviceUUIDFromContext(std::string* result_uuid);
 
-  void printInOuts(OpKernelContext *ctx);
+  void printInOuts(OpKernelContext* ctx);
 
-  Tensor ToCpu(OpKernelContext *ctx, Tensor t, MemoryType mem_type);
+  Tensor ToCpu(OpKernelContext* ctx, Tensor t, MemoryType mem_type);
 
-  std::map<int, OptionalTensor>
-  SnapshotResourceVariables(OpKernelContext *ctx,
-                            absl::Span<const int> variables);
+  std::map<int, OptionalTensor> SnapshotResourceVariables(
+      OpKernelContext* ctx, absl::Span<const int> variables);
 
   // Launch Executable helper functions
-  Status EnsureFunctionHandle(OpKernelContext *ctx, const NameAttrList &func,
-                              FunctionLibraryRuntime::Handle *handle);
-  Status PrepareInputsCpu(OpKernelContext *ctx,
-                          std::vector<Tensor> *inputs_ptr);
-  Status PrepareOutputsCpu(OpKernelContext *ctx, std::vector<Tensor> *outputs);
-  Status SyncInputsMem(OpKernelContext *ctx, std::vector<Tensor> *inputs_ptr,
+  Status EnsureFunctionHandle(OpKernelContext* ctx, const NameAttrList& func,
+                              FunctionLibraryRuntime::Handle* handle);
+  Status PrepareInputsCpu(OpKernelContext* ctx,
+                          std::vector<Tensor>* inputs_ptr);
+  Status PrepareOutputsCpu(OpKernelContext* ctx, std::vector<Tensor>* outputs);
+  Status SyncInputsMem(OpKernelContext* ctx, std::vector<Tensor>* inputs_ptr,
                        bool check_block);
-  Status SyncOutputsMem(OpKernelContext *ctx, std::vector<Tensor> *outputs,
+  Status SyncOutputsMem(OpKernelContext* ctx, std::vector<Tensor>* outputs,
                         bool check_block);
-  Status RunExecutable(Executable *executable, ExecutableRunOptions &options,
-                       TaoCompileFuncCallInfo *call_info);
+  Status RunExecutable(Executable* executable, ExecutableRunOptions& options,
+                       TaoCompileFuncCallInfo* call_info);
 
   template <typename T = GpuTFProfiler>
-  Status ExecuteFunction(const NameAttrList &func,
-                         FunctionLibraryRuntime::Handle *func_handle,
-                         OpKernelContext *ctx, DoneHelper *helper,
-                         TFProfiler<T> *profiler = nullptr) {
+  Status ExecuteFunction(const NameAttrList& func,
+                         FunctionLibraryRuntime::Handle* func_handle,
+                         OpKernelContext* ctx, DoneHelper* helper,
+                         TFProfiler<T>* profiler = nullptr) {
     TaoCompInfoCollector::Get().SetCallTimestamp(&(helper->call_info),
                                                  TIME_FUNC_RUN_BEGIN);
 
-    FunctionLibraryRuntime *func_lib = ctx->function_library();
+    FunctionLibraryRuntime* func_lib = ctx->function_library();
     tensorflow::FunctionLibraryRuntime::Options opts;
     // We need this because in the latest tensorflow `opts.step_id` has type
     // `const int64` while in the former version it has type `int64`
@@ -138,7 +144,7 @@ public:
     opts.runner = ctx->runner();
     opts.collective_executor = ctx->collective_executor();
 
-    std::vector<Tensor> *outputs = new std::vector<Tensor>();
+    std::vector<Tensor>* outputs = new std::vector<Tensor>();
     TF_RETURN_IF_ERROR(EnsureFunctionHandle(ctx, func, func_handle));
     CHECK_NE(*func_handle, tensorflow::kInvalidHandle);
     VLOG(2) << "Executing func = " << func.name();
@@ -157,10 +163,10 @@ public:
     if (profiler) {
       profiler->RecordComputationStart(ctx);
     }
-    helper->Ref(); // Increment count for calculating native graph
+    helper->Ref();  // Increment count for calculating native graph
     func_lib->Run(
         opts, *func_handle, inputs, outputs,
-        [this, ctx, outputs, helper, profiler](const tensorflow::Status &s) {
+        [this, ctx, outputs, helper, profiler](const tensorflow::Status& s) {
           tensorflow::core::ScopedUnref sc(helper);
           TaoCompInfoCollector::Get().SetCallTimestamp(&(helper->call_info),
                                                        TIME_FUNC_RUN_END);
@@ -199,10 +205,10 @@ public:
         });
     return Status::OK();
   }
-  Status PrepareExecutableRunOptions(OpKernelContext *ctx,
+  Status PrepareExecutableRunOptions(OpKernelContext* ctx,
                                      int num_constant_args,
                                      std::map<int, OptionalTensor> variables,
-                                     ExecutableRunOptions *options) {
+                                     ExecutableRunOptions* options) {
     TF_RET_CHECK(options != nullptr);
     (*options)
         .set_ctx(ctx)
@@ -211,7 +217,7 @@ public:
     return Status::OK();
   }
 
-private:
+ private:
   // return attr->constants as vector
   std::vector<int> ConstantsVector();
   // return attr->fixed_shapes as vector
@@ -221,7 +227,7 @@ private:
   // return attr->resources as vector
   std::vector<int> ResourcesVector();
 
-  OpKernelConstruction *ctx_;
+  OpKernelConstruction* ctx_;
   std::vector<int> constants_;
   std::vector<int> fixed_shapes_;
   std::vector<int> host_args_;
@@ -232,10 +238,14 @@ private:
 
 // TaoLaunchTick records the run times of TAO ops
 class TaoLaunchTick {
-public:
+ public:
   TaoLaunchTick(std::string name, int64 print_freq = kTickPrintFreq)
-      : name_(name), print_freq_(print_freq), total_times_(0),
-        prev_total_times_(0), tao_times_(0), prev_tao_times_(0){};
+      : name_(name),
+        print_freq_(print_freq),
+        total_times_(0),
+        prev_total_times_(0),
+        tao_times_(0),
+        prev_tao_times_(0){};
   // increase total run times
   void IncressTotal() { total_times_++; }
 
@@ -258,7 +268,7 @@ public:
     return ss.str();
   };
 
-private:
+ private:
   std::string name_;
   int64 print_freq_;
   int64 total_times_;
@@ -267,7 +277,7 @@ private:
   int64 prev_tao_times_;
 };
 
-} //  namespace tao
-} //  namespace tensorflow
+}  //  namespace tao
+}  //  namespace tensorflow
 
-#endif //  TAO_TAO_BRIDGE_KERNELS_LAUNCH_BASE_H_
+#endif  //  TAO_TAO_BRIDGE_KERNELS_LAUNCH_BASE_H_

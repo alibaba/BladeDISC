@@ -20,16 +20,16 @@ namespace tao {
 
 std::string CompilerMLIR_CPU::DefaultDevice() { return "cpu"; }
 
-Status
-CompilerMLIR_CPU::FillDeviceInfo(mlir::disc_ral::DISCLoweringOptions &options) {
+Status CompilerMLIR_CPU::FillDeviceInfo(
+    mlir::disc_ral::DISCLoweringOptions& options) {
   // TODO(kevin.zwy): add an cpu_info field to store #cores configuration.
   options.mode = mlir::disc_ral::CodeGenMode::kCpuCentric;
 
   return Status::OK();
 }
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
 static bool InitModule() {
   tensorflow::tao::CompilerBase::RegisterCompilerFactory(

@@ -43,12 +43,12 @@ bool IsActivation(string act) {
   return false;
 }
 
-NodeBuilder::NodeOut IncomingEdgeAsOutput(const Edge *e) {
+NodeBuilder::NodeOut IncomingEdgeAsOutput(const Edge* e) {
   return NodeBuilder::NodeOut(e->src(), e->src_output());
 }
 
-Status CopyIncomingControlEdges(Graph *g, Node *from, Node *to) {
-  for (const Edge *e : from->in_edges()) {
+Status CopyIncomingControlEdges(Graph* g, Node* from, Node* to) {
+  for (const Edge* e : from->in_edges()) {
     if (e->IsControlEdge()) {
       g->AddControlEdge(e->src(), to);
     }
@@ -57,10 +57,10 @@ Status CopyIncomingControlEdges(Graph *g, Node *from, Node *to) {
   return Status::OK();
 }
 
-void MoveOutgoingEdges(Graph *g, Node *old_node, Node *new_node) {
-  std::vector<const Edge *> out_edges(old_node->out_edges().begin(),
-                                      old_node->out_edges().end());
-  for (const Edge *edge : out_edges) {
+void MoveOutgoingEdges(Graph* g, Node* old_node, Node* new_node) {
+  std::vector<const Edge*> out_edges(old_node->out_edges().begin(),
+                                     old_node->out_edges().end());
+  for (const Edge* edge : out_edges) {
     // TODO(sanjoy): This does not update NodeDef inputs.  To be able to update
     // NodeDef inputs we first need to fix encapsulate_subgraphs_pass to fix up
     // the NodeDef inputs to the function call nodes.
@@ -71,8 +71,8 @@ void MoveOutgoingEdges(Graph *g, Node *old_node, Node *new_node) {
   }
 }
 
-StatusOr<Node *> DefuseMatMul(Graph *g, Node *n,
-                              std::vector<NodeBuilder::NodeOut> &in_edges) {
+StatusOr<Node*> DefuseMatMul(Graph* g, Node* n,
+                             std::vector<NodeBuilder::NodeOut>& in_edges) {
   DataType datatype;
   bool transpose_a;
   bool transpose_b;
@@ -90,15 +90,15 @@ StatusOr<Node *> DefuseMatMul(Graph *g, Node *n,
                        .Device(n->requested_device())
                        .AssignedDevice(n->assigned_device_name());
 
-  Node *mm_op = nullptr;
+  Node* mm_op = nullptr;
   Status status = nb.Finalize(g, &mm_op);
   TF_CHECK_OK(status);
 
   return mm_op;
 }
 
-StatusOr<Node *> DefuseBiasAdd(Graph *g, Node *n,
-                               std::vector<NodeBuilder::NodeOut> &in_edges) {
+StatusOr<Node*> DefuseBiasAdd(Graph* g, Node* n,
+                              std::vector<NodeBuilder::NodeOut>& in_edges) {
   DataType datatype;
 
   TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "T", &datatype));
@@ -110,16 +110,16 @@ StatusOr<Node *> DefuseBiasAdd(Graph *g, Node *n,
                        .Device(n->requested_device())
                        .AssignedDevice(n->assigned_device_name());
 
-  Node *ba_op = nullptr;
+  Node* ba_op = nullptr;
   Status status = nb.Finalize(g, &ba_op);
   TF_CHECK_OK(status);
 
   return ba_op;
 }
 
-StatusOr<Node *> DefuseActivation(Graph *g, Node *n,
-                                  std::vector<NodeBuilder::NodeOut> &in_edges,
-                                  const string &name) {
+StatusOr<Node*> DefuseActivation(Graph* g, Node* n,
+                                 std::vector<NodeBuilder::NodeOut>& in_edges,
+                                 const string& name) {
   DataType datatype;
 
   TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "T", &datatype));
@@ -130,15 +130,15 @@ StatusOr<Node *> DefuseActivation(Graph *g, Node *n,
                        .Device(n->requested_device())
                        .AssignedDevice(n->assigned_device_name());
 
-  Node *act_op = nullptr;
+  Node* act_op = nullptr;
   Status status = nb.Finalize(g, &act_op);
   TF_CHECK_OK(status);
 
   return act_op;
 }
 
-StatusOr<Node *> DefuseBatchNorm(Graph *g, Node *n,
-                                 std::vector<NodeBuilder::NodeOut> &in_edges) {
+StatusOr<Node*> DefuseBatchNorm(Graph* g, Node* n,
+                                std::vector<NodeBuilder::NodeOut>& in_edges) {
   DataType datatype;
   string data_format;
   float epsilon;
@@ -160,15 +160,15 @@ StatusOr<Node *> DefuseBatchNorm(Graph *g, Node *n,
                        .Device(n->requested_device())
                        .AssignedDevice(n->assigned_device_name());
 
-  Node *bn_op = nullptr;
+  Node* bn_op = nullptr;
   Status status = nb.Finalize(g, &bn_op);
   TF_CHECK_OK(status);
 
   return bn_op;
 }
 
-StatusOr<Node *> DefuseConv2D(Graph *g, Node *n,
-                              std::vector<NodeBuilder::NodeOut> &in_edges) {
+StatusOr<Node*> DefuseConv2D(Graph* g, Node* n,
+                             std::vector<NodeBuilder::NodeOut>& in_edges) {
   DataType datatype;
   std::vector<int> dilations;
   std::vector<int> strides;
@@ -198,24 +198,24 @@ StatusOr<Node *> DefuseConv2D(Graph *g, Node *n,
                        .Device(n->requested_device())
                        .AssignedDevice(n->assigned_device_name());
 
-  Node *conv_op = nullptr;
+  Node* conv_op = nullptr;
   Status status = nb.Finalize(g, &conv_op);
   TF_CHECK_OK(status);
   return conv_op;
 }
 
-Status DefuseFromRoot(Graph *g, Node *n) {
+Status DefuseFromRoot(Graph* g, Node* n) {
   std::vector<string> ops;
 
   TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "fused_ops", &ops));
 
   std::vector<NodeBuilder::NodeOut> fused_in_edges;
-  for (const Edge *e : n->in_edges()) {
+  for (const Edge* e : n->in_edges()) {
     fused_in_edges.push_back(IncomingEdgeAsOutput(e));
   }
 
   int i = 0;
-  Node *op;
+  Node* op;
   CHECK(n->type_string() != "_FusedBatchNormEx")
       << "No _FusedBatchNormEx for CPU case.";
 
@@ -225,7 +225,7 @@ Status DefuseFromRoot(Graph *g, Node *n) {
                                                     fused_in_edges.begin() + 2);
     i = i + 2;
     TF_ASSIGN_OR_RETURN(op, DefuseConv2D(g, n, conv_in_edges));
-  } else { // if (n->type_string() == "_FusedMatMul") {
+  } else {  // if (n->type_string() == "_FusedMatMul") {
     CHECK(n->type_string() == "_FusedMatMul");
     VLOG(2) << "Defuse for _FusedMatMul.";
     std::vector<NodeBuilder::NodeOut> dense_in_edges(
@@ -262,18 +262,18 @@ Status DefuseFromRoot(Graph *g, Node *n) {
   return Status::OK();
 }
 
-} // namespace
+}  // namespace
 
-Status TaoDefusePass::Run(const GraphOptimizationPassOptions &options) {
+Status TaoDefusePass::Run(const GraphOptimizationPassOptions& options) {
   if (!use_tvm_) {
     return Status::OK();
   }
   VLOG(2) << "Start defuse pass for TVM-CPU.";
 
-  Graph *graph = options.graph->get();
+  Graph* graph = options.graph->get();
 
-  std::vector<Node *> target_nodes;
-  for (Node *n : graph->op_nodes()) {
+  std::vector<Node*> target_nodes;
+  for (Node* n : graph->op_nodes()) {
     // In all cases, only try to compile computational nodes.
     if (FusedOpList.count(n->type_string()) > 0) {
       target_nodes.push_back(n);
@@ -287,5 +287,5 @@ Status TaoDefusePass::Run(const GraphOptimizationPassOptions &options) {
   return Status::OK();
 }
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

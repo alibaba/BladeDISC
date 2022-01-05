@@ -17,9 +17,9 @@ limitations under the License.
 #define TAO_TAO_BRIDGE_TF_DEADNESS_ANALYSIS_INTERNAL_H_
 
 // #include "absl/container/flat_hash_map.h"
-#include "tensorflow/core/graph/tensor_id.h"
-
 #include <unordered_map>
+
+#include "tensorflow/core/graph/tensor_id.h"
 
 namespace tensorflow {
 namespace tao {
@@ -28,17 +28,17 @@ namespace deadness_analysis_internal {
 // Returns a map describing the predicate each Tensor was mapped to.  For
 // testing purposes only.
 using PredicateMapTy = std::unordered_map<TensorId, string, TensorId::Hasher>;
-Status ComputePredicates(const Graph &graph, PredicateMapTy *out_predicate_map);
+Status ComputePredicates(const Graph& graph, PredicateMapTy* out_predicate_map);
 
 // Returns a map describing the predicate each Tensor was mapped to.  For
 // testing purposes only.  Makes deadness analysis visit the graph in the order
 // specified in `reverse_post_order` which must be a valid RPO for the graph
 // minus NextIteration->Merge edges.
-Status ComputePredicates(const Graph &graph,
-                         absl::Span<Node *const> reverse_post_order,
-                         PredicateMapTy *out_predicate_map);
-} // namespace deadness_analysis_internal
-} // namespace tao
-} // namespace tensorflow
+Status ComputePredicates(const Graph& graph,
+                         absl::Span<Node* const> reverse_post_order,
+                         PredicateMapTy* out_predicate_map);
+}  // namespace deadness_analysis_internal
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TAO_TAO_BRIDGE_TF_DEADNESS_ANALYSIS_INTERNAL_H_
+#endif  // TAO_TAO_BRIDGE_TF_DEADNESS_ANALYSIS_INTERNAL_H_

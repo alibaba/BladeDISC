@@ -28,28 +28,29 @@ namespace tensorflow {
 namespace tao {
 
 // Check that the graph has no cycle containing the given node.
-Status CheckNodeNotInCycle(const Node *node, const int num_nodes);
+Status CheckNodeNotInCycle(const Node* node, const int num_nodes);
 
 // Comparison function used for sorting nodes consistently.
 // a) resource variables are last, and
 // b) sort lexicographically by name (for deterministic output).
 struct NodeCmpByNameResourcesLast {
-  bool operator()(const Node *lhs, const Node *rhs) const;
+  bool operator()(const Node* lhs, const Node* rhs) const;
 };
 
 // Returns the Node* created from the NodeDef in the Graph.
-xla::tao::StatusOr<Node *> AddNodeDefToGraph(const NodeDef &node_def,
-                                             Graph *graph);
+xla::tao::StatusOr<Node*> AddNodeDefToGraph(const NodeDef& node_def,
+                                            Graph* graph);
 
 // Build a retval node of given type and index.
-xla::tao::StatusOr<Node *> BuildRetvalNode(Graph *graph, DataType type,
-                                           int index);
+xla::tao::StatusOr<Node*> BuildRetvalNode(Graph* graph, DataType type,
+                                          int index);
 
 // Returns a textual representation of the names of the nodes in the input.
-template <typename T> string NodesToString(const T &nodes) {
+template <typename T>
+string NodesToString(const T& nodes) {
   return absl::StrCat("{",
                       absl::StrJoin(nodes, ",",
-                                    [](string *output, const Node *node) {
+                                    [](string* output, const Node* node) {
                                       absl::StrAppend(output, node->name());
                                     }),
                       "}");
@@ -59,9 +60,9 @@ template <typename T> string NodesToString(const T &nodes) {
 // Functionalize only when:
 // 1, no assigned placement on CPU.
 // 2, all of the assigned placement are on the same GPU
-bool ShouldFunctionalizeForGPU(const Graph &graph, string &device_name);
+bool ShouldFunctionalizeForGPU(const Graph& graph, string& device_name);
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TAO_TAO_BRIDGE_PASSES_FUNCTIONALIZE_CONTROL_FLOW_UTIL_H_
+#endif  // TAO_TAO_BRIDGE_PASSES_FUNCTIONALIZE_CONTROL_FLOW_UTIL_H_

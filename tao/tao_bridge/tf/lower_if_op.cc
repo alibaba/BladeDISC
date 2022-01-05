@@ -34,15 +34,15 @@ using NodeOut = NodeBuilder::NodeOut;
 // into switches (for inputs) and merges (for outputs) around a function call
 // per branch, then inlines the function calls.
 class CondBuilder {
-public:
+ public:
   enum Branch { kElseBranch = 0, kThenBranch = 1 };
 
   // Create a CondBuilder to create the lowered form of `if_op` with then and
   // else functions named `then_fn_name` and `else_fn_name` respectively in the
   // `graph`. The functions should be available in `flib`.
-  CondBuilder(Node *if_op, const string &then_fn_name,
-              const string &else_fn_name, const FunctionLibraryDefinition &flib,
-              Graph *graph);
+  CondBuilder(Node* if_op, const string& then_fn_name,
+              const string& else_fn_name, const FunctionLibraryDefinition& flib,
+              Graph* graph);
 
   // Constructs the basic conditional control flow using switch and merge nodes.
   Status CreatePivotNodes();
@@ -61,45 +61,48 @@ public:
   // Inline call nodes for then and else.
   Status InlineCallNodes();
 
-private:
+ private:
   // Returns unique name containing the name of the If op being rewritten
   // (name_), infix and a suffix to ensure it is unique within the graph.
-  string NewName(const string &infix);
+  string NewName(const string& infix);
 
   // Adds input to both the then and else nodes from src:src_output.
-  Status AddInput(Node *src, int src_output);
+  Status AddInput(Node* src, int src_output);
 
   // The merged outputs of the then and else nodes.
   std::vector<NodeOut> outputs_;
 
   // The node that dominates all execution of the then and else body nodes.
-  Node *control_predecessor_;
+  Node* control_predecessor_;
   // The original If op.
-  Node *if_op_;
+  Node* if_op_;
   // The identity node with the same outputs as the original If op.
-  Node *lowered_if_output_;
+  Node* lowered_if_output_;
   // The predicate of the conditional.
-  Node *pred_;
+  Node* pred_;
   // Node corresponding to pivot_f branch of predicate switch which is
   // the pivot node that dominates all nodes in the false/else branch.
-  Node *pivot_f_;
+  Node* pivot_f_;
   // Node corresponding to pivot_t branch of predicate switch which is
   // the pivot node that dominates all nodes in the true/then branch.
-  Node *pivot_t_;
-  Node *then_call_node_;
-  Node *else_call_node_;
-  Graph *graph_;
-  const FunctionLibraryDefinition &flib_;
+  Node* pivot_t_;
+  Node* then_call_node_;
+  Node* else_call_node_;
+  Graph* graph_;
+  const FunctionLibraryDefinition& flib_;
   string name_;
 
   NodeBuilder then_call_builder_;
   NodeBuilder else_call_builder_;
 };
 
-CondBuilder::CondBuilder(Node *if_op, const string &then_fn_name,
-                         const string &else_fn_name,
-                         const FunctionLibraryDefinition &flib, Graph *graph)
-    : if_op_(if_op), graph_(graph), flib_(flib), name_(if_op->name()),
+CondBuilder::CondBuilder(Node* if_op, const string& then_fn_name,
+                         const string& else_fn_name,
+                         const FunctionLibraryDefinition& flib, Graph* graph)
+    : if_op_(if_op),
+      graph_(graph),
+      flib_(flib),
+      name_(if_op->name()),
       then_call_builder_(NewName("then"), then_fn_name, graph->op_registry()),
       else_call_builder_(NewName("else"), else_fn_name, graph->op_registry()) {
   TF_CHECK_OK(if_op_->input_node(0, &pred_));
@@ -110,7 +113,7 @@ CondBuilder::CondBuilder(Node *if_op, const string &then_fn_name,
 Status CondBuilder::CreatePivotNodes() {
   // Construct the basic cond body (consisting of feeding in the predicate to
   // create pivot nodes).
-  Node *switch_pred;
+  Node* switch_pred;
   TF_RETURN_IF_ERROR(
       NodeBuilder(NewName("switch_pred"), "Switch", graph_->op_registry())
           .Input(NodeOut(pred_, 0))
@@ -131,12 +134,12 @@ Status CondBuilder::CreatePivotNodes() {
   return Status::OK();
 }
 
-string CondBuilder::NewName(const string &infix) {
+string CondBuilder::NewName(const string& infix) {
   return graph_->NewName(strings::StrCat(name_, "/", infix));
 }
 
-Status CondBuilder::AddInput(Node *src, int src_output) {
-  Node *input;
+Status CondBuilder::AddInput(Node* src, int src_output) {
+  Node* input;
   TF_RETURN_IF_ERROR(
       NodeBuilder(NewName(src->name()), "Switch", graph_->op_registry())
           .Input(src, src_output)
@@ -150,15 +153,15 @@ Status CondBuilder::AddInput(Node *src, int src_output) {
 
 Status CondBuilder::AddInputs() {
   // Add input data edges.
-  std::vector<const Edge *> edges;
+  std::vector<const Edge*> edges;
   TF_RETURN_IF_ERROR(if_op_->input_edges(&edges));
   // Start at index 1 as the first input is the predicate.
   for (int i = 1; i < edges.size(); ++i) {
-    const Edge *e = edges[i];
+    const Edge* e = edges[i];
     TF_RETURN_IF_ERROR(AddInput(e->src(), e->src_output()));
   }
   // Add input control edges.
-  for (const Edge *e : if_op_->in_edges()) {
+  for (const Edge* e : if_op_->in_edges()) {
     if (e->IsControlEdge()) {
       graph_->AddControlEdge(e->src(), control_predecessor_);
     }
@@ -174,7 +177,7 @@ Status CondBuilder::AddOutputs() {
   graph_->AddControlEdge(pivot_f_, else_call_node_);
 
   // Merge the outputs from the two branches.
-  std::vector<Node *> merges(then_call_node_->num_outputs());
+  std::vector<Node*> merges(then_call_node_->num_outputs());
   outputs_.resize(merges.size());
   for (int i = 0; i < then_call_node_->num_outputs(); ++i) {
     TF_RETURN_IF_ERROR(
@@ -188,7 +191,7 @@ Status CondBuilder::AddOutputs() {
   TF_RETURN_IF_ERROR(BuildLoweredIfOutput());
 
   // Add outputs.
-  for (const Edge *e : if_op_->out_edges()) {
+  for (const Edge* e : if_op_->out_edges()) {
     if (e->IsControlEdge()) {
       graph_->AddControlEdge(lowered_if_output_, e->dst());
     } else {
@@ -200,20 +203,20 @@ Status CondBuilder::AddOutputs() {
   return Status::OK();
 }
 
-Status InlineCallInGraph(Node *n, Graph *g,
-                         const FunctionLibraryDefinition *lib) {
-  const FunctionDef *fdef = lib->Find(n->type_string());
+Status InlineCallInGraph(Node* n, Graph* g,
+                         const FunctionLibraryDefinition* lib) {
+  const FunctionDef* fdef = lib->Find(n->type_string());
   CHECK(fdef != nullptr);
 
 #if defined TF_1_12
-  FunctionBody *fbody = nullptr;
+  FunctionBody* fbody = nullptr;
 #else
   std::unique_ptr<FunctionBody> fbody;
 #endif
 
   TF_RETURN_IF_ERROR(FunctionDefToBodyHelper(
       *fdef, n->attrs(), lib,
-      [lib](const string &op, const OpDef **sig) {
+      [lib](const string& op, const OpDef** sig) {
         return lib->LookUpOpDef(op, sig);
       },
       &fbody));
@@ -230,7 +233,7 @@ Status InlineCallInGraph(Node *n, Graph *g,
 Status CondBuilder::BuildLoweredIfOutput() {
   // Build the identity node output.
   NodeBuilder ib(name_, "IdentityN");
-  ib.Input(outputs_); //.Device(if_op_->requested_device());
+  ib.Input(outputs_);  //.Device(if_op_->requested_device());
   return ib.Finalize(graph_, &lowered_if_output_);
 }
 
@@ -240,14 +243,14 @@ Status CondBuilder::InlineCallNodes() {
   return Status::OK();
 }
 
-} // namespace
+}  // namespace
 
-Status RewriteIfNode(Node *n, Graph *g, const FunctionLibraryDefinition &flib) {
-  const AttrValue *then_attr = n->attrs().Find("then_branch");
+Status RewriteIfNode(Node* n, Graph* g, const FunctionLibraryDefinition& flib) {
+  const AttrValue* then_attr = n->attrs().Find("then_branch");
   if (then_attr == nullptr) {
     return errors::InvalidArgument("Then branch function missing");
   }
-  const AttrValue *else_attr = n->attrs().Find("else_branch");
+  const AttrValue* else_attr = n->attrs().Find("else_branch");
   if (else_attr == nullptr) {
     return errors::InvalidArgument("Else branch function missing");
   }
@@ -263,5 +266,5 @@ Status RewriteIfNode(Node *n, Graph *g, const FunctionLibraryDefinition &flib) {
   return Status::OK();
 }
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

@@ -30,12 +30,13 @@ namespace impl {
 enum class HeapType { kMinHeap, kMaxHeap };
 enum class PreferIndices { kLower, kHigher };
 
-template <typename T> struct Entry {
+template <typename T>
+struct Entry {
   int index;
   T value;
 
   // Test-only.
-  static bool greater(const Entry<T> &a, const Entry<T> &b) {
+  static bool greater(const Entry<T>& a, const Entry<T>& b) {
     if (a.value == b.value) {
       return a.index < b.index;
     }
@@ -43,42 +44,45 @@ template <typename T> struct Entry {
   }
 };
 
-template <typename T> struct LinearData {
+template <typename T>
+struct LinearData {
   typedef impl::Entry<T> Entry;
 
-  __device__ Entry &operator[](std::size_t index) const { return data[index]; }
+  __device__ Entry& operator[](std::size_t index) const { return data[index]; }
 
   __device__ int get_index(int i) const { return data[i].index; }
   __device__ T get_value(int i) const { return data[i].value; }
 
-  Entry *const data;
+  Entry* const data;
 };
 
-template <typename T> struct IndirectLinearData {
+template <typename T>
+struct IndirectLinearData {
   typedef impl::Entry<T> Entry;
 
-  __device__ Entry &operator[](std::size_t index) const { return data[index]; }
+  __device__ Entry& operator[](std::size_t index) const { return data[index]; }
 
   __device__ int get_index(int i) const {
     return backing_data[data[i].index].index;
   }
   __device__ T get_value(int i) const { return data[i].value; }
 
-  Entry *const data;
-  Entry *const backing_data;
+  Entry* const data;
+  Entry* const backing_data;
 };
 
-template <typename T> struct StridedData {
+template <typename T>
+struct StridedData {
   typedef impl::Entry<T> Entry;
 
-  __device__ Entry &operator[](std::size_t index) const {
+  __device__ Entry& operator[](std::size_t index) const {
     return data[index * blockDim.x + threadIdx.x];
   }
 
   __device__ int get_index(int i) const { return (*this)[i].index; }
   __device__ T get_value(int i) const { return (*this)[i].value; }
 
-  Entry *const data;
+  Entry* const data;
 };
 
 // A heap of Entry<T> that can either work as a min-heap or as a max-heap.
@@ -87,7 +91,7 @@ template <HeapType heapType, PreferIndices preferIndices,
 struct IndexedHeap {
   typedef typename Data<T>::Entry Entry;
   const Data<T> data;
-  __device__ IndexedHeap(const Data<T> &d) : data(d) {}
+  __device__ IndexedHeap(const Data<T>& d) : data(d) {}
 
   __device__ bool is_above(int left, int right) {
     T left_value = data.get_value(left);
@@ -106,7 +110,7 @@ struct IndexedHeap {
     }
   }
 
-  __device__ void assign(int i, const Entry &entry) { data[i] = entry; }
+  __device__ void assign(int i, const Entry& entry) { data[i] = entry; }
 
   __device__ void push_up(int i) {
     int child = i;
@@ -173,18 +177,18 @@ struct IndexedHeap {
     }
   }
 
-  __device__ void replace_root(const Entry &entry, int k) {
+  __device__ void replace_root(const Entry& entry, int k) {
     data[0] = entry;
     push_root_down(k);
   }
 
-  __device__ const Entry &root() { return data[0]; }
+  __device__ const Entry& root() { return data[0]; }
 };
 
 template <HeapType heapType, PreferIndices preferIndices,
           template <typename> class Data, typename T>
-__device__ IndexedHeap<heapType, preferIndices, Data, T>
-make_indexed_heap(typename Data<T>::Entry *data) {
+__device__ IndexedHeap<heapType, preferIndices, Data, T> make_indexed_heap(
+    typename Data<T>::Entry* data) {
   return IndexedHeap<heapType, preferIndices, Data, T>{Data<T>{data}};
 }
 
@@ -194,8 +198,8 @@ make_indexed_heap(typename Data<T>::Entry *data) {
 // access elements in `heap_entries`. If sorted=true, the elements will be
 // sorted at the end.
 template <typename T, template <typename> class Data = LinearData>
-__device__ void heapTopK(const T *__restrict__ input, int length, int k,
-                         Entry<T> *__restrict__ heap_entries,
+__device__ void heapTopK(const T* __restrict__ input, int length, int k,
+                         Entry<T>* __restrict__ heap_entries,
                          bool sorted = false, int start_index = 0,
                          int step_size = 1) {
   assert(k <= length);
@@ -242,9 +246,9 @@ __device__ void heapTopK(const T *__restrict__ input, int length, int k,
 // `top_k_heap` is used as temporary storage for the merge heap.
 template <typename T>
 __device__ void mergeShards(int num_shards, int k,
-                            Entry<T> *__restrict__ entries,
-                            Entry<T> *__restrict__ top_k_heap, T *top_k_values,
-                            int *top_k_indices) {
+                            Entry<T>* __restrict__ entries,
+                            Entry<T>* __restrict__ top_k_heap, T* top_k_values,
+                            int* top_k_indices) {
   // If k < num_shards, we can use a min-heap with k elements to get the top k
   // of the sorted blocks.
   // If k > num_shards, we can initialize a min-heap with the top element from
@@ -291,7 +295,7 @@ __device__ void mergeShards(int num_shards, int k,
     // k is treated specially.
     const int last_k = k - 1;
     for (int rank = 0; rank < last_k; rank++) {
-      const Entry<T> &max_element = max_heap.root();
+      const Entry<T>& max_element = max_heap.root();
       top_k_values[rank] = max_element.value;
       int shard_index = max_element.index;
       top_k_indices[rank] = entries[shard_index].index;
@@ -303,7 +307,7 @@ __device__ void mergeShards(int num_shards, int k,
     }
 
     // rank == last_k.
-    const Entry<T> &max_element = max_heap.root();
+    const Entry<T>& max_element = max_heap.root();
     top_k_values[last_k] = max_element.value;
     int shard_index = max_element.index;
     top_k_indices[last_k] = entries[shard_index].index;
@@ -312,26 +316,26 @@ __device__ void mergeShards(int num_shards, int k,
 
 #if GOOGLE_CUDA
 extern __shared__ char shared_memory[];
-#endif // GOOGLE_CUDA
+#endif  // GOOGLE_CUDA
 
 template <typename T>
 #if TENSORFLOW_USE_ROCM
 __attribute__((amdgpu_flat_work_group_size(1, 256)))
-#endif // TENSORFLOW_USE_ROCM
+#endif  // TENSORFLOW_USE_ROCM
 __global__ void
-TopKKernel(const T *__restrict__ input, int length, int k, bool sorted,
-           T *__restrict__ output, int *__restrict__ indices) {
+TopKKernel(const T* __restrict__ input, int length, int k, bool sorted,
+           T* __restrict__ output, int* __restrict__ indices) {
 #if TENSORFLOW_USE_ROCM
   HIP_DYNAMIC_SHARED(char, shared_memory);
-#endif // TENSORFLOW_USE_ROCM
+#endif  // TENSORFLOW_USE_ROCM
 
   const int batch_index = blockIdx.x;
-  const T *batch_input = input + batch_index * length;
+  const T* batch_input = input + batch_index * length;
 
   const int thread_index = threadIdx.x;
   const int thread_count = blockDim.x;
 
-  Entry<T> *shared_entries = (Entry<T> *)shared_memory;
+  Entry<T>* shared_entries = (Entry<T>*)shared_memory;
 
   heapTopK<T, StridedData>(batch_input, length, k, shared_entries, true,
                            thread_index, thread_count);
@@ -341,7 +345,7 @@ TopKKernel(const T *__restrict__ input, int length, int k, bool sorted,
     const int offset = batch_index * k;
     auto batch_output = output + offset;
     auto batch_indices = indices + offset;
-    Entry<T> *top_k_heap = shared_entries + thread_count * k;
+    Entry<T>* top_k_heap = shared_entries + thread_count * k;
 
     // TODO(blackhc): Erich says: Performance can likely be improved
     // significantly by having the merge be done by multiple threads rather than
@@ -352,15 +356,14 @@ TopKKernel(const T *__restrict__ input, int length, int k, bool sorted,
 }
 
 template <typename... Ts, size_t... Is>
-std::array<void *, sizeof...(Ts)>
-GetArrayOfElementPointersImpl(std::tuple<Ts...> *tuple,
-                              absl::index_sequence<Is...>) {
+std::array<void*, sizeof...(Ts)> GetArrayOfElementPointersImpl(
+    std::tuple<Ts...>* tuple, absl::index_sequence<Is...>) {
   return {{&std::get<Is>(*tuple)...}};
 }
 // Returns an array of void pointers to the elements of the given tuple.
 template <typename... Ts>
-std::array<void *, sizeof...(Ts)>
-GetArrayOfElementPointers(std::tuple<Ts...> *tuple) {
+std::array<void*, sizeof...(Ts)> GetArrayOfElementPointers(
+    std::tuple<Ts...>* tuple) {
   return GetArrayOfElementPointersImpl(tuple,
                                        absl::index_sequence_for<Ts...>{});
 }
@@ -376,7 +379,7 @@ void GpuLaunchKernel(void (*function)(Ts...), dim3 grid_dim, dim3 block_dim,
   // static_assert(detail::NoneIsReference<Ts...>(),
   //              "Kernels with reference arguments have undefined behaviour.");
 #if GOOGLE_CUDA
-  auto func_ptr = absl::bit_cast<const void *>(function);
+  auto func_ptr = absl::bit_cast<const void*>(function);
   // Cast arguments and forward them as an array of pointers.
   auto args_tuple = std::tuple<Ts...>(arguments...);
   auto arg_ptrs = GetArrayOfElementPointers(&args_tuple);
@@ -392,9 +395,9 @@ void GpuLaunchKernel(void (*function)(Ts...), dim3 grid_dim, dim3 block_dim,
 }
 
 template <typename T>
-cudaError LaunchTopKKernel(const gpuStream_t &stream, int num_shards,
-                           const T *input, int batch_size, int length, int k,
-                           bool sorted, T *output, int *indices) {
+cudaError LaunchTopKKernel(const gpuStream_t& stream, int num_shards,
+                           const T* input, int batch_size, int length, int k,
+                           bool sorted, T* output, int* indices) {
   // This code assumes that k is small enough that the computation
   // fits inside shared memory (hard coded to 48KB).  In practice this
   // means k <= 3072 for T=float/int32 and k <= 2048 for T=double/int64.
@@ -403,7 +406,7 @@ cudaError LaunchTopKKernel(const gpuStream_t &stream, int num_shards,
 
   // Use as many shards as possible.
   if (num_shards <= 0) {
-    constexpr auto shared_memory_size = 48 << 10; // 48 KB
+    constexpr auto shared_memory_size = 48 << 10;  // 48 KB
     const auto heap_size = k * sizeof(Entry<T>);
     // shared_memory_size = (num_shards + 1) * heap_size <=>
     num_shards = shared_memory_size / heap_size - 1;
@@ -427,7 +430,7 @@ cudaError LaunchTopKKernel(const gpuStream_t &stream, int num_shards,
     } else if (num_shards > 256) {
       num_shards = 256;
     }
-#endif // GOOGLE_CUDA || TENSORFLOW_USE_ROCM
+#endif  // GOOGLE_CUDA || TENSORFLOW_USE_ROCM
   }
   // We are limited by the amount of shared memory we have per block.
   auto shared_memory_size = (num_shards + 1) * k * sizeof(Entry<T>);
@@ -437,6 +440,6 @@ cudaError LaunchTopKKernel(const gpuStream_t &stream, int num_shards,
   return cudaGetLastError();
 }
 
-} // end namespace impl
+}  // end namespace impl
 
-#endif // DYN_SORT_TF_TOPK_IMPL_H_
+#endif  // DYN_SORT_TF_TOPK_IMPL_H_

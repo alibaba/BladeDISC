@@ -24,7 +24,7 @@ TEST(TaoCompilerTraceTest, Test) {
   std::string file;
   ASSERT_TRUE(tensorflow::Env::Default()->LocalTempFilename(&file));
   setenv("TAO_COMPILER_TRACE_DUMP_PATH", file.c_str(), 1);
-  auto *ins = TaoCompilerTrace::Instance();
+  auto* ins = TaoCompilerTrace::Instance();
   ins->OnEvent("debug", "debug");
   ins->OnEvent("trace", "trace");
   ins->Shutdown();
@@ -49,5 +49,5 @@ TEST(TaoCompilerTraceTest, Test) {
   ASSERT_FALSE(fin >> line);
 }
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

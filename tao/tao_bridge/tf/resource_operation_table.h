@@ -29,19 +29,19 @@ namespace tensorflow {
 namespace tao {
 
 enum class XlaResourceOpKind {
-  kRead,     // Only reads from resources.
-  kWrite,    // Only writes to resources.
-  kReadWrite // Reads from and writes to resources.
+  kRead,      // Only reads from resources.
+  kWrite,     // Only writes to resources.
+  kReadWrite  // Reads from and writes to resources.
 };
 
 enum class XlaResourceKind {
-  kVariable,   // Operates on resource variables.
-  kStack,      // Operates on stacks.
-  kTensorArray // Operates on tensor arrays.
+  kVariable,    // Operates on resource variables.
+  kStack,       // Operates on stacks.
+  kTensorArray  // Operates on tensor arrays.
 };
 
 class XlaResourceOpInfo {
-public:
+ public:
   explicit XlaResourceOpInfo(XlaResourceOpKind op_kind,
                              XlaResourceKind resource_kind)
       : op_kind_(op_kind), resource_kind_(resource_kind) {}
@@ -51,7 +51,7 @@ public:
 
   static absl::string_view XlaResourceOpKindToString(XlaResourceOpKind op_kind);
 
-private:
+ private:
   XlaResourceOpKind op_kind_;
   XlaResourceKind resource_kind_;
 };
@@ -59,16 +59,16 @@ private:
 // Returns a XlaResourceOpInfo describing `op` if it is a resource operation
 // supported by tf2xla, otherwise returns null (i.e. if this returns null then
 // `op` is either not a resource operation or is unsupported by XLA).
-const XlaResourceOpInfo *GetResourceOpInfoForOp(absl::string_view op);
+const XlaResourceOpInfo* GetResourceOpInfoForOp(absl::string_view op);
 
 namespace resource_op_table_internal {
 // NB! Implementation detail exposed for unit testing, do not use.
 //
 // Returns the set of resource operations known by this module.
 std::vector<absl::string_view> GetKnownResourceOps();
-} // namespace resource_op_table_internal
+}  // namespace resource_op_table_internal
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TAO_TAO_BRIDGE_TF_RESOURCE_OPERATION_TABLE_H_
+#endif  // TAO_TAO_BRIDGE_TF_RESOURCE_OPERATION_TABLE_H_

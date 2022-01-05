@@ -33,7 +33,7 @@ namespace tao {
 // Indicates how a FunctionDef is associated with a graph node (e.g. the node is
 // a function call, or the node has function attrs).
 class AssociatedFunctionInfo {
-public:
+ public:
   enum AssociatedFunctionType {
     kFunctionAttr = 0,
     kFunctionCallNode = 1,
@@ -41,23 +41,23 @@ public:
   };
 
   // The function is an attr of the node.
-  static AssociatedFunctionInfo FunctionAttr(const string &func_name,
-                                             const AttrValueMap &attrs,
-                                             const string &attr_name) {
+  static AssociatedFunctionInfo FunctionAttr(const string& func_name,
+                                             const AttrValueMap& attrs,
+                                             const string& attr_name) {
     return AssociatedFunctionInfo(kFunctionAttr, func_name, attrs, attr_name);
   }
 
   // The node is a function call.
-  static AssociatedFunctionInfo FunctionCall(const string &func_name,
-                                             const AttrValueMap &attrs) {
+  static AssociatedFunctionInfo FunctionCall(const string& func_name,
+                                             const AttrValueMap& attrs) {
     // attr_name will not be used in this case.
     return AssociatedFunctionInfo(kFunctionCallNode, func_name, attrs,
                                   /*attr_name=*/"");
   }
 
   // The node is a SymbolicGradient op.
-  static AssociatedFunctionInfo SymbolicGradient(const string &func_name,
-                                                 const AttrValueMap &attrs) {
+  static AssociatedFunctionInfo SymbolicGradient(const string& func_name,
+                                                 const AttrValueMap& attrs) {
     // attr_name will not be used in this case.
     return AssociatedFunctionInfo(kSymbolicGradient, func_name, attrs,
                                   /*attr_name=*/"");
@@ -65,16 +65,18 @@ public:
 
   AssociatedFunctionType type() const { return type_; }
 
-  const string &func_name() const { return func_name_; }
+  const string& func_name() const { return func_name_; }
 
-  const string &attr_name() const { return attr_name_; }
+  const string& attr_name() const { return attr_name_; }
 
-  const AttrValueMap &attrs() const { return attrs_; }
+  const AttrValueMap& attrs() const { return attrs_; }
 
-private:
-  AssociatedFunctionInfo(AssociatedFunctionType type, const string &func_name,
-                         const AttrValueMap &attrs, const string &attr_name)
-      : type_(type), func_name_(func_name), attrs_(attrs),
+ private:
+  AssociatedFunctionInfo(AssociatedFunctionType type, const string& func_name,
+                         const AttrValueMap& attrs, const string& attr_name)
+      : type_(type),
+        func_name_(func_name),
+        attrs_(attrs),
         attr_name_(attr_name) {}
 
   // Available for all instances.
@@ -87,16 +89,16 @@ private:
 };
 
 // Returns if the NodeDef has associated function.
-bool HasAssociatedFunction(const NodeDef &node_def,
-                           FunctionLibraryRuntime *flr);
+bool HasAssociatedFunction(const NodeDef& node_def,
+                           FunctionLibraryRuntime* flr);
 
 // Gets functions associated with the node. Current cases:
 // 1. For function call node, its function name;
 // 2. For SymbolicGradient op, returned func_name will be "SymbolicGradient",
 //    and returned attrs will be this node's attributes;
 // 3. For nodes like XlaWhile/XlaIf, all their function attributes.
-std::vector<AssociatedFunctionInfo>
-GetAssociatedFunctions(const Node &node, FunctionLibraryRuntime *flr);
+std::vector<AssociatedFunctionInfo> GetAssociatedFunctions(
+    const Node& node, FunctionLibraryRuntime* flr);
 
 // Changes associated functions for the node. Current cases:
 // 1. For function call node, creates a new node with the new function name and
@@ -104,16 +106,15 @@ GetAssociatedFunctions(const Node &node, FunctionLibraryRuntime *flr);
 // 2. For SymbolicGradient op, add or replace GradientDef in
 //    FunctionLibraryDefinition;
 // 3. For nodes like XlaWhile/XlaIf, modify their function attributes.
-Status
-RewriteAssociatedFunction(Graph *graph, Node *node,
-                          FunctionLibraryDefinition *fld,
-                          const AssociatedFunctionInfo &associated_function,
-                          const string &rewritten_function_name);
+Status RewriteAssociatedFunction(
+    Graph* graph, Node* node, FunctionLibraryDefinition* fld,
+    const AssociatedFunctionInfo& associated_function,
+    const string& rewritten_function_name);
 
 // Attribute to mark nodes to be executed on host.
 extern const char kXlaOutsideCompilationAttrName[];
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TAO_TAO_BRIDGE_TF_TF2XLA_UTIL_H_
+#endif  // TAO_TAO_BRIDGE_TF_TF2XLA_UTIL_H_

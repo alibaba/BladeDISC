@@ -51,21 +51,21 @@ struct TaoPassOptions {
 };
 
 class TaoOptimizationPass : public GraphOptimizationPass {
-public:
+ public:
   TaoOptimizationPass() : opts_(absl::make_unique<TaoPassOptions>()) {}
 
   void set_options(std::unique_ptr<TaoPassOptions> opts) {
     opts_ = std::move(opts);
   }
 
-  Status Run(const GraphOptimizationPassOptions &options) override;
+  Status Run(const GraphOptimizationPassOptions& options) override;
 
-private:
+ private:
   TF_DISALLOW_COPY_AND_ASSIGN(TaoOptimizationPass);
   std::unique_ptr<TaoPassOptions> opts_;
 };
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TAO_TAO_BRIDGE_PASSES_TAO_OPTIMIZATION_PASS_H_
+#endif  // TAO_TAO_BRIDGE_PASSES_TAO_OPTIMIZATION_PASS_H_

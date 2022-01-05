@@ -26,13 +26,13 @@ namespace tao {
 #define VLOG_LVL 2
 
 class TAOProfilingGuidedCompilation final {
-public:
+ public:
   enum class CompilationMode : int64 {
     kNormal = 0,
     kProfilingGuided = 1,
     kLazyOnly = 2,
   };
-  static TAOProfilingGuidedCompilation &Get();
+  static TAOProfilingGuidedCompilation& Get();
 
   // kNormal,  kProfilingGuided or kLazyOnly
   CompilationMode Mode();
@@ -47,7 +47,7 @@ public:
   void GenCandidatesOrNot();
 
   // return ref of signature's time record
-  uint64 &GetSignatureTimeRef(uint64 signature);
+  uint64& GetSignatureTimeRef(uint64 signature);
 
   // can compile this signature or not
   bool InCandidateList(uint64 signature);
@@ -55,7 +55,7 @@ public:
   // allow tao compile or not
   bool AllowTAOCompile(uint64 signature);
 
-private:
+ private:
   // 0. disable feature 1. profiling guided 2. lazy compilation
   CompilationMode feature_mode_ = CompilationMode::kNormal;
   // profiling has finished
@@ -73,16 +73,16 @@ private:
 
   mutex signature_calls_mtx_;
   // record signature's calls
-  std::unordered_map<uint64, uint64>
-      signature_calls_ GUARDED_BY(signature_calls_mtx_);
+  std::unordered_map<uint64, uint64> signature_calls_
+      GUARDED_BY(signature_calls_mtx_);
   mutex signature_time_mtx_;
   // record signature's time
-  std::unordered_map<uint64, uint64>
-      signature_time_ GUARDED_BY(signature_time_mtx_);
+  std::unordered_map<uint64, uint64> signature_time_
+      GUARDED_BY(signature_time_mtx_);
   mutex candidate_signature_mtx_;
   // record candidates' signature
-  std::unordered_set<uint64>
-      candidate_signature_ GUARDED_BY(candidate_signature_mtx_);
+  std::unordered_set<uint64> candidate_signature_
+      GUARDED_BY(candidate_signature_mtx_);
 
   // meet a signature and inc its counter
   // return count. return 0 if exceed kSignatureMapSize.
@@ -99,5 +99,5 @@ private:
   TF_DISALLOW_COPY_AND_ASSIGN(TAOProfilingGuidedCompilation);
 };
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

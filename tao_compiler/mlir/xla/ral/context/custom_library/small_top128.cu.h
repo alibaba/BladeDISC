@@ -14,28 +14,33 @@
 
 #include "topk_util.cu.h"
 
-template <typename Dtype> struct vecType;
+template <typename Dtype>
+struct vecType;
 
-template <> struct vecType<unsigned int> {
+template <>
+struct vecType<unsigned int> {
   typedef uint2 vec2;
   typedef uint4 vec4;
 };
 
-template <> struct vecType<int> {
+template <>
+struct vecType<int> {
   typedef int2 vec2;
   typedef int4 vec4;
 };
 
-template <> struct vecType<float> {
+template <>
+struct vecType<float> {
   typedef float2 vec2;
   typedef float4 vec4;
 };
 
 // this device function is only suitable for one active warp
 template <typename Itype, typename Dtype>
-__inline__ __device__ void
-vec4LoadAndBitonicSort128(Dtype *const iKey, Dtype keys[8], Itype vals[8],
-                          const Itype iLen) {
+__inline__ __device__ void vec4LoadAndBitonicSort128(Dtype* const iKey,
+                                                     Dtype keys[8],
+                                                     Itype vals[8],
+                                                     const Itype iLen) {
   typedef typename vecType<Dtype>::vec4 Dvec4;
 
   keys[0] = std::numeric_limits<Dtype>::lowest();
@@ -62,7 +67,7 @@ vec4LoadAndBitonicSort128(Dtype *const iKey, Dtype keys[8], Itype vals[8],
   const Itype nVecLd = iLen < peel ? 0 : (iLen - peel) >> 7;
   const Itype roundLen = nVecLd << 5;
   for (; i < roundLen; i += 32) {
-    Dvec4 key = reinterpret_cast<Dvec4 *>(iKey + peel)[i];
+    Dvec4 key = reinterpret_cast<Dvec4*>(iKey + peel)[i];
 
     keys[4] = key.x;
     keys[5] = key.y;
@@ -108,7 +113,7 @@ vec4LoadAndBitonicSort128(Dtype *const iKey, Dtype keys[8], Itype vals[8],
 // (index within a batch)
 template <typename Itype, typename Dtype, unsigned nthds_per_block>
 __launch_bounds__(nthds_per_block) __global__
-    void batchTop128(Dtype *ikey, Dtype *okey, Itype *oval, Itype batch,
+    void batchTop128(Dtype* ikey, Dtype* okey, Itype* oval, Itype batch,
                      Itype iwidth, Itype owidth) {
   const Itype pos = (blockIdx.x * nthds_per_block + threadIdx.x) >> 5;
 
@@ -117,13 +122,13 @@ __launch_bounds__(nthds_per_block) __global__
     Dtype thread_keys[8];
     Itype thread_vals[8];
 
-    Dtype *const iKeyOfs = ikey + pos * iwidth;
+    Dtype* const iKeyOfs = ikey + pos * iwidth;
     vec4LoadAndBitonicSort128(iKeyOfs, thread_keys, thread_vals, iwidth);
 
     // assumed at most 128 top elements
     Itype i = threadIdx.x & 31;
-    Dtype *const okeyOfs = okey + pos * owidth;
-    Itype *const ovalOfs = oval + pos * owidth;
+    Dtype* const okeyOfs = okey + pos * owidth;
+    Itype* const ovalOfs = oval + pos * owidth;
     if (i < owidth) {
       okeyOfs[i] = thread_keys[0];
       ovalOfs[i] = thread_vals[0];
@@ -144,15 +149,15 @@ __launch_bounds__(nthds_per_block) __global__
       ovalOfs[i] = thread_vals[3];
       i += 32;
     }
-  } // if:pos<batch
+  }  // if:pos<batch
 }
 
 template <typename Itype, typename Dtype>
-void batchTop128Launch(Dtype *ikey, Dtype *okey, Itype *oval, Itype batch,
+void batchTop128Launch(Dtype* ikey, Dtype* okey, Itype* oval, Itype batch,
                        Itype iwidth, Itype owidth, cudaStream_t stream = NULL) {
   const unsigned blocks = (batch + 3) / 4;
   batchTop128<Itype, Dtype, 128>
       <<<blocks, 128, 0, stream>>>(ikey, okey, oval, batch, iwidth, owidth);
 }
 
-#endif // DYN_TOP_K_SMALL_TOP_128_H_
+#endif  // DYN_TOP_K_SMALL_TOP_128_H_

@@ -36,23 +36,23 @@ namespace tao {
 //
 // Only propagate const-ness along edges for which `edge_filter` returns true.
 Status BackwardsConstAnalysis(
-    const Graph &g, std::vector<bool> *compile_time_const_arg_indices,
-    std::vector<bool> *compile_time_const_nodes,
-    std::vector<bool> *compile_time_fixed_shape_arg_indices,
-    std::vector<bool> *compile_time_fixed_shape_nodes,
-    FunctionLibraryRuntime *flib_runtime,
-    std::function<bool(const Edge &)> edge_filter =
-        [](const Edge &e) { return true; },
+    const Graph& g, std::vector<bool>* compile_time_const_arg_indices,
+    std::vector<bool>* compile_time_const_nodes,
+    std::vector<bool>* compile_time_fixed_shape_arg_indices,
+    std::vector<bool>* compile_time_fixed_shape_nodes,
+    FunctionLibraryRuntime* flib_runtime,
+    std::function<bool(const Edge&)> edge_filter =
+        [](const Edge& e) { return true; },
     bool analysis_mlir = false);
 
 // Given an op kernel and function library runtime, return all the indices of
 // inputs that need to be compile time constant.
-Status GetCompileTimeConstInputs(const OpKernel *op_kernel,
-                                 std::vector<int> *const_input_idxs,
-                                 std::vector<int> *fixed_shape_input_idxs,
-                                 FunctionLibraryRuntime *flib_runtime,
+Status GetCompileTimeConstInputs(const OpKernel* op_kernel,
+                                 std::vector<int>* const_input_idxs,
+                                 std::vector<int>* fixed_shape_input_idxs,
+                                 FunctionLibraryRuntime* flib_runtime,
                                  bool is_mlir = false);
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TENSORFLOW_COMPILER_TF2XLA_CONST_ANALYSIS_H_
+#endif  // TENSORFLOW_COMPILER_TF2XLA_CONST_ANALYSIS_H_

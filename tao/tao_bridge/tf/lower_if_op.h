@@ -25,9 +25,9 @@ namespace tensorflow {
 namespace tao {
 
 // Replaces If node `n` with its lowered form that uses Switch and Merge nodes.
-Status RewriteIfNode(Node *n, Graph *g, const FunctionLibraryDefinition &flib);
+Status RewriteIfNode(Node* n, Graph* g, const FunctionLibraryDefinition& flib);
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TAO_TAO_BRIDGE_TF_LOWER_IF_OP_H_
+#endif  // TAO_TAO_BRIDGE_TF_LOWER_IF_OP_H_

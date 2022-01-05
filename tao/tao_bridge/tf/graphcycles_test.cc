@@ -21,17 +21,16 @@ limitations under the License.
 #include <unordered_set>
 #include <vector>
 
-#include "tensorflow/core/platform/logging.h"
-
 #include "tao_bridge/test_helpers.h"
 #include "tao_bridge/tf/types.h"
+#include "tensorflow/core/platform/logging.h"
 
 namespace tensorflow {
 namespace tao {
 namespace {
 
 int RandomSeed() {
-  const char *env = getenv("TEST_RANDOM_SEED");
+  const char* env = getenv("TEST_RANDOM_SEED");
   int result;
   if (env && sscanf(env, "%d", &result) == 1) {
     return result;
@@ -53,17 +52,16 @@ struct Edge {
 typedef std::vector<Edge> Edges;
 
 // Return whether "to" is reachable from "from".
-static bool IsReachable(Edges *edges, int from, int to,
-                        std::unordered_set<int> *seen) {
-  seen->insert(from); // we are investigating "from"; don't do it again
-  if (from == to)
-    return true;
+static bool IsReachable(Edges* edges, int from, int to,
+                        std::unordered_set<int>* seen) {
+  seen->insert(from);  // we are investigating "from"; don't do it again
+  if (from == to) return true;
   for (size_t i = 0; i != edges->size(); i++) {
-    Edge *edge = &(*edges)[i];
+    Edge* edge = &(*edges)[i];
     if (edge->from == from) {
-      if (edge->to == to) { // success via edge directly
+      if (edge->to == to) {  // success via edge directly
         return true;
-      } else if (seen->find(edge->to) == seen->end() && // success via edge
+      } else if (seen->find(edge->to) == seen->end() &&  // success via edge
                  IsReachable(edges, edge->to, to, seen)) {
         return true;
       }
@@ -72,14 +70,14 @@ static bool IsReachable(Edges *edges, int from, int to,
   return false;
 }
 
-static void PrintNodes(Nodes *nodes) {
+static void PrintNodes(Nodes* nodes) {
   LOG(INFO) << "NODES (" << nodes->size() << ")";
   for (size_t i = 0; i != nodes->size(); i++) {
     LOG(INFO) << (*nodes)[i];
   }
 }
 
-static void PrintEdges(Edges *edges) {
+static void PrintEdges(Edges* edges) {
   LOG(INFO) << "EDGES (" << edges->size() << ")";
   for (size_t i = 0; i != edges->size(); i++) {
     int a = (*edges)[i].from;
@@ -89,7 +87,7 @@ static void PrintEdges(Edges *edges) {
   LOG(INFO) << "---";
 }
 
-static void PrintGCEdges(Nodes *nodes, tensorflow::tao::GraphCycles *gc) {
+static void PrintGCEdges(Nodes* nodes, tensorflow::tao::GraphCycles* gc) {
   LOG(INFO) << "GC EDGES";
   for (size_t i = 0; i != nodes->size(); i++) {
     for (size_t j = 0; j != nodes->size(); j++) {
@@ -103,8 +101,8 @@ static void PrintGCEdges(Nodes *nodes, tensorflow::tao::GraphCycles *gc) {
   LOG(INFO) << "---";
 }
 
-static void PrintTransitiveClosure(Nodes *nodes, Edges *edges,
-                                   tensorflow::tao::GraphCycles *gc) {
+static void PrintTransitiveClosure(Nodes* nodes, Edges* edges,
+                                   tensorflow::tao::GraphCycles* gc) {
   LOG(INFO) << "Transitive closure";
   for (size_t i = 0; i != nodes->size(); i++) {
     for (size_t j = 0; j != nodes->size(); j++) {
@@ -119,8 +117,8 @@ static void PrintTransitiveClosure(Nodes *nodes, Edges *edges,
   LOG(INFO) << "---";
 }
 
-static void PrintGCTransitiveClosure(Nodes *nodes,
-                                     tensorflow::tao::GraphCycles *gc) {
+static void PrintGCTransitiveClosure(Nodes* nodes,
+                                     tensorflow::tao::GraphCycles* gc) {
   LOG(INFO) << "GC Transitive closure";
   for (size_t i = 0; i != nodes->size(); i++) {
     for (size_t j = 0; j != nodes->size(); j++) {
@@ -134,8 +132,8 @@ static void PrintGCTransitiveClosure(Nodes *nodes,
   LOG(INFO) << "---";
 }
 
-static void CheckTransitiveClosure(Nodes *nodes, Edges *edges,
-                                   tensorflow::tao::GraphCycles *gc) {
+static void CheckTransitiveClosure(Nodes* nodes, Edges* edges,
+                                   tensorflow::tao::GraphCycles* gc) {
   std::unordered_set<int> seen;
   for (size_t i = 0; i != nodes->size(); i++) {
     for (size_t j = 0; j != nodes->size(); j++) {
@@ -157,8 +155,8 @@ static void CheckTransitiveClosure(Nodes *nodes, Edges *edges,
   }
 }
 
-static void CheckEdges(Nodes *nodes, Edges *edges,
-                       tensorflow::tao::GraphCycles *gc) {
+static void CheckEdges(Nodes* nodes, Edges* edges,
+                       tensorflow::tao::GraphCycles* gc) {
   size_t count = 0;
   for (size_t i = 0; i != edges->size(); i++) {
     int a = (*edges)[i].from;
@@ -187,20 +185,20 @@ static void CheckEdges(Nodes *nodes, Edges *edges,
 
 // Returns the index of a randomly chosen node in *nodes.
 // Requires *nodes be non-empty.
-static int RandomNode(std::mt19937 *rnd, Nodes *nodes) {
+static int RandomNode(std::mt19937* rnd, Nodes* nodes) {
   std::uniform_int_distribution<int> distribution(0, nodes->size() - 1);
   return distribution(*rnd);
 }
 
 // Returns the index of a randomly chosen edge in *edges.
 // Requires *edges be non-empty.
-static int RandomEdge(std::mt19937 *rnd, Edges *edges) {
+static int RandomEdge(std::mt19937* rnd, Edges* edges) {
   std::uniform_int_distribution<int> distribution(0, edges->size() - 1);
   return distribution(*rnd);
 }
 
 // Returns the index of edge (from, to) in *edges or -1 if it is not in *edges.
-static int EdgeIndex(Edges *edges, int from, int to) {
+static int EdgeIndex(Edges* edges, int from, int to) {
   size_t i = 0;
   while (i != edges->size() &&
          ((*edges)[i].from != from || (*edges)[i].to != to)) {
@@ -211,17 +209,16 @@ static int EdgeIndex(Edges *edges, int from, int to) {
 
 TEST(GraphCycles, RandomizedTest) {
   Nodes nodes;
-  Edges edges; // from, to
+  Edges edges;  // from, to
   tensorflow::tao::GraphCycles graph_cycles;
-  static const int kMaxNodes = 7;    // use <= 7 nodes to keep test short
-  static const int kDataOffset = 17; // an offset to the node-specific data
+  static const int kMaxNodes = 7;     // use <= 7 nodes to keep test short
+  static const int kDataOffset = 17;  // an offset to the node-specific data
   int n = 100000;
   int op = 0;
   std::mt19937 rnd(RandomSeed() + 1);
 
   for (int iter = 0; iter != n; iter++) {
-    if ((iter % 10000) == 0)
-      VLOG(0) << "Iter " << iter << " of " << n;
+    if ((iter % 10000) == 0) VLOG(0) << "Iter " << iter << " of " << n;
 
     if (VLOG_IS_ON(3)) {
       LOG(INFO) << "===============";
@@ -240,111 +237,111 @@ TEST(GraphCycles, RandomizedTest) {
     std::uniform_int_distribution<int> distribution(0, 5);
     op = distribution(rnd);
     switch (op) {
-    case 0: // Add a node
-      if (nodes.size() < kMaxNodes) {
-        int new_node = graph_cycles.NewNode();
-        ASSERT_NE(-1, new_node);
-        VLOG(1) << "adding node " << new_node;
-        ASSERT_EQ(nullptr, graph_cycles.GetNodeData(new_node));
-        graph_cycles.SetNodeData(
-            new_node, reinterpret_cast<void *>(
-                          static_cast<intptr_t>(new_node + kDataOffset)));
-        ASSERT_GE(new_node, 0);
-        for (size_t i = 0; i != nodes.size(); i++) {
-          ASSERT_NE(nodes[i], new_node);
+      case 0:  // Add a node
+        if (nodes.size() < kMaxNodes) {
+          int new_node = graph_cycles.NewNode();
+          ASSERT_NE(-1, new_node);
+          VLOG(1) << "adding node " << new_node;
+          ASSERT_EQ(nullptr, graph_cycles.GetNodeData(new_node));
+          graph_cycles.SetNodeData(
+              new_node, reinterpret_cast<void*>(
+                            static_cast<intptr_t>(new_node + kDataOffset)));
+          ASSERT_GE(new_node, 0);
+          for (size_t i = 0; i != nodes.size(); i++) {
+            ASSERT_NE(nodes[i], new_node);
+          }
+          nodes.push_back(new_node);
         }
-        nodes.push_back(new_node);
-      }
-      break;
+        break;
 
-    case 1: // Remove a node
-      if (!nodes.empty()) {
-        int node_index = RandomNode(&rnd, &nodes);
-        int node = nodes[node_index];
-        nodes[node_index] = nodes.back();
-        nodes.pop_back();
-        VLOG(1) << "removing node " << node;
-        graph_cycles.RemoveNode(node);
-        size_t i = 0;
-        while (i != edges.size()) {
-          if (edges[i].from == node || edges[i].to == node) {
-            edges[i] = edges.back();
-            edges.pop_back();
-          } else {
-            i++;
+      case 1:  // Remove a node
+        if (!nodes.empty()) {
+          int node_index = RandomNode(&rnd, &nodes);
+          int node = nodes[node_index];
+          nodes[node_index] = nodes.back();
+          nodes.pop_back();
+          VLOG(1) << "removing node " << node;
+          graph_cycles.RemoveNode(node);
+          size_t i = 0;
+          while (i != edges.size()) {
+            if (edges[i].from == node || edges[i].to == node) {
+              edges[i] = edges.back();
+              edges.pop_back();
+            } else {
+              i++;
+            }
           }
         }
-      }
-      break;
+        break;
 
-    case 2: // Add an edge
-      if (!nodes.empty()) {
-        int from = RandomNode(&rnd, &nodes);
-        int to = RandomNode(&rnd, &nodes);
-        if (EdgeIndex(&edges, nodes[from], nodes[to]) == -1) {
-          if (graph_cycles.InsertEdge(nodes[from], nodes[to])) {
-            Edge new_edge;
-            new_edge.from = nodes[from];
-            new_edge.to = nodes[to];
-            edges.push_back(new_edge);
-          } else {
-            std::unordered_set<int> seen;
-            ASSERT_TRUE(IsReachable(&edges, nodes[to], nodes[from], &seen))
-                << "Edge " << nodes[to] << "->" << nodes[from];
+      case 2:  // Add an edge
+        if (!nodes.empty()) {
+          int from = RandomNode(&rnd, &nodes);
+          int to = RandomNode(&rnd, &nodes);
+          if (EdgeIndex(&edges, nodes[from], nodes[to]) == -1) {
+            if (graph_cycles.InsertEdge(nodes[from], nodes[to])) {
+              Edge new_edge;
+              new_edge.from = nodes[from];
+              new_edge.to = nodes[to];
+              edges.push_back(new_edge);
+            } else {
+              std::unordered_set<int> seen;
+              ASSERT_TRUE(IsReachable(&edges, nodes[to], nodes[from], &seen))
+                  << "Edge " << nodes[to] << "->" << nodes[from];
+            }
           }
         }
-      }
-      break;
+        break;
 
-    case 3: // Remove an edge
-      if (!edges.empty()) {
-        int i = RandomEdge(&rnd, &edges);
-        int from = edges[i].from;
-        int to = edges[i].to;
-        ASSERT_EQ(i, EdgeIndex(&edges, from, to));
-        edges[i] = edges.back();
-        edges.pop_back();
-        ASSERT_EQ(-1, EdgeIndex(&edges, from, to));
-        VLOG(1) << "removing edge " << from << " " << to;
-        graph_cycles.RemoveEdge(from, to);
-      }
-      break;
+      case 3:  // Remove an edge
+        if (!edges.empty()) {
+          int i = RandomEdge(&rnd, &edges);
+          int from = edges[i].from;
+          int to = edges[i].to;
+          ASSERT_EQ(i, EdgeIndex(&edges, from, to));
+          edges[i] = edges.back();
+          edges.pop_back();
+          ASSERT_EQ(-1, EdgeIndex(&edges, from, to));
+          VLOG(1) << "removing edge " << from << " " << to;
+          graph_cycles.RemoveEdge(from, to);
+        }
+        break;
 
-    case 4: // Check a path
-      if (!nodes.empty()) {
-        int from = RandomNode(&rnd, &nodes);
-        int to = RandomNode(&rnd, &nodes);
-        int32 path[2 * kMaxNodes];
-        int path_len =
-            graph_cycles.FindPath(nodes[from], nodes[to], 2 * kMaxNodes, path);
-        std::unordered_set<int> seen;
-        bool reachable = IsReachable(&edges, nodes[from], nodes[to], &seen);
-        bool gc_reachable = graph_cycles.IsReachable(nodes[from], nodes[to]);
-        ASSERT_EQ(gc_reachable,
-                  graph_cycles.IsReachableNonConst(nodes[from], nodes[to]));
-        ASSERT_EQ(path_len != 0, reachable);
-        ASSERT_EQ(path_len != 0, gc_reachable);
-        // In the following line, we add one because a node can appear
-        // twice, if the path is from that node to itself, perhaps via
-        // every other node.
-        ASSERT_LE(path_len, kMaxNodes + 1);
-        if (path_len != 0) {
-          ASSERT_EQ(nodes[from], path[0]);
-          ASSERT_EQ(nodes[to], path[path_len - 1]);
-          for (int i = 1; i < path_len; i++) {
-            ASSERT_NE(-1, EdgeIndex(&edges, path[i - 1], path[i]));
-            ASSERT_TRUE(graph_cycles.HasEdge(path[i - 1], path[i]));
+      case 4:  // Check a path
+        if (!nodes.empty()) {
+          int from = RandomNode(&rnd, &nodes);
+          int to = RandomNode(&rnd, &nodes);
+          int32 path[2 * kMaxNodes];
+          int path_len = graph_cycles.FindPath(nodes[from], nodes[to],
+                                               2 * kMaxNodes, path);
+          std::unordered_set<int> seen;
+          bool reachable = IsReachable(&edges, nodes[from], nodes[to], &seen);
+          bool gc_reachable = graph_cycles.IsReachable(nodes[from], nodes[to]);
+          ASSERT_EQ(gc_reachable,
+                    graph_cycles.IsReachableNonConst(nodes[from], nodes[to]));
+          ASSERT_EQ(path_len != 0, reachable);
+          ASSERT_EQ(path_len != 0, gc_reachable);
+          // In the following line, we add one because a node can appear
+          // twice, if the path is from that node to itself, perhaps via
+          // every other node.
+          ASSERT_LE(path_len, kMaxNodes + 1);
+          if (path_len != 0) {
+            ASSERT_EQ(nodes[from], path[0]);
+            ASSERT_EQ(nodes[to], path[path_len - 1]);
+            for (int i = 1; i < path_len; i++) {
+              ASSERT_NE(-1, EdgeIndex(&edges, path[i - 1], path[i]));
+              ASSERT_TRUE(graph_cycles.HasEdge(path[i - 1], path[i]));
+            }
           }
         }
-      }
-      break;
+        break;
 
-    case 5: // Check invariants
-      CHECK(graph_cycles.CheckInvariants());
-      break;
+      case 5:  // Check invariants
+        CHECK(graph_cycles.CheckInvariants());
+        break;
 
-    default:
-      LOG(FATAL);
+      default:
+        LOG(FATAL);
     }
 
     // Very rarely, test graph expansion by adding then removing many nodes.
@@ -360,7 +357,7 @@ TEST(GraphCycles, RandomizedTest) {
         ASSERT_GE(new_node, 0);
         ASSERT_EQ(nullptr, graph_cycles.GetNodeData(new_node));
         graph_cycles.SetNodeData(
-            new_node, reinterpret_cast<void *>(
+            new_node, reinterpret_cast<void*>(
                           static_cast<intptr_t>(new_node + kDataOffset)));
         for (size_t j = 0; j != nodes.size(); j++) {
           ASSERT_NE(nodes[j], new_node);
@@ -391,7 +388,7 @@ TEST(GraphCycles, RandomizedTest) {
 }
 
 class GraphCyclesTest : public ::testing::Test {
-public:
+ public:
   tensorflow::tao::GraphCycles g_;
 
   // Test relies on ith NewNode() call returning Node numbered i
@@ -423,8 +420,7 @@ public:
         result += " ...";
         break;
       }
-      if (!result.empty())
-        result.push_back(' ');
+      if (!result.empty()) result.push_back(' ');
       char buf[20];
       snprintf(buf, sizeof(buf), "%d", path[i]);
       result += buf;
@@ -544,6 +540,6 @@ TEST_F(GraphCyclesTest, CanContractEdge) {
 // }
 // BENCHMARK(BM_StressTest)->Range(2048, 1048576);
 
-} // namespace
-} // namespace tao
-} // namespace tensorflow
+}  // namespace
+}  // namespace tao
+}  // namespace tensorflow

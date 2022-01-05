@@ -25,22 +25,22 @@ namespace tao {
 struct TaoProfileStat;
 
 class DiscLaunchOp : public LaunchBase {
-public:
-  explicit DiscLaunchOp(OpKernelConstruction *ctx);
+ public:
+  explicit DiscLaunchOp(OpKernelConstruction* ctx);
   ~DiscLaunchOp() override;
 
-  void ComputeAsync(OpKernelContext *context,
+  void ComputeAsync(OpKernelContext* context,
                     AsyncOpKernel::DoneCallback done) override;
 
-private:
-  Status CompileAndRunMlir(OpKernelContext *, DoneHelper *, bool *);
+ private:
+  Status CompileAndRunMlir(OpKernelContext*, DoneHelper*, bool*);
 
-  Status CompileToLocalExecutable(OpKernelContext *ctx,
-                                  const NameAttrList &function, bool is_mlir,
-                                  TaoCompileFuncCallInfo *call_info,
-                                  std::map<int, OptionalTensor> *variables,
-                                  tao::Executable **executable,
-                                  TaoProfileStat **stat);
+  Status CompileToLocalExecutable(OpKernelContext* ctx,
+                                  const NameAttrList& function, bool is_mlir,
+                                  TaoCompileFuncCallInfo* call_info,
+                                  std::map<int, OptionalTensor>* variables,
+                                  tao::Executable** executable,
+                                  TaoProfileStat** stat);
 
   NameAttrList mlir_function_;
   FunctionLibraryRuntime::Handle mlir_func_handle_;
@@ -59,16 +59,16 @@ private:
   TF_DISALLOW_COPY_AND_ASSIGN(DiscLaunchOp);
 };
 
-#define REGISTER_DISC_LAUNCH_KERNEL(DEVICE)                                    \
-  REGISTER_KERNEL_BUILDER(Name("DiscLaunch")                                   \
-                              .Device(DEVICE)                                  \
-                              .HostMemory("constants")                         \
-                              .HostMemory("fixedshapes")                       \
-                              .HostMemory("hostargs")                          \
-                              .HostMemory("hostresults")                       \
-                              .HostMemory("resources"),                        \
+#define REGISTER_DISC_LAUNCH_KERNEL(DEVICE)              \
+  REGISTER_KERNEL_BUILDER(Name("DiscLaunch")             \
+                              .Device(DEVICE)            \
+                              .HostMemory("constants")   \
+                              .HostMemory("fixedshapes") \
+                              .HostMemory("hostargs")    \
+                              .HostMemory("hostresults") \
+                              .HostMemory("resources"),  \
                           DiscLaunchOp)
 
-} //  namespace tao
-} //  namespace tensorflow
-#endif //  TAO_TAO_BRIDGE_KERNELS_DISC_LAUNCH_H_
+}  //  namespace tao
+}  //  namespace tensorflow
+#endif  //  TAO_TAO_BRIDGE_KERNELS_DISC_LAUNCH_H_

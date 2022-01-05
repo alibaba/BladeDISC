@@ -23,7 +23,7 @@ namespace lmhlo_disc {
 // lmhlo disc Dialect Constructor
 //===----------------------------------------------------------------------===//
 
-LmhloDiscDialect::LmhloDiscDialect(MLIRContext *context)
+LmhloDiscDialect::LmhloDiscDialect(MLIRContext* context)
     : Dialect(getDialectNamespace(), context, TypeID::get<LmhloDiscDialect>()) {
   addOperations<
 #define GET_OP_LIST
@@ -83,8 +83,8 @@ static LogicalResult Verify(CustomCallOp op) {
   return success();
 }
 
-} // namespace lmhlo_disc
-} // namespace mlir
+}  // namespace lmhlo_disc
+}  // namespace mlir
 
 #define GET_OP_CLASSES
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.cc.inc"

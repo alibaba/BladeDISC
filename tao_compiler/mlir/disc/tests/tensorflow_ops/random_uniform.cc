@@ -73,4 +73,4 @@ TEST(TaoMlirFeatureTest, TF2XLA_RandomUniformTest4) {
       /*input_vals*/ {{300, 400}, {0.5}, {0.01}}));
 }
 
-} // namespace mlir_test
+}  // namespace mlir_test

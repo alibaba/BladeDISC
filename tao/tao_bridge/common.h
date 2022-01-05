@@ -23,9 +23,9 @@ namespace tensorflow {
 namespace tao {
 
 struct OptionalTensor {
-  string name;          // A descriptive name
-  bool present = false; // Is the tensor present?
-  Tensor value;         // If present, what is the Tensor's value?
+  string name;           // A descriptive name
+  bool present = false;  // Is the tensor present?
+  Tensor value;          // If present, what is the Tensor's value?
 };
 
 struct TaoBridgeOptions {
@@ -119,9 +119,9 @@ struct TaoBridgeOptions {
 // Get the globally singleton of TaoBridgeOptions.
 // `force_refresh` is only used for debug. DO NOT update tao envs after
 // it's initialized.
-const TaoBridgeOptions *GetTaoBridgeOptions(bool force_refresh = false);
+const TaoBridgeOptions* GetTaoBridgeOptions(bool force_refresh = false);
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TAO_TAO_BRIDGE_COMMON_H_
+#endif  // TAO_TAO_BRIDGE_COMMON_H_

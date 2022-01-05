@@ -16,6 +16,7 @@ limitations under the License.
 // This file implements the logic to create a parallel schedule for parallel ops
 // on the cpu device.
 
+#include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/mhlo/IR/disc_ral_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -31,7 +32,6 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
-#include "llvm/Support/Debug.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -44,15 +44,14 @@ const int64_t kVectorizationSize = 16;
 
 bool isSmallParallelOp(scf::ParallelOp op) {
   int64_t numElems = 1;
-  for (auto &&en : llvm::zip(op.lowerBound(), op.upperBound(), op.step())) {
+  for (auto&& en : llvm::zip(op.lowerBound(), op.upperBound(), op.step())) {
     auto lowerOp =
         dyn_cast_or_null<ConstantIndexOp>(std::get<0>(en).getDefiningOp());
     auto upperOp =
         dyn_cast_or_null<ConstantIndexOp>(std::get<1>(en).getDefiningOp());
     auto stepOp =
         dyn_cast_or_null<ConstantIndexOp>(std::get<2>(en).getDefiningOp());
-    if (!lowerOp || !upperOp || !stepOp)
-      return false;
+    if (!lowerOp || !upperOp || !stepOp) return false;
     numElems *=
         ((upperOp.getValue() - lowerOp.getValue() + stepOp.getValue() - 1) /
          stepOp.getValue());
@@ -66,8 +65,7 @@ bool isSmallForOp(scf::ForOp op) {
   auto upperOp =
       dyn_cast_or_null<ConstantIndexOp>(op.upperBound().getDefiningOp());
   auto stepOp = dyn_cast_or_null<ConstantIndexOp>(op.step().getDefiningOp());
-  if (!lowerOp || !upperOp || !stepOp)
-    return false;
+  if (!lowerOp || !upperOp || !stepOp) return false;
   int numIterations =
       ((upperOp.getValue() - lowerOp.getValue() + stepOp.getValue() - 1) /
        stepOp.getValue());
@@ -91,16 +89,14 @@ bool isSmallCpuKernel(scf::ParallelOp op) {
 
 bool ParallelOpContainsSubLoops(scf::ParallelOp op) {
   bool hasSubLoops = false;
-  op->walk([&](Operation *subLoop) {
-    if (subLoop == op.getOperation())
-      return;
-    if (isa<scf::ForOp, scf::ParallelOp>(subLoop))
-      hasSubLoops = true;
+  op->walk([&](Operation* subLoop) {
+    if (subLoop == op.getOperation()) return;
+    if (isa<scf::ForOp, scf::ParallelOp>(subLoop)) hasSubLoops = true;
   });
   return hasSubLoops;
 }
 
-LogicalResult splitInnerMostParallelDim(OpBuilder &b, scf::ParallelOp op) {
+LogicalResult splitInnerMostParallelDim(OpBuilder& b, scf::ParallelOp op) {
   int numIVs = op.lowerBound().size();
   assert(numIVs > 1);
   auto outter = b.create<scf::ParallelOp>(
@@ -112,8 +108,8 @@ LogicalResult splitInnerMostParallelDim(OpBuilder &b, scf::ParallelOp op) {
       op.upperBound().drop_front(numIVs - 1), op.step().drop_front(numIVs - 1));
   b.setInsertionPointToStart(inner.getBody());
   inner.region().takeBody(op.region());
-  Block *entry = &inner.region().front();
-  for (auto &&en :
+  Block* entry = &inner.region().front();
+  for (auto&& en :
        llvm::zip(outter.getInductionVars(), entry->getArguments())) {
     std::get<1>(en).replaceAllUsesWith(std::get<0>(en));
   }
@@ -124,7 +120,7 @@ LogicalResult splitInnerMostParallelDim(OpBuilder &b, scf::ParallelOp op) {
   return success();
 }
 
-LogicalResult tileInnerMostParallelAxis(OpBuilder &b, scf::ParallelOp op) {
+LogicalResult tileInnerMostParallelAxis(OpBuilder& b, scf::ParallelOp op) {
   tileParallelLoop(op, {kVectorizationSize}, /*withInboundCheck*/ true);
   return success();
 }
@@ -135,8 +131,7 @@ struct DiscCpuMapParallelLoop
     FuncOp func = getFunction();
     SmallVector<scf::ParallelOp> candidates;
     func.walk([&](scf::ParallelOp op) {
-      if (op->getParentOfType<scf::ParallelOp>())
-        return;
+      if (op->getParentOfType<scf::ParallelOp>()) return;
       candidates.push_back(op);
     });
 
@@ -152,8 +147,7 @@ struct DiscCpuMapParallelLoop
 };
 
 LogicalResult DiscCpuMapParallelLoop::processParallelOp(scf::ParallelOp op) {
-  if (op->getAttrOfType<UnitAttr>(kSmallCpuKernel))
-    return success();
+  if (op->getAttrOfType<UnitAttr>(kSmallCpuKernel)) return success();
 
   OpBuilder b(op);
   if (isSmallCpuKernel(op)) {
@@ -164,11 +158,11 @@ LogicalResult DiscCpuMapParallelLoop::processParallelOp(scf::ParallelOp op) {
   return success();
 }
 
-} // namespace
+}  // namespace
 
 std::unique_ptr<FunctionPass> createDiscCpuMapParallelLoopPass() {
   return std::make_unique<DiscCpuMapParallelLoop>();
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

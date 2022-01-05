@@ -24,11 +24,14 @@ inline std::string if_empty_then(std::string x, std::string y) {
   }
 }
 
-template <typename T> void ssprint(std::stringstream &ss, T t) { ss << t; }
+template <typename T>
+void ssprint(std::stringstream& ss, T t) {
+  ss << t;
+}
 
 template <typename T, typename... Args>
-void ssprint(std::stringstream &ss, T t,
-             Args... args) // recursive variadic function
+void ssprint(std::stringstream& ss, T t,
+             Args... args)  // recursive variadic function
 {
   ss << t;
   ssprint(ss, args...);
@@ -42,15 +45,15 @@ void ssprint(std::stringstream &ss, T t,
 
 #define MHLO_THROW_ERROR(msg) throw std::runtime_error(msg)
 
-#define MHLO_CHECK(cond, ...)                                                  \
-  if (MHLO_UNLIKELY(!(cond))) {                                                \
-    std::stringstream msg_ss;                                                  \
-    ssprint(msg_ss, __func__, __FILE__);                                       \
-    ssprint(msg_ss, static_cast<uint32_t>(__LINE__), __VA_ARGS__);             \
-    MHLO_THROW_ERROR(if_empty_then(                                            \
-        msg_ss.str(), "Expected " #cond " to be true, but got false.  "        \
-                      "(Could this error message be improved?  If so, "        \
-                      "please report an enhancement request.)"));              \
+#define MHLO_CHECK(cond, ...)                                           \
+  if (MHLO_UNLIKELY(!(cond))) {                                         \
+    std::stringstream msg_ss;                                           \
+    ssprint(msg_ss, __func__, __FILE__);                                \
+    ssprint(msg_ss, static_cast<uint32_t>(__LINE__), __VA_ARGS__);      \
+    MHLO_THROW_ERROR(if_empty_then(                                     \
+        msg_ss.str(), "Expected " #cond " to be true, but got false.  " \
+                      "(Could this error message be improved?  If so, " \
+                      "please report an enhancement request.)"));       \
   }
-} // namespace mhlo
-} // namespace mlir
+}  // namespace mhlo
+}  // namespace mlir

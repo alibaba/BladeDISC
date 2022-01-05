@@ -94,85 +94,83 @@ struct TaoCompileFuncCallInfo {
 class TaoCompilationCache;
 class Executable;
 class TaoCompInfoCollector final {
-public:
-  static TaoCompInfoCollector &Get(bool delay_init = false);
+ public:
+  static TaoCompInfoCollector& Get(bool delay_init = false);
 
   void Init();
 
   // TaoCompilationCache is a tf session-level object
   // use this to track session life-cycle
-  int GetOrCreateCacheIdx(TaoCompilationCache *cur);
-  void DeregisterCache(TaoCompilationCache *cur);
+  int GetOrCreateCacheIdx(TaoCompilationCache* cur);
+  void DeregisterCache(TaoCompilationCache* cur);
 
   // a function corresponds to a subgraph (cluster)
   int64 GetFuncNum();
-  int64 GetFuncShapeNum(const std::string &funcid);
+  int64 GetFuncShapeNum(const std::string& funcid);
   int64 GetShapeNum() { return sampled_shape_count_; }
 
-  bool FunctionExists(const std::string &funcid);
-  void AddFunction(const std::string &funcid, const std::string &funcattr);
-  void SetFunctionGraph(const std::string &funcid, const std::string &path);
+  bool FunctionExists(const std::string& funcid);
+  void AddFunction(const std::string& funcid, const std::string& funcattr);
+  void SetFunctionGraph(const std::string& funcid, const std::string& path);
 
   // XLA only supports static shape. different shapes of the same function have
   // different signatures. a signature correspnds to a function with a fixed
   // shape get the current call counter value
-  int GetShapeCallCount(const std::string &funcid, uint64 hash_sig);
+  int GetShapeCallCount(const std::string& funcid, uint64 hash_sig);
   // increase the signature call counter. return the counter value after
   // increasing.
-  int AddShapeCallCount(const std::string &funcid, uint64 hash_sig);
-  void InitShapeInfo(const std::string &funcid, uint64 hash_sig,
-                     const std::string &path, bool compile_ok);
-  void UpdateShapeCallInfo(const std::string &funcid, uint64 hash_sig,
+  int AddShapeCallCount(const std::string& funcid, uint64 hash_sig);
+  void InitShapeInfo(const std::string& funcid, uint64 hash_sig,
+                     const std::string& path, bool compile_ok);
+  void UpdateShapeCallInfo(const std::string& funcid, uint64 hash_sig,
                            bool compile_ok);
 
   // set tag with current timestamp
-  void SetCallTimestamp(TaoCompileFuncCallInfo *call_info, CallTimeTag tag);
+  void SetCallTimestamp(TaoCompileFuncCallInfo* call_info, CallTimeTag tag);
   // process timestamps in one tao launch op call
-  void FlushCallTimestamp(const TaoCompileFuncCallInfo *call_info);
+  void FlushCallTimestamp(const TaoCompileFuncCallInfo* call_info);
 
-  void UpdateShapeCompileStatus(const std::string &funcid, uint64 hash_sig,
+  void UpdateShapeCompileStatus(const std::string& funcid, uint64 hash_sig,
                                 CompileStatus s);
-  void UpdateShapeCompileStatus(const Executable *exec, CompileStatus s);
-  void AddExecutable(const Executable *exec, const std::string &funcid,
+  void UpdateShapeCompileStatus(const Executable* exec, CompileStatus s);
+  void AddExecutable(const Executable* exec, const std::string& funcid,
                      uint64 hash_sig);
 
   // update op histogram into op summary when online dumper enabled
-  void UpdateOPHistogram(const std::string &op, uint64 count);
+  void UpdateOPHistogram(const std::string& op, uint64 count);
   // update unclustered op histogram into op summary when online dumper enabled
-  void UpdateUnclusteredOPHistogram(const std::string &op, uint64 count);
+  void UpdateUnclusteredOPHistogram(const std::string& op, uint64 count);
 
-  void UploadFile(const std::string &local_file, const std::string &type,
+  void UploadFile(const std::string& local_file, const std::string& type,
                   int timeout = -1, bool background = false,
                   bool compress = false);
-  void EnqueUploadFile(const std::string &local_file, const std::string &type,
+  void EnqueUploadFile(const std::string& local_file, const std::string& type,
                        bool compress);
 
-  void UpdatePerfStats(TaoCompilationCache *cur, int64 total_elapsed_us,
+  void UpdatePerfStats(TaoCompilationCache* cur, int64 total_elapsed_us,
                        int64 total_saved_us, int64 print_cycle_sec,
                        double speed_up_all, double speed_up_recent,
                        bool last_call);
 
-  void AddCompileFailedCase(const std::string &log,
-                            const std::string &input_file, bool exited,
+  void AddCompileFailedCase(const std::string& log,
+                            const std::string& input_file, bool exited,
                             bool signaled, bool coredump, int code);
 
   // set json[key] = val
   template <typename T>
-  void SetCustomValue(const std::string &key, const T &val) {
-    if (opts_.dump_level == 0)
-      return;
+  void SetCustomValue(const std::string& key, const T& val) {
+    if (opts_.dump_level == 0) return;
     mutex_lock l(info_mtx_);
     info_[key] = val;
   }
 
   // json[keys[0]][keys[1]][...] = val
   template <typename T>
-  void SetCustomValue(const std::vector<std::string> &keys, const T &val) {
-    if (opts_.dump_level == 0)
-      return;
+  void SetCustomValue(const std::vector<std::string>& keys, const T& val) {
+    if (opts_.dump_level == 0) return;
     mutex_lock l(info_mtx_);
-    nlohmann::json *p = &info_;
-    for (auto &&key : keys) {
+    nlohmann::json* p = &info_;
+    for (auto&& key : keys) {
       if (!p->contains(key)) {
         (*p)[key] = nlohmann::json{};
       }
@@ -182,19 +180,19 @@ public:
   }
 
   // json[key] += val
-  void AddCustomNumValue(const std::string &key, int64 val);
+  void AddCustomNumValue(const std::string& key, int64 val);
   // json[keys[0]][keys[1]][...] += val
-  void AddCustomNumValue(const std::vector<std::string> &keys, int64 val);
+  void AddCustomNumValue(const std::vector<std::string>& keys, int64 val);
 
   void CaptureEnvVars();
 
-private: // internal functions
+ private:  // internal functions
   TaoCompInfoCollector();
   ~TaoCompInfoCollector();
   TF_DISALLOW_COPY_AND_ASSIGN(TaoCompInfoCollector);
 
   // generate FINISH.txt file when process exists
-  void _UploadInfoFile(const std::string &filename, const std::string &type,
+  void _UploadInfoFile(const std::string& filename, const std::string& type,
                        bool background);
   // update shape compile queue/main latency when process exits if anything left
   // in shape_compile_ts_
@@ -202,33 +200,33 @@ private: // internal functions
 
   // Get an iterator to a shape in info_. Insert a new shape if exist=false &&
   // add_new=true.
-  nlohmann::json::iterator GetOrCreateShapeInfo(const std::string &funcid,
-                                                uint64 hash_sig, bool &exist,
+  nlohmann::json::iterator GetOrCreateShapeInfo(const std::string& funcid,
+                                                uint64 hash_sig, bool& exist,
                                                 bool add_new);
   // add a new function item
-  void AddFunctionInternal(const std::string &funcid,
-                           const std::string &funcattr);
+  void AddFunctionInternal(const std::string& funcid,
+                           const std::string& funcattr);
   // insert one new line in csv file whenever a tao launch op has been executed
-  void AppendCsvFile(const TaoCompileFuncCallInfo *call_info);
+  void AppendCsvFile(const TaoCompileFuncCallInfo* call_info);
   // accmulate latency counters whenever a tao launch op has been executed
-  void SetCallLatency(const TaoCompileFuncCallInfo *call_info,
-                      nlohmann::json &value);
+  void SetCallLatency(const TaoCompileFuncCallInfo* call_info,
+                      nlohmann::json& value);
   // accumulate related counters for those shapes not in dumping range
-  void MissSampledShapeCallAdd(const TaoCompileFuncCallInfo *call_info);
+  void MissSampledShapeCallAdd(const TaoCompileFuncCallInfo* call_info);
   // update shape compile queue/main latency whenever compile status changes
-  void UpdateCompileLatency(const std::string &funcid, uint64 hash_sig,
-                            CompileStatus s, nlohmann::json &queue,
-                            nlohmann::json &main);
+  void UpdateCompileLatency(const std::string& funcid, uint64 hash_sig,
+                            CompileStatus s, nlohmann::json& queue,
+                            nlohmann::json& main);
 
   struct upload_file_info {
     std::string local_path;
     std::string type;
     bool compress;
   };
-  void _FlushUploadFiles(const std::list<upload_file_info> &flist);
+  void _FlushUploadFiles(const std::list<upload_file_info>& flist);
   // each TaoCompilationCache object corresponds to a new session
   struct TaoSessPerfInfo {
-    int idx; // session index
+    int idx;  // session index
     int64 total_elapsed_us{0};
     int64 total_saved_us{0};
     int64 print_cycle_sec{0};
@@ -239,21 +237,21 @@ private: // internal functions
 
     TaoSessPerfInfo(int idx_) : idx(idx_){};
   };
-  void _UploadPerfFile(TaoSessPerfInfo &sinfo, bool last_call);
+  void _UploadPerfFile(TaoSessPerfInfo& sinfo, bool last_call);
   void _FinalizePerfStats();
 
-public: // static functions
+ public:  // static functions
   static std::string HashValueToStr(uint64 hash);
   static uint64 GetCurTimeUs();
-  static const char *str(CompileStatus s);
+  static const char* str(CompileStatus s);
   static CompileStatus GetPrevCompileStatus(CompileStatus s);
 
-private:
+ private:
   TaoDumperOptions opts_;
 
   mutex obj_id_mtx_;
-  std::unordered_map<TaoCompilationCache *, TaoSessPerfInfo>
-      cache_obj_id_ GUARDED_BY(obj_id_mtx_);
+  std::unordered_map<TaoCompilationCache*, TaoSessPerfInfo> cache_obj_id_
+      GUARDED_BY(obj_id_mtx_);
 
   mutex info_mtx_;
   // json scheme refer to
@@ -272,8 +270,8 @@ private:
 
   // for miss sampled shapes tracking
   mutex miss_func_shape_mtx_;
-  std::unordered_map<std::string, std::unordered_set<uint64_t>>
-      miss_func_shape_ GUARDED_BY(ts_csv_mtx_);
+  std::unordered_map<std::string, std::unordered_set<uint64_t>> miss_func_shape_
+      GUARDED_BY(ts_csv_mtx_);
 
   mutex shape_compile_ts_mtx_;
   std::unordered_map<std::string,
@@ -281,7 +279,7 @@ private:
       shape_compile_ts_ GUARDED_BY(shape_compile_ts_mtx_);
 
   mutex shape_exec_mtx_;
-  std::unordered_map<const Executable *, std::pair<std::string, uint64_t>>
+  std::unordered_map<const Executable*, std::pair<std::string, uint64_t>>
       shape_exec_ GUARDED_BY(shape_exec_mtx_);
 
   std::atomic<uint64_t> sampled_shape_count_{0};
@@ -289,11 +287,11 @@ private:
 
   std::shared_ptr<Process> tao_p_;
 
-  std::string PathBaseName(const std::string &path) {
+  std::string PathBaseName(const std::string& path) {
     size_t pos = path.find_last_of("/");
     return pos == std::string::npos ? path : path.substr(pos + 1);
   }
 };
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

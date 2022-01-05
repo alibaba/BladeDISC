@@ -82,4 +82,4 @@ TEST(RalIOForwarding, CPUCPUTest) {
       /*output_descriptors*/ {"f32_h", "f32_h"}));
 }
 
-} // namespace mlir_test
+}  // namespace mlir_test

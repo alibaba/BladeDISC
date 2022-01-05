@@ -31,27 +31,27 @@ using ::mlir::mhlo_disc::TopKBackendConfig;
 namespace llvm {
 namespace json {
 
-bool fromJSON(const llvm::json::Value &value,
-              TopKBackendConfig &topk_backend_config, llvm::json::Path path) {
+bool fromJSON(const llvm::json::Value& value,
+              TopKBackendConfig& topk_backend_config, llvm::json::Path path) {
   ObjectMapper o(value, path);
   return o && o.map("dimension", topk_backend_config.dimension);
 }
 
-llvm::json::Value toJSON(const TopKBackendConfig &topk_backend_config) {
+llvm::json::Value toJSON(const TopKBackendConfig& topk_backend_config) {
   return llvm::json::Value(
       Object{{"dimension", topk_backend_config.dimension}});
 }
 
-} // namespace json
-} // namespace llvm
+}  // namespace json
+}  // namespace llvm
 
 namespace mlir {
 namespace mhlo_disc {
 
 template <>
 LogicalResult reifyReturnTypeShapesImpl<TopKBackendConfig>(
-    CustomCallOp op, OpBuilder &builder, ValueRange operands,
-    SmallVectorImpl<Value> &reifiedReturnShapes) {
+    CustomCallOp op, OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
   llvm::Expected<TopKBackendConfig> backend_config =
       llvm::json::parse<TopKBackendConfig>(op.backend_config());
   int64_t dimension = backend_config->dimension;
@@ -119,14 +119,13 @@ LogicalResult reifyReturnTypeShapesImpl<TopKBackendConfig>(
   return success();
 }
 
-} // namespace mhlo_disc
+}  // namespace mhlo_disc
 namespace lmhlo_disc {
 
 template <>
-LogicalResult
-lowerToLibraryCallImpl<TopKBackendConfig>(CustomCallOp op,
-                                          PatternRewriter &rewriter, Value ctx,
-                                          Value stream_handle) {
+LogicalResult lowerToLibraryCallImpl<TopKBackendConfig>(
+    CustomCallOp op, PatternRewriter& rewriter, Value ctx,
+    Value stream_handle) {
   bool on_gpu = false;
   SmallVector<Value, 4> newOperands{stream_handle};
   for (Value operand : op.getOperands()) {
@@ -151,10 +150,10 @@ lowerToLibraryCallImpl<TopKBackendConfig>(CustomCallOp op,
   return success();
 }
 
-} // namespace lmhlo_disc
+}  // namespace lmhlo_disc
 
 REGISTER_CUSTOM_CALL("topk",
                      mhlo_disc::reifyReturnTypeShapesImpl<TopKBackendConfig>,
                      lmhlo_disc::lowerToLibraryCallImpl<TopKBackendConfig>);
 
-} // namespace mlir
+}  // namespace mlir

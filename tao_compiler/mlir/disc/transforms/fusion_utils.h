@@ -19,17 +19,18 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
-#include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops.h"
-#include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h" // TF:llvm-project
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/Support/Debug.h"
+#include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops.h"
+#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
 
 // This file implements some helper functions and classes used to do fusion
 // & code generation.
 
 namespace llvm {
-template <> struct DenseMapInfo<SmallVector<mlir::Value>> {
+template <>
+struct DenseMapInfo<SmallVector<mlir::Value>> {
   static SmallVector<mlir::Value> getEmptyKey() {
     return SmallVector<mlir::Value>{DenseMapInfo<mlir::Value>::getEmptyKey()};
   }
@@ -39,26 +40,25 @@ template <> struct DenseMapInfo<SmallVector<mlir::Value>> {
         DenseMapInfo<mlir::Value>::getTombstoneKey()};
   }
 
-  static unsigned getHashValue(const SmallVector<mlir::Value> &vs) {
+  static unsigned getHashValue(const SmallVector<mlir::Value>& vs) {
     unsigned hash = hash_value(vs.size());
-    for (auto v : vs)
-      hash = llvm::hash_combine(hash, v);
+    for (auto v : vs) hash = llvm::hash_combine(hash, v);
     return hash;
   }
 
-  static bool isEqual(const SmallVector<mlir::Value> &lhs,
-                      const SmallVector<mlir::Value> &rhs) {
+  static bool isEqual(const SmallVector<mlir::Value>& lhs,
+                      const SmallVector<mlir::Value>& rhs) {
     return lhs == rhs;
   }
 };
 
-} // namespace llvm
+}  // namespace llvm
 
 namespace mlir {
 namespace disc_ral {
 
 // An Attribute used to annotate the fusion type.
-constexpr const char *kDiscFusionTypeAttrName = "disc.fusion_type";
+constexpr const char* kDiscFusionTypeAttrName = "disc.fusion_type";
 
 // kLoop fusion template satisfies:
 //   - all ops in the fusion pattern are element-wise.
@@ -103,61 +103,61 @@ FusionType fusionTypeFromString(StringRef ft);
 
 // Returns true if the op is an elementwise unary lmhlo op.
 // TODO: use fusibility interface
-bool isElementWiseUnary(Operation *op);
+bool isElementWiseUnary(Operation* op);
 
 // Returns true if the op is an elementwise binary lmhlo op.
 // TODO: use fusibility interface
-bool isElementWiseBinary(Operation *op);
+bool isElementWiseBinary(Operation* op);
 
 // Returns true if the op is an elementwise lmhlo op.
 // TODO: use fusibility interface
-bool isElementWise(Operation *op);
+bool isElementWise(Operation* op);
 
 // Returns true if this op is a rank-2 row reduction.
-bool isRank2RowReduction(Operation *op);
+bool isRank2RowReduction(Operation* op);
 
 // Returns true if this op is a row reduction.
-bool isRowReduction(Operation *op);
+bool isRowReduction(Operation* op);
 
 // Returns true if this op is a rank-2 column reduction.
-bool isRank2ColReduction(Operation *op);
+bool isRank2ColReduction(Operation* op);
 
 // Returns true if the op is supported by the downstreaming fusion codegen
 // engine.
-bool isFusible(Operation *op);
+bool isFusible(Operation* op);
 
 // Returns the number of operands that are supposed to be written.
 // For some ops (e.g. lmhlo ops), some operands are the output memrefs
 // Thus these operands are supposed to be updated.
-int getNumResultOperands(Operation *op);
+int getNumResultOperands(Operation* op);
 
 // Returns data users of the value and its aliases (e.g. memref.cast).
 // Here non-data users means DimOp, DeallocOp and ShapeOfOp.
-SmallVector<Operation *, 4> getValueUsers(Value v);
+SmallVector<Operation*, 4> getValueUsers(Value v);
 
 // Represents a list of lmhlo ops that are going to be fused.
 class FusionPattern {
-public:
-  using FusionOpList = SmallVector<Operation *, 4>;
+ public:
+  using FusionOpList = SmallVector<Operation*, 4>;
   using FusionValueList = SmallVector<Value, 4>;
 
   // Create a new fusion pattern from a single op.
-  explicit FusionPattern(Operation *op);
+  explicit FusionPattern(Operation* op);
 
   // Create a new fusion pattern from the ops inside the lmhlo fusion op.
   explicit FusionPattern(lmhlo::FusionOp op);
 
   // Returns the op list this fusion pattern represents.
-  FusionOpList &getOpList() { return op_list_; }
+  FusionOpList& getOpList() { return op_list_; }
 
   // Returns the dominant op of this fusion pattern.
   // For kLoop fusion, a dominant op may be any op that has external users.
   // For kInput fusion, a dominant op may be a row reduction (if exists), or
   // a column reduction op.
-  Operation *getDominantOp() { return dominant_op_; }
+  Operation* getDominantOp() { return dominant_op_; }
 
   // Sets the dominant op to the op provided.
-  void setDominantOp(Operation *op) { dominant_op_ = op; }
+  void setDominantOp(Operation* op) { dominant_op_ = op; }
 
   // Returns the fusion kind of the fusion pattern.
   FusionType getFusionType() { return fusion_type_; }
@@ -185,23 +185,23 @@ public:
 
   // Merges two fusion patterns and returns the merged pattern. The original
   // pattern remains unmodified. The new merged pattern is uninitialized.
-  FusionPattern mergeWithoutInit(FusionPattern &other);
+  FusionPattern mergeWithoutInit(FusionPattern& other);
 
   // Returns values that are consumed by the lmhlo ops inside the fusion
   // pattern.
-  FusionValueList &getOperands() { return operands_; }
+  FusionValueList& getOperands() { return operands_; }
 
   // Returns values that are outputs of any lmhlo op in the fused pattern and
   // have consumers outside the fusion pattern.
-  FusionValueList &getResults() { return results_; }
+  FusionValueList& getResults() { return results_; }
 
   // Returns values that are outputs of any lmhlo op in the fused pattern and
   // have consumers outside the fusion pattern.
-  SmallVector<Operation *, 4> &getRootOps() { return root_ops_; }
+  SmallVector<Operation*, 4>& getRootOps() { return root_ops_; }
 
   // Returns values that are outputs of any lmhlo op in the fused pattern and
   // are only consumed by the lmhlo ops inside the fused pattern.
-  FusionValueList &getInternalResults() { return internal_results_; }
+  FusionValueList& getInternalResults() { return internal_results_; }
 
   // Returns the size of the ops this fusion pattern contains.
   int size() { return op_list_.size(); }
@@ -211,13 +211,13 @@ public:
   int effectiveSize();
 
   // Sorts the ops inside the fusion pattern according to the keys provided.
-  void sortFusionOpListBy(DenseMap<Operation *, int> &op_to_idx);
+  void sortFusionOpListBy(DenseMap<Operation*, int>& op_to_idx);
 
   // Here `value` is supposed to be a pointer to buffer.
   // Returns the defining op of `value `if no known op updates the buffer,
   // otherwise returns the last op that updates the buffer pointed by the
   // `value`.
-  Operation *findLastWriter(Value value) {
+  Operation* findLastWriter(Value value) {
     auto it = last_writer_.find(value);
     if (it != last_writer_.end()) {
       return it->second;
@@ -225,22 +225,22 @@ public:
     return value.getDefiningOp();
   }
 
-private:
-  FusionPattern(SmallVectorImpl<Operation *> &op_list);
+ private:
+  FusionPattern(SmallVectorImpl<Operation*>& op_list);
 
-private:
+ private:
   // Calculates the inputs and outputs of the fusion pattern.
   void calculateOperandsAndResults();
 
-private:
+ private:
   FusionOpList op_list_;
-  Operation *dominant_op_ = nullptr;
+  Operation* dominant_op_ = nullptr;
   FusionType fusion_type_ = FusionType::kNone;
   FusionValueList operands_;
   FusionValueList results_;
   FusionValueList internal_results_;
-  SmallVector<Operation *, 4> root_ops_;
-  DenseMap<Value, Operation *> last_writer_;
+  SmallVector<Operation*, 4> root_ops_;
+  DenseMap<Value, Operation*> last_writer_;
 };
 
 // Represents a list of disjoint fusion patterns for a block.
@@ -250,20 +250,20 @@ using llvm::EquivalenceClasses;
 
 // Supports using EquivalenceClasses for Value
 class ValueWrapper {
-public:
+ public:
   explicit ValueWrapper(Value value) : value_(std::move(value)) {}
 
   Value getValue() const { return value_; }
 
-  bool operator==(const ValueWrapper &rhs) const {
+  bool operator==(const ValueWrapper& rhs) const {
     return getValue() == rhs.getValue();
   }
 
-private:
+ private:
   Value value_;
 };
 
-bool operator<(const ValueWrapper &lhs, const ValueWrapper &rhs);
+bool operator<(const ValueWrapper& lhs, const ValueWrapper& rhs);
 
 // This is a simple shape constraint analysis, which is used to
 // guide fusion decision (e.g. we only fuse shape-compatible ops).
@@ -272,9 +272,8 @@ bool operator<(const ValueWrapper &lhs, const ValueWrapper &rhs);
 // propagation based on the shape constraint traits of elementwise ops (assuming
 // that implicit shape broadcast is forbidden).
 class ShapeConstraintAnalysis {
-public:
-  explicit ShapeConstraintAnalysis(
-      const SmallVectorImpl<Operation *> &op_list) {
+ public:
+  explicit ShapeConstraintAnalysis(const SmallVectorImpl<Operation*>& op_list) {
     PropagateEquality(op_list);
   }
 
@@ -298,10 +297,10 @@ public:
     return same_shape_impl_.getLeaderValue(ValueWrapper(val)).getValue();
   }
 
-private:
+ private:
   // shape equality propagation based on the shape constrains of
   // elementwise ops.
-  void PropagateEquality(const SmallVectorImpl<Operation *> &op_list);
+  void PropagateEquality(const SmallVectorImpl<Operation*>& op_list);
 
   // a UnionFind set
   EquivalenceClasses<ValueWrapper> same_shape_impl_;
@@ -312,11 +311,11 @@ private:
 StringRef getFusionName(lmhlo::FusionOp op);
 
 // Sets the name of the fusion op
-void setFusionName(OpBuilder &b, lmhlo::FusionOp op, StringRef name);
+void setFusionName(OpBuilder& b, lmhlo::FusionOp op, StringRef name);
 
 // Attaches a new tag to the fusion op.
 // Here different tags is mapping to different variants of the fusion op.
-void addFusionTag(OpBuilder &b, lmhlo::FusionOp op, StringRef tag);
+void addFusionTag(OpBuilder& b, lmhlo::FusionOp op, StringRef tag);
 
 // Returns the full name of the fusion op
 // Here full name is composed of the name and tag of the fusion op.
@@ -326,10 +325,10 @@ std::string getFusionFullName(lmhlo::FusionOp op);
 std::string generateSignatureForFusion(lmhlo::FusionOp op);
 
 // Returns true if both two ops are in the same fusion family.
-bool inSameFusionFamily(Operation *op, Operation *other);
+bool inSameFusionFamily(Operation* op, Operation* other);
 
 // Returns true if both two ops are in the same fusion op.
-bool inSameFusionOp(Operation *op, Operation *other);
+bool inSameFusionOp(Operation* op, Operation* other);
 
 struct FusionOptions {
   // Maximum allowed number of arguments per fused kernel. Here arguments
@@ -344,26 +343,26 @@ struct FusionOptions {
 //  - stitch fusion strategy for CPU device
 //  - stitch fusion strategy for GPU device
 class FusionStrategy {
-public:
-  FusionStrategy(const FusionOptions &options) : options_(options) {}
+ public:
+  FusionStrategy(const FusionOptions& options) : options_(options) {}
 
-  virtual bool isFusible(Operation *op);
-  virtual bool isFusible(FusionPattern &fused_pattern);
-  virtual bool initFusionPattern(ShapeConstraintAnalysis &shapeAnalysis,
-                                 FusionPattern &fused_pattern) = 0;
-  bool tryFuseInplace(ShapeConstraintAnalysis &shapeAnalysis,
-                      FusionPattern &lhs, FusionPattern &rhs);
-  virtual bool tryFuse(ShapeConstraintAnalysis &shapeAnalysis,
-                       FusionPattern &lhs, FusionPattern &rhs,
-                       FusionPattern &target);
+  virtual bool isFusible(Operation* op);
+  virtual bool isFusible(FusionPattern& fused_pattern);
+  virtual bool initFusionPattern(ShapeConstraintAnalysis& shapeAnalysis,
+                                 FusionPattern& fused_pattern) = 0;
+  bool tryFuseInplace(ShapeConstraintAnalysis& shapeAnalysis,
+                      FusionPattern& lhs, FusionPattern& rhs);
+  virtual bool tryFuse(ShapeConstraintAnalysis& shapeAnalysis,
+                       FusionPattern& lhs, FusionPattern& rhs,
+                       FusionPattern& target);
 
-protected:
+ protected:
   FusionOptions options_;
 };
 
 // Creates and returns a new placement-aware fusion strategy.
-std::unique_ptr<FusionStrategy>
-makeNewPlacementAwareFusionStrategy(bool gpu_enabled, StringRef strategy);
+std::unique_ptr<FusionStrategy> makeNewPlacementAwareFusionStrategy(
+    bool gpu_enabled, StringRef strategy);
 
 // a -> b iff graph[a][b] = true;
 using ValueGraph = DenseMap<Value, DenseMap<Value, bool>>;
@@ -375,13 +374,13 @@ struct TileInfo {
   DenseMap<int, int> tileSizes;
 
   // Returns false if failed to merge.
-  bool merge(TileInfo &other);
+  bool merge(TileInfo& other);
 
   // Returns false if failed to merge.
   bool merge(int axis, int tileSize = ShapedType::kDynamicSize);
 
   // return true if updated.
-  bool updateIfNotEqual(TileInfo &other);
+  bool updateIfNotEqual(TileInfo& other);
 };
 
 // Represents a symbol index for parallel dimension.
@@ -413,7 +412,7 @@ struct ParallelInfo {
   Value value;
 
   // op that connects from producerId to current id.
-  Operation *op = nullptr;
+  Operation* op = nullptr;
 
   // map parallel axis to the id of parallel index.
   // each id represents a unique parallel index.
@@ -430,8 +429,8 @@ struct ParallelInfo {
 };
 
 class StitchCPUAnalysis {
-public:
-  explicit StitchCPUAnalysis(FusionPattern &fusionPattern)
+ public:
+  explicit StitchCPUAnalysis(FusionPattern& fusionPattern)
       : fusionPattern_(fusionPattern) {}
 
   // Returns true if the fusion pattern is a valid stitch pattern.
@@ -439,12 +438,12 @@ public:
 
   // Do the first level (tile level) codegen for stitch fusion pattern.
   // Returns true if success, otherwise false.
-  bool doCodeGeneration(OpBuilder &b, lmhlo::FusionOp fusion);
+  bool doCodeGeneration(OpBuilder& b, lmhlo::FusionOp fusion);
 
-private:
+ private:
   // Builds value dominant graph. Here buffer `a` dominates buffer `b` means
   // `a` is larger than or equal to `b`.
-  bool buildDominantGraph(ValueGraph &dominantGraph);
+  bool buildDominantGraph(ValueGraph& dominantGraph);
 
   // 1, each root is an output of the fusion pattern.
   // 2, find a minimum buffer that dominates all root buffer.
@@ -457,12 +456,12 @@ private:
   //  Tile(a) = {1 : -1, 2 : 4}: means axis 1 is fully selected and
   //                             tile size for axis 2 is 4.
   bool doTileAnalysis();
-  bool doElemOpTileAnalysis(DenseMap<Value, TileInfo> &tilePlan, Operation *op,
-                            bool &changed);
-  bool doReduceOpTileAnalysis(DenseMap<Value, TileInfo> &tilePlan,
-                              Operation *op, bool &changed);
-  bool doBcastOpTileAnalysis(DenseMap<Value, TileInfo> &tilePlan, Operation *op,
-                             bool &changed);
+  bool doElemOpTileAnalysis(DenseMap<Value, TileInfo>& tilePlan, Operation* op,
+                            bool& changed);
+  bool doReduceOpTileAnalysis(DenseMap<Value, TileInfo>& tilePlan,
+                              Operation* op, bool& changed);
+  bool doBcastOpTileAnalysis(DenseMap<Value, TileInfo>& tilePlan, Operation* op,
+                             bool& changed);
 
   // Returns a unique id per instance.
   int newSymbolId() { return nextSymbolId_++; }
@@ -471,16 +470,16 @@ private:
   // buffers.
   bool doParallelAnalysis();
   // Creates a new parallel index.
-  ParallelIndex &makeParallelIndex(int64_t step = 1);
+  ParallelIndex& makeParallelIndex(int64_t step = 1);
   // Creates a new parallel info.
-  ParallelInfo &makeParallelInfo(Value value, int producerId = 0,
-                                 Operation *op = nullptr);
+  ParallelInfo& makeParallelInfo(Value value, int producerId = 0,
+                                 Operation* op = nullptr);
   // Propagates dominant parallel info to all roots.
   bool propagateFromDominantToRoots();
   // Back-propagation from roots to their operands.
   bool propagateFromRootsToProducers();
   // Returns true if the  parallelInfo id set is consistent.
-  bool isConsistentParallelInfoSet(DenseSet<int> &idSet);
+  bool isConsistentParallelInfoSet(DenseSet<int>& idSet);
   // Debug-Only
   void dumpParallelPlan();
 
@@ -492,46 +491,46 @@ private:
   using ValueViewStore = DenseMap<SmallVector<Value>, Value>;
   using ViewStore = DenseMap<Value, ValueViewStore>;
   Value getDominantValue() { return dominantValue_; }
-  ParallelInfo &getDominantParallelInfo();
-  DenseMap<int, ParallelIndex> &getParallelIndexStore() {
+  ParallelInfo& getDominantParallelInfo();
+  DenseMap<int, ParallelIndex>& getParallelIndexStore() {
     return parallelIndexStore_;
   }
   bool isFusionOperand(Value v) {
-    auto &operands = fusionPattern_.getOperands();
+    auto& operands = fusionPattern_.getOperands();
     return llvm::find(operands, v) != operands.end();
   }
   bool isFusionResult(Value v) {
-    auto &results = fusionPattern_.getResults();
+    auto& results = fusionPattern_.getResults();
     return llvm::find(results, v) != results.end();
   }
   // used for emitting the outter tile-level parallel loop
-  scf::ParallelOp emitTileParallelLoop(OpBuilder &b, Location loc);
+  scf::ParallelOp emitTileParallelLoop(OpBuilder& b, Location loc);
   // used for emitting parallel indices
-  bool emitParallelIndices(OpBuilder &b, Location loc,
+  bool emitParallelIndices(OpBuilder& b, Location loc,
                            ValueRange dominantIndex);
-  bool emitElemOpParallelIndex(OpBuilder &b, Location loc, ParallelInfo &from,
-                               ParallelInfo &to);
-  bool emitReduceOpParallelIndex(OpBuilder &b, Location loc, ParallelInfo &from,
-                                 ParallelInfo &to);
-  bool emitBcastOpParallelIndex(OpBuilder &b, Location loc, ParallelInfo &from,
-                                ParallelInfo &to);
+  bool emitElemOpParallelIndex(OpBuilder& b, Location loc, ParallelInfo& from,
+                               ParallelInfo& to);
+  bool emitReduceOpParallelIndex(OpBuilder& b, Location loc, ParallelInfo& from,
+                                 ParallelInfo& to);
+  bool emitBcastOpParallelIndex(OpBuilder& b, Location loc, ParallelInfo& from,
+                                ParallelInfo& to);
   // used for emitting in/out subviews
-  bool emitInOutTiles(OpBuilder &b, Location loc, ViewStore &viewStore);
+  bool emitInOutTiles(OpBuilder& b, Location loc, ViewStore& viewStore);
   // used for emitting sub root tile buffers
-  Value emitTileBuffer(OpBuilder &b, Location loc, Value val);
-  bool emitSubRootTile(OpBuilder &b, Location loc, Value val,
-                       ViewStore &viewStore);
+  Value emitTileBuffer(OpBuilder& b, Location loc, Value val);
+  bool emitSubRootTile(OpBuilder& b, Location loc, Value val,
+                       ViewStore& viewStore);
   // used for emitting sub-root calculations
-  bool emitAllSubRootsAndRootsCalculation(OpBuilder &b, Location loc);
-  bool emitSubRootCalculation(OpBuilder &b, Location loc, ParallelInfo &info,
-                              ViewStore &viewStore,
-                              SmallVectorImpl<Operation *> &clonedLmloOps);
-  bool emitInputSlice(OpBuilder &b, Location loc, Value out,
-                      ParallelInfo &parallelInfo,
-                      SmallVectorImpl<Operation *> &clonedLmloOps);
+  bool emitAllSubRootsAndRootsCalculation(OpBuilder& b, Location loc);
+  bool emitSubRootCalculation(OpBuilder& b, Location loc, ParallelInfo& info,
+                              ViewStore& viewStore,
+                              SmallVectorImpl<Operation*>& clonedLmloOps);
+  bool emitInputSlice(OpBuilder& b, Location loc, Value out,
+                      ParallelInfo& parallelInfo,
+                      SmallVectorImpl<Operation*>& clonedLmloOps);
 
-private:
-  FusionPattern &fusionPattern_;
+ private:
+  FusionPattern& fusionPattern_;
 
   // Used for roots dominant analysis
   Value dominantValue_;
@@ -555,12 +554,12 @@ private:
   // Codegen utils:
   ViewStore inOutViewStore_;
   ViewStore subRootViewStore_;
-  Operation *parallelOp_;
+  Operation* parallelOp_;
 };
 
-bool isStitchFusion(Operation *op);
+bool isStitchFusion(Operation* op);
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir
 
-#endif // TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_TRANSFORMS_FUSION_UTILS_H_
+#endif  // TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_TRANSFORMS_FUSION_UTILS_H_

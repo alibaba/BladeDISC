@@ -28,7 +28,7 @@ namespace gpu {
 namespace se = ::stream_executor;
 
 struct TableEntry {
-  se::Stream *stream;
+  se::Stream* stream;
   se::gpu::GpuContextHandle context;
   void ActivateContext() {
 #if TENSORFLOW_USE_ROCM
@@ -53,7 +53,7 @@ struct TableEntry {
   }
 };
 
-se::Stream *GetOrCreateDefaultCudaStreamExecutorStream(int device_ordinal,
+se::Stream* GetOrCreateDefaultCudaStreamExecutorStream(int device_ordinal,
                                                        GpuStreamHandle stream) {
   static std::mutex m;
   static std::map<std::pair<int, GpuStreamHandle>, TableEntry> table;
@@ -64,19 +64,19 @@ se::Stream *GetOrCreateDefaultCudaStreamExecutorStream(int device_ordinal,
 #if TENSORFLOW_USE_ROCM
     auto platform =
         se::MultiPlatformManager::PlatformWithName("ROCM").ValueOrDie();
-    auto gpu_platform = static_cast<se::gpu::ROCmPlatform *>(platform);
+    auto gpu_platform = static_cast<se::gpu::ROCmPlatform*>(platform);
 #else
     auto platform =
         se::MultiPlatformManager::PlatformWithName("CUDA").ValueOrDie();
-    auto gpu_platform = static_cast<se::gpu::CudaPlatform *>(platform);
+    auto gpu_platform = static_cast<se::gpu::CudaPlatform*>(platform);
 #endif
     TableEntry e;
     bool use_multi_cuda_se = true;
     tensorflow::ReadBoolFromEnvVar("TAO_ENABLE_MULTIPLE_CUDA_STREAM_EXECUTOR",
                                    true, &use_multi_cuda_se);
-    se::StreamExecutor *executor = nullptr;
+    se::StreamExecutor* executor = nullptr;
     if (use_multi_cuda_se) {
-      executor = gpu_platform->ExecutorForDevice(device_ordinal, (void *)stream)
+      executor = gpu_platform->ExecutorForDevice(device_ordinal, (void*)stream)
                      .ValueOrDie();
     } else {
       executor = gpu_platform->ExecutorForDevice(device_ordinal).ValueOrDie();
@@ -95,6 +95,6 @@ se::Stream *GetOrCreateDefaultCudaStreamExecutorStream(int device_ordinal,
   return it->second.stream;
 }
 
-} // namespace gpu
-} // namespace ral
-} // namespace tao
+}  // namespace gpu
+}  // namespace ral
+}  // namespace tao

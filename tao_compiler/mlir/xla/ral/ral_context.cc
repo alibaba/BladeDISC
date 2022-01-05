@@ -28,18 +28,18 @@
 namespace tao {
 namespace ral {
 
-const char *kRalRecvInput = "ral_recv_input";
-const char *kRalSendOutput = "ral_send_output";
-const char *kRalCudaConst = "ral_const";
-const char *kRalHostConst = "ral_const";
-const char *kRalBitcast = "inc_ref";
+const char* kRalRecvInput = "ral_recv_input";
+const char* kRalSendOutput = "ral_send_output";
+const char* kRalCudaConst = "ral_const";
+const char* kRalHostConst = "ral_const";
+const char* kRalBitcast = "inc_ref";
 
 struct Context::Impl {
   struct Status {
     status_t errcode = 0;
     std::string err_msg;
 
-    Status &merge(const Status &st) {
+    Status& merge(const Status& st) {
       // Only update status when current status is ok.
       if (this->ok()) {
         this->errcode = st.errcode;
@@ -64,11 +64,11 @@ struct Context::Impl {
 
   // using a cache for fast api func lookup when possible.
   using ApiFuncCache =
-      std::unordered_map<const char *, TaoRalApiRegistry::api_func_t>;
+      std::unordered_map<const char*, TaoRalApiRegistry::api_func_t>;
   std::mutex api_func_cache_mu;
   std::unordered_map<std::thread::id, ApiFuncCache> api_func_cache_map;
 
-  ApiFuncCache *GetCache() {
+  ApiFuncCache* GetCache() {
     std::lock_guard<std::mutex> l(api_func_cache_mu);
     return &api_func_cache_map[std::this_thread::get_id()];
   }
@@ -79,12 +79,12 @@ thread_local std::string Context::Impl::local_err_msg;
 Context::Context() : impl_(new Impl) {}
 
 Context::~Context() {
-  for (auto &resource : impl_->resources) {
+  for (auto& resource : impl_->resources) {
     resource.second->onContextFinish(this);
   }
 }
 
-void Context::call(const std::string &api_name, void **args) {
+void Context::call(const std::string& api_name, void** args) {
   auto api_func = TaoRalApiRegistry::Global().Find(api_name);
   if (!api_func) {
     if (api_name.substr(0, 9) == "ral_debug") {
@@ -99,7 +99,7 @@ void Context::call(const std::string &api_name, void **args) {
   TAO_VLOG(1) << "after call api_func " << api_name;
 }
 
-void Context::call(const char *api_name, void **args) {
+void Context::call(const char* api_name, void** args) {
   auto api_map = impl_->GetCache();
   auto it = api_map->find(api_name);
   if (it != api_map->end()) {
@@ -122,25 +122,25 @@ void Context::call(const char *api_name, void **args) {
   TAO_VLOG(1) << "after call api_func " << api_name;
 }
 
-api_func_t Context::find(const std::string &api_name) {
+api_func_t Context::find(const std::string& api_name) {
   return TaoRalApiRegistry::Global().Find(api_name);
 }
 
-void Context::onExecutionStart(ExecutionContext *exec_ctx) {
+void Context::onExecutionStart(ExecutionContext* exec_ctx) {
   std::lock_guard<std::mutex> lock(mu);
-  for (auto &resource : impl_->resources) {
+  for (auto& resource : impl_->resources) {
     resource.second->onExecutionStart(exec_ctx);
   }
 }
 
-void Context::onExecutionFinish(ExecutionContext *exec_ctx) {
+void Context::onExecutionFinish(ExecutionContext* exec_ctx) {
   std::lock_guard<std::mutex> lock(mu);
-  for (auto &resource : impl_->resources) {
+  for (auto& resource : impl_->resources) {
     resource.second->onExecutionFinish(exec_ctx);
   }
 }
 
-status_t Context::getLastError(const char **msg_ptr) {
+status_t Context::getLastError(const char** msg_ptr) {
   std::lock_guard<std::mutex> lock(mu);
   if (msg_ptr) {
     // copy global error message to thread local message in case
@@ -152,9 +152,8 @@ status_t Context::getLastError(const char **msg_ptr) {
   return impl_->global_status.errcode;
 }
 
-void Context::signalError(status_t errcode, const std::string &err_msg) {
-  if (errcode == 0)
-    return;
+void Context::signalError(status_t errcode, const std::string& err_msg) {
+  if (errcode == 0) return;
   std::lock_guard<std::mutex> lock(mu);
   signalErrorLocked(errcode, err_msg);
 }
@@ -164,7 +163,7 @@ void Context::clearError() {
   impl_->global_status.clear();
 }
 
-void Context::signalErrorLocked(status_t errcode, const std::string &err_msg) {
+void Context::signalErrorLocked(status_t errcode, const std::string& err_msg) {
   Impl::Status st;
   st.errcode = errcode;
   st.err_msg = err_msg;
@@ -172,13 +171,13 @@ void Context::signalErrorLocked(status_t errcode, const std::string &err_msg) {
   impl_->global_status.merge(st);
 }
 
-void Context::addDriver(const std::string &name,
+void Context::addDriver(const std::string& name,
                         std::unique_ptr<Driver> driver) {
   std::lock_guard<std::mutex> lock(mu);
   impl_->drivers.emplace(name, std::move(driver));
 }
 
-Driver *Context::getDriver(const std::string &name) {
+Driver* Context::getDriver(const std::string& name) {
   std::lock_guard<std::mutex> lock(mu);
   auto it = impl_->drivers.find(name);
   if (it != impl_->drivers.end()) {
@@ -188,16 +187,15 @@ Driver *Context::getDriver(const std::string &name) {
   }
 }
 
-std::shared_ptr<Context::Resource>
-Context::getOrCreateResource(const std::string &key,
-                             std::function<Resource *()> creator) {
+std::shared_ptr<Context::Resource> Context::getOrCreateResource(
+    const std::string& key, std::function<Resource*()> creator) {
   std::lock_guard<std::mutex> lock(mu);
   if (!impl_->global_status.ok()) {
     return nullptr;
   }
   auto it = impl_->resources.find(key);
   if (it == impl_->resources.end()) {
-    Resource *r = creator();
+    Resource* r = creator();
     if (!r) {
       signalErrorLocked(FAILURE, "resource creation failed");
       return nullptr;
@@ -210,15 +208,15 @@ Context::getOrCreateResource(const std::string &key,
 }
 
 struct ExecutionContext::Impl {
-  Context *context;
+  Context* context;
 };
 
-ExecutionContext::ExecutionContext(Context *context)
+ExecutionContext::ExecutionContext(Context* context)
     : impl_(new Impl{context}) {}
 
 ExecutionContext::~ExecutionContext() {}
 
-Context *ExecutionContext::getContext() { return impl_->context; }
+Context* ExecutionContext::getContext() { return impl_->context; }
 
-} // namespace ral
-} // namespace tao
+}  // namespace ral
+}  // namespace tao

@@ -58,4 +58,4 @@ TEST(TFRangeOpTest, DynamicShape2DF32) {
       /*input_vals*/ {{8}, {15}, {6}}));
 }
 
-} // namespace mlir_test
+}  // namespace mlir_test

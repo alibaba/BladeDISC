@@ -46,7 +46,7 @@ using namespace tao::ral;
 //   r bazel-bin/tensorflow/compiler/mlir/xla/ral/libral_base_context.so
 //   ./out.so
 
-static int32_t reportErrorIfAny(CUresult result, const char *where) {
+static int32_t reportErrorIfAny(CUresult result, const char* where) {
   if (result != CUDA_SUCCESS) {
     std::ostringstream out;
     out << "CUDA failed with " << result << " in " << where << std::endl;
@@ -57,7 +57,7 @@ static int32_t reportErrorIfAny(CUresult result, const char *where) {
 
 enum class ElemType { kUnknown, kF32, kI1, kI32 };
 
-buffer_shape_t parseShape(char *s, ElemType *dtype, bool *is_host) {
+buffer_shape_t parseShape(char* s, ElemType* dtype, bool* is_host) {
   buffer_shape_t shape;
   std::vector<std::string> splitted = absl::StrSplit(s, 'x');
   for (int i = 0; i < splitted.size() - 1; ++i) {
@@ -84,7 +84,7 @@ buffer_shape_t parseShape(char *s, ElemType *dtype, bool *is_host) {
   return shape;
 }
 
-void print_output_shape(void *d_result, const buffer_shape_t &shape) {
+void print_output_shape(void* d_result, const buffer_shape_t& shape) {
   std::cout << "out buffer = " << d_result << std::endl;
   std::cout << "out shape:\n" << std::endl;
   for (size_t i = 0; i < shape.size(); ++i) {
@@ -92,7 +92,7 @@ void print_output_shape(void *d_result, const buffer_shape_t &shape) {
   }
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
   if (argc < 5) {
     std::cout << "Usage:\n\t"
               << "dhlo_compiler_main [path to lib] [path to compiled so file]"
@@ -100,32 +100,32 @@ int main(int argc, char **argv) {
               << std::endl;
   }
 
-  void *library_handle = dlopen(argv[1], RTLD_NOW | RTLD_GLOBAL);
+  void* library_handle = dlopen(argv[1], RTLD_NOW | RTLD_GLOBAL);
   if (!library_handle) {
     std::cout << ("fail to open ral library " + std::string(argv[1]))
               << " with err: " << dlerror() << std::endl;
     return 1;
   }
 
-  void *tao_ral_func_ptr = dlsym(library_handle, "tao_ral_call_impl");
+  void* tao_ral_func_ptr = dlsym(library_handle, "tao_ral_call_impl");
   if (!tao_ral_func_ptr) {
     std::cout << ("fail to find tao_ral_call_impl") << std::endl;
     return 1;
   }
 
-  void *func_handle = dlopen(argv[2], RTLD_NOW);
+  void* func_handle = dlopen(argv[2], RTLD_NOW);
   if (!func_handle) {
     std::cout << ("fail to open compiled binary " + std::string(argv[2]))
               << " with err: " << dlerror() << std::endl;
     return 1;
   }
 
-  void *entry_func_ptr = dlsym(func_handle, "_mlir_lowered_tao_main");
+  void* entry_func_ptr = dlsym(func_handle, "_mlir_lowered_tao_main");
   if (!entry_func_ptr) {
     std::cout << ("fail to find _mlir_lowered_tao_main") << std::endl;
     return 1;
   }
-  using func_t = void (*)(void **);
+  using func_t = void (*)(void**);
   func_t entry_func = (func_t)entry_func_ptr;
 
   if ((argv[3][0] != '-') || (argv[3][1] != 'o')) {
@@ -221,10 +221,10 @@ int main(int argc, char **argv) {
   gpu::BaseCudaContext context(opt);
 
   // bind inputs
-  std::vector<void *> h_data(num_inputs);
+  std::vector<void*> h_data(num_inputs);
   for (int idx = 0; idx < num_inputs; ++idx) {
-    const buffer_shape_t &shape = input_shapes[idx];
-    const ElemType &dtype = input_elem_types[idx];
+    const buffer_shape_t& shape = input_shapes[idx];
+    const ElemType& dtype = input_elem_types[idx];
     int64_t nelem = 1;
     for (size_t i = 0; i < shape.size(); ++i) {
       nelem *= shape[i];
@@ -233,15 +233,15 @@ int main(int argc, char **argv) {
       int64_t bytes = nelem * sizeof(float);
       h_data[idx] = new float[nelem];
       for (size_t i = 0; i < nelem; ++i) {
-        reinterpret_cast<float *>(h_data[idx])[i] = 1.0 + i;
+        reinterpret_cast<float*>(h_data[idx])[i] = 1.0 + i;
       }
       if (input_placement[idx]) {
         // input on host memory
         context.bindInput(idx, h_data[idx], shape);
       } else {
         // input on device memory
-        float *d_addr = nullptr;
-        reportErrorIfAny(cuMemAlloc((CUdeviceptr *)&d_addr, bytes),
+        float* d_addr = nullptr;
+        reportErrorIfAny(cuMemAlloc((CUdeviceptr*)&d_addr, bytes),
                          "cuMemAlloc");
         reportErrorIfAny(cuMemcpyHtoD((CUdeviceptr)d_addr, h_data[idx], bytes),
                          "cuMemcpyHtoD");
@@ -251,7 +251,7 @@ int main(int argc, char **argv) {
       int64_t bytes = nelem * sizeof(int32_t);
       h_data[idx] = new int32_t[nelem];
       for (size_t i = 0; i < nelem; ++i) {
-        reinterpret_cast<int32_t *>(h_data[idx])[i] = 1 + i;
+        reinterpret_cast<int32_t*>(h_data[idx])[i] = 1 + i;
       }
       if (input_placement[idx]) {
         // input on host memory
@@ -259,8 +259,8 @@ int main(int argc, char **argv) {
         context.bindInput(idx, h_data[idx], shape);
       } else {
         // input on device memory
-        int32_t *d_addr = nullptr;
-        reportErrorIfAny(cuMemAlloc((CUdeviceptr *)&d_addr, bytes),
+        int32_t* d_addr = nullptr;
+        reportErrorIfAny(cuMemAlloc((CUdeviceptr*)&d_addr, bytes),
                          "cuMemAlloc");
         reportErrorIfAny(cuMemcpyHtoD((CUdeviceptr)d_addr, h_data[idx], bytes),
                          "cuMemcpyHtoD");
@@ -271,7 +271,7 @@ int main(int argc, char **argv) {
       int64_t bytes = nelem * sizeof(bool);
       h_data[idx] = new bool[nelem];
       for (size_t i = 0; i < nelem; ++i) {
-        reinterpret_cast<bool *>(h_data[idx])[i] = (1 + i) % 2;
+        reinterpret_cast<bool*>(h_data[idx])[i] = (1 + i) % 2;
       }
       if (input_placement[idx]) {
         // input on host memory
@@ -279,8 +279,8 @@ int main(int argc, char **argv) {
         context.bindInput(idx, h_data[idx], shape);
       } else {
         // input on device memory
-        int32_t *d_addr = nullptr;
-        reportErrorIfAny(cuMemAlloc((CUdeviceptr *)&d_addr, bytes),
+        int32_t* d_addr = nullptr;
+        reportErrorIfAny(cuMemAlloc((CUdeviceptr*)&d_addr, bytes),
                          "cuMemAlloc");
         reportErrorIfAny(cuMemcpyHtoD((CUdeviceptr)d_addr, h_data[idx], bytes),
                          "cuMemcpyHtoD");
@@ -295,19 +295,19 @@ int main(int argc, char **argv) {
 
   context.onExecutionStart();
 
-  void *ctx_struct[] = {&context, tao_ral_func_ptr};
-  void *ral_ctx_ptr = (void *)(&ctx_struct);
+  void* ctx_struct[] = {&context, tao_ral_func_ptr};
+  void* ral_ctx_ptr = (void*)(&ctx_struct);
   std::cout << "######### tao_ctx: " << ral_ctx_ptr << std::endl;
-  void *args[1] = {(void *)&ral_ctx_ptr};
+  void* args[1] = {(void*)&ral_ctx_ptr};
   entry_func(args);
 
   // bind outputs
   std::vector<buffer_shape_t> output_shapes;
-  std::vector<void *> d_results;
+  std::vector<void*> d_results;
   for (int idx = 0; idx < num_outputs; ++idx) {
-    void *d_result = nullptr;
+    void* d_result = nullptr;
     buffer_shape_t out_shape;
-    context.bindOutput(idx, (void **)&d_result, &out_shape);
+    context.bindOutput(idx, (void**)&d_result, &out_shape);
     output_shapes.emplace_back(out_shape);
     d_results.emplace_back(d_result);
   }
@@ -320,21 +320,21 @@ int main(int argc, char **argv) {
     for (size_t i = 0; i < shape.size(); ++i) {
       nelem *= shape[i];
     }
-    void *d_result = d_results[idx];
+    void* d_result = d_results[idx];
     print_output_shape(d_result, shape);
     if (out_elem_types[idx] == ElemType::kF32) {
       if (output_placement[idx]) {
         for (int i = 0; i < nelem; ++i) {
           std::cout << "\tresult #" << i << ": "
-                    << reinterpret_cast<float *>(d_result)[i] << std::endl;
+                    << reinterpret_cast<float*>(d_result)[i] << std::endl;
         }
       } else {
         int64_t bytes = nelem * sizeof(float);
         float h_result[nelem];
-        reportErrorIfAny(cuMemcpyDtoH((void *)h_result,
-                                      reinterpret_cast<CUdeviceptr>(d_result),
-                                      bytes),
-                         "cuMemcpyDtoH");
+        reportErrorIfAny(
+            cuMemcpyDtoH((void*)h_result,
+                         reinterpret_cast<CUdeviceptr>(d_result), bytes),
+            "cuMemcpyDtoH");
         for (int i = 0; i < nelem; ++i) {
           std::cout << "\tresult #" << i << ": " << h_result[i] << std::endl;
         }
@@ -343,15 +343,15 @@ int main(int argc, char **argv) {
       if (output_placement[idx]) {
         for (int i = 0; i < nelem; ++i) {
           std::cout << "\tresult #" << i << ": "
-                    << reinterpret_cast<int32_t *>(d_result)[i] << std::endl;
+                    << reinterpret_cast<int32_t*>(d_result)[i] << std::endl;
         }
       } else {
         int64_t bytes = nelem * sizeof(int32_t);
         int32_t h_result[nelem];
-        reportErrorIfAny(cuMemcpyDtoH((void *)h_result,
-                                      reinterpret_cast<CUdeviceptr>(d_result),
-                                      bytes),
-                         "cuMemcpyDtoH");
+        reportErrorIfAny(
+            cuMemcpyDtoH((void*)h_result,
+                         reinterpret_cast<CUdeviceptr>(d_result), bytes),
+            "cuMemcpyDtoH");
         for (int i = 0; i < nelem; ++i) {
           std::cout << "\tresult #" << i << ": " << h_result[i] << std::endl;
         }
@@ -360,15 +360,15 @@ int main(int argc, char **argv) {
       if (output_placement[idx]) {
         for (int i = 0; i < nelem; ++i) {
           std::cout << "\tresult #" << i << ": "
-                    << reinterpret_cast<bool *>(d_result)[i] << std::endl;
+                    << reinterpret_cast<bool*>(d_result)[i] << std::endl;
         }
       } else {
         int64_t bytes = nelem * sizeof(bool);
         bool h_result[nelem];
-        reportErrorIfAny(cuMemcpyDtoH((void *)h_result,
-                                      reinterpret_cast<CUdeviceptr>(d_result),
-                                      bytes),
-                         "cuMemcpyDtoH");
+        reportErrorIfAny(
+            cuMemcpyDtoH((void*)h_result,
+                         reinterpret_cast<CUdeviceptr>(d_result), bytes),
+            "cuMemcpyDtoH");
         for (int i = 0; i < nelem; ++i) {
           std::cout << "\tresult #" << i << ": " << h_result[i] << std::endl;
         }
@@ -379,7 +379,7 @@ int main(int argc, char **argv) {
     }
   }
 
-  for (void *p : h_data) {
+  for (void* p : h_data) {
     delete[] p;
   }
 

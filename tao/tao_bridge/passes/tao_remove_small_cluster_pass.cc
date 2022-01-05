@@ -34,8 +34,8 @@ limitations under the License.
 namespace tensorflow {
 namespace tao {
 
-Status TaoRemoveSmallClusterPass::CollectOnGraph(Graph *graph) {
-  for (Node *n : graph->nodes()) {
+Status TaoRemoveSmallClusterPass::CollectOnGraph(Graph* graph) {
+  for (Node* n : graph->nodes()) {
     DeviceType device_type("");
     TF_RETURN_IF_ERROR(
         DeviceNameToDeviceType(n->assigned_device_name(), &device_type));
@@ -50,7 +50,7 @@ Status TaoRemoveSmallClusterPass::CollectOnGraph(Graph *graph) {
 
     std::string cluster(*cluster_str);
     if (cluster_nodes_.count(cluster) == 0) {
-      std::vector<Node *> tmp_vec;
+      std::vector<Node*> tmp_vec;
       cluster_nodes_[cluster] = tmp_vec;
     }
 
@@ -72,14 +72,14 @@ Status TaoRemoveSmallClusterPass::CollectOnGraph(Graph *graph) {
   return Status::OK();
 }
 
-Status TaoRemoveSmallClusterPass::RemoveNonComputeCluster(Graph *graph) {
+Status TaoRemoveSmallClusterPass::RemoveNonComputeCluster(Graph* graph) {
   if (cluster_nodes_.empty()) {
     VLOG(2) << "No recorded cluster nodes inofrmation.";
     return Status::OK();
   }
   const int32 kThresholdComCnt = 1;
   std::for_each(cluster_nodes_.begin(), cluster_nodes_.end(),
-                [&](std::pair<std::string, std::vector<Node *>> node_map) {
+                [&](std::pair<std::string, std::vector<Node*>> node_map) {
                   if (compute_op_cnt_.count(node_map.first) == 0 ||
                       compute_op_cnt_[node_map.first] < kThresholdComCnt) {
                     VLOG(2) << "Remove cluster " << node_map.first;
@@ -94,8 +94,8 @@ Status TaoRemoveSmallClusterPass::RemoveNonComputeCluster(Graph *graph) {
   return Status::OK();
 }
 
-Status
-TaoRemoveSmallClusterPass::Run(const GraphOptimizationPassOptions &options) {
+Status TaoRemoveSmallClusterPass::Run(
+    const GraphOptimizationPassOptions& options) {
   // NB!  In this pass we assume the only XLA-auto-clusterable operations that
   // may have side effects are resource variable operations so we don't cluster
   // those.  The pass will have to be updated if this assumption becomes
@@ -104,7 +104,7 @@ TaoRemoveSmallClusterPass::Run(const GraphOptimizationPassOptions &options) {
     return Status::OK();
   }
 
-  Graph *graph = options.graph->get();
+  Graph* graph = options.graph->get();
 
   TF_RETURN_IF_ERROR(CollectOnGraph(graph));
 
@@ -113,5 +113,5 @@ TaoRemoveSmallClusterPass::Run(const GraphOptimizationPassOptions &options) {
   return Status::OK();
 }
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

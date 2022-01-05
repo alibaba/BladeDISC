@@ -18,13 +18,13 @@
 namespace mlir {
 namespace mhlo {
 
-mlir::Value BuildStandardNorm(mlir::OpBuilder &builder,
-                              const mlir::Location &loc,
-                              const mlir::Value &input,
-                              const llvm::Optional<mlir::Value> &var,
-                              const llvm::Optional<mlir::Value> &mean,
+mlir::Value BuildStandardNorm(mlir::OpBuilder& builder,
+                              const mlir::Location& loc,
+                              const mlir::Value& input,
+                              const llvm::Optional<mlir::Value>& var,
+                              const llvm::Optional<mlir::Value>& mean,
                               double eps,
-                              const SmallVec4<mlir_dim_t> &broadcast_dims) {
+                              const SmallVec4<mlir_dim_t>& broadcast_dims) {
   auto input_shape = BuildDimSizeListOfTensor(builder, loc, input);
   auto elem_type = GetMlirTensorElemType(input);
   mlir::Value zero_mean = input;
@@ -40,7 +40,7 @@ mlir::Value BuildStandardNorm(mlir::OpBuilder &builder,
     return zero_mean;
   }
   // math: var(x) + eps
-  static constexpr const char *kDIRECTION = nullptr;
+  static constexpr const char* kDIRECTION = nullptr;
   static constexpr const bool kRHSIsScalar = true;
   // BuildMlirBinaryOp will implicit broadcast at need
   auto var_biased =
@@ -61,9 +61,9 @@ mlir::Value BuildStandardNorm(mlir::OpBuilder &builder,
   return norm_input;
 }
 
-mlir::Value BuildStandardNorm(mlir::OpBuilder &builder,
-                              const mlir::Location &loc,
-                              const mlir::Value &input, double eps,
+mlir::Value BuildStandardNorm(mlir::OpBuilder& builder,
+                              const mlir::Location& loc,
+                              const mlir::Value& input, double eps,
                               mlir_dim_t reduced_last_dims) {
   mlir_dim_t input_rank = GetRankOfMlirValue(input);
   mlir_dim_t reduced_rank = input_rank - reduced_last_dims;
@@ -96,12 +96,11 @@ mlir::Value BuildStandardNorm(mlir::OpBuilder &builder,
   return norm_input;
 }
 
-mlir::Value
-BuildElemAffine(mlir::OpBuilder &builder, const mlir::Location &loc,
-                const mlir::Value &input,
-                const llvm::Optional<mlir::Value> &gamma,
-                const llvm::Optional<mlir::Value> &beta,
-                const llvm::Optional<SmallVec4<mlir_dim_t>> &broadcast_dims) {
+mlir::Value BuildElemAffine(
+    mlir::OpBuilder& builder, const mlir::Location& loc,
+    const mlir::Value& input, const llvm::Optional<mlir::Value>& gamma,
+    const llvm::Optional<mlir::Value>& beta,
+    const llvm::Optional<SmallVec4<mlir_dim_t>>& broadcast_dims) {
   auto elem_type = GetMlirTensorElemType(input);
   auto input_shape = BuildDimSizeListOfTensor(builder, loc, input);
   mlir::Value affine_output = input;
@@ -130,5 +129,5 @@ BuildElemAffine(mlir::OpBuilder &builder, const mlir::Location &loc,
   return affine_output;
 }
 
-} // namespace mhlo
-} // namespace mlir
+}  // namespace mhlo
+}  // namespace mlir

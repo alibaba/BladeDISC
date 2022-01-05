@@ -30,7 +30,7 @@ namespace ral {
 
 namespace internal {
 
-int ParseInteger(const char *str, size_t size) {
+int ParseInteger(const char* str, size_t size) {
   // Ideally we would use env_var / safe_strto64, but it is
   // hard to use here without pulling in a lot of dependencies,
   // so we use std:istringstream instead
@@ -42,7 +42,7 @@ int ParseInteger(const char *str, size_t size) {
 }
 
 // Parse log level (int) from environment variable (char*)
-int LogLevelStrToInt(const char *tf_env_var_val) {
+int LogLevelStrToInt(const char* tf_env_var_val) {
   if (tf_env_var_val == nullptr) {
     return 0;
   }
@@ -52,11 +52,11 @@ int LogLevelStrToInt(const char *tf_env_var_val) {
 // Using StringPiece breaks Windows build.
 struct StringData {
   struct Hasher {
-    size_t operator()(const StringData &sdata) const {
+    size_t operator()(const StringData& sdata) const {
       // For dependency reasons, we cannot use hash.h here. Use DBJHash instead.
       size_t hash = 5381;
-      const char *data = sdata.data;
-      for (const char *top = data + sdata.size; data < top; ++data) {
+      const char* data = sdata.data;
+      for (const char* top = data + sdata.size; data < top; ++data) {
         hash = ((hash << 5) + hash) + (*data);
       }
       return hash;
@@ -64,13 +64,13 @@ struct StringData {
   };
 
   StringData() = default;
-  StringData(const char *data, size_t size) : data(data), size(size) {}
+  StringData(const char* data, size_t size) : data(data), size(size) {}
 
-  bool operator==(const StringData &rhs) const {
+  bool operator==(const StringData& rhs) const {
     return size == rhs.size && memcmp(data, rhs.data, size) == 0;
   }
 
-  const char *data = nullptr;
+  const char* data = nullptr;
   size_t size = 0;
 };
 
@@ -78,10 +78,10 @@ using VmoduleMap = std::unordered_map<StringData, int, StringData::Hasher>;
 
 // Returns a mapping from module name to VLOG level, derived from the
 // TF_CPP_VMODULE environment variable; ownership is transferred to the caller.
-VmoduleMap *VmodulesMapFromEnv() {
+VmoduleMap* VmodulesMapFromEnv() {
   // The value of the env var is supposed to be of the form:
   //    "foo=1,bar=2,baz=3"
-  const char *env = getenv("TAO_CPP_VMODULE");
+  const char* env = getenv("TAO_CPP_VMODULE");
   if (env == nullptr) {
     // If there is no TAO_CPP_VMODULE configuration (most common case), return
     // nullptr so that the ShouldVlogModule() API can fast bail out of it.
@@ -90,19 +90,19 @@ VmoduleMap *VmodulesMapFromEnv() {
   // The memory returned by getenv() can be invalidated by following getenv() or
   // setenv() calls. And since we keep references to it in the VmoduleMap in
   // form of StringData objects, make a copy of it.
-  const char *env_data = strdup(env);
-  VmoduleMap *result = new VmoduleMap();
+  const char* env_data = strdup(env);
+  VmoduleMap* result = new VmoduleMap();
   while (true) {
-    const char *eq = strchr(env_data, '=');
+    const char* eq = strchr(env_data, '=');
     if (eq == nullptr) {
       break;
     }
-    const char *after_eq = eq + 1;
+    const char* after_eq = eq + 1;
 
     // Comma either points at the next comma delimiter, or at a null terminator.
     // We check that the integer we parse ends at this delimiter.
-    const char *comma = strchr(after_eq, ',');
-    const char *new_env_data;
+    const char* comma = strchr(after_eq, ',');
+    const char* new_env_data;
     if (comma == nullptr) {
       comma = strchr(after_eq, '\0');
       new_env_data = comma;
@@ -117,19 +117,19 @@ VmoduleMap *VmodulesMapFromEnv() {
 }
 
 int MinLogLevelFromEnv() {
-  const char *tf_env_var_val = getenv("TAO_CPP_MIN_LOG_LEVEL");
+  const char* tf_env_var_val = getenv("TAO_CPP_MIN_LOG_LEVEL");
   return LogLevelStrToInt(tf_env_var_val);
 }
 
 int MinVLogLevelFromEnv() {
-  const char *tf_env_var_val = getenv("TAO_CPP_MIN_VLOG_LEVEL");
+  const char* tf_env_var_val = getenv("TAO_CPP_MIN_VLOG_LEVEL");
   return LogLevelStrToInt(tf_env_var_val);
 }
 
-LogMessage::LogMessage(const char *fname, int line, int severity)
+LogMessage::LogMessage(const char* fname, int line, int severity)
     : fname_(fname), line_(line), severity_(severity) {}
 
-LogMessage &LogMessage::AtLocation(const char *fname, int line) {
+LogMessage& LogMessage::AtLocation(const char* fname, int line) {
   fname_ = fname;
   line_ = line;
   return *this;
@@ -149,8 +149,8 @@ void LogMessage::GenerateLogMessage() {
   char time_buffer[time_buffer_size];
   strftime(time_buffer, time_buffer_size, "%Y-%m-%d %H:%M:%S",
            localtime(&result));
-  const char *last_slash = strrchr(fname_, '/');
-  const char *short_fname = last_slash == nullptr ? fname_ : last_slash + 1;
+  const char* last_slash = strrchr(fname_, '/');
+  const char* short_fname = last_slash == nullptr ? fname_ : last_slash + 1;
   fprintf(stderr, "%s: %c %s:%d] %s\n", time_buffer, "IWEF"[severity_],
           short_fname, line_, str().c_str());
 }
@@ -160,25 +160,25 @@ int LogMessage::MinVLogLevel() {
   return min_vlog_level;
 }
 
-bool LogMessage::VmoduleActivated(const char *fname, int level) {
+bool LogMessage::VmoduleActivated(const char* fname, int level) {
   if (level <= MinVLogLevel()) {
     return true;
   }
-  static VmoduleMap *vmodules = VmodulesMapFromEnv();
+  static VmoduleMap* vmodules = VmodulesMapFromEnv();
   if (TAO_PREDICT_TRUE(vmodules == nullptr)) {
     return false;
   }
-  const char *last_slash = strrchr(fname, '/');
-  const char *module_start = last_slash == nullptr ? fname : last_slash + 1;
-  const char *dot_after = strchr(module_start, '.');
-  const char *module_limit =
+  const char* last_slash = strrchr(fname, '/');
+  const char* module_start = last_slash == nullptr ? fname : last_slash + 1;
+  const char* dot_after = strchr(module_start, '.');
+  const char* module_limit =
       dot_after == nullptr ? strchr(fname, '\0') : dot_after;
   StringData module(module_start, module_limit - module_start);
   auto it = vmodules->find(module);
   return it != vmodules->end() && it->second >= level;
 }
 
-LogMessageFatal::LogMessageFatal(const char *file, int line)
+LogMessageFatal::LogMessageFatal(const char* file, int line)
     : LogMessage(file, line, FATAL) {}
 LogMessageFatal::~LogMessageFatal() {
   // abort() ensures we don't return (we promised we would not via
@@ -187,6 +187,6 @@ LogMessageFatal::~LogMessageFatal() {
   abort();
 }
 
-} // namespace internal
-} // namespace ral
-} // namespace tao
+}  // namespace internal
+}  // namespace ral
+}  // namespace tao

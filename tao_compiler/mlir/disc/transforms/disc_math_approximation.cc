@@ -15,12 +15,12 @@ limitations under the License.
 
 // This file implements approximation logic for some special math ops.
 
+#include "llvm/Support/Debug.h"
 #include "mlir/Dialect/Math/IR/Math.h"
 #include "mlir/Dialect/Math/Transforms/Passes.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "llvm/Support/Debug.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -31,7 +31,7 @@ struct DiscMathApproximationPass
     : DiscMathApproximationPassBase<DiscMathApproximationPass> {
   void runOnFunction() override {
     FuncOp func = getFunction();
-    MLIRContext *ctx = func.getContext();
+    MLIRContext* ctx = func.getContext();
 
     // Populate patterns.
     RewritePatternSet patterns(ctx);
@@ -40,11 +40,11 @@ struct DiscMathApproximationPass
   }
 };
 
-} // namespace
+}  // namespace
 
 std::unique_ptr<FunctionPass> createDiscMathApproximationPass() {
   return std::make_unique<DiscMathApproximationPass>();
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

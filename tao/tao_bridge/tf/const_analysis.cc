@@ -32,9 +32,9 @@ namespace tao {
 
 namespace {
 
-Status GetFunctionBody(FunctionLibraryRuntime *flib_runtime,
-                       const NodeDef &node, StringPiece func_attr_name,
-                       const FunctionBody **fbody) {
+Status GetFunctionBody(FunctionLibraryRuntime* flib_runtime,
+                       const NodeDef& node, StringPiece func_attr_name,
+                       const FunctionBody** fbody) {
   NameAttrList name_attr_list;
   TF_RETURN_IF_ERROR(GetNodeAttr(node, func_attr_name, &name_attr_list));
   FunctionLibraryRuntime::Handle func_handle;
@@ -44,12 +44,12 @@ Status GetFunctionBody(FunctionLibraryRuntime *flib_runtime,
   return Status::OK();
 }
 
-Status GetFunctionBodies(FunctionLibraryRuntime *flib_runtime,
-                         const NodeDef &node, StringPiece func_list_attr_name,
-                         std::vector<const FunctionBody *> *fbodies) {
+Status GetFunctionBodies(FunctionLibraryRuntime* flib_runtime,
+                         const NodeDef& node, StringPiece func_list_attr_name,
+                         std::vector<const FunctionBody*>* fbodies) {
   std::vector<NameAttrList> name_attr_lists;
   TF_RETURN_IF_ERROR(GetNodeAttr(node, func_list_attr_name, &name_attr_lists));
-  for (const NameAttrList &name_attr_list : name_attr_lists) {
+  for (const NameAttrList& name_attr_list : name_attr_lists) {
     FunctionLibraryRuntime::Handle func_handle;
     TF_RETURN_IF_ERROR(flib_runtime->Instantiate(
         name_attr_list.name(), AttrSlice(&name_attr_list.attr()),
@@ -59,12 +59,11 @@ Status GetFunctionBodies(FunctionLibraryRuntime *flib_runtime,
   return Status::OK();
 }
 
-Status
-CondConstInputIndices(absl::Span<const FunctionBody *const> branch_bodies,
-                      std::vector<int> *const_input_idxs,
-                      std::vector<int> *fixed_shape_input_idxs,
-                      FunctionLibraryRuntime *flib_runtime,
-                      bool is_mlir = false) {
+Status CondConstInputIndices(
+    absl::Span<const FunctionBody* const> branch_bodies,
+    std::vector<int>* const_input_idxs,
+    std::vector<int>* fixed_shape_input_idxs,
+    FunctionLibraryRuntime* flib_runtime, bool is_mlir = false) {
   TF_RET_CHECK(!branch_bodies.empty());
   TF_RET_CHECK(branch_bodies[0] != nullptr);
   int num_inputs = branch_bodies[0]->fdef.signature().input_arg_size();
@@ -79,7 +78,7 @@ CondConstInputIndices(absl::Span<const FunctionBody *const> branch_bodies,
         /*compile_time_const_nodes=*/nullptr,
         &compile_time_fixed_shape_arg_indices,
         /*compile_time_fixed_shape_nodes=*/nullptr, flib_runtime,
-        /*edge_filter*/ [](const Edge &e) { return true; }, is_mlir));
+        /*edge_filter*/ [](const Edge& e) { return true; }, is_mlir));
   }
   for (size_t i = 0; i < compile_time_const_arg_indices.size(); i++) {
     if (compile_time_const_arg_indices[i]) {
@@ -98,18 +97,18 @@ CondConstInputIndices(absl::Span<const FunctionBody *const> branch_bodies,
   return Status::OK();
 }
 
-Status GetCompileTimeConstInputs(const NodeDef &node, const OpKernel *op_kernel,
-                                 const OpDef *op_def,
-                                 std::vector<int> *const_input_idxs,
-                                 std::vector<int> *fixed_shape_input_idxs,
-                                 FunctionLibraryRuntime *flib_runtime,
+Status GetCompileTimeConstInputs(const NodeDef& node, const OpKernel* op_kernel,
+                                 const OpDef* op_def,
+                                 std::vector<int>* const_input_idxs,
+                                 std::vector<int>* fixed_shape_input_idxs,
+                                 FunctionLibraryRuntime* flib_runtime,
                                  bool is_mlir = false) {
   DCHECK(op_def != nullptr || op_kernel != nullptr);
   // TODO(b/124403063): Implement similar functionality for function call nodes.
   if (node.op() == "While" || node.op() == "StatelessWhile") {
     // For While nodes, recurse into the body and cond graphs.
-    const FunctionBody *fcond = nullptr;
-    const FunctionBody *fbody = nullptr;
+    const FunctionBody* fcond = nullptr;
+    const FunctionBody* fbody = nullptr;
     TF_RETURN_IF_ERROR(GetFunctionBody(flib_runtime, node, "cond", &fcond));
     TF_RETURN_IF_ERROR(GetFunctionBody(flib_runtime, node, "body", &fbody));
     TF_RET_CHECK(fcond);
@@ -125,13 +124,13 @@ Status GetCompileTimeConstInputs(const NodeDef &node, const OpKernel *op_kernel,
         /*compile_time_const_nodes=*/nullptr,
         &compile_time_fixed_shape_arg_indices,
         /*compile_time_fixed_shape_nodes=*/nullptr, flib_runtime,
-        /*edge_filter*/ [](const Edge &e) { return true; }, is_mlir));
+        /*edge_filter*/ [](const Edge& e) { return true; }, is_mlir));
     TF_RETURN_IF_ERROR(BackwardsConstAnalysis(
         *(fbody->graph), &compile_time_const_arg_indices,
         /*compile_time_const_nodes=*/nullptr,
         &compile_time_fixed_shape_arg_indices,
         /*compile_time_fixed_shape_nodes=*/nullptr, flib_runtime,
-        /*edge_filter*/ [](const Edge &e) { return true; }, is_mlir));
+        /*edge_filter*/ [](const Edge& e) { return true; }, is_mlir));
     for (int i = 0; i < num_inputs; i++) {
       if (compile_time_const_arg_indices[i]) {
         // Check that this input is actually a loop invariant.
@@ -143,18 +142,18 @@ Status GetCompileTimeConstInputs(const NodeDef &node, const OpKernel *op_kernel,
         // that will actually be run using XLA kernels. So we silently return
         // here and let the error be raised during the actual compilation of the
         // XLA graph.
-        Node *arg_i = fbody->arg_nodes[i];
-        Node *ret_i = fbody->ret_nodes[i];
-        const Node *ret_i_input_0;
+        Node* arg_i = fbody->arg_nodes[i];
+        Node* ret_i = fbody->ret_nodes[i];
+        const Node* ret_i_input_0;
         TF_RETURN_IF_ERROR(ret_i->input_node(0, &ret_i_input_0));
         if (ret_i_input_0->id() == arg_i->id()) {
           const_input_idxs->push_back(i);
         }
       }
       if (compile_time_fixed_shape_arg_indices[i]) {
-        Node *arg_i = fbody->arg_nodes[i];
-        Node *ret_i = fbody->ret_nodes[i];
-        const Node *ret_i_input_0;
+        Node* arg_i = fbody->arg_nodes[i];
+        Node* ret_i = fbody->ret_nodes[i];
+        const Node* ret_i_input_0;
         TF_RETURN_IF_ERROR(ret_i->input_node(0, &ret_i_input_0));
         if (ret_i_input_0->id() == arg_i->id()) {
           fixed_shape_input_idxs->push_back(i);
@@ -163,8 +162,8 @@ Status GetCompileTimeConstInputs(const NodeDef &node, const OpKernel *op_kernel,
     }
     return Status::OK();
   } else if (node.op() == "If" || node.op() == "StatelessIf") {
-    const FunctionBody *fthen = nullptr;
-    const FunctionBody *felse = nullptr;
+    const FunctionBody* fthen = nullptr;
+    const FunctionBody* felse = nullptr;
     TF_RETURN_IF_ERROR(
         GetFunctionBody(flib_runtime, node, "then_branch", &fthen));
     TF_RETURN_IF_ERROR(
@@ -172,7 +171,7 @@ Status GetCompileTimeConstInputs(const NodeDef &node, const OpKernel *op_kernel,
     return CondConstInputIndices({fthen, felse}, const_input_idxs,
                                  fixed_shape_input_idxs, flib_runtime, is_mlir);
   } else if (node.op() == "Case") {
-    std::vector<const FunctionBody *> branch_bodies;
+    std::vector<const FunctionBody*> branch_bodies;
     TF_RETURN_IF_ERROR(
         GetFunctionBodies(flib_runtime, node, "branches", &branch_bodies));
     return CondConstInputIndices(branch_bodies, const_input_idxs,
@@ -206,27 +205,27 @@ Status GetCompileTimeConstInputs(const NodeDef &node, const OpKernel *op_kernel,
   }
 }
 
-Status GetCompileTimeConstInputs(const Node *node,
-                                 std::vector<int> *const_input_idxs,
-                                 std::vector<int> *fixed_shape_input_idxs,
-                                 FunctionLibraryRuntime *flib_runtime,
+Status GetCompileTimeConstInputs(const Node* node,
+                                 std::vector<int>* const_input_idxs,
+                                 std::vector<int>* fixed_shape_input_idxs,
+                                 FunctionLibraryRuntime* flib_runtime,
                                  bool is_mlir = false) {
   return GetCompileTimeConstInputs(
       node->def(), /*op_kernel=*/nullptr, &node->op_def(), const_input_idxs,
       fixed_shape_input_idxs, flib_runtime, is_mlir);
 }
 
-} // namespace
+}  // namespace
 
 // Backwards dataflow analysis that finds arguments to a graph that must be
 // compile-time constants.
 Status BackwardsConstAnalysis(
-    const Graph &g, std::vector<bool> *compile_time_const_arg_indices,
-    std::vector<bool> *compile_time_const_nodes,
-    std::vector<bool> *compile_time_fixed_shape_arg_indices,
-    std::vector<bool> *compile_time_fixed_shape_nodes,
-    FunctionLibraryRuntime *flib_runtime,
-    std::function<bool(const Edge &)> edge_filter, bool analysis_mlir) {
+    const Graph& g, std::vector<bool>* compile_time_const_arg_indices,
+    std::vector<bool>* compile_time_const_nodes,
+    std::vector<bool>* compile_time_fixed_shape_arg_indices,
+    std::vector<bool>* compile_time_fixed_shape_nodes,
+    FunctionLibraryRuntime* flib_runtime,
+    std::function<bool(const Edge&)> edge_filter, bool analysis_mlir) {
   std::vector<bool> compile_time_const_nodes_impl;
   if (compile_time_const_nodes) {
     CHECK_EQ(compile_time_const_nodes->size(), g.num_node_ids());
@@ -246,19 +245,18 @@ Status BackwardsConstAnalysis(
 
   // If this node must be const, and it isn't a metadata op, then all of its
   // parents must be const.
-  auto process_if_must_be_const = [&](std::vector<bool> *const_nodes,
-                                      Node *node) -> bool {
+  auto process_if_must_be_const = [&](std::vector<bool>* const_nodes,
+                                      Node* node) -> bool {
     if ((*const_nodes)[node->id()]) {
       if (node->type_string() == "_Arg") {
         int index;
         status = GetNodeAttr(node->attrs(), "index", &index);
-        if (!status.ok())
-          return true;
+        if (!status.ok()) return true;
         if (compile_time_const_arg_indices) {
           (*compile_time_const_arg_indices)[index] = true;
         }
       } else {
-        for (const Edge *pred : node->in_edges()) {
+        for (const Edge* pred : node->in_edges()) {
           if (!pred->IsControlEdge() && edge_filter(*pred)) {
             // If the src node of the `pred` is an IdentityN do not mark it as a
             // compile-time const. Only mark the corresponding input to the
@@ -268,8 +266,7 @@ Status BackwardsConstAnalysis(
             while (edge_filter(*pred) &&
                    pred->src()->type_string() == "IdentityN") {
               status = pred->src()->input_edge(pred->src_output(), &pred);
-              if (!status.ok())
-                return true;
+              if (!status.ok()) return true;
             }
             if (edge_filter(*pred)) {
               (*const_nodes)[pred->src()->id()] = true;
@@ -282,9 +279,8 @@ Status BackwardsConstAnalysis(
     return false;
   };
 
-  auto visit_xla = [&](Node *node) {
-    if (!status.ok())
-      return;
+  auto visit_xla = [&](Node* node) {
+    if (!status.ok()) return;
 
     // If this is a metadata-only op, don't propagate the const requirement.
     if (XlaOpRegistry::IsMetadataOp(node->type_string())) {
@@ -305,7 +301,7 @@ Status BackwardsConstAnalysis(
       return;
     }
 
-    for (Edge const *edge : node->in_edges()) {
+    for (Edge const* edge : node->in_edges()) {
       if (!edge->IsControlEdge() &&
           std::binary_search(const_input_idxs.begin(), const_input_idxs.end(),
                              edge->dst_input()) &&
@@ -318,8 +314,7 @@ Status BackwardsConstAnalysis(
         while (edge_filter(*edge) &&
                edge->src()->type_string() == "IdentityN") {
           status = edge->src()->input_edge(edge->src_output(), &edge);
-          if (!status.ok())
-            return;
+          if (!status.ok()) return;
         }
         if (edge_filter(*edge)) {
           (*compile_time_const_nodes)[edge->src()->id()] = true;
@@ -328,7 +323,7 @@ Status BackwardsConstAnalysis(
     }
   };
 
-  auto visit_mlir = [&](Node *node) {
+  auto visit_mlir = [&](Node* node) {
     if (!status.ok()) {
       return;
     }
@@ -366,15 +361,14 @@ Status BackwardsConstAnalysis(
       }
     }
 
-    for (Edge const *edge : node->in_edges()) {
+    for (Edge const* edge : node->in_edges()) {
       if (!edge->IsControlEdge() && edge_filter(*edge)) {
         if (std::binary_search(const_input_idxs.begin(), const_input_idxs.end(),
                                edge->dst_input())) {
           while (edge_filter(*edge) &&
                  edge->src()->type_string() == "IdentityN") {
             status = edge->src()->input_edge(edge->src_output(), &edge);
-            if (!status.ok())
-              return;
+            if (!status.ok()) return;
           }
           if (edge_filter(*edge)) {
             (*compile_time_const_nodes)[edge->src()->id()] = true;
@@ -385,8 +379,7 @@ Status BackwardsConstAnalysis(
           while (edge_filter(*edge) &&
                  edge->src()->type_string() == "IdentityN") {
             status = edge->src()->input_edge(edge->src_output(), &edge);
-            if (!status.ok())
-              return;
+            if (!status.ok()) return;
           }
           if (edge_filter(*edge)) {
             if ((*compile_time_fixed_shape_nodes)[node->id()] ||
@@ -400,8 +393,7 @@ Status BackwardsConstAnalysis(
           while (edge_filter(*edge) &&
                  edge->src()->type_string() == "IdentityN") {
             status = edge->src()->input_edge(edge->src_output(), &edge);
-            if (!status.ok())
-              return;
+            if (!status.ok()) return;
           }
           if (edge_filter(*edge) &&
               (*compile_time_fixed_shape_nodes)[node->id()]) {
@@ -416,18 +408,18 @@ Status BackwardsConstAnalysis(
   // acyclic graph.
   if (analysis_mlir) {
     DFS(g, /*enter=*/{}, /*leave=*/visit_mlir, NodeComparatorName{},
-        [](const Edge &edge) { return !edge.src()->IsNextIteration(); });
+        [](const Edge& edge) { return !edge.src()->IsNextIteration(); });
   } else {
     DFS(g, /*enter=*/{}, /*leave=*/visit_xla, NodeComparatorName{},
-        [](const Edge &edge) { return !edge.src()->IsNextIteration(); });
+        [](const Edge& edge) { return !edge.src()->IsNextIteration(); });
   }
   return status;
 }
 
-Status GetCompileTimeConstInputs(const OpKernel *op_kernel,
-                                 std::vector<int> *const_input_idxs,
-                                 std::vector<int> *fixed_shape_input_idxs,
-                                 FunctionLibraryRuntime *flib_runtime,
+Status GetCompileTimeConstInputs(const OpKernel* op_kernel,
+                                 std::vector<int>* const_input_idxs,
+                                 std::vector<int>* fixed_shape_input_idxs,
+                                 FunctionLibraryRuntime* flib_runtime,
                                  bool is_mlir) {
   return GetCompileTimeConstInputs(op_kernel->def(), op_kernel,
                                    /*op_def=*/nullptr, const_input_idxs,
@@ -435,5 +427,5 @@ Status GetCompileTimeConstInputs(const OpKernel *op_kernel,
                                    is_mlir);
 }
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

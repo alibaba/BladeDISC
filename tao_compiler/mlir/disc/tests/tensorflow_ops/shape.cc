@@ -88,4 +88,4 @@ TEST(TFShapeOpTest, DynamicShape2DI64) {
       /*output_descriptors*/ {"i64_h"}));
 }
 
-} // namespace mlir_test
+}  // namespace mlir_test

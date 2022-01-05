@@ -77,4 +77,4 @@ TEST(TFConstOpTest, ScalarI64) {
       /*output_descriptors*/ {"i64_X"}));
 }
 
-} // namespace mlir_test
+}  // namespace mlir_test

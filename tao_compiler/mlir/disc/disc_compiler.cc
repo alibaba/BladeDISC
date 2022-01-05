@@ -17,13 +17,25 @@ limitations under the License.
 
 #include <fstream>
 
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/CodeGen/CommandFlags.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
 #include "mlir-hlo/Dialect/mhlo/transforms/passes.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/GPUToNVVM/GPUToNVVMPass.h"
 #include "mlir/Conversion/GPUToROCDL/GPUToROCDLPass.h"
 #include "mlir/Conversion/SCFToGPU/SCFToGPUPass.h"
 #include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
-#include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h" // from @llvm-project
+#include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"  // from @llvm-project
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/Dialect/GPU/Passes.h"
@@ -37,15 +49,15 @@ limitations under the License.
 #include "mlir/ExecutionEngine/OptUtils.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/BuiltinOps.h"
-#include "mlir/IR/MLIRContext.h" // from @llvm-project
-#include "mlir/Parser.h"         // from @llvm-project
+#include "mlir/IR/MLIRContext.h"  // from @llvm-project
+#include "mlir/Parser.h"          // from @llvm-project
 #include "mlir/Pass/PassManager.h"
-#include "mlir/Support/FileUtilities.h" // from @llvm-project
-#include "mlir/Support/Timing.h"        // from @llvm-project
-#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h" // from @llvm-project
-#include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h" // from @llvm-project
-#include "mlir/Target/LLVMIR/Dialect/ROCDL/ROCDLToLLVMIRTranslation.h" // from @llvm-project
-#include "mlir/Target/LLVMIR/Export.h" // from @llvm-project
+#include "mlir/Support/FileUtilities.h"  // from @llvm-project
+#include "mlir/Support/Timing.h"         // from @llvm-project
+#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"  // from @llvm-project
+#include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"  // from @llvm-project
+#include "mlir/Target/LLVMIR/Dialect/ROCDL/ROCDLToLLVMIRTranslation.h"  // from @llvm-project
+#include "mlir/Target/LLVMIR/Export.h"  // from @llvm-project
 #include "mlir/Transforms/Passes.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
@@ -55,18 +67,6 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/tensorflow/utils/compile_mlir_util.h"
 #include "tensorflow/compiler/mlir/tensorflow/utils/error_util.h"
 #include "tensorflow/core/util/env_var.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/CodeGen/CommandFlags.h"
-#include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Host.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Target/TargetMachine.h"
 
 using mlir::FuncOp;
 
@@ -75,7 +75,7 @@ namespace disc_ral {
 
 namespace {
 
-void DumpLLVMModule(llvm::Module *m) {
+void DumpLLVMModule(llvm::Module* m) {
   std::string str;
   llvm::raw_string_ostream OS(str);
   OS << *m;
@@ -83,17 +83,17 @@ void DumpLLVMModule(llvm::Module *m) {
   llvm::dbgs() << str << "\n";
 }
 
-LogicalResult RewriteLLVMModule(llvm::Module *m) {
-  auto &ctx = m->getContext();
+LogicalResult RewriteLLVMModule(llvm::Module* m) {
+  auto& ctx = m->getContext();
   auto result_type = llvm::Type::getVoidTy(ctx);
-  std::vector<llvm::Type *> arg_types;
+  std::vector<llvm::Type*> arg_types;
   arg_types.push_back(llvm::Type::getInt8Ty(ctx)->getPointerTo());
   arg_types.push_back(llvm::Type::getInt8Ty(ctx)->getPointerTo());
   arg_types.push_back(
       llvm::Type::getInt8Ty(ctx)->getPointerTo()->getPointerTo());
   auto func_type = llvm::FunctionType::get(result_type, arg_types, false);
   auto ral_call = m->getOrInsertFunction("disc_ral_call", func_type);
-  llvm::Function *func = llvm::cast<llvm::Function>(ral_call.getCallee());
+  llvm::Function* func = llvm::cast<llvm::Function>(ral_call.getCallee());
   auto args = func->arg_begin();
   auto ctx_struct = args++;
   auto api_name = args++;
@@ -117,7 +117,7 @@ LogicalResult RewriteLLVMModule(llvm::Module *m) {
   return success();
 }
 
-std::unique_ptr<llvm::TargetMachine> GetTargetMachine(llvm::Module *module) {
+std::unique_ptr<llvm::TargetMachine> GetTargetMachine(llvm::Module* module) {
   auto tmBuilderOrError = llvm::orc::JITTargetMachineBuilder::detectHost();
   if (!tmBuilderOrError) {
     llvm::errs() << "Failed to create a JITTargetMachineBuilder for the host\n";
@@ -131,7 +131,7 @@ std::unique_ptr<llvm::TargetMachine> GetTargetMachine(llvm::Module *module) {
   return std::move(*tmOrError);
 }
 
-} // namespace
+}  // namespace
 
 CpuLoweringOptions::CpuLoweringOptions(bool init_from_env_vars) {
   if (init_from_env_vars) {
@@ -154,7 +154,7 @@ void CpuLoweringOptions::initFromEnvVars() {
                                  &target_multi_threading);
 }
 
-LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions &options) {
+LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   DefaultTimingManager tm;
   applyDefaultTimingManagerCLOptions(tm);
   TimingScope timing = tm.getRootScope();
@@ -177,7 +177,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions &options) {
   pm.enableIRPrinting(
       /*shouldPrintBeforePass=*/nullptr,
       /*shouldPrintAfterPass=*/
-      [](Pass *pass, Operation *) { return VLOG_IS_ON(1); },
+      [](Pass* pass, Operation*) { return VLOG_IS_ON(1); },
       /*printModuleScope=*/false,
       /*printAfterOnlyOnChange=*/true,
       /*printAfterOnlyOnFailure*/ false, llvm::dbgs(), printingFlags);
@@ -276,7 +276,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions &options) {
   pm.addNestedPass<FuncOp>(disc_ral::createDiscFusionPass(
       gpu_enabled, enable_stitch ? "stitch" : "base"));
   if (gpu_enabled) {
-    auto &gpu_options = options.gpu_info;
+    auto& gpu_options = options.gpu_info;
     pm.addNestedPass<FuncOp>(
         disc_ral::createDiscSpecializeFusionWithSpeculationPass(
             gpu_options.cc_major, gpu_options.cc_minor));
@@ -371,7 +371,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions &options) {
     pm.addPass(disc_ral::createReviseGpuKernelOutliningPass());
 
     // Device side codegen: gpu.module -> cubin
-    auto &kernelPm = pm.nest<mlir::gpu::GPUModuleOp>();
+    auto& kernelPm = pm.nest<mlir::gpu::GPUModuleOp>();
     kernelPm.addPass(createLowerToCFGPass());
     kernelPm.addPass(createLowerAffinePass());
     kernelPm.addNestedPass<FuncOp>(createCanonicalizerPass());
@@ -385,7 +385,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions &options) {
     kernelPm.addPass(disc_ral::createDiscLowerGpuOpsToNVVMOpsPass(
         /*kDeriveIndexBitwidthFromDataLayout*/ 32));
 #endif
-    auto &gpu_options = options.gpu_info;
+    auto& gpu_options = options.gpu_info;
     kernelPm.addPass(disc_ral::CreateDiscGpuKernelToBlobPass(
         gpu_options.cc_major, gpu_options.cc_minor,
         options.gpu_options.multi_cc_support,
@@ -418,20 +418,18 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions &options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
-  if (failed(pm.run(m)))
-    return failure();
+  if (failed(pm.run(m))) return failure();
 
   TimingScope outputTiming = timing.nest("Output");
   return success();
 }
 
-LogicalResult
-ApplyCpuOptionsBeforeTranslatingToLLVM(ModuleOp module,
-                                       const DISCLoweringOptions &options) {
-  auto &cpuOptions = options.cpu_options;
+LogicalResult ApplyCpuOptionsBeforeTranslatingToLLVM(
+    ModuleOp module, const DISCLoweringOptions& options) {
+  auto& cpuOptions = options.cpu_options;
   if (cpuOptions.vector_width > 0) {
     module.walk([&](LLVM::LLVMFuncOp op) {
-      MLIRContext *context = op.getContext();
+      MLIRContext* context = op.getContext();
       auto optionName = StringAttr::get(context, "prefer-vector-width");
       auto vectorWidthStr = llvm::Twine(cpuOptions.vector_width).str();
       auto optionValue = StringAttr::get(context, vectorWidthStr);
@@ -446,13 +444,11 @@ ApplyCpuOptionsBeforeTranslatingToLLVM(ModuleOp module,
 
   if (cpuOptions.assume_no_buffer_alias) {
     module.walk([&](LLVM::LLVMFuncOp op) {
-      if (!op->getAttrOfType<UnitAttr>(kCpuKernelFunc))
-        return;
+      if (!op->getAttrOfType<UnitAttr>(kCpuKernelFunc)) return;
       OpBuilder b(op);
       // The first arg is the ral context, thus we need to skip it.
       for (int i = 1; i < op.getNumArguments(); ++i) {
-        if (!op.getArgument(i).getType().isa<LLVM::LLVMPointerType>())
-          continue;
+        if (!op.getArgument(i).getType().isa<LLVM::LLVMPointerType>()) continue;
         op.setArgAttr(i, LLVM::LLVMDialect::getNoAliasAttrName(),
                       b.getUnitAttr());
       }
@@ -464,9 +460,8 @@ ApplyCpuOptionsBeforeTranslatingToLLVM(ModuleOp module,
   }
 
   if (cpuOptions.disable_loop_unroll) {
-    module.walk([&](Operation *op) {
-      if (!isa<LLVM::BrOp, LLVM::CondBrOp>(op))
-        return;
+    module.walk([&](Operation* op) {
+      if (!isa<LLVM::BrOp, LLVM::CondBrOp>(op)) return;
       OpBuilder opBuilder(op);
       auto keyName = LLVM::LLVMDialect::getLoopOptionsAttrName();
       LLVM::LoopOptionsAttrBuilder b;
@@ -484,27 +479,26 @@ ApplyCpuOptionsBeforeTranslatingToLLVM(ModuleOp module,
   }
 
   if (cpuOptions.fast_math_level > 1) {
-    module.walk([&](Operation *op) {
+    module.walk([&](Operation* op) {
       auto fastmathFlagsInterface = dyn_cast<LLVM::FastmathFlagsInterface>(op);
-      if (!fastmathFlagsInterface)
-        return;
+      if (!fastmathFlagsInterface) return;
       LLVM::FastmathFlags fmf;
       switch (cpuOptions.fast_math_level) {
-      case 4:
-        fmf = fmf | LLVM::FastmathFlags::ninf;
-        fmf = fmf | LLVM::FastmathFlags::arcp;
-        fmf = fmf | LLVM::FastmathFlags::contract;
-        fmf = fmf | LLVM::FastmathFlags::afn;
-        fmf = fmf | LLVM::FastmathFlags::fast;
-      case 3:
-        fmf = fmf | LLVM::FastmathFlags::nnan;
-        fmf = fmf | LLVM::FastmathFlags::nsz;
-      case 2:
-        fmf = fmf | LLVM::FastmathFlags::reassoc;
-        break;
-      default:
-        llvm::errs() << "[[DISC WARNING]] unknown fast_math_level value\n";
-        break;
+        case 4:
+          fmf = fmf | LLVM::FastmathFlags::ninf;
+          fmf = fmf | LLVM::FastmathFlags::arcp;
+          fmf = fmf | LLVM::FastmathFlags::contract;
+          fmf = fmf | LLVM::FastmathFlags::afn;
+          fmf = fmf | LLVM::FastmathFlags::fast;
+        case 3:
+          fmf = fmf | LLVM::FastmathFlags::nnan;
+          fmf = fmf | LLVM::FastmathFlags::nsz;
+        case 2:
+          fmf = fmf | LLVM::FastmathFlags::reassoc;
+          break;
+        default:
+          llvm::errs() << "[[DISC WARNING]] unknown fast_math_level value\n";
+          break;
       }
       op->setAttr("fastmathFlags", LLVM::FMFAttr::get(op->getContext(), fmf));
     });
@@ -517,36 +511,34 @@ ApplyCpuOptionsBeforeTranslatingToLLVM(ModuleOp module,
   return success();
 }
 
-LogicalResult
-ApplyCpuOptionsAfterTranslatingToLLVM(llvm::Module *module,
-                                      const DISCLoweringOptions &options) {
+LogicalResult ApplyCpuOptionsAfterTranslatingToLLVM(
+    llvm::Module* module, const DISCLoweringOptions& options) {
   // This is only a workaround for select inst. In MLIR LLVM, select inst is not
   // a FastmathFlagsInterface op. We need this to do auto vectorization for
   // reduce max op.
-  const auto &fast_math_level = options.cpu_options.fast_math_level;
+  const auto& fast_math_level = options.cpu_options.fast_math_level;
   if (fast_math_level > 1) {
     llvm::FastMathFlags ffm;
     switch (fast_math_level) {
-    case 4:
-      ffm.setNoInfs();
-      ffm.setAllowReciprocal();
-      ffm.setAllowContract();
-      ffm.setApproxFunc();
-    case 3:
-      ffm.setNoNaNs();
-      ffm.setNoSignedZeros();
-    case 2:
-      ffm.setAllowReassoc();
-      break;
-    default:
-      llvm::errs() << "[[DISC WARNING]] unknown fast_math_level value\n";
-      break;
+      case 4:
+        ffm.setNoInfs();
+        ffm.setAllowReciprocal();
+        ffm.setAllowContract();
+        ffm.setApproxFunc();
+      case 3:
+        ffm.setNoNaNs();
+        ffm.setNoSignedZeros();
+      case 2:
+        ffm.setAllowReassoc();
+        break;
+      default:
+        llvm::errs() << "[[DISC WARNING]] unknown fast_math_level value\n";
+        break;
     }
-    for (auto &&func : module->getFunctionList()) {
-      for (auto &&bb : func.getBasicBlockList())
-        for (auto &&I : bb) {
-          if (!llvm::isa<llvm::SelectInst>(&I))
-            continue;
+    for (auto&& func : module->getFunctionList()) {
+      for (auto&& bb : func.getBasicBlockList())
+        for (auto&& I : bb) {
+          if (!llvm::isa<llvm::SelectInst>(&I)) continue;
           I.setFastMathFlags(ffm);
         }
     }
@@ -555,8 +547,8 @@ ApplyCpuOptionsAfterTranslatingToLLVM(llvm::Module *module,
 }
 
 LogicalResult LowerLLVMToBinary(ModuleOp module,
-                                const DISCLoweringOptions &options,
-                                std::string &out) {
+                                const DISCLoweringOptions& options,
+                                std::string& out) {
   bool gpu_enabled = (options.mode == CodeGenMode::kGpuCentric);
   if (!gpu_enabled &&
       failed(ApplyCpuOptionsBeforeTranslatingToLLVM(module, options))) {
@@ -633,8 +625,8 @@ LogicalResult LowerLLVMToBinary(ModuleOp module,
   return success();
 }
 
-LogicalResult BinaryStrToSharedLibrary(const DISCLoweringOptions &options,
-                                       const std::string &binary) {
+LogicalResult BinaryStrToSharedLibrary(const DISCLoweringOptions& options,
+                                       const std::string& binary) {
   std::string object_filename = options.output_file_name + ".o";
 
   // TODO: ONLY used for quick testing.
@@ -661,7 +653,7 @@ LogicalResult BinaryStrToSharedLibrary(const DISCLoweringOptions &options,
 }
 
 LogicalResult LowerHLOToSharedLibrary(ModuleOp m,
-                                      const DISCLoweringOptions &options) {
+                                      const DISCLoweringOptions& options) {
   if (failed(LowerHLOToLLVM(m, options))) {
     llvm::errs() << "lower hlo to llvm failed\n";
     return failure();
@@ -681,8 +673,8 @@ LogicalResult LowerHLOToSharedLibrary(ModuleOp m,
   return success();
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir
 
 namespace tensorflow {
 
@@ -693,7 +685,7 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
   tf2xla.enableIRPrinting(
       /*shouldPrintBeforePass=*/nullptr,
       /*shouldPrintAfterPass=*/
-      [](mlir::Pass *pass, mlir::Operation *) { return VLOG_IS_ON(1); },
+      [](mlir::Pass* pass, mlir::Operation*) { return VLOG_IS_ON(1); },
       /*printModuleScope=*/false,
       /*printAfterOnlyOnChange=*/true,
       /*printAfterOnlyOnFailure*/ false, llvm::dbgs());
@@ -720,4 +712,4 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
   return Status::OK();
 }
 
-} // namespace tensorflow
+}  // namespace tensorflow

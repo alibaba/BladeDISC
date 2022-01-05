@@ -31,11 +31,11 @@
 namespace tao {
 namespace ral {
 
-extern const char *kRalRecvInput;
-extern const char *kRalSendOutput;
-extern const char *kRalCudaConst;
-extern const char *kRalHostConst;
-extern const char *kRalBitcast;
+extern const char* kRalRecvInput;
+extern const char* kRalSendOutput;
+extern const char* kRalCudaConst;
+extern const char* kRalHostConst;
+extern const char* kRalBitcast;
 
 // Abstraction of a core device driver api set
 class Driver;
@@ -51,7 +51,7 @@ class ExecutionContext;
 // different executions of a compiled program, thus the overhead of
 // initialization can be amortized.
 class Context {
-public:
+ public:
   Context();
   virtual ~Context();
 
@@ -65,37 +65,37 @@ public:
   // multi-device in the future (since device is pluggable, one evironment
   // has suport for device type `A` may not also have support for device
   // type `B`).
-  virtual void call(const std::string &api_name, void **args);
+  virtual void call(const std::string& api_name, void** args);
 
-  void call(const char *api_name, void **args);
+  void call(const char* api_name, void** args);
 
   // Returns the api function identified by `api_name` if it exists, otherwise
   // returns nullptr.
-  virtual api_func_t find(const std::string &api_name);
+  virtual api_func_t find(const std::string& api_name);
 
   // Returns the status since the last api call.
   // When error occurs, error msg is stored into `err_msg` if it's
   // not null. `err_msg` is empty if status is ok.
-  status_t getLastError(const char **);
+  status_t getLastError(const char**);
   // Signals an error to the context, and following api calls will failed.
-  void signalError(status_t errcode, const std::string &err_msg);
+  void signalError(status_t errcode, const std::string& err_msg);
   // Clears if in error status.
   void clearError();
 
   // subclass may set up per-execution reosurces using this function
-  virtual void onExecutionStart(ExecutionContext *);
+  virtual void onExecutionStart(ExecutionContext*);
 
   // subclass may clean up per-execution resources using this function
-  virtual void onExecutionFinish(ExecutionContext *);
+  virtual void onExecutionFinish(ExecutionContext*);
 
   // Resource abstraction.
   // Registered resource will by managed by the context through it lifetime.
   struct Resource {
     virtual ~Resource() = default;
 
-    virtual void onExecutionStart(ExecutionContext *){};
-    virtual void onExecutionFinish(ExecutionContext *){};
-    virtual void onContextFinish(Context *){};
+    virtual void onExecutionStart(ExecutionContext*){};
+    virtual void onExecutionFinish(ExecutionContext*){};
+    virtual void onContextFinish(Context*){};
   };
 
   enum LifetimeKind {
@@ -111,19 +111,18 @@ public:
 
   // Returns the resource if it has been created, or construts it using the
   // `creator` and then returns it. Returns nullptr if context in error status.
-  virtual std::shared_ptr<Resource>
-  getOrCreateResource(const std::string &key,
-                      std::function<Resource *()> creator);
+  virtual std::shared_ptr<Resource> getOrCreateResource(
+      const std::string& key, std::function<Resource*()> creator);
 
   // Add a device driver api wrapper for a specific device.
   // If a driver named `name` has already been added, silently ignore this
   // dirver.
-  virtual void addDriver(const std::string &name,
+  virtual void addDriver(const std::string& name,
                          std::unique_ptr<Driver> driver);
-  virtual Driver *getDriver(const std::string &name);
+  virtual Driver* getDriver(const std::string& name);
 
-protected:
-  void signalErrorLocked(status_t errcode, const std::string &err_msg);
+ protected:
+  void signalErrorLocked(status_t errcode, const std::string& err_msg);
 
   struct Impl;
   std::mutex mu;
@@ -131,53 +130,55 @@ protected:
 };
 
 class OutputBufferWrapper {
-public:
+ public:
   virtual ~OutputBufferWrapper() {}
   virtual const_buffer_t data() = 0;
-  virtual const buffer_shape_t &shape() = 0;
+  virtual const buffer_shape_t& shape() = 0;
 };
 
 // Context wrapper for a single execution
 class ExecutionContext {
-public:
-  ExecutionContext(Context *context);
+ public:
+  ExecutionContext(Context* context);
   virtual ~ExecutionContext();
 
-  Context *getContext();
+  Context* getContext();
 
   // Sends and Receives inputs/outputs from environment.
   // Input/Output buffer may or may not on device. It's the responsibility
   // of client to make sure each input/output buffer meets the compiler
   // reuqirement.
   virtual void bindInput(int input_idx, buffer_t buffer,
-                         const buffer_shape_t &shape){};
+                         const buffer_shape_t& shape){};
   virtual void bindOutput(int output_idx,
-                          std::unique_ptr<OutputBufferWrapper> *output){};
+                          std::unique_ptr<OutputBufferWrapper>* output){};
 
   template <typename T>
-  T *getOrCreateResource(const std::string &key,
-                         std::function<Context::Resource *()> creator) {
-    return static_cast<T *>(
+  T* getOrCreateResource(const std::string& key,
+                         std::function<Context::Resource*()> creator) {
+    return static_cast<T*>(
         getContext()->getOrCreateResource(key, creator).get());
   }
 
-  template <typename T> T *getResource(const std::string &key) {
+  template <typename T>
+  T* getResource(const std::string& key) {
     return getOrCreateResource<T>(key, nullptr);
   }
 
-  void signalError(status_t errcode, const std::string &err_msg) {
+  void signalError(status_t errcode, const std::string& err_msg) {
     getContext()->signalError(errcode, err_msg);
   }
 
-  template <typename T> T *getDriver(const std::string &name) {
-    return static_cast<T *>(getContext()->getDriver(name));
+  template <typename T>
+  T* getDriver(const std::string& name) {
+    return static_cast<T*>(getContext()->getDriver(name));
   }
 
   void onExecutionStart() { getContext()->onExecutionStart(this); }
 
   void onExecutionFinish() { getContext()->onExecutionFinish(this); }
 
-private:
+ private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
 };
@@ -186,11 +187,11 @@ template <typename T,
           typename = typename std::enable_if<
               std::is_base_of<ExecutionContext, T>::value>::type,
           typename... Args>
-std::unique_ptr<T> MakeExecutionContext(Args &&... args) {
+std::unique_ptr<T> MakeExecutionContext(Args&&... args) {
   return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
 }
 
-} // namespace ral
-} // namespace tao
+}  // namespace ral
+}  // namespace tao
 
-#endif // RAL_RAL_CONTEXT_H_
+#endif  // RAL_RAL_CONTEXT_H_

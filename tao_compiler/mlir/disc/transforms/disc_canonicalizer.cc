@@ -24,21 +24,21 @@ namespace disc_ral {
 namespace {
 /// Canonicalize operations in nested regions.
 struct Canonicalizer : public CanonicalizerBase<Canonicalizer> {
-  Canonicalizer(const SmallVectorImpl<std::string> &disabledPatterns,
-                const SmallVectorImpl<std::string> &enabledPatterns) {
-    for (const std::string &pattern : disabledPatterns)
+  Canonicalizer(const SmallVectorImpl<std::string>& disabledPatterns,
+                const SmallVectorImpl<std::string>& enabledPatterns) {
+    for (const std::string& pattern : disabledPatterns)
       disabledPatterns_.push_back(pattern);
-    for (const std::string &pattern : enabledPatterns)
+    for (const std::string& pattern : enabledPatterns)
       enabledPatterns_.push_back(pattern);
   }
 
   /// Initialize the canonicalizer by building the set of patterns used during
   /// execution.
-  LogicalResult initialize(MLIRContext *context) override {
+  LogicalResult initialize(MLIRContext* context) override {
     RewritePatternSet owningPatterns(context);
-    for (auto *dialect : context->getLoadedDialects())
+    for (auto* dialect : context->getLoadedDialects())
       dialect->getCanonicalizationPatterns(owningPatterns);
-    for (auto *op : context->getRegisteredOperations())
+    for (auto* op : context->getRegisteredOperations())
       op->getCanonicalizationPatterns(owningPatterns, context);
 
     patterns = FrozenRewritePatternSet(std::move(owningPatterns),
@@ -52,14 +52,14 @@ struct Canonicalizer : public CanonicalizerBase<Canonicalizer> {
 
   FrozenRewritePatternSet patterns;
 };
-} // end anonymous namespace
+}  // end anonymous namespace
 
 /// Create a Canonicalizer pass.
-std::unique_ptr<Pass>
-createDiscCanonicalizerPass(const SmallVector<std::string> &disabledPatterns,
-                            const SmallVector<std::string> &enabledPatterns) {
+std::unique_ptr<Pass> createDiscCanonicalizerPass(
+    const SmallVector<std::string>& disabledPatterns,
+    const SmallVector<std::string>& enabledPatterns) {
   return std::make_unique<Canonicalizer>(disabledPatterns, enabledPatterns);
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

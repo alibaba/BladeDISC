@@ -40,16 +40,15 @@ using mhlo::CstrReshapableOp;
 namespace {
 
 class CstrReshapableOpConversion : public OpRewritePattern<CstrReshapableOp> {
-public:
+ public:
   using OpRewritePattern<CstrReshapableOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(CstrReshapableOp op,
-                                PatternRewriter &rewriter) const override;
+                                PatternRewriter& rewriter) const override;
 };
 
-LogicalResult
-CstrReshapableOpConversion::matchAndRewrite(CstrReshapableOp op,
-                                            PatternRewriter &rewriter) const {
+LogicalResult CstrReshapableOpConversion::matchAndRewrite(
+    CstrReshapableOp op, PatternRewriter& rewriter) const {
   rewriter.replaceOpWithNewOp<shape::ConstWitnessOp>(op.getOperation(), true);
   return success();
 }
@@ -61,7 +60,7 @@ class RemoveShapeConstraintsPass
 
 void RemoveShapeConstraintsPass::runOnFunction() {
   // Setup target legality.
-  MLIRContext &ctx = getContext();
+  MLIRContext& ctx = getContext();
 
   // Setup conversion patterns.
   RewritePatternSet patterns(&ctx);
@@ -77,11 +76,11 @@ void RemoveShapeConstraintsPass::runOnFunction() {
   }
 }
 
-} // namespace
+}  // namespace
 
 std::unique_ptr<mlir::FunctionPass> createDiscRemoveShapeConstraintsPass() {
   return std::make_unique<RemoveShapeConstraintsPass>();
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

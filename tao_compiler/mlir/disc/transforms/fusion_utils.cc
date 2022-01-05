@@ -20,8 +20,8 @@ limitations under the License.
 #include <mutex>
 
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/Shape/IR/Shape.h" // TF:llvm-project
-#include "mlir/IR/MLIRContext.h"         // TF:llvm-project
+#include "mlir/Dialect/Shape/IR/Shape.h"  // TF:llvm-project
+#include "mlir/IR/MLIRContext.h"          // TF:llvm-project
 #include "mlir/IR/Matchers.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
@@ -44,21 +44,21 @@ static StringRef kFusionOpTagAttr = "disc.fusion.tag";
 
 StringRef fusionTypeToString(FusionType ft) {
   switch (ft) {
-  case FusionType::kNone:
-    return "kNone";
-  case FusionType::kLoop:
-    return "kLoop";
-  case FusionType::kRowReduction:
-    return "kRowReduction";
-  case FusionType::kColReduction:
-    return "kColReduction";
-  case FusionType::kInput:
-    return "kInput";
-  case FusionType::kStitch:
-    return "kStitch";
-  default:
-    assert(false && "unknown fusion type");
-    return "";
+    case FusionType::kNone:
+      return "kNone";
+    case FusionType::kLoop:
+      return "kLoop";
+    case FusionType::kRowReduction:
+      return "kRowReduction";
+    case FusionType::kColReduction:
+      return "kColReduction";
+    case FusionType::kInput:
+      return "kInput";
+    case FusionType::kStitch:
+      return "kStitch";
+    default:
+      assert(false && "unknown fusion type");
+      return "";
   }
 }
 
@@ -84,19 +84,18 @@ FusionType fusionTypeFromString(StringRef ft) {
 // Returns the name of the fusion op
 StringRef getFusionName(lmhlo::FusionOp op) {
   auto attr = op->getAttrOfType<StringAttr>(kFusionOpNameAttr);
-  if (!attr)
-    return "";
+  if (!attr) return "";
   return attr.getValue();
 }
 
 // Sets the name of the fusion op
-void setFusionName(OpBuilder &b, lmhlo::FusionOp op, StringRef name) {
+void setFusionName(OpBuilder& b, lmhlo::FusionOp op, StringRef name) {
   op->setAttr(kFusionOpNameAttr, b.getStringAttr(name));
 }
 
 // Attaches a new tag to the fusion op.
 // Here different tags is mapping to different variants of the fusion op.
-void addFusionTag(OpBuilder &b, lmhlo::FusionOp op, StringRef tag) {
+void addFusionTag(OpBuilder& b, lmhlo::FusionOp op, StringRef tag) {
   std::string oldTag;
   auto attr = op->getAttrOfType<StringAttr>(kFusionOpTagAttr);
   if (attr && attr.getValue().size()) {
@@ -109,11 +108,9 @@ void addFusionTag(OpBuilder &b, lmhlo::FusionOp op, StringRef tag) {
 // Here full name is composed of the name and tag of the fusion op.
 std::string getFusionFullName(lmhlo::FusionOp op) {
   auto name_attr = op->getAttrOfType<StringAttr>(kFusionOpNameAttr);
-  if (!name_attr)
-    return "";
+  if (!name_attr) return "";
   auto tag_attr = op->getAttrOfType<StringAttr>(kFusionOpTagAttr);
-  if (!tag_attr)
-    return name_attr.getValue().str();
+  if (!tag_attr) return name_attr.getValue().str();
   return (name_attr.getValue() + Twine("___") + tag_attr.getValue()).str();
 }
 
@@ -130,13 +127,12 @@ std::string generateSignatureForFusion(lmhlo::FusionOp op) {
   }
 
   int num_ops = 0;
-  for (auto &op :
+  for (auto& op :
        llvm::reverse(op.region().getBlocks().front().getOperations())) {
     ++num_ops;
     int num_input_operand = op.getNumOperands() - getNumResultOperands(&op);
     for (Value v : op.getOperands().drop_front(num_input_operand)) {
-      if (!outputSet.count(v))
-        continue;
+      if (!outputSet.count(v)) continue;
       sig.append(op.getName().stripDialect());
       sig.push_back('_');
       break;
@@ -150,7 +146,7 @@ std::string generateSignatureForFusion(lmhlo::FusionOp op) {
   return std::string(sig.str());
 }
 
-bool inSameFusionOp(Operation *op, Operation *other) {
+bool inSameFusionOp(Operation* op, Operation* other) {
   FusionOp opFusion = op->getParentOfType<FusionOp>();
   FusionOp otherFusion = other->getParentOfType<FusionOp>();
   if (!opFusion || !otherFusion) {
@@ -159,7 +155,7 @@ bool inSameFusionOp(Operation *op, Operation *other) {
   return opFusion.getOperation() == otherFusion.getOperation();
 }
 
-bool inSameFusionFamily(Operation *op, Operation *other) {
+bool inSameFusionFamily(Operation* op, Operation* other) {
   FusionOp opFusion = op->getParentOfType<FusionOp>();
   FusionOp otherFusion = other->getParentOfType<FusionOp>();
   if (!opFusion || !otherFusion) {
@@ -175,7 +171,7 @@ bool inSameFusionFamily(Operation *op, Operation *other) {
 // Returns true if the op is an elementwise unary lmhlo op.
 // TODO(disc): use fusibility interface
 // TODO(disc): Unify with disc_supported_list.h and Elementwise Trait
-bool isElementWiseUnary(Operation *op) {
+bool isElementWiseUnary(Operation* op) {
   // clang-format off
   return isa<
     lmhlo::AbsOp,
@@ -201,7 +197,7 @@ bool isElementWiseUnary(Operation *op) {
 
 // Returns true if the op is an elementwise binary lmhlo op.
 // TODO(disc): use fusibility interface
-bool isElementWiseBinary(Operation *op) {
+bool isElementWiseBinary(Operation* op) {
   // clang-format off
   return isa<
     lmhlo::AddOp,
@@ -221,15 +217,14 @@ bool isElementWiseBinary(Operation *op) {
 
 // Returns true if the op is an elementwise lmhlo op.
 // TODO(disc): use fusibility interface
-bool isElementWise(Operation *op) {
+bool isElementWise(Operation* op) {
   return isElementWiseUnary(op) || isElementWiseBinary(op);
 }
 
 // Returns true if this op is a rank-2 row reduction.
-bool isRank2RowReduction(Operation *op) {
+bool isRank2RowReduction(Operation* op) {
   auto reduce_op = dyn_cast<lmhlo::ReduceOp>(op);
-  if (!reduce_op || reduce_op.dimensions().getNumElements() != 1)
-    return false;
+  if (!reduce_op || reduce_op.dimensions().getNumElements() != 1) return false;
 
   int rank = op->getOperand(0).getType().cast<MemRefType>().getRank();
   auto dimensions = reduce_op.dimensions().getValues<int64_t>();
@@ -237,31 +232,27 @@ bool isRank2RowReduction(Operation *op) {
 }
 
 // Returns true if this op is a row reduction.
-bool isRowReduction(Operation *op) {
+bool isRowReduction(Operation* op) {
   auto reduce_op = dyn_cast<lmhlo::ReduceOp>(op);
-  if (!reduce_op)
-    return false;
+  if (!reduce_op) return false;
 
   auto dimensions = reduce_op.dimensions().getValues<int64_t>();
   auto ty = op->getOperand(0).getType().dyn_cast<MemRefType>();
-  if (!ty)
-    return false;
+  if (!ty) return false;
   int expected = ty.getRank() - 1;
   for (int64_t dim : llvm::reverse(dimensions)) {
     LLVM_DEBUG(llvm::dbgs()
                << "dim, expected = " << dim << ", " << expected << "\n");
-    if (dim != expected--)
-      return false;
+    if (dim != expected--) return false;
   }
 
   return true;
 }
 
 // Returns true if this op is a rank-2 column reduction.
-bool isRank2ColReduction(Operation *op) {
+bool isRank2ColReduction(Operation* op) {
   auto reduce_op = dyn_cast<lmhlo::ReduceOp>(op);
-  if (!reduce_op || reduce_op.dimensions().getNumElements() != 1)
-    return false;
+  if (!reduce_op || reduce_op.dimensions().getNumElements() != 1) return false;
 
   int rank = op->getOperand(0).getType().cast<MemRefType>().getRank();
   auto dimensions = reduce_op.dimensions().getValues<int64_t>();
@@ -270,7 +261,7 @@ bool isRank2ColReduction(Operation *op) {
 
 // Returns true if the op is supported by the downstreaming fusion codegen
 // engine.
-bool isFusible(Operation *op) {
+bool isFusible(Operation* op) {
   // Only scalar const are supported by the fusion codegen engine a.t.m.
   if (dyn_cast<lmhlo::ConstOp>(op)) {
     MemRefType type = op->getOperand(0).getType().cast<MemRefType>();
@@ -278,8 +269,7 @@ bool isFusible(Operation *op) {
   }
 
   // All element ops are supported by the fusion codegen engine.
-  if (isElementWise(op))
-    return true;
+  if (isElementWise(op)) return true;
 
   // clang-format off
   return isa<
@@ -307,7 +297,7 @@ bool isFusible(Operation *op) {
 // Returns the number of operands that are supposed to be written.
 // For some ops (e.g. lmhlo ops), some operands are the output memrefs
 // Thus these operands are supposed to be updated.
-int getNumResultOperands(Operation *op) {
+int getNumResultOperands(Operation* op) {
   if (op->getDialect()->getTypeID() != TypeID::get<lmhlo::LmhloDialect>()) {
     return 0;
   }
@@ -317,12 +307,11 @@ int getNumResultOperands(Operation *op) {
     MemoryEffectOpInterface interface = dyn_cast<MemoryEffectOpInterface>(op);
     // Suppose that operands of op without `MemoryEffectOpInterface` are
     // readonly.
-    if (!interface)
-      return false;
+    if (!interface) return false;
 
     interface.getEffectsOnValue(operand, effects);
     return llvm::any_of(
-        effects, [](const mlir::MemoryEffects::EffectInstance &instance) {
+        effects, [](const mlir::MemoryEffects::EffectInstance& instance) {
           return mlir::isa<mlir::MemoryEffects::Write>(instance.getEffect());
         });
   };
@@ -333,22 +322,21 @@ int getNumResultOperands(Operation *op) {
 
 // Returns data users of the value and its aliases (e.g. memref.cast).
 // Here non-data users means DimOp, DeallocOp and ShapeOfOp.
-SmallVector<Operation *, 4> getValueUsers(Value v) {
+SmallVector<Operation*, 4> getValueUsers(Value v) {
   Value root = v;
-  while (Operation *operandOp = root.getDefiningOp()) {
+  while (Operation* operandOp = root.getDefiningOp()) {
     auto view = dyn_cast<ViewLikeOpInterface>(operandOp);
-    if (!view)
-      break;
+    if (!view) break;
     root = operandOp->getOperand(0);
   }
 
-  SmallVector<Operation *, 4> users;
+  SmallVector<Operation*, 4> users;
   SmallVector<Value, 4> worklist;
   worklist.push_back(root);
   while (!worklist.empty()) {
     Value curr = worklist.back();
     worklist.pop_back();
-    for (Operation *user : curr.getUsers()) {
+    for (Operation* user : curr.getUsers()) {
       // Skip non-data users
       if (isa<memref::DimOp, memref::DeallocOp, shape::ShapeOfOp>(user)) {
         continue;
@@ -365,9 +353,9 @@ SmallVector<Operation *, 4> getValueUsers(Value v) {
 }
 
 // Returns a process-level fusion strategy singleton.
-FusionStrategy &getFusionStrategy(StringRef device, StringRef strategy);
+FusionStrategy& getFusionStrategy(StringRef device, StringRef strategy);
 
-bool isStitchFusion(Operation *op) {
+bool isStitchFusion(Operation* op) {
   FusionType fusionType = FusionType::kNone;
   auto fusionTypeAttr = op->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName);
   if (fusionTypeAttr) {
@@ -377,7 +365,7 @@ bool isStitchFusion(Operation *op) {
 }
 
 // Create a new fusion pattern from a single op.
-FusionPattern::FusionPattern(Operation *op) {
+FusionPattern::FusionPattern(Operation* op) {
   op_list_.push_back(op);
   fusion_type_ = FusionType::kNone;
   dominant_op_ = op;
@@ -386,9 +374,8 @@ FusionPattern::FusionPattern(Operation *op) {
 
 // Create a new fusion pattern from the ops inside the lmhlo fusion op.
 FusionPattern::FusionPattern(lmhlo::FusionOp op) {
-  for (Operation &op : op.region().getBlocks().front()) {
-    if (!isa<lmhlo::TerminatorOp>(op))
-      op_list_.push_back(&op);
+  for (Operation& op : op.region().getBlocks().front()) {
+    if (!isa<lmhlo::TerminatorOp>(op)) op_list_.push_back(&op);
   }
   calculateOperandsAndResults();
 
@@ -407,7 +394,7 @@ FusionPattern::FusionPattern(lmhlo::FusionOp op) {
   if (fusionType == FusionType::kStitch) {
     strategyStr = "stitch";
   }
-  FusionStrategy &strategy =
+  FusionStrategy& strategy =
       getFusionStrategy(deviceAttr.getValue(), strategyStr);
   ShapeConstraintAnalysis shapeAnalysis(op_list_);
   bool status = strategy.initFusionPattern(shapeAnalysis, *this);
@@ -416,7 +403,7 @@ FusionPattern::FusionPattern(lmhlo::FusionOp op) {
 }
 
 // Create a new fusion pattern from a valid fusion op list.
-FusionPattern::FusionPattern(SmallVectorImpl<Operation *> &op_list)
+FusionPattern::FusionPattern(SmallVectorImpl<Operation*>& op_list)
     : op_list_(op_list.begin(), op_list.end()) {
   // just set to a initialized state. It's responsibility of the user to
   // reset the state.
@@ -427,7 +414,7 @@ FusionPattern::FusionPattern(SmallVectorImpl<Operation *> &op_list)
 
 // Merges two fusion patterns and returns the merged pattern. The original
 // pattern remains unmodified. The new merged pattern is uninitialized.
-FusionPattern FusionPattern::mergeWithoutInit(FusionPattern &other) {
+FusionPattern FusionPattern::mergeWithoutInit(FusionPattern& other) {
   FusionOpList new_op_list = op_list_;
   new_op_list.insert(new_op_list.end(), other.getOpList().begin(),
                      other.getOpList().end());
@@ -439,13 +426,13 @@ FusionPattern FusionPattern::mergeWithoutInit(FusionPattern &other) {
 // fusion pattern contains.
 int FusionPattern::effectiveSize() {
   return llvm::count_if(
-      op_list_, [](Operation *op) { return !matchPattern(op, m_Constant()); });
+      op_list_, [](Operation* op) { return !matchPattern(op, m_Constant()); });
 }
 
 // Sorts the ops inside the fusion pattern according to the keys provided.
-void FusionPattern::sortFusionOpListBy(DenseMap<Operation *, int> &op_to_idx) {
+void FusionPattern::sortFusionOpListBy(DenseMap<Operation*, int>& op_to_idx) {
   std::sort(op_list_.begin(), op_list_.end(),
-            [&](Operation *lhs, Operation *rhs) {
+            [&](Operation* lhs, Operation* rhs) {
               return op_to_idx[lhs] < op_to_idx[rhs];
             });
 }
@@ -455,9 +442,9 @@ void FusionPattern::calculateOperandsAndResults() {
   DenseSet<Value> input_set;
   DenseSet<Value> result_set;
   DenseSet<Value> internal_result_set;
-  DenseSet<Operation *> op_set(op_list_.begin(), op_list_.end());
+  DenseSet<Operation*> op_set(op_list_.begin(), op_list_.end());
 
-  for (Operation *op : op_list_) {
+  for (Operation* op : op_list_) {
     int num_input_operand = op->getNumOperands() - getNumResultOperands(op);
     for (Value v : op->getOperands().drop_front(num_input_operand)) {
       bool inserted = last_writer_.try_emplace(v, op).second;
@@ -465,7 +452,7 @@ void FusionPattern::calculateOperandsAndResults() {
       assert(inserted);
 
       bool has_external_user = false;
-      for (Operation *user : getValueUsers(v)) {
+      for (Operation* user : getValueUsers(v)) {
         if (!op_set.contains(user) && !inSameFusionFamily(user, op)) {
           has_external_user = true;
           break;
@@ -481,7 +468,7 @@ void FusionPattern::calculateOperandsAndResults() {
     }
   }
 
-  for (Operation *op : op_list_) {
+  for (Operation* op : op_list_) {
     int num_input_operand = op->getNumOperands() - getNumResultOperands(op);
     for (Value value : op->getOperands().take_front(num_input_operand)) {
       if (last_writer_.find(value) != last_writer_.end()) {
@@ -492,12 +479,11 @@ void FusionPattern::calculateOperandsAndResults() {
     }
   }
 
-  for (Value v : input_set)
-    operands_.push_back(v);
+  for (Value v : input_set) operands_.push_back(v);
 }
 
 // Supports using EquivalenceClasses for Value
-bool operator<(const ValueWrapper &lhs, const ValueWrapper &rhs) {
+bool operator<(const ValueWrapper& lhs, const ValueWrapper& rhs) {
   auto lhs_value = lhs.getValue().getAsOpaquePointer();
   auto rhs_value = rhs.getValue().getAsOpaquePointer();
   return lhs_value < rhs_value;
@@ -506,18 +492,18 @@ bool operator<(const ValueWrapper &lhs, const ValueWrapper &rhs) {
 // shape equality propagation based on the shape constrains of
 // elementwise ops.
 void ShapeConstraintAnalysis::PropagateEquality(
-    const SmallVectorImpl<Operation *> &op_list) {
+    const SmallVectorImpl<Operation*>& op_list) {
   bool converged = true;
   do {
     converged = true;
     auto update = [&](Value lhs, Value rhs,
-                      EquivalenceClasses<ValueWrapper> &impl) {
+                      EquivalenceClasses<ValueWrapper>& impl) {
       if (!impl.isEquivalent(ValueWrapper(lhs), ValueWrapper(rhs))) {
         converged = false;
         impl.unionSets(ValueWrapper(lhs), ValueWrapper(rhs));
       }
     };
-    for (Operation *op : op_list) {
+    for (Operation* op : op_list) {
       int num_operand = op->getNumOperands();
       // Propagates same num_elements equality, and shape equality
       if (isElementWise(op)) {
@@ -568,38 +554,36 @@ namespace {
 // global fusion options
 std::mutex fusionOptionsMu;
 FusionOptions fusionOptions;
-} // namespace
+}  // namespace
 
 // Update global fusion options. It should be updated before any fusion
 // strageties is created. It should be called only once or called with
 // exactly same options.
-void setGlobalFusionOptions(const FusionOptions &options) {
+void setGlobalFusionOptions(const FusionOptions& options) {
   std::lock_guard<std::mutex> lock(fusionOptionsMu);
   fusionOptions = options;
 }
 
 // Returns the global fusion options.
-const FusionOptions &getGlobalFusionOptions() {
+const FusionOptions& getGlobalFusionOptions() {
   std::lock_guard<std::mutex> lock(fusionOptionsMu);
   return fusionOptions;
 }
 
-bool FusionStrategy::isFusible(Operation *op) {
+bool FusionStrategy::isFusible(Operation* op) {
   return mlir::disc_ral::isFusible(op);
 }
 
-bool FusionStrategy::isFusible(FusionPattern &fused_pattern) {
-  if (!fused_pattern.isFusible())
-    return false;
-  for (Operation *op : fused_pattern.getOpList()) {
-    if (!isFusible(op))
-      return false;
+bool FusionStrategy::isFusible(FusionPattern& fused_pattern) {
+  if (!fused_pattern.isFusible()) return false;
+  for (Operation* op : fused_pattern.getOpList()) {
+    if (!isFusible(op)) return false;
   }
   return true;
 }
 
-bool FusionStrategy::tryFuseInplace(ShapeConstraintAnalysis &shapeAnalysis,
-                                    FusionPattern &lhs, FusionPattern &rhs) {
+bool FusionStrategy::tryFuseInplace(ShapeConstraintAnalysis& shapeAnalysis,
+                                    FusionPattern& lhs, FusionPattern& rhs) {
   // both lhs & rhs should be fusible
   if (!isFusible(lhs) || !isFusible(rhs)) {
     return false;
@@ -615,12 +599,12 @@ bool FusionStrategy::tryFuseInplace(ShapeConstraintAnalysis &shapeAnalysis,
   return true;
 }
 
-bool FusionStrategy::tryFuse(ShapeConstraintAnalysis &shapeAnalysis,
-                             FusionPattern &lhs, FusionPattern &rhs,
-                             FusionPattern &target) {
-  auto &op_list = target.getOpList();
-  auto &operands = target.getOperands();
-  auto &results = target.getResults();
+bool FusionStrategy::tryFuse(ShapeConstraintAnalysis& shapeAnalysis,
+                             FusionPattern& lhs, FusionPattern& rhs,
+                             FusionPattern& target) {
+  auto& op_list = target.getOpList();
+  auto& operands = target.getOperands();
+  auto& results = target.getResults();
 
   if (results.size() + operands.size() >
       options_.max_num_arguments_per_kernel) {
@@ -632,7 +616,7 @@ bool FusionStrategy::tryFuse(ShapeConstraintAnalysis &shapeAnalysis,
   // We currently do not support a constant op as final output of a fusion
   // pattern.
   // TODO(disc): copy small const in case necessary.
-  for (Operation *result_op : target.getRootOps()) {
+  for (Operation* result_op : target.getRootOps()) {
     if (isa<lmhlo::ConstOp>(result_op)) {
       return false;
     }
@@ -644,35 +628,34 @@ bool FusionStrategy::tryFuse(ShapeConstraintAnalysis &shapeAnalysis,
 ////////////////////// Base FusionStrategy Implemenation /////////
 //////////////////////////////////////////////////////////////////
 class BaseFusionStrategy : public FusionStrategy {
-public:
+ public:
   using FusionStrategy::FusionStrategy;
 
   using FusionStrategy::isFusible;
-  bool isFusible(FusionPattern &fused_pattern) override;
-  bool tryFuse(ShapeConstraintAnalysis &shapeAnalysis, FusionPattern &lhs,
-               FusionPattern &rhs, FusionPattern &target) override;
-  bool initFusionPattern(ShapeConstraintAnalysis &shapeAnalysis,
-                         FusionPattern &fused_pattern) override;
+  bool isFusible(FusionPattern& fused_pattern) override;
+  bool tryFuse(ShapeConstraintAnalysis& shapeAnalysis, FusionPattern& lhs,
+               FusionPattern& rhs, FusionPattern& target) override;
+  bool initFusionPattern(ShapeConstraintAnalysis& shapeAnalysis,
+                         FusionPattern& fused_pattern) override;
 
-protected:
-  virtual Value getEffectiveShape(FusionPattern &target, Value value) = 0;
-  virtual bool checkSameShape(FusionPattern &lhs, FusionPattern &rhs,
-                              FusionPattern &target) {
+ protected:
+  virtual Value getEffectiveShape(FusionPattern& target, Value value) = 0;
+  virtual bool checkSameShape(FusionPattern& lhs, FusionPattern& rhs,
+                              FusionPattern& target) {
     return false;
   }
 };
 
-bool BaseFusionStrategy::isFusible(FusionPattern &fused_pattern) {
-  if (fused_pattern.isStitchFusion())
-    return false;
+bool BaseFusionStrategy::isFusible(FusionPattern& fused_pattern) {
+  if (fused_pattern.isStitchFusion()) return false;
   return FusionStrategy::isFusible(fused_pattern);
 }
 
 bool BaseFusionStrategy::initFusionPattern(
-    ShapeConstraintAnalysis &shapeAnalysis, FusionPattern &fused_pattern) {
-  Operation *inferredDominantOp = nullptr;
+    ShapeConstraintAnalysis& shapeAnalysis, FusionPattern& fused_pattern) {
+  Operation* inferredDominantOp = nullptr;
   FusionType inferredFusionType = FusionType::kNone;
-  for (Operation *op : fused_pattern.getOpList()) {
+  for (Operation* op : fused_pattern.getOpList()) {
     if (isRank2RowReduction(op)) {
       inferredFusionType = FusionType::kRowReduction;
       inferredDominantOp = op;
@@ -703,25 +686,23 @@ bool BaseFusionStrategy::initFusionPattern(
   return (inferredFusionType != FusionType::kNone && inferredDominantOp);
 }
 
-bool BaseFusionStrategy::tryFuse(ShapeConstraintAnalysis &shapeAnalysis,
-                                 FusionPattern &lhs, FusionPattern &rhs,
-                                 FusionPattern &target) {
+bool BaseFusionStrategy::tryFuse(ShapeConstraintAnalysis& shapeAnalysis,
+                                 FusionPattern& lhs, FusionPattern& rhs,
+                                 FusionPattern& target) {
   if (!FusionStrategy::tryFuse(shapeAnalysis, lhs, rhs, target)) {
     return false;
   }
 
-  auto &op_list = target.getOpList();
-  auto &operands = target.getOperands();
-  auto &results = target.getResults();
+  auto& op_list = target.getOpList();
+  auto& operands = target.getOperands();
+  auto& results = target.getResults();
   // ReduceOp can not have consumer within the fusion pattern.
-  for (Operation *op : op_list) {
-    if (!isa<lmhlo::ReduceOp>(op))
-      continue;
+  for (Operation* op : op_list) {
+    if (!isa<lmhlo::ReduceOp>(op)) continue;
     int num_input_operand = op->getNumOperands() - getNumResultOperands(op);
     for (Value v : op->getOperands().drop_front(num_input_operand)) {
-      for (Operation *user : getValueUsers(v)) {
-        if (user == op)
-          continue;
+      for (Operation* user : getValueUsers(v)) {
+        if (user == op) continue;
         if (std::find(op_list.begin(), op_list.end(), user) != op_list.end()) {
           return false;
         }
@@ -758,18 +739,18 @@ bool BaseFusionStrategy::tryFuse(ShapeConstraintAnalysis &shapeAnalysis,
 ////////////////////// Base CPU FusionStrategy Implemenation /////////
 //////////////////////////////////////////////////////////////////
 class BaseCpuFusionStrategy : public BaseFusionStrategy {
-public:
+ public:
   using BaseFusionStrategy::BaseFusionStrategy;
 
-  bool isFusible(Operation *op) override;
-  Value getEffectiveShape(FusionPattern &target, Value v) override;
-  bool initFusionPattern(ShapeConstraintAnalysis &shapeAnalysis,
-                         FusionPattern &fused_pattern) override;
-  bool tryFuse(ShapeConstraintAnalysis &shapeAnalysis, FusionPattern &lhs,
-               FusionPattern &rhs, FusionPattern &target) override;
+  bool isFusible(Operation* op) override;
+  Value getEffectiveShape(FusionPattern& target, Value v) override;
+  bool initFusionPattern(ShapeConstraintAnalysis& shapeAnalysis,
+                         FusionPattern& fused_pattern) override;
+  bool tryFuse(ShapeConstraintAnalysis& shapeAnalysis, FusionPattern& lhs,
+               FusionPattern& rhs, FusionPattern& target) override;
 };
 
-bool BaseCpuFusionStrategy::isFusible(Operation *op) {
+bool BaseCpuFusionStrategy::isFusible(Operation* op) {
   if (isa<lmhlo::ReshapeOp, lmhlo::DynamicReshapeOp>(op)) {
     return false;
   }
@@ -782,15 +763,15 @@ bool BaseCpuFusionStrategy::isFusible(Operation *op) {
   return BaseFusionStrategy::isFusible(op);
 }
 
-Value BaseCpuFusionStrategy::getEffectiveShape(FusionPattern &target, Value v) {
+Value BaseCpuFusionStrategy::getEffectiveShape(FusionPattern& target, Value v) {
   return v;
 }
 
 bool BaseCpuFusionStrategy::initFusionPattern(
-    ShapeConstraintAnalysis &shapeAnalysis, FusionPattern &fused_pattern) {
-  Operation *inferredDominantOp = nullptr;
+    ShapeConstraintAnalysis& shapeAnalysis, FusionPattern& fused_pattern) {
+  Operation* inferredDominantOp = nullptr;
   FusionType inferredFusionType = FusionType::kNone;
-  for (Operation *op : fused_pattern.getOpList()) {
+  for (Operation* op : fused_pattern.getOpList()) {
     if (isRowReduction(op)) {
       assert(inferredFusionType == FusionType::kNone);
       inferredFusionType = FusionType::kRowReduction;
@@ -821,16 +802,16 @@ bool BaseCpuFusionStrategy::initFusionPattern(
   return (inferredFusionType != FusionType::kNone && inferredDominantOp);
 }
 
-bool BaseCpuFusionStrategy::tryFuse(ShapeConstraintAnalysis &shapeAnalysis,
-                                    FusionPattern &lhs, FusionPattern &rhs,
-                                    FusionPattern &target) {
+bool BaseCpuFusionStrategy::tryFuse(ShapeConstraintAnalysis& shapeAnalysis,
+                                    FusionPattern& lhs, FusionPattern& rhs,
+                                    FusionPattern& target) {
   if (!BaseFusionStrategy::tryFuse(shapeAnalysis, lhs, rhs, target)) {
     return false;
   }
 
   // Not support multi output fusion if one result op is a reduce.
   if (llvm::any_of(target.getRootOps(),
-                   [](Operation *op) { return isa<lmhlo::ReduceOp>(op); }) &&
+                   [](Operation* op) { return isa<lmhlo::ReduceOp>(op); }) &&
       target.getRootOps().size() > 1) {
     return false;
   }
@@ -842,19 +823,19 @@ bool BaseCpuFusionStrategy::tryFuse(ShapeConstraintAnalysis &shapeAnalysis,
 ////////////////////// Base GPU FusionStrategy Implemenation /////////
 //////////////////////////////////////////////////////////////////
 class BaseGpuFusionStrategy : public BaseFusionStrategy {
-public:
+ public:
   using BaseFusionStrategy::BaseFusionStrategy;
 
-  bool isFusible(Operation *op) override;
-  bool checkSameShape(FusionPattern &lhs, FusionPattern &rhs,
-                      FusionPattern &target) {
+  bool isFusible(Operation* op) override;
+  bool checkSameShape(FusionPattern& lhs, FusionPattern& rhs,
+                      FusionPattern& target) {
     return lhs.isKInputFusion() && rhs.isKInputFusion();
   }
 
-  Value getEffectiveShape(FusionPattern &target, Value v) override;
+  Value getEffectiveShape(FusionPattern& target, Value v) override;
 };
 
-bool BaseGpuFusionStrategy::isFusible(Operation *op) {
+bool BaseGpuFusionStrategy::isFusible(Operation* op) {
   // Only rank-2 tensor -> rank-1 tensor reduction are supported now.
   if (isa<lmhlo::ReduceOp>(op) &&
       (!isRank2RowReduction(op) && !isRank2ColReduction(op)))
@@ -862,8 +843,8 @@ bool BaseGpuFusionStrategy::isFusible(Operation *op) {
   return BaseFusionStrategy::isFusible(op);
 }
 
-Value BaseGpuFusionStrategy::getEffectiveShape(FusionPattern &target, Value v) {
-  Operation *result_op = target.findLastWriter(v);
+Value BaseGpuFusionStrategy::getEffectiveShape(FusionPattern& target, Value v) {
+  Operation* result_op = target.findLastWriter(v);
   assert(result_op);
   // effective shape of reduce op is its operand's shape.
   return isa<lmhlo::ReduceOp>(result_op) ? result_op->getOperand(0) : v;
@@ -872,7 +853,7 @@ Value BaseGpuFusionStrategy::getEffectiveShape(FusionPattern &target, Value v) {
 ////////////////////// Stitch-Base CPU FusionStrategy Implemenation /////
 //////////////////////////////////////////////////////////////////
 
-bool isStitchCpuSupported(Operation *op) {
+bool isStitchCpuSupported(Operation* op) {
   // TODO(disc): support fuse scalar const op.
 
   // Do not fuse shape computation.
@@ -881,8 +862,7 @@ bool isStitchCpuSupported(Operation *op) {
   }
 
   // All element ops are supported by the fusion codegen engine.
-  if (isElementWise(op))
-    return true;
+  if (isElementWise(op)) return true;
 
   // Returns false if not a row reduction.
   // TODO(kevin.zwy): support other reduction types.
@@ -901,16 +881,16 @@ bool isStitchCpuSupported(Operation *op) {
 }
 
 class StitchBaseCpuFusionStrategy : public BaseCpuFusionStrategy {
-public:
+ public:
   using BaseCpuFusionStrategy::BaseCpuFusionStrategy;
 
-  bool tryFuse(ShapeConstraintAnalysis &shapeAnalysis, FusionPattern &lhs,
-               FusionPattern &rhs, FusionPattern &target) override;
+  bool tryFuse(ShapeConstraintAnalysis& shapeAnalysis, FusionPattern& lhs,
+               FusionPattern& rhs, FusionPattern& target) override;
 };
 
 bool StitchBaseCpuFusionStrategy::tryFuse(
-    ShapeConstraintAnalysis &shapeAnalysis, FusionPattern &lhs,
-    FusionPattern &rhs, FusionPattern &target) {
+    ShapeConstraintAnalysis& shapeAnalysis, FusionPattern& lhs,
+    FusionPattern& rhs, FusionPattern& target) {
   return llvm::all_of(target.getOpList(), isStitchCpuSupported) &&
          BaseCpuFusionStrategy::tryFuse(shapeAnalysis, lhs, rhs, target);
 }
@@ -918,18 +898,18 @@ bool StitchBaseCpuFusionStrategy::tryFuse(
 ////////////////////// Stitch CPU FusionStrategy Implemenation /////
 //////////////////////////////////////////////////////////////////
 class StitchCpuFusionStrategy : public FusionStrategy {
-public:
+ public:
   using FusionStrategy::FusionStrategy;
 
-  bool tryFuse(ShapeConstraintAnalysis &shapeAnalysis, FusionPattern &lhs,
-               FusionPattern &rhs, FusionPattern &target) override;
-  bool initFusionPattern(ShapeConstraintAnalysis &shapeAnalysis,
-                         FusionPattern &fused_pattern) override;
+  bool tryFuse(ShapeConstraintAnalysis& shapeAnalysis, FusionPattern& lhs,
+               FusionPattern& rhs, FusionPattern& target) override;
+  bool initFusionPattern(ShapeConstraintAnalysis& shapeAnalysis,
+                         FusionPattern& fused_pattern) override;
 };
 
-bool StitchCpuFusionStrategy::tryFuse(ShapeConstraintAnalysis &shapeAnalysis,
-                                      FusionPattern &lhs, FusionPattern &rhs,
-                                      FusionPattern &target) {
+bool StitchCpuFusionStrategy::tryFuse(ShapeConstraintAnalysis& shapeAnalysis,
+                                      FusionPattern& lhs, FusionPattern& rhs,
+                                      FusionPattern& target) {
   if (!FusionStrategy::tryFuse(shapeAnalysis, lhs, rhs, target)) {
     return false;
   }
@@ -943,14 +923,14 @@ bool StitchCpuFusionStrategy::tryFuse(ShapeConstraintAnalysis &shapeAnalysis,
 }
 
 bool StitchCpuFusionStrategy::initFusionPattern(
-    ShapeConstraintAnalysis &shapeAnalysis, FusionPattern &fused_pattern) {
+    ShapeConstraintAnalysis& shapeAnalysis, FusionPattern& fused_pattern) {
   fused_pattern.setFusionType(FusionType::kStitch);
   return true;
 }
 
 std::unique_ptr<FusionStrategy> makeNewDeviceStrategy(StringRef device,
                                                       StringRef strategy) {
-  auto &options = getGlobalFusionOptions();
+  auto& options = getGlobalFusionOptions();
   if (device == placement_utils::kCpu && strategy == "base") {
     return std::make_unique<BaseCpuFusionStrategy>(options);
   } else if (device == placement_utils::kGpu && strategy == "base" ||
@@ -968,7 +948,7 @@ std::unique_ptr<FusionStrategy> makeNewDeviceStrategy(StringRef device,
 }
 
 // Returns a process-level fusion strategy singleton.
-FusionStrategy &getFusionStrategy(StringRef device, StringRef strategy) {
+FusionStrategy& getFusionStrategy(StringRef device, StringRef strategy) {
   LLVM_DEBUG(llvm::dbgs() << "Strategy for: device = " << device
                           << ", strategy = " << strategy << "\n");
   static std::mutex mu;
@@ -976,7 +956,7 @@ FusionStrategy &getFusionStrategy(StringRef device, StringRef strategy) {
                   DenseMap<StringRef, std::unique_ptr<FusionStrategy>>>
       deviceMap;
   std::lock_guard<std::mutex> lock(mu);
-  auto &deviceStrategies = deviceMap[device];
+  auto& deviceStrategies = deviceMap[device];
   auto it = deviceStrategies.find(strategy);
   if (it == deviceStrategies.end()) {
     it = deviceStrategies
@@ -987,34 +967,34 @@ FusionStrategy &getFusionStrategy(StringRef device, StringRef strategy) {
   return *it->second;
 }
 
-using DeviceStrategyMap = DenseMap<StringRef, FusionStrategy *>;
+using DeviceStrategyMap = DenseMap<StringRef, FusionStrategy*>;
 
 class PlacementAwareFusionStrategy : public FusionStrategy {
-public:
-  PlacementAwareFusionStrategy(const FusionOptions &options,
+ public:
+  PlacementAwareFusionStrategy(const FusionOptions& options,
                                StringRef defaultDevice,
                                DeviceStrategyMap deviceStrategyMap)
       : FusionStrategy(options),
         deviceStrategyMap_(std::move(deviceStrategyMap)),
         defaultDevice_(defaultDevice) {}
 
-  bool isFusible(Operation *op) override;
-  bool isFusible(FusionPattern &fused_pattern) override;
-  bool tryFuse(ShapeConstraintAnalysis &shapeAnalysis, FusionPattern &lhs,
-               FusionPattern &rhs, FusionPattern &target) override;
-  bool initFusionPattern(ShapeConstraintAnalysis &shapeAnalysis,
-                         FusionPattern &fused_pattern) override;
+  bool isFusible(Operation* op) override;
+  bool isFusible(FusionPattern& fused_pattern) override;
+  bool tryFuse(ShapeConstraintAnalysis& shapeAnalysis, FusionPattern& lhs,
+               FusionPattern& rhs, FusionPattern& target) override;
+  bool initFusionPattern(ShapeConstraintAnalysis& shapeAnalysis,
+                         FusionPattern& fused_pattern) override;
 
-private:
-  StringRef getPlacement(Operation *op);
-  StringRef getPlacement(FusionPattern &fused_pattern) {
+ private:
+  StringRef getPlacement(Operation* op);
+  StringRef getPlacement(FusionPattern& fused_pattern) {
     return getPlacement(fused_pattern.getDominantOp());
   }
-  FusionStrategy *getStrategy(StringRef placement);
-  FusionStrategy *getStrategy(Operation *op) {
+  FusionStrategy* getStrategy(StringRef placement);
+  FusionStrategy* getStrategy(Operation* op) {
     return getStrategy(getPlacement(op));
   }
-  FusionStrategy *getStrategy(FusionPattern &fused_pattern) {
+  FusionStrategy* getStrategy(FusionPattern& fused_pattern) {
     return getStrategy(getPlacement(fused_pattern));
   }
 
@@ -1022,12 +1002,10 @@ private:
   DeviceStrategyMap deviceStrategyMap_;
 };
 
-StringRef PlacementAwareFusionStrategy::getPlacement(Operation *op) {
-  if (!op)
-    return "";
+StringRef PlacementAwareFusionStrategy::getPlacement(Operation* op) {
+  if (!op) return "";
   auto attr = op->getAttrOfType<StringAttr>(kDiscPlaceAssignment);
-  if (attr)
-    return attr.getValue();
+  if (attr) return attr.getValue();
 
   if (auto lmhloOp = dyn_cast<lmhlo::LmhloOp>(op)) {
     auto memorySpace =
@@ -1038,47 +1016,45 @@ StringRef PlacementAwareFusionStrategy::getPlacement(Operation *op) {
   return defaultDevice_;
 }
 
-FusionStrategy *PlacementAwareFusionStrategy::getStrategy(StringRef placement) {
+FusionStrategy* PlacementAwareFusionStrategy::getStrategy(StringRef placement) {
   auto it = deviceStrategyMap_.find(placement);
   return (it == deviceStrategyMap_.end()) ? nullptr : it->second;
 }
 
-bool PlacementAwareFusionStrategy::isFusible(Operation *op) {
-  FusionStrategy *strategy = getStrategy(op);
+bool PlacementAwareFusionStrategy::isFusible(Operation* op) {
+  FusionStrategy* strategy = getStrategy(op);
   return strategy && strategy->isFusible(op);
 }
 
-bool PlacementAwareFusionStrategy::isFusible(FusionPattern &fused_pattern) {
-  FusionStrategy *strategy = getStrategy(fused_pattern);
+bool PlacementAwareFusionStrategy::isFusible(FusionPattern& fused_pattern) {
+  FusionStrategy* strategy = getStrategy(fused_pattern);
   return strategy && strategy->isFusible(fused_pattern);
 }
 
 bool PlacementAwareFusionStrategy::tryFuse(
-    ShapeConstraintAnalysis &shapeAnalysis, FusionPattern &lhs,
-    FusionPattern &rhs, FusionPattern &target) {
+    ShapeConstraintAnalysis& shapeAnalysis, FusionPattern& lhs,
+    FusionPattern& rhs, FusionPattern& target) {
   // lhs & rhs should be on the same device.
   StringRef lhsPlacement = getPlacement(lhs);
   StringRef rhsPlacement = getPlacement(rhs);
   if ((lhsPlacement != rhsPlacement)) {
     return false;
   }
-  FusionStrategy *strategy = getStrategy(lhsPlacement);
+  FusionStrategy* strategy = getStrategy(lhsPlacement);
   return strategy && strategy->tryFuse(shapeAnalysis, lhs, rhs, target);
 }
 
 bool PlacementAwareFusionStrategy::initFusionPattern(
-    ShapeConstraintAnalysis &shapeAnalysis, FusionPattern &fused_pattern) {
-  if (fused_pattern.getOpList().empty())
-    return true;
-  FusionStrategy *strategy = getStrategy(fused_pattern.getOpList()[0]);
+    ShapeConstraintAnalysis& shapeAnalysis, FusionPattern& fused_pattern) {
+  if (fused_pattern.getOpList().empty()) return true;
+  FusionStrategy* strategy = getStrategy(fused_pattern.getOpList()[0]);
   return strategy && strategy->initFusionPattern(shapeAnalysis, fused_pattern);
 }
 
-std::unique_ptr<FusionStrategy>
-makeNewPlacementAwareFusionStrategy(bool gpu_enabled,
-                                    StringRef fusion_strategy) {
+std::unique_ptr<FusionStrategy> makeNewPlacementAwareFusionStrategy(
+    bool gpu_enabled, StringRef fusion_strategy) {
   DeviceStrategyMap deviceStrategyMap;
-  auto &options = getGlobalFusionOptions();
+  auto& options = getGlobalFusionOptions();
   StringRef defaultDevice =
       gpu_enabled ? placement_utils::kGpu : placement_utils::kCpu;
   deviceStrategyMap[defaultDevice] =
@@ -1087,18 +1063,18 @@ makeNewPlacementAwareFusionStrategy(bool gpu_enabled,
       options, defaultDevice, std::move(deviceStrategyMap));
 }
 
-void dumpFusionPattern(FusionPattern &pattern) {
-  for (Operation *subOp : pattern.getOpList()) {
+void dumpFusionPattern(FusionPattern& pattern) {
+  for (Operation* subOp : pattern.getOpList()) {
     llvm::dbgs() << "  " << *subOp << "\n";
   }
 }
 
-void dumpTilePlan(DenseMap<Value, TileInfo> &tilePlan) {
-  for (auto &en : tilePlan) {
+void dumpTilePlan(DenseMap<Value, TileInfo>& tilePlan) {
+  for (auto& en : tilePlan) {
     llvm::dbgs() << " pair:";
     llvm::dbgs() << "  value: " << en.first << "\n";
     llvm::dbgs() << "  tile: ";
-    for (auto &tile : en.second.tileSizes) {
+    for (auto& tile : en.second.tileSizes) {
       llvm::dbgs() << tile.first << " : " << tile.second << ", ";
     }
     llvm::dbgs() << "\n";
@@ -1106,14 +1082,14 @@ void dumpTilePlan(DenseMap<Value, TileInfo> &tilePlan) {
 }
 
 void StitchCPUAnalysis::dumpParallelPlan() {
-  for (auto &en : parallelPlan_) {
+  for (auto& en : parallelPlan_) {
     llvm::dbgs() << " pair@" << en.second.size() << ":";
     llvm::dbgs() << "  value: " << en.first << "\n";
-    for (auto &&en2 : llvm::enumerate(en.second)) {
+    for (auto&& en2 : llvm::enumerate(en.second)) {
       llvm::dbgs() << "  parallel info #" << en2.index() << ": ";
-      auto &info = parallelInfoStore_[en2.value()];
+      auto& info = parallelInfoStore_[en2.value()];
       llvm::dbgs() << "id@prevId: " << info.id << "@" << info.producerId << " ";
-      for (auto &innerEn : info.indices) {
+      for (auto& innerEn : info.indices) {
         llvm::dbgs() << innerEn.first << " : "
                      << parallelIndexStore_[innerEn.second].step << ", ";
       }
@@ -1123,7 +1099,7 @@ void StitchCPUAnalysis::dumpParallelPlan() {
 }
 
 bool StitchCPUAnalysis::fusibilityAnalysis() {
-  auto &target = fusionPattern_;
+  auto& target = fusionPattern_;
   // 0, All ops in the pattern should be supported.
   if (!llvm::all_of(target.getOpList(), isStitchCpuSupported)) {
     LLVM_DEBUG(llvm::dbgs() << "found unsupported op.\n");
@@ -1172,27 +1148,23 @@ bool StitchCPUAnalysis::fusibilityAnalysis() {
 // Builds value dominant graph. Here buffer `a` dominates buffer `b` means
 // `a` is larger than or equal to `b`.
 // dominantGraph[a][b] = true iff a dominante b
-bool StitchCPUAnalysis::buildDominantGraph(ValueGraph &dominantGraph) {
+bool StitchCPUAnalysis::buildDominantGraph(ValueGraph& dominantGraph) {
   DenseSet<Value> allValues;
-  for (Operation *op : fusionPattern_.getOpList()) {
+  for (Operation* op : fusionPattern_.getOpList()) {
     assert(isa<lmhlo::LmhloOp>(op));
-    for (Value operand : op->getOperands())
-      allValues.insert(operand);
+    for (Value operand : op->getOperands()) allValues.insert(operand);
   }
   // init graph
   for (Value a : allValues)
-    for (Value b : allValues)
-      dominantGraph[a][b] = (a == b);
+    for (Value b : allValues) dominantGraph[a][b] = (a == b);
 
   // init edges
-  for (Operation *op : fusionPattern_.getOpList()) {
-    if (isa<lmhlo::ConstOp>(op))
-      continue;
+  for (Operation* op : fusionPattern_.getOpList()) {
+    if (isa<lmhlo::ConstOp>(op)) continue;
     if (isElementWise(op)) {
       // all operands are equal
       for (Value a : op->getOperands())
-        for (Value b : op->getOperands())
-          dominantGraph[a][b] = true;
+        for (Value b : op->getOperands()) dominantGraph[a][b] = true;
     } else if (isa<lmhlo::ReduceOp>(op)) {
       Value a = op->getOperand(0);
       Value b = op->getOperand(2);
@@ -1228,29 +1200,27 @@ bool StitchCPUAnalysis::buildDominantGraph(ValueGraph &dominantGraph) {
 // 2, find a minimum buffer that dominates all root buffer.
 // 3, return false if no buffer is qualified to be a dominant.
 bool StitchCPUAnalysis::doRootsAnalysis() {
-  auto &dominantGraph = dominantGraph_;
+  auto& dominantGraph = dominantGraph_;
   if (!buildDominantGraph(dominantGraph)) {
     LLVM_DEBUG(llvm::dbgs() << "failed to build dominant graph");
     return false;
   }
 
-  Value &dominant = dominantValue_;
-  for (auto &&e : dominantGraph) {
+  Value& dominant = dominantValue_;
+  for (auto&& e : dominantGraph) {
     if (llvm::any_of(fusionPattern_.getResults(),
                      [&](Value v) { return !e.second[v]; }))
       continue;
-    if (!dominant || dominantGraph[dominant][e.first])
-      dominant = e.first;
+    if (!dominant || dominantGraph[dominant][e.first]) dominant = e.first;
   }
 
   return (dominant != nullptr);
 }
 
 // Returns false if failed to merge.
-bool TileInfo::merge(TileInfo &other) {
-  for (auto &&e : other.tileSizes) {
-    if (!merge(e.first, e.second))
-      return false;
+bool TileInfo::merge(TileInfo& other) {
+  for (auto&& e : other.tileSizes) {
+    if (!merge(e.first, e.second)) return false;
   }
   return true;
 }
@@ -1270,16 +1240,14 @@ bool TileInfo::merge(int axis, int tileSize) {
     return true;
   }
 
-  if (minSize == 0 || maxSize % minSize != 0)
-    return false;
+  if (minSize == 0 || maxSize % minSize != 0) return false;
   it->second = maxSize;
   return true;
 }
 
 // return true if updated.
-bool TileInfo::updateIfNotEqual(TileInfo &other) {
-  if (other.tileSizes == tileSizes)
-    return false;
+bool TileInfo::updateIfNotEqual(TileInfo& other) {
+  if (other.tileSizes == tileSizes) return false;
   tileSizes = other.tileSizes;
   return true;
 }
@@ -1291,22 +1259,18 @@ bool TileInfo::updateIfNotEqual(TileInfo &other) {
 //                             tile size for axis 2 is 4.
 bool StitchCPUAnalysis::doTileAnalysis() {
   bool changed = false;
-  auto &tilePlan = tilePlan_;
+  auto& tilePlan = tilePlan_;
   do {
     changed = false;
-    for (Operation *op : fusionPattern_.getOpList()) {
-      if (isa<lmhlo::ConstOp>(op))
-        continue;
+    for (Operation* op : fusionPattern_.getOpList()) {
+      if (isa<lmhlo::ConstOp>(op)) continue;
       if (isElementWise(op)) {
-        if (!doElemOpTileAnalysis(tilePlan, op, changed))
-          return false;
+        if (!doElemOpTileAnalysis(tilePlan, op, changed)) return false;
       } else if (isa<lmhlo::ReduceOp>(op)) {
-        if (!doReduceOpTileAnalysis(tilePlan, op, changed))
-          return false;
+        if (!doReduceOpTileAnalysis(tilePlan, op, changed)) return false;
       } else if (isa<lmhlo::BroadcastInDimOp, lmhlo::BroadcastOp,
                      lmhlo::DynamicBroadcastInDimOp>(op)) {
-        if (!doBcastOpTileAnalysis(tilePlan, op, changed))
-          return false;
+        if (!doBcastOpTileAnalysis(tilePlan, op, changed)) return false;
       } else {
         // failure due to unknown ops
         return false;
@@ -1317,7 +1281,7 @@ bool StitchCPUAnalysis::doTileAnalysis() {
 }
 
 bool StitchCPUAnalysis::doElemOpTileAnalysis(
-    DenseMap<Value, TileInfo> &tilePlan, Operation *op, bool &changed) {
+    DenseMap<Value, TileInfo>& tilePlan, Operation* op, bool& changed) {
   // all operands are equal
   TileInfo mergedInfo;
   for (Value a : op->getOperands())
@@ -1331,17 +1295,16 @@ bool StitchCPUAnalysis::doElemOpTileAnalysis(
 }
 
 bool StitchCPUAnalysis::doReduceOpTileAnalysis(
-    DenseMap<Value, TileInfo> &tilePlan, Operation *op, bool &changed) {
+    DenseMap<Value, TileInfo>& tilePlan, Operation* op, bool& changed) {
   auto reduce = cast<lmhlo::ReduceOp>(op);
   auto dimensions = reduce.dimensions().getValues<int64_t>();
   // init value should not do parallel computation.
   // Zero-rank init value does not need to assign a tile info, thus skip it.
   if (auto rank = op->getOperand(1).getType().cast<MemRefType>().getRank()) {
     assert(rank == 1);
-    auto &init = tilePlan[op->getOperand(1)];
+    auto& init = tilePlan[op->getOperand(1)];
     TileInfo mergedInfo = init;
-    if (!mergedInfo.merge(0))
-      return false;
+    if (!mergedInfo.merge(0)) return false;
     changed |= init.updateIfNotEqual(mergedInfo);
   }
 
@@ -1360,20 +1323,17 @@ bool StitchCPUAnalysis::doReduceOpTileAnalysis(
   for (int d = 0; d < inRank; ++d) {
     // skip reduce dims.
     auto reduce_axis_it = std::find(dimensions.begin(), dimensions.end(), d);
-    if (reduce_axis_it != dimensions.end())
-      continue;
+    if (reduce_axis_it != dimensions.end()) continue;
 
     auto in_it = inMergedInfo.tileSizes.find(d);
     // input -> output
     if (in_it != inMergedInfo.tileSizes.end()) {
-      if (!outMergedInfo.merge(outIdx, in_it->second))
-        return false;
+      if (!outMergedInfo.merge(outIdx, in_it->second)) return false;
     }
     // output -> input
     auto out_it = outMergedInfo.tileSizes.find(outIdx);
     if (out_it != outMergedInfo.tileSizes.end()) {
-      if (!inMergedInfo.merge(d, out_it->second))
-        return false;
+      if (!inMergedInfo.merge(d, out_it->second)) return false;
     }
     ++outIdx;
   }
@@ -1383,15 +1343,14 @@ bool StitchCPUAnalysis::doReduceOpTileAnalysis(
 }
 
 bool StitchCPUAnalysis::doBcastOpTileAnalysis(
-    DenseMap<Value, TileInfo> &tilePlan, Operation *op, bool &changed) {
+    DenseMap<Value, TileInfo>& tilePlan, Operation* op, bool& changed) {
   Value inValue = op->getOperand(0);
   Value outValue = cast<lmhlo::LmhloOp>(op).getResultBuffer();
   // bcast_shape should not do parallel computation.
   if (isa<lmhlo::DynamicBroadcastInDimOp>(op)) {
-    auto &bcastShape = tilePlan[op->getOperand(1)];
+    auto& bcastShape = tilePlan[op->getOperand(1)];
     TileInfo mergedInfo = bcastShape;
-    if (!mergedInfo.merge(0))
-      return false;
+    if (!mergedInfo.merge(0)) return false;
     changed |= bcastShape.updateIfNotEqual(mergedInfo);
   }
   auto dimAttr = op->getAttrOfType<DenseElementsAttr>("broadcast_dimensions");
@@ -1408,20 +1367,17 @@ bool StitchCPUAnalysis::doBcastOpTileAnalysis(
   for (int d = 0; d < outRank; ++d) {
     // skip bcast dims.
     auto axis_it = std::find(dimensions.begin(), dimensions.end(), d);
-    if (axis_it == dimensions.end())
-      continue;
+    if (axis_it == dimensions.end()) continue;
 
     auto in_it = inMergedInfo.tileSizes.find(inIdx);
     // input -> output
     if (in_it != inMergedInfo.tileSizes.end()) {
-      if (!outMergedInfo.merge(d, in_it->second))
-        return false;
+      if (!outMergedInfo.merge(d, in_it->second)) return false;
     }
     // output -> input
     auto out_it = outMergedInfo.tileSizes.find(d);
     if (out_it != outMergedInfo.tileSizes.end()) {
-      if (!inMergedInfo.merge(inIdx, out_it->second))
-        return false;
+      if (!inMergedInfo.merge(inIdx, out_it->second)) return false;
     }
     ++inIdx;
   }
@@ -1435,14 +1391,14 @@ bool StitchCPUAnalysis::doBcastOpTileAnalysis(
 // buffers.
 bool StitchCPUAnalysis::doParallelAnalysis() {
   // 1, init dominant parallel info
-  auto &dominantParallelInfo = makeParallelInfo(dominantValue_);
+  auto& dominantParallelInfo = makeParallelInfo(dominantValue_);
   // Return failure if no parallel indices for dominant value.
   if (dominantParallelInfo.indices.empty()) {
     LLVM_DEBUG(llvm::dbgs() << "failed due to no dominantParallelInfo\n");
     return false;
   }
   dominantParallelInfo.producerId = dominantParallelInfo.id;
-  auto &dominantPlan = parallelPlan_[dominantValue_];
+  auto& dominantPlan = parallelPlan_[dominantValue_];
   dominantPlan.insert(dominantParallelInfo.id);
 
   // 2, propagate dominant parallel info to all roots.
@@ -1461,16 +1417,16 @@ bool StitchCPUAnalysis::doParallelAnalysis() {
 }
 
 // Creates a new parallel index.
-ParallelIndex &StitchCPUAnalysis::makeParallelIndex(int64_t step) {
+ParallelIndex& StitchCPUAnalysis::makeParallelIndex(int64_t step) {
   int id = newSymbolId();
   return parallelIndexStore_[id] = ParallelIndex{id, step};
 }
 
 // Creates a new parallel info.
-ParallelInfo &StitchCPUAnalysis::makeParallelInfo(Value value, int producerId,
-                                                  Operation *op) {
+ParallelInfo& StitchCPUAnalysis::makeParallelInfo(Value value, int producerId,
+                                                  Operation* op) {
   int rank = value.getType().cast<MemRefType>().getRank();
-  auto &tileInfo = tilePlan_[value];
+  auto& tileInfo = tilePlan_[value];
   ParallelInfo parallelInfo;
   parallelInfo.value = value;
   parallelInfo.producerId = producerId;
@@ -1497,9 +1453,9 @@ ParallelInfo &StitchCPUAnalysis::makeParallelInfo(Value value, int producerId,
 
 // Propagates dominant parallel info to all roots.
 bool StitchCPUAnalysis::propagateFromDominantToRoots() {
-  auto &ops = fusionPattern_.getOpList();
-  auto &results = fusionPattern_.getResults();
-  auto isTargetOp = [&](Operation *op) {
+  auto& ops = fusionPattern_.getOpList();
+  auto& results = fusionPattern_.getResults();
+  auto isTargetOp = [&](Operation* op) {
     return llvm::find(ops, op) != ops.end();
   };
   auto isRoot = [&](Value v) {
@@ -1508,8 +1464,7 @@ bool StitchCPUAnalysis::propagateFromDominantToRoots() {
 
   int leftRoots = results.size() - isRoot(dominantValue_);
   // No remaining roots, early return.
-  if (!leftRoots)
-    return true;
+  if (!leftRoots) return true;
 
   // 1, propagate from dominant to roots
   SmallVector<Value> toProcess{dominantValue_};
@@ -1521,21 +1476,18 @@ bool StitchCPUAnalysis::propagateFromDominantToRoots() {
   };
   while (!toProcess.empty()) {
     Value v = toProcess.pop_back_val();
-    auto &plan = parallelPlan_[v];
+    auto& plan = parallelPlan_[v];
     assert(plan.size() == 1);
     // clone the info since `parallelInfoStore_` maybe modified during following
     // procedure.
     auto info = parallelInfoStore_[*plan.begin()];
-    for (Operation *user : getValueUsers(v)) {
-      if (!isTargetOp(user))
-        continue;
-      if (isa<lmhlo::ConstOp>(user))
-        continue;
+    for (Operation* user : getValueUsers(v)) {
+      if (!isTargetOp(user)) continue;
+      if (isa<lmhlo::ConstOp>(user)) continue;
       if (isElementWise(user)) {
         for (Value other : user->getOperands()) {
-          if (v == other || !processedSet.insert(other).second)
-            continue;
-          auto &otherInfo = makeParallelInfo(other, info.id, user);
+          if (v == other || !processedSet.insert(other).second) continue;
+          auto& otherInfo = makeParallelInfo(other, info.id, user);
           otherInfo.indices = info.indices;
           otherInfo.inBound = info.inBound;
           otherInfo.isOwner = info.isOwner;
@@ -1545,7 +1497,7 @@ bool StitchCPUAnalysis::propagateFromDominantToRoots() {
         Value other = user->getOperand(2);
         if (v != user->getOperand(0) || !processedSet.insert(other).second)
           continue;
-        auto &otherInfo = makeParallelInfo(other, info.id, user);
+        auto& otherInfo = makeParallelInfo(other, info.id, user);
         otherInfo.inBound = info.inBound;
         otherInfo.isOwner = info.isOwner;
         otherInfo.indices.clear();
@@ -1553,8 +1505,7 @@ bool StitchCPUAnalysis::propagateFromDominantToRoots() {
         int rank = v.getType().cast<MemRefType>().getRank();
         int outIdx = 0;
         for (int d = 0; d < rank; ++d) {
-          if (llvm::find(dimensions, d) != dimensions.end())
-            continue;
+          if (llvm::find(dimensions, d) != dimensions.end()) continue;
           auto it = info.indices.find(d);
           if (it != info.indices.end()) {
             otherInfo.indices[outIdx] = it->second;
@@ -1566,10 +1517,9 @@ bool StitchCPUAnalysis::propagateFromDominantToRoots() {
                      lmhlo::DynamicBroadcastInDimOp>(user)) {
         Value other = user->getOperand(0);
         Value result = cast<lmhlo::LmhloOp>(user).getResultBuffer();
-        if (v != result || !processedSet.insert(other).second)
-          continue;
+        if (v != result || !processedSet.insert(other).second) continue;
 
-        auto &otherInfo = makeParallelInfo(other, info.id, user);
+        auto& otherInfo = makeParallelInfo(other, info.id, user);
         otherInfo.inBound = info.inBound;
         otherInfo.indices.clear();
 
@@ -1580,8 +1530,7 @@ bool StitchCPUAnalysis::propagateFromDominantToRoots() {
         assert(dimAttr);
         auto dimensions = dimAttr.getValues<int64_t>();
         for (int d = 0; d < rank; ++d) {
-          if (llvm::find(dimensions, d) == dimensions.end())
-            continue;
+          if (llvm::find(dimensions, d) == dimensions.end()) continue;
           auto it = info.indices.find(d);
           if (it != info.indices.end()) {
             otherInfo.indices[inIdx] = it->second;
@@ -1593,19 +1542,17 @@ bool StitchCPUAnalysis::propagateFromDominantToRoots() {
         // failure due to unknown ops
         return false;
       }
-      if (!leftRoots)
-        break;
+      if (!leftRoots) break;
     }
-    if (!leftRoots)
-      break;
+    if (!leftRoots) break;
   }
 
   // 2, clear the indices that are not directly depended by any root.
   DenseSet<int> dependentIds;
   for (Value v : results) {
-    auto &plan = parallelPlan_[v];
+    auto& plan = parallelPlan_[v];
     assert(plan.size() == 1);
-    auto &info = parallelInfoStore_[*plan.begin()];
+    auto& info = parallelInfoStore_[*plan.begin()];
     int id = info.id;
     int prevId = parallelInfoStore_[id].producerId;
     dependentIds.insert(id);
@@ -1615,13 +1562,13 @@ bool StitchCPUAnalysis::propagateFromDominantToRoots() {
       dependentIds.insert(id);
     }
   }
-  for (auto &&e : parallelPlan_) {
+  for (auto&& e : parallelPlan_) {
     auto copiedId = e.second;
     for (int id : copiedId)
       if (!dependentIds.count(id)) {
         e.second.erase(id);
-        auto &info = parallelInfoStore_[id];
-        auto &prevInfo = parallelInfoStore_[info.producerId];
+        auto& info = parallelInfoStore_[id];
+        auto& prevInfo = parallelInfoStore_[info.producerId];
         prevInfo.consumerIds.erase(id);
       }
   }
@@ -1631,34 +1578,32 @@ bool StitchCPUAnalysis::propagateFromDominantToRoots() {
 // Back-propagation from roots to their operands.
 bool StitchCPUAnalysis::propagateFromRootsToProducers() {
   // Back-propagation from roots to their operands.
-  auto &ops = fusionPattern_.getOpList();
-  auto &results = fusionPattern_.getResults();
-  auto isTargetOp = [&](Operation *op) {
+  auto& ops = fusionPattern_.getOpList();
+  auto& results = fusionPattern_.getResults();
+  auto isTargetOp = [&](Operation* op) {
     return llvm::find(ops, op) != ops.end();
   };
-  SmallVector<std::pair<Operation *, int>> toProcessIds;
-  DenseMap<Operation *, DenseSet<int>> processedIds;
+  SmallVector<std::pair<Operation*, int>> toProcessIds;
+  DenseMap<Operation*, DenseSet<int>> processedIds;
   for (Value root : results) {
-    auto &plan = parallelPlan_[root];
+    auto& plan = parallelPlan_[root];
     assert(plan.size() == 1);
-    auto &info = parallelInfoStore_[*plan.begin()];
+    auto& info = parallelInfoStore_[*plan.begin()];
     toProcessIds.emplace_back(fusionPattern_.findLastWriter(root), info.id);
   }
   while (!toProcessIds.empty()) {
-    Operation *op;
+    Operation* op;
     int id;
     std::tie(op, id) = toProcessIds.pop_back_val();
-    if (!processedIds[op].insert(id).second)
-      continue;
+    if (!processedIds[op].insert(id).second) continue;
     // No need to do propagation for const ops
-    if (isa<lmhlo::ConstOp>(op))
-      continue;
+    if (isa<lmhlo::ConstOp>(op)) continue;
     Value out = cast<lmhlo::LmhloOp>(op).getResultBuffer();
-    auto isExistingInputId = [&](Value in, int &inId) {
-      auto &info = parallelInfoStore_[id];
-      auto &prevInfo = parallelInfoStore_[info.producerId];
+    auto isExistingInputId = [&](Value in, int& inId) {
+      auto& info = parallelInfoStore_[id];
+      auto& prevInfo = parallelInfoStore_[info.producerId];
       for (int consumerId : parallelPlan_[in]) {
-        auto &nextInfo = parallelInfoStore_[consumerId];
+        auto& nextInfo = parallelInfoStore_[consumerId];
         if (nextInfo.producerId == id) {
           inId = nextInfo.id;
           return true;
@@ -1674,8 +1619,8 @@ bool StitchCPUAnalysis::propagateFromRootsToProducers() {
       for (Value in : op->getOperands().drop_back()) {
         int inId;
         if (!isExistingInputId(in, inId)) {
-          auto &inInfo = makeParallelInfo(in, id, op);
-          auto &info = parallelInfoStore_[id];
+          auto& inInfo = makeParallelInfo(in, id, op);
+          auto& info = parallelInfoStore_[id];
           inInfo.indices = info.indices;
           inInfo.inBound = info.inBound;
           inInfo.isOwner = info.isOwner;
@@ -1697,15 +1642,15 @@ bool StitchCPUAnalysis::propagateFromRootsToProducers() {
       Value in = op->getOperand(0);
       Value init = op->getOperand(1);
       // propagate to init value
-      auto &initInfo = makeParallelInfo(init, id, op);
-      auto &info = parallelInfoStore_[id];
+      auto& initInfo = makeParallelInfo(init, id, op);
+      auto& info = parallelInfoStore_[id];
       initInfo.inBound = info.inBound;
       parallelPlan_[init].insert(initInfo.id);
       // propagate to data value
       int inId;
       if (!isExistingInputId(in, inId)) {
-        auto &inInfo = makeParallelInfo(in, id, op);
-        auto &info = parallelInfoStore_[id];
+        auto& inInfo = makeParallelInfo(in, id, op);
+        auto& info = parallelInfoStore_[id];
         inInfo.inBound = info.inBound;
         inInfo.isOwner = info.isOwner;
         inInfo.indices.clear();
@@ -1713,8 +1658,7 @@ bool StitchCPUAnalysis::propagateFromRootsToProducers() {
         int rank = in.getType().cast<MemRefType>().getRank();
         int outIdx = 0;
         for (int d = 0; d < rank; ++d) {
-          if (llvm::find(dimensions, d) != dimensions.end())
-            continue;
+          if (llvm::find(dimensions, d) != dimensions.end()) continue;
           auto it = info.indices.find(outIdx);
           if (it != info.indices.end()) {
             inInfo.indices[d] = it->second;
@@ -1733,15 +1677,15 @@ bool StitchCPUAnalysis::propagateFromRootsToProducers() {
       Value in = op->getOperand(0);
       if (isa<lmhlo::DynamicBroadcastInDimOp>(op)) {
         Value shapeOperand = op->getOperand(1);
-        auto &shapeInfo = makeParallelInfo(shapeOperand, id, op);
-        auto &info = parallelInfoStore_[id];
+        auto& shapeInfo = makeParallelInfo(shapeOperand, id, op);
+        auto& info = parallelInfoStore_[id];
         shapeInfo.inBound = info.inBound;
         parallelPlan_[shapeOperand].insert(shapeInfo.id);
       }
       int inId;
       if (!isExistingInputId(in, inId)) {
-        auto &inInfo = makeParallelInfo(in, id, op);
-        auto &info = parallelInfoStore_[id];
+        auto& inInfo = makeParallelInfo(in, id, op);
+        auto& info = parallelInfoStore_[id];
         inInfo.inBound = info.inBound;
         inInfo.indices.clear();
 
@@ -1752,8 +1696,7 @@ bool StitchCPUAnalysis::propagateFromRootsToProducers() {
         assert(dimAttr);
         auto dimensions = dimAttr.getValues<int64_t>();
         for (int d = 0; d < rank; ++d) {
-          if (llvm::find(dimensions, d) == dimensions.end())
-            continue;
+          if (llvm::find(dimensions, d) == dimensions.end()) continue;
           auto it = info.indices.find(d);
           if (it != info.indices.end()) {
             inInfo.indices[inIdx] = it->second;
@@ -1776,16 +1719,13 @@ bool StitchCPUAnalysis::propagateFromRootsToProducers() {
 }
 
 // Returns true if the  parallelInfo id set is consistent.
-bool StitchCPUAnalysis::isConsistentParallelInfoSet(DenseSet<int> &idSet) {
-  if (idSet.size() <= 1)
-    return true;
-  auto &refInfo = parallelInfoStore_[*idSet.begin()];
+bool StitchCPUAnalysis::isConsistentParallelInfoSet(DenseSet<int>& idSet) {
+  if (idSet.size() <= 1) return true;
+  auto& refInfo = parallelInfoStore_[*idSet.begin()];
   for (auto id : idSet) {
-    if (id == refInfo.id)
-      continue;
-    auto &info = parallelInfoStore_[id];
-    if (info.indices != refInfo.indices)
-      return false;
+    if (id == refInfo.id) continue;
+    auto& info = parallelInfoStore_[id];
+    if (info.indices != refInfo.indices) return false;
   }
   return true;
 }
@@ -1804,7 +1744,7 @@ bool StitchCPUAnalysis::doSubRootsAnalysis() {
   candidates.insert(fusionPattern_.getResults().begin(),
                     fusionPattern_.getResults().end());
 
-  for (Operation *op : fusionPattern_.getOpList()) {
+  for (Operation* op : fusionPattern_.getOpList()) {
     if (isa<lmhlo::ReduceOp>(op)) {
       Value in = op->getOperand(0);
       Value out = op->getOperand(2);
@@ -1819,18 +1759,16 @@ bool StitchCPUAnalysis::doSubRootsAnalysis() {
       Value in = op->getOperand(0);
       // TODO(disc): use isSmallCpuBuffer
       auto isSmallTile = [&](Value v) {
-        auto &tileInfo = tilePlan_[v];
+        auto& tileInfo = tilePlan_[v];
         auto ty = v.getType().cast<MemRefType>();
-        if (tileInfo.tileSizes.empty())
-          return true;
+        if (tileInfo.tileSizes.empty()) return true;
         int64_t totalSize = 1;
-        for (auto &en : tileInfo.tileSizes) {
+        for (auto& en : tileInfo.tileSizes) {
           int64_t tileSize = en.second;
           if (tileSize == ShapedType::kDynamicSize) {
             tileSize = ty.getShape()[en.first];
           }
-          if (tileSize == ShapedType::kDynamicSize)
-            return false;
+          if (tileSize == ShapedType::kDynamicSize) return false;
           totalSize *= tileSize;
         }
         return totalSize == 1;
@@ -1853,33 +1791,31 @@ bool StitchCPUAnalysis::doSubRootsAnalysis() {
   return true;
 }
 
-ParallelInfo &StitchCPUAnalysis::getDominantParallelInfo() {
+ParallelInfo& StitchCPUAnalysis::getDominantParallelInfo() {
   Value dominant = getDominantValue();
   assert(dominant);
-  auto &plan = parallelPlan_[dominant];
+  auto& plan = parallelPlan_[dominant];
   assert(!plan.empty());
 
   for (int id : plan) {
-    auto &info = parallelInfoStore_[id];
-    if (info.producerId == id)
-      return info;
+    auto& info = parallelInfoStore_[id];
+    if (info.producerId == id) return info;
   }
   assert(false && "no parallel info for dominant value");
 }
 
-scf::ParallelOp StitchCPUAnalysis::emitTileParallelLoop(OpBuilder &b,
+scf::ParallelOp StitchCPUAnalysis::emitTileParallelLoop(OpBuilder& b,
                                                         Location loc) {
   Value zero = b.create<ConstantIndexOp>(loc, 0);
   Value dominant = getDominantValue();
-  auto &info = getDominantParallelInfo();
-  auto &indexStore = getParallelIndexStore();
+  auto& info = getDominantParallelInfo();
+  auto& indexStore = getParallelIndexStore();
   int numParallelIndices = info.indices.size();
   SmallVector<Value> lbs(numParallelIndices, zero);
   SmallVector<Value> ubs;
   SmallVector<Value> steps;
   SmallVector<int> parallelAxes;
-  for (auto &&e : info.indices)
-    parallelAxes.push_back(e.first);
+  for (auto&& e : info.indices) parallelAxes.push_back(e.first);
   llvm::sort(parallelAxes);
   for (int axis : parallelAxes) {
     ubs.push_back(b.create<memref::DimOp>(loc, dominant, axis));
@@ -1890,10 +1826,10 @@ scf::ParallelOp StitchCPUAnalysis::emitTileParallelLoop(OpBuilder &b,
   return createParallelAndSetInsPt(b, loc, vars, lbs, ubs, steps, {});
 }
 
-bool StitchCPUAnalysis::emitParallelIndices(OpBuilder &b, Location loc,
+bool StitchCPUAnalysis::emitParallelIndices(OpBuilder& b, Location loc,
                                             ValueRange dominantIndex) {
   assert(!dominantIndex.empty());
-  auto &info = getDominantParallelInfo();
+  auto& info = getDominantParallelInfo();
   // Set parallel indices for dominant value
   info.symbolIndices.insert(info.symbolIndices.end(), dominantIndex.begin(),
                             dominantIndex.end());
@@ -1907,16 +1843,15 @@ bool StitchCPUAnalysis::emitParallelIndices(OpBuilder &b, Location loc,
   DenseSet<int> processedIds{info.id};
   while (!toProcess.empty()) {
     int id = toProcess.pop_back_val();
-    auto &from = parallelInfoStore_[id];
+    auto& from = parallelInfoStore_[id];
     LLVM_DEBUG(llvm::dbgs()
                << "infer parallel indices from: " << id
                << " with #consumers = " << from.consumerIds.size() << "\n");
     for (int toId : from.consumerIds) {
       LLVM_DEBUG(llvm::dbgs() << "  consumer id: " << toId << "\n");
-      if (!processedIds.insert(toId).second)
-        continue;
-      auto &to = parallelInfoStore_[toId];
-      Operation *op = to.op;
+      if (!processedIds.insert(toId).second) continue;
+      auto& to = parallelInfoStore_[toId];
+      Operation* op = to.op;
       LLVM_DEBUG(llvm::dbgs() << "  to.op = " << *op << "\n");
       assert(op);
       if (isa<lmhlo::ConstOp>(op)) {
@@ -1953,16 +1888,16 @@ bool StitchCPUAnalysis::emitParallelIndices(OpBuilder &b, Location loc,
   return true;
 }
 
-bool StitchCPUAnalysis::emitElemOpParallelIndex(OpBuilder &b, Location loc,
-                                                ParallelInfo &from,
-                                                ParallelInfo &to) {
+bool StitchCPUAnalysis::emitElemOpParallelIndex(OpBuilder& b, Location loc,
+                                                ParallelInfo& from,
+                                                ParallelInfo& to) {
   to.symbolIndices = from.symbolIndices;
   to.symbolInBound = from.symbolInBound;
   to.symbolIsOwner = from.symbolIsOwner;
   return true;
 }
 
-Value allIndicesZeros(OpBuilder &b, Location loc, ValueRange indices) {
+Value allIndicesZeros(OpBuilder& b, Location loc, ValueRange indices) {
   Value zero = b.create<ConstantIndexOp>(loc, 0);
   Value trueValue = b.create<ConstantIntOp>(loc, 1, 1);
   Value allParallelIndicesZeros = trueValue;
@@ -1974,10 +1909,10 @@ Value allIndicesZeros(OpBuilder &b, Location loc, ValueRange indices) {
   return allParallelIndicesZeros;
 }
 
-bool StitchCPUAnalysis::emitReduceOpParallelIndex(OpBuilder &b, Location loc,
-                                                  ParallelInfo &from,
-                                                  ParallelInfo &to) {
-  Operation *op = to.op;
+bool StitchCPUAnalysis::emitReduceOpParallelIndex(OpBuilder& b, Location loc,
+                                                  ParallelInfo& from,
+                                                  ParallelInfo& to) {
+  Operation* op = to.op;
   assert(op);
   auto reduce = cast<lmhlo::ReduceOp>(op);
   if (op->getNumOperands() != 3) {
@@ -2009,10 +1944,10 @@ bool StitchCPUAnalysis::emitReduceOpParallelIndex(OpBuilder &b, Location loc,
   return true;
 }
 
-bool StitchCPUAnalysis::emitBcastOpParallelIndex(OpBuilder &b, Location loc,
-                                                 ParallelInfo &from,
-                                                 ParallelInfo &to) {
-  Operation *op = to.op;
+bool StitchCPUAnalysis::emitBcastOpParallelIndex(OpBuilder& b, Location loc,
+                                                 ParallelInfo& from,
+                                                 ParallelInfo& to) {
+  Operation* op = to.op;
   assert(op);
   Value in = op->getOperand(0);
   Value out = cast<lmhlo::LmhloOp>(op).getResultBuffer();
@@ -2072,8 +2007,8 @@ bool StitchCPUAnalysis::emitBcastOpParallelIndex(OpBuilder &b, Location loc,
 using ValueViewStore = DenseMap<SmallVector<Value>, Value>;
 using ViewStore = DenseMap<Value, ValueViewStore>;
 
-bool StitchCPUAnalysis::emitInOutTiles(OpBuilder &b, Location loc,
-                                       ViewStore &viewStore) {
+bool StitchCPUAnalysis::emitInOutTiles(OpBuilder& b, Location loc,
+                                       ViewStore& viewStore) {
   auto getIntAttr = [&](int64_t val) {
     return b.getIntegerAttr(b.getIndexType(), val);
   };
@@ -2083,14 +2018,13 @@ bool StitchCPUAnalysis::emitInOutTiles(OpBuilder &b, Location loc,
   inOuts.insert(inOuts.end(), fusionPattern_.getResults().begin(),
                 fusionPattern_.getResults().end());
   for (Value in : inOuts) {
-    auto &valueViewStore = viewStore[in];
-    auto &tileInfo = tilePlan_[in];
+    auto& valueViewStore = viewStore[in];
+    auto& tileInfo = tilePlan_[in];
     for (int id : parallelPlan_[in]) {
-      auto &parallelInfo = parallelInfoStore_[id];
-      auto &indices = parallelInfo.symbolIndices;
+      auto& parallelInfo = parallelInfoStore_[id];
+      auto& indices = parallelInfo.symbolIndices;
       auto it = valueViewStore.find(indices);
-      if (it != valueViewStore.end())
-        continue;
+      if (it != valueViewStore.end()) continue;
       auto inType = in.getType().cast<MemRefType>();
       int rank = inType.getRank();
 
@@ -2115,7 +2049,7 @@ bool StitchCPUAnalysis::emitInOutTiles(OpBuilder &b, Location loc,
         auto parallelIt = parallelInfo.indices.find(d);
         auto tileIt = tileInfo.tileSizes.find(d);
         if (parallelIt != parallelInfo.indices.end()) {
-          auto &parallelIndex = parallelIndexStore_[parallelIt->second];
+          auto& parallelIndex = parallelIndexStore_[parallelIt->second];
           subViewSizes.push_back(getIntAttr(parallelIndex.step));
           subViewOffsets.push_back(parallelInfo.symbolIndices[parallelIdx]);
           ++parallelIdx;
@@ -2143,21 +2077,19 @@ bool StitchCPUAnalysis::emitInOutTiles(OpBuilder &b, Location loc,
   return true;
 }
 
-Value StitchCPUAnalysis::emitTileBuffer(OpBuilder &b, Location loc, Value val) {
-  auto &tileInfo = tilePlan_[val];
+Value StitchCPUAnalysis::emitTileBuffer(OpBuilder& b, Location loc, Value val) {
+  auto& tileInfo = tilePlan_[val];
   auto ty = val.getType().cast<MemRefType>();
 
   bool smallTile = [&]() {
-    if (tileInfo.tileSizes.empty())
-      return true;
+    if (tileInfo.tileSizes.empty()) return true;
     int64_t totalSize = 1;
-    for (auto &en : tileInfo.tileSizes) {
+    for (auto& en : tileInfo.tileSizes) {
       int64_t tileSize = en.second;
       if (tileSize == ShapedType::kDynamicSize) {
         tileSize = ty.getShape()[en.first];
       }
-      if (tileSize == ShapedType::kDynamicSize)
-        return false;
+      if (tileSize == ShapedType::kDynamicSize) return false;
       totalSize *= tileSize;
     }
     return totalSize < 64;
@@ -2186,7 +2118,7 @@ Value StitchCPUAnalysis::emitTileBuffer(OpBuilder &b, Location loc, Value val) {
   if (smallTile) {
     tileBuffer = b.create<memref::AllocaOp>(loc, newTy, dynDims);
   } else {
-    static const char *use_alloca = getenv("DISC_USE_ALLOCA_FOR_TILE_BUFFER");
+    static const char* use_alloca = getenv("DISC_USE_ALLOCA_FOR_TILE_BUFFER");
     if (use_alloca && (std::string(use_alloca) == "true")) {
       tileBuffer = b.create<memref::AllocaOp>(loc, newTy, dynDims);
     } else {
@@ -2197,28 +2129,28 @@ Value StitchCPUAnalysis::emitTileBuffer(OpBuilder &b, Location loc, Value val) {
   return tileBuffer;
 }
 
-bool StitchCPUAnalysis::emitSubRootTile(OpBuilder &b, Location loc, Value val,
-                                        ViewStore &viewStore) {
+bool StitchCPUAnalysis::emitSubRootTile(OpBuilder& b, Location loc, Value val,
+                                        ViewStore& viewStore) {
   LLVM_DEBUG(llvm::dbgs() << "emitSubRootTile for: " << val << "\n");
   Value tileBuffer = emitTileBuffer(b, loc, val);
   LLVM_DEBUG(llvm::dbgs() << "tileBuffer: " << tileBuffer << "\n");
-  auto &valueViewStore = viewStore[val];
+  auto& valueViewStore = viewStore[val];
   for (int id : parallelPlan_[val]) {
-    auto &info = parallelInfoStore_[id];
+    auto& info = parallelInfoStore_[id];
     valueViewStore[info.symbolIndices] = tileBuffer;
   }
   return true;
 }
 
 bool StitchCPUAnalysis::emitSubRootCalculation(
-    OpBuilder &b, Location loc, ParallelInfo &info, ViewStore &viewStore,
-    SmallVectorImpl<Operation *> &clonedLmloOps) {
+    OpBuilder& b, Location loc, ParallelInfo& info, ViewStore& viewStore,
+    SmallVectorImpl<Operation*>& clonedLmloOps) {
   Value v = info.value;
-  Operation *op = fusionPattern_.findLastWriter(v);
+  Operation* op = fusionPattern_.findLastWriter(v);
   assert(llvm::find(fusionPattern_.getOpList(), op) !=
          fusionPattern_.getOpList().end());
 
-  auto &valueViewStore = viewStore[v];
+  auto& valueViewStore = viewStore[v];
   if (valueViewStore.find(info.symbolIndices) == valueViewStore.end()) {
     LLVM_DEBUG(llvm::dbgs() << "buffer not found\n");
     return false;
@@ -2227,24 +2159,24 @@ bool StitchCPUAnalysis::emitSubRootCalculation(
                           << viewStore[v][info.symbolIndices] << "\n");
 
   auto isInput = [&](Value v) {
-    auto &pattern = fusionPattern_.getOperands();
+    auto& pattern = fusionPattern_.getOperands();
     return llvm::find(pattern, v) != pattern.end();
   };
   auto isOutput = [&](Value v) {
-    auto &pattern = fusionPattern_.getResults();
+    auto& pattern = fusionPattern_.getResults();
     return llvm::find(pattern, v) != pattern.end();
   };
 
   // emit operands if not ready
   SmallVector<Value> newOperands;
   for (Value operand : op->getOperands().drop_back()) {
-    auto &prevInfo = parallelInfoStore_[info.producerId];
-    ParallelInfo *operandInfo = nullptr;
+    auto& prevInfo = parallelInfoStore_[info.producerId];
+    ParallelInfo* operandInfo = nullptr;
     if (prevInfo.value == operand) {
       operandInfo = &prevInfo;
     } else {
       for (int consumerId : info.consumerIds) {
-        auto &nextInfo = parallelInfoStore_[consumerId];
+        auto& nextInfo = parallelInfoStore_[consumerId];
         if (nextInfo.value == operand) {
           operandInfo = &nextInfo;
           break;
@@ -2255,7 +2187,7 @@ bool StitchCPUAnalysis::emitSubRootCalculation(
       LLVM_DEBUG(llvm::dbgs() << "could not find operand parallel info\n");
       return false;
     }
-    auto &valueViewStore = viewStore[operand];
+    auto& valueViewStore = viewStore[operand];
     auto it = valueViewStore.find(operandInfo->symbolIndices);
     if (it != valueViewStore.end()) {
       newOperands.push_back(it->second);
@@ -2288,23 +2220,23 @@ bool StitchCPUAnalysis::emitSubRootCalculation(
   newOperands.push_back(viewStore[v][info.symbolIndices]);
 
   // clone op with new operands.
-  Operation *cloned = b.clone(*op);
+  Operation* cloned = b.clone(*op);
   cloned->setOperands(newOperands);
   clonedLmloOps.push_back(cloned);
   return true;
 }
 
 bool StitchCPUAnalysis::emitInputSlice(
-    OpBuilder &b, Location loc, Value out, ParallelInfo &parallelInfo,
-    SmallVectorImpl<Operation *> &clonedLmloOps) {
+    OpBuilder& b, Location loc, Value out, ParallelInfo& parallelInfo,
+    SmallVectorImpl<Operation*>& clonedLmloOps) {
   Value in = parallelInfo.value;
-  auto &tileInfo = tilePlan_[in];
+  auto& tileInfo = tilePlan_[in];
   auto inType = in.getType().cast<MemRefType>();
   int rank = inType.getRank();
   // rank-0 buffer should be handled before.
   assert(rank > 0);
 
-  auto &valueViewStore = inOutViewStore_[in];
+  auto& valueViewStore = inOutViewStore_[in];
   auto it = valueViewStore.find(parallelInfo.symbolIndices);
   if (it == valueViewStore.end()) {
     LLVM_DEBUG(llvm::dbgs() << "no input view found.\n");
@@ -2348,20 +2280,20 @@ bool StitchCPUAnalysis::emitInputSlice(
 //       }
 //     }
 //   }
-bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder &b,
+bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder& b,
                                                            Location loc) {
   int subRootId = 0;
-  for (Operation *op : fusionPattern_.getOpList()) {
+  for (Operation* op : fusionPattern_.getOpList()) {
     Value out = cast<lmhlo::LmhloOp>(op).getResultBuffer();
     if (llvm::find(subRootsAndRootsSet_, out) == subRootsAndRootsSet_.end())
       continue;
 
     // emit in-bound check logic
-    auto &plan = parallelPlan_[out];
+    auto& plan = parallelPlan_[out];
     assert(!plan.empty());
     Value inBound = b.create<ConstantIntOp>(loc, 0, 1);
     for (int id : plan) {
-      auto &info = parallelInfoStore_[id];
+      auto& info = parallelInfoStore_[id];
       inBound = b.create<mlir::OrOp>(loc, inBound, info.symbolInBound);
     }
     auto ifOp = b.create<scf::IfOp>(loc, llvm::None, inBound, false);
@@ -2377,21 +2309,21 @@ bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder &b,
     subFusionOp->setAttr(
         kDiscFusionTypeAttrName,
         b.getStringAttr(fusionTypeToString(FusionType::kLoop)));
-    Block *thenBlock = &ifOp.thenRegion().getBlocks().front();
+    Block* thenBlock = &ifOp.thenRegion().getBlocks().front();
     subFusionOp->moveBefore(thenBlock, thenBlock->begin());
     OpBuilder innerBuilder(subFusionOp);
     ViewStore localViewStore = subRootViewStore_;
-    SmallVector<Operation *> clonedLmhloOps;
-    auto &info = parallelInfoStore_[*plan.begin()];
+    SmallVector<Operation*> clonedLmhloOps;
+    auto& info = parallelInfoStore_[*plan.begin()];
     if (!emitSubRootCalculation(innerBuilder, loc, info, localViewStore,
                                 clonedLmhloOps)) {
       LLVM_DEBUG(llvm::dbgs()
                  << "failed to do emitSubRootCalculation for " << *op << "\n");
       return false;
     }
-    Block &block = subFusionOp.region().front();
+    Block& block = subFusionOp.region().front();
     block.clear();
-    for (Operation *clonedOp : llvm::reverse(clonedLmhloOps)) {
+    for (Operation* clonedOp : llvm::reverse(clonedLmhloOps)) {
       clonedOp->moveBefore(&block, block.begin());
     }
     innerBuilder.setInsertionPointAfter(clonedLmhloOps.back());
@@ -2399,17 +2331,16 @@ bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder &b,
     innerBuilder.setInsertionPoint(subFusionOp);
 
     // if the sub-root is also a root, emit the root calculation logic
-    if (!isFusionResult(out))
-      continue;
+    if (!isFusionResult(out)) continue;
     // emit the is owner check.
     Value isOwner = innerBuilder.create<ConstantIntOp>(loc, 0, 1);
     for (int id : plan) {
-      auto &info = parallelInfoStore_[id];
+      auto& info = parallelInfoStore_[id];
       isOwner =
           innerBuilder.create<mlir::OrOp>(loc, isOwner, info.symbolIsOwner);
     }
     ifOp = innerBuilder.create<scf::IfOp>(loc, llvm::None, isOwner, true);
-    Block *elseBlock = &ifOp.elseRegion().getBlocks().front();
+    Block* elseBlock = &ifOp.elseRegion().getBlocks().front();
     subFusionOp->moveBefore(elseBlock, elseBlock->begin());
 
     // emit the root calculation logic.
@@ -2421,7 +2352,7 @@ bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder &b,
       LLVM_DEBUG(llvm::dbgs() << "no output view found.\n");
       return false;
     }
-    Operation &tileResultOp =
+    Operation& tileResultOp =
         *++llvm::reverse(clonedSubFusionOp.region().front()).begin();
     innerBuilder.setInsertionPointAfter(&tileResultOp);
     innerBuilder.create<lmhlo::CopyOp>(loc, tileResultOp.getOperands().back(),
@@ -2493,23 +2424,19 @@ bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder &b,
 //      }
 //    } {fusion_type = "stitch"}
 //  ```
-bool StitchCPUAnalysis::doCodeGeneration(OpBuilder &b, lmhlo::FusionOp fusion) {
-  if (!isStitchFusion(fusion))
-    return false;
-  if (!fusibilityAnalysis())
-    return false;
+bool StitchCPUAnalysis::doCodeGeneration(OpBuilder& b, lmhlo::FusionOp fusion) {
+  if (!isStitchFusion(fusion)) return false;
+  if (!fusibilityAnalysis()) return false;
 
   // 1, create parallel for loop according to dominant value parallel info.
   b.setInsertionPoint(fusion);
   auto cloned = cast<FusionOp>(b.clone(*fusion.getOperation()));
-  Block &block = cloned.region().front();
-  SmallVector<Operation *> toRemove;
-  for (Operation &op : block) {
-    if (!isa<lmhlo::TerminatorOp>(&op))
-      toRemove.push_back(&op);
+  Block& block = cloned.region().front();
+  SmallVector<Operation*> toRemove;
+  for (Operation& op : block) {
+    if (!isa<lmhlo::TerminatorOp>(&op)) toRemove.push_back(&op);
   }
-  for (Operation *op : toRemove)
-    op->erase();
+  for (Operation* op : toRemove) op->erase();
   b.setInsertionPoint(cloned);
   Location loc = fusion->getLoc();
   scf::ParallelOp parallelOp = emitTileParallelLoop(b, loc);
@@ -2554,5 +2481,5 @@ bool StitchCPUAnalysis::doCodeGeneration(OpBuilder &b, lmhlo::FusionOp fusion) {
   return true;
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

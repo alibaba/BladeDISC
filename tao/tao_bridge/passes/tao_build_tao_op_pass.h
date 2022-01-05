@@ -21,22 +21,22 @@ namespace tensorflow {
 namespace tao {
 
 class TaoBuildTaoOpPass : public GraphOptimizationPass {
-public:
-  Status Run(const GraphOptimizationPassOptions &options) override;
+ public:
+  Status Run(const GraphOptimizationPassOptions& options) override;
 
-  void set_opts(const std::unique_ptr<TaoPassOptions> &opt) {
+  void set_opts(const std::unique_ptr<TaoPassOptions>& opt) {
     if (opt) {
       inner_tao_launch_ = opt->inner_tao_launch;
       use_tvm_ = opt->use_tvm;
     }
   }
 
-private:
+ private:
   bool use_tvm_;
-  bool inner_tao_launch_{false}; // inner attribute of TaoLaunch op.
+  bool inner_tao_launch_{false};  // inner attribute of TaoLaunch op.
 };
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TAO_BUILD_TAO_OP_PASS_H_
+#endif  // TAO_BUILD_TAO_OP_PASS_H_

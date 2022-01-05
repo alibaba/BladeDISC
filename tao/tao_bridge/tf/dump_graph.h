@@ -34,19 +34,19 @@ namespace dump_graph {
 // --tf_dump_graph_prefix flag and suffixes it with ".pbtxt" to form a name.
 // If a graph has already been dumped by this process with the same name,
 // suffixes with "_n.pbtxt", where 'n' is a sequence number.
-string DumpGraphDefToFile(const string &name, GraphDef const &graph_def);
+string DumpGraphDefToFile(const string& name, GraphDef const& graph_def);
 
 // Similar to DumpGraphDefToFile, but builds the GraphDef to dump from a 'graph'
 // and an optional function library 'flib_def'. Returns the file name chosen.
-string DumpGraphToFile(const string &name, Graph const &graph,
-                       const FunctionLibraryDefinition *flib_def = nullptr);
+string DumpGraphToFile(const string& name, Graph const& graph,
+                       const FunctionLibraryDefinition* flib_def = nullptr);
 
 // Similar to DumpGraphDefToFile, but dumps a function as a FunctionDef text
 // proto. Returns the file name chosen.
-string DumpFunctionDefToFile(const string &name, FunctionDef const &fdef);
+string DumpFunctionDefToFile(const string& name, FunctionDef const& fdef);
 
-} // namespace dump_graph
-} // namespace tao
-} // namespace tensorflow
+}  // namespace dump_graph
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TAO_TAO_BRIDGE_TF_DUMP_GRAPH_H_
+#endif  // TAO_TAO_BRIDGE_TF_DUMP_GRAPH_H_

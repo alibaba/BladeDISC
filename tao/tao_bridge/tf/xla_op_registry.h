@@ -40,8 +40,8 @@ namespace tao {
 // used internally by the Tensorflow/XLA bridge to perform symbolic execution of
 // a Tensorflow graph.
 
-extern const char *const DEVICE_TAO_CPU_XLA_JIT; // "TAO_CPU_XLA_JIT"
-extern const char *const DEVICE_TAO_GPU_XLA_JIT; // "TAO_GPU_XLA_JIT"
+extern const char* const DEVICE_TAO_CPU_XLA_JIT;  // "TAO_CPU_XLA_JIT"
+extern const char* const DEVICE_TAO_GPU_XLA_JIT;  // "TAO_GPU_XLA_JIT"
 
 constexpr std::array<DataType, 4> kFloatTypes = {
     {DT_HALF, DT_FLOAT, DT_DOUBLE, DT_BFLOAT16}};
@@ -65,8 +65,8 @@ constexpr std::array<DataType, 18> kGpuAllTypes = {
 // Class that manages registrations of operators and devices for the XLA JIT.
 // Not thread-safe.
 class XlaOpRegistry {
-public:
-  typedef OpKernel *(*Factory)(OpKernelConstruction *);
+ public:
+  typedef OpKernel* (*Factory)(OpKernelConstruction*);
 
   enum class CompileTimeConstType {
     kXlaCompileTimeConstantInput,
@@ -140,8 +140,8 @@ public:
   // nullptr, in which case all ops are included.
   // `backend_op_filter` should return true if the op should be registered on
   // the device; it may optionally modify the KernelDef.
-  typedef bool (*BackendOpFilter)(KernelDef *kdef);
-  static void RegisterBackend(const string &compilation_device_name,
+  typedef bool (*BackendOpFilter)(KernelDef* kdef);
+  static void RegisterBackend(const string& compilation_device_name,
                               absl::Span<const DataType> supported_types,
                               BackendOpFilter op_filter);
 
@@ -149,13 +149,13 @@ public:
   static std::vector<string> BackendNames();
 
   // Returns true iff a backend with the given name is registered.
-  static bool IsBackendRegistered(const string &name);
+  static bool IsBackendRegistered(const string& name);
 
   // Registers `device_name` for XLA compilation, using information from
   // `registration`.
   // Does nothing if a registration for `device_name` already exists.
-  static void RegisterCompilationDevice(const string &device_name,
-                                        const DeviceRegistration &registration);
+  static void RegisterCompilationDevice(const string& device_name,
+                                        const DeviceRegistration& registration);
 
   // Returns the JIT device name associated with 'device_name', setting
   // 'jit_device_name', 'requires_jit', and 'enabled_jit_by_default', if they
@@ -163,8 +163,8 @@ public:
   // JIT device is registered.
   // '*enable_jit_by_default' is set to true if we should try to JIT using this
   // device when the JIT is enabled via the Session OptimizerOptions.
-  static bool GetCompilationDevice(const string &device_name,
-                                   const DeviceRegistration **registration);
+  static bool GetCompilationDevice(const string& device_name,
+                                   const DeviceRegistration** registration);
 
   // Registers all JIT kernels on JIT devices, if not already registered.
   // Does nothing otherwise.
@@ -173,9 +173,9 @@ public:
   // Returns KernelDefs for compilation ops registered on
   // 'compilation_device_name'.  Does not include kernels registered as
   // CompilationOnly, iff include_compilation_only_kernels=false.
-  static std::vector<const KernelDef *>
-  DeviceKernels(const string &compilation_device_name,
-                bool include_compilation_only_kernels);
+  static std::vector<const KernelDef*> DeviceKernels(
+      const string& compilation_device_name,
+      bool include_compilation_only_kernels);
 
   // Returns all operations for which there are XLA kernels on any device.
   static std::vector<string> GetAllRegisteredOps();
@@ -185,9 +185,9 @@ public:
   // registered.
   //
   // `result` is sorted.
-  static Status CompileTimeConstantInputs(const NodeDef &node_def,
-                                          const OpDef &op_def,
-                                          std::vector<int> *result,
+  static Status CompileTimeConstantInputs(const NodeDef& node_def,
+                                          const OpDef& op_def,
+                                          std::vector<int>* result,
                                           CompileTimeConstType type) {
     return CompileTimeConstantInputs(node_def, /*op_kernel=*/nullptr, &op_def,
                                      result, type);
@@ -197,8 +197,8 @@ public:
   // compile-time constants.
   //
   // `result` is sorted.
-  static Status CompileTimeConstantInputs(const OpKernel &op_kernel,
-                                          std::vector<int> *result,
+  static Status CompileTimeConstantInputs(const OpKernel& op_kernel,
+                                          std::vector<int>* result,
                                           CompileTimeConstType type) {
     return CompileTimeConstantInputs(op_kernel.def(), /*op_kernel=*/&op_kernel,
                                      /*op_def=*/nullptr, result, type);
@@ -206,14 +206,14 @@ public:
 
   // Returns true if `op` is a "metadata" op, one that only looks at the shapes
   // of its operands and not their values.
-  static bool IsMetadataOp(const string &op);
+  static bool IsMetadataOp(const string& op);
 
-private:
+ private:
   friend class XlaBackendRegistrar;
   friend class XlaOpRegistrar;
   friend class XlaOpRegistrationBuilder;
 
-  static XlaOpRegistry &Instance();
+  static XlaOpRegistry& Instance();
 
   XlaOpRegistry();
   ~XlaOpRegistry();
@@ -238,8 +238,8 @@ private:
   std::unordered_map<string, Backend> backends_ GUARDED_BY(mutex_);
 
   // Map from Tensorflow device names to the corresponding JIT device metadata.
-  std::unordered_map<string, DeviceRegistration>
-      compilation_devices_ GUARDED_BY(mutex_);
+  std::unordered_map<string, DeviceRegistration> compilation_devices_
+      GUARDED_BY(mutex_);
 
   // A description of a Tensorflow operator that can be compiled to XLA.
   struct OpRegistration {
@@ -289,19 +289,19 @@ private:
   // the same op name, they must: have the same values for compilation_only,
   // allow_resource_types and allow_variant_types; use a device_whitelist; and
   // their whitelists must not intersect.
-  static bool IsCompatible(const OpRegistration &x, const OpRegistration &y);
+  static bool IsCompatible(const OpRegistration& x, const OpRegistration& y);
 
-  static Status CompileTimeConstantInputs(const NodeDef &node_def,
-                                          const OpKernel *op_kernel,
-                                          const OpDef *op_def,
-                                          std::vector<int> *result,
+  static Status CompileTimeConstantInputs(const NodeDef& node_def,
+                                          const OpKernel* op_kernel,
+                                          const OpDef* op_def,
+                                          std::vector<int>* result,
                                           CompileTimeConstType type);
 
   // Map from operator name to OpRegistrations, populated by REGISTER_XLA_OP.
   // Registrations present under the same key must satisfy IsCompatible above,
   // and this is checked during registration.
-  std::unordered_map<string, std::vector<std::unique_ptr<OpRegistration>>>
-      ops_ GUARDED_BY(mutex_);
+  std::unordered_map<string, std::vector<std::unique_ptr<OpRegistration>>> ops_
+      GUARDED_BY(mutex_);
 
   // Have we already registered the JIT kernels on the JIT devices?
   bool jit_kernels_registered_ = false;
@@ -323,60 +323,60 @@ private:
 // REGISTER_XLA_OP_FOR_TAO() is modified from original REGISTER_XLA_OP(),
 // it just record the name and attributes of op leaving the factory_ field
 // to nullptr, since we don't need that yet.
-#define REGISTER_XLA_OP_FOR_TAO(NAME)                                          \
+#define REGISTER_XLA_OP_FOR_TAO(NAME) \
   REGISTER_XLA_OP_FOR_TAO_UNIQ_HELPER(__COUNTER__, NAME)
 
-#define REGISTER_XLA_BACKEND_FOR_TAO(NAME, ...)                                \
+#define REGISTER_XLA_BACKEND_FOR_TAO(NAME, ...) \
   REGISTER_XLA_BACKEND_UNIQ_HELPER_FOR_TAO(__COUNTER__, NAME, __VA_ARGS__)
 
 class XlaOpRegistrationBuilder {
-public:
+ public:
   // Starts an operator registration chain.
   static XlaOpRegistrationBuilder Name(absl::string_view name);
 
   // Specifies a whitelist of devices on which the operator may run.
-  XlaOpRegistrationBuilder &Device(absl::string_view devices);
-  XlaOpRegistrationBuilder &Device(absl::Span<const absl::string_view> devices);
+  XlaOpRegistrationBuilder& Device(absl::string_view devices);
+  XlaOpRegistrationBuilder& Device(absl::Span<const absl::string_view> devices);
 
   // Specifies a type constraint for a type variable attribute. Each constraint
   // specifies the set of types that the type variable may assume.
-  XlaOpRegistrationBuilder &TypeConstraint(absl::string_view attr_name,
+  XlaOpRegistrationBuilder& TypeConstraint(absl::string_view attr_name,
                                            DataType allowed);
 
-  XlaOpRegistrationBuilder &TypeConstraint(absl::string_view attr_name,
+  XlaOpRegistrationBuilder& TypeConstraint(absl::string_view attr_name,
                                            absl::Span<const DataType> allowed);
 
   // Specifies that a dummy copy of this operator should not be registered on
   // XLA_* devices, but may be used during compilation.
-  XlaOpRegistrationBuilder &CompilationOnly();
+  XlaOpRegistrationBuilder& CompilationOnly();
 
   // Allow DT_RESOURCE types for type parameters.
-  XlaOpRegistrationBuilder &AllowResourceTypes();
+  XlaOpRegistrationBuilder& AllowResourceTypes();
 
   // Allow DT_VARIANT types for type parameters.
-  XlaOpRegistrationBuilder &AllowVariantTypes();
+  XlaOpRegistrationBuilder& AllowVariantTypes();
 
   // Allow DT_STRING type for type parameters.
-  XlaOpRegistrationBuilder &AllowStringType();
+  XlaOpRegistrationBuilder& AllowStringType();
 
   // Mark 'input_name' as an argument whose value must be known at compile-time.
-  XlaOpRegistrationBuilder &CompileTimeConstInput(absl::string_view input_name);
-  XlaOpRegistrationBuilder &
-  MlirCompileTimeFixedShapeInput(absl::string_view input_name);
-  XlaOpRegistrationBuilder &
-  MlirCompileTimeConstInput(absl::string_view input_name);
+  XlaOpRegistrationBuilder& CompileTimeConstInput(absl::string_view input_name);
+  XlaOpRegistrationBuilder& MlirCompileTimeFixedShapeInput(
+      absl::string_view input_name);
+  XlaOpRegistrationBuilder& MlirCompileTimeConstInput(
+      absl::string_view input_name);
 
   // Mark this op as a "metadata" op, one that only looks at the shapes of its
   // operands and not their values.
-  XlaOpRegistrationBuilder &IsMetadataOp();
+  XlaOpRegistrationBuilder& IsMetadataOp();
 
   // Specifies a particular value for the "_kernel" attr.
-  XlaOpRegistrationBuilder &Label(std::string label);
+  XlaOpRegistrationBuilder& Label(std::string label);
 
-  std::unique_ptr<XlaOpRegistry::OpRegistration>
-  Build(XlaOpRegistry::Factory factory);
+  std::unique_ptr<XlaOpRegistry::OpRegistration> Build(
+      XlaOpRegistry::Factory factory);
 
-private:
+ private:
   XlaOpRegistrationBuilder(absl::string_view name);
 
   std::unique_ptr<XlaOpRegistry::OpRegistration> registration_;
@@ -385,33 +385,33 @@ private:
 // Implementation details.
 
 class XlaOpRegistrar {
-public:
+ public:
   XlaOpRegistrar(std::unique_ptr<XlaOpRegistry::OpRegistration> registration);
 };
 
-#define REGISTER_XLA_OP_FOR_TAO_UNIQ_HELPER(COUNTER, BUILDER)                  \
+#define REGISTER_XLA_OP_FOR_TAO_UNIQ_HELPER(COUNTER, BUILDER) \
   REGISTER_XLA_OP_FOR_TAO_UNIQ(COUNTER, BUILDER)
 
-#define REGISTER_XLA_OP_FOR_TAO_UNIQ(CTR, BUILDER)                             \
-  static ::tensorflow::tao::XlaOpRegistrar                                     \
-      xla_op_registrar__body__##CTR##__object(                                 \
-          ::tensorflow::tao::XlaOpRegistrationBuilder::BUILDER.Build(          \
+#define REGISTER_XLA_OP_FOR_TAO_UNIQ(CTR, BUILDER)                    \
+  static ::tensorflow::tao::XlaOpRegistrar                            \
+      xla_op_registrar__body__##CTR##__object(                        \
+          ::tensorflow::tao::XlaOpRegistrationBuilder::BUILDER.Build( \
               nullptr));
 
 class XlaBackendRegistrar {
-public:
+ public:
   XlaBackendRegistrar(absl::string_view name, absl::Span<const DataType> types,
                       XlaOpRegistry::BackendOpFilter op_filter = nullptr);
 };
 
-#define REGISTER_XLA_BACKEND_UNIQ_HELPER_FOR_TAO(COUNTER, NAME, ...)           \
+#define REGISTER_XLA_BACKEND_UNIQ_HELPER_FOR_TAO(COUNTER, NAME, ...) \
   REGISTER_XLA_BACKEND_UNIQ_FOR_TAO(COUNTER, NAME, __VA_ARGS__)
 
-#define REGISTER_XLA_BACKEND_UNIQ_FOR_TAO(CTR, NAME, ...)                      \
-  static ::tensorflow::tao::XlaBackendRegistrar                                \
+#define REGISTER_XLA_BACKEND_UNIQ_FOR_TAO(CTR, NAME, ...) \
+  static ::tensorflow::tao::XlaBackendRegistrar           \
       xla_backend_registrar__body__##CTR##__object(NAME, __VA_ARGS__);
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TENSORFLOW_COMPILER_TF2XLA_XLA_OP_REGISTRY_H_
+#endif  // TENSORFLOW_COMPILER_TF2XLA_XLA_OP_REGISTRY_H_

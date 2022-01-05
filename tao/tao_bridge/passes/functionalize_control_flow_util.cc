@@ -23,8 +23,8 @@ limitations under the License.
 namespace tensorflow {
 namespace tao {
 
-bool NodeCmpByNameResourcesLast::operator()(const Node *lhs,
-                                            const Node *rhs) const {
+bool NodeCmpByNameResourcesLast::operator()(const Node* lhs,
+                                            const Node* rhs) const {
   bool lhs_is_resource =
       lhs->num_inputs() > 0 ? (lhs->input_type(0) == DT_RESOURCE) : false;
   bool rhs_is_resource =
@@ -33,19 +33,19 @@ bool NodeCmpByNameResourcesLast::operator()(const Node *lhs,
          std::tie(rhs_is_resource, rhs->name());
 }
 
-xla::tao::StatusOr<Node *> AddNodeDefToGraph(const NodeDef &node_def,
-                                             Graph *graph) {
+xla::tao::StatusOr<Node*> AddNodeDefToGraph(const NodeDef& node_def,
+                                            Graph* graph) {
   Status status;
-  Node *inserted_node = graph->AddNode(node_def, &status);
+  Node* inserted_node = graph->AddNode(node_def, &status);
   if (!status.ok()) {
     return status;
   }
   return inserted_node;
 }
 
-xla::tao::StatusOr<Node *> BuildRetvalNode(Graph *graph, DataType type,
-                                           int index) {
-  const char *const kRetValOp = "_Retval";
+xla::tao::StatusOr<Node*> BuildRetvalNode(Graph* graph, DataType type,
+                                          int index) {
+  const char* const kRetValOp = "_Retval";
   NodeDef ret_def;
   ret_def.set_op(kRetValOp);
   ret_def.set_name(absl::StrCat(kRetValOp, index));
@@ -55,15 +55,15 @@ xla::tao::StatusOr<Node *> BuildRetvalNode(Graph *graph, DataType type,
 }
 
 // Check that the graph has no cycle containing the given node.
-Status CheckNodeNotInCycle(const Node *node, const int num_nodes) {
-  std::vector<const Node *> ready;
+Status CheckNodeNotInCycle(const Node* node, const int num_nodes) {
+  std::vector<const Node*> ready;
   ready.push_back(node);
   std::vector<bool> visited(num_nodes);
   while (!ready.empty()) {
-    const Node *current_node = ready.back();
+    const Node* current_node = ready.back();
     ready.pop_back();
     visited[current_node->id()] = true;
-    for (const Edge *out : current_node->out_edges()) {
+    for (const Edge* out : current_node->out_edges()) {
       if (out->dst() == node) {
         return errors::Internal("Detected a cycle: ", FormatNodeForError(*node),
                                 " (", node->def().op(), ") feeds into itself.");
@@ -79,11 +79,11 @@ Status CheckNodeNotInCycle(const Node *node, const int num_nodes) {
 // Do functionalize only when:
 // 1, no assigned placement on CPU.
 // 2, all of the assigned placement are on the same GPU
-bool ShouldFunctionalizeForGPU(const Graph &graph, string &device_name) {
+bool ShouldFunctionalizeForGPU(const Graph& graph, string& device_name) {
   CHECK(device_name.empty());
-  for (Node *node : graph.op_nodes()) {
+  for (Node* node : graph.op_nodes()) {
     if (!node->requested_device().empty()) {
-      const string &requested_device_name = node->requested_device();
+      const string& requested_device_name = node->requested_device();
       string requested_device_name_lc =
           str_util::Lowercase(requested_device_name);
       if (requested_device_name_lc.find("gpu") == std::string::npos) {
@@ -102,5 +102,5 @@ bool ShouldFunctionalizeForGPU(const Graph &graph, string &device_name) {
   return true;
 }
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

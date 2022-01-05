@@ -62,8 +62,8 @@ struct TaoDumperOptions {
 
   // Detect core dump/compiling failures in compiling subprocess
   // Uploads related inputs (not core dump file) to OSS for debug
-  int64 max_upload_core_dump;  // failures with core dump
-  int64 max_upload_other_fail; // failures except core dump
+  int64 max_upload_core_dump;   // failures with core dump
+  int64 max_upload_other_fail;  // failures except core dump
 
   // Path to tao_upload_tool
   std::string tao_upload_tool_path;
@@ -80,9 +80,9 @@ struct TaoDumperOptions {
 };
 
 // Get the globally singleton of TaoDumperOptions.
-const TaoDumperOptions *GetTaoDumperOptions(bool force_refresh = false);
+const TaoDumperOptions* GetTaoDumperOptions(bool force_refresh = false);
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TAO_TAO_BRIDGE_DUMPER_COMMON_H
+#endif  // TAO_TAO_BRIDGE_DUMPER_COMMON_H

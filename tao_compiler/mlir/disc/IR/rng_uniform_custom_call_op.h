@@ -38,20 +38,20 @@ struct RngUniformBackendConfig {
   int64_t seed2;
 };
 
-} // namespace mhlo_disc
-} // namespace mlir
+}  // namespace mhlo_disc
+}  // namespace mlir
 
 namespace llvm {
 namespace json {
 
 bool fromJSON(
-    const llvm::json::Value &value,
-    ::mlir::mhlo_disc::RngUniformBackendConfig &rng_uniform_backend_config,
+    const llvm::json::Value& value,
+    ::mlir::mhlo_disc::RngUniformBackendConfig& rng_uniform_backend_config,
     llvm::json::Path path);
-llvm::json::Value toJSON(const ::mlir::mhlo_disc::RngUniformBackendConfig
-                             &rng_uniform_backend_config);
+llvm::json::Value toJSON(const ::mlir::mhlo_disc::RngUniformBackendConfig&
+                             rng_uniform_backend_config);
 
-} // namespace json
-} // namespace llvm
+}  // namespace json
+}  // namespace llvm
 
-#endif //   TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_IR_RNG_UNIFORM_CUSTOM_CALL_OP_H_
+#endif  //   TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_IR_RNG_UNIFORM_CUSTOM_CALL_OP_H_

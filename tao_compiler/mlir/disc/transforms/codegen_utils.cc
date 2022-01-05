@@ -25,7 +25,7 @@ using mlir::memref::DimOp;
 namespace mlir {
 namespace disc_ral {
 
-Value emitNumElementsComputation(OpBuilder &b, Location loc, Value memref) {
+Value emitNumElementsComputation(OpBuilder& b, Location loc, Value memref) {
   int rank = memref.getType().cast<MemRefType>().getRank();
   Value num_elements;
   num_elements = b.create<mlir::ConstantOp>(
@@ -37,7 +37,7 @@ Value emitNumElementsComputation(OpBuilder &b, Location loc, Value memref) {
   return num_elements;
 }
 
-Value emitNumElementsComputation(OpBuilder &b, Location loc, Operation *op) {
+Value emitNumElementsComputation(OpBuilder& b, Location loc, Operation* op) {
   // only const rank is supported for now
   assert(op->getDialect()->getNamespace() == "lmhlo");
   int num_operands = op->getNumOperands();
@@ -45,7 +45,7 @@ Value emitNumElementsComputation(OpBuilder &b, Location loc, Operation *op) {
   return emitNumElementsComputation(b, loc, result_memref);
 }
 
-SmallVector<Value> getShapeValues(OpBuilder *b, Value memref) {
+SmallVector<Value> getShapeValues(OpBuilder* b, Value memref) {
   auto shape = memref.getType().dyn_cast<ShapedType>().getShape();
   int64_t rank = shape.size();
   auto loc = memref.getLoc();
@@ -62,14 +62,14 @@ SmallVector<Value> getShapeValues(OpBuilder *b, Value memref) {
   return result;
 }
 
-Value calcLinearIndex(OpBuilder *b, Location loc, const ValueRange multi_index,
+Value calcLinearIndex(OpBuilder* b, Location loc, const ValueRange multi_index,
                       const llvm::ArrayRef<Value> shape) {
   assert(multi_index.size() == shape.size());
   return b->create<disc_shape::LinearizeOp>(loc, b->getIndexType(), multi_index,
                                             shape);
 }
 
-SmallVector<Value> calcMultiDimIndex(OpBuilder *b, Location loc,
+SmallVector<Value> calcMultiDimIndex(OpBuilder* b, Location loc,
                                      Value linear_index,
                                      const ArrayRef<Value> shape) {
   int rank = shape.size();
@@ -78,12 +78,11 @@ SmallVector<Value> calcMultiDimIndex(OpBuilder *b, Location loc,
       loc, outputTypes, linear_index, shape);
 
   SmallVector<Value> results;
-  for (Value result : delinearizeOp->getResults())
-    results.push_back(result);
+  for (Value result : delinearizeOp->getResults()) results.push_back(result);
   return results;
 }
 
-Value getDimSizeValue(OpBuilder *b, Value memref, int dim) {
+Value getDimSizeValue(OpBuilder* b, Value memref, int dim) {
   auto memref_ty = memref.getType().dyn_cast<ShapedType>();
   auto loc = memref.getLoc();
   assert(memref_ty && memref_ty.getRank() > dim);
@@ -96,25 +95,23 @@ Value getDimSizeValue(OpBuilder *b, Value memref, int dim) {
   }
 }
 
-Value mayConvertToIndexType(Value val, OpBuilder *b, Location loc) {
-  if (val.getType().isIndex())
-    return val;
+Value mayConvertToIndexType(Value val, OpBuilder* b, Location loc) {
+  if (val.getType().isIndex()) return val;
   return b->create<IndexCastOp>(loc, val, b->getIndexType());
 }
 
-Value mayConvertToIntegerType(Value val, OpBuilder *b, Location loc) {
-  if (val.getType().isInteger(32) || val.getType().isInteger(64))
-    return val;
+Value mayConvertToIntegerType(Value val, OpBuilder* b, Location loc) {
+  if (val.getType().isInteger(32) || val.getType().isInteger(64)) return val;
   return b->create<mlir::IndexCastOp>(loc, val, b->getI64Type());
 }
 
-SmallVector<Value> calcMultiDimIndex(OpBuilder *b, Location loc,
+SmallVector<Value> calcMultiDimIndex(OpBuilder* b, Location loc,
                                      Value linear_index, Value memref) {
   SmallVector<Value> shape_vec = getShapeValues(b, memref);
   return calcMultiDimIndex(b, loc, linear_index, shape_vec);
 }
 
-Value CastMemRefTo(OpBuilder &b, Location loc, Value from, Type toType,
+Value CastMemRefTo(OpBuilder& b, Location loc, Value from, Type toType,
                    ValueRange toShape) {
   int64_t rank = toShape.size();
   auto memrefTy = toType.cast<MemRefType>();
@@ -161,8 +158,8 @@ Value CastMemRefTo(OpBuilder &b, Location loc, Value from, Type toType,
 using scf::IfOp;
 using scf::ParallelOp;
 
-scf::ParallelOp createParallelAndSetInsPt(OpBuilder &b, Location loc,
-                                          SmallVectorImpl<Value> &vars,
+scf::ParallelOp createParallelAndSetInsPt(OpBuilder& b, Location loc,
+                                          SmallVectorImpl<Value>& vars,
                                           ArrayRef<Value> lbs,
                                           ArrayRef<Value> ubs,
                                           ArrayRef<Value> steps,
@@ -259,9 +256,9 @@ std::pair<ParallelOp, ParallelOp> tileParallelLoop(ParallelOp op,
     // loop iterations is an integer multiple of the tile size, we use a static
     // bound for the inner loop.
     if (lowerBoundConstant && upperBoundConstant && stepConstant) {
-      auto numIterations = llvm::divideCeil(upperBoundConstant.getValue() -
-                                                lowerBoundConstant.getValue(),
-                                            stepConstant.getValue());
+      auto numIterations = llvm::divideCeil(
+          upperBoundConstant.getValue() - lowerBoundConstant.getValue(),
+          stepConstant.getValue());
       if (numIterations % tileSize == 0) {
         newBounds.push_back(newStep);
         continue;
@@ -309,7 +306,7 @@ std::pair<ParallelOp, ParallelOp> tileParallelLoop(ParallelOp op,
                                     /*resultTypes*/ ArrayRef<Type>{}, inbound,
                                     /*hasElseRegion*/ false);
     ifInbound.thenRegion().takeBody(op.region());
-    Block &thenBlock = ifInbound.thenRegion().front();
+    Block& thenBlock = ifInbound.thenRegion().front();
     b.setInsertionPointToStart(innerLoop.getBody());
     for (auto ivs : llvm::enumerate(llvm::zip(innerLoop.getInductionVars(),
                                               outerLoop.getInductionVars()))) {
@@ -337,9 +334,8 @@ std::pair<ParallelOp, ParallelOp> tileParallelLoop(ParallelOp op,
 }
 
 int initReductionTileSizeOnCPU() {
-  const char *env = getenv("DISC_REDUCTION_TILE_SIZE");
-  if (!env)
-    return kReductionTileSizeOnCPU;
+  const char* env = getenv("DISC_REDUCTION_TILE_SIZE");
+  if (!env) return kReductionTileSizeOnCPU;
   return std::stoi(env);
 }
 
@@ -348,5 +344,5 @@ int getReductionTileSizeOnCPU() {
   return size;
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

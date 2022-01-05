@@ -15,6 +15,7 @@ limitations under the License.
 
 // This file implements the logic to flattern memref to 1D format.
 
+#include "llvm/Support/Debug.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
@@ -23,7 +24,6 @@ limitations under the License.
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "llvm/Support/Debug.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -33,24 +33,21 @@ namespace {
 using memref::ReinterpretCastOp;
 
 struct ReinterpretCastOpConverter : public OpRewritePattern<ReinterpretCastOp> {
-public:
+ public:
   using OpRewritePattern<ReinterpretCastOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(ReinterpretCastOp op,
-                                PatternRewriter &rewriter) const override;
+                                PatternRewriter& rewriter) const override;
 };
 
-LogicalResult
-ReinterpretCastOpConverter::matchAndRewrite(ReinterpretCastOp op,
-                                            PatternRewriter &rewriter) const {
+LogicalResult ReinterpretCastOpConverter::matchAndRewrite(
+    ReinterpretCastOp op, PatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   auto alloc = dyn_cast_or_null<memref::AllocOp>(op.source().getDefiningOp());
-  if (!alloc)
-    return failure();
+  if (!alloc) return failure();
 
   auto allocTy = alloc.getResult().getType().cast<MemRefType>();
-  if (allocTy != op.getType())
-    return failure();
+  if (allocTy != op.getType()) return failure();
 
   if (!allocTy.hasStaticShape()) {
     alloc->setOperands(op.sizes());
@@ -63,7 +60,7 @@ struct DiscMemrefCanonicalizer
     : DiscMemrefCanonicalizerBase<DiscMemrefCanonicalizer> {
   void runOnFunction() override {
     FuncOp func = getFunction();
-    MLIRContext *ctx = func.getContext();
+    MLIRContext* ctx = func.getContext();
 
     // Populate patterns.
     RewritePatternSet patterns(ctx);
@@ -72,11 +69,11 @@ struct DiscMemrefCanonicalizer
   }
 };
 
-} // namespace
+}  // namespace
 
 std::unique_ptr<FunctionPass> createDiscMemrefCanonicalizerPass() {
   return std::make_unique<DiscMemrefCanonicalizer>();
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

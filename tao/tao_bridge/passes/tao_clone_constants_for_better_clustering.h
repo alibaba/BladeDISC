@@ -16,11 +16,12 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_JIT_CLONE_CONSTANTS_FOR_BETTER_CLUSTERING_H_
 #define TENSORFLOW_COMPILER_JIT_CLONE_CONSTANTS_FOR_BETTER_CLUSTERING_H_
 
+#include <unordered_set>
+
 #include "tao_bridge/passes/tao_optimization_pass.h"
 #include "tensorflow/core/common_runtime/optimization_registry.h"
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/stream_executor/lib/statusor.h"
-#include <unordered_set>
 
 namespace tensorflow {
 namespace tao {
@@ -56,32 +57,32 @@ namespace tao {
 // which tend to be small anyway.
 
 class TaoCloneConstantsForBetterClusteringPass : public GraphOptimizationPass {
-public:
+ public:
   TaoCloneConstantsForBetterClusteringPass(bool use_tvm)
       : GraphOptimizationPass() {
     use_tvm_ = use_tvm;
   }
 
-  Status Run(const GraphOptimizationPassOptions &options) override;
-  void set_opts(const std::unique_ptr<TaoPassOptions> &opt) {
+  Status Run(const GraphOptimizationPassOptions& options) override;
+  void set_opts(const std::unique_ptr<TaoPassOptions>& opt) {
     if (opt) {
       use_tvm_ = opt->use_tvm;
     }
   }
 
-private:
+ private:
   bool use_tvm_;
 
   Status CloneSmallHostConstantInputs(
-      Graph *g, const std::unordered_set<string> &name_set, Node *n);
-  string GenerateUniqueName(const std::unordered_set<string> &name_set,
+      Graph* g, const std::unordered_set<string>& name_set, Node* n);
+  string GenerateUniqueName(const std::unordered_set<string>& name_set,
                             absl::string_view prefix);
-  se::port::StatusOr<Node *>
-  CloneNode(Graph *g, const std::unordered_set<string> &name_set, Node *n);
+  se::port::StatusOr<Node*> CloneNode(
+      Graph* g, const std::unordered_set<string>& name_set, Node* n);
 
   int unique_name_counter_ = 0;
 };
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TENSORFLOW_COMPILER_JIT_CLONE_CONSTANTS_FOR_BETTER_CLUSTERING_H_
+#endif  // TENSORFLOW_COMPILER_JIT_CLONE_CONSTANTS_FOR_BETTER_CLUSTERING_H_

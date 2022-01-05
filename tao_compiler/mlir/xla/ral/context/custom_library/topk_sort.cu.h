@@ -26,23 +26,23 @@ static const unsigned cuMemAlign = 256;
 static const unsigned batchBufLenFactor = 2;
 
 // ALIGNPTR
-int8_t *alignPtr(int8_t *ptr, uintptr_t to) {
+int8_t* alignPtr(int8_t* ptr, uintptr_t to) {
   uintptr_t addr = (uintptr_t)ptr;
   if (addr % to) {
     addr += to - addr % to;
   }
-  return (int8_t *)addr;
+  return (int8_t*)addr;
 }
 
 // NEXTWORKSPACEPTR
-int8_t *nextWorkspacePtr(int8_t *ptr, uintptr_t previousWorkspaceSize) {
+int8_t* nextWorkspacePtr(int8_t* ptr, uintptr_t previousWorkspaceSize) {
   uintptr_t addr = (uintptr_t)ptr;
   addr += previousWorkspaceSize;
-  return alignPtr((int8_t *)addr, cuMemAlign);
+  return alignPtr((int8_t*)addr, cuMemAlign);
 }
 
 // CALCULATE TOTAL WORKSPACE SIZE
-size_t calculateTotalWorkspaceSize(size_t *workspaces, int count) {
+size_t calculateTotalWorkspaceSize(size_t* workspaces, int count) {
   size_t total = 0;
   for (int i = 0; i < count; i++) {
     total += workspaces[i];
@@ -58,14 +58,15 @@ size_t resultBufferSize(const unsigned batchSize, const unsigned k) {
   return batchBufLenFactor * k * batchSize * sizeof(DType);
 }
 
-template <typename DType> size_t statusBufferSize(const unsigned batchSize) {
+template <typename DType>
+size_t statusBufferSize(const unsigned batchSize) {
   return batchSize * sizeof(DType);
 }
 
 template <typename Itype, typename Dtype>
-void batchedTopK(Dtype *ikey, Itype *ival, const Itype iLen, Dtype *okey,
-                 Itype *oval, const Itype oLen, void *tempBuffer,
-                 size_t &worksize, const Itype batch, cudaStream_t stream = 0) {
+void batchedTopK(Dtype* ikey, Itype* ival, const Itype iLen, Dtype* okey,
+                 Itype* oval, const Itype oLen, void* tempBuffer,
+                 size_t& worksize, const Itype batch, cudaStream_t stream = 0) {
   const Itype tempWidth = 2 * oLen;
   const Itype tempLen = batch * tempWidth;
   const Itype peel = 4 - ((tempLen + tempLen + batch) & 3);
@@ -85,31 +86,31 @@ void batchedTopK(Dtype *ikey, Itype *ival, const Itype iLen, Dtype *okey,
     return;
   }
 
-  Dtype *keyBuffer = (Dtype *)tempBuffer;
-  Dtype *multiTop2 = (Dtype *)nextWorkspacePtr(
-      (int8_t *)keyBuffer, resultBufferSize<Dtype>(batch, oLen));
-  Dtype *threshold = (Dtype *)nextWorkspacePtr(
-      (int8_t *)multiTop2, resultBufferSize<Dtype>(batch, oLen));
-  unsigned *idxBuffer = (unsigned *)nextWorkspacePtr(
-      (int8_t *)threshold, statusBufferSize<Dtype>(batch));
-  unsigned *numFiltered = (unsigned *)nextWorkspacePtr(
-      (int8_t *)idxBuffer, statusBufferSize<unsigned>(batch));
+  Dtype* keyBuffer = (Dtype*)tempBuffer;
+  Dtype* multiTop2 = (Dtype*)nextWorkspacePtr(
+      (int8_t*)keyBuffer, resultBufferSize<Dtype>(batch, oLen));
+  Dtype* threshold = (Dtype*)nextWorkspacePtr(
+      (int8_t*)multiTop2, resultBufferSize<Dtype>(batch, oLen));
+  unsigned* idxBuffer = (unsigned*)nextWorkspacePtr(
+      (int8_t*)threshold, statusBufferSize<Dtype>(batch));
+  unsigned* numFiltered = (unsigned*)nextWorkspacePtr(
+      (int8_t*)idxBuffer, statusBufferSize<unsigned>(batch));
 
   const unsigned batchBufLen = batchBufLenFactor * oLen;
 
-  batchedMultiSetsTop2Gpu(stream, batch, iLen, batchBufLen, oLen, (Dtype *)ikey,
+  batchedMultiSetsTop2Gpu(stream, batch, iLen, batchBufLen, oLen, (Dtype*)ikey,
                           multiTop2);
 
   batchedKthBiggestGpu(stream, batch, batchBufLen, oLen, multiTop2, threshold);
 
-  batchedFilterNCompressGpu(
-      stream, batch, iLen, batchBufLen, oLen, (Dtype *)ikey, (Dtype *)threshold,
-      (Dtype *)keyBuffer, (unsigned *)idxBuffer, (unsigned *)numFiltered);
+  batchedFilterNCompressGpu(stream, batch, iLen, batchBufLen, oLen,
+                            (Dtype*)ikey, (Dtype*)threshold, (Dtype*)keyBuffer,
+                            (unsigned*)idxBuffer, (unsigned*)numFiltered);
 
   batchedFilteredTop128Gpu(
-      stream, batch, iLen, oLen, batchBufLen, (Dtype *)ikey, (Dtype *)keyBuffer,
-      (unsigned *)idxBuffer, (Dtype *)multiTop2, (Dtype *)threshold,
-      (unsigned *)numFiltered, (Dtype *)okey, (unsigned *)oval);
+      stream, batch, iLen, oLen, batchBufLen, (Dtype*)ikey, (Dtype*)keyBuffer,
+      (unsigned*)idxBuffer, (Dtype*)multiTop2, (Dtype*)threshold,
+      (unsigned*)numFiltered, (Dtype*)okey, (unsigned*)oval);
 }
 
-#endif // DYN_SORT_TOP_K_SORT_H_
+#endif  // DYN_SORT_TOP_K_SORT_H_

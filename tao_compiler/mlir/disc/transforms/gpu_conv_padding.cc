@@ -20,15 +20,15 @@ limitations under the License.
 // input tensor such that we can pass it to cuDNN.
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h" // TF:llvm-project
-#include "mlir/Dialect/Tensor/IR/Tensor.h"   // TF:llvm-project
-#include "mlir/IR/Attributes.h"              // TF:llvm-project
-#include "mlir/IR/Builders.h"                // TF:llvm-project
-#include "mlir/IR/Location.h"                // TF:llvm-project
-#include "mlir/IR/MLIRContext.h"             // TF:llvm-project
-#include "mlir/IR/Matchers.h"                // TF:llvm-project
-#include "mlir/IR/Operation.h"               // TF:llvm-project
-#include "mlir/Pass/Pass.h"                  // TF:local_config_mlir
+#include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
+#include "mlir/Dialect/Tensor/IR/Tensor.h"    // TF:llvm-project
+#include "mlir/IR/Attributes.h"               // TF:llvm-project
+#include "mlir/IR/Builders.h"                 // TF:llvm-project
+#include "mlir/IR/Location.h"                 // TF:llvm-project
+#include "mlir/IR/MLIRContext.h"              // TF:llvm-project
+#include "mlir/IR/Matchers.h"                 // TF:llvm-project
+#include "mlir/IR/Operation.h"                // TF:llvm-project
+#include "mlir/Pass/Pass.h"                   // TF:local_config_mlir
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "transforms/PassDetail.h"
 #include "transforms/placement_utils.h"
@@ -45,7 +45,7 @@ struct DiscGpuConvPaddingLegalizationPass
       : GpuConvPaddingLegalizationPassBase<DiscGpuConvPaddingLegalizationPass>::
             GpuConvPaddingLegalizationPassBase() {}
 
-  void getDependentDialects(DialectRegistry &registry) const override {
+  void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<tensor::TensorDialect>();
   }
 
@@ -69,8 +69,7 @@ struct DiscGpuConvPaddingLegalizationPass
         int64_t padding_low = (*it++).getSExtValue();
         assert(it != int_values.end());
         int64_t padding_high = (*it++).getSExtValue();
-        if (padding_low != padding_high)
-          return false;
+        if (padding_low != padding_high) return false;
       }
       return true;
     }
@@ -215,7 +214,7 @@ struct DiscGpuConvPaddingLegalizationPass
     SmallVector<mhlo::DynamicConvOp, 4> ops;
     getFunction().walk([&](mhlo::DynamicConvOp op) { ops.push_back(op); });
 
-    for (auto &op : ops) {
+    for (auto& op : ops) {
       if (placement_utils::isGpuMhlo(op)) {
         RewriteOp(op);
       }
@@ -223,11 +222,11 @@ struct DiscGpuConvPaddingLegalizationPass
   }
 };
 
-} // namespace
+}  // namespace
 
 std::unique_ptr<OperationPass<FuncOp>> createDiscGpuConvPaddingLegalization() {
   return std::make_unique<DiscGpuConvPaddingLegalizationPass>();
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

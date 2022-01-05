@@ -14,6 +14,7 @@
 #include <sstream>
 
 #include "absl/memory/memory.h"
+#include "gtest/gtest.h"
 #include "tao_bridge/test_helpers.h"
 #include "tao_bridge/tf/xla_op_registry.h"
 #include "tao_bridge/tf_compatible.h"
@@ -22,7 +23,6 @@
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/graph/algorithm.h"
 #include "tensorflow/core/graph/graph_def_builder.h"
-#include "gtest/gtest.h"
 
 namespace tensorflow {
 namespace tao {
@@ -43,19 +43,19 @@ REGISTER_OP("FakeBinary")
     .Output("output: float");
 
 class FakeBinaryOp : public OpKernel {
-public:
-  explicit FakeBinaryOp(OpKernelConstruction *context) : OpKernel(context) {}
+ public:
+  explicit FakeBinaryOp(OpKernelConstruction* context) : OpKernel(context) {}
 
-  void Compute(OpKernelContext *ctx) override { CHECK(false); }
+  void Compute(OpKernelContext* ctx) override { CHECK(false); }
 };
 
 REGISTER_KERNEL_BUILDER(Name("FakeBinary").Device(DEVICE_CPU), FakeBinaryOp);
 
-Status CloneConstant(std::unique_ptr<Graph> *graph) {
+Status CloneConstant(std::unique_ptr<Graph>* graph) {
   FixupSourceAndSinkEdges(graph->get());
   // Assign all nodes to the CPU device.
-  static const char *kCpuDevice = "/job:localhost/replica:0/task:0/cpu:0";
-  for (Node *n : (*graph)->nodes()) {
+  static const char* kCpuDevice = "/job:localhost/replica:0/task:0/cpu:0";
+  for (Node* n : (*graph)->nodes()) {
     if (n->assigned_device_name().empty()) {
       n->set_assigned_device_name(kCpuDevice);
     }
@@ -70,8 +70,8 @@ Status CloneConstant(std::unique_ptr<Graph> *graph) {
   return pass.Run(opt_options);
 }
 
-Node *FindNodeByName(const Graph &graph, const string &name) {
-  for (Node *node : graph.nodes()) {
+Node* FindNodeByName(const Graph& graph, const string& name) {
+  for (Node* node : graph.nodes()) {
     if (node->name() == name) {
       return node;
     }
@@ -79,13 +79,13 @@ Node *FindNodeByName(const Graph &graph, const string &name) {
   return nullptr;
 }
 
-bool GetInputsForNode(const Graph &graph, const string &node_name,
-                      std::vector<Node *> *inputs) {
-  const Node *node = FindNodeByName(graph, node_name);
+bool GetInputsForNode(const Graph& graph, const string& node_name,
+                      std::vector<Node*>* inputs) {
+  const Node* node = FindNodeByName(graph, node_name);
   if (node == nullptr) {
     return false;
   }
-  for (const Edge *e : node->in_edges()) {
+  for (const Edge* e : node->in_edges()) {
     inputs->push_back(e->src());
   }
   std::sort(inputs->begin(), inputs->end(), NodeComparatorName());
@@ -96,11 +96,11 @@ TEST(CloneConstantPassTest, Base) {
   std::unique_ptr<Graph> graph(new Graph(OpRegistry::Global()));
   {
     GraphDefBuilder builder(GraphDefBuilder::kFailImmediately);
-    Node *input_0 =
+    Node* input_0 =
         ops::SourceOp("FakeNullary", builder.opts().WithName("Input_0"));
-    Node *input_1 =
+    Node* input_1 =
         ops::SourceOp("FakeNullary", builder.opts().WithName("Input_1"));
-    Node *constant = ops::SourceOp("Const", builder.opts()
+    Node* constant = ops::SourceOp("Const", builder.opts()
                                                 .WithName("Const")
                                                 .WithAttr("dtype", DT_FLOAT)
                                                 .WithAttr("value", Tensor()));
@@ -111,8 +111,8 @@ TEST(CloneConstantPassTest, Base) {
                   builder.opts().WithName("Operation_1"));
     TF_EXPECT_OK(GraphDefBuilderToGraph(builder, graph.get()));
   }
-  std::vector<Node *> operation_0_inputs;
-  std::vector<Node *> operation_1_inputs;
+  std::vector<Node*> operation_0_inputs;
+  std::vector<Node*> operation_1_inputs;
 
   ASSERT_TRUE(GetInputsForNode(*graph, "Operation_0", &operation_0_inputs));
   ASSERT_TRUE(GetInputsForNode(*graph, "Operation_1", &operation_1_inputs));
@@ -157,6 +157,6 @@ TEST(CloneConstantPassTest, Base) {
   }
 }
 
-} // namespace
-} // namespace tao
-} // namespace tensorflow
+}  // namespace
+}  // namespace tao
+}  // namespace tensorflow

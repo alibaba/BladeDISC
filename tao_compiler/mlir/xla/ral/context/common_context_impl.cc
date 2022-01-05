@@ -32,8 +32,8 @@
 // If we're on gcc 4.8 or older, there's a known bug that prevents the use of
 // intrinsics when the architecture is not defined in the flags. See
 // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=57202
-#if !defined(__SSE3__) && !defined(__clang__) &&                               \
-    (defined(__GNUC__) && (__GNUC__ < 4) ||                                    \
+#if !defined(__SSE3__) && !defined(__clang__) && \
+    (defined(__GNUC__) && (__GNUC__ < 4) ||      \
      ((__GNUC__ == 4) && (__GNUC_MINOR__ < 9)))
 #define GCC_WITHOUT_INTRINSICS
 #endif
@@ -54,14 +54,13 @@ using cpu::CpuLaunchDims;
 namespace {
 
 bool initDebugMode() {
-  const char *env = getenv("DISC_DEBUG");
+  const char* env = getenv("DISC_DEBUG");
   return env != nullptr && std::string(env) == "true";
 }
 
 bool initEnableGlobalConstantStore() {
-  const char *env = getenv("DISC_USE_GLOBAL_CONST_STORE");
-  if (!env)
-    return false;
+  const char* env = getenv("DISC_USE_GLOBAL_CONST_STORE");
+  if (!env) return false;
   std::string envStr = env;
   std::transform(envStr.begin(), envStr.end(), envStr.begin(),
                  [](unsigned char c) { return std::tolower(c); });
@@ -69,9 +68,8 @@ bool initEnableGlobalConstantStore() {
 }
 
 bool initProfileMode() {
-  const char *env = getenv("DISC_CPU_ENABLE_PROFILE");
-  if (!env)
-    return false;
+  const char* env = getenv("DISC_CPU_ENABLE_PROFILE");
+  if (!env) return false;
   std::string envStr = env;
   std::transform(envStr.begin(), envStr.end(), envStr.begin(),
                  [](unsigned char c) { return std::tolower(c); });
@@ -84,9 +82,8 @@ bool isProfilingEnabled() {
 }
 
 bool initFlushDenormalMode() {
-  const char *env = getenv("DISC_CPU_ENABLE_FLUSH_DENORMAL");
-  if (!env)
-    return false;
+  const char* env = getenv("DISC_CPU_ENABLE_FLUSH_DENORMAL");
+  if (!env) return false;
   std::string envStr = env;
   std::transform(envStr.begin(), envStr.end(), envStr.begin(),
                  [](unsigned char c) { return std::tolower(c); });
@@ -99,8 +96,7 @@ bool isFlushDenormalEnabled() {
 }
 
 bool setDenormalState(bool on) {
-  if (!isFlushDenormalEnabled())
-    return false;
+  if (!isFlushDenormalEnabled()) return false;
 #ifdef X86_DENORM_USE_INTRINSICS
   // Restore flags
   _MM_SET_FLUSH_ZERO_MODE(on ? _MM_FLUSH_ZERO_ON : _MM_FLUSH_ZERO_OFF);
@@ -119,7 +115,7 @@ bool ensureDenormalState(bool on) {
 }
 
 struct CpuTimer {
-  CpuTimer(const char *message) : message(message) {
+  CpuTimer(const char* message) : message(message) {
     if (isProfilingEnabled()) {
       start = std::chrono::steady_clock::now();
     }
@@ -128,8 +124,7 @@ struct CpuTimer {
   ~CpuTimer() { Stop(); }
 
   void Stop() {
-    if (stopped)
-      return;
+    if (stopped) return;
     stopped = true;
     if (isProfilingEnabled()) {
       finish = std::chrono::steady_clock::now();
@@ -147,13 +142,13 @@ struct CpuTimer {
   size_t GetNanoSeconds() { return nanoseconds; }
 
   bool stopped = false;
-  const char *message;
+  const char* message;
   std::chrono::steady_clock::time_point start;
   std::chrono::steady_clock::time_point finish;
   size_t nanoseconds = 0;
 };
 
-} // namespace
+}  // namespace
 
 bool isDebugMode() {
   static bool debug_mode = initDebugMode();
@@ -165,12 +160,12 @@ bool discEnableGlobalConstantStore() {
   return enabled;
 }
 
-ConstStoreRegistrar &ConstStoreRegistrar::Instance() {
+ConstStoreRegistrar& ConstStoreRegistrar::Instance() {
   static ConstStoreRegistrar instance;
   return instance;
 }
 
-bool ConstStoreRegistrar::unregisterConstStore(ProcessLevelConstStore *store) {
+bool ConstStoreRegistrar::unregisterConstStore(ProcessLevelConstStore* store) {
   std::lock_guard<std::mutex> l(mu);
   auto it = referenceCounter.find(store);
   assert(it != referenceCounter.end());
@@ -182,12 +177,12 @@ bool ConstStoreRegistrar::unregisterConstStore(ProcessLevelConstStore *store) {
   return true;
 }
 
-ProcessLevelConstStore *
-ConstStoreRegistrar::getConstStore(std::string pb_file_path) {
+ProcessLevelConstStore* ConstStoreRegistrar::getConstStore(
+    std::string pb_file_path) {
   std::lock_guard<std::mutex> l(mu);
   auto it = pbFile2Instance.find(pb_file_path);
   if (it == pbFile2Instance.end()) {
-    ProcessLevelConstStore *const_store = new ProcessLevelConstStore;
+    ProcessLevelConstStore* const_store = new ProcessLevelConstStore;
     const_store->pb_file_path = pb_file_path;
     parseMetadataPb(pb_file_path, &(const_store->state.metadata_proto));
     it =
@@ -198,15 +193,14 @@ ConstStoreRegistrar::getConstStore(std::string pb_file_path) {
 }
 
 #ifdef TAO_CPU_ONLY
-void RalGlobalConstantState::onContextFinish(Context *ctx) /* override */ {
+void RalGlobalConstantState::onContextFinish(Context* ctx) /* override */ {
   if (process_level_store) {
     bool owned = ConstStoreRegistrar::Instance().unregisterConstStore(
         process_level_store);
-    if (!owned)
-      return;
+    if (!owned) return;
     auto cpu_driver =
-        static_cast<cpu::CPUDriver *>(ctx->getDriver(cpu::CPUDriver::name()));
-    for (auto &e : process_level_store->state.host_constants) {
+        static_cast<cpu::CPUDriver*>(ctx->getDriver(cpu::CPUDriver::name()));
+    for (auto& e : process_level_store->state.host_constants) {
       cpu_driver->raw_dealloc(ctx, e.second.first);
     }
     delete process_level_store;
@@ -217,18 +211,18 @@ void RalGlobalConstantState::onContextFinish(Context *ctx) /* override */ {
 }
 #endif
 
-const char *kRalGlobalConstantState = "ral_global_constant_state";
+const char* kRalGlobalConstantState = "ral_global_constant_state";
 
 const std::map<std::pair<int, int>, size_t> c_CC_INDEX_MAP{
     // compute_60, reserved for fallback
-    {{7, 0}, 1}, // sm_70
-    {{7, 5}, 2}, // sm_75
-    {{8, 0}, 3}, // sm_80
-    {{8, 6}, 4}  // sm_86
+    {{7, 0}, 1},  // sm_70
+    {{7, 5}, 2},  // sm_75
+    {{8, 0}, 3},  // sm_80
+    {{8, 6}, 4}   // sm_86
 };
 
-int parseMetadataPb(const std::string &pb_file_path,
-                    mlir::MetadataProto *proto) {
+int parseMetadataPb(const std::string& pb_file_path,
+                    mlir::MetadataProto* proto) {
   int fileDescriptor = open(pb_file_path.c_str(), O_RDONLY);
   if (fileDescriptor < 0) {
     TAO_VLOG(0) << "Error file not found: " << pb_file_path;
@@ -253,8 +247,8 @@ int parseMetadataPb(const std::string &pb_file_path,
   return 0;
 }
 
-buffer_shape_t GetShapeFromConstUniqueName(ExecutionContext *ctx,
-                                           const std::string &unique_name) {
+buffer_shape_t GetShapeFromConstUniqueName(ExecutionContext* ctx,
+                                           const std::string& unique_name) {
   std::vector<std::string> splitted = absl::StrSplit(unique_name, '_');
   if (splitted.size() != 3) {
     ctx->signalError(Context::FAILURE,
@@ -263,7 +257,7 @@ buffer_shape_t GetShapeFromConstUniqueName(ExecutionContext *ctx,
   buffer_shape_t shape;
   if (!splitted[2].empty()) {
     std::vector<std::string> dims_splitted = absl::StrSplit(splitted[2], 'x');
-    for (auto &dim : dims_splitted) {
+    for (auto& dim : dims_splitted) {
       shape.emplace_back(std::stoi(dim));
     }
   }
@@ -295,7 +289,7 @@ inline uint8_t hexFromNibbles(char MSB, char LSB) {
 
 /// Convert hexadecimal string \p Input to its binary representation.
 /// The return string is half the size of \p Input.
-std::vector<uint8_t> fromHex(const std::string &Input) {
+std::vector<uint8_t> fromHex(const std::string& Input) {
   std::vector<uint8_t> ret;
   size_t src_idx = 0;
   if (Input.size() % 2 == 1) {
@@ -310,10 +304,10 @@ std::vector<uint8_t> fromHex(const std::string &Input) {
   return ret;
 }
 
-inline buffer_t ral_base_cuda_const_host_internal(ExecutionContext *ctx,
-                                                  const char *unique_name,
-                                                  buffer_shape_t &shape) {
-  auto *state =
+inline buffer_t ral_base_cuda_const_host_internal(ExecutionContext* ctx,
+                                                  const char* unique_name,
+                                                  buffer_shape_t& shape) {
+  auto* state =
       ctx->getResource<RalGlobalConstantState>(kRalGlobalConstantState);
   // if process-level const store is enabled, use it instead of the context
   // level store.
@@ -331,7 +325,7 @@ inline buffer_t ral_base_cuda_const_host_internal(ExecutionContext *ctx,
     if (it == state->host_constants.end()) {
       buffer_shape_t dim_sizes = GetShapeFromConstUniqueName(ctx, unique_name);
       // alloc, get value from metadata file
-      const auto &constants = state->metadata_proto.host_global_constants();
+      const auto& constants = state->metadata_proto.host_global_constants();
       if (constants.find(key) == constants.end()) {
         std::string msg =
             "const unique_name " + key + "not found in metadata file";
@@ -362,9 +356,9 @@ inline buffer_t ral_base_cuda_const_host_internal(ExecutionContext *ctx,
 }
 
 template <typename T, int N>
-MemRefType<T, N> ral_base_cuda_const_host(ExecutionContext *ctx,
-                                          void *stream_handle,
-                                          const char *unique_name) {
+MemRefType<T, N> ral_base_cuda_const_host(ExecutionContext* ctx,
+                                          void* stream_handle,
+                                          const char* unique_name) {
   buffer_shape_t shape;
   buffer_t ptr = ral_base_cuda_const_host_internal(ctx, unique_name, shape);
   if (shape.size() != N) {
@@ -376,9 +370,9 @@ MemRefType<T, N> ral_base_cuda_const_host(ExecutionContext *ctx,
 }
 
 template <typename T>
-MemRefType<T, 0> ral_base_cuda_const_host_0d(ExecutionContext *ctx,
-                                             void *stream_handle,
-                                             const char *unique_name) {
+MemRefType<T, 0> ral_base_cuda_const_host_0d(ExecutionContext* ctx,
+                                             void* stream_handle,
+                                             const char* unique_name) {
   buffer_shape_t shape;
   buffer_t ptr = ral_base_cuda_const_host_internal(ctx, unique_name, shape);
   if (shape.size() != 0) {
@@ -389,14 +383,14 @@ MemRefType<T, 0> ral_base_cuda_const_host_0d(ExecutionContext *ctx,
   return assignMemRef_0d<T>(ptr);
 }
 
-#define RAL_REGISTER_CONST_HOST_FUNC(T, N)                                     \
-  template MemRefType<T, N> ral_base_cuda_const_host<T, N>(                    \
-      ExecutionContext * ctx, void *, const char *unique_name);                \
+#define RAL_REGISTER_CONST_HOST_FUNC(T, N)                     \
+  template MemRefType<T, N> ral_base_cuda_const_host<T, N>(    \
+      ExecutionContext * ctx, void*, const char* unique_name); \
   TAO_RAL_API(tao::ral::kRalHostConst, "cpu", ral_base_cuda_const_host<T, N>);
 
-#define RAL_REGISTER_CONST_HOST_FUNC_0D(T)                                     \
-  template MemRefType<T, 0> ral_base_cuda_const_host_0d<T>(                    \
-      ExecutionContext * ctx, void *, const char *unique_name);                \
+#define RAL_REGISTER_CONST_HOST_FUNC_0D(T)                     \
+  template MemRefType<T, 0> ral_base_cuda_const_host_0d<T>(    \
+      ExecutionContext * ctx, void*, const char* unique_name); \
   TAO_RAL_API(tao::ral::kRalHostConst, "cpu", ral_base_cuda_const_host_0d<T>);
 
 RAL_REGISTER_CONST_HOST_FUNC_0D(double);
@@ -435,17 +429,18 @@ RAL_REGISTER_CONST_HOST_FUNC(bool, 4);
 RAL_REGISTER_CONST_HOST_FUNC(bool, 5);
 RAL_REGISTER_CONST_HOST_FUNC(bool, 6);
 
-static inline void *ral_aligned_malloc(ExecutionContext *ctx, int64_t size) {
+static inline void* ral_aligned_malloc(ExecutionContext* ctx, int64_t size) {
   return aligned_malloc(size);
 }
 
-static inline void ral_free(ExecutionContext *ctx, void *p) { free(p); }
+static inline void ral_free(ExecutionContext* ctx, void* p) { free(p); }
 
 TAO_RAL_API("ral_aligned_malloc", "cpu", ral_aligned_malloc);
 TAO_RAL_API("ral_free", "cpu", ral_free);
 
 #ifdef TAO_CPU_ONLY
-template <typename T, int N> int64_t GetBatchSize(MemRefType<T, N> memref) {
+template <typename T, int N>
+int64_t GetBatchSize(MemRefType<T, N> memref) {
   int64_t batch = 1;
   for (int64_t i = 0; i < N - 2; ++i) {
     batch *= memref.sizes[i];
@@ -454,7 +449,7 @@ template <typename T, int N> int64_t GetBatchSize(MemRefType<T, N> memref) {
 }
 
 template <typename T, int N, typename E = float>
-void ral_batch_gemm(ExecutionContext *ctx, void *stream_handle,
+void ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
                     MemRefType<T, N> A, MemRefType<T, N> B, MemRefType<T, N> C,
                     bool tp_a, bool tp_b) {
 #ifndef PLATFORM_ALIBABA
@@ -489,9 +484,9 @@ void ral_batch_gemm(ExecutionContext *ctx, void *stream_handle,
   long long k = tp_a ? A.sizes[N - 2] : A.sizes[N - 1];
   long long kb = tp_b ? B.sizes[N - 1] : B.sizes[N - 2];
   assert(kb == k);
-  const T *pa = A.data;
-  const T *pb = B.data;
-  T *pc = C.data;
+  const T* pa = A.data;
+  const T* pb = B.data;
+  T* pc = C.data;
 #ifdef PLATFORM_ALIBABA
   patine::client::batch_gemm(pa, pb, pc, batch_a, m, n, k, tp_a, tp_b);
 #endif
@@ -526,7 +521,7 @@ TAO_RAL_API("ral_gemm", "cpu", ral_batch_gemm<float, 3>);
 TAO_RAL_API("ral_gemm", "cpu", ral_batch_gemm<float, 4>);
 
 template <typename T, typename E = float>
-void ral_gemm(ExecutionContext *ctx, void *stream_handle, MemRefType<T, 2> A,
+void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<T, 2> A,
               MemRefType<T, 2> B, MemRefType<T, 2> C, bool tp_a, bool tp_b) {
 #ifndef PLATFORM_ALIBABA
   ctx->signalError(Context::FAILURE,
@@ -540,9 +535,9 @@ void ral_gemm(ExecutionContext *ctx, void *stream_handle, MemRefType<T, 2> A,
   long long m = tp_a ? A.sizes[1] : A.sizes[0];
   long long n = tp_b ? B.sizes[0] : B.sizes[1];
   long long k = tp_a ? A.sizes[0] : A.sizes[1];
-  T *pa = A.data;
-  T *pb = B.data;
-  T *pc = C.data;
+  T* pa = A.data;
+  T* pb = B.data;
+  T* pc = C.data;
   assert((tp_b ? B.sizes[1] : B.sizes[0]) == k);
   assert(C.sizes[0] == m);
   assert(C.sizes[1] == n);
@@ -577,7 +572,7 @@ void ral_gemm(ExecutionContext *ctx, void *stream_handle, MemRefType<T, 2> A,
 
 TAO_RAL_API("ral_gemm", "cpu", ral_gemm<float>);
 
-bool layout_match(const std::vector<int32_t> &ref,
+bool layout_match(const std::vector<int32_t>& ref,
                   MemRefType<int32_t, 1> metadata) {
   if (ref.size() > metadata.sizes[0]) {
     return false;
@@ -591,13 +586,14 @@ bool layout_match(const std::vector<int32_t> &ref,
 }
 
 template <typename T, int N>
-void ral_conv(ExecutionContext *ctx, void *stream_handle,
+void ral_conv(ExecutionContext* ctx, void* stream_handle,
               MemRefType<T, N> input, MemRefType<T, N> kernel,
               MemRefType<int32_t, 1> padding, MemRefType<T, N> output,
               MemRefType<int32_t, 1> metadata) {
 #ifndef PLATFORM_ALIBABA
-  ctx->signalError(Context::FAILURE, "ral_conv has no implementation yet, which"
-                                     " is on the road.");
+  ctx->signalError(Context::FAILURE,
+                   "ral_conv has no implementation yet, which"
+                   " is on the road.");
 #endif
   static_assert(N == 4, "Only conv2d supported for now");
   CpuTimer timer("ral_cpu_conv");
@@ -622,15 +618,15 @@ void ral_conv(ExecutionContext *ctx, void *stream_handle,
   }
   int32_t n = input.sizes[0];
   assert(n == output.sizes[0]);
-  T *a_data = input.data;
-  T *b_data = kernel.data;
-  T *c_data = output.data;
+  T* a_data = input.data;
+  T* b_data = kernel.data;
+  T* c_data = output.data;
   const std::vector<int32_t> nchw_oihw_layout = {0, 1, 2, 3, 1, 0,
                                                  2, 3, 0, 1, 2, 3};
   const std::vector<int32_t> nhwc_hwio_layout = {0, 3, 1, 2, 2, 3,
                                                  0, 1, 0, 3, 1, 2};
-  const char *data_layout;
-  const char *kernel_layout;
+  const char* data_layout;
+  const char* kernel_layout;
   int32_t ic = 0;
   int32_t oc = 0;
   int32_t ih = 0;
@@ -704,116 +700,116 @@ void ral_conv(ExecutionContext *ctx, void *stream_handle,
 
 TAO_RAL_API("ral_conv", "cpu", ral_conv<float, 4>);
 
-#define DISC_CPU_LAUNCH_LOOP_IMPL(i)                                           \
+#define DISC_CPU_LAUNCH_LOOP_IMPL(i) \
   for (int64_t iv##i = lowerBound[i]; iv##i < upperBound[i]; iv##i += step[i])
 
-#define DISC_CPU_DEFINE_TYPED_KERNEL_0(...)                                    \
-  using kernelT = void (*)(__VA_ARGS__, void **);                              \
+#define DISC_CPU_DEFINE_TYPED_KERNEL_0(...)      \
+  using kernelT = void (*)(__VA_ARGS__, void**); \
   auto typedKernel = kernelT(kernel);
 
 #define DISC_CPU_LAUNCH_LOOP_0(...) __VA_ARGS__
 
 #define DISC_CPU_CALL_KERNEL_0(...) typedKernel(__VA_ARGS__, params);
 
-#define DISC_CPU_DEFINE_TYPED_KERNEL(numIVs)                                   \
+#define DISC_CPU_DEFINE_TYPED_KERNEL(numIVs) \
   DISC_CPU_DEFINE_TYPED_KERNEL_##numIVs()
 
 #define DISC_CPU_LAUNCH_LOOP(numIVs) DISC_CPU_LAUNCH_LOOP_##numIVs()
 
 #define DISC_CPU_CALL_KERNEL(numIVs) DISC_CPU_CALL_KERNEL_##numIVs()
 
-#define DISC_CPU_LOOP_LAUNCH(numIVs)                                           \
-  void disc_ral_cpu_launch_##numIVs##d(                                        \
-      ExecutionContext *ctx, const char *kernel_name,                          \
-      const std::vector<int64_t> &lowerBound,                                  \
-      const std::vector<int64_t> &upperBound,                                  \
-      const std::vector<int64_t> &step, void *kernel, void **params)
+#define DISC_CPU_LOOP_LAUNCH(numIVs)                  \
+  void disc_ral_cpu_launch_##numIVs##d(               \
+      ExecutionContext* ctx, const char* kernel_name, \
+      const std::vector<int64_t>& lowerBound,         \
+      const std::vector<int64_t>& upperBound,         \
+      const std::vector<int64_t>& step, void* kernel, void** params)
 
-#define DISC_CPU_DEFINE_TYPED_KERNEL_1_HELPER(...)                             \
+#define DISC_CPU_DEFINE_TYPED_KERNEL_1_HELPER(...) \
   DISC_CPU_DEFINE_TYPED_KERNEL_0(int64_t, __VA_ARGS__)
-#define DISC_CPU_DEFINE_TYPED_KERNEL_1(...)                                    \
+#define DISC_CPU_DEFINE_TYPED_KERNEL_1(...) \
   DISC_CPU_DEFINE_TYPED_KERNEL_0(int64_t)
-#define DISC_CPU_LAUNCH_LOOP_1(...)                                            \
-  DISC_CPU_LAUNCH_LOOP_0(__VA_ARGS__)                                          \
+#define DISC_CPU_LAUNCH_LOOP_1(...)   \
+  DISC_CPU_LAUNCH_LOOP_0(__VA_ARGS__) \
   DISC_CPU_LAUNCH_LOOP_IMPL(0)
-#define DISC_CPU_CALL_KERNEL_1_HELPER(...)                                     \
+#define DISC_CPU_CALL_KERNEL_1_HELPER(...) \
   DISC_CPU_CALL_KERNEL_0(iv0, __VA_ARGS__)
 #define DISC_CPU_CALL_KERNEL_1(...) DISC_CPU_CALL_KERNEL_0(iv0)
 
-#define DISC_CPU_DEFINE_TYPED_KERNEL_2_HELPER(...)                             \
+#define DISC_CPU_DEFINE_TYPED_KERNEL_2_HELPER(...) \
   DISC_CPU_DEFINE_TYPED_KERNEL_1_HELPER(int64_t, __VA_ARGS__)
-#define DISC_CPU_DEFINE_TYPED_KERNEL_2(...)                                    \
+#define DISC_CPU_DEFINE_TYPED_KERNEL_2(...) \
   DISC_CPU_DEFINE_TYPED_KERNEL_1_HELPER(int64_t)
-#define DISC_CPU_LAUNCH_LOOP_2(...)                                            \
-  DISC_CPU_LAUNCH_LOOP_1(__VA_ARGS__)                                          \
+#define DISC_CPU_LAUNCH_LOOP_2(...)   \
+  DISC_CPU_LAUNCH_LOOP_1(__VA_ARGS__) \
   DISC_CPU_LAUNCH_LOOP_IMPL(1)
-#define DISC_CPU_CALL_KERNEL_2_HELPER(...)                                     \
+#define DISC_CPU_CALL_KERNEL_2_HELPER(...) \
   DISC_CPU_CALL_KERNEL_1_HELPER(iv1, __VA_ARGS__)
 #define DISC_CPU_CALL_KERNEL_2(...) DISC_CPU_CALL_KERNEL_1_HELPER(iv1)
 
-#define DISC_CPU_DEFINE_TYPED_KERNEL_3_HELPER(...)                             \
+#define DISC_CPU_DEFINE_TYPED_KERNEL_3_HELPER(...) \
   DISC_CPU_DEFINE_TYPED_KERNEL_2_HELPER(int64_t, __VA_ARGS__)
-#define DISC_CPU_DEFINE_TYPED_KERNEL_3(...)                                    \
+#define DISC_CPU_DEFINE_TYPED_KERNEL_3(...) \
   DISC_CPU_DEFINE_TYPED_KERNEL_2_HELPER(int64_t)
-#define DISC_CPU_LAUNCH_LOOP_3(...)                                            \
-  DISC_CPU_LAUNCH_LOOP_2(__VA_ARGS__)                                          \
+#define DISC_CPU_LAUNCH_LOOP_3(...)   \
+  DISC_CPU_LAUNCH_LOOP_2(__VA_ARGS__) \
   DISC_CPU_LAUNCH_LOOP_IMPL(2)
-#define DISC_CPU_CALL_KERNEL_3_HELPER(...)                                     \
+#define DISC_CPU_CALL_KERNEL_3_HELPER(...) \
   DISC_CPU_CALL_KERNEL_2_HELPER(iv2, __VA_ARGS__)
 #define DISC_CPU_CALL_KERNEL_3(...) DISC_CPU_CALL_KERNEL_2_HELPER(iv2)
 
-#define DISC_CPU_DEFINE_TYPED_KERNEL_4_HELPER(...)                             \
+#define DISC_CPU_DEFINE_TYPED_KERNEL_4_HELPER(...) \
   DISC_CPU_DEFINE_TYPED_KERNEL_3_HELPER(int64_t, __VA_ARGS__)
-#define DISC_CPU_DEFINE_TYPED_KERNEL_4(...)                                    \
+#define DISC_CPU_DEFINE_TYPED_KERNEL_4(...) \
   DISC_CPU_DEFINE_TYPED_KERNEL_3_HELPER(int64_t)
-#define DISC_CPU_LAUNCH_LOOP_4(...)                                            \
-  DISC_CPU_LAUNCH_LOOP_3(__VA_ARGS__)                                          \
+#define DISC_CPU_LAUNCH_LOOP_4(...)   \
+  DISC_CPU_LAUNCH_LOOP_3(__VA_ARGS__) \
   DISC_CPU_LAUNCH_LOOP_IMPL(3)
-#define DISC_CPU_CALL_KERNEL_4_HELPER(...)                                     \
+#define DISC_CPU_CALL_KERNEL_4_HELPER(...) \
   DISC_CPU_CALL_KERNEL_3_HELPER(iv3, __VA_ARGS__)
 #define DISC_CPU_CALL_KERNEL_4(...) DISC_CPU_CALL_KERNEL_3_HELPER(iv3)
 
-#define DISC_CPU_DEFINE_TYPED_KERNEL_5_HELPER(...)                             \
+#define DISC_CPU_DEFINE_TYPED_KERNEL_5_HELPER(...) \
   DISC_CPU_DEFINE_TYPED_KERNEL_4_HELPER(int64_t, __VA_ARGS__)
-#define DISC_CPU_DEFINE_TYPED_KERNEL_5(...)                                    \
+#define DISC_CPU_DEFINE_TYPED_KERNEL_5(...) \
   DISC_CPU_DEFINE_TYPED_KERNEL_4_HELPER(int64_t)
-#define DISC_CPU_LAUNCH_LOOP_5(...)                                            \
-  DISC_CPU_LAUNCH_LOOP_4(__VA_ARGS__)                                          \
+#define DISC_CPU_LAUNCH_LOOP_5(...)   \
+  DISC_CPU_LAUNCH_LOOP_4(__VA_ARGS__) \
   DISC_CPU_LAUNCH_LOOP_IMPL(4)
-#define DISC_CPU_CALL_KERNEL_5_HELPER(...)                                     \
+#define DISC_CPU_CALL_KERNEL_5_HELPER(...) \
   DISC_CPU_CALL_KERNEL_4_HELPER(iv4, __VA_ARGS__)
 #define DISC_CPU_CALL_KERNEL_5(...) DISC_CPU_CALL_KERNEL_4_HELPER(iv4)
 
-#define DISC_CPU_DEFINE_TYPED_KERNEL_6_HELPER(...)                             \
+#define DISC_CPU_DEFINE_TYPED_KERNEL_6_HELPER(...) \
   DISC_CPU_DEFINE_TYPED_KERNEL_5_HELPER(int64_t, __VA_ARGS__)
-#define DISC_CPU_DEFINE_TYPED_KERNEL_6(...)                                    \
+#define DISC_CPU_DEFINE_TYPED_KERNEL_6(...) \
   DISC_CPU_DEFINE_TYPED_KERNEL_5_HELPER(int64_t)
-#define DISC_CPU_LAUNCH_LOOP_6(...)                                            \
-  DISC_CPU_LAUNCH_LOOP_5(__VA_ARGS__)                                          \
+#define DISC_CPU_LAUNCH_LOOP_6(...)   \
+  DISC_CPU_LAUNCH_LOOP_5(__VA_ARGS__) \
   DISC_CPU_LAUNCH_LOOP_IMPL(5)
-#define DISC_CPU_CALL_KERNEL_6_HELPER(...)                                     \
+#define DISC_CPU_CALL_KERNEL_6_HELPER(...) \
   DISC_CPU_CALL_KERNEL_5_HELPER(iv5, __VA_ARGS__)
 #define DISC_CPU_CALL_KERNEL_6(...) DISC_CPU_CALL_KERNEL_5_HELPER(iv5)
 
-#define DISC_CPU_DEFINE_TYPED_KERNEL_7_HELPER(...)                             \
+#define DISC_CPU_DEFINE_TYPED_KERNEL_7_HELPER(...) \
   DISC_CPU_DEFINE_TYPED_KERNEL_6_HELPER(int64_t, __VA_ARGS__)
-#define DISC_CPU_DEFINE_TYPED_KERNEL_7(...)                                    \
+#define DISC_CPU_DEFINE_TYPED_KERNEL_7(...) \
   DISC_CPU_DEFINE_TYPED_KERNEL_6_HELPER(int64_t)
-#define DISC_CPU_LAUNCH_LOOP_7(...)                                            \
-  DISC_CPU_LAUNCH_LOOP_6(__VA_ARGS__)                                          \
+#define DISC_CPU_LAUNCH_LOOP_7(...)   \
+  DISC_CPU_LAUNCH_LOOP_6(__VA_ARGS__) \
   DISC_CPU_LAUNCH_LOOP_IMPL(6)
-#define DISC_CPU_CALL_KERNEL_7_HELPER(...)                                     \
+#define DISC_CPU_CALL_KERNEL_7_HELPER(...) \
   DISC_CPU_CALL_KERNEL_6_HELPER(iv6, __VA_ARGS__)
 #define DISC_CPU_CALL_KERNEL_7(...) DISC_CPU_CALL_KERNEL_6_HELPER(iv6)
 
-#define DISC_CPU_DEFINE_TYPED_KERNEL_8_HELPER(...)                             \
+#define DISC_CPU_DEFINE_TYPED_KERNEL_8_HELPER(...) \
   DISC_CPU_DEFINE_TYPED_KERNEL_7_HELPER(int64_t, __VA_ARGS__)
-#define DISC_CPU_DEFINE_TYPED_KERNEL_8(...)                                    \
+#define DISC_CPU_DEFINE_TYPED_KERNEL_8(...) \
   DISC_CPU_DEFINE_TYPED_KERNEL_7_HELPER(int64_t)
-#define DISC_CPU_LAUNCH_LOOP_8(...)                                            \
-  DISC_CPU_LAUNCH_LOOP_7(__VA_ARGS__)                                          \
+#define DISC_CPU_LAUNCH_LOOP_8(...)   \
+  DISC_CPU_LAUNCH_LOOP_7(__VA_ARGS__) \
   DISC_CPU_LAUNCH_LOOP_IMPL(7)
-#define DISC_CPU_CALL_KERNEL_8_HELPER(...)                                     \
+#define DISC_CPU_CALL_KERNEL_8_HELPER(...) \
   DISC_CPU_CALL_KERNEL_7_HELPER(iv7, __VA_ARGS__)
 #define DISC_CPU_CALL_KERNEL_8(...) DISC_CPU_CALL_KERNEL_7_HELPER(iv7)
 
@@ -859,20 +855,20 @@ DISC_CPU_LOOP_LAUNCH(8) {
 
 struct LoopIndex {
   LoopIndex(std::vector<int64_t> multiIndices,
-            const std::vector<int64_t> &dimSizes)
+            const std::vector<int64_t>& dimSizes)
       : multiIndices_(std::move(multiIndices)), dimSizes_(dimSizes) {}
 
   int getRank() const { return getMultiIndices().size(); }
 
-  int64_t &getIndex(int dim) { return multiIndices_[dim]; }
+  int64_t& getIndex(int dim) { return multiIndices_[dim]; }
 
-  const int64_t &getIndex(int dim) const { return multiIndices_[dim]; }
+  const int64_t& getIndex(int dim) const { return multiIndices_[dim]; }
 
-  std::vector<int64_t> &getMultiIndices() { return multiIndices_; }
+  std::vector<int64_t>& getMultiIndices() { return multiIndices_; }
 
-  const std::vector<int64_t> &getMultiIndices() const { return multiIndices_; }
+  const std::vector<int64_t>& getMultiIndices() const { return multiIndices_; }
 
-  const std::vector<int64_t> &getDimSizes() const { return dimSizes_; }
+  const std::vector<int64_t>& getDimSizes() const { return dimSizes_; }
 
   void minusOneFromDim(int startDim) {
     for (; startDim >= 0; --startDim) {
@@ -883,29 +879,30 @@ struct LoopIndex {
     }
   }
 
-private:
+ private:
   int64_t linearIndex_ = 0;
   std::vector<int64_t> multiIndices_;
-  const std::vector<int64_t> &dimSizes_;
+  const std::vector<int64_t>& dimSizes_;
 };
 
 struct LoopTask {
-  LoopTask(int numIVs, int64_t *lowerBound, int64_t *upperBound, int64_t *step)
-      : numIVs_(numIVs), lowerBound(lowerBound, lowerBound + numIVs),
-        upperBound(upperBound, upperBound + numIVs), step(step, step + numIVs) {
-  }
+  LoopTask(int numIVs, int64_t* lowerBound, int64_t* upperBound, int64_t* step)
+      : numIVs_(numIVs),
+        lowerBound(lowerBound, lowerBound + numIVs),
+        upperBound(upperBound, upperBound + numIVs),
+        step(step, step + numIVs) {}
 
   int64_t getNumUnits() {
     ensureInitialized();
     return totalNum_;
   }
 
-  const std::vector<int64_t> &getDimSizes() {
+  const std::vector<int64_t>& getDimSizes() {
     ensureInitialized();
     return dimSizes_;
   }
 
-  LoopTask makeSubTaskFromRange(const LoopIndex &indices, int lowest_dim,
+  LoopTask makeSubTaskFromRange(const LoopIndex& indices, int lowest_dim,
                                 int64_t from, int64_t to) const {
     LoopTask subTask = *this;
     subTask.initialized = false;
@@ -930,18 +927,16 @@ struct LoopTask {
   std::vector<int64_t> upperBound;
   std::vector<int64_t> step;
 
-private:
+ private:
   bool initialized = false;
   int numIVs_ = 0;
   int64_t totalNum_ = 0;
   std::vector<int64_t> dimSizes_;
 
   void ensureInitialized() {
-    if (initialized)
-      return;
+    if (initialized) return;
     initialized = true;
-    if (numIVs_ < 1)
-      return;
+    if (numIVs_ < 1) return;
 
     totalNum_ = 1;
     dimSizes_.reserve(numIVs_);
@@ -963,7 +958,7 @@ struct LoopPartitionPlan {
 
 int get_OMP_NUM_THREADS() {
   int num_workers = 1;
-  if (const char *num_cores = std::getenv("OMP_NUM_THREADS")) {
+  if (const char* num_cores = std::getenv("OMP_NUM_THREADS")) {
     int n = std::atoi(num_cores);
     if (n > 0) {
       num_workers = n;
@@ -979,7 +974,7 @@ int getNumAvailableCores() {
 
 int get_DISC_MIN_NUM_UNIT_PER_CORE() {
   int min_num_unit = 1;
-  if (const char *num_units = std::getenv("DISC_MIN_NUM_UNIT_PER_CORE")) {
+  if (const char* num_units = std::getenv("DISC_MIN_NUM_UNIT_PER_CORE")) {
     int n = std::atoi(num_units);
     if (n > 0) {
       min_num_unit = n;
@@ -1029,7 +1024,7 @@ LoopPartitionPlan LoopParallelAssigner(CpuLaunchDims lowerBound,
 
   int rank = lowerBound.sizes[0];
   plan.partitions.resize(numCores);
-  auto &dimSizes = totalTask.getDimSizes();
+  auto& dimSizes = totalTask.getDimSizes();
   LoopIndex indices(dimSizes, dimSizes);
   int unassigned_dim = 0;
   int64_t unassigned_units = 1;
@@ -1042,9 +1037,9 @@ LoopPartitionPlan LoopParallelAssigner(CpuLaunchDims lowerBound,
     int64_t num_unit_per_core = unassigned_units / numCores;
     unassigned_units %= numCores;
 
-    auto &idx = indices.getIndex(unassigned_dim);
+    auto& idx = indices.getIndex(unassigned_dim);
     for (int coreIdx = 0; coreIdx < numCores; ++coreIdx) {
-      auto &partition = plan.partitions[coreIdx];
+      auto& partition = plan.partitions[coreIdx];
       if (idx >= num_unit_per_core) {
         int64_t from = idx - num_unit_per_core;
         partition.tasks.emplace_back(
@@ -1070,8 +1065,8 @@ LoopPartitionPlan LoopParallelAssigner(CpuLaunchDims lowerBound,
   }
 
   while (unassigned_units > 0) {
-    auto &partition = plan.partitions[unassigned_units];
-    auto &idx = indices.getIndex(unassigned_dim);
+    auto& partition = plan.partitions[unassigned_units];
+    auto& idx = indices.getIndex(unassigned_dim);
     partition.tasks.emplace_back(totalTask.makeSubTaskFromRange(
         indices, rank - 1, unassigned_units - 1, unassigned_units));
     --unassigned_units;
@@ -1079,64 +1074,64 @@ LoopPartitionPlan LoopParallelAssigner(CpuLaunchDims lowerBound,
   return plan;
 }
 
-void taskRunner(ExecutionContext *ctx, const char *kernel_name,
-                const std::vector<int64_t> &lowerBound,
-                const std::vector<int64_t> &upperBound,
-                const std::vector<int64_t> &step, void *kernel, void **params) {
+void taskRunner(ExecutionContext* ctx, const char* kernel_name,
+                const std::vector<int64_t>& lowerBound,
+                const std::vector<int64_t>& upperBound,
+                const std::vector<int64_t>& step, void* kernel, void** params) {
   using kernel_type =
-      void (*)(const int64_t *, const int64_t *, const int64_t *, void **);
+      void (*)(const int64_t*, const int64_t*, const int64_t*, void**);
   auto typed_kernel = (kernel_type)(kernel);
   typed_kernel(lowerBound.data(), upperBound.data(), step.data(), params);
   return;
-#define CALL_LAUNCH(N)                                                         \
-  disc_ral_cpu_launch_##N##d(ctx, kernel_name, lowerBound, upperBound, step,   \
+#define CALL_LAUNCH(N)                                                       \
+  disc_ral_cpu_launch_##N##d(ctx, kernel_name, lowerBound, upperBound, step, \
                              kernel, params)
 
   switch (lowerBound.size()) {
-  case 1:
-    CALL_LAUNCH(1);
-    break;
-  case 2:
-    CALL_LAUNCH(2);
-    break;
-  case 3:
-    CALL_LAUNCH(3);
-    break;
-  case 4:
-    CALL_LAUNCH(4);
-    break;
-  case 5:
-    CALL_LAUNCH(5);
-    break;
-  case 6:
-    CALL_LAUNCH(6);
-    break;
-  case 7:
-    CALL_LAUNCH(7);
-    break;
-  case 8:
-    CALL_LAUNCH(8);
-    break;
-  default:
-    ctx->signalError(Context::FAILURE, "not supported ivs num");
+    case 1:
+      CALL_LAUNCH(1);
+      break;
+    case 2:
+      CALL_LAUNCH(2);
+      break;
+    case 3:
+      CALL_LAUNCH(3);
+      break;
+    case 4:
+      CALL_LAUNCH(4);
+      break;
+    case 5:
+      CALL_LAUNCH(5);
+      break;
+    case 6:
+      CALL_LAUNCH(6);
+      break;
+    case 7:
+      CALL_LAUNCH(7);
+      break;
+    case 8:
+      CALL_LAUNCH(8);
+      break;
+    default:
+      ctx->signalError(Context::FAILURE, "not supported ivs num");
   }
 #undef CALL_LAUNCH
 }
 
-void partitionRunner(ExecutionContext *ctx, const char *kernel_name,
-                     const LoopPartition &partition, void *kernel,
-                     void **params) {
-  for (const auto &task : partition.tasks) {
+void partitionRunner(ExecutionContext* ctx, const char* kernel_name,
+                     const LoopPartition& partition, void* kernel,
+                     void** params) {
+  for (const auto& task : partition.tasks) {
     taskRunner(ctx, kernel_name, task.lowerBound, task.upperBound, task.step,
                kernel, params);
   }
 }
 
 // cpu kernel launch
-void ompLaunchKernel(ExecutionContext *ctx, const char *kernel_name,
+void ompLaunchKernel(ExecutionContext* ctx, const char* kernel_name,
                      CpuLaunchDims lowerBound, CpuLaunchDims upperBound,
                      CpuLaunchDims step, int64_t unitWorkloadSizeHint,
-                     void *kernel, void **params /* kernel params */) {
+                     void* kernel, void** params /* kernel params */) {
   int numIVs = lowerBound.sizes[0];
   TAO_VLOG(1) << "ompLaunchKernel: " << kernel_name << "@" << numIVs;
   ensureDenormalState(true);
@@ -1162,7 +1157,7 @@ void ompLaunchKernel(ExecutionContext *ctx, const char *kernel_name,
       TAO_VLOG(0) << " partition #" << i << ":";
       for (size_t taskId = 0; taskId < plan.partitions[i].tasks.size();
            ++taskId) {
-        auto &task = plan.partitions[i].tasks[taskId];
+        auto& task = plan.partitions[i].tasks[taskId];
         TAO_VLOG(0) << "  task@" << taskId << " w/ " << task.lowerBound.size()
                     << " ivs: ";
         for (size_t ivId = 0; ivId < task.lowerBound.size(); ++ivId) {
@@ -1194,9 +1189,9 @@ void ompLaunchKernel(ExecutionContext *ctx, const char *kernel_name,
 
 TAO_RAL_API(cpu::kRalCpuLaunch, "cpu", ompLaunchKernel);
 
-#endif // TAO_CPU_ONLY
-} // namespace ral
-} // namespace tao
+#endif  // TAO_CPU_ONLY
+}  // namespace ral
+}  // namespace tao
 
 #ifdef TAO_RAL_USE_STREAM_EXECUTOR
 #include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
@@ -1209,6 +1204,6 @@ RAL_REGISTER_CONST_HOST_FUNC(Eigen::half, 3);
 RAL_REGISTER_CONST_HOST_FUNC(Eigen::half, 4);
 RAL_REGISTER_CONST_HOST_FUNC(Eigen::half, 5);
 RAL_REGISTER_CONST_HOST_FUNC(Eigen::half, 6);
-} // namespace ral
-} // namespace tao
-#endif // TAO_RAL_USE_STREAM_EXECUTOR
+}  // namespace ral
+}  // namespace tao
+#endif  // TAO_RAL_USE_STREAM_EXECUTOR

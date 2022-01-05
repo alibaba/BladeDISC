@@ -20,8 +20,7 @@ timespec Process::StartTimeTS() {
   struct stat statbuf;
   int ret = stat(path.str().c_str(), &statbuf);
   // use the dir modification time as the process start time
-  if (ret == 0)
-    return statbuf.st_mtim;
+  if (ret == 0) return statbuf.st_mtim;
 
   timespec t;
   t.tv_nsec = 0;
@@ -70,5 +69,5 @@ std::string Process::CWD() {
   return buf;
 }
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

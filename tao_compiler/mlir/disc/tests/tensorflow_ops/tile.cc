@@ -69,4 +69,4 @@ TEST(TFTileOpTest, PartialShape2DI32) {
       /*input_vals*/ {{}, {2}}));
 }
 
-} // namespace mlir_test
+}  // namespace mlir_test

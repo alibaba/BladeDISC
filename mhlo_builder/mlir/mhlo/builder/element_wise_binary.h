@@ -24,11 +24,11 @@ namespace mhlo {
 // NB: BuildMlirOp functions are a group of tools that were
 // given inputs/output information to build up an MLIR subgraph,
 // which represents specific math calculation on MLIR values.
-template <class MLIR_BINARY_OP, const char *DIRECTION>
+template <class MLIR_BINARY_OP, const char* DIRECTION>
 struct ChloBinaryOpBuilder {
-  MLIR_BINARY_OP createOp(mlir::OpBuilder &builder, const mlir::Location &loc,
-                          const mlir::Value &input_lhs,
-                          const mlir::Value &input_rhs,
+  MLIR_BINARY_OP createOp(mlir::OpBuilder& builder, const mlir::Location& loc,
+                          const mlir::Value& input_lhs,
+                          const mlir::Value& input_rhs,
                           mlir::DenseIntElementsAttr broadcast_attr) {
     auto compare_direction =
         mlir::StringAttr::get(builder.getContext(), DIRECTION);
@@ -40,20 +40,20 @@ struct ChloBinaryOpBuilder {
 
 template <class MLIR_BINARY_OP>
 struct ChloBinaryOpBuilder<MLIR_BINARY_OP, nullptr> {
-  MLIR_BINARY_OP createOp(mlir::OpBuilder &builder, const mlir::Location &loc,
-                          const mlir::Value &input_lhs,
-                          const mlir::Value &input_rhs,
+  MLIR_BINARY_OP createOp(mlir::OpBuilder& builder, const mlir::Location& loc,
+                          const mlir::Value& input_lhs,
+                          const mlir::Value& input_rhs,
                           mlir::DenseIntElementsAttr broadcast_attr) {
     return builder.create<MLIR_BINARY_OP>(loc, input_lhs, input_rhs,
                                           /*broadcast_dims=*/broadcast_attr);
   }
 };
 
-template <class MLIR_BINARY_OP, const char *DIRECTION>
+template <class MLIR_BINARY_OP, const char* DIRECTION>
 struct HloBinaryOpBuilder {
-  MLIR_BINARY_OP createOp(mlir::OpBuilder &builder, const mlir::Location &loc,
-                          const mlir::Value &input_lhs,
-                          const mlir::Value &input_rhs) {
+  MLIR_BINARY_OP createOp(mlir::OpBuilder& builder, const mlir::Location& loc,
+                          const mlir::Value& input_lhs,
+                          const mlir::Value& input_rhs) {
     auto compare_direction =
         mlir::StringAttr::get(builder.getContext(), DIRECTION);
     return builder.create<MLIR_BINARY_OP>(loc, input_lhs, input_rhs,
@@ -63,9 +63,9 @@ struct HloBinaryOpBuilder {
 
 template <class MLIR_BINARY_OP>
 struct HloBinaryOpBuilder<MLIR_BINARY_OP, nullptr> {
-  MLIR_BINARY_OP createOp(mlir::OpBuilder &builder, const mlir::Location &loc,
-                          const mlir::Value &input_lhs,
-                          const mlir::Value &input_rhs) {
+  MLIR_BINARY_OP createOp(mlir::OpBuilder& builder, const mlir::Location& loc,
+                          const mlir::Value& input_lhs,
+                          const mlir::Value& input_rhs) {
     return builder.create<MLIR_BINARY_OP>(loc, input_lhs, input_rhs);
   }
 };
@@ -73,13 +73,14 @@ struct HloBinaryOpBuilder<MLIR_BINARY_OP, nullptr> {
 // NB: BuildMlirOp functions are a group of tools that were
 // given inputs/output information to build up an MLIR subgraph,
 // which represents specific math calculation on MLIR values.
-template <class MLIR_BINARY_OP, const char *DIRECTION = nullptr,
+template <class MLIR_BINARY_OP, const char* DIRECTION = nullptr,
           bool rhs_scalar = false>
-mlir::Value
-BuildMlirBinaryOp(mlir::OpBuilder &builder, const mlir::Location &loc,
-                  const mlir::Value &input_lhs, const mlir::Value &input_rhs,
-                  const mlir::Type &broadcast_elem_type,
-                  bool no_implicit_broadcast = false) {
+mlir::Value BuildMlirBinaryOp(mlir::OpBuilder& builder,
+                              const mlir::Location& loc,
+                              const mlir::Value& input_lhs,
+                              const mlir::Value& input_rhs,
+                              const mlir::Type& broadcast_elem_type,
+                              bool no_implicit_broadcast = false) {
   // TODO: XLA/HLO and Numpy/ATen broadcast semantic is defferent,
   // XLA/HLO broadcast must be specified explicitly, but
   // Numpy/ATen broadcast only infers when need.
@@ -139,5 +140,5 @@ BuildMlirBinaryOp(mlir::OpBuilder &builder, const mlir::Location &loc,
   return result;
 }
 
-} // namespace mhlo
-} // namespace mlir
+}  // namespace mhlo
+}  // namespace mlir

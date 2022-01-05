@@ -18,16 +18,16 @@ limitations under the License.
 namespace tensorflow {
 namespace tao {
 
-const char *const kXlaMustCompileAttr = "_TaoXlaMustCompile";
+const char* const kXlaMustCompileAttr = "_TaoXlaMustCompile";
 
-const char *const kXlaCompileAttr = "_TaoXlaCompile";
+const char* const kXlaCompileAttr = "_TaoXlaCompile";
 
 // User-provided through jit_scope APIs. Effective only when auto_jit is OFF.
-const char *const kXlaScopeAttr = "_TaoXlaScope";
+const char* const kXlaScopeAttr = "_TaoXlaScope";
 
 // Automatically inserted by auto_jit to guide clustering results.  Effective
 // only when auto_jit is ON.
-const char *const kXlaInternalScopeAttr = "_TaoXlaInternalScope";
+const char* const kXlaInternalScopeAttr = "_TaoXlaInternalScope";
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

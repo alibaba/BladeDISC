@@ -50,4 +50,4 @@ TEST(MultiCCTest, PtxTest) {
       /*multi_cc_mode_dbg_ptx_only*/ true));
 }
 
-} // namespace mlir_test
+}  // namespace mlir_test

@@ -26,12 +26,12 @@ std::string GetGpuDeviceUUID(const std::string bus_id) { return ""; }
 #else
 
 typedef int nvmlReturn_t;
-typedef void *nvmlDevice_t;
+typedef void* nvmlDevice_t;
 
 std::string GetGpuDeviceUUID(const std::string bus_id) {
-  void *nvml_handle = nullptr;
+  void* nvml_handle = nullptr;
   const std::string nvml_suffixes[2] = {"", ".1"};
-  for (const std::string &suffix : nvml_suffixes) {
+  for (const std::string& suffix : nvml_suffixes) {
     std::string full_name = "libnvidia-ml.so" + suffix;
     nvml_handle = dlopen(full_name.c_str(), RTLD_LAZY);
     if (nvml_handle != nullptr) {
@@ -47,14 +47,14 @@ std::string GetGpuDeviceUUID(const std::string bus_id) {
       reinterpret_cast<nvmlReturn_t (*)()>(dlsym(nvml_handle, "nvmlInit"));
 
   auto nvmlDeviceGetHandleByPciBusId =
-      reinterpret_cast<nvmlReturn_t (*)(const char *, nvmlDevice_t *)>(
+      reinterpret_cast<nvmlReturn_t (*)(const char*, nvmlDevice_t*)>(
           dlsym(nvml_handle, "nvmlDeviceGetHandleByPciBusId"));
 
   auto nvmlDeviceGetUUID =
-      reinterpret_cast<nvmlReturn_t (*)(nvmlDevice_t, char *, unsigned int)>(
+      reinterpret_cast<nvmlReturn_t (*)(nvmlDevice_t, char*, unsigned int)>(
           dlsym(nvml_handle, "nvmlDeviceGetUUID"));
 
-  auto nvmlErrorString = reinterpret_cast<const char *(*)(nvmlReturn_t)>(
+  auto nvmlErrorString = reinterpret_cast<const char* (*)(nvmlReturn_t)>(
       dlsym(nvml_handle, "nvmlErrorString"));
 
   int err = nvmlInit();
@@ -86,8 +86,8 @@ std::string GetGpuDeviceUUID(const std::string bus_id) {
   return uuid;
 }
 
-#endif // TAO_CPU_ONLY
+#endif  // TAO_CPU_ONLY
 
-} // namespace cuda_utils
-} // namespace tao
-} // namespace tensorflow
+}  // namespace cuda_utils
+}  // namespace tao
+}  // namespace tensorflow

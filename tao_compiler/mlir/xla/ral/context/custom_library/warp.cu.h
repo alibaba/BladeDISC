@@ -31,25 +31,20 @@ template <typename Dtype>
 __inline__ __device__ Dtype warpReduceMax(Dtype val,
                                           const unsigned mask = full_mask) {
   Dtype tmp = __shfl_down_sync(mask, val, 16);
-  if (val < tmp)
-    val = tmp;
+  if (val < tmp) val = tmp;
   tmp = __shfl_down_sync(mask, val, 8);
-  if (val < tmp)
-    val = tmp;
+  if (val < tmp) val = tmp;
   tmp = __shfl_down_sync(mask, val, 4);
-  if (val < tmp)
-    val = tmp;
+  if (val < tmp) val = tmp;
   tmp = __shfl_down_sync(mask, val, 2);
-  if (val < tmp)
-    val = tmp;
+  if (val < tmp) val = tmp;
   tmp = __shfl_down_sync(mask, val, 1);
-  if (val < tmp)
-    val = tmp;
+  if (val < tmp) val = tmp;
   return val;
 }
 
-__inline__ __device__ int
-warpReduceMax_alternative(int val, const unsigned mask = full_mask) {
+__inline__ __device__ int warpReduceMax_alternative(
+    int val, const unsigned mask = full_mask) {
   int tmp = __shfl_down_sync(mask, val, 16);
   val = max(val, tmp);
   tmp = __shfl_down_sync(mask, val, 8);
@@ -64,9 +59,9 @@ warpReduceMax_alternative(int val, const unsigned mask = full_mask) {
 }
 
 template <typename Dtype, typename Itype>
-__inline__ __device__ void
-warpReduceMaxWithPos(Dtype val, Itype pos, Dtype *maxval, Itype *maxpos,
-                     const unsigned mask = full_mask) {
+__inline__ __device__ void warpReduceMaxWithPos(
+    Dtype val, Itype pos, Dtype* maxval, Itype* maxpos,
+    const unsigned mask = full_mask) {
   *maxval = val;
   *maxpos = pos;
   // if the thread that should give the value is inactive
@@ -105,7 +100,7 @@ warpReduceMaxWithPos(Dtype val, Itype pos, Dtype *maxval, Itype *maxpos,
 
 template <typename Dtype>
 // &val and fst should not be the same
-__inline__ __device__ void warpReduceTop2(Dtype val, Dtype *fst, Dtype *snd,
+__inline__ __device__ void warpReduceTop2(Dtype val, Dtype* fst, Dtype* snd,
                                           const unsigned mask = full_mask) {
   // if the thread that should give the value is inactive
   // the data read is unpredictable
@@ -113,17 +108,15 @@ __inline__ __device__ void warpReduceTop2(Dtype val, Dtype *fst, Dtype *snd,
   unsigned pos;
   warpReduceMaxWithPos(val, laneid, fst, &pos);
   pos = __shfl_sync(mask, pos, 0);
-  if (laneid == pos)
-    val = std::numeric_limits<Dtype>::lowest();
+  if (laneid == pos) val = std::numeric_limits<Dtype>::lowest();
   *snd = warpReduceMax(val);
 }
 
 // &val and fst should not be the same
 template <typename Itype, typename Dtype>
-__inline__ __device__ void
-warpReduceTop2WithPos(Dtype val, Itype pos, Dtype *fstval, Itype *fstpos,
-                      Dtype *sndval, Itype *sndpos,
-                      const unsigned mask = full_mask) {
+__inline__ __device__ void warpReduceTop2WithPos(
+    Dtype val, Itype pos, Dtype* fstval, Itype* fstpos, Dtype* sndval,
+    Itype* sndpos, const unsigned mask = full_mask) {
   // if the thread that should give the value is inactive
   // the data read is unpredictable
   warpReduceMaxWithPos(val, pos, fstval, fstpos);
@@ -135,31 +128,26 @@ warpReduceTop2WithPos(Dtype val, Itype pos, Dtype *fstval, Itype *fstpos,
 __inline__ __device__ int warpScan(int val, const unsigned mask = full_mask) {
   int lane = threadIdx.x & 31;
   int tmp = __shfl_up_sync(mask, val, 1);
-  if (lane > 0)
-    val += tmp;
+  if (lane > 0) val += tmp;
   tmp = __shfl_up_sync(mask, val, 2);
-  if (lane > 1)
-    val += tmp;
+  if (lane > 1) val += tmp;
   tmp = __shfl_up_sync(mask, val, 4);
-  if (lane > 3)
-    val += tmp;
+  if (lane > 3) val += tmp;
   tmp = __shfl_up_sync(mask, val, 8);
-  if (lane > 7)
-    val += tmp;
+  if (lane > 7) val += tmp;
   tmp = __shfl_up_sync(mask, val, 16);
-  if (lane > 15)
-    val += tmp;
+  if (lane > 15) val += tmp;
   return val;
 }
 
 template <typename Itype, typename Dtype>
-__device__ __inline__ int
-warpFilterCompress(Dtype key, Itype val, Dtype threshold, Dtype *keyBuffer,
-                   Itype *valBuffer, const unsigned mask = full_mask) {
+__device__ __inline__ int warpFilterCompress(Dtype key, Itype val,
+                                             Dtype threshold, Dtype* keyBuffer,
+                                             Itype* valBuffer,
+                                             const unsigned mask = full_mask) {
   unsigned int valid = key >= threshold ? 1 : 0;
   int len = __popc(__ballot_sync(mask, valid));
-  if (len == 0)
-    return 0;
+  if (len == 0) return 0;
   int wt_ofs = warpScan(valid, mask) - 1;
   if (valid) {
     keyBuffer[wt_ofs] = key;
@@ -168,4 +156,4 @@ warpFilterCompress(Dtype key, Itype val, Dtype threshold, Dtype *keyBuffer,
   return len;
 }
 
-#endif // DYN_SORT_WARP_H_
+#endif  // DYN_SORT_WARP_H_

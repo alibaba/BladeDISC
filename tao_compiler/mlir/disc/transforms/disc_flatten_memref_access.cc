@@ -15,6 +15,7 @@ limitations under the License.
 
 // This file implements the logic to flattern memref to 1D format.
 
+#include "llvm/Support/Debug.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/IR/Location.h"
@@ -25,7 +26,6 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
-#include "llvm/Support/Debug.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -42,12 +42,10 @@ struct DiscFlattenMemrefAccessPass
     SmallVector<memref::LoadOp, 4> loadOps;
     SmallVector<memref::StoreOp, 4> storeOps;
     func.walk([&](memref::LoadOp op) {
-      if (op->getParentOfType<scf::ParallelOp>())
-        loadOps.push_back(op);
+      if (op->getParentOfType<scf::ParallelOp>()) loadOps.push_back(op);
     });
     func.walk([&](memref::StoreOp op) {
-      if (op->getParentOfType<scf::ParallelOp>())
-        storeOps.push_back(op);
+      if (op->getParentOfType<scf::ParallelOp>()) storeOps.push_back(op);
     });
 
     for (memref::LoadOp op : loadOps) {
@@ -72,8 +70,7 @@ LogicalResult DiscFlattenMemrefAccessPass::processLoadOp(memref::LoadOp op) {
   Location loc = op.getLoc();
   Value memref = op.getMemRef();
   auto ty = memref.getType().cast<MemRefType>();
-  if (ty.getRank() < 1 || !ty.getAffineMaps().empty())
-    return success();
+  if (ty.getRank() < 1 || !ty.getAffineMaps().empty()) return success();
 
   SmallVector<Value> dimSizes = disc_ral::getShapeValues(&b, memref);
   Value linear = b.create<disc_shape::LinearizeOp>(loc, b.getIndexType(),
@@ -89,8 +86,7 @@ LogicalResult DiscFlattenMemrefAccessPass::processStoreOp(memref::StoreOp op) {
   Location loc = op.getLoc();
   Value memref = op.getMemRef();
   auto ty = memref.getType().cast<MemRefType>();
-  if (ty.getRank() < 1 || !ty.getAffineMaps().empty())
-    return success();
+  if (ty.getRank() < 1 || !ty.getAffineMaps().empty()) return success();
 
   SmallVector<Value> dimSizes = disc_ral::getShapeValues(&b, memref);
   Value linear = b.create<disc_shape::LinearizeOp>(loc, b.getIndexType(),
@@ -100,11 +96,11 @@ LogicalResult DiscFlattenMemrefAccessPass::processStoreOp(memref::StoreOp op) {
   return success();
 }
 
-} // namespace
+}  // namespace
 
 std::unique_ptr<FunctionPass> createDiscFlattenMemrefAccessPass() {
   return std::make_unique<DiscFlattenMemrefAccessPass>();
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

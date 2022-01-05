@@ -29,7 +29,7 @@ limitations under the License.
 namespace tensorflow {
 namespace tao {
 
-const char *const kDefunctionalizedSuffix = "_lowered";
+const char* const kDefunctionalizedSuffix = "_lowered";
 
 // A rewriting function to apply to each subgraph during encapsulation.
 // 'arg_source_tensors' are the tensors corresponding to the arguments in the
@@ -44,9 +44,9 @@ const char *const kDefunctionalizedSuffix = "_lowered";
 // The rewrite may also change the NodeDef's operator name, and that
 // name will be used as the name of the generated function.
 typedef std::function<Status(
-    const std::vector<OutputTensor> &arg_source_tensors,
-    std::unique_ptr<Graph> *graph, std::vector<int> *input_permutation,
-    std::vector<int> *output_permutation, NodeDef *node_def)>
+    const std::vector<OutputTensor>& arg_source_tensors,
+    std::unique_ptr<Graph>* graph, std::vector<int>* input_permutation,
+    std::vector<int>* output_permutation, NodeDef* node_def)>
     RewriteSubgraphFn;
 
 // Transformation that finds subgraphs whose nodes are marked with
@@ -79,16 +79,16 @@ typedef std::function<Status(
 // dependency is lost.
 Status EncapsulateSubgraphsInFunctions(
     string group_attribute, string outside_compilation_attribute,
-    const Graph &graph_in, const RewriteSubgraphFn &rewrite_subgraph_fn,
-    bool reuse_existing_functions, std::unique_ptr<Graph> *graph_out,
-    FunctionLibraryDefinition *library);
+    const Graph& graph_in, const RewriteSubgraphFn& rewrite_subgraph_fn,
+    bool reuse_existing_functions, std::unique_ptr<Graph>* graph_out,
+    FunctionLibraryDefinition* library);
 
 // The attribute that marks function calls produced by the encapsulate
 // subgraphs pass and that should in turn be compiled via XlaLaunch operators.
-extern const char *const kXlaCompiledKernelAttr;
+extern const char* const kXlaCompiledKernelAttr;
 
 // Does `node` have the kXlaCompiledKernelAttr attribute?
-bool IsXlaCompiledKernel(const Node &node);
+bool IsXlaCompiledKernel(const Node& node);
 
 // Functions produced by the EncapsulateSubgraphs pass have their arguments in
 // the order:
@@ -101,46 +101,46 @@ bool IsXlaCompiledKernel(const Node &node);
 // many constant and resource arguments there are:
 
 // Name of the attribute containing the number of constant arguments.
-extern const char *const kXlaNumConstantArgsAttr;
+extern const char* const kXlaNumConstantArgsAttr;
 
 // Name of the attribute containing the number of resource variable arguments.
-extern const char *const kXlaNumResourceArgsAttr;
+extern const char* const kXlaNumResourceArgsAttr;
 
 // Name of the attribute containing the number of fixed shape arguments.
 // may only be non-zero for inner Mlir
-extern const char *const kMlirNumFixedShapeArgsAttr;
+extern const char* const kMlirNumFixedShapeArgsAttr;
 
 // ordinal arguments of launch op that are expected to be placed on
 // cpu in the launch op registration.
 // If the launch op is placed on cpu, this attribute is ignored.
-extern const char *const kMlirNumHostArgsAttr;
+extern const char* const kMlirNumHostArgsAttr;
 
 // results of launch op that are expected to be placed on
 // cpu in the launch op registration.
 // If the launch op is placed on cpu, this attribute is ignored.
-extern const char *const kMlirNumHostRetsAttr;
+extern const char* const kMlirNumHostRetsAttr;
 
 // Sorts each node's control inputs by their names. This guarantees that for two
 // structually equivalent GraphDefs, we get the same traversal ordering on
 // node's control input fields.
 // TODO(hpucha): Move the utilities to a more appropriate place.
-void SortControlInputs(GraphDef *gdef);
+void SortControlInputs(GraphDef* gdef);
 
 class TaoEncapsulateSubgraphsPass : public GraphOptimizationPass {
-public:
-  Status Run(const GraphOptimizationPassOptions &options) override;
+ public:
+  Status Run(const GraphOptimizationPassOptions& options) override;
 
-  void set_opts(const std::unique_ptr<TaoPassOptions> &opt) {
+  void set_opts(const std::unique_ptr<TaoPassOptions>& opt) {
     if (opt) {
       inner_ = opt->inner_tao_launch;
     }
   }
 
-private:
+ private:
   bool inner_{false};
 };
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TAO_TAO_BRIDGE_PASSES_TAO_ENCAPSULATE_SUBGRAPHS_PASS_H_
+#endif  // TAO_TAO_BRIDGE_PASSES_TAO_ENCAPSULATE_SUBGRAPHS_PASS_H_

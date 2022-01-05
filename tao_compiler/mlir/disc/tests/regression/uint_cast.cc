@@ -33,4 +33,4 @@ TEST(UintCastTest, UintCastTest) {
       /*output_descriptors*/ {"f32_d"}));
 }
 
-} // namespace mlir_test
+}  // namespace mlir_test

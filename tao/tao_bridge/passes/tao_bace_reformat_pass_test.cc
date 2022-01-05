@@ -14,9 +14,9 @@
 #include <sstream>
 
 #include "absl/memory/memory.h"
+#include "gtest/gtest.h"
 #include "tao_bridge/tf_compatible.h"
 #include "tensorflow/core/common_runtime/single_threaded_cpu_device.h"
-#include "gtest/gtest.h"
 #define EIGEN_USE_THREADS
 #include "tao_bridge/test_helpers.h"
 #include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
@@ -63,7 +63,7 @@ std::unique_ptr<Graph> CreateGraph(absl::string_view dtype) {
   return std::move(g);
 }
 
-void RunPass(std::unique_ptr<Graph> *g, int64 max_dim_bar, int64 min_dim_bar,
+void RunPass(std::unique_ptr<Graph>* g, int64 max_dim_bar, int64 min_dim_bar,
              int64 size_bar) {
 #ifdef TF_1_12
   auto device =
@@ -71,7 +71,7 @@ void RunPass(std::unique_ptr<Graph> *g, int64 max_dim_bar, int64 min_dim_bar,
 #else
   auto device =
       std::unique_ptr<Device>(NewSingleThreadedCpuDevice(Env::Default()));
-#endif // TF_1_12
+#endif  // TF_1_12
 
   DeviceSet device_set;
   device_set.AddDevice(device.get());
@@ -84,7 +84,7 @@ void RunPass(std::unique_ptr<Graph> *g, int64 max_dim_bar, int64 min_dim_bar,
   ASSERT_TRUE(pass.Run(opt_options).ok());
 }
 
-} // namespace
+}  // namespace
 
 REGISTER_OP("Const")
     .Output("output: dtype")
@@ -97,7 +97,7 @@ TEST(TaoBaCEReformatPassTest, TestReformat) {
   auto g = CreateGraph("DT_FLOAT");
   RunPass(&g, 1, 1, 1);
   int const_cnt = 0;
-  for (auto *node : g->op_nodes()) {
+  for (auto* node : g->op_nodes()) {
     const_cnt += 1;
     EXPECT_EQ(node->type_string(), "Const");
     EXPECT_EQ(node->attrs().Find("dtype")->type(), DT_HALF);
@@ -108,7 +108,7 @@ TEST(TaoBaCEReformatPassTest, TestReformat) {
     ASSERT_TRUE(tensor.FromProto(proto));
     EXPECT_EQ(tensor.dtype(), DT_HALF);
     EXPECT_EQ(tensor.shape(), TensorShape({2, 2}));
-    auto *data = tensor.flat<Eigen::half>().data();
+    auto* data = tensor.flat<Eigen::half>().data();
     ASSERT_EQ(tensor.NumElements(), 4);
     for (auto i = 0; i < tensor.NumElements(); ++i) {
       EXPECT_EQ(data[i], Eigen::half(i));
@@ -121,7 +121,7 @@ TEST(TaoBaCEReformatPassTest, TestSkipByType) {
   auto g = CreateGraph("DT_INT32");
   RunPass(&g, 1, 1, 1);
   int const_cnt = 0;
-  for (auto *node : g->op_nodes()) {
+  for (auto* node : g->op_nodes()) {
     const_cnt += 1;
     EXPECT_EQ(node->type_string(), "Const");
     EXPECT_EQ(node->attrs().Find("dtype")->type(), DT_INT32);
@@ -135,7 +135,7 @@ TEST(TaoBaCEReformatPassTest, TestSkipBySize) {
   auto g = CreateGraph("DT_FLOAT");
   RunPass(&g, 3, 3, 5);
   int const_cnt = 0;
-  for (auto *node : g->op_nodes()) {
+  for (auto* node : g->op_nodes()) {
     const_cnt += 1;
     EXPECT_EQ(node->type_string(), "Const");
     EXPECT_EQ(node->attrs().Find("dtype")->type(), DT_FLOAT);
@@ -145,5 +145,5 @@ TEST(TaoBaCEReformatPassTest, TestSkipBySize) {
   ASSERT_EQ(const_cnt, 1);
 }
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

@@ -29,7 +29,7 @@ namespace tao {
 
 // Process provides helper functions on Linux process
 class Process {
-public:
+ public:
   Process() : pid_(getpid()){};
   Process(pid_t pid) : pid_(pid){};
 
@@ -51,11 +51,11 @@ public:
   // return the process ID
   inline pid_t Pid() { return pid_; }
 
-private:
+ private:
   pid_t pid_;
 };
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TAO_TAO_BRIDGE_KERNELS_TAO_PROCESS_H_
+#endif  // TAO_TAO_BRIDGE_KERNELS_TAO_PROCESS_H_

@@ -18,11 +18,11 @@
 namespace mlir {
 namespace mhlo {
 
-mlir::Value BuildStdNormalizeIndex(mlir::OpBuilder &builder,
-                                   const mlir::Location &loc,
-                                   const mlir::Value &index,
-                                   const mlir::Value &dim_size,
-                                   const mlir::Value &neg_dim_size) {
+mlir::Value BuildStdNormalizeIndex(mlir::OpBuilder& builder,
+                                   const mlir::Location& loc,
+                                   const mlir::Value& index,
+                                   const mlir::Value& dim_size,
+                                   const mlir::Value& neg_dim_size) {
   // index_bounded = min(max(-dim_size, index), dim_size)
   auto index_bounded = BuildStdMaximumSigned(builder, loc, neg_dim_size, index);
   index_bounded = BuildStdMinimumSigned(builder, loc, dim_size, index_bounded);
@@ -51,12 +51,12 @@ mlir::Value BuildStdNormalizeIndex(mlir::OpBuilder &builder,
   return builder.create<mlir::SelectOp>(loc, cond, dim_size, remainder);
 }
 
-mlir::Value BuildDynamicSliceInternal(mlir::OpBuilder &builder,
-                                      const mlir::Location &loc,
-                                      const mlir::Value &input,
-                                      const mlir::Value &start_index,
-                                      const mlir::Value &end_index,
-                                      const mlir::Value &step,
+mlir::Value BuildDynamicSliceInternal(mlir::OpBuilder& builder,
+                                      const mlir::Location& loc,
+                                      const mlir::Value& input,
+                                      const mlir::Value& start_index,
+                                      const mlir::Value& end_index,
+                                      const mlir::Value& step,
                                       mlir_dim_t dim_index) {
   // start_index & end_index has been normailized into range [0, dim_size]
   auto dim_size = builder.create<tensor::DimOp>(loc, input, dim_index);
@@ -110,12 +110,12 @@ mlir::Value BuildDynamicSliceInternal(mlir::OpBuilder &builder,
       loc, slice_output_type, input, start_tensor, end_tensor, strides_tensor);
 }
 
-mlir::Value BuildDynamicSlice(mlir::OpBuilder &builder,
-                              const mlir::Location &loc,
-                              const mlir::Value &input,
-                              const mlir::Value &start_index,
-                              const mlir::Value &end_index,
-                              const mlir::Value &step, mlir_dim_t dim_index) {
+mlir::Value BuildDynamicSlice(mlir::OpBuilder& builder,
+                              const mlir::Location& loc,
+                              const mlir::Value& input,
+                              const mlir::Value& start_index,
+                              const mlir::Value& end_index,
+                              const mlir::Value& step, mlir_dim_t dim_index) {
   auto rank = GetRankOfMlirValue(input);
   auto norm_dim_idx = NormalizeDimIndex(dim_index, rank);
   auto dim_size = BuildStdDimSizeOfTensor(builder, loc, input, norm_dim_idx);
@@ -128,9 +128,9 @@ mlir::Value BuildDynamicSlice(mlir::OpBuilder &builder,
                                    norm_end_index, step, norm_dim_idx);
 }
 
-std::tuple<mlir::Value, mlir::Value> BuildHalfSplit(mlir::OpBuilder &builder,
-                                                    const mlir::Location &loc,
-                                                    const mlir::Value &input,
+std::tuple<mlir::Value, mlir::Value> BuildHalfSplit(mlir::OpBuilder& builder,
+                                                    const mlir::Location& loc,
+                                                    const mlir::Value& input,
                                                     mlir_dim_t dim_index) {
   auto rank = GetRankOfMlirValue(input);
   dim_index = NormalizeDimIndex(dim_index, rank);
@@ -146,9 +146,9 @@ std::tuple<mlir::Value, mlir::Value> BuildHalfSplit(mlir::OpBuilder &builder,
   return std::make_tuple(lhs, rhs);
 }
 
-mlir::Value BuildSelect(mlir::OpBuilder &builder, const mlir::Location &loc,
-                        const mlir::Value &input,
-                        const mlir::Value &select_index, mlir_dim_t dim_index) {
+mlir::Value BuildSelect(mlir::OpBuilder& builder, const mlir::Location& loc,
+                        const mlir::Value& input,
+                        const mlir::Value& select_index, mlir_dim_t dim_index) {
   auto rank = GetRankOfMlirValue(input);
   dim_index = NormalizeDimIndex(dim_index, rank);
   auto dim_size = BuildStdDimSizeOfTensor(builder, loc, input, dim_index);
@@ -168,5 +168,5 @@ mlir::Value BuildSelect(mlir::OpBuilder &builder, const mlir::Location &loc,
   }
   return BuildDynamicReshapeTensor(builder, loc, result, new_dim_sizes);
 }
-} // namespace mhlo
-} // namespace mlir
+}  // namespace mhlo
+}  // namespace mlir

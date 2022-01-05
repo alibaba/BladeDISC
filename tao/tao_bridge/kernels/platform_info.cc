@@ -14,8 +14,8 @@
 namespace tensorflow {
 namespace tao {
 
-Status PlatformInfoFromContext(OpKernelConstruction *ctx,
-                               PlatformInfo *result) {
+Status PlatformInfoFromContext(OpKernelConstruction* ctx,
+                               PlatformInfo* result) {
   DeviceType device_type = ctx->device_type();
   se::Platform::Id platform_id = nullptr;
 
@@ -33,5 +33,5 @@ Status PlatformInfoFromContext(OpKernelConstruction *ctx,
   return Status::OK();
 }
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

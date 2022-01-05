@@ -57,7 +57,7 @@ class InputInlineFusion : public InputInlineFusionPassBase<InputInlineFusion> {
   void runOnFunction() override;
 };
 
-} // end anonymous namespace
+}  // end anonymous namespace
 
 std::unique_ptr<FunctionPass> createDiscInputInlineFusionPass() {
   return std::make_unique<InputInlineFusion>();
@@ -111,20 +111,19 @@ constexpr unsigned c_MAX_ITERATION = 4096;
 //       }
 //    })
 class InputInlineFusionPattern : public RewritePattern {
-public:
-  explicit InputInlineFusionPattern(MLIRContext *context)
+ public:
+  explicit InputInlineFusionPattern(MLIRContext* context)
       : RewritePattern(FusionOp::getOperationName(), 1, context) {}
 
   LogicalResult processParallelOp(scf::ParallelOp parallel_op,
-                                  Block *parent_block,
-                                  PatternRewriter &rewriter,
-                                  const DominanceInfo &dominance_info) const {
+                                  Block* parent_block,
+                                  PatternRewriter& rewriter,
+                                  const DominanceInfo& dominance_info) const {
     SmallVector<LoadOp, 4> load_ops;
     parallel_op->walk([&](LoadOp load_op) { load_ops.push_back(load_op); });
     for (auto load_op : load_ops) {
       auto lhlo_op = getFusibleOperation(load_op);
-      if (!lhlo_op)
-        continue;
+      if (!lhlo_op) continue;
       // 1, in case of:
       //      A = ...
       //      B = op(A)
@@ -148,8 +147,7 @@ public:
       if (failed(inlineFuseLhloOp(rewriter, parallel_op, lhlo_op, load_op,
                                   same_load_ops)))
         return failure();
-      if (can_remove_producer)
-        rewriter.eraseOp(lhlo_op);
+      if (can_remove_producer) rewriter.eraseOp(lhlo_op);
       for (LoadOp to_be_removed : same_load_ops)
         rewriter.eraseOp(to_be_removed);
 
@@ -163,13 +161,12 @@ public:
     return failure();
   }
 
-  LogicalResult matchAndRewrite(Operation *op,
-                                PatternRewriter &rewriter) const override {
-    if (isStitchFusion(op))
-      return failure();
+  LogicalResult matchAndRewrite(Operation* op,
+                                PatternRewriter& rewriter) const override {
+    if (isStitchFusion(op)) return failure();
     // skip if not the most outter ParallelOp
     auto fusion = cast<FusionOp>(op);
-    auto &parent_block = fusion.region().front();
+    auto& parent_block = fusion.region().front();
     DominanceInfo dominance_info(op);
     // Returns success if any of parallelOp is processed.
     for (scf::ParallelOp parallelOp :
@@ -181,19 +178,19 @@ public:
     return failure();
   }
 
-private:
-  Operation *getFusibleOperation(LoadOp load_op) const;
-  LogicalResult inlineFuseLhloOp(PatternRewriter &b, Operation *user,
-                                 Operation *producer, LoadOp load_op,
-                                 const SmallVector<LoadOp> &load_ops) const;
-  bool checkIfFusible(scf::ParallelOp user, Operation *producer, LoadOp load_op,
-                      bool &can_remove_producer, SmallVector<LoadOp> &load_ops,
-                      const DominanceInfo &dominance_info) const;
+ private:
+  Operation* getFusibleOperation(LoadOp load_op) const;
+  LogicalResult inlineFuseLhloOp(PatternRewriter& b, Operation* user,
+                                 Operation* producer, LoadOp load_op,
+                                 const SmallVector<LoadOp>& load_ops) const;
+  bool checkIfFusible(scf::ParallelOp user, Operation* producer, LoadOp load_op,
+                      bool& can_remove_producer, SmallVector<LoadOp>& load_ops,
+                      const DominanceInfo& dominance_info) const;
 };
 
-Operation *InputInlineFusionPattern::getFusibleOperation(LoadOp load_op) const {
-  Operation *lhlo_op = nullptr;
-  for (auto *user : getValueUsersInFusionLike(load_op.getMemRef(), load_op)) {
+Operation* InputInlineFusionPattern::getFusibleOperation(LoadOp load_op) const {
+  Operation* lhlo_op = nullptr;
+  for (auto* user : getValueUsersInFusionLike(load_op.getMemRef(), load_op)) {
     if (isa<LmhloOp>(user) &&
         isSameUnderlineBuffer(cast<LmhloOp>(user).getResultBuffer(),
                               load_op.getOperation()->getOperand(0))) {
@@ -209,23 +206,22 @@ Operation *InputInlineFusionPattern::getFusibleOperation(LoadOp load_op) const {
 // Check if there are no other consumers of the producer
 // except the ParallelOp.
 bool InputInlineFusionPattern::checkIfFusible(
-    scf::ParallelOp user, Operation *producer, LoadOp load_op,
-    bool &can_remove_producer, SmallVector<LoadOp> &load_ops,
-    const DominanceInfo &dominance_info) const {
+    scf::ParallelOp user, Operation* producer, LoadOp load_op,
+    bool& can_remove_producer, SmallVector<LoadOp>& load_ops,
+    const DominanceInfo& dominance_info) const {
   load_ops.clear();
   assert(isa<LmhloOp>(producer) && "Unexpected producer in checkIfFusible");
   auto producer_result_memref = cast<LmhloOp>(producer).getResultBuffer();
   can_remove_producer = true;
   auto lhlo_dialect = user->getContext()->getLoadedDialect("lmhlo");
-  for (auto *memref_user :
+  for (auto* memref_user :
        getValueUsersInFusionLike(producer_result_memref, producer)) {
     if ((memref_user->getDialect() == lhlo_dialect) &&
         (memref_user != producer)) {
       return false;
     }
     LoadOp other = dyn_cast<LoadOp>(memref_user);
-    if (!other)
-      continue;
+    if (!other) continue;
     if (other.getMemRef() == load_op.getMemRef() &&
         other.getIndices() == load_op.getIndices() &&
         dominance_info.dominates(load_op.getOperation(),
@@ -245,9 +241,9 @@ bool InputInlineFusionPattern::checkIfFusible(
 }
 
 template <typename LHLO_OpTy>
-bool elemwiseFuseHelper(PatternRewriter &rewriter, Operation *user,
-                        Operation *producer, LoadOp load_op,
-                        const SmallVector<LoadOp> &load_ops) {
+bool elemwiseFuseHelper(PatternRewriter& rewriter, Operation* user,
+                        Operation* producer, LoadOp load_op,
+                        const SmallVector<LoadOp>& load_ops) {
   if (!isa<LHLO_OpTy>(producer) ||
       !LHLO_OpTy::template hasTrait<OpTrait::Elementwise>())
     return false;
@@ -275,12 +271,11 @@ bool elemwiseFuseHelper(PatternRewriter &rewriter, Operation *user,
 }
 
 template <typename LHLO_OpTy>
-bool miscFuseHelper(PatternRewriter &rewriter, Operation *user,
-                    Operation *opaque_producer, LoadOp load_op,
-                    const SmallVector<LoadOp> &load_ops) {
+bool miscFuseHelper(PatternRewriter& rewriter, Operation* user,
+                    Operation* opaque_producer, LoadOp load_op,
+                    const SmallVector<LoadOp>& load_ops) {
   LHLO_OpTy producer = dyn_cast<LHLO_OpTy>(opaque_producer);
-  if (!producer)
-    return false;
+  if (!producer) return false;
   auto loc = user->getLoc();
   rewriter.setInsertionPoint(load_op);
   auto inlined_result =
@@ -291,11 +286,10 @@ bool miscFuseHelper(PatternRewriter &rewriter, Operation *user,
 }
 
 template <>
-bool miscFuseHelper<ConstOp>(PatternRewriter &rewriter, Operation *user,
-                             Operation *producer, LoadOp load_op,
-                             const SmallVector<LoadOp> &load_ops) {
-  if (!isa<ConstOp>(producer))
-    return false;
+bool miscFuseHelper<ConstOp>(PatternRewriter& rewriter, Operation* user,
+                             Operation* producer, LoadOp load_op,
+                             const SmallVector<LoadOp>& load_ops) {
+  if (!isa<ConstOp>(producer)) return false;
   auto memref_type =
       cast<LmhloOp>(producer).getResultBuffer().getType().cast<MemRefType>();
   assert(memref_type.getRank() == 0 && "only scalar ConstOp can be fused");
@@ -310,16 +304,16 @@ bool miscFuseHelper<ConstOp>(PatternRewriter &rewriter, Operation *user,
 }
 
 template <typename First>
-bool elemwiseFuseHelperOr(PatternRewriter &rewriter, Operation *user,
-                          Operation *producer, LoadOp load_op,
-                          const SmallVector<LoadOp> &load_ops) {
+bool elemwiseFuseHelperOr(PatternRewriter& rewriter, Operation* user,
+                          Operation* producer, LoadOp load_op,
+                          const SmallVector<LoadOp>& load_ops) {
   return elemwiseFuseHelper<First>(rewriter, user, producer, load_op, load_ops);
 }
 
 template <typename First, typename Second, typename... Rest>
-bool elemwiseFuseHelperOr(PatternRewriter &rewriter, Operation *user,
-                          Operation *producer, LoadOp load_op,
-                          const SmallVector<LoadOp> &load_ops) {
+bool elemwiseFuseHelperOr(PatternRewriter& rewriter, Operation* user,
+                          Operation* producer, LoadOp load_op,
+                          const SmallVector<LoadOp>& load_ops) {
   return elemwiseFuseHelperOr<First>(rewriter, user, producer, load_op,
                                      load_ops) ||
          elemwiseFuseHelperOr<Second, Rest...>(rewriter, user, producer,
@@ -329,8 +323,8 @@ bool elemwiseFuseHelperOr(PatternRewriter &rewriter, Operation *user,
 // load_op is among the load_ops, whose locates in the most
 // external code block
 LogicalResult InputInlineFusionPattern::inlineFuseLhloOp(
-    PatternRewriter &b, Operation *user, Operation *producer, LoadOp load_op,
-    const SmallVector<LoadOp> &load_ops) const {
+    PatternRewriter& b, Operation* user, Operation* producer, LoadOp load_op,
+    const SmallVector<LoadOp>& load_ops) const {
   if (elemwiseFuseHelperOr<
 #define GET_SUPPORTED_OP_LIST
 #include "tensorflow/compiler/mlir/disc/transforms/disc_supported_list.h.inc"
@@ -367,7 +361,7 @@ LogicalResult InputInlineFusionPattern::inlineFuseLhloOp(
 
 void InputInlineFusion::runOnFunction() {
   auto func = getFunction();
-  auto *context = &this->getContext();
+  auto* context = &this->getContext();
   OwningRewritePatternList patterns(context);
   patterns.insert<InputInlineFusionPattern>(context);
 
@@ -382,10 +376,9 @@ void InputInlineFusion::runOnFunction() {
   // there should be no lmhlo ops after inline fusion,
   // except for the ConstOp of ColReduction, which for now cannot be
   // properly optimized by general DCE pass
-  std::vector<Operation *> to_be_removed;
+  std::vector<Operation*> to_be_removed;
   func.walk([&](FusionOp fusion) {
-    if (isStitchFusion(fusion.getOperation()))
-      return;
+    if (isStitchFusion(fusion.getOperation())) return;
     fusion.region().walk([&](LmhloOp op) {
       if (isa<TerminatorOp>(op)) {
         return;
@@ -407,7 +400,7 @@ void InputInlineFusion::runOnFunction() {
   }
 }
 
-} // namespace
+}  // namespace
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

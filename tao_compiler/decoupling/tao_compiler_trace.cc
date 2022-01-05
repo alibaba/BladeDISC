@@ -32,13 +32,13 @@ void TaoCompilerTrace::Shutdown() {
   std::ofstream file(dump_path_);
   constexpr char sep = '\001';
   std::lock_guard<std::mutex> guard(events_lock_);
-  for (auto &event : events_) {
+  for (auto& event : events_) {
     file << event.timestamp_us << sep << event.key << sep << event.value
          << std::endl;
   }
 }
 
-void TaoCompilerTrace::OnEvent(std::string &&key, std::string &&value) {
+void TaoCompilerTrace::OnEvent(std::string&& key, std::string&& value) {
   if (!activated_.load()) {
     return;
   }
@@ -47,10 +47,10 @@ void TaoCompilerTrace::OnEvent(std::string &&key, std::string &&value) {
   events_.emplace_back(Event{timestamp, std::move(key), std::move(value)});
 }
 
-/* static */ TaoCompilerTrace *TaoCompilerTrace::Instance() {
+/* static */ TaoCompilerTrace* TaoCompilerTrace::Instance() {
   static TaoCompilerTrace instance;
   return &instance;
 }
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

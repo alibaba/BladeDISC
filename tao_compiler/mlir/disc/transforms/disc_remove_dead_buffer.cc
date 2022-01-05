@@ -20,14 +20,14 @@ limitations under the License.
 
 // TODO(disc): remove buffers only have memref.store consumers.
 
+#include "llvm/ADT/DenseSet.h"
+#include "llvm/Support/Debug.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
 #include "mlir/Pass/Pass.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/Support/Debug.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -36,25 +36,24 @@ using memref::AllocOp;
 
 namespace {
 
-bool isMemRefAliasOp(Operation *op) {
+bool isMemRefAliasOp(Operation* op) {
   return dyn_cast<ViewLikeOpInterface>(op) != nullptr;
 }
 
-bool isKnownSafeConsumer(Operation *op) {
+bool isKnownSafeConsumer(Operation* op) {
   // Not consider memref.dim/memref.shape_of ops, supposed that these
   // ops are canonicalized before this pass runs.
   return isa<memref::DeallocOp>(op) || isMemRefAliasOp(op);
 }
 
-bool isDeadBuffer(AllocOp op, SmallVectorImpl<Operation *> &consumers) {
-  DenseSet<Operation *> opSet;
+bool isDeadBuffer(AllocOp op, SmallVectorImpl<Operation*>& consumers) {
+  DenseSet<Operation*> opSet;
   SmallVector<Value, 4> worklist{op.getResult()};
 
   while (!worklist.empty()) {
     Value value = worklist.pop_back_val();
-    for (Operation *user : value.getUsers()) {
-      if (!opSet.insert(user).second)
-        continue;
+    for (Operation* user : value.getUsers()) {
+      if (!opSet.insert(user).second) continue;
       consumers.push_back(user);
       if (auto view = dyn_cast<ViewLikeOpInterface>(user)) {
         worklist.push_back(view->getResult(0));
@@ -71,21 +70,20 @@ struct RemoveDeadBufferPass
     SmallVector<AllocOp, 4> candidateBuffers;
     getFunction().walk([&](AllocOp op) { candidateBuffers.push_back(op); });
     for (AllocOp op : candidateBuffers) {
-      SmallVector<Operation *, 4> users;
+      SmallVector<Operation*, 4> users;
       if (isDeadBuffer(op, users)) {
         op->erase();
-        for (Operation *user : users)
-          user->erase();
+        for (Operation* user : users) user->erase();
       }
     }
   }
 };
 
-} // namespace
+}  // namespace
 
 std::unique_ptr<FunctionPass> createDiscRemoveDeadBufferPass() {
   return std::make_unique<RemoveDeadBufferPass>();
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

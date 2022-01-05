@@ -19,15 +19,15 @@ limitations under the License.
 // generally not the fastest approach, but it works.
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"            // from @llvm-project
-#include "mlir/IR/Attributes.h"                         // from @llvm-project
-#include "mlir/IR/Location.h"                           // from @llvm-project
-#include "mlir/IR/MLIRContext.h"                        // from @llvm-project
-#include "mlir/IR/Operation.h"                          // from @llvm-project
-#include "mlir/IR/PatternMatch.h"                       // from @llvm-project
-#include "mlir/Pass/Pass.h"                             // from @llvm-project
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h" // from @llvm-project
-#include "mlir/Transforms/Passes.h"                     // from @llvm-project
+#include "mlir/Dialect/StandardOps/IR/Ops.h"             // from @llvm-project
+#include "mlir/IR/Attributes.h"                          // from @llvm-project
+#include "mlir/IR/Location.h"                            // from @llvm-project
+#include "mlir/IR/MLIRContext.h"                         // from @llvm-project
+#include "mlir/IR/Operation.h"                           // from @llvm-project
+#include "mlir/IR/PatternMatch.h"                        // from @llvm-project
+#include "mlir/Pass/Pass.h"                              // from @llvm-project
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // from @llvm-project
+#include "mlir/Transforms/Passes.h"                      // from @llvm-project
 #include "transforms/PassDetail.h"
 
 namespace mlir {
@@ -36,10 +36,10 @@ namespace disc_ral {
 namespace {
 
 template <typename Op>
-static void BuildReduceBody(Type element_type, Region *body,
-                            OpBuilder *builder) {
+static void BuildReduceBody(Type element_type, Region* body,
+                            OpBuilder* builder) {
   OpBuilder::InsertionGuard guard(*builder);
-  Block *block = builder->createBlock(body);
+  Block* block = builder->createBlock(body);
 
   // Block arguments are scalars of the given element type.
   RankedTensorType type = RankedTensorType::get(/*shape=*/{}, element_type);
@@ -52,14 +52,13 @@ static void BuildReduceBody(Type element_type, Region *body,
 }
 
 mhlo::ReduceOp CloneAndReplaceElementType(mhlo::ReduceOp op,
-                                          PatternRewriter &rewriter,
+                                          PatternRewriter& rewriter,
                                           Type elem_type,
                                           ArrayRef<Value> operands) {
   int num_non_return_hlo_ops = 0;
-  Operation *map_op = nullptr;
-  op.body().walk([&](Operation *hlo_op) {
-    if (isa<mhlo::ReturnOp>(hlo_op))
-      return;
+  Operation* map_op = nullptr;
+  op.body().walk([&](Operation* hlo_op) {
+    if (isa<mhlo::ReturnOp>(hlo_op)) return;
     ++num_non_return_hlo_ops;
     map_op = hlo_op;
   });
@@ -99,7 +98,7 @@ struct ConvertReduceOpWithSmallWidthIntType
   using OpRewritePattern::OpRewritePattern;
 
   LogicalResult matchAndRewrite(mhlo::ReduceOp op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     if (op.getNumOperands() > 2) {
       // Currently do not support Variadic operand number.
       return failure();
@@ -162,7 +161,7 @@ struct ConvertDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
   using OpRewritePattern::OpRewritePattern;
 
   LogicalResult matchAndRewrite(mhlo::DotGeneralOp op,
-                                PatternRewriter &rewriter) const override {
+                                PatternRewriter& rewriter) const override {
     Location loc = op.getLoc();
     Value lhs = op.lhs();
     Value rhs = op.rhs();
@@ -201,7 +200,7 @@ struct ElementTypeConverterPass
 
   void runOnFunction() override {
     auto func = getFunction();
-    MLIRContext &ctx = getContext();
+    MLIRContext& ctx = getContext();
     OwningRewritePatternList patterns(&ctx);
     patterns.insert<ConvertReduceOpWithSmallWidthIntType>(&ctx);
     if (enable_fp16_gemm_) {
@@ -215,12 +214,12 @@ struct ElementTypeConverterPass
   }
 };
 
-} // namespace
+}  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>>
-createDiscElementTypeConverterPass(bool enable_fp16_gemm) {
+std::unique_ptr<OperationPass<FuncOp>> createDiscElementTypeConverterPass(
+    bool enable_fp16_gemm) {
   return std::make_unique<ElementTypeConverterPass>(enable_fp16_gemm);
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

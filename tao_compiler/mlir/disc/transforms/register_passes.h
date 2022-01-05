@@ -27,8 +27,8 @@ namespace disc_ral {
 
 inline void registerAllDiscPasses() { registerDISCPasses(); }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir
 
 namespace mlir {
 namespace mhlo_disc {
@@ -38,7 +38,7 @@ namespace mhlo_disc {
 
 inline void registerAllMhloDiscPasses() { registerMhloDiscPasses(); }
 
-} // namespace mhlo_disc
-} // namespace mlir
+}  // namespace mhlo_disc
+}  // namespace mlir
 
-#endif // DISC_TRANSFORMS_REGISTER_PASSES_H_
+#endif  // DISC_TRANSFORMS_REGISTER_PASSES_H_

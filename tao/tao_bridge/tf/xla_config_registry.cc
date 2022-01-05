@@ -29,22 +29,22 @@ struct GlobalJitLevelState {
   GlobalJitLevelGetterTy getter GUARDED_BY(mu);
 };
 
-GlobalJitLevelState *GetSingletonState() {
-  static GlobalJitLevelState *state = new GlobalJitLevelState;
+GlobalJitLevelState* GetSingletonState() {
+  static GlobalJitLevelState* state = new GlobalJitLevelState;
   return state;
 }
-} // namespace
+}  // namespace
 
 void RegisterGlobalJitLevelGetter(GlobalJitLevelGetterTy getter) {
-  GlobalJitLevelState *state = GetSingletonState();
+  GlobalJitLevelState* state = GetSingletonState();
   mutex_lock l(state->mu);
   // CHECK(!state->getter);
   state->getter = std::move(getter);
 }
 
-XlaGlobalJitLevel
-GetGlobalJitLevel(OptimizerOptions::GlobalJitLevel jit_level_in_session_opts) {
-  GlobalJitLevelState *state = GetSingletonState();
+XlaGlobalJitLevel GetGlobalJitLevel(
+    OptimizerOptions::GlobalJitLevel jit_level_in_session_opts) {
+  GlobalJitLevelState* state = GetSingletonState();
   mutex_lock l(state->mu);
   if (!state->getter) {
     return {jit_level_in_session_opts, jit_level_in_session_opts};
@@ -52,7 +52,7 @@ GetGlobalJitLevel(OptimizerOptions::GlobalJitLevel jit_level_in_session_opts) {
   return state->getter(jit_level_in_session_opts);
 }
 
-} // namespace xla_config_registry
+}  // namespace xla_config_registry
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

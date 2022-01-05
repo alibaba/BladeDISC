@@ -21,23 +21,23 @@ namespace tensorflow {
 namespace tao {
 
 class TaoDefusePass : public GraphOptimizationPass {
-public:
+ public:
   TaoDefusePass(bool use_tvm) : GraphOptimizationPass() { use_tvm_ = use_tvm; }
-  Status Run(const GraphOptimizationPassOptions &options) override;
+  Status Run(const GraphOptimizationPassOptions& options) override;
 
-  void set_opts(const std::unique_ptr<TaoPassOptions> &opt) {
+  void set_opts(const std::unique_ptr<TaoPassOptions>& opt) {
     if (opt) {
       use_tvm_ = opt->use_tvm;
     }
   }
 
-private:
+ private:
   bool use_tvm_;
 };
 
 const std::unordered_set<string> FusedOpList = {"_FusedConv2D", "_FusedMatMul",
                                                 "_FusedBatchNormEx"};
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TAO_BUILD_TAO_OP_PASS_H_
+#endif  // TAO_BUILD_TAO_OP_PASS_H_

@@ -53,7 +53,7 @@ namespace tao {
 // net/plaque copy in case it should be integrated.
 // NOTE!!!
 class GraphCycles {
-public:
+ public:
   GraphCycles();
   ~GraphCycles();
 
@@ -99,8 +99,8 @@ public:
 
   // Return or set the node data for a node.  This data is unused
   // by the implementation.
-  void *GetNodeData(int32 node) const;
-  void SetNodeData(int32 node, void *data);
+  void* GetNodeData(int32 node) const;
+  void SetNodeData(int32 node, void* data);
 
   // Find a path from "source" to "dest".  If such a path exists, place the
   // node IDs of the nodes on the path in the array path[], and return the
@@ -143,11 +143,11 @@ public:
   // ----------------------------------------------------
   struct Rep;
 
-private:
-  Rep *rep_; // opaque representation
+ private:
+  Rep* rep_;  // opaque representation
   TF_DISALLOW_COPY_AND_ASSIGN(GraphCycles);
 };
 
-} // namespace tao
-} // namespace tensorflow
-#endif // TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_GRAPHCYCLES_H_
+}  // namespace tao
+}  // namespace tensorflow
+#endif  // TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_GRAPHCYCLES_H_

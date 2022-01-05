@@ -26,13 +26,16 @@ namespace mhlo_disc {
 
 using llvm::StringRef;
 
-template <typename T> static LogicalResult Verify(T op) { return success(); }
+template <typename T>
+static LogicalResult Verify(T op) {
+  return success();
+}
 
 //===----------------------------------------------------------------------===//
 // mhlo disc Dialect Constructor
 //===----------------------------------------------------------------------===//
 
-MhloDiscDialect::MhloDiscDialect(MLIRContext *context)
+MhloDiscDialect::MhloDiscDialect(MLIRContext* context)
     : Dialect(getDialectNamespace(), context, TypeID::get<MhloDiscDialect>()) {
   addOperations<
 #define GET_OP_LIST
@@ -46,9 +49,9 @@ MhloDiscDialect::MhloDiscDialect(MLIRContext *context)
 // H2DOp
 //===----------------------------------------------------------------------===//
 
-LogicalResult
-H2DOp::reifyReturnTypeShapes(OpBuilder &builder, ValueRange operands,
-                             SmallVectorImpl<Value> &reifiedReturnShapes) {
+LogicalResult H2DOp::reifyReturnTypeShapes(
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
   return mhlo::deriveShapeFromOperand(&builder, getOperation(), operands[0],
                                       &reifiedReturnShapes);
 }
@@ -57,9 +60,9 @@ H2DOp::reifyReturnTypeShapes(OpBuilder &builder, ValueRange operands,
 // D2HOp
 //===----------------------------------------------------------------------===//
 
-LogicalResult
-D2HOp::reifyReturnTypeShapes(OpBuilder &builder, ValueRange operands,
-                             SmallVectorImpl<Value> &reifiedReturnShapes) {
+LogicalResult D2HOp::reifyReturnTypeShapes(
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
   return mhlo::deriveShapeFromOperand(&builder, getOperation(), operands[0],
                                       &reifiedReturnShapes);
 }
@@ -69,8 +72,8 @@ D2HOp::reifyReturnTypeShapes(OpBuilder &builder, ValueRange operands,
 //===----------------------------------------------------------------------===//
 
 LogicalResult CustomCallOp::reifyReturnTypeShapes(
-    OpBuilder &builder, ValueRange operands,
-    SmallVectorImpl<Value> &reifiedReturnShapes) {
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
   CustomCallOp::Adaptor adaptor(operands);
   ValueRange args = adaptor.args();
   StringRef target = call_target_name();
@@ -82,8 +85,8 @@ LogicalResult CustomCallOp::reifyReturnTypeShapes(
   return reify_shapes_func(*this, builder, operands, reifiedReturnShapes);
 }
 
-} // namespace mhlo_disc
-} // namespace mlir
+}  // namespace mhlo_disc
+}  // namespace mlir
 
 #define GET_OP_CLASSES
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.cc.inc"

@@ -20,13 +20,14 @@
 namespace mlir {
 namespace mhlo {
 namespace {
-template <class MLIR_T> std::string toString(MLIR_T value) {
+template <class MLIR_T>
+std::string toString(MLIR_T value) {
   std::string s;
   llvm::raw_string_ostream ss(s);
   ss << value;
   return ss.str();
 }
-} // namespace
+}  // namespace
 
 SmallVec4<mlir_dim_t> RangeIndices(mlir_dim_t min, mlir_dim_t max) {
   SmallVec4<mlir_dim_t> range;
@@ -36,16 +37,16 @@ SmallVec4<mlir_dim_t> RangeIndices(mlir_dim_t min, mlir_dim_t max) {
   return range;
 }
 
-mlir_dim_t GetRankOfMlirValue(const mlir::Value &tensor) {
+mlir_dim_t GetRankOfMlirValue(const mlir::Value& tensor) {
   auto ranked_value = tensor.getType().dyn_cast<mlir::RankedTensorType>();
   MHLO_CHECK(ranked_value, "the input tensor must be a RankedTensorType");
   auto rank = ranked_value.getRank();
   return rank;
 }
 
-llvm::Optional<mlir_dim_t> GetLenIfStaticLenVector(const mlir::Value &tensor) {
+llvm::Optional<mlir_dim_t> GetLenIfStaticLenVector(const mlir::Value& tensor) {
   RankedTensorType ranked_type = GetMilrRankedTensorType(tensor);
-  const auto &shape = ranked_type.getShape();
+  const auto& shape = ranked_type.getShape();
   if (shape.size() == 1 && shape[0] >= 0) {
     return shape[0];
   } else {
@@ -59,7 +60,7 @@ mlir_dim_t NormalizeDimIndex(mlir_dim_t dim_index, mlir_dim_t rank) {
   return (dim_index + rank) % rank;
 }
 
-SmallVec4<mlir_dim_t> NormalizeDimIndex(const SmallVec4<mlir_dim_t> &dims,
+SmallVec4<mlir_dim_t> NormalizeDimIndex(const SmallVec4<mlir_dim_t>& dims,
                                         mlir_dim_t rank) {
   SmallVec4<mlir_dim_t> new_dims;
   std::transform(dims.begin(), dims.end(), std::back_inserter(new_dims),
@@ -70,8 +71,8 @@ SmallVec4<mlir_dim_t> NormalizeDimIndex(const SmallVec4<mlir_dim_t> &dims,
 }
 
 mlir::Value BuildStandardI32NumelOfTensor(
-    mlir::OpBuilder &builder, const mlir::Location &loc,
-    const mlir::Value &input, const SmallVec4<mlir_dim_t> &numel_dims) {
+    mlir::OpBuilder& builder, const mlir::Location& loc,
+    const mlir::Value& input, const SmallVec4<mlir_dim_t>& numel_dims) {
   mlir::Value num_elem = BuildStdConstForI32(builder, loc, 1);
   mlir::Type mhlo_dim_type = BuildMHloDimType(builder);
   for (mlir_dim_t dim : numel_dims) {
@@ -82,10 +83,10 @@ mlir::Value BuildStandardI32NumelOfTensor(
   return num_elem;
 }
 
-mlir::Value BuildHloNumelOfTensor(mlir::OpBuilder &builder,
-                                  const mlir::Location &loc,
-                                  const mlir::Value &input,
-                                  const SmallVec4<mlir_dim_t> &numel_dims) {
+mlir::Value BuildHloNumelOfTensor(mlir::OpBuilder& builder,
+                                  const mlir::Location& loc,
+                                  const mlir::Value& input,
+                                  const SmallVec4<mlir_dim_t>& numel_dims) {
   auto num_elem =
       BuildStandardI32NumelOfTensor(builder, loc, input, numel_dims);
   // TODO: num_elem_tensor must be an rank 0 tensor, but
@@ -103,9 +104,9 @@ mlir::Value BuildHloNumelOfTensor(mlir::OpBuilder &builder,
 }
 
 // Returns minimal value for the given int or float element type.
-mlir::Value BuildHloMinValueForType(mlir::OpBuilder &builder,
-                                    const mlir::Location &loc,
-                                    const mlir::Type &elem_type) {
+mlir::Value BuildHloMinValueForType(mlir::OpBuilder& builder,
+                                    const mlir::Location& loc,
+                                    const mlir::Type& elem_type) {
   mlir::RankedTensorType scalar_ty = mlir::RankedTensorType::get({}, elem_type);
   mlir::DenseElementsAttr attr;
   if (auto float_ty = elem_type.dyn_cast_or_null<mlir::FloatType>()) {
@@ -129,9 +130,9 @@ mlir::Value BuildHloMinValueForType(mlir::OpBuilder &builder,
 }
 
 // Returns maximal value for the given int or float element type.
-mlir::Value BuildHloMaxValueForType(mlir::OpBuilder &builder,
-                                    const mlir::Location &loc,
-                                    const mlir::Type &elem_type) {
+mlir::Value BuildHloMaxValueForType(mlir::OpBuilder& builder,
+                                    const mlir::Location& loc,
+                                    const mlir::Type& elem_type) {
   mlir::RankedTensorType scalar_ty = mlir::RankedTensorType::get({}, elem_type);
   mlir::DenseElementsAttr attr;
   if (auto float_ty = elem_type.dyn_cast_or_null<mlir::FloatType>()) {
@@ -155,9 +156,9 @@ mlir::Value BuildHloMaxValueForType(mlir::OpBuilder &builder,
 }
 
 // Returns int or float DenseElementsAttr of const 0
-mlir::Value BuildHloConstOneForType(mlir::OpBuilder &builder,
-                                    const mlir::Location &loc,
-                                    const mlir::Type &elem_type) {
+mlir::Value BuildHloConstOneForType(mlir::OpBuilder& builder,
+                                    const mlir::Location& loc,
+                                    const mlir::Type& elem_type) {
   mlir::RankedTensorType scalar_ty = mlir::RankedTensorType::get({}, elem_type);
   mlir::DenseElementsAttr const_attr;
   if (auto float_ty = elem_type.dyn_cast_or_null<mlir::FloatType>()) {
@@ -174,9 +175,9 @@ mlir::Value BuildHloConstOneForType(mlir::OpBuilder &builder,
 }
 
 // Returns int or float DenseElementsAttr of const 0
-mlir::Value BuildHloConstZeroForType(mlir::OpBuilder &builder,
-                                     const mlir::Location &loc,
-                                     const mlir::Type &elem_type) {
+mlir::Value BuildHloConstZeroForType(mlir::OpBuilder& builder,
+                                     const mlir::Location& loc,
+                                     const mlir::Type& elem_type) {
   mlir::RankedTensorType scalar_ty = mlir::RankedTensorType::get({}, elem_type);
   mlir::DenseElementsAttr const_attr;
   if (auto float_ty = elem_type.dyn_cast_or_null<mlir::FloatType>()) {
@@ -192,9 +193,9 @@ mlir::Value BuildHloConstZeroForType(mlir::OpBuilder &builder,
   return builder.create<mlir::mhlo::ConstOp>(loc, const_attr);
 }
 
-mlir::Value BuildExtractVectorElement(mlir::OpBuilder &builder,
-                                      const mlir::Location &loc,
-                                      const mlir::Value &vector_value,
+mlir::Value BuildExtractVectorElement(mlir::OpBuilder& builder,
+                                      const mlir::Location& loc,
+                                      const mlir::Value& vector_value,
                                       mlir_dim_t index) {
   MHLO_CHECK(1 == GetRankOfMlirValue(vector_value),
              "the input value should have rank 1");
@@ -205,9 +206,9 @@ mlir::Value BuildExtractVectorElement(mlir::OpBuilder &builder,
 }
 
 // Returns float DenseElementsAttr of const value
-mlir::Value BuildHloConstForFloatType(mlir::OpBuilder &builder,
-                                      const mlir::Location &loc,
-                                      const mlir::Type &elem_type,
+mlir::Value BuildHloConstForFloatType(mlir::OpBuilder& builder,
+                                      const mlir::Location& loc,
+                                      const mlir::Type& elem_type,
                                       const float value) {
   mlir::RankedTensorType scalar_ty = mlir::RankedTensorType::get({}, elem_type);
   mlir::DenseElementsAttr const_attr;
@@ -220,10 +221,10 @@ mlir::Value BuildHloConstForFloatType(mlir::OpBuilder &builder,
   return builder.create<mlir::mhlo::ConstOp>(loc, const_attr);
 }
 
-mlir::Value BuildResolveUnknownDimSizeI32(mlir::OpBuilder &builder,
-                                          const mlir::Location &loc,
-                                          const mlir::Value &input,
-                                          const SmallValueVec4 &i32_dim_sizes) {
+mlir::Value BuildResolveUnknownDimSizeI32(mlir::OpBuilder& builder,
+                                          const mlir::Location& loc,
+                                          const mlir::Value& input,
+                                          const SmallValueVec4& i32_dim_sizes) {
   // NB: This builder function work fine when there are no more than one
   // negative value in dim sizes, and the negative value must be -1. Otherwise,
   // the behavior is undefined at compile time.
@@ -233,7 +234,7 @@ mlir::Value BuildResolveUnknownDimSizeI32(mlir::OpBuilder &builder,
 
   mlir_dim_t input_rank = GetRankOfMlirValue(input);
   // number of element of input tensor
-  const auto &input_numel = BuildStandardI32NumelOfTensor(
+  const auto& input_numel = BuildStandardI32NumelOfTensor(
       builder, loc, input, RangeIndices(0, input_rank));
   SmallValueVec4 shape_elements;
 
@@ -268,9 +269,9 @@ mlir::Value BuildResolveUnknownDimSizeI32(mlir::OpBuilder &builder,
       loc, BuildMHloDimType(builder), shape_elements);
 }
 
-mlir::Value BuildReshapeTensorToScalar(mlir::OpBuilder &builder,
-                                       const mlir::Location &loc,
-                                       const mlir::Value &single_value_input) {
+mlir::Value BuildReshapeTensorToScalar(mlir::OpBuilder& builder,
+                                       const mlir::Location& loc,
+                                       const mlir::Value& single_value_input) {
   auto ranked_type = GetMilrRankedTensorType(single_value_input);
   auto shape = ranked_type.getShape();
   MHLO_CHECK(shape.size() == 1 && shape[0] == 1,
@@ -282,8 +283,8 @@ mlir::Value BuildReshapeTensorToScalar(mlir::OpBuilder &builder,
       single_value_input);
 }
 
-SmallVec4<mlir_dim_t>
-GetDimSizeListFromHloDimValList(const SmallValueVec4 &dim_vals) {
+SmallVec4<mlir_dim_t> GetDimSizeListFromHloDimValList(
+    const SmallValueVec4& dim_vals) {
   SmallVec4<mlir_dim_t> output_shape;
   output_shape.reserve(dim_vals.size());
   for (auto dim_val : dim_vals) {
@@ -296,5 +297,5 @@ GetDimSizeListFromHloDimValList(const SmallValueVec4 &dim_vals) {
   return output_shape;
 }
 
-} // namespace mhlo
-} // namespace mlir
+}  // namespace mhlo
+}  // namespace mlir

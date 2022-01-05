@@ -17,8 +17,8 @@ namespace mlir {
 namespace mhlo {
 // Returns 1D bool dense elements attribute with the given values.
 template <typename T>
-mlir::DenseElementsAttr BuildElementsAttr(mlir::OpBuilder &builder,
-                                          const mlir::ArrayRef<T> &values) {
+mlir::DenseElementsAttr BuildElementsAttr(mlir::OpBuilder& builder,
+                                          const mlir::ArrayRef<T>& values) {
   mlir::Type elem_type;
   if (std::is_same<T, int64_t>::value) {
     elem_type = builder.getIntegerType(64);
@@ -36,8 +36,7 @@ mlir::DenseElementsAttr BuildElementsAttr(mlir::OpBuilder &builder,
 }
 
 // Returns 1D 64-bit dense elements attribute with the given values.
-mlir::DenseIntElementsAttr
-BuildI64ElementsAttr(mlir::OpBuilder &builder,
-                     const mlir::ArrayRef<int64_t> &values);
-} // namespace mhlo
-} // namespace mlir
+mlir::DenseIntElementsAttr BuildI64ElementsAttr(
+    mlir::OpBuilder& builder, const mlir::ArrayRef<int64_t>& values);
+}  // namespace mhlo
+}  // namespace mlir

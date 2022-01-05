@@ -22,25 +22,25 @@ namespace tensorflow {
 namespace tao {
 
 class PlatformInfo;
-Status PlatformInfoFromContext(OpKernelConstruction *ctx, PlatformInfo *result);
+Status PlatformInfoFromContext(OpKernelConstruction* ctx, PlatformInfo* result);
 class PlatformInfo {
-public:
+ public:
   PlatformInfo() : device_type_("") {}
   explicit PlatformInfo(const DeviceType device_type,
                         se::Platform::Id platform_id)
       : device_type_(device_type), platform_id_(platform_id) {}
 
-  PlatformInfo &operator=(PlatformInfo &&other) = default;
+  PlatformInfo& operator=(PlatformInfo&& other) = default;
 
   DeviceType device_type() const { return device_type_; }
 
-  void set_device_type(const char *type) { device_type_ = DeviceType(type); }
+  void set_device_type(const char* type) { device_type_ = DeviceType(type); }
 
   // This is equal to xla_device_metadata()->platform()->id() if
   // xla_device_metadata() is not nullptr.
   se::Platform::Id platform_id() const { return platform_id_; }
 
-private:
+ private:
   DeviceType device_type_;
   se::Platform::Id platform_id_;
 
@@ -66,7 +66,7 @@ Status PlatformInfoFromContext(OpKernelConstruction* ctx,
   return Status::OK();
 }
 **/
-} //  namespace tao
-} //  namespace tensorflow
+}  //  namespace tao
+}  //  namespace tensorflow
 
-#endif //  TAO_TAO_BRIDGE_KERNELS_PLATFORM_INFO_H_
+#endif  //  TAO_TAO_BRIDGE_KERNELS_PLATFORM_INFO_H_

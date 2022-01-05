@@ -72,22 +72,22 @@ namespace tensorflow {
 // manager which ensures that correct garbage collection on error or
 // successful completion.
 class TensorArrayOpBogon : public OpKernel {
-public:
-  explicit TensorArrayOpBogon(OpKernelConstruction *context)
+ public:
+  explicit TensorArrayOpBogon(OpKernelConstruction* context)
       : OpKernel(context) {}
 
-  void Compute(OpKernelContext *ctx) override {
+  void Compute(OpKernelContext* ctx) override {
     LOG(FATAL) << "TensorArrayOp device='GPU' dtype=DT_INT32 Not Implemented";
     return;
   }
 };
 
-#define REGISTER_GPU(type)                                                     \
-  REGISTER_KERNEL_BUILDER(Name("TensorArrayV3")                                \
-                              .Device(DEVICE_GPU)                              \
-                              .TypeConstraint<type>("dtype")                   \
-                              .HostMemory("size")                              \
-                              .HostMemory("handle"),                           \
+#define REGISTER_GPU(type)                                   \
+  REGISTER_KERNEL_BUILDER(Name("TensorArrayV3")              \
+                              .Device(DEVICE_GPU)            \
+                              .TypeConstraint<type>("dtype") \
+                              .HostMemory("size")            \
+                              .HostMemory("handle"),         \
                           TensorArrayOpBogon);
 
 TAO_REGISTER_GPU(REGISTER_GPU);
@@ -96,23 +96,23 @@ TAO_REGISTER_GPU(REGISTER_GPU);
 
 template <typename Device, typename T>
 class TensorArrayWriteOpBogon : public OpKernel {
-public:
-  explicit TensorArrayWriteOpBogon(OpKernelConstruction *context)
+ public:
+  explicit TensorArrayWriteOpBogon(OpKernelConstruction* context)
       : OpKernel(context) {}
 
-  void Compute(OpKernelContext *ctx) override {
+  void Compute(OpKernelContext* ctx) override {
     LOG(FATAL)
         << "TensorArrayWriteOp device='GPU' dtype=DT_INT32 Not Implemented";
     return;
   }
 };
 
-#define REGISTER_GPU(type)                                                     \
-  REGISTER_KERNEL_BUILDER(Name("TensorArrayWriteV3")                           \
-                              .Device(DEVICE_GPU)                              \
-                              .TypeConstraint<type>("T")                       \
-                              .HostMemory("handle")                            \
-                              .HostMemory("index"),                            \
+#define REGISTER_GPU(type)                               \
+  REGISTER_KERNEL_BUILDER(Name("TensorArrayWriteV3")     \
+                              .Device(DEVICE_GPU)        \
+                              .TypeConstraint<type>("T") \
+                              .HostMemory("handle")      \
+                              .HostMemory("index"),      \
                           TensorArrayWriteOpBogon<GPUDevice, type>);
 
 TAO_REGISTER_GPU(REGISTER_GPU);
@@ -121,23 +121,23 @@ TAO_REGISTER_GPU(REGISTER_GPU);
 
 template <typename Device, typename T>
 class TensorArrayReadOpBogon : public OpKernel {
-public:
-  explicit TensorArrayReadOpBogon(OpKernelConstruction *context)
+ public:
+  explicit TensorArrayReadOpBogon(OpKernelConstruction* context)
       : OpKernel(context) {}
 
-  void Compute(OpKernelContext *ctx) override {
+  void Compute(OpKernelContext* ctx) override {
     LOG(FATAL)
         << "TensorArrayReadOp device='GPU' dtype=DT_INT32 Not Implemented";
     return;
   }
 };
 
-#define REGISTER_GPU(type)                                                     \
-  REGISTER_KERNEL_BUILDER(Name("TensorArrayReadV3")                            \
-                              .Device(DEVICE_GPU)                              \
-                              .TypeConstraint<type>("dtype")                   \
-                              .HostMemory("handle")                            \
-                              .HostMemory("index"),                            \
+#define REGISTER_GPU(type)                                   \
+  REGISTER_KERNEL_BUILDER(Name("TensorArrayReadV3")          \
+                              .Device(DEVICE_GPU)            \
+                              .TypeConstraint<type>("dtype") \
+                              .HostMemory("handle")          \
+                              .HostMemory("index"),          \
                           TensorArrayReadOpBogon<GPUDevice, type>);
 
 TAO_REGISTER_GPU(REGISTER_GPU);
@@ -146,36 +146,36 @@ TAO_REGISTER_GPU(REGISTER_GPU);
 
 template <typename Device, typename T, bool LEGACY_UNPACK>
 class TensorArrayUnpackOrScatterOpBogon : public OpKernel {
-public:
-  explicit TensorArrayUnpackOrScatterOpBogon(OpKernelConstruction *context)
+ public:
+  explicit TensorArrayUnpackOrScatterOpBogon(OpKernelConstruction* context)
       : OpKernel(context) {}
 
-  void Compute(OpKernelContext *ctx) override {
+  void Compute(OpKernelContext* ctx) override {
     LOG(FATAL) << "TensorArrayUnpackOrScatterOp device='GPU' dtype=DT_INT32 "
                   "Not Implemented";
     return;
   }
 };
 
-#define REGISTER_GPU(type)                                                     \
-  REGISTER_KERNEL_BUILDER(                                                     \
-      Name("TensorArrayUnpack")                                                \
-          .Device(DEVICE_GPU)                                                  \
-          .TypeConstraint<type>("T")                                           \
-          .HostMemory("handle"),                                               \
-      TensorArrayUnpackOrScatterOpBogon<GPUDevice, type,                       \
-                                        true /* LEGACY_UNPACK */>);            \
-  REGISTER_KERNEL_BUILDER(                                                     \
-      Name("TensorArrayScatterV3")                                             \
-          .Device(DEVICE_GPU)                                                  \
-          .TypeConstraint<type>("T")                                           \
-          .HostMemory("indices")                                               \
-          .HostMemory("handle"),                                               \
-      TensorArrayUnpackOrScatterOpBogon<GPUDevice, type,                       \
+#define REGISTER_GPU(type)                                          \
+  REGISTER_KERNEL_BUILDER(                                          \
+      Name("TensorArrayUnpack")                                     \
+          .Device(DEVICE_GPU)                                       \
+          .TypeConstraint<type>("T")                                \
+          .HostMemory("handle"),                                    \
+      TensorArrayUnpackOrScatterOpBogon<GPUDevice, type,            \
+                                        true /* LEGACY_UNPACK */>); \
+  REGISTER_KERNEL_BUILDER(                                          \
+      Name("TensorArrayScatterV3")                                  \
+          .Device(DEVICE_GPU)                                       \
+          .TypeConstraint<type>("T")                                \
+          .HostMemory("indices")                                    \
+          .HostMemory("handle"),                                    \
+      TensorArrayUnpackOrScatterOpBogon<GPUDevice, type,            \
                                         false /* LEGACY_UNPACK */>);
 
 TAO_REGISTER_GPU(REGISTER_GPU);
 
 #undef REGISTER_GPU
 
-} // namespace tensorflow
+}  // namespace tensorflow

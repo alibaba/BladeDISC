@@ -80,6 +80,8 @@ limitations under the License.
 
 #include "tao_bridge/tf/resource_operation_safety_analysis.h"
 
+#include <unordered_set>
+
 #include "absl/memory/memory.h"
 #include "absl/strings/str_join.h"
 #include "absl/types/optional.h"
@@ -90,7 +92,6 @@ limitations under the License.
 #include "tensorflow/core/graph/tensor_id.h"
 #include "tensorflow/core/lib/hash/hash.h"
 #include "tensorflow/core/util/ptr_util.h"
-#include <unordered_set>
 
 namespace tensorflow {
 namespace tao {
@@ -99,9 +100,9 @@ namespace {
 // not a resource operation recognized by XLA then sets `out_resource_op_kind`
 // to nullopt.
 Status XlaResourceOpKindForNode(
-    const Node &n, const FunctionLibraryDefinition *flib_def,
-    const std::function<Status(const Node &, bool *)> &resource_ops_to_ignore,
-    absl::optional<XlaResourceOpKind> *out_resource_op_kind) {
+    const Node& n, const FunctionLibraryDefinition* flib_def,
+    const std::function<Status(const Node&, bool*)>& resource_ops_to_ignore,
+    absl::optional<XlaResourceOpKind>* out_resource_op_kind) {
   bool should_ignore = false;
   if (resource_ops_to_ignore) {
     TF_RETURN_IF_ERROR(resource_ops_to_ignore(n, &should_ignore));
@@ -111,7 +112,7 @@ Status XlaResourceOpKindForNode(
     return Status::OK();
   }
 
-  const XlaResourceOpInfo *op_info = GetResourceOpInfoForOp(n.type_string());
+  const XlaResourceOpInfo* op_info = GetResourceOpInfoForOp(n.type_string());
   if (op_info) {
     *out_resource_op_kind = op_info->kind();
     return Status::OK();
@@ -144,7 +145,7 @@ bool IsEdgeSafe(XlaResourceOpKind from, XlaResourceOpKind to) {
 
 using ResourceOp = std::pair<int, XlaResourceOpKind>;
 
-string ResourceOpToString(const ResourceOp &resource_op) {
+string ResourceOpToString(const ResourceOp& resource_op) {
   return absl::StrCat(
       resource_op.first, ": ",
       XlaResourceOpInfo::XlaResourceOpKindToString(resource_op.second));
@@ -156,7 +157,7 @@ string ResourceOpToString(const ResourceOp &resource_op) {
 // TODO(sanjoy): It may be useful to pull this out into its own header at some
 // point.
 struct HashResourceOp {
-  std::size_t operator()(const ResourceOp &p) const {
+  std::size_t operator()(const ResourceOp& p) const {
     auto h1 = std::hash<int>{}(p.first);
     auto h2 = std::hash<std::size_t>{}(static_cast<std::size_t>(p.second));
     return h1 ^ h2;
@@ -164,14 +165,14 @@ struct HashResourceOp {
 };
 
 class ResourceOpSet {
-private:
+ private:
   using Impl = std::unordered_set<ResourceOp, HashResourceOp>;
 
-public:
+ public:
   ResourceOpSet() = default;
 
   // Adds all ResourceOp s in `other` to this set.
-  void Add(const ResourceOpSet &other) {
+  void Add(const ResourceOpSet& other) {
     CHECK(!frozen_);
     if (other.impl_ == impl_) {
       other.frozen_ = true;
@@ -189,7 +190,7 @@ public:
     }
   }
 
-  void Add(const ResourceOp &resource_op) {
+  void Add(const ResourceOp& resource_op) {
     CHECK(!frozen_);
     if (!IsCopy() && Contains(resource_op)) {
       // We can avoid the copy if the item we want to insert already exists.
@@ -208,11 +209,11 @@ public:
     return impl_ ? impl_->end() : GetEmptyImpl()->end();
   }
 
-  bool Contains(const ResourceOp &resource_op) const {
+  bool Contains(const ResourceOp& resource_op) const {
     return impl_ != nullptr && impl_->count(resource_op);
   }
 
-private:
+ private:
   bool IsCopy() const { return storage_ != nullptr; }
 
   void EnsureIsCopied() {
@@ -225,12 +226,12 @@ private:
     }
   }
 
-  static Impl *GetEmptyImpl() {
-    static Impl *empty_impl = new Impl;
+  static Impl* GetEmptyImpl() {
+    static Impl* empty_impl = new Impl;
     return empty_impl;
   }
 
-  Impl *impl_ = nullptr;
+  Impl* impl_ = nullptr;
   std::unique_ptr<Impl> storage_;
 
   // frozen_ is true if there is another set pointing to this set's impl_.  We
@@ -241,29 +242,29 @@ private:
   TF_DISALLOW_COPY_AND_ASSIGN(ResourceOpSet);
 };
 
-string ResourceOpSetToString(const ResourceOpSet &resource_op_set) {
+string ResourceOpSetToString(const ResourceOpSet& resource_op_set) {
   std::vector<string> elements_debug_string;
   std::transform(resource_op_set.begin(), resource_op_set.end(),
                  std::back_inserter(elements_debug_string), ResourceOpToString);
   return absl::StrCat("{", absl::StrJoin(elements_debug_string, ","), "}");
 }
 
-string NodeToString(const Node &n, XlaResourceOpKind resource_op_kind) {
+string NodeToString(const Node& n, XlaResourceOpKind resource_op_kind) {
   return absl::StrCat(
       "[", n.name(), ": ", n.type_string(), "(",
       XlaResourceOpInfo::XlaResourceOpKindToString(resource_op_kind), ")", "]");
 }
-} // namespace
+}  // namespace
 
 Status ComputeIncompatibleResourceOperationPairs(
-    const Graph &g, const FunctionLibraryDefinition *flib_def,
-    const std::function<Status(const Node &, bool *)> &resource_ops_to_ignore,
-    std::vector<std::pair<int, int>> *result) {
+    const Graph& g, const FunctionLibraryDefinition* flib_def,
+    const std::function<Status(const Node&, bool*)>& resource_ops_to_ignore,
+    std::vector<std::pair<int, int>>* result) {
   CHECK(result->empty());
 
-  std::vector<Node *> rpo;
+  std::vector<Node*> rpo;
   GetReversePostOrder(g, &rpo, /*stable_comparator=*/NodeComparatorName(),
-                      /*edge_filter=*/[](const Edge &edge) {
+                      /*edge_filter=*/[](const Edge& edge) {
                         return !edge.src()->IsNextIteration();
                       });
 
@@ -272,22 +273,22 @@ Status ComputeIncompatibleResourceOperationPairs(
 
   const bool vlog = VLOG_IS_ON(2);
 
-  for (Node *n : rpo) {
+  for (Node* n : rpo) {
     absl::optional<XlaResourceOpKind> op_kind;
     TF_RETURN_IF_ERROR(XlaResourceOpKindForNode(
         *n, flib_def, resource_ops_to_ignore, &op_kind));
 
-    ResourceOpSet *resource_op_set = &resource_op_set_for_node[n->id()];
+    ResourceOpSet* resource_op_set = &resource_op_set_for_node[n->id()];
 
     // Merge the reaching resource operations for all the incoming edges to
     // create the set of all possible resource ops reaching `n`.
-    for (const Edge *e : n->in_edges()) {
+    for (const Edge* e : n->in_edges()) {
       if (n->IsMerge() && e->src()->IsNextIteration()) {
         // Ignore back-edges (see file comment).
         continue;
       }
 
-      const ResourceOpSet &incoming_op_set =
+      const ResourceOpSet& incoming_op_set =
           resource_op_set_for_node[e->src()->id()];
       resource_op_set->Add(incoming_op_set);
     }
@@ -321,5 +322,5 @@ Status ComputeIncompatibleResourceOperationPairs(
 
   return Status::OK();
 }
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

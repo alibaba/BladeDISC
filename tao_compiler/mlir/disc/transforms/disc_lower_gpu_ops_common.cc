@@ -24,7 +24,7 @@ namespace disc_ral {
 
 LogicalResult RemoveUselessUnrealizedConversionCastOp::matchAndRewrite(
     UnrealizedConversionCastOp op, ArrayRef<Value> operands,
-    ConversionPatternRewriter &rewriter) const {
+    ConversionPatternRewriter& rewriter) const {
   auto in_type = op.inputs().getTypes().front();
   auto out_type = op.outputs().getTypes().front();
   // this pattern only used for uint/sint->int conversion now
@@ -73,16 +73,16 @@ LogicalResult RemoveUselessUnrealizedConversionCastOp::matchAndRewrite(
 ///
 LogicalResult GenericAtomicRMWOpLoweringWithBitcast::matchAndRewrite(
     GenericAtomicRMWOp atomicOp, ArrayRef<Value> operands,
-    ConversionPatternRewriter &rewriter) const {
+    ConversionPatternRewriter& rewriter) const {
   Location loc = atomicOp.getLoc();
   GenericAtomicRMWOp::Adaptor adaptor(operands);
   Type valueType = typeConverter->convertType(atomicOp.getResult().getType());
 
   // Split the block into initial, loop, and ending parts.
-  Block *initBlock = rewriter.getInsertionBlock();
-  Block *endBlock =
+  Block* initBlock = rewriter.getInsertionBlock();
+  Block* endBlock =
       rewriter.splitBlock(initBlock, std::next(Block::iterator(atomicOp)));
-  Block *loopBlock =
+  Block* loopBlock =
       rewriter.createBlock(initBlock->getParent(),
                            std::next(Region::iterator(initBlock)), valueType);
 
@@ -101,9 +101,9 @@ LogicalResult GenericAtomicRMWOpLoweringWithBitcast::matchAndRewrite(
   auto loopArgument = loopBlock->getArgument(0);
   BlockAndValueMapping mapping;
   mapping.map(atomicOp.getCurrentValue(), loopArgument);
-  Block &entryBlock = atomicOp.body().front();
-  for (auto &nestedOp : entryBlock.without_terminator()) {
-    Operation *clone = rewriter.clone(nestedOp, mapping);
+  Block& entryBlock = atomicOp.body().front();
+  for (auto& nestedOp : entryBlock.without_terminator()) {
+    Operation* clone = rewriter.clone(nestedOp, mapping);
     mapping.map(nestedOp.getResults(), clone->getResults());
   }
   Value result = mapping.lookup(entryBlock.getTerminator()->getOperand(0));
@@ -172,5 +172,5 @@ LogicalResult GenericAtomicRMWOpLoweringWithBitcast::matchAndRewrite(
   return success();
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

@@ -25,7 +25,7 @@
 namespace tao {
 namespace ral {
 
-BaseContext::BaseContext(BaseContextOption &opt) {
+BaseContext::BaseContext(BaseContextOption& opt) {
   getOrCreateResource(tao::ral::kRalGlobalConstantState, [opt, this]() {
     auto state = new tao::ral::RalGlobalConstantState;
 
@@ -43,14 +43,14 @@ BaseContext::BaseContext(BaseContextOption &opt) {
       return state;
     } else {
       delete state;
-      return (tao::ral::RalGlobalConstantState *)nullptr;
+      return (tao::ral::RalGlobalConstantState*)nullptr;
     }
   });
 }
 
 BaseContext::~BaseContext() {}
 
-BaseExecutionContext::BaseExecutionContext(BaseContext *ctx)
+BaseExecutionContext::BaseExecutionContext(BaseContext* ctx)
     : ExecutionContext(ctx) {
   onExecutionStart();
 }
@@ -58,7 +58,7 @@ BaseExecutionContext::BaseExecutionContext(BaseContext *ctx)
 BaseExecutionContext::~BaseExecutionContext() { onExecutionFinish(); }
 
 void BaseExecutionContext::bindInput(int input_idx, buffer_t buffer,
-                                     const buffer_shape_t &shape) {
+                                     const buffer_shape_t& shape) {
   Tensor tensor;
   tensor.buffer = buffer;
   tensor.shape = shape;
@@ -68,7 +68,7 @@ void BaseExecutionContext::bindInput(int input_idx, buffer_t buffer,
 }
 
 void BaseExecutionContext::bindOutput(
-    int output_idx, std::unique_ptr<OutputBufferWrapper> *output) {
+    int output_idx, std::unique_ptr<OutputBufferWrapper>* output) {
   auto it = outputs.find(output_idx);
   if (it == outputs.end()) {
     signalError(Context::FAILURE, "output not found");
@@ -97,15 +97,15 @@ InternalAllocator::InternalAllocator(alloc_t alloc_func, dealloc_t dealloc_func)
 InternalAllocator::~InternalAllocator() { releaseAllFreeBuffers(); }
 
 void InternalAllocator::releaseAllFreeBuffers() {
-  for (auto &pair : free_buffers_) {
-    for (auto &buffer : pair.second) {
+  for (auto& pair : free_buffers_) {
+    for (auto& buffer : pair.second) {
       dealloc_func_(buffer);
     }
   }
 }
 
 buffer_t InternalAllocator::alloc(size_t bytes) {
-  auto &free_buffer_vec = free_buffers_[bytes];
+  auto& free_buffer_vec = free_buffers_[bytes];
   if (free_buffer_vec.empty()) {
     buffer_t ptr = alloc_func_(bytes);
     allocated_buffers_[ptr] = bytes;
@@ -130,18 +130,18 @@ void InternalAllocator::dealloc(buffer_t buffer) {
 // ============================================================================
 
 template <typename T, int N>
-tao::ral::MemRefType<T, N> ral_base_cuda_recv_input(ExecutionContext *ctx,
+tao::ral::MemRefType<T, N> ral_base_cuda_recv_input(ExecutionContext* ctx,
                                                     int64_t input_idx) {
   TAO_VLOG(1) << "ral_base_cuda_recv_input for " << N << "d";
   tao::ral::MemRefType<T, N> memref;
 
-  auto exec_ctx = dynamic_cast<BaseExecutionContext *>(ctx);
+  auto exec_ctx = dynamic_cast<BaseExecutionContext*>(ctx);
   auto it = exec_ctx->inputs.find(input_idx);
   if (it == exec_ctx->inputs.end()) {
     ctx->signalError(Context::FAILURE, "invalid input index");
     return memref;
   }
-  auto &tensor = it->second;
+  auto& tensor = it->second;
 
   memref = assignMemRef<T, N>(tensor.buffer, tensor.shape);
 
@@ -153,18 +153,18 @@ tao::ral::MemRefType<T, N> ral_base_cuda_recv_input(ExecutionContext *ctx,
 }
 
 template <typename T>
-tao::ral::MemRefType<T, 0> ral_base_cuda_recv_input_0d(ExecutionContext *ctx,
+tao::ral::MemRefType<T, 0> ral_base_cuda_recv_input_0d(ExecutionContext* ctx,
                                                        int64_t input_idx) {
   TAO_VLOG(1) << "ral_base_cuda_recv_input for " << 0 << "d";
   tao::ral::MemRefType<T, 0> memref;
 
-  auto exec_ctx = dynamic_cast<BaseExecutionContext *>(ctx);
+  auto exec_ctx = dynamic_cast<BaseExecutionContext*>(ctx);
   auto it = exec_ctx->inputs.find(input_idx);
   if (it == exec_ctx->inputs.end()) {
     ctx->signalError(Context::FAILURE, "invalid input index");
     return memref;
   }
-  auto &tensor = it->second;
+  auto& tensor = it->second;
 
   memref = assignMemRef_0d<T>(tensor.buffer);
 
@@ -176,14 +176,14 @@ tao::ral::MemRefType<T, 0> ral_base_cuda_recv_input_0d(ExecutionContext *ctx,
 }
 
 template <typename T, int N>
-void ral_base_cuda_send_output(ExecutionContext *ctx, int64_t output_idx,
+void ral_base_cuda_send_output(ExecutionContext* ctx, int64_t output_idx,
                                tao::ral::MemRefType<T, N> memref) {
   TAO_VLOG(1) << "ral_base_cuda_send_output for " << N << "d";
   if (TAO_VLOG_IS_ON(1)) {
     tao::ral::print_memref(memref, "output");
   }
 
-  auto exec_ctx = dynamic_cast<BaseExecutionContext *>(ctx);
+  auto exec_ctx = dynamic_cast<BaseExecutionContext*>(ctx);
 
   Tensor tensor;
   for (int i = 0; i < N; ++i) {
@@ -199,14 +199,14 @@ void ral_base_cuda_send_output(ExecutionContext *ctx, int64_t output_idx,
 }
 
 template <typename T>
-void ral_base_cuda_send_output_0d(ExecutionContext *ctx, int64_t output_idx,
+void ral_base_cuda_send_output_0d(ExecutionContext* ctx, int64_t output_idx,
                                   tao::ral::MemRefType<T, 0> memref) {
   TAO_VLOG(1) << "ral_base_cuda_send_output for " << 0 << "d";
   if (TAO_VLOG_IS_ON(1)) {
     print_memref_0d<T>(memref, "output");
   }
 
-  auto exec_ctx = dynamic_cast<BaseExecutionContext *>(ctx);
+  auto exec_ctx = dynamic_cast<BaseExecutionContext*>(ctx);
 
   Tensor tensor;
   tensor.buffer = memref.data;
@@ -294,8 +294,8 @@ RAL_REGISTER_IO_FUNC(bool, 6);
 RAL_REGISTER_IO_FUNC(bool, 7);
 RAL_REGISTER_IO_FUNC(bool, 8);
 
-} // namespace ral
-} // namespace tao
+}  // namespace ral
+}  // namespace tao
 
 #ifdef TAO_RAL_USE_STREAM_EXECUTOR
 #include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
@@ -310,6 +310,6 @@ RAL_REGISTER_IO_FUNC(Eigen::half, 5);
 RAL_REGISTER_IO_FUNC(Eigen::half, 6);
 RAL_REGISTER_IO_FUNC(Eigen::half, 7);
 RAL_REGISTER_IO_FUNC(Eigen::half, 8);
-} // namespace ral
-} // namespace tao
-#endif // TAO_RAL_USE_STREAM_EXECUTOR
+}  // namespace ral
+}  // namespace tao
+#endif  // TAO_RAL_USE_STREAM_EXECUTOR

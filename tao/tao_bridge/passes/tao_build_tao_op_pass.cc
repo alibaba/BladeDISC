@@ -48,11 +48,11 @@ struct XlaClusterInfo {
   NameAttrList function;
 };
 
-NodeBuilder::NodeOut IncomingEdgeAsOutput(const Edge *e) {
+NodeBuilder::NodeOut IncomingEdgeAsOutput(const Edge* e) {
   return NodeBuilder::NodeOut(e->src(), e->src_output());
 }
 
-Status GetXlaClusterInfo(Node *n, XlaClusterInfo *result) {
+Status GetXlaClusterInfo(Node* n, XlaClusterInfo* result) {
   int num_constant_inputs = 0;
   int num_fixed_shape_inputs = 0;
   int num_non_const_or_fixedshape_host_inputs = 0;
@@ -78,10 +78,10 @@ Status GetXlaClusterInfo(Node *n, XlaClusterInfo *result) {
         "kernel.");
   }
 
-  std::vector<const Edge *> input_edges_vector;
+  std::vector<const Edge*> input_edges_vector;
   TF_RETURN_IF_ERROR(n->input_edges(&input_edges_vector));
   int idx = 0;
-  for (const Edge *e : input_edges_vector) {
+  for (const Edge* e : input_edges_vector) {
     if (idx < num_constant_inputs) {
       result->constant_inputs.push_back(IncomingEdgeAsOutput(e));
     } else if (idx < num_constant_inputs + num_fixed_shape_inputs) {
@@ -119,8 +119,8 @@ Status GetXlaClusterInfo(Node *n, XlaClusterInfo *result) {
   return Status::OK();
 }
 
-Status CopyIncomingControlEdges(Graph *g, Node *from, Node *to) {
-  for (const Edge *e : from->in_edges()) {
+Status CopyIncomingControlEdges(Graph* g, Node* from, Node* to) {
+  for (const Edge* e : from->in_edges()) {
     if (e->IsControlEdge()) {
       g->AddControlEdge(e->src(), to);
     }
@@ -129,10 +129,10 @@ Status CopyIncomingControlEdges(Graph *g, Node *from, Node *to) {
   return Status::OK();
 }
 
-void MoveOutgoingEdges(Graph *g, Node *old_node, Node *new_node) {
-  std::vector<const Edge *> out_edges(old_node->out_edges().begin(),
-                                      old_node->out_edges().end());
-  for (const Edge *edge : out_edges) {
+void MoveOutgoingEdges(Graph* g, Node* old_node, Node* new_node) {
+  std::vector<const Edge*> out_edges(old_node->out_edges().begin(),
+                                     old_node->out_edges().end());
+  for (const Edge* edge : out_edges) {
     // TODO(sanjoy): This does not update NodeDef inputs.  To be able to update
     // NodeDef inputs we first need to fix encapsulate_subgraphs_pass to fix up
     // the NodeDef inputs to the function call nodes.
@@ -148,8 +148,8 @@ struct NameCounts {
   std::unordered_map<string, int> counts;
 };
 
-Status PrepareMLIRClustering(Graph *graph, const std::string &device) {
-  for (Node *n : graph->nodes()) {
+Status PrepareMLIRClustering(Graph* graph, const std::string& device) {
+  for (Node* n : graph->nodes()) {
     n->ClearAttr("_XlaAlreadyClustered");
     if (n->type_string() == "_Arg" || n->type_string() == "_Retval") {
       DataType dtype = DT_INVALID;
@@ -167,27 +167,27 @@ Status PrepareMLIRClustering(Graph *graph, const std::string &device) {
 }
 
 /// Return true if the input mlir graph is valid, return false otherwise.
-bool ValidateMLIRGraph(const Graph &graph,
-                       const FunctionLibraryDefinition *const fld) {
+bool ValidateMLIRGraph(const Graph& graph,
+                       const FunctionLibraryDefinition* const fld) {
   bool has_tao_launch = false;
-  for (auto *node : graph.op_nodes()) {
+  for (auto* node : graph.op_nodes()) {
     if (node->type_string() == "TaoMlirLaunch" ||
         node->type_string() == "DiscLaunch") {
       has_tao_launch = true;
 
-      const AttrValue *attr_value = node->attrs().Find("mlir_function");
+      const AttrValue* attr_value = node->attrs().Find("mlir_function");
       if (!attr_value) {
         VLOG(0) << "Invalid MLIR branch: TaoLaunch op has not `mlir_function` "
                    "attr.";
         return false;
       }
-      const std::string &func_name = attr_value->func().name();
+      const std::string& func_name = attr_value->func().name();
       if (func_name.empty()) {
         VLOG(0) << "Invalid MLIR branch: TaoLaunch op has empty "
                    "`mlir_function` attr.";
         return false;
       }
-      auto *func_def = fld->Find(func_name);
+      auto* func_def = fld->Find(func_name);
       if (func_def == nullptr) {
         VLOG(0) << "Invalid MLIR branch: mlir function not found in function "
                    "library definition: "
@@ -203,11 +203,11 @@ bool ValidateMLIRGraph(const Graph &graph,
   return true;
 }
 
-Status CreateMlirFunction(const GraphOptimizationPassOptions &options, Graph *g,
-                          Node *n, const NameAttrList &tf_func,
-                          std::unique_ptr<NameAttrList> *mlir_func) {
+Status CreateMlirFunction(const GraphOptimizationPassOptions& options, Graph* g,
+                          Node* n, const NameAttrList& tf_func,
+                          std::unique_ptr<NameAttrList>* mlir_func) {
   // const FunctionLibraryDefinition& flib_def = g->flib_def();
-  const FunctionDef *tf_fdef = options.flib_def->Find(tf_func.name());
+  const FunctionDef* tf_fdef = options.flib_def->Find(tf_func.name());
   if (tf_fdef == nullptr) {
     return errors::Internal("FunctionDef for TaoOp not found:", tf_func.name());
   }
@@ -226,14 +226,14 @@ Status CreateMlirFunction(const GraphOptimizationPassOptions &options, Graph *g,
       options.flib_def, opts);
 #endif
 
-  FunctionLibraryRuntime *flr =
+  FunctionLibraryRuntime* flr =
       pflr->GetFLR(ProcessFunctionLibraryRuntime::kDefaultFLRDevice);
   FunctionLibraryRuntime::Handle mlir_func_handle;
   TF_RETURN_IF_ERROR(flr->Instantiate(
       tf_func.name(), AttrSlice(&tf_func.attr()), &mlir_func_handle));
   auto release_handle_on_return = gtl::MakeCleanup(
       [&] { TF_CHECK_OK(flr->ReleaseHandle(mlir_func_handle)); });
-  const FunctionBody *fbody = flr->GetFunctionBody(mlir_func_handle);
+  const FunctionBody* fbody = flr->GetFunctionBody(mlir_func_handle);
   std::unique_ptr<Graph> copy(new Graph(fbody->graph->flib_def()));
   CopyGraph(*fbody->graph, copy.get());
 #ifndef TF_1_12
@@ -276,10 +276,10 @@ Status CreateMlirFunction(const GraphOptimizationPassOptions &options, Graph *g,
   return Status::OK();
 }
 
-Status CreateFallbackFunction(const GraphOptimizationPassOptions &options,
-                              const Node *node, const NameAttrList &tf_func,
-                              NameAttrList *fallback_function) {
-  FunctionLibraryDefinition *const library = options.flib_def;
+Status CreateFallbackFunction(const GraphOptimizationPassOptions& options,
+                              const Node* node, const NameAttrList& tf_func,
+                              NameAttrList* fallback_function) {
+  FunctionLibraryDefinition* const library = options.flib_def;
   string defunct_name = tf_func.name() + kDefunctionalizedSuffix;
   if (library->Find(defunct_name) != nullptr) {
     fallback_function->set_name(defunct_name);
@@ -288,8 +288,8 @@ Status CreateFallbackFunction(const GraphOptimizationPassOptions &options,
   return Status::OK();
 }
 
-Status ReplaceNodeWithTaoLaunchOp(const GraphOptimizationPassOptions &options,
-                                  Graph *g, Node *n, bool inner) {
+Status ReplaceNodeWithTaoLaunchOp(const GraphOptimizationPassOptions& options,
+                                  Graph* g, Node* n, bool inner) {
   VLOG(1) << "Run ReplaceNodeWithTaoLaunchOp with " << n->name();
   XlaClusterInfo cluster_info;
   TF_RETURN_IF_ERROR(GetXlaClusterInfo(n, &cluster_info));
@@ -361,7 +361,7 @@ Status ReplaceNodeWithTaoLaunchOp(const GraphOptimizationPassOptions &options,
           .Device(n->requested_device())
           .AssignedDevice(n->assigned_device_name());
 #endif
-  Node *tao_op = nullptr;
+  Node* tao_op = nullptr;
   Status status = nb.Finalize(g, &tao_op);
   TF_CHECK_OK(status);
 
@@ -372,15 +372,15 @@ Status ReplaceNodeWithTaoLaunchOp(const GraphOptimizationPassOptions &options,
   return Status::OK();
 }
 
-} // namespace
+}  // namespace
 
-Status TaoBuildTaoOpPass::Run(const GraphOptimizationPassOptions &options) {
+Status TaoBuildTaoOpPass::Run(const GraphOptimizationPassOptions& options) {
   VLOG(1) << "TaoBuildTaoOpPass::Run is called, inner TaoLaunch: "
           << inner_tao_launch_;
-  Graph *graph = options.graph->get();
+  Graph* graph = options.graph->get();
 
-  std::vector<Node *> target_nodes;
-  for (Node *n : graph->op_nodes()) {
+  std::vector<Node*> target_nodes;
+  for (Node* n : graph->op_nodes()) {
     // In all cases, only try to compile computational nodes.
     if (n->IsSend() || n->IsRecv() || n->IsControlFlow()) {
       continue;
@@ -401,5 +401,5 @@ Status TaoBuildTaoOpPass::Run(const GraphOptimizationPassOptions &options) {
   return Status::OK();
 }
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

@@ -9,19 +9,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/IR/Function.h"  // TF:llvm-project
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/FormatVariadic.h"
 #include "mlir-hlo/Dialect/mhlo/IR/disc_ral_ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h" // TF:llvm-project
-#include "mlir/Pass/Pass.h"                  // TF:llvm-project
-#include "mlir/Support/LogicalResult.h"      // TF:llvm-project
+#include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
+#include "mlir/Pass/Pass.h"                   // TF:llvm-project
+#include "mlir/Support/LogicalResult.h"       // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
 #include "transforms/PassDetail.h"
 #include "transforms/placement_utils.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/IR/Function.h" // TF:llvm-project
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/FormatVariadic.h"
 
 namespace mlir {
 
@@ -142,11 +142,11 @@ void ReviseArgsForStaticRankPass::runOnOperation() {
   return;
 }
 
-} // namespace
+}  // namespace
 
 std::unique_ptr<OperationPass<ModuleOp>> createReviseArgsForStaticRankPass() {
   return std::make_unique<ReviseArgsForStaticRankPass>();
 }
 
-} // namespace disc_ral
-} // namespace mlir
+}  // namespace disc_ral
+}  // namespace mlir

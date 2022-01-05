@@ -33,30 +33,30 @@ using ::mlir::mhlo_disc::RngUniformBackendConfig;
 namespace llvm {
 namespace json {
 
-bool fromJSON(const llvm::json::Value &value,
-              RngUniformBackendConfig &rng_uniform_backend_config,
+bool fromJSON(const llvm::json::Value& value,
+              RngUniformBackendConfig& rng_uniform_backend_config,
               llvm::json::Path path) {
   ObjectMapper o(value, path);
   return o && o.map("seed", rng_uniform_backend_config.seed) &&
          o.map("seed2", rng_uniform_backend_config.seed2);
 }
 
-llvm::json::Value
-toJSON(const RngUniformBackendConfig &rng_uniform_backend_config) {
+llvm::json::Value toJSON(
+    const RngUniformBackendConfig& rng_uniform_backend_config) {
   return llvm::json::Value(Object{{"seed", rng_uniform_backend_config.seed},
                                   {"seed2", rng_uniform_backend_config.seed2}});
 }
 
-} // namespace json
-} // namespace llvm
+}  // namespace json
+}  // namespace llvm
 
 namespace mlir {
 namespace mhlo_disc {
 
 template <>
 LogicalResult reifyReturnTypeShapesImpl<RngUniformBackendConfig>(
-    CustomCallOp op, OpBuilder &builder, ValueRange operands,
-    SmallVectorImpl<Value> &reifiedReturnShapes) {
+    CustomCallOp op, OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
   Value operand = operands[2];
   auto operand_type = operand.getType().dyn_cast<ShapedType>();
   if (!operand_type || !operand_type.hasStaticShape() ||
@@ -79,7 +79,7 @@ LogicalResult reifyReturnTypeShapesImpl<RngUniformBackendConfig>(
   return success();
 }
 
-} // namespace mhlo_disc
+}  // namespace mhlo_disc
 namespace lmhlo_disc {
 
 int64_t GetRngUniqueId() {
@@ -89,7 +89,7 @@ int64_t GetRngUniqueId() {
 
 template <>
 LogicalResult lowerToLibraryCallImpl<RngUniformBackendConfig>(
-    CustomCallOp op, PatternRewriter &rewriter, Value ctx,
+    CustomCallOp op, PatternRewriter& rewriter, Value ctx,
     Value stream_handle) {
   bool on_gpu = false;
   SmallVector<Value, 4> newOperands{stream_handle};
@@ -118,11 +118,11 @@ LogicalResult lowerToLibraryCallImpl<RngUniformBackendConfig>(
   return success();
 }
 
-} // namespace lmhlo_disc
+}  // namespace lmhlo_disc
 
 REGISTER_CUSTOM_CALL(
     "rng_uniform",
     mhlo_disc::reifyReturnTypeShapesImpl<RngUniformBackendConfig>,
     lmhlo_disc::lowerToLibraryCallImpl<RngUniformBackendConfig>);
 
-} // namespace mlir
+}  // namespace mlir

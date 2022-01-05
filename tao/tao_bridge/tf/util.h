@@ -47,7 +47,7 @@ namespace tao {
 // For use by Status-factories, logs a backtrace at the point where the status
 // is created, such that we can use --vmodule=util=1 to see all status
 // creation backtraces.
-Status WithLogBacktrace(const Status &status);
+Status WithLogBacktrace(const Status& status);
 
 // Ranks greater than 8 are very rare, so use InlinedVector<int64, 8> to store
 // the bounds and indices. And for the rare cases of ranks greater than 8,
@@ -68,20 +68,20 @@ using DimensionVector = absl::InlinedVector<int64, kInlineRank>;
 //
 //   XLA_SCOPED_LOGGING_TIMER_LEVEL("fooing bar", 2);  // nop if !VLOG_IS_ON(2)
 //
-#define XLA_SCOPED_LOGGING_TIMER(label)                                        \
+#define XLA_SCOPED_LOGGING_TIMER(label) \
   XLA_SCOPED_LOGGING_TIMER_HELPER(label, 1, __COUNTER__)
-#define XLA_SCOPED_LOGGING_TIMER_LEVEL(label, level)                           \
+#define XLA_SCOPED_LOGGING_TIMER_LEVEL(label, level) \
   XLA_SCOPED_LOGGING_TIMER_HELPER(label, level, __COUNTER__)
 
 // Helper for implementing macros above.  Do not use directly.
 //
 // Forces the evaluation of "counter", which we expect is equal to __COUNTER__.
-#define XLA_SCOPED_LOGGING_TIMER_HELPER(label, level, counter)                 \
+#define XLA_SCOPED_LOGGING_TIMER_HELPER(label, level, counter) \
   XLA_SCOPED_LOGGING_TIMER_HELPER2(label, level, counter)
 
 // Helper for macros above.  Don't use directly.
-#define XLA_SCOPED_LOGGING_TIMER_HELPER2(label, level, counter)                \
-  ::xla::tao::ScopedLoggingTimer XLA_ScopedLoggingTimerInstance##counter(      \
+#define XLA_SCOPED_LOGGING_TIMER_HELPER2(label, level, counter)           \
+  ::xla::tao::ScopedLoggingTimer XLA_ScopedLoggingTimerInstance##counter( \
       label, VLOG_IS_ON(level))
 
 // RAII timer for XLA_SCOPED_LOGGING_TIMER and XLA_SCOPED_LOGGING_TIMER_LEVEL
@@ -90,7 +90,7 @@ using DimensionVector = absl::InlinedVector<int64, kInlineRank>;
 struct ScopedLoggingTimer {
   // The timer does nothing if enabled is false.  This lets you pass in your
   // file's VLOG_IS_ON value.
-  ScopedLoggingTimer(const string &label, bool enabled);
+  ScopedLoggingTimer(const string& label, bool enabled);
   ~ScopedLoggingTimer();
 
   bool enabled;
@@ -103,8 +103,9 @@ struct ScopedLoggingTimer {
 //
 // Warning: if the vector is updated its storage pointer may change, so use this
 // with caution (ideally in limited scopes with temporary lifetimes).
-template <typename T> absl::Span<uint8> MutableByteSlice(std::vector<T> *v) {
-  return absl::Span<uint8>(reinterpret_cast<uint8 *>(v->data()),
+template <typename T>
+absl::Span<uint8> MutableByteSlice(std::vector<T>* v) {
+  return absl::Span<uint8>(reinterpret_cast<uint8*>(v->data()),
                            v->size() * sizeof(T));
 }
 
@@ -112,7 +113,7 @@ template <typename T> absl::Span<uint8> MutableByteSlice(std::vector<T> *v) {
 // same byte size.
 template <typename T>
 absl::Span<const uint8> CastToByteSlice(absl::Span<const T> slice) {
-  return absl::Span<const uint8>(reinterpret_cast<const uint8 *>(slice.data()),
+  return absl::Span<const uint8>(reinterpret_cast<const uint8*>(slice.data()),
                                  slice.size() * sizeof(T));
 }
 
@@ -121,18 +122,20 @@ absl::Span<const uint8> CastToByteSlice(absl::Span<const T> slice) {
 template <typename T>
 absl::Span<const T> CastByteSlice(absl::Span<const uint8> slice) {
   CHECK_EQ(0, slice.size() % sizeof(T));
-  return absl::Span<const T>(reinterpret_cast<const T *>(slice.data()),
+  return absl::Span<const T>(reinterpret_cast<const T*>(slice.data()),
                              slice.size() / sizeof(T));
 }
 
 // Convenience function to force a vector to convert to an immutable slice.
-template <typename T> absl::Span<const T> AsSlice(const std::vector<T> &v) {
+template <typename T>
+absl::Span<const T> AsSlice(const std::vector<T>& v) {
   return absl::Span<const T>(v);
 }
 
 // Converts a mutable vector pointer into a Span of the same
 // type.
-template <typename T> absl::Span<T> AsMutableSlice(std::vector<T> *v) {
+template <typename T>
+absl::Span<T> AsMutableSlice(std::vector<T>* v) {
   return absl::Span<T>(v->data(), v->size());
 }
 
@@ -140,32 +143,32 @@ template <typename T> absl::Span<T> AsMutableSlice(std::vector<T> *v) {
 // Wrapper function that gives an int64 array slice view of a repeated int64
 // protobuf field.
 static inline absl::Span<const int64> AsInt64Slice(
-    const tensorflow::protobuf::RepeatedField<tensorflow::protobuf_int64> &v) {
+    const tensorflow::protobuf::RepeatedField<tensorflow::protobuf_int64>& v) {
   absl::Span<const tensorflow::protobuf_int64> slice(v);
-  return absl::Span<const int64>(reinterpret_cast<const int64 *>(slice.data()),
+  return absl::Span<const int64>(reinterpret_cast<const int64*>(slice.data()),
                                  slice.size());
 }
 
 // As above, but for uint64 types.
 static inline absl::Span<const uint64> AsUInt64Slice(
-    const tensorflow::protobuf::RepeatedField<tensorflow::protobuf_uint64> &v) {
+    const tensorflow::protobuf::RepeatedField<tensorflow::protobuf_uint64>& v) {
   absl::Span<const tensorflow::protobuf_uint64> slice(v);
-  return absl::Span<const uint64>(
-      reinterpret_cast<const uint64 *>(slice.data()), slice.size());
+  return absl::Span<const uint64>(reinterpret_cast<const uint64*>(slice.data()),
+                                  slice.size());
 }
 
 // Compares two containers for equality. Returns true iff the two containers
 // have the same size and all their elements compare equal using their
 // operator==. Like std::equal, but forces size equality.
 template <typename Container1T, typename Container2T>
-bool ContainersEqual(const Container1T &c1, const Container2T &c2) {
+bool ContainersEqual(const Container1T& c1, const Container2T& c2) {
   return ((c1.size() == c2.size()) &&
           std::equal(std::begin(c1), std::end(c1), std::begin(c2)));
 }
 
 template <typename Container1T,
           typename ElementType = typename Container1T::value_type>
-bool ContainersEqual(const Container1T &c1,
+bool ContainersEqual(const Container1T& c1,
                      std::initializer_list<ElementType> il) {
   absl::Span<const ElementType> c2{il};
   return ContainersEqual(c1, c2);
@@ -175,7 +178,7 @@ bool ContainersEqual(const Container1T &c1,
 // have the same size and all their elements compare equal using the predicate
 // p. Like std::equal, but forces size equality.
 template <typename Container1T, typename Container2T, class PredicateT>
-bool ContainersEqual(const Container1T &c1, const Container2T &c2,
+bool ContainersEqual(const Container1T& c1, const Container2T& c2,
                      PredicateT p) {
   return ((c1.size() == c2.size()) &&
           std::equal(std::begin(c1), std::end(c1), std::begin(c2), p));
@@ -292,8 +295,8 @@ bool IsPermutation(absl::Span<const int64> permutation, int64 rank);
 // 1. `permutation` is a permutation of 0..permutation.size()-1.
 // 2. permutation.size() == input.size().
 template <typename Container>
-std::vector<typename Container::value_type>
-Permute(absl::Span<const int64> permutation, const Container &input) {
+std::vector<typename Container::value_type> Permute(
+    absl::Span<const int64> permutation, const Container& input) {
   using T = typename Container::value_type;
   absl::Span<const T> data(input);
   CHECK(IsPermutation(permutation, data.size()));
@@ -305,8 +308,8 @@ Permute(absl::Span<const int64> permutation, const Container &input) {
 }
 
 // Inverts a permutation, i.e., output_permutation[input_permutation[i]] = i.
-std::vector<int64>
-InversePermutation(absl::Span<const int64> input_permutation);
+std::vector<int64> InversePermutation(
+    absl::Span<const int64> input_permutation);
 
 // Composes two permutations: output[i] = p1[p2[i]].
 std::vector<int64> ComposePermutations(absl::Span<const int64> p1,
@@ -316,7 +319,7 @@ std::vector<int64> ComposePermutations(absl::Span<const int64> p1,
 bool IsIdentityPermutation(absl::Span<const int64> permutation);
 
 template <typename Container>
-int64 PositionInContainer(const Container &container, int64 value) {
+int64 PositionInContainer(const Container& container, int64 value) {
   return std::distance(container.begin(),
                        std::find(container.begin(), container.end(), value));
 }
@@ -325,13 +328,13 @@ int64 PositionInContainer(const Container &container, int64 value) {
 // appending the elements of the container. Prefix is prepended and suffix is
 // appended to the returned string.
 template <typename Container>
-string CommaSeparatedString(const Container &c, const char *prefix = "",
-                            const char *suffix = "") {
+string CommaSeparatedString(const Container& c, const char* prefix = "",
+                            const char* suffix = "") {
   // Not using Join() since the implementation here is simple anyway and this
   // avoids copying the string to append prefix.
   string comma_separated = prefix;
-  const char *separator = "";
-  for (const auto &entry : c) {
+  const char* separator = "";
+  for (const auto& entry : c) {
     absl::StrAppend(&comma_separated, separator, entry);
     separator = ", ";
   }
@@ -342,21 +345,22 @@ string CommaSeparatedString(const Container &c, const char *prefix = "",
 // Overload needed to allow the container to be an initializer list. The default
 // type for T makes an empty initializer list work as well.
 template <typename T = int>
-string CommaSeparatedString(const std::initializer_list<T> &c,
-                            const char *prefix = "", const char *suffix = "") {
+string CommaSeparatedString(const std::initializer_list<T>& c,
+                            const char* prefix = "", const char* suffix = "") {
   return CommaSeparatedString<std::initializer_list<T>>(c, prefix, suffix);
 }
 
 // Formats the container in the mathematical notation for a vector, e.g. (1, 3,
 // 7). StrAppend must support appending the elements of c.
-template <typename Container> string VectorString(const Container &c) {
+template <typename Container>
+string VectorString(const Container& c) {
   return CommaSeparatedString(c, "(", ")");
 }
 
 // Overload needed to allow the container to be an initializer list. The default
 // type for T makes an empty initializer list work as well.
 template <typename T = int>
-string VectorString(const std::initializer_list<T> &c) {
+string VectorString(const std::initializer_list<T>& c) {
   return VectorString<std::initializer_list<T>>(c);
 }
 
@@ -374,26 +378,30 @@ string VectorString(const std::initializer_list<T> &c) {
 
 // Imports the templated FloorOfRatio math function from the TensorFlow
 // namespace, as it is very commonly used.
-template <typename T> T FloorOfRatio(T dividend, T divisor) {
+template <typename T>
+T FloorOfRatio(T dividend, T divisor) {
   return tensorflow::MathUtil::FloorOfRatio<T>(dividend, divisor);
 }
 
 // Imports the templated CeilOfRatio math function from the TensorFlow
 // namespace, as it is very commonly used.
-template <typename T> T CeilOfRatio(T dividend, T divisor) {
+template <typename T>
+T CeilOfRatio(T dividend, T divisor) {
   return tensorflow::MathUtil::CeilOfRatio<T>(dividend, divisor);
 }
 
 // Rounds the value up to a multiple of the divisor by first calling CeilOfRatio
 // then multiplying by the divisor. For example: RoundUpToNearest(13, 8) => 16
-template <typename T> T RoundUpToNearest(T value, T divisor) {
+template <typename T>
+T RoundUpToNearest(T value, T divisor) {
   return CeilOfRatio(value, divisor) * divisor;
 }
 
 // Rounds the value down to a multiple of the divisor by first calling
 // FloorOfRatio then multiplying by the divisor. For example:
 // RoundDownToNearest(13, 8) => 8
-template <typename T> T RoundDownToNearest(T value, T divisor) {
+template <typename T>
+T RoundDownToNearest(T value, T divisor) {
   return FloorOfRatio(value, divisor) * divisor;
 }
 
@@ -409,9 +417,10 @@ string HumanReadableNumTranscendentalOps(double trops, double nanoseconds);
 
 // Split the text into multiple lines and log each line with the given
 // severity, filename, and line number.
-void LogLines(int sev, absl::string_view text, const char *fname, int lineno);
+void LogLines(int sev, absl::string_view text, const char* fname, int lineno);
 
-template <typename T> inline bool IsPowerOfTwo(T x) {
+template <typename T>
+inline bool IsPowerOfTwo(T x) {
   static_assert(!std::numeric_limits<T>::is_signed, "unsigned types only");
   return x != 0 && (x & (x - 1)) == 0;
 }
@@ -425,7 +434,7 @@ inline uint32 LsbMaskU32(int bits) {
 // Utility for performing a static_cast<> on a std::unique_ptr<>.
 template <typename Derived, typename Base>
 std::unique_ptr<Derived> unique_ptr_static_cast(std::unique_ptr<Base> ptr) {
-  return std::unique_ptr<Derived>(static_cast<Derived *>(ptr.release()));
+  return std::unique_ptr<Derived>(static_cast<Derived*>(ptr.release()));
 }
 
 int64 Product(absl::Span<const int64> xs);
@@ -448,17 +457,18 @@ std::vector<std::pair<int64, int64>> CommonFactors(absl::Span<const int64> a,
 string SanitizeFileName(string file_name);
 
 template <typename C, typename Value>
-int64 FindIndex(const C &c, Value &&value) {
+int64 FindIndex(const C& c, Value&& value) {
   auto it = std::find(c.begin(), c.end(), std::forward<Value>(value));
   return std::distance(c.begin(), it);
 }
 
 template <typename C, typename Value>
-void InsertAt(C *c, int64 index, Value &&value) {
+void InsertAt(C* c, int64 index, Value&& value) {
   c->insert(c->begin() + index, std::forward<Value>(value));
 }
 
-template <typename C> void EraseAt(C *c, int64 index) {
+template <typename C>
+void EraseAt(C* c, int64 index) {
   c->erase(c->begin() + index);
 }
 
@@ -468,13 +478,14 @@ std::vector<T> ArraySliceToVector(absl::Span<const T> slice) {
 }
 
 template <typename T, size_t N>
-std::vector<T>
-InlinedVectorToVector(const absl::InlinedVector<T, N> &inlined_vector) {
+std::vector<T> InlinedVectorToVector(
+    const absl::InlinedVector<T, N>& inlined_vector) {
   return std::vector<T>(inlined_vector.begin(), inlined_vector.end());
 }
 
 // Returns true if `x` fits in 32-bits.
-template <typename T> bool IsInt32(T x) {
+template <typename T>
+bool IsInt32(T x) {
   // Following conversion rules: "the value is unchanged if it can be
   // represented in the destination type (and bit-field width); otherwise, the
   // value is implementation-defined."
@@ -482,7 +493,7 @@ template <typename T> bool IsInt32(T x) {
 }
 
 template <typename T>
-Status EraseElementFromVector(std::vector<T> *container, const T &value) {
+Status EraseElementFromVector(std::vector<T>* container, const T& value) {
   // absl::c_find returns a const_iterator which does not seem to work on
   // gcc 4.8.4, and this breaks the ubuntu/xla_gpu build bot.
   auto it = std::find(container->begin(), container->end(), value);
@@ -490,23 +501,22 @@ Status EraseElementFromVector(std::vector<T> *container, const T &value) {
   container->erase(it);
   return Status::OK();
 }
-} // namespace tao
-} // namespace xla
+}  // namespace tao
+}  // namespace xla
 
-#define XLA_LOG_LINES(SEV, STRING)                                             \
+#define XLA_LOG_LINES(SEV, STRING) \
   ::xla::tao::LogLines(SEV, STRING, __FILE__, __LINE__)
 
-#define XLA_VLOG_LINES(LEVEL, STRING)                                          \
-  do {                                                                         \
-    if (VLOG_IS_ON(LEVEL))                                                     \
-      XLA_LOG_LINES(::tensorflow::INFO, STRING);                               \
+#define XLA_VLOG_LINES(LEVEL, STRING)                                 \
+  do {                                                                \
+    if (VLOG_IS_ON(LEVEL)) XLA_LOG_LINES(::tensorflow::INFO, STRING); \
   } while (false);
 
 // Utility macro that performs the equivalent of what one would expect
 // LOG_LINES(FATAL, X) to do but can be used at the end of a function that
 // returns a value without getting a compiler warning that no value is returned.
-#define XLA_FATAL_LOG(X)                                                       \
-  XLA_LOG_LINES(::tensorflow::ERROR, X);                                       \
+#define XLA_FATAL_LOG(X)                 \
+  XLA_LOG_LINES(::tensorflow::ERROR, X); \
   LOG(FATAL) << "Aborting in " << __FUNCTION__ << " due to previous errors.";
 
-#endif // TAO_TAO_BRIDGE_TF_UTIL_H_
+#endif  // TAO_TAO_BRIDGE_TF_UTIL_H_

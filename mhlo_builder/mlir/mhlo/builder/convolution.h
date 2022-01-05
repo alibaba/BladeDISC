@@ -19,11 +19,13 @@ namespace mhlo {
 // input layout: N, IC, Spatial dims
 // output layout: N, OC, Spatial dims
 // kenerl layout: OC, IC, Spatial dims
-mlir::Value
-BuildConvolution(mlir::OpBuilder &builder, const mlir::Location &loc,
-                 const mlir::Value &input, const mlir::Value &weight,
-                 const mlir::Value &padding, mlir::ArrayRef<int64_t> strides,
-                 mlir::ArrayRef<int64_t> dilations);
+mlir::Value BuildConvolution(mlir::OpBuilder& builder,
+                             const mlir::Location& loc,
+                             const mlir::Value& input,
+                             const mlir::Value& weight,
+                             const mlir::Value& padding,
+                             mlir::ArrayRef<int64_t> strides,
+                             mlir::ArrayRef<int64_t> dilations);
 
-} // namespace mhlo
-} // namespace mlir
+}  // namespace mhlo
+}  // namespace mlir

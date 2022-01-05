@@ -35,25 +35,29 @@ class Context;
 class ExecutionContext;
 
 // A struct that corresponds to how MLIR represents memrefs.
-template <typename T, int N> struct MemRefType {
-  T *basePtr;
-  T *data;
+template <typename T, int N>
+struct MemRefType {
+  T* basePtr;
+  T* data;
   int64_t offset;
   int64_t sizes[N];
   int64_t strides[N];
 };
 
-template <typename T> struct MemRefType<T, 0> {
-  T *basePtr;
-  T *data;
+template <typename T>
+struct MemRefType<T, 0> {
+  T* basePtr;
+  T* data;
   int64_t offset;
 };
 
-template <typename T> struct TaoTypeNameHelper;
+template <typename T>
+struct TaoTypeNameHelper;
 
-#define DEFINE_TAO_TYPE_NAME_HELPER(type, name)                                \
-  template <> struct TaoTypeNameHelper<type> {                                 \
-    static std::string Invoke() { return name; }                               \
+#define DEFINE_TAO_TYPE_NAME_HELPER(type, name)  \
+  template <>                                    \
+  struct TaoTypeNameHelper<type> {               \
+    static std::string Invoke() { return name; } \
   };
 
 DEFINE_TAO_TYPE_NAME_HELPER(bool, "i1");
@@ -65,13 +69,14 @@ DEFINE_TAO_TYPE_NAME_HELPER(size_t, "i64");
 DEFINE_TAO_TYPE_NAME_HELPER(float, "f32");
 DEFINE_TAO_TYPE_NAME_HELPER(double, "f64");
 DEFINE_TAO_TYPE_NAME_HELPER(void, "void");
-DEFINE_TAO_TYPE_NAME_HELPER(const char *, "pvoid");
-DEFINE_TAO_TYPE_NAME_HELPER(char *, "pvoid");
-DEFINE_TAO_TYPE_NAME_HELPER(Context *, "pvoid");
-DEFINE_TAO_TYPE_NAME_HELPER(ExecutionContext *, "pvoid");
-DEFINE_TAO_TYPE_NAME_HELPER(const void *, "pvoid");
+DEFINE_TAO_TYPE_NAME_HELPER(const char*, "pvoid");
+DEFINE_TAO_TYPE_NAME_HELPER(char*, "pvoid");
+DEFINE_TAO_TYPE_NAME_HELPER(Context*, "pvoid");
+DEFINE_TAO_TYPE_NAME_HELPER(ExecutionContext*, "pvoid");
+DEFINE_TAO_TYPE_NAME_HELPER(const void*, "pvoid");
 
-template <typename T, int N> struct TaoTypeNameHelper<MemRefType<T, N>> {
+template <typename T, int N>
+struct TaoTypeNameHelper<MemRefType<T, N>> {
   static inline std::string Invoke() {
     std::ostringstream out;
     out << "m" << N << "d" << TaoTypeNameHelper<T>::Invoke();
@@ -79,13 +84,15 @@ template <typename T, int N> struct TaoTypeNameHelper<MemRefType<T, N>> {
   }
 };
 
-template <typename T> struct TaoTypeNameHelper<T *> {
+template <typename T>
+struct TaoTypeNameHelper<T*> {
   static inline std::string Invoke() {
     return "p" + TaoTypeNameHelper<T>::Invoke();
   }
 };
 
-template <typename... Remaining> struct TaoVariadicTypeNameHelper;
+template <typename... Remaining>
+struct TaoVariadicTypeNameHelper;
 
 template <typename T, typename... Remaining>
 struct TaoVariadicTypeNameHelper<T, Remaining...> {
@@ -95,15 +102,17 @@ struct TaoVariadicTypeNameHelper<T, Remaining...> {
   }
 };
 
-template <> struct TaoVariadicTypeNameHelper<> {
+template <>
+struct TaoVariadicTypeNameHelper<> {
   static inline std::string Invoke() { return ""; }
 };
 
-template <typename F> struct TaoRalApiFuncNameHelper;
+template <typename F>
+struct TaoRalApiFuncNameHelper;
 
 template <typename Return, typename... Args>
 struct TaoRalApiFuncNameHelper<Return (*)(Args...)> {
-  static inline std::string Invoke(const std::string &prefix) {
+  static inline std::string Invoke(const std::string& prefix) {
     return prefix + "___" + TaoVariadicTypeNameHelper<Args...>::Invoke() +
            "__" + TaoTypeNameHelper<Return>::Invoke();
   }
@@ -111,13 +120,14 @@ struct TaoRalApiFuncNameHelper<Return (*)(Args...)> {
 
 template <typename Return, typename... Args>
 struct TaoRalApiFuncNameHelper<std::function<Return(Args...)>> {
-  static inline std::string Invoke(const std::string &prefix) {
+  static inline std::string Invoke(const std::string& prefix) {
     return prefix + "___" + TaoVariadicTypeNameHelper<Args...>::Invoke() +
            "__" + TaoTypeNameHelper<Return>::Invoke();
   }
 };
 
-template <typename F, F f> struct TaoRalApiFuncInvoker;
+template <typename F, F f>
+struct TaoRalApiFuncInvoker;
 
 template <typename R, typename F, typename... ArgTypes>
 struct TaoRalApiFuncInvokerImpl;
@@ -125,9 +135,9 @@ struct TaoRalApiFuncInvokerImpl;
 template <typename R, typename F, typename T, typename... RemainingArgTypes>
 struct TaoRalApiFuncInvokerImpl<R, F, T, RemainingArgTypes...> {
   template <typename... ParsedArgs>
-  static inline void Invoke(F f, void **args, ParsedArgs &&... parsed_args) {
+  static inline void Invoke(F f, void** args, ParsedArgs&&... parsed_args) {
     TaoRalApiFuncInvokerImpl<R, F, RemainingArgTypes...>::Invoke(
-        f, args + 1, std::forward<ParsedArgs>(parsed_args)..., *(T *)(args[0]));
+        f, args + 1, std::forward<ParsedArgs>(parsed_args)..., *(T*)(args[0]));
   }
 };
 
@@ -135,16 +145,16 @@ template <typename R, typename F, typename T, int N,
           typename... RemainingArgTypes>
 struct TaoRalApiFuncInvokerImpl<R, F, MemRefType<T, N>, RemainingArgTypes...> {
   template <typename... ParsedArgs>
-  static inline void Invoke(F f, void **args, ParsedArgs &&... parsed_args) {
+  static inline void Invoke(F f, void** args, ParsedArgs&&... parsed_args) {
     MemRefType<T, N> memref;
-    memref.basePtr = *(T **)(*args++);
-    memref.data = *(T **)(*args++);
-    memref.offset = *(int64_t *)(*args++);
+    memref.basePtr = *(T**)(*args++);
+    memref.data = *(T**)(*args++);
+    memref.offset = *(int64_t*)(*args++);
     for (int i = 0; i < N; ++i) {
-      memref.sizes[i] = *(int64_t *)(*args++);
+      memref.sizes[i] = *(int64_t*)(*args++);
     }
     for (int i = 0; i < N; ++i) {
-      memref.strides[i] = *(int64_t *)(*args++);
+      memref.strides[i] = *(int64_t*)(*args++);
     }
     TaoRalApiFuncInvokerImpl<R, F, RemainingArgTypes...>::Invoke(
         f, args, std::forward<ParsedArgs>(parsed_args)..., std::move(memref));
@@ -154,60 +164,62 @@ struct TaoRalApiFuncInvokerImpl<R, F, MemRefType<T, N>, RemainingArgTypes...> {
 template <typename R, typename F, typename T, typename... RemainingArgTypes>
 struct TaoRalApiFuncInvokerImpl<R, F, MemRefType<T, 0>, RemainingArgTypes...> {
   template <typename... ParsedArgs>
-  static inline void Invoke(F f, void **args, ParsedArgs &&... parsed_args) {
+  static inline void Invoke(F f, void** args, ParsedArgs&&... parsed_args) {
     MemRefType<T, 0> memref;
-    memref.basePtr = *(T **)(*args++);
-    memref.data = *(T **)(*args++);
-    memref.offset = *(int64_t *)(*args++);
+    memref.basePtr = *(T**)(*args++);
+    memref.data = *(T**)(*args++);
+    memref.offset = *(int64_t*)(*args++);
     TaoRalApiFuncInvokerImpl<R, F, RemainingArgTypes...>::Invoke(
         f, args, std::forward<ParsedArgs>(parsed_args)..., std::move(memref));
   }
 };
 
-template <typename R, typename F> struct TaoRalApiFuncInvokerImpl<R, F> {
+template <typename R, typename F>
+struct TaoRalApiFuncInvokerImpl<R, F> {
   template <typename... ParsedArgs>
-  static inline void Invoke(F f, void **args, ParsedArgs &&... parsed_args) {
-    *(R *)*args = std::move(f(std::forward<ParsedArgs>(parsed_args)...));
+  static inline void Invoke(F f, void** args, ParsedArgs&&... parsed_args) {
+    *(R*)*args = std::move(f(std::forward<ParsedArgs>(parsed_args)...));
   }
 };
 
-template <typename F> struct TaoRalApiFuncInvokerImpl<void, F> {
+template <typename F>
+struct TaoRalApiFuncInvokerImpl<void, F> {
   template <typename... ParsedArgs>
-  static inline void Invoke(F f, void **args, ParsedArgs &&... parsed_args) {
+  static inline void Invoke(F f, void** args, ParsedArgs&&... parsed_args) {
     f(std::forward<ParsedArgs>(parsed_args)...);
   }
 };
 
 template <typename Return, typename... Args, Return (*impl_fn)(Args...)>
 struct TaoRalApiFuncInvoker<Return (*)(Args...), impl_fn> {
-  static void Invoke(void **args) {
+  static void Invoke(void** args) {
     TaoRalApiFuncInvokerImpl<Return, Return (*)(Args...), Args...>::Invoke(
         impl_fn, args);
   }
 };
 
 class TaoRalApiRegistry {
-public:
+ public:
   ~TaoRalApiRegistry();
   using api_func_t = tao::ral::api_func_t;
-  static TaoRalApiRegistry &Global();
+  static TaoRalApiRegistry& Global();
   // Registers a api_func identified by name `name`, and if `nickname` is not
   // exists in the registry, also register this api_func under `nickname`
-  bool Register(const std::string &name, const std::string &nickname,
+  bool Register(const std::string& name, const std::string& nickname,
                 api_func_t api_func);
-  api_func_t Find(const std::string &name);
+  api_func_t Find(const std::string& name);
 
-private:
+ private:
   TaoRalApiRegistry();
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
 
 // Macros used to define TAO_RAL apis.
-#define TAO_RAL_API(name, device, ...)                                         \
+#define TAO_RAL_API(name, device, ...) \
   TAO_RAL_API_UNIQ_HELPER(name, device, __COUNTER__, __VA_ARGS__)
 
-#define TAO_RAL_API_UNIQ_HELPER(name, device, ctr, ...)                        \
+#define TAO_RAL_API_UNIQ_HELPER(name, device, ctr, ...) \
   TAO_RAL_API_UNIQ(name, device, ctr, __VA_ARGS__)
 
 #define TAO_RAL_API_UNIQ(name, device, ctr, ...)                               \
@@ -223,13 +235,14 @@ private:
 
 using api_func_t = TaoRalApiRegistry::api_func_t;
 
-template <typename R, typename... ArgTypes> struct DriverApiWrapperImpl;
+template <typename R, typename... ArgTypes>
+struct DriverApiWrapperImpl;
 
 template <typename T, typename... RemainingArgTypes>
 struct DriverApiWrapperImpl<void, T, RemainingArgTypes...> {
-  static inline void Invoke(api_func_t f, std::vector<void *> args, T &&arg,
-                            RemainingArgTypes &&... remaining_args) {
-    args.push_back(static_cast<void *>(&arg));
+  static inline void Invoke(api_func_t f, std::vector<void*> args, T&& arg,
+                            RemainingArgTypes&&... remaining_args) {
+    args.push_back(static_cast<void*>(&arg));
     DriverApiWrapperImpl<void, RemainingArgTypes...>::Invoke(
         f, args, std::forward<RemainingArgTypes>(remaining_args)...);
   }
@@ -237,9 +250,9 @@ struct DriverApiWrapperImpl<void, T, RemainingArgTypes...> {
 
 template <typename R, typename T, typename... RemainingArgTypes>
 struct DriverApiWrapperImpl<R, T, RemainingArgTypes...> {
-  static inline R Invoke(api_func_t f, std::vector<void *> args, T &&arg,
-                         RemainingArgTypes &&... remaining_args) {
-    args.push_back(static_cast<void *>(&arg));
+  static inline R Invoke(api_func_t f, std::vector<void*> args, T&& arg,
+                         RemainingArgTypes&&... remaining_args) {
+    args.push_back(static_cast<void*>(&arg));
     return DriverApiWrapperImpl<R, RemainingArgTypes...>::Invoke(
         f, args, std::forward<RemainingArgTypes>(remaining_args)...);
   }
@@ -247,17 +260,17 @@ struct DriverApiWrapperImpl<R, T, RemainingArgTypes...> {
 
 template <typename R, typename T, int N, typename... RemainingArgTypes>
 struct DriverApiWrapperImpl<R, MemRefType<T, N>, RemainingArgTypes...> {
-  static inline R Invoke(api_func_t f, std::vector<void *> args,
+  static inline R Invoke(api_func_t f, std::vector<void*> args,
                          MemRefType<T, N> memref,
-                         RemainingArgTypes &&... remaining_args) {
-    args.push_back(static_cast<void *>(&memref.basePtr));
-    args.push_back(static_cast<void *>(&memref.data));
-    args.push_back(static_cast<void *>(&memref.offset));
+                         RemainingArgTypes&&... remaining_args) {
+    args.push_back(static_cast<void*>(&memref.basePtr));
+    args.push_back(static_cast<void*>(&memref.data));
+    args.push_back(static_cast<void*>(&memref.offset));
     for (int i = 0; i < N; ++i) {
-      args.push_back(static_cast<void *>(&memref.sizes[i]));
+      args.push_back(static_cast<void*>(&memref.sizes[i]));
     }
     for (int i = 0; i < N; ++i) {
-      args.push_back(static_cast<void *>(&memref.strides[i]));
+      args.push_back(static_cast<void*>(&memref.strides[i]));
     }
     return DriverApiWrapperImpl<R, RemainingArgTypes...>::Invoke(
         f, args, std::forward<RemainingArgTypes>(remaining_args)...);
@@ -266,12 +279,12 @@ struct DriverApiWrapperImpl<R, MemRefType<T, N>, RemainingArgTypes...> {
 
 template <typename R, typename T, typename... RemainingArgTypes>
 struct DriverApiWrapperImpl<R, MemRefType<T, 0>, RemainingArgTypes...> {
-  static inline R Invoke(api_func_t f, std::vector<void *> args,
+  static inline R Invoke(api_func_t f, std::vector<void*> args,
                          MemRefType<T, 0> memref,
-                         RemainingArgTypes &&... remaining_args) {
-    args.push_back(static_cast<void *>(&memref.basePtr));
-    args.push_back(static_cast<void *>(&memref.data));
-    args.push_back(static_cast<void *>(&memref.offset));
+                         RemainingArgTypes&&... remaining_args) {
+    args.push_back(static_cast<void*>(&memref.basePtr));
+    args.push_back(static_cast<void*>(&memref.data));
+    args.push_back(static_cast<void*>(&memref.offset));
     return DriverApiWrapperImpl<R, RemainingArgTypes...>::Invoke(
         f, args, std::forward<RemainingArgTypes>(remaining_args)...);
   }
@@ -279,17 +292,17 @@ struct DriverApiWrapperImpl<R, MemRefType<T, 0>, RemainingArgTypes...> {
 
 template <typename T, int N, typename... RemainingArgTypes>
 struct DriverApiWrapperImpl<void, MemRefType<T, N>, RemainingArgTypes...> {
-  static inline void Invoke(api_func_t f, std::vector<void *> args,
+  static inline void Invoke(api_func_t f, std::vector<void*> args,
                             MemRefType<T, N> memref,
-                            RemainingArgTypes &&... remaining_args) {
-    args.push_back(static_cast<void *>(&memref.basePtr));
-    args.push_back(static_cast<void *>(&memref.data));
-    args.push_back(static_cast<void *>(&memref.offset));
+                            RemainingArgTypes&&... remaining_args) {
+    args.push_back(static_cast<void*>(&memref.basePtr));
+    args.push_back(static_cast<void*>(&memref.data));
+    args.push_back(static_cast<void*>(&memref.offset));
     for (int i = 0; i < N; ++i) {
-      args.push_back(static_cast<void *>(&memref.sizes[i]));
+      args.push_back(static_cast<void*>(&memref.sizes[i]));
     }
     for (int i = 0; i < N; ++i) {
-      args.push_back(static_cast<void *>(&memref.strides[i]));
+      args.push_back(static_cast<void*>(&memref.strides[i]));
     }
     return DriverApiWrapperImpl<void, RemainingArgTypes...>::Invoke(
         f, args, std::forward<RemainingArgTypes>(remaining_args)...);
@@ -298,19 +311,20 @@ struct DriverApiWrapperImpl<void, MemRefType<T, N>, RemainingArgTypes...> {
 
 template <typename T, typename... RemainingArgTypes>
 struct DriverApiWrapperImpl<void, MemRefType<T, 0>, RemainingArgTypes...> {
-  static inline void Invoke(api_func_t f, std::vector<void *> args,
+  static inline void Invoke(api_func_t f, std::vector<void*> args,
                             MemRefType<T, 0> memref,
-                            RemainingArgTypes &&... remaining_args) {
-    args.push_back(static_cast<void *>(&memref.basePtr));
-    args.push_back(static_cast<void *>(&memref.data));
-    args.push_back(static_cast<void *>(&memref.offset));
+                            RemainingArgTypes&&... remaining_args) {
+    args.push_back(static_cast<void*>(&memref.basePtr));
+    args.push_back(static_cast<void*>(&memref.data));
+    args.push_back(static_cast<void*>(&memref.offset));
     return DriverApiWrapperImpl<void, RemainingArgTypes...>::Invoke(
         f, args, std::forward<RemainingArgTypes>(remaining_args)...);
   }
 };
 
-template <typename R> struct DriverApiWrapperImpl<R> {
-  static inline R Invoke(api_func_t f, std::vector<void *> args) {
+template <typename R>
+struct DriverApiWrapperImpl<R> {
+  static inline R Invoke(api_func_t f, std::vector<void*> args) {
     R r;
     args.push_back(&r);
     f(args.data());
@@ -318,21 +332,22 @@ template <typename R> struct DriverApiWrapperImpl<R> {
   }
 };
 
-template <> struct DriverApiWrapperImpl<void> {
-  static inline void Invoke(api_func_t f, std::vector<void *> args) {
+template <>
+struct DriverApiWrapperImpl<void> {
+  static inline void Invoke(api_func_t f, std::vector<void*> args) {
     f(args.data());
   }
 };
 
-template <typename T> struct DriverApiWrapper;
+template <typename T>
+struct DriverApiWrapper;
 
 template <typename R, typename... Args>
 struct DriverApiWrapper<std::function<R(Args...)>> {
   static inline std::function<R(Args...)> Wrapper(api_func_t func) {
-    if (!func)
-      return nullptr;
-    return [func](Args &&... args) -> R {
-      std::vector<void *> arg_ptrs;
+    if (!func) return nullptr;
+    return [func](Args&&... args) -> R {
+      std::vector<void*> arg_ptrs;
       return DriverApiWrapperImpl<R, Args...>::Invoke(
           func, arg_ptrs, std::forward<Args>(args)...);
     };
@@ -342,20 +357,19 @@ struct DriverApiWrapper<std::function<R(Args...)>> {
 template <typename... Args>
 struct DriverApiWrapper<std::function<void(Args...)>> {
   static inline std::function<void(Args...)> Wrapper(api_func_t func) {
-    if (!func)
-      return nullptr;
-    return [func](Args &&... args) -> void {
-      std::vector<void *> arg_ptrs;
+    if (!func) return nullptr;
+    return [func](Args&&... args) -> void {
+      std::vector<void*> arg_ptrs;
       DriverApiWrapperImpl<void, Args...>::Invoke(func, arg_ptrs,
                                                   std::forward<Args>(args)...);
     };
   }
 };
 
-#define TAO_RAL_ASSIGN_TO_API_FUNC_WRAPPER(wrapper, api_func)                  \
+#define TAO_RAL_ASSIGN_TO_API_FUNC_WRAPPER(wrapper, api_func) \
   wrapper = DriverApiWrapper<decltype(wrapper)>::Wrapper(api_func);
 
-} // namespace ral
-} // namespace tao
+}  // namespace ral
+}  // namespace tao
 
-#endif // RAL_RAL_HELPER_H_
+#endif  // RAL_RAL_HELPER_H_

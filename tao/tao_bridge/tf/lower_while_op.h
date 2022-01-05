@@ -26,10 +26,10 @@ namespace tao {
 
 // Replaces While node `n` with its lowered form that uses Enter, Exit, Switch,
 // Merge, NextIteration and LoopCond nodes.
-Status RewriteWhileNode(Node *n, Graph *g,
-                        const FunctionLibraryDefinition &flib);
+Status RewriteWhileNode(Node* n, Graph* g,
+                        const FunctionLibraryDefinition& flib);
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TAO_TAO_BRIDGE_TF_LOWER_WHILE_OP_H_
+#endif  // TAO_TAO_BRIDGE_TF_LOWER_WHILE_OP_H_

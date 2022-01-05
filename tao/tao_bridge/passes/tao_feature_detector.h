@@ -19,10 +19,10 @@
 namespace tensorflow {
 namespace tao {
 class FeatureDetector {
-public:
+ public:
   // tag: describe where the graph comes from. Will use it as key in dumped json
   // info.
-  FeatureDetector(const std::string &tag, const Graph *graph);
+  FeatureDetector(const std::string& tag, const Graph* graph);
   ~FeatureDetector(){};
 
   std::string Tag() { return tag_; }
@@ -38,7 +38,7 @@ public:
   static bool IsDistributedForceOn();
   static bool IsTaoForceOn();
 
-private:
+ private:
   std::string tag_;
   bool has_gradient_op_{false};
   bool has_whale_op_{false};
@@ -52,6 +52,6 @@ private:
   static int64 dist_worker_num_;
   static bool is_tao_force_on_;
 
-}; // class FeatureDetector
-} // namespace tao
-} // namespace tensorflow
+};  // class FeatureDetector
+}  // namespace tao
+}  // namespace tensorflow

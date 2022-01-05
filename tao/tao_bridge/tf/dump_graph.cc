@@ -18,10 +18,9 @@ limitations under the License.
 
 #include "tao_bridge/tf/dump_graph.h"
 
+#include "absl/strings/str_cat.h"
 #include "tao_bridge/common.h"
 #include "tao_bridge/dumper_common.h"
-
-#include "absl/strings/str_cat.h"
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/platform/mutex.h"
 
@@ -37,7 +36,7 @@ struct NameCounts {
 };
 
 string MakeUniqueFilename(string name, bool unique_id) {
-  static NameCounts &instance = *new NameCounts;
+  static NameCounts& instance = *new NameCounts;
 
   // Remove illegal characters from `name`.
   for (size_t i = 0; i < name.size(); ++i) {
@@ -61,10 +60,10 @@ string MakeUniqueFilename(string name, bool unique_id) {
   return filename;
 }
 
-string
-WriteTextProtoToUniqueFile(Env *env, const string &name, const char *proto_type,
-                           const ::tensorflow::protobuf::Message &proto) {
-  const string &dirname = GetTaoDumperOptions()->graph_dump_path;
+string WriteTextProtoToUniqueFile(
+    Env* env, const string& name, const char* proto_type,
+    const ::tensorflow::protobuf::Message& proto) {
+  const string& dirname = GetTaoDumperOptions()->graph_dump_path;
   Status status = env->RecursivelyCreateDir(dirname);
   if (!status.ok()) {
     LOG(WARNING) << "Failed to create " << dirname << " for dumping "
@@ -87,15 +86,15 @@ WriteTextProtoToUniqueFile(Env *env, const string &name, const char *proto_type,
   return filepath;
 }
 
-} // anonymous namespace
+}  // anonymous namespace
 
-string DumpGraphDefToFile(const string &name, GraphDef const &graph_def) {
+string DumpGraphDefToFile(const string& name, GraphDef const& graph_def) {
   return WriteTextProtoToUniqueFile(Env::Default(), name, "GraphDef",
                                     graph_def);
 }
 
-string DumpGraphToFile(const string &name, Graph const &graph,
-                       const FunctionLibraryDefinition *flib_def) {
+string DumpGraphToFile(const string& name, Graph const& graph,
+                       const FunctionLibraryDefinition* flib_def) {
   GraphDef graph_def;
   graph.ToGraphDef(&graph_def);
   if (flib_def) {
@@ -104,10 +103,10 @@ string DumpGraphToFile(const string &name, Graph const &graph,
   return DumpGraphDefToFile(name, graph_def);
 }
 
-string DumpFunctionDefToFile(const string &name, FunctionDef const &fdef) {
+string DumpFunctionDefToFile(const string& name, FunctionDef const& fdef) {
   return WriteTextProtoToUniqueFile(Env::Default(), name, "FunctionDef", fdef);
 }
 
-} // namespace dump_graph
-} // namespace tao
-} // namespace tensorflow
+}  // namespace dump_graph
+}  // namespace tao
+}  // namespace tensorflow

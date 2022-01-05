@@ -30,23 +30,23 @@ namespace tao {
 // operators and tf.cond() conditionals into function If operators, suitable for
 // XLA compilation. If lookup_library is provided, use it to make the library
 // for control flow self-contained.
-Status FunctionalizeControlFlow(Graph *graph,
-                                FunctionLibraryDefinition *library,
-                                FunctionLibraryRuntime *flr = nullptr);
-Status FunctionalizeControlFlow(const FunctionLibraryDefinition *lookup_library,
-                                Graph *graph,
-                                FunctionLibraryDefinition *library,
-                                FunctionLibraryRuntime *flr = nullptr);
+Status FunctionalizeControlFlow(Graph* graph,
+                                FunctionLibraryDefinition* library,
+                                FunctionLibraryRuntime* flr = nullptr);
+Status FunctionalizeControlFlow(const FunctionLibraryDefinition* lookup_library,
+                                Graph* graph,
+                                FunctionLibraryDefinition* library,
+                                FunctionLibraryRuntime* flr = nullptr);
 
 // This pass looks at the graph and all associated FunctionDefs, and turns
 // traditional control flow structure (Switch/Merge/etc.) into functional
 // control flow structure (If/While).
 class FunctionalizeControlFlowPass : public GraphOptimizationPass {
-public:
-  Status Run(const GraphOptimizationPassOptions &options) override;
+ public:
+  Status Run(const GraphOptimizationPassOptions& options) override;
 };
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TAO_TAO_BRIDGE_PASSES_FUNCTIONALIZE_CONTROL_FLOW_H_
+#endif  // TAO_TAO_BRIDGE_PASSES_FUNCTIONALIZE_CONTROL_FLOW_H_

@@ -37,29 +37,29 @@ struct XlaGlobalJitLevel {
 // Input is the jit_level in session config, and return value is the jit_level
 // from XLA, reflecting the effect of the environment variable flags.
 typedef std::function<XlaGlobalJitLevel(
-    const OptimizerOptions::GlobalJitLevel &)>
+    const OptimizerOptions::GlobalJitLevel&)>
     GlobalJitLevelGetterTy;
 
 void RegisterGlobalJitLevelGetter(GlobalJitLevelGetterTy getter);
 
-XlaGlobalJitLevel
-GetGlobalJitLevel(OptimizerOptions::GlobalJitLevel jit_level_in_session_opts);
+XlaGlobalJitLevel GetGlobalJitLevel(
+    OptimizerOptions::GlobalJitLevel jit_level_in_session_opts);
 
-#define REGISTER_XLA_CONFIG_GETTER(getter)                                     \
+#define REGISTER_XLA_CONFIG_GETTER(getter) \
   REGISTER_XLA_CONFIG_GETTER_UNIQ_HELPER(__COUNTER__, getter)
 
-#define REGISTER_XLA_CONFIG_GETTER_UNIQ_HELPER(ctr, getter)                    \
+#define REGISTER_XLA_CONFIG_GETTER_UNIQ_HELPER(ctr, getter) \
   REGISTER_XLA_CONFIG_GETTER_UNIQ(ctr, getter)
 
-#define REGISTER_XLA_CONFIG_GETTER_UNIQ(ctr, getter)                           \
-  static bool xla_config_registry_registration_##ctr =                         \
-      (::tensorflow::tao::xla_config_registry::RegisterGlobalJitLevelGetter(   \
-           getter),                                                            \
+#define REGISTER_XLA_CONFIG_GETTER_UNIQ(ctr, getter)                         \
+  static bool xla_config_registry_registration_##ctr =                       \
+      (::tensorflow::tao::xla_config_registry::RegisterGlobalJitLevelGetter( \
+           getter),                                                          \
        true)
 
-} // namespace xla_config_registry
+}  // namespace xla_config_registry
 
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow
 
-#endif // TENSORFLOW_CORE_UTIL_XLA_CONFIG_REGISTRY_H_
+#endif  // TENSORFLOW_CORE_UTIL_XLA_CONFIG_REGISTRY_H_

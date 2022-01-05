@@ -13,9 +13,8 @@
 #define DYN_SORT_BITONIC_SORT_H_
 
 template <typename Dtype>
-__device__ __forceinline__ void
-bitonicExchange(Dtype &key, const unsigned mask,
-                const unsigned active_mask = full_mask) {
+__device__ __forceinline__ void bitonicExchange(
+    Dtype& key, const unsigned mask, const unsigned active_mask = full_mask) {
   const Dtype key1 = key;
   const unsigned tgx = threadIdx.x & 31;
   const unsigned otgx = tgx ^ mask;
@@ -25,9 +24,9 @@ bitonicExchange(Dtype &key, const unsigned mask,
 }
 
 template <typename Itype, typename Dtype>
-__device__ __forceinline__ void
-bitonicExchangePair(Dtype &key, Itype &val, const unsigned mask,
-                    const unsigned active_mask = full_mask) {
+__device__ __forceinline__ void bitonicExchangePair(
+    Dtype& key, Itype& val, const unsigned mask,
+    const unsigned active_mask = full_mask) {
   const Dtype key1 = key;
   const Itype val1 = val;
   const unsigned tgx = threadIdx.x & 31;
@@ -41,8 +40,8 @@ bitonicExchangePair(Dtype &key, Itype &val, const unsigned mask,
 
 // warp bitonic sort
 template <typename Dtype>
-__device__ __inline__ void
-bitonicSort32(Dtype &key, const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicSort32(
+    Dtype& key, const unsigned active_mask = full_mask) {
   bitonicExchange(key, 1, active_mask);
   bitonicExchange(key, 3, active_mask);
   bitonicExchange(key, 1, active_mask);
@@ -62,8 +61,8 @@ bitonicSort32(Dtype &key, const unsigned active_mask = full_mask) {
 
 // warp bitonic sort
 template <typename Itype, typename Dtype>
-__device__ __inline__ void
-bitonicSort32(Dtype &key, Itype &val, const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicSort32(
+    Dtype& key, Itype& val, const unsigned active_mask = full_mask) {
   bitonicExchangePair(key, val, 1, active_mask);
   bitonicExchangePair(key, val, 3, active_mask);
   bitonicExchangePair(key, val, 1, active_mask);
@@ -82,9 +81,9 @@ bitonicSort32(Dtype &key, Itype &val, const unsigned active_mask = full_mask) {
 }
 
 template <typename Itype, typename Dtype>
-__device__ __inline__ void
-bitonicExchange256Pair(Dtype keys[8], Itype vals[8], const unsigned mask,
-                       const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicExchange256Pair(
+    Dtype keys[8], Itype vals[8], const unsigned mask,
+    const unsigned active_mask = full_mask) {
   bitonicExchangePair(keys[0], vals[0], mask, active_mask);
   bitonicExchangePair(keys[1], vals[1], mask, active_mask);
   bitonicExchangePair(keys[2], vals[2], mask, active_mask);
@@ -96,9 +95,9 @@ bitonicExchange256Pair(Dtype keys[8], Itype vals[8], const unsigned mask,
 }
 
 template <typename Dtype>
-__device__ __inline__ void
-bitonicExchange256(Dtype keys[8], const unsigned mask,
-                   const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicExchange256(
+    Dtype keys[8], const unsigned mask,
+    const unsigned active_mask = full_mask) {
   bitonicExchange(keys[0], mask, active_mask);
   bitonicExchange(keys[1], mask, active_mask);
   bitonicExchange(keys[2], mask, active_mask);
@@ -110,9 +109,8 @@ bitonicExchange256(Dtype keys[8], const unsigned mask,
 }
 
 template <typename Itype, typename Dtype>
-__device__ __inline__ void
-bitonicSort32_256_pair(Dtype keys[8], Itype vals[8],
-                       const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicSort32_256_pair(
+    Dtype keys[8], Itype vals[8], const unsigned active_mask = full_mask) {
   bitonicExchange256Pair(keys, vals, 1, active_mask);
   bitonicExchange256Pair(keys, vals, 3, active_mask);
   bitonicExchange256Pair(keys, vals, 1, active_mask);
@@ -131,8 +129,8 @@ bitonicSort32_256_pair(Dtype keys[8], Itype vals[8],
 }
 
 template <typename Dtype>
-__device__ __inline__ void
-bitonicSort32_256(Dtype keys[8], const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicSort32_256(
+    Dtype keys[8], const unsigned active_mask = full_mask) {
   bitonicExchange256(keys, 1, active_mask);
   bitonicExchange256(keys, 3, active_mask);
   bitonicExchange256(keys, 1, active_mask);
@@ -151,9 +149,9 @@ bitonicSort32_256(Dtype keys[8], const unsigned active_mask = full_mask) {
 }
 
 template <typename Itype, typename Dtype>
-__device__ __forceinline__ void
-bitonicMergePair(Dtype &k0, Itype &v0, Dtype &k1, Itype &v1,
-                 const unsigned active_mask = full_mask) {
+__device__ __forceinline__ void bitonicMergePair(
+    Dtype& k0, Itype& v0, Dtype& k1, Itype& v1,
+    const unsigned active_mask = full_mask) {
   const unsigned tgx = threadIdx.x & 31;
   const unsigned otgx = 31 - tgx;
   Dtype key1 = k0;
@@ -170,8 +168,8 @@ bitonicMergePair(Dtype &k0, Itype &v0, Dtype &k1, Itype &v1,
 }
 
 template <typename Dtype>
-__device__ __forceinline__ void
-bitonicMerge(Dtype &k0, Dtype &k1, const unsigned active_mask = full_mask) {
+__device__ __forceinline__ void bitonicMerge(
+    Dtype& k0, Dtype& k1, const unsigned active_mask = full_mask) {
   const unsigned tgx = threadIdx.x & 31;
   const unsigned otgx = 31 - tgx;
   Dtype key1 = k0;
@@ -183,9 +181,8 @@ bitonicMerge(Dtype &k0, Dtype &k1, const unsigned active_mask = full_mask) {
 }
 
 template <typename Itype, typename Dtype>
-__device__ __inline__ void
-bitonicMerge64_256_pair(Dtype keys[8], Itype vals[8],
-                        const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicMerge64_256_pair(
+    Dtype keys[8], Itype vals[8], const unsigned active_mask = full_mask) {
   bitonicMergePair(keys[0], vals[0], keys[1], vals[1], active_mask);
   bitonicMergePair(keys[2], vals[2], keys[3], vals[3], active_mask);
   bitonicMergePair(keys[4], vals[4], keys[5], vals[5], active_mask);
@@ -193,8 +190,8 @@ bitonicMerge64_256_pair(Dtype keys[8], Itype vals[8],
 }
 
 template <typename Dtype>
-__device__ __inline__ void
-bitonicMerge64_256(Dtype keys[8], const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicMerge64_256(
+    Dtype keys[8], const unsigned active_mask = full_mask) {
   bitonicMerge(keys[0], keys[1], active_mask);
   bitonicMerge(keys[2], keys[3], active_mask);
   bitonicMerge(keys[4], keys[5], active_mask);
@@ -202,9 +199,8 @@ bitonicMerge64_256(Dtype keys[8], const unsigned active_mask = full_mask) {
 }
 
 template <typename Itype, typename Dtype>
-__device__ __inline__ void
-bitonicSort64_256_pair(Dtype keys[8], Itype vals[8],
-                       const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicSort64_256_pair(
+    Dtype keys[8], Itype vals[8], const unsigned active_mask = full_mask) {
   bitonicSort32_256_pair(keys, vals, active_mask);
   bitonicMerge64_256_pair(keys, vals, active_mask);
   bitonicExchange256Pair(keys, vals, 16, active_mask);
@@ -215,8 +211,8 @@ bitonicSort64_256_pair(Dtype keys[8], Itype vals[8],
 }
 
 template <typename Dtype>
-__device__ __inline__ void
-bitonicSort64_256(Dtype keys[8], const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicSort64_256(
+    Dtype keys[8], const unsigned active_mask = full_mask) {
   bitonicSort32_256(keys, active_mask);
   bitonicMerge64_256(keys, active_mask);
   bitonicExchange256(keys, 16, active_mask);
@@ -227,9 +223,8 @@ bitonicSort64_256(Dtype keys[8], const unsigned active_mask = full_mask) {
 }
 
 template <typename Itype, typename Dtype>
-__device__ __inline__ void
-bitonicMerge128_256_pair(Dtype keys[8], Itype vals[8],
-                         const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicMerge128_256_pair(
+    Dtype keys[8], Itype vals[8], const unsigned active_mask = full_mask) {
   bitonicMergePair(keys[0], vals[0], keys[3], vals[3], active_mask);
   bitonicMergePair(keys[1], vals[1], keys[2], vals[2], active_mask);
   bitonicMergePair(keys[4], vals[4], keys[7], vals[7], active_mask);
@@ -237,8 +232,8 @@ bitonicMerge128_256_pair(Dtype keys[8], Itype vals[8],
 }
 
 template <typename Dtype>
-__device__ __inline__ void
-bitonicMerge128_256(Dtype keys[8], const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicMerge128_256(
+    Dtype keys[8], const unsigned active_mask = full_mask) {
   bitonicMerge(keys[0], keys[3], active_mask);
   bitonicMerge(keys[1], keys[2], active_mask);
   bitonicMerge(keys[4], keys[7], active_mask);
@@ -246,9 +241,8 @@ bitonicMerge128_256(Dtype keys[8], const unsigned active_mask = full_mask) {
 }
 
 template <typename Itype, typename Dtype>
-__device__ __inline__ void
-bitonicMerge256_256_pair(Dtype keys[8], Itype vals[8],
-                         const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicMerge256_256_pair(
+    Dtype keys[8], Itype vals[8], const unsigned active_mask = full_mask) {
   bitonicMergePair(keys[0], vals[0], keys[7], vals[7], active_mask);
   bitonicMergePair(keys[1], vals[1], keys[6], vals[6], active_mask);
   bitonicMergePair(keys[2], vals[2], keys[5], vals[5], active_mask);
@@ -256,23 +250,24 @@ bitonicMerge256_256_pair(Dtype keys[8], Itype vals[8],
 }
 
 template <typename Dtype>
-__device__ __inline__ void
-bitonicMerge256_256(Dtype keys[8], const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicMerge256_256(
+    Dtype keys[8], const unsigned active_mask = full_mask) {
   bitonicMerge(keys[0], keys[7], active_mask);
   bitonicMerge(keys[1], keys[6], active_mask);
   bitonicMerge(keys[2], keys[5], active_mask);
   bitonicMerge(keys[3], keys[4], active_mask);
 }
 
-template <typename T> __device__ __inline__ static void swap(T &a, T &b) {
+template <typename T>
+__device__ __inline__ static void swap(T& a, T& b) {
   T c(a);
   a = b;
   b = c;
 }
 
 template <typename Itype, typename Dtype>
-__device__ __forceinline__ void condExchange(Dtype &k0, Itype &v0, Dtype &k1,
-                                             Itype &v1) {
+__device__ __forceinline__ void condExchange(Dtype& k0, Itype& v0, Dtype& k1,
+                                             Itype& v1) {
   if (k0 < k1) {
     swap(k0, k1);
     swap(v0, v1);
@@ -280,7 +275,7 @@ __device__ __forceinline__ void condExchange(Dtype &k0, Itype &v0, Dtype &k1,
 }
 
 template <typename Dtype>
-__device__ __forceinline__ void condExchange(Dtype &k0, Dtype &k1) {
+__device__ __forceinline__ void condExchange(Dtype& k0, Dtype& k1) {
   if (k0 < k1) {
     swap(k0, k1);
   }
@@ -321,9 +316,8 @@ __device__ __inline__ void bitonicExchange64_256(Dtype keys[8]) {
 }
 
 template <typename Itype, typename Dtype>
-__device__ __inline__ void
-bitonicSort128_256_pair(Dtype keys[8], Itype vals[8],
-                        const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicSort128_256_pair(
+    Dtype keys[8], Itype vals[8], const unsigned active_mask = full_mask) {
   bitonicSort64_256_pair(keys, vals, active_mask);
   bitonicMerge128_256_pair(keys, vals, active_mask);
   bitonicExchange32_256_pair(keys, vals);
@@ -335,8 +329,8 @@ bitonicSort128_256_pair(Dtype keys[8], Itype vals[8],
 }
 
 template <typename Dtype>
-__device__ __inline__ void
-bitonicSort128_256(Dtype keys[8], const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicSort128_256(
+    Dtype keys[8], const unsigned active_mask = full_mask) {
   bitonicSort64_256(keys, active_mask);
   bitonicMerge128_256(keys, active_mask);
   bitonicExchange32_256(keys);
@@ -348,9 +342,8 @@ bitonicSort128_256(Dtype keys[8], const unsigned active_mask = full_mask) {
 }
 
 template <typename Itype, typename Dtype>
-__device__ __inline__ void
-bitonicSort256_256(Dtype keys[8], Itype vals[8],
-                   const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicSort256_256(
+    Dtype keys[8], Itype vals[8], const unsigned active_mask = full_mask) {
   bitonicSort128_256_pair(keys, vals, active_mask);
   bitonicMerge256_256_pair(keys, vals, active_mask);
   bitonicExchange64_256_pair(keys, vals);
@@ -363,8 +356,8 @@ bitonicSort256_256(Dtype keys[8], Itype vals[8],
 }
 
 template <typename Dtype>
-__device__ __inline__ void
-bitonicSort256_256(Dtype keys[8], const unsigned active_mask = full_mask) {
+__device__ __inline__ void bitonicSort256_256(
+    Dtype keys[8], const unsigned active_mask = full_mask) {
   bitonicSort128_256(keys, active_mask);
   bitonicMerge256_256(keys, active_mask);
   bitonicExchange64_256(keys);
@@ -376,4 +369,4 @@ bitonicSort256_256(Dtype keys[8], const unsigned active_mask = full_mask) {
   bitonicExchange256(keys, 1, active_mask);
 }
 
-#endif // DYN_SORT_BITONIC_SORT_H_
+#endif  // DYN_SORT_BITONIC_SORT_H_

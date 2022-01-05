@@ -35,19 +35,19 @@ namespace tensorflow {
 namespace tao {
 namespace {
 
-bool NotBackedge(const Edge &edge) { return !edge.src()->IsNextIteration(); }
+bool NotBackedge(const Edge& edge) { return !edge.src()->IsNextIteration(); }
 
 namespace reduce_device_to_host_copies {
-Status FindNodesToDecluster(const Graph &graph,
-                            std::unordered_set<Node *> *result,
-                            absl::Span<Node *const> post_order, bool is_mlir) {
+Status FindNodesToDecluster(const Graph& graph,
+                            std::unordered_set<Node*>* result,
+                            absl::Span<Node* const> post_order, bool is_mlir) {
   // Find nodes that have at least one user outside their cluster that expects
   // hostmem output.  These nodes should be cloned to outside the cluster to
   // avoid the device-host copy we'd otherwise need.
 
   MemoryTypeVector input_mtypes, output_mtypes;
 
-  for (Node *n : post_order) {
+  for (Node* n : post_order) {
     absl::optional<absl::string_view> from_cluster = GetXlaClusterForNode(*n);
     if (!from_cluster) {
       continue;
@@ -74,8 +74,8 @@ Status FindNodesToDecluster(const Graph &graph,
     TF_RETURN_IF_ERROR(MemoryTypesForNode(graph.op_registry(), device_type,
                                           n->def(), &input_mtypes,
                                           &output_mtypes));
-    for (const Edge *e : n->out_edges()) {
-      Node *dst = e->dst();
+    for (const Edge* e : n->out_edges()) {
+      Node* dst = e->dst();
 
       if (e->IsControlEdge()) {
         continue;
@@ -118,15 +118,15 @@ Status FindNodesToDecluster(const Graph &graph,
   return Status::OK();
 }
 
-Status PartiallyDeclusterNode(Graph *graph, Node *n) {
+Status PartiallyDeclusterNode(Graph* graph, Node* n) {
   absl::string_view cluster_name = *GetXlaClusterForNode(*n);
-  absl::InlinedVector<const Edge *, 6> out_edges_to_clone;
-  for (const Edge *out_edge : n->out_edges()) {
+  absl::InlinedVector<const Edge*, 6> out_edges_to_clone;
+  for (const Edge* out_edge : n->out_edges()) {
     if (out_edge->IsControlEdge()) {
       continue;
     }
 
-    Node *dst = out_edge->dst();
+    Node* dst = out_edge->dst();
     absl::optional<absl::string_view> dst_cluster_name =
         GetXlaClusterForNode(*dst);
     if (dst_cluster_name != cluster_name) {
@@ -141,16 +141,16 @@ Status PartiallyDeclusterNode(Graph *graph, Node *n) {
   // MergeDebugInfo(NodeDebugInfo(n->def()), &ndef);
   RemoveFromXlaCluster(&ndef);
   Status s;
-  Node *cloned_node = graph->AddNode(ndef, &s);
+  Node* cloned_node = graph->AddNode(ndef, &s);
   cloned_node->set_assigned_device_name(n->assigned_device_name());
   TF_RETURN_IF_ERROR(s);
 
-  for (const Edge *in_edge : n->in_edges()) {
+  for (const Edge* in_edge : n->in_edges()) {
     graph->AddEdge(in_edge->src(), in_edge->src_output(), cloned_node,
                    in_edge->dst_input());
   }
 
-  for (const Edge *out_edge_to_clone : out_edges_to_clone) {
+  for (const Edge* out_edge_to_clone : out_edges_to_clone) {
     graph->AddEdge(cloned_node, out_edge_to_clone->src_output(),
                    out_edge_to_clone->dst(), out_edge_to_clone->dst_input());
     graph->RemoveEdge(out_edge_to_clone);
@@ -189,28 +189,28 @@ Status PartiallyDeclusterNode(Graph *graph, Node *n) {
 // where the ===> arrow has a hostmem source and destination and would entail a
 // device to host copy if the source and destination were not in the same XLA
 // cluster.
-Status PartiallyDeclusterGraph(Graph *graph, bool is_mlir = false) {
+Status PartiallyDeclusterGraph(Graph* graph, bool is_mlir = false) {
   // When deciding whether to decluster a particular node, we base our decision
   // on if we've decided that some of its consumers have to be declustered too.
   // Iterating the graph in post-order guarantees that consumers have been
   // visited before producers.
-  std::vector<Node *> post_order;
+  std::vector<Node*> post_order;
   GetPostOrder(*graph, &post_order, /*stable_comparator=*/NodeComparatorName(),
                /*edge_filter=*/NotBackedge);
 
-  std::unordered_set<Node *> nodes_to_partially_decluster;
+  std::unordered_set<Node*> nodes_to_partially_decluster;
   TF_RETURN_IF_ERROR(FindNodesToDecluster(*graph, &nodes_to_partially_decluster,
                                           post_order, is_mlir));
 
   if (VLOG_IS_ON(3)) {
-    for (Node *n : post_order) {
+    for (Node* n : post_order) {
       if (nodes_to_partially_decluster.count(n)) {
         VLOG(3) << n->DebugString();
       }
     }
   }
 
-  for (Node *n : post_order) {
+  for (Node* n : post_order) {
     if (nodes_to_partially_decluster.count(n)) {
       TF_RETURN_IF_ERROR(PartiallyDeclusterNode(graph, n));
     }
@@ -227,10 +227,10 @@ Status PartiallyDeclusterGraph(Graph *graph, bool is_mlir = false) {
 
   return Status::OK();
 }
-} // namespace reduce_device_to_host_copies
+}  // namespace reduce_device_to_host_copies
 
 namespace reduce_recompilation {
-bool IsIntraClusterEdge(const Edge &edge) {
+bool IsIntraClusterEdge(const Edge& edge) {
   absl::optional<absl::string_view> src_cluster_name =
       GetXlaClusterForNode(*edge.src());
   absl::optional<absl::string_view> dst_cluster_name =
@@ -238,8 +238,8 @@ bool IsIntraClusterEdge(const Edge &edge) {
   return src_cluster_name.has_value() && src_cluster_name == dst_cluster_name;
 }
 
-bool IsMustCompileDevice(const DeviceType &device_type) {
-  const XlaOpRegistry::DeviceRegistration *registration;
+bool IsMustCompileDevice(const DeviceType& device_type) {
+  const XlaOpRegistry::DeviceRegistration* registration;
   if (XlaOpRegistry::GetCompilationDevice(device_type.type(), &registration)) {
     return registration->autoclustering_policy ==
            XlaOpRegistry::AutoclusteringPolicy::kAlways;
@@ -248,7 +248,7 @@ bool IsMustCompileDevice(const DeviceType &device_type) {
   return false;
 }
 
-Status MustCompileNode(const Node *n, bool *must_compile) {
+Status MustCompileNode(const Node* n, bool* must_compile) {
   DeviceType device_type("");
   TF_RETURN_IF_ERROR(
       DeviceNameToDeviceType(n->assigned_device_name(), &device_type));
@@ -297,9 +297,9 @@ Status MustCompileNode(const Node *n, bool *must_compile) {
 // regress performance in any significant manner.  We will have to revisit this
 // algorithm with a more complex cost model if this assumption turns out to be
 // incorrect.
-Status PartiallyDeclusterGraph(Graph *graph,
-                               const FunctionLibraryDefinition *flib_def,
-                               Env *env, const ConfigProto *config,
+Status PartiallyDeclusterGraph(Graph* graph,
+                               const FunctionLibraryDefinition* flib_def,
+                               Env* env, const ConfigProto* config,
                                bool is_inner) {
   std::vector<bool> compile_time_const_nodes(graph->num_node_ids());
   OptimizerOptions opts;
@@ -312,7 +312,7 @@ Status PartiallyDeclusterGraph(Graph *graph,
   auto pflr = absl::make_unique<ProcessFunctionLibraryRuntime>(
       nullptr, env, TF_GRAPH_DEF_VERSION, flib_def, opts);
 #endif
-  FunctionLibraryRuntime *lib_runtime =
+  FunctionLibraryRuntime* lib_runtime =
       pflr->GetFLR(ProcessFunctionLibraryRuntime::kDefaultFLRDevice);
   TF_RETURN_IF_ERROR(BackwardsConstAnalysis(
       *graph,
@@ -321,17 +321,17 @@ Status PartiallyDeclusterGraph(Graph *graph,
       /*compile_time_fixed_shape_nodes*/ nullptr, lib_runtime,
       IsIntraClusterEdge, is_inner));
 
-  std::vector<Node *> rpo;
+  std::vector<Node*> rpo;
   GetReversePostOrder(*graph, &rpo, /*stable_comparator=*/NodeComparatorName(),
                       /*edge_filter=*/NotBackedge);
-  for (Node *n : rpo) {
+  for (Node* n : rpo) {
     if (!compile_time_const_nodes[n->id()]) {
       continue;
     }
 
     absl::string_view cluster_name = *GetXlaClusterForNode(*n);
     bool node_on_cluster_edge = std::all_of(
-        n->in_edges().begin(), n->in_edges().end(), [&](const Edge *e) {
+        n->in_edges().begin(), n->in_edges().end(), [&](const Edge* e) {
           absl::optional<absl::string_view> incoming_cluster =
               GetXlaClusterForNode(*e->src());
           return !incoming_cluster || *incoming_cluster != cluster_name;
@@ -366,11 +366,11 @@ Status PartiallyDeclusterGraph(Graph *graph,
           DeviceNameToDeviceType(n->assigned_device_name(), &device_type));
       if (!must_compile_node && device_type.type_string() == DEVICE_CPU) {
         must_compile_node = std::any_of(
-            n->in_edges().begin(), n->in_edges().end(), [&](const Edge *e) {
-              Node *n_in = e->src();
+            n->in_edges().begin(), n->in_edges().end(), [&](const Edge* e) {
+              Node* n_in = e->src();
               return std::any_of(
                   n_in->out_edges().begin(), n_in->out_edges().end(),
-                  [&](const Edge *ee) {
+                  [&](const Edge* ee) {
                     absl::optional<absl::string_view> neibor_cluster =
                         GetXlaClusterForNode(*ee->dst());
                     return neibor_cluster == cluster_name &&
@@ -388,17 +388,17 @@ Status PartiallyDeclusterGraph(Graph *graph,
 
   return Status::OK();
 }
-} // namespace reduce_recompilation
+}  // namespace reduce_recompilation
 
 namespace decluster_root_shape_consumers {
 
-Status PartiallyDeclusterGraph(Graph *graph) {
-  std::vector<Node *> reverse_post_order;
+Status PartiallyDeclusterGraph(Graph* graph) {
+  std::vector<Node*> reverse_post_order;
   GetReversePostOrder(*graph, &reverse_post_order,
                       /*stable_comparator=*/NodeComparatorName(),
                       /*edge_filter=*/NotBackedge);
 
-  for (Node *n : reverse_post_order) {
+  for (Node* n : reverse_post_order) {
     if (!IsShapeConsumerOp(*n)) {
       continue;
     }
@@ -408,7 +408,7 @@ Status PartiallyDeclusterGraph(Graph *graph) {
       continue;
     }
 
-    auto input_belongs_to_same_cluster = [&](const Edge *e) {
+    auto input_belongs_to_same_cluster = [&](const Edge* e) {
       return cluster == GetXlaClusterForNode(*e->src());
     };
 
@@ -423,11 +423,11 @@ Status PartiallyDeclusterGraph(Graph *graph) {
     if (device_type.type_string() == DEVICE_CPU) {
       absl::string_view cluster_name = *GetXlaClusterForNode(*n);
       bool operand_to_same_cluster = std::any_of(
-          n->in_edges().begin(), n->in_edges().end(), [&](const Edge *e) {
-            Node *n_in = e->src();
+          n->in_edges().begin(), n->in_edges().end(), [&](const Edge* e) {
+            Node* n_in = e->src();
             return std::any_of(
                 n_in->out_edges().begin(), n_in->out_edges().end(),
-                [&](const Edge *ee) {
+                [&](const Edge* ee) {
                   absl::optional<absl::string_view> neibor_cluster =
                       GetXlaClusterForNode(*ee->dst());
                   return neibor_cluster == cluster_name && ee->dst() != n;
@@ -443,17 +443,17 @@ Status PartiallyDeclusterGraph(Graph *graph) {
   }
   return Status::OK();
 }
-} // namespace decluster_root_shape_consumers
-} // namespace
+}  // namespace decluster_root_shape_consumers
+}  // namespace
 
-Status
-TaoPartiallyDeclusterPass::Run(const GraphOptimizationPassOptions &options) {
+Status TaoPartiallyDeclusterPass::Run(
+    const GraphOptimizationPassOptions& options) {
   // NB!  In this pass we assume the only XLA-auto-clusterable operations that
   // may have side effects are resource variable operations so we don't cluster
   // those.  The pass will have to be updated if this assumption becomes
   // invalid.
 
-  Graph *graph = options.graph->get();
+  Graph* graph = options.graph->get();
 
   TF_RETURN_IF_ERROR(
       reduce_device_to_host_copies::PartiallyDeclusterGraph(graph, is_inner_));
@@ -477,5 +477,5 @@ TaoPartiallyDeclusterPass::Run(const GraphOptimizationPassOptions &options) {
 
   return Status::OK();
 }
-} // namespace tao
-} // namespace tensorflow
+}  // namespace tao
+}  // namespace tensorflow

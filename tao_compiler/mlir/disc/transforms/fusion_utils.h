@@ -336,6 +336,11 @@ struct FusionOptions {
   int max_num_arguments_per_kernel = 64;
 };
 
+void setGlobalFusionOptions(const FusionOptions& options);
+
+// Here 'large' refer to having many operands.
+bool isLargeConcatOp(Operation* op);
+
 // Represents a specific fusion strategy.
 // Examples are:
 //  - basic fusion strategy for CPU device

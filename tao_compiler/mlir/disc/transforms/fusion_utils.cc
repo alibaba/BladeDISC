@@ -802,6 +802,10 @@ bool BaseCpuFusionStrategy::initFusionPattern(
   return (inferredFusionType != FusionType::kNone && inferredDominantOp);
 }
 
+bool isLargeConcatOp(Operation* op) {
+  return isa<lmhlo::ConcatenateOp>(op) && op->getNumOperands() > 32;
+}
+
 bool BaseCpuFusionStrategy::tryFuse(ShapeConstraintAnalysis& shapeAnalysis,
                                     FusionPattern& lhs, FusionPattern& rhs,
                                     FusionPattern& target) {
@@ -809,11 +813,35 @@ bool BaseCpuFusionStrategy::tryFuse(ShapeConstraintAnalysis& shapeAnalysis,
     return false;
   }
 
-  // Not support multi output fusion if one result op is a reduce.
-  if (llvm::any_of(target.getRootOps(),
-                   [](Operation* op) { return isa<lmhlo::ReduceOp>(op); }) &&
-      target.getRootOps().size() > 1) {
+  auto& op_list = target.getOpList();
+  auto& operands = target.getOperands();
+  auto& results = target.getResults();
+  bool has_reduce_root = llvm::any_of(target.getRootOps(), [](Operation* op) {
+    return isa<lmhlo::ReduceOp>(op);
+  });
+  // Here 'large' refer to having many operands.
+  bool has_large_concat_root =
+      llvm::any_of(target.getRootOps(), isLargeConcatOp);
+
+  // Not support multi output fusion if one root op is a reduce or large concat
+  // op.
+  if (target.getRootOps().size() > 1 &&
+      (has_reduce_root || has_large_concat_root)) {
     return false;
+  }
+
+  // large concat can not have consumer within the fusion pattern.
+  for (Operation* op : op_list) {
+    if (!isLargeConcatOp(op)) continue;
+    int num_input_operand = op->getNumOperands() - getNumResultOperands(op);
+    for (Value v : op->getOperands().drop_front(num_input_operand)) {
+      for (Operation* user : getValueUsers(v)) {
+        if (user == op) continue;
+        if (std::find(op_list.begin(), op_list.end(), user) != op_list.end()) {
+          return false;
+        }
+      }
+    }
   }
 
   LLVM_DEBUG(llvm::dbgs() << "BaseCpuFusionStrategy::tryFuse success()\n");

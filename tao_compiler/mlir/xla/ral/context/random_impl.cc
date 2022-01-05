@@ -34,20 +34,20 @@ namespace tao {
 namespace ral {
 namespace random {
 
-std::mt19937_64* InitRngWithRandomSeed() {
+std::mt19937_64 *InitRngWithRandomSeed() {
   std::random_device device("/dev/urandom");
   return new std::mt19937_64(device());
 }
 
 uint64_t New64() {
-  static std::mt19937_64* rng = InitRngWithRandomSeed();
+  static std::mt19937_64 *rng = InitRngWithRandomSeed();
   static std::mutex mu;
   std::lock_guard<std::mutex> l(mu);
   return (*rng)();
 }
 
 class GuardedPhiloxRandom {
- public:
+public:
   // Must call Init to finish initialization
   GuardedPhiloxRandom(int64_t seed, int64_t seed2) : initialized_(false) {
     Init(seed, seed2);
@@ -88,7 +88,7 @@ class GuardedPhiloxRandom {
     return ReserveSamples128(conservative_sample_count);
   }
 
- private:
+private:
   std::mutex mu_;
   PhiloxRandom generator_;
   bool initialized_;
@@ -102,7 +102,7 @@ struct RalRngUniformState : public Context::Resource {
 };
 
 template <typename T, int N, typename Tidx = int>
-void ral_gpu_random_uniform(ExecutionContext* ctx, void* stream_handle,
+void ral_gpu_random_uniform(ExecutionContext *ctx, void *stream_handle,
                             MemRefType<T, 0> start, MemRefType<T, 0> limit,
                             MemRefType<Tidx, 1>, MemRefType<T, N> output,
                             int64_t id, int64_t seed, int64_t seed2) {
@@ -119,7 +119,7 @@ void ral_gpu_random_uniform(ExecutionContext* ctx, void* stream_handle,
   auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
   auto stream = gpu_driver->asCUStream(ctx, stream_handle);
 
-  GuardedPhiloxRandom* generator = nullptr;
+  GuardedPhiloxRandom *generator = nullptr;
   {
     std::lock_guard<std::mutex> l(state->mu);
     auto it = state->generators.find(id);
@@ -142,9 +142,9 @@ void ral_gpu_random_uniform(ExecutionContext* ctx, void* stream_handle,
       stream);
 }
 
-}  // namespace random
-}  // namespace ral
-}  // namespace tao
+} // namespace random
+} // namespace ral
+} // namespace tao
 
 namespace tao {
 namespace ral {
@@ -162,5 +162,5 @@ TAO_RAL_API("ral_gpu_rng_uniform", "gpu",
 TAO_RAL_API("ral_gpu_rng_uniform", "gpu",
             random::ral_gpu_random_uniform<float, 6>);
 
-}  // namespace ral
-}  // namespace tao
+} // namespace ral
+} // namespace tao

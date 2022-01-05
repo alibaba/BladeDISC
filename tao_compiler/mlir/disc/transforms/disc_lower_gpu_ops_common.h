@@ -31,9 +31,9 @@ struct RemoveUselessUnrealizedConversionCastOp
   using ConvertOpToLLVMPattern<
       UnrealizedConversionCastOp>::ConvertOpToLLVMPattern;
 
-  LogicalResult matchAndRewrite(
-      UnrealizedConversionCastOp op, ArrayRef<Value> operands,
-      ConversionPatternRewriter& rewriter) const override;
+  LogicalResult
+  matchAndRewrite(UnrealizedConversionCastOp op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const override;
 };
 
 // Common base for load and store operations on MemRefs.  Restricts the match
@@ -55,10 +55,10 @@ struct GenericAtomicRMWOpLoweringWithBitcast
     : public LoadStoreOpLowering<GenericAtomicRMWOp> {
   using Base::Base;
 
-  LogicalResult matchAndRewrite(
-      GenericAtomicRMWOp atomicOp, ArrayRef<Value> operands,
-      ConversionPatternRewriter& rewriter) const override;
+  LogicalResult
+  matchAndRewrite(GenericAtomicRMWOp atomicOp, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const override;
 };
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

@@ -23,30 +23,30 @@ namespace tensorflow {
 namespace tao {
 
 TaoBaCEReformatPass::TaoBaCEReformatPass() {
-  auto* bridge_opt = GetTaoBridgeOptions();
+  auto *bridge_opt = GetTaoBridgeOptions();
   enabled_ = bridge_opt->bace_reformat_enabled;
   max_dim_bar_ = bridge_opt->bace_reformat_max_dim_bar;
   min_dim_bar_ = bridge_opt->bace_reformat_min_dim_bar;
   size_bar_ = bridge_opt->bace_reformat_size_bar;
 }
 
-Status TaoBaCEReformatPass::Run(const GraphOptimizationPassOptions& options) {
+Status TaoBaCEReformatPass::Run(const GraphOptimizationPassOptions &options) {
   if (!enabled_) {
     VLOG(1) << "TaoBaCEReformatPass is disabled.";
     return Status::OK();
   }
   VLOG(1) << "TaoBaCEReformatPass is enabled.";
 
-  for (auto* node : (*options.graph)->op_nodes()) {
+  for (auto *node : (*options.graph)->op_nodes()) {
     if (node->type_string() != "Const") {
       continue;
     }
-    auto* dtype = node->attrs().Find("dtype");
+    auto *dtype = node->attrs().Find("dtype");
     CHECK(dtype) << "Constant op has no `dtype` attr.";
     if (dtype->type() != DT_FLOAT) {
       continue;
     }
-    auto* value = node->attrs().Find("value");
+    auto *value = node->attrs().Find("value");
     CHECK(value) << "Constant op has no `value` attr.";
     auto tensor_proto = value->tensor();
     CHECK(tensor_proto.dtype() == dtype->type())
@@ -77,16 +77,16 @@ Status TaoBaCEReformatPass::Run(const GraphOptimizationPassOptions& options) {
       Tensor new_const = Tensor(DT_HALF, shape);
       CHECK(options.device_set != nullptr);
       CHECK(options.device_set->client_device() != nullptr);
-      auto* device = options.device_set->client_device()->eigen_cpu_device();
+      auto *device = options.device_set->client_device()->eigen_cpu_device();
       CHECK(device);
 
       new_const.flat<Eigen::half>().device(*device) =
           origin_const.flat<float>().cast<Eigen::half>();
 
       AttrValue new_value;
-      auto* new_tensor_proto = new_value.mutable_tensor();
+      auto *new_tensor_proto = new_value.mutable_tensor();
       new_tensor_proto->set_version_number(tensor_proto.version_number());
-      if(!tensor_proto.tensor_content().empty()) {
+      if (!tensor_proto.tensor_content().empty()) {
         new_const.AsProtoTensorContent(new_tensor_proto);
       } else {
         new_const.AsProtoField(new_tensor_proto);
@@ -98,5 +98,5 @@ Status TaoBaCEReformatPass::Run(const GraphOptimizationPassOptions& options) {
   return Status::OK();
 }
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow

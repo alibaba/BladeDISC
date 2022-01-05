@@ -60,7 +60,7 @@ void SubProcess::FreeArgs() {
   exec_path_ = nullptr;
 
   if (exec_argv_) {
-    for (char** p = exec_argv_; *p != nullptr; p++) {
+    for (char **p = exec_argv_; *p != nullptr; p++) {
       free(*p);
     }
     delete[] exec_argv_;
@@ -81,8 +81,8 @@ void SubProcess::ClosePipes() {
   }
 }
 
-void SubProcess::SetProgram(const string& file,
-                            const std::vector<string>& argv) {
+void SubProcess::SetProgram(const string &file,
+                            const std::vector<string> &argv) {
   mutex_lock procLock(proc_mu_);
   mutex_lock dataLock(data_mu_);
   if (running_) {
@@ -98,7 +98,7 @@ void SubProcess::SetProgram(const string& file,
   }
 
   int argc = argv.size();
-  exec_argv_ = new char*[argc + 1];
+  exec_argv_ = new char *[argc + 1];
   for (int i = 0; i < argc; i++) {
     exec_argv_[i] = strdup(argv[i].c_str());
     if (exec_argv_[i] == nullptr) {
@@ -200,40 +200,40 @@ bool SubProcess::Start() {
     }
 
     switch (action_[i]) {
-      case ACTION_DUPPARENT:
-        // Nothing to do, fork() took care of it.
-        break;
+    case ACTION_DUPPARENT:
+      // Nothing to do, fork() took care of it.
+      break;
 
-      case ACTION_PIPE:
-        while (dup2(child_pipe_[i], i) < 0) {
-          if (!retry(errno)) {
-            _exit(1);
-          }
+    case ACTION_PIPE:
+      while (dup2(child_pipe_[i], i) < 0) {
+        if (!retry(errno)) {
+          _exit(1);
         }
-        close(child_pipe_[i]);
-        break;
+      }
+      close(child_pipe_[i]);
+      break;
 
-      case ACTION_CLOSE:
-      default:
-        // Do not close stdin/out/err, instead redirect them to /dev/null so
-        // their file descriptors remain unavailable for reuse by open(), etc.
-        if (i <= CHAN_STDERR) {
-          if (devnull_fd < 0) {
-            while ((devnull_fd = open("/dev/null", O_RDWR, 0)) < 0) {
-              if (!retry(errno)) {
-                _exit(1);
-              }
-            }
-          }
-          while (dup2(devnull_fd, i) < 0) {
+    case ACTION_CLOSE:
+    default:
+      // Do not close stdin/out/err, instead redirect them to /dev/null so
+      // their file descriptors remain unavailable for reuse by open(), etc.
+      if (i <= CHAN_STDERR) {
+        if (devnull_fd < 0) {
+          while ((devnull_fd = open("/dev/null", O_RDWR, 0)) < 0) {
             if (!retry(errno)) {
               _exit(1);
             }
           }
-        } else {
-          close(i);
         }
-        break;
+        while (dup2(devnull_fd, i) < 0) {
+          if (!retry(errno)) {
+            _exit(1);
+          }
+        }
+      } else {
+        close(i);
+      }
+      break;
     }
   }
 
@@ -252,7 +252,7 @@ bool SubProcess::Wait() {
   return WaitInternal(&status);
 }
 
-bool SubProcess::WaitInternal(int* status) {
+bool SubProcess::WaitInternal(int *status) {
   // The waiter must release proc_mu_ while waiting in order for Kill() to work.
   proc_mu_.lock();
   bool running = running_;
@@ -298,11 +298,11 @@ bool SubProcess::Kill(int signal) {
   return ret;
 }
 
-int SubProcess::Communicate(const string* stdin_input, string* stdout_output,
-                            string* stderr_output) {
+int SubProcess::Communicate(const string *stdin_input, string *stdout_output,
+                            string *stderr_output) {
   struct pollfd fds[kNFds];
   size_t nbytes[kNFds];
-  string* iobufs[kNFds];
+  string *iobufs[kNFds];
   int fd_count = 0;
 
   proc_mu_.lock();
@@ -342,25 +342,25 @@ int SubProcess::Communicate(const string* stdin_input, string* stdout_output,
   for (int i = 0; i < kNFds; i++) {
     if (action_[i] == ACTION_PIPE) {
       switch (i) {
-        case CHAN_STDIN:
-          // Special case: if no data is given to send to the child process,
-          // close the pipe to unblock the child, and skip the file descriptor.
-          if (stdin_input == nullptr) {
-            close(parent_pipe_[i]);
-            parent_pipe_[i] = -1;
-            continue;
-          }
-          iobufs[fd_count] = const_cast<string*>(stdin_input);
-          break;
-        case CHAN_STDOUT:
-          iobufs[fd_count] = stdout_output;
-          break;
-        case CHAN_STDERR:
-          iobufs[fd_count] = stderr_output;
-          break;
-        default:
-          iobufs[fd_count] = nullptr;
-          break;
+      case CHAN_STDIN:
+        // Special case: if no data is given to send to the child process,
+        // close the pipe to unblock the child, and skip the file descriptor.
+        if (stdin_input == nullptr) {
+          close(parent_pipe_[i]);
+          parent_pipe_[i] = -1;
+          continue;
+        }
+        iobufs[fd_count] = const_cast<string *>(stdin_input);
+        break;
+      case CHAN_STDOUT:
+        iobufs[fd_count] = stdout_output;
+        break;
+      case CHAN_STDERR:
+        iobufs[fd_count] = stderr_output;
+        break;
+      default:
+        iobufs[fd_count] = nullptr;
+        break;
       }
       nbytes[fd_count] = 0;
       fds[fd_count].fd = parent_pipe_[i];
@@ -430,7 +430,7 @@ int SubProcess::Communicate(const string* stdin_input, string* stdout_output,
   return WaitInternal(&status) ? status : -1;
 }
 
-std::unique_ptr<SubProcess> CreateSubProcess(const std::vector<string>& argv) {
+std::unique_ptr<SubProcess> CreateSubProcess(const std::vector<string> &argv) {
   std::unique_ptr<SubProcess> proc(new SubProcess());
   proc->SetProgram(argv[0], argv);
   proc->SetChannelAction(CHAN_STDERR, ACTION_DUPPARENT);
@@ -438,5 +438,5 @@ std::unique_ptr<SubProcess> CreateSubProcess(const std::vector<string>& argv) {
   return proc;
 }
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow

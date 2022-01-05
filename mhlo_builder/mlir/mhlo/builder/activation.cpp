@@ -24,8 +24,8 @@ namespace mhlo {
 // Ref:
 // https://pytorch.org/docs/stable/generated/torch.nn.Sigmoid.html#torch.nn.Sigmoid
 
-mlir::Value BuildSigmoid(mlir::OpBuilder& builder, const mlir::Location& loc,
-                         const mlir::Value& mlir_val) {
+mlir::Value BuildSigmoid(mlir::OpBuilder &builder, const mlir::Location &loc,
+                         const mlir::Value &mlir_val) {
   auto elem_type = mlir::mhlo::GetMlirTensorElemType(mlir_val);
   auto hlo_one = builder
                      .create<mlir::mhlo::ConstOp>(
@@ -44,5 +44,5 @@ mlir::Value BuildSigmoid(mlir::OpBuilder& builder, const mlir::Location& loc,
   return result;
 }
 
-}  // namespace mhlo
-}  // namespace mlir
+} // namespace mhlo
+} // namespace mlir

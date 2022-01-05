@@ -47,24 +47,24 @@ struct BaseCpuContextState : public tao::ral::Context::Resource {
   // buffers which are supposed to used across executions.
   std::unordered_set<const_buffer_t> host_persistent_buffers;
 
-  void onExecutionFinish(ExecutionContext* ctx) override {
+  void onExecutionFinish(ExecutionContext *ctx) override {
     std::lock_guard<std::mutex> lock(this->mu);
     if (!cache_workspace_mem_across_execution) {
       cpu_allocator->releaseAllFreeBuffers();
     }
   }
 
-  void onContextFinish(Context* ctx) override {
+  void onContextFinish(Context *ctx) override {
     for (const_buffer_t buffer : host_persistent_buffers) {
       cpu_allocator->dealloc(const_cast<buffer_t>(buffer));
     }
   }
 };
 
-const char* kRalBaseCpuContextState = "ral_base_cpu_context_state";
+const char *kRalBaseCpuContextState = "ral_base_cpu_context_state";
 
-std::unique_ptr<BaseContext> MakeBaseCpuContext(BaseContextOption& opt,
-                                                BaseCpuContextOption& cpu_opt) {
+std::unique_ptr<BaseContext> MakeBaseCpuContext(BaseContextOption &opt,
+                                                BaseCpuContextOption &cpu_opt) {
   std::unique_ptr<BaseContext> ctx(new BaseContext(opt));
   ctx->addDriver(::tao::ral::cpu::CPUDriver::name(),
                  std::unique_ptr<::tao::ral::cpu::CPUDriver>(
@@ -86,13 +86,13 @@ std::unique_ptr<BaseContext> MakeBaseCpuContext(BaseContextOption& opt,
   return ctx;
 }
 
-BaseCpuExecutionContext::BaseCpuExecutionContext(BaseContext* ctx)
+BaseCpuExecutionContext::BaseCpuExecutionContext(BaseContext *ctx)
     : BaseExecutionContext(ctx) {}
 
 BaseCpuExecutionContext::~BaseCpuExecutionContext() {}
 
-void BaseCpuExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {
-  auto* state = getResource<BaseCpuContextState>(kRalBaseCpuContextState);
+void BaseCpuExecutionContext::setOutputDeleter(OutputBufferWrapper &output) {
+  auto *state = getResource<BaseCpuContextState>(kRalBaseCpuContextState);
   std::lock_guard<std::mutex> lock(state->mu);
   const_buffer_t buffer = output.data();
   if (state->host_persistent_buffers.count(buffer)) {
@@ -103,7 +103,7 @@ void BaseCpuExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {
   auto hid = host_ptr_map.find(buffer);
   if (hid != host_ptr_map.end()) {
     if (--hid->second == 0) {
-      static_cast<BaseOutputBufferWrapper*>(&output)->set_deleter(
+      static_cast<BaseOutputBufferWrapper *>(&output)->set_deleter(
           [state](buffer_t data) {
             std::lock_guard<std::mutex> lock(state->mu);
             state->cpu_allocator->dealloc(data);
@@ -113,7 +113,7 @@ void BaseCpuExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {
     // Cpu buffer allocted by the compiler directly.
     // TODO: make compiler use ral to alloc cpu memory as well to remove this
     // part.
-    static_cast<BaseOutputBufferWrapper*>(&output)->set_deleter(
+    static_cast<BaseOutputBufferWrapper *>(&output)->set_deleter(
         [state](buffer_t data) { cpu_dealloc(data); });
   }
 }
@@ -122,34 +122,34 @@ void BaseCpuExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {
 // ========================== gpu drvier api impl =============================
 // ============================================================================
 
-buffer_t ral_base_cpu_alloc(ExecutionContext* ctx, size_t bytes) {
-  auto* state = ctx->getResource<BaseCpuContextState>(kRalBaseCpuContextState);
-  auto exec_ctx = dynamic_cast<BaseCpuExecutionContext*>(ctx);
+buffer_t ral_base_cpu_alloc(ExecutionContext *ctx, size_t bytes) {
+  auto *state = ctx->getResource<BaseCpuContextState>(kRalBaseCpuContextState);
+  auto exec_ctx = dynamic_cast<BaseCpuExecutionContext *>(ctx);
 
   std::lock_guard<std::mutex> lock(state->mu);
   TAO_VLOG(1) << "before ral_base_cpu_alloc alloc " << bytes;
   bytes = (bytes ? bytes : 1);
-  void* ptr = state->cpu_allocator->alloc(bytes);
+  void *ptr = state->cpu_allocator->alloc(bytes);
   TAO_VLOG(1) << "after ral_base_cpu_alloc with ptr=  " << ptr;
   exec_ctx->host_ptr_map.insert(std::make_pair(ptr, 1));
   return ptr;
 }
 
-buffer_t ral_base_cpu_alloc_persistent(ExecutionContext* ctx, size_t bytes) {
-  auto* state = ctx->getResource<BaseCpuContextState>(kRalBaseCpuContextState);
+buffer_t ral_base_cpu_alloc_persistent(ExecutionContext *ctx, size_t bytes) {
+  auto *state = ctx->getResource<BaseCpuContextState>(kRalBaseCpuContextState);
 
   std::lock_guard<std::mutex> lock(state->mu);
   TAO_VLOG(1) << "before ral_base_cpu_alloc_persistent alloc " << bytes;
   bytes = (bytes ? bytes : 1);
-  void* ptr = state->cpu_allocator->alloc(bytes);
+  void *ptr = state->cpu_allocator->alloc(bytes);
   state->host_persistent_buffers.insert(ptr);
   TAO_VLOG(1) << "after ral_base_cpu_alloc_persistent with ptr=  " << ptr;
   return ptr;
 }
 
-void ral_base_cpu_dealloc(ExecutionContext* ctx, buffer_t buffer) {
-  auto* state = ctx->getResource<BaseCpuContextState>(kRalBaseCpuContextState);
-  auto exec_ctx = dynamic_cast<BaseCpuExecutionContext*>(ctx);
+void ral_base_cpu_dealloc(ExecutionContext *ctx, buffer_t buffer) {
+  auto *state = ctx->getResource<BaseCpuContextState>(kRalBaseCpuContextState);
+  auto exec_ctx = dynamic_cast<BaseCpuExecutionContext *>(ctx);
 
   std::lock_guard<std::mutex> lock(state->mu);
   TAO_VLOG(1) << "before ral_base_cpu_dealloc with ptr = " << buffer;
@@ -162,8 +162,8 @@ void ral_base_cpu_dealloc(ExecutionContext* ctx, buffer_t buffer) {
   TAO_VLOG(1) << "after ral_base_cpu_dealloc with ptr =  " << buffer;
 }
 
-buffer_t ral_base_cpu_raw_alloc(Context* ctx, size_t bytes) {
-  auto* state = static_cast<BaseCpuContextState*>(
+buffer_t ral_base_cpu_raw_alloc(Context *ctx, size_t bytes) {
+  auto *state = static_cast<BaseCpuContextState *>(
       ctx->getOrCreateResource(kRalBaseCpuContextState, nullptr).get());
   TAO_VLOG(1) << "before ral_base_raw_cpu_alloc alloc " << bytes;
   buffer_t ptr = state->cpu_allocator->alloc(bytes);
@@ -172,8 +172,8 @@ buffer_t ral_base_cpu_raw_alloc(Context* ctx, size_t bytes) {
   return ptr;
 }
 
-void ral_base_cpu_raw_dealloc(Context* ctx, buffer_t buffer) {
-  auto* state = static_cast<BaseCpuContextState*>(
+void ral_base_cpu_raw_dealloc(Context *ctx, buffer_t buffer) {
+  auto *state = static_cast<BaseCpuContextState *>(
       ctx->getOrCreateResource(kRalBaseCpuContextState, nullptr).get());
   TAO_VLOG(1) << "before ral_base_raw_cpu_dealloc dealloc with ptr =  "
               << buffer;
@@ -192,7 +192,7 @@ TAO_RAL_API(tao::ral::cpu::kRalCpuDealloc, "cpu", ral_base_cpu_dealloc);
 TAO_RAL_API(tao::ral::cpu::kRalCpuRawAlloc, "cpu", ral_base_cpu_raw_alloc);
 TAO_RAL_API(tao::ral::cpu::kRalCpuRawDealloc, "cpu", ral_base_cpu_raw_dealloc);
 
-buffer_t ral_base_cpu_alloc_test(ExecutionContext* ctx, size_t bytes) {
+buffer_t ral_base_cpu_alloc_test(ExecutionContext *ctx, size_t bytes) {
   TAO_VLOG(1) << "ral_tf_cpu_alloc_test bytes = " << bytes;
   buffer_t ptr = nullptr;
   if (bytes) {
@@ -201,7 +201,7 @@ buffer_t ral_base_cpu_alloc_test(ExecutionContext* ctx, size_t bytes) {
   TAO_VLOG(1) << "ral_tf_cpu_alloc_test ptr = " << ptr;
   return ptr;
 }
-void ral_base_cpu_dealloc_test(ExecutionContext* ctx, buffer_t buffer) {
+void ral_base_cpu_dealloc_test(ExecutionContext *ctx, buffer_t buffer) {
   TAO_VLOG(1) << "ral_tf_cpu_dealloc_test ptr = " << buffer;
   delete[] buffer;
 }
@@ -209,9 +209,9 @@ void ral_base_cpu_dealloc_test(ExecutionContext* ctx, buffer_t buffer) {
 TAO_RAL_API("tao_ral_cpu_alloc", "cpu", ral_base_cpu_alloc_test);
 TAO_RAL_API("tao_ral_cpu_free", "cpu", ral_base_cpu_dealloc_test);
 
-void ral_base_cpu_bitcast_update_ref_count(ExecutionContext* ctx,
+void ral_base_cpu_bitcast_update_ref_count(ExecutionContext *ctx,
                                            buffer_t ptr) {
-  auto ral_tf_ctx = dynamic_cast<BaseCpuExecutionContext*>(ctx);
+  auto ral_tf_ctx = dynamic_cast<BaseCpuExecutionContext *>(ctx);
   auto it = ral_tf_ctx->host_ptr_map.find(ptr);
   if (it != ral_tf_ctx->host_ptr_map.end()) {
     ++it->second;
@@ -220,7 +220,7 @@ void ral_base_cpu_bitcast_update_ref_count(ExecutionContext* ctx,
     // buffer, thus we do not want to relase it.
     ral_tf_ctx->host_ptr_map[ptr] = 2;
   } else {
-    auto* state =
+    auto *state =
         ctx->getResource<BaseCpuContextState>(kRalBaseCpuContextState);
     const_buffer_t persistent_buffer = nullptr;
     {
@@ -237,8 +237,9 @@ void ral_base_cpu_bitcast_update_ref_count(ExecutionContext* ctx,
 }
 
 template <typename T, int N>
-::tao::ral::MemRefType<T, N> ral_base_cpu_bitcast(
-    ExecutionContext* ctx, void*, ::tao::ral::MemRefType<T, N> input) {
+::tao::ral::MemRefType<T, N>
+ral_base_cpu_bitcast(ExecutionContext *ctx, void *,
+                     ::tao::ral::MemRefType<T, N> input) {
   TAO_VLOG(1) << "ral_base_cpu_bitcast for " << N << "d\n";
   ::tao::ral::MemRefType<T, N> memref = input;
 
@@ -253,8 +254,9 @@ template <typename T, int N>
 }
 
 template <typename T>
-::tao::ral::MemRefType<T, 0> ral_base_cpu_bitcast_0d(
-    ExecutionContext* ctx, void*, ::tao::ral::MemRefType<T, 0> input) {
+::tao::ral::MemRefType<T, 0>
+ral_base_cpu_bitcast_0d(ExecutionContext *ctx, void *,
+                        ::tao::ral::MemRefType<T, 0> input) {
   TAO_VLOG(1) << "ral_base_cpu_bitcast for 0d";
   ::tao::ral::MemRefType<T, 0> memref = input;
 
@@ -269,9 +271,10 @@ template <typename T>
 }
 
 template <typename T, int N, int M, typename P = int64_t>
-::tao::ral::MemRefType<T, M> ral_base_cpu_bitcast(
-    ExecutionContext* ctx, void*, ::tao::ral::MemRefType<T, N> input,
-    ::tao::ral::MemRefType<P, 1> shape) {
+::tao::ral::MemRefType<T, M>
+ral_base_cpu_bitcast(ExecutionContext *ctx, void *,
+                     ::tao::ral::MemRefType<T, N> input,
+                     ::tao::ral::MemRefType<P, 1> shape) {
   TAO_VLOG(1) << "ral_base_cpu_bitcast for " << M << "d\n";
   ::tao::ral::MemRefType<T, M> memref;
 
@@ -299,9 +302,10 @@ template <typename T, int N, int M, typename P = int64_t>
 }
 
 template <typename T, int N, int M, typename P = int64_t>
-::tao::ral::MemRefType<T, 0> ral_base_cpu_bitcast_0d(
-    ExecutionContext* ctx, void*, ::tao::ral::MemRefType<T, N> input,
-    ::tao::ral::MemRefType<P, 1> shape) {
+::tao::ral::MemRefType<T, 0>
+ral_base_cpu_bitcast_0d(ExecutionContext *ctx, void *,
+                        ::tao::ral::MemRefType<T, N> input,
+                        ::tao::ral::MemRefType<P, 1> shape) {
   TAO_VLOG(1) << "ral_base_cpu_bitcast_0d for " << M << "d\n";
   ::tao::ral::MemRefType<T, 0> memref;
 
@@ -319,24 +323,24 @@ template <typename T, int N, int M, typename P = int64_t>
   return memref;
 }
 
-#define RAL_REGISTER_BITCAST_FUNC(T, N)                                     \
-  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, N>);    \
-  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 0, N>); \
-  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 1, N>); \
-  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 2, N>); \
-  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 3, N>); \
-  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 4, N>); \
-  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 5, N>); \
+#define RAL_REGISTER_BITCAST_FUNC(T, N)                                        \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, N>);       \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 0, N>);    \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 1, N>);    \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 2, N>);    \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 3, N>);    \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 4, N>);    \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 5, N>);    \
   TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 6, N>);
 
-#define RAL_REGISTER_BITCAST_FUNC_0D(T)                                       \
-  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T>);      \
-  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 0, 0>) \
-  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 1, 0>) \
-  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 2, 0>) \
-  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 3, 0>) \
-  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 4, 0>) \
-  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 5, 0>) \
+#define RAL_REGISTER_BITCAST_FUNC_0D(T)                                        \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T>);       \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 0, 0>)  \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 1, 0>)  \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 2, 0>)  \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 3, 0>)  \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 4, 0>)  \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 5, 0>)  \
   TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 6, 0>);
 
 RAL_REGISTER_BITCAST_FUNC_0D(float);
@@ -375,9 +379,9 @@ RAL_REGISTER_BITCAST_FUNC(bool, 4);
 RAL_REGISTER_BITCAST_FUNC(bool, 5);
 RAL_REGISTER_BITCAST_FUNC(bool, 6);
 
-}  // namespace cpu
-}  // namespace ral
-}  // namespace tao
+} // namespace cpu
+} // namespace ral
+} // namespace tao
 
 #ifdef TAO_RAL_USE_STREAM_EXECUTOR
 #include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
@@ -393,7 +397,7 @@ RAL_REGISTER_BITCAST_FUNC(Eigen::half, 5);
 RAL_REGISTER_BITCAST_FUNC(Eigen::half, 6);
 RAL_REGISTER_BITCAST_FUNC(Eigen::half, 7);
 RAL_REGISTER_BITCAST_FUNC(Eigen::half, 8);
-}  // namespace cpu
-}  // namespace ral
-}  // namespace tao
-#endif  // TAO_RAL_USE_STREAM_EXECUTOR
+} // namespace cpu
+} // namespace ral
+} // namespace tao
+#endif // TAO_RAL_USE_STREAM_EXECUTOR

@@ -22,11 +22,12 @@ namespace gpu {
 
 using ::stream_executor::gpu::GpuStreamHandle;
 
-::stream_executor::Stream* GetOrCreateDefaultCudaStreamExecutorStream(
-    int device_ordinal = 0, GpuStreamHandle stream = nullptr);
+::stream_executor::Stream *
+GetOrCreateDefaultCudaStreamExecutorStream(int device_ordinal = 0,
+                                           GpuStreamHandle stream = nullptr);
 
-}  // namespace gpu
-}  // namespace ral
-}  // namespace tao
+} // namespace gpu
+} // namespace ral
+} // namespace tao
 
-#endif  // RAL_CONTEXT_INIT_STREAM_EXECUTOR_H_
+#endif // RAL_CONTEXT_INIT_STREAM_EXECUTOR_H_

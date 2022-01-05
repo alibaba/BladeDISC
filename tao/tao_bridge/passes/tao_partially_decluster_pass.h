@@ -29,10 +29,10 @@ namespace tao {
 //  - Reducing device-to-host copies.
 //  - Reducing the number of XLA recompilations.
 class TaoPartiallyDeclusterPass : public GraphOptimizationPass {
- public:
-  Status Run(const GraphOptimizationPassOptions& options) override;
+public:
+  Status Run(const GraphOptimizationPassOptions &options) override;
 
-  void set_opts(const std::unique_ptr<TaoPassOptions>& opt) {
+  void set_opts(const std::unique_ptr<TaoPassOptions> &opt) {
     if (opt) {
       is_inner_ = opt->inner_tao_launch;
     }
@@ -41,7 +41,7 @@ class TaoPartiallyDeclusterPass : public GraphOptimizationPass {
   bool is_inner_{false};
 };
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow
 
-#endif  // TENSORFLOW_COMPILER_JIT_PARTIALLY_DECLUSTER_PASS_H_
+#endif // TENSORFLOW_COMPILER_JIT_PARTIALLY_DECLUSTER_PASS_H_

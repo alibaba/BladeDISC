@@ -22,7 +22,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/Support/FormatVariadic.h"
 #include "mlir/Conversion/GPUToNVVM/GPUToNVVMPass.h"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "mlir/Conversion/LLVMCommon/LoweringOptions.h"
@@ -43,6 +42,7 @@
 #include "mlir/lib/Conversion/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_lower_gpu_ops_common.h"
+#include "llvm/Support/FormatVariadic.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -143,12 +143,12 @@ struct DiscLowerGpuOpsToNVVMOpsPass
   }
 };
 
-}  // anonymous namespace
+} // anonymous namespace
 
 std::unique_ptr<OperationPass<gpu::GPUModuleOp>>
 createDiscLowerGpuOpsToNVVMOpsPass(unsigned indexBitwidth) {
   return std::make_unique<DiscLowerGpuOpsToNVVMOpsPass>(indexBitwidth);
 }
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

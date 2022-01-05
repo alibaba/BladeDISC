@@ -37,19 +37,19 @@ namespace {
 
 class ComputeReshapeShapeOpConverter
     : public OpConversionPattern<ComputeReshapeShapeOp> {
- public:
+public:
   using OpConversionPattern<ComputeReshapeShapeOp>::OpConversionPattern;
 
-  LogicalResult matchAndRewrite(
-      ComputeReshapeShapeOp op, ArrayRef<Value> operands,
-      ConversionPatternRewriter& rewriter) const override;
+  LogicalResult
+  matchAndRewrite(ComputeReshapeShapeOp op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const override;
 };
 
 LogicalResult ComputeReshapeShapeOpConverter::matchAndRewrite(
     ComputeReshapeShapeOp op, ArrayRef<Value> operands,
-    ConversionPatternRewriter& rewriter) const {
+    ConversionPatternRewriter &rewriter) const {
   Location loc = op.getLoc();
-  MLIRContext* ctx = op->getContext();
+  MLIRContext *ctx = op->getContext();
 
   Value zero = rewriter.create<ConstantIndexOp>(loc, 0);
   Value one = rewriter.create<ConstantIndexOp>(loc, 1);
@@ -131,7 +131,7 @@ class ConvertHloToStandardPass
 
 void ConvertHloToStandardPass::runOnFunction() {
   // Setup target legality.
-  MLIRContext& ctx = getContext();
+  MLIRContext &ctx = getContext();
   ConversionTarget target(ctx);
   target.addLegalDialect<StandardOpsDialect, tensor::TensorDialect>();
   target.addLegalOp<FuncOp, ModuleOp>();
@@ -148,11 +148,11 @@ void ConvertHloToStandardPass::runOnFunction() {
     signalPassFailure();
 }
 
-}  // namespace
+} // namespace
 
 std::unique_ptr<mlir::FunctionPass> createDiscConvertHloToStandardPass() {
   return std::make_unique<ConvertHloToStandardPass>();
 }
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

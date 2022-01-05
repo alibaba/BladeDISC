@@ -12,8 +12,8 @@
 #ifndef DYN_SORT_ATOMIC_H_
 #define DYN_SORT_ATOMIC_H_
 
-__device__ inline float atomicMax(float* address, float val) {
-  int* address_as_i = (int*)address;
+__device__ inline float atomicMax(float *address, float val) {
+  int *address_as_i = (int *)address;
   int old = *address_as_i, assumed;
   do {
     assumed = old;
@@ -23,9 +23,9 @@ __device__ inline float atomicMax(float* address, float val) {
   return __int_as_float(old);
 }
 
-__device__ inline void atomicMax(float* keyAddr, float key, unsigned* valAddr,
-                                 unsigned val, float* oldK, unsigned* oldV) {
-  int* address_as_i = (int*)keyAddr;
+__device__ inline void atomicMax(float *keyAddr, float key, unsigned *valAddr,
+                                 unsigned val, float *oldK, unsigned *oldV) {
+  int *address_as_i = (int *)keyAddr;
   int old_key = *address_as_i, assumed_key;
   unsigned old_val = *valAddr, assumed_val, new_val;
   do {
@@ -42,4 +42,4 @@ __device__ inline void atomicMax(float* keyAddr, float key, unsigned* valAddr,
   *oldV = old_val;
 }
 
-#endif  // DYN_SORT_ATOMIC_H_
+#endif // DYN_SORT_ATOMIC_H_

@@ -27,8 +27,7 @@ class OpBuilder;
 class PatternRewriter;
 class Value;
 class ValueRange;
-template <typename T>
-class SmallVectorImpl;
+template <typename T> class SmallVectorImpl;
 
 namespace lmhlo_disc {
 class CustomCallOp;
@@ -38,48 +37,49 @@ namespace mhlo_disc {
 class CustomCallOp;
 
 class CustomCallRegistry {
- public:
+public:
   ~CustomCallRegistry();
   using reify_shapes_func_t = std::function<LogicalResult(
-      CustomCallOp op, OpBuilder& builder, ValueRange operands,
-      SmallVectorImpl<Value>& reifiedReturnShapes)>;
+      CustomCallOp op, OpBuilder &builder, ValueRange operands,
+      SmallVectorImpl<Value> &reifiedReturnShapes)>;
   using lower_to_library_call_func_t = std::function<LogicalResult(
-      lmhlo_disc::CustomCallOp op, PatternRewriter& rewriter, Value ctx,
+      lmhlo_disc::CustomCallOp op, PatternRewriter &rewriter, Value ctx,
       Value stream_handle)>;
-  static CustomCallRegistry& Global();
-  bool Register(const std::string& name, reify_shapes_func_t reify_shapes_func,
+  static CustomCallRegistry &Global();
+  bool Register(const std::string &name, reify_shapes_func_t reify_shapes_func,
                 lower_to_library_call_func_t lower_to_library_call_func);
-  reify_shapes_func_t FindReifyShapesFunc(const std::string& name);
-  lower_to_library_call_func_t FindLowerToLibraryCallFunc(
-      const std::string& name);
+  reify_shapes_func_t FindReifyShapesFunc(const std::string &name);
+  lower_to_library_call_func_t
+  FindLowerToLibraryCallFunc(const std::string &name);
 
- private:
+private:
   CustomCallRegistry();
   class Impl;
   std::unique_ptr<Impl> impl_;
 };
 
 template <typename BackendConfig>
-LogicalResult reifyReturnTypeShapesImpl(
-    CustomCallOp op, OpBuilder& builder, ValueRange operands,
-    SmallVectorImpl<Value>& reifiedReturnShapes);
+LogicalResult
+reifyReturnTypeShapesImpl(CustomCallOp op, OpBuilder &builder,
+                          ValueRange operands,
+                          SmallVectorImpl<Value> &reifiedReturnShapes);
 
-}  // end namespace mhlo_disc
+} // end namespace mhlo_disc
 
-#define REGISTER_CUSTOM_CALL(name, reify_shapes_func,           \
-                             lower_to_library_call_func)        \
-  static bool unused_ret_val_##ctr =                            \
-      ::mlir::mhlo_disc::CustomCallRegistry::Global().Register( \
+#define REGISTER_CUSTOM_CALL(name, reify_shapes_func,                          \
+                             lower_to_library_call_func)                       \
+  static bool unused_ret_val_##ctr =                                           \
+      ::mlir::mhlo_disc::CustomCallRegistry::Global().Register(                \
           std::string(name), reify_shapes_func, lower_to_library_call_func);
 
 namespace lmhlo_disc {
 class CustomCallOp;
 
 template <typename BackendConfig>
-LogicalResult lowerToLibraryCallImpl(CustomCallOp op, PatternRewriter& rewriter,
+LogicalResult lowerToLibraryCallImpl(CustomCallOp op, PatternRewriter &rewriter,
                                      Value ctx, Value stream_handle);
 
-}  // end namespace lmhlo_disc
-}  // end namespace mlir
+} // end namespace lmhlo_disc
+} // end namespace mlir
 
-#endif  // TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_IR_CUSTOM_CALL_BASE_H_
+#endif // TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_IR_CUSTOM_CALL_BASE_H_

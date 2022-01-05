@@ -17,11 +17,11 @@ limitations under the License.
 #define DISC_DISC_UTIL_H_
 #include <vector>
 
-#include "llvm/ADT/StringRef.h"         // TF:llvm-project
-#include "mlir/IR/Attributes.h"         // TF:llvm-project
-#include "mlir/IR/Builders.h"           // from @llvm-project
-#include "mlir/IR/BuiltinAttributes.h"  // from @llvm-project
+#include "mlir/IR/Attributes.h"        // TF:llvm-project
+#include "mlir/IR/Builders.h"          // from @llvm-project
+#include "mlir/IR/BuiltinAttributes.h" // from @llvm-project
 #include "mlir/IR/BuiltinTypes.h"
+#include "llvm/ADT/StringRef.h" // TF:llvm-project
 
 namespace mlir {
 namespace disc_ral {
@@ -30,21 +30,22 @@ constexpr llvm::StringRef kDhloInputShapeAttr = "disc.input_shape";
 constexpr llvm::StringRef kDhloInputValueAttr = "disc.input_value";
 
 inline mlir::DenseIntElementsAttr GetI64ElementsAttr(ArrayRef<int64_t> values,
-                                                     Builder* builder) {
+                                                     Builder *builder) {
   RankedTensorType ty = RankedTensorType::get(
       {static_cast<int64_t>(values.size())}, builder->getIntegerType(64));
   return mlir::DenseIntElementsAttr::get(ty, values);
 }
 
-inline std::vector<int64_t> ConvertDenseIntAttr(
-    mlir::DenseIntElementsAttr attr) {
+inline std::vector<int64_t>
+ConvertDenseIntAttr(mlir::DenseIntElementsAttr attr) {
   auto values = attr.getValues<int64_t>();
   return {values.begin(), values.end()};
 }
 
-inline std::vector<int64_t> ConvertDenseIntAttr(
-    llvm::Optional<mlir::DenseIntElementsAttr> attr) {
-  if (!attr) return {};
+inline std::vector<int64_t>
+ConvertDenseIntAttr(llvm::Optional<mlir::DenseIntElementsAttr> attr) {
+  if (!attr)
+    return {};
   return ConvertDenseIntAttr(*attr);
 }
 
@@ -66,7 +67,7 @@ bool IsSmallCpuBuffer(Value value);
 
 bool IsSmallCpuAlloc(Value alloc);
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir
 
-#endif  // DISC_DISC_UTIL_H_
+#endif // DISC_DISC_UTIL_H_

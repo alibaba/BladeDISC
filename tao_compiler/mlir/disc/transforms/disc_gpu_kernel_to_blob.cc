@@ -16,9 +16,6 @@ limitations under the License.
 #include <fstream>
 
 #include "absl/strings/str_cat.h"
-#include "llvm/Support/Program.h"
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Utils/Cloning.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/GPU/Passes.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
@@ -43,6 +40,9 @@ limitations under the License.
 #include "tensorflow/core/platform/random.h"
 #include "tensorflow/core/util/env_var.h"
 #include "transforms/codegen_utils.h"
+#include "llvm/Support/Program.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Utils/Cloning.h"
 
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
 #include "tensorflow/stream_executor/gpu/asm_compiler.h"
@@ -67,7 +67,7 @@ using xla::llvm_ir::AsStringRef;
 
 class GpuKernelToBlobPass
     : public GpuKernelToBlobPassBase<GpuKernelToBlobPass> {
- public:
+public:
   GpuKernelToBlobPass(int cc_major, int cc_minor, bool multi_cc_support,
                       bool multi_cc_support_dbg_ptx_only,
                       StringRef blob_annotation) {
@@ -83,9 +83,10 @@ class GpuKernelToBlobPass
     if (multi_cc_support_) {
       VLOG(2) << "Multi compute capability support";
       for (auto item : c_MULTI_SM_CONFIG) {
-        const std::string& name = item.first;
+        const std::string &name = item.first;
         if (multi_cc_support_dbg_ptx_only_) {
-          if (name.find("compute") == std::string::npos) continue;
+          if (name.find("compute") == std::string::npos)
+            continue;
           VLOG(2) << "Multi compute capability support with PTX only";
         }
 
@@ -96,7 +97,7 @@ class GpuKernelToBlobPass
           gpu_module.emitError(blob_or.status().error_message());
           return signalPassFailure();
         }
-        const auto& blob = blob_or.ValueOrDie();
+        const auto &blob = blob_or.ValueOrDie();
         std::string blob_string(blob.begin(), blob.end());
         std::string attr_str = std::string(kGpuBinaryAttrName) + "_" + name;
         gpu_module->setAttr(attr_str,
@@ -109,15 +110,15 @@ class GpuKernelToBlobPass
         gpu_module.emitError(blob_or.status().error_message());
         return signalPassFailure();
       }
-      const auto& blob = blob_or.ValueOrDie();
+      const auto &blob = blob_or.ValueOrDie();
       std::string blob_string(blob.begin(), blob.end());
       gpu_module->setAttr(blob_annotation_,
                           mlir::StringAttr::get(&getContext(), blob_string));
     }
   }
 
-  static xla::Status ExecuteProgram(const std::string& program,
-                                    const std::vector<llvm::StringRef>& args) {
+  static xla::Status ExecuteProgram(const std::string &program,
+                                    const std::vector<llvm::StringRef> &args) {
     std::string error_message;
     int result = llvm::sys::ExecuteAndWait(
         program, AsArrayRef(args), llvm::None, {}, 0, 0, &error_message);
@@ -128,9 +129,9 @@ class GpuKernelToBlobPass
     return xla::Status::OK();
   }
 
-  xla::StatusOr<std::vector<uint8_t>> GetGpuBinaryBlob(
-      mlir::gpu::GPUModuleOp gpu_module, int cc_major, int cc_minor,
-      bool virtual_compute_arch = false) {
+  xla::StatusOr<std::vector<uint8_t>>
+  GetGpuBinaryBlob(mlir::gpu::GPUModuleOp gpu_module, int cc_major,
+                   int cc_minor, bool virtual_compute_arch = false) {
     llvm::LLVMContext llvmContext;
     auto llvmModule = mlir::translateModuleToLLVMIR(gpu_module, llvmContext);
 
@@ -222,7 +223,7 @@ class GpuKernelToBlobPass
 
     std::vector<uint8_t> hsaco(hsaco_file_size);
     hsaco_file.seekg(0, std::ios::beg);
-    hsaco_file.read(reinterpret_cast<char*>(&hsaco[0]), hsaco_file_size);
+    hsaco_file.read(reinterpret_cast<char *>(&hsaco[0]), hsaco_file_size);
     hsaco_file.close();
     bool keep_tempfiles = false;
     TF_CHECK_OK(tensorflow::ReadBoolFromEnvVar("DISC_ROCM_KEEP_TEMPFILES",
@@ -272,7 +273,7 @@ class GpuKernelToBlobPass
     (*options.mutable_xla_backend_extra_options())["-nvptx-prec-divf32"] = "2";
     config.set_debug_options(options);
 
-    auto enable_fusion = [](llvm::TargetMachine* target) {
+    auto enable_fusion = [](llvm::TargetMachine *target) {
       target->Options.AllowFPOpFusion = llvm::FPOpFusion::FPOpFusionMode::Fast;
     };
 
@@ -317,17 +318,17 @@ class GpuKernelToBlobPass
         " Did you specify either --config=rocm or --config=cuda ?");
   }
 
- protected:
-  void getDependentDialects(DialectRegistry& registry) const override {
+protected:
+  void getDependentDialects(DialectRegistry &registry) const override {
     registerLLVMDialectTranslation(registry);
     registerNVVMDialectTranslation(registry);
     OperationPass<gpu::GPUModuleOp>::getDependentDialects(registry);
   }
 
- private:
-  xla::StatusOr<std::string> GetLibdeviceDir(
-      const xla::HloModuleConfig& hlo_module_config) {
-    for (const std::string& cuda_root : tensorflow::CandidateCudaRoots(
+private:
+  xla::StatusOr<std::string>
+  GetLibdeviceDir(const xla::HloModuleConfig &hlo_module_config) {
+    for (const std::string &cuda_root : tensorflow::CandidateCudaRoots(
              hlo_module_config.debug_options().xla_gpu_cuda_data_dir())) {
       std::string libdevice_dir =
           tensorflow::io::JoinPath(cuda_root, "nvvm", "libdevice");
@@ -342,15 +343,16 @@ class GpuKernelToBlobPass
   }
 };
 
-}  // namespace
+} // namespace
 
-std::unique_ptr<OperationPass<gpu::GPUModuleOp>> CreateDiscGpuKernelToBlobPass(
-    int cc_major, int cc_minor, bool multi_cc_support,
-    bool multi_cc_support_dbg_ptx_only, mlir::StringRef blob_annotation) {
+std::unique_ptr<OperationPass<gpu::GPUModuleOp>>
+CreateDiscGpuKernelToBlobPass(int cc_major, int cc_minor, bool multi_cc_support,
+                              bool multi_cc_support_dbg_ptx_only,
+                              mlir::StringRef blob_annotation) {
   return std::make_unique<GpuKernelToBlobPass>(
       cc_major, cc_minor, multi_cc_support, multi_cc_support_dbg_ptx_only,
       blob_annotation);
 }
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

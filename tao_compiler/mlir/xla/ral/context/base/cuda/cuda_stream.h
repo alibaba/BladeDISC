@@ -21,8 +21,8 @@ namespace gpu {
 using ::stream_executor::gpu::GpuStreamHandle;
 
 class CUDAStream : public ::stream_executor::gpu::GpuStream {
- public:
-  explicit CUDAStream(::stream_executor::gpu::GpuExecutor* parent,
+public:
+  explicit CUDAStream(::stream_executor::gpu::GpuExecutor *parent,
                       GpuStreamHandle gpu_stream)
       : ::stream_executor::gpu::GpuStream(parent) {
     gpu_stream_ = gpu_stream;
@@ -32,6 +32,6 @@ class CUDAStream : public ::stream_executor::gpu::GpuStream {
   bool Init() override;
   void Destroy() override;
 };
-}  // namespace gpu
-}  // namespace ral
-}  // namespace tao
+} // namespace gpu
+} // namespace ral
+} // namespace tao

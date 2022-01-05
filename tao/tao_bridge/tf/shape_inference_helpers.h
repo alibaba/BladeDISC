@@ -16,7 +16,6 @@ limitations under the License.
 #ifndef TAO_TAO_BRIDGE_TF_SHAPE_INFERENCE_HELPERS_H_
 #define TAO_TAO_BRIDGE_TF_SHAPE_INFERENCE_HELPERS_H_
 
-
 #include <vector>
 
 #include "tensorflow/core/graph/graph.h"
@@ -32,37 +31,37 @@ namespace tao {
 // to Replace() is optional if the graph will be discarded without being
 // executed, e.g., if it is being used purely for a shape inference pass.
 class BackEdgeHelper {
- public:
+public:
   struct BackEdge {
-    const Edge* edge;
-    Node* src;
+    const Edge *edge;
+    Node *src;
     int src_output;
-    Node* dst;
+    Node *dst;
     int dst_input;
   };
 
   BackEdgeHelper() = default;
   // Disallows copy and assign.
-  BackEdgeHelper(const BackEdgeHelper& other) = delete;
-  BackEdgeHelper& operator=(const BackEdgeHelper& other) = delete;
+  BackEdgeHelper(const BackEdgeHelper &other) = delete;
+  BackEdgeHelper &operator=(const BackEdgeHelper &other) = delete;
 
   // Temporarily removes all the back edges in graph.
-  Status Remove(Graph* graph);
+  Status Remove(Graph *graph);
 
   // Gets the list of removed edges.
-  const std::vector<BackEdge>& RemovedEdges() const;
+  const std::vector<BackEdge> &RemovedEdges() const;
 
   // Replaces the back edges removed by a prior call to Remove.
   Status Replace();
 
- private:
-  Graph* graph_ = nullptr;  // not owned
+private:
+  Graph *graph_ = nullptr; // not owned
   std::vector<BackEdge> back_edges_;
   // Set once Replace has been called.
   bool replaced_ = false;
 };
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow
 
-#endif  // TAO_TAO_BRIDGE_TF_SHAPE_INFERENCE_HELPERS_H_
+#endif // TAO_TAO_BRIDGE_TF_SHAPE_INFERENCE_HELPERS_H_

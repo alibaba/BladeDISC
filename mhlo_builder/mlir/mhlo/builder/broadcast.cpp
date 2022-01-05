@@ -21,20 +21,21 @@
 
 namespace mlir {
 namespace mhlo {
-mlir::Value BuildBroadcastScalarAsTensor(mlir::OpBuilder& builder,
-                                         const mlir::Location& loc,
-                                         const mlir::Value& scalar,
-                                         const mlir::Value& tensor) {
+mlir::Value BuildBroadcastScalarAsTensor(mlir::OpBuilder &builder,
+                                         const mlir::Location &loc,
+                                         const mlir::Value &scalar,
+                                         const mlir::Value &tensor) {
   auto shape = BuildShapeOfTensor(builder, loc, tensor);
   auto broadcast = builder.create<mlir::mhlo::DynamicBroadcastInDimOp>(
       loc, tensor.getType(), scalar, shape, BuildI64ElementsAttr(builder, {}));
   return broadcast;
 }
 
-mlir::Value BuildBroadcastTensorInDims(
-    mlir::OpBuilder& builder, const mlir::Location& loc,
-    const mlir::Value& tensor, const SmallValueVec4& dims_size,
-    const SmallVec4<mlir_dim_t>& broadcast_dims) {
+mlir::Value
+BuildBroadcastTensorInDims(mlir::OpBuilder &builder, const mlir::Location &loc,
+                           const mlir::Value &tensor,
+                           const SmallValueVec4 &dims_size,
+                           const SmallVec4<mlir_dim_t> &broadcast_dims) {
   mlir_dim_t rank = dims_size.size();
   MHLO_CHECK(rank >= GetRankOfMlirValue(tensor),
              "can't broadcast from higher rank to lower");
@@ -52,10 +53,10 @@ mlir::Value BuildBroadcastTensorInDims(
   return broadcast;
 }
 
-mlir::Value BuildBroadcastTensorAsOther(mlir::OpBuilder& builder,
-                                        const mlir::Location& loc,
-                                        const mlir::Value& tensor,
-                                        const mlir::Value& other) {
+mlir::Value BuildBroadcastTensorAsOther(mlir::OpBuilder &builder,
+                                        const mlir::Location &loc,
+                                        const mlir::Value &tensor,
+                                        const mlir::Value &other) {
   auto tensor_rank = GetRankOfMlirValue(tensor);
   auto higher_rank = GetRankOfMlirValue(other);
   MHLO_CHECK(higher_rank >= tensor_rank,
@@ -69,5 +70,5 @@ mlir::Value BuildBroadcastTensorAsOther(mlir::OpBuilder& builder,
   return BuildBroadcastTensorInDims(builder, loc, tensor, new_dim_sizes,
                                     broadcast_dims);
 }
-}  // namespace mhlo
-}  // namespace mlir
+} // namespace mhlo
+} // namespace mlir

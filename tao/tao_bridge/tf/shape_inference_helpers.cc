@@ -24,14 +24,14 @@ limitations under the License.
 namespace tensorflow {
 namespace tao {
 
-Status BackEdgeHelper::Remove(Graph* graph) {
+Status BackEdgeHelper::Remove(Graph *graph) {
   if (graph_ != nullptr) {
     return errors::Internal("BackEdgeHelper duplicate call to Remove.");
   }
   graph_ = graph;
-  for (Node* n : graph_->nodes()) {
+  for (Node *n : graph_->nodes()) {
     if (n->IsMerge()) {
-      for (const Edge* e : n->in_edges()) {
+      for (const Edge *e : n->in_edges()) {
         if (e->src()->IsNextIteration()) {
           back_edges_.push_back(
               BackEdge{e, e->src(), e->src_output(), e->dst(), e->dst_input()});
@@ -39,14 +39,14 @@ Status BackEdgeHelper::Remove(Graph* graph) {
       }
     }
   }
-  for (const BackEdge& be : back_edges_) {
+  for (const BackEdge &be : back_edges_) {
     graph_->RemoveEdge(be.edge);
   }
   return Status::OK();
 }
 
-const std::vector<BackEdgeHelper::BackEdge>& BackEdgeHelper::RemovedEdges()
-    const {
+const std::vector<BackEdgeHelper::BackEdge> &
+BackEdgeHelper::RemovedEdges() const {
   return back_edges_;
 }
 
@@ -58,11 +58,11 @@ Status BackEdgeHelper::Replace() {
     return errors::Internal("BackEdgeHelper Replace called more than once.");
   }
   replaced_ = true;
-  for (const BackEdge& be : back_edges_) {
+  for (const BackEdge &be : back_edges_) {
     graph_->AddEdge(be.src, be.src_output, be.dst, be.dst_input);
   }
   return Status::OK();
 }
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow

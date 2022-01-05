@@ -55,17 +55,17 @@ namespace tao {
 
 namespace {
 
-void DumpGraph(const GraphOptimizationPassOptions& options,
-               const char* const name) {
+void DumpGraph(const GraphOptimizationPassOptions &options,
+               const char *const name) {
   if (GetTaoBridgeOptions()->dump_pass_output || VLOG_IS_ON(2)) {
-    Graph* graph = options.graph->get();
+    Graph *graph = options.graph->get();
     auto dumped = dump_graph::DumpGraphToFile(name, *graph, options.flib_def);
     VLOG(2) << "FunctionalizeControlFlowPass dump graph: " << dumped;
   }
 }
 
-Status MaybeDefunctionalize(Graph* graph, FunctionLibraryDefinition* library,
-                            FunctionLibraryRuntime* flr) {
+Status MaybeDefunctionalize(Graph *graph, FunctionLibraryDefinition *library,
+                            FunctionLibraryRuntime *flr) {
   // Register ops as need to check whether compilable
   XlaOpRegistry::RegisterCompilationKernels();
 
@@ -83,8 +83,9 @@ Status MaybeDefunctionalize(Graph* graph, FunctionLibraryDefinition* library,
 
   // This ensures that nested If/While nodes will be lowered as well.
   for (int i = 2; i < graph->num_node_ids(); ++i) {
-    Node* node = graph->FindNodeId(i);
-    if (node == nullptr) continue;  // deleted node
+    Node *node = graph->FindNodeId(i);
+    if (node == nullptr)
+      continue; // deleted node
     if (IsFunctionalControlFlowOps(node) &&
         (!jit_recursive_checker.IsCompilableFunctionalOp(*node, flr) ||
          !recursive_checker.IsCompilableFunctionalOp(*node, flr))) {
@@ -97,14 +98,14 @@ Status MaybeDefunctionalize(Graph* graph, FunctionLibraryDefinition* library,
   return Status::OK();
 }
 
-Status CheckSoftPlacement(const Graph* graph, bool allow_soft_placement) {
+Status CheckSoftPlacement(const Graph *graph, bool allow_soft_placement) {
   // We should throw an error when not set allow_soft_placement, but force int32
   // TensorArray ops on GPU, as there is no registered kernel in host TF. We can
   // not guarantee int32 TensorArray ops will be successfully compiled.
   if (allow_soft_placement) {
     return Status::OK();
   }
-  for (const Node* node : graph->op_nodes()) {
+  for (const Node *node : graph->op_nodes()) {
     if (IsInvalidTensorArrayOps(node) && !node->requested_device().empty()) {
       DeviceType device_type("");
       TF_RETURN_IF_ERROR(
@@ -120,12 +121,12 @@ Status CheckSoftPlacement(const Graph* graph, bool allow_soft_placement) {
   return Status::OK();
 }
 
-}  // namespace
+} // namespace
 
-Status FunctionalizeControlFlow(const FunctionLibraryDefinition* lookup_library,
-                                Graph* graph,
-                                FunctionLibraryDefinition* library,
-                                FunctionLibraryRuntime* flr) {
+Status FunctionalizeControlFlow(const FunctionLibraryDefinition *lookup_library,
+                                Graph *graph,
+                                FunctionLibraryDefinition *library,
+                                FunctionLibraryRuntime *flr) {
   // Functionalize and remove while loops from graph.
   TF_RETURN_IF_ERROR(FunctionalizeWhileLoop(lookup_library, graph, library));
   // FunctionalizeControlFlow is invoked for every function, so the loops's
@@ -136,21 +137,21 @@ Status FunctionalizeControlFlow(const FunctionLibraryDefinition* lookup_library,
   return Status::OK();
 }
 
-Status FunctionalizeControlFlow(Graph* graph,
-                                FunctionLibraryDefinition* library,
-                                FunctionLibraryRuntime* flr) {
+Status FunctionalizeControlFlow(Graph *graph,
+                                FunctionLibraryDefinition *library,
+                                FunctionLibraryRuntime *flr) {
   return FunctionalizeControlFlow(/*lookup_library=*/nullptr, graph, library,
                                   flr);
 }
 
-Status FunctionalizeControlFlowPass::Run(
-    const GraphOptimizationPassOptions& options) {
+Status
+FunctionalizeControlFlowPass::Run(const GraphOptimizationPassOptions &options) {
   bool enable_tao = GetTaoBridgeOptions()->enable_tao;
   bool enable_control_flow = GetTaoBridgeOptions()->tao_enable_control_flow;
   if (enable_tao && enable_control_flow) {
     VLOG(0) << "Enable FunctionalizeControlFlowPass";
 
-    Graph* graph = options.graph->get();
+    Graph *graph = options.graph->get();
     DumpGraph(options, "before_functionalize_control_flow");
 
     TF_RETURN_IF_ERROR(CheckSoftPlacement(
@@ -170,7 +171,7 @@ Status FunctionalizeControlFlowPass::Run(
             /*device_mgr=*/nullptr, options.session_options->env,
             TF_GRAPH_DEF_VERSION, options.flib_def, OptimizerOptions()));
 #endif
-    FunctionLibraryRuntime* flr =
+    FunctionLibraryRuntime *flr =
         pflr->GetFLR(ProcessFunctionLibraryRuntime::kDefaultFLRDevice);
 
     CHECK(flr != nullptr);
@@ -189,5 +190,5 @@ Status FunctionalizeControlFlowPass::Run(
 REGISTER_OPTIMIZATION(OptimizationPassRegistry::PRE_PLACEMENT, 27,
                       FunctionalizeControlFlowPass);
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow

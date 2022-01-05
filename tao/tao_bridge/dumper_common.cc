@@ -23,7 +23,7 @@ namespace tao {
 
 namespace {
 
-static TaoDumperOptions* opts{nullptr};
+static TaoDumperOptions *opts{nullptr};
 static std::once_flag opt_init;
 static std::mutex opt_mtx_;
 static void AllocateTaoDumperFlags() {
@@ -42,7 +42,7 @@ static void AllocateTaoDumperFlags() {
   // 2: + dump graph pb & shape files We need to set
   // TAO_DUMP_LEVEL=1 explicitly in tianji to enable dumping
   {
-    const char* tmp = getenv("TAO_ENABLE_ONLINE_DUMPER");
+    const char *tmp = getenv("TAO_ENABLE_ONLINE_DUMPER");
     if (tmp != nullptr) {
       // TAO_ENABLE_ONLINE_DUMPER is set
       bool enable_online_dumper;
@@ -121,9 +121,9 @@ static void AllocateTaoDumperFlags() {
                                &opts->max_upload_other_fail));
 }
 
-}  // namespace
+} // namespace
 
-const TaoDumperOptions* GetTaoDumperOptions(bool force_refresh) {
+const TaoDumperOptions *GetTaoDumperOptions(bool force_refresh) {
   std::call_once(opt_init, &AllocateTaoDumperFlags);
   if (force_refresh) {
     AllocateTaoDumperFlags();
@@ -133,5 +133,5 @@ const TaoDumperOptions* GetTaoDumperOptions(bool force_refresh) {
   return opts;
 }
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow

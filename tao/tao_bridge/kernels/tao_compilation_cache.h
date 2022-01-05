@@ -31,7 +31,7 @@ struct TaoProfileStat {
 };
 
 class TaoCompilationCache : public ResourceBase {
- public:
+public:
   TaoCompilationCache(bool async_compilation = false);
   ~TaoCompilationCache() override;
 
@@ -42,47 +42,47 @@ class TaoCompilationCache : public ResourceBase {
   std::string DebugString() const /*override*/;
 
   Status Compile(std::unique_ptr<TaoCompilerInput> input,
-                 const NameAttrList& function,
-                 const std::map<int, Tensor>& constant_args,
-                 const std::set<int>& fixed_shape_args,
-                 const std::set<int>& host_args,
-                 const std::map<int, OptionalTensor>& variable_args,
-                 OpKernelContext* ctx, Executable** executable,
-                 TaoProfileStat** stat = nullptr, bool is_mlir = false,
-                 TaoCompileFuncCallInfo* call_info = nullptr);
+                 const NameAttrList &function,
+                 const std::map<int, Tensor> &constant_args,
+                 const std::set<int> &fixed_shape_args,
+                 const std::set<int> &host_args,
+                 const std::map<int, OptionalTensor> &variable_args,
+                 OpKernelContext *ctx, Executable **executable,
+                 TaoProfileStat **stat = nullptr, bool is_mlir = false,
+                 TaoCompileFuncCallInfo *call_info = nullptr);
 
- public:
-  std::string GenFunctionID(const NameAttrList& function,
-                            std::string* attrstr = nullptr);
+public:
+  std::string GenFunctionID(const NameAttrList &function,
+                            std::string *attrstr = nullptr);
 
   static uint64 GetSignatureHash(
-      const NameAttrList& function, const std::map<int, Tensor>& constant_args,
-      const std::set<int>& fixed_shape_args, const std::set<int>& host_args,
-      const std::map<int, OptionalTensor>& variable_args, OpKernelContext* ctx,
+      const NameAttrList &function, const std::map<int, Tensor> &constant_args,
+      const std::set<int> &fixed_shape_args, const std::set<int> &host_args,
+      const std::map<int, OptionalTensor> &variable_args, OpKernelContext *ctx,
       bool is_mlir);
 
- private:
+private:
   Status CompileImpl(std::unique_ptr<TaoCompilerInput> input,
-                     const NameAttrList& function,
-                     const std::map<int, Tensor>& constant_args,
-                     const std::set<int>& fixed_shape_args,
-                     const std::set<int>& host_args,
-                     const std::map<int, OptionalTensor>& variable_args,
-                     OpKernelContext* ctx, Executable** executable,
+                     const NameAttrList &function,
+                     const std::map<int, Tensor> &constant_args,
+                     const std::set<int> &fixed_shape_args,
+                     const std::set<int> &host_args,
+                     const std::map<int, OptionalTensor> &variable_args,
+                     OpKernelContext *ctx, Executable **executable,
                      bool is_mlir = false,
-                     TaoCompileFuncCallInfo* call_info = nullptr);
+                     TaoCompileFuncCallInfo *call_info = nullptr);
   Status CompileImplAsync(std::unique_ptr<TaoCompilerInput> input,
-                          const NameAttrList& function,
-                          const std::map<int, Tensor>& constant_args,
-                          const std::set<int>& fixed_shape_args,
-                          const std::set<int>& host_args,
-                          const std::map<int, OptionalTensor>& variable_args,
-                          OpKernelContext* ctx, Executable** executable,
+                          const NameAttrList &function,
+                          const std::map<int, Tensor> &constant_args,
+                          const std::set<int> &fixed_shape_args,
+                          const std::set<int> &host_args,
+                          const std::map<int, OptionalTensor> &variable_args,
+                          OpKernelContext *ctx, Executable **executable,
                           bool is_mlir = false,
-                          TaoCompileFuncCallInfo* call_info = nullptr);
+                          TaoCompileFuncCallInfo *call_info = nullptr);
 
-  Status DumpToFile(const std::string& filename);
-  Status LoadFromFile(const std::string& filename);
+  Status DumpToFile(const std::string &filename);
+  Status LoadFromFile(const std::string &filename);
 
   struct Signature {
     std::string name;
@@ -101,20 +101,20 @@ class TaoCompilationCache : public ResourceBase {
     // memory.
     std::vector<Tensor> arg_values;
 
-    bool operator==(const Signature& other) const;
+    bool operator==(const Signature &other) const;
 
     struct Hash {
-      uint64 operator()(const Signature& signature) const;
+      uint64 operator()(const Signature &signature) const;
     };
   };
-  static std::string SignatureDebugString(const Signature& sig);
+  static std::string SignatureDebugString(const Signature &sig);
 
   // Builds the signature for a compilation.
   static Status BuildSignature(
-      const NameAttrList& function, const std::map<int, Tensor>& constant_args,
-      const std::set<int>& fixed_shape_args, const std::set<int>& host_args,
-      const std::map<int, OptionalTensor>& variable_args, OpKernelContext* ctx,
-      Signature* signature, bool is_mlir = false);
+      const NameAttrList &function, const std::map<int, Tensor> &constant_args,
+      const std::set<int> &fixed_shape_args, const std::set<int> &host_args,
+      const std::map<int, OptionalTensor> &variable_args, OpKernelContext *ctx,
+      Signature *signature, bool is_mlir = false);
 
   struct Entry {
     mutex mu;
@@ -141,8 +141,8 @@ class TaoCompilationCache : public ResourceBase {
 #ifdef BLAZE_OPT
   bool cache_updated_ = false;
 #endif
-  std::unordered_map<Signature, std::unique_ptr<Entry>, Signature::Hash> cache_
-      GUARDED_BY(compile_cache_mu_);
+  std::unordered_map<Signature, std::unique_ptr<Entry>, Signature::Hash>
+      cache_ GUARDED_BY(compile_cache_mu_);
 
   bool async_compilation_;
   std::string tao_compiler_path_;
@@ -156,45 +156,45 @@ class TaoCompilationCache : public ResourceBase {
 
   std::atomic<bool> stop_{false};
   TaoProfileStat tao_profile_stat_;
-  Thread* tao_profile_stat_handle_thread_ = nullptr;
+  Thread *tao_profile_stat_handle_thread_ = nullptr;
 
   void HandleProfileStatLoop();
   void StartProfileStatHandleThread();
 
   // ONLINE DUMPER
-  int cache_obj_idx_;  // we may have multiple TaoCompilationCache objects
-                       // during the whole task process life-cycle. use this
-                       // index to identify different objects in some cases
-                       // like dumping filename
-  int64 graphdef_node_size_min_;  // min number of graphdef's node to dump
-  int64 graphdef_node_size_max_;  // max number of graphdef's node to dump
+  int cache_obj_idx_; // we may have multiple TaoCompilationCache objects
+                      // during the whole task process life-cycle. use this
+                      // index to identify different objects in some cases
+                      // like dumping filename
+  int64 graphdef_node_size_min_; // min number of graphdef's node to dump
+  int64 graphdef_node_size_max_; // max number of graphdef's node to dump
 
   // dump graph and shape to local
-  std::string DumpGraphToFile(OpKernelContext* ctx,
-                              const NameAttrList& function,
-                              const std::string& function_id);
-  std::string DumpShapeToFile(OpKernelContext* ctx,
-                              const NameAttrList& function,
-                              const std::string& function_id, int shape_cnt,
-                              const std::map<int, Tensor>& constant_args);
-  void DumpInfo(OpKernelContext* ctx, const NameAttrList& function,
-                const std::map<int, Tensor>& constant_args, uint64 hash_sig,
-                bool compile_ok, TaoCompileFuncCallInfo* call_info);
+  std::string DumpGraphToFile(OpKernelContext *ctx,
+                              const NameAttrList &function,
+                              const std::string &function_id);
+  std::string DumpShapeToFile(OpKernelContext *ctx,
+                              const NameAttrList &function,
+                              const std::string &function_id, int shape_cnt,
+                              const std::map<int, Tensor> &constant_args);
+  void DumpInfo(OpKernelContext *ctx, const NameAttrList &function,
+                const std::map<int, Tensor> &constant_args, uint64 hash_sig,
+                bool compile_ok, TaoCompileFuncCallInfo *call_info);
 
   TF_DISALLOW_COPY_AND_ASSIGN(TaoCompilationCache);
 };
 
-Status PrepareCompilerInput(const NameAttrList& function,
-                            const std::map<int, Tensor>& constant_args,
-                            const std::map<int, OptionalTensor>& variable_args,
-                            OpKernelContext* ctx,
-                            TaoCompilerInput* compiler_input);
+Status PrepareCompilerInput(const NameAttrList &function,
+                            const std::map<int, Tensor> &constant_args,
+                            const std::map<int, OptionalTensor> &variable_args,
+                            OpKernelContext *ctx,
+                            TaoCompilerInput *compiler_input);
 
-Status CompileFunction(const std::string& func_name,
-                       const std::string& tao_compiler_path,
-                       const std::string& output_file_name,
-                       TaoCompilerInput& input, bool remove_after_compile);
-}  // namespace tao
-}  // namespace tensorflow
+Status CompileFunction(const std::string &func_name,
+                       const std::string &tao_compiler_path,
+                       const std::string &output_file_name,
+                       TaoCompilerInput &input, bool remove_after_compile);
+} // namespace tao
+} // namespace tensorflow
 
-#endif  // TAO_TAO_BRIDGE_TAO_COMPILATION_CACHE_H_
+#endif // TAO_TAO_BRIDGE_TAO_COMPILATION_CACHE_H_

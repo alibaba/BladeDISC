@@ -34,11 +34,11 @@
 extern "C" {
 #endif
 
-extern const char* const kMlirLoweredEntry;
+extern const char *const kMlirLoweredEntry;
 
 // ========================= Type Definitions ===================
 // context handle
-typedef void* tao_ral_context_t;
+typedef void *tao_ral_context_t;
 
 // integer status type, used for error checking
 // value zero is always ok, otherwise is failed.
@@ -56,12 +56,12 @@ typedef int32_t tao_ral_status_t;
 // has suport for device type `A` may not also have support for device
 // type `B`).
 
-void tao_ral_call_impl(tao_ral_context_t, void* name, void** args);
+void tao_ral_call_impl(tao_ral_context_t, void *name, void **args);
 
 // Returns the status since the last api call.
 // When error occurs, error msg is stored into `err_msg` if it's
 // not null. `err_msg` is empty is status is ok.
-tao_ral_status_t tao_ral_last_error(tao_ral_context_t, const char** err_msg);
+tao_ral_status_t tao_ral_last_error(tao_ral_context_t, const char **err_msg);
 
 // Clears if is in error status.
 void tao_ral_clear_error(tao_ral_context_t);
@@ -70,4 +70,4 @@ void tao_ral_clear_error(tao_ral_context_t);
 }
 #endif
 
-#endif  // RAL_RAL_API_H_
+#endif // RAL_RAL_API_H_

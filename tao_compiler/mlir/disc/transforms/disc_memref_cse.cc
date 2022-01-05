@@ -14,8 +14,6 @@ limitations under the License.
 ==============================================================================*/
 
 // This file implements CSE of memref.load specific for DISC
-#include "llvm/ADT/DenseSet.h"
-#include "llvm/Support/Debug.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
@@ -25,6 +23,8 @@ limitations under the License.
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "llvm/ADT/DenseSet.h"
+#include "llvm/Support/Debug.h"
 
 using mlir::memref::LoadOp;
 
@@ -41,7 +41,7 @@ constexpr unsigned c_MAX_ITERATION = 4096;
 // In general CSE for memref.load should consider a lot more aspects. However,
 // this is much simpler in the background of DISC.
 class DiscMemRefCSEPass : public DiscMemRefCSEPassBase<DiscMemRefCSEPass> {
- public:
+public:
   void runOnFunction() override {
     bool changed = true;
     unsigned iter = 0;
@@ -52,11 +52,11 @@ class DiscMemRefCSEPass : public DiscMemRefCSEPassBase<DiscMemRefCSEPass> {
     runCleanUp();
   }
 
- private:
+private:
   bool tryMemRefLoadCSE(LoadOp load);
   bool runMemRefLoadCSE();
   void runCleanUp();
-  llvm::DenseSet<Operation*> load_set_;
+  llvm::DenseSet<Operation *> load_set_;
 };
 
 // Replace the use of B with A, if memref.load A and memref.load B
@@ -64,12 +64,12 @@ class DiscMemRefCSEPass : public DiscMemRefCSEPassBase<DiscMemRefCSEPass> {
 //   1) they operate on the same memref & indices;
 //   2) A dominant B
 bool DiscMemRefCSEPass::tryMemRefLoadCSE(LoadOp load) {
-  Block* parent_block = load->getBlock();
+  Block *parent_block = load->getBlock();
   SmallVector<LoadOp, 4> to_be_erased;
   parent_block->walk([&](LoadOp other_load) {
     if ((other_load != load) && (other_load.getMemRef() == load.getMemRef()) &&
         (other_load.getIndices() == load.getIndices())) {
-      Operation* ancestor = parent_block->findAncestorOpInBlock(*other_load);
+      Operation *ancestor = parent_block->findAncestorOpInBlock(*other_load);
       assert(ancestor != nullptr);
       if (load->isBeforeInBlock(ancestor)) {
         to_be_erased.push_back(other_load);
@@ -107,11 +107,11 @@ void DiscMemRefCSEPass::runCleanUp() {
   (void)runPipeline(cleanupPipeline, func);
 }
 
-}  // namespace
+} // namespace
 
 std::unique_ptr<FunctionPass> createDiscMemRefCSEPass() {
   return std::make_unique<DiscMemRefCSEPass>();
 }
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

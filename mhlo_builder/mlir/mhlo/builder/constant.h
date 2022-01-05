@@ -18,11 +18,11 @@
 namespace mlir {
 namespace mhlo {
 // Return true if the mlir::Value it produced from a mlir::mhlo::ConstOp
-bool IsHloConstant(const mlir::Value&);
-bool IsStdConstant(const mlir::Value&);
-SmallVec4<int64_t> CastHloConstToListOfI64(const mlir::Value& value);
+bool IsHloConstant(const mlir::Value &);
+bool IsStdConstant(const mlir::Value &);
+SmallVec4<int64_t> CastHloConstToListOfI64(const mlir::Value &value);
 
-llvm::Optional<int64_t> CastStdConstToI64(const mlir::Value& val);
-llvm::Optional<int64_t> CastHloConstToI64(const mlir::Value& val);
-}  // namespace mhlo
-}  // namespace mlir
+llvm::Optional<int64_t> CastStdConstToI64(const mlir::Value &val);
+llvm::Optional<int64_t> CastHloConstToI64(const mlir::Value &val);
+} // namespace mhlo
+} // namespace mlir

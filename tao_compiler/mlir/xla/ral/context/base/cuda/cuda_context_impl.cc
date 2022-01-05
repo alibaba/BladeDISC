@@ -51,25 +51,25 @@ using ::stream_executor::gpu::GpuStatus;
 #define CUDA_SUCCESS hipSuccess
 #endif
 
-#define RETURN_VOID_ON_CUDA_ERROR(expr, msg) \
-  {                                          \
-    auto _cuda_error = (expr);               \
-    if (_cuda_error != CUDA_SUCCESS) {       \
-      TAO_VLOG(0) << "[[ ERROR ]]: " << msg; \
-      return;                                \
-    }                                        \
+#define RETURN_VOID_ON_CUDA_ERROR(expr, msg)                                   \
+  {                                                                            \
+    auto _cuda_error = (expr);                                                 \
+    if (_cuda_error != CUDA_SUCCESS) {                                         \
+      TAO_VLOG(0) << "[[ ERROR ]]: " << msg;                                   \
+      return;                                                                  \
+    }                                                                          \
   }
 
-#define RETURN_ON_CUDA_ERROR(expr, ret, msg) \
-  {                                          \
-    auto _cuda_error = (expr);               \
-    if (_cuda_error != CUDA_SUCCESS) {       \
-      TAO_VLOG(0) << "[[ ERROR ]]: " << msg; \
-      return ret;                            \
-    }                                        \
+#define RETURN_ON_CUDA_ERROR(expr, ret, msg)                                   \
+  {                                                                            \
+    auto _cuda_error = (expr);                                                 \
+    if (_cuda_error != CUDA_SUCCESS) {                                         \
+      TAO_VLOG(0) << "[[ ERROR ]]: " << msg;                                   \
+      return ret;                                                              \
+    }                                                                          \
   }
 
-const char* kRalBaseCudaContextState = "ral_base_cuda_context_state";
+const char *kRalBaseCudaContextState = "ral_base_cuda_context_state";
 
 buffer_t gpu_alloc(size_t bytes) {
   GpuDevicePtr ptr;
@@ -92,8 +92,8 @@ void gpu_dealloc(buffer_t buffer) {
 #endif
 }
 
-static int32_t reportErrorIfAny(GpuStatus result, ExecutionContext* ctx,
-                                const char* where) {
+static int32_t reportErrorIfAny(GpuStatus result, ExecutionContext *ctx,
+                                const char *where) {
   if (result != CUDA_SUCCESS) {
     std::ostringstream out;
     out << "GPU failed with " << result << " in " << where;
@@ -102,8 +102,8 @@ static int32_t reportErrorIfAny(GpuStatus result, ExecutionContext* ctx,
   return result;
 }
 
-static int32_t reportErrorIfAny(GpuStatus result, Context* ctx,
-                                const char* where) {
+static int32_t reportErrorIfAny(GpuStatus result, Context *ctx,
+                                const char *where) {
   if (result != CUDA_SUCCESS) {
     std::ostringstream out;
     out << "GPU failed with " << result << " in " << where;
@@ -117,27 +117,27 @@ struct BaseCudaContextState : public tao::ral::Context::Resource {
 
   GpuStreamHandle stream = nullptr;
   // map blob ptr -> loaded module
-  std::map<void*, GpuModuleHandle> blobs;
+  std::map<void *, GpuModuleHandle> blobs;
   // map <blob ptr, kernel name> -> callable kernel
-  std::map<std::pair<void*, std::string>, GpuFunctionHandle> kernels;
+  std::map<std::pair<void *, std::string>, GpuFunctionHandle> kernels;
 
   std::shared_ptr<Allocator> gpu_allocator;
   bool cache_workspace_mem_across_execution;
 #ifdef TAO_RAL_USE_STREAM_EXECUTOR
-  ::stream_executor::Stream* se_stream;
+  ::stream_executor::Stream *se_stream;
 #endif
 
   // buffers which are supposed to used across executions.
   std::unordered_set<const_buffer_t> device_persistent_buffers;
 
-  void onExecutionFinish(ExecutionContext* ctx) override {
+  void onExecutionFinish(ExecutionContext *ctx) override {
     std::lock_guard<std::mutex> lock(this->mu);
     if (!cache_workspace_mem_across_execution) {
       gpu_allocator->releaseAllFreeBuffers();
     }
   }
 
-  void onContextFinish(Context* ctx) override {
+  void onContextFinish(Context *ctx) override {
 #if TENSORFLOW_USE_ROCM
     reportErrorIfAny(tensorflow::wrap::hipStreamSynchronize(stream), ctx,
                      "StreamSync");
@@ -147,7 +147,7 @@ struct BaseCudaContextState : public tao::ral::Context::Resource {
     for (const_buffer_t buffer : device_persistent_buffers) {
       gpu_allocator->dealloc(const_cast<buffer_t>(buffer));
     }
-    for (auto& e : blobs) {
+    for (auto &e : blobs) {
 #if TENSORFLOW_USE_ROCM
       reportErrorIfAny(tensorflow::wrap::hipModuleUnload(module), ctx,
                        "ModuleUnload");
@@ -158,9 +158,10 @@ struct BaseCudaContextState : public tao::ral::Context::Resource {
   }
 };
 
-std::unique_ptr<BaseContext> MakeBaseCudaContext(
-    BaseContextOption& opt, ::tao::ral::cpu::BaseCpuContextOption& cpu_opt,
-    ::tao::ral::gpu::BaseCudaContextOption& gpu_opt) {
+std::unique_ptr<BaseContext>
+MakeBaseCudaContext(BaseContextOption &opt,
+                    ::tao::ral::cpu::BaseCpuContextOption &cpu_opt,
+                    ::tao::ral::gpu::BaseCudaContextOption &gpu_opt) {
   auto ctx = ::tao::ral::cpu::MakeBaseCpuContext(opt, cpu_opt);
   ctx->addDriver(::tao::ral::gpu::GPUDriver::name(),
                  std::unique_ptr<::tao::ral::gpu::GPUDriver>(
@@ -192,12 +193,12 @@ std::unique_ptr<BaseContext> MakeBaseCudaContext(
   return ctx;
 }
 
-BaseCudaExecutionContext::BaseCudaExecutionContext(BaseContext* ctx)
+BaseCudaExecutionContext::BaseCudaExecutionContext(BaseContext *ctx)
     : BaseCpuExecutionContext(ctx) {}
 
 BaseCudaExecutionContext::~BaseCudaExecutionContext() {}
 
-void BaseCudaExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {
+void BaseCudaExecutionContext::setOutputDeleter(OutputBufferWrapper &output) {
   {
     if (synced) {
       synced = true;
@@ -206,7 +207,7 @@ void BaseCudaExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {
       // reportErrorIfAny(cuStreamSynchronize(state->stream), this,
       // "StreamSync");
     }
-    auto* state = getResource<BaseCudaContextState>(kRalBaseCudaContextState);
+    auto *state = getResource<BaseCudaContextState>(kRalBaseCudaContextState);
     std::lock_guard<std::mutex> lock(state->mu);
     const_buffer_t buffer = output.data();
     if (state->device_persistent_buffers.count(buffer)) {
@@ -217,7 +218,7 @@ void BaseCudaExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {
     auto dit = device_ptr_map.find(buffer);
     if (dit != device_ptr_map.end()) {
       if (--dit->second == 0) {
-        static_cast<BaseOutputBufferWrapper*>(&output)->set_deleter(
+        static_cast<BaseOutputBufferWrapper *>(&output)->set_deleter(
             [state](buffer_t data) {
               std::lock_guard<std::mutex> lock(state->mu);
               state->gpu_allocator->dealloc(data);
@@ -233,41 +234,42 @@ void BaseCudaExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {
 // ========================== gpu drvier api impl =============================
 // ============================================================================
 
-buffer_t ral_base_cuda_alloc(ExecutionContext* ctx, size_t bytes) {
-  auto* state =
+buffer_t ral_base_cuda_alloc(ExecutionContext *ctx, size_t bytes) {
+  auto *state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
-  auto exec_ctx = dynamic_cast<BaseCudaExecutionContext*>(ctx);
+  auto exec_ctx = dynamic_cast<BaseCudaExecutionContext *>(ctx);
 
   std::lock_guard<std::mutex> lock(state->mu);
   TAO_VLOG(1) << "before ral_base_cuda_alloc alloc " << bytes;
   bytes = (bytes ? bytes : 1);
-  void* ptr = state->gpu_allocator->alloc(bytes);
+  void *ptr = state->gpu_allocator->alloc(bytes);
   TAO_VLOG(1) << "after ral_base_cuda_alloc with ptr=  " << ptr;
   exec_ctx->device_ptr_map.insert(std::make_pair(ptr, 1));
   return ptr;
 }
 
-buffer_t ral_base_cuda_alloc_persistent(ExecutionContext* ctx, size_t bytes) {
-  auto* state =
+buffer_t ral_base_cuda_alloc_persistent(ExecutionContext *ctx, size_t bytes) {
+  auto *state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
 
   std::lock_guard<std::mutex> lock(state->mu);
   TAO_VLOG(1) << "before ral_base_cuda_alloc_persistent alloc " << bytes;
   bytes = (bytes ? bytes : 1);
-  void* ptr = state->gpu_allocator->alloc(bytes);
+  void *ptr = state->gpu_allocator->alloc(bytes);
   state->device_persistent_buffers.insert(ptr);
   TAO_VLOG(1) << "after ral_base_cuda_alloc_persistent with ptr=  " << ptr;
   return ptr;
 }
 
-void ral_base_cuda_dealloc(ExecutionContext* ctx, buffer_t buffer) {
-  auto* state =
+void ral_base_cuda_dealloc(ExecutionContext *ctx, buffer_t buffer) {
+  auto *state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
-  auto exec_ctx = dynamic_cast<BaseCudaExecutionContext*>(ctx);
+  auto exec_ctx = dynamic_cast<BaseCudaExecutionContext *>(ctx);
 
   std::lock_guard<std::mutex> lock(state->mu);
   TAO_VLOG(1) << "before ral_base_cuda_dealloc with ptr = " << buffer;
-  if (state->device_persistent_buffers.count(buffer)) return;
+  if (state->device_persistent_buffers.count(buffer))
+    return;
   auto it = exec_ctx->device_ptr_map.find(buffer);
   if (discEnableGlobalConstantStore()) {
     if (it == exec_ctx->device_ptr_map.end()) {
@@ -284,8 +286,8 @@ void ral_base_cuda_dealloc(ExecutionContext* ctx, buffer_t buffer) {
   TAO_VLOG(1) << "after ral_base_cuda_dealloc with ptr =  " << buffer;
 }
 
-buffer_t ral_base_cuda_raw_alloc(Context* ctx, size_t bytes) {
-  auto* state = static_cast<BaseCudaContextState*>(
+buffer_t ral_base_cuda_raw_alloc(Context *ctx, size_t bytes) {
+  auto *state = static_cast<BaseCudaContextState *>(
       ctx->getOrCreateResource(kRalBaseCudaContextState, nullptr).get());
   TAO_VLOG(1) << "before ral_base_gpu_raw_alloc alloc " << bytes;
   buffer_t ptr = state->gpu_allocator->alloc(bytes);
@@ -294,8 +296,8 @@ buffer_t ral_base_cuda_raw_alloc(Context* ctx, size_t bytes) {
   return ptr;
 }
 
-void ral_base_cuda_raw_dealloc(Context* ctx, buffer_t buffer) {
-  auto* state = static_cast<BaseCudaContextState*>(
+void ral_base_cuda_raw_dealloc(Context *ctx, buffer_t buffer) {
+  auto *state = static_cast<BaseCudaContextState *>(
       ctx->getOrCreateResource(kRalBaseCudaContextState, nullptr).get());
   TAO_VLOG(1) << "before ral_base_gpu_raw_dealloc dealloc with ptr =  "
               << buffer;
@@ -303,31 +305,31 @@ void ral_base_cuda_raw_dealloc(Context* ctx, buffer_t buffer) {
   TAO_VLOG(1) << "after ral_base_gpu_raw_dealloc with ptr =  " << buffer;
 }
 
-void ral_base_cuda_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
-                          const char* kernel_name, intptr_t gridX,
+void ral_base_cuda_launch(ExecutionContext *ctx, void **blobs, size_t num_blobs,
+                          const char *kernel_name, intptr_t gridX,
                           intptr_t gridY, intptr_t gridZ, intptr_t blockX,
                           intptr_t blockY, intptr_t blockZ,
                           int32_t smem,        /* sharedMemBytes */
-                          void* stream_handle, /* stream */
-                          int32_t num_args, void** params /* kernel params */) {
+                          void *stream_handle, /* stream */
+                          int32_t num_args, void **params /* kernel params */) {
   // Skip if an empty launch
   if (!blockX || !blockY || !blockZ || !gridX || !gridY || !gridZ) {
     TAO_VLOG(1) << "skip launch kernel for empty tensor.";
     return;
   }
 
-  auto* state =
+  auto *state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
   ::stream_executor::CudaComputeCapability cc = state->se_stream->parent()
                                                     ->GetDeviceDescription()
                                                     .cuda_compute_capability();
 
   // choose a proper blob
-  void* blob = nullptr;
+  void *blob = nullptr;
   if (num_blobs == 1) {
     blob = blobs[0];
   } else if (num_blobs > 1) {
-    auto exec_ctx = dynamic_cast<BaseCudaExecutionContext*>(ctx);
+    auto exec_ctx = dynamic_cast<BaseCudaExecutionContext *>(ctx);
     auto it = c_CC_INDEX_MAP.find(std::make_pair(cc.major, cc.minor));
     if (it == c_CC_INDEX_MAP.end() || it->second > num_blobs - 1) {
       // fallback with ptx
@@ -392,7 +394,7 @@ void ral_base_cuda_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
 #endif
 }
 
-stream_t ral_base_cuda_get_stream(ExecutionContext* ctx, int32_t stream_id) {
+stream_t ral_base_cuda_get_stream(ExecutionContext *ctx, int32_t stream_id) {
   if (stream_id < 0) {
     ctx->signalError(Context::FAILURE, "not a valid stream_id");
     return nullptr;
@@ -406,8 +408,8 @@ stream_t ral_base_cuda_get_stream(ExecutionContext* ctx, int32_t stream_id) {
   return (stream_t)(handle);
 }
 
-opaque_t ral_base_cuda_as_cu_stream(ExecutionContext* ctx, stream_t sidx) {
-  auto* state =
+opaque_t ral_base_cuda_as_cu_stream(ExecutionContext *ctx, stream_t sidx) {
+  auto *state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
 
   if ((intptr_t)(sidx) != 0) {
@@ -418,9 +420,9 @@ opaque_t ral_base_cuda_as_cu_stream(ExecutionContext* ctx, stream_t sidx) {
   return state->stream;
 }
 
-opaque_t ral_base_cuda_as_se_stream(ExecutionContext* ctx, stream_t sidx) {
+opaque_t ral_base_cuda_as_se_stream(ExecutionContext *ctx, stream_t sidx) {
 #ifdef TAO_RAL_USE_STREAM_EXECUTOR
-  auto* state =
+  auto *state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
   return state->se_stream;
 #else
@@ -428,19 +430,19 @@ opaque_t ral_base_cuda_as_se_stream(ExecutionContext* ctx, stream_t sidx) {
 #endif
 }
 
-void ral_base_cuda_d2d(ExecutionContext* ctx, stream_t sidx, buffer_t from,
+void ral_base_cuda_d2d(ExecutionContext *ctx, stream_t sidx, buffer_t from,
                        buffer_t to, size_t bytes) {
   if ((intptr_t)(sidx) != 0) {
     ctx->signalError(Context::FAILURE, "not a valid stream idx");
     return;
   }
-  auto* state =
+  auto *state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
 #if TENSORFLOW_USE_ROCM
-  reportErrorIfAny(
-      tensorflow::wrap::hipMemcpyDtoDAsync(
-          (hipDeviceptr_t)to, (hipDeviceptr_t)from, bytes, state->stream),
-      ctx, "ModuleLoad");
+  reportErrorIfAny(tensorflow::wrap::hipMemcpyDtoDAsync((hipDeviceptr_t)to,
+                                                        (hipDeviceptr_t)from,
+                                                        bytes, state->stream),
+                   ctx, "ModuleLoad");
 #else
   reportErrorIfAny(
       cuMemcpyAsync((CUdeviceptr)to, (CUdeviceptr)from, bytes, state->stream),
@@ -448,13 +450,13 @@ void ral_base_cuda_d2d(ExecutionContext* ctx, stream_t sidx, buffer_t from,
 #endif
 }
 
-void ral_base_cuda_sync_on_stream(ExecutionContext* ctx, stream_t sidx) {
+void ral_base_cuda_sync_on_stream(ExecutionContext *ctx, stream_t sidx) {
   if ((intptr_t)(sidx) != 0) {
     ctx->signalError(Context::FAILURE, "not a valid stream idx");
     return;
   }
 
-  auto* state =
+  auto *state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
 #if TENSORFLOW_USE_ROCM
   reportErrorIfAny(tensorflow::wrap::hipStreamSynchronize(state->stream), ctx,
@@ -469,9 +471,9 @@ void ral_base_cuda_sync_on_stream(ExecutionContext* ctx, stream_t sidx) {
 // =============================
 // ============================================================================
 
-void ral_base_cuda_bitcast_update_ref_count(ExecutionContext* ctx,
+void ral_base_cuda_bitcast_update_ref_count(ExecutionContext *ctx,
                                             buffer_t ptr) {
-  auto ral_tf_ctx = dynamic_cast<BaseCudaExecutionContext*>(ctx);
+  auto ral_tf_ctx = dynamic_cast<BaseCudaExecutionContext *>(ctx);
   auto it = ral_tf_ctx->device_ptr_map.find(ptr);
   if (it != ral_tf_ctx->device_ptr_map.end()) {
     ++it->second;
@@ -480,7 +482,7 @@ void ral_base_cuda_bitcast_update_ref_count(ExecutionContext* ctx,
     // buffer, thus we do not want to relase it.
     ral_tf_ctx->device_ptr_map[ptr] = 2;
   } else {
-    auto* state =
+    auto *state =
         ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
     const_buffer_t persistent_buffer = nullptr;
     {
@@ -497,8 +499,9 @@ void ral_base_cuda_bitcast_update_ref_count(ExecutionContext* ctx,
 }
 
 template <typename T, int N>
-::tao::ral::MemRefType<T, N> ral_base_cuda_bitcast(
-    ExecutionContext* ctx, stream_t, ::tao::ral::MemRefType<T, N> input) {
+::tao::ral::MemRefType<T, N>
+ral_base_cuda_bitcast(ExecutionContext *ctx, stream_t,
+                      ::tao::ral::MemRefType<T, N> input) {
   TAO_VLOG(1) << "ral_base_cuda_bitcast for " << N << "d\n";
   ::tao::ral::MemRefType<T, N> memref = input;
 
@@ -513,8 +516,9 @@ template <typename T, int N>
 }
 
 template <typename T>
-::tao::ral::MemRefType<T, 0> ral_base_cuda_bitcast_0d(
-    ExecutionContext* ctx, stream_t, ::tao::ral::MemRefType<T, 0> input) {
+::tao::ral::MemRefType<T, 0>
+ral_base_cuda_bitcast_0d(ExecutionContext *ctx, stream_t,
+                         ::tao::ral::MemRefType<T, 0> input) {
   TAO_VLOG(1) << "ral_base_cuda_bitcast for 0d";
   ::tao::ral::MemRefType<T, 0> memref = input;
 
@@ -529,9 +533,10 @@ template <typename T>
 }
 
 template <typename T, int N, int M, typename P = int64_t>
-::tao::ral::MemRefType<T, M> ral_base_cuda_bitcast(
-    ExecutionContext* ctx, stream_t, ::tao::ral::MemRefType<T, N> input,
-    ::tao::ral::MemRefType<P, 1> shape) {
+::tao::ral::MemRefType<T, M>
+ral_base_cuda_bitcast(ExecutionContext *ctx, stream_t,
+                      ::tao::ral::MemRefType<T, N> input,
+                      ::tao::ral::MemRefType<P, 1> shape) {
   TAO_VLOG(1) << "ral_base_cuda_bitcast for " << M << "d\n";
   ::tao::ral::MemRefType<T, M> memref;
 
@@ -559,9 +564,10 @@ template <typename T, int N, int M, typename P = int64_t>
 }
 
 template <typename T, int N, int M, typename P = int64_t>
-::tao::ral::MemRefType<T, 0> ral_base_cuda_bitcast_0d(
-    ExecutionContext* ctx, stream_t, ::tao::ral::MemRefType<T, N> input,
-    ::tao::ral::MemRefType<P, 1> shape) {
+::tao::ral::MemRefType<T, 0>
+ral_base_cuda_bitcast_0d(ExecutionContext *ctx, stream_t,
+                         ::tao::ral::MemRefType<T, N> input,
+                         ::tao::ral::MemRefType<P, 1> shape) {
   TAO_VLOG(1) << "ral_base_cuda_bitcast_0d for " << M << "d\n";
   ::tao::ral::MemRefType<T, 0> memref;
 
@@ -579,14 +585,14 @@ template <typename T, int N, int M, typename P = int64_t>
   return memref;
 }
 
-void ral_base_cuda_h2d(ExecutionContext* ctx, void* stream_handle,
-                       const void* h_src, buffer_t d_dst, size_t bytes) {
-  auto* state =
+void ral_base_cuda_h2d(ExecutionContext *ctx, void *stream_handle,
+                       const void *h_src, buffer_t d_dst, size_t bytes) {
+  auto *state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
 #if TENSORFLOW_USE_ROCM
   reportErrorIfAny(
       tensorflow::wrap::hipMemcpyHtoDAsync(
-          (GpuDevicePtr)d_dst, const_cast<void*>(h_src), bytes, state->stream),
+          (GpuDevicePtr)d_dst, const_cast<void *>(h_src), bytes, state->stream),
       ctx, "cuMemcpyHtoDAsync");
 #else
   reportErrorIfAny(
@@ -595,14 +601,14 @@ void ral_base_cuda_h2d(ExecutionContext* ctx, void* stream_handle,
 #endif
 }
 
-void ral_base_cuda_d2h(ExecutionContext* ctx, void* stream_handle,
+void ral_base_cuda_d2h(ExecutionContext *ctx, void *stream_handle,
                        buffer_t d_src, buffer_t h_dst, size_t bytes) {
-  auto* state =
+  auto *state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
 #if TENSORFLOW_USE_ROCM
   reportErrorIfAny(
       tensorflow::wrap::hipMemcpyDtoHAsync(
-          const_cast<void*>(h_dst), (GpuDevicePtr)d_src, bytes, state->stream),
+          const_cast<void *>(h_dst), (GpuDevicePtr)d_src, bytes, state->stream),
       ctx, "cuMemcpyDtoHAsync");
 #else
   reportErrorIfAny(
@@ -611,14 +617,14 @@ void ral_base_cuda_d2h(ExecutionContext* ctx, void* stream_handle,
 #endif
 }
 
-#define RAL_REGISTER_BITCAST_FUNC(T, N)                                      \
-  TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast<T, N>);    \
-  TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast<T, 0, N>); \
-  TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast<T, 1, N>); \
-  TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast<T, 2, N>); \
-  TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast<T, 3, N>); \
-  TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast<T, 4, N>); \
-  TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast<T, 5, N>); \
+#define RAL_REGISTER_BITCAST_FUNC(T, N)                                        \
+  TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast<T, N>);      \
+  TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast<T, 0, N>);   \
+  TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast<T, 1, N>);   \
+  TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast<T, 2, N>);   \
+  TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast<T, 3, N>);   \
+  TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast<T, 4, N>);   \
+  TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast<T, 5, N>);   \
   TAO_RAL_API(tao::ral::kRalBitcast, "gpu", ral_base_cuda_bitcast<T, 6, N>);
 
 #define RAL_REGISTER_BITCAST_FUNC_0D(T)                                        \
@@ -691,6 +697,6 @@ TAO_RAL_API(tao::ral::gpu::kRalGpuD2D, "gpu", ral_base_cuda_d2d);
 TAO_RAL_API(tao::ral::gpu::kRalGpuSyncOnStream, "gpu",
             ral_base_cuda_sync_on_stream);
 
-}  // namespace gpu
-}  // namespace ral
-}  // namespace tao
+} // namespace gpu
+} // namespace ral
+} // namespace tao

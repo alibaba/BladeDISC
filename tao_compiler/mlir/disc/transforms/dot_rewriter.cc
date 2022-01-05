@@ -9,8 +9,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
-
 // This pass converts DotOp into DotGeneralOp, and folds transpose into
 // DotGeneralOp.
 
@@ -20,15 +18,15 @@
 #include <vector>
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"             // from @llvm-project
-#include "mlir/IR/Attributes.h"                          // from @llvm-project
-#include "mlir/IR/Location.h"                            // from @llvm-project
-#include "mlir/IR/MLIRContext.h"                         // from @llvm-project
-#include "mlir/IR/Operation.h"                           // from @llvm-project
-#include "mlir/IR/PatternMatch.h"                        // from @llvm-project
-#include "mlir/Pass/Pass.h"                              // from @llvm-project
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // from @llvm-project
-#include "mlir/Transforms/Passes.h"                      // from @llvm-project
+#include "mlir/Dialect/StandardOps/IR/Ops.h"            // from @llvm-project
+#include "mlir/IR/Attributes.h"                         // from @llvm-project
+#include "mlir/IR/Location.h"                           // from @llvm-project
+#include "mlir/IR/MLIRContext.h"                        // from @llvm-project
+#include "mlir/IR/Operation.h"                          // from @llvm-project
+#include "mlir/IR/PatternMatch.h"                       // from @llvm-project
+#include "mlir/Pass/Pass.h"                             // from @llvm-project
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h" // from @llvm-project
+#include "mlir/Transforms/Passes.h"                     // from @llvm-project
 #include "transforms/PassDetail.h"
 
 using llvm::StringRef;
@@ -44,15 +42,16 @@ namespace {
 // together now.
 // TODO: it may support the transpose between batching dimensions only, or
 // transpose of all batching dimensions together with the minor dimension.
-static inline bool isNonBatchingTransposeTensorValue(
-    Value val, SmallVector<int64_t, 4>& permutation,
-    std::unordered_set<int64_t> batching_dims) {
+static inline bool
+isNonBatchingTransposeTensorValue(Value val,
+                                  SmallVector<int64_t, 4> &permutation,
+                                  std::unordered_set<int64_t> batching_dims) {
   if (not val.getDefiningOp()) {
     return false;
   }
   permutation.clear();
   if (auto transpose = dyn_cast<mhlo::TransposeOp>(val.getDefiningOp())) {
-    for (auto& en :
+    for (auto &en :
          llvm::enumerate(transpose.permutation().getValues<int64_t>())) {
       if (en.index() != en.value()) {
         if (batching_dims.find(en.index()) != batching_dims.end()) {
@@ -65,8 +64,9 @@ static inline bool isNonBatchingTransposeTensorValue(
   return !permutation.empty();
 }
 
-static inline DenseIntElementsAttr ConvertIntVecToDenseIntElementsAttr(
-    llvm::ArrayRef<int64_t> op_dimensions, PatternRewriter& rewriter) {
+static inline DenseIntElementsAttr
+ConvertIntVecToDenseIntElementsAttr(llvm::ArrayRef<int64_t> op_dimensions,
+                                    PatternRewriter &rewriter) {
   return DenseIntElementsAttr::get(
       RankedTensorType::get(op_dimensions.size(), rewriter.getIntegerType(64)),
       op_dimensions);
@@ -74,11 +74,11 @@ static inline DenseIntElementsAttr ConvertIntVecToDenseIntElementsAttr(
 
 // Converts DotOp to DotGeneralOp.
 struct DotToDotGeneralConvert : public OpRewritePattern<mhlo::DotOp> {
-  explicit DotToDotGeneralConvert(MLIRContext* context)
+  explicit DotToDotGeneralConvert(MLIRContext *context)
       : OpRewritePattern(context) {}
 
   LogicalResult matchAndRewrite(mhlo::DotOp op,
-                                PatternRewriter& rewriter) const override {
+                                PatternRewriter &rewriter) const override {
     Location loc = op.getLoc();
     Value old_lhs = op.lhs();
     Value old_rhs = op.rhs();
@@ -120,11 +120,11 @@ struct DotToDotGeneralConvert : public OpRewritePattern<mhlo::DotOp> {
 
 // Transpose folding into DotGeneralOp.
 struct TransposeFoldingConvert : public OpRewritePattern<mhlo::DotGeneralOp> {
-  explicit TransposeFoldingConvert(MLIRContext* context)
+  explicit TransposeFoldingConvert(MLIRContext *context)
       : OpRewritePattern(context) {}
 
   LogicalResult matchAndRewrite(mhlo::DotGeneralOp op,
-                                PatternRewriter& rewriter) const override {
+                                PatternRewriter &rewriter) const override {
     RankedTensorType result_ty = op.getType().dyn_cast<RankedTensorType>();
     if (!result_ty) {
       return failure();
@@ -166,7 +166,7 @@ struct TransposeFoldingConvert : public OpRewritePattern<mhlo::DotGeneralOp> {
     DenseIntElementsAttr lhs_contracting_dims_attr;
     if (tp_lhs) {
       std::vector<int64_t> lhs_contracting_dims;
-      for (auto& en : llvm::enumerate(
+      for (auto &en : llvm::enumerate(
                dim_numbers.lhs_contracting_dimensions().getValues<int64_t>())) {
         lhs_contracting_dims.push_back(lhs_perm[en.value()]);
       }
@@ -179,7 +179,7 @@ struct TransposeFoldingConvert : public OpRewritePattern<mhlo::DotGeneralOp> {
     DenseIntElementsAttr rhs_contracting_dims_attr;
     if (tp_rhs) {
       std::vector<int64_t> rhs_contracting_dims;
-      for (auto& en : llvm::enumerate(
+      for (auto &en : llvm::enumerate(
                dim_numbers.rhs_contracting_dimensions().getValues<int64_t>())) {
         rhs_contracting_dims.push_back(rhs_perm[en.value()]);
       }
@@ -223,7 +223,7 @@ struct DotRewriterPass : public DotRewriterPassBase<DotRewriterPass> {
     // TODO: if needs to do const reformat, we need the xla_hlo.dot with its
     // inputs
 
-    MLIRContext* ctx = func.getContext();
+    MLIRContext *ctx = func.getContext();
     OwningRewritePatternList patterns(ctx);
     patterns.insert<DotToDotGeneralConvert, TransposeFoldingConvert>(ctx);
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
@@ -233,11 +233,11 @@ struct DotRewriterPass : public DotRewriterPassBase<DotRewriterPass> {
   }
 };
 
-}  // namespace
+} // namespace
 
 std::unique_ptr<OperationPass<FuncOp>> createDiscDotRewriterPass() {
   return std::make_unique<DotRewriterPass>();
 }
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

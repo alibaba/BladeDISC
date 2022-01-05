@@ -18,7 +18,7 @@
 namespace tensorflow {
 namespace tao {
 
-Status GpuTFProfiler::Start(OpKernelContext* ctx) {
+Status GpuTFProfiler::Start(OpKernelContext *ctx) {
   // TODO: This part of code currently only works for gpu device
   TF_RET_CHECK(ctx->op_device_context() != nullptr);
   stream_ = ctx->op_device_context()->stream();
@@ -29,7 +29,7 @@ Status GpuTFProfiler::Start(OpKernelContext* ctx) {
   return Status::OK();
 }
 
-Status GpuTFProfiler::RecordComputationStart(OpKernelContext* ctx) {
+Status GpuTFProfiler::RecordComputationStart(OpKernelContext *ctx) {
   // TODO: This part of code currently only works for gpu device
   TF_RET_CHECK(stream_ != nullptr);
 
@@ -38,7 +38,7 @@ Status GpuTFProfiler::RecordComputationStart(OpKernelContext* ctx) {
   return Status::OK();
 }
 
-Status GpuTFProfiler::RecordComputationFinish(OpKernelContext* ctx) {
+Status GpuTFProfiler::RecordComputationFinish(OpKernelContext *ctx) {
   // TODO: This part of code currently only works for gpu device
   TF_RET_CHECK(stream_ != nullptr);
   TF_RET_CHECK(comp_timer_ != nullptr);
@@ -55,19 +55,19 @@ void GpuTFProfiler::Stop(Status status) {
   cb_(status, time_in_us, comp_time_in_us);
 }
 
-Status CpuTFProfiler::Start(OpKernelContext* ctx) {
+Status CpuTFProfiler::Start(OpKernelContext *ctx) {
   TF_RET_CHECK(ctx->op_device_context() == nullptr);
   timer_start_ = clock::now();
   return Status::OK();
 }
 
-Status CpuTFProfiler::RecordComputationStart(OpKernelContext* ctx) {
+Status CpuTFProfiler::RecordComputationStart(OpKernelContext *ctx) {
   TF_RET_CHECK(ctx->op_device_context() == nullptr);
   comp_timer_start_ = clock::now();
   return Status::OK();
 }
 
-Status CpuTFProfiler::RecordComputationFinish(OpKernelContext* ctx) {
+Status CpuTFProfiler::RecordComputationFinish(OpKernelContext *ctx) {
   TF_RET_CHECK(ctx->op_device_context() == nullptr);
   comp_time_in_us_ = std::chrono::duration_cast<std::chrono::microseconds>(
                          clock::now() - comp_timer_start_)
@@ -86,5 +86,5 @@ void CpuTFProfiler::Stop(Status status) {
   cb_(status, time_in_us, comp_time_in_us);
 }
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow

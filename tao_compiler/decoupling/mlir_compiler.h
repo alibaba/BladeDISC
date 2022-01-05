@@ -18,7 +18,7 @@
 
 namespace llvm {
 class InitLLVM;
-}  // namespace llvm
+} // namespace llvm
 
 namespace llvm {}
 
@@ -26,24 +26,24 @@ namespace tensorflow {
 namespace tao {
 
 class CompilerMLIR : public tensorflow::tao::CompilerBase {
- public:
+public:
   explicit CompilerMLIR();
   virtual ~CompilerMLIR();
 
-  virtual Status Compile(const TaoCompilerInput& input,
-                         const string& output_file);
+  virtual Status Compile(const TaoCompilerInput &input,
+                         const string &output_file);
 
- protected:
+protected:
   virtual std::string DefaultDevice() = 0;
-  virtual Status Init(const TaoCompilerInput& input, const string& output_file);
+  virtual Status Init(const TaoCompilerInput &input, const string &output_file);
 
-  virtual Status ConvertToMlir(const TaoCompilerInput& input,
-                               const string& output_file);
+  virtual Status ConvertToMlir(const TaoCompilerInput &input,
+                               const string &output_file);
 
-  virtual Status CompileMlirToExecutable(const TaoCompilerInput& input,
-                                         const string& output_file);
+  virtual Status CompileMlirToExecutable(const TaoCompilerInput &input,
+                                         const string &output_file);
 
-  virtual Status FillDeviceInfo(mlir::disc_ral::DISCLoweringOptions& options);
+  virtual Status FillDeviceInfo(mlir::disc_ral::DISCLoweringOptions &options);
 
   CompilationResultProto result_proto_;
   std::unique_ptr<mlir::MLIRContext> context_;
@@ -51,7 +51,7 @@ class CompilerMLIR : public tensorflow::tao::CompilerBase {
   std::unique_ptr<llvm::InitLLVM> llvm_init_;
 };
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow
 
-#endif  // TENSORFLOW_COMPILER_DECOUPLING_MLIR_COMPILER_H_
+#endif // TENSORFLOW_COMPILER_DECOUPLING_MLIR_COMPILER_H_

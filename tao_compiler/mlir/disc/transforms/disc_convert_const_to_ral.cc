@@ -15,20 +15,20 @@ limitations under the License.
 
 #include <openssl/md5.h>
 
-#include "llvm/ADT/StringExtras.h"
 #include "mlir-hlo/Dialect/mhlo/IR/disc_ral_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/IR/Attributes.h"   // TF:llvm-project
-#include "mlir/IR/Location.h"     // TF:llvm-project
-#include "mlir/IR/MLIRContext.h"  // TF:llvm-project
-#include "mlir/IR/SymbolTable.h"  // from @llvm-project
+#include "mlir/IR/Attributes.h"  // TF:llvm-project
+#include "mlir/IR/Location.h"    // TF:llvm-project
+#include "mlir/IR/MLIRContext.h" // TF:llvm-project
+#include "mlir/IR/SymbolTable.h" // from @llvm-project
 #include "mlir/IR/TypeUtilities.h"
-#include "mlir/Pass/Pass.h"  // TF:llvm-project
+#include "mlir/Pass/Pass.h" // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/compiler/mlir/xla/ral/compile_metadata.pb.h"
 #include "tensorflow/core/platform/env.h"
+#include "llvm/ADT/StringExtras.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -41,8 +41,8 @@ using StrT = SmallString<128>;
 constexpr static int kMd5DigestLength = 16;
 
 // TODO(disc): refactor this part of code to phase out using HEX format.
-void ExtractConstValue(const DenseElementsAttr& valueAttr, MemRefType memref,
-                       StrT& data) {
+void ExtractConstValue(const DenseElementsAttr &valueAttr, MemRefType memref,
+                       StrT &data) {
   ArrayRef<char> rawData = valueAttr.getRawData();
   if (valueAttr.isSplat()) {
     size_t num_elements = memref.getNumElements();
@@ -58,10 +58,10 @@ void ExtractConstValue(const DenseElementsAttr& valueAttr, MemRefType memref,
 }
 
 // unique_name is in the format: {hash_of_literal}_2x3x4xf32
-LogicalResult GenerateUniqueNameForConst(MemRefType memref, const StrT& data,
-                                         StrT& name) {
+LogicalResult GenerateUniqueNameForConst(MemRefType memref, const StrT &data,
+                                         StrT &name) {
   unsigned char md5[kMd5DigestLength];
-  MD5(reinterpret_cast<const unsigned char*>(data.data()), data.size(), md5);
+  MD5(reinterpret_cast<const unsigned char *>(data.data()), data.size(), md5);
   name.append(llvm::toHex(ArrayRef<uint8_t>(md5)));
 
   Type elemType = memref.getElementType();
@@ -88,13 +88,13 @@ LogicalResult GenerateUniqueNameForConst(MemRefType memref, const StrT& data,
 }
 
 class DiscConstToRALPass : public DiscConstToRALPassBase<DiscConstToRALPass> {
- public:
-  explicit DiscConstToRALPass(const std::string& metadata_file_path)
+public:
+  explicit DiscConstToRALPass(const std::string &metadata_file_path)
       : DiscConstToRALPassBase<DiscConstToRALPass>::DiscConstToRALPassBase() {
     this->metadata_file_path_ = metadata_file_path;
   }
 
-  void getDependentDialects(DialectRegistry& registry) const override {
+  void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<LLVM::LLVMDialect, memref::MemRefDialect,
                     disc_ral::RalDialect>();
   }
@@ -126,8 +126,8 @@ class DiscConstToRALPass : public DiscConstToRALPassBase<DiscConstToRALPass> {
     }
   }
 
- private:
-  LogicalResult convertConstOp(ConstOp const_op, MetadataProto* proto);
+private:
+  LogicalResult convertConstOp(ConstOp const_op, MetadataProto *proto);
 
   int num_processing_const_ops_ = 0;
 };
@@ -136,7 +136,7 @@ class DiscConstToRALPass : public DiscConstToRALPassBase<DiscConstToRALPass> {
 // %1 = call @ral_constant_cpu/gpu(%ctx, %stream, %unique_name) : () ->
 // memref<...>
 LogicalResult DiscConstToRALPass::convertConstOp(ConstOp const_op,
-                                                 MetadataProto* proto) {
+                                                 MetadataProto *proto) {
   OpBuilder builder(const_op);
   Location loc = const_op.getLoc();
   DenseElementsAttr valueAttr = const_op.value().cast<DenseElementsAttr>();
@@ -144,10 +144,10 @@ LogicalResult DiscConstToRALPass::convertConstOp(ConstOp const_op,
 
   // Convert i1 -> i8
   if (elemType.getIntOrFloatBitWidth() == 1) {
-    using func_type = mlir::APInt(const llvm::APInt&);
+    using func_type = mlir::APInt(const llvm::APInt &);
     valueAttr = valueAttr.mapValues(
         builder.getIntegerType(8),
-        llvm::function_ref<func_type>([](const llvm::APInt& intVal) {
+        llvm::function_ref<func_type>([](const llvm::APInt &intVal) {
           return llvm::APInt(8, intVal.getZExtValue());
         }));
   }
@@ -180,7 +180,7 @@ LogicalResult DiscConstToRALPass::convertConstOp(ConstOp const_op,
       loc, builder, symbol_name, name, LLVM::Linkage::Internal);
 
   ModuleOp m = getOperation();
-  MLIRContext* ctx = m.getContext();
+  MLIRContext *ctx = m.getContext();
   Type pointer_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
   Value zero = builder.create<LLVM::ConstantOp>(loc, IntegerType::get(ctx, 32),
                                                 builder.getI32IntegerAttr(0));
@@ -197,12 +197,12 @@ LogicalResult DiscConstToRALPass::convertConstOp(ConstOp const_op,
   return success();
 }
 
-}  // namespace
+} // namespace
 
-std::unique_ptr<OperationPass<ModuleOp>> createDiscConstToRALPass(
-    const std::string& metadata_file_path) {
+std::unique_ptr<OperationPass<ModuleOp>>
+createDiscConstToRALPass(const std::string &metadata_file_path) {
   return std::make_unique<DiscConstToRALPass>(metadata_file_path);
 }
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

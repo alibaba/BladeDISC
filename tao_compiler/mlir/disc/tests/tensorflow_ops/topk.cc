@@ -77,4 +77,4 @@ TEST(TFTopKOpTest, DynamicShape2DI32) {
                         /*input_vals*/ {{}, {3}}));
 }
 
-}  // namespace mlir_test
+} // namespace mlir_test

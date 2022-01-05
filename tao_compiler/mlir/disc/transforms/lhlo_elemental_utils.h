@@ -31,53 +31,52 @@ enum class AtomicRMWKind : uint64_t;
 namespace scf {
 class ForOp;
 class ParallelOp;
-}  // namespace scf
+} // namespace scf
 
 namespace memref {
 class LoadOp;
 class ReinterpretCastOp;
-}
+} // namespace memref
 
 namespace disc_ral {
 
 using AccumulatorFactory = std::function<Value(Value, Value)>;
 
-AccumulatorFactory getFactory(OpBuilder& b, Location loc, Region& body);
+AccumulatorFactory getFactory(OpBuilder &b, Location loc, Region &body);
 
-Value createLoadOrUseCachedValue(Location loc, OpBuilder* b, Value memref,
+Value createLoadOrUseCachedValue(Location loc, OpBuilder *b, Value memref,
                                  ValueRange indices,
                                  OpBuilder::InsertPoint insert_point);
 
-DenseSet<Operation*> NoLoaderUser(SmallVectorImpl<Operation*>& ops);
-void cleanUnusedLhloOps(Block* parent);
+DenseSet<Operation *> NoLoaderUser(SmallVectorImpl<Operation *> &ops);
+void cleanUnusedLhloOps(Block *parent);
 
 template <typename LHLO_OpTy>
-Value elementalLower(OpBuilder* b, Location loc, LHLO_OpTy op,
+Value elementalLower(OpBuilder *b, Location loc, LHLO_OpTy op,
                      ValueRange output_index, bool check_cache = false);
 
-scf::ForOp createLoopAndSetInsPt(OpBuilder& b, Location loc, Value& var,
+scf::ForOp createLoopAndSetInsPt(OpBuilder &b, Location loc, Value &var,
                                  Value lb, Value ub, Value step,
                                  ArrayRef<Value> init_values = {});
 
-memref::ReinterpretCastOp createMemRef1DReinterpretCast(OpBuilder& b,
-                                                        Location loc,
-                                                        Value memref);
+memref::ReinterpretCastOp
+createMemRef1DReinterpretCast(OpBuilder &b, Location loc, Value memref);
 
-void createOffsetStore(OpBuilder& b, Location loc, Value res, Value memref,
+void createOffsetStore(OpBuilder &b, Location loc, Value res, Value memref,
                        Value offset);
 
-memref::LoadOp createOffsetLoad(OpBuilder& b, Location loc, Value memref,
+memref::LoadOp createOffsetLoad(OpBuilder &b, Location loc, Value memref,
                                 Value offset);
 
-AtomicRMWKind getAtomicRMWKind(Region& body);
+AtomicRMWKind getAtomicRMWKind(Region &body);
 
 bool isSameUnderlineBuffer(Value lhs, Value rhs);
 
 // returns the users of the `memref`. The users should be in the same fusion
 // like `op`.
-DenseSet<Operation*> getValueUsersInFusionLike(Value memref, Operation* op);
+DenseSet<Operation *> getValueUsersInFusionLike(Value memref, Operation *op);
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir
 
-#endif  // TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_TRANSFORMS_LHLO_ELEMENTAL_UTILS_H_
+#endif // TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_TRANSFORMS_LHLO_ELEMENTAL_UTILS_H_

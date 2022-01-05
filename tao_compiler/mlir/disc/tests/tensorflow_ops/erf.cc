@@ -112,4 +112,4 @@ TEST(TFErfcOpTest, ErfcProvidedDataShape2DF32) {
       /*input_vals*/ {{-0.1, 0, 0.1}}));
 }
 
-}  // namespace mlir_test
+} // namespace mlir_test

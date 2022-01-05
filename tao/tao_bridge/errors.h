@@ -12,24 +12,20 @@
 #ifndef TAO_TAO_BRIDGE_ERRORS_H_
 #define TAO_TAO_BRIDGE_ERRORS_H_
 
+#include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/platform/default/logging.h"
 #include "tensorflow/stream_executor/lib/statusor.h"
-#include "tensorflow/core/lib/core/status.h"
-
 
 namespace tensorflow {
 namespace tao {
 
-template <typename T>
-using StatusOr = ::stream_executor::port::StatusOr<T>;
+template <typename T> using StatusOr = ::stream_executor::port::StatusOr<T>;
 
-template <typename T>
-inline bool tao_condition_to_bool(const T& condition) {
+template <typename T> inline bool tao_condition_to_bool(const T &condition) {
   return condition;
 }
 
-template <>
-inline bool tao_condition_to_bool(const Status& status) {
+template <> inline bool tao_condition_to_bool(const Status &status) {
   return status.ok();
 }
 
@@ -48,7 +44,7 @@ inline bool tao_condition_to_bool(const Status& status) {
 // MakeErrorStreamWithOutput to check that the error stream gets at least one
 // item of input.
 class MakeErrorStream {
- public:
+public:
   // Wrapper around MakeErrorStream that only allows for output. This
   // is created as output of the first operator<< call on
   // MakeErrorStream. The bare MakeErrorStream does not have a
@@ -56,12 +52,12 @@ class MakeErrorStream {
   // have to call operator<< at least once or else you'll get a
   // compile time error.
   class MakeErrorStreamWithOutput {
-   public:
-    explicit MakeErrorStreamWithOutput(MakeErrorStream* error_stream)
+  public:
+    explicit MakeErrorStreamWithOutput(MakeErrorStream *error_stream)
         : wrapped_error_stream_(error_stream) {}
 
     template <typename T>
-    MakeErrorStreamWithOutput& operator<<(const T& value) {
+    MakeErrorStreamWithOutput &operator<<(const T &value) {
       *wrapped_error_stream_ << value;
       return *this;
     }
@@ -69,13 +65,12 @@ class MakeErrorStream {
     // Implicit cast operators to Status and StatusOr.
     // Exactly one of these must be called exactly once before destruction.
     operator Status() { return wrapped_error_stream_->GetStatus(); }
-    template <typename T>
-    operator StatusOr<T>() {
+    template <typename T> operator StatusOr<T>() {
       return wrapped_error_stream_->GetStatus();
     }
 
-   private:
-    MakeErrorStream* wrapped_error_stream_;
+  private:
+    MakeErrorStream *wrapped_error_stream_;
 
     TF_DISALLOW_COPY_AND_ASSIGN(MakeErrorStreamWithOutput);
   };
@@ -86,35 +81,34 @@ class MakeErrorStream {
 
   // Make an error with the given code.
   template <typename ERROR_CODE_TYPE>
-  MakeErrorStream(const char* file, int line, ERROR_CODE_TYPE code)
+  MakeErrorStream(const char *file, int line, ERROR_CODE_TYPE code)
       : impl_(new Impl(file, line, code, this, true)) {}
 
-  template <typename T>
-  MakeErrorStreamWithOutput& operator<<(const T& value) {
+  template <typename T> MakeErrorStreamWithOutput &operator<<(const T &value) {
     CheckNotDone();
     impl_->stream_ << value;
     return impl_->make_error_stream_with_output_wrapper_;
   }
 
   // When this message is logged (see with_logging()), include the stack trace.
-  MakeErrorStream& with_log_stack_trace() {
+  MakeErrorStream &with_log_stack_trace() {
     impl_->should_log_stack_trace_ = true;
     return *this;
   }
 
   // Adds RET_CHECK failure text to error message.
-  MakeErrorStreamWithOutput& add_ret_check_failure(const char* condition) {
+  MakeErrorStreamWithOutput &add_ret_check_failure(const char *condition) {
     return *this << "RET_CHECK failure (" << impl_->file_ << ":" << impl_->line_
                  << ") " << condition << " ";
   }
 
- private:
+private:
   class Impl {
-   public:
-    Impl(const char* file, int line, tensorflow::error::Code code,
-         MakeErrorStream* error_stream, bool is_logged_by_default = true);
-    Impl(const Status& status, PriorMessageHandling prior_message_handling,
-         const char* file, int line, MakeErrorStream* error_stream);
+  public:
+    Impl(const char *file, int line, tensorflow::error::Code code,
+         MakeErrorStream *error_stream, bool is_logged_by_default = true);
+    Impl(const Status &status, PriorMessageHandling prior_message_handling,
+         const char *file, int line, MakeErrorStream *error_stream);
 
     ~Impl();
 
@@ -123,14 +117,14 @@ class MakeErrorStream {
 
     void CheckNotDone() const;
 
-   private:
-    const char* file_;
+  private:
+    const char *file_;
     int line_;
     tensorflow::error::Code code_;
 
     PriorMessageHandling prior_message_handling_ = kAppendToPriorMessage;
     string prior_message_;
-    bool is_done_;  // true after Status object has been returned
+    bool is_done_; // true after Status object has been returned
     std::ostringstream stream_;
     bool should_log_;
     int log_severity_;
@@ -162,22 +156,22 @@ class MakeErrorStream {
 // Provides a conversion to bool so that it can be used inside an if statement
 // that declares a variable.
 class StatusAdaptorForMacros {
- public:
+public:
   explicit StatusAdaptorForMacros(Status status) : status_(std::move(status)) {}
 
-  StatusAdaptorForMacros(const StatusAdaptorForMacros&) = delete;
-  StatusAdaptorForMacros& operator=(const StatusAdaptorForMacros&) = delete;
+  StatusAdaptorForMacros(const StatusAdaptorForMacros &) = delete;
+  StatusAdaptorForMacros &operator=(const StatusAdaptorForMacros &) = delete;
 
   explicit operator bool() const { return TF_PREDICT_TRUE(status_.ok()); }
 
-  Status&& Consume() { return std::move(status_); }
+  Status &&Consume() { return std::move(status_); }
 
- private:
+private:
   Status status_;
 };
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow
 
 #define TF_RET_CHECK(condition)                                                \
   while (TF_PREDICT_FALSE(!tensorflow::tao::tao_condition_to_bool(condition))) \
@@ -189,33 +183,33 @@ class StatusAdaptorForMacros {
 #define TF_STATUS_MACROS_CONCAT_NAME(x, y) TF_STATUS_MACROS_CONCAT_IMPL(x, y)
 #define TF_STATUS_MACROS_CONCAT_IMPL(x, y) x##y
 
-#define TF_ASSIGN_OR_RETURN(lhs, rexpr) \
-  TF_ASSIGN_OR_RETURN_IMPL(             \
+#define TF_ASSIGN_OR_RETURN(lhs, rexpr)                                        \
+  TF_ASSIGN_OR_RETURN_IMPL(                                                    \
       TF_STATUS_MACROS_CONCAT_NAME(_status_or_value, __COUNTER__), lhs, rexpr)
 
-#define TF_ASSERT_OK_AND_ASSIGN(lhs, rexpr)                             \
-  TF_ASSERT_OK_AND_ASSIGN_IMPL(                                         \
-      TF_STATUS_MACROS_CONCAT_NAME(_status_or_value, __COUNTER__), lhs, \
+#define TF_ASSERT_OK_AND_ASSIGN(lhs, rexpr)                                    \
+  TF_ASSERT_OK_AND_ASSIGN_IMPL(                                                \
+      TF_STATUS_MACROS_CONCAT_NAME(_status_or_value, __COUNTER__), lhs,        \
       rexpr);
 
-#define TF_ASSERT_OK_AND_ASSIGN_IMPL(statusor, lhs, rexpr)  \
-  auto statusor = (rexpr);                                  \
-  ASSERT_TRUE(statusor.status().ok()) << statusor.status(); \
+#define TF_ASSERT_OK_AND_ASSIGN_IMPL(statusor, lhs, rexpr)                     \
+  auto statusor = (rexpr);                                                     \
+  ASSERT_TRUE(statusor.status().ok()) << statusor.status();                    \
   lhs = std::move(statusor.ValueOrDie())
 
-#define TF_ASSIGN_OR_RETURN_IMPL(statusor, lhs, rexpr) \
-  auto statusor = (rexpr);                             \
-  if (TF_PREDICT_FALSE(!statusor.ok())) {              \
-    return statusor.status();                          \
-  }                                                    \
+#define TF_ASSIGN_OR_RETURN_IMPL(statusor, lhs, rexpr)                         \
+  auto statusor = (rexpr);                                                     \
+  if (TF_PREDICT_FALSE(!statusor.ok())) {                                      \
+    return statusor.status();                                                  \
+  }                                                                            \
   lhs = std::move(statusor.ValueOrDie())
 
-#define CHECK_OK(expr)                           \
-  do {                                           \
-    auto __status = (expr);                      \
-    if (TF_PREDICT_FALSE(!__status.ok())) {      \
-      LOG(FATAL) << "Status not OK: " #expr " "; \
-    }                                            \
+#define CHECK_OK(expr)                                                         \
+  do {                                                                         \
+    auto __status = (expr);                                                    \
+    if (TF_PREDICT_FALSE(!__status.ok())) {                                    \
+      LOG(FATAL) << "Status not OK: " #expr " ";                               \
+    }                                                                          \
   } while (0)
 
-#endif  // TAO_TAO_BRIDGE_ERRORS_H_
+#endif // TAO_TAO_BRIDGE_ERRORS_H_

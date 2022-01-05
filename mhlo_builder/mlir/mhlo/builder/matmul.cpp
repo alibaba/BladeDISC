@@ -20,8 +20,8 @@
 namespace mlir {
 namespace mhlo {
 
-mlir::Value BuildDotProduct(mlir::OpBuilder& builder, const mlir::Location& loc,
-                            const mlir::Value& lhs, const mlir::Value& rhs,
+mlir::Value BuildDotProduct(mlir::OpBuilder &builder, const mlir::Location &loc,
+                            const mlir::Value &lhs, const mlir::Value &rhs,
                             mlir_dim_t rank) {
   MHLO_CHECK(rank >= 2, "The input of DotProduct must has rank >= 2");
   auto lhs_contracting_dims_attr =
@@ -53,10 +53,10 @@ mlir::Value BuildDotProduct(mlir::OpBuilder& builder, const mlir::Location& loc,
   return result.getResult();
 }
 
-mlir::Value BuildDotProduct_bmm(mlir::OpBuilder& builder,
-                                const mlir::Location& loc,
-                                const mlir::Value& inp_lhs,
-                                const mlir::Value& inp_rhs) {
+mlir::Value BuildDotProduct_bmm(mlir::OpBuilder &builder,
+                                const mlir::Location &loc,
+                                const mlir::Value &inp_lhs,
+                                const mlir::Value &inp_rhs) {
   mlir::Value lhs = inp_lhs;
   mlir::Value rhs = inp_rhs;
 
@@ -94,10 +94,10 @@ mlir::Value BuildDotProduct_bmm(mlir::OpBuilder& builder,
   return BuildDotProduct(builder, loc, lhs, rhs, /*rank*/ max_rank);
 }
 
-mlir::Value BuildDotProduct_mm(mlir::OpBuilder& builder,
-                               const mlir::Location& loc,
-                               const mlir::Value& inp_lhs,
-                               const mlir::Value& inp_rhs) {
+mlir::Value BuildDotProduct_mm(mlir::OpBuilder &builder,
+                               const mlir::Location &loc,
+                               const mlir::Value &inp_lhs,
+                               const mlir::Value &inp_rhs) {
   mlir::Value lhs = inp_lhs;
   mlir::Value rhs = inp_rhs;
 
@@ -123,10 +123,10 @@ mlir::Value BuildDotProduct_mm(mlir::OpBuilder& builder,
                                             claps_dim_values, /*expand_pos*/ 0);
 }
 
-mlir::Value BuildDotProduct_mv(mlir::OpBuilder& builder,
-                               const mlir::Location& loc,
-                               const mlir::Value& inp_lhs,
-                               const mlir::Value& inp_rhs) {
+mlir::Value BuildDotProduct_mv(mlir::OpBuilder &builder,
+                               const mlir::Location &loc,
+                               const mlir::Value &inp_lhs,
+                               const mlir::Value &inp_rhs) {
   mlir::Value lhs = inp_lhs;
   mlir::Value rhs = inp_rhs;
 
@@ -145,5 +145,5 @@ mlir::Value BuildDotProduct_mv(mlir::OpBuilder& builder,
       BuildCollapseTensorShape(builder, loc, output, {-2, -1});
   return product;
 }
-}  // namespace mhlo
-}  // namespace mlir
+} // namespace mhlo
+} // namespace mlir

@@ -18,7 +18,6 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_JIT_XLA_CLUSTER_UTIL_H_
 #define TENSORFLOW_COMPILER_JIT_XLA_CLUSTER_UTIL_H_
 
-#include <unordered_set>
 #include "absl/types/optional.h"
 #include "tao_bridge/tf/graphcycles.h"
 #include "tao_bridge/tf/statusor.h"
@@ -27,17 +26,18 @@ limitations under the License.
 #include "tensorflow/core/graph/algorithm.h"
 #include "tensorflow/core/protobuf/config.pb.h"
 #include "tensorflow/stream_executor/lib/statusor.h"
+#include <unordered_set>
 
 namespace tensorflow {
 namespace tao {
 
 // The attribute that marks nodes to be grouped into functions by the
 // encapsulate subgraphs pass.
-extern const char* const kXlaClusterAttr;
+extern const char *const kXlaClusterAttr;
 
 // The attribute that marks nodes in a cluster to be placed outside the xla
 // compilation by the encapsulate subgraphs pass.
-extern const char* const kXlaOutsideCompilationAttr;
+extern const char *const kXlaOutsideCompilationAttr;
 
 // The attribute that marks certain inputs to a Node as required to be a
 // constant at compile time.  If this attribute is present then the
@@ -46,14 +46,14 @@ extern const char* const kXlaOutsideCompilationAttr;
 //
 // The value for this attribute, if present, has to be a list of strings naming
 // the inputs to the node that must be constant.
-extern const char* const kXlaCompileTimeConstantInputsAttr;
-extern const char* const kMlirCompileTimeConstantInputsAttr;
-extern const char* const kMlirCompileTimeFixedShapeInputsAttr;
+extern const char *const kXlaCompileTimeConstantInputsAttr;
+extern const char *const kMlirCompileTimeConstantInputsAttr;
+extern const char *const kMlirCompileTimeFixedShapeInputsAttr;
 
-using OrderedNodeSet = std::set<Node*, NodeComparatorID>;
+using OrderedNodeSet = std::set<Node *, NodeComparatorID>;
 
 // Returns true if `node` has a ref tensor input that it forwards to its output.
-bool HasForwardedRefInput(const Node& node);
+bool HasForwardedRefInput(const Node &node);
 
 // Creates a graph representation to enable cycle detection when clustering.
 // This representation handles loops in graph by disconnecting each loop from
@@ -61,52 +61,53 @@ bool HasForwardedRefInput(const Node& node);
 //
 // Returns true for success and false for valid graphs that we can't handle yet
 // (b/127521408).
-xla::tao::StatusOr<bool> CreateCycleDetectionGraph(const Graph* graph,
-                                              GraphCycles* cycles);
+xla::tao::StatusOr<bool> CreateCycleDetectionGraph(const Graph *graph,
+                                                   GraphCycles *cycles);
 
 // Returns the XLA cluster in which `node` is placed if it is in an XLA cluster,
 // otherwise returns nullopt.
-absl::optional<absl::string_view> GetXlaClusterForNode(const Node& node);
+absl::optional<absl::string_view> GetXlaClusterForNode(const Node &node);
 
 // Removes `node_def` its XLA cluster (by clearing its _XlaCluster attribute).
-void RemoveFromXlaCluster(NodeDef* node_def);
+void RemoveFromXlaCluster(NodeDef *node_def);
 
 // Removes `node` its XLA cluster (by clearing its _XlaCluster attribute).
-void RemoveFromXlaCluster(Node* node);
+void RemoveFromXlaCluster(Node *node);
 
 // Returns true if `node` has a DT_RESOURCE typed input or output.
-bool HasResourceInputOrOutput(const Node& node);
+bool HasResourceInputOrOutput(const Node &node);
 
 // Determines the global jit level based on GraphOptimizationPassOptions,
 // --tf_xla_auto_jit and whether the graph is a single GPU graph.
-OptimizerOptions::GlobalJitLevel GetGlobalJitLevelForGraph(
-    const GraphOptimizationPassOptions& options);
+OptimizerOptions::GlobalJitLevel
+GetGlobalJitLevelForGraph(const GraphOptimizationPassOptions &options);
 
 // Returns true if `g` is a single-GPU graph.  A single-GPU graph uses exactly
 // one GPU (and any number of CPUs).
-bool IsSingleGpuGraph(const Graph& g);
+bool IsSingleGpuGraph(const Graph &g);
 
 // Returns true if it is possible (but not guaranteed) that `n` calls a
 // function.
-bool MayCallFunction(const Node& n, const FunctionLibraryDefinition* flib_def);
+bool MayCallFunction(const Node &n, const FunctionLibraryDefinition *flib_def);
 
 // Returns true if `node` an operator that consumes only the shape of its input,
 // not the data itself.
-bool IsShapeConsumerOp(const Node& node);
+bool IsShapeConsumerOp(const Node &node);
 
 // Computes a clustering summary for `graph`.  See documentation on
 // `XlaAutoClusteringSummary` for details.
-XlaAutoClusteringSummary GetXlaAutoClusteringSummary(const Graph& graph);
+XlaAutoClusteringSummary GetXlaAutoClusteringSummary(const Graph &graph);
 
 // Returns the set of nodes that have a path to or from nodes that may have ref
 // variables as input or output.
 //
 // We assume each node has a trivial path to itself so the returned set includes
 // all of the nodes that have ref variables as input or output.
-xla::tao::StatusOr<std::unordered_set<Node*>> GetNodesRelatedToRefVariables(
-    const Graph& graph, FunctionLibraryRuntime* lib_runtime);
+xla::tao::StatusOr<std::unordered_set<Node *>>
+GetNodesRelatedToRefVariables(const Graph &graph,
+                              FunctionLibraryRuntime *lib_runtime);
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow
 
-#endif  // TENSORFLOW_COMPILER_JIT_XLA_CLUSTER_UTIL_H_
+#endif // TENSORFLOW_COMPILER_JIT_XLA_CLUSTER_UTIL_H_

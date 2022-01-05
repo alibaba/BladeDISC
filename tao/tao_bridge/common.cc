@@ -22,7 +22,7 @@ namespace tao {
 
 namespace {
 
-static TaoBridgeOptions* opts{nullptr};
+static TaoBridgeOptions *opts{nullptr};
 static std::once_flag opt_init;
 static std::mutex opt_mtx_;
 static void AllocateTaoBridgeFlags() {
@@ -127,9 +127,9 @@ static void AllocateTaoBridgeFlags() {
                                &opts->train_task_min_cluster_size));
 }
 
-}  // namespace
+} // namespace
 
-const TaoBridgeOptions* GetTaoBridgeOptions(bool force_refresh) {
+const TaoBridgeOptions *GetTaoBridgeOptions(bool force_refresh) {
   std::call_once(opt_init, &AllocateTaoBridgeFlags);
   if (force_refresh) {
     AllocateTaoBridgeFlags();
@@ -137,5 +137,5 @@ const TaoBridgeOptions* GetTaoBridgeOptions(bool force_refresh) {
   return opts;
 }
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow

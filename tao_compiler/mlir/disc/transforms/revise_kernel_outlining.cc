@@ -46,8 +46,8 @@ using mlir::memref::LoadOp;
 namespace {
 
 class ValueComparator {
- public:
-  bool operator()(const Value& a, const Value& b) const {
+public:
+  bool operator()(const Value &a, const Value &b) const {
     return a.getAsOpaquePointer() < b.getAsOpaquePointer();
   }
 };
@@ -94,8 +94,8 @@ int64_t getLinearIndex(std::vector<int64_t> multidim_index,
   return linear_index;
 }
 
-int64_t createLoadOpsArray(OpBuilder& b, Location loc, gpu::LaunchFuncOp,
-                           Value memref, LoadedValueCache& loaded_value_cache) {
+int64_t createLoadOpsArray(OpBuilder &b, Location loc, gpu::LaunchFuncOp,
+                           Value memref, LoadedValueCache &loaded_value_cache) {
   auto memref_type = memref.getType().cast<MemRefType>();
   auto sizes = memref_type.getShape();
   auto rank = sizes.size();
@@ -121,7 +121,7 @@ int64_t createLoadOpsArray(OpBuilder& b, Location loc, gpu::LaunchFuncOp,
 // Return the operand index if 'value' is a operand of 'op'
 // If there are multiple operands of 'op' that are all 'value', return
 // the first index
-int64_t getFirstOperandIndex(Operation* op, Value value) {
+int64_t getFirstOperandIndex(Operation *op, Value value) {
   for (int64_t i = 0; i < op->getNumOperands(); ++i) {
     auto operand = op->getOperand(i);
     if (operand == value) {
@@ -144,23 +144,24 @@ int64_t getFirstOperandIndex(Operation* op, Value value) {
 
 // This method is revised from Region::cloneinto()
 // TODO: any easier ways?
-void cloneRegionAndRemapLoad(Region* src, Region* dest,
-                             BlockAndValueMapping& mapper, int64_t memref_idx,
-                             Value memref_arg, Block& new_entry_block,
+void cloneRegionAndRemapLoad(Region *src, Region *dest,
+                             BlockAndValueMapping &mapper, int64_t memref_idx,
+                             Value memref_arg, Block &new_entry_block,
                              bool is_entry) {
   assert(dest && "expected valid region to clone into");
   assert(src != dest && "cannot clone region into itself");
   Region::iterator destPos = dest->end();
 
   // If the list is empty there is nothing to clone.
-  if (src->empty()) return;
+  if (src->empty())
+    return;
 
-  for (Block& block : *src) {
+  for (Block &block : *src) {
     // entry block has already been mapped outside
     if (is_entry && block.isEntryBlock()) {
       mapper.map(&block, &new_entry_block);
       // Clone and remap the operations within this block.
-      for (auto& op : block) {
+      for (auto &op : block) {
         // if is a LoadOp from host MemRef
         if (isa<LoadOp>(&op)) {
           auto load_op = cast<LoadOp>(&op);
@@ -194,7 +195,7 @@ void cloneRegionAndRemapLoad(Region* src, Region* dest,
           }
         }
         // new_entry_block.push_back(op.clone(mapper));
-        auto* newOp = op.cloneWithoutRegions(mapper);
+        auto *newOp = op.cloneWithoutRegions(mapper);
         for (unsigned i = 0; i != op.getNumRegions(); ++i) {
           cloneRegionAndRemapLoad(&op.getRegion(i), &newOp->getRegion(i),
                                   mapper, memref_idx, memref_arg,
@@ -204,7 +205,7 @@ void cloneRegionAndRemapLoad(Region* src, Region* dest,
       }
 
     } else {
-      Block* newBlock = new Block();
+      Block *newBlock = new Block();
       mapper.map(&block, newBlock);
       // Clone the block arguments. The user might be deleting arguments to the
       // block by specifying them in the mapper. If so, we don't add the
@@ -214,7 +215,7 @@ void cloneRegionAndRemapLoad(Region* src, Region* dest,
           mapper.map(arg, newBlock->addArgument(arg.getType()));
       }
       // Clone and remap the operations within this block.
-      for (auto& op : block) {
+      for (auto &op : block) {
         // if is a LoadOp from host MemRef
         if (isa<LoadOp>(&op)) {
           LoadOp load_op = cast<LoadOp>(&op);
@@ -248,7 +249,7 @@ void cloneRegionAndRemapLoad(Region* src, Region* dest,
           }
         }
         // newBlock->push_back(op.clone(mapper));
-        auto* newOp = op.cloneWithoutRegions(mapper);
+        auto *newOp = op.cloneWithoutRegions(mapper);
         for (unsigned i = 0; i != op.getNumRegions(); ++i) {
           cloneRegionAndRemapLoad(&op.getRegion(i), &newOp->getRegion(i),
                                   mapper, memref_idx, memref_arg,
@@ -262,7 +263,7 @@ void cloneRegionAndRemapLoad(Region* src, Region* dest,
 
   // Now that each of the blocks have been cloned, go through and remap the
   // operands of each of the operations.
-  auto remapOperands = [&](Operation* op) {
+  auto remapOperands = [&](Operation *op) {
     // don't remap operand of the loadOp from host memory
     if (isa<LoadOp>(op)) {
       LoadOp load_op = cast<LoadOp>(op);
@@ -270,11 +271,11 @@ void cloneRegionAndRemapLoad(Region* src, Region* dest,
         return;
       }
     }
-    for (auto& operand : op->getOpOperands())
+    for (auto &operand : op->getOpOperands())
       if (auto mappedOp = mapper.lookupOrNull(operand.get()))
         operand.set(mappedOp);
-    for (auto& succOp : op->getBlockOperands())
-      if (auto* mappedOp = mapper.lookupOrNull(succOp.get()))
+    for (auto &succOp : op->getBlockOperands())
+      if (auto *mappedOp = mapper.lookupOrNull(succOp.get()))
         succOp.set(mappedOp);
   };
 
@@ -283,7 +284,7 @@ void cloneRegionAndRemapLoad(Region* src, Region* dest,
 }
 
 gpu::LaunchFuncOp expandMemRef(gpu::LaunchFuncOp launch_func_op, Value memref,
-                               LoadedValueCache& loaded_value_cache) {
+                               LoadedValueCache &loaded_value_cache) {
   OpBuilder b(launch_func_op);
   Location loc = launch_func_op.getLoc();
 
@@ -323,8 +324,8 @@ gpu::LaunchFuncOp expandMemRef(gpu::LaunchFuncOp launch_func_op, Value memref,
 
   // clone the Ops in the body of the gpu.FuncOp
   BlockAndValueMapping map;
-  Region& new_gpu_func_body = new_gpu_func_op.body();
-  Block& new_gpu_func_entry_block = new_gpu_func_body.front();
+  Region &new_gpu_func_body = new_gpu_func_op.body();
+  Block &new_gpu_func_entry_block = new_gpu_func_body.front();
   for (auto operand :
        llvm::enumerate(gpu_func_op.body().front().getArguments())) {
     if (operand.index() == memref_idx) {
@@ -339,7 +340,7 @@ gpu::LaunchFuncOp expandMemRef(gpu::LaunchFuncOp launch_func_op, Value memref,
   }
   // memref of the entry block
   auto memref_arg = gpu_func_op.body().front().getArgument(memref_idx);
-  Block& new_entry_block = new_gpu_func_op.body().front();
+  Block &new_entry_block = new_gpu_func_op.body().front();
   cloneRegionAndRemapLoad(&gpu_func_op.body(), &new_gpu_func_op.body(), map,
                           memref_idx, memref_arg, new_entry_block, true);
 
@@ -380,10 +381,10 @@ void convertWorkgroupBuffer(gpu::GPUFuncOp gpu_func_op, AllocOp alloc) {
  */
 class ReviseGpuKernelOutliningPass
     : public ReviseGpuKernelOutliningPassBase<ReviseGpuKernelOutliningPass> {
- public:
+public:
   void runOnOperation() override {
     auto module = getOperation();
-    std::map<Operation*, std::vector<Value>> to_be_processed;
+    std::map<Operation *, std::vector<Value>> to_be_processed;
     module.walk([&](gpu::LaunchFuncOp launch_func_op) {
       auto gpu_module = module.lookupSymbol<gpu::GPUModuleOp>(
           launch_func_op.getKernelModuleName());
@@ -437,11 +438,11 @@ class ReviseGpuKernelOutliningPass
   }
 };
 
-}  // namespace
+} // namespace
 
 std::unique_ptr<OperationPass<ModuleOp>> createReviseGpuKernelOutliningPass() {
   return std::make_unique<ReviseGpuKernelOutliningPass>();
 }
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

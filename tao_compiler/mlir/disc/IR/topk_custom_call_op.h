@@ -42,19 +42,19 @@ struct TopKBackendConfig {
   int64_t dimension;
 };
 
-}  // namespace mhlo_disc
-}  // namespace mlir
+} // namespace mhlo_disc
+} // namespace mlir
 
 namespace llvm {
 namespace json {
 
-bool fromJSON(const llvm::json::Value& value,
-              ::mlir::mhlo_disc::TopKBackendConfig& topk_backend_config,
+bool fromJSON(const llvm::json::Value &value,
+              ::mlir::mhlo_disc::TopKBackendConfig &topk_backend_config,
               llvm::json::Path path);
-llvm::json::Value toJSON(
-    const ::mlir::mhlo_disc::TopKBackendConfig& topk_backend_config);
+llvm::json::Value
+toJSON(const ::mlir::mhlo_disc::TopKBackendConfig &topk_backend_config);
 
-}  // namespace json
-}  // namespace llvm
+} // namespace json
+} // namespace llvm
 
-#endif  //   TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_IR_TOPK_CUSTOM_CALL_OP_H_
+#endif //   TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_IR_TOPK_CUSTOM_CALL_OP_H_

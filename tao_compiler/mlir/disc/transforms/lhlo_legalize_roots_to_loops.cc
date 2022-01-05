@@ -14,7 +14,6 @@ limitations under the License.
 ==============================================================================*/
 
 // This file implements logic for lowering LHLO dialect to Affine dialect.
-#include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "mlir-hlo/utils/placement_utils.h"
@@ -36,6 +35,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "llvm/Support/Debug.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -44,8 +44,8 @@ namespace {
 
 template <typename LHLO_OpTy>
 LogicalResult elemwiseLowerHelper(
-    OpBuilder& b, Location loc, Operation* op, Value output_linear_index,
-    const ShapeConstraintAnalysis* shape_constraint_analysis, int vector_size) {
+    OpBuilder &b, Location loc, Operation *op, Value output_linear_index,
+    const ShapeConstraintAnalysis *shape_constraint_analysis, int vector_size) {
   if (!isa<LHLO_OpTy>(op) || !op->hasTrait<mlir::OpTrait::Elementwise>())
     return failure();
 
@@ -54,7 +54,8 @@ LogicalResult elemwiseLowerHelper(
   if (shape_constraint_analysis) {
     Value leader_memref =
         shape_constraint_analysis->GetLeaderValueWithSameShape(result_memref);
-    if (leader_memref != nullptr) memref = leader_memref;
+    if (leader_memref != nullptr)
+      memref = leader_memref;
   }
   Value memref_1d = createMemRef1DReinterpretCast(b, loc, result_memref);
   auto memref_ty = memref_1d.getType().cast<MemRefType>();
@@ -116,10 +117,11 @@ LogicalResult elemwiseLowerHelper(
 
 template <typename LHLO_OpTy>
 LogicalResult miscLowerHelper(
-    OpBuilder& b, Location loc, Operation* opaque_op, Value output_linear_index,
-    const ShapeConstraintAnalysis* shape_constraint_analysis, int vector_size) {
+    OpBuilder &b, Location loc, Operation *opaque_op, Value output_linear_index,
+    const ShapeConstraintAnalysis *shape_constraint_analysis, int vector_size) {
   LHLO_OpTy op = dyn_cast<LHLO_OpTy>(opaque_op);
-  if (!op) return failure();
+  if (!op)
+    return failure();
   Value result_memref = cast<lmhlo::LmhloOp>(&*op).getResultBuffer();
   Value memref = result_memref;
   if (shape_constraint_analysis) {
@@ -183,16 +185,16 @@ LogicalResult miscLowerHelper(
 
 template <typename First>
 LogicalResult elemwiseLowerHelperOr(
-    OpBuilder& b, Location loc, Operation* op, Value output_linear_index,
-    const ShapeConstraintAnalysis* shape_constraint_analysis, int vector_size) {
+    OpBuilder &b, Location loc, Operation *op, Value output_linear_index,
+    const ShapeConstraintAnalysis *shape_constraint_analysis, int vector_size) {
   return elemwiseLowerHelper<First>(b, loc, op, output_linear_index,
                                     shape_constraint_analysis, vector_size);
 }
 
 template <typename First, typename Second, typename... Rest>
 LogicalResult elemwiseLowerHelperOr(
-    OpBuilder& b, Location loc, Operation* op, Value output_linear_index,
-    const ShapeConstraintAnalysis* shape_constraint_analysis, int vector_size) {
+    OpBuilder &b, Location loc, Operation *op, Value output_linear_index,
+    const ShapeConstraintAnalysis *shape_constraint_analysis, int vector_size) {
   return success(succeeded(elemwiseLowerHelperOr<First>(
                      b, loc, op, output_linear_index, shape_constraint_analysis,
                      vector_size)) ||
@@ -201,10 +203,11 @@ LogicalResult elemwiseLowerHelperOr(
                      vector_size)));
 }
 
-LogicalResult lowerHelper(
-    OpBuilder& b, Location loc, Operation* op, Value output_linear_index,
-    const ShapeConstraintAnalysis* shape_constraint_analysis,
-    int vector_size = 1) {
+LogicalResult
+lowerHelper(OpBuilder &b, Location loc, Operation *op,
+            Value output_linear_index,
+            const ShapeConstraintAnalysis *shape_constraint_analysis,
+            int vector_size = 1) {
   if (succeeded(elemwiseLowerHelperOr<
 #define GET_SUPPORTED_OP_LIST
 #include "tensorflow/compiler/mlir/disc/transforms/disc_supported_list.h.inc"
@@ -271,9 +274,9 @@ LogicalResult lowerHelper(
  * }
  */
 LogicalResult lowerWithScheduleLoop(
-    ArrayRef<Operation*> root_ops, Operation* dominant_op,
-    Block* parent = nullptr, bool non_fusion = false, bool parallel_loop = true,
-    const ShapeConstraintAnalysis* shape_constraint_analysis = nullptr,
+    ArrayRef<Operation *> root_ops, Operation *dominant_op,
+    Block *parent = nullptr, bool non_fusion = false, bool parallel_loop = true,
+    const ShapeConstraintAnalysis *shape_constraint_analysis = nullptr,
     int vector_size = 1) {
   const auto loc = dominant_op->getLoc();
   OpBuilder b(root_ops.back());
@@ -291,7 +294,7 @@ LogicalResult lowerWithScheduleLoop(
   } else {
     (void)createLoopAndSetInsPt(b, loc, var, zero, thread_number, one, {});
   }
-  for (Operation* root_op : root_ops) {
+  for (Operation *root_op : root_ops) {
     // TODO: vectorize here
     if (failed(lowerHelper(b, loc, root_op, var, shape_constraint_analysis,
                            vector_size)))
@@ -299,7 +302,8 @@ LogicalResult lowerWithScheduleLoop(
   }
   // remove the root_op if it has no other users except the memref
   if (non_fusion) {
-    for (Operation* root_op : root_ops) root_op->erase();
+    for (Operation *root_op : root_ops)
+      root_op->erase();
   } else {
     assert(parent != nullptr && "Parent must be provided for fusion lowering");
     cleanUnusedLhloOps(parent);
@@ -307,14 +311,14 @@ LogicalResult lowerWithScheduleLoop(
   return success();
 }
 
-Operation* getMapOpInReduceRegion(Operation* op) {
+Operation *getMapOpInReduceRegion(Operation *op) {
   if (!op || !isa<lmhlo::ReduceOp>(op)) {
     return nullptr;
   }
   auto reduce_op = cast<lmhlo::ReduceOp>(op);
-  Operation* map_op = nullptr;
+  Operation *map_op = nullptr;
   int num_lhlo_ops = 0;
-  reduce_op.body().walk([&](Operation* lhlo_op) {
+  reduce_op.body().walk([&](Operation *lhlo_op) {
     if (isa<lmhlo::TerminatorOp>(lhlo_op)) {
       return;
     }
@@ -329,7 +333,7 @@ Operation* getMapOpInReduceRegion(Operation* op) {
 
 template <typename SrcTy, typename OpIntTy, typename OpFloatTy>
 struct MapOpCreator {
-  static Value build(OpBuilder& b, Location loc, Value lhs, Value rhs) {
+  static Value build(OpBuilder &b, Location loc, Value lhs, Value rhs) {
     Value result;
     if (lhs.getType().dyn_cast<IntegerType>()) {
       result = b.create<OpIntTy>(loc, lhs, rhs);
@@ -342,9 +346,8 @@ struct MapOpCreator {
   }
 };
 
-template <>
-struct MapOpCreator<lmhlo::MaxOp, mlir::CmpIOp, mlir::CmpFOp> {
-  static Value build(OpBuilder& b, Location loc, Value lhs, Value rhs) {
+template <> struct MapOpCreator<lmhlo::MaxOp, mlir::CmpIOp, mlir::CmpFOp> {
+  static Value build(OpBuilder &b, Location loc, Value lhs, Value rhs) {
     Value result;
     if (lhs.getType().dyn_cast<IntegerType>()) {
       Value cond = b.create<mlir::CmpIOp>(loc, CmpIPredicate::sge, lhs, rhs);
@@ -359,9 +362,8 @@ struct MapOpCreator<lmhlo::MaxOp, mlir::CmpIOp, mlir::CmpFOp> {
   }
 };
 
-template <>
-struct MapOpCreator<lmhlo::MinOp, mlir::CmpIOp, mlir::CmpFOp> {
-  static Value build(OpBuilder& b, Location loc, Value lhs, Value rhs) {
+template <> struct MapOpCreator<lmhlo::MinOp, mlir::CmpIOp, mlir::CmpFOp> {
+  static Value build(OpBuilder &b, Location loc, Value lhs, Value rhs) {
     Value result;
     if (lhs.getType().dyn_cast<IntegerType>()) {
       Value cond = b.create<mlir::CmpIOp>(loc, CmpIPredicate::sge, lhs, rhs);
@@ -376,7 +378,7 @@ struct MapOpCreator<lmhlo::MinOp, mlir::CmpIOp, mlir::CmpFOp> {
   }
 };
 
-Value emitReduceMapOp(OpBuilder& b, Location loc, Operation* map_op, Value lhs,
+Value emitReduceMapOp(OpBuilder &b, Location loc, Operation *map_op, Value lhs,
                       Value rhs) {
   Value result;
   assert(lhs.getType() == rhs.getType() && "mismatch operands' type");
@@ -398,7 +400,7 @@ Value emitReduceMapOp(OpBuilder& b, Location loc, Operation* map_op, Value lhs,
   return result;
 }
 
-Type getLhloOpsElementType(Operation* op) {
+Type getLhloOpsElementType(Operation *op) {
   unsigned int num_operands = op->getNumOperands();
   Type result_type = op->getOperand(num_operands - 1)
                          .getType()
@@ -407,7 +409,7 @@ Type getLhloOpsElementType(Operation* op) {
   return result_type;
 }
 
-void emitNotToVectorReduction(OpBuilder& b, Location loc, Operation* root_op,
+void emitNotToVectorReduction(OpBuilder &b, Location loc, Operation *root_op,
                               ValueRange index) {
   assert(isa<lmhlo::ReduceOp>(root_op));
   unsigned int input_rank =
@@ -474,14 +476,14 @@ void emitNotToVectorReduction(OpBuilder& b, Location loc, Operation* root_op,
  * }
  */
 LogicalResult lowerWithScheduleColReduction(
-    ArrayRef<Operation*> root_ops, Operation* dominant_op, Block* parent,
-    const ShapeConstraintAnalysis* shape_constraint_analysis = nullptr) {
+    ArrayRef<Operation *> root_ops, Operation *dominant_op, Block *parent,
+    const ShapeConstraintAnalysis *shape_constraint_analysis = nullptr) {
   if (!isRank2ColReduction(dominant_op)) {
     return failure();
   }
   Value lhs = *dominant_op->getOperands().begin();
-  const MemRefType& lhs_type = lhs.getType().template cast<MemRefType>();
-  const Type& element_type = lhs_type.getElementType();
+  const MemRefType &lhs_type = lhs.getType().template cast<MemRefType>();
+  const Type &element_type = lhs_type.getElementType();
   const int c_tilesize_h = 128;
   const int c_tilesize_w = 2;
   Location loc = dominant_op->getLoc();
@@ -505,7 +507,7 @@ LogicalResult lowerWithScheduleColReduction(
   // acc: init_values[num_col_reductions * c_tilesize_w]
   SmallVector<Value, 4> init_values_hi;
   SmallVector<Type, 4> init_values_types;
-  for (Operation* root_op : root_ops) {
+  for (Operation *root_op : root_ops) {
     if (isRank2ColReduction(root_op)) {
       Value root_lhs = root_op->getOperand(0);
       MemRefType root_lhs_type = root_lhs.getType().template cast<MemRefType>();
@@ -560,7 +562,7 @@ LogicalResult lowerWithScheduleColReduction(
   SmallVector<Value, 4> yield_values_for_hi;
   // TODO: check the order of root_ops by op.walk() is as expected
   int root_op_idx = 0;
-  for (auto* root_op : root_ops) {
+  for (auto *root_op : root_ops) {
     // w inner, which is manually unrolled
     for (int var_wi = 0; var_wi < c_tilesize_w; ++var_wi) {
       // TODO: swap for loops and reuse w_idx
@@ -570,7 +572,7 @@ LogicalResult lowerWithScheduleColReduction(
       if (isRank2ColReduction(root_op)) {
         Value data = createLoadOrUseCachedValue(loc, &b, lhs, input_index,
                                                 b.saveInsertionPoint());
-        Operation* map_op = getMapOpInReduceRegion(root_op);
+        Operation *map_op = getMapOpInReduceRegion(root_op);
         assert(map_op && "not supported reduce");
         Value acc = emitReduceMapOp(b, loc, map_op,
                                     *(for_op_hi.getRegionIterArgs().begin() +
@@ -653,7 +655,7 @@ LogicalResult lowerWithScheduleColReduction(
       c_tilesize_w);
   // TODO: check the order of root_ops by op.walk() is as expected
   root_op_idx = 0;
-  for (auto* root_op : root_ops) {
+  for (auto *root_op : root_ops) {
     // w inner, which is manually unrolled
     for (int var_wi = 0; var_wi < c_tilesize_w; ++var_wi) {
       // if_inbound.then
@@ -662,7 +664,7 @@ LogicalResult lowerWithScheduleColReduction(
       if (isRank2ColReduction(root_op)) {
         Value data = createLoadOrUseCachedValue(loc, &b, lhs, input_index,
                                                 b.saveInsertionPoint());
-        Operation* map_op = getMapOpInReduceRegion(root_op);
+        Operation *map_op = getMapOpInReduceRegion(root_op);
         assert(map_op && "not supported reduce");
         Value acc = emitReduceMapOp(b, loc, map_op,
                                     *(for_op_hi.getRegionIterArgs().begin() +
@@ -716,7 +718,7 @@ LogicalResult lowerWithScheduleColReduction(
 
   b.setInsertionPointToEnd(for_op_hi.getBody());
   root_op_idx = 0;
-  for (auto* root_op : root_ops) {
+  for (auto *root_op : root_ops) {
     if (isRank2ColReduction(root_op)) {
       for (int var_wi = 0; var_wi < c_tilesize_w; ++var_wi) {
         yield_values_for_hi[root_op_idx * c_tilesize_w + var_wi] =
@@ -771,8 +773,8 @@ LogicalResult lowerWithScheduleColReduction(
 
 // we can emit them in one kernel based on the fact that all the fused
 // col reduction should be in the same shape.
-void emitInitLoops(OpBuilder& b, ArrayRef<Operation*> col_reduction_ops) {
-  Operation* first_root = col_reduction_ops[0];
+void emitInitLoops(OpBuilder &b, ArrayRef<Operation *> col_reduction_ops) {
+  Operation *first_root = col_reduction_ops[0];
   Location loc = first_root->getLoc();
   Value zero = b.create<ConstantIndexOp>(loc, 0);
   Value one = b.create<ConstantIndexOp>(loc, 1);
@@ -783,7 +785,7 @@ void emitInitLoops(OpBuilder& b, ArrayRef<Operation*> col_reduction_ops) {
   createParallelAndSetInsPt(b, loc, vars, {zero}, {num_elements}, {one}, {});
   var = vars[0];
 
-  for (Operation* reduce : col_reduction_ops) {
+  for (Operation *reduce : col_reduction_ops) {
     Value result_memref = reduce->getOperand(reduce->getNumOperands() - 1);
     auto multidim_index = calcMultiDimIndex(&b, loc, var, result_memref);
     Value init_value = b.create<memref::LoadOp>(
@@ -793,11 +795,11 @@ void emitInitLoops(OpBuilder& b, ArrayRef<Operation*> col_reduction_ops) {
   return;
 }
 
-void maybeEmitInitLoops(OpBuilder& b,
-                        const SmallVectorImpl<Operation*>& root_ops) {
+void maybeEmitInitLoops(OpBuilder &b,
+                        const SmallVectorImpl<Operation *> &root_ops) {
   b.setInsertionPoint(root_ops.back());
-  SmallVector<Operation*, 4> col_reduction_ops;
-  for (Operation* root_op : root_ops) {
+  SmallVector<Operation *, 4> col_reduction_ops;
+  for (Operation *root_op : root_ops) {
     if (isRank2ColReduction(root_op)) {
       col_reduction_ops.emplace_back(root_op);
     }
@@ -807,18 +809,21 @@ void maybeEmitInitLoops(OpBuilder& b,
   }
 }
 
-int getThreadPerBlock(Operation* op) {
+int getThreadPerBlock(Operation *op) {
   int thread_per_block = kThreadsRowReduction;
-  if (!op) return thread_per_block;
+  if (!op)
+    return thread_per_block;
   lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
-  if (!fusion) return thread_per_block;
+  if (!fusion)
+    return thread_per_block;
   IntegerAttr attr = fusion->getAttrOfType<IntegerAttr>(kThreadPerBlockHint);
-  if (!attr) return thread_per_block;
+  if (!attr)
+    return thread_per_block;
   return attr.getInt();
 }
 
-LogicalResult getShuffleElemType(OpBuilder& b, Type elemType,
-                                 Type* shuffleElemType) {
+LogicalResult getShuffleElemType(OpBuilder &b, Type elemType,
+                                 Type *shuffleElemType) {
   if (auto int_type = elemType.dyn_cast<IntegerType>()) {
     if (int_type.getWidth() < 32) {
       *shuffleElemType = b.getIntegerType(32);
@@ -840,7 +845,7 @@ LogicalResult getShuffleElemType(OpBuilder& b, Type elemType,
   return success();
 }
 
-Value emitWidthAdaptShuffle(OpBuilder& b, Location loc, Value value,
+Value emitWidthAdaptShuffle(OpBuilder &b, Location loc, Value value,
                             Type shuffleElemType, Value offset, Value width,
                             StringAttr strAttr) {
   auto bit_width = shuffleElemType.getIntOrFloatBitWidth();
@@ -906,7 +911,7 @@ Value emitWidthAdaptShuffle(OpBuilder& b, Location loc, Value value,
   }
 }
 
-Value createSharedMemory(OpBuilder& b, Location loc, int64_t size,
+Value createSharedMemory(OpBuilder &b, Location loc, int64_t size,
                          Type elem_type) {
   auto bufferType =
       MemRefType::get({size}, elem_type, ArrayRef<AffineMap>{},
@@ -918,11 +923,11 @@ Value createSharedMemory(OpBuilder& b, Location loc, int64_t size,
 // emit in-thread reduction, and other non-dominant nodes including
 // elementwise and column reduction
 LogicalResult emitInThreadReduction(
-    OpBuilder& b, Location loc, const std::vector<Operation*>& root_ops,
-    mlir::Block::args_iterator acc_iter, ValueRange& input_index,
-    Value col_reduction_index, SmallVector<Value, 4>& yield_values_for_j,
-    Operation* dominant_op,
-    const ShapeConstraintAnalysis* shape_constraint_analysis) {
+    OpBuilder &b, Location loc, const std::vector<Operation *> &root_ops,
+    mlir::Block::args_iterator acc_iter, ValueRange &input_index,
+    Value col_reduction_index, SmallVector<Value, 4> &yield_values_for_j,
+    Operation *dominant_op,
+    const ShapeConstraintAnalysis *shape_constraint_analysis) {
   int64_t row_reduction_idx = 0;
   for (auto root_op : root_ops) {
     if (isRank2RowReduction(root_op)) {
@@ -964,41 +969,47 @@ LogicalResult emitInThreadReduction(
   return success();
 }
 
-int getRowReductionScheduleHint(Operation* op) {
+int getRowReductionScheduleHint(Operation *op) {
   assert(op);
   lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
   // Use schedule 2 by default.
-  if (!fusion) return DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE;
+  if (!fusion)
+    return DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE;
   IntegerAttr attr =
       fusion->getAttrOfType<IntegerAttr>(kRowReductionScheduleHint);
-  if (!attr) return DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE;
+  if (!attr)
+    return DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE;
   return attr.getInt();
 }
 
-int getColReductionScheduleHint(Operation* op) {
+int getColReductionScheduleHint(Operation *op) {
   assert(op);
   lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
   // Use schedule 1 by default.
-  if (!fusion) return DISC_TILE_W8_H32;
+  if (!fusion)
+    return DISC_TILE_W8_H32;
   IntegerAttr attr =
       fusion->getAttrOfType<IntegerAttr>(kColReductionScheduleHint);
-  if (!attr) return DISC_TILE_W8_H32;
+  if (!attr)
+    return DISC_TILE_W8_H32;
   return attr.getInt();
 }
 
-int getVectorizationHint(Operation* op) {
+int getVectorizationHint(Operation *op) {
   assert(op);
   lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
-  if (!fusion) return 1;
+  if (!fusion)
+    return 1;
   IntegerAttr attr = fusion->getAttrOfType<IntegerAttr>(kVectorizationHint);
-  if (!attr) return 1;
+  if (!attr)
+    return 1;
   return attr.getInt();
 }
 
 template <DiscRowReductionScheduleType schedule>
 LogicalResult lowerWithScheduleRowReduction(
-    ArrayRef<Operation*>, Operation*, Block*,
-    const ShapeConstraintAnalysis* shape_constraint_analysis,
+    ArrayRef<Operation *>, Operation *, Block *,
+    const ShapeConstraintAnalysis *shape_constraint_analysis,
     int vector_size = 1) {
   return failure();
 }
@@ -1030,17 +1041,17 @@ LogicalResult lowerWithScheduleRowReduction(
  */
 template <>
 LogicalResult lowerWithScheduleRowReduction<DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE>(
-    ArrayRef<Operation*> root_ops, Operation* dominant_op, Block* parent,
-    const ShapeConstraintAnalysis* shape_constraint_analysis, int vector_size) {
+    ArrayRef<Operation *> root_ops, Operation *dominant_op, Block *parent,
+    const ShapeConstraintAnalysis *shape_constraint_analysis, int vector_size) {
   if (!isRank2RowReduction(dominant_op)) {
     return failure();
   }
 
   // Create helper Values
-  SmallVector<Operation*, 4> row_reduction_roots;
+  SmallVector<Operation *, 4> row_reduction_roots;
   std::copy_if(
       root_ops.begin(), root_ops.end(), std::back_inserter(row_reduction_roots),
-      [](Operation* operation) { return isRank2RowReduction(operation); });
+      [](Operation *operation) { return isRank2RowReduction(operation); });
 
   const int thread_per_block = getThreadPerBlock(dominant_op);
   Location loc = dominant_op->getLoc();
@@ -1097,7 +1108,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE>(
     // }
     SmallVector<Value, 4> init_values(row_reduction_roots.size() * vector_size);
     for (auto root_pair : llvm::enumerate(row_reduction_roots)) {
-      Operation* root_op = root_pair.value();
+      Operation *root_op = root_pair.value();
       int idx = root_pair.index();
       Value init_value = b.create<memref::LoadOp>(
           loc, cast<lmhlo::ReduceOp>(root_op).init_values()[0]);
@@ -1126,7 +1137,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE>(
       }
     }
     b.create<scf::YieldOp>(
-        loc, yield_values);  // for (k = laneIdx; k < cols; k += warpSize)
+        loc, yield_values); // for (k = laneIdx; k < cols; k += warpSize)
     b.setInsertionPointToEnd(&if_is_valid_row_id.thenRegion().front());
 
     SmallVector<Value, 4> shuffle_val(row_reduction_roots.size() * vector_size);
@@ -1134,7 +1145,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE>(
     SmallVector<AccumulatorFactory, 4> accum_factory(
         row_reduction_roots.size());
     for (auto root_pair : llvm::enumerate(row_reduction_roots)) {
-      Operation* root_op = root_pair.value();
+      Operation *root_op = root_pair.value();
       int idx = root_pair.index();
       for (int i = 0; i < vector_size; i++) {
         shuffle_val[i * row_reduction_roots.size() + idx] =
@@ -1162,7 +1173,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE>(
           b.create<ConstantIntOp>(loc, offset, b.getIntegerType(32));
 
       for (auto root_pair : llvm::enumerate(row_reduction_roots)) {
-        Operation* root_op = root_pair.value();
+        Operation *root_op = root_pair.value();
         int idx = root_pair.index();
         for (int i = 0; i < vector_size; i++) {
           int val_idx = i * row_reduction_roots.size() + idx;
@@ -1187,7 +1198,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE>(
     b.setInsertionPointToStart(&if_lane_id_is_zero.thenRegion().front());
 
     for (auto root_pair : llvm::enumerate(row_reduction_roots)) {
-      Operation* root_op = root_pair.value();
+      Operation *root_op = root_pair.value();
       int idx = root_pair.index();
       auto output_memref = root_op->getOperand(root_op->getNumOperands() - 1);
       auto memref_ty = output_memref.getType().cast<MemRefType>();
@@ -1206,22 +1217,22 @@ LogicalResult lowerWithScheduleRowReduction<DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE>(
     }
 
     b.setInsertionPointToEnd(&if_lane_id_is_zero.thenRegion().front());
-    b.create<scf::YieldOp>(loc, ValueRange({}));  // if (laneIdx == 0)
+    b.create<scf::YieldOp>(loc, ValueRange({})); // if (laneIdx == 0)
   }
 
   b.setInsertionPointToEnd(&if_is_valid_row_id.thenRegion().front());
-  b.create<scf::YieldOp>(loc, ValueRange({}));  // if (rowIdx < rows)
+  b.create<scf::YieldOp>(loc, ValueRange({})); // if (rowIdx < rows)
   b.setInsertionPointToEnd(parallel_op.getBody());
-  b.create<scf::YieldOp>(loc, ValueRange({}));  // parallel
+  b.create<scf::YieldOp>(loc, ValueRange({})); // parallel
 
   cleanUnusedLhloOps(parent);
 
   return success();
 }
 
-LogicalResult extendShuffleElemType(OpBuilder& b, Location loc, Value value,
+LogicalResult extendShuffleElemType(OpBuilder &b, Location loc, Value value,
                                     Type shuffleElemType,
-                                    Value* extended_value) {
+                                    Value *extended_value) {
   if (auto int_type = shuffleElemType.dyn_cast<IntegerType>()) {
     auto origin_type = value.getType().dyn_cast<IntegerType>();
     assert(origin_type && "mismatch expected type and actual type");
@@ -1242,8 +1253,8 @@ LogicalResult extendShuffleElemType(OpBuilder& b, Location loc, Value value,
   return success();
 }
 
-LogicalResult truncateShuffleElemType(OpBuilder& b, Location loc, Value value,
-                                      Type elemType, Value* truncated_value) {
+LogicalResult truncateShuffleElemType(OpBuilder &b, Location loc, Value value,
+                                      Type elemType, Value *truncated_value) {
   if (auto int_type = elemType.dyn_cast<IntegerType>()) {
     auto origin_type = value.getType().dyn_cast<IntegerType>();
     assert(origin_type && "mismatch expected type and actual type");
@@ -1261,9 +1272,9 @@ LogicalResult truncateShuffleElemType(OpBuilder& b, Location loc, Value value,
 }
 
 LogicalResult emitFirstRoundShuffle(
-    OpBuilder& b, Location loc,
-    const SmallVector<Operation*, 4>& row_reduction_ops,
-    const SmallVector<std::map<Operation*, Value>>& shared_mem_map_vec,
+    OpBuilder &b, Location loc,
+    const SmallVector<Operation *, 4> &row_reduction_ops,
+    const SmallVector<std::map<Operation *, Value>> &shared_mem_map_vec,
     mlir::ResultRange::iterator acc_iter, Value lane_id_is_zero, Value warp_id,
     int vector_size) {
   Value warp_size =
@@ -1348,8 +1359,8 @@ LogicalResult emitFirstRoundShuffle(
 }
 
 LogicalResult emitSecondRoundShuffle(
-    OpBuilder& b, Location loc,
-    const SmallVector<Operation*, 4>& row_reduction_ops,
+    OpBuilder &b, Location loc,
+    const SmallVector<Operation *, 4> &row_reduction_ops,
     mlir::ResultRange::iterator acc_iter, Value thread_id_is_zero,
     SmallVector<Value> output_idx_vec, int vector_size, int block_size) {
   assert(block_size % kWarpSize == 0);
@@ -1466,8 +1477,8 @@ LogicalResult emitSecondRoundShuffle(
  */
 template <>
 LogicalResult lowerWithScheduleRowReduction<DISC_TWO_ROUND_SHUFFLE_ROW_REDUCE>(
-    ArrayRef<Operation*> root_ops, Operation* dominant_op, Block* parent,
-    const ShapeConstraintAnalysis* shape_constraint_analysis, int vector_size) {
+    ArrayRef<Operation *> root_ops, Operation *dominant_op, Block *parent,
+    const ShapeConstraintAnalysis *shape_constraint_analysis, int vector_size) {
   if (!isRank2RowReduction(dominant_op)) {
     return failure();
   }
@@ -1476,16 +1487,16 @@ LogicalResult lowerWithScheduleRowReduction<DISC_TWO_ROUND_SHUFFLE_ROW_REDUCE>(
   OpBuilder b(root_ops.back());
 
   Value lhs = *dominant_op->getOperands().begin();
-  const MemRefType& lhs_type = lhs.getType().template cast<MemRefType>();
+  const MemRefType &lhs_type = lhs.getType().template cast<MemRefType>();
   Value zero = b.create<ConstantIndexOp>(loc, 0);
   Value one = b.create<ConstantIndexOp>(loc, 1);
   Value shape_h = b.create<memref::DimOp>(loc, lhs, zero);
   Value shape_w = b.create<memref::DimOp>(loc, lhs, one);
   Value num_threads =
       b.create<ConstantIndexOp>(loc, getThreadPerBlock(dominant_op));
-  std::map<Operation*, Value> init_values_cache;
-  SmallVector<Operation*, 4> row_reduction_ops;
-  SmallVector<std::map<Operation*, Value>> shared_mem_map_vec(vector_size);
+  std::map<Operation *, Value> init_values_cache;
+  SmallVector<Operation *, 4> row_reduction_ops;
+  SmallVector<std::map<Operation *, Value>> shared_mem_map_vec(vector_size);
   for (auto root_op : root_ops) {
     if (isRank2RowReduction(root_op)) {
       row_reduction_ops.push_back(root_op);
@@ -1514,7 +1525,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_TWO_ROUND_SHUFFLE_ROW_REDUCE>(
 
   SmallVector<Value, 4> init_values(row_reduction_ops.size() * vector_size);
   for (auto root_pair : llvm::enumerate(row_reduction_ops)) {
-    Operation* root_op = root_pair.value();
+    Operation *root_op = root_pair.value();
     int idx = root_pair.index();
     auto init_value = b.create<memref::LoadOp>(
         loc, *(cast<lmhlo::ReduceOp>(root_op).init_values().begin()));
@@ -1550,11 +1561,11 @@ LogicalResult lowerWithScheduleRowReduction<DISC_TWO_ROUND_SHUFFLE_ROW_REDUCE>(
   for (int i = 0; i < vector_size; i++) {
     SmallVector<Value, 4> multidim({row_ids[i], var_j});
     ValueRange input_index(multidim);
-    if (failed(emitInThreadReduction(
-            b, loc, root_ops,
-            for_op_j.getRegionIterArgs().begin() + i * row_reduction_ops.size(),
-            input_index, var_j, yield_values_for_j, dominant_op,
-            shape_constraint_analysis))) {
+    if (failed(emitInThreadReduction(b, loc, root_ops,
+                                     for_op_j.getRegionIterArgs().begin() +
+                                         i * row_reduction_ops.size(),
+                                     input_index, var_j, yield_values_for_j,
+                                     dominant_op, shape_constraint_analysis))) {
       return failure();
     }
   }
@@ -1563,7 +1574,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_TWO_ROUND_SHUFFLE_ROW_REDUCE>(
   b.setInsertionPointToEnd(parallel_op.getBody());
   emitFirstRoundShuffle(
       b, loc, row_reduction_ops, shared_mem_map_vec,
-      for_op_j.results().begin(),  // + i * row_reduction_ops.size(),
+      for_op_j.results().begin(), // + i * row_reduction_ops.size(),
       lane_id_is_zero, warp_id, vector_size);
   b.setInsertionPointToEnd(parallel_op.getBody());
   b.create<gpu::BarrierOp>(loc);
@@ -1687,22 +1698,22 @@ LogicalResult lowerWithScheduleRowReduction<DISC_TWO_ROUND_SHUFFLE_ROW_REDUCE>(
 // TODO(feiwen): add vectorization support
 template <int TILE_W, int TILE_H>
 LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
-    ArrayRef<Operation*> root_ops, Operation* dominant_op, Block* parent,
-    const ShapeConstraintAnalysis* shape_constraint_analysis = nullptr) {
+    ArrayRef<Operation *> root_ops, Operation *dominant_op, Block *parent,
+    const ShapeConstraintAnalysis *shape_constraint_analysis = nullptr) {
   if (!isRank2ColReduction(dominant_op)) {
     return failure();
   }
 
   // Create helper Values
-  SmallVector<Operation*, 4> col_reduction_roots;
+  SmallVector<Operation *, 4> col_reduction_roots;
   std::copy_if(
       root_ops.begin(), root_ops.end(), std::back_inserter(col_reduction_roots),
-      [](Operation* operation) { return isRank2ColReduction(operation); });
+      [](Operation *operation) { return isRank2ColReduction(operation); });
 
   Location loc = dominant_op->getLoc();
   OpBuilder b(root_ops.back());
-  const int kTileW = TILE_W;  // 8
-  const int kTileH = TILE_H;  // 32
+  const int kTileW = TILE_W; // 8
+  const int kTileH = TILE_H; // 32
   const int kThreads = kTileW * kTileH;
 
   Value lhs = dominant_op->getOperand(0);
@@ -1737,7 +1748,7 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
   // sum = init_value;
   SmallVector<Value, 4> init_values(col_reduction_roots.size());
   for (auto root_pair : llvm::enumerate(col_reduction_roots)) {
-    Operation* root_op = root_pair.value();
+    Operation *root_op = root_pair.value();
     int idx = root_pair.index();
     Value init_value = b.create<memref::LoadOp>(
         loc, cast<lmhlo::ReduceOp>(root_op).init_values()[0]);
@@ -1762,9 +1773,9 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
       loc, b.create<MulIOp>(loc, block_col_index, var_tile_w), local_col_index);
 
   // define SHM
-  std::map<Operation*, Value> shared_mem_map;
+  std::map<Operation *, Value> shared_mem_map;
   for (auto root_pair : llvm::enumerate(col_reduction_roots)) {
-    Operation* root_op = root_pair.value();
+    Operation *root_op = root_pair.value();
     int idx = root_pair.index();
     const auto elemType = getLhloOpsElementType(root_op);
     auto shared_mem = createSharedMemory(b, loc, kThreads, elemType);
@@ -1789,7 +1800,7 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
   SmallVector<Value, 2> multidim_load_index({row_index, col_index});
   ValueRange load_index(multidim_load_index);
   int col_red_root_op_idx = 0;
-  for (auto* root_op : root_ops) {
+  for (auto *root_op : root_ops) {
     if (isRank2ColReduction(root_op)) {
       auto data =
           createLoadOrUseCachedValue(loc, &b, *root_op->getOperands().begin(),
@@ -1826,7 +1837,7 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
   //    shm[n] = 0;
   // }
   for (auto root_pair : llvm::enumerate(col_reduction_roots)) {
-    Operation* root_op = root_pair.value();
+    Operation *root_op = root_pair.value();
     int idx = root_pair.index();
     b.create<memref::StoreOp>(loc, init_values[idx], shared_mem_map[root_op],
                               var_n);
@@ -1859,7 +1870,7 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
     Value var_shm_offset = b.create<mlir::AddIOp>(
         loc, b.create<MulIOp>(loc, var_stride, var_tile_w), var_n);
     for (auto root_pair : llvm::enumerate(col_reduction_roots)) {
-      Operation* root_op = root_pair.value();
+      Operation *root_op = root_pair.value();
       int idx = root_pair.index();
       Value shm_op0 =
           b.create<memref::LoadOp>(loc, shared_mem_map[root_op], var_n);
@@ -1892,7 +1903,7 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
   b.setInsertionPointToStart(&if_is_atom_add.thenRegion().front());
   Value shm_offset = b.create<mlir::AddIOp>(loc, var_tile_w, var_n);
   for (auto root_pair : llvm::enumerate(col_reduction_roots)) {
-    Operation* root_op = root_pair.value();
+    Operation *root_op = root_pair.value();
     int idx = root_pair.index();
     Value shm_op0 =
         b.create<memref::LoadOp>(loc, shared_mem_map[root_op], var_n);
@@ -1907,13 +1918,13 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
   }
   b.create<scf::YieldOp>(loc, ValueRange({}));
   b.setInsertionPointToEnd(parallel_op.getBody());
-  b.create<scf::YieldOp>(loc, ValueRange({}));  // parallel
+  b.create<scf::YieldOp>(loc, ValueRange({})); // parallel
 
   cleanUnusedLhloOps(parent);
   return success();
 }
 
-bool isOnGpu(Operation* op) {
+bool isOnGpu(Operation *op) {
   auto attr =
       op->getAttrOfType<StringAttr>(placement_utils::kDiscPlaceAssignment);
   if (attr) {
@@ -1923,7 +1934,8 @@ bool isOnGpu(Operation* op) {
   // Fusion should have been set a placement attribute in lhlo_fusion pass.
   // Leave a default placement here just in case there are fusion ops not
   // generated by the fusion pass (e.g. in the file-check based ut).
-  if (isa<lmhlo::FusionOp>(op)) return true;
+  if (isa<lmhlo::FusionOp>(op))
+    return true;
 
   assert(isa<lmhlo::LmhloOp>(op) && "Unexpected usage of isOnGpu");
   auto result_memref = cast<lmhlo::LmhloOp>(op).getResultBuffer();
@@ -1934,14 +1946,15 @@ bool isOnGpu(Operation* op) {
              mhlo::placement_utils::c_gpu;
 }
 
-LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion) {
+LogicalResult HandleGpuFusionOp(OpBuilder &b, Operation *fusion) {
   auto fusion_op = cast<lmhlo::FusionOp>(fusion);
   assert(fusion_op);
   FusionPattern fusion_pattern(fusion_op);
   auto root_ops = fusion_pattern.getRootOps();
   auto fused_block = &(fusion_op.region().front());
-  SmallVector<Operation*, 4> op_list;
-  for (Operation& op : *fused_block) op_list.push_back(&op);
+  SmallVector<Operation *, 4> op_list;
+  for (Operation &op : *fused_block)
+    op_list.push_back(&op);
   ShapeConstraintAnalysis shape_constraint_analysis(op_list);
 
   // No need to do codegen, return directly.
@@ -1963,58 +1976,53 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion) {
   auto fusion_type = fusion_pattern.getFusionType();
   auto dominant_op = fusion_pattern.getDominantOp();
   switch (fusion_type) {
-    case FusionType::kRowReduction: {
-      const int row_reduction_schedule =
-          getRowReductionScheduleHint(dominant_op);
-      const int vector_size = getVectorizationHint(dominant_op);
-      LogicalResult r = success();
-      if (row_reduction_schedule == DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE) {
-        r = lowerWithScheduleRowReduction<DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE>(
-            root_ops, dominant_op, fused_block, &shape_constraint_analysis,
-            vector_size);
-      } else {
-        r = lowerWithScheduleRowReduction<DISC_TWO_ROUND_SHUFFLE_ROW_REDUCE>(
-            root_ops, dominant_op, fused_block, &shape_constraint_analysis,
-            vector_size);
-      }
-      if (failed(r)) {
-        return dominant_op->emitError()
-               << "failed to lower row-reduction loops";
-      }
-    } break;
+  case FusionType::kRowReduction: {
+    const int row_reduction_schedule = getRowReductionScheduleHint(dominant_op);
+    const int vector_size = getVectorizationHint(dominant_op);
+    LogicalResult r = success();
+    if (row_reduction_schedule == DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE) {
+      r = lowerWithScheduleRowReduction<DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE>(
+          root_ops, dominant_op, fused_block, &shape_constraint_analysis,
+          vector_size);
+    } else {
+      r = lowerWithScheduleRowReduction<DISC_TWO_ROUND_SHUFFLE_ROW_REDUCE>(
+          root_ops, dominant_op, fused_block, &shape_constraint_analysis,
+          vector_size);
+    }
+    if (failed(r)) {
+      return dominant_op->emitError() << "failed to lower row-reduction loops";
+    }
+  } break;
 
-    case FusionType::kColReduction: {
-      const int col_reduction_schedule =
-          getColReductionScheduleHint(dominant_op);
-      LogicalResult r = success();
-      if (col_reduction_schedule == DISC_TILE_W8_H32) {
-        r = lowerWithScheduleColReductionBlockTileSchedule<8, 32>(
-            root_ops, dominant_op, fused_block);
-      } else if (col_reduction_schedule == DISC_TILE_W8_H16) {
-        r = lowerWithScheduleColReductionBlockTileSchedule<8, 16>(
-            root_ops, dominant_op, fused_block);
-      } else {
-        r = lowerWithScheduleColReductionBlockTileSchedule<8, 8>(
-            root_ops, dominant_op, fused_block);
-      }
-      if (failed(r)) {
-        return dominant_op->emitError()
-               << "failed to lower col-reduction loops";
-      }
-    } break;
+  case FusionType::kColReduction: {
+    const int col_reduction_schedule = getColReductionScheduleHint(dominant_op);
+    LogicalResult r = success();
+    if (col_reduction_schedule == DISC_TILE_W8_H32) {
+      r = lowerWithScheduleColReductionBlockTileSchedule<8, 32>(
+          root_ops, dominant_op, fused_block);
+    } else if (col_reduction_schedule == DISC_TILE_W8_H16) {
+      r = lowerWithScheduleColReductionBlockTileSchedule<8, 16>(
+          root_ops, dominant_op, fused_block);
+    } else {
+      r = lowerWithScheduleColReductionBlockTileSchedule<8, 8>(
+          root_ops, dominant_op, fused_block);
+    }
+    if (failed(r)) {
+      return dominant_op->emitError() << "failed to lower col-reduction loops";
+    }
+  } break;
 
-    case FusionType::kLoop: {
-      const int vector_size = getVectorizationHint(dominant_op);
-      if (failed(lowerWithScheduleLoop(root_ops, dominant_op, fused_block,
-                                       /*non_fusion*/ false,
-                                       /*parallel_loop*/ true,
-                                       &shape_constraint_analysis,
-                                       vector_size))) {
-        return dominant_op->emitError() << "failed to lower to loops";
-      }
-    } break;
-    default:
-      return dominant_op->emitError() << "Unknown fusion type";
+  case FusionType::kLoop: {
+    const int vector_size = getVectorizationHint(dominant_op);
+    if (failed(lowerWithScheduleLoop(
+            root_ops, dominant_op, fused_block,
+            /*non_fusion*/ false,
+            /*parallel_loop*/ true, &shape_constraint_analysis, vector_size))) {
+      return dominant_op->emitError() << "failed to lower to loops";
+    }
+  } break;
+  default:
+    return dominant_op->emitError() << "Unknown fusion type";
   }
   return success();
 }
@@ -2032,10 +2040,10 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion) {
  * }
  */
 LogicalResult lowerWithScheduleLoopCPU(
-    ArrayRef<Operation*> root_ops, Operation* dominant_op,
-    Block* parent = nullptr, bool non_fusion = false, bool parallel_loop = true,
+    ArrayRef<Operation *> root_ops, Operation *dominant_op,
+    Block *parent = nullptr, bool non_fusion = false, bool parallel_loop = true,
     bool multi_dim_loop = false,
-    const ShapeConstraintAnalysis* shape_constraint_analysis = nullptr) {
+    const ShapeConstraintAnalysis *shape_constraint_analysis = nullptr) {
   Value result = cast<lmhlo::LmhloOp>(dominant_op).getResultBuffer();
   int64_t rank = result.getType().cast<MemRefType>().getRank();
 
@@ -2055,14 +2063,15 @@ LogicalResult lowerWithScheduleLoopCPU(
 
   (void)createParallelAndSetInsPt(b, loc, vars, starts, limits, steps, {});
   Value linear = calcLinearIndex(&b, loc, vars, limits);
-  for (Operation* root_op : root_ops) {
+  for (Operation *root_op : root_ops) {
     Value memref = cast<lmhlo::LmhloOp>(root_op).getResultBuffer();
     if (failed(lowerHelper(b, loc, root_op, linear, shape_constraint_analysis)))
       return failure();
   }
   // remove the root_op if it has no other users except the memref
   if (non_fusion) {
-    for (Operation* root_op : root_ops) root_op->erase();
+    for (Operation *root_op : root_ops)
+      root_op->erase();
   } else {
     assert(parent != nullptr && "Parent must be provided for fusion lowering");
     cleanUnusedLhloOps(parent);
@@ -2086,10 +2095,10 @@ LogicalResult lowerWithScheduleLoopCPU(
 //   }
 // }
 LogicalResult lowerWithSchedulekInputCPU(
-    ArrayRef<Operation*> root_ops, Operation* dominant_op,
-    Block* parent = nullptr, bool non_fusion = false, bool parallel_loop = true,
+    ArrayRef<Operation *> root_ops, Operation *dominant_op,
+    Block *parent = nullptr, bool non_fusion = false, bool parallel_loop = true,
     bool multi_dim_loop = false,
-    const ShapeConstraintAnalysis* shape_constraint_analysis = nullptr) {
+    const ShapeConstraintAnalysis *shape_constraint_analysis = nullptr) {
   if (root_ops.size() != 1) {
     // Not supporting multi output for kInput fusion A.T.M.
     return failure();
@@ -2184,11 +2193,12 @@ LogicalResult lowerWithSchedulekInputCPU(
   b.create<memref::StoreOp>(loc, acc, out, outVars);
   b.setInsertionPointAfter(reductionForOp);
 
-  for (Operation* root_op : root_ops) root_op->erase();
+  for (Operation *root_op : root_ops)
+    root_op->erase();
   return success();
 }
 
-LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion) {
+LogicalResult HandleCpuFusionOp(OpBuilder &b, Operation *fusion) {
   LLVM_DEBUG(llvm::dbgs() << "HandleCpuFusionOp: " << *fusion << "\n");
   auto fusion_op = cast<lmhlo::FusionOp>(fusion);
   assert(fusion_op);
@@ -2196,7 +2206,7 @@ LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion) {
   auto root_ops = fusion_pattern.getRootOps();
   auto fused_block = &(fusion_op.region().front());
   LLVM_DEBUG(llvm::dbgs() << "# root ops = " << root_ops.size() << "\n");
-  for (Operation* root : root_ops)
+  for (Operation *root : root_ops)
     LLVM_DEBUG(llvm::dbgs() << "  root: " << *root << "\n");
 
   // No need to do codegen, return directly.
@@ -2215,30 +2225,30 @@ LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion) {
   auto fusion_type = fusion_pattern.getFusionType();
   auto dominant_op = fusion_pattern.getDominantOp();
   switch (fusion_type) {
-    case FusionType::kColReduction:
-    case FusionType::kInput:
-      if (failed(lowerWithSchedulekInputCPU(root_ops, dominant_op, fused_block,
-                                            /*non_fusion*/ false,
-                                            /*parallel_loop*/ true,
-                                            /*multi_dim_loop*/ true))) {
-        return dominant_op->emitError() << "failed to lower to loops";
-      }
-      break;
-    case FusionType::kRowReduction:
-    case FusionType::kLoop:
-      if (failed(lowerWithScheduleLoopCPU(root_ops, dominant_op, fused_block,
+  case FusionType::kColReduction:
+  case FusionType::kInput:
+    if (failed(lowerWithSchedulekInputCPU(root_ops, dominant_op, fused_block,
                                           /*non_fusion*/ false,
                                           /*parallel_loop*/ true,
                                           /*multi_dim_loop*/ true))) {
-        return dominant_op->emitError() << "failed to lower to loops";
-      }
-      break;
-    default:
-      return dominant_op->emitError() << "Unknown fusion type";
+      return dominant_op->emitError() << "failed to lower to loops";
+    }
+    break;
+  case FusionType::kRowReduction:
+  case FusionType::kLoop:
+    if (failed(lowerWithScheduleLoopCPU(root_ops, dominant_op, fused_block,
+                                        /*non_fusion*/ false,
+                                        /*parallel_loop*/ true,
+                                        /*multi_dim_loop*/ true))) {
+      return dominant_op->emitError() << "failed to lower to loops";
+    }
+    break;
+  default:
+    return dominant_op->emitError() << "Unknown fusion type";
   }
   return success();
 }
-}  // namespace
+} // namespace
 
 // Expand the root ops in a fused func into a parrallel loop or a set of
 // nested loops. This pass must be executed after the fusion pass, and works
@@ -2257,10 +2267,10 @@ class DiscLhloLegalizeRootsToParallelLoops
   void runOnFunction() override {
     auto func = getFunction();
     OpBuilder b(func);
-    SmallVector<Operation*, 4> gpu_non_fusion_worklist;
-    SmallVector<Operation*, 4> cpu_non_fusion_worklist;
-    SmallVector<Operation*, 4> gpu_fusion_worklist;
-    SmallVector<Operation*, 4> cpu_fusion_worklist;
+    SmallVector<Operation *, 4> gpu_non_fusion_worklist;
+    SmallVector<Operation *, 4> cpu_non_fusion_worklist;
+    SmallVector<Operation *, 4> gpu_fusion_worklist;
+    SmallVector<Operation *, 4> cpu_fusion_worklist;
     // TODO: We should put even single nodes into a fusion by fusion pass
     // Revisit this and walk lmhlo::FusionOp only after the revision done.
     func.walk([&](lmhlo::LmhloOp op) {
@@ -2269,7 +2279,8 @@ class DiscLhloLegalizeRootsToParallelLoops
       if (parent && !isa<lmhlo::FusionOp>(op)) {
         return;
       }
-      if (isStitchFusion(op)) return;
+      if (isStitchFusion(op))
+        return;
       if (isa<lmhlo::FusionOp>(op)) {
         if (isOnGpu(op))
           gpu_fusion_worklist.push_back(op);
@@ -2283,7 +2294,7 @@ class DiscLhloLegalizeRootsToParallelLoops
       }
     });
 
-    for (Operation* op : cpu_non_fusion_worklist) {
+    for (Operation *op : cpu_non_fusion_worklist) {
       // Only for calculating shapes when the backend is gpu. A simple schedule
       // should be sufficient for performance.
       // TODO(disc): Revisit this when the backend is cpu and the calculation is
@@ -2303,7 +2314,7 @@ class DiscLhloLegalizeRootsToParallelLoops
       }
     }
 
-    for (Operation* op : gpu_non_fusion_worklist) {
+    for (Operation *op : gpu_non_fusion_worklist) {
       // TODO(disc): single nodes with non kLoop schedule like ReduceOp
       // is not implemented yet. Currently ReduceOp is lowered with loop
       // schedule, which means for poor performance.
@@ -2316,7 +2327,7 @@ class DiscLhloLegalizeRootsToParallelLoops
       }
     }
 
-    for (Operation* fusion : gpu_fusion_worklist) {
+    for (Operation *fusion : gpu_fusion_worklist) {
       // Error message should be emitted inside the function.
       if (failed(HandleGpuFusionOp(b, fusion))) {
         signalPassFailure();
@@ -2324,7 +2335,7 @@ class DiscLhloLegalizeRootsToParallelLoops
       }
     }
 
-    for (Operation* fusion : cpu_fusion_worklist) {
+    for (Operation *fusion : cpu_fusion_worklist) {
       // Error message should be emitted inside the function.
       if (failed(HandleCpuFusionOp(b, fusion))) {
         signalPassFailure();
@@ -2339,5 +2350,5 @@ createDiscLhloLegalizeRootsToParallelLoopsPass() {
   return std::make_unique<DiscLhloLegalizeRootsToParallelLoops>();
 }
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

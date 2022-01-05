@@ -44,39 +44,39 @@ namespace tao {
 // It is tempting to call this a liveness analysis but I avoided that because
 // "liveness" already has other connotations.
 class DeadnessAnalysis {
- public:
+public:
   // An opaque representation of a predicate.  DeadnessPredicate
   // instances that compare equal via operator== represent predicates
   // that always evaluate to the same value.
   struct DeadnessPredicate {
-   public:
-    DeadnessPredicate(const DeadnessPredicate&) = default;
-    DeadnessPredicate(DeadnessPredicate&&) = default;
+  public:
+    DeadnessPredicate(const DeadnessPredicate &) = default;
+    DeadnessPredicate(DeadnessPredicate &&) = default;
 
-    DeadnessPredicate& operator=(const DeadnessPredicate&) = default;
-    DeadnessPredicate& operator=(DeadnessPredicate&&) = default;
+    DeadnessPredicate &operator=(const DeadnessPredicate &) = default;
+    DeadnessPredicate &operator=(DeadnessPredicate &&) = default;
 
-    bool operator==(const DeadnessPredicate& other) const {
+    bool operator==(const DeadnessPredicate &other) const {
       return other.pred_ == pred_;
     }
 
-    bool operator!=(const DeadnessPredicate& other) const {
+    bool operator!=(const DeadnessPredicate &other) const {
       return other.pred_ != pred_;
     }
 
-   private:
-    explicit DeadnessPredicate(void* pred) : pred_(pred) {}
+  private:
+    explicit DeadnessPredicate(void *pred) : pred_(pred) {}
 
     // This is really a Predicate*, but we don't want to expose that
     // implementation detail to our clients.  `pred_` has pointer equality so we
     // can just compare the pointer in operator== and operator!=.
-    void* pred_;
+    void *pred_;
 
     friend class DeadnessAnalysis;
   };
 
-  virtual se::port::StatusOr<DeadnessPredicate> GetPredicateFor(
-      Node* n, int oidx) const = 0;
+  virtual se::port::StatusOr<DeadnessPredicate>
+  GetPredicateFor(Node *n, int oidx) const = 0;
 
   // Prints out the internal state of this instance.  For debugging purposes
   // only.
@@ -87,16 +87,16 @@ class DeadnessAnalysis {
 
   // Run the deadness analysis over `graph` and returns an error or a populated
   // instance of DeadnessAnalysis in `result`.
-  static Status Run(const Graph& graph,
-                    std::unique_ptr<DeadnessAnalysis>* result);
+  static Status Run(const Graph &graph,
+                    std::unique_ptr<DeadnessAnalysis> *result);
 
- protected:
-  static DeadnessPredicate MakeDeadnessPredicate(void* pred) {
+protected:
+  static DeadnessPredicate MakeDeadnessPredicate(void *pred) {
     return DeadnessPredicate(pred);
   }
 };
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow
 
-#endif  // TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_
+#endif // TENSORFLOW_COMPILER_JIT_DEADNESS_ANALYSIS_H_

@@ -19,15 +19,15 @@ limitations under the License.
 #include <iostream>
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"             // TF:llvm-project
-#include "mlir/IR/Attributes.h"                          // TF:llvm-project
-#include "mlir/IR/Location.h"                            // TF:llvm-project
-#include "mlir/IR/MLIRContext.h"                         // TF:llvm-project
-#include "mlir/IR/Operation.h"                           // TF:llvm-project
-#include "mlir/IR/PatternMatch.h"                        // TF:llvm-project
-#include "mlir/Pass/Pass.h"                              // TF:llvm-project
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // TF:llvm-project
-#include "mlir/Transforms/Passes.h"                      // TF:llvm-project
+#include "mlir/Dialect/StandardOps/IR/Ops.h"            // TF:llvm-project
+#include "mlir/IR/Attributes.h"                         // TF:llvm-project
+#include "mlir/IR/Location.h"                           // TF:llvm-project
+#include "mlir/IR/MLIRContext.h"                        // TF:llvm-project
+#include "mlir/IR/Operation.h"                          // TF:llvm-project
+#include "mlir/IR/PatternMatch.h"                       // TF:llvm-project
+#include "mlir/Pass/Pass.h"                             // TF:llvm-project
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h" // TF:llvm-project
+#include "mlir/Transforms/Passes.h"                     // TF:llvm-project
 #include "transforms/PassDetail.h"
 
 namespace mlir {
@@ -37,13 +37,13 @@ namespace {
 
 struct ConvertConcatOp : public OpRewritePattern<mhlo::ConcatenateOp> {
   // using OpRewritePattern::OpRewritePattern;
-  explicit ConvertConcatOp(MLIRContext* context, int max_num_operands_per_op)
+  explicit ConvertConcatOp(MLIRContext *context, int max_num_operands_per_op)
       : OpRewritePattern<mhlo::ConcatenateOp>::OpRewritePattern(context) {
     this->max_num_operands_per_op_ = max_num_operands_per_op;
   }
 
   LogicalResult matchAndRewrite(mhlo::ConcatenateOp op,
-                                PatternRewriter& rewriter) const override {
+                                PatternRewriter &rewriter) const override {
     int num_operands = op.getNumOperands();
     if (num_operands <= max_num_operands_per_op_) {
       return failure();
@@ -88,7 +88,7 @@ struct ConvertConcatOp : public OpRewritePattern<mhlo::ConcatenateOp> {
     return success();
   }
 
- private:
+private:
   int max_num_operands_per_op_;
 };
 
@@ -111,12 +111,12 @@ struct SplitLargeOpsPass : public SplitLargeOpsPassBase<SplitLargeOpsPass> {
   }
 };
 
-}  // namespace
+} // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscSplitLargeOpsPass(
-    int max_num_operands_per_op) {
+std::unique_ptr<OperationPass<FuncOp>>
+createDiscSplitLargeOpsPass(int max_num_operands_per_op) {
   return std::make_unique<SplitLargeOpsPass>(max_num_operands_per_op);
 }
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

@@ -32,21 +32,21 @@ struct BaseCpuContextOption {
   std::shared_ptr<Allocator> cpu_allocator;
 };
 
-std::unique_ptr<BaseContext> MakeBaseCpuContext(BaseContextOption& opt,
-                                                BaseCpuContextOption& cpu_opt);
+std::unique_ptr<BaseContext> MakeBaseCpuContext(BaseContextOption &opt,
+                                                BaseCpuContextOption &cpu_opt);
 
 struct BaseCpuExecutionContext : public tao::ral::BaseExecutionContext {
-  BaseCpuExecutionContext(BaseContext* ctx);
+  BaseCpuExecutionContext(BaseContext *ctx);
   ~BaseCpuExecutionContext();
   // all buffer allocated by the cpu_allocator
   std::unordered_map<const_buffer_t, int> host_ptr_map;
 
- protected:
-  virtual void setOutputDeleter(OutputBufferWrapper& output) override;
+protected:
+  virtual void setOutputDeleter(OutputBufferWrapper &output) override;
 };
 
-}  // namespace cpu
-}  // namespace ral
-}  // namespace tao
+} // namespace cpu
+} // namespace ral
+} // namespace tao
 
-#endif  // RAL_CONTEXT_BASE_CPU_CPU_CONTEXT_IMPL_H_
+#endif // RAL_CONTEXT_BASE_CPU_CPU_CONTEXT_IMPL_H_

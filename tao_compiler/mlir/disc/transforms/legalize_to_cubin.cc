@@ -25,15 +25,6 @@
 
 #include <string>
 
-#include "llvm/ADT/Optional.h"
-#include "llvm/ADT/Twine.h"
-#include "llvm/IR/Constants.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/Error.h"
-#include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Target/TargetMachine.h"
 #include "mlir/Conversion/GPUToCUDA/GPUToCUDAPass.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
 #include "mlir/IR/Attributes.h"
@@ -51,14 +42,23 @@
 #include "tensorflow/core/platform/cuda_libdevice_path.h"
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/util/command_line_flags.h"
+#include "llvm/ADT/Optional.h"
+#include "llvm/ADT/Twine.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Support/Error.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
 
 // debug only
 #include <fstream>
 #include <iostream>
 #include <streambuf>
 
-#include "llvm/Bitcode/BitcodeWriter.h"
 #include "tensorflow/core/platform/env.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 
 using mlir::Location;
 using mlir::StringRef;
@@ -66,11 +66,11 @@ using xla::HloModuleConfig;
 
 using OwnedCubin = std::unique_ptr<std::vector<char>>;
 using CubinGenerator =
-    std::function<OwnedCubin(const std::string&, Location, StringRef)>;
+    std::function<OwnedCubin(const std::string &, Location, StringRef)>;
 
 ///* static */ const char* kTargetTriple = "nvptx64-nvidia-gpulib";
-/* static */ const char* kTargetTriple = "nvptx64-nvidia-cuda";
-/* static */ const char* kDataLayout =
+/* static */ const char *kTargetTriple = "nvptx64-nvidia-cuda";
+/* static */ const char *kDataLayout =
     "e-i64:64-i128:128-v16:16-v32:32-n16:32:64";
 
 namespace mlir {
@@ -78,9 +78,9 @@ namespace disc_ral {
 
 namespace {
 // TODO(herhut): Move to shared location.
-static constexpr const char* kCubinAnnotation = "nvvm.cubin";
+static constexpr const char *kCubinAnnotation = "nvvm.cubin";
 
-std::string DumpModuleToString(const llvm::Module& module) {
+std::string DumpModuleToString(const llvm::Module &module) {
   std::string buffer_string;
   llvm::raw_string_ostream ostream(buffer_string);
   module.print(ostream, nullptr);
@@ -88,17 +88,17 @@ std::string DumpModuleToString(const llvm::Module& module) {
   return buffer_string;
 }
 
-static std::vector<std::string> CandidateCudaRoots(
-    const HloModuleConfig& config) {
+static std::vector<std::string>
+CandidateCudaRoots(const HloModuleConfig &config) {
   return tensorflow::CandidateCudaRoots(
       config.debug_options().xla_gpu_cuda_data_dir());
 }
 
-std::string GetLibdeviceDir(const HloModuleConfig& hlo_module_config) {
+std::string GetLibdeviceDir(const HloModuleConfig &hlo_module_config) {
   std::vector<std::string> candidate_cuda_roots =
       CandidateCudaRoots(hlo_module_config);
   candidate_cuda_roots.push_back(tensorflow::CudaRoot());
-  for (const std::string& cuda_root : candidate_cuda_roots) {
+  for (const std::string &cuda_root : candidate_cuda_roots) {
     std::string libdevice_dir =
         tensorflow::io::JoinPath(cuda_root, "nvvm", "libdevice");
     VLOG(2) << "Looking for libdevice at " << libdevice_dir;
@@ -120,19 +120,19 @@ std::string GetLibdeviceDir(const HloModuleConfig& hlo_module_config) {
 /// function body is erased.
 class GpuKernelToCubinPassV2
     : public OperationPass<GpuKernelToCubinPassV2, gpu::GPUModuleOp> {
- public:
+public:
   GpuKernelToCubinPassV2(
       CubinGenerator cubinGenerator = compilePtxToCubinForTesting,
       int cc_major = 7, int cc_minor = 5)
-      : cubinGenerator(cubinGenerator),
-        cc_major_(cc_major),
+      : cubinGenerator(cubinGenerator), cc_major_(cc_major),
         cc_minor_(cc_minor) {}
 
   void runOnOperation() override {
     gpu::GPUModuleOp module = getOperation();
 
     auto llvmModule = translateModuleToNVVMIR(module);
-    if (!llvmModule) return signalPassFailure();
+    if (!llvmModule)
+      return signalPassFailure();
 
     // Set the target triple and the data layout.
     llvmModule->setTargetTriple(kTargetTriple);
@@ -157,41 +157,43 @@ class GpuKernelToCubinPassV2
       signalPassFailure();
   }
 
- private:
-  static OwnedCubin compilePtxToCubinForTesting(const std::string& ptx,
+private:
+  static OwnedCubin compilePtxToCubinForTesting(const std::string &ptx,
                                                 Location, StringRef);
 
   /// Converts llvmModule to cubin using the user-provided generator. Location
   /// is used for error reporting and name is forwarded to the CUBIN generator
   /// to use in its logging mechanisms.
-  OwnedCubin convertPtxToCubin(std::string& ptx, Location loc, StringRef name);
+  OwnedCubin convertPtxToCubin(std::string &ptx, Location loc, StringRef name);
 
   /// Translates llvmModule to cubin and returns the result as attribute.
-  StringAttr translateGPUModuleToCubinAnnotation(std::string& ptx, Location loc,
+  StringAttr translateGPUModuleToCubinAnnotation(std::string &ptx, Location loc,
                                                  StringRef name);
   CubinGenerator cubinGenerator;
   int cc_major_;
   int cc_minor_;
 };
 
-}  // anonymous namespace
+} // anonymous namespace
 
-OwnedCubin GpuKernelToCubinPassV2::compilePtxToCubinForTesting(
-    const std::string& ptx, Location, StringRef) {
+OwnedCubin
+GpuKernelToCubinPassV2::compilePtxToCubinForTesting(const std::string &ptx,
+                                                    Location, StringRef) {
   const char data[] = "CUBIN";
   return std::make_unique<std::vector<char>>(data, data + sizeof(data) - 1);
 }
 
-OwnedCubin GpuKernelToCubinPassV2::convertPtxToCubin(std::string& ptx,
+OwnedCubin GpuKernelToCubinPassV2::convertPtxToCubin(std::string &ptx,
                                                      Location loc,
                                                      StringRef name) {
   return cubinGenerator(ptx, loc, name);
 }
 
 StringAttr GpuKernelToCubinPassV2::translateGPUModuleToCubinAnnotation(
-    std::string& ptx, Location loc, StringRef name) {
+    std::string &ptx, Location loc, StringRef name) {
   auto cubin = convertPtxToCubin(ptx, loc, name);
-  if (!cubin) return {};
+  if (!cubin)
+    return {};
   return StringAttr::get({cubin->data(), cubin->size()}, loc->getContext());
 }
 
@@ -202,9 +204,9 @@ createConvertGPUKernelToCubinV2Pass(CubinGenerator cubinGenerator, int cc_major,
                                                   cc_minor);
 }
 
-static PassRegistration<GpuKernelToCubinPassV2> pass(
-    "test-kernel-to-cubin-v2",
-    "Convert all kernel functions to CUDA cubin blobs, reference to xla");
+static PassRegistration<GpuKernelToCubinPassV2>
+    pass("test-kernel-to-cubin-v2",
+         "Convert all kernel functions to CUDA cubin blobs, reference to xla");
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

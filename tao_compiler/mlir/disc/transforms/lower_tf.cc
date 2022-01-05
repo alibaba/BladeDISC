@@ -13,27 +13,27 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"             // from @llvm-project
-#include "mlir/IR/Attributes.h"                          // from @llvm-project
-#include "mlir/IR/BuiltinOps.h"                          // from @llvm-project
-#include "mlir/IR/BuiltinTypes.h"                        // from @llvm-project
-#include "mlir/IR/MLIRContext.h"                         // from @llvm-project
-#include "mlir/IR/Operation.h"                           // from @llvm-project
-#include "mlir/Pass/Pass.h"                              // from @llvm-project
-#include "mlir/Support/LLVM.h"                           // from @llvm-project
-#include "mlir/Support/LogicalResult.h"                  // from @llvm-project
-#include "mlir/Transforms/DialectConversion.h"           // from @llvm-project
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // from @llvm-project
+#include "mlir/Dialect/StandardOps/IR/Ops.h"            // from @llvm-project
+#include "mlir/IR/Attributes.h"                         // from @llvm-project
+#include "mlir/IR/BuiltinOps.h"                         // from @llvm-project
+#include "mlir/IR/BuiltinTypes.h"                       // from @llvm-project
+#include "mlir/IR/MLIRContext.h"                        // from @llvm-project
+#include "mlir/IR/Operation.h"                          // from @llvm-project
+#include "mlir/Pass/Pass.h"                             // from @llvm-project
+#include "mlir/Support/LLVM.h"                          // from @llvm-project
+#include "mlir/Support/LogicalResult.h"                 // from @llvm-project
+#include "mlir/Transforms/DialectConversion.h"          // from @llvm-project
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h" // from @llvm-project
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/rng_uniform_custom_call_op.h"
 #include "tensorflow/compiler/mlir/disc/IR/topk_custom_call_op.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 
 #define DEBUG_TYPE "disc-lower-tf"
 
@@ -46,7 +46,7 @@ ValueRange PackRandomUniformInputs(Value lb, Value ub, Value shape) {
 }
 
 StringAttr PackRandomUniformBackendConfig(IntegerAttr seed, IntegerAttr seed2,
-                                          PatternRewriter* rewriter) {
+                                          PatternRewriter *rewriter) {
   mhlo_disc::RngUniformBackendConfig config(seed.getValue().getSExtValue(),
                                             seed2.getValue().getSExtValue());
   std::string str;
@@ -60,7 +60,7 @@ struct PrepareTFPass : public DiscLowerTfPassBase<PrepareTFPass> {
   using DiscLowerTfPassBase<PrepareTFPass>::DiscLowerTfPassBase;
 
   // TODO: move to td file
-  void getDependentDialects(DialectRegistry& registry) const override {
+  void getDependentDialects(DialectRegistry &registry) const override {
     registry.insert<mhlo::MhloDialect>();
     registry.insert<mhlo_disc::MhloDiscDialect>();
   }
@@ -72,10 +72,10 @@ struct PrepareTFPass : public DiscLowerTfPassBase<PrepareTFPass> {
 // SqueezeOp with empty squeeze_dims is a dynamic rank op and will not be
 // supported
 class ConvertSqueezeOpDynamic : public OpRewritePattern<TF::SqueezeOp> {
- public:
+public:
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(TF::SqueezeOp op,
-                                PatternRewriter& rewriter) const final {
+                                PatternRewriter &rewriter) const final {
     auto result_ty = op.getType().template dyn_cast<RankedTensorType>();
     if (result_ty.hasStaticShape()) {
       rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(op, op.getType(),
@@ -123,10 +123,10 @@ class ConvertSqueezeOpDynamic : public OpRewritePattern<TF::SqueezeOp> {
 
 // Converts a tf.TopKV2Op to topk custom_call
 class ConvertTopKV2OpDynamic : public OpRewritePattern<TF::TopKV2Op> {
- public:
+public:
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(TF::TopKV2Op op,
-                                PatternRewriter& rewriter) const final {
+                                PatternRewriter &rewriter) const final {
     auto k_type = op.k().getType().dyn_cast<RankedTensorType>();
     if (!k_type || (k_type.getElementType() != rewriter.getIntegerType(32)) ||
         (k_type.getRank() != 0)) {
@@ -178,10 +178,10 @@ class ConvertTopKV2OpDynamic : public OpRewritePattern<TF::TopKV2Op> {
 
 // Convert a tf.RandomUniformOp to random_uniform custom_call
 class ConvertUniformOp : public OpRewritePattern<TF::RandomUniformOp> {
- public:
+public:
   using OpRewritePattern::OpRewritePattern;
   LogicalResult matchAndRewrite(TF::RandomUniformOp op,
-                                PatternRewriter& rewriter) const final {
+                                PatternRewriter &rewriter) const final {
     auto loc = op.getLoc();
     Value zero = rewriter.create<mhlo::ConstOp>(
         loc, rewriter.getFloatAttr(op.dtype(), 0.0));
@@ -204,7 +204,7 @@ class ConvertUniformOp : public OpRewritePattern<TF::RandomUniformOp> {
 #include "tensorflow/compiler/mlir/disc/transforms/lower_tf.inc"
 
 void PrepareTFPass::runOnFunction() {
-  MLIRContext* ctx = &getContext();
+  MLIRContext *ctx = &getContext();
   OwningRewritePatternList patterns(ctx);
   auto func = getFunction();
   populateWithGenerated(patterns);
@@ -213,12 +213,12 @@ void PrepareTFPass::runOnFunction() {
   (void)applyPatternsAndFoldGreedily(func, std::move(patterns));
 }
 
-}  // namespace
+} // namespace
 
 // Lower some tf ops before tf2mhlo lowering.
 std::unique_ptr<OperationPass<FuncOp>> createDiscLowerTfPass() {
   return std::make_unique<PrepareTFPass>();
 }
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

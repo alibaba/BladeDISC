@@ -30,7 +30,7 @@ __device__ __inline__ static Itype iceil(const Itype dividend,
 template <typename Dtype, unsigned nthdsPerCTA>
 __launch_bounds__(nthdsPerCTA) __global__
     void batchedSetToLowest(const unsigned batchSize, const unsigned width,
-                            const unsigned stride, Dtype* array) {
+                            const unsigned stride, Dtype *array) {
   for (unsigned b = blockIdx.x; b < batchSize; b += gridDim.x) {
     for (unsigned x = threadIdx.x; x < width; x += nthdsPerCTA) {
       array[b * stride + x] = std::numeric_limits<Dtype>::lowest();
@@ -38,4 +38,4 @@ __launch_bounds__(nthdsPerCTA) __global__
   }
 }
 
-#endif  // DYN_TOP_K_INTERNAL_H_
+#endif // DYN_TOP_K_INTERNAL_H_

@@ -18,35 +18,24 @@ limitations under the License.
 #include <vector>
 
 #include "absl/strings/string_view.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/CodeGen/CommandFlags.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/LegacyPassManager.h"
-#include "llvm/IR/Module.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Host.h"
-#include "llvm/Support/SourceMgr.h"
-#include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Target/TargetMachine.h"
 #include "mlir-hlo/Dialect/mhlo/IR/chlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/disc_ral_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/lhlo_gpu_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/transforms/register_passes.h"
-#include "mlir/ExecutionEngine/OptUtils.h"  // from @llvm-project
+#include "mlir/ExecutionEngine/OptUtils.h" // from @llvm-project
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
-#include "mlir/Parser.h"                 // from @llvm-project
-#include "mlir/Pass/PassManager.h"       // from @llvm-project
-#include "mlir/Support/FileUtilities.h"  // from @llvm-project
+#include "mlir/Parser.h"                // from @llvm-project
+#include "mlir/Pass/PassManager.h"      // from @llvm-project
+#include "mlir/Support/FileUtilities.h" // from @llvm-project
 #include "mlir/Support/MlirOptMain.h"
-#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"  // from @llvm-project
-#include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"  // from @llvm-project
-#include "mlir/Target/LLVMIR/Export.h"  // from @llvm-project
+#include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h" // from @llvm-project
+#include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h" // from @llvm-project
+#include "mlir/Target/LLVMIR/Export.h" // from @llvm-project
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/disc_compiler.h"
@@ -58,6 +47,17 @@ limitations under the License.
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/stream_executor/lib/statusor.h"
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/CodeGen/CommandFlags.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Module.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
 
 #ifndef TAO_CPU_ONLY
 #if TENSORFLOW_USE_ROCM
@@ -88,7 +88,7 @@ llvm::cl::opt<bool> MultiCCSupportDbgPtxOnly(
     llvm::cl::init(false));
 
 static OwningModuleRef parseMLIRInput(StringRef inputFilename,
-                                      MLIRContext* context) {
+                                      MLIRContext *context) {
   // Set up the input file.
   std::string errorMessage;
   auto file = openInputFile(inputFilename, &errorMessage);
@@ -103,18 +103,18 @@ static OwningModuleRef parseMLIRInput(StringRef inputFilename,
 }
 
 #ifndef TAO_CPU_ONLY
-#define RETURN_ON_CUDA_ERROR(expr, msg) \
-  {                                     \
-    auto _cuda_error = (expr);          \
-    if (_cuda_error != CUDA_SUCCESS) {  \
-      llvm::errs() << msg << "\n";      \
-      return 1;                         \
-    }                                   \
+#define RETURN_ON_CUDA_ERROR(expr, msg)                                        \
+  {                                                                            \
+    auto _cuda_error = (expr);                                                 \
+    if (_cuda_error != CUDA_SUCCESS) {                                         \
+      llvm::errs() << msg << "\n";                                             \
+      return 1;                                                                \
+    }                                                                          \
   }
 
 #if TENSORFLOW_USE_ROCM
 
-int InitCuda(GpuDeviceInfo& ctx) {
+int InitCuda(GpuDeviceInfo &ctx) {
   RETURN_ON_CUDA_ERROR(hipInit(0), "hipInit");
   // TODO: cc is not used for DCU for now
   ctx.cc_major = 0;
@@ -124,7 +124,7 @@ int InitCuda(GpuDeviceInfo& ctx) {
 
 #else
 
-int InitCuda(GpuDeviceInfo& ctx) {
+int InitCuda(GpuDeviceInfo &ctx) {
   CUdevice device;
   CUcontext context;
   RETURN_ON_CUDA_ERROR(cuInit(0), "cuInit");
@@ -210,11 +210,11 @@ int RealMain() {
   return 0;
 }
 
-}  // namespace
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace
+} // namespace disc_ral
+} // namespace mlir
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   tensorflow::InitMlir y(&argc, &argv);
   llvm::InitializeNativeTarget();
   llvm::InitializeNativeTargetAsmPrinter();

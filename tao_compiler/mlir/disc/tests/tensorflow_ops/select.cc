@@ -67,4 +67,4 @@ TEST(TFSelectOpTest, ProvidedDataShape2DI64) {
       /*input_vals*/ {{0, 1, 1}, {1, 2, 3}, {4, 5, 6}}));
 }
 
-}  // namespace mlir_test
+} // namespace mlir_test

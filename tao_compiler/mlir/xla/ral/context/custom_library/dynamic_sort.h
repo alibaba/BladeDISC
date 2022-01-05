@@ -20,10 +20,9 @@ using gpuStream_t = cudaStream_t;
 using gpuStream_t = hipStream_t;
 #endif
 
-template <typename T>
-struct LaunchTfTopKFunctor {
-  void operator()(gpuStream_t stream, const T* input, int batch_size,
-                  int length, int k, bool sorted, T* output, int* indices);
+template <typename T> struct LaunchTfTopKFunctor {
+  void operator()(gpuStream_t stream, const T *input, int batch_size,
+                  int length, int k, bool sorted, T *output, int *indices);
 };
 
-#endif  // AI_COMPILER_CUSTOM_LIB_DYN_SORT_H_
+#endif // AI_COMPILER_CUSTOM_LIB_DYN_SORT_H_

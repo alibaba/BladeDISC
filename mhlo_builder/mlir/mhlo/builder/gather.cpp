@@ -19,8 +19,8 @@
 namespace mlir {
 namespace mhlo {
 
-mlir::Value BuildGather(mlir::OpBuilder& builder, const mlir::Location& loc,
-                        const mlir::Value& params, const mlir::Value& indices,
+mlir::Value BuildGather(mlir::OpBuilder &builder, const mlir::Location &loc,
+                        const mlir::Value &params, const mlir::Value &indices,
                         mlir_dim_t axis) {
   auto params_rank_type = GetMilrRankedTensorType(params);
   auto indices_rank_type = GetMilrRankedTensorType(indices);
@@ -83,5 +83,5 @@ mlir::Value BuildGather(mlir::OpBuilder& builder, const mlir::Location& loc,
                                            slice_sizes_tensor, dims_attr)
       .getResult();
 }
-}  // namespace mhlo
-}  // namespace mlir
+} // namespace mhlo
+} // namespace mlir

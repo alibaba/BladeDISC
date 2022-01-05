@@ -22,7 +22,7 @@ __launch_bounds__(nthdsPerCTA) __global__
     void batchedMultiSetsTop2Kernel(const unsigned batchSize,
                                     const unsigned iWidth,
                                     const unsigned oWidth, const unsigned k,
-                                    Dtype* iKey, Dtype* oKey) {
+                                    Dtype *iKey, Dtype *oKey) {
   const unsigned gid = blockIdx.x * nthdsPerCTA + threadIdx.x;
   const unsigned nWarps = (nthdsPerCTA * gridDim.x) >> 5;
   const unsigned wid = gid >> 5;
@@ -85,7 +85,7 @@ __launch_bounds__(nthdsPerCTA) __global__
 template <typename Dtype>
 void batchedMultiSetsTop2Gpu(cudaStream_t stream, const unsigned batchSize,
                              const unsigned iWidth, const unsigned oWidth,
-                             const unsigned k, Dtype* iKey, Dtype* oKey) {
+                             const unsigned k, Dtype *iKey, Dtype *oKey) {
   batchedSetToLowest<Dtype, 128>
       <<<batchSize, 128, 0, stream>>>(batchSize, 2 * k, oWidth, oKey);
   const unsigned totLen = iWidth * batchSize;
@@ -122,4 +122,4 @@ void batchedMultiSetsTop2Gpu(cudaStream_t stream, const unsigned batchSize,
   }
 }
 
-#endif  // DYN_TOP_K_TOP_2_H_
+#endif // DYN_TOP_K_TOP_2_H_

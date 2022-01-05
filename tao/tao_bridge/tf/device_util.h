@@ -39,15 +39,15 @@ class DeviceSet;
 // This helps avoid having to manipulate device names as strings when
 // auto-clustering.
 class DeviceId {
- public:
-  DeviceId(DeviceId&&) = default;
-  DeviceId(const DeviceId&) = default;
-  DeviceId& operator=(const DeviceId&) = default;
+public:
+  DeviceId(DeviceId &&) = default;
+  DeviceId(const DeviceId &) = default;
+  DeviceId &operator=(const DeviceId &) = default;
 
-  bool operator==(const DeviceId& other) const { return id() == other.id(); }
-  bool operator!=(const DeviceId& other) const { return !(*this == other); }
+  bool operator==(const DeviceId &other) const { return id() == other.id(); }
+  bool operator!=(const DeviceId &other) const { return !(*this == other); }
 
- private:
+private:
   int id_;
 
   explicit DeviceId(int id) : id_(id) {}
@@ -60,9 +60,9 @@ class DeviceId {
 
 // A set of DeviceIds, represented as a bitmap.
 class DeviceSet {
- public:
+public:
   void Insert(DeviceId device_id);
-  void UnionWith(const DeviceSet& other);
+  void UnionWith(const DeviceSet &other);
   bool IsEmpty() const;
 
   // Calls `func` on each DeviceId in the set.  Stops iterating early if `func`
@@ -70,8 +70,7 @@ class DeviceSet {
   //
   // TODO(sanjoy): Change this to take a typed std::function if that's
   // performance neutral.
-  template <typename FnTy>
-  void ForEach(FnTy func) const {
+  template <typename FnTy> void ForEach(FnTy func) const {
     // This is really a poor man's iterator, we should consider writing a proper
     // iterator if this ends up being used widely.
     for (size_t word_index = 0; word_index < storage_.size(); word_index++) {
@@ -90,7 +89,7 @@ class DeviceSet {
     }
   }
 
- private:
+private:
   static int ctz_uint64(uint64 x) {
     DCHECK_NE(x, 0);
 #ifdef __GNUC__
@@ -112,7 +111,7 @@ class DeviceSet {
 
 // Caches some miscellaneous information about TF devices.  Thread compatible.
 class DeviceInfoCache {
- public:
+public:
   bool IsGpu(DeviceId device) const { return is_gpu_[device.id()]; }
   bool IsCpu(DeviceId device) const { return is_cpu_[device.id()]; }
 
@@ -124,36 +123,36 @@ class DeviceInfoCache {
 
   using DeviceRegistration = const XlaOpRegistry::DeviceRegistration;
 
-  DeviceRegistration* GetCompilationDevice(DeviceId device) const {
+  DeviceRegistration *GetCompilationDevice(DeviceId device) const {
     return id_to_compilation_device_[device.id()];
   }
 
-  xla::tao::StatusOr<DeviceRegistration*> GetCompilationDevice(
-      absl::string_view name) {
+  xla::tao::StatusOr<DeviceRegistration *>
+  GetCompilationDevice(absl::string_view name) {
     TF_ASSIGN_OR_RETURN(DeviceId device_id, GetIdFor(name));
     return GetCompilationDevice(device_id);
   }
 
-  const DeviceType& GetDeviceTypeFor(DeviceId device) const {
+  const DeviceType &GetDeviceTypeFor(DeviceId device) const {
     return *id_to_device_type_[device.id()];
   }
 
   using DeviceTypeConstRef = std::reference_wrapper<const DeviceType>;
 
-  xla::tao::StatusOr<DeviceTypeConstRef> GetDeviceTypeFor(
-      absl::string_view device_name) {
+  xla::tao::StatusOr<DeviceTypeConstRef>
+  GetDeviceTypeFor(absl::string_view device_name) {
     TF_ASSIGN_OR_RETURN(DeviceId device_id, GetIdFor(device_name));
     return std::cref(*id_to_device_type_[device_id.id()]);
   }
 
-  string DebugString(const DeviceSet& device_set) const;
+  string DebugString(const DeviceSet &device_set) const;
 
- private:
+private:
   std::unordered_map<string, DeviceId> name_to_id_;
 
   // These fields are populated for a device in GetIdFor, *before* we give out a
   // DeviceId.
-  std::vector<const XlaOpRegistry::DeviceRegistration*>
+  std::vector<const XlaOpRegistry::DeviceRegistration *>
       id_to_compilation_device_;
   std::vector<std::unique_ptr<DeviceType>> id_to_device_type_;
   std::vector<string> names_;
@@ -161,10 +160,10 @@ class DeviceInfoCache {
   std::vector<bool> is_gpu_;
 };
 
-}  // namespace jit
+} // namespace jit
 
 // Returns the DeviceType corresponding to 'device'.
-Status DeviceNameToDeviceType(const string& device, DeviceType* device_type);
+Status DeviceNameToDeviceType(const string &device, DeviceType *device_type);
 
 // Picks the device for which XLA should compile a cluster that contains
 // operations placed in devices in `devices`.  For instance a cluster that
@@ -200,21 +199,23 @@ Status DeviceNameToDeviceType(const string& device, DeviceType* device_type);
 //   case it is the responsibility of the optimization pass that injected the
 //   CPU nodes into the cluster to ensure that these nodes can be compiled by
 //   the unknown XLA backend.
-xla::tao::StatusOr<jit::DeviceId> PickDeviceForXla(
-    const jit::DeviceInfoCache& device_info_cache,
-    const jit::DeviceSet& devices, bool allow_mixing_unknown_and_cpu,
-    bool allow_mixing_gpu_and_cpu = false);
+xla::tao::StatusOr<jit::DeviceId>
+PickDeviceForXla(const jit::DeviceInfoCache &device_info_cache,
+                 const jit::DeviceSet &devices,
+                 bool allow_mixing_unknown_and_cpu,
+                 bool allow_mixing_gpu_and_cpu = false);
 
 // This is like `PickDeviceForXla` except that it returns nullopt (instead of a
 // non-OK Status) if no unambiguous choice of device exists.
 //
 // We return a failing Status for errors unrelated to the device choice
 // algorithm itself.
-xla::tao::StatusOr<absl::optional<jit::DeviceId>> MaybePickDeviceForXla(
-    const jit::DeviceInfoCache& device_info_cache,
-    const jit::DeviceSet& devices, bool allow_mixing_unknown_and_cpu,
-    bool allow_mixing_gpu_and_cpu = false);
-}  // namespace tao
-}  // namespace tensorflow
+xla::tao::StatusOr<absl::optional<jit::DeviceId>>
+MaybePickDeviceForXla(const jit::DeviceInfoCache &device_info_cache,
+                      const jit::DeviceSet &devices,
+                      bool allow_mixing_unknown_and_cpu,
+                      bool allow_mixing_gpu_and_cpu = false);
+} // namespace tao
+} // namespace tensorflow
 
-#endif  // TENSORFLOW_COMPILER_JIT_DEVICE_INFO_CACHE_H_
+#endif // TENSORFLOW_COMPILER_JIT_DEVICE_INFO_CACHE_H_

@@ -25,7 +25,8 @@ bool IsSmallBuffer(Value alloc) {
   constexpr unsigned kBitwidthOfIndexType = 64;
 
   auto type = alloc.getType().dyn_cast<ShapedType>();
-  if (!type || !type.hasStaticShape()) return false;
+  if (!type || !type.hasStaticShape())
+    return false;
 
   // For index types, use the provided size, as the type does not know.
   unsigned int bitwidth = type.getElementType().isIndex()
@@ -35,7 +36,8 @@ bool IsSmallBuffer(Value alloc) {
 }
 
 bool IsSmallCpuBuffer(Value alloc) {
-  if (placement_utils::isGpuMemRef(alloc)) return false;
+  if (placement_utils::isGpuMemRef(alloc))
+    return false;
   return IsSmallBuffer(alloc);
 }
 
@@ -43,5 +45,5 @@ bool IsSmallCpuAlloc(Value alloc) {
   return IsSmallCpuBuffer(alloc) && alloc.getDefiningOp<memref::AllocOp>();
 }
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

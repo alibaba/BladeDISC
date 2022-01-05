@@ -48,7 +48,7 @@ struct GemmTuningCacheKey {
   bool lhs_transpose;
   bool rhs_transpose;
   bool o_transpose;
-  bool operator<(const GemmTuningCacheKey& other) const {
+  bool operator<(const GemmTuningCacheKey &other) const {
     if (m != other.m) {
       return (m < other.m);
     } else if (n != other.n) {
@@ -90,11 +90,10 @@ struct MatrixDescriptor {
 };
 
 template <typename Element>
-inline MatrixDescriptor makeMatrixDescriptor(ExecutionContext* ctx,
-                                             Element* data, int64_t size0,
-                                             int64_t size1, bool transpose,
-                                             int64_t batch = 1) {
-  se::DeviceMemoryBase device_memory((void*)data,
+inline MatrixDescriptor
+makeMatrixDescriptor(ExecutionContext *ctx, Element *data, int64_t size0,
+                     int64_t size1, bool transpose, int64_t batch = 1) {
+  se::DeviceMemoryBase device_memory((void *)data,
                                      size0 * size1 * sizeof(Element));
   int64_t num_rows = size0;
   int64_t num_cols = size1;
@@ -107,8 +106,7 @@ inline se::blas::ComputationType NativeTypeToBlasType() {
   return se::blas::ComputationType::kF32;
 }
 
-template <>
-inline se::blas::ComputationType NativeTypeToBlasType<float>() {
+template <> inline se::blas::ComputationType NativeTypeToBlasType<float>() {
   return se::blas::ComputationType::kF32;
 }
 
@@ -119,30 +117,28 @@ inline se::blas::ComputationType NativeTypeToBlasType<Eigen::half>() {
   return se::blas::ComputationType::kF32;
 }
 
-template <>
-inline se::blas::ComputationType NativeTypeToBlasType<double>() {
+template <> inline se::blas::ComputationType NativeTypeToBlasType<double>() {
   return se::blas::ComputationType::kF64;
 }
 
 // The template was introduced, because not all instantiation of
 // DoGemmWithAlgorithm template arguments was support by ThenBlasGemv.
 template <typename InT, typename OutT, typename AlphaBeta>
-inline bool TrySgemvInternal(se::Stream* stream, se::blas::Transpose trans,
-                             uint64 m, uint64 n, AlphaBeta alpha,
-                             const se::DeviceMemory<InT>& a, int lda,
-                             const se::DeviceMemory<InT>& x, int incx,
-                             AlphaBeta beta, se::DeviceMemory<OutT>* y,
-                             int incy) {
+inline bool
+TrySgemvInternal(se::Stream *stream, se::blas::Transpose trans, uint64 m,
+                 uint64 n, AlphaBeta alpha, const se::DeviceMemory<InT> &a,
+                 int lda, const se::DeviceMemory<InT> &x, int incx,
+                 AlphaBeta beta, se::DeviceMemory<OutT> *y, int incy) {
   return true;
 }
 
 // Currently, we only support instantiation <float, float, float>
 template <>
 inline bool TrySgemvInternal<float, float, float>(
-    se::Stream* stream, se::blas::Transpose trans, uint64 m, uint64 n,
-    float alpha, const se::DeviceMemory<float>& a, int lda,
-    const se::DeviceMemory<float>& x, int incx, float beta,
-    se::DeviceMemory<float>* y, int incy) {
+    se::Stream *stream, se::blas::Transpose trans, uint64 m, uint64 n,
+    float alpha, const se::DeviceMemory<float> &a, int lda,
+    const se::DeviceMemory<float> &x, int incx, float beta,
+    se::DeviceMemory<float> *y, int incy) {
   return stream
       ->ThenBlasGemv(trans, m, n,
                      /*alpha=*/alpha, a,
@@ -152,12 +148,12 @@ inline bool TrySgemvInternal<float, float, float>(
 }
 
 template <typename InT, typename OutT, typename AlphaBeta>
-static bool DoGemmWithAlgorithm(
-    int64_t batch_size, MatrixDescriptor lhs_matrix,
-    MatrixDescriptor rhs_matrix, MatrixDescriptor output_matrix,
-    AlphaBeta alpha, AlphaBeta beta, se::Stream* stream,
-    absl::optional<se::blas::AlgorithmType> algorithm,
-    se::blas::ProfileResult* output_profile_result) {
+static bool
+DoGemmWithAlgorithm(int64_t batch_size, MatrixDescriptor lhs_matrix,
+                    MatrixDescriptor rhs_matrix, MatrixDescriptor output_matrix,
+                    AlphaBeta alpha, AlphaBeta beta, se::Stream *stream,
+                    absl::optional<se::blas::AlgorithmType> algorithm,
+                    se::blas::ProfileResult *output_profile_result) {
   DCHECK(!output_matrix.transpose);
 
   se::blas::ComputationType computation_type = NativeTypeToBlasType<OutT>();
@@ -230,10 +226,9 @@ static bool DoGemmWithAlgorithm(
 // gemm_algorithm_pick also implemented correctness check, which
 // is omitted for simplicity
 template <typename InT, typename OutT, typename AlphaBeta>
-se::blas::AlgorithmType tuningGemm(se::Stream* stream,
-                                   MatrixDescriptor lhs_matrix,
-                                   MatrixDescriptor rhs_matrix,
-                                   MatrixDescriptor output_matrix) {
+se::blas::AlgorithmType
+tuningGemm(se::Stream *stream, MatrixDescriptor lhs_matrix,
+           MatrixDescriptor rhs_matrix, MatrixDescriptor output_matrix) {
   std::vector<se::blas::AlgorithmType> algorithms;
   CHECK(stream->parent()->GetBlasGemmAlgorithms(&algorithms));
   float best_time = std::numeric_limits<float>::infinity();
@@ -268,7 +263,7 @@ struct RalGemmState : public Context::Resource {
 };
 
 template <typename InT, typename OutT, typename E = float>
-void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
+void ral_gemm(ExecutionContext *ctx, void *stream_handle, MemRefType<InT, 2> A,
               MemRefType<InT, 2> B, MemRefType<OutT, 2> C, bool tp_a,
               bool tp_b) {
   if (isEmptyMemref(A) || isEmptyMemref(B) || isEmptyMemref(C)) {
@@ -303,7 +298,7 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
 
   auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
   auto stream =
-      static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
+      static_cast<se::Stream *>(gpu_driver->asSEStream(ctx, stream_handle));
 
   bool disable_tune = true;
   tensorflow::ReadBoolFromEnvVar("TAO_DISABLE_CUDA_GEMM_TUNE", true,
@@ -342,8 +337,7 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
   }
 }
 
-template <typename T, int N>
-int64_t GetBatchSize(MemRefType<T, N> memref) {
+template <typename T, int N> int64_t GetBatchSize(MemRefType<T, N> memref) {
   int64_t batch = 1;
   for (int64_t i = 0; i < N - 2; ++i) {
     batch *= memref.sizes[i];
@@ -352,7 +346,7 @@ int64_t GetBatchSize(MemRefType<T, N> memref) {
 }
 
 template <typename InT, typename OutT, int N, typename E = float>
-void ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
+void ral_batch_gemm(ExecutionContext *ctx, void *stream_handle,
                     MemRefType<InT, N> A, MemRefType<InT, N> B,
                     MemRefType<OutT, N> C, bool tp_a, bool tp_b) {
   if (isEmptyMemref(A) || isEmptyMemref(B) || isEmptyMemref(C)) {
@@ -393,7 +387,7 @@ void ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
 
   auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
   auto stream =
-      static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
+      static_cast<se::Stream *>(gpu_driver->asSEStream(ctx, stream_handle));
 
   // Batch gemm does not support tuning ATM.
   absl::optional<se::blas::AlgorithmType> algo;
@@ -425,7 +419,7 @@ se::DeviceMemoryBase GetDeviceAddress(MemRefType<T, N> in) {
   for (int i = 0; i < N; ++i) {
     bytes *= in.sizes[i];
   }
-  return se::DeviceMemoryBase(reinterpret_cast<char*>(in.data), bytes);
+  return se::DeviceMemoryBase(reinterpret_cast<char *>(in.data), bytes);
 }
 
 using se::DeviceMemory;
@@ -461,11 +455,12 @@ class ScratchAllocator;
 #if TENSORFLOW_USE_ROCM
 
 template <typename T>
-std::vector<ProfileResult> GetMIOpenAlgorithms(
-    ExecutionContext* ctx, CudnnConvParams& params,
-    se::StreamExecutor* stream_exec, se::Stream* stream,
-    std::vector<se::DeviceMemoryBase> operand_buffers,
-    se::DeviceMemoryBase result_buffer, ScratchAllocator* scratch_allocator) {
+std::vector<ProfileResult>
+GetMIOpenAlgorithms(ExecutionContext *ctx, CudnnConvParams &params,
+                    se::StreamExecutor *stream_exec, se::Stream *stream,
+                    std::vector<se::DeviceMemoryBase> operand_buffers,
+                    se::DeviceMemoryBase result_buffer,
+                    ScratchAllocator *scratch_allocator) {
   std::vector<ProfileResult> algorithms;
   if (!stream_exec->GetMIOpenConvolveAlgorithms(
           params.kind, se::dnn::ToDataType<T>::value, stream,
@@ -480,43 +475,42 @@ std::vector<ProfileResult> GetMIOpenAlgorithms(
 #else
 
 std::vector<AlgorithmDesc> GetAlgorithms(ConvolutionKind kind,
-                                         se::StreamExecutor* stream_exec) {
+                                         se::StreamExecutor *stream_exec) {
   std::vector<AlgorithmDesc> algorithms;
   bool succ = false;
 #if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 6) || TF_MAJOR_VERSION > 2
   // TF2.6 later
   switch (kind) {
-    case ConvolutionKind::BACKWARD_FILTER:
-      succ = stream_exec->GetConvolveBackwardFilterAlgorithms(&algorithms);
-      break;
-    case ConvolutionKind::BACKWARD_DATA:
-      succ = stream_exec->GetConvolveBackwardDataAlgorithms(&algorithms);
-      break;
-    case ConvolutionKind::FORWARD:
-    case ConvolutionKind::FORWARD_BIAS_ACTIVATION:
-      succ = stream_exec->GetConvolveAlgorithms(&algorithms);
-      break;
+  case ConvolutionKind::BACKWARD_FILTER:
+    succ = stream_exec->GetConvolveBackwardFilterAlgorithms(&algorithms);
+    break;
+  case ConvolutionKind::BACKWARD_DATA:
+    succ = stream_exec->GetConvolveBackwardDataAlgorithms(&algorithms);
+    break;
+  case ConvolutionKind::FORWARD:
+  case ConvolutionKind::FORWARD_BIAS_ACTIVATION:
+    succ = stream_exec->GetConvolveAlgorithms(&algorithms);
+    break;
   }
 #else
   // TF2.4 TF1.12, TF1.15
   switch (kind) {
-    case ConvolutionKind::BACKWARD_FILTER:
-      succ =
-          stream_exec->GetConvolveBackwardFilterAlgorithms(true, &algorithms);
-      break;
-    case ConvolutionKind::BACKWARD_DATA:
-      succ = stream_exec->GetConvolveBackwardDataAlgorithms(true, &algorithms);
-      break;
-    case ConvolutionKind::FORWARD:
-    case ConvolutionKind::FORWARD_BIAS_ACTIVATION:
-      succ = stream_exec->GetConvolveAlgorithms(true, &algorithms);
-      break;
+  case ConvolutionKind::BACKWARD_FILTER:
+    succ = stream_exec->GetConvolveBackwardFilterAlgorithms(true, &algorithms);
+    break;
+  case ConvolutionKind::BACKWARD_DATA:
+    succ = stream_exec->GetConvolveBackwardDataAlgorithms(true, &algorithms);
+    break;
+  case ConvolutionKind::FORWARD:
+  case ConvolutionKind::FORWARD_BIAS_ACTIVATION:
+    succ = stream_exec->GetConvolveAlgorithms(true, &algorithms);
+    break;
   }
 #endif
   return algorithms;
 }
 
-#endif  // TENSORFLOW_USE_ROCM
+#endif // TENSORFLOW_USE_ROCM
 
 struct CudnnConvParamsKey {
   std::vector<int64_t> input_shape;
@@ -528,7 +522,7 @@ struct CudnnConvParamsKey {
 };
 
 struct CudnnConvParamsKeyHasher {
-  std::size_t operator()(const CudnnConvParamsKey& k) const {
+  std::size_t operator()(const CudnnConvParamsKey &k) const {
     auto h = std::hash<int>()(0);
     for (auto vec : {&k.input_shape, &k.filter_shape, &k.paddings,
                      &k.output_shape, &k.metadata}) {
@@ -542,8 +536,8 @@ struct CudnnConvParamsKeyHasher {
 };
 
 struct CudnnConvParamsKeyEqual {
-  bool operator()(const CudnnConvParamsKey& lhs,
-                  const CudnnConvParamsKey& rhs) const {
+  bool operator()(const CudnnConvParamsKey &lhs,
+                  const CudnnConvParamsKey &rhs) const {
     return (
         lhs.input_shape == rhs.input_shape &&
         lhs.filter_shape == rhs.filter_shape && lhs.paddings == rhs.paddings &&
@@ -579,8 +573,8 @@ struct CudnnConvParams {
 // process-level states, using to store the conv tuning result.
 // Not using a context-level state to reduce peak memory consumption.
 struct RalConvState {
-  static RalConvState& Get() {
-    static RalConvState* state = new RalConvState;
+  static RalConvState &Get() {
+    static RalConvState *state = new RalConvState;
     return *state;
   }
   // used to protect conv tuning process
@@ -594,11 +588,11 @@ struct RalConvState {
 };
 
 template <typename T, int N>
-CudnnConvParamsKey makeConvTuningCacheKey(MemRefType<T, N>& input,
-                                          MemRefType<T, N>& filter,
-                                          MemRefType<int32_t, 1>& paddings,
-                                          MemRefType<T, N>& output,
-                                          MemRefType<int32_t, 1>& metadata) {
+CudnnConvParamsKey makeConvTuningCacheKey(MemRefType<T, N> &input,
+                                          MemRefType<T, N> &filter,
+                                          MemRefType<int32_t, 1> &paddings,
+                                          MemRefType<T, N> &output,
+                                          MemRefType<int32_t, 1> &metadata) {
   CudnnConvParamsKey key;
   key.input_shape.reserve(N);
   key.filter_shape.reserve(N);
@@ -619,59 +613,60 @@ CudnnConvParamsKey makeConvTuningCacheKey(MemRefType<T, N>& input,
   return key;
 }
 
-std::unique_ptr<std::vector<int64_t>> StreamExecutorConvLayoutsToMetadata(
-    DataLayout input, FilterLayout filter, DataLayout output) {
+std::unique_ptr<std::vector<int64_t>>
+StreamExecutorConvLayoutsToMetadata(DataLayout input, FilterLayout filter,
+                                    DataLayout output) {
   std::unique_ptr<std::vector<int64_t>> layouts_ptr{new std::vector<int64_t>};
-  auto& layouts = *layouts_ptr;
+  auto &layouts = *layouts_ptr;
   switch (input) {
-    case DataLayout::kBatchDepthYX:
-      layouts.push_back(0);
-      layouts.push_back(1);
-      layouts.push_back(2);
-      layouts.push_back(3);
-      break;
-    case DataLayout::kBatchYXDepth:
-      layouts.push_back(0);
-      layouts.push_back(3);
-      layouts.push_back(1);
-      layouts.push_back(2);
-      break;
-    default:
-      return nullptr;
+  case DataLayout::kBatchDepthYX:
+    layouts.push_back(0);
+    layouts.push_back(1);
+    layouts.push_back(2);
+    layouts.push_back(3);
+    break;
+  case DataLayout::kBatchYXDepth:
+    layouts.push_back(0);
+    layouts.push_back(3);
+    layouts.push_back(1);
+    layouts.push_back(2);
+    break;
+  default:
+    return nullptr;
   }
 
   switch (filter) {
-    case FilterLayout::kOutputInputYX:
-      layouts.push_back(1);
-      layouts.push_back(0);
-      layouts.push_back(2);
-      layouts.push_back(3);
-      break;
-    case FilterLayout::kOutputYXInput:
-      layouts.push_back(3);
-      layouts.push_back(0);
-      layouts.push_back(1);
-      layouts.push_back(2);
-      break;
-    default:
-      return nullptr;
+  case FilterLayout::kOutputInputYX:
+    layouts.push_back(1);
+    layouts.push_back(0);
+    layouts.push_back(2);
+    layouts.push_back(3);
+    break;
+  case FilterLayout::kOutputYXInput:
+    layouts.push_back(3);
+    layouts.push_back(0);
+    layouts.push_back(1);
+    layouts.push_back(2);
+    break;
+  default:
+    return nullptr;
   }
 
   switch (output) {
-    case DataLayout::kBatchDepthYX:
-      layouts.push_back(0);
-      layouts.push_back(1);
-      layouts.push_back(2);
-      layouts.push_back(3);
-      break;
-    case DataLayout::kBatchYXDepth:
-      layouts.push_back(0);
-      layouts.push_back(3);
-      layouts.push_back(1);
-      layouts.push_back(2);
-      break;
-    default:
-      return nullptr;
+  case DataLayout::kBatchDepthYX:
+    layouts.push_back(0);
+    layouts.push_back(1);
+    layouts.push_back(2);
+    layouts.push_back(3);
+    break;
+  case DataLayout::kBatchYXDepth:
+    layouts.push_back(0);
+    layouts.push_back(3);
+    layouts.push_back(1);
+    layouts.push_back(2);
+    break;
+  default:
+    return nullptr;
   }
 
   return std::move(layouts_ptr);
@@ -683,7 +678,7 @@ struct Layouts {
   DataLayout output_dl;
   std::vector<int64_t> metadata;
 
-  bool Match(const std::vector<int64_t>& metadata) {
+  bool Match(const std::vector<int64_t> &metadata) {
     if (metadata.size() < this->metadata.size()) {
       return false;
     }
@@ -737,11 +732,11 @@ std::vector<Layouts> initSupportedLayouts() {
   return layouts;
 }
 
-Layouts* getLayout(const CudnnConvParamsKey& key) {
+Layouts *getLayout(const CudnnConvParamsKey &key) {
   static std::vector<Layouts> supported_layouts = initSupportedLayouts();
 
-  Layouts* layouts = nullptr;
-  for (auto& l : supported_layouts) {
+  Layouts *layouts = nullptr;
+  for (auto &l : supported_layouts) {
     if (l.Match(key.metadata)) {
       layouts = &l;
       break;
@@ -750,8 +745,8 @@ Layouts* getLayout(const CudnnConvParamsKey& key) {
   return layouts;
 }
 
-void FillStridesAndDilation(CudnnConvParams& params,
-                            const CudnnConvParamsKey& key) {
+void FillStridesAndDilation(CudnnConvParams &params,
+                            const CudnnConvParamsKey &key) {
   // Metadata:
   //   - input layput: each field for one dimension. The order is:
   //     * batch, channel, spatial dimensions
@@ -777,7 +772,7 @@ void FillStridesAndDilation(CudnnConvParams& params,
   }
 }
 
-void FillDescriptors(CudnnConvParams& params) {
+void FillDescriptors(CudnnConvParams &params) {
   // rank of input/output/filter
   const int rank = static_cast<int>(params.input_shape.size());
   // # of spatial dimensions
@@ -790,13 +785,13 @@ void FillDescriptors(CudnnConvParams& params) {
   const int effective_num_dimensions = std::max(2, num_dimensions);
 
   int offset = 0;
-  auto& m = params.metadata;
-  auto& input_shape = params.input_shape;
-  auto& filter_shape = params.filter_shape;
-  auto& output_shape = params.output_shape;
-  auto& paddings = params.paddings;
-  auto& window_strides = params.window_strides;
-  auto& dilations = params.rhs_dilations;
+  auto &m = params.metadata;
+  auto &input_shape = params.input_shape;
+  auto &filter_shape = params.filter_shape;
+  auto &output_shape = params.output_shape;
+  auto &paddings = params.paddings;
+  auto &window_strides = params.window_strides;
+  auto &dilations = params.rhs_dilations;
 
   if (TAO_VLOG_IS_ON(2)) {
     TAO_VLOG(0) << "CudnnConvParams:\n"
@@ -904,10 +899,10 @@ void FillDescriptors(CudnnConvParams& params) {
   }
 }
 
-std::unique_ptr<CudnnConvParams> makeNewConvParams(
-    const CudnnConvParamsKey& key) {
+std::unique_ptr<CudnnConvParams>
+makeNewConvParams(const CudnnConvParamsKey &key) {
   std::unique_ptr<CudnnConvParams> params_ptr(new CudnnConvParams);
-  auto& params = *params_ptr;
+  auto &params = *params_ptr;
 
   auto layouts = getLayout(key);
   if (!layouts) {
@@ -937,41 +932,41 @@ std::unique_ptr<CudnnConvParams> makeNewConvParams(
 
 struct ScopedBuffer {
   ScopedBuffer() = default;
-  ScopedBuffer(ExecutionContext* ctx, GPUDriver* gpu_driver, void* ptr)
+  ScopedBuffer(ExecutionContext *ctx, GPUDriver *gpu_driver, void *ptr)
       : ctx_(ctx), gpu_driver_(gpu_driver), ptr_(ptr) {}
   ~ScopedBuffer() { gpu_driver_->dealloc(ctx_, ptr_); }
-  ExecutionContext* ctx_;
-  GPUDriver* gpu_driver_;
-  void* ptr_;
+  ExecutionContext *ctx_;
+  GPUDriver *gpu_driver_;
+  void *ptr_;
 };
 
 class ScratchAllocator : public se::ScratchAllocator {
- public:
-  ScratchAllocator(ExecutionContext* ctx, GPUDriver* gpu_driver)
+public:
+  ScratchAllocator(ExecutionContext *ctx, GPUDriver *gpu_driver)
       : ctx_(ctx), gpu_driver_(gpu_driver) {}
 
 #if defined(TF_1_12) || defined(TF_1_14)
-  int64 GetMemoryLimitInBytes(se::Stream* stream) override {
+  int64 GetMemoryLimitInBytes(se::Stream *stream) override {
     return GetMemoryLimitInBytesImpl();
   }
 
-  se::port::StatusOr<se::DeviceMemory<uint8>> AllocateBytes(
-      se::Stream* stream, int64 byte_size) override {
+  se::port::StatusOr<se::DeviceMemory<uint8>>
+  AllocateBytes(se::Stream *stream, int64 byte_size) override {
     return AllocateBytesImpl(byte_size);
   }
 #else
   int64 GetMemoryLimitInBytes() override { return GetMemoryLimitInBytesImpl(); }
 
-  se::port::StatusOr<se::DeviceMemory<uint8>> AllocateBytes(
-      int64 byte_size) override {
+  se::port::StatusOr<se::DeviceMemory<uint8>>
+  AllocateBytes(int64 byte_size) override {
     return AllocateBytesImpl(byte_size);
   }
 #endif
   int64 TotalAllocatedBytes() { return total_allocated_bytes_; }
 
- private:
-  se::port::StatusOr<se::DeviceMemory<uint8>> AllocateBytesImpl(
-      int64 byte_size);
+private:
+  se::port::StatusOr<se::DeviceMemory<uint8>>
+  AllocateBytesImpl(int64 byte_size);
   // BFCAllocator is not exposed for the decoupled compiler.
   // Thus we don't have a "try allocate" mechanism in TaoBridge as in TF,
   // the host will crash once the amount of scratch memory tried to be
@@ -979,25 +974,25 @@ class ScratchAllocator : public se::ScratchAllocator {
   // TODO: For now we just set a small threshold to ease this problem.
   // Revisit this for the performance degrade in more models.
   int64 GetMemoryLimitInBytesImpl() {
-    return 1LL << 28;  // 256M.
+    return 1LL << 28; // 256M.
   }
 
- private:
-  ExecutionContext* ctx_;
-  GPUDriver* gpu_driver_;
+private:
+  ExecutionContext *ctx_;
+  GPUDriver *gpu_driver_;
   std::vector<std::unique_ptr<ScopedBuffer>> allocated_buffers_;
   int64 total_allocated_bytes_ = 0;
 };
 
-se::port::StatusOr<se::DeviceMemory<uint8>> ScratchAllocator::AllocateBytesImpl(
-    int64 byte_size) {
+se::port::StatusOr<se::DeviceMemory<uint8>>
+ScratchAllocator::AllocateBytesImpl(int64 byte_size) {
   CHECK_GE(byte_size, 0) << "byte_size must be positive.";
   if (byte_size > GetMemoryLimitInBytesImpl()) {
     return errors::Internal("Allocating buffer exceeds the memory limit");
   }
 
   TAO_VLOG(2) << "AllocateBytesImpl bytes: " << byte_size;
-  void* ptr = gpu_driver_->alloc(ctx_, byte_size);
+  void *ptr = gpu_driver_->alloc(ctx_, byte_size);
 
   if (!ptr) {
     TAO_VLOG(2) << "AllocateBytesImpl failed: OOM with bytes = " << byte_size;
@@ -1011,20 +1006,20 @@ se::port::StatusOr<se::DeviceMemory<uint8>> ScratchAllocator::AllocateBytesImpl(
 }
 
 template <typename T>
-Status RunCudnnConvolution(CudnnConvParams& params,
-                           std::vector<se::DeviceMemoryBase>& operand_buffers,
-                           se::DeviceMemoryBase& result_buffer,
-                           se::ScratchAllocator* scratch_allocator,
-                           se::Stream* stream,
-                           se::dnn::ProfileResult* profile_result) {
+Status RunCudnnConvolution(CudnnConvParams &params,
+                           std::vector<se::DeviceMemoryBase> &operand_buffers,
+                           se::DeviceMemoryBase &result_buffer,
+                           se::ScratchAllocator *scratch_allocator,
+                           se::Stream *stream,
+                           se::dnn::ProfileResult *profile_result) {
   ConvolutionKind kind = params.kind;
   DeviceMemory<T> input_buf(operand_buffers[0]);
   DeviceMemory<T> filter_buf(operand_buffers[1]);
   DeviceMemory<T> output_buf(result_buffer);
-  auto& input_descriptor = params.input_descriptor;
-  auto& filter_descriptor = params.filter_descriptor;
-  auto& convolution_descriptor = params.convolution_descriptor;
-  auto& output_descriptor = params.output_descriptor;
+  auto &input_descriptor = params.input_descriptor;
+  auto &filter_descriptor = params.filter_descriptor;
+  auto &convolution_descriptor = params.convolution_descriptor;
+  auto &output_descriptor = params.output_descriptor;
   AlgorithmConfig algorithm{
       AlgorithmDesc(params.algo_id, params.tensor_ops_enabled)};
 #if TENSORFLOW_USE_ROCM
@@ -1055,20 +1050,20 @@ Status RunCudnnConvolution(CudnnConvParams& params,
   }
 
   switch (kind) {
-    case ConvolutionKind::FORWARD:
+  case ConvolutionKind::FORWARD:
 #if TF_MAJOR_VERSION > 1
-      // TF2.4
-      stream->ConvolveWithAlgorithm(
+    // TF2.4
+    stream->ConvolveWithAlgorithm(
 #else
-      // TF1.12, TF1.15
-      stream->ThenConvolveWithAlgorithm(
+    // TF1.12, TF1.15
+    stream->ThenConvolveWithAlgorithm(
 #endif
-          input_descriptor, input_buf, filter_descriptor, filter_buf,
-          convolution_descriptor, output_descriptor, &output_buf,
-          scratch_allocator, algorithm, profile_result);
-      break;
-    default:
-      return errors::Internal("Not known CudnnConvKind");
+        input_descriptor, input_buf, filter_descriptor, filter_buf,
+        convolution_descriptor, output_descriptor, &output_buf,
+        scratch_allocator, algorithm, profile_result);
+    break;
+  default:
+    return errors::Internal("Not known CudnnConvKind");
   }
 
   if (!stream->ok()) {
@@ -1078,10 +1073,10 @@ Status RunCudnnConvolution(CudnnConvParams& params,
 }
 
 template <typename T>
-bool PickBestAlgorithm(CudnnConvParams& params,
-                       std::vector<se::DeviceMemoryBase>& operand_buffers,
-                       se::DeviceMemoryBase result_buffer, se::Stream* stream,
-                       ExecutionContext* ctx, GPUDriver* gpu_driver) {
+bool PickBestAlgorithm(CudnnConvParams &params,
+                       std::vector<se::DeviceMemoryBase> &operand_buffers,
+                       se::DeviceMemoryBase result_buffer, se::Stream *stream,
+                       ExecutionContext *ctx, GPUDriver *gpu_driver) {
   auto stream_exec = stream->parent();
 
   // exclusive tuning.
@@ -1102,13 +1097,13 @@ bool PickBestAlgorithm(CudnnConvParams& params,
   // this algorithm considered correct, though.
   ScratchAllocator scratch_allocator(ctx, gpu_driver);
 #if TENSORFLOW_USE_ROCM
-  for (se::dnn::ProfileResult& profile_result :
+  for (se::dnn::ProfileResult &profile_result :
        GetMIOpenAlgorithms<T>(ctx, params, stream_exec, stream, operand_buffers,
                               result_buffer, &scratch_allocator)) {
     params.algo_id = profile_result.algorithm().algo_id();
     params.tensor_ops_enabled = profile_result.algorithm().tensor_ops_enabled();
 #else
-  for (const AlgorithmDesc& alg : GetAlgorithms(params.kind, stream_exec)) {
+  for (const AlgorithmDesc &alg : GetAlgorithms(params.kind, stream_exec)) {
     params.algo_id = alg.algo_id();
     params.tensor_ops_enabled = alg.tensor_ops_enabled();
     se::dnn::ProfileResult profile_result;
@@ -1142,7 +1137,7 @@ bool PickBestAlgorithm(CudnnConvParams& params,
 }
 
 template <typename T, int N>
-void ral_conv(ExecutionContext* ctx, void* stream_handle,
+void ral_conv(ExecutionContext *ctx, void *stream_handle,
               MemRefType<T, N> input, MemRefType<T, N> kernel,
               MemRefType<int32_t, 1> padding, MemRefType<T, N> output,
               MemRefType<int32_t, 1> metadata) {
@@ -1168,13 +1163,13 @@ void ral_conv(ExecutionContext* ctx, void* stream_handle,
   }
 
   auto key = makeConvTuningCacheKey(input, kernel, padding, output, metadata);
-  CudnnConvParams* params = nullptr;
+  CudnnConvParams *params = nullptr;
   std::string unique_name =
       "tao_ral.gpu.conv_" + tao::ral::TaoTypeNameHelper<T>::Invoke();
-  auto& state = RalConvState::Get();
+  auto &state = RalConvState::Get();
   auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
   auto stream =
-      static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
+      static_cast<se::Stream *>(gpu_driver->asSEStream(ctx, stream_handle));
 
   std::vector<se::DeviceMemoryBase> operand_se_buffers;
   operand_se_buffers.emplace_back(GetDeviceAddress(input));
@@ -1183,7 +1178,7 @@ void ral_conv(ExecutionContext* ctx, void* stream_handle,
 
   {
     std::lock_guard<std::mutex> l(state.mu);
-    auto& cache = state.cache_table[unique_name];
+    auto &cache = state.cache_table[unique_name];
     auto it = cache.find(key);
     if (it == cache.end()) {
       auto params_ptr = makeNewConvParams(key);
@@ -1221,15 +1216,15 @@ void ral_conv(ExecutionContext* ctx, void* stream_handle,
   return;
 }
 
-}  // namespace gpu_conv_impl
+} // namespace gpu_conv_impl
 
 ////////////////////////////////////////////////////////////////////////
 ///////////////           GpuConvImpl Finish
 ///////////////
 ////////////////////////////////////////////////////////////////////////
 
-}  // namespace se_impl
-}  // namespace gpu
+} // namespace se_impl
+} // namespace gpu
 
 // gemm ops
 TAO_RAL_API("ral_gemm", "gpu", gpu::se_impl::ral_gemm<float, float>);
@@ -1258,7 +1253,7 @@ TAO_RAL_API("ral_conv", "gpu", gpu::se_impl::gpu_conv_impl::ral_conv<float, 4>);
 TAO_RAL_API("ral_conv", "gpu",
             gpu::se_impl::gpu_conv_impl::ral_conv<Eigen::half, 4>);
 
-}  // namespace ral
-}  // namespace tao
+} // namespace ral
+} // namespace tao
 
 #endif

@@ -14,7 +14,7 @@
 
 template <typename Dtype, unsigned nthds_per_cta>
 __launch_bounds__(nthds_per_cta) __global__
-    void gatherTopK2DKernel(const Dtype* input, Dtype* output,
+    void gatherTopK2DKernel(const Dtype *input, Dtype *output,
                             const unsigned in_k, const unsigned out_k,
                             const unsigned batch) {
   for (unsigned idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -26,8 +26,8 @@ __launch_bounds__(nthds_per_cta) __global__
 
 template <typename Dlhs, typename Drhs, unsigned nthds_per_cta>
 __launch_bounds__(nthds_per_cta) __global__
-    void gatherTopK2DPairKernel(const Dlhs* in_lhs, const Drhs* in_rhs,
-                                Dlhs* out_lhs, Drhs* out_rhs,
+    void gatherTopK2DPairKernel(const Dlhs *in_lhs, const Drhs *in_rhs,
+                                Dlhs *out_lhs, Drhs *out_rhs,
                                 const unsigned in_k, const unsigned out_k,
                                 const unsigned batch) {
   for (unsigned idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -39,7 +39,7 @@ __launch_bounds__(nthds_per_cta) __global__
 }
 
 template <typename Dtype>
-void gatherTopK2D(const Dtype* input, Dtype* output, const unsigned in_k,
+void gatherTopK2D(const Dtype *input, Dtype *output, const unsigned in_k,
                   const unsigned out_k, const unsigned batch,
                   cudaStream_t stream) {
   unsigned n = out_k * batch;
@@ -60,8 +60,8 @@ void gatherTopK2D(const Dtype* input, Dtype* output, const unsigned in_k,
 }
 
 template <typename Dlhs, typename Drhs>
-void gatherTopK2DPair(const Dlhs* in_lhs, const Drhs* in_rhs, Dlhs* out_lhs,
-                      Drhs* out_rhs, const unsigned in_k, const unsigned out_k,
+void gatherTopK2DPair(const Dlhs *in_lhs, const Drhs *in_rhs, Dlhs *out_lhs,
+                      Drhs *out_rhs, const unsigned in_k, const unsigned out_k,
                       const unsigned batch, cudaStream_t stream) {
   unsigned n = out_k * batch;
   if (n < 32) {
@@ -80,4 +80,4 @@ void gatherTopK2DPair(const Dlhs* in_lhs, const Drhs* in_rhs, Dlhs* out_lhs,
   }
 }
 
-#endif  // DYN_SORT_GATHER_TOP_K_H_
+#endif // DYN_SORT_GATHER_TOP_K_H_

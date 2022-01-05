@@ -30,8 +30,8 @@ namespace legacy_flags {
 
 // Pointers to the parsed value of the flags and flag descriptors, initialized
 // via flags_init.
-static MarkForCompilationPassFlags* flags;
-static std::vector<Flag>* flag_list;
+static MarkForCompilationPassFlags *flags;
+static std::vector<Flag> *flag_list;
 static std::once_flag flags_init;
 
 // Allocate *flags.  Called via call_once(&flags_init,...).
@@ -71,7 +71,7 @@ static void AllocateFlags() {
 
 // Append to *append_to flag definitions associated with the XLA bridge's
 // mark_for_compilation_pass module.
-void AppendMarkForCompilationPassFlags(std::vector<Flag>* append_to) {
+void AppendMarkForCompilationPassFlags(std::vector<Flag> *append_to) {
   std::call_once(flags_init, &AllocateFlags);
   append_to->insert(append_to->end(), flag_list->begin(), flag_list->end());
 }
@@ -79,11 +79,11 @@ void AppendMarkForCompilationPassFlags(std::vector<Flag>* append_to) {
 // Return a pointer to the MarkForCompilationPassFlags struct;
 // repeated calls return the same pointer.
 // This should be called only after Flags::Parse() has returned.
-MarkForCompilationPassFlags* GetMarkForCompilationPassFlags() {
+MarkForCompilationPassFlags *GetMarkForCompilationPassFlags() {
   std::call_once(flags_init, &AllocateFlags);
   return flags;
 }
 
-}  // namespace legacy_flags
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace legacy_flags
+} // namespace tao
+} // namespace tensorflow

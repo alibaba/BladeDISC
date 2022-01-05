@@ -22,7 +22,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "PassDetail.h"
-#include "llvm/ADT/Sequence.h"
 #include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/SCF/Passes.h"
@@ -30,6 +29,7 @@
 #include "mlir/Dialect/SCF/Utils.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
+#include "llvm/ADT/Sequence.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -73,12 +73,13 @@ struct ParallelLoopTiling
   }
 };
 
-}  // namespace
+} // namespace
 
-std::unique_ptr<mlir::FunctionPass> createParallelLoopTilingPass(
-    ArrayRef<int64_t> tileSizes, bool withInboundCheck) {
+std::unique_ptr<mlir::FunctionPass>
+createParallelLoopTilingPass(ArrayRef<int64_t> tileSizes,
+                             bool withInboundCheck) {
   return std::make_unique<ParallelLoopTiling>(tileSizes, withInboundCheck);
 }
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

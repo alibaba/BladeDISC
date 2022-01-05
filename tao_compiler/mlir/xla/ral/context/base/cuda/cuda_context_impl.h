@@ -52,13 +52,14 @@ struct BaseCudaContextOption {
   std::shared_ptr<Allocator> gpu_allocator;
 };
 
-std::unique_ptr<BaseContext> MakeBaseCudaContext(
-    BaseContextOption& opt, ::tao::ral::cpu::BaseCpuContextOption& cpu_opt,
-    ::tao::ral::gpu::BaseCudaContextOption& gpu_opt);
+std::unique_ptr<BaseContext>
+MakeBaseCudaContext(BaseContextOption &opt,
+                    ::tao::ral::cpu::BaseCpuContextOption &cpu_opt,
+                    ::tao::ral::gpu::BaseCudaContextOption &gpu_opt);
 
 struct BaseCudaExecutionContext
     : public tao::ral::cpu::BaseCpuExecutionContext {
-  BaseCudaExecutionContext(BaseContext* ctx);
+  BaseCudaExecutionContext(BaseContext *ctx);
   ~BaseCudaExecutionContext();
 
   // We need to sync on the gpu stream before we fetch the first output.
@@ -66,12 +67,12 @@ struct BaseCudaExecutionContext
   // all buffer allocated by the gpu_allocator
   std::unordered_map<const_buffer_t, int> device_ptr_map;
 
- protected:
-  virtual void setOutputDeleter(OutputBufferWrapper& output) override;
+protected:
+  virtual void setOutputDeleter(OutputBufferWrapper &output) override;
 };
 
-}  // namespace gpu
-}  // namespace ral
-}  // namespace tao
+} // namespace gpu
+} // namespace ral
+} // namespace tao
 
-#endif  // RAL_CONTEXT_BASE_CUDA_CUDA_CONTEXT_IMPL_H_
+#endif // RAL_CONTEXT_BASE_CUDA_CUDA_CONTEXT_IMPL_H_

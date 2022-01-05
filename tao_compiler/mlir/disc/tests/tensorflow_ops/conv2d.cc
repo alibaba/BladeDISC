@@ -99,4 +99,4 @@ TEST(TFConv2DOpTest, FullyDynamicShape4DNCHWF32Test2) {
       /*input_vals*/ {}));
 }
 
-}  // namespace mlir_test
+} // namespace mlir_test

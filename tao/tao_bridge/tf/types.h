@@ -18,9 +18,9 @@ limitations under the License.
 
 #include <complex>
 
-#include "third_party/eigen3/Eigen/Core"
 #include "tensorflow/core/framework/numeric_types.h"
 #include "tensorflow/core/platform/types.h"
+#include "third_party/eigen3/Eigen/Core"
 
 #include <Eigen/Core>
 
@@ -28,29 +28,29 @@ namespace xla {
 
 using ::tensorflow::string;
 
-using ::tensorflow::int8;
 using ::tensorflow::int16;
 using ::tensorflow::int32;
 using ::tensorflow::int64;
+using ::tensorflow::int8;
 
 using ::tensorflow::bfloat16;
 
-using ::tensorflow::uint8;
 using ::tensorflow::uint16;
 using ::tensorflow::uint32;
 using ::tensorflow::uint64;
+using ::tensorflow::uint8;
 
 using complex64 = std::complex<float>;
 using complex128 = std::complex<double>;
 
 using ::Eigen::half;
 
-}  // namespace xla
+} // namespace xla
 
 // Alias namespace ::stream_executor as ::xla::se.
 namespace stream_executor {}
 namespace xla {
 namespace se = ::stream_executor;
-}  // namespace xla
+} // namespace xla
 
-#endif  // TAO_TAO_BRIDGE_TF_TYPES_H_
+#endif // TAO_TAO_BRIDGE_TF_TYPES_H_

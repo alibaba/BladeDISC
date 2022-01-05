@@ -16,8 +16,8 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_ORDERED_SET_H_
 #define TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_ORDERED_SET_H_
 
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 //#include "absl/container/flat_hash_map.h"
 #include "absl/types/span.h"
@@ -31,9 +31,8 @@ namespace tao {
 // sequence, the set will have the same iteration order.
 //
 // Assumes that T can be cheaply copied for simplicity.
-template <typename T>
-class OrderedSet {
- public:
+template <typename T> class OrderedSet {
+public:
   // Inserts `value` into the ordered set.  Returns true if the value was not
   // present in the set before the insertion.
   bool Insert(T value) {
@@ -77,14 +76,14 @@ class OrderedSet {
 
   absl::Span<T const> GetSequence() const { return value_sequence_; }
 
- private:
+private:
   // The stable order that we maintain through insertions and deletions.
   std::vector<T> value_sequence_;
 
   // Maps values to their indices in `value_sequence_`.
   std::unordered_map<T, int> value_to_index_;
 };
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow
 
-#endif  // TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_ORDERED_SET_H_
+#endif // TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_ORDERED_SET_H_

@@ -29,9 +29,9 @@ limitations under the License.
 #include <unordered_map>
 
 #include "absl/strings/str_split.h"
+#include "mlir/Pass/PassManager.h" // from @llvm-project
+#include "mlir/Support/Timing.h"   // from @llvm-project
 #include "llvm/Support/CommandLine.h"
-#include "mlir/Pass/PassManager.h"  // from @llvm-project
-#include "mlir/Support/Timing.h"    // from @llvm-project
 #ifdef PLATFORM_ALIBABA
 #include "tensorflow/compiler/decoupling_xla/tao_compiler.h"
 #endif
@@ -51,10 +51,10 @@ namespace tensorflow {
 
 using tensorflow::tao::CompilerBase;
 
-std::unordered_map<std::string, std::string> parse_envs(
-    llvm::cl::list<std::string>& envs) {
+std::unordered_map<std::string, std::string>
+parse_envs(llvm::cl::list<std::string> &envs) {
   std::unordered_map<std::string, std::string> env_pair;
-  for (auto& env : envs) {
+  for (auto &env : envs) {
     std::vector<std::string> kvs = absl::StrSplit(env, '=');
     if (kvs.size() != 2) {
       LOG(FATAL) << "env option value should be ENV=VAL: " << env;
@@ -74,7 +74,7 @@ std::string version_info() {
   return ss.str();
 }
 
-Status RealMain(int argc, char** argv) {
+Status RealMain(int argc, char **argv) {
   llvm::cl::OptionCategory disc_category("DISC", "Options for DISC.");
 
   llvm::cl::opt<std::string> input_fn{
@@ -98,7 +98,7 @@ Status RealMain(int argc, char** argv) {
   llvm::cl::opt<bool> version("v", llvm::cl::desc("show DIS compiler version."),
                               llvm::cl::cat(disc_category));
   llvm::cl::AddExtraVersionPrinter(
-      [](llvm::raw_ostream& os) { os << version_info(); });
+      [](llvm::raw_ostream &os) { os << version_info(); });
 
   llvm::cl::HideUnrelatedOptions(disc_category);
   mlir::registerPassManagerCLOptions();
@@ -122,7 +122,7 @@ Status RealMain(int argc, char** argv) {
 
   if (!input.env().empty()) {
     VLOG(1) << "Setting up environment variable compiler:";
-    for (auto& kv : input.env()) {
+    for (auto &kv : input.env()) {
       setenv(kv.first.c_str(), kv.second.c_str(), 1);
       VLOG(1) << "    " << kv.first << "=" << kv.second;
       std::string event_value = strings::StrCat(kv.first, "=", kv.second);
@@ -134,23 +134,23 @@ Status RealMain(int argc, char** argv) {
   if (!envs.empty()) {
     auto cmd_envs = parse_envs(envs);
     VLOG(1) << "Setting up environment variable from cmdline:";
-    for (auto& kv : cmd_envs) {
+    for (auto &kv : cmd_envs) {
       VLOG(1) << "    " << kv.first << "=" << kv.second;
       setenv(kv.first.c_str(), kv.second.c_str(), 1);
     }
   }
 
   DeviceType device_type(input.options().device_type());
-  auto* compiler_wrapper =
+  auto *compiler_wrapper =
       CompilerBase::GetCompilerForDevice(device_type).ConsumeValueOrDie();
   TF_RETURN_IF_ERROR(compiler_wrapper->Compile(input, output_fn));
   tao::TaoCompilerTrace::Instance()->Shutdown();
   return Status::OK();
 }
 
-}  // namespace tensorflow
+} // namespace tensorflow
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   std::vector<tensorflow::Flag> flag_list;
   xla::AppendDebugOptionsFlags(&flag_list);
   xla::string usage = tensorflow::Flags::Usage(argv[0], flag_list);

@@ -18,7 +18,6 @@ limitations under the License.
 
 #include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
 
-#include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
@@ -33,6 +32,7 @@ limitations under the License.
 #include "mlir/Pass/Pass.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
+#include "llvm/Support/Debug.h"
 
 using mlir::memref::DimOp;
 using mlir::memref::LoadOp;
@@ -41,7 +41,7 @@ using mlir::memref::StoreOp;
 namespace mlir {
 namespace disc_ral {
 
-Value createLoadOrUseCachedValue(Location loc, OpBuilder* b, Value memref,
+Value createLoadOrUseCachedValue(Location loc, OpBuilder *b, Value memref,
                                  ValueRange indices,
                                  OpBuilder::InsertPoint insert_point) {
   // Check if there are any cached value that can be reused,
@@ -49,28 +49,30 @@ Value createLoadOrUseCachedValue(Location loc, OpBuilder* b, Value memref,
   // all the Blocks that dominant this Block, but that will be
   // complicated anyway.
   std::vector<StoreOp> store_ops;
-  insert_point.getBlock()->walk(
-      insert_point.getBlock()->begin(), insert_point.getPoint(),
-      [&](StoreOp store_op) {
-        if (store_op.getOperation()->getBlock() != insert_point.getBlock())
-          return;
-        if ((store_op.getMemRef() == memref) &&
-            (store_op.getIndices() == indices))
-          store_ops.emplace_back(store_op);
-      });
-  if (!store_ops.empty()) return store_ops[0].getOperand(0);
+  insert_point.getBlock()->walk(insert_point.getBlock()->begin(),
+                                insert_point.getPoint(), [&](StoreOp store_op) {
+                                  if (store_op.getOperation()->getBlock() !=
+                                      insert_point.getBlock())
+                                    return;
+                                  if ((store_op.getMemRef() == memref) &&
+                                      (store_op.getIndices() == indices))
+                                    store_ops.emplace_back(store_op);
+                                });
+  if (!store_ops.empty())
+    return store_ops[0].getOperand(0);
   int rank = memref.getType().cast<MemRefType>().getRank();
   return rank > 0 ? b->create<LoadOp>(loc, memref, indices)
                   : b->create<LoadOp>(loc, memref);
 }
 
-DenseSet<Operation*> NoLoaderUser(SmallVectorImpl<Operation*>& ops) {
-  SmallVector<Operation*, 4> worklist;
-  DenseSet<Operation*> has_loader_ops;
-  for (Operation* op : ops) {
+DenseSet<Operation *> NoLoaderUser(SmallVectorImpl<Operation *> &ops) {
+  SmallVector<Operation *, 4> worklist;
+  DenseSet<Operation *> has_loader_ops;
+  for (Operation *op : ops) {
     Value memref = cast<lmhlo::LmhloOp>(op).getResultBuffer();
-    if (memref == nullptr) continue;
-    for (Operation* user : getValueUsersInFusionLike(memref, op)) {
+    if (memref == nullptr)
+      continue;
+    for (Operation *user : getValueUsersInFusionLike(memref, op)) {
       if (isa<memref::LoadOp>(user)) {
         worklist.push_back(op);
         has_loader_ops.insert(op);
@@ -79,11 +81,11 @@ DenseSet<Operation*> NoLoaderUser(SmallVectorImpl<Operation*>& ops) {
   }
 
   while (!worklist.empty()) {
-    Operation* op = worklist.pop_back_val();
+    Operation *op = worklist.pop_back_val();
     int num_operands = op->getNumOperands();
     for (int i = 0; i < num_operands - 1; ++i) {
       Value memref = op->getOperand(i);
-      for (Operation* user : getValueUsersInFusionLike(memref, op)) {
+      for (Operation *user : getValueUsersInFusionLike(memref, op)) {
         if ((!isa<lmhlo::LmhloOp>(user)) || has_loader_ops.count(user))
           continue;
         if (isSameUnderlineBuffer(cast<lmhlo::LmhloOp>(user).getResultBuffer(),
@@ -95,29 +97,31 @@ DenseSet<Operation*> NoLoaderUser(SmallVectorImpl<Operation*>& ops) {
     }
   }
 
-  DenseSet<Operation*> no_loader_ops;
-  for (Operation* op : ops)
-    if (!has_loader_ops.count(op)) no_loader_ops.insert(op);
+  DenseSet<Operation *> no_loader_ops;
+  for (Operation *op : ops)
+    if (!has_loader_ops.count(op))
+      no_loader_ops.insert(op);
   return no_loader_ops;
 }
 
-void cleanUnusedLhloOps(Block* parent) {
-  SmallVector<Operation*, 4> lhlo_ops;
-  for (Operation& op : parent->getOperations()) {
+void cleanUnusedLhloOps(Block *parent) {
+  SmallVector<Operation *, 4> lhlo_ops;
+  for (Operation &op : parent->getOperations()) {
     if (op.getDialect() == op.getContext()->getLoadedDialect("lmhlo") &&
         (!isa<lmhlo::TerminatorOp>(op)))
       lhlo_ops.push_back(&op);
   }
-  const DenseSet<Operation*>& no_loader_user = NoLoaderUser(lhlo_ops);
-  for (auto* lhlo_op : no_loader_user) lhlo_op->erase();
+  const DenseSet<Operation *> &no_loader_user = NoLoaderUser(lhlo_ops);
+  for (auto *lhlo_op : no_loader_user)
+    lhlo_op->erase();
 }
 
 // TODO: only support the reduce body in the form of
 // one lhlo_instruction and one terminator
-Operation* getReduceOperator(Region& body) {
-  Operation* calc_op = nullptr;
+Operation *getReduceOperator(Region &body) {
+  Operation *calc_op = nullptr;
   int64_t num_calc_ops = 0;
-  body.walk([&](Operation* op) {
+  body.walk([&](Operation *op) {
     if (isa<memref::AllocOp>(op) || isa<lmhlo::CopyOp>(op) ||
         isa<lmhlo::TerminatorOp>(op)) {
       return;
@@ -129,7 +133,7 @@ Operation* getReduceOperator(Region& body) {
   return calc_op;
 }
 
-AccumulatorFactory getFactory(OpBuilder& b, Location loc, Region& body) {
+AccumulatorFactory getFactory(OpBuilder &b, Location loc, Region &body) {
   return AccumulatorFactory([&](Value lhs, Value rhs) {
     auto calc_op = getReduceOperator(body);
     SmallVector<Value, 4> operand_values;
@@ -173,11 +177,11 @@ AccumulatorFactory getFactory(OpBuilder& b, Location loc, Region& body) {
 }
 
 template <typename LHLO_OpTy>
-Value elementalLower(OpBuilder* b, Location loc, LHLO_OpTy op,
+Value elementalLower(OpBuilder *b, Location loc, LHLO_OpTy op,
                      ValueRange output_index, bool check_cache);
 
 template <>
-Value elementalLower<lmhlo::SliceOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::SliceOp>(OpBuilder *b, Location loc,
                                      lmhlo::SliceOp op, ValueRange output_index,
                                      bool check_cache) {
   int rank = output_index.size();
@@ -195,13 +199,14 @@ Value elementalLower<lmhlo::SliceOp>(OpBuilder* b, Location loc,
   }
 
   Value operand_memref = op->getOperand(0);
-  if (!check_cache) return b->create<LoadOp>(loc, operand_memref, input_index);
+  if (!check_cache)
+    return b->create<LoadOp>(loc, operand_memref, input_index);
   return createLoadOrUseCachedValue(loc, b, operand_memref, input_index,
                                     b->saveInsertionPoint());
 }
 
 template <>
-Value elementalLower<lmhlo::RealDynamicSliceOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::RealDynamicSliceOp>(OpBuilder *b, Location loc,
                                                 lmhlo::RealDynamicSliceOp op,
                                                 ValueRange output_index,
                                                 bool check_cache) {
@@ -226,7 +231,8 @@ Value elementalLower<lmhlo::RealDynamicSliceOp>(OpBuilder* b, Location loc,
 
   Value operand_memref = *(op->getOperands().begin());
 
-  if (!check_cache) return b->create<LoadOp>(loc, operand_memref, input_index);
+  if (!check_cache)
+    return b->create<LoadOp>(loc, operand_memref, input_index);
   return createLoadOrUseCachedValue(loc, b, operand_memref, input_index,
                                     b->saveInsertionPoint());
 }
@@ -234,7 +240,7 @@ Value elementalLower<lmhlo::RealDynamicSliceOp>(OpBuilder* b, Location loc,
 namespace {
 
 template <typename T>
-Value elementalLowerImplForBroadcastInDimOps(OpBuilder* b, Location loc,
+Value elementalLowerImplForBroadcastInDimOps(OpBuilder *b, Location loc,
                                              T broadcast_in_dim,
                                              ValueRange output_index,
                                              bool check_cache) {
@@ -287,18 +293,18 @@ Value elementalLowerImplForBroadcastInDimOps(OpBuilder* b, Location loc,
                                     b->saveInsertionPoint());
 }
 
-}  // namespace
+} // namespace
 
 template <>
 Value elementalLower<lmhlo::DynamicBroadcastInDimOp>(
-    OpBuilder* b, Location loc, lmhlo::DynamicBroadcastInDimOp op,
+    OpBuilder *b, Location loc, lmhlo::DynamicBroadcastInDimOp op,
     ValueRange output_index, bool check_cache) {
   return elementalLowerImplForBroadcastInDimOps(b, loc, op, output_index,
                                                 check_cache);
 }
 
 template <>
-Value elementalLower<lmhlo::BroadcastInDimOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::BroadcastInDimOp>(OpBuilder *b, Location loc,
                                               lmhlo::BroadcastInDimOp op,
                                               ValueRange output_index,
                                               bool check_cache) {
@@ -307,7 +313,7 @@ Value elementalLower<lmhlo::BroadcastInDimOp>(OpBuilder* b, Location loc,
 }
 
 template <>
-Value elementalLower<lmhlo::BroadcastOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::BroadcastOp>(OpBuilder *b, Location loc,
                                          lmhlo::BroadcastOp op,
                                          ValueRange output_index,
                                          bool check_cache) {
@@ -332,7 +338,7 @@ Value elementalLower<lmhlo::BroadcastOp>(OpBuilder* b, Location loc,
 }
 
 template <>
-Value elementalLower<lmhlo::ReshapeOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::ReshapeOp>(OpBuilder *b, Location loc,
                                        lmhlo::ReshapeOp op,
                                        ValueRange output_index,
                                        bool check_cache) {
@@ -353,7 +359,7 @@ Value elementalLower<lmhlo::ReshapeOp>(OpBuilder* b, Location loc,
 }
 
 template <>
-Value elementalLower<lmhlo::DynamicReshapeOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::DynamicReshapeOp>(OpBuilder *b, Location loc,
                                               lmhlo::DynamicReshapeOp op,
                                               ValueRange output_index,
                                               bool check_cache) {
@@ -377,7 +383,7 @@ Value elementalLower<lmhlo::DynamicReshapeOp>(OpBuilder* b, Location loc,
 
 // There is no NotOp in std dialect, thus we provide a basic implementation.
 template <>
-Value elementalLower<lmhlo::NotOp>(OpBuilder* b, Location loc, lmhlo::NotOp op,
+Value elementalLower<lmhlo::NotOp>(OpBuilder *b, Location loc, lmhlo::NotOp op,
                                    ValueRange output_index, bool check_cache) {
   Value operand_memref = op->getOperand(0);
   auto operand_ty = operand_memref.getType().cast<MemRefType>();
@@ -401,7 +407,7 @@ Value elementalLower<lmhlo::NotOp>(OpBuilder* b, Location loc, lmhlo::NotOp op,
 }
 
 template <>
-Value elementalLower<lmhlo::TransposeOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::TransposeOp>(OpBuilder *b, Location loc,
                                          lmhlo::TransposeOp op,
                                          ValueRange output_index,
                                          bool check_cache) {
@@ -423,7 +429,7 @@ Value elementalLower<lmhlo::TransposeOp>(OpBuilder* b, Location loc,
 }
 
 template <>
-Value elementalLower<lmhlo::ReverseOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::ReverseOp>(OpBuilder *b, Location loc,
                                        lmhlo::ReverseOp op,
                                        ValueRange output_index,
                                        bool check_cache) {
@@ -456,7 +462,7 @@ Value elementalLower<lmhlo::ReverseOp>(OpBuilder* b, Location loc,
 }
 
 template <>
-Value elementalLower<lmhlo::DynamicPadOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::DynamicPadOp>(OpBuilder *b, Location loc,
                                           lmhlo::DynamicPadOp op,
                                           ValueRange output_index,
                                           bool check_cache) {
@@ -531,7 +537,7 @@ Value elementalLower<lmhlo::DynamicPadOp>(OpBuilder* b, Location loc,
   return *(if_inbound_op.results().begin());
 }
 
-Value lowerGatherOpInternal(OpBuilder* b, Location loc, Operation* op,
+Value lowerGatherOpInternal(OpBuilder *b, Location loc, Operation *op,
                             ValueRange output_index, bool check_cache) {
   auto gather = dyn_cast<lmhlo::GatherOp>(op);
   auto d_gather = dyn_cast<lmhlo::DynamicGatherOp>(op);
@@ -651,7 +657,7 @@ Value lowerGatherOpInternal(OpBuilder* b, Location loc, Operation* op,
 }
 
 template <>
-Value elementalLower<lmhlo::GatherOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::GatherOp>(OpBuilder *b, Location loc,
                                       lmhlo::GatherOp op,
                                       ValueRange output_index,
                                       bool check_cache) {
@@ -659,7 +665,7 @@ Value elementalLower<lmhlo::GatherOp>(OpBuilder* b, Location loc,
 }
 
 template <>
-Value elementalLower<lmhlo::DynamicGatherOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::DynamicGatherOp>(OpBuilder *b, Location loc,
                                              lmhlo::DynamicGatherOp op,
                                              ValueRange output_index,
                                              bool check_cache) {
@@ -667,7 +673,7 @@ Value elementalLower<lmhlo::DynamicGatherOp>(OpBuilder* b, Location loc,
 }
 
 template <>
-Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder *b, Location loc,
                                            lmhlo::ConcatenateOp op,
                                            ValueRange output_index,
                                            bool check_cache) {
@@ -770,7 +776,7 @@ Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder* b, Location loc,
 
     b->setInsertionPointToEnd(&if_inbound_ops[i].elseRegion().front());
     if (i == num_input_operands - 1) {
-      b->create<scf::YieldOp>(loc, zero_element);  // expect never used
+      b->create<scf::YieldOp>(loc, zero_element); // expect never used
     } else {
       b->create<scf::YieldOp>(loc, if_inbound_ops[i + 1].results());
     }
@@ -784,7 +790,7 @@ Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder* b, Location loc,
 // implementation here as a workaround. This can be removed once std dialect
 // supports CopyOp.
 template <>
-Value elementalLower<lmhlo::CopyOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::CopyOp>(OpBuilder *b, Location loc,
                                     lmhlo::CopyOp op, ValueRange output_index,
                                     bool check_cache) {
   Value operand_memref = op->getOperand(0);
@@ -797,9 +803,9 @@ Value elementalLower<lmhlo::CopyOp>(OpBuilder* b, Location loc,
                                     b->saveInsertionPoint());
 }
 
-Value elementalLowerIota(OpBuilder* b, const Location& loc, Operation* op,
-                         const ValueRange& output_index,
-                         const MemRefType& result_ty) {
+Value elementalLowerIota(OpBuilder *b, const Location &loc, Operation *op,
+                         const ValueRange &output_index,
+                         const MemRefType &result_ty) {
   auto result_element_ty = result_ty.getElementType();
   if (result_ty.getRank() == 0) {
     if (result_element_ty.dyn_cast<IntegerType>()) {
@@ -843,7 +849,7 @@ Value elementalLowerIota(OpBuilder* b, const Location& loc, Operation* op,
 }
 
 template <>
-Value elementalLower<lmhlo::DynamicIotaOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::DynamicIotaOp>(OpBuilder *b, Location loc,
                                            lmhlo::DynamicIotaOp op,
                                            ValueRange output_index,
                                            bool check_cache) {
@@ -853,7 +859,7 @@ Value elementalLower<lmhlo::DynamicIotaOp>(OpBuilder* b, Location loc,
 }
 
 template <>
-Value elementalLower<lmhlo::IotaOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::IotaOp>(OpBuilder *b, Location loc,
                                     lmhlo::IotaOp op, ValueRange output_index,
                                     bool check_cache) {
   auto result_ty = op->getOperand(0).getType().dyn_cast<MemRefType>();
@@ -862,7 +868,7 @@ Value elementalLower<lmhlo::IotaOp>(OpBuilder* b, Location loc,
 }
 
 template <>
-Value elementalLower<lmhlo::ReduceOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::ReduceOp>(OpBuilder *b, Location loc,
                                       lmhlo::ReduceOp op,
                                       ValueRange output_index,
                                       bool check_cache) {
@@ -915,7 +921,7 @@ Value elementalLower<lmhlo::ReduceOp>(OpBuilder* b, Location loc,
   return *(forOp.results().begin());
 }
 
-scf::ForOp createLoopAndSetInsPt(OpBuilder& b, Location loc, Value& var,
+scf::ForOp createLoopAndSetInsPt(OpBuilder &b, Location loc, Value &var,
                                  Value lb, Value ub, Value step,
                                  ArrayRef<Value> init_values) {
   auto for_op = b.create<scf::ForOp>(loc, lb, ub, step, init_values);
@@ -927,7 +933,7 @@ scf::ForOp createLoopAndSetInsPt(OpBuilder& b, Location loc, Value& var,
 // This is a workaround implementation for lmhlo.is_finite op since
 // mlir std dialect does not support this ATM.
 template <>
-Value elementalLower<lmhlo::IsFiniteOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::IsFiniteOp>(OpBuilder *b, Location loc,
                                         lmhlo::IsFiniteOp op,
                                         ValueRange output_index,
                                         bool check_cache) {
@@ -952,7 +958,7 @@ Value elementalLower<lmhlo::IsFiniteOp>(OpBuilder* b, Location loc,
 }
 
 template <>
-Value elementalLower<lmhlo::ClampOp>(OpBuilder* b, Location loc,
+Value elementalLower<lmhlo::ClampOp>(OpBuilder *b, Location loc,
                                      lmhlo::ClampOp op, ValueRange output_index,
                                      bool check_cache) {
   Value min_memref = op->getOperand(0);
@@ -988,8 +994,9 @@ Value elementalLower<lmhlo::ClampOp>(OpBuilder* b, Location loc,
       ArrayRef<Value>{lb_clipped, max}, b);
 }
 
-memref::ReinterpretCastOp createMemRef1DReinterpretCastWithStaticShape(
-    OpBuilder& b, Location loc, Value memref) {
+memref::ReinterpretCastOp
+createMemRef1DReinterpretCastWithStaticShape(OpBuilder &b, Location loc,
+                                             Value memref) {
   auto memref_ty = memref.getType().cast<MemRefType>();
   assert(memref_ty.getAffineMaps().empty());
   assert(memref_ty.hasStaticShape());
@@ -1009,9 +1016,8 @@ memref::ReinterpretCastOp createMemRef1DReinterpretCastWithStaticShape(
 }
 
 // reinterpret_cast the input memref into 1D
-memref::ReinterpretCastOp createMemRef1DReinterpretCast(OpBuilder& b,
-                                                        Location loc,
-                                                        Value memref) {
+memref::ReinterpretCastOp
+createMemRef1DReinterpretCast(OpBuilder &b, Location loc, Value memref) {
   auto memref_ty = memref.getType().cast<MemRefType>();
   assert(memref_ty.getAffineMaps().empty());
   if (memref_ty.hasStaticShape()) {
@@ -1029,20 +1035,20 @@ memref::ReinterpretCastOp createMemRef1DReinterpretCast(OpBuilder& b,
       loc, memref_1d_type, memref, zero, ValueRange{size}, ValueRange{stride});
 }
 
-void createOffsetStore(OpBuilder& b, Location loc, Value res, Value memref,
+void createOffsetStore(OpBuilder &b, Location loc, Value res, Value memref,
                        Value offset) {
   Value memref_1d = createMemRef1DReinterpretCast(b, loc, memref);
   b.create<memref::StoreOp>(loc, res, memref_1d, ValueRange{offset});
 }
 
-LoadOp createOffsetLoad(OpBuilder& b, Location loc, Value memref,
+LoadOp createOffsetLoad(OpBuilder &b, Location loc, Value memref,
                         Value offset) {
   Value memref_1d = createMemRef1DReinterpretCast(b, loc, memref);
   return b.create<LoadOp>(loc, memref_1d, ValueRange{offset});
 }
 
 // TODO: check the definition of "SignlessInteger"
-AtomicRMWKind getAtomicRMWKind(Region& body) {
+AtomicRMWKind getAtomicRMWKind(Region &body) {
   auto calc_op = getReduceOperator(body);
   auto num_operands = calc_op->getNumOperands();
   auto result_type = calc_op->getOperand(num_operands - 1).getType();
@@ -1124,7 +1130,7 @@ AtomicRMWKind getAtomicRMWKind(Region& body) {
 
 Value getRootMemRef(Value memref) {
   Value rootMemRef = memref;
-  while (Operation* operandOp = rootMemRef.getDefiningOp()) {
+  while (Operation *operandOp = rootMemRef.getDefiningOp()) {
     if (!isa<memref::SubViewOp, memref::ViewOp, memref::CastOp,
              memref::ReinterpretCastOp>(operandOp))
       break;
@@ -1139,15 +1145,15 @@ bool isSameUnderlineBuffer(Value lhs, Value rhs) {
 
 // returns the users of the `memref`. The users should be in the same fusion
 // like `op`.
-DenseSet<Operation*> getValueUsersInFusionLike(Value memref, Operation* op) {
+DenseSet<Operation *> getValueUsersInFusionLike(Value memref, Operation *op) {
   // rootMemRef is the underline buffer, by passing some memref cast ops.
   Value rootMemRef = getRootMemRef(memref);
 
-  DenseSet<Operation*> ops;
+  DenseSet<Operation *> ops;
   SmallVector<Value, 4> worklist{rootMemRef};
   while (!worklist.empty()) {
     Value val = worklist.pop_back_val();
-    for (Operation* user : val.getUsers()) {
+    for (Operation *user : val.getUsers()) {
       if (isa<memref::SubViewOp, memref::ViewOp, memref::CastOp,
               memref::ReinterpretCastOp>(user)) {
         worklist.push_back(user->getResult(0));
@@ -1155,7 +1161,8 @@ DenseSet<Operation*> getValueUsersInFusionLike(Value memref, Operation* op) {
       }
       // SpecializeWithSpeculation pass may generate multi versions from a
       // fusion op. This fusion family accesses a same set of memrefs.
-      if (!inSameFusionOp(user, op)) continue;
+      if (!inSameFusionOp(user, op))
+        continue;
       ops.insert(user);
     }
   }
@@ -1163,5 +1170,5 @@ DenseSet<Operation*> getValueUsersInFusionLike(Value memref, Operation* op) {
   return ops;
 }
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

@@ -26,26 +26,26 @@
 extern "C" {
 #endif
 
-const char* const kMlirLoweredEntry = "main";
+const char *const kMlirLoweredEntry = "main";
 
-void tao_ral_call_impl(tao_ral_context_t ctx, void* name, void** args) {
+void tao_ral_call_impl(tao_ral_context_t ctx, void *name, void **args) {
   static int count = 0;
   TAO_VLOG(1) << "tao_ral_call is called with ctx = " << ctx;
-  TAO_VLOG(1) << "ral call count #" << count++ << ": " << (const char*)name;
-  auto typed_ctx = static_cast<tao::ral::ExecutionContext*>(ctx);
-  typed_ctx->getContext()->call((const char*)name, args);
+  TAO_VLOG(1) << "ral call count #" << count++ << ": " << (const char *)name;
+  auto typed_ctx = static_cast<tao::ral::ExecutionContext *>(ctx);
+  typed_ctx->getContext()->call((const char *)name, args);
 }
 
 tao_ral_status_t tao_ral_last_error(tao_ral_context_t ctx,
-                                    const char** err_msg) {
+                                    const char **err_msg) {
   TAO_VLOG(1) << "tao_ral_last_error is called with ctx = " << ctx;
-  auto typed_ctx = static_cast<tao::ral::Context*>(ctx);
+  auto typed_ctx = static_cast<tao::ral::Context *>(ctx);
   return typed_ctx->getLastError(err_msg);
 }
 
 void tao_ral_clear_error(tao_ral_context_t ctx) {
   TAO_VLOG(1) << "tao_ral_clear_error is called with ctx = " << ctx;
-  auto typed_ctx = static_cast<tao::ral::Context*>(ctx);
+  auto typed_ctx = static_cast<tao::ral::Context *>(ctx);
   return typed_ctx->clearError();
 }
 

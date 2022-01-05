@@ -26,17 +26,15 @@ limitations under the License.
 namespace mlir {
 namespace mhlo_disc {
 
-template <typename ChloOpTy>
-struct ChloToHloOpImpl {
+template <typename ChloOpTy> struct ChloToHloOpImpl {
   using Type = std::false_type;
 };
 template <typename ChloOpTy>
 using ChloToHloOp = typename ChloToHloOpImpl<ChloOpTy>::Type;
 
-#define MAP_CHLO_TO_HLO(ChloOpName, MhloOpName) \
-  template <>                                   \
-  struct ChloToHloOpImpl<chlo::ChloOpName> {    \
-    using Type = mhlo::MhloOpName;              \
+#define MAP_CHLO_TO_HLO(ChloOpName, MhloOpName)                                \
+  template <> struct ChloToHloOpImpl<chlo::ChloOpName> {                       \
+    using Type = mhlo::MhloOpName;                                             \
   }
 
 MAP_CHLO_TO_HLO(BroadcastAddOp, AddOp);
@@ -59,7 +57,7 @@ MAP_CHLO_TO_HLO(BroadcastXorOp, XorOp);
 
 #undef MAP_CHLO_TO_HLO
 
-}  // namespace mhlo_disc
-}  // namespace mlir
+} // namespace mhlo_disc
+} // namespace mlir
 
-#endif  // MLIR_DISC_TRANSFORMS_DISC_MAP_CHLO_TO_HLO_OP_H_
+#endif // MLIR_DISC_TRANSFORMS_DISC_MAP_CHLO_TO_HLO_OP_H_

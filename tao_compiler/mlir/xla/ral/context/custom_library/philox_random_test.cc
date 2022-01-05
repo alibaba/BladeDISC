@@ -25,14 +25,14 @@ namespace ral {
 namespace random {
 
 class TrivialPhiloxDistribution {
- public:
+public:
   // The number of elements that will be returned.
   static constexpr int kResultElementCount = PhiloxRandom::kResultElementCount;
   typedef PhiloxRandom::ResultType ResultType;
   typedef PhiloxRandom::ResultElementType ResultElementType;
 
   PHILOX_DEVICE_INLINE
-  ResultType operator()(PhiloxRandom* gen) { return (*gen)(); }
+  ResultType operator()(PhiloxRandom *gen) { return (*gen)(); }
 };
 
 // Return a test seed.
@@ -41,7 +41,7 @@ inline uint64_t GetTestSeed() { return 1; }
 // A utility function to fill the given array with samples from the given
 // distribution.
 template <class Distribution>
-void FillRandoms(PhiloxRandom gen, typename Distribution::ResultElementType* p,
+void FillRandoms(PhiloxRandom gen, typename Distribution::ResultElementType *p,
                  int64_t size) {
   const int granularity = Distribution::kResultElementCount;
   Distribution dist;
@@ -76,6 +76,6 @@ TEST(PhiloxRandomTest, SkipMatchTest) {
   }
 }
 
-}  // namespace random
-}  // namespace ral
-}  // namespace tao
+} // namespace random
+} // namespace ral
+} // namespace tao

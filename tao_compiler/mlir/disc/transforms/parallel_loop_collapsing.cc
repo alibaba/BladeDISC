@@ -51,11 +51,11 @@ struct ParallelLoopCollapsing
     }
   }
 };
-}  // namespace
+} // namespace
 
 std::unique_ptr<mlir::FunctionPass> createDiscParallelLoopCollapsingPass() {
   return std::make_unique<ParallelLoopCollapsing>();
 }
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

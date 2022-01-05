@@ -67,4 +67,4 @@ TEST(TFLogicalNotOpTest, ProvidedDataShape2DI1) {
       /*input_vals*/ {{-2, 0, 23, 3, 0, -22}}));
 }
 
-}  // namespace mlir_test
+} // namespace mlir_test

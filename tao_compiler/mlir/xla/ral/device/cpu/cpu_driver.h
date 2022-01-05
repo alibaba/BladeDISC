@@ -32,52 +32,52 @@ class ExecutionContext;
 
 namespace cpu {
 
-extern const char* kRalCpuAlloc;
-extern const char* kRalCpuAllocPersistent;
-extern const char* kRalCpuDealloc;
-extern const char* kRalCpuRawAlloc;
-extern const char* kRalCpuRawDealloc;
-extern const char* kRalCpuMemcpy;
-extern const char* kRalCpuMemset;
-extern const char* kRalCpuLaunch;
+extern const char *kRalCpuAlloc;
+extern const char *kRalCpuAllocPersistent;
+extern const char *kRalCpuDealloc;
+extern const char *kRalCpuRawAlloc;
+extern const char *kRalCpuRawDealloc;
+extern const char *kRalCpuMemcpy;
+extern const char *kRalCpuMemset;
+extern const char *kRalCpuLaunch;
 
 using CpuLaunchDims = MemRefType<int64_t, 1>;
 
 // A core driver api set for CPU device.
 class CPUDriver : public Driver {
- public:
-  CPUDriver(Context* context);
+public:
+  CPUDriver(Context *context);
   ~CPUDriver();
 
   static std::string name();
 
   // Allocator for cpu memory management
-  buffer_t alloc(ExecutionContext* ctx, size_t);
-  buffer_t alloc_persistent(ExecutionContext* ctx, size_t);
-  void dealloc(ExecutionContext* ctx, buffer_t);
+  buffer_t alloc(ExecutionContext *ctx, size_t);
+  buffer_t alloc_persistent(ExecutionContext *ctx, size_t);
+  void dealloc(ExecutionContext *ctx, buffer_t);
 
   // Raw alloc & dealloc. The driver itself does not keep track of such buffers.
   // It's the responsibility of the user to manage the buffers correctly.
-  buffer_t raw_alloc(Context* ctx, size_t);
-  void raw_dealloc(Context* ctx, buffer_t);
+  buffer_t raw_alloc(Context *ctx, size_t);
+  void raw_dealloc(Context *ctx, buffer_t);
 
   // memcpy & memset
-  void memcpy(ExecutionContext* ctx, buffer_t from, buffer_t to, size_t bytes);
-  void memset(ExecutionContext* ctx, buffer_t buffer, int value, size_t count);
+  void memcpy(ExecutionContext *ctx, buffer_t from, buffer_t to, size_t bytes);
+  void memset(ExecutionContext *ctx, buffer_t buffer, int value, size_t count);
 
   // cpu kernel launcher
-  void launchKernel(ExecutionContext* ctx, const char* kernel_name,
+  void launchKernel(ExecutionContext *ctx, const char *kernel_name,
                     CpuLaunchDims lowerBound, CpuLaunchDims upperBound,
                     CpuLaunchDims step, int64_t unitWorkloadSizeHint,
-                    void* kernel, void** params /* kernel params */);
+                    void *kernel, void **params /* kernel params */);
 
- private:
+private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace cpu
-}  // namespace ral
-}  // namespace tao
+} // namespace cpu
+} // namespace ral
+} // namespace tao
 
-#endif  // RAL_DEVICE_CPU_CPU_DRIVER_H_
+#endif // RAL_DEVICE_CPU_CPU_DRIVER_H_

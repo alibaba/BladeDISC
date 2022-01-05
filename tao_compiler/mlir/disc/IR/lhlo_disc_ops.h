@@ -15,7 +15,6 @@ limitations under the License.
 #ifndef MLIR_DISC_IR_LHLO_DISC_OPS_H_
 #define MLIR_DISC_IR_LHLO_DISC_OPS_H_
 
-#include "llvm/ADT/StringRef.h"
 #include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops_structs.h"
 #include "mlir-hlo/Dialect/mhlo/IR/lhlo_structured_interface.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -31,21 +30,22 @@ limitations under the License.
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/IR/Types.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
+#include "llvm/ADT/StringRef.h"
 
 namespace mlir {
 
 namespace lmhlo_disc {
 
 class LmhloDiscDialect : public Dialect {
- public:
-  explicit LmhloDiscDialect(MLIRContext* context);
+public:
+  explicit LmhloDiscDialect(MLIRContext *context);
   static StringRef getDialectNamespace() { return "lmhlo_disc"; }
 };
 
-}  // end namespace lmhlo_disc
-}  // end namespace mlir
+} // end namespace lmhlo_disc
+} // end namespace mlir
 
 #define GET_OP_CLASSES
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h.inc"
 
-#endif  //  MLIR_DISC_IR_LHLO_DISC_OPS_H_
+#endif //  MLIR_DISC_IR_LHLO_DISC_OPS_H_

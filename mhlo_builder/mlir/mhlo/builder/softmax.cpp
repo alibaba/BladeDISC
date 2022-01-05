@@ -21,8 +21,8 @@
 namespace mlir {
 namespace mhlo {
 
-mlir::Value BuildSoftmax(mlir::OpBuilder& builder, const mlir::Location& loc,
-                         const mlir::Value& ml_input, mlir_dim_t reduce_dim,
+mlir::Value BuildSoftmax(mlir::OpBuilder &builder, const mlir::Location &loc,
+                         const mlir::Value &ml_input, mlir_dim_t reduce_dim,
                          bool is_logsoftmax) {
   mlir_dim_t rank = GetRankOfMlirValue(ml_input);
   reduce_dim = NormalizeDimIndex(reduce_dim, rank);
@@ -30,34 +30,35 @@ mlir::Value BuildSoftmax(mlir::OpBuilder& builder, const mlir::Location& loc,
   // do explicit broadcast on tensors
   SmallVec4<mlir_dim_t> broadcast_dims;
   for (mlir_dim_t k = 0; k < rank; ++k) {
-    if (k == reduce_dim) continue;
+    if (k == reduce_dim)
+      continue;
     broadcast_dims.push_back(k);
   }
   auto input_shape = BuildDimSizeListOfTensor(builder, loc, ml_input);
-  const auto& elem_type = GetMlirTensorElemType(ml_input);
+  const auto &elem_type = GetMlirTensorElemType(ml_input);
   auto min_value = BuildHloMinValueForType(builder, loc, elem_type);
-  const auto& max_val = BuildReduction<mlir::mhlo::MaxOp>(
+  const auto &max_val = BuildReduction<mlir::mhlo::MaxOp>(
       builder, loc, min_value, ml_input, {reduce_dim});
-  const auto& broadcast_max = BuildBroadcastTensorInDims(
+  const auto &broadcast_max = BuildBroadcastTensorInDims(
       builder, loc, max_val, input_shape, broadcast_dims);
   auto ml_input_centered = BuildMlirBinaryOp<mlir::chlo::BroadcastSubOp>(
       builder, loc, ml_input, broadcast_max, elem_type,
       /* no_implicit_broadcast */ true);
-  const auto& exp_val =
+  const auto &exp_val =
       builder.create<mlir::mhlo::ExpOp>(loc, ml_input_centered).getResult();
   auto zero_value = BuildHloConstZeroForType(builder, loc, elem_type);
-  const auto& sum_exp = BuildReduction<mlir::mhlo::AddOp>(
+  const auto &sum_exp = BuildReduction<mlir::mhlo::AddOp>(
       builder, loc, zero_value, exp_val, {reduce_dim});
   if (is_logsoftmax) {
-    const auto& log_sum_exp =
+    const auto &log_sum_exp =
         builder.create<mlir::mhlo::LogOp>(loc, sum_exp).getResult();
-    const auto& broadcast_log_sum = BuildBroadcastTensorInDims(
+    const auto &broadcast_log_sum = BuildBroadcastTensorInDims(
         builder, loc, log_sum_exp, input_shape, broadcast_dims);
     return BuildMlirBinaryOp<mlir::chlo::BroadcastSubOp>(
         builder, loc, ml_input_centered, broadcast_log_sum, elem_type,
         /* no_implicit_broadcast */ true);
   } else {
-    const auto& broadcast_sum = BuildBroadcastTensorInDims(
+    const auto &broadcast_sum = BuildBroadcastTensorInDims(
         builder, loc, sum_exp, input_shape, broadcast_dims);
     return BuildMlirBinaryOp<mlir::chlo::BroadcastDivOp>(
         builder, loc, exp_val, broadcast_sum, elem_type,
@@ -65,5 +66,5 @@ mlir::Value BuildSoftmax(mlir::OpBuilder& builder, const mlir::Location& loc,
   }
 }
 
-}  // namespace mhlo
-}  // namespace mlir
+} // namespace mhlo
+} // namespace mlir

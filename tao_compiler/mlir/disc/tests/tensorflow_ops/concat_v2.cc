@@ -55,4 +55,4 @@ TEST(TFConcatV2OpTest, PartialShape2DF32) {
       /*output_descriptors*/ {"f32_X"}));
 }
 
-}  // namespace mlir_test
+} // namespace mlir_test

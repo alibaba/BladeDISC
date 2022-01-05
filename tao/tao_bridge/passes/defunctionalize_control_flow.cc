@@ -18,8 +18,9 @@
 namespace tensorflow {
 namespace tao {
 
-Status DefunctionalizeFactory::defunctionalize(
-    Node* n, Graph* g, const FunctionLibraryDefinition& flib) {
+Status
+DefunctionalizeFactory::defunctionalize(Node *n, Graph *g,
+                                        const FunctionLibraryDefinition &flib) {
   int num_old = g->num_op_nodes();
   auto defunctionalize = defunctionalize_factory_.find(n->type_string());
   if (defunctionalize != defunctionalize_factory_.end()) {
@@ -36,5 +37,5 @@ void DefunctionalizeFactory::Initialize() {
 
 int DefunctionalizeFactory::accum_defunc_ = 0;
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow

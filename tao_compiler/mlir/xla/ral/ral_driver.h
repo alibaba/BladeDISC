@@ -25,11 +25,11 @@ namespace ral {
 
 // An abstraction of a core device driver apis.
 class Driver {
- public:
+public:
   virtual ~Driver() = default;
 };
 
-}  // namespace ral
-}  // namespace tao
+} // namespace ral
+} // namespace tao
 
-#endif  // RAL_RAL_DRIVER_H_
+#endif // RAL_RAL_DRIVER_H_

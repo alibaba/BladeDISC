@@ -28,7 +28,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/register_passes.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv) {
   mlir::registerAllPasses();
   mlir::mhlo::registerAllMhloPasses();
   mlir::lmhlo::registerAllLmhloPasses();

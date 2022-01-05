@@ -47,8 +47,8 @@ namespace disc_ral {
 #define GEN_PASS_CLASSES
 #include "tensorflow/compiler/mlir/disc/transforms/disc_passes.h.inc"
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir
 
 namespace mlir {
 namespace mhlo_disc {
@@ -56,7 +56,7 @@ namespace mhlo_disc {
 #define GEN_PASS_CLASSES
 #include "tensorflow/compiler/mlir/disc/transforms/mhlo_disc_passes.h.inc"
 
-}  // namespace mhlo_disc
-}  // namespace mlir
+} // namespace mhlo_disc
+} // namespace mlir
 
-#endif  // DISC_TRANSFORMS_PASSDETAIL_H_
+#endif // DISC_TRANSFORMS_PASSDETAIL_H_

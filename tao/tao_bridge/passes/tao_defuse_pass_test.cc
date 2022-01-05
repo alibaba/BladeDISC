@@ -14,11 +14,11 @@
 #include <sstream>
 
 #include "absl/memory/memory.h"
-#include "gtest/gtest.h"
 #include "tao_bridge/test_helpers.h"
 #include "tao_bridge/tf_compatible.h"
 #include "tensorflow/core/common_runtime/single_threaded_cpu_device.h"
 #include "tensorflow/core/graph/algorithm.h"
+#include "gtest/gtest.h"
 
 namespace tensorflow {
 namespace tao {
@@ -200,11 +200,11 @@ REGISTER_OP("Elu")
     .Output("activations: T")
     .Attr("T: {realnumbertype}");
 
-Status Defuse(std::unique_ptr<Graph>* graph) {
+Status Defuse(std::unique_ptr<Graph> *graph) {
   FixupSourceAndSinkEdges(graph->get());
   // Assign all nodes to the CPU device.
-  static const char* kCpuDevice = "/job:localhost/replica:0/task:0/cpu:0";
-  for (Node* n : (*graph)->nodes()) {
+  static const char *kCpuDevice = "/job:localhost/replica:0/task:0/cpu:0";
+  for (Node *n : (*graph)->nodes()) {
     if (n->assigned_device_name().empty()) {
       n->set_assigned_device_name(kCpuDevice);
     }
@@ -218,8 +218,8 @@ Status Defuse(std::unique_ptr<Graph>* graph) {
   return pass.Run(opt_options);
 }
 
-Node* FindNodeByName(const Graph& graph, const string& name) {
-  for (Node* node : graph.nodes()) {
+Node *FindNodeByName(const Graph &graph, const string &name) {
+  for (Node *node : graph.nodes()) {
     if (node->name() == name) {
       return node;
     }
@@ -227,13 +227,13 @@ Node* FindNodeByName(const Graph& graph, const string& name) {
   return nullptr;
 }
 
-bool GetInputsForNode(const Graph& graph, const string& node_name,
-                      std::vector<Node*>* inputs) {
-  const Node* node = FindNodeByName(graph, node_name);
+bool GetInputsForNode(const Graph &graph, const string &node_name,
+                      std::vector<Node *> *inputs) {
+  const Node *node = FindNodeByName(graph, node_name);
   if (node == nullptr) {
     return false;
   }
-  for (const Edge* e : node->in_edges()) {
+  for (const Edge *e : node->in_edges()) {
     inputs->push_back(e->src());
   }
   std::sort(inputs->begin(), inputs->end(), NodeComparatorName());
@@ -245,12 +245,12 @@ TEST(TaoDefusePassTest, Base) {
 
   TF_ASSERT_OK(Defuse(&g));
   int node_cnt = 0;
-  for (auto* node : g->op_nodes()) {
+  for (auto *node : g->op_nodes()) {
     node_cnt++;
   }
-  Node* conv_node = FindNodeByName(*g, "fusedconv2d_conv_2d");
-  Node* bn_node = FindNodeByName(*g, "fusedconv2d_batchnorm");
-  Node* relu_node = FindNodeByName(*g, "fusedconv2d_Relu");
+  Node *conv_node = FindNodeByName(*g, "fusedconv2d_conv_2d");
+  Node *bn_node = FindNodeByName(*g, "fusedconv2d_batchnorm");
+  Node *relu_node = FindNodeByName(*g, "fusedconv2d_Relu");
 
   TaoPassOptions opts;
   if (opts.use_tvm) {
@@ -266,6 +266,6 @@ TEST(TaoDefusePassTest, Base) {
   }
 }
 
-}  // namespace
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace
+} // namespace tao
+} // namespace tensorflow

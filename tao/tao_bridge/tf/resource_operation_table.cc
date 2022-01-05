@@ -24,25 +24,24 @@ limitations under the License.
 
 namespace tensorflow {
 namespace tao {
-/*static*/ absl::string_view XlaResourceOpInfo::XlaResourceOpKindToString(
-    XlaResourceOpKind op_kind) {
+/*static*/ absl::string_view
+XlaResourceOpInfo::XlaResourceOpKindToString(XlaResourceOpKind op_kind) {
   switch (op_kind) {
-    case XlaResourceOpKind::kRead:
-      return "Read";
-    case XlaResourceOpKind::kWrite:
-      return "Write";
-    case XlaResourceOpKind::kReadWrite:
-      return "Modify";
-    default:
-      LOG(FATAL) << "known op_kind";
+  case XlaResourceOpKind::kRead:
+    return "Read";
+  case XlaResourceOpKind::kWrite:
+    return "Write";
+  case XlaResourceOpKind::kReadWrite:
+    return "Modify";
+  default:
+    LOG(FATAL) << "known op_kind";
   }
 }
 
 using ResourceOpMap =
     std::unordered_map<absl::string_view, XlaResourceOpInfo, hash<StringPiece>>;
-static ResourceOpMap*
-CreateResourceOpInfoMap() {
-  auto* result = new ResourceOpMap;
+static ResourceOpMap *CreateResourceOpInfoMap() {
+  auto *result = new ResourceOpMap;
 
   auto add = [&](absl::string_view op, XlaResourceOpKind op_kind,
                  XlaResourceKind resource_kind) {
@@ -113,16 +112,13 @@ CreateResourceOpInfoMap() {
   return result;
 }
 
-static const ResourceOpMap&
-GetStaticResourceOpInfoMap() {
-  static ResourceOpMap*
-      op_info_map = CreateResourceOpInfoMap();
+static const ResourceOpMap &GetStaticResourceOpInfoMap() {
+  static ResourceOpMap *op_info_map = CreateResourceOpInfoMap();
   return *op_info_map;
 }
 
-const XlaResourceOpInfo* GetResourceOpInfoForOp(absl::string_view op) {
-  const ResourceOpMap& op_infos =
-      GetStaticResourceOpInfoMap();
+const XlaResourceOpInfo *GetResourceOpInfoForOp(absl::string_view op) {
+  const ResourceOpMap &op_infos = GetStaticResourceOpInfoMap();
   auto it = op_infos.find(op);
   return it == op_infos.end() ? nullptr : &it->second;
 }
@@ -130,12 +126,12 @@ const XlaResourceOpInfo* GetResourceOpInfoForOp(absl::string_view op) {
 namespace resource_op_table_internal {
 std::vector<absl::string_view> GetKnownResourceOps() {
   std::vector<absl::string_view> result;
-  for (const auto& p : GetStaticResourceOpInfoMap()) {
+  for (const auto &p : GetStaticResourceOpInfoMap()) {
     result.push_back(p.first);
   }
   std::sort(result.begin(), result.end());
   return result;
 }
-}  // namespace resource_op_table_internal
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace resource_op_table_internal
+} // namespace tao
+} // namespace tensorflow

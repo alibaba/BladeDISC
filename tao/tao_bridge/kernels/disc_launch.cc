@@ -17,11 +17,10 @@
 namespace tensorflow {
 namespace tao {
 
-DiscLaunchOp::DiscLaunchOp(OpKernelConstruction* ctx)
-    : LaunchBase(ctx),
-      mlir_function_(FunctionAttr("mlir_function")),
+DiscLaunchOp::DiscLaunchOp(OpKernelConstruction *ctx)
+    : LaunchBase(ctx), mlir_function_(FunctionAttr("mlir_function")),
       mlir_func_handle_(kInvalidHandle) {
-  auto* bridge_opts = GetTaoBridgeOptions();
+  auto *bridge_opts = GetTaoBridgeOptions();
   enable_fallback_ = bridge_opts->tao_launch_enable_fallback;
   verbose_compilation_log_ = bridge_opts->verbose_compilation_log;
   VLOG(1) << "Create DiscLaunchOp, device uuid: [" << DeviceUUIDCtx() << "]";
@@ -35,7 +34,7 @@ DiscLaunchOp::~DiscLaunchOp() {
   VLOG(2) << tick_->Report();
 }
 
-void DiscLaunchOp::ComputeAsync(OpKernelContext* ctx,
+void DiscLaunchOp::ComputeAsync(OpKernelContext *ctx,
                                 AsyncOpKernel::DoneCallback done) {
   auto helper = new DoneHelper(done);
   tensorflow::core::ScopedUnref sc(helper);
@@ -68,21 +67,24 @@ void DiscLaunchOp::ComputeAsync(OpKernelContext* ctx,
   }
 }
 
-Status DiscLaunchOp::CompileAndRunMlir(OpKernelContext* ctx, DoneHelper* helper,
-                                       bool* executed) {
+Status DiscLaunchOp::CompileAndRunMlir(OpKernelContext *ctx, DoneHelper *helper,
+                                       bool *executed) {
   *executed = false;
   std::map<int, OptionalTensor> variables;
-  TaoProfileStat* stat;
-  Executable* mlir_executable = nullptr;
+  TaoProfileStat *stat;
+  Executable *mlir_executable = nullptr;
 
   VLOG(1) << "Run MlirExecutable for node: " << name();
   if (VLOG_IS_ON(1)) {
     VLOG(0) << "Constant (" << ConstantsAttr().size() << "):";
-    for (auto&& v : ConstantsAttr()) VLOG(1) << "\tconst_idx: " << v;
+    for (auto &&v : ConstantsAttr())
+      VLOG(1) << "\tconst_idx: " << v;
     VLOG(0) << "Fix shape (" << FixedShapesAttr().size() << "):";
-    for (auto&& v : FixedShapesAttr()) VLOG(1) << "\tfix_shape_idx: " << v;
+    for (auto &&v : FixedShapesAttr())
+      VLOG(1) << "\tfix_shape_idx: " << v;
     VLOG(0) << "Resource (" << ResourcesAttr().size() << "):";
-    for (auto&& v : ResourcesAttr()) VLOG(1) << "\tresource_idx: " << v;
+    for (auto &&v : ResourcesAttr())
+      VLOG(1) << "\tresource_idx: " << v;
   }
 
   if (GetTaoBridgeOptions()->disc_force_fallback) {
@@ -109,22 +111,22 @@ Status DiscLaunchOp::CompileAndRunMlir(OpKernelContext* ctx, DoneHelper* helper,
 }
 
 Status DiscLaunchOp::CompileToLocalExecutable(
-    OpKernelContext* ctx, const NameAttrList& function, bool is_mlir,
-    TaoCompileFuncCallInfo* call_info, std::map<int, OptionalTensor>* variables,
-    tao::Executable** executable, TaoProfileStat** stat) {
+    OpKernelContext *ctx, const NameAttrList &function, bool is_mlir,
+    TaoCompileFuncCallInfo *call_info, std::map<int, OptionalTensor> *variables,
+    tao::Executable **executable, TaoProfileStat **stat) {
   TaoCompInfoCollector::Get().SetCallTimestamp(call_info,
                                                TIME_COMPILE_CALL_BEGIN);
   // We store information about the JIT-compiled Result
   // in the ResourceMgr.
-  ResourceMgr* rm = ctx->resource_manager();
+  ResourceMgr *rm = ctx->resource_manager();
   if (!rm) {
     return errors::Internal("No resource manager.");
   }
 
-  TaoCompilationCache* cache = nullptr;
+  TaoCompilationCache *cache = nullptr;
   TF_RETURN_IF_ERROR(rm->LookupOrCreate<TaoCompilationCache>(
       rm->default_container(), "tao_cache", &cache,
-      [&](TaoCompilationCache** cache) {
+      [&](TaoCompilationCache **cache) {
         *cache = new TaoCompilationCache(/* async_compilation */ mode_ ==
                                          CompilationMode::kAsync);
         return Status::OK();
@@ -136,9 +138,9 @@ Status DiscLaunchOp::CompileToLocalExecutable(
 
   *variables = SnapshotResourceVariables(ctx, ResourcesAttr());
   std::unique_ptr<TaoCompilerInput> input_ptr(new TaoCompilerInput);
-  auto& options = *(input_ptr->mutable_options());
+  auto &options = *(input_ptr->mutable_options());
   auto flib_def = ctx->function_library();
-  auto& device_type_str = PlatformInfoCtx().device_type().type_string();
+  auto &device_type_str = PlatformInfoCtx().device_type().type_string();
   if (device_type_str == DEVICE_GPU) {
     *options.mutable_device_type() = "MLIR_GPU";
   } else if (device_type_str == DEVICE_CPU) {
@@ -163,7 +165,7 @@ Status DiscLaunchOp::CompileToLocalExecutable(
   {
     // save this flag into input proto binary. It's useful for us to reproduce
     // compile failures offline.
-    const char* envvar_ = getenv("TF_XLA_FLAGS");
+    const char *envvar_ = getenv("TF_XLA_FLAGS");
     if (envvar_) {
       input_ptr->mutable_env()->insert({"TF_XLA_FLAGS", envvar_});
     }
@@ -204,5 +206,5 @@ Status DiscLaunchOp::CompileToLocalExecutable(
   return status;
 }
 
-}  //  namespace tao
-}  //  namespace tensorflow
+} //  namespace tao
+} //  namespace tensorflow

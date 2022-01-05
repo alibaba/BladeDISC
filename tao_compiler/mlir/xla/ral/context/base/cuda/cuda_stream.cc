@@ -35,6 +35,6 @@ void CUDAStream::Destroy() {
   }
 }
 
-}  // namespace gpu
-}  // namespace ral
-}  // namespace tao
+} // namespace gpu
+} // namespace ral
+} // namespace tao

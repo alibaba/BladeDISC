@@ -53,7 +53,7 @@ namespace tao {
 // net/plaque copy in case it should be integrated.
 // NOTE!!!
 class GraphCycles {
- public:
+public:
   GraphCycles();
   ~GraphCycles();
 
@@ -143,11 +143,11 @@ class GraphCycles {
   // ----------------------------------------------------
   struct Rep;
 
- private:
-  Rep *rep_;  // opaque representation
+private:
+  Rep *rep_; // opaque representation
   TF_DISALLOW_COPY_AND_ASSIGN(GraphCycles);
 };
 
-}  // namespace tao
-}  // namespace tensorflow
-#endif  // TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_GRAPHCYCLES_H_
+} // namespace tao
+} // namespace tensorflow
+#endif // TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_GRAPHCYCLES_H_

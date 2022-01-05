@@ -49,13 +49,13 @@ CustomCallRegistry::CustomCallRegistry()
 
 CustomCallRegistry::~CustomCallRegistry() {}
 
-CustomCallRegistry& CustomCallRegistry::Global() {
+CustomCallRegistry &CustomCallRegistry::Global() {
   static CustomCallRegistry registry;
   return registry;
 }
 
 bool CustomCallRegistry::Register(
-    const std::string& name, reify_shapes_func_t reify_shapes_func,
+    const std::string &name, reify_shapes_func_t reify_shapes_func,
     lower_to_library_call_func_t lower_to_library_call_func) {
   std::lock_guard<std::mutex> lock(impl_->mu);
   auto it_reify_shapes_funcs =
@@ -66,8 +66,8 @@ bool CustomCallRegistry::Register(
   return it_reify_shapes_funcs.second && it_lower_to_library_call_funcs.second;
 }
 
-CustomCallRegistry::reify_shapes_func_t CustomCallRegistry::FindReifyShapesFunc(
-    const std::string& name) {
+CustomCallRegistry::reify_shapes_func_t
+CustomCallRegistry::FindReifyShapesFunc(const std::string &name) {
   std::lock_guard<std::mutex> lock(impl_->mu);
   CustomCallRegistry::reify_shapes_func_t func;
   auto it = impl_->reify_shapes_funcs.find(name);
@@ -78,7 +78,7 @@ CustomCallRegistry::reify_shapes_func_t CustomCallRegistry::FindReifyShapesFunc(
 }
 
 CustomCallRegistry::lower_to_library_call_func_t
-CustomCallRegistry::FindLowerToLibraryCallFunc(const std::string& name) {
+CustomCallRegistry::FindLowerToLibraryCallFunc(const std::string &name) {
   std::lock_guard<std::mutex> lock(impl_->mu);
   CustomCallRegistry::lower_to_library_call_func_t func;
   auto it = impl_->lower_to_library_call_funcs.find(name);
@@ -88,5 +88,5 @@ CustomCallRegistry::FindLowerToLibraryCallFunc(const std::string& name) {
   return func;
 }
 
-}  // namespace mhlo_disc
-}  // namespace mlir
+} // namespace mhlo_disc
+} // namespace mlir

@@ -13,14 +13,8 @@
 
 #include <vector>
 
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/StringRef.h"
-#include "llvm/Support/InitLLVM.h"
-#include "llvm/Support/TargetSelect.h"
 #include "mlir/IR/AsmState.h"
-#include "mlir/IR/Attributes.h"  // from @llvm-project
+#include "mlir/IR/Attributes.h" // from @llvm-project
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
 #include "tensorflow/compiler/mlir/disc/disc_compiler.h"
@@ -32,6 +26,12 @@
 #include "tensorflow/core/common_runtime/graph_constructor.h"
 #include "tensorflow/core/framework/function.h"
 #include "tensorflow/core/public/version.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/InitLLVM.h"
+#include "llvm/Support/TargetSelect.h"
 
 namespace tensorflow {
 namespace tao {
@@ -40,12 +40,12 @@ using llvm::SmallVector;
 using mlir::DenseElementsAttr;
 using mlir::RankedTensorType;
 
-StatusOr<std::vector<TensorShape>> ParseArgShapes(
-    const TaoCompilerInput& input) {
+StatusOr<std::vector<TensorShape>>
+ParseArgShapes(const TaoCompilerInput &input) {
   std::vector<TensorShape> args;
   args.reserve(input.args_size());
   for (int i = 0; i < input.args_size(); ++i) {
-    auto& arg = input.args(i);
+    auto &arg = input.args(i);
     tensorflow::TensorShapeProto tensor_shape_proto;
     if (!tensor_shape_proto.ParseFromString(arg.shape())) {
       return tensorflow::errors::Internal("Parse failed for arg shape");
@@ -60,7 +60,7 @@ StatusOr<std::vector<TensorShape>> ParseArgShapes(
 }
 
 StatusOr<std::unordered_map<std::string, PartialTensorShape>>
-ParseKnownArgShapes(const TaoCompilerInput& input) {
+ParseKnownArgShapes(const TaoCompilerInput &input) {
   std::unordered_map<std::string, PartialTensorShape> arg_shapes;
   FunctionDefLibrary input_flib_def;
   if (!input_flib_def.ParseFromString(input.options().flib_def())) {
@@ -86,8 +86,8 @@ ParseKnownArgShapes(const TaoCompilerInput& input) {
   return arg_shapes;
 }
 
-Status ConvertInputInfo(const TaoCompilerInput& input, Graph* graph,
-                        GraphImportConfig* specs) {
+Status ConvertInputInfo(const TaoCompilerInput &input, Graph *graph,
+                        GraphImportConfig *specs) {
   std::vector<std::string> array_names;
   std::vector<std::string> data_types;
   std::vector<std::vector<int>> shapes;
@@ -95,7 +95,7 @@ Status ConvertInputInfo(const TaoCompilerInput& input, Graph* graph,
   TF_ASSIGN_OR_RETURN(auto arg_shapes, ParseArgShapes(input));
   TF_ASSIGN_OR_RETURN(auto known_arg_shapes, ParseKnownArgShapes(input));
 
-  for (Node* n : graph->op_nodes()) {
+  for (Node *n : graph->op_nodes()) {
     VLOG(2) << "ConvertInputInfo: " << n->type_string() << "@" << n->name();
     if (n->type_string() == "_Arg") {
       int index;
@@ -126,18 +126,19 @@ Status ConvertInputInfo(const TaoCompilerInput& input, Graph* graph,
     }
   }
   std::vector<llvm::Optional<std::vector<int>>> optional_shapes;
-  for (auto& shape : shapes) optional_shapes.emplace_back(shape);
+  for (auto &shape : shapes)
+    optional_shapes.emplace_back(shape);
   return ParseInputArrayInfo(array_names, data_types, optional_shapes,
                              &specs->inputs);
 }
 
-Status ConvertOutputInfo(Graph* graph, GraphImportConfig* specs) {
+Status ConvertOutputInfo(Graph *graph, GraphImportConfig *specs) {
   std::vector<std::string> array_names;
-  for (Node* n : graph->op_nodes()) {
+  for (Node *n : graph->op_nodes()) {
     if (n->type_string() == "_Retval") {
       int index;
       TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "index", &index));
-      const Edge* e = nullptr;
+      const Edge *e = nullptr;
       TF_RETURN_IF_ERROR(n->input_edge(0, &e));
       if (array_names.size() <= index) {
         array_names.resize(index + 1);
@@ -166,9 +167,9 @@ mlir::Type DataTypeToMlirType(mlir::OpBuilder b, DataType dtype) {
   }
 }
 
-Status AppendIOAttr(mlir::ModuleOp module, const GraphImportConfig& specs,
-                    const TaoCompilerInput& input,
-                    const std::string& default_device) {
+Status AppendIOAttr(mlir::ModuleOp module, const GraphImportConfig &specs,
+                    const TaoCompilerInput &input,
+                    const std::string &default_device) {
   auto main_func = module.lookupSymbol<mlir::FuncOp>("main");
   auto dict_attr =
       main_func->getAttrOfType<mlir::DictionaryAttr>("tf.entry_function");
@@ -182,7 +183,7 @@ Status AppendIOAttr(mlir::ModuleOp module, const GraphImportConfig& specs,
   SmallVector<mlir::StringRef, 4> output_placements;
 
   for (int i = 0; i < specs.inputs.size(); ++i) {
-    auto& arg_proto = input.args(i);
+    auto &arg_proto = input.args(i);
     if (arg_proto.kind_v2() == ArgumentKind::kConstant) {
       // compile_time_const
       input_placements.push_back("const");
@@ -210,7 +211,7 @@ Status AppendIOAttr(mlir::ModuleOp module, const GraphImportConfig& specs,
 
   // extract const inputs info
   for (int i = 0; i < specs.inputs.size(); ++i) {
-    auto& arg_proto = input.args(i);
+    auto &arg_proto = input.args(i);
     if (arg_proto.kind_v2() == ArgumentKind::kConstant) {
       auto attr_name =
           (mlir::disc_ral::kDhloInputValueAttr + ("_" + llvm::Twine(i))).str();
@@ -283,12 +284,13 @@ CompilerMLIR::CompilerMLIR() {
   std::vector<std::string> str_opts = {"tao_compiler_main",
                                        "--mlir-elide-elementsattrs-if-larger",
                                        "8", "--mlir-print-debuginfo"};
-  std::vector<const char*> c_opts;
+  std::vector<const char *> c_opts;
   c_opts.reserve(str_opts.size());
-  for (auto& opt : str_opts) c_opts.push_back(opt.c_str());
+  for (auto &opt : str_opts)
+    c_opts.push_back(opt.c_str());
 
   int argc = static_cast<int>(c_opts.size());
-  const char** argv = &c_opts[0];
+  const char **argv = &c_opts[0];
 
   mlir::registerAllPasses();
   mlir::registerAsmPrinterCLOptions();
@@ -301,13 +303,13 @@ CompilerMLIR::CompilerMLIR() {
 
 CompilerMLIR::~CompilerMLIR() {}
 
-Status CompilerMLIR::Init(const TaoCompilerInput& input,
-                          const string& output_file) {
+Status CompilerMLIR::Init(const TaoCompilerInput &input,
+                          const string &output_file) {
   return Status::OK();
 }
 
-Status CompilerMLIR::ConvertToMlir(const TaoCompilerInput& input,
-                                   const string& output_file) {
+Status CompilerMLIR::ConvertToMlir(const TaoCompilerInput &input,
+                                   const string &output_file) {
   NameAttrList fn_name_attrs;
   if (!fn_name_attrs.ParseFromString(input.function())) {
     return tensorflow::errors::Internal("Parse failed for input function");
@@ -326,7 +328,7 @@ Status CompilerMLIR::ConvertToMlir(const TaoCompilerInput& input,
       new ProcessFunctionLibraryRuntime(nullptr, Env::Default(), nullptr,
                                         TF_GRAPH_DEF_VERSION, flib_def.get(),
                                         opts));
-  FunctionLibraryRuntime* lib_runtime =
+  FunctionLibraryRuntime *lib_runtime =
       pflr->GetFLR(ProcessFunctionLibraryRuntime::kDefaultFLRDevice);
 
   FunctionLibraryRuntime::Handle func_handle;
@@ -335,7 +337,7 @@ Status CompilerMLIR::ConvertToMlir(const TaoCompilerInput& input,
                                               AttrSlice(&fn_name_attrs.attr()),
                                               inst_ops, &func_handle));
 
-  const FunctionBody* fbody = lib_runtime->GetFunctionBody(func_handle);
+  const FunctionBody *fbody = lib_runtime->GetFunctionBody(func_handle);
   std::unique_ptr<Graph> graph(
       new Graph(lib_runtime->GetFunctionLibraryDefinition()));
   CopyGraph(*fbody->graph, graph.get());
@@ -348,7 +350,7 @@ Status CompilerMLIR::ConvertToMlir(const TaoCompilerInput& input,
   VLOG(2) << "GraphDef str:\n" << graph_def.DebugString();
 
   context_.reset(new mlir::MLIRContext);
-  auto& context = *context_;
+  auto &context = *context_;
   GraphDebugInfo debug_info;
   GraphImportConfig specs;
   specs.prune_unused_nodes = false;
@@ -392,13 +394,13 @@ Status CompilerMLIR::ConvertToMlir(const TaoCompilerInput& input,
   return Status::OK();
 }
 
-Status CompilerMLIR::FillDeviceInfo(
-    mlir::disc_ral::DISCLoweringOptions& options) {
+Status
+CompilerMLIR::FillDeviceInfo(mlir::disc_ral::DISCLoweringOptions &options) {
   return Status::OK();
 }
 
-Status CompilerMLIR::CompileMlirToExecutable(const TaoCompilerInput& input,
-                                             const std::string& output_file) {
+Status CompilerMLIR::CompileMlirToExecutable(const TaoCompilerInput &input,
+                                             const std::string &output_file) {
   std::string so_name = output_file + ".so";
   mlir::disc_ral::DISCLoweringOptions hlo_to_llvm_options(so_name);
   TF_RETURN_IF_ERROR(FillDeviceInfo(hlo_to_llvm_options));
@@ -407,7 +409,7 @@ Status CompilerMLIR::CompileMlirToExecutable(const TaoCompilerInput& input,
     return errors::Internal("lower to mlir llvm failed");
   }
 
-  auto& metadata_file = hlo_to_llvm_options.metadata_file_path;
+  auto &metadata_file = hlo_to_llvm_options.metadata_file_path;
   result_proto_.mutable_mlir()->set_so_lib_filename(so_name);
   result_proto_.mutable_mlir()->set_const_proto_filename(metadata_file);
 
@@ -417,13 +419,13 @@ Status CompilerMLIR::CompileMlirToExecutable(const TaoCompilerInput& input,
   return Status::OK();
 }
 
-Status CompilerMLIR::Compile(const TaoCompilerInput& input,
-                             const string& output_file) {
+Status CompilerMLIR::Compile(const TaoCompilerInput &input,
+                             const string &output_file) {
   TF_RETURN_IF_ERROR(Init(input, output_file));
   TF_RETURN_IF_ERROR(ConvertToMlir(input, output_file));
   TF_RETURN_IF_ERROR(CompileMlirToExecutable(input, output_file));
   return Status::OK();
 }
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow

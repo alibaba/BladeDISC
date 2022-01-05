@@ -66,4 +66,4 @@ TEST(TFBiasAddOpTest, PartialShape2DF32Test2) {
       /*output_descriptors*/ {"f32_X"}));
 }
 
-}  // namespace mlir_test
+} // namespace mlir_test

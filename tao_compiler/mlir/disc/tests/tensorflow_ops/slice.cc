@@ -69,4 +69,4 @@ TEST(TFSliceOpTest, PartialShape2DF32Test2) {
       /*input_vals*/ {{}, {23, 40}, {123, -1}}));
 }
 
-}  // namespace mlir_test
+} // namespace mlir_test

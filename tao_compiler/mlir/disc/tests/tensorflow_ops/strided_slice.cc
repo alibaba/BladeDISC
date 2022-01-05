@@ -116,4 +116,4 @@ TEST(TFStridedSliceOpTest, PartialDynamicShapeI32Test2) {
       /*input_vals*/ {{}}));
 }
 
-}  // namespace mlir_test
+} // namespace mlir_test

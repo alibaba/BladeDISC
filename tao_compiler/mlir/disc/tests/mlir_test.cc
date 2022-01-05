@@ -70,7 +70,7 @@ using ::stream_executor::gpu::GpuStatus;
 #define GPU_MALLOC_API cuMemAlloc
 #endif
 
-DataType ParseDataType(const std::string& s) {
+DataType ParseDataType(const std::string &s) {
   if (s == "f32") {
     return tensorflow::DT_FLOAT;
   } else if (s == "f64") {
@@ -91,7 +91,7 @@ DataType ParseDataType(const std::string& s) {
   }
 }
 
-DeviceType getDefaultPlacementForBackend(const BackendType& backend) {
+DeviceType getDefaultPlacementForBackend(const BackendType &backend) {
   if (backend == BackendType::kCuda) {
     return DeviceType::kGPU;
   } else if (backend == BackendType::kX86) {
@@ -102,9 +102,9 @@ DeviceType getDefaultPlacementForBackend(const BackendType& backend) {
   }
 }
 
-buffer_shape_t ParseInputDescriptor(const std::string& s,
-                                    const BackendType& backend, DataType* dtype,
-                                    DeviceType* placement) {
+buffer_shape_t ParseInputDescriptor(const std::string &s,
+                                    const BackendType &backend, DataType *dtype,
+                                    DeviceType *placement) {
   buffer_shape_t shape;
   std::vector<std::string> splitted = absl::StrSplit(s, 'x');
   for (int i = 0; i < splitted.size() - 1; ++i) {
@@ -126,8 +126,8 @@ buffer_shape_t ParseInputDescriptor(const std::string& s,
   return shape;
 }
 
-void ParseOutputDescriptor(const std::string& s, const BackendType& backend,
-                           DataType* dtype, DeviceType* placement) {
+void ParseOutputDescriptor(const std::string &s, const BackendType &backend,
+                           DataType *dtype, DeviceType *placement) {
   std::vector<std::string> splitted = absl::StrSplit(s, '_');
   *dtype = ParseDataType(splitted.front());
   if (splitted.back() == "h") {
@@ -144,19 +144,19 @@ void ParseOutputDescriptor(const std::string& s, const BackendType& backend,
 }
 
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
-static void printErrorIfAny(GpuStatus result, const char* where) {
+static void printErrorIfAny(GpuStatus result, const char *where) {
   if (result != GPU_SUCCESS) {
     std::ostringstream out;
     LOG(ERROR) << "CUDA failed with " << result << " in " << where;
   }
 }
-static int32_t reportErrorIfAny(GpuStatus result, const char* where) {
+static int32_t reportErrorIfAny(GpuStatus result, const char *where) {
   printErrorIfAny(result, where);
   return result;
 }
 #endif
 
-void print_output_shape(void* d_result, const buffer_shape_t& shape) {
+void print_output_shape(void *d_result, const buffer_shape_t &shape) {
   VLOG(0) << "out buffer = " << d_result;
   VLOG(0) << "out shape:";
   for (size_t i = 0; i < shape.size(); ++i) {
@@ -164,31 +164,23 @@ void print_output_shape(void* d_result, const buffer_shape_t& shape) {
   }
 }
 
-MlirTest::MlirTest(const std::string& mlir_file_path,
-                   const std::string& tmp_dir, const std::string& test_name,
+MlirTest::MlirTest(const std::string &mlir_file_path,
+                   const std::string &tmp_dir, const std::string &test_name,
                    int num_inputs, int num_outputs,
-                   const std::vector<buffer_shape_t>& input_shapes,
-                   const std::vector<DataType>& input_elem_types,
-                   const std::vector<DeviceType>& input_placement,
-                   const std::vector<std::vector<float>>& input_vals,
-                   const std::vector<DataType>& out_elem_types,
-                   const std::vector<DeviceType>& output_placement,
+                   const std::vector<buffer_shape_t> &input_shapes,
+                   const std::vector<DataType> &input_elem_types,
+                   const std::vector<DeviceType> &input_placement,
+                   const std::vector<std::vector<float>> &input_vals,
+                   const std::vector<DataType> &out_elem_types,
+                   const std::vector<DeviceType> &output_placement,
                    bool profiling, bool multi_cc_mode,
                    bool multi_cc_mode_dbg_ptx_only)
-    : mlir_file_path_(mlir_file_path),
-      tmp_dir_(tmp_dir),
-      test_name_(test_name),
-      num_inputs_(num_inputs),
-      num_outputs_(num_outputs),
-      input_shapes_(input_shapes),
-      input_elem_types_(input_elem_types),
-      input_placement_(input_placement),
-      input_vals_(input_vals),
-      out_elem_types_(out_elem_types),
-      output_placement_(output_placement),
-      h_data_(num_inputs),
-      actual_results_(num_outputs),
-      profiling_(profiling),
+    : mlir_file_path_(mlir_file_path), tmp_dir_(tmp_dir), test_name_(test_name),
+      num_inputs_(num_inputs), num_outputs_(num_outputs),
+      input_shapes_(input_shapes), input_elem_types_(input_elem_types),
+      input_placement_(input_placement), input_vals_(input_vals),
+      out_elem_types_(out_elem_types), output_placement_(output_placement),
+      h_data_(num_inputs), actual_results_(num_outputs), profiling_(profiling),
       multi_cc_mode_(multi_cc_mode),
       multi_cc_mode_dbg_ptx_only_(multi_cc_mode_dbg_ptx_only) {
   ReadStringFromEnvVar("TF_OPT_PATH", "tensorflow/compiler/mlir/tf-opt",
@@ -275,7 +267,7 @@ Status MlirTest::CompileMlirToBinary() {
   return Status::OK();
 }
 
-Status MlirTest::LoadGraph(const std::string& graph_file_name) {
+Status MlirTest::LoadGraph(const std::string &graph_file_name) {
   tensorflow::GraphDef graph_def;
   Status load_graph_status =
       ReadTextProto(tensorflow::Env::Default(), graph_file_name, &graph_def);
@@ -283,7 +275,7 @@ Status MlirTest::LoadGraph(const std::string& graph_file_name) {
     return Internal("Error: read pb file failed");
   }
 
-  for (auto& node_def : graph_def.node()) {
+  for (auto &node_def : graph_def.node()) {
     if (node_def.op() == "_Retval") {
       output_tensor_name_map_[node_def.name()] = node_def.input(0);
     }
@@ -305,10 +297,12 @@ Status MlirTest::LoadGraph(const std::string& graph_file_name) {
 template <class T>
 bool MlirTest::IsAcceptableNear(T a, T b, double rel_err_limit,
                                 double abs_err_limit) {
-  if (a == b) return true;
+  if (a == b)
+    return true;
   auto a_cast = static_cast<double>(a);
   auto b_cast = static_cast<double>(b);
-  if (std::isnan(a_cast) && std::isnan(b_cast)) return true;
+  if (std::isnan(a_cast) && std::isnan(b_cast))
+    return true;
   double abs_err = std::abs(a_cast - b_cast);
   double rel_err =
       std::abs(a_cast - b_cast) / std::max(abs(a_cast), abs(b_cast));
@@ -316,8 +310,8 @@ bool MlirTest::IsAcceptableNear(T a, T b, double rel_err_limit,
 }
 
 template <class T>
-static void InitializeTensor(const std::vector<T>& initialization_values,
-                             Tensor* input_tensor) {
+static void InitializeTensor(const std::vector<T> &initialization_values,
+                             Tensor *input_tensor) {
   auto type_tensor = input_tensor->flat<T>();
   type_tensor = type_tensor.constant(static_cast<T>(0));
   if (!initialization_values.empty()) {
@@ -368,32 +362,32 @@ Status MlirTest::RunGoldenTF() {
     DataType dtype = input_elem_types_[i];
     Tensor input_tensor(dtype, input_shape);
     if (dtype == tensorflow::DT_FLOAT) {
-      float* ptr = reinterpret_cast<float*>(h_data_[i].get());
+      float *ptr = reinterpret_cast<float *>(h_data_[i].get());
       std::vector<float> h_data_vec(ptr, ptr + num_elements);
       InitializeTensor<float>(h_data_vec, &input_tensor);
     } else if (dtype == tensorflow::DT_DOUBLE) {
-      double* ptr = reinterpret_cast<double*>(h_data_[i].get());
+      double *ptr = reinterpret_cast<double *>(h_data_[i].get());
       std::vector<double> h_data_vec(ptr, ptr + num_elements);
       InitializeTensor<double>(h_data_vec, &input_tensor);
     } else if (dtype == tensorflow::DT_HALF) {
-      half* ptr = reinterpret_cast<half*>(h_data_[i].get());
+      half *ptr = reinterpret_cast<half *>(h_data_[i].get());
       std::vector<half> h_data_vec(ptr, ptr + num_elements);
       InitializeTensor<half>(h_data_vec, &input_tensor);
     } else if (dtype == tensorflow::DT_INT32) {
-      int32_t* ptr = reinterpret_cast<int32_t*>(h_data_[i].get());
+      int32_t *ptr = reinterpret_cast<int32_t *>(h_data_[i].get());
       std::vector<int32_t> h_data_vec(ptr, ptr + num_elements);
       InitializeTensor<int32_t>(h_data_vec, &input_tensor);
     } else if (dtype == tensorflow::DT_INT64) {
-      tensorflow::int64* ptr =
-          reinterpret_cast<tensorflow::int64*>(h_data_[i].get());
+      tensorflow::int64 *ptr =
+          reinterpret_cast<tensorflow::int64 *>(h_data_[i].get());
       std::vector<tensorflow::int64> h_data_vec(ptr, ptr + num_elements);
       InitializeTensor<tensorflow::int64>(h_data_vec, &input_tensor);
     } else if (dtype == tensorflow::DT_BOOL) {
-      bool* ptr = reinterpret_cast<bool*>(h_data_[i].get());
+      bool *ptr = reinterpret_cast<bool *>(h_data_[i].get());
       std::vector<bool> h_data_vec(ptr, ptr + num_elements);
       InitializeTensor<bool>(h_data_vec, &input_tensor);
     } else if (dtype == tensorflow::DT_UINT8) {
-      uint8_t* ptr = reinterpret_cast<uint8_t*>(h_data_[i].get());
+      uint8_t *ptr = reinterpret_cast<uint8_t *>(h_data_[i].get());
       std::vector<uint8_t> h_data_vec(ptr, ptr + num_elements);
       InitializeTensor<uint8_t>(h_data_vec, &input_tensor);
     } else {
@@ -441,7 +435,7 @@ Status MlirTest::RunGoldenTF() {
     if (dtype == tensorflow::DT_FLOAT) {
       auto datas = output_tensors[i].flat<float>();
       for (int64_t n = 0; n < datas.size(); ++n) {
-        float actual = reinterpret_cast<float*>(actual_results_[i].get())[n];
+        float actual = reinterpret_cast<float *>(actual_results_[i].get())[n];
         VLOG(2) << "  expected: " << datas(n) << ", actual: " << actual;
         if (!MlirTest::IsAcceptableNear(datas(n), actual)) {
           absl::StrAppend(&msg, i, " index: ", n, " expected: ", datas(n),
@@ -452,7 +446,7 @@ Status MlirTest::RunGoldenTF() {
     } else if (dtype == tensorflow::DT_DOUBLE) {
       auto datas = output_tensors[i].flat<double>();
       for (int64_t n = 0; n < datas.size(); ++n) {
-        double actual = reinterpret_cast<double*>(actual_results_[i].get())[n];
+        double actual = reinterpret_cast<double *>(actual_results_[i].get())[n];
         VLOG(2) << "  expected: " << datas(n) << ", actual: " << actual;
         if (!MlirTest::IsAcceptableNear(datas(n), actual, 5e-2, 1e-3)) {
           absl::StrAppend(&msg, i, " index: ", n,
@@ -464,7 +458,7 @@ Status MlirTest::RunGoldenTF() {
     } else if (dtype == tensorflow::DT_HALF) {
       auto datas = output_tensors[i].flat<half>();
       for (int64_t n = 0; n < datas.size(); ++n) {
-        half actual = reinterpret_cast<half*>(actual_results_[i].get())[n];
+        half actual = reinterpret_cast<half *>(actual_results_[i].get())[n];
         VLOG(2) << "  expected: " << datas(n) << ", actual: " << actual;
         if (!MlirTest::IsAcceptableNear(datas(n), actual, 5e-2, 1e-3)) {
           absl::StrAppend(&msg, i, " index: ", n,
@@ -477,7 +471,7 @@ Status MlirTest::RunGoldenTF() {
       auto datas = output_tensors[i].flat<int32_t>();
       for (int64_t n = 0; n < datas.size(); ++n) {
         int32_t actual =
-            reinterpret_cast<int32_t*>(actual_results_[i].get())[n];
+            reinterpret_cast<int32_t *>(actual_results_[i].get())[n];
         VLOG(2) << "expected: " << datas(n) << ", actual: " << actual;
         if (!MlirTest::IsAcceptableNear(datas(n), actual)) {
           absl::StrAppend(&msg, i, " index: ", n, " expected: ", datas(n),
@@ -489,7 +483,7 @@ Status MlirTest::RunGoldenTF() {
       auto datas = output_tensors[i].flat<tensorflow::int64>();
       for (int64_t n = 0; n < datas.size(); ++n) {
         tensorflow::int64 actual =
-            reinterpret_cast<int64_t*>(actual_results_[i].get())[n];
+            reinterpret_cast<int64_t *>(actual_results_[i].get())[n];
         VLOG(2) << "expected: " << datas(n) << ", actual: " << actual;
         if (!MlirTest::IsAcceptableNear(datas(n), actual)) {
           absl::StrAppend(&msg, i, " index: ", n, " expected: ", datas(n),
@@ -500,7 +494,7 @@ Status MlirTest::RunGoldenTF() {
     } else if (dtype == tensorflow::DT_BOOL) {
       auto datas = output_tensors[i].flat<bool>();
       for (int64_t n = 0; n < datas.size(); ++n) {
-        bool actual = reinterpret_cast<bool*>(actual_results_[i].get())[n];
+        bool actual = reinterpret_cast<bool *>(actual_results_[i].get())[n];
         VLOG(2) << "expected: " << datas(n) << ", actual: " << actual;
         if (datas(n) != actual) {
           std::string msg = "Error in output ";
@@ -513,7 +507,7 @@ Status MlirTest::RunGoldenTF() {
       auto datas = output_tensors[i].flat<uint8_t>();
       for (int64_t n = 0; n < datas.size(); ++n) {
         uint8_t actual =
-            reinterpret_cast<uint8_t*>(actual_results_[i].get())[n];
+            reinterpret_cast<uint8_t *>(actual_results_[i].get())[n];
         VLOG(2) << "expected: " << datas(n) << ", actual: " << actual;
         if (!MlirTest::IsAcceptableNear(datas(n), actual)) {
           absl::StrAppend(&msg, i, " index: ", n, " expected: ", datas(n),
@@ -529,23 +523,23 @@ Status MlirTest::RunGoldenTF() {
   return Status::OK();
 }
 
-MlirTestImpl::MlirTestImpl(const std::string& mlir_file_path,
-                           const std::string& tmp_dir,
-                           const std::string& test_name, int num_inputs,
+MlirTestImpl::MlirTestImpl(const std::string &mlir_file_path,
+                           const std::string &tmp_dir,
+                           const std::string &test_name, int num_inputs,
                            int num_outputs,
-                           const std::vector<buffer_shape_t>& input_shapes,
-                           const std::vector<DataType>& input_elem_types,
-                           const std::vector<DeviceType>& input_placement,
-                           const std::vector<std::vector<float>>& input_vals,
-                           const std::vector<DataType>& out_elem_types,
-                           const std::vector<DeviceType>& output_placement,
+                           const std::vector<buffer_shape_t> &input_shapes,
+                           const std::vector<DataType> &input_elem_types,
+                           const std::vector<DeviceType> &input_placement,
+                           const std::vector<std::vector<float>> &input_vals,
+                           const std::vector<DataType> &out_elem_types,
+                           const std::vector<DeviceType> &output_placement,
                            bool profiling, bool multi_cc_mode,
                            bool multi_cc_mode_dbg_ptx_only)
     : MlirTest(mlir_file_path, tmp_dir, test_name, num_inputs, num_outputs,
                input_shapes, input_elem_types, input_placement, input_vals,
                out_elem_types, output_placement, profiling, multi_cc_mode,
                multi_cc_mode_dbg_ptx_only) {
-  tao_ral_func_ptr_ = reinterpret_cast<void*>(&tao_ral_call_impl);
+  tao_ral_func_ptr_ = reinterpret_cast<void *>(&tao_ral_call_impl);
   if (!tao_ral_func_ptr_) {
     LOG(ERROR) << "Error: fail to find tao_ral_call_impl";
   }
@@ -555,18 +549,18 @@ MlirTestImpl::MlirTestImpl(const std::string& mlir_file_path,
 MlirTestImpl::~MlirTestImpl() { output_buffers_.clear(); }
 
 Status MlirTestImpl::GenerateInputAndRun() {
-  void* func_handle = dlopen(compiled_so_file_.c_str(), RTLD_NOW);
+  void *func_handle = dlopen(compiled_so_file_.c_str(), RTLD_NOW);
   if (!func_handle) {
     std::string msg = "fail to open compiled .so file with error: ";
     absl::StrAppend(&msg, dlerror());
     return Internal(msg);
   }
 
-  void* entry_func_ptr = dlsym(func_handle, "main");
+  void *entry_func_ptr = dlsym(func_handle, "main");
   if (!entry_func_ptr) {
     return Internal("fail to find main");
   }
-  using func_t = void (*)(void**);
+  using func_t = void (*)(void **);
   func_t entry_func = (func_t)entry_func_ptr;
 
   tao::ral::BaseContextOption opt;
@@ -583,47 +577,48 @@ Status MlirTestImpl::GenerateInputAndRun() {
 
   // bind inputs
   for (int idx = 0; idx < num_inputs_; ++idx) {
-    const buffer_shape_t& shape = input_shapes_[idx];
-    const DataType& dtype = input_elem_types_[idx];
+    const buffer_shape_t &shape = input_shapes_[idx];
+    const DataType &dtype = input_elem_types_[idx];
     int64_t nelem = 1;
     for (size_t i = 0; i < shape.size(); ++i) {
       nelem *= shape[i];
     }
     nelem = (nelem ? nelem : 1);
     int64_t bytes = -1;
-    void* d_addr = nullptr;
+    void *d_addr = nullptr;
     if (dtype == tensorflow::DT_FLOAT) {
       bytes = nelem * sizeof(float);
-      h_data_[idx] = std::shared_ptr<void>(new float[nelem], [](void* p) {
-        delete[] reinterpret_cast<float*>(p);
+      h_data_[idx] = std::shared_ptr<void>(new float[nelem], [](void *p) {
+        delete[] reinterpret_cast<float *>(p);
       });
       if (input_vals_.empty() || input_vals_[idx].empty()) {
         for (size_t i = 0; i < nelem; ++i) {
-          reinterpret_cast<float*>(h_data_[idx].get())[i] = 1.0 + i;
+          reinterpret_cast<float *>(h_data_[idx].get())[i] = 1.0 + i;
         }
       } else {
         size_t m = 0;
         for (size_t i = 0; i < nelem; ++i) {
-          reinterpret_cast<float*>(h_data_[idx].get())[i] = input_vals_[idx][m];
+          reinterpret_cast<float *>(h_data_[idx].get())[i] =
+              input_vals_[idx][m];
           m = (m + 1) % nelem;
         }
       }
 
     } else if (dtype == tensorflow::DT_DOUBLE) {
       bytes = nelem * sizeof(double);
-      h_data_[idx] = std::shared_ptr<void>(new double[nelem], [](void* p) {
-        delete[] reinterpret_cast<double*>(p);
+      h_data_[idx] = std::shared_ptr<void>(new double[nelem], [](void *p) {
+        delete[] reinterpret_cast<double *>(p);
       });
       if (input_vals_.empty() || input_vals_[idx].empty()) {
         for (size_t i = 0; i < nelem; ++i) {
           float v = std::rand() % 1000 / 1000.0;
-          reinterpret_cast<double*>(h_data_[idx].get())[i] =
+          reinterpret_cast<double *>(h_data_[idx].get())[i] =
               static_cast<double>(v);
         }
       } else {
         size_t m = 0;
         for (size_t i = 0; i < nelem; ++i) {
-          reinterpret_cast<double*>(h_data_[idx].get())[i] =
+          reinterpret_cast<double *>(h_data_[idx].get())[i] =
               static_cast<double>(input_vals_[idx][m]);
           m = (m + 1) % nelem;
         }
@@ -631,18 +626,19 @@ Status MlirTestImpl::GenerateInputAndRun() {
 
     } else if (dtype == tensorflow::DT_HALF) {
       bytes = nelem * sizeof(half);
-      h_data_[idx] = std::shared_ptr<void>(new half[nelem], [](void* p) {
-        delete[] reinterpret_cast<half*>(p);
+      h_data_[idx] = std::shared_ptr<void>(new half[nelem], [](void *p) {
+        delete[] reinterpret_cast<half *>(p);
       });
       if (input_vals_.empty() || input_vals_[idx].empty()) {
         for (size_t i = 0; i < nelem; ++i) {
           float v = std::rand() % 1000 / 1000.0;
-          reinterpret_cast<half*>(h_data_[idx].get())[i] = static_cast<half>(v);
+          reinterpret_cast<half *>(h_data_[idx].get())[i] =
+              static_cast<half>(v);
         }
       } else {
         size_t m = 0;
         for (size_t i = 0; i < nelem; ++i) {
-          reinterpret_cast<half*>(h_data_[idx].get())[i] =
+          reinterpret_cast<half *>(h_data_[idx].get())[i] =
               static_cast<half>(input_vals_[idx][m]);
           m = (m + 1) % nelem;
         }
@@ -650,17 +646,17 @@ Status MlirTestImpl::GenerateInputAndRun() {
 
     } else if (dtype == tensorflow::DT_INT32) {
       bytes = nelem * sizeof(int32_t);
-      h_data_[idx] = std::shared_ptr<void>(new int32_t[nelem], [](void* p) {
-        delete[] reinterpret_cast<int32_t*>(p);
+      h_data_[idx] = std::shared_ptr<void>(new int32_t[nelem], [](void *p) {
+        delete[] reinterpret_cast<int32_t *>(p);
       });
       if (input_vals_.empty() || input_vals_[idx].empty()) {
         for (size_t i = 0; i < nelem; ++i) {
-          reinterpret_cast<int32_t*>(h_data_[idx].get())[i] = 1 + i;
+          reinterpret_cast<int32_t *>(h_data_[idx].get())[i] = 1 + i;
         }
       } else {
         size_t m = 0;
         for (size_t i = 0; i < nelem; ++i) {
-          reinterpret_cast<int32_t*>(h_data_[idx].get())[i] =
+          reinterpret_cast<int32_t *>(h_data_[idx].get())[i] =
               static_cast<int32_t>(input_vals_[idx][m]);
           m = (m + 1) % nelem;
         }
@@ -668,17 +664,17 @@ Status MlirTestImpl::GenerateInputAndRun() {
 
     } else if (dtype == tensorflow::DT_INT64) {
       bytes = nelem * sizeof(int64_t);
-      h_data_[idx] = std::shared_ptr<void>(new int64_t[nelem], [](void* p) {
-        delete[] reinterpret_cast<int64_t*>(p);
+      h_data_[idx] = std::shared_ptr<void>(new int64_t[nelem], [](void *p) {
+        delete[] reinterpret_cast<int64_t *>(p);
       });
       if (input_vals_.empty() || input_vals_[idx].empty()) {
         for (size_t i = 0; i < nelem; ++i) {
-          reinterpret_cast<int64_t*>(h_data_[idx].get())[i] = 1 + i;
+          reinterpret_cast<int64_t *>(h_data_[idx].get())[i] = 1 + i;
         }
       } else {
         size_t m = 0;
         for (size_t i = 0; i < nelem; ++i) {
-          reinterpret_cast<int64_t*>(h_data_[idx].get())[i] =
+          reinterpret_cast<int64_t *>(h_data_[idx].get())[i] =
               static_cast<int64_t>(input_vals_[idx][m]);
           m = (m + 1) % nelem;
         }
@@ -686,17 +682,17 @@ Status MlirTestImpl::GenerateInputAndRun() {
 
     } else if (dtype == tensorflow::DT_BOOL) {
       bytes = nelem * sizeof(bool);
-      h_data_[idx] = std::shared_ptr<void>(new bool[nelem], [](void* p) {
-        delete[] reinterpret_cast<bool*>(p);
+      h_data_[idx] = std::shared_ptr<void>(new bool[nelem], [](void *p) {
+        delete[] reinterpret_cast<bool *>(p);
       });
       if (input_vals_.empty() || input_vals_[idx].empty()) {
         for (size_t i = 0; i < nelem; ++i) {
-          reinterpret_cast<bool*>(h_data_[idx].get())[i] = true;
+          reinterpret_cast<bool *>(h_data_[idx].get())[i] = true;
         }
       } else {
         size_t m = 0;
         for (size_t i = 0; i < nelem; ++i) {
-          reinterpret_cast<bool*>(h_data_[idx].get())[i] =
+          reinterpret_cast<bool *>(h_data_[idx].get())[i] =
               static_cast<bool>(input_vals_[idx][m]);
           m = (m + 1) % nelem;
         }
@@ -704,17 +700,17 @@ Status MlirTestImpl::GenerateInputAndRun() {
 
     } else if (dtype == tensorflow::DT_UINT8) {
       bytes = nelem * sizeof(uint8_t);
-      h_data_[idx] = std::shared_ptr<void>(new uint8_t[nelem], [](void* p) {
-        delete[] reinterpret_cast<uint8_t*>(p);
+      h_data_[idx] = std::shared_ptr<void>(new uint8_t[nelem], [](void *p) {
+        delete[] reinterpret_cast<uint8_t *>(p);
       });
       if (input_vals_.empty() || input_vals_[idx].empty()) {
         for (size_t i = 0; i < nelem; ++i) {
-          reinterpret_cast<uint8_t*>(h_data_[idx].get())[i] = 1 + i;
+          reinterpret_cast<uint8_t *>(h_data_[idx].get())[i] = 1 + i;
         }
       } else {
         size_t m = 0;
         for (size_t i = 0; i < nelem; ++i) {
-          reinterpret_cast<uint8_t*>(h_data_[idx].get())[i] =
+          reinterpret_cast<uint8_t *>(h_data_[idx].get())[i] =
               static_cast<uint8_t>(input_vals_[idx][m]);
           m = (m + 1) % nelem;
         }
@@ -728,11 +724,11 @@ Status MlirTestImpl::GenerateInputAndRun() {
   std::vector<buffer_shape_t> output_shapes;
   output_buffers_.resize(num_outputs_);
 
-  std::vector<void*> d_addr_vec(num_inputs_);
+  std::vector<void *> d_addr_vec(num_inputs_);
   std::vector<int64_t> bytes_vec(num_inputs_);
   for (int idx = 0; idx < num_inputs_; ++idx) {
-    const buffer_shape_t& shape = input_shapes_[idx];
-    const DataType& dtype = input_elem_types_[idx];
+    const buffer_shape_t &shape = input_shapes_[idx];
+    const DataType &dtype = input_elem_types_[idx];
     int64_t nelem = 1;
     for (size_t i = 0; i < shape.size(); ++i) {
       nelem *= shape[i];
@@ -754,11 +750,11 @@ Status MlirTestImpl::GenerateInputAndRun() {
     } else if (dtype == tensorflow::DT_UINT8) {
       bytes = nelem * sizeof(uint8_t);
     }
-    void* d_addr = nullptr;
+    void *d_addr = nullptr;
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
     if (input_placement_[idx] != DeviceType::kCPU) {
       // input on device memory
-      reportErrorIfAny(GPU_MALLOC_API((GpuDevicePtr*)&d_addr, bytes),
+      reportErrorIfAny(GPU_MALLOC_API((GpuDevicePtr *)&d_addr, bytes),
                        "GPU Malloc");
       d_addr_vec[idx] = d_addr;
       bytes_vec[idx] = bytes;
@@ -791,18 +787,18 @@ Status MlirTestImpl::GenerateInputAndRun() {
 #endif
 
       for (int idx = 0; idx < num_inputs_; ++idx) {
-        const buffer_shape_t& shape = input_shapes_[idx];
+        const buffer_shape_t &shape = input_shapes_[idx];
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
         if (input_placement_[idx] == DeviceType::kCPU) {
           // input on host memory
           exec_ctx->bindInput(idx, h_data_[idx].get(), shape);
         } else {
           // input on device memory
-          void* d_addr = d_addr_vec[idx];
-          reportErrorIfAny(
-              GPU_MEMCPYHTOD_API((GpuDevicePtr)d_addr, h_data_[idx].get(),
-                                 bytes_vec[idx]),
-              "GPU MemcpyHtoD");
+          void *d_addr = d_addr_vec[idx];
+          reportErrorIfAny(GPU_MEMCPYHTOD_API((GpuDevicePtr)d_addr,
+                                              h_data_[idx].get(),
+                                              bytes_vec[idx]),
+                           "GPU MemcpyHtoD");
           exec_ctx->bindInput(idx, d_addr, shape);
         }
 #else
@@ -810,8 +806,8 @@ Status MlirTestImpl::GenerateInputAndRun() {
 #endif
       }
 
-      void* ctx_struct[] = {exec_ctx.get(), tao_ral_func_ptr_};
-      void** args = (void**)(&ctx_struct);
+      void *ctx_struct[] = {exec_ctx.get(), tao_ral_func_ptr_};
+      void **args = (void **)(&ctx_struct);
       // VLOG(2) << "######### tao_ctx: " << ral_ctx_ptr;
       // void* args[1] = {(void*)&ral_ctx_ptr};
       entry_func(args);
@@ -822,10 +818,10 @@ Status MlirTestImpl::GenerateInputAndRun() {
         output_buffers_[idx].reset();
         exec_ctx->bindOutput(idx, &output_buffers_[idx]);
         output_shapes.emplace_back(output_buffers_[idx]->shape());
-        void* result = (void*)output_buffers_[idx]->data();
+        void *result = (void *)output_buffers_[idx]->data();
         // if the output tensor is on device, temporarily store device address,
         // and will be replaced by host address later after potential memcpy.
-        actual_results_[idx] = std::shared_ptr<void>(result, [](void* p) {
+        actual_results_[idx] = std::shared_ptr<void>(result, [](void *p) {
           // do nothing
         });
       }
@@ -854,7 +850,7 @@ Status MlirTestImpl::GenerateInputAndRun() {
     for (size_t i = 0; i < shape.size(); ++i) {
       nelem *= shape[i];
     }
-    void* result = actual_results_[idx].get();
+    void *result = actual_results_[idx].get();
     print_output_shape(result, shape);
 
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
@@ -862,15 +858,15 @@ Status MlirTestImpl::GenerateInputAndRun() {
       if (output_placement_[idx] == DeviceType::kCPU) {
         for (int i = 0; i < nelem; ++i) {
           VLOG(2) << "  result #" << i << ": "
-                  << reinterpret_cast<float*>(result)[i];
+                  << reinterpret_cast<float *>(result)[i];
         }
       } else {
         int64_t bytes = nelem * sizeof(float);
-        float* h_result = nullptr;
+        float *h_result = nullptr;
         if (nelem) {
           h_result = new float[nelem];
           reportErrorIfAny(
-              GPU_MEMCPYDTOH_API((void*)h_result,
+              GPU_MEMCPYDTOH_API((void *)h_result,
                                  reinterpret_cast<GpuDevicePtr>(result), bytes),
               "gpu MemcpyDtoH");
         }
@@ -878,21 +874,21 @@ Status MlirTestImpl::GenerateInputAndRun() {
           VLOG(2) << "  result #" << i << ": " << h_result[i];
         }
         actual_results_[idx] = std::shared_ptr<void>(
-            h_result, [](void* p) { delete[] reinterpret_cast<float*>(p); });
+            h_result, [](void *p) { delete[] reinterpret_cast<float *>(p); });
       }
     } else if (out_elem_types_[idx] == tensorflow::DT_DOUBLE) {
       if (output_placement_[idx] == DeviceType::kCPU) {
         for (int i = 0; i < nelem; ++i) {
           VLOG(2) << "  result #" << i << ": "
-                  << reinterpret_cast<double*>(result)[i];
+                  << reinterpret_cast<double *>(result)[i];
         }
       } else {
         int64_t bytes = nelem * sizeof(double);
-        double* h_result = nullptr;
+        double *h_result = nullptr;
         if (nelem) {
           h_result = new double[nelem];
           reportErrorIfAny(
-              GPU_MEMCPYDTOH_API((void*)h_result,
+              GPU_MEMCPYDTOH_API((void *)h_result,
                                  reinterpret_cast<GpuDevicePtr>(result), bytes),
               "gpu MemcpyDtoH");
         }
@@ -900,21 +896,21 @@ Status MlirTestImpl::GenerateInputAndRun() {
           VLOG(2) << "  result #" << i << ": " << h_result[i];
         }
         actual_results_[idx] = std::shared_ptr<void>(
-            h_result, [](void* p) { delete[] reinterpret_cast<double*>(p); });
+            h_result, [](void *p) { delete[] reinterpret_cast<double *>(p); });
       }
     } else if (out_elem_types_[idx] == tensorflow::DT_HALF) {
       if (output_placement_[idx] == DeviceType::kCPU) {
         for (int i = 0; i < nelem; ++i) {
           VLOG(2) << "  result #" << i << ": "
-                  << reinterpret_cast<half*>(result)[i];
+                  << reinterpret_cast<half *>(result)[i];
         }
       } else {
         int64_t bytes = nelem * sizeof(half);
-        half* h_result = nullptr;
+        half *h_result = nullptr;
         if (nelem) {
           h_result = new half[nelem];
           reportErrorIfAny(
-              GPU_MEMCPYDTOH_API((void*)h_result,
+              GPU_MEMCPYDTOH_API((void *)h_result,
                                  reinterpret_cast<GpuDevicePtr>(result), bytes),
               "gpu MemcpyDtoH");
         }
@@ -922,21 +918,21 @@ Status MlirTestImpl::GenerateInputAndRun() {
           VLOG(2) << "  result #" << i << ": " << h_result[i];
         }
         actual_results_[idx] = std::shared_ptr<void>(
-            h_result, [](void* p) { delete[] reinterpret_cast<half*>(p); });
+            h_result, [](void *p) { delete[] reinterpret_cast<half *>(p); });
       }
     } else if (out_elem_types_[idx] == tensorflow::DT_INT32) {
       if (output_placement_[idx] == DeviceType::kCPU) {
         for (int i = 0; i < nelem; ++i) {
           VLOG(2) << "  result #" << i << ": "
-                  << reinterpret_cast<int32_t*>(result)[i];
+                  << reinterpret_cast<int32_t *>(result)[i];
         }
       } else {
         int64_t bytes = nelem * sizeof(int32_t);
-        int* h_result = nullptr;
+        int *h_result = nullptr;
         if (nelem) {
           h_result = new int[nelem];
           reportErrorIfAny(
-              GPU_MEMCPYDTOH_API((void*)h_result,
+              GPU_MEMCPYDTOH_API((void *)h_result,
                                  reinterpret_cast<GpuDevicePtr>(result), bytes),
               "gpu MemcpyDtoH");
         }
@@ -944,21 +940,21 @@ Status MlirTestImpl::GenerateInputAndRun() {
           VLOG(2) << "  result #" << i << ": " << h_result[i];
         }
         actual_results_[idx] = std::shared_ptr<void>(
-            h_result, [](void* p) { delete[] reinterpret_cast<int32_t*>(p); });
+            h_result, [](void *p) { delete[] reinterpret_cast<int32_t *>(p); });
       }
     } else if (out_elem_types_[idx] == tensorflow::DT_INT64) {
       if (output_placement_[idx] == DeviceType::kCPU) {
         for (int i = 0; i < nelem; ++i) {
           VLOG(2) << "  result #" << i << ": "
-                  << reinterpret_cast<int64_t*>(result)[i];
+                  << reinterpret_cast<int64_t *>(result)[i];
         }
       } else {
         int64_t bytes = nelem * sizeof(int64_t);
-        int64_t* h_result = nullptr;
+        int64_t *h_result = nullptr;
         if (nelem) {
           h_result = new int64_t[nelem];
           reportErrorIfAny(
-              GPU_MEMCPYDTOH_API((void*)h_result,
+              GPU_MEMCPYDTOH_API((void *)h_result,
                                  reinterpret_cast<GpuDevicePtr>(result), bytes),
               "gpu MemcpyDtoH");
         }
@@ -966,21 +962,21 @@ Status MlirTestImpl::GenerateInputAndRun() {
           VLOG(2) << "  result #" << i << ": " << h_result[i];
         }
         actual_results_[idx] = std::shared_ptr<void>(
-            h_result, [](void* p) { delete[] reinterpret_cast<int64_t*>(p); });
+            h_result, [](void *p) { delete[] reinterpret_cast<int64_t *>(p); });
       }
     } else if (out_elem_types_[idx] == tensorflow::DT_BOOL) {
       if (output_placement_[idx] == DeviceType::kCPU) {
         for (int i = 0; i < nelem; ++i) {
           VLOG(2) << "  result #" << i << ": "
-                  << reinterpret_cast<bool*>(result)[i];
+                  << reinterpret_cast<bool *>(result)[i];
         }
       } else {
         int64_t bytes = nelem * sizeof(bool);
-        bool* h_result = nullptr;
+        bool *h_result = nullptr;
         if (nelem) {
           h_result = new bool[nelem];
           reportErrorIfAny(
-              GPU_MEMCPYDTOH_API((void*)h_result,
+              GPU_MEMCPYDTOH_API((void *)h_result,
                                  reinterpret_cast<GpuDevicePtr>(result), bytes),
               "gpu MemcpyDtoH");
         }
@@ -988,21 +984,21 @@ Status MlirTestImpl::GenerateInputAndRun() {
           VLOG(2) << "  result #" << i << ": " << h_result[i];
         }
         actual_results_[idx] = std::shared_ptr<void>(
-            h_result, [](void* p) { delete[] reinterpret_cast<bool*>(p); });
+            h_result, [](void *p) { delete[] reinterpret_cast<bool *>(p); });
       }
     } else if (out_elem_types_[idx] == tensorflow::DT_UINT8) {
       if (output_placement_[idx] == DeviceType::kCPU) {
         for (int i = 0; i < nelem; ++i) {
           VLOG(2) << "  result #" << i << ": "
-                  << reinterpret_cast<uint8_t*>(result)[i];
+                  << reinterpret_cast<uint8_t *>(result)[i];
         }
       } else {
         int64_t bytes = nelem * sizeof(uint8_t);
-        int* h_result = nullptr;
+        int *h_result = nullptr;
         if (nelem) {
           h_result = new int[nelem];
           reportErrorIfAny(
-              GPU_MEMCPYDTOH_API((void*)h_result,
+              GPU_MEMCPYDTOH_API((void *)h_result,
                                  reinterpret_cast<GpuDevicePtr>(result), bytes),
               "gpu MemcpyDtoH");
         }
@@ -1010,7 +1006,7 @@ Status MlirTestImpl::GenerateInputAndRun() {
           VLOG(2) << "  result #" << i << ": " << h_result[i];
         }
         actual_results_[idx] = std::shared_ptr<void>(
-            h_result, [](void* p) { delete[] reinterpret_cast<uint8_t*>(p); });
+            h_result, [](void *p) { delete[] reinterpret_cast<uint8_t *>(p); });
       }
     } else {
       return Internal("Error: unsupported output element type: ",
@@ -1024,37 +1020,37 @@ Status MlirTestImpl::GenerateInputAndRun() {
     if (out_elem_types_[idx] == tensorflow::DT_FLOAT) {
       for (int i = 0; i < nelem; ++i) {
         VLOG(2) << "  result #" << i << ": "
-                << reinterpret_cast<float*>(result)[i];
+                << reinterpret_cast<float *>(result)[i];
       }
     } else if (out_elem_types_[idx] == tensorflow::DT_DOUBLE) {
       for (int i = 0; i < nelem; ++i) {
         VLOG(2) << "  result #" << i << ": "
-                << reinterpret_cast<double*>(result)[i];
+                << reinterpret_cast<double *>(result)[i];
       }
     } else if (out_elem_types_[idx] == tensorflow::DT_HALF) {
       for (int i = 0; i < nelem; ++i) {
         VLOG(2) << "  result #" << i << ": "
-                << reinterpret_cast<half*>(result)[i];
+                << reinterpret_cast<half *>(result)[i];
       }
     } else if (out_elem_types_[idx] == tensorflow::DT_INT32) {
       for (int i = 0; i < nelem; ++i) {
         VLOG(2) << "  result #" << i << ": "
-                << reinterpret_cast<int32_t*>(result)[i];
+                << reinterpret_cast<int32_t *>(result)[i];
       }
     } else if (out_elem_types_[idx] == tensorflow::DT_INT64) {
       for (int i = 0; i < nelem; ++i) {
         VLOG(2) << "  result #" << i << ": "
-                << reinterpret_cast<int64_t*>(result)[i];
+                << reinterpret_cast<int64_t *>(result)[i];
       }
     } else if (out_elem_types_[idx] == tensorflow::DT_BOOL) {
       for (int i = 0; i < nelem; ++i) {
         VLOG(2) << "  result #" << i << ": "
-                << reinterpret_cast<bool*>(result)[i];
+                << reinterpret_cast<bool *>(result)[i];
       }
     } else if (out_elem_types_[idx] == tensorflow::DT_UINT8) {
       for (int i = 0; i < nelem; ++i) {
         VLOG(2) << "  result #" << i << ": "
-                << reinterpret_cast<uint8_t*>(result)[i];
+                << reinterpret_cast<uint8_t *>(result)[i];
       }
     } else {
       return Internal("Error: unsupported output element type: ",
@@ -1065,4 +1061,4 @@ Status MlirTestImpl::GenerateInputAndRun() {
   return Status::OK();
 }
 
-}  //  namespace mlir_test
+} //  namespace mlir_test

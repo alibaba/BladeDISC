@@ -61,10 +61,10 @@ namespace tao {
 // If `resource_ops_to_ignore` is set then nodes for which it returns true are
 // ignored (we pretend these nodes are not resource operations).
 Status ComputeIncompatibleResourceOperationPairs(
-    const Graph& g, const FunctionLibraryDefinition* flib_def,
-    const std::function<Status(const Node&, bool*)>& resource_ops_to_ignore,
-    std::vector<std::pair<int, int>>* result);
-}  // namespace tao
-}  // namespace tensorflow
+    const Graph &g, const FunctionLibraryDefinition *flib_def,
+    const std::function<Status(const Node &, bool *)> &resource_ops_to_ignore,
+    std::vector<std::pair<int, int>> *result);
+} // namespace tao
+} // namespace tensorflow
 
-#endif  // TENSORFLOW_COMPILER_JIT_RESOURCE_OPERATION_SAFETY_ANALYSIS_H_
+#endif // TENSORFLOW_COMPILER_JIT_RESOURCE_OPERATION_SAFETY_ANALYSIS_H_

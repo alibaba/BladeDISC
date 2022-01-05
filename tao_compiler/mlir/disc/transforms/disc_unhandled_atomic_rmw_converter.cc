@@ -9,15 +9,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mlir/Dialect/MemRef/IR/MemRef.h"               // TF:llvm-project
-#include "mlir/Dialect/StandardOps/IR/Ops.h"             // TF:llvm-project
-#include "mlir/IR/Location.h"                            // TF:llvm-project
-#include "mlir/IR/MLIRContext.h"                         // TF:llvm-project
-#include "mlir/IR/PatternMatch.h"                        // TF:llvm-project
-#include "mlir/Pass/Pass.h"                              // TF:llvm-project
-#include "mlir/Transforms/DialectConversion.h"           // TF:llvm-project
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // TF:llvm-project
-#include "mlir/Transforms/Passes.h"                      // TF:llvm-project
+#include "mlir/Dialect/MemRef/IR/MemRef.h"              // TF:llvm-project
+#include "mlir/Dialect/StandardOps/IR/Ops.h"            // TF:llvm-project
+#include "mlir/IR/Location.h"                           // TF:llvm-project
+#include "mlir/IR/MLIRContext.h"                        // TF:llvm-project
+#include "mlir/IR/PatternMatch.h"                       // TF:llvm-project
+#include "mlir/Pass/Pass.h"                             // TF:llvm-project
+#include "mlir/Transforms/DialectConversion.h"          // TF:llvm-project
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h" // TF:llvm-project
+#include "mlir/Transforms/Passes.h"                     // TF:llvm-project
 #include "transforms/PassDetail.h"
 
 namespace mlir {
@@ -41,7 +41,7 @@ struct UnhandledAtomicRMWConverter : public OpRewritePattern<AtomicRMWOp> {
   using OpRewritePattern<AtomicRMWOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(AtomicRMWOp op,
-                                PatternRewriter& rewriter) const override {
+                                PatternRewriter &rewriter) const override {
     // Currently, we only deal with atomic mulf operation. More operations can
     // be supported easily here.
     if (op.kind() != AtomicRMWKind::mulf) {
@@ -68,7 +68,7 @@ struct UnhandledAtomicRMWConverterPass
     : public UnhandledAtomicRMWConverterPassBase<
           UnhandledAtomicRMWConverterPass> {
   void runOnFunction() override {
-    MLIRContext& ctx = getContext();
+    MLIRContext &ctx = getContext();
 
     RewritePatternSet patterns(&ctx);
     patterns.add<UnhandledAtomicRMWConverter>(&ctx);
@@ -84,12 +84,12 @@ struct UnhandledAtomicRMWConverterPass
   }
 };
 
-}  // namespace
+} // namespace
 
 std::unique_ptr<OperationPass<FuncOp>>
 createDiscUnhandledAtomicRMWConverterPass() {
   return std::make_unique<UnhandledAtomicRMWConverterPass>();
 }
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

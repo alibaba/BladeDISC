@@ -18,13 +18,11 @@
 namespace mlir {
 namespace mhlo {
 
-mlir::Value BuildConvolution(mlir::OpBuilder& builder,
-                             const mlir::Location& loc,
-                             const mlir::Value& input,
-                             const mlir::Value& weight,
-                             const mlir::Value& padding,
-                             mlir::ArrayRef<int64_t> strides,
-                             mlir::ArrayRef<int64_t> dilations) {
+mlir::Value
+BuildConvolution(mlir::OpBuilder &builder, const mlir::Location &loc,
+                 const mlir::Value &input, const mlir::Value &weight,
+                 const mlir::Value &padding, mlir::ArrayRef<int64_t> strides,
+                 mlir::ArrayRef<int64_t> dilations) {
   size_t n_spatial_dims = strides.size();
   MHLO_CHECK(n_spatial_dims == dilations.size(),
              "The number of spatial dims mismatch");
@@ -65,5 +63,5 @@ mlir::Value BuildConvolution(mlir::OpBuilder& builder,
   return conv_op.getResult();
 }
 
-}  // namespace mhlo
-}  // namespace mlir
+} // namespace mhlo
+} // namespace mlir

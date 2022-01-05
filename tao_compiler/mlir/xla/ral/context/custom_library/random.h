@@ -28,8 +28,8 @@ namespace random {
 // The following 2 functions use the contract "lower 32 bits for the first
 // uint32_t, higher 32 bits for the second". Note that this is endian-neutral,
 // unlike a direct memory copy `memcpy(output, &input, 8)`.
-PHILOX_DEVICE_INLINE void Uint64ToUint32s(uint64_t input, uint32_t* output1,
-                                          uint32_t* output2) {
+PHILOX_DEVICE_INLINE void Uint64ToUint32s(uint64_t input, uint32_t *output1,
+                                          uint32_t *output2) {
   *output1 = static_cast<uint32_t>(input);
   *output2 = static_cast<uint32_t>(input >> 32);
 }
@@ -41,33 +41,33 @@ PHILOX_DEVICE_INLINE uint64_t Uint32sToUint64(uint32_t input1,
   return u64_1 | (u64_2 << 32);
 }
 
-PHILOX_DEVICE_INLINE PhiloxRandom::ResultType GetCounterFromMem(
-    uint64_t const* ptr) {
+PHILOX_DEVICE_INLINE PhiloxRandom::ResultType
+GetCounterFromMem(uint64_t const *ptr) {
   PhiloxRandom::ResultType counter;
   Uint64ToUint32s(ptr[0], &counter[0], &counter[1]);
   Uint64ToUint32s(ptr[1], &counter[2], &counter[3]);
   return counter;
 }
 
-PHILOX_DEVICE_INLINE void WriteCounterToMem(
-    PhiloxRandom::ResultType const& counter, uint64_t* ptr) {
+PHILOX_DEVICE_INLINE void
+WriteCounterToMem(PhiloxRandom::ResultType const &counter, uint64_t *ptr) {
   ptr[0] = Uint32sToUint64(counter[0], counter[1]);
   ptr[1] = Uint32sToUint64(counter[2], counter[3]);
 }
 
-PHILOX_DEVICE_INLINE PhiloxRandom::Key GetKeyFromMem(uint64_t const* ptr) {
+PHILOX_DEVICE_INLINE PhiloxRandom::Key GetKeyFromMem(uint64_t const *ptr) {
   PhiloxRandom::Key key;
   Uint64ToUint32s(ptr[0], &key[0], &key[1]);
   return key;
 }
 
-PHILOX_DEVICE_INLINE void WriteKeyToMem(PhiloxRandom::Key const& key,
-                                        uint64_t* ptr) {
+PHILOX_DEVICE_INLINE void WriteKeyToMem(PhiloxRandom::Key const &key,
+                                        uint64_t *ptr) {
   *ptr = Uint32sToUint64(key[0], key[1]);
 }
 
 PHILOX_DEVICE_INLINE PhiloxRandom GetPhiloxRandomFromCounterKeyMem(
-    uint64_t const* counter_ptr, uint64_t const* key_ptr) {
+    uint64_t const *counter_ptr, uint64_t const *key_ptr) {
   return PhiloxRandom(GetCounterFromMem(counter_ptr), GetKeyFromMem(key_ptr));
 }
 
@@ -99,12 +99,10 @@ PHILOX_DEVICE_INLINE Int SignedAdd(Int a,
 //             distribution. This could be either float or double for now.
 // This class is meant to be implemented through specialization. The default
 // is not defined by design.
-template <class Generator, typename RealType>
-class UniformDistribution;
+template <class Generator, typename RealType> class UniformDistribution;
 
-template <class Generator>
-class UniformDistribution<Generator, float> {
- public:
+template <class Generator> class UniformDistribution<Generator, float> {
+public:
   // The number of elements that will be returned.
   static constexpr int kResultElementCount = Generator::kResultElementCount;
   // Cost of generation of a single element (in cycles).
@@ -119,7 +117,7 @@ class UniformDistribution<Generator, float> {
   UniformDistribution(float lo, float hi) : lo_(lo), range_(hi - lo) {}
 
   PHILOX_DEVICE_INLINE
-  ResultType operator()(Generator* gen) {
+  ResultType operator()(Generator *gen) {
     typename Generator::ResultType sample = (*gen)();
     ResultType result;
     for (int i = 0; i < kResultElementCount; ++i) {
@@ -128,7 +126,7 @@ class UniformDistribution<Generator, float> {
     return result;
   }
 
- private:
+private:
   float lo_;
   float range_;
 };
@@ -141,7 +139,7 @@ PHILOX_DEVICE_INLINE float Uint32ToFloat(uint32_t x) {
   //    sign == 0
   //    exponent == 127  -- an excess 127 representation of a zero exponent
   //    mantissa == 23 random bits
-  const uint32_t man = x & 0x7fffffu;  // 23 bit mantissa
+  const uint32_t man = x & 0x7fffffu; // 23 bit mantissa
   const uint32_t exp = static_cast<uint32_t>(127);
   const uint32_t val = (exp << 23) | man;
 
@@ -151,16 +149,15 @@ PHILOX_DEVICE_INLINE float Uint32ToFloat(uint32_t x) {
   return result - 1.0f;
 }
 
-template <class Distribution>
-struct FillPhiloxRandom {
-  void operator()(const uint64_t* key, const uint64_t* counter,
+template <class Distribution> struct FillPhiloxRandom {
+  void operator()(const uint64_t *key, const uint64_t *counter,
                   PhiloxRandom gen,
-                  typename Distribution::ResultElementType* data, int64_t size,
-                  Distribution dist, void* stream);
+                  typename Distribution::ResultElementType *data, int64_t size,
+                  Distribution dist, void *stream);
 };
 
-}  // namespace random
-}  // namespace ral
-}  // namespace tao
+} // namespace random
+} // namespace ral
+} // namespace tao
 
-#endif  // RAL_CONTEXT_CUSTOM_LIBRARY_RANDOM_H_
+#endif // RAL_CONTEXT_CUSTOM_LIBRARY_RANDOM_H_

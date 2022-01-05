@@ -9,7 +9,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #ifndef TENSORFLOW_COMPILER_MLIR_XLA_RAL_CONTEXT_STREAM_EXECUTOR_BASED_IMPL_H_
 #define TENSORFLOW_COMPILER_MLIR_XLA_RAL_CONTEXT_STREAM_EXECUTOR_BASED_IMPL_H_
 
@@ -29,10 +28,10 @@ namespace ral {
 
 DEFINE_TAO_TYPE_NAME_HELPER(Eigen::half, "f16");
 
-namespace gpu {}  // namespace gpu
-}  // namespace ral
-}  // namespace tao
+namespace gpu {} // namespace gpu
+} // namespace ral
+} // namespace tao
 
 #endif
 
-#endif  // TENSORFLOW_COMPILER_MLIR_XLA_RAL_CONTEXT_STREAM_EXECUTOR_BASED_IMPL_H_
+#endif // TENSORFLOW_COMPILER_MLIR_XLA_RAL_CONTEXT_STREAM_EXECUTOR_BASED_IMPL_H_

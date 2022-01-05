@@ -43,7 +43,7 @@ struct XlaAutoJitFlag {
 // is:
 // <number>: sets general and single_gpu setting to the provided number.
 // single-gpu(<number>): sets the single_gpu setting to the provided number.
-bool SetXlaAutoJitFlagFromFlagString(const string& value);
+bool SetXlaAutoJitFlagFromFlagString(const string &value);
 
 // Flags associated with the XLA bridge's mark_for_compilation_pass module.
 struct MarkForCompilationPassFlags {
@@ -141,12 +141,12 @@ struct IntroduceFloatingPointJitterPassFlags {
 // Getters for flags structs defined above.  The first call to any of these
 // parses TF_XLA_FLAGS for all of them.  Those functions which return a pointer
 // always return the same pointer.
-MarkForCompilationPassFlags* GetMarkForCompilationPassFlags();
-BuildXlaOpsPassFlags* GetBuildXlaOpsPassFlags();
-XlaDeviceFlags* GetXlaDeviceFlags();
-const XlaOpsCommonFlags& GetXlaOpsCommonFlags();
+MarkForCompilationPassFlags *GetMarkForCompilationPassFlags();
+BuildXlaOpsPassFlags *GetBuildXlaOpsPassFlags();
+XlaDeviceFlags *GetXlaDeviceFlags();
+const XlaOpsCommonFlags &GetXlaOpsCommonFlags();
 
-const IntroduceFloatingPointJitterPassFlags&
+const IntroduceFloatingPointJitterPassFlags &
 GetIntroduceFloatingPointJitterPassFlags();
 
 // Appends the flag definitions associated with
@@ -154,7 +154,7 @@ GetIntroduceFloatingPointJitterPassFlags();
 //
 // Has the side-effect of parsing TF_XLA_FLAGS if that hasn't happened yet.
 void AppendMarkForCompilationPassFlags(
-    std::vector<tensorflow::Flag>* flag_list);
+    std::vector<tensorflow::Flag> *flag_list);
 
 // Makes all future calls to `IsXlaEnabled()` return `true`.
 //
@@ -164,7 +164,7 @@ void SetXlaIsEnabled();
 // Returns whether XLA is enabled.
 bool IsXlaEnabled();
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow
 
-#endif  // TENSORFLOW_COMPILER_JIT_FLAGS_H_
+#endif // TENSORFLOW_COMPILER_JIT_FLAGS_H_

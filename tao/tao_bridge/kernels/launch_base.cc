@@ -13,18 +13,15 @@
 
 namespace tensorflow {
 namespace tao {
-LaunchBase::LaunchBase(OpKernelConstruction* ctx)
-    : AsyncOpKernel(ctx),
-      ctx_(ctx),
-      constants_(ConstantsVector()),
-      fixed_shapes_(FixedShapesVector()),
-      host_args_(HostArgsVector()),
+LaunchBase::LaunchBase(OpKernelConstruction *ctx)
+    : AsyncOpKernel(ctx), ctx_(ctx), constants_(ConstantsVector()),
+      fixed_shapes_(FixedShapesVector()), host_args_(HostArgsVector()),
       resources_(ResourcesVector()) {
   OP_REQUIRES_OK(ctx, PlatformInfoFromContext(ctx_, &platform_info_));
   OP_REQUIRES_OK(ctx, DeviceUUIDFromContext(&device_uuid_));
 }
 
-Status LaunchBase::DeviceUUIDFromContext(std::string* result_uuid) {
+Status LaunchBase::DeviceUUIDFromContext(std::string *result_uuid) {
   if (ctx_->device_type() != DeviceType(DEVICE_GPU)) {
     return Status::OK();
   }
@@ -39,9 +36,9 @@ Status LaunchBase::DeviceUUIDFromContext(std::string* result_uuid) {
   return Status::OK();
 }
 
-Status LaunchBase::RunExecutable(Executable* executable,
-                                 ExecutableRunOptions& options,
-                                 TaoCompileFuncCallInfo* call_info) {
+Status LaunchBase::RunExecutable(Executable *executable,
+                                 ExecutableRunOptions &options,
+                                 TaoCompileFuncCallInfo *call_info) {
   TaoCompInfoCollector::Get().SetCallTimestamp(call_info,
                                                TIME_EXEC_BIN_RUN_BEGIN);
   auto status = executable->Run(options);
@@ -52,13 +49,13 @@ Status LaunchBase::RunExecutable(Executable* executable,
 
 // OP_REQUIRES_OK_RETURN is the same as OP_REQUIRES_OK except that
 // in error case, it returns RET instead of void.
-#define OP_REQUIRES_OK_RETURN(CTX, RET, ...)                \
-  do {                                                      \
-    ::tensorflow::Status _s(__VA_ARGS__);                   \
-    if (!TF_PREDICT_TRUE(_s.ok())) {                        \
-      (CTX)->CtxFailureWithWarning(__FILE__, __LINE__, _s); \
-      return RET;                                           \
-    }                                                       \
+#define OP_REQUIRES_OK_RETURN(CTX, RET, ...)                                   \
+  do {                                                                         \
+    ::tensorflow::Status _s(__VA_ARGS__);                                      \
+    if (!TF_PREDICT_TRUE(_s.ok())) {                                           \
+      (CTX)->CtxFailureWithWarning(__FILE__, __LINE__, _s);                    \
+      return RET;                                                              \
+    }                                                                          \
   } while (0)
 
 // Helper static functions to construct parameters for
@@ -139,25 +136,26 @@ std::vector<int> LaunchBase::ResourcesVector() {
   return resources;
 }
 
-NameAttrList LaunchBase::FunctionAttr(const char* const attr) {
-  const NameAttrList* func = nullptr;
+NameAttrList LaunchBase::FunctionAttr(const char *const attr) {
+  const NameAttrList *func = nullptr;
   OP_REQUIRES_OK_RETURN(ctx_, NameAttrList(), ctx_->GetAttr(attr, &func));
   return *func;
 }
 
-bool LaunchBase::BoolAttr(const char* const attr) {
+bool LaunchBase::BoolAttr(const char *const attr) {
   bool ret;
   OP_REQUIRES_OK_RETURN(ctx_, false, ctx_->GetAttr(attr, &ret));
   return ret;
 }
 
-Tensor LaunchBase::ToCpu(OpKernelContext* ctx, Tensor t, MemoryType mem_type) {
-  if (HOST_MEMORY == mem_type) return t;
+Tensor LaunchBase::ToCpu(OpKernelContext *ctx, Tensor t, MemoryType mem_type) {
+  if (HOST_MEMORY == mem_type)
+    return t;
 
   AllocatorAttributes alloc_attr;
-  auto to_ptr = [](const Tensor& tensor) {
-    return const_cast<void*>(
-        static_cast<const void*>(tensor.tensor_data().data()));
+  auto to_ptr = [](const Tensor &tensor) {
+    return const_cast<void *>(
+        static_cast<const void *>(tensor.tensor_data().data()));
   };
   auto stream = ctx->op_device_context()->stream();
   Tensor cpu_tensor;
@@ -171,14 +169,14 @@ Tensor LaunchBase::ToCpu(OpKernelContext* ctx, Tensor t, MemoryType mem_type) {
 
 #undef OP_REQUIRES_OK_RETURN
 
-Status LaunchBase::EnsureFunctionHandle(
-    OpKernelContext* ctx, const NameAttrList& func,
-    FunctionLibraryRuntime::Handle* handle) {
+Status
+LaunchBase::EnsureFunctionHandle(OpKernelContext *ctx, const NameAttrList &func,
+                                 FunctionLibraryRuntime::Handle *handle) {
   if (*handle != kInvalidHandle) {
     return Status::OK();
   }
   VLOG(2) << "Constructing function handle " << func.name();
-  FunctionLibraryRuntime* lib = ctx->function_library();
+  FunctionLibraryRuntime *lib = ctx->function_library();
   if (lib == nullptr) {
     return tensorflow::errors::Internal("Context function library is null");
   }
@@ -193,26 +191,26 @@ Status LaunchBase::EnsureFunctionHandle(
   return status;
 }
 
-Status LaunchBase::PrepareInputsCpu(OpKernelContext* ctx,
-                                    std::vector<Tensor>* inputs_ptr) {
+Status LaunchBase::PrepareInputsCpu(OpKernelContext *ctx,
+                                    std::vector<Tensor> *inputs_ptr) {
   CHECK(inputs_ptr != nullptr);
-  auto& inputs = *inputs_ptr;
+  auto &inputs = *inputs_ptr;
   CHECK_EQ(ctx->op_device_context(), nullptr);
   for (int i = 0; i < ctx->num_inputs(); ++i) {
-    auto& input_tensor = ctx->input(i);
+    auto &input_tensor = ctx->input(i);
     inputs.push_back(input_tensor);
   }
   return Status::OK();
 }
 
-Status LaunchBase::SyncInputsMem(OpKernelContext* ctx,
-                                 std::vector<Tensor>* inputs_ptr,
+Status LaunchBase::SyncInputsMem(OpKernelContext *ctx,
+                                 std::vector<Tensor> *inputs_ptr,
                                  bool check_block) {
   CHECK(inputs_ptr != nullptr);
   bool need_block = false;
-  auto& inputs = *inputs_ptr;
+  auto &inputs = *inputs_ptr;
   for (int i = 0; i < ctx->num_inputs(); ++i) {
-    auto& input_tensor = ctx->input(i);
+    auto &input_tensor = ctx->input(i);
     auto input_memory_type = ctx->input_memory_type(i);
     auto func_memory_type = MTypeFromDType(ctx->input_dtype(i));
     if (input_memory_type != func_memory_type) {
@@ -222,9 +220,9 @@ Status LaunchBase::SyncInputsMem(OpKernelContext* ctx,
       auto stream = ctx->op_device_context()->stream();
       Tensor func_tensor;
       AllocatorAttributes alloc_attr;
-      auto to_ptr = [](const Tensor& tensor) {
-        return const_cast<void*>(
-            static_cast<const void*>(tensor.tensor_data().data()));
+      auto to_ptr = [](const Tensor &tensor) {
+        return const_cast<void *>(
+            static_cast<const void *>(tensor.tensor_data().data()));
       };
       if (input_memory_type == DEVICE_MEMORY) {
         // copy from DEVICE to HOST
@@ -257,22 +255,22 @@ Status LaunchBase::SyncInputsMem(OpKernelContext* ctx,
   return Status::OK();
 }
 
-Status LaunchBase::PrepareOutputsCpu(OpKernelContext* ctx,
-                                     std::vector<Tensor>* outputs) {
+Status LaunchBase::PrepareOutputsCpu(OpKernelContext *ctx,
+                                     std::vector<Tensor> *outputs) {
   CHECK_EQ(ctx->op_device_context(), nullptr);
   for (int i = 0; i < ctx->num_outputs(); ++i) {
-    auto& output_tensor = outputs->at(i);
+    auto &output_tensor = outputs->at(i);
     ctx->set_output(i, outputs->at(i));
   }
   return Status::OK();
 }
 
-Status LaunchBase::SyncOutputsMem(OpKernelContext* ctx,
-                                  std::vector<Tensor>* outputs,
+Status LaunchBase::SyncOutputsMem(OpKernelContext *ctx,
+                                  std::vector<Tensor> *outputs,
                                   bool check_block) {
   bool need_block = false;
   for (int i = 0; i < ctx->num_outputs(); ++i) {
-    auto& output_tensor = outputs->at(i);
+    auto &output_tensor = outputs->at(i);
     auto output_memory_type = ctx->output_memory_type(i);
     auto func_memory_type = MTypeFromDType(ctx->expected_output_dtype(i));
     if (output_memory_type != func_memory_type) {
@@ -280,10 +278,10 @@ Status LaunchBase::SyncOutputsMem(OpKernelContext* ctx,
       CHECK_NE(ctx->op_device_context(), nullptr);
       need_block = true;
       auto stream = ctx->op_device_context()->stream();
-      Tensor* func_tensor = nullptr;
-      auto to_ptr = [](const Tensor& tensor) {
-        return const_cast<void*>(
-            static_cast<const void*>(tensor.tensor_data().data()));
+      Tensor *func_tensor = nullptr;
+      auto to_ptr = [](const Tensor &tensor) {
+        return const_cast<void *>(
+            static_cast<const void *>(tensor.tensor_data().data()));
       };
       if (func_memory_type == DEVICE_MEMORY) {
         // copy from DEVICE to HOST
@@ -314,13 +312,14 @@ Status LaunchBase::SyncOutputsMem(OpKernelContext* ctx,
   return Status::OK();
 }
 
-std::map<int, OptionalTensor> LaunchBase::SnapshotResourceVariables(
-    OpKernelContext* ctx, absl::Span<const int> variables) {
+std::map<int, OptionalTensor>
+LaunchBase::SnapshotResourceVariables(OpKernelContext *ctx,
+                                      absl::Span<const int> variables) {
   std::map<int, OptionalTensor> snapshot;
   for (int i : variables) {
-    Var* variable = nullptr;
+    Var *variable = nullptr;
     ResourceHandle handle = HandleFromInput(ctx, i);
-    OptionalTensor& tensor = snapshot[i];
+    OptionalTensor &tensor = snapshot[i];
     if (LookupResource(ctx, handle, &variable).ok()) {
       core::ScopedUnref scoped_unref(variable);
       tf_shared_lock lock(*variable->mu());
@@ -332,7 +331,7 @@ std::map<int, OptionalTensor> LaunchBase::SnapshotResourceVariables(
   return snapshot;
 }
 
-void LaunchBase::printInOuts(OpKernelContext* ctx) {
+void LaunchBase::printInOuts(OpKernelContext *ctx) {
   VLOG(0) << "num inputs #" << ctx->num_inputs() << ":";
   for (int i = 0; i < ctx->num_inputs(); ++i) {
     VLOG(0) << ">> input tensor #" << i << "@"
@@ -347,7 +346,7 @@ void LaunchBase::printInOuts(OpKernelContext* ctx) {
 
   VLOG(0) << "num outputs #" << ctx->num_outputs() << ":";
   for (int i = 0; i < ctx->num_outputs(); ++i) {
-    Tensor* out_tensor = ctx->mutable_output(i);
+    Tensor *out_tensor = ctx->mutable_output(i);
     if (!out_tensor) {
       VLOG(0) << "missing output tensor\n]";
       continue;
@@ -363,5 +362,5 @@ void LaunchBase::printInOuts(OpKernelContext* ctx) {
   }
 }
 
-}  //  namespace tao
-}  //  namespace tensorflow
+} //  namespace tao
+} //  namespace tensorflow

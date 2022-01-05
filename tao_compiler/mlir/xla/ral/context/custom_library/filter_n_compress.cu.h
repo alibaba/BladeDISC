@@ -23,9 +23,9 @@ __launch_bounds__(nthdsPerCTA) __global__
     void batchedFilterNCompressKernel(const unsigned batchSize,
                                       const unsigned iWidth,
                                       const unsigned oWidth, const unsigned k,
-                                      KeyType* inKey, KeyType* inThresh,
-                                      KeyType* outKey, unsigned* outIdx,
-                                      unsigned* outNumLeft) {
+                                      KeyType *inKey, KeyType *inThresh,
+                                      KeyType *outKey, unsigned *outIdx,
+                                      unsigned *outNumLeft) {
   __shared__ KeyType sKey[nthdsPerCTA];
   __shared__ unsigned sIdx[nthdsPerCTA];
 
@@ -46,8 +46,8 @@ __launch_bounds__(nthdsPerCTA) __global__
       warpBatchId < remainder ? (roundUp << 5) : (roundDw << 5);
 
   const unsigned lane = threadIdx.x & 31;
-  KeyType* const sKeyOff = &sKey[threadIdx.x >> 5 << 5];
-  unsigned* const sIdxOff = &sIdx[threadIdx.x >> 5 << 5];
+  KeyType *const sKeyOff = &sKey[threadIdx.x >> 5 << 5];
+  unsigned *const sIdxOff = &sIdx[threadIdx.x >> 5 << 5];
   KeyType key;
   unsigned idx, len, outOff;
 
@@ -63,7 +63,8 @@ __launch_bounds__(nthdsPerCTA) __global__
     int valid = (lane < len) ? 1 : 0;
     const unsigned valid_mask = __ballot_sync(full_mask, valid);
     if (valid) {
-      if (lane == 0) outOff = atomicAdd(&outNumLeft[warpBatchId], len);
+      if (lane == 0)
+        outOff = atomicAdd(&outNumLeft[warpBatchId], len);
       outOff = __shfl_sync(valid_mask, outOff, 0);
       // TODO: break when necessary
       (outKey + warpBatchId * oWidth)[(outOff + lane) % oWidth] = sKeyOff[lane];
@@ -75,9 +76,9 @@ __launch_bounds__(nthdsPerCTA) __global__
 template <typename KeyType>
 void batchedFilterNCompressGpu(cudaStream_t stream, const unsigned batchSize,
                                const unsigned iWidth, const unsigned oWidth,
-                               const unsigned k, KeyType* inKey,
-                               KeyType* inThresh, KeyType* outKey,
-                               unsigned* outIdx, unsigned* outNumLeft) {
+                               const unsigned k, KeyType *inKey,
+                               KeyType *inThresh, KeyType *outKey,
+                               unsigned *outIdx, unsigned *outNumLeft) {
   cudaMemsetAsync(outNumLeft, 0, batchSize * sizeof(unsigned), stream);
   const unsigned totLen = iWidth * batchSize;
   if (totLen & 0xFF000000) {
@@ -118,4 +119,4 @@ void batchedFilterNCompressGpu(cudaStream_t stream, const unsigned batchSize,
   }
 }
 
-#endif  // DYN_TOP_K_FILTER_K_COMPRESS_H_
+#endif // DYN_TOP_K_FILTER_K_COMPRESS_H_

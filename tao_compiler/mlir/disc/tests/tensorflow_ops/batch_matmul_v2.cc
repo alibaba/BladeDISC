@@ -162,4 +162,4 @@ TEST(TFBatchMatMulV2OpTest, IBDynamicShapeNNF64) {
       /*output_descriptors*/ {"f64_X"}));
 }
 
-}  // namespace mlir_test
+} // namespace mlir_test

@@ -9,7 +9,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
 #include <mlir/Dialect/StandardOps/IR/Ops.h> // from tf repo
 #include <mlir/mhlo/builder/broadcast.h>

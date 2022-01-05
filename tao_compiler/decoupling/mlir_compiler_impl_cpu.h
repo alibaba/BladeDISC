@@ -23,17 +23,17 @@ namespace tensorflow {
 namespace tao {
 
 class CompilerMLIR_CPU : public CompilerMLIR {
- public:
+public:
   CompilerMLIR_CPU() = default;
   ~CompilerMLIR_CPU() = default;
 
- private:
+private:
   std::string DefaultDevice() override;
 
-  Status FillDeviceInfo(mlir::disc_ral::DISCLoweringOptions& options) override;
+  Status FillDeviceInfo(mlir::disc_ral::DISCLoweringOptions &options) override;
 };
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow
 
-#endif  // TENSORFLOW_COMPILER_DECOUPLING_MLIR_COMPILER_IMPL_CPU_H_
+#endif // TENSORFLOW_COMPILER_DECOUPLING_MLIR_COMPILER_IMPL_CPU_H_

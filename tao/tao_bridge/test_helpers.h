@@ -20,14 +20,14 @@ limitations under the License.
 #include <vector>
 
 #include "absl/strings/string_view.h"
+#include "tensorflow/core/platform/protobuf.h"
 #include "gmock/gmock-matchers.h"
 #include "gtest/gtest.h"
-#include "tensorflow/core/platform/protobuf.h"
 
 // #include "tensorflow/core/platform/regexp.h"
 
-#include "tao_bridge/tf/statusor.h"
 #include "tao_bridge/tf/status.h"
+#include "tao_bridge/tf/statusor.h"
 #include "tao_bridge/tf/types.h"
 
 // // This module contains a minimal subset of gmock functionality just
@@ -45,42 +45,42 @@ namespace tao {
 namespace testing {
 
 namespace internal_status {
-inline const Status& GetStatus(const Status& status) { return status; }
+inline const Status &GetStatus(const Status &status) { return status; }
 
 template <typename T>
-inline const Status& GetStatus(const StatusOr<T>& status) {
+inline const Status &GetStatus(const StatusOr<T> &status) {
   return status.status();
 }
-}  // namespace internal_status
+} // namespace internal_status
 
-}  // namespace testing
-}  // namespace tao
-}  // namespace xla
+} // namespace testing
+} // namespace tao
+} // namespace xla
 
 // The following macros are similar to macros in gmock, but deliberately named
 // differently in order to avoid conflicts in files which include both.
 
 // Macros for testing the results of functions that return Status or
 // StatusOr<T> (for any type T).
-#define EXPECT_IS_OK(expression) \
-  EXPECT_EQ(Status::OK(),        \
+#define EXPECT_IS_OK(expression)                                               \
+  EXPECT_EQ(Status::OK(),                                                      \
             xla::tao::testing::internal_status::GetStatus(expression))
-#define EXPECT_IS_NOT_OK(expression) \
-  EXPECT_NE(Status::OK(),            \
+#define EXPECT_IS_NOT_OK(expression)                                           \
+  EXPECT_NE(Status::OK(),                                                      \
             xla::tao::testing::internal_status::GetStatus(expression))
 #undef ASSERT_IS_OK
-#define ASSERT_IS_OK(expression) \
-  ASSERT_EQ(Status::OK(),        \
+#define ASSERT_IS_OK(expression)                                               \
+  ASSERT_EQ(Status::OK(),                                                      \
             xla::tao::testing::internal_status::GetStatus(expression))
 #undef ASSERT_IS_NOT_OK
-#define ASSERT_IS_NOT_OK(expression) \
-  ASSERT_NE(Status::OK(),            \
+#define ASSERT_IS_NOT_OK(expression)                                           \
+  ASSERT_NE(Status::OK(),                                                      \
             xla::tao::testing::internal_status::GetStatus(expression))
 
 // Macros for testing the results of functions that return tensorflow::Status.
-#define TF_EXPECT_OK(statement) \
+#define TF_EXPECT_OK(statement)                                                \
   EXPECT_EQ(::tensorflow::Status::OK(), (statement))
-#define TF_ASSERT_OK(statement) \
+#define TF_ASSERT_OK(statement)                                                \
   ASSERT_EQ(::tensorflow::Status::OK(), (statement))
 
-#endif  // TAO_TAO_BRIDGE_TF_TEST_HELPERS_H_
+#endif // TAO_TAO_BRIDGE_TF_TEST_HELPERS_H_

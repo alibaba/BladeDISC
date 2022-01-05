@@ -16,12 +16,12 @@
 namespace tensorflow {
 namespace tao {
 
-#define RETURN_ON_CUDA_ERROR(expr, msg) \
-  {                                     \
-    auto _cuda_error = (expr);          \
-    if (_cuda_error != CUDA_SUCCESS) {  \
-      return errors::Internal(msg);     \
-    }                                   \
+#define RETURN_ON_CUDA_ERROR(expr, msg)                                        \
+  {                                                                            \
+    auto _cuda_error = (expr);                                                 \
+    if (_cuda_error != CUDA_SUCCESS) {                                         \
+      return errors::Internal(msg);                                            \
+    }                                                                          \
   }
 
 struct CompilerMLIR_GPU::Impl {
@@ -34,11 +34,11 @@ CompilerMLIR_GPU::~CompilerMLIR_GPU() {}
 
 std::string CompilerMLIR_GPU::DefaultDevice() { return "gpu"; }
 
-Status CompilerMLIR_GPU::Init(const TaoCompilerInput& input,
-                              const string& output_file) {
+Status CompilerMLIR_GPU::Init(const TaoCompilerInput &input,
+                              const string &output_file) {
   CUdevice device;
   CUcontext context;
-  auto& ctx = impl_->device_context;
+  auto &ctx = impl_->device_context;
   RETURN_ON_CUDA_ERROR(cuInit(0), "cuInit");
   RETURN_ON_CUDA_ERROR(cuDeviceGet(&device, ctx.device_ordinal), "cuDeviceGet");
   RETURN_ON_CUDA_ERROR(cuCtxCreate(&context, 0, device), "cuCtxCreate");
@@ -48,14 +48,14 @@ Status CompilerMLIR_GPU::Init(const TaoCompilerInput& input,
   return Status::OK();
 }
 
-Status CompilerMLIR_GPU::FillDeviceInfo(
-    mlir::disc_ral::DISCLoweringOptions& options) {
+Status
+CompilerMLIR_GPU::FillDeviceInfo(mlir::disc_ral::DISCLoweringOptions &options) {
   options.gpu_info = impl_->device_context;
   return Status::OK();
 }
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow
 
 static bool InitModule() {
   tensorflow::tao::CompilerBase::RegisterCompilerFactory(

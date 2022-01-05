@@ -67,4 +67,4 @@ TEST(TFAbsOpTest, ProvidedDataShape2DF32) {
       /*input_vals*/ {{-0.1, 0.1, 0.01}}));
 }
 
-}  // namespace mlir_test
+} // namespace mlir_test

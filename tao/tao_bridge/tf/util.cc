@@ -15,8 +15,8 @@ limitations under the License.
 
 #include "tao_bridge/tf/util.h"
 
-#include <stdarg.h>
 #include <numeric>
+#include <stdarg.h>
 
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
@@ -32,14 +32,14 @@ limitations under the License.
 namespace xla {
 namespace tao {
 
-Status WithLogBacktrace(const Status& status) {
+Status WithLogBacktrace(const Status &status) {
   CHECK(!status.ok());
   VLOG(1) << status.ToString();
   VLOG(1) << tensorflow::CurrentStackTrace();
   return status;
 }
 
-ScopedLoggingTimer::ScopedLoggingTimer(const string& label, bool enabled)
+ScopedLoggingTimer::ScopedLoggingTimer(const string &label, bool enabled)
     : enabled(enabled), label(label) {
   if (enabled) {
     start_micros = tensorflow::Env::Default()->NowMicros();
@@ -72,7 +72,7 @@ string Reindent(absl::string_view original,
                 const absl::string_view indentation) {
   std::vector<string> pieces =
       absl::StrSplit(absl::string_view(original.data(), original.size()), '\n');
-  return absl::StrJoin(pieces, "\n", [indentation](string* out, string s) {
+  return absl::StrJoin(pieces, "\n", [indentation](string *out, string s) {
     absl::StrAppend(out, indentation, absl::StripAsciiWhitespace(s));
   });
 }
@@ -90,8 +90,8 @@ bool IsPermutation(absl::Span<const int64> permutation, int64 rank) {
   return std::find(output.begin(), output.end(), -1) == output.end();
 }
 
-std::vector<int64> InversePermutation(
-    absl::Span<const int64> input_permutation) {
+std::vector<int64>
+InversePermutation(absl::Span<const int64> input_permutation) {
   DCHECK(IsPermutation(input_permutation, input_permutation.size()));
   std::vector<int64> output_permutation(input_permutation.size(), -1);
   for (size_t i = 0; i < input_permutation.size(); ++i) {
@@ -162,14 +162,14 @@ string HumanReadableNumOps(double flops, double nanoseconds,
       static_cast<int64>(nano_flops * 1e9));
   absl::string_view sp(throughput);
   // Use the more common "G(FLOPS)", rather than "B(FLOPS)"
-  if (absl::EndsWith(sp, "B") ||  // Ends in 'B', ignoring case
+  if (absl::EndsWith(sp, "B") || // Ends in 'B', ignoring case
       absl::EndsWith(sp, "b")) {
     *throughput.rbegin() = 'G';
   }
   throughput += absl::StrCat(op_prefix, "OP/s");
   return throughput;
 }
-}  // namespace
+} // namespace
 
 string HumanReadableNumFlops(double flops, double nanoseconds) {
   return HumanReadableNumOps(flops, nanoseconds, "FL");
@@ -179,7 +179,7 @@ string HumanReadableNumTranscendentalOps(double trops, double nanoseconds) {
   return HumanReadableNumOps(trops, nanoseconds, "TR");
 }
 
-void LogLines(int sev, absl::string_view text, const char* fname, int lineno) {
+void LogLines(int sev, absl::string_view text, const char *fname, int lineno) {
   const int orig_sev = sev;
   if (sev == tensorflow::FATAL) {
     sev = tensorflow::ERROR;
@@ -255,7 +255,7 @@ std::vector<std::pair<int64, int64>> CommonFactors(absl::Span<const int64> a,
 }
 
 string SanitizeFileName(string file_name) {
-  for (char& c : file_name) {
+  for (char &c : file_name) {
     if (c == '/' || c == '\\' || c == '[' || c == ']' || c == ' ') {
       c = '_';
     }
@@ -263,5 +263,5 @@ string SanitizeFileName(string file_name) {
   return file_name;
 }
 
-}  // namespace tao
-}  // namespace xla
+} // namespace tao
+} // namespace xla

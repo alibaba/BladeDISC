@@ -60,10 +60,10 @@ class SubProcess;
 // launched with the given command-line arguments `argv`. The process
 // must be explicitly started by calling the Start() method on the
 // returned object.
-std::unique_ptr<SubProcess> CreateSubProcess(const std::vector<string>& argv);
+std::unique_ptr<SubProcess> CreateSubProcess(const std::vector<string> &argv);
 
 class SubProcess {
- public:
+public:
   // SubProcess()
   //    nfds: The number of file descriptors to use.
   explicit SubProcess(int nfds = 3);
@@ -92,7 +92,7 @@ class SubProcess {
   //    file: The file containing the program.  This must be an absolute path
   //          name - $PATH is not searched.
   //    argv: The argument list.
-  virtual void SetProgram(const string& file, const std::vector<string>& argv);
+  virtual void SetProgram(const string &file, const std::vector<string> &argv);
 
   // Start()
   //    Run the command that was previously set up with SetProgram().
@@ -131,10 +131,10 @@ class SubProcess {
   //    If this process is not configured to take stdin from a pipe, stdin_input
   //     will be ignored.
   //    Returns the command's exit status.
-  virtual int Communicate(const string* stdin_input, string* stdout_output,
-                          string* stderr_output);
+  virtual int Communicate(const string *stdin_input, string *stdout_output,
+                          string *stderr_output);
 
- private:
+private:
   static const int kNFds = 3;
   static bool chan_valid(int chan) { return ((chan >= 0) && (chan < kNFds)); }
   static bool retry(int e) {
@@ -142,7 +142,7 @@ class SubProcess {
   }
   void FreeArgs() EXCLUSIVE_LOCKS_REQUIRED(data_mu_);
   void ClosePipes() EXCLUSIVE_LOCKS_REQUIRED(data_mu_);
-  bool WaitInternal(int* status);
+  bool WaitInternal(int *status);
 
   // The separation between proc_mu_ and data_mu_ mutexes allows Kill() to be
   // called by a thread while another thread is inside Wait() or Communicate().
@@ -151,8 +151,8 @@ class SubProcess {
   pid_t pid_ GUARDED_BY(proc_mu_);
 
   mutable mutex data_mu_ ACQUIRED_AFTER(proc_mu_);
-  char* exec_path_ GUARDED_BY(data_mu_);
-  char** exec_argv_ GUARDED_BY(data_mu_);
+  char *exec_path_ GUARDED_BY(data_mu_);
+  char **exec_argv_ GUARDED_BY(data_mu_);
   ChannelAction action_[kNFds] GUARDED_BY(data_mu_);
   int parent_pipe_[kNFds] GUARDED_BY(data_mu_);
   int child_pipe_[kNFds] GUARDED_BY(data_mu_);
@@ -160,7 +160,7 @@ class SubProcess {
   TF_DISALLOW_COPY_AND_ASSIGN(SubProcess);
 };
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow
 
-#endif  // TAO_TENSORFLOW_CORE_PLATFORM_POSIX_SUBPROCESS_H_
+#endif // TAO_TENSORFLOW_CORE_PLATFORM_POSIX_SUBPROCESS_H_

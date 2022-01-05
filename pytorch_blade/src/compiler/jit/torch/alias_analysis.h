@@ -21,4 +21,3 @@ bool isMutableType(const torch::jit::TypePtr& type);
 bool isMutableType(const torch::jit::Value* v);
 } // namespace blade
 } // namespace torch
-

@@ -29,11 +29,11 @@ TEST(CudaUtilsTest, TestGetGpuDeviceUUID_CPU) {
 
 #else
 
-void GetGpuPCIBusID(std::string* bus_id) {
-  void* cuda_handle = nullptr;
+void GetGpuPCIBusID(std::string *bus_id) {
+  void *cuda_handle = nullptr;
   // CUDA suffixes in priority order
   const auto cuda_suffixes = {"", ".10.1", ".10.0", ".9.0"};
-  for (const std::string& suffix : cuda_suffixes) {
+  for (const std::string &suffix : cuda_suffixes) {
     const auto sopath = "libcudart.so" + suffix;
     cuda_handle = dlopen(sopath.c_str(), RTLD_LAZY);
     if (cuda_handle) {
@@ -47,7 +47,7 @@ void GetGpuPCIBusID(std::string* bus_id) {
 
   typedef int cudaError_t;
   auto cudaDeviceGetPCIBusId =
-      reinterpret_cast<cudaError_t (*)(char*, int, int)>(
+      reinterpret_cast<cudaError_t (*)(char *, int, int)>(
           dlsym(cuda_handle, "cudaDeviceGetPCIBusId"));
 
   auto cudaGetLastError = reinterpret_cast<cudaError_t (*)()>(
@@ -71,10 +71,10 @@ TEST(CudaUtilsTest, TestGetGpuDeviceUUID_GPU) {
   ASSERT_NE(device_uuid, "");
 }
 
-#endif  // TAO_CPU_ONLY
+#endif // TAO_CPU_ONLY
 
-}  // namespace
+} // namespace
 
-}  // namespace cuda_utils
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace cuda_utils
+} // namespace tao
+} // namespace tensorflow

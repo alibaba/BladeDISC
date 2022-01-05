@@ -23,8 +23,8 @@ struct SortDescriptor {
   bool is_ascending;
 };
 
-SortDescriptor makeSortDescriptor(tao::ral::ExecutionContext* ctx,
-                                  const unsigned rank, const int64_t* sizes,
+SortDescriptor makeSortDescriptor(tao::ral::ExecutionContext *ctx,
+                                  const unsigned rank, const int64_t *sizes,
                                   const bool ascending) {
   SortDescriptor desc;
   if (rank > 2) {
@@ -38,19 +38,12 @@ SortDescriptor makeSortDescriptor(tao::ral::ExecutionContext* ctx,
   return desc;
 }
 
-template <typename Dtype>
-struct IsIntTyped {
+template <typename Dtype> struct IsIntTyped {
   static const bool value = false;
 };
-template <>
-struct IsIntTyped<int> {
-  static const bool value = true;
-};
-template <>
-struct IsIntTyped<unsigned> {
-  static const bool value = true;
-};
+template <> struct IsIntTyped<int> { static const bool value = true; };
+template <> struct IsIntTyped<unsigned> { static const bool value = true; };
 
-}  // namespace
+} // namespace
 
-#endif  // TENSORFLOW_COMPILER_MLIR_XLA_RAL_CUSTOM_LIB_CALL_DYNAMIC_SORT_IMPL_H_
+#endif // TENSORFLOW_COMPILER_MLIR_XLA_RAL_CUSTOM_LIB_CALL_DYNAMIC_SORT_IMPL_H_

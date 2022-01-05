@@ -16,8 +16,8 @@
 #include <utility>
 #include <vector>
 
-#include "gtest/gtest.h"
 #include "tensorflow/core/util/env_var.h"
+#include "gtest/gtest.h"
 
 namespace tensorflow {
 namespace tao {
@@ -29,23 +29,23 @@ struct EnvItem {
   std::string old_val;
 };
 
-void BackUpAndSetEnv(std::vector<EnvItem>* items) {
-  for (auto& item : *items) {
+void BackUpAndSetEnv(std::vector<EnvItem> *items) {
+  for (auto &item : *items) {
     TF_CHECK_OK(ReadStringFromEnvVar(item.name, "", &item.old_val));
     int ret = setenv(item.name.c_str(), item.new_val.c_str(), 1);
     CHECK(ret == 0);
   }
 }
 
-void RestoreEnv(const std::vector<EnvItem>& items) {
-  for (auto& item : items) {
+void RestoreEnv(const std::vector<EnvItem> &items) {
+  for (auto &item : items) {
     int ret = setenv(item.name.c_str(), item.old_val.c_str(), 1);
     CHECK(ret == 0);
   }
 }
 
 void DoAsserts(bool refresh) {
-  auto* opt = GetTaoDumperOptions(refresh);
+  auto *opt = GetTaoDumperOptions(refresh);
   EXPECT_FALSE(opt->remove_after_compile);
   EXPECT_EQ(opt->tao_upload_tool_path, "/abc");
   EXPECT_EQ(opt->graph_dump_path, "/text");
@@ -85,6 +85,6 @@ TEST(CommonTest, TestGetTaoDumperOptions) {
   DoAsserts(false);
 }
 
-}  // namespace
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace
+} // namespace tao
+} // namespace tensorflow

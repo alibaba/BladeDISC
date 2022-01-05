@@ -15,7 +15,7 @@ limitations under the License.
 
 #include "tao_bridge/tf/flags.h"
 
-#include <mutex>  // NOLINT
+#include <mutex> // NOLINT
 
 #include "absl/base/call_once.h"
 #include "absl/strings/numbers.h"
@@ -29,16 +29,16 @@ namespace tensorflow {
 namespace tao {
 namespace {
 
-BuildXlaOpsPassFlags* build_ops_flags;
-MarkForCompilationPassFlags* mark_for_compilation_flags;
-XlaDeviceFlags* device_flags;
-XlaOpsCommonFlags* ops_flags;
-IntroduceFloatingPointJitterPassFlags* jitter_flags;
+BuildXlaOpsPassFlags *build_ops_flags;
+MarkForCompilationPassFlags *mark_for_compilation_flags;
+XlaDeviceFlags *device_flags;
+XlaOpsCommonFlags *ops_flags;
+IntroduceFloatingPointJitterPassFlags *jitter_flags;
 
-std::vector<Flag>* flag_list;
+std::vector<Flag> *flag_list;
 absl::once_flag flags_init;
 
-bool SetterForXlaAutoJitFlag(const string& value) {
+bool SetterForXlaAutoJitFlag(const string &value) {
   int32 opt_level;
   // We need to use the mark_for_compilation_flags directly here instead of
   // going via GetMarkForCompilationPassFlags() to avoid infinite recursion. The
@@ -73,7 +73,7 @@ bool SetterForXlaAutoJitFlag(const string& value) {
   return true;
 }
 
-void AppendMarkForCompilationPassFlagsInternal(std::vector<Flag>* flag_list) {
+void AppendMarkForCompilationPassFlagsInternal(std::vector<Flag> *flag_list) {
   std::vector<Flag> new_flags = {
       Flag("tf_xla_auto_jit", SetterForXlaAutoJitFlag, "0",
            "Control compilation of operators into XLA computations on CPU and "
@@ -215,44 +215,44 @@ void AllocateAndParseFlags() {
             "element in the tensors named in `tensor_names.")});
 
   AppendMarkForCompilationPassFlagsInternal(flag_list);
-  //xla::ParseFlagsFromEnvAndDieIfUnknown("TF_XLA_FLAGS", *flag_list);
+  // xla::ParseFlagsFromEnvAndDieIfUnknown("TF_XLA_FLAGS", *flag_list);
   xla::tao::legacy_flags::ParseFlagsFromEnv(*flag_list);
 }
 
-}  // namespace
+} // namespace
 
-bool SetXlaAutoJitFlagFromFlagString(const string& value) {
+bool SetXlaAutoJitFlagFromFlagString(const string &value) {
   absl::call_once(flags_init, &AllocateAndParseFlags);
   return SetterForXlaAutoJitFlag(value);
 }
 
-BuildXlaOpsPassFlags* GetBuildXlaOpsPassFlags() {
+BuildXlaOpsPassFlags *GetBuildXlaOpsPassFlags() {
   absl::call_once(flags_init, &AllocateAndParseFlags);
   return build_ops_flags;
 }
 
-MarkForCompilationPassFlags* GetMarkForCompilationPassFlags() {
+MarkForCompilationPassFlags *GetMarkForCompilationPassFlags() {
   absl::call_once(flags_init, &AllocateAndParseFlags);
   return mark_for_compilation_flags;
 }
 
-XlaDeviceFlags* GetXlaDeviceFlags() {
+XlaDeviceFlags *GetXlaDeviceFlags() {
   absl::call_once(flags_init, &AllocateAndParseFlags);
   return device_flags;
 }
 
-const XlaOpsCommonFlags& GetXlaOpsCommonFlags() {
+const XlaOpsCommonFlags &GetXlaOpsCommonFlags() {
   absl::call_once(flags_init, &AllocateAndParseFlags);
   return *ops_flags;
 }
 
-const IntroduceFloatingPointJitterPassFlags&
+const IntroduceFloatingPointJitterPassFlags &
 GetIntroduceFloatingPointJitterPassFlags() {
   absl::call_once(flags_init, &AllocateAndParseFlags);
   return *jitter_flags;
 }
 
-void AppendMarkForCompilationPassFlags(std::vector<Flag>* flag_list) {
+void AppendMarkForCompilationPassFlags(std::vector<Flag> *flag_list) {
   absl::call_once(flags_init, &AllocateAndParseFlags);
   AppendMarkForCompilationPassFlagsInternal(flag_list);
 }
@@ -263,5 +263,5 @@ void SetXlaIsEnabled() { xla_is_enabled = true; }
 
 bool IsXlaEnabled() { return xla_is_enabled; }
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow

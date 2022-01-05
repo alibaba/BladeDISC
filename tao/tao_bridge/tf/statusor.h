@@ -22,10 +22,9 @@ namespace xla {
 namespace tao {
 
 // Use steam_executor's StatusOr so we don't duplicate code.
-template <typename T>
-using StatusOr = ::stream_executor::port::StatusOr<T>;
+template <typename T> using StatusOr = ::stream_executor::port::StatusOr<T>;
 
-}  // namespace tao
-}  // namespace xla
+} // namespace tao
+} // namespace xla
 
-#endif  // TAO_TAO_BRIDGE_TF_STATUSOR_H_
+#endif // TAO_TAO_BRIDGE_TF_STATUSOR_H_

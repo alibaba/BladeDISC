@@ -11,18 +11,18 @@
 
 #include "tao_bridge/kernels/tao_profiling_guided_compilation.h"
 
-#include <sys/time.h>
 #include "tensorflow/core/util/env_var.h"
+#include <sys/time.h>
 
 namespace tensorflow {
 namespace tao {
 
-bool cmp_candidates(const std::pair<uint64, uint64>& a,
-                    const std::pair<uint64, uint64>& b) {
+bool cmp_candidates(const std::pair<uint64, uint64> &a,
+                    const std::pair<uint64, uint64> &b) {
   return a.second > b.second;
 }
 
-TAOProfilingGuidedCompilation& TAOProfilingGuidedCompilation::Get() {
+TAOProfilingGuidedCompilation &TAOProfilingGuidedCompilation::Get() {
   static TAOProfilingGuidedCompilation _obj;
   return _obj;
 }
@@ -73,7 +73,7 @@ bool TAOProfilingGuidedCompilation::MeasureTFTimeOrNot(uint64 signature) {
   return false;
 }
 
-uint64& TAOProfilingGuidedCompilation::GetSignatureTimeRef(uint64 signature) {
+uint64 &TAOProfilingGuidedCompilation::GetSignatureTimeRef(uint64 signature) {
   mutex_lock l(signature_time_mtx_);
   auto iter = signature_time_.find(signature);
   if (iter == signature_time_.end()) {
@@ -98,7 +98,7 @@ uint64 TAOProfilingGuidedCompilation::GetCurTimeUs() {
 }
 
 TAOProfilingGuidedCompilation::TAOProfilingGuidedCompilation() {
-  auto* bridge_opt = GetTaoBridgeOptions();
+  auto *bridge_opt = GetTaoBridgeOptions();
   feature_mode_ = static_cast<CompilationMode>(
       bridge_opt->profiling_guided_compilation_mode);
   lazy_calls_ = bridge_opt->profiling_guided_compilation_lazy_calls;
@@ -162,7 +162,7 @@ bool TAOProfilingGuidedCompilation::AllowTAOCompile(uint64 signature) {
     return true;
   }
   return false;
-}  // namespace tao
+} // namespace tao
 
 uint64 TAOProfilingGuidedCompilation::ProfiledTimeInMins() {
   uint64 cur_timestamp = GetCurTimeUs();
@@ -173,5 +173,5 @@ uint64 TAOProfilingGuidedCompilation::ProfiledTimeInMins() {
 
 TAOProfilingGuidedCompilation::~TAOProfilingGuidedCompilation() {}
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow

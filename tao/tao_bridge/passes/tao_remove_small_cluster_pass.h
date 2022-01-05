@@ -28,33 +28,33 @@ namespace tao {
 //  - Reducing device-to-host copies.
 //  - Reducing the number of XLA recompilations.
 class TaoRemoveSmallClusterPass : public GraphOptimizationPass {
- public:
+public:
   TaoRemoveSmallClusterPass(bool use_tvm) : GraphOptimizationPass() {
     use_tvm_ = use_tvm;
   }
-  Status Run(const GraphOptimizationPassOptions& options) override;
+  Status Run(const GraphOptimizationPassOptions &options) override;
 
-  void set_opts(const std::unique_ptr<TaoPassOptions>& opt) {
+  void set_opts(const std::unique_ptr<TaoPassOptions> &opt) {
     if (opt) {
       use_tvm_ = opt->use_tvm;
     }
   }
 
- private:
+private:
   bool use_tvm_;
 
-  std::unordered_map<std::string, std::vector<Node*>> cluster_nodes_;
+  std::unordered_map<std::string, std::vector<Node *>> cluster_nodes_;
   std::unordered_map<std::string, int32> compute_op_cnt_;
 
   const std::unordered_set<std::string> compute_op_ = {
       "Conv2D",       "MatMul",      "BatchMatMul", "DepthwiseConv2dNative",
       "_FusedConv2D", "_FusedMatMul"};
 
-  Status CollectOnGraph(Graph* graph);
-  Status RemoveNonComputeCluster(Graph* graph);
+  Status CollectOnGraph(Graph *graph);
+  Status RemoveNonComputeCluster(Graph *graph);
 };
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow
 
-#endif  // TENSORFLOW_COMPILER_JIT_PARTIALLY_DECLUSTER_PASS_H_
+#endif // TENSORFLOW_COMPILER_JIT_PARTIALLY_DECLUSTER_PASS_H_

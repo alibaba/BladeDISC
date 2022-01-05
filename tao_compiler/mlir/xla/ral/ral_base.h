@@ -29,32 +29,32 @@ namespace ral {
 using status_t = int32_t;
 
 // memory buffer abstraction
-using buffer_t = void*;
+using buffer_t = void *;
 
 // memory buffer abstraction
-using const_buffer_t = const void*;
+using const_buffer_t = const void *;
 
 // opaque resouce abstraction
-using opaque_t = void*;
+using opaque_t = void *;
 
 // memory buffer shape abstraction
 using buffer_shape_t = std::vector<int64_t>;
 
 // ral api function prototype
-using api_func_t = std::function<void(void**)>;
+using api_func_t = std::function<void(void **)>;
 
 using alloc_t = std::function<buffer_t(size_t)>;
 using dealloc_t = std::function<void(buffer_t)>;
 
 struct Allocator {
- public:
+public:
   virtual ~Allocator() = default;
   virtual void releaseAllFreeBuffers(){};
   virtual buffer_t alloc(size_t bytes) = 0;
   virtual void dealloc(buffer_t buffer) = 0;
 };
 
-}  // namespace ral
-}  // namespace tao
+} // namespace ral
+} // namespace tao
 
-#endif  // RAL_RAL_BASE_H_
+#endif // RAL_RAL_BASE_H_

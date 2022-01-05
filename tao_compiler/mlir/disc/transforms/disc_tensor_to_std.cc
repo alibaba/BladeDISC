@@ -39,17 +39,17 @@ using tensor::GenerateOp;
 namespace {
 
 class GenerateOpConverter : public OpConversionPattern<GenerateOp> {
- public:
+public:
   using OpConversionPattern<GenerateOp>::OpConversionPattern;
 
-  LogicalResult matchAndRewrite(
-      GenerateOp op, ArrayRef<Value> operands,
-      ConversionPatternRewriter& rewriter) const override;
+  LogicalResult
+  matchAndRewrite(GenerateOp op, ArrayRef<Value> operands,
+                  ConversionPatternRewriter &rewriter) const override;
 };
 
 LogicalResult GenerateOpConverter::matchAndRewrite(
     GenerateOp op, ArrayRef<Value> operands,
-    ConversionPatternRewriter& rewriter) const {
+    ConversionPatternRewriter &rewriter) const {
   auto resultTy = op.getType().dyn_cast<RankedTensorType>();
   if (!resultTy || !resultTy.hasStaticShape()) {
     op.emitError("only static shape ranked tensor result type is supported");
@@ -71,14 +71,14 @@ LogicalResult GenerateOpConverter::matchAndRewrite(
   Location loc = op.getLoc();
   ImplicitLocOpBuilder lb(loc, rewriter);
 
-  Block& block = op.body().front();
+  Block &block = op.body().front();
   int64_t numElems = resultTy.getDimSize(0);
   SmallVector<Value, 4> extentValues;
   for (int64_t i = 0; i < numElems; ++i) {
     Value idx = lb.create<ConstantIndexOp>(i);
     BlockAndValueMapping mapping;
     mapping.map(block.getArgument(0), idx);
-    for (Operation& op : block.without_terminator()) {
+    for (Operation &op : block.without_terminator()) {
       lb.clone(op, mapping);
     }
     extentValues.push_back(
@@ -100,7 +100,7 @@ class ConvertTensorToStandardPass
 
 void ConvertTensorToStandardPass::runOnFunction() {
   // Setup target legality.
-  MLIRContext& ctx = getContext();
+  MLIRContext &ctx = getContext();
   ConversionTarget target(ctx);
   target.addLegalDialect<StandardOpsDialect>();
   target.addLegalOp<FuncOp, ModuleOp>();
@@ -118,11 +118,11 @@ void ConvertTensorToStandardPass::runOnFunction() {
     signalPassFailure();
 }
 
-}  // namespace
+} // namespace
 
 std::unique_ptr<mlir::FunctionPass> createDiscConvertTensorToStandardPass() {
   return std::make_unique<ConvertTensorToStandardPass>();
 }
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

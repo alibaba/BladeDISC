@@ -32,20 +32,20 @@ namespace tao {
 
 // The attribute that marks nodes to be grouped into functions by the
 // encapsulate subgraphs pass.
-extern const char* const kXlaClusterAttr;
+extern const char *const kXlaClusterAttr;
 
 // The attribute that marks nodes in a cluster to be placed outside the xla
 // compilation by the encapsulate subgraphs pass.
-extern const char* const kXlaOutsideCompilationAttr;
+extern const char *const kXlaOutsideCompilationAttr;
 
 // Marks a subset of nodes in the graph which are to be clustered
 // with an attribute _XlaCluster=<cluster id> so they are picked up by the
 // EncapsulateSubgraphsPass.
 class TaoMarkForCompilationPass : public GraphOptimizationPass {
- public:
+public:
   TaoMarkForCompilationPass() = default;
 
-  void set_opts(const std::unique_ptr<TaoPassOptions>& opt) {
+  void set_opts(const std::unique_ptr<TaoPassOptions> &opt) {
     if (opt) {
       override_tf_xla_ops_to_cluster_ = opt->override_tf_xla_ops_to_cluster;
       if (opt->min_cluster_size > 0) {
@@ -62,12 +62,12 @@ class TaoMarkForCompilationPass : public GraphOptimizationPass {
     }
   }
 
-  Status Run(const GraphOptimizationPassOptions& options) override;
+  Status Run(const GraphOptimizationPassOptions &options) override;
   Status ResetClusterNumber();
 
- private:
+private:
   bool use_tvm_;
-  Status RunForTest(const GraphOptimizationPassOptions& options,
+  Status RunForTest(const GraphOptimizationPassOptions &options,
                     bool disable_deadness_analysis);
 
   friend class MarkForCompilationPassTestHelper;
@@ -83,12 +83,12 @@ class TaoMarkForCompilationPass : public GraphOptimizationPass {
 // function is compilable iff every operator in the function body is
 // compilable. If 'ndef' is not compilable and 'uncompilable_node_info' is not
 // null, we will populate 'uncompilable_node_info' with uncompilable node info.
-bool IsCompilable(FunctionLibraryRuntime* flr, const NodeDef& ndef,
-                  RecursiveCompilabilityChecker::UncompilableNodesMap*
-                      uncompilable_node_info = nullptr);
+bool IsCompilable(FunctionLibraryRuntime *flr, const NodeDef &ndef,
+                  RecursiveCompilabilityChecker::UncompilableNodesMap
+                      *uncompilable_node_info = nullptr);
 
-std::unordered_map<string, std::vector<string>>* GetWhitelistTable();
-std::unordered_set<string>* GetFusedOpTable();
+std::unordered_map<string, std::vector<string>> *GetWhitelistTable();
+std::unordered_set<string> *GetFusedOpTable();
 
 namespace testing {
 // DO NOT USE IN PRODUCTION.
@@ -98,8 +98,8 @@ void ResetClusterSequenceNumber();
 
 // Return a list of operation that we choose not to put into the whitelist.
 std::unordered_set<string> GetKnownXLAWhitelistOp();
-}  // namespace testing
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace testing
+} // namespace tao
+} // namespace tensorflow
 
-#endif  // TAO_TAO_BRIDGE_PASSES_TAO_MARK_FOR_COMPILATION_PASS_H_
+#endif // TAO_TAO_BRIDGE_PASSES_TAO_MARK_FOR_COMPILATION_PASS_H_

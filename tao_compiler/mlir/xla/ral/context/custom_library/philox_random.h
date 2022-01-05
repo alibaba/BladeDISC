@@ -37,9 +37,8 @@ namespace random {
 // Arguments:
 //   T: the array element type;
 //   ElementCount: the fixed size of the array;
-template <typename T, int ElementCount>
-class Array {
- public:
+template <typename T, int ElementCount> class Array {
+public:
   static constexpr int kElementCount = ElementCount;
   PHILOX_DEVICE_INLINE Array() {
     for (int i = 0; i < ElementCount; ++i) {
@@ -47,15 +46,15 @@ class Array {
     }
   }
 
-  PHILOX_DEVICE_INLINE const T& operator[](int index) const {
+  PHILOX_DEVICE_INLINE const T &operator[](int index) const {
     return data_[index];
   }
 
-  PHILOX_DEVICE_INLINE T& operator[](int index) { return data_[index]; }
+  PHILOX_DEVICE_INLINE T &operator[](int index) { return data_[index]; }
 
   size_t size() const { return ElementCount; }
 
- private:
+private:
   T data_[ElementCount];
 };
 
@@ -92,7 +91,7 @@ class Array {
 // 1. PhiloxRandom is trivially copyable.
 // 2. PhiloxRandom is compilable by gcc and nvcc.
 class PhiloxRandom {
- public:
+public:
   using ResultType = Array<uint32_t, 4>;
   using ResultElementType = uint32_t;
   // The number of elements that will be returned.
@@ -124,10 +123,10 @@ class PhiloxRandom {
   PhiloxRandom(ResultType counter, Key key) : counter_(counter), key_(key) {}
 
   PHILOX_DEVICE_INLINE
-  ResultType const& counter() const { return counter_; }
+  ResultType const &counter() const { return counter_; }
 
   PHILOX_DEVICE_INLINE
-  Key const& key() const { return key_; }
+  Key const &key() const { return key_; }
 
   // Skip the specified number of samples of 128-bits in the current stream.
   PHILOX_DEVICE_INLINE
@@ -181,7 +180,7 @@ class PhiloxRandom {
     return counter;
   }
 
- private:
+private:
   // We use the same constants as recommended by the original paper.
   static constexpr uint32_t kPhiloxW32A = 0x9E3779B9;
   static constexpr uint32_t kPhiloxW32B = 0xBB67AE85;
@@ -202,8 +201,8 @@ class PhiloxRandom {
   // Helper function to return the lower and higher 32-bits from two 32-bit
   // integer multiplications.
   PHILOX_DEVICE_INLINE
-  static void MultiplyHighLow(uint32_t a, uint32_t b, uint32_t* result_low,
-                              uint32_t* result_high) {
+  static void MultiplyHighLow(uint32_t a, uint32_t b, uint32_t *result_low,
+                              uint32_t *result_high) {
 #ifndef __CUDA_ARCH__
     const uint64_t product = static_cast<uint64_t>(a) * b;
     *result_low = static_cast<uint32_t>(product);
@@ -215,8 +214,8 @@ class PhiloxRandom {
   }
 
   // Helper function for a single round of the underlying Philox algorithm.
-  PHILOX_DEVICE_INLINE static ResultType ComputeSingleRound(
-      const ResultType& counter, const Key& key) {
+  PHILOX_DEVICE_INLINE static ResultType
+  ComputeSingleRound(const ResultType &counter, const Key &key) {
     uint32_t lo0;
     uint32_t hi0;
     MultiplyHighLow(kPhiloxM4x32A, counter[0], &lo0, &hi0);
@@ -233,18 +232,18 @@ class PhiloxRandom {
     return result;
   }
 
-  PHILOX_DEVICE_INLINE void RaiseKey(Key* key) {
+  PHILOX_DEVICE_INLINE void RaiseKey(Key *key) {
     (*key)[0] += kPhiloxW32A;
     (*key)[1] += kPhiloxW32B;
   }
 
- private:
+private:
   ResultType counter_;
   Key key_;
 };
 
-}  // namespace random
-}  // namespace ral
-}  // namespace tao
+} // namespace random
+} // namespace ral
+} // namespace tao
 
-#endif  // TENSORFLOW_COMPILER_MLIR_XLA_RAL_CONTEXT_CUSTOM_LIBRARY_PHILOX_RANDDOM_H_
+#endif // TENSORFLOW_COMPILER_MLIR_XLA_RAL_CONTEXT_CUSTOM_LIBRARY_PHILOX_RANDDOM_H_

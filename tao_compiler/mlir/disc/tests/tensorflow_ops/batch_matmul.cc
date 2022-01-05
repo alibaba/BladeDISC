@@ -202,4 +202,4 @@ TEST(TFBatchMatMulOpTest, DynamicShapeTTF16) {
       /*output_descriptors*/ {"f16_X"}));
 }
 
-}  // namespace mlir_test
+} // namespace mlir_test

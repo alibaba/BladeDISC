@@ -34,8 +34,8 @@ using tensorflow::WriteStringToFile;
 
 namespace mlir_test {
 
-std::string GenerateStrSeq(int num, const std::string& prefix,
-                           const std::string& sep = ",") {
+std::string GenerateStrSeq(int num, const std::string &prefix,
+                           const std::string &sep = ",") {
   std::vector<std::string> str_vec;
   str_vec.reserve(num);
   for (int i = 0; i < num; ++i) {
@@ -54,10 +54,11 @@ std::string DeviceTypeToStr(DeviceType dt) {
   }
 }
 
-std::string ReplaceTemplateValue(
-    const std::string& tf_code, int num_inputs, int num_outputs,
-    const std::vector<DeviceType>& input_placements,
-    const std::vector<DeviceType>& output_placements) {
+std::string
+ReplaceTemplateValue(const std::string &tf_code, int num_inputs,
+                     int num_outputs,
+                     const std::vector<DeviceType> &input_placements,
+                     const std::vector<DeviceType> &output_placements) {
   std::string inputs_str = GenerateStrSeq(num_inputs, "input");
   std::string outputs_str = GenerateStrSeq(num_outputs, "output");
 
@@ -82,12 +83,12 @@ std::string ReplaceTemplateValue(
                 {"{{OUTPUT_PLACEMENTS}}", output_placements_str}});
 }
 
-bool feature_test_main(const std::string& mlir_file_path,
+bool feature_test_main(const std::string &mlir_file_path,
                        BackendType backend_type, int num_inputs,
                        int num_outputs,
-                       const std::vector<std::string>& input_descriptors,
-                       const std::vector<std::string>& output_descriptors,
-                       const std::vector<std::vector<float>>& input_vals,
+                       const std::vector<std::string> &input_descriptors,
+                       const std::vector<std::string> &output_descriptors,
+                       const std::vector<std::vector<float>> &input_vals,
                        bool profiling = false, bool multi_cc_mode = false,
                        bool multi_cc_mode_dbg_ptx_only = false) {
   std::vector<buffer_shape_t> input_shapes(num_inputs);
@@ -156,9 +157,9 @@ bool feature_test_main(const std::string& mlir_file_path,
   return (status == tensorflow::Status::OK());
 }
 
-bool feature_test_read_input_from_file(const std::string& mlir_file_path,
+bool feature_test_read_input_from_file(const std::string &mlir_file_path,
                                        BackendType backend_type,
-                                       const std::string& test_config_file,
+                                       const std::string &test_config_file,
                                        bool profiling) {
   int num_inputs;
   std::ifstream fin(test_config_file);
@@ -214,12 +215,12 @@ bool feature_test_read_input_from_file(const std::string& mlir_file_path,
                            input_vals, profiling);
 }
 
-bool feature_test_main(const std::string& mlir_file_path,
-                       const std::vector<BackendType>& backend_types,
+bool feature_test_main(const std::string &mlir_file_path,
+                       const std::vector<BackendType> &backend_types,
                        int num_inputs, int num_outputs,
-                       const std::vector<std::string>& input_descriptors,
-                       const std::vector<std::string>& output_descriptors,
-                       const std::vector<std::vector<float>>& input_vals,
+                       const std::vector<std::string> &input_descriptors,
+                       const std::vector<std::string> &output_descriptors,
+                       const std::vector<std::vector<float>> &input_vals,
                        bool profiling, bool multi_cc_mode,
                        bool multi_cc_mode_dbg_ptx_only) {
   bool pass = true;
@@ -247,4 +248,4 @@ bool feature_test_main(const std::string& mlir_file_path,
   }
   return pass;
 }
-}  //  namespace mlir_test
+} //  namespace mlir_test

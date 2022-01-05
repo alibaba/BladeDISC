@@ -75,4 +75,4 @@ TEST(TFConv2DBackpropFilterOpTest, StaticShape4DNHWCF32) {
       /*input_descriptors*/ {"100x28x28x1xf32_X", "100x26x26x32xf32_X"},
       /*output_descriptors*/ {"f32_X"}));
 }
-}  // namespace mlir_test
+} // namespace mlir_test

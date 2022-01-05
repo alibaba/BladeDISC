@@ -56,23 +56,23 @@ limitations under the License.
 namespace tensorflow {
 namespace tao {
 
-const char* const kXlaCompiledKernelAttr = "_TaoXlaCompiledKernel";
-const char* const kXlaNumConstantArgsAttr = "_TaoXlaNumConstantArgs";
-const char* const kXlaNumResourceArgsAttr = "_TaoXlaNumResourceArgs";
-const char* const kMlirNumFixedShapeArgsAttr = "_TaoMlirNumFixedShapeArgs";
-const char* const kMlirNumHostArgsAttr = "_TaoMlirNumHostArgs";
-const char* const kMlirNumHostRetsAttr = "_TaoMlirNumHostRets";
-const char* const kXlaHostTransferSequencerAttr =
+const char *const kXlaCompiledKernelAttr = "_TaoXlaCompiledKernel";
+const char *const kXlaNumConstantArgsAttr = "_TaoXlaNumConstantArgs";
+const char *const kXlaNumResourceArgsAttr = "_TaoXlaNumResourceArgs";
+const char *const kMlirNumFixedShapeArgsAttr = "_TaoMlirNumFixedShapeArgs";
+const char *const kMlirNumHostArgsAttr = "_TaoMlirNumHostArgs";
+const char *const kMlirNumHostRetsAttr = "_TaoMlirNumHostRets";
+const char *const kXlaHostTransferSequencerAttr =
     "_tao_xla_host_transfer_sequencer";
 
-void SortControlInputs(GraphDef* gdef) {
+void SortControlInputs(GraphDef *gdef) {
   int64 num_nodes = gdef->node_size();
   for (int64 i = 0; i < num_nodes; ++i) {
-    NodeDef* node = gdef->mutable_node(i);
+    NodeDef *node = gdef->mutable_node(i);
     // Stable sort control inputs and leave the order of data inputs unchanged.
     std::stable_sort(node->mutable_input()->begin(),
                      node->mutable_input()->end(),
-                     [](const string& a, const string& b) {
+                     [](const string &a, const string &b) {
                        bool a_is_control = absl::StartsWith(a, "^");
                        bool b_is_control = absl::StartsWith(b, "^");
                        return (!a_is_control && b_is_control) ||
@@ -84,7 +84,8 @@ void SortControlInputs(GraphDef* gdef) {
 namespace {
 
 bool AreAllParentsGuaranteedConst(
-    const Node& n, const std::unordered_set<const Node*>& runtime_const_nodes) {
+    const Node &n,
+    const std::unordered_set<const Node *> &runtime_const_nodes) {
   if (n.type_string() == "GuaranteeConst") {
     // If the current node is itself a cast-to-const, no need
     // to look at the incoming edges.
@@ -93,7 +94,7 @@ bool AreAllParentsGuaranteedConst(
 
   bool all_parents_const = true;
   bool atleast_one_non_control_edge = false;
-  for (const Edge* in : n.in_edges()) {
+  for (const Edge *in : n.in_edges()) {
     atleast_one_non_control_edge =
         atleast_one_non_control_edge || !in->IsControlEdge();
     if (!in->IsControlEdge() && runtime_const_nodes.count(in->src()) == 0) {
@@ -105,24 +106,24 @@ bool AreAllParentsGuaranteedConst(
 }
 
 void MarkGuaranteedConstants(
-    const Graph& graph,
-    const std::vector<std::pair<const Node*, Node*>>& src_arg_pairs) {
-  std::unordered_set<const Node*> guaranteed_const_nodes;
-  std::vector<const Node*> srcs;
+    const Graph &graph,
+    const std::vector<std::pair<const Node *, Node *>> &src_arg_pairs) {
+  std::unordered_set<const Node *> guaranteed_const_nodes;
+  std::vector<const Node *> srcs;
   srcs.reserve(src_arg_pairs.size());
-  for (const auto& src_arg : src_arg_pairs) {
+  for (const auto &src_arg : src_arg_pairs) {
     srcs.push_back(src_arg.first);
   }
   ReverseDFSFrom(
       graph, srcs, /*enter=*/nullptr,
-      /*leave=*/[&guaranteed_const_nodes](const Node* n) {
+      /*leave=*/[&guaranteed_const_nodes](const Node *n) {
         // TODO(vinuraja): Doesn't work in the presence of loops.
         if (AreAllParentsGuaranteedConst(*n, guaranteed_const_nodes)) {
           guaranteed_const_nodes.insert(n);
         }
       });
 
-  for (auto& src_arg : src_arg_pairs) {
+  for (auto &src_arg : src_arg_pairs) {
     if (guaranteed_const_nodes.count(src_arg.first) != 0) {
       VLOG(1) << "Guaranteed const found: " << src_arg.first->DebugString();
       src_arg.second->AddAttr("_is_guaranteed_constant", true);
@@ -131,7 +132,7 @@ void MarkGuaranteedConstants(
 }
 
 struct OutputInputTensorPairHasher {
-  uint64 operator()(std::pair<OutputTensor, InputTensor> const& s) const {
+  uint64 operator()(std::pair<OutputTensor, InputTensor> const &s) const {
     return Hash64Combine(OutputTensor::Hash()(s.first),
                          InputTensor::Hash()(s.second));
   }
@@ -139,16 +140,16 @@ struct OutputInputTensorPairHasher {
 
 // TODO(phawkins) add a canonical copy of these operator names and refactor
 // everything to use it.
-static const char* const kArgOp = "_Arg";
-static const char* const kRetValOp = "_Retval";
-static const char* const kHostComputeOp = "XlaHostCompute";
-static const char* const kSendFromHostOp = "_XlaSendFromHost";
-static const char* const kRecvAtHostOp = "_XlaRecvAtHost";
+static const char *const kArgOp = "_Arg";
+static const char *const kRetValOp = "_Retval";
+static const char *const kHostComputeOp = "XlaHostCompute";
+static const char *const kSendFromHostOp = "_XlaSendFromHost";
+static const char *const kRecvAtHostOp = "_XlaRecvAtHost";
 
 class Encapsulator {
- public:
+public:
   Encapsulator(string group_attribute, string outside_compilation_attribute,
-               Graph const* graph_in)
+               Graph const *graph_in)
       : group_attribute_(std::move(group_attribute)),
         outside_compilation_attribute_(
             std::move(outside_compilation_attribute)),
@@ -161,7 +162,7 @@ class Encapsulator {
 
   // Find subgraphs marked with 'group_attribute', and build a new
   // subgraph, one for each value of 'group_attribute'.
-  Status SplitIntoSubgraphs(FunctionLibraryDefinition* library);
+  Status SplitIntoSubgraphs(FunctionLibraryDefinition *library);
 
   // Build a FunctionDef for each subgraph, and add it 'library'. The values of
   // the 'group_attribute' annotations become the function names.
@@ -169,15 +170,15 @@ class Encapsulator {
   // same name, if any.
   // If 'rewrite_subgraph_fn' is set, it is applied to each subgraph before
   // function conversion.
-  Status BuildFunctionDefs(const RewriteSubgraphFn& rewrite_subgraph_fn,
+  Status BuildFunctionDefs(const RewriteSubgraphFn &rewrite_subgraph_fn,
                            bool reuse_existing_functions,
-                           FunctionLibraryDefinition* library);
+                           FunctionLibraryDefinition *library);
 
   // Write a copy of the input graph to 'graph_out', where the subgraphs are
   // replaced with calls to the new functions.
-  Status BuildOutputGraph(Graph* graph_out, FunctionLibraryDefinition* library);
+  Status BuildOutputGraph(Graph *graph_out, FunctionLibraryDefinition *library);
 
- private:
+private:
   // A subgraph of the input, all marked with a common 'group_attribute'
   // value. A subgraph may contain multiple `outside_compilation' clusters.
   //
@@ -242,89 +243,91 @@ class Encapsulator {
   // so that during compilation of the HC node for D, an XLA control dependency
   // can be added to ensure C's SendToHost executes before D's RecvFromHost.
   class Subgraph {
-   public:
+  public:
     // Creates a graph to build the subgraph in, if it doesn't already exist,
     // using the same op registry and versions as graph_in.
-    Node* MakeNodeImage(const Graph* graph_in, Node* node);
+    Node *MakeNodeImage(const Graph *graph_in, Node *node);
 
     // Returns the graph the subgraph is being built in.
-    Graph* GetGraph() const;
+    Graph *GetGraph() const;
 
     // Builds a FunctionDef, and adds it to 'library'. The value of the
     // 'group_attribute' annotations becomes the function name.  If
     // 'reuse_existing_functions' is set, use an existing function with the same
     // name, if any.  If 'rewrite_subgraph_fn' is set, it is applied to the
     // subgraph before function conversion.
-    Status BuildFunctionDef(const string& name_in,
-                            const RewriteSubgraphFn& rewrite_subgraph_fn,
+    Status BuildFunctionDef(const string &name_in,
+                            const RewriteSubgraphFn &rewrite_subgraph_fn,
                             bool reuse_existing_functions,
-                            FunctionLibraryDefinition* library);
-    Status AddShapeToFunctionDef(Graph& graph, FunctionDef* fdef);
+                            FunctionLibraryDefinition *library);
+    Status AddShapeToFunctionDef(Graph &graph, FunctionDef *fdef);
 
     // Adds the function call node to graph_out.
     Status AddFunctionCallNode(
-        const std::unordered_map<const Node*, Node*>& node_images,
-        Graph* graph_out);
+        const std::unordered_map<const Node *, Node *> &node_images,
+        Graph *graph_out);
 
     // Adds _RecvAtHost and _SendFromHost nodes, where needed, to graph_out.
     Status AddOutsideCompilationHostIONodes(
-        const string& group_attribute, const string& subgraph_name,
-        const string& outside_compilation_attribute,
-        const std::unordered_map<const Node*, Node*>& node_images,
-        Graph* graph_out);
+        const string &group_attribute, const string &subgraph_name,
+        const string &outside_compilation_attribute,
+        const std::unordered_map<const Node *, Node *> &node_images,
+        Graph *graph_out);
 
     // Returns the names of all the outside_compilation subgraphs in this
     // Subgraph.
-    void GetOutsideCompilationSubgraphNames(std::vector<string>* names) const;
+    void GetOutsideCompilationSubgraphNames(std::vector<string> *names) const;
 
     // Returns the Node that the inputs and outputs of the function should be
     // wired up to.
-    Node* GetCallNode() const;
+    Node *GetCallNode() const;
 
     // Returns the index of the arg that the dst of edge should connect to.
-    int GetArgIndexForEdge(const Edge* edge) const;
+    int GetArgIndexForEdge(const Edge *edge) const;
 
     // Returns the index of the result that the src of edge should connect to.
-    int GetResultIndexForEdge(const Edge* edge) const;
+    int GetResultIndexForEdge(const Edge *edge) const;
 
     // Returns the RecvAtHost node for an outside_compilation subgraph.
-    Node* GetRecvAtHostNode(
-        const string& outside_compilation_subgraph_name) const;
+    Node *
+    GetRecvAtHostNode(const string &outside_compilation_subgraph_name) const;
 
     // Returns the output slot for the RecvAtHost node that corresponds to the
     // source of edge in an outside_compilation subgraph.
-    int GetRecvAtHostSlot(const string& outside_compilation_subgraph_name,
-                          const Edge* edge) const;
+    int GetRecvAtHostSlot(const string &outside_compilation_subgraph_name,
+                          const Edge *edge) const;
 
     // Returns the SendFromHost node for an outside_compilation subgraph.
-    Node* GetSendFromHostNode(
-        const string& outside_compilation_subgraph_name) const;
+    Node *
+    GetSendFromHostNode(const string &outside_compilation_subgraph_name) const;
 
     // Returns the input slot for the SendFromHost node that corresponds to the
     // destination of edge in an outside_compilation subgraph.
-    int GetSendFromHostSlot(const string& outside_compilation_subgraph_name,
-                            const Edge* edge) const;
+    int GetSendFromHostSlot(const string &outside_compilation_subgraph_name,
+                            const Edge *edge) const;
 
     // Creates an _Arg node for the src node of edge, and add its index to
     // args_by_src_, if none exists yet. Also adds its index to args_by_dst_,
     // and adds the edge within the subgraph from the _Arg node to the image of
     // the dst node.
-    Status RecordArg(const Edge* edge,
-                     const std::unordered_map<const Node*, Node*>& node_images,
-                     std::vector<std::pair<const Node*, Node*>>* src_arg_pairs);
+    Status
+    RecordArg(const Edge *edge,
+              const std::unordered_map<const Node *, Node *> &node_images,
+              std::vector<std::pair<const Node *, Node *>> *src_arg_pairs);
 
     // Creates a _Retval node for the src node of edge, and add it to results_,
     // if none exists yet. If a new _Retval node is created, also adds the edge
     // within the subgraph from the src to the _Retval node.
-    Status RecordResult(
-        const Edge* edge,
-        const std::unordered_map<const Node*, Node*>& node_images);
+    Status
+    RecordResult(const Edge *edge,
+                 const std::unordered_map<const Node *, Node *> &node_images);
 
     // Creates an outside_compilation subgraph for outside_compilation_id if
     // none exists yet. Creates an entry for the src node of edge in the list of
     // inputs for the outside_compilation subgraph, if none exists yet.
-    void RecordOutsideCompilationInputOrControl(
-        const string& outside_compilation_id, const Edge* edge);
+    void
+    RecordOutsideCompilationInputOrControl(const string &outside_compilation_id,
+                                           const Edge *edge);
 
     // Creates an outside_compilation subgraph for outside_compilation_id if
     // none exists yet. Creates an entry for the src node of edge in the list of
@@ -332,13 +335,13 @@ class Encapsulator {
     // yet. Creates an entry for the dst node of edge in the list of outputs by
     // dst for the outside_compilation subgraph.
     void RecordOutsideCompilationOutputOrControl(
-        const string& outside_compilation_id, const Edge* edge);
+        const string &outside_compilation_id, const Edge *edge);
 
     // Records the fact that there is a path from a node in outside_compilation
     // cluster ancestor to node in cluster successor that does not go through
     // the subgraph.
-    void RecordOutsideCompilationDependency(const string& successor,
-                                            const string& ancestor);
+    void RecordOutsideCompilationDependency(const string &successor,
+                                            const string &ancestor);
 
     // Returns the mapping from outside_compilation cluster C to the set of
     // outside_compilation clusters that have a path to C entirely outside
@@ -348,28 +351,29 @@ class Encapsulator {
 
     // Adds the HostCompute nodes for each outside_compilation subgraph.
     Status AddHostComputes(
-        const string& subgraph_name,
-        const std::unordered_map<const Node*, Node*>& node_images);
+        const string &subgraph_name,
+        const std::unordered_map<const Node *, Node *> &node_images);
 
     // Creates the sequencer node if it doesn't exist, adding it to graph_out.
-    Status MakeSequencingNode(const string& subgraph_name, Graph* graph_out);
+    Status MakeSequencingNode(const string &subgraph_name, Graph *graph_out);
 
     // If there is a sequencer node, adds a control edge from the sequencer to
     // the call node.
-    void ConnectSequencerToCallNode(Graph* graph_out);
+    void ConnectSequencerToCallNode(Graph *graph_out);
 
-    Status AddShapeInferenceInfo(
-        const string& subgraph_name,
-        const string& outside_compilation_subgraph_name,
-        const std::vector<TensorShapeProto>& shapes, Graph* inference_graph,
-        FunctionLibraryDefinition* library);
+    Status
+    AddShapeInferenceInfo(const string &subgraph_name,
+                          const string &outside_compilation_subgraph_name,
+                          const std::vector<TensorShapeProto> &shapes,
+                          Graph *inference_graph,
+                          FunctionLibraryDefinition *library);
 
-    Status ReplaceFunctionDef(FunctionLibraryDefinition* library);
+    Status ReplaceFunctionDef(FunctionLibraryDefinition *library);
 
     // Detect and lower while and if op to control flow primitives
-    StatusOr<bool> MaybeDefunctionalize(FunctionLibraryDefinition* library);
+    StatusOr<bool> MaybeDefunctionalize(FunctionLibraryDefinition *library);
 
-   private:
+  private:
     struct OutsideCompilationSubgraph {
       // Map from source (producer node/slot) tensors in the original graph to
       // input index (slot number in the HostCompute/RecvAtHost nodes that will
@@ -384,7 +388,7 @@ class Encapsulator {
       // AddSendsToOutsideCompilation once the _HostCompute node has been
       // created. The matching control edge from _RecvAtHost to the
       // destination is added by CopyEdgeToOutputGraph.
-      std::unordered_set<const Node*> control_inputs;
+      std::unordered_set<const Node *> control_inputs;
 
       // Maps from source (producer node/slot) and destination (consumer
       // node/slot) tensors in the original graph to output index (slot number
@@ -408,54 +412,54 @@ class Encapsulator {
       // AddRecvsFromToOutsideCompilation once the _HostCompute node has been
       // created. The matching control edge from the source to _SendFromHost to
       // the destination is added by CopyEdgeToOutputGraph.
-      std::unordered_set<const Node*> control_outputs;
+      std::unordered_set<const Node *> control_outputs;
 
       // Name of the _HostCompute node in the subgraph.
       string host_compute_name;
 
       // _RecvAtHost node in the output graph. Not owned.
-      Node* recv_at_host = nullptr;
+      Node *recv_at_host = nullptr;
 
       // _SendFromHost node in the output graph. Not owned.
-      Node* send_from_host = nullptr;
+      Node *send_from_host = nullptr;
     };
 
     // Creates an outside_compilation subgraph for outside_compilation_id if
     // none exists yet. Returns the (possible newly created) subgraph for
     // outside_compilation_id.
-    OutsideCompilationSubgraph* LookupOrCreateOutsideCompilationSubgraph(
-        const string& outside_compilation_id);
+    OutsideCompilationSubgraph *LookupOrCreateOutsideCompilationSubgraph(
+        const string &outside_compilation_id);
 
     // Builds a placeholder node used to provide the key input to a RecvAtHost
     // or SendFromHost node. This placeholder node will be removed by a later
     // pass.
-    Status AddHostComputeKeyPlaceholder(OutsideCompilationSubgraph* oc_subgraph,
-                                        Graph* graph_out);
+    Status AddHostComputeKeyPlaceholder(OutsideCompilationSubgraph *oc_subgraph,
+                                        Graph *graph_out);
 
     // Get the set of outside_compilation clusters and the dependency edges
     // between them.
     void GetActiveClusterDependencyGraph(
-        std::unordered_set<string>* clusters,
-        std::unordered_set<string>* has_successor,
-        std::unordered_map<string, std::unordered_set<string>>* ancestors_map);
+        std::unordered_set<string> *clusters,
+        std::unordered_set<string> *has_successor,
+        std::unordered_map<string, std::unordered_set<string>> *ancestors_map);
 
     // Builds a _RecvAtHost node producing all the inputs of an
     // outside_compilation subgraph and stores it in oc_subgraph.recv_at_host.
-    Status AddRecvAtHostNode(const string& group_attribute,
-                             const string& subgraph_name,
-                             const string& outside_compilation_attribute,
-                             const string& oc_subgraph_name,
-                             OutsideCompilationSubgraph* oc_subgraph,
-                             Graph* graph_out);
+    Status AddRecvAtHostNode(const string &group_attribute,
+                             const string &subgraph_name,
+                             const string &outside_compilation_attribute,
+                             const string &oc_subgraph_name,
+                             OutsideCompilationSubgraph *oc_subgraph,
+                             Graph *graph_out);
 
     // Builds a _SendFromHost node consuming all the outputs of an
     // outside_compilation subgraph and stores it in oc_subgraph.send_from_host.
     Status AddSendFromHostNode(
-        const std::unordered_map<const Node*, Node*>& node_images,
-        const string& group_attribute, const string& subgraph_name,
-        const string& outside_compilation_attribute,
-        const string& oc_subgraph_name, OutsideCompilationSubgraph* oc_subgraph,
-        Graph* graph_out);
+        const std::unordered_map<const Node *, Node *> &node_images,
+        const string &group_attribute, const string &subgraph_name,
+        const string &outside_compilation_attribute,
+        const string &oc_subgraph_name, OutsideCompilationSubgraph *oc_subgraph,
+        Graph *graph_out);
 
     // The subgraph extracted from the input graph, suitable for being turned
     // into a FunctionDef. Inputs are fed by _Arg nodes, and outputs are
@@ -475,10 +479,10 @@ class Encapsulator {
 
     // Placeholder node simulating the host compute key in the output graph.
     // Not owned.
-    Node* host_compute_key_placeholder_ = nullptr;
+    Node *host_compute_key_placeholder_ = nullptr;
 
     // Function call node in the output graph. Not owned.
-    Node* call_node_;
+    Node *call_node_;
 
     // Maps from source (producer node/slot) and destination
     // (consumer node/slot) tensors in the input graph to _Arg numbers in
@@ -488,7 +492,7 @@ class Encapsulator {
     std::unordered_map<InputTensor, int, InputTensor::Hash> args_by_dst_;
 
     // The arguments to the subgraph, in order.
-    std::vector<Node*> args_;
+    std::vector<Node *> args_;
 
     // Map from source tensor in the input graph to result #.
     std::unordered_map<OutputTensor, int, OutputTensor::Hash> results_;
@@ -508,7 +512,7 @@ class Encapsulator {
     // NoOp node in the output graph that is sequenced after the call node and
     // used to prevent host-side outside_compilation sends and recvs from being
     // pruned.
-    Node* sequencer_ = nullptr;
+    Node *sequencer_ = nullptr;
   };
 
   // Returns the key attribute and outside_compilation attribute associated
@@ -516,89 +520,91 @@ class Encapsulator {
   // either result to the empty string if the respective attribute is not
   // found. Returns error status if there is an outside_compilation attribute
   // and no key attribute,
-  Status GetFunctionNameAttr(Node const* node, string* attr,
-                             string* outside_compilation_attr) const;
+  Status GetFunctionNameAttr(Node const *node, string *attr,
+                             string *outside_compilation_attr) const;
 
   // Copies edges local to a subgraph. Adds _Arg and _Retval nodes to
   // subgraphs for data edges that cross subgraph boundaries.
   Status CopySubgraphEdges(
-      const std::unordered_map<const Node*, Node*>& node_images,
-      std::vector<std::pair<const Node*, Node*>>* src_arg_pairs);
+      const std::unordered_map<const Node *, Node *> &node_images,
+      std::vector<std::pair<const Node *, Node *>> *src_arg_pairs);
 
   // Copies all marked nodes to a subgraph. Does nothing for unmarked nodes,
   // or nodes marked outside_compilation.
-  Status CopySubgraphNodes(std::unordered_map<const Node*, Node*>* node_images);
+  Status
+  CopySubgraphNodes(std::unordered_map<const Node *, Node *> *node_images);
 
   // Copies all nodes that aren't in a compiled subgraph to the output graph.
-  Status CopyNodesToOutputGraph(
-      Graph* graph_out, std::unordered_map<const Node*, Node*>* node_images);
+  Status
+  CopyNodesToOutputGraph(Graph *graph_out,
+                         std::unordered_map<const Node *, Node *> *node_images);
 
   // Adds function call nodes for each compiled subgraph.
   Status AddFunctionCallNodes(
-      const std::unordered_map<const Node*, Node*>& node_images,
-      Graph* graph_out);
+      const std::unordered_map<const Node *, Node *> &node_images,
+      Graph *graph_out);
 
   // Adds _RecvAtHost and _SendFromHost nodes, where needed, for all
   // outside_compilation subgraphs.
   Status AddOutsideCompilationHostIONodes(
-      const std::unordered_map<const Node*, Node*>& node_images,
-      Graph* graph_out);
+      const std::unordered_map<const Node *, Node *> &node_images,
+      Graph *graph_out);
 
   // Finds the image of an edge source in the output graph. If the edge crosses
   // a subgraph boundary it is the output of a call node, otherwise it is a node
   // in the output graph.
   Status FindOutputImageOfEdgeSrc(
-      const string& src_func_id, const string& src_outside_compilation_id,
-      const string& dst_func_id, const string& dst_outside_compilation_id,
-      const std::unordered_map<const Node*, Node*>& node_images,
-      const Node* original_src_node, Node** src_image);
+      const string &src_func_id, const string &src_outside_compilation_id,
+      const string &dst_func_id, const string &dst_outside_compilation_id,
+      const std::unordered_map<const Node *, Node *> &node_images,
+      const Node *original_src_node, Node **src_image);
 
   // Finds an edge source slot in the output graph. If the edge crosses a
   // subgraph boundary it is a slot on the output of a call node or a
   // _RecvAtHost node, otherwise it is a slot on a node in the output graph.
-  int FindOutputSlotOfEdgeSrc(const string& src_func_id,
-                              const string& src_outside_compilation_id,
-                              const string& dst_func_id,
-                              const string& dst_outside_compilation_id,
-                              const Edge* edge);
+  int FindOutputSlotOfEdgeSrc(const string &src_func_id,
+                              const string &src_outside_compilation_id,
+                              const string &dst_func_id,
+                              const string &dst_outside_compilation_id,
+                              const Edge *edge);
 
   // Finds the image of an edge destination in the output graph. If the edge
   // crosses a subgraph boundary it is the input of a call node or a
   // _SendFromHost node, otherwise it is a node in the output graph.
   Status FindOutputImageOfEdgeDst(
-      const string& src_func_id, const string& src_outside_compilation_id,
-      const string& dst_func_id, const string& dst_outside_compilation_id,
-      const std::unordered_map<const Node*, Node*>& node_images,
-      const Node* original_dst_node, Node** dst_image);
+      const string &src_func_id, const string &src_outside_compilation_id,
+      const string &dst_func_id, const string &dst_outside_compilation_id,
+      const std::unordered_map<const Node *, Node *> &node_images,
+      const Node *original_dst_node, Node **dst_image);
 
   // Finds an edge destination slot in the output graph. If the edge crosses a
   // subgraph boundary it is a slot on the input of a call node or a
   // _SendFromHost node, otherwise it is a slot on a node in the output graph.
-  int FindOutputSlotOfEdgeDst(const string& src_func_id,
-                              const string& src_outside_compilation_id,
-                              const string& dst_func_id,
-                              const string& dst_outside_compilation_id,
-                              const Edge* edge);
+  int FindOutputSlotOfEdgeDst(const string &src_func_id,
+                              const string &src_outside_compilation_id,
+                              const string &dst_func_id,
+                              const string &dst_outside_compilation_id,
+                              const Edge *edge);
 
   // Copies a single edge to the output graph. The edge is either entirely
   // within the output graph, or crosses into or out of a compiled subgraph.
   Status CopyEdgeToOutputGraph(
-      const Edge* edge, const string& src_func_id,
-      const string& src_outside_compilation_id, const string& dst_func_id,
-      const string& dst_outside_compilation_id,
-      const std::unordered_map<const Node*, Node*>& node_images,
-      Graph* graph_out,
+      const Edge *edge, const string &src_func_id,
+      const string &src_outside_compilation_id, const string &dst_func_id,
+      const string &dst_outside_compilation_id,
+      const std::unordered_map<const Node *, Node *> &node_images,
+      Graph *graph_out,
       std::unordered_set<std::pair<OutputTensor, InputTensor>,
-                         OutputInputTensorPairHasher>* edges_added);
+                         OutputInputTensorPairHasher> *edges_added);
 
   // Adds control dependencies between subgraph call nodes that have
   // dependencies via outside_compilation edges.
-  Status AddCallNodeDependencies(Graph* graph_out);
+  Status AddCallNodeDependencies(Graph *graph_out);
 
   // Adds all edges to the output graph.
   Status AddEdgesToOutputGraph(
-      const std::unordered_map<const Node*, Node*>& node_images,
-      Graph* graph_out);
+      const std::unordered_map<const Node *, Node *> &node_images,
+      Graph *graph_out);
 
   // Constructs a minimal shape inference graph that can be used to determine
   // the shape of send_node at the time that the subgraph is compiled.
@@ -617,22 +623,22 @@ class Encapsulator {
   // satisfied, e.g., because send_node depends on a node that doesn't have a
   // registered shape inference function.
   Status DoStaticShapeInferenceForOutsideCompilationSend(
-      const Graph& graph_in, const BackEdgeHelper& back_edge_helper,
-      const ShapeRefiner& shape_refiner,
-      const std::unordered_set<string>& recv_at_host_nodes, Node* send_node,
-      FunctionLibraryDefinition* library,
-      std::vector<TensorShapeProto>* static_shape_out,
-      std::unique_ptr<Graph>* graph_out);
+      const Graph &graph_in, const BackEdgeHelper &back_edge_helper,
+      const ShapeRefiner &shape_refiner,
+      const std::unordered_set<string> &recv_at_host_nodes, Node *send_node,
+      FunctionLibraryDefinition *library,
+      std::vector<TensorShapeProto> *static_shape_out,
+      std::unique_ptr<Graph> *graph_out);
 
   // Makes a copy of graph containing only nodes that are ancestors of at least
   // one node in send_from_host_nodes and store it in pruned_graph. On exit
   // nodes_images contains a mapping from nodes in graph to nodes in
   // pruned_graph. All functions in the copied graph are inlined.
   Status MakePrunedGraphCopyAndInline(
-      const Graph& graph, const std::vector<Node*>& sink_nodes,
-      std::unique_ptr<Graph>* pruned_graph,
-      std::unordered_map<const Node*, Node*>* node_images,
-      FunctionLibraryDefinition* library);
+      const Graph &graph, const std::vector<Node *> &sink_nodes,
+      std::unique_ptr<Graph> *pruned_graph,
+      std::unordered_map<const Node *, Node *> *node_images,
+      FunctionLibraryDefinition *library);
 
   // Makes a copy of graph containing only nodes that are ancestors of a
   // send_from_host node in an outside_compilation subgraph, and store it in
@@ -640,10 +646,10 @@ class Encapsulator {
   // shape_refiner. On exit node_images contains a mapping from nodes in graph
   // to nodes in pruned_graph.
   Status MakeGraphForOutsideCompilationSends(
-      const Graph& graph, std::unique_ptr<Graph>* pruned_graph,
-      BackEdgeHelper* back_edge_helper, ShapeRefiner* shape_refiner,
-      std::unordered_map<const Node*, Node*>* node_images,
-      FunctionLibraryDefinition* library);
+      const Graph &graph, std::unique_ptr<Graph> *pruned_graph,
+      BackEdgeHelper *back_edge_helper, ShapeRefiner *shape_refiner,
+      std::unordered_map<const Node *, Node *> *node_images,
+      FunctionLibraryDefinition *library);
 
   // Performs static shape inference, as far as possible, for the send_from_host
   // nodes in each outside_compilation subgraph. Where it is not possible to
@@ -651,12 +657,13 @@ class Encapsulator {
   // HostCompute 'shape_inference_graph' attr, to be used at compile time for
   // final inference. If the shapes are known statically they are stored in the
   // HostCompute 'shapes' attr.
-  Status GetShapeInfoForOutsideCompilationSends(
-      Graph* graph_out, FunctionLibraryDefinition* library);
+  Status
+  GetShapeInfoForOutsideCompilationSends(Graph *graph_out,
+                                         FunctionLibraryDefinition *library);
 
   const string group_attribute_;
   const string outside_compilation_attribute_;
-  const Graph* graph_in_;
+  const Graph *graph_in_;
 
   std::unordered_map<string, Subgraph> subgraphs_;
   // For each subgraph S the subgraphs S' such that there is a path in some
@@ -674,10 +681,10 @@ namespace {
 // including clusters that are not present in the ancestors map. has_successors
 // is the set of clusters that are ancestors of some other cluster.
 void TopologicalClusterSort(
-    const std::unordered_set<string>& clusters,
-    const std::unordered_set<string>& has_successors,
-    const std::unordered_map<string, std::unordered_set<string>>& ancestors,
-    std::vector<string>* sorted) {
+    const std::unordered_set<string> &clusters,
+    const std::unordered_set<string> &has_successors,
+    const std::unordered_map<string, std::unordered_set<string>> &ancestors,
+    std::vector<string> *sorted) {
   // The nodes are placed in 'sorted' in topological order.
   sorted->clear();
   // We don't use the standard DFS because we are not operating on Node*
@@ -689,7 +696,7 @@ void TopologicalClusterSort(
   std::set<string> visited;
   std::vector<Work> stack;
   // Seed the processing list with clusters that have no successors.
-  for (const auto& cluster : clusters) {
+  for (const auto &cluster : clusters) {
     if (has_successors.find(cluster) == has_successors.end()) {
       stack.push_back({cluster, false});
     }
@@ -702,13 +709,14 @@ void TopologicalClusterSort(
       continue;
     }
 
-    if (visited.find(item.cluster) != visited.end()) continue;
+    if (visited.find(item.cluster) != visited.end())
+      continue;
     visited.insert(item.cluster);
 
     stack.push_back({item.cluster, true});
-    const auto& iter = ancestors.find(item.cluster);
+    const auto &iter = ancestors.find(item.cluster);
     if (iter != ancestors.end()) {
-      for (const auto& ancestor : iter->second) {
+      for (const auto &ancestor : iter->second) {
         stack.push_back({ancestor, false});
       }
     }
@@ -716,43 +724,43 @@ void TopologicalClusterSort(
   CHECK(sorted->size() == clusters.size());
 }
 
-}  // namespace
+} // namespace
 
-Node* Encapsulator::Subgraph::GetCallNode() const { return call_node_; }
+Node *Encapsulator::Subgraph::GetCallNode() const { return call_node_; }
 
-int Encapsulator::Subgraph::GetArgIndexForEdge(const Edge* edge) const {
+int Encapsulator::Subgraph::GetArgIndexForEdge(const Edge *edge) const {
   return args_by_dst_.at(InputTensor(edge->dst(), edge->dst_input()));
 }
 
-int Encapsulator::Subgraph::GetResultIndexForEdge(const Edge* edge) const {
+int Encapsulator::Subgraph::GetResultIndexForEdge(const Edge *edge) const {
   return results_.at(OutputTensor(edge->src(), edge->src_output()));
 }
 
-Node* Encapsulator::Subgraph::GetRecvAtHostNode(
-    const string& outside_compilation_subgraph_name) const {
+Node *Encapsulator::Subgraph::GetRecvAtHostNode(
+    const string &outside_compilation_subgraph_name) const {
   return outside_compilation_subgraphs_.at(outside_compilation_subgraph_name)
       .recv_at_host;
 }
 
 int Encapsulator::Subgraph::GetRecvAtHostSlot(
-    const string& outside_compilation_subgraph_name, const Edge* edge) const {
+    const string &outside_compilation_subgraph_name, const Edge *edge) const {
   return outside_compilation_subgraphs_.at(outside_compilation_subgraph_name)
       .inputs.at(OutputTensor(edge->src(), edge->src_output()));
 }
 
-Node* Encapsulator::Subgraph::GetSendFromHostNode(
-    const string& outside_compilation_subgraph_name) const {
+Node *Encapsulator::Subgraph::GetSendFromHostNode(
+    const string &outside_compilation_subgraph_name) const {
   return outside_compilation_subgraphs_.at(outside_compilation_subgraph_name)
       .send_from_host;
 }
 
 int Encapsulator::Subgraph::GetSendFromHostSlot(
-    const string& outside_compilation_subgraph_name, const Edge* edge) const {
+    const string &outside_compilation_subgraph_name, const Edge *edge) const {
   return outside_compilation_subgraphs_.at(outside_compilation_subgraph_name)
       .outputs_by_dst.at(InputTensor(edge->dst(), edge->dst_input()));
 }
 
-Node* Encapsulator::Subgraph::MakeNodeImage(const Graph* graph_in, Node* node) {
+Node *Encapsulator::Subgraph::MakeNodeImage(const Graph *graph_in, Node *node) {
   if (!graph_) {
     graph_.reset(new Graph(graph_in->op_registry()));
     graph_->set_versions(graph_in->versions());
@@ -773,12 +781,13 @@ Node* Encapsulator::Subgraph::MakeNodeImage(const Graph* graph_in, Node* node) {
   return graph_->CopyNode(node);
 }
 
-Graph* Encapsulator::Subgraph::GetGraph() const { return graph_.get(); }
+Graph *Encapsulator::Subgraph::GetGraph() const { return graph_.get(); }
 
 Status Encapsulator::Subgraph::RecordArg(
-    const Edge* edge, const std::unordered_map<const Node*, Node*>& node_images,
-    std::vector<std::pair<const Node*, Node*>>* src_arg_pairs) {
-  Node* src_node = edge->src();
+    const Edge *edge,
+    const std::unordered_map<const Node *, Node *> &node_images,
+    std::vector<std::pair<const Node *, Node *>> *src_arg_pairs) {
+  Node *src_node = edge->src();
   int src_slot = edge->src_output();
   std::unordered_map<OutputTensor, int, OutputTensor::Hash>::iterator iter;
   bool inserted;
@@ -793,7 +802,7 @@ Status Encapsulator::Subgraph::RecordArg(
     builder.Attr("T", dtype);
     builder.Attr("index", arg_index);
     if (src_node->attrs().Find("_output_shapes") != nullptr) {
-      const auto& output_shape =
+      const auto &output_shape =
           src_node->attrs().Find("_output_shapes")->shape();
       builder.Attr("_output_shapes", PartialTensorShape(output_shape));
       VLOG(2) << "Adding _output_shapes info to node: "
@@ -801,16 +810,18 @@ Status Encapsulator::Subgraph::RecordArg(
       VLOG(2) << "Shape info: " << output_shape.DebugString();
     }
     Status s = builder.Finalize(&arg_def);
-    if (!s.ok()) return s;
+    if (!s.ok())
+      return s;
 
-    Node* arg = graph_->AddNode(arg_def, &s);
-    if (!s.ok()) return s;
+    Node *arg = graph_->AddNode(arg_def, &s);
+    if (!s.ok())
+      return s;
 
     src_arg_pairs->push_back({src_node, arg});
     args_.push_back(arg);
   }
-  Node* dst_node = edge->dst();
-  Node* dst_image = node_images.at(dst_node);
+  Node *dst_node = edge->dst();
+  Node *dst_image = node_images.at(dst_node);
   int dst_slot = edge->dst_input();
   args_by_dst_[InputTensor(dst_node, dst_slot)] = arg_index;
   graph_->AddEdge(args_[arg_index], 0, dst_image, dst_slot);
@@ -818,10 +829,10 @@ Status Encapsulator::Subgraph::RecordArg(
 }
 
 Status Encapsulator::Subgraph::RecordResult(
-    const Edge* edge,
-    const std::unordered_map<const Node*, Node*>& node_images) {
-  Node* src_node = edge->src();
-  Node* src_image = node_images.at(src_node);
+    const Edge *edge,
+    const std::unordered_map<const Node *, Node *> &node_images) {
+  Node *src_node = edge->src();
+  Node *src_image = node_images.at(src_node);
   int src_slot = edge->src_output();
   std::unordered_map<OutputTensor, int, OutputTensor::Hash>::iterator iter;
   bool inserted;
@@ -837,28 +848,30 @@ Status Encapsulator::Subgraph::RecordResult(
     builder.Attr("index", ret_index);
     builder.Input(src_image->name(), src_slot, dtype);
     Status s = builder.Finalize(&ret_def);
-    if (!s.ok()) return s;
-    Node* ret = graph_->AddNode(ret_def, &s);
-    if (!s.ok()) return s;
+    if (!s.ok())
+      return s;
+    Node *ret = graph_->AddNode(ret_def, &s);
+    if (!s.ok())
+      return s;
 
     graph_->AddEdge(src_image, src_slot, ret, 0);
   }
   return Status::OK();
 }
 
-Encapsulator::Subgraph::OutsideCompilationSubgraph*
+Encapsulator::Subgraph::OutsideCompilationSubgraph *
 Encapsulator::Subgraph::LookupOrCreateOutsideCompilationSubgraph(
-    const string& outside_compilation_id) {
+    const string &outside_compilation_id) {
   auto iter = outside_compilation_subgraphs_
                   .emplace(outside_compilation_id, OutsideCompilationSubgraph())
                   .first;
-  OutsideCompilationSubgraph* outside_subgraph = &iter->second;
+  OutsideCompilationSubgraph *outside_subgraph = &iter->second;
   return outside_subgraph;
 }
 
 void Encapsulator::Subgraph::RecordOutsideCompilationInputOrControl(
-    const string& outside_compilation_id, const Edge* edge) {
-  OutsideCompilationSubgraph* outside_subgraph =
+    const string &outside_compilation_id, const Edge *edge) {
+  OutsideCompilationSubgraph *outside_subgraph =
       LookupOrCreateOutsideCompilationSubgraph(outside_compilation_id);
   if (edge->IsControlEdge()) {
     outside_subgraph->control_inputs.insert(edge->src());
@@ -870,8 +883,8 @@ void Encapsulator::Subgraph::RecordOutsideCompilationInputOrControl(
 }
 
 void Encapsulator::Subgraph::RecordOutsideCompilationOutputOrControl(
-    const string& outside_compilation_id, const Edge* edge) {
-  OutsideCompilationSubgraph* outside_subgraph =
+    const string &outside_compilation_id, const Edge *edge) {
+  OutsideCompilationSubgraph *outside_subgraph =
       LookupOrCreateOutsideCompilationSubgraph(outside_compilation_id);
   if (edge->IsControlEdge()) {
     outside_subgraph->control_outputs.insert(edge->dst());
@@ -891,7 +904,7 @@ void Encapsulator::Subgraph::RecordOutsideCompilationOutputOrControl(
 }
 
 void Encapsulator::Subgraph::RecordOutsideCompilationDependency(
-    const string& successor, const string& ancestor) {
+    const string &successor, const string &ancestor) {
   outside_compilation_ancestors_[successor].insert(ancestor);
   outside_compilation_successors_[ancestor].insert(successor);
 }
@@ -902,20 +915,20 @@ Encapsulator::Subgraph::OutsideCompilationAncestorMap() const {
 }
 
 void Encapsulator::Subgraph::GetActiveClusterDependencyGraph(
-    std::unordered_set<string>* clusters,
-    std::unordered_set<string>* has_successor,
-    std::unordered_map<string, std::unordered_set<string>>* ancestors_map) {
+    std::unordered_set<string> *clusters,
+    std::unordered_set<string> *has_successor,
+    std::unordered_map<string, std::unordered_set<string>> *ancestors_map) {
   // During initial clustering the ancestor and successor datastructures may
   // have been built including oc_cluster names that never turned into subgraphs
   // because they had no edges into or out of the compiled cluster. Remove them
   // before proceeding to simplify the logic. Get the set of clusters that was
   // actually added, then remove references to the others.
-  for (const auto& oc_subgraph : outside_compilation_subgraphs_) {
+  for (const auto &oc_subgraph : outside_compilation_subgraphs_) {
     clusters->insert(oc_subgraph.first);
   }
-  for (const auto& cluster : outside_compilation_successors_) {
+  for (const auto &cluster : outside_compilation_successors_) {
     if (clusters->find(cluster.first) != clusters->end()) {
-      for (const auto& successor : cluster.second) {
+      for (const auto &successor : cluster.second) {
         if (clusters->find(successor) != clusters->end()) {
           has_successor->insert(cluster.first);
           break;
@@ -923,10 +936,10 @@ void Encapsulator::Subgraph::GetActiveClusterDependencyGraph(
       }
     }
   }
-  for (const auto& cluster : outside_compilation_ancestors_) {
+  for (const auto &cluster : outside_compilation_ancestors_) {
     if (clusters->find(cluster.first) != clusters->end()) {
-      std::unordered_set<string>& ancestors = (*ancestors_map)[cluster.first];
-      for (const auto& ancestor : cluster.second) {
+      std::unordered_set<string> &ancestors = (*ancestors_map)[cluster.first];
+      for (const auto &ancestor : cluster.second) {
         if (clusters->find(ancestor) != clusters->end()) {
           ancestors.insert(ancestor);
         }
@@ -936,8 +949,8 @@ void Encapsulator::Subgraph::GetActiveClusterDependencyGraph(
 }
 
 Status Encapsulator::Subgraph::AddHostComputes(
-    const string& subgraph_name,
-    const std::unordered_map<const Node*, Node*>& node_images) {
+    const string &subgraph_name,
+    const std::unordered_map<const Node *, Node *> &node_images) {
   // Get the set of outside_compilation clusters and the dependency edges
   // between them.
   std::unordered_set<string> clusters;
@@ -951,9 +964,9 @@ Status Encapsulator::Subgraph::AddHostComputes(
                          &sorted_clusters);
 
   // The host compute nodes added for each outside_compilation_cluster;
-  std::unordered_map<string, Node*> host_compute_node;
-  for (const string& oc_subgraph_name : sorted_clusters) {
-    OutsideCompilationSubgraph& oc_subgraph =
+  std::unordered_map<string, Node *> host_compute_node;
+  for (const string &oc_subgraph_name : sorted_clusters) {
+    OutsideCompilationSubgraph &oc_subgraph =
         outside_compilation_subgraphs_[oc_subgraph_name];
     if (!oc_subgraph.inputs.empty() || !oc_subgraph.control_inputs.empty() ||
         !oc_subgraph.outputs_by_src.empty() ||
@@ -964,9 +977,9 @@ Status Encapsulator::Subgraph::AddHostComputes(
       std::vector<DataType> output_dtypes(oc_subgraph.outputs_by_src.size(),
                                           DT_INVALID);
 
-      for (const auto& input_src : oc_subgraph.inputs) {
-        const Node* src_node = input_src.first.node;
-        Node* src_image = node_images.at(src_node);
+      for (const auto &input_src : oc_subgraph.inputs) {
+        const Node *src_node = input_src.first.node;
+        Node *src_image = node_images.at(src_node);
         int src_slot = input_src.first.index;
         int input_index = input_src.second;
 
@@ -974,7 +987,7 @@ Status Encapsulator::Subgraph::AddHostComputes(
         inputs[input_index].Reset(src_image->name(), src_slot, dtype);
         input_dtypes[input_index] = dtype;
       }
-      for (const auto& output : oc_subgraph.outputs_by_src) {
+      for (const auto &output : oc_subgraph.outputs_by_src) {
         DataType dtype = output.second.dtype;
         int output_index = output.second.index;
         output_dtypes[output_index] = dtype;
@@ -983,7 +996,7 @@ Status Encapsulator::Subgraph::AddHostComputes(
       std::vector<string> host_compute_ancestors;
       const auto iter = ancestors_map.find(oc_subgraph_name);
       if (iter != ancestors_map.end()) {
-        for (const string& ancestor_cluster : iter->second) {
+        for (const string &ancestor_cluster : iter->second) {
           host_compute_ancestors.push_back(
               outside_compilation_subgraphs_[ancestor_cluster]
                   .host_compute_name);
@@ -1002,17 +1015,19 @@ Status Encapsulator::Subgraph::AddHostComputes(
                                        "_", oc_subgraph_name));
       builder.Attr("_outside_compilation_subgraph", oc_subgraph_name);
       Status s = builder.Finalize(&host_compute_def);
-      if (!s.ok()) return s;
+      if (!s.ok())
+        return s;
 
-      Node* host_compute = graph_->AddNode(host_compute_def, &s);
-      if (!s.ok()) return s;
+      Node *host_compute = graph_->AddNode(host_compute_def, &s);
+      if (!s.ok())
+        return s;
       host_compute_node[host_compute->name()] = host_compute;
       oc_subgraph.host_compute_name = host_compute->name();
 
       // Connect the _HostCompute node to its producers in the subgraph.
-      for (auto& input_src : oc_subgraph.inputs) {
-        const Node* src_node = input_src.first.node;
-        Node* src_image = node_images.at(src_node);
+      for (auto &input_src : oc_subgraph.inputs) {
+        const Node *src_node = input_src.first.node;
+        Node *src_image = node_images.at(src_node);
         int src_slot = input_src.first.index;
         int input_index = input_src.second;
         graph_->AddEdge(src_image, src_slot, host_compute, input_index);
@@ -1020,21 +1035,21 @@ Status Encapsulator::Subgraph::AddHostComputes(
 
       // Connect the _HostCompute node to its control edge producers in the
       // subgraph.
-      for (const auto& src_node : oc_subgraph.control_inputs) {
-        Node* src_image = node_images.at(src_node);
+      for (const auto &src_node : oc_subgraph.control_inputs) {
+        Node *src_image = node_images.at(src_node);
         graph_->AddControlEdge(src_image, host_compute);
       }
 
       // Connect the _HostCompute node to its ancestor host compute nodes.
-      for (const auto& ancestor_name : host_compute_ancestors) {
-        Node* ancestor = host_compute_node[ancestor_name];
+      for (const auto &ancestor_name : host_compute_ancestors) {
+        Node *ancestor = host_compute_node[ancestor_name];
         graph_->AddControlEdge(ancestor, host_compute);
       }
 
       // Connect the consumers in the subgraph to the _HostCompute node.
-      for (const auto& output : oc_subgraph.outputs_by_dst) {
-        const Node* dst_node = output.first.node;
-        Node* dst_image = node_images.at(dst_node);
+      for (const auto &output : oc_subgraph.outputs_by_dst) {
+        const Node *dst_node = output.first.node;
+        Node *dst_image = node_images.at(dst_node);
         int dst_slot = output.first.index;
         int output_index = output.second;
 
@@ -1043,8 +1058,8 @@ Status Encapsulator::Subgraph::AddHostComputes(
 
       // Connect the control edge consumers in the subgraph to the _HostCompute
       // node.
-      for (const auto& dst_node : oc_subgraph.control_outputs) {
-        Node* dst_image = node_images.at(dst_node);
+      for (const auto &dst_node : oc_subgraph.control_outputs) {
+        Node *dst_image = node_images.at(dst_node);
         graph_->AddControlEdge(host_compute, dst_image);
       }
     }
@@ -1053,23 +1068,25 @@ Status Encapsulator::Subgraph::AddHostComputes(
   return Status::OK();
 }
 
-Status Encapsulator::Subgraph::MakeSequencingNode(const string& subgraph_name,
-                                                  Graph* graph_out) {
+Status Encapsulator::Subgraph::MakeSequencingNode(const string &subgraph_name,
+                                                  Graph *graph_out) {
   if (sequencer_ == nullptr) {
     NodeDef seq_def;
     NodeDefBuilder builder(absl::StrCat(subgraph_name, "_sequencer"), "NoOp");
     builder.Attr(kXlaHostTransferSequencerAttr, subgraph_name);
     builder.Device(device_);
     Status s = builder.Finalize(&seq_def);
-    if (!s.ok()) return s;
+    if (!s.ok())
+      return s;
 
     sequencer_ = graph_out->AddNode(seq_def, &s);
-    if (!s.ok()) return s;
+    if (!s.ok())
+      return s;
   }
   return Status::OK();
 }
 
-void Encapsulator::Subgraph::ConnectSequencerToCallNode(Graph* graph_out) {
+void Encapsulator::Subgraph::ConnectSequencerToCallNode(Graph *graph_out) {
   if (sequencer_ != nullptr) {
     VLOG(2) << "ConnectSequencerToCallNode";
     graph_out->AddControlEdge(sequencer_, call_node_);
@@ -1077,11 +1094,12 @@ void Encapsulator::Subgraph::ConnectSequencerToCallNode(Graph* graph_out) {
 }
 
 StatusOr<bool> Encapsulator::Subgraph::MaybeDefunctionalize(
-    FunctionLibraryDefinition* library) {
+    FunctionLibraryDefinition *library) {
   bool is_defunc = false;
   for (int i = 2; i < graph_->num_node_ids(); ++i) {
-    Node* node = graph_->FindNodeId(i);
-    if (node == nullptr) continue;  // deleted node
+    Node *node = graph_->FindNodeId(i);
+    if (node == nullptr)
+      continue; // deleted node
     if (IsFunctionalControlFlowOps(node)) {
       TF_RETURN_IF_ERROR(DefunctionalizeFactory().defunctionalize(
           node, graph_.get(), *library));
@@ -1096,13 +1114,13 @@ StatusOr<bool> Encapsulator::Subgraph::MaybeDefunctionalize(
   return is_defunc;
 }
 
-Status Encapsulator::Subgraph::AddShapeToFunctionDef(Graph& graph,
-                                                     FunctionDef* fdef) {
+Status Encapsulator::Subgraph::AddShapeToFunctionDef(Graph &graph,
+                                                     FunctionDef *fdef) {
   auto fdef_attr = fdef->mutable_attr();
   AttrValue attr_value;
   auto arg_shape = attr_value.mutable_func();
   *arg_shape->mutable_name() = "shape_info";
-  for (auto& input_arg : fdef->signature().input_arg()) {
+  for (auto &input_arg : fdef->signature().input_arg()) {
     for (auto n : graph.nodes()) {
       if (absl::AsciiStrToLower(n->name()) == input_arg.name() &&
           n->attrs().Find("_output_shapes") != nullptr) {
@@ -1116,8 +1134,8 @@ Status Encapsulator::Subgraph::AddShapeToFunctionDef(Graph& graph,
 }
 
 Status Encapsulator::Subgraph::BuildFunctionDef(
-    const string& name_in, const RewriteSubgraphFn& rewrite_subgraph_fn,
-    bool reuse_existing_functions, FunctionLibraryDefinition* library) {
+    const string &name_in, const RewriteSubgraphFn &rewrite_subgraph_fn,
+    bool reuse_existing_functions, FunctionLibraryDefinition *library) {
   // name_in is copied here because name may be modified below if
   // rewrite_subgraph_fn is true.
   string name = name_in;
@@ -1127,7 +1145,7 @@ Status Encapsulator::Subgraph::BuildFunctionDef(
 
   if (rewrite_subgraph_fn) {
     std::vector<OutputTensor> arg_source_tensors(args_by_src_.size());
-    for (const auto& arg : args_by_src_) {
+    for (const auto &arg : args_by_src_) {
       arg_source_tensors.at(arg.second) = arg.first;
     }
     // Initialize the input and output permutations to the identity.
@@ -1149,13 +1167,13 @@ Status Encapsulator::Subgraph::BuildFunctionDef(
     if (output_permutation.size() != results_.size()) {
       return errors::InvalidArgument("Output permutation has incorrect size.");
     }
-    for (auto& arg : args_by_src_) {
+    for (auto &arg : args_by_src_) {
       arg.second = input_permutation[arg.second];
     }
-    for (auto& arg : args_by_dst_) {
+    for (auto &arg : args_by_dst_) {
       arg.second = input_permutation[arg.second];
     }
-    for (auto& result : results_) {
+    for (auto &result : results_) {
       result.second = output_permutation[result.second];
     }
 
@@ -1198,15 +1216,15 @@ Status Encapsulator::Subgraph::BuildFunctionDef(
 }
 
 Status Encapsulator::Subgraph::AddShapeInferenceInfo(
-    const string& subgraph_name,
-    const string& outside_compilation_subgraph_name,
-    const std::vector<TensorShapeProto>& shapes, Graph* inference_graph,
-    FunctionLibraryDefinition* library) {
-  OutsideCompilationSubgraph& oc_subgraph =
+    const string &subgraph_name,
+    const string &outside_compilation_subgraph_name,
+    const std::vector<TensorShapeProto> &shapes, Graph *inference_graph,
+    FunctionLibraryDefinition *library) {
+  OutsideCompilationSubgraph &oc_subgraph =
       outside_compilation_subgraphs_.at(outside_compilation_subgraph_name);
 
-  Node* host_compute = nullptr;
-  for (Node* n : graph_->nodes()) {
+  Node *host_compute = nullptr;
+  for (Node *n : graph_->nodes()) {
     if (n->name() == oc_subgraph.host_compute_name) {
       host_compute = n;
       break;
@@ -1240,9 +1258,9 @@ Status Encapsulator::Subgraph::AddShapeInferenceInfo(
   return Status::OK();
 }
 
-Status Encapsulator::Subgraph::ReplaceFunctionDef(
-    FunctionLibraryDefinition* library) {
-  const string& name = function_def_name_;
+Status
+Encapsulator::Subgraph::ReplaceFunctionDef(FunctionLibraryDefinition *library) {
+  const string &name = function_def_name_;
 
   FunctionDef fdef;
   TF_RETURN_IF_ERROR(GraphToFunctionDef(*graph_, name, &fdef));
@@ -1261,11 +1279,12 @@ Status Encapsulator::Subgraph::ReplaceFunctionDef(
 }
 
 Status Encapsulator::Subgraph::AddFunctionCallNode(
-    const std::unordered_map<const Node*, Node*>& node_images,
-    Graph* graph_out) {
+    const std::unordered_map<const Node *, Node *> &node_images,
+    Graph *graph_out) {
   Status s;
   call_node_ = graph_out->AddNode(call_node_def_, &s);
-  if (!s.ok()) return s;
+  if (!s.ok())
+    return s;
 
   // Copy the assigned device and the key_annotation over.
   call_node_->set_assigned_device_name(device_);
@@ -1274,7 +1293,7 @@ Status Encapsulator::Subgraph::AddFunctionCallNode(
 }
 
 Status Encapsulator::Subgraph::AddHostComputeKeyPlaceholder(
-    OutsideCompilationSubgraph* oc_subgraph, Graph* graph_out) {
+    OutsideCompilationSubgraph *oc_subgraph, Graph *graph_out) {
   TensorShapeProto shape_proto;
   TensorShape shape({2});
   shape.AsProto(&shape_proto);
@@ -1286,27 +1305,29 @@ Status Encapsulator::Subgraph::AddHostComputeKeyPlaceholder(
   builder.Attr("shape", shape_proto);
   builder.Attr("_host_compute_call_node", call_node_def_.name());
   Status s = builder.Finalize(&key_def);
-  if (!s.ok()) return s;
+  if (!s.ok())
+    return s;
 
   host_compute_key_placeholder_ = graph_out->AddNode(key_def, &s);
-  if (!s.ok()) return s;
+  if (!s.ok())
+    return s;
   host_compute_key_placeholder_->set_assigned_device_name(device_);
 
   return Status::OK();
 }
 
 Status Encapsulator::Subgraph::AddRecvAtHostNode(
-    const string& group_attribute, const string& subgraph_name,
-    const string& outside_compilation_attribute, const string& oc_subgraph_name,
-    OutsideCompilationSubgraph* oc_subgraph, Graph* graph_out) {
+    const string &group_attribute, const string &subgraph_name,
+    const string &outside_compilation_attribute, const string &oc_subgraph_name,
+    OutsideCompilationSubgraph *oc_subgraph, Graph *graph_out) {
   if (host_compute_key_placeholder_ == nullptr) {
     TF_RETURN_IF_ERROR(AddHostComputeKeyPlaceholder(oc_subgraph, graph_out));
   }
 
   std::vector<DataType> dtypes(oc_subgraph->inputs.size(), DT_INVALID);
 
-  for (const auto& input : oc_subgraph->inputs) {
-    const Node* src_node = input.first.node;
+  for (const auto &input : oc_subgraph->inputs) {
+    const Node *src_node = input.first.node;
     int src_slot = input.first.index;
     int input_index = input.second;
 
@@ -1329,10 +1350,12 @@ Status Encapsulator::Subgraph::AddRecvAtHostNode(
   builder.Attr(outside_compilation_attribute, oc_subgraph_name);
   builder.Input(host_compute_key_placeholder_->name(), 0, DT_STRING);
   Status s = builder.Finalize(&recv_def);
-  if (!s.ok()) return s;
+  if (!s.ok())
+    return s;
 
   oc_subgraph->recv_at_host = graph_out->AddNode(recv_def, &s);
-  if (!s.ok()) return s;
+  if (!s.ok())
+    return s;
   graph_out->AddEdge(host_compute_key_placeholder_, 0,
                      oc_subgraph->recv_at_host, 0);
 
@@ -1346,10 +1369,10 @@ Status Encapsulator::Subgraph::AddRecvAtHostNode(
 }
 
 Status Encapsulator::Subgraph::AddSendFromHostNode(
-    const std::unordered_map<const Node*, Node*>& node_images,
-    const string& group_attribute, const string& subgraph_name,
-    const string& outside_compilation_attribute, const string& oc_subgraph_name,
-    OutsideCompilationSubgraph* oc_subgraph, Graph* graph_out) {
+    const std::unordered_map<const Node *, Node *> &node_images,
+    const string &group_attribute, const string &subgraph_name,
+    const string &outside_compilation_attribute, const string &oc_subgraph_name,
+    OutsideCompilationSubgraph *oc_subgraph, Graph *graph_out) {
   if (host_compute_key_placeholder_ == nullptr) {
     TF_RETURN_IF_ERROR(AddHostComputeKeyPlaceholder(oc_subgraph, graph_out));
   }
@@ -1358,9 +1381,9 @@ Status Encapsulator::Subgraph::AddSendFromHostNode(
   std::vector<NodeDefBuilder::NodeOut> inputs(
       oc_subgraph->outputs_by_src.size());
 
-  for (const auto& output : oc_subgraph->outputs_by_src) {
-    const Node* src_node = output.first.node;
-    Node* src_image = node_images.at(src_node);
+  for (const auto &output : oc_subgraph->outputs_by_src) {
+    const Node *src_node = output.first.node;
+    Node *src_image = node_images.at(src_node);
     int src_slot = output.first.index;
     int output_index = output.second.index;
 
@@ -1385,10 +1408,12 @@ Status Encapsulator::Subgraph::AddSendFromHostNode(
   builder.Input(inputs);
   builder.Input(host_compute_key_placeholder_->name(), 0, DT_STRING);
   Status s = builder.Finalize(&send_def);
-  if (!s.ok()) return s;
+  if (!s.ok())
+    return s;
 
   oc_subgraph->send_from_host = graph_out->AddNode(send_def, &s);
-  if (!s.ok()) return s;
+  if (!s.ok())
+    return s;
   graph_out->AddEdge(host_compute_key_placeholder_, 0,
                      oc_subgraph->send_from_host, inputs.size());
 
@@ -1402,14 +1427,14 @@ Status Encapsulator::Subgraph::AddSendFromHostNode(
 }
 
 Status Encapsulator::Subgraph::AddOutsideCompilationHostIONodes(
-    const string& group_attribute, const string& subgraph_name,
-    const string& outside_compilation_attribute,
-    const std::unordered_map<const Node*, Node*>& node_images,
-    Graph* graph_out) {
-  for (auto& outside_compilation_subgraph_entry :
+    const string &group_attribute, const string &subgraph_name,
+    const string &outside_compilation_attribute,
+    const std::unordered_map<const Node *, Node *> &node_images,
+    Graph *graph_out) {
+  for (auto &outside_compilation_subgraph_entry :
        outside_compilation_subgraphs_) {
-    const string& oc_name = outside_compilation_subgraph_entry.first;
-    OutsideCompilationSubgraph& oc_subgraph =
+    const string &oc_name = outside_compilation_subgraph_entry.first;
+    OutsideCompilationSubgraph &oc_subgraph =
         outside_compilation_subgraph_entry.second;
 
     if (!oc_subgraph.inputs.empty() || !oc_subgraph.control_inputs.empty()) {
@@ -1429,20 +1454,21 @@ Status Encapsulator::Subgraph::AddOutsideCompilationHostIONodes(
 }
 
 void Encapsulator::Subgraph::GetOutsideCompilationSubgraphNames(
-    std::vector<string>* names) const {
-  for (auto& entry : outside_compilation_subgraphs_) {
+    std::vector<string> *names) const {
+  for (auto &entry : outside_compilation_subgraphs_) {
     names->push_back(entry.first);
   }
 }
 
-Status Encapsulator::GetFunctionNameAttr(
-    Node const* node, string* attr, string* outside_compilation_attr) const {
+Status
+Encapsulator::GetFunctionNameAttr(Node const *node, string *attr,
+                                  string *outside_compilation_attr) const {
   AttrSlice attrs = node->attrs();
   attr->clear();
   outside_compilation_attr->clear();
   bool found_group_attribute = false;
   bool found_outside_compilation_attribute = false;
-  for (const auto& node_attr : attrs) {
+  for (const auto &node_attr : attrs) {
     if (node_attr.first == group_attribute_) {
       TF_RETURN_IF_ERROR(AttrValueHasType(node_attr.second, "string"));
       *attr = node_attr.second.s();
@@ -1452,7 +1478,8 @@ Status Encapsulator::GetFunctionNameAttr(
       *outside_compilation_attr = node_attr.second.s();
       found_outside_compilation_attribute = true;
     }
-    if (found_group_attribute && found_outside_compilation_attribute) break;
+    if (found_group_attribute && found_outside_compilation_attribute)
+      break;
   }
 
   if (found_outside_compilation_attribute && !found_group_attribute) {
@@ -1464,21 +1491,22 @@ Status Encapsulator::GetFunctionNameAttr(
   }
 }
 
-bool IsInSubgraph(const string& func_id, const string& outside_compilation_id) {
+bool IsInSubgraph(const string &func_id, const string &outside_compilation_id) {
   return !func_id.empty() && outside_compilation_id.empty();
 }
 
 Status Encapsulator::CopySubgraphNodes(
-    std::unordered_map<const Node*, Node*>* node_images) {
-  for (Node* node : graph_in_->op_nodes()) {
+    std::unordered_map<const Node *, Node *> *node_images) {
+  for (Node *node : graph_in_->op_nodes()) {
     string func_id;
     string outside_compilation_id;
     TF_RETURN_IF_ERROR(
         GetFunctionNameAttr(node, &func_id, &outside_compilation_id));
-    if (!IsInSubgraph(func_id, outside_compilation_id)) continue;
+    if (!IsInSubgraph(func_id, outside_compilation_id))
+      continue;
 
-    Subgraph& subgraph = subgraphs_[func_id];
-    Node* image = subgraph.MakeNodeImage(graph_in_, node);
+    Subgraph &subgraph = subgraphs_[func_id];
+    Node *image = subgraph.MakeNodeImage(graph_in_, node);
     image->ClearAttr(group_attribute_);
     image->ClearAttr("_grappler:ArithmeticOptimizer:MinimizeBroadcasts");
     image->ClearAttr("_grappler:ArithmeticOptimizer:AddOpsRewriteStage");
@@ -1488,9 +1516,9 @@ Status Encapsulator::CopySubgraphNodes(
 }
 
 Status Encapsulator::CopySubgraphEdges(
-    const std::unordered_map<const Node*, Node*>& node_images,
-    std::vector<std::pair<const Node*, Node*>>* src_arg_pairs) {
-  for (const Edge* edge : graph_in_->edges()) {
+    const std::unordered_map<const Node *, Node *> &node_images,
+    std::vector<std::pair<const Node *, Node *>> *src_arg_pairs) {
+  for (const Edge *edge : graph_in_->edges()) {
     string src_func_id;
     string src_outside_compilation_id;
     TF_RETURN_IF_ERROR(GetFunctionNameAttr(edge->src(), &src_func_id,
@@ -1499,14 +1527,14 @@ Status Encapsulator::CopySubgraphEdges(
     string dst_outside_compilation_id;
     TF_RETURN_IF_ERROR(GetFunctionNameAttr(edge->dst(), &dst_func_id,
                                            &dst_outside_compilation_id));
-    Node* src_image = gtl::FindWithDefault(node_images, edge->src(), nullptr);
-    Node* dst_image = gtl::FindWithDefault(node_images, edge->dst(), nullptr);
+    Node *src_image = gtl::FindWithDefault(node_images, edge->src(), nullptr);
+    Node *dst_image = gtl::FindWithDefault(node_images, edge->dst(), nullptr);
 
     // Copy edges that are local to a subgraph.
     if (IsInSubgraph(src_func_id, src_outside_compilation_id) &&
         IsInSubgraph(dst_func_id, dst_outside_compilation_id) &&
         src_func_id == dst_func_id) {
-      Graph* g = subgraphs_[src_func_id].GetGraph();
+      Graph *g = subgraphs_[src_func_id].GetGraph();
       if (edge->IsControlEdge()) {
         g->AddControlEdge(src_image, dst_image);
       } else {
@@ -1527,7 +1555,7 @@ Status Encapsulator::CopySubgraphEdges(
         }
       }
 
-      Subgraph& src_subgraph = subgraphs_[src_func_id];
+      Subgraph &src_subgraph = subgraphs_[src_func_id];
       if (src_func_id == dst_func_id) {
         // src is in the subgraph and dst is outside_compilation in the same
         // subgraph.
@@ -1557,7 +1585,7 @@ Status Encapsulator::CopySubgraphEdges(
         }
       }
 
-      Subgraph& dst_subgraph = subgraphs_[dst_func_id];
+      Subgraph &dst_subgraph = subgraphs_[dst_func_id];
       if (src_func_id == dst_func_id) {
         // dst is in the subgraph and src is outside_compilation in the same
         // subgraph.
@@ -1576,17 +1604,17 @@ Status Encapsulator::CopySubgraphEdges(
   return Status::OK();
 }
 
-Status Encapsulator::SplitIntoSubgraphs(FunctionLibraryDefinition* library) {
+Status Encapsulator::SplitIntoSubgraphs(FunctionLibraryDefinition *library) {
   Status s;
 
   // Map from input graph nodes to subgraph nodes.
-  std::unordered_map<const Node*, Node*> node_images;
+  std::unordered_map<const Node *, Node *> node_images;
 
   // Each entry of src_arg_pairs is a pair whose first element is a node in the
   // original graph that has an output edge in the subgraph, and whose second
   // element is the arg node in the subgraph that it sends to. The vector will
   // be filled in below in AddArgs.
-  std::vector<std::pair<const Node*, Node*>> src_arg_pairs;
+  std::vector<std::pair<const Node *, Node *>> src_arg_pairs;
 
   TF_RETURN_IF_ERROR(CopySubgraphNodes(&node_images));
   TF_RETURN_IF_ERROR(CopySubgraphEdges(node_images, &src_arg_pairs));
@@ -1596,15 +1624,15 @@ Status Encapsulator::SplitIntoSubgraphs(FunctionLibraryDefinition* library) {
   // during CopySubgraphEdges since we need to discover all the types of the
   // inputs and outputs for an outside_compilation subgraph before creating a
   // single input and output node for it.
-  for (auto& entry : subgraphs_) {
-    Subgraph& subgraph = entry.second;
+  for (auto &entry : subgraphs_) {
+    Subgraph &subgraph = entry.second;
     TF_RETURN_IF_ERROR(subgraph.AddHostComputes(entry.first, node_images));
   }
 
   MarkGuaranteedConstants(*graph_in_, src_arg_pairs);
 
-  for (auto& entry : subgraphs_) {
-    Subgraph& subgraph = entry.second;
+  for (auto &entry : subgraphs_) {
+    Subgraph &subgraph = entry.second;
     FixupSourceAndSinkEdges(subgraph.GetGraph());
     // Verify that the graph has well-formed control flow structure.
     std::vector<ControlFlowInfo> dummy;
@@ -1613,7 +1641,7 @@ Status Encapsulator::SplitIntoSubgraphs(FunctionLibraryDefinition* library) {
 
   if (VLOG_IS_ON(1)) {
     // Dump subgraphs.
-    for (auto& entry : subgraphs_) {
+    for (auto &entry : subgraphs_) {
       dump_graph::DumpGraphToFile(
           absl::StrCat("encapsulate_subgraphs_subgraph_", entry.first),
           *entry.second.GetGraph(), library);
@@ -1623,12 +1651,13 @@ Status Encapsulator::SplitIntoSubgraphs(FunctionLibraryDefinition* library) {
   return s;
 }
 
-Status Encapsulator::BuildFunctionDefs(
-    const RewriteSubgraphFn& rewrite_subgraph_fn, bool reuse_existing_functions,
-    FunctionLibraryDefinition* library) {
-  for (auto& subgraph_entry : subgraphs_) {
+Status
+Encapsulator::BuildFunctionDefs(const RewriteSubgraphFn &rewrite_subgraph_fn,
+                                bool reuse_existing_functions,
+                                FunctionLibraryDefinition *library) {
+  for (auto &subgraph_entry : subgraphs_) {
     string name = subgraph_entry.first;
-    Subgraph& subgraph = subgraph_entry.second;
+    Subgraph &subgraph = subgraph_entry.second;
     TF_RETURN_IF_ERROR(subgraph.BuildFunctionDef(
         name, rewrite_subgraph_fn, reuse_existing_functions, library));
   }
@@ -1636,17 +1665,18 @@ Status Encapsulator::BuildFunctionDefs(
 }
 
 Status Encapsulator::CopyNodesToOutputGraph(
-    Graph* graph_out, std::unordered_map<const Node*, Node*>* node_images) {
-  for (Node* node : graph_in_->op_nodes()) {
+    Graph *graph_out, std::unordered_map<const Node *, Node *> *node_images) {
+  for (Node *node : graph_in_->op_nodes()) {
     string func_id;
     string outside_compilation_id;
     TF_RETURN_IF_ERROR(
         GetFunctionNameAttr(node, &func_id, &outside_compilation_id));
 
     // Don't copy nodes that are going to be encapsulated.
-    if (IsInSubgraph(func_id, outside_compilation_id)) continue;
+    if (IsInSubgraph(func_id, outside_compilation_id))
+      continue;
 
-    Node* image = graph_out->CopyNode(node);
+    Node *image = graph_out->CopyNode(node);
     (*node_images)[node] = image;
   }
   (*node_images)[graph_in_->source_node()] = graph_out->source_node();
@@ -1655,9 +1685,9 @@ Status Encapsulator::CopyNodesToOutputGraph(
 }
 
 Status Encapsulator::AddFunctionCallNodes(
-    const std::unordered_map<const Node*, Node*>& node_images,
-    Graph* graph_out) {
-  for (auto& subgraph_entry : subgraphs_) {
+    const std::unordered_map<const Node *, Node *> &node_images,
+    Graph *graph_out) {
+  for (auto &subgraph_entry : subgraphs_) {
     TF_RETURN_IF_ERROR(
         subgraph_entry.second.AddFunctionCallNode(node_images, graph_out));
   }
@@ -1665,11 +1695,11 @@ Status Encapsulator::AddFunctionCallNodes(
 }
 
 Status Encapsulator::AddOutsideCompilationHostIONodes(
-    const std::unordered_map<const Node*, Node*>& node_images,
-    Graph* graph_out) {
-  for (auto& subgraph_entry : subgraphs_) {
-    const string& subgraph_name = subgraph_entry.first;
-    Subgraph& subgraph = subgraph_entry.second;
+    const std::unordered_map<const Node *, Node *> &node_images,
+    Graph *graph_out) {
+  for (auto &subgraph_entry : subgraphs_) {
+    const string &subgraph_name = subgraph_entry.first;
+    Subgraph &subgraph = subgraph_entry.second;
     TF_RETURN_IF_ERROR(subgraph.AddOutsideCompilationHostIONodes(
         group_attribute_, subgraph_name, outside_compilation_attribute_,
         node_images, graph_out));
@@ -1678,10 +1708,10 @@ Status Encapsulator::AddOutsideCompilationHostIONodes(
 }
 
 Status Encapsulator::FindOutputImageOfEdgeSrc(
-    const string& src_func_id, const string& src_outside_compilation_id,
-    const string& dst_func_id, const string& dst_outside_compilation_id,
-    const std::unordered_map<const Node*, Node*>& node_images,
-    const Node* original_src_node, Node** src_image) {
+    const string &src_func_id, const string &src_outside_compilation_id,
+    const string &dst_func_id, const string &dst_outside_compilation_id,
+    const std::unordered_map<const Node *, Node *> &node_images,
+    const Node *original_src_node, Node **src_image) {
   if (IsInSubgraph(src_func_id, src_outside_compilation_id)) {
     if (dst_func_id == src_func_id) {
       // The edge is from a subgraph to an outside_compilation cluster in the
@@ -1704,11 +1734,11 @@ Status Encapsulator::FindOutputImageOfEdgeSrc(
 }
 
 int Encapsulator::FindOutputSlotOfEdgeSrc(
-    const string& src_func_id, const string& src_outside_compilation_id,
-    const string& dst_func_id, const string& dst_outside_compilation_id,
-    const Edge* edge) {
+    const string &src_func_id, const string &src_outside_compilation_id,
+    const string &dst_func_id, const string &dst_outside_compilation_id,
+    const Edge *edge) {
   if (IsInSubgraph(src_func_id, src_outside_compilation_id)) {
-    const Subgraph& src_subgraph = subgraphs_.at(src_func_id);
+    const Subgraph &src_subgraph = subgraphs_.at(src_func_id);
     if (src_func_id == dst_func_id) {
       // 'src' is in a subgraph and 'dst' is outside_compilation in the same
       // subgraph. Use the corresponding _RecvAtHost output instead.
@@ -1726,10 +1756,10 @@ int Encapsulator::FindOutputSlotOfEdgeSrc(
 }
 
 Status Encapsulator::FindOutputImageOfEdgeDst(
-    const string& src_func_id, const string& src_outside_compilation_id,
-    const string& dst_func_id, const string& dst_outside_compilation_id,
-    const std::unordered_map<const Node*, Node*>& node_images,
-    const Node* original_dst_node, Node** dst_image) {
+    const string &src_func_id, const string &src_outside_compilation_id,
+    const string &dst_func_id, const string &dst_outside_compilation_id,
+    const std::unordered_map<const Node *, Node *> &node_images,
+    const Node *original_dst_node, Node **dst_image) {
   if (IsInSubgraph(dst_func_id, dst_outside_compilation_id)) {
     if (src_func_id == dst_func_id) {
       // The edge is to a subgraph from an outside_compilation cluster in the
@@ -1752,11 +1782,11 @@ Status Encapsulator::FindOutputImageOfEdgeDst(
 }
 
 int Encapsulator::FindOutputSlotOfEdgeDst(
-    const string& src_func_id, const string& src_outside_compilation_id,
-    const string& dst_func_id, const string& dst_outside_compilation_id,
-    const Edge* edge) {
+    const string &src_func_id, const string &src_outside_compilation_id,
+    const string &dst_func_id, const string &dst_outside_compilation_id,
+    const Edge *edge) {
   if (IsInSubgraph(dst_func_id, dst_outside_compilation_id)) {
-    const Subgraph& dst_subgraph = subgraphs_.at(dst_func_id);
+    const Subgraph &dst_subgraph = subgraphs_.at(dst_func_id);
     if (dst_func_id == src_func_id) {
       // 'dst' is in a subgraph and 'src' is outside_compilation in the same
       // subgraph. Use the corresponding _SendFromHost input instead.
@@ -1774,17 +1804,18 @@ int Encapsulator::FindOutputSlotOfEdgeDst(
 }
 
 Status Encapsulator::CopyEdgeToOutputGraph(
-    const Edge* edge, const string& src_func_id,
-    const string& src_outside_compilation_id, const string& dst_func_id,
-    const string& dst_outside_compilation_id,
-    const std::unordered_map<const Node*, Node*>& node_images, Graph* graph_out,
+    const Edge *edge, const string &src_func_id,
+    const string &src_outside_compilation_id, const string &dst_func_id,
+    const string &dst_outside_compilation_id,
+    const std::unordered_map<const Node *, Node *> &node_images,
+    Graph *graph_out,
     std::unordered_set<std::pair<OutputTensor, InputTensor>,
-                       OutputInputTensorPairHasher>* edges_added) {
-  Node* src_image = nullptr;
+                       OutputInputTensorPairHasher> *edges_added) {
+  Node *src_image = nullptr;
   TF_RETURN_IF_ERROR(FindOutputImageOfEdgeSrc(
       src_func_id, src_outside_compilation_id, dst_func_id,
       dst_outside_compilation_id, node_images, edge->src(), &src_image));
-  Node* dst_image = nullptr;
+  Node *dst_image = nullptr;
   TF_RETURN_IF_ERROR(FindOutputImageOfEdgeDst(
       src_func_id, src_outside_compilation_id, dst_func_id,
       dst_outside_compilation_id, node_images, edge->dst(), &dst_image));
@@ -1821,10 +1852,10 @@ Status Encapsulator::CopyEdgeToOutputGraph(
   return Status::OK();
 }
 
-Status Encapsulator::AddCallNodeDependencies(Graph* graph_out) {
-  for (const auto& ancestors : subgraph_ancestors_) {
-    const string& subgraph = ancestors.first;
-    for (const string& ancestor : ancestors.second) {
+Status Encapsulator::AddCallNodeDependencies(Graph *graph_out) {
+  for (const auto &ancestors : subgraph_ancestors_) {
+    const string &subgraph = ancestors.first;
+    for (const string &ancestor : ancestors.second) {
       graph_out->AddControlEdge(subgraphs_[ancestor].GetCallNode(),
                                 subgraphs_[subgraph].GetCallNode());
     }
@@ -1833,8 +1864,8 @@ Status Encapsulator::AddCallNodeDependencies(Graph* graph_out) {
 }
 
 Status Encapsulator::AddEdgesToOutputGraph(
-    const std::unordered_map<const Node*, Node*>& node_images,
-    Graph* graph_out) {
+    const std::unordered_map<const Node *, Node *> &node_images,
+    Graph *graph_out) {
   // Set of edges already added to the output graph, represented as (src, dst)
   // pairs. We use the set to deduplicate edges; multiple edges in the input
   // graph may map to one edge in the output graph.
@@ -1842,7 +1873,7 @@ Status Encapsulator::AddEdgesToOutputGraph(
                      OutputInputTensorPairHasher>
       edges_added;
 
-  for (const Edge* edge : graph_in_->edges()) {
+  for (const Edge *edge : graph_in_->edges()) {
     string src_func_id;
     string src_outside_compilation_id;
     TF_RETURN_IF_ERROR(GetFunctionNameAttr(edge->src(), &src_func_id,
@@ -1867,8 +1898,8 @@ Status Encapsulator::AddEdgesToOutputGraph(
         dst_outside_compilation_id, node_images, graph_out, &edges_added));
   }
 
-  for (auto& subgraph_entry : subgraphs_) {
-    Subgraph& subgraph = subgraph_entry.second;
+  for (auto &subgraph_entry : subgraphs_) {
+    Subgraph &subgraph = subgraph_entry.second;
     subgraph.ConnectSequencerToCallNode(graph_out);
   }
   TF_RETURN_IF_ERROR(AddCallNodeDependencies(graph_out));
@@ -1887,9 +1918,9 @@ namespace {
 // are added, and is not necessary.) If the node being replaced was within a
 // control flow frame, adds appropriate Enter nodes so that the use of the Const
 // is well-formed.
-Node* AddDummyShapedNode(const Node* src_node, int src_port,
-                         const std::vector<ControlFlowInfo>& control_flow_info,
-                         const TensorShapeProto& shape, Graph* graph_out) {
+Node *AddDummyShapedNode(const Node *src_node, int src_port,
+                         const std::vector<ControlFlowInfo> &control_flow_info,
+                         const TensorShapeProto &shape, Graph *graph_out) {
   DataType data_type = src_node->output_type(src_port);
   TensorProto dummy_proto;
   dummy_proto.set_dtype(data_type);
@@ -1901,7 +1932,7 @@ Node* AddDummyShapedNode(const Node* src_node, int src_port,
   NodeBuilder node_builder(options.GetNameForOp("KnownShape"), "Const",
                            options.op_registry());
   node_builder.Attr("dtype", data_type).Attr("value", dummy_proto);
-  Node* node = options.FinalizeBuilder(&node_builder);
+  Node *node = options.FinalizeBuilder(&node_builder);
   // Add any Enter nodes required to bring the constant to the correct control
   // flow frame.
   while (!control_flow_info[src_node->id()].frame_name.empty()) {
@@ -1911,7 +1942,7 @@ Node* AddDummyShapedNode(const Node* src_node, int src_port,
                        control_flow_info[src_node->id()].frame_name);
     enter_builder.Attr("is_constant", true);
     enter_builder.Input(node, 0);
-    Node* enter_node = options.FinalizeBuilder(&enter_builder);
+    Node *enter_node = options.FinalizeBuilder(&enter_builder);
     // Adopt the new Enter node as the value in the current frame.
     node = enter_node;
     // Recurse to the parent frame to see if more Enter nodes need to be added.
@@ -1923,18 +1954,18 @@ Node* AddDummyShapedNode(const Node* src_node, int src_port,
 // Adds a copy of node_in to graph_out and adds the mapping to
 // copied_node_images.
 Status CopyShapeInferenceNodeToGraph(
-    Node* node_in, const Node* send_node,
-    const std::unordered_map<Node*, Node*>& dummy_node_images,
-    FunctionLibraryDefinition* library,
-    std::unordered_map<Node*, Node*>* copied_node_images, Graph* graph_out) {
+    Node *node_in, const Node *send_node,
+    const std::unordered_map<Node *, Node *> &dummy_node_images,
+    FunctionLibraryDefinition *library,
+    std::unordered_map<Node *, Node *> *copied_node_images, Graph *graph_out) {
   // Once all the ancestor nodes have been added to graph_out, add this node
   // and connect it to its ancestors.
-  Node* node_out = graph_out->CopyNode(node_in);
+  Node *node_out = graph_out->CopyNode(node_in);
   (*copied_node_images)[node_in] = node_out;
   // Don't bother to build the shape inference graph if there's a node with no
   // shape inference function, since it would just result in an error later at
   // compile time.
-  const OpRegistrationData* op_reg_data;
+  const OpRegistrationData *op_reg_data;
   TF_RETURN_IF_ERROR(library->LookUp(node_in->type_string(), &op_reg_data));
   if (op_reg_data->shape_inference_fn == nullptr) {
     return errors::InvalidArgument(
@@ -1944,9 +1975,9 @@ Status CopyShapeInferenceNodeToGraph(
         " which does not have a shape inference function registered.");
   }
   // Add all the edges to the newly copied node.
-  for (const Edge* in_edge : node_in->in_edges()) {
+  for (const Edge *in_edge : node_in->in_edges()) {
     if (!in_edge->IsControlEdge()) {
-      Node* src = in_edge->src();
+      Node *src = in_edge->src();
       const auto iter = dummy_node_images.find(src);
       if (iter == dummy_node_images.end()) {
         // The src is a copied node so use the original output port.
@@ -1969,15 +2000,15 @@ Status CopyShapeInferenceNodeToGraph(
   return Status::OK();
 }
 
-}  // namespace
+} // namespace
 
 Status Encapsulator::DoStaticShapeInferenceForOutsideCompilationSend(
-    const Graph& graph_in, const BackEdgeHelper& back_edge_helper,
-    const ShapeRefiner& shape_refiner,
-    const std::unordered_set<string>& recv_at_host_nodes, Node* send_node,
-    FunctionLibraryDefinition* library,
-    std::vector<TensorShapeProto>* static_shape_out,
-    std::unique_ptr<Graph>* graph_out) {
+    const Graph &graph_in, const BackEdgeHelper &back_edge_helper,
+    const ShapeRefiner &shape_refiner,
+    const std::unordered_set<string> &recv_at_host_nodes, Node *send_node,
+    FunctionLibraryDefinition *library,
+    std::vector<TensorShapeProto> *static_shape_out,
+    std::unique_ptr<Graph> *graph_out) {
   // Get the control flow structure of the input graph so we can build
   // well-formed output graphs.
   std::vector<ControlFlowInfo> control_flow_info;
@@ -1996,8 +2027,8 @@ Status Encapsulator::DoStaticShapeInferenceForOutsideCompilationSend(
   // The two types of node are treated differently because, when adding edges to
   // graph_out, an output from a dummy node always uses port 0, whereas an
   // output from a copied node uses the same port that was used in graph_in.
-  std::unordered_map<Node*, Node*> dummy_node_images;
-  std::unordered_map<Node*, Node*> copied_node_images;
+  std::unordered_map<Node *, Node *> dummy_node_images;
+  std::unordered_map<Node *, Node *> copied_node_images;
 
   graph_out->reset(new Graph(graph_in.op_registry()));
   (*graph_out)->set_versions(graph_in.versions());
@@ -2008,33 +2039,34 @@ Status Encapsulator::DoStaticShapeInferenceForOutsideCompilationSend(
   // We don't use the standard ReverseDFS because we want to cut off traversal
   // whenever we find an output with fully defined shape.
   struct Work {
-    Node* node;
-    bool leave;  // Are we entering or leaving node?
+    Node *node;
+    bool leave; // Are we entering or leaving node?
   };
   std::vector<Work> stack({{send_node, false}});
   std::vector<bool> visited(graph_in.num_node_ids(), false);
   while (!stack.empty()) {
     Work w = stack.back();
     stack.pop_back();
-    Node* n = w.node;
+    Node *n = w.node;
 
     if (w.leave) {
       TF_RETURN_IF_ERROR(CopyShapeInferenceNodeToGraph(
           n, send_node, dummy_node_images, library, &copied_node_images,
           graph_out->get()));
     } else {
-      if (visited[n->id()]) continue;
+      if (visited[n->id()])
+        continue;
       visited[n->id()] = true;
 
       // Arrange to revisit when all done with all inputs.
       stack.push_back(Work{n, true});
 
       bool has_parent_with_unknown_shape = false;
-      for (const Edge* in_edge : n->in_edges()) {
+      for (const Edge *in_edge : n->in_edges()) {
         if (!in_edge->IsControlEdge()) {
-          Node* src_node = in_edge->src();
+          Node *src_node = in_edge->src();
           int src_port = in_edge->src_output();
-          shape_inference::InferenceContext* context =
+          shape_inference::InferenceContext *context =
               shape_refiner.GetContext(src_node);
           shape_inference::ShapeHandle shape = context->output(src_port);
           if (context->FullyDefined(shape)) {
@@ -2102,14 +2134,14 @@ Status Encapsulator::DoStaticShapeInferenceForOutsideCompilationSend(
     if (copied_node_images.find(edge.dst) != copied_node_images.end()) {
       // The destination of this back edge was added to the inference graph, so
       // fix it up.
-      Node* dst = copied_node_images[edge.dst];
+      Node *dst = copied_node_images[edge.dst];
       if (dst->type_string() != "Merge") {
         return errors::InvalidArgument(
             "outside_compilation cluster contains a back-edge to node ",
             dst->name(), " of type ", dst->type_string(),
             ". The analysis pass only supports back-edges to Merge nodes.");
       }
-      const Edge* existing_input_edge;
+      const Edge *existing_input_edge;
       if (edge.dst_input != 1 || dst->num_inputs() != 2 ||
           !dst->input_edge(0, &existing_input_edge).ok()) {
         // TODO(misard) if we see graphs built with a different structure, relax
@@ -2142,14 +2174,14 @@ struct PathDetails {
   struct SubgraphAndCluster {
     string subgraph;
     string outside_compilation_cluster;
-    bool operator==(const SubgraphAndCluster& other) const {
+    bool operator==(const SubgraphAndCluster &other) const {
       return subgraph == other.subgraph &&
              outside_compilation_cluster == other.outside_compilation_cluster;
     }
   };
 
   struct SubgraphAndClusterHash {
-    inline std::size_t operator()(const SubgraphAndCluster& v) const {
+    inline std::size_t operator()(const SubgraphAndCluster &v) const {
       return hash<string>()(
           absl::StrCat(v.subgraph, v.outside_compilation_cluster));
     }
@@ -2190,10 +2222,10 @@ struct PathDetails {
 // error if that edge causes the formation of a cycle. In the error case, logs
 // the contents of the node_ancestors_map to facilitate debugging.
 Status CheckClusterDependencyForCycles(
-    const string& ancestor, const string& successor,
-    const std::unordered_map<string, std::unordered_set<string>>& ancestors,
-    const std::unordered_map<Node*, PathDetails>& node_ancestors_map,
-    GraphCycles* cycle_detector, std::map<string, int>* cycle_detector_map) {
+    const string &ancestor, const string &successor,
+    const std::unordered_map<string, std::unordered_set<string>> &ancestors,
+    const std::unordered_map<Node *, PathDetails> &node_ancestors_map,
+    GraphCycles *cycle_detector, std::map<string, int> *cycle_detector_map) {
   if (cycle_detector_map->find(ancestor) == cycle_detector_map->end()) {
     (*cycle_detector_map)[ancestor] = cycle_detector->NewNode();
   }
@@ -2204,18 +2236,18 @@ Status CheckClusterDependencyForCycles(
   if (!cycle_detector->InsertEdge((*cycle_detector_map)[ancestor],
                                   (*cycle_detector_map)[successor])) {
     LOG(ERROR) << "Cycle in outside_compilation clusters";
-    for (const auto& cluster : ancestors) {
+    for (const auto &cluster : ancestors) {
       LOG(ERROR) << "Cluster " << cluster.first << " depends on:";
-      for (const auto& ancestor : cluster.second) {
+      for (const auto &ancestor : cluster.second) {
         LOG(ERROR) << "  " << ancestor;
       }
     }
-    for (const auto& node_ancestors : node_ancestors_map) {
+    for (const auto &node_ancestors : node_ancestors_map) {
       LOG(ERROR) << "Node " << node_ancestors.first->name() << " ("
                  << node_ancestors.second.subgraph << ";"
                  << node_ancestors.second.outside_compilation_cluster
                  << ") has ancestor clusters:";
-      for (const auto& ancestor : node_ancestors.second.ancestor_clusters) {
+      for (const auto &ancestor : node_ancestors.second.ancestor_clusters) {
         LOG(ERROR) << "  " << ancestor.subgraph << ";"
                    << ancestor.outside_compilation_cluster;
       }
@@ -2227,21 +2259,21 @@ Status CheckClusterDependencyForCycles(
   return Status::OK();
 }
 
-}  // namespace
+} // namespace
 
 Status Encapsulator::FindClusterDependencies() {
   // Map from nodes to ancestor details. A node is entered into the map if it is
   // in a compilation subgraph, and outside_compilation cluster, or appears on a
   // path in the outer graph leading from an outside_compilation subgraph.
-  std::unordered_map<Node*, PathDetails> node_ancestors_map;
+  std::unordered_map<Node *, PathDetails> node_ancestors_map;
   // We check that clusters are acyclic using this cycle detector.
   GraphCycles cycle_detector;
   // Map from cluster name to cycle detector node id.
   std::map<string, int> cycle_detector_map;
   // Process the nodes in topologically-sorted order.
-  std::vector<Node*> nodes;
+  std::vector<Node *> nodes;
   GetReversePostOrder(*graph_in_, &nodes);
-  for (Node* node : nodes) {
+  for (Node *node : nodes) {
     string subgraph_name;
     string oc_cluster;
     TF_RETURN_IF_ERROR(GetFunctionNameAttr(node, &subgraph_name, &oc_cluster));
@@ -2253,11 +2285,11 @@ Status Encapsulator::FindClusterDependencies() {
       node_ancestors_map[node].subgraph = subgraph_name;
       node_ancestors_map[node].outside_compilation_cluster = oc_cluster;
     }
-    for (Node* src : node->in_nodes()) {
+    for (Node *src : node->in_nodes()) {
       const auto iter = node_ancestors_map.find(src);
       if (iter != node_ancestors_map.end()) {
-        const auto& ancestors_to_follow = iter->second.AncestorsForSuccessor();
-        for (const auto& ancestor : ancestors_to_follow) {
+        const auto &ancestors_to_follow = iter->second.AncestorsForSuccessor();
+        for (const auto &ancestor : ancestors_to_follow) {
           if (ancestor.subgraph != subgraph_name ||
               ancestor.outside_compilation_cluster != oc_cluster) {
             node_ancestors_map[node].ancestor_clusters.insert(ancestor);
@@ -2270,7 +2302,7 @@ Status Encapsulator::FindClusterDependencies() {
       if (oc_cluster.empty()) {
         // The node is not in an outside_compilation cluster. Record the
         // subgraph's ancestor dependencies.
-        for (const auto& cluster : node_ancestors_map[node].ancestor_clusters) {
+        for (const auto &cluster : node_ancestors_map[node].ancestor_clusters) {
           if (cluster.subgraph != subgraph_name) {
             subgraph_ancestors_[subgraph_name].insert(cluster.subgraph);
             TF_RETURN_IF_ERROR(CheckClusterDependencyForCycles(
@@ -2279,10 +2311,10 @@ Status Encapsulator::FindClusterDependencies() {
           }
         }
       } else {
-        Subgraph& subgraph = subgraphs_[subgraph_name];
+        Subgraph &subgraph = subgraphs_[subgraph_name];
         // The node is in an outside_compilation cluster. Record the cluster
         // and/or subgraph ancestor dependencies.
-        for (const auto& cluster : node_ancestors_map[node].ancestor_clusters) {
+        for (const auto &cluster : node_ancestors_map[node].ancestor_clusters) {
           if (cluster.subgraph == subgraph_name) {
             // The ancestor is in the same subgraph.
             if (cluster.outside_compilation_cluster != oc_cluster) {
@@ -2309,14 +2341,14 @@ Status Encapsulator::FindClusterDependencies() {
   if (VLOG_IS_ON(2)) {
     // Print debug information.
     VLOG(2) << "node_ancestors_map:";
-    for (const auto& node_iter : node_ancestors_map) {
+    for (const auto &node_iter : node_ancestors_map) {
       VLOG(2) << "\t" << node_iter.first->name() << ": subgraph = '"
               << node_iter.second.subgraph
               << "', outside_compilation_cluster = '"
               << node_iter.second.outside_compilation_cluster
               << "', ancestor_clusters: "
               << (node_iter.second.ancestor_clusters.empty() ? "(empty)" : "");
-      for (const auto& cluster_iter : node_iter.second.ancestor_clusters) {
+      for (const auto &cluster_iter : node_iter.second.ancestor_clusters) {
         VLOG(2) << "\t\tsubgraph = '" << cluster_iter.subgraph
                 << "', outside_compilation_cluster = '"
                 << cluster_iter.outside_compilation_cluster << "'";
@@ -2327,27 +2359,27 @@ Status Encapsulator::FindClusterDependencies() {
 }
 
 Status Encapsulator::MakePrunedGraphCopyAndInline(
-    const Graph& graph, const std::vector<Node*>& sink_nodes,
-    std::unique_ptr<Graph>* pruned_graph,
-    std::unordered_map<const Node*, Node*>* node_images,
-    FunctionLibraryDefinition* library) {
+    const Graph &graph, const std::vector<Node *> &sink_nodes,
+    std::unique_ptr<Graph> *pruned_graph,
+    std::unordered_map<const Node *, Node *> *node_images,
+    FunctionLibraryDefinition *library) {
   // First copy all ancestor nodes of sink_nodes into a new graph.
   pruned_graph->reset(new Graph(library));
   (*pruned_graph)->set_versions(graph.versions());
   ReverseDFSFrom(graph, sink_nodes,
                  /*enter=*/nullptr,
-                 /*leave=*/[&](Node* n) {
+                 /*leave=*/[&](Node *n) {
                    if (!n->IsSource()) {
-                     Node* copied = (*pruned_graph)->CopyNode(n);
+                     Node *copied = (*pruned_graph)->CopyNode(n);
                      node_images->emplace(n, copied);
                    }
                  });
 
   // Add all the edges between copied nodes.
   for (auto entry : *node_images) {
-    const Node* orig = entry.first;
-    Node* image = entry.second;
-    for (const Edge* out_edge : orig->out_edges()) {
+    const Node *orig = entry.first;
+    Node *image = entry.second;
+    for (const Edge *out_edge : orig->out_edges()) {
       auto iter = node_images->find(out_edge->dst());
       if (iter != node_images->end()) {
         // The source and destination are both in the copied graph.
@@ -2359,9 +2391,9 @@ Status Encapsulator::MakePrunedGraphCopyAndInline(
   }
 
   // Find all the function call nodes, and inline them.
-  std::vector<Node*> function_nodes;
+  std::vector<Node *> function_nodes;
   for (auto node : (*pruned_graph)->nodes()) {
-    const OpRegistrationData* op_reg_data;
+    const OpRegistrationData *op_reg_data;
     TF_RETURN_IF_ERROR(library->LookUp(node->type_string(), &op_reg_data));
     if (op_reg_data->is_function_op) {
       function_nodes.push_back(node);
@@ -2369,24 +2401,24 @@ Status Encapsulator::MakePrunedGraphCopyAndInline(
   }
   for (auto node : function_nodes) {
     VLOG(2) << "Inlining function " << node->name();
-    const FunctionDef* fdef = library->Find(node->type_string());
+    const FunctionDef *fdef = library->Find(node->type_string());
     if (fdef == nullptr) {
       return errors::Internal("Failed to find function ", node->type_string(),
                               " in function library.");
     }
 
 #if defined TF_1_12
-    FunctionBody* fbody = nullptr;
+    FunctionBody *fbody = nullptr;
 #else
     std::unique_ptr<FunctionBody> fbody;
 #endif
 
-    TF_RETURN_IF_ERROR(
-        FunctionDefToBodyHelper(*fdef, node->attrs(), library,
-                                [library](const string& op, const OpDef** sig) {
-                                  return library->LookUpOpDef(op, sig);
-                                },
-                                &fbody));
+    TF_RETURN_IF_ERROR(FunctionDefToBodyHelper(
+        *fdef, node->attrs(), library,
+        [library](const string &op, const OpDef **sig) {
+          return library->LookUpOpDef(op, sig);
+        },
+        &fbody));
 
 #if defined TF_1_12
     InlineFunctionBody(*library, pruned_graph->get(), node, fbody, {});
@@ -2399,19 +2431,19 @@ Status Encapsulator::MakePrunedGraphCopyAndInline(
 }
 
 Status Encapsulator::MakeGraphForOutsideCompilationSends(
-    const Graph& graph, std::unique_ptr<Graph>* pruned_graph,
-    BackEdgeHelper* back_edge_helper, ShapeRefiner* shape_refiner,
-    std::unordered_map<const Node*, Node*>* node_images,
-    FunctionLibraryDefinition* library) {
+    const Graph &graph, std::unique_ptr<Graph> *pruned_graph,
+    BackEdgeHelper *back_edge_helper, ShapeRefiner *shape_refiner,
+    std::unordered_map<const Node *, Node *> *node_images,
+    FunctionLibraryDefinition *library) {
   // Find all the send_from_host nodes in all subgraphs, to use as roots for the
   // pruning.
-  std::vector<Node*> send_from_host_nodes;
-  for (auto& subgraph_entry : subgraphs_) {
-    Subgraph& subgraph = subgraph_entry.second;
+  std::vector<Node *> send_from_host_nodes;
+  for (auto &subgraph_entry : subgraphs_) {
+    Subgraph &subgraph = subgraph_entry.second;
     std::vector<string> outside_compilation_names;
     subgraph.GetOutsideCompilationSubgraphNames(&outside_compilation_names);
-    for (const auto& name : outside_compilation_names) {
-      Node* send_node = subgraph.GetSendFromHostNode(name);
+    for (const auto &name : outside_compilation_names) {
+      Node *send_node = subgraph.GetSendFromHostNode(name);
       if (send_node != nullptr) {
         send_from_host_nodes.push_back(send_node);
       }
@@ -2431,7 +2463,7 @@ Status Encapsulator::MakeGraphForOutsideCompilationSends(
 
   // Perform shape inference on the pruned graph.
   shape_refiner->set_require_shape_inference_fns(false);
-  std::vector<Node*> post_order;
+  std::vector<Node *> post_order;
   GetReversePostOrder(*(*pruned_graph), &post_order);
   for (auto node : post_order) {
     // Ignore the status returned by the shape_refiner. At this point we want
@@ -2447,11 +2479,11 @@ Status Encapsulator::MakeGraphForOutsideCompilationSends(
 }
 
 Status Encapsulator::GetShapeInfoForOutsideCompilationSends(
-    Graph* graph_out, FunctionLibraryDefinition* library) {
+    Graph *graph_out, FunctionLibraryDefinition *library) {
   BackEdgeHelper back_edge_helper;
   std::unique_ptr<Graph> pruned_graph;
   ShapeRefiner shape_refiner(graph_out->versions(), graph_out->op_registry());
-  std::unordered_map<const Node*, Node*> node_images;
+  std::unordered_map<const Node *, Node *> node_images;
   TF_RETURN_IF_ERROR(MakeGraphForOutsideCompilationSends(
       *graph_out, &pruned_graph, &back_edge_helper, &shape_refiner,
       &node_images, library));
@@ -2461,15 +2493,15 @@ Status Encapsulator::GetShapeInfoForOutsideCompilationSends(
                                 *pruned_graph, library);
   }
 
-  for (auto& subgraph_entry : subgraphs_) {
-    const string& subgraph_name = subgraph_entry.first;
-    Subgraph& subgraph = subgraph_entry.second;
+  for (auto &subgraph_entry : subgraphs_) {
+    const string &subgraph_name = subgraph_entry.first;
+    Subgraph &subgraph = subgraph_entry.second;
     // Find all the recv_at_host nodes in this subgraph.
     std::vector<string> outside_compilation_names;
     subgraph.GetOutsideCompilationSubgraphNames(&outside_compilation_names);
     std::unordered_set<string> recv_at_host_names;
-    for (const auto& oc_name : outside_compilation_names) {
-      Node* recv_node = subgraph.GetRecvAtHostNode(oc_name);
+    for (const auto &oc_name : outside_compilation_names) {
+      Node *recv_node = subgraph.GetRecvAtHostNode(oc_name);
       if (recv_node != nullptr) {
         recv_at_host_names.insert(recv_node->name());
       }
@@ -2478,8 +2510,8 @@ Status Encapsulator::GetShapeInfoForOutsideCompilationSends(
     // without knowing the shape of the recv_at_host nodes, and store the
     // result, along with enough information to complete the job at compile time
     // once the recv_at_host shapes are known.
-    for (const auto& oc_name : outside_compilation_names) {
-      Node* send_node = subgraph.GetSendFromHostNode(oc_name);
+    for (const auto &oc_name : outside_compilation_names) {
+      Node *send_node = subgraph.GetSendFromHostNode(oc_name);
       std::vector<TensorShapeProto> static_shape;
       std::unique_ptr<Graph> graph;
       if (send_node != nullptr) {
@@ -2511,10 +2543,10 @@ Status Encapsulator::GetShapeInfoForOutsideCompilationSends(
   return Status::OK();
 }
 
-Status Encapsulator::BuildOutputGraph(Graph* graph_out,
-                                      FunctionLibraryDefinition* library) {
+Status Encapsulator::BuildOutputGraph(Graph *graph_out,
+                                      FunctionLibraryDefinition *library) {
   // Map from nodes in the input graph to nodes in the output graph.
-  std::unordered_map<const Node*, Node*> node_images;
+  std::unordered_map<const Node *, Node *> node_images;
 
   TF_RETURN_IF_ERROR(CopyNodesToOutputGraph(graph_out, &node_images));
   TF_RETURN_IF_ERROR(AddFunctionCallNodes(node_images, graph_out));
@@ -2527,13 +2559,13 @@ Status Encapsulator::BuildOutputGraph(Graph* graph_out,
   return Status::OK();
 }
 
-}  // anonymous namespace
+} // anonymous namespace
 
 Status EncapsulateSubgraphsInFunctions(
     string group_attribute, string outside_compilation_attribute,
-    const Graph& graph_in, const RewriteSubgraphFn& rewrite_subgraph_fn,
-    bool reuse_existing_functions, std::unique_ptr<Graph>* graph_out,
-    FunctionLibraryDefinition* library) {
+    const Graph &graph_in, const RewriteSubgraphFn &rewrite_subgraph_fn,
+    bool reuse_existing_functions, std::unique_ptr<Graph> *graph_out,
+    FunctionLibraryDefinition *library) {
   Status s;
 
   Encapsulator encapsulator(std::move(group_attribute),
@@ -2554,8 +2586,8 @@ Status EncapsulateSubgraphsInFunctions(
 }
 
 // Finds the types of the _Arg nodes, indexed by position.
-static Status GetArgTypes(const Graph& graph, DataTypeVector* types) {
-  for (Node* n : graph.op_nodes()) {
+static Status GetArgTypes(const Graph &graph, DataTypeVector *types) {
+  for (Node *n : graph.op_nodes()) {
     if (n->type_string() == kArgOp) {
       int index;
       TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "index", &index));
@@ -2570,9 +2602,9 @@ static Status GetArgTypes(const Graph& graph, DataTypeVector* types) {
 
 // Renumber the indices of _Arg nodes in a graph, according to
 // 'permutation' that maps old indices to new indices.
-static Status RenumberArguments(Graph* graph,
-                                const std::vector<int>& permutation) {
-  for (Node* n : graph->op_nodes()) {
+static Status RenumberArguments(Graph *graph,
+                                const std::vector<int> &permutation) {
+  for (Node *n : graph->op_nodes()) {
     if (n->type_string() == kArgOp) {
       int index;
       TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "index", &index));
@@ -2586,8 +2618,8 @@ static Status RenumberArguments(Graph* graph,
 }
 
 // Finds the types of the _Retval nodes, indexed by position.
-static Status GetRetTypes(const Graph& graph, DataTypeVector* types) {
-  for (Node* n : graph.op_nodes()) {
+static Status GetRetTypes(const Graph &graph, DataTypeVector *types) {
+  for (Node *n : graph.op_nodes()) {
     if (n->type_string() == kRetValOp) {
       int index;
       TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "index", &index));
@@ -2602,9 +2634,9 @@ static Status GetRetTypes(const Graph& graph, DataTypeVector* types) {
 
 // Renumber the indices of _Arg nodes in a graph, according to
 // 'permutation' that maps old indices to new indices.
-static Status RenumberResults(Graph* graph,
-                              const std::vector<int>& permutation) {
-  for (Node* n : graph->op_nodes()) {
+static Status RenumberResults(Graph *graph,
+                              const std::vector<int> &permutation) {
+  for (Node *n : graph->op_nodes()) {
     if (n->type_string() == kRetValOp) {
       int index;
       TF_RETURN_IF_ERROR(GetNodeAttr(n->attrs(), "index", &index));
@@ -2617,8 +2649,8 @@ static Status RenumberResults(Graph* graph,
   return Status::OK();
 }
 
-Status TaoEncapsulateSubgraphsPass::Run(
-    const GraphOptimizationPassOptions& options) {
+Status
+TaoEncapsulateSubgraphsPass::Run(const GraphOptimizationPassOptions &options) {
   VLOG(1) << "TaoEncapsulateSubgraphsPass::Run";
   if (VLOG_IS_ON(1)) {
     VLOG(1) << dump_graph::DumpGraphToFile("encapsulate_subgraphs_before",
@@ -2626,7 +2658,7 @@ Status TaoEncapsulateSubgraphsPass::Run(
   }
 
   std::unique_ptr<Graph> graph_out;
-  FunctionLibraryDefinition* const library = options.flib_def;
+  FunctionLibraryDefinition *const library = options.flib_def;
 
   OptimizerOptions opts;
   std::unique_ptr<ProcessFunctionLibraryRuntime> pflr(
@@ -2641,14 +2673,14 @@ Status TaoEncapsulateSubgraphsPass::Run(
       new ProcessFunctionLibraryRuntime(nullptr, options.session_options->env,
                                         TF_GRAPH_DEF_VERSION, library, opts));
 #endif
-  FunctionLibraryRuntime* flr =
+  FunctionLibraryRuntime *flr =
       pflr->GetFLR(ProcessFunctionLibraryRuntime::kDefaultFLRDevice);
 
   auto rewrite_subgraph =
-      [flr, this](const std::vector<OutputTensor>& arg_source_tensors,
-                  std::unique_ptr<Graph>* subgraph,
-                  std::vector<int>* input_permutation,
-                  std::vector<int>* output_permutation, NodeDef* node) {
+      [flr, this](const std::vector<OutputTensor> &arg_source_tensors,
+                  std::unique_ptr<Graph> *subgraph,
+                  std::vector<int> *input_permutation,
+                  std::vector<int> *output_permutation, NodeDef *node) {
         // Optimize the subgraph.
         OptimizeGraph(flr, subgraph);
 
@@ -2660,7 +2692,7 @@ Status TaoEncapsulateSubgraphsPass::Run(
               **subgraph, &const_args,
               /*compile_time_const_nodes=*/nullptr, &fixed_shape_args,
               /*compile_time_fixed_shape_nodes=*/nullptr, flr,
-              [](const Edge& e) { return true; },
+              [](const Edge &e) { return true; },
               /*is_mlir*/ true));
         } else {
           TF_RETURN_IF_ERROR(BackwardsConstAnalysis(
@@ -2792,7 +2824,7 @@ Status TaoEncapsulateSubgraphsPass::Run(
   return Status::OK();
 }
 
-bool IsXlaCompiledKernel(const Node& node) {
+bool IsXlaCompiledKernel(const Node &node) {
   bool is_compiled = false;
   bool has_compilation_attr =
       GetNodeAttr(node.attrs(), kXlaCompiledKernelAttr, &is_compiled).ok() &&
@@ -2800,5 +2832,5 @@ bool IsXlaCompiledKernel(const Node& node) {
   return has_compilation_attr ? is_compiled : false;
 }
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow

@@ -52,17 +52,17 @@ limitations under the License.
 namespace tensorflow {
 namespace tao {
 
-bool IsFunctionalControlFlowOps(const Node* node);
+bool IsFunctionalControlFlowOps(const Node *node);
 
-bool HasFunctionalControlFlowOps(const Graph* graph);
+bool HasFunctionalControlFlowOps(const Graph *graph);
 
-bool IsInvalidTensorArrayOps(const Node* node);
+bool IsInvalidTensorArrayOps(const Node *node);
 
 // Checks whether a TF node can be compiled or not.  "Recursive" as in for call
 // and functional while nodes it recursively checks whether the callee functions
 // can be compiled.
 class RecursiveCompilabilityChecker {
- public:
+public:
   // Contains node name and function name. If the node is not inside a function
   // body, function name is an empty string.
   struct StackFrame {
@@ -81,7 +81,7 @@ class RecursiveCompilabilityChecker {
   };
 
   // Aggregates information about what kinds of ops are allowed.
-  struct OperationFilter {  // TODO(lzr): Add AllowEverything() helper.
+  struct OperationFilter { // TODO(lzr): Add AllowEverything() helper.
     // Whether resource variable ops are allowed are allowed in callees.  We do
     // not allow resource variable ops in called functions (either as direct TF
     // calls or as higher order control flow ops) because we do not yet model
@@ -135,8 +135,8 @@ class RecursiveCompilabilityChecker {
     bool skip_clustered_ops = false;
   };
 
-  RecursiveCompilabilityChecker(const OperationFilter* op_filter,
-                                const DeviceType* jit_device_type)
+  RecursiveCompilabilityChecker(const OperationFilter *op_filter,
+                                const DeviceType *jit_device_type)
       : op_filter_(*op_filter), jit_device_type_(*jit_device_type) {}
 
   using UncompilableNodesMap =
@@ -154,8 +154,8 @@ class RecursiveCompilabilityChecker {
   // `node_stack_trace` to provide an additional context for `node`'s
   // placement within the outer most graph.
   UncompilableNodesMap FindUncompilableNodes(
-      const Node& node, FunctionLibraryRuntime* lib_runtime,
-      const std::vector<StackFrame>* node_stack_trace = nullptr) const;
+      const Node &node, FunctionLibraryRuntime *lib_runtime,
+      const std::vector<StackFrame> *node_stack_trace = nullptr) const;
 
   // Returns a map where the key is the function identifier(short debug
   // string) of the function encapsulating the uncompilable nodes, and the
@@ -168,12 +168,12 @@ class RecursiveCompilabilityChecker {
   // `node_stack_trace` to provide an additional context for `node`'s
   // placement within the outer most graph.
   UncompilableNodesMap FindUncompilableNodes(
-      const NodeDef& call_def, FunctionLibraryRuntime* lib_runtime,
-      const std::vector<StackFrame>* node_stack_trace = nullptr) const;
+      const NodeDef &call_def, FunctionLibraryRuntime *lib_runtime,
+      const std::vector<StackFrame> *node_stack_trace = nullptr) const;
 
   // Returns true if `node` can be compiled by XLA.
-  bool IsCompilableNode(const Node& node,
-                        FunctionLibraryRuntime* lib_runtime) const {
+  bool IsCompilableNode(const Node &node,
+                        FunctionLibraryRuntime *lib_runtime) const {
     std::vector<StackFrameView> stack_trace;
     stack_trace.emplace_back(StackFrameView{node.name(), ""});
     return IsCompilableNode(node, lib_runtime, &stack_trace);
@@ -181,16 +181,16 @@ class RecursiveCompilabilityChecker {
 
   // Returns true if `call_def` can be compiled by XLA.  It is assumed that
   // `call_def` is a call operation.
-  bool IsCompilableCall(const NodeDef& call_def,
-                        FunctionLibraryRuntime* lib_runtime) {
+  bool IsCompilableCall(const NodeDef &call_def,
+                        FunctionLibraryRuntime *lib_runtime) {
     std::vector<StackFrameView> stack_trace;
     stack_trace.emplace_back(StackFrameView{call_def.name(), ""});
     return IsCompilableCall(call_def, lib_runtime, &stack_trace);
   }
 
   // Assume `call_def` is a functional control flow ops
-  bool IsCompilableFunctionalOp(const Node& call_def,
-                                FunctionLibraryRuntime* lib_runtime) {
+  bool IsCompilableFunctionalOp(const Node &call_def,
+                                FunctionLibraryRuntime *lib_runtime) {
     std::vector<StackFrameView> stack_trace;
     stack_trace.emplace_back(StackFrameView{call_def.name(), ""});
     if (call_def.type_string() == "While") {
@@ -203,52 +203,52 @@ class RecursiveCompilabilityChecker {
 
   // Returns true if XLA supports this Op, but we don't want to cluster it (ie:
   // due to performance or correctness concerns).
-  bool OpIsInaccurate(const Node& node) const;
-  bool OpIsSlow(const Node& node) const;
+  bool OpIsInaccurate(const Node &node) const;
+  bool OpIsSlow(const Node &node) const;
 
- private:
+private:
   struct StackFrameView {
     absl::string_view name;
     absl::string_view function_name;
   };
 
-  bool IsCompilableNode(
-      const Node& node, FunctionLibraryRuntime* lib_runtime,
-      std::vector<StackFrameView>* stack_trace,
-      NameAttrList* encapsulating_function = nullptr,
-      UncompilableNodesMap* uncompilable_nodes = nullptr) const;
-  bool IsCompilableCall(
-      const NodeDef& call_def, FunctionLibraryRuntime* lib_runtime,
-      std::vector<StackFrameView>* stack_trace,
-      NameAttrList* encapsulating_function = nullptr,
-      UncompilableNodesMap* uncompilable_nodes = nullptr) const;
-  bool IsCompilableIf(const Node& if_node, FunctionLibraryRuntime* lib_runtime,
-                      std::vector<StackFrameView>* stack_trace,
-                      NameAttrList* encapsulating_function = nullptr,
-                      UncompilableNodesMap* uncompilable_nodes = nullptr) const;
-  bool IsCompilableWhile(
-      const Node& while_node, FunctionLibraryRuntime* lib_runtime,
-      std::vector<StackFrameView>* stack_trace,
-      NameAttrList* encapsulating_function = nullptr,
-      UncompilableNodesMap* uncompilable_nodes = nullptr) const;
+  bool
+  IsCompilableNode(const Node &node, FunctionLibraryRuntime *lib_runtime,
+                   std::vector<StackFrameView> *stack_trace,
+                   NameAttrList *encapsulating_function = nullptr,
+                   UncompilableNodesMap *uncompilable_nodes = nullptr) const;
+  bool
+  IsCompilableCall(const NodeDef &call_def, FunctionLibraryRuntime *lib_runtime,
+                   std::vector<StackFrameView> *stack_trace,
+                   NameAttrList *encapsulating_function = nullptr,
+                   UncompilableNodesMap *uncompilable_nodes = nullptr) const;
+  bool IsCompilableIf(const Node &if_node, FunctionLibraryRuntime *lib_runtime,
+                      std::vector<StackFrameView> *stack_trace,
+                      NameAttrList *encapsulating_function = nullptr,
+                      UncompilableNodesMap *uncompilable_nodes = nullptr) const;
+  bool
+  IsCompilableWhile(const Node &while_node, FunctionLibraryRuntime *lib_runtime,
+                    std::vector<StackFrameView> *stack_trace,
+                    NameAttrList *encapsulating_function = nullptr,
+                    UncompilableNodesMap *uncompilable_nodes = nullptr) const;
 
   // Returns compilability of node def retrieved from `node`'s attribute with
   // name `attr_name`.
   bool ExtractNodeDefAndCheckCompilability(
-      const Node& node, const std::string& attr_name,
-      const std::string& call_name, NameAttrList* encapsulating_function,
-      FunctionLibraryRuntime* lib_runtime,
-      std::vector<StackFrameView>* stack_trace,
-      UncompilableNodesMap* uncompilable_nodes) const;
+      const Node &node, const std::string &attr_name,
+      const std::string &call_name, NameAttrList *encapsulating_function,
+      FunctionLibraryRuntime *lib_runtime,
+      std::vector<StackFrameView> *stack_trace,
+      UncompilableNodesMap *uncompilable_nodes) const;
 
-  bool IsStackOp(const Node& node) const {
-    const XlaResourceOpInfo* op_info =
+  bool IsStackOp(const Node &node) const {
+    const XlaResourceOpInfo *op_info =
         GetResourceOpInfoForOp(node.type_string());
     return op_info && op_info->resource_kind() == XlaResourceKind::kStack;
   }
 
-  bool IsTensorArrayOp(const Node& node) const {
-    const XlaResourceOpInfo* op_info =
+  bool IsTensorArrayOp(const Node &node) const {
+    const XlaResourceOpInfo *op_info =
         GetResourceOpInfoForOp(node.type_string());
     return op_info && op_info->resource_kind() == XlaResourceKind::kTensorArray;
   }
@@ -263,7 +263,7 @@ class RecursiveCompilabilityChecker {
            op_name == "TruncatedNormal" || op_name == "Multinomial";
   }
 
-  bool OpProducesOrConsumesVariant(const Node& node) const {
+  bool OpProducesOrConsumesVariant(const Node &node) const {
     auto is_variant = [](DataType dtype) { return dtype == DT_VARIANT; };
     return std::any_of(node.input_types().cbegin(), node.input_types().cend(),
                        is_variant) ||
@@ -271,28 +271,28 @@ class RecursiveCompilabilityChecker {
                        is_variant);
   }
 
-  bool HasXLAKernel(const Node& node,
-                    string* uncompilable_reason = nullptr) const;
+  bool HasXLAKernel(const Node &node,
+                    string *uncompilable_reason = nullptr) const;
 
-  static void MaybeMarkUncompilableNode(
-      const absl::string_view reason,
-      const std::vector<StackFrameView>& stack_trace,
-      NameAttrList* encapsulating_function,
-      UncompilableNodesMap* uncompilable_nodes_map);
+  static void
+  MaybeMarkUncompilableNode(const absl::string_view reason,
+                            const std::vector<StackFrameView> &stack_trace,
+                            NameAttrList *encapsulating_function,
+                            UncompilableNodesMap *uncompilable_nodes_map);
 
   // Make sure we don't recurse infinitely on recursive functions.
   const size_t kMaxRecursionDepth = 10;
 
-  const OperationFilter& op_filter_;
-  const DeviceType& jit_device_type_;
+  const OperationFilter &op_filter_;
+  const DeviceType &jit_device_type_;
 };
 
-RecursiveCompilabilityChecker::OperationFilter CreateOperationFilter(
-    const XlaOpRegistry::DeviceRegistration& registration);
+RecursiveCompilabilityChecker::OperationFilter
+CreateOperationFilter(const XlaOpRegistry::DeviceRegistration &registration);
 
 RecursiveCompilabilityChecker::OperationFilter CreateAllowAllOperationFilter();
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow
 
-#endif  // TENSORFLOW_COMPILER_JIT_COMPILABILITY_CHECK_UTIL_H_
+#endif // TENSORFLOW_COMPILER_JIT_COMPILABILITY_CHECK_UTIL_H_

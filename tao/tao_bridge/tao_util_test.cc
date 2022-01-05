@@ -29,16 +29,14 @@ using FDH = FunctionDefHelper;
 
 namespace {
 
-void CreateGraph(Graph* g, const std::string& gdef_ascii) {
+void CreateGraph(Graph *g, const std::string &gdef_ascii) {
   GraphDef gdef;
   CHECK(protobuf::TextFormat::ParseFromString(gdef_ascii, &gdef));
   GraphConstructorOptions opts;
   TF_CHECK_OK(ConvertGraphDefToGraph(opts, gdef, g));
 }
 
-REGISTER_OP("ConstMock")
-    .Output("output: float")
-    .Attr("value: tensor")
+REGISTER_OP("ConstMock").Output("output: float").Attr("value: tensor")
     /* .Attr("dtype: type") */;
 
 REGISTER_OP("MatMulMock")
@@ -51,14 +49,14 @@ REGISTER_OP("NoOp");
 
 GraphDef GDef(std::vector<NodeDef> nodes, std::vector<FunctionDef> funcs) {
   GraphDef g;
-  VersionDef* versions = g.mutable_versions();
+  VersionDef *versions = g.mutable_versions();
   versions->set_producer(TF_GRAPH_DEF_VERSION);
   versions->set_min_consumer(TF_GRAPH_DEF_VERSION_MIN_CONSUMER);
-  for (const auto& n : nodes) {
+  for (const auto &n : nodes) {
     *(g.add_node()) = n;
   }
   auto lib = g.mutable_library();
-  for (const auto& f : funcs) {
+  for (const auto &f : funcs) {
     *(lib->add_function()) = f;
   }
   return g;
@@ -67,17 +65,19 @@ GraphDef GDef(std::vector<NodeDef> nodes, std::vector<FunctionDef> funcs) {
 // Helper to construct a NodeDef.
 NodeDef NDef(std::string name, std::string op, std::vector<std::string> inputs,
              std::vector<std::pair<std::string, FDH::AttrValueWrapper>> attrs,
-             const std::string& device) {
+             const std::string &device) {
   NodeDef n;
   n.set_name(string(name));
   n.set_op(string(op));
-  for (const auto& in : inputs) n.add_input(in);
+  for (const auto &in : inputs)
+    n.add_input(in);
   n.set_device(device);
-  for (auto na : attrs) n.mutable_attr()->insert({na.first, na.second.proto});
+  for (auto na : attrs)
+    n.mutable_attr()->insert({na.first, na.second.proto});
   return n;
 }
 
-}  // namespace
+} // namespace
 
 TEST(TaoUtils, HasOpType) {
   Graph g(OpRegistry::Global());
@@ -92,7 +92,7 @@ TEST(TaoUtils, HasOpType) {
 }
 
 TEST(TaoUtils, ReachableDefinitions) {
-  const auto make_simple_fdef = [](const string& name) {
+  const auto make_simple_fdef = [](const string &name) {
     auto func_def = FDH::Create(
         name, {"x:T", "y:T"}, {"z:T"}, {"T: {float, double}"},
         {{{"output"}, "Mul", {"x", "y"}, {{"T", "$T"}}}},
@@ -101,8 +101,8 @@ TEST(TaoUtils, ReachableDefinitions) {
     return func_def;
   };
 
-  const auto make_complex_fdef = [](const string& name,
-                                    const string& call_name) {
+  const auto make_complex_fdef = [](const string &name,
+                                    const string &call_name) {
     auto func_def = FDH::Create(
         name, {"x:T", "y:T"}, {"z:T"}, {"T: {float, double}"},
         {{{"output"}, call_name, {"x", "y"}, {{"T", "$T"}}}},
@@ -154,6 +154,6 @@ TEST(TaoUtils, ReachableDefinitions) {
   }
 }
 
-}  // namespace util
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace util
+} // namespace tao
+} // namespace tensorflow

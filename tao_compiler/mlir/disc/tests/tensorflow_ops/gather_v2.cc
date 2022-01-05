@@ -81,4 +81,4 @@ TEST(TFGatherV2OpTest, PartialShape2DF32) {
       /*input_vals*/ {{}, {0, 1, 1, 0, 2, 3}}));
 }
 
-}  // namespace mlir_test
+} // namespace mlir_test

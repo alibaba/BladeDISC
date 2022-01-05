@@ -35,13 +35,13 @@ TaoRalApiRegistry::TaoRalApiRegistry() : impl_(new TaoRalApiRegistry::Impl) {}
 
 TaoRalApiRegistry::~TaoRalApiRegistry() {}
 
-TaoRalApiRegistry& TaoRalApiRegistry::Global() {
+TaoRalApiRegistry &TaoRalApiRegistry::Global() {
   static TaoRalApiRegistry registry;
   return registry;
 }
 
-bool TaoRalApiRegistry::Register(const std::string& name,
-                                 const std::string& nickname,
+bool TaoRalApiRegistry::Register(const std::string &name,
+                                 const std::string &nickname,
                                  api_func_t api_func) {
   std::lock_guard<std::mutex> lock(impl_->mu);
   auto it = impl_->api_funcs.emplace(name, api_func);
@@ -50,7 +50,7 @@ bool TaoRalApiRegistry::Register(const std::string& name,
   return it.second;
 }
 
-TaoRalApiRegistry::api_func_t TaoRalApiRegistry::Find(const std::string& name) {
+TaoRalApiRegistry::api_func_t TaoRalApiRegistry::Find(const std::string &name) {
   std::lock_guard<std::mutex> lock(impl_->mu);
   TaoRalApiRegistry::api_func_t api_func;
   auto it = impl_->api_funcs.find(name);
@@ -60,5 +60,5 @@ TaoRalApiRegistry::api_func_t TaoRalApiRegistry::Find(const std::string& name) {
   return api_func;
 }
 
-}  // namespace ral
-}  // namespace tao
+} // namespace ral
+} // namespace tao

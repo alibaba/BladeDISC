@@ -15,8 +15,8 @@
 namespace mlir {
 namespace mhlo {
 
-mlir::Value BuildSigmoid(mlir::OpBuilder& builder, const mlir::Location& loc,
-                         const mlir::Value& mlir_val);
+mlir::Value BuildSigmoid(mlir::OpBuilder &builder, const mlir::Location &loc,
+                         const mlir::Value &mlir_val);
 
-}  // namespace mhlo
-}  // namespace mlir
+} // namespace mhlo
+} // namespace mlir

@@ -30,13 +30,11 @@
 
 namespace tensorflow {
 
-template <typename T>
-inline bool ral_to_bool(const T& condition) {
+template <typename T> inline bool ral_to_bool(const T &condition) {
   return condition;
 }
 
-template <>
-inline bool ral_to_bool(const Status& status) {
+template <> inline bool ral_to_bool(const Status &status) {
   return status.ok();
 }
 
@@ -45,26 +43,26 @@ struct RalTfContextOptions {
 };
 
 class RalTfContext : public ::tao::ral::Context {
- public:
-  RalTfContext(const RalTfContextOptions& options = RalTfContextOptions());
+public:
+  RalTfContext(const RalTfContextOptions &options = RalTfContextOptions());
   ~RalTfContext();
 };
 
 class RalTfExecutionContext : public ::tao::ral::ExecutionContext {
- public:
-  RalTfExecutionContext(RalTfContext* ctx);
+public:
+  RalTfExecutionContext(RalTfContext *ctx);
   ~RalTfExecutionContext();
 
-  OpKernelContext* getOpContext();
-  void setOpContext(OpKernelContext* ctx);
+  OpKernelContext *getOpContext();
+  void setOpContext(OpKernelContext *ctx);
 
   struct Impl;
-  Impl* getImpl() { return impl_.get(); };
+  Impl *getImpl() { return impl_.get(); };
 
- private:
+private:
   std::unique_ptr<Impl> impl_;
 };
 
-}  // namespace tensorflow
+} // namespace tensorflow
 
-#endif  // RAL_CONTEXT_TENSORFLOW_TF_CONTEXT_IMPL_H_
+#endif // RAL_CONTEXT_TENSORFLOW_TF_CONTEXT_IMPL_H_

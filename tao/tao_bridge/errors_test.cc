@@ -68,7 +68,7 @@ Status ReturnStatusError() { return (tensorflow::errors::Internal("foobar")); }
 
 using StatusReturningFunction = std::function<Status()>;
 
-StatusOr<int> CallStatusReturningFunction(const StatusReturningFunction& func) {
+StatusOr<int> CallStatusReturningFunction(const StatusReturningFunction &func) {
   TF_RETURN_IF_ERROR(func());
   return 42;
 }
@@ -104,5 +104,5 @@ TEST(StatusMacros, AssignOrReturnUnsuccessfully) {
   EXPECT_EQ(status.code(), tensorflow::error::INTERNAL);
 }
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow

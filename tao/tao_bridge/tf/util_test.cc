@@ -56,7 +56,7 @@ TEST(UtilTest, VectorString) {
   std::vector<float> float_vector = {5.5};
   EXPECT_EQ(VectorString(float_vector), "(5.5)");
 
-  std::set<const char*> string_set = {"a", "b"};
+  std::set<const char *> string_set = {"a", "b"};
   EXPECT_TRUE((VectorString(string_set) == "(a, b)") ||
               (VectorString(string_set) == "(b, a)"));
 
@@ -80,7 +80,7 @@ TEST(UtilTest, CommonFactors) {
        /*.b =*/{1, 10, 3, 1},
        /*.expected =*/{{0, 0}, {0, 1}, {2, 2}, {3, 2}, {4, 3}, {4, 4}}},
   };
-  for (const auto& test_case : test_cases) {
+  for (const auto &test_case : test_cases) {
     EXPECT_TRUE(test_case.expected == CommonFactors(test_case.a, test_case.b));
     // EXPECT_TRUE(absl::c_equal(test_case.expected,
     //                           CommonFactors(test_case.a, test_case.b)));
@@ -94,6 +94,6 @@ TEST(UtilTest, SanitizeFileName) {
   EXPECT_EQ(SanitizeFileName("/A\\B[C]"), "_A_B_C_");
 }
 
-}  // namespace
-}  // namespace tao
-}  // namespace xla
+} // namespace
+} // namespace tao
+} // namespace xla

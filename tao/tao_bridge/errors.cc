@@ -17,13 +17,13 @@
 namespace tensorflow {
 namespace tao {
 
-static Status MakeStatus(tensorflow::error::Code code, const string& message) {
+static Status MakeStatus(tensorflow::error::Code code, const string &message) {
   return Status(code, message);
 }
 
 // Log the error at the given severity, optionally with a stack trace.
 // If log_severity is NUM_SEVERITIES, nothing is logged.
-static void LogError(const Status& status, const char* filename, int line,
+static void LogError(const Status &status, const char *filename, int line,
                      int log_severity, bool should_log_stack_trace) {
   if (TF_PREDICT_TRUE(log_severity != tensorflow::NUM_SEVERITIES)) {
     string stack_trace;
@@ -31,22 +31,22 @@ static void LogError(const Status& status, const char* filename, int line,
       stack_trace = absl::StrCat("\n", tensorflow::CurrentStackTrace());
     }
     switch (log_severity) {
-      case tensorflow::INFO:
-        LOG(INFO) << status << stack_trace;
-        break;
-      case tensorflow::WARNING:
-        LOG(WARNING) << status << stack_trace;
-        break;
-      case tensorflow::ERROR:
-        LOG(ERROR) << status << stack_trace;
-        break;
-      case tensorflow::FATAL:
-        LOG(FATAL) << status << stack_trace;
-        break;
-      case tensorflow::NUM_SEVERITIES:
-        break;
-      default:
-        LOG(FATAL) << "Unknown LOG severity " << log_severity;
+    case tensorflow::INFO:
+      LOG(INFO) << status << stack_trace;
+      break;
+    case tensorflow::WARNING:
+      LOG(WARNING) << status << stack_trace;
+      break;
+    case tensorflow::ERROR:
+      LOG(ERROR) << status << stack_trace;
+      break;
+    case tensorflow::FATAL:
+      LOG(FATAL) << status << stack_trace;
+      break;
+    case tensorflow::NUM_SEVERITIES:
+      break;
+    default:
+      LOG(FATAL) << "Unknown LOG severity " << log_severity;
     }
   }
 }
@@ -57,8 +57,8 @@ static void LogError(const Status& status, const char* filename, int line,
 // NUM_SEVERITIES).  If should_log_stack_trace is true, the stack
 // trace is included in the log message (ignored if should_log is
 // false).
-static Status MakeError(const char* filename, int line,
-                        tensorflow::error::Code code, const string& message,
+static Status MakeError(const char *filename, int line,
+                        tensorflow::error::Code code, const string &message,
                         bool should_log, int log_severity,
                         bool should_log_stack_trace) {
   if (TF_PREDICT_FALSE(code == tensorflow::error::OK)) {
@@ -76,34 +76,27 @@ static Status MakeError(const char* filename, int line,
 // generating a lot of inline code for error cases in all callers.
 void MakeErrorStream::CheckNotDone() const { impl_->CheckNotDone(); }
 
-MakeErrorStream::Impl::Impl(const char* file, int line,
+MakeErrorStream::Impl::Impl(const char *file, int line,
                             tensorflow::error::Code code,
-                            MakeErrorStream* error_stream,
+                            MakeErrorStream *error_stream,
                             bool is_logged_by_default)
-    : file_(file),
-      line_(line),
-      code_(code),
-      is_done_(false),
-      should_log_(is_logged_by_default),
-      log_severity_(tensorflow::ERROR),
+    : file_(file), line_(line), code_(code), is_done_(false),
+      should_log_(is_logged_by_default), log_severity_(tensorflow::ERROR),
       should_log_stack_trace_(false),
       make_error_stream_with_output_wrapper_(error_stream) {}
 
-MakeErrorStream::Impl::Impl(const Status& status,
+MakeErrorStream::Impl::Impl(const Status &status,
                             PriorMessageHandling prior_message_handling,
-                            const char* file, int line,
-                            MakeErrorStream* error_stream)
-    : file_(file),
-      line_(line),
+                            const char *file, int line,
+                            MakeErrorStream *error_stream)
+    : file_(file), line_(line),
       // Make sure we show some error, even if the call is incorrect.
       code_(!status.ok() ? status.code() : tensorflow::error::UNKNOWN),
       prior_message_handling_(prior_message_handling),
-      prior_message_(status.error_message()),
-      is_done_(false),
+      prior_message_(status.error_message()), is_done_(false),
       // Error code type is not visible here, so we can't call
       // IsLoggedByDefault.
-      should_log_(true),
-      log_severity_(tensorflow::ERROR),
+      should_log_(true), log_severity_(tensorflow::ERROR),
       should_log_stack_trace_(false),
       make_error_stream_with_output_wrapper_(error_stream) {
   DCHECK(!status.ok()) << "Attempted to append/prepend error text to status OK";
@@ -131,7 +124,7 @@ Status MakeErrorStream::Impl::GetStatus() {
 
   is_done_ = true;
 
-  const string& stream_str = stream_.str();
+  const string &stream_str = stream_.str();
   const string str = prior_message_handling_ == kAppendToPriorMessage
                          ? absl::StrCat(prior_message_, stream_str)
                          : absl::StrCat(stream_str, prior_message_);
@@ -154,5 +147,5 @@ void MakeErrorStream::Impl::CheckNotDone() const {
   }
 }
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow

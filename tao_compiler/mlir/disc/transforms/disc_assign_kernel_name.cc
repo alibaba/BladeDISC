@@ -51,9 +51,10 @@ struct AssignKernelNamePass
     // ops inside fusion op.
     SmallVector<LaunchFuncOp, 4> launchOps;
     getOperation().walk([&](LaunchFuncOp op) {
-      if (!op->getParentOfType<FusionOp>()) launchOps.push_back(op);
+      if (!op->getParentOfType<FusionOp>())
+        launchOps.push_back(op);
     });
-    for (auto& en : llvm::enumerate(launchOps)) {
+    for (auto &en : llvm::enumerate(launchOps)) {
       auto name = (llvm::Twine("gKernel_") + llvm::Twine(en.index()) +
                    llvm::Twine("_") + en.value().getKernelName().getValue())
                       .str();
@@ -70,12 +71,13 @@ LogicalResult AssignKernelNamePass::processFusionOp(FusionOp op) {
   op.getBody()->walk([&](LaunchFuncOp gpuOp) { gpuOps.push_back(gpuOp); });
 
   auto fusionName = getFusionFullName(op);
-  for (auto&& en : llvm::enumerate(gpuOps)) {
+  for (auto &&en : llvm::enumerate(gpuOps)) {
     auto kernelName =
         (fusionName +
          (en.index() != 0 ? ("_" + llvm::Twine(en.index())) : llvm::Twine("")))
             .str();
-    if (failed(processLaunchFuncOp(en.value(), kernelName))) return failure();
+    if (failed(processLaunchFuncOp(en.value(), kernelName)))
+      return failure();
   }
   return success();
 }
@@ -93,11 +95,11 @@ LogicalResult AssignKernelNamePass::processLaunchFuncOp(LaunchFuncOp op,
   return success();
 }
 
-}  // namespace
+} // namespace
 
 std::unique_ptr<OperationPass<ModuleOp>> createDiscAssignKernelNamePass() {
   return std::make_unique<AssignKernelNamePass>();
 }
 
-}  // namespace disc_ral
-}  // namespace mlir
+} // namespace disc_ral
+} // namespace mlir

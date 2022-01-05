@@ -28,10 +28,10 @@ namespace tao {
 // Transformation that converts tf.while_loop() loops into functional While
 // operators, suitable for XLA compilation. If lookup_library is provided, use
 // it to make the library for control flow self-contained.
-Status FunctionalizeWhileLoop(const FunctionLibraryDefinition* lookup_library,
-                              Graph* graph, FunctionLibraryDefinition* library);
+Status FunctionalizeWhileLoop(const FunctionLibraryDefinition *lookup_library,
+                              Graph *graph, FunctionLibraryDefinition *library);
 
-}  // namespace tao
-}  // namespace tensorflow
+} // namespace tao
+} // namespace tensorflow
 
-#endif  // TAO_TAO_BRIDGE_PASSES_FUNCTIONALIZE_WHILE_H_
+#endif // TAO_TAO_BRIDGE_PASSES_FUNCTIONALIZE_WHILE_H_

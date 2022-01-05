@@ -34,33 +34,34 @@ struct BaseContextOption {
 };
 
 class BaseContext : public tao::ral::Context {
- public:
-  BaseContext(BaseContextOption& opt);
+public:
+  BaseContext(BaseContextOption &opt);
   ~BaseContext();
 };
 
 class BaseOutputBufferWrapper : public OutputBufferWrapper {
- public:
+public:
   BaseOutputBufferWrapper(buffer_t data, buffer_shape_t shape)
       : data_(data), shape_(shape) {}
   ~BaseOutputBufferWrapper() {
-    if (deleter_) deleter_(data_);
+    if (deleter_)
+      deleter_(data_);
   }
 
   using Deleter = std::function<void(buffer_t)>;
 
   const_buffer_t data() override { return data_; }
-  const buffer_shape_t& shape() override { return shape_; }
+  const buffer_shape_t &shape() override { return shape_; }
   void set_deleter(Deleter deleter) { deleter_ = deleter; }
 
- private:
+private:
   buffer_t data_;
   buffer_shape_t shape_;
   Deleter deleter_;
 };
 
 class InternalAllocator : public Allocator {
- public:
+public:
   InternalAllocator(alloc_t alloc_func, dealloc_t dealloc_func);
   ~InternalAllocator();
 
@@ -68,7 +69,7 @@ class InternalAllocator : public Allocator {
   buffer_t alloc(size_t bytes);
   void dealloc(buffer_t buffer);
 
- private:
+private:
   alloc_t alloc_func_;
   dealloc_t dealloc_func_;
   std::map<size_t, std::vector<buffer_t>> free_buffers_;
@@ -76,21 +77,21 @@ class InternalAllocator : public Allocator {
 };
 
 struct Tensor {
-  void* buffer;
+  void *buffer;
   std::vector<int64_t> shape;
 };
 
 struct BaseExecutionContext : public tao::ral::ExecutionContext {
-  BaseExecutionContext(BaseContext* ctx);
+  BaseExecutionContext(BaseContext *ctx);
   ~BaseExecutionContext();
   // Sends and Receives inputs/outputs from environment.
   // Input/Output buffer may or may not on device. It's the responsibility
   // of client to make sure each input/output buffer meets the compiler
   // requirement.
   void bindInput(int input_idx, buffer_t buffer,
-                 const buffer_shape_t& shape) override;
+                 const buffer_shape_t &shape) override;
   void bindOutput(int output_idx,
-                  std::unique_ptr<OutputBufferWrapper>* output) override;
+                  std::unique_ptr<OutputBufferWrapper> *output) override;
 
   // Record each input ptr. These ptrs will be used to tell if one output is
   // just i/o forwarding.
@@ -102,10 +103,10 @@ struct BaseExecutionContext : public tao::ral::ExecutionContext {
   // Output bindings
   std::unordered_map<int32_t, Tensor> outputs;
 
- protected:
-  virtual void setOutputDeleter(OutputBufferWrapper& output) = 0;
+protected:
+  virtual void setOutputDeleter(OutputBufferWrapper &output) = 0;
 };
-}  // namespace ral
-}  // namespace tao
+} // namespace ral
+} // namespace tao
 
-#endif  // RAL_CONTEXT_BASE_BASE_CONTEXT_H_
+#endif // RAL_CONTEXT_BASE_BASE_CONTEXT_H_

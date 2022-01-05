@@ -24,22 +24,22 @@ class RewritePatternSet;
 
 namespace disc_ral {
 
-void populateDiscToLLVMConversionPatterns(LLVMTypeConverter* converter,
-                                          SymbolTable* symbol_table,
-                                          RewritePatternSet* patterns);
-}  // namespace disc_ral
+void populateDiscToLLVMConversionPatterns(LLVMTypeConverter *converter,
+                                          SymbolTable *symbol_table,
+                                          RewritePatternSet *patterns);
+} // namespace disc_ral
 
 class MLIRContext;
 class BufferizeTypeConverter;
 
 namespace mhlo_disc {
 
-void populateDiscHLOToLHLOConversionPattern(MLIRContext* context,
-                                            BufferizeTypeConverter* converter,
-                                            RewritePatternSet* patterns);
+void populateDiscHLOToLHLOConversionPattern(MLIRContext *context,
+                                            BufferizeTypeConverter *converter,
+                                            RewritePatternSet *patterns);
 
-}  // namespace mhlo_disc
+} // namespace mhlo_disc
 
-}  // namespace mlir
+} // namespace mlir
 
-#endif  // DISC_TRANSFORMS_REWRITERS_H_
+#endif // DISC_TRANSFORMS_REWRITERS_H_

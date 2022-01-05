@@ -9,7 +9,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #ifndef TENSORFLOW_COMPILER_MLIR_XLA_TAO_TESTS_MLIR_TEST_H_
 #define TENSORFLOW_COMPILER_MLIR_XLA_TAO_TESTS_MLIR_TEST_H_
 
@@ -33,14 +32,14 @@
 
 namespace tensorflow {
 class Status;
-}  // namespace tensorflow
+} // namespace tensorflow
 
 namespace tao {
 namespace ral {
 class OutputBufferWrapper;
 class BaseContext;
-}  // namespace ral
-}  // namespace tao
+} // namespace ral
+} // namespace tao
 
 namespace mlir_test {
 
@@ -52,30 +51,30 @@ enum class DeviceType { kCPU, kGPU };
 
 enum class BackendType {
   kCuda,
-  kX86  // unimplemented, just placeholder
+  kX86 // unimplemented, just placeholder
 };
 
 class MlirTest {
- public:
-  explicit MlirTest(const std::string& mlir_file_path,
-                    const std::string& tmp_dir, const std::string& test_name,
+public:
+  explicit MlirTest(const std::string &mlir_file_path,
+                    const std::string &tmp_dir, const std::string &test_name,
                     int num_inputs, int num_outputs,
-                    const std::vector<buffer_shape_t>& input_shapes,
-                    const std::vector<tensorflow::DataType>& input_elem_types,
-                    const std::vector<DeviceType>& input_placement,
-                    const std::vector<std::vector<float>>& input_vals,
-                    const std::vector<tensorflow::DataType>& out_elem_types,
-                    const std::vector<DeviceType>& output_placement,
+                    const std::vector<buffer_shape_t> &input_shapes,
+                    const std::vector<tensorflow::DataType> &input_elem_types,
+                    const std::vector<DeviceType> &input_placement,
+                    const std::vector<std::vector<float>> &input_vals,
+                    const std::vector<tensorflow::DataType> &out_elem_types,
+                    const std::vector<DeviceType> &output_placement,
                     bool profiling = false, bool multi_cc_mode = false,
                     bool multi_cc_mode_dbg_ptx_only = false);
 
   tensorflow::Status Run();
 
- protected:
+protected:
   int CallBinary(std::string program_path, std::vector<std::string> args);
   tensorflow::Status CompileMlirToBinary();
   virtual tensorflow::Status GenerateInputAndRun() = 0;
-  tensorflow::Status LoadGraph(const std::string& graph_file_name);
+  tensorflow::Status LoadGraph(const std::string &graph_file_name);
   tensorflow::Status RunGoldenTF();
   template <class T>
   static bool IsAcceptableNear(T a, T b, double rel_err_limit = 1e-2,
@@ -102,7 +101,7 @@ class MlirTest {
   bool profiling_;
   bool multi_cc_mode_;
   bool multi_cc_mode_dbg_ptx_only_;
-  void* tao_ral_func_ptr_;
+  void *tao_ral_func_ptr_;
 
   std::unique_ptr<tensorflow::Session> sess_;
   // stimulus in host memory
@@ -114,34 +113,34 @@ class MlirTest {
 };
 
 class MlirTestImpl : public MlirTest {
- public:
+public:
   explicit MlirTestImpl(
-      const std::string& mlir_file_path, const std::string& tmp_dir,
-      const std::string& test_name, int num_inputs, int num_outputs,
-      const std::vector<buffer_shape_t>& input_shapes,
-      const std::vector<tensorflow::DataType>& input_elem_types,
-      const std::vector<DeviceType>& input_placement,
-      const std::vector<std::vector<float>>& input_vals,
-      const std::vector<tensorflow::DataType>& out_elem_types,
-      const std::vector<DeviceType>& output_placement, bool profiling = false,
+      const std::string &mlir_file_path, const std::string &tmp_dir,
+      const std::string &test_name, int num_inputs, int num_outputs,
+      const std::vector<buffer_shape_t> &input_shapes,
+      const std::vector<tensorflow::DataType> &input_elem_types,
+      const std::vector<DeviceType> &input_placement,
+      const std::vector<std::vector<float>> &input_vals,
+      const std::vector<tensorflow::DataType> &out_elem_types,
+      const std::vector<DeviceType> &output_placement, bool profiling = false,
       bool multi_cc_mode = false, bool multi_cc_mode_dbg_ptx_only = false);
 
   ~MlirTestImpl();
 
- private:
+private:
   /*virtual*/ tensorflow::Status GenerateInputAndRun() override;
   std::vector<std::unique_ptr<tao::ral::OutputBufferWrapper>> output_buffers_;
   std::unique_ptr<tao::ral::BaseContext> context_;
 };
 
-buffer_shape_t ParseInputDescriptor(const std::string& s,
-                                    const BackendType& backend,
-                                    tensorflow::DataType* dtype,
-                                    DeviceType* placement);
+buffer_shape_t ParseInputDescriptor(const std::string &s,
+                                    const BackendType &backend,
+                                    tensorflow::DataType *dtype,
+                                    DeviceType *placement);
 
-void ParseOutputDescriptor(const std::string& s, const BackendType& backend,
-                           tensorflow::DataType* dtype, DeviceType* placement);
+void ParseOutputDescriptor(const std::string &s, const BackendType &backend,
+                           tensorflow::DataType *dtype, DeviceType *placement);
 
-}  //  namespace mlir_test
+} //  namespace mlir_test
 
-#endif  // TENSORFLOW_COMPILER_MLIR_XLA_TAO_TESTS_MLIR_TEST_H_
+#endif // TENSORFLOW_COMPILER_MLIR_XLA_TAO_TESTS_MLIR_TEST_H_

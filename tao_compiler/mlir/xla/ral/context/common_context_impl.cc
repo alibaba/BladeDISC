@@ -876,7 +876,7 @@ struct LoopIndex {
       if (--multiIndices_[startDim] >= 0) {
         break;
       }
-      multiIndices_[startDim] = dimSizes_[startDim];
+      multiIndices_[startDim] = dimSizes_[startDim] - 1;
     }
   }
 
@@ -1054,9 +1054,9 @@ LoopPartitionPlan LoopParallelAssigner(CpuLaunchDims lowerBound,
         }
         idx = 0;
         indices.minusOneFromDim(unassigned_dim);
-        int64_t from = idx - left;
-        partition.tasks.emplace_back(
-            totalTask.makeSubTaskFromRange(indices, unassigned_dim, from, idx));
+        int64_t from = dimSizes[unassigned_dim] - left;
+        partition.tasks.emplace_back(totalTask.makeSubTaskFromRange(
+            indices, unassigned_dim, from, dimSizes[unassigned_dim]));
         idx = from;
       }
     }
@@ -1065,12 +1065,13 @@ LoopPartitionPlan LoopParallelAssigner(CpuLaunchDims lowerBound,
     }
   }
 
-  while (unassigned_units > 0) {
-    auto& partition = plan.partitions[unassigned_units];
+  unassigned_dim = rank - 1;
+  for (int coreIdx = 0; coreIdx < unassigned_units; ++coreIdx) {
+    auto& partition = plan.partitions[coreIdx];
     auto& idx = indices.getIndex(unassigned_dim);
-    partition.tasks.emplace_back(totalTask.makeSubTaskFromRange(
-        indices, rank - 1, unassigned_units - 1, unassigned_units));
-    --unassigned_units;
+    partition.tasks.emplace_back(
+        totalTask.makeSubTaskFromRange(indices, unassigned_dim, idx, idx + 1));
+    indices.minusOneFromDim(unassigned_dim);
   }
   return plan;
 }

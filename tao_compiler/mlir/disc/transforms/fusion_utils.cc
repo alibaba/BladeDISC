@@ -209,6 +209,7 @@ bool isElementWiseBinary(Operation* op) {
     lmhlo::MulOp,
     lmhlo::OrOp,
     lmhlo::PowOp,
+    lmhlo::RemOp,
     lmhlo::SubOp
   >(op);
   // clang-format on

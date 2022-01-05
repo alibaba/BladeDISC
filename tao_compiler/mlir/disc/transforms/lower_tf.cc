@@ -109,11 +109,11 @@ class ConvertSqueezeOpDynamic : public OpRewritePattern<TF::SqueezeOp> {
           shape_values.push_back(rewriter.create<tensor::DimOp>(loc, input, i));
         } else {
           shape_values.push_back(
-              rewriter.create<ConstantIndexOp>(loc, dim_size));
+              rewriter.create<arith::ConstantIndexOp>(loc, dim_size));
         }
       }
-      Value new_shape = rewriter.create<tensor::FromElementsOp>(
-          loc, rewriter.getIndexType(), shape_values);
+      Value new_shape =
+          rewriter.create<tensor::FromElementsOp>(loc, shape_values);
       rewriter.replaceOpWithNewOp<mhlo::DynamicReshapeOp>(
           op, result_ty, op.input(), new_shape);
     }
@@ -151,8 +151,8 @@ class ConvertTopKV2OpDynamic : public OpRewritePattern<TF::TopKV2Op> {
       Value dim = rewriter.create<tensor::DimOp>(op.getLoc(), op.input(), idx);
       iota_shape_values.push_back(dim);
     }
-    Value iota_shape = rewriter.create<tensor::FromElementsOp>(
-        op.getLoc(), rewriter.getIndexType(), iota_shape_values);
+    Value iota_shape =
+        rewriter.create<tensor::FromElementsOp>(op.getLoc(), iota_shape_values);
     Value iota_op = rewriter.create<mhlo::DynamicIotaOp>(
         op.getLoc(), iota_type, iota_shape,
         rewriter.getI64IntegerAttr(last_dim_index));

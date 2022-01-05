@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops.h"
+#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
 #include "mlir/Dialect/GPU/Utils.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -88,7 +88,8 @@ LogicalResult AssignKernelNamePass::processLaunchFuncOp(LaunchFuncOp op,
   OpBuilder b(op);
   auto newOp =
       b.create<LaunchFuncOp>(op.getLoc(), func, op.getGridSizeOperandValues(),
-                             op.getBlockSizeOperandValues(), op.operands());
+                             op.getBlockSizeOperandValues(),
+                             op.dynamicSharedMemorySize(), op.operands());
   op.erase();
   return success();
 }

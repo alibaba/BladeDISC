@@ -483,8 +483,11 @@ std::vector<AlgorithmDesc> GetAlgorithms(ConvolutionKind kind,
                                          se::StreamExecutor* stream_exec) {
   std::vector<AlgorithmDesc> algorithms;
   bool succ = false;
-#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 6) || TF_MAJOR_VERSION > 2
-  // TF2.6 later
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) || TF_MAJOR_VERSION > 2
+  // TF2.9 and later
+  succ = stream_exec->GetConvolveAlgorithms(kind, &algorithms);
+#elif (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 6)
+  // TF2.7
   switch (kind) {
     case ConvolutionKind::BACKWARD_FILTER:
       succ = stream_exec->GetConvolveBackwardFilterAlgorithms(&algorithms);
@@ -1056,16 +1059,25 @@ Status RunCudnnConvolution(CudnnConvParams& params,
 
   switch (kind) {
     case ConvolutionKind::FORWARD:
-#if TF_MAJOR_VERSION > 1
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) || TF_MAJOR_VERSION > 2
+      // TF2.9 and later
+      stream->ConvolveWithAlgorithm(
+          kind, input_descriptor, input_buf, filter_descriptor, filter_buf,
+          output_descriptor, output_buf, convolution_descriptor,
+          scratch_allocator, algorithm, profile_result);
+#elif TF_MAJOR_VERSION > 1
       // TF2.4
       stream->ConvolveWithAlgorithm(
-#else
-      // TF1.12, TF1.15
-      stream->ThenConvolveWithAlgorithm(
-#endif
           input_descriptor, input_buf, filter_descriptor, filter_buf,
           convolution_descriptor, output_descriptor, &output_buf,
           scratch_allocator, algorithm, profile_result);
+#else
+      // TF1.12, TF1.15
+      stream->ThenConvolveWithAlgorithm(
+          input_descriptor, input_buf, filter_descriptor, filter_buf,
+          convolution_descriptor, output_descriptor, &output_buf,
+          scratch_allocator, algorithm, profile_result);
+#endif
       break;
     default:
       return errors::Internal("Not known CudnnConvKind");
@@ -1139,7 +1151,7 @@ bool PickBestAlgorithm(CudnnConvParams& params,
   }
 
   return true;
-}
+}  // namespace gpu_conv_impl
 
 template <typename T, int N>
 void ral_conv(ExecutionContext* ctx, void* stream_handle,

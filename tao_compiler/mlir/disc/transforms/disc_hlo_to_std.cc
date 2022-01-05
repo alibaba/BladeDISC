@@ -14,6 +14,7 @@ limitations under the License.
 ==============================================================================*/
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Attributes.h"
@@ -41,19 +42,19 @@ class ComputeReshapeShapeOpConverter
   using OpConversionPattern<ComputeReshapeShapeOp>::OpConversionPattern;
 
   LogicalResult matchAndRewrite(
-      ComputeReshapeShapeOp op, ArrayRef<Value> operands,
+      ComputeReshapeShapeOp op, OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override;
 };
 
 LogicalResult ComputeReshapeShapeOpConverter::matchAndRewrite(
-    ComputeReshapeShapeOp op, ArrayRef<Value> operands,
+    ComputeReshapeShapeOp op, OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   MLIRContext* ctx = op->getContext();
-
-  Value zero = rewriter.create<ConstantIndexOp>(loc, 0);
-  Value one = rewriter.create<ConstantIndexOp>(loc, 1);
-  Value negOne = rewriter.create<ConstantIndexOp>(loc, -1);
+  auto operands = adaptor.getOperands();
+  Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+  Value one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+  Value negOne = rewriter.create<arith::ConstantIndexOp>(loc, -1);
 
   Value numElements = operands[0];
   Value newShape = operands[1];
@@ -62,7 +63,7 @@ LogicalResult ComputeReshapeShapeOpConverter::matchAndRewrite(
   Type indexType = rewriter.getIndexType();
 
   if (!targetShapeType.hasStaticShape()) {
-    op.emitError("only static shape value is supported");
+    op.emitError("only static rank is supported");
     return failure();
   }
 
@@ -71,15 +72,15 @@ LogicalResult ComputeReshapeShapeOpConverter::matchAndRewrite(
   // in case there is a negOne in the new target shape values.
   Value accumNumElems = negOne;
   for (int64_t i = 0; i < rank; ++i) {
-    Value idx = rewriter.create<ConstantIndexOp>(loc, i);
+    Value idx = rewriter.create<arith::ConstantIndexOp>(loc, i);
     Value newShapeDimValue =
         rewriter.create<tensor::ExtractOp>(loc, newShape, idx);
     if (!targetElemType.isIndex()) {
       newShapeDimValue =
-          rewriter.create<IndexCastOp>(loc, newShapeDimValue, indexType);
+          rewriter.create<arith::IndexCastOp>(loc, newShapeDimValue, indexType);
     }
     accumNumElems =
-        rewriter.create<MulIOp>(loc, newShapeDimValue, accumNumElems);
+        rewriter.create<arith::MulIOp>(loc, newShapeDimValue, accumNumElems);
   }
 
   // Handle following two corner cases:
@@ -87,38 +88,38 @@ LogicalResult ComputeReshapeShapeOpConverter::matchAndRewrite(
   // - original input tensor is a empty tensor.
   // In the above cases, accumNumElems is never used to calculate the result,
   // thus we simply set it to a safe value for division.
-  Value isZero =
-      rewriter.create<CmpIOp>(loc, CmpIPredicate::eq, numElements, zero);
-  Value isNeg =
-      rewriter.create<CmpIOp>(loc, CmpIPredicate::slt, accumNumElems, zero);
-  Value isNegOrZero = rewriter.create<OrOp>(loc, isZero, isNeg);
+  Value isZero = rewriter.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq,
+                                                numElements, zero);
+  Value isNeg = rewriter.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt,
+                                               accumNumElems, zero);
+  Value isNegOrZero = rewriter.create<arith::OrIOp>(loc, isZero, isNeg);
   accumNumElems =
       rewriter.create<SelectOp>(loc, isNegOrZero, one, accumNumElems);
 
   SmallVector<Value, 4> extentValues;
   for (int64_t i = 0; i < rank; ++i) {
-    Value idx = rewriter.create<ConstantIndexOp>(loc, i);
+    Value idx = rewriter.create<arith::ConstantIndexOp>(loc, i);
     Value newShapeDimValue =
         rewriter.create<tensor::ExtractOp>(loc, newShape, idx);
     if (!targetElemType.isIndex()) {
       newShapeDimValue =
-          rewriter.create<IndexCastOp>(loc, newShapeDimValue, indexType);
+          rewriter.create<arith::IndexCastOp>(loc, newShapeDimValue, indexType);
     }
-    Value isNegOne = rewriter.create<CmpIOp>(loc, CmpIPredicate::eq,
-                                             newShapeDimValue, negOne);
+    Value isNegOne = rewriter.create<arith::CmpIOp>(
+        loc, arith::CmpIPredicate::eq, newShapeDimValue, negOne);
     Value inferredDimValue =
-        rewriter.create<UnsignedDivIOp>(loc, numElements, accumNumElems);
+        rewriter.create<arith::DivUIOp>(loc, numElements, accumNumElems);
     newShapeDimValue = rewriter.create<SelectOp>(
         loc, isNegOne, inferredDimValue, newShapeDimValue);
     if (!targetElemType.isIndex())
-      newShapeDimValue =
-          rewriter.create<IndexCastOp>(loc, newShapeDimValue, targetElemType);
+      newShapeDimValue = rewriter.create<arith::IndexCastOp>(
+          loc, newShapeDimValue, targetElemType);
     extentValues.push_back(newShapeDimValue);
   }
 
   // Materialize extent tensor.
-  Value staticExtentTensor = rewriter.create<tensor::FromElementsOp>(
-      loc, targetElemType, extentValues);
+  Value staticExtentTensor =
+      rewriter.create<tensor::FromElementsOp>(loc, extentValues);
   rewriter.replaceOp(op, ValueRange{staticExtentTensor});
 
   return success();
@@ -133,8 +134,9 @@ void ConvertHloToStandardPass::runOnFunction() {
   // Setup target legality.
   MLIRContext& ctx = getContext();
   ConversionTarget target(ctx);
-  target.addLegalDialect<StandardOpsDialect, tensor::TensorDialect>();
-  target.addLegalOp<FuncOp, ModuleOp>();
+  target.addLegalDialect<StandardOpsDialect, tensor::TensorDialect,
+                         arith::ArithmeticDialect>();
+  target.addIllegalOp<ComputeReshapeShapeOp>();
 
   // Setup conversion patterns.
   RewritePatternSet patterns(&ctx);

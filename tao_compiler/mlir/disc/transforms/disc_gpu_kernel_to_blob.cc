@@ -19,7 +19,6 @@ limitations under the License.
 #include "llvm/Support/Program.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/Cloning.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/GPU/Passes.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
@@ -263,7 +262,7 @@ class GpuKernelToBlobPass
     }
 
     llvmModule->setModuleIdentifier("acme");
-    llvmModule->setDataLayout(xla::gpu::nvptx::kDataLayout);
+    llvmModule->setDataLayout(xla::gpu::nvptx::DataLayout());
 
     xla::HloModuleConfig config;
     xla::DebugOptions options = xla::GetDebugOptionsFromFlags();

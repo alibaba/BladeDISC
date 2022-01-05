@@ -15,8 +15,8 @@ limitations under the License.
 
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "mlir-hlo/Dialect/mhlo/IR/disc_ral_ops.h"
-#include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops.h"
+#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
+#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
@@ -50,7 +50,7 @@ MemRefType copyWithMemorySpace(MLIRContext* ctx, MemRefType type,
                                StringRef memory_space) {
   Attribute memSpace = StringAttr::get(ctx, memory_space);
   return MemRefType::get(type.getShape(), type.getElementType(),
-                         type.getAffineMaps(), memSpace);
+                         type.getLayout(), memSpace);
 }
 
 // return a new memref type with provided memory space if the input type if a
@@ -563,7 +563,7 @@ LogicalResult DiscAssignMemorySpacePass::applyOperationAssignment(
   }
 
   return op->emitOpError()
-         << "failed to replaced the result type of unsupported op";
+         << "failed to replace the result type of an unsupported op";
 }
 
 }  // namespace

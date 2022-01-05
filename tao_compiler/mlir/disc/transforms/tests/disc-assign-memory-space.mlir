@@ -6,7 +6,7 @@ func @main(%arg0 : memref<?xf32>) -> memref<?xf32> attributes {tf.entry_function
   // CHECK: %[[T0:.*]] = memref.dim %[[ARG0]], %c0 : memref<?xf32, "cpu">
   // CHECK: %[[T1:.*]] = memref.alloc(%[[T0]]) : memref<?xf32, "cpu">
   // CHECK:  return %[[T1]] : memref<?xf32, "cpu">
-  %c0 = constant 0 : index
+  %c0 = arith.constant 0 : index
   %0 = memref.dim %arg0, %c0 : memref<?xf32>
   %1 = memref.alloc(%0) : memref<?xf32>
   return %1 : memref<?xf32>
@@ -20,7 +20,7 @@ func @main(%arg0 : memref<?xf32>) -> memref<?xf32> attributes {tf.entry_function
   // CHECK: %[[T0:.*]] = memref.dim %[[ARG0]], %c0 : memref<?xf32, "cpu">
   // CHECK: %[[T1:.*]] = memref.alloc(%[[T0]]) : memref<?xf32, "gpu">
   // CHECK:  return %[[T1]] : memref<?xf32, "gpu">
-  %c0 = constant 0 : index
+  %c0 = arith.constant 0 : index
   %0 = memref.dim %arg0, %c0 : memref<?xf32>
   %1 = memref.alloc(%0) : memref<?xf32>
   return %1 : memref<?xf32>
@@ -31,11 +31,11 @@ func @main(%arg0 : memref<?xf32>) -> memref<?xf32> attributes {tf.entry_function
 // CHECK-LABEL: main
 // CHECK-SAME: (%[[ARG0:.*]]: memref<?x8xf32, "cpu">) -> memref<?x24xf32, "cpu">
 func @main(%arg0: memref<?x8xf32>) -> memref<?x24xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "cpu", outputs = "output0"}} {
-  %c3 = constant 3 : index
-  %c2 = constant 2 : index
-  %c1 = constant 1 : index
-  %c8 = constant 8 : index
-  %c0 = constant 0 : index
+  %c3 = arith.constant 3 : index
+  %c2 = arith.constant 2 : index
+  %c1 = arith.constant 1 : index
+  %c8 = arith.constant 8 : index
+  %c0 = arith.constant 0 : index
 
   // CHECK: %[[T0:.*]] = memref.alloc() : memref<2xi32, "cpu">
   %0 = memref.alloc() : memref<2xi32>
@@ -45,9 +45,9 @@ func @main(%arg0: memref<?x8xf32>) -> memref<?x24xf32> attributes {tf.entry_func
 
   %1 = memref.dim %arg0, %c0 : memref<?x8xf32>
   %2 = memref.load %0[%c0] : memref<2xi32>
-  %3 = index_cast %2 : i32 to index
+  %3 = arith.index_cast %2 : i32 to index
   %4 = memref.load %0[%c1] : memref<2xi32>
-  %5 = index_cast %4 : i32 to index
+  %5 = arith.index_cast %4 : i32 to index
 
   // CHECK: %[[T6:.*]] = memref.alloc() : memref<4xindex, "cpu">
   %6 = memref.alloc() : memref<4xindex>
@@ -70,8 +70,8 @@ func @main(%arg0: memref<?x8xf32>) -> memref<?x24xf32> attributes {tf.entry_func
   %9 = memref.cast %8 : memref<?x?x?x8xf32> to memref<?x?x?x?xf32>
   "lmhlo.dynamic_broadcast_in_dim"(%7, %6, %9) {broadcast_dimensions = dense<[1, 3]> : tensor<2xi64>, disc.device = "gpu"} : (memref<?x8xf32>, memref<4xindex>, memref<?x?x?x?xf32>) -> ()
 
-  %10 = muli %3, %1 : index
-  %11 = muli %5, %c8 : index
+  %10 = arith.muli %3, %1 : index
+  %11 = arith.muli %5, %c8 : index
 
   // CHECK: %[[T12:.*]] = memref.alloc() : memref<2xindex, "cpu">
   %12 = memref.alloc() : memref<2xindex>

@@ -16,8 +16,8 @@ limitations under the License.
 #include <openssl/md5.h>
 
 #include "llvm/ADT/StringExtras.h"
-#include "mlir-hlo/Dialect/mhlo/IR/disc_ral_ops.h"
-#include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops.h"
+#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
+#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/Attributes.h"   // TF:llvm-project
 #include "mlir/IR/Location.h"     // TF:llvm-project

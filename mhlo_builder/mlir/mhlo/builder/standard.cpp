@@ -23,30 +23,32 @@ namespace mhlo {
 // Build a standard bool constant op from bool value
 mlir::Value BuildStdConstForBool(mlir::OpBuilder& builder,
                                  const mlir::Location& loc, bool value) {
-  return builder.create<mlir::ConstantOp>(loc, builder.getBoolAttr(value));
+  return builder.create<mlir::arith::ConstantOp>(loc,
+                                                 builder.getBoolAttr(value));
 }
 
 mlir::Value BuildStdConstForIndex(mlir::OpBuilder& builder,
                                   const mlir::Location& loc, int64_t value) {
-  return builder.create<mlir::ConstantOp>(
+  return builder.create<mlir::arith::ConstantOp>(
       loc, builder.getIntegerAttr(builder.getIndexType(), value));
 }
 
 mlir::Value BuildStdConstForI32(mlir::OpBuilder& builder,
                                 const mlir::Location& loc, int32_t value) {
-  return builder.create<mlir::ConstantOp>(loc,
-                                          builder.getI32IntegerAttr(value));
+  return builder.create<mlir::arith::ConstantOp>(
+      loc, builder.getI32IntegerAttr(value));
 }
 
 mlir::Value BuildStdConstForF64(mlir::OpBuilder& builder,
                                 const mlir::Location& loc, double value) {
-  return builder.create<mlir::ConstantOp>(loc, builder.getF64FloatAttr(value));
+  return builder.create<mlir::arith::ConstantOp>(
+      loc, builder.getF64FloatAttr(value));
 }
 
 mlir::Value BuildStdConstForI64(mlir::OpBuilder& builder,
                                 const mlir::Location& loc, int64_t value) {
-  return builder.create<mlir::ConstantOp>(loc,
-                                          builder.getI64IntegerAttr(value));
+  return builder.create<mlir::arith::ConstantOp>(
+      loc, builder.getI64IntegerAttr(value));
 }
 
 mlir::Value BuildStdConstLike(mlir::OpBuilder& builder,
@@ -56,7 +58,7 @@ mlir::Value BuildStdConstLike(mlir::OpBuilder& builder,
   if (other_ty.isa<mlir::IndexType>()) {
     return BuildStdConstForIndex(builder, loc, value);
   } else if (other_ty.isa<mlir::IntegerType>()) {
-    return builder.create<mlir::ConstantIntOp>(
+    return builder.create<mlir::arith::ConstantIntOp>(
         loc, value, other_ty.cast<mlir::IntegerType>().getWidth());
   } else {
     MHLO_THROW_ERROR("Invalid usage of BuildStdConstLike()");
@@ -73,7 +75,7 @@ mlir::Value BuildStdDimSizeOfTensor(mlir::OpBuilder& builder,
   dim_index = NormalizeDimIndex(dim_index, rank);
   auto dim_size = ranked_type.getDimSize(dim_index);
   if (dim_size == mlir::ShapedType::kDynamicSize) {
-    return builder.create<mlir::IndexCastOp>(
+    return builder.create<mlir::arith::IndexCastOp>(
         loc, builder.create<tensor::DimOp>(loc, tensor, dim_index),
         builder.getIntegerType(64));
   } else {
@@ -100,10 +102,10 @@ SmallValueVec4 BuildStdDimSizeListOfTensor(mlir::OpBuilder& builder,
 
 mlir::Value BuildStdSelectSigned(mlir::OpBuilder& builder,
                                  const mlir::Location& loc,
-                                 const mlir::CmpIPredicate& predc,
+                                 const mlir::arith::CmpIPredicate& predc,
                                  const mlir::Value& std_lhs,
                                  const mlir::Value& std_rhs) {
-  auto cond = builder.create<mlir::CmpIOp>(loc, predc, std_lhs, std_rhs);
+  auto cond = builder.create<mlir::arith::CmpIOp>(loc, predc, std_lhs, std_rhs);
   auto selected = builder.create<mlir::SelectOp>(loc, cond, std_lhs, std_rhs);
   return selected;
 }
@@ -112,51 +114,51 @@ mlir::Value BuildStdMaximumSigned(mlir::OpBuilder& builder,
                                   const mlir::Location& loc,
                                   const mlir::Value& std_lhs,
                                   const mlir::Value& std_rhs) {
-  return BuildStdSelectSigned(builder, loc, mlir::CmpIPredicate::sge, std_lhs,
-                              std_rhs);
+  return BuildStdSelectSigned(builder, loc, mlir::arith::CmpIPredicate::sge,
+                              std_lhs, std_rhs);
 }
 
 mlir::Value BuildStdMinimumSigned(mlir::OpBuilder& builder,
                                   const mlir::Location& loc,
                                   const mlir::Value& std_lhs,
                                   const mlir::Value& std_rhs) {
-  return BuildStdSelectSigned(builder, loc, mlir::CmpIPredicate::sle, std_lhs,
-                              std_rhs);
+  return BuildStdSelectSigned(builder, loc, mlir::arith::CmpIPredicate::sle,
+                              std_lhs, std_rhs);
 }
 
 mlir::Value BuildStdRemainderSigned(mlir::OpBuilder& builder,
                                     const mlir::Location& loc,
                                     const mlir::Value& std_lhs,
                                     const mlir::Value& std_rhs) {
-  return builder.create<mlir::SignedRemIOp>(loc, std_lhs, std_rhs);
+  return builder.create<mlir::arith::RemSIOp>(loc, std_lhs, std_rhs);
 }
 
 mlir::Value BuildStdAddSigned(mlir::OpBuilder& builder,
                               const mlir::Location& loc,
                               const mlir::Value& std_lhs,
                               const mlir::Value& std_rhs) {
-  return builder.create<mlir::AddIOp>(loc, std_lhs, std_rhs);
+  return builder.create<mlir::arith::AddIOp>(loc, std_lhs, std_rhs);
 }
 
 mlir::Value BuildStdSubSigned(mlir::OpBuilder& builder,
                               const mlir::Location& loc,
                               const mlir::Value& std_lhs,
                               const mlir::Value& std_rhs) {
-  return builder.create<mlir::SubIOp>(loc, std_lhs, std_rhs);
+  return builder.create<mlir::arith::SubIOp>(loc, std_lhs, std_rhs);
 }
 
 mlir::Value BuildStdMulSigned(mlir::OpBuilder& builder,
                               const mlir::Location& loc,
                               const mlir::Value& std_lhs,
                               const mlir::Value& std_rhs) {
-  return builder.create<mlir::MulIOp>(loc, std_lhs, std_rhs);
+  return builder.create<mlir::arith::MulIOp>(loc, std_lhs, std_rhs);
 }
 
 mlir::Value BuildStdDivSigned(mlir::OpBuilder& builder,
                               const mlir::Location& loc,
                               const mlir::Value& std_lhs,
                               const mlir::Value& std_rhs) {
-  return builder.create<mlir::SignedDivIOp>(loc, std_lhs, std_rhs);
+  return builder.create<mlir::arith::DivSIOp>(loc, std_lhs, std_rhs);
 }
 
 mlir::Value BuildStdNegtive(mlir::OpBuilder& builder, const mlir::Location& loc,
@@ -168,11 +170,12 @@ mlir::Value BuildStdNegtive(mlir::OpBuilder& builder, const mlir::Location& loc,
 llvm::Optional<mlir::Value> BuildCastStdConstScalarToHloConstTensor(
     mlir::OpBuilder& builder, const mlir::Location& loc,
     const mlir::Value& std_scalar) {
-  auto def = llvm::dyn_cast<mlir::ConstantOp>(std_scalar.getDefiningOp());
+  auto def =
+      llvm::dyn_cast<mlir::arith::ConstantOp>(std_scalar.getDefiningOp());
   if (!def) {
     return llvm::None;
   }
-  const mlir::Attribute& val_attr = def.value();
+  const mlir::Attribute& val_attr = def.getValue();
   auto scalar_ty = mlir::RankedTensorType::get({}, val_attr.getType());
   auto const_attr = mlir::DenseElementsAttr::get(scalar_ty, val_attr);
   auto result = builder.create<mlir::mhlo::ConstOp>(loc, const_attr);
@@ -207,7 +210,7 @@ mlir::Value BuildStdScalarToIndexType(mlir::OpBuilder& builder,
              "Type must be Integer or Index");
   if (!dsize_type.isIndex()) {
     return builder
-        .create<mlir::IndexCastOp>(loc, dim_size, builder.getIndexType())
+        .create<mlir::arith::IndexCastOp>(loc, dim_size, builder.getIndexType())
         .getResult();
   } else {
     return dim_size;
@@ -226,13 +229,14 @@ SmallValueVec4 BuildStdScalarToHloDimType(mlir::OpBuilder& builder,
                "Type must be Integer or Index");
     if (dsize_type != mhlo_dim_type) {
       if (!dsize_type.isIndex()) {
-        dsize =
-            builder
-                .create<mlir::IndexCastOp>(loc, dsize, builder.getIndexType())
-                .getResult();
+        dsize = builder
+                    .create<mlir::arith::IndexCastOp>(loc, dsize,
+                                                      builder.getIndexType())
+                    .getResult();
       }
-      dsize = builder.create<mlir::IndexCastOp>(loc, dsize, mhlo_dim_type)
-                  .getResult();
+      dsize =
+          builder.create<mlir::arith::IndexCastOp>(loc, dsize, mhlo_dim_type)
+              .getResult();
     }
     new_dim_sizes.push_back(dsize);
   }
@@ -254,7 +258,7 @@ mlir::Value BuildStdScalarToHloTensor(
     }
   }
   mlir::Value hlo_tensor =
-      builder.create<mlir::tensor::FromElementsOp>(loc, elem_type, values);
+      builder.create<mlir::tensor::FromElementsOp>(loc, values);
   return hlo_tensor;
 }
 }  // namespace mhlo

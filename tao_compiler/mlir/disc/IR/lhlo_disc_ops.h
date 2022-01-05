@@ -16,8 +16,8 @@ limitations under the License.
 #define MLIR_DISC_IR_LHLO_DISC_OPS_H_
 
 #include "llvm/ADT/StringRef.h"
-#include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops_structs.h"
-#include "mlir-hlo/Dialect/mhlo/IR/lhlo_structured_interface.h"
+#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops_structs.h"
+#include "mlir-hlo/Dialect/lhlo/IR/lhlo_structured_interface.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"

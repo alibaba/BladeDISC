@@ -15,7 +15,7 @@ limitations under the License.
 
 include "mlir/Pass/PassBase.td"
 
-def HloLegalizeToLhloPass : Pass<"disc-hlo-legalize-to-lhlo", "ModuleOp"> {
+def DiscHloLegalizeToLhloPass : Pass<"disc-hlo-legalize-to-lhlo", "ModuleOp"> {
   let summary = "convert mhlo_disc ops to lmhlo_disc ops.";
   let constructor = "createDiscLegalizeToLhloPass()";
 }

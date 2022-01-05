@@ -23,10 +23,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/FormatVariadic.h"
+#include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
 #include "mlir/Conversion/GPUToNVVM/GPUToNVVMPass.h"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "mlir/Conversion/LLVMCommon/LoweringOptions.h"
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
+#include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
 #include "mlir/Dialect/GPU/Passes.h"
@@ -119,7 +121,6 @@ struct DiscLowerGpuOpsToNVVMOpsPass
     });
 
     RewritePatternSet patterns(m.getContext());
-    RewritePatternSet llvmPatterns(m.getContext());
 
     // Apply in-dialect lowering first. In-dialect lowering will replace ops
     // which need to be lowered further, which is not supported by a single
@@ -127,18 +128,58 @@ struct DiscLowerGpuOpsToNVVMOpsPass
     populateGpuRewritePatterns(patterns);
     (void)applyPatternsAndFoldGreedily(m, std::move(patterns));
 
+    RewritePatternSet llvmPatterns(m.getContext());
+    populateMathToLLVMConversionPatterns(converter, llvmPatterns);
+
+    // These math ops will be lowered to nvvm intrinsics
+    SmallVector<std::string> disablePatterns = {
+        "mlir::VectorConvertToLLVMPattern<mlir::math::AbsOp, "
+        "mlir::LLVM::FAbsOp>",
+        "mlir::VectorConvertToLLVMPattern<mlir::math::CeilOp, "
+        "mlir::LLVM::FCeilOp>",
+        "mlir::VectorConvertToLLVMPattern<mlir::math::CosOp, "
+        "mlir::LLVM::CosOp>",
+        "mlir::VectorConvertToLLVMPattern<mlir::math::ExpOp, "
+        "mlir::LLVM::ExpOp>",
+        "mlir::VectorConvertToLLVMPattern<mlir::math::Exp2Op, "
+        "mlir::LLVM::Exp2Op>",
+        "{anonymous}::ExpM1OpLowering",
+        "mlir::VectorConvertToLLVMPattern<mlir::math::FloorOp, "
+        "mlir::LLVM::FFloorOp>",
+        "mlir::VectorConvertToLLVMPattern<mlir::math::Log10Op, "
+        "mlir::LLVM::Log10Op>",
+        "{anonymous}::Log1pOpLowering",
+        "mlir::VectorConvertToLLVMPattern<mlir::math::Log2Op, "
+        "mlir::LLVM::Log2Op>",
+        "mlir::VectorConvertToLLVMPattern<mlir::math::LogOp, "
+        "mlir::LLVM::LogOp>",
+        "mlir::VectorConvertToLLVMPattern<mlir::math::PowFOp, "
+        "mlir::LLVM::PowOp>",
+        "{anonymous}::RsqrtOpLowering",
+        "mlir::VectorConvertToLLVMPattern<mlir::math::SinOp, "
+        "mlir::LLVM::SinOp>",
+        "mlir::VectorConvertToLLVMPattern<mlir::math::SqrtOp, "
+        "mlir::LLVM::SqrtOp>"};
+
     // Add the fix before official patterns.
     llvmPatterns.add<GenericAtomicRMWOpLoweringWithBitcast>(
         converter, /* PatternBenefit */ 3);
     llvmPatterns.add<RemoveUselessUnrealizedConversionCastOp>(converter);
+    mlir::arith::populateArithmeticToLLVMConversionPatterns(converter,
+                                                            llvmPatterns);
     populateStdToLLVMConversionPatterns(converter, llvmPatterns);
     populateMemRefToLLVMConversionPatterns(converter, llvmPatterns);
     populateGpuToNVVMConversionPatterns(converter, llvmPatterns);
     populateGpuWMMAToNVVMConversionPatterns(converter, llvmPatterns);
+    auto llvmFrozenPatterns =
+        FrozenRewritePatternSet(std::move(llvmPatterns), disablePatterns, {});
     LLVMConversionTarget target(getContext());
     configureGpuToNVVMConversionLegality(target);
+    target.addLegalDialect<LLVM::LLVMDialect>();
+    target.addIllegalDialect<StandardOpsDialect, arith::ArithmeticDialect,
+                             math::MathDialect>();
     target.addIllegalOp<UnrealizedConversionCastOp>();
-    if (failed(applyPartialConversion(m, target, std::move(llvmPatterns))))
+    if (failed(applyPartialConversion(m, target, llvmFrozenPatterns)))
       signalPassFailure();
   }
 };

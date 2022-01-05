@@ -4,8 +4,8 @@
 // CHECK-DAG: llvm.mlir.global internal constant @__global_const_0
 // CHECK-LABEL: simple_test
 func @simple_test(%arg0: !disc_ral.context) {
-  %c0 = constant 0 : index
-  %c1 = constant 1 : index
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
   %0 = memref.alloc() : memref<100x100xf32, "gpu">
   %1 = memref.alloc() : memref<100x100xf32, "cpu">
   // CHECK: %[[N0:.*]] = "disc_ral.dispatch"(%[[CTX:.*]], [[T0:.*]], [[T1:.*]]) {backend_config = "gpu", call_target_name = "ral_const", has_side_effect = false}

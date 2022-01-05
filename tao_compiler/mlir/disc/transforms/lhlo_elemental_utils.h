@@ -26,7 +26,9 @@ class Operation;
 class ValueRange;
 class Region;
 class FuncOp;
+namespace arith {
 enum class AtomicRMWKind : uint64_t;
+}
 
 namespace scf {
 class ForOp;
@@ -69,7 +71,7 @@ void createOffsetStore(OpBuilder& b, Location loc, Value res, Value memref,
 memref::LoadOp createOffsetLoad(OpBuilder& b, Location loc, Value memref,
                                 Value offset);
 
-AtomicRMWKind getAtomicRMWKind(Region& body);
+arith::AtomicRMWKind getAtomicRMWKind(Region& body);
 
 bool isSameUnderlineBuffer(Value lhs, Value rhs);
 

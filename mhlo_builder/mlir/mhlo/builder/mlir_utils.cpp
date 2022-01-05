@@ -77,8 +77,9 @@ mlir::Value BuildStandardI32NumelOfTensor(
   mlir::Type mhlo_dim_type = BuildMHloDimType(builder);
   for (mlir_dim_t dim : numel_dims) {
     mlir::Value dim_size = builder.create<tensor::DimOp>(loc, input, dim);
-    dim_size = builder.create<mlir::IndexCastOp>(loc, dim_size, mhlo_dim_type);
-    num_elem = builder.create<mlir::MulIOp>(loc, num_elem, dim_size);
+    dim_size =
+        builder.create<mlir::arith::IndexCastOp>(loc, dim_size, mhlo_dim_type);
+    num_elem = builder.create<mlir::arith::MulIOp>(loc, num_elem, dim_size);
   }
   return num_elem;
 }
@@ -95,7 +96,7 @@ mlir::Value BuildHloNumelOfTensor(mlir::OpBuilder& builder,
   // rank 0.
   mlir::Type mhlo_dim_type = BuildMHloDimType(builder);
   mlir::Value num_elem_tensor = builder.create<mlir::tensor::FromElementsOp>(
-      loc, mhlo_dim_type, mlir::ArrayRef<mlir::Value>({num_elem}));
+      loc, mlir::ArrayRef<mlir::Value>({num_elem}));
   num_elem_tensor = builder.create<mlir::mhlo::ReshapeOp>(
       loc,
       mlir::RankedTensorType::get(mlir::ArrayRef<mlir_dim_t>{}, mhlo_dim_type),
@@ -199,7 +200,7 @@ mlir::Value BuildExtractVectorElement(mlir::OpBuilder& builder,
                                       mlir_dim_t index) {
   MHLO_CHECK(1 == GetRankOfMlirValue(vector_value),
              "the input value should have rank 1");
-  auto idx_value = builder.create<mlir::ConstantOp>(
+  auto idx_value = builder.create<mlir::arith::ConstantOp>(
       loc, builder.getIntegerAttr(builder.getIndexType(), index));
   return builder.create<tensor::ExtractOp>(loc, vector_value,
                                            mlir::ValueRange{idx_value});
@@ -249,24 +250,24 @@ mlir::Value BuildResolveUnknownDimSizeI32(mlir::OpBuilder& builder,
   mlir_dim_t output_rank = i32_dim_sizes.size();
   for (mlir_dim_t k = 0; k < output_rank; ++k) {
     auto dim_size = i32_dim_sizes[k];
-    reduce_prod = builder.create<mlir::MulIOp>(loc, dim_size, reduce_prod);
+    reduce_prod =
+        builder.create<mlir::arith::MulIOp>(loc, dim_size, reduce_prod);
     shape_elements.push_back(dim_size);
   }
 
   for (mlir_dim_t k = 0; k < output_rank; ++k) {
     auto dim_size = shape_elements[k];
-    auto is_minus_1 = builder.create<mlir::CmpIOp>(loc, mlir::CmpIPredicate::eq,
-                                                   dim_size, minus_1);
+    auto is_minus_1 = builder.create<mlir::arith::CmpIOp>(
+        loc, mlir::arith::CmpIPredicate::eq, dim_size, minus_1);
     // is_minus_1? (input_numel/reduce_prod) : dim_size
     auto resolved_dim_size = builder.create<mlir::SelectOp>(
         loc, is_minus_1,
-        builder.create<mlir::SignedDivIOp>(loc, input_numel, reduce_prod),
+        builder.create<mlir::arith::DivSIOp>(loc, input_numel, reduce_prod),
         dim_size);
     shape_elements[k] = resolved_dim_size;
   }
 
-  return builder.create<mlir::tensor::FromElementsOp>(
-      loc, BuildMHloDimType(builder), shape_elements);
+  return builder.create<mlir::tensor::FromElementsOp>(loc, shape_elements);
 }
 
 mlir::Value BuildReshapeTensorToScalar(mlir::OpBuilder& builder,

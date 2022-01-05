@@ -38,8 +38,8 @@ mlir::Value BuildBroadcastTensorInDims(
   mlir_dim_t rank = dims_size.size();
   MHLO_CHECK(rank >= GetRankOfMlirValue(tensor),
              "can't broadcast from higher rank to lower");
-  mlir::Value shape = builder.create<mlir::tensor::FromElementsOp>(
-      loc, BuildMHloDimType(builder), dims_size);
+  mlir::Value shape =
+      builder.create<mlir::tensor::FromElementsOp>(loc, dims_size);
 
   SmallVec4<mlir_dim_t> output_shape =
       GetDimSizeListFromHloDimValList(dims_size);

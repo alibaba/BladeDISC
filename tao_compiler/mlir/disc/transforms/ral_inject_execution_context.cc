@@ -47,7 +47,7 @@ limitations under the License.
 // to the entry function. Thus, we don't rewrite all call ops and other
 // functions a.t.m. Re-visit this assumption if necessary.
 
-#include "mlir-hlo/Dialect/mhlo/IR/disc_ral_ops.h"
+#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
@@ -98,7 +98,7 @@ struct RalInjectExecutionContextPass
     for (auto&& en : llvm::enumerate(
              llvm::zip(funcType.getInputs(),
                        entry_block->getArguments().drop_front(1)))) {
-      Value idx = b.create<ConstantIndexOp>(loc, en.index());
+      Value idx = b.create<arith::ConstantIndexOp>(loc, en.index());
       Type argType = std::get<0>(en.value());
       Value oldArgument = std::get<1>(en.value());
       Value newInput = b.create<RecvInputOp>(loc, argType, ctx, idx);
@@ -112,7 +112,7 @@ struct RalInjectExecutionContextPass
       if (!operation.hasTrait<OpTrait::ReturnLike>()) continue;
       b.setInsertionPoint(&operation);
       for (auto& en : llvm::enumerate(operation.getOperands())) {
-        Value idx = b.create<ConstantIndexOp>(loc, en.index());
+        Value idx = b.create<arith::ConstantIndexOp>(loc, en.index());
         b.create<SendOutputOp>(loc, ctx, idx, en.value());
       }
       operation.eraseOperands(0, operation.getNumOperands());

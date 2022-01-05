@@ -20,7 +20,7 @@ limitations under the License.
 #include <unordered_set>
 #include <vector>
 
-#include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops.h"
+#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/utils/codegen_utils.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
@@ -94,7 +94,7 @@ Value createViewLike(OpBuilder& b, Location loc, Value from, Value to) {
   auto fromType = from.getType().cast<MemRefType>();
   auto targetType =
       MemRefType::get(toType.getShape(), fromType.getElementType(),
-                      toType.getAffineMaps(), toType.getMemorySpace());
+                      toType.getLayout(), toType.getMemorySpace());
   return CastMemRefTo(b, loc, from, targetType, toShape);
 }
 
@@ -195,8 +195,9 @@ struct DiscSpecializeFusionWithSpeculationPass
       for (int i = 0; i < rank; ++i) {
         Value lhs = b.create<memref::DimOp>(loc, operand, i);
         Value rhs = b.create<memref::DimOp>(loc, result, i);
-        Value eq = b.create<CmpIOp>(loc, CmpIPredicate::eq, lhs, rhs);
-        pred = (pred ? b.create<mlir::AndOp>(loc, eq, pred).getResult() : eq);
+        Value eq =
+            b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq, lhs, rhs);
+        pred = (pred ? b.create<arith::AndIOp>(loc, eq, pred).getResult() : eq);
       }
       op->erase();
     }
@@ -204,8 +205,8 @@ struct DiscSpecializeFusionWithSpeculationPass
     assert(!broadcast_ops.empty());
 
     auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
-    Block* then_block = &if_op.thenRegion().getBlocks().front();
-    Block* else_block = &if_op.elseRegion().getBlocks().front();
+    Block* then_block = &if_op.getThenRegion().getBlocks().front();
+    Block* else_block = &if_op.getElseRegion().getBlocks().front();
     cloned.getOperation()->moveBefore(then_block, then_block->begin());
     fusion_op.getOperation()->moveBefore(else_block, else_block->begin());
 
@@ -268,8 +269,9 @@ struct DiscSpecializeFusionWithSpeculationPass
     Value operand = reduce_op->getOperand(0);
     Value col_size = b.create<memref::DimOp>(loc, operand, 1);
     Value ref_size =
-        b.create<ConstantIndexOp>(loc, kRowReductionScheduleTurningSize);
-    Value pred = b.create<CmpIOp>(loc, CmpIPredicate::sgt, col_size, ref_size);
+        b.create<arith::ConstantIndexOp>(loc, kRowReductionScheduleTurningSize);
+    Value pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt,
+                                         col_size, ref_size);
 
     auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
 
@@ -289,8 +291,8 @@ struct DiscSpecializeFusionWithSpeculationPass
     // one warp one row
     addFusionTag(b, cloned, "1w1r");
 
-    Block* then_block = &if_op.thenRegion().getBlocks().front();
-    Block* else_block = &if_op.elseRegion().getBlocks().front();
+    Block* then_block = &if_op.getThenRegion().getBlocks().front();
+    Block* else_block = &if_op.getElseRegion().getBlocks().front();
     fusion_op.getOperation()->moveBefore(then_block, then_block->begin());
     cloned.getOperation()->moveBefore(else_block, else_block->begin());
   }
@@ -320,11 +322,11 @@ struct DiscSpecializeFusionWithSpeculationPass
     Value operand = reduce_op->getOperand(0);
     Value row_size = b.create<memref::DimOp>(loc, operand, 0);
     Value col_size = b.create<memref::DimOp>(loc, operand, 1);
-    Value matrix_size = b.create<MulIOp>(loc, row_size, col_size);
+    Value matrix_size = b.create<arith::MulIOp>(loc, row_size, col_size);
     int thread_per_block = 256;
-    Value cur_threads = b.create<ConstantIndexOp>(loc, thread_per_block);
+    Value cur_threads = b.create<arith::ConstantIndexOp>(loc, thread_per_block);
     Value cur_blocks =
-        b.create<SignedCeilDivIOp>(loc, matrix_size, cur_threads);
+        b.create<arith::CeilDivSIOp>(loc, matrix_size, cur_threads);
     int sm_num;
     auto thread_number_info =
         archToGPUThreadNumber.find({cc_major_, cc_minor_});
@@ -334,10 +336,10 @@ struct DiscSpecializeFusionWithSpeculationPass
     } else {
       sm_num = 80;  // Default is the data of V100.
     }
-    Value ref_blocks = b.create<ConstantIndexOp>(loc, sm_num);
+    Value ref_blocks = b.create<arith::ConstantIndexOp>(loc, sm_num);
 
-    Value pred =
-        b.create<CmpIOp>(loc, CmpIPredicate::sgt, cur_blocks, ref_blocks);
+    Value pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt,
+                                         cur_blocks, ref_blocks);
 
     auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
 
@@ -356,8 +358,8 @@ struct DiscSpecializeFusionWithSpeculationPass
     // one 8*16 tile if block# < SM#
     addFusionTag(b, cloned, "8w16h");
 
-    Block* then_block = &if_op.thenRegion().getBlocks().front();
-    Block* else_block = &if_op.elseRegion().getBlocks().front();
+    Block* then_block = &if_op.getThenRegion().getBlocks().front();
+    Block* else_block = &if_op.getElseRegion().getBlocks().front();
     fusion_op.getOperation()->moveBefore(then_block, then_block->begin());
     cloned.getOperation()->moveBefore(else_block, else_block->begin());
   }
@@ -414,12 +416,12 @@ struct DiscSpecializeFusionWithSpeculationPass
               ? block_size / kWarpSize
               : 1;
       auto threshold_val = max_threads_per_wave / block_size * row_per_block;
-      threshold = b.create<ConstantIndexOp>(loc, threshold_val);
+      threshold = b.create<arith::ConstantIndexOp>(loc, threshold_val);
       Value operand = dominant_op->getOperand(0);
       // #out-element is row numbers.
       out_element_number = b.create<memref::DimOp>(loc, operand, 0);
     } else if (fusion_type == FusionType::kLoop) {
-      threshold = b.create<ConstantIndexOp>(loc, max_threads_per_wave);
+      threshold = b.create<arith::ConstantIndexOp>(loc, max_threads_per_wave);
       out_element_number =
           codegen_utils::emitNumElementsComputation(b, loc, dominant_op);
     } else {
@@ -427,22 +429,22 @@ struct DiscSpecializeFusionWithSpeculationPass
       return;
     }
 
-    Value larger = b.create<CmpIOp>(loc, CmpIPredicate::sgt, out_element_number,
-                                    threshold);
-    Value is_even =
-        b.create<CmpIOp>(loc, CmpIPredicate::eq,
-                         b.create<UnsignedRemIOp>(
-                             loc, out_element_number,
-                             b.create<ConstantIndexOp>(loc, kVectorizeSize)),
-                         b.create<ConstantIndexOp>(loc, 0));
-    Value pred = b.create<mlir::AndOp>(loc, larger, is_even);
+    Value larger = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt,
+                                           out_element_number, threshold);
+    Value is_even = b.create<arith::CmpIOp>(
+        loc, arith::CmpIPredicate::eq,
+        b.create<arith::RemUIOp>(
+            loc, out_element_number,
+            b.create<arith::ConstantIndexOp>(loc, kVectorizeSize)),
+        b.create<arith::ConstantIndexOp>(loc, 0));
+    Value pred = b.create<arith::AndIOp>(loc, larger, is_even);
     auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
 
     // Vectorization branch.
     auto vectorization = b.getIntegerAttr(b.getIntegerType(32), kVectorizeSize);
     fusion_op->setAttr(kVectorizationHint, vectorization);
     addFusionTag(b, fusion_op, "_vec" + std::to_string(kVectorizeSize));
-    Block* then_block = &if_op.thenRegion().getBlocks().front();
+    Block* then_block = &if_op.getThenRegion().getBlocks().front();
     fusion_op.getOperation()->moveBefore(then_block, then_block->begin());
 
     // Non-vectorization branch.
@@ -450,7 +452,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     auto no_vectorization = b.getIntegerAttr(b.getIntegerType(32), 1);
     cloned->setAttr(kVectorizationHint, no_vectorization);
     addFusionTag(b, cloned, "_no_vec");
-    Block* else_block = &if_op.elseRegion().getBlocks().front();
+    Block* else_block = &if_op.getElseRegion().getBlocks().front();
     cloned.getOperation()->moveBefore(else_block, else_block->begin());
   }
 

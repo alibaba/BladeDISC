@@ -12,7 +12,7 @@
 #include "placement_utils.h"
 
 #include "llvm/ADT/StringMap.h"
-#include "mlir-hlo/Dialect/mhlo/transforms/map_hlo_to_lhlo_op.h"
+#include "mlir-hlo/Dialect/lhlo/transforms/map_hlo_to_lhlo_op.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 
 namespace mlir {
@@ -101,7 +101,7 @@ ShapeOperandList getShapeCalcOperandList(Operation* op) {
     }
     return {};
   }
-  return getShapeCalcOperandList(op->getAbstractOperation()->typeID);
+  return getShapeCalcOperandList(op->getRegisteredInfo()->getTypeID());
 }
 
 LogicalResult parsePlacementAttribute(FuncOp main, bool default_on_gpu,

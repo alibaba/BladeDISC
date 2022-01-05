@@ -10,7 +10,7 @@ module @main attributes {gpu.container_module}  {
 
   // CHECK: func @test_gpu_launch
   func @test_gpu_launch(%arg0: !disc_ral.context, %arg1: memref<?x?xf32>) {
-    %c1 = constant 1 : index
+    %c1 = arith.constant 1 : index
     "lmhlo.fusion"() ( {
       // CHECK: gpu.launch_func
       // CHECK-SAME: @kernel_module::@main_kLoop_divide__15_1_0

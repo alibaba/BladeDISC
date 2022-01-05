@@ -56,16 +56,15 @@ mlir::Value BuildGather(mlir::OpBuilder& builder, const mlir::Location& loc,
   SmallVec4<mlir_dim_t> start_index_map(1, axis);
   // index_vector_dim
   mlir_dim_t index_vector_dim = indices_rank;
-  auto dims_attr = mlir::mhlo::GatherDimensionNumbers::get(
-      /*offset_dims=*/BuildI64ElementsAttr(builder, offset_dims),
-      /*collapsed_slice_dims=*/
-      BuildI64ElementsAttr(builder, collapsed_slice_dims),
-      /*start_index_map=*/BuildI64ElementsAttr(builder, start_index_map),
-      /*index_vector_dim=*/builder.getI64IntegerAttr(index_vector_dim),
-      builder.getContext());
+  auto dims_attr = GatherDimensionNumbersAttr::get(
+      builder.getContext(),
+      /*offset_dims=*/offset_dims,
+      /*collapsed_slice_dims=*/collapsed_slice_dims,
+      /*start_index_map=*/start_index_map,
+      /*index_vector_dim=*/index_vector_dim);
 
-  // output_shape = params.shape[:axis] + indices.shape + params.shape[axis +
-  // 1:]
+  // output_shape = params.shape[:axis] + indices.shape +
+  //                params.shape[axis + 1:]
   auto params_shape = params_rank_type.getShape();
   auto indices_shape = indices_rank_type.getShape();
   SmallVec4<mlir_dim_t> output_shape(params_shape.begin(),

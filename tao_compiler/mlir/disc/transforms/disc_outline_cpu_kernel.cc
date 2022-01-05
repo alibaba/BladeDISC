@@ -17,8 +17,8 @@ limitations under the License.
 // parallelOp) to a dedicated function.
 
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/mhlo/IR/disc_ral_ops.h"
-#include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops.h"
+#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
+#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/IR/BlockAndValueMapping.h"
@@ -43,7 +43,7 @@ namespace {
 /// operations may not have side-effects, as otherwise sinking (and hence
 /// duplicating them) is not legal.
 static bool isSinkingBeneficiary(Operation* op) {
-  return isa<ConstantOp, memref::DimOp, SelectOp, CmpIOp>(op);
+  return isa<arith::ConstantOp, memref::DimOp, SelectOp, arith::CmpIOp>(op);
 }
 
 /// For a given operation `op`, computes whether it is beneficial to sink the
@@ -208,7 +208,7 @@ static void convertToLaunchFuncOp(Operation* launchOp, FuncOp kernelFunc,
   Location loc = launchOp->getLoc();
   OpBuilder builder(launchOp);
   // TODO(disc): find a way to estimate the unit workload size.
-  Value unitWorkloadSizeHint = builder.create<ConstantIndexOp>(loc, 1);
+  Value unitWorkloadSizeHint = builder.create<arith::ConstantIndexOp>(loc, 1);
   builder.create<disc_ral::CpuLaunchOp>(
       loc, operands[0], operands[1], operands[2], operands[3],
       unitWorkloadSizeHint, operands.drop_front(4),
@@ -230,7 +230,7 @@ LogicalResult cloneAndMoveTo(OpBuilder& b, scf::ParallelOp parallelOp,
   // iterations in the same thread.
   SmallVector<Operation*> allocOps;
   SmallVector<Operation*> deallocOps;
-  for (Operation& op : cloned.region().front()) {
+  for (Operation& op : cloned.getLoopBody().front()) {
     if (isa<memref::AllocOp>(&op)) {
       allocOps.push_back(&op);
     } else if (isa<memref::DeallocOp>(&op)) {
@@ -264,15 +264,15 @@ LogicalResult rewriteLaunchOpSetting(scf::ParallelOp parallelOp,
   OpBuilder builder(parallelOp);
   int numIvs = parallelOp.getInductionVars().size();
   auto launchSettingType = MemRefType::get(
-      {numIvs}, builder.getIndexType(), ArrayRef<AffineMap>{},
+      {numIvs}, builder.getIndexType(), MemRefLayoutAttrInterface(),
       StringAttr::get(parallelOp->getContext(), placement_utils::kCpu));
   Value lowerBound = builder.create<memref::AllocaOp>(loc, launchSettingType);
   Value upperBound = builder.create<memref::AllocaOp>(loc, launchSettingType);
   Value step = builder.create<memref::AllocaOp>(loc, launchSettingType);
-  for (auto&& en :
-       llvm::enumerate(llvm::zip(parallelOp.lowerBound(),
-                                 parallelOp.upperBound(), parallelOp.step()))) {
-    Value idx = builder.create<ConstantIndexOp>(loc, en.index());
+  for (auto&& en : llvm::enumerate(llvm::zip(parallelOp.getLowerBound(),
+                                             parallelOp.getUpperBound(),
+                                             parallelOp.getStep()))) {
+    Value idx = builder.create<arith::ConstantIndexOp>(loc, en.index());
     builder.create<memref::StoreOp>(loc, std::get<0>(en.value()), lowerBound,
                                     idx);
     builder.create<memref::StoreOp>(loc, std::get<1>(en.value()), upperBound,
@@ -285,9 +285,9 @@ LogicalResult rewriteLaunchOpSetting(scf::ParallelOp parallelOp,
 
   // We use a scf::if op as the wrapper op. The pred of the if op is a constant
   // true.
-  Value pred = builder.create<ConstantIntOp>(loc, 1, 1);
+  Value pred = builder.create<arith::ConstantIntOp>(loc, 1, 1);
   scf::IfOp ifOp = builder.create<scf::IfOp>(loc, llvm::None, pred, false);
-  Block* thenBlock = &ifOp.thenRegion().getBlocks().front();
+  Block* thenBlock = &ifOp.getThenRegion().getBlocks().front();
   parallelOp->moveBefore(thenBlock, thenBlock->begin());
   targetOp = ifOp;
 
@@ -295,29 +295,30 @@ LogicalResult rewriteLaunchOpSetting(scf::ParallelOp parallelOp,
   // We also add a speculation logic for the steps of the loop since only loops
   // with step equal to one will be applied auto vectorization in LLVM.
   builder.setInsertionPoint(parallelOp);
-  Value one = builder.create<ConstantIndexOp>(loc, 1);
-  Value stepAllOnes = builder.create<ConstantIntOp>(loc, 1, 1);
+  Value one = builder.create<arith::ConstantIndexOp>(loc, 1);
+  Value stepAllOnes = builder.create<arith::ConstantIntOp>(loc, 1, 1);
   SmallVector<Value> lowerBoundVec, upperBoundVec, stepVec,
       stepOneVec(numIvs, one);
   for (int i = 0; i < numIvs; ++i) {
-    Value idx = builder.create<ConstantIndexOp>(loc, i);
+    Value idx = builder.create<arith::ConstantIndexOp>(loc, i);
     lowerBoundVec.push_back(
         builder.create<memref::LoadOp>(loc, lowerBound, idx));
     upperBoundVec.push_back(
         builder.create<memref::LoadOp>(loc, upperBound, idx));
     stepVec.push_back(builder.create<memref::LoadOp>(loc, step, idx));
-    Value stepIsOne =
-        builder.create<CmpIOp>(loc, CmpIPredicate::eq, stepVec.back(), one);
-    stepAllOnes = builder.create<AndOp>(loc, stepAllOnes, stepIsOne);
+    Value stepIsOne = builder.create<arith::CmpIOp>(
+        loc, arith::CmpIPredicate::eq, stepVec.back(), one);
+    stepAllOnes = builder.create<arith::AndIOp>(loc, stepAllOnes, stepIsOne);
   }
   ifOp = builder.create<scf::IfOp>(loc, llvm::None, stepAllOnes, true);
   if (failed(cloneAndMoveTo(builder, parallelOp, lowerBoundVec, upperBoundVec,
                             stepOneVec,
-                            &ifOp.thenRegion().getBlocks().front()))) {
+                            &ifOp.getThenRegion().getBlocks().front()))) {
     return ifOp->emitError("failed to cloned the parallel op\n");
   }
   if (failed(cloneAndMoveTo(builder, parallelOp, lowerBoundVec, upperBoundVec,
-                            stepVec, &ifOp.elseRegion().getBlocks().front()))) {
+                            stepVec,
+                            &ifOp.getElseRegion().getBlocks().front()))) {
     return ifOp->emitError("failed to cloned the parallel op\n");
   }
   parallelOp->erase();

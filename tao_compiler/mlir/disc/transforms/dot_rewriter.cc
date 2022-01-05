@@ -89,23 +89,9 @@ struct DotToDotGeneralConvert : public OpRewritePattern<mhlo::DotOp> {
     // See https://www.tensorflow.org/xla/operation_semantics#dot
     lhs_contracting_dims.push_back(1);
     rhs_contracting_dims.push_back(0);
-    DenseIntElementsAttr lhs_contracting_dims_attr =
-        ConvertIntVecToDenseIntElementsAttr(lhs_contracting_dims, rewriter);
-    DenseIntElementsAttr rhs_contracting_dims_attr =
-        ConvertIntVecToDenseIntElementsAttr(rhs_contracting_dims, rewriter);
-    std::vector<int64_t> lhs_batch_dims{};
-    std::vector<int64_t> rhs_batch_dims{};
-    DenseIntElementsAttr lhs_batch_dims_attr =
-        ConvertIntVecToDenseIntElementsAttr(lhs_batch_dims, rewriter);
-    DenseIntElementsAttr rhs_batch_dims_attr =
-        ConvertIntVecToDenseIntElementsAttr(rhs_batch_dims, rewriter);
-    mhlo::DotDimensionNumbers dot_dimension_attr =
-        mhlo::DotDimensionNumbers::get(
-            /*lhs_batching_dimensions=*/lhs_batch_dims_attr,
-            /*rhs_batching_dimensions=*/rhs_batch_dims_attr,
-            /*lhs_contracting_dimensions=*/lhs_contracting_dims_attr,
-            /*rhs_contracting_dimensions=*/rhs_contracting_dims_attr,
-            rewriter.getContext());
+    auto dot_dimension_attr = mhlo::DotDimensionNumbersAttr::get(
+        rewriter.getContext(), {}, {}, lhs_contracting_dims,
+        rhs_contracting_dims);
 
     Value dot_general = rewriter.create<mhlo::DotGeneralOp>(
         op.getLoc(), op.getType(), op.lhs(), op.rhs(), dot_dimension_attr,
@@ -141,8 +127,7 @@ struct TransposeFoldingConvert : public OpRewritePattern<mhlo::DotGeneralOp> {
     }
 
     auto dim_numbers = op.dot_dimension_numbers();
-    auto lhs_batching_dims =
-        dim_numbers.lhs_batching_dimensions().getValues<int64_t>();
+    auto lhs_batching_dims = dim_numbers.getLhsBatchingDimensions();
     SmallVector<int64_t, 4> lhs_perm;
     bool tp_lhs = isNonBatchingTransposeTensorValue(
         old_lhs, lhs_perm,
@@ -150,8 +135,7 @@ struct TransposeFoldingConvert : public OpRewritePattern<mhlo::DotGeneralOp> {
                                     lhs_batching_dims.end()));
     SmallVector<int64_t, 4> rhs_perm;
 
-    auto rhs_batching_dims =
-        dim_numbers.rhs_batching_dimensions().getValues<int64_t>();
+    auto rhs_batching_dims = dim_numbers.getRhsBatchingDimensions();
     bool tp_rhs = isNonBatchingTransposeTensorValue(
         old_rhs, rhs_perm,
         std::unordered_set<int64_t>(rhs_batching_dims.begin(),
@@ -161,39 +145,30 @@ struct TransposeFoldingConvert : public OpRewritePattern<mhlo::DotGeneralOp> {
       return failure();
     }
 
-    DenseIntElementsAttr lhs_contracting_dims_attr;
+    std::vector<int64_t> lhs_contracting_dims;
     if (tp_lhs) {
-      std::vector<int64_t> lhs_contracting_dims;
-      for (auto& en : llvm::enumerate(
-               dim_numbers.lhs_contracting_dimensions().getValues<int64_t>())) {
+      for (auto& en :
+           llvm::enumerate(dim_numbers.getLhsContractingDimensions())) {
         lhs_contracting_dims.push_back(lhs_perm[en.value()]);
       }
-      lhs_contracting_dims_attr =
-          ConvertIntVecToDenseIntElementsAttr(lhs_contracting_dims, rewriter);
     } else {
-      lhs_contracting_dims_attr = dim_numbers.lhs_contracting_dimensions();
+      lhs_contracting_dims = dim_numbers.getLhsContractingDimensions();
     }
 
-    DenseIntElementsAttr rhs_contracting_dims_attr;
+    std::vector<int64_t> rhs_contracting_dims;
     if (tp_rhs) {
-      std::vector<int64_t> rhs_contracting_dims;
-      for (auto& en : llvm::enumerate(
-               dim_numbers.rhs_contracting_dimensions().getValues<int64_t>())) {
+      for (auto& en :
+           llvm::enumerate(dim_numbers.getRhsContractingDimensions())) {
         rhs_contracting_dims.push_back(rhs_perm[en.value()]);
       }
-      rhs_contracting_dims_attr =
-          ConvertIntVecToDenseIntElementsAttr(rhs_contracting_dims, rewriter);
     } else {
-      rhs_contracting_dims_attr = dim_numbers.rhs_contracting_dimensions();
+      rhs_contracting_dims = dim_numbers.getRhsContractingDimensions();
     }
 
-    mhlo::DotDimensionNumbers dot_dimension_attr =
-        mhlo::DotDimensionNumbers::get(
-            /*lhs_batching_dimensions=*/dim_numbers.lhs_batching_dimensions(),
-            /*rhs_batching_dimensions=*/dim_numbers.rhs_batching_dimensions(),
-            /*lhs_contracting_dimensions=*/lhs_contracting_dims_attr,
-            /*rhs_contracting_dimensions=*/rhs_contracting_dims_attr,
-            rewriter.getContext());
+    auto dot_dimension_attr = mhlo::DotDimensionNumbersAttr::get(
+        rewriter.getContext(), dim_numbers.getLhsBatchingDimensions(),
+        dim_numbers.getRhsBatchingDimensions(), lhs_contracting_dims,
+        rhs_contracting_dims);
 
     // Re-direct the lhs/rhs if needed.
     Value lhs = tp_lhs ? old_lhs.getDefiningOp()->getOperand(0) : old_lhs;

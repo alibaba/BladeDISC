@@ -153,7 +153,7 @@ Status RealMain(int argc, char** argv) {
 int main(int argc, char** argv) {
   std::vector<tensorflow::Flag> flag_list;
   xla::AppendDebugOptionsFlags(&flag_list);
-  xla::string usage = tensorflow::Flags::Usage(argv[0], flag_list);
+  std::string usage = tensorflow::Flags::Usage(argv[0], flag_list);
   if (!tensorflow::Flags::Parse(&argc, argv, flag_list)) {
     LOG(ERROR) << "\n" << usage;
     return -1;

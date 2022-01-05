@@ -2,15 +2,15 @@
 
 // CHECK-LABEL: simple_broadcast_specialization
 func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
-  %c0 = constant 0 : index
+  %c0 = arith.constant 0 : index
   %0 = "disc_ral.recv_input"(%arg0, %c0) : (!disc_ral.context, index) -> memref<?x?xf32>
-  %c0_0 = constant 0 : index
+  %c0_0 = arith.constant 0 : index
   %1 = memref.dim %0, %c0_0 : memref<?x?xf32>
-  %c1 = constant 1 : index
+  %c1 = arith.constant 1 : index
   %2 = memref.dim %0, %c1 : memref<?x?xf32>
   %3 = memref.alloc() : memref<f32>
   %4 = tensor.from_elements %1, %2 : tensor<2xindex>
-  %5 = memref.buffer_cast %4 : memref<2xindex>
+  %5 = bufferization.to_memref %4 : memref<2xindex>
   %6 = memref.alloc(%1, %2) : memref<?x?xf32>
   %7 = memref.alloc(%1, %2) : memref<?x?xf32>
   %8 = memref.alloc(%1, %2) : memref<?x?xf32>
@@ -18,17 +18,17 @@ func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
   // CHECK: %[[T6:.*]] = memref.alloc{{.*}} : memref<?x?xf32>
   // CHECK: %[[T7:.*]] = memref.alloc{{.*}} : memref<?x?xf32>
   // CHECK: %[[T8:.*]] = memref.alloc{{.*}} : memref<?x?xf32>
-  // CHECK: %[[c0_1:.*]] = constant 0 : index
+  // CHECK: %[[c0_1:.*]] = arith.constant 0 : index
   // CHECK: %[[T9:.*]] = memref.dim %[[T0]], %[[c0_1]] : memref<?x?xf32>
-  // CHECK: %[[c0_2:.*]] = constant 0 : index
+  // CHECK: %[[c0_2:.*]] = arith.constant 0 : index
   // CHECK: %[[T10:.*]] = memref.dim %[[T7]], %[[c0_2]] : memref<?x?xf32>
-  // CHECK: %[[T11:.*]] = cmpi eq, %[[T9]], %[[T10]] : index
-  // CHECK: %[[c1_3:.*]] = constant 1 : index
+  // CHECK: %[[T11:.*]] = arith.cmpi eq, %[[T9]], %[[T10]] : index
+  // CHECK: %[[c1_3:.*]] = arith.constant 1 : index
   // CHECK: %[[T12:.*]] = memref.dim %[[T0]], %[[c1_3]] : memref<?x?xf32>
-  // CHECK: %[[c1_4:.*]] = constant 1 : index
+  // CHECK: %[[c1_4:.*]] = arith.constant 1 : index
   // CHECK: %[[T13:.*]] = memref.dim %[[T7]], %[[c1_4]] : memref<?x?xf32>
-  // CHECK: %[[T14:.*]] = cmpi eq, %[[T12]], %[[T13]] : index
-  // CHECK: %[[T15:.*]] = and %[[T14]], %[[T11]] : i1
+  // CHECK: %[[T14:.*]] = arith.cmpi eq, %[[T12]], %[[T13]] : index
+  // CHECK: %[[T15:.*]] = arith.andi %[[T14]], %[[T11]] : i1
   // CHECK: scf.if %[[T15]] {
   // CHECK:   %[[CastedT0:.*]] = memref.reinterpret_cast %[[T0]]
   // CHECK:   %[[CastedT8:.*]] = memref.reinterpret_cast %[[T8]]
@@ -55,7 +55,7 @@ func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
     "lmhlo.add"(%6, %7, %8) : (memref<?x?xf32>, memref<?x?xf32>, memref<?x?xf32>) -> ()
     "lmhlo.terminator"() : () -> ()
   }) {disc.fusion.name = "test1", disc_vectorize_hint = 2, disc.fusion_type = "kLoop", disc.device = "gpu"} : () -> ()
-  %c0_1 = constant 0 : index
+  %c0_1 = arith.constant 0 : index
   "disc_ral.send_output"(%arg0, %c0_1, %8) : (!disc_ral.context, index, memref<?x?xf32>) -> ()
   return
 }
@@ -64,10 +64,10 @@ func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
 
 // CHECK-LABEL: simple_row_reduction_vectorization_specialization
 func @simple_row_reduction_vectorization_specialization(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2: memref<?xf32>, %arg3: memref<f32>) -> (memref<?x?xf32>, memref<?xf32>) {
-  // CHECK: %[[c1:.*]] = constant 1 : index
+  // CHECK: %[[c1:.*]] = arith.constant 1 : index
   // CHECK: %[[T0:.*]] = memref.dim %arg1, %[[c1]] : memref<?x?xf32>
-  // CHECK: %[[c512:.*]] = constant 512 : index
-  // CHECK: %[[T1:.*]] = cmpi sgt, %[[T0]], %[[c512]] : index
+  // CHECK: %[[c512:.*]] = arith.constant 512 : index
+  // CHECK: %[[T1:.*]] = arith.cmpi sgt, %[[T0]], %[[c512]] : index
   // Schedule 1
   // CHECK: scf.if %[[T1]] {
   // Vectorize with width 2.

@@ -36,9 +36,7 @@ void CreateGraph(Graph* g, const std::string& gdef_ascii) {
   TF_CHECK_OK(ConvertGraphDefToGraph(opts, gdef, g));
 }
 
-REGISTER_OP("ConstMock")
-    .Output("output: float")
-    .Attr("value: tensor")
+REGISTER_OP("ConstMock").Output("output: float").Attr("value: tensor")
     /* .Attr("dtype: type") */;
 
 REGISTER_OP("MatMulMock")

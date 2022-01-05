@@ -16,17 +16,16 @@
   void operator=(const TypeName&) = delete;
 
 #define TorchBladeDeclNewFlag(T, Name) \
-  T Set##Name(T);                       \
+  T Set##Name(T);                      \
   T& Get##Name();
 
 #define TorchBladeDefNewFlag(T, Name) \
-  T& Get##Name() {                     \
-    thread_local T flag;               \
-    return flag;                       \
-  }                                    \
-  T Set##Name(T flag) {                \
-    T old_flag = Get##Name();          \
-    Get##Name() = flag;                \
-    return old_flag;                   \
+  T& Get##Name() {                    \
+    thread_local T flag;              \
+    return flag;                      \
+  }                                   \
+  T Set##Name(T flag) {               \
+    T old_flag = Get##Name();         \
+    Get##Name() = flag;               \
+    return old_flag;                  \
   }
-

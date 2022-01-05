@@ -94,4 +94,3 @@ class RalContext {
 
 } // namespace blade
 } // namespace torch
-

@@ -55,9 +55,9 @@ template <typename T>
 using Vec = typename VecStruct<T>::type;
 
 struct Node {
-  int32 rank;    // rank number assigned by Pearce-Kelly algorithm
-  bool visited;  // Temporary marker used by depth-first-search
-  void* data;    // User-supplied data
+  int32 rank;          // rank number assigned by Pearce-Kelly algorithm
+  bool visited;        // Temporary marker used by depth-first-search
+  void* data;          // User-supplied data
   OrderedNodeSet in;   // List of immediate predecessor nodes in graph
   OrderedNodeSet out;  // List of immediate successor nodes in graph
 };
@@ -432,7 +432,7 @@ void SortInPostOrder(absl::Span<Node* const> nodes,
 std::vector<int32> GraphCycles::AllNodesInPostOrder() const {
   std::unordered_set<int32> free_nodes_set;
   std::copy(rep_->free_nodes_.begin(), rep_->free_nodes_.end(),
-               std::inserter(free_nodes_set, free_nodes_set.begin()));
+            std::inserter(free_nodes_set, free_nodes_set.begin()));
 
   std::vector<int32> all_nodes;
   all_nodes.reserve(rep_->nodes_.size() - free_nodes_set.size());
@@ -468,5 +468,5 @@ string GraphCycles::DebugString() const {
   return result;
 }
 
-}  // namespace tao 
+}  // namespace tao
 }  // namespace tensorflow

@@ -9,7 +9,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #include "compiler/mlir/converters/impl/utils.h"
 
 #include "common_utils/logging.h"

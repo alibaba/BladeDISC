@@ -12,10 +12,9 @@
 #ifndef TAO_TAO_BRIDGE_TAO_UTIL_H_
 #define TAO_TAO_BRIDGE_TAO_UTIL_H_
 
-#include "absl/strings/string_view.h"
-
 #include <memory>
 
+#include "absl/strings/string_view.h"
 #include "tensorflow/core/common_runtime/function.h"
 #include "tensorflow/core/framework/function.h"
 

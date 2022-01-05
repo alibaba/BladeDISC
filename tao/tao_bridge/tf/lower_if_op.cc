@@ -214,12 +214,12 @@ Status InlineCallInGraph(Node* n, Graph* g,
   std::unique_ptr<FunctionBody> fbody;
 #endif
 
-  TF_RETURN_IF_ERROR(
-      FunctionDefToBodyHelper(*fdef, n->attrs(), lib,
-                              [lib](const string& op, const OpDef** sig) {
-                                return lib->LookUpOpDef(op, sig);
-                              },
-                              &fbody));
+  TF_RETURN_IF_ERROR(FunctionDefToBodyHelper(
+      *fdef, n->attrs(), lib,
+      [lib](const string& op, const OpDef** sig) {
+        return lib->LookUpOpDef(op, sig);
+      },
+      &fbody));
 #if defined TF_1_12
   InlineFunctionBody(*lib, g, n, fbody, {});
   delete fbody;

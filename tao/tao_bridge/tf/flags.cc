@@ -215,7 +215,7 @@ void AllocateAndParseFlags() {
             "element in the tensors named in `tensor_names.")});
 
   AppendMarkForCompilationPassFlagsInternal(flag_list);
-  //xla::ParseFlagsFromEnvAndDieIfUnknown("TF_XLA_FLAGS", *flag_list);
+  // xla::ParseFlagsFromEnvAndDieIfUnknown("TF_XLA_FLAGS", *flag_list);
   xla::tao::legacy_flags::ParseFlagsFromEnv(*flag_list);
 }
 

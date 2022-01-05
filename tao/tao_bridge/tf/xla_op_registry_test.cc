@@ -20,7 +20,8 @@
 // namespace tensorflow {
 // namespace {
 
-// // This test is to verify the correctness of XLA op registration with specific
+// // This test is to verify the correctness of XLA op registration with
+// specific
 // // backend overrides.
 
 // // A dummy backend-specific OpKernel for CPU.
@@ -57,7 +58,8 @@
 //                     .Device(DEVICE_CPU_XLA_JIT)
 //                     .TypeConstraint("T", DT_INT32),
 //                 DummyCPUOp);
-// // Register the DummyGeneric kernel for all registered device (except CPU since
+// // Register the DummyGeneric kernel for all registered device (except CPU
+// since
 // // it is already registered), with type FLOAT.
 // REGISTER_XLA_OP(Name("DummyDuplicateOp").TypeConstraint("T", DT_FLOAT),
 //                 DummyGenericOp);

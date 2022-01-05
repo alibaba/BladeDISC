@@ -48,10 +48,13 @@
 //           /*flib_runtime=*/nullptr));
 
 //   // Arg 0 doesn't need to be constant since the graph only uses its shape.
-//   // Arg 1 must be constant because it flows to the shape argument of a Reshape.
-//   // Arg 2 is used only as the value input to a Reshape and need not be const.
-//   // Arg 3 is used as the reduction-indices argument to Sum and must be const.
-//   EXPECT_EQ(const_args, std::vector<bool>({false, true, false, true}));
+//   // Arg 1 must be constant because it flows to the shape argument of a
+//   Reshape.
+//   // Arg 2 is used only as the value input to a Reshape and need not be
+//   const.
+//   // Arg 3 is used as the reduction-indices argument to Sum and must be
+//   const. EXPECT_EQ(const_args, std::vector<bool>({false, true, false,
+//   true}));
 
 //   EXPECT_FALSE(const_nodes[arg0.node()->id()]);
 //   EXPECT_TRUE(const_nodes[arg1.node()->id()]);
@@ -95,7 +98,8 @@
 //   Output arg0 = ops::_Arg(root.WithOpName("Arg0"), DT_INT32, 0);
 //   Output arg1 = ops::_Arg(root.WithOpName("Arg1"), DT_INT32, 1);
 //   Output c1 =
-//       ops::Const(root.WithOpName("c1").WithControlDependencies(arg0), 1, {1});
+//       ops::Const(root.WithOpName("c1").WithControlDependencies(arg0), 1,
+//       {1});
 //   Output add = ops::Add(root, arg1, c1);
 //   Output reshape = ops::Reshape(root, arg1, add);
 

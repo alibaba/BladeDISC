@@ -9,8 +9,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
-
 // This pass converts DotOp into DotGeneralOp, and folds transpose into
 // DotGeneralOp.
 

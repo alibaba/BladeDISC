@@ -81,11 +81,12 @@ limitations under the License.
 #include "tao_bridge/tf/resource_operation_safety_analysis.h"
 
 #include <unordered_set>
+
 #include "absl/memory/memory.h"
 #include "absl/strings/str_join.h"
 #include "absl/types/optional.h"
-#include "tao_bridge/tf/xla_cluster_util.h"
 #include "tao_bridge/tf/resource_operation_table.h"
+#include "tao_bridge/tf/xla_cluster_util.h"
 #include "tensorflow/core/framework/node_def.pb.h"
 #include "tensorflow/core/graph/algorithm.h"
 #include "tensorflow/core/graph/tensor_id.h"
@@ -156,10 +157,10 @@ string ResourceOpToString(const ResourceOp& resource_op) {
 // TODO(sanjoy): It may be useful to pull this out into its own header at some
 // point.
 struct HashResourceOp {
-  std::size_t operator () (const ResourceOp &p) const {
+  std::size_t operator()(const ResourceOp& p) const {
     auto h1 = std::hash<int>{}(p.first);
     auto h2 = std::hash<std::size_t>{}(static_cast<std::size_t>(p.second));
-    return h1 ^ h2;  
+    return h1 ^ h2;
   }
 };
 

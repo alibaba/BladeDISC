@@ -16,8 +16,8 @@ limitations under the License.
 // Adopted from tensorflow/core/common_runtime/lower_while_op.cc
 
 #include "tao_bridge/tf/lower_while_op.h"
-#include "tao_bridge/tf/lower_if_op.h"
 
+#include "tao_bridge/tf/lower_if_op.h"
 #include "tensorflow/core/common_runtime/function.h"
 #include "tensorflow/core/framework/node_def_builder.h"
 #include "tensorflow/core/graph/graph.h"
@@ -464,12 +464,12 @@ Status InlineCallInGraph(Node* n, Graph* g,
   std::unique_ptr<FunctionBody> fbody;
 #endif
 
-  TF_RETURN_IF_ERROR(
-      FunctionDefToBodyHelper(*fdef, n->attrs(), lib,
-                              [lib](const string& op, const OpDef** sig) {
-                                return lib->LookUpOpDef(op, sig);
-                              },
-                              &fbody));
+  TF_RETURN_IF_ERROR(FunctionDefToBodyHelper(
+      *fdef, n->attrs(), lib,
+      [lib](const string& op, const OpDef** sig) {
+        return lib->LookUpOpDef(op, sig);
+      },
+      &fbody));
 #if defined TF_1_12
   InlineFunctionBody(*lib, g, n, fbody, {});
   delete fbody;

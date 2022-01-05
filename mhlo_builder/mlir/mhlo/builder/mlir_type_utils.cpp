@@ -9,7 +9,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #include "mlir/mhlo/builder/mlir_type_utils.h"
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"

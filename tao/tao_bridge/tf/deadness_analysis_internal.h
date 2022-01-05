@@ -17,9 +17,9 @@ limitations under the License.
 #define TAO_TAO_BRIDGE_TF_DEADNESS_ANALYSIS_INTERNAL_H_
 
 // #include "absl/container/flat_hash_map.h"
-#include "tensorflow/core/graph/tensor_id.h"
-
 #include <unordered_map>
+
+#include "tensorflow/core/graph/tensor_id.h"
 
 namespace tensorflow {
 namespace tao {

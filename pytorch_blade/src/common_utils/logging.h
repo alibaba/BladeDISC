@@ -13,9 +13,8 @@
 
 #include "c10/util/Logging.h"
 
-#define DLOG(...)                                       \
+#define DLOG(...)                                      \
   if (std::getenv("TORCH_BLADE_DEBUG_LOG") != nullptr) \
   LOG(__VA_ARGS__)
 
 #define LOG_ASSERT(condition) FATAL_IF(condition)
-

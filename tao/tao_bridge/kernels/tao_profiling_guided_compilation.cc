@@ -12,6 +12,7 @@
 #include "tao_bridge/kernels/tao_profiling_guided_compilation.h"
 
 #include <sys/time.h>
+
 #include "tensorflow/core/util/env_var.h"
 
 namespace tensorflow {

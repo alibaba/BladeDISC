@@ -18,8 +18,8 @@ limitations under the License.
 #include <unordered_map>
 #include <unordered_set>
 
-#include "tao_bridge/tf/xla_op_registry.h"
 #include "tao_bridge/errors.h"
+#include "tao_bridge/tf/xla_op_registry.h"
 #include "tensorflow/core/common_runtime/function.h"
 #include "tensorflow/core/framework/attr_value.pb.h"
 #include "tensorflow/core/framework/function.h"
@@ -303,8 +303,8 @@ Status BackwardsConstAnalysis(
 
     for (Edge const* edge : node->in_edges()) {
       if (!edge->IsControlEdge() &&
-          std::binary_search(const_input_idxs.begin(),
-            const_input_idxs.end(), edge->dst_input()) &&
+          std::binary_search(const_input_idxs.begin(), const_input_idxs.end(),
+                             edge->dst_input()) &&
           edge_filter(*edge)) {
         // Do not mark IdentityN nodes as compile-time const.
         // If the src node of the `pred` is an IdentityN do not mark it as a

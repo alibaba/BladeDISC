@@ -52,7 +52,7 @@ Status GetCompileTimeConstInputs(const OpKernel* op_kernel,
                                  std::vector<int>* fixed_shape_input_idxs,
                                  FunctionLibraryRuntime* flib_runtime,
                                  bool is_mlir = false);
-}  // namespace tao 
+}  // namespace tao
 }  // namespace tensorflow
 
 #endif  // TENSORFLOW_COMPILER_TF2XLA_CONST_ANALYSIS_H_

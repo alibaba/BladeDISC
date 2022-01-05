@@ -19,6 +19,7 @@ limitations under the License.
 #define TENSORFLOW_COMPILER_JIT_XLA_CLUSTER_UTIL_H_
 
 #include <unordered_set>
+
 #include "absl/types/optional.h"
 #include "tao_bridge/tf/graphcycles.h"
 #include "tao_bridge/tf/statusor.h"
@@ -62,7 +63,7 @@ bool HasForwardedRefInput(const Node& node);
 // Returns true for success and false for valid graphs that we can't handle yet
 // (b/127521408).
 xla::tao::StatusOr<bool> CreateCycleDetectionGraph(const Graph* graph,
-                                              GraphCycles* cycles);
+                                                   GraphCycles* cycles);
 
 // Returns the XLA cluster in which `node` is placed if it is in an XLA cluster,
 // otherwise returns nullopt.

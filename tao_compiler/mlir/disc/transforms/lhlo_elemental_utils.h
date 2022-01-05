@@ -36,7 +36,7 @@ class ParallelOp;
 namespace memref {
 class LoadOp;
 class ReinterpretCastOp;
-}
+}  // namespace memref
 
 namespace disc_ral {
 

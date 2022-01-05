@@ -18,10 +18,9 @@ limitations under the License.
 
 #include "tao_bridge/tf/dump_graph.h"
 
+#include "absl/strings/str_cat.h"
 #include "tao_bridge/common.h"
 #include "tao_bridge/dumper_common.h"
-
-#include "absl/strings/str_cat.h"
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/platform/mutex.h"
 
@@ -75,7 +74,7 @@ string WriteTextProtoToUniqueFile(
   string filepath =
       absl::StrCat(dirname, "/", MakeUniqueFilename(name, unique_file));
   if (!unique_file && env->FileExists(filepath).ok()) {
-      env->DeleteFile(filepath);
+    env->DeleteFile(filepath);
   }
   status = WriteTextProto(env, filepath, proto);
   if (!status.ok()) {

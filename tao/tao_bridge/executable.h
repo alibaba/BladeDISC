@@ -55,15 +55,9 @@ struct OutputDescription {
 
   OutputType type = kDefault;
 
-  bool is_constant() {
-    return type == kConstant;
-  }
-  bool is_resource() {
-    return type == kResource;
-  }
-  bool is_default() {
-    return type == kDefault;
-  }
+  bool is_constant() { return type == kConstant; }
+  bool is_resource() { return type == kResource; }
+  bool is_default() { return type == kDefault; }
 
   tensorflow::TensorShape shape;
   tensorflow::Tensor constant_value;
@@ -90,9 +84,7 @@ struct ConstantDescription {
 // Manage all buffers used during computation
 struct BufferAllocations {
   using Index = BufferAllocation::Index;
-  Index num_allocations() const {
-    return allocations.size();
-  }
+  Index num_allocations() const { return allocations.size(); }
   Index num_parameters() const {
     return allocation_id_to_parameter_index.size();
   }
@@ -136,8 +128,9 @@ struct BufferAllocations {
   }
 
   se::DeviceMemoryBase GetDeviceAddress(const BufferSlice& slice) const {
-    return se::DeviceMemoryBase(static_cast<char*>(
-      allocations.at(slice.id).ptr) + slice.offset, slice.size);
+    return se::DeviceMemoryBase(
+        static_cast<char*>(allocations.at(slice.id).ptr) + slice.offset,
+        slice.size);
   }
 
   void clear_buffers() {
@@ -164,9 +157,7 @@ struct BufferAllocations {
 struct ProfileState {
   int64 execution_time_in_us = -1;
 
-  bool is_valid() {
-    return execution_time_in_us > 0;
-  }
+  bool is_valid() { return execution_time_in_us > 0; }
 };
 
 class ExecutableRunOptions {
@@ -175,26 +166,19 @@ class ExecutableRunOptions {
     ctx_ = ctx;
     return *this;
   }
-  OpKernelContext* ctx() const {
-    return ctx_;
-  }
+  OpKernelContext* ctx() const { return ctx_; }
 
   ExecutableRunOptions& set_num_constant_args(int num) {
     num_constant_args_ = num;
     return *this;
   }
-  int num_constant_args() const {
-    return num_constant_args_;
-  }
+  int num_constant_args() const { return num_constant_args_; }
 
-  ExecutableRunOptions& set_variables(
-      std::map<int, OptionalTensor> variables) {
+  ExecutableRunOptions& set_variables(std::map<int, OptionalTensor> variables) {
     variables_ = std::move(variables);
     return *this;
   }
-  const std::map<int, OptionalTensor>& variables() const {
-    return variables_;
-  }
+  const std::map<int, OptionalTensor>& variables() const { return variables_; }
 
   ExecutableRunOptions& set_profile_state(ProfileState* state) {
     profile_state_ = state;
@@ -220,9 +204,7 @@ class Executable {
   // 2, Parse TaoCompilerResult and prepare to run
   virtual Status Init();
 
-  std::string compiled_result_file() const {
-    return compiled_result_file_;
-  }
+  std::string compiled_result_file() const { return compiled_result_file_; }
 
   virtual void DumpToFile(const std::string& filename) const;
 
@@ -243,8 +225,12 @@ class Executable {
                                 BufferAllocations& allocations,
                                 std::vector<Tensor>& output_tensors);
 
-  virtual Status StartProfiler(const ExecutableRunOptions& options) { return Status::OK(); }
-  virtual Status StopProfiler(const ExecutableRunOptions& options) { return Status::OK(); }
+  virtual Status StartProfiler(const ExecutableRunOptions& options) {
+    return Status::OK();
+  }
+  virtual Status StopProfiler(const ExecutableRunOptions& options) {
+    return Status::OK();
+  }
 
   const TaoCompilerResult& tao_compiler_result() const {
     CHECK(compiled_result_.get() != nullptr);
@@ -256,18 +242,14 @@ class Executable {
     return *compiled_result_;
   }
 
-  RalTfContext* ral_context() {
-    return ral_ctx_.get();
-  }
+  RalTfContext* ral_context() { return ral_ctx_.get(); }
 
   std::unique_ptr<RalTfContext>& mutable_ral_context() { return ral_ctx_; }
 
   BufferAllocations& buffers() { return buffers_; }
   const BufferAllocations& buffers() const { return buffers_; }
 
-  std::vector<Tensor>& output_tensors() {
-    return output_tensors_;
-  }
+  std::vector<Tensor>& output_tensors() { return output_tensors_; }
   std::unique_ptr<TaoCompilerResult> compiled_result_;
 
  private:
@@ -286,11 +268,12 @@ class ExecutableFactory {
  public:
   using ExecutableConstructor =
       std::function<std::unique_ptr<Executable>(const std::string&)>;
-  std::unique_ptr<Executable> NewExecutable(
-      const std::string& device_type, const std::string& proto_file);
+  std::unique_ptr<Executable> NewExecutable(const std::string& device_type,
+                                            const std::string& proto_file);
   static ExecutableFactory& Global();
-  bool RegisterExecutable(
-      const std::string& device_type, ExecutableConstructor);
+  bool RegisterExecutable(const std::string& device_type,
+                          ExecutableConstructor);
+
  private:
   ExecutableFactory() = default;
   std::unordered_map<std::string, ExecutableConstructor> constructors_;
@@ -298,24 +281,24 @@ class ExecutableFactory {
 
 struct Executableregistrar {
   using ExecutableConstructor = ExecutableFactory::ExecutableConstructor;
-  Executableregistrar(
-      const std::string& device_type, ExecutableConstructor ctor) {
-    ExecutableFactory::Global().RegisterExecutable(
-        device_type, ctor);
+  Executableregistrar(const std::string& device_type,
+                      ExecutableConstructor ctor) {
+    ExecutableFactory::Global().RegisterExecutable(device_type, ctor);
   }
 };
 
 #define TAO_REGISTER_EXECUTABLE(device, ctor) \
-    TAO_REGISTER_EXECUTABLE_IMPL(device, ctor, __COUNTER__)
+  TAO_REGISTER_EXECUTABLE_IMPL(device, ctor, __COUNTER__)
 
-#define TAO_REGISTER_EXECUTABLE_IMPL(device, ctor, ctr) \
-    Executableregistrar INTERNAL_REGISTER_TAO_EXECUBALE_NAME(ctr) TF_ATTRIBUTE_UNUSED (device, ctor)
+#define TAO_REGISTER_EXECUTABLE_IMPL(device, ctor, ctr)         \
+  Executableregistrar INTERNAL_REGISTER_TAO_EXECUBALE_NAME(ctr) \
+      TF_ATTRIBUTE_UNUSED(device, ctor)
 
 // __COUNTER__ must go through another macro to be properly expanded
 #define INTERNAL_REGISTER_TAO_EXECUBALE_NAME(ctr) ___##ctr##__object_
 
-} // namespace tao
+}  // namespace tao
 
-} // namespace tensorflow
+}  // namespace tensorflow
 
-#endif // TAO_TAO_BRIDGE_EXECUTABLE_H_
+#endif  // TAO_TAO_BRIDGE_EXECUTABLE_H_

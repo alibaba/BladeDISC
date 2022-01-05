@@ -12,10 +12,9 @@
 #ifndef TAO_TAO_BRIDGE_ERRORS_H_
 #define TAO_TAO_BRIDGE_ERRORS_H_
 
+#include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/platform/default/logging.h"
 #include "tensorflow/stream_executor/lib/statusor.h"
-#include "tensorflow/core/lib/core/status.h"
-
 
 namespace tensorflow {
 namespace tao {

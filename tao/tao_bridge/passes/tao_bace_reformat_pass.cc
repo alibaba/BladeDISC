@@ -86,7 +86,7 @@ Status TaoBaCEReformatPass::Run(const GraphOptimizationPassOptions& options) {
       AttrValue new_value;
       auto* new_tensor_proto = new_value.mutable_tensor();
       new_tensor_proto->set_version_number(tensor_proto.version_number());
-      if(!tensor_proto.tensor_content().empty()) {
+      if (!tensor_proto.tensor_content().empty()) {
         new_const.AsProtoTensorContent(new_tensor_proto);
       } else {
         new_const.AsProtoField(new_tensor_proto);

@@ -49,7 +49,8 @@
 //   EXPECT_FALSE(cycles.ContractEdge(a.node()->id(), b.node()->id()));
 // }
 
-// TEST(CreateCycleDetectionGraph, ConnectivityThroughMultipleEnterExitRegions) {
+// TEST(CreateCycleDetectionGraph, ConnectivityThroughMultipleEnterExitRegions)
+// {
 //   Scope root = Scope::NewRootScope().ExitOnError();
 
 //   Output a = ops::Const(root.WithOpName("a"), Input::Initializer(0.0));

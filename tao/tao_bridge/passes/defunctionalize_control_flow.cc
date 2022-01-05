@@ -10,6 +10,7 @@
 // limitations under the License.
 
 #include "tao_bridge/passes/defunctionalize_control_flow.h"
+
 #include "tao_bridge/tf/lower_if_op.h"
 #include "tao_bridge/tf/lower_while_op.h"
 #include "tensorflow/core/framework/function.h"

@@ -111,7 +111,7 @@ bool HasForwardedRefInput(const Node& node) {
 }
 
 xla::tao::StatusOr<bool> CreateCycleDetectionGraph(const Graph* graph,
-                                              GraphCycles* cycles) {
+                                                   GraphCycles* cycles) {
   for (int i = 0; i < graph->num_node_ids(); ++i) {
     // We rely on the node IDs in the cycle detection graph being consecutive
     // integers starting from 0.
@@ -271,7 +271,7 @@ bool IsSingleGpuGraph(const Graph& g) {
   std::unordered_set<string> devices_seen;
 
   for (Node* n : g.op_nodes()) {
-    //if (devices_seen.contains(n->assigned_device_name())) {
+    // if (devices_seen.contains(n->assigned_device_name())) {
     if (devices_seen.find(n->assigned_device_name()) != devices_seen.end()) {
       continue;
     }
@@ -320,9 +320,9 @@ bool MayCallFunction(const Node& n, const FunctionLibraryDefinition* flib_def) {
   // This is a conservative check: there may be nodes with a `func`
   // attribute that do not make function calls.
   return std::any_of(n.def().attr().begin(), n.def().attr().end(),
-                        [](const std::pair<string, AttrValue>& name_attr_pair) {
-                          return name_attr_pair.second.has_func();
-                        });
+                     [](const std::pair<string, AttrValue>& name_attr_pair) {
+                       return name_attr_pair.second.has_func();
+                     });
 }
 bool IsShapeConsumerOp(const Node& node) {
   return node.type_string() == "Shape" || node.type_string() == "Rank" ||
@@ -347,10 +347,10 @@ void HistogramMapToRepeatedOpAndCount(
   }
 
   std::sort(result->begin(), result->end(),
-      [](const XlaAutoClusteringSummary::OpAndCount& a,
-        const XlaAutoClusteringSummary::OpAndCount& b) {
-    return a.op() < b.op();
-  });
+            [](const XlaAutoClusteringSummary::OpAndCount& a,
+               const XlaAutoClusteringSummary::OpAndCount& b) {
+              return a.op() < b.op();
+            });
 }
 
 void ClusterInfoToProtobuf(XlaAutoClusteringSummary::Cluster* result,
@@ -449,9 +449,7 @@ xla::tao::StatusOr<bool> DoesAnyCalleeHaveRefNodes(
     if (OpRegistry::Global()->LookUp(call_target.name(), &op_reg).ok()) {
       const OpDef& op = op_reg->op_def;
       if (std::any_of(op.output_arg().begin(), op.output_arg().end(),
-          [](const OpDef::ArgDef arg) {
-            return arg.is_ref();
-          })) {
+                      [](const OpDef::ArgDef arg) { return arg.is_ref(); })) {
         return true;
       }
       continue;
@@ -536,11 +534,11 @@ Status GetNodesRelatedToRefVariablesInDirection(
       const EdgeSet& edges =
           direction == Direction::kForward ? n->in_edges() : n->out_edges();
       for (const Edge* e : edges) {
-        //if (result->contains(direction == Direction::kForward ? e->src()
-        //                                                      : e->dst())) {
-        if (result->find(direction == Direction::kForward ? e->src()
-                                                          : e->dst()) !=
-            result->end()) {
+        // if (result->contains(direction == Direction::kForward ? e->src()
+        //                                                       : e->dst())) {
+        if (result->find(direction == Direction::kForward
+                             ? e->src()
+                             : e->dst()) != result->end()) {
           result->insert(n);
           inserted_n = true;
           break;
@@ -552,8 +550,8 @@ Status GetNodesRelatedToRefVariablesInDirection(
       }
 
       if (direction == Direction::kForward &&
-          std::any_of(n->output_types().begin(),
-            n->output_types().end(), IsRefType)) {
+          std::any_of(n->output_types().begin(), n->output_types().end(),
+                      IsRefType)) {
         result->insert(n);
         continue;
       }

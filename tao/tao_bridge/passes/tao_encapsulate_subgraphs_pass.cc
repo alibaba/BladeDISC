@@ -2381,12 +2381,12 @@ Status Encapsulator::MakePrunedGraphCopyAndInline(
     std::unique_ptr<FunctionBody> fbody;
 #endif
 
-    TF_RETURN_IF_ERROR(
-        FunctionDefToBodyHelper(*fdef, node->attrs(), library,
-                                [library](const string& op, const OpDef** sig) {
-                                  return library->LookUpOpDef(op, sig);
-                                },
-                                &fbody));
+    TF_RETURN_IF_ERROR(FunctionDefToBodyHelper(
+        *fdef, node->attrs(), library,
+        [library](const string& op, const OpDef** sig) {
+          return library->LookUpOpDef(op, sig);
+        },
+        &fbody));
 
 #if defined TF_1_12
     InlineFunctionBody(*library, pruned_graph->get(), node, fbody, {});

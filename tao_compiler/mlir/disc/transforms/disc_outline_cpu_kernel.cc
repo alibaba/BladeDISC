@@ -188,7 +188,7 @@ FuncOp outlineKernelFunc(Operation* launchOp, StringRef kernelFnName,
   return funcOp;
 }
 
-StringRef getKernelName(int index, scf::ParallelOp op, StringRef funcName) {
+std::string getKernelName(int index, scf::ParallelOp op, StringRef funcName) {
   lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
   auto strIndex =
       (index != 0 ? ("_" + llvm::Twine(index)) : llvm::Twine("")).str();
@@ -366,8 +366,7 @@ LogicalResult DiscOutlineCpuKernel::processFunction(SymbolTable& symbolTable,
     SmallVector<Value> operands;
     operands.push_back(func.getArgument(0));
 
-    auto kernelFnName =
-        getKernelName(en.index(), en.value(), func.getName()).str();
+    auto kernelFnName = getKernelName(en.index(), en.value(), func.getName());
 
     // Create launch setting operands (e.g. lower/upper/step) and rewrite
     // parallelOp accordingly. To wrap the targeting parallelOp, in order to

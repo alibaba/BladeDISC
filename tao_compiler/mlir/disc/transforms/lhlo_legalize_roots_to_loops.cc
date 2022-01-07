@@ -2174,7 +2174,7 @@ LogicalResult lowerWithScheduleLoopCPU(
                                  parallel_loop, shape_constraint_analysis);
   }
 
-  if (root_ops.size() == 1 && isLargeConcatOp(root_ops[0])) {
+  if (non_fusion && isLargeConcatOp(dominant_op)) {
     return lowerWithScheduleLargeConcatCPU(
         root_ops, dominant_op, parent, non_fusion, shape_constraint_analysis);
   }
@@ -2365,6 +2365,12 @@ LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion) {
                                           /*non_fusion*/ false,
                                           /*parallel_loop*/ true,
                                           /*multi_dim_loop*/ true))) {
+        return dominant_op->emitError() << "failed to lower to loops";
+      }
+      break;
+    case FusionType::kLargeConcat:
+      if (failed(lowerWithScheduleLargeConcatCPU(
+              root_ops, dominant_op, fused_block, /*non_fusion*/ false))) {
         return dominant_op->emitError() << "failed to lower to loops";
       }
       break;

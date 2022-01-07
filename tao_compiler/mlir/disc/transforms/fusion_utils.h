@@ -93,6 +93,8 @@ enum FusionType {
   kInput,
   // TAO v1/v2 Stitch Fusion
   kStitch,
+  // A schedule for concat op having many operands.
+  kLargeConcat,
 };
 
 // Convert a fusion type to its string representation.

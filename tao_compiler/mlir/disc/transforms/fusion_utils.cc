@@ -56,6 +56,8 @@ StringRef fusionTypeToString(FusionType ft) {
       return "kInput";
     case FusionType::kStitch:
       return "kStitch";
+    case FusionType::kLargeConcat:
+      return "kLargeConcat";
     default:
       assert(false && "unknown fusion type");
       return "";
@@ -76,6 +78,8 @@ FusionType fusionTypeFromString(StringRef ft) {
     return FusionType::kInput;
   } else if (ft == "kStitch") {
     return FusionType::kStitch;
+  } else if (ft == "kLargeConcat") {
+    return FusionType::kLargeConcat;
   }
   assert(false && "unknown fusion type");
   return FusionType::kNone;
@@ -796,6 +800,10 @@ bool BaseCpuFusionStrategy::initFusionPattern(
       inferredDominantOp = nullptr;
       break;
     }
+  }
+  auto& roots = fused_pattern.getRootOps();
+  if (roots.size() == 1 && isLargeConcatOp(roots[0])) {
+    inferredFusionType = FusionType::kLargeConcat;
   }
   fused_pattern.setDominantOp(inferredDominantOp);
   fused_pattern.setFusionType(inferredFusionType);

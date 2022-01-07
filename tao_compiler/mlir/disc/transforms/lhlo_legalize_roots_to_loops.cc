@@ -2032,7 +2032,25 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion) {
 //     copy the last operand to output buffer
 //   }
 // }
-
+//
+// To reduce the average level of nested if statement, we further
+// reorder the structure of the if-else statement to form a binary
+// tree. Basic idea is:
+//
+// // Emits switch statement for range [from, to)
+// def emitSwitch(..., int idx, int from, int to) {
+//   if (to - from < 1) return;
+//   int mid = (from + to) / 2;
+//   if (idx == mid) {
+//     copy operand #mid to output
+//   } else {
+//     if (idx < mid) {
+//       emitSwitch(..., idx, from, mid);
+//     } else {
+//       emitSwitch(..., idx, mid+1, to);
+//     }
+//   }
+// }
 LogicalResult emitSwitchOperandIdx(OpBuilder& b, Location loc,
                                    lmhlo::ConcatenateOp op,
                                    SmallVector<Value>& concatOffsets,

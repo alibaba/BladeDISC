@@ -23,10 +23,7 @@ const std::string c_ft_path =
     "tensorflow/compiler/mlir/disc/tests/regression/data/";
 
 TEST(LargeConcat, CPUTest) {
-  std::vector<std::string> input_descriptors;
-  for (int i = 0; i < 64; ++i) {
-    input_descriptors.push_back("30x4xf32_X");
-  }
+  std::vector<std::string> input_descriptors(64, "30x4xf32_X");
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "large_concat_cpu.mlir",
       /*backend_types*/ {BackendType::kX86},

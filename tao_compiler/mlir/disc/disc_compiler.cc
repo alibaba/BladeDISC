@@ -61,6 +61,7 @@ limitations under the License.
 #include "mlir/Transforms/Passes.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
+#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/passes.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/rewriters.h"
@@ -273,6 +274,11 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   bool enable_stitch = !gpu_enabled;
   tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_STITCH", !gpu_enabled,
                                  &enable_stitch);
+  if (!gpu_enabled) {
+    FusionOptions fusionOptions;
+    fusionOptions.max_num_arguments_per_kernel = 4096;
+    setGlobalFusionOptions(fusionOptions);
+  }
   pm.addNestedPass<FuncOp>(disc_ral::createDiscFusionPass(
       gpu_enabled, enable_stitch ? "stitch" : "base"));
   if (gpu_enabled) {

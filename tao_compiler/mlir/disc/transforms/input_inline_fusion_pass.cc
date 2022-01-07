@@ -65,7 +65,7 @@ std::unique_ptr<FunctionPass> createDiscInputInlineFusionPass() {
 
 namespace {
 
-constexpr unsigned c_MAX_ITERATION = 4096;
+constexpr unsigned c_MAX_ITERATION = 4096 * 1000;
 
 // This pass works after LhloLegalizeRootsToParallelLoops pass for the
 // XLA-style fusion codegen.

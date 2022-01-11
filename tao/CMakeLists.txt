@@ -153,7 +153,6 @@ endif()
 if (${PLATFORM_ALIBABA})
   message("Build DISC in Alibaba platform")
   add_compile_options(-DPLATFORM_ALIBABA)
-  #set(PLATFORM_ALIBABA_PATH ../../platform_alibaba)
   get_filename_component(PLATFORM_ALIBABA_DIR ../../platform_alibaba ABSOLUTE)
 endif()
 

@@ -98,9 +98,10 @@ mlir::Value BuildStdNegtive(mlir::OpBuilder& builder, const mlir::Location& loc,
                             const mlir::Value& std_val);
 
 // Build conversion from standard scalar to Tensor
-mlir::Value BuildStdScalarToHloTensor(mlir::OpBuilder& builder,
-                                      const mlir::Location& loc,
-                                      const mlir::Value& std_scalar);
+mlir::Value BuildStdScalarToHloTensor(
+    mlir::OpBuilder& builder, const mlir::Location& loc,
+    const mlir::Value& std_scalar,
+    const llvm::Optional<mlir::Type>& elem_type_opt = llvm::None);
 
 // Build conversion from standard scalar(interger) to index
 mlir::Value BuildStdScalarToIndexType(mlir::OpBuilder& builder,
@@ -113,8 +114,9 @@ SmallValueVec4 BuildStdScalarToHloDimType(mlir::OpBuilder& builder,
                                           const SmallValueVec4& dim_sizes);
 
 // Build conversion from standard scalar vector to Tensor
-mlir::Value BuildStdScalarToHloTensor(mlir::OpBuilder& builder,
-                                      const mlir::Location& loc,
-                                      const SmallValueVec4& dim_sizes);
+mlir::Value BuildStdScalarToHloTensor(
+    mlir::OpBuilder& builder, const mlir::Location& loc,
+    const SmallValueVec4& values,
+    const llvm::Optional<mlir::Type>& elem_type_opt = llvm::None);
 }  // namespace mhlo
 }  // namespace mlir

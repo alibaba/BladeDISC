@@ -12,6 +12,7 @@
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
 #include <mlir/mhlo/builder/activation.h>
 #include <mlir/mhlo/builder/element_wise_binary.h>
+#include <mlir/mhlo/builder/mlir_type_utils.h>
 #include <mlir/mhlo/builder/slice.h>
 #include <mlir/mhlo/builder/standard.h>
 
@@ -23,6 +24,27 @@
 
 namespace torch {
 namespace blade {
+
+bool ConvertAtenHardtanh(
+    MhloConversionContext& ctx,
+    const torch::jit::Node& node) {
+  auto loc = GetNodeLocation(ctx, node);
+  auto inp_val = ctx.GetMlirValue(node.input(0));
+  auto min_val = ctx.GetMlirValue(node.input(1));
+  auto max_val = ctx.GetMlirValue(node.input(2));
+
+  auto builder = *ctx.builder;
+  auto elem_type = mlir::mhlo::GetMlirTensorElemType(inp_val);
+  auto lb =
+      mlir::mhlo::BuildStdScalarToHloTensor(builder, loc, min_val, elem_type);
+  auto ub =
+      mlir::mhlo::BuildStdScalarToHloTensor(builder, loc, max_val, elem_type);
+  auto result = builder.create<mlir::mhlo::ClampOp>(
+      loc, inp_val.getType(), lb, inp_val, ub);
+
+  ctx.value_map[node.output(0)] = result.getResult();
+  return true;
+}
 
 bool ConvertAtenRelu(MhloConversionContext& ctx, const torch::jit::Node& node) {
   const auto& loc = GetNodeLocation(ctx, node);
@@ -135,6 +157,9 @@ auto mhlo_conversion =
             "aten::leaky_relu(Tensor self, Scalar negative_slope=0.01) -> "
             "(Tensor)",
             ConvertAtenLeakyRelu)
+        .pattern(
+            "hardtanh(Tensor self, Scalar min_val=-1, Scalar max_val=1) -> Tensor",
+            ConvertAtenHardtanh)
         .pattern("aten::sigmoid(Tensor self) -> Tensor", ConvertAtenSigmoid)
         .pattern("aten::glu(Tensor self, int dim=-1) -> Tensor", ConvertAtenGlu)
         .pattern("aten::gelu(Tensor self) -> Tensor", ConvertAtenGelu);

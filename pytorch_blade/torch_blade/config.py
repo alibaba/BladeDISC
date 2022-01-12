@@ -99,9 +99,9 @@ class Config(ConfigContext):
     Example::
 
       import blade
-      import blade.torch
+      import torch_blade
 
-      config = blade.torch.Config()
+      config = torch_blade.Config()
       config.enable_mlir_amp = False
       with config:
         # do optimization under configure with mlir amp enable
@@ -137,6 +137,7 @@ class Config(ConfigContext):
         self._enable_trt_shape_white_list = False
         self._customize_op_white_list = []
         self._customize_op_black_list = []
+        self._customize_jit_passes = []
         self._opt_pipeline = 'DISC'
 
     @property
@@ -207,9 +208,9 @@ class Config(ConfigContext):
         Examples::
 
           import blade
-          import blade.torch
+          import torch_blade
 
-          config = blade.torch.Config()
+          config = torch_blade.Config()
           # min/max/opt settings for tuning trt engines with dynamic input shapes
           # looks like:
           config.dynamic_tuning_shapes = {
@@ -264,7 +265,7 @@ class Config(ConfigContext):
 
             import torch
             import blade
-            import blade.torch
+            import torch_blade
 
             class MyModule(torch.nn.Module):
                 def __init__(self):
@@ -277,7 +278,7 @@ class Config(ConfigContext):
                     return input + self.modified_tensor
 
             scripted_module = torch.jit.script(MyModule().eval())
-            config = blade.torch.Config()
+            config = torch_blade.Config()
             config.preserved_attributes = ["version"]
             with config:
                 blade.optimize(scripted_module, ...)
@@ -335,7 +336,7 @@ class Config(ConfigContext):
 
         Example ::
 
-            config = blade.torch.Config()
+            config = torch_blade.Config()
             # You could add all nodes of a specific kind to the white list.
             config.customize_op_white_list = ['aten::flatten']
             # Also, you could add the specific node with the index of its kind to the white list.
@@ -358,7 +359,7 @@ class Config(ConfigContext):
 
         Example ::
 
-            config = blade.torch.Config()
+            config = torch_blade.Config()
             # You could add all nodes of a specific kind to the black list.
             config.customize_op_black_list = ['aten::flatten']
             # Also, you could add the specific node with the index of its kind to the black list.
@@ -371,3 +372,32 @@ class Config(ConfigContext):
     def customize_op_black_list(self, val):
         assert isinstance(val, list), "customize_op_black_list should be list, got {}".format(type(val))
         self._customize_op_black_list = val
+
+    @property
+    def customize_jit_passes(self):
+        """A list custom Graph rewrite passes of TorchScript
+
+        Example ::
+
+            def my_custom_fuse_jit_pass(graph):
+                torch._C._jit_pass_custom_pattern_based_rewrite_graph('''
+                graph(%a, %b, %c, %d):
+                  %q = aten::mul(%a, %b)
+                  %r = aten::add(%q, %c, %d)
+                  return (%r)''', '''
+                graph(%a, %b, %c, %d):
+                  %r = my::muladd(%a, %b, %c, %d)
+                  return (%r)''', graph)
+
+            config = torch_blade.Config()
+            # You could add all nodes of a specific kind to the black list.
+            config.customize_jit_passes = [my_custom_fuse_jit_pass]
+            with config:
+                torch_blade.optimize(...)
+        """
+        return self._customize_jit_passes
+
+    @customize_jit_passes.setter
+    def customize_jit_passes(self, val):
+        assert isinstance(val, list), "customize_jit_passes should be list, got {}".format(type(val))
+        self._customize_jit_passes = val

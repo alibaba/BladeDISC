@@ -19,14 +19,13 @@ import torch
 import torch.nn as nn
 
 import torch_blade.pass_manager as pm
+from torch_blade.config import Config
 from torch_blade.logging import logger
 from torch_blade.tools.shape_inference import record_shape_by_tracing
 
 __all__ = ['export', 'match_submodules']
 
-def _record_shape_information(s_moodule, inputs):
-    torch._C._jit_pass_inline(s_moodule._c.forward.graph)
-    pm._jit_pass_hack_cpu_device(s_moodule._c.forward.graph)
+def _record_shape_information(s_module, inputs):
     if inputs is None:
         return
     if isinstance(inputs, torch.Tensor):
@@ -34,8 +33,21 @@ def _record_shape_information(s_moodule, inputs):
     # TODO: 
     # handle the exception raised by record_shape_by_tracing,
     # such as inputs device mismatch
-    record_shape_by_tracing(s_moodule._c, inputs) 
+    record_shape_by_tracing(s_module._c, inputs)
 
+def _script_module_preprocess(s_module, inputs):
+    graph = s_module._c.forward.graph
+    torch._C._jit_pass_inline(graph)
+    pm._jit_pass_hack_cpu_device(graph)
+
+    cfg = Config.get_current_context_or_new()
+    for jit_pass in cfg.customize_jit_passes:
+        jit_pass(graph)
+
+    # It will record tensor information, such as ranks, data types,
+    # and devices, that are useful for analysis and optimizations
+    # by tracing with auxiliary inputs.
+    _record_shape_information(s_module, inputs)
 
 def _deep_copy_script_module(model):
 
@@ -158,10 +170,7 @@ def export(model, allow_tracing=None, model_inputs=None):
                 x = submodule_inputs.get(curr_name, None)
                 if ((x is not None) and (x[-1] is not True)):
                     # **kwargs in inputs is currently not supported
-                    # TODO: 
-                    # Although tracing only records one control flow path, 
-                    # those shape information recorded may be good for some optimization.
-                    _record_shape_information(scripted_mod, x)
+                    _script_module_preprocess(scripted_mod, x)
             except Exception as e:
                 logger.warning(str(e) + '\n' +
                                'Submodule {} is unsuccessfully exported by torch.jit.script'.format(curr_name))
@@ -186,13 +195,7 @@ def export(model, allow_tracing=None, model_inputs=None):
 
                 try:
                     traced_module = torch.jit.trace(sub_mod, x, check_trace=False, strict=False)
-                    # Although it usually returns a TorchScript Graph with shape information,
-                    # torch.jit.trace actually does nothing when input is torch.jit.ScriptModule.
-                    #
-                    # Thus, to ensure that the TorchScript Graph has shape information, 
-                    # we always record the shape via another tracing in the following function
-                    # 
-                    _record_shape_information(traced_module, x)
+                    _script_module_preprocess(traced_module, x)
                 except Exception as e:
                     logger.warning(
                         str(e) + '\n' + 'Fail to convert module {} with tracing module.\n'
@@ -234,13 +237,7 @@ def export(model, allow_tracing=None, model_inputs=None):
                 logger.warning(str(e) + '\n' + 'Failed! Try to export it through torch.jit.script:\n')
             else:
                 logger.info('Done!')
-                # Although it usually returns a TorchScript Graph with shape information,
-                # torch.jit.trace actually does nothing when input is torch.jit.ScriptModule.
-                #
-                # Thus, to ensure that the TorchScript Graph has shape information, 
-                # we always record the shape via another tracing in the following function
-                # 
-                _record_shape_information(traced_model, model_inputs)
+                _script_module_preprocess(traced_model, model_inputs)
                 return traced_model
 
         elif isinstance(allow_tracing, List):

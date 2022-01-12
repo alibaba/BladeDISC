@@ -13,7 +13,7 @@ import torch
 import unittest
 
 from tests.mlir.testing_utils import DiscTestCase
-
+from torch_blade import Config
 
 class TestDiscActivation(DiscTestCase):
     def _test_activation(self, activation_func):
@@ -57,6 +57,49 @@ class TestDiscActivation(DiscTestCase):
         def gelu_func(x):
             return torch.nn.functional.gelu(x)
         self._test_activation(gelu_func)
+
+    def test_hardswish(self):
+
+        def _jit_pass_hardswish(graph):
+            from_graph_str = """
+            graph(%x):
+              %r: Tensor = aten::hardswish(%x)
+              return (%r)
+            """
+
+            def hard_sigmoid(x: torch.Tensor, inplace: bool = False) -> torch.Tensor:
+                return torch.nn.functional.relu6(x + 3, inplace) / 6
+
+            @torch.jit.script
+            def hard_swish(x: torch.Tensor) -> torch.Tensor:
+                return x * hard_sigmoid(x, False)
+
+            torch._C._jit_pass_inline(hard_swish.graph)
+            torch._C._jit_pass_dce(hard_swish.graph)
+            torch._C._jit_pass_constant_propagation(hard_swish.graph)
+
+            to_graph_str = str(hard_swish.graph)
+            torch._C._jit_pass_custom_pattern_based_rewrite_graph(
+                from_graph_str, to_graph_str, graph)
+            torch._C._jit_pass_dce(graph)
+            torch._C._jit_pass_constant_propagation(graph)
+
+        @torch.jit.script
+        def hardswish_func(x):
+            return torch.nn.functional.hardswish(x)
+
+        config = Config.get_current_context_or_new()
+        config.customize_jit_passes = [_jit_pass_hardswish]
+        with config:
+            self._test_activation(hardswish_func)
+
+    def test_hardtanh(self):
+        @torch.jit.script
+        def hardtanh_func(x):
+            return torch.nn.functional.hardtanh(x, -0.1, 0.1)
+
+        self._test_activation(hardtanh_func)
+
 
 if __name__ == "__main__":
     unittest.main()

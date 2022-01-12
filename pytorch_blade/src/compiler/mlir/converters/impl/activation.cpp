@@ -158,7 +158,7 @@ auto mhlo_conversion =
             "(Tensor)",
             ConvertAtenLeakyRelu)
         .pattern(
-            "hardtanh(Tensor self, Scalar min_val=-1, Scalar max_val=1) -> Tensor",
+            "aten::hardtanh(Tensor self, Scalar min_val=-1, Scalar max_val=1) -> Tensor",
             ConvertAtenHardtanh)
         .pattern("aten::sigmoid(Tensor self) -> Tensor", ConvertAtenSigmoid)
         .pattern("aten::glu(Tensor self, int dim=-1) -> Tensor", ConvertAtenGlu)

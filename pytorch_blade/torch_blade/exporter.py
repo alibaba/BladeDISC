@@ -258,7 +258,7 @@ def export(model, allow_tracing=None, model_inputs=None):
 
     try:
         scripted_model = torch.jit.script(_model)
-        _record_shape_information(scripted_model, model_inputs)
+        _script_module_preprocess(scripted_model, model_inputs)
     except Exception as e:
         logger.warning(str(e) + '\n' + 'Fail to export torchscript on the top level of the model, We will iterate over '
                                        'the submodules and replace those that can be successfully exported by the '

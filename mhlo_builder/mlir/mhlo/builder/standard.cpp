@@ -192,8 +192,9 @@ mlir::Value BuildStdScalarToHloTensor(
       return *const_val;
     }
   }
+  SmallValueVec4 values{std_scalar};
   mlir::Value hlo_tensor =
-      BuildStdScalarToHloTensor(builder, loc, {std_scalar}, elem_type_opt);
+      BuildStdScalarToHloTensor(builder, loc, values, elem_type_opt);
   hlo_tensor = BuildReshapeTensorToScalar(builder, loc, hlo_tensor);
   return hlo_tensor;
 }
@@ -246,11 +247,11 @@ mlir::Value BuildStdScalarToHloTensor(
 
   mlir::Type elem_type = values[0].getType();
   if (elem_type_opt) {
+    elem_type = *elem_type_opt;
+  } else {
     for (const auto& val : values) {
       MHLO_CHECK(val.getType() == elem_type, "values type must be the same");
     }
-  } else {
-    elem_type = *elem_type_opt;
   }
   mlir::Value hlo_tensor =
       builder.create<mlir::tensor::FromElementsOp>(loc, elem_type, values);

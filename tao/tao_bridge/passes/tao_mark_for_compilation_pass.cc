@@ -2526,10 +2526,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                 ->experimental_enable_mlir_whole_graph_compilation ?
                     std::vector<string>({
 #ifndef TF_1_12
-#if defined(PLATFORM_ALIBABA) || !defined(TAO_CPU_ONLY)
-// TODO(disc):
                       "MatMul", "BatchMatMul", "BatchMatMulV2", "Conv2D",
-#endif
                       "Abs", "AddV2", "LessEqual", "Maximum", "Minimum","Sign",
                       "Const", "Cast", "Identity", "ConcatV2",
                       "Transpose", "Reshape", "Range", "RealDiv", "Ceil",
@@ -2547,10 +2544,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "SigmoidGrad", "BroadcastTo", "RandomUniform", "ReluGrad", "Square",
                       "Pad", "DynamicStitch", "LeakyRelu"
 #else
-#if defined(PLATFORM_ALIBABA) || !defined(TAO_CPU_ONLY)
-// TODO(disc):
                       "MatMul", "BatchMatMul", "Conv2D",
-#endif
                       "Abs", "LessEqual", "Maximum", "Minimum","Sign",
                       "Const", "Cast", "Identity", "ConcatV2",
                       "Transpose", "Reshape", "Range", "RealDiv", "Ceil",
@@ -2572,9 +2566,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                 :
                     std::vector<string>({
 #ifndef TF_1_12
-#if defined(PLATFORM_ALIBABA) || !defined(TAO_CPU_ONLY)
                       "MatMul", "BatchMatMul", "BatchMatMulV2", "Conv2D",
-#endif
                       "Abs", "AddV2", "LessEqual", "Maximum", "Minimum","Sign",
                       "Const", "Cast", "Identity", "ConcatV2",
                       "Transpose", "Reshape", "Range", "RealDiv", "Ceil",
@@ -2592,9 +2584,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "SigmoidGrad", "BroadcastTo", "Size", "RandomUniform", "Square",
                       "Pad", "DynamicStitch", "LeakyRelu"
 #else
-#if defined(PLATFORM_ALIBABA) || !defined(TAO_CPU_ONLY)
                       "MatMul", "BatchMatMul", "Conv2D",
-#endif
                       "Abs", "LessEqual", "Maximum", "Minimum","Sign",
                       "MatMul", "Const", "Cast", "Identity", "ConcatV2",
                       "Transpose", "Reshape", "Range", "RealDiv", "Ceil",

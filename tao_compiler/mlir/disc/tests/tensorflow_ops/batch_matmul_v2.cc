@@ -17,9 +17,6 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/tests/mlir_test.h"
 #include "tensorflow/core/platform/test.h"
 
-#ifndef PLATFORM_ALIBABA
-#define TFBatchMatMulV2OpTest DISABLED_TFBatchMatMulV2OpTest
-#endif
 namespace mlir_test {
 
 const std::string c_ft_path =

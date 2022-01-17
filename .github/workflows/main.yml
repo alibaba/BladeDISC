@@ -167,7 +167,7 @@ jobs:
           disc-dev-cpu bash ./scripts/ci/build_and_test.sh --cpu-only
 
   call-workflow-passing-data:
-    uses: .github/workflows/cpu_reusable.yml@main
+    uses: alibaba/BladeDISC/.github/workflows/cpu_reusable.yml@main
     env:
       TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT: OFF
     with:

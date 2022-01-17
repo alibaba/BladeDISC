@@ -140,12 +140,6 @@ jobs:
       run: |
         set -e
         bash ./scripts/ci/deploy_pytorch_blade.sh
-
-  call-workflow-passing-data:
-    uses: alibaba/BladeDISC/.github/workflows/cpu_reusable.yml@features/dev_torch
-    with:
-      exec_command: bash ./scripts/ci/build_and_test.sh --cpu-only
-
   call-workflow-passing-data:
     uses: alibaba/BladeDISC/.github/workflows/cpu_reusable.yml@features/dev_torch
     with:

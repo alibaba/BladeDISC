@@ -143,4 +143,4 @@ jobs:
   call-workflow-passing-data:
     uses: alibaba/BladeDISC/.github/workflows/cpu_reusable.yml@features/dev_torch
     with:
-      exec_command: TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF ./scripts/ci/test_pytorch_blade.sh
+      exec_command: "TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF ./scripts/ci/test_pytorch_blade.sh"

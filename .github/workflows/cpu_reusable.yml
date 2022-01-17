@@ -1,0 +1,35 @@
+name: CPU Reusable workflow
+
+on:
+  workflow_call:
+    inputs:
+      bash_command:
+        required: true
+        type: string
+
+jobs:
+  CPU:
+    # The type of runner that the job will run on
+    runs-on: [self-hosted, cpu]
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    # Runs a single command using the runners shell
+    - name: Checkout
+      uses: actions/checkout@v2.4.0
+    - name: Build Dev Docker
+      run: |
+        set -e
+        git submodule sync
+        git submodule update --depth=1 --init --recursive
+        docker build -t disc-dev-cpu --build-arg BASEIMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04 -f docker/dev/Dockerfile .
+    - name: Build And Test DISC
+      run: |
+        set -e
+        docker run --rm -t --user $(id -u) \
+          -v $HOME/.cache:$HOME/.cache \
+          -v /etc/passwd:/etc/passwd:ro \
+          -v /etc/group:/etc/group:ro \
+          -v $PWD:/disc \
+          -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
+          -w /disc \
+          disc-dev-cpu bash ${{ inputs.bash_command }}

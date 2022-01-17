@@ -165,3 +165,10 @@ jobs:
           -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
           -w /disc \
           disc-dev-cpu bash ./scripts/ci/build_and_test.sh --cpu-only
+  CPU-TORCH171:
+    call-workflow-passing-data:
+      uses: .github/workflows/cpu_reusable.yml@main
+      env:
+        TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT: OFF
+      with:
+        bash_command: ./scripts/ci/test_pytorch_blade.sh

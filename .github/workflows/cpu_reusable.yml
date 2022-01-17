@@ -3,7 +3,7 @@ name: CPU Reusable workflow
 on:
   workflow_call:
     inputs:
-      bash_command:
+      exec_command:
         required: true
         type: string
 
@@ -32,4 +32,4 @@ jobs:
           -v $PWD:/disc \
           -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
           -w /disc \
-          disc-dev-cpu bash ${{ inputs.bash_command }}
+          disc-dev-cpu ${{ inputs.exec_command }}

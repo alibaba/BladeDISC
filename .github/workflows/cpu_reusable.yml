@@ -3,6 +3,9 @@ name: CPU Reusable workflow
 on:
   workflow_call:
     inputs:
+      extra_envs:
+        required: false
+        type: string
       exec_command:
         required: true
         type: string
@@ -31,5 +34,6 @@ jobs:
           -v /etc/group:/etc/group:ro \
           -v $PWD:/disc \
           -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
+          ${{ input.extra_envs }} \
           -w /disc \
           disc-dev-cpu ${{ inputs.exec_command }}

@@ -27,12 +27,8 @@ export LIBRARY_PATH=${CUDA_HOME}/lib64:$LIBRARY_PATH
 # To save time, set USE_BLADE_DISC_PRE_BUILD=ON if you has already built blade_disc
 # export USE_BLADE_DISC_PRE_BUILD=ON
 
-# To save time, set USE_MLIR_DHLO_PRE_BUILD=ON if you has already built llvm-project
-# If the llvm-project has been built, it will be installed in ${PROJECT_SOURCE_DIR}/MLIR_DHLO_LLVM_DIR.
-# export USE_MLIR_DHLO_PRE_BUILD=ON
-
-export TORCH_BLADE_BUILD_MLIR_SUPPORT=ON
-export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=ON
+export TORCH_BLADE_BUILD_MLIR_SUPPORT=${TORCH_BLADE_BUILD_MLIR_SUPPORT:-ON}
+export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=${TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT:-ON}
 function ci_build() {
     echo "DO TORCH_BLADE CI_BUILD"
     # set TORCH_BLADE_CI_BUILD_TORCH_VERSION default to 1.7.1+cu110

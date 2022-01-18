@@ -874,9 +874,8 @@ def parse_args():
     assert os.path.exists(args.venv_dir), "virtualenv directory does not exist."
     args.venv_dir = os.path.abspath(args.venv_dir)
 
-    if args.cpu_only:
-        # TODO(disc): support other type of CPUs.
-        args.enable_mkldnn = True
+    # TODO(disc): support other type of CPUs.
+    args.enable_mkldnn = args.cpu_only
 
     if args.stage in ["all", "configure"]:
         assert args.bridge_gcc, "--bridge-gcc is required."

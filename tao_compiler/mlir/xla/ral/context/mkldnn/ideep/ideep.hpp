@@ -37,7 +37,9 @@
 #include <vector>
 
 #include "ideep/abstract_types.hpp"
-#include "ideep/computations.hpp"
+// clang-format off
 #include "ideep/tensor.hpp"
+// clang-format on
+#include "ideep/computations.hpp"
 
 #endif

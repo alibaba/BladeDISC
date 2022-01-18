@@ -140,12 +140,12 @@ jobs:
       run: |
         set -e
         bash ./scripts/ci/deploy_pytorch_blade.sh
-  call-workflow-passing-data:
+  CPU-TF:
     uses: alibaba/BladeDISC/.github/workflows/cpu_reusable.yml@features/dev_torch
     with:
       exec_command: bash ./scripts/ci/build_and_test.sh --cpu-only
-  call-workflow-passing-data:
+  CPU-TORCH171:
     uses: alibaba/BladeDISC/.github/workflows/cpu_reusable.yml@features/dev_torch
     with:
-      extra_envs: -e TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
+      extra_envs: -e TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF -e TORCH_BLADE_TORCH_VERSION=1.7.1+cpu
       exec_command: bash ./scripts/ci/test_pytorch_blade.sh

@@ -12,8 +12,8 @@
 import torch
 import unittest
 
+from torch_blade.version import cuda_available
 from tests.mlir.testing_utils import DiscTestCase
-
 
 class MatMul(torch.nn.Module):
     def __init__(self, device=torch.device('cuda')):
@@ -37,6 +37,7 @@ class Linear(torch.nn.Module):
         return x + out_b
 
 
+@unittest.skipIf(not cuda_available, "ral_batch_gemm has no implementation yet")
 class TestDiscMatMul(DiscTestCase):
     def test_linear(self):
         x = torch.randn(4, 120, 256).to(self.device)

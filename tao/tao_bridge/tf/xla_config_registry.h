@@ -51,10 +51,10 @@ XlaGlobalJitLevel GetGlobalJitLevel(
 #define REGISTER_XLA_CONFIG_GETTER_UNIQ_HELPER(ctr, getter) \
   REGISTER_XLA_CONFIG_GETTER_UNIQ(ctr, getter)
 
-#define REGISTER_XLA_CONFIG_GETTER_UNIQ(ctr, getter)                    \
-  static bool xla_config_registry_registration_##ctr =                  \
+#define REGISTER_XLA_CONFIG_GETTER_UNIQ(ctr, getter)                         \
+  static bool xla_config_registry_registration_##ctr =                       \
       (::tensorflow::tao::xla_config_registry::RegisterGlobalJitLevelGetter( \
-           getter),                                                     \
+           getter),                                                          \
        true)
 
 }  // namespace xla_config_registry

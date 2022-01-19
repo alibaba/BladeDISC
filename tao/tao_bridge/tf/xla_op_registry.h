@@ -325,7 +325,7 @@ class XlaOpRegistry {
 // to nullptr, since we don't need that yet.
 #define REGISTER_XLA_OP_FOR_TAO(NAME) \
   REGISTER_XLA_OP_FOR_TAO_UNIQ_HELPER(__COUNTER__, NAME)
-  
+
 #define REGISTER_XLA_BACKEND_FOR_TAO(NAME, ...) \
   REGISTER_XLA_BACKEND_UNIQ_HELPER_FOR_TAO(__COUNTER__, NAME, __VA_ARGS__)
 
@@ -392,9 +392,11 @@ class XlaOpRegistrar {
 #define REGISTER_XLA_OP_FOR_TAO_UNIQ_HELPER(COUNTER, BUILDER) \
   REGISTER_XLA_OP_FOR_TAO_UNIQ(COUNTER, BUILDER)
 
-#define REGISTER_XLA_OP_FOR_TAO_UNIQ(CTR, BUILDER)                                  \
-  static ::tensorflow::tao::XlaOpRegistrar xla_op_registrar__body__##CTR##__object( \
-      ::tensorflow::tao::XlaOpRegistrationBuilder::BUILDER.Build(nullptr));
+#define REGISTER_XLA_OP_FOR_TAO_UNIQ(CTR, BUILDER)                    \
+  static ::tensorflow::tao::XlaOpRegistrar                            \
+      xla_op_registrar__body__##CTR##__object(                        \
+          ::tensorflow::tao::XlaOpRegistrationBuilder::BUILDER.Build( \
+              nullptr));
 
 class XlaBackendRegistrar {
  public:

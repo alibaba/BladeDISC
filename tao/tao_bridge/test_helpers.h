@@ -26,8 +26,8 @@ limitations under the License.
 
 // #include "tensorflow/core/platform/regexp.h"
 
-#include "tao_bridge/tf/statusor.h"
 #include "tao_bridge/tf/status.h"
+#include "tao_bridge/tf/statusor.h"
 #include "tao_bridge/tf/types.h"
 
 // // This module contains a minimal subset of gmock functionality just

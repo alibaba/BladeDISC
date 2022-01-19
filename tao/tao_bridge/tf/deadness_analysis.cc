@@ -455,7 +455,7 @@ class PredicateFactory {
                              Predicate** predicate) {
     TensorId tensor_id(node->name(), output_idx);
 
-    //TF_RET_CHECK(BaseType(node->output_type(tensor_id.index())) == DT_INT32);
+    // TF_RET_CHECK(BaseType(node->output_type(tensor_id.index())) == DT_INT32);
 
     if (must_have_value.has_value() && node->type_string() == "Const") {
       const TensorProto* proto = nullptr;
@@ -524,11 +524,9 @@ class PredicateFactory {
 
     if (kind == Predicate::Kind::kAnd || kind == Predicate::Kind::kOr) {
       std::vector<Predicate*> new_operands;
-      std::transform(
-          pred->GetOperands().begin(),
-          pred->GetOperands().end(),
-          std::back_inserter(new_operands),
-          [&](Predicate* p) { return MakeNotPredicate(p); });
+      std::transform(pred->GetOperands().begin(), pred->GetOperands().end(),
+                     std::back_inserter(new_operands),
+                     [&](Predicate* p) { return MakeNotPredicate(p); });
       return kind == Predicate::Kind::kOr ? MakeAndPredicate(new_operands)
                                           : MakeOrPredicate(new_operands);
     }
@@ -626,15 +624,14 @@ class PredicateFactory {
   std::unordered_map<Predicate*, Predicate*> make_not_predicate_cache_;
 
   std::unordered_map<SignatureForAndOr, std::unique_ptr<Predicate>,
-                      HashSignatureForAndOr>
+                     HashSignatureForAndOr>
       interned_and_or_instances_;
   std::unordered_map<SignatureForNot, std::unique_ptr<Predicate>>
       interned_not_instances_;
-  struct HashSignatureForAndRec
-  {
+  struct HashSignatureForAndRec {
     std::size_t operator()(const SignatureForAndRec& k) const {
       auto result = std::hash<Predicate*>{}(std::get<0>(k)) ^
-             std::hash<Predicate*>{}(std::get<1>(k));
+                    std::hash<Predicate*>{}(std::get<1>(k));
       for (auto s : std::get<2>(k)) {
         result = result ^ std::hash<string>{}(s);
       }
@@ -642,13 +639,13 @@ class PredicateFactory {
     }
   };
   std::unordered_map<SignatureForAndRec, std::unique_ptr<Predicate>,
-                      HashSignatureForAndRec>
+                     HashSignatureForAndRec>
       interned_and_rec_instances_;
   std::unordered_map<SignatureForSymbol, std::unique_ptr<Predicate>,
-                      HashSignatureForSymbol>
+                     HashSignatureForSymbol>
       interned_symbol_instances_;
   std::unordered_map<SignatureForIntSymbol, std::unique_ptr<Predicate>,
-                      HashSignatureForIntSymbol>
+                     HashSignatureForIntSymbol>
       interned_int_symbol_instances_;
   int64 id_counter_ = 0;
   int stack_depth_ = 0;
@@ -740,9 +737,10 @@ Predicate* PredicateFactory::MakeAndOrImpl(
       //   (~A & ~B & ~C) | A | B | C | ... ==
       //   ~(A | B | C) | (A | B | C) | ... == True
       if (std::all_of(negated_op->GetOperands().begin(),
-            negated_op->GetOperands().end(), [&](Predicate* p) {
-            return (simplified_ops_set.find(p) != simplified_ops_set.end());
-          })) {
+                      negated_op->GetOperands().end(), [&](Predicate* p) {
+                        return (simplified_ops_set.find(p) !=
+                                simplified_ops_set.end());
+                      })) {
         return is_and ? MakeFalse() : MakeTrue();
       }
     }
@@ -799,10 +797,10 @@ Predicate* PredicateFactory::MakeAndOrImpl(
     } else {
       common_inner_operands.clear();
       std::copy_if(op->GetOperands().begin(), op->GetOperands().end(),
-                      std::back_inserter(common_inner_operands),
-                      [&](Predicate* sub_op) {
-                        return common_inner_operands_set.count(sub_op) == 1;
-                      });
+                   std::back_inserter(common_inner_operands),
+                   [&](Predicate* sub_op) {
+                     return common_inner_operands_set.count(sub_op) == 1;
+                   });
     }
     if (common_inner_operands.empty()) break;
     common_inner_operands_set.clear();
@@ -820,12 +818,11 @@ Predicate* PredicateFactory::MakeAndOrImpl(
   for (Predicate* op : simplified_ops) {
     std::vector<Predicate*> new_sub_op_ops;
     std::copy_if(op->GetOperands().begin(), op->GetOperands().end(),
-        std::back_inserter(new_sub_op_ops),
-        [&](Predicate* sub_op) {
-          return std::find(common_inner_operands.begin(),
-                           common_inner_operands.end(),
-                           sub_op) == common_inner_operands.end();
-        });
+                 std::back_inserter(new_sub_op_ops), [&](Predicate* sub_op) {
+                   return std::find(common_inner_operands.begin(),
+                                    common_inner_operands.end(),
+                                    sub_op) == common_inner_operands.end();
+                 });
     factored_ops.push_back(MakeAndOrImpl(new_sub_op_ops, !is_and));
   }
 
@@ -1292,8 +1289,7 @@ Status DeadnessAnalysisImpl::GetFrameBasedTopologicalOrder(
   // ready_enters_per_frame and ready_exits serve as a staging area to buffer
   // the ready enters/exits before they are moved to the `ready` queue for
   // controlling the start and end of a processing frame.
-  std::unordered_map<string, std::vector<Node*>>
-      ready_enters_per_frame;
+  std::unordered_map<string, std::vector<Node*>> ready_enters_per_frame;
   // Exit nodes shall all be from the same frame, as we process a frame at a
   // time. So, one vector is enough.
   std::vector<Node*> ready_exits;

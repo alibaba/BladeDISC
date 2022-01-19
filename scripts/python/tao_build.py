@@ -1,4 +1,16 @@
 #!/usr/bin/env python
+# Copyright 2021 The BladeDISC Authors. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
 
 # E501: max line length checking
 # flake8: noqa: E501
@@ -31,6 +43,7 @@ from tao_common import (
     overwrite_file,
     running_on_ci,
     ci_build_flag,
+    remote_cache_token,
 )
 
 PYTHON_BIN_NAME = os.getenv("PYTHON", "python")
@@ -206,12 +219,12 @@ def configure_compiler(root, args):
 
         # TF_REMOTE_CACHE is not supported by tensorflow community
         # just set remote cache here
-        if "TF_REMOTE_CACHE" in os.environ:
-            remote_cache = os.getenv("TF_REMOTE_CACHE")
-            with open(".tf_configure.bazelrc", "a") as cfg:
-                cfg.write("\n")
-                cfg.write("build --remote_cache={}\n".format(remote_cache))
-                cfg.write("test --remote_cache={}\n".format(remote_cache))
+        token = remote_cache_token()
+        if token:
+            with open(".tf_configure.bazelrc", "a") as f:
+                f.write("\n")
+                f.write("build --remote_cache={}\n".format(token))
+                f.write("test --remote_cache={}\n".format(token))
     logger.info("Stage [configure] success.")
 
 @time_stage()

@@ -48,7 +48,7 @@
 // }
 
 // TEST(ResourceOperationTableTest, XXXXXXXXXXX) {
-  
+
 //   std::vector<string> xla_op_names = XlaOpRegistry::GetAllRegisteredOps();
 //   for (const string& xla_op_name : xla_op_names) {
 //     std::cout << "xla_op_name: " << xla_op_name << std::endl;
@@ -63,7 +63,8 @@
 //   for (absl::string_view known_resource_op :
 //        resource_op_table_internal::GetKnownResourceOps()) {
 //     ASSERT_TRUE(
-//         known_resource_ops.insert({string(known_resource_op), false}).second);
+//         known_resource_ops.insert({string(known_resource_op),
+//         false}).second);
 //   }
 
 //   std::vector<string> xla_op_names = XlaOpRegistry::GetAllRegisteredOps();

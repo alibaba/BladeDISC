@@ -16,7 +16,6 @@ limitations under the License.
 #ifndef TAO_TAO_BRIDGE_TF_SHAPE_INFERENCE_HELPERS_H_
 #define TAO_TAO_BRIDGE_TF_SHAPE_INFERENCE_HELPERS_H_
 
-
 #include <vector>
 
 #include "tensorflow/core/graph/graph.h"

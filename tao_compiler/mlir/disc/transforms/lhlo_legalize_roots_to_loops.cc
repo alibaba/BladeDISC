@@ -826,9 +826,9 @@ LogicalResult getShuffleElemType(OpBuilder& b, Type elemType,
       *shuffleElemType = elemType;
     }
   } else if (auto fp_type = elemType.dyn_cast<FloatType>()) {
-    if (fp_type.getWidth() < 32) {
-      llvm::dbgs() << "not supported row reduction fp" << fp_type.getWidth()
-                   << "\n";
+    std::size_t width = fp_type.getWidth();
+    if (width != 16 && width != 32 && width != 64) {
+      llvm::dbgs() << "not supported row reduction fp" << width << "\n";
       return failure();
     }
     *shuffleElemType = elemType;
@@ -843,7 +843,33 @@ LogicalResult getShuffleElemType(OpBuilder& b, Type elemType,
 Value emitWidthAdaptShuffle(OpBuilder& b, Location loc, Value value,
                             Type shuffleElemType, Value offset, Value width,
                             StringAttr strAttr) {
-  if (shuffleElemType.getIntOrFloatBitWidth() == 32) {
+  auto bit_width = shuffleElemType.getIntOrFloatBitWidth();
+  if (bit_width < 32) {
+    // TODO: modify GPU dialect to support fp16 shuffle.
+    if (shuffleElemType.isa<FloatType>()) {
+      auto f32_ty = b.getF32Type();
+      SmallVector<Type, 2> type = {f32_ty, b.getI1Type()};
+      Value ext = b.create<FPExtOp>(loc, f32_ty, value);
+      auto result =
+          b.create<gpu::ShuffleOp>(loc, type, ext, offset, width, strAttr)
+              .getResult(0);
+      return b.create<FPTruncOp>(loc, shuffleElemType, result);
+    } else if (shuffleElemType.isa<IntegerType>()) {
+      auto i32_ty = b.getIntegerType(32);
+      SmallVector<Type, 2> type = {i32_ty, b.getI1Type()};
+      Value extend;
+      // Special case boolean values, so they get casted to `1` instead of `-1`.
+      if (shuffleElemType.isUnsignedInteger() || bit_width == 1) {
+        extend = b.create<ZeroExtendIOp>(loc, i32_ty, value);
+      } else {
+        extend = b.create<SignExtendIOp>(loc, i32_ty, value);
+      }
+      auto result =
+          b.create<gpu::ShuffleOp>(loc, type, extend, offset, width, strAttr)
+              .getResult(0);
+      return b.create<TruncateIOp>(loc, shuffleElemType, result);
+    }
+  } else if (bit_width == 32) {
     SmallVector<Type, 2> type = {shuffleElemType, b.getI1Type()};
     return b.create<gpu::ShuffleOp>(loc, type, value, offset, width, strAttr)
         .getResult(0);
@@ -860,7 +886,6 @@ Value emitWidthAdaptShuffle(OpBuilder& b, Location loc, Value value,
     // }
     // sum += bitcast(val, integer(bit_width)))
     SmallVector<Type, 2> type = {b.getIntegerType(32), b.getI1Type()};
-    auto bit_width = shuffleElemType.getIntOrFloatBitWidth();
     int segments = llvm::divideCeil(bit_width, 32);
     auto vec_ty = VectorType::get(segments, b.getIntegerType(32));
     // TODO(yancey.yx): when std.bitcast supports casting a value into an array,
@@ -1994,6 +2019,136 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion) {
   return success();
 }
 
+// For concat op having many operands, we use following schedule:
+//
+// parallel.for %idx in range(num_operands_of_concat) {
+//   if (%idx == 0) {
+//     copy operand #0 to output buffer
+//   } else if (idx == 1) {
+//     copy operand #1 to output buffer
+//   } ...
+//   ... ...
+//   } else {
+//     copy the last operand to output buffer
+//   }
+// }
+//
+// To reduce the average level of nested if statement, we further
+// reorder the structure of the if-else statement to form a binary
+// tree. Basic idea is:
+//
+// // Emits switch statement for range [from, to)
+// def emitSwitch(..., int idx, int from, int to) {
+//   if (to - from < 1) return;
+//   int mid = (from + to) / 2;
+//   if (idx == mid) {
+//     copy operand #mid to output
+//   } else {
+//     if (idx < mid) {
+//       emitSwitch(..., idx, from, mid);
+//     } else {
+//       emitSwitch(..., idx, mid+1, to);
+//     }
+//   }
+// }
+LogicalResult emitSwitchOperandIdx(OpBuilder& b, Location loc,
+                                   lmhlo::ConcatenateOp op,
+                                   SmallVector<Value>& concatOffsets,
+                                   Value operandIdx, int from, int to) {
+  if (to - from < 1) return success();
+
+  int median = (from + to) / 2;
+  Value medianValue = b.create<ConstantIndexOp>(loc, median);
+  Value predEQ =
+      b.create<CmpIOp>(loc, CmpIPredicate::eq, operandIdx, medianValue);
+  auto ifOp = b.create<scf::IfOp>(loc, llvm::None, predEQ, true);
+  Block* thenBlock = &ifOp.thenRegion().getBlocks().front();
+  Block* elseBlock = &ifOp.elseRegion().getBlocks().front();
+
+  // if operandIdx == median
+  {
+    b.setInsertionPoint(thenBlock, thenBlock->begin());
+    Value operand = op->getOperand(median);
+    Value result = cast<lmhlo::LmhloOp>(op.getOperation()).getResultBuffer();
+    SmallVector<Value> operandShapeVec = getShapeValues(&b, operand);
+    Value zero = b.create<ConstantIndexOp>(loc, 0);
+    Value one = b.create<ConstantIndexOp>(loc, 1);
+    size_t rank = operandShapeVec.size();
+    SmallVector<Value> vars;
+    SmallVector<Value> starts(rank, zero);
+    SmallVector<Value> limits = operandShapeVec;
+    SmallVector<Value> steps(rank, one);
+    (void)createParallelAndSetInsPt(b, loc, vars, starts, limits, steps, {});
+    SmallVector<Value> resultVars = vars;
+    int64_t dimension = op.dimension();
+    resultVars[dimension] =
+        b.create<AddIOp>(loc, vars[dimension], concatOffsets[median]);
+    Value data = b.create<memref::LoadOp>(loc, operand, vars);
+    b.create<memref::StoreOp>(loc, data, result, resultVars);
+  }
+
+  b.setInsertionPoint(elseBlock, elseBlock->begin());
+  // else if operandIdx != median
+  {
+    Value predLT =
+        b.create<CmpIOp>(loc, CmpIPredicate::slt, operandIdx, medianValue);
+    auto ifOp = b.create<scf::IfOp>(loc, llvm::None, predLT, true);
+    Block* thenBlock = &ifOp.thenRegion().getBlocks().front();
+    Block* elseBlock = &ifOp.elseRegion().getBlocks().front();
+    b.setInsertionPoint(thenBlock, thenBlock->begin());
+    if (failed(emitSwitchOperandIdx(b, loc, op, concatOffsets, operandIdx, from,
+                                    median)))
+      return failure();
+    b.setInsertionPoint(elseBlock, elseBlock->begin());
+    if (failed(emitSwitchOperandIdx(b, loc, op, concatOffsets, operandIdx,
+                                    median + 1, to)))
+      return failure();
+  }
+  b.setInsertionPointAfter(ifOp);
+  return success();
+}
+
+LogicalResult lowerWithScheduleLargeConcatCPU(
+    ArrayRef<Operation*> root_ops, Operation* dominant_op,
+    Block* parent = nullptr, bool non_fusion = false,
+    const ShapeConstraintAnalysis* shape_constraint_analysis = nullptr) {
+  assert(root_ops.size() == 1 && isLargeConcatOp(root_ops[0]));
+
+  auto concat = cast<lmhlo::ConcatenateOp>(root_ops[0]);
+  int numOperands = concat->getNumOperands() - 1;
+  const auto loc = dominant_op->getLoc();
+  OpBuilder b(root_ops.back());
+  Value zero = b.create<ConstantIndexOp>(loc, 0);
+  Value one = b.create<ConstantIndexOp>(loc, 1);
+  Value numOperandsValue = b.create<ConstantIndexOp>(loc, numOperands);
+  SmallVector<Value> vars;
+  SmallVector<Value> starts{zero};
+  SmallVector<Value> limits{numOperandsValue};
+  SmallVector<Value> steps{one};
+
+  (void)createParallelAndSetInsPt(b, loc, vars, starts, limits, steps, {});
+  int64_t dimension = concat.dimension();
+  SmallVector<Value> concatOffsets{zero};
+  for (int i = 0; i < numOperands; ++i) {
+    concatOffsets.push_back(b.create<AddIOp>(
+        loc, concatOffsets.back(),
+        b.create<memref::DimOp>(loc, concat->getOperand(i), dimension)));
+  }
+  Value operandIdx = vars[0];
+  if (failed(emitSwitchOperandIdx(b, loc, concat, concatOffsets, operandIdx, 0,
+                                  numOperands)))
+    return failure();
+
+  // remove the root_op if it has no other users except the memref
+  if (non_fusion) {
+    for (Operation* root_op : root_ops) root_op->erase();
+  } else {
+    assert(parent != nullptr && "Parent must be provided for fusion lowering");
+    cleanUnusedLhloOps(parent);
+  }
+  return success();
+}
+
 // we don't do inbound check for kLoop Schedule
 // LoopSplit pass will do this.
 //
@@ -2017,6 +2172,11 @@ LogicalResult lowerWithScheduleLoopCPU(
   if (!multi_dim_loop || !rank || !parallel_loop) {
     return lowerWithScheduleLoop(root_ops, dominant_op, parent, non_fusion,
                                  parallel_loop, shape_constraint_analysis);
+  }
+
+  if (non_fusion && isLargeConcatOp(dominant_op)) {
+    return lowerWithScheduleLargeConcatCPU(
+        root_ops, dominant_op, parent, non_fusion, shape_constraint_analysis);
   }
 
   const auto loc = dominant_op->getLoc();
@@ -2205,6 +2365,12 @@ LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion) {
                                           /*non_fusion*/ false,
                                           /*parallel_loop*/ true,
                                           /*multi_dim_loop*/ true))) {
+        return dominant_op->emitError() << "failed to lower to loops";
+      }
+      break;
+    case FusionType::kLargeConcat:
+      if (failed(lowerWithScheduleLargeConcatCPU(
+              root_ops, dominant_op, fused_block, /*non_fusion*/ false))) {
         return dominant_op->emitError() << "failed to lower to loops";
       }
       break;

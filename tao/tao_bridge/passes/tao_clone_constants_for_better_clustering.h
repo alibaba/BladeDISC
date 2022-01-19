@@ -17,6 +17,7 @@ limitations under the License.
 #define TENSORFLOW_COMPILER_JIT_CLONE_CONSTANTS_FOR_BETTER_CLUSTERING_H_
 
 #include <unordered_set>
+
 #include "tao_bridge/passes/tao_optimization_pass.h"
 #include "tensorflow/core/common_runtime/optimization_registry.h"
 #include "tensorflow/core/lib/core/status.h"

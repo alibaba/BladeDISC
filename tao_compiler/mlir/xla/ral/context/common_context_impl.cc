@@ -1,3 +1,13 @@
+// Copyright 2021 The BladeDISC Authors. All rights reserved.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.h"
 
@@ -394,30 +404,40 @@ RAL_REGISTER_CONST_HOST_FUNC(double, 3);
 RAL_REGISTER_CONST_HOST_FUNC(double, 4);
 RAL_REGISTER_CONST_HOST_FUNC(double, 5);
 RAL_REGISTER_CONST_HOST_FUNC(double, 6);
+RAL_REGISTER_CONST_HOST_FUNC(double, 7);
+RAL_REGISTER_CONST_HOST_FUNC(double, 8);
 RAL_REGISTER_CONST_HOST_FUNC(float, 1);
 RAL_REGISTER_CONST_HOST_FUNC(float, 2);
 RAL_REGISTER_CONST_HOST_FUNC(float, 3);
 RAL_REGISTER_CONST_HOST_FUNC(float, 4);
 RAL_REGISTER_CONST_HOST_FUNC(float, 5);
 RAL_REGISTER_CONST_HOST_FUNC(float, 6);
+RAL_REGISTER_CONST_HOST_FUNC(float, 7);
+RAL_REGISTER_CONST_HOST_FUNC(float, 8);
 RAL_REGISTER_CONST_HOST_FUNC(int32_t, 1);
 RAL_REGISTER_CONST_HOST_FUNC(int32_t, 2);
 RAL_REGISTER_CONST_HOST_FUNC(int32_t, 3);
 RAL_REGISTER_CONST_HOST_FUNC(int32_t, 4);
 RAL_REGISTER_CONST_HOST_FUNC(int32_t, 5);
 RAL_REGISTER_CONST_HOST_FUNC(int32_t, 6);
+RAL_REGISTER_CONST_HOST_FUNC(int32_t, 7);
+RAL_REGISTER_CONST_HOST_FUNC(int32_t, 8);
 RAL_REGISTER_CONST_HOST_FUNC(int64_t, 1);
 RAL_REGISTER_CONST_HOST_FUNC(int64_t, 2);
 RAL_REGISTER_CONST_HOST_FUNC(int64_t, 3);
 RAL_REGISTER_CONST_HOST_FUNC(int64_t, 4);
 RAL_REGISTER_CONST_HOST_FUNC(int64_t, 5);
 RAL_REGISTER_CONST_HOST_FUNC(int64_t, 6);
+RAL_REGISTER_CONST_HOST_FUNC(int64_t, 7);
+RAL_REGISTER_CONST_HOST_FUNC(int64_t, 8);
 RAL_REGISTER_CONST_HOST_FUNC(bool, 1);
 RAL_REGISTER_CONST_HOST_FUNC(bool, 2);
 RAL_REGISTER_CONST_HOST_FUNC(bool, 3);
 RAL_REGISTER_CONST_HOST_FUNC(bool, 4);
 RAL_REGISTER_CONST_HOST_FUNC(bool, 5);
 RAL_REGISTER_CONST_HOST_FUNC(bool, 6);
+RAL_REGISTER_CONST_HOST_FUNC(bool, 7);
+RAL_REGISTER_CONST_HOST_FUNC(bool, 8);
 
 static inline void* ral_aligned_malloc(ExecutionContext* ctx, int64_t size) {
   return aligned_malloc(size);
@@ -865,7 +885,7 @@ struct LoopIndex {
       if (--multiIndices_[startDim] >= 0) {
         break;
       }
-      multiIndices_[startDim] = dimSizes_[startDim];
+      multiIndices_[startDim] = dimSizes_[startDim] - 1;
     }
   }
 
@@ -1043,9 +1063,9 @@ LoopPartitionPlan LoopParallelAssigner(CpuLaunchDims lowerBound,
         }
         idx = 0;
         indices.minusOneFromDim(unassigned_dim);
-        int64_t from = idx - left;
-        partition.tasks.emplace_back(
-            totalTask.makeSubTaskFromRange(indices, unassigned_dim, from, idx));
+        int64_t from = dimSizes[unassigned_dim] - left;
+        partition.tasks.emplace_back(totalTask.makeSubTaskFromRange(
+            indices, unassigned_dim, from, dimSizes[unassigned_dim]));
         idx = from;
       }
     }
@@ -1054,12 +1074,13 @@ LoopPartitionPlan LoopParallelAssigner(CpuLaunchDims lowerBound,
     }
   }
 
-  while (unassigned_units > 0) {
-    auto& partition = plan.partitions[unassigned_units];
+  unassigned_dim = rank - 1;
+  for (int coreIdx = 0; coreIdx < unassigned_units; ++coreIdx) {
+    auto& partition = plan.partitions[coreIdx];
     auto& idx = indices.getIndex(unassigned_dim);
-    partition.tasks.emplace_back(totalTask.makeSubTaskFromRange(
-        indices, rank - 1, unassigned_units - 1, unassigned_units));
-    --unassigned_units;
+    partition.tasks.emplace_back(
+        totalTask.makeSubTaskFromRange(indices, unassigned_dim, idx, idx + 1));
+    indices.minusOneFromDim(unassigned_dim);
   }
   return plan;
 }
@@ -1194,6 +1215,8 @@ RAL_REGISTER_CONST_HOST_FUNC(Eigen::half, 3);
 RAL_REGISTER_CONST_HOST_FUNC(Eigen::half, 4);
 RAL_REGISTER_CONST_HOST_FUNC(Eigen::half, 5);
 RAL_REGISTER_CONST_HOST_FUNC(Eigen::half, 6);
+RAL_REGISTER_CONST_HOST_FUNC(Eigen::half, 7);
+RAL_REGISTER_CONST_HOST_FUNC(Eigen::half, 8);
 }  // namespace ral
 }  // namespace tao
 #endif  // TAO_RAL_USE_STREAM_EXECUTOR

@@ -16,6 +16,7 @@ limitations under the License.
 #include "tao_bridge/tf/util.h"
 
 #include <stdarg.h>
+
 #include <numeric>
 
 #include "absl/strings/match.h"

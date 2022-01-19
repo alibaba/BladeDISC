@@ -47,8 +47,8 @@
 // }
 
 // ops::Switch CreateSwitch(const Scope& root, const string& prefix) {
-//   Output value = ops::Placeholder(root.WithOpName(prefix + "/value"), DT_FLOAT);
-//   Output predicate =
+//   Output value = ops::Placeholder(root.WithOpName(prefix + "/value"),
+//   DT_FLOAT); Output predicate =
 //       ops::Placeholder(root.WithOpName(prefix + "/pred"), DT_BOOL);
 //   return ops::Switch(root.WithOpName(prefix + "/switch"), value, predicate);
 // }
@@ -62,8 +62,8 @@
 //     GraphDef graph_def;
 //     graph.ToGraphDef(&graph_def);
 //     string serialized;
-//     ::tensorflow::protobuf::TextFormat::PrintToString(graph_def, &serialized);
-//     LOG(INFO) << serialized;
+//     ::tensorflow::protobuf::TextFormat::PrintToString(graph_def,
+//     &serialized); LOG(INFO) << serialized;
 //   }
 // }
 
@@ -126,12 +126,13 @@
 //       ops::Less(root.WithOpName(prefix + "/less"), iv.output, final_value);
 //   Output loop_cond =
 //       ops::LoopCond(root.WithOpName(prefix + "/cond"), loop_cond_expr);
-//   ops::Switch latch(root.WithOpName(prefix + "/latch"), iv.output, loop_cond);
-//   ops::internal::Exit exit(root.WithOpName(prefix + "/exit"), iv.output);
-//   Output iv_next = ops::Add(root.WithOpName(prefix + "/ivnext"),
+//   ops::Switch latch(root.WithOpName(prefix + "/latch"), iv.output,
+//   loop_cond); ops::internal::Exit exit(root.WithOpName(prefix + "/exit"),
+//   iv.output); Output iv_next = ops::Add(root.WithOpName(prefix + "/ivnext"),
 //                             latch.output_true, increment_by);
 //   Output next_iteration =
-//       ops::NextIteration(root.WithOpName(prefix + "/next_iteration"), iv_next);
+//       ops::NextIteration(root.WithOpName(prefix + "/next_iteration"),
+//       iv_next);
 
 //   CHECK(root.graph()
 //             ->UpdateEdge(next_iteration.node(), 0, iv.output.node(), 1)
@@ -144,7 +145,8 @@
 
 // InductionVarInfo CreateInductionVariable(const Scope& root,
 //                                          const string& prefix,
-//                                          const string& frame_name, int32 init) {
+//                                          const string& frame_name, int32
+//                                          init) {
 //   return CreateInductionVariable(
 //       root, prefix, frame_name,
 //       ops::Const(root.WithOpName(prefix + "/init"), init));
@@ -187,12 +189,13 @@
 // DependentInductionVar CreateDependentLoopInvariantValue(
 //     const Scope& root, const string& prefix, const string& frame_name,
 //     const Output& loop_cond, const Output& value) {
-//   Output enter_value = ops::internal::Enter(root.WithOpName(prefix + "/enter"),
+//   Output enter_value = ops::internal::Enter(root.WithOpName(prefix +
+//   "/enter"),
 //                                             value, frame_name);
 //   ops::Merge iv(root.WithOpName(prefix + "/iv"), {enter_value, enter_value});
-//   ops::Switch latch(root.WithOpName(prefix + "/latch"), iv.output, loop_cond);
-//   ops::internal::Exit exit(root.WithOpName(prefix + "/exit"), iv.output);
-//   Output next_iteration = ops::NextIteration(
+//   ops::Switch latch(root.WithOpName(prefix + "/latch"), iv.output,
+//   loop_cond); ops::internal::Exit exit(root.WithOpName(prefix + "/exit"),
+//   iv.output); Output next_iteration = ops::NextIteration(
 //       root.WithOpName(prefix + "/next_iteration"), latch.output_true);
 //   CHECK(root.graph()
 //             ->UpdateEdge(next_iteration.node(), 0, iv.output.node(), 1)
@@ -295,10 +298,12 @@
 //   ops::Switch sw_0 = CreateSwitch(root, "0");
 //   ops::Switch sw_1 = CreateSwitch(root, "1");
 
-//   ops::Merge m0(root.WithOpName("m0"), {sw_0.output_false, sw_1.output_false});
-//   ops::Merge m1(root.WithOpName("m1"), {sw_1.output_false, sw_0.output_false});
-//   ops::Merge m2(root.WithOpName("m2"), {sw_0.output_false, sw_1.output_true});
-//   ops::Merge m3(root.WithOpName("m3"), {sw_1.output_true, sw_0.output_false});
+//   ops::Merge m0(root.WithOpName("m0"), {sw_0.output_false,
+//   sw_1.output_false}); ops::Merge m1(root.WithOpName("m1"),
+//   {sw_1.output_false, sw_0.output_false}); ops::Merge
+//   m2(root.WithOpName("m2"), {sw_0.output_false, sw_1.output_true});
+//   ops::Merge m3(root.WithOpName("m3"), {sw_1.output_true,
+//   sw_0.output_false});
 
 //   Output live0 = ops::Add(root.WithOpName("live0"), m0.output, m1.output);
 //   Output live1 = ops::Add(root.WithOpName("live1"), m2.output, m3.output);
@@ -325,10 +330,11 @@
 //   ops::Switch sw_1 = CreateSwitch(root, "1");
 //   ops::Switch sw_2 = CreateSwitch(root, "2");
 
-//   ops::Merge m0(root.WithOpName("m0"), {sw_0.output_false, sw_1.output_false});
-//   ops::Merge m1(root.WithOpName("m1"), {m0.output, sw_2.output_false});
-//   ops::Merge m2(root.WithOpName("m2"), {sw_1.output_false, sw_2.output_false});
-//   ops::Merge m3(root.WithOpName("m3"), {sw_0.output_false, m2.output});
+//   ops::Merge m0(root.WithOpName("m0"), {sw_0.output_false,
+//   sw_1.output_false}); ops::Merge m1(root.WithOpName("m1"), {m0.output,
+//   sw_2.output_false}); ops::Merge m2(root.WithOpName("m2"),
+//   {sw_1.output_false, sw_2.output_false}); ops::Merge
+//   m3(root.WithOpName("m3"), {sw_0.output_false, m2.output});
 
 //   Output add = ops::Add(root.WithOpName("add"), m1.output, m3.output);
 
@@ -346,8 +352,9 @@
 //   ops::Switch sw_2 = CreateSwitch(root, "2");
 //   ops::Switch sw_3 = CreateSwitch(root, "3");
 
-//   ops::Merge m0(root.WithOpName("m0"), {sw_0.output_false, sw_1.output_false});
-//   ops::Merge m1(root.WithOpName("m1"), {sw_2.output_false, sw_3.output_false});
+//   ops::Merge m0(root.WithOpName("m0"), {sw_0.output_false,
+//   sw_1.output_false}); ops::Merge m1(root.WithOpName("m1"),
+//   {sw_2.output_false, sw_3.output_false});
 
 //   Output add0 = ops::Add(root.WithOpName("add0"), m0.output, m1.output);
 //   Output add1 = ops::Add(root.WithOpName("add1"), m0.output, m1.output);
@@ -369,9 +376,11 @@
 //   ops::Switch sw_3 = CreateSwitch(root, "3");
 
 //   Output add0 =
-//       ops::Add(root.WithOpName("add0"), sw_0.output_false, sw_1.output_false);
+//       ops::Add(root.WithOpName("add0"), sw_0.output_false,
+//       sw_1.output_false);
 //   Output add1 =
-//       ops::Add(root.WithOpName("add1"), sw_2.output_false, sw_3.output_false);
+//       ops::Add(root.WithOpName("add1"), sw_2.output_false,
+//       sw_3.output_false);
 
 //   ops::Merge m0(root.WithOpName("m0"), {add0, add1});
 //   ops::Merge m1(root.WithOpName("m1"), {add0, add1});
@@ -393,7 +402,8 @@
 //   Output add0 =
 //       ops::Add(root.WithOpName("and0"), sw_0.output_false, sw_1.output_true);
 //   Output add1 =
-//       ops::Add(root.WithOpName("and1"), sw_0.output_false, sw_1.output_false);
+//       ops::Add(root.WithOpName("and1"), sw_0.output_false,
+//       sw_1.output_false);
 //   ops::Merge or2(root.WithOpName("or2"), {add0, add1});
 //   Output add3 =
 //       ops::Add(root.WithOpName("and3"), or2.output, sw_0.output_false);
@@ -415,13 +425,16 @@
 //   ops::Switch sw_1 = CreateSwitch(root, "1");
 //   ops::Switch sw_2 = CreateSwitch(root, "2");
 
-//   ops::Merge m0(root.WithOpName("m0"), {sw_0.output_false, sw_1.output_false});
-//   Output add0 = ops::Add(root.WithOpName("add0"), m0.output, sw_2.output_false);
+//   ops::Merge m0(root.WithOpName("m0"), {sw_0.output_false,
+//   sw_1.output_false}); Output add0 = ops::Add(root.WithOpName("add0"),
+//   m0.output, sw_2.output_false);
 
 //   Output add1 =
-//       ops::Add(root.WithOpName("add1"), sw_0.output_false, sw_2.output_false);
+//       ops::Add(root.WithOpName("add1"), sw_0.output_false,
+//       sw_2.output_false);
 //   Output add2 =
-//       ops::Add(root.WithOpName("add2"), sw_1.output_false, sw_2.output_false);
+//       ops::Add(root.WithOpName("add2"), sw_1.output_false,
+//       sw_2.output_false);
 //   ops::Merge m1(root.WithOpName("m1"), {add1, add2});
 
 //   Output add3 = ops::Add(root.WithOpName("add3"), add0, m1.output);
@@ -436,14 +449,15 @@
 //   Scope root = Scope::NewRootScope().ExitOnError();
 
 //   Output predicate = ops::Placeholder(root.WithOpName("predicate"), DT_BOOL);
-//   Output true_value = ops::Placeholder(root.WithOpName("true_value"), DT_FLOAT);
-//   Output false_value =
+//   Output true_value = ops::Placeholder(root.WithOpName("true_value"),
+//   DT_FLOAT); Output false_value =
 //       ops::Placeholder(root.WithOpName("false_value"), DT_FLOAT);
 
 //   ops::Switch predicated_true(root.WithOpName("predicated_true"), true_value,
 //                               predicate);
 
-//   ops::Switch predicated_false(root.WithOpName("predicated_false"), true_value,
+//   ops::Switch predicated_false(root.WithOpName("predicated_false"),
+//   true_value,
 //                                predicate);
 //   ops::Merge merge(root.WithOpName("ternary"), {predicated_true.output_true,
 //                                                 predicated_false.output_false});
@@ -494,7 +508,8 @@
 //   Output add0 = ops::Add(root.WithOpName("add0"), iv0, iv1);
 //   Output add1 = ops::Add(root.WithOpName("add1"), iv1, iv2);
 
-//   // NB!  iv0 and iv1 are equivalent and a smarter deadness analysis would have
+//   // NB!  iv0 and iv1 are equivalent and a smarter deadness analysis would
+//   have
 //   // noticed that.  Today we are pessimistic here because we assign an
 //   // uninterpreted symbol to merges with backedges.
 
@@ -527,12 +542,15 @@
 //   Scope root = Scope::NewRootScope().ExitOnError();
 //   InductionVarInfo iv = CreateInductionVariable(root, "iv0", "frame", 0);
 //   Output dependent_iv0 =
-//       CreateDependentLoopInvariantValue(root, "div0", "frame", iv.loop_cond, 0)
+//       CreateDependentLoopInvariantValue(root, "div0", "frame", iv.loop_cond,
+//       0)
 //           .induction_var;
 //   Output dependent_iv1 =
-//       CreateDependentLoopInvariantValue(root, "div1", "frame", iv.loop_cond, 0)
+//       CreateDependentLoopInvariantValue(root, "div1", "frame", iv.loop_cond,
+//       0)
 //           .induction_var;
-//   Output add0 = ops::Add(root.WithOpName("add0"), dependent_iv0, dependent_iv1);
+//   Output add0 = ops::Add(root.WithOpName("add0"), dependent_iv0,
+//   dependent_iv1);
 
 //   VLogGraphIfAsked(*root.graph());
 
@@ -558,21 +576,25 @@
 // }
 
 // TEST(DeadnessAnalysisTest, LoopInvariantPredicateOnBackedge) {
-//   // Create a merge that "looks like" a loop but isn't really.  It has a value
+//   // Create a merge that "looks like" a loop but isn't really.  It has a
+//   value
 //   // that does not depend on the merge on its backedge.
 //   Scope root = Scope::NewRootScope().ExitOnError();
 //   InductionVarInfo iv = CreateInductionVariable(root, "iv0", "frame", 0);
 //   DependentInductionVar dependent_iv =
-//       CreateDependentLoopInvariantValue(root, "div0", "frame", iv.loop_cond, 0);
+//       CreateDependentLoopInvariantValue(root, "div0", "frame", iv.loop_cond,
+//       0);
 //   FixupSourceAndSinkEdges(root.graph());
 
-//   // To make deadness analysis think that dependent_iv is a loop we need an RPO
+//   // To make deadness analysis think that dependent_iv is a loop we need an
+//   RPO
 //   // that visits the merge before the backedge.  This is a legal RPO for
-//   // deadness analysis since it ignores NextIteration->Merge edges during RPO.
+//   // deadness analysis since it ignores NextIteration->Merge edges during
+//   RPO.
 //   // Right now dependent_iv has an edge from Merge to NextIteration so do the
-//   // RPO with this edge in place.  Then remove this edge to get our test case.
-//   std::vector<Node*> rpo;
-//   GetReversePostOrder(*root.graph(), &rpo, /*stable_comparator=*/{},
+//   // RPO with this edge in place.  Then remove this edge to get our test
+//   case. std::vector<Node*> rpo; GetReversePostOrder(*root.graph(), &rpo,
+//   /*stable_comparator=*/{},
 //                       /*edge_filter=*/[](const Edge& edge) {
 //                         return !edge.src()->IsNextIteration();
 //                       });
@@ -613,11 +635,13 @@
 
 //   Output dependent_inner_iv0 =
 //       CreateDependentLoopInvariantValue(root, "dependent_inner_iv0", "frame",
-//                                         iv_inner.loop_cond, dependent_outer_iv0)
+//                                         iv_inner.loop_cond,
+//                                         dependent_outer_iv0)
 //           .induction_var;
 //   Output dependent_inner_iv1 =
 //       CreateDependentLoopInvariantValue(root, "dependent_inner_iv1", "frame",
-//                                         iv_inner.loop_cond, dependent_outer_iv1)
+//                                         iv_inner.loop_cond,
+//                                         dependent_outer_iv1)
 //           .induction_var;
 
 //   Output add0 = ops::Add(root.WithOpName("add0"), dependent_inner_iv0,
@@ -745,10 +769,12 @@
 //   Output add = ops::Add(root.WithOpName("add"), const0, const1);
 
 //   root.graph()->AddControlEdge(id0.node(), ctrl_trigger0.operation.node());
-//   root.graph()->AddControlEdge(ctrl_trigger0.operation.node(), const0.node());
+//   root.graph()->AddControlEdge(ctrl_trigger0.operation.node(),
+//   const0.node());
 
 //   root.graph()->AddControlEdge(id1.node(), ctrl_trigger1.operation.node());
-//   root.graph()->AddControlEdge(ctrl_trigger1.operation.node(), const1.node());
+//   root.graph()->AddControlEdge(ctrl_trigger1.operation.node(),
+//   const1.node());
 
 //   std::unique_ptr<DeadnessAnalysis> result;
 //   TF_ASSERT_OK(AnalyzeDeadness(root.graph(), &result));
@@ -781,7 +807,8 @@
 //   // Demonstrates why we need the must_be_true bit on SymbolP.
 //   Scope root = Scope::NewRootScope().ExitOnError();
 
-//   Output recv = ops::_Recv(root.WithOpName("recv"), DT_BOOL, "tensor", "sender",
+//   Output recv = ops::_Recv(root.WithOpName("recv"), DT_BOOL, "tensor",
+//   "sender",
 //                            0, "receiver");
 //   Output value = ops::Placeholder(root.WithOpName("value"), DT_BOOL);
 //   ops::Switch sw(root.WithOpName("switch"), value, recv);
@@ -798,7 +825,8 @@
 //   // Demonstrates why we need the must_be_true bit on SymbolP.
 //   Scope root = Scope::NewRootScope().ExitOnError();
 
-//   Output recv = ops::_Recv(root.WithOpName("recv"), DT_BOOL, "tensor", "sender",
+//   Output recv = ops::_Recv(root.WithOpName("recv"), DT_BOOL, "tensor",
+//   "sender",
 //                            0, "receiver");
 //   Output value = ops::Placeholder(root.WithOpName("value"), DT_BOOL);
 //   ops::Switch sw(root.WithOpName("switch"), value, recv);

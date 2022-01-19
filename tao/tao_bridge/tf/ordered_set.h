@@ -16,8 +16,8 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_ORDERED_SET_H_
 #define TENSORFLOW_COMPILER_JIT_GRAPHCYCLES_ORDERED_SET_H_
 
-#include <vector>
 #include <unordered_map>
+#include <vector>
 
 //#include "absl/container/flat_hash_map.h"
 #include "absl/types/span.h"

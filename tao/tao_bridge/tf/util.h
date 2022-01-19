@@ -80,7 +80,7 @@ using DimensionVector = absl::InlinedVector<int64, kInlineRank>;
   XLA_SCOPED_LOGGING_TIMER_HELPER2(label, level, counter)
 
 // Helper for macros above.  Don't use directly.
-#define XLA_SCOPED_LOGGING_TIMER_HELPER2(label, level, counter)      \
+#define XLA_SCOPED_LOGGING_TIMER_HELPER2(label, level, counter)           \
   ::xla::tao::ScopedLoggingTimer XLA_ScopedLoggingTimerInstance##counter( \
       label, VLOG_IS_ON(level))
 
@@ -202,7 +202,8 @@ void StridedCopy(absl::Span<D> dest, int64 dest_base, int64 dest_stride,
 Status AddStatus(Status prior, absl::string_view context);
 Status AppendStatus(Status prior, absl::string_view context);
 
-// // Status error shorthands -- StrFormat's the arguments to be used as an error
+// // Status error shorthands -- StrFormat's the arguments to be used as an
+// error
 // // message and returns a status in the canonical error space.
 // template <typename... Args>
 // Status InvalidArgument(const absl::FormatSpec<Args...>& format,
@@ -226,10 +227,12 @@ Status AppendStatus(Status prior, absl::string_view context);
 // Status FailedPrecondition(const absl::FormatSpec<Args...>& format,
 //                           const Args&... args) {
 //   return WithLogBacktrace(
-//       tensorflow::errors::FailedPrecondition(absl::StrFormat(format, args...)));
+//       tensorflow::errors::FailedPrecondition(absl::StrFormat(format,
+//       args...)));
 // }
 // template <typename... Args>
-// Status Cancelled(const absl::FormatSpec<Args...>& format, const Args&... args) {
+// Status Cancelled(const absl::FormatSpec<Args...>& format, const Args&...
+// args) {
 //   return WithLogBacktrace(
 //       tensorflow::errors::Cancelled(absl::StrFormat(format, args...)));
 // }
@@ -237,10 +240,12 @@ Status AppendStatus(Status prior, absl::string_view context);
 // Status ResourceExhausted(const absl::FormatSpec<Args...>& format,
 //                          const Args&... args) {
 //   return WithLogBacktrace(
-//       tensorflow::errors::ResourceExhausted(absl::StrFormat(format, args...)));
+//       tensorflow::errors::ResourceExhausted(absl::StrFormat(format,
+//       args...)));
 // }
 // template <typename... Args>
-// Status NotFound(const absl::FormatSpec<Args...>& format, const Args&... args) {
+// Status NotFound(const absl::FormatSpec<Args...>& format, const Args&... args)
+// {
 //   return WithLogBacktrace(
 //       tensorflow::errors::NotFound(absl::StrFormat(format, args...)));
 // }
@@ -268,7 +273,8 @@ Status AppendStatus(Status prior, absl::string_view context);
 
 // template <typename... Args>
 // Status ResourceExhaustedStrCat(Args&&... concat) {
-//   return ResourceExhausted("%s", absl::StrCat(std::forward<Args>(concat)...));
+//   return ResourceExhausted("%s",
+//   absl::StrCat(std::forward<Args>(concat)...));
 // }
 
 // Splits the lines of the original, replaces leading whitespace with the prefix
@@ -358,8 +364,8 @@ string VectorString(const std::initializer_list<T>& c) {
   return VectorString<std::initializer_list<T>>(c);
 }
 
-// // Returns a PaddingConfig object that represents no padding for the given rank.
-// PaddingConfig MakeNoPaddingConfig(int64 rank);
+// // Returns a PaddingConfig object that represents no padding for the given
+// rank. PaddingConfig MakeNoPaddingConfig(int64 rank);
 
 // // Returns a PaddingConfig object where 'padding' contains
 // // (low edge padding, high edge padding) pairs for each dimension.

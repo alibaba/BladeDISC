@@ -1,3 +1,13 @@
+// Copyright 2021 The BladeDISC Authors. All rights reserved.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include "mlir/mhlo/builder/standard.h"
 
@@ -169,28 +179,22 @@ llvm::Optional<mlir::Value> BuildCastStdConstScalarToHloConstTensor(
   return result.getResult();
 }
 
-mlir::Value BuildStdScalarToHloTensor(mlir::OpBuilder& builder,
-                                      const mlir::Location& loc,
-                                      const mlir::Value& std_scalar) {
+mlir::Value BuildStdScalarToHloTensor(
+    mlir::OpBuilder& builder, const mlir::Location& loc,
+    const mlir::Value& std_scalar,
+    const llvm::Optional<mlir::Type>& elem_type_opt) {
   auto const_val =
       BuildCastStdConstScalarToHloConstTensor(builder, loc, std_scalar);
   if (const_val) {
-    return *const_val;
+    if (elem_type_opt) {
+      return TryBuildElementTypeCast(builder, loc, *const_val, *elem_type_opt);
+    } else {
+      return *const_val;
+    }
   }
-  // Eventually, we would support std::scalar to mhlo::tensor conversion of
-  // any type. But, we only support index to dimension tensor conversion
-  // currently.
-  // TODO: Add IntegerType Check (Only IntegerType Supported)
-  auto elem_type = std_scalar.getType();
-  mlir::Value dim_size =
-      builder
-          .create<mlir::IndexCastOp>(
-              loc, BuildStdScalarToIndexType(builder, loc, std_scalar),
-              elem_type)
-          .getResult();
-  SmallValueVec4 dim_sizes{dim_size};
+  SmallValueVec4 values{std_scalar};
   mlir::Value hlo_tensor =
-      builder.create<mlir::tensor::FromElementsOp>(loc, elem_type, dim_sizes);
+      BuildStdScalarToHloTensor(builder, loc, values, elem_type_opt);
   hlo_tensor = BuildReshapeTensorToScalar(builder, loc, hlo_tensor);
   return hlo_tensor;
 }
@@ -235,17 +239,19 @@ SmallValueVec4 BuildStdScalarToHloDimType(mlir::OpBuilder& builder,
   return new_dim_sizes;
 }
 
-mlir::Value BuildStdScalarToHloTensor(mlir::OpBuilder& builder,
-                                      const mlir::Location& loc,
-                                      const SmallValueVec4& values) {
-  // Eventually, we would support std::scalar to mhlo::tensor conversion of
-  // any type. But, we only support index to dimension tensor conversion
-  // currently.
-  // TODO: Add IntegerType Check (Only IntegerType Supported)
+mlir::Value BuildStdScalarToHloTensor(
+    mlir::OpBuilder& builder, const mlir::Location& loc,
+    const SmallValueVec4& values,
+    const llvm::Optional<mlir::Type>& elem_type_opt) {
   MHLO_CHECK(values.size() > 0, "values must not be empty");
-  auto elem_type = values[0].getType();
-  for (const auto& val : values) {
-    MHLO_CHECK(val.getType() == elem_type, "values type must be the same");
+
+  mlir::Type elem_type = values[0].getType();
+  if (elem_type_opt) {
+    elem_type = *elem_type_opt;
+  } else {
+    for (const auto& val : values) {
+      MHLO_CHECK(val.getType() == elem_type, "values type must be the same");
+    }
   }
   mlir::Value hlo_tensor =
       builder.create<mlir::tensor::FromElementsOp>(loc, elem_type, values);

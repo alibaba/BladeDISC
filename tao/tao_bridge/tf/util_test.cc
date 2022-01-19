@@ -18,7 +18,6 @@ limitations under the License.
 #include <list>
 
 #include "gtest/gtest.h"
-
 #include "tao_bridge/tf/types.h"
 
 namespace xla {

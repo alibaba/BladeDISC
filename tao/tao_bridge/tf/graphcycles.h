@@ -99,8 +99,8 @@ class GraphCycles {
 
   // Return or set the node data for a node.  This data is unused
   // by the implementation.
-  void *GetNodeData(int32 node) const;
-  void SetNodeData(int32 node, void *data);
+  void* GetNodeData(int32 node) const;
+  void SetNodeData(int32 node, void* data);
 
   // Find a path from "source" to "dest".  If such a path exists, place the
   // node IDs of the nodes on the path in the array path[], and return the
@@ -144,7 +144,7 @@ class GraphCycles {
   struct Rep;
 
  private:
-  Rep *rep_;  // opaque representation
+  Rep* rep_;  // opaque representation
   TF_DISALLOW_COPY_AND_ASSIGN(GraphCycles);
 };
 

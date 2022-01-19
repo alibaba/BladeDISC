@@ -93,6 +93,8 @@ enum FusionType {
   kInput,
   // TAO v1/v2 Stitch Fusion
   kStitch,
+  // A schedule for concat op having many operands.
+  kLargeConcat,
 };
 
 // Convert a fusion type to its string representation.
@@ -335,6 +337,11 @@ struct FusionOptions {
   // include both read-only buffers and writable buffers.
   int max_num_arguments_per_kernel = 64;
 };
+
+void setGlobalFusionOptions(const FusionOptions& options);
+
+// Here 'large' refer to having many operands.
+bool isLargeConcatOp(Operation* op);
 
 // Represents a specific fusion strategy.
 // Examples are:

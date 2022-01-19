@@ -1,1 +1,0 @@
-cd tf_community && bazel clean --expunge

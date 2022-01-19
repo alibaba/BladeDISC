@@ -19,6 +19,7 @@ limitations under the License.
 #define TAO_TAO_BRIDGE_PASSES_FUNCTIONALIZE_COND_H_
 
 #include <deque>
+
 #include "tao_bridge/common.h"
 #include "tao_bridge/tf/statusor.h"
 #include "tensorflow/core/framework/function.h"

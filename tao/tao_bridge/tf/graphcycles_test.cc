@@ -21,10 +21,9 @@ limitations under the License.
 #include <unordered_set>
 #include <vector>
 
-#include "tensorflow/core/platform/logging.h"
-
-#include "tao_bridge/tf/types.h"
 #include "tao_bridge/test_helpers.h"
+#include "tao_bridge/tf/types.h"
+#include "tensorflow/core/platform/logging.h"
 
 namespace tensorflow {
 namespace tao {

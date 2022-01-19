@@ -1,3 +1,14 @@
+// Copyright 2021 The BladeDISC Authors. All rights reserved.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #pragma once
 #include "mlir/mhlo/builder/mlir_type_utils.h"
 
@@ -87,9 +98,10 @@ mlir::Value BuildStdNegtive(mlir::OpBuilder& builder, const mlir::Location& loc,
                             const mlir::Value& std_val);
 
 // Build conversion from standard scalar to Tensor
-mlir::Value BuildStdScalarToHloTensor(mlir::OpBuilder& builder,
-                                      const mlir::Location& loc,
-                                      const mlir::Value& std_scalar);
+mlir::Value BuildStdScalarToHloTensor(
+    mlir::OpBuilder& builder, const mlir::Location& loc,
+    const mlir::Value& std_scalar,
+    const llvm::Optional<mlir::Type>& elem_type_opt = llvm::None);
 
 // Build conversion from standard scalar(interger) to index
 mlir::Value BuildStdScalarToIndexType(mlir::OpBuilder& builder,
@@ -102,8 +114,9 @@ SmallValueVec4 BuildStdScalarToHloDimType(mlir::OpBuilder& builder,
                                           const SmallValueVec4& dim_sizes);
 
 // Build conversion from standard scalar vector to Tensor
-mlir::Value BuildStdScalarToHloTensor(mlir::OpBuilder& builder,
-                                      const mlir::Location& loc,
-                                      const SmallValueVec4& dim_sizes);
+mlir::Value BuildStdScalarToHloTensor(
+    mlir::OpBuilder& builder, const mlir::Location& loc,
+    const SmallValueVec4& values,
+    const llvm::Optional<mlir::Type>& elem_type_opt = llvm::None);
 }  // namespace mhlo
 }  // namespace mlir

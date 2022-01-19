@@ -40,8 +40,7 @@ namespace tao {
 
 using ResourceOpMap =
     std::unordered_map<absl::string_view, XlaResourceOpInfo, hash<StringPiece>>;
-static ResourceOpMap*
-CreateResourceOpInfoMap() {
+static ResourceOpMap* CreateResourceOpInfoMap() {
   auto* result = new ResourceOpMap;
 
   auto add = [&](absl::string_view op, XlaResourceOpKind op_kind,
@@ -113,16 +112,13 @@ CreateResourceOpInfoMap() {
   return result;
 }
 
-static const ResourceOpMap&
-GetStaticResourceOpInfoMap() {
-  static ResourceOpMap*
-      op_info_map = CreateResourceOpInfoMap();
+static const ResourceOpMap& GetStaticResourceOpInfoMap() {
+  static ResourceOpMap* op_info_map = CreateResourceOpInfoMap();
   return *op_info_map;
 }
 
 const XlaResourceOpInfo* GetResourceOpInfoForOp(absl::string_view op) {
-  const ResourceOpMap& op_infos =
-      GetStaticResourceOpInfoMap();
+  const ResourceOpMap& op_infos = GetStaticResourceOpInfoMap();
   auto it = op_infos.find(op);
   return it == op_infos.end() ? nullptr : &it->second;
 }

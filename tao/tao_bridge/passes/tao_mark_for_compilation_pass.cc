@@ -804,8 +804,7 @@ Status MarkForCompilationPassImpl::RunEdgeContractionLoop() {
         }
 
         return TryToContractEdge(from, to);
-      })
-          .status());
+      }).status());
 
   // Phase 1.5: Contract tensorarray and while ops first if resource op
   // auto-cluster is enabled to increase the probability to form a valid
@@ -831,8 +830,7 @@ Status MarkForCompilationPassImpl::RunEdgeContractionLoop() {
           return false;
         }
         return TryToContractEdge(from, to);
-      })
-          .status());
+      }).status());
 
   // Phase 1: apply a heuristic to ensure that we don't mess up clustering due
   // to "group_deps".  After this phase most edges should have been contracted.
@@ -881,8 +879,7 @@ Status MarkForCompilationPassImpl::RunEdgeContractionLoop() {
         }
 
         return TryToContractEdge(from, to);
-      })
-          .status());
+      }).status());
 
   // Phase 2: contract any remaining edges.  After this phase we should have a
   // maximal clustering:
@@ -897,8 +894,7 @@ Status MarkForCompilationPassImpl::RunEdgeContractionLoop() {
   VLOG(4) << "Running phase 2";
   TF_RETURN_IF_ERROR(ForEachEdgeInPostOrder([&](Cluster* from, Cluster* to) {
                        return TryToContractEdge(from, to);
-                     })
-                         .status());
+                     }).status());
 
   // Check that the conclusion made above (that iterating over the graph once in
   // post order gives a maximal clustering) holds.  Once the linear time
@@ -2549,7 +2545,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "RandomUniform", "ReluGrad", "Square",
-                      "Pad", "DynamicStitch"
+                      "Pad", "DynamicStitch", "LeakyRelu"
 #else
 #if defined(PLATFORM_ALIBABA) || !defined(TAO_CPU_ONLY)
 // TODO(disc):
@@ -2570,7 +2566,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "LogSoftmax", "Reciprocal",
-                      "RandomUniform", "ReluGrad", "Square", "Pad", "DynamicStitch"
+                      "RandomUniform", "ReluGrad", "Square", "Pad", "DynamicStitch", "LeakyRelu"
 #endif
                     })
                 :
@@ -2594,7 +2590,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "Size", "RandomUniform", "Square",
-                      "Pad", "DynamicStitch"
+                      "Pad", "DynamicStitch", "LeakyRelu"
 #else
 #if defined(PLATFORM_ALIBABA) || !defined(TAO_CPU_ONLY)
                       "MatMul", "BatchMatMul", "Conv2D",
@@ -2614,7 +2610,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "LogSoftmax", "Reciprocal", "Size",
-                      "Conv2D", "RandomUniform", "Square", "Pad", "DynamicStitch"
+                      "Conv2D", "RandomUniform", "Square", "Pad", "DynamicStitch", "LeakyRelu"
 #endif
                     })
             )

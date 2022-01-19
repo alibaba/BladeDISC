@@ -38,7 +38,7 @@ GlobalJitLevelState* GetSingletonState() {
 void RegisterGlobalJitLevelGetter(GlobalJitLevelGetterTy getter) {
   GlobalJitLevelState* state = GetSingletonState();
   mutex_lock l(state->mu);
-  //CHECK(!state->getter);
+  // CHECK(!state->getter);
   state->getter = std::move(getter);
 }
 

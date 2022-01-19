@@ -41,27 +41,33 @@
 
 // Node* MakeRead(const Scope& scope, const string& id) {
 //   Output var_handle =
-//       ops::VarHandleOp(scope.WithOpName("Var" + id), DT_FLOAT, TensorShape({}));
+//       ops::VarHandleOp(scope.WithOpName("Var" + id), DT_FLOAT,
+//       TensorShape({}));
 //   Output read =
-//       ops::ReadVariableOp(scope.WithOpName("Read" + id), var_handle, DT_FLOAT);
+//       ops::ReadVariableOp(scope.WithOpName("Read" + id), var_handle,
+//       DT_FLOAT);
 //   return read.node();
 // }
 
 // Node* MakeWrite(const Scope& scope, const string& id) {
 //   Output var_handle =
-//       ops::VarHandleOp(scope.WithOpName("Var" + id), DT_FLOAT, TensorShape({}));
+//       ops::VarHandleOp(scope.WithOpName("Var" + id), DT_FLOAT,
+//       TensorShape({}));
 //   Output value_to_write =
 //       ops::Const(scope.WithOpName("ValueToAssign" + id), 1.0f);
-//   ops::AssignVariableOp assign_op(scope.WithOpName("Assignee" + id), var_handle,
+//   ops::AssignVariableOp assign_op(scope.WithOpName("Assignee" + id),
+//   var_handle,
 //                                   value_to_write);
 //   return assign_op.operation.node();
 // }
 
 // Node* MakeModify(const Scope& scope, const string& id) {
 //   Output var_handle =
-//       ops::VarHandleOp(scope.WithOpName("Var" + id), DT_FLOAT, TensorShape({}));
-//   Output value_to_write = ops::Const(scope.WithOpName("Increment" + id), 1.0f);
-//   ops::AssignAddVariableOp assign_add_op(scope.WithOpName("Increment" + id),
+//       ops::VarHandleOp(scope.WithOpName("Var" + id), DT_FLOAT,
+//       TensorShape({}));
+//   Output value_to_write = ops::Const(scope.WithOpName("Increment" +
+//   id), 1.0f); ops::AssignAddVariableOp
+//   assign_add_op(scope.WithOpName("Increment" + id),
 //                                          var_handle, value_to_write);
 //   return assign_add_op.operation.node();
 // }
@@ -249,7 +255,8 @@
 //   EXPECT_EQ(incompatible_pairs[2], write_modify_pair);
 // }
 
-// FunctionDefLibrary CreateFunctionDefLibWithConstFunction(const string& name) {
+// FunctionDefLibrary CreateFunctionDefLibWithConstFunction(const string& name)
+// {
 //   FunctionDefLibrary flib_def;
 //   FunctionDef func = FunctionDefHelper::Create(
 //       /*function_name=*/name, /*in_def=*/{}, /*out_def=*/{"out: float"},
@@ -260,7 +267,8 @@
 //   return flib_def;
 // }
 
-// Node* MakeCall(Graph* graph, const string& callee_name, const string& node_name,
+// Node* MakeCall(Graph* graph, const string& callee_name, const string&
+// node_name,
 //                Status* status) {
 //   NodeDef call_node;
 //   call_node.set_name(node_name);
@@ -513,9 +521,11 @@
 //   ops::Switch latch(root.WithOpName("latch"), iv.output, loop_cond);
 //   ops::internal::Exit exit(root.WithOpName("exit"), iv.output);
 //   Output next_iteration =
-//       ops::NextIteration(root.WithOpName("next_iteration"), latch.output_true);
+//       ops::NextIteration(root.WithOpName("next_iteration"),
+//       latch.output_true);
 //   TF_ASSERT_OK(
-//       root.graph()->UpdateEdge(next_iteration.node(), 0, iv.output.node(), 1));
+//       root.graph()->UpdateEdge(next_iteration.node(), 0, iv.output.node(),
+//       1));
 
 //   Node* write = MakeWrite(root, "W");
 //   Node* read = MakeRead(root, "R");

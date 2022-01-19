@@ -27,7 +27,7 @@ limitations under the License.
 
 namespace tensorflow {
 namespace tao {
-  
+
 enum class XlaResourceOpKind {
   kRead,      // Only reads from resources.
   kWrite,     // Only writes to resources.

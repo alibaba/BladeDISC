@@ -327,7 +327,9 @@ template <typename T, int N, int M, typename P = int64_t>
   TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 3, N>); \
   TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 4, N>); \
   TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 5, N>); \
-  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 6, N>);
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 6, N>); \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 7, N>); \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast<T, 8, N>);
 
 #define RAL_REGISTER_BITCAST_FUNC_0D(T)                                       \
   TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T>);      \
@@ -337,7 +339,9 @@ template <typename T, int N, int M, typename P = int64_t>
   TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 3, 0>) \
   TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 4, 0>) \
   TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 5, 0>) \
-  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 6, 0>);
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 6, 0>) \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 7, 0>) \
+  TAO_RAL_API(tao::ral::kRalBitcast, "cpu", ral_base_cpu_bitcast_0d<T, 8, 0>);
 
 RAL_REGISTER_BITCAST_FUNC_0D(float);
 RAL_REGISTER_BITCAST_FUNC_0D(double);
@@ -350,12 +354,16 @@ RAL_REGISTER_BITCAST_FUNC(float, 3);
 RAL_REGISTER_BITCAST_FUNC(float, 4);
 RAL_REGISTER_BITCAST_FUNC(float, 5);
 RAL_REGISTER_BITCAST_FUNC(float, 6);
+RAL_REGISTER_BITCAST_FUNC(float, 7);
+RAL_REGISTER_BITCAST_FUNC(float, 8);
 RAL_REGISTER_BITCAST_FUNC(double, 1);
 RAL_REGISTER_BITCAST_FUNC(double, 2);
 RAL_REGISTER_BITCAST_FUNC(double, 3);
 RAL_REGISTER_BITCAST_FUNC(double, 4);
 RAL_REGISTER_BITCAST_FUNC(double, 5);
 RAL_REGISTER_BITCAST_FUNC(double, 6);
+RAL_REGISTER_BITCAST_FUNC(double, 7);
+RAL_REGISTER_BITCAST_FUNC(double, 8);
 RAL_REGISTER_BITCAST_FUNC(int32_t, 1);
 RAL_REGISTER_BITCAST_FUNC(int32_t, 2);
 RAL_REGISTER_BITCAST_FUNC(int32_t, 3);
@@ -368,12 +376,16 @@ RAL_REGISTER_BITCAST_FUNC(int64_t, 3);
 RAL_REGISTER_BITCAST_FUNC(int64_t, 4);
 RAL_REGISTER_BITCAST_FUNC(int64_t, 5);
 RAL_REGISTER_BITCAST_FUNC(int64_t, 6);
+RAL_REGISTER_BITCAST_FUNC(int64_t, 7);
+RAL_REGISTER_BITCAST_FUNC(int64_t, 8);
 RAL_REGISTER_BITCAST_FUNC(bool, 1);
 RAL_REGISTER_BITCAST_FUNC(bool, 2);
 RAL_REGISTER_BITCAST_FUNC(bool, 3);
 RAL_REGISTER_BITCAST_FUNC(bool, 4);
 RAL_REGISTER_BITCAST_FUNC(bool, 5);
 RAL_REGISTER_BITCAST_FUNC(bool, 6);
+RAL_REGISTER_BITCAST_FUNC(bool, 7);
+RAL_REGISTER_BITCAST_FUNC(bool, 8);
 
 }  // namespace cpu
 }  // namespace ral

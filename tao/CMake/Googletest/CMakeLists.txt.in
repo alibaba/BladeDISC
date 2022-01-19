@@ -4,7 +4,7 @@ project(googletest-download NONE)
 
 include(ExternalProject)
 ExternalProject_Add(googletest
-  URL                   "https://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/gtest/release-1.11.0.tar.gz"
+  URL                   "${GTEST_TAR_URL}"
   DOWNLOAD_NO_PROGRESS  true
   SOURCE_DIR            "${CMAKE_BINARY_DIR}/googletest-src"
   BINARY_DIR            "${CMAKE_BINARY_DIR}/googletest-build"

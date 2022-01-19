@@ -28,6 +28,7 @@ tao_option(TAO_ENABLE_UPLOAD_TOOL "if ON, enable uploading tool building" OFF)
 tao_option(TAO_DISABLE_LINK_TF_FRAMEWORK "if disable, do not link tf framework" OFF)
 tao_option(TAO_ENABLE_AUTH "if ON, linking the authentication library" OFF)
 tao_option(PLATFORM_ALIBABA "if ON, building with internal library" OFF)
+tao_option(GTEST_TAR_URL "download cmake tarball via URL" "https://github.com/google/googletest/archive/refs/tags/release-1.11.0.tar.gz")
 
 ############## config start ##############
 if (NOT UNIX)

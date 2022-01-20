@@ -7,17 +7,21 @@ Please refer to ["Install BladeDISC With Docker"](/docs/install_with_docker.md)
 for environment setup.
 
 The content of this tutorial is as following.
-- [BERT Inference](#bert-inference)
+- [BERT CUDA Inference](#bert-cuda-inference)
   - [Prologue: Download Frozen Model](#prologue-download-frozen-model)
   - [All You Need Are the Two Lines!](#all-you-need-are-the-two-lines)
   - [Epilogue: Normal Process to Run Inference](#epilogue-normal-process-to-run-inference)
+- [BERT X86 Inference](#bert-x86-inference)
+  - [Prologue: Download Frozen Model For X86 CPU](#prologue-download-frozen-model-for-x86-cpu)
+  - [All You Need Are the Two Lines With CPU Specific Setting](#all-you-need-are-the-two-lines-with-cpu-specific-setting)
+  - [Epilogue: Normal Process to Run Inference on X86 CPU](#epilogue-normal-process-to-run-inference-on-x86-cpu)
 - [DeePMD training](#deepmd-training)
   - [Prologue: Install DeePMD-kit and Download Data](#prologue-install-deepmd-kit-and-download-data)
   - [Still, All You Need Are the Two Lines!](#still-all-you-need-are-the-two-lines)
   - [Epilogue: Normal Process to Run MD Training with DeePMD-kit API](#epilogue-normal-process-to-run-md-training-with-deepmd-kit-api)
 
 
-## BERT Inference
+## BERT CUDA Inference
 
 BERT models are usually feed with data of dynamic shapes in real production. The
 dynamic shape mainly comes from two aspects, one is varied batch-size, and the
@@ -83,7 +87,78 @@ for batch in [2, 2, 4, 1, 1, 8, 8, 2, 16, 2]:
 
 The above code shows the complete process to optimize BERT inference model with
 BladeDISC. Please refer to [TensorFlow BERT Inference
-Example](https://github.com/alibaba/BladeDISC/tree/main/examples/TensorFlow/Inference/BERT)
+Example](https://github.com/alibaba/BladeDISC/tree/main/examples/TensorFlow/Inference/CUDA/BERT)
+for more scripts to compare the performance of BladeDISC optimization with naive
+TensorFlow and XLA.
+
+
+## BERT CPU Inference
+
+Similar to the CUDA example, The BERT model we show in this tutorial has varied
+batch-size.
+
+### Prologue: Download Frozen Model For X86 CPU
+
+```python
+!mkdir -p model
+!wget -P model http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/bladedisc_notebook_binaries/models/disc_bert_cpu_example/frozen.pb
+```
+
+### All You Need Are the Two Lines With CPU Specific Setting!
+
+Similar to the CUDA example, all you need to optimize the inference is to
+add the following two lines of code with some settings that are specific to cpu.
+```python
+import blade_disc_tf as disc
+disc.enable(
+  disc_cpu=True, # this enable cpu optimization
+  num_intra_op_threads=16 # similar to TF_NUM_INTRAOP_THREADS
+)
+```
+
+### Epilogue: Normal Process to Run Inference on X86 CPU
+
+After enabling BladeDISC with the two lines above, we can load and run the
+frozen model with normal process.
+
+First, we load the frozen model and configure the session.
+```python
+import os
+import time
+import numpy as np
+import tensorflow.compat.v1 as tf
+tf.disable_v2_behavior()
+
+graph_def = tf.GraphDef()
+with open('./model/frozen.pb', 'rb') as f:
+    graph_def.ParseFromString(f.read())
+graph = tf.Graph()
+with graph.as_default():
+    tf.import_graph_def(graph_def, name='')
+graph = load_frozen_graph()
+
+session_config = tf.ConfigProto()
+session_config.inter_op_parallelism_threads = 1
+session_config.intra_op_parallelism_threads = 16
+sess = tf.Session(graph = graph, config = session_config)
+```
+
+Finally, we prepare input data and run the session. In this example, we fake the
+input data with varied batch-size to ease the setup.
+```python
+fetch = ["loss/Softmax:0"]
+for batch in [2, 2, 4, 1, 1, 8, 8, 2, 16, 2]:
+    feed_dict = {
+        'input_ids_1:0' : np.ones((batch, 128), dtype=int),
+        'segment_ids_1:0' : np.zeros((batch, 128), dtype=int),
+        'input_mask_1:0' : np.ones((batch, 128), dtype=int),
+    }
+    outs = sess.run(fetch, feed_dict = feed_dict)
+```
+
+The above code shows the complete process to optimize BERT inference model with
+BladeDISC. Please refer to [TensorFlow BERT Inference
+Example](https://github.com/alibaba/BladeDISC/tree/main/examples/TensorFlow/Inference/X86/BERT)
 for more scripts to compare the performance of BladeDISC optimization with naive
 TensorFlow and XLA.
 

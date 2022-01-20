@@ -20,7 +20,31 @@ DISC_COMPILER_NAME = 'tao_compiler_main'
 _ROOT = os.path.abspath(os.path.dirname(__file__))
 
 
-def enable():
+def enable(disc_cpu=False, num_intra_op_threads=1, fast_math_level=4):
+    '''Set up BladeDISC.
+
+    This is a simple method to enable BladeDISC for TensorFlow.
+
+    Parameters
+    ----------
+    disc_cpu : bool
+        Enable cpu JIT compilation optimization if True.
+
+    num_intra_op_threads: int
+        The number of threads that BladeDISC uses for the execution of
+        the compiled part of the graph. It's recommanded to use the same
+        value as the TF_NUM_INTRAOP_THREADS.
+
+    fast_math_level: int
+        Controls the extent that BladeDISC is allowed to use fast math for
+        acceleration. Higher number usually means faster speed while it may
+        lead to some accuracy loss in some cases.
+          Level 0: no fast math
+          Level 1: apply approximation for some expensive math ops (e.g. exp, sin)
+          Level 2: Level 1 + AllowReassoc
+          Level 3: Level 2 + NoNaNs + NoSignedZeros
+          Level 4: Level 3 + fully llvm fast math
+    '''
     tao_op_path = os.path.join(_ROOT, TAO_OP_NAME)
     disc_compiler_path = os.path.join(_ROOT, DISC_COMPILER_NAME)
     if not os.path.exists(tao_op_path):
@@ -33,5 +57,9 @@ def enable():
     os.environ.setdefault("TAO_COMPILER_PATH", disc_compiler_path)
     os.environ.setdefault("TAO_COMPILATION_MODE_ASYNC", "false")
     os.environ.setdefault("TAO_MLIR_BRANCH_ONLY", "true")
+    if disc_cpu:
+        os.environ.setdefault("TAO_FLAGS", "--tf_xla_auto_jit=2 --tf_xla_cpu_global_jit")
+        os.environ.setdefault("OMP_NUM_THREADS", str(num_intra_op_threads))
+        os.environ.setdefault("DISC_CPU_FAST_MATH_LEVEL", str(fast_math_level))
     tf.load_op_library(tao_op_path)
     print("Welcome BladeDISC!")

@@ -22,10 +22,19 @@ load("//tensorflow/compiler/mlir/disc:disc.bzl",
      "disc_cc_library",
      "if_cuda_or_rocm",
 )
-
 config_setting(
     name = "is_platform_alibaba",
     define_values = {"is_platform_alibaba": "true"},
+)
+
+config_setting(
+    name = "is_patine",
+    define_values = {"is_patine": "true"},
+)
+
+config_setting(
+    name = "is_mkldnn",
+    define_values = {"is_mkldnn": "true"},
 )
 
 package(

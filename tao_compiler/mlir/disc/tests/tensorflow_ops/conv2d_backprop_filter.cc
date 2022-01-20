@@ -17,10 +17,6 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/tests/mlir_test.h"
 #include "tensorflow/core/platform/test.h"
 
-#ifndef PLATFORM_ALIBABA
-#define TFConv2DBackpropFilterOpTest DISABLED_TFConv2DBackpropFilterOpTest
-#endif
-
 namespace mlir_test {
 
 const std::string c_ft_path =

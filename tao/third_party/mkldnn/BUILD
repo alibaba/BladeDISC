@@ -1,0 +1,12 @@
+cc_library(
+    name = "onednn",
+    hdrs = glob([
+        "build/install/include/*",
+        "build/intel/include/*",
+    ]),
+    includes = [
+        "build/install/include",
+        "build/intel/include",
+    ],
+    visibility = ["//visibility:public"],
+)

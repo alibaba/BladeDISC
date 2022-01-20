@@ -23,7 +23,9 @@ load(
 load("//tensorflow/compiler/mlir/disc:disc.bzl",
      "disc_cc_library",
      "if_cuda_or_rocm",
-     "if_platform_alibaba"
+     "if_platform_alibaba",
+     "if_patine",
+     "if_mkldnn",
 )
 
 package(
@@ -172,12 +174,34 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_mkl",
+    hdrs = glob([
+        "context/mkldnn/ideep/*.hpp",
+        "context/mkldnn/ideep/ideep/*.hpp",
+        "context/mkldnn/ideep/ideep/operators/*.hpp",
+    ]),
+    linkopts = [
+      "-Ltao/third_party/mkldnn/build/install/lib64",
+      "-Ltao/third_party/mkldnn/build/intel/lib",
+      "-Wl,--start-group tao/third_party/mkldnn/build/install/lib64/libdnnl.a -Wl,--end-group",
+      "-Wl,--start-group tao/third_party/mkldnn/build/intel/lib/libmkl_intel_ilp64.a tao/third_party/mkldnn/build/intel/lib/libmkl_gnu_thread.a tao/third_party/mkldnn/build/intel/lib/libmkl_core.a -Wl,--end-group",
+    ],
+    deps = [
+        "//tao/third_party/mkldnn:onednn",
+    ],
+)
+
+cc_library(
     name = "common_context",
     srcs = [
         "context/common_context_impl.cc",
     ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
+    ]) + if_patine([
+        "context/common_context_impl_patine.cc",
+    ]) + if_mkldnn([
+        "context/common_context_impl_mkldnn.cc",
     ]),
     hdrs = [
         "context/common_context_impl.h",
@@ -212,7 +236,11 @@ cc_library(
         "//tensorflow/core:lib",
         "//tensorflow/core:stream_executor_headers_lib",
         "//tensorflow/core:framework",
-    ], [":disc_patine_client_deps"]),
+    ]) + if_patine([
+        ":disc_patine_client_deps",
+    ]) + if_mkldnn([
+        ":disc_mkl",
+    ]),
     alwayslink = 1,
 )
 

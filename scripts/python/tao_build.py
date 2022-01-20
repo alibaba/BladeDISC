@@ -227,6 +227,45 @@ def configure_compiler(root, args):
                 f.write("test --remote_cache={}\n".format(token))
     logger.info("Stage [configure] success.")
 
+def mkldnn_build_dir(root=None):
+    if root is None:
+        root = get_source_root_dir()
+    return os.path.join(root, "tao", "third_party", "mkldnn", "build")
+
+def mkl_install_dir(root):
+    return os.path.join(mkldnn_build_dir(root), "intel")
+
+def config_mkldnn(root, args):
+    build_dir = mkldnn_build_dir(root)
+    ensure_empty_dir(build_dir, clear_hidden=False)
+    mkl_dir = mkl_install_dir(root)
+    ensure_empty_dir(mkl_dir, clear_hidden=False)
+    # download mkl-lib/include
+    with cwd(mkl_dir):
+        download_cmd = '''
+          curl -fsSL https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-static-2022.0.1-intel_117.tar.bz2  | tar xjv
+          curl -fsSL https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-include-2022.0.1-h8d4b97c_803.tar.bz2 | tar xjv
+        '''
+        execute(download_cmd)
+    with cwd(build_dir), gcc_env(args.bridge_gcc):
+        cc = which("gcc")
+        cxx = which("g++")
+        # always link patine statically
+        cmake_cmd = "CC={} CXX={} cmake .. -DMKL_ROOT={}".format(cc, cxx, mkl_dir)
+        if args.ral_cxx11_abi:
+            cmake_cmd += " -DUSE_CXX11_ABI=ON"
+        logger.info("configuring mkldnn ......")
+        execute(cmake_cmd)
+        logger.info("mkldnn configure success.")
+
+@time_stage()
+def build_mkldnn(root, args):
+    build_dir = mkldnn_build_dir(root)
+    with cwd(build_dir), gcc_env(args.bridge_gcc):
+        execute("make -j")
+        execute("make install")
+    logger.info("Stage [build_mkldnn] success.")
+
 @time_stage()
 def configure_pytorch(root, args):
     save_gcc_conf(args)
@@ -257,6 +296,11 @@ def configure(root, args):
         flags += " -DTAO_DCU={}".format(args.dcu)
         is_cuda = not (args.cpu_only or args.dcu)
         flags += " -DTAO_CUDA={}".format(is_cuda)
+        flags += " -DTAO_ENABLE_MKLDNN={} ".format(
+            "ON" if args.enable_mkldnn else "OFF"
+        )
+        if args.enable_mkldnn:
+            flags +=" -DMKL_ROOT={} ".format(mkl_install_dir(root))
 
         cmake_cmd = (
             "CC={} CXX={} cmake .. -DPYTHON={}/bin/{} {}".format(
@@ -373,6 +417,9 @@ def build_tao_compiler(root, args):
         if args.enable_blaze_opt:
             flag += ' --cxxopt="-DBLAZE_OPT"'
 
+        if args.enable_mkldnn:
+            flag += ' --cxxopt="-DTAO_ENABLE_MKLDNN" --define is_mkldnn=true'
+
         bazel_build(TARGET_TAO_COMPILER_MAIN, flag=flag)
         bazel_build(TARGET_DISC_OPT, flag=flag)
         execute(
@@ -404,7 +451,7 @@ def build_mlir_ral(root, args):
             BAZEL_BUILD_CMD = BAZEL_BUILD_CMD + " --config=cuda"
     else:
         BAZEL_BUILD_CMD = BAZEL_BUILD_CMD + " --config=release_cpu_linux"
-    
+
     BAZEL_BUILD_CMD += ci_build_flag()
 
     TARGET_RAL_STANDALONE_LIB = "//tensorflow/compiler/mlir/xla/ral:libral_base_context.so"
@@ -427,6 +474,8 @@ def build_mlir_ral(root, args):
             flag = flag + " --cxxopt=-DTAO_CPU_ONLY"
         if args.enable_blaze_opt:
             flag = flag + ' --cxxopt="-DBLAZE_OPT"'
+        if args.enable_mkldnn:
+            flag += ' --cxxopt="-DTAO_ENABLE_MKLDNN" --define is_mkldnn=true'
         bazel_build(TARGET_RAL_STANDALONE_LIB, flag=flag)
         bazel_build(TARGET_MLIR_DISC_BUILDER, flag=flag)
         bazel_build(TARGET_MLIR_DISC_BUILDER_HEADER, flag=flag)
@@ -437,6 +486,8 @@ def build_mlir_ral(root, args):
             flag = flag + " --cxxopt=-DTAO_CPU_ONLY"
         if args.enable_blaze_opt:
             flag = flag + ' --cxxopt="-DBLAZE_OPT"'
+        if args.enable_mkldnn:
+            flag += ' --cxxopt="-DTAO_ENABLE_MKLDNN" --define is_mkldnn=true'
         if not args.cpu_only:
             # A workaround for a bug of gcc<=7.3 since devtoolset-7 supports up to 7.3.1
             # and cuda-10 runtime cannot support devtools-8 for now.
@@ -486,7 +537,7 @@ def test_tao_compiler(root, args):
 
     TARGET_DISC_TRANSFORMS_TEST = "//tensorflow/compiler/mlir/disc/transforms/tests/..."
     TARGET_DISC_E2E_TEST = "//tensorflow/compiler/mlir/disc/tests/..."
-    
+
     targets = None
     if args.bazel_target is not None:
         targets = set(args.bazel_target.split(","))
@@ -507,6 +558,8 @@ def test_tao_compiler(root, args):
         )
         if args.cpu_only:
             flag = '--cxxopt="-DTAO_CPU_ONLY" --config=release_cpu_linux '
+            if args.enable_mkldnn:
+                flag += ' --cxxopt="-DTAO_ENABLE_MKLDNN" --define is_mkldnn=true'
             mlir_test_list = [
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
@@ -820,6 +873,10 @@ def parse_args():
     assert args.venv_dir, "virtualenv directory should not be empty."
     assert os.path.exists(args.venv_dir), "virtualenv directory does not exist."
     args.venv_dir = os.path.abspath(args.venv_dir)
+
+    # TODO(disc): support other type of CPUs.
+    args.enable_mkldnn = args.cpu_only
+
     if args.stage in ["all", "configure"]:
         assert args.bridge_gcc, "--bridge-gcc is required."
         assert args.compiler_gcc, "--compiler-gcc is required."
@@ -850,10 +907,10 @@ def main():
         if stage == "lint": return
 
     if stage in ["all", "configure", "configure_pytorch"]:
+        if args.enable_mkldnn:
+            config_mkldnn(root, args)
         if stage == "configure_pytorch":
             configure_pytorch(root, args)
-        #elif args.cpu_only and args.enable_tvm:
-        #    configure_cpu(root, args)
         else:
             configure(root, args)
 
@@ -869,6 +926,8 @@ def main():
         or is_test
         and not args.no_build_for_test
     ):
+        if args.enable_mkldnn:
+            build_mkldnn(root, args)
         if stage == "build_mlir_ral":
             build_mlir_ral(root, args)
         else:
@@ -889,6 +948,8 @@ def main():
             test_tao_bridge(root, args, cpp=False, python=True)
 
         if stage in ["all", "test", "test_tao_compiler"]:
+            if args.enable_mkldnn:
+                build_mkldnn(root, args)
             test_tao_compiler(root, args)
 
 

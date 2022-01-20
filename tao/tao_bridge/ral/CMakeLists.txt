@@ -41,7 +41,7 @@ if(${TAO_CUDA})
     ############### cuda config ###############
     set(CMAKE_CUDA_STANDARD 11)
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)
-    
+
     if(NOT ${CUDA_VERSION_STRING} VERSION_LESS "11.0")
       set(RAL_GPU_ARCHS "60;61;70;72;75;80" CACHE STRING "GPU SM")
       set(CMAKE_CUDA_STANDARD 14)
@@ -52,7 +52,7 @@ if(${TAO_CUDA})
     else()
       set(RAL_GPU_ARCHS "60;61;70" CACHE STRING "GPU SM")
     endif()
-    
+
     foreach(arch ${RAL_GPU_ARCHS})
       set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -gencode arch=compute_${arch},code=sm_${arch}")
     endforeach()
@@ -122,6 +122,18 @@ if(${TAO_DCU})
   )
 endif()
 
+if(${TAO_ENABLE_PATINE})
+  list(APPEND RAL_SRCS
+    "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_patine.cc"
+  )
+endif()
+
+if(${TAO_ENABLE_MKLDNN})
+  list(APPEND RAL_SRCS
+    "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_mkldnn.cc"
+  )
+endif()
+
 if(${TAO_CPU_ONLY})
   SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp")
 endif()
@@ -131,6 +143,14 @@ include_directories(".")
 add_library(ral OBJECT ${RAL_SRCS} ${RAL_CU_SRCS})
 
 # PatineClient
-if(${TAO_CPU_ONLY})
+if(${TAO_ENABLE_PATINE})
   target_link_libraries(ral PRIVATE patine_client)
+endif()
+
+if(${TAO_ENABLE_MKLDNN})
+  target_link_libraries(ral PRIVATE dnnl)
+  set(MKL_LINK_OPTION "-Wl,--start-group ${MKL_ROOT}/lib/libmkl_intel_ilp64.a ${MKL_ROOT}/lib/libmkl_gnu_thread.a ${MKL_ROOT}/lib/libmkl_core.a -Wl,--end-group -lgomp -lpthread -lm -ldl")
+  set(MKL_COMPILE_OPTION -DMKL_ILP64 -m64 -I${MKL_ROOT}/include)
+  target_compile_options(ral PRIVATE ${MKL_COMPILE_OPTION})
+  target_link_libraries(ral PRIVATE ${MKL_LINK_OPTION})
 endif()

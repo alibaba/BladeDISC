@@ -21,6 +21,8 @@
 #else
 #include "tensorflow/compiler/mlir/xla/ral/compile_metadata.pb.h"
 #endif
+#include <chrono>
+
 #include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_context.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
@@ -107,6 +109,30 @@ buffer_shape_t GetShapeFromConstUniqueName(ExecutionContext* ctx,
 std::vector<uint8_t> fromHex(const std::string& Input);
 
 bool isDebugMode();
+
+// Returns true is profling mode is enabled.
+bool isProfilingEnabled();
+
+// RAII object for timing measure
+struct CpuTimer {
+  // Starts the time at construction time.
+  CpuTimer(const char* message);
+
+  // If enabled, print the message and the time elapsed when destroyed.
+  ~CpuTimer();
+
+  // Explicitly stop the timer
+  void Stop();
+
+  // When `Stop` is called before, this return the elapsed time in `ns`.
+  size_t GetNanoSeconds();
+
+  bool stopped = false;
+  const char* message;
+  std::chrono::steady_clock::time_point start;
+  std::chrono::steady_clock::time_point finish;
+  size_t nanoseconds = 0;
+};
 
 }  // namespace ral
 }  // namespace tao

@@ -36,3 +36,15 @@ def if_cuda_or_rocm(if_true, if_false=[]):
         "@local_config_rocm//rocm:using_hipcc": if_true,
         "//conditions:default": if_false
     })
+
+def if_patine(if_true, if_false=[]):
+    return select({
+        "//tensorflow/compiler/mlir/disc:is_patine": if_true,
+        "//conditions:default": if_false
+    })
+
+def if_mkldnn(if_true, if_false=[]):
+    return select({
+        "//tensorflow/compiler/mlir/disc:is_mkldnn": if_true,
+        "//conditions:default": if_false
+    })

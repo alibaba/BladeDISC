@@ -22,10 +22,6 @@ namespace mlir_test {
 const std::string c_ft_path =
     "tensorflow/compiler/mlir/disc/tests/tensorflow_ops/data/";
 
-#ifndef PLATFORM_ALIBABA
-#define TFBatchMatMulOpTest DISABLED_TFBatchMatMulOpTest
-#endif
-
 // static shape test case
 TEST(TFBatchMatMulOpTest, StaticShapeNNF32) {
   EXPECT_TRUE(feature_test_main(

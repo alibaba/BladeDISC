@@ -31,6 +31,7 @@ tao_option(PLATFORM_ALIBABA "if ON, building with internal library" OFF)
 tao_option(TAO_ENABLE_PATINE "if ON, using patine for compute-intensive ops" OFF)
 tao_option(TAO_ENABLE_MKLDNN "if ON, using mkldnn for compute-intensive ops" OFF)
 set(MKL_ROOT "third_party/mkldnn/build/intel" CACHE STRING "Set to mkl_root if enable MKL")
+tao_option(GTEST_TAR_URL "download cmake tarball via URL" "https://github.com/google/googletest/archive/refs/tags/release-1.11.0.tar.gz")
 
 ############## config start ##############
 if (NOT UNIX)

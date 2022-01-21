@@ -92,7 +92,7 @@ for more scripts to compare the performance of BladeDISC optimization with naive
 TensorFlow and XLA.
 
 
-## BERT CPU Inference
+## BERT X86 Inference
 
 Similar to the CUDA example, The BERT model we show in this tutorial has varied
 batch-size.

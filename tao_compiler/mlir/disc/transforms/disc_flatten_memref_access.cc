@@ -70,7 +70,7 @@ LogicalResult DiscFlattenMemrefAccessPass::processLoadOp(memref::LoadOp op) {
   Location loc = op.getLoc();
   Value memref = op.getMemRef();
   auto ty = memref.getType().cast<MemRefType>();
-  if (ty.getRank() < 1 || !ty.getAffineMaps().empty()) return success();
+  if (ty.getRank() < 1 || !ty.getLayout().isIdentity()) return success();
 
   SmallVector<Value> dimSizes = disc_ral::getShapeValues(&b, memref);
   Value linear = b.create<disc_shape::LinearizeOp>(loc, b.getIndexType(),
@@ -86,7 +86,7 @@ LogicalResult DiscFlattenMemrefAccessPass::processStoreOp(memref::StoreOp op) {
   Location loc = op.getLoc();
   Value memref = op.getMemRef();
   auto ty = memref.getType().cast<MemRefType>();
-  if (ty.getRank() < 1 || !ty.getAffineMaps().empty()) return success();
+  if (ty.getRank() < 1 || !ty.getLayout().isIdentity()) return success();
 
   SmallVector<Value> dimSizes = disc_ral::getShapeValues(&b, memref);
   Value linear = b.create<disc_shape::LinearizeOp>(loc, b.getIndexType(),

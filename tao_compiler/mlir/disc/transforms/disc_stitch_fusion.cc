@@ -15,7 +15,7 @@ limitations under the License.
 
 // This file implements logic for lowering LHLO dialect to Affine dialect.
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops.h"
+#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"

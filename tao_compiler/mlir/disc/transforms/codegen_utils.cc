@@ -15,6 +15,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/SCF/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/SCF/Utils.h"
@@ -28,11 +29,10 @@ namespace disc_ral {
 Value emitNumElementsComputation(OpBuilder& b, Location loc, Value memref) {
   int rank = memref.getType().cast<MemRefType>().getRank();
   Value num_elements;
-  num_elements = b.create<mlir::ConstantOp>(
-      loc, b.getIndexType(), b.getIntegerAttr(b.getIndexType(), 1));
+  num_elements = b.create<arith::ConstantIndexOp>(loc, 1);
   for (int r = 0; r < rank; ++r) {
     auto dim_size = b.create<memref::DimOp>(loc, memref, r);
-    num_elements = b.create<MulIOp>(loc, num_elements, dim_size);
+    num_elements = b.create<arith::MulIOp>(loc, num_elements, dim_size);
   }
   return num_elements;
 }
@@ -55,8 +55,7 @@ SmallVector<Value> getShapeValues(OpBuilder* b, Value memref) {
     if (shape[i] == ShapedType::kDynamicSize) {
       result.push_back(b->create<DimOp>(loc, memref, i));
     } else {
-      result.push_back(b->create<ConstantOp>(
-          loc, b->getIntegerAttr(b->getIndexType(), shape[i])));
+      result.push_back(b->create<arith::ConstantIndexOp>(loc, shape[i]));
     }
   }
   return result;
@@ -90,19 +89,18 @@ Value getDimSizeValue(OpBuilder* b, Value memref, int dim) {
   if (dim_size == ShapedType::kDynamicSize) {
     return b->create<DimOp>(loc, memref, dim);
   } else {
-    return b->create<ConstantOp>(
-        loc, b->getIntegerAttr(b->getIndexType(), dim_size));
+    return b->create<arith::ConstantIndexOp>(loc, dim_size);
   }
 }
 
 Value mayConvertToIndexType(Value val, OpBuilder* b, Location loc) {
   if (val.getType().isIndex()) return val;
-  return b->create<IndexCastOp>(loc, val, b->getIndexType());
+  return b->create<arith::IndexCastOp>(loc, val, b->getIndexType());
 }
 
 Value mayConvertToIntegerType(Value val, OpBuilder* b, Location loc) {
   if (val.getType().isInteger(32) || val.getType().isInteger(64)) return val;
-  return b->create<mlir::IndexCastOp>(loc, val, b->getI64Type());
+  return b->create<arith::IndexCastOp>(loc, val, b->getI64Type());
 }
 
 SmallVector<Value> calcMultiDimIndex(OpBuilder* b, Location loc,
@@ -135,7 +133,7 @@ Value CastMemRefTo(OpBuilder& b, Location loc, Value from, Type toType,
     if (staticStride != ShapedType::kDynamicSize) {
       foldStrides.push_back(getIntAttr(staticStride));
       if (memrefTy.getDimSize(i) == ShapedType::kDynamicSize) {
-        dynamicStride = b.create<ConstantIndexOp>(loc, staticStride);
+        dynamicStride = b.create<arith::ConstantIndexOp>(loc, staticStride);
         staticStride = ShapedType::kDynamicSize;
       } else {
         staticStride *= memrefTy.getDimSize(i);
@@ -144,7 +142,7 @@ Value CastMemRefTo(OpBuilder& b, Location loc, Value from, Type toType,
       foldStrides.push_back(dynamicStride);
     }
     if (dynamicStride) {
-      dynamicStride = b.create<MulIOp>(loc, dynamicStride, toShape[i]);
+      dynamicStride = b.create<arith::MulIOp>(loc, dynamicStride, toShape[i]);
     }
   }
 
@@ -204,27 +202,28 @@ std::pair<ParallelOp, ParallelOp> tileParallelLoop(ParallelOp op,
                                                    ArrayRef<int64_t> tileSizes,
                                                    bool withInboundCheck) {
   OpBuilder b(op);
-  auto zero = b.create<ConstantIndexOp>(op.getLoc(), 0);
+  auto zero = b.create<arith::ConstantIndexOp>(op.getLoc(), 0);
   SmallVector<Value, 2> tileSizeConstants;
-  tileSizeConstants.reserve(op.upperBound().size());
-  for (size_t i = 0, end = op.upperBound().size(); i != end; ++i) {
+  tileSizeConstants.reserve(op.getUpperBound().size());
+  for (size_t i = 0, end = op.getUpperBound().size(); i != end; ++i) {
     if (i < tileSizes.size())
       tileSizeConstants.push_back(
-          b.create<ConstantIndexOp>(op.getLoc(), tileSizes[i]));
+          b.create<arith::ConstantIndexOp>(op.getLoc(), tileSizes[i]));
     else
       // Just pick 1 for the remaining dimensions.
-      tileSizeConstants.push_back(b.create<ConstantIndexOp>(op.getLoc(), 1));
+      tileSizeConstants.push_back(
+          b.create<arith::ConstantIndexOp>(op.getLoc(), 1));
   }
 
   // Create the outer loop with adjusted steps.
   SmallVector<Value, 2> newSteps;
-  newSteps.reserve(op.step().size());
-  for (auto step : llvm::zip(op.step(), tileSizeConstants)) {
-    newSteps.push_back(
-        b.create<MulIOp>(op.getLoc(), std::get<0>(step), std::get<1>(step)));
+  newSteps.reserve(op.getStep().size());
+  for (auto step : llvm::zip(op.getStep(), tileSizeConstants)) {
+    newSteps.push_back(b.create<arith::MulIOp>(op.getLoc(), std::get<0>(step),
+                                               std::get<1>(step)));
   }
-  auto outerLoop = b.create<ParallelOp>(op.getLoc(), op.lowerBound(),
-                                        op.upperBound(), newSteps);
+  auto outerLoop = b.create<ParallelOp>(op.getLoc(), op.getLowerBound(),
+                                        op.getUpperBound(), newSteps);
   b.setInsertionPointToStart(outerLoop.getBody());
 
   // Compute min(size, dim - offset) to avoid out-of-bounds accesses.
@@ -237,28 +236,34 @@ std::pair<ParallelOp, ParallelOp> tileParallelLoop(ParallelOp op,
 
   // Create the inner loop with adjusted bounds.
   SmallVector<Value, 2> newBounds;
-  newBounds.reserve(op.upperBound().size());
+  newBounds.reserve(op.getUpperBound().size());
   bool needInboundCheck = false;
-  for (auto dim : llvm::zip(outerLoop.lowerBound(), outerLoop.upperBound(),
-                            outerLoop.step(), outerLoop.getInductionVars(),
-                            op.step(), tileSizeConstants)) {
+  for (auto dim :
+       llvm::zip(outerLoop.getLowerBound(), outerLoop.getUpperBound(),
+                 outerLoop.getStep(), outerLoop.getInductionVars(),
+                 op.getStep(), tileSizeConstants)) {
     Value lowerBound, upperBound, newStep, iv, step, tileSizeConstant;
     std::tie(lowerBound, upperBound, newStep, iv, step, tileSizeConstant) = dim;
     // Collect the statically known loop bounds
     auto lowerBoundConstant =
-        dyn_cast_or_null<ConstantIndexOp>(lowerBound.getDefiningOp());
+        dyn_cast_or_null<arith::ConstantIndexOp>(lowerBound.getDefiningOp());
     auto upperBoundConstant =
-        dyn_cast_or_null<ConstantIndexOp>(upperBound.getDefiningOp());
-    auto stepConstant = dyn_cast_or_null<ConstantIndexOp>(step.getDefiningOp());
+        dyn_cast_or_null<arith::ConstantIndexOp>(upperBound.getDefiningOp());
+    auto stepConstant =
+        dyn_cast_or_null<arith::ConstantIndexOp>(step.getDefiningOp());
     auto tileSize =
-        cast<ConstantIndexOp>(tileSizeConstant.getDefiningOp()).getValue();
+        cast<arith::ConstantIndexOp>(tileSizeConstant.getDefiningOp())
+            .getValue()
+            .cast<IntegerAttr>()
+            .getInt();
     // If the loop bounds and the loop step are constant and if the number of
     // loop iterations is an integer multiple of the tile size, we use a static
     // bound for the inner loop.
     if (lowerBoundConstant && upperBoundConstant && stepConstant) {
       auto numIterations = llvm::divideCeil(
-          upperBoundConstant.getValue() - lowerBoundConstant.getValue(),
-          stepConstant.getValue());
+          upperBoundConstant.getValue().cast<IntegerAttr>().getInt() -
+              lowerBoundConstant.getValue().cast<IntegerAttr>().getInt(),
+          stepConstant.getValue().cast<IntegerAttr>().getInt());
       if (numIterations % tileSize == 0) {
         newBounds.push_back(newStep);
         continue;
@@ -280,51 +285,50 @@ std::pair<ParallelOp, ParallelOp> tileParallelLoop(ParallelOp op,
   }
   auto innerLoop = b.create<ParallelOp>(
       op.getLoc(), SmallVector<Value, 2>(newBounds.size(), zero), newBounds,
-      op.step());
+      op.getStep());
 
   if (withInboundCheck && needInboundCheck) {
     b.setInsertionPointToStart(innerLoop.getBody());
     // Insert in-bound check
     Value inbound =
-        b.create<ConstantOp>(op.getLoc(), b.getIntegerType(1),
-                             b.getIntegerAttr(b.getIntegerType(1), 1));
+        b.create<arith::ConstantIntOp>(op.getLoc(), 1, /*bitWidth*/ 1);
     for (auto dim :
-         llvm::zip(outerLoop.upperBound(), outerLoop.getInductionVars(),
-                   innerLoop.getInductionVars(), innerLoop.step())) {
+         llvm::zip(outerLoop.getUpperBound(), outerLoop.getInductionVars(),
+                   innerLoop.getInductionVars(), innerLoop.getStep())) {
       Value outerUpperBound, outerIV, innerIV, innerStep;
       std::tie(outerUpperBound, outerIV, innerIV, innerStep) = dim;
       // %in_bound = %in_bound &&
       //             (%inner_iv * %inner_step + %outer_iv < %outer_upper_bound)
-      Value index = b.create<AddIOp>(
-          op.getLoc(), b.create<MulIOp>(op.getLoc(), innerIV, innerStep),
+      Value index = b.create<arith::AddIOp>(
+          op.getLoc(), b.create<arith::MulIOp>(op.getLoc(), innerIV, innerStep),
           outerIV);
-      Value dimInbound = b.create<CmpIOp>(op.getLoc(), CmpIPredicate::ult,
-                                          index, outerUpperBound);
-      inbound = b.create<AndOp>(op.getLoc(), inbound, dimInbound);
+      Value dimInbound = b.create<arith::CmpIOp>(
+          op.getLoc(), arith::CmpIPredicate::ult, index, outerUpperBound);
+      inbound = b.create<arith::AndIOp>(op.getLoc(), inbound, dimInbound);
     }
     auto ifInbound = b.create<IfOp>(op.getLoc(),
                                     /*resultTypes*/ ArrayRef<Type>{}, inbound,
                                     /*hasElseRegion*/ false);
-    ifInbound.thenRegion().takeBody(op.region());
-    Block& thenBlock = ifInbound.thenRegion().front();
+    ifInbound.getThenRegion().takeBody(op.getLoopBody());
+    Block& thenBlock = ifInbound.getThenRegion().front();
     b.setInsertionPointToStart(innerLoop.getBody());
     for (auto ivs : llvm::enumerate(llvm::zip(innerLoop.getInductionVars(),
                                               outerLoop.getInductionVars()))) {
-      AddIOp newIndex = b.create<AddIOp>(op.getLoc(), std::get<0>(ivs.value()),
-                                         std::get<1>(ivs.value()));
+      arith::AddIOp newIndex = b.create<arith::AddIOp>(
+          op.getLoc(), std::get<0>(ivs.value()), std::get<1>(ivs.value()));
       thenBlock.getArgument(ivs.index())
           .replaceAllUsesExcept(newIndex, newIndex);
     }
     thenBlock.eraseArguments(llvm::to_vector<4>(
         llvm::seq((unsigned)0, thenBlock.getNumArguments())));
   } else {
-    innerLoop.region().takeBody(op.region());
+    innerLoop.getLoopBody().takeBody(op.getLoopBody());
     b.setInsertionPointToStart(innerLoop.getBody());
     for (auto ivs : llvm::zip(innerLoop.getInductionVars(),
                               outerLoop.getInductionVars())) {
       Value inner_index = std::get<0>(ivs);
-      AddIOp newIndex =
-          b.create<AddIOp>(op.getLoc(), std::get<0>(ivs), std::get<1>(ivs));
+      arith::AddIOp newIndex = b.create<arith::AddIOp>(
+          op.getLoc(), std::get<0>(ivs), std::get<1>(ivs));
       inner_index.replaceAllUsesExcept(newIndex, newIndex);
     }
   }

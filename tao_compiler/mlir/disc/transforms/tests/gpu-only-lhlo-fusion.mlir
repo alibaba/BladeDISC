@@ -99,8 +99,8 @@ func @kloop_fusion_with_dealloc(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?
   // CHECK: memref.dealloc %[[TMP5]] : memref<?x?xf32, "gpu">
   // CHECK: memref.dealloc %[[TMP13]] : memref<?x?xf32, "gpu">
   // CHECK: return %[[TMP9]], %[[TMP16]] : memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">
-  %c0 = constant 0 : index
-  %c1 = constant 1 : index
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
   %0 = shape.shape_of %arg0 : memref<?x?xf32, "gpu"> -> tensor<2xindex, "cpu">
   %1 = tensor.extract %0[%c0] : tensor<2xindex, "cpu">
   %2 = tensor.extract %0[%c1] : tensor<2xindex, "cpu">
@@ -243,8 +243,8 @@ func @reduce_should_not_have_consumer_in_the_fusion(%arg0: memref<?x?xf32, "gpu"
   // CHECK: "lmhlo.add"(%[[TMP9]], %[[TMP9]], %[[TMP12]]) : (memref<?xf32, "gpu">, memref<?xf32, "gpu">, memref<?xf32, "gpu">) -> ()
   // CHECK: memref.dealloc %[[TMP9]] : memref<?xf32, "gpu">
   // CHECK: return %[[TMP7]], %[[TMP12]] : memref<?x?xf32, "gpu">, memref<?xf32, "gpu">
-  %c1 = constant 1 : index
-  %c0 = constant 0 : index
+  %c1 = arith.constant 1 : index
+  %c0 = arith.constant 0 : index
   %0 = shape.shape_of %arg0 : memref<?x?xf32, "gpu"> -> tensor<2xindex, "cpu">
   %1 = tensor.extract %0[%c0] : tensor<2xindex, "cpu">
   %2 = tensor.extract %0[%c1] : tensor<2xindex, "cpu">
@@ -290,8 +290,8 @@ func @const_should_not_be_output(%arg0: memref<f32, "gpu">) -> (memref<f32, "gpu
 // CHECK-LABEL: @fusion_clamp_with_scalar_min_max
 func @fusion_clamp_with_scalar_min_max(%arg0: memref<f32, "gpu">, %arg1: memref<f32, "gpu">,
                                        %arg2: memref<f32, "gpu">, %arg3: memref<?x?xf32, "gpu">) ->(memref<f32, "gpu">,  memref<?x?xf32, "gpu">) {
-  %c0 = constant 0 : index
-  %c1 = constant 0 : index
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 0 : index
   %shape = shape.shape_of %arg3 : memref<?x?xf32, "gpu"> -> tensor<2xindex, "cpu">
   %dim0 = tensor.extract %shape[%c0] : tensor<2xindex, "cpu">
   %dim1 = tensor.extract %shape[%c1] : tensor<2xindex, "cpu">
@@ -314,8 +314,8 @@ func @fusion_clamp_with_scalar_min_max(%arg0: memref<f32, "gpu">, %arg1: memref<
 // CHECK-LABEL: @fusion_clamp_with_multidim_min_max
 func @fusion_clamp_with_multidim_min_max(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?xf32, "gpu">,
                                          %arg2: memref<?x?xf32, "gpu">, %arg3: memref<?x?xf32, "gpu">) -> (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) {
-  %c0 = constant 0 : index
-  %c1 = constant 0 : index
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 0 : index
   %shape = shape.shape_of %arg3 : memref<?x?xf32, "gpu"> -> tensor<2xindex, "cpu">
   %dim0 = tensor.extract %shape[%c0] : tensor<2xindex, "cpu">
   %dim1 = tensor.extract %shape[%c1] : tensor<2xindex, "cpu">

@@ -34,21 +34,11 @@ mlir::Value BuildConvolution(mlir::OpBuilder& builder,
   auto dilation_attr = builder.getNamedAttr(
       "rhs_dilation", BuildI64ElementsAttr(builder, dilations));
 
-  mlir::IntegerAttr batch_dim_attr = builder.getI64IntegerAttr(0);
-  mlir::IntegerAttr feature_dim_attr = builder.getI64IntegerAttr(1);
-  auto spatial_dims_attr =
-      BuildI64ElementsAttr(builder, RangeIndices(2, 2 + n_spatial_dims));
-
-  mlir::IntegerAttr kernel_input_feature_dim = builder.getI64IntegerAttr(1);
-  mlir::IntegerAttr kernel_output_feature_dim = builder.getI64IntegerAttr(0);
-
+  auto spatial_dims = RangeIndices(2, 2 + n_spatial_dims);
   auto conv_dims_numbers = builder.getNamedAttr(
-      "dimension_numbers",
-      mlir::mhlo::ConvDimensionNumbers::get(
-          batch_dim_attr, feature_dim_attr, spatial_dims_attr,
-          kernel_input_feature_dim, kernel_output_feature_dim,
-          spatial_dims_attr, batch_dim_attr, feature_dim_attr,
-          spatial_dims_attr, builder.getContext()));
+      "dimension_numbers", mlir::mhlo::ConvDimensionNumbersAttr::get(
+                               builder.getContext(), 0, 1, spatial_dims, 1, 0,
+                               spatial_dims, 0, 1, spatial_dims));
 
   auto batch_group_count_attr =
       builder.getNamedAttr("batch_group_count", builder.getI64IntegerAttr(1));

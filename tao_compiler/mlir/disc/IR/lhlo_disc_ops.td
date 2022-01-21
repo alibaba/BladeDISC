@@ -21,9 +21,9 @@ limitations under the License.
 include "mlir/Dialect/MemRef/IR/MemRefBase.td"
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
-include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops_base.td"
-include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops_structs.td"
-include "mlir-hlo/Dialect/mhlo/IR/lhlo_structured_interface.td"
+include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops_base.td"
+include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops_structs.td"
+include "mlir-hlo/Dialect/lhlo/IR/lhlo_structured_interface.td"
 
 def LHLODISC_Dialect : Dialect {
   let name = "lmhlo_disc";

@@ -116,7 +116,7 @@ bool ConvertAtenRepeat(
     broadcast_dim_sizes.push_back(repeat_dimsz);
     broadcast_dim_sizes.push_back(input_dimsz);
     output_dim_sizes.push_back(
-        builder.create<mlir::MulIOp>(loc, input_dimsz, repeat_dimsz));
+        builder.create<mlir::arith::MulIOp>(loc, input_dimsz, repeat_dimsz));
     broadcast_dims.push_back(d * 2 - leading_rank + 1);
   }
   auto repeat_tensor = BuildBroadcastTensorInDims(

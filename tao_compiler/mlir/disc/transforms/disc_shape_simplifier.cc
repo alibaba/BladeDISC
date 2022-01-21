@@ -56,6 +56,7 @@ limitations under the License.
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
@@ -88,7 +89,7 @@ struct ExtractFromExtentTensorCanonicalizationPattern
     auto shape_of_op = op.tensor().getDefiningOp<shape::ShapeOfOp>();
     if (!shape_of_op) return failure();
     Value index = op.indices().front();
-    rewriter.replaceOpWithNewOp<tensor::DimOp>(op, shape_of_op.arg(), index);
+    rewriter.replaceOpWithNewOp<tensor::DimOp>(op, shape_of_op.getArg(), index);
     return success();
   }
 };
@@ -123,12 +124,13 @@ struct DynamicReshapeOpPartialShapeInference
     for (auto element : llvm::enumerate(output_shape.elements())) {
       int64_t new_value = -1;
       if (result_type.isDynamicDim(element.index())) {
-        if (ConstantIntOp constant_op =
-                element.value().getDefiningOp<ConstantIntOp>()) {
-          new_value = constant_op.getValue();
-        } else if (ConstantIndexOp constant_op =
-                       element.value().getDefiningOp<ConstantIndexOp>()) {
-          new_value = constant_op.getValue();
+        if (arith::ConstantIntOp constant_op =
+                element.value().getDefiningOp<arith::ConstantIntOp>()) {
+          new_value = constant_op.getValue().cast<IntegerAttr>().getInt();
+        } else if (arith::ConstantIndexOp constant_op =
+                       element.value()
+                           .getDefiningOp<arith::ConstantIndexOp>()) {
+          new_value = constant_op.getValue().cast<IntegerAttr>().getInt();
         }
       }
 
@@ -169,7 +171,7 @@ class DynamicReshapeOpShapeInference
     Operation* shape_def_op = op.output_shape().getDefiningOp();
     if (!shape_def_op) return failure();
     DenseIntElementsAttr cst_attr;
-    if (auto cst_shape = dyn_cast<mlir::ConstantOp>(shape_def_op)) {
+    if (auto cst_shape = dyn_cast<arith::ConstantOp>(shape_def_op)) {
       cst_attr = cst_shape.getValue().dyn_cast_or_null<DenseIntElementsAttr>();
     } else if (auto mhlo_cst_shape = dyn_cast<mhlo::ConstOp>(shape_def_op)) {
       cst_attr =
@@ -243,14 +245,15 @@ class DynamicBroadcastInDimOpSimplifier
     for (int d = 0; d < inputTy.getRank(); ++d) {
       Value dimValue = fromElementsOp->getOperand(d);
       auto indexCastOp =
-          dyn_cast_or_null<IndexCastOp>(dimValue.getDefiningOp());
+          dyn_cast_or_null<arith::IndexCastOp>(dimValue.getDefiningOp());
       if (indexCastOp) dimValue = indexCastOp->getOperand(0);
       auto dimOp = dyn_cast_or_null<tensor::DimOp>(dimValue.getDefiningOp());
       if (!dimOp || dimOp.source() != reshapeOp->getOperand(0))
         return failure();
-      auto indexOp =
-          dyn_cast_or_null<ConstantIndexOp>(dimOp.index().getDefiningOp());
-      if (!indexOp || indexOp.getValue() != d) return failure();
+      auto indexOp = dyn_cast_or_null<arith::ConstantIndexOp>(
+          dimOp.index().getDefiningOp());
+      if (!indexOp || indexOp.getValue().cast<IntegerAttr>().getInt() != d)
+        return failure();
       bcastDims.push_back(d);
     }
 
@@ -644,23 +647,23 @@ LogicalResult ShapeAnalysis::applyMhloOpConstraint(Operation* op) {
     std::unordered_set<int64_t> lhs_contract_batch_dims;
     std::unordered_set<int64_t> rhs_contract_batch_dims;
     // Contracting dimensions.
-    auto lhs_contracting_dims = dim_numbers.lhs_contracting_dimensions();
-    auto rhs_contracting_dims = dim_numbers.rhs_contracting_dimensions();
+    auto lhs_contracting_dims = dim_numbers.getLhsContractingDimensions();
+    auto rhs_contracting_dims = dim_numbers.getRhsContractingDimensions();
     assert(lhs_contracting_dims.size() == rhs_contracting_dims.size());
     for (int64_t i = 0; i < lhs_contracting_dims.size(); i++) {
-      int64_t lhs_dim = lhs_contracting_dims.getValue<int64_t>(i);
-      int64_t rhs_dim = rhs_contracting_dims.getValue<int64_t>(i);
+      int64_t lhs_dim = lhs_contracting_dims[i];
+      int64_t rhs_dim = rhs_contracting_dims[i];
       mapValueDimEqual(lhs, lhs_dim, rhs, rhs_dim);
       lhs_contract_batch_dims.insert(lhs_dim);
       rhs_contract_batch_dims.insert(rhs_dim);
     }
     // Batching dimensions.
-    auto lhs_batching_dims = dim_numbers.lhs_batching_dimensions();
-    auto rhs_batching_dims = dim_numbers.rhs_batching_dimensions();
+    auto lhs_batching_dims = dim_numbers.getLhsBatchingDimensions();
+    auto rhs_batching_dims = dim_numbers.getRhsBatchingDimensions();
     assert(lhs_batching_dims.size() == rhs_batching_dims.size());
     for (int64_t i = 0; i < lhs_batching_dims.size(); i++) {
-      int64_t lhs_dim = lhs_batching_dims.getValue<int64_t>(i);
-      int64_t rhs_dim = rhs_batching_dims.getValue<int64_t>(i);
+      int64_t lhs_dim = lhs_batching_dims[i];
+      int64_t rhs_dim = rhs_batching_dims[i];
       mapValueDimEqual(lhs, lhs_dim, rhs, rhs_dim);
       lhs_contract_batch_dims.insert(lhs_dim);
       rhs_contract_batch_dims.insert(rhs_dim);
@@ -670,7 +673,7 @@ LogicalResult ShapeAnalysis::applyMhloOpConstraint(Operation* op) {
     // dimension, and finally the 'rhs' non-contracting/non-batch dimension.
     Value result = op->getResult(0);
     for (int64_t i = 0; i < lhs_batching_dims.size(); i++) {
-      int64_t lhs_dim = lhs_batching_dims.getValue<int64_t>(i);
+      int64_t lhs_dim = lhs_batching_dims[i];
       mapValueDimEqual(lhs, lhs_dim, result, i);
     }
     SmallVector<std::pair<Value, int64_t>, 4> mn_values;
@@ -953,8 +956,8 @@ struct ShapeSimplifierPass
   // Adds canonicalization patterns to the list of patterns.
   void AddCanonicalizationPatterns(MLIRContext* context,
                                    OwningRewritePatternList* patterns) {
-    for (auto* op : context->getRegisteredOperations())
-      op->getCanonicalizationPatterns(*patterns, context);
+    for (RegisteredOperationName op : context->getRegisteredOperations())
+      op.getCanonicalizationPatterns(*patterns, context);
   }
 
   void populateShapeRefinerPatterns(OwningRewritePatternList&);

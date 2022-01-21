@@ -387,7 +387,7 @@ void OpsPlacer::placeI32Ops() {
       return;
     }
 
-    auto op_type_id = op->getAbstractOperation()->typeID;
+    auto op_type_id = op->getRegisteredInfo()->getTypeID();
     bool is_shape_calc_op = false;
     // Follow the rule of kPlaceRuleMap exist, or else follow
     // kShapeCalcOperandMap

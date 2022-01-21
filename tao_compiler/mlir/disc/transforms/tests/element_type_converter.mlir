@@ -11,7 +11,7 @@
 // FP16: mhlo.dot_general
 // FP16-SAME: f16
 func @dot_fp32(%arg0 : tensor<?x?xf32>, %arg1 : tensor<?x?xf32>) -> tensor<?x?xf32> {
-  %0 = "mhlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = {lhs_batching_dimensions = dense<[]> : tensor<0xi64>, lhs_contracting_dimensions = dense<0> : tensor<1xi64>, rhs_batching_dimensions = dense<[]> : tensor<0xi64>, rhs_contracting_dimensions = dense<1> : tensor<1xi64>}} : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+  %0 = "mhlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [], lhs_contracting_dimensions = [0], rhs_batching_dimensions = [], rhs_contracting_dimensions = [1]>} : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
   return %0 : tensor<?x?xf32>
 }
 

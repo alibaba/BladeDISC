@@ -32,7 +32,7 @@ mlir::Value BuildHloDimSizeOfTensor(mlir::OpBuilder& builder,
   dim_index = NormalizeDimIndex(dim_index, rank);
   auto dim_size = ranked_type.getDimSize(dim_index);
   if (dim_size == mlir::ShapedType::kDynamicSize) {
-    return builder.create<mlir::IndexCastOp>(
+    return builder.create<mlir::arith::IndexCastOp>(
         loc, builder.create<tensor::DimOp>(loc, tensor, dim_index),
         BuildMHloDimType(builder));
   } else {
@@ -63,8 +63,8 @@ mlir::Value BuildShapeOfTensor(mlir::OpBuilder& builder,
   auto shape_values = BuildDimSizeListOfTensor(builder, loc, tensor);
   int rank = GetRankOfMlirValue(tensor);
 
-  mlir::Value shape = builder.create<mlir::tensor::FromElementsOp>(
-      loc, BuildMHloDimType(builder), shape_values);
+  mlir::Value shape =
+      builder.create<mlir::tensor::FromElementsOp>(loc, shape_values);
   return shape;
 }
 
@@ -74,8 +74,8 @@ mlir::Value BuildDynamicReshapeTensor(mlir::OpBuilder& builder,
                                       const SmallValueVec4& new_shape_vals) {
   // create mhlo::DynamicReshapeOp
   int new_rank = new_shape_vals.size();
-  mlir::Value shape = builder.create<mlir::tensor::FromElementsOp>(
-      loc, BuildMHloDimType(builder), new_shape_vals);
+  mlir::Value shape =
+      builder.create<mlir::tensor::FromElementsOp>(loc, new_shape_vals);
 
   SmallVec4<mlir_dim_t> output_shape =
       GetDimSizeListFromHloDimValList(new_shape_vals);
@@ -199,7 +199,7 @@ std::tuple<mlir::Value, SmallValueVec4> BuildCollapseTensorShape(
   auto new_dim = BuildStdConstForI32(builder, loc, numel_prod);
   for (auto dim_val : claps_dim_values) {
     if (!CastStdConstToI64(dim_val)) {
-      new_dim = builder.create<mlir::MulIOp>(loc, new_dim, dim_val);
+      new_dim = builder.create<mlir::arith::MulIOp>(loc, new_dim, dim_val);
     }
   }
 
@@ -246,22 +246,18 @@ mlir::Value BuildExpandTensorShapeWithDhloDims(
 mlir::Value BuildFromElements(mlir::OpBuilder& builder,
                               const mlir::Location& loc,
                               const SmallValueVec4& values) {
-  auto mhlo_dim_type = BuildMHloDimType(builder);
   mlir_dim_t len = static_cast<mlir_dim_t>(values.size());
-  mlir::Value shape =
-      builder.create<mlir::tensor::FromElementsOp>(loc, mhlo_dim_type, values);
+  mlir::Value shape = builder.create<mlir::tensor::FromElementsOp>(loc, values);
   return shape;
 }
 
 mlir::Value BuildFromElements(mlir::OpBuilder& builder,
                               const mlir::Location& loc,
                               const mlir::Value& scalar) {
-  auto mhlo_dim_type = BuildMHloDimType(builder);
   // mlir::tensor::FromElementsOp doesn't support creation of rank
   // 0 tensor. To workaround, we first make an rank 1 tensor, then reshape to
   // rank 0.
-  mlir::Value shape =
-      builder.create<mlir::tensor::FromElementsOp>(loc, mhlo_dim_type, scalar);
+  mlir::Value shape = builder.create<mlir::tensor::FromElementsOp>(loc, scalar);
   shape = BuildReshapeTensorToScalar(builder, loc, shape);
   return shape;
 }

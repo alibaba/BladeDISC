@@ -26,7 +26,7 @@ namespace disc_ral {
 namespace {
 
 /// Converts `atomic_rmw` that cannot be lowered to a simple atomic op with
-/// AtomicRMWOpLowering pattern, e.g. with "mulf" attributes, to
+/// memref::AtomicRMWOpLowering pattern, e.g. with "mulf" attributes, to
 /// `generic_atomic_rmw` with the expanded code. This is a supplement to
 /// `StdExpandOpsPass`.
 ///
@@ -37,14 +37,15 @@ namespace {
 ///   %new_value = ...
 ///   atomic_yield %new_value : f32
 /// }
-struct UnhandledAtomicRMWConverter : public OpRewritePattern<AtomicRMWOp> {
-  using OpRewritePattern<AtomicRMWOp>::OpRewritePattern;
+struct UnhandledAtomicRMWConverter
+    : public OpRewritePattern<memref::AtomicRMWOp> {
+  using OpRewritePattern<memref::AtomicRMWOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(AtomicRMWOp op,
+  LogicalResult matchAndRewrite(memref::AtomicRMWOp op,
                                 PatternRewriter& rewriter) const override {
     // Currently, we only deal with atomic mulf operation. More operations can
     // be supported easily here.
-    if (op.kind() != AtomicRMWKind::mulf) {
+    if (op.kind() != arith::AtomicRMWKind::mulf) {
       return failure();
     }
 
@@ -73,14 +74,10 @@ struct UnhandledAtomicRMWConverterPass
     RewritePatternSet patterns(&ctx);
     patterns.add<UnhandledAtomicRMWConverter>(&ctx);
 
-    ConversionTarget target(ctx);
-    target.addLegalDialect<memref::MemRefDialect, StandardOpsDialect>();
-    target.addDynamicallyLegalOp<AtomicRMWOp>(
-        [](AtomicRMWOp op) { return op.kind() != AtomicRMWKind::mulf; });
-
-    if (failed(
-            applyPartialConversion(getFunction(), target, std::move(patterns))))
+    if (failed(mlir::applyPatternsAndFoldGreedily(getFunction(),
+                                                  std::move(patterns)))) {
       signalPassFailure();
+    }
   }
 };
 

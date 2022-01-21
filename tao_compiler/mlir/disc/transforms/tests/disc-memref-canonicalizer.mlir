@@ -17,8 +17,8 @@ func @rank_not_match(%arg0: memref<?x?xf32, "gpu">, %arg1: index) -> memref<?xf3
 // CHECK-LABEL: @should_convert
 // CHECK-SAME: (%[[ARG0:.*]]: memref<?x?xf32, "gpu">, %[[ARG1:.*]]: index, %[[ARG2:.*]]: index)
 func @should_convert(%arg0: memref<?x?xf32, "gpu">, %arg1: index, %arg2: index) -> memref<?x?xf32, "gpu"> {
-  %c0 = constant 0 : index
-  %c1 = constant 1 : index
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
   %d0 = memref.dim %arg0, %c0 : memref<?x?xf32, "gpu">
   %d1 = memref.dim %arg0, %c1 : memref<?x?xf32, "gpu">
   // CHECK: %[[OUT:.*]] = memref.alloc(%[[ARG1]], %[[ARG2]])

@@ -14,7 +14,7 @@ limitations under the License.
 
 #include "tensorflow/compiler/mlir/disc/IR/topk_custom_call_op.h"
 
-#include "mlir-hlo/Dialect/mhlo/IR/disc_ral_ops.h"
+#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -98,9 +98,9 @@ LogicalResult reifyReturnTypeShapesImpl<TopKBackendConfig>(
   for (auto element : llvm::enumerate(operand_type.getShape())) {
     int64_t idx = element.index();
     if (idx == dimension) {
-      auto neg_one = builder.create<ConstantIndexOp>(loc, -1);
-      auto cond =
-          builder.create<CmpIOp>(loc, CmpIPredicate::eq, k_value, neg_one);
+      auto neg_one = builder.create<arith::ConstantIndexOp>(loc, -1);
+      auto cond = builder.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq,
+                                                k_value, neg_one);
       Value true_br_value =
           builder.create<tensor::DimOp>(loc, keys_operand, idx);
       auto select =
@@ -111,8 +111,8 @@ LogicalResult reifyReturnTypeShapesImpl<TopKBackendConfig>(
       shape_values.push_back(dim);
     }
   }
-  Value result_shape = builder.create<tensor::FromElementsOp>(
-      loc, builder.getIndexType(), shape_values);
+  Value result_shape =
+      builder.create<tensor::FromElementsOp>(loc, shape_values);
   // Same shapes for two outputs
   reifiedReturnShapes.push_back(result_shape);
   reifiedReturnShapes.push_back(result_shape);
@@ -138,10 +138,11 @@ LogicalResult lowerToLibraryCallImpl<TopKBackendConfig>(
     return op.emitOpError() << "Problem with parsing topk backend_config: "
                             << llvm::toString(std::move(e));
   }
-  newOperands.push_back(rewriter.create<ConstantIntOp>(
+  newOperands.push_back(rewriter.create<arith::ConstantIntOp>(
       op.getLoc(), backend_config->dimension, 64));
   // is_ascending
-  newOperands.push_back(rewriter.create<ConstantIntOp>(op.getLoc(), 0, 1));
+  newOperands.push_back(
+      rewriter.create<arith::ConstantIntOp>(op.getLoc(), 0, 1));
   on_gpu = placement_utils::isGpuMemRef(op->getOperand(3));
   rewriter.replaceOpWithNewOp<disc_ral::DispatchOp>(
       op, llvm::None, ctx, newOperands, "ral_dsort",

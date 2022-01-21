@@ -24,10 +24,6 @@ mlir::Value BuildDotProduct(mlir::OpBuilder& builder, const mlir::Location& loc,
                             const mlir::Value& lhs, const mlir::Value& rhs,
                             mlir_dim_t rank) {
   MHLO_CHECK(rank >= 2, "The input of DotProduct must has rank >= 2");
-  auto lhs_contracting_dims_attr =
-      BuildI64ElementsAttr(builder, SmallVec4<mlir_dim_t>({rank - 1}));
-  auto rhs_contracting_dims_attr =
-      BuildI64ElementsAttr(builder, SmallVec4<mlir_dim_t>({rank - 2}));
   SmallVec4<mlir_dim_t> batch_dims;
   for (mlir_dim_t r = 0; r < rank - 2; ++r) {
     batch_dims.push_back(r);
@@ -42,11 +38,8 @@ mlir::Value BuildDotProduct(mlir::OpBuilder& builder, const mlir::Location& loc,
   auto elem_type = GetMlirTensorElemType(lhs);
   auto result_type = mlir::RankedTensorType::get(result_shape, elem_type);
 
-  auto lhs_batch_dims_attr = BuildI64ElementsAttr(builder, batch_dims);
-  auto rhs_batch_dims_attr = BuildI64ElementsAttr(builder, batch_dims);
-  auto dot_dimension_attr = mlir::mhlo::DotDimensionNumbers::get(
-      lhs_batch_dims_attr, rhs_batch_dims_attr, lhs_contracting_dims_attr,
-      rhs_contracting_dims_attr, builder.getContext());
+  auto dot_dimension_attr = mlir::mhlo::DotDimensionNumbersAttr::get(
+      builder.getContext(), batch_dims, batch_dims, {rank - 1}, {rank - 2});
   auto result = builder.create<mlir::mhlo::DotGeneralOp>(
       loc, result_type, lhs, rhs, dot_dimension_attr,
       /*precision_config*/ nullptr);

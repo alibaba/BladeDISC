@@ -106,8 +106,8 @@ bool ConvertAtenFloat(
   // DO TYPE CAST IF NEED
   if (std_scalar.getType().isSignlessInteger()) {
     auto loc = GetNodeLocation(ctx, node);
-    ctx.value_map[node.output(0)] =
-        builder.create<mlir::SIToFPOp>(loc, std_scalar, builder.getF64Type());
+    ctx.value_map[node.output(0)] = builder.create<mlir::arith::SIToFPOp>(
+        loc, std_scalar, builder.getF64Type());
   } else {
     // must be float
     ctx.value_map[node.output(0)] = std_scalar;
@@ -121,7 +121,7 @@ bool ConvertAtenInt(MhloConversionContext& ctx, const torch::jit::Node& node) {
   // DO TYPE CAST IF NEED
   if (std_scalar.getType().isF64()) {
     auto loc = GetNodeLocation(ctx, node);
-    ctx.value_map[node.output(0)] = builder.create<mlir::FPToSIOp>(
+    ctx.value_map[node.output(0)] = builder.create<mlir::arith::FPToSIOp>(
         loc, std_scalar, builder.getIntegerType(64));
   } else {
     // must be int

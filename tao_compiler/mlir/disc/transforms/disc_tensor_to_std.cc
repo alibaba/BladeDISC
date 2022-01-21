@@ -43,12 +43,12 @@ class GenerateOpConverter : public OpConversionPattern<GenerateOp> {
   using OpConversionPattern<GenerateOp>::OpConversionPattern;
 
   LogicalResult matchAndRewrite(
-      GenerateOp op, ArrayRef<Value> operands,
+      GenerateOp op, OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override;
 };
 
 LogicalResult GenerateOpConverter::matchAndRewrite(
-    GenerateOp op, ArrayRef<Value> operands,
+    GenerateOp op, OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   auto resultTy = op.getType().dyn_cast<RankedTensorType>();
   if (!resultTy || !resultTy.hasStaticShape()) {
@@ -75,7 +75,7 @@ LogicalResult GenerateOpConverter::matchAndRewrite(
   int64_t numElems = resultTy.getDimSize(0);
   SmallVector<Value, 4> extentValues;
   for (int64_t i = 0; i < numElems; ++i) {
-    Value idx = lb.create<ConstantIndexOp>(i);
+    Value idx = lb.create<arith::ConstantIndexOp>(i);
     BlockAndValueMapping mapping;
     mapping.map(block.getArgument(0), idx);
     for (Operation& op : block.without_terminator()) {
@@ -86,8 +86,8 @@ LogicalResult GenerateOpConverter::matchAndRewrite(
   }
 
   // Materialize extent tensor.
-  Value staticExtentTensor = rewriter.create<tensor::FromElementsOp>(
-      loc, resultTy.getElementType(), extentValues);
+  Value staticExtentTensor =
+      rewriter.create<tensor::FromElementsOp>(loc, extentValues);
   rewriter.replaceOp(op, ValueRange{staticExtentTensor});
 
   return success();
@@ -102,9 +102,10 @@ void ConvertTensorToStandardPass::runOnFunction() {
   // Setup target legality.
   MLIRContext& ctx = getContext();
   ConversionTarget target(ctx);
-  target.addLegalDialect<StandardOpsDialect>();
+  target.addLegalDialect<StandardOpsDialect, arith::ArithmeticDialect>();
   target.addLegalOp<FuncOp, ModuleOp>();
   target.addLegalOp<tensor::ExtractOp, tensor::DimOp, tensor::FromElementsOp>();
+  target.addIllegalOp<GenerateOp>();
 
   // Setup conversion patterns.
   RewritePatternSet patterns(&ctx);

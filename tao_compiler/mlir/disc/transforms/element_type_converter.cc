@@ -105,7 +105,7 @@ struct ConvertReduceOpWithSmallWidthIntType
     }
 
     SmallVector<int64_t, 4> dims_to_reduce;
-    for (auto v : op.dimensions().getIntValues()) {
+    for (auto v : op.dimensions().getValues<APInt>()) {
       dims_to_reduce.push_back(v.getSExtValue());
     }
     RankedTensorType ty =

@@ -15,6 +15,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 
 #include "llvm/Support/Debug.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/PatternMatch.h"
 
 namespace mlir {
@@ -112,8 +113,10 @@ struct RemoveSizeOneDimOfLinearizeOp : public OpRewritePattern<LinearizeOp> {
     for (auto&& z : llvm::zip(op.multiDimIndexes(), op.shapeDimIndexes())) {
       Value idx = std::get<0>(z);
       Value dimSize = std::get<1>(z);
-      auto constOp = dyn_cast_or_null<ConstantIndexOp>(dimSize.getDefiningOp());
-      if (constOp && constOp.getValue() == 1) continue;
+      auto constOp =
+          dyn_cast_or_null<arith::ConstantIndexOp>(dimSize.getDefiningOp());
+      if (constOp && constOp.getValue().cast<IntegerAttr>().getInt() == 1)
+        continue;
       newMultiDimIndexes.push_back(idx);
       newShapeDimIndexes.push_back(dimSize);
     }
@@ -174,8 +177,10 @@ struct RemoveSizeOneDimOfDelinearizeOp
     SmallVector<Value> newShapeDimIndexes;
     SmallVector<Type> newResultTypes;
     for (Value dimSize : op.shapeDimIndexes()) {
-      auto constOp = dyn_cast_or_null<ConstantIndexOp>(dimSize.getDefiningOp());
-      bool isSizeOne = (constOp && constOp.getValue() == 1);
+      auto constOp =
+          dyn_cast_or_null<arith::ConstantIndexOp>(dimSize.getDefiningOp());
+      bool isSizeOne =
+          (constOp && constOp.getValue().cast<IntegerAttr>().getInt() == 1);
       sizeOneDimVec.push_back(isSizeOne);
       if (!isSizeOne) {
         newShapeDimIndexes.push_back(dimSize);
@@ -189,7 +194,7 @@ struct RemoveSizeOneDimOfDelinearizeOp
 
     auto newOp = rewriter.create<DelinearizeOp>(
         op.getLoc(), newResultTypes, op.linearIndex(), newShapeDimIndexes);
-    Value zero = rewriter.create<ConstantIndexOp>(op.getLoc(), 0);
+    Value zero = rewriter.create<arith::ConstantIndexOp>(op.getLoc(), 0);
 
     int nonSizeOneDimIdx = 0;
     SmallVector<Value> newResults;
@@ -232,9 +237,9 @@ struct IdentityTieShapeOp : public OpRewritePattern<TieShapeOp> {
         allDimMatch = false;
         break;
       }
-      auto indexOp =
-          dyn_cast_or_null<ConstantIndexOp>(dimOp.index().getDefiningOp());
-      if (!indexOp || indexOp.getValue() != idx) {
+      auto indexOp = dyn_cast_or_null<arith::ConstantIndexOp>(
+          dimOp.index().getDefiningOp());
+      if (!indexOp || indexOp.getValue().cast<IntegerAttr>().getInt() != idx) {
         allDimMatch = false;
         break;
       }

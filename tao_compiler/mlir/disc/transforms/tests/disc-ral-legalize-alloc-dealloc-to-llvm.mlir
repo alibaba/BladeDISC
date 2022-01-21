@@ -9,9 +9,9 @@ module @main attributes {gpu.container_module}  {
     // CHECK: llvm.call @disc_ral_call({{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<ptr<i8>>) -> ()
     // CHECK-NOT: llvm.call @malloc
     // CHECK-NOT: llvm.call @free
-    %c1 = constant 1024 : index
-    %c2 = constant 1024 : index
-    %c3 = constant 1024 : index
+    %c1 = arith.constant 1024 : index
+    %c2 = arith.constant 1024 : index
+    %c3 = arith.constant 1024 : index
     %arg1 = memref.alloc(%c2, %c3) : memref<?x?xf32, "gpu">
     memref.dealloc %arg1 : memref<?x?xf32, "gpu">
     return
@@ -29,8 +29,8 @@ module @main attributes {gpu.container_module}  {
     // CHECK: llvm.call @disc_ral_call({{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<ptr<i8>>) -> ()
     // CHECK-NOT: llvm.call @malloc
     // CHECK-NOT: llvm.call @free
-    %c2 = constant 1024 : index
-    %c3 = constant 1024 : index
+    %c2 = arith.constant 1024 : index
+    %c3 = arith.constant 1024 : index
     %arg1 = memref.alloc(%c2, %c3) : memref<?x?xf32, "cpu">
     memref.dealloc %arg1 : memref<?x?xf32, "cpu">
     return

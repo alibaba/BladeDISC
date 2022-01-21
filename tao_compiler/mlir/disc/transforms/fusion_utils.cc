@@ -1118,12 +1118,13 @@ void dumpTilePlan(DenseMap<Value, TileInfo>& tilePlan) {
 }
 
 void StitchCPUAnalysis::dumpParallelPlan() {
-  for (auto& en : parallelPlan_) {
+  for (const auto& en : parallelPlan_) {
     llvm::dbgs() << " pair@" << en.second.size() << ":";
     llvm::dbgs() << "  value: " << en.first << "\n";
-    for (auto&& en2 : llvm::enumerate(en.second)) {
+    for (const auto& en2 : llvm::enumerate(en.second)) {
       llvm::dbgs() << "  parallel info #" << en2.index() << ": ";
-      auto& info = parallelInfoStore_[en2.value()];
+      int test = en2.value();
+      auto& info = parallelInfoStore_[test];
       llvm::dbgs() << "id@prevId: " << info.id << "@" << info.producerId << " ";
       for (auto& innerEn : info.indices) {
         llvm::dbgs() << innerEn.first << " : "
@@ -1842,7 +1843,7 @@ ParallelInfo& StitchCPUAnalysis::getDominantParallelInfo() {
 
 scf::ParallelOp StitchCPUAnalysis::emitTileParallelLoop(OpBuilder& b,
                                                         Location loc) {
-  Value zero = b.create<ConstantIndexOp>(loc, 0);
+  Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
   Value dominant = getDominantValue();
   auto& info = getDominantParallelInfo();
   auto& indexStore = getParallelIndexStore();
@@ -1855,8 +1856,8 @@ scf::ParallelOp StitchCPUAnalysis::emitTileParallelLoop(OpBuilder& b,
   llvm::sort(parallelAxes);
   for (int axis : parallelAxes) {
     ubs.push_back(b.create<memref::DimOp>(loc, dominant, axis));
-    steps.push_back(
-        b.create<ConstantIndexOp>(loc, indexStore[info.indices[axis]].step));
+    steps.push_back(b.create<arith::ConstantIndexOp>(
+        loc, indexStore[info.indices[axis]].step));
   }
   SmallVector<Value, 2> vars;
   return createParallelAndSetInsPt(b, loc, vars, lbs, ubs, steps, {});
@@ -1870,8 +1871,8 @@ bool StitchCPUAnalysis::emitParallelIndices(OpBuilder& b, Location loc,
   info.symbolIndices.insert(info.symbolIndices.end(), dominantIndex.begin(),
                             dominantIndex.end());
   // Set in-bound-check pred & is-owner pred
-  Value trueValue = b.create<ConstantIntOp>(loc, 1, 1);
-  Value falseValue = b.create<ConstantIntOp>(loc, 0, 1);
+  Value trueValue = b.create<arith::ConstantIntOp>(loc, 1, 1);
+  Value falseValue = b.create<arith::ConstantIntOp>(loc, 0, 1);
   info.symbolInBound = info.symbolIsOwner = trueValue;
 
   // Propagate dominant indices to other values.
@@ -1934,13 +1935,14 @@ bool StitchCPUAnalysis::emitElemOpParallelIndex(OpBuilder& b, Location loc,
 }
 
 Value allIndicesZeros(OpBuilder& b, Location loc, ValueRange indices) {
-  Value zero = b.create<ConstantIndexOp>(loc, 0);
-  Value trueValue = b.create<ConstantIntOp>(loc, 1, 1);
+  Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
+  Value trueValue = b.create<arith::ConstantIntOp>(loc, 1, 1);
   Value allParallelIndicesZeros = trueValue;
   for (Value idx : indices) {
-    Value indexIsZero = b.create<CmpIOp>(loc, CmpIPredicate::eq, idx, zero);
+    Value indexIsZero =
+        b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq, idx, zero);
     allParallelIndicesZeros =
-        b.create<mlir::AndOp>(loc, allParallelIndicesZeros, indexIsZero);
+        b.create<arith::AndIOp>(loc, allParallelIndicesZeros, indexIsZero);
   }
   return allParallelIndicesZeros;
 }
@@ -1968,7 +1970,7 @@ bool StitchCPUAnalysis::emitReduceOpParallelIndex(OpBuilder& b, Location loc,
 
   if (to.value == init) {
     assert(to.indices.empty());
-    Value trueValue = b.create<ConstantIntOp>(loc, 1, 1);
+    Value trueValue = b.create<arith::ConstantIntOp>(loc, 1, 1);
     to.symbolInBound = trueValue;
     to.symbolIsOwner = allIndicesZeros(b, loc, from.symbolIndices);
     return true;
@@ -1995,8 +1997,8 @@ bool StitchCPUAnalysis::emitBcastOpParallelIndex(OpBuilder& b, Location loc,
   } else if (to.value != in) {
     // shape operands
     assert(isa<lmhlo::DynamicBroadcastInDimOp>(op));
-    Value trueValue = b.create<ConstantIntOp>(loc, 1, 1);
-    Value falseValue = b.create<ConstantIntOp>(loc, 0, 1);
+    Value trueValue = b.create<arith::ConstantIntOp>(loc, 1, 1);
+    Value falseValue = b.create<arith::ConstantIntOp>(loc, 0, 1);
     to.symbolInBound = trueValue;
     // 1, shape operand should not be the output of the fusion pattern.
     to.symbolIsOwner = falseValue;
@@ -2021,15 +2023,16 @@ bool StitchCPUAnalysis::emitBcastOpParallelIndex(OpBuilder& b, Location loc,
     if (it != from.indices.end()) {
       Value inDimValue = b.create<memref::DimOp>(loc, in, inIdx);
       Value outDimValue = b.create<memref::DimOp>(loc, out, d);
-      Value isEqual = b.create<mlir::CmpIOp>(loc, CmpIPredicate::eq, inDimValue,
-                                             outDimValue);
-      Value zero = b.create<ConstantIndexOp>(loc, 0);
+      Value isEqual = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq,
+                                              inDimValue, outDimValue);
+      Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
       to.symbolIndices.push_back(b.create<mlir::SelectOp>(
           loc, isEqual, from.symbolIndices[outParallelIdx], zero));
-      Value isZero = b.create<mlir::CmpIOp>(
-          loc, CmpIPredicate::eq, from.symbolIndices[outParallelIdx], zero);
-      Value isAxisOwner = b.create<mlir::OrOp>(loc, isEqual, isZero);
-      isOwner = b.create<mlir::AndOp>(loc, isOwner, isAxisOwner);
+      Value isZero =
+          b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq,
+                                  from.symbolIndices[outParallelIdx], zero);
+      Value isAxisOwner = b.create<arith::OrIOp>(loc, isEqual, isZero);
+      isOwner = b.create<arith::AndIOp>(loc, isOwner, isAxisOwner);
       ++outParallelIdx;
     }
     ++inIdx;
@@ -2148,8 +2151,9 @@ Value StitchCPUAnalysis::emitTileBuffer(OpBuilder& b, Location loc, Value val) {
     }
     newTyShape.push_back(ty.getShape()[d]);
   }
-  auto newTy = MemRefType::get(newTyShape, ty.getElementType(),
-                               ArrayRef<AffineMap>{}, ty.getMemorySpace());
+  auto newTy =
+      MemRefType::get(newTyShape, ty.getElementType(),
+                      MemRefLayoutAttrInterface(), ty.getMemorySpace());
   Value tileBuffer;
   if (smallTile) {
     tileBuffer = b.create<memref::AllocaOp>(loc, newTy, dynDims);
@@ -2327,10 +2331,10 @@ bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder& b,
     // emit in-bound check logic
     auto& plan = parallelPlan_[out];
     assert(!plan.empty());
-    Value inBound = b.create<ConstantIntOp>(loc, 0, 1);
+    Value inBound = b.create<arith::ConstantIntOp>(loc, 0, 1);
     for (int id : plan) {
       auto& info = parallelInfoStore_[id];
-      inBound = b.create<mlir::OrOp>(loc, inBound, info.symbolInBound);
+      inBound = b.create<arith::OrIOp>(loc, inBound, info.symbolInBound);
     }
     auto ifOp = b.create<scf::IfOp>(loc, llvm::None, inBound, false);
 
@@ -2345,7 +2349,7 @@ bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder& b,
     subFusionOp->setAttr(
         kDiscFusionTypeAttrName,
         b.getStringAttr(fusionTypeToString(FusionType::kLoop)));
-    Block* thenBlock = &ifOp.thenRegion().getBlocks().front();
+    Block* thenBlock = &ifOp.getThenRegion().getBlocks().front();
     subFusionOp->moveBefore(thenBlock, thenBlock->begin());
     OpBuilder innerBuilder(subFusionOp);
     ViewStore localViewStore = subRootViewStore_;
@@ -2369,14 +2373,14 @@ bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder& b,
     // if the sub-root is also a root, emit the root calculation logic
     if (!isFusionResult(out)) continue;
     // emit the is owner check.
-    Value isOwner = innerBuilder.create<ConstantIntOp>(loc, 0, 1);
+    Value isOwner = innerBuilder.create<arith::ConstantIntOp>(loc, 0, 1);
     for (int id : plan) {
       auto& info = parallelInfoStore_[id];
       isOwner =
-          innerBuilder.create<mlir::OrOp>(loc, isOwner, info.symbolIsOwner);
+          innerBuilder.create<arith::OrIOp>(loc, isOwner, info.symbolIsOwner);
     }
     ifOp = innerBuilder.create<scf::IfOp>(loc, llvm::None, isOwner, true);
-    Block* elseBlock = &ifOp.elseRegion().getBlocks().front();
+    Block* elseBlock = &ifOp.getElseRegion().getBlocks().front();
     subFusionOp->moveBefore(elseBlock, elseBlock->begin());
 
     // emit the root calculation logic.
@@ -2393,7 +2397,7 @@ bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder& b,
     innerBuilder.setInsertionPointAfter(&tileResultOp);
     innerBuilder.create<lmhlo::CopyOp>(loc, tileResultOp.getOperands().back(),
                                        it->second);
-    thenBlock = &ifOp.thenRegion().getBlocks().front();
+    thenBlock = &ifOp.getThenRegion().getBlocks().front();
     clonedSubFusionOp->moveBefore(thenBlock, thenBlock->begin());
   }
   return true;

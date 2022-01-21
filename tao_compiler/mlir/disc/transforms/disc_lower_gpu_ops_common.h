@@ -32,7 +32,7 @@ struct RemoveUselessUnrealizedConversionCastOp
       UnrealizedConversionCastOp>::ConvertOpToLLVMPattern;
 
   LogicalResult matchAndRewrite(
-      UnrealizedConversionCastOp op, ArrayRef<Value> operands,
+      UnrealizedConversionCastOp op, OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override;
 };
 
@@ -56,7 +56,7 @@ struct GenericAtomicRMWOpLoweringWithBitcast
   using Base::Base;
 
   LogicalResult matchAndRewrite(
-      GenericAtomicRMWOp atomicOp, ArrayRef<Value> operands,
+      GenericAtomicRMWOp atomicOp, OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override;
 };
 

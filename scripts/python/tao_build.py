@@ -368,20 +368,7 @@ def sanity_check(git_target="origin/master"):
 
 @time_stage()
 def build_tao_compiler(root, args):
-    # Use hacked version of bazel to redirect urls on the fly automatically
-    # Refer to https://code.aone.alibaba-inc.com/algo/bazel/blob/pai-3.7.2/README.md
-    BAZEL_BUILD_CMD = "BAZELISK_BASE_URL=http://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/tao_compiler/release/pai_bazel"
-    BAZEL_BUILD_CMD += (
-        " BAZEL_CUSTOM_SNAPSHOT_CLIENT={}/bazel_snapshot_client.py".format(script_dir())
-    )
-    if args.bazel_update_snapshot:
-        assert (
-            "BAZEL_SNAP_OSS_ID" in os.environ and "BAZEL_SNAP_OSS_KEY" in os.environ
-        ), "Must setenv BAZEL_SNAP_OSS_ID & BAZEL_SNAP_OSS_KEY when --bazel_update_snapshot is set "
-        BAZEL_BUILD_CMD += " BAZEL_UPDATE_CUSTOM_SNAPSHOT=true"
-    BAZEL_BUILD_CMD += " BAZEL_HACK_LOG_GIT_CMD_TO=/tmp/git_wrapper.log"
-    BAZEL_BUILD_CMD += " BAZEL_HACK_REDIRECT_URL=https://github.com,http://gitlab.alibaba-inc.com"
-    BAZEL_BUILD_CMD += " bazel build --experimental_multi_threaded_digest --define framework_shared_object=false" + ci_build_flag()
+    BAZEL_BUILD_CMD = "bazel build --experimental_multi_threaded_digest --define framework_shared_object=false" + ci_build_flag()
     TARGET_TAO_COMPILER_MAIN = "//tensorflow/compiler/decoupling:tao_compiler_main"
     TARGET_DISC_OPT = "//tensorflow/compiler/mlir/disc:disc-opt"
 
@@ -432,18 +419,7 @@ def build_tao_compiler(root, args):
 
 @time_stage()
 def build_mlir_ral(root, args):
-    BAZEL_BUILD_CMD = "BAZELISK_BASE_URL=http://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/tao_compiler/release/pai_bazel"
-    BAZEL_BUILD_CMD += (
-        " BAZEL_CUSTOM_SNAPSHOT_CLIENT={}/bazel_snapshot_client.py".format(script_dir())
-    )
-    if args.bazel_update_snapshot:
-        assert (
-            "BAZEL_SNAP_OSS_ID" in os.environ and "BAZEL_SNAP_OSS_KEY" in os.environ
-        ), "Must setenv BAZEL_SNAP_OSS_ID & BAZEL_SNAP_OSS_KEY when --bazel_update_snapshot is set "
-        BAZEL_BUILD_CMD += " BAZEL_UPDATE_CUSTOM_SNAPSHOT=true"
-    BAZEL_BUILD_CMD += " BAZEL_HACK_LOG_GIT_CMD_TO=/tmp/git_wrapper.log"
-    BAZEL_BUILD_CMD += " BAZEL_HACK_REDIRECT_URL=https://github.com,http://gitlab.alibaba-inc.com"
-    BAZEL_BUILD_CMD += " bazel build --experimental_multi_threaded_digest --define framework_shared_object=false"
+    BAZEL_BUILD_CMD = "bazel build --experimental_multi_threaded_digest --define framework_shared_object=false"
     if not args.cpu_only:
         if args.dcu:
             BAZEL_BUILD_CMD = BAZEL_BUILD_CMD + " --config=dcu"
@@ -509,24 +485,10 @@ def build_mlir_ral(root, args):
 
     logger.info("Stage [build_mlir_ral] success.")
 
-
 @time_stage()
 def test_tao_compiler(root, args):
-    # Use hacked version of bazel to redirect urls on the fly automatically
-    # Refer to https://code.aone.alibaba-inc.com/algo/bazel/blob/pai-3.7.2/README.md
-    BAZEL_TEST_CMD = "BAZELISK_BASE_URL=http://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/tao_compiler/release/pai_bazel"
-    BAZEL_TEST_CMD += (
-        " BAZEL_CUSTOM_SNAPSHOT_CLIENT={}/bazel_snapshot_client.py".format(script_dir())
-    )
-    if args.bazel_update_snapshot:
-        assert (
-            "BAZEL_SNAP_OSS_ID" in os.environ and "BAZEL_SNAP_OSS_KEY" in os.environ
-        ), "Must setenv BAZEL_SNAP_OSS_ID & BAZEL_SNAP_OSS_KEY when --bazel_update_snapshot is set "
-        BAZEL_TEST_CMD += " BAZEL_UPDATE_CUSTOM_SNAPSHOT=true"
-    BAZEL_TEST_CMD += " BAZEL_HACK_LOG_GIT_CMD_TO=/tmp/git_wrapper.log"
-    BAZEL_TEST_CMD += " BAZEL_HACK_REDIRECT_URL=https://github.com,http://gitlab.alibaba-inc.com"
-    BAZEL_BUILD_CMD = BAZEL_TEST_CMD + " bazel build --experimental_multi_threaded_digest --define framework_shared_object=false --test_timeout=600"
-    BAZEL_TEST_CMD += " bazel test --experimental_multi_threaded_digest --define framework_shared_object=false --test_timeout=600"
+    BAZEL_BUILD_CMD = "bazel build --experimental_multi_threaded_digest --define framework_shared_object=false --test_timeout=600 --javabase=@bazel_tools//tools/jdk:remote_jdk11"
+    BAZEL_TEST_CMD = "bazel test --experimental_multi_threaded_digest --define framework_shared_object=false --test_timeout=600 --javabase=@bazel_tools//tools/jdk:remote_jdk11"
     BAZEL_TEST_CMD += ci_build_flag()
     BAZEL_BUILD_CMD += ci_build_flag()
     if running_on_ci():
@@ -859,11 +821,6 @@ def parse_args():
     parser.add_argument(
         "--bazel_target",
         help="bazel build/test targets for tao compiler",
-    )
-    parser.add_argument(
-        "--bazel_update_snapshot",
-        action="store_true",
-        help="update snapshot caches. Must setenv BAZEL_SNAP_OSS_ID & BAZEL_SNAP_OSS_KEY meantime.",
     )
     parser.add_argument(
         "--build_dbg_symbol", action="store_true", help="Add -g to build options"

@@ -14,6 +14,8 @@ limitations under the License.
 ==============================================================================*/
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Bufferization/Transforms/Bufferize.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -25,7 +27,6 @@ limitations under the License.
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/Bufferize.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/rewriters.h"
@@ -37,17 +38,17 @@ using mhlo::ConstOp;
 
 namespace {
 
-class ConstantOpConverter : public OpConversionPattern<ConstantOp> {
+class ConstantOpConverter : public OpConversionPattern<arith::ConstantOp> {
  public:
-  using OpConversionPattern<ConstantOp>::OpConversionPattern;
+  using OpConversionPattern<arith::ConstantOp>::OpConversionPattern;
 
   LogicalResult matchAndRewrite(
-      ConstantOp op, ArrayRef<Value> operands,
+      arith::ConstantOp op, OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override;
 };
 
 LogicalResult ConstantOpConverter::matchAndRewrite(
-    ConstantOp op, ArrayRef<Value> operands,
+    arith::ConstantOp op, OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   auto resultType = op.getType().dyn_cast<RankedTensorType>();
   if (!resultType) return failure();
@@ -58,15 +59,15 @@ LogicalResult ConstantOpConverter::matchAndRewrite(
   if (!elemType.isIndex() && !elemType.isa<IntegerType>()) return failure();
 
   Location loc = op.getLoc();
-  DenseElementsAttr attr = op.value().cast<DenseElementsAttr>();
+  DenseElementsAttr attr = op.getValue().cast<DenseElementsAttr>();
   MemRefType bufferType = MemRefType::get({resultType.getShape()}, elemType);
   Value result = rewriter.create<memref::AllocOp>(loc, bufferType);
   for (auto&& en : llvm::enumerate(attr.getValues<llvm::APInt>())) {
-    Value idx = rewriter.create<ConstantIndexOp>(loc, en.index());
+    Value idx = rewriter.create<arith::ConstantIndexOp>(loc, en.index());
     Value val =
-        rewriter.create<ConstantIndexOp>(loc, en.value().getSExtValue());
+        rewriter.create<arith::ConstantIndexOp>(loc, en.value().getSExtValue());
     if (!elemType.isIndex())
-      val = rewriter.create<IndexCastOp>(loc, val, elemType);
+      val = rewriter.create<arith::IndexCastOp>(loc, val, elemType);
     rewriter.create<memref::StoreOp>(loc, val, result, idx);
   }
 
@@ -74,18 +75,19 @@ LogicalResult ConstantOpConverter::matchAndRewrite(
   return success();
 }
 
-class IndexCastOpConverter : public OpConversionPattern<IndexCastOp> {
+class IndexCastOpConverter : public OpConversionPattern<arith::IndexCastOp> {
  public:
-  using OpConversionPattern<IndexCastOp>::OpConversionPattern;
+  using OpConversionPattern<arith::IndexCastOp>::OpConversionPattern;
 
   LogicalResult matchAndRewrite(
-      IndexCastOp op, ArrayRef<Value> operands,
+      arith::IndexCastOp op, OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override;
 };
 
 LogicalResult IndexCastOpConverter::matchAndRewrite(
-    IndexCastOp op, ArrayRef<Value> operands,
+    arith::IndexCastOp op, OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
+  auto operands = adaptor.getOperands();
   auto resultType = op.getType().dyn_cast<RankedTensorType>();
   if (!resultType || resultType.getRank() != 1 ||
       !resultType.hasStaticShape()) {
@@ -100,9 +102,9 @@ LogicalResult IndexCastOpConverter::matchAndRewrite(
   MemRefType bufferType = MemRefType::get({resultType.getShape()}, elemType);
   Value result = rewriter.create<memref::AllocOp>(loc, bufferType);
   for (int64_t i = 0; i < dim_size; ++i) {
-    Value idx = rewriter.create<ConstantIndexOp>(loc, i);
+    Value idx = rewriter.create<arith::ConstantIndexOp>(loc, i);
     Value val = rewriter.create<memref::LoadOp>(loc, operands[0], idx);
-    Value casted = rewriter.create<IndexCastOp>(loc, val, elemType);
+    Value casted = rewriter.create<arith::IndexCastOp>(loc, val, elemType);
     rewriter.create<memref::StoreOp>(loc, casted, result, idx);
   }
   rewriter.replaceOp(op, {result});
@@ -121,14 +123,15 @@ void StdBufferizePass::runOnFunction() {
   // Setup target legality.
   MLIRContext& ctx = getContext();
   ConversionTarget target(ctx);
-  BufferizeTypeConverter typeConverter;
+  bufferization::BufferizeTypeConverter typeConverter;
 
-  populateBufferizeMaterializationLegality(target);
+  bufferization::populateBufferizeMaterializationLegality(target);
 
   target.addLegalDialect<memref::MemRefDialect>();
   target.addLegalOp<FuncOp, ModuleOp>();
-  target.addDynamicallyLegalDialect<StandardOpsDialect>(
-      [&](Operation* op) { return typeConverter.isLegal(op); });
+  target
+      .addDynamicallyLegalDialect<StandardOpsDialect, arith::ArithmeticDialect>(
+          [&](Operation* op) { return typeConverter.isLegal(op); });
 
   // Setup conversion patterns.
   RewritePatternSet patterns(&ctx);

@@ -67,11 +67,9 @@ struct GPUShuffleOpLowering : public ConvertOpToLLVMPattern<gpu::ShuffleOp> {
   ///         %mask_and_clamp : float
   ///
   LogicalResult matchAndRewrite(
-      gpu::ShuffleOp op, ArrayRef<Value> operands,
+      gpu::ShuffleOp op, OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override {
     Location loc = op->getLoc();
-    gpu::ShuffleOpAdaptor adaptor(operands);
-
     auto valueTy = adaptor.value().getType();
     auto int32Type = IntegerType::get(rewriter.getContext(), 32);
     auto predTy = IntegerType::get(rewriter.getContext(), 1);
@@ -131,22 +129,22 @@ void populateGpuToROCDLConversionPatterns(LLVMTypeConverter& converter,
       converter, /*allocaAddrSpace=*/5,
       Identifier::get(ROCDL::ROCDLDialect::getKernelFuncAttrName(),
                       &converter.getContext()));
-  patterns.add<OpToFuncCallLowering<AbsFOp>>(converter, "__ocml_fabs_f32",
-                                             "__ocml_fabs_f64");
+  patterns.add<OpToFuncCallLowering<math::AbsOp>>(converter, "__ocml_fabs_f32",
+                                                  "__ocml_fabs_f64");
   patterns.add<OpToFuncCallLowering<math::AtanOp>>(converter, "__ocml_atan_f32",
                                                    "__ocml_atan_f64");
   patterns.add<OpToFuncCallLowering<math::Atan2Op>>(
       converter, "__ocml_atan2_f32", "__ocml_atan2_f64");
-  patterns.add<OpToFuncCallLowering<CeilFOp>>(converter, "__ocml_ceil_f32",
-                                              "__ocml_ceil_f64");
+  patterns.add<OpToFuncCallLowering<math::CeilOp>>(converter, "__ocml_ceil_f32",
+                                                   "__ocml_ceil_f64");
   patterns.add<OpToFuncCallLowering<math::CosOp>>(converter, "__ocml_cos_f32",
                                                   "__ocml_cos_f64");
   patterns.add<OpToFuncCallLowering<math::ExpOp>>(converter, "__ocml_exp_f32",
                                                   "__ocml_exp_f64");
   patterns.add<OpToFuncCallLowering<math::ExpM1Op>>(
       converter, "__ocml_expm1_f32", "__ocml_expm1_f64");
-  patterns.add<OpToFuncCallLowering<FloorFOp>>(converter, "__ocml_floor_f32",
-                                               "__ocml_floor_f64");
+  patterns.add<OpToFuncCallLowering<math::FloorOp>>(
+      converter, "__ocml_floor_f32", "__ocml_floor_f64");
   patterns.add<OpToFuncCallLowering<math::LogOp>>(converter, "__ocml_log_f32",
                                                   "__ocml_log_f64");
   patterns.add<OpToFuncCallLowering<math::Log10Op>>(

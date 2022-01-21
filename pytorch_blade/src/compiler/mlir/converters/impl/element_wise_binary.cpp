@@ -178,8 +178,8 @@ bool ConvertAtenScalarCmpIOp(
   const auto& loc = GetNodeLocation(ctx, node);
   auto std_lhs = ctx.GetMlirValue(node.input(0));
   auto std_rhs = ctx.GetMlirValue(node.input(1));
-  ctx.value_map[node.output()] = ctx.builder->create<mlir::CmpIOp>(
-      loc, mlir::CmpIPredicate::slt, std_lhs, std_rhs);
+  ctx.value_map[node.output()] = ctx.builder->create<mlir::arith::CmpIOp>(
+      loc, mlir::arith::CmpIPredicate::slt, std_lhs, std_rhs);
   return true;
 }
 
@@ -204,8 +204,7 @@ bool ConvertAtenArange(
   }
 
   std::vector<mlir::Value> dim_sizes = {end};
-  end = ctx.builder->create<mlir::tensor::FromElementsOp>(
-      loc, elem_type, dim_sizes);
+  end = ctx.builder->create<mlir::tensor::FromElementsOp>(loc, dim_sizes);
 
   std::vector<mlir_dim_t> out_shape_vec(1, mlir::ShapedType::kDynamicSize);
   auto out_shape = mlir::RankedTensorType::get(out_shape_vec, elem_type);
@@ -227,10 +226,10 @@ auto mhlo_conversion =
     MhloConversionPatternRegister()
         .pattern(
             "aten::__and__.bool(bool a, bool b) -> (bool)",
-            ConvertAtenBinaryScalar<mlir::AndOp>)
+            ConvertAtenBinaryScalar<mlir::arith::AndIOp>)
         .pattern(
             "aten::add.int(int a, int b) -> (int)",
-            ConvertAtenBinaryScalar<mlir::AddIOp>)
+            ConvertAtenBinaryScalar<mlir::arith::AddIOp>)
         .pattern(
             "aten::add.Tensor(Tensor self, Tensor other, Scalar alpha=1) "
             "-> Tensor",
@@ -241,7 +240,7 @@ auto mhlo_conversion =
             ConvertAtenBinaryOpWithAlpha<mlir::chlo::BroadcastAddOp, true>)
         .pattern(
             "aten::sub.int(int a, int b) -> (int)",
-            ConvertAtenBinaryScalar<mlir::SubIOp>)
+            ConvertAtenBinaryScalar<mlir::arith::SubIOp>)
         .pattern(
             "aten::sub.Tensor(Tensor self, Tensor other, Scalar alpha=1) "
             "-> Tensor",
@@ -252,7 +251,7 @@ auto mhlo_conversion =
             ConvertAtenBinaryOpWithAlpha<mlir::chlo::BroadcastSubOp, true>)
         .pattern(
             "aten::mul.int(int a, int b) -> (int)",
-            ConvertAtenBinaryScalar<mlir::MulIOp>)
+            ConvertAtenBinaryScalar<mlir::arith::MulIOp>)
         .pattern(
             "aten::mul.Tensor(Tensor self, Tensor other) -> Tensor",
             ConvertAtenBinaryOp<mlir::chlo::BroadcastMulOp>)
@@ -261,7 +260,7 @@ auto mhlo_conversion =
             ConvertAtenBinaryOp<mlir::chlo::BroadcastMulOp, true>)
         .pattern(
             "aten::div.int(int a, int b) -> (int)",
-            ConvertAtenBinaryScalar<mlir::SignedDivIOp>)
+            ConvertAtenBinaryScalar<mlir::arith::DivSIOp>)
         .pattern(
             "aten::div.Tensor(Tensor self, Tensor other) -> Tensor",
             ConvertAtenBinaryOp<mlir::chlo::BroadcastDivOp>)

@@ -23,7 +23,7 @@ namespace mlir {
 namespace disc_ral {
 
 LogicalResult RemoveUselessUnrealizedConversionCastOp::matchAndRewrite(
-    UnrealizedConversionCastOp op, ArrayRef<Value> operands,
+    UnrealizedConversionCastOp op, OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   auto in_type = op.inputs().getTypes().front();
   auto out_type = op.outputs().getTypes().front();
@@ -32,7 +32,7 @@ LogicalResult RemoveUselessUnrealizedConversionCastOp::matchAndRewrite(
   if ((in_type.isSignedInteger() || in_type.isUnsignedInteger()) &&
       (out_type.isSignlessInteger()) &&
       in_type.getIntOrFloatBitWidth() == out_type.getIntOrFloatBitWidth()) {
-    op.replaceAllUsesWith(operands);
+    op.replaceAllUsesWith(adaptor.getOperands());
     op.erase();
     return success();
   }
@@ -72,10 +72,9 @@ LogicalResult RemoveUselessUnrealizedConversionCastOp::matchAndRewrite(
 ///      +--------------------------------+
 ///
 LogicalResult GenericAtomicRMWOpLoweringWithBitcast::matchAndRewrite(
-    GenericAtomicRMWOp atomicOp, ArrayRef<Value> operands,
+    GenericAtomicRMWOp atomicOp, OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   Location loc = atomicOp.getLoc();
-  GenericAtomicRMWOp::Adaptor adaptor(operands);
   Type valueType = typeConverter->convertType(atomicOp.getResult().getType());
 
   // Split the block into initial, loop, and ending parts.
@@ -88,9 +87,9 @@ LogicalResult GenericAtomicRMWOpLoweringWithBitcast::matchAndRewrite(
 
   // Compute the loaded value and branch to the loop block.
   rewriter.setInsertionPointToEnd(initBlock);
-  auto memRefType = atomicOp.memref().getType().cast<MemRefType>();
-  auto dataPtr = getStridedElementPtr(loc, memRefType, adaptor.memref(),
-                                      adaptor.indices(), rewriter);
+  auto memRefType = atomicOp.getMemref().getType().cast<MemRefType>();
+  auto dataPtr = getStridedElementPtr(loc, memRefType, adaptor.getMemref(),
+                                      adaptor.getIndices(), rewriter);
   Value init = rewriter.create<LLVM::LoadOp>(loc, dataPtr);
   rewriter.create<LLVM::BrOp>(loc, init, loopBlock);
 
@@ -101,7 +100,7 @@ LogicalResult GenericAtomicRMWOpLoweringWithBitcast::matchAndRewrite(
   auto loopArgument = loopBlock->getArgument(0);
   BlockAndValueMapping mapping;
   mapping.map(atomicOp.getCurrentValue(), loopArgument);
-  Block& entryBlock = atomicOp.body().front();
+  Block& entryBlock = atomicOp.getAtomicBody().front();
   for (auto& nestedOp : entryBlock.without_terminator()) {
     Operation* clone = rewriter.clone(nestedOp, mapping);
     mapping.map(nestedOp.getResults(), clone->getResults());

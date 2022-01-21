@@ -108,8 +108,7 @@ int64_t createLoadOpsArray(OpBuilder& b, Location loc, gpu::LaunchFuncOp,
     auto multidim_index = getMultiDimIndex(linear_index, sizes);
     SmallVector<Value, 4> multidim_index_value;
     for (int64_t dim : multidim_index) {
-      auto dim_value = b.create<ConstantOp>(
-          loc, b.getIndexType(), b.getIntegerAttr(b.getIndexType(), dim));
+      auto dim_value = b.create<arith::ConstantIndexOp>(loc, dim);
       multidim_index_value.push_back(dim_value);
     }
     auto loaded_value = b.create<LoadOp>(loc, memref, multidim_index_value);
@@ -169,7 +168,7 @@ void cloneRegionAndRemapLoad(Region* src, Region* dest,
             std::vector<int64_t> multidim_index;
             for (auto index_value : indices_value) {
               auto index_value_op = index_value.getDefiningOp();
-              auto const_op = dyn_cast<mlir::ConstantOp>(index_value_op);
+              auto const_op = dyn_cast<arith::ConstantOp>(index_value_op);
               assert(
                   const_op &&
                   "indices is expected to be const when load from host MemRef");
@@ -223,7 +222,7 @@ void cloneRegionAndRemapLoad(Region* src, Region* dest,
             std::vector<int64_t> multidim_index;
             for (auto index_value : indices_value) {
               auto index_value_op = index_value.getDefiningOp();
-              auto const_op = dyn_cast<mlir::ConstantOp>(index_value_op);
+              auto const_op = dyn_cast<arith::ConstantOp>(index_value_op);
               assert(
                   const_op &&
                   "indices is expected to be const when load from host MemRef");
@@ -347,7 +346,8 @@ gpu::LaunchFuncOp expandMemRef(gpu::LaunchFuncOp launch_func_op, Value memref,
   b.setInsertionPoint(launch_func_op);
   auto new_launch_func_op = b.create<gpu::LaunchFuncOp>(
       loc, new_gpu_func_op, launch_func_op.getGridSizeOperandValues(),
-      launch_func_op.getBlockSizeOperandValues(), new_operands);
+      launch_func_op.getBlockSizeOperandValues(),
+      launch_func_op.dynamicSharedMemorySize(), new_operands);
 
   launch_func_op.erase();
   gpu_func_op.erase();

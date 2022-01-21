@@ -17,8 +17,8 @@ limitations under the License.
 //
 #include <limits>
 
-#include "mlir-hlo/Dialect/mhlo/IR/lhlo_ops.h"
-#include "mlir-hlo/Dialect/mhlo/transforms/map_lmhlo_to_scalar_op.h"
+#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "mlir/Analysis/LoopAnalysis.h"
 #include "mlir/Analysis/Utils.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
@@ -257,13 +257,13 @@ bool elemwiseFuseHelper(PatternRewriter& rewriter, Operation* user,
         rewriter.create<LoadOp>(loc, producer_operand, load_op.getIndices()));
   }
   auto inlined_result =
-      HloOpToStdScalarOp::map<LHLO_OpTy>(llvm::cast<LHLO_OpTy>(producer),
-                                         cast<LmhloOp>(producer)
-                                             .getResultBuffer()
-                                             .getType()
-                                             .cast<MemRefType>()
-                                             .getElementType(),
-                                         operand_values, &rewriter);
+      LhloOpToStdScalarOp::map<LHLO_OpTy>(llvm::cast<LHLO_OpTy>(producer),
+                                          cast<LmhloOp>(producer)
+                                              .getResultBuffer()
+                                              .getType()
+                                              .cast<MemRefType>()
+                                              .getElementType(),
+                                          operand_values, &rewriter);
 
   for (LoadOp to_be_replaced : load_ops)
     to_be_replaced.replaceAllUsesWith(inlined_result);
@@ -295,9 +295,9 @@ bool miscFuseHelper<ConstOp>(PatternRewriter& rewriter, Operation* user,
   assert(memref_type.getRank() == 0 && "only scalar ConstOp can be fused");
   auto loc = user->getLoc();
   rewriter.setInsertionPoint(load_op);
-  Value inlined_result =
-      rewriter.create<ConstantOp>(loc, memref_type.getElementType(),
-                                  cast<ConstOp>(producer).value().getValue({}));
+  Value inlined_result = rewriter.create<arith::ConstantOp>(
+      loc, memref_type.getElementType(),
+      cast<ConstOp>(producer).value().getValues<Attribute>()[{}]);
   for (LoadOp to_be_replaced : load_ops)
     to_be_replaced.replaceAllUsesWith(inlined_result);
   return true;

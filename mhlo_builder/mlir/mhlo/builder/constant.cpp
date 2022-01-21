@@ -22,7 +22,8 @@ bool IsHloConstant(const mlir::Value& value) {
 }
 
 bool IsStdConstant(const mlir::Value& value) {
-  auto def = llvm::dyn_cast_or_null<mlir::ConstantOp>(value.getDefiningOp());
+  auto def =
+      llvm::dyn_cast_or_null<mlir::arith::ConstantOp>(value.getDefiningOp());
   return def != nullptr;
 }
 
@@ -70,11 +71,11 @@ llvm::Optional<int64_t> CastHloConstToI64(const mlir::Value& val) {
 }
 
 llvm::Optional<int64_t> CastStdConstToI64(const mlir::Value& val) {
-  auto def = llvm::dyn_cast<mlir::ConstantOp>(val.getDefiningOp());
+  auto def = llvm::dyn_cast<mlir::arith::ConstantOp>(val.getDefiningOp());
   if (!def) {
     return llvm::None;
   }
-  return CastAttrToI64(def.value());
+  return CastAttrToI64(def.getValue());
 }
 }  // namespace mhlo
 }  // namespace mlir

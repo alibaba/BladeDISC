@@ -16,7 +16,7 @@ limitations under the License.
 
 #include <atomic>
 
-#include "mlir-hlo/Dialect/mhlo/IR/disc_ral_ops.h"
+#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -67,14 +67,14 @@ LogicalResult reifyReturnTypeShapesImpl<RngUniformBackendConfig>(
   Location loc = op.getLoc();
   SmallVector<Value, 4> shape_values;
   for (int i = 0; i < operand_type.getShape()[0]; ++i) {
-    Value offset = builder.create<ConstantIndexOp>(loc, i);
+    Value offset = builder.create<arith::ConstantIndexOp>(loc, i);
     SmallVector<Value, 1> ivs(1, offset);
     Value dim_size = builder.create<tensor::ExtractOp>(loc, operand, ivs);
     dim_size = disc_ral::mayConvertToIndexType(dim_size, &builder, loc);
     shape_values.push_back(dim_size);
   }
-  Value result_shape = builder.create<tensor::FromElementsOp>(
-      loc, builder.getIndexType(), shape_values);
+  Value result_shape =
+      builder.create<tensor::FromElementsOp>(loc, shape_values);
   reifiedReturnShapes.push_back(result_shape);
   return success();
 }
@@ -105,11 +105,11 @@ LogicalResult lowerToLibraryCallImpl<RngUniformBackendConfig>(
            << llvm::toString(std::move(e));
   }
   newOperands.push_back(
-      rewriter.create<ConstantIntOp>(op.getLoc(), GetRngUniqueId(), 64));
-  newOperands.push_back(
-      rewriter.create<ConstantIntOp>(op.getLoc(), backend_config->seed, 64));
-  newOperands.push_back(
-      rewriter.create<ConstantIntOp>(op.getLoc(), backend_config->seed2, 64));
+      rewriter.create<arith::ConstantIntOp>(op.getLoc(), GetRngUniqueId(), 64));
+  newOperands.push_back(rewriter.create<arith::ConstantIntOp>(
+      op.getLoc(), backend_config->seed, 64));
+  newOperands.push_back(rewriter.create<arith::ConstantIntOp>(
+      op.getLoc(), backend_config->seed2, 64));
   on_gpu = placement_utils::isGpuMemRef(op->getOperand(3));
   rewriter.replaceOpWithNewOp<disc_ral::DispatchOp>(
       op, llvm::None, ctx, newOperands, "ral_gpu_rng_uniform",

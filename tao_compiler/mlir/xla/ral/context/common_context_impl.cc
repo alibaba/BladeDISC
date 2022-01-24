@@ -23,6 +23,9 @@
 #include "google/protobuf/text_format.h"
 #include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
 #include "tensorflow/compiler/mlir/xla/ral/device/cpu/cpu_driver.h"
+#if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
+#include "tensorflow/compiler/mlir/xla/ral/device/gpu/gpu_driver.h"
+#endif
 #include "tensorflow/compiler/mlir/xla/ral/ral_base.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
 
@@ -47,6 +50,9 @@ namespace tao {
 namespace ral {
 
 using cpu::CpuLaunchDims;
+#if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
+using tao::ral::gpu::GPUDriver;
+#endif
 
 namespace {
 

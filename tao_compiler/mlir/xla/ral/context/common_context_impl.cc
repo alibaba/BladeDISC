@@ -191,7 +191,8 @@ void RalGlobalConstantState::onContextFinish(Context* ctx) /* override */ {
     for (auto& e : process_level_store->state.host_constants) {
       cpu_driver->raw_dealloc(ctx, e.second.first);
     }
-#ifndef TAO_CPU_ONLY
+#if (!defined(TAO_CPU_ONLY)) && \
+    (defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM))
     auto gpu_driver =
         static_cast<gpu::GPUDriver*>(ctx->getDriver(gpu::GPUDriver::name()));
     for (auto& e : process_level_store->state.device_constants) {

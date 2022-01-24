@@ -33,28 +33,6 @@ const char* kRalGpuH2DCopy = "h2d";
 const char* kRalGpuD2HCopy = "d2h";
 const char* kRalGpuPrint = "ral_gpu_print";
 
-void RalGlobalConstantState::onContextFinish(Context* ctx) /* override */ {
-  if (process_level_store) {
-    bool owned = ConstStoreRegistrar::Instance().unregisterConstStore(
-        process_level_store);
-    if (!owned) return;
-    auto cpu_driver =
-        static_cast<cpu::CPUDriver*>(ctx->getDriver(cpu::CPUDriver::name()));
-    auto gpu_driver =
-        static_cast<gpu::GPUDriver*>(ctx->getDriver(gpu::GPUDriver::name()));
-    for (auto& e : process_level_store->state.host_constants) {
-      cpu_driver->raw_dealloc(ctx, e.second.first);
-    }
-    for (auto& e : process_level_store->state.device_constants) {
-      gpu_driver->raw_dealloc(ctx, e.second.first);
-    }
-    delete process_level_store;
-    return;
-  }
-  // Skip if not process level const store since the context will free these
-  // const buffer correctly.
-}
-
 static inline buffer_t ral_base_cuda_const_cuda_internal(
     ExecutionContext* ctx, void* stream_handle, const char* unique_name,
     buffer_shape_t& shape) {

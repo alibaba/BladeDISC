@@ -181,7 +181,6 @@ ProcessLevelConstStore* ConstStoreRegistrar::getConstStore(
   return it->second;
 }
 
-#ifdef TAO_CPU_ONLY
 void RalGlobalConstantState::onContextFinish(Context* ctx) /* override */ {
   if (process_level_store) {
     bool owned = ConstStoreRegistrar::Instance().unregisterConstStore(
@@ -192,13 +191,19 @@ void RalGlobalConstantState::onContextFinish(Context* ctx) /* override */ {
     for (auto& e : process_level_store->state.host_constants) {
       cpu_driver->raw_dealloc(ctx, e.second.first);
     }
+#ifndef TAO_CPU_ONLY
+    auto gpu_driver =
+        static_cast<gpu::GPUDriver*>(ctx->getDriver(gpu::GPUDriver::name()));
+    for (auto& e : process_level_store->state.device_constants) {
+      gpu_driver->raw_dealloc(ctx, e.second.first);
+    }
+#endif
     delete process_level_store;
     return;
   }
   // Skip if not process level const store since the context will free these
   // const buffer correctly.
 }
-#endif
 
 const char* kRalGlobalConstantState = "ral_global_constant_state";
 

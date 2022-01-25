@@ -56,5 +56,9 @@ bool IsOpWriteValue(Operation* op, Value value) {
       });
 }
 
+bool IsMemRefAliasOp(Operation* op) {
+  return dyn_cast<ViewLikeOpInterface>(op) != nullptr;
+}
+
 }  // namespace disc_ral
 }  // namespace mlir

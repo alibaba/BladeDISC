@@ -1153,6 +1153,7 @@ cc_library(
         "transforms/rewriters.h",
     ],
     deps = [
+        ":disc_util",
         ":pass_details",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",

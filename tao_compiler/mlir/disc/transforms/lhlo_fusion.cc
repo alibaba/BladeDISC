@@ -97,11 +97,13 @@ using FusionPipeline = SmallVector<std::unique_ptr<FusionStrategy>>;
 class FusionPlanner {
  public:
   explicit FusionPlanner(FusionPipeline& pipeline, Block* block,
-                         ShapeAnalysis* shapeAnalysis = nullptr)
+                         ShapeAnalysis* shapeAnalysis)
       : fusionPipeline_(pipeline),
         block_(block),
         shape_analysis_(shapeAnalysis) {
     assert(!fusionPipeline_.empty());
+    assert(block_ != nullptr);
+    assert(shape_analysis_ != nullptr);
     currentFusionStrategy_ = fusionPipeline_[0].get();
     // Move up metadata-only ops (e.g. dim, shape_of) as far as possible.
     MoveUpMetadataOnlyOpsForFusion();
@@ -503,33 +505,8 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
     return pipeline;
   }
 
-  // Eliminate unnecessary broadcast-in-dims.
-  bool eliminateDynamicBroadcastInDim(FuncOp& func) {
-    ShapeAnalysis shapeAnalysis(func);
-    shapeAnalysis.run();
-    DenseSet<Operation*> ops_to_earse;
-    func.walk([&](lmhlo::DynamicBroadcastInDimOp broadcast) {
-      Operation* op = broadcast.getOperation();
-      Value operand = op->getOperand(0);
-      Value result = op->getOperand(2);
-      if (shapeAnalysis.isShapeEqual(operand, result)) {
-        SmallVector<Operation*> users;
-        for (Operation* user : llvm::to_vector<4>(result.getUsers())) {
-          if (user == op) {
-            continue;
-          }
-          user->replaceUsesOfWith(result, operand);
-        }
-        op->erase();
-      }
-    });
-    return true;
-  }
-
   void runOnFunction() override {
     FuncOp func = getFunction();
-
-    eliminateDynamicBroadcastInDim(func);
 
     // collect all blocks inside the function.
     SmallVector<Block*, 4> blocks;

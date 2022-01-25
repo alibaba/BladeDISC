@@ -68,6 +68,8 @@ bool IsSmallCpuAlloc(Value alloc);
 
 bool IsOpWriteValue(Operation* op, Value value);
 
+bool IsMemRefAliasOp(Operation* op);
+
 }  // namespace disc_ral
 }  // namespace mlir
 

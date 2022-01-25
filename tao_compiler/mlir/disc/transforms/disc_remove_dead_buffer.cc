@@ -27,6 +27,7 @@ limitations under the License.
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
 #include "mlir/Pass/Pass.h"
+#include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 
 namespace mlir {
@@ -36,14 +37,10 @@ using memref::AllocOp;
 
 namespace {
 
-bool isMemRefAliasOp(Operation* op) {
-  return dyn_cast<ViewLikeOpInterface>(op) != nullptr;
-}
-
 bool isKnownSafeConsumer(Operation* op) {
   // Not consider memref.dim/memref.shape_of ops, supposed that these
   // ops are canonicalized before this pass runs.
-  return isa<memref::DeallocOp>(op) || isMemRefAliasOp(op);
+  return isa<memref::DeallocOp>(op) || IsMemRefAliasOp(op);
 }
 
 bool isDeadBuffer(AllocOp op, SmallVectorImpl<Operation*>& consumers) {

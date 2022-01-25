@@ -66,7 +66,9 @@ bool LoadScalarSimplifier::extractScalarIndex(ValueRange indices,
 //   memref.store %value, %memref_x[%index_x] : memref<?xtype>
 //   Use of `%value`
 // The store op could be eliminated in other passes (e.g., DCE).
-// Note: we only deal with memrefs on CPU in this pass currently.
+// Note: we only deal with memrefs on CPU in this pass currently. Meanwhile,
+// we only deal with the case that the loaded memref are only stored once at
+// the same index.
 LogicalResult LoadScalarSimplifier::matchAndRewrite(
     memref::LoadOp op, PatternRewriter& rewriter) const {
   Location loc = op.getLoc();
@@ -75,19 +77,26 @@ LogicalResult LoadScalarSimplifier::matchAndRewrite(
     return failure();
   }
 
-  Value loadMemRef = op.getMemRef();
-  if (placement_utils::isGpuMemRef(loadMemRef)) {
+  Value load_memref = op.getMemRef();
+  if (placement_utils::isGpuMemRef(load_memref)) {
     return failure();
   }
-  DenseSet<Operation*> writable_ops;
-  for (Operation* user : loadMemRef.getUsers()) {
-    if (!dominance_info_->dominates(user, op)) {
+
+  memref::StoreOp store_op;
+  for (Operation* user : load_memref.getUsers()) {
+    // Before check alias, we first check dominance from `op` to `user`, which
+    // helps to reduce the cases of failure caused by alias dominated by `op`.
+    if (user == op || dominance_info_->dominates(op.getOperation(), user)) {
       continue;
     }
-    if (!isa<memref::StoreOp>(user)) {
-      if (IsOpWriteValue(user, loadMemRef)) {
-        writable_ops.insert(user);
-      }
+    if (IsMemRefAliasOp(user) ||
+        (!isa<memref::StoreOp>(user) && IsOpWriteValue(user, load_memref))) {
+      // To prevent indirect modification on `load_memref`.
+      return failure();
+    }
+    // Only store-ops dominate `op` will be considered for optimization.
+    if (!isa<memref::StoreOp>(user) ||
+        !dominance_info_->dominates(user, op.getOperation())) {
       continue;
     }
     // Load and store should work on the same index.
@@ -97,30 +106,16 @@ LogicalResult LoadScalarSimplifier::matchAndRewrite(
       continue;
     }
     if (load_index == store_index) {
-      auto value = store.value();
-      writable_ops.insert(user);
-    }
-  }
-  SmallVector<Operation*> write_frontier;
-  for (auto curr : writable_ops) {
-    bool dominant_other = false;
-    for (auto other : writable_ops) {
-      if (!dominance_info_->dominates(curr, other)) {
-        dominant_other = true;
-        break;
+      if (store_op != nullptr) {
+        // There is already a store-op write at the same index.
+        return failure();
       }
-    }
-    if (!dominant_other) {
-      write_frontier.push_back(curr);
+      store_op = store;
     }
   }
-  // Make sure that there is only one deterministic dominant store.
-  if ((write_frontier.size() == 1)) {
-    auto store = dyn_cast_or_null<memref::StoreOp>(write_frontier[0]);
-    if (store != nullptr) {
-      rewriter.replaceOp(op, store.value());
-      return success();
-    }
+  if (store_op != nullptr) {
+    rewriter.replaceOp(op, store_op.value());
+    return success();
   }
   return failure();
 }

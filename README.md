@@ -55,12 +55,12 @@ training workloads.
 
 #### Backend Support Matrix
 
-|    | Memory Intensive Part | Compute Intensive Part | End-to-End Usability |
-|----------- | ------------- | ---------------------- | -------------------- |
-| Nvidia GPU |    Yes        |    Yes                 |    Yes               |
-| AMD GPU    |  Ongoing      |  Ongoing               |     No               |
-| Hygon DCU  |    Yes        |    Yes                 |    Yes               |
-|  X86       |    Yes        |    Yes                 |    Yes               |
+|            |   Status      |
+|----------- | ------------- |
+| Nvidia GPU |    Yes        |
+| AMD GPU    |  Ongoing      |
+| Hygon DCU  |    Yes        |
+|  X86       |    Yes        |
 
 #### Deployment Solutions
 

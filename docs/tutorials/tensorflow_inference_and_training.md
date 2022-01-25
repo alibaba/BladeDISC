@@ -13,11 +13,11 @@ The content of this tutorial is as following.
   - [Epilogue: Normal Process to Run Inference](#epilogue-normal-process-to-run-inference)
 - [BERT X86 Inference](#bert-x86-inference)
   - [Prologue: Download Frozen Model For X86 CPU](#prologue-download-frozen-model-for-x86-cpu)
-  - [All You Need Are the Two Lines With CPU Specific Setting](#all-you-need-are-the-two-lines-with-cpu-specific-setting)
+  - [Still, All You Need Are the Two Lines](#still-all-you-need-are-the-two-lines)
   - [Epilogue: Normal Process to Run Inference on X86 CPU](#epilogue-normal-process-to-run-inference-on-x86-cpu)
 - [DeePMD training](#deepmd-training)
   - [Prologue: Install DeePMD-kit and Download Data](#prologue-install-deepmd-kit-and-download-data)
-  - [Still, All You Need Are the Two Lines!](#still-all-you-need-are-the-two-lines)
+  - [Aagin, All You Need Are the Two Lines!](#again-all-you-need-are-the-two-lines)
   - [Epilogue: Normal Process to Run MD Training with DeePMD-kit API](#epilogue-normal-process-to-run-md-training-with-deepmd-kit-api)
 
 
@@ -104,7 +104,7 @@ batch-size.
 !wget -P model http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/bladedisc_notebook_binaries/models/disc_bert_cpu_example/frozen.pb
 ```
 
-### All You Need Are the Two Lines With CPU Specific Setting!
+### Still, All You Need Are the Two Lines!
 
 Similar to the CUDA example, all you need to optimize the inference is to
 add the following two lines of code with some settings that are specific to cpu.
@@ -185,7 +185,7 @@ We need to install DeePMD-kit python interface to run the MD model.
 !tar -xzvf data.tar.gz
 ```
 
-### Still, All You Need Are the Two Lines!
+### Aagin, All You Need Are the Two Lines!
 
 All you need to do to optimize the training is to add the following two lines of
 code.

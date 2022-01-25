@@ -104,7 +104,6 @@ class TestDiscNNOps(DiscTestCase):
         input = torch.tensor(8, dtype=torch.int64).to(self.device)
         self._test_nn_ops(embedding, input)
 
-    @unittest.skipIf(not cuda_available, "ral_batch_gemm has no implementation yet")
     def test_gru_cell(self):
         # TODO(gty): Support torch.nn.GRUCell(4, 8, false)
         rnn = torch.nn.GRUCell(4, 8).to(self.device)

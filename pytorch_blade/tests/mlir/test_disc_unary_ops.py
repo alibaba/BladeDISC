@@ -36,7 +36,6 @@ class TestDiscUnaryOps(DiscTestCase):
 
         self._test_unary_ops(exp_func)
 
-    @unittest.skipIf(not torch_blade.version.cuda_available, """disc cpu does not support erf""")
     def test_erf(self):
         @torch.jit.script
         def erf_func(x):

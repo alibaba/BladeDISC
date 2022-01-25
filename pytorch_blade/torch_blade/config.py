@@ -115,6 +115,15 @@ class Config(ConfigContext):
         self._fp16_fallback_op_ratio = 0.0
         # Allow BladeDISC to do some AMP optimization if set.
         self._enable_mlir_amp = False
+        # Controls the extent that BladeDISC is allowed to use fast math for
+        # acceleration. Higher number usually means faster speed while it may
+        # lead to some accuracy loss in some cases.
+        #   Level 0: no fast math
+        #   Level 1: apply approximation for some expensive math ops (e.g. exp, sin)
+        #   Level 2: Level 1 + AllowReassoc
+        #   Level 3: Level 2 + NoNaNs + NoSignedZeros
+        #   Level 4: Level 3 + fully llvm fast math
+        self._disc_cpu_fast_math_level = 4
         # min/max/opt settings for tuning trt engines with dynamic input shapes
         # looks like:
         # {
@@ -157,7 +166,7 @@ class Config(ConfigContext):
 
     @property
     def enable_trt_shape_white_list(self):
-        """The flag is used to force convert shape aten operations to TensorRT. Currently the list contains, 
+        """The flag is used to force convert shape aten operations to TensorRT. Currently the list contains,
         'aten::view', 'aten::size', 'aten::reshape', 'aten::floor_divide', 'aten::Int', 'prim::NumToTensor'.
 
         :type: bool
@@ -198,6 +207,26 @@ class Config(ConfigContext):
     def enable_mlir_amp(self, val):
         assert isinstance(val, bool), "enable_mlir_amp should be bool, got {}".format(type(val))
         self._enable_mlir_amp = val
+
+    @property
+    def disc_cpu_fast_math_level(self):
+        """The flag to enable disc fast math.
+
+        Level 0: no fast math
+        Level 1: apply approximation for some expensive math ops (e.g. exp, sin)
+        Level 2: Level 1 + AllowReassoc
+        Level 3: Level 2 + NoNaNs + NoSignedZeros
+        Level 4: Level 3 + fully llvm fast math
+
+        :type: int
+        :default: 4
+        """
+        return self._disc_cpu_fast_math_level
+
+    @disc_cpu_fast_math_level.setter
+    def disc_cpu_fast_math_level(self, val):
+        assert isinstance(val, int), "disc_cpu_fast_math_level should be int, got {}".format(type(val))
+        self._disc_cpu_fast_math_level = val
 
     @property
     def dynamic_tuning_shapes(self):

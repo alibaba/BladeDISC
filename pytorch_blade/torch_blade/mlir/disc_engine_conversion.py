@@ -67,6 +67,7 @@ def _compile_torchscript(graph):
         with open(compile_log, "w") as devnull:
             cfg = Config.get_current_context_or_new()
             env['TAO_MLIR_ENABLE_AMP'] = str(cfg.enable_mlir_amp).lower()
+            env['DISC_CPU_FAST_MATH_LEVEL'] = str(cfg.disc_cpu_fast_math_level)
             # RUN: disc_compiler_main input_mlir_file.mlir output_file.so
             # redirect stdout to devnull
             subprocess.check_call(
@@ -83,7 +84,7 @@ def _compile_torchscript(graph):
         with open(out_file_pbtxt, "rb") as f_pbtxt:
             pb_bytes = f_pbtxt.read()
 
-        if os.environ.get('TORCH_BLADE_DEBUG_LOG', None) is not None: 
+        if os.environ.get('TORCH_BLADE_DEBUG_LOG', None) is not None:
             # copy result to mlir_dump_dir
             shutil.move(out_file_name, os.path.join(mlir_dump_dir, f"out.{time_str}.so"))
             shutil.move(out_file_pbtxt, os.path.join(mlir_dump_dir, f"out.{time_str}.so.pbtxt"))

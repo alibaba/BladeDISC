@@ -22,12 +22,15 @@ class TestConfig(TestCase):
         new_cfg = Config()
         new_cfg.fp16_fallback_op_ratio = 0.5
         new_cfg.enable_mlir_amp = True
+        new_cfg.disc_cpu_fast_math_level = 0
         with new_cfg:
             self.assertEqual(len(Config.get_contexts()), 1)
-            pass
+            now_cfg = Config.get_current_context_or_new()
+            self.assertEqaul(now_cfg.disc_cpu_fast_math_level, 0)
         now_cfg = Config.get_current_context_or_new()
         self.assertEqual(default_cfg.fp16_fallback_op_ratio, now_cfg.fp16_fallback_op_ratio)
         self.assertEqual(default_cfg.enable_mlir_amp, now_cfg.enable_mlir_amp)
+        self.assertEqual(default_cfg.disc_cpu_fast_math_level, now_cfg.disc_cpu_fast_math_level)
 
     def test_config_work(self):
         new_cfg = Config()

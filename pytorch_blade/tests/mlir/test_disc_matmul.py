@@ -37,7 +37,6 @@ class Linear(torch.nn.Module):
         return x + out_b
 
 
-@unittest.skipIf(not cuda_available, "ral_batch_gemm has no implementation yet")
 class TestDiscMatMul(DiscTestCase):
     def test_linear(self):
         x = torch.randn(4, 120, 256).to(self.device)

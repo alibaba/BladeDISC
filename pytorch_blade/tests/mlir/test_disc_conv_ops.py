@@ -15,7 +15,6 @@ import unittest
 
 from tests.mlir.testing_utils import DiscTestCase
 
-@unittest.skipIf(not torch_blade.version.cuda_available, "RAL CPU: please support convolution first")
 class TestMlirConvolution(DiscTestCase):
     def _test_conv(self, conv_func, inp_test_data=None):
         if inp_test_data is not None:

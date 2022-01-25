@@ -63,7 +63,7 @@ struct CpuLoweringOptions {
   bool disable_loop_unroll = false;
 
   // If true, assume all buffers are not overlapped.
-  bool assume_no_buffer_alias = false;
+  bool assume_no_buffer_alias = true;
 
   // If true, codegen for multi threading execution environment
   bool target_multi_threading = true;

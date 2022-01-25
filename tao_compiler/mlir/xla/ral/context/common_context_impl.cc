@@ -75,7 +75,8 @@ bool initProfileMode() {
 
 bool initFlushDenormalMode() {
   const char* env = getenv("DISC_CPU_ENABLE_FLUSH_DENORMAL");
-  if (!env) return false;
+  // default is to flush denormal, same as TensorFlow.
+  if (!env) return true;
   std::string envStr = env;
   std::transform(envStr.begin(), envStr.end(), envStr.begin(),
                  [](unsigned char c) { return std::tolower(c); });

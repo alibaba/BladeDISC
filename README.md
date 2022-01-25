@@ -55,27 +55,23 @@ training workloads.
 
 #### Backend Support Matrix
 
-|    | Memory Intensive Part | Compute Intensive Part | End-to-End Usability |
-|----------- | ------------- | ---------------------- | -------------------- |
-| Nvidia GPU |    Yes        |    Yes                 |    Yes               |
-| AMD GPU    |  Ongoing      |  Ongoing               |     No               |
-| Hygon DCU  |    Yes        |    Yes                 |    Yes               |
-|  X86       |    Yes        |  Not open-sourced yet [1]  |     No           |
-
-[1] The compute-intensive part of the X86 backend is already supported on the
-internal version. The code decoupling is ongoing and will be open-sourced soon,
-same for the end-to-end usability.
+|            |   Status      |
+|----------- | ------------- |
+| Nvidia GPU |    Yes        |
+| AMD GPU    |  Ongoing      |
+| Hygon DCU  |    Yes        |
+|  X86       |    Yes        |
 
 #### Deployment Solutions
 
 * Plugin Mode - BladeDISC works as a plugin of TensorFlow or PyTorch. Only the
   supported Ops are clustered and compiled, and the unsupported ones will be
   executed by the original TensorFlow or PyTorch runtime. We recommend this mode
-  to most of the users for its transparency and ease of use. 
+  to most of the users for its transparency and ease of use.
 
 * Standalone Mode - In Standalone mode, the input workload will be compiled into
   a binary that can be executed by it self, aka, does not rely on a TensorFlow
-  or PyTorch runtime. In this mode all ops must be supported. 
+  or PyTorch runtime. In this mode all ops must be supported.
 
 ### Numbers of Typical Workloads
 
@@ -182,7 +178,7 @@ the longer term.
 
 ## Contact Us
 
-* Mailgroup: bladedisc-dev@list.alibaba-inc.com 
+* Mailgroup: bladedisc-dev@list.alibaba-inc.com
 
 * DingTalk group for support and discussion:
 

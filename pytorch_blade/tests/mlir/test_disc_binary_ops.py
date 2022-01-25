@@ -131,9 +131,6 @@ class TestDiscBinaryOps(DiscTestCase):
 
         self._test_binary_ops(func2)
 
-    @unittest.skipIf(not torch_blade.version.cuda_available, """Please fix cpu ral first, will raise:
-        Context catch an exception: api_func ral_recv_input___pvoid_i32___m2df64 not found
-        Context catch an exception: api_func ral_constant_host___pvoid_pvoid___m0df64 not found""")
     def test_binary_type_promotion(self):
         self._test_binary_type_promotion(torch.sub)
         self._test_binary_type_promotion(torch.add)
@@ -160,7 +157,6 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_scalar_func(torch.div)
         self._test_rhs_scalar_func(torch.rsub)
 
-    @unittest.skipIf(not torch_blade.version.cuda_available, """disc cpu does not support pow""")
     def test_pow(self):
         self._test_func(torch.pow)
         self._test_scalar_func(torch.pow)

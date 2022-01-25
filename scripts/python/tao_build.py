@@ -243,6 +243,7 @@ def config_mkldnn(root, args):
     # download mkl-lib/include
     with cwd(mkl_dir):
         download_cmd = '''
+          unset HTTPS_PROXY
           curl -fsSL https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-static-2022.0.1-intel_117.tar.bz2  | tar xjv
           curl -fsSL https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-include-2022.0.1-h8d4b97c_803.tar.bz2 | tar xjv
         '''

@@ -614,10 +614,11 @@ cc_library(
     srcs = ["transforms/fusion_utils.cc"],
     hdrs = ["transforms/fusion_utils.h"],
     deps = [
+        ":codegen_utils",
         ":disc_lhlo_elemental_utils",
         ":disc_supported_list",
+        ":disc_util",
         ":placement_utils",
-        ":codegen_utils",
         ":shape_utils",
         "//tensorflow/compiler/mlir/hlo:lhlo",
         "@llvm-project//llvm:Core",
@@ -1006,7 +1007,9 @@ cc_library(
         "transforms/passes.h",
     ],
     deps = [
+        ":disc_util",
         ":pass_details",
+        ":placement_utils",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:MemRefDialect",

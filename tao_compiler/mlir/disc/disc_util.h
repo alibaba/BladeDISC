@@ -66,6 +66,8 @@ bool IsSmallCpuBuffer(Value value);
 
 bool IsSmallCpuAlloc(Value alloc);
 
+bool IsOpWriteValue(Operation* op, Value value);
+
 }  // namespace disc_ral
 }  // namespace mlir
 

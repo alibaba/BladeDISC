@@ -26,6 +26,7 @@ limitations under the License.
 #include "mlir/IR/MLIRContext.h"  // TF:llvm-project
 #include "mlir/IR/Matchers.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
+#include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
@@ -433,23 +434,8 @@ int getNumResultOperands(Operation* op) {
   if (op->getDialect()->getTypeID() != TypeID::get<lmhlo::LmhloDialect>()) {
     return 0;
   }
-
-  auto isWritable = [&](Value operand) -> bool {
-    llvm::SmallVector<mlir::MemoryEffects::EffectInstance, 2> effects;
-    MemoryEffectOpInterface interface = dyn_cast<MemoryEffectOpInterface>(op);
-    // Suppose that operands of op without `MemoryEffectOpInterface` are
-    // readonly.
-    if (!interface) return false;
-
-    interface.getEffectsOnValue(operand, effects);
-    return llvm::any_of(
-        effects, [](const mlir::MemoryEffects::EffectInstance& instance) {
-          return mlir::isa<mlir::MemoryEffects::Write>(instance.getEffect());
-        });
-  };
-
   return llvm::count_if(op->getOperands(),
-                        [&](Value v) { return isWritable(v); });
+                        [&](Value v) { return IsOpWriteValue(op, v); });
 }
 
 // Returns data users of the value and its aliases (e.g. memref.cast).

@@ -9,7 +9,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This file implements GVN optimization on memref dialect.
+// This file implements GVN optimization on memref dialect. Currently, it only
+// implements partial of CPU memref scalar load/store optimization.
 
 #include "llvm/Support/Debug.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -22,6 +23,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 #include "placement_utils.h"
+#include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 
 namespace mlir {
@@ -64,6 +66,7 @@ bool LoadScalarSimplifier::extractScalarIndex(ValueRange indices,
 //   memref.store %value, %memref_x[%index_x] : memref<?xtype>
 //   Use of `%value`
 // The store op could be eliminated in other passes (e.g., DCE).
+// Note: we only deal with memrefs on CPU in this pass currently.
 LogicalResult LoadScalarSimplifier::matchAndRewrite(
     memref::LoadOp op, PatternRewriter& rewriter) const {
   Location loc = op.getLoc();
@@ -72,18 +75,22 @@ LogicalResult LoadScalarSimplifier::matchAndRewrite(
     return failure();
   }
 
-  // We only deal with memrefs on CPU in this pass currently.
-  auto loadMemRef = op.getMemRef();
+  Value loadMemRef = op.getMemRef();
   if (placement_utils::isGpuMemRef(loadMemRef)) {
     return failure();
   }
+  DenseSet<Operation*> writable_ops;
   for (Operation* user : loadMemRef.getUsers()) {
-    if (!isa<memref::StoreOp>(user) ||
-        !dominance_info_->dominates(user, op.getOperation())) {
+    if (!dominance_info_->dominates(user, op)) {
       continue;
     }
-    // TODO: check whether there are other ops with side effect on the
-    // to-be-load value on the dependence path.
+    if (!isa<memref::StoreOp>(user)) {
+      if (IsOpWriteValue(user, loadMemRef)) {
+        writable_ops.insert(user);
+      }
+      continue;
+    }
+    // Load and store should work on the same index.
     auto store = dyn_cast<memref::StoreOp>(user);
     int64_t store_index;
     if (!extractScalarIndex(store.getIndices(), store_index)) {
@@ -91,7 +98,27 @@ LogicalResult LoadScalarSimplifier::matchAndRewrite(
     }
     if (load_index == store_index) {
       auto value = store.value();
-      rewriter.replaceOp(op, value);
+      writable_ops.insert(user);
+    }
+  }
+  SmallVector<Operation*> write_frontier;
+  for (auto curr : writable_ops) {
+    bool dominant_other = false;
+    for (auto other : writable_ops) {
+      if (!dominance_info_->dominates(curr, other)) {
+        dominant_other = true;
+        break;
+      }
+    }
+    if (!dominant_other) {
+      write_frontier.push_back(curr);
+    }
+  }
+  // Make sure that there is only one deterministic dominant store.
+  if ((write_frontier.size() == 1)) {
+    auto store = dyn_cast_or_null<memref::StoreOp>(write_frontier[0]);
+    if (store != nullptr) {
+      rewriter.replaceOp(op, store.value());
       return success();
     }
   }

@@ -43,5 +43,18 @@ bool IsSmallCpuAlloc(Value alloc) {
   return IsSmallCpuBuffer(alloc) && alloc.getDefiningOp<memref::AllocOp>();
 }
 
+bool IsOpWriteValue(Operation* op, Value value) {
+  llvm::SmallVector<mlir::MemoryEffects::EffectInstance, 2> effects;
+  MemoryEffectOpInterface interface = dyn_cast<MemoryEffectOpInterface>(op);
+  // Suppose that value without `MemoryEffectOpInterface` is readonly.
+  if (!interface) return false;
+
+  interface.getEffectsOnValue(value, effects);
+  return llvm::any_of(
+      effects, [](const mlir::MemoryEffects::EffectInstance& instance) {
+        return mlir::isa<mlir::MemoryEffects::Write>(instance.getEffect());
+      });
+}
+
 }  // namespace disc_ral
 }  // namespace mlir

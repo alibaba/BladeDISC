@@ -225,7 +225,7 @@ bool feature_test_main(const std::string& mlir_file_path,
   bool pass = true;
   std::vector<std::string> stitch_fusion_flags{"true", "false"};
   for (auto stitch_flag : stitch_fusion_flags) {
-    setenv("DISC_ENABLE_STITCH", stitch_flag, 1);
+    setenv("DISC_ENABLE_STITCH", stitch_flag.c_str(), 1);
     for (auto backend_type : backend_types) {
       if (backend_type == BackendType::kCuda) {
 #if (GOOGLE_CUDA) || (TENSORFLOW_USE_ROCM)

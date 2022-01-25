@@ -22,7 +22,7 @@ const std::string c_ft_path =
 TEST(GPUKStitchFusionTest, KStitchNonSkeletonOutputF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "kstitch_fusion_non_skl_output.mlir",
-      /*backend_types*/ {BackendType::kCuda},
+      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
       /*num_inputs*/ 3,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"128x768xf32_X", "1x128x768xf32_X", "768xf32_X"},
@@ -35,7 +35,7 @@ TEST(GPUKStitchFusionTest, KStitchAdjacentSkeletonWithSmallOutputF16) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path +
           "kstitch_fusion_adj_skl_small_output_f16.mlir",
-      /*backend_types*/ {BackendType::kCuda},
+      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100xf16_X"},
@@ -47,7 +47,7 @@ TEST(GPUKStitchFusionTest, KStitchAdjacentSkeletonWithSmallOutputF16) {
 TEST(GPUKStitchFusionTest, KStitchNonCoverOutputF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "kstitch_fusion_non_cover_output.mlir",
-      /*backend_types*/ {BackendType::kCuda},
+      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
       /*num_inputs*/ 3,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"200x300xf32_X", "2xi32_h", "2xi32_h"},
@@ -59,7 +59,7 @@ TEST(GPUKStitchFusionTest, KStitchNonCoverOutputF32) {
 TEST(GPUKStitchFusionTest, KStitchIrregularXrootF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "kstitch_fusion_irregular_xroot.mlir",
-      /*backend_types*/ {BackendType::kCuda},
+      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
       /*num_inputs*/ 3,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"10x112xf32_X", "10x112xf32_X", "10x112xf32_X"},
@@ -70,7 +70,7 @@ TEST(GPUKStitchFusionTest, KStitchIrregularXrootF32) {
 TEST(GPUKStitchFusionTest, KStitch3DF64) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "kstitch_fusion_3d_f64.mlir",
-      /*backend_types*/ {BackendType::kCuda},
+      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
       /*num_inputs*/ 1,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"1x128x768xf64_X"},

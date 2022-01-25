@@ -42,9 +42,6 @@ using namespace lmhlo;
 using placement_utils::kDiscPlaceAssignment;
 using placement_utils::kDiscShapeCalcAttr;
 
-static StringRef kFusionOpNameAttr = "disc.fusion.name";
-static StringRef kFusionOpTagAttr = "disc.fusion.tag";
-
 void dumpFusionPattern(FusionPattern& pattern) {
   for (Operation* subOp : pattern.getOpList()) {
     llvm::dbgs() << "  " << *subOp << "\n";

@@ -108,7 +108,7 @@ class ShapeAnalysis {
     }
     explicit DimValue(int64_t val) {
       foldVal = val;
-      state = (val >= mlir::ShapedType::kDynamicSize) ? FOLD : INVALID;
+      state = (val >= 0) ? FOLD : INVALID;
     }
     bool isValid() const { return state != INVALID; }
     void dump() const {

@@ -21,6 +21,7 @@
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
+#include "placement_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 
 namespace mlir {
@@ -51,9 +52,6 @@ bool LoadScalarSimplifier::extractScalarIndex(ValueRange indices,
   if (auto constOp = dyn_cast_or_null<arith::ConstantIndexOp>(op)) {
     index = constOp.value();
     return true;
-  } else if (auto constOp = dyn_cast_or_null<arith::ConstantIntOp>(op)) {
-    index = constOp.value();
-    return true;
   }
   return false;
 }
@@ -74,12 +72,18 @@ LogicalResult LoadScalarSimplifier::matchAndRewrite(
     return failure();
   }
 
+  // We only deal with memrefs on CPU in this pass currently.
   auto loadMemRef = op.getMemRef();
+  if (placement_utils::isGpuMemRef(loadMemRef)) {
+    return failure();
+  }
   for (Operation* user : loadMemRef.getUsers()) {
     if (!isa<memref::StoreOp>(user) ||
         !dominance_info_->dominates(user, op.getOperation())) {
       continue;
     }
+    // TODO: check whether there are other ops with side effect on the
+    // to-be-load value on the dependence path.
     auto store = dyn_cast<memref::StoreOp>(user);
     int64_t store_index;
     if (!extractScalarIndex(store.getIndices(), store_index)) {

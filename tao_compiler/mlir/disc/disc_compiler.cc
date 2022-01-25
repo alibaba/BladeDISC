@@ -292,6 +292,10 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     setGlobalFusionOptions(fusionOptions);
   }
   if (enable_stitch && gpu_enabled) {
+    // Some passes introduce a bunch of memref alloc, load and store to for
+    // shape operations (e.g., ReshapeOp(.., target_shape, ..)), which makes
+    // shape equality analysis quite tricky. A GVN pass helps to eliminate
+    // unnecessary shape value transformation.
     pm.addNestedPass<FuncOp>(disc_ral::createDiscMemRefGVNPass());
   }
   pm.addNestedPass<FuncOp>(disc_ral::createDiscFusionPass(
@@ -324,11 +328,14 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(disc_ral::createDiscLowerToLibraryCallPass());
   pm.addPass(disc_ral::createDiscConstToRALPass(options.metadata_file_path));
 
-  // CodeGen passes: lhlo -> gpu.launch_func
-  // TODO: move to aicompiler repo and add more schedules/op coverage
   if (enable_stitch && gpu_enabled) {
+    // The passes between `DiscLhloLegalizeRootsToParallelLoops` and
+    // 'DiscFusionPass' introduce new shape value transformations with extra
+    // memref load ans store. Eliminate them with GVN.
     pm.addNestedPass<FuncOp>(disc_ral::createDiscMemRefGVNPass());
   }
+  // CodeGen passes: lhlo -> gpu.launch_func
+  // TODO: move to aicompiler repo and add more schedules/op coverage
   pm.addNestedPass<FuncOp>(
       disc_ral::createDiscLhloLegalizeRootsToParallelLoopsPass());
   // Converts `atomic_rmw` to `generic_atomic_rmw` when necessary to use CAS.

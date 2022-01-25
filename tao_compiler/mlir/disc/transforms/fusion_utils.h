@@ -72,8 +72,10 @@ bool isSameUnderlineBuffer(Value lhs, Value rhs);
 
 bool isOnGpu(Operation* op);
 
-// An Attribute used to annotate the fusion type.
+// Attributes used to annotate the fusion type, fusion name and tags.
 constexpr const char* kDiscFusionTypeAttrName = "disc.fusion_type";
+constexpr StringRef kFusionOpNameAttr = "disc.fusion.name";
+constexpr StringRef kFusionOpTagAttr = "disc.fusion.tag";
 
 // kLoop fusion template satisfies:
 //   - all ops in the fusion pattern are element-wise.

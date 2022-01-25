@@ -223,26 +223,32 @@ bool feature_test_main(const std::string& mlir_file_path,
                        bool profiling, bool multi_cc_mode,
                        bool multi_cc_mode_dbg_ptx_only) {
   bool pass = true;
-  for (auto backend_type : backend_types) {
-    if (backend_type == BackendType::kCuda) {
+  std::vector<std::string> stitch_fusion_flags{"true", "false"};
+  for (auto stitch_flag : stitch_fusion_flags) {
+    setenv("DISC_ENABLE_STITCH", stitch_flag, 1);
+    for (auto backend_type : backend_types) {
+      if (backend_type == BackendType::kCuda) {
 #if (GOOGLE_CUDA) || (TENSORFLOW_USE_ROCM)
-      VLOG(0) << "Testing for CUDA backend";
-      pass = pass && feature_test_main(
-                         mlir_file_path, backend_type, num_inputs, num_outputs,
-                         input_descriptors, output_descriptors, input_vals,
-                         profiling, multi_cc_mode, multi_cc_mode_dbg_ptx_only);
+        VLOG(0) << "Testing for CUDA backend";
+        pass = pass &&
+               feature_test_main(mlir_file_path, backend_type, num_inputs,
+                                 num_outputs, input_descriptors,
+                                 output_descriptors, input_vals, profiling,
+                                 multi_cc_mode, multi_cc_mode_dbg_ptx_only);
 #endif
-    } else if (backend_type == BackendType::kX86) {
+      } else if (backend_type == BackendType::kX86) {
 #ifdef TAO_CPU_ONLY
-      VLOG(0) << "Testing for X86 backend";
-      pass = pass && feature_test_main(
-                         mlir_file_path, backend_type, num_inputs, num_outputs,
-                         input_descriptors, output_descriptors, input_vals,
-                         profiling, multi_cc_mode, multi_cc_mode_dbg_ptx_only);
+        VLOG(0) << "Testing for X86 backend";
+        pass = pass &&
+               feature_test_main(mlir_file_path, backend_type, num_inputs,
+                                 num_outputs, input_descriptors,
+                                 output_descriptors, input_vals, profiling,
+                                 multi_cc_mode, multi_cc_mode_dbg_ptx_only);
 #endif
-    } else {
-      LOG(ERROR) << "unknown backend type";
-      return false;
+      } else {
+        LOG(ERROR) << "unknown backend type";
+        return false;
+      }
     }
   }
   return pass;

@@ -253,7 +253,6 @@ Status MlirTest::CompileMlirToBinary() {
 
   // tf dialect -> out.so
   setenv("TAO_MLIR_DUMP", "false", 1);
-  setenv("DISC_ENABLE_STITCH", "true", 1);
   auto allow_hex = getenv("TAO_MLIR_ALLOW_HEX");
   std::string allow_hex_str = allow_hex ? allow_hex : "-1";
   args = {dhlo_compiler_main_path_,

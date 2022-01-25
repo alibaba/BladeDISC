@@ -32,8 +32,6 @@
 namespace mlir {
 namespace disc_ral {
 
-static StringRef kFusionOpTagAttr = "disc.fusion.tag";
-
 // Supports using EquivalenceClasses for Value
 bool operator<(const ValueWrapper& lhs, const ValueWrapper& rhs) {
   auto lhs_value = lhs.getValue().getAsOpaquePointer();
@@ -212,13 +210,6 @@ LogicalResult ShapeAnalysis::buildBlockShapeMap(Block* block) {
           "failed to build shape for block arg");
     }
   }
-  auto getFusionOpOf = [&](Operation* op) {
-    auto parent = op;
-    while (parent != nullptr && !isa<lmhlo::FusionOp>(parent)) {
-      parent = parent->getParentOp();
-    }
-    return dyn_cast_or_null<lmhlo::FusionOp>(parent);
-  };
 
   // mapping each op inside the block
   WalkResult result = block->walk([&](Operation* op) {
@@ -351,22 +342,8 @@ LogicalResult ShapeAnalysis::buildBlockDimValueMap(Block* block) {
       }
     }
   };
-  auto getFusionOpOf = [&](Operation* op) {
-    auto parent = op;
-    while (parent != nullptr && !isa<lmhlo::FusionOp>(parent)) {
-      parent = parent->getParentOp();
-    }
-    return dyn_cast_or_null<lmhlo::FusionOp>(parent);
-  };
 
   WalkResult result = block->walk([&](Operation* op) {
-    // Skip fusions after IB speculation.
-    if (lmhlo::FusionOp fusion = getFusionOpOf(op)) {
-      auto attr = fusion->getAttrOfType<StringAttr>(kFusionOpTagAttr);
-      if (attr && attr.getValue().find("no_ib") != StringRef::npos) {
-        return WalkResult::skip();
-      }
-    }
     WalkResult res = WalkResult::advance();
     // TODO: analysis memref::load/store.
     if (auto dynamicReshape = dyn_cast<lmhlo::DynamicReshapeOp>(*op)) {
@@ -1147,13 +1124,6 @@ LogicalResult ShapeAnalysis::buildRegionMulDecompose(Region* region) {
 }
 
 LogicalResult ShapeAnalysis::buildBlockMulDecompose(Block* block) {
-  auto getFusionOpOf = [&](Operation* op) {
-    auto parent = op;
-    while (parent != nullptr && !isa<lmhlo::FusionOp>(parent)) {
-      parent = parent->getParentOp();
-    }
-    return dyn_cast_or_null<lmhlo::FusionOp>(parent);
-  };
   // mapping each op inside the block
   WalkResult result = block->walk([&](Operation* op) {
     if (auto muli = dyn_cast_or_null<arith::MulIOp>(op)) {

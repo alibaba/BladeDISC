@@ -291,7 +291,7 @@ struct ShapeSimplifierPass
 
   LogicalResult applyShapeAnalysis(ShapeAnalysis&, bool&);
 
-  LogicalResult applyShapeOptimization(ShapeAnalysis&, bool&);
+  LogicalResult applySymbolicShapeOptimization(ShapeAnalysis&, bool&);
 };
 
 void ShapeSimplifierPass::populateShapeRefinerPatterns(
@@ -348,7 +348,7 @@ void ShapeSimplifierPass::runOnOperation() {
 
     // Stage #3: apply symbolic shape optimization. e.g. %out = bcast(%in) ->
     // %out = %in
-    if (failed(applyShapeOptimization(analysis, changed))) {
+    if (failed(applySymbolicShapeOptimization(analysis, changed))) {
       // error message should be generated inside the above function call.
       signalPassFailure();
       return;
@@ -409,7 +409,7 @@ LogicalResult ShapeSimplifierPass::applyShapeAnalysis(ShapeAnalysis& analysis,
   return success();
 }
 
-LogicalResult ShapeSimplifierPass::applyShapeOptimization(
+LogicalResult ShapeSimplifierPass::applySymbolicShapeOptimization(
     ShapeAnalysis& analysis, bool& changed) {
   FuncOp func = dyn_cast_or_null<FuncOp>(analysis.getOperation());
   if (func == nullptr) {

@@ -86,7 +86,7 @@ LogicalResult LoadScalarSimplifier::matchAndRewrite(
   for (Operation* user : load_memref.getUsers()) {
     // Before check alias, we first check dominance from `op` to `user`, which
     // helps to reduce the cases of failure caused by alias dominated by `op`.
-    if (user == op || dominance_info_->dominates(op.getOperation(), user)) {
+    if (dominance_info_->dominates(op.getOperation(), user)) {
       continue;
     }
     if (IsMemRefAliasOp(user) ||

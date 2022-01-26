@@ -56,15 +56,12 @@ LogicalResult elemwiseLowerHelper(OpBuilder& b, Location loc, Operation* op,
 
   Value result_memref = cast<lmhlo::LmhloOp>(op).getResultBuffer();
   Value memref = result_memref;
-  if (shape_analysis) {
-    auto parent_fusion = op->getParentOp();
-    while ((parent_fusion != nullptr) && !isa<mhlo::FusionOp>(parent_fusion)) {
-      parent_fusion = parent_fusion->getParentOp();
-    }
-    if (parent_fusion != nullptr) {
-      Value leader_memref = shape_analysis->GetLeaderValueWithSameShapeInFusion(
-          parent_fusion, result_memref);
-      if (leader_memref != nullptr) memref = leader_memref;
+  if (shape_analysis != nullptr) {
+    auto parent_fusion = op->getParentOfType<mhlo::FusionOp>();
+    Value leader_memref = shape_analysis->GetLeaderValueWithSameShapeInFusion(
+        parent_fusion, result_memref);
+    if (leader_memref != nullptr) {
+      memref = leader_memref;
     }
   }
   Value memref_1d = createMemRef1DReinterpretCast(b, loc, result_memref);

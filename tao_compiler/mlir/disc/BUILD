@@ -345,6 +345,7 @@ cc_library(
     ],
     deps = [
         ":pass_details",
+        ":placement_utils",
         "//tensorflow/compiler/mlir/hlo:disc_ral",
         "//tensorflow/compiler/mlir/hlo:hlo",
         "@llvm-project//mlir:IR",

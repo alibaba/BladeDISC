@@ -434,6 +434,9 @@ struct convolution_forward
     auto dst_desc = attr.has_op_kind(kind::sum)
                         ? dst.get_desc()
                         : tensor::desc(dst_dims, dst_data_type);
+    if (keep_format) {
+      dst_desc = dst.get_desc();
+    }
 
     auto pd = get_primitive_desc<with_bias, keep_format>(
         src_desc, weights_desc, bias_desc, dst_desc, strides, dilates_,

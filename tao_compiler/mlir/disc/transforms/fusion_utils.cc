@@ -674,17 +674,6 @@ FusionPattern::FusionPattern(Operation* op) : FusionPatternBase(op) {
   dominant_op_ = op;
 }
 
-// For debugging.
-static void dumpModuleOp(Operation* op) {
-  auto parent = op->getParentOp();
-  while (parent != nullptr && !isa<mlir::ModuleOp>(parent)) {
-    parent = parent->getParentOp();
-  }
-  if (parent != nullptr) {
-    parent->dump();
-  }
-}
-
 // Create a new fusion pattern from the ops inside the lmhlo fusion op.
 FusionPattern::FusionPattern(lmhlo::FusionOp op, ShapeAnalysis* shape_analysis)
     : FusionPatternBase(op) {

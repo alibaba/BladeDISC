@@ -318,6 +318,24 @@ Status GetDeviceId(OpKernelContext* ctx, int* device_id) {
 
 }  // namespace
 
+Tensor ToCpu(OpKernelContext* ctx, Tensor t, MemoryType mem_type) {
+  if (HOST_MEMORY == mem_type || !ctx->op_device_context()) return t;
+
+  AllocatorAttributes alloc_attr;
+  auto to_ptr = [](const Tensor& tensor) {
+    return const_cast<void*>(
+        static_cast<const void*>(tensor.tensor_data().data()));
+  };
+  auto stream = ctx->op_device_context()->stream();
+  Tensor cpu_tensor;
+  alloc_attr.set_on_host(true);
+  ctx->allocate_temp(t.dtype(), t.shape(), &cpu_tensor, alloc_attr);
+  stream->ThenMemcpy(to_ptr(cpu_tensor), se::DeviceMemoryBase(to_ptr(t)),
+                     t.TotalBytes());
+  stream->BlockHostUntilDone();
+  return cpu_tensor;
+}
+
 mutex TaoCompilationCache::global_mu_;
 
 TaoCompilationCache::TaoCompilationCache(bool async_compilation)
@@ -332,6 +350,11 @@ TaoCompilationCache::TaoCompilationCache(bool async_compilation)
   tao_upload_tool_path_ = dumper_opts->tao_upload_tool_path;
   graphdef_node_size_min_ = dumper_opts->graphdef_node_size_min;
   graphdef_node_size_max_ = dumper_opts->graphdef_node_size_max;
+
+  if (opts->disc_debug_mode) {
+    VLOG(0) << "Force remove_after_compile = false due to DISC_DEBUG is on";
+    remove_after_compile_ = false;
+  }
 
   LOG(INFO) << "TaoCompilationCache initiate: ";
   LOG(INFO) << "    tao compiler path: " << tao_compiler_path_;
@@ -662,6 +685,8 @@ Status PrepareCompilerInput(
             << func_def->node_def_size();
   }
 
+  bool dump_arg_value = GetTaoBridgeOptions()->disc_debug_mode;
+  std::vector<std::string> value_proto_filenames;
   for (int64 input_num = 0; input_num < ctx->num_inputs(); ++input_num) {
     auto arg = compiler_input->add_args();
     if (constant_args.count(input_num) > 0) {
@@ -732,6 +757,41 @@ Status PrepareCompilerInput(
         shape_proto.AppendToString(arg->mutable_shape());
       }
     }
+    if (dump_arg_value) {
+      Tensor cpu_tensor =
+          ToCpu(ctx, ctx->input(input_num), ctx->input_memory_type(input_num));
+      tensorflow::TensorProto tensor_proto;
+      cpu_tensor.AsProtoTensorContent(&tensor_proto);
+      auto env = tensorflow::Env::Default();
+      std::string path;
+      if (!env->LocalTempFilename(&path)) {
+        return errors::Internal("couldn't get temp file name");
+      }
+      TF_RETURN_IF_ERROR(
+          WriteBinaryProto(tensorflow::Env::Default(), path, tensor_proto));
+      std::vector<std::string> fileds = absl::StrSplit(path, '/');
+      auto filename = fileds.back();
+      arg->set_value_proto_file(filename);
+      value_proto_filenames.push_back(path);
+      VLOG(0) << "arg #" << input_num << " proto filename: " << filename;
+    }
+  }
+  if (dump_arg_value) {
+    auto env = tensorflow::Env::Default();
+    std::string unique_name;
+    if (!env->LocalTempFilename(&unique_name)) {
+      return errors::Internal("couldn't get temp file name");
+    }
+    std::string tar_file_path = unique_name + ".tar";
+    std::string cmd = "tar -C `dirname " + tar_file_path + "` -cf `basename " +
+                      tar_file_path + "` ";
+    for (auto& name : value_proto_filenames) {
+      cmd += "`basename " + name + "` ";
+    }
+    cmd += "; mv `basename " + tar_file_path + "` " + tar_file_path;
+    VLOG(0) << "tar input proto files of the cluster for debug:"
+            << "\n\tcmd: " << cmd << "\n\ttar file path: " << tar_file_path;
+    std::system(cmd.c_str());
   }
 
   return Status::OK();

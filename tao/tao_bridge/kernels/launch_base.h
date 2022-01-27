@@ -18,6 +18,7 @@
 #include "tao_bridge/cuda_utils.h"
 #include "tao_bridge/kernels/platform_info.h"
 #include "tao_bridge/kernels/profiling.h"
+#include "tao_bridge/kernels/tao_compilation_cache.h"
 #include "tao_bridge/kernels/tao_compilation_info_collector.h"
 #include "tao_bridge/kernels/tao_profiling_guided_compilation.h"
 #include "tensorflow/core/framework/function.h"
@@ -97,8 +98,6 @@ class LaunchBase : public AsyncOpKernel {
   Status DeviceUUIDFromContext(std::string* result_uuid);
 
   void printInOuts(OpKernelContext* ctx);
-
-  Tensor ToCpu(OpKernelContext* ctx, Tensor t, MemoryType mem_type);
 
   std::map<int, OptionalTensor> SnapshotResourceVariables(
       OpKernelContext* ctx, absl::Span<const int> variables);

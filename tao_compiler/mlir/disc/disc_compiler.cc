@@ -233,7 +233,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvRewriter());
   if (gpu_enabled) {
-    // Cudnn only support the same paddnig value for both left side & right
+    // Cudnn only supports using same padding value for both left side & right
     // side. This pass ensures this property.
     pm.addNestedPass<FuncOp>(disc_ral::createDiscGpuConvPaddingLegalization());
   }

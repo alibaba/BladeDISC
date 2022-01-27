@@ -140,8 +140,10 @@ bool parseConvParams(ExecutionContext* ctx, MemRefType<Tinput, N> input,
   std::vector<char> format_buffer(N + 1, 0);
   int idx = 0;
   int ic = 0;
+  dims input_dims(N, 0);
   for (int i = 0; i < N; ++i) {
     if (i == 1) ic = input.sizes[metadata.data[idx]];
+    input_dims[i] = input.sizes[metadata.data[idx]];
     format_buffer[metadata.data[idx++]] = 'a' + i;
   }
   params->input_format = str2format(format_buffer.data());
@@ -154,9 +156,13 @@ bool parseConvParams(ExecutionContext* ctx, MemRefType<Tinput, N> input,
   }
 
   int kc = kernel.sizes[metadata.data[idx]];
+  dims filter_dims(N, 0);
+  filter_dims[1] = kernel.sizes[metadata.data[idx]];
   format_buffer[metadata.data[idx++]] = 'b';
+  filter_dims[0] = kernel.sizes[metadata.data[idx]];
   format_buffer[metadata.data[idx++]] = 'a';
   for (int i = 2; i < N; ++i) {
+    filter_dims[i] = kernel.sizes[metadata.data[idx]];
     format_buffer[metadata.data[idx++]] = 'a' + i;
   }
   params->filter_format = str2format(format_buffer.data());
@@ -168,7 +174,9 @@ bool parseConvParams(ExecutionContext* ctx, MemRefType<Tinput, N> input,
     TAO_VLOG(0) << "filter format: " << format_buffer.data();
   }
 
+  dims output_dims(N, 0);
   for (int i = 0; i < N; ++i) {
+    output_dims[i] = output.sizes[metadata.data[idx]];
     format_buffer[metadata.data[idx++]] = 'a' + i;
   }
   params->output_format = str2format(format_buffer.data());
@@ -198,6 +206,20 @@ bool parseConvParams(ExecutionContext* ctx, MemRefType<Tinput, N> input,
     }
     TAO_VLOG(0) << "ic = " << ic << ", kc = " << kc
                 << ", groups = " << params->groups;
+    TAO_VLOG(0) << "input mkl logical shape (NCHW) = ";
+    for (int i = 0; i < N; ++i) {
+      TAO_VLOG(0) << "\t" << input_dims[i];
+    }
+
+    TAO_VLOG(0) << "filter mkl logical shape (OIHW) = ";
+    for (int i = 0; i < N; ++i) {
+      TAO_VLOG(0) << "\t" << filter_dims[i];
+    }
+
+    TAO_VLOG(0) << "output mkl logical shape (NCHW) = ";
+    for (int i = 0; i < N; ++i) {
+      TAO_VLOG(0) << "\t" << output_dims[i];
+    }
   }
 
   data_type input_dtype = toDataType<Tinput>();
@@ -205,24 +227,24 @@ bool parseConvParams(ExecutionContext* ctx, MemRefType<Tinput, N> input,
     ctx->signalError(Context::FAILURE, "invalid input dtype for conv op");
     return false;
   }
-  params->src = tensor{dims{input.sizes, input.sizes + N}, input_dtype,
-                       params->input_format, input.data};
+  params->src =
+      tensor{input_dims, input_dtype, params->input_format, input.data};
 
   data_type filter_dtype = toDataType<Tfilter>();
   if (filter_dtype == data_type::undef) {
     ctx->signalError(Context::FAILURE, "invalid filter dtype for conv op");
     return false;
   }
-  params->weight = tensor{dims{kernel.sizes, kernel.sizes + N}, filter_dtype,
-                          params->filter_format, kernel.data};
+  params->weight =
+      tensor{filter_dims, filter_dtype, params->filter_format, kernel.data};
 
   data_type output_dtype = toDataType<Toutput>();
   if (output_dtype == data_type::undef) {
     ctx->signalError(Context::FAILURE, "invalid output dtype for conv op");
     return false;
   }
-  params->dst = tensor{dims{output.sizes, output.sizes + N}, output_dtype,
-                       params->output_format, output.data};
+  params->dst =
+      tensor{output_dims, output_dtype, params->output_format, output.data};
   params->dst_dims = params->dst.get_public_format_dims();
   return true;
 }
@@ -244,15 +266,10 @@ void ral_conv(ExecutionContext* ctx, opaque_t /*stream_handle*/,
     ctx->signalError(Context::FAILURE, "invalid conv params");
   }
 
-  ideep::tensor y;
-  ideep::convolution_forward::compute(
-      params.src, params.weight, params.dst_dims, y, params.strides,
+  // TODO(disc): use context-specific stream/engine
+  ideep::convolution_forward::compute<true>(
+      params.src, params.weight, params.dst_dims, params.dst, params.strides,
       params.dilates, params.padding_l, params.padding_r, params.groups);
-  // get engine
-  // get stream
-
-  // reorder to dst format
-  y.reorder_to(params.dst);
 }
 
 TAO_RAL_API("ral_conv", "cpu", ral_conv<float, 3>);

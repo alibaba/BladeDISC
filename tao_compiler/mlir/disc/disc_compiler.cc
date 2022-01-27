@@ -218,8 +218,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   pm.addNestedPass<FuncOp>(disc_ral::createDiscSplitLargeOpsPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscDotRewriterPass());
-  pm.addNestedPass<FuncOp>(disc_ral::createDiscConvRewriter());
-  pm.addNestedPass<FuncOp>(disc_ral::createDiscGpuConvPaddingLegalization());
 
   if (gpu_enabled) {
     pm.addNestedPass<FuncOp>(mhlo::createHloCanonicalizeReductionPass());
@@ -232,6 +230,13 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscConvRewriter());
+  if (gpu_enabled) {
+    // Cudnn only supports using same padding value for both left side & right
+    // side. This pass ensures this property.
+    pm.addNestedPass<FuncOp>(disc_ral::createDiscGpuConvPaddingLegalization());
+  }
 
   // We currently do not support AMP in AICompiler side. If
   // `TAO_MLIR_ENABLE_AMP` is set, we simply convert all gemm ops to fp16.

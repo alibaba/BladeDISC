@@ -141,6 +141,9 @@ message ArgumentProto {
   // ..., gradient array k), where the gradient arrays are in the same order
   // as `tensor_array_gradients`.
   repeated string tensor_array_gradients = 9;
+
+  // Points to a file that stores the acutal value of the argument.
+  string value_proto_file = 20;
 };
 
 message TaoCompilerInput {

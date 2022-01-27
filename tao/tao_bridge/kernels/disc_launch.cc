@@ -11,7 +11,6 @@
 
 #include "tao_bridge/kernels/disc_launch.h"
 
-#include "tao_bridge/kernels/tao_compilation_cache.h"
 #include "tensorflow/stream_executor/stream_executor.h"
 
 namespace tensorflow {

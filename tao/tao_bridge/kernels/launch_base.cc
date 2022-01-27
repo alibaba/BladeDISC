@@ -151,24 +151,6 @@ bool LaunchBase::BoolAttr(const char* const attr) {
   return ret;
 }
 
-Tensor LaunchBase::ToCpu(OpKernelContext* ctx, Tensor t, MemoryType mem_type) {
-  if (HOST_MEMORY == mem_type) return t;
-
-  AllocatorAttributes alloc_attr;
-  auto to_ptr = [](const Tensor& tensor) {
-    return const_cast<void*>(
-        static_cast<const void*>(tensor.tensor_data().data()));
-  };
-  auto stream = ctx->op_device_context()->stream();
-  Tensor cpu_tensor;
-  alloc_attr.set_on_host(true);
-  ctx->allocate_temp(t.dtype(), t.shape(), &cpu_tensor, alloc_attr);
-  stream->ThenMemcpy(to_ptr(cpu_tensor), se::DeviceMemoryBase(to_ptr(t)),
-                     t.TotalBytes());
-  stream->BlockHostUntilDone();
-  return cpu_tensor;
-}
-
 #undef OP_REQUIRES_OK_RETURN
 
 Status LaunchBase::EnsureFunctionHandle(

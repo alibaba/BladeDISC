@@ -30,6 +30,8 @@ struct TaoProfileStat {
   std::atomic<int64> total_time_saved_in_us{0};
 };
 
+Tensor ToCpu(OpKernelContext* ctx, Tensor t, MemoryType mem_type);
+
 class TaoCompilationCache : public ResourceBase {
  public:
   TaoCompilationCache(bool async_compilation = false);

@@ -104,6 +104,7 @@ cc_library(
     ]) + if_rocm_is_configured([
         "mlir_compiler_impl_rocm.h",
     ]),
+    visibility = ["//visibility:public"],
     deps = [
         "compiler_base",
         "tao_compiler_trace",

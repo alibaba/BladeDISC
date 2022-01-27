@@ -220,6 +220,7 @@ def configure_compiler(root, args):
         # TF_REMOTE_CACHE is not supported by tensorflow community
         # just set remote cache here
         token = remote_cache_token()
+        print(token)
         if token:
             with open(".tf_configure.bazelrc", "a") as f:
                 f.write("\n")
@@ -372,6 +373,7 @@ def build_tao_compiler(root, args):
     BAZEL_BUILD_CMD = "bazel build --experimental_multi_threaded_digest --define framework_shared_object=false" + ci_build_flag()
     TARGET_TAO_COMPILER_MAIN = "//tensorflow/compiler/decoupling:tao_compiler_main"
     TARGET_DISC_OPT = "//tensorflow/compiler/mlir/disc:disc-opt"
+    TARGET_DISC_REPLAY = "//tensorflow/compiler/mlir/disc:disc-replay"
 
     targets = None
     if args.bazel_target is not None:
@@ -408,8 +410,9 @@ def build_tao_compiler(root, args):
         if args.enable_mkldnn:
             flag += ' --cxxopt="-DTAO_ENABLE_MKLDNN" --define is_mkldnn=true'
 
-        bazel_build(TARGET_TAO_COMPILER_MAIN, flag=flag)
-        bazel_build(TARGET_DISC_OPT, flag=flag)
+        #bazel_build(TARGET_TAO_COMPILER_MAIN, flag=flag)
+        #bazel_build(TARGET_DISC_OPT, flag=flag)
+        bazel_build(TARGET_DISC_REPLAY, flag=flag)
         execute(
             "cp -f -p {}/tao/third_party/ptxas/10.2/ptxas ./bazel-bin/tensorflow/compiler/decoupling/".format(
                 root
@@ -501,6 +504,8 @@ def test_tao_compiler(root, args):
     TARGET_DISC_TRANSFORMS_TEST = "//tensorflow/compiler/mlir/disc/transforms/tests/..."
     TARGET_DISC_E2E_TEST = "//tensorflow/compiler/mlir/disc/tests/..."
 
+    TARGET_DISC_REPLAY_TEST = "//tensorflow/compiler/mlir/disc:disc-replay-test"
+    
     targets = None
     if args.bazel_target is not None:
         targets = set(args.bazel_target.split(","))
@@ -535,8 +540,9 @@ def test_tao_compiler(root, args):
             else:
                 flag = "--config=cuda"
             mlir_tests_list = [
-                TARGET_DISC_TRANSFORMS_TEST,
-                TARGET_DISC_E2E_TEST,
+                #TARGET_DISC_TRANSFORMS_TEST,
+                #TARGET_DISC_E2E_TEST,
+                TARGET_DISC_REPLAY_TEST
             ]
             MLIR_TESTS = " ".join(mlir_tests_list)
             bazel_test(MLIR_TESTS, flag=flag)

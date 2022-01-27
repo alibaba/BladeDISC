@@ -1414,6 +1414,43 @@ tf_cc_binary(
     ],
 )
 
+disc_cc_library(
+    name = "disc-replay",
+    srcs = [
+        "tools/disc-replay/record_args.cc",
+        #"tools/disc-replay/disc_interpreter.cc"
+    ],
+    hdrs = [
+        "tools/disc-replay/record_args.h",
+        "tools/disc-replay/tar_helper.h",
+        #"tools/disc-replay/disc_interpreter.h"
+    ],
+    deps = [
+        ":all_passes",
+        "//tensorflow/compiler/decoupling:tao_compiler_input",
+        "//tensorflow/compiler/decoupling:tao_compiler",
+        "//tensorflow/compiler/mlir/hlo:all_passes",
+        "//tensorflow/compiler/mlir/xla/ral:ral_base_context_lib",
+        "//tensorflow/core:lib",
+        "//tensorflow/core:framework",
+        "//tensorflow/core:tensorflow",
+        "//tensorflow/core/platform:subprocess",
+    ]
+)
+
+tf_cc_test(
+    name = "disc-replay-test",
+    srcs = [
+        "tools/disc-replay/replay_test.cc"
+    ],
+    deps = [
+        ":disc-replay",
+        "//tensorflow/core:test",
+        "//tensorflow/core:test_main",
+        "@com_google_googletest//:gtest",
+    ]
+)
+
 gentbl_cc_library(
     name = "MhloDiscPassIncGen",
     compatible_with = get_compatible_with_cloud(),

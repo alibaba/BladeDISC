@@ -1,9 +1,20 @@
+// Copyright 2022 The BladeDISC Authors. All rights reserved.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <cstdio>
+
 #include "tensorflow/compiler/mlir/disc/tools/disc-replay/disc_interpreter.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-replay/tar_helper.h"
-
-#include "tensorflow/core/platform/test.h"
 #include "tensorflow/core/platform/path.h"
+#include "tensorflow/core/platform/test.h"
 
 namespace replay {
 namespace testing {
@@ -17,7 +28,6 @@ tensorflow::Tensor GetTestingTensor() {
   }
   return t;
 }
-
 
 tensorflow::Status GetTestingRecordTar(const std::string& tar_fname) {
   auto env = tensorflow::Env::Default();
@@ -34,10 +44,14 @@ tensorflow::Status GetTestingRecordTar(const std::string& tar_fname) {
 
   // set tensor value
   std::string value_fn = "input_1.pb";
-  tensorflow::WriteBinaryProto(tensorflow::Env::Default(), tensorflow::io::JoinPath(tmp_dir, value_fn), tensor_proto);
+  tensorflow::WriteBinaryProto(tensorflow::Env::Default(),
+                               tensorflow::io::JoinPath(tmp_dir, value_fn),
+                               tensor_proto);
   arg->set_value_proto_file(value_fn);
 
-  tensorflow::WriteBinaryProto(tensorflow::Env::Default(), tensorflow::io::JoinPath(tmp_dir, "tao_compiler_input.pb"), input);
+  tensorflow::WriteBinaryProto(
+      tensorflow::Env::Default(),
+      tensorflow::io::JoinPath(tmp_dir, "tao_compiler_input.pb"), input);
   return CompressTar(tmp_dir, tar_fname);
 }
 
@@ -55,15 +69,15 @@ TEST(BladeDISCReplayTest, TestRecordArgs) {
   ReplayRecord record;
   EXPECT_TRUE(record.InitFromTarGz(tar_fname).ok());
   auto tensors = record.Tensors();
-  //auto placements = record.Placements();
+  // auto placements = record.Placements();
   EXPECT_TRUE(tensors.size() == 1);
-  
+
   // data value on the index 64(3 * 20 + 4) is equal to tensor[2][3]
   float expected_value = 12;
   EXPECT_EQ(tensors[0].flat<float>()(64), expected_value);
 }
 
-TEST(BladeDISCReplayTest,  TestInterPreter) {
+TEST(BladeDISCReplayTest, TestInterPreter) {
   DiscInterpreter disc;
   ReplayRecord record;
   auto tar_fname = GetTempTarfileName();
@@ -72,9 +86,8 @@ TEST(BladeDISCReplayTest,  TestInterPreter) {
   // compile input program: tao_compiler_input
   EXPECT_TRUE(disc.Compile(record.Program()).ok());
   // feed data and run program
-  //EXPECT_TRUE(disc.Run(record.Tensors(), record.Placements()).ok());
-
+  // EXPECT_TRUE(disc.Run(record.Tensors(), record.Placements()).ok());
 }
 
-} //  namespace testing
-} //  namespace replay
+}  //  namespace testing
+}  //  namespace replay

@@ -1418,12 +1418,12 @@ disc_cc_library(
     name = "disc-replay",
     srcs = [
         "tools/disc-replay/record_args.cc",
-        #"tools/disc-replay/disc_interpreter.cc"
+        "tools/disc-replay/disc_interpreter.cc"
     ],
     hdrs = [
         "tools/disc-replay/record_args.h",
         "tools/disc-replay/tar_helper.h",
-        #"tools/disc-replay/disc_interpreter.h"
+        "tools/disc-replay/disc_interpreter.h"
     ],
     deps = [
         ":all_passes",

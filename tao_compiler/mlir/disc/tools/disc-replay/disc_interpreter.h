@@ -6,7 +6,6 @@
 #include "tensorflow/compiler/mlir/xla/ral/context/base/cpu/cpu_context_impl.h"
 #include "tensorflow/compiler/mlir/xla/ral/context/base/cuda/cuda_context_impl.h"
 #include "tensorflow/compiler/decoupling/mlir_compiler.h"
-#include "tensorflow/compiler/decoupling/tao_compiler_input.pb.h"
 
 namespace tensorflow {
 class Status;
@@ -20,12 +19,12 @@ class DiscInterpreter {
  public:
   DiscInterpreter();
 
+  tensorflow::Status Compile(const tensorflow::tao::TaoCompilerInput& input);
   // the entrypoint to replay the specified cluster
-  tensorflow::Status Run(const std::string& input_fname, const std::string& record_fname);
+  tensorflow::Status Run(const std::vector<tensorflow::Tensor>& tensors,
+                         const std::vector<std::string>& placements);
 
  private:
-
-  tensorflow::Status LoadAndCompileToExecutable(const std::string& input_fname, const std::string& output_fname);
 
   tensorflow::Status RunExecutable(std::vector<tensorflow::Tensor> tensors, const std::string& executable_fname);
 

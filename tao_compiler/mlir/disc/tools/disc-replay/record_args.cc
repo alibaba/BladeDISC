@@ -1,4 +1,5 @@
-#include "record_args.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-replay/record_args.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-replay/tar_helper.h"
 #include "tensorflow/core/framework/tensor.h"
 namespace replay {
 
@@ -29,7 +30,7 @@ tensorflow::Status ReplayRecord::InitFromTarGz(const std::string& fname) {
   std::string basename = fname.substr(fname.find_last_of('/')+1);
   basename = basename.substr(0, basename.find_last_of('.'));
 
-  TF_RETURN_IF_ERROR(DeCompressTarGz(fname, out_dir));
+  TF_RETURN_IF_ERROR(DeCompressTar(fname, out_dir));
 
   std::string tao_input_fname = tensorflow::io::JoinPath(out_dir, basename, "tao_compiler_input.pb");
   TF_CHECK_OK(env->FileExists(tao_input_fname));

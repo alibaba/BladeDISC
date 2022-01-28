@@ -1,9 +1,9 @@
 #include <cstdio>
-#include "tensorflow/compiler/mlir/disc/tools/disc-replay/record_args.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-replay/disc_interpreter.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-replay/tar_helper.h"
+
 #include "tensorflow/core/platform/test.h"
 #include "tensorflow/core/platform/path.h"
-
 
 namespace replay {
 namespace testing {
@@ -22,6 +22,7 @@ tensorflow::Tensor GetTestingTensor() {
 tensorflow::Status GetTestingRecordTar(const std::string& tar_fname) {
   auto env = tensorflow::Env::Default();
   auto tmp_dir = tar_fname.substr(0, tar_fname.find_last_of('.'));
+  VLOG(0) << "tmp dir: " << tmp_dir;
   env->CreateDir(tmp_dir);
   tensorflow::tao::TaoCompilerInput input;
   tensorflow::TensorProto tensor_proto;
@@ -37,7 +38,7 @@ tensorflow::Status GetTestingRecordTar(const std::string& tar_fname) {
   arg->set_value_proto_file(value_fn);
 
   tensorflow::WriteBinaryProto(tensorflow::Env::Default(), tensorflow::io::JoinPath(tmp_dir, "tao_compiler_input.pb"), input);
-  return CompressTarGz(tmp_dir, tar_fname);
+  return CompressTar(tmp_dir, tar_fname);
 }
 
 std::string GetTempTarfileName() {
@@ -60,6 +61,19 @@ TEST(BladeDISCReplayTest, TestRecordArgs) {
   // data value on the index 64(3 * 20 + 4) is equal to tensor[2][3]
   float expected_value = 12;
   EXPECT_EQ(tensors[0].flat<float>()(64), expected_value);
+}
+
+TEST(BladeDISCReplayTest,  TestInterPreter) {
+  DiscInterpreter disc;
+  ReplayRecord record;
+  auto tar_fname = GetTempTarfileName();
+  EXPECT_TRUE(GetTestingRecordTar(tar_fname).ok());
+  EXPECT_TRUE(record.InitFromTarGz(tar_fname).ok());
+  // compile input program: tao_compiler_input
+  EXPECT_TRUE(disc.Compile(record.Program()).ok());
+  // feed data and run program
+  //EXPECT_TRUE(disc.Run(record.Tensors(), record.Placements()).ok());
+
 }
 
 } //  namespace testing

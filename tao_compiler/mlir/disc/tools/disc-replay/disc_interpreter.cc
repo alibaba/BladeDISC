@@ -9,28 +9,19 @@ DiscInterpreter::DiscInterpreter() {
 }
 
 
-tensorflow::Status DiscInterpreter::Run(const std::string& input_fname, const std::string& record_fname) {
-  // 1. load tao compilation input pb and compile into executable
-  // 2. load ReplayRecord file with protobuf format
-  // 3. Run the executable with binding the ReplayRecord tensors.
-  std::string output_fname = input_fname + ".output";
-  auto s = LoadAndCompileToExecutable(input_fname, output_fname);
-  if (!s.ok()) {
-    return tensorflow::errors::Internal("Compile to executable failed");
-  }
-}
-
-tensorflow::Status DiscInterpreter::LoadAndCompileToExecutable(const std::string& input_fname, const std::string& output_fname) {
-  // load proto into tao input
-  tensorflow::tao::TaoCompilerInput input;
-  TF_RETURN_IF_ERROR(ReadBinaryProto(tensorflow::Env::Default(), input_fname, &input));
-
+tensorflow::Status DiscInterpreter::Compile(const tensorflow::tao::TaoCompilerInput& input) {
+  std::string output_fname = "a.out";
   // compile input proto to executable file
   tensorflow::DeviceType device_type(input.options().device_type());
   auto* compiler_wrapper =
       tensorflow::tao::CompilerBase::GetCompilerForDevice(device_type).ConsumeValueOrDie();
   TF_RETURN_IF_ERROR(compiler_wrapper->Compile(input, output_fname));
   return tensorflow::Status::OK();
+}
+
+tensorflow::Status Run(const std::vector<tensorflow::Tensor>& tensors,
+                       const std::vector<std::string>& placements) {
+  // TODO(yancey.yx): run DISC executable with RAL context
 }
 
 std::unique_ptr<tao::ral::gpu::BaseCudaExecutionContext> DiscInterpreter::GetExecCUDAContext(const std::string& executable_fname) {

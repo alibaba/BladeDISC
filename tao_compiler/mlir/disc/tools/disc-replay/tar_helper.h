@@ -7,12 +7,11 @@
 
 namespace replay {
 
-tensorflow::Status DeCompressTarGz(const std::string& tar_fname, const std::string& out_dir) {
+tensorflow::Status DeCompressTar(const std::string& tar_fname, const std::string& out_dir) {
   //tar xf cluster_123.tar -C /tmp/
   tensorflow::SubProcess proc;
   std::string stdout;
   std::string stderr;
-  std::cout << tar_fname << "\t" << out_dir << std::endl;
   std::vector<std::string> args = {"tar", "xf", tar_fname, "-C " + out_dir + "/"};
   proc.SetProgram("/bin/tar", {"tar", "xf", tar_fname, "-C", out_dir});
   proc.SetChannelAction(tensorflow::CHAN_STDOUT, tensorflow::ACTION_PIPE);
@@ -33,7 +32,7 @@ tensorflow::Status DeCompressTarGz(const std::string& tar_fname, const std::stri
 }
 
 
-tensorflow::Status CompressTarGz(const std::string& src, const std::string& dest) {
+tensorflow::Status CompressTar(const std::string& src, const std::string& dest) {
   // tar cf /tmp/cluster_123.tar -C /tmp/ cluster_123
   std::string basename = src.substr(src.find_last_of('/') + 1);
   std::string ch_dir = src.substr(0, src.size() - basename.size());

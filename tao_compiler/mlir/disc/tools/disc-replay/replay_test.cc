@@ -21,7 +21,7 @@ tensorflow::Tensor GetTestingTensor() {
 
 tensorflow::Status GetTestingRecordTar(const std::string& tar_fname) {
   auto env = tensorflow::Env::Default();
-  auto tmp_dir = "/tmp/disc_testing";
+  auto tmp_dir = tar_fname.substr(0, tar_fname.find_last_of('.'));
   env->CreateDir(tmp_dir);
   tensorflow::tao::TaoCompilerInput input;
   tensorflow::TensorProto tensor_proto;
@@ -40,16 +40,21 @@ tensorflow::Status GetTestingRecordTar(const std::string& tar_fname) {
   return CompressTarGz(tmp_dir, tar_fname);
 }
 
+std::string GetTempTarfileName() {
+  auto env = tensorflow::Env::Default();
+  std::string tmp_fname;
+  env->LocalTempFilename(&tmp_fname);
+  return tmp_fname + ".tar";
+}
 
 TEST(BladeDISCReplayTest, TestRecordArgs) {
-  std::string tar_fname = "/tmp/disc_testing.tar";
+  auto tar_fname = GetTempTarfileName();
   EXPECT_TRUE(GetTestingRecordTar(tar_fname).ok());
-
 
   ReplayRecord record;
   EXPECT_TRUE(record.InitFromTarGz(tar_fname).ok());
   auto tensors = record.Tensors();
-  auto placements = record.Placements();
+  //auto placements = record.Placements();
   EXPECT_TRUE(tensors.size() == 1);
   
   // data value on the index 64(3 * 20 + 4) is equal to tensor[2][3]

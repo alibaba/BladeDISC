@@ -33,7 +33,6 @@ static Compilers* GetCompilers() {
     DeviceType device_type, CompilerFactory factory) {
   auto* factories = GetCompilerFactories();
   std::string dt_string = device_type.type_string();
-  VLOG(0) << "Register device type: " << dt_string;
   CHECK(factories->find(dt_string) == factories->end())
       << "Compiler factory already registered for device " << dt_string;
   (*factories)[dt_string] = std::move(factory);

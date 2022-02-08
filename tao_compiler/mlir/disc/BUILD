@@ -1453,7 +1453,8 @@ tf_cc_test(
         "@com_google_googletest//:gtest",
     ],
     data = [
-        "//tensorflow/compiler/mlir/disc/tools/disc-replay/test_data:test.tar"
+        "//tensorflow/compiler/mlir/disc/tools/disc-replay/test_data:data.tar",
+        "//tensorflow/compiler/mlir/disc/tools/disc-replay/test_data:program.pb"
     ]
 )
 

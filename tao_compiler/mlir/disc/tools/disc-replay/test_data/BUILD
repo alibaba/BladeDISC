@@ -1,1 +1,1 @@
-exports_files(["test.tar"])
+exports_files(["data.tar", "program.pb"])

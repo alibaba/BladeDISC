@@ -220,7 +220,6 @@ def configure_compiler(root, args):
         # TF_REMOTE_CACHE is not supported by tensorflow community
         # just set remote cache here
         token = remote_cache_token()
-        print(token)
         if token:
             with open(".tf_configure.bazelrc", "a") as f:
                 f.write("\n")
@@ -301,7 +300,6 @@ def configure(root, args):
         flags += " -DTAO_ENABLE_MKLDNN={} ".format(
             "ON" if args.enable_mkldnn else "OFF"
         )
-        flags += " -DCMAKE_TAR_URL=https://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/gtest/release-1.11.0.tar.gz"
         if args.enable_mkldnn:
             flags +=" -DMKL_ROOT={} ".format(mkl_install_dir(root))
 

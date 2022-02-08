@@ -29,7 +29,8 @@ tensorflow::Tensor GetTestingTensor() {
   return t;
 }
 
-tensorflow::Status GetTestingRecordTar(const std::string& tar_fname) {
+tensorflow::Status GetTestingRecord(std::string& tar_fname,
+                                    std::string& program_fname) {
   auto env = tensorflow::Env::Default();
   std::string tmp_dir;
   env->LocalTempFilename(&tmp_dir);
@@ -45,16 +46,19 @@ tensorflow::Status GetTestingRecordTar(const std::string& tar_fname) {
 
   // set tensor value
   std::string value_fn = "input_1.pb";
-  std::string tao_input_pb_fn = "tao_compiler_input.pb";
+  // std::string tao_input_pb_fn = "tao_compiler_input.pb";
   tensorflow::WriteBinaryProto(tensorflow::Env::Default(),
                                tensorflow::io::JoinPath(tmp_dir, value_fn),
                                tensor_proto);
   arg->set_value_proto_file(value_fn);
 
-  tensorflow::WriteBinaryProto(
-      tensorflow::Env::Default(),
-      tensorflow::io::JoinPath(tmp_dir, tao_input_pb_fn), input);
-  std::vector<std::string> srcs = {value_fn, tao_input_pb_fn};
+  // serialize program protobuf file
+  env->LocalTempFilename(&program_fname);
+  tensorflow::WriteBinaryProto(tensorflow::Env::Default(), program_fname,
+                               input);
+
+  std::vector<std::string> srcs = {value_fn};
+  env->LocalTempFilename(&tar_fname);
   return CompressTar(srcs, tar_fname, tmp_dir);
 }
 
@@ -66,12 +70,12 @@ std::string GetTempTarfileName() {
 }
 
 TEST(BladeDISCReplayTest, TestRecordArgs) {
-  auto tar_fname = GetTempTarfileName();
-  EXPECT_TRUE(GetTestingRecordTar(tar_fname).ok());
+  std::string tar_fname, program_fname;
+  EXPECT_TRUE(GetTestingRecord(tar_fname, program_fname).ok());
 
-  ReplayRecord record;
-  EXPECT_TRUE(record.InitFromTar(tar_fname).ok());
-  auto tensors = record.Tensors();
+  auto record = CreateReplayRecord(program_fname, tar_fname);
+  EXPECT_NE(nullptr, record);
+  auto tensors = record->Tensors();
   // auto placements = record.Placements();
   EXPECT_TRUE(tensors.size() == 1);
 
@@ -84,16 +88,18 @@ TEST(BladeDISCReplayTest, TestInterPreter) {
   // the test.tar is generate by quick start demo with enabling debug
   // mode(DISC_DEBUG=true)
   std::string tar_fname =
-      "tensorflow/compiler/mlir/disc/tools/disc-replay/test_data/test.tar";
+      "tensorflow/compiler/mlir/disc/tools/disc-replay/test_data/data.tar";
+  std::string program_fname =
+      "tensorflow/compiler/mlir/disc/tools/disc-replay/test_data/program.pb";
   DiscInterpreter disc;
-  ReplayRecord record;
   CompiledResult result;
   // 1. Init replay record from tarball
-  EXPECT_TRUE(record.InitFromTar(tar_fname).ok());
+  auto record = CreateReplayRecord(program_fname, tar_fname);
+  EXPECT_NE(nullptr, record);
   // 2. compile the input program into executable program
-  EXPECT_TRUE(disc.Compile(record.Program(), result).ok());
+  EXPECT_TRUE(disc.Compile(record->Program(), result).ok());
   // 3. run the executable with input data
-  EXPECT_TRUE(disc.Run(result, record.Tensors(), record.Placements()).ok());
+  EXPECT_TRUE(disc.Run(result, record->Tensors(), record->Placements()).ok());
 }
 
 }  //  namespace testing

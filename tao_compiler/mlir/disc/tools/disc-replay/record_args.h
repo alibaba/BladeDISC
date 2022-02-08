@@ -26,20 +26,35 @@ using tensorflow::TensorProto;
 
 class ReplayRecord {
  public:
-  ReplayRecord(){};
+  ReplayRecord(const std::string& program_fname, const std::string& tar_fname)
+      : program_fname_(program_fname), tar_fname_(tar_fname) {}
 
-  // Initialize ReplayRecord from a record file with tar.gz foramt.
+  tensorflow::Status Load();
+
+  // Initialize ReplayRecord from tarball
   tensorflow::Status InitFromTar(const std::string& fname);
 
-  tensorflow::tao::TaoCompilerInput& Program() { return input_; };
+  tensorflow::tao::TaoCompilerInput& Program() { return program_; };
   std::vector<tensorflow::Tensor> Tensors() { return tensors_; };
   std::vector<std::string> Placements() { return placements_; };
 
  private:
+  std::string program_fname_;
+  std::string tar_fname_;
+  tensorflow::tao::TaoCompilerInput program_;
   std::vector<tensorflow::Tensor> tensors_;
   std::vector<std::string> placements_;
-  tensorflow::tao::TaoCompilerInput input_;
 };
+
+inline std::shared_ptr<ReplayRecord> CreateReplayRecord(
+    const std::string& program_fname, const std::string& tar_fname) {
+  std::shared_ptr<ReplayRecord> record(
+      new ReplayRecord(program_fname, tar_fname));
+  if (record->Load().ok()) {
+    return record;
+  }
+  return nullptr;
+}
 
 }  //  namespace replay
 

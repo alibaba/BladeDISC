@@ -503,7 +503,7 @@ def test_tao_compiler(root, args):
     TARGET_DISC_TRANSFORMS_TEST = "//tensorflow/compiler/mlir/disc/transforms/tests/..."
     TARGET_DISC_E2E_TEST = "//tensorflow/compiler/mlir/disc/tests/..."
 
-    TARGET_DISC_REPLAY_TEST = "//tensorflow/compiler/mlir/disc:disc-replay-test"
+    TARGET_DISC_REPLAY_TEST = "//tensorflow/compiler/mlir/disc/tools/disc-replay:disc-replay-test"
     
     targets = None
     if args.bazel_target is not None:

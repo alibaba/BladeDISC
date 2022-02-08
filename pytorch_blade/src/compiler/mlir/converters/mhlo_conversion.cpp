@@ -27,6 +27,15 @@ namespace torch {
 namespace blade {
 using namespace mlir::mhlo;
 
+// TODO(wenyi): Using registration system instead of using explicit listing.
+bool SafeToCallConverter(const torch::jit::Node& node) {
+  auto schema = node.maybeSchema();
+  if (!schema)
+    return false;
+  auto& name = schema->operator_name().name;
+  return name == "aten::_convolution";
+}
+
 inline bool IsNonTensorOrTypeAnalyzed(const c10::TypePtr type) {
   TORCH_CHECK(type != nullptr);
   auto tensor_type = type->cast<c10::TensorType>();
@@ -73,9 +82,15 @@ bool IsMlirMhloSupported(const torch::jit::Node& node) {
       MhloConversionContext empty_ctx(
           mlir_context, nullptr, /*is_support_testing*/ true);
       if (!node.kind().is_prim()) {
+        if (!AllTensorTypeAnalyzed(node)) {
+          return false;
+        }
         // TODO: node that are not prim nodes, may require a subgraph
         //  as context to figure out whether it's supported
-        return AllTensorTypeAnalyzed(node);
+        if (SafeToCallConverter(node)) {
+          return (*converter)(empty_ctx, node);
+        }
+        return true;
       } else {
         return (*converter)(empty_ctx, node);
       }

@@ -50,12 +50,16 @@ bool ConvertAtenConvolution(
   if (!CheckConstAttribute(jit_dilation, op_name, "dilation")) {
     return false;
   }
-  // other inputs is ignored currently
-  /*
   auto jit_trans = node.input(6);
   if (!CheckConstAttribute(jit_trans, op_name, "transposed")) {
     return false;
   }
+  // TODO(disc): support transposed convolution.
+  if (CastJitConstToBool(*jit_trans)) {
+    return false;
+  }
+  // TODO(disc): other inputs is ignored currently
+  /*
   auto jit_output_pad = node.input(7);
   if (!CheckConstAttribute(jit_output_pad, op_name, "output_padding")) {
     return false;
@@ -64,6 +68,10 @@ bool ConvertAtenConvolution(
   if (!CheckConstAttribute(jit_groups, op_name, "groups")) {
     return false;
   } */
+
+  if (ctx.IsSupportTesting()) {
+    return true;
+  }
 
   auto mlir_input = ctx.GetMlirValue(node.input(0));
   auto mlir_weight = ctx.GetMlirValue(jit_weight);

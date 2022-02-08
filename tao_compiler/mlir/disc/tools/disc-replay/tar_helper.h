@@ -21,7 +21,7 @@ namespace replay {
 
 tensorflow::Status DeCompressTar(const std::string& tar_fname,
                                  const std::string& out_dir) {
-  // tar xf cluster_123.tar -C /tmp/
+  // tar xf <tar_fname> -C <out_dir>
   tensorflow::SubProcess proc;
   std::string stdout;
   std::string stderr;
@@ -47,15 +47,17 @@ tensorflow::Status DeCompressTar(const std::string& tar_fname,
   return tensorflow::Status::OK();
 }
 
-tensorflow::Status CompressTar(const std::string& src,
-                               const std::string& dest) {
-  // tar cf /tmp/cluster_123.tar -C /tmp/ cluster_123
-  std::string basename = src.substr(src.find_last_of('/') + 1);
-  std::string ch_dir = src.substr(0, src.size() - basename.size());
+tensorflow::Status CompressTar(const std::vector<std::string>& srcs,
+                               const std::string& tar_fname,
+                               const std::string chdir) {
+  // tar cf <tar_fname> -C <ch_dir> src1 src2 ...
   tensorflow::SubProcess proc;
   std::string stdout;
   std::string stderr;
-  proc.SetProgram("/bin/tar", {"tar", "cf", dest, "-C", ch_dir, basename});
+  std::vector<std::string> args = {"tar", "cf", tar_fname, "-C", chdir};
+  args.insert(args.end(), srcs.begin(), srcs.end());
+
+  proc.SetProgram("/bin/tar", args);
   proc.SetChannelAction(tensorflow::CHAN_STDOUT, tensorflow::ACTION_PIPE);
   proc.SetChannelAction(tensorflow::CHAN_STDERR, tensorflow::ACTION_PIPE);
   if (!proc.Start()) {

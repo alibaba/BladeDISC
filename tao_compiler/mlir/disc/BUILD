@@ -1435,6 +1435,9 @@ disc_cc_library(
         "//tensorflow/core:framework",
         "//tensorflow/core:tensorflow",
         "//tensorflow/core/platform:subprocess",
+        "@local_config_cuda//cuda:cuda_headers",
+        "@local_config_cuda//cuda:cuda_driver",
+        "@local_config_cuda//cuda:cudart",
     ]
 )
 
@@ -1448,6 +1451,9 @@ tf_cc_test(
         "//tensorflow/core:test",
         "//tensorflow/core:test_main",
         "@com_google_googletest//:gtest",
+    ],
+    data = [
+        "//tensorflow/compiler/mlir/disc/tools/disc-replay/test_data:test.tar"
     ]
 )
 

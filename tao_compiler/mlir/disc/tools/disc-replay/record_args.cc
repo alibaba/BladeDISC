@@ -40,25 +40,26 @@ tensorflow::Status ReadTensorFromPb(const std::string fname,
   return tensorflow::Status::OK();
 }
 
-tensorflow::Status ReplayRecord::InitFromTarGz(const std::string& fname) {
-  auto env = tensorflow::Env::Default();
+tensorflow::Status ReplayRecord::InitFromTar(const std::string& fname) {
   std::shared_ptr<ReplayRecord> record;
-  std::string out_dir = "/tmp";
-  std::string basename = fname.substr(fname.find_last_of('/') + 1);
-  basename = basename.substr(0, basename.find_last_of('.'));
+
+  auto env = tensorflow::Env::Default();
+  std::string out_dir;
+  env->LocalTempFilename(&out_dir);
+  env->CreateDir(out_dir);
 
   TF_RETURN_IF_ERROR(DeCompressTar(fname, out_dir));
 
   std::string tao_input_fname =
-      tensorflow::io::JoinPath(out_dir, basename, "tao_compiler_input.pb");
+      tensorflow::io::JoinPath(out_dir, "tao_compiler_input.pb");
   TF_CHECK_OK(env->FileExists(tao_input_fname));
   TF_RETURN_IF_ERROR(
       ReadBinaryProto(tensorflow::Env::Default(), tao_input_fname, &input_));
   for (size_t i = 0; i < input_.args_size(); ++i) {
     auto placement = DeriveInputPlacement(input_.args(i), "gpu");
     tensorflow::Tensor t;
-    std::string tensor_fname = tensorflow::io::JoinPath(
-        out_dir, basename, input_.args(i).value_proto_file());
+    std::string tensor_fname =
+        tensorflow::io::JoinPath(out_dir, input_.args(i).value_proto_file());
     TF_CHECK_OK(env->FileExists(tensor_fname));
     TF_RETURN_IF_ERROR(ReadTensorFromPb(tensor_fname, &t));
 

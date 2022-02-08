@@ -29,7 +29,7 @@ class ReplayRecord {
   ReplayRecord(){};
 
   // Initialize ReplayRecord from a record file with tar.gz foramt.
-  tensorflow::Status InitFromTarGz(const std::string& fname);
+  tensorflow::Status InitFromTar(const std::string& fname);
 
   tensorflow::tao::TaoCompilerInput& Program() { return input_; };
   std::vector<tensorflow::Tensor> Tensors() { return tensors_; };
@@ -40,9 +40,6 @@ class ReplayRecord {
   std::vector<std::string> placements_;
   tensorflow::tao::TaoCompilerInput input_;
 };
-
-// std::shared_ptr<ReplayRecord> CreateRecordInputFromTar(const std::string&
-// fname);
 
 }  //  namespace replay
 

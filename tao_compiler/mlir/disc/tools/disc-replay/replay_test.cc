@@ -31,9 +31,10 @@ tensorflow::Tensor GetTestingTensor() {
 
 tensorflow::Status GetTestingRecordTar(const std::string& tar_fname) {
   auto env = tensorflow::Env::Default();
-  auto tmp_dir = tar_fname.substr(0, tar_fname.find_last_of('.'));
-  VLOG(0) << "tmp dir: " << tmp_dir;
+  std::string tmp_dir;
+  env->LocalTempFilename(&tmp_dir);
   env->CreateDir(tmp_dir);
+
   tensorflow::tao::TaoCompilerInput input;
   tensorflow::TensorProto tensor_proto;
   GetTestingTensor().AsProtoTensorContent(&tensor_proto);
@@ -44,6 +45,7 @@ tensorflow::Status GetTestingRecordTar(const std::string& tar_fname) {
 
   // set tensor value
   std::string value_fn = "input_1.pb";
+  std::string tao_input_pb_fn = "tao_compiler_input.pb";
   tensorflow::WriteBinaryProto(tensorflow::Env::Default(),
                                tensorflow::io::JoinPath(tmp_dir, value_fn),
                                tensor_proto);
@@ -51,8 +53,9 @@ tensorflow::Status GetTestingRecordTar(const std::string& tar_fname) {
 
   tensorflow::WriteBinaryProto(
       tensorflow::Env::Default(),
-      tensorflow::io::JoinPath(tmp_dir, "tao_compiler_input.pb"), input);
-  return CompressTar(tmp_dir, tar_fname);
+      tensorflow::io::JoinPath(tmp_dir, tao_input_pb_fn), input);
+  std::vector<std::string> srcs = {value_fn, tao_input_pb_fn};
+  return CompressTar(srcs, tar_fname, tmp_dir);
 }
 
 std::string GetTempTarfileName() {
@@ -67,7 +70,7 @@ TEST(BladeDISCReplayTest, TestRecordArgs) {
   EXPECT_TRUE(GetTestingRecordTar(tar_fname).ok());
 
   ReplayRecord record;
-  EXPECT_TRUE(record.InitFromTarGz(tar_fname).ok());
+  EXPECT_TRUE(record.InitFromTar(tar_fname).ok());
   auto tensors = record.Tensors();
   // auto placements = record.Placements();
   EXPECT_TRUE(tensors.size() == 1);
@@ -78,15 +81,19 @@ TEST(BladeDISCReplayTest, TestRecordArgs) {
 }
 
 TEST(BladeDISCReplayTest, TestInterPreter) {
+  // the test.tar is generate by quick start demo with enabling debug
+  // mode(DISC_DEBUG=true)
+  std::string tar_fname =
+      "tensorflow/compiler/mlir/disc/tools/disc-replay/test_data/test.tar";
   DiscInterpreter disc;
   ReplayRecord record;
-  auto tar_fname = GetTempTarfileName();
-  EXPECT_TRUE(GetTestingRecordTar(tar_fname).ok());
-  EXPECT_TRUE(record.InitFromTarGz(tar_fname).ok());
-  // compile input program: tao_compiler_input
-  EXPECT_TRUE(disc.Compile(record.Program()).ok());
-  // feed data and run program
-  // EXPECT_TRUE(disc.Run(record.Tensors(), record.Placements()).ok());
+  CompiledResult result;
+  // 1. Init replay record from tarball
+  EXPECT_TRUE(record.InitFromTar(tar_fname).ok());
+  // 2. compile the input program into executable program
+  EXPECT_TRUE(disc.Compile(record.Program(), result).ok());
+  // 3. run the executable with input data
+  EXPECT_TRUE(disc.Run(result, record.Tensors(), record.Placements()).ok());
 }
 
 }  //  namespace testing

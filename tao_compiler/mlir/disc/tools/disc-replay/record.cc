@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/disc/tools/disc-replay/record_args.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-replay/record.h"
 
 #include "tensorflow/compiler/mlir/disc/tools/disc-replay/tar_helper.h"
 #include "tensorflow/core/framework/tensor.h"

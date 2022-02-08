@@ -9,8 +9,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef DISC_REPLAY_RECORD_ARGS_H_
-#define DISC_REPLAY_RECORD_ARGS_H_
+#ifndef DISC_REPLAY_RECORD_H_
+#define DISC_REPLAY_RECORD_H_
 
 #include "tensorflow/compiler/decoupling/tao_compiler_input.pb.h"
 #include "tensorflow/core/framework/tensor.h"
@@ -58,4 +58,4 @@ inline std::shared_ptr<ReplayRecord> CreateReplayRecord(
 
 }  //  namespace replay
 
-#endif  // DISC_REPLAY_RECORD_ARGS_H_
+#endif  // DISC_REPLAY_RECORD_H_

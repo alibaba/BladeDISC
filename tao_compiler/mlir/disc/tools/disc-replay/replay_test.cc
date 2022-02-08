@@ -62,13 +62,6 @@ tensorflow::Status GetTestingRecord(std::string& tar_fname,
   return CompressTar(srcs, tar_fname, tmp_dir);
 }
 
-std::string GetTempTarfileName() {
-  auto env = tensorflow::Env::Default();
-  std::string tmp_fname;
-  env->LocalTempFilename(&tmp_fname);
-  return tmp_fname + ".tar";
-}
-
 TEST(BladeDISCReplayTest, TestRecordArgs) {
   std::string tar_fname, program_fname;
   EXPECT_TRUE(GetTestingRecord(tar_fname, program_fname).ok());
@@ -85,8 +78,8 @@ TEST(BladeDISCReplayTest, TestRecordArgs) {
 }
 
 TEST(BladeDISCReplayTest, TestInterPreter) {
-  // the test.tar is generate by quick start demo with enabling debug
-  // mode(DISC_DEBUG=true)
+  // the test.tar is generate by quick start demo manually offline.
+  // setting environment variable DISC_DEBUG=true to enable debug mode.
   std::string tar_fname =
       "tensorflow/compiler/mlir/disc/tools/disc-replay/test_data/data.tar";
   std::string program_fname =

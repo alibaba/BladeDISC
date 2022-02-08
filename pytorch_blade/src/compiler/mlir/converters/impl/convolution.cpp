@@ -44,7 +44,7 @@ bool ConvertAtenConvolution(
   }
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
   // disc-gpu only supports conv2d a.t.m
-  // TOOD(disc): support conv1d & conv3d on gpu.
+  // TODO(disc): support conv1d & conv3d on gpu.
   if (CastJitConstListToVec<int64_t>(*jit_stride).size() != 2) {
     return false;
   }

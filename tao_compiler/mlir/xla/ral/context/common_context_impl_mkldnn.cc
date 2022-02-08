@@ -11,6 +11,8 @@
 
 #if defined(TAO_CPU_ONLY) && defined(TAO_ENABLE_MKLDNN)
 
+#include <sstream>
+
 #include "dnnl_threadpool_iface.hpp"
 #include "mkl.h"
 #include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.h"
@@ -58,6 +60,37 @@ DiscCpuMathKernelMode GetDiscCpuMathKernelMode() {
   return mode;
 }
 
+bool initPromoteConv1DToConv2D() {
+  const char* env = getenv("DISC_CPU_PROMOTE_CONV_1D_TO_2D");
+  // default is to do the promotion, same as TensorFlow.
+  // Furthermore, it seems that oneDNN also has better performance when
+  // we do the promotion.
+  if (!env) return true;
+  std::string envStr = env;
+  std::transform(envStr.begin(), envStr.end(), envStr.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  return envStr == "true" || envStr == "1";
+}
+
+bool promoteConv1DToConv2D() {
+  static bool enabled = initPromoteConv1DToConv2D();
+  return enabled;
+}
+
+bool initInOutLayoutTuningFlag() {
+  const char* env = getenv("DISC_CPU_ENABLE_IN_OUT_LAYOUT_TUNING");
+  if (!env) return false;
+  std::string envStr = env;
+  std::transform(envStr.begin(), envStr.end(), envStr.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  return envStr == "true" || envStr == "1";
+}
+
+bool enableInOutLayoutTuning() {
+  static bool enabled = initInOutLayoutTuningFlag();
+  return enabled;
+}
+
 }  // namespace
 
 using ideep::data_type;
@@ -92,6 +125,14 @@ format_tag str2format(const std::string& fmt) {
     return format_tag::abc;
   } else if (fmt == "acb") {
     return format_tag::acb;
+  } else if (fmt == "cba") {
+    return format_tag::cba;
+  } else if (fmt == "abcde") {
+    return format_tag::abcde;
+  } else if (fmt == "acdeb") {
+    return format_tag::acdeb;
+  } else if (fmt == "cdeba") {
+    return format_tag::cdeba;
   }
   return format_tag::undef;
 }
@@ -113,6 +154,13 @@ bool parseConvParams(ExecutionContext* ctx, MemRefType<Tinput, N> input,
                      MemRefType<int32_t, 1> padding,
                      MemRefType<Toutput, N> output,
                      MemRefType<int32_t, 1> metadata, ConvParams* params) {
+  bool promote_conv1d_to_conv2d = (N == 3 && promoteConv1DToConv2D());
+  int effectiveN = (promote_conv1d_to_conv2d ? N + 1 : N);
+
+  if (promote_conv1d_to_conv2d) {
+    params->padding_l.push_back(0);
+    params->padding_r.push_back(0);
+  }
   for (int i = 0; i < N - 2; ++i) {
     params->padding_l.push_back(padding.data[2 * i]);
     params->padding_r.push_back(padding.data[2 * i + 1]);
@@ -137,14 +185,38 @@ bool parseConvParams(ExecutionContext* ctx, MemRefType<Tinput, N> input,
     }
   }
 
-  std::vector<char> format_buffer(N + 1, 0);
+  std::vector<char> format_buffer(effectiveN + 1, 0);
   int idx = 0;
   int ic = 0;
-  dims input_dims(N, 0);
-  for (int i = 0; i < N; ++i) {
-    if (i == 1) ic = input.sizes[metadata.data[idx]];
-    input_dims[i] = input.sizes[metadata.data[idx]];
-    format_buffer[metadata.data[idx++]] = 'a' + i;
+  dims input_dims(effectiveN, 0);
+  if (promote_conv1d_to_conv2d) {
+    int batch_dim = metadata.data[idx];
+    int feature_dim = metadata.data[idx + 1];
+    int spatial_dim = metadata.data[idx + 2];
+    int extended_batch_dim =
+        (batch_dim < spatial_dim) ? batch_dim : batch_dim + 1;
+    int extended_feature_dim =
+        (feature_dim < spatial_dim) ? feature_dim : feature_dim + 1;
+    int extended_spatial_dim_0 = spatial_dim;
+    int extended_spatial_dim_1 = spatial_dim + 1;
+
+    ic = input.sizes[feature_dim];
+    format_buffer[extended_batch_dim] = 'a';
+    format_buffer[extended_feature_dim] = 'b';
+    format_buffer[extended_spatial_dim_0] = 'c';
+    format_buffer[extended_spatial_dim_1] = 'd';
+    input_dims[0] = input.sizes[batch_dim];
+    input_dims[1] = input.sizes[feature_dim];
+    input_dims[2] = 1;
+    input_dims[3] = input.sizes[spatial_dim];
+
+    idx += 3;
+  } else {
+    for (int i = 0; i < N; ++i) {
+      if (i == 1) ic = input.sizes[metadata.data[idx]];
+      input_dims[i] = input.sizes[metadata.data[idx]];
+      format_buffer[metadata.data[idx++]] = 'a' + i;
+    }
   }
   params->input_format = str2format(format_buffer.data());
   if (params->input_format == format_tag::undef) {
@@ -156,14 +228,39 @@ bool parseConvParams(ExecutionContext* ctx, MemRefType<Tinput, N> input,
   }
 
   int kc = kernel.sizes[metadata.data[idx]];
-  dims filter_dims(N, 0);
-  filter_dims[1] = kernel.sizes[metadata.data[idx]];
-  format_buffer[metadata.data[idx++]] = 'b';
-  filter_dims[0] = kernel.sizes[metadata.data[idx]];
-  format_buffer[metadata.data[idx++]] = 'a';
-  for (int i = 2; i < N; ++i) {
-    filter_dims[i] = kernel.sizes[metadata.data[idx]];
-    format_buffer[metadata.data[idx++]] = 'a' + i;
+  dims filter_dims(effectiveN, 0);
+  if (promote_conv1d_to_conv2d) {
+    int input_feature_dim = metadata.data[idx];
+    int output_feature_dim = metadata.data[idx + 1];
+    int spatial_dim = metadata.data[idx + 2];
+    int extended_input_feature_dim = (input_feature_dim < spatial_dim)
+                                         ? input_feature_dim
+                                         : input_feature_dim + 1;
+    int extended_output_feature_dim = (output_feature_dim < spatial_dim)
+                                          ? output_feature_dim
+                                          : output_feature_dim + 1;
+    int extended_spatial_dim_0 = spatial_dim;
+    int extended_spatial_dim_1 = spatial_dim + 1;
+
+    format_buffer[extended_output_feature_dim] = 'a';
+    format_buffer[extended_input_feature_dim] = 'b';
+    format_buffer[extended_spatial_dim_0] = 'c';
+    format_buffer[extended_spatial_dim_1] = 'd';
+    filter_dims[0] = kernel.sizes[output_feature_dim];
+    filter_dims[1] = kernel.sizes[input_feature_dim];
+    filter_dims[2] = 1;
+    filter_dims[3] = kernel.sizes[spatial_dim];
+
+    idx += 3;
+  } else {
+    filter_dims[1] = kernel.sizes[metadata.data[idx]];
+    format_buffer[metadata.data[idx++]] = 'b';
+    filter_dims[0] = kernel.sizes[metadata.data[idx]];
+    format_buffer[metadata.data[idx++]] = 'a';
+    for (int i = 2; i < N; ++i) {
+      filter_dims[i] = kernel.sizes[metadata.data[idx]];
+      format_buffer[metadata.data[idx++]] = 'a' + i;
+    }
   }
   params->filter_format = str2format(format_buffer.data());
   if (params->filter_format == format_tag::undef) {
@@ -174,11 +271,35 @@ bool parseConvParams(ExecutionContext* ctx, MemRefType<Tinput, N> input,
     TAO_VLOG(0) << "filter format: " << format_buffer.data();
   }
 
-  dims output_dims(N, 0);
-  for (int i = 0; i < N; ++i) {
-    output_dims[i] = output.sizes[metadata.data[idx]];
-    format_buffer[metadata.data[idx++]] = 'a' + i;
+  dims output_dims(effectiveN, 0);
+  if (promote_conv1d_to_conv2d) {
+    int batch_dim = metadata.data[idx];
+    int feature_dim = metadata.data[idx + 1];
+    int spatial_dim = metadata.data[idx + 2];
+    int extended_batch_dim =
+        (batch_dim < spatial_dim) ? batch_dim : batch_dim + 1;
+    int extended_feature_dim =
+        (feature_dim < spatial_dim) ? feature_dim : feature_dim + 1;
+    int extended_spatial_dim_0 = spatial_dim;
+    int extended_spatial_dim_1 = spatial_dim + 1;
+
+    format_buffer[extended_batch_dim] = 'a';
+    format_buffer[extended_feature_dim] = 'b';
+    format_buffer[extended_spatial_dim_0] = 'c';
+    format_buffer[extended_spatial_dim_1] = 'd';
+    output_dims[0] = output.sizes[batch_dim];
+    output_dims[1] = output.sizes[feature_dim];
+    output_dims[2] = 1;
+    output_dims[3] = output.sizes[spatial_dim];
+
+    idx += 3;
+  } else {
+    for (int i = 0; i < N; ++i) {
+      output_dims[i] = output.sizes[metadata.data[idx]];
+      format_buffer[metadata.data[idx++]] = 'a' + i;
+    }
   }
+
   params->output_format = str2format(format_buffer.data());
   if (params->output_format == format_tag::undef) {
     ctx->signalError(Context::FAILURE, "invalid output format for conv op");
@@ -188,6 +309,10 @@ bool parseConvParams(ExecutionContext* ctx, MemRefType<Tinput, N> input,
     TAO_VLOG(0) << "output format: " << format_buffer.data();
   }
 
+  if (promote_conv1d_to_conv2d) {
+    params->strides.push_back(1);
+    params->dilates.push_back(1);
+  }
   for (int i = 0; i < N - 2; ++i) {
     params->strides.push_back(metadata.data[idx++]);
   }
@@ -197,27 +322,27 @@ bool parseConvParams(ExecutionContext* ctx, MemRefType<Tinput, N> input,
   params->groups = ic / kc;
   if (TAO_VLOG_IS_ON(1)) {
     TAO_VLOG(0) << "strides: ";
-    for (int i = 0; i < N - 2; ++i) {
+    for (int i = 0; i < effectiveN - 2; ++i) {
       TAO_VLOG(0) << " " << params->strides[i];
     }
     TAO_VLOG(0) << "dilations: ";
-    for (int i = 0; i < N - 2; ++i) {
+    for (int i = 0; i < effectiveN - 2; ++i) {
       TAO_VLOG(0) << " " << params->dilates[i];
     }
     TAO_VLOG(0) << "ic = " << ic << ", kc = " << kc
                 << ", groups = " << params->groups;
     TAO_VLOG(0) << "input mkl logical shape (NCHW) = ";
-    for (int i = 0; i < N; ++i) {
+    for (int i = 0; i < effectiveN; ++i) {
       TAO_VLOG(0) << "\t" << input_dims[i];
     }
 
     TAO_VLOG(0) << "filter mkl logical shape (OIHW) = ";
-    for (int i = 0; i < N; ++i) {
+    for (int i = 0; i < effectiveN; ++i) {
       TAO_VLOG(0) << "\t" << filter_dims[i];
     }
 
     TAO_VLOG(0) << "output mkl logical shape (NCHW) = ";
-    for (int i = 0; i < N; ++i) {
+    for (int i = 0; i < effectiveN; ++i) {
       TAO_VLOG(0) << "\t" << output_dims[i];
     }
   }
@@ -245,7 +370,7 @@ bool parseConvParams(ExecutionContext* ctx, MemRefType<Tinput, N> input,
   }
   params->dst =
       tensor{output_dims, output_dtype, params->output_format, output.data};
-  params->dst_dims = params->dst.get_public_format_dims();
+  params->dst_dims = output_dims;
   return true;
 }
 
@@ -255,6 +380,7 @@ void ral_conv(ExecutionContext* ctx, opaque_t /*stream_handle*/,
               MemRefType<Tinput, N> input, MemRefType<Tfilter, N> kernel,
               MemRefType<int32_t, 1> padding, MemRefType<Toutput, N> output,
               MemRefType<int32_t, 1> metadata) {
+  CpuTimer timer("ral_cpu_conv");
   if (isEmptyMemref(input) || isEmptyMemref(kernel) || isEmptyMemref(output)) {
     TAO_VLOG(1) << "ral_conv: early return for empty tensor";
     return;
@@ -267,13 +393,79 @@ void ral_conv(ExecutionContext* ctx, opaque_t /*stream_handle*/,
   }
 
   // TODO(disc): use context-specific stream/engine
-  ideep::convolution_forward::compute<true>(
-      params.src, params.weight, params.dst_dims, params.dst, params.strides,
-      params.dilates, params.padding_l, params.padding_r, params.groups);
+  if (enableInOutLayoutTuning()) {
+    ideep::tensor y;
+    ideep::convolution_forward::compute(
+        params.src, params.weight, params.dst_dims, y, params.strides,
+        params.dilates, params.padding_l, params.padding_r, params.groups);
+    // reorder to dst format
+    y.reorder_to(params.dst);
+  } else {
+    ideep::convolution_forward::compute<true>(
+        params.src, params.weight, params.dst_dims, params.dst, params.strides,
+        params.dilates, params.padding_l, params.padding_r, params.groups);
+  }
+
+  timer.Stop();
+
+  if (isProfilingEnabled()) {
+    const auto& src_dims = params.src.get_dims();
+    const auto& kernel_dims = params.weight.get_dims();
+    const auto& dst_dims = params.dst.get_dims();
+
+    int64_t bytes =
+        static_cast<int64_t>(params.src.get_nelems()) * sizeof(Tinput) +
+        static_cast<int64_t>(params.weight.get_nelems()) * sizeof(Tfilter) +
+        static_cast<int64_t>(params.dst.get_nelems()) * sizeof(Toutput);
+
+    // N * OC * OH * OW * KH * KW * KIC
+    int64_t gflops = 2 * static_cast<int64_t>(params.dst.get_nelems()) *
+                     static_cast<int64_t>(params.weight.get_nelems()) /
+                     kernel_dims[0];
+
+    std::ostringstream sout;
+    sout << "ral_cpu_conv:\n";
+    sout << "  input logical NCHW shape:\n\t";
+    for (const auto& d : src_dims) {
+      sout << d << " ";
+    }
+    sout << "\n  kernel logical OIHW shape:\n\t";
+    for (const auto& d : kernel_dims) {
+      sout << d << " ";
+    }
+    sout << "\n  output logical NCHW shape:\n\t";
+    for (const auto& d : dst_dims) {
+      sout << d << " ";
+    }
+    sout << "\n  strides:\n\t";
+    for (size_t i = 0; i < params.strides.size(); ++i) {
+      sout << params.strides[i] << " ";
+    }
+    sout << "\n  dilates:\n\t";
+    for (size_t i = 0; i < params.dilates.size(); ++i) {
+      sout << params.dilates[i] << " ";
+    }
+    sout << "\n  paddings_l:\n\t";
+    for (size_t i = 0; i < params.padding_l.size(); ++i) {
+      sout << params.padding_l[i] << " ";
+    }
+    sout << "\n  paddings_r:\n\t";
+    for (size_t i = 0; i < params.padding_r.size(); ++i) {
+      sout << params.padding_r[i] << " ";
+    }
+    TAO_VLOG(0) << sout.str() << "\n roofline:\n"
+                << "\tMath Ops = " << gflops << "\n"
+                << "\tBytes = " << bytes << "\n"
+                << "\tBandwidth = "
+                << double(bytes) / double(timer.GetNanoSeconds()) << " GB\n"
+                << "\tGFLOPS = "
+                << double(gflops) / double(timer.GetNanoSeconds()) << "\n";
+  }
 }
 
 TAO_RAL_API("ral_conv", "cpu", ral_conv<float, 3>);
 TAO_RAL_API("ral_conv", "cpu", ral_conv<float, 4>);
+TAO_RAL_API("ral_conv", "cpu", ral_conv<float, 5>);
 
 template <typename Tinput, int N = 2, typename Tweight = Tinput,
           typename Toutput = Tinput>
@@ -338,7 +530,7 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle,
 
   timer.Stop();
 
-  if (TAO_VLOG_IS_ON(1)) {
+  if (isProfilingEnabled()) {
     int64_t bytes = sizeof(Tinput) * m * k + sizeof(Tweight) * k * n +
                     sizeof(Toutput) * m * n;
     TAO_VLOG(0) << "ral_cpu_gemm:\n"
@@ -460,7 +652,7 @@ void ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
   }
 
   timer.Stop();
-  if (TAO_VLOG_IS_ON(1)) {
+  if (isProfilingEnabled()) {
     int64_t bytes =
         batch_a * (sizeof(Tinput) * m * k + sizeof(Tweight) * k * n +
                    sizeof(Toutput) * m * n);

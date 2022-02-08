@@ -12,6 +12,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
+
+#ifndef DISC_TRANSFORMS_CODEGEN_UTILS_H_
+#define DISC_TRANSFORMS_CODEGEN_UTILS_H_
+
 #include <map>
 #include <utility>
 
@@ -24,9 +28,6 @@ limitations under the License.
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
-
-#ifndef DISC_TRANSFORMS_CODEGEN_UTILS_H_
-#define DISC_TRANSFORMS_CODEGEN_UTILS_H_
 
 namespace mlir {
 namespace disc_ral {
@@ -64,11 +65,11 @@ constexpr const char* kRowReductionScheduleHint =
 constexpr const char* kColReductionScheduleHint =
     "disc_col_reduction_schedule_hint";
 
-constexpr const char* kVectorizationHint = "disc_vectorize_hint";
+constexpr const char* kVectorizeOrTileHint = "disc_vectorize_or_tile_hint";
 
 using DiscRowReductionScheduleType = enum : int {
-  DISC_TWO_ROUND_SHUFFLE_ROW_REDUCE = 1,
-  DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE = 2
+  DISC_BLOCK_WISE_ROW_REDUCE = 1,
+  DISC_WARP_WISE_ROW_REDUCE = 2
 };
 
 using DiscColReductionScheduleType = enum : int {
@@ -86,7 +87,7 @@ constexpr const int kRowReductionScheduleTurningSize = 512;
 // default num of threads per block used when doing codegen
 constexpr const int kThreadsRowReduction = 256;
 
-constexpr const int kVectorizeSize = 2;
+constexpr const int kVectorizeOrTileSize = 2;
 
 // A tag used to distinguish cpu kernel func from others.
 constexpr const char* kCpuKernelFunc = "disc_cpu_kernel_func";
@@ -111,7 +112,7 @@ const std::map<std::pair<int, int>, std::pair<int, int>> archToGPUThreadNumber =
 
 int getRowReductionScheduleHint(Operation* op);
 
-int getVectorizationHint(Operation* op);
+int getVectorizeOrTileHint(Operation* op);
 
 int getThreadPerBlock(Operation* op);
 

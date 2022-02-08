@@ -49,16 +49,16 @@ class LowerConfig {
   // with specific shm memref.
   using SpecificLoaderFunc = std::function</*output*/ Value(
       OpBuilder&, /*operand-memref*/ Value, /*indices*/ ValueRange,
-      /*shmem-buffer*/ Value, /*tile-size*/ int64_t)>;
+      /*shmem-buffer*/ Value, /*row-per-block*/ int64_t)>;
   struct SpecificLoader {
     SpecificLoader() {}
     SpecificLoader(SpecificLoaderFunc f, Value shm, int64_t tile_size)
-        : func_(f), target_shm_(shm), tile_size_(tile_size) {}
+        : func_(f), target_shm_(shm), row_per_block_(tile_size) {}
     SpecificLoaderFunc func_;
     Value target_shm_;
-    int64_t tile_size_;
+    int64_t row_per_block_;
     Value operator()(OpBuilder& b, Value memref, ValueRange indices) {
-      return func_(b, memref, indices, target_shm_, tile_size_);
+      return func_(b, memref, indices, target_shm_, row_per_block_);
     }
   };
 

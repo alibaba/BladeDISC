@@ -289,6 +289,7 @@ cc_library(
         ":disc_lhlo_elemental_utils",
         ":disc_supported_list",
         ":fusion_utils",
+        ":input_inline_fusion_pattern",
         ":pass_details",
         ":placement_utils",
         "//tensorflow/compiler/mlir/hlo:LmhloPassIncGen",
@@ -448,16 +449,19 @@ cc_library(
     hdrs = [
         "transforms/codegen_utils.h",
     ],
+    includes = [
+        "tensorflow/compiler/mlir/hlo/include",
+    ],
     deps = [
-        "//tensorflow/compiler/mlir/hlo:lhlo",
         ":disc_shape",
+        "//tensorflow/compiler/mlir/hlo:lhlo",
         "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:Affine",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:MemRefDialect",
-        "@llvm-project//mlir:StandardOps",
-        "@llvm-project//mlir:Affine",
         "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:StandardOps",
     ],
     alwayslink = 1,
 )
@@ -792,6 +796,7 @@ disc_cc_library(
     includes = ["."],
     compatible_with = get_compatible_with_cloud(),
     deps = [
+        ":codegen_utils",
         ":pass_details",
         "@com_google_absl//absl/strings",
         "@llvm-project//llvm:Support",
@@ -890,12 +895,33 @@ cc_library(
 )
 
 cc_library(
+    name = "input_inline_fusion_pattern",
+    srcs = ["transforms/input_inline_fusion_pattern.cc"],
+    hdrs = ["transforms/input_inline_fusion_pattern.h"],
+    includes = ["tensorflow/compiler/mlir/hlo/include"],
+    deps = [
+        ":codegen_utils",
+        ":disc_lhlo_elemental_utils",
+        ":fusion_utils",
+        "//tensorflow/compiler/mlir/hlo:lhlo",
+        "//tensorflow/compiler/mlir/hlo:map_lmhlo_to_scalar_op",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:StandardOps",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "input_inline_fusion",
     srcs = ["transforms/input_inline_fusion_pass.cc"],
     deps = [
         ":disc_lhlo_elemental_utils",
         ":disc_supported_list",
         ":fusion_utils",
+        ":input_inline_fusion_pattern",
         ":pass_details",
         "//tensorflow/compiler/mlir/hlo:hlo",
         "//tensorflow/compiler/mlir/hlo:lhlo",

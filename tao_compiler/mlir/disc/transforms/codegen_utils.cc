@@ -31,18 +31,18 @@ int getRowReductionScheduleHint(Operation* op) {
   assert(op);
   lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
   // Use schedule 2 by default.
-  if (!fusion) return DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE;
+  if (!fusion) return DISC_WARP_WISE_ROW_REDUCE;
   IntegerAttr attr =
       fusion->getAttrOfType<IntegerAttr>(kRowReductionScheduleHint);
-  if (!attr) return DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE;
+  if (!attr) return DISC_WARP_WISE_ROW_REDUCE;
   return attr.getInt();
 }
 
-int getVectorizationHint(Operation* op) {
+int getVectorizeOrTileHint(Operation* op) {
   assert(op);
   lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
   if (!fusion) return 1;
-  IntegerAttr attr = fusion->getAttrOfType<IntegerAttr>(kVectorizationHint);
+  IntegerAttr attr = fusion->getAttrOfType<IntegerAttr>(kVectorizeOrTileHint);
   if (!attr) return 1;
   return attr.getInt();
 }

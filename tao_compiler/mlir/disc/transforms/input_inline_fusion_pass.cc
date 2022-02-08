@@ -38,6 +38,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
+#include "tensorflow/compiler/mlir/disc/transforms/input_inline_fusion_pattern.h"
 #include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
 
 using mlir::memref::LoadOp;

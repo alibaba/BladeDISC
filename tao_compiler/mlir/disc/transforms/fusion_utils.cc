@@ -747,14 +747,15 @@ bool FusionPattern::getOrderedSkeletonGroups(
           auto& producers_of_user = xroot_predecessors[user];
           producers_of_user.insert(xroot);
         } else {
-          buildXrootPredecessors(xroot, user);  // DFS.
+          // A DFS process to find predecessors.
+          buildXrootPredecessors(xroot, user);
         }
       }
     }
   };
   for (auto xroot : xroot_set) {
-    // Make sure there is a key for `xroot` in `xroot_predecessors`.
-    auto& predecessors = xroot_predecessors[xroot];
+    // TODO: rm.. Make sure there is a key for `xroot` in `xroot_predecessors`.
+    // auto& predecessors = xroot_predecessors[xroot];
     buildXrootPredecessors(xroot, xroot);
   }
 
@@ -769,7 +770,12 @@ bool FusionPattern::getOrderedSkeletonGroups(
       findMembersInSkGroup;
   findMembersInSkGroup = [&](Operation* visiting, DenseSet<Operation*>& members,
                              DenseSet<Operation*>& irregular_members) {
-    for (auto op : xroot_predecessors[visiting]) {
+    auto predecessors = xroot_predecessors.find(visiting);
+    if (predecessors == xroot_predecessors.end()) {
+      return;
+    }
+    for (auto op : predecessors->second) {
+      // for (auto op : xroot_predecessors[visiting]) {
       // Skeleton ops and visited regular-xroot ops stops the traverse.
       // Otherwise `op` is a member of current group.
       if (skeletons.contains(op) || visited_regular_xroots.contains(op)) {
@@ -3643,211 +3649,6 @@ bool StitchGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
 bool StitchGpuFusionStrategy::isFusible(FusionPattern& fusion_pattern) {
   bool fusible = FusionStrategy::isFusible(fusion_pattern);
   return fusible;
-}
-
-template <typename LHLO_OpTy>
-bool elemwiseFuseHelper(PatternRewriter& rewriter, Operation* user,
-                        Operation* producer, memref::LoadOp load_op,
-                        const SmallVector<memref::LoadOp>& load_ops,
-                        LowerConfig* lower_config) {
-  if (!isa<LHLO_OpTy>(producer) ||
-      !LHLO_OpTy::template hasTrait<OpTrait::Elementwise>())
-    return false;
-  auto loc = user->getLoc();
-  SmallVector<Value, 4> operand_values;
-  unsigned num_operands = producer->getNumOperands();
-  for (unsigned i = 0; i < num_operands - 1; ++i) {
-    auto producer_operand = producer->getOperand(i);
-    rewriter.setInsertionPoint(load_op);
-    operand_values.push_back(
-        createMaySpecificLoad(rewriter, loc, producer, producer_operand,
-                              load_op.getIndices(), lower_config));
-  }
-  auto inlined_result = lmhlo::LhloOpToStdScalarOp::map<LHLO_OpTy>(
-      llvm::cast<LHLO_OpTy>(producer),
-      cast<LmhloOp>(producer)
-          .getResultBuffer()
-          .getType()
-          .cast<MemRefType>()
-          .getElementType(),
-      operand_values, &rewriter);
-
-  for (memref::LoadOp to_be_replaced : load_ops)
-    to_be_replaced.replaceAllUsesWith(inlined_result);
-  mayCreateStore(&rewriter, loc, producer, inlined_result, load_op.getIndices(),
-                 lower_config);
-  return true;
-}
-
-template <typename LHLO_OpTy>
-bool miscFuseHelper(PatternRewriter& rewriter, Operation* user,
-                    Operation* opaque_producer, memref::LoadOp load_op,
-                    const SmallVector<memref::LoadOp>& load_ops,
-                    LowerConfig* lower_config) {
-  LHLO_OpTy producer = dyn_cast<LHLO_OpTy>(opaque_producer);
-  if (!producer) return false;
-  auto loc = user->getLoc();
-  rewriter.setInsertionPoint(load_op);
-  auto inlined_result =
-      elementalLower<LHLO_OpTy>(&rewriter, loc, producer, load_op.getIndices(),
-                                /* check cache */ true, lower_config);
-  for (memref::LoadOp to_be_replaced : load_ops) {
-    to_be_replaced.replaceAllUsesWith(inlined_result);
-  }
-  return true;
-}
-
-template <>
-bool miscFuseHelper<ConstOp>(PatternRewriter& rewriter, Operation* user,
-                             Operation* producer, memref::LoadOp load_op,
-                             const SmallVector<memref::LoadOp>& load_ops,
-                             LowerConfig* lower_config) {
-  if (!isa<ConstOp>(producer)) return false;
-  auto memref_type =
-      cast<LmhloOp>(producer).getResultBuffer().getType().cast<MemRefType>();
-  assert(memref_type.getRank() == 0 && "only scalar ConstOp can be fused");
-  auto loc = user->getLoc();
-  rewriter.setInsertionPoint(load_op);
-  Value inlined_result = rewriter.create<arith::ConstantOp>(
-      loc, memref_type.getElementType(),
-      cast<ConstOp>(producer).value().getValues<Attribute>()[{}]);
-  for (memref::LoadOp to_be_replaced : load_ops)
-    to_be_replaced.replaceAllUsesWith(inlined_result);
-  return true;
-}
-
-template <typename First>
-bool elemwiseFuseHelperOr(PatternRewriter& rewriter, Operation* user,
-                          Operation* producer, memref::LoadOp load_op,
-                          const SmallVector<memref::LoadOp>& load_ops,
-                          LowerConfig* lower_config) {
-  return elemwiseFuseHelper<First>(rewriter, user, producer, load_op, load_ops,
-                                   lower_config);
-}
-
-template <typename First, typename Second, typename... Rest>
-bool elemwiseFuseHelperOr(PatternRewriter& rewriter, Operation* user,
-                          Operation* producer, memref::LoadOp load_op,
-                          const SmallVector<memref::LoadOp>& load_ops,
-                          LowerConfig* lower_config) {
-  return elemwiseFuseHelperOr<First>(rewriter, user, producer, load_op,
-                                     load_ops, lower_config) ||
-         elemwiseFuseHelperOr<Second, Rest...>(rewriter, user, producer,
-                                               load_op, load_ops, lower_config);
-}
-
-Operation* InputInlineFusionPattern::getFusibleOperation(
-    memref::LoadOp load_op) const {
-  Operation* lhlo_op = nullptr;
-  for (auto* user : getValueUsersInFusionLike(load_op.getMemRef(), load_op)) {
-    if (isa<LmhloOp>(user) &&
-        isSameUnderlineBuffer(cast<LmhloOp>(user).getResultBuffer(),
-                              load_op.getOperation()->getOperand(0))) {
-      if (lhlo_op)
-        llvm::report_fatal_error(
-            "More than one lhlo_op write to one Memref within one fusion");
-      lhlo_op = user;
-    }
-  }
-  return lhlo_op;
-}
-
-// Check if there are no other consumers of the producer
-// except the ParallelOp.
-bool InputInlineFusionPattern::checkIfFusible(
-    scf::ParallelOp user, Operation* producer, memref::LoadOp load_op,
-    bool& can_remove_producer, SmallVector<memref::LoadOp>& load_ops,
-    const DominanceInfo& dominance_info) const {
-  load_ops.clear();
-  assert(isa<LmhloOp>(producer) && "Unexpected producer in checkIfFusible");
-  auto producer_result_memref = cast<LmhloOp>(producer).getResultBuffer();
-  can_remove_producer = true;
-  auto lhlo_dialect = user->getContext()->getLoadedDialect("lmhlo");
-  for (auto* memref_user :
-       getValueUsersInFusionLike(producer_result_memref, producer)) {
-    if ((memref_user->getDialect() == lhlo_dialect) &&
-        (memref_user != producer)) {
-      return false;
-    }
-    memref::LoadOp other = dyn_cast<memref::LoadOp>(memref_user);
-    if (!other) continue;
-    if (other.getMemRef() == load_op.getMemRef() &&
-        other.getIndices() == load_op.getIndices() &&
-        dominance_info.dominates(load_op.getOperation(),
-                                 other.getOperation())) {
-      // Since load_op -> other is in the forward walk order, so it's only
-      // possible for load_op to dominate other.
-      // TODO: If load_op and other cannot dominate each other,
-      // still it's possible to find a dominant insertion point and emit the
-      // fused IRs. However, More works are needed to analyse at compile time if
-      // it's win to do this.
-      load_ops.emplace_back(other);
-    } else {
-      can_remove_producer = false;
-    }
-  }
-  return true;
-}
-
-// load_op is among the load_ops, whose locates in the most
-// external code block
-LogicalResult InputInlineFusionPattern::inlineFuseLhloOp(
-    PatternRewriter& b, Operation* user, Operation* producer,
-    memref::LoadOp load_op, const SmallVector<memref::LoadOp>& load_ops,
-    LowerConfig* lower_config) const {
-  if (elemwiseFuseHelperOr<
-#define GET_SUPPORTED_OP_LIST
-#include "tensorflow/compiler/mlir/disc/transforms/disc_supported_list.h.inc"
-          >(b, user, producer, load_op, load_ops, lower_config) ||
-      // TODO(disc): Upstream is on the way for more Ops
-      miscFuseHelper<BroadcastInDimOp>(b, user, producer, load_op, load_ops,
-                                       lower_config) ||
-      miscFuseHelper<BroadcastOp>(b, user, producer, load_op, load_ops,
-                                  lower_config) ||
-      miscFuseHelper<ClampOp>(b, user, producer, load_op, load_ops,
-                              lower_config) ||
-      miscFuseHelper<ConcatenateOp>(b, user, producer, load_op, load_ops,
-                                    lower_config) ||
-      miscFuseHelper<ConstOp>(b, user, producer, load_op, load_ops,
-                              lower_config) ||
-      miscFuseHelper<CopyOp>(b, user, producer, load_op, load_ops,
-                             lower_config) ||
-      miscFuseHelper<DynamicBroadcastInDimOp>(b, user, producer, load_op,
-                                              load_ops, lower_config) ||
-      miscFuseHelper<DynamicGatherOp>(b, user, producer, load_op, load_ops,
-                                      lower_config) ||
-      miscFuseHelper<DynamicIotaOp>(b, user, producer, load_op, load_ops,
-                                    lower_config) ||
-      miscFuseHelper<DynamicPadOp>(b, user, producer, load_op, load_ops,
-                                   lower_config) ||
-      miscFuseHelper<DynamicReshapeOp>(b, user, producer, load_op, load_ops,
-                                       lower_config) ||
-      miscFuseHelper<GatherOp>(b, user, producer, load_op, load_ops,
-                               lower_config) ||
-      miscFuseHelper<IotaOp>(b, user, producer, load_op, load_ops,
-                             lower_config) ||
-      miscFuseHelper<IsFiniteOp>(b, user, producer, load_op, load_ops,
-                                 lower_config) ||
-      miscFuseHelper<NotOp>(b, user, producer, load_op, load_ops,
-                            lower_config) ||
-      miscFuseHelper<RealDynamicSliceOp>(b, user, producer, load_op, load_ops,
-                                         lower_config) ||
-      miscFuseHelper<ReduceOp>(b, user, producer, load_op, load_ops,
-                               lower_config) ||
-      miscFuseHelper<ReshapeOp>(b, user, producer, load_op, load_ops,
-                                lower_config) ||
-      miscFuseHelper<ReverseOp>(b, user, producer, load_op, load_ops,
-                                lower_config) ||
-      miscFuseHelper<SliceOp>(b, user, producer, load_op, load_ops,
-                              lower_config) ||
-      // miscFuseHelper<DynamicUpdateSliceOp>(b, user, producer, load_op,
-      // load_ops, lower_config) ||
-      miscFuseHelper<TransposeOp>(b, user, producer, load_op, load_ops,
-                                  lower_config)) {
-    return success();
-  }
-
-  return failure();
 }
 
 }  // namespace disc_ral

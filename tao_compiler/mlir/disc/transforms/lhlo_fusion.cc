@@ -566,12 +566,12 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
   }
 
   bool ApplyFusionPlan(FusionPlan& plan) {
-    int64_t debug_max_fusion_numbers;
-    tensorflow::ReadInt64FromEnvVar("DEBUG_MAX_FUSION_NUMBERS", INT_MIN,
-                                    &debug_max_fusion_numbers);
+    int64_t disc_debug_max_fusion_numbers;
+    tensorflow::ReadInt64FromEnvVar("DISC_DEBUG_MAX_FUSION_NUMBERS", INT_MIN,
+                                    &disc_debug_max_fusion_numbers);
     for (FusionPattern& pattern : plan) {
-      if (debug_max_fusion_numbers != INT_MIN) {
-        if (applied_fusion_numbers + 1 > debug_max_fusion_numbers) {
+      if (disc_debug_max_fusion_numbers != INT_MIN) {
+        if (applied_fusion_numbers + 1 > disc_debug_max_fusion_numbers) {
           llvm::errs() << "[Debug] Skip fusion " << applied_fusion_numbers
                        << "\n";
           continue;
@@ -615,7 +615,7 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
         }
       }
       // Dump fusion op for debugging.
-      if (debug_max_fusion_numbers != INT_MIN) {
+      if (disc_debug_max_fusion_numbers != INT_MIN) {
         llvm::errs() << "[Debug] Fusion " << applied_fusion_numbers << ":\n";
         fusion->dump();
       }

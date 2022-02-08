@@ -16,10 +16,6 @@ limitations under the License.
 // This file implements the logic for specializing the fusion kernel with
 // speculation.
 
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
-
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/utils/codegen_utils.h"
 #include "mlir/Dialect/SCF/SCF.h"
@@ -273,7 +269,8 @@ struct DiscSpecializeFusionWithSpeculationPass
 
   void DoRowReductionSpeculation(FusionOp fusion_op) {
     FusionType fusion_type = getFusionType(fusion_op.getOperation());
-    if (fusion_type != FusionType::kRowReduction) {
+    if (fusion_type != FusionType::kRowReduction &&
+        fusion_type != FusionType::kStitch) {
       return;
     }
 
@@ -394,13 +391,13 @@ struct DiscSpecializeFusionWithSpeculationPass
     cloned.getOperation()->moveBefore(else_block, else_block->begin());
   }
 
-  void DoVectorizationSpeculation(FusionOp fusion_op) {
+  void DoVectorizeOrTileSpeculation(FusionOp fusion_op) {
     if (!placement_utils::isGpuMhlo(fusion_op)) {
       return;
     }
 
     // Already have a hint
-    if (fusion_op->getAttrOfType<IntegerAttr>(kVectorizationHint)) return;
+    if (fusion_op->getAttrOfType<IntegerAttr>(kVectorizeOrTileHint)) return;
 
     FusionType fusion_type = getFusionType(fusion_op.getOperation());
     if (fusion_type != FusionType::kLoop &&
@@ -409,17 +406,17 @@ struct DiscSpecializeFusionWithSpeculationPass
       return;
     }
 
-    // Vectorization policy:
+    // Vectorization/tiling policy:
     //
-    // 1) No vectorization.
+    // 1) No vectorization/Tiling.
     //     - dominanted by column reduction (codegen support now). TODO: add
-    //       vectorization support.
-    //     - dominanted by row-reduction: row-number % kVectorizeSize != 0, or
-    //       row-number < max-threads-per-wave.
-    //     - dominanted by element-wise: element-number % kVectorizeSize != 0,
-    //       or element-number < max-threads-per-wave.
-    // 2) Otherwise apply vectorization with width of `kVectorizeSize`, which is
-    //    2 currently.
+    //       vectorization/tiling support.
+    //     - dominanted by row-reduction: row-number % kVectorizeOrTileSize
+    //       != 0, or row-number < max-threads-per-wave.
+    //     - dominanted by element-wise: element-number % kVectorizeOrTileSize
+    //       != 0, or element-number < max-threads-per-wave.
+    // 2) Otherwise apply vectorization/tiling with width of
+    //    `kVectorizeOrTileSize`, which is 2 currently.
 
     int max_threads_per_wave;
     auto thread_number_info =
@@ -444,10 +441,9 @@ struct DiscSpecializeFusionWithSpeculationPass
       int rowred_schedule =
           getRowReductionScheduleHint(fusion_op.getOperation());
 
-      auto row_per_block =
-          (rowred_schedule == DISC_ONE_ROUND_SHUFFLE_ROW_REDUCE)
-              ? block_size / kWarpSize
-              : 1;
+      auto row_per_block = (rowred_schedule == DISC_WARP_WISE_ROW_REDUCE)
+                               ? block_size / kWarpSize
+                               : 1;
       auto threshold_val = max_threads_per_wave / block_size * row_per_block;
       threshold = b.create<arith::ConstantIndexOp>(loc, threshold_val);
       Value operand = dominant_equivalent_op->getOperand(0);
@@ -470,23 +466,25 @@ struct DiscSpecializeFusionWithSpeculationPass
         loc, arith::CmpIPredicate::eq,
         b.create<arith::RemUIOp>(
             loc, out_element_number,
-            b.create<arith::ConstantIndexOp>(loc, kVectorizeSize)),
+            b.create<arith::ConstantIndexOp>(loc, kVectorizeOrTileSize)),
         b.create<arith::ConstantIndexOp>(loc, 0));
     Value pred = b.create<arith::AndIOp>(loc, larger, is_even);
     auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
 
-    // Vectorization branch.
-    auto vectorization = b.getIntegerAttr(b.getIntegerType(32), kVectorizeSize);
-    fusion_op->setAttr(kVectorizationHint, vectorization);
-    addFusionTag(b, fusion_op, "_vec" + std::to_string(kVectorizeSize));
+    // Vectorization/tiling branch.
+    auto vec_tile =
+        b.getIntegerAttr(b.getIntegerType(32), kVectorizeOrTileSize);
+    fusion_op->setAttr(kVectorizeOrTileHint, vec_tile);
+    addFusionTag(b, fusion_op,
+                 "_vectile" + std::to_string(kVectorizeOrTileSize));
     Block* then_block = &if_op.getThenRegion().getBlocks().front();
     fusion_op.getOperation()->moveBefore(then_block, then_block->begin());
 
-    // Non-vectorization branch.
+    // Non-vectorization/tiling branch.
     FusionOp cloned = dyn_cast<FusionOp>(b.clone(*fusion_op.getOperation()));
-    auto no_vectorization = b.getIntegerAttr(b.getIntegerType(32), 1);
-    cloned->setAttr(kVectorizationHint, no_vectorization);
-    addFusionTag(b, cloned, "_no_vec");
+    auto no_vec_tile = b.getIntegerAttr(b.getIntegerType(32), 1);
+    cloned->setAttr(kVectorizeOrTileHint, no_vec_tile);
+    addFusionTag(b, cloned, "_no_vectile");
     Block* else_block = &if_op.getElseRegion().getBlocks().front();
     cloned.getOperation()->moveBefore(else_block, else_block->begin());
   }
@@ -516,9 +514,9 @@ struct DiscSpecializeFusionWithSpeculationPass
     Speculator(
         &DiscSpecializeFusionWithSpeculationPass::DoColReductionSpeculation);
 
-    // Stage #3: speculation of vectorization width.
+    // Stage #3: speculation of vectorization/tiling.
     Speculator(
-        &DiscSpecializeFusionWithSpeculationPass::DoVectorizationSpeculation);
+        &DiscSpecializeFusionWithSpeculationPass::DoVectorizeOrTileSpeculation);
   }
 };
 

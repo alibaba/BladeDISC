@@ -4,7 +4,7 @@ module attributes {tf.versions = {bad_consumers = [], min_consumer = 0 : i32, pr
     %graph:2 = tf_executor.graph {
       %0:2 = tf_executor.island wraps "tf.Const"() {value = dense<2> : tensor<i32>} : () -> tensor<i32>
       %3:2 = tf_executor.island wraps "tf.Shape"(%arg0) {device = ""} : (tensor<?x?x?xf64>) -> (tensor<3xi32>)
-      %1:2 = tf_executor.island wraps "tf.Mean"(%arg0, %0) : (tensor<?x?x?xf64>, tensor<i32>) -> tensor<?x?xf64>
+      %1:2 = tf_executor.island wraps "tf.Sum"(%arg0, %0) : (tensor<?x?x?xf64>, tensor<i32>) -> tensor<?x?xf64>
       %c2:2 = tf_executor.island wraps "tf.Const"() { value = dense<2> : tensor<i32> } : () -> tensor<i32>
       %4:2 = tf_executor.island wraps "tf.ExpandDims"(%1, %c2) : (tensor<?x?xf64>, tensor<i32>) -> (tensor<?x?x?xf64>)
       %5:2 = tf_executor.island wraps "tf.BroadcastTo"(%4, %3) : (tensor<?x?x?xf64>, tensor<3xi32>) -> tensor<?x?x?xf64>

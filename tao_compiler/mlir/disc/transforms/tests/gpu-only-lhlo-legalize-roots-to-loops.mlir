@@ -297,10 +297,10 @@ func @kinput_row_reduce_schedule_2_vec2(%arg0: memref<?x?xf32>, %arg1: memref<?x
       "lmhlo.terminator"() : () -> ()
     }) {dimensions = dense<1> : tensor<1xi64>} : (memref<?x?xf32>, memref<f32>, memref<?xf32>) -> ()
     "lmhlo.terminator"() : () -> ()
-  }) {disc.fusion.name = "kinput_row_reduce_schedule_2", disc_row_reduction_schedule_hint = 2 : i32, disc_vectorize_hint = 2 : i32, disc.fusion_type = "kRowReduction", disc.device = "gpu"} : () -> ()
+  }) {disc.fusion.name = "kinput_row_reduce_schedule_2", disc_row_reduction_schedule_hint = 2 : i32, disc_vectorize_or_tile_hint = 2 : i32, disc.fusion_type = "kRowReduction", disc.device = "gpu"} : () -> ()
   // CHECK: "lmhlo.terminator"() : () -> ()
   // CHECK: disc_row_reduction_schedule_hint = 2
-  // CHECK: disc_vectorize_hint = 2
+  // CHECK: disc_vectorize_or_tile_hint = 2
   // CHECK: return %[[ARG2]] : memref<?xf32>
   return %arg2 : memref<?xf32>
 }
@@ -370,10 +370,10 @@ func @kinput_row_reduce_schedule_1_vec2(%arg0: memref<?x?xf32>, %arg1: memref<?x
       "lmhlo.terminator"() : () -> ()
     }) {dimensions = dense<1> : tensor<1xi64>} : (memref<?x?xf32>, memref<f32>, memref<?xf32>) -> ()
     "lmhlo.terminator"() : () -> ()
-  }) {disc.fusion.name = "kinput_row_reduce_schedule_1", disc_row_reduction_schedule_hint = 1 : i32, disc_vectorize_hint = 2 : i32, disc.fusion_type = "kRowReduction", disc.device = "gpu"} : () -> ()
+  }) {disc.fusion.name = "kinput_row_reduce_schedule_1", disc_row_reduction_schedule_hint = 1 : i32, disc_vectorize_or_tile_hint = 2 : i32, disc.fusion_type = "kRowReduction", disc.device = "gpu"} : () -> ()
   // CHECK: "lmhlo.terminator"() : () -> ()
   // CHECK: disc_row_reduction_schedule_hint = 1
-  // CHECK: disc_vectorize_hint = 2
+  // CHECK: disc_vectorize_or_tile_hint = 2
   // CHECK: return %[[ARG2]] : memref<?xf32>
   return %arg2 : memref<?xf32>
 }
@@ -393,14 +393,13 @@ func @kstitch_small_output(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2
   // CHECK: lmhlo.fusion
   // CHECK: scf.parallel
 
-  // Local reduce and first round reduce.
   // CHECK: scf.for
-  // CHECK: gpu.shuffle
-  // CHECK: gpu.barrier
 
-  // Second round reduce and store to smem buffer.
+  // It is the default schedule, which is warp-wise. Thus it has only one round
+  // of shuffle.
+
   // CHECK: gpu.shuffle
-  // CHECK: memref.store %[[INTER_RES:.*]], %[[SMEM_BUFFER:.*]]
+  // CHECK: memref.store %[[INTER_RES:.*]], %[[SMEM_BUFFER:.*]][
   // CHECK: gpu.barrier
 
   // Local loop for `abs`, which has different shape with the input of reduce.

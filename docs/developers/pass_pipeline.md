@@ -556,14 +556,14 @@ specialized into:
 scf.if %cond {
   "lmhlo.fusion"() ( {
     ...
-  }) {disc.device = "gpu", disc.fusion.name = "main_kRowReduction_reduce_0", disc.fusion.tag = "1b1rX_vec2", disc.fusion_type = "kRowReduction", disc_row_reduction_schedule_hint = 1 : i32, disc_thread_per_block_hint = 256 : i32, disc_vectorize_hint = 2 : i32} : () -> ()
+  }) {disc.device = "gpu", disc.fusion.name = "main_kRowReduction_reduce_0", disc.fusion.tag = "1b1rX_vectile2", disc.fusion_type = "kRowReduction", disc_row_reduction_schedule_hint = 1 : i32, disc_thread_per_block_hint = 256 : i32, disc_vectorize_or_tile_hint = 2 : i32} : () -> ()
 } else {
   "lmhlo.fusion"() ( {
     ...
-  }) {disc.device = "gpu", disc.fusion.name = "main_kRowReduction_reduce_0", disc.fusion.tag = "1b1rX_vec2X_no_vec", disc.fusion_type = "kRowReduction", disc_row_reduction_schedule_hint = 1 : i32, disc_thread_per_block_hint = 256 : i32, disc_vectorize_hint = 1 : i32} : () -> ()
+  }) {disc.device = "gpu", disc.fusion.name = "main_kRowReduction_reduce_0", disc.fusion.tag = "1b1rX_vectile2X_no_vectile", disc.fusion_type = "kRowReduction", disc_row_reduction_schedule_hint = 1 : i32, disc_thread_per_block_hint = 256 : i32, disc_vectorize_or_tile_hint = 1 : i32} : () -> ()
 ```
 
-The different "disc_vectorize_hint" attributes will guide the codegen passes to
+The different "disc_vectorize_or_tile_hint" attributes will guide the codegen passes to
 generate different versions of kernels.
 
 #### Memory Optimization Passes

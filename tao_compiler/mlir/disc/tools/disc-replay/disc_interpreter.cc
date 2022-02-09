@@ -15,7 +15,9 @@
 
 namespace replay {
 
+#if GOOGLE_CUDA
 using ::stream_executor::gpu::GpuDevicePtr;
+#endif
 
 DiscInterpreter::DiscInterpreter() {
   ral_func_ptr_ = reinterpret_cast<void*>(&tao_ral_call_impl);
@@ -23,15 +25,18 @@ DiscInterpreter::DiscInterpreter() {
 
 tensorflow::Status DiscInterpreter::Compile(
     tensorflow::tao::TaoCompilerInput& input, CompiledResult& result) {
-  std::string output_fname = "a.out";
+  auto env = tensorflow::Env::Default();
+  std::string tmp_file;
+  env->LocalTempFilename(&tmp_file);
+
   // compile input proto to executable file
   tensorflow::DeviceType device_type(input.options().device_type());
   auto* compiler_wrapper =
       tensorflow::tao::CompilerBase::GetCompilerForDevice(device_type)
           .ConsumeValueOrDie();
-  TF_RETURN_IF_ERROR(compiler_wrapper->Compile(input, output_fname));
-  result.output_fname = output_fname + ".so";
-  result.meta_fname = output_fname + ".so.pbtxt";
+  TF_RETURN_IF_ERROR(compiler_wrapper->Compile(input, tmp_file));
+  result.output_fname = tmp_file + ".so";
+  result.meta_fname = tmp_file + ".so.pbtxt";
   return tensorflow::Status::OK();
 }
 
@@ -44,6 +49,7 @@ tensorflow::Status BindInputs(const std::vector<tensorflow::Tensor>& tensors,
     for (size_t dim_i = 0; dim_i < t.dims(); ++dim_i) {
       shape.push_back(t.dim_size(dim_i));
     }
+#if GOOGLE_CUDA
     if (placements[i] == "cpu") {
       exec_ctx.bindInput(i, t.data(), shape);
     } else {
@@ -58,6 +64,14 @@ tensorflow::Status BindInputs(const std::vector<tensorflow::Tensor>& tensors,
       }
       exec_ctx.bindInput(i, d_addr, shape);
     }
+#else
+    if (placements[i] != "cpu") {
+      return tensorflow::errors::Internal(
+          "unexpected input placement, only host tag for CPU only build");
+    } else {
+      exec_ctx.bindInput(i, t.data(), shape);
+    }
+#endif
   }
   return tensorflow::Status::OK();
 }
@@ -69,13 +83,22 @@ tensorflow::Status DiscInterpreter::Run(
   func_t entry_func;
   TF_RETURN_IF_ERROR(GetEntryFunc(result.output_fname, entry_func));
   InitExecCUDAContext(result.meta_fname);
+#if GOOGLE_CUDA
+  cudaProfilerStart();
   auto exec_ctx =
       tao::ral::MakeExecutionContext<tao::ral::gpu::BaseCudaExecutionContext>(
           context_.get());
+#else
+  auto exec_ctx =
+      tao::ral::MakeExecutionContext<tao::ral::cpu::BaseCpuExecutionContext>(
+          context_.get());
+#endif
   TF_RETURN_IF_ERROR(BindInputs(tensors, placements, *exec_ctx.get()));
-
   void* ctx_struct[] = {exec_ctx.get(), ral_func_ptr_};
   entry_func(ctx_struct);
+#if GOOGLE_CUDA
+  cudaProfilerStop();
+#endif
   return tensorflow::Status::OK();
 }
 
@@ -84,9 +107,13 @@ void DiscInterpreter::InitExecCUDAContext(const std::string& meta_fname) {
   opt.metadata_file_path = meta_fname;
   opt.cache_workspace_mem_across_execution = true;
   tao::ral::cpu::BaseCpuContextOption cpu_opt;
+#if GOOGLE_CUDA
   tao::ral::gpu::BaseCudaContextOption gpu_opt;
   gpu_opt.use_stream_executor = true;
   context_ = tao::ral::gpu::MakeBaseCudaContext(opt, cpu_opt, gpu_opt);
+#else
+  context_ = tao::ral::cpu::MakeBaseCpuContext(opt, cpu_opt);
+#endif
 }
 
 tensorflow::Status DiscInterpreter::GetEntryFunc(

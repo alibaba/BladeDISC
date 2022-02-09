@@ -7,6 +7,7 @@ ADD ./docker/scripts /install/scripts
 RUN bash /install/scripts/find-fastest-apt.sh
 
 ADD ./build/${WHEEL_FILE}  /install/python/
+ADD ./build/disc-replay-main /usr/bin/disc-replay-main
 
 RUN apt-get install -y python3 python3-pip \
     && pip3 install --upgrade pip \

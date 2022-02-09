@@ -77,7 +77,10 @@ TEST(BladeDISCReplayTest, TestRecordArgs) {
   EXPECT_EQ(tensors[0].flat<float>()(64), expected_value);
 }
 
-TEST(BladeDISCReplayTest, TestInterPreter) {
+TEST(BladeDISCReplayTest, TestInterPreter_CUDA) {
+#ifndef GOOGLE_CUDA
+  GTEST_SKIP("skip for CPU build");
+#endif
   // the test.tar is generate by quick start demo manually offline.
   // setting environment variable DISC_DEBUG=true to enable debug mode.
   std::string tar_fname =

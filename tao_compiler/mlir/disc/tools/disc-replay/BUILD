@@ -30,10 +30,11 @@ disc_cc_library(
         "//tensorflow/core:framework",
         "//tensorflow/core:tensorflow",
         "//tensorflow/core/platform:subprocess",
+    ] + if_cuda_or_rocm([
         "@local_config_cuda//cuda:cuda_headers",
         "@local_config_cuda//cuda:cuda_driver",
         "@local_config_cuda//cuda:cudart",
-    ]
+    ])
 )
 
 tf_cc_binary(

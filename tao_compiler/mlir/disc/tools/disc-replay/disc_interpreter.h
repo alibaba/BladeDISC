@@ -12,12 +12,21 @@
 #ifndef DISC_REPLAY_DISC_INTERPRETER_H_
 #define DISC_REPLAY_DISC_INTERPRETER_H_
 
+#if GOOGLE_CUDA
+#include <cuda_profiler_api.h>
+#endif
+
 #include "tensorflow/compiler/decoupling/mlir_compiler.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-replay/record.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/base/cpu/cpu_context_impl.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/base/cuda/cuda_context_impl.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_api.h"
+
+#if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
+#include "tensorflow/compiler/mlir/xla/ral/context/base/cuda/cuda_context_impl.h"
 #include "tensorflow/stream_executor/gpu/gpu_types.h"
+#else
+#include "tensorflow/compiler/mlir/xla/ral/context/base/cpu/cpu_context_impl.h"
+#endif
+
 namespace tensorflow {
 class Status;
 }  // namespace tensorflow

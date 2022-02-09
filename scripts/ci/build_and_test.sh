@@ -46,3 +46,4 @@ cp tf_community/bazel-bin/tensorflow/compiler/decoupling/tao_compiler_main ${BLA
 # copy Python wheel package to build folder
 mkdir -p build && \
 cp tao/dist/blade_disc*.whl ./build
+cp tf_community/bazel-bin/tensorflow/compiler/mlir/disc/tools/disc-replay/disc-replay-main ./build/

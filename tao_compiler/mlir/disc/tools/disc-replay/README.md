@@ -7,7 +7,7 @@ this toolkit can help users to replay a single cluster on a host.
 ## How to Get the Toolkit
 
 An easy way to get the replay toolkit is by pulling the BladeDISC runtime Docker
-image, you can find the guide from [Install with Docker](/docs/install_with_docker.md).
+image. You can find the guide from [Install with Docker](/docs/install_with_docker.md).
 
 You can also build it from source code, just building BladeDISC as
 [Build From Source](/docs/bulid_from_source.md), then you can find an executable program

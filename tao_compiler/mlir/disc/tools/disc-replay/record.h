@@ -31,9 +31,6 @@ class ReplayRecord {
 
   tensorflow::Status Load();
 
-  // Initialize ReplayRecord from tarball
-  tensorflow::Status InitFromTar(const std::string& fname);
-
   tensorflow::tao::TaoCompilerInput& Program() { return program_; };
   std::vector<tensorflow::Tensor> Tensors() { return tensors_; };
   std::vector<std::string> Placements() { return placements_; };

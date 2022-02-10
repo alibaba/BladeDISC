@@ -39,7 +39,17 @@ tensorflow::Status ReadTensorFromPb(const std::string fname,
   return tensorflow::Status::OK();
 }
 
+tensorflow::Status CheckTarCommand() {
+  if (system("which tar > /dev/null 2>&1")) {
+    return tensorflow::errors::Internal(
+        "Can not find tar command tool, please install it before using this "
+        "replay toolkit.");
+  }
+  return tensorflow::Status::OK();
+}
+
 tensorflow::Status ReplayRecord::Load() {
+  TF_RETURN_IF_ERROR(CheckTarCommand());
   auto env = tensorflow::Env::Default();
   std::string out_dir;
   env->LocalTempFilename(&out_dir);

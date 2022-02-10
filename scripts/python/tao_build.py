@@ -356,22 +356,13 @@ def configure_cpu(root, args):
         execute("source {}/bin/activate;./auto_configure".format(args.venv_dir))
 
 
-@time_stage()
-def sanity_check(git_target="origin/master"):
-    return
-    # Clang format for all h/c/cc file
-    # This will only check the difference between current branch and the git target
-    root = get_source_root_dir()
-    clang_format_cmd = root + "/platform_alibaba/ci_build/lint/git-clang-format.sh " + git_target
-    execute(clang_format_cmd)
-    # TODO(): Add python lint later
-
 
 @time_stage()
 def build_tao_compiler(root, args):
     BAZEL_BUILD_CMD = "bazel build --experimental_multi_threaded_digest --define framework_shared_object=false" + ci_build_flag()
     TARGET_TAO_COMPILER_MAIN = "//tensorflow/compiler/decoupling:tao_compiler_main"
     TARGET_DISC_OPT = "//tensorflow/compiler/mlir/disc:disc-opt"
+    TARGET_DISC_REPLAY = "//tensorflow/compiler/mlir/disc/tools/disc-replay:disc-replay-main"
 
     targets = None
     if args.bazel_target is not None:
@@ -410,6 +401,7 @@ def build_tao_compiler(root, args):
 
         bazel_build(TARGET_TAO_COMPILER_MAIN, flag=flag)
         bazel_build(TARGET_DISC_OPT, flag=flag)
+        bazel_build(TARGET_DISC_REPLAY, flag=flag)
         execute(
             "cp -f -p {}/tao/third_party/ptxas/10.2/ptxas ./bazel-bin/tensorflow/compiler/decoupling/".format(
                 root
@@ -501,6 +493,8 @@ def test_tao_compiler(root, args):
     TARGET_DISC_TRANSFORMS_TEST = "//tensorflow/compiler/mlir/disc/transforms/tests/..."
     TARGET_DISC_E2E_TEST = "//tensorflow/compiler/mlir/disc/tests/..."
 
+    TARGET_DISC_REPLAY_TEST = "//tensorflow/compiler/mlir/disc/tools/disc-replay:disc-replay-test"
+    
     targets = None
     if args.bazel_target is not None:
         targets = set(args.bazel_target.split(","))
@@ -537,6 +531,7 @@ def test_tao_compiler(root, args):
             mlir_tests_list = [
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
+                TARGET_DISC_REPLAY_TEST
             ]
             MLIR_TESTS = " ".join(mlir_tests_list)
             bazel_test(MLIR_TESTS, flag=flag)
@@ -859,10 +854,6 @@ def main():
     root = get_source_root_dir()
     prepare_env(args)
     stage = args.stage
-
-    if stage in ["all", "lint"] and not args.skip_sanity:
-        sanity_check()
-        if stage == "lint": return
 
     if stage in ["all", "configure", "configure_pytorch"]:
         if args.enable_mkldnn:

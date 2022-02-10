@@ -789,8 +789,8 @@ Status PrepareCompilerInput(
       cmd += "`basename " + name + "` ";
     }
     cmd += "; mv `basename " + tar_file_path + "` " + tar_file_path;
-    VLOG(0) << "tar input proto files of the cluster for debug:"
-            << "\n\tcmd: " << cmd << "\n\ttar file path: " << tar_file_path;
+    VLOG(0) << "tar the cluster input tensors with protobuf format to: "
+            << tar_file_path << "\n\tcmd: " << cmd;
     std::system(cmd.c_str());
   }
 

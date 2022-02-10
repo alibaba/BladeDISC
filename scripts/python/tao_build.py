@@ -356,16 +356,6 @@ def configure_cpu(root, args):
         execute("source {}/bin/activate;./auto_configure".format(args.venv_dir))
 
 
-@time_stage()
-def sanity_check(git_target="origin/master"):
-    return
-    # Clang format for all h/c/cc file
-    # This will only check the difference between current branch and the git target
-    root = get_source_root_dir()
-    clang_format_cmd = root + "/platform_alibaba/ci_build/lint/git-clang-format.sh " + git_target
-    execute(clang_format_cmd)
-    # TODO(): Add python lint later
-
 
 @time_stage()
 def build_tao_compiler(root, args):
@@ -864,10 +854,6 @@ def main():
     root = get_source_root_dir()
     prepare_env(args)
     stage = args.stage
-
-    if stage in ["all", "lint"] and not args.skip_sanity:
-        sanity_check()
-        if stage == "lint": return
 
     if stage in ["all", "configure", "configure_pytorch"]:
         if args.enable_mkldnn:

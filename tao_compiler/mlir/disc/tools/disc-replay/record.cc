@@ -28,7 +28,6 @@ std::string DeriveInputPlacement(
   } else {
     return default_device;
   }
-  return "";
 }
 
 tensorflow::Status ReadTensorFromPb(const std::string fname,

@@ -12,10 +12,6 @@
 #ifndef DISC_REPLAY_DISC_INTERPRETER_H_
 #define DISC_REPLAY_DISC_INTERPRETER_H_
 
-#if GOOGLE_CUDA
-#include <cuda_profiler_api.h>
-#endif
-
 #include "tensorflow/compiler/decoupling/mlir_compiler.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-replay/record.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_api.h"
@@ -40,7 +36,21 @@ struct CompiledResult {
   std::string output_fname;
   // meta file is a protobuf file with suffix ".pbtxt"
   std::string meta_fname;
+  // entry function for the executable program
+  func_t entry_func;
 };
+
+// DiscInterpreter implements an interatpre for BladeDISC,
+// which compiles input program (tao_compiler_input.proto) into an executable
+// program, and run with input data (tensors).
+//
+// Example:
+//
+//    DiscInterpreter disc;
+//    CompiledResult result;
+//    auto record = CreateRecord(input_prog, data_tarball);
+//    disc.Compile(record->Program(), result);
+//    disc.Run(result, record->Tensors(), record->Placements());
 class DiscInterpreter {
  public:
   DiscInterpreter();

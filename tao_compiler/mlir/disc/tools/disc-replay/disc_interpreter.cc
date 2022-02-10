@@ -37,6 +37,9 @@ tensorflow::Status DiscInterpreter::Compile(
   TF_RETURN_IF_ERROR(compiler_wrapper->Compile(input, tmp_file));
   result.output_fname = tmp_file + ".so";
   result.meta_fname = tmp_file + ".so.pbtxt";
+  TF_RETURN_IF_ERROR(GetEntryFunc(result.output_fname, result.entry_func));
+  InitExecCUDAContext(result.meta_fname);
+
   return tensorflow::Status::OK();
 }
 
@@ -80,11 +83,7 @@ tensorflow::Status DiscInterpreter::Run(
     const CompiledResult& result,
     const std::vector<tensorflow::Tensor>& tensors,
     const std::vector<std::string>& placements) {
-  func_t entry_func;
-  TF_RETURN_IF_ERROR(GetEntryFunc(result.output_fname, entry_func));
-  InitExecCUDAContext(result.meta_fname);
 #if GOOGLE_CUDA
-  cudaProfilerStart();
   auto exec_ctx =
       tao::ral::MakeExecutionContext<tao::ral::gpu::BaseCudaExecutionContext>(
           context_.get());
@@ -95,10 +94,7 @@ tensorflow::Status DiscInterpreter::Run(
 #endif
   TF_RETURN_IF_ERROR(BindInputs(tensors, placements, *exec_ctx.get()));
   void* ctx_struct[] = {exec_ctx.get(), ral_func_ptr_};
-  entry_func(ctx_struct);
-#if GOOGLE_CUDA
-  cudaProfilerStop();
-#endif
+  result.entry_func(ctx_struct);
   return tensorflow::Status::OK();
 }
 

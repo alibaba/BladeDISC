@@ -139,7 +139,7 @@ jobs:
         LOCAL_DEV_DOCKER: disc-dev-cuda11.0
         REMOTE_DEV_DOCKER: bladedisc:latest-devel-cuda11.0
         REMOTE_RUNTIME_DOCKER: bladedisc:latest-runtime-torch1.7.1
-        RUNTIME_BASEIMAGE: pytorch/pytorch:1.7.1-cuda11.0-cudnn8-runtime
+        RUNTIME_BASEIMAGE: BASEIMAGE=nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
       run: |
         set -e
         bash ./scripts/ci/deploy_pytorch_blade.sh

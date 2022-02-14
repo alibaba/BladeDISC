@@ -187,12 +187,13 @@ class ConvertToMhloImpl {
       TORCH_CHECK(
           op_converter, *node, " hasn't been supported, please report a bug");
       // do conversion
-      TORCH_CHECK(
-          (*op_converter)(cvt_context_, *node),
-          "meet error during converting ",
-          *node);
+      if (!((*op_converter)(cvt_context_, *node))) {
+        cvt_context_.mlir_module->dump();
+        TORCH_CHECK(false, "meet error during converting ", *node);
+      }
     }
   }
+
   std::string input_dev_str_;
   std::string output_dev_str_;
   mlir::FuncOp mlir_main_func_;

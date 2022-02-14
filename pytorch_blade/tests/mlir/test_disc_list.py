@@ -134,5 +134,17 @@ class TestDiscList(DiscTestCase):
         """
         FileCheck().run(expect_str, disc_bytes)
 
+    def test_list_unpack(self):
+        @torch.jit.script
+        def list_unpack(tensor):
+            x, y, z, w = list(tensor.size())
+
+            return x + y * z - w
+
+        print(list_unpack.graph)
+        self._test_cvt_to_disc(list_unpack, (torch.ones([1, 2, 3, 4]),))
+
+
+
 if __name__ == "__main__":
     unittest.main()

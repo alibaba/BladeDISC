@@ -104,7 +104,7 @@ import numpy as np
 import tensorflow as tf
 
 ## enable BladeDISC on TensorFlow program
-import tensorflow_blade_disc as disc
+import blade_disc_tf as disc
 disc.enable()
 
 ## construct TensorFlow Graph and run it

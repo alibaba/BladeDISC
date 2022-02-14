@@ -471,9 +471,6 @@ def build_mlir_ral(root, args):
             execute("sed -i \
                 's/values\[i\] = internal::InnerMostDimReducer<Self, Op>::reduce(\*this, firstIndex + i \* num_values_to_reduce,$/CoeffReturnType t = internal::InnerMostDimReducer<Self, Op>::reduce(\*this, firstIndex + i \* num_values_to_reduce, num_values_to_reduce, reducer)\;values\[i\] = t\;/g' \
                 'bazel-tf_community/external/eigen_archive/unsupported/Eigen/CXX11/src/Tensor/TensorReduction.h'")
-        if args.ral_cxx11_abi:
-            # A workaround for build compiler main with gcc 730 when enable cxx11 abi
-            execute("git am ../platform_alibaba/ci_build/patch/workaround-to-fix-cxx11-build.patch")
         bazel_build(TARGET_DHLO_COMPILER_MAIN, flag=flag)
 
     logger.info("Stage [build_mlir_ral] success.")
@@ -494,7 +491,7 @@ def test_tao_compiler(root, args):
     TARGET_DISC_E2E_TEST = "//tensorflow/compiler/mlir/disc/tests/..."
 
     TARGET_DISC_REPLAY_TEST = "//tensorflow/compiler/mlir/disc/tools/disc-replay:disc-replay-test"
-    
+
     targets = None
     if args.bazel_target is not None:
         targets = set(args.bazel_target.split(","))

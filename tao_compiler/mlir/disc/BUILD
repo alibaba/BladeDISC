@@ -615,7 +615,9 @@ cc_library(
 
 cc_library(
     name = "fusion_utils",
-    srcs = ["transforms/fusion_utils.cc"],
+    srcs = [
+        "transforms/fusion_utils.cc",
+        "transforms/fusion_utils_stitch_gpu.cc"],
     hdrs = ["transforms/fusion_utils.h"],
     deps = [
         ":codegen_utils",
@@ -1027,8 +1029,8 @@ cc_library(
 )
 
 cc_library(
-    name = "disc_memref_gvn",
-    srcs = ["transforms/disc_memref_gvn.cc"],
+    name = "disc_memref_load_store_simplifier",
+    srcs = ["transforms/disc_memref_load_store_simplifier.cc"],
     hdrs = [
         "transforms/passes.h",
     ],
@@ -1458,7 +1460,7 @@ cc_library(
         ":revise_gpu_kernel_outlining",
         ":split_large_ops",
         ":disc_memref_cse",
-        ":disc_memref_gvn",
+        ":disc_memref_load_store_simplifier",
         ":disc_lower_gpu_ops_to_nvvm_ops",
         ":disc_lower_gpu_ops_to_rocdl_ops",
         ":disc_unhandled_atomic_rmw_converter",

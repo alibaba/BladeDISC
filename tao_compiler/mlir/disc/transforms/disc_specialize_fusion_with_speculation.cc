@@ -85,33 +85,8 @@ bool HasCandidateBroadcastOp(FusionOp fusion_op) {
   return false;
 }
 
-SmallVector<Value> getShapeValuesMayReuseAllocParams(OpBuilder* b,
-                                                     Value memref) {
-  Operation* op = memref.getDefiningOp();
-  if (auto alloc = dyn_cast_or_null<memref::AllocOp>(op)) {
-    auto type = memref.getType().cast<RankedTensorType>();
-    assert(type);
-    SmallVector<Value> result;
-    for (int64_t i = 0; i < type.getRank(); i++) {
-      if (type.isDynamicDim(i)) {  // Only dynamic dims are operands.
-        auto dyn_idx = type.getDynamicDimIndex(i);
-        result.push_back(op->getOperand(dyn_idx));
-      } else {
-        auto loc = memref.getLoc();
-        result.push_back(
-            b->create<arith::ConstantIndexOp>(loc, type.getDimSize(i)));
-      }
-    }
-    return result;
-  } else {
-    return getShapeValues(b, memref);
-  }
-}
-
 Value createViewLike(OpBuilder& b, Location loc, Value from, Value to) {
-  // Use `getShapeValuesMayReuseAllocParams` rather than `getShapeValues` to
-  // avoid unnecessary memref::DimOp.
-  SmallVector<Value> toShape = getShapeValuesMayReuseAllocParams(&b, to);
+  SmallVector<Value> toShape = getShapeValues(&b, to);
   auto toType = to.getType().cast<MemRefType>();
   auto fromType = from.getType().cast<MemRefType>();
   auto targetType =

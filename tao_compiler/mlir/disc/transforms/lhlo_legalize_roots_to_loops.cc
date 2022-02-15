@@ -139,11 +139,11 @@ LogicalResult miscLowerHelper(OpBuilder& b, Location loc, Operation* opaque_op,
   Value result_memref = cast<lmhlo::LmhloOp>(&*op).getResultBuffer();
   Value memref = result_memref;
   if (shape_analysis) {
-    auto fusion = opaque_op->getParentOp();
-    if (isa<lmhlo::FusionOp>(fusion)) {
-      Value leader_memref = shape_analysis->GetLeaderValueWithSameShapeInFusion(
-          fusion, result_memref);
-      if (leader_memref != nullptr) memref = leader_memref;
+    lmhlo::FusionOp fusion = opaque_op->getParentOfType<lmhlo::FusionOp>();
+    Value leader_memref = shape_analysis->GetLeaderValueWithSameShapeInFusion(
+        fusion, result_memref);
+    if (leader_memref != nullptr) {
+      memref = leader_memref;
     }
   }
 
@@ -2263,7 +2263,7 @@ LogicalResult initSkeletonGrpsAndCloneOps(
     lmhlo::FusionOp& fusion_op, FusionPattern& fusion_pattern,
     SmallVector<FusionPattern::SkeletonGroup>& skeleton_groups,
     LowerConfig& lower_config) {
-  if (!fusion_pattern.getOrderedSkeletonGroups(skeleton_groups)) {
+  if (!getOrderedSkeletonGroups(fusion_pattern, skeleton_groups)) {
     return failure();
   }
   auto op_list = fusion_pattern.getOpList();

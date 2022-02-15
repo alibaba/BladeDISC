@@ -70,6 +70,10 @@ bool IsOpWriteValue(Operation* op, Value value);
 
 bool IsMemRefAliasOp(Operation* op);
 
+Value getRootMemRef(Value memref);
+
+bool isSameUnderlineBuffer(Value lhs, Value rhs);
+
 }  // namespace disc_ral
 }  // namespace mlir
 

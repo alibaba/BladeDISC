@@ -516,7 +516,10 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
     shapeAnalysis.run();
 
     // process each block and do fusion within a block.
+    tensorflow::ReadInt64FromEnvVar("disc_debug_max_fusion_numbers_", INT_MIN,
+                                    &disc_debug_max_fusion_numbers_);
     FusionPipeline pipeline = makeFusionPipeline();
+    int64_t fusion_pattern_number = 0;
     for (Block* block : blocks) {
       FusionPlanner planner(pipeline, block, &shapeAnalysis);
       llvm::Optional<FusionPlan> plan = planner.Run();
@@ -526,11 +529,21 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
         signalPassFailure();
         return;
       }
+      fusion_pattern_number += plan->size();
       if (!ApplyFusionPlan(*plan)) {
         emitError(func.getLoc(), "apply fusion plan failed");
         signalPassFailure();
         return;
       }
+    }
+    int64_t disc_expected_kernels_in_ut;
+    tensorflow::ReadInt64FromEnvVar("DISC_EXPECTED_KERNELS_IN_UT", -1,
+                                    &disc_expected_kernels_in_ut);
+    if ((disc_expected_kernels_in_ut >= 0) &&
+        (disc_expected_kernels_in_ut != fusion_pattern_number)) {
+      emitError(func.getLoc(), "fusion pattern number is not as expected.");
+      signalPassFailure();
+      return;
     }
 
     // Assign a unique name to each fusion ops
@@ -549,7 +562,7 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
       StringRef fusionName = getFusionName(op);
       if (!fusionName.empty()) return;
       FusionPattern pattern(op, &shapeAnalysis);
-      auto signature = generateSignatureForFusion(op, pattern);
+      auto signature = generateSignatureForFusion(pattern);
       if (!nameSet.count(signature)) {
         nameVec.push_back(signature);
         nameSet.insert(nameVec.back());
@@ -566,17 +579,14 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
   }
 
   bool ApplyFusionPlan(FusionPlan& plan) {
-    int64_t disc_debug_max_fusion_numbers;
-    tensorflow::ReadInt64FromEnvVar("DISC_DEBUG_MAX_FUSION_NUMBERS", INT_MIN,
-                                    &disc_debug_max_fusion_numbers);
     for (FusionPattern& pattern : plan) {
-      if (disc_debug_max_fusion_numbers != INT_MIN) {
-        if (applied_fusion_numbers + 1 > disc_debug_max_fusion_numbers) {
-          llvm::errs() << "[Debug] Skip fusion " << applied_fusion_numbers
+      if (disc_debug_max_fusion_numbers_ != INT_MIN) {
+        if (applied_fusion_numbers_ + 1 > disc_debug_max_fusion_numbers_) {
+          llvm::errs() << "[Debug] Skip fusion " << applied_fusion_numbers_
                        << "\n";
           continue;
         }
-        applied_fusion_numbers++;
+        applied_fusion_numbers_++;
       }
       auto& op_list = pattern.getOpList();
       OpBuilder b(op_list.back());
@@ -615,8 +625,8 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
         }
       }
       // Dump fusion op for debugging.
-      if (disc_debug_max_fusion_numbers != INT_MIN) {
-        llvm::errs() << "[Debug] Fusion " << applied_fusion_numbers << ":\n";
+      if (disc_debug_max_fusion_numbers_ != INT_MIN) {
+        llvm::errs() << "[Debug] Fusion " << applied_fusion_numbers_ << ":\n";
         fusion->dump();
       }
     }
@@ -632,7 +642,8 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
   }
 
  private:
-  int64_t applied_fusion_numbers = 0;
+  int64_t applied_fusion_numbers_ = 0;
+  int64_t disc_debug_max_fusion_numbers_;
 };
 
 }  // namespace

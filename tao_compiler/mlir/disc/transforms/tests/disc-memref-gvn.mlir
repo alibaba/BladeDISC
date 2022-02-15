@@ -1,8 +1,8 @@
-// RUN: disc-opt %s -disc-memref-gvn | FileCheck %s
+// RUN: disc-opt %s -disc-memref-load-store-simplifier | FileCheck %s
 
-// CHECK-LABEL: @gvn_in_the_same_block
+// CHECK-LABEL: @ld_st_in_the_same_block
 // CHECK-SAME: (%[[INPUT:.*]]: f32
-func @gvn_in_the_same_block(%input: f32) -> f32 {
+func @ld_st_in_the_same_block(%input: f32) -> f32 {
   %c0 = arith.constant 0 : index
   %c2 = arith.constant 2 : index
   %memref = memref.alloc(%c2) : memref<?xf32, "cpu">
@@ -16,9 +16,9 @@ func @gvn_in_the_same_block(%input: f32) -> f32 {
 
 // -----
 
-// CHECK-LABEL: @gvn_in_the_dominant_block
+// CHECK-LABEL: @ld_st_in_the_dominant_block
 // CHECK-SAME: (%[[INPUT:.*]]: f32
-func @gvn_in_the_dominant_block(%input: f32, %pred: i1) -> f32 {
+func @ld_st_in_the_dominant_block(%input: f32, %pred: i1) -> f32 {
   %c0 = arith.constant 0 : index
   %c2 = arith.constant 2 : index
   %memref = memref.alloc(%c2) : memref<?xf32, "cpu">
@@ -38,8 +38,8 @@ func @gvn_in_the_dominant_block(%input: f32, %pred: i1) -> f32 {
 
 // -----
 
-// CHECK-LABEL: @should_not_gvn_diff_index
-func @should_not_gvn_diff_index(%input: f32) -> f32 {
+// CHECK-LABEL: @should_not_ld_st_diff_index
+func @should_not_ld_st_diff_index(%input: f32) -> f32 {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
@@ -54,8 +54,8 @@ func @should_not_gvn_diff_index(%input: f32) -> f32 {
 
 // -----
 
-// CHECK-LABEL: @should_not_gvn_diff_memref
-func @should_not_gvn_diff_memref(%input: f32) -> f32 {
+// CHECK-LABEL: @should_not_ld_st_diff_memref
+func @should_not_ld_st_diff_memref(%input: f32) -> f32 {
   %c0 = arith.constant 0 : index
   %c2 = arith.constant 2 : index
   %memref = memref.alloc(%c2) : memref<?xf32, "cpu">
@@ -71,9 +71,9 @@ func @should_not_gvn_diff_memref(%input: f32) -> f32 {
 // -----
 
 
-// CHECK-LABEL: @should_not_gvn_not_dominate
+// CHECK-LABEL: @should_not_ld_st_not_dominate
 // CHECK-SAME: (%[[INPUT:.*]]: f32
-func @should_not_gvn_not_dominate(%input: f32, %pred: i1) -> f32 {
+func @should_not_ld_st_not_dominate(%input: f32, %pred: i1) -> f32 {
   %c0 = arith.constant 0 : index
   %c2 = arith.constant 2 : index
   %memref = memref.alloc(%c2) : memref<?xf32, "cpu">
@@ -90,8 +90,8 @@ func @should_not_gvn_not_dominate(%input: f32, %pred: i1) -> f32 {
 
 // ----
 
-// CHECK-LABEL: @should_not_gvn_on_gpu
-func @should_not_gvn_on_gpu(%input: f32) -> f32 {
+// CHECK-LABEL: @should_not_ld_st_on_gpu
+func @should_not_ld_st_on_gpu(%input: f32) -> f32 {
   %c0 = arith.constant 0 : index
   %c2 = arith.constant 2 : index
   %memref = memref.alloc(%c2) : memref<?xf32, "gpu">
@@ -103,8 +103,8 @@ func @should_not_gvn_on_gpu(%input: f32) -> f32 {
   return %b : f32
 }
 
-// CHECK-LABEL: @should_not_gvn_multi_store
-func @should_not_gvn_multi_store(%input: f32) -> f32 {
+// CHECK-LABEL: @should_not_ld_st_multi_store
+func @should_not_ld_st_multi_store(%input: f32) -> f32 {
   %c0 = arith.constant 0 : index
   %c2 = arith.constant 2 : index
   %memref = memref.alloc(%c2) : memref<?xf32, "cpu">
@@ -118,8 +118,8 @@ func @should_not_gvn_multi_store(%input: f32) -> f32 {
   return %b : f32
 }
 
-// CHECK-LABEL: @should_not_gvn_cast
-func @should_not_gvn_cast(%input: f32) -> (f32, memref<?xf32, "cpu">) {
+// CHECK-LABEL: @should_not_ld_st_cast
+func @should_not_ld_st_cast(%input: f32) -> (f32, memref<?xf32, "cpu">) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index

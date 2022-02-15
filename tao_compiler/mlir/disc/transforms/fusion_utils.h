@@ -27,6 +27,8 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/shape_utils.h"
 
+#define DEBUG_TYPE "disc-fusion-utils"
+
 // This file implements some helper functions and classes used to do fusion
 // & code generation.
 
@@ -66,8 +68,6 @@ void cleanUnusedLhloOps(Block* parent);
 // returns the users of the `memref`. The users should be in the same fusion
 // like `op`.
 DenseSet<Operation*> getValueUsersInFusionLike(Value memref, Operation* op);
-
-bool isSameUnderlineBuffer(Value lhs, Value rhs);
 
 bool isOnGpu(Operation* op);
 
@@ -167,9 +167,6 @@ struct TileInfo {
   // Returns false if failed to merge.
   bool merge(int axis, int tileSize = ShapedType::kDynamicSize);
 
-  // Returns true if two TileInfo is equal.
-  bool isEqual(TileInfo& other);
-
   // return true if updated.
   bool updateIfNotEqual(TileInfo& other);
 };
@@ -255,6 +252,23 @@ class FusionPatternBase {
 };
 
 // Represents a list of lmhlo ops that are going to be fused.
+// Concepts for a fusion pattern:
+//   - Root op: the op whose output is the fusion-pattern's output.
+//   - Sub-root op: the op whose output is to be maintained on shared-memory for
+//     kStitch fusion. Currently, we only support row-reduction to be a sub-root
+//     op.
+//   - Regular xroot op: either a root op or a sub-root op, for whose operands
+//     we successfully build tile information during kStitch fusion-pattern init
+//     phase.
+//   - Irregular xroot op: an root op for whose operands we fail to build tile
+//     information durint kStitch fusion-pattern init phase.
+//   - Skeleton op: the op who will be used to build the loop skeleton when
+//     lowering a kStitch fusion to parallel loops. Currently, sub-root ops, and
+//     regular xroot ops who generate external only results, are skeleton ops.
+//     Other xroot ops are lowered with input-inline fusion phase.
+//   Note: for an regular xroot op which is not an skeleton op, the output data
+//     to be written should be coverred by its corresponding skeleton op.
+//     Otherwise, this xroot are regared as irregular.
 class FusionPattern : public FusionPatternBase {
  public:
   // Create a new fusion pattern from a single op.
@@ -310,9 +324,8 @@ class FusionPattern : public FusionPatternBase {
 
   SmallVector<Operation*, 4>& getSubRootOps() { return sub_root_ops_; }
 
-  void setSubRootOps(const SmallVectorImpl<Operation*>& sub_root_ops) {
-    sub_root_ops_.insert(sub_root_ops_.begin(), sub_root_ops.begin(),
-                         sub_root_ops.end());
+  void setSubRootOps(const SmallVector<Operation*, 4>& sub_root_ops) {
+    sub_root_ops_ = sub_root_ops;
   }
 
   struct SkeletonGroup {
@@ -323,9 +336,6 @@ class FusionPattern : public FusionPatternBase {
     // generating the code.
     DenseSet<Operation*> irregular_root_member_set;
   };
-
-  // Get skeleton-groups in which the op orders are the same with `op_list_`.
-  bool getOrderedSkeletonGroups(SmallVector<SkeletonGroup>& groups);
 
   void findOpsOfSkeletonGroup(SkeletonGroup group, DenseSet<Operation*>& ops);
 
@@ -348,6 +358,11 @@ class FusionPattern : public FusionPatternBase {
   DenseSet<Operation*> irregular_xroots_;
 };
 
+// Get skeleton-groups in which the op orders are the same with op list in the
+// given fusion pattern.
+bool getOrderedSkeletonGroups(
+    FusionPattern& pattern, SmallVector<FusionPattern::SkeletonGroup>& groups);
+
 void dumpTilePlan(DenseMap<Value, TileInfo>& tilePlan);
 
 // Represents a list of disjoint fusion patterns for a block.
@@ -367,9 +382,8 @@ void addFusionTag(OpBuilder& b, lmhlo::FusionOp op, StringRef tag);
 // Here full name is composed of the name and tag of the fusion op.
 std::string getFusionFullName(lmhlo::FusionOp op);
 
-// Generates a signature string for the fusion op.
-std::string generateSignatureForFusion(lmhlo::FusionOp op,
-                                       FusionPattern& fusionPattern);
+// Generates a signature string for the fusion pattern.
+std::string generateSignatureForFusion(FusionPattern& fusionPattern);
 
 // Returns true if both two ops are in the same fusion family.
 bool inSameFusionFamily(Operation* op, Operation* other);
@@ -606,7 +620,6 @@ class StitchGpuFusionStrategy : public FusionStrategy {
   StitchGpuFusionStrategy(const FusionOptions& options)
       : FusionStrategy(options) {}
 
-  virtual bool isFusible(FusionPattern& fused_pattern) override;
   virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                  FusionPattern& fused_pattern) override;
   virtual bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,

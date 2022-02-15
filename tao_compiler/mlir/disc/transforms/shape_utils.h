@@ -185,8 +185,12 @@ class ShapeAnalysis {
   bool HasSameNumElements(Value lhs, Value rhs);
 
   // Extract continuous equal dims between `lhs` and `rhs`, with the
-  // consideration of dim-linearize (e.g., caused by reshape).
-  bool extractContDimEqualInfo(
+  // consideration of dim-linearize (e.g., caused by reshape). Note that when
+  // there are multiple mapping possibilities, only the first case is extracted
+  // and retured. For example, for [a, a] -> [a], it mappes the first `a` of lhs
+  // to rhs.
+  // TODO: deal with multiple mappings with context information.
+  bool extractContinuousDimEqualInfo(
       Value lhs, Value rhs,
       SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>>&
           equal);

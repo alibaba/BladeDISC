@@ -19,10 +19,12 @@ const std::string c_ft_path =
     "tensorflow/compiler/mlir/disc/tests/regression/data/";
 
 // The column size is small enough to enable warp-wise reduction schedule.
-TEST(KStitchFusionTest, KStitchSimpleSmallColumnF32) {
+TEST(KStitchFusionGPUTest, KStitchSimpleSmallColumnF32) {
+  // setenv("DISC_ENABLE_STITCH", "true", 1);
+  // setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "kstitch_fusion_simple.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/ {BackendType::kCuda},
       /*num_inputs*/ 1,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"11000x123xf32_X"},
@@ -30,10 +32,12 @@ TEST(KStitchFusionTest, KStitchSimpleSmallColumnF32) {
 }
 
 // The column size is large enough to enable block-wise reduction schedule.
-TEST(KStitchFusionTest, KStitchSimpleLargeColumnF32) {
+TEST(KStitchFusionGPUTest, KStitchSimpleLargeColumnF32) {
+  // setenv("DISC_ENABLE_STITCH", "true", 1);
+  // setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "kstitch_fusion_simple.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/ {BackendType::kCuda},
       /*num_inputs*/ 1,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"11000x12345xf32_X"},
@@ -41,10 +45,12 @@ TEST(KStitchFusionTest, KStitchSimpleLargeColumnF32) {
 }
 
 // There is a root op that is not a skeleton op in the kStitch fusion.
-TEST(KStitchFusionTest, KStitchNonSkeletonOutputF32) {
+TEST(KStitchFusionGPUTest, KStitchNonSkeletonOutputF32) {
+  // setenv("DISC_ENABLE_STITCH", "true", 1);
+  // setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "kstitch_fusion_non_skl_output.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/ {BackendType::kCuda},
       /*num_inputs*/ 3,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"128x768xf32_X", "1x128x768xf32_X", "768xf32_X"},
@@ -53,11 +59,13 @@ TEST(KStitchFusionTest, KStitchNonSkeletonOutputF32) {
 
 // There are adjacent skeleton ops. The last output has different shoape whith
 // that of sub-root. The data type is FP16.
-TEST(KStitchFusionTest, KStitchAdjacentSkeletonWithSmallOutputF16) {
+TEST(KStitchFusionGPUTest, KStitchAdjacentSkeletonWithSmallOutputF16) {
+  // setenv("DISC_ENABLE_STITCH", "true", 1);
+  // setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path +
           "kstitch_fusion_adj_skl_small_output_f16.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/ {BackendType::kCuda},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100xf16_X"},
@@ -66,10 +74,12 @@ TEST(KStitchFusionTest, KStitchAdjacentSkeletonWithSmallOutputF16) {
 
 // There is an output cannot be covered by sub-root, thus cannot be fused into
 // the kStitch fusion.
-TEST(KStitchFusionTest, KStitchNonCoverOutputF32) {
+TEST(KStitchFusionGPUTest, KStitchNonCoverOutputF32) {
+  // setenv("DISC_ENABLE_STITCH", "true", 1);
+  // setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "kstitch_fusion_non_cover_output.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/ {BackendType::kCuda},
       /*num_inputs*/ 3,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"200x300xf32_X", "2xi32_h", "2xi32_h"},
@@ -78,10 +88,12 @@ TEST(KStitchFusionTest, KStitchNonCoverOutputF32) {
 }
 
 // There is an irregular xroot in the kStitch fusion.
-TEST(KStitchFusionTest, KStitchIrregularXrootF32) {
+TEST(KStitchFusionGPUTest, KStitchIrregularXrootF32) {
+  // setenv("DISC_ENABLE_STITCH", "true", 1);
+  // setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "kstitch_fusion_irregular_xroot.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/ {BackendType::kCuda},
       /*num_inputs*/ 3,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"10x112xf32_X", "10x112xf32_X", "10x112xf32_X"},
@@ -89,10 +101,12 @@ TEST(KStitchFusionTest, KStitchIrregularXrootF32) {
 }
 
 // The sub-root (i.e., row-reduction) is 3D. The datatype is FP64.
-TEST(KStitchFusionTest, KStitch3DF64) {
+TEST(KStitchFusionGPUTest, KStitch3DF64) {
+  // setenv("DISC_ENABLE_STITCH", "true", 1);
+  // setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "kstitch_fusion_3d_f64.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/ {BackendType::kCuda},
       /*num_inputs*/ 1,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"1x128x768xf64_X"},

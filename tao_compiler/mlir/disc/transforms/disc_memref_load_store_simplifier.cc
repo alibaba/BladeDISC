@@ -9,8 +9,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This file implements GVN optimization on memref dialect. Currently, it only
-// implements partial of CPU memref scalar load/store optimization.
+// This file implements load/store optimization on memref dialect. It helps to
+// eliminate unnecessary load/stores.
 
 #include "llvm/Support/Debug.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -95,8 +95,26 @@ LogicalResult LoadScalarSimplifier::matchAndRewrite(
       return failure();
     }
     // Only store-ops dominate `op` will be considered for optimization.
-    if (!isa<memref::StoreOp>(user) ||
-        !dominance_info_->dominates(user, op.getOperation())) {
+    if (!isa<memref::StoreOp>(user)) {
+      continue;
+    } else if (!dominance_info_->dominates(user, op.getOperation())) {
+      // Deal with case like:
+      //   store a
+      //   if (%pred) {
+      //     store b
+      //   }
+      //   load c
+      auto store = dyn_cast<memref::StoreOp>(user);
+      int64_t store_index;
+      // If it is unknown that whether b and c are the same position, return
+      // failure.
+      if (!extractScalarIndex(store.getIndices(), store_index)) {
+        return failure();
+      }
+      // If b and c are the same position, return failure.
+      if (load_index == store_index) {
+        return failure();
+      }
       continue;
     }
     // Load and store should work on the same index.
@@ -120,7 +138,9 @@ LogicalResult LoadScalarSimplifier::matchAndRewrite(
   return failure();
 }
 
-class DiscMemRefGVNPass : public DiscMemRefGVNPassBase<DiscMemRefGVNPass> {
+class DiscMemRefLoadStoreSimplifierPass
+    : public DiscMemRefLoadStoreSimplifierPassBase<
+          DiscMemRefLoadStoreSimplifierPass> {
  public:
   void runOnFunction() override {
     FuncOp func = getFunction();
@@ -136,8 +156,8 @@ class DiscMemRefGVNPass : public DiscMemRefGVNPassBase<DiscMemRefGVNPass> {
 
 }  // namespace
 
-std::unique_ptr<FunctionPass> createDiscMemRefGVNPass() {
-  return std::make_unique<DiscMemRefGVNPass>();
+std::unique_ptr<FunctionPass> createDiscMemRefLoadStoreSimplifierPass() {
+  return std::make_unique<DiscMemRefLoadStoreSimplifierPass>();
 }
 
 }  // namespace disc_ral

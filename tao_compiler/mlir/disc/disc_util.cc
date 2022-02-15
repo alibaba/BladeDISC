@@ -60,5 +60,20 @@ bool IsMemRefAliasOp(Operation* op) {
   return dyn_cast<ViewLikeOpInterface>(op) != nullptr;
 }
 
+Value getRootMemRef(Value memref) {
+  Value rootMemRef = memref;
+  while (Operation* operandOp = rootMemRef.getDefiningOp()) {
+    if (!isa<memref::SubViewOp, memref::ViewOp, memref::CastOp,
+             memref::ReinterpretCastOp>(operandOp))
+      break;
+    rootMemRef = operandOp->getOperand(0);
+  }
+  return rootMemRef;
+}
+
+bool isSameUnderlineBuffer(Value lhs, Value rhs) {
+  return getRootMemRef(lhs) == getRootMemRef(rhs);
+}
+
 }  // namespace disc_ral
 }  // namespace mlir

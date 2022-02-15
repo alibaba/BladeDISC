@@ -124,6 +124,14 @@ void InternalAllocator::dealloc(buffer_t buffer) {
   allocated_buffers_.erase(it);
 }
 
+buffer_t TFAllocatorWrapper::alloc(size_t bytes) {
+  return allocator_->AllocateRaw(1, bytes);
+}
+
+void TFAllocatorWrapper::dealloc(buffer_t buffer) {
+  allocator_->DeallocateRaw(buffer);
+}
+
 // ============================================================================
 // ========================== basic kernel api impl
 // =============================

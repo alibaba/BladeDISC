@@ -37,15 +37,17 @@ tensorflow::Status DiscInterpreter::Compile(
   TF_RETURN_IF_ERROR(compiler_wrapper->Compile(input, tmp_file));
   result.output_fname = tmp_file + ".so";
   result.meta_fname = tmp_file + ".so.pbtxt";
+  result.input = input;
   TF_RETURN_IF_ERROR(GetEntryFunc(result.output_fname, result.entry_func));
   InitExecCUDAContext(result.meta_fname);
 
   return tensorflow::Status::OK();
 }
 
-tensorflow::Status BindInputs(const std::vector<tensorflow::Tensor>& tensors,
-                              const std::vector<std::string> placements,
-                              tao::ral::ExecutionContext& exec_ctx) {
+tensorflow::Status DiscInterpreter::BindInputs(
+    const std::vector<tensorflow::Tensor>& tensors,
+    const std::vector<std::string> placements,
+    tao::ral::ExecutionContext& exec_ctx) {
   for (size_t i = 0; i < tensors.size(); ++i) {
     auto t = tensors[i];
     std::vector<int64_t> shape;
@@ -65,6 +67,7 @@ tensorflow::Status BindInputs(const std::vector<tensorflow::Tensor>& tensors,
       if (result != CUDA_SUCCESS) {
         return tensorflow::errors::Internal("cuda memcpy H2D failed");
       }
+      cuda_input_ptrs_.push_back(d_addr);
       exec_ctx.bindInput(i, d_addr, shape);
     }
 #else
@@ -80,7 +83,7 @@ tensorflow::Status BindInputs(const std::vector<tensorflow::Tensor>& tensors,
 }
 
 tensorflow::Status DiscInterpreter::Run(
-    const CompiledResult& result,
+    const CompiledResult& compiled_result,
     const std::vector<tensorflow::Tensor>& tensors,
     const std::vector<std::string>& placements) {
 #if GOOGLE_CUDA
@@ -94,8 +97,48 @@ tensorflow::Status DiscInterpreter::Run(
 #endif
   TF_RETURN_IF_ERROR(BindInputs(tensors, placements, *exec_ctx.get()));
   void* ctx_struct[] = {exec_ctx.get(), ral_func_ptr_};
-  result.entry_func(ctx_struct);
+  compiled_result.entry_func(ctx_struct);
+  return GCCudaMemory(compiled_result, *exec_ctx.get());
+}
+
+tensorflow::Status DiscInterpreter::GCCudaMemory(
+    const CompiledResult& compiled_result,
+    tao::ral::ExecutionContext& exec_ctx) {
+  // GC input tensors
+  for (auto ptr : cuda_input_ptrs_) {
+    CUdeviceptr device_ptr = absl::bit_cast<CUdeviceptr>(ptr);
+    auto res = cuMemFree(device_ptr);
+    if (res != CUDA_SUCCESS) {
+      LOG(ERROR) << "failed to free device memory at " << ptr << res;
+      return tensorflow::errors::Internal(
+          "deallocate input device memory failed");
+    }
+  }
+  cuda_input_ptrs_.clear();
+  // GC output tensors
+  auto num_outputs = compiled_result.input.options().output_placements().size();
+  for (size_t i = 0; i < num_outputs; ++i) {
+    std::unique_ptr<tao::ral::OutputBufferWrapper> ptr;
+    exec_ctx.bindOutput(i, &ptr);
+    CUdeviceptr device_ptr = absl::bit_cast<CUdeviceptr>(ptr->data());
+    auto res = cuMemFree(device_ptr);
+    if (res != CUDA_SUCCESS) {
+      LOG(ERROR) << "failed to free device memory at " << ptr->data() << res;
+      return tensorflow::errors::Internal(
+          "deallocate output device memory failed");
+    }
+  }
   return tensorflow::Status::OK();
+}
+
+tensorflow::SubAllocator* CreateGPUMemAllocator() {
+  tensorflow::PlatformDeviceId gpu_id(0);
+  return new tensorflow::DeviceMemAllocator(
+      tensorflow::DeviceIdUtil::ExecutorForPlatformDeviceId(
+          tensorflow::GPUMachineManager(), gpu_id)
+          .ValueOrDie(),
+      gpu_id,
+      /*use_unified_memory=*/false, {}, {});
 }
 
 void DiscInterpreter::InitExecCUDAContext(const std::string& meta_fname) {
@@ -106,6 +149,14 @@ void DiscInterpreter::InitExecCUDAContext(const std::string& meta_fname) {
 #if GOOGLE_CUDA
   tao::ral::gpu::BaseCudaContextOption gpu_opt;
   gpu_opt.use_stream_executor = true;
+  // using BFCAllocator to achieve better allocation performance
+  tensorflow::GPUOptions options;
+  options.set_allow_growth(true);
+  options.set_force_gpu_compatible(true);
+  gpu_opt.gpu_allocator.reset(
+      new tao::ral::TFAllocatorWrapper(new tensorflow::GPUBFCAllocator(
+          std::move(CreateGPUMemAllocator()), 16106127360ull /*15GB*/, options,
+          "GPU_0_bfc")));
   context_ = tao::ral::gpu::MakeBaseCudaContext(opt, cpu_opt, gpu_opt);
 #else
   context_ = tao::ral::cpu::MakeBaseCpuContext(opt, cpu_opt);

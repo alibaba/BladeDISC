@@ -15,6 +15,10 @@
 #include "tensorflow/compiler/decoupling/mlir_compiler.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-replay/record.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_api.h"
+#include "tensorflow/core/common_runtime/device/device_id_utils.h"
+#include "tensorflow/core/common_runtime/device/device_mem_allocator.h"
+#include "tensorflow/core/common_runtime/gpu/gpu_bfc_allocator.h"
+#include "tensorflow/core/common_runtime/gpu/gpu_init.h"
 
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
 #include "tensorflow/compiler/mlir/xla/ral/context/base/cuda/cuda_context_impl.h"
@@ -38,6 +42,8 @@ struct CompiledResult {
   std::string meta_fname;
   // entry function for the executable program
   func_t entry_func;
+
+  tensorflow::tao::TaoCompilerInput input;
 };
 
 // DiscInterpreter implements an interatpre for BladeDISC,
@@ -68,9 +74,15 @@ class DiscInterpreter {
   void InitExecCUDAContext(const std::string& executable_fname);
   tensorflow::Status GetEntryFunc(const std::string& exectuable_fname,
                                   func_t& entry_func);
+  tensorflow::Status BindInputs(const std::vector<tensorflow::Tensor>& tensors,
+                                const std::vector<std::string> placements,
+                                tao::ral::ExecutionContext& exec_ctx);
+  tensorflow::Status GCCudaMemory(const CompiledResult& compiled_result,
+                                  tao::ral::ExecutionContext& exec_ctx);
 
   void* ral_func_ptr_;
   std::unique_ptr<tao::ral::BaseContext> context_;
+  std::vector<void*> cuda_input_ptrs_;
 };
 
 }  //  namespace replay

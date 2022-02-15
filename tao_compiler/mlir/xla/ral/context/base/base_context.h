@@ -24,6 +24,7 @@
 
 #include "tensorflow/compiler/mlir/xla/ral/ral_base.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_context.h"
+#include "tensorflow/core/framework/allocator.h"
 
 namespace tao {
 namespace ral {
@@ -73,6 +74,18 @@ class InternalAllocator : public Allocator {
   dealloc_t dealloc_func_;
   std::map<size_t, std::vector<buffer_t>> free_buffers_;
   std::map<buffer_t, size_t> allocated_buffers_;
+};
+
+class TFAllocatorWrapper : public Allocator {
+ public:
+  TFAllocatorWrapper(tensorflow::Allocator* allocator)
+      : allocator_(std::move(allocator)){};
+  ~TFAllocatorWrapper(){};
+  buffer_t alloc(size_t bytes);
+  void dealloc(buffer_t buffer);
+
+ private:
+  std::unique_ptr<tensorflow::Allocator> allocator_;
 };
 
 struct Tensor {

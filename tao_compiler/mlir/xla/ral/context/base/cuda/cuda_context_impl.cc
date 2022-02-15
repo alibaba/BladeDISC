@@ -51,22 +51,23 @@ using ::stream_executor::gpu::GpuStatus;
 #define CUDA_SUCCESS hipSuccess
 #endif
 
-#define RETURN_VOID_ON_CUDA_ERROR(expr, msg) \
-  {                                          \
-    auto _cuda_error = (expr);               \
-    if (_cuda_error != CUDA_SUCCESS) {       \
-      TAO_VLOG(0) << "[[ ERROR ]]: " << msg; \
-      return;                                \
-    }                                        \
+#define RETURN_VOID_ON_CUDA_ERROR(expr, msg)                \
+  {                                                         \
+    auto _cuda_error = (expr);                              \
+    if (_cuda_error != CUDA_SUCCESS) {                      \
+      TAO_VLOG(0) << "[[ ERROR ]]: " << msg << _cuda_error; \
+      return;                                               \
+    }                                                       \
   }
 
-#define RETURN_ON_CUDA_ERROR(expr, ret, msg) \
-  {                                          \
-    auto _cuda_error = (expr);               \
-    if (_cuda_error != CUDA_SUCCESS) {       \
-      TAO_VLOG(0) << "[[ ERROR ]]: " << msg; \
-      return ret;                            \
-    }                                        \
+#define RETURN_ON_CUDA_ERROR(expr, ret, msg)                \
+  {                                                         \
+    auto _cuda_error = (expr);                              \
+    if (_cuda_error != CUDA_SUCCESS) {                      \
+      TAO_VLOG(0) << "cuda err msg: " << _cuda_error;       \
+      TAO_VLOG(0) << "[[ ERROR ]]: " << msg << _cuda_error; \
+      return ret;                                           \
+    }                                                       \
   }
 
 const char* kRalBaseCudaContextState = "ral_base_cuda_context_state";

@@ -13,10 +13,11 @@ import torch
 from typing import List
 import unittest
 
+from torch_blade import tools
 from tests.mlir.testing_utils import DiscTestCase
 
 
-class TestDiscReshape(DiscTestCase):
+class TestDiscShapes(DiscTestCase):
     def _test_reshape(self, reshape_func, dtype=None, x=None):
         x = torch.randn([2, 3, 224, 224], dtype=dtype, device=self.device) if x is None else x
         test_data = (x,)
@@ -231,6 +232,35 @@ class TestDiscReshape(DiscTestCase):
         def func(x, y):
             z = torch.cat([x, y], dim=1)
             return z[:, -1]
+
+        self._test_cvt_to_disc(func, test_data)
+
+    def test_unbind(self):
+        x = torch.randn([4, 64, 256], device=self.device)
+        y = torch.randn([1, 4, 256], device=self.device)
+        test_data = (x, y)
+
+        @torch.jit.script
+        def func(x, y):
+            a0, b0, c0, d0 = torch.unbind(x, dim=0)
+            a1, b1, c1, d1 = torch.unbind(y, dim=1)
+            a = a0 + a1
+            b = b0 * b1
+            c = c0 - c1
+            d = d0 / d1
+            return a + b + c + d
+
+        with tools.trust_tracing_shape():
+            self._test_cvt_to_disc(func, test_data)
+
+    def test_roll(self):
+        x = torch.randn([4, 64, 256], device=self.device)
+        test_data = (x, )
+
+        @torch.jit.script
+        def func(x):
+            z = torch.roll(x, shifts=(3, -9), dims=(1, 0))
+            return z
 
         self._test_cvt_to_disc(func, test_data)
 

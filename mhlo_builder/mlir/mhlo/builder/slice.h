@@ -49,5 +49,9 @@ std::tuple<mlir::Value, mlir::Value> BuildHalfSplit(mlir::OpBuilder& builder,
 mlir::Value BuildSelect(mlir::OpBuilder& builder, const mlir::Location& loc,
                         const mlir::Value& input,
                         const mlir::Value& select_index, mlir_dim_t dim_index);
+
+mlir::Value BuildRoll(mlir::OpBuilder& builder, const mlir::Location& loc,
+                      const mlir::Value& input, mlir_dim_t shift,
+                      mlir_dim_t dim);
 }  // namespace mhlo
 }  // namespace mlir

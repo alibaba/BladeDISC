@@ -191,6 +191,9 @@ std::unique_ptr<FunctionPass> createDiscCpuMapParallelLoopPass();
 // lowering kStitch fusion pattern to parallel loops.
 std::unique_ptr<OperationPass<FuncOp>> createDiscStitchFusionPass();
 
+// Remove some redundant transpose ops.
+std::unique_ptr<OperationPass<FuncOp>> createTransposeSimplifierPass();
+
 }  // namespace disc_ral
 }  // namespace mlir
 

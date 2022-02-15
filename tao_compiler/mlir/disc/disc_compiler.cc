@@ -232,6 +232,11 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvRewriter());
+  // Run CSE after conv rewriter pass to eliminate some redundant transpose ops.
+  pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+  pm.addNestedPass<FuncOp>(createCSEPass());
+  pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+  pm.addNestedPass<FuncOp>(disc_ral::createTransposeSimplifierPass());
   if (gpu_enabled) {
     // Cudnn only supports using same padding value for both left side & right
     // side. This pass ensures this property.

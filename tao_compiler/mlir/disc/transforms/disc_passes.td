@@ -352,3 +352,8 @@ def DiscStitchFusion : FunctionPass<"disc-stitch-fusion"> {
   let summary = "Lowring stitch fusion pattern to parallel for loops.";
   let constructor = "createDiscStitchFusionPass()";
 }
+
+def TransposeSimplifierPass : FunctionPass<"disc-transpose-simplifier"> {
+  let summary = "Remove some redundant transpose ops in the graph.";
+  let constructor = "createTransposeSimplifierPass()";
+}

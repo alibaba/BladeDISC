@@ -119,14 +119,42 @@ bool ConvertAtenInt(MhloConversionContext& ctx, const torch::jit::Node& node) {
   auto std_scalar = ctx.GetMlirValue(node.input(0));
   auto& builder = *ctx.builder;
   // DO TYPE CAST IF NEED
-  if (std_scalar.getType().isF64()) {
+  auto type = std_scalar.getType();
+  if (type.dyn_cast<mlir::RankedTensorType>()) {
+    auto loc = GetNodeLocation(ctx, node);
+    std_scalar =
+        mlir::mhlo::BuildStdScalarFromHloTensor(builder, loc, std_scalar);
+    type = std_scalar.getType();
+  }
+
+  auto bit_width = type.getIntOrFloatBitWidth();
+  if (type.isInteger(bit_width)) {
+    ctx.value_map[node.output(0)] = std_scalar;
+  } else if (type.isIntOrFloat()) {
     auto loc = GetNodeLocation(ctx, node);
     ctx.value_map[node.output(0)] = builder.create<mlir::arith::FPToSIOp>(
-        loc, std_scalar, builder.getIntegerType(64));
+        loc, std_scalar, builder.getIntegerType(bit_width));
   } else {
-    // must be int
-    ctx.value_map[node.output(0)] = std_scalar;
+    std::string s;
+    ::llvm::raw_string_ostream ss(s);
+    type.print(ss);
+    TORCH_CHECK(false, "can't cast unknown type to Int:", ss.str());
   }
+  return true;
+}
+
+bool ConvertPrimNumToTensor(
+    MhloConversionContext& ctx,
+    const torch::jit::Node& node) {
+  if (ctx.IsSupportTesting()) {
+    return true;
+  }
+
+  auto loc = GetNodeLocation(ctx, node);
+  auto std_scalar = ctx.GetMlirValue(node.input(0));
+  auto& builder = *ctx.builder;
+  ctx.value_map[node.output()] =
+      mlir::mhlo::BuildStdScalarToHloTensor(builder, loc, std_scalar);
   return true;
 }
 
@@ -147,7 +175,11 @@ auto mhlo_conversion =
             ConvertAtenCat)
         .pattern("aten::item(Tensor self) -> (Scalar)", ConvertAtenItem)
         .pattern("aten::Float.Scalar(Scalar a) -> (float)", ConvertAtenFloat)
-        .pattern("aten::Int.Scalar(Scalar a) -> (int)", ConvertAtenInt);
+        .pattern("aten::Int.Tensor(Tensor a) -> (int)", ConvertAtenInt)
+        .pattern("aten::Int.Scalar(Scalar a) -> (int)", ConvertAtenInt)
+        .pattern(
+            "prim::NumToTensor.Scalar(Scalar a) -> (Tensor)",
+            ConvertPrimNumToTensor);
 }
 } // namespace blade
 } // namespace torch

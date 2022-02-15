@@ -99,7 +99,8 @@ void DiscMarkShapeCalc::markShapeCalculationOps(
     if (!placement_utils::isMarkShapeCalcTargetOp(&op)) continue;
     if (!marked_ops.contains(&op)) {
       // Mark following Ops into shape calculation set
-      if (isa<mhlo::GetDimensionSizeOp, tensor::FromElementsOp>(&op)) {
+      if (isa<mhlo::GetDimensionSizeOp, tensor::FromElementsOp,
+              tensor::ExtractOp>(&op)) {
         marked_ops.insert(&op);
         continue;
       }

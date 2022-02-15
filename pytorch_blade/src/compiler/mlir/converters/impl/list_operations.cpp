@@ -36,9 +36,11 @@ bool ConvertPrimListConstruct(
   if (!supported_type) {
     return false;
   }
+
   if (ctx.IsSupportTesting()) {
     return true;
   }
+
   auto loc = GetNodeLocation(ctx, node);
   mlir::mhlo::SmallVec4<mlir::Value> list_vals;
   list_vals.reserve(node.inputs().size());
@@ -71,12 +73,35 @@ bool ConvertAtenGetItem(
   return true;
 }
 
+bool ConvertPrimListUnpack(
+    MhloConversionContext& ctx,
+    const torch::jit::Node& node) {
+  if (ctx.IsSupportTesting()) {
+    return true;
+  }
+  auto loc = GetNodeLocation(ctx, node);
+  auto jit_vals = node.input(0);
+  if (ctx.list_map.find(jit_vals) == ctx.list_map.end()) {
+    return false;
+  }
+
+  auto& inp_vals = ctx.list_map[jit_vals];
+  if (inp_vals.size() != node.outputs().size()) {
+    return false;
+  }
+  for (size_t k = 0; k < inp_vals.size(); ++k) {
+    ctx.value_map[node.output(k)] = inp_vals[k];
+  }
+  return true;
+}
+
 namespace {
 auto mhlo_conversion =
     MhloConversionPatternRegister()
         .pattern(
             GetPrimOperatorName(prim::ListConstruct),
             ConvertPrimListConstruct)
+        .pattern(GetPrimOperatorName(prim::ListUnpack), ConvertPrimListUnpack)
         .pattern(
             "aten::__getitem__.t(t[](a) list, int idx) -> (t(*))",
             ConvertAtenGetItem);

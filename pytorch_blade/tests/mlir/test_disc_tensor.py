@@ -51,6 +51,15 @@ class TestDiscTensor(DiscTestCase):
         self._test_cvt_to_disc(test_item, (torch.tensor((1 << 31) - 1, dtype=torch.int64),))
         self._test_cvt_to_disc(test_item, (torch.tensor(-2),))
 
+        @torch.jit.script
+        def test_item_2(tensor):
+            x = tensor / torch.tensor(2)
+            x = int(x)
+
+            return torch.tensor(x) + tensor
+
+        self._test_cvt_to_disc(test_item_2, (torch.tensor(-2),))
+
 
 if __name__ == "__main__":
     unittest.main()

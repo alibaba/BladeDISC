@@ -118,5 +118,10 @@ mlir::Value BuildStdScalarToHloTensor(
     mlir::OpBuilder& builder, const mlir::Location& loc,
     const SmallValueVec4& values,
     const llvm::Optional<mlir::Type>& elem_type_opt = llvm::None);
+
+mlir::Value BuildStdScalarFromHloTensor(mlir::OpBuilder& builder,
+                                        const mlir::Location& loc,
+                                        const mlir::Value& scalar_tensor);
+
 }  // namespace mhlo
 }  // namespace mlir

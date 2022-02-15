@@ -62,7 +62,12 @@ def _compile_torchscript(graph):
         compile_log = os.devnull
         env = os.environ.copy()
         if os.environ.get("TORCH_BLADE_DEBUG_LOG", None) is not None:
+            env['TF_CPP_VMODULE'] = "disc_compiler=1"
             compile_log = os.path.join(mlir_dump_dir, "mhlo_compile." + time_str + ".log")
+            shutil.copy(inp_mlir_file.name, os.path.join(mlir_dump_dir, f"dump.{time_str}.mlir"))
+            shutil.copy(
+                mlir_pretty_file.name, os.path.join(mlir_dump_dir, f"dump.{time_str}.pretty.mlir")
+            )
 
         with open(compile_log, "w") as devnull:
             cfg = Config.get_current_context_or_new()
@@ -88,10 +93,6 @@ def _compile_torchscript(graph):
             # copy result to mlir_dump_dir
             shutil.move(out_file_name, os.path.join(mlir_dump_dir, f"out.{time_str}.so"))
             shutil.move(out_file_pbtxt, os.path.join(mlir_dump_dir, f"out.{time_str}.so.pbtxt"))
-            shutil.move(inp_mlir_file.name, os.path.join(mlir_dump_dir, f"dump.{time_str}.mlir"))
-            shutil.move(
-                mlir_pretty_file.name, os.path.join(mlir_dump_dir, f"dump.{time_str}.pretty.mlir")
-            )
 
         return so_bytes, pb_bytes, input_dev_str, output_dev_str
 

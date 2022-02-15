@@ -261,5 +261,23 @@ mlir::Value BuildStdScalarToHloTensor(
       builder.create<mlir::tensor::FromElementsOp>(loc, values);
   return hlo_tensor;
 }
+
+mlir::Value BuildStdScalarFromHloTensor(mlir::OpBuilder& builder,
+                                        const mlir::Location& loc,
+                                        const mlir::Value& scalar_tensor) {
+  auto rank = GetRankOfMlirValue(scalar_tensor);
+  if (rank == 1) {
+    auto idx_value = builder.create<mlir::arith::ConstantOp>(
+        loc, builder.getIntegerAttr(builder.getIndexType(), 0));
+    return builder.create<tensor::ExtractOp>(loc, scalar_tensor,
+                                             mlir::ValueRange{idx_value});
+  } else {
+    // rank == 0
+    MHLO_CHECK(rank == 0, " failed checking rank == 0");
+    return builder.create<tensor::ExtractOp>(loc, scalar_tensor,
+                                             mlir::ValueRange{});
+  }
+}
+
 }  // namespace mhlo
 }  // namespace mlir

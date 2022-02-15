@@ -342,7 +342,7 @@ LogicalResult ShapeAnalysis::buildBlockDimValueMap(Block* block) {
   };
   auto isIdentityLayout = [&](Value value) {
     auto memref_type = value.getType().dyn_cast_or_null<MemRefType>();
-    if (!memref_type) {
+    if (memref_type) {
       return memref_type.getLayout().isIdentity();
     }
     return false;

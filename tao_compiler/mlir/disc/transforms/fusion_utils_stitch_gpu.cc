@@ -485,31 +485,6 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
   return true;
 }
 
-bool StitchGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
-                                      FusionPattern& lhs, FusionPattern& rhs,
-                                      FusionPattern& target) {
-  if (!FusionStrategy::tryFuse(shapeAnalysis, lhs, rhs, target)) {
-    return false;
-  }
-
-  return initFusionPattern(shapeAnalysis, target);
-}
-
-bool StitchGpuFusionStrategy::tryFuseInplace(ShapeAnalysis& shapeAnalysis,
-                                             FusionPattern& lhs,
-                                             FusionPattern& rhs) {
-  // both lhs & rhs should be fusible
-  if (!isFusible(lhs) || !isFusible(rhs)) {
-    return false;
-  }
-  FusionPattern result = lhs.mergeWithoutInit(rhs);
-  if (!tryFuse(shapeAnalysis, lhs, rhs, result)) {
-    return false;
-  }
-  lhs = result;
-  return true;
-}
-
 bool StitchGpuFusionStrategy::findFusionPatternTypeAndSubroot(
     ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern) {
   FusionType fusion_type = FusionType::kNone;

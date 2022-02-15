@@ -354,12 +354,6 @@ class FusionPlanner {
     return !reachable;
   }
 
-  void dumpFusionPattern(FusionPattern& pattern) {
-    for (Operation* subOp : pattern.getOpList()) {
-      llvm::dbgs() << "  " << *subOp << "\n";
-    }
-  }
-
   // This function check if fusing `from` with `to` is valid and if so perform
   // the merge. The validity is based on the operations in the clusters and
   // the compatibility of the shapes of the outputs of the would-be fused

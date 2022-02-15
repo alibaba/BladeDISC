@@ -875,6 +875,7 @@ class BaseFusionStrategy : public FusionStrategy {
                FusionPattern& rhs, FusionPattern& target) override;
   bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
                          FusionPattern& fusion_pattern) override;
+  virtual StringRef getName() override { return "BaseFusionStrategy"; }
 
  protected:
   virtual Value getEffectiveShape(FusionPattern& target, Value value) = 0;
@@ -986,6 +987,7 @@ class BaseCpuFusionStrategy : public BaseFusionStrategy {
                          FusionPattern& fusion_pattern) override;
   bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
                FusionPattern& rhs, FusionPattern& target) override;
+  virtual StringRef getName() override { return "BaseCpuFusionStrategy"; }
 };
 
 bool BaseCpuFusionStrategy::isFusible(Operation* op) {
@@ -1103,6 +1105,7 @@ class BaseGpuFusionStrategy : public BaseFusionStrategy {
   }
 
   Value getEffectiveShape(FusionPattern& target, Value v) override;
+  virtual StringRef getName() override { return "BaseGpuFusionStrategy"; }
 };
 
 bool BaseGpuFusionStrategy::isFusible(Operation* op) {
@@ -1156,6 +1159,7 @@ class StitchBaseCpuFusionStrategy : public BaseCpuFusionStrategy {
 
   bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
                FusionPattern& rhs, FusionPattern& target) override;
+  virtual StringRef getName() override { return "StitchBaseCpuFusionStrategy"; }
 };
 
 bool StitchBaseCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
@@ -1176,6 +1180,7 @@ class StitchCpuFusionStrategy : public FusionStrategy {
                FusionPattern& rhs, FusionPattern& target) override;
   bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
                          FusionPattern& fusion_pattern) override;
+  virtual StringRef getName() override { return "StitchCpuFusionStrategy"; }
 };
 
 bool StitchCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
@@ -1255,6 +1260,9 @@ class PlacementAwareFusionStrategy : public FusionStrategy {
                FusionPattern& rhs, FusionPattern& target) override;
   bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
                          FusionPattern& fusion_pattern) override;
+  virtual StringRef getName() override {
+    return "PlacementAwareFusionStrategy";
+  }
 
  private:
   StringRef getPlacement(Operation* op);

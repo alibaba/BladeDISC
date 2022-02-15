@@ -358,6 +358,8 @@ class FusionPattern : public FusionPatternBase {
   DenseSet<Operation*> irregular_xroots_;
 };
 
+void dumpFusionPattern(FusionPattern& pattern);
+
 // Get skeleton-groups in which the op orders are the same with op list in the
 // given fusion pattern.
 bool getOrderedSkeletonGroups(
@@ -427,6 +429,7 @@ class FusionStrategy {
                               FusionPattern& rhs);
   virtual bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
                        FusionPattern& rhs, FusionPattern& target);
+  virtual StringRef getName() { return "FusionStrategy"; }
 
  protected:
   FusionOptions options_;
@@ -622,10 +625,7 @@ class StitchGpuFusionStrategy : public FusionStrategy {
 
   virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                  FusionPattern& fused_pattern) override;
-  virtual bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
-                       FusionPattern& rhs, FusionPattern& target) override;
-  virtual bool tryFuseInplace(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
-                              FusionPattern& rhs) override;
+  virtual StringRef getName() override { return "StitchGpuFusionStrategy"; }
 
  private:
   virtual Value getEffectiveShape(FusionPattern& target, Value value);

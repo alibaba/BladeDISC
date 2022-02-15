@@ -168,5 +168,31 @@ mlir::Value BuildSelect(mlir::OpBuilder& builder, const mlir::Location& loc,
   }
   return BuildDynamicReshapeTensor(builder, loc, result, new_dim_sizes);
 }
+
+mlir::Value BuildRoll(mlir::OpBuilder& builder, const mlir::Location& loc,
+                      const mlir::Value& input, mlir_dim_t shift,
+                      mlir_dim_t dim) {
+  // roll(input, shift, dim) = cat(
+  //   slice(input, (dim_size - shift) % dim_size, dim_size),
+  //   slice(input, 0, - shift))
+  auto dim_size = BuildStdDimSizeOfTensor(builder, loc, input, dim);
+  auto std_zero = BuildStdConstForI64(builder, loc, 0);
+  auto std_one = BuildStdConstForI64(builder, loc, 1);
+  auto std_shift = BuildStdConstForI64(builder, loc, shift);
+  auto split_pos = BuildStdSubSigned(builder, loc, dim_size, std_shift);
+  split_pos = BuildStdRemainderSigned(builder, loc, split_pos, dim_size);
+
+  auto lhs = BuildDynamicSliceInternal(builder, loc, input, split_pos, dim_size,
+                                       std_one, dim);
+  auto rhs = BuildDynamicSliceInternal(builder, loc, input, std_zero, split_pos,
+                                       std_one, dim);
+
+  auto ranked_type = GetMilrRankedTensorType(input);
+  auto result = builder.create<mlir::mhlo::ConcatenateOp>(
+      loc, ranked_type, SmallVec4<mlir::Value>{lhs, rhs},
+      builder.getI64IntegerAttr(dim));
+  return result;
+}
+
 }  // namespace mhlo
 }  // namespace mlir

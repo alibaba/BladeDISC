@@ -273,6 +273,7 @@ mlir::Value BuildStdScalarFromHloTensor(mlir::OpBuilder& builder,
                                              mlir::ValueRange{idx_value});
   } else {
     // rank == 0
+    MHLO_CHECK(rank == 0, " failed checking rank == 0");
     return builder.create<tensor::ExtractOp>(loc, scalar_tensor,
                                              mlir::ValueRange{});
   }

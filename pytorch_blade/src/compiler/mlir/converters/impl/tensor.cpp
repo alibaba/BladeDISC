@@ -138,7 +138,7 @@ bool ConvertAtenInt(MhloConversionContext& ctx, const torch::jit::Node& node) {
     std::string s;
     ::llvm::raw_string_ostream ss(s);
     type.print(ss);
-    TORCH_CHECK(false, "Unknown type: ", ss.str());
+    TORCH_CHECK(false, "can't cast unknown type to Int:", ss.str());
   }
   return true;
 }

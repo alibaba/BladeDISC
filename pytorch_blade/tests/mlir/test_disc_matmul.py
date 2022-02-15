@@ -12,7 +12,6 @@
 import torch
 import unittest
 
-from torch_blade.version import cuda_available
 from tests.mlir.testing_utils import DiscTestCase
 
 class MatMul(torch.nn.Module):

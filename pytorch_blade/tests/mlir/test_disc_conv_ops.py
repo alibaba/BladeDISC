@@ -13,7 +13,6 @@ import torch
 import torch_blade
 import unittest
 
-from torch_blade.version import cuda_available
 from tests.mlir.testing_utils import DiscTestCase
 
 class TestMlirConvolution(DiscTestCase):

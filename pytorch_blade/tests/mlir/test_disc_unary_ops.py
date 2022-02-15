@@ -11,7 +11,6 @@
 
 import torch
 import unittest
-import torch_blade
 
 from tests.mlir.testing_utils import DiscTestCase
 

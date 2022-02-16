@@ -5,9 +5,7 @@ project(mhlo_builder)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
-
-file(GLOB_RECURSE MHLO_BUILDER_SRCS *.cpp)
+file(GLOB_RECURSE MHLO_BUILDER_SRCS csrc/*.cpp)
 
 add_library(mhlo_builder STATIC ${MHLO_BUILDER_SRCS})
 SET(MLIR_DISC_BAZEL_BIN_PATH ${PROJECT_SOURCE_DIR}/../tf_community/bazel-bin/tensorflow/compiler/mlir/disc)
@@ -18,7 +16,7 @@ SET(MHLO_INCLUDE ${MLIR_DISC_INCLUDE}/tensorflow/compiler/mlir/hlo/include)
 SET(LLVM_INCLUDE ${MLIR_DISC_INCLUDE}/external/llvm-project/llvm/include)
 SET(MLIR_INCLUDE ${MLIR_DISC_INCLUDE}/external/llvm-project/mlir/include)
 
-set(MHLO_BUILDER_INCS ${PROJECT_SOURCE_DIR} ${MLIR_DISC_INCLUDE} ${MHLO_INCLUDE} ${LLVM_INCLUDE} ${MLIR_INCLUDE})
+set(MHLO_BUILDER_INCS ${PROJECT_SOURCE_DIR}/csrc ${MLIR_DISC_INCLUDE} ${MHLO_INCLUDE} ${LLVM_INCLUDE} ${MLIR_INCLUDE})
 set_property(
   TARGET mhlo_builder
   APPEND PROPERTY

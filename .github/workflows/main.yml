@@ -144,14 +144,16 @@ jobs:
         set -e
         bash ./scripts/ci/deploy_pytorch_blade.sh
   CPU-TF115:
-    uses: alibaba/BladeDISC/.github/workflows/cpu_reusable.yml@main
+    #uses: alibaba/BladeDISC/.github/workflows/cpu_reusable.yml@main
+    uses: Yancey1989/BladeDISC/.github/workflows/cpu_reusable.yml@deploy_cpu_docker
     with:
       remote_runtime_docker: bladedisc:latest-runtime-tensorflow1.15-cpu
       runtime_base_image: tensorflow/tensorflow:1.15.5
       exec_command: bash ./scripts/ci/build_and_test.sh --cpu-only
       deploy_command: bash ./scripts/ci/deploy_tf_wrapper.sh
   CPU-TORCH181:
-    uses: alibaba/BladeDISC/.github/workflows/cpu_reusable.yml@main
+    #uses: alibaba/BladeDISC/.github/workflows/cpu_reusable.yml@main
+    uses: Yancey1989/BladeDISC/.github/workflows/cpu_reusable.yml@deploy_cpu_docker
     with:
       remote_runtime_docker: bladedisc:latest-runtime-torch1.8.1-cpu
       runtime_base_image: nvidia/cuda:11.0-cudnn8-runtime-ubuntu18.04

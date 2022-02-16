@@ -18,10 +18,15 @@ on:
       runtime_base_image:
         required: false
         type: string
-      aliyun_docker_username:
+    secrets:
+      ALIYUN_DOCKER_USERNAME:
         required: false
-        type: string
-
+      ALIYUN_DOCKER_PASSWORD:
+        required: false
+      DOCKER_USERNAME:
+        required: false
+      DOCKER_PASSWORD:
+        required: false
 
 jobs:
   CPU:
@@ -54,7 +59,7 @@ jobs:
           disc-dev-cpu ${{ inputs.exec_command }}
     - name: Deploy Docker Image
       env:
-        ALIYUN_DOCKER_USERNAME: ${{ inputs.ALIYUN_DOCKER_USERNAME }}
+        ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
         ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
         DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}

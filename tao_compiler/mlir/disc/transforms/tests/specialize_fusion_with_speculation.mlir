@@ -54,7 +54,7 @@ func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
     "lmhlo.dynamic_broadcast_in_dim"(%0, %5, %7) {broadcast_dimensions = dense<[0,1]> : tensor<2xi64>} : (memref<?x?xf32>, memref<2xindex>, memref<?x?xf32>) -> ()
     "lmhlo.add"(%6, %7, %8) : (memref<?x?xf32>, memref<?x?xf32>, memref<?x?xf32>) -> ()
     "lmhlo.terminator"() : () -> ()
-  }) {disc.fusion.name = "test1", disc_vectorize_hint = 2, disc.fusion_type = "kLoop", disc.device = "gpu"} : () -> ()
+  }) {disc.fusion.name = "test1", disc_vectorize_or_tile_hint = 2, disc.fusion_type = "kLoop", disc.device = "gpu"} : () -> ()
   %c0_1 = arith.constant 0 : index
   "disc_ral.send_output"(%arg0, %c0_1, %8) : (!disc_ral.context, index, memref<?x?xf32>) -> ()
   return
@@ -79,7 +79,7 @@ func @simple_row_reduction_vectorization_specialization(%arg0: memref<?x?xf32>, 
   // CHECK:     }) {disc.device = "gpu", disc.fusion.name = "test2"
   // CHECK-SAME: disc_row_reduction_schedule_hint = 1 : i32
   // CHECK-SMAE: disc_thread_per_block_hint = 256 : i32
-  // CHECK-SMAE: disc_vectorize_hint = 2 : i32
+  // CHECK-SMAE: disc_vectorize_or_tile_hint = 2 : i32
   // CHECK:   } else {
   // No vectorization.
   // CHECK:     "lmhlo.fusion"() ( {
@@ -89,7 +89,7 @@ func @simple_row_reduction_vectorization_specialization(%arg0: memref<?x?xf32>, 
   // CHECK:     }) {disc.device = "gpu", disc.fusion.name = "test2"
   // CHECK-SAME: disc_row_reduction_schedule_hint = 1 : i32
   // CHECK-SMAE: disc_thread_per_block_hint = 256 : i32
-  // CHECK-SMAE: disc_vectorize_hint = 1 : i32
+  // CHECK-SMAE: disc_vectorize_or_tile_hint = 1 : i32
   // CHECK:   }
   // Schedule 2
   // CHECK: } else {
@@ -102,7 +102,7 @@ func @simple_row_reduction_vectorization_specialization(%arg0: memref<?x?xf32>, 
   // CHECK:     }) {disc.device = "gpu", disc.fusion.name = "test2"
   // CHECK-SAME: disc_row_reduction_schedule_hint = 2 : i32
   // CHECK-SMAE: disc_thread_per_block_hint = 256 : i32
-  // CHECK-SMAE: disc_vectorize_hint = 2 : i32
+  // CHECK-SMAE: disc_vectorize_or_tile_hint = 2 : i32
   // CHECK:   } else {
   // No vectorization.
   // CHECK:     "lmhlo.fusion"() ( {
@@ -112,7 +112,7 @@ func @simple_row_reduction_vectorization_specialization(%arg0: memref<?x?xf32>, 
   // CHECK:     }) {disc.device = "gpu", disc.fusion.name = "test2"
   // CHECK-SAME: disc_row_reduction_schedule_hint = 2 : i32
   // CHECK-SMAE: disc_thread_per_block_hint = 256 : i32
-  // CHECK-SMAE: disc_vectorize_hint = 1 : i32
+  // CHECK-SMAE: disc_vectorize_or_tile_hint = 1 : i32
   // CHECK:   }
   // CHECK: }
 

@@ -267,7 +267,6 @@ cc_library(
     hdrs = ["transforms/lhlo_elemental_utils.h"],
     deps = [
         ":codegen_utils",
-        ":fusion_utils",
         "//tensorflow/compiler/mlir/hlo:hlo",
         "//tensorflow/compiler/mlir/hlo:lhlo",
         "//tensorflow/compiler/mlir/hlo:map_lmhlo_to_scalar_op",
@@ -290,6 +289,7 @@ cc_library(
         ":disc_lhlo_elemental_utils",
         ":disc_supported_list",
         ":fusion_utils",
+        ":input_inline_fusion_pattern",
         ":pass_details",
         ":placement_utils",
         "//tensorflow/compiler/mlir/hlo:LmhloPassIncGen",
@@ -450,15 +450,19 @@ cc_library(
     hdrs = [
         "transforms/codegen_utils.h",
     ],
+    includes = [
+        "tensorflow/compiler/mlir/hlo/include",
+    ],
     deps = [
         ":disc_shape",
+        "//tensorflow/compiler/mlir/hlo:lhlo",
         "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:Affine",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:MemRefDialect",
-        "@llvm-project//mlir:StandardOps",
-        "@llvm-project//mlir:Affine",
         "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:StandardOps",
     ],
     alwayslink = 1,
 )
@@ -475,6 +479,7 @@ cc_library(
         ":pass_details",
         ":placement_utils",
         "//tensorflow/compiler/mlir/hlo:lhlo",
+        "//tensorflow/core:lib",
         "@llvm-project//llvm:Core",
         "@llvm-project//mlir:Dialect",
         "@llvm-project//mlir:IR",
@@ -588,12 +593,40 @@ cc_library(
 )
 
 cc_library(
+    name = "shape_utils",
+    srcs = ["transforms/shape_utils.cc"],
+    hdrs = ["transforms/shape_utils.h"],
+    deps = [
+        ":mhlo_disc",
+        ":pass_details",
+        "//tensorflow/compiler/mlir/hlo:disc_ral",
+        "//tensorflow/compiler/mlir/hlo:hlo",
+        "//tensorflow/compiler/mlir/hlo:lhlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Shape",
+        "@llvm-project//mlir:StandardOps",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+)
+
+cc_library(
     name = "fusion_utils",
-    srcs = ["transforms/fusion_utils.cc"],
+    srcs = [
+        "transforms/fusion_utils.cc",
+        "transforms/fusion_utils_stitch_gpu.cc"],
     hdrs = ["transforms/fusion_utils.h"],
     deps = [
-        ":placement_utils",
         ":codegen_utils",
+        ":disc_lhlo_elemental_utils",
+        ":disc_supported_list",
+        ":disc_util",
+        ":placement_utils",
+        ":shape_utils",
         "//tensorflow/compiler/mlir/hlo:lhlo",
         "@llvm-project//llvm:Core",
         "@llvm-project//llvm:Support",
@@ -614,6 +647,7 @@ cc_library(
         ":placement_utils",
         "//tensorflow/compiler/mlir/hlo:cycle_detector",
         "//tensorflow/compiler/mlir/hlo:lhlo",
+        "//tensorflow/core:lib",
         "@llvm-project//llvm:Core",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
@@ -765,6 +799,7 @@ disc_cc_library(
     includes = ["."],
     compatible_with = get_compatible_with_cloud(),
     deps = [
+        ":codegen_utils",
         ":pass_details",
         "@com_google_absl//absl/strings",
         "@llvm-project//llvm:Support",
@@ -863,13 +898,34 @@ cc_library(
 )
 
 cc_library(
+    name = "input_inline_fusion_pattern",
+    srcs = ["transforms/input_inline_fusion_pattern.cc"],
+    hdrs = ["transforms/input_inline_fusion_pattern.h"],
+    includes = ["tensorflow/compiler/mlir/hlo/include"],
+    deps = [
+        ":codegen_utils",
+        ":disc_lhlo_elemental_utils",
+        ":fusion_utils",
+        "//tensorflow/compiler/mlir/hlo:lhlo",
+        "//tensorflow/compiler/mlir/hlo:map_lmhlo_to_scalar_op",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:StandardOps",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "input_inline_fusion",
     srcs = ["transforms/input_inline_fusion_pass.cc"],
     deps = [
-        ":pass_details",
+        ":disc_lhlo_elemental_utils",
         ":disc_supported_list",
         ":fusion_utils",
-        ":disc_lhlo_elemental_utils",
+        ":input_inline_fusion_pattern",
+        ":pass_details",
         "//tensorflow/compiler/mlir/hlo:hlo",
         "//tensorflow/compiler/mlir/hlo:lhlo",
         "//tensorflow/compiler/mlir/hlo:map_lmhlo_to_scalar_op",
@@ -962,6 +1018,27 @@ cc_library(
     ],
     deps = [
         ":pass_details",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:StandardOps",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "disc_memref_load_store_simplifier",
+    srcs = ["transforms/disc_memref_load_store_simplifier.cc"],
+    hdrs = [
+        "transforms/passes.h",
+    ],
+    deps = [
+        ":disc_util",
+        ":pass_details",
+        ":placement_utils",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:MemRefDialect",
@@ -1105,6 +1182,7 @@ cc_library(
         "transforms/rewriters.h",
     ],
     deps = [
+        ":disc_util",
         ":pass_details",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
@@ -1168,6 +1246,7 @@ cc_library(
     deps = [
         ":mhlo_disc",
         ":pass_details",
+        ":shape_utils",
         "//tensorflow/compiler/mlir/hlo:disc_ral",
         "//tensorflow/compiler/mlir/hlo:hlo",
         "@llvm-project//llvm:Support",
@@ -1382,6 +1461,7 @@ cc_library(
         ":revise_gpu_kernel_outlining",
         ":split_large_ops",
         ":disc_memref_cse",
+        ":disc_memref_load_store_simplifier",
         ":disc_lower_gpu_ops_to_nvvm_ops",
         ":disc_lower_gpu_ops_to_rocdl_ops",
         ":disc_unhandled_atomic_rmw_converter",

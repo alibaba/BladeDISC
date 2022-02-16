@@ -61,7 +61,11 @@ bool isOnGpu(Operation* op) {
 LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion) {
   auto fusionOp = cast<lmhlo::FusionOp>(fusion);
   assert(fusionOp);
-  FusionPattern fusionPattern(fusionOp);
+  // TODO: use FuncOp that contains `fusionOp` to construct shape-analysis,
+  // which will use global information for shape equality and decomposition
+  // analysis.
+  ShapeAnalysis shapeAnalysis(fusionOp);
+  FusionPattern fusionPattern(fusionOp, &shapeAnalysis);
   if (!fusionPattern.isStitchFusion()) {
     // skip non-stitch fusion pattern.
     return success();

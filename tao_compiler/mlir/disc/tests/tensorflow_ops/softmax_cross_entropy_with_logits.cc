@@ -34,7 +34,7 @@ TEST(TFSoftmaxCrossEntropyWithLogitsOpTest, FullyDynamicShape3DF32) {
       /*output_descriptors*/ {"f32_X", "f32_X"}));
 }
 
-// // partial dynamic shape softmax_cross_entropy_with_logits test case
+// partial dynamic shape softmax_cross_entropy_with_logits test case
 TEST(TFSoftmaxCrossEntropyWithLogitsOpTest, PartialDynamicShape3DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path +

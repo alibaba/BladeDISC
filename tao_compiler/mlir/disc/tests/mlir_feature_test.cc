@@ -223,26 +223,40 @@ bool feature_test_main(const std::string& mlir_file_path,
                        bool profiling, bool multi_cc_mode,
                        bool multi_cc_mode_dbg_ptx_only) {
   bool pass = true;
-  for (auto backend_type : backend_types) {
-    if (backend_type == BackendType::kCuda) {
+  const char* stitch_name = "DISC_ENABLE_STITCH";
+  std::vector<const char*> stitch_fusion_flags;
+  char* stitch_flag = getenv(stitch_name);
+  if (stitch_flag) {
+    stitch_fusion_flags.push_back(stitch_flag);
+  } else {
+    stitch_fusion_flags.push_back("true");
+    stitch_fusion_flags.push_back("false");
+  }
+  for (const auto flag : stitch_fusion_flags) {
+    setenv(stitch_name, flag, 1);
+    for (auto backend_type : backend_types) {
+      if (backend_type == BackendType::kCuda) {
 #if (GOOGLE_CUDA) || (TENSORFLOW_USE_ROCM)
-      VLOG(0) << "Testing for CUDA backend";
-      pass = pass && feature_test_main(
-                         mlir_file_path, backend_type, num_inputs, num_outputs,
-                         input_descriptors, output_descriptors, input_vals,
-                         profiling, multi_cc_mode, multi_cc_mode_dbg_ptx_only);
+        VLOG(0) << "Testing for CUDA backend";
+        pass = pass &&
+               feature_test_main(mlir_file_path, backend_type, num_inputs,
+                                 num_outputs, input_descriptors,
+                                 output_descriptors, input_vals, profiling,
+                                 multi_cc_mode, multi_cc_mode_dbg_ptx_only);
 #endif
-    } else if (backend_type == BackendType::kX86) {
+      } else if (backend_type == BackendType::kX86) {
 #ifdef TAO_CPU_ONLY
-      VLOG(0) << "Testing for X86 backend";
-      pass = pass && feature_test_main(
-                         mlir_file_path, backend_type, num_inputs, num_outputs,
-                         input_descriptors, output_descriptors, input_vals,
-                         profiling, multi_cc_mode, multi_cc_mode_dbg_ptx_only);
+        VLOG(0) << "Testing for X86 backend";
+        pass = pass &&
+               feature_test_main(mlir_file_path, backend_type, num_inputs,
+                                 num_outputs, input_descriptors,
+                                 output_descriptors, input_vals, profiling,
+                                 multi_cc_mode, multi_cc_mode_dbg_ptx_only);
 #endif
-    } else {
-      LOG(ERROR) << "unknown backend type";
-      return false;
+      } else {
+        LOG(ERROR) << "unknown backend type";
+        return false;
+      }
     }
   }
   return pass;

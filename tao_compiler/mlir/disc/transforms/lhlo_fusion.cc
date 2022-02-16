@@ -23,6 +23,8 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "tensorflow/compiler/mlir/disc/transforms/shape_utils.h"
+#include "tensorflow/core/util/env_var.h"
 
 // This pass has similar functionality of the fusion pass in XLA stack.
 // However, unlike XLA, it targets the fully dynamic shape scenario.
@@ -94,9 +96,14 @@ using FusionPipeline = SmallVector<std::unique_ptr<FusionStrategy>>;
 //     - 2D column reduction: out[j] = sum({in[i][j] for all i}
 class FusionPlanner {
  public:
-  explicit FusionPlanner(FusionPipeline& pipeline, Block* block)
-      : fusionPipeline_(pipeline), block_(block) {
+  explicit FusionPlanner(FusionPipeline& pipeline, Block* block,
+                         ShapeAnalysis* shapeAnalysis)
+      : fusionPipeline_(pipeline),
+        block_(block),
+        shape_analysis_(shapeAnalysis) {
     assert(!fusionPipeline_.empty());
+    assert(block_ != nullptr);
+    assert(shape_analysis_ != nullptr);
     currentFusionStrategy_ = fusionPipeline_[0].get();
     // Move up metadata-only ops (e.g. dim, shape_of) as far as possible.
     MoveUpMetadataOnlyOpsForFusion();
@@ -104,7 +111,6 @@ class FusionPlanner {
     for (Operation& op : *block) {
       op_list_.push_back(&op);
     }
-    shape_analysis_.reset(new ShapeConstraintAnalysis(op_list_));
     cycle_detector_.reset(new GraphCycles(op_list_.size()));
     BuildNodeMap();
   }
@@ -275,7 +281,7 @@ class FusionPlanner {
 
       // For some ops (e.g. lmhlo ops), some operands are the output memrefs
       // Thus these operands are supposed to be updated.
-      // Suppose that a op (or its nested ops) can only write the buffers
+      // Suppose that an op (or its nested ops) can only write the buffers
       // explicit passed in as operands of this op.
       int num_input_operand = op->getNumOperands() - getNumResultOperands(op);
       for (Value v : op->getOperands().drop_front(num_input_operand)) {
@@ -441,7 +447,7 @@ class FusionPlanner {
   SmallVector<Operation*, 4> op_list_;
 
   // Shape equality checker
-  std::unique_ptr<ShapeConstraintAnalysis> shape_analysis_;
+  ShapeAnalysis* shape_analysis_;
 
   // op -> node_id
   DenseMap<Operation*, int> op_to_node_id_;
@@ -475,13 +481,20 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
       pipeline.emplace_back(
           makeNewPlacementAwareFusionStrategy(gpu_enabled_, "base"));
     } else if (fusion_strategy_ == "stitch") {
-      // Do some basic fusion first.
-      pipeline.emplace_back(
-          makeNewPlacementAwareFusionStrategy(gpu_enabled_, "stitch_base"));
-      pipeline.emplace_back(
-          makeNewPlacementAwareFusionStrategy(gpu_enabled_, "stitch"));
-      pipeline.emplace_back(
-          makeNewPlacementAwareFusionStrategy(gpu_enabled_, "base"));
+      if (gpu_enabled_) {
+        pipeline.emplace_back(
+            makeNewPlacementAwareFusionStrategy(gpu_enabled_, "base"));
+        pipeline.emplace_back(
+            makeNewPlacementAwareFusionStrategy(gpu_enabled_, "stitch"));
+      } else {
+        // Do some basic fusion first.
+        pipeline.emplace_back(
+            makeNewPlacementAwareFusionStrategy(gpu_enabled_, "stitch_base"));
+        pipeline.emplace_back(
+            makeNewPlacementAwareFusionStrategy(gpu_enabled_, "stitch"));
+        pipeline.emplace_back(
+            makeNewPlacementAwareFusionStrategy(gpu_enabled_, "base"));
+      }
     }
     return pipeline;
   }
@@ -493,10 +506,16 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
     SmallVector<Block*, 4> blocks;
     CollectBlocksInsideFunction(func, blocks);
 
+    ShapeAnalysis shapeAnalysis(func);
+    shapeAnalysis.run();
+
     // process each block and do fusion within a block.
+    tensorflow::ReadInt64FromEnvVar("disc_debug_max_fusion_numbers_", INT_MIN,
+                                    &disc_debug_max_fusion_numbers_);
     FusionPipeline pipeline = makeFusionPipeline();
+    int64_t fusion_pattern_number = 0;
     for (Block* block : blocks) {
-      FusionPlanner planner(pipeline, block);
+      FusionPlanner planner(pipeline, block, &shapeAnalysis);
       llvm::Optional<FusionPlan> plan = planner.Run();
       if (!plan) {
         emitError(func.getLoc(),
@@ -504,11 +523,21 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
         signalPassFailure();
         return;
       }
+      fusion_pattern_number += plan->size();
       if (!ApplyFusionPlan(*plan)) {
         emitError(func.getLoc(), "apply fusion plan failed");
         signalPassFailure();
         return;
       }
+    }
+    int64_t disc_expected_kernels_in_ut;
+    tensorflow::ReadInt64FromEnvVar("DISC_EXPECTED_KERNELS_IN_UT", -1,
+                                    &disc_expected_kernels_in_ut);
+    if ((disc_expected_kernels_in_ut >= 0) &&
+        (disc_expected_kernels_in_ut != fusion_pattern_number)) {
+      emitError(func.getLoc(), "fusion pattern number is not as expected.");
+      signalPassFailure();
+      return;
     }
 
     // Assign a unique name to each fusion ops
@@ -526,7 +555,8 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
     func.walk([&](FusionOp op) {
       StringRef fusionName = getFusionName(op);
       if (!fusionName.empty()) return;
-      std::string signature = generateSignatureForFusion(op);
+      FusionPattern pattern(op, &shapeAnalysis);
+      auto signature = generateSignatureForFusion(pattern);
       if (!nameSet.count(signature)) {
         nameVec.push_back(signature);
         nameSet.insert(nameVec.back());
@@ -544,6 +574,14 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
 
   bool ApplyFusionPlan(FusionPlan& plan) {
     for (FusionPattern& pattern : plan) {
+      if (disc_debug_max_fusion_numbers_ != INT_MIN) {
+        if (applied_fusion_numbers_ + 1 > disc_debug_max_fusion_numbers_) {
+          llvm::errs() << "[Debug] Skip fusion " << applied_fusion_numbers_
+                       << "\n";
+          continue;
+        }
+        applied_fusion_numbers_++;
+      }
       auto& op_list = pattern.getOpList();
       OpBuilder b(op_list.back());
 
@@ -580,6 +618,11 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
                           b.getStringAttr(placement_utils::kGpu));
         }
       }
+      // Dump fusion op for debugging.
+      if (disc_debug_max_fusion_numbers_ != INT_MIN) {
+        llvm::errs() << "[Debug] Fusion " << applied_fusion_numbers_ << ":\n";
+        fusion->dump();
+      }
     }
     return true;
   }
@@ -591,6 +634,10 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
         blocks.push_back(block);
     });
   }
+
+ private:
+  int64_t applied_fusion_numbers_ = 0;
+  int64_t disc_debug_max_fusion_numbers_;
 };
 
 }  // namespace

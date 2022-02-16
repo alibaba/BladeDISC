@@ -43,5 +43,37 @@ bool IsSmallCpuAlloc(Value alloc) {
   return IsSmallCpuBuffer(alloc) && alloc.getDefiningOp<memref::AllocOp>();
 }
 
+bool IsOpWriteValue(Operation* op, Value value) {
+  llvm::SmallVector<mlir::MemoryEffects::EffectInstance, 2> effects;
+  MemoryEffectOpInterface interface = dyn_cast<MemoryEffectOpInterface>(op);
+  // Suppose that value without `MemoryEffectOpInterface` is readonly.
+  if (!interface) return false;
+
+  interface.getEffectsOnValue(value, effects);
+  return llvm::any_of(
+      effects, [](const mlir::MemoryEffects::EffectInstance& instance) {
+        return mlir::isa<mlir::MemoryEffects::Write>(instance.getEffect());
+      });
+}
+
+bool IsMemRefAliasOp(Operation* op) {
+  return dyn_cast<ViewLikeOpInterface>(op) != nullptr;
+}
+
+Value getRootMemRef(Value memref) {
+  Value rootMemRef = memref;
+  while (Operation* operandOp = rootMemRef.getDefiningOp()) {
+    if (!isa<memref::SubViewOp, memref::ViewOp, memref::CastOp,
+             memref::ReinterpretCastOp>(operandOp))
+      break;
+    rootMemRef = operandOp->getOperand(0);
+  }
+  return rootMemRef;
+}
+
+bool isSameUnderlineBuffer(Value lhs, Value rhs) {
+  return getRootMemRef(lhs) == getRootMemRef(rhs);
+}
+
 }  // namespace disc_ral
 }  // namespace mlir

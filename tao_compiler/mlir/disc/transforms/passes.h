@@ -137,8 +137,11 @@ std::unique_ptr<mlir::FunctionPass> createDiscConvertHloToStandardPass();
 // Bufferize std tensor constant.
 std::unique_ptr<mlir::FunctionPass> createDiscStdBufferizePass();
 
-// CSE of memref.load specific for DISC
+// CSE of memref.load specific for DISC.
 std::unique_ptr<FunctionPass> createDiscMemRefCSEPass();
+
+// Simplifier of memref.load/store specific for DISC.
+std::unique_ptr<FunctionPass> createDiscMemRefLoadStoreSimplifierPass();
 
 // Lowering some tensorflow ops.
 std::unique_ptr<OperationPass<FuncOp>> createDiscLowerTfPass();

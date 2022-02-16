@@ -900,10 +900,13 @@ def main():
 
 
 if __name__ == "__main__":
+    exit_code = 0
     try:
         main()
     except Exception as e:
         import traceback
         traceback.print_exc()
+        exit_code = -1
     finally:
         stage_time.report()
+    exit(exit_code)

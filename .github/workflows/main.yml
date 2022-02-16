@@ -145,12 +145,8 @@ jobs:
         bash ./scripts/ci/deploy_pytorch_blade.sh
   CPU-TF115:
     uses: alibaba/BladeDISC/.github/workflows/cpu_reusable.yml@deploy_cpu_docker
-    env:
-      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
-      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
-      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
     with:
+      aliyun_docker_username: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
       remote_runtime_docker: bladedisc:latest-runtime-tensorflow1.15-cpu
       runtime_base_image: tensorflow/tensorflow:1.15.5
       exec_command: bash ./scripts/ci/build_and_test.sh --cpu-only

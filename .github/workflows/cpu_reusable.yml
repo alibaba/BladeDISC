@@ -12,12 +12,6 @@ on:
       deploy_command:
         required: false
         type: string
-      local_dev_docker:
-        required: false
-        type: string
-      remote_dev_docker:
-        required: false
-        type: string
       remote_runtime_docker:
         required: false
         type: string
@@ -62,8 +56,6 @@ jobs:
         DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         GITHUB_PULL_REQUEST: ${{ github.event.number }}
-        LOCAL_DEV_DOCKER: ${{ inputs.local_dev_docker }}
-        REMOTE_DEV_DOCKER: ${{ inputs.remote_dev_docker }}
         REMOTE_RUNTIME_DOCKER: ${{ inputs.remote_runtime_docker }}
         RUNTIME_BASEIMAGE: ${{ inputs.runtime_base_image }}
       run: |

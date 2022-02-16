@@ -146,7 +146,6 @@ jobs:
   CPU-TF115:
     uses: alibaba/BladeDISC/.github/workflows/cpu_reusable.yml@main
     with:
-      local_dev_docker: disc-dev-cpu
       remote_runtime_docker: bladedisc:latest-runtime-tensorflow1.15-cpu
       runtime_base_image: tensorflow/tensorflow:1.15.5
       exec_command: bash ./scripts/ci/build_and_test.sh --cpu-only
@@ -154,7 +153,6 @@ jobs:
   CPU-TORCH181:
     uses: alibaba/BladeDISC/.github/workflows/cpu_reusable.yml@main
     with:
-      local_dev_docker: disc-dev-cpu
       remote_runtime_docker: bladedisc:latest-runtime-torch1.8.1-cpu
       runtime_base_image: nvidia/cuda:11.0-cudnn8-runtime-ubuntu18.04
       extra_envs: -e TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cpu

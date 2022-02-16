@@ -1,7 +1,7 @@
 // RUN: disc-opt --disc-mhlo-mark-shape-calc -split-input-file %s | FileCheck %s
 
 func @main(%arg0: tensor<?x8xf32>) -> tensor<?x24xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "cpu", outputs = "output0"}} {
-  // CHECK: mhlo.constant dense<[7, 3]> : tensor<2xi32>
+  // CHECK: mhlo.constant
   // CHECK: tensor.from_elements
   // CHECK-SAME: disc.shape_op = true
   // CHECK: mhlo.dynamic_broadcast_in_dim

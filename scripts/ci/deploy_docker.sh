@@ -45,6 +45,10 @@ function docker_login() {
 
 function push_images() {
   docker_login
-  push_image ${LOCAL_DEV_DOCKER} ${REMOTE_DEV_DOCKER}
-  push_image ${REMOTE_RUNTIME_DOCKER} ${REMOTE_RUNTIME_DOCKER}
+  if [[! -z "${REMOTE_DEV_DOCKER}" ]]; then
+    push_image ${LOCAL_DEV_DOCKER} ${REMOTE_DEV_DOCKER}
+  fi
+  if [[! -z "${REMOTE_RUNTIME_DOCKER}" ]]; then
+    push_image ${REMOTE_RUNTIME_DOCKER} ${REMOTE_RUNTIME_DOCKER}
+  fi
 }

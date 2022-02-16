@@ -219,12 +219,12 @@ def configure_compiler(root, args):
 
         # TF_REMOTE_CACHE is not supported by tensorflow community
         # just set remote cache here
-        token = remote_cache_token()
-        if token:
-            with open(".tf_configure.bazelrc", "a") as f:
-                f.write("\n")
-                f.write("build --remote_cache={}\n".format(token))
-                f.write("test --remote_cache={}\n".format(token))
+        # token = remote_cache_token()
+        # if token:
+        #     with open(".tf_configure.bazelrc", "a") as f:
+        #         f.write("\n")
+        #         f.write("build --remote_cache={}\n".format(token))
+        #         f.write("test --remote_cache={}\n".format(token))
     logger.info("Stage [configure] success.")
 
 def mkldnn_build_dir(root=None):

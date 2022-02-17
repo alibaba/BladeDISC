@@ -104,7 +104,8 @@ static inline void* aligned_malloc(int64_t size) {
 }
 
 buffer_shape_t GetShapeFromConstUniqueName(ExecutionContext* ctx,
-                                           const std::string& unique_name);
+                                           const std::string& unique_name,
+                                           int64_t* width_in_bytes);
 
 std::vector<uint8_t> fromHex(const std::string& Input);
 

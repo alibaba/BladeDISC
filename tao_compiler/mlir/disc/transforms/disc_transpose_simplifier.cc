@@ -339,9 +339,7 @@ LogicalResult backwardPermutation(Operation* op, int operandIdx,
     // shape operand does not need transpose.
     if (operandIdx > 0) return success();
     SmallVector<int64_t> bcastDims;
-    if (failed(backwardBcastPermutation(op, perm, operandPerm, bcastDims)))
-      return failure();
-    return success();
+    return backwardBcastPermutation(op, perm, operandPerm, bcastDims);
   }
 
   // unknown ops
@@ -510,7 +508,7 @@ LogicalResult pairMirroredTransposeOps(Block* block, bool& changed) {
   }
   // Early stop if no enough candidate transpose ops.
   int numTransposeOps = transposeOps.size();
-  if (numTransposeOps < 2) success();
+  if (numTransposeOps < 2) return success();
 
   TransposeSimpliferContext ctx(block);
   for (int i = 0; i < numTransposeOps; ++i) {
@@ -763,7 +761,7 @@ LogicalResult reverseIfOperandsAndResultsAreConsistent(Operation* op,
   return success();
 }
 
-LogicalResult reverseBinaryOpsIfBenefitial(Block* block, bool& changed) {
+LogicalResult reverseBinaryOpsIfBeneficial(Block* block, bool& changed) {
   SmallVector<Operation*> ops;
   for (Operation& op : *block) {
     if (op.getDialect() != op.getContext()->getLoadedDialect("mhlo") &&
@@ -827,7 +825,7 @@ LogicalResult TransposeSimplifierPass::runOnBlock(Block* block) {
     }
     if (changed) continue;
 
-    if (failed(reverseBinaryOpsIfBenefitial(block, changed))) {
+    if (failed(reverseBinaryOpsIfBeneficial(block, changed))) {
       LLVM_DEBUG(llvm::dbgs() << "failed to pair mirrored transpose ops");
       return failure();
     }

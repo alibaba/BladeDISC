@@ -79,29 +79,17 @@ struct DiscGpuConvPaddingLegalizationPass
   void InsertPaddingOp(mhlo::DynamicConvOp op) {
     Location loc = op.getLoc();
     OpBuilder b(op);
-    auto shape_scalar_type = padding_tp.getElementType();
-    Value zero = b.create<arith::ConstantIntOp>(loc, 0, shape_scalar_type);
-    Value one = b.create<arith::ConstantIntOp>(loc, 1, shape_scalar_type);
+    Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
+    Type shape_scalar_type = padding_tp.getElementType();
+    if (zero.getType() != shape_scalar_type) {
+      zero = b.create<arith::IndexCastOp>(loc, zero, shape_scalar_type);
+    }
 
-    // We suppose this pass runs after the `dhlo_conv_rewriter` pass, thus we
-    // have:
-    //  - input format: NCHW
-    //  - filter format: OIHW
-    //  - output format: NCHW
-    // TODO(disc): Re-visit this after we have a global layout optimization
-    // pass.
-    //
-    // The first two dimensions are batch & filter and  don't need padding
-    SmallVector<Value, 4> padding_low{zero, zero};
-    SmallVector<Value, 4> padding_high{zero, zero};
-    SmallVector<Value, 4> padding_interior(rank, zero);
-    padding_low.reserve(rank);
-    padding_high.reserve(rank);
     // Original:
     //   output = conv(input, filter, padding)
     // After rewrite:
     //   common_padding, other_padding = calculate_new_padding(...)
-    //   padded_input = d_pad(input, other_padding, ...)
+    //   padded_input = dynamic_pad(input, other_padding, ...)
     //   output = conv(padded_input, filter, common_padding)
     // Where:
     // ```
@@ -114,16 +102,17 @@ struct DiscGpuConvPaddingLegalizationPass
     //    common_padding.append(common_padding_for_this_dim, ...)
     //    other_padding.append((remaining_low_padding, remaining_high_padding))
     // ```
-    SmallVector<Value, 4> new_padding_for_conv;
-    new_padding_for_conv.reserve(num_spatial_dims * 2);
+    SmallVector<Value> other_padding_low;
+    SmallVector<Value> other_padding_high;
+    SmallVector<Value> common_padding;
+    other_padding_low.reserve(num_spatial_dims);
+    other_padding_high.reserve(num_spatial_dims);
+    common_padding.reserve(num_spatial_dims * 2);
     for (int i = 0; i < num_spatial_dims; ++i) {
-      SmallVector<Value, 1> low_indices(
-          1, b.create<arith::ConstantIndexOp>(loc, 2 * i));
-      SmallVector<Value, 1> high_indices(
-          1, b.create<arith::ConstantIndexOp>(loc, 2 * i + 1));
-      Value low_value = b.create<tensor::ExtractOp>(loc, padding, low_indices);
-      Value high_value =
-          b.create<tensor::ExtractOp>(loc, padding, high_indices);
+      Value low_index = b.create<arith::ConstantIndexOp>(loc, 2 * i);
+      Value high_index = b.create<arith::ConstantIndexOp>(loc, 2 * i + 1);
+      Value low_value = b.create<tensor::ExtractOp>(loc, padding, low_index);
+      Value high_value = b.create<tensor::ExtractOp>(loc, padding, high_index);
       Value pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sle,
                                            low_value, high_value);
       Value common_value =
@@ -133,27 +122,38 @@ struct DiscGpuConvPaddingLegalizationPass
       Value remaining_high_value =
           b.create<mlir::arith::SubIOp>(loc, high_value, common_value);
       // same padding value for low & high after rewritering
-      new_padding_for_conv.push_back(common_value);
-      new_padding_for_conv.push_back(common_value);
+      common_padding.push_back(common_value);
+      common_padding.push_back(common_value);
       // remamining paddings are handled by an explicit padding op
-      padding_low.push_back(remaining_low_value);
-      padding_high.push_back(remaining_high_value);
+      other_padding_low.push_back(remaining_low_value);
+      other_padding_high.push_back(remaining_high_value);
     }
-    Value padding_low_tensor =
-        b.create<tensor::FromElementsOp>(loc, ArrayRef<Value>({padding_low}));
-    Value padding_high_tensor =
-        b.create<tensor::FromElementsOp>(loc, ArrayRef<Value>({padding_high}));
-    Value padding_interior_tensor = b.create<tensor::FromElementsOp>(
-        loc, ArrayRef<Value>({padding_interior}));
-    Value new_padding_tensor_for_conv = b.create<tensor::FromElementsOp>(
-        loc, ArrayRef<Value>({new_padding_for_conv}));
 
-    SmallVector<int64_t, 4> padded_input_shape;
-    padded_input_shape.push_back(input_tp.getShape()[0]);
-    padded_input_shape.push_back(input_tp.getShape()[1]);
-    for (int i = 0; i < num_spatial_dims; ++i) {
-      padded_input_shape.push_back(ShapedType::kDynamicSize);
+    // padding values for the new pad op.
+    SmallVector<Value, 4> padding_low(rank, zero);
+    SmallVector<Value, 4> padding_high(rank, zero);
+    SmallVector<Value, 4> padding_interior(rank, zero);
+    auto dimension_numbers = op.dimension_numbers();
+    for (const auto& en :
+         llvm::enumerate(dimension_numbers.getInputSpatialDimensions())) {
+      padding_low[en.value()] = other_padding_low[en.index()];
+      padding_high[en.value()] = other_padding_high[en.index()];
     }
+
+    Value padding_low_tensor =
+        b.create<tensor::FromElementsOp>(loc, padding_low);
+    Value padding_high_tensor =
+        b.create<tensor::FromElementsOp>(loc, padding_high);
+    Value padding_interior_tensor =
+        b.create<tensor::FromElementsOp>(loc, padding_interior);
+    Value new_padding_tensor_for_conv =
+        b.create<tensor::FromElementsOp>(loc, common_padding);
+
+    SmallVector<int64_t> padded_input_shape(rank, ShapedType::kDynamicSize);
+    padded_input_shape[dimension_numbers.getInputBatchDimension()] =
+        input_tp.getShape()[dimension_numbers.getInputBatchDimension()];
+    padded_input_shape[dimension_numbers.getInputFeatureDimension()] =
+        input_tp.getShape()[dimension_numbers.getInputFeatureDimension()];
 
     Value padding_value_tensor = b.create<mhlo::ConstOp>(
         loc, disc_ral::GetScalarOfType(input_tp.getElementType(), 0));

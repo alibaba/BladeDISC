@@ -82,6 +82,11 @@ std::string ReplaceTemplateValue(
                 {"{{OUTPUT_PLACEMENTS}}", output_placements_str}});
 }
 
+uint64_t getNextTestInstanceId() {
+  static uint64_t next_index = 0;
+  return next_index++;
+}
+
 bool feature_test_main(const std::string& mlir_file_path,
                        BackendType backend_type, int num_inputs,
                        int num_outputs,
@@ -105,8 +110,9 @@ bool feature_test_main(const std::string& mlir_file_path,
                           &output_elem_types[i], &output_placement[i]);
   }
   const std::string tmp_dir = tensorflow::testing::TmpDir();
-  const std::string test_name =
+  std::string test_name =
       ::testing::UnitTest::GetInstance()->current_test_info()->name();
+  test_name = absl::StrCat(test_name, "_", getNextTestInstanceId());
 
   if (input_descriptors.size() != num_inputs) {
     LOG(ERROR) << "The size of input_descriptor must be equal to num_inputs";

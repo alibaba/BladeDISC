@@ -1057,22 +1057,25 @@ Status RunCudnnConvolution(CudnnConvParams& params,
     TAO_VLOG(0) << "\tscratch: " << scratch_allocator;
   }
 
+  Status status = Status::OK();
   switch (kind) {
     case ConvolutionKind::FORWARD:
 #if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) || TF_MAJOR_VERSION > 2
       // TF2.9 and later
-      stream->ConvolveWithAlgorithm(
+      status = stream->ConvolveWithAlgorithm(
           kind, input_descriptor, input_buf, filter_descriptor, filter_buf,
           output_descriptor, output_buf, convolution_descriptor,
           scratch_allocator, algorithm, profile_result);
 #elif TF_MAJOR_VERSION > 1
       // TF2.4
-      stream->ConvolveWithAlgorithm(
+      status = stream->ConvolveWithAlgorithm(
           input_descriptor, input_buf, filter_descriptor, filter_buf,
           convolution_descriptor, output_descriptor, &output_buf,
           scratch_allocator, algorithm, profile_result);
 #else
       // TF1.12, TF1.15
+      // Not return status in this kind of API, check the status of stream
+      // instead.
       stream->ThenConvolveWithAlgorithm(
           input_descriptor, input_buf, filter_descriptor, filter_buf,
           convolution_descriptor, output_descriptor, &output_buf,
@@ -1083,6 +1086,7 @@ Status RunCudnnConvolution(CudnnConvParams& params,
       return errors::Internal("Not known CudnnConvKind");
   }
 
+  if (!status.ok()) return status;
   if (!stream->ok()) {
     return errors::Internal("Unable to launch convolution");
   }

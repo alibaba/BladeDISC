@@ -283,6 +283,9 @@ struct DiscConvRewriterPass
     auto transpose_op = b.create<mhlo::TransposeOp>(
         op.getLoc(), transpose_type, value, transpose_permutation_attr);
 
+    if (auto attr = op->getAttr(placement_utils::kDiscPlaceAssignment))
+      transpose_op->setAttr(placement_utils::kDiscPlaceAssignment, attr);
+
     return transpose_op;
   }
 

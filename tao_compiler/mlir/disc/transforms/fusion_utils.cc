@@ -995,6 +995,11 @@ bool BaseCpuFusionStrategy::isFusible(Operation* op) {
     return false;
   }
 
+  if (auto transposeOp = dyn_cast<lmhlo::TransposeOp>(op)) {
+    auto permutation = transposeOp.permutation().getValues<int64_t>();
+    if (*--permutation.end() != permutation.size() - 1) return false;
+  }
+
   // Do not fuse shape computation.
   if (op->getAttr(kDiscShapeCalcAttr) != nullptr) {
     return false;

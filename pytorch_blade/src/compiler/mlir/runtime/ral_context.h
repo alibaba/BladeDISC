@@ -15,7 +15,6 @@
 #include <mutex>
 #include <unordered_map>
 
-#include <tensorflow/compiler/mlir/xla/ral/context/base/cpu/cpu_context_impl.h>
 #include <torch/script.h>
 
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
@@ -31,8 +30,9 @@ using CUDAStream = ::c10::hip::HIPStream;
 #else // TORCH_BLADE_USE_ROCM
 #include <c10/cuda/CUDAStream.h>
 #endif // TORCH_BLADE_USE_ROCM
-#include <tensorflow/compiler/mlir/xla/ral/context/base/cuda/cuda_context_impl.h>
+#include "tensorflow/compiler/mlir/xla/ral/context/base/cuda/cuda_context_impl.h"
 #endif // TORCH_BLADE_BUILD_WITH_CUDA
+#include "tensorflow/compiler/mlir/xla/ral/context/base/cpu/cpu_context_impl.h"
 
 #include "common_utils/macros.h"
 #include "common_utils/tempfs.h"

@@ -1,3 +1,4 @@
+# !/usr/bin/env python3
 # Copyright 2021 The BladeDISC Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -10,12 +11,11 @@
 # limitations under the License.
 
 import subprocess
-import logging
-import sys
 import os
 import shutil
 import re
 from contextlib import contextmanager
+from build_common import logger
 
 GCC_48_BIN_PATH = '/usr/bin'
 GCC_48_LIB_PATH = '/usr/lib64'
@@ -49,59 +49,6 @@ VALID_CUDNN = {
 }
 
 ENV_VAR_TMP_GCC = 'TAO_TMP_GCC'
-
-
-def __create_logger():
-    """Create a logger with color."""
-    # The background is set with 40 plus the number of the color, and the foreground with 30
-    BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE = range(8)
-
-    # These are the sequences need to get colored ouput
-    RESET_SEQ = "\033[0m"
-    COLOR_SEQ = "\033[1;%dm"
-    BOLD_SEQ = "\033[1m"
-
-    COLORS = {
-        'WARNING': YELLOW,
-        'INFO': GREEN,
-        'DEBUG': BLUE,
-        'CRITICAL': YELLOW,
-        'ERROR': RED
-    }
-
-    class ColoredFormatter(logging.Formatter):
-        def __init__(self, msg, use_color=False):
-            logging.Formatter.__init__(self, msg)
-            self.use_color = use_color
-
-        def format(self, record):
-            levelname = record.levelname
-            if self.use_color and levelname in COLORS:
-                levelname_color = COLOR_SEQ % (
-                    30 + COLORS[levelname]) + levelname + RESET_SEQ
-                record.levelname = levelname_color
-            return logging.Formatter.format(self, record)
-
-    class ColoredLogger(logging.Logger):
-        FORMAT = "{}%(asctime)s{} %(levelname)19s %(message)s".format(
-            BOLD_SEQ, RESET_SEQ)
-
-        def __init__(self, name):
-            logging.Logger.__init__(self, name, logging.DEBUG)
-            color_formatter = ColoredFormatter(self.FORMAT,
-                                               use_color=sys.stdout.isatty() and sys.stderr.isatty())
-            console = logging.StreamHandler()
-            console.setFormatter(color_formatter)
-            self.addHandler(console)
-            return
-
-    logging.setLoggerClass(ColoredLogger)
-    logger = logging.getLogger('tao_ci')
-    logger.setLevel(logging.INFO)
-    return logger
-
-
-logger = __create_logger()
 
 
 def execute(cmd):
@@ -149,52 +96,6 @@ def get_tf_gpu_version():
         return "cuda{}_{}".format(vers[0], vers[1])
     else:
         return "cuda{}".format(vers[0])
-
-
-def ensure_empty_dir(dir, clear_hidden=True):
-    """
-    Make sure the given directory exists and is empty.
-    This function will create an empty directory if the directory doesn't exits, 
-    or it will clean all content under the directory. Hidden files and sub
-    direcotries will be deleted if clear_hidden is True.
-    """
-    if not os.path.exists(dir):
-        logger.info("make dir: " + dir)
-        os.makedirs(dir)
-        return
-    logger.info("clear dir: {}, clear hidden files: {}".format(
-        dir, clear_hidden))
-    for filename in os.listdir(dir):
-        if clear_hidden or not filename.startswith("."):
-            file_path = os.path.join(dir, filename)
-            if os.path.isfile(file_path) or os.path.islink(file_path):
-                os.unlink(file_path)
-            else:
-                shutil.rmtree(file_path, ignore_errors=True)
-
-
-def which(cmd):
-    """ Same as `which` command of bash.
-    """
-    from distutils.spawn import find_executable
-    found = find_executable(cmd)
-    if not found:
-        raise Exception("failed to find command: " + cmd)
-    return found
-
-
-@contextmanager
-def cwd(path):
-    """
-    Change the current working directory to `path` to do somthing and then 
-    recover the current cwd when it's done.
-    """
-    old_dir = os.getcwd()
-    os.chdir(path)
-    try:
-        yield
-    finally:
-        os.chdir(old_dir)
 
 @contextmanager
 def default_env(var, default_val):
@@ -283,4 +184,3 @@ def remote_cache_token():
         with open(fn) as f:
             return str(f.read()).strip()
     return None
-

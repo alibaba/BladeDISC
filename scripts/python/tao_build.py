@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Copyright 2021 The BladeDISC Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,16 +28,27 @@ import time
 import fnmatch
 from datetime import datetime
 
+from build_common import (
+    StageTiming,
+    stage_time,
+    time_stage,
+    build_mkldnn,
+    config_mkldnn,
+    mkl_install_dir,
+    symlink_files,
+    ensure_empty_dir,
+    cwd,
+    get_source_root_dir,
+    logger,
+    which,
+)
+
 from tao_common import (
     VALID_GCC,
-    logger,
-    execute,
     git_branch,
     git_head,
     get_tf_gpu_version,
-    ensure_empty_dir,
-    which,
-    cwd,
+    execute,
     default_env,
     gcc_env,
     overwrite_file,
@@ -47,70 +58,6 @@ from tao_common import (
 )
 
 PYTHON_BIN_NAME = os.getenv("PYTHON", "python")
-
-
-class StageTiming:
-    def __init__(self):
-        self.durs = []
-        self.log_file = "/tmp/tao_build.log"
-
-    def report(self):
-        if len(self.durs) == 0:
-            return
-        lines = []
-        # load previous info from file
-        if os.path.exists(self.log_file):
-            lines += open(self.log_file, "r").read().splitlines()
-        for name, sec, ts in self.durs:
-            lines.append("{}: {} - {:.2f} minutes".format(ts, name, sec * 1.0 / 60))
-        # logger.info("****** Stage timing report: ******\n{}".format("\n".join(lines)))
-        # logger.info("**********************************")
-        # save to file
-        with open(self.log_file, "w") as of:
-            of.write("\n".join(lines))
-
-    def append(self, name, secs):
-        self.durs.append((name, secs, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
-
-
-stage_time = StageTiming()
-
-
-def time_stage(incl_args=[], incl_kwargs=[]):
-    def time_stage_impl(entry):
-        def wrapper(*args, **kwargs):
-            start = time.time()
-            try:
-                ret = entry(*args, **kwargs)
-            except Exception:
-                logger.exception("{} failed on exception".format(entry.__name__))
-                raise Exception("run error")
-            finally:
-                end = time.time()
-                name = entry.__name__
-                if len(incl_args) > 0 or len(incl_kwargs) > 0:
-                    name += "("
-                    for idx in incl_args:
-                        name += args[idx] + ","
-                    for k in incl_kwargs:
-                        name += kwargs[k] + ","
-                    name = name[:-1] + ")"
-                stage_time.append(name, end - start)
-            return ret
-
-        return wrapper
-
-    return time_stage_impl
-
-
-def script_dir():
-    return os.path.dirname(os.path.abspath(__file__))
-
-
-def get_source_root_dir():
-    root = os.path.join(script_dir(), os.pardir, os.pardir)
-    return os.path.abspath(root)
-
 
 def get_version_file(root=None):
     if root is None:
@@ -185,24 +132,7 @@ def restore_gcc_conf(args):
             setattr(args, k, v)
 
 def configure_compiler(root, args):
-    with cwd(root):
-        logger.info("configuring tao_compiler ......")
-        # map compiler codes into tf tree for build
-        with open("tao_compiler/file_map") as fh:
-            for line in fh:
-                if line.startswith("#") or line.strip() == "":
-                    continue
-                info = line.strip().split(",")
-                if len(info) != 2:
-                    continue
-                src_file = os.path.join(root, "tao_compiler", info[0])
-                link_in_tf = os.path.join("tf_community", info[1])
-                dst_folder = os.path.dirname(link_in_tf)
-                if not os.path.exists(dst_folder):
-                    os.makedirs(dst_folder)
-                execute("rm -rf {0} && ln -s {1} {0}".format(link_in_tf, src_file))
-        logger.info("linking ./tao to tf_community/tao")
-        execute("rm -rf {0} && ln -s {1} {0}".format(os.path.join('tf_community', 'tao'), os.path.join(root, 'tao')))
+    symlink_files(root)
 
     # configure tensorflow
     with cwd(tf_root_dir()), gcc_env(args.compiler_gcc):
@@ -226,46 +156,6 @@ def configure_compiler(root, args):
                 f.write("build --remote_cache={}\n".format(token))
                 f.write("test --remote_cache={}\n".format(token))
     logger.info("Stage [configure] success.")
-
-def mkldnn_build_dir(root=None):
-    if root is None:
-        root = get_source_root_dir()
-    return os.path.join(root, "tao", "third_party", "mkldnn", "build")
-
-def mkl_install_dir(root):
-    return os.path.join(mkldnn_build_dir(root), "intel")
-
-def config_mkldnn(root, args):
-    build_dir = mkldnn_build_dir(root)
-    ensure_empty_dir(build_dir, clear_hidden=False)
-    mkl_dir = mkl_install_dir(root)
-    ensure_empty_dir(mkl_dir, clear_hidden=False)
-    # download mkl-lib/include
-    with cwd(mkl_dir):
-        download_cmd = '''
-          unset HTTPS_PROXY
-          curl -fsSL https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-static-2022.0.1-intel_117.tar.bz2  | tar xjv
-          curl -fsSL https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-include-2022.0.1-h8d4b97c_803.tar.bz2 | tar xjv
-        '''
-        execute(download_cmd)
-    with cwd(build_dir), gcc_env(args.bridge_gcc):
-        cc = which("gcc")
-        cxx = which("g++")
-        # always link patine statically
-        cmake_cmd = "CC={} CXX={} cmake .. -DMKL_ROOT={}".format(cc, cxx, mkl_dir)
-        if args.ral_cxx11_abi:
-            cmake_cmd += " -DUSE_CXX11_ABI=ON"
-        logger.info("configuring mkldnn ......")
-        execute(cmake_cmd)
-        logger.info("mkldnn configure success.")
-
-@time_stage()
-def build_mkldnn(root, args):
-    build_dir = mkldnn_build_dir(root)
-    with cwd(build_dir), gcc_env(args.bridge_gcc):
-        execute("make -j")
-        execute("make install")
-    logger.info("Stage [build_mkldnn] success.")
 
 @time_stage()
 def configure_pytorch(root, args):
@@ -412,51 +302,43 @@ def build_tao_compiler(root, args):
 
 @time_stage()
 def build_mlir_ral(root, args):
-    BAZEL_BUILD_CMD = "bazel build --experimental_multi_threaded_digest --define framework_shared_object=false"
+    configs = ['--config=cxx11abi_{}'.format(int(args.ral_cxx11_abi))]
     if not args.cpu_only:
         if args.dcu:
-            BAZEL_BUILD_CMD = BAZEL_BUILD_CMD + " --config=dcu"
+            configs.append('--config=disc_dcu')
         else:
-            BAZEL_BUILD_CMD = BAZEL_BUILD_CMD + " --config=cuda"
+            configs.append('--config=disc_cuda')
     else:
-        BAZEL_BUILD_CMD = BAZEL_BUILD_CMD + " --config=release_cpu_linux"
+        configs.append('--config=disc_cpu')
 
-    BAZEL_BUILD_CMD += ci_build_flag()
+    if args.enable_blaze_opt:
+        configs.append('--config=disc_blaze')
+
+    if args.enable_mkldnn:
+        configs.append('--config=disc_mkldnn')
+
+    if running_on_ci():
+        configs.append('--config=ci_build')
+
+    BAZEL_BUILD_CMD = "bazel build --experimental_multi_threaded_digest --define framework_shared_object=false"
+    BAZEL_BUILD_CMD = BAZEL_BUILD_CMD + " ".join(configs)
 
     TARGET_RAL_STANDALONE_LIB = "//tensorflow/compiler/mlir/xla/ral:libral_base_context.so"
     TARGET_DHLO_COMPILER_MAIN = "//tensorflow/compiler/mlir/disc:disc_compiler_main"
     TARGET_MLIR_DISC_BUILDER = "//tensorflow/compiler/mlir/disc:mlir_disc_builder.so"
     TARGET_MLIR_DISC_BUILDER_HEADER = "//tensorflow/compiler/mlir/disc:install_mlir_disc_headers"
-    PRE_CXX11_ABI_FLAG = "--cxxopt=-D_GLIBCXX_USE_CXX11_ABI=0"
-    CXX11_ABI_FLAG = "--cxxopt=-D_GLIBCXX_USE_CXX11_ABI=1"
 
     def bazel_build(target, flag=""):
         logger.info("Building bazel target: " + target)
         execute(" ".join([BAZEL_BUILD_CMD, flag, target]))
 
+    flag = ""
     with cwd(tf_root_dir(root)), gcc_env(args.bridge_gcc):
-        if args.ral_cxx11_abi:
-            flag = CXX11_ABI_FLAG
-        else:
-            flag = PRE_CXX11_ABI_FLAG
-        if args.cpu_only:
-            flag = flag + " --cxxopt=-DTAO_CPU_ONLY"
-        if args.enable_blaze_opt:
-            flag = flag + ' --cxxopt="-DBLAZE_OPT"'
-        if args.enable_mkldnn:
-            flag += ' --cxxopt="-DTAO_ENABLE_MKLDNN" --define is_mkldnn=true'
         bazel_build(TARGET_RAL_STANDALONE_LIB, flag=flag)
         bazel_build(TARGET_MLIR_DISC_BUILDER, flag=flag)
         bazel_build(TARGET_MLIR_DISC_BUILDER_HEADER, flag=flag)
 
     with cwd(tf_root_dir(root)), gcc_env(args.compiler_gcc):
-        flag = ""
-        if args.cpu_only:
-            flag = flag + " --cxxopt=-DTAO_CPU_ONLY"
-        if args.enable_blaze_opt:
-            flag = flag + ' --cxxopt="-DBLAZE_OPT"'
-        if args.enable_mkldnn:
-            flag += ' --cxxopt="-DTAO_ENABLE_MKLDNN" --define is_mkldnn=true'
         if not args.cpu_only:
             # A workaround for a bug of gcc<=7.3 since devtoolset-7 supports up to 7.3.1
             # and cuda-10 runtime cannot support devtools-8 for now.
@@ -854,7 +736,8 @@ def main():
 
     if stage in ["all", "configure", "configure_pytorch"]:
         if args.enable_mkldnn:
-            config_mkldnn(root, args)
+            with gcc_env(args.bridge_gcc):
+                config_mkldnn(root, args.ral_cxx11_abi)
         if stage == "configure_pytorch":
             configure_pytorch(root, args)
         else:
@@ -873,7 +756,8 @@ def main():
         and not args.no_build_for_test
     ):
         if args.enable_mkldnn:
-            build_mkldnn(root, args)
+            with gcc_env(args.bridge_gcc):
+                build_mkldnn(root)
         if stage == "build_mlir_ral":
             build_mlir_ral(root, args)
         else:

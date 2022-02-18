@@ -22,6 +22,7 @@ load("//tensorflow/compiler/mlir/disc:disc.bzl",
      "disc_cc_library",
      "if_cuda_or_rocm",
 )
+
 config_setting(
     name = "is_platform_alibaba",
     define_values = {"is_platform_alibaba": "true"},
@@ -245,6 +246,7 @@ cc_library(
     deps = [
         "//tensorflow/compiler/mlir/hlo:hlo",
         "//tensorflow/compiler/mlir/hlo:lhlo",
+        "//tensorflow/compiler/mlir/hlo:map_hlo_to_lhlo_op",
         ":mhlo_disc",
         ":lmhlo_disc",
         "@llvm-project//mlir:IR",
@@ -1638,6 +1640,7 @@ cc_library(
         "@llvm-project//mlir:Transforms",
         "@llvm-project//mlir:ViewLikeInterface",
     ],
+    visibility = ["//visibility:public"],
     alwayslink = 1,
 )
 
@@ -1674,6 +1677,7 @@ cc_library(
     ],
     deps = [
         ":lmhlo_disc_ops_inc_gen",
+        "//tensorflow/compiler/mlir/hlo:lhlo",
         "//tensorflow/compiler/mlir/hlo:lhlo_ops_structs_inc_gen",
         "//tensorflow/compiler/mlir/hlo:lhlo_structured_interface",
         "@llvm-project//llvm:Support",
@@ -1744,7 +1748,8 @@ tf_cc_shared_object(
         ":rng_uniform_custom_call",
         ":topk_custom_call",
         "//tensorflow/compiler/mlir/hlo:hlo",
-    ]
+    ],
+    visibility = ["//visibility:public"],
 )
 
 cc_library(
@@ -1753,6 +1758,7 @@ cc_library(
     deps = [
         "//tensorflow/compiler/mlir/hlo:hlo",
     ],
+    visibility = ["//visibility:public"],
 )
 
 transitive_hdrs(
@@ -1761,6 +1767,7 @@ transitive_hdrs(
         ":disc_map_chlo_to_hlo_op",
         ":mhlo_disc",
         "//tensorflow/compiler/mlir/hlo:hlo",
+        "//tensorflow/compiler/mlir/hlo:lhlo",
         "//tensorflow/compiler/mlir/xla/ral:ral_base_cpu_context_impl",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Support",
@@ -1787,6 +1794,12 @@ genrule(
     done
     """,
     tags = ["manual"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "mlir_disc_headers_lib",
+    hdrs = [":mlir_disc_headers"],
     visibility = ["//visibility:public"],
 )
 

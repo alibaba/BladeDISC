@@ -3,3 +3,8 @@
 *.pyc
 platform_alibaba/ci_build/tao_dev_with_venv.Dockerfile
 .vscode
+pytorch_blade/src/common_utils/version.h
+pytorch_blade/.torch_env_workspace.bzl
+pytorch_blade/torch_blade/version.py
+pytorch_blade/version.txt
+scripts/ci/.tao_ci_conf

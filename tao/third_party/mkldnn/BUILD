@@ -1,3 +1,7 @@
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["build"])
+
 cc_library(
     name = "onednn",
     hdrs = glob([
@@ -8,5 +12,7 @@ cc_library(
         "build/install/include",
         "build/intel/include",
     ],
+    #deps = [":dnnl_static",],
     visibility = ["//visibility:public"],
 )
+

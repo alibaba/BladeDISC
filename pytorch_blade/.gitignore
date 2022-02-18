@@ -26,3 +26,7 @@ src/common/version.h
 /aicompiler_venv/
 /aicompiler_venv_cpu/
 pytorch_blade/disc_compiler_main
+bazel-bin
+bazel-out
+bazel-pytorch_blade
+bazel-testlogs

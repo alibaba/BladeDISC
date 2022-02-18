@@ -1,0 +1,12 @@
+build:ci_build --noshow_loading_progress --show_progress_rate_limit=600
+
+build:disc --define framework_shared_object=false --experimental_multi_threaded_digest
+build:disc_cpu --config=disc --config=release_cpu_linux --cxxopt=-DTAO_CPU_ONLY
+build:disc_cuda --config=disc --config=cuda
+build:disc_dcu --config=disc --config=dcu
+
+build:disc_mkldnn --cxxopt=-DTAO_ENABLE_MKLDNN --define is_mkldnn=true
+build:disc_blaze --cxxopt=-DBLAZE_OPT
+
+build:cxx11abi_0 --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=0
+build:cxx11abi_1 --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=1

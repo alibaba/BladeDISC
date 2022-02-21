@@ -39,6 +39,11 @@ cp tao/build/libtao_ops.so ${BLADE_DISC_DIR}
 cp tf_community/bazel-bin/tensorflow/compiler/decoupling/tao_compiler_main ${BLADE_DISC_DIR}
 
 # test and build blade-disc-tf Python package
+if [[ ! -z "$CPU_ONLY" ]]; then
+  # set BLADE_DISC_CPU to tell setup.py
+  export BLADE_DISC_BUILT_CPU=true
+fi
+
 (cd tao && \
   ${VENV_PATH}/bin/pytest --pyargs python
   ${VENV_PATH}/bin/python setup.py bdist_wheel)

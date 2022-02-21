@@ -1,6 +1,9 @@
 ARG BASEIMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
 FROM ${BASEIMAGE}
 
+ARG BLADE_DISC_BUILT_CPU=""
+ENV BLADE_DISC_BUILT_CPU="${BLADE_DISC_BUILT_CPU}"
+
 COPY docker/scripts /install/scripts
 
 RUN bash /install/scripts/find-fastest-apt.sh && \

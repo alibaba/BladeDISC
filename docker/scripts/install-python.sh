@@ -33,8 +33,7 @@ function install_tf115_cpu() {
 function install_venv() {
   python3 -m virtualenv ${DISC_VENV}
   source ${DISC_VENV}/bin/activate
-  if [[ "$CUDA_VERSION" == "" ]]; then
-    # CPU Docker image
+  if [[ ! -z "${BLADE_DISC_BUILT_CPU}" ]]; then
     install_tf115_cpu
   elif [[ "$CUDA_VERSION" == 10.0.* ]]; then
     # CUDA10 Docker image

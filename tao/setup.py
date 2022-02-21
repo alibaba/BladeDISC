@@ -34,10 +34,16 @@ def cuda_version():
     return os.environ["CUDA_VERSION"]
 
 
+def is_cpu_only():
+    if os.environ["BLADE_DISC_BUILT_CPU"]:
+        return True
+    return False
+
+
 def tensorflow_package():
+    if is_cpu_only():
+        return "tensorflow==1.15"
     cuda = cuda_version()
-    if not cuda:
-        return "tensorflow==2.4"
     if cuda.startswith("10.0"):
         return "tensorflow-gpu==1.15"
     elif cuda.startswith("11.0"):

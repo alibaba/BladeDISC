@@ -47,8 +47,7 @@ class BazelBuild(TorchBladeBuild):
             self.test_suite,
         ]
 
-        self.shell_setting = "set -e; set -o pipefail; "
-        self.configs = []
+        torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]
         self.copts = [
             # PyTorch cmake args
             "--copt=-DPYTORCH_VERSION_STRING=" + self.torch_version,
@@ -58,6 +57,7 @@ class BazelBuild(TorchBladeBuild):
             "--copt=-DTORCH_BLADE_CUDA_VERSION={}".format(self.cuda_version),
         ]
 
+        self.configs = []
         if self.is_debug:
             self.configs.append("--config=dbg")
 
@@ -66,6 +66,7 @@ class BazelBuild(TorchBladeBuild):
         else:
             self.configs += ["--config=torch_disc_cpu"]
 
+        self.shell_setting = "set -e; set -o pipefail; "
         # Workaround: this venv ensure that $(/usr/bin/env python) is evaluated to python3
         venv.create("bazel_pyenv")
         self.build_cmd = "source bazel_pyenv/bin/activate; bazel build --experimental_repo_remote_exec"

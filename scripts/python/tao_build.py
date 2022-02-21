@@ -903,7 +903,6 @@ if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        raise e
     finally:
         stage_time.report()

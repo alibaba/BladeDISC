@@ -954,7 +954,7 @@ Status MarkForCompilationPassImpl::CreateClusters() {
       string& name = cluster_names[cluster->cycles_graph_node_id()];
 
       if (name.empty()) {
-        name = absl::StrCat("cluster_", GetNextClusterSequenceNumber());
+        name = absl::StrCat("tao_cluster_", GetNextClusterSequenceNumber());
       }
 
       n->AddAttr(kXlaClusterAttr, name);

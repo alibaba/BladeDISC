@@ -42,7 +42,7 @@ def is_cpu_only():
 
 def tensorflow_package():
     if is_cpu_only():
-        return "tensorflow==1.15"
+        return "tensorflow==1.15.5"
     cuda = cuda_version()
     if cuda.startswith("10.0"):
         return "tensorflow-gpu==1.15"
@@ -59,7 +59,7 @@ def tensorflow_package():
 def format_package_name():
     tf = tensorflow_package()
     tf_short = "-tf{}".format("".join(tf.split("==")[1].split(".")))
-    gpu = "-gpu" if cuda_version() else ""
+    gpu = "-gpu" if not is_cpu_only() else ""
     return "{}{}{}".format(NAME_PREFIX, gpu, tf_short)
 
 

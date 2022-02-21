@@ -26,8 +26,8 @@ function install_tf24() {
 }
 
 function install_tf115_cpu() {
-  # install virtualenv: Python3+TensorFlow 1.15
-  pip install -q tensorflow==1.15
+  # install virtualenv: Python3+TensorFlow 1.15.5
+  pip install -q tensorflow==1.15.5
 }
 
 function install_venv() {

@@ -47,9 +47,12 @@ class TorchBladeExtension(Extension):
         Extension.__init__(self, name, sources=[])
         self.sourcedir = os.path.abspath(sourcedir)
 
+if '--cmake' in sys.argv:
+  BuildClass = cmake_build.CMakeBuild
+else:
+  BuildClass = bazel_build.BazelBuild
 
-#build = cmake_build.CMakeBuild(
-build = bazel_build.BazelBuild(
+build = BuildClass(
     os.path.dirname(torch.__file__),
     torch.version.__version__,
     cuda_version=torch.version.cuda,
@@ -96,7 +99,7 @@ class TestCommand(Command):
 
     def _run(self, command):
         try:
-            subprocess.check_call(command, shell=True)
+            subprocess.check_call(command, shell=True, executable="/bin/bash")
         except subprocess.CalledProcessError as error:
             print("Command failed with exit code", error.returncode)
             sys.exit(error.returncode)

@@ -49,7 +49,14 @@ class BazelBuild(TorchBladeBuild):
 
         self.shell_setting = "set -e; set -o pipefail; "
         self.configs = []
-        self.copts = []
+        self.copts = [
+            # PyTorch cmake args
+            "--copt=-DPYTORCH_VERSION_STRING=" + self.torch_version,
+            "--copt=-DPYTORCH_MAJOR_VERSION=" + torch_major_version,
+            "--copt=-DPYTORCH_MINOR_VERSION=" + torch_minor_version,
+            "--copt=-DTORCH_BLADE_USE_CXX11_ABI={}".format(self.GLIBCXX_USE_CXX11_ABI),
+            "--copt=-DTORCH_BLADE_CUDA_VERSION={}".format(self.cuda_version),
+        ]
 
         if self.is_debug:
             self.configs.append("--config=dbg")
@@ -59,8 +66,9 @@ class BazelBuild(TorchBladeBuild):
         else:
             self.configs += ["--config=torch_disc_cpu"]
 
+        # Workaround: this venv ensure that $(/usr/bin/env python) is evaluated to python3
         venv.create("bazel_pyenv")
-        self.build_cmd = "source bazel_pyenv/bin/activate; bazel build --experimental_repo_remote_exec -s"
+        self.build_cmd = "source bazel_pyenv/bin/activate; bazel build --experimental_repo_remote_exec"
         self.test_cmd = "source bazel_pyenv/bin/activate; bazel test --experimental_repo_remote_exec"
 
     def run(self, extdir=None, srcdir=None, build_temp=None):
@@ -81,8 +89,8 @@ class BazelBuild(TorchBladeBuild):
             + self.targets
         )
         subprocess.check_call(
-            bazel_cmd, shell=True, env=env
-        )  # executable=sys.executable)
+            bazel_cmd, shell=True, env=env, executable="/bin/bash"
+        )
 
         ext_so_fpath = "src/_torch_blade.so"
         ral_so_fpath = "external/org_tensorflow/tensorflow/compiler/mlir/xla/ral/libral_base_context.so"
@@ -105,7 +113,7 @@ class BazelBuild(TorchBladeBuild):
             + self.configs
             + [self.test_suite]
         )
-        subprocess.check_call(test_cmd, shell=True, env=env)
+        subprocess.check_call(test_cmd, shell=True, env=env, executable="/bin/bash")
 
 
 if __name__ == "__main__":

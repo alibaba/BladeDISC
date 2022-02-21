@@ -2542,7 +2542,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "RandomUniform", "ReluGrad", "Square",
-                      "Pad", "DynamicStitch", "LeakyRelu"
+                      "Pad", "DynamicStitch", "LeakyRelu", "Erf"
 #else
                       "MatMul", "BatchMatMul", "Conv2D",
                       "Abs", "LessEqual", "Maximum", "Minimum","Sign",
@@ -2560,7 +2560,8 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "LogSoftmax", "Reciprocal",
-                      "RandomUniform", "ReluGrad", "Square", "Pad", "DynamicStitch", "LeakyRelu"
+                      "RandomUniform", "ReluGrad", "Square", "Pad", "DynamicStitch", "LeakyRelu",
+                      "Erf"
 #endif
                     })
                 :
@@ -2582,7 +2583,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "Size", "RandomUniform", "Square",
-                      "Pad", "DynamicStitch", "LeakyRelu"
+                      "Pad", "DynamicStitch", "LeakyRelu", "Erf"
 #else
                       "MatMul", "BatchMatMul", "Conv2D",
                       "Abs", "LessEqual", "Maximum", "Minimum","Sign",
@@ -2600,7 +2601,8 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "LogSoftmax", "Reciprocal", "Size",
-                      "Conv2D", "RandomUniform", "Square", "Pad", "DynamicStitch", "LeakyRelu"
+                      "Conv2D", "RandomUniform", "Square", "Pad", "DynamicStitch", "LeakyRelu",
+                      "Erf"
 #endif
                     })
             )

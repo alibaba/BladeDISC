@@ -58,8 +58,8 @@ LogicalResult ReinterpretCastOpConverter::matchAndRewrite(
 
 struct DiscMemrefCanonicalizer
     : DiscMemrefCanonicalizerBase<DiscMemrefCanonicalizer> {
-  void runOnFunction() override {
-    FuncOp func = getFunction();
+  void runOnOperation() override {
+    FuncOp func = getOperation();
     MLIRContext* ctx = func.getContext();
 
     // Populate patterns.
@@ -71,7 +71,7 @@ struct DiscMemrefCanonicalizer
 
 }  // namespace
 
-std::unique_ptr<FunctionPass> createDiscMemrefCanonicalizerPass() {
+std::unique_ptr<OperationPass<FuncOp>> createDiscMemrefCanonicalizerPass() {
   return std::make_unique<DiscMemrefCanonicalizer>();
 }
 

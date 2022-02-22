@@ -210,7 +210,7 @@ void cloneRegionAndRemapLoad(Region* src, Region* dest,
       // argument to the cloned block.
       for (auto arg : block.getArguments()) {
         if (!mapper.contains(arg))
-          mapper.map(arg, newBlock->addArgument(arg.getType()));
+          mapper.map(arg, newBlock->addArgument(arg.getType(), arg.getLoc()));
       }
       // Clone and remap the operations within this block.
       for (auto& op : block) {
@@ -357,7 +357,7 @@ gpu::LaunchFuncOp expandMemRef(gpu::LaunchFuncOp launch_func_op, Value memref,
 
 void convertWorkgroupBuffer(gpu::GPUFuncOp gpu_func_op, AllocOp alloc) {
   auto memref_type = alloc.getResult().getType().cast<MemRefType>();
-  auto buffer = gpu_func_op.addWorkgroupAttribution(memref_type);
+  auto buffer = gpu_func_op.addWorkgroupAttribution(memref_type, alloc.getLoc());
   alloc.replaceAllUsesWith(buffer);
   alloc.erase();
 }

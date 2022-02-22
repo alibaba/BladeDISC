@@ -36,9 +36,6 @@ class GPUModuleOp;
 
 namespace disc_ral {
 
-std::unique_ptr<OperationPass<ModuleOp>> createDiscInjectExecutionContextPass(
-    const std::string& entry_func_name = "main");
-
 // Lower disc to llvm dialect
 std::unique_ptr<OperationPass<ModuleOp>> createDiscToLLVMPass();
 
@@ -78,15 +75,15 @@ std::unique_ptr<OperationPass<FuncOp>> createDiscElementTypeConverterPass(
 // Greedily maps loops to GPU hardware dimensions.
 // TODO: this pass is only a wrapper to mlir func, copied from
 // tools/kernel_gen/transforms Should consider of adding this pass to mlir repo.
-std::unique_ptr<mlir::FunctionPass> createMapParallelLoopsPass();
+std::unique_ptr<OperationPass<FuncOp>> createMapParallelLoopsPass();
 
 // Collapses ParallelsOp into 1-D.
-std::unique_ptr<mlir::FunctionPass> createDiscParallelLoopCollapsingPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscParallelLoopCollapsingPass();
 
 // This pass is a revision to the pass in MLIR repo.
 // The PR is on reviewing at https://reviews.llvm.org/D105455?id=356595
 // TODO: remove this pass when the PR is merged.
-std::unique_ptr<mlir::FunctionPass> createParallelLoopTilingPass(
+std::unique_ptr<OperationPass<FuncOp>> createParallelLoopTilingPass(
     llvm::ArrayRef<int64_t> tileSize = {}, bool withInboundCheck = false);
 
 // Fuse lmhlo ops to kLoop/kInput fusion patterns
@@ -107,7 +104,7 @@ std::unique_ptr<OperationPass<ModuleOp>> createPlacerPass(bool on_gpu = true);
 std::unique_ptr<OperationPass<ModuleOp>> createReviseGpuKernelOutliningPass();
 
 // Lower some specific ops to library calls (modeled by `disc_ral.launch` op).
-std::unique_ptr<mlir::FunctionPass> createDiscLowerToLibraryCallPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscLowerToLibraryCallPass();
 
 // Assign memory space tag for each memref type.
 std::unique_ptr<OperationPass<ModuleOp>> createDiscAssignMemorySpacePass(
@@ -119,35 +116,35 @@ std::unique_ptr<OperationPass<gpu::GPUModuleOp>> CreateDiscGpuKernelToBlobPass(
     mlir::StringRef blob_annotation = "gpu.binary");
 
 // convert shape ops to std dialect
-std::unique_ptr<mlir::FunctionPass> createDiscConvertShapeToStandardPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscConvertShapeToStandardPass();
 
 // convert tensor ops to std dialect
-std::unique_ptr<mlir::FunctionPass> createDiscConvertTensorToStandardPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscConvertTensorToStandardPass();
 
 // Fuse the rest of the lmhlo nodes into the parallel loops after the roots
 // has been expanded into loops in LhloLegalizeRootsToParallelLoops
-std::unique_ptr<FunctionPass> createDiscInputInlineFusionPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscInputInlineFusionPass();
 
 // Remove all shape constraint ops.
-std::unique_ptr<mlir::FunctionPass> createDiscRemoveShapeConstraintsPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscRemoveShapeConstraintsPass();
 
 // Convert some hlo ops that are used to do shape computation to std dialect.
-std::unique_ptr<mlir::FunctionPass> createDiscConvertHloToStandardPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscConvertHloToStandardPass();
 
 // Bufferize std tensor constant.
-std::unique_ptr<mlir::FunctionPass> createDiscStdBufferizePass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscStdBufferizePass();
 
 // CSE of memref.load specific for DISC.
-std::unique_ptr<FunctionPass> createDiscMemRefCSEPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscMemRefCSEPass();
 
 // Simplifier of memref.load/store specific for DISC.
-std::unique_ptr<FunctionPass> createDiscMemRefLoadStoreSimplifierPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscMemRefLoadStoreSimplifierPass();
 
 // Lowering some tensorflow ops.
 std::unique_ptr<OperationPass<FuncOp>> createDiscLowerTfPass();
 
 // A pass to remove buffers that are not accessed by others
-std::unique_ptr<FunctionPass> createDiscRemoveDeadBufferPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscRemoveDeadBufferPass();
 
 // Assign a meaningful name to each gpu kernel.
 std::unique_ptr<OperationPass<ModuleOp>> createDiscAssignKernelNamePass();
@@ -169,10 +166,10 @@ std::unique_ptr<OperationPass<ModuleOp>> createDiscShapeSimplifierPass(
     const std::string& entry_func_name = "main", bool insert_tie_shape = false);
 
 // Using approximation impl for some special math ops.
-std::unique_ptr<FunctionPass> createDiscMathApproximationPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscMathApproximationPass();
 
 // Flatten memref access to its 1D format.
-std::unique_ptr<FunctionPass> createDiscFlattenMemrefAccessPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscFlattenMemrefAccessPass();
 
 // A canonicalizer with whitelist/blacklist support.
 std::unique_ptr<Pass> createDiscCanonicalizerPass(
@@ -180,19 +177,26 @@ std::unique_ptr<Pass> createDiscCanonicalizerPass(
     const SmallVector<std::string>& enabledPatterns = {});
 
 // Do some memref-related cleanup.
-std::unique_ptr<FunctionPass> createDiscMemrefCanonicalizerPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscMemrefCanonicalizerPass();
 
 // outline each cpu kernel to a dedicated function
 std::unique_ptr<OperationPass<ModuleOp>> createDiscOutlineCpuKernelPass();
 
 // assign a parallel schedule for each parallel op on cpu
-std::unique_ptr<FunctionPass> createDiscCpuMapParallelLoopPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscCpuMapParallelLoopPass();
 
 // lowering kStitch fusion pattern to parallel loops.
 std::unique_ptr<OperationPass<FuncOp>> createDiscStitchFusionPass();
 
 // Remove some redundant transpose ops.
 std::unique_ptr<OperationPass<FuncOp>> createTransposeSimplifierPass();
+
+// Inject disc_ral context into the entry function.
+std::unique_ptr<OperationPass<ModuleOp>> createRalInjectExecutionContextPass(
+    const std::string& entry_func_name = "main");
+
+// inline lmhlo.Fusion
+std::unique_ptr<OperationPass<FuncOp>> createLhloFusionInlinerPass();
 
 }  // namespace disc_ral
 }  // namespace mlir

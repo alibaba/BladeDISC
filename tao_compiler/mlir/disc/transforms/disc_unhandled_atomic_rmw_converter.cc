@@ -50,15 +50,15 @@ struct UnhandledAtomicRMWConverter
     }
 
     Location loc = op.getLoc();
-    GenericAtomicRMWOp genericOp =
-        rewriter.create<GenericAtomicRMWOp>(loc, op.memref(), op.indices());
+    memref::GenericAtomicRMWOp genericOp =
+        rewriter.create<memref::GenericAtomicRMWOp>(loc, op.memref(), op.indices());
     OpBuilder bodyBuilder =
         OpBuilder::atBlockEnd(genericOp.getBody(), rewriter.getListener());
 
     Value lhs = genericOp.getCurrentValue();
     Value rhs = op.value();
     Value reductionOp = getReductionOp(op.kind(), bodyBuilder, loc, lhs, rhs);
-    bodyBuilder.create<AtomicYieldOp>(loc, reductionOp);
+    bodyBuilder.create<memref::AtomicYieldOp>(loc, reductionOp);
 
     rewriter.replaceOp(op, genericOp.getResult());
     return success();
@@ -68,13 +68,13 @@ struct UnhandledAtomicRMWConverter
 struct UnhandledAtomicRMWConverterPass
     : public UnhandledAtomicRMWConverterPassBase<
           UnhandledAtomicRMWConverterPass> {
-  void runOnFunction() override {
+  void runOnOperation() override {
     MLIRContext& ctx = getContext();
 
     RewritePatternSet patterns(&ctx);
     patterns.add<UnhandledAtomicRMWConverter>(&ctx);
 
-    if (failed(mlir::applyPatternsAndFoldGreedily(getFunction(),
+    if (failed(mlir::applyPatternsAndFoldGreedily(getOperation(),
                                                   std::move(patterns)))) {
       signalPassFailure();
     }

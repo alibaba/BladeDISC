@@ -29,12 +29,12 @@ def HLODISC_Dialect : Dialect {
   let cppNamespace = "::mlir::mhlo_disc";
 }
 
-class HLODISC_Op<string mnemonic, list<OpTrait> traits> :
+class HLODISC_Op<string mnemonic, list<Trait> traits> :
     Op<HLODISC_Dialect, mnemonic, traits> {
   let verifier = [{ return Verify(*this); }];
 }
 
-class HLODISC_ShapedInterfaceOp<string mnemonic, list<OpTrait> traits> :
+class HLODISC_ShapedInterfaceOp<string mnemonic, list<Trait> traits> :
     HLODISC_Op<mnemonic, traits # [DeclareOpInterfaceMethods<InferShapedTypeOpInterface,
     ["reifyReturnTypeShapes"]>]> {
 }

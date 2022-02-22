@@ -43,9 +43,10 @@ static void BuildReduceBody(Type element_type, Region* body,
 
   // Block arguments are scalars of the given element type.
   RankedTensorType type = RankedTensorType::get(/*shape=*/{}, element_type);
-  block->addArguments({type, type});
-
   Location loc = body->getLoc();
+  block->addArgument(type, loc);
+  block->addArgument(type, loc);
+
   Op reducer =
       builder->create<Op>(loc, block->getArgument(0), block->getArgument(1));
   builder->create<mhlo::ReturnOp>(loc, reducer.getResult());
@@ -198,10 +199,10 @@ struct ElementTypeConverterPass
     this->enable_fp16_gemm_ = enable_fp16_gemm;
   }
 
-  void runOnFunction() override {
-    auto func = getFunction();
+  void runOnOperation() override {
+    FuncOp func = getOperation();
     MLIRContext& ctx = getContext();
-    OwningRewritePatternList patterns(&ctx);
+    RewritePatternSet patterns(&ctx);
     patterns.insert<ConvertReduceOpWithSmallWidthIntType>(&ctx);
     if (enable_fp16_gemm_) {
       patterns.insert<ConvertDotGeneralOp>(&ctx);

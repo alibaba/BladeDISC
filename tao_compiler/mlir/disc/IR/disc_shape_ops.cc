@@ -253,7 +253,7 @@ struct IdentityTieShapeOp : public OpRewritePattern<TieShapeOp> {
 
 }  // namespace
 
-void LinearizeOp::getCanonicalizationPatterns(OwningRewritePatternList& results,
+void LinearizeOp::getCanonicalizationPatterns(RewritePatternSet& results,
                                               MLIRContext* context) {
   // clang-format off
   results.insert<
@@ -264,7 +264,7 @@ void LinearizeOp::getCanonicalizationPatterns(OwningRewritePatternList& results,
 }
 
 void DelinearizeOp::getCanonicalizationPatterns(
-    OwningRewritePatternList& results, MLIRContext* context) {
+    RewritePatternSet& results, MLIRContext* context) {
   // clang-format off
   results.insert<
     DelinearizeOfLinearizeOp,
@@ -273,7 +273,7 @@ void DelinearizeOp::getCanonicalizationPatterns(
   // clang-format on
 }
 
-void TieShapeOp::getCanonicalizationPatterns(OwningRewritePatternList& results,
+void TieShapeOp::getCanonicalizationPatterns(RewritePatternSet& results,
                                              MLIRContext* context) {
   results.insert<IdentityTieShapeOp>(context);
 }

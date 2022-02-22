@@ -291,7 +291,7 @@ Value elementalLowerImplForBroadcastInDimOps(OpBuilder* b, Location loc,
         auto zero = b->create<arith::ConstantIndexOp>(loc, 0);
         auto dim_size_is_equal = b->create<arith::CmpIOp>(
             loc, arith::CmpIPredicate::eq, dim_size, output_dim_size);
-        input_index.push_back(b->create<mlir::SelectOp>(
+        input_index.push_back(b->create<mlir::arith::SelectOp>(
             loc, dim_size_is_equal, output_index[dim], zero));
       } else {
         // we know this dim is not to be broadcasted at compile time
@@ -698,12 +698,12 @@ Value lowerGatherOpInternal(OpBuilder* b, Location loc, Operation* op,
             loc, b->create<DimOp>(loc, operand, operand_dim), output_dim_size));
     auto zero = b->create<arith::ConstantIntOp>(
         loc, 0, index_component.getType().cast<IntegerType>().getWidth());
-    auto max_with_zero = b->create<mlir::SelectOp>(
+    auto max_with_zero = b->create<mlir::arith::SelectOp>(
         loc,
         b->create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge, zero,
                                  index_component),
         zero, index_component);
-    auto gather_dim_component_extended_inbound = b->create<mlir::SelectOp>(
+    auto gather_dim_component_extended_inbound = b->create<mlir::arith::SelectOp>(
         loc,
         b->create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt, max_with_zero,
                                  largest_valid_start_index),
@@ -946,13 +946,13 @@ Value elementalLowerIota(OpBuilder* b, const Location& loc, Operation* op,
   auto elem_index_linear = output_index[iota_dimension];
   Value result = nullptr;
   if (result_element_ty.dyn_cast<IntegerType>()) {
-    result = b->create<arith::IndexCastOp>(loc, elem_index_linear,
-                                           result_element_ty);
+    result = b->create<arith::IndexCastOp>(loc, result_element_ty, elem_index_linear
+                                           );
   } else if (result_element_ty.dyn_cast<IndexType>()) {
     result = mayConvertToIndexType(elem_index_linear, b, loc);
   } else if (result_element_ty.dyn_cast<FloatType>()) {
     auto idx2int = mayConvertToIntegerType(elem_index_linear, b, loc);
-    result = b->create<arith::UIToFPOp>(loc, idx2int, result_element_ty);
+    result = b->create<arith::UIToFPOp>(loc, result_element_ty, idx2int);
   } else {
     op->emitError("element_type of Iota/DynamicIotaOp not implemented");
     return Value(nullptr);
@@ -1164,7 +1164,7 @@ memref::ReinterpretCastOp createMemRef1DReinterpretCast(OpBuilder& b,
   Value stride = b.create<arith::ConstantIndexOp>(loc, 1);
   Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
   auto memref_1d_type =
-      MemRefType::get({MemRefType::kDynamicSize}, memref_ty.getElementType(),
+      MemRefType::get({ShapedType::kDynamicSize}, memref_ty.getElementType(),
                       memref_ty.getLayout(), memref_ty.getMemorySpace());
   return b.create<memref::ReinterpretCastOp>(
       loc, memref_1d_type, memref, zero, ValueRange{size}, ValueRange{stride});

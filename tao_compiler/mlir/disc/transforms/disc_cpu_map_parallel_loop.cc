@@ -17,7 +17,6 @@ limitations under the License.
 // on the cpu device.
 
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
@@ -28,6 +27,7 @@ limitations under the License.
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/Transforms/RegionUtils.h"
+#include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
@@ -133,8 +133,8 @@ LogicalResult tileInnerMostParallelAxis(OpBuilder& b, scf::ParallelOp op) {
 
 struct DiscCpuMapParallelLoop
     : DiscCpuMapParallelLoopBase<DiscCpuMapParallelLoop> {
-  void runOnFunction() override {
-    FuncOp func = getFunction();
+  void runOnOperation() override {
+    FuncOp func = getOperation();
     SmallVector<scf::ParallelOp> candidates;
     func.walk([&](scf::ParallelOp op) {
       if (op->getParentOfType<scf::ParallelOp>()) return;
@@ -166,7 +166,7 @@ LogicalResult DiscCpuMapParallelLoop::processParallelOp(scf::ParallelOp op) {
 
 }  // namespace
 
-std::unique_ptr<FunctionPass> createDiscCpuMapParallelLoopPass() {
+std::unique_ptr<OperationPass<FuncOp>> createDiscCpuMapParallelLoopPass() {
   return std::make_unique<DiscCpuMapParallelLoop>();
 }
 

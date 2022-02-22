@@ -77,7 +77,7 @@ LogicalResult ComputeReshapeShapeOpConverter::matchAndRewrite(
         rewriter.create<tensor::ExtractOp>(loc, newShape, idx);
     if (!targetElemType.isIndex()) {
       newShapeDimValue =
-          rewriter.create<arith::IndexCastOp>(loc, newShapeDimValue, indexType);
+          rewriter.create<arith::IndexCastOp>(loc, indexType, newShapeDimValue);
     }
     accumNumElems =
         rewriter.create<arith::MulIOp>(loc, newShapeDimValue, accumNumElems);
@@ -94,7 +94,7 @@ LogicalResult ComputeReshapeShapeOpConverter::matchAndRewrite(
                                                accumNumElems, zero);
   Value isNegOrZero = rewriter.create<arith::OrIOp>(loc, isZero, isNeg);
   accumNumElems =
-      rewriter.create<SelectOp>(loc, isNegOrZero, one, accumNumElems);
+      rewriter.create<mlir::arith::SelectOp>(loc, isNegOrZero, one, accumNumElems);
 
   SmallVector<Value, 4> extentValues;
   for (int64_t i = 0; i < rank; ++i) {
@@ -103,17 +103,17 @@ LogicalResult ComputeReshapeShapeOpConverter::matchAndRewrite(
         rewriter.create<tensor::ExtractOp>(loc, newShape, idx);
     if (!targetElemType.isIndex()) {
       newShapeDimValue =
-          rewriter.create<arith::IndexCastOp>(loc, newShapeDimValue, indexType);
+          rewriter.create<arith::IndexCastOp>(loc, indexType, newShapeDimValue);
     }
     Value isNegOne = rewriter.create<arith::CmpIOp>(
         loc, arith::CmpIPredicate::eq, newShapeDimValue, negOne);
     Value inferredDimValue =
         rewriter.create<arith::DivUIOp>(loc, numElements, accumNumElems);
-    newShapeDimValue = rewriter.create<SelectOp>(
+    newShapeDimValue = rewriter.create<mlir::arith::SelectOp>(
         loc, isNegOne, inferredDimValue, newShapeDimValue);
     if (!targetElemType.isIndex())
       newShapeDimValue = rewriter.create<arith::IndexCastOp>(
-          loc, newShapeDimValue, targetElemType);
+          loc, targetElemType, newShapeDimValue);
     extentValues.push_back(newShapeDimValue);
   }
 
@@ -127,10 +127,10 @@ LogicalResult ComputeReshapeShapeOpConverter::matchAndRewrite(
 
 class ConvertHloToStandardPass
     : public ConvertHloToStandardPassBase<ConvertHloToStandardPass> {
-  void runOnFunction() override;
+  void runOnOperation() override;
 };
 
-void ConvertHloToStandardPass::runOnFunction() {
+void ConvertHloToStandardPass::runOnOperation() {
   // Setup target legality.
   MLIRContext& ctx = getContext();
   ConversionTarget target(ctx);
@@ -145,14 +145,14 @@ void ConvertHloToStandardPass::runOnFunction() {
   // clang-format: on
 
   // Apply conversion.
-  FuncOp func = getFunction();
+  FuncOp func = getOperation();
   if (failed(applyPartialConversion(func, target, std::move(patterns))))
     signalPassFailure();
 }
 
 }  // namespace
 
-std::unique_ptr<mlir::FunctionPass> createDiscConvertHloToStandardPass() {
+std::unique_ptr<OperationPass<FuncOp>> createDiscConvertHloToStandardPass() {
   return std::make_unique<ConvertHloToStandardPass>();
 }
 

@@ -95,10 +95,10 @@ LogicalResult GenerateOpConverter::matchAndRewrite(
 
 class ConvertTensorToStandardPass
     : public ConvertTensorToStandardPassBase<ConvertTensorToStandardPass> {
-  void runOnFunction() override;
+  void runOnOperation() override;
 };
 
-void ConvertTensorToStandardPass::runOnFunction() {
+void ConvertTensorToStandardPass::runOnOperation() {
   // Setup target legality.
   MLIRContext& ctx = getContext();
   ConversionTarget target(ctx);
@@ -114,14 +114,14 @@ void ConvertTensorToStandardPass::runOnFunction() {
   // clang-format: on
 
   // Apply conversion.
-  FuncOp func = getFunction();
+  FuncOp func = getOperation();
   if (failed(applyPartialConversion(func, target, std::move(patterns))))
     signalPassFailure();
 }
 
 }  // namespace
 
-std::unique_ptr<mlir::FunctionPass> createDiscConvertTensorToStandardPass() {
+std::unique_ptr<OperationPass<FuncOp>> createDiscConvertTensorToStandardPass() {
   return std::make_unique<ConvertTensorToStandardPass>();
 }
 

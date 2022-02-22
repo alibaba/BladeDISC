@@ -260,7 +260,7 @@ mlir::Value BuildResolveUnknownDimSizeI32(mlir::OpBuilder& builder,
     auto is_minus_1 = builder.create<mlir::arith::CmpIOp>(
         loc, mlir::arith::CmpIPredicate::eq, dim_size, minus_1);
     // is_minus_1? (input_numel/reduce_prod) : dim_size
-    auto resolved_dim_size = builder.create<mlir::SelectOp>(
+    auto resolved_dim_size = builder.create<mlir::arith::SelectOp>(
         loc, is_minus_1,
         builder.create<mlir::arith::DivSIOp>(loc, input_numel, reduce_prod),
         dim_size);

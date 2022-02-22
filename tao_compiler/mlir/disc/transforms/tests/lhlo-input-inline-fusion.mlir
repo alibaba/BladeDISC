@@ -6,7 +6,7 @@ func @inline_fusion_fusion_order(%arg0: memref<?xf32>, %arg1: memref<3xi32>, %ar
   %c2 = arith.constant 2 : index
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
-  // CHECK: "lmhlo.fusion"() ( {
+  // CHECK: "lmhlo.fusion"() ({
   "lmhlo.fusion"() ( {
     // CHECK-NOT: lmhlo.dynamic_broadcast_in_dim
     // CHECK-NOT: lmhlo.add
@@ -46,7 +46,7 @@ func @multioutput_loop_fusion_with_dependency(%arg0: memref<?xf32>, %arg1: memre
   %c2 = arith.constant 2 : index
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
-  // CHECK: "lmhlo.fusion"() ( {
+  // CHECK: "lmhlo.fusion"() ({
   "lmhlo.fusion"() ( {
     // CHECK-NOT: lmhlo.dynamic_broadcast_in_dim
     // CHECK-NOT: lmhlo.add

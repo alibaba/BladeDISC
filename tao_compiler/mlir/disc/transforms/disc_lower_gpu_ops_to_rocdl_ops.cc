@@ -35,7 +35,7 @@
 #include "mlir/Dialect/GPU/Passes.h"
 #include "mlir/Dialect/LLVMIR/ROCDLDialect.h"
 #include "mlir/Dialect/Math/IR/Math.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -127,8 +127,7 @@ void populateGpuToROCDLConversionPatterns(LLVMTypeConverter& converter,
            GPUShuffleOpLowering, GPUReturnOpLowering>(converter);
   patterns.add<GPUFuncOpLowering>(
       converter, /*allocaAddrSpace=*/5,
-      Identifier::get(ROCDL::ROCDLDialect::getKernelFuncAttrName(),
-                      &converter.getContext()));
+      StringAttr::get(&converter.getContext(), ROCDL::ROCDLDialect::getKernelFuncAttrName()));
   patterns.add<OpToFuncCallLowering<math::AbsOp>>(converter, "__ocml_fabs_f32",
                                                   "__ocml_fabs_f64");
   patterns.add<OpToFuncCallLowering<math::AtanOp>>(converter, "__ocml_atan_f32",

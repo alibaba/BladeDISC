@@ -24,7 +24,7 @@ limitations under the License.
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -364,11 +364,11 @@ struct MapOpCreator<lmhlo::MaxOp, arith::CmpIOp, arith::CmpFOp> {
     if (lhs.getType().dyn_cast<IntegerType>()) {
       Value cond =
           b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge, lhs, rhs);
-      result = b.create<mlir::SelectOp>(loc, lhs.getType(), cond, lhs, rhs);
+      result = b.create<mlir::arith::SelectOp>(loc, lhs.getType(), cond, lhs, rhs);
     } else if (lhs.getType().dyn_cast<FloatType>()) {
       Value cond =
           b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGE, lhs, rhs);
-      result = b.create<mlir::SelectOp>(loc, lhs.getType(), cond, lhs, rhs);
+      result = b.create<mlir::arith::SelectOp>(loc, lhs.getType(), cond, lhs, rhs);
     } else {
       assert(false && "not supported data type");
     }
@@ -383,11 +383,11 @@ struct MapOpCreator<lmhlo::MinOp, arith::CmpIOp, arith::CmpFOp> {
     if (lhs.getType().dyn_cast<IntegerType>()) {
       Value cond =
           b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge, lhs, rhs);
-      result = b.create<mlir::SelectOp>(loc, lhs.getType(), cond, rhs, lhs);
+      result = b.create<mlir::arith::SelectOp>(loc, lhs.getType(), cond, rhs, lhs);
     } else if (lhs.getType().dyn_cast<FloatType>()) {
       Value cond =
           b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGE, lhs, rhs);
-      result = b.create<mlir::SelectOp>(loc, lhs.getType(), cond, rhs, lhs);
+      result = b.create<mlir::arith::SelectOp>(loc, lhs.getType(), cond, rhs, lhs);
     } else {
       assert(false && "not supported data type");
     }
@@ -859,7 +859,7 @@ LogicalResult getShuffleElemType(OpBuilder& b, Type elemType,
 
 Value emitWidthAdaptShuffle(OpBuilder& b, Location loc, Value value,
                             Type shuffleElemType, Value offset, Value width,
-                            StringAttr strAttr) {
+                            gpu::ShuffleMode strAttr) {
   auto bit_width = shuffleElemType.getIntOrFloatBitWidth();
   if (bit_width < 32) {
     // TODO: modify GPU dialect to support fp16 shuffle.
@@ -1163,7 +1163,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_WARP_WISE_ROW_REDUCE>(
           int val_idx = i * row_reduction_roots.size() + idx;
           auto result = emitWidthAdaptShuffle(
               b, loc, shuffle_val[val_idx], shuffle_type[idx], offset_val,
-              shuffle_width, b.getStringAttr("xor"));
+              shuffle_width, gpu::ShuffleMode::XOR);
           shuffle_val[val_idx] =
               (accum_factory[idx])(shuffle_val[val_idx], result);
         }
@@ -1287,7 +1287,7 @@ LogicalResult emitFirstRoundShuffle(
       for (int i = 0; i < vector_size; i++) {
         shuffle_result_vec[i] = emitWidthAdaptShuffle(
             b, loc, sum_vec[i], shuffleElemType, offset_val, warp_size,
-            b.getStringAttr("xor"));
+            gpu::ShuffleMode::XOR);
       }
       for (int i = 0; i < vector_size; i++) {
         if (elemType != shuffleElemType) {
@@ -1344,7 +1344,7 @@ LogicalResult emitSecondRoundShuffle(
   int num_warps = block_size / kWarpSize;
   Value shuffle_size =
       b.create<arith::ConstantIntOp>(loc, num_warps, b.getIntegerType(32));
-  auto xorAttr = b.getStringAttr("xor");
+  auto xorAttr = gpu::ShuffleMode::XOR;
   for (auto root_op_en : llvm::enumerate(row_reduction_ops)) {
     auto idx = root_op_en.index();
     auto root_op = root_op_en.value();
@@ -1944,7 +1944,7 @@ LogicalResult emitFirstRoundShuffleStitch(
     for (int i = 0; i < row_tile; i++) {
       shuffle_result_vec[i] =
           emitWidthAdaptShuffle(b, loc, sum_vec[i], shuffleElemType, offset_val,
-                                warp_size, b.getStringAttr("xor"));
+                                warp_size, gpu::ShuffleMode::XOR);
     }
     for (int i = 0; i < row_tile; i++) {
       if (elemType != shuffleElemType) {
@@ -2073,7 +2073,7 @@ LogicalResult emitSecondRoundShuffleStitch(
   int num_warps = block_size / kWarpSize;
   Value shuffle_size =
       b.create<arith::ConstantIntOp>(loc, num_warps, b.getIntegerType(32));
-  auto xorAttr = b.getStringAttr("xor");
+  auto xorAttr = gpu::ShuffleMode::XOR;
   SmallVector<Value> results(row_tile);
   for (int i = 0; i < row_tile; i++) {
     results[i] = if_lane_id_inbound.getResult(i);
@@ -3029,7 +3029,7 @@ LogicalResult lowerWithSchedulekInputCPU(
   Value upperBound = b.create<arith::AddIOp>(loc, outterIV, innerMostStep);
   Value pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt,
                                        upperBound, innerMostDimSize);
-  upperBound = b.create<SelectOp>(loc, pred, upperBound, innerMostDimSize);
+  upperBound = b.create<arith::SelectOp>(loc, pred, upperBound, innerMostDimSize);
 
   // init the output buffer;
   Value initValue;
@@ -3163,8 +3163,8 @@ LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion,
 class DiscLhloLegalizeRootsToParallelLoops
     : public DiscLhloLegalizeRootsToParallelLoopsPassBase<
           DiscLhloLegalizeRootsToParallelLoops> {
-  void runOnFunction() override {
-    auto func = getFunction();
+  void runOnOperation() override {
+    FuncOp func = getOperation();
 
     ShapeAnalysis shape_analysis(func);
     shape_analysis.run();
@@ -3249,7 +3249,7 @@ class DiscLhloLegalizeRootsToParallelLoops
     // Input inline for kStitch fusions on GPU.
     {
       auto* context = &this->getContext();
-      OwningRewritePatternList patterns(context);
+      RewritePatternSet patterns(context);
       patterns.insert<InputInlineFusionPattern>(context, &lower_config);
 
       // Just apply the patterns greedily.

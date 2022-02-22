@@ -15,7 +15,7 @@ limitations under the License.
 
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FormatVariadic.h"
-#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
+#include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
 #include "mlir/Conversion/GPUCommon/GPUCommonPass.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
@@ -39,6 +39,8 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/rewriters.h"
 #include "transforms/codegen_utils.h"
 #include "transforms/placement_utils.h"
+#include "mlir/Dialect/Arithmetic/Transforms/Passes.h"
+#include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 
 // This file implements the logic to convert disc ral ops to llvm dialect
 
@@ -991,10 +993,11 @@ class DiscToLLVMPass : public DiscToLLVMPassBase<DiscToLLVMPass> {
     RewritePatternSet patterns(&getContext());
     mlir::arith::populateArithmeticToLLVMConversionPatterns(type_converter,
                                                             patterns);
-    populateStdExpandOpsPatterns(patterns);
+    arith::populateArithmeticExpandOpsPatterns(patterns);
     populateStdToLLVMConversionPatterns(type_converter, patterns);
     populateMemRefToLLVMConversionPatterns(type_converter, patterns);
     populateMathToLLVMConversionPatterns(type_converter, patterns);
+    cf::populateControlFlowToLLVMConversionPatterns(type_converter, patterns);
     populateDiscToLLVMConversionPatterns(&type_converter, &symbol_table,
                                          &patterns);
 

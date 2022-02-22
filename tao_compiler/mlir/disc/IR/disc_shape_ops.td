@@ -26,7 +26,7 @@ def DISCShape_Dialect : Dialect {
   let cppNamespace = "::mlir::disc_shape";
 }
 
-class DISCShape_Op<string mnemonic, list<OpTrait> traits> :
+class DISCShape_Op<string mnemonic, list<Trait> traits> :
     Op<DISCShape_Dialect, mnemonic, traits> {
   let verifier = [{ return Verify(*this); }];
 }

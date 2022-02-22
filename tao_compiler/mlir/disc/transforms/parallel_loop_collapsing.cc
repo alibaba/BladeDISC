@@ -25,9 +25,9 @@
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/SCF/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/SCF/Utils.h"
+#include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Transforms/LoopUtils.h"
+#include "mlir/Dialect/Affine/LoopUtils.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -35,9 +35,9 @@ namespace disc_ral {
 namespace {
 struct ParallelLoopCollapsing
     : public ParallelLoopCollapsingBase<ParallelLoopCollapsing> {
-  void runOnFunction() override {
+  void runOnOperation() override {
     SmallVector<scf::ParallelOp, 2> innermostPloops;
-    getInnermostParallelLoops(getFunction().getOperation(), innermostPloops);
+    getInnermostParallelLoops(getOperation(), innermostPloops);
     for (scf::ParallelOp ploop : innermostPloops) {
       if (ploop.getInductionVars().size() > 1) {
         std::vector<unsigned> inds(ploop.getInductionVars().size());
@@ -53,7 +53,7 @@ struct ParallelLoopCollapsing
 };
 }  // namespace
 
-std::unique_ptr<mlir::FunctionPass> createDiscParallelLoopCollapsingPass() {
+std::unique_ptr<OperationPass<FuncOp>> createDiscParallelLoopCollapsingPass() {
   return std::make_unique<ParallelLoopCollapsing>();
 }
 

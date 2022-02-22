@@ -16,7 +16,7 @@ limitations under the License.
 #include <openssl/md5.h>
 
 #include "llvm/ADT/StringExtras.h"
-#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
+#include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/IR/Attributes.h"   // TF:llvm-project

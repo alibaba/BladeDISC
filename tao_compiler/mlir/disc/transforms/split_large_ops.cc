@@ -98,9 +98,9 @@ struct SplitLargeOpsPass : public SplitLargeOpsPassBase<SplitLargeOpsPass> {
     this->max_num_operands_per_op_ = max_num_operands_per_op;
   }
 
-  void runOnFunction() override {
-    auto func = getFunction();
-    OwningRewritePatternList patterns(func.getContext());
+  void runOnOperation() override {
+    FuncOp func = getOperation();
+    RewritePatternSet patterns(func.getContext());
     patterns.insert<ConvertConcatOp>(func.getContext(),
                                      max_num_operands_per_op_);
 

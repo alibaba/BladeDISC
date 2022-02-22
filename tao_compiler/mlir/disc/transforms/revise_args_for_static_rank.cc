@@ -14,7 +14,6 @@
 #include "llvm/IR/Function.h"  // TF:llvm-project
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormatVariadic.h"
-#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
 #include "mlir/Pass/Pass.h"                   // TF:llvm-project
 #include "mlir/Support/LogicalResult.h"       // TF:llvm-project

@@ -132,7 +132,7 @@ Value getBroadcastedDim(ImplicitLocOpBuilder lb, ValueRange extentTensors,
     Value dimIsOne = lb.create<arith::CmpIOp>(arith::CmpIPredicate::eq,
                                               lesserRankOperandExtent, one);
     broadcastedDim =
-        lb.create<SelectOp>(dimIsOne, broadcastedDim, lesserRankOperandExtent);
+        lb.create<mlir::arith::SelectOp>(dimIsOne, broadcastedDim, lesserRankOperandExtent);
   }
   return broadcastedDim;
 }
@@ -398,10 +398,10 @@ LogicalResult DelinearizeOpConversion::matchAndRewrite(
 
 class ConvertShapeToStandardPass
     : public ConvertShapeToStandardPassBase<ConvertShapeToStandardPass> {
-  void runOnFunction() override;
+  void runOnOperation() override;
 };
 
-void ConvertShapeToStandardPass::runOnFunction() {
+void ConvertShapeToStandardPass::runOnOperation() {
   // Setup target legality.
   MLIRContext& ctx = getContext();
   ConversionTarget target(ctx);
@@ -419,14 +419,14 @@ void ConvertShapeToStandardPass::runOnFunction() {
   // clang-format: on
 
   // Apply conversion.
-  FuncOp func = getFunction();
+  FuncOp func = getOperation();
   if (failed(applyPartialConversion(func, target, std::move(patterns))))
     signalPassFailure();
 }
 
 }  // namespace
 
-std::unique_ptr<mlir::FunctionPass> createDiscConvertShapeToStandardPass() {
+std::unique_ptr<OperationPass<FuncOp>> createDiscConvertShapeToStandardPass() {
   return std::make_unique<ConvertShapeToStandardPass>();
 }
 

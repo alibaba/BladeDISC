@@ -32,14 +32,14 @@ func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
   // CHECK: scf.if %[[T15]] {
   // CHECK:   %[[CastedT0:.*]] = memref.reinterpret_cast %[[T0]]
   // CHECK:   %[[CastedT8:.*]] = memref.reinterpret_cast %[[T8]]
-  // CHECK:   "lmhlo.fusion"() ( {
+  // CHECK:   "lmhlo.fusion"() ({
   // CHECK:     "lmhlo.constant"
   // CHECK:     "lmhlo.dynamic_broadcast_in_dim"(%[[T3:.*]], %[[T5:.*]], %[[T6]]) {broadcast_dimensions = dense<> : tensor<0xi64>} : (memref<f32>, memref<2xindex>, memref<?x?xf32>) -> ()
   // CHECK:     "lmhlo.add"(%[[T6]], %[[CastedT0]], %[[CastedT8]]) : (memref<?x?xf32>, memref<?x?xf32>, memref<?x?xf32>) -> ()
   // CHECK:     "lmhlo.terminator"() : () -> ()
   // CHECK:   })
   // CHECK: } else {
-  // CHECK:   "lmhlo.fusion"() ( {
+  // CHECK:   "lmhlo.fusion"() ({
   // CHECK:     "lmhlo.constant"
   // CHECK:     "lmhlo.dynamic_broadcast_in_dim"(%[[T3]], %[[T5]], %[[T6]]) {broadcast_dimensions = dense<> : tensor<0xi64>} : (memref<f32>, memref<2xindex>, memref<?x?xf32>) -> ()
   // CHECK:     "lmhlo.dynamic_broadcast_in_dim"(%[[T0]], %[[T5]], %[[T7]]) {broadcast_dimensions = dense<[0, 1]> : tensor<2xi64>} : (memref<?x?xf32>, memref<2xindex>, memref<?x?xf32>) -> ()
@@ -48,7 +48,7 @@ func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
   // CHECK:   })
   // CHECK: }
 
-  "lmhlo.fusion"() ( {
+  "lmhlo.fusion"() ({
     "lmhlo.constant"(%3) {value = dense<1.000000e+00> : tensor<f32>} : (memref<f32>) -> ()
     "lmhlo.dynamic_broadcast_in_dim"(%3, %5, %6) {broadcast_dimensions = dense<> : tensor<0xi64>} : (memref<f32>, memref<2xindex>, memref<?x?xf32>) -> ()
     "lmhlo.dynamic_broadcast_in_dim"(%0, %5, %7) {broadcast_dimensions = dense<[0,1]> : tensor<2xi64>} : (memref<?x?xf32>, memref<2xindex>, memref<?x?xf32>) -> ()
@@ -72,7 +72,7 @@ func @simple_row_reduction_vectorization_specialization(%arg0: memref<?x?xf32>, 
   // CHECK: scf.if %[[T1]] {
   // Vectorize with width 2.
   // CHECK:   scf.if %[[V2_1:.*]] {
-  // CHECK:     "lmhlo.fusion"() ( {
+  // CHECK:     "lmhlo.fusion"() ({
   // CHECK:       "lmhlo.abs"
   // CHECK:       "lmhlo.reduce"
   // CHECK:       "lmhlo.terminator"
@@ -82,7 +82,7 @@ func @simple_row_reduction_vectorization_specialization(%arg0: memref<?x?xf32>, 
   // CHECK-SMAE: disc_vectorize_or_tile_hint = 2 : i32
   // CHECK:   } else {
   // No vectorization.
-  // CHECK:     "lmhlo.fusion"() ( {
+  // CHECK:     "lmhlo.fusion"() ({
   // CHECK:       "lmhlo.abs"
   // CHECK:       "lmhlo.reduce"
   // CHECK:       "lmhlo.terminator"
@@ -95,7 +95,7 @@ func @simple_row_reduction_vectorization_specialization(%arg0: memref<?x?xf32>, 
   // CHECK: } else {
   // Vectorize with width 2.
   // CHECK:   scf.if %[[V2_2:.*]] {
-  // CHECK:     "lmhlo.fusion"() ( {
+  // CHECK:     "lmhlo.fusion"() ({
   // CHECK:       "lmhlo.abs"
   // CHECK:       "lmhlo.reduce"
   // CHECK:       "lmhlo.terminator"
@@ -105,7 +105,7 @@ func @simple_row_reduction_vectorization_specialization(%arg0: memref<?x?xf32>, 
   // CHECK-SMAE: disc_vectorize_or_tile_hint = 2 : i32
   // CHECK:   } else {
   // No vectorization.
-  // CHECK:     "lmhlo.fusion"() ( {
+  // CHECK:     "lmhlo.fusion"() ({
   // CHECK:       "lmhlo.abs"
   // CHECK:       "lmhlo.reduce"
   // CHECK:       "lmhlo.terminator"
@@ -116,7 +116,7 @@ func @simple_row_reduction_vectorization_specialization(%arg0: memref<?x?xf32>, 
   // CHECK:   }
   // CHECK: }
 
-  "lmhlo.fusion"() ( {
+  "lmhlo.fusion"() ({
     "lmhlo.abs"(%arg0, %arg1) : (memref<?x?xf32>, memref<?x?xf32>) -> ()
     "lmhlo.reduce"(%arg1, %arg3, %arg2) ( {
     ^bb0(%arg4: memref<f32>, %arg5: memref<f32>, %arg6: memref<f32>):  // no predecessors

@@ -67,7 +67,7 @@ LogicalResult ConstantOpConverter::matchAndRewrite(
     Value val =
         rewriter.create<arith::ConstantIndexOp>(loc, en.value().getSExtValue());
     if (!elemType.isIndex())
-      val = rewriter.create<arith::IndexCastOp>(loc, val, elemType);
+      val = rewriter.create<arith::IndexCastOp>(loc, elemType, val);
     rewriter.create<memref::StoreOp>(loc, val, result, idx);
   }
 
@@ -104,7 +104,7 @@ LogicalResult IndexCastOpConverter::matchAndRewrite(
   for (int64_t i = 0; i < dim_size; ++i) {
     Value idx = rewriter.create<arith::ConstantIndexOp>(loc, i);
     Value val = rewriter.create<memref::LoadOp>(loc, operands[0], idx);
-    Value casted = rewriter.create<arith::IndexCastOp>(loc, val, elemType);
+    Value casted = rewriter.create<arith::IndexCastOp>(loc, elemType, val);
     rewriter.create<memref::StoreOp>(loc, casted, result, idx);
   }
   rewriter.replaceOp(op, {result});
@@ -116,10 +116,10 @@ class StdBufferizePass : public StdBufferizePassBase<StdBufferizePass> {
     registry.insert<memref::MemRefDialect>();
   }
 
-  void runOnFunction() override;
+  void runOnOperation() override;
 };
 
-void StdBufferizePass::runOnFunction() {
+void StdBufferizePass::runOnOperation() {
   // Setup target legality.
   MLIRContext& ctx = getContext();
   ConversionTarget target(ctx);
@@ -142,14 +142,14 @@ void StdBufferizePass::runOnFunction() {
   // clang-format on
 
   // Apply conversion.
-  FuncOp func = getFunction();
+  FuncOp func = getOperation();
   if (failed(applyPartialConversion(func, target, std::move(patterns))))
     signalPassFailure();
 }
 
 }  // namespace
 
-std::unique_ptr<mlir::FunctionPass> createDiscStdBufferizePass() {
+std::unique_ptr<OperationPass<FuncOp>> createDiscStdBufferizePass() {
   return std::make_unique<StdBufferizePass>();
 }
 

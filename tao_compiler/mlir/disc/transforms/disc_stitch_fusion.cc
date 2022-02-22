@@ -89,8 +89,8 @@ LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion) {
 }
 
 struct DiscStitchFusion : public DiscStitchFusionBase<DiscStitchFusion> {
-  void runOnFunction() override {
-    FuncOp func = getFunction();
+  void runOnOperation() override {
+    FuncOp func = getOperation();
     OpBuilder b(func);
     SmallVector<Operation*, 4> gpu_fusion_worklist;
     SmallVector<Operation*, 4> cpu_fusion_worklist;

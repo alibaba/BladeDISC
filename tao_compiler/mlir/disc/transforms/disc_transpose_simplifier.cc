@@ -81,7 +81,7 @@ namespace {
 //    v0 ~ v1 < v2
 
 void addCanonicalizationPatterns(MLIRContext* context,
-                                 OwningRewritePatternList* patterns) {
+                                 RewritePatternSet* patterns) {
   for (RegisteredOperationName op : context->getRegisteredOperations())
     op.getCanonicalizationPatterns(*patterns, context);
 }
@@ -200,7 +200,7 @@ LogicalResult propagateIdentityMulOp(mhlo::MulOp op,
   return failure();
 }
 
-void populateTransposeSimplifierPatterns(OwningRewritePatternList& patterns) {
+void populateTransposeSimplifierPatterns(RewritePatternSet& patterns) {
   patterns.insert(eliminateIdentityTranspse);
   patterns.insert(propagateDimOfTranspse);
   patterns.insert(propagateShapeOfTranspse);
@@ -786,8 +786,8 @@ LogicalResult reverseBinaryOpsIfBeneficial(Block* block, bool& changed) {
 
 struct TransposeSimplifierPass
     : public TransposeSimplifierPassBase<TransposeSimplifierPass> {
-  void runOnFunction() override {
-    auto status = getFunction().walk([&](Block* block) {
+  void runOnOperation() override {
+    auto status = getOperation().walk([&](Block* block) {
       if (failed(runOnBlock(block))) return WalkResult::interrupt();
       return WalkResult::advance();
     });
@@ -800,7 +800,7 @@ struct TransposeSimplifierPass
 };
 
 LogicalResult TransposeSimplifierPass::runCanonicalizer(FuncOp func) {
-  OwningRewritePatternList patterns(func.getContext());
+  RewritePatternSet patterns(func.getContext());
   populateTransposeSimplifierPatterns(patterns);
   // ignore the not-converged error since we are in a loop.
   (void)applyPatternsAndFoldGreedily(func, std::move(patterns));
@@ -814,7 +814,7 @@ LogicalResult TransposeSimplifierPass::runOnBlock(Block* block) {
   do {
     changed = false;
 
-    if (failed(runCanonicalizer(getFunction()))) {
+    if (failed(runCanonicalizer(getOperation()))) {
       LLVM_DEBUG(llvm::dbgs() << "failed to do clean up");
       return failure();
     }
@@ -831,7 +831,7 @@ LogicalResult TransposeSimplifierPass::runOnBlock(Block* block) {
     }
     if (changed) continue;
 
-    if (failed(runCanonicalizer(getFunction()))) {
+    if (failed(runCanonicalizer(getOperation()))) {
       LLVM_DEBUG(llvm::dbgs() << "failed to do clean up");
       return failure();
     }

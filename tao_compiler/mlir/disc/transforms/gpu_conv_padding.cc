@@ -82,7 +82,7 @@ struct DiscGpuConvPaddingLegalizationPass
     Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
     Type shape_scalar_type = padding_tp.getElementType();
     if (zero.getType() != shape_scalar_type) {
-      zero = b.create<arith::IndexCastOp>(loc, zero, shape_scalar_type);
+      zero = b.create<arith::IndexCastOp>(loc, shape_scalar_type, zero);
     }
 
     // Original:
@@ -116,7 +116,7 @@ struct DiscGpuConvPaddingLegalizationPass
       Value pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sle,
                                            low_value, high_value);
       Value common_value =
-          b.create<mlir::SelectOp>(loc, pred, low_value, high_value);
+          b.create<mlir::arith::SelectOp>(loc, pred, low_value, high_value);
       Value remaining_low_value =
           b.create<mlir::arith::SubIOp>(loc, low_value, common_value);
       Value remaining_high_value =
@@ -210,9 +210,9 @@ struct DiscGpuConvPaddingLegalizationPass
     InsertPaddingOp(op);
   }
 
-  void runOnFunction() override {
+  void runOnOperation() override {
     SmallVector<mhlo::DynamicConvOp, 4> ops;
-    getFunction().walk([&](mhlo::DynamicConvOp op) { ops.push_back(op); });
+    getOperation().walk([&](mhlo::DynamicConvOp op) { ops.push_back(op); });
 
     for (auto& op : ops) {
       if (placement_utils::isGpuMhlo(op)) {

@@ -38,7 +38,7 @@ mlir::Value BuildStdNormalizeIndex(mlir::OpBuilder& builder,
   auto not_zero = builder.create<mlir::arith::CmpIOp>(
       loc, mlir::arith::CmpIPredicate::ne, dim_size, zero);
   auto dim_size_no_zero =
-      builder.create<mlir::SelectOp>(loc, not_zero, dim_size, one);
+      builder.create<mlir::arith::SelectOp>(loc, not_zero, dim_size, one);
   // remainder = (dim_size + index_bounded) % dim_size
   auto remainder = BuildStdRemainderSigned(
       builder, loc, BuildStdAddSigned(builder, loc, dim_size, index_bounded),
@@ -48,7 +48,7 @@ mlir::Value BuildStdNormalizeIndex(mlir::OpBuilder& builder,
   auto cond = builder.create<mlir::arith::CmpIOp>(
       loc, mlir::arith::CmpIPredicate::sge, index, dim_size);
   // cond ? dim_size: remainder
-  return builder.create<mlir::SelectOp>(loc, cond, dim_size, remainder);
+  return builder.create<mlir::arith::SelectOp>(loc, cond, dim_size, remainder);
 }
 
 mlir::Value BuildDynamicSliceInternal(mlir::OpBuilder& builder,

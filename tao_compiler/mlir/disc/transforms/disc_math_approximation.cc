@@ -29,8 +29,8 @@ namespace {
 
 struct DiscMathApproximationPass
     : DiscMathApproximationPassBase<DiscMathApproximationPass> {
-  void runOnFunction() override {
-    FuncOp func = getFunction();
+  void runOnOperation() override {
+    FuncOp func = getOperation();
     MLIRContext* ctx = func.getContext();
 
     // Populate patterns.
@@ -42,7 +42,7 @@ struct DiscMathApproximationPass
 
 }  // namespace
 
-std::unique_ptr<FunctionPass> createDiscMathApproximationPass() {
+std::unique_ptr<OperationPass<FuncOp>> createDiscMathApproximationPass() {
   return std::make_unique<DiscMathApproximationPass>();
 }
 

@@ -5,7 +5,7 @@ func @should_not_reuse_val_cache(%arg0: memref<?xf32>, %arg1: memref<3xi32>, %ar
   %c2 = arith.constant 2 : index
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
-  // CHECK: "lmhlo.fusion"() ( {
+  // CHECK: "lmhlo.fusion"() ({
   "lmhlo.fusion"() ( {
     // CHECK-NOT: lmhlo.dynamic_broadcast_in_dim
     // CHECK-NOT: lmhlo.add
@@ -26,18 +26,18 @@ func @should_not_reuse_val_cache(%arg0: memref<?xf32>, %arg1: memref<3xi32>, %ar
       %10 = arith.divui %9, %6 : index
       %11 = arith.remui %9, %6 : index
       %12 = memref.load %arg3[%8, %10, %11] : memref<?x?x?xf32>
-      %pred = arith.cmpi eq, %7, %11 : index 
+      %pred = arith.cmpi eq, %7, %11 : index
       // CHECK: scf.if
       scf.if %pred {
         // CHECK: addf
-        // CHECK: arith.divf 
+        // CHECK: arith.divf
         %13 = memref.load %arg5[%8, %10, %11] : memref<?x?x?xf32>
         %14 = arith.divf %12, %13 : f32
         %15 = memref.reinterpret_cast %arg7 to offset: [%c0], sizes: [%4], strides: [%c1] : memref<?x?x?xf32> to memref<?xf32>
         memref.store %14, %15[%arg8] : memref<?xf32>
       }
       // CHECK: addf
-      // CHECK: arith.mulf 
+      // CHECK: arith.mulf
       %16 = memref.load %arg5[%8, %10, %11] : memref<?x?x?xf32>
       %17 = arith.mulf %12, %16 : f32
       %18 = memref.reinterpret_cast %arg6 to offset: [%c0], sizes: [%4], strides: [%c1] : memref<?x?x?xf32> to memref<?xf32>

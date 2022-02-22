@@ -428,7 +428,7 @@ struct DiscSpecializeFusionWithSpeculationPass
       threshold = b.create<arith::ConstantIndexOp>(loc, max_threads_per_wave);
       FusionPatternBase fusion_pattern(fusion_op);
       Operation* dominant_equivalent_op = fusion_pattern.getRootOps().back();
-      out_element_number = codegen_utils::emitNumElementsComputation(
+      out_element_number = emitNumElementsComputation(
           b, loc, dominant_equivalent_op);
     } else {
       // Either a column reduction dominanted fusion, or a non-fusion op.
@@ -470,7 +470,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     // Collects the fusion ops first since following rewriter may insert new
     // fusion ops.
     SmallVector<FusionOp, 4> fusion_ops;
-    getFunction().walk(
+    getOperation().walk(
         [&](FusionOp fusion_op) { fusion_ops.emplace_back(fusion_op); });
 
     for (FusionOp fusion_op : fusion_ops) {
@@ -478,7 +478,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     };
   }
 
-  void runOnFunction() override {
+  void runOnOperation() override {
     // Stage #1: broadcast simplifier with speculation
     Speculator(
         &DiscSpecializeFusionWithSpeculationPass::DoBroadcastSpeculation);

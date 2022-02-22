@@ -28,8 +28,8 @@ limitations under the License.
 // After conversion:
 //  ```
 //   func @main(%ctx: !disc_ral.context) {
-//     %c0 = constant 0 : index
-//     %c1 = constant 1 : index
+//     %c0 = arith.constant 0 : index
+//     %c1 = arith.constant 1 : index
 //     "disc_ral.recv_input"(%ctx, %c0) : (!disc_ral.context, index) ->
 //     memref<?x?xf32> "disc_ral.recv_input"(%ctx, %c1) : (!disc_ral.context,
 //     index) -> memref<?x?xf32> %0 = memref.alloc(...) "lmhlo.add"(%arg0,
@@ -47,7 +47,6 @@ limitations under the License.
 // to the entry function. Thus, we don't rewrite all call ops and other
 // functions a.t.m. Re-visit this assumption if necessary.
 
-#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
@@ -57,7 +56,8 @@ limitations under the License.
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Pass/Pass.h"
-#include "transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
+#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -65,11 +65,10 @@ namespace disc_ral {
 namespace {
 
 struct RalInjectExecutionContextPass
-    : public DiscRalInjectExecutionContextPassBase<
-          RalInjectExecutionContextPass> {
+    : public RalInjectExecutionContextPassBase<RalInjectExecutionContextPass> {
   explicit RalInjectExecutionContextPass(const std::string& entry_func_name)
-      : DiscRalInjectExecutionContextPassBase<RalInjectExecutionContextPass>::
-            DiscRalInjectExecutionContextPassBase() {
+      : RalInjectExecutionContextPassBase<RalInjectExecutionContextPass>::
+            RalInjectExecutionContextPassBase() {
     this->entry_func_name_ = entry_func_name;
   }
 
@@ -92,7 +91,7 @@ struct RalInjectExecutionContextPass
     Type ctx_type = RalExecutionContextType::get(b.getContext());
 
     // 1. Prepend context to the entry block arguments
-    Value ctx = entry_block->insertArgument(0u, ctx_type);
+    Value ctx = entry_block->insertArgument(0u, ctx_type, loc);
 
     // 2. remap original arguments to recv_input ops
     for (auto&& en : llvm::enumerate(
@@ -131,7 +130,7 @@ struct RalInjectExecutionContextPass
 
 }  // namespace
 
-std::unique_ptr<OperationPass<ModuleOp>> createDiscInjectExecutionContextPass(
+std::unique_ptr<OperationPass<ModuleOp>> createRalInjectExecutionContextPass(
     const std::string& entry_func_name) {
   return std::make_unique<RalInjectExecutionContextPass>(entry_func_name);
 }

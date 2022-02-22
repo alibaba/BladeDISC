@@ -375,9 +375,9 @@ struct DiscConvRewriterPass
   }
 
   LogicalResult convToDynamicConv() {
-    FuncOp func = getFunction();
+    FuncOp func = getOperation();
     MLIRContext* ctx = func.getContext();
-    OwningRewritePatternList patterns(ctx);
+    RewritePatternSet patterns(ctx);
     patterns.insert<ConvToDynamicConvConvert>(ctx);
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
       func.emitError("applyPatternsAndFoldGreedily does not converge");
@@ -386,14 +386,14 @@ struct DiscConvRewriterPass
     return success();
   }
 
-  void runOnFunction() override {
+  void runOnOperation() override {
     if (failed(convToDynamicConv())) {
       signalPassFailure();
       return;
     }
 
     SmallVector<mhlo::DynamicConvOp, 4> ops;
-    getFunction().walk([&](mhlo::DynamicConvOp op) { ops.push_back(op); });
+    getOperation().walk([&](mhlo::DynamicConvOp op) { ops.push_back(op); });
 
     // TODO(disc): We rewrite each conv op seperately, thus may lead to
     // unnecessary transpose ops. We may implement another layout optimize pass

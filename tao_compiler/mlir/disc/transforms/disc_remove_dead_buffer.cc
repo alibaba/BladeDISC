@@ -63,9 +63,9 @@ bool isDeadBuffer(AllocOp op, SmallVectorImpl<Operation*>& consumers) {
 
 struct RemoveDeadBufferPass
     : public RemoveDeadBufferPassBase<RemoveDeadBufferPass> {
-  void runOnFunction() override {
+  void runOnOperation() override {
     SmallVector<AllocOp, 4> candidateBuffers;
-    getFunction().walk([&](AllocOp op) { candidateBuffers.push_back(op); });
+    getOperation().walk([&](AllocOp op) { candidateBuffers.push_back(op); });
     for (AllocOp op : candidateBuffers) {
       SmallVector<Operation*, 4> users;
       if (isDeadBuffer(op, users)) {
@@ -78,7 +78,7 @@ struct RemoveDeadBufferPass
 
 }  // namespace
 
-std::unique_ptr<FunctionPass> createDiscRemoveDeadBufferPass() {
+std::unique_ptr<OperationPass<FuncOp>> createDiscRemoveDeadBufferPass() {
   return std::make_unique<RemoveDeadBufferPass>();
 }
 

@@ -14,13 +14,13 @@ limitations under the License.
 
 #include "tensorflow/compiler/mlir/disc/IR/topk_custom_call_op.h"
 
-#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"
 #include "tensorflow/compiler/mlir/disc/IR/custom_call_base.h"
+#include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
@@ -104,7 +104,7 @@ LogicalResult reifyReturnTypeShapesImpl<TopKBackendConfig>(
       Value true_br_value =
           builder.create<tensor::DimOp>(loc, keys_operand, idx);
       auto select =
-          builder.create<mlir::SelectOp>(loc, cond, true_br_value, k_value);
+          builder.create<mlir::arith::SelectOp>(loc, cond, true_br_value, k_value);
       shape_values.push_back(select);
     } else {
       Value dim = builder.create<tensor::DimOp>(loc, keys_operand, idx);

@@ -17,6 +17,7 @@ limitations under the License.
 
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BuiltinOps.h"
 
@@ -52,11 +53,11 @@ struct LoadStoreOpLowering : public ConvertOpToLLVMPattern<Derived> {
 };
 
 struct GenericAtomicRMWOpLoweringWithBitcast
-    : public LoadStoreOpLowering<GenericAtomicRMWOp> {
+    : public LoadStoreOpLowering<memref::GenericAtomicRMWOp> {
   using Base::Base;
 
   LogicalResult matchAndRewrite(
-      GenericAtomicRMWOp atomicOp, OpAdaptor adaptor,
+      memref::GenericAtomicRMWOp atomicOp, OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override;
 };
 

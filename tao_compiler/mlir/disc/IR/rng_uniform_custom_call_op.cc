@@ -16,7 +16,7 @@ limitations under the License.
 
 #include <atomic>
 
-#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
+#include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"

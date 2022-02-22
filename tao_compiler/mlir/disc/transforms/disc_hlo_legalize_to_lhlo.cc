@@ -77,7 +77,7 @@ Value InsertDynamicAlloc(Location loc, Value result, Value shape_operand,
         rewriter->create<tensor::ExtractOp>(loc, shape_operand, index);
     if (!alloc_operand.getType().isIndex()) {
       alloc_operand = rewriter->create<arith::IndexCastOp>(
-          loc, alloc_operand, rewriter->getIndexType());
+          loc, rewriter->getIndexType(), alloc_operand);
     }
     dynamic_operands.push_back(alloc_operand);
   }
@@ -222,7 +222,7 @@ struct DiscHloLegalizeToLhlo
 
   void runOnOperation() override {
     auto& context = getContext();
-    OwningRewritePatternList patterns(&context);
+    RewritePatternSet patterns(&context);
     ConversionTarget target(context);
     target.addLegalDialect<
         arith::ArithmeticDialect, lmhlo_disc::LmhloDiscDialect,
@@ -243,7 +243,7 @@ struct DiscHloLegalizeToLhlo
 
 void populateDiscHLOToLHLOConversionPattern(
     MLIRContext* context, bufferization::BufferizeTypeConverter* converter,
-    OwningRewritePatternList* patterns) {
+    RewritePatternSet* patterns) {
   // clang-format off
   patterns->insert<
       HloToLhloOpConverter<mhlo_disc::H2DOp>,

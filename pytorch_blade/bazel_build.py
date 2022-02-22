@@ -20,23 +20,6 @@ def _symlink_force(target, link_name):
         else:
             raise e
 
-
-def _gen_torch_bazel_workspace(torch_dir, srcdir):
-    torch_bzl_tmpl = f"""
-def torch_env_workspace():
-    native.new_local_repository(
-        name = "local_org_torch",
-        path = "{torch_dir}",
-        build_file = "@//bazel/torch:BUILD",
-    )
-
-def torch_pybind11_dir():
-    return "{torch_dir}/include/pybind11"
-"""
-    with open(f"{srcdir}/bazel/torch/.torch_env_workspace.bzl", "w") as f:
-        f.write(torch_bzl_tmpl)
-
-
 class BazelBuild(TorchBladeBuild):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -48,14 +31,16 @@ class BazelBuild(TorchBladeBuild):
         ]
         self.torch_lib_dir = os.path.join(self.torch_dir, 'lib')
         torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]
-        self.copts = [
-            # PyTorch cmake args
+        self.extra_opts = [
             "--copt=-DPYTORCH_VERSION_STRING=" + self.torch_version,
             "--copt=-DPYTORCH_MAJOR_VERSION=" + torch_major_version,
             "--copt=-DPYTORCH_MINOR_VERSION=" + torch_minor_version,
             "--copt=-DTORCH_BLADE_USE_CXX11_ABI={}".format(self.GLIBCXX_USE_CXX11_ABI),
             "--copt=-DTORCH_BLADE_CUDA_VERSION={}".format(self.cuda_version),
             "--action_env PYTHON_BIN_PATH={}".format(sys.executable),
+            "--action_env TORCH_BLADE_TORCH_INSTALL_PATH={}".format(self.torch_dir),
+            # Workaroud issue: https://github.com/bazelbuild/bazel/issues/10327
+            "--action_env BAZEL_LINKLIBS=-lstdc++"
         ]
 
         self.configs = []
@@ -80,14 +65,13 @@ class BazelBuild(TorchBladeBuild):
         extdir = get_fullpath_or_create(extdir or "build/temp")
         bazel_bin_dir = os.path.join(srcdir, "bazel-bin/")
 
-        _gen_torch_bazel_workspace(self.torch_dir, srcdir)
         env = os.environ.copy()
         ld_library_path = ":".join([self.torch_lib_dir, env.get("LD_LIBRARY_PATH", "")])
         env["LD_LIBRARY_PATH"] = ld_library_path
 
         bazel_cmd = " ".join(
             [self.shell_setting, self.build_cmd]
-            + self.copts
+            + self.extra_opts
             + self.configs
             + self.targets
         )
@@ -113,7 +97,7 @@ class BazelBuild(TorchBladeBuild):
 
         test_cmd = " ".join(
             [self.shell_setting, self.test_cmd]
-            + self.copts
+            + self.extra_opts
             + self.configs
             + [self.test_suite]
         )
@@ -121,7 +105,7 @@ class BazelBuild(TorchBladeBuild):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="CMake build TorchBlade")
+    parser = argparse.ArgumentParser(description="Bazel build TorchBlade")
     parser.add_argument(
         "--torch_version", type=str, required=True, help="The version of torch"
     )

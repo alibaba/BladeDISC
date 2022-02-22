@@ -12,7 +12,6 @@ cc_library(
         "build/install/include",
         "build/intel/include",
     ],
-    #deps = [":dnnl_static",],
     visibility = ["//visibility:public"],
 )
 

@@ -28,7 +28,7 @@ import time
 import fnmatch
 from datetime import datetime
 
-from build_common import (
+from common_setup import (
     StageTiming,
     stage_time,
     time_stage,

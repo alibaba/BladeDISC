@@ -15,7 +15,7 @@ import os
 import shutil
 import re
 from contextlib import contextmanager
-from build_common import logger
+from common_setup import logger
 
 GCC_48_BIN_PATH = '/usr/bin'
 GCC_48_LIB_PATH = '/usr/lib64'

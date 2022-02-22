@@ -1,14 +1,13 @@
-
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 
 filegroup(
     name = "torch_blade_common_srcs",
-    srcs = glob(["**/*.cpp"])
+    srcs = glob(["**/*.cpp"]),
 )
 
 filegroup(
     name = "torch_blade_common_hdrs",
-    srcs = glob(["**/*.h"])
+    srcs = glob(["**/*.h"]),
 )
 
 cc_library(
@@ -18,12 +17,11 @@ cc_library(
         ":torch_blade_common_hdrs",
     ],
     includes = ["../"],
+    visibility = [
+        "//visibility:public",
+    ],
     deps = [
         "@local_org_torch//:libtorch",
     ],
     alwayslink = True,
-    visibility = [
-        "//visibility:public",
-    ],
 )
-

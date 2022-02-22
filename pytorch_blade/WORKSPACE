@@ -1,10 +1,34 @@
 workspace(name = "org_torch_blade")
 
-
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+# buildifier is written in Go and hence needs rules_go to be built.
+# See https://github.com/bazelbuild/rules_go for the up to date setup instructions.
+http_archive(
+    name = "io_bazel_rules_go",
+    sha256 = "2b1641428dff9018f9e85c0384f03ec6c10660d935b750e3fa1492a281a53b0f",
+    urls = [
+        "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.29.0/rules_go-v0.29.0.zip",
+        "https://github.com/bazelbuild/rules_go/releases/download/v0.29.0/rules_go-v0.29.0.zip",
+    ],
+)
+
+load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
+
+go_rules_dependencies()
+
+go_register_toolchains(version = "1.17.2")
+
+http_archive(
+    name = "com_github_bazelbuild_buildtools",
+    sha256 = "ae34c344514e08c23e90da0e2d6cb700fcd28e80c02e23e4d5715dddcb42f7b3",
+    strip_prefix = "buildtools-4.2.2",
+    urls = [
+        "https://github.com/bazelbuild/buildtools/archive/refs/tags/4.2.2.tar.gz",
+    ],
+)
+
 http_archive(
     name = "rules_python",
     urls = [
@@ -13,7 +37,8 @@ http_archive(
     ],
 )
 
-
+#`pybind11_bazel`
+# See https://github.com/pybind/pybind11_bazel
 http_archive(
     name = "pybind11_bazel",
     sha256 = "a5666d950c3344a8b0d3892a88dc6b55c8e0c78764f9294e806d69213c03f19d",
@@ -22,17 +47,6 @@ http_archive(
         "http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/build_deps/pybind11_bazel/26973c0ff320cb4b39e45bc3e4297b82bc3a6c09.zip",
         "https://github.com/pybind/pybind11_bazel/archive/26973c0ff320cb4b39e45bc3e4297b82bc3a6c09.zip",
     ],
-)
-
-load("//bazel/torch:.torch_env_workspace.bzl", "torch_env_workspace")
-torch_env_workspace()
-
-load("//bazel/torch:.torch_env_workspace.bzl", "torch_pybind11_dir")
-# We still require the pybind library.
-new_local_repository(
-  name = "pybind11",
-  build_file = "@pybind11_bazel//:pybind11.BUILD",
-  path = torch_pybind11_dir()
 )
 
 http_archive(
@@ -47,16 +61,6 @@ http_archive(
 )
 
 http_archive(
-    name = "bazel_skylib",
-    sha256 = "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
-    urls = [
-        "http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/build_deps/bazel-skylib-1.0.3.tar.gz",
-        "https://storage.googleapis.com/mirror.tensorflow.org/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
-        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
-    ],
-)
-
-http_archive(
     name = "rules_foreign_cc",
     sha256 = "33a5690733c5cc2ede39cb62ebf89e751f2448e27f20c8b2fbbc7d136b166804",
     strip_prefix = "rules_foreign_cc-0.5.1",
@@ -66,41 +70,34 @@ http_archive(
     ],
 )
 
-http_archive(
-    name = "go_sdk",
-    sha256 = "33a5690733c5cc2ede39cb62ebf89e751f2448e27f20c8b2fbbc7d136b166804",
-    strip_prefix = "rules_foreign_cc-0.5.1",
-    urls = [
-        "https://dl.google.com/go/go1.12.5.linux-amd64.tar.gz",
-    ],
-)
+load("//bazel/torch:repo.bzl", "torch_configure", "torch_pybind11_configure")
 
-load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
+torch_configure(name = "local_org_torch")
 
-local_repository(
-    name = "org_tensorflow",
-    path = "../tf_community",
+torch_pybind11_configure(
+    name = "pybind11",
+    build_file = "@pybind11_bazel//:pybind11.BUILD",
 )
 
 local_repository(
     name = "org_mhlo_builder",
     path = "../mhlo_builder",
 )
+
+local_repository(
+    name = "org_tensorflow",
+    path = "../tf_community",
+)
+
 # Initialize TensorFlow's external dependencies.
 load("@org_tensorflow//tensorflow:workspace3.bzl", "tf_workspace3")
+
 tf_workspace3()
 
 load("@org_tensorflow//tensorflow:workspace2.bzl", "tf_workspace2")
+
 tf_workspace2()
 
 load("@org_tensorflow//tensorflow:workspace1.bzl", "tf_workspace1")
+
 tf_workspace1()
-
-load("@pybind11_bazel//:python_configure.bzl", "python_configure")
-python_configure(name = "local_config_python") #, python_interpreter_target = "@python_interpreter//:python_bin")
-
-bind(
-    name = "python_headers",
-    actual = "@local_config_python//:python_headers",
-)
-

@@ -76,8 +76,8 @@ mlir::Value BuildStdDimSizeOfTensor(mlir::OpBuilder& builder,
   auto dim_size = ranked_type.getDimSize(dim_index);
   if (dim_size == mlir::ShapedType::kDynamicSize) {
     return builder.create<mlir::arith::IndexCastOp>(
-        loc, builder.create<tensor::DimOp>(loc, dim_index, tensor),
-        builder.getIntegerType(64));
+        loc, builder.getIntegerType(64),
+        builder.create<tensor::DimOp>(loc, tensor, dim_index));
   } else {
     return BuildStdConstForI64(builder, loc, dim_size);
   }

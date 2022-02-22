@@ -138,7 +138,8 @@ std::unique_ptr<OperationPass<FuncOp>> createDiscStdBufferizePass();
 std::unique_ptr<OperationPass<FuncOp>> createDiscMemRefCSEPass();
 
 // Simplifier of memref.load/store specific for DISC.
-std::unique_ptr<OperationPass<FuncOp>> createDiscMemRefLoadStoreSimplifierPass();
+std::unique_ptr<OperationPass<FuncOp>>
+createDiscMemRefLoadStoreSimplifierPass();
 
 // Lowering some tensorflow ops.
 std::unique_ptr<OperationPass<FuncOp>> createDiscLowerTfPass();

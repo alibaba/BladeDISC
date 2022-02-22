@@ -11,11 +11,11 @@
 
 #include "compiler/mlir/converters/mhlo_conversion.h"
 
-#include <tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h>
 #include <mlir-hlo/Dialect/mhlo/IR/chlo_ops.h>
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h>
 #include <mlir/Dialect/StandardOps/IR/Ops.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
+#include <tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h>
 #include <tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h>
 
 #include "common_utils/logging.h"

@@ -357,7 +357,8 @@ gpu::LaunchFuncOp expandMemRef(gpu::LaunchFuncOp launch_func_op, Value memref,
 
 void convertWorkgroupBuffer(gpu::GPUFuncOp gpu_func_op, AllocOp alloc) {
   auto memref_type = alloc.getResult().getType().cast<MemRefType>();
-  auto buffer = gpu_func_op.addWorkgroupAttribution(memref_type, alloc.getLoc());
+  auto buffer =
+      gpu_func_op.addWorkgroupAttribution(memref_type, alloc.getLoc());
   alloc.replaceAllUsesWith(buffer);
   alloc.erase();
 }

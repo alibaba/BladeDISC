@@ -263,8 +263,8 @@ void LinearizeOp::getCanonicalizationPatterns(RewritePatternSet& results,
   // clang-format on
 }
 
-void DelinearizeOp::getCanonicalizationPatterns(
-    RewritePatternSet& results, MLIRContext* context) {
+void DelinearizeOp::getCanonicalizationPatterns(RewritePatternSet& results,
+                                                MLIRContext* context) {
   // clang-format off
   results.insert<
     DelinearizeOfLinearizeOp,

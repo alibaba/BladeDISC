@@ -93,8 +93,8 @@ LogicalResult ComputeReshapeShapeOpConverter::matchAndRewrite(
   Value isNeg = rewriter.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt,
                                                accumNumElems, zero);
   Value isNegOrZero = rewriter.create<arith::OrIOp>(loc, isZero, isNeg);
-  accumNumElems =
-      rewriter.create<mlir::arith::SelectOp>(loc, isNegOrZero, one, accumNumElems);
+  accumNumElems = rewriter.create<mlir::arith::SelectOp>(loc, isNegOrZero, one,
+                                                         accumNumElems);
 
   SmallVector<Value, 4> extentValues;
   for (int64_t i = 0; i < rank; ++i) {

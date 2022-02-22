@@ -703,11 +703,12 @@ Value lowerGatherOpInternal(OpBuilder* b, Location loc, Operation* op,
         b->create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge, zero,
                                  index_component),
         zero, index_component);
-    auto gather_dim_component_extended_inbound = b->create<mlir::arith::SelectOp>(
-        loc,
-        b->create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt, max_with_zero,
-                                 largest_valid_start_index),
-        max_with_zero, largest_valid_start_index);
+    auto gather_dim_component_extended_inbound =
+        b->create<mlir::arith::SelectOp>(
+            loc,
+            b->create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt,
+                                     max_with_zero, largest_valid_start_index),
+            max_with_zero, largest_valid_start_index);
 
     operand_index[operand_dim] = b->create<arith::AddIOp>(
         loc, operand_index[operand_dim],
@@ -946,8 +947,8 @@ Value elementalLowerIota(OpBuilder* b, const Location& loc, Operation* op,
   auto elem_index_linear = output_index[iota_dimension];
   Value result = nullptr;
   if (result_element_ty.dyn_cast<IntegerType>()) {
-    result = b->create<arith::IndexCastOp>(loc, result_element_ty, elem_index_linear
-                                           );
+    result = b->create<arith::IndexCastOp>(loc, result_element_ty,
+                                           elem_index_linear);
   } else if (result_element_ty.dyn_cast<IndexType>()) {
     result = mayConvertToIndexType(elem_index_linear, b, loc);
   } else if (result_element_ty.dyn_cast<FloatType>()) {

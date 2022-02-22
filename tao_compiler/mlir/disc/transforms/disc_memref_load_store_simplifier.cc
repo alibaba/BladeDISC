@@ -156,7 +156,8 @@ class DiscMemRefLoadStoreSimplifierPass
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscMemRefLoadStoreSimplifierPass() {
+std::unique_ptr<OperationPass<FuncOp>>
+createDiscMemRefLoadStoreSimplifierPass() {
   return std::make_unique<DiscMemRefLoadStoreSimplifierPass>();
 }
 

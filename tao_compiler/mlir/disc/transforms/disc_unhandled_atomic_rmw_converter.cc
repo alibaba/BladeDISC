@@ -51,7 +51,8 @@ struct UnhandledAtomicRMWConverter
 
     Location loc = op.getLoc();
     memref::GenericAtomicRMWOp genericOp =
-        rewriter.create<memref::GenericAtomicRMWOp>(loc, op.memref(), op.indices());
+        rewriter.create<memref::GenericAtomicRMWOp>(loc, op.memref(),
+                                                    op.indices());
     OpBuilder bodyBuilder =
         OpBuilder::atBlockEnd(genericOp.getBody(), rewriter.getListener());
 

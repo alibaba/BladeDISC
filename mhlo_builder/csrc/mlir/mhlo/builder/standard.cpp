@@ -106,7 +106,8 @@ mlir::Value BuildStdSelectSigned(mlir::OpBuilder& builder,
                                  const mlir::Value& std_lhs,
                                  const mlir::Value& std_rhs) {
   auto cond = builder.create<mlir::arith::CmpIOp>(loc, predc, std_lhs, std_rhs);
-  auto selected = builder.create<mlir::arith::SelectOp>(loc, cond, std_lhs, std_rhs);
+  auto selected =
+      builder.create<mlir::arith::SelectOp>(loc, cond, std_lhs, std_rhs);
   return selected;
 }
 

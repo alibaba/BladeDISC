@@ -364,11 +364,13 @@ struct MapOpCreator<lmhlo::MaxOp, arith::CmpIOp, arith::CmpFOp> {
     if (lhs.getType().dyn_cast<IntegerType>()) {
       Value cond =
           b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge, lhs, rhs);
-      result = b.create<mlir::arith::SelectOp>(loc, lhs.getType(), cond, lhs, rhs);
+      result =
+          b.create<mlir::arith::SelectOp>(loc, lhs.getType(), cond, lhs, rhs);
     } else if (lhs.getType().dyn_cast<FloatType>()) {
       Value cond =
           b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGE, lhs, rhs);
-      result = b.create<mlir::arith::SelectOp>(loc, lhs.getType(), cond, lhs, rhs);
+      result =
+          b.create<mlir::arith::SelectOp>(loc, lhs.getType(), cond, lhs, rhs);
     } else {
       assert(false && "not supported data type");
     }
@@ -383,11 +385,13 @@ struct MapOpCreator<lmhlo::MinOp, arith::CmpIOp, arith::CmpFOp> {
     if (lhs.getType().dyn_cast<IntegerType>()) {
       Value cond =
           b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge, lhs, rhs);
-      result = b.create<mlir::arith::SelectOp>(loc, lhs.getType(), cond, rhs, lhs);
+      result =
+          b.create<mlir::arith::SelectOp>(loc, lhs.getType(), cond, rhs, lhs);
     } else if (lhs.getType().dyn_cast<FloatType>()) {
       Value cond =
           b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::OGE, lhs, rhs);
-      result = b.create<mlir::arith::SelectOp>(loc, lhs.getType(), cond, rhs, lhs);
+      result =
+          b.create<mlir::arith::SelectOp>(loc, lhs.getType(), cond, rhs, lhs);
     } else {
       assert(false && "not supported data type");
     }
@@ -1285,9 +1289,9 @@ LogicalResult emitFirstRoundShuffle(
       }
       SmallVector<Value, 2> shuffle_result_vec(vector_size);
       for (int i = 0; i < vector_size; i++) {
-        shuffle_result_vec[i] = emitWidthAdaptShuffle(
-            b, loc, sum_vec[i], shuffleElemType, offset_val, warp_size,
-            gpu::ShuffleMode::XOR);
+        shuffle_result_vec[i] =
+            emitWidthAdaptShuffle(b, loc, sum_vec[i], shuffleElemType,
+                                  offset_val, warp_size, gpu::ShuffleMode::XOR);
       }
       for (int i = 0; i < vector_size; i++) {
         if (elemType != shuffleElemType) {
@@ -3029,7 +3033,8 @@ LogicalResult lowerWithSchedulekInputCPU(
   Value upperBound = b.create<arith::AddIOp>(loc, outterIV, innerMostStep);
   Value pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt,
                                        upperBound, innerMostDimSize);
-  upperBound = b.create<arith::SelectOp>(loc, pred, upperBound, innerMostDimSize);
+  upperBound =
+      b.create<arith::SelectOp>(loc, pred, upperBound, innerMostDimSize);
 
   // init the output buffer;
   Value initValue;

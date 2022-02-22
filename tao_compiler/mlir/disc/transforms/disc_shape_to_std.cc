@@ -131,8 +131,8 @@ Value getBroadcastedDim(ImplicitLocOpBuilder lb, ValueRange extentTensors,
         shape, ValueRange{lesserRankOperandDimension});
     Value dimIsOne = lb.create<arith::CmpIOp>(arith::CmpIPredicate::eq,
                                               lesserRankOperandExtent, one);
-    broadcastedDim =
-        lb.create<mlir::arith::SelectOp>(dimIsOne, broadcastedDim, lesserRankOperandExtent);
+    broadcastedDim = lb.create<mlir::arith::SelectOp>(dimIsOne, broadcastedDim,
+                                                      lesserRankOperandExtent);
   }
   return broadcastedDim;
 }

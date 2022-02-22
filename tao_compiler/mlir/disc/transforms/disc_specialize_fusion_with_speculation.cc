@@ -428,8 +428,8 @@ struct DiscSpecializeFusionWithSpeculationPass
       threshold = b.create<arith::ConstantIndexOp>(loc, max_threads_per_wave);
       FusionPatternBase fusion_pattern(fusion_op);
       Operation* dominant_equivalent_op = fusion_pattern.getRootOps().back();
-      out_element_number = emitNumElementsComputation(
-          b, loc, dominant_equivalent_op);
+      out_element_number =
+          emitNumElementsComputation(b, loc, dominant_equivalent_op);
     } else {
       // Either a column reduction dominanted fusion, or a non-fusion op.
       return;

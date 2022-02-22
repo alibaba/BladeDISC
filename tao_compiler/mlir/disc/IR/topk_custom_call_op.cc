@@ -103,8 +103,8 @@ LogicalResult reifyReturnTypeShapesImpl<TopKBackendConfig>(
                                                 k_value, neg_one);
       Value true_br_value =
           builder.create<tensor::DimOp>(loc, keys_operand, idx);
-      auto select =
-          builder.create<mlir::arith::SelectOp>(loc, cond, true_br_value, k_value);
+      auto select = builder.create<mlir::arith::SelectOp>(
+          loc, cond, true_br_value, k_value);
       shape_values.push_back(select);
     } else {
       Value dim = builder.create<tensor::DimOp>(loc, keys_operand, idx);

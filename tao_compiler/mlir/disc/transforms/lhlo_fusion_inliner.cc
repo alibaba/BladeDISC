@@ -17,8 +17,8 @@ limitations under the License.
 // contents of lmhlo.fusion_op after its body is fully lowered.
 //
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
-#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "mlir/Pass/Pass.h"
+#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 
 namespace mlir {
 namespace disc_ral {

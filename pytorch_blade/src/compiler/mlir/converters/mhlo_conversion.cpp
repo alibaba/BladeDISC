@@ -15,7 +15,6 @@
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h>
 #include <mlir/Dialect/StandardOps/IR/Ops.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
-#include <tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h>
 #include <tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h>
 
 #include "common_utils/logging.h"
@@ -68,7 +67,6 @@ void RegisterDialects(mlir::DialectRegistry& registry) {
       registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::mhlo_disc::MhloDiscDialect>();
   registry.insert<mlir::chlo::HloClientDialect>();
-  registry.insert<mlir::disc_ral::RalDialect>();
 }
 
 bool IsMlirMhloSupported(const torch::jit::Node& node) {

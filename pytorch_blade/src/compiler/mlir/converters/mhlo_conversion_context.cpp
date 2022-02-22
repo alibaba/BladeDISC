@@ -171,7 +171,7 @@ mlir::Location GetNodeLocation(
     std::tie(filename, line, col) = *file_line_col;
     std::string node_kind_name(node.kind().toDisplayString());
     return mlir::FileLineColLoc::get(
-        ctx.builder->getIdentifier(node_kind_name + "@" + filename), line, col);
+        ctx.builder->getStringAttr(node_kind_name + "@" + filename), line, col);
   } else {
     // TODO: if unkown, return the block's location
     return ctx.mlir_module->getLoc();

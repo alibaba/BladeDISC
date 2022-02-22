@@ -78,7 +78,7 @@ mlir::Value BuildStandardI32NumelOfTensor(
   for (mlir_dim_t dim : numel_dims) {
     mlir::Value dim_size = builder.create<tensor::DimOp>(loc, input, dim);
     dim_size =
-        builder.create<mlir::arith::IndexCastOp>(loc, dim_size, mhlo_dim_type);
+        builder.create<mlir::arith::IndexCastOp>(loc, mhlo_dim_type, dim_size);
     num_elem = builder.create<mlir::arith::MulIOp>(loc, num_elem, dim_size);
   }
   return num_elem;

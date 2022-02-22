@@ -2692,9 +2692,7 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
     values_in_fusion.insert(results.begin(), results.end());
     shape_analysis->buildEqualShapesInFusion(fusion, values_in_fusion);
   }
-  if (false) {  // For debugging.
-    createPrintFusionParams(fusion_op, fusion_pattern);
-  }
+  LLVM_DEBUG(createPrintFusionParams(fusion_op, fusion_pattern));
 
   auto root_ops = fusion_pattern.getRootOps();
   auto fused_block = &(fusion_op.region().front());

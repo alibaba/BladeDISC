@@ -396,7 +396,7 @@ func @dynamic_conv(%arg0: !disc_ral.context) {
   %53 = arith.index_cast %50 : i32 to index
   %54 = arith.index_cast %52 : i32 to index
   %55 = memref.alloc(%8, %3, %53, %54) : memref<?x?x?x?xf32, "gpu">
-  "lmhlo.fusion"() ( {
+  "lmhlo.fusion"() ({
     "lmhlo.constant"(%11) {value = dense<0.000000e+00> : tensor<f32>} : (memref<f32, "gpu">) -> ()
     "lmhlo.transpose"(%0, %36) {disc.device = "gpu", permutation = dense<[0, 3, 1, 2]> : tensor<4xi64>} : (memref<?x?x?x?xf32, "gpu">, memref<?x?x?x?xf32, "gpu">) -> ()
     "lmhlo.dynamic_pad"(%36, %11, %46, %47, %10, %55) {disc.device = "gpu"} : (memref<?x?x?x?xf32, "gpu">, memref<f32, "gpu">, memref<4xi32, "cpu">, memref<4xi32, "cpu">, memref<4xi32, "cpu">, memref<?x?x?x?xf32, "gpu">) -> ()

@@ -6,7 +6,7 @@ func @should_not_reuse_val_cache(%arg0: memref<?xf32>, %arg1: memref<3xi32>, %ar
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
   // CHECK: "lmhlo.fusion"() ({
-  "lmhlo.fusion"() ( {
+  "lmhlo.fusion"() ({
     // CHECK-NOT: lmhlo.dynamic_broadcast_in_dim
     // CHECK-NOT: lmhlo.add
     "lmhlo.dynamic_broadcast_in_dim"(%arg0, %arg1, %arg4) {broadcast_dimensions = dense<2> : tensor<1xi64>} : (memref<?xf32>, memref<3xi32>, memref<?x?x?xf32>) -> ()

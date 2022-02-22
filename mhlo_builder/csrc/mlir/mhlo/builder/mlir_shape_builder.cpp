@@ -33,7 +33,7 @@ mlir::Value BuildHloDimSizeOfTensor(mlir::OpBuilder& builder,
   auto dim_size = ranked_type.getDimSize(dim_index);
   if (dim_size == mlir::ShapedType::kDynamicSize) {
     return builder.create<mlir::arith::IndexCastOp>(
-        loc, builder.create<tensor::DimOp>(loc, tensor, dim_index),
+        loc, builder.create<tensor::DimOp>(loc, dim_index, tensor),
         BuildMHloDimType(builder));
   } else {
     return BuildStdConstForI32(builder, loc, dim_size);

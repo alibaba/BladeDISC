@@ -81,9 +81,9 @@ LogicalResult GenericAtomicRMWOpLoweringWithBitcast::matchAndRewrite(
   Block* initBlock = rewriter.getInsertionBlock();
   Block* endBlock =
       rewriter.splitBlock(initBlock, std::next(Block::iterator(atomicOp)));
-  Block* loopBlock =
-      rewriter.createBlock(initBlock->getParent(),
-                           std::next(Region::iterator(initBlock)), valueType);
+  Block* loopBlock = rewriter.createBlock(
+      initBlock->getParent(), std::next(Region::iterator(initBlock)), valueType,
+      loc);
 
   // Compute the loaded value and branch to the loop block.
   rewriter.setInsertionPointToEnd(initBlock);

@@ -69,7 +69,7 @@ mlir::Value BuildDynamicSliceInternal(mlir::OpBuilder& builder,
   auto mhlo_one = BuildStdConstForI32(builder, loc, 1);
   auto mhlo_dim_type = BuildMHloDimType(builder);
   auto mhlo_dim_size =
-      builder.create<mlir::arith::IndexCastOp>(loc, dim_size, mhlo_dim_type);
+      builder.create<mlir::arith::IndexCastOp>(loc, mhlo_dim_type, dim_size);
 
   SmallValueVec4 start_indices;
   SmallValueVec4 end_indices;
@@ -81,13 +81,13 @@ mlir::Value BuildDynamicSliceInternal(mlir::OpBuilder& builder,
   for (mlir_dim_t r = 0; r < rank; ++r) {
     if (r == dim_index) {
       auto mhlo_start_index = builder.create<mlir::arith::IndexCastOp>(
-          loc, norm_start_index, mhlo_dim_type);
+          loc, mhlo_dim_type, norm_start_index);
       start_indices.push_back(mhlo_start_index);
       auto mhlo_end_index = builder.create<mlir::arith::IndexCastOp>(
-          loc, norm_end_index, mhlo_dim_type);
+          loc, mhlo_dim_type, norm_end_index);
       end_indices.push_back(mhlo_end_index);
       auto mhlo_step_index = builder.create<mlir::arith::IndexCastOp>(
-          loc, norm_step_index, mhlo_dim_type);
+          loc, mhlo_dim_type, norm_step_index);
       strides.push_back(mhlo_step_index);
     } else {
       start_indices.push_back(mhlo_zero);

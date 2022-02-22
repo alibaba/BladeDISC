@@ -1,7 +1,7 @@
 // RUN: disc-opt %s -disc-revise-gpu-kernel-outlining -split-input-file | FileCheck %s
 
 // func @need_revise(%input1: memref<?x?x?xf32, "gpu">, %input2: memref<3xi32>, %input3: memref<3xi32>, %input4: memref<3xi32>, %out: memref<?x?x?xf32, "gpu">) -> (memref<?x?x?xf32, "gpu">) {
-//   "lmhlo.fusion"() ( {
+//   "lmhlo.fusion"() ({
 //     "lmhlo.real_dynamic_slice"(%input1, %input2, %input3, %input4, %out) : (memref<?x?x?xf32, "gpu">, memref<3xi32>, memref<3xi32>, memref<3xi32>, memref<?x?x?xf32, "gpu">) -> ()
 //     "lmhlo.terminator"() : () -> ()
 //   }) : () -> ()

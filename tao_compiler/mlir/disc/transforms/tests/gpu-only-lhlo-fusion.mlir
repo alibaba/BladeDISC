@@ -5,7 +5,7 @@
 // BASE-SAME: (%[[ARG0:.*]]: memref<?x?xf32, "gpu">, %[[ARG1:.*]]: memref<?x?xf32, "gpu">, %[[ARG2:.*]]: memref<?x?xf32, "gpu">, %[[ARG3:.*]]: memref<?x?xf32, "gpu">) -> memref<?x?xf32, "gpu">
 func @simple_kloop_fusion(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?xf32, "gpu">,
                           %arg2: memref<?x?xf32, "gpu">, %arg3: memref<?x?xf32, "gpu">) -> memref<?x?xf32, "gpu"> {
-  // BASE: "lmhlo.fusion"() ( {
+  // BASE: "lmhlo.fusion"() ({
   // BASE: "lmhlo.abs"(%[[ARG0]], %[[ARG1]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // BASE: "lmhlo.add"(%[[ARG1]], %[[ARG2]], %[[ARG3]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // BASE: })
@@ -21,7 +21,7 @@ func @simple_kloop_fusion(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?xf32, 
 // BASE-SAME: (%[[ARG0:.*]]: memref<?x?xf32, "gpu">, %[[ARG1:.*]]: memref<?x?xf32, "gpu">, %[[ARG2:.*]]: memref<?x?xf32, "gpu">, %[[ARG3:.*]]: memref<?x?xf32, "gpu">) -> (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">)
 func @simple_multi_output_kloop_fusion(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?xf32, "gpu">,
                           %arg2: memref<?x?xf32, "gpu">, %arg3: memref<?x?xf32, "gpu">) -> (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) {
-  // BASE: "lmhlo.fusion"() ( {
+  // BASE: "lmhlo.fusion"() ({
   // BASE: "lmhlo.abs"(%[[ARG0]], %[[ARG1]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // BASE: "lmhlo.add"(%[[ARG1]], %[[ARG2]], %[[ARG3]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // BASE: })
@@ -38,7 +38,7 @@ func @simple_multi_output_kloop_fusion(%arg0: memref<?x?xf32, "gpu">, %arg1: mem
 func @simple_multi_output_kloop_fusion_with_reorder(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?xf32, "gpu">,
                           %arg2: memref<?x?xf32, "gpu">, %arg3: memref<?x?xf32, "gpu">,
                           %arg4: memref<2xindex, "cpu">, %arg5:  memref<?x?xf32, "gpu">) -> (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) {
-  // BASE: "lmhlo.fusion"() ( {
+  // BASE: "lmhlo.fusion"() ({
   // BASE: "lmhlo.abs"(%[[ARG0]], %[[ARG1]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // BASE: "lmhlo.add"(%[[ARG1]], %[[ARG2]], %[[ARG3]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // BASE: })
@@ -57,7 +57,7 @@ func @simple_multi_output_kloop_fusion_with_reorder(%arg0: memref<?x?xf32, "gpu"
 func @same_num_elements_multi_output_kloop_fusion(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?xf32, "gpu">,
                           %arg2: memref<2xi64>, %arg3: memref<?x?x?xf32, "gpu">,
                           %arg4: memref<?x?x?xf32, "gpu">, %arg5:  memref<?x?x?xf32, "gpu">) -> (memref<?x?xf32, "gpu">, memref<?x?x?xf32, "gpu">) {
-  // BASE: "lmhlo.fusion"() ( {
+  // BASE: "lmhlo.fusion"() ({
   // BASE: "lmhlo.abs"(%[[ARG0]], %[[ARG1]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // BASE: "lmhlo.dynamic_reshape"(%[[ARG1]], %[[ARG2]], %[[ARG3]])
   // BASE: "lmhlo.add"(%[[ARG3]], %[[ARG4]], %[[ARG5]]) : (memref<?x?x?xf32, "gpu">, memref<?x?x?xf32, "gpu">, memref<?x?x?xf32, "gpu">) -> ()
@@ -89,7 +89,7 @@ func @kloop_fusion_with_dealloc(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?
   // BASE: %[[TMP9:.*]] = memref.alloc
   // BASE: %[[TMP13:.*]] = memref.alloc
   // BASE: %[[TMP16:.*]] = memref.alloc
-  // BASE: "lmhlo.fusion"() ( {
+  // BASE: "lmhlo.fusion"() ({
   // BASE: "lmhlo.add"(%[[ARG0]], %[[ARG1]], %[[TMP3]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // BASE: "lmhlo.multiply"(%[[ARG0]], %[[ARG1]], %[[TMP5]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // BASE: "lmhlo.abs"(%[[TMP3]], %[[TMP9]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
@@ -135,13 +135,13 @@ func @kloop_fusion_with_dealloc(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?
 // BASE-LABEL: @simple_kinput
 // BASE-SAME: %[[ARG0:.*]]: memref<?x?xf32, "gpu">, %[[ARG1:.*]]: memref<?x?xf32, "gpu">, %[[ARG2:.*]]: memref<?xf32, "gpu">, %[[ARG3:.*]]: memref<f32, "gpu">
 func @simple_kinput(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?xf32, "gpu">, %arg2: memref<?xf32, "gpu">, %init: memref<f32, "gpu">) -> memref<?xf32, "gpu"> {
-  // BASE: "lmhlo.fusion"() ( {
+  // BASE: "lmhlo.fusion"() ({
   // BASE: "lmhlo.abs"(%[[ARG0]], %[[ARG1]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
-  // BASE: "lmhlo.reduce"(%[[ARG1]], %[[ARG3]], %[[ARG2]]) ( {
+  // BASE: "lmhlo.reduce"(%[[ARG1]], %[[ARG3]], %[[ARG2]]) ({
   // BASE: })
   // BASE: return %[[ARG2]] : memref<?xf32, "gpu">
   "lmhlo.abs"(%arg0, %arg1) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
-  "lmhlo.reduce"(%arg1, %init, %arg2) ( {
+  "lmhlo.reduce"(%arg1, %init, %arg2) ({
   ^bb0(%targ1: memref<f32, "gpu">, %targ2: memref<f32, "gpu">, %tresult: memref<f32, "gpu">):
     "lmhlo.add"(%targ1, %targ2, %tresult) : (memref<f32, "gpu">, memref<f32, "gpu">, memref<f32, "gpu">) -> ()
     "lmhlo.terminator"() : () -> ()
@@ -154,13 +154,13 @@ func @simple_kinput(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?xf32, "gpu">
 // BASE-LABEL: @multi_output_kinput
 // BASE-SAME: %[[ARG0:.*]]: memref<?x?xf32, "gpu">, %[[ARG1:.*]]: memref<?x?xf32, "gpu">, %[[ARG2:.*]]: memref<?xf32, "gpu">, %[[ARG3:.*]]: memref<f32, "gpu">
 func @multi_output_kinput(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?xf32, "gpu">, %arg2: memref<?xf32, "gpu">, %init: memref<f32, "gpu">) -> (memref<?x?xf32, "gpu">, memref<?xf32, "gpu">) {
-  // BASE: "lmhlo.fusion"() ( {
+  // BASE: "lmhlo.fusion"() ({
   // BASE: "lmhlo.abs"(%[[ARG0]], %[[ARG1]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
-  // BASE: "lmhlo.reduce"(%[[ARG1]], %[[ARG3]], %[[ARG2]]) ( {
+  // BASE: "lmhlo.reduce"(%[[ARG1]], %[[ARG3]], %[[ARG2]]) ({
   // BASE: })
   // BASE: return %[[ARG1]], %[[ARG2]] : memref<?x?xf32, "gpu">, memref<?xf32, "gpu">
   "lmhlo.abs"(%arg0, %arg1) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
-  "lmhlo.reduce"(%arg1, %init, %arg2) ( {
+  "lmhlo.reduce"(%arg1, %init, %arg2) ({
   ^bb0(%targ1: memref<f32, "gpu">, %targ2: memref<f32, "gpu">, %tresult: memref<f32, "gpu">):
     "lmhlo.add"(%targ1, %targ2, %tresult) : (memref<f32, "gpu">, memref<f32, "gpu">, memref<f32, "gpu">) -> ()
     "lmhlo.terminator"() : () -> ()
@@ -173,21 +173,21 @@ func @multi_output_kinput(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?xf32, 
 // BASE-LABEL: @row_red_and_row_red_kinput
 // BASE-SAME: %[[ARG0:.*]]: memref<?x?xf32, "gpu">, %[[ARG1:.*]]: memref<?x?xf32, "gpu">, %[[ARG2:.*]]: memref<?x?xf32, "gpu">, %[[ARG3:.*]]: memref<?xf32, "gpu">, %[[ARG4:.*]]: memref<?xf32, "gpu">, %[[ARG5:.*]]: memref<?x?xf32, "gpu">, %[[ARG6:.*]]: memref<f32, "gpu">
 func @row_red_and_row_red_kinput(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?xf32, "gpu">, %arg2: memref<?x?xf32, "gpu">, %arg3: memref<?xf32, "gpu">, %arg4: memref<?xf32, "gpu">, %arg5: memref<?x?xf32, "gpu">, %init: memref<f32, "gpu">) -> (memref<?xf32, "gpu">, memref<?xf32, "gpu">) {
-  // BASE: "lmhlo.fusion"() ( {
+  // BASE: "lmhlo.fusion"() ({
   // BASE: "lmhlo.add"(%[[ARG0]], %[[ARG1]], %[[ARG2]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // BASE: "lmhlo.abs"(%[[ARG2]], %[[ARG5]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
-  // BASE: "lmhlo.reduce"(%[[ARG5]], %[[ARG6]], %[[ARG3]]) ( {
-  // BASE: "lmhlo.reduce"(%[[ARG2]], %[[ARG6]], %[[ARG4]]) ( {
+  // BASE: "lmhlo.reduce"(%[[ARG5]], %[[ARG6]], %[[ARG3]]) ({
+  // BASE: "lmhlo.reduce"(%[[ARG2]], %[[ARG6]], %[[ARG4]]) ({
   // BASE: })
   // BASE: return %[[ARG3]], %[[ARG4]] : memref<?xf32, "gpu">, memref<?xf32, "gpu">
   "lmhlo.add"(%arg0, %arg1, %arg2) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   "lmhlo.abs"(%arg2, %arg5) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
-  "lmhlo.reduce"(%arg5, %init, %arg3) ( {
+  "lmhlo.reduce"(%arg5, %init, %arg3) ({
   ^bb0(%targ1: memref<f32, "gpu">, %targ2: memref<f32, "gpu">, %tresult: memref<f32, "gpu">):
     "lmhlo.add"(%targ1, %targ2, %tresult) : (memref<f32, "gpu">, memref<f32, "gpu">, memref<f32, "gpu">) -> ()
     "lmhlo.terminator"() : () -> ()
   } ) {dimensions = dense<[1]> : tensor<1xi64>} : (memref<?x?xf32, "gpu">, memref<f32, "gpu">, memref<?xf32, "gpu">) -> ()
-  "lmhlo.reduce"(%arg2, %init, %arg4) ( {
+  "lmhlo.reduce"(%arg2, %init, %arg4) ({
   ^bb0(%targ1: memref<f32, "gpu">, %targ2: memref<f32, "gpu">, %tresult: memref<f32, "gpu">):
     "lmhlo.add"(%targ1, %targ2, %tresult) : (memref<f32, "gpu">, memref<f32, "gpu">, memref<f32, "gpu">) -> ()
     "lmhlo.terminator"() : () -> ()
@@ -200,21 +200,21 @@ func @row_red_and_row_red_kinput(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x
 // BASE-LABEL: @row_red_and_col_red_kinput
 // BASE-SAME: %[[ARG0:.*]]: memref<?x?xf32, "gpu">, %[[ARG1:.*]]: memref<?x?xf32, "gpu">, %[[ARG2:.*]]: memref<?x?xf32, "gpu">, %[[ARG3:.*]]: memref<?xf32, "gpu">, %[[ARG4:.*]]: memref<?xf32, "gpu">, %[[ARG5:.*]]: memref<?x?xf32, "gpu">, %[[ARG6:.*]]: memref<f32, "gpu">
 func @row_red_and_col_red_kinput(%arg0: memref<?x?xf32, "gpu">, %arg1: memref<?x?xf32, "gpu">, %arg2: memref<?x?xf32, "gpu">, %arg3: memref<?xf32, "gpu">, %arg4: memref<?xf32, "gpu">, %arg5: memref<?x?xf32, "gpu">, %init: memref<f32, "gpu">) -> (memref<?xf32, "gpu">, memref<?xf32, "gpu">) {
-  // BASE: "lmhlo.fusion"() ( {
+  // BASE: "lmhlo.fusion"() ({
   // BASE: "lmhlo.add"(%[[ARG0]], %[[ARG1]], %[[ARG2]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // BASE: "lmhlo.abs"(%[[ARG2]], %[[ARG5]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
-  // BASE: "lmhlo.reduce"(%[[ARG5]], %[[ARG6]], %[[ARG3]]) ( {
-  // BASE: "lmhlo.reduce"(%[[ARG2]], %[[ARG6]], %[[ARG4]]) ( {
+  // BASE: "lmhlo.reduce"(%[[ARG5]], %[[ARG6]], %[[ARG3]]) ({
+  // BASE: "lmhlo.reduce"(%[[ARG2]], %[[ARG6]], %[[ARG4]]) ({
   // BASE: })
   // BASE: return %[[ARG3]], %[[ARG4]] : memref<?xf32, "gpu">, memref<?xf32, "gpu">
   "lmhlo.add"(%arg0, %arg1, %arg2) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   "lmhlo.abs"(%arg2, %arg5) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
-  "lmhlo.reduce"(%arg5, %init, %arg3) ( {
+  "lmhlo.reduce"(%arg5, %init, %arg3) ({
   ^bb0(%targ1: memref<f32, "gpu">, %targ2: memref<f32, "gpu">, %tresult: memref<f32, "gpu">):
     "lmhlo.add"(%targ1, %targ2, %tresult) : (memref<f32, "gpu">, memref<f32, "gpu">, memref<f32, "gpu">) -> ()
     "lmhlo.terminator"() : () -> ()
   } ) {dimensions = dense<[1]> : tensor<1xi64>} : (memref<?x?xf32, "gpu">, memref<f32, "gpu">, memref<?xf32, "gpu">) -> ()
-  "lmhlo.reduce"(%arg2, %init, %arg4) ( {
+  "lmhlo.reduce"(%arg2, %init, %arg4) ({
   ^bb0(%targ1: memref<f32, "gpu">, %targ2: memref<f32, "gpu">, %tresult: memref<f32, "gpu">):
     "lmhlo.add"(%targ1, %targ2, %tresult) : (memref<f32, "gpu">, memref<f32, "gpu">, memref<f32, "gpu">) -> ()
     "lmhlo.terminator"() : () -> ()
@@ -232,11 +232,11 @@ func @reduce_should_not_have_consumer_in_the_fusion(%arg0: memref<?x?xf32, "gpu"
   // BASE: %[[TMP7:.*]] = memref.alloc
   // BASE: %[[TMP8:.*]] = memref.alloc
   // BASE: %[[TMP9:.*]] = memref.alloc
-  // BASE: "lmhlo.fusion"() ( {
+  // BASE: "lmhlo.fusion"() ({
   // BASE: "lmhlo.add"(%[[ARG0]], %[[ARG1]], %[[TMP4]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // BASE: "lmhlo.subtract"(%[[ARG0]], %[[TMP4]], %[[TMP7]]) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
   // BASE: "lmhlo.constant"(%[[TMP8]]) {value = dense<0.000000e+00> : tensor<f32, "gpu">} : (memref<f32, "gpu">) -> ()
-  // BASE: "lmhlo.reduce"(%[[TMP7]], %[[TMP8]], %[[TMP9]]) ( {
+  // BASE: "lmhlo.reduce"(%[[TMP7]], %[[TMP8]], %[[TMP9]]) ({
   // BASE: })
   // BASE: memref.dealloc %[[TMP4]] : memref<?x?xf32, "gpu">
   // BASE: memref.dealloc %[[TMP8]] : memref<f32, "gpu">
@@ -260,7 +260,7 @@ func @reduce_should_not_have_consumer_in_the_fusion(%arg0: memref<?x?xf32, "gpu"
   %8 = memref.alloc() : memref<f32, "gpu">
   "lmhlo.constant"(%8) {value = dense<0.000000e+00> : tensor<f32, "gpu">} : (memref<f32, "gpu">) -> ()
   %9 = memref.alloc(%5) : memref<?xf32, "gpu">
-  "lmhlo.reduce"(%7, %8, %9) ( {
+  "lmhlo.reduce"(%7, %8, %9) ({
   ^bb0(%arg2: memref<f32, "gpu">, %arg3: memref<f32, "gpu">, %arg4: memref<f32, "gpu">):  // no predecessors
     "lmhlo.add"(%arg2, %arg3, %arg4) : (memref<f32, "gpu">, memref<f32, "gpu">, memref<f32, "gpu">) -> ()
     "lmhlo.terminator"() : () -> ()
@@ -357,7 +357,7 @@ func @kstitch_fusion_mean(%arg0: memref<?x?x?xf32, "gpu">) -> memref<?x?xf32, "g
   %16 = memref.alloc(%11, %1) : memref<?x?xf32, "gpu">
   "lmhlo.dynamic_reshape"(%arg0, %8, %16) {disc.device = "gpu"} : (memref<?x?x?xf32, "gpu">, memref<2xi32, "cpu">, memref<?x?xf32, "gpu">) -> ()
   %17 = memref.alloc(%11) : memref<?xf32, "gpu">
-  "lmhlo.reduce"(%16, %0, %17) ( {
+  "lmhlo.reduce"(%16, %0, %17) ({
   ^bb0(%arg1: memref<f32>, %arg2: memref<f32>, %arg3: memref<f32>):  // no predecessors
     "lmhlo.add"(%arg1, %arg2, %arg3) {disc.device = "gpu"} : (memref<f32>, memref<f32>, memref<f32>) -> ()
     "lmhlo.terminator"() : () -> ()

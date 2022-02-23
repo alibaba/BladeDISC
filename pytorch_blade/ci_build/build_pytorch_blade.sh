@@ -43,8 +43,8 @@ function ci_build() {
     rm -rf build && python3 setup.py develop;
     # The following are UNIT TESTS
     export TORCH_BLADE_DEBUG_LOG=ON
-    python3 setup.py cpp_test 2>&1 | tee -a build/cpp_test.out;
-    python3 -m unittest discover tests/ -v 2>&1 | tee -a build/py_test.out;
+    python3 setup.py cpp_test 2>&1 | tee -a cpp_test.out;
+    python3 -m unittest discover tests/ -v 2>&1 | tee -a py_test.out;
 }
 
 # Build

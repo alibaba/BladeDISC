@@ -37,10 +37,6 @@ export TORCH_BLADE_CI_BUILD_TORCH_VERSION=${TORCH_BLADE_CI_BUILD_TORCH_VERSION:-
   && export LD_LIBRARY_PATH=$TORCH_LIB:$LD_LIBRARY_PATH \
   && bash ./ci_build/build_pytorch_blade.sh)
 
-# build TorchBlade Python pacakge
-(cd pytorch_blade \
-  && python setup.py bdist_wheel)
-
 mkdir -p build && \
 mv pytorch_blade/dist/torch_blade*.whl ./build
 

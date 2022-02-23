@@ -33,7 +33,7 @@ VERSION = None
 
 
 def detect_host_tf_version():
-    version = tf.VERSION
+    version = tf.__version__
     if tf.test.is_gpu_available():
         return "tensorflow-gpu=={}".format(version)
     else:

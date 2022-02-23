@@ -21,6 +21,10 @@ from torch_blade_build import TorchBladeBuild, get_fullpath_or_create
 
 cwd = os.path.dirname(os.path.abspath(__file__))
 
+def _make_executable(path):
+    mode = os.stat(path).st_mode
+    mode |= (mode & 0o444) >> 2    # copy R bits to X
+    os.chmod(path, mode)
 
 def _symlink_force(target, link_name):
     try:
@@ -91,8 +95,16 @@ class BazelBuild(TorchBladeBuild):
             [self.shell_setting, self.build_cmd]
             + self.extra_opts
             + self.configs
-            + self.targets
         )
+        with open("debug_bazel.sh", "w") as f:
+            f.write("#!/bin/bash\n")
+            f.write("export LD_LIBRARY_PATH={}\n".format(ld_library_path))
+            f.write("export GCC_HOST_COMPILER_PATH={}\n".format(env.get("GCC_HOST_COMPILER_PATH", "")))
+            f.write(bazel_cmd + " $@")
+        _make_executable("debug_bazel.sh")
+
+        bazel_cmd = " ".join([bazel_cmd] + self.targets)
+
         subprocess.check_call(
             bazel_cmd, shell=True, env=env, executable="/bin/bash"
         )

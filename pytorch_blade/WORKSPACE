@@ -13,12 +13,15 @@ http_archive(
     ],
 )
 
-#`pybind11_bazel`
-# See https://github.com/pybind/pybind11_bazel
-git_repository(
-  name = "pybind11_bazel",
-  remote = "https://github.com/pybind/pybind11_bazel.git",
-  commit = "26973c0ff320cb4b39e45bc3e4297b82bc3a6c09",
+
+http_archive(
+    name = "pybind11_bazel",
+    sha256 = "a5666d950c3344a8b0d3892a88dc6b55c8e0c78764f9294e806d69213c03f19d",
+    strip_prefix = "pybind11_bazel-26973c0ff320cb4b39e45bc3e4297b82bc3a6c09",
+    urls = [
+        "http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/build_deps/pybind11_bazel/26973c0ff320cb4b39e45bc3e4297b82bc3a6c09.zip",
+        "https://github.com/pybind/pybind11_bazel/archive/26973c0ff320cb4b39e45bc3e4297b82bc3a6c09.zip",
+    ],
 )
 
 load("//bazel/torch:.torch_env_workspace.bzl", "torch_env_workspace")

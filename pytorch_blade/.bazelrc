@@ -1,7 +1,7 @@
 try-import ../tf_community/.bazelrc
 try-import ../tf_community/.bazelrc.user
 
-build:torch_disc --copt=-DTORCH_BLADE_BUILD_MLIR 
-build:torch_disc_cpu --config=disc_cpu --config=disc_mkldnn
-build:torch_disc_cuda --copt=-DTORCH_BLADE_BUILD_MLIR --copt=-DTORCH_BLADE_BUILD_WITH_CUDA
+build:torch_disc --copt=-DTORCH_BLADE_BUILD_MLIR
+build:torch_disc_cpu --config=disc_cpu --config=torch_disc --config=disc_mkldnn 
+build:torch_disc_cuda --config=disc_cuda --config=torch_disc --copt=-DTORCH_BLADE_BUILD_WITH_CUDA
 

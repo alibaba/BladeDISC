@@ -1,5 +1,10 @@
 package(default_visibility = ["//visibility:public"])
 
+load(
+    "@local_config_cuda//cuda:build_defs.bzl",
+    "if_cuda_is_configured",
+)
+
 cc_library(
     name = "libtorch",
     deps = [
@@ -14,18 +19,14 @@ cc_library(
             "lib/libtorch_cuda.so",
             "lib/libtorch_cpu.so",
             "lib/libtorch_global_deps.so",
-            "lib/libtensorpipe.so",
-        ],
+        ] + glob(
+            ["lib/libtensorpipe.so",]),
     hdrs = glob(
         [
             "include/torch/**/*.h",
-        ],
-        exclude = [
             "include/torch/csrc/api/include/**/*.h",
         ],
-    ) + glob([
-        "include/torch/csrc/api/include/**/*.h",
-    ]),
+    ),
     includes = [
         "include",
         "include/torch/csrc/api/include/",
@@ -45,7 +46,7 @@ cc_library(
     strip_include_prefix = "include",
     deps = [
         ":c10",
-    ],
+    ] + if_cuda_is_configured(["@local_config_cuda//cuda:cudart"]),
 )
 
 

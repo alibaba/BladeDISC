@@ -46,7 +46,7 @@ class BazelBuild(TorchBladeBuild):
             "//src:_torch_blade.so",
             self.test_suite,
         ]
-
+        self.torch_lib_dir = os.path.join(self.torch_dir, 'lib')
         torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]
         self.copts = [
             # PyTorch cmake args
@@ -55,6 +55,7 @@ class BazelBuild(TorchBladeBuild):
             "--copt=-DPYTORCH_MINOR_VERSION=" + torch_minor_version,
             "--copt=-DTORCH_BLADE_USE_CXX11_ABI={}".format(self.GLIBCXX_USE_CXX11_ABI),
             "--copt=-DTORCH_BLADE_CUDA_VERSION={}".format(self.cuda_version),
+            "--action_env PYTHON_BIN_PATH={}".format(sys.executable),
         ]
 
         self.configs = []
@@ -81,7 +82,8 @@ class BazelBuild(TorchBladeBuild):
 
         _gen_torch_bazel_workspace(self.torch_dir, srcdir)
         env = os.environ.copy()
-        env["PYTHON_BIN_PATH"] = sys.executable
+        ld_library_path = ":".join([self.torch_lib_dir, env.get("LD_LIBRARY_PATH", "")])
+        env["LD_LIBRARY_PATH"] = ld_library_path
 
         bazel_cmd = " ".join(
             [self.shell_setting, self.build_cmd]
@@ -106,7 +108,8 @@ class BazelBuild(TorchBladeBuild):
 
     def test(self):
         env = os.environ.copy()
-        env["PYTHON_BIN_PATH"] = sys.executable
+        ld_library_path = ":".join([self.torch_lib_dir, env.get("LD_LIBRARY_PATH", "")])
+        env["LD_LIBRARY_PATH"] = ld_library_path
 
         test_cmd = " ".join(
             [self.shell_setting, self.test_cmd]

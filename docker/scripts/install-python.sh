@@ -21,9 +21,6 @@ function install_venv() {
   if [[ ! -z "${DISC_HOST_TF_VERSION}" ]]; then
     echo "install TensorFlow: "${DISC_HOST_TF_VERSION} "..."
     pip install -q ${DISC_HOST_TF_VERSION}
-  else
-    echo "requires env DISC_HOST_TF_VERISON"
-    exit 1
   fi
 
   pip install pytest pytest-forked

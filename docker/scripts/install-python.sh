@@ -33,6 +33,14 @@ function install_tf115_cpu() {
 function install_venv() {
   python3 -m virtualenv ${DISC_VENV}
   source ${DISC_VENV}/bin/activate
+  if [[ ! -z "${DISC_HOST_TF_VERSION}" ]]; then
+    echo "install TensorFlow: "${DISC_HOST_TF_VERSION} "..."
+    pip install -q ${DISC_HOST_TF_VERSION}
+  else
+    echo "requires env DISC_HOST_TF_VERISON"
+    exit 1
+  fi
+
   if [[ ! -z "${BLADE_DISC_BUILT_CPU}" ]]; then
     install_tf115_cpu
   elif [[ "$CUDA_VERSION" == 10.0.* ]]; then

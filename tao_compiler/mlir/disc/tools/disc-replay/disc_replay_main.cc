@@ -51,6 +51,7 @@ tensorflow::Status RealMain(int argc, char** argv) {
   for (int i = 0; i < warmup_iters; ++i) {
     TF_RETURN_IF_ERROR(
         disc.Run(result, record->Tensors(), record->Placements()));
+    VLOG(0) << "warmup iteration [" << i << "] finish";
   }
   VLOG(0) << "Finish warmup with " << warmup_iters << " iterations";
 

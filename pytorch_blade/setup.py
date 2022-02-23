@@ -25,7 +25,7 @@ from setuptools import find_packages
 from setuptools import setup, Extension, Command
 from setuptools.command.build_ext import build_ext
 import bazel_build
-#import cmake_build
+import cmake_build
 
 # Constant known variables used throughout this file
 cwd = os.path.dirname(os.path.abspath(__file__))
@@ -75,8 +75,7 @@ class TorchBladeBuild(build_ext):
             build.run(extdir=extdir, srcdir=ext.sourcedir, build_temp="build/temp")
 
 
-class TestCommand(Command):
-
+class CustomCommand(Command):
     user_options = []
 
     def initialize_options(self):
@@ -86,6 +85,8 @@ class TestCommand(Command):
     def finalize_options(self):
         # must override abstract method
         pass
+
+class TestCommand(CustomCommand):
 
     def py_run(self):
         self._run(["python3", "-m", "unittest", "discover", "-v", "tests"])
@@ -114,6 +115,18 @@ class PyTestCommand(TestCommand):
     def run(self):
         self.py_run()
 
+class BuildDepsCommand(CustomCommand):
+
+    def run(self):
+        cmd = "python3 ../scripts/python/common_setup.py"
+        if torch._C._GLIBCXX_USE_CXX11_ABI:
+            cmd += " --cxx11_abi"
+
+        if not build.cuda_available:
+            cmd += " --build_mkldnn"
+
+        subprocess.check_call(cmd, shell=True, executable="/bin/bash")
+
 
 install_requires = ["networkx", "onnx>=1.6.0", f"torch=={torch.__version__}"]
 
@@ -132,6 +145,7 @@ setup(
         test=TestCommand,
         py_test=PyTestCommand,
         cpp_test=CppTestCommand,
+        build_deps=BuildDepsCommand,
     ),
     zip_safe=False,
 )

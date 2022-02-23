@@ -70,6 +70,16 @@ http_archive(
     ],
 )
 
+http_archive(
+    name = "io_bazel_rules_docker",
+    sha256 = "85ffff62a4c22a74dbd98d05da6cf40f497344b3dbf1e1ab0a37ab2a1a6ca014",
+    strip_prefix = "rules_docker-0.23.0",
+    urls = [
+        "https://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/build_deps/rules_docker/rules_docker-v0.23.0.tar.gz",
+        "https://github.com/bazelbuild/rules_docker/releases/download/v0.23.0/rules_docker-v0.23.0.tar.gz",
+    ],
+)
+
 load("//bazel/torch:repo.bzl", "torch_configure", "torch_pybind11_configure")
 
 torch_configure(name = "local_org_torch")
@@ -101,3 +111,7 @@ tf_workspace2()
 load("@org_tensorflow//tensorflow:workspace1.bzl", "tf_workspace1")
 
 tf_workspace1()
+
+load("@org_tensorflow//tensorflow:workspace0.bzl", "tf_workspace0")
+
+tf_workspace0()

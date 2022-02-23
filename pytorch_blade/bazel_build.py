@@ -1,3 +1,14 @@
+# Copyright 2022 The BladeDISC Authors. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import argparse
 import os
 import errno
@@ -5,6 +16,7 @@ import subprocess
 import sys
 import venv
 
+from common_setup import running_on_ci, remote_cache_token
 from torch_blade_build import TorchBladeBuild, get_fullpath_or_create
 
 cwd = os.path.dirname(os.path.abspath(__file__))
@@ -32,10 +44,9 @@ class BazelBuild(TorchBladeBuild):
         self.torch_lib_dir = os.path.join(self.torch_dir, 'lib')
         torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]
         self.extra_opts = [
-            "--copt=-DPYTORCH_VERSION_STRING=" + self.torch_version,
-            "--copt=-DPYTORCH_MAJOR_VERSION=" + torch_major_version,
-            "--copt=-DPYTORCH_MINOR_VERSION=" + torch_minor_version,
-            "--copt=-DTORCH_BLADE_USE_CXX11_ABI={}".format(self.GLIBCXX_USE_CXX11_ABI),
+            "--copt=-DPYTORCH_VERSION_STRING={}".format(self.torch_version),
+            "--copt=-DPYTORCH_MAJOR_VERSION={}".format(torch_major_version),
+            "--copt=-DPYTORCH_MINOR_VERSION={}".format(torch_minor_version),
             "--copt=-DTORCH_BLADE_CUDA_VERSION={}".format(self.cuda_version),
             "--action_env PYTHON_BIN_PATH={}".format(sys.executable),
             "--action_env TORCH_BLADE_TORCH_INSTALL_PATH={}".format(self.torch_dir),
@@ -43,7 +54,11 @@ class BazelBuild(TorchBladeBuild):
             "--action_env BAZEL_LINKLIBS=-lstdc++"
         ]
 
-        self.configs = []
+        remote_cache = remote_cache_token()
+        if remote_cache:
+            self.extra_opts += ["--remote_cache={}".format(remote_cache)]
+
+        self.configs = ["--config=cxx11abi_{}".format(int(self.GLIBCXX_USE_CXX11_ABI))]
         if self.is_debug:
             self.configs.append("--config=dbg")
 
@@ -51,6 +66,9 @@ class BazelBuild(TorchBladeBuild):
             self.configs.append("--config=torch_disc_cuda")
         else:
             self.configs += ["--config=torch_disc_cpu"]
+
+        if running_on_ci():
+            self.configs += ["--config=ci_build"]
 
         self.shell_setting = "set -e; set -o pipefail; "
         # Workaround: this venv ensure that $(/usr/bin/env python) is evaluated to python3

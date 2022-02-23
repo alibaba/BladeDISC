@@ -779,7 +779,7 @@ def main():
 
         if stage in ["all", "test", "test_tao_compiler"]:
             if args.enable_mkldnn:
-                build_mkldnn(root, args)
+                build_mkldnn(root)
             test_tao_compiler(root, args)
 
 

@@ -19,7 +19,7 @@ limitations under the License.
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/SCF/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/SCF/Utils.h"
+#include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 
 using mlir::memref::DimOp;
@@ -137,12 +137,12 @@ Value getDimSizeValue(OpBuilder* b, Value memref, int dim) {
 
 Value mayConvertToIndexType(Value val, OpBuilder* b, Location loc) {
   if (val.getType().isIndex()) return val;
-  return b->create<arith::IndexCastOp>(loc, val, b->getIndexType());
+  return b->create<arith::IndexCastOp>(loc, b->getIndexType(), val);
 }
 
 Value mayConvertToIntegerType(Value val, OpBuilder* b, Location loc) {
   if (val.getType().isInteger(32) || val.getType().isInteger(64)) return val;
-  return b->create<arith::IndexCastOp>(loc, val, b->getI64Type());
+  return b->create<arith::IndexCastOp>(loc, b->getI64Type(), val);
 }
 
 SmallVector<Value> calcMultiDimIndex(OpBuilder* b, Location loc,

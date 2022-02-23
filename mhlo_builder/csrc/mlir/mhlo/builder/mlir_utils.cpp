@@ -78,7 +78,7 @@ mlir::Value BuildStandardI32NumelOfTensor(
   for (mlir_dim_t dim : numel_dims) {
     mlir::Value dim_size = builder.create<tensor::DimOp>(loc, input, dim);
     dim_size =
-        builder.create<mlir::arith::IndexCastOp>(loc, dim_size, mhlo_dim_type);
+        builder.create<mlir::arith::IndexCastOp>(loc, mhlo_dim_type, dim_size);
     num_elem = builder.create<mlir::arith::MulIOp>(loc, num_elem, dim_size);
   }
   return num_elem;
@@ -260,7 +260,7 @@ mlir::Value BuildResolveUnknownDimSizeI32(mlir::OpBuilder& builder,
     auto is_minus_1 = builder.create<mlir::arith::CmpIOp>(
         loc, mlir::arith::CmpIPredicate::eq, dim_size, minus_1);
     // is_minus_1? (input_numel/reduce_prod) : dim_size
-    auto resolved_dim_size = builder.create<mlir::SelectOp>(
+    auto resolved_dim_size = builder.create<mlir::arith::SelectOp>(
         loc, is_minus_1,
         builder.create<mlir::arith::DivSIOp>(loc, input_numel, reduce_prod),
         dim_size);

@@ -11,7 +11,6 @@
 
 #include "compiler/mlir/converters/mhlo_conversion.h"
 
-#include <mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h>
 #include <mlir-hlo/Dialect/mhlo/IR/chlo_ops.h>
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h>
 #include <mlir/Dialect/StandardOps/IR/Ops.h>
@@ -68,7 +67,6 @@ void RegisterDialects(mlir::DialectRegistry& registry) {
       registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::mhlo_disc::MhloDiscDialect>();
   registry.insert<mlir::chlo::HloClientDialect>();
-  registry.insert<mlir::disc_ral::RalDialect>();
 }
 
 bool IsMlirMhloSupported(const torch::jit::Node& node) {

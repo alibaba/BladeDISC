@@ -72,7 +72,7 @@ LogicalResult RemoveUselessUnrealizedConversionCastOp::matchAndRewrite(
 ///      +--------------------------------+
 ///
 LogicalResult GenericAtomicRMWOpLoweringWithBitcast::matchAndRewrite(
-    GenericAtomicRMWOp atomicOp, OpAdaptor adaptor,
+    memref::GenericAtomicRMWOp atomicOp, OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   Location loc = atomicOp.getLoc();
   Type valueType = typeConverter->convertType(atomicOp.getResult().getType());
@@ -81,26 +81,26 @@ LogicalResult GenericAtomicRMWOpLoweringWithBitcast::matchAndRewrite(
   Block* initBlock = rewriter.getInsertionBlock();
   Block* endBlock =
       rewriter.splitBlock(initBlock, std::next(Block::iterator(atomicOp)));
-  Block* loopBlock =
-      rewriter.createBlock(initBlock->getParent(),
-                           std::next(Region::iterator(initBlock)), valueType);
+  Block* loopBlock = rewriter.createBlock(
+      initBlock->getParent(), std::next(Region::iterator(initBlock)), valueType,
+      loc);
 
   // Compute the loaded value and branch to the loop block.
   rewriter.setInsertionPointToEnd(initBlock);
-  auto memRefType = atomicOp.getMemref().getType().cast<MemRefType>();
-  auto dataPtr = getStridedElementPtr(loc, memRefType, adaptor.getMemref(),
-                                      adaptor.getIndices(), rewriter);
+  auto memRefType = atomicOp.memref().getType().cast<MemRefType>();
+  auto dataPtr = getStridedElementPtr(loc, memRefType, adaptor.memref(),
+                                      adaptor.indices(), rewriter);
   Value init = rewriter.create<LLVM::LoadOp>(loc, dataPtr);
   rewriter.create<LLVM::BrOp>(loc, init, loopBlock);
 
   // Prepare the body of the loop block.
   rewriter.setInsertionPointToStart(loopBlock);
 
-  // Clone the GenericAtomicRMWOp region and extract the result.
+  // Clone the memref::GenericAtomicRMWOp region and extract the result.
   auto loopArgument = loopBlock->getArgument(0);
   BlockAndValueMapping mapping;
   mapping.map(atomicOp.getCurrentValue(), loopArgument);
-  Block& entryBlock = atomicOp.getAtomicBody().front();
+  Block& entryBlock = atomicOp.atomic_body().front();
   for (auto& nestedOp : entryBlock.without_terminator()) {
     Operation* clone = rewriter.clone(nestedOp, mapping);
     mapping.map(nestedOp.getResults(), clone->getResults());

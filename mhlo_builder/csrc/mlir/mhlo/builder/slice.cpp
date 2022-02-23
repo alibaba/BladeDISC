@@ -38,7 +38,7 @@ mlir::Value BuildStdNormalizeIndex(mlir::OpBuilder& builder,
   auto not_zero = builder.create<mlir::arith::CmpIOp>(
       loc, mlir::arith::CmpIPredicate::ne, dim_size, zero);
   auto dim_size_no_zero =
-      builder.create<mlir::SelectOp>(loc, not_zero, dim_size, one);
+      builder.create<mlir::arith::SelectOp>(loc, not_zero, dim_size, one);
   // remainder = (dim_size + index_bounded) % dim_size
   auto remainder = BuildStdRemainderSigned(
       builder, loc, BuildStdAddSigned(builder, loc, dim_size, index_bounded),
@@ -48,7 +48,7 @@ mlir::Value BuildStdNormalizeIndex(mlir::OpBuilder& builder,
   auto cond = builder.create<mlir::arith::CmpIOp>(
       loc, mlir::arith::CmpIPredicate::sge, index, dim_size);
   // cond ? dim_size: remainder
-  return builder.create<mlir::SelectOp>(loc, cond, dim_size, remainder);
+  return builder.create<mlir::arith::SelectOp>(loc, cond, dim_size, remainder);
 }
 
 mlir::Value BuildDynamicSliceInternal(mlir::OpBuilder& builder,
@@ -69,7 +69,7 @@ mlir::Value BuildDynamicSliceInternal(mlir::OpBuilder& builder,
   auto mhlo_one = BuildStdConstForI32(builder, loc, 1);
   auto mhlo_dim_type = BuildMHloDimType(builder);
   auto mhlo_dim_size =
-      builder.create<mlir::arith::IndexCastOp>(loc, dim_size, mhlo_dim_type);
+      builder.create<mlir::arith::IndexCastOp>(loc, mhlo_dim_type, dim_size);
 
   SmallValueVec4 start_indices;
   SmallValueVec4 end_indices;
@@ -81,13 +81,13 @@ mlir::Value BuildDynamicSliceInternal(mlir::OpBuilder& builder,
   for (mlir_dim_t r = 0; r < rank; ++r) {
     if (r == dim_index) {
       auto mhlo_start_index = builder.create<mlir::arith::IndexCastOp>(
-          loc, norm_start_index, mhlo_dim_type);
+          loc, mhlo_dim_type, norm_start_index);
       start_indices.push_back(mhlo_start_index);
       auto mhlo_end_index = builder.create<mlir::arith::IndexCastOp>(
-          loc, norm_end_index, mhlo_dim_type);
+          loc, mhlo_dim_type, norm_end_index);
       end_indices.push_back(mhlo_end_index);
       auto mhlo_step_index = builder.create<mlir::arith::IndexCastOp>(
-          loc, norm_step_index, mhlo_dim_type);
+          loc, mhlo_dim_type, norm_step_index);
       strides.push_back(mhlo_step_index);
     } else {
       start_indices.push_back(mhlo_zero);

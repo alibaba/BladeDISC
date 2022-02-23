@@ -26,7 +26,6 @@ limitations under the License.
 //   we may have GEMM ops with different element types.
 
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -41,6 +40,7 @@ limitations under the License.
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "tensorflow/compiler/mlir/disc/IR/custom_call_base.h"
+#include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
@@ -586,10 +586,10 @@ struct DiscLowerToLibraryCallPass
     registry.insert<LLVM::LLVMDialect>();
   }
 
-  void runOnFunction() override {
-    FuncOp func = getFunction();
+  void runOnOperation() override {
+    FuncOp func = getOperation();
     MLIRContext* context = &getContext();
-    OwningRewritePatternList patterns(context);
+    RewritePatternSet patterns(context);
     // clang-format off
     patterns.insert<
       CopyLikeOpConvertor<CopyOp>,
@@ -617,7 +617,7 @@ struct DiscLowerToLibraryCallPass
 
 }  // namespace
 
-std::unique_ptr<mlir::FunctionPass> createDiscLowerToLibraryCallPass() {
+std::unique_ptr<OperationPass<FuncOp>> createDiscLowerToLibraryCallPass() {
   return std::make_unique<DiscLowerToLibraryCallPass>();
 }
 

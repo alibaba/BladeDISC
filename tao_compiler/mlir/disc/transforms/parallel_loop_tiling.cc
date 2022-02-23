@@ -27,7 +27,7 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/SCF/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/SCF/Utils.h"
+#include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 
@@ -48,9 +48,9 @@ struct ParallelLoopTiling
     this->withInboundCheck = withInboundCheck;
   }
 
-  void runOnFunction() override {
+  void runOnOperation() override {
     SmallVector<ParallelOp, 2> innermostPloops;
-    getInnermostParallelLoops(getFunction().getOperation(), innermostPloops);
+    getInnermostParallelLoops(getOperation(), innermostPloops);
     for (ParallelOp ploop : innermostPloops) {
       // FIXME: Add reduction support.
       SmallVector<long> localTileSizes(tileSizes.begin(), tileSizes.end());
@@ -75,7 +75,7 @@ struct ParallelLoopTiling
 
 }  // namespace
 
-std::unique_ptr<mlir::FunctionPass> createParallelLoopTilingPass(
+std::unique_ptr<OperationPass<FuncOp>> createParallelLoopTilingPass(
     ArrayRef<int64_t> tileSizes, bool withInboundCheck) {
   return std::make_unique<ParallelLoopTiling>(tileSizes, withInboundCheck);
 }

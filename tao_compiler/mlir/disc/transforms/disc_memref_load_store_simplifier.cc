@@ -142,8 +142,8 @@ class DiscMemRefLoadStoreSimplifierPass
     : public DiscMemRefLoadStoreSimplifierPassBase<
           DiscMemRefLoadStoreSimplifierPass> {
  public:
-  void runOnFunction() override {
-    FuncOp func = getFunction();
+  void runOnOperation() override {
+    FuncOp func = getOperation();
     MLIRContext* ctx = func.getContext();
 
     // Populate patterns.
@@ -156,7 +156,8 @@ class DiscMemRefLoadStoreSimplifierPass
 
 }  // namespace
 
-std::unique_ptr<FunctionPass> createDiscMemRefLoadStoreSimplifierPass() {
+std::unique_ptr<OperationPass<FuncOp>>
+createDiscMemRefLoadStoreSimplifierPass() {
   return std::make_unique<DiscMemRefLoadStoreSimplifierPass>();
 }
 

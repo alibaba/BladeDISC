@@ -42,7 +42,7 @@ constexpr unsigned c_MAX_ITERATION = 4096;
 // this is much simpler in the background of DISC.
 class DiscMemRefCSEPass : public DiscMemRefCSEPassBase<DiscMemRefCSEPass> {
  public:
-  void runOnFunction() override {
+  void runOnOperation() override {
     bool changed = true;
     unsigned iter = 0;
     while (changed && iter++ < c_MAX_ITERATION) {
@@ -90,7 +90,7 @@ bool DiscMemRefCSEPass::tryMemRefLoadCSE(LoadOp load) {
 }
 
 bool DiscMemRefCSEPass::runMemRefLoadCSE() {
-  FuncOp func = getFunction();
+  FuncOp func = getOperation();
   func.walk([&](LoadOp load) { load_set_.insert(load); });
   bool changed = false;
   while (load_set_.size() > 0) {
@@ -101,7 +101,7 @@ bool DiscMemRefCSEPass::runMemRefLoadCSE() {
 }
 
 void DiscMemRefCSEPass::runCleanUp() {
-  FuncOp func = getFunction();
+  FuncOp func = getOperation();
   OpPassManager cleanupPipeline(OpPassManager("func"));
   cleanupPipeline.addPass(createCSEPass());
   (void)runPipeline(cleanupPipeline, func);
@@ -109,7 +109,7 @@ void DiscMemRefCSEPass::runCleanUp() {
 
 }  // namespace
 
-std::unique_ptr<FunctionPass> createDiscMemRefCSEPass() {
+std::unique_ptr<OperationPass<FuncOp>> createDiscMemRefCSEPass() {
   return std::make_unique<DiscMemRefCSEPass>();
 }
 

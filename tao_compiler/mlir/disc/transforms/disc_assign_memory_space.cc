@@ -15,7 +15,6 @@ limitations under the License.
 
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
@@ -495,7 +494,7 @@ LogicalResult DiscAssignMemorySpacePass::applyBlockAssignment(
     if (it != assignment.end()) {
       ty = maybeConvert(arg.getContext(), ty, it->second);
     }
-    Value newArg = block->addArgument(ty);
+    Value newArg = block->addArgument(ty, arg.getLoc());
     arg.replaceAllUsesWith(newArg);
     if (it != assignment.end()) {
       assignment[newArg] = it->second;

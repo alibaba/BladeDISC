@@ -55,10 +55,10 @@ LogicalResult CstrReshapableOpConversion::matchAndRewrite(
 
 class RemoveShapeConstraintsPass
     : public RemoveShapeConstraintsPassBase<RemoveShapeConstraintsPass> {
-  void runOnFunction() override;
+  void runOnOperation() override;
 };
 
-void RemoveShapeConstraintsPass::runOnFunction() {
+void RemoveShapeConstraintsPass::runOnOperation() {
   // Setup target legality.
   MLIRContext& ctx = getContext();
 
@@ -69,7 +69,7 @@ void RemoveShapeConstraintsPass::runOnFunction() {
   // clang-format: on
   populateRemoveShapeConstraintsPatterns(patterns);
 
-  FuncOp func = getFunction();
+  FuncOp func = getOperation();
   if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
     func.emitError("applyPatternsAndFoldGreedily does not converge");
     signalPassFailure();
@@ -78,7 +78,7 @@ void RemoveShapeConstraintsPass::runOnFunction() {
 
 }  // namespace
 
-std::unique_ptr<mlir::FunctionPass> createDiscRemoveShapeConstraintsPass() {
+std::unique_ptr<OperationPass<FuncOp>> createDiscRemoveShapeConstraintsPass() {
   return std::make_unique<RemoveShapeConstraintsPass>();
 }
 

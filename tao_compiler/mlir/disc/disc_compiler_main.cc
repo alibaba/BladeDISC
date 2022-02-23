@@ -29,8 +29,6 @@ limitations under the License.
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
-#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
-#include "mlir-hlo/Dialect/disc-ral/transforms/register_passes.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/lhlo/transforms/register_passes.h"
 #include "mlir-hlo/Dialect/lhlo_gpu/IR/lhlo_gpu_ops.h"
@@ -49,6 +47,7 @@ limitations under the License.
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"  // from @llvm-project
 #include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"  // from @llvm-project
 #include "mlir/Target/LLVMIR/Export.h"  // from @llvm-project
+#include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/disc_compiler.h"
@@ -89,8 +88,8 @@ llvm::cl::opt<bool> MultiCCSupportDbgPtxOnly(
         "Compile to PTX only, only valid with multi-cc-support is true"),
     llvm::cl::init(false));
 
-static OwningModuleRef parseMLIRInput(StringRef inputFilename,
-                                      MLIRContext* context) {
+static mlir::OwningOpRef<mlir::ModuleOp> parseMLIRInput(StringRef inputFilename,
+                                                        MLIRContext* context) {
   // Set up the input file.
   std::string errorMessage;
   auto file = openInputFile(inputFilename, &errorMessage);
@@ -101,7 +100,7 @@ static OwningModuleRef parseMLIRInput(StringRef inputFilename,
 
   llvm::SourceMgr sourceMgr;
   sourceMgr.AddNewSourceBuffer(std::move(file), llvm::SMLoc());
-  return OwningModuleRef(parseSourceFile(sourceMgr, context));
+  return mlir::OwningOpRef<mlir::ModuleOp>(parseSourceFile(sourceMgr, context));
 }
 
 #ifndef TAO_CPU_ONLY
@@ -147,7 +146,6 @@ int RealMain() {
   mlir::registerTensorFlowPasses();
   mlir::mhlo::registerAllMhloPasses();
   mlir::lmhlo::registerAllLmhloPasses();
-  mlir::disc_ral::registerAllDiscRalPasses();
   mlir::disc_ral::registerAllDiscPasses();
   mlir::mhlo_disc::registerAllMhloDiscPasses();
 

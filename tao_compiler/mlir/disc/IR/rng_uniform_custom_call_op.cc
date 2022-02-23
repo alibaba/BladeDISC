@@ -16,13 +16,13 @@ limitations under the License.
 
 #include <atomic>
 
-#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"
 #include "tensorflow/compiler/mlir/disc/IR/custom_call_base.h"
+#include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"

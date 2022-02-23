@@ -499,8 +499,8 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
     return pipeline;
   }
 
-  void runOnFunction() override {
-    FuncOp func = getFunction();
+  void runOnOperation() override {
+    FuncOp func = getOperation();
 
     // collect all blocks inside the function.
     SmallVector<Block*, 4> blocks;

@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/FormatVariadic.h"
+#include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/GPUToROCDL/GPUToROCDLPass.h"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "mlir/Conversion/LLVMCommon/LoweringOptions.h"
@@ -35,7 +36,7 @@
 #include "mlir/Dialect/GPU/Passes.h"
 #include "mlir/Dialect/LLVMIR/ROCDLDialect.h"
 #include "mlir/Dialect/Math/IR/Math.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
+#include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
@@ -103,6 +104,7 @@ void configureGpuToROCDLConversionLegality(ConversionTarget& target) {
   target.addLegalDialect<::mlir::LLVM::LLVMDialect>();
   target.addLegalDialect<ROCDL::ROCDLDialect>();
   target.addIllegalDialect<gpu::GPUDialect>();
+  target.addIllegalDialect<cf::ControlFlowDialect>();
   target.addIllegalOp<LLVM::CosOp, LLVM::ExpOp, LLVM::FAbsOp, LLVM::FCeilOp,
                       LLVM::FFloorOp, LLVM::LogOp, LLVM::Log10Op, LLVM::Log2Op,
                       LLVM::PowOp, LLVM::SinOp, LLVM::SqrtOp>();
@@ -127,8 +129,8 @@ void populateGpuToROCDLConversionPatterns(LLVMTypeConverter& converter,
            GPUShuffleOpLowering, GPUReturnOpLowering>(converter);
   patterns.add<GPUFuncOpLowering>(
       converter, /*allocaAddrSpace=*/5,
-      Identifier::get(ROCDL::ROCDLDialect::getKernelFuncAttrName(),
-                      &converter.getContext()));
+      StringAttr::get(&converter.getContext(),
+                      ROCDL::ROCDLDialect::getKernelFuncAttrName()));
   patterns.add<OpToFuncCallLowering<math::AbsOp>>(converter, "__ocml_fabs_f32",
                                                   "__ocml_fabs_f64");
   patterns.add<OpToFuncCallLowering<math::AtanOp>>(converter, "__ocml_atan_f32",
@@ -203,6 +205,7 @@ struct DiscLowerGpuOpsToROCDLOpsPass
     populateVectorToROCDLConversionPatterns(converter, llvmPatterns);
     populateStdToLLVMConversionPatterns(converter, llvmPatterns);
     populateMemRefToLLVMConversionPatterns(converter, llvmPatterns);
+    cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
     ::mlir::disc_ral::populateGpuToROCDLConversionPatterns(converter,
                                                            llvmPatterns);
     ::mlir::LLVMConversionTarget target(getContext());

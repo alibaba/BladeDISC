@@ -15,14 +15,15 @@ limitations under the License.
 
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FormatVariadic.h"
-#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
 #include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
+#include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/GPUCommon/GPUCommonPass.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
+#include "mlir/Dialect/Arithmetic/Transforms/Passes.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
@@ -34,6 +35,7 @@ limitations under the License.
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/rewriters.h"
@@ -991,10 +993,11 @@ class DiscToLLVMPass : public DiscToLLVMPassBase<DiscToLLVMPass> {
     RewritePatternSet patterns(&getContext());
     mlir::arith::populateArithmeticToLLVMConversionPatterns(type_converter,
                                                             patterns);
-    populateStdExpandOpsPatterns(patterns);
+    arith::populateArithmeticExpandOpsPatterns(patterns);
     populateStdToLLVMConversionPatterns(type_converter, patterns);
     populateMemRefToLLVMConversionPatterns(type_converter, patterns);
     populateMathToLLVMConversionPatterns(type_converter, patterns);
+    cf::populateControlFlowToLLVMConversionPatterns(type_converter, patterns);
     populateDiscToLLVMConversionPatterns(&type_converter, &symbol_table,
                                          &patterns);
 

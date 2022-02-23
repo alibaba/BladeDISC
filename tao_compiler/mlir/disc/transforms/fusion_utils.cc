@@ -2269,7 +2269,7 @@ bool StitchCPUAnalysis::emitBcastOpParallelIndex(OpBuilder& b, Location loc,
       Value isEqual = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq,
                                               inDimValue, outDimValue);
       Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
-      to.symbolIndices.push_back(b.create<mlir::SelectOp>(
+      to.symbolIndices.push_back(b.create<mlir::arith::SelectOp>(
           loc, isEqual, from.symbolIndices[outParallelIdx], zero));
       Value isZero =
           b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq,

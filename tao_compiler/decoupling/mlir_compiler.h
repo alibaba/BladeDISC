@@ -47,7 +47,7 @@ class CompilerMLIR : public tensorflow::tao::CompilerBase {
 
   CompilationResultProto result_proto_;
   std::unique_ptr<mlir::MLIRContext> context_;
-  mlir::OwningModuleRef module_;
+  mlir::OwningOpRef<mlir::ModuleOp> module_;
   std::unique_ptr<llvm::InitLLVM> llvm_init_;
 };
 

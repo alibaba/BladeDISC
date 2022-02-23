@@ -24,6 +24,7 @@
 
 #include "llvm/Support/FormatVariadic.h"
 #include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
+#include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/GPUToNVVM/GPUToNVVMPass.h"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "mlir/Conversion/LLVMCommon/LoweringOptions.h"
@@ -169,6 +170,7 @@ struct DiscLowerGpuOpsToNVVMOpsPass
                                                             llvmPatterns);
     populateStdToLLVMConversionPatterns(converter, llvmPatterns);
     populateMemRefToLLVMConversionPatterns(converter, llvmPatterns);
+    cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
     populateGpuToNVVMConversionPatterns(converter, llvmPatterns);
     populateGpuWMMAToNVVMConversionPatterns(converter, llvmPatterns);
     auto llvmFrozenPatterns =
@@ -177,7 +179,7 @@ struct DiscLowerGpuOpsToNVVMOpsPass
     configureGpuToNVVMConversionLegality(target);
     target.addLegalDialect<LLVM::LLVMDialect>();
     target.addIllegalDialect<StandardOpsDialect, arith::ArithmeticDialect,
-                             math::MathDialect>();
+                             math::MathDialect, cf::ControlFlowDialect>();
     target.addIllegalOp<UnrealizedConversionCastOp>();
     if (failed(applyPartialConversion(m, target, llvmFrozenPatterns)))
       signalPassFailure();

@@ -65,7 +65,7 @@ struct PrepareTFPass : public DiscLowerTfPassBase<PrepareTFPass> {
     registry.insert<mhlo_disc::MhloDiscDialect>();
   }
 
-  void runOnFunction() override;
+  void runOnOperation() override;
 };
 
 // Converts a tf.SqueezeOp to xla_hlo.ReshapeOp
@@ -203,10 +203,10 @@ class ConvertUniformOp : public OpRewritePattern<TF::RandomUniformOp> {
 
 #include "tensorflow/compiler/mlir/disc/transforms/lower_tf.inc"
 
-void PrepareTFPass::runOnFunction() {
+void PrepareTFPass::runOnOperation() {
   MLIRContext* ctx = &getContext();
-  OwningRewritePatternList patterns(ctx);
-  auto func = getFunction();
+  RewritePatternSet patterns(ctx);
+  FuncOp func = getOperation();
   populateWithGenerated(patterns);
   patterns.insert<ConvertSqueezeOpDynamic, ConvertTopKV2OpDynamic,
                   ConvertUniformOp>(ctx);

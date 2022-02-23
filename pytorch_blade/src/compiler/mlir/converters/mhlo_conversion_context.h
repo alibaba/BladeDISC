@@ -61,7 +61,7 @@ struct MhloConversionContext {
   bool IsSameContext(mlir::Value);
   bool IsSupportTesting();
 
-  mlir::OwningModuleRef mlir_module;
+  mlir::OwningOpRef<mlir::ModuleOp> mlir_module;
   std::shared_ptr<mlir::OpBuilder> builder;
   std::shared_ptr<const torch::jit::Graph> torch_graph;
   std::unordered_map<const torch::jit::Value*, mlir::Value> value_map;

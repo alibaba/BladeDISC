@@ -279,12 +279,12 @@ struct ShapeSimplifierPass
 
   // Adds canonicalization patterns to the list of patterns.
   void AddCanonicalizationPatterns(MLIRContext* context,
-                                   OwningRewritePatternList* patterns) {
+                                   RewritePatternSet* patterns) {
     for (RegisteredOperationName op : context->getRegisteredOperations())
       op.getCanonicalizationPatterns(*patterns, context);
   }
 
-  void populateShapeRefinerPatterns(OwningRewritePatternList&);
+  void populateShapeRefinerPatterns(RewritePatternSet&);
 
   void runOnOperation() override;
 
@@ -294,7 +294,7 @@ struct ShapeSimplifierPass
 };
 
 void ShapeSimplifierPass::populateShapeRefinerPatterns(
-    OwningRewritePatternList& patterns) {
+    RewritePatternSet& patterns) {
   // clang-format off
   patterns.insert<
       ExtractFromExtentTensorCanonicalizationPattern,
@@ -325,7 +325,7 @@ void ShapeSimplifierPass::runOnOperation() {
 
     // Stage #1: refine shape information locally
     // - Initialize local shape refiner patterns.
-    OwningRewritePatternList patterns(main.getContext());
+    RewritePatternSet patterns(main.getContext());
     populateShapeRefinerPatterns(patterns);
     // - apply these patterns
     // ignore the not-converged error since we are in a loop.

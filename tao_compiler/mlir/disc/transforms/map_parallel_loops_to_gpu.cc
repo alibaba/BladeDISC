@@ -28,14 +28,14 @@ namespace disc_ral {
 namespace {
 
 struct MapParallelLoopsPass : MapParallelLoopsPassBase<MapParallelLoopsPass> {
-  void runOnFunction() override {
-    mlir::greedilyMapParallelSCFToGPU(getFunction().getBody());
+  void runOnOperation() override {
+    mlir::greedilyMapParallelSCFToGPU((getOperation()).getBody());
   }
 };
 
 }  // namespace
 
-std::unique_ptr<mlir::FunctionPass> createMapParallelLoopsPass() {
+std::unique_ptr<OperationPass<FuncOp>> createMapParallelLoopsPass() {
   return std::make_unique<MapParallelLoopsPass>();
 }
 

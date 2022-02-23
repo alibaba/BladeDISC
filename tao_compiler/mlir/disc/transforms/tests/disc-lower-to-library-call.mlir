@@ -348,7 +348,7 @@ func @dynamic_conv(%arg0: !disc_ral.context) {
   %18 = arith.addi %13, %17 : i32
   %19 = arith.subi %18, %12 : i32
   %20 = arith.cmpi sge, %19, %c0_i32 : i32
-  %21 = select %20, %19, %c0_i32 : i32
+  %21 = arith.select %20, %19, %c0_i32 : i32
   %22 = arith.divui %21, %c2_i32 : i32
   %23 = arith.subi %21, %22 : i32
   %24 = arith.index_cast %5 : index to i32
@@ -360,18 +360,18 @@ func @dynamic_conv(%arg0: !disc_ral.context) {
   %30 = arith.addi %25, %29 : i32
   %31 = arith.subi %30, %24 : i32
   %32 = arith.cmpi sge, %31, %c0_i32 : i32
-  %33 = select %32, %31, %c0_i32 : i32
+  %33 = arith.select %32, %31, %c0_i32 : i32
   %34 = arith.divui %33, %c2_i32 : i32
   %35 = arith.subi %33, %34 : i32
   %36 = memref.alloc(%8, %3, %7, %5) : memref<?x?x?x?xf32, "gpu">
   %37 = memref.alloc(%2, %4, %9, %6) : memref<?x?x?x?xf32, "gpu">
   "lmhlo.transpose"(%1, %37) {disc.device = "gpu", permutation = dense<[3, 2, 0, 1]> : tensor<4xi64>} : (memref<?x?x?x?xf32, "gpu">, memref<?x?x?x?xf32, "gpu">) -> ()
   %38 = arith.cmpi sle, %22, %23 : i32
-  %39 = select %38, %22, %23 : i32
+  %39 = arith.select %38, %22, %23 : i32
   %40 = arith.subi %22, %39 : i32
   %41 = arith.subi %23, %39 : i32
   %42 = arith.cmpi sle, %34, %35 : i32
-  %43 = select %42, %34, %35 : i32
+  %43 = arith.select %42, %34, %35 : i32
   %44 = arith.subi %34, %43 : i32
   %45 = arith.subi %35, %43 : i32
   %46 = memref.alloca() : memref<4xi32, "cpu">
@@ -396,7 +396,7 @@ func @dynamic_conv(%arg0: !disc_ral.context) {
   %53 = arith.index_cast %50 : i32 to index
   %54 = arith.index_cast %52 : i32 to index
   %55 = memref.alloc(%8, %3, %53, %54) : memref<?x?x?x?xf32, "gpu">
-  "lmhlo.fusion"() ( {
+  "lmhlo.fusion"() ({
     "lmhlo.constant"(%11) {value = dense<0.000000e+00> : tensor<f32>} : (memref<f32, "gpu">) -> ()
     "lmhlo.transpose"(%0, %36) {disc.device = "gpu", permutation = dense<[0, 3, 1, 2]> : tensor<4xi64>} : (memref<?x?x?x?xf32, "gpu">, memref<?x?x?x?xf32, "gpu">) -> ()
     "lmhlo.dynamic_pad"(%36, %11, %46, %47, %10, %55) {disc.device = "gpu"} : (memref<?x?x?x?xf32, "gpu">, memref<f32, "gpu">, memref<4xi32, "cpu">, memref<4xi32, "cpu">, memref<4xi32, "cpu">, memref<?x?x?x?xf32, "gpu">) -> ()

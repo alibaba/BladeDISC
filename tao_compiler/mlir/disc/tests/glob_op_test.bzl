@@ -119,9 +119,9 @@ def glob_op_tests(
         # Instantiate this test with updated parameters.
         lit_test(
             name = curr_test,
-            data = data + per_test_extra_data.pop(curr_test, []),
-            size = size_override.pop(curr_test, default_size),
-            tags = default_tags + tags_override.pop(curr_test, []),
+            data = data + per_test_extra_data.get(curr_test, []),
+            size = size_override.get(curr_test, default_size),
+            tags = default_tags + tags_override.get(curr_test, []),
             driver = driver,
             features = features,
             exec_properties = exec_properties,

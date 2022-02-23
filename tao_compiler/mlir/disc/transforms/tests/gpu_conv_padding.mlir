@@ -24,7 +24,7 @@ module  {
     %12 = arith.addi %6, %11 : i32
     %13 = arith.subi %12, %1 : i32
     %14 = arith.cmpi sge, %13, %c0_i32 : i32
-    %15 = select %14, %13, %c0_i32 : i32
+    %15 = arith.select %14, %13, %c0_i32 : i32
     %16 = arith.divui %15, %c2_i32 : i32
     %17 = arith.subi %15, %16 : i32
     %c2 = arith.constant 2 : index
@@ -49,7 +49,7 @@ module  {
     %30 = arith.addi %24, %29 : i32
     %31 = arith.subi %30, %19 : i32
     %32 = arith.cmpi sge, %31, %c0_i32_2 : i32
-    %33 = select %32, %31, %c0_i32_2 : i32
+    %33 = arith.select %32, %31, %c0_i32_2 : i32
     %34 = arith.divui %33, %c2_i32_4 : i32
     %35 = arith.subi %33, %34 : i32
     // CHECK: tensor.from_elements {{.*}} : tensor<4xi32>

@@ -191,13 +191,13 @@ struct TransposeFoldingConvert : public OpRewritePattern<mhlo::DotGeneralOp> {
 };
 
 struct DotRewriterPass : public DotRewriterPassBase<DotRewriterPass> {
-  void runOnFunction() override {
-    FuncOp func = getFunction();
+  void runOnOperation() override {
+    FuncOp func = getOperation();
     // TODO: if needs to do const reformat, we need the xla_hlo.dot with its
     // inputs
 
     MLIRContext* ctx = func.getContext();
-    OwningRewritePatternList patterns(ctx);
+    RewritePatternSet patterns(ctx);
     patterns.insert<DotToDotGeneralConvert, TransposeFoldingConvert>(ctx);
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
       func.emitError("applyPatternsAndFoldGreedily does not converge");

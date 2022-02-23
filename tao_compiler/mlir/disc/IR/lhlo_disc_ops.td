@@ -30,7 +30,7 @@ def LHLODISC_Dialect : Dialect {
   let cppNamespace = "::mlir::lmhlo_disc";
 }
 
-class LHLODISC_Op<string mnemonic, list<OpTrait> traits> :
+class LHLODISC_Op<string mnemonic, list<Trait> traits> :
   Op<LHLODISC_Dialect, mnemonic,
     !listconcat([MemoryEffects<[MemRead, MemWrite]>,
     LmhloStructuredInterface], traits)>;

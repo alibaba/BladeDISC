@@ -76,8 +76,8 @@ mlir::Value BuildStdDimSizeOfTensor(mlir::OpBuilder& builder,
   auto dim_size = ranked_type.getDimSize(dim_index);
   if (dim_size == mlir::ShapedType::kDynamicSize) {
     return builder.create<mlir::arith::IndexCastOp>(
-        loc, builder.create<tensor::DimOp>(loc, tensor, dim_index),
-        builder.getIntegerType(64));
+        loc, builder.getIntegerType(64),
+        builder.create<tensor::DimOp>(loc, tensor, dim_index));
   } else {
     return BuildStdConstForI64(builder, loc, dim_size);
   }
@@ -106,7 +106,8 @@ mlir::Value BuildStdSelectSigned(mlir::OpBuilder& builder,
                                  const mlir::Value& std_lhs,
                                  const mlir::Value& std_rhs) {
   auto cond = builder.create<mlir::arith::CmpIOp>(loc, predc, std_lhs, std_rhs);
-  auto selected = builder.create<mlir::SelectOp>(loc, cond, std_lhs, std_rhs);
+  auto selected =
+      builder.create<mlir::arith::SelectOp>(loc, cond, std_lhs, std_rhs);
   return selected;
 }
 
@@ -210,7 +211,7 @@ mlir::Value BuildStdScalarToIndexType(mlir::OpBuilder& builder,
              "Type must be Integer or Index");
   if (!dsize_type.isIndex()) {
     return builder
-        .create<mlir::arith::IndexCastOp>(loc, dim_size, builder.getIndexType())
+        .create<mlir::arith::IndexCastOp>(loc, builder.getIndexType(), dim_size)
         .getResult();
   } else {
     return dim_size;
@@ -230,12 +231,12 @@ SmallValueVec4 BuildStdScalarToHloDimType(mlir::OpBuilder& builder,
     if (dsize_type != mhlo_dim_type) {
       if (!dsize_type.isIndex()) {
         dsize = builder
-                    .create<mlir::arith::IndexCastOp>(loc, dsize,
-                                                      builder.getIndexType())
+                    .create<mlir::arith::IndexCastOp>(
+                        loc, builder.getIndexType(), dsize)
                     .getResult();
       }
       dsize =
-          builder.create<mlir::arith::IndexCastOp>(loc, dsize, mhlo_dim_type)
+          builder.create<mlir::arith::IndexCastOp>(loc, mhlo_dim_type, dsize)
               .getResult();
     }
     new_dim_sizes.push_back(dsize);

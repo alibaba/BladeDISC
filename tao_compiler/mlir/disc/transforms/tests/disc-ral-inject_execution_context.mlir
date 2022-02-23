@@ -1,4 +1,4 @@
-// RUN: disc-opt -disc-inject-execution-context=entry-func-name=test \
+// RUN: disc-opt -disc-ral-inject-execution-context=entry-func-name=test \
 // RUN:  -canonicalize %s -o - | FileCheck %s
 
 // CHECK-LABEL: func @test

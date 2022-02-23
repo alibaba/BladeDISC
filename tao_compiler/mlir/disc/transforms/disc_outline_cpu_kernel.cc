@@ -17,8 +17,9 @@ limitations under the License.
 // parallelOp) to a dedicated function.
 
 #include "llvm/Support/Debug.h"
-#include "mlir-hlo/Dialect/disc-ral/IR/disc_ral_ops.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "mlir/Dialect/Affine/LoopUtils.h"
+#include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/IR/BlockAndValueMapping.h"
@@ -26,9 +27,9 @@ limitations under the License.
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Pass/Pass.h"
-#include "mlir/Transforms/LoopUtils.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/Transforms/RegionUtils.h"
+#include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
@@ -43,7 +44,8 @@ namespace {
 /// operations may not have side-effects, as otherwise sinking (and hence
 /// duplicating them) is not legal.
 static bool isSinkingBeneficiary(Operation* op) {
-  return isa<arith::ConstantOp, memref::DimOp, SelectOp, arith::CmpIOp>(op);
+  return isa<arith::ConstantOp, memref::DimOp, arith::SelectOp, arith::CmpIOp>(
+      op);
 }
 
 /// For a given operation `op`, computes whether it is beneficial to sink the
@@ -156,7 +158,7 @@ static FuncOp outlineKernelFuncImpl(Operation* launchOp, StringRef kernelFnName,
   Block& launchOpEntry = launchOpBody.front();
   Block* clonedLaunchOpEntry = map.lookup(&launchOpEntry);
   builder.setInsertionPointToEnd(&entryBlock);
-  builder.create<BranchOp>(loc, clonedLaunchOpEntry);
+  builder.create<cf::BranchOp>(loc, clonedLaunchOpEntry);
 
   SetVector<Operation*> toBeRemoved;
   outlinedFunc.walk([&](scf::YieldOp op) {

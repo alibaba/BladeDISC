@@ -41,10 +41,11 @@ void BuildReduceBody(mlir::OpBuilder& builder, mlir::Region& body,
   mlir::Block* block = builder.createBlock(&body);
 
   // Block arguments are scalars of the given element type.
-  mlir::Type type = mlir::RankedTensorType::get(/*shape=*/{}, element_type);
-  block->addArguments({type, type});
-
   mlir::Location loc = body.getLoc();
+  mlir::Type type = mlir::RankedTensorType::get(/*shape=*/{}, element_type);
+  block->addArguments(type, loc);
+  block->addArguments(type, loc);
+
   auto reducer =
       builder.create<MathOp>(loc, block->getArgument(0), block->getArgument(1));
   builder.create<mlir::mhlo::ReturnOp>(loc, reducer.getResult());

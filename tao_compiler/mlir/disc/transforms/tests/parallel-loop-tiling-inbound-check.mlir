@@ -154,7 +154,7 @@ func @parallel_loop_with_hint(%pred : i1,
 		                          %A: memref<?x?xf32>, %B: memref<?x?xf32>,
                               %C: memref<?x?xf32>, %result: memref<?x?xf32>) {
   scf.if %pred {
-    "lmhlo.fusion"() ( {
+    "lmhlo.fusion"() ({
       scf.parallel (%i0, %i1) = (%arg0, %arg1) to (%arg2, %arg3) step (%arg4, %arg5) {
         %B_elem = memref.load %B[%i0, %i1] : memref<?x?xf32>
         %C_elem = memref.load %C[%i0, %i1] : memref<?x?xf32>
@@ -164,7 +164,7 @@ func @parallel_loop_with_hint(%pred : i1,
       "lmhlo.terminator"() : () -> ()
     } ) { disc_thread_per_block_hint = 256 : i32 } : () -> ()
   } else {
-    "lmhlo.fusion"() ( {
+    "lmhlo.fusion"() ({
       scf.parallel (%i0, %i1) = (%arg0, %arg1) to (%arg2, %arg3) step (%arg4, %arg5) {
         %B_elem = memref.load %B[%i0, %i1] : memref<?x?xf32>
         %C_elem = memref.load %C[%i0, %i1] : memref<?x?xf32>
@@ -183,7 +183,7 @@ func @parallel_loop_with_hint(%pred : i1,
 // CHECK:     %c256 = arith.constant 256 : index
 // CHECK:     scf.parallel
 // CHECK:       scf.parallel
-// CHECK: else 
+// CHECK: else
 // CHECK:   lmhlo.fusion
 // CHECK:     %c64 = arith.constant 64 : index
 // CHECK:     scf.parallel

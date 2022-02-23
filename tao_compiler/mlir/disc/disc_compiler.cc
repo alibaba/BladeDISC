@@ -29,14 +29,13 @@ limitations under the License.
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
-#include "mlir-hlo/Dialect/disc-ral/transforms/passes.h"
 #include "mlir-hlo/Dialect/lhlo/transforms/passes.h"
 #include "mlir-hlo/Dialect/mhlo/transforms/passes.h"
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Conversion/GPUToNVVM/GPUToNVVMPass.h"
 #include "mlir/Conversion/GPUToROCDL/GPUToROCDLPass.h"
+#include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/SCFToGPU/SCFToGPUPass.h"
-#include "mlir/Conversion/SCFToStandard/SCFToStandard.h"
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"  // from @llvm-project
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
 #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
@@ -280,7 +279,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   // bufferize constant ops & index_cast that have tensor types.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscStdBufferizePass());
-  pm.addNestedPass<FuncOp>(arith::createArithmeticBufferizePass());
+  pm.addPass(arith::createArithmeticBufferizePass());
   pm.addNestedPass<FuncOp>(createTensorBufferizePass());
   pm.addNestedPass<FuncOp>(bufferization::createFinalizingBufferizePass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
@@ -289,7 +288,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(disc_ral::createDiscMemrefCanonicalizerPass());
 
   pm.addPass(disc_ral::createDiscAssignMemorySpacePass("main", gpu_enabled));
-  pm.addNestedPass<FuncOp>(createPromoteBuffersToStackPass(
+  pm.addNestedPass<FuncOp>(bufferization::createPromoteBuffersToStackPass(
       [](Value alloc) { return IsSmallCpuAlloc(alloc); }));
 
   // Enable stitch by default on CPU.
@@ -351,7 +350,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(
       disc_ral::createDiscLhloLegalizeRootsToParallelLoopsPass());
   // Converts `atomic_rmw` to `generic_atomic_rmw` when necessary to use CAS.
-  pm.addNestedPass<FuncOp>(createStdExpandOpsPass());
+  pm.addNestedPass<FuncOp>(memref::createExpandOpsPass());
   // Converts `atomic_rmw` to `generic_atomic_rmw` that is unhandled in
   // `StdExpandOps` pass.
   pm.addNestedPass<FuncOp>(
@@ -409,14 +408,14 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     }
   }
 
-  pm.addNestedPass<FuncOp>(lmhlo::createLhloFusionInlinerPass());
+  pm.addNestedPass<FuncOp>(disc_ral::createLhloFusionInlinerPass());
 
   if (gpu_enabled) {
     pm.addPass(disc_ral::createReviseGpuKernelOutliningPass());
 
     // Device side codegen: gpu.module -> cubin
     auto& kernelPm = pm.nest<mlir::gpu::GPUModuleOp>();
-    kernelPm.addPass(createLowerToCFGPass());
+    kernelPm.addPass(createConvertSCFToCFPass());
     kernelPm.addPass(createLowerAffinePass());
     kernelPm.addNestedPass<FuncOp>(createCanonicalizerPass());
     kernelPm.addNestedPass<FuncOp>(createCSEPass());
@@ -449,7 +448,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   pm.addNestedPass<FuncOp>(disc_ral::createDiscRemoveDeadBufferPass());
 
-  pm.addPass(createLowerToCFGPass());
+  pm.addPass(createConvertSCFToCFPass());
   pm.addPass(createLowerAffinePass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());

@@ -19,8 +19,6 @@ limitations under the License.
 
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
-#include "mlir/Analysis/LoopAnalysis.h"
-#include "mlir/Analysis/Utils.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
@@ -31,10 +29,7 @@ limitations under the License.
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "mlir/Transforms/LoopFusionUtils.h"
-#include "mlir/Transforms/LoopUtils.h"
 #include "mlir/Transforms/Passes.h"
-#include "mlir/Transforms/Utils.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
@@ -55,14 +50,14 @@ namespace {
 // lmhlo::FusionOp. By this way the fusion codegen passes can be OperationPass
 // on lmhlo::FusionOp for better compilation overhead.
 class InputInlineFusion : public InputInlineFusionPassBase<InputInlineFusion> {
-  void runOnFunction() override;
+  void runOnOperation() override;
 };
 
 }  // end anonymous namespace
 
 // This pass works after LhloLegalizeRootsToParallelLoops pass for the
 // XLA-style fusion codegen.
-std::unique_ptr<FunctionPass> createDiscInputInlineFusionPass() {
+std::unique_ptr<OperationPass<FuncOp>> createDiscInputInlineFusionPass() {
   return std::make_unique<InputInlineFusion>();
 }
 
@@ -70,10 +65,10 @@ namespace {
 
 constexpr unsigned c_MAX_ITERATION = 4096 * 1000;
 
-void InputInlineFusion::runOnFunction() {
-  auto func = getFunction();
+void InputInlineFusion::runOnOperation() {
+  FuncOp func = getOperation();
   auto* context = &this->getContext();
-  OwningRewritePatternList patterns(context);
+  RewritePatternSet patterns(context);
   patterns.insert<InputInlineFusionPattern>(context);
 
   // Just apply the patterns greedily.

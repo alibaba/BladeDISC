@@ -1,5 +1,5 @@
-ARG RUNTIME_BASEIMAGE=nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
-FROM ${RUNTIME_BASEIMAGE}
+ARG BASEIMAGE=nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
+FROM ${BASEIMAGE}
 
 ADD ./docker/scripts /install/scripts
 RUN bash /install/scripts/find-fastest-apt.sh

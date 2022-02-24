@@ -35,7 +35,8 @@ function ci_build() {
     TORCH_BLADE_CI_BUILD_TORCH_VERSION=${TORCH_BLADE_CI_BUILD_TORCH_VERSION:-1.7.1+cu110}
     requirements=requirements-dev-${TORCH_BLADE_CI_BUILD_TORCH_VERSION}.txt
     python3 -m pip install --upgrade pip
-    python3 -m pip install cmake ninja virtualenv -r ${requirements}
+    python3 -m pip install cmake ninja virtualenv
+    python3 -m pip install -r ${requirements} -f https://download.pytorch.org/whl/torch_stable.html
     rm -rf build && python3 setup.py develop;
     # The following are UNIT TESTS
     export TORCH_BLADE_DEBUG_LOG=ON

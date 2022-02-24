@@ -202,7 +202,12 @@ class DynamicReshapeOpShapeInference
   }
 };
 
-// Match following patterns:
+// Convert an expand-like reshape op followed by a dynamic-broadcast-in-dim op
+// to a single dynamic-broadcast-in-dim op. The dim size of expanded dims should
+// be one.
+//
+// An example is like following:
+//
 //  %0 = ...: tensor<?x?xf32>
 //  %d0 = tensor.dim %0, %c0 : tensor<?x?xf32>
 //  %d1 = tensor.dim %0, %c1 : tensor<?x?xf32>
@@ -212,10 +217,15 @@ class DynamicReshapeOpShapeInference
 //  "mhlo.dynamic_broadcast_in_dim"(%1, %...) {broadcast_dimensions = dense<[0,
 //  1, 2]> : tensor<3xi64>} : (tensor<?x?x1xf32>, tensor<3xindex>) ->
 //  tensor<?x?x?xf32>
-// and convert to:
+//
+// This pattern will be converted to:
+//
 //  %2 = "mhlo.dynamic_broadcast_in_dim"(%0, %...) {broadcast_dimensions =
 //  dense<[0, 1]> : tensor<3xi64>} : (tensor<?x?xf32>, tensor<3xindex>) ->
 //  tensor<?x?x?xf32>
+//
+// Note that the reshape op can be either `mhlo::DynamicReshapeOp` or
+// `mhlo::ReshapeOp`. The expanded dim can be in any axis.
 class DynamicBroadcastInDimOpSimplifier
     : public OpRewritePattern<mhlo::DynamicBroadcastInDimOp> {
  public:
@@ -223,45 +233,114 @@ class DynamicBroadcastInDimOpSimplifier
 
   LogicalResult matchAndRewrite(mhlo::DynamicBroadcastInDimOp op,
                                 PatternRewriter& rewriter) const override {
-    auto reshapeOp = dyn_cast_or_null<mhlo::DynamicReshapeOp>(
+    auto dynReshapeOp = dyn_cast_or_null<mhlo::DynamicReshapeOp>(
         op->getOperand(0).getDefiningOp());
-    if (!reshapeOp) return failure();
+    auto staticReshapeOp =
+        dyn_cast_or_null<mhlo::ReshapeOp>(op->getOperand(0).getDefiningOp());
+    if (!dynReshapeOp && !staticReshapeOp) {
+      return failure();
+    }
 
     auto bcastTy = op.getResult().getType().dyn_cast<RankedTensorType>();
-    auto reshapeTy =
-        reshapeOp.getResult().getType().dyn_cast<RankedTensorType>();
-    auto inputTy =
-        reshapeOp->getOperand(0).getType().dyn_cast<RankedTensorType>();
-    if (!bcastTy || !reshapeTy || !inputTy) return failure();
+    Value reshapeResult = dynReshapeOp != nullptr ? dynReshapeOp.getResult()
+                                                  : staticReshapeOp.getResult();
+    auto reshapeTy = reshapeResult.getType().dyn_cast<RankedTensorType>();
+    Value input = dynReshapeOp != nullptr ? dynReshapeOp.getOperand(0)
+                                          : staticReshapeOp.getOperand();
+    auto inputTy = input.getType().dyn_cast<RankedTensorType>();
+    if (!bcastTy || !reshapeTy || !inputTy) {
+      return failure();
+    }
 
     if (bcastTy.getRank() != reshapeTy.getRank() ||
-        inputTy.getRank() >= reshapeTy.getRank())
+        inputTy.getRank() >= reshapeTy.getRank()) {
       return failure();
+    }
 
-    auto fromElementsOp = dyn_cast_or_null<tensor::FromElementsOp>(
-        reshapeOp->getOperand(1).getDefiningOp());
-    if (!fromElementsOp) return failure();
+    struct DimValue {
+      int64_t value = -1;
+      tensor::DimOp dynDimOp = nullptr;
+    };
+    SmallVector<DimValue> reshapeDimValues;
+    if (staticReshapeOp != nullptr) {
+      for (auto shape : reshapeTy.getShape()) {
+        DimValue dimVal;
+        dimVal.value = shape;
+        reshapeDimValues.push_back(dimVal);
+      }
+    } else {
+      auto fromElementsOp = dyn_cast_or_null<tensor::FromElementsOp>(
+          dynReshapeOp->getOperand(1).getDefiningOp());
+      if (!fromElementsOp) {
+        return failure();
+      }
 
+      for (auto dim : fromElementsOp->getOperands()) {
+        auto staticDim =
+            dyn_cast_or_null<arith::ConstantIndexOp>(dim.getDefiningOp());
+        if (staticDim) {
+          DimValue dimVal;
+          dimVal.value = staticDim.getValue().cast<IntegerAttr>().getInt();
+          reshapeDimValues.push_back(dimVal);
+          continue;
+        }
+        Value dynVal = dim;
+        if (auto indexCastOp =
+                dyn_cast_or_null<arith::IndexCastOp>(dynVal.getDefiningOp())) {
+          dynVal = indexCastOp->getOperand(0);
+        }
+        auto dimOp = dyn_cast_or_null<tensor::DimOp>(dynVal.getDefiningOp());
+        if (!dimOp || dimOp.source() != input) {
+          return failure();
+        }
+        DimValue dimVal;
+        dimVal.dynDimOp = dimOp;
+        reshapeDimValues.push_back(dimVal);
+      }
+    }
+
+    // Map between input dims and reshape dims. Every input dim should be mapped
+    // to one reshape dim in order. The mapped dims are bcastDims. Other dims
+    // should be constant one.
     SmallVector<int64_t> bcastDims;
-    for (int d = 0; d < inputTy.getRank(); ++d) {
-      Value dimValue = fromElementsOp->getOperand(d);
-      auto indexCastOp =
-          dyn_cast_or_null<arith::IndexCastOp>(dimValue.getDefiningOp());
-      if (indexCastOp) dimValue = indexCastOp->getOperand(0);
-      auto dimOp = dyn_cast_or_null<tensor::DimOp>(dimValue.getDefiningOp());
-      if (!dimOp || dimOp.source() != reshapeOp->getOperand(0))
+    int64_t reshapeDimIdx = 0;
+    auto inputShape = inputTy.getShape();
+    for (std::size_t i = 0; i < inputTy.getRank(); i++) {
+      bool matched = false;
+      for (; reshapeDimIdx < reshapeTy.getRank() && !matched; reshapeDimIdx++) {
+        // Either both kDynamicSize, or the same static-shape value.
+        if (reshapeDimValues[reshapeDimIdx].value == inputShape[i]) {
+          // Check dynamic dim value.
+          if (inputShape[i] == ShapedType::kDynamicSize) {
+            // It should be the dim-op of input's i-th dim. That is, the `index`
+            // of dim-op should be `i`. Note that we already checked that the
+            // source of dim-op is the input of reshape.
+            auto dimOp = reshapeDimValues[reshapeDimIdx].dynDimOp;
+            auto indexOp = dyn_cast_or_null<arith::ConstantIndexOp>(
+                dimOp.index().getDefiningOp());
+            if (!indexOp ||
+                indexOp.getValue().cast<IntegerAttr>().getInt() != i) {
+              return failure();
+            }
+          }
+          bcastDims.push_back(reshapeDimIdx);
+          matched = true;
+        }
+        // Non matched dim on the path should be constant one.
+        if (!matched && reshapeDimValues[reshapeDimIdx].value != 1) {
+          return failure();
+        }
+      }
+      if (!matched) {
+        // Failed to match.
         return failure();
-      auto indexOp = dyn_cast_or_null<arith::ConstantIndexOp>(
-          dimOp.index().getDefiningOp());
-      if (!indexOp || indexOp.getValue().cast<IntegerAttr>().getInt() != d)
-        return failure();
-      bcastDims.push_back(d);
+      }
     }
 
     RankedTensorType ty = RankedTensorType::get(
         {static_cast<int64_t>(bcastDims.size())}, rewriter.getIntegerType(64));
     rewriter.replaceOpWithNewOp<mhlo::DynamicBroadcastInDimOp>(
-        op, op.getType(), reshapeOp->getOperand(0), op->getOperand(1),
+        op, op.getType(), input, op->getOperand(1),
         DenseIntElementsAttr::get(ty, bcastDims));
 
     return success();

@@ -74,7 +74,7 @@ It is recommended to fetch the latest runtime Docker image with PyTorch
 for a smooth setup:
 
 ``` bash
-docker pull bladedisc/bladedisc:bladedisc/bladedisc:latest-runtime-torch1.7.1
+docker pull bladedisc/bladedisc:latest-runtime-torch1.7.1
 ```
 
 `torch_blade` accepts an `nn.Module` object and outputs the optimized module,

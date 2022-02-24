@@ -1,5 +1,5 @@
-
-FROM pytorch/pytorch:1.7.1-cuda11.0-cudnn8-runtime
+ARG BASEIMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
+FROM ${BASEIMAGE}
 
 ADD ./docker/scripts /install/scripts
 RUN bash /install/scripts/find-fastest-apt.sh

@@ -20,6 +20,8 @@ import re
 import subprocess
 from setuptools import find_packages, setup
 
+import tensorflow as tf
+
 # Package meta-data.
 NAME_PREFIX = 'blade-disc'
 DESCRIPTION = 'TensorFlow wrapper for Blade DISC compiler.'
@@ -30,36 +32,26 @@ REQUIRES_PYTHON = '>=3.6.0'
 VERSION = None
 
 
-def cuda_version():
-    return os.environ["CUDA_VERSION"]
-
-
-def tensorflow_package():
-    cuda = cuda_version()
-    if not cuda:
-        return "tensorflow==2.4"
-    if cuda.startswith("10.0"):
-        return "tensorflow-gpu==1.15"
-    elif cuda.startswith("11.0"):
-        return "tensorflow-gpu==2.4"
+def detect_host_tf_version():
+    version = tf.__version__
+    if tf.test.is_gpu_available():
+        return "tensorflow-gpu=={}".format(version)
     else:
-        raise NotImplementedError("should run blade_disc_tf on CUDA"
-                                  "[10.0, 11.1] or CPU host")
+        return "tensorflow=={}".format(version)
 
 
 # Format the Blade-DISC package name prefix on GPU or CPU:
 # blade-disc-gpu-tf24 for tensorflow==2.4
 # blade-disc-tf115 for tensorflow-gpu==1.15
 def format_package_name():
-    tf = tensorflow_package()
-    tf_short = "-tf{}".format("".join(tf.split("==")[1].split(".")))
-    gpu = "-gpu" if cuda_version() else ""
+    tf_short = "-tf{}".format("".join(tf.__version__.split(".")))
+    gpu = "-gpu" if tf.test.is_gpu_available() else ""
     return "{}{}{}".format(NAME_PREFIX, gpu, tf_short)
 
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    tensorflow_package()
+    detect_host_tf_version()
 ]
 
 SETUP_REQUIRED = [

@@ -1,6 +1,9 @@
 ARG BASEIMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
 FROM ${BASEIMAGE}
 
+ARG DISC_HOST_TF_VERSION=""
+ENV DISC_HOST_TF_VERSION="${DISC_HOST_TF_VERSION}"
+
 COPY docker/scripts /install/scripts
 
 RUN bash /install/scripts/find-fastest-apt.sh && \

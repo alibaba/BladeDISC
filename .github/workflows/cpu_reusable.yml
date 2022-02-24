@@ -43,8 +43,10 @@ jobs:
         set -e
         git submodule sync
         git submodule update --depth=1 --init --recursive
-        docker build -t disc-dev-cpu --build-arg \
-          BASEIMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04 -f docker/dev/Dockerfile .
+        docker build -t disc-dev-cpu \
+          --build-arg BASEIMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04 \
+          --build-arg DISC_HOST_TF_VERSION="tensorflow==1.15.5" \
+          -f docker/dev/Dockerfile .
     - name: Build And Test DISC
       run: |
         set -e

@@ -38,7 +38,6 @@ python ${ENTRY} ${VENV_PATH} -s test_tao_compiler ${CPU_ONLY}
 cp tao/build/libtao_ops.so ${BLADE_DISC_DIR}
 cp tf_community/bazel-bin/tensorflow/compiler/decoupling/tao_compiler_main ${BLADE_DISC_DIR}
 
-# test and build blade-disc-tf Python package
 (cd tao && \
   ${VENV_PATH}/bin/pytest --pyargs python
   ${VENV_PATH}/bin/python setup.py bdist_wheel)

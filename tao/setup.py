@@ -44,7 +44,7 @@ def detect_host_tf_version():
 # blade-disc-gpu-tf24 for tensorflow==2.4
 # blade-disc-tf115 for tensorflow-gpu==1.15
 def format_package_name():
-    tf_short = "-tf{}".format("".join(tf.VERSION.split(".")))
+    tf_short = "-tf{}".format("".join(tf.__version__.split(".")))
     gpu = "-gpu" if tf.test.is_gpu_available() else ""
     return "{}{}{}".format(NAME_PREFIX, gpu, tf_short)
 

@@ -769,8 +769,10 @@ Status PrepareCompilerInput(
       }
       TF_RETURN_IF_ERROR(
           WriteBinaryProto(tensorflow::Env::Default(), path, tensor_proto));
-      std::vector<std::string> fileds = absl::StrSplit(path, '/');
-      auto filename = fileds.back();
+      auto it = path.find_last_of('/');
+      std::string filename = (it == std::string::npos)
+                                 ? path
+                                 : path.substr(path.find_last_of('/') + 1);
       arg->set_value_proto_file(filename);
       value_proto_filenames.push_back(path);
       VLOG(0) << "arg #" << input_num << " proto filename: " << filename;

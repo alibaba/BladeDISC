@@ -276,14 +276,26 @@ class DynamicBroadcastInDimOpSimplifier
       }
 
       for (auto dim : fromElementsOp->getOperands()) {
-        auto staticDim =
-            dyn_cast_or_null<arith::ConstantIndexOp>(dim.getDefiningOp());
-        if (staticDim) {
+        // Deal with static dim.
+        int64_t staticVal = -1;
+        if (arith::ConstantIntOp constant_op =
+                dyn_cast_or_null<arith::ConstantIntOp>(dim.getDefiningOp())) {
+          staticVal = constant_op.getValue().cast<IntegerAttr>().getInt();
+          assert(staticValue > 0);
+        } else if (arith::ConstantIndexOp constant_op =
+                       dyn_cast_or_null<arith::ConstantIndexOp>(
+                           dim.getDefiningOp())) {
+          staticVal = constant_op.getValue().cast<IntegerAttr>().getInt();
+          assert(staticVal > 0);
+        }
+        if (staticVal != -1) {
           DimValue dimVal;
-          dimVal.value = staticDim.getValue().cast<IntegerAttr>().getInt();
+          dimVal.value = staticVal;
           reshapeDimValues.push_back(dimVal);
           continue;
         }
+
+        // Deal with dynamic dim.
         Value dynVal = dim;
         if (auto indexCastOp =
                 dyn_cast_or_null<arith::IndexCastOp>(dynVal.getDefiningOp())) {

@@ -195,6 +195,7 @@ cc_library(
     ],
     deps = [
         ":disc_ral",
+        ":disc_to_llvm_common",
         ":pass_details",
         ":placement_utils",
         "@llvm-project//llvm:Support",
@@ -1120,10 +1121,26 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_to_llvm_common",
+    srcs = ["transforms/disc_to_llvm_common.cc"],
+    includes = ["transforms/disc_to_llvm_common.h"],
+    deps = [
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:LLVMCommonConversion",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:StandardOps",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_lower_gpu_ops_common",
     srcs = ["transforms/disc_lower_gpu_ops_common.cc"],
     includes = ["transforms/disc_lower_gpu_ops_common.h"],
     deps = [
+        ":disc_to_llvm_common",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:LLVMCommonConversion",
         "@llvm-project//mlir:MemRefDialect",

@@ -25,12 +25,12 @@ const std::string c_ft_path =
 TEST(UintCastTest, UintCastTest) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "uint_cast.mlir",
-      // TODO(disc): uint8 codegen is only supported on GPU backend a.t.m.
-      /*backend_types*/ {BackendType::kCuda},
+      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
-      /*input_descriptors*/ {"2x3xui8_d"},
-      /*output_descriptors*/ {"f32_d"}));
+      /*input_descriptors*/ {"2x3xui8_X"},
+      /*output_descriptors*/ {"f32_X"},
+      /*input_vals*/ {{255, 128, 0, 63, 158, 33}}));
 }
 
 }  // namespace mlir_test

@@ -140,32 +140,32 @@ AccumulatorFactory getFactory(OpBuilder& b, Location loc, Region& body) {
     auto result_type = calc_op->getOperand(num_operands - 1).getType();
     auto result_elem_type = result_type.cast<MemRefType>().getElementType();
     if (isa<lmhlo::AddOp>(calc_op)) {
-      return lmhlo::LhloOpToStdScalarOp::map<lmhlo::AddOp>(
+      return LhloOpToStdScalarOp::map<lmhlo::AddOp>(
           llvm::cast<lmhlo::AddOp>(calc_op), result_elem_type, operand_values,
           &b);
     } else if (isa<lmhlo::MulOp>(calc_op)) {
-      return lmhlo::LhloOpToStdScalarOp::map<lmhlo::MulOp>(
+      return LhloOpToStdScalarOp::map<lmhlo::MulOp>(
           llvm::cast<lmhlo::MulOp>(calc_op), result_elem_type, operand_values,
           &b);
     } else if (isa<lmhlo::MaxOp>(calc_op)) {
-      return lmhlo::LhloOpToStdScalarOp::map<lmhlo::MaxOp>(
+      return LhloOpToStdScalarOp::map<lmhlo::MaxOp>(
           llvm::cast<lmhlo::MaxOp>(calc_op), result_elem_type, operand_values,
           &b);
     } else if (isa<lmhlo::MinOp>(calc_op)) {
-      return lmhlo::LhloOpToStdScalarOp::map<lmhlo::MinOp>(
+      return LhloOpToStdScalarOp::map<lmhlo::MinOp>(
           llvm::cast<lmhlo::MinOp>(calc_op), result_elem_type, operand_values,
           &b);
     } else if (isa<lmhlo::OrOp>(calc_op)) {
-      return lmhlo::LhloOpToStdScalarOp::map<lmhlo::OrOp>(
+      return LhloOpToStdScalarOp::map<lmhlo::OrOp>(
           llvm::cast<lmhlo::OrOp>(calc_op), result_elem_type, operand_values,
           &b);
     } else if (isa<lmhlo::AndOp>(calc_op)) {
-      return lmhlo::LhloOpToStdScalarOp::map<lmhlo::AndOp>(
+      return LhloOpToStdScalarOp::map<lmhlo::AndOp>(
           llvm::cast<lmhlo::AndOp>(calc_op), result_elem_type, operand_values,
           &b);
     } else {
       assert(false && "unexpected reduce operation");
-      return lmhlo::LhloOpToStdScalarOp::map<lmhlo::AddOp>(
+      return LhloOpToStdScalarOp::map<lmhlo::AddOp>(
           llvm::cast<lmhlo::AddOp>(calc_op), result_elem_type, operand_values,
           &b);
     }
@@ -1262,6 +1262,25 @@ arith::AtomicRMWKind getAtomicRMWKind(Region& body) {
   }
   llvm_unreachable("unsupported atomic operation kind");
   return arith::AtomicRMWKind::addf;
+}
+
+bool isUnsignedIntegerValue(Value val) {
+  auto ty = val.getType().cast<MemRefType>().getElementType();
+  return ty.isa<IntegerType>() && ty.isUnsignedInteger();
+}
+
+Type convertIfIntegerType(Type type) {
+  if (auto int_type = type.dyn_cast<IntegerType>())
+    return IntegerType::get(int_type.getContext(),
+                            int_type.getIntOrFloatBitWidth());
+  return type;
+}
+
+bool needUpgradingUnsignedInteger(Operation* op) {
+  if (!llvm::any_of(op->getResults(), isUnsignedIntegerValue) &&
+      !llvm::any_of(op->getOperands(), isUnsignedIntegerValue))
+    return false;
+  return isa<lmhlo::AddOp, lmhlo::SubOp, lmhlo::MulOp, lmhlo::DivOp>(op);
 }
 
 }  // namespace disc_ral

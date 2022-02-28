@@ -16,7 +16,13 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_TRANSFORMS_LHLO_ELEMENTAL_UTILS_H_
 #define TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_TRANSFORMS_LHLO_ELEMENTAL_UTILS_H_
 
+#include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
+#include "mlir-hlo/Dialect/mhlo/transforms/map_mhlo_to_scalar_op.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Builders.h"
 
 namespace mlir {
@@ -114,6 +120,45 @@ memref::LoadOp createOffsetLoad(OpBuilder& b, Location loc, Value memref,
                                 Value offset);
 
 arith::AtomicRMWKind getAtomicRMWKind(Region& body);
+
+bool isUnsignedIntegerValue(Value val);
+
+Type convertIfIntegerType(Type type);
+
+bool needUpgradingUnsignedInteger(Operation* op);
+
+struct LhloOpToStdScalarOp {
+  template <typename OpTy>
+  static Value map(OpTy op, Type resultType, ValueRange operands, OpBuilder* b);
+};
+
+template <typename OpTy>
+Value LhloOpToStdScalarOp::map(OpTy op, Type resultType, ValueRange operands,
+                               OpBuilder* b) {
+  if (!needUpgradingUnsignedInteger(op))
+    return lmhlo::LhloOpToStdScalarOp::map<OpTy>(cast<OpTy>(op), resultType,
+                                                 operands, b);
+  Location loc = op->getLoc();
+  SmallVector<Value> newOperands;
+  for (Value operand : operands) {
+    Type oldType = operand.getType();
+    Type newType = convertIfIntegerType(oldType);
+    Value newOperand = operand;
+    if (oldType != newType)
+      newOperand = b->create<UnrealizedConversionCastOp>(loc, newType, operand)
+                       ->getResult(0);
+    newOperands.push_back(newOperand);
+  }
+  Type newResultType = convertIfIntegerType(resultType);
+  Value result = lmhlo::LhloOpToStdScalarOp::map<OpTy>(
+      cast<OpTy>(op), newResultType, newOperands, b);
+  if (newResultType != resultType) {
+    result.setType(newResultType);
+    result = b->create<UnrealizedConversionCastOp>(loc, resultType, result)
+                 ->getResult(0);
+  }
+  return result;
+}
 
 }  // namespace disc_ral
 }  // namespace mlir

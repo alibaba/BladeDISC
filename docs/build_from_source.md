@@ -30,7 +30,7 @@ development Docker image.
     please goto [this website](https://hub.docker.com/r/bladedisc/bladedisc/tags?page=1&name=devel) to
     find more images with various CUDA versions.
 
-    **Note that we use the same development docker images for both Nvidia GPU backend and X86 CPU backend. For X86 CPU backend, both the building phase and execution phase do not requires CUDA available.**
+    **Note that we use the same development docker images for both Nvidia GPU backend and X86 CPU backend. For X86 CPU backend, both the building phase and execution phase do not require CUDA available.**
 
 - step2: build and test tensorflow_bladedisc with an all-in-on bash script.
 
@@ -59,7 +59,7 @@ development Docker image.
     docker run --rm -it -v $PWD:/disc bladedisc/bladedisc:latest-devel-cuda11.0 bash
     ```
 
-   **Note that we use the same development docker images for both Nvidia GPU backend and X86 CPU backend. For X86 CPU backend, both the building phase and execution phase do not requires CUDA available.**
+   **Note that we use the same development docker images for both Nvidia GPU backend and X86 CPU backend. For X86 CPU backend, both the building phase and execution phase do not require CUDA available.**
 
 
 - step2: build and test pytorch_blade with an all-in-one script:

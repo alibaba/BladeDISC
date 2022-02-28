@@ -16,7 +16,7 @@ import subprocess
 import sys
 import venv
 
-from common_setup import running_on_ci, remote_cache_token
+from common_setup import running_on_ci, remote_cache_token, which
 from torch_blade_build import TorchBladeBuild, get_fullpath_or_create
 
 cwd = os.path.dirname(os.path.abspath(__file__))
@@ -77,8 +77,8 @@ class BazelBuild(TorchBladeBuild):
         self.shell_setting = "set -e; set -o pipefail; "
         # Workaround: this venv ensure that $(/usr/bin/env python) is evaluated to python3
         venv.create("bazel_pyenv")
-        self.build_cmd = "source bazel_pyenv/bin/activate; bazel build --experimental_repo_remote_exec"
-        self.test_cmd = "source bazel_pyenv/bin/activate; bazel test --experimental_repo_remote_exec"
+        self.build_cmd = "source bazel_pyenv/bin/activate; bazel build"
+        self.test_cmd = "source bazel_pyenv/bin/activate; bazel test"
 
     def run(self, extdir=None, srcdir=None, build_temp=None):
         srcdir = get_fullpath_or_create(
@@ -90,6 +90,7 @@ class BazelBuild(TorchBladeBuild):
         env = os.environ.copy()
         ld_library_path = ":".join([self.torch_lib_dir, env.get("LD_LIBRARY_PATH", "")])
         env["LD_LIBRARY_PATH"] = ld_library_path
+        env["GCC_HOST_COMPILER_PATH"] = env.get("GCC_HOST_COMPILER_PATH", which("gcc"))
 
         bazel_cmd = " ".join(
             [self.shell_setting, self.build_cmd]
@@ -124,6 +125,7 @@ class BazelBuild(TorchBladeBuild):
         env = os.environ.copy()
         ld_library_path = ":".join([self.torch_lib_dir, env.get("LD_LIBRARY_PATH", "")])
         env["LD_LIBRARY_PATH"] = ld_library_path
+        env["GCC_HOST_COMPILER_PATH"] = env.get("GCC_HOST_COMPILER_PATH", which("gcc"))
 
         test_cmd = " ".join(
             [self.shell_setting, self.test_cmd]

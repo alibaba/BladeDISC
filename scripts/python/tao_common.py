@@ -159,28 +159,3 @@ def overwrite_file(src, dst):
         os.remove(dst)
     shutil.copy2(src, dst)
 
-
-def running_on_ci():
-    """
-    Return true if the building job is running on CI host.
-    """
-    if os.getenv("GITHUB_WORKFLOW"):
-        return True
-    return False
-
-
-def ci_build_flag():
-    if running_on_ci():
-        return " --noshow_loading_progress --show_progress_rate_limit=600"
-    return ""
-
-
-def remote_cache_token():
-    """
-    Return a remote cache token if exists
-    """
-    fn = os.path.expanduser("~/.cache/remote_cache_token")
-    if os.path.exists(fn):
-        with open(fn) as f:
-            return str(f.read()).strip()
-    return None

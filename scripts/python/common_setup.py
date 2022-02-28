@@ -1,3 +1,14 @@
+# Copyright 2022 The BladeDISC Authors. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import argparse
 import os
 import time
@@ -178,6 +189,32 @@ def cwd(path):
         yield
     finally:
         os.chdir(old_dir)
+
+
+def running_on_ci():
+    """
+    Return true if the building job is running on CI host.
+    """
+    if os.getenv("GITHUB_WORKFLOW"):
+        return True
+    return False
+
+
+def ci_build_flag():
+    if running_on_ci():
+        return " --noshow_loading_progress --show_progress_rate_limit=600"
+    return ""
+
+
+def remote_cache_token():
+    """
+    Return a remote cache token if exists
+    """
+    fn = os.path.expanduser("~/.cache/remote_cache_token")
+    if os.path.exists(fn):
+        with open(fn) as f:
+            return str(f.read()).strip()
+    return None
 
 
 def symlink_files(root):

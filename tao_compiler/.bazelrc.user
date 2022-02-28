@@ -1,4 +1,4 @@
-build:ci_build --noshow_loading_progress --show_progress_rate_limit=600
+build:ci_build --noshow_loading_progress --show_progress_rate_limit=600 --jobs=10
 
 build:disc --define framework_shared_object=false --experimental_multi_threaded_digest
 build:disc_cpu --config=disc --config=release_cpu_linux --cxxopt=-DTAO_CPU_ONLY

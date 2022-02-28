@@ -41,6 +41,9 @@ from common_setup import (
     get_source_root_dir,
     logger,
     which,
+    running_on_ci,
+    ci_build_flag,
+    remote_cache_token,
 )
 
 from tao_common import (
@@ -52,9 +55,6 @@ from tao_common import (
     default_env,
     gcc_env,
     overwrite_file,
-    running_on_ci,
-    ci_build_flag,
-    remote_cache_token,
 )
 
 PYTHON_BIN_NAME = os.getenv("PYTHON", "python")
@@ -320,7 +320,7 @@ def build_mlir_ral(root, args):
     if running_on_ci():
         configs.append('--config=ci_build')
 
-    BAZEL_BUILD_CMD = "bazel build --experimental_multi_threaded_digest --define framework_shared_object=false"
+    BAZEL_BUILD_CMD = "bazel build --config=disc"
     BAZEL_BUILD_CMD = BAZEL_BUILD_CMD + " ".join(configs)
 
     TARGET_RAL_STANDALONE_LIB = "//tensorflow/compiler/mlir/xla/ral:libral_base_context.so"

@@ -8,8 +8,8 @@ to build and test.
 ## Prerequisite
 
 1. Git for checking out the source code.
-1. [Nvidia Docker](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
-to launch Docker container on Nvidia GPU host.
+1. (Optional)[Nvidia Docker](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
+to launch Docker container on Nvidia GPU host if you want to build BladeDISC for GPU backend.
 
 ## Checkout the Source
 
@@ -30,10 +30,16 @@ development Docker image.
     please goto [this website](https://hub.docker.com/r/bladedisc/bladedisc/tags?page=1&name=devel) to
     find more images with various CUDA versions.
 
+    **Note that we use the same development docker images for both Nvidia GPU backend and X86 CPU backend. For X86 CPU backend, both the building phase and execution phase do not requires CUDA available.**
+
 - step2: build and test tensorflow_bladedisc with an all-in-on bash script.
 
     ``` bash
+    # For GPU backend
     bash ./scripts/ci/build_and_test.sh
+
+    # For CPU backend
+    bash ./scripts/ci/build_and_test.sh --cpu-only
     ```
 
     the above command generates a wheel Python package on the path: `./build`,
@@ -46,19 +52,39 @@ development Docker image.
 development Docker image.
 
     ``` bash
+    # For GPU backend
     docker run --gpus all --rm -it -v $PWD:/disc bladedisc/bladedisc:latest-devel-cuda11.0 bash
+
+    # For CPU backend
+    docker run --rm -it -v $PWD:/disc bladedisc/bladedisc:latest-devel-cuda11.0 bash
     ```
+
+   **Note that we use the same development docker images for both Nvidia GPU backend and X86 CPU backend. For X86 CPU backend, both the building phase and execution phase do not requires CUDA available.**
+
 
 - step2: build and test pytorch_blade with an all-in-one script:
 
     ``` bash
+    # For GPU backend
     cd pytorch_blade && bash ./ci_build/build_pytorch_blade.sh
+
+    # For CPU backend
+    export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
+    export TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cpu
+    cd pytorch_blade && bash ./ci_build/build_pytorch_blade.sh
+
     ```
 
 - step3: build the pytorch_blade Python wheel package.
 
     ``` bash
-    python setup.py bdist_wheel 
+    # For GPU backend
+    python setup.py bdist_wheel
+
+    # For CPU backend
+    export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
+    export TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cpu
+    python setup.py bdist_wheel
     ```
 
     the above command generates a wheel Python package on the path: `pytorch_blade/dist/`,

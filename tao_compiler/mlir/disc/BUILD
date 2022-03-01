@@ -1767,7 +1767,6 @@ transitive_hdrs(
         ":disc_map_chlo_to_hlo_op",
         ":mhlo_disc",
         "//tensorflow/compiler/mlir/hlo:hlo",
-        "//tensorflow/compiler/mlir/hlo:lhlo",
         "//tensorflow/compiler/mlir/xla/ral:ral_base_cpu_context_impl",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Support",

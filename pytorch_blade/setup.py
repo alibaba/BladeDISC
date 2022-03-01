@@ -24,6 +24,7 @@ import subprocess
 from setuptools import find_packages
 from setuptools import setup, Extension, Command
 from setuptools.command.build_ext import build_ext
+import bazel_build
 import cmake_build
 
 # Constant known variables used throughout this file
@@ -41,13 +42,17 @@ except ImportError as e:
     sys.exit(1)
 
 
-class CMakeExtension(Extension):
+class TorchBladeExtension(Extension):
     def __init__(self, name, sourcedir=""):
         Extension.__init__(self, name, sources=[])
         self.sourcedir = os.path.abspath(sourcedir)
 
+if '--cmake' in sys.argv:
+  BuildClass = cmake_build.CMakeBuild
+else:
+  BuildClass = bazel_build.BazelBuild
 
-build = cmake_build.CMakeBuild(
+build = BuildClass(
     os.path.dirname(torch.__file__),
     torch.version.__version__,
     cuda_version=torch.version.cuda,
@@ -60,21 +65,17 @@ build = cmake_build.CMakeBuild(
 build.write_version_file(os.path.join(cwd, project_name, "version.py"))
 
 
-class CMakeBuild(build_ext):
+class TorchBladeBuild(build_ext):
     def run(self):
         torch_dir = os.path.dirname(torch.__file__)
         # version.txt Would be package into C++ SDK by CPACK
         build.write_version_file(os.path.join(cwd, "version.txt"))
         for ext in self.extensions:
-            extdir = os.path.abspath(os.path.dirname(
-                                     self.get_ext_fullpath(ext.name)))
-            build.run(extdir=extdir,
-                      srcdir=ext.sourcedir,
-                      build_temp="build/temp")
+            extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
+            build.run(extdir=extdir, srcdir=ext.sourcedir, build_temp="build/temp")
 
 
-class TestCommand(Command):
-
+class CustomCommand(Command):
     user_options = []
 
     def initialize_options(self):
@@ -85,12 +86,13 @@ class TestCommand(Command):
         # must override abstract method
         pass
 
+class TestCommand(CustomCommand):
+
     def py_run(self):
-        self._run(["py.test", "tests"])
+        self._run(["python3", "-m", "unittest", "discover", "-v", "tests"])
 
     def cpp_run(self):
-        if os.path.exists("cpp_test.sh"):
-            self._run(["sh", "cpp_test.sh"])
+        build.test()
 
     def run(self):
         self.cpp_run()
@@ -98,7 +100,7 @@ class TestCommand(Command):
 
     def _run(self, command):
         try:
-            subprocess.check_call(command)
+            subprocess.check_call(command, shell=True, executable="/bin/bash")
         except subprocess.CalledProcessError as error:
             print("Command failed with exit code", error.returncode)
             sys.exit(error.returncode)
@@ -113,6 +115,18 @@ class PyTestCommand(TestCommand):
     def run(self):
         self.py_run()
 
+class BuildDepsCommand(CustomCommand):
+
+    def run(self):
+        cmd = "python3 ../scripts/python/common_setup.py"
+        if torch._C._GLIBCXX_USE_CXX11_ABI:
+            cmd += " --cxx11_abi"
+
+        if not build.cuda_available:
+            cmd += " --build_mkldnn"
+
+        subprocess.check_call(cmd, shell=True, executable="/bin/bash")
+
 
 install_requires = ["networkx", "onnx>=1.6.0", f"torch=={torch.__version__}"]
 
@@ -125,12 +139,13 @@ setup(
     description="The pytorch blade project",
     install_requires=install_requires,
     packages=find_packages(exclude=["tests", "tests.*"]),
-    ext_modules=[CMakeExtension("{}._torch_blade".format(wheel_name))],
+    ext_modules=[TorchBladeExtension("{}._torch_blade".format(wheel_name))],
     cmdclass=dict(
-        build_ext=CMakeBuild,
+        build_ext=TorchBladeBuild,
         test=TestCommand,
         py_test=PyTestCommand,
         cpp_test=CppTestCommand,
+        build_deps=BuildDepsCommand,
     ),
     zip_safe=False,
 )

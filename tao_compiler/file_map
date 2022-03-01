@@ -2,3 +2,4 @@
 decoupling,tensorflow/compiler/decoupling
 mlir/disc,tensorflow/compiler/mlir/disc
 mlir/xla/ral,tensorflow/compiler/mlir/xla/ral
+.bazelrc.user,tensorflow/../.bazelrc.user

@@ -17,98 +17,17 @@ import platform
 import shutil
 import re
 from distutils.spawn import find_executable
-import release_version
+from torch_blade_build import TorchBladeBuild, get_fullpath_or_create, check_env_flag
 
 cwd = os.path.dirname(os.path.abspath(__file__))
 
 
-def check_env_flag(name, default=None):
-    env_val = os.getenv(name, default)
-    return (
-        None if env_val is None else env_val.upper() in ["ON", "1", "YES", "TRUE", "Y"]
-    )
-
-
-def get_fullpath_or_create(dir_path):
-    if not os.path.exists(dir_path):
-        os.makedirs(dir_path)
-    return os.path.abspath(dir_path)
-
-
-class CMakeBuild:
-    def __init__(
-        self,
-        torch_dir,
-        torch_version,
-        cuda_version=None,
-        torch_git_version=None,
-        cxx11_abi=False,
-    ):
-        self.__serialization_version__ = "0.0.3"
-        self.torch_dir = torch_dir
-        self.cuda_version = cuda_version
-        self.torch_version = torch_version
-        self.git_version = self.get_git_version()
-        self.torch_git_version = torch_git_version
-        self.GLIBCXX_USE_CXX11_ABI = cxx11_abi
-        # NB: Bump up because of MLIR Engine serialization changes
-        self.is_debug = check_env_flag("DEBUG", "OFF")
-        self.cuda_available = check_env_flag(
-            "TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT", "ON"
-        )
-        self.version = self.get_version()
-
-    def get_git_version(self):
-        try:
-            sha = (
-                subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=cwd)
-                .decode("ascii")
-                .strip()
-            )
-        except Exception as e:
-            print("\t", e)
-            sha = "unknown"
-        return sha
-
-    def get_version(self):
-        version = release_version.__version__
-        if version == "0.0.0":
-            # this is develop version
-            version += ".dev0"
-
-        if not self.cuda_version == "10.0":
-            torch_ver = self.torch_version.split("+")[0]
-            if self.cuda_version:
-                cuda_ver = self.cuda_version.replace(".", "")
-                torch_ver += f".cu{cuda_ver}"
-
-            version += f"+{torch_ver}"
-        return version
-
-    def write_version_file(self, version_path):
-        with open(version_path, "w") as f:
-            f.write("__version__ = {}\n".format(repr(self.version)))
-            f.write(
-                "__serialization_version__ = {}\n".format(
-                    repr(self.__serialization_version__)
-                )
-            )
-            f.write("debug = {}\n".format(repr(self.is_debug)))
-            f.write("cuda = {}\n".format(repr(self.cuda_version)))
-            f.write("cuda_available = {}\n".format(repr(self.cuda_available)))
-            f.write("git_version = {}\n".format(repr(self.git_version)))
-            f.write("torch_version = {}\n".format(repr(self.torch_version)))
-            f.write("torch_git_version = {}\n".format(repr(self.torch_git_version)))
-            f.write(
-                "GLIBCXX_USE_CXX11_ABI = {}\n".format(repr(self.GLIBCXX_USE_CXX11_ABI))
-            )
-
-        with open(version_path, "r") as f:
-            print("".join(f.readlines()))
-
+class CMakeBuild(TorchBladeBuild):
     def run(self, extdir=None, srcdir=None, build_temp=None):
         extdir = get_fullpath_or_create(extdir or "build/temp")
-        srcdir = get_fullpath_or_create(srcdir or os.path.dirname(os.path.abspath(__file__)))
+        srcdir = get_fullpath_or_create(
+            srcdir or os.path.dirname(os.path.abspath(__file__))
+        )
         build_temp = get_fullpath_or_create(build_temp or extdir)
         build_temp = build_temp or extdir
 
@@ -235,6 +154,10 @@ class CMakeBuild:
                 subprocess.check_output(
                     ["patchelf", "--replace-needed", origin_soname, patch_soname, lib]
                 )
+
+    def test(self):
+        if os.path.exists("cpp_test.sh"):
+            self._run(["sh", "cpp_test.sh"])
 
 
 if __name__ == "__main__":

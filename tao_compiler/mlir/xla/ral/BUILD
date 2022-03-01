@@ -168,6 +168,7 @@ cc_library(
     deps = ["//tao/third_party/PatineClient:patine_client"],
 )
 
+
 cc_library(
     name = "disc_patine_client_deps",
     deps = if_platform_alibaba([":real_disc_patine_client_deps"])
@@ -181,15 +182,23 @@ cc_library(
         "context/mkldnn/ideep/ideep/operators/*.hpp",
     ]),
     linkopts = [
-      "-Ltao/third_party/mkldnn/build/install/lib64",
-      "-Ltao/third_party/mkldnn/build/intel/lib",
-      "-Wl,--start-group tao/third_party/mkldnn/build/install/lib64/libdnnl.a -Wl,--end-group",
-      "-Wl,--start-group tao/third_party/mkldnn/build/intel/lib/libmkl_intel_ilp64.a tao/third_party/mkldnn/build/intel/lib/libmkl_gnu_thread.a tao/third_party/mkldnn/build/intel/lib/libmkl_core.a -Wl,--end-group",
+      "-L$(location //tao/third_party/mkldnn:build)/install/lib64",
+      "-L$(location //tao/third_party/mkldnn:build)/intel/lib",
+      "-Wl,--start-group",
+      "$(location //tao/third_party/mkldnn:build)/install/lib64/libdnnl.a",
+      "-Wl,--end-group",
+      "-Wl,--start-group",
+      "$(location //tao/third_party/mkldnn:build)/intel/lib/libmkl_intel_ilp64.a",
+      "$(location //tao/third_party/mkldnn:build)/intel/lib/libmkl_gnu_thread.a",
+      "$(location //tao/third_party/mkldnn:build)/intel/lib/libmkl_core.a",
+      "-Wl,--end-group",
     ],
+    data = ["//tao/third_party/mkldnn:build"],
     deps = [
         "//tao/third_party/mkldnn:onednn",
     ],
 )
+
 
 cc_library(
     name = "common_context",
@@ -381,6 +390,7 @@ cc_library(
         "//tensorflow/core:stream_executor_headers_lib",
     ]),
     alwayslink = 1,
+    visibility = ["//visibility:public"],
 )
 
 disc_cc_library(
@@ -416,6 +426,7 @@ disc_cc_library(
         "@local_config_cuda//cuda:cuda_driver",
     ]),
     alwayslink = 1,
+    visibility = ["//visibility:public"],
 )
 
 tf_cc_shared_object(

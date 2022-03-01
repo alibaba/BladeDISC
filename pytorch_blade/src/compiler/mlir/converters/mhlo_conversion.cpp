@@ -15,7 +15,7 @@
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h>
 #include <mlir/Dialect/StandardOps/IR/Ops.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
-#include <tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h>
+#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 
 #include "common_utils/logging.h"
 #include "compiler/mlir/converters/mhlo_converter_register.h"

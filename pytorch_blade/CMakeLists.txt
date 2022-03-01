@@ -144,7 +144,11 @@ target_link_libraries(torch_blade PUBLIC
 resolve_env(PYTORCH_VERSION_STRING)
 resolve_env(PYTORCH_MAJOR_VERSION)
 resolve_env(PYTORCH_MINOR_VERSION)
-configure_file(src/common_utils/version.h.in ${CMAKE_SOURCE_DIR}/src/common_utils/version.h @ONLY)
+target_compile_definitions(torch_blade PUBLIC
+   -DPYTORCH_VERSION_STRING=${PYTORCH_VERSION_STRING}
+   -DPYTORCH_MAJOR_VERSION=${PYTORCH_MAJOR_VERSION}
+   -DPYTORCH_MINOR_VERSION=${PYTORCH_MINOR_VERSION}
+)
 
 if (TORCH_BLADE_BUILD_MLIR_SUPPORT)
   add_dependencies(torch_blade blade_disc)

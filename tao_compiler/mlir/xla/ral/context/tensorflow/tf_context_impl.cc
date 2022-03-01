@@ -27,6 +27,7 @@
 #include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_driver.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
+#include "tensorflow/core/public/version.h"
 #include "tensorflow/stream_executor/device_description.h"
 
 namespace se = stream_executor;
@@ -412,7 +413,8 @@ void ral_tf_gpu_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
       auto exec_ctx = dynamic_cast<RalTfExecutionContext*>(ctx);
       int cc_major;
       int cc_minor;
-#if defined IS_PAI_TF || (TF_MAJOR_VERSION < 2 && TF_MINOR_VERSION < 6)
+#if defined(IS_PAI_TF) || TF_MAJOR_VERSION < 2 || \
+    (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION < 6)
       if (!executor->GetDeviceDescription().cuda_compute_capability(
               &cc_major, &cc_minor)) {
         VLOG(0) << "[[ ERROR ]]: failed to get cuda_compute_capability";

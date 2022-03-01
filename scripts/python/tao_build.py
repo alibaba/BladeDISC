@@ -320,7 +320,7 @@ def build_mlir_ral(root, args):
     if running_on_ci():
         configs.append('--config=ci_build')
 
-    BAZEL_BUILD_CMD = "bazel build --config=disc"
+    BAZEL_BUILD_CMD = "bazel build --config=disc "
     BAZEL_BUILD_CMD = BAZEL_BUILD_CMD + " ".join(configs)
 
     TARGET_RAL_STANDALONE_LIB = "//tensorflow/compiler/mlir/xla/ral:libral_base_context.so"

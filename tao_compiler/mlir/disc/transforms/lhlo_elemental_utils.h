@@ -151,7 +151,7 @@ Value LhloOpToStdScalarOp::map(OpTy op, Type resultType, ValueRange operands,
   }
   Type newResultType = convertIfIntegerType(resultType);
   Value result = lmhlo::LhloOpToStdScalarOp::map<OpTy>(
-      cast<OpTy>(op), newResultType, newOperands, b);
+      cast<OpTy>(op), resultType, newOperands, b);
   if (newResultType != resultType) {
     result.setType(newResultType);
     result = b->create<UnrealizedConversionCastOp>(loc, resultType, result)

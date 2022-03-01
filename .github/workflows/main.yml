@@ -165,13 +165,13 @@ jobs:
   CPU-TORCH181:
     uses: ./.github/workflows/cpu_reusable.yml
     with:
-      extra_envs: -e TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF \
+      extra_envs: -e TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
         -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cpu
       exec_command: bash ./scripts/ci/test_pytorch_blade.sh
   CPU-CMAKE-TORCH181:
     uses: ./.github/workflows/cpu_reusable.yml
     with:
-      extra_envs: -e TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF \
-        -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cpu \
+      extra_envs: -e TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
+        -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cpu
         -e TORCH_BLADE_USE_CMAKE_BUILD=ON
       exec_command: bash ./scripts/ci/test_pytorch_blade.sh

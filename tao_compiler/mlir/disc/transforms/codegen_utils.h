@@ -102,7 +102,7 @@ int getReductionTileSizeOnCPU();
 
 // SM number and max-threads-per-SM of different NVIDIA GPU architectures.
 // key: {arch-major, arch-minor}, value: {SM-number, max-threads-per-SM}
-const std::map<std::pair<int, int>, std::pair<int, int>> archToGPUThreadNumber =
+const std::map<std::pair<int, int>, std::pair<int, int>> ArchToGPUThreadNumber =
     {
         {std::make_pair(7, 0), std::make_pair(80, 2048)},   // V100
         {std::make_pair(7, 5), std::make_pair(40, 1024)},   // T4

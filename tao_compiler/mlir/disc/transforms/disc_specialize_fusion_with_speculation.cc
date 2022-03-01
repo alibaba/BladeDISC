@@ -1,17 +1,13 @@
-/* Copyright 2020 The TensorFlow Authors. All Rights Reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-==============================================================================*/
+// Copyright 2022 The BladeDISC Authors. All rights reserved.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 // This file implements the logic for specializing the fusion kernel with
 // speculation.
@@ -262,28 +258,65 @@ struct DiscSpecializeFusionWithSpeculationPass
     Operation* reduce_op = GetCandidateRowReduceOp(fusion_op);
     assert(reduce_op != nullptr);
 
-    // Row reduction schedule selection policy: if col size > 512, use schedule
-    // 1; also use schedule 2. The 512 is an empirical value.
     OpBuilder b(fusion_op);
     Location loc = fusion_op.getLoc();
     FusionOp cloned = dyn_cast<FusionOp>(b.clone(*fusion_op.getOperation()));
 
     Value operand = reduce_op->getOperand(0);
+    // TODO(disc): Use 256 as default block size; turn this number for
+    // different shapes
+    int block_size = kThreadsRowReduction;
     Value col_size = b.create<memref::DimOp>(loc, operand, 1);
-    Value ref_size =
-        b.create<arith::ConstantIndexOp>(loc, kRowReductionScheduleTurningSize);
-    Value pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt,
-                                         col_size, ref_size);
+    Value pred;
+
+    // TODO: this feature will be experimental in the first release, and will be
+    // set as default in the near future after evaluated on benchmarks. And
+    // later, the two speculations will be merge into one according to the
+    // adaptive thread mapping approach in AStitch. Then there will be more
+    // flexible per-reduce-thread-number setting.
+    bool experimental_tlp_enhance = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE",
+                                   false, &experimental_tlp_enhance);
+    auto thread_number_info =
+        ArchToGPUThreadNumber.find({cc_major_, cc_minor_});
+    if (experimental_tlp_enhance &&
+        (thread_number_info != ArchToGPUThreadNumber.end())) {
+      // Experimental schedule selection policy is as following:
+      //   1. use schedule 1 if
+      //      (col-size >= block-dim) &&
+      //      (row-number / row-per-block-in-sched-2 < max-blocks-per-wave / 2);
+      //   2. use schedule 2 otherwise.
+      const auto& info = thread_number_info->second;
+      int64_t sm_number = info.first;
+      int64_t max_threads_per_wave_per_sm = info.second;
+      int64_t max_blocks_per_wave =
+          max_threads_per_wave_per_sm / block_size * sm_number;
+      int64_t row_per_block_in_sched_2 = block_size / kWarpSize;
+      Value row_size = b.create<memref::DimOp>(loc, operand, 0);
+      Value block_size_val = b.create<arith::ConstantIndexOp>(loc, block_size);
+      auto threshold_row_number = b.create<arith::ConstantIndexOp>(
+          loc, max_blocks_per_wave / 2 * row_per_block_in_sched_2);
+      Value large_col = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge,
+                                                col_size, block_size_val);
+      Value small_row = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt,
+                                                row_size, threshold_row_number);
+
+      pred = b.create<arith::AndIOp>(loc, large_col, small_row);
+    } else {
+      // Default schedule selection policy:
+      //   use schedule 1 if col size > `kRowReductionScheduleTurningSize`;
+      //   use schedule 2 otherwise.
+      Value ref_size = b.create<arith::ConstantIndexOp>(
+          loc, kRowReductionScheduleTurningSize);
+      pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt, col_size,
+                                     ref_size);
+    }
 
     auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
 
-    // TODO(disc): Use 256 as default block size; turn this number for
-    // different shapes
-    int thread_per_block = kThreadsRowReduction;
     auto first_schedule = b.getIntegerAttr(b.getIntegerType(32), 1);
     auto second_schedule = b.getIntegerAttr(b.getIntegerType(32), 2);
-    auto num_thread_attr =
-        b.getIntegerAttr(b.getIntegerType(32), thread_per_block);
+    auto num_thread_attr = b.getIntegerAttr(b.getIntegerType(32), block_size);
     fusion_op->setAttr(kThreadPerBlockHint, num_thread_attr);
     fusion_op->setAttr(kRowReductionScheduleHint, first_schedule);
     // one block one row
@@ -331,8 +364,8 @@ struct DiscSpecializeFusionWithSpeculationPass
         b.create<arith::CeilDivSIOp>(loc, matrix_size, cur_threads);
     int sm_num;
     auto thread_number_info =
-        archToGPUThreadNumber.find({cc_major_, cc_minor_});
-    if (thread_number_info != archToGPUThreadNumber.end()) {
+        ArchToGPUThreadNumber.find({cc_major_, cc_minor_});
+    if (thread_number_info != ArchToGPUThreadNumber.end()) {
       auto info = thread_number_info->second;
       sm_num = info.first;
     } else {
@@ -381,13 +414,15 @@ struct DiscSpecializeFusionWithSpeculationPass
       return;
     }
 
+    // TODO: aware of row-reduction hints.
+
     // Vectorization/tiling policy:
     //
     // 1) No vectorization/Tiling.
     //     - dominanted by column reduction (codegen support now). TODO: add
     //       vectorization/tiling support.
     //     - dominanted by row-reduction: row-number % kVectorizeOrTileSize
-    //       != 0, or row-number < max-threads-per-wave.
+    //       != 0, or row-number < max-rows-per-thread-wave.
     //     - dominanted by element-wise: element-number % kVectorizeOrTileSize
     //       != 0, or element-number < max-threads-per-wave.
     // 2) Otherwise apply vectorization/tiling with width of
@@ -395,8 +430,8 @@ struct DiscSpecializeFusionWithSpeculationPass
 
     int max_threads_per_wave;
     auto thread_number_info =
-        archToGPUThreadNumber.find({cc_major_, cc_minor_});
-    if (thread_number_info != archToGPUThreadNumber.end()) {
+        ArchToGPUThreadNumber.find({cc_major_, cc_minor_});
+    if (thread_number_info != ArchToGPUThreadNumber.end()) {
       auto info = thread_number_info->second;
       max_threads_per_wave = info.first * info.second;
     } else {
@@ -419,8 +454,9 @@ struct DiscSpecializeFusionWithSpeculationPass
       auto row_per_block = (rowred_schedule == DISC_WARP_WISE_ROW_REDUCE)
                                ? block_size / kWarpSize
                                : 1;
-      auto threshold_val = max_threads_per_wave / block_size * row_per_block;
-      threshold = b.create<arith::ConstantIndexOp>(loc, threshold_val);
+      auto max_rows_per_wave =
+          max_threads_per_wave / block_size * row_per_block;
+      threshold = b.create<arith::ConstantIndexOp>(loc, max_rows_per_wave);
       Value operand = dominant_equivalent_op->getOperand(0);
       // #out-element is row numbers.
       out_element_number = b.create<memref::DimOp>(loc, operand, 0);
@@ -479,17 +515,21 @@ struct DiscSpecializeFusionWithSpeculationPass
   }
 
   void runOnOperation() override {
-    // Stage #1: broadcast simplifier with speculation
+    // Stage #1: broadcast simplifier with speculation.
     Speculator(
         &DiscSpecializeFusionWithSpeculationPass::DoBroadcastSpeculation);
 
-    // Stage #2: speculation of reduce op
-    Speculator(
-        &DiscSpecializeFusionWithSpeculationPass::DoRowReductionSpeculation);
+    // Stage #2: speculation of column reduce op.
     Speculator(
         &DiscSpecializeFusionWithSpeculationPass::DoColReductionSpeculation);
 
-    // Stage #3: speculation of vectorization/tiling.
+    // Stage #3: speculation of row reduce op.
+    // We do row-reduction speculation before vectorization/tiling because TLP
+    // is usually more important than ILP on GPU.
+    Speculator(
+        &DiscSpecializeFusionWithSpeculationPass::DoRowReductionSpeculation);
+
+    // Stage #4: speculation of vectorization/tiling.
     Speculator(
         &DiscSpecializeFusionWithSpeculationPass::DoVectorizeOrTileSpeculation);
   }

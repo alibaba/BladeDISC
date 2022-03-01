@@ -130,8 +130,11 @@ bool feature_test_main(const std::string& mlir_file_path,
 
   // Read tf code.
   std::string tf_code;
-  if (!ReadFileToString(Env::Default(), mlir_file_path, &tf_code).ok()) {
-    LOG(ERROR) << "failed to load mlir file from " << mlir_file_path;
+  auto tf_code_status =
+      ReadFileToString(Env::Default(), mlir_file_path, &tf_code);
+  if (!tf_code_status.ok()) {
+    LOG(ERROR) << "failed to load mlir file from " << mlir_file_path << ": "
+               << tf_code_status.error_message();
     return false;
   }
   LOG(INFO) << "Original TF code: " << tf_code;

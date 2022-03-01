@@ -41,14 +41,14 @@ bool elemwiseFuseHelper(PatternRewriter& rewriter, Operation* user,
         createMaySpecificLoad(rewriter, loc, producer, producer_operand,
                               load_op.getIndices(), lower_config));
   }
-  auto inlined_result = lmhlo::LhloOpToStdScalarOp::map<LHLO_OpTy>(
-      llvm::cast<LHLO_OpTy>(producer),
-      cast<lmhlo::LmhloOp>(producer)
-          .getResultBuffer()
-          .getType()
-          .cast<MemRefType>()
-          .getElementType(),
-      operand_values, &rewriter);
+  auto inlined_result =
+      LhloOpToStdScalarOp::map<LHLO_OpTy>(llvm::cast<LHLO_OpTy>(producer),
+                                          cast<lmhlo::LmhloOp>(producer)
+                                              .getResultBuffer()
+                                              .getType()
+                                              .cast<MemRefType>()
+                                              .getElementType(),
+                                          operand_values, &rewriter);
 
   for (memref::LoadOp to_be_replaced : load_ops)
     to_be_replaced.replaceAllUsesWith(inlined_result);

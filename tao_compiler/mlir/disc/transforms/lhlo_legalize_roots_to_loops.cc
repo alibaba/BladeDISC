@@ -113,7 +113,7 @@ LogicalResult elemwiseLowerHelper(OpBuilder& b, Location loc, Operation* op,
   SmallVector<Value, 4> results(vector_size);
   for (int64_t i = 0; i < vector_size; i++) {
     auto operand_values = operand_values_vector[i];
-    auto res = lmhlo::LhloOpToStdScalarOp::map<LHLO_OpTy>(
+    auto res = LhloOpToStdScalarOp::map<LHLO_OpTy>(
         llvm::cast<LHLO_OpTy>(op),
         result_memref.getType().cast<MemRefType>().getElementType(),
         operand_values, &b);

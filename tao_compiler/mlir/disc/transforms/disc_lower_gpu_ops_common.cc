@@ -22,23 +22,6 @@ limitations under the License.
 namespace mlir {
 namespace disc_ral {
 
-LogicalResult RemoveUselessUnrealizedConversionCastOp::matchAndRewrite(
-    UnrealizedConversionCastOp op, OpAdaptor adaptor,
-    ConversionPatternRewriter& rewriter) const {
-  auto in_type = op.inputs().getTypes().front();
-  auto out_type = op.outputs().getTypes().front();
-  // this pattern only used for uint/sint->int conversion now
-  // since it has no semantic in llvm Dialect
-  if ((in_type.isSignedInteger() || in_type.isUnsignedInteger()) &&
-      (out_type.isSignlessInteger()) &&
-      in_type.getIntOrFloatBitWidth() == out_type.getIntOrFloatBitWidth()) {
-    op.replaceAllUsesWith(adaptor.getOperands());
-    op.erase();
-    return success();
-  }
-  return op.emitOpError() << "unexpected unrealized conversion cast op";
-}
-
 /// Wrap a llvm.cmpxchg operation in a while loop so that the operation can be
 /// retried until it succeeds in atomically storing a new value into memory.
 ///

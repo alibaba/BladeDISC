@@ -38,6 +38,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/transforms/disc_to_llvm_common.h"
 #include "tensorflow/compiler/mlir/disc/transforms/rewriters.h"
 #include "transforms/codegen_utils.h"
 #include "transforms/placement_utils.h"
@@ -1131,6 +1132,7 @@ void populateDiscToLLVMConversionPatterns(LLVMTypeConverter* converter,
       PrintfToLLVMPattern
     >(*converter, *symbol_table);
   // clang-format on
+  patterns->insert<RemoveUselessUnrealizedConversionCastOp>(*converter);
 }
 
 std::unique_ptr<OperationPass<ModuleOp>> createDiscToLLVMPass() {

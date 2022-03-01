@@ -85,6 +85,8 @@ DataType ParseDataType(const std::string& s) {
     return tensorflow::DT_BOOL;
   } else if (s == "ui8") {
     return tensorflow::DT_UINT8;
+  } else if (s == "i8") {
+    return tensorflow::DT_INT8;
   } else {
     LOG(ERROR) << "Error: unsupported input/output element type " << s;
     return tensorflow::DT_INVALID;
@@ -396,6 +398,10 @@ Status MlirTest::RunGoldenTF() {
       uint8_t* ptr = reinterpret_cast<uint8_t*>(h_data_[i].get());
       std::vector<uint8_t> h_data_vec(ptr, ptr + num_elements);
       InitializeTensor<uint8_t>(h_data_vec, &input_tensor);
+    } else if (dtype == tensorflow::DT_INT8) {
+      int8_t* ptr = reinterpret_cast<int8_t*>(h_data_[i].get());
+      std::vector<int8_t> h_data_vec(ptr, ptr + num_elements);
+      InitializeTensor<int8_t>(h_data_vec, &input_tensor);
     } else {
       return Internal("unexpected datatype");
     }
@@ -514,6 +520,17 @@ Status MlirTest::RunGoldenTF() {
       for (int64_t n = 0; n < datas.size(); ++n) {
         uint8_t actual =
             reinterpret_cast<uint8_t*>(actual_results_[i].get())[n];
+        VLOG(2) << "expected: " << datas(n) << ", actual: " << actual;
+        if (!MlirTest::IsAcceptableNear(datas(n), actual)) {
+          absl::StrAppend(&msg, i, " index: ", n, " expected: ", datas(n),
+                          ", actual: ", actual, "\n");
+          return Internal(msg);
+        }
+      }
+    } else if (dtype == tensorflow::DT_INT8) {
+      auto datas = output_tensors[i].flat<int8_t>();
+      for (int64_t n = 0; n < datas.size(); ++n) {
+        int8_t actual = reinterpret_cast<int8_t*>(actual_results_[i].get())[n];
         VLOG(2) << "expected: " << datas(n) << ", actual: " << actual;
         if (!MlirTest::IsAcceptableNear(datas(n), actual)) {
           absl::StrAppend(&msg, i, " index: ", n, " expected: ", datas(n),
@@ -719,7 +736,23 @@ Status MlirTestImpl::GenerateInputAndRun() {
           m = (m + 1) % nelem;
         }
       }
-
+    } else if (dtype == tensorflow::DT_INT8) {
+      bytes = nelem * sizeof(int8_t);
+      h_data_[idx] = std::shared_ptr<void>(new int8_t[nelem], [](void* p) {
+        delete[] reinterpret_cast<int8_t*>(p);
+      });
+      if (input_vals_.empty() || input_vals_[idx].empty()) {
+        for (size_t i = 0; i < nelem; ++i) {
+          reinterpret_cast<int8_t*>(h_data_[idx].get())[i] = 1 + i;
+        }
+      } else {
+        size_t m = 0;
+        for (size_t i = 0; i < nelem; ++i) {
+          reinterpret_cast<int8_t*>(h_data_[idx].get())[i] =
+              static_cast<int8_t>(input_vals_[idx][m]);
+          m = (m + 1) % nelem;
+        }
+      }
     } else {
       return Internal("unexpected input dtype");
     }
@@ -753,6 +786,8 @@ Status MlirTestImpl::GenerateInputAndRun() {
       bytes = nelem * sizeof(bool);
     } else if (dtype == tensorflow::DT_UINT8) {
       bytes = nelem * sizeof(uint8_t);
+    } else if (dtype == tensorflow::DT_INT8) {
+      bytes = nelem * sizeof(int8_t);
     }
     void* d_addr = nullptr;
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
@@ -1012,6 +1047,28 @@ Status MlirTestImpl::GenerateInputAndRun() {
         actual_results_[idx] = std::shared_ptr<void>(
             h_result, [](void* p) { delete[] reinterpret_cast<uint8_t*>(p); });
       }
+    } else if (out_elem_types_[idx] == tensorflow::DT_INT8) {
+      if (output_placement_[idx] == DeviceType::kCPU) {
+        for (int i = 0; i < nelem; ++i) {
+          VLOG(2) << "  result #" << i << ": "
+                  << reinterpret_cast<int8_t*>(result)[i];
+        }
+      } else {
+        int64_t bytes = nelem * sizeof(int8_t);
+        int* h_result = nullptr;
+        if (nelem) {
+          h_result = new int[nelem];
+          reportErrorIfAny(
+              GPU_MEMCPYDTOH_API((void*)h_result,
+                                 reinterpret_cast<GpuDevicePtr>(result), bytes),
+              "gpu MemcpyDtoH");
+        }
+        for (int i = 0; i < nelem; ++i) {
+          VLOG(2) << "  result #" << i << ": " << h_result[i];
+        }
+        actual_results_[idx] = std::shared_ptr<void>(
+            h_result, [](void* p) { delete[] reinterpret_cast<int8_t*>(p); });
+      }
     } else {
       return Internal("Error: unsupported output element type: ",
                       out_elem_types_[idx]);
@@ -1055,6 +1112,11 @@ Status MlirTestImpl::GenerateInputAndRun() {
       for (int i = 0; i < nelem; ++i) {
         VLOG(2) << "  result #" << i << ": "
                 << reinterpret_cast<uint8_t*>(result)[i];
+      }
+    } else if (out_elem_types_[idx] == tensorflow::DT_INT8) {
+      for (int i = 0; i < nelem; ++i) {
+        VLOG(2) << "  result #" << i << ": "
+                << reinterpret_cast<int8_t*>(result)[i];
       }
     } else {
       return Internal("Error: unsupported output element type: ",

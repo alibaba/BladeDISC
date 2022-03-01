@@ -13,6 +13,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
+#ifndef MLIR_DISC_TRANSFORMS_DISC_DISC_LOWER_TO_GPU_OPS_COMMON_H_
+#define MLIR_DISC_TRANSFORMS_DISC_DISC_LOWER_TO_GPU_OPS_COMMON_H_
+
 // This file implements common patterns for GPUToNVVM and GPUToROCDL
 
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
@@ -20,22 +23,13 @@ limitations under the License.
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BuiltinOps.h"
+#include "tensorflow/compiler/mlir/disc/transforms/disc_to_llvm_common.h"
 
 namespace mlir {
 
 struct LogicalResult;
 
 namespace disc_ral {
-
-struct RemoveUselessUnrealizedConversionCastOp
-    : public ConvertOpToLLVMPattern<UnrealizedConversionCastOp> {
-  using ConvertOpToLLVMPattern<
-      UnrealizedConversionCastOp>::ConvertOpToLLVMPattern;
-
-  LogicalResult matchAndRewrite(
-      UnrealizedConversionCastOp op, OpAdaptor adaptor,
-      ConversionPatternRewriter& rewriter) const override;
-};
 
 // Common base for load and store operations on MemRefs.  Restricts the match
 // to supported MemRef types. Provides functionality to emit code accessing a
@@ -63,3 +57,5 @@ struct GenericAtomicRMWOpLoweringWithBitcast
 
 }  // namespace disc_ral
 }  // namespace mlir
+
+#endif  // MLIR_DISC_TRANSFORMS_DISC_DISC_LOWER_TO_GPU_OPS_COMMON_H_

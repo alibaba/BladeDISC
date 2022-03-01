@@ -49,6 +49,7 @@ class TorchBladeExtension(Extension):
 
 if '--cmake' in sys.argv:
   BuildClass = cmake_build.CMakeBuild
+  sys.argv = [a for a in sys.argv if a != '--cmake']
 else:
   BuildClass = bazel_build.BazelBuild
 

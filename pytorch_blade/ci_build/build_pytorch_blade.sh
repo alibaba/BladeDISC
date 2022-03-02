@@ -30,7 +30,8 @@ export GCC_HOST_COMPILER_PATH=$(which gcc) # needed by bazel crosstool
 
 export TORCH_BLADE_BUILD_MLIR_SUPPORT=${TORCH_BLADE_BUILD_MLIR_SUPPORT:-ON}
 export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=${TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT:-ON}
-function ci_build() {
+
+function pip_install_deps() {
     echo "DO TORCH_BLADE CI_BUILD"
     # set TORCH_BLADE_CI_BUILD_TORCH_VERSION default to 1.7.1+cu110
     TORCH_BLADE_CI_BUILD_TORCH_VERSION=${TORCH_BLADE_CI_BUILD_TORCH_VERSION:-1.7.1+cu110}
@@ -38,9 +39,26 @@ function ci_build() {
     python3 -m pip install --upgrade pip
     python3 -m pip install cmake ninja virtualenv
     python3 -m pip install -r ${requirements} -f https://download.pytorch.org/whl/torch_stable.html
+}
 
+function bazel_build() {
     python3 ../scripts/python/common_setup.py
     rm -rf build && python3 setup.py develop;
+}
+
+function cmake_build() {
+    rm -rf build && python3 setup.py develop --cmake;
+}
+
+function ci_build() {
+    pip_install_deps
+
+    if [ "$TORCH_BLADE_USE_CMAKE_BUILD" = "ON"  ]; then
+      cmake_build
+    else
+      bazel_build
+    fi
+
     # The following are UNIT TESTS
     export TORCH_BLADE_DEBUG_LOG=ON
     python3 setup.py cpp_test 2>&1 | tee -a cpp_test.out;

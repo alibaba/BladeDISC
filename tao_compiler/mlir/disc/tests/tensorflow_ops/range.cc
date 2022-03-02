@@ -58,4 +58,16 @@ TEST(TFRangeOpTest, DynamicShape2DF32) {
       /*input_vals*/ {{8}, {15}, {6}}));
 }
 
+// test with provided data (reverse mode)
+TEST(TFRangeOpTest, ReverseF32) {
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "range_d_f32.mlir",
+      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*num_inputs*/ 3,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"f32_X", "f32_X", "f32_X"},
+      /*output_descriptors*/ {"f32_X"},
+      /*input_vals*/ {{32}, {-1}, {-1}}));
+}
+
 }  // namespace mlir_test

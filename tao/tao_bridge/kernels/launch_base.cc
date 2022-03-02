@@ -125,6 +125,12 @@ std::vector<int> LaunchBase::ResourcesVector() {
     num_fixed_shaped = fixed_shaped_types.size();
   }
 
+  DataTypeVector host_arg_types;
+  if (ctx_->HasAttr("Thostargs")) {
+    OP_REQUIRES_OK_RETURN(ctx_, std::vector<int>(),
+                          ctx_->GetAttr("Thostargs", &host_arg_types));
+  }
+
   DataTypeVector arg_types;
   OP_REQUIRES_OK_RETURN(ctx_, std::vector<int>(),
                         ctx_->GetAttr("Targs", &arg_types));
@@ -135,7 +141,8 @@ std::vector<int> LaunchBase::ResourcesVector() {
 
   std::vector<int> resources(num_resources);
   std::iota(resources.begin(), resources.end(),
-            constant_types.size() + num_fixed_shaped + arg_types.size());
+            constant_types.size() + num_fixed_shaped + host_arg_types.size() +
+                arg_types.size());
   return resources;
 }
 

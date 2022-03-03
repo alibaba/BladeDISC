@@ -53,7 +53,10 @@ class TestDiscTensor(DiscTestCase):
 
         @torch.jit.script
         def test_item_2(tensor):
-            x = tensor / torch.tensor(2)
+            # Integer division of tensors using div or / is not supported only in torch
+            # 1.6, but works in 1.7 and 1.8, while the error message says it is
+            # supported until 1.6. So use // instead.
+            x = tensor // torch.tensor(2)
             x = int(x)
 
             return torch.tensor(x) + tensor

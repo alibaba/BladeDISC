@@ -116,4 +116,16 @@ TEST(TFStridedSliceOpTest, PartialDynamicShapeI32Test2) {
       /*input_vals*/ {{}}));
 }
 
+// fully dynamic shape test case
+TEST(TFStridedSliceOpTest, FullyDynamicShapeWithNewAxisAttr2DF32) {
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "strided_slice_with_newaxis_d_f32.mlir",
+      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*num_inputs*/ 3,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"3x4xf32_X", "4xi32_h", "4xi32_h"},
+      /*output_descriptors*/ {"f32_X"},
+      /*input_vals*/ {{}, {0, 0, 0, 0}, {0, 0, 0, 0}}));
+}
+
 }  // namespace mlir_test

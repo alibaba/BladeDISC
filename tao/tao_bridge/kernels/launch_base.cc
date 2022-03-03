@@ -116,13 +116,16 @@ std::vector<int> LaunchBase::ResourcesVector() {
   OP_REQUIRES_OK_RETURN(ctx_, std::vector<int>(),
                         ctx_->GetAttr("Tconstants", &constant_types));
 
-  int num_fixed_shaped = 0;
+  DataTypeVector fixed_shaped_types;
   if (ctx_->HasAttr("Tfixedshapes")) {
-    // only for MlirLaunchOp
-    DataTypeVector fixed_shaped_types;
     OP_REQUIRES_OK_RETURN(ctx_, std::vector<int>(),
                           ctx_->GetAttr("Tfixedshapes", &fixed_shaped_types));
-    num_fixed_shaped = fixed_shaped_types.size();
+  }
+
+  DataTypeVector host_arg_types;
+  if (ctx_->HasAttr("Thostargs")) {
+    OP_REQUIRES_OK_RETURN(ctx_, std::vector<int>(),
+                          ctx_->GetAttr("Thostargs", &host_arg_types));
   }
 
   DataTypeVector arg_types;
@@ -135,7 +138,8 @@ std::vector<int> LaunchBase::ResourcesVector() {
 
   std::vector<int> resources(num_resources);
   std::iota(resources.begin(), resources.end(),
-            constant_types.size() + num_fixed_shaped + arg_types.size());
+            constant_types.size() + fixed_shaped_types.size() +
+                host_arg_types.size() + arg_types.size());
   return resources;
 }
 

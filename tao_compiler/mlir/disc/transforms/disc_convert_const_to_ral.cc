@@ -44,17 +44,7 @@ constexpr static int kMd5DigestLength = 16;
 void ExtractConstValue(const DenseElementsAttr& valueAttr, MemRefType memref,
                        StrT& data) {
   ArrayRef<char> rawData = valueAttr.getRawData();
-  if (valueAttr.isSplat()) {
-    size_t num_elements = memref.getNumElements();
-    data.reserve(num_elements * memref.getElementTypeBitWidth());
-    std::string splatStr =
-        llvm::toHex(StringRef(rawData.data(), rawData.size()));
-    for (size_t i = 0; i < num_elements; ++i) {
-      data.append(splatStr);
-    }
-  } else {
-    data.append(llvm::toHex(StringRef(rawData.data(), rawData.size())));
-  }
+  data.append(llvm::toHex(StringRef(rawData.data(), rawData.size())));
 }
 
 // unique_name is in the format: {hash_of_literal}_2x3x4xf32

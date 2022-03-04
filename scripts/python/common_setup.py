@@ -210,6 +210,7 @@ def remote_cache_token():
     """
     Return a remote cache token if exists
     """
+    return "http://172.17.101.135:9092"
     fn = os.path.expanduser("~/.cache/remote_cache_token")
     if os.path.exists(fn):
         with open(fn) as f:

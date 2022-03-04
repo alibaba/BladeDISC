@@ -310,6 +310,22 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_fuse_splat_const",
+    srcs = ["transforms/disc_fuse_splat_const.cc"],
+    deps = [
+        ":pass_details",
+        "//tensorflow/compiler/mlir/hlo:LmhloPassIncGen",
+        "//tensorflow/compiler/mlir/hlo:lhlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "revise_args_for_static_rank",
     srcs = [
         "transforms/revise_args_for_static_rank.cc",
@@ -1464,6 +1480,7 @@ cc_library(
         ":disc_convert_const_to_ral",
         ":disc_cpu_map_parallel_loop",
         ":disc_flatten_memref_access",
+        ":disc_fuse_splat_const",
         ":disc_fusion",
         ":disc_hlo_legalize_to_lhlo",
         ":disc_hlo_to_std",

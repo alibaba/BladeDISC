@@ -214,6 +214,31 @@ bool ConvertAtenArange(
   return true;
 }
 
+template <bool rhs_scalar = false>
+bool ConvertAtenFloorDiv(
+    MhloConversionContext& ctx,
+    const torch::jit::Node& node) {
+  const auto& loc = GetNodeLocation(ctx, node);
+  auto hlo_lhs = ctx.GetMlirValue(node.input(0));
+  auto hlo_rhs = ctx.GetMlirValue(node.input(1));
+
+  auto& builder = *ctx.builder;
+  auto result_type = BuildMlirRankedTensorType(builder, *node.output(0));
+  bool no_implicit_broadcast = false;
+  mlir::Value divide =
+      BuildMlirBinaryOp<mlir::chlo::BroadcastDivOp, nullptr, rhs_scalar>(
+          builder,
+          loc,
+          hlo_lhs,
+          hlo_rhs,
+          result_type.getElementType(),
+          no_implicit_broadcast);
+  mlir::Value floor = ctx.builder->create<mlir::mhlo::FloorOp>(loc, divide);
+  ctx.value_map[node.output(0)] = floor;
+
+  return true;
+}
+
 namespace {
 static constexpr const char kCompare_GT[] = "GT";
 static constexpr const char kCompare_GE[] = "GE";
@@ -267,6 +292,12 @@ auto mhlo_conversion =
         .pattern(
             "aten::div.Scalar(Tensor self, Scalar other) -> Tensor",
             ConvertAtenBinaryOp<mlir::chlo::BroadcastDivOp, true>)
+        .pattern(
+            "aten::floor_divide(Tensor self, Tensor other) -> Tensor",
+            ConvertAtenFloorDiv)
+        .pattern(
+            "aten::floor_divide.Scalar(Tensor self, Scalar other) -> Tensor",
+            ConvertAtenFloorDiv<true>)
         // Ref: https://pytorch.org/docs/stable/generated/torch.true_divide.html
         // torch.true_divide, alias for torch.div
         .pattern(
@@ -346,9 +377,7 @@ auto mhlo_conversion =
         .pattern(
             "aten::arange(Scalar end, int? dtype=None, int? layout=None, "
             "Device? device=None, bool? pin_memory=None) -> (Tensor)",
-            ConvertAtenArange)
-
-    ;
+            ConvertAtenArange);
 } // namespace
 } // namespace blade
 } // namespace torch

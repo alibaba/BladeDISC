@@ -9,6 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <mlir/mhlo/builder/gather.h>
 #include <mlir/mhlo/builder/mlir_attr_utils.h>
 #include <mlir/mhlo/builder/mlir_shape_builder.h>
 #include <mlir/mhlo/builder/mlir_utils.h>
@@ -322,6 +323,7 @@ bool ConvertAtenRoll(MhloConversionContext& ctx, const torch::jit::Node& node) {
 
   return true;
 }
+
 bool ConvertAtenUnbind(
     MhloConversionContext& ctx,
     const torch::jit::Node& node) {
@@ -362,6 +364,66 @@ bool ConvertAtenUnbind(
   ctx.list_map[node.output()] = outputs;
   return true;
 }
+
+bool ConvertAtenIndexSelect(
+    MhloConversionContext& ctx,
+    const torch::jit::Node& node) {
+  auto loc = GetNodeLocation(ctx, node);
+  auto input = ctx.GetMlirValue(node.input(0));
+  auto jit_dim = node.input(1);
+  auto dim = CastJitConstToInt64(*jit_dim);
+  auto index = ctx.GetMlirValue(node.input(2));
+
+  auto& builder = *ctx.builder;
+  ctx.value_map[node.output(0)] =
+      mlir::mhlo::BuildGather(builder, loc, input, index, dim);
+  return true;
+}
+
+bool ConvertAtenFlip(MhloConversionContext& ctx, const torch::jit::Node& node) {
+  const auto& loc = GetNodeLocation(ctx, node);
+  auto input = ctx.GetMlirValue(node.input(0));
+  auto jit_dims = node.input(1);
+  const char* op_name = node.kind().toDisplayString();
+  if (!CheckConstAttribute(jit_dims, op_name, "dims")) {
+    return false;
+  }
+
+  auto& builder = *ctx.builder;
+  ctx.value_map[node.output(0)] = builder.create<mlir::mhlo::ReverseOp>(
+      loc,
+      input,
+      BuildI64ElementsAttr(builder, CastJitConstListToVec<int64_t>(*jit_dims)));
+  return true;
+}
+
+// bool ConvertAtenTranspose(
+//     MhloConversionContext& ctx,
+//     const torch::jit::Node& node) {
+//   auto loc = GetNodeLocation(ctx, node);
+//   auto jit_tensor = node.input(0);
+//   auto jit_dim0 = node.input(1);
+//   auto jit_dim1 = node.input(2);
+//   bool is_const_dims = IsPrimConstant(*jit_dim0) &&
+//   IsPrimConstant(*jit_dim1); if (!is_const_dims) {
+//     LOG(WARNING) << "Transpose dimensions must be constant";
+//     return false;
+//   }
+
+//   auto ml_tensor = ctx.GetMlirValue(jit_tensor);
+//   mlir_dim_t rank = GetRankOfMlirValue(ml_tensor);
+//   mlir_dim_t trans_dim0 = CastJitConstToInt64(*jit_dim0);
+//   mlir_dim_t trans_dim1 = CastJitConstToInt64(*jit_dim1);
+//   trans_dim0 = NormalizeDimIndex(trans_dim0, rank);
+//   trans_dim1 = NormalizeDimIndex(trans_dim1, rank);
+
+//   SmallVec4<mlir_dim_t> trans_dim_vec = RangeIndices(0, rank);
+//   std::swap(trans_dim_vec[trans_dim0], trans_dim_vec[trans_dim1]);
+//   auto& builder = *ctx.builder;
+//   ctx.value_map[node.output(0)] =
+//       BuildPermute(builder, loc, ml_tensor, trans_dim_vec);
+//   return true;
+// }
 
 namespace {
 auto mhlo_conversion =
@@ -405,7 +467,14 @@ auto mhlo_conversion =
             ConvertAtenUnbind)
         .pattern(
             "aten::roll(Tensor self, int[1] shifts, int[1] dims=[]) -> (Tensor)",
-            ConvertAtenRoll);
+            ConvertAtenRoll)
+        .pattern(
+            "aten::index_select(Tensor self, int dim, Tensor index) -> Tensor",
+            ConvertAtenIndexSelect)
+        .pattern(
+            "aten::flip(Tensor self, int[] dims) -> Tensor",
+            ConvertAtenFlip);
 } // namespace
+
 } // namespace blade
 } // namespace torch

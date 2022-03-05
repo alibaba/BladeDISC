@@ -135,6 +135,7 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_binary_type_promotion(torch.add)
         self._test_binary_type_promotion(torch.mul)
         self._test_binary_type_promotion(torch.div)
+        self._test_binary_type_promotion(torch.floor_divide)
         self._test_binary_type_promotion(torch.rsub)
 
     def test_arithmetic_func(self):
@@ -142,6 +143,7 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_func(torch.add)
         self._test_func(torch.mul)
         self._test_func(torch.div)
+        self._test_func(torch.floor_divide)
         self._test_func(torch.rsub)
 
     def test_arithmetic_func_has_alpha(self):

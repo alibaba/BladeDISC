@@ -13,7 +13,7 @@
 set -o pipefail
 set -e
 # bazel cache
-export CXXFLAGS=${CXXFLAGS:-"-Wno-deprecated-dewlarations"}
+export CXXFLAGS=${CXXFLAGS:-"-Wno-deprecated-declarations"}
 export CFLAGS=${CFLAGS:-"-Wno-deprecated-declarations"}
 export CUDA_HOME=${CUDA_HOME:-/usr/local/cuda/}
 export CUDACXX=${CUDACXX:-"${CUDA_HOME}/bin/nvcc"}

@@ -149,7 +149,7 @@ struct BaseCudaContextState : public tao::ral::Context::Resource {
     }
     for (auto& e : blobs) {
 #if TENSORFLOW_USE_ROCM
-      reportErrorIfAny(tensorflow::wrap::hipModuleUnload(module), ctx,
+      reportErrorIfAny(tensorflow::wrap::hipModuleUnload(e.second), ctx,
                        "ModuleUnload");
 #else
       reportErrorIfAny(cuModuleUnload(e.second), ctx, "ModuleUnload");

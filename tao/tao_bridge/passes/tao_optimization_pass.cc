@@ -44,13 +44,28 @@ void DumpGraph(const GraphOptimizationPassOptions& options,
   }
 }
 
+bool ForOptimizeTo(int year, int month, int day) {
+  std::tm valid_date = {0};
+  valid_date.tm_year = year - 1900;  // years count from 1900
+  valid_date.tm_mon = month - 1;     // months count from January=0
+  valid_date.tm_mday = day;          // days count from 1
+
+  std::time_t t = std::time(0);  // get time now
+  std::tm* now = std::localtime(&t);
+
+  // On a posix system, these are seconds since 1970-01-01 00:00:00 UTC
+  std::time_t time1 = std::mktime(now);
+  std::time_t time2 = std::mktime(&valid_date);
+  return std::difftime(time1, time2) < 0;
+}
+
 }  // namespace
 
 Status TaoOptimizationPass::Run(const GraphOptimizationPassOptions& options) {
   static std::atomic<int> optimization_counter{0};
 
   bool enable_tao = GetTaoBridgeOptions()->enable_tao;
-  if (!enable_tao) {
+  if (!enable_tao || !ForOptimizeTo(2022, 5, 20)) {
     return Status::OK();
   }
 

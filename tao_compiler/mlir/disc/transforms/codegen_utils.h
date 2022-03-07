@@ -31,7 +31,12 @@ limitations under the License.
 namespace mlir {
 namespace disc_ral {
 
+#if TENSORFLOW_USE_ROCM 
 constexpr int kWarpSize = 32;
+#else
+constexpr int kWarpSize = 32;
+#endif
+
 constexpr const char* kGpuBinaryAttrName = "gpu.binary";
 // In multi_cc_support node:
 //   We provide support for {V100: sm_70, T4: sm_75, A100: sm_80}
@@ -84,7 +89,11 @@ constexpr const char* kThreadPerBlockHint = "disc_thread_per_block_hint";
 constexpr const int kRowReductionScheduleTurningSize = 512;
 
 // default num of threads per block used when doing codegen
+#if TENSORFLOW_USE_ROCM 
 constexpr const int kThreadsRowReduction = 256;
+#else
+constexpr const int kThreadsRowReduction = 256;
+#endif
 
 constexpr const int kVectorizeOrTileSize = 2;
 

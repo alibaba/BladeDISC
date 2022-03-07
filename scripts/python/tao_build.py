@@ -63,6 +63,16 @@ from tao_common import (
 
 PYTHON_BIN_NAME = os.getenv("PYTHON", "python")
 
+def get_rocm_path(args):
+    rocm_env = os.environ.get("ROCM_PATH", None)
+    if rocm_env is None:
+        rocm_env = args.rocm_path
+    return rocm_env
+
+def get_rocm_headers(args):
+    rocm_env = get_rocm_path(args)
+    return os.path.join(rocm_env, "include")
+
 def get_version_file(root=None):
     if root is None:
         root = get_source_root_dir()
@@ -178,16 +188,25 @@ def configure_compiler(root, args):
     symlink_files(root)
     if args.platform_alibaba:
         symlink_internal_files(root)
+    with cwd(root):
+        if args.dcu or args.rocm:
+            src = get_rocm_headers(args)
+            rocm_header_root = os.path.join(tao_ral_dir(root), 'rocm')
+            if not os.path.exists(rocm_header_root):
+                os.makedirs(rocm_header_root)
+            execute("rm -rf {0} && ln -s {1} {0}".format(os.path.join(rocm_header_root, "include"),
+                     src))
 
     config_blade_gemm(root, args)
     # configure tensorflow
+    python_path = which("python3")
     with cwd(tf_root_dir()), gcc_env(args.compiler_gcc):
         cmd = "set -a && source {} && set +a &&".format(
             os.getenv("TAO_COMPILER_BUILD_ENV")
         )
         cmd += " env USE_DEFAULT_PYTHON_LIB_PATH=1"
         # tf master doesn't support python2 any more
-        cmd += " PYTHON_BIN_PATH=" + which("python3")
+        cmd += " PYTHON_BIN_PATH=" + python_path
         cmd += ' CC_OPT_FLAGS="-Wno-sign-compare"'
         cmd += " ./configure"
         logger.info(cmd)
@@ -238,7 +257,9 @@ def configure_bridge_cmake(root, args):
             flags += " -DBLAZE_OPT=true"
         flags += " -DTAO_CPU_ONLY={}".format(args.cpu_only)
         flags += " -DTAO_DCU={}".format(args.dcu)
-        is_cuda = not (args.cpu_only or args.dcu)
+        flags += " -DTAO_ROCM={}".format(args.rocm)
+        flags += " -DROCM_PATH={}".format(get_rocm_path(args))
+        is_cuda = not (args.cpu_only or args.dcu or args.rocm)
         flags += " -DTAO_CUDA={}".format(is_cuda)
         flags += " -DTAO_ENABLE_MKLDNN={} ".format(
             "ON" if args.enable_mkldnn else "OFF"
@@ -272,7 +293,7 @@ def configure_bridge_cmake(root, args):
 def config_blade_gemm(root, args):
     if not (args.platform_alibaba and args.blade_gemm):
         return
-    if args.cpu_only or args.dcu:
+    if args.cpu_only or args.dcu or args.rocm:
         return
     blade_gemm_build_dir = blade_gemm_dir(root)
     ensure_empty_dir(blade_gemm_build_dir, clear_hidden=False)
@@ -288,7 +309,7 @@ def config_blade_gemm(root, args):
 def build_blade_gemm(root, args):
     if not (args.platform_alibaba and args.blade_gemm):
         return
-    if args.cpu_only or args.dcu:
+    if args.cpu_only or args.dcu or args.rocm:
         return
     blade_gemm_build_dir = blade_gemm_dir(root)
     with cwd(blade_gemm_build_dir), gcc_env(args.bridge_gcc):
@@ -350,7 +371,7 @@ def configure_bridge_bazel(root, args):
         _action_env("DISC_BUILD_IP", ip)
         _action_env("DISC_BUILD_TIME", datetime.today().strftime("%Y%m%d%H%M%S"))
 
-        is_cuda = not (args.cpu_only or args.dcu)
+        is_cuda = not (args.cpu_only or args.dcu or args.rocm)
         if is_cuda:
             cuda_ver, _ = deduce_cuda_info()
             logger.info(f"Builing with cuda-{cuda_ver}")
@@ -413,11 +434,17 @@ def build_tao_compiler(root, args):
 
     @time_stage(incl_args=[0])
     def bazel_build(target, flag=""):
+        rocm_env = os.environ.get("ROCM_PATH", None)
+        if rocm_env is None:
+            os.environ["ROCM_PATH"] = args.rocm_path
+        print(os.environ.get("ROCM_PATH", None))
         if targets is not None and target not in targets:
             logger.info("Skip bazel target: " + target)
             return
         logger.info("Building bazel target: " + target)
         execute(" ".join([BAZEL_BUILD_CMD, flag, target]))
+        if rocm_env is None:
+            os.unsetenv("ROCM_PATH")
 
     with cwd(tf_root_dir(root)), gcc_env(args.compiler_gcc):
         execute(
@@ -433,6 +460,8 @@ def build_tao_compiler(root, args):
                 flag = '--config=disc_x86 '
         elif args.dcu:
             flag = "--config=dcu"
+        elif args.rocm:
+            flag = "--config=rocm"
         else:
             flag = "--config=cuda"
             if args.platform_alibaba and args.blade_gemm:
@@ -440,6 +469,9 @@ def build_tao_compiler(root, args):
 
         if args.platform_alibaba:
             flag += " --config=platform_alibaba"
+
+        if args.dcu_liquid:
+            flag += ' --cxxopt="-DTENSORFLOW_USE_DCU_WITH_LLVM_ROCM_BACKEND=1"'
 
         if args.build_dbg_symbol:
             flag += " --copt=-g"
@@ -451,8 +483,9 @@ def build_tao_compiler(root, args):
             flag += ' --config=disc_mkldnn'
 
         bazel_build(TARGET_TAO_COMPILER_MAIN, flag=flag)
-        bazel_build(TARGET_DISC_OPT, flag=flag)
-        bazel_build(TARGET_DISC_REPLAY, flag=flag)
+        if not args.dcu and not args.rocm:
+            bazel_build(TARGET_DISC_OPT, flag=flag)
+            bazel_build(TARGET_DISC_REPLAY, flag=flag)
         execute(
             "cp -f -p {}/tao/third_party/ptxas/10.2/ptxas ./bazel-bin/tensorflow/compiler/decoupling/".format(
                 root
@@ -467,10 +500,14 @@ def build_mlir_ral(root, args):
     if not args.cpu_only:
         if args.dcu:
             configs.append('--config=disc_dcu')
+        elif args.rocm:
+            configs.append("--config=disc_rocm")
         else:
             configs.append('--config=disc_cuda')
             if args.platform_alibaba and args.blade_gemm:
                 configs.append('--config=blade_gemm')
+        if args.dcu_liquid:
+            configs.append('--cxxopt="-DTENSORFLOW_USE_DCU_WITH_LLVM_ROCM_BACKEND=1"')
     else:
         if args.aarch64:
             configs.append('--config=disc_aarch64')
@@ -500,8 +537,13 @@ def build_mlir_ral(root, args):
     TARGET_MLIR_DISC_BUILDER_HEADER = "//tensorflow/compiler/mlir/disc:install_mlir_disc_headers"
 
     def bazel_build(target, flag=""):
+        rocm_env = os.environ.get("ROCM_PATH", None)
+        if rocm_env is None:
+            os.environ["ROCM_PATH"] = args.rocm_path
         logger.info("Building bazel target: " + target)
         execute(" ".join([BAZEL_BUILD_CMD, flag, target]))
+        if rocm_env is None:
+            os.unsetenv("ROCM_PATH")
 
     flag = ""
     with cwd(tf_root_dir(root)), gcc_env(args.bridge_gcc):
@@ -582,12 +624,16 @@ def test_tao_compiler(root, args):
         else:
             if args.dcu:
                 flag = "--config=dcu"
+            if args.rocm:
+                flag = "--config=rocm"
             else:
                 flag = "--config=cuda"
                 if args.platform_alibaba and args.blade_gemm:
                     flag += ' --config=blade_gemm'
             if args.platform_alibaba:
                 flag += " --config=platform_alibaba"
+            if args.dcu_liquid:
+                flag += ' --cxxopt="-DTENSORFLOW_USE_DCU_WITH_LLVM_ROCM_BACKEND=1"'
             mlir_tests_list = [
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
@@ -609,6 +655,8 @@ def tao_bridge_bazel_config(args):
             bazel_config += " --config=disc_aarch64"
         if args.enable_mkldnn:
             bazel_config += " --config=disc_mkldnn"
+    elif args.rocm:
+            bazel_config += " --config=disc_rocm"
     elif args.dcu:
         bazel_config += " --config=disc_dcu"
     else:
@@ -735,6 +783,9 @@ def prepare_env(args):
     if args.dcu:
         os.environ["TF_DEVICE"] = "dcu"
         logger.info("[BUILD] build for DCU ...")
+    elif args.rocm:
+        os.environ["TF_DEVICE"] = "rocm"
+        logger.info("[BUILD] build for ROCM ...")
     elif not args.cpu_only:
         os.environ["TF_DEVICE"] = "gpu"
         os.environ["TF_GPU_VERSION"] = get_tf_gpu_version()
@@ -899,6 +950,9 @@ def parse_args():
         "build stages\nwill be triggered before test stages run.",
     )
     parser.add_argument(
+        "--dcu_liquid", action="store_true", help="enable liquid heat dissipation dcu mode"
+    )
+    parser.add_argument(
         "-s",
         "--stage",
         required=False,
@@ -959,6 +1013,18 @@ def parse_args():
         required=False,
         action="store_true",
         help="Build tao with dcu support only",
+    )
+    parser.add_argument(
+        "--rocm",
+        required=False,
+        action="store_true",
+        help="Build tao with rocm support only",
+    )
+    parser.add_argument(
+        "--rocm_path",
+        required=False,
+        default='/opt/rocm-5.1.0',
+        help="Build tao where rocm locates",
     )
     parser.add_argument(
         "--build_in_aone",

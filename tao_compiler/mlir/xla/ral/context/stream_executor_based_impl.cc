@@ -26,6 +26,11 @@
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
 #include "bladnn/bladnn.h"
 #endif
+#if TENSORFLOW_USE_ROCM
+#include "tensorflow/compiler/mlir/xla/ral/context/tvm_kernel_cache.h"
+#include "tensorflow/compiler/mlir/xla/ral/context/tvm_kernel_collector.h"
+#include "tensorflow/stream_executor/gpu/gpu_helpers.h"
+#endif
 
 #ifdef TAO_RAL_USE_STREAM_EXECUTOR
 
@@ -38,6 +43,22 @@ namespace se = ::stream_executor;
 namespace se_impl {
 
 using namespace tensorflow;
+
+namespace {
+  static tensorflow::int64 rocm_profile() {
+  static bool checked = false;
+  static tensorflow::int64 profile = 0;
+  if (checked)  {
+    return profile;
+  }
+  tensorflow::ReadInt64FromEnvVar("DISC_OPS_PROFILING", 0,
+                                 &profile);
+  checked = true;
+  return profile;
+}
+
+}
+
 
 ////////////////////////////////////////////////////////////////////////
 ///////////////           GpuGemmImpl Begin
@@ -154,6 +175,84 @@ inline bool TrySgemvInternal<float, float, float>(
       .ok();
 }
 
+struct ScopedBuffer {
+  ScopedBuffer() = default;
+  ScopedBuffer(ExecutionContext* ctx, GPUDriver* gpu_driver, void* ptr)
+      : ctx_(ctx), gpu_driver_(gpu_driver), ptr_(ptr) {}
+  ~ScopedBuffer() { gpu_driver_->dealloc(ctx_, ptr_); }
+  ExecutionContext* ctx_;
+  GPUDriver* gpu_driver_;
+  void* ptr_;
+};
+
+class ScratchAllocator : public se::ScratchAllocator {
+ public:
+  ScratchAllocator(ExecutionContext* ctx, GPUDriver* gpu_driver)
+      : ctx_(ctx), gpu_driver_(gpu_driver) {}
+
+#if defined(TF_1_12) || defined(TF_1_14)
+  int64 GetMemoryLimitInBytes(se::Stream* stream) override {
+    return GetMemoryLimitInBytesImpl();
+  }
+
+  se::port::StatusOr<se::DeviceMemory<uint8>> AllocateBytes(
+      se::Stream* stream, int64 byte_size) override {
+    return AllocateBytesImpl(byte_size);
+  }
+#else
+  int64 GetMemoryLimitInBytes() override { return GetMemoryLimitInBytesImpl(); }
+
+  se::port::StatusOr<se::DeviceMemory<uint8>> AllocateBytes(
+      int64 byte_size) override {
+    return AllocateBytesImpl(byte_size);
+  }
+#endif
+  int64 TotalAllocatedBytes() { return total_allocated_bytes_; }
+
+ private:
+  se::port::StatusOr<se::DeviceMemory<uint8>> AllocateBytesImpl(
+      int64 byte_size);
+  // BFCAllocator is not exposed for the decoupled compiler.
+  // Thus we don't have a "try allocate" mechanism in TaoBridge as in TF,
+  // the host will crash once the amount of scratch memory tried to be
+  // allocated exceeds the memories left.
+  // TODO: For now we just set a small threshold to ease this problem.
+  // Revisit this for the performance degrade in more models.
+  int64 GetMemoryLimitInBytesImpl() {
+    return 1LL << 28;  // 256M.
+  }
+
+ private:
+  ExecutionContext* ctx_;
+  GPUDriver* gpu_driver_;
+  std::vector<std::unique_ptr<ScopedBuffer>> allocated_buffers_;
+  int64 total_allocated_bytes_ = 0;
+};
+
+se::port::StatusOr<se::DeviceMemory<uint8>> ScratchAllocator::AllocateBytesImpl(
+    int64 byte_size) {
+  CHECK_GE(byte_size, 0) << "byte_size must be positive.";
+  if (byte_size > GetMemoryLimitInBytesImpl()) {
+    return errors::Internal("Allocating buffer exceeds the memory limit");
+  }
+
+  TAO_VLOG(2) << "AllocateBytesImpl bytes: " << byte_size;
+  void* ptr = gpu_driver_->alloc(ctx_, byte_size);
+
+  if (!ptr) {
+    TAO_VLOG(2) << "AllocateBytesImpl failed: OOM with bytes = " << byte_size;
+    return errors::Internal("Allocating failed");
+  }
+
+  total_allocated_bytes_ += byte_size;
+  se::DeviceMemoryBase buffer_addr(ptr, byte_size);
+  allocated_buffers_.emplace_back(new ScopedBuffer(ctx_, gpu_driver_, ptr));
+  return se::DeviceMemory<uint8>(buffer_addr);
+}
+
+
+
+
 template <typename InT, typename OutT, typename AlphaBeta>
 static bool DoGemmWithAlgorithm(
     int64_t batch_size, MatrixDescriptor lhs_matrix,
@@ -190,6 +289,7 @@ static bool DoGemmWithAlgorithm(
      * Since cublas describes matrix in col major,
      * Thus we perform B' x A' = C'
      */
+    // VLOG(0) << "Do gemm with algorithm 0";
     return stream
         ->ThenBlasGemmWithAlgorithm(
             rhs_transpose, lhs_transpose, n, m,
@@ -208,6 +308,7 @@ static bool DoGemmWithAlgorithm(
     int64_t lhs_stride = lhs_matrix.num_rows * lhs_matrix.num_cols;
     int64_t rhs_stride = rhs_matrix.num_rows * rhs_matrix.num_cols;
     int64_t output_stride = output_matrix.num_rows * output_matrix.num_cols;
+     // VLOG(0) << "Do gemm with algorithm 1";
     return stream
         ->ThenBlasGemmStridedBatched(
             rhs_transpose, lhs_transpose, n, m, /*size of reduce dim=*/k,
@@ -219,6 +320,15 @@ static bool DoGemmWithAlgorithm(
         .ok();
   }
 
+  // VLOG(0) << "Do gemm with no algo";
+    // std::chrono::system_clock::time_point t0, t1;
+    // se::port::Status block_status;
+
+    // if (rocm_profile() == 1) {
+    //   block_status = stream->BlockHostUntilDone();
+    //   t0 = std::chrono::system_clock::now();
+    // }
+
   return stream
       ->ThenBlasGemm(rhs_transpose, lhs_transpose, n, m,
                      /*size of reduce dim=*/k,
@@ -228,6 +338,18 @@ static bool DoGemmWithAlgorithm(
                      /*beta=*/static_cast<AlphaBeta>(beta), &output_data,
                      /*leading dim of output=*/n)
       .ok();
+
+    // if (rocm_profile() == 1) {
+    //   block_status = stream->BlockHostUntilDone();
+    //   t1 = std::chrono::system_clock::now();
+    //   auto time = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+    //   VLOG(0) << "TimeDur for rocblas " << " " << m <<  
+    //       " " << n << " " << k << " "
+    //         << time << "us";
+    // }
+
+
+  // return s;
 }
 
 // gemm_algorithm_pick also implemented correctness check, which
@@ -265,6 +387,93 @@ se::blas::AlgorithmType tuningGemm(se::Stream* stream,
   return best_algo;
 }
 
+
+template <typename InT, typename OutT, typename AlphaBeta>
+static bool DoGemmWithTVM(
+    int64_t batch_size, MatrixDescriptor lhs_matrix,
+    MatrixDescriptor rhs_matrix, MatrixDescriptor output_matrix,
+    se::Stream* stream,  ScratchAllocator*  scratch_allocator) {
+  // std::chrono::system_clock::time_point t0, t1, t2, t3, t4, t5; 
+  // if (rocm_profile() == 1) {
+  //     t0 = std::chrono::system_clock::now();
+  // }    
+#if TENSORFLOW_USE_ROCM
+  DCHECK(!output_matrix.transpose);
+  se::DeviceMemory<InT> lhs_data(lhs_matrix.data);
+  se::DeviceMemory<InT> rhs_data(rhs_matrix.data);
+  se::DeviceMemory<OutT> output_data(output_matrix.data);
+  // VLOG(0) << "Using TVM for Gemm.";
+  tvm_impl::TVMFuncCache* tvm_impl_cache_ = tvm_impl::TVMFuncCacheCreateOrGet("gemm", tvm_impl::CollectorDeviceStr());
+  // VLOG(0) << "Finish get cache.";
+  auto lhs_transpose = lhs_matrix.transpose ? tvm_impl::TVMGemmTranspose::Transpose
+                                            : tvm_impl::TVMGemmTranspose::NoTranspose;
+  auto rhs_transpose = rhs_matrix.transpose ? tvm_impl::TVMGemmTranspose::Transpose
+                                            : tvm_impl::TVMGemmTranspose::NoTranspose;    
+  auto m = lhs_matrix.transpose ? lhs_matrix.num_cols : lhs_matrix.num_rows;
+  auto k = lhs_matrix.transpose ? lhs_matrix.num_rows : lhs_matrix.num_cols;
+  auto n = rhs_matrix.transpose ? rhs_matrix.num_rows : rhs_matrix.num_cols;
+
+  // VLOG(0) << "lhs: " << lhs_matrix.num_rows << " x " << lhs_matrix.num_cols;
+  // VLOG(0) << "rhs: " << rhs_matrix.num_rows << " x " << rhs_matrix.num_cols;
+  // VLOG(0) << "outs: " << output_matrix.num_rows << " x " << output_matrix.num_cols;
+
+  // VLOG(0) << "Start get key.";
+  // if(rocm_profile() == 1) {
+  //   t1 = std::chrono::system_clock::now();
+  // }
+  // if (k == n) {
+  //   VLOG(0) << m << " " << n << " " << k << " " << lhs_matrix.transpose << " " << rhs_matrix.transpose;
+  // }
+
+  auto key = tvm_impl::GetGemmTVMFuncKey<InT, OutT, AlphaBeta>(tvm_impl::CollectorDeviceStr(), m, n, k, lhs_transpose, rhs_transpose);
+  // VLOG(0) << "Finish get key " << key;
+  // if(rocm_profile() == 1) {
+  //   t2 = std::chrono::system_clock::now();
+  // }
+
+  const auto& tvm_impl = tvm_impl_cache_->LookUp(key);
+  // if(rocm_profile() == 1) {
+  //   t3 = std::chrono::system_clock::now();
+  // }
+  //  VLOG(0) << "tvm impl " << tvm_impl.flag_;
+  // VLOG(0) << "Finish look up key.";
+  // VLOG(0) << "Look up TVM func cache for " << key;
+  if (tvm_impl.IsHit()) {
+    // VLOG(0) << "Look up TVM func cache hit for " << key;
+    auto args = std::vector<void*>({
+      // static_cast<const void*>(se::gpu::GpuMemoryMutable(lhs_data)),
+      // static_cast<const void*>(se::gpu::GpuMemoryMutable(rhs_data)),
+      // static_cast<void*>(se::gpu::GpuMemoryMutable(output_data))
+      lhs_data.opaque(), rhs_data.opaque(), output_data.opaque()
+      });
+    return tvm_impl.Launch(stream, static_cast<void*>(args.data()), 
+        sizeof(args), scratch_allocator
+        // , nullptr, 
+        // rhs_data,
+        // lhs_data,
+        // &output_data
+        );
+    // if(rocm_profile() == 1) {
+    //   t4 = std::chrono::system_clock::now();
+    //   auto time0 = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+    //   auto time1 = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+    //   auto time2 = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
+    //   auto time3 = std::chrono::duration_cast<std::chrono::microseconds>(t4 - t3).count();
+    //   // VLOG(0) << "TimeDur for kernel func call "  << time0 << " " << time1 << " " << time2  << 
+    //   //     " " << time3 << "us"; 
+    // }
+    // if (k == n) {
+    //   VLOG(0) << "Finish tvm "  << (s?1:0) << " " << key;
+    // }  
+  } else {
+    VLOG(1) << "OPT func cache miss for " << key;
+  }
+#endif
+  return false;
+}
+
+
+
 struct RalGemmState : public Context::Resource {
   std::mutex mu;
   std::map<GemmTuningCacheKey, se::blas::AlgorithmType> gemm_tuning_cache;
@@ -290,6 +499,12 @@ template <typename InT, typename OutT, typename E = float>
 void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
               MemRefType<InT, 2> B, MemRefType<OutT, 2> C, bool tp_a, bool tp_b,
               bool weight_is_const) {
+  std::chrono::system_clock::time_point t0, t1;
+  se::port::Status block_status;
+  static std::unordered_map<std::string, double> dur;
+  static std::unordered_map<std::string, int> cnt;
+
+
   if (isEmptyMemref(A) || isEmptyMemref(B) || isEmptyMemref(C)) {
     TAO_VLOG(1) << "ral_gemm: early return for empty tensor";
     return;
@@ -312,6 +527,16 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
       return;
     }
   }
+#endif
+
+#if TENSORFLOW_USE_ROCM
+  auto m = tp_a?A.sizes[1]:A.sizes[0];
+  auto n = tp_b?B.sizes[0]:B.sizes[1];
+  auto k = tp_a?A.sizes[0]:A.sizes[1];
+
+  tvm_impl::CollectorAddGemmKernel<InT, OutT, E>(tvm_impl::CollectorDeviceStr(),
+     m, n, k,
+     tp_a, tp_b);
 #endif
 
   auto lhs_matrix =
@@ -342,6 +567,70 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
   auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
   auto stream =
       static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
+        
+  if (rocm_profile() == 1) {
+    // if ((A.sizes[0] == 11776 || A.sizes[0] == 5888) &&
+    //   (B.sizes[0] == 11776 || B.sizes[0] == 5888 )) {
+      block_status = stream->BlockHostUntilDone();
+      t0 = std::chrono::system_clock::now();  
+    // }
+  }
+  // if (rocm_profile() == 1) {
+  //     t1 = std::chrono::system_clock::now();
+  // }
+  static tensorflow::int64 use_tvm_kernel = -1;
+  if (use_tvm_kernel == -1) {
+    tensorflow::ReadInt64FromEnvVar("TAO_USE_OPT_KERNEL", 0,
+                                 &use_tvm_kernel);
+  }
+  static tensorflow::int64 interval = -1;
+  if (interval == -1) {
+    tensorflow::ReadInt64FromEnvVar("OPS_PROFILING_INTERVAL", 100,
+                                 &interval);
+  }
+
+#if TENSORFLOW_USE_ROCM
+  if (use_tvm_kernel == 1) {
+    // if (rocm_profile() == 1) {
+    //   t2 = std::chrono::system_clock::now();
+    // }
+    ScratchAllocator scratch_allocator(ctx, gpu_driver);  
+    if (DoGemmWithTVM<InT, OutT, E>(1, lhs_matrix, rhs_matrix, output_matrix, stream, &scratch_allocator)) {
+      VLOG(2) << "Launch OPT kernel complete.";
+      if (rocm_profile() == 1) {
+        //  if ((A.sizes[0] == 11776 || A.sizes[0] == 5888) && 
+        //    (B.sizes[0] == 11776 || B.sizes[0] == 5888 )) {
+        block_status = stream->BlockHostUntilDone();
+        t1 = std::chrono::system_clock::now();
+        auto time0 = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+	std::stringstream ss;
+	ss << "tvm_" <<  A.sizes[0] << "_" << A.sizes[1] 
+           << "_" << B.sizes[0] << "_" << B.sizes[1];
+	if (cnt.count(ss.str()) == 0) {
+		dur[ss.str()] = 0;
+		cnt[ss.str()] = 0;
+	}
+        dur[ss.str()] += time0;
+        cnt[ss.str()]++;
+        if (cnt[ss.str()] == interval) {
+          VLOG(0) << "TimeDur for TVM func " << A.sizes[0] << "_" << A.sizes[1] 
+           << "_" << B.sizes[0] << "_" << B.sizes[1] << " " << dur[ss.str()]/cnt[ss.str()] << " us";    
+          cnt[ss.str()] = 0;
+          dur[ss.str()] = 0;
+        }
+        // auto time1 = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+        // auto time2 = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
+        // VLOG(0) << "TimeDur for kernel func call "  << time0  << " " << time1 << " " << time2 << "us";
+      // }
+      }
+      return;
+    } else {
+      VLOG(2) << "Launch OPT kernel error.";
+    }
+  } else {
+    VLOG(2) << "No OPT kernel mode configured.";
+  }
+#endif
 
   bool disable_tune = true;
   tensorflow::ReadBoolFromEnvVar("TAO_DISABLE_CUDA_GEMM_TUNE", true,
@@ -378,6 +667,34 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
     TAO_VLOG(0) << "gemm fails to launch";
     ctx->signalError(Context::FAILURE, "fail to launch gemm");
   }
+
+    if (rocm_profile() == 1) {
+      // if ((A.sizes[0] == 11776 || A.sizes[0] == 5888) &&
+      //   (B.sizes[0] == 11776 || B.sizes[0] == 5888 )) {
+    
+        block_status = stream->BlockHostUntilDone();
+        t1 = std::chrono::system_clock::now();
+        auto time0 = std::chrono::duration_cast<std::chrono::microseconds>(t1 - t0).count();
+	std::stringstream ss;
+	ss << "roc_" <<  A.sizes[0] << "_" << A.sizes[1] 
+           << "_" << B.sizes[0] << "_" << B.sizes[1];
+	if (cnt.count(ss.str()) == 0) {
+		dur[ss.str()] = 0;
+		cnt[ss.str()] = 0;
+	}
+        dur[ss.str()] += time0;
+        cnt[ss.str()]++;
+        if (cnt[ss.str()] == interval) {
+          VLOG(0) << "TimeDur for ROC func " << A.sizes[0] << "_" << A.sizes[1] 
+           << "_" << B.sizes[0] << "_" << B.sizes[1] << " " << dur[ss.str()]/cnt[ss.str()] << " us";    
+          cnt[ss.str()] = 0;
+          dur[ss.str()] = 0;
+        }
+        // auto time1 = std::chrono::duration_cast<std::chrono::microseconds>(t2 - t1).count();
+        // auto time2 = std::chrono::duration_cast<std::chrono::microseconds>(t3 - t2).count();
+        // VLOG(0) << "TimeDur for kernel func call "  << time0  << " " << time1 << " " << time2 << "us";
+        // }
+  }
 }
 
 template <typename T, int N>
@@ -388,6 +705,7 @@ int64_t GetBatchSize(MemRefType<T, N> memref) {
   }
   return batch;
 }
+
 
 template <typename InT, typename OutT, int N, typename E = float>
 void ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
@@ -514,7 +832,6 @@ enum class ConvolutionKind {
 #endif
 
 struct CudnnConvParams;
-class ScratchAllocator;
 
 #if TENSORFLOW_USE_ROCM
 
@@ -1065,80 +1382,6 @@ std::unique_ptr<CudnnConvParams> makeNewConvParams(
   return std::move(params_ptr);
 }
 
-struct ScopedBuffer {
-  ScopedBuffer() = default;
-  ScopedBuffer(ExecutionContext* ctx, GPUDriver* gpu_driver, void* ptr)
-      : ctx_(ctx), gpu_driver_(gpu_driver), ptr_(ptr) {}
-  ~ScopedBuffer() { gpu_driver_->dealloc(ctx_, ptr_); }
-  ExecutionContext* ctx_;
-  GPUDriver* gpu_driver_;
-  void* ptr_;
-};
-
-class ScratchAllocator : public se::ScratchAllocator {
- public:
-  ScratchAllocator(ExecutionContext* ctx, GPUDriver* gpu_driver)
-      : ctx_(ctx), gpu_driver_(gpu_driver) {}
-
-#if defined(TF_1_12) || defined(TF_1_14)
-  int64 GetMemoryLimitInBytes(se::Stream* stream) override {
-    return GetMemoryLimitInBytesImpl();
-  }
-
-  se::port::StatusOr<se::DeviceMemory<uint8>> AllocateBytes(
-      se::Stream* stream, int64 byte_size) override {
-    return AllocateBytesImpl(byte_size);
-  }
-#else
-  int64 GetMemoryLimitInBytes() override { return GetMemoryLimitInBytesImpl(); }
-
-  se::port::StatusOr<se::DeviceMemory<uint8>> AllocateBytes(
-      int64 byte_size) override {
-    return AllocateBytesImpl(byte_size);
-  }
-#endif
-  int64 TotalAllocatedBytes() { return total_allocated_bytes_; }
-
- private:
-  se::port::StatusOr<se::DeviceMemory<uint8>> AllocateBytesImpl(
-      int64 byte_size);
-  // BFCAllocator is not exposed for the decoupled compiler.
-  // Thus we don't have a "try allocate" mechanism in TaoBridge as in TF,
-  // the host will crash once the amount of scratch memory tried to be
-  // allocated exceeds the memories left.
-  // TODO: For now we just set a small threshold to ease this problem.
-  // Revisit this for the performance degrade in more models.
-  int64 GetMemoryLimitInBytesImpl() {
-    return 1LL << 28;  // 256M.
-  }
-
- private:
-  ExecutionContext* ctx_;
-  GPUDriver* gpu_driver_;
-  std::vector<std::unique_ptr<ScopedBuffer>> allocated_buffers_;
-  int64 total_allocated_bytes_ = 0;
-};
-
-se::port::StatusOr<se::DeviceMemory<uint8>> ScratchAllocator::AllocateBytesImpl(
-    int64 byte_size) {
-  CHECK_GE(byte_size, 0) << "byte_size must be positive.";
-  if (byte_size > GetMemoryLimitInBytesImpl()) {
-    return errors::Internal("Allocating buffer exceeds the memory limit");
-  }
-
-  TAO_VLOG(2) << "AllocateBytesImpl bytes: " << byte_size;
-  void* ptr = gpu_driver_->alloc(ctx_, byte_size);
-
-  if (!ptr) {
-    TAO_VLOG(2) << "AllocateBytesImpl failed: OOM with bytes = " << byte_size;
-    return errors::Internal("Allocating failed");
-  }
-
-  total_allocated_bytes_ += byte_size;
-  se::DeviceMemoryBase buffer_addr(ptr, byte_size);
-  allocated_buffers_.emplace_back(new ScopedBuffer(ctx_, gpu_driver_, ptr));
-  return se::DeviceMemory<uint8>(buffer_addr);
-}
 
 template <typename T>
 Status RunCudnnConvolution(CudnnConvParams& params,

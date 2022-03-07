@@ -829,6 +829,14 @@ Status CompileFunctionImpl(
         WriteTextProto(tensorflow::Env::Default(), dbg_input_file_name, input));
   }
 
+  if (VLOG_IS_ON(0)) {
+    std::string dbg_input_file_name = input_file_name + ".input_pb";
+    VLOG(0) << "Writing TaoCompilerInput Binary to " << dbg_input_file_name;
+    TF_RETURN_IF_ERROR(
+        WriteBinaryProto(tensorflow::Env::Default(), dbg_input_file_name, input));
+  }
+
+
   auto start = std::chrono::steady_clock::now();
   tensorflow::tao::SubProcess tao_compiler;
   VLOG(2) << "compiling function " << func_name << ", input file is "

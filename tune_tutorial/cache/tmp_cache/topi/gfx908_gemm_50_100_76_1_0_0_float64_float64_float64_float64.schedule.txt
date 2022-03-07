@@ -1,0 +1,26 @@
+@main = primfn(pl0_1: handle, pl1_1: handle, T_matmul_TN_1: handle) -> ()
+  attr = {"from_legacy_te_schedule": True, "global_symbol": "main", "tir.noalias": True}
+  buffers = {T_matmul_TN: Buffer(T_matmul_TN_2: Pointer(float64), float64, [50, 100], []),
+             pl0: Buffer(pl0_2: Pointer(float64), float64, [76, 50], []),
+             pl1: Buffer(pl1_2: Pointer(float64), float64, [76, 100], [])}
+  buffer_map = {pl0_1: pl0, pl1_1: pl1, T_matmul_TN_1: T_matmul_TN} {
+  for (ax0: int32, 0, 50) {
+    for (ax1: int32, 0, 100) {
+      attr [IterVar(threadIdx.x: int32, (nullptr), "ThreadIndex", "threadIdx.x")] "thread_extent" = 10;
+      allocate(T_matmul_TN.rf: Pointer(local float64), float64, [1]), storage_scope = local;
+      allocate(reduce_temp0: Pointer(local float64), float64, [1]), storage_scope = local {
+        T_matmul_TN.rf[0] = 0f64
+        for (k.outer: int32, 0, 8) {
+          if @tir.likely((((k.outer*10) + threadIdx.x) < 76), dtype=bool) {
+            T_matmul_TN.rf[0] = ((float64*)T_matmul_TN.rf[0] + ((float64*)pl0_2[(((k.outer*500) + (threadIdx.x*50)) + ax0)]*(float64*)pl1_2[(((k.outer*1000) + (threadIdx.x*100)) + ax1)]))
+          }
+        }
+        attr [meta[tir.CommReducer][0]] "reduce_scope" = @tir.reinterpret(0u64, dtype=handle);
+        @tir.tvm_thread_allreduce(1u32, (float64*)T_matmul_TN.rf[0], True, reduce_temp0, threadIdx.x, dtype=handle)
+        T_matmul_TN_2[((ax0*100) + ax1)] = (float64*)reduce_temp0[0]
+      }
+    }
+  }
+}
+
+

@@ -61,6 +61,23 @@ if(${TAO_CUDA})
     include_directories("/usr/local/cuda/targets/x86_64-linux/include")
 endif()
 
+if((${TAO_DCU}) OR (${TAO_ROCM}))
+    MESSAGE("Include header files from ROCM path ${ROCM_PATH}")
+    include_directories("${ROCM_PATH}/include")
+    include_directories("${ROCM_PATH}/include/rocrand")
+    include_directories("${ROCM_PATH}/include/rocprim")
+    include_directories("${ROCM_PATH}/include/rocprofiler")
+    include_directories("${ROCM_PATH}/include/roctracer")
+    add_definitions(-D__HIP_PLATFORM_HCC__ -DTENSORFLOW_USE_ROCM) 
+    # if (${TAO_DCU})
+    #   add_definitions(-DTAO_DCU)
+    # endif()
+    # if (${TAO_ROCM})
+    #   add_definitions(-DTAO_ROCM)
+    # endif()
+endif()
+
+
 list(APPEND RAL_HDRS
     "tensorflow/compiler/mlir/xla/compile_metadata.pb.h"
     "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
@@ -113,12 +130,16 @@ if(${TAO_CUDA})
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr")
 endif()
 
-if(${TAO_DCU})
+if((${TAO_DCU}) OR (${TAO_ROCM}))
   list(APPEND RAL_SRCS
     "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_cuda.cc"
+    "tensorflow/compiler/mlir/xla/ral/context/tvm_kernel_cache.cc"
+    "tensorflow/compiler/mlir/xla/ral/context/tvm_kernel_collector.cc"  
   )
   list(APPEND RAL_HDRS
     "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_cuda.h"
+    "tensorflow/compiler/mlir/xla/ral/context/tvm_kernel_cache.h"
+    "tensorflow/compiler/mlir/xla/ral/context/tvm_kernel_collector.h"
   )
 endif()
 

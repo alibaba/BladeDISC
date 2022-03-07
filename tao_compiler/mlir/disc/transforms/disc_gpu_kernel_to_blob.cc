@@ -18,6 +18,7 @@ limitations under the License.
 #include "absl/strings/str_cat.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "mlir/Dialect/GPU/Passes.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"
@@ -41,6 +42,8 @@ limitations under the License.
 #include "tensorflow/core/platform/random.h"
 #include "tensorflow/core/util/env_var.h"
 #include "transforms/codegen_utils.h"
+#include "llvm/AsmParser/Parser.h"
+#include "rocm/rocm_config.h"
 
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
 #include "tensorflow/stream_executor/gpu/asm_compiler.h"
@@ -55,9 +58,43 @@ limitations under the License.
 #define CUDA_SUCCESS hipSuccess
 #endif
 
+#define ROCM_CALL(func)                                              \
+  {                                                                  \
+    hipError_t e = (func);                                           \
+    CHECK(e == hipSuccess) << "ROCM HIP: " << hipGetErrorString(e); \
+  }
+
+
 namespace mlir {
 namespace disc_ral {
 namespace {
+
+#if TENSORFLOW_USE_ROCM
+static std::string RocmCurrentArch() {
+    int device_id;
+    ROCM_CALL(hipGetDevice(&device_id));
+    hipDeviceProp_t prop;
+    ROCM_CALL(hipGetDeviceProperties(&prop, device_id));
+    auto arch_type = prop.gcnArch;
+    std::string arch_str = "gfx" + std::to_string(arch_type);
+    if(arch_str == "gfx910") {
+      arch_str = "gfx90a";
+    }
+    return std::move(arch_str);
+}
+#endif
+
+std::unique_ptr<llvm::Module> parseAssembly(
+    const char *Assembly, llvm::LLVMContext &Context) {
+  llvm::SMDiagnostic Error;
+  std::unique_ptr<llvm::Module> M = llvm::parseAssemblyString(Assembly, Error, Context);
+  std::string ErrMsg;
+  llvm::raw_string_ostream OS(ErrMsg);
+  Error.print("", OS);
+  assert(M && !verifyModule(*M, &errs()));
+  return M;
+}
+
 
 using xla::InternalError;
 using xla::llvm_ir::AsArrayRef;
@@ -95,6 +132,8 @@ class GpuKernelToBlobPass
           return signalPassFailure();
         }
         const auto& blob = blob_or.ValueOrDie();
+
+
         std::string blob_string(blob.begin(), blob.end());
         std::string attr_str = std::string(kGpuBinaryAttrName) + "_" + name;
         gpu_module->setAttr(attr_str,
@@ -109,6 +148,23 @@ class GpuKernelToBlobPass
       }
       const auto& blob = blob_or.ValueOrDie();
       std::string blob_string(blob.begin(), blob.end());
+      // VLOG(0) << gpu_module.getName().str(); 
+      // if (gpu_module.getName().str() == "main_kernel_3" || gpu_module.getName().str() == "main_kernel_4") {
+      //   // std::ofstream of("compieler.txt", std::ios_base::app);
+      //   // of << "build hsaco " << gpu_module.getName().str() << std::endl; 
+      //   // of << blob_string << std::endl;
+      //   // for (auto i : blob) {
+      //   //   of << int(i) << " ";
+      //   // }
+      //   // of << std::endl;
+        // hipModule_t hipmodule;
+        // hipError_t res = tensorflow::wrap::hipModuleLoadData(&hipmodule, reinterpret_cast<const void*>(blob.data()));
+        // if (res != hipSuccess) {
+        //   VLOG(0) << "error for hsoco build " << res;
+        // } else {
+        //   VLOG(0) << "Finish for hsoco build " << res;
+        // }
+      // }
       gpu_module->setAttr(blob_annotation_,
                           mlir::StringAttr::get(&getContext(), blob_string));
     }
@@ -132,15 +188,51 @@ class GpuKernelToBlobPass
     llvm::LLVMContext llvmContext;
     auto llvmModule = mlir::translateModuleToLLVMIR(gpu_module, llvmContext);
 
-#if TENSORFLOW_USE_DCU
-    const std::string arch_str = "gfx906";
+    // if (gpu_module.getName().str() == "main_kernel_3") {
+    //   // llvm::SmallString<8> data_ll;
+    //   // llvm::raw_svector_ostream dest_ll(data_ll);
+    //   // dest_ll.SetUnbuffered();
+    //   // llvmModule->print(dest_ll, nullptr);
+    //   // std::string ll(data_ll.begin(), data_ll.end());
+    //   // VLOG(0) << ll;
+    // }
+    bool use_llvm;
+    tensorflow::ReadBoolFromEnvVar("DISC_USE_LLVM",
+                                     true, &use_llvm);
+
+//#if (TENSORFLOW_USE_DCU && !TENSORFLOW_USE_DCU_WITH_LLVM_ROCM_BACKEND)
+#if (TENSORFLOW_USE_ROCM)
+  if (!use_llvm) {
+    VLOG(0) << "Use ROCM NORMAL";
+  
+    // std::string arch_str = "gfx" + std::to_string(arch_type); //906";
     std::string libdevice_dir = tensorflow::RocdlRoot();
+    std::string rocm_path;
+    tensorflow::ReadStringFromEnvVar("DISC_ROCM_PATH",
+                                     "/opt/rocm", &rocm_path);
+#if (TF_ROCM_VERSION >= 30900 || TENSORFLOW_USE_DCU)
+    libdevice_dir = tensorflow::io::JoinPath(rocm_path, "amdgcn/bitcode");
+#else
+    libdevice_dir = tensorflow::io::JoinPath(rocm_path, "lib");
+#endif
+    // if (gpu_module.getName().str() == "main_kernel_3") { 
+    //   for (auto i : xla::gpu::GetROCDLPaths(arch_str, libdevice_dir)) {
+    //     VLOG(0) << i;
+    //   }
+    //   // std::error_code ec;
+    //   // std::unique_ptr<llvm::raw_fd_ostream> ll_fs(
+    //   //     new llvm::raw_fd_ostream("irbeflink.ll", ec, llvm::sys::fs::OF_None));
+    //   // llvmModule->print(*ll_fs, nullptr);
+    //   // ll_fs->flush();
+    // }
+    auto arch_str = RocmCurrentArch();
+    VLOG(0) << "Arch type " << arch_str;
     TF_RETURN_IF_ERROR(xla::gpu::LinkWithBitcodeVector(
         llvmModule.get(), xla::gpu::GetROCDLPaths(arch_str, libdevice_dir)));
 
     std::string llvm_path_1;
-    tensorflow::ReadStringFromEnvVar("DISC_DCU_BACKEND_PATH",
-                                     "/opt/dtk-21.10/llvm/bin/", &llvm_path_1);
+    tensorflow::ReadStringFromEnvVar("DISC_ROCM_BACKEND_PATH",
+                                     "/opt/rocm/llvm/bin/", &llvm_path_1);
     std::string llvm_path_2 = tensorflow::io::JoinPath("/opt/rocm", "hcc/bin");
     std::string llvm_path_3 = tensorflow::io::JoinPath("/opt/rocm", "llvm/bin");
     auto llc_program = llvm::sys::findProgramByName(
@@ -152,14 +244,19 @@ class GpuKernelToBlobPass
                                 llc_program.getError().message(),
                                 lld_program.getError().message());
     }
-    VLOG(2) << "llc found in path: " << *llc_program
-            << ", ld.lld found in path: " << *lld_program;
+    VLOG(1) << "llc found in path: " << *llc_program
+        << ", ld.lld found in path: " << *lld_program;
 
     std::string random_number = std::to_string(tensorflow::random::New64());
     std::string tmp_path = "/tmp/";
     std::string ll_path = tmp_path + random_number + ".ll";
     std::string isabin_path = tmp_path + random_number + ".o";
     std::string hsaco_path = tmp_path + random_number + ".hsaco";
+    auto kname = gpu_module.getName().str();
+    VLOG(0) << "Kernel name "  << gpu_module.getName().str();
+    ll_path =  kname+"_debug.ll";
+    isabin_path = kname+"_debug.o";
+    hsaco_path = kname+ "_debug.hsaco";
 
     std::error_code ec;
     std::unique_ptr<llvm::raw_fd_ostream> ll_fs(
@@ -167,12 +264,31 @@ class GpuKernelToBlobPass
     llvmModule->print(*ll_fs, nullptr);
     ll_fs->flush();
 
+
+    std::string given_ll = "";
+    TF_CHECK_OK(tensorflow::ReadStringFromEnvVar("DISC_LL",
+			    "", &given_ll));
+    if (!given_ll.empty()) {
+	    ll_path = given_ll;
+    }
+
+
     std::string opt_level;
-    tensorflow::ReadStringFromEnvVar("DISC_DCU_BACKEND_OPT_LEVEL", "3",
+    tensorflow::ReadStringFromEnvVar("DISC_ROCM_BACKEND_OPT_LEVEL", "3",
                                      &opt_level);
+
+    // if (gpu_module.getName().str() == "main_kernel_4") {
+    //   ll_path = "/home/fl237079/oldll.ll";
+    // } else if (gpu_module.getName().str() == "main_kernel_5") {
+    //   ll_path = "/home/fl237079/newll.ll";
+    // }
+    //
+    VLOG(0) << "Compile opt level " << opt_level << " arch str " << arch_str << " ll " << ll_path;
+
     if (VLOG_IS_ON(2)) {
       // Dump asm file
       std::string asm_path = tmp_path + random_number + ".asm";
+      asm_path = kname+ "_debug.asm";
       std::vector<llvm::StringRef> llc_args{
           AsStringRef("llc"),
           AsStringRef("-O"),
@@ -182,7 +298,7 @@ class GpuKernelToBlobPass
           AsStringRef("-mcpu"),
           AsStringRef(arch_str),
           AsStringRef("-amdhsa-code-object-version"),
-          AsStringRef("3"),
+          AsStringRef("4"),
           AsStringRef("-filetype"),
           AsStringRef("asm"),
           AsStringRef("-o"),
@@ -200,12 +316,25 @@ class GpuKernelToBlobPass
         AsStringRef("-mcpu"),
         AsStringRef(arch_str),
         AsStringRef("-amdhsa-code-object-version"),
-        AsStringRef("3"),
+        AsStringRef("4"),
         AsStringRef("-filetype"),
         AsStringRef("obj"),
         AsStringRef("-o"),
         AsStringRef(isabin_path),
         AsStringRef(ll_path)};
+    // if (gpu_module.getName().str() == "main_kernel_3") {
+    //     VLOG(0) << arch_str;
+    //     VLOG(0) << libdevice_dir;    
+    //     VLOG(0) << "llc found in path: " << *llc_program
+    //     << ", ld.lld found in path: " << *lld_program;
+    //     VLOG(0) << opt_level;
+    //     VLOG(0) << ll_path;
+    // }
+
+    // if (gpu_module.getName().str() == "main_kernel_4" || 
+    // gpu_module.getName().str() == "main_kernel_5" ) {
+    //     VLOG(0) << ll_path;
+    // }
     TF_RETURN_IF_ERROR(ExecuteProgram(*llc_program, llc_args));
 
     std::vector<llvm::StringRef> lld_args{
@@ -214,7 +343,15 @@ class GpuKernelToBlobPass
         AsStringRef(hsaco_path)};
     TF_RETURN_IF_ERROR(ExecuteProgram(*lld_program, lld_args));
 
-    // Read HSACO.
+    VLOG(0) << "Dump to " << ll_path << " " << isabin_path << " "<< hsaco_path;
+    std::string given_hsaco = "";
+    TF_CHECK_OK(tensorflow::ReadStringFromEnvVar("DISC_HSACO",
+			    "", &given_hsaco));
+    if (!given_hsaco.empty()) {
+    	hsaco_path = given_hsaco;
+    }
+
+    VLOG(0) << "Read hsaco path " << hsaco_path;
     std::ifstream hsaco_file(hsaco_path, std::ios::binary | std::ios::ate);
     std::ifstream::pos_type hsaco_file_size = hsaco_file.tellg();
 
@@ -226,19 +363,21 @@ class GpuKernelToBlobPass
     TF_CHECK_OK(tensorflow::ReadBoolFromEnvVar("DISC_ROCM_KEEP_TEMPFILES",
                                                /*default_val=*/false,
                                                &keep_tempfiles));
-    if (!keep_tempfiles) {
+    /*if (!keep_tempfiles) {
       remove(ll_path.c_str());
       remove(isabin_path.c_str());
       remove(hsaco_path.c_str());
-    }
+    }*/
     return hsaco;
-
-#elif TENSORFLOW_USE_DCU_WITH_LLVM_ROCM_BACKEND
+  } else {
+    VLOG(0) << "Use ROCM LLVM";
+//#elif (TENSORFLOW_USE_DCU_WITH_LLVM_ROCM_BACKEND || TENSORFLOW_USE_ROCM)
     xla::HloModuleConfig config;
     xla::DebugOptions options = xla::GetDebugOptionsFromFlags();
     config.set_debug_options(options);
-
-    std::string arch_str = "gfx906";
+    using AmdGpuHsaco = std::vector<tensorflow::uint8>;
+    auto arch_str = RocmCurrentArch();
+    VLOG(0) << arch_str;
     // Parse ROCm architecture.
     absl::string_view consumable_arch(arch_str);
     if (!absl::ConsumePrefix(&consumable_arch, "gfx")) {
@@ -246,14 +385,115 @@ class GpuKernelToBlobPass
           "Could not parse ROCm architecture prefix (expected gfx)");
     }
     std::string libdevice_dir = tensorflow::RocdlRoot();
-    auto llvm_module_copy = llvm::CloneModule(*llvmModule);
-    xla::gpu::GpuVersion gpu_version{arch_str};
-    auto hsaco_or = xla::gpu::amdgpu::CompileToHsaco(
-        llvm_module_copy.get(), gpu_version, config, libdevice_dir);
-    return hsaco_or;
+    std::string rocm_path;
+    tensorflow::ReadStringFromEnvVar("DISC_ROCM_PATH",
+                                     "/opt/rocm", &rocm_path);
 
-#elif TENSORFLOW_USE_ROCM
-    return InternalError("ROCM devices except for DCU is not implemented yet");
+    // VLOG(0) << TF_ROCM_VERSION;
+#if (TF_ROCM_VERSION >= 30900 || TENSORFLOW_USE_DCU)
+    libdevice_dir = tensorflow::io::JoinPath(rocm_path, "amdgcn/bitcode");
+#else
+    libdevice_dir = tensorflow::io::JoinPath(rocm_path, "lib");
+#endif
+
+    auto kname = gpu_module.getName().str();
+    VLOG(0) << "Kernel name "  << gpu_module.getName().str();
+    // if (gpu_module.getName().str() == "main_kernel_3") {
+    //   {
+    //     std::ifstream old("/home/fl237079/shenshi/deepmd-kit/examples/water/test/copper/trueir");  
+    //     std::stringstream ss;
+    //     ss << old.rdbuf();
+    //     VLOG(0) << "old ir " << ss.str();
+    //     llvm::LLVMContext ctx; 
+    //     auto old_module = parseAssembly(ss.str().c_str(), ctx);
+    //     auto llvm_module_copy = llvm::CloneModule(*(old_module.get()));
+    //     xla::gpu::GpuVersion gpu_version{arch_str};
+    //     auto hsaco_or = xla::gpu::amdgpu::CompileToHsaco(
+    //         llvm_module_copy.get(), gpu_version, config, libdevice_dir);
+    //     if (!hsaco_or.ok()) {
+    //       VLOG(0) << "Compile error " << hsaco_or.status().error_message(); 
+    //     } else {
+    //       const auto& blob = hsaco_or.ValueOrDie();
+    //       hipModule_t hipmodule;
+    //       hipError_t res = tensorflow::wrap::hipModuleLoadData(&hipmodule, reinterpret_cast<const void*>(blob.data()));
+    //       if (res != hipSuccess) {
+    //         VLOG(0) << "error for hsoco build " << res;
+    //       } else {
+    //         VLOG(0) << "Finish for hsoco build " << res;
+    //       }
+    //     }
+    //   }
+    //   {
+    //     std::ifstream neww("/home/fl237079/shenshi/deepmd-kit/examples/water/test/copper/falseir");  
+    //     std::stringstream ss;
+    //     ss << neww.rdbuf();
+    //     VLOG(0) << "new ir " << ss.str();
+    //     llvm::LLVMContext ctx; 
+    //     auto old_module = parseAssembly(ss.str().c_str(), ctx);
+    //     auto llvm_module_copy = llvm::CloneModule(*(old_module.get()));
+    //     xla::gpu::GpuVersion gpu_version{arch_str};
+    //     auto hsaco_or = xla::gpu::amdgpu::CompileToHsaco(
+    //         llvm_module_copy.get(), gpu_version, config, libdevice_dir);
+
+    //     if (!hsaco_or.ok()) {
+    //       VLOG(0) << "Compile error " << hsaco_or.status().error_message(); 
+    //     } else {
+    //       const auto& blob = hsaco_or.ValueOrDie();
+    //       hipModule_t hipmodule;
+    //       hipError_t res = tensorflow::wrap::hipModuleLoadData(&hipmodule, reinterpret_cast<const void*>(blob.data()));
+    //       if (res != hipSuccess) {
+    //         VLOG(0) << "error for hsoco build " << res;
+    //       } else {
+    //         VLOG(0) << "Finish for hsoco build " << res;
+    //       }
+    //     }
+    //   }
+    // }
+    auto llvm_module_copy = llvm::CloneModule(*llvmModule);
+
+    std::string given_ll = "";
+    TF_CHECK_OK(tensorflow::ReadStringFromEnvVar("DISC_LL",
+			    "", &given_ll));
+   
+    // VLOG(0) << "Kernel to Blob lib device dir " << libdevice_dir;
+    // if (gpu_module.getName().str() == "main_kernel_3") {
+    //   VLOG(0) << "target " << arch_str;
+    //   VLOG(0) << "Kernel to Blob lib device dir " << libdevice_dir;
+    // }
+    auto hsaco_or = xla::gpu::amdgpu::CompileToHsaco(
+          llvm_module_copy.get(),
+          tensorflow::se::RocmComputeCapability{arch_str}, config,
+          libdevice_dir);
+    if (!given_ll.empty()) {
+        std::ifstream old(given_ll);  
+        std::stringstream ss;
+        ss << old.rdbuf();
+        llvm::LLVMContext ctx; 
+        auto old_module = parseAssembly(ss.str().c_str(), ctx);
+        llvm_module_copy = llvm::CloneModule(*(old_module.get()));
+        hsaco_or = xla::gpu::amdgpu::CompileToHsaco(
+          llvm_module_copy.get(),
+          tensorflow::se::RocmComputeCapability{arch_str}, config,
+          libdevice_dir);
+	      VLOG(0) << "using new module form ll " << given_ll;
+    }
+
+    if (hsaco_or.ok()) {
+    	const auto& blob = hsaco_or.ValueOrDie();
+      std::string llvmpath = kname+"_debugllvm.hsaco";
+      auto myfile = std::fstream(llvmpath, std::ios::out | std::ios::binary);
+      myfile.write((char*)blob.data(), blob.size());
+      myfile.close();
+      VLOG(0) << "llvm hsaco to " << llvmpath;
+    } else {
+	    VLOG(0) << "llvm compile hsaco fail";
+    }
+
+    return hsaco_or;
+  }
+
+// #elif TENSORFLOW_USE_ROCM
+//     return InternalError("ROCM devices except for DCU is not implemented yet");
 
 #elif GOOGLE_CUDA
     if (!llvmModule) {

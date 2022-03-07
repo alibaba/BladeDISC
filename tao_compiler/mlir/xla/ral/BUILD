@@ -531,7 +531,7 @@ tf_gpu_kernel_library(
         "@cub_archive//:cub",
         "@local_config_cuda//cuda:cuda_headers",
     ]) + if_rocm_is_configured([
-        "@local_config_rocm//rocm:rocm_headers",
+        # "@local_config_rocm//rocm:rocm_headers",
     ]),
 )
 

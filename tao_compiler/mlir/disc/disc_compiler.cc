@@ -1,3 +1,11 @@
+/**
+ * Copyright (c) 2021 Alibaba Inc.
+ * File              : disc_compiler.cc
+ * Author            : Yue Wu <matthew.wy@alibaba-inc.com>
+ * Date              : 2022-04-02
+ * Last Modified Date: 2022-04-02
+ * Last Modified By  : Yue Wu <matthew.wy@alibaba-inc.com>
+ */
 /* Copyright 2021 The TensorFlow Authors. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");

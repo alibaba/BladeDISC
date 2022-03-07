@@ -1,0 +1,60 @@
+@main = primfn(pl0_1: handle, pl1_1: handle, T_matmul_TN_1: handle) -> ()
+  attr = {"from_legacy_te_schedule": True, "global_symbol": "main", "tir.noalias": True}
+  buffers = {T_matmul_TN: Buffer(T_matmul_TN_2: Pointer(float64), float64, [50, 100], []),
+             pl0: Buffer(pl0_2: Pointer(float64), float64, [11776, 50], []),
+             pl1: Buffer(pl1_2: Pointer(float64), float64, [11776, 100], [])}
+  buffer_map = {pl0_1: pl0, pl1_1: pl1, T_matmul_TN_1: T_matmul_TN} {
+  allocate(T_matmul_TN.rf: Pointer(global float64), float64, [920000]), storage_scope = global {
+    attr [IterVar(blockIdx.x: int32, (nullptr), "ThreadIndex", "blockIdx.x")] "thread_extent" = 184;
+    allocate(pl0.shared: Pointer(shared float64), float64, [1024]), storage_scope = shared;
+    allocate(T_matmul_TN.rf.local: Pointer(local float64), float64, [1]), storage_scope = local;
+    attr [IterVar(blockIdx.y: int32, (nullptr), "ThreadIndex", "blockIdx.y")] "thread_extent" = 4;
+    attr [IterVar(blockIdx.z: int32, (nullptr), "ThreadIndex", "blockIdx.z")] "thread_extent" = 2 {
+      attr [IterVar(threadIdx.x: int32, (nullptr), "ThreadIndex", "threadIdx.x")] "thread_extent" = 64;
+      for (ax1: int32, 0, 16) {
+        if @tir.likely((((blockIdx.y*16) + ax1) < 50), dtype=bool) {
+          pl0.shared[((threadIdx.x*16) + ax1)] = (float64*)pl0_2[((((blockIdx.x*3200) + (threadIdx.x*50)) + (blockIdx.y*16)) + ax1)]
+        }
+      }
+      attr [IterVar(threadIdx.y: int32, (nullptr), "ThreadIndex", "threadIdx.y")] "thread_extent" = 16;
+      attr [IterVar(threadIdx.x_1: int32, (nullptr), "ThreadIndex", "threadIdx.x")] "thread_extent" = 64 {
+        T_matmul_TN.rf.local[0] = 0f64
+        for (k.inner: int32, 0, 64) {
+          if @tir.likely((((blockIdx.y*16) + threadIdx.y) < 50), dtype=bool) {
+            if @tir.likely((((blockIdx.z*64) + threadIdx.x_1) < 100), dtype=bool) {
+              T_matmul_TN.rf.local[0] = ((float64*)T_matmul_TN.rf.local[0] + ((float64*)pl0.shared[((k.inner*16) + threadIdx.y)]*(float64*)pl1_2[((((blockIdx.x*6400) + (k.inner*100)) + (blockIdx.z*64)) + threadIdx.x_1)]))
+            }
+          }
+        }
+        if @tir.likely((((blockIdx.y*16) + threadIdx.y) < 50), dtype=bool) {
+          if @tir.likely((((blockIdx.z*64) + threadIdx.x_1) < 100), dtype=bool) {
+            T_matmul_TN.rf[(((((blockIdx.x*5000) + (blockIdx.y*1600)) + (threadIdx.y*100)) + (blockIdx.z*64)) + threadIdx.x_1)] = (float64*)T_matmul_TN.rf.local[0]
+          }
+        }
+      }
+    }
+    attr [IterVar(blockIdx.x_1: int32, (nullptr), "ThreadIndex", "blockIdx.x")] "thread_extent" = 13;
+    allocate(T_matmul_TN.repl.rf: Pointer(local float64), float64, [1]), storage_scope = local;
+    allocate(reduce_temp0: Pointer(local float64), float64, [1]), storage_scope = local;
+    attr [IterVar(blockIdx.y_1: int32, (nullptr), "ThreadIndex", "blockIdx.y")] "thread_extent" = 25;
+    for (ax0.inner: int32, 0, 4) {
+      for (ax1.inner: int32, 0, 4) {
+        attr [IterVar(threadIdx.x_2: int32, (nullptr), "ThreadIndex", "threadIdx.x")] "thread_extent" = 64 {
+          T_matmul_TN.repl.rf[0] = 0f64
+          for (k.outer.v.outer: int32, 0, 3) {
+            if @tir.likely((((blockIdx.x_1*4) + ax0.inner) < 50), dtype=bool) {
+              if @tir.likely((((k.outer.v.outer*64) + threadIdx.x_2) < 184), dtype=bool) {
+                T_matmul_TN.repl.rf[0] = ((float64*)T_matmul_TN.repl.rf[0] + (float64*)T_matmul_TN.rf[((((((k.outer.v.outer*320000) + (threadIdx.x_2*5000)) + (blockIdx.x_1*400)) + (ax0.inner*100)) + (blockIdx.y_1*4)) + ax1.inner)])
+              }
+            }
+          }
+          attr [meta[tir.CommReducer][0]] "reduce_scope" = @tir.reinterpret(0u64, dtype=handle);
+          @tir.tvm_thread_allreduce(1u32, (float64*)T_matmul_TN.repl.rf[0], True, reduce_temp0, threadIdx.x_2, dtype=handle)
+          T_matmul_TN_2[((((blockIdx.x_1*400) + (ax0.inner*100)) + (blockIdx.y_1*4)) + ax1.inner)] = (float64*)reduce_temp0[0]
+        }
+      }
+    }
+  }
+}
+
+

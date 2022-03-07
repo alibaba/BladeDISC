@@ -137,7 +137,9 @@ def gcc_env(gcc_version):
 
     should_set_gcc = not (gcc_compiler_configured or bin_path is None or lib_path is None)
     if should_set_gcc:
+        cmake_path = os.path.dirname(shutil.which("cmake"))
         saved_path = append_env_var("PATH", bin_path)
+        append_env_var("PATH", cmake_path)
         saved_host_gcc = append_env_var("GCC_HOST_COMPILER_PATH", bin_path + "/gcc")
         saved_ld_path = append_env_var("LD_LIBRARY_PATH", lib_path)
     try:

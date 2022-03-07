@@ -1,12 +1,12 @@
 [submodule "pytorch_blade/third_party/googletest"]
 	path = pytorch_blade/third_party/googletest
-        url = https://github.com/google/googletest.git
+        url = git@github.com:google/googletest.git 
 [submodule "tf_community"]
 	path = tf_community
-        url = https://github.com/pai-disc/tensorflow.git
+        url = git@github.com:pai-disc/tensorflow.git
 [submodule "tao/third_party/json"]
 	path = tao/third_party/json
-        url = https://github.com/nlohmann/json.git
+        url = git@github.com:nlohmann/json.git
 [submodule "tao/third_party/mkldnn/oneDNN"]
 	path = tao/third_party/mkldnn/oneDNN
-	url = https://github.com/oneapi-src/oneDNN.git
+	url = git@github.com:oneapi-src/oneDNN.git

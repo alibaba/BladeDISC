@@ -1,0 +1,63 @@
+@main = primfn(data_A_1: handle, data_B_1: handle, T_matmul_NT_1: handle) -> ()
+  attr = {"from_legacy_te_schedule": True, "global_symbol": "main", "tir.noalias": True}
+  buffers = {T_matmul_NT: Buffer(T_matmul_NT_2: Pointer(float64), float64, [50, 100], []),
+             data_A: Buffer(data_A_2: Pointer(float64), float64, [11776, 50], []),
+             data_B: Buffer(data_B_2: Pointer(float64), float64, [11776, 100], [])}
+  buffer_map = {data_A_1: data_A, data_B_1: data_B, T_matmul_NT_1: T_matmul_NT} {
+  allocate(T_transpose: Pointer(global float64), float64, [588800]), storage_scope = global;
+  allocate(T_transpose_1: Pointer(global float64), float64, [1177600]), storage_scope = global {
+    attr [IterVar(blockIdx.x: int32, (nullptr), "ThreadIndex", "blockIdx.x")] "thread_extent" = 2;
+    allocate(data_A.shared: Pointer(shared float64), float64, [1024]), storage_scope = shared;
+    attr [IterVar(blockIdx.y: int32, (nullptr), "ThreadIndex", "blockIdx.y")] "thread_extent" = 368 {
+      attr [IterVar(threadIdx.y: int32, (nullptr), "ThreadIndex", "threadIdx.y")] "thread_extent" = 4;
+      for (ax0.inner: int32, 0, 8) {
+        attr [IterVar(threadIdx.x: int32, (nullptr), "ThreadIndex", "threadIdx.x")] "thread_extent" = 32;
+        if @tir.likely((((blockIdx.x*32) + threadIdx.x) < 50), dtype=bool) {
+          data_A.shared[(((threadIdx.y*256) + (ax0.inner*32)) + threadIdx.x)] = (float64*)data_A_2[(((((blockIdx.y*1600) + (threadIdx.y*400)) + (ax0.inner*50)) + (blockIdx.x*32)) + threadIdx.x)]
+        }
+      }
+      attr [IterVar(threadIdx.y, (nullptr), "ThreadIndex", "threadIdx.y")] "thread_extent" = 4;
+      for (ax0.inner.inner: int32, 0, 8) {
+        attr [IterVar(threadIdx.x, (nullptr), "ThreadIndex", "threadIdx.x")] "thread_extent" = 32;
+        if @tir.likely(((((blockIdx.x*32) + (threadIdx.y*8)) + ax0.inner.inner) < 50), dtype=bool) {
+          T_transpose[(((((blockIdx.x*376832) + (threadIdx.y*94208)) + (ax0.inner.inner*11776)) + (blockIdx.y*32)) + threadIdx.x)] = (float64*)data_A.shared[(((threadIdx.x*32) + (threadIdx.y*8)) + ax0.inner.inner)]
+        }
+      }
+    }
+    attr [IterVar(blockIdx.x_1: int32, (nullptr), "ThreadIndex", "blockIdx.x")] "thread_extent" = 4;
+    allocate(data_B.shared: Pointer(shared float64), float64, [1024]), storage_scope = shared;
+    attr [IterVar(blockIdx.y_1: int32, (nullptr), "ThreadIndex", "blockIdx.y")] "thread_extent" = 368 {
+      attr [IterVar(threadIdx.y_1: int32, (nullptr), "ThreadIndex", "threadIdx.y")] "thread_extent" = 4;
+      for (ax0.inner_1: int32, 0, 8) {
+        attr [IterVar(threadIdx.x_1: int32, (nullptr), "ThreadIndex", "threadIdx.x")] "thread_extent" = 32;
+        if @tir.likely((((blockIdx.x_1*32) + threadIdx.x_1) < 100), dtype=bool) {
+          data_B.shared[(((threadIdx.y_1*256) + (ax0.inner_1*32)) + threadIdx.x_1)] = (float64*)data_B_2[(((((blockIdx.y_1*3200) + (threadIdx.y_1*800)) + (ax0.inner_1*100)) + (blockIdx.x_1*32)) + threadIdx.x_1)]
+        }
+      }
+      attr [IterVar(threadIdx.y_1, (nullptr), "ThreadIndex", "threadIdx.y")] "thread_extent" = 4;
+      for (ax0.inner.inner_1: int32, 0, 8) {
+        attr [IterVar(threadIdx.x_1, (nullptr), "ThreadIndex", "threadIdx.x")] "thread_extent" = 32;
+        if @tir.likely(((((blockIdx.x_1*32) + (threadIdx.y_1*8)) + ax0.inner.inner_1) < 100), dtype=bool) {
+          T_transpose_1[(((((blockIdx.x_1*376832) + (threadIdx.y_1*94208)) + (ax0.inner.inner_1*11776)) + (blockIdx.y_1*32)) + threadIdx.x_1)] = (float64*)data_B.shared[(((threadIdx.x_1*32) + (threadIdx.y_1*8)) + ax0.inner.inner_1)]
+        }
+      }
+    }
+    attr [IterVar(blockIdx.y_2: int32, (nullptr), "ThreadIndex", "blockIdx.y")] "thread_extent" = 50;
+    allocate(T_matmul_NT.rf: Pointer(local float64), float64, [1]), storage_scope = local;
+    allocate(reduce_temp0: Pointer(local float64), float64, [1]), storage_scope = local;
+    attr [IterVar(blockIdx.x_2: int32, (nullptr), "ThreadIndex", "blockIdx.x")] "thread_extent" = 100;
+    attr [IterVar(threadIdx.x_2: int32, (nullptr), "ThreadIndex", "threadIdx.x")] "thread_extent" = 368 {
+      T_matmul_NT.rf[0] = 0f64
+      for (k.outer: int32, 0, 32) {
+        T_matmul_NT.rf[0] = ((float64*)T_matmul_NT.rf[0] + ((float64*)T_transpose[(((blockIdx.y_2*11776) + (k.outer*368)) + threadIdx.x_2)]*(float64*)T_transpose_1[(((blockIdx.x_2*11776) + (k.outer*368)) + threadIdx.x_2)]))
+      }
+      attr [meta[tir.CommReducer][0]] "reduce_scope" = @tir.reinterpret(0u64, dtype=handle);
+      @tir.tvm_thread_allreduce(1u32, (float64*)T_matmul_NT.rf[0], True, reduce_temp0, threadIdx.x_2, dtype=handle)
+      if (threadIdx.x_2 == 0) {
+        T_matmul_NT_2[((blockIdx.y_2*100) + blockIdx.x_2)] = (float64*)reduce_temp0[0]
+      }
+    }
+  }
+}
+
+

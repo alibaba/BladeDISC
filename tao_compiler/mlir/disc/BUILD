@@ -156,6 +156,7 @@ disc_cc_library(
         "//tensorflow/compiler/mlir/hlo:lhlo_gpu",
         "//tensorflow/core/platform:status",
         "//tensorflow/compiler/mlir/tensorflow:compile_mlir_util",
+        "//tensorflow/compiler/mlir/tensorflow:tf_dialect_passes",
         "@llvm-project//llvm:OrcJIT",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:ExecutionEngineUtils",

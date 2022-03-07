@@ -189,8 +189,21 @@ bool ConvertAtenArange(
   const auto& loc = GetNodeLocation(ctx, node);
   auto end = ctx.GetMlirValue(node.input(0));
   auto dtype_value = torch::jit::toIValue(node.input(1));
-  if (!dtype_value || dtype_value->isNone()) {
-    return false;
+  //   if (!dtype_value || dtype_value->isNone()) {
+  // return false;
+  //   }
+  if (dtype_value->isNone()) {
+    // Use the global default.
+    dtype_value = torch::TensorType::get();
+  } else if (!dtype_value) {
+    // Infer the data type from the other input arguments (i.e., `end`). If end
+    // is floating-point, the dtype is inferred to be the default dtype.
+    // Otherwise, the dtype is inferred to be torch.int64.
+    if (node.input(0)->getType() == FloatType::get()) {
+      dtype_value = torch::dtype();
+    } else {
+      dtype_value = torch::dtype(torch::Int64);
+    }
   }
   // ScalarType in jit::Graph is type of int
   torch::ScalarType dtype =
@@ -198,9 +211,16 @@ bool ConvertAtenArange(
   if (dtype != torch::ScalarType::Long) {
     return false;
   }
+  auto work_type = BuildMlirElemType(*ctx.builder, torch::ScalarType::Long);
   auto elem_type = BuildMlirElemType(*ctx.builder, dtype);
-  if (elem_type != end.getType()) {
-    return false;
+  //   if (elem_type != end.getType()) {
+  // return false;
+  //   }
+  if (node.input(0)->getType() == FloatType::get()) {
+    end = ctx.builder->create<mlir::mhlo::CeilOp>(loc, end);
+    end = ctx.builder->create<mlir::mhlo::ConvertOp>(loc, end, work_type);
+  } else if (work_type != elem_type) {
+    end = ctx.builder->create<mlir::mhlo::ConvertOp>(loc, end, work_type);
   }
 
   std::vector<mlir::Value> dim_sizes = {end};
@@ -210,6 +230,11 @@ bool ConvertAtenArange(
   auto out_shape = mlir::RankedTensorType::get(out_shape_vec, elem_type);
   mlir::Value out = ctx.builder->create<mlir::mhlo::DynamicIotaOp>(
       loc, out_shape, end, ctx.builder->getI64IntegerAttr(0));
+
+  if (work_type != elem_type) {
+    out = ctx.builder->create<mlir::mhlo::ConvertOp>(loc, out, elem_type);
+  }
+
   ctx.value_map[node.output()] = out;
   return true;
 }
@@ -222,6 +247,15 @@ bool ConvertAtenFloorDiv(
   auto hlo_lhs = ctx.GetMlirValue(node.input(0));
   auto hlo_rhs = ctx.GetMlirValue(node.input(1));
 
+  // According to the document, it actually rounds the quotient towards zero
+  // instead of taking its floor. We do it as following current. To a find
+  // better way in the furture.
+  //    div = lhs / rhs
+  //    a = sign(div)
+  //    b = abs(div)
+  //    c = floor(b)
+  //    result = mul(a, c)
+
   auto& builder = *ctx.builder;
   auto result_type = BuildMlirRankedTensorType(builder, *node.output(0));
   bool no_implicit_broadcast = false;
@@ -233,8 +267,11 @@ bool ConvertAtenFloorDiv(
           hlo_rhs,
           result_type.getElementType(),
           no_implicit_broadcast);
-  mlir::Value floor = ctx.builder->create<mlir::mhlo::FloorOp>(loc, divide);
-  ctx.value_map[node.output(0)] = floor;
+  mlir::Value sign = ctx.builder->create<mlir::mhlo::SignOp>(loc, divide);
+  mlir::Value abs = ctx.builder->create<mlir::mhlo::AbsOp>(loc, divide);
+  mlir::Value floor = ctx.builder->create<mlir::mhlo::FloorOp>(loc, abs);
+  mlir::Value result = ctx.builder->create<mlir::mhlo::MulOp>(loc, sign, floor);
+  ctx.value_map[node.output(0)] = result;
 
   return true;
 }

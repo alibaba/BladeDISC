@@ -180,6 +180,10 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_func(torch.eq)
         self._test_cmp_func(torch.eq)
 
+    def test_ne(self):
+        self._test_func(torch.ne)
+        self._test_cmp_func(torch.ne)
+
     def test_le(self):
         self._test_func(torch.le)
         self._test_cmp_func(torch.le)

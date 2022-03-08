@@ -51,6 +51,15 @@ filegroup(
     srcs = glob(["**/pybind*.h"]),
 )
 
+cc_library(
+    name = "tool_funcs",
+    srcs = ["tool_funcs.cpp"],
+    hdrs = ["tool_funcs.h"],
+    deps = [
+        "@local_org_torch//:libtorch",
+    ],
+)
+
 cc_test(
     name = "shape_type_test",
     srcs = [
@@ -64,6 +73,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
+        ":tool_funcs",
         "//src/common_utils:torch_blade_common",
         "@googltest//:gtest_main",
         "@local_org_torch//:libtorch",

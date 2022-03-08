@@ -794,10 +794,12 @@ bool StitchGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                                 FusionPattern& fusion_pattern) {
   const auto& results = fusion_pattern.getResults();
   if (results.empty()) {
+    LLVM_DEBUG(llvm::dbgs() << "results empty.");
     return false;
   }
 
   if (!findFusionPatternTypeAndSubroot(shapeAnalysis, fusion_pattern)) {
+    LLVM_DEBUG(llvm::dbgs() << "find fusion type and subroot failed.");
     return false;
   } else if (fusion_pattern.getFusionType() != FusionType::kStitch) {
     return true;
@@ -809,6 +811,7 @@ bool StitchGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
   // Analyze tile information of sub-roots and roots, identify regular/irregular
   // xroots.
   if (!tileXroots(shapeAnalysis, fusion_pattern)) {
+    LLVM_DEBUG(llvm::dbgs() << "tile xroots failed.");
     return false;
   }
   DenseMap<Value, TileInfo>& tile_plan = fusion_pattern.getTilePlan();
@@ -832,6 +835,7 @@ bool StitchGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
       value = cast<lmhlo::LmhloOp>(op).getResultBuffer();
     }
     if (!backtraceTileAndCover(shapeAnalysis, fusion_pattern, value)) {
+      LLVM_DEBUG(llvm::dbgs() << "backtrace tile and cover failed.");
       return false;
     }
   }

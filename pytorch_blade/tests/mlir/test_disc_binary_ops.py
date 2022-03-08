@@ -130,76 +130,111 @@ class TestDiscBinaryOps(DiscTestCase):
 
         self._test_binary_ops(func2)
 
-    def test_binary_type_promotion(self):
-        self._test_binary_type_promotion(torch.sub)
-        self._test_binary_type_promotion(torch.add)
-        self._test_binary_type_promotion(torch.mul)
-        self._test_binary_type_promotion(torch.div)
-        self._test_binary_type_promotion(torch.floor_divide)
-        self._test_binary_type_promotion(torch.rsub)
+    # def test_binary_type_promotion(self):
+    #     self._test_binary_type_promotion(torch.sub)
+    #     self._test_binary_type_promotion(torch.add)
+    #     self._test_binary_type_promotion(torch.mul)
+    #     self._test_binary_type_promotion(torch.div)
+    #     self._test_binary_type_promotion(torch.floor_divide)
+    #     self._test_binary_type_promotion(torch.rsub)
 
-    def test_arithmetic_func(self):
-        self._test_func(torch.sub)
-        self._test_func(torch.add)
-        self._test_func(torch.mul)
-        self._test_func(torch.div)
-        self._test_func(torch.floor_divide)
-        self._test_func(torch.rsub)
+    # def test_arithmetic_func(self):
+    #     self._test_func(torch.sub)
+    #     self._test_func(torch.add)
+    #     self._test_func(torch.mul)
+    #     self._test_func(torch.div)
+    #     self._test_func(torch.floor_divide)
+    #     self._test_func(torch.rsub)
 
-    def test_arithmetic_func_has_alpha(self):
-        self._test_func_has_alpha(torch.sub)
-        self._test_func_has_alpha(torch.add)
-        self._test_func_has_alpha(torch.rsub)
+    # def test_arithmetic_func_has_alpha(self):
+    #     self._test_func_has_alpha(torch.sub)
+    #     self._test_func_has_alpha(torch.add)
+    #     self._test_func_has_alpha(torch.rsub)
 
-    def test_scalar_arithmetic_func(self):
-        self._test_scalar_func(torch.sub)
-        self._test_scalar_func(torch.add)
-        self._test_scalar_func(torch.mul)
-        self._test_scalar_func(torch.div)
-        self._test_rhs_scalar_func(torch.rsub)
+    # def test_scalar_arithmetic_func(self):
+    #     self._test_scalar_func(torch.sub)
+    #     self._test_scalar_func(torch.add)
+    #     self._test_scalar_func(torch.mul)
+    #     self._test_scalar_func(torch.div)
+    #     self._test_rhs_scalar_func(torch.rsub)
 
-    def test_pow(self):
-        self._test_func(torch.pow)
-        self._test_scalar_func(torch.pow)
+    # def test_pow(self):
+    #     self._test_func(torch.pow)
+    #     self._test_scalar_func(torch.pow)
 
-    def _test_cmp_func(self, torch_func):
-        @torch.jit.script
-        def func(x, y):
-            return torch_func(x, 2.0), torch_func(y, 2.0)
-        self._test_func(func)
+    # def _test_cmp_func(self, torch_func):
+    #     @torch.jit.script
+    #     def func(x, y):
+    #         return torch_func(x, 2.0), torch_func(y, 2.0)
+    #     self._test_func(func)
 
-    def test_gt(self):
-        self._test_func(torch.gt)
-        self._test_cmp_func(torch.gt)
+    # def test_gt(self):
+    #     self._test_func(torch.gt)
+    #     self._test_cmp_func(torch.gt)
 
-    def test_ge(self):
-        self._test_func(torch.ge)
-        self._test_cmp_func(torch.ge)
+    # def test_ge(self):
+    #     self._test_func(torch.ge)
+    #     self._test_cmp_func(torch.ge)
 
-    def test_eq(self):
-        self._test_func(torch.eq)
-        self._test_cmp_func(torch.eq)
+    # def test_eq(self):
+    #     self._test_func(torch.eq)
+    #     self._test_cmp_func(torch.eq)
 
-    def test_ne(self):
-        self._test_func(torch.ne)
-        self._test_cmp_func(torch.ne)
+    # def test_ne(self):
+    #     self._test_func(torch.ne)
+    #     self._test_cmp_func(torch.ne)
 
-    def test_le(self):
-        self._test_func(torch.le)
-        self._test_cmp_func(torch.le)
+    # def test_le(self):
+    #     self._test_func(torch.le)
+    #     self._test_cmp_func(torch.le)
 
-    def test_lt(self):
-        self._test_func(torch.lt)
-        self._test_cmp_func(torch.lt)
+    # def test_lt(self):
+    #     self._test_func(torch.lt)
+    #     self._test_cmp_func(torch.lt)
 
     def test_arange(self):
+        # Given `dtype`.
         @torch.jit.script
-        def func1(x):
-            return torch.arange(x.size(0), dtype=torch.long)
+        def func1(x, type_tensor):
+            return torch.arange(x.size(0), dtype=type_tensor.dtype)
 
-        test_data = (torch.randn([10, 2, 3, 4], device=self.device),)
+        # test_data = (torch.randn([10, 2], device=self.device),
+        #              torch.tensor(0, dtype=torch.long))
+        # out, res = self._test_cvt_to_disc(func1, test_data)
+        # self._check_type(out, res)
+
+        test_data = (torch.randn([10, 2], device=self.device),
+                     torch.tensor(0, dtype=torch.int))
         out, res = self._test_cvt_to_disc(func1, test_data)
+        print(out)
+        print(res)
         self._check_type(out, res)
+
+        # test_data = (torch.randn([10, 2], device=self.device), torch.float)
+        # out, res = self._test_cvt_to_disc(func1, test_data)
+        # self._check_type(out, res)
+
+        # # Given `dtype` as None.
+        # @torch.jit.script
+        # def func2(x):
+        #     return torch.arange(x, dtype=None)
+
+        # out, res = self._test_cvt_to_disc(func2, 10)
+        # self._check_type(out, res)
+
+        # out, res = self._test_cvt_to_disc(func2, 13.4)
+        # self._check_type(out, res)
+
+        # # Empty `dtype`.
+        # @torch.jit.script
+        # def func3(x):
+        #     return torch.arange(x)
+
+        # out, res = self._test_cvt_to_disc(func3, int(10))
+        # self._check_type(out, res)
+
+        # out, res = self._test_cvt_to_disc(func3, float(13.4))
+        # self._check_type(out, res)
 
 
 if __name__ == "__main__":

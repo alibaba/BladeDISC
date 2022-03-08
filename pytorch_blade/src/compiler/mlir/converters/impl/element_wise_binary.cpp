@@ -226,82 +226,71 @@ bool ConvertAtenArange(
   return true;
 }
 
-#if 0
 bool ConvertAtenArangeV2(
     MhloConversionContext& ctx,
     const torch::jit::Node& node) {
   const auto& loc = GetNodeLocation(ctx, node);
   auto end = ctx.GetMlirValue(node.input(0));
-  auto dtype_value = torch::jit::toIValue(node.input(1));
-  auto default_dtype = c10::get_default_dtype();
-  auto target_dtype = dtype_value;
-  auto end_type = end.getType();
+  auto input_mlir_type = end.getType();
+  auto target_dtype = torch::jit::toIValue(node.input(1));
   // See document: https://pytorch.org/docs/stable/generated/torch.arange.html
-  // For `dtype` argument:  Default: if None, uses a global default. If dtype is
-  // not given, infer the data type from the other input arguments. If any of
-  // start, end, or stop are floating-point, the dtype is inferred to be the
-  // default dtype. Otherwise, the dtype is inferred to be torch.int64.
-  if (dtype_value->isNone()) {
+  // if dtype is None, use a global default. If dtype is not given, infer the
+  // data type from the other input arguments. If any of start, end, or stop are
+  // floating-point, the dtype is inferred to be the default dtype. Otherwise,
+  // the dtype is inferred to be torch.int64.
+  auto default_dtype =
+      IValue(c10::typeMetaToScalarType(c10::get_default_dtype()));
+  if (!target_dtype) {
     target_dtype = default_dtype;
-  } else if (!dtype_value) {
-    if (!end_type->isIntOrIndexOrFloat()) {
+  } else if (target_dtype->isNone()) {
+    // Do not know how to deal with a datatype that is neither int/index nor
+    // float.
+    if (!input_mlir_type.isIntOrIndexOrFloat()) {
       return false;
     }
-    if (end_type->isBF16() || end_type->isF16() || end_type->isF32() ||
-        end_type->isF64()) {
+    if (input_mlir_type.isBF16() || input_mlir_type.isF16() ||
+        input_mlir_type.isF32() || input_mlir_type.isF64()) {
       target_dtype = default_dtype;
     } else {
-      target_dtype = torch::jit::toIValue(torch::ScalarType::Long);
+      target_dtype = IValue(torch::ScalarType::Long);
     }
   }
 
   // If `end` is not int type, convert to int to meet the requirement of
   // mlir::mhlo::DynamicIotaOp.
-  torch::ScalarType long_dtype =
-      static_cast<torch::ScalarType>(
-          torch::jit::toIValue(torch::ScalarType::Long)->toInt());
-  auto mlir_long_type = BuildMlirElemType(*ctx.builder, long_dtype);
-  if (!end_type->isIntOrIndex()) {
-    // First, ceil up `end`.
+  auto iota_type = input_mlir_type;
+  if (!input_mlir_type.isIntOrIndex()) {
+    // First, ceil up `end`, e.g., 3.5 -> 4.0.
     end = ctx.builder->create<mlir::mhlo::CeilOp>(loc, end);
     // Convert type to int.
+    auto mlir_long_type =
+        BuildMlirElemType(*ctx.builder, torch::ScalarType::Long);
     end = ctx.builder->create<mlir::mhlo::ConvertOp>(loc, end, mlir_long_type);
-    end_type = end.getType();
+    iota_type = end.getType();
   }
-
-//   if (!dtype_value || dtype_value->isNone()) {
-    // return false;
-//   }
-  // ScalarType in jit::Graph is type of int
-  torch::ScalarType dtype =
-      static_cast<torch::ScalarType>(dtype_value->toInt());
-//   if (dtype != torch::ScalarType::Long) {
-    // return false;
-//   }
-//   auto elem_type = BuildMlirElemType(*ctx.builder, dtype);
-//   if (elem_type != end.getType()) {
-    // return false;
-//   }
 
   std::vector<mlir::Value> dim_sizes = {end};
   end = ctx.builder->create<mlir::tensor::FromElementsOp>(loc, dim_sizes);
 
   std::vector<mlir_dim_t> out_shape_vec(1, mlir::ShapedType::kDynamicSize);
-//   auto out_shape = mlir::RankedTensorType::get(out_shape_vec, elem_type);
-  auto out_shape = mlir::RankedTensorType::get(out_shape_vec, end_type);
-  mlir::Value out = ctx.builder->create<mlir::mhlo::DynamicIotaOp>(
+  auto out_shape = mlir::RankedTensorType::get(out_shape_vec, iota_type);
+  mlir::Value iota = ctx.builder->create<mlir::mhlo::DynamicIotaOp>(
       loc, out_shape, end, ctx.builder->getI64IntegerAttr(0));
 
   // Convert result to target type if necessary.
-  auto mlir_target_dtype = BuildMlirElemType(*ctx.builder, target_dtype);
-  if (mlir_target_dtype != end_type) {
-    out = ctx.builder->create<mlir::mhlo::ConvertOp>(loc, out, mlir_target_dtype);
+  auto mlir_target_dtype =
+      BuildMlirElemType(*ctx.builder, target_dtype->toScalarType());
+  mlir::Value result;
+  if (mlir_target_dtype != iota_type) {
+    result = ctx.builder->create<mlir::mhlo::ConvertOp>(
+        loc, iota, mlir_target_dtype);
+  } else {
+    result = iota;
   }
 
-  ctx.value_map[node.output()] = out;
+  ctx.value_map[node.output()] = result;
   return true;
 }
-#endif
 
 template <bool rhs_scalar = false>
 bool ConvertAtenFloorDiv(
@@ -486,7 +475,7 @@ auto mhlo_conversion =
         .pattern(
             "aten::arange(Scalar end, int? dtype=None, int? layout=None, "
             "Device? device=None, bool? pin_memory=None) -> (Tensor)",
-            ConvertAtenArange);
+            ConvertAtenArangeV2);
 } // namespace
 } // namespace blade
 } // namespace torch

@@ -29,6 +29,8 @@
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 
+#define DEBUG_TYPE "shape-utils"
+
 namespace mlir {
 namespace disc_ral {
 
@@ -1236,7 +1238,10 @@ LogicalResult ShapeAnalysis::visitSymbolShapes(SymbolShapeVisitor visitor) {
     Location loc = op_->getLoc();
     Operation* definingOp = value.getDefiningOp();
     if (!definingOp) {
-      Block* block = cast<BlockArgument>(value).getOwner();
+      BlockArgument arg = value.dyn_cast<BlockArgument>();
+      assert(arg);
+      Block* block = arg.getOwner();
+      // Block* block = cast<BlockArgument>(value).getOwner();
       loc = block->getParentOp()->getLoc();
       b.setInsertionPoint(block, block->begin());
     } else {

@@ -831,6 +831,15 @@ LogicalResult ShapeAnalysis::applyMhloOpConstraint(Operation* op) {
         isShapeValueEqual(in_tensor_shape->second, op->getOperand(1))) {
       mapShapeEqual(operand, result);
     }
+  } else if (auto dot = dyn_cast<mhlo::DotOp>(op)) {
+    Value lhs = op->getOperand(0);
+    Value rhs = op->getOperand(1);
+    Value result = op->getResult(0);
+    // Contracting dimension.
+    mapDimEqual(lhs, 1, rhs, 0);
+    // M and N dimensions
+    mapDimEqual(lhs, 0, result, 0);
+    mapDimEqual(rhs, 1, result, 1);
   } else if (auto dot_general = dyn_cast<mhlo::DotGeneralOp>(op)) {
     Value lhs = op->getOperand(0);
     Value rhs = op->getOperand(1);
@@ -1006,6 +1015,9 @@ LogicalResult ShapeAnalysis::applyLmhloOpConstraint(Operation* op) {
       }
     }
   } else if (auto dot_general = dyn_cast<lmhlo::DotGeneralOp>(op)) {
+    // Note that there should be no lmhlo::DotOp as we have already converted
+    // DotOp to DotGeneralOp with mhlo Dialect already. Thus we only deal with
+    // DotGeneralOp for lmhlo Dialect.
     Value lhs = op->getOperand(0);
     Value rhs = op->getOperand(1);
     auto dim_numbers = dot_general.dot_dimension_numbers();

@@ -122,6 +122,11 @@ def DiscFusionPass : Pass<"disc-fusion", "FuncOp"> {
   ];
 }
 
+def DiscFuseSplatConstPass: Pass<"disc-fuse-splat-const", "FuncOp"> {
+  let summary = "Fuse splat constant to avoid memory access.";
+  let constructor = "createDiscFuseSplatConstPass()";
+}
+
 def DiscMarkShapeCalculationPass : Pass<"disc-mhlo-mark-shape-calc", "ModuleOp"> {
   let summary = "Identify and mark with an attribute operations performing shape calculation";
   let constructor = "createDiscMarkShapeCalcOpPass()";

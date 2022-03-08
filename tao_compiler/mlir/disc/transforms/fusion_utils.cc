@@ -365,9 +365,10 @@ bool isRank2ColReduction(Operation* op) {
 // engine.
 bool isFusible(Operation* op) {
   // Only scalar const are supported by the fusion codegen engine a.t.m.
-  if (dyn_cast<lmhlo::ConstOp>(op)) {
-    MemRefType type = op->getOperand(0).getType().cast<MemRefType>();
-    return (type.getRank() == 0);
+  if (isa<lmhlo::ConstOp>(op)) {
+    auto constant = cast<lmhlo::ConstOp>(op);
+    MemRefType type = constant.output().getType().cast<MemRefType>();
+    return (type.getRank() == 0 || constant.value().isSplat());
   }
 
   // All element ops are supported by the fusion codegen engine.

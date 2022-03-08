@@ -311,6 +311,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(disc_ral::createDiscFusionPass(
       gpu_enabled, enable_stitch ? "stitch" : "base"));
   if (gpu_enabled) {
+    // TODO: Support cpu stitch with splat const
+    pm.addNestedPass<FuncOp>(disc_ral::createDiscFuseSplatConstPass());
     auto& gpu_options = options.gpu_info;
     pm.addNestedPass<FuncOp>(
         disc_ral::createDiscSpecializeFusionWithSpeculationPass(

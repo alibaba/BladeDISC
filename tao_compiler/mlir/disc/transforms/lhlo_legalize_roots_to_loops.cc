@@ -2773,7 +2773,7 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
       if (failed(lowerWithScheduleStitch(
               fusion_op, fusion_pattern, shape_analysis, tile_size,
               lower_config, row_reduction_schedule))) {
-        return dominant_op->emitError() << "failed to lower kStitch fusion.";
+        return fusion->emitError() << "failed to lower kStitch fusion.";
       }
     } break;
 
@@ -3170,7 +3170,11 @@ class DiscLhloLegalizeRootsToParallelLoops
     FuncOp func = getOperation();
 
     ShapeAnalysis shape_analysis(func);
-    shape_analysis.run();
+    if (failed(shape_analysis.run())) {
+      func->emitError("failed to do shape analysis");
+      signalPassFailure();
+      return;
+    }
 
     OpBuilder b(func);
     SmallVector<Operation*, 4> gpu_non_fusion_worklist;

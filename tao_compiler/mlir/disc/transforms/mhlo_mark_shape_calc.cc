@@ -141,6 +141,18 @@ void DiscMarkShapeCalc::inferOperands(FuncOp func,
         if (isa<tensor::DimOp>(operand) || isa<shape::ShapeOfOp>(operand)) {
           continue;
         }
+        // large tensors are more likely to be 'data' computations, which are
+        // supposed to be placed on device if possible.
+        // TODO(disc): add a rule for dynamic shape case as well.
+        //   Possible solutions:
+        //   - using rank information as a hint (higher rank tensors are more
+        //   likely to be data computation)
+        //   - using likely value after we refactor shape constriant
+        //   implementation.
+        auto ty = operand_value.getType().dyn_cast<RankedTensorType>();
+        if (ty && ty.hasStaticShape() && ty.getNumElements() > 64) {
+          continue;
+        }
         marked_ops.insert(operand);
       }
     }

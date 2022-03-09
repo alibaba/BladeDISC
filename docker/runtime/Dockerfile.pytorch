@@ -2,8 +2,8 @@ ARG BASEIMAGE=nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
 FROM ${BASEIMAGE}
 
 ADD ./docker/scripts /install/scripts
-RUN bash /install/scripts/find-fastest-apt.sh \
-    && bash /install/scripts/install-tensorrt.sh
+RUN bash /install/scripts/find-fastest-apt.sh
+RUN bash /install/scripts/install-tensorrt.sh
 
 ADD ./build/torch_blade*.whl  /install/python/
 

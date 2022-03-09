@@ -1,4 +1,4 @@
-ARG BASEIMAGE=nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
+ARG BASEIMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
 FROM ${BASEIMAGE}
 
 ARG DISC_HOST_TF_VERSION=""
@@ -12,8 +12,9 @@ RUN bash /install/scripts/find-fastest-apt.sh && \
     ln -s /usr/bin/python3 /usr/bin/python && \
     bash /install/scripts/install-cmake.sh && \
     bash /install/scripts/install-bazel.sh && \
-    bash /install/scripts/install-python.sh && \
-    bash /install/scripts/install-tensorrt.sh
+    bash /install/scripts/install-python.sh
+
+RUN bash /install/scripts/install-tensorrt.sh
 
 ENV PATH="/opt/cmake/bin:${PATH}"
 ENV LD_LIBRARY_PATH="/usr/local/TensorRT/lib/:${LD_LIBRARY_PATH}"

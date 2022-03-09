@@ -725,7 +725,11 @@ bool ShapeAnalysis::isShapeEqual(Value lhs, Value rhs) {
   SymbolShape* lhsShape = getShape(lhs);
   SymbolShape* rhsShape = getShape(rhs);
   if (!lhsShape || !lhsShape) return false;
-  return *lhsShape == *rhsShape;
+  if (lhsShape->rank() != rhsShape->rank()) return false;
+  for (int i = 0; i < lhsShape->rank(); ++i) {
+    if (!isDimEqual(lhs, i, rhs, i)) return false;
+  }
+  return true;
 }
 
 bool ShapeAnalysis::isShapeValueEqual(Value lhs, Value rhs) {

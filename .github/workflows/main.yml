@@ -36,7 +36,7 @@ jobs:
         git submodule update --depth=1 --init --recursive
         docker build -t disc-dev-cuda10.0 \
           --build-arg BASEIMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04 \
-          --build-arg DISC_HOST_TF_VERSION="tensorflow==1.15" \
+          --build-arg DISC_HOST_TF_VERSION="tensorflow-gpu==1.15" \
           -f docker/dev/Dockerfile .
     - name: Build And Test DISC
       run: |
@@ -80,7 +80,7 @@ jobs:
         git submodule update --depth=1 --init --recursive
         docker build -t disc-dev-cuda11.0 \
           --build-arg BASEIMAGE=nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04 \
-          --build-arg DISC_HOST_TF_VERSION="tensorflow==2.4" \
+          --build-arg DISC_HOST_TF_VERSION="tensorflow-gpu==2.4" \
           -f docker/dev/Dockerfile .
     - name: Build And Test DISC
       run: |

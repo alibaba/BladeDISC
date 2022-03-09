@@ -230,30 +230,71 @@ bool ConvertAtenArangeV2(
     MhloConversionContext& ctx,
     const torch::jit::Node& node) {
   const auto& loc = GetNodeLocation(ctx, node);
+  auto dtype = node.input(1);
+  if (!IsPrimConstant(*dtype)) {
+    DLOG(INFO) << "Only support static dtype.";
+    return false;
+  }
   auto end = ctx.GetMlirValue(node.input(0));
   auto input_mlir_type = end.getType();
   auto target_dtype = torch::jit::toIValue(node.input(1));
+  // #if 1
+  //   llvm::errs() << "[ZZ] node is: \n";
+  //   node.dump();
+  //   llvm::errs() << "[ZZ] node dumpped above\n";
+  //   torch::jit::Value* input1 = node.input(1);
+  //   llvm::errs() << "[ZZ] input-1 is: \n";
+  //   input1->node()->dump();
+  //   // ScalarType in jit::Graph is type of int
+  // //   torch::ScalarType dtype =
+  //     //   static_cast<torch::ScalarType>(target_dtype->toInt());
+  //   // torch::ScalarType dtype = target_dtype->toScalarType();
+  // #endif
+  // #if 1
+  //   llvm::errs() << "[ZZ] dtype of end is: \n";
+  //   target_dtype->dump();
+  //   llvm::errs() << "[ZZ] dtype of end dumpped above\n";
+  // #endif
   // See document: https://pytorch.org/docs/stable/generated/torch.arange.html
   // if dtype is None, use a global default. If dtype is not given, infer the
   // data type from the other input arguments. If any of start, end, or stop are
   // floating-point, the dtype is inferred to be the default dtype. Otherwise,
   // the dtype is inferred to be torch.int64.
-  auto default_dtype =
-      IValue(c10::typeMetaToScalarType(c10::get_default_dtype()));
+  c10::ScalarType default_scalar_type =
+      c10::typeMetaToScalarType(c10::get_default_dtype());
+  c10::ScalarType target_scalar_type;
   if (!target_dtype) {
-    target_dtype = default_dtype;
+#if 1
+    llvm::errs() << "[ZZ] target-dtype is empty now.\n";
+#endif
+    target_scalar_type = default_scalar_type;
+    // target_dtype = default_dtype;
   } else if (target_dtype->isNone()) {
+#if 1
+    llvm::errs() << "[ZZ] target_dtype is none.\n";
+#endif
     // Do not know how to deal with a datatype that is neither int/index nor
     // float.
     if (!input_mlir_type.isIntOrIndexOrFloat()) {
+      DLOG(INFO) << "Unsupported dtype of argument `end` for arange.";
       return false;
     }
     if (input_mlir_type.isBF16() || input_mlir_type.isF16() ||
         input_mlir_type.isF32() || input_mlir_type.isF64()) {
-      target_dtype = default_dtype;
+      // target_dtype = default_dtype;
+      target_scalar_type = default_scalar_type;
+#if 1
+      llvm::errs() << "[ZZ] input is float.\n";
+#endif
     } else {
-      target_dtype = IValue(torch::ScalarType::Long);
+      // target_dtype = IValue(static_cast<int64_t>(torch::ScalarType::Long));
+      target_scalar_type = torch::ScalarType::Long;
     }
+  } else {
+    target_scalar_type = static_cast<torch::ScalarType>(target_dtype->toInt());
+#if 1
+    llvm::errs() << "[ZZ] target_dtype is the same with specified.\n";
+#endif
   }
 
   // If `end` is not int type, convert to int to meet the requirement of
@@ -264,7 +305,7 @@ bool ConvertAtenArangeV2(
     end = ctx.builder->create<mlir::mhlo::CeilOp>(loc, end);
     // Convert type to int.
     auto mlir_long_type =
-        BuildMlirElemType(*ctx.builder, torch::ScalarType::Long);
+        BuildMlirElemType(*ctx.builder, c10::ScalarType::Long);
     end = ctx.builder->create<mlir::mhlo::ConvertOp>(loc, end, mlir_long_type);
     iota_type = end.getType();
   }
@@ -278,8 +319,10 @@ bool ConvertAtenArangeV2(
       loc, out_shape, end, ctx.builder->getI64IntegerAttr(0));
 
   // Convert result to target type if necessary.
-  auto mlir_target_dtype =
-      BuildMlirElemType(*ctx.builder, target_dtype->toScalarType());
+  auto mlir_target_dtype = BuildMlirElemType(*ctx.builder, target_scalar_type);
+#if 1
+  llvm::errs() << "[ZZ] mlir-target-dtype is " << mlir_target_dtype << "\n";
+#endif
   mlir::Value result;
   if (mlir_target_dtype != iota_type) {
     result = ctx.builder->create<mlir::mhlo::ConvertOp>(

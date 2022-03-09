@@ -63,6 +63,19 @@ class TestConstOps(DiscTestCase):
         """
         FileCheck().run(expect_str, disc_bytes)
 
+    def test_prim_dtype(self):
+        @torch.jit.script
+        def return_dtype():
+            a = torch.ones([2, 3, 4], dtype = torch.float64)
+            return a.dtype
+
+        return_const = self._ScriptFunction2Module(return_dtype)
+        graph = return_const.forward.graph
+        graph.eraseInput(0)
+        print(graph)
+        disc_bytes, _, _, _ = mlir.cvt_torchscript_to_mhlo(graph)
+        print(disc_bytes)
+
 
 if __name__ == "__main__":
     unittest.main()

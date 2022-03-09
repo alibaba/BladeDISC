@@ -76,6 +76,13 @@ class TestDiscBinaryOps(DiscTestCase):
         out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
         self._check_type(out, res)
 
+        # test integer
+        x = torch.randint([10, 2, 3, 4], device=self.device)
+        y = torch.randint([10, 2, 3, 4], device=self.device)
+        test_data = (x, y)
+        out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
+        self._check_type(out, res)
+
     def _test_func(self, torch_func):
         @torch.jit.script
         def func1(x, y):
@@ -193,22 +200,36 @@ class TestDiscBinaryOps(DiscTestCase):
     #     self._test_cmp_func(torch.lt)
 
     def test_arange(self):
-        # Given `dtype`.
+        # Given int `dtype`.
         @torch.jit.script
-        def func1(x, type_tensor):
-            return torch.arange(x.size(0), dtype=type_tensor.dtype)
-
-        # test_data = (torch.randn([10, 2], device=self.device),
-        #              torch.tensor(0, dtype=torch.long))
-        # out, res = self._test_cvt_to_disc(func1, test_data)
-        # self._check_type(out, res)
+        def func_int(x):
+            return torch.arange(x.size(0), dtype=torch.int)
 
         test_data = (torch.randn([10, 2], device=self.device),
                      torch.tensor(0, dtype=torch.int))
-        out, res = self._test_cvt_to_disc(func1, test_data)
-        print(out)
-        print(res)
+        out, res = self._test_cvt_to_disc(func_int, test_data)
+        # print(out)
+        # print(res)
+        # print(func_int.graph)
+        # import torch_blade.tools as tools
+        # for n in func_int.graph.nodes():
+        #     # print(n.inputs())
+        #     for input in n.inputs():
+        #         print(input)
+        #     print(tools.node_schema_str(n))
         self._check_type(out, res)
+
+        # def func_int(x, type_tensor):
+            # return torch.arange(x.size(0), dtype=type_tensor.dtype)
+
+        # Given long `dtype`.
+        # @torch.jit.script
+        # def func1(x, dtype):
+            # return torch.arange(x.size(0), dtype=dtype)
+        # test_data = (torch.randn([10, 2], device=self.device),
+                    #  torch.tensor(torch.long, dtype=torch.int))
+        # out, res = self._test_cvt_to_disc(func1, test_data)
+        # self._check_type(out, res)
 
         # test_data = (torch.randn([10, 2], device=self.device), torch.float)
         # out, res = self._test_cvt_to_disc(func1, test_data)

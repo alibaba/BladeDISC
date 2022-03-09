@@ -16,6 +16,7 @@
 #include <mlir/mhlo/builder/mlir_attr_utils.h>
 #include <mlir/mhlo/builder/standard.h>
 
+#include "common_utils/logging.h"
 #include "compiler/mlir/converters/mhlo_conversion_context.h"
 #include "compiler/mlir/converters/mhlo_converter_register.h"
 #include "compiler/mlir/converters/mlir_type_utils.h"
@@ -258,10 +259,43 @@ bool ConvertPrimConstant(
   return converter.Convert(ctx, node);
 }
 
+// Prim.dtype should return constant value as we do not support "dynamic type".
+bool ConvertPrimDtype(
+    MhloConversionContext& ctx,
+    const torch::jit::Node& node) {
+  auto jit_tensor = node.input(0);
+  auto tensor_type = jit_tensor->type()->cast<torch::TensorType>();
+  TORCH_CHECK(tensor_type != nullptr);
+  auto scalar_type = tensor_type->scalarType();
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+  node.dump();
+  llvm::errs() << "[ZZ] type: " << jit_tensor->type()->str() << "\n";
+  llvm::errs() << "[ZZ] tensor-type: " << tensor_type->str() << "\n";
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+  if (!scalar_type) {
+    llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+    DLOG(INFO) << "Failed to get dtype for the argument of prim::dtype.";
+    return false;
+  }
+  llvm::errs() << "[ZZ] me: " << static_cast<int32_t>(*scalar_type) << "\n";
+  llvm::errs() << "[ZZ] int: " << static_cast<int32_t>(c10::ScalarType::Int)
+               << "\n";
+  llvm::errs() << "[ZZ] long: " << static_cast<int32_t>(c10::ScalarType::Long)
+               << "\n";
+  // TORCH_CHECK(scalar_type == c10::ScalarType::Int);
+
+  auto loc = GetNodeLocation(ctx, node);
+  ctx.value_map[node.output(0)] = BuildStdConstForI32(
+      *ctx.builder, loc, static_cast<int32_t>(*scalar_type));
+
+  return true;
+}
+
 namespace {
-auto mhlo_conversion = MhloConversionPatternRegister().pattern(
-    GetPrimOperatorName(prim::Constant),
-    ConvertPrimConstant);
+auto mhlo_conversion =
+    MhloConversionPatternRegister()
+        .pattern(GetPrimOperatorName(prim::Constant), ConvertPrimConstant)
+        .pattern("prim::dtype(Tensor a) -> (int)", ConvertPrimDtype);
 } // namespace
 } // namespace blade
 } // namespace torch

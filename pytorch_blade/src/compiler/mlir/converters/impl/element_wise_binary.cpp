@@ -518,7 +518,8 @@ auto mhlo_conversion =
         .pattern(
             "aten::arange(Scalar end, int? dtype=None, int? layout=None, "
             "Device? device=None, bool? pin_memory=None) -> (Tensor)",
-            ConvertAtenArangeV2);
+            ConvertAtenArange);
+// ConvertAtenArangeV2);
 } // namespace
 } // namespace blade
 } // namespace torch

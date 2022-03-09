@@ -292,10 +292,10 @@ bool ConvertPrimDtype(
 }
 
 namespace {
-auto mhlo_conversion =
-    MhloConversionPatternRegister()
-        .pattern(GetPrimOperatorName(prim::Constant), ConvertPrimConstant)
-        .pattern("prim::dtype(Tensor a) -> (int)", ConvertPrimDtype);
+auto mhlo_conversion = MhloConversionPatternRegister().pattern(
+    GetPrimOperatorName(prim::Constant),
+    ConvertPrimConstant);
+// .pattern("prim::dtype(Tensor a) -> (int)", ConvertPrimDtype);
 } // namespace
 } // namespace blade
 } // namespace torch

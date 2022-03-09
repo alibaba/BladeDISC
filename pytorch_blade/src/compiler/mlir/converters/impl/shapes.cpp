@@ -388,42 +388,22 @@ bool ConvertAtenFlip(MhloConversionContext& ctx, const torch::jit::Node& node) {
   if (!CheckConstAttribute(jit_dims, op_name, "dims")) {
     return false;
   }
+  auto dims_ival = torch::jit::toIValue(jit_dims);
+  if (!(dims_ival && dims_ival->isIntList())) {
+    DLOG(WARNING) << "Flip dimensions must be constants";
+    return false;
+  }
+  auto dims = dims_ival->toIntList();
+  mlir_dim_t rank = GetRankOfMlirValue(input);
+  SmallVec4<mlir_dim_t> dims_vec(dims.begin(), dims.end());
+  SmallVec4<mlir_dim_t> trans_dim_vec = NormalizeDimIndex(dims_vec, rank);
 
   auto& builder = *ctx.builder;
   ctx.value_map[node.output(0)] = builder.create<mlir::mhlo::ReverseOp>(
-      loc,
-      input,
-      BuildI64ElementsAttr(builder, CastJitConstListToVec<int64_t>(*jit_dims)));
+      loc, input, BuildI64ElementsAttr(builder, trans_dim_vec));
+  // BuildI64ElementsAttr(builder, CastJitConstListToVec<int64_t>(*jit_dims)));
   return true;
 }
-
-// bool ConvertAtenTranspose(
-//     MhloConversionContext& ctx,
-//     const torch::jit::Node& node) {
-//   auto loc = GetNodeLocation(ctx, node);
-//   auto jit_tensor = node.input(0);
-//   auto jit_dim0 = node.input(1);
-//   auto jit_dim1 = node.input(2);
-//   bool is_const_dims = IsPrimConstant(*jit_dim0) &&
-//   IsPrimConstant(*jit_dim1); if (!is_const_dims) {
-//     LOG(WARNING) << "Transpose dimensions must be constant";
-//     return false;
-//   }
-
-//   auto ml_tensor = ctx.GetMlirValue(jit_tensor);
-//   mlir_dim_t rank = GetRankOfMlirValue(ml_tensor);
-//   mlir_dim_t trans_dim0 = CastJitConstToInt64(*jit_dim0);
-//   mlir_dim_t trans_dim1 = CastJitConstToInt64(*jit_dim1);
-//   trans_dim0 = NormalizeDimIndex(trans_dim0, rank);
-//   trans_dim1 = NormalizeDimIndex(trans_dim1, rank);
-
-//   SmallVec4<mlir_dim_t> trans_dim_vec = RangeIndices(0, rank);
-//   std::swap(trans_dim_vec[trans_dim0], trans_dim_vec[trans_dim1]);
-//   auto& builder = *ctx.builder;
-//   ctx.value_map[node.output(0)] =
-//       BuildPermute(builder, loc, ml_tensor, trans_dim_vec);
-//   return true;
-// }
 
 namespace {
 auto mhlo_conversion =

@@ -51,6 +51,7 @@ bool ConvertAtenToDtype(
   if (!dtype_value || dtype_value->isNone()) {
     return false;
   }
+  // TODO: if the target type is the save with input type, return identity.
   // ScalarType in jit::Graph is type of int
   torch::ScalarType dtype =
       static_cast<torch::ScalarType>(dtype_value->toInt());

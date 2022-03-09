@@ -398,6 +398,20 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
       return false;
     }
     in_info.emplace_back(in_value, in_tile);
+  } else if (isa<lmhlo::TransposeOp>(op)) {
+    auto transpose = cast<lmhlo::TransposeOp>(op);
+    auto permutation = transpose.permutation().getValues<int64_t>();
+    Value out_value = transpose.output();
+    auto tile_info = tile_plan[out_value];
+    int64_t rank = out_value.getType().cast<MemRefType>().getRank();
+    TileInfo in_tile;
+    for (int64_t i = 0; i < rank; i++) {
+      if (tile_info.tileSizes.find(i) != tile_info.tileSizes.end()) {
+        in_tile.tileSizes[permutation[i]] = tile_info.tileSizes[i];
+      }
+    }
+    Value in_value = transpose.operand();
+    in_info.emplace_back(in_value, in_tile);
   } else if (isa<lmhlo::DynamicGatherOp, lmhlo::GatherOp>(op)) {
     Value in_value = op->getOperand(0);
     Value out_value = cast<lmhlo::LmhloOp>(op).getResultBuffer();

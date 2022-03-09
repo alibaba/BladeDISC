@@ -1555,7 +1555,7 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
             if (e->IsControlEdge()) continue;
             Node* src = e->src();
             if (!compile_time_fixed_shape_nodes[src->id()]) continue;
-            if (src->type_string() == "Max") return true;
+            if (src->type_string() == "MatMul") return true;
             node_queue.push_back(src);
           }
         }

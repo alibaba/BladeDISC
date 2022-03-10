@@ -29,3 +29,6 @@
     Get##Name() = flag;               \
     return old_flag;                  \
   }
+
+#define TORCH_BLADE_RECORD_FUNCTION(func_name, inputs) \
+  RECORD_FUNCTION(func_name, inputs)

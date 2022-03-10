@@ -15,7 +15,8 @@
 namespace py = pybind11;
 namespace torch {
 namespace blade {
-
+namespace disc {
 void initMLIRBindings(py::module& m);
-}
+} // namespace disc
+} // namespace blade
 } // namespace torch

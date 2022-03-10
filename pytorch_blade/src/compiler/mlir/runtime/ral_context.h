@@ -36,6 +36,7 @@ using CUDAStream = ::c10::hip::HIPStream;
 
 #include "common_utils/macros.h"
 #include "common_utils/tempfs.h"
+#include "compiler/backends/engine_interface.h"
 #include "compiler/jit/shape_type_spec.h"
 
 namespace torch {
@@ -45,13 +46,7 @@ class RalContext {
   using EntryFunc = std::function<void(void**)>;
 
  public:
-  RalContext(
-      const std::string& ral_engine_bytes,
-      const std::string& ral_const_bytes,
-      const std::string& input_type_spec,
-      const std::string& output_type_spec,
-      const std::string& input_dev_str,
-      const std::string& output_dev_str);
+  RalContext(std::shared_ptr<backends::EngineState> state);
   ~RalContext();
 
   torch::List<torch::Tensor> Forward(const torch::List<torch::Tensor>&);
@@ -66,11 +61,8 @@ class RalContext {
   torch::List<torch::Tensor> PreProcessInputs(
       const torch::List<torch::Tensor>& inputs) const;
   std::tuple<void*, void*> LoadEngine(const std::string& ral_engine_bytes);
-  ShapeTypeSpec input_type_spec_;
-  ShapeTypeSpec output_type_spec_;
-  std::vector<std::string> input_dev_;
-  std::vector<std::string> output_dev_;
 
+  std::shared_ptr<backends::EngineState> engine_state_;
   TempFile lib_tmpf_;
   TempFile meta_tmpf_;
 

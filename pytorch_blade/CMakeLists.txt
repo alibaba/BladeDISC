@@ -188,8 +188,7 @@ if (TORCH_BLADE_BUILD_PYTHON_SUPPORT)
 
   target_link_libraries(_torch_blade PUBLIC
     torch_python torch_blade)
-  set_target_properties(_torch_blade PROPERTIES PREFIX "${PYTHON_MODULE_PREFIX}"
-                                           SUFFIX "${PYTHON_MODULE_EXTENSION}")
+  set_target_properties(_torch_blade PROPERTIES PREFIX "${PYTHON_MODULE_PREFIX}" SUFFIX ".so")
 endif (TORCH_BLADE_BUILD_PYTHON_SUPPORT)
 
 install(TARGETS torch_blade LIBRARY PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE)

@@ -12,27 +12,22 @@
 # !/bin/bash
 set -o pipefail
 set -e
-# bazel cache
+
 export CXXFLAGS=${CXXFLAGS:-"-Wno-deprecated-declarations"}
 export CFLAGS=${CFLAGS:-"-Wno-deprecated-declarations"}
 export CUDA_HOME=${CUDA_HOME:-/usr/local/cuda/}
 export CUDACXX=${CUDACXX:-"${CUDA_HOME}/bin/nvcc"}
 export PATH=${CUDA_HOME}/bin/:$PATH
-export LD_LIBRARY_PATH=${CUDA_HOME}/lib64:$LD_LIBRARY_PATH
-export LIBRARY_PATH=${CUDA_HOME}/lib64:$LIBRARY_PATH
-export GCC_HOST_COMPILER_PATH=$(which gcc) # needed by bazel crosstool
+export TENSORRT_INSTALL_PATH=${TENSORRT_INSTALL_PATH:-/usr/local/TensorRT/}
+export LD_LIBRARY_PATH=${TENSORRT_INSTALL_PATH}/lib/:${TENSORRT_INSTALL_PATH}/lib64/:${CUDA_HOME}/lib64:$LD_LIBRARY_PATH
+export LIBRARY_PATH=${TENSORRT_INSTALL_PATH}/lib/:${TENSORRT_INSTALL_PATH}/lib64/:${CUDA_HOME}/lib64:$LIBRARY_PATH
 
 # Build TorchBlade with DEBUG
 # export DEBUG=1
-
-# To save time, set USE_BLADE_DISC_PRE_BUILD=ON if you has already built blade_disc
-# export USE_BLADE_DISC_PRE_BUILD=ON
-
 export TORCH_BLADE_BUILD_MLIR_SUPPORT=${TORCH_BLADE_BUILD_MLIR_SUPPORT:-ON}
 export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=${TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT:-ON}
 
 function pip_install_deps() {
-    echo "DO TORCH_BLADE CI_BUILD"
     # set TORCH_BLADE_CI_BUILD_TORCH_VERSION default to 1.7.1+cu110
     TORCH_BLADE_CI_BUILD_TORCH_VERSION=${TORCH_BLADE_CI_BUILD_TORCH_VERSION:-1.7.1+cu110}
     requirements=requirements-dev-${TORCH_BLADE_CI_BUILD_TORCH_VERSION}.txt
@@ -41,29 +36,23 @@ function pip_install_deps() {
     python3 -m pip install -r ${requirements} -f https://download.pytorch.org/whl/torch_stable.html
 }
 
-function bazel_build() {
-    python3 ../scripts/python/common_setup.py
-    rm -rf build && python3 setup.py develop;
-}
-
-function cmake_build() {
-    rm -rf build && python3 setup.py develop --cmake;
-}
-
 function ci_build() {
+    echo "DO TORCH_BLADE CI_BUILD"
     pip_install_deps
 
     if [ "$TORCH_BLADE_USE_CMAKE_BUILD" = "ON"  ]; then
-      cmake_build
+      extra_args="--cmake"
     else
-      bazel_build
+      extra_args=""
+      python3 ../scripts/python/common_setup.py
     fi
 
+    rm -rf build && python3 setup.py develop ${extra_args};
     # The following are UNIT TESTS
     export TORCH_BLADE_DEBUG_LOG=ON
-    python3 setup.py cpp_test 2>&1 | tee -a cpp_test.out;
+    python3 setup.py cpp_test ${extra_args} 2>&1 | tee -a cpp_test.out;
     python3 -m unittest discover tests/ -v 2>&1 | tee -a py_test.out;
-    python3 setup.py bdist_wheel;
+    python3 setup.py bdist_wheel ${extra_args};
 }
 
 # Build

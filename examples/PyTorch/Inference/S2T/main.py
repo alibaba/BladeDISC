@@ -11,7 +11,7 @@
 
 import os
 
-#os.environ["TORCH_BLADE_DEBUG_LOG"] = "on"
+os.environ["TORCH_BLADE_DEBUG_LOG"] = "on"
 os.environ["DISC_ENABLE_STITCH"] = "true"
 os.environ["DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE"] = "true"
 
@@ -78,7 +78,7 @@ def run_trt_engine(trt_engine_name):
     print("average time in {} iterations: {} seconds".format(iters, avg_time))
 
     exec_time = []
-    for i in range(50):
+    for i in range(100):
         tic = time.time()
         trt_model(inputs)
         delta = time.time() - tic
@@ -150,8 +150,9 @@ def DISCOptimize(input_pt : str, output_pt_to_save : str):
     decoder_input_ids = torch.tensor([[2]] * batch_size)
 
     # torch_config = torch_blade.config.Config()
-    # torch_config.enable_mlir_amp = True # disable mix-precision
+    # torch_config.enable_mlir_amp = True # enable mix-precision
     # torch_config.enable_force_to_cuda = True
+    # torch_config.customize_op_black_list = ['aten::arange']
     # with torch.no_grad(), torch_config:
     #     # BladeDISC torch_blade optimize will return an optimized TorchScript
     #     optimized_ts = torch_blade.optimize(traced_model.cuda(), allow_tracing=True,
@@ -171,13 +172,12 @@ def DISCOptimize(input_pt : str, output_pt_to_save : str):
     for i in range(100):
         output = optimized_ts(input_features.cuda(), attention_mask.cuda(), decoder_input_ids.cuda())
     rt_ms = (time.time() - tic) / 100
-    print(f'exec time: {rt_ms} s')
+    print(f'average exec time: {rt_ms} s')
 
     cu_prof_start()
     for i in range(100):
         output = optimized_ts(input_features.cuda(), attention_mask.cuda(), decoder_input_ids.cuda())
     cu_prof_stop()
-
 
     #print(output)
 
@@ -190,6 +190,9 @@ if __name__ == '__main__':
 
     #DISCOptimize('one-step-forward.pt', 'disc-opt.one-step-forward.pt')
     #DISCOptimize('one-step-forward.pt', 'disc-opt.stitch.one-step-forward.pt')
-    DISCOptimize('one-step-forward.pt', 'disc-opt.stitch.tlp.one-step-forward.pt')
+    #DISCOptimize('one-step-forward.pt', 'disc-opt.stitch.tlp.one-step-forward.pt')
+    #DISCOptimize('one-step-forward.pt', 'disc-opt.torch-u2.stitch.tlp.one-step-forward.pt')
+    #DISCOptimize('one-step-forward.pt', 'disc-opt.torch-u4.stitch.tlp.one-step-forward.pt')
+    DISCOptimize('one-step-forward.pt', 'disc-opt.torch-u4.fast-math.stitch.tlp.one-step-forward.pt')
 
     #run_trt_engine('one-step-forward.trt')

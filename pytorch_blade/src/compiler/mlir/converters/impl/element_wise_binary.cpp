@@ -184,51 +184,7 @@ bool ConvertAtenScalarCmpIOp(
   return true;
 }
 
-// This converter fails at op lowering phase sometimes. Mainly because omitted
-// dtype argument. The plan to enhance this converter is as following:
-//   1. Get target dtype;
-//   2. If `end` is not integer type (i.e., float type, we only deal with float
-//      and integer), assign ceil(end) to end;
-//   3. Build iota-op according.
-//   4. Convert iota-op to the target dtype.
-// The difficulty now is how to get the global default datatype if dtype is
-// empty at step 1. Rewrite this converter when figuring out the solution.
-
-// A workaround solution is to put aten::arange to black list:
-//   config.customize_op_black_list = ['aten::arange']
 bool ConvertAtenArange(
-    MhloConversionContext& ctx,
-    const torch::jit::Node& node) {
-  const auto& loc = GetNodeLocation(ctx, node);
-  auto end = ctx.GetMlirValue(node.input(0));
-  auto mlir_scalar = ctx.GetMlirValue(node.input(1));
-
-  mlir_scalar.dump();
-  std::cout << "GTY0 :" << std::endl;
-  auto dtype_value = CastStdConstToI64(mlir_scalar);
-  if (!dtype_value) {
-    return false;
-  }
-  std::cout << "GTY1 :" << *dtype_value << std::endl;
-  // ScalarType in jit::Graph is type of int
-  torch::ScalarType dtype = static_cast<torch::ScalarType>(*dtype_value);
-  std::cout << "GTY1 :" << ScalarTypeToString(dtype) << std::endl;
-
-  auto& builder = *ctx.builder;
-  std::vector<mlir::Value> dim_sizes = {end};
-  end = builder.create<mlir::tensor::FromElementsOp>(loc, dim_sizes);
-  auto elem_type = BuildMlirElemType(builder, dtype);
-  end = TryBuildElementTypeCast(builder, loc, end, elem_type);
-
-  std::vector<mlir_dim_t> out_shape_vec(1, mlir::ShapedType::kDynamicSize);
-  auto out_shape = mlir::RankedTensorType::get(out_shape_vec, elem_type);
-  mlir::Value out = builder.create<mlir::mhlo::DynamicIotaOp>(
-      loc, out_shape, end, ctx.builder->getI64IntegerAttr(0));
-  ctx.value_map[node.output()] = out;
-  return true;
-}
-
-bool ConvertAtenArangeV2(
     MhloConversionContext& ctx,
     const torch::jit::Node& node) {
   const auto& loc = GetNodeLocation(ctx, node);
@@ -239,48 +195,36 @@ bool ConvertAtenArangeV2(
   }
   auto end = ctx.GetMlirValue(node.input(0));
   auto input_mlir_type = end.getType();
-  auto target_dtype = torch::jit::toIValue(node.input(1));
 
   // See document: https://pytorch.org/docs/stable/generated/torch.arange.html
-  // if dtype is None, use a global default. If dtype is not given, infer the
-  // data type from the other input arguments. If any of start, end, or stop are
-  // floating-point, the dtype is inferred to be the default dtype. Otherwise,
-  // the dtype is inferred to be torch.int64.
+  // If dtype is not given, infer the data type from the other input arguments.
+  // If any of start, end, or stop are floating-point, the dtype is inferred to
+  // be the default dtype. Otherwise, the dtype is inferred to be torch.int64.
+  c10::ScalarType target_scalar_type;
   c10::ScalarType default_scalar_type =
       c10::typeMetaToScalarType(c10::get_default_dtype());
-  c10::ScalarType target_scalar_type;
-  if (!target_dtype) {
-#if 1
-    llvm::errs() << "[ZZ] target-dtype is empty now.\n";
-#endif
-    target_scalar_type = default_scalar_type;
-    // target_dtype = default_dtype;
-  } else if (target_dtype->isNone()) {
-#if 1
-    llvm::errs() << "[ZZ] target_dtype is none.\n";
-#endif
-    // Do not know how to deal with a datatype that is neither int/index nor
-    // float.
+  auto dtype_jit_ival = torch::jit::toIValue(dtype);
+  if (!dtype_jit_ival || dtype_jit_ival->isNone()) {
+    // Infer dtype from `end`.
     if (!input_mlir_type.isIntOrIndexOrFloat()) {
       DLOG(INFO) << "Unsupported dtype of argument `end` for arange.";
       return false;
     }
     if (input_mlir_type.isBF16() || input_mlir_type.isF16() ||
         input_mlir_type.isF32() || input_mlir_type.isF64()) {
-      // target_dtype = default_dtype;
       target_scalar_type = default_scalar_type;
-#if 1
-      llvm::errs() << "[ZZ] input is float.\n";
-#endif
     } else {
-      // target_dtype = IValue(static_cast<int64_t>(torch::ScalarType::Long));
       target_scalar_type = torch::ScalarType::Long;
     }
   } else {
-    target_scalar_type = static_cast<torch::ScalarType>(target_dtype->toInt());
-#if 1
-    llvm::errs() << "[ZZ] target_dtype is the same with specified.\n";
-#endif
+    auto target_dtype_value =
+        CastStdConstToI64(ctx.GetMlirValue(node.input(1)));
+    target_scalar_type = static_cast<torch::ScalarType>(*target_dtype_value);
+  }
+
+  if (!end.getType().isa<mlir::TensorType>()) {
+    std::vector<mlir::Value> dim_sizes = {end};
+    end = ctx.builder->create<mlir::tensor::FromElementsOp>(loc, dim_sizes);
   }
 
   // If `end` is not int type, convert to int to meet the requirement of
@@ -289,15 +233,11 @@ bool ConvertAtenArangeV2(
   if (!input_mlir_type.isIntOrIndex()) {
     // First, ceil up `end`, e.g., 3.5 -> 4.0.
     end = ctx.builder->create<mlir::mhlo::CeilOp>(loc, end);
-    // Convert type to int.
-    auto mlir_long_type =
-        BuildMlirElemType(*ctx.builder, c10::ScalarType::Long);
-    end = ctx.builder->create<mlir::mhlo::ConvertOp>(loc, end, mlir_long_type);
-    iota_type = end.getType();
+    // Convert type to integer.
+    auto mlir_int_type = BuildMlirElemType(*ctx.builder, c10::ScalarType::Int);
+    end = ctx.builder->create<mlir::mhlo::ConvertOp>(loc, end, mlir_int_type);
+    iota_type = mlir_int_type;
   }
-
-  std::vector<mlir::Value> dim_sizes = {end};
-  end = ctx.builder->create<mlir::tensor::FromElementsOp>(loc, dim_sizes);
 
   std::vector<mlir_dim_t> out_shape_vec(1, mlir::ShapedType::kDynamicSize);
   auto out_shape = mlir::RankedTensorType::get(out_shape_vec, iota_type);
@@ -306,9 +246,6 @@ bool ConvertAtenArangeV2(
 
   // Convert result to target type if necessary.
   auto mlir_target_dtype = BuildMlirElemType(*ctx.builder, target_scalar_type);
-#if 1
-  llvm::errs() << "[ZZ] mlir-target-dtype is " << mlir_target_dtype << "\n";
-#endif
   mlir::Value result;
   if (mlir_target_dtype != iota_type) {
     result = ctx.builder->create<mlir::mhlo::ConvertOp>(
@@ -505,7 +442,6 @@ auto mhlo_conversion =
             "aten::arange(Scalar end, int? dtype=None, int? layout=None, "
             "Device? device=None, bool? pin_memory=None) -> (Tensor)",
             ConvertAtenArange);
-// ConvertAtenArangeV2);
 } // namespace
 } // namespace blade
 } // namespace torch

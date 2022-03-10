@@ -98,6 +98,17 @@ bool ConvertAtenItem(MhloConversionContext& ctx, const torch::jit::Node& node) {
   return true;
 }
 
+bool ConvertAtenScalarImplicit(
+    MhloConversionContext& ctx,
+    const torch::jit::Node& node) {
+  auto loc = GetNodeLocation(ctx, node);
+  auto scalar = ctx.GetMlirValue(node.input(0));
+  auto& builder = *ctx.builder;
+  ctx.value_map[node.output(0)] =
+      mlir::mhlo::BuildStdScalarFromHloTensor(builder, loc, scalar);
+  return true;
+}
+
 bool ConvertAtenFloat(
     MhloConversionContext& ctx,
     const torch::jit::Node& node) {
@@ -179,7 +190,10 @@ auto mhlo_conversion =
         .pattern("aten::Int.Scalar(Scalar a) -> (int)", ConvertAtenInt)
         .pattern(
             "prim::NumToTensor.Scalar(Scalar a) -> (Tensor)",
-            ConvertPrimNumToTensor);
+            ConvertPrimNumToTensor)
+        .pattern(
+            "aten::ScalarImplicit(Tensor a) -> (Scalar)",
+            ConvertAtenScalarImplicit);
 }
 } // namespace blade
 } // namespace torch

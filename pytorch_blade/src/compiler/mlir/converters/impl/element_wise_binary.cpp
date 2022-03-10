@@ -22,6 +22,7 @@
 #include "compiler/mlir/converters/mlir_type_utils.h"
 
 #include <torch/script.h>
+#include "compiler/jit/shape_type_spec.h"
 
 namespace torch {
 namespace blade {
@@ -200,27 +201,28 @@ bool ConvertAtenArange(
     const torch::jit::Node& node) {
   const auto& loc = GetNodeLocation(ctx, node);
   auto end = ctx.GetMlirValue(node.input(0));
-  auto dtype_value = torch::jit::toIValue(node.input(1));
-  if (!dtype_value || dtype_value->isNone()) {
-    return false;
-  }
-  // ScalarType in jit::Graph is type of int
-  torch::ScalarType dtype =
-      static_cast<torch::ScalarType>(dtype_value->toInt());
-  if (dtype != torch::ScalarType::Long) {
-    return false;
-  }
-  auto elem_type = BuildMlirElemType(*ctx.builder, dtype);
-  if (elem_type != end.getType()) {
-    return false;
-  }
+  auto mlir_scalar = ctx.GetMlirValue(node.input(1));
 
+  mlir_scalar.dump();
+  std::cout << "GTY0 :" << std::endl;
+  auto dtype_value = CastStdConstToI64(mlir_scalar);
+  if (!dtype_value) {
+    return false;
+  }
+  std::cout << "GTY1 :" << *dtype_value << std::endl;
+  // ScalarType in jit::Graph is type of int
+  torch::ScalarType dtype = static_cast<torch::ScalarType>(*dtype_value);
+  std::cout << "GTY1 :" << ScalarTypeToString(dtype) << std::endl;
+
+  auto& builder = *ctx.builder;
   std::vector<mlir::Value> dim_sizes = {end};
-  end = ctx.builder->create<mlir::tensor::FromElementsOp>(loc, dim_sizes);
+  end = builder.create<mlir::tensor::FromElementsOp>(loc, dim_sizes);
+  auto elem_type = BuildMlirElemType(builder, dtype);
+  end = TryBuildElementTypeCast(builder, loc, end, elem_type);
 
   std::vector<mlir_dim_t> out_shape_vec(1, mlir::ShapedType::kDynamicSize);
   auto out_shape = mlir::RankedTensorType::get(out_shape_vec, elem_type);
-  mlir::Value out = ctx.builder->create<mlir::mhlo::DynamicIotaOp>(
+  mlir::Value out = builder.create<mlir::mhlo::DynamicIotaOp>(
       loc, out_shape, end, ctx.builder->getI64IntegerAttr(0));
   ctx.value_map[node.output()] = out;
   return true;
@@ -238,23 +240,7 @@ bool ConvertAtenArangeV2(
   auto end = ctx.GetMlirValue(node.input(0));
   auto input_mlir_type = end.getType();
   auto target_dtype = torch::jit::toIValue(node.input(1));
-  // #if 1
-  //   llvm::errs() << "[ZZ] node is: \n";
-  //   node.dump();
-  //   llvm::errs() << "[ZZ] node dumpped above\n";
-  //   torch::jit::Value* input1 = node.input(1);
-  //   llvm::errs() << "[ZZ] input-1 is: \n";
-  //   input1->node()->dump();
-  //   // ScalarType in jit::Graph is type of int
-  // //   torch::ScalarType dtype =
-  //     //   static_cast<torch::ScalarType>(target_dtype->toInt());
-  //   // torch::ScalarType dtype = target_dtype->toScalarType();
-  // #endif
-  // #if 1
-  //   llvm::errs() << "[ZZ] dtype of end is: \n";
-  //   target_dtype->dump();
-  //   llvm::errs() << "[ZZ] dtype of end dumpped above\n";
-  // #endif
+
   // See document: https://pytorch.org/docs/stable/generated/torch.arange.html
   // if dtype is None, use a global default. If dtype is not given, infer the
   // data type from the other input arguments. If any of start, end, or stop are

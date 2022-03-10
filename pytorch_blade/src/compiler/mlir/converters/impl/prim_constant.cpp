@@ -285,17 +285,17 @@ bool ConvertPrimDtype(
   // TORCH_CHECK(scalar_type == c10::ScalarType::Int);
 
   auto loc = GetNodeLocation(ctx, node);
-  ctx.value_map[node.output(0)] = BuildStdConstForI32(
-      *ctx.builder, loc, static_cast<int32_t>(*scalar_type));
+  ctx.value_map[node.output(0)] = BuildStdConstForI64(
+      *ctx.builder, loc, static_cast<int64_t>(*scalar_type));
 
   return true;
 }
 
 namespace {
-auto mhlo_conversion = MhloConversionPatternRegister().pattern(
-    GetPrimOperatorName(prim::Constant),
-    ConvertPrimConstant);
-// .pattern("prim::dtype(Tensor a) -> (int)", ConvertPrimDtype);
+auto mhlo_conversion =
+    MhloConversionPatternRegister()
+        .pattern(GetPrimOperatorName(prim::Constant), ConvertPrimConstant)
+        .pattern("prim::dtype(Tensor a) -> (int)", ConvertPrimDtype);
 } // namespace
 } // namespace blade
 } // namespace torch

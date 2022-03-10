@@ -228,6 +228,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
+  // Simplifies select ops before shape analysis.
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscCompareSimplifierPass());
+
   bool enable_shape_constraint_ir = false;
   tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_SHAPE_CONSTRAINT_IR",
                                  enable_shape_constraint_ir,
@@ -240,6 +243,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     // shape-related optimization
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());
   }
+
+  // propagate some known shape information.
+  pm.addPass(disc_ral::createDiscShapeSimplifierPass());
 
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertTensorToStandardPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertHloToStandardPass());

@@ -1385,6 +1385,28 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_compare_simplifier",
+    srcs = ["transforms/disc_compare_simplifier.cc"],
+    hdrs = [
+    ],
+    deps = [
+        ":mhlo_disc",
+        ":pass_details",
+        ":shape_utils",
+        "//tensorflow/compiler/mlir/hlo:hlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Shape",
+        "@llvm-project//mlir:StandardOps",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_math_approximation",
     srcs = [
         "transforms/disc_math_approximation.cc",
@@ -1671,6 +1693,7 @@ cc_library(
         ":disc_algebra_simplifier",
         ":disc_assign_kernel_name",
         ":disc_assign_memory_space",
+        ":disc_compare_simplifier",
         ":disc_canonicalizer",
         ":disc_convert_const_to_ral",
         ":disc_cpu_map_parallel_loop",

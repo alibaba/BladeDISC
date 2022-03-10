@@ -407,3 +407,8 @@ def ForLoopUnrollInterleave : Pass<"disc-for-loop-unroll-interleave", "mlir::fun
   let summary = "Unroll SCF for loops and interleave the unrolling";
   let constructor = "createForLoopUnrollInterleavePass()";
 }
+
+def DiscCompareSimplifierPass : Pass<"disc-compare-simplifier", "FuncOp"> {
+  let summary = "Analysis the result of compare, and try to fold.";
+  let constructor = "createDiscCompareSimplifierPass()";
+}

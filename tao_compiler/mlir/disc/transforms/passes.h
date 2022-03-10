@@ -218,6 +218,9 @@ std::unique_ptr<OperationPass<ModuleOp>> createStripShapeConstraintOpsPass();
 // SCF for-loop unrolling and interleaving.
 std::unique_ptr<OperationPass<FuncOp>> createForLoopUnrollInterleavePass();
 
+// Analysis the result of compare, and try to fold them.
+std::unique_ptr<OperationPass<FuncOp>> createDiscCompareSimplifierPass();
+
 }  // namespace disc_ral
 }  // namespace mlir
 

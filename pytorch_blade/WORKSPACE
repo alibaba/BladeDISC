@@ -80,8 +80,15 @@ http_archive(
     ],
 )
 
+local_repository(
+    name = "org_third_party",
+    path = "../third_party/",
+)
+
+load("@org_third_party//bazel/tensorrt:repo.bzl", "tensorrt_configure")
 load("//bazel/torch:repo.bzl", "torch_configure", "torch_pybind11_configure")
 
+tensorrt_configure(name = "tensorrt")
 torch_configure(name = "local_org_torch")
 
 torch_pybind11_configure(

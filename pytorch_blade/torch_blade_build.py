@@ -42,6 +42,7 @@ class TorchBladeBuild:
     ):
         self.__serialization_version__ = "0.0.3"
         self.torch_dir = torch_dir
+        self.torch_lib_dir = os.path.join(self.torch_dir, 'lib')
         self.cuda_version = cuda_version
         self.torch_version = torch_version
         self.git_version = self.get_git_version()
@@ -52,6 +53,10 @@ class TorchBladeBuild:
         self.cuda_available = check_env_flag(
             "TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT", "ON"
         )
+        self.build_tensorrt = check_env_flag(
+            "TORCH_BLADE_BUILD_TENSORRT", "OFF"
+        )
+
         self.version = self.get_version()
 
     def get_git_version(self):
@@ -92,6 +97,7 @@ class TorchBladeBuild:
             f.write("debug = {}\n".format(repr(self.is_debug)))
             f.write("cuda = {}\n".format(repr(self.cuda_version)))
             f.write("cuda_available = {}\n".format(repr(self.cuda_available)))
+            f.write("build_tensorrt = {}\n".format(repr(self.build_tensorrt)))
             f.write("git_version = {}\n".format(repr(self.git_version)))
             f.write("torch_version = {}\n".format(repr(self.torch_version)))
             f.write("torch_git_version = {}\n".format(repr(self.torch_git_version)))

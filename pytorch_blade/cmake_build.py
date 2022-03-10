@@ -156,8 +156,14 @@ class CMakeBuild(TorchBladeBuild):
                 )
 
     def test(self):
+        env = os.environ.copy()
+        ld_library_path = ":".join([self.torch_lib_dir, env.get("LD_LIBRARY_PATH", "")])
+        env["LD_LIBRARY_PATH"] = ld_library_path
+ 
         if os.path.exists("cpp_test.sh"):
-            self._run(["sh", "cpp_test.sh"])
+            subprocess.check_output(
+                ["sh", "cpp_test.sh"], env=env
+            )
 
 
 if __name__ == "__main__":

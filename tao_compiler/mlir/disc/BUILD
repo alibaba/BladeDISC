@@ -1283,6 +1283,30 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_dot_merge",
+    srcs = ["transforms/disc_dot_merge.cc"],
+    hdrs = [
+        "transforms/passes.h",
+    ],
+    deps = [
+        ":disc_util",
+        ":mhlo_disc",
+        ":pass_details",
+        ":shape_utils",
+        "//tensorflow/compiler/mlir/hlo:hlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Shape",
+        "@llvm-project//mlir:StandardOps",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_math_approximation",
     srcs = [
         "transforms/disc_math_approximation.cc",
@@ -1474,6 +1498,7 @@ cc_library(
     deps = [
         ":MhloDiscPassIncGen",
         ":conv_rewriter",
+        ":disc_dot_merge",
         ":disc_assign_kernel_name",
         ":disc_assign_memory_space",
         ":disc_canonicalizer",

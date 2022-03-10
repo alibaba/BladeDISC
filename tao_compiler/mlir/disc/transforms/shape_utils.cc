@@ -665,11 +665,11 @@ SymbolDim* ShapeAnalysis::getDim(Value value, int64_t dim) {
   return symbolDim;
 }
 
-ShapeAnalysis::DimValue ShapeAnalysis::getRootDimValue(DimValue dimValue) {
+DimValue ShapeAnalysis::getRootDimValue(DimValue dimValue) {
   return dimValueEquivalence_.getOrInsertLeaderValue(dimValue);
 }
 
-ShapeAnalysis::DimValue ShapeAnalysis::getDimValue(SymbolDim* symbolDim) {
+DimValue ShapeAnalysis::getDimValue(SymbolDim* symbolDim) {
   if (symbolDim == nullptr) {
     return DimValue(Value(nullptr));
   }
@@ -686,7 +686,7 @@ ShapeAnalysis::DimValue ShapeAnalysis::getDimValue(SymbolDim* symbolDim) {
   return rootDimValue;
 }
 
-ShapeAnalysis::DimValue ShapeAnalysis::getDimValue(Value operand, int64_t dim) {
+DimValue ShapeAnalysis::getDimValue(Value operand, int64_t dim) {
   auto ty = operand.getType().dyn_cast<ShapedType>();
   if (!ty.hasRank() || dim >= ty.getRank()) {
     return DimValue(Value(nullptr));
@@ -812,8 +812,8 @@ bool ShapeAnalysis::isDimEqual(Value lhs, int64_t lhsDim, Value rhs,
          (getDimValue(lhs, lhsDim) == getDimValue(rhs, rhsDim));
 }
 
-SmallVector<std::vector<ShapeAnalysis::DimValue>>
-ShapeAnalysis::getDimDecompose(Value value, int64_t index) {
+SmallVector<std::vector<DimValue>> ShapeAnalysis::getDimDecompose(
+    Value value, int64_t index) {
   auto dim_val = getDimValue(value, index);
   auto iter = dimValueMulDecompose_.find(dim_val);
   return (iter == dimValueMulDecompose_.end())

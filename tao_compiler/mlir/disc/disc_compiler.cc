@@ -218,6 +218,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(disc_ral::createDiscSplitLargeOpsPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscDotRewriterPass());
 
+  // Either merge dots to batched dot or merge dots sharing the same operand.
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscDotMergePass());
+
   if (gpu_enabled) {
     pm.addNestedPass<FuncOp>(mhlo::createHloCanonicalizeReductionPass());
   }

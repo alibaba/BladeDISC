@@ -3,6 +3,7 @@ FROM ${BASEIMAGE}
 
 ADD ./docker/scripts /install/scripts
 RUN bash /install/scripts/find-fastest-apt.sh
+RUN bash /install/scripts/install-tensorrt.sh
 
 ADD ./build/torch_blade*.whl  /install/python/
 
@@ -13,3 +14,4 @@ RUN apt-get update -y \
     && python3.6 -m pip install /install/python/torch_blade*.whl -f https://download.pytorch.org/whl/cu110/torch_stable.html
 
 ENV PATH /usr/bin:$PATH
+ENV LD_LIBRARY_PATH="/usr/local/TensorRT/lib/:${LD_LIBRARY_PATH}"

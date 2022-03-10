@@ -25,7 +25,7 @@ mkdir -p ${download_dir}
 protoc_dir="protoc-${pb_ver}-linux-x86_64"
 protoc_file="${protoc_dir}.zip"
 protoc_url="http://gitlab.alibaba-inc.com/odps_tensorflow/other/raw/master/github.com/protocolbuffers/protobuf/releases/download/v${pb_ver}/${protoc_file}"
-protoc_url_bak="https://github.com/protocolbuffers/protobuf/releases/download/v${pb_ver}/${protoc_file}"
+protoc_url_bak="https://blade-disc-remote-cache.oss-cn-hongkong.aliyuncs.com/download/protobuf/v${pb_ver}/${protoc_file}"
 
 if [ ! -f ${download_dir}/${protoc_file} ]; then
     code=`curl -s -L  -o ${download_dir}/${protoc_file} ${protoc_url} --write-out "%{http_code}"`

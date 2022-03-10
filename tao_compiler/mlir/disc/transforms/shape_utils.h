@@ -111,10 +111,12 @@ class ShapeAnalysis {
       state = (val >= 0) ? FOLD : INVALID;
     }
     bool isValid() const { return state != INVALID; }
+    bool isFold() const { return state == FOLD; }
+    bool isUnfold() const { return state == UNFOLD; }
     void dump() const {
-      if (state == FOLD) {
+      if (isFold()) {
         llvm::errs() << "Fold value: " << foldVal << "\n";
-      } else if (state == UNFOLD) {
+      } else if (isUnfold()) {
         llvm::errs() << "Unfold value: ";
         auto& non_const = const_cast<Value&>(unfoldVal);
         non_const.dump();
@@ -124,8 +126,8 @@ class ShapeAnalysis {
     }
     inline bool operator==(const DimValue& dimVal) const {
       if (state == dimVal.state) {
-        return (state == FOLD && foldVal == dimVal.foldVal) ||
-               (state == UNFOLD && unfoldVal == dimVal.unfoldVal);
+        return (isFold() && foldVal == dimVal.foldVal) ||
+               (isUnfold() && unfoldVal == dimVal.unfoldVal);
       }
       return false;
     }

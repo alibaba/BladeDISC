@@ -347,6 +347,48 @@ LogicalResult ShapeAnalysis::buildBlockDimValueMap(Block* block) {
     }
     return false;
   };
+  auto getTensorDimValues = [&](Value value) {
+    llvm::Optional<SmallVector<DimValue>> result;
+    auto op = value.getDefiningOp();
+    if (auto from_elements = dyn_cast_or_null<tensor::FromElementsOp>(op)) {
+      SmallVector<DimValue> dimValues;
+      for (auto operand : from_elements.getOperands()) {
+        int64_t intVal;
+        if (getConstIntValue(operand.getDefiningOp(), intVal)) {
+          dimValues.emplace_back(intVal);
+        } else {
+          dimValues.emplace_back(operand);
+        }
+      }
+      result = std::move(dimValues);
+    } else if (auto cst_shape = dyn_cast<arith::ConstantOp>(op)) {
+      auto cst_attr =
+          cst_shape.getValue().dyn_cast_or_null<DenseIntElementsAttr>();
+      if (!cst_attr) {
+        return result;
+      }
+      auto elem_ty = cst_attr.getType().cast<ShapedType>().getElementType();
+      SmallVector<int64_t, 4> vals;
+      if (elem_ty.isInteger(64) || elem_ty.isIndex()) {
+        std::copy(cst_attr.getValues<int64_t>().begin(),
+                  cst_attr.getValues<int64_t>().end(),
+                  std::back_inserter(vals));
+      } else if (elem_ty.isInteger(32)) {
+        std::copy(cst_attr.getValues<int32_t>().begin(),
+                  cst_attr.getValues<int32_t>().end(),
+                  std::back_inserter(vals));
+      } else {
+        return result;
+      }
+      SmallVector<DimValue> dimValues;
+      for (auto val : vals) {
+        dimValues.emplace_back(val);
+      }
+      result = std::move(dimValues);
+    }
+    // TODO: deal with concat.
+    return result;
+  };
 
   WalkResult result = block->walk([&](Operation* op) {
     WalkResult res = WalkResult::advance();
@@ -355,7 +397,7 @@ LogicalResult ShapeAnalysis::buildBlockDimValueMap(Block* block) {
       Value resultDims = op->getOperand(1);
       Value result = op->getOperand(2);
       if (!isIdentityLayout(result)) {
-        return WalkResult::interrupt();
+        return WalkResult::advance();
       }
       int64_t rank = result.getType().cast<MemRefType>().getRank();
       // Analyze shape tensor.
@@ -366,7 +408,7 @@ LogicalResult ShapeAnalysis::buildBlockDimValueMap(Block* block) {
           continue;
         }
         if (failed(buildDimValueMap(result, i, dimValue))) {
-          return WalkResult::interrupt();
+          continue;
         }
         mayCreateOrMapConstInt(dimValue);
       }
@@ -375,7 +417,7 @@ LogicalResult ShapeAnalysis::buildBlockDimValueMap(Block* block) {
       // `d` can be delinearize to `a` and `b`.
       Value input = op->getOperand(0);
       if (!isIdentityLayout(input)) {
-        return WalkResult::interrupt();
+        return WalkResult::advance();
       }
       int64_t in_rank = input.getType().cast<MemRefType>().getRank();
       // Check one-on-one mapping.
@@ -449,6 +491,25 @@ LogicalResult ShapeAnalysis::buildBlockDimValueMap(Block* block) {
       }
       auto& decompose = dimValueMulDecompose_[keyDimVal];
       decompose.emplace_back(std::move(decs));
+    } else if (isa<lmhlo::DynamicBroadcastInDimOp>(*op)) {
+      Value resultDims = op->getOperand(1);
+      Value result = op->getOperand(2);
+      if (!isIdentityLayout(result)) {
+        return WalkResult::advance();
+      }
+      int64_t rank = result.getType().cast<MemRefType>().getRank();
+      // Analyze shape tensor.
+      // TODO: we may not need this any more.
+      for (int64_t i = 0; i < rank; i++) {
+        DimValue dimValue;
+        if (!extractLmhloValueOfDim(resultDims, i, dimValue)) {
+          continue;
+        }
+        if (failed(buildDimValueMap(result, i, dimValue))) {
+          continue;
+        }
+        mayCreateOrMapConstInt(dimValue);
+      }
     } else if (auto alloc = dyn_cast<memref::AllocOp>(*op)) {
       Value result = op->getResult(0);
       auto type = result.getType().cast<MemRefType>();
@@ -462,7 +523,7 @@ LogicalResult ShapeAnalysis::buildBlockDimValueMap(Block* block) {
           dimVal = DimValue(type.getDimSize(i));
         }
         if (failed(buildDimValueMap(result, i, dimVal))) {
-          return WalkResult::interrupt();
+          continue;
         }
         mayCreateOrMapConstInt(dimVal);
       }
@@ -472,7 +533,7 @@ LogicalResult ShapeAnalysis::buildBlockDimValueMap(Block* block) {
       for (auto en : llvm::enumerate(sizes)) {
         auto dimVal = DimValue(en.value());
         if (failed(buildDimValueMap(result, en.index(), dimVal))) {
-          return WalkResult::interrupt();
+          continue;
         }
         mayCreateOrMapConstInt(dimVal);
       }
@@ -482,9 +543,7 @@ LogicalResult ShapeAnalysis::buildBlockDimValueMap(Block* block) {
       Value index = op->getOperand(1);
       int64_t index_val;
       if (getConstIntValue(index.getDefiningOp(), index_val)) {
-        if (failed(buildDimValueMap(value, index_val, DimValue(result)))) {
-          return WalkResult::interrupt();
-        }
+        buildDimValueMap(value, index_val, DimValue(result));
       }
     } else if (auto indexCast = dyn_cast<arith::IndexCastOp>(*op)) {
       // Only deal with scalar here.
@@ -497,10 +556,51 @@ LogicalResult ShapeAnalysis::buildBlockDimValueMap(Block* block) {
       DimValue result(indexCast.getResult());
 
       if (failed(mapDimValueEqual(operand, result))) {
-        return WalkResult::interrupt();
+        return WalkResult::advance();
       }
       mayCreateOrMapConstInt(operand);
       mayCreateOrMapConstInt(result);
+    } else if (isa<mhlo::DynamicReshapeOp, mhlo::DynamicBroadcastInDimOp>(op)) {
+      auto dimValues = getTensorDimValues(op->getOperand(1));
+      if (!dimValues.hasValue()) {
+        return WalkResult::advance();
+      }
+      Value result = op->getResult(0);
+      for (auto& val : llvm::enumerate(*dimValues)) {
+        auto& dimVal = val.value();
+        if (failed(buildDimValueMap(result, val.index(), dimVal))) {
+          continue;
+        }
+        mayCreateOrMapConstInt(dimVal);
+      }
+    } else if (auto dynSlice = dyn_cast<mhlo::RealDynamicSliceOp>(*op)) {
+      auto starts = getTensorDimValues(dynSlice.start_indices());
+      auto limits = getTensorDimValues(dynSlice.limit_indices());
+      auto strides = getTensorDimValues(dynSlice.strides());
+      Value result = op->getResult(0);
+      auto out_ty = result.getType().dyn_cast_or_null<RankedTensorType>();
+      if (!starts.hasValue() || !limits.hasValue() || !strides.hasValue() ||
+          !out_ty) {
+        return WalkResult::advance();
+      }
+      assert(out_ty.getRank() == (*starts).size());
+      for (int64_t i = 0; i < out_ty.getRank(); i++) {
+        if (!(*starts)[i].isFold() || !(*strides)[i].isFold()) {
+          continue;
+        }
+        int64_t start = (*starts)[i].foldVal;
+        int64_t stride = (*strides)[i].foldVal;
+        auto limit = (*limits)[i];
+        if (limit.isUnfold() && (start == 0) && (stride == 1)) {
+          // Start is 0, stride is 1. The limit value is the dim-value of this
+          // dimension.
+          buildDimValueMap(result, i, limit);
+        } else if (limit.isFold()) {
+          // size = (limit - start + stride - 1) / stride
+          auto size = (limit.foldVal - start + stride - 1) / stride;
+          buildDimValueMap(result, i, DimValue(size));
+        }
+      }
     }
     return res;
   });

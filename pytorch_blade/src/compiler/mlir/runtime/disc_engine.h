@@ -24,7 +24,7 @@ class DiscEngine : public torch::blade::backends::EngineInterface {
   DISALLOW_COPY_AND_ASSIGN(DiscEngine);
   DiscEngine(const State& state);
 
-  torch::List<torch::Tensor> Forward(
+  torch::List<torch::Tensor> Execute(
       const torch::List<torch::Tensor>& inputs) override;
 
   const State& GetState() const {
@@ -41,7 +41,7 @@ class DiscEngine : public torch::blade::backends::EngineInterface {
   void ReleaseRalContext();
 
   // use these fields carefully in multi-threads context
-  std::mutex trt_ctx_lock_;
+  std::mutex ctx_lock_;
   // don't use it directly, please use FetchRalContext
   std::shared_ptr<RalContext> engine_ctx_;
   std::shared_ptr<State> engine_state_;

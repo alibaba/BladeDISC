@@ -25,18 +25,18 @@ DiscEngine::DiscEngine(const State& state) {
   CHECK_NOTNULL(engine_ctx);
 }
 
-torch::List<torch::Tensor> DiscEngine::Forward(
+torch::List<torch::Tensor> DiscEngine::Execute(
     const torch::List<torch::Tensor>& inputs) {
   auto engine_ctx = FetchRalContext();
   CHECK_NOTNULL(engine_ctx);
-  return engine_ctx->Forward(inputs);
+  return engine_ctx->Execute(inputs);
 }
 
 // FetchRalContext guarantee to return an effective engine_ctx_
 std::shared_ptr<RalContext> DiscEngine::FetchRalContext() {
   // Note: we use lock_guard(mutex) since the multi-threads collision with low
   // frequency.
-  std::lock_guard<std::mutex> guard(trt_ctx_lock_);
+  std::lock_guard<std::mutex> guard(ctx_lock_);
   if (engine_ctx_ != nullptr) {
     return engine_ctx_;
   }
@@ -46,7 +46,7 @@ std::shared_ptr<RalContext> DiscEngine::FetchRalContext() {
 }
 
 void DiscEngine::ReleaseRalContext() {
-  std::lock_guard<std::mutex> guard(trt_ctx_lock_);
+  std::lock_guard<std::mutex> guard(ctx_lock_);
   if (engine_ctx_ == nullptr) {
     return;
   }

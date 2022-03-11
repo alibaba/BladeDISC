@@ -54,7 +54,7 @@ class EngineInterface {
     return "Engine";
   }
 
-  virtual torch::List<torch::Tensor> Forward(
+  virtual torch::List<torch::Tensor> Execute(
       const torch::List<torch::Tensor>& inputs) = 0;
   static std::shared_ptr<EngineInterface> CreateEngine(const State&);
 };

@@ -49,7 +49,7 @@ class RalContext {
   RalContext(std::shared_ptr<backends::EngineState> state);
   ~RalContext();
 
-  torch::List<torch::Tensor> Forward(const torch::List<torch::Tensor>&);
+  torch::List<torch::Tensor> Execute(const torch::List<torch::Tensor>&);
 
  private:
   void BindingInputs(

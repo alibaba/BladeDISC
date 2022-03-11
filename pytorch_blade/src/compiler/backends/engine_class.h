@@ -40,7 +40,7 @@ class EngineClass : public torch::CustomClassHolder {
   DISALLOW_COPY_AND_ASSIGN(EngineClass);
 
   EngineClass(SerialType serialized);
-  torch::List<torch::Tensor> Forward(const torch::List<torch::Tensor>& inputs);
+  torch::List<torch::Tensor> Execute(const torch::List<torch::Tensor>& inputs);
   void DumpAttrToFile(const std::string&, const std::string& dump_file) const;
   std::string GetAttrString(const std::string&) const;
   std::vector<std::string> GetAttrKeys() const;
@@ -52,8 +52,8 @@ class EngineClass : public torch::CustomClassHolder {
   static SerialType Serialize(
       EngineInterface::State state,
       std::string attr_debug_name,
-      std::string original_subgraph,
-      std::string fallback_module_bytes);
+      std::string fallback_module_bytes,
+      std::string original_subgraph);
 
   torch::List<torch::Tensor> last_inputs();
   torch::List<torch::Tensor> last_outputs();
@@ -73,8 +73,8 @@ class EngineClass : public torch::CustomClassHolder {
 
 torch::TypePtr register_engine(
     torch::jit::Module& module,
-    const std::string& attr_name,
     const EngineInterface::State& engine_state,
+    const std::string& attr_name,
     const std::string& fallback_module_bytes,
     const std::string& original_subgraph);
 

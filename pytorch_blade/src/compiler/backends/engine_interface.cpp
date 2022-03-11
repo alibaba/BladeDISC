@@ -27,8 +27,8 @@ struct EngineCreatorRegistry {
       const EngineCreatorRegister::EngineCreator& creator) {
     auto found = lut.find(name);
     if (found != lut.end()) {
-      LOG(WARNING) << "Overriding already registered EngineCreator for backend "
-                   << name << ", unexpected behavior may occur.";
+      LOG(FATAL) << "Overriding already registered EngineCreator for backend "
+                 << name << ", unexpected behavior may occur.";
     }
     lut[name] = creator;
     return *this;

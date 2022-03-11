@@ -124,8 +124,8 @@ def _disc_engine_conversion(module):
             # __torch__.torch.classes.torch_blade.Engine = prim::GetAttr[name="disc_grp0"](%self)
             eng_type = _backends.register_engine(
                 c_module,
-                attr_name,
                 state,
+                attr_name,
                 fallback_bytes,
                 str(subgraph),
             )

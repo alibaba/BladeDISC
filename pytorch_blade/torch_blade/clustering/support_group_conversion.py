@@ -50,7 +50,7 @@ def _replace_group_with_engine(module, node, attr_name, eng_type):
     graph.appendNode(attr)
     attr.moveBefore(node)
 
-    # create input_list of self.engine.forward, something like:
+    # create input_list of self.engine.execute, something like:
     # %12 : Tensor[] = prim::ListConstruct(%10, %11)
     list_constuct = graph.create('prim::ListConstruct')
     for inp in node.inputs():
@@ -60,9 +60,9 @@ def _replace_group_with_engine(module, node, attr_name, eng_type):
     list_constuct.moveBefore(node)
 
     # create prim::CallMethod, something like:
-    # %5 : Tensor[] = prim::CallMethod[name="forward"](%3, %input_list)
+    # %5 : Tensor[] = prim::CallMethod[name="execute"](%3, %input_list)
     call_method = graph.create('prim::CallMethod')
-    call_method.s_('name', 'forward')
+    call_method.s_('name', 'execute')
     call_method.addInput(attr.output())
     call_method.addInput(list_constuct.output())
     call_method.output().setType(torch_blade.tools.get_list_tensor_type())

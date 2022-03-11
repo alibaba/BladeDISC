@@ -44,16 +44,7 @@ torch::List<torch::Tensor> EngineClass::Fallback(
   return ret.toTensorList();
 }
 
-bool exists_empty_tensor(const torch::List<torch::Tensor> inputs) {
-  for (const torch::Tensor& t : inputs) {
-    if (t.numel() <= 0) {
-      return true;
-    }
-  }
-  return false;
-}
-
-torch::List<torch::Tensor> EngineClass::Forward(
+torch::List<torch::Tensor> EngineClass::Execute(
     const torch::List<torch::Tensor>& inputs) {
   if (GetRecordClusterIOFlag()) {
     // Note:
@@ -66,21 +57,17 @@ torch::List<torch::Tensor> EngineClass::Forward(
 
   torch::List<torch::Tensor> outputs;
   // do inference
-  if (exists_empty_tensor(inputs)) {
-    // NOTE: in detection models, there exists empty inputs;
-    // But tensorrt would raise error.
-    outputs = Fallback(inputs);
-  } else {
-    try {
-      outputs = engine_->Forward(inputs);
-    } catch (const std::runtime_error& error) {
-      const auto& enable_fallback =
-          std::getenv("TORCH_BLADE_RUNTIME_ERROR_FALLBACK");
-      if (enable_fallback == nullptr) {
-        outputs = Fallback(inputs);
-      } else {
-        throw error;
-      }
+  try {
+    outputs = engine_->Execute(inputs);
+  } catch (const std::runtime_error& error) {
+    const auto& enable_fallback =
+        std::getenv("TORCH_BLADE_DISABLE_RUNTIME_FALLBACK");
+    if (enable_fallback == nullptr ||
+        std::strcmp(enable_fallback, "true") != 0 ||
+        std::strcmp(enable_fallback, "on") != 0) {
+      outputs = Fallback(inputs);
+    } else {
+      throw error;
     }
   }
 
@@ -145,8 +132,8 @@ torch::List<torch::Tensor> EngineClass::last_outputs() {
 EngineClass::SerialType EngineClass::Serialize(
     EngineInterface::State state,
     std::string attr_debug_name,
-    std::string original_subgraph,
-    std::string fallback_module_bytes) {
+    std::string fallback_module_bytes,
+    std::string original_subgraph) {
   AttrDictType attr_dict;
   attr_dict.insert(kDebugName, std::move(attr_debug_name));
   attr_dict.insert(kOrigSubG, std::move(original_subgraph));
@@ -191,9 +178,9 @@ static auto torch_blade_engine_class =
         // `c10::intrusive_ptr<YourClass>` (or some const/ref version of that)
         // as the first argument. Other arguments can be whatever you want.
         .def(
-            "forward",
+            "execute",
             [](const c10::intrusive_ptr<EngineClass>& self,
-               at::List<at::Tensor> inputs) { return self->Forward(inputs); })
+               at::List<at::Tensor> inputs) { return self->Execute(inputs); })
         // The following four lines expose methods of the
         // MyStackClass<std::string> class as-is. `torch::class_` will
         // automatically examine the argument and return types of the passed-in
@@ -239,13 +226,10 @@ static auto torch_blade_engine_class =
               return EngineClass::Deserialize(std::move(serialized));
             });
 
-// TOOD(tianyou.gty):
-// The engine_data could be optional if we only to subgraph clustering offline,
-// and jit tuning the engine at runtime.
 torch::TypePtr register_engine(
     torch::jit::Module& module,
-    const std::string& attr_debug_name,
     const EngineInterface::State& engine_state,
+    const std::string& attr_debug_name,
     const std::string& fallback_module_bytes,
     const std::string& original_subgraph) {
   EngineClass::SerialType serialized = EngineClass::Serialize(

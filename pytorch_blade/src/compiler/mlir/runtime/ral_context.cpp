@@ -84,7 +84,7 @@ bool RalContext::CheckCurrentDevice(
   for (size_t k = 0; k < inputs.size(); ++k) {
     torch::Tensor inp = inputs[k];
     auto device = inputs_info[k].device;
-    if (device == "gpu" && inp.device() != cur_cuda_device) {
+    if (device == "cuda" && inp.device() != cur_cuda_device) {
       return false;
     }
   }
@@ -161,8 +161,9 @@ void RalContext::BindingInputs(
 }
 
 inline bool IsEmptyTensor(const tao::ral::buffer_shape_t& shape) {
-  return std::any_of(
-      shape.begin(), shape.end(), [](int64_t dim) { return dim == true; });
+  return shape.size() > 0 &&
+      std::any_of(
+             shape.begin(), shape.end(), [](int64_t dim) { return dim == 0; });
 }
 
 torch::List<torch::Tensor> RalContext::CreateAndBindingOutputs(
@@ -179,9 +180,11 @@ torch::List<torch::Tensor> RalContext::CreateAndBindingOutputs(
     // So it's thread-safe to reuse the underline memory.
     exec_ctx.bindOutput(idx, &out_buf);
 
-    auto scalar_type = engine_state_->outputs[idx].scalar_type;
+    const auto& output_info = engine_state_->outputs[idx];
+    auto scalar_type = output_info.scalar_type;
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
     torch::DeviceType dev_type = torch::kCUDA;
+    dev_type = (output_info.device == "cuda") ? torch::kCUDA : torch::kCPU;
 #else
     torch::DeviceType dev_type = torch::kCPU;
 #endif // TORCH_BLADE_BUILD_WITH_CUDA
@@ -229,7 +232,7 @@ tao::ral::BaseContext* RalContext::LoadCache() {
 }
 #endif // TORCH_BLADE_BUILD_WITH_CUDA
 
-torch::List<torch::Tensor> RalContext::Forward(
+torch::List<torch::Tensor> RalContext::Execute(
     const torch::List<torch::Tensor>& inputs) {
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
   auto ral_ctx = LoadCache();

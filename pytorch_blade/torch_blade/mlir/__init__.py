@@ -11,22 +11,27 @@
 
 try:
     from .._torch_blade._mlir import *
+    from torch_blade.config import OptPipelines
+    from torch_blade.mlir.disc_engine_conversion import (
+        _optimize_mlir,
+        _compile_torchscript,
+    )
+
+    _DISC_NAME = backend_name()
     _is_available = True
+    _DISC_GROUP_NAME = _DISC_NAME.lower() + "_grp"
+    OptPipelines.register_pipeline(_DISC_NAME, _optimize_mlir)
 except ImportError as e:
+    from torch_blade.logging import logger
+    logger.warning(e)
     # MLIR support is disable
     _is_available = False
+    _DISC_GROUP_NAME = None
 
 import contextlib
 from torch_blade import utils
-from torch_blade.config import OptPipelines
-from torch_blade.mlir.disc_engine_conversion import (
-    _optimize_mlir,
-    _compile_torchscript,
-)
 
-_DISC_GROUP_NAME = "disc_grp"
 _DISC_TESTING_CONTEXT = False
-OptPipelines.register_pipeline("DISC", _optimize_mlir)
 
 def is_available():
     return _is_available

@@ -22,9 +22,9 @@ cc_library(
 
 cc_library(
     name = "torch_blade_disc_rt",
-    srcs = ["disc_engine_class.cpp"],
+    srcs = ["disc_engine.cpp"],
     hdrs = [
-        "disc_engine_class.h",
+        "disc_engine.h",
         "ral_context.h",
     ],
     visibility = [

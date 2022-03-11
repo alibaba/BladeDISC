@@ -8,6 +8,7 @@ cc_library(
     name = "torch_blade",
     deps = [
         "//src/common_utils:torch_blade_common",
+	"//src/compiler/backends:torch_blade_backends",
         "//src/compiler/jit:torch_blade_jit",
         "//src/compiler/mlir:torch_blade_mlir",
         "@local_org_torch//:libtorch",

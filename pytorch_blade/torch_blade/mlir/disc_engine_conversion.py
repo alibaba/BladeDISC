@@ -17,9 +17,11 @@ from datetime import datetime
 
 import torch
 import torch_blade
-from torch_blade.config import Config
+
 from torch_blade import mlir
 from torch_blade import tools
+from torch_blade._torch_blade import _backends
+from torch_blade.config import Config
 from torch_blade.clustering import support_fusion_group, support_group_conversion
 from torch_blade.logging import logger
 
@@ -110,10 +112,25 @@ def _disc_engine_conversion(module):
             subg_str = str(subgraph)
             inputs = subgraph.input_list()
             outputs = subgraph.output_list()
-            otype = mlir.register_disc_engine(
-                c_module, attr_name, so_bytes, pb_bytes, subg_str, inputs, outputs, input_dev_str, output_dev_str
+
+            state = _backends.EngineState()
+            state.inputs = [_backends.TensorInfo(inp) for inp in subgraph.inputs()]
+            state.outputs = [_backends.TensorInfo(out) for out in subgraph.outputs()]
+            state.engine_bytes = so_bytes
+            state.model_proto = pb_bytes
+            state.backend_name = mlir.backend_name()
+            fallback_bytes = ""
+            # register engine into module, something like:
+            # __torch__.torch.classes.torch_blade.Engine = prim::GetAttr[name="disc_grp0"](%self)
+            eng_type = _backends.register_engine(
+                c_module,
+                state,
+                attr_name,
+                fallback_bytes,
+                str(subgraph),
             )
-            return attr_name, otype
+
+            return attr_name, eng_type
         except Exception as error:
             logger.warning(error)
             return None

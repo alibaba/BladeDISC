@@ -18,6 +18,10 @@
 #include "compiler/jit/onnx_funcs.h"
 #include "compiler/jit/pybind_functions.h"
 
+#ifdef TORCH_BLADE_BUILD_TENSORRT
+#include "compiler/tensorrt/pybind_functions.h"
+#endif // TORCH_BLADE_BUILD_TENSORRT
+
 #ifdef TORCH_BLADE_BUILD_MLIR
 #include "compiler/mlir/pybind_functions.h"
 #endif // TORCH_BLADE_BUILD_MLIR
@@ -48,6 +52,10 @@ void initModules<COMMUNITY_VERSION_ID>(py::module& m) {
       "jit_pass_onnx_constant_f64_to_f32",
       &torch::blade::CastDownAllConstantDoubleToFloat);
 
+#ifdef TORCH_BLADE_BUILD_TENSORRT
+  torch::blade::tensorrt::initTensorRTBindings(m);
+#endif // TORCH_BLADE_BUILD_TENSORRT
+
 #ifdef TORCH_BLADE_BUILD_MLIR
   torch::blade::disc::initMLIRBindings(m);
 #endif // TORCH_BLADE_BUILD_MLIR
@@ -55,6 +63,7 @@ void initModules<COMMUNITY_VERSION_ID>(py::module& m) {
   using namespace torch::blade::backends;
   py::module backends =
       m.def_submodule("_backends", "torch_blade python bindings to backends");
+
   py::class_<DynamicRanges>(backends, "DynamicRanges")
       .def(py::init<>())
       .def_readwrite("min_shape", &DynamicRanges::min_shape)
@@ -63,6 +72,7 @@ void initModules<COMMUNITY_VERSION_ID>(py::module& m) {
       .def_readwrite("opt_shapes", &DynamicRanges::opt_shapes);
 
   py::class_<TensorInfo>(backends, "TensorInfo")
+      .def(py::init<>())
       .def(py::init<const torch::jit::Value&>())
       .def_readwrite("sizes", &TensorInfo::sizes)
       .def_readwrite("name", &TensorInfo::name)

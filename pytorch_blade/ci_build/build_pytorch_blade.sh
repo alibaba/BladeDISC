@@ -47,6 +47,7 @@ function ci_build() {
       python3 ../scripts/python/common_setup.py
     fi
 
+    export TORCH_BLADE_BUILD_TENSORRT=ON
     rm -rf build && python3 setup.py develop ${extra_args};
     # The following are UNIT TESTS
     export TORCH_BLADE_DEBUG_LOG=ON

@@ -9,12 +9,37 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#ifndef __TENSORRT_PLUGINS_H__
+#define __TENSORRT_PLUGINS_H__
+#include <memory>
+
+#include "NvInfer.h"
+#include "NvInferPlugin.h"
+#include "common_utils/logging.h"
 
 namespace torch {
 namespace blade {
-namespace disc {
-const char* GetBackendName();
-} // namespace disc
+
+std::string GetLinkedTensorRTVersion();
+std::string GetLoadedTensorRTVersion();
+
+std::string NvDataType2String(nvinfer1::DataType dtype);
+
+void InitializeTrtPlugins(nvinfer1::ILogger* trt_logger);
+nvinfer1::ICudaEngine* CreateInferRuntime(const std::string& engine_data);
+
+template <typename T>
+struct TrtDestroyer {
+  void operator()(T* t) {
+    if (t != nullptr) {
+      t->destroy();
+    }
+  }
+};
+
+template <typename T>
+using TrtUniquePtr = std::unique_ptr<T, TrtDestroyer<T>>;
+
 } // namespace blade
 } // namespace torch
+#endif //__TENSORRT_PLUGINS_H__

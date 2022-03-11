@@ -9,26 +9,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "compiler/mlir/runtime/disc_engine.h"
+#include "compiler/tensorrt/tensorrt_engine.h"
 
 #include <algorithm>
 #include <sstream>
+
 #include "common_utils/logging.h"
 #include "compiler/backends/engine_interface.h"
-#include "compiler/mlir/runtime/ral_context.h"
+#include "compiler/tensorrt/tensorrt_engine_context.h"
 
 #include <torch/script.h>
 
 namespace torch {
 namespace blade {
-namespace disc {
+namespace tensorrt {
 
-class DiscEngine : public torch::blade::backends::EngineInterface {
+class TRTEngine : public torch::blade::backends::EngineInterface {
  public:
   using State = torch::blade::backends::EngineState;
 
-  DISALLOW_COPY_AND_ASSIGN(DiscEngine);
-  DiscEngine(const State& state);
+  DISALLOW_COPY_AND_ASSIGN(TRTEngine);
+  TRTEngine(const State& state);
 
   torch::List<torch::Tensor> Execute(
       const torch::List<torch::Tensor>& inputs) override;
@@ -38,68 +39,68 @@ class DiscEngine : public torch::blade::backends::EngineInterface {
   }
 
   static const char* GetBackendName() {
-    return "DISC";
+    return "TensorRT";
   }
-  static std::shared_ptr<DiscEngine> Create(const State& engine_state);
+  static std::shared_ptr<TRTEngine> Create(const State& engine_state);
 
  private:
-  std::shared_ptr<RalContext> FetchRalContext();
-  void ReleaseRalContext();
+  std::shared_ptr<TRTContext> FetchTRTContext();
+  void ReleaseTRTContext();
 
   // use these fields carefully in multi-threads context
-  std::mutex ctx_lock_;
-  // don't use it directly, please use FetchRalContext
-  std::shared_ptr<RalContext> engine_ctx_;
+  std::mutex trt_ctx_lock_;
+  // don't use it directly, please use FetchTRTContext
+  std::shared_ptr<TRTContext> engine_ctx_;
   std::shared_ptr<State> engine_state_;
 };
 
-DiscEngine::DiscEngine(const State& state) {
+TRTEngine::TRTEngine(const State& state) {
   engine_state_ = std::make_shared<State>(std::move(state));
-  auto engine_ctx = FetchRalContext();
+  auto engine_ctx = FetchTRTContext();
   CHECK_NOTNULL(engine_ctx);
 }
 
-torch::List<torch::Tensor> DiscEngine::Execute(
+torch::List<torch::Tensor> TRTEngine::Execute(
     const torch::List<torch::Tensor>& inputs) {
-  auto engine_ctx = FetchRalContext();
+  auto engine_ctx = FetchTRTContext();
   CHECK_NOTNULL(engine_ctx);
   return engine_ctx->Execute(inputs);
 }
 
-// FetchRalContext guarantee to return an effective engine_ctx_
-std::shared_ptr<RalContext> DiscEngine::FetchRalContext() {
+// FetchTRTContext guarantee to return an effective engine_ctx_
+std::shared_ptr<TRTContext> TRTEngine::FetchTRTContext() {
   // Note: we use lock_guard(mutex) since the multi-threads collision with low
   // frequency.
-  std::lock_guard<std::mutex> guard(ctx_lock_);
+  std::lock_guard<std::mutex> guard(trt_ctx_lock_);
   if (engine_ctx_ != nullptr) {
     return engine_ctx_;
   }
 
-  engine_ctx_ = std::make_shared<RalContext>(engine_state_);
+  engine_ctx_ = std::make_shared<TRTContext>(engine_state_);
   return engine_ctx_;
 }
 
-void DiscEngine::ReleaseRalContext() {
-  std::lock_guard<std::mutex> guard(ctx_lock_);
+void TRTEngine::ReleaseTRTContext() {
+  std::lock_guard<std::mutex> guard(trt_ctx_lock_);
   if (engine_ctx_ == nullptr) {
     return;
   }
   engine_ctx_.reset();
 }
 
-std::shared_ptr<DiscEngine> DiscEngine::Create(const State& engine_state) {
-  return std::shared_ptr<DiscEngine>(new DiscEngine(engine_state));
+std::shared_ptr<TRTEngine> TRTEngine::Create(const State& engine_state) {
+  return std::shared_ptr<TRTEngine>(new TRTEngine(engine_state));
 }
 
 const char* GetBackendName() {
-  return DiscEngine::GetBackendName();
+  return TRTEngine::GetBackendName();
 }
 
 static auto torch_blade_engine_creator =
     torch::blade::backends::EngineCreatorRegister().RegisterBackend(
-        DiscEngine::GetBackendName(),
-        &DiscEngine::Create);
+        TRTEngine::GetBackendName(),
+        &TRTEngine::Create);
 
-} // namespace disc
+} // namespace tensorrt
 } // namespace blade
 } // namespace torch

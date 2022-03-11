@@ -72,6 +72,8 @@ class BazelBuild(TorchBladeBuild):
 
         if self.build_tensorrt:
             self.configs.append("--config=torch_tensorrt")
+            self.extra_opts += [
+                "--action_env TENSORRT_INSTALL_PATH={}".format(self.tensorrt_dir)]
 
         if running_on_ci():
             self.configs += ["--config=ci_build"]

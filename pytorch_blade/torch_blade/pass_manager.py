@@ -27,18 +27,23 @@ from torch_blade.python_ir_analysis import _jit_pass_clean_python_ir
 IGNORE_DYNAMIC_RANK = True
 
 
-def _get_dynamic_axes(input_list):
+def _get_dynamic_axes(input_list, dynamic_axes):
     dyn_axs = {}
-    for inp in input_list:
+    if dynamic_axes is None:
+        return dyn_axs
+
+    for inp, axes_ds in zip(input_list, dynamic_axes):
         name = inp.debugName()
         axes = {}
         for idx, d in enumerate(inp.type().sizes()):
+            if axes_ds[idx] == d:
+                continue
             axes[idx] = "{}_axis_{}".format(name, idx)
         dyn_axs[name] = axes
     return dyn_axs
 
 
-def _export_onnx(graph, params_dict, use_dyn=False):
+def _export_onnx(graph, dynamic_axes):
     # Note: TRT7 support opset 11
     cfg = Config.get_current_context_or_new()
     if cfg.customize_onnx_opset_version:
@@ -47,7 +52,7 @@ def _export_onnx(graph, params_dict, use_dyn=False):
         opset_version = _default_onnx_opset_version
     _set_opset_version(opset_version)
 
-    dynamic_axes = {} if not use_dyn else _get_dynamic_axes(graph.input_list())
+    dynamic_axes = _get_dynamic_axes(graph.input_list(), dynamic_axes)
     defer_weight_export = False
     operator_export_type = OperatorExportTypes.ONNX
     strip_doc_string = True
@@ -55,7 +60,7 @@ def _export_onnx(graph, params_dict, use_dyn=False):
     custom_opsets = {}
     val_add_node_names = True
     proto, _ = graph._export_onnx(
-        params_dict,
+        dict(),
         opset_version,
         dynamic_axes,
         defer_weight_export,

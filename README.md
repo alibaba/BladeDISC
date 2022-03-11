@@ -32,6 +32,9 @@ TensorFlow/PyTorch runtime, and Standalone Mode for AOT standalone execution.
 The project is based on [MLIR](https://mlir.llvm.org/) and highly related with
 [mlir-hlo](https://github.com/tensorflow/mlir-hlo) project.
 
+Refer to [TorchBlade](/pytorch_blade/README.md) and [TfBlade]() if you are interested 
+in [PAI-Blade]().
+
 Refer to [our website](https://alibaba.github.io/BladeDISC/) for more
 information, including the setup tutorial, developer guide, demo examples and
 documents for developers.

@@ -41,8 +41,6 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 
-#define DEBUG_TYPE "disc-transpose-simplifier"
-
 namespace mlir {
 namespace disc_ral {
 namespace {

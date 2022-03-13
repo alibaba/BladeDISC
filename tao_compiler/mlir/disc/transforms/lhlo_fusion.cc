@@ -120,7 +120,7 @@ class FusionPlanner {
     DenseSet<Cluster*> seen_clusters;
     for (Operation* op : op_list_) {
       Cluster* cluster = GetClusterForNode(op);
-      if (cluster == nullptr || !seen_clusters.insert(cluster).second) continue;
+      if (!seen_clusters.insert(cluster).second) continue;
       FusionPattern& fusion_pattern = cluster->fused_pattern();
       llvm::dbgs() << "  Cluster #" << seen_clusters.size() << "@"
                    << fusion_pattern.getFusionTypeStr() << "\n";
@@ -147,7 +147,7 @@ class FusionPlanner {
     DenseSet<Cluster*> seen_clusters;
     for (Operation* op : op_list_) {
       Cluster* cluster = GetClusterForNode(op);
-      if (cluster == nullptr || !seen_clusters.insert(cluster).second) continue;
+      if (!seen_clusters.insert(cluster).second) continue;
       FusionPattern& fusion_pattern = cluster->fused_pattern();
       // Make sure the ops in a fusion pattern are in topological ordering.
       fusion_pattern.sortFusionOpListBy(op_to_node_id_);
@@ -200,21 +200,12 @@ class FusionPlanner {
  private:
   // Returns a new cluster with specified `cycles_graph_node_id`
   Cluster* MakeCluster(int cycles_graph_node_id) {
-    Cluster* result = nullptr;
-    std::unique_ptr<Cluster> possible_cluster(
-        new Cluster(cycles_graph_node_id, this));
-    if (getFusionStrategy().initFusionPattern(
-            *shape_analysis_, possible_cluster->fused_pattern())) {
-      auto result = possible_cluster.get();
-      cluster_storage_.try_emplace(cycles_graph_node_id,
-                                   std::move(possible_cluster));
-    }
-    return result;
-
-    // cluster_storage_.emplace_back(new Cluster(cycles_graph_node_id, this));
-    // bool status = getFusionStrategy().initFusionPattern(
-    // *shape_analysis_, cluster_storage_.back()->fused_pattern());
-    // return cluster_storage_.back().get();
+    cluster_storage_.emplace_back(new Cluster(cycles_graph_node_id, this));
+    bool status = getFusionStrategy().initFusionPattern(
+        *shape_analysis_, cluster_storage_.back()->fused_pattern());
+    assert(status);
+    (void)(status);
+    return cluster_storage_.back().get();
   }
 
   // Metadata ops (e.g. shapeOf, dimOp) don't change data thus we move forward
@@ -307,25 +298,12 @@ class FusionPlanner {
   Cluster* GetClusterForNode(Operation* n) {
     int id = op_to_node_id_[n];
     id = leader_for_node_.getLeaderValue(id);
-    auto cluster = cluster_storage_.find(id);
-    if (cluster != cluster_storage_.end()) {
-      return cluster->second.get();
-    } else {
-      return nullptr;
-    }
-    // return cluster_storage_[id].get();
+    return cluster_storage_[id].get();
   }
 
   // Returns the cluster contains the op having `node_id`.
   Cluster* GetClusterForCyclesGraphNode(int node_id) {
-    auto cluster =
-        cluster_storage_.find(leader_for_node_.getLeaderValue(node_id));
-    if (cluster != cluster_storage_.end()) {
-      return cluster->second.get();
-    } else {
-      return nullptr;
-    }
-    // return cluster_storage_[leader_for_node_.getLeaderValue(node_id)].get();
+    return cluster_storage_[leader_for_node_.getLeaderValue(node_id)].get();
   }
 
   using FnTy = llvm::function_ref<bool(Cluster*, Cluster*)>;
@@ -333,9 +311,6 @@ class FusionPlanner {
     bool changed = false;
     for (int32_t node : cycle_detector_->AllNodesInPostOrder()) {
       Cluster* cluster_from = GetClusterForCyclesGraphNode(node);
-      if (cluster_from == nullptr) {
-        continue;
-      }
       // Make a copy of the set of successors because we may modify the graph in
       // TryToContractEdge.
       std::vector<int32_t> successors_copy =
@@ -343,9 +318,6 @@ class FusionPlanner {
 
       for (int to : successors_copy) {
         Cluster* cluster_to = GetClusterForCyclesGraphNode(to);
-        if (cluster_to == nullptr) {
-          continue;
-        }
         bool contracted_edge = fn(cluster_from, cluster_to);
         changed |= contracted_edge;
       }
@@ -482,8 +454,7 @@ class FusionPlanner {
 
   // make sure not introduce cycle after fusion
   std::unique_ptr<GraphCycles> cycle_detector_;
-  // std::vector<std::unique_ptr<Cluster>> cluster_storage_;
-  DenseMap<int64_t, std::unique_ptr<Cluster>> cluster_storage_;
+  std::vector<std::unique_ptr<Cluster>> cluster_storage_;
 
   // a UnionFind set. Each set represents a (partial) fused pattern
   // and has a leader as representation.

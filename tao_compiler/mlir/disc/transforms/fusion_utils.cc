@@ -922,10 +922,7 @@ bool BaseFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
   }
   fusion_pattern.setDominantOp(inferredDominantOp);
   fusion_pattern.setFusionType(inferredFusionType);
-  bool isSuccess =
-      (inferredFusionType != FusionType::kNone && inferredDominantOp);
-  LLVM_DEBUG(llvm::dbgs() << "init BaseFusionStrategy result: " << isSuccess);
-  return isSuccess;
+  return (inferredFusionType != FusionType::kNone && inferredDominantOp);
 }
 
 bool BaseFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
@@ -1051,10 +1048,7 @@ bool BaseCpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
   }
   fusion_pattern.setDominantOp(inferredDominantOp);
   fusion_pattern.setFusionType(inferredFusionType);
-  bool isSuccess =
-      (inferredFusionType != FusionType::kNone && inferredDominantOp);
-  LLVM_DEBUG(llvm::dbgs() << "init BaseFusionStrategy result: " << isSuccess);
-  return isSuccess;
+  return (inferredFusionType != FusionType::kNone && inferredDominantOp);
 }
 
 bool isLargeConcatOp(Operation* op) {
@@ -1339,7 +1333,6 @@ bool PlacementAwareFusionStrategy::initFusionPattern(
     ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern) {
   if (fusion_pattern.getOpList().empty()) return true;
   FusionStrategy* strategy = getStrategy(fusion_pattern.getOpList()[0]);
-  LLVM_DEBUG(llvm::dbgs() << "strategy not null: " << (strategy != nullptr));
   return strategy && strategy->initFusionPattern(shapeAnalysis, fusion_pattern);
 }
 

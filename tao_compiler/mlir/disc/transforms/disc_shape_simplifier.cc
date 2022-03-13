@@ -281,7 +281,7 @@ class DynamicBroadcastInDimOpSimplifier
         if (arith::ConstantIntOp constant_op =
                 dyn_cast_or_null<arith::ConstantIntOp>(dim.getDefiningOp())) {
           staticVal = constant_op.getValue().cast<IntegerAttr>().getInt();
-          assert(staticVal > 0);
+          assert(staticValue > 0);
         } else if (arith::ConstantIndexOp constant_op =
                        dyn_cast_or_null<arith::ConstantIndexOp>(
                            dim.getDefiningOp())) {

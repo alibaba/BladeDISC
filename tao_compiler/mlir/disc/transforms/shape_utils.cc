@@ -1241,7 +1241,6 @@ LogicalResult ShapeAnalysis::visitSymbolShapes(SymbolShapeVisitor visitor) {
       BlockArgument arg = value.dyn_cast<BlockArgument>();
       assert(arg);
       Block* block = arg.getOwner();
-      // Block* block = cast<BlockArgument>(value).getOwner();
       loc = block->getParentOp()->getLoc();
       b.setInsertionPoint(block, block->begin());
     } else {

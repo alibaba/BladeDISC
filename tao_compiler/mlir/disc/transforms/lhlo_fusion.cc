@@ -210,11 +210,6 @@ class FusionPlanner {
                                    std::move(possible_cluster));
     }
     return result;
-
-    // cluster_storage_.emplace_back(new Cluster(cycles_graph_node_id, this));
-    // bool status = getFusionStrategy().initFusionPattern(
-    // *shape_analysis_, cluster_storage_.back()->fused_pattern());
-    // return cluster_storage_.back().get();
   }
 
   // Metadata ops (e.g. shapeOf, dimOp) don't change data thus we move forward
@@ -313,7 +308,6 @@ class FusionPlanner {
     } else {
       return nullptr;
     }
-    // return cluster_storage_[id].get();
   }
 
   // Returns the cluster contains the op having `node_id`.
@@ -325,7 +319,6 @@ class FusionPlanner {
     } else {
       return nullptr;
     }
-    // return cluster_storage_[leader_for_node_.getLeaderValue(node_id)].get();
   }
 
   using FnTy = llvm::function_ref<bool(Cluster*, Cluster*)>;
@@ -482,7 +475,6 @@ class FusionPlanner {
 
   // make sure not introduce cycle after fusion
   std::unique_ptr<GraphCycles> cycle_detector_;
-  // std::vector<std::unique_ptr<Cluster>> cluster_storage_;
   DenseMap<int64_t, std::unique_ptr<Cluster>> cluster_storage_;
 
   // a UnionFind set. Each set represents a (partial) fused pattern

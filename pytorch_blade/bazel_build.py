@@ -70,7 +70,7 @@ class BazelBuild(TorchBladeBuild):
         else:
             self.configs += ["--config=torch_disc_cpu"]
 
-        if self.build_tensorrt:
+        if self.cuda_available and self.build_tensorrt:
             self.configs.append("--config=torch_tensorrt")
             self.extra_opts += [
                 "--action_env TENSORRT_INSTALL_PATH={}".format(self.tensorrt_dir)]

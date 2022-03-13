@@ -1,9 +1,16 @@
 package(default_visibility = ["//visibility:public"])
 
-%{TF_HEADER_LIB}
+cc_library(
+    name = "tf_header_lib",
+    hdrs = glob(["include/*.h"]),
+    includes = ["include"],
+    visibility = ["//visibility:public"],
+)
 
-%{TF_LIB}
 
-%{TF_HEADER_GENRULE}
-
-%{TF_LIB_GENRULE}
+cc_library(
+    name = "libtensorflow_framework",
+    srcs = glob(["lib/libtensorflow_framework.so.*"]),
+    linkstatic=1,
+    visibility = ["//visibility:public"],
+)

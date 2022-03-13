@@ -1,0 +1,20 @@
+workspace(name = "org_tf_blade")
+
+# Initialize the tf_blade repository and all dependencies.
+#
+# The cascade of load() statements and workspace?() calls works around the
+# restriction that load() statements need to be at the top of .bzl files.
+# E.g. we can not retrieve a new repository with http_archive and then load()
+# a macro from that repository in the same file.
+
+load("@//:workspace2.bzl", "tf_blade_workspace2")
+
+tf_blade_workspace2()
+
+load("@//:workspace1.bzl", "tf_blade_workspace1")
+
+tf_blade_workspace1()
+
+load("@//:workspace0.bzl", "tf_blade_workspace0")
+
+tf_blade_workspace0()

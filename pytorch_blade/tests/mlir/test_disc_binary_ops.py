@@ -77,8 +77,8 @@ class TestDiscBinaryOps(DiscTestCase):
         self._check_type(out, res)
 
         # test integer
-        x = torch.randint([10, 2, 3, 4], device=self.device)
-        y = torch.randint([10, 2, 3, 4], device=self.device)
+        x = torch.randint(3, [10, 2], device=self.device)
+        y = torch.randint(3, [10, 2], device=self.device)
         test_data = (x, y)
         out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
         self._check_type(out, res)
@@ -212,15 +212,14 @@ class TestDiscBinaryOps(DiscTestCase):
         @torch.jit.script
         def func_float(x):
             return torch.arange(x, dtype=torch.float)
-        test_data = (torch.tensor(10),)
+        test_data = (torch.tensor(20),)
         out, res = self._test_cvt_to_disc(func_float, test_data)
         self._check_type(out, res)
 
-        # None dtype.
+        # None dtype. Infer dtype from input data.
         @torch.jit.script
         def func_none(x):
             return torch.arange(x)
-
         # int data
         test_data = (torch.tensor(10, dtype=torch.int),)
         out, res = self._test_cvt_to_disc(func_none, test_data)

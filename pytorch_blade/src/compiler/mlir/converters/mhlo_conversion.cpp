@@ -187,7 +187,6 @@ class ConvertToMhloImpl {
       // do conversion
       if (!((*op_converter)(cvt_context_, *node))) {
         cvt_context_.mlir_module->dump();
-        block->owningGraph()->dump();
         TORCH_CHECK(false, "meet error during converting ", *node);
       }
     }

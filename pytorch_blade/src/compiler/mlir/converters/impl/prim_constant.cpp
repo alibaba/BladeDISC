@@ -16,7 +16,6 @@
 #include <mlir/mhlo/builder/mlir_attr_utils.h>
 #include <mlir/mhlo/builder/standard.h>
 
-#include "common_utils/logging.h"
 #include "compiler/mlir/converters/mhlo_conversion_context.h"
 #include "compiler/mlir/converters/mhlo_converter_register.h"
 #include "compiler/mlir/converters/mlir_type_utils.h"

@@ -204,9 +204,7 @@ bool ConvertAtenArange(
   c10::ScalarType default_scalar_type =
       c10::typeMetaToScalarType(c10::get_default_dtype());
   auto dtype_jit_ival = torch::jit::toIValue(dtype);
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
   if (!dtype_jit_ival || dtype_jit_ival->isNone()) {
-    llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
     // Infer dtype from `end`.
     if (!input_mlir_type.isIntOrIndexOrFloat()) {
       DLOG(INFO) << "Unsupported dtype of argument `end` for arange.";
@@ -219,19 +217,15 @@ bool ConvertAtenArange(
       target_scalar_type = torch::ScalarType::Long;
     }
   } else {
-    llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
     auto target_dtype_value =
         CastStdConstToI64(ctx.GetMlirValue(node.input(1)));
     target_scalar_type = static_cast<torch::ScalarType>(*target_dtype_value);
-    llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
   }
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
 
   if (!end.getType().isa<mlir::TensorType>()) {
     std::vector<mlir::Value> dim_sizes = {end};
     end = ctx.builder->create<mlir::tensor::FromElementsOp>(loc, dim_sizes);
   }
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
 
   // If `end` is not int type, convert to int to meet the requirement of
   // mlir::mhlo::DynamicIotaOp.
@@ -244,13 +238,11 @@ bool ConvertAtenArange(
     end = ctx.builder->create<mlir::mhlo::ConvertOp>(loc, end, mlir_int_type);
     iota_type = mlir_int_type;
   }
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
 
   std::vector<mlir_dim_t> out_shape_vec(1, mlir::ShapedType::kDynamicSize);
   auto out_shape = mlir::RankedTensorType::get(out_shape_vec, iota_type);
   mlir::Value iota = ctx.builder->create<mlir::mhlo::DynamicIotaOp>(
       loc, out_shape, end, ctx.builder->getI64IntegerAttr(0));
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
 
   // Convert result to target type if necessary.
   auto mlir_target_dtype = BuildMlirElemType(*ctx.builder, target_scalar_type);
@@ -261,7 +253,6 @@ bool ConvertAtenArange(
   } else {
     result = iota;
   }
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
 
   ctx.value_map[node.output()] = result;
   return true;

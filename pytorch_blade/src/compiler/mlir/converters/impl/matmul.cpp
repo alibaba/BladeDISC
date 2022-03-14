@@ -190,7 +190,7 @@ namespace {
 // >>> # batched matrix x batched matrix
 // >>> tensor1 = torch.randn(10, 3, 4)
 // >>> tensor2 = torch.randn(10, 4, 5)
-// >>> torch.matmul(tensor1, tensor2).size() // or torch.bmm
+// >>> torch.matmul(tensor1, tensor2).size() # or torch.bmm
 // torch.Size([10, 3, 5])
 //
 // >>> # batched matrix x broadcasted matrix

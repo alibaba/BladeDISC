@@ -401,7 +401,6 @@ bool ConvertAtenFlip(MhloConversionContext& ctx, const torch::jit::Node& node) {
   auto& builder = *ctx.builder;
   ctx.value_map[node.output(0)] = builder.create<mlir::mhlo::ReverseOp>(
       loc, input, BuildI64ElementsAttr(builder, trans_dim_vec));
-  // BuildI64ElementsAttr(builder, CastJitConstListToVec<int64_t>(*jit_dims)));
   return true;
 }
 

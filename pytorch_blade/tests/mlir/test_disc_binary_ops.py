@@ -47,7 +47,7 @@ class TestDiscBinaryOps(DiscTestCase):
         out, res = self._test_cvt_to_disc(func, test_data)
         self._check_type(out, res)
 
-    def _test_binary_ops(self, binary_ops_func):
+    def _test_binary_ops(self, binary_ops_func, test_int = True):
         # test no broadcast
         x = torch.randn([10, 2, 3, 4], device=self.device)
         y = torch.randn([10, 2, 3, 4], device=self.device)
@@ -77,11 +77,12 @@ class TestDiscBinaryOps(DiscTestCase):
         self._check_type(out, res)
 
         # test integer
-        x = torch.randint(3, [10, 2], device=self.device)
-        y = torch.randint(3, [10, 2], device=self.device)
-        test_data = (x, y)
-        out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
-        self._check_type(out, res)
+        if test_int:
+            x = torch.randint(3, [10, 2], device=self.device)
+            y = torch.randint(3, [10, 2], device=self.device)
+            test_data = (x, y)
+            out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
+            self._check_type(out, res)
 
     def _test_func(self, torch_func):
         @torch.jit.script
@@ -129,13 +130,19 @@ class TestDiscBinaryOps(DiscTestCase):
         def func1(x, y):
             return torch_func(x, y.expand_as(x), alpha=0.1)
 
-        self._test_binary_ops(func1)
+        self._test_binary_ops(func1, False)
 
         @torch.jit.script
         def func2(x, y):
             return torch_func(x, y, alpha=0.1)
 
-        self._test_binary_ops(func2)
+        self._test_binary_ops(func2, False)
+
+        @torch.jit.script
+        def func3(x, y):
+            return torch_func(x, y, alpha=1)
+
+        self._test_binary_ops(func3)
 
     def test_binary_type_promotion(self):
         self._test_binary_type_promotion(torch.sub)

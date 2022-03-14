@@ -94,6 +94,20 @@ cc_library(
     }),
 )
 
+cc_library(
+    name = "nvinfer_static",
+    visibility = ["//visibility:public"],
+    deps = [
+        "nvinfer_headers",
+        "nvinfer_static_lib",
+        "@local_config_cuda//cuda:cudart_static",
+        #"@cudnn",
+    ] + select({
+        ":windows": ["@local_config_cuda//cuda:cublas"],
+        "//conditions:default": ["@local_config_cuda//cuda:cublas"],
+    }),
+)
+
 ####################################################################################
 
 cc_import(

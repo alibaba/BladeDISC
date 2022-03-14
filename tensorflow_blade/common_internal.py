@@ -91,7 +91,7 @@ def execute(cmd, silent_fail=False):
         )
     )
     try:
-        subprocess.check_call(shell_setting + cmd, shell=True)
+        subprocess.check_call(shell_setting + cmd, shell=True, executable='/bin/bash')
     except subprocess.CalledProcessError as e:
         if not silent_fail:
             raise e

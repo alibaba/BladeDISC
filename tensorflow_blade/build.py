@@ -225,7 +225,7 @@ def configure_with_bazel(args):
 
 def build_with_bazel(args):
     with cwd(ROOT):
-        execute("bazel build //src:_tf_blade.so")
+        execute("bazel build --config=cuda //src:_tf_blade.so")
 
 def package_whl_with_bazel(args):
     with cwd(ROOT):

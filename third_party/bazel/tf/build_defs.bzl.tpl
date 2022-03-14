@@ -9,5 +9,5 @@ def if_tf2(x):
         return select({"//conditions:default": x})
     return select({"//conditions:default": []})
 
-def tf_version_define():
-    return "#define TF_VERSION %{TF_VERSION}"
+def tf_version():
+    return "%{TF_VERSION}"

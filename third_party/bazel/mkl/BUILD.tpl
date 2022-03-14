@@ -4,15 +4,12 @@ licenses(["notice"])
 
 package(default_visibility = ["//visibility:public"])
 
-%{mkl_copy_rules}
-
 %{mkl_static_lib_imports}
-
 
 cc_library(
     name = "mkl_headers",
-    hdrs = [":copy_mkl_include"],
-    strip_include_prefix = "include",
+    hdrs = glob(["include/*.h"]),
+    includes = ["include"],
 )
 
 cc_library(

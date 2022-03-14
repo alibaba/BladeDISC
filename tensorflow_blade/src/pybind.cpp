@@ -14,13 +14,8 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
-#include "src/tf_version.h"
+#include "src/tf_compatible_version.h"
 
-std::string compatible_tf_version() {
-  std::stringstream ss;
-  ss << std::setprecision(2) << TF_VERSION;
-  return ss.str();
-}
 
 PYBIND11_MODULE(_tf_blade, m) {
   m.doc() = "Utils for tf blade.";

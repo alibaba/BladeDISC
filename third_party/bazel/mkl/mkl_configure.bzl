@@ -19,12 +19,6 @@ def _tpl(repository_ctx, tpl, substitutions):
         substitutions,
     )
 
-def _find_recursive(repository_ctx, dir):
-    result = repository_ctx.execute(["find", "-L", dir, "-type", "f"])
-    if result.return_code != 0:
-        fail("Repository command failed: \n %s" % result.stderr.strip())
-    return result.stdout.strip().splitlines()
-
 def _cc_import(repository_ctx, lib_path):
     fname = repository_ctx.path(lib_path).basename
     return """
@@ -34,28 +28,10 @@ cc_import(
     alwayslink = 0,
 )""".format(fname, lib_path)
 
-def _genrule_copy(repository_ctx, name, srcs, outs):
-    """Returns a rule to copy a set of files."""
-    cmds = []
-
-    # Copy files.
-    for src, out in zip(srcs, outs):
-        cmds.append('cp -f "%s" "$(RULEDIR)/%s"' % (src, out))
-    outs = [('        "%s",' % out) for out in outs]
-    return """genrule(
-    name = "%s",
-    tags = ["no-remote-cache"],
-    outs = [
-%s
-    ],
-    cmd = \"""%s \""",
-)""" % (name, "\n".join(outs), " && \\\n             ".join(cmds))
-
 def _mkl_configure_impl(repository_ctx):
     with_mkl = repository_ctx.os.environ.get(_WITH_MKL, "0").lower()
     if with_mkl not in ["1", "true", "on"]:
         _tpl(repository_ctx, "BUILD", {
-            "%{mkl_copy_rules}": "",
             "%{mkl_static_lib_targets}": "",
             "%{mkl_static_lib_imports}": "",
         })
@@ -65,28 +41,10 @@ def _mkl_configure_impl(repository_ctx):
         return
 
     root = repository_ctx.os.environ[_MKL_ROOT].rstrip("/")
-    headers = _find_recursive(repository_ctx, root + "/mkl/include")
+    header_dir = root + "/mkl/include"
 
-    copy_rules = [
-        _genrule_copy(
-            repository_ctx,
-            name = "copy_mkl_include",
-            srcs = headers,
-            outs = ["include/" + repository_ctx.path(header).basename for header in headers],
-        ),
-        _genrule_copy(
-            repository_ctx,
-            name = "copy_mkl_static_libs",
-            srcs = [root + "/" + lib for lib in _MKL_STATIC_LIBS],
-            outs = ["lib/" + lib for lib in _MKL_STATIC_LIBS],
-        ),
-        _genrule_copy(
-            repository_ctx,
-            name = "copy_iomp5",
-            srcs = [root + "/" + _MKL_IOMP5_SO],
-            outs = ["lib/" + _MKL_IOMP5_SO],
-        ),
-    ]
+    repository_ctx.symlink(header_dir, "include")
+    repository_ctx.symlink(root + "/", "lib")
 
     static_lib_imports = [
         _cc_import(repository_ctx, "lib/" + lib)
@@ -98,7 +56,6 @@ def _mkl_configure_impl(repository_ctx):
     ])
 
     _tpl(repository_ctx, "BUILD", {
-        "%{mkl_copy_rules}": "\n\n".join(copy_rules),
         "%{mkl_static_lib_targets}": static_lib_targets,
         "%{mkl_static_lib_imports}": "\n\n".join(static_lib_imports),
     })

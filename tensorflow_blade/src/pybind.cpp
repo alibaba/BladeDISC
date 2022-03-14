@@ -14,8 +14,8 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
-#include "src/tf_compatible_version.h"
 
+#include "src/tf_compatible_version.h"
 
 PYBIND11_MODULE(_tf_blade, m) {
   m.doc() = "Utils for tf blade.";

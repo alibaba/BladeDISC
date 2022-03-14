@@ -19,7 +19,7 @@ python -m virtualenv venv && source venv/bin/activate
 
 (cd tensorflow_blade \
   && python -m pip install -q -r requirement-tf2.4-cu110.txt \
-  && bash ./build.py ../venv/ -s configure
+  && bash ./build.py ../venv/ -s configure \
   && bash ./build.py ../venv/ -s build)
 
 deactivate

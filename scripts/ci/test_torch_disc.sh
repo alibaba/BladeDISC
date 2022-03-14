@@ -11,10 +11,11 @@
 # limitations under the License.
 set -e
 
+python scripts/python/tao_build.py /opt/venv_disc -s configure --bridge-gcc default --compiler-gcc default
+
 python -m virtualenv --system-site-packages myenv && source myenv/bin/activate
+# build _torch_disc.so
 (cd torch_disc && python setup.py develop)
-
-# check _torch_disc.so
+# check pybind library
 (cd torch_disc/bazel-bin/torch_disc && python -c "import _torch_disc")
-
 deactive

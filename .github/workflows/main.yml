@@ -108,33 +108,6 @@ jobs:
 #      run: |
 #        set -e
 #        bash ./scripts/ci/deploy_tf_wrapper.sh
-  CUDA11-TORCH-DISC:
-    if: github.repository == 'alibaba/BladeDISC'
-    runs-on: [self-hosted, gpu-t4]
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v2.4.0
-      with:
-        path: ./torch_disc_devel
-    - name: Build Dev Docker
-      working-directory: ./torch_disc_devel
-      run: |
-        set -e
-        git submodule sync
-        git submodule update --init --depth=1
-        docker build -t torch-disc-devel-cuda11.0 \
-          --build-arg PYTORCH_COMMIT=$(git submodule status torch_disc/pytorch | awk '{print $1}') \
-          -f docker/dev/Dockerfile.torch-disc ./docker/
-    - name: Build and Test
-      working-directory: ./torch_disc_devel
-      run: |
-        set -e
-        nvidia-docker run --rm -t --user $(id -u) \
-          -v $PWD:/workspace \
-          -v $HOME/.cache:$HOME/.cache \
-          -v /etc/passwd:/etc/passwd:ro \
-          -v /etc/group:/etc/group:ro \
-          -w /workspace torch-disc-devel-cuda11.0 bash ./scripts/ci/test_torch_disc.sh
 #  CUDA11-TORCH171:
 #    if: github.repository == 'alibaba/BladeDISC'
 #    # The type of runner that the job will run on
@@ -202,3 +175,30 @@ jobs:
 #        -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cpu
 #        -e TORCH_BLADE_USE_CMAKE_BUILD=ON
 #      exec_command: bash ./scripts/ci/test_pytorch_blade.sh
+  CUDA11-TORCH-DISC:
+    if: github.repository == 'alibaba/BladeDISC'
+    runs-on: [self-hosted, gpu-t4]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2.4.0
+      with:
+        path: ./torch_disc_devel
+    - name: Build Dev Docker
+      working-directory: ./torch_disc_devel
+      run: |
+        set -e
+        git submodule sync
+        git submodule update --init --depth=1
+        docker build -t torch-disc-devel-cuda11.0 \
+          --build-arg PYTORCH_COMMIT=$(git submodule status torch_disc/pytorch | awk '{print $1}') \
+          -f docker/dev/Dockerfile.torch-disc ./docker/
+    - name: Build and Test
+      working-directory: ./torch_disc_devel
+      run: |
+        set -e
+        nvidia-docker run --rm -t --user $(id -u) \
+          -v $PWD:/workspace \
+          -v $HOME/.cache:$HOME/.cache \
+          -v /etc/passwd:/etc/passwd:ro \
+          -v /etc/group:/etc/group:ro \
+          -w /workspace torch-disc-devel-cuda11.0 bash ./scripts/ci/test_torch_disc.sh

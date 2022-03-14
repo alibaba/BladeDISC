@@ -15,6 +15,6 @@ python -m virtualenv --system-site-packages myenv && source myenv/bin/activate
 (cd torch_disc && python setup.py develop)
 
 # check _torch_disc.so
-(cd bazel-bin/torch_disc && python -c "import _torch_disc")
+(cd torch_disc/bazel-bin/torch_disc && python -c "import _torch_disc")
 
 deactive

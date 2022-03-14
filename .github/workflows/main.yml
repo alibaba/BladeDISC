@@ -78,7 +78,8 @@ jobs:
         set -e
         git submodule sync
         git submodule update --depth=1 --init --recursive
-        docker build -t disc-dev-cuda11.0 \
+        docker pull bladedisc/bladedisc:latest-devel-cuda11.0
+        docker build --cache-from bladedisc/bladedisc:latest-devel-cuda11.0 -t disc-dev-cuda11.0 \
           --build-arg BASEIMAGE=nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04 \
           --build-arg DISC_HOST_TF_VERSION="tensorflow-gpu==2.4" \
           -f docker/dev/Dockerfile .
@@ -122,7 +123,8 @@ jobs:
         set -e
         git submodule sync
         git submodule update --depth=1 --init --recursive
-        docker build -t disc-dev-cuda11.0 \
+        docker pull bladedisc/bladedisc:latest-devel-cuda11.0
+        docker build --cache-from bladedisc/bladedisc:latest-devel-cuda11.0 -t disc-dev-cuda11.0 \
           --build-arg BASEIMAGE=nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04 -f docker/dev/Dockerfile .
     - name: Build and Test DISC
       run: |

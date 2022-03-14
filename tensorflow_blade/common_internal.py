@@ -205,6 +205,8 @@ def get_cudnn_version(cuda_home):
     for hdr in ["cudnn.h", "cudnn_version.h"]:
         fname = os.path.join(cuda_home, "include", hdr)
         serched.append(fname)
+        if not os.path.exists(fname):
+            fname = os.path.join("/usr/include", hdr)
         with open(fname, "r") as f:
             major, minor, patch = None, None, None
             for line in f.readlines():

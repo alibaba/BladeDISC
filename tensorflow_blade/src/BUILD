@@ -44,11 +44,11 @@ pybind_extension(
     deps = [
         ":tf_version_header",
         "@local_config_tf//:libtensorflow_framework",
-        "@local_config_mkl//:mkl_static",
+        # "@local_config_mkl//:mkl_static",
     ] + select({
         "@local_config_cuda//:is_cuda_enabled": [
             "@local_config_cuda//cuda:cudart_static",
-            "@local_config_tensorrt//:nvinfer_static",
+            # "@local_config_tensorrt//:nvinfer_static",
         ],
         "//conditions:default": [],
     }),

@@ -81,13 +81,13 @@ cc_library(
     srcs = glob(
         [
             "lazy_tensor_core/lazy_tensor_core/**/*.cpp",
-            "lazy/python/*.cpp",
+            "ts_include/torch/csrc/lazy/python/*.cpp",
             "lazy_tensor_core/third_party/computation_client/*.cc",
         ],
         exclude=[
             "lazy_tensor_core/test/**/*",
             "lazy_tensor_core/**/init_python_bindings.cpp",
-            "lazy/**/test_*.cpp"
+            "ts_include/torch/csrc/lazy/**/test_*.cpp"
         ],
         allow_empty=False
     ),
@@ -95,7 +95,7 @@ cc_library(
         [
             "lazy_tensor_core/lazy_tensor_core/csrc/ts_backend/*.h",
             "lazy_tensor_core/third_party/computation_client/*.h",
-            "lazy/**/*.h",
+            "ts_include/torch/csrc/lazy/**/*.h",
         ],
         allow_empty=False
     ),

@@ -11,7 +11,9 @@ def _impl(repo_ctx):
     repo_ctx.symlink(torch_path + "/lib", "lib")
     repo_ctx.symlink(_TORCH_SUBMODULE, "pytorch")
     repo_ctx.symlink(_TORCH_SUBMODULE + "/lazy_tensor_core", "lazy_tensor_core")
-    repo_ctx.symlink(_TORCH_SUBMODULE + "/torch/csrc/lazy", "lazy")
+    repo_ctx.symlink(_TORCH_SUBMODULE + "/torch/csrc/lazy", "ts_include/torch/csrc/lazy")
+    repo_ctx.symlink(_TORCH_SUBMODULE + "/torch/csrc/generic", "ts_include/torch/csrc/generic")
+    repo_ctx.symlink(_TORCH_SUBMODULE + "/lazy_tensor_core/third_party/computation_client", "ts_include/lazy_tensors/computation_client")
 
 torch_configure = repository_rule(
     implementation = _impl,

@@ -105,6 +105,7 @@ cc_library(
         "lazy_tensor_core",
         "include",
         "include/torch/csrc/api/include/",
+        "ts_include"
     ],
     deps = [
          "@local_config_python//:python_headers",

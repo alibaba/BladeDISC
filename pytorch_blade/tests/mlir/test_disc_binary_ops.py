@@ -78,8 +78,8 @@ class TestDiscBinaryOps(DiscTestCase):
 
         # test integer
         if test_int:
-            x = torch.randint(3, [10, 2], device=self.device)
-            y = torch.randint(3, [10, 2], device=self.device)
+            x = torch.randint(1, 3, [10, 2], device=self.device)
+            y = torch.randint(1, 3, [10, 2], device=self.device)
             test_data = (x, y)
             out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
             self._check_type(out, res)

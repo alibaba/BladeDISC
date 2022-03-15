@@ -17,7 +17,30 @@
 
 #include "src/tf_compatible_version.h"
 
+#if BLADE_WITH_INTERNAL
+#include "third_party/blade_service_common/common/util.h"
+#if BLADE_WITH_HIE
+#include "blade/hie/pybind_functions.h"
+#include "tf_blade/internal/hie/impl/pybind_functions.h"
+#endif  // BLADE_WITH_HIE
+#endif  // BLADE_WITH_INTERNAL
+
+#if BLADE_WITH_TENSORRT
+#include "src/tensorrt/pybind_functions.h"
+#endif  // BLADE_WITH_TENSORRT
+
 PYBIND11_MODULE(_tf_blade, m) {
   m.doc() = "Utils for tf blade.";
   m.def("compatible_tf_version", &compatible_tf_version);
+#if BLADE_WITH_TENSORRT
+  tf_blade::trt::initTensorRTBindings(m);
+#endif  // BLADE_WITH_TENSORRT
+
+#if BLADE_WITH_INTERNAL
+  m.def("simple_encrypt", &blade::common::SimpleEncrypt);
+#if BLADE_WITH_HIE
+  blade::hie::initHIEBindings(m);
+  blade::hie::initHIETFBindings(m);
+#endif  // BLADE_WITH_HIE
+#endif  // BLADE_WITH_INTERNAL
 }

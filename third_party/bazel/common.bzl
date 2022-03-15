@@ -336,3 +336,14 @@ def maybe_http_archive(name, sha256, urls, **kwargs):
         urls = urls,
         **kwargs
     )
+
+_BLADE_NEED_TENSORRT = "BLADE_WITH_TENSORRT"
+_BLADE_BUILD_INTERNAL = "BLADE_WITH_INTERNAL"
+
+def get_tensorrt_enabled(repository_ctx):
+    """Returns whether to build with TensorRT support."""
+    return get_host_environ(repository_ctx, _BLADE_NEED_TENSORRT, False)
+
+def get_if_internal(repository_ctx):
+    """Returns whether to build with internal target."""
+    return get_host_environ(repository_ctx, _BLADE_BUILD_INTERNAL, False)

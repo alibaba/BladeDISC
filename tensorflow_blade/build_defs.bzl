@@ -53,15 +53,3 @@ def if_tf_unsupported(if_true, if_false = []):
         "//:tf_supported": if_false,
         "//conditions:default": if_true,
     })
-
-def if_torch_supported(if_true, if_false = []):
-    return select({
-        "//:torch_supported": if_true,
-        "//conditions:default": if_false,
-    })
-
-def if_torch_unsupported(if_true, if_false = []):
-    return select({
-        "//:torch_supported": if_false,
-        "//conditions:default": if_true,
-    })

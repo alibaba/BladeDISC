@@ -1,7 +1,4 @@
 load("@bazel_skylib//rules:common_settings.bzl", "string_flag", "string_list_flag")
-load("@local_config_blade_helper//:build_defs.bzl", "python_bin_path")
-# load("@local_config_tensorrt//:build_defs.bzl", "if_tensorrt_disabled")
-load("//:build_defs.bzl", "device_name")
 
 string_flag(
     name = "device",
@@ -30,11 +27,4 @@ config_setting(
 config_setting(
     name = "tf_supported",
     flag_values = {":framework": "tf"},
-)
-
-py_library(
-    name = "context",
-    srcs = [],
-    imports = ["."],
-    visibility = ["//visibility:public"],
 )

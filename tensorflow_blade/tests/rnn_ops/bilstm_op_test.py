@@ -9,19 +9,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import sys
 import unittest
+from typing import Dict, List, Tuple
 
 import numpy as np
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from tf_blade_ops_ut_common import TfCustomOpsTestCase  # noqa: E402
+from tests.tf_blade_ops_ut_common import TfCustomOpsTestCase  # noqa: E402
 
 
 class BilstmTest(TfCustomOpsTestCase):
-    def _test(self, feed_data, expected_output):
-        output = self.blade_ops.blade_bilstm(
+    def _test(
+        self, feed_data: Dict[str, np.ndarray], expected_output: List[np.ndarray]
+    ) -> None:
+        output = self.blade_ops.blade_bilstm(  # type: ignore
             input=feed_data['input'],
             input_h=feed_data['input_h'],
             input_c=feed_data['input_c'],
@@ -30,7 +29,7 @@ class BilstmTest(TfCustomOpsTestCase):
         self.assertAllClose(output[0], expected_output[0])
         self.assertAllClose(output[1], expected_output[1])
 
-    def _get_data(self):
+    def _get_data(self) -> Tuple[Dict[str, np.ndarray], List[np.ndarray]]:
         batch_size = 4
         hidden_num = 8
         input_dim = 6
@@ -55,8 +54,8 @@ class BilstmTest(TfCustomOpsTestCase):
         expected_output = [output, output_h, output_c]
         return feed_data, expected_output
 
-    def testBilstm(self):
-        feed_data, expected_output = self._get_data()
+    def testBilstm(self) -> None:
+        (feed_data, expected_output) = self._get_data()
         self._test(feed_data, expected_output)
 
 

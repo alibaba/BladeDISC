@@ -9,19 +9,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-import sys
 import unittest
+from typing import Dict, List, Tuple
 
 import numpy as np
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from tf_blade_ops_ut_common import TfCustomOpsTestCase  # noqa: E402
+from tests.tf_blade_ops_ut_common import TfCustomOpsTestCase  # noqa: E402
 
 
 class FusedLSTMElementWiseTest(TfCustomOpsTestCase):
-    def _test(self, feed_data, expected_output):
-        output = self.blade_ops.blade_fused_lstm_element_wise(
+    def _test(
+        self, feed_data: Dict[str, np.ndarray], expected_output: List[np.ndarray]
+    ) -> None:
+        output = self.blade_ops.blade_fused_lstm_element_wise(  # type: ignore
             inputs=feed_data['inputs'],
             c_in=feed_data['c_in'],
             b_in=feed_data['b_in'],
@@ -31,7 +30,9 @@ class FusedLSTMElementWiseTest(TfCustomOpsTestCase):
             self.assertAllClose(output[0], expected_output[0], atol=1e-3)
             self.assertAllClose(output[1], expected_output[1], atol=1e-3)
 
-    def _get_data(self, data_type):
+    def _get_data(
+        self, data_type: np.dtype
+    ) -> Tuple[Dict[str, np.ndarray], List[np.ndarray]]:
         batch_size = 4
         hidden_num = 8
         feed_data = dict()
@@ -44,7 +45,7 @@ class FusedLSTMElementWiseTest(TfCustomOpsTestCase):
         expected_output = [c_out, h_out]
         return feed_data, expected_output
 
-    def testFusedLSTMElementWise(self):
+    def testFusedLSTMElementWise(self) -> None:
         for data_type in [np.float16, np.float32]:
             feed_data, expected_output = self._get_data(data_type)
             self._test(feed_data, expected_output)

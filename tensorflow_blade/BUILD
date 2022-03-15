@@ -28,3 +28,10 @@ config_setting(
     name = "tf_supported",
     flag_values = {":framework": "tf"},
 )
+
+py_library(
+    name = "context",
+    srcs = [],
+    imports = ["."],
+    visibility = ["//visibility:public"],
+)

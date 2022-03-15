@@ -128,7 +128,7 @@ def check(args):
         check_init_file_miss("tests", ignore_root=True)
         execute("{}/bin/black --check --diff tests".format(args.python_dir))
         execute("{}/bin/flake8 tests".format(args.python_dir))
-        # execute("{}/bin/mypy tests".format(args.python_dir))
+        execute("{}/bin/mypy tests".format(args.python_dir))
 
 
 def configure_with_bazel(args):
@@ -178,7 +178,6 @@ def configure_with_bazel(args):
 
         if args.internal:
             _action_env("BLADE_WITH_INTERNAL", "1")
-            _opt("copt", f"-DBLADE_WITH_INTERNAL")
         else:
             _action_env("BLADE_WITH_INTERNAL", "0")
 
@@ -211,7 +210,6 @@ def configure_with_bazel(args):
 
             if args.internal and not args.skip_hie:
                 _action_env("BLADE_WITH_HIE", "1")
-                _opt("copt", f"-DBLADE_WITH_HIE")
             else:
                 _action_env("BLADE_WITH_HIE", "0")
 

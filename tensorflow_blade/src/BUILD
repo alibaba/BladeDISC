@@ -2,7 +2,7 @@ load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@local_config_mkl//:build_defs.bzl", "if_mkl_enabled")
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 load("@local_config_tf//:build_defs.bzl", "tf_copts", "tf_version")
-load("@local_config_blade_helper//:build_defs.bzl", "if_tensorrt_enabled", "if_internal")
+load("@local_config_blade_helper//:build_defs.bzl", "if_tensorrt_enabled", "if_internal", "if_hie_enabled")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -49,10 +49,6 @@ cc_binary(
     linkopts = [
         "-ldl",
         "-lm",
-        # Tricky... to workaroudn undefined symbols _ZdlPvm. Bazel has already add -lstdc++
-        # to linkopts before object files, but it doesn't work. By adding -lstdc++ to end of
-        # linkopts, it works, it works. I've no idea why.
-        "-lstdc++",
         "-Wl,--version-script,$(location :tf_blade.lds)",
     ],
     linkshared = 1,
@@ -109,6 +105,10 @@ pybind_extension(
     ],
     copts = if_tensorrt_enabled([
         "-DBLADE_WITH_TENSORRT",
+    ]) + if_internal([
+        "-DBLADE_WITH_INTERNAL",
+    ]) + if_hie_enabled([
+        "-DBLADE_WITH_HIE",
     ]) + tf_copts(),
     deps = [
         ":tf_version_header",

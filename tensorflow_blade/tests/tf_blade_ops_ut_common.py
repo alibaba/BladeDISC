@@ -14,6 +14,7 @@ import logging
 import os
 import sys
 import unittest
+from typing import Iterator, Optional
 
 import numpy as np
 
@@ -69,10 +70,12 @@ class TfCustomOpsTestCase(unittest.TestCase):
         sys.stderr.flush()
 
     @contextlib.contextmanager
-    def get_test_session(self, graph=None, config=None) -> None:
+    def get_test_session(
+        self, graph: Optional[tf.Graph] = None, config: Optional[tf.ConfigProto] = None
+    ) -> Iterator[tf.Session]:
         """Returns a TF Session for use in executing tests."""
 
-        def _getConfig(config):
+        def _getConfig(config: Optional[tf.ConfigProto]) -> tf.ConfigProto:
             if config is None:
                 config = tf.ConfigProto()
                 config.allow_soft_placement = True
@@ -89,10 +92,17 @@ class TfCustomOpsTestCase(unittest.TestCase):
         with tf.Session(graph=graph, config=_getConfig(config)) as sess:
             yield sess
 
-    def assertAllClose(self, a, b, rtol=1e-6, atol=1e-6, msg=None) -> None:
+    def assertAllClose(
+        self,
+        a: Optional[tf.Tensor],
+        b: Optional[tf.Tensor],
+        rtol: float = 1e-6,
+        atol: float = 1e-6,
+        msg: str = '',
+    ) -> None:
         """Asserts that two structures of np.arrays or Tensors, have near values."""
 
-        def _getNdArray(x):
+        def _getNdArray(x: Optional[tf.Tensor]) -> np.array:
             # If x is x tensor then convert it to ndarray
             if isinstance(x, tf.Tensor):
                 with self.get_test_session():

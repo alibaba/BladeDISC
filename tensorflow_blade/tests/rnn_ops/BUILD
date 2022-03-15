@@ -5,5 +5,8 @@ tf_blade_ops_py_tests(
         "bilstm_op_test.py",
         "fused_lstm_element_wise_op_test.py",
     ],
+    deps = [
+        "//:context",
+    ],
     tags = ["gpu"],
 )

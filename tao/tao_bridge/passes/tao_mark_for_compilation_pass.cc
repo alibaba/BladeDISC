@@ -1542,7 +1542,10 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
     // only needs to be compiled once.
     //
     // TODO(disc): support other ops having shape operands.
-    if (debug_options_.cluster_for_mlir && node->type_string() == "Fill" &&
+    auto hasShapeOperand = [](Node* node) {
+      return node->type_string() == "Fill" || node->type_string() == "Range";
+    };
+    if (debug_options_.cluster_for_mlir && hasShapeOperand(node) &&
         !compile_time_fixed_shape_nodes[node->id()]) {
       std::unordered_set<Node*> visitedNodeSet;
       auto hasExpensiveProducers = [&](Node* node) {
@@ -2604,7 +2607,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "RandomUniform", "ReluGrad", "Square",
-                      "Pad", "DynamicStitch", "LeakyRelu", "Erf", "Sqrt", "Softplus"
+                      "Pad", "DynamicStitch", "LeakyRelu", "Erf", "Sqrt", "Softplus", "Relu6"
 #else
                       "MatMul", "BatchMatMul", "Conv2D",
                       "Abs", "LessEqual", "Maximum", "Minimum","Sign",
@@ -2623,7 +2626,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "LogSoftmax", "Reciprocal",
                       "RandomUniform", "ReluGrad", "Square", "Pad", "DynamicStitch", "LeakyRelu",
-                      "Erf", "Sqrt", "Softplus"
+                      "Erf", "Sqrt", "Softplus", "Relu6"
 #endif
                     })
                 :
@@ -2645,7 +2648,8 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "Size", "RandomUniform", "Square",
-                      "Pad", "DynamicStitch", "LeakyRelu", "Erf", "Sqrt", "Softplus"
+                      "Pad", "DynamicStitch", "LeakyRelu", "Erf", "Sqrt", "Softplus",
+                      "Relu6"
 #else
                       "MatMul", "BatchMatMul", "Conv2D",
                       "Abs", "LessEqual", "Maximum", "Minimum","Sign",
@@ -2664,7 +2668,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "LogSoftmax", "Reciprocal", "Size",
                       "Conv2D", "RandomUniform", "Square", "Pad", "DynamicStitch", "LeakyRelu",
-                      "Erf", "Sqrt", "Softplus"
+                      "Erf", "Sqrt", "Softplus", "Relu6"
 #endif
                     })
             )

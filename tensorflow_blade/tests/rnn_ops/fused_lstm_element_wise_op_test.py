@@ -21,10 +21,10 @@ class FusedLSTMElementWiseTest(TfCustomOpsTestCase):
         self, feed_data: Dict[str, np.ndarray], expected_output: List[np.ndarray]
     ) -> None:
         output = self.blade_ops.blade_fused_lstm_element_wise(  # type: ignore
-            inputs=feed_data['inputs'],
-            c_in=feed_data['c_in'],
-            b_in=feed_data['b_in'],
-            forget_bias=feed_data['forget_bias'],
+            inputs=feed_data["inputs"],
+            c_in=feed_data["c_in"],
+            b_in=feed_data["b_in"],
+            forget_bias=feed_data["forget_bias"],
         )
         with self.get_test_session():
             self.assertAllClose(output[0], expected_output[0], atol=1e-3)
@@ -36,10 +36,10 @@ class FusedLSTMElementWiseTest(TfCustomOpsTestCase):
         batch_size = 4
         hidden_num = 8
         feed_data = dict()
-        feed_data['inputs'] = np.ones((batch_size, hidden_num * 4), dtype=data_type)
-        feed_data['c_in'] = np.ones((batch_size, hidden_num), dtype=data_type)
-        feed_data['b_in'] = np.zeros((hidden_num * 4), dtype=data_type)
-        feed_data['forget_bias'] = 0.0
+        feed_data["inputs"] = np.ones((batch_size, hidden_num * 4), dtype=data_type)
+        feed_data["c_in"] = np.ones((batch_size, hidden_num), dtype=data_type)
+        feed_data["b_in"] = np.zeros((hidden_num * 4), dtype=data_type)
+        feed_data["forget_bias"] = 0.0
         c_out = np.ones((batch_size, hidden_num), dtype=data_type) * 1.28782851
         h_out = np.ones((batch_size, hidden_num), dtype=data_type) * 0.62765528
         expected_output = [c_out, h_out]
@@ -51,5 +51,5 @@ class FusedLSTMElementWiseTest(TfCustomOpsTestCase):
             self._test(feed_data, expected_output)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

@@ -44,9 +44,8 @@ class TfCustomOpsTestCase(unittest.TestCase):
             for blade_lib in lib_candidates:
                 blade_lib = os.path.abspath(blade_lib)
                 if os.path.exists(blade_lib) and os.path.isfile(blade_lib):
-                    logging.info(f'loading from {blade_lib}')
+                    logging.info(f"loading from {blade_lib}")
                     TfCustomOpsTestCase.blade_ops = tf.load_op_library(blade_lib)
-                    logging.info(f'Module {dir(TfCustomOpsTestCase.blade_ops)}')
                     return
             raise Exception(
                 "libtf_blade.so not found after searching: {}".format(lib_candidates)
@@ -98,7 +97,7 @@ class TfCustomOpsTestCase(unittest.TestCase):
         b: Optional[tf.Tensor],
         rtol: float = 1e-6,
         atol: float = 1e-6,
-        msg: str = '',
+        msg: str = "",
     ) -> None:
         """Asserts that two structures of np.arrays or Tensors, have near values."""
 

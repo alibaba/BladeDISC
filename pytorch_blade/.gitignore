@@ -29,7 +29,7 @@ bazel-bin
 bazel-out
 bazel-pytorch_blade
 bazel-testlogs
-bazel_pyenv
+.bazel_pyenv
 debug_bazel.sh
 py_test.out
 cpp_test.out

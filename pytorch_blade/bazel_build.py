@@ -80,9 +80,9 @@ class BazelBuild(TorchBladeBuild):
 
         self.shell_setting = "set -e; set -o pipefail; "
         # Workaround: this venv ensure that $(/usr/bin/env python) is evaluated to python3
-        venv.create("bazel_pyenv")
-        self.build_cmd = "source bazel_pyenv/bin/activate; bazel build"
-        self.test_cmd = "source bazel_pyenv/bin/activate; bazel test"
+        venv.create(".bazel_pyenv", clear=True)
+        self.build_cmd = "source .bazel_pyenv/bin/activate; bazel build"
+        self.test_cmd = "source .bazel_pyenv/bin/activate; bazel test"
 
     def run(self, extdir=None, srcdir=None, build_temp=None):
         srcdir = get_fullpath_or_create(

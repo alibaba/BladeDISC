@@ -51,6 +51,8 @@ class TRTContext {
   bool ChangingShape(
       const torch::List<torch::Tensor>& inputs,
       std::shared_ptr<nvinfer1::IExecutionContext>& context);
+
+  bool CheckCurrentDevice(const torch::List<torch::Tensor>& inputs) const;
   std::shared_ptr<nvinfer1::IExecutionContext> GetExecutionContext(
       c10::cuda::CUDAStream& stream,
       const torch::List<torch::Tensor>& inputs);

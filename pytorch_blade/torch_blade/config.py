@@ -143,7 +143,7 @@ class Config(ConfigContext):
         self._preserved_attributes = []
         self._customize_onnx_opset_version = None
         self._enable_force_to_cuda = False
-        self._enable_onnx_shape_white_list = False
+        self._enable_onnx_shape_white_list = True
         self._customize_op_white_list = []
         self._customize_op_black_list = []
         self._customize_jit_passes = []
@@ -170,7 +170,7 @@ class Config(ConfigContext):
         'aten::view', 'aten::size', 'aten::reshape', 'aten::floor_divide', 'aten::Int', 'prim::NumToTensor'.
 
         :type: bool
-        :default: False
+        :default: True
         """
         return self._enable_onnx_shape_white_list
 

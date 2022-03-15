@@ -32,45 +32,45 @@ target_link_directories(torch_blade_tensorrt_bridge PRIVATE
 )
 
 if (TORCH_BLADE_STATIC_LINK_TENSORRT)
-message(STATUS "Use static link to tensorrt")
+  message(STATUS "Use static link to tensorrt")
 
-list(APPEND TORCH_BLADE_CUDA_STATIC_LIBRARIES ${CUDA_HOME}/lib64/libculibos.a)
-list(APPEND TORCH_BLADE_CUDA_STATIC_LIBRARIES ${CUDA_HOME}/lib64/libcublas_static.a)
-if (TORCH_BLADE_CUDA_VERSION GREATER "10.0")
-   list(APPEND TORCH_BLADE_CUDA_STATIC_LIBRARIES ${CUDA_HOME}/lib64/libcublasLt_static.a)
-endif()
+  list(APPEND TORCH_BLADE_CUDA_STATIC_LIBRARIES ${CUDA_HOME}/lib64/libculibos.a)
+  list(APPEND TORCH_BLADE_CUDA_STATIC_LIBRARIES ${CUDA_HOME}/lib64/libcublas_static.a)
+  if (TORCH_BLADE_CUDA_VERSION GREATER "10.0")
+     list(APPEND TORCH_BLADE_CUDA_STATIC_LIBRARIES ${CUDA_HOME}/lib64/libcublasLt_static.a)
+  endif()
 
-if(EXISTS ${TENSORRT_INSTALL_PATH}/lib/libmyelin_compiler_static.a)
-   # These myelin libraries was standalone in TensorRT 7
-   list(APPEND TENSORRT_MYELIN_STATIC_LIBRARIES
-       ${TENSORRT_INSTALL_PATH}/lib/libmyelin_compiler_static.a
-       ${TENSORRT_INSTALL_PATH}/lib/libmyelin_executor_static.a
-       ${TENSORRT_INSTALL_PATH}/lib/libmyelin_pattern_library_static.a
-       ${TENSORRT_INSTALL_PATH}/lib/libmyelin_pattern_runtime_static.a)
-endif()
+  if(EXISTS ${TENSORRT_INSTALL_PATH}/lib/libmyelin_compiler_static.a)
+     # These myelin libraries was standalone in TensorRT 7
+     list(APPEND TENSORRT_MYELIN_STATIC_LIBRARIES
+         ${TENSORRT_INSTALL_PATH}/lib/libmyelin_compiler_static.a
+         ${TENSORRT_INSTALL_PATH}/lib/libmyelin_executor_static.a
+         ${TENSORRT_INSTALL_PATH}/lib/libmyelin_pattern_library_static.a
+         ${TENSORRT_INSTALL_PATH}/lib/libmyelin_pattern_runtime_static.a)
+  endif()
 
-# static link & hide tensorrt, cudnn
-target_link_libraries(torch_blade_tensorrt_bridge PRIVATE
-  ${TENSORRT_INSTALL_PATH}/lib/libnvonnxparser_static.a
-  ${TENSORRT_INSTALL_PATH}/lib/libonnx_proto.a
-  ${TENSORRT_INSTALL_PATH}/lib/libprotobuf.a
-# Note:
-# Link to TensorRT static library may introduce performance decay.
-# We try to fix this issue, according to suggestions from
-# https://docs.nvidia.com/deeplearning/tensorrt/sample-support-guide/index.html#building-samples
--Wl,-whole-archive
-  ${TENSORRT_INSTALL_PATH}/lib/libnvinfer_plugin_static.a
-  ${TENSORRT_INSTALL_PATH}/lib/libnvinfer_static.a
--Wl,-no-whole-archive
-  ${TENSORRT_MYELIN_STATIC_LIBRARIES}
-  ${TENSORRT_CUDNN_HOME}/lib64/libcudnn_static.a
-  ${TORCH_BLADE_CUDA_STATIC_LIBRARIES}
-  nvrtc dl rt)
+  # static link & hide tensorrt, cudnn
+  target_link_libraries(torch_blade_tensorrt_bridge PRIVATE
+    ${TENSORRT_INSTALL_PATH}/lib/libnvonnxparser_static.a
+    ${TENSORRT_INSTALL_PATH}/lib/libonnx_proto.a
+    ${TENSORRT_INSTALL_PATH}/lib/libprotobuf.a
+  # Note:
+  # Link to TensorRT static library may introduce performance decay.
+  # We try to fix this issue, according to suggestions from
+  # https://docs.nvidia.com/deeplearning/tensorrt/sample-support-guide/index.html#building-samples
+  -Wl,-whole-archive
+    ${TENSORRT_INSTALL_PATH}/lib/libnvinfer_plugin_static.a
+    ${TENSORRT_INSTALL_PATH}/lib/libnvinfer_static.a
+  -Wl,-no-whole-archive
+    ${TENSORRT_MYELIN_STATIC_LIBRARIES}
+    ${TENSORRT_CUDNN_HOME}/lib64/libcudnn_static.a
+    ${TORCH_BLADE_CUDA_STATIC_LIBRARIES}
+    nvrtc dl rt)
 
-target_link_options(torch_blade_tensorrt_bridge PRIVATE "-Wl,--exclude-libs,ALL")
+  target_link_options(torch_blade_tensorrt_bridge PRIVATE "-Wl,--exclude-libs,ALL")
 else()
-target_link_libraries(torch_blade_tensorrt_bridge PRIVATE
-  nvonnxparser nvinfer nvinfer_plugin)
+  target_link_libraries(torch_blade_tensorrt_bridge PRIVATE
+    nvonnxparser nvinfer nvinfer_plugin)
 endif()
 
 

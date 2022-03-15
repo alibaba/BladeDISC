@@ -54,26 +54,35 @@ ShapeType NvInferType2TorchType(
   torch_type.type = NvDataType2TorchDataType(data_type);
   return torch_type;
 }
-
-// Check if every tensor in a list of tensors matches the current
-// device.
-bool CheckCurrentDevice(const torch::List<torch::Tensor>& inputs) {
-  if (inputs.empty()) {
-    return true;
-  }
-  torch::Device cur_device =
-      torch::Device(torch::kCUDA, c10::cuda::current_device());
-  return std::all_of(inputs.begin(), inputs.end(), [&](torch::Tensor t) {
-    return t.device() == cur_device;
-  });
-}
-
 } // namespace
 
 void NvinferExecutionContextDeleter(nvinfer1::IExecutionContext* ctx) {
   if (ctx != nullptr) {
     ctx->destroy();
   }
+}
+
+// Check if every tensor in a list of tensors matches the current
+// device.
+bool TRTContext::CheckCurrentDevice(
+    const torch::List<torch::Tensor>& inputs) const {
+  if (inputs.empty()) {
+    return true;
+  }
+
+  torch::Device cur_cuda_device =
+      torch::Device(torch::kCUDA, c10::cuda::current_device());
+
+  auto& inputs_info = engine_state_->inputs;
+  TORCH_CHECK(inputs_info.size() == inputs.size());
+  for (size_t k = 0; k < inputs.size(); ++k) {
+    torch::Tensor inp = inputs[k];
+    auto device = inputs_info[k].device;
+    if (device == "cuda" && inp.device() != cur_cuda_device) {
+      return false;
+    }
+  }
+  return true;
 }
 
 std::shared_ptr<nvinfer1::IExecutionContext> TRTContext::GetExecutionContext(

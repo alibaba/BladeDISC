@@ -3,6 +3,7 @@ load(
     "if_cuda_is_configured",
 )
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+load("//bazel:build_defs.bzl", "if_tensorrt_enabled")
 
 cc_library(
     name = "torch_blade",
@@ -12,10 +13,8 @@ cc_library(
         "//src/compiler/jit:torch_blade_jit",
         "//src/compiler/mlir:torch_blade_mlir",
         "@local_org_torch//:libtorch",
-    ] + select({
-        "//:enable_tensorrt": ["//src/compiler/tensorrt:tensorrt_runtime_impl"],
-        "//conditions:default": [],
-    }) + if_cuda_is_configured([
+    ] + if_tensorrt_enabled(["//src/compiler/tensorrt:tensorrt_runtime_impl"])
+      + if_cuda_is_configured([
         "@local_config_cuda//cuda:cudart",
     ]),
 )
@@ -53,10 +52,8 @@ pybind_library(
         ":torch_blade",
         "@local_org_torch//:torch_python",
     ],
-    copts = select({
-        "//:enable_tensorrt": ["-DTORCH_BLADE_BUILD_TENSORRT"],
-        "//conditions:default": [],
-    }) + ["-DTORCH_BLADE_BUILD_MLIR"],
+    copts = ["-DTORCH_BLADE_BUILD_MLIR"] +
+      if_tensorrt_enabled(["-DTORCH_BLADE_BUILD_TENSORRT"])
 )
 
 pybind_extension(

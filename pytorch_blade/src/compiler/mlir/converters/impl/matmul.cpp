@@ -154,6 +154,20 @@ bool ConvertAtenLinear(
   return true;
 }
 
+// bmm
+bool ConvertAtenBmm(MhloConversionContext& ctx, const torch::jit::Node& node) {
+  auto loc = GetNodeLocation(ctx, node);
+  auto inp0 = node.input(0);
+  auto inp1 = node.input(1);
+  auto lhs = ctx.GetMlirValue(inp0);
+  auto rhs = ctx.GetMlirValue(inp1);
+
+  auto& builder = *ctx.builder;
+  ctx.value_map[node.output(0)] = BuildDotProduct_bmm(builder, loc, lhs, rhs);
+
+  return true;
+}
+
 namespace {
 // >>> # vector x vector
 // >>> tensor1 = torch.randn(3)
@@ -176,7 +190,7 @@ namespace {
 // >>> # batched matrix x batched matrix
 // >>> tensor1 = torch.randn(10, 3, 4)
 // >>> tensor2 = torch.randn(10, 4, 5)
-// >>> torch.matmul(tensor1, tensor2).size()
+// >>> torch.matmul(tensor1, tensor2).size() # or torch.bmm
 // torch.Size([10, 3, 5])
 //
 // >>> # batched matrix x broadcasted matrix
@@ -198,7 +212,11 @@ auto mhlo_conversion =
             ConvertAtenAddmm)
         .pattern(
             "aten::linear(Tensor input, Tensor weight, Tensor? bias) -> Tensor",
-            ConvertAtenLinear);
+            ConvertAtenLinear)
+        .pattern(
+            // Ref: https://pytorch.org/docs/stable/generated/torch.bmm.html
+            "aten::bmm(Tensor self, Tensor mat2) -> Tensor",
+            ConvertAtenBmm);
 } // namespace
 } // namespace blade
 } // namespace torch

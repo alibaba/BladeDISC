@@ -102,5 +102,6 @@ mlir::RankedTensorType BuildMlirRankedTensorType(
   }
   return input_val;
 }
+
 } // namespace blade
 } // namespace torch

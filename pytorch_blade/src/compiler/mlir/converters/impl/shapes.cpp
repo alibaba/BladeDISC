@@ -9,6 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <mlir/mhlo/builder/gather.h>
 #include <mlir/mhlo/builder/mlir_attr_utils.h>
 #include <mlir/mhlo/builder/mlir_shape_builder.h>
 #include <mlir/mhlo/builder/mlir_utils.h>
@@ -322,6 +323,7 @@ bool ConvertAtenRoll(MhloConversionContext& ctx, const torch::jit::Node& node) {
 
   return true;
 }
+
 bool ConvertAtenUnbind(
     MhloConversionContext& ctx,
     const torch::jit::Node& node) {
@@ -360,6 +362,45 @@ bool ConvertAtenUnbind(
     outputs.push_back(out);
   }
   ctx.list_map[node.output()] = outputs;
+  return true;
+}
+
+bool ConvertAtenIndexSelect(
+    MhloConversionContext& ctx,
+    const torch::jit::Node& node) {
+  auto loc = GetNodeLocation(ctx, node);
+  auto input = ctx.GetMlirValue(node.input(0));
+  auto jit_dim = node.input(1);
+  auto dim = CastJitConstToInt64(*jit_dim);
+  auto index = ctx.GetMlirValue(node.input(2));
+
+  auto& builder = *ctx.builder;
+  ctx.value_map[node.output(0)] =
+      mlir::mhlo::BuildGather(builder, loc, input, index, dim);
+  return true;
+}
+
+bool ConvertAtenFlip(MhloConversionContext& ctx, const torch::jit::Node& node) {
+  const auto& loc = GetNodeLocation(ctx, node);
+  auto input = ctx.GetMlirValue(node.input(0));
+  auto jit_dims = node.input(1);
+  const char* op_name = node.kind().toDisplayString();
+  if (!CheckConstAttribute(jit_dims, op_name, "dims")) {
+    return false;
+  }
+  auto dims_ival = torch::jit::toIValue(jit_dims);
+  if (!(dims_ival && dims_ival->isIntList())) {
+    DLOG(WARNING) << "Flip dimensions must be constants";
+    return false;
+  }
+  auto dims = dims_ival->toIntList();
+  mlir_dim_t rank = GetRankOfMlirValue(input);
+  SmallVec4<mlir_dim_t> dims_vec(dims.begin(), dims.end());
+  SmallVec4<mlir_dim_t> trans_dim_vec = NormalizeDimIndex(dims_vec, rank);
+
+  auto& builder = *ctx.builder;
+  ctx.value_map[node.output(0)] = builder.create<mlir::mhlo::ReverseOp>(
+      loc, input, BuildI64ElementsAttr(builder, trans_dim_vec));
   return true;
 }
 
@@ -405,7 +446,14 @@ auto mhlo_conversion =
             ConvertAtenUnbind)
         .pattern(
             "aten::roll(Tensor self, int[1] shifts, int[1] dims=[]) -> (Tensor)",
-            ConvertAtenRoll);
+            ConvertAtenRoll)
+        .pattern(
+            "aten::index_select(Tensor self, int dim, Tensor index) -> Tensor",
+            ConvertAtenIndexSelect)
+        .pattern(
+            "aten::flip(Tensor self, int[] dims) -> Tensor",
+            ConvertAtenFlip);
 } // namespace
+
 } // namespace blade
 } // namespace torch

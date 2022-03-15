@@ -47,7 +47,7 @@ class TestDiscBinaryOps(DiscTestCase):
         out, res = self._test_cvt_to_disc(func, test_data)
         self._check_type(out, res)
 
-    def _test_binary_ops(self, binary_ops_func):
+    def _test_binary_ops(self, binary_ops_func, test_int = True):
         # test no broadcast
         x = torch.randn([10, 2, 3, 4], device=self.device)
         y = torch.randn([10, 2, 3, 4], device=self.device)
@@ -75,6 +75,14 @@ class TestDiscBinaryOps(DiscTestCase):
         test_data = (x, y)
         out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
         self._check_type(out, res)
+
+        # test integer
+        if test_int:
+            x = torch.randint(1, 3, [10, 2], device=self.device)
+            y = torch.randint(1, 3, [10, 2], device=self.device)
+            test_data = (x, y)
+            out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
+            self._check_type(out, res)
 
     def _test_func(self, torch_func):
         @torch.jit.script
@@ -122,19 +130,26 @@ class TestDiscBinaryOps(DiscTestCase):
         def func1(x, y):
             return torch_func(x, y.expand_as(x), alpha=0.1)
 
-        self._test_binary_ops(func1)
+        self._test_binary_ops(func1, False)
 
         @torch.jit.script
         def func2(x, y):
             return torch_func(x, y, alpha=0.1)
 
-        self._test_binary_ops(func2)
+        self._test_binary_ops(func2, False)
+
+        @torch.jit.script
+        def func3(x, y):
+            return torch_func(x, y, alpha=1)
+
+        self._test_binary_ops(func3)
 
     def test_binary_type_promotion(self):
         self._test_binary_type_promotion(torch.sub)
         self._test_binary_type_promotion(torch.add)
         self._test_binary_type_promotion(torch.mul)
         self._test_binary_type_promotion(torch.div)
+        self._test_binary_type_promotion(torch.floor_divide)
         self._test_binary_type_promotion(torch.rsub)
 
     def test_arithmetic_func(self):
@@ -142,6 +157,7 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_func(torch.add)
         self._test_func(torch.mul)
         self._test_func(torch.div)
+        self._test_func(torch.floor_divide)
         self._test_func(torch.rsub)
 
     def test_arithmetic_func_has_alpha(self):
@@ -178,6 +194,10 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_func(torch.eq)
         self._test_cmp_func(torch.eq)
 
+    def test_ne(self):
+        self._test_func(torch.ne)
+        self._test_cmp_func(torch.ne)
+
     def test_le(self):
         self._test_func(torch.le)
         self._test_cmp_func(torch.le)
@@ -187,12 +207,33 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_cmp_func(torch.lt)
 
     def test_arange(self):
+        # Given int dtype.
         @torch.jit.script
-        def func1(x):
-            return torch.arange(x.size(0), dtype=torch.long)
+        def func_int(x):
+            return torch.arange(x, dtype=torch.int)
+        test_data = (torch.tensor(10),)
+        out, res = self._test_cvt_to_disc(func_int, test_data)
+        self._check_type(out, res)
 
-        test_data = (torch.randn([10, 2, 3, 4], device=self.device),)
-        out, res = self._test_cvt_to_disc(func1, test_data)
+        # Given float dtype.
+        @torch.jit.script
+        def func_float(x):
+            return torch.arange(x, dtype=torch.float)
+        test_data = (torch.tensor(20),)
+        out, res = self._test_cvt_to_disc(func_float, test_data)
+        self._check_type(out, res)
+
+        # None dtype. Infer dtype from input data.
+        @torch.jit.script
+        def func_none(x):
+            return torch.arange(x)
+        # int data
+        test_data = (torch.tensor(10, dtype=torch.int),)
+        out, res = self._test_cvt_to_disc(func_none, test_data)
+        self._check_type(out, res)
+        # float data
+        test_data = (torch.tensor(10, dtype=torch.float),)
+        out, res = self._test_cvt_to_disc(func_none, test_data)
         self._check_type(out, res)
 
 

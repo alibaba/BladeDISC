@@ -89,6 +89,15 @@ class TestDiscMatMul(DiscTestCase):
         y = torch.randn(256).to(self.device)
         self._test_cvt_to_disc(matmul, (x, y))
 
+    def test_bmm(self):
+        @torch.jit.script
+        def bmm(x, y):
+            return torch.bmm(x, y)
+        
+        input = torch.randn(10, 3, 4).to(self.device)
+        mat2 = torch.randn(10, 4, 5).to(self.device)
+        self._test_cvt_to_disc(bmm, (input, mat2))
+
     def test_addmm(self):
         @torch.jit.script
         def addmm(M, mat1, mat2):

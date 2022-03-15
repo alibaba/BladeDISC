@@ -14,6 +14,7 @@ cc_library(
     ] + if_cuda_is_configured([
         "@local_config_cuda//cuda:cudart",
     ]),
+    visibility=["//visibility:public"],
 )
 
 # Pybind11 bindings for TorchBlade

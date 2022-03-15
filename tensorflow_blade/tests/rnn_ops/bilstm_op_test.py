@@ -13,6 +13,7 @@ import unittest
 from typing import Dict, List, Tuple
 
 import numpy as np
+
 from tests.tf_blade_ops_ut_common import TfCustomOpsTestCase  # noqa: E402
 
 

@@ -14,6 +14,9 @@
 #include <dlfcn.h>
 
 #include <c10/core/CPUAllocator.h>
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MIN_VERSION >= 12
+#include <c10/core/impl/alloc_cpu.h>
+#endif
 
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
 #ifdef TORCH_BLADE_USE_ROCM

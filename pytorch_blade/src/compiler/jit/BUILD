@@ -10,6 +10,7 @@ filegroup(
             "**/torch/onnx.cpp",
             "**/*test.cpp",
             "**/pybind*.cpp",
+            "**/freeze_module.cpp" # TODO(yancey.yx): fix this pass to pass building with PyTorch LTC branch
         ],
     ),
 )

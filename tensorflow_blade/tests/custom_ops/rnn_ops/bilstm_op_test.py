@@ -14,7 +14,7 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
-from tests.tf_blade_ops_ut_common import TfCustomOpsTestCase  # noqa: E402
+from tests.custom_ops.tf_blade_ops_ut_common import TfCustomOpsTestCase  # noqa: E402
 
 
 class BilstmTest(TfCustomOpsTestCase):

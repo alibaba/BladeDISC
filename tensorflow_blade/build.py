@@ -185,16 +185,17 @@ def configure_with_bazel(args):
         if args.device == "gpu":
             cuda_ver, cuda_home = deduce_cuda_info()
             cudnn_ver = get_cudnn_version(cuda_home)
-            _action_env("BLADE_NEED_CUDA", "1")
+            # Following tf community's cuda related action envs
+            _action_env("TF_NEED_CUDA", "1")
             _action_env("GCC_HOST_COMPILER_PATH", which("gcc"))
-            _action_env("BLADE_CUDA_CLANG", "0")
-            _action_env("BLADE_CUDA_VERSION", cuda_ver)
-            _action_env("BLADE_cuda_homeS", cuda_home)
-            _action_env("BLADE_CUDNN_VERSION", cudnn_ver)
+            _action_env("TF_CUDA_CLANG", "0")
+            _action_env("TF_CUDA_VERSION", cuda_ver)
+            _action_env("TF_cuda_homeS", cuda_home)
+            _action_env("TF_CUDNN_VERSION", cudnn_ver)
             if '11\.' in cuda_ver:
-                _action_env("BLADE_CUDA_COMPUTE_CAPABILITIES", "7.0,7.5,8.0")
+                _action_env("TF_CUDA_COMPUTE_CAPABILITIES", "7.0,7.5,8.0")
             elif '10\.' in cuda_ver:
-                _action_env("BLADE_CUDA_COMPUTE_CAPABILITIES", "7.0,7.5")
+                _action_env("TF_CUDA_COMPUTE_CAPABILITIES", "7.0,7.5")
             _action_env("NVCC", which("nvcc"))
             _opt("define", "using_cuda=true")
             _write("--@local_config_cuda//:enable_cuda")
@@ -216,7 +217,7 @@ def configure_with_bazel(args):
             _write("--//:device=gpu")
             _action_env("BLADE_WITH_MKL", "0")
         else:
-            _action_env("BLADE_NEED_CUDA", "0")
+            _action_env("TF_NEED_CUDA", "0")
             _action_env("BLADE_WITH_TENSORRT", "0")
             _action_env("BLADE_WITH_HIE", "0")
             _opt("define", "using_cuda=false")
@@ -240,7 +241,7 @@ def configure_with_bazel(args):
 
 def build_with_bazel(args):
     with cwd(ROOT):
-        execute("bazel build --config=cuda //src:_tf_blade.so")
+        execute("bazel build //src:_tf_blade.so")
 
 def package_whl_with_bazel(args):
     with cwd(ROOT):
@@ -258,7 +259,7 @@ def package_whl_with_bazel(args):
 
 def test_with_bazel(args):
     with cwd(ROOT):
-        execute("bazel test --config=cuda //tests/...")
+        execute("bazel test //tests/...")
     logger.info("Stage [test] success.")
 
 

@@ -230,45 +230,65 @@ LogicalResult lowerHelper(OpBuilder& b, Location loc, Operation* op,
       // clang-format off
       // TODO(disc): Upstream is on the way for more Ops
       succeeded(miscLowerHelper<lmhlo::SliceOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::RealDynamicSliceOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::DynamicBroadcastInDimOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::BroadcastInDimOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::BroadcastOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::NotOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::ClampOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::DynamicReshapeOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::TransposeOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::DynamicPadOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::GatherOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::DynamicGatherOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::IsFiniteOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::ConcatenateOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::CopyOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::DynamicIotaOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::IotaOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::ReduceOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::ReshapeOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config)) ||
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config)) ||
       succeeded(miscLowerHelper<lmhlo::ReverseOp>(
-          b, loc, op, output_linear_index, shape_analysis, vector_size, lower_config))
+          b, loc, op, output_linear_index, shape_analysis, vector_size,
+          lower_config))
     ) {
     return success();
     // clang-format on
@@ -2378,12 +2398,12 @@ LogicalResult initSkeletonGrpsAndCloneOps(
   return success();
 }
 
-LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
-                                      FusionPattern& fusion_pattern,
-                                      ShapeAnalysis* shape_analysis,
-                                      int64_t row_tile,
-                                      LowerConfig& lower_config,
-                                      int row_reduction_schedule) {
+LogicalResult lowerReduceBasedStitch(lmhlo::FusionOp& fusion_op,
+                                     FusionPattern& fusion_pattern,
+                                     ShapeAnalysis* shape_analysis,
+                                     int64_t row_tile,
+                                     LowerConfig& lower_config,
+                                     int row_reduction_schedule) {
   auto root_ops = fusion_pattern.getRootOps();
   auto sub_root_ops = fusion_pattern.getSubRootOps();
   auto result_values = fusion_pattern.getResults();
@@ -2631,6 +2651,65 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
   cleanUnusedLhloOps(parent);
 
   return success();
+}
+
+LogicalResult lowerNonReduceStitch(lmhlo::FusionOp& fusion_op,
+                                   FusionPattern& fusion_pattern,
+                                   ShapeAnalysis* shape_analysis,
+                                   int64_t vector_size,
+                                   LowerConfig& lower_config) {
+  auto dominant_op = fusion_pattern.getDominantOp();
+  auto root_ops = fusion_pattern.getRootOps();
+
+  const auto loc = dominant_op->getLoc();
+  OpBuilder b(root_ops.back());
+  Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
+  Value one = b.create<arith::ConstantIndexOp>(loc, 1);
+  Value vec_size = b.create<arith::ConstantIndexOp>(loc, vector_size);
+  auto num_elements = emitNumElementsComputation(b, loc, dominant_op);
+  auto thread_number = b.create<arith::DivUIOp>(loc, num_elements, vec_size);
+
+  SmallVector<Value, 2> vars;
+  (void)createParallelAndSetInsPt(b, loc, vars, {zero}, {thread_number}, {one},
+                                  {});
+  Value var = vars[0];
+  DenseSet<Operation*> external_only_roots;
+  for (auto value : fusion_pattern.getExternalOnlyResults()) {
+    auto skeleton = fusion_pattern.findLastWriter(value);
+    external_only_roots.insert(skeleton);
+    // TODO: vectorize here
+    // TODO: support skeleton whose shape is different with dominant op.
+    if (failed(
+            lowerHelper(b, loc, skeleton, var, shape_analysis, vector_size))) {
+      return failure();
+    }
+  }
+
+  for (auto op : root_ops) {
+    if (!external_only_roots.contains(op)) {
+      lower_config.setWrittenBack(op);
+    }
+  }
+
+  auto parent = &(fusion_op.region().front());
+  assert(parent != nullptr && "Parent must be provided for fusion lowering");
+  cleanUnusedLhloOps(parent);
+
+  return success();
+}
+
+LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
+                                      FusionPattern& fusion_pattern,
+                                      ShapeAnalysis* shape_analysis,
+                                      int64_t row_tile,
+                                      LowerConfig& lower_config,
+                                      int row_reduction_schedule) {
+  return isRank2RowReduction(fusion_pattern.getDominantOp())
+             ? lowerReduceBasedStitch(fusion_op, fusion_pattern, shape_analysis,
+                                      row_tile, lower_config,
+                                      row_reduction_schedule)
+             : lowerNonReduceStitch(fusion_op, fusion_pattern, shape_analysis,
+                                    row_tile, lower_config);
 }
 
 // Print the params of a fusion with tensor shape at runtime. For debugging.

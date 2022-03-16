@@ -389,3 +389,37 @@ func @kstitch_fusion_mean(%arg0: memref<?x?x?xf32, "gpu">) -> memref<?x?xf32, "g
   // STITCH-NOT:  disc.fusion.name
   return %34 : memref<?x?xf32, "gpu">
 }
+
+// -----
+
+// STITCH-LABEL: @kstitch_fusion_no_reduce_same_num_elems
+func @kstitch_fusion_no_reduce_same_num_elems(
+    %arg0: memref<?x?xf32, "gpu">) -> (memref<?x?xf32, "gpu">, memref<?x?x?xf32, "gpu">) {
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %c2 = arith.constant 2 : index
+  %0 = memref.dim %arg0, %c0 : memref<?x?xf32, "gpu">
+  %1 = arith.index_cast %0 : index to i32
+  %2 = memref.dim %arg0, %c1 : memref<?x?xf32, "gpu">
+  %3 = arith.index_cast %2 : index to i32
+  %4 = memref.alloc(%0, %2) : memref<?x?xf32, "gpu">
+  "lmhlo.abs"(%arg0, %4) : (memref<?x?xf32, "gpu">, memref<?x?xf32, "gpu">) -> ()
+
+  %5 = memref.alloca() : memref<3xindex, "cpu">
+  memref.store %0, %5[%c0] : memref<3xindex, "cpu">
+  memref.store %2, %5[%c1] : memref<3xindex, "cpu">
+  memref.store %2, %5[%c2] : memref<3xindex, "cpu">
+  %6 = memref.alloc(%0, %2, %2) : memref<?x?x?xf32, "gpu">
+  "lmhlo.dynamic_broadcast_in_dim"(%4, %5, %6) {broadcast_dimensions = dense<[0, 1]> : tensor<2xi64>, disc.device = "gpu"} : (memref<?x?xf32, "gpu">, memref<3xindex, "cpu">, memref<?x?x?xf32, "gpu">) -> ()
+  %7 = memref.alloc(%0, %2, %2) : memref<?x?x?xf32, "gpu">
+  "lmhlo.abs"(%6, %7) : (memref<?x?x?xf32, "gpu">, memref<?x?x?xf32, "gpu">) -> ()
+  // STITCH-NOT:  lmhlo.abs
+  // STITCH:      lmhlo.fusion
+  // STITCH:      lmhlo.abs
+  // STITCH:      lmhlo.abs
+  // STITCH:      disc.fusion.name
+  // STITCH:      kStitch_abs_abs
+  // STITCH-SAME: disc.fusion_type = "kStitch"
+  // STITCH-NOT:  disc.fusion.name
+  return %4, %7: memref<?x?xf32, "gpu">, memref<?x?x?xf32, "gpu">
+}

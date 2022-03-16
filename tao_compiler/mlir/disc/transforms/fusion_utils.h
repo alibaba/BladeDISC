@@ -396,9 +396,9 @@ bool inSameFusionOp(Operation* op, Operation* other);
 int64_t getFirstOperandIndex(Operation* op, Value value);
 
 // Non valid: 'middle' col-reduction, non-2d-reduction.
-bool findValidReductionOps(FusionPatternBase& target,
-                           SmallVectorImpl<Operation*>& row_reductions,
-                           SmallVectorImpl<Operation*>& col_reductions);
+bool findAndVerifyReductionOps(FusionPatternBase& target,
+                               SmallVectorImpl<Operation*>& row_reductions,
+                               SmallVectorImpl<Operation*>& col_reductions);
 
 struct FusionOptions {
   // Maximum allowed number of arguments per fused kernel. Here arguments
@@ -640,12 +640,15 @@ class StitchGpuFusionStrategy : public FusionStrategy {
   bool tileCoverInfoPropagateO2I(
       ShapeAnalysis& shapeAnalysis, DenseMap<Value, TileInfo>& tile_plan,
       Operation* op, SmallVector<std::pair<Value, TileInfo>, 4>& in_info,
-      bool& cover);
+      bool& cover, bool propagate_cover_only);
   bool findFusionPatternTypeAndSubroot(ShapeAnalysis& shapeAnalysis,
                                        FusionPattern& fused_pattern);
-  bool tileXroots(ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern);
+  bool tileAndIdentifyXroots(ShapeAnalysis& shapeAnalysis,
+                             FusionPattern& fusion_pattern);
   bool backtraceTileAndCover(ShapeAnalysis& shapeAnalysis,
-                             FusionPattern& fusion_pattern, Value value);
+                             FusionPattern& fusion_pattern, Value value,
+                             bool backtrace_cover_only);
+  bool isOutputIndicesCoverInputIndices(Operation* op);
 };
 
 }  // namespace disc_ral

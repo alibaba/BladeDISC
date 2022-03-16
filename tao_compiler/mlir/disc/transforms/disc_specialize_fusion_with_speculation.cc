@@ -256,7 +256,10 @@ struct DiscSpecializeFusionWithSpeculationPass
     }
 
     Operation* reduce_op = GetCandidateRowReduceOp(fusion_op);
-    assert(reduce_op != nullptr);
+    if (reduce_op == nullptr) {
+      // This is a non-reduce kStitch fusion.
+      return;
+    }
 
     OpBuilder b(fusion_op);
     Location loc = fusion_op.getLoc();
@@ -443,9 +446,9 @@ struct DiscSpecializeFusionWithSpeculationPass
 
     Value out_element_number;
     Value threshold;
-    if (fusion_type == FusionType::kRowReduction ||
-        fusion_type == FusionType::kStitch) {
-      Operation* dominant_equivalent_op = GetCandidateRowReduceOp(fusion_op);
+    Operation* row_reduce = GetCandidateRowReduceOp(fusion_op);
+    if (row_reduce != nullptr) {
+      Operation* dominant_equivalent_op = row_reduce;
       auto block_size = getThreadPerBlock(fusion_op.getOperation());
 
       int rowred_schedule =
@@ -460,15 +463,15 @@ struct DiscSpecializeFusionWithSpeculationPass
       Value operand = dominant_equivalent_op->getOperand(0);
       // #out-element is row numbers.
       out_element_number = b.create<memref::DimOp>(loc, operand, 0);
-    } else if (fusion_type == FusionType::kLoop) {
+    } else {
       threshold = b.create<arith::ConstantIndexOp>(loc, max_threads_per_wave);
       FusionPatternBase fusion_pattern(fusion_op);
-      Operation* dominant_equivalent_op = fusion_pattern.getRootOps().back();
+      auto external_only_results = fusion_pattern.getExternalOnlyResults();
+      assert(!external_only_results.empty());
+      Operation* dominant_equivalent_op =
+          fusion_pattern.findLastWriter(external_only_results.back());
       out_element_number =
           emitNumElementsComputation(b, loc, dominant_equivalent_op);
-    } else {
-      // Either a column reduction dominanted fusion, or a non-fusion op.
-      return;
     }
 
     Value larger = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt,

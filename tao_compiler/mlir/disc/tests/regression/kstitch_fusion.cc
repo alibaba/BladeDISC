@@ -181,4 +181,21 @@ TEST(KStitchFusionCPUTest, MultiOutputs) {
   unsetenv("DISC_ENABLE_STITCH");
   unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
 }
+
+// No reduce op in the kStitch fusion. All the external-only results have the
+// same number of elements.
+TEST(KStitchFusionGPUTest, KStitchNoReduceStatic) {
+  setenv("DISC_ENABLE_STITCH", "true", 1);
+  setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "kstitch_fusion_no_reduce.mlir",
+      /*backend_types*/ {BackendType::kCuda},
+      /*num_inputs*/ 1,
+      /*num_outputs*/ 2,
+      /*input_descriptors*/ {"3797xf32_X"},
+      /*output_descriptors*/ {"f32_X", "f32_X"}));
+  unsetenv("DISC_ENABLE_STITCH");
+  unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
+}
+
 }  // namespace mlir_test

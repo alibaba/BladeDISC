@@ -17,8 +17,8 @@
 
 #if TF_MAJOR_VERSION > 1
 // TF2.4
-#include "tensorflow/core/common_runtime/graph_constructor.h"
-#include "tensorflow/core/common_runtime/graph_def_builder_util.h"
+// #include "tensorflow/core/common_runtime/graph_constructor.h"
+// #include "tensorflow/core/common_runtime/graph_def_builder_util.h"
 #include "tensorflow/core/graph/graph_node_util.h"
 #else
 // TF1.12, TF1.15

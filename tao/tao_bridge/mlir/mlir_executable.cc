@@ -19,7 +19,11 @@
 #include "tao_bridge/kernels/disc_launch.h"
 #endif  // PLATFORM_ALIBABA
 
+#if BUILD_WITH_BAZEL
+#include "tensorflow/compiler/mlir/xla/ral/ral_api.h"
+#else
 #include "tao_bridge/ral/tensorflow/compiler/mlir/xla/ral/ral_api.h"
+#endif
 
 namespace tensorflow {
 namespace tao {

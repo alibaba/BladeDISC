@@ -42,6 +42,17 @@ def _tf_blade_repositories():
         ],
     )
 
+    maybe_http_archive(
+        name = "nlohmann_json",
+        build_file = "@org_third_party//bazel/third_party:nlohmann_json.BUILD",
+        sha256 = "0ba8ecbfd0406ffb39513f70fc8efcda35b1c35342bbe4635b5df20ea562db62",
+        strip_prefix = "json-3.6.1-stripped",
+        urls = [
+            "http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/build_deps/nlohmann_json_lib/v3.6.1-stripped.tar.gz",
+        ],
+    )
+
+
     rules_foreign_cc_dependencies(
         register_built_tools = False,  # do not build cmake/make from source,
         register_default_tools = False,  # nor download from official site,

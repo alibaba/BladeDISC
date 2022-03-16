@@ -19,7 +19,11 @@
 #include "tao_bridge/common.h"
 #include "tao_bridge/executable.h"
 #include "tao_bridge/kernels/tao_compilation_info_collector.h"
+#if BUILD_WITH_BAZEL
+#include "tao/tao_bridge/tao_compiler_input.pb.h"
+#else
 #include "tao_bridge/tao_compiler_input.pb.h"
+#endif
 #include "tensorflow/core/framework/resource_mgr.h"
 
 namespace tensorflow {

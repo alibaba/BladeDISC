@@ -7,6 +7,10 @@ def _tf_blade_repositories():
         name = "org_tensorflow",
         path = "../tf_community/",
     )
+    native.local_repository(
+        name = "org_tao",
+        path = "../tao/",
+    )
 
 
 def workspace():

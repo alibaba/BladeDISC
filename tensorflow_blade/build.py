@@ -247,7 +247,7 @@ def configure_with_bazel(args):
     if not args.skip_compiler:
         compiler_root = os.path.join(ROOT, os.pardir)
         symlink_files(compiler_root)
-        # add_ral_link_if_not_exist()
+        add_ral_link_if_not_exist(compiler_root)
         with cwd(os.path.join(compiler_root, 'tf_community')):
             execute(
                 "cp -f -p tao/tao_bridge/tao*.proto tensorflow/compiler/decoupling/")
@@ -264,9 +264,7 @@ def configure_with_bazel(args):
             execute(f"sed -i s/@TAO_BUILD_HOST@/{host}/g {version_header}")
             execute(f"sed -i s/@TAO_BUILD_IP@/{ip}/g {version_header}")
             execute(f"sed -i s/@TAO_BUILD_TIME@/{timestamp}/g {version_header}")
-            execute(
-                "cp -f -p tao/tao_bridge/version.h tensorflow/compiler/decoupling/version.h")
-            execute("rm -f tao/tao_bridge/version.h")
+            execute("cp -f -p tao/tao_bridge/version.h tensorflow/compiler/decoupling/version.h")
 
 def build_with_bazel(args):
     with cwd(ROOT):

@@ -42,7 +42,11 @@ limitations under the License.
 #include "tao_bridge/tf/xla_cluster_util.h"
 #include "tao_bridge/tf/xla_op_registry.h"
 #include "tao_bridge/tf_compatible.h"
+#if BUILD_WITH_BAZEL
+#include "tao/tao_bridge/xla_activity.pb.h"
+#else
 #include "tao_bridge/xla_activity.pb.h"
+#endif
 #include "tensorflow/core/common_runtime/function.h"
 #include "tensorflow/core/framework/attr_value.pb.h"
 #include "tensorflow/core/framework/graph_def_util.h"

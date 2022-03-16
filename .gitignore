@@ -8,6 +8,7 @@ pytorch_blade/.torch_env_workspace.bzl
 pytorch_blade/torch_blade/version.py
 pytorch_blade/version.txt
 scripts/ci/.tao_ci_conf
+tao/tao_bridge/version.h
 tensorflow_blade/bazel-bin
 tensorflow_blade/bazel-out
 tensorflow_blade/bazel-tensorflow_blade

@@ -18,8 +18,8 @@ cc_library(
         "//src/util:tf_allocator_util",
         "//src/util:logging",
         "@local_config_cuda//cuda:cuda_headers",
-        "@local_config_tensorrt//:nvinfer_static",
-        "@local_config_tensorrt//:nvinferplugin",
+        "@blade_config_tensorrt//:nvinfer_static",
+        "@blade_config_tensorrt//:nvinferplugin",
         "@local_config_tf//:libtensorflow_framework",
         "@local_config_tf//:tf_header_lib",
     ],
@@ -50,8 +50,8 @@ cc_library(
     deps = [
         ":tensorrt_tf_impl",
         # "@local_config_cuda//cuda:nvrtc",
-        # "@local_config_tensorrt//:nvinfer_static",
-        "@local_config_tensorrt//:nvonnxparser",
+        # "@blade_config_tensorrt//:nvinfer_static",
+        "@blade_config_tensorrt//:nvonnxparser",
         "@local_config_cuda//cuda:cudart_static",
         # TODO(lanbo.llb): Add a static version for cudnn/cublas ???
         "@local_config_cuda//cuda:cudnn",

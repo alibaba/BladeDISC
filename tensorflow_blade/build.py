@@ -17,8 +17,12 @@ import argparse
 import os
 import random
 import re
+import socket
 import subprocess
+import sys
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "scripts", "python"))
 
+from datetime import datetime
 from six.moves import cPickle as pickle
 
 from common_internal import (
@@ -30,10 +34,14 @@ from common_internal import (
     get_cudnn_version,
     get_site_packages_dir,
     get_trt_version,
+    git_branch,
+    git_head,
     logger,
     safe_run,
     which,
 )
+from common_setup import symlink_files
+from tao_build import add_ral_link_if_not_exist, get_version_file
 
 # Source code root dir.
 ROOT = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
@@ -208,6 +216,12 @@ def configure_with_bazel(args):
             _action_env("BLADE_WITH_HIE", "1" if args.internal and not args.skip_hie else "0")
 
             _write("--//:device=gpu")
+            _opt(
+                "remote_cache",
+                "https://aicompiler-remote-cache.oss-cn-zhangjiakou.aliyuncs.com",
+            )
+            _action_env("BLADE_WITH_MKL", "0")
+
             _action_env("BLADE_WITH_MKL", "0")
         else:
             _action_env("TF_NEED_CUDA", "0")
@@ -230,11 +244,35 @@ def configure_with_bazel(args):
         _action_env("BAZEL_LINKOPTS", os.environ.get("BAZEL_LINKOPTS", ""))
         _action_env("BAZEL_LINKLIBS", os.environ.get("BAZEL_LINKLIBS", "-lstdc++"))
     logger.info("Writing to .bazelrc_gen done.")
-
+    if not args.skip_compiler:
+        compiler_root = os.path.join(ROOT, os.pardir)
+        symlink_files(compiler_root)
+        # add_ral_link_if_not_exist()
+        with cwd(os.path.join(compiler_root, 'tf_community')):
+            execute(
+                "cp -f -p tao/tao_bridge/tao*.proto tensorflow/compiler/decoupling/")
+            version_header = "tao/tao_bridge/version.h"
+            execute(f"cp {version_header}.in {version_header}")
+            # Build environments. They all starts with `TAO_BUILD_`.
+            host = socket.gethostname()
+            ip = socket.gethostbyname(host)
+            timestamp = datetime.today().strftime("%Y%m%d%H%M%S")
+            execute(f"sed -i s/cmakedefine/define/g {version_header}")
+            execute(f"sed -i s/@TAO_BUILD_VERSION@/{args.version}/g {version_header}")
+            execute(f"sed -i s/@TAO_BUILD_GIT_BRANCH@/{str(git_branch())}/g {version_header}")
+            execute(f"sed -i s/@TAO_BUILD_GIT_HEAD@/{str(git_head())}/g {version_header}")
+            execute(f"sed -i s/@TAO_BUILD_HOST@/{host}/g {version_header}")
+            execute(f"sed -i s/@TAO_BUILD_IP@/{ip}/g {version_header}")
+            execute(f"sed -i s/@TAO_BUILD_TIME@/{timestamp}/g {version_header}")
+            execute(
+                "cp -f -p tao/tao_bridge/version.h tensorflow/compiler/decoupling/version.h")
+            execute("rm -f tao/tao_bridge/version.h")
 
 def build_with_bazel(args):
     with cwd(ROOT):
         execute("bazel build //src:_tf_blade.so")
+        if not args.skip_compiler:
+            execute("bazel build @org_tensorflow//tensorflow/compiler/decoupling:tao_compiler_main")
 
 def package_whl_with_bazel(args):
     with cwd(ROOT):
@@ -267,6 +305,13 @@ def parse_args():
             Directory of virtualenv where target tensorflow installed.
             If not specificed, the default python will be used(from `which python3`).
         """
+    )
+    parser.add_argument(
+        "-v",
+        "--version",
+        required=False,
+        default="auto",
+        help="Version of built packages, defaults to %(default)s. auto: read from VERSION file.",
     )
     parser.add_argument(
         "-s",
@@ -314,6 +359,13 @@ def parse_args():
         help="If True, hie will be skipped for internal build",
     )
     parser.add_argument(
+        '--skip_compiler',
+        action="store_true",
+        required=False,
+        default=False,
+        help="If True, disc compiler will be skipped for build",
+    )
+    parser.add_argument(
         '--internal',
         action="store_true",
         required=False,
@@ -330,6 +382,10 @@ def parse_args():
     # flag validation
     args = parser.parse_args()
     args.python_dir = os.path.abspath(args.python_dir)
+
+    if args.version == "auto":
+        args.version = open(get_version_file()).read().split()[0]
+
     return args
 
 

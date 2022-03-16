@@ -54,7 +54,7 @@ def _tf_blade_toolchains():
 
     cuda_configure(name = "local_config_cuda")
 
-    tensorrt_configure(name = "local_config_tensorrt")
+    tensorrt_configure(name = "blade_config_tensorrt")
 
     mkl_configure(name = "local_config_mkl")
 

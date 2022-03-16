@@ -70,17 +70,19 @@ class BazelBuild(TorchBladeBuild):
         else:
             self.configs += ["--config=torch_disc_cpu"]
 
-        if self.build_tensorrt:
+        if self.cuda_available and self.build_tensorrt:
             self.configs.append("--config=torch_tensorrt")
+            self.extra_opts += [
+                "--action_env TENSORRT_INSTALL_PATH={}".format(self.tensorrt_dir)]
 
         if running_on_ci():
             self.configs += ["--config=ci_build"]
 
         self.shell_setting = "set -e; set -o pipefail; "
         # Workaround: this venv ensure that $(/usr/bin/env python) is evaluated to python3
-        venv.create("bazel_pyenv")
-        self.build_cmd = "source bazel_pyenv/bin/activate; bazel build"
-        self.test_cmd = "source bazel_pyenv/bin/activate; bazel test"
+        venv.create(".bazel_pyenv", clear=True)
+        self.build_cmd = "source .bazel_pyenv/bin/activate; bazel build"
+        self.test_cmd = "source .bazel_pyenv/bin/activate; bazel test"
 
     def run(self, extdir=None, srcdir=None, build_temp=None):
         srcdir = get_fullpath_or_create(

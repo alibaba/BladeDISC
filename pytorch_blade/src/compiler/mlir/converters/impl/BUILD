@@ -17,5 +17,8 @@ cc_library(
         "@local_org_torch//:libtorch",
         "@org_mhlo_builder//csrc:mhlo_library",
     ],
+    copts = select({
+       "//:enable_cuda": ["-DTORCH_BLADE_BUILD_WITH_CUDA"],
+       "//conditions:default": []}),
     alwayslink = True,
 )

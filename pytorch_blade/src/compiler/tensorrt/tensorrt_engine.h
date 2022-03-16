@@ -1,4 +1,4 @@
-// Copyright 2021 The BladeDISC Authors. All rights reserved.
+// Copyright 2022 The BladeDISC Authors. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -9,24 +9,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "pybind.h"
-
-#include "compiler/mlir/converters/mhlo_conversion.h"
-#include "compiler/mlir/pybind_functions.h"
-#include "compiler/mlir/runtime/disc_engine.h"
-
-#include <torch/csrc/jit/python/pybind_utils.h>
+#pragma once
 
 namespace torch {
 namespace blade {
-namespace disc {
-void initMLIRBindings(py::module& m) {
-  py::module mlir =
-      m.def_submodule("_mlir", "torch_blade python bindings to mlir");
-  mlir.def("cvt_torchscript_to_mhlo", &ConvertTorchScriptToMhlo);
-  mlir.def("is_mlir_mhlo_supported", &IsMlirMhloSupported);
-  mlir.def("backend_name", &GetBackendName);
-}
-} // namespace disc
+namespace tensorrt {
+const char* GetBackendName();
+} // namespace tensorrt
 } // namespace blade
 } // namespace torch

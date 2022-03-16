@@ -9,12 +9,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#ifndef __COMPILER_TENSORRT_FLAGS_H__
+#define __COMPILER_TENSORRT_FLAGS_H__
+
+#include "NvInfer.h"
+#include "common_utils/macros.h"
 
 namespace torch {
 namespace blade {
-namespace disc {
-const char* GetBackendName();
-} // namespace disc
+
+// The TensorRT Engine flags. Note this is per thread
+// level setting/getting, for multithreading use cases,
+// it needs to be configured separately in each thread.
+TorchBladeDeclNewFlag(nvinfer1::BuilderFlags, BuilderFlags);
+
+// The BuilderFlags is thread local.
+class BuilderFlagsGuard {
+ public:
+  BuilderFlagsGuard(nvinfer1::BuilderFlags);
+  ~BuilderFlagsGuard();
+
+ private:
+  nvinfer1::BuilderFlags prev_flags_;
+};
+
 } // namespace blade
 } // namespace torch
+#endif //__COMPILER_TENSORRT_FLAGS_H__

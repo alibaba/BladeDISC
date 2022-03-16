@@ -24,7 +24,7 @@ const char* kFallbackModule = "fallback_module";
 
 EngineClass::EngineClass(SerialType serialized) {
   const auto& engine_state =
-      EngineInterface::State::Deserialize(std::move(std::get<0>(serialized)));
+      EngineState::Deserialize(std::move(std::get<0>(serialized)));
   engine_ = EngineInterface::CreateEngine(engine_state);
   TORCH_CHECK(engine_, "Create Engine failed!");
 
@@ -99,6 +99,12 @@ void EngineClass::DumpAttrToFile(
   writer.close();
 }
 
+void EngineClass::DumpModelProto(const std::string& dump_file) const {
+  std::ofstream writer(dump_file);
+  writer << engine_->GetState().model_proto;
+  writer.close();
+}
+
 std::string EngineClass::GetAttrString(const std::string& attr) const {
   if (attr_dict_.contains(attr)) {
     return attr_dict_.at(attr);
@@ -130,7 +136,7 @@ torch::List<torch::Tensor> EngineClass::last_outputs() {
 }
 
 EngineClass::SerialType EngineClass::Serialize(
-    EngineInterface::State state,
+    EngineState state,
     std::string attr_debug_name,
     std::string fallback_module_bytes,
     std::string original_subgraph) {
@@ -189,6 +195,7 @@ static auto torch_blade_engine_class =
         // fully-qualified method name, i.e. use the unary `&` operator, due to
         // C++ typing rules.
         .def("dump_attr_to_file", &EngineClass::DumpAttrToFile)
+        .def("dump_model_proto", &EngineClass::DumpModelProto)
         .def("get_attr_string", &EngineClass::GetAttrString)
         .def("get_attr_keys", &EngineClass::GetAttrKeys)
         .def("last_inputs", &EngineClass::last_inputs)
@@ -228,7 +235,7 @@ static auto torch_blade_engine_class =
 
 torch::TypePtr register_engine(
     torch::jit::Module& module,
-    const EngineInterface::State& engine_state,
+    const EngineState& engine_state,
     const std::string& attr_debug_name,
     const std::string& fallback_module_bytes,
     const std::string& original_subgraph) {

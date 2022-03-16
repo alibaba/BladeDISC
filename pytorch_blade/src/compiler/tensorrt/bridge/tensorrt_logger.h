@@ -1,4 +1,4 @@
-// Copyright 2021 The BladeDISC Authors. All rights reserved.
+// Copyright 2022 The BladeDISC Authors. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -9,24 +9,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "pybind.h"
+#ifndef __TENSORRT_LOGGER_H__
+#define __TENSORRT_LOGGER_H__
 
-#include "compiler/mlir/converters/mhlo_conversion.h"
-#include "compiler/mlir/pybind_functions.h"
-#include "compiler/mlir/runtime/disc_engine.h"
-
-#include <torch/csrc/jit/python/pybind_utils.h>
-
+#include "NvInfer.h"
 namespace torch {
 namespace blade {
-namespace disc {
-void initMLIRBindings(py::module& m) {
-  py::module mlir =
-      m.def_submodule("_mlir", "torch_blade python bindings to mlir");
-  mlir.def("cvt_torchscript_to_mhlo", &ConvertTorchScriptToMhlo);
-  mlir.def("is_mlir_mhlo_supported", &IsMlirMhloSupported);
-  mlir.def("backend_name", &GetBackendName);
-}
-} // namespace disc
+
+class TensorrtLogger : public nvinfer1::ILogger {
+ public:
+  TensorrtLogger();
+  void log(Severity severity, const char* msg) noexcept override;
+
+ private:
+  Severity log_level_;
+  bool log_enable_ = false;
+};
+
+// Per TensorRT documentation, logger needs to be a singleton.
+TensorrtLogger& GetTensorrtLogger();
+
 } // namespace blade
 } // namespace torch
+#endif //__TENSORRT_LOGGER_H__

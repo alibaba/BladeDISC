@@ -102,7 +102,7 @@ class Config(ConfigContext):
       import torch_blade
 
       config = torch_blade.Config()
-      config.enable_mlir_amp = False
+      config.enable_fp16 = False
       with config:
         # do optimization under configure with mlir amp enable
         blade.optimize(module, ...)
@@ -114,7 +114,7 @@ class Config(ConfigContext):
         # get higher accuracy performance
         self._fp16_fallback_op_ratio = 0.0
         # Allow BladeDISC to do some AMP optimization if set.
-        self._enable_mlir_amp = False
+        self._enable_fp16 = False
         # Controls the extent that BladeDISC is allowed to use fast math for
         # acceleration. Higher number usually means faster speed while it may
         # lead to some accuracy loss in some cases.
@@ -143,7 +143,7 @@ class Config(ConfigContext):
         self._preserved_attributes = []
         self._customize_onnx_opset_version = None
         self._enable_force_to_cuda = False
-        self._enable_trt_shape_white_list = False
+        self._enable_onnx_shape_white_list = True
         self._customize_op_white_list = []
         self._customize_op_black_list = []
         self._customize_jit_passes = []
@@ -165,19 +165,19 @@ class Config(ConfigContext):
         self._opt_pipeline = val
 
     @property
-    def enable_trt_shape_white_list(self):
-        """The flag is used to force convert shape aten operations to TensorRT. Currently the list contains,
+    def enable_onnx_shape_white_list(self):
+        """The flag is used to force convert shape aten operations to TensorRT. Currently the list contains, 
         'aten::view', 'aten::size', 'aten::reshape', 'aten::floor_divide', 'aten::Int', 'prim::NumToTensor'.
 
         :type: bool
-        :default: False
+        :default: True
         """
-        return self._enable_trt_shape_white_list
+        return self._enable_onnx_shape_white_list
 
-    @enable_trt_shape_white_list.setter
-    def enable_trt_shape_white_list(self, val):
-        assert isinstance(val, bool), "enable_trt_shape_white_list should be bool, got {}".format(type(val))
-        self._enable_trt_shape_white_list = val
+    @enable_onnx_shape_white_list.setter
+    def enable_onnx_shape_white_list(self, val):
+        assert isinstance(val, bool), "enable_onnx_shape_white_list should be bool, got {}".format(type(val))
+        self._enable_onnx_shape_white_list = val
 
     @property
     def fp16_fallback_op_ratio(self):
@@ -196,17 +196,33 @@ class Config(ConfigContext):
 
     @property
     def enable_mlir_amp(self):
-        """The flag to enable mlir amp.
+        """[Deprecated] Please use enable_fp16.
+        The flag to enable mlir amp.
 
         :type: bool
         :default: False
         """
-        return self._enable_mlir_amp
+        return self._enable_fp16
 
     @enable_mlir_amp.setter
     def enable_mlir_amp(self, val):
         assert isinstance(val, bool), "enable_mlir_amp should be bool, got {}".format(type(val))
-        self._enable_mlir_amp = val
+        self._enable_fp16 = val
+
+
+    @property
+    def enable_fp16(self):
+        """The flag to enable amp(aka fp16).
+
+        :type: bool
+        :default: False
+        """
+        return self._enable_fp16
+
+    @enable_fp16.setter
+    def enable_fp16(self, val):
+        assert isinstance(val, bool), "enable_fp16 should be bool, got {}".format(type(val))
+        self._enable_fp16 = val
 
     @property
     def disc_cpu_fast_math_level(self):

@@ -35,28 +35,3 @@ REGISTER_OP("BladeFusedLSTMElementWise")
       c->set_output(1, input_c_shape);
       return Status::OK();
     });
-
-REGISTER_OP("BladeBilstm")
-    .Input("input: T")
-    .Input("input_h: T")
-    .Input("input_c: T")
-    .Input("weight: T")
-    .Output("output: T")
-    .Output("output_h: T")
-    .Output("output_c: T")
-    .Attr("T: {float}")
-    .SetShapeFn([](InferenceContext* c) {
-      auto input_shape = c->input(0);
-      auto input_h_shape = c->input(1);
-      auto seq_length = c->Dim(input_shape, 0);
-      auto batch_size = c->Dim(input_shape, 1);
-      auto num_units = c->Dim(input_h_shape, 2);
-      int dir_count = 2;
-      DimensionHandle output_size;
-      TF_RETURN_IF_ERROR(c->Multiply(num_units, dir_count, &output_size));
-      auto output_shape = c->MakeShape({seq_length, batch_size, output_size});
-      c->set_output(0, output_shape);
-      c->set_output(1, input_h_shape);
-      c->set_output(2, input_h_shape);
-      return Status::OK();
-    });

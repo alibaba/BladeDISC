@@ -1,6 +1,5 @@
 load("@local_config_tf//:build_defs.bzl", "tf_copts")
 load("@local_config_cuda//cuda:build_defs.bzl", "cuda_library", "if_cuda")
-load("@rules_python//python:defs.bzl", "py_test")
 
 def _cuda_copts(opts = []):
     """Gets the appropriate set of copts for (maybe) CUDA compilation.
@@ -44,17 +43,4 @@ def tf_blade_library(name, deps = [], alwayslink = None, copts = [], **kwargs):
         alwayslink = True
     native.cc_library(name = name, deps = deps, alwayslink = alwayslink, copts = copts, **kwargs)
 
-def tf_blade_ops_py_tests(srcs, deps = [], data = [], tags = None):
-    """Create a py_test for each .py file in srcs."""
-    all_deps = deps + ["//tests:tf_blade_ops_ut_common"]
-    for file in srcs:
-        if not file.endswith(".py"):
-            fail("Need .py file in srcs, but got: " + file)
-        name = file.rsplit(".", 1)[0]
-        py_test(
-            name = name,
-            srcs = [file],
-            deps = all_deps,
-            data = data,
-            tags = tags,
-        )
+

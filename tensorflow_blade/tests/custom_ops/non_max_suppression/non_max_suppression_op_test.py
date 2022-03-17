@@ -35,10 +35,10 @@ class NonMaxSuppressionTest(TfCustomOpsTestCase):
         # build the test graph
         tf.compat.v1.reset_default_graph()
         num_box = 2048
-        boxes = tf.compat.v1.placeholder(tf.float32, shape=[num_box, 4], name='boxes')
-        scores = tf.compat.v1.placeholder(tf.float32, shape=[num_box], name='scores')
+        boxes = tf.compat.v1.placeholder(tf.float32, shape=[num_box, 4], name="boxes")
+        scores = tf.compat.v1.placeholder(tf.float32, shape=[num_box], name="scores")
 
-        _ = tf.image.non_max_suppression(boxes, scores, max_output_size=8, name='nms',)
+        _ = tf.image.non_max_suppression(boxes, scores, max_output_size=8, name="nms",)
         graph_def = tf.compat.v1.get_default_graph().as_graph_def()
         for node in graph_def.node:
             print(node)

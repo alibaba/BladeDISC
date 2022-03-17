@@ -12,7 +12,7 @@
 set -ex
 if [ -z "$CPU_ONLY"]; then
   # install disc python wheel
-  ${VENV_PATH}/bin/python -m pip install ./build/blade_disc*.whl
+  sudo ${VENV_PATH}/bin/python -m pip install ./build/blade_disc*.whl
 
   pushd examples/TensorFlow/Inference/X86/BERT
   bash download_model.sh

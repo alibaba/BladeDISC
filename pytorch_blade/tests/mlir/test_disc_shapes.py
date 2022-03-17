@@ -265,12 +265,12 @@ class TestDiscShapes(DiscTestCase):
         self._test_cvt_to_disc(func, test_data)
 
     def test_index_select(self):
-        x = torch.randn([3, 4], device = self.device)
+        x = torch.randn([3, 4], device=self.device)
         test_data = (x, )
 
         @torch.jit.script
         def func(x):
-            indices = torch.tensor([0, 2], device = x.device)
+            indices = torch.tensor([0, 2], device=x.device)
             y = torch.index_select(x, 0, indices)
             return y
 

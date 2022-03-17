@@ -150,7 +150,7 @@ class SubProcess {
   bool running_ GUARDED_BY(proc_mu_);
   pid_t pid_ GUARDED_BY(proc_mu_);
 
-  mutable mutex data_mu_ ACQUIRED_AFTER(proc_mu_);
+  mutable mutex data_mu_ TF_ACQUIRED_AFTER(proc_mu_);
   char* exec_path_ GUARDED_BY(data_mu_);
   char** exec_argv_ GUARDED_BY(data_mu_);
   ChannelAction action_[kNFds] GUARDED_BY(data_mu_);

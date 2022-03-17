@@ -27,14 +27,9 @@
 #include "tao_bridge/dumper_common.h"
 #include "tao_bridge/executable.h"
 #include "tao_bridge/kernels/process.h"
-#if BUILD_WITH_BAZEL
-#include "single_include/nlohmann/json.hpp"
-#include "tao/tao_bridge/tao_compiler_input.pb.h"
-#else
 #include "tao_bridge/tao_compiler_input.pb.h"
-#include "third_party/json/single_include/nlohmann/json.hpp"
-#endif
 #include "tensorflow/core/framework/resource_mgr.h"
+#include "third_party/json/single_include/nlohmann/json.hpp"
 
 namespace tensorflow {
 namespace tao {

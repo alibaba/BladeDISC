@@ -55,6 +55,7 @@ cc_binary(
     linkstatic = 1,
     deps = [
         ":tf_blade_ops",
+        "@org_tao//:tao_bridge"
     ] + if_tensorrt_enabled([
         "//src/tensorrt:tensorrt_bridge_impl",
     ]),

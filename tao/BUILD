@@ -24,6 +24,10 @@ cc_proto_library(
     ],
 )
 
+# cc_library(
+#     name = "third_party_json",
+#     hdrs = []
+# )
 cc_library(
     name = "tao_bridge",
     srcs = glob(
@@ -42,7 +46,9 @@ cc_library(
         exclude = [
             "tao_bridge/ral/**/*.h",
         ],
-    ),
+    ) + [
+        "third_party/json/single_include/nlohmann/json.hpp",
+    ],
     deps = [
         ":tao_compiler_input",
         ":tao_compilation_result",
@@ -50,10 +56,14 @@ cc_library(
         "@local_config_tf//:tf_header_lib",
         "@local_config_tf//:libtensorflow_framework",
         "@nlohmann_json_lib//:nlohmann_json",
-        "//tao/tao_bridge/ral:bridge_ral",
-    ],
+        "//tao_bridge/ral:bridge_ral",
+    ] + if_cuda([
+        "//tao_bridge/ral:bridge_ral_cuda",
+    ]),
     copts = if_cuda([
-        "-DGOOGLE_CUDA=1"
+        "-DGOOGLE_CUDA=1",
+        "-Iexternal/org_tao/tao_bridge/ral",
+        "-fpermissive",
     ]) + tf_copts(),
     alwayslink = 1,  # targets depending on it should carry all symbols in its children.
     linkstatic = 1,

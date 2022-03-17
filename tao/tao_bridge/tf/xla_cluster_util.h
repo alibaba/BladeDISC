@@ -23,11 +23,7 @@ limitations under the License.
 #include "absl/types/optional.h"
 #include "tao_bridge/tf/graphcycles.h"
 #include "tao_bridge/tf/statusor.h"
-#if BUILD_WITH_BAZEL
-#include "tao/tao_bridge/xla_activity.pb.h"
-#else
 #include "tao_bridge/xla_activity.pb.h"
-#endif
 #include "tensorflow/core/common_runtime/optimization_registry.h"
 #include "tensorflow/core/graph/algorithm.h"
 #include "tensorflow/core/protobuf/config.pb.h"

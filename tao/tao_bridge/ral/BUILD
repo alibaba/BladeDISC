@@ -10,27 +10,6 @@ cc_proto_library(
     ],
 )
 
-# cuda_library(
-#     name = "bridge_ral_gpu",
-#     srcs = [
-#         "tensorflow/compiler/mlir/xla/ral/context/dynamic_sort_impl.cc",
-#         "tensorflow/compiler/mlir/xla/ral/context/random_impl.cc",
-#         "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_cuda.cc",
-#         "tensorflow/compiler/mlir/xla/ral/context/custom_library/dynamic_sort.cu.cc",
-#         "tensorflow/compiler/mlir/xla/ral/context/custom_library/random_gpu.cu.cc",
-#     ],
-#     copts = [
-#         "-DGOOGLE_CUDA=1"
-#     ] + tf_copts(),
-#     deps = [
-#         "@cub_archive//:cub",
-#         "@local_config_tf//:tf_header_lib",
-#         "@local_config_tf//:libtensorflow_framework",
-#     ],
-#     strip_include_prefix = "tao_bridge/ral",
-#     linkstatic = 1,
-# )
-
 filegroup(
     name = "ral_headers",
     srcs = glob(["tensorflow/**/*.h"]),
@@ -52,11 +31,11 @@ cc_library(
         "tensorflow/compiler/mlir/xla/ral/ral_logging.cc",
     ],
     hdrs = [
-        ":ral_headers"
+        ":ral_headers",
     ],
     copts = [
         "-DDISC_BUILD_FROM_TF_BRIDGE",
-        "-Iexternal/org_tao/tao_bridge/ral/",
+        "-Iexternal/org_tao/tao_bridge/ral",
     ] + if_cuda([
         "-DTAO_RAL_USE_STREAM_EXECUTOR",
     ]) + tf_copts(),
@@ -66,5 +45,36 @@ cc_library(
         "@local_config_tf//:tf_header_lib",
         "@local_config_tf//:libtensorflow_framework",
     ],
+    linkstatic = 1,
     # strip_include_prefix = "external/org_tao/tao_bridge/ral",
+    # include_prefix = "tao_bridge/ral",
+    # includes = ["tao_bridge/ral"]
+)
+
+cuda_library(
+    name = "bridge_ral_cuda",
+    srcs = [
+        "tensorflow/compiler/mlir/xla/ral/context/dynamic_sort_impl.cc",
+        "tensorflow/compiler/mlir/xla/ral/context/random_impl.cc",
+        "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_cuda.cc",
+        "tensorflow/compiler/mlir/xla/ral/context/custom_library/dynamic_sort.cu.cc",
+        "tensorflow/compiler/mlir/xla/ral/context/custom_library/random_gpu.cu.cc",
+    ],
+    copts = [
+        "-DGOOGLE_CUDA=1",
+        "-DDISC_BUILD_FROM_TF_BRIDGE",
+        "-Iexternal/org_tao/tao_bridge/ral",
+        "-Wno-deprecated-gpu-targets",
+    ] + tf_copts(),
+    linkopts = [
+        "-lstdc++",
+    ],
+    deps = [
+        ":bridge_ral",
+        ":compile_metadata",
+        "@cub_archive//:cub",
+        "@local_config_tf//:tf_header_lib",
+        "@local_config_tf//:libtensorflow_framework",
+    ],
+    linkstatic = 1,
 )

@@ -175,11 +175,7 @@ def configure_with_bazel(args):
 
         # TF-Blade
         _action_env("BLADE_WITH_TF_BLADE", "1")
-
-        if args.internal:
-            _action_env("BLADE_WITH_INTERNAL", "1")
-        else:
-            _action_env("BLADE_WITH_INTERNAL", "0")
+        _action_env("BLADE_WITH_INTERNAL", "1" if args.internal else "0")
 
         # CUDA
         if args.device == "gpu":
@@ -209,10 +205,7 @@ def configure_with_bazel(args):
             else:
                 _action_env("BLADE_WITH_TENSORRT", "0")
 
-            if args.internal and not args.skip_hie:
-                _action_env("BLADE_WITH_HIE", "1")
-            else:
-                _action_env("BLADE_WITH_HIE", "0")
+            _action_env("BLADE_WITH_HIE", "1" if args.internal and not args.skip_hie else "0")
 
             _write("--//:device=gpu")
             _action_env("BLADE_WITH_MKL", "0")

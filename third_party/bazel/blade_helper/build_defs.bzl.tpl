@@ -10,8 +10,3 @@ def if_internal(x):
     if %{IF_INTERNAL}:
         return select({"//conditions:default": x})
     return select({"//conditions:default": []})
-
-def if_hie_enabled(x):
-    if %{IF_HIE}:
-        return select({"//conditions:default": x})
-    return select({"//conditions:default": []})

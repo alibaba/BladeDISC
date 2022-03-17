@@ -46,6 +46,7 @@ cc_library(
         "@local_config_tf//:libtensorflow_framework",
     ],
     linkstatic = 1,
+    alwayslink = True,
     # strip_include_prefix = "external/org_tao/tao_bridge/ral",
     # include_prefix = "tao_bridge/ral",
     # includes = ["tao_bridge/ral"]
@@ -77,4 +78,5 @@ cuda_library(
         "@local_config_tf//:libtensorflow_framework",
     ],
     linkstatic = 1,
+    alwayslink = True,
 )

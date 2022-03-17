@@ -17,7 +17,22 @@
 
 #include "src/tf_compatible_version.h"
 
+#if BLADE_WITH_INTERNAL
+#include "tf_blade/internal/pybind_functions.h"
+#endif  // BLADE_WITH_INTERNAL
+
+#if BLADE_WITH_TENSORRT
+#include "src/tensorrt/pybind_functions.h"
+#endif  // BLADE_WITH_TENSORRT
+
 PYBIND11_MODULE(_tf_blade, m) {
   m.doc() = "Utils for tf blade.";
   m.def("compatible_tf_version", &compatible_tf_version);
+#if BLADE_WITH_TENSORRT
+  tf_blade::trt::initTensorRTBindings(m);
+#endif  // BLADE_WITH_TENSORRT
+
+#if BLADE_WITH_INTERNAL
+  tf_blade::internal::initInternalBindings(m);
+#endif  // BLADE_WITH_INTERNAL
 }

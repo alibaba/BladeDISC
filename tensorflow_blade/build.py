@@ -120,23 +120,15 @@ def check_init_file_miss(path, ignore_root=False):
             raise Exception("missing __init__.py under " + dir)
 
 
-def check(args, check_py=False, check_cc=False):
-    if check_py:
-        with cwd(ROOT):
-            # every folder under python should contain a __init__.py file
-            check_init_file_miss("tf_blade", ignore_root=True)
-            # check tf_blade  dir
-            execute("{}/bin/black --check --diff tf_blade".format(args.python_dir))
-            execute("{}/bin/flake8 tf_blade".format(args.python_dir))
-            execute("{}/bin/mypy tf_blade".format(args.python_dir))
-            # check tests dir
-            check_init_file_miss("tests", ignore_root=True)
-            execute("{}/bin/black --check --diff tests".format(args.python_dir))
-            execute("{}/bin/flake8 tests".format(args.python_dir))
-            execute("{}/bin/mypy tests".format(args.python_dir))
-    if check_cc:
-        # TODO(xiafei.qiuxf): add cxx check.
-        pass
+# No need to do cc check, since pre-commit do cc check with clang-format
+def check(args):
+    with cwd(ROOT):
+        # every folder under python should contain a __init__.py file
+        # check tests dir
+        check_init_file_miss("tests", ignore_root=True)
+        execute("{}/bin/black --check --diff tests".format(args.python_dir))
+        execute("{}/bin/flake8 tests".format(args.python_dir))
+        execute("{}/bin/mypy tests".format(args.python_dir))
 
 
 def configure_with_bazel(args):
@@ -183,21 +175,23 @@ def configure_with_bazel(args):
 
         # TF-Blade
         _action_env("BLADE_WITH_TF_BLADE", "1")
+        _action_env("BLADE_WITH_INTERNAL", "1" if args.internal else "0")
 
         # CUDA
         if args.device == "gpu":
             cuda_ver, cuda_home = deduce_cuda_info()
             cudnn_ver = get_cudnn_version(cuda_home)
-            _action_env("BLADE_NEED_CUDA", "1")
+            # Following tf community's cuda related action envs
+            _action_env("TF_NEED_CUDA", "1")
             _action_env("GCC_HOST_COMPILER_PATH", which("gcc"))
-            _action_env("BLADE_CUDA_CLANG", "0")
-            _action_env("BLADE_CUDA_VERSION", cuda_ver)
-            _action_env("BLADE_cuda_homeS", cuda_home)
-            _action_env("BLADE_CUDNN_VERSION", cudnn_ver)
+            _action_env("TF_CUDA_CLANG", "0")
+            _action_env("TF_CUDA_VERSION", cuda_ver)
+            _action_env("TF_cuda_homeS", cuda_home)
+            _action_env("TF_CUDNN_VERSION", cudnn_ver)
             if '11\.' in cuda_ver:
-                _action_env("BLADE_CUDA_COMPUTE_CAPABILITIES", "7.0,7.5,8.0")
+                _action_env("TF_CUDA_COMPUTE_CAPABILITIES", "7.0,7.5,8.0")
             elif '10\.' in cuda_ver:
-                _action_env("BLADE_CUDA_COMPUTE_CAPABILITIES", "7.0,7.5")
+                _action_env("TF_CUDA_COMPUTE_CAPABILITIES", "7.0,7.5")
             _action_env("NVCC", which("nvcc"))
             _opt("define", "using_cuda=true")
             _write("--@local_config_cuda//:enable_cuda")
@@ -205,25 +199,28 @@ def configure_with_bazel(args):
 
             if not args.skip_trt:
                 _action_env("BLADE_WITH_TENSORRT", "1")
-                trt_home = os.environ.get("BLADE_TRT_HOME", "/usr/local/TensorRT")
-                _action_env("TENSORRT_VERSION", get_trt_version(trt_home))
-                _action_env("TENSORRT_INSTALL_PATH", trt_home)
+                trt_root = os.environ.get("TENSORRT_INSTALL_PATH", "/usr/local/TensorRT")
+                _action_env("TENSORRT_VERSION", get_trt_version(trt_root))
+                _action_env("TENSORRT_INSTALL_PATH", trt_root)
             else:
                 _action_env("BLADE_WITH_TENSORRT", "0")
+
+            _action_env("BLADE_WITH_HIE", "1" if args.internal and not args.skip_hie else "0")
 
             _write("--//:device=gpu")
             _action_env("BLADE_WITH_MKL", "0")
         else:
-            _action_env("BLADE_NEED_CUDA", "0")
+            _action_env("TF_NEED_CUDA", "0")
             _action_env("BLADE_WITH_TENSORRT", "0")
+            _action_env("BLADE_WITH_HIE", "0")
             _opt("define", "using_cuda=false")
             _write("--//:device=cpu")
             if args.device == 'cpu':
-                # TODO(xiafei.qiuxf): remove hard-coded mkl root.
+                # TODO(lanbo.llb): unify mkl configure with tao_bridge
                 _action_env("BLADE_WITH_MKL", "1")
-                mkl_root = '/opt/intel/compilers_and_libraries_2020.1.217/linux'
+                mkl_root = os.environ.get("MKL_INSTALL_PATH", "/opt/intel/compilers_and_libraries_2020.1.217/linux")
                 assert os.path.exists(mkl_root), f"MKL root path missing: {mkl_root}"
-                _action_env("MKL_ROOT", mkl_root)
+                _action_env("MKL_INSTALL_PATH", mkl_root)
 
         _write(f"--//:framework=tf")
         _write(
@@ -237,7 +234,7 @@ def configure_with_bazel(args):
 
 def build_with_bazel(args):
     with cwd(ROOT):
-        execute("bazel build --config=cuda //src:_tf_blade.so")
+        execute("bazel build //src:_tf_blade.so")
 
 def package_whl_with_bazel(args):
     with cwd(ROOT):
@@ -303,17 +300,31 @@ def parse_args():
         "--tf", required=False, choices=["1.15", "2.4"], help="Tensorflow version.",
     )
     parser.add_argument(
-        "--verbose",
-        required=False,
-        action="store_true",
-        help="Show more information in each stage",
-    )
-    parser.add_argument(
         '--skip_trt',
         action="store_true",
         required=False,
         default=False,
         help="If True, tensorrt will be skipped for gpu build",
+    )
+    parser.add_argument(
+        '--skip_hie',
+        action="store_true",
+        required=False,
+        default=True,
+        help="If True, hie will be skipped for internal build",
+    )
+    parser.add_argument(
+        '--internal',
+        action="store_true",
+        required=False,
+        default=False,
+        help="If True, internal objects will be built",
+    )
+    parser.add_argument(
+        "--verbose",
+        required=False,
+        action="store_true",
+        help="Show more information in each stage",
     )
 
     # flag validation
@@ -344,7 +355,7 @@ def main():
 
     stage = args.stage
     if stage in ["all", "check"]:
-        check(args, check_py=stage != "check_cc", check_cc=stage != "check_py")
+        check(args)
 
     if stage in ["all", "configure"]:
         configure_with_bazel(args)

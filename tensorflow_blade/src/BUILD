@@ -2,11 +2,68 @@ load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@local_config_mkl//:build_defs.bzl", "if_mkl_enabled")
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 load("@local_config_tf//:build_defs.bzl", "tf_copts", "tf_version")
-load("//:build_defs.bzl", "device_name")
-load("@local_config_blade_helper//:build_defs.bzl", "python_bin_path")
+load("@local_config_blade_helper//:build_defs.bzl", "if_tensorrt_enabled", "if_internal")
 
 package(default_visibility = ["//visibility:public"])
 
+##############################################tf_blade ops################################################
+# Nested select is not supported by bazel, use an intermediat target to workaround.
+cc_library(
+    name = "tensorrt_ops",
+    deps = if_tensorrt_enabled([
+        "//src/custom_ops/trt_engine_op",
+    ]),
+)
+cc_library(
+    name = "internal_gpu_ops",
+    deps = if_internal([
+        "@org_aliyun_blade//tf_blade:tf_blade_gpu_ops_internal",
+    ]),
+)
+cc_library(
+    name = "internal_cpu_ops",
+    deps = if_internal([
+        "@org_aliyun_blade//tf_blade:tf_blade_cpu_ops_internal",
+    ]),
+)
+
+cc_library(
+    name = "tf_blade_ops",
+    deps = select({
+        "//:gpu": [
+            "//src/custom_ops/non_max_suppression",
+            "//src/custom_ops/rnn_ops",
+            ":tensorrt_ops",
+            ":internal_gpu_ops",
+        ],
+        "//:cpu": [
+            ":internal_cpu_ops",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+cc_binary(
+    name = "tf_blade",
+    copts = tf_copts(),
+    linkopts = [
+        "-ldl",
+        "-lm",
+        "-Wl,--version-script,$(location :tf_blade.lds)",
+    ],
+    linkshared = 1,
+    linkstatic = 1,
+    deps = [
+        ":tf_blade_ops",
+    ] + if_tensorrt_enabled([
+        "//src/tensorrt:tensorrt_bridge_impl",
+    ]),
+    data = [
+        ":tf_blade.lds"
+    ]
+)
+
+##########################################################
 cc_library(
     name = "input_version_header",
     hdrs = [
@@ -35,21 +92,25 @@ pybind_extension(
     name = "_tf_blade",
     srcs = [
         "pybind.cpp",
-    ],
+        ":tf_blade",
+    ] + if_tensorrt_enabled([
+        "//src/tensorrt:pybind_functions.h",
+        "//src/tensorrt:pybind_functions.cpp",
+    ]) + if_internal([
+        "@org_aliyun_blade//tf_blade:pybind_internal_srcs"
+    ]),
     linkopts = [
         "-Wl,-rpath,$$ORIGIN",
         "-Wl,-soname,_tf_blade.so",
     ],
-    copts = tf_copts(),
+    copts = if_tensorrt_enabled([
+        "-DBLADE_WITH_TENSORRT",
+    ]) + if_internal([
+        "-DBLADE_WITH_INTERNAL",
+    ]) + tf_copts(),
     deps = [
         ":tf_version_header",
+        ":tf_blade",
         "@local_config_tf//:libtensorflow_framework",
-        # "@local_config_mkl//:mkl_static",
-    ] + select({
-        "@local_config_cuda//:is_cuda_enabled": [
-            "@local_config_cuda//cuda:cudart_static",
-            # "@local_config_tensorrt//:nvinfer_static",
-        ],
-        "//conditions:default": [],
-    }),
+    ],
 )

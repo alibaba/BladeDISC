@@ -336,3 +336,9 @@ def maybe_http_archive(name, sha256, urls, **kwargs):
         urls = urls,
         **kwargs
     )
+
+def get_env_bool_value_str(repository_ctx, env_name):
+    if get_host_environ(repository_ctx, env_name, "False").lower() in ["1", "true", "on"]:
+        return "True"
+    else:
+        return "False"

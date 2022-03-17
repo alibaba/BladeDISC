@@ -11,7 +11,7 @@
 # limitations under the License.
 
 
-set -e
+set -ex
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
@@ -46,3 +46,6 @@ cp tf_community/bazel-bin/tensorflow/compiler/decoupling/tao_compiler_main ${BLA
 mkdir -p build && \
 cp tao/dist/blade_disc*.whl ./build
 cp tf_community/bazel-bin/tensorflow/compiler/mlir/disc/tools/disc-replay/disc-replay-main ./build/
+
+# test example models
+source ${SCRIPT_DIR}/test_cpu_examples.sh

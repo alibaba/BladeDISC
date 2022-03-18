@@ -23,6 +23,7 @@ namespace torch_disc {
 namespace compiler {
 
 using BackendDeviceType = torch::lazy::BackendDeviceType;
+using TSData = torch_lazy_tensors::compiler::TSData;
 
 struct TSBackendDeviceType : public BackendDeviceType {
   TSBackendDeviceType() = delete;

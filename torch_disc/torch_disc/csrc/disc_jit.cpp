@@ -32,6 +32,7 @@ namespace torch_disc {
 namespace compiler {
 
 using namespace ::torch::jit;
+using TSData = torch_lazy_tensors::compiler::TSData;
 
 // TODO(Yancey1989):
 // This a very rough implementation to go thought the whole DiscBackend,
@@ -94,8 +95,8 @@ void CastToTensorInputs(const std::shared_ptr<Graph>& graph, Node* sub_graph,
       DiscSubgraphInputsCast(disc_graph, i);
     }
   }
-  std::cout << "After [CastToTensorInputs]: \n"
-            << graph->toString() << std::endl;
+  LOG(WARNING) << "After [CastToTensorInputs]: \n"
+               << graph->toString() << std::endl;
 }
 
 void FusionDiscNodes(const std::shared_ptr<Graph>& graph) {

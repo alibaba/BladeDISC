@@ -20,6 +20,8 @@ cd torch_disc
 bash pytorch/lazy_tensor_core/scripts/generate_code.sh
 # 4. build "_torch_disc.so"
 python setup.py develop
-# 5. a easy way to test torch_disc, just try to import the pybind library
-(cd bazel-bin/torch_disc && python -c "import torch; import _torch_disc")
+# 5. test a e2e demo
+ln -s bazel-bin/torch_disc/_torch_disc.so ./_torch_disc.so
+python disc_demo.py
+
 deactivate

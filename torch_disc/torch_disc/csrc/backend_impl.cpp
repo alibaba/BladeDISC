@@ -184,7 +184,12 @@ std::vector<torch::lazy::BackendDataPtr> DISCBackendImpl::ExecuteComputation(
     c10::ArrayRef<torch::lazy::BackendDataPtr> arguments,
     const torch::lazy::BackendDevice& device) const {
   auto ts_computation = static_cast<torch::lazy::TSComputation&>(computation);
-  DiscJIT(ts_computation, arguments);
+  try {
+    DiscJIT(ts_computation, arguments);
+  } catch (std::exception& e) {
+    LOG(FATAL) << e.what();
+    throw(e);
+  }
   torch::jit::GraphExecutor& graph_executor = ts_computation.graph_executor();
 
   std::vector<torch::jit::IValue> stack;

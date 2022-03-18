@@ -10,7 +10,7 @@
 # limitations under the License.
 
 set -ex
-if [ -z "$CPU_ONLY"]; then
+if [ -z "$CPU_ONLY" ]; then
   # install disc python wheel
   sudo ${VENV_PATH}/bin/python -m pip install ./build/blade_disc*.whl
 

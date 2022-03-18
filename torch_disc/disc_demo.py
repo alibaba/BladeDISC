@@ -12,7 +12,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torchvision import datasets, transforms
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
 import _torch_disc as disc
@@ -32,28 +31,17 @@ class SimpleNet(nn.Module):
 device = 'lazy'
 model = SimpleNet().to(device)
 
-transform=transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
-        ])
-
-ds = datasets.MNIST('../data', train=True, download=True,
-                    transform=transform)
-
-train_loader = torch.utils.data.DataLoader(ds, batch_size=32, num_workers=1, pin_memory=True, shuffle=True)
-
 optimizer = optim.Adadelta(model.parameters(), lr=1.0)
 
 scheduler = StepLR(optimizer, step_size=1, gamma=0.7)
 
 model.train().to(device)
 
-data, target = next(iter(train_loader))
+data, target = torch.rand(32, 1, 28, 28), torch.randint(9, (32,))
 data, target = data.to(device), target.to(device)
-
 optimizer.zero_grad()
 output = model(data)
 loss = F.nll_loss(output, target)
 loss.backward()
 optimizer.step()
-#disc.mark_step()
+disc._step_marker()

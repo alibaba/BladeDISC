@@ -18,11 +18,6 @@ pybind_library (
   srcs = ["csrc/init_python_bindings.cpp"],
   deps = [
     ":torch_disc_backend",
-    #"@local_org_torch//:ltc_ts_backend",
-    # TODO(yancey1989): depends on one module
-    #"@org_torch_blade//src/compiler/mlir/converters:torch_blade_mhlo_converter",
-    #"@org_torch_blade//src/compiler/mlir/converters/impl:torch_blade_mhlo_converter_impl",
-    #"@org_torch_blade//src/compiler/jit:torch_blade_jit",
   ]
 )
 

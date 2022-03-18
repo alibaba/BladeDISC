@@ -42,17 +42,12 @@ inline bool IsNonTensorOrTypeAnalyzed(const c10::TypePtr type) {
     // there is no need to check any type other than TensorType
     return true;
   }
-  std::cout << tensor_type->scalarType().has_value() << "\t"
-            << tensor_type->device()->str() << "\t" << tensor_type->dim()
-            << std::endl;
-
   return tensor_type->scalarType() && tensor_type->device() &&
       tensor_type->dim();
 }
 
 inline bool AllTensorTypeAnalyzed(const torch::jit::Node& node) {
   for (auto inp : node.inputs()) {
-    std::cout << "inputs: " << inp->debugName() << std::endl;
     if (!IsNonTensorOrTypeAnalyzed(inp->type())) {
       return false;
     }
@@ -78,7 +73,6 @@ bool IsMlirMhloSupported(const torch::jit::Node& node) {
   c10::optional<OpConverter> converter = GetMlirMhloConverter(node);
   try {
     if (converter) {
-      std::cout << "[mhlo-conversion] find op converter" << std::endl;
       mlir::DialectRegistry registry;
       RegisterDialects(registry);
       mlir::MLIRContext mlir_context(registry);
@@ -87,8 +81,6 @@ bool IsMlirMhloSupported(const torch::jit::Node& node) {
           mlir_context, nullptr, /*is_support_testing*/ true);
       if (!node.kind().is_prim()) {
         if (!AllTensorTypeAnalyzed(node)) {
-          std::cout << "[mhlo-conversion] TensorTypeAnalayzed failed"
-                    << std::endl;
           return false;
         }
         // TODO: node that are not prim nodes, may require a subgraph
@@ -101,7 +93,6 @@ bool IsMlirMhloSupported(const torch::jit::Node& node) {
         return (*converter)(empty_ctx, node);
       }
     }
-    std::cout << "[mhlo-conversion] no op converter" << std::endl;
   } catch (std::exception& err) {
     DLOG(ERROR) << err.what();
     return false;

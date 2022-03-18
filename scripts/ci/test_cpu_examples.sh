@@ -17,7 +17,7 @@ if [ ! -z "$CPU_ONLY" ]; then
 
   pushd examples/TensorFlow/Inference/X86/BERT
   bash download_model.sh
-  TAO_ENABLE_FALLBACK=false ${VENV_PATH}/bin/python main.py
+  TAO_ENABLE_FALLBACK=false python main.py
   # clean up download files
   rm -rf model
   popd

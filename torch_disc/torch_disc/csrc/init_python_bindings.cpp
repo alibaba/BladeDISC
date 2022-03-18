@@ -11,7 +11,7 @@
 
 #include <c10/core/Device.h>
 #include <c10/util/Optional.h>
-#include <torch/csrc/jit/ir/irparser.h>
+//#include <torch/csrc/jit/ir/irparser.h>
 #include <torch/csrc/jit/python/pybind.h>
 #include <torch/csrc/lazy/backend/backend_device.h>
 #include <torch/csrc/lazy/backend/backend_interface.h>
@@ -34,7 +34,7 @@
 #include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
 
 #include "compiler/mlir/converters/mhlo_conversion.h"
-#include "lazy_tensor_core/csrc/ts_backend/backend_impl.h"
+#include "torch_disc/csrc/backend_impl.h"
 
 namespace torch_disc {
 namespace {
@@ -65,9 +65,18 @@ std::string GetBackendGraph() {
   return torch::lazy::LazyGraphExecutor::Get()->DumpBackendComputation(tensors);
 }
 
+void StepMarker() {
+  auto device = GetDeviceOrCurrent("");
+  std::vector<std::string> devices;
+  bool wait = true;
+  torch::lazy::LazyGraphExecutor::Get()->SyncLiveTensorsGraph(&device, devices,
+                                                              wait);
+  torch::lazy::LazyGraphExecutor::Get()->MarkStep(device);
+}
+
 void InitLtcModuleBindings(py::module m) {
-  m.def("_ltc_init_disc_backend",
-        []() { torch_lazy_tensors::compiler::InitTorchScriptBackend(); });
+  m.def("_ltc_init_disc_backend", []() { compiler::InitTorchScriptBackend(); });
+  m.def("_step_marker", &StepMarker);
   m.def("_disc_backend_graph", &GetBackendGraph);
   m.def("_ltc_dump_graph", []() {
     auto device = GetDeviceOrCurrent("");

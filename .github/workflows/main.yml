@@ -190,6 +190,7 @@ jobs:
         git submodule sync
         git submodule update --init --depth=1
         docker pull bladedisc/torch-disc:devel-cuda11.0
+        docker pull bladedisc/bladedisc:latest-devel-cuda11.0
         docker build --cache-from bladedisc/torch-disc:devel-cuda11.0 -t torch-disc-devel-cuda11.0 \
           --build-arg PYTORCH_COMMIT=$(git submodule status torch_disc/pytorch | awk '{print $1}') \
           -f docker/dev/Dockerfile.torch-disc ./docker/

@@ -13,6 +13,8 @@ set -e
 
 # 1. configure tensorflow
 python scripts/python/tao_build.py /opt/venv_disc -s configure --bridge-gcc default --compiler-gcc default
+python scripts/python/tao_build.py /opt/venv_disc -s build_mlir_ral
+ln -s tf_community/bazel-bin/tensorflow/compiler/mlir/disc/disc_compiler_main torch_disc/disc_compiler_main
 # 2. using a virtualenv to avoid permission issue
 python -m virtualenv --system-site-packages myenv && source myenv/bin/activate
 # 3. call LTC code generator, that's used in ts lowering

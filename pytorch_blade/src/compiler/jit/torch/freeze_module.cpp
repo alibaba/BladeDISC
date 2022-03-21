@@ -336,7 +336,7 @@ class AttributePropagator {
       }
     } else if (attr.isTuple()) {
       auto tuple = std::move(attr).toTuple();
-      std::vector<IValue>& elems = tuple->elements();
+      std::vector<IValue> elems = tuple->elements();
       for (auto& elem : elems) {
         elem = overrideGradient(elem);
       }

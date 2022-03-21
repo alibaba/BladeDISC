@@ -205,7 +205,7 @@ class TestTensorRTSupportInfo(TestCase):
         unspt_counter = _count_model(Model2())
         self.assertEqual(unspt_counter["aten::sub_"], 0)
 
-        if utils.torch_version_number() >= "1.8.1":
+        if utils.torch_version_number() >= utils.parse_version("1.8.1"):
             graph1 = torch.parse_ir(
                 """
                     graph( %x.1 : Float(4)):
@@ -298,7 +298,7 @@ class TestTensorRTSupportInfo(TestCase):
         self.assertEqual(unspt_counter["aten::relu_"], 1)
 
     def test_view_kinds_0(self):
-        if utils.torch_version_number() >= "1.8.1":
+        if utils.torch_version_number() >= utils.parse_version("1.8.1"):
             graph = torch.parse_ir(
                 """
                     graph( %x.1 : Float(1, 1, 1)):
@@ -334,7 +334,7 @@ class TestTensorRTSupportInfo(TestCase):
         self.assertEqual(len(unsupported), 0)
 
     def test_view_kinds_1(self):
-        if utils.torch_version_number() >= "1.8.1":
+        if utils.torch_version_number() >= utils.parse_version("1.8.1"):
             graph = torch.parse_ir(
                 """
                     graph( %x.1 : Float(1, 1, 1)):
@@ -370,7 +370,7 @@ class TestTensorRTSupportInfo(TestCase):
         self.assertEqual(len(unsupported), 3)
 
     def test_view_kinds_2(self):
-        if utils.torch_version_number() >= "1.8.1":
+        if utils.torch_version_number() >= utils.parse_version("1.8.1"):
             graph = torch.parse_ir(
                 """
                     graph( %x.1 : Float(1, 1, 1)):

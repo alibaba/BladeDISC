@@ -156,7 +156,7 @@ class TestOptimize(TestCase):
         cfg = Config.get_current_context_or_new()
         cfg.optimization_pipeline = "TensorRT"
         with cfg:
-            if utils.torch_version_number() >= '1.7.1':
+            if utils.torch_version_number() >= utils.parse_version('1.7.1'):
                 optimized_model = optimize(model, False, dummy_input)
                 graph = optimized_model.forward.graph
             else:

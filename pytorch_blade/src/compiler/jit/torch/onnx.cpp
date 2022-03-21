@@ -31,6 +31,8 @@ through a callback function `deleteDeadValues`.
 #include <sstream>
 #include <unordered_map>
 
+#include "common_utils/version.h"
+
 namespace torch {
 namespace blade {
 using namespace torch::jit;
@@ -174,7 +176,14 @@ void BlockToONNX(
     WithInsertPoint insert_point_guard(ctx.block);
     WithCurrentScope scope_guard(*ctx.block->owningGraph(), n->scope());
     py::object raw_output = onnx.attr("_run_symbolic_function")(
-        ctx.block->owningGraph(), n, py_inputs, env, operator_export_type);
+        ctx.block->owningGraph(),
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 11
+        ctx.block,
+#endif
+        n,
+        py_inputs,
+        env,
+        operator_export_type);
 
     // TODO: Assert it's an ATen identifier???
     // (Sometimes it's not...)

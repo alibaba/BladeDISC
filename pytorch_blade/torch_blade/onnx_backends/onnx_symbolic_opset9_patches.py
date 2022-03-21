@@ -73,7 +73,7 @@ def _convolution(
     cudnn_enabled,
     allow_tf32=None,
 ):
-    if utils.torch_version_number() >= "1.7.0":
+    if utils.torch_version_number() >= utils.parse_version("1.7.1"):
         return symbolic_opset9_convolution(
             g,
             input,

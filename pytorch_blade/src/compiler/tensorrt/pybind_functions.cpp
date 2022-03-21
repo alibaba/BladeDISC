@@ -53,7 +53,8 @@ void initTensorRTBindings(py::module& m) {
   trt.def("cvt_onnx_to_tensorrt", &cvt_onnx_to_tensorrt);
   trt.def("backend_name", &GetBackendName);
 
-  py::enum_<nvinfer1::BuilderFlag>(trt, "BuilderFlag", py::arithmetic())
+  py::enum_<nvinfer1::BuilderFlag>(
+      trt, "BuilderFlag", py::module_local(), py::arithmetic())
       .value("FP16", nvinfer1::BuilderFlag::kFP16)
       .value("INT8", nvinfer1::BuilderFlag::kINT8)
       .value("DEBUG", nvinfer1::BuilderFlag::kDEBUG)

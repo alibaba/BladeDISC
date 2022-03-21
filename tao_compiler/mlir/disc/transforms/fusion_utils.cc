@@ -1369,7 +1369,11 @@ void StitchCPUAnalysis::dumpParallelPlan() {
       llvm::dbgs() << "  parallel info #" << en2.index() << ": ";
       int test = en2.value();
       auto& info = parallelInfoStore_[test];
-      llvm::dbgs() << "id@prevId: " << info.id << "@" << info.producerId << " ";
+      llvm::dbgs() << "id@prevId: " << info.id << "@" << info.producerId
+                   << " || ";
+      llvm::dbgs() << "consumerIds: ";
+      for (int id : info.consumerIds) llvm::dbgs() << id << " ";
+      llvm::dbgs() << " || ";
       for (auto& innerEn : info.indices) {
         llvm::dbgs() << innerEn.first << " : "
                      << parallelIndexStore_[innerEn.second].step << ", ";
@@ -1853,6 +1857,9 @@ bool StitchCPUAnalysis::propagateFromDominantToRoots() {
         prevInfo.consumerIds.erase(id);
       }
   }
+
+  LLVM_DEBUG(llvm::dbgs() << " parallelPlan after dominant to roots:\n");
+  LLVM_DEBUG(dumpParallelPlan());
   return true;
 }
 
@@ -1877,6 +1884,9 @@ bool StitchCPUAnalysis::propagateFromRootsToProducers() {
     int id;
     std::tie(op, id) = toProcessIds.pop_back_val();
     if (!processedIds[op].insert(id).second) continue;
+    LLVM_DEBUG(llvm::dbgs()
+               << "back-root-indices for #" << id << " of op: " << *op << "\n");
+    parallelInfoStore_[id].consumedByRoots = true;
     // No need to do propagation for const ops
     if (isa<lmhlo::ConstOp>(op)) continue;
     Value out = cast<lmhlo::LmhloOp>(op).getResultBuffer();
@@ -2468,7 +2478,10 @@ bool StitchCPUAnalysis::emitSubRootCalculation(
       }
     }
     if (operandInfo == nullptr) {
-      LLVM_DEBUG(llvm::dbgs() << "could not find operand parallel info\n");
+      LLVM_DEBUG(
+          llvm::dbgs()
+          << "could not find operand parallel info for op's parallel info #"
+          << info.id << " : " << *op << "\noperand: " << operand << "\n");
       return false;
     }
     auto& valueViewStore = viewStore[operand];
@@ -2598,8 +2611,20 @@ bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder& b,
     OpBuilder innerBuilder(subFusionOp);
     ViewStore localViewStore = subRootViewStore_;
     SmallVector<Operation*> clonedLmhloOps;
-    auto& info = parallelInfoStore_[*plan.begin()];
-    if (!emitSubRootCalculation(innerBuilder, loc, info, localViewStore,
+    ParallelInfo* info = nullptr;
+    for (int id : plan) {
+      auto& candidateInfo = parallelInfoStore_[id];
+      if (candidateInfo.consumedByRoots) {
+        info = &candidateInfo;
+        break;
+      }
+    }
+    if (!info) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "failed to find a valid parallel info op " << *op << "\n");
+      return false;
+    }
+    if (!emitSubRootCalculation(innerBuilder, loc, *info, localViewStore,
                                 clonedLmhloOps)) {
       LLVM_DEBUG(llvm::dbgs()
                  << "failed to do emitSubRootCalculation for " << *op << "\n");
@@ -2631,7 +2656,7 @@ bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder& b,
     auto clonedSubFusionOp =
         cast<lmhlo::FusionOp>(innerBuilder.clone(*subFusionOp.getOperation()));
     addFusionTag(innerBuilder, clonedSubFusionOp, "root_tile");
-    auto it = inOutViewStore_[out].find(info.symbolIndices);
+    auto it = inOutViewStore_[out].find(info->symbolIndices);
     if (it == inOutViewStore_[out].end()) {
       LLVM_DEBUG(llvm::dbgs() << "no output view found.\n");
       return false;
@@ -2709,6 +2734,7 @@ bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder& b,
 //    } {fusion_type = "stitch"}
 //  ```
 bool StitchCPUAnalysis::doCodeGeneration(OpBuilder& b, lmhlo::FusionOp fusion) {
+  LLVM_DEBUG(llvm::dbgs() << "Try to doCodeGeneration for fusion:\n" << fusion);
   if (!isStitchFusion(fusion)) return false;
   if (!fusibilityAnalysis()) return false;
 

@@ -485,6 +485,9 @@ struct ParallelInfo {
   using IsOwnerPred = int;
   IsOwnerPred isOwner;
   Value symbolIsOwner;
+
+  // whether this parallel info is needed by any root.
+  bool consumedByRoots = false;
 };
 
 class StitchCPUAnalysis {

@@ -361,7 +361,7 @@ LogicalResult ShapeAnalysis::buildBlockDimValueMap(Block* block) {
         }
       }
       result = std::move(dimValues);
-    } else if (auto cst_shape = dyn_cast<arith::ConstantOp>(op)) {
+    } else if (auto cst_shape = dyn_cast_or_null<arith::ConstantOp>(op)) {
       auto cst_attr =
           cst_shape.getValue().dyn_cast_or_null<DenseIntElementsAttr>();
       if (!cst_attr) {

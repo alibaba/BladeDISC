@@ -57,8 +57,8 @@ def _check_dynamic_ranges(val):
 def _validate_dynamic_ranges(val):
     if isinstance(val, dict):
         val = [val]
-    # for v in val:
-    #     _check_dynamic_ranges(v)
+    for v in val:
+        _check_dynamic_ranges(v)
     return val
 
 

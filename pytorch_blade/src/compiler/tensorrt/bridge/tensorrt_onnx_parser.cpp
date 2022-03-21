@@ -96,6 +96,7 @@ TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
         if (!each_dynamic_range.Validate(n_trt_input)) {
           LOG(ERROR) << "Get a invalid dynamic setting, skip this:";
           LOG(ERROR) << each_dynamic_range.GetShapeString();
+          return nullptr;
         }
         nvinfer1::IOptimizationProfile* profile =
             context.builder->createOptimizationProfile();
@@ -116,6 +117,7 @@ TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
                 inp_name, nvinfer1::OptProfileSelector::kOPT, inp_dims_opt);
           }
         }
+        TORCH_CHECK(profile->isValid());
         config->addOptimizationProfile(profile);
       }
     }

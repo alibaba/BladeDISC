@@ -263,6 +263,17 @@ bool TRTContext::IsInRange(
   return true;
 }
 
+bool TRTContext::IsInRange(const torch::List<torch::Tensor>& inputs) {
+  for (int64_t j = 0; j < profile_num_; ++j) {
+    // start iterate from optimization_profile_
+    auto i = (j + optimization_profile_) % profile_num_;
+    if (IsInRange(inputs, i)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void TRTContext::UpdateProfileIfNeed(const torch::List<torch::Tensor>& inputs) {
   /* Update profile according to the inputs' shapes if multiple profiles are
    * used */
@@ -282,6 +293,10 @@ void TRTContext::UpdateProfileIfNeed(const torch::List<torch::Tensor>& inputs) {
 bool TRTContext::ChangingShape(
     const torch::List<torch::Tensor>& inputs,
     std::shared_ptr<nvinfer1::IExecutionContext>& context) {
+  if (!IsInRange(inputs, optimization_profile_)) {
+    return false;
+  }
+
   const auto& graph_inputs = engine_state_->inputs;
   for (size_t k = 0; k < inputs.size(); ++k) {
     torch::Tensor inp_tensor = inputs[k];

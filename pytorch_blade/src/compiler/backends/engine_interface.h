@@ -56,6 +56,11 @@ class EngineInterface {
 
   virtual torch::List<torch::Tensor> Execute(
       const torch::List<torch::Tensor>& inputs) = 0;
+
+  virtual bool ShouldFallback(const torch::List<torch::Tensor>& inputs) {
+    return false;
+  }
+
   static std::shared_ptr<EngineInterface> CreateEngine(const State&);
 };
 

@@ -69,7 +69,8 @@ void initModules<COMMUNITY_VERSION_ID>(py::module& m) {
       .def_readwrite("min_shape", &DynamicRanges::min_shape)
       .def_readwrite("max_shape", &DynamicRanges::max_shape)
       .def_readwrite("dynamic_setting", &DynamicRanges::dynamic_setting)
-      .def_readwrite("opt_shapes", &DynamicRanges::opt_shapes);
+      .def_readwrite("opt_shapes", &DynamicRanges::opt_shapes)
+      .def("validate", &DynamicRanges::Validate);
 
   py::class_<TensorInfo>(backends, "TensorInfo")
       .def(py::init<>())

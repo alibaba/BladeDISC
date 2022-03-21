@@ -17,6 +17,27 @@ namespace torch {
 namespace blade {
 namespace backends {
 
+bool DynamicRanges::InRange(const ShapesType& shapes) {
+  size_t inp_nums = shapes.size();
+  if (inp_nums != min_shape.size() || inp_nums != max_shape.size()) {
+    return false;
+  }
+
+  for (int k = 0; k < inp_nums; ++k) {
+    const auto& min_dims = min_shape[k];
+    const auto& max_dims = max_shape[k];
+    const auto& dims = shapes[k];
+    if (dims.size() != min_dims.size() || dims.size() != max_dims.size()) {
+      return false;
+    }
+    bool in_range = (min_dims <= dims) && (dims <= max_dims);
+    if (!in_range) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool DynamicRanges::Validate(int inp_nums) {
   // if one the min_shape/max_shape/opt_shapes is empty, we can not construct
   // a valid optimization profile.
@@ -33,9 +54,17 @@ bool DynamicRanges::Validate(int inp_nums) {
   if (min_shape.size() != inp_nums || max_shape.size() != inp_nums) {
     return false;
   }
+
   for (auto opt_shape : opt_shapes) {
-    if (opt_shape.size() != inp_nums) {
+    if (!InRange(opt_shape)) {
       return false;
+    }
+    for (size_t k = 0; k < opt_shape.size(); ++k) {
+      bool in_range =
+          (min_shape[k] <= opt_shape[k]) && (opt_shape[k] <= max_shape[k]);
+      if (!in_range) {
+        return false;
+      }
     }
   }
   return true;

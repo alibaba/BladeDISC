@@ -41,9 +41,10 @@ std::shared_ptr<backends::EngineState> cvt_onnx_to_tensorrt(
       state->backend_name = GetBackendName();
       out->destroy();
     }
+    return state;
+  } else {
+    return nullptr;
   }
-
-  return state;
 }
 
 void initTensorRTBindings(py::module& m) {

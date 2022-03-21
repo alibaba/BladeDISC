@@ -42,50 +42,25 @@ class TRTEngine : public torch::blade::backends::EngineInterface {
     return "TensorRT";
   }
   static std::shared_ptr<TRTEngine> Create(const State& engine_state);
+  bool ShouldFallback(const torch::List<torch::Tensor>& inputs) override;
 
  private:
-  std::shared_ptr<TRTContext> FetchTRTContext();
-  void ReleaseTRTContext();
-
-  // use these fields carefully in multi-threads context
-  std::mutex trt_ctx_lock_;
-  // don't use it directly, please use FetchTRTContext
   std::shared_ptr<TRTContext> engine_ctx_;
   std::shared_ptr<State> engine_state_;
 };
 
 TRTEngine::TRTEngine(const State& state) {
   engine_state_ = std::make_shared<State>(std::move(state));
-  auto engine_ctx = FetchTRTContext();
-  CHECK_NOTNULL(engine_ctx);
+  engine_ctx_ = std::make_shared<TRTContext>(engine_state_);
 }
 
 torch::List<torch::Tensor> TRTEngine::Execute(
     const torch::List<torch::Tensor>& inputs) {
-  auto engine_ctx = FetchTRTContext();
-  CHECK_NOTNULL(engine_ctx);
-  return engine_ctx->Execute(inputs);
+  return engine_ctx_->Execute(inputs);
 }
 
-// FetchTRTContext guarantee to return an effective engine_ctx_
-std::shared_ptr<TRTContext> TRTEngine::FetchTRTContext() {
-  // Note: we use lock_guard(mutex) since the multi-threads collision with low
-  // frequency.
-  std::lock_guard<std::mutex> guard(trt_ctx_lock_);
-  if (engine_ctx_ != nullptr) {
-    return engine_ctx_;
-  }
-
-  engine_ctx_ = std::make_shared<TRTContext>(engine_state_);
-  return engine_ctx_;
-}
-
-void TRTEngine::ReleaseTRTContext() {
-  std::lock_guard<std::mutex> guard(trt_ctx_lock_);
-  if (engine_ctx_ == nullptr) {
-    return;
-  }
-  engine_ctx_.reset();
+bool TRTEngine::ShouldFallback(const torch::List<torch::Tensor>& inputs) {
+  return !engine_ctx_->IsInRange(inputs);
 }
 
 std::shared_ptr<TRTEngine> TRTEngine::Create(const State& engine_state) {

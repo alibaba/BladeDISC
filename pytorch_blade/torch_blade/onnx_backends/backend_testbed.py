@@ -47,6 +47,7 @@ class OnnxBackendChecker:
             graph, _ = pass_manager._jit_pass_lower_to_onnx(graph)
             if not self._check_concrete_shape(graph):
                 return False
+
             proto = pass_manager._export_onnx(graph, {})
             onnx_model = onnx.load_from_string(proto)
             # pylint: disable=maybe-no-member

@@ -32,6 +32,7 @@ class TRTContext {
   TRTContext(std::shared_ptr<State> state);
   std::string SerializeAsString() const;
   torch::List<torch::Tensor> Execute(const torch::List<torch::Tensor>&);
+  bool IsInRange(const torch::List<torch::Tensor>& inputs);
 
  private:
   // Setup binding buffers to the input/output blobs on the GPU.
@@ -58,7 +59,6 @@ class TRTContext {
       const torch::List<torch::Tensor>& inputs);
   void UpdateProfileIfNeed(const torch::List<torch::Tensor>& inputs);
   bool IsInRange(const torch::List<torch::Tensor>&, int64_t);
-
   int64_t tensorrt_device_;
   mutable std::mutex lock_;
   TrtUniquePtr<nvinfer1::ICudaEngine> engine_;

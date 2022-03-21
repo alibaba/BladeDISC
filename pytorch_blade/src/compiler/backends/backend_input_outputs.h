@@ -43,6 +43,7 @@ struct DynamicRanges {
   SerialType Serialize() const;
   static DynamicRanges Deserialize(const SerialType& serialized);
   bool Validate(int);
+  bool InRange(const ShapesType& shapes);
   std::string GetShapeString() const;
 };
 

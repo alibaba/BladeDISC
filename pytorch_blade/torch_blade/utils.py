@@ -251,3 +251,9 @@ def dump_graph_and_code(module, fpath):
 
     with open(fpath + ".code.py", "w") as out:
         out.write(str(module.forward.code))
+
+def disable_pytorch_jit():
+    torch._C._jit_set_profiling_executor(False)
+    torch._C._jit_set_profiling_mode(False)
+    torch._C._jit_set_texpr_fuser_enabled(False)
+    torch._C._jit_set_nvfuser_enabled(False)

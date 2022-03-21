@@ -14,6 +14,7 @@ import contextlib
 import torch
 import torch_blade._torch_blade._backends as _backends
 
+from torch_blade import version
 from torch_blade.clustering.support_fusion_group import supported_node_fusion
 from torch_blade.clustering.support_group_conversion import group_nodes
 from torch_blade.config import Config
@@ -42,26 +43,39 @@ def get_shape_for_one_input(c_module, input_shapes, trt_unsupported):
     # https://github.com/pytorch/pytorch/blob/v1.8.1/torch/csrc/jit/python/python_ir.cpp#L349
     # https://github.com/pytorch/pytorch/blob/v1.8.1/torch/csrc/jit/ir/ir.cpp#L688
     # https://github.com/pytorch/pytorch/blob/v1.8.1/torch/csrc/jit/ir/ir.cpp#L658
+    def _is_list_of_int(shape):
+        if not isinstance(shape, list):
+            return False
+        return all(isinstance(x, int) for x in shape)
+
+    all_shapes = all(_is_list_of_int(shape) for shape in input_shapes)
+
+    if all_shapes:
+        graph = c_module.forward.graph
+        input_types = [_type_map[inp.type().scalarType()] for inp in graph.input_list()[1:]]
+        if len(input_types) != len(input_shapes):
+            raise Exception(
+                "Input shapes number({}) not match with model input number({}), input shapes: {}".format(
+                    len(input_shapes), len(input_types), input_shapes
+                )
+            )
+
+        inputs = [
+            torch.ones(inp, device="cuda" if version.cuda_available else "cpu").to(typ)
+            for inp, typ in zip(input_shapes, input_types)
+        ]
+    else:
+        inputs = input_shapes
+    return _get_shape_for_one_input(c_module, inputs, trt_unsupported)
+
+def _get_shape_for_one_input(c_module, inputs, trt_unsupported):
     graph = c_module.forward.graph.copy()
+    record_shape_by_tracing(c_module, inputs, graph)
     unsupported_indices = [
         idx
         for idx, n in enumerate(c_module.forward.graph.nodes())
         if n in trt_unsupported
     ]
-    input_types = [_type_map[inp.type().scalarType()] for inp in graph.input_list()[1:]]
-    if len(input_types) != len(input_shapes):
-        raise Exception(
-            "Input shapes number({}) not match with model input number({}), input shapes: {}".format(
-                len(input_shapes), len(input_types), input_shapes
-            )
-        )
-    # do we need to make sure that the inp_tensor is on cuda?
-    inputs = [
-        torch.ones(inp, device="cuda").to(typ)
-        for inp, typ in zip(input_shapes, input_types)
-    ]
-    record_shape_by_tracing(c_module, inputs, graph)
-
     new_trt_unsupported = set(
         n for i, n in enumerate(graph.nodes()) if i in unsupported_indices
     )

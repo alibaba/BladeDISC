@@ -14,6 +14,8 @@ from collections import defaultdict
 import copy
 import threading
 
+import torch_blade._torch_blade._backends as _backends
+
 class OptPipelines:
 
     pipelines = defaultdict(None)
@@ -30,26 +32,33 @@ def _check_dynamic_ranges(val):
     min_shape = val["min"]
     max_shape = val["max"]
     opt_shapes = val["opts"]
+    all_shapes = [min_shape, max_shape] + opt_shapes
 
-    inp_nums = len(min_shape)
-    assert inp_nums == len(max_shape), "the number of inputs should be equal between min_shape and max_shape"
-    for min_inp, max_inp in zip(min_shape, max_shape):
-        assert all(dim_min <= dim_max for dim_min, dim_max in zip(min_inp, max_inp)), \
-            "The number in min_shape needs to be less than or equal to max_shape"
+    def _is_list_of_int(shapes):
+        if not isinstance(shapes, list):
+            return False
+        return all(isinstance(x, int) for shape in shapes for x in shape)
 
-    for single_opt_shape in opt_shapes:
-        assert inp_nums == len(single_opt_shape), \
-            "the number of inputs of each group in opts must be consistent with the min_shape and max_shape"
-        for min_inp, opt_inp, max_inp in zip(min_shape, single_opt_shape, max_shape):
-            assert all(dim_min <= dim_opt <= dim_max for dim_min, dim_opt, dim_max in zip(min_inp, opt_inp, max_inp)), \
-                "The number in opt_shape needs to be between min_shape and max_shape"
-
+    input_is_shape = all(_is_list_of_int(inps) for inps in all_shapes)
+    if input_is_shape:
+        dynamic_ranges = _backends.DynamicRanges()
+        dynamic_ranges.min_shape = min_shape
+        dynamic_ranges.max_shape = max_shape
+        dynamic_ranges.opt_shapes = opt_shapes
+        if not dynamic_ranges.validate(len(min_shape)):
+            raise Exception("The dynamic tuning shapes setting is illegal, will fallback to static")
+    elif not all(isinstance(inps, tuple) for inps in all_shapes):
+        raise Exception("The dynamic tuning shapes setting is illegal, will fallback to static")
+    else:
+        # use tuple of inputs as the setting
+        # the dynmaic tuning shapes' setting will be recorded by tracing
+        pass
 
 def _validate_dynamic_ranges(val):
     if isinstance(val, dict):
         val = [val]
-    for v in val:
-        _check_dynamic_ranges(v)
+    # for v in val:
+    #     _check_dynamic_ranges(v)
     return val
 
 

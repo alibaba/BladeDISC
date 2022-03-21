@@ -17,15 +17,23 @@
 namespace torch {
 namespace blade {
 TensorrtLogger::TensorrtLogger() : log_level_(Severity::kERROR) {
-  const auto trt_log_lvl_cstr = std::getenv("TORCH_BLADE_TRT_LOG_LEVEL");
+  const char* torch_blade_debug = std::getenv("TORCH_BLADE_DEBUG_LOG");
+  const char* trt_log_lvl_cstr = std::getenv("TORCH_BLADE_TRT_LOG_LEVEL");
+
   if (trt_log_lvl_cstr == nullptr) {
-    return;
+    if (torch_blade_debug != nullptr) {
+      trt_log_lvl_cstr = "ERROR";
+    } else {
+      return;
+    }
   }
+
   log_enable_ = true;
   std::string trt_log_lvl_str = std::string(trt_log_lvl_cstr);
   std::for_each(trt_log_lvl_str.begin(), trt_log_lvl_str.end(), [](char& c) {
     c = ::toupper(c);
   });
+
   if (trt_log_lvl_str == "FATAL") {
     log_level_ = Severity::kINTERNAL_ERROR;
   } else if (trt_log_lvl_str == "ERROR") {

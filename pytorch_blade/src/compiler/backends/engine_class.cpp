@@ -57,17 +57,21 @@ torch::List<torch::Tensor> EngineClass::Execute(
 
   torch::List<torch::Tensor> outputs;
   // do inference
-  try {
-    outputs = engine_->Execute(inputs);
-  } catch (const std::runtime_error& error) {
-    const auto& enable_fallback =
-        std::getenv("TORCH_BLADE_DISABLE_RUNTIME_FALLBACK");
-    if (enable_fallback == nullptr ||
-        std::strcmp(enable_fallback, "true") != 0 ||
-        std::strcmp(enable_fallback, "on") != 0) {
-      outputs = Fallback(inputs);
-    } else {
-      throw error;
+  if (engine_->ShouldFallback(inputs)) {
+    outputs = Fallback(inputs);
+  } else {
+    try {
+      outputs = engine_->Execute(inputs);
+    } catch (const std::runtime_error& error) {
+      const auto& enable_fallback =
+          std::getenv("TORCH_BLADE_ENABLE_RUNTIME_FALLBACK");
+      if (enable_fallback == nullptr ||
+          std::strcmp(enable_fallback, "true") == 0 ||
+          std::strcmp(enable_fallback, "on") == 0) {
+        outputs = Fallback(inputs);
+      } else {
+        throw error;
+      }
     }
   }
 
@@ -81,10 +85,10 @@ torch::List<torch::Tensor> EngineClass::Execute(
 }
 
 torch::jit::Module EngineClass::GetFallback() {
-  const auto& fallback_module_bytes = GetAttrString(kFallbackModule);
-  TORCH_CHECK(
-      !fallback_module_bytes.empty(), "Fallback haven't been implemented");
   std::call_once(fallback_loaded_, [&]() {
+    const auto& fallback_module_bytes = GetAttrString(kFallbackModule);
+    TORCH_CHECK(
+        !fallback_module_bytes.empty(), "Fallback haven't been implemented");
     std::stringstream istream(fallback_module_bytes);
     fallback_module_ = ::torch::jit::load(istream);
   });

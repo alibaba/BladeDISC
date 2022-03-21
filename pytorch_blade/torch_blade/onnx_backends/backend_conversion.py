@@ -57,6 +57,16 @@ def _build_onnx_engine(subgraph, engine_build_func, q_info=None, dynamic_setting
     if dynamic_settings is not None:
         dynamic_shapes = dynamic_settings
         dynamic_axes = dynamic_shapes[0].dynamic_setting
+        min_shape = dynamic_shapes[0].min_shape
+        max_shape = dynamic_shapes[0].max_shape
+        opt_shapes = dynamic_shapes[0].opt_shapes
+        logger.info(
+            "Dynamic shape settings: \n"
+            "min_shape: {str(min_shape)},\n"
+            "max_shape: {str(max_shape)},\n"
+            "opt_shapes: {str(opt_shapes)},\n"
+            "dynamic_axes: {str(dynamic_axes)}"
+        )
 
     dyn_proto = pass_manager._export_onnx(graph, dynamic_axes)
     onnx_model = onnx.load_from_string(dyn_proto)
@@ -68,6 +78,7 @@ def _build_onnx_engine(subgraph, engine_build_func, q_info=None, dynamic_setting
     state.model_proto = dyn_proto
     return engine_build_func(dyn_proto, state, dynamic_shapes, q_val)
 
+
 def _subgraph_to_bytes(subgraph, group_name):
     fallback_module = utils.subgraph_to_module(subgraph, group_name)
     m_bytes = BytesIO()
@@ -75,9 +86,7 @@ def _subgraph_to_bytes(subgraph, group_name):
     return m_bytes.getvalue()
 
 
-def _register_onnx_engine(
-    module, subgraph, state, group_name, disable_fallback=False
-):
+def _register_onnx_engine(module, subgraph, state, group_name, disable_fallback=False):
     if disable_fallback:
         state.model_proto = ""
 

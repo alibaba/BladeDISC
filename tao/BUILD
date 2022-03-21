@@ -59,9 +59,12 @@ cc_library(
     ] + if_cuda([
         "//tao_bridge/ral:bridge_ral_cuda",
     ]),
+    includes = [
+        ".",
+        "tao_bridge/ral",
+    ],
     copts = if_cuda([
         "-DGOOGLE_CUDA=1",
-        "-Iexternal/org_tao/tao_bridge/ral",
     ]) + tf_copts(),
     alwayslink = 1,  # targets depending on it should carry all symbols in its children.
     linkstatic = 1,

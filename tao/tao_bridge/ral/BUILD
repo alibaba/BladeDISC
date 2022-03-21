@@ -35,7 +35,6 @@ cc_library(
     ],
     copts = [
         "-DDISC_BUILD_FROM_TF_BRIDGE",
-        "-Iexternal/org_tao/tao_bridge/ral",
     ] + if_cuda([
         "-DTAO_RAL_USE_STREAM_EXECUTOR",
     ]) + tf_copts(),
@@ -47,9 +46,7 @@ cc_library(
     ],
     linkstatic = 1,
     alwayslink = True,
-    # strip_include_prefix = "external/org_tao/tao_bridge/ral",
-    # include_prefix = "tao_bridge/ral",
-    # includes = ["tao_bridge/ral"]
+    includes = ["."]
 )
 
 cuda_library(

@@ -187,17 +187,19 @@ static bool DoGemmWithAlgorithm(
      * Since cublas describes matrix in col major,
      * Thus we perform B' x A' = C'
      */
-    return stream
-        ->ThenBlasGemmWithAlgorithm(
-            rhs_transpose, lhs_transpose, n, m,
-            /*size of reduce dim=*/k,
-            /*alpha=*/static_cast<InT>(alpha), rhs_data,
-            /*leading dim of RHS=*/rhs_matrix.num_cols, lhs_data,
-            /*leading dim of LHS=*/lhs_matrix.num_cols,
-            /*beta=*/static_cast<OutT>(beta), &output_data,
-            /*leading dim of output=*/n, computation_type, *algorithm,
-            output_profile_result)
-        .ok();
+    auto st0 = stream->ThenBlasGemmWithAlgorithm(
+        rhs_transpose, lhs_transpose, n, m,
+        /*size of reduce dim=*/k,
+        /*alpha=*/static_cast<InT>(alpha), rhs_data,
+        /*leading dim of RHS=*/rhs_matrix.num_cols, lhs_data,
+        /*leading dim of LHS=*/lhs_matrix.num_cols,
+        /*beta=*/static_cast<OutT>(beta), &output_data,
+        /*leading dim of output=*/n, computation_type, *algorithm,
+        output_profile_result);
+    if (!st0.ok()) {
+      TAO_VLOG(0) << "launch gemm error: " << st0.error_message();
+    }
+    return st0.ok();
   }
 
   // TODO: need check accuracy of batched matmul
@@ -216,15 +218,18 @@ static bool DoGemmWithAlgorithm(
         .ok();
   }
 
-  return stream
-      ->ThenBlasGemm(rhs_transpose, lhs_transpose, n, m,
-                     /*size of reduce dim=*/k,
-                     /*alpha=*/static_cast<AlphaBeta>(alpha), rhs_data,
-                     /*leading dim of RHS=*/rhs_matrix.num_cols, lhs_data,
-                     /*leading dim of LHS=*/lhs_matrix.num_cols,
-                     /*beta=*/static_cast<AlphaBeta>(beta), &output_data,
-                     /*leading dim of output=*/n)
-      .ok();
+  auto st0 =
+      stream->ThenBlasGemm(rhs_transpose, lhs_transpose, n, m,
+                           /*size of reduce dim=*/k,
+                           /*alpha=*/static_cast<AlphaBeta>(alpha), rhs_data,
+                           /*leading dim of RHS=*/rhs_matrix.num_cols, lhs_data,
+                           /*leading dim of LHS=*/lhs_matrix.num_cols,
+                           /*beta=*/static_cast<AlphaBeta>(beta), &output_data,
+                           /*leading dim of output=*/n);
+  if (!st0.ok()) {
+    TAO_VLOG(0) << "launch gemm error: " << st0.error_message();
+  }
+  return st0.ok();
 }
 
 // gemm_algorithm_pick also implemented correctness check, which

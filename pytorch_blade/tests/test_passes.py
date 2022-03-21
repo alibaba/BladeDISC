@@ -72,7 +72,7 @@ class TestPasses(TestCase):
             self.assertEqual(n0_kind, "prim::RaiseException")
 
 
-    @unittest.skipIf(utils.torch_version_number() >= "1.8.1", 'failed')
+    @unittest.skipIf(utils.torch_version_number() >= utils.parse_version("1.8.1"), 'failed')
     def test_pass_licm(self):
         class Model(torch.nn.Module):
             def __init__(self, hidden_size):

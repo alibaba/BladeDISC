@@ -15,6 +15,7 @@ from torch.onnx import OperatorExportTypes
 from torch.onnx.symbolic_helper import _export_onnx_opset_version
 
 import torch_blade
+from torch_blade import utils
 from torch_blade import tools
 from torch_blade.config import Config, OptPipelines
 from torch_blade.python_ir_analysis import _jit_pass_clean_python_ir
@@ -59,7 +60,7 @@ def _export_onnx(graph, dynamic_axes):
     val_keep_init_as_ip = False
     custom_opsets = {}
     val_add_node_names = True
-    proto, _ = graph._export_onnx(
+    proto = graph._export_onnx(
         dict(),
         opset_version,
         dynamic_axes,
@@ -69,7 +70,7 @@ def _export_onnx(graph, dynamic_axes):
         val_keep_init_as_ip,
         custom_opsets,
         val_add_node_names,
-    )
+    )[0]
     return proto
 
 
@@ -114,10 +115,13 @@ def _jit_pass_lower_to_onnx(graph):
     # lint the graph
     torch._C._jit_pass_lint(onnx_graph)
 
-    torch._C._jit_pass_onnx_scalar_type_analysis(onnx_graph)
+    from torch.onnx.symbolic_helper import _export_onnx_opset_version
+    if utils.torch_version_number() >= utils.parse_version("1.11.0"):
+        torch._C._jit_pass_onnx_scalar_type_analysis(onnx_graph, True, _export_onnx_opset_version)
+    else:
+        torch._C._jit_pass_onnx_scalar_type_analysis(onnx_graph)
     torch._C._jit_pass_lint(onnx_graph)
 
-    from torch.onnx.symbolic_helper import _export_onnx_opset_version
     torch._C._jit_pass_onnx_peephole(onnx_graph, _export_onnx_opset_version, False)
     torch._C._jit_pass_lint(onnx_graph)
 

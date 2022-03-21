@@ -74,8 +74,8 @@ class TestRecordShape(TestCase):
           # CHECK: Float(1, 3, 4, 4, strides=[48, 16, 4, 1], requires_grad=0, device=cpu) = aten::add
           %z.1 : Float(1, 3, 4, 4, strides=[48, 16, 4, 1], requires_grad=0, device=cpu) = aten::add(%y.1, %6, %7) # tests/test_record_shape.py:24:20
           return (%z.1)"""
-        expect_graph_str = expect_graph_str_since_171 if utils.torch_version_number() >= "1.7.1" else expect_graph_str_since_160
-        expect_graph_str = expect_graph_str_since_181 if utils.torch_version_number() >= "1.8.1" else expect_graph_str
+        expect_graph_str = expect_graph_str_since_171 if utils.torch_version_number() >= utils.parse_version("1.7.1") else expect_graph_str_since_160
+        expect_graph_str = expect_graph_str_since_181 if utils.torch_version_number() >= utils.parse_version("1.8.1") else expect_graph_str
         FileCheck().run(expect_graph_str, model._c.forward.graph)
 
     def test_unintialized(self):

@@ -38,19 +38,21 @@ class TestHolderSerialize(TestCase):
         self.assertEqual(len(fusion_group), 1)
         subgraph = fusion_group[0].g("Subgraph")
         tensorrt.trt_engine_conversion(module)
-        self.assertTrue(module.hasattr("trt_grp0_len10_0"))
+        engines = tensorrt.collect_engines(module)
+        self.assertGreaterEqual(len(engines), 1)
 
-        saved_onnx_model = tempfile.NamedTemporaryFile()
-        module.trt_grp0_len10_0.dump_model_proto(saved_onnx_model.name)
-        onnx_model = onnx.load(saved_onnx_model.name)
-        self.assertGreaterEqual(onnx.IR_VERSION, onnx_model.ir_version)
-        onnx.checker.check_model(onnx_model)
+        for _name, trt_engine in engines:
+            saved_onnx_model = tempfile.NamedTemporaryFile()
+            trt_engine.dump_model_proto(saved_onnx_model.name)
+            onnx_model = onnx.load(saved_onnx_model.name)
+            self.assertGreaterEqual(onnx.IR_VERSION, onnx_model.ir_version)
+            onnx.checker.check_model(onnx_model)
 
-        attr_keys = set(module.trt_grp0_len10_0.get_attr_keys())
-        self.assertEqual(
-            set({"module_graph", "fallback_module", "attr_debug_name"}),
-            attr_keys,
-        )
+            attr_keys = set(trt_engine.get_attr_keys())
+            self.assertEqual(
+                set({"module_graph", "fallback_module", "attr_debug_name"}),
+                attr_keys,
+            )
 
     def _test_dynamic_shape_engines(self, model, shapes):
         def check_output(model, opt_model, shape):

@@ -9,6 +9,8 @@ pytorch_blade/torch_blade/version.py
 pytorch_blade/version.txt
 scripts/ci/.tao_ci_conf
 tao/tao_bridge/version.h
+tao/tao_bridge/tao_launch_op
+tao/tao_bridge/gpu
 tensorflow_blade/bazel-bin
 tensorflow_blade/bazel-out
 tensorflow_blade/bazel-tensorflow_blade

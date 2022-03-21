@@ -34,6 +34,7 @@ cc_library(
         exclude = [
             "tao_bridge/**/*test.cc",
             "tao_bridge/ral/**/*.cc",
+            "tao_bridge/gpu/bace_gemm_thunk.cc",
         ],
     ),
     hdrs = glob(
@@ -42,6 +43,7 @@ cc_library(
         ],
         exclude = [
             "tao_bridge/ral/**/*.h",
+            "tao_bridge/gpu/bace_gemm_thunk.h",
         ],
     ) + [
         "third_party/json/single_include/nlohmann/json.hpp",

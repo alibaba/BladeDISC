@@ -184,6 +184,9 @@ def configure_with_bazel(args):
         # TF-Blade
         _action_env("BLADE_WITH_TF_BLADE", "1")
         _action_env("BLADE_WITH_INTERNAL", "1" if args.internal else "0")
+        if args.platform_alibaba:
+            _opt("cxxopt", "-DPLATFORM_ALIBABA")
+            _opt("define", "is_platform_alibaba=true")
 
         # CUDA
         if args.device == "gpu":
@@ -235,6 +238,7 @@ def configure_with_bazel(args):
                 mkl_root = os.environ.get("MKL_INSTALL_PATH", "/opt/intel/compilers_and_libraries_2020.1.217/linux")
                 assert os.path.exists(mkl_root), f"MKL root path missing: {mkl_root}"
                 _action_env("MKL_INSTALL_PATH", mkl_root)
+                _opt("cxxopt", "-DTAO_CPU_ONLY")
 
         _write(f"--//:framework=tf")
         _write(
@@ -249,6 +253,11 @@ def configure_with_bazel(args):
         symlink_files(compiler_root)
         add_ral_link_if_not_exist(compiler_root)
         with cwd(os.path.join(compiler_root, 'tf_community')):
+            if args.platform_alibaba:
+                src = os.path.abspath(os.path.join(args.internal_compiler_path, "platform_alibaba/tao_compiler/xla"))
+                dest = "tensorflow/compiler/decoupling_xla"
+                execute("rm -rf {0}".format(dest))
+                execute("ln -s {0} {1}".format(src, dest))
             execute(
                 "cp -f -p tao/tao_bridge/tao*.proto tensorflow/compiler/decoupling/")
             version_header = "tao/tao_bridge/version.h"
@@ -265,6 +274,17 @@ def configure_with_bazel(args):
             execute(f"sed -i s/@TAO_BUILD_IP@/{ip}/g {version_header}")
             execute(f"sed -i s/@TAO_BUILD_TIME@/{timestamp}/g {version_header}")
             execute("cp -f -p tao/tao_bridge/version.h tensorflow/compiler/decoupling/version.h")
+        with cwd(os.path.join(compiler_root, 'tao')):
+            if args.platform_alibaba:
+                src_tao = os.path.abspath(os.path.join(args.internal_compiler_path, "platform_alibaba/tao_bridge/tao_launch_op"))
+                dst_tao = "tao_bridge/tao_launch_op"
+                execute("rm -rf {0}".format(dst_tao))
+                execute("ln -s {0} {1}".format(src_tao, dst_tao))
+
+                src_gpu = os.path.abspath(os.path.join(args.internal_compiler_path, "platform_alibaba/tao_bridge/gpu"))
+                dst_gpu = "tao_bridge/gpu"
+                execute("rm -rf {0}".format(dst_gpu))
+                execute("ln -s {0} {1}".format(src_gpu, dst_gpu))
 
 def build_with_bazel(args):
     with cwd(ROOT):
@@ -369,6 +389,19 @@ def parse_args():
         required=False,
         default=False,
         help="If True, internal objects will be built",
+    )
+    parser.add_argument(
+        '--platform-alibaba',
+        action="store_true",
+        required=False,
+        default=False,
+        help="If True, objects inside macro PLATFORM_ALIBABA will be built",
+    )
+    parser.add_argument(
+        "--internal-compiler-path",
+        required=False,
+        default="../..",
+        help="Path to internal compiler dir.",
     )
     parser.add_argument(
         "--verbose",

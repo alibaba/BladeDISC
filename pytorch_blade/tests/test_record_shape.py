@@ -18,12 +18,10 @@ from torch_blade.tools import shape_inference
 from torch_blade.testing.common_utils import TestCase
 from torch.testing import FileCheck
 
+
 class TestRecordShape(TestCase):
-
     def test_record_shape(self):
-
         class TestModel(torch.nn.Module):
-
             def __init__(self):
                 super().__init__()
                 weight = torch.ones(4, 8)
@@ -74,13 +72,20 @@ class TestRecordShape(TestCase):
           # CHECK: Float(1, 3, 4, 4, strides=[48, 16, 4, 1], requires_grad=0, device=cpu) = aten::add
           %z.1 : Float(1, 3, 4, 4, strides=[48, 16, 4, 1], requires_grad=0, device=cpu) = aten::add(%y.1, %6, %7) # tests/test_record_shape.py:24:20
           return (%z.1)"""
-        expect_graph_str = expect_graph_str_since_171 if utils.torch_version_number() >= utils.parse_version("1.7.1") else expect_graph_str_since_160
-        expect_graph_str = expect_graph_str_since_181 if utils.torch_version_number() >= utils.parse_version("1.8.1") else expect_graph_str
+        expect_graph_str = (
+            expect_graph_str_since_171
+            if utils.torch_version_number() >= utils.parse_version("1.7.1")
+            else expect_graph_str_since_160
+        )
+        expect_graph_str = (
+            expect_graph_str_since_181
+            if utils.torch_version_number() >= utils.parse_version("1.8.1")
+            else expect_graph_str
+        )
         FileCheck().run(expect_graph_str, model._c.forward.graph)
 
     def test_unintialized(self):
         class TestModel(torch.nn.Module):
-
             def forward(self, x):
                 if x.numel() > 0:
                     y = x
@@ -94,7 +99,7 @@ class TestRecordShape(TestCase):
 
         example = torch.ones(1, 3, 4, 8)
         shape_inference.record_shape_by_tracing(model._c, (example,))
-        expect_gstr_since_160 = '''
+        expect_gstr_since_160 = """
         graph(%self : __torch__.___torch_mangle_0.TestModel,
               %x.1 : Float(1:96, 3:32, 4:8, 8:1)):
           %7 : str = prim::Constant[value="Exception"]() # tests/test_record_shape.py:51:20
@@ -110,8 +115,8 @@ class TestRecordShape(TestCase):
             block1():
                = prim::RaiseException(%7) # tests/test_record_shape.py:51:20
               -> (%20)
-          return (%y)'''
-        expect_gstr_since_171 = '''
+          return (%y)"""
+        expect_gstr_since_171 = """
         graph(%self : __torch__.___torch_mangle_0.TestModel,
               %x.1 : Float(1:96, 3:32, 4:8, 8:1, requires_grad=0, device=cpu)):
           %7 : str = prim::Constant[value="error"]() # tests/test_record_shape.py:64:36
@@ -127,9 +132,9 @@ class TestRecordShape(TestCase):
             block1():
                = prim::RaiseException(%7) # tests/test_record_shape.py:64:20
               -> (%20)
-          return (%y)'''
+          return (%y)"""
 
-        expect_gstr_since_181 = '''
+        expect_gstr_since_181 = """
         graph(%self : __torch__.___torch_mangle_0.TestModel,
               %x.1 : Float(1, 3, 4, 8, strides=[96, 32, 8, 1], requires_grad=0, device=cpu)):
           %8 : str = prim::Constant[value="error"]() # tests/test_record_shape.py:77:36
@@ -145,11 +150,19 @@ class TestRecordShape(TestCase):
             block1():
                = prim::RaiseException(%8) # tests/test_record_shape.py:77:20
               -> (%21)
-          return (%y)'''
-        expect_gstr = expect_gstr_since_171 if utils.torch_version_number() >= "1.7.1" else expect_gstr_since_160
-        expect_gstr = expect_gstr_since_181 if utils.torch_version_number() >= "1.8.1" else expect_gstr
+          return (%y)"""
+        expect_gstr = (
+            expect_gstr_since_171
+            if utils.torch_version_number() >= utils.parse_version("1.7.1")
+            else expect_gstr_since_160
+        )
+        expect_gstr = (
+            expect_gstr_since_181
+            if utils.torch_version_number() >= utils.parse_version("1.8.1")
+            else expect_gstr
+        )
         FileCheck().run(expect_gstr, model._c.forward.graph)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

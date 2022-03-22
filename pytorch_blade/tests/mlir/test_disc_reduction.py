@@ -15,6 +15,7 @@ import unittest
 from tests.mlir.testing_utils import DiscTestCase
 from torch_blade import utils
 
+
 class TestDiscReduction(DiscTestCase):
     def _test_reduction(self, reduce_func, dtype=None):
         if dtype in {torch.int32, torch.int64}:
@@ -88,8 +89,10 @@ class TestDiscReduction(DiscTestCase):
 
         self._test_reduction(sum_func)
 
-    @skipIf(utils.torch_version_number() >= utils.parse_version("1.11.0"),
-            "mean(): input dtype should be either floating point or complex dtypes.")
+    @unittest.skipIf(
+        utils.torch_version_number() >= utils.parse_version("1.11.0"),
+        "mean(): input dtype should be either floating point or complex dtypes.",
+    )
     def test_cvt_to_disc_mean_dtype_i32(self):
         @torch.jit.script
         def sum_func(x):

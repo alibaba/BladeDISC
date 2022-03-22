@@ -65,9 +65,11 @@ torch::List<torch::Tensor> EngineClass::Execute(
     } catch (const std::runtime_error& error) {
       const auto& enable_fallback =
           std::getenv("TORCH_BLADE_ENABLE_RUNTIME_FALLBACK");
-      if (enable_fallback == nullptr ||
+
+      bool should_fallback = enable_fallback == nullptr ||
           std::strcmp(enable_fallback, "true") == 0 ||
-          std::strcmp(enable_fallback, "on") == 0) {
+          std::strcmp(enable_fallback, "on") == 0;
+      if (should_fallback) {
         outputs = Fallback(inputs);
       } else {
         throw error;

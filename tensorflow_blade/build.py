@@ -17,6 +17,7 @@ import argparse
 import os
 import random
 import re
+import shutil
 import socket
 import subprocess
 import sys
@@ -41,7 +42,7 @@ from common_internal import (
     which,
 )
 from common_setup import symlink_files
-from tao_build import add_ral_link_if_not_exist, get_version_file
+from tao_build import get_version_file
 
 # Source code root dir.
 ROOT = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
@@ -259,10 +260,36 @@ def configure_with_bazel(args):
         _action_env("BAZEL_LINKOPTS", os.environ.get("BAZEL_LINKOPTS", ""))
         _action_env("BAZEL_LINKLIBS", os.environ.get("BAZEL_LINKLIBS", "-lstdc++"))
     logger.info("Writing to .bazelrc_gen done.")
+
+    def add_ral_link_if_not_exist(root):
+        RAL_DIR_IN_TF = "tao_compiler/mlir/xla/ral"
+        RAL_DIR_IN_BRIDGE = os.path.join(os.path.join(root, "tao", "tao_bridge", "ral"), "tensorflow/compiler/mlir/xla/ral")
+        if os.path.exists(RAL_DIR_IN_BRIDGE):
+            shutil.rmtree(RAL_DIR_IN_BRIDGE)
+        os.makedirs(RAL_DIR_IN_BRIDGE)
+        all_files_dirs = [f for f in os.listdir(os.path.abspath(os.path.join(root, RAL_DIR_IN_TF)))]
+        with cwd(root):
+            for f_or_d in all_files_dirs:
+                if f_or_d != 'BUILD':
+                    src = os.path.abspath(os.path.join(RAL_DIR_IN_TF, f_or_d))
+                    dst = os.path.join(RAL_DIR_IN_BRIDGE, f_or_d)
+                    if os.path.exists(dst):
+                        os.unlink(dst)
+                    os.symlink(src, dst)
+
+    def add_proto_link_if_not_exist(root):
+        RAL_DIR_IN_TF = "tao_compiler/mlir/xla"
+        PROTO = "compile_metadata.proto"
+        RAL_DIR_IN_BRIDGE = os.path.join(os.path.join(root, "tao", "tao_bridge", "ral"), "tensorflow/compiler/mlir/xla")
+        with cwd(RAL_DIR_IN_BRIDGE):
+            if not os.path.exists(PROTO):
+                os.symlink(os.path.join(root, RAL_DIR_IN_TF, PROTO), PROTO)
+
     if not args.skip_compiler:
         compiler_root = os.path.join(ROOT, os.pardir)
         symlink_files(compiler_root)
         add_ral_link_if_not_exist(compiler_root)
+        add_proto_link_if_not_exist(compiler_root)
         with cwd(os.path.join(compiler_root, 'tf_community')):
             if args.platform_alibaba:
                 src = os.path.abspath(os.path.join(args.internal_compiler_path, "platform_alibaba/tao_compiler/xla"))
@@ -274,11 +301,7 @@ def configure_with_bazel(args):
 
 def build_with_bazel(args):
     with cwd(ROOT):
-        execute("rm -f ../tao_compiler/mlir/xla/ral/BUILD")
         execute("bazel build //src:_tf_blade.so")
-        execute("git checkout ../tao_compiler/mlir/xla/ral/BUILD")
-        if not args.skip_compiler:
-            execute("bazel build @org_tensorflow//tensorflow/compiler/decoupling:tao_compiler_main")
 
 def package_whl_with_bazel(args):
     with cwd(ROOT):

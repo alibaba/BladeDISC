@@ -204,6 +204,7 @@ tf_cc_binary(
         "//tensorflow/compiler/decoupling_xla:tao_compiler_xla",
     ]),
     includes = ["."],
+    visibility = ["//visibility:public"]
 )
 
 tf_cc_binary(

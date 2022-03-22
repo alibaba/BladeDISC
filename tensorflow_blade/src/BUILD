@@ -116,4 +116,7 @@ pybind_extension(
         ":tf_blade",
         "@local_config_tf//:libtensorflow_framework",
     ],
+    data = [
+        "@org_tensorflow//tensorflow/compiler/decoupling:tao_compiler_main",
+    ],
 )

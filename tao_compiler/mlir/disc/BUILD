@@ -38,6 +38,11 @@ config_setting(
     define_values = {"is_mkldnn": "true"},
 )
 
+config_setting(
+    name = "is_with_tf_blade",
+    define_values = {"is_with_tf_blade": "true"},
+)
+
 package(
     default_visibility = [":friends"],
     licenses = ["notice"],  # Apache 2.0

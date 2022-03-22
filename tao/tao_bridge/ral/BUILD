@@ -61,9 +61,8 @@ cuda_library(
     copts = [
         "-DGOOGLE_CUDA=1",
         "-DDISC_BUILD_FROM_TF_BRIDGE",
-        "-Iexternal/org_tao/tao_bridge/ral",
-        "-Wno-deprecated-gpu-targets",
     ] + tf_copts(),
+    includes = ["."],  # This is because the include paths used in bridge are not started from root of workspace
     linkopts = [
         "-lstdc++",
     ],

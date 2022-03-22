@@ -1,24 +1,14 @@
 def blade_cc_test(
-        name,
-        srcs,
         deps = [],
-        data = [],
-        linkstatic = 0,
-        copts = [],
         linkopts = [],
         **kwargs):
     native.cc_test(
-        name = name,
-        srcs = srcs,
-        copts = copts,
         linkopts = [
             "-lpthread",
             "-lm",
             "-ldl",
         ] + linkopts,
         deps = deps + ["@googltest//:gtest_main"],
-        data = data,
-        linkstatic = linkstatic,
         **kwargs
     )
 

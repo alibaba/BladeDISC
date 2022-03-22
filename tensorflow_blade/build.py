@@ -157,6 +157,7 @@ def configure_with_bazel(args):
         _opt("host_cxxopt", "-std=c++14")
         _opt("compilation_mode", "opt")
         _opt("cxxopt", "-DBUILD_WITH_BAZEL")
+        _opt("define", "is_with_tf_blade=true")
         _action_env("BUILD_WITH_BAZEL", "1")
         _action_env("PYTHON_BIN_PATH", os.path.join(args.python_dir, 'bin', 'python'))
 
@@ -184,9 +185,19 @@ def configure_with_bazel(args):
         # TF-Blade
         _action_env("BLADE_WITH_TF_BLADE", "1")
         _action_env("BLADE_WITH_INTERNAL", "1" if args.internal else "0")
-        if args.platform_alibaba:
-            _opt("cxxopt", "-DPLATFORM_ALIBABA")
-            _opt("define", "is_platform_alibaba=true")
+        if not args.skip_compiler:
+            # Build environments. They all starts with `TAO_BUILD_`.
+            host = socket.gethostname()
+            ip = socket.gethostbyname(host)
+            _action_env("TAO_BUILD_VERSION", args.version)
+            _action_env("TAO_BUILD_GIT_BRANCH", git_branch().decode("utf-8").replace('/', '-'))
+            _action_env("TAO_BUILD_GIT_HEAD", git_head().decode("utf-8"))
+            _action_env("TAO_BUILD_HOST", host)
+            _action_env("TAO_BUILD_IP", ip)
+            _action_env("TAO_BUILD_TIME", datetime.today().strftime("%Y%m%d%H%M%S"))
+            if args.platform_alibaba:
+                _opt("cxxopt", "-DPLATFORM_ALIBABA")
+                _opt("define", "is_platform_alibaba=true")
 
         # CUDA
         if args.device == "gpu":
@@ -260,35 +271,12 @@ def configure_with_bazel(args):
                 execute("ln -s {0} {1}".format(src, dest))
             execute(
                 "cp -f -p tao/tao_bridge/tao*.proto tensorflow/compiler/decoupling/")
-            version_header = "tao/tao_bridge/version.h"
-            execute(f"cp {version_header}.in {version_header}")
-            # Build environments. They all starts with `TAO_BUILD_`.
-            host = socket.gethostname()
-            ip = socket.gethostbyname(host)
-            timestamp = datetime.today().strftime("%Y%m%d%H%M%S")
-            execute(f"sed -i s/cmakedefine/define/g {version_header}")
-            execute(f"sed -i s/@TAO_BUILD_VERSION@/{args.version}/g {version_header}")
-            execute(f"sed -i s/@TAO_BUILD_GIT_BRANCH@/{str(git_branch())}/g {version_header}")
-            execute(f"sed -i s/@TAO_BUILD_GIT_HEAD@/{str(git_head())}/g {version_header}")
-            execute(f"sed -i s/@TAO_BUILD_HOST@/{host}/g {version_header}")
-            execute(f"sed -i s/@TAO_BUILD_IP@/{ip}/g {version_header}")
-            execute(f"sed -i s/@TAO_BUILD_TIME@/{timestamp}/g {version_header}")
-            execute("cp -f -p tao/tao_bridge/version.h tensorflow/compiler/decoupling/version.h")
-        with cwd(os.path.join(compiler_root, 'tao')):
-            if args.platform_alibaba:
-                src_tao = os.path.abspath(os.path.join(args.internal_compiler_path, "platform_alibaba/tao_bridge/tao_launch_op"))
-                dst_tao = "tao_bridge/tao_launch_op"
-                execute("rm -rf {0}".format(dst_tao))
-                execute("ln -s {0} {1}".format(src_tao, dst_tao))
-
-                src_gpu = os.path.abspath(os.path.join(args.internal_compiler_path, "platform_alibaba/tao_bridge/gpu"))
-                dst_gpu = "tao_bridge/gpu"
-                execute("rm -rf {0}".format(dst_gpu))
-                execute("ln -s {0} {1}".format(src_gpu, dst_gpu))
 
 def build_with_bazel(args):
     with cwd(ROOT):
+        execute("rm -f ../tao_compiler/mlir/xla/ral/BUILD")
         execute("bazel build //src:_tf_blade.so")
+        execute("git checkout ../tao_compiler/mlir/xla/ral/BUILD")
         if not args.skip_compiler:
             execute("bazel build @org_tensorflow//tensorflow/compiler/decoupling:tao_compiler_main")
 
@@ -363,21 +351,21 @@ def parse_args():
         "--tf", required=False, choices=["1.15", "2.4"], help="Tensorflow version.",
     )
     parser.add_argument(
-        '--skip_trt',
+        '--skip-trt',
         action="store_true",
         required=False,
         default=False,
         help="If True, tensorrt will be skipped for gpu build",
     )
     parser.add_argument(
-        '--skip_hie',
+        '--skip-hie',
         action="store_true",
         required=False,
         default=True,
         help="If True, hie will be skipped for internal build",
     )
     parser.add_argument(
-        '--skip_compiler',
+        '--skip-compiler',
         action="store_true",
         required=False,
         default=False,

@@ -48,3 +48,15 @@ def if_mkldnn(if_true, if_false=[]):
         "//tensorflow/compiler/mlir/disc:is_mkldnn": if_true,
         "//conditions:default": if_false
     })
+
+def if_with_tf_blade(if_true, if_false=[]):
+    return select({
+        "//tensorflow/compiler/mlir/disc:is_with_tf_blade": if_true,
+        "//conditions:default": if_false
+    })
+
+def if_without_tf_blade(if_true, if_false=[]):
+    return select({
+        "//tensorflow/compiler/mlir/disc:is_with_tf_blade": if_false,
+        "//conditions:default": if_true
+    })

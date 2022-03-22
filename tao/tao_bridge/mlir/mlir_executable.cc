@@ -13,17 +13,9 @@
 
 #include <dlfcn.h>
 
-#ifdef PLATFORM_ALIBABA
-#include "tao_bridge/tao_launch_op/tao_launch.h"
-#else
 #include "tao_bridge/kernels/disc_launch.h"
-#endif  // PLATFORM_ALIBABA
 
-#if BUILD_WITH_BAZEL
 #include "tensorflow/compiler/mlir/xla/ral/ral_api.h"
-#else
-#include "tao_bridge/ral/tensorflow/compiler/mlir/xla/ral/ral_api.h"
-#endif
 
 namespace tensorflow {
 namespace tao {
@@ -120,9 +112,7 @@ static std::unique_ptr<Executable> NewMlirGpuExecutable(
       new MlirExecutable(compiled_result_file, "MLIR_GPU"));
 }
 TAO_REGISTER_EXECUTABLE("MLIR_GPU", NewMlirGpuExecutable);
-#ifdef PLATFORM_ALIBABA
-REGISTER_TAO_MLIR_LAUNCH_KERNEL(DEVICE_GPU);
-#else
+#ifndef PLATFORM_ALIBABA
 REGISTER_DISC_LAUNCH_KERNEL(DEVICE_GPU);
 #endif  // PLATFORM_ALIBABA
 #endif  // TAO_CPU_ONLY
@@ -133,9 +123,7 @@ static std::unique_ptr<Executable> NewMlirCpuExecutable(
       new MlirExecutable(compiled_result_file, "MLIR_CPU"));
 }
 TAO_REGISTER_EXECUTABLE("MLIR_CPU", NewMlirCpuExecutable);
-#ifdef PLATFORM_ALIBABA
-REGISTER_TAO_MLIR_LAUNCH_KERNEL(DEVICE_CPU);
-#else
+#ifndef PLATFORM_ALIBABA
 REGISTER_DISC_LAUNCH_KERNEL(DEVICE_CPU);
 #endif  // PLATFORM_ALIBABA
 

@@ -11,6 +11,10 @@ def _tf_blade_repositories():
         name = "org_tao",
         path = "../tao/",
     )
+    native.local_repository(
+        name = "org_alibaba_tao",
+        path = "../../platform_alibaba/",
+    )
 
 
 def workspace():

@@ -1,7 +1,7 @@
 licenses(["notice"])  # Apache 2.0
 
 load("//tensorflow:tensorflow.bzl", "tf_cc_binary", "tf_cc_test")
-load("//tensorflow/compiler/mlir/disc:disc.bzl", "if_platform_alibaba")
+load("//tensorflow/compiler/mlir/disc:disc.bzl", "if_platform_alibaba", "if_with_tf_blade", "if_without_tf_blade")
 
 package_group(
     name = "internal",
@@ -29,6 +29,48 @@ load("//tensorflow/compiler/mlir/disc:disc.bzl", "if_cuda_or_rocm")
 load(
     "@com_google_protobuf//:protobuf.bzl",
     "cc_proto_library",
+)
+load("@local_config_blade_helper//:build_defs.bzl",
+    "tao_build_version",
+    "tao_build_git_branch",
+    "tao_build_git_head",
+    "tao_build_host",
+    "tao_build_ip",
+    "tao_build_time"
+)
+
+filegroup(
+    name = "input_version_header",
+    srcs = [
+        "version.h.in"
+    ],
+)
+
+genrule(
+    name = "version_header_genrule",
+    srcs = [
+        ":input_version_header"
+    ],
+    outs = ["version.h"],
+    cmd = """cp $(location :input_version_header) $@;
+        sed -i 's/cmakedefine/define/g' $@;
+        sed -i 's/@TAO_BUILD_VERSION@/%s/g' $@;
+        sed -i 's/@TAO_BUILD_GIT_BRANCH@/%s/g' $@;
+        sed -i 's/@TAO_BUILD_GIT_HEAD@/%s/g' $@;
+        sed -i 's/@TAO_BUILD_HOST@/%s/g' $@;
+        sed -i 's/@TAO_BUILD_IP@/%s/g' $@;
+        sed -i 's/@TAO_BUILD_TIME@/%s/g' $@
+    """ % (tao_build_version(), tao_build_git_branch(), tao_build_git_head(), tao_build_host(), tao_build_ip(), tao_build_time()),
+)
+
+cc_library(
+    name = "version_header",
+    srcs = if_with_tf_blade([
+        "version.h"
+    ]),
+    data = if_with_tf_blade([
+        ":version_header_genrule",
+    ])
 )
 
 cc_proto_library(
@@ -154,12 +196,14 @@ tf_cc_binary(
     linkopts = ["-fno-lto -lutil -export-dynamic"],
     linkstatic = 1,
     deps = [
-        "tao_compiler",
+        ":version_header",
+        ":tao_compiler",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span"
     ] + if_platform_alibaba([
         "//tensorflow/compiler/decoupling_xla:tao_compiler_xla",
-    ])
+    ]),
+    includes = ["."],
 )
 
 tf_cc_binary(

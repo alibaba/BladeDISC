@@ -3,7 +3,51 @@ load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
 load("@local_config_tf//:build_defs.bzl", "tf_copts")
 load("@local_config_cuda//cuda:build_defs.bzl", "cuda_library", "if_cuda")
 load("//:build_defs.bzl", "tao_bridge_cc_test")
+load("@local_config_blade_helper//:build_defs.bzl",
+    "tao_build_version",
+    "tao_build_git_branch",
+    "tao_build_git_head",
+    "tao_build_host",
+    "tao_build_ip",
+    "tao_build_time"
+)
 
+############################################################
+filegroup(
+    name = "input_version_header",
+    srcs = [
+        "tao_bridge/version.h.in"
+    ],
+)
+
+genrule(
+    name = "version_header_genrule",
+    srcs = [
+        ":input_version_header"
+    ],
+    outs = ["tao_bridge/version.h"],
+    cmd = """pwd;
+        cp $(location :input_version_header) $@;
+        sed -i 's/cmakedefine/define/g' $@;
+        sed -i 's/@TAO_BUILD_VERSION@/%s/g' $@;
+        sed -i 's/@TAO_BUILD_GIT_BRANCH@/%s/g' $@;
+        sed -i 's/@TAO_BUILD_GIT_HEAD@/%s/g' $@;
+        sed -i 's/@TAO_BUILD_HOST@/%s/g' $@;
+        sed -i 's/@TAO_BUILD_IP@/%s/g' $@;
+        sed -i 's/@TAO_BUILD_TIME@/%s/g' $@
+    """ % (tao_build_version(), tao_build_git_branch(), tao_build_git_head(), tao_build_host(), tao_build_ip(), tao_build_time()),
+)
+
+cc_library(
+    name = "version_header",
+    srcs = ["tao_bridge/version.h"],
+    data = [
+        ':version_header_genrule'
+    ],
+)
+
+
+############################################################
 cc_proto_library(
     name = "tao_compiler_input",
     srcs = [
@@ -34,7 +78,6 @@ cc_library(
         exclude = [
             "tao_bridge/**/*test.cc",
             "tao_bridge/ral/**/*.cc",
-            "tao_bridge/gpu/bace_gemm_thunk.cc",
         ],
     ),
     hdrs = glob(
@@ -43,12 +86,12 @@ cc_library(
         ],
         exclude = [
             "tao_bridge/ral/**/*.h",
-            "tao_bridge/gpu/bace_gemm_thunk.h",
         ],
     ) + [
         "third_party/json/single_include/nlohmann/json.hpp",
     ],
     deps = [
+        ":version_header",
         ":tao_compiler_input",
         ":tao_compilation_result",
         ":xla_activity",

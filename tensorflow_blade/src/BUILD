@@ -55,7 +55,8 @@ cc_binary(
     linkstatic = 1,
     deps = [
         ":tf_blade_ops",
-        "@org_tao//:tao_bridge"
+        "@org_tao//:tao_bridge",
+        "@org_alibaba_tao//:tao_bridge_xla",
     ] + if_tensorrt_enabled([
         "//src/tensorrt:tensorrt_bridge_impl",
     ]),
@@ -65,6 +66,7 @@ cc_binary(
 )
 
 ##########################################################
+
 cc_library(
     name = "input_version_header",
     hdrs = [

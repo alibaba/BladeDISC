@@ -172,7 +172,8 @@ static bool DoGemmWithAlgorithm(
   auto m = lhs_matrix.transpose ? lhs_matrix.num_cols : lhs_matrix.num_rows;
   auto k = lhs_matrix.transpose ? lhs_matrix.num_rows : lhs_matrix.num_cols;
   auto n = rhs_matrix.transpose ? rhs_matrix.num_rows : rhs_matrix.num_cols;
-  if (std::is_same<InT, float>::value && std::is_same<OutT, float>::value &&
+  if (false && std::is_same<InT, float>::value &&
+      std::is_same<OutT, float>::value &&
       std::is_same<AlphaBeta, float>::value && m == 1) {
     return TrySgemvInternal<InT, OutT, AlphaBeta>(
         stream, rhs_transpose, n, k,
@@ -207,15 +208,16 @@ static bool DoGemmWithAlgorithm(
     int64_t lhs_stride = lhs_matrix.num_rows * lhs_matrix.num_cols;
     int64_t rhs_stride = rhs_matrix.num_rows * rhs_matrix.num_cols;
     int64_t output_stride = output_matrix.num_rows * output_matrix.num_cols;
-    return stream
-        ->ThenBlasGemmStridedBatched(
-            rhs_transpose, lhs_transpose, n, m, /*size of reduce dim=*/k,
-            /*alpha=*/static_cast<AlphaBeta>(alpha), rhs_data,
-            /*leading dim of RHS=*/rhs_matrix.num_cols, rhs_stride, lhs_data,
-            /*leading dim of LHS=*/lhs_matrix.num_cols, lhs_stride,
-            /*beta=*/static_cast<AlphaBeta>(beta), &output_data,
-            /*leading dim of output=*/n, output_stride, batch_size)
-        .ok();
+    auto st0 = stream->ThenBlasGemmStridedBatched(
+        rhs_transpose, lhs_transpose, n, m, /*size of reduce dim=*/k,
+        /*alpha=*/static_cast<AlphaBeta>(alpha), rhs_data,
+        /*leading dim of RHS=*/rhs_matrix.num_cols, rhs_stride, lhs_data,
+        /*leading dim of LHS=*/lhs_matrix.num_cols, lhs_stride,
+        /*beta=*/static_cast<AlphaBeta>(beta), &output_data,
+        /*leading dim of output=*/n, output_stride, batch_size);
+    if (!st0.ok()) {
+      TAO_VLOG(0) << "launch gemm error: " << st0.error_message();
+    }
   }
 
   auto st0 =
@@ -343,6 +345,7 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
 
   if (!s) {
     TAO_VLOG(0) << "gemm fails to launch";
+    TAO_VLOG(0) << "xxxx gemm fails to launch";
     ctx->signalError(Context::FAILURE, "fail to launch gemm");
   }
 }

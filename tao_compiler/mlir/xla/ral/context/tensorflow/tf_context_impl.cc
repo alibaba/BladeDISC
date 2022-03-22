@@ -197,6 +197,7 @@ bool IsEmptyBuffer(RalTfExecutionContext* ral_tf_ctx, buffer_t ptr) {
 }
 
 buffer_t ral_tf_gpu_alloc(ExecutionContext* ctx, size_t bytes) {
+  TAO_VLOG(1) << "before ral_tf_gpu_alloc (bytes):" << bytes;
   auto ral_tf_ctx = dynamic_cast<RalTfExecutionContext*>(ctx);
   // We do not use `Allocator` directly since `tensorflow::Tensor`
   // does not has an public constructor to accept a
@@ -215,7 +216,7 @@ buffer_t ral_tf_gpu_alloc(ExecutionContext* ctx, size_t bytes) {
   // Wrapper a empty tensor to give it a unique address
   ptr = WrapperIfEmpty(ral_tf_ctx, ptr);
   ral_tf_ctx->getImpl()->tensor_map[ptr] = std::make_pair(tensor, 1);
-  TAO_VLOG(1) << "ral_tf_gpu_alloc (bytes):" << bytes << " ptr: " << ptr;
+  TAO_VLOG(1) << "after ral_tf_gpu_alloc (bytes):" << bytes << " ptr: " << ptr;
   return ptr;
 }
 

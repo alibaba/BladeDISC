@@ -99,9 +99,19 @@ def _jit_pass_lower_to_onnx(graph):
     # onnx only supports tensors, so we turn all out number types into tensors
     torch._C._jit_pass_erase_number_types(graph)
 
-    onnx_graph, value_map = torch_blade.tools._jit_pass_onnx(
-        graph, OperatorExportTypes.ONNX
-    )
+    # Should update torch_blade.tools._jit_pass_onnx to
+    # https://github.com/pytorch/pytorch/blob/v1.11.0/torch/csrc/jit/passes/onnx.cpp#L167
+    #
+    # But something weird happened:
+    # call to ConstantValueMap::ClearMaps() in C++ will segfault
+    if utils.torch_version_number() >= utils.parse_version("1.11.0"):
+        onnx_graph = torch._C._jit_pass_onnx(graph, OperatorExportTypes.ONNX)
+        # fix(tanyo): call to torch_blade.tools._jit_pass_onnx would segfault
+        value_map = dict()
+    else:
+        onnx_graph, value_map = torch_blade.tools._jit_pass_onnx(
+            graph, OperatorExportTypes.ONNX
+        )
 
     # extract debugName to avoid crash (caused by jit_pass which may modify jit.Value)
     value_map = {

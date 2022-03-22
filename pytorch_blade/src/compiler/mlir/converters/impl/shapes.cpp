@@ -238,14 +238,36 @@ bool ConvertAtenSlice(
   const auto& loc = GetNodeLocation(ctx, node);
   auto ml_tensor = ctx.GetMlirValue(node.input(0));
   auto jit_dim = node.input(1);
-  auto start_val = ctx.GetMlirValue(node.input(2));
-  auto end_val = ctx.GetMlirValue(node.input(3));
-  auto step_val = ctx.GetMlirValue(node.input(4));
+  auto jit_start = node.input(2);
+  auto jit_end = node.input(3);
   if (!CheckConstAttribute(jit_dim, "aten::slice", "dim")) {
     return false;
   }
+
+  auto start_ivalue = torch::jit::toIValue(jit_start);
+  auto end_ivalue = torch::jit::toIValue(jit_end);
+  auto start_isnone = !start_ivalue || start_ivalue->isNone();
+  auto end_isnone = !end_ivalue || end_ivalue->isNone();
+  if (start_isnone && end_isnone) {
+    ctx.value_map[node.output(0)] = ml_tensor;
+    return true;
+  }
+
   auto& builder = *ctx.builder;
   auto dim_index = CastJitConstToInt64(*jit_dim);
+  auto start_val = BuildStdConstForI64(builder, loc, 0);
+  auto end_val = start_val;
+
+  if (!start_isnone) {
+    start_val = ctx.GetMlirValue(jit_start);
+  }
+  if (end_isnone) {
+    end_val = BuildStdDimSizeOfTensor(builder, loc, ml_tensor, dim_index);
+  } else {
+    end_val = ctx.GetMlirValue(jit_end);
+  }
+
+  auto step_val = ctx.GetMlirValue(node.input(4));
   ctx.value_map[node.output(0)] = BuildDynamicSlice(
       builder, loc, ml_tensor, start_val, end_val, step_val, dim_index);
   return true;
@@ -434,7 +456,7 @@ auto mhlo_conversion =
             "aten::squeeze(Tensor(a) self) -> Tensor(a)",
             ConvertAtenSqueeze)
         .pattern(
-            "aten::slice.Tensor(Tensor(a) self, int dim=0, int start=0, int end=9223372036854775807, int step=1) -> Tensor(a)",
+            "aten::slice.Tensor(Tensor(a) self, int dim=0, int? start=None, int? end=None, int step=1) -> Tensor(a)",
             ConvertAtenSlice)
         .pattern("aten::size.int(Tensor self, int dim) -> int", ConvertAtenSize)
         .pattern("aten::size(Tensor self) -> int[]", ConvertAtenSize)

@@ -61,11 +61,11 @@ def _build_onnx_engine(subgraph, engine_build_func, q_info=None, dynamic_setting
         max_shape = dynamic_shapes[0].max_shape
         opt_shapes = dynamic_shapes[0].opt_shapes
         logger.info(
-            "Dynamic shape settings: \n"
-            "min_shape: {str(min_shape)},\n"
-            "max_shape: {str(max_shape)},\n"
-            "opt_shapes: {str(opt_shapes)},\n"
-            "dynamic_axes: {str(dynamic_axes)}"
+            "Dynamic shape settings, "
+            f"min_shape: {str(min_shape)}, "
+            f"max_shape: {str(max_shape)}, "
+            f"opt_shapes: {str(opt_shapes)}, "
+            f"dynamic_axes: {str(dynamic_axes)}."
         )
 
     dyn_proto = pass_manager._export_onnx(graph, dynamic_axes)

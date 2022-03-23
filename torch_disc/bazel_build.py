@@ -39,6 +39,8 @@ def _symlink_force(target, link_name):
 
 class BazelBuild():
     def __init__(self, torch_version, torch_dir):
+        self.torch_dir = torch_dir
+        self.torch_lib_dir = os.path.join(self.torch_dir, 'lib')
         self.torch_version = torch_version
         self.targets = [
             "//torch_disc:_torch_disc.so",
@@ -90,6 +92,22 @@ class BazelBuild():
         subprocess.check_call(
             bazel_cmd, shell=True, env=env, executable="/bin/bash"
         )
+
+    def test(self):
+        env = os.environ.copy()
+        ld_library_path = ":".join([self.torch_lib_dir, env.get("LD_LIBRARY_PATH", "")])
+        env["LD_LIBRARY_PATH"] = ld_library_path
+        test_suite = [
+            "//torch_disc:torch_disc_test_suit",
+        ]
+        test_cmd = "bazel test"
+
+        test_cmd = " ".join(
+            [self.shell_setting, test_cmd]
+            + self.extra_opts
+            + test_suite
+        )
+        subprocess.check_call(test_cmd, shell=True, env=env, executable="/bin/bash")
 
 
 if __name__ == "__main__":

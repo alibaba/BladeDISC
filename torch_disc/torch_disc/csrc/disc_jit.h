@@ -13,8 +13,9 @@
 namespace torch_disc {
 namespace compiler {
 
-void DiscJIT(torch::lazy::TSComputation& computation,
-             c10::ArrayRef<torch::lazy::BackendDataPtr> arguments);
+std::vector<c10::IValue> DiscJIT(
+    torch::lazy::TSComputation& computation,
+    c10::ArrayRef<torch::lazy::BackendDataPtr> arguments);
 
 }  //  namespace compiler
 }  //  namespace torch_disc

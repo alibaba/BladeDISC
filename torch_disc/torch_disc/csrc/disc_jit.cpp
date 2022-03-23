@@ -20,13 +20,12 @@
 #include <torch/script.h>
 #include <unistd.h>
 
-#include <sstream>
-
-#include "common_utils/tempfs.h"
 #include "compiler/jit/fusion.h"
 #include "compiler/mlir/converters/mhlo_conversion.h"
 #include "lazy_tensor_core/csrc/ts_backend/backend_impl.h"
 #include "torch_disc/csrc/backend_impl.h"
+#include "torch_disc/csrc/disc_class.h"
+#include "torch_disc/csrc/io.h"
 
 namespace torch_disc {
 namespace compiler {
@@ -133,21 +132,8 @@ std::string DiscCMD(const std::string& mlir_fname,
   return ss.str();
 }
 
-std::string GetTempDirectory(std::string dir) {
-  auto tid = std::this_thread::get_id();
-  uint64_t pid = getpid();
-  uint64_t us =
-      std::chrono::duration_cast<std::chrono::microseconds>(
-          std::chrono::high_resolution_clock::now().time_since_epoch())
-          .count();
-  std::stringstream ss;
-  ss << dir << "/" << tid << "-" << pid << "-" << us;
-  TORCH_CHECK(!mkdir(ss.str().c_str(), 0755),
-              "unable to create dir: " + ss.str());
-  return ss.str();
-}
-
-std::string MhloConversaion(const std::shared_ptr<Graph>& graph) {
+std::tuple<std::string, std::string, std::string> MhloConversaion(
+    const std::shared_ptr<Graph>& graph) {
   std::string parsable_mlir;
   std::string pretty_mlir;
   std::string input_dev_str;
@@ -161,24 +147,72 @@ std::string MhloConversaion(const std::shared_ptr<Graph>& graph) {
   std::ofstream outfile(in_fname);
   outfile << parsable_mlir << std::endl;
   outfile.flush();
-  return in_fname;
+  return std::make_tuple(in_fname, input_dev_str, output_dev_str);
 }
 
-void CallDiscCompiler(const std::string& mlir_fname) {
+std::string CallDiscCompiler(const std::string& mlir_fname) {
   std::string out_fname = mlir_fname + ".out";
   std::string cmd = DiscCMD(mlir_fname, out_fname);
   TORCH_CHECK(std::system(cmd.c_str()) == 0,
               "disc compile failed with cmd: " + cmd);
+  return out_fname;
 }
 
-void DiscCompilation(const std::shared_ptr<Graph>& graph) {
-  for (auto node : graph->nodes()) {
-    if (node->kind() == prim::FusionGroup) {
-      auto sub_graph = node->g(attr::Subgraph);
-      std::string fname = MhloConversaion(sub_graph);
-      CallDiscCompiler(fname);
+std::vector<c10::IValue> DiscCompilation(const std::shared_ptr<Graph>& graph) {
+  std::vector<c10::IValue> disc_inputs;
+  std::vector<torch::jit::Node*> disc_nodes;
+  std::copy_if(graph->nodes().begin(), graph->nodes().end(),
+               std::back_inserter(disc_nodes), [](torch::jit::Node* node) {
+                 return node->kind() == prim::FusionGroup;
+               });
+
+  for (auto node : disc_nodes) {
+    auto sub_graph = node->g(attr::Subgraph);
+
+    auto option = DiscClass::MakeOption();
+    std::string mlir_fname;
+    std::tie(mlir_fname, option->input_dev_str, option->output_dev_str) =
+        MhloConversaion(sub_graph);
+    auto output_fname = CallDiscCompiler(mlir_fname);
+    option->executable_prog_bytes = ReadFileBytes(output_fname);
+    option->constant_bytes = ReadFileBytes(output_fname + ".pbtxt");
+
+    // add DiscClass object as graph input
+    c10::IValue disc_val = torch::make_custom_class<DiscClass>(option);
+    auto val = graph->addInput(c10::str("disc_class_p", disc_inputs.size()));
+    val->setType(disc_val.type());
+    disc_inputs.push_back(disc_val);
+
+    // %3 : Tensor[] = ListConstruct(%1, %2)
+    auto list_construct = graph->insertNode(graph->create(prim::ListConstruct));
+    for (auto inp : node->inputs()) {
+      list_construct->addInput(inp);
     }
+    list_construct->output()->setType(
+        torch::ListType::create(torch::TensorType::get()));
+    list_construct->moveBefore(node);
+
+    // %5 : Tensor[] = prim::CallMethod[name="Run"](%disc_class_p0, %4)
+    auto call_method = graph->insertNode(graph->create(
+        torch::jit::prim::CallMethod, {val, list_construct->output()}));
+    call_method->s_(torch::jit::attr::name, std::move("Run"))
+        ->output()
+        ->setType(torch::ListType::create(torch::TensorType::get()));
+    call_method->moveBefore(node);
+
+    // %6 : Tensor, %7 Tensor = prim::ListUnpack(%5)
+    auto list_unpack = graph->insertNode(
+        graph->create(prim::ListUnpack, {call_method->output()}));
+    list_unpack->eraseOutput(0);
+    for (auto out : node->outputs()) {
+      auto l_out = list_unpack->addOutput();
+      l_out->setType(out->type());
+      out->replaceAllUsesWith(l_out);
+    }
+    list_unpack->moveBefore(node);
+    node->destroy();
   }
+  return disc_inputs;
 }
 
 void InferShapes(const std::shared_ptr<Graph>& graph,
@@ -195,17 +229,24 @@ void InferShapes(const std::shared_ptr<Graph>& graph,
   torch::jit::PropagateInputShapes(graph);
 }
 
-void DiscJIT(torch::lazy::TSComputation& computation,
-             c10::ArrayRef<torch::lazy::BackendDataPtr> arguments) {
-  auto graph = computation.graph()->copy();
+void RegisterDiscClass(const std::shared_ptr<Graph>& graph,
+                       const std::string& executable_prog_fname,
+                       const std::string& meta_fname) {}
+
+std::vector<c10::IValue> DiscJIT(
+    torch::lazy::TSComputation& computation,
+    c10::ArrayRef<torch::lazy::BackendDataPtr> arguments) {
+  // auto graph = computation.graph()->copy();
+  auto graph = computation.graph();
   // 1. clustering and group DISC nodes
   // 2. conversion from torchscript Graph to mhlo Dialect on DISC nodes
-  // 2. register DISC engine
+  // 2. register DISC Custom Class
   InferShapes(graph, arguments);
   FusionDiscNodes(graph);
   LOG(WARNING) << "After FusionDiscNodes: \n" << graph->toString() << std::endl;
-  DiscCompilation(graph);
+  auto disc_input = DiscCompilation(graph);
   LOG(WARNING) << "After MhloConversion: \n" << graph->toString() << std::endl;
+  return disc_input;
 }
 
 }  //  namespace compiler

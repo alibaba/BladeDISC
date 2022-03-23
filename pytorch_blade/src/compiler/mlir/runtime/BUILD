@@ -18,6 +18,9 @@ cc_library(
         "@local_config_cuda//cuda:cuda_headers",
     ]),
     alwayslink = True,
+    visibility = [
+        "//visibility:public",
+    ]
 )
 
 cc_library(

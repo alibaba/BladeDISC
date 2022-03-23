@@ -31,5 +31,4 @@ cc_library(
     deps = if_tf_supported([
         "@local_config_tf//:tf_header_lib",
     ]),
-    visibility = ["//visibility:public"],
 )

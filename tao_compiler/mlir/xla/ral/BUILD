@@ -4,10 +4,8 @@ load(
     "//tensorflow:tensorflow.bzl",
     "tf_cc_shared_object",
     "tf_cc_test",
-    "tf_copts",
     "tf_gpu_kernel_library",
     "tf_gpu_library",
-    "tf_native_cc_binary",
 )
 load(
     "@local_config_cuda//cuda:build_defs.bzl",

@@ -11,8 +11,8 @@ _TAO_BUILD_IP = "TAO_BUILD_IP"
 _TAO_BUILD_TIME = "TAO_BUILD_TIME"
 
 
-def _blade_helper_impl(repository_ctx):
-    repository_ctx.template("build_defs.bzl", Label("//bazel/blade_helper:build_defs.bzl.tpl"), {
+def _blade_disc_helper_impl(repository_ctx):
+    repository_ctx.template("build_defs.bzl", Label("//bazel/blade_disc_helper:build_defs.bzl.tpl"), {
         "%{PYTHON_BIN_PATH}": get_python_bin(repository_ctx),
         "%{TENSORRT_ENABLED}": get_env_bool_value_str(repository_ctx, _BLADE_NEED_TENSORRT),
         "%{IF_INTERNAL}": get_env_bool_value_str(repository_ctx, _BLADE_BUILD_INTERNAL),
@@ -24,11 +24,12 @@ def _blade_helper_impl(repository_ctx):
         "%{TAO_BUILD_TIME}": get_host_environ(repository_ctx, _TAO_BUILD_TIME),
     })
 
-    repository_ctx.template("BUILD", Label("//bazel/blade_helper:BUILD.tpl"), {
+    repository_ctx.template("BUILD", Label("//bazel/blade_disc_helper:BUILD.tpl"), {
     })
 
-blade_helper_configure = repository_rule(
-    implementation = _blade_helper_impl,
+
+blade_disc_helper_configure = repository_rule(
+    implementation = _blade_disc_helper_impl,
     environ = [
         _PYTHON_BIN_PATH,
         _BLADE_NEED_TENSORRT,

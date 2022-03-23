@@ -1,6 +1,6 @@
 load("@local_config_tf//:build_defs.bzl", "tf_copts")
 load("//:build_defs.bzl", "if_tf_unsupported", "if_tf_supported")
-load("@local_config_blade_helper//:build_defs.bzl", "if_tensorrt_enabled", "if_internal")
+load("@local_config_blade_disc_helper//:build_defs.bzl", "if_tensorrt_enabled", "if_internal")
 
 package(default_visibility = ["//visibility:public"])
 

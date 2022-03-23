@@ -3,7 +3,7 @@ load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
 load("@local_config_tf//:build_defs.bzl", "tf_copts")
 load("@local_config_cuda//cuda:build_defs.bzl", "cuda_library", "if_cuda")
 load("//:build_defs.bzl", "tao_bridge_cc_test")
-load("@local_config_blade_helper//:build_defs.bzl",
+load("@local_config_blade_disc_helper//:build_defs.bzl",
     "tao_build_version",
     "tao_build_git_branch",
     "tao_build_git_head",

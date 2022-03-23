@@ -1,5 +1,5 @@
 # Import repository rules.
-load("@org_third_party//bazel/blade_helper:blade_helper_configure.bzl", "blade_helper_configure")
+load("@org_third_party//bazel/blade_disc_helper:blade_disc_helper_configure.bzl", "blade_disc_helper_configure")
 load("@org_third_party//bazel:common.bzl", "maybe_http_archive")
 load("@org_third_party//bazel/mkl:mkl_configure.bzl", "mkl_configure")
 load("@org_third_party//bazel/tensorrt:repo.bzl", "tensorrt_configure")
@@ -69,7 +69,7 @@ def _tf_blade_toolchains():
 
     mkl_configure(name = "local_config_mkl")
 
-    blade_helper_configure(name = "local_config_blade_helper")
+    blade_disc_helper_configure(name = "local_config_blade_disc_helper")
 
     python_configure(name = "local_config_python")
 

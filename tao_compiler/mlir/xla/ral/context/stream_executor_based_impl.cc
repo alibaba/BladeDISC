@@ -267,6 +267,14 @@ struct RalGemmState : public Context::Resource {
   std::map<GemmTuningCacheKey, se::blas::AlgorithmType> gemm_tuning_cache;
 };
 
+bool blade_gemm(void* s, bool fp16_in, bool fp16_out,
+               void* a, int as0, int as1, bool tpa,
+               void* b, int bs0, int bs1, bool tpb,
+               void* c, int cs0, int cs1
+              ) {
+  return false;
+}
+
 template <typename InT, typename OutT, typename E = float>
 void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
               MemRefType<InT, 2> B, MemRefType<OutT, 2> C, bool tp_a,
@@ -274,6 +282,21 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
   if (isEmptyMemref(A) || isEmptyMemref(B) || isEmptyMemref(C)) {
     TAO_VLOG(1) << "ral_gemm: early return for empty tensor";
     return;
+  }
+  if (std::is_same<InT, Eigen::half>::value || std::is_same<InT, float>::value) {
+    auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
+    auto stream =
+       static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
+    void* s = stream->implementation()->GpuStreamHack();
+    bool fp16_in = std::is_same<InT, Eigen::half>::value;
+    bool fp16_out = std::is_same<OutT, Eigen::half>::value;
+    bool ret = blade_gemm(s, fp16_in, fp16_out,
+              A.data, A.sizes[0], A.sizes[1], tp_a,
+              B.data, B.sizes[0], B.sizes[1], tp_b,
+              C.data, C.sizes[0], C.sizes[1]);
+    if (ret) {
+      return;
+    }
   }
 
   auto lhs_matrix =

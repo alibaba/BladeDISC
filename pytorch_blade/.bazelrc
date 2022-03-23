@@ -1,8 +1,9 @@
 try-import ../tf_community/.bazelrc
 try-import ../tf_community/.bazelrc.user
 
+build --disk_cache=~/.cache
 build:torch_cuda --define enable_cuda=true --config=cuda
-build:torch_disc_cpu --config=disc_cpu --config=disc_mkldnn --noremote_accept_cached
-build:torch_disc_cuda --config=disc_cuda --config=torch_cuda  --noremote_accept_cached
+build:torch_disc_cpu --config=disc_cpu --config=disc_mkldnn
+build:torch_disc_cuda --config=disc_cuda --config=torch_cuda
 
 build:torch_tensorrt --define enable_tensorrt=true --config=torch_cuda

@@ -268,10 +268,10 @@ struct RalGemmState : public Context::Resource {
 };
 
 bool blade_gemm(void* s, bool fp16_in, bool fp16_out,
-               void* a, int as0, int as1, bool tpa,
-               void* b, int bs0, int bs1, bool tpb,
-               void* c, int cs0, int cs1
-              ) {
+                const void* a, int as0, int as1, bool tpa,
+                const void* b, int bs0, int bs1, bool tpb,
+                void* c, int cs0, int cs1
+               ) {
   return false;
 }
 

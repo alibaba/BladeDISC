@@ -206,3 +206,5 @@ jobs:
         -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cpu
         -e TORCH_BLADE_USE_CMAKE_BUILD=ON
       exec_command: bash ./scripts/ci/test_pytorch_blade.sh
+  NGC-TORCH-1110:
+    uses: ./.github/workflows/ngc_reusable.yml

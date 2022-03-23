@@ -27,10 +27,14 @@ export TF_REMOTE_CACHE=${TF_REMOTE_CACHE}
 (cd tf_community && bazel clean --expunge)
 
 # note(yancey.yx): using virtualenv to avoid permission issue on workflow actions CI,
-python -m virtualenv venv && source venv/bin/activate
+if [ $TORCH_BLADE_CI_BUILD_TORCH_VERSION = "ngc" ]; then
+  python -m virtualenv venv --system-site-packages && source venv/bin/activate
+else
+  python -m virtualenv venv && source venv/bin/activate
+fi
 
 export TORCH_BLADE_CI_BUILD_TORCH_VERSION=${TORCH_BLADE_CI_BUILD_TORCH_VERSION:-1.7.1+cu110}
-(cd pytorch_blade \
+(cd pytorch_blade && bazel clean --expunge \
   && python -m pip install -q -r requirements-dev-${TORCH_BLADE_CI_BUILD_TORCH_VERSION}.txt \
        -f https://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/pytorch/wheels/repo.html \
   && TORCH_LIB=$(python -c 'import torch; import os; print(os.path.dirname(os.path.abspath(torch.__file__)) + "/lib/")') \

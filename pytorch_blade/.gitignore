@@ -10,7 +10,6 @@ _generate/
 /*/__pycache__/
 *.proto3.pb.*
 *.gz
-/benchmark/*/
 compile_commands.json
 *.pt
 core.*

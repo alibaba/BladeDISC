@@ -48,18 +48,18 @@ class GrapplerBasicOpt:
         graph = tf.Graph()
         with graph.as_default():
             fetches = tf.import_graph_def(
-                graph_def, return_elements=protected_nodes, name=''
+                graph_def, return_elements=protected_nodes, name=""
             )
-            # Add a collection 'train_op' so that Grappler knows the inputs and outputs.
+            # Add a collection "train_op" so that Grappler knows the inputs and outputs.
             for fetch in fetches:
-                graph.add_to_collection('train_op', fetch)
+                graph.add_to_collection("train_op", fetch)
             metagraph = saver.export_meta_graph(graph_def=graph.as_graph_def())
             try:
                 opt_graph_def = tf_optimizer.OptimizeGraph(
                     config, metagraph, verbose=False
                 )
             except Exception as err:
-                raise Exception(f'Failed to do grappler opt due to: {err}')
+                raise Exception(f"Failed to do grappler opt due to: {err}")
             else:
                 return opt_graph_def
 
@@ -83,17 +83,17 @@ class GrapplerAMPOpt:
         graph = tf.Graph()
         with graph.as_default():
             fetches = tf.import_graph_def(
-                graph_def, return_elements=protected_nodes, name=''
+                graph_def, return_elements=protected_nodes, name=""
             )
-            # Add a collection 'train_op' so that Grappler knows the inputs and outputs.
+            # Add a collection "train_op" so that Grappler knows the inputs and outputs.
             for fetch in fetches:
-                graph.add_to_collection('train_op', fetch)
+                graph.add_to_collection("train_op", fetch)
             metagraph = saver.export_meta_graph(graph_def=graph.as_graph_def())
             try:
                 opt_graph_def = tf_optimizer.OptimizeGraph(
                     config, metagraph, verbose=False
                 )
             except Exception as err:
-                raise Exception(f'Failed to do grappler opt due to: {err}')
+                raise Exception(f"Failed to do grappler opt due to: {err}")
             else:
                 return opt_graph_def

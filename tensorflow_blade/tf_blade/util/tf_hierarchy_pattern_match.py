@@ -24,7 +24,7 @@ from tf_blade.util.tf_import_helper import tf
 
 # Basic Class for Pattern Match on tf.v1.compat.GraphDef
 class TfBladePatternMatch:
-    tf_blade_op_type: str = ''
+    tf_blade_op_type: str = ""
 
     def __init__(self, graph_def: tf.GraphDef):
         self.graph_def = graph_def
@@ -82,7 +82,7 @@ class TfBladePatternMatch:
         for p_node in self.pattern_node_list:
             if (p_node.name).strip() == inp_name:
                 return p_node
-        err_msg = 'Invalid Pattern Node Name {}, which do not exist in Pattern List {}.'.format(
+        err_msg = "Invalid Pattern Node Name {}, which do not exist in Pattern List {}.".format(
             inp_name, [nd.name for nd in self.pattern_node_list]
         )
         logging.critical(err_msg)
@@ -100,7 +100,7 @@ class TfBladePatternMatch:
             if len(node.input) == 0:
                 continue
             for inp in node.input:
-                if '^' in str(inp):
+                if "^" in str(inp):
                     dep_inputs.add(inp)
         if len(dep_inputs) > 0:
             return list(dep_inputs)
@@ -111,7 +111,7 @@ class TfBladePatternMatch:
     ) -> tf.NodeDef:
         pattern_node_name = pattern_node_name.strip()
         if pattern_node_name not in matched_map.keys():
-            err_msg = 'Invalid Pattern Node Name {}, which do not exist in Pattern List {}.'.format(
+            err_msg = "Invalid Pattern Node Name {}, which do not exist in Pattern List {}.".format(
                 pattern_node_name, matched_map.keys()
             )
             logging.critical(err_msg)
@@ -167,13 +167,13 @@ class TfBladePatternMatch:
         visited.add(p_node.name)
         if len(p_node.inputs) > 0:
             for inp_name in p_node.inputs:
-                if inp_name.strip() == '*':
+                if inp_name.strip() == "*":
                     continue
                 if (inp_name.strip()).isdigit():
                     continue
                 inp = self.get_patterh_node_by_name(inp_name)
                 if inp is None:
-                    logging.critical('Failed to tranverse through pattern')
+                    logging.critical("Failed to tranverse through pattern")
                     return None
                 self._pattern_traversal(inp, visited)
 
@@ -184,7 +184,7 @@ class TfBladePatternMatch:
         self.pattern_root = None  # clean pattern_root first
         for p_node in self.pattern_node_list:
             if not isinstance(p_node, SimpleNode):
-                err_msg = 'Invalid pre-defined Pattern, node named {} is not a SimpleNode.'.format(
+                err_msg = "Invalid pre-defined Pattern, node named {} is not a SimpleNode.".format(
                     p_node.name
                 )
                 logging.critical(err_msg)
@@ -196,8 +196,8 @@ class TfBladePatternMatch:
                 self.pattern_root = self.pattern_node_list[idx]
                 break
         if not isinstance(self.pattern_root, SimpleNode):
-            err_msg = 'Failed to get the root of the pre-defined Pattern, \
-                    please check the Pattern Node List.'
+            err_msg = "Failed to get the root of the pre-defined Pattern, \
+                    please check the Pattern Node List."
             logging.critical(err_msg)
         return
 

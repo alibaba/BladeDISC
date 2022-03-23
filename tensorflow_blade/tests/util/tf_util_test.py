@@ -31,7 +31,7 @@ class UtilTest(unittest.TestCase):
             meta_graph = tf_util.graph_def_to_meta_graph(
                 graph.as_graph_def(), ["px", "py"], ["result"]
             )
-            signature = meta_graph.signature_def['serving_default']
+            signature = meta_graph.signature_def["serving_default"]
 
             # check signature
             for key, input in signature.inputs.items():
@@ -40,7 +40,7 @@ class UtilTest(unittest.TestCase):
                 self.assertEqual(len(input.tensor_shape.dim), 2)
                 self.assertEqual(input.tensor_shape.dim[0].size, 2)
                 self.assertEqual(input.tensor_shape.dim[1].size, 3)
-            output = signature.outputs['result']
+            output = signature.outputs["result"]
             self.assertEqual(output.name, "result:0")
 
 

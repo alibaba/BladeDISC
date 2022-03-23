@@ -63,7 +63,7 @@ class TfLstmElementWiseOpsTest(unittest.TestCase):
             name="output",
         )
 
-        return ['output']
+        return ["output"]
 
     def fill_feed_dict(self, feed_dict: Dict[str, Any], batch_size: int = 2) -> None:
         feed_dict["X:0"] = np.ones(
@@ -99,5 +99,5 @@ class TfLstmElementWiseOpsTest(unittest.TestCase):
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

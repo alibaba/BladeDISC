@@ -110,7 +110,7 @@ TRT_SUPPORTED_LIST = [
     "Unpack",
 ]
 
-HIE_SUPPORTED_LIST = TRT_SUPPORTED_LIST + ['OneHot', 'Range', 'Erf', 'TruncatedNormal']
+HIE_SUPPORTED_LIST = TRT_SUPPORTED_LIST + ["OneHot", "Range", "Erf", "TruncatedNormal"]
 
 
 # List[List[List[Shape]]]
@@ -133,7 +133,7 @@ def get_subgraph_test_inputs_shapes(
         config.log_device_placement = False
         config.gpu_options.allow_growth = True
         with tf.Session(config=config) as sess:
-            tf.import_graph_def(graph_def, name='')
+            tf.import_graph_def(graph_def, name="")
             i = 0
             for feed_dict in test_data:
                 try:

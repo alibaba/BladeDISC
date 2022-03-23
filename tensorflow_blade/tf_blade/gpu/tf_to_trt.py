@@ -39,7 +39,7 @@ def builder_flags_context(flags: int) -> Iterator[int]:
 
 
 class Tf2TrtOpt:
-    OPT_CUSTOM_OP_TYPE = 'BladeTrtEngine'
+    OPT_CUSTOM_OP_TYPE = "BladeTrtEngine"
 
     def __init__(
         self,
@@ -76,18 +76,18 @@ class Tf2TrtOpt:
                 node.attr["input_names"].CopyFrom(
                     attr_value_pb2.AttrValue(
                         list=attr_value_pb2.AttrValue.ListValue(
-                            s=[(o + ":0").encode('utf-8') for o in new_input_names]
+                            s=[(o + ":0").encode("utf-8") for o in new_input_names]
                         )
                     )
                 )
                 node.attr["output_names"].CopyFrom(
                     attr_value_pb2.AttrValue(
                         list=attr_value_pb2.AttrValue.ListValue(
-                            s=[(o + ":0").encode('utf-8') for o in subgraph_outputs]
+                            s=[(o + ":0").encode("utf-8") for o in subgraph_outputs]
                         )
                     )
                 )
-                # Trt op hold a func attr, make Function with name as f'{subgraph_op}'
+                # Trt op hold a func attr, make Function with name as f"{subgraph_op}"
                 # reachable, then grappler will not prune the Function
                 node.attr["fallback_function"].CopyFrom(
                     attr_value_pb2.AttrValue(
@@ -123,13 +123,13 @@ class Tf2TrtOpt:
             output_names=[name + ":0" for name in subgraph_outputs],
         )
         if self._dump_dir:
-            logging.info(f'Dumping subgraph model to {self._dump_dir}')
+            logging.info(f"Dumping subgraph model to {self._dump_dir}")
             with tf.io.gfile.GFile(
-                f'{self._dump_dir}/{self.name}_subgraph_{index}.onnx', "wb",
+                f"{self._dump_dir}/{self.name}_subgraph_{index}.onnx", "wb",
             ) as f:
                 f.write(model_proto.SerializeToString())
             with tf.io.gfile.GFile(
-                f'{self._dump_dir}/{self.name}_subgraph_{index}.pb', "wb",
+                f"{self._dump_dir}/{self.name}_subgraph_{index}.pb", "wb",
             ) as f:
                 f.write(subgraph.SerializeToString())
         return model_proto
@@ -163,10 +163,10 @@ class Tf2TrtOpt:
             )
         return engine_bytes  # type: ignore
 
-    # subgraph_test_inputs_shapes_list: Each subgraph's each input's shapes for each test data
-    # index: subgraph's index
-    # ori_input_names: subgraphs' input names List
-    # For each subgraph's certain input, if input shapes for each test data are the not same,
+    # subgraph_test_inputs_shapes_list: Each subgraph"s each input"s shapes for each test data
+    # index: subgraph"s index
+    # ori_input_names: subgraphs" input names List
+    # For each subgraph"s certain input, if input shapes for each test data are the not same,
     # the corresponding dimension should be set to -1
     # This info is needed when trt doing dynamic shape tuning
     def _get_dynamic_tuning_shapes_info(
@@ -175,7 +175,7 @@ class Tf2TrtOpt:
         index: int,
         ori_input_names: List[List[str]],
     ) -> Tuple[List[Shape], List[Shape], List[Shape], List[List[Shape]]]:
-        # determin each inputs' shapes
+        # determin each inputs" shapes
         dynamic_shapes = list()
         shapes_min = list()
         shapes_max = list()
@@ -198,9 +198,9 @@ class Tf2TrtOpt:
         return (shapes_min, shapes_max, dynamic_shapes, shapes_opt)
 
     def _post_process_function(self, i: int, main_graph: tf.GraphDef) -> None:
-        subgraph_name = f'subgraph_{i}'
+        subgraph_name = f"subgraph_{i}"
         # when MetaOptimizer optimize Function from tf.GraphDef
-        # it requires all function's attr should only have the type 'type'
+        # it requires all function"s attr should only have the type "type"
         # Here we delete all the attr to avoid the
         # type check error in grappler::MakeGrapplerFunctionItem
         for func in main_graph.library.function:
@@ -275,13 +275,13 @@ class Tf2TrtOpt:
                 add_function_def=True, replicate_const_inputs=True,
             )
         except Exception as err:
-            raise Exception(f'Failed to partition graph def due to "{str(err)}"')
+            raise Exception(f"Failed to partition graph def due to {str(err)}")
 
         self._subgraph_inputs_shapes = get_subgraph_test_inputs_shapes(
             graph_def, test_data, len(test_data), ori_input_names
         )
         if len(self._subgraph_inputs_shapes) == 0:
-            raise Exception('Failed to get subgraph input shapes')
+            raise Exception("Failed to get subgraph input shapes")
         # Convert each subgraphs to onnx and build tensorrt engine
         for i in range(len(subgraphs)):
             self._process_subgraph(

@@ -15,7 +15,7 @@ if tf_util.get_tf_major_version() == 1:
     # TransformGraph exists in TF 1.x so jus import it.
     from tensorflow.tools.graph_transforms import TransformGraph
 else:
-    # TransformGraph doesn't exist in TF 2.x package but exist in code tree, the following is copied from tf source.
+    # TransformGraph doesn"t exist in TF 2.x package but exist in code tree, the following is copied from tf source.
     # TODO(lanbo.llb): In TF 2.6+, this import path has changed.
     from tensorflow.core.framework import graph_pb2
     from tensorflow.python._pywrap_transform_graph import TransformGraphWithStringInputs

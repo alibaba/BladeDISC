@@ -14,7 +14,7 @@ try:
 except ImportError:
     import tensorflow as tf  # noqa: F401
 
-__tf_major = int(tf.__version__.split('.')[0])
+__tf_major = int(tf.__version__.split(".")[0])
 if __tf_major == 2:
     import tensorflow as tf2  # noqa: F401
 elif __tf_major == 1:

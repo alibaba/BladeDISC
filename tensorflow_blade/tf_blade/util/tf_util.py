@@ -35,7 +35,7 @@ def get_tf_version() -> str:
 
 
 def get_tf_major_version() -> int:
-    return int(get_tf_version().split('.')[0])
+    return int(get_tf_version().split(".")[0])
 
 
 def is_tf2() -> bool:
@@ -43,7 +43,7 @@ def is_tf2() -> bool:
 
 
 def is_pai_tf() -> bool:
-    return 'PAI' in tf.__version__
+    return "PAI" in tf.__version__
 
 
 def get_node_name(full_name: str) -> Tuple[str, bool, int]:
@@ -51,11 +51,11 @@ def get_node_name(full_name: str) -> Tuple[str, bool, int]:
     is_ctrl = False
     port = -1
     node_name = full_name
-    if full_name.startswith('^'):
+    if full_name.startswith("^"):
         node_name = full_name[1:]
         is_ctrl = True
 
-    node_name_split = node_name.split(':')
+    node_name_split = node_name.split(":")
     node_name = node_name_split[0]
     if len(node_name_split) > 1:
         port = int(node_name_split[1])
@@ -67,19 +67,19 @@ def get_canonical_tensor_name(name: str) -> str:
     Legal tensor names are like: name, ^name, or name:digits. Please refert to:
     https://github.com/tensorflow/tensorflow/blob/master/tensorflow/core/graph/tensor_id.cc#L35
     """
-    parts = name.split(':')
-    is_control_input = name.startswith('^')
+    parts = name.split(":")
+    is_control_input = name.startswith("^")
     if len(parts) == 1:
-        suffix = '' if is_control_input else ":0"
+        suffix = "" if is_control_input else ":0"
         return name + suffix
     elif len(parts) == 2 and parts[1].isdecimal() and not is_control_input:
         return name
     else:
-        raise Exception(f'Invalid tensor name: {name}')
+        raise Exception(f"Invalid tensor name: {name}")
 
 
 def tensor_name_to_node_name(tensor_name: str) -> str:
-    return tensor_name.strip().strip('^').split(':')[0]
+    return tensor_name.strip().strip("^").split(":")[0]
 
 
 def get_tensor_output_idx(tensor_name: str) -> int:
@@ -149,11 +149,11 @@ def generate_node(
     new_n = tf.NodeDef()
     if n.name in identity_map:
         new_n.name = n.name
-        new_n.op = 'Identity'
+        new_n.op = "Identity"
         if n.attr["T"]:
-            new_n.attr['T'].CopyFrom(n.attr['T'])
+            new_n.attr["T"].CopyFrom(n.attr["T"])
         elif n.attr["dtype"]:
-            new_n.attr['T'].CopyFrom(n.attr['dtype'])
+            new_n.attr["T"].CopyFrom(n.attr["dtype"])
     else:
         new_n.CopyFrom(n)
         del new_n.input[:]
@@ -181,7 +181,7 @@ def modify_graph(
         for iedge in n.input:
             iname, is_ctrl, _ = get_node_name(iedge)
             if iname in identity_map:
-                iedge = iedge.split(':')[0]
+                iedge = iedge.split(":")[0]
             if n.name in identity_map and not is_ctrl and iname != valid_iname:
                 continue
             if iname in dead_nodes:
@@ -203,7 +203,7 @@ def get_tensor_info_mapping(graph_def: tf.GraphDef) -> Dict[str, TensorInfo]:
     tf.reset_default_graph()
     graph = tf.Graph()
     with graph.as_default():
-        tf.import_graph_def(graph_def, name='')
+        tf.import_graph_def(graph_def, name="")
         for node in graph_def.node:
             operation = graph.get_operation_by_name(node.name)
             output_tensor = operation.outputs
@@ -215,7 +215,7 @@ def get_tensor_info_mapping(graph_def: tf.GraphDef) -> Dict[str, TensorInfo]:
                         tensor_shape = tensor.shape.as_list()
                     info = TensorInfo(tensor.name, tensor_shape, tensor.dtype)
                 except Exception as err:
-                    raise Exception(f'Unknown error when getting tensor info: {err}')
+                    raise Exception(f"Unknown error when getting tensor info: {err}")
                 tensor_info_map[tensor.name] = info
     return tensor_info_map
 
@@ -274,8 +274,8 @@ def replace_node_ops_filter_dtype(
     return replace_node_ops(
         graph_def,
         op_map,
-        lambda n: 'T' in n.attr
-        and int(n.attr['T'].type) != int(dtype.as_datatype_enum),
+        lambda n: "T" in n.attr
+        and int(n.attr["T"].type) != int(dtype.as_datatype_enum),
     )
 
 
@@ -287,11 +287,11 @@ def graph_def_to_meta_graph(
     method_name: str = "blade_infer",
 ) -> tf.MetaGraphDef:
     """Convert GraphDef to MetaGraphDef.
-    This function will try it's best to build a sinature for the result MetaGraphDef. It
+    This function will try it"s best to build a sinature for the result MetaGraphDef. It
     will be built when all input nodes has attribute dtype and shape. Otherwise it falls
     back to add all input/out/extra_reserved nodes to train_op set.
-    The difference between the two ways is that in Grappler's constant fold pass, node
-    identified as feed neither won't be involved in shape tracking nor get it's shape
+    The difference between the two ways is that in Grappler"s constant fold pass, node
+    identified as feed neither won"t be involved in shape tracking nor get it"s shape
     freezed as constant, which may lead to problematic constant folding of subsequent
     Shape node.
 
@@ -351,7 +351,7 @@ def graph_def_to_meta_graph(
                 value=input_nodes + output_nodes + extra_reserved_nodes
             )
         )
-    # Add a collection 'train_op' so that Grappler knows the inputs and outputs.
+    # Add a collection "train_op" so that Grappler knows the inputs and outputs.
     metagraph.collection_def["train_op"].CopyFrom(train_op_collection)
 
     return metagraph

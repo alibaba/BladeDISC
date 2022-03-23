@@ -25,12 +25,12 @@ class TfNonMaxSuppressionOptTest(unittest.TestCase):
         # build the test graph
         tf.reset_default_graph()
         num_box = 2048
-        boxes = tf.placeholder(tf.float32, shape=[num_box, 4], name='boxes')
-        scores = tf.placeholder(tf.float32, shape=[num_box], name='scores')
-        max_output_size = tf.constant(128, dtype=tf.int32, name='max_output_size')
+        boxes = tf.placeholder(tf.float32, shape=[num_box, 4], name="boxes")
+        scores = tf.placeholder(tf.float32, shape=[num_box], name="scores")
+        max_output_size = tf.constant(128, dtype=tf.int32, name="max_output_size")
 
         selected_indices = tf.image.non_max_suppression(
-            boxes, scores, max_output_size, iou_threshold=0.5, name='nms'
+            boxes, scores, max_output_size, iou_threshold=0.5, name="nms"
         )
         _ = tf.gather(boxes, selected_indices)
 
@@ -45,5 +45,5 @@ class TfNonMaxSuppressionOptTest(unittest.TestCase):
         self.assertTrue(count > 0, "pattern not detected")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

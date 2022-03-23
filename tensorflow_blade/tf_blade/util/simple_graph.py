@@ -22,8 +22,8 @@ from tf_blade.util.tf_import_helper import tf
 class SimpleNode:
     def __init__(
         self,
-        name: str = '',
-        op: str = '',
+        name: str = "",
+        op: str = "",
         inputs: List[str] = [],
         output_nodes: List[str] = [],
         tensors: Dict[str, List[str]] = {},
@@ -91,13 +91,13 @@ class SimpleGraph:
                 inp_tensor_name = tf_util.get_canonical_tensor_name(inp)
                 if inp_node_name not in self._name2index:
                     raise Exception(
-                        f"SimpleNode '{node.name}': Unknown input node '{inp}'"
+                        f"SimpleNode {node.name}: Unknown input node {inp}"
                     )
                 input_node = self._nodes[self._name2index[inp_node_name]]
-                # update input node's [output_node, ..] list
+                # update input node"s [output_node, ..] list
                 input_node.output_nodes.append(node.name)
-                # update input node's {tensor: output_node, ..} dictionary
-                #   TODO: we are missing Graph final output node's tensors,
+                # update input node"s {tensor: output_node, ..} dictionary
+                #   TODO: we are missing Graph final output node"s tensors,
                 #   but it is not possible to inspect how many tensors inside
                 #   it, therefore we currently ignore it.
                 if inp_tensor_name not in input_node.tensors:
@@ -118,7 +118,7 @@ class SimpleGraph:
     def name2index(self, name: str) -> int:
         """Get index of node."""
         if name not in self._name2index:
-            error_msg = 'Node {} not exists'.format(name)
+            error_msg = "Node {} not exists".format(name)
             logging.error(error_msg)
             raise Exception(error_msg)
         return self._name2index[name]
@@ -126,7 +126,7 @@ class SimpleGraph:
     def node(self, idx: int) -> SimpleNode:
         """Get node with given index."""
         if idx >= len(self._nodes):
-            error_msg = 'Node index {} out of range'.format(idx)
+            error_msg = "Node index {} out of range".format(idx)
             logging.error(error_msg)
             raise Exception(error_msg)
         return self._nodes[idx]
@@ -135,7 +135,7 @@ class SimpleGraph:
         """Get node by name."""
         return self.node(self._name2index[name])
 
-    def input_nodes(self, blacklist: List = ['Const']) -> List[str]:
+    def input_nodes(self, blacklist: List = ["Const"]) -> List[str]:
         """Get names of input nodes"""
         return [
             n.name for n in self._nodes if n.num_inputs == 0 and n.op not in blacklist
@@ -152,16 +152,16 @@ class SimpleGraph:
     def get_simple_node_by_name(self, name: str) -> SimpleNode:
         node_name = tf_util.get_node_name(name)[0]
         if node_name not in self._name2index:
-            raise Exception(f'Unknown node name: {node_name}')
+            raise Exception(f"Unknown node name: {node_name}")
         return self.node(self.name2index(node_name))
 
     def get_node_by_name(self, name: str) -> tf.NodeDef:
         node_name = tf_util.get_node_name(name)[0]
         if node_name not in self._name2index:
-            raise Exception(f'Unknown node name: {node_name}')
+            raise Exception(f"Unknown node name: {node_name}")
         idx = self._name2index[node_name]
         if idx >= len(self._graph_def.node):
-            raise Exception(f'Unknown node name: {node_name}')
+            raise Exception(f"Unknown node name: {node_name}")
         return self._graph_def.node[idx]
 
     def topological_sort(self, reverse: bool = False) -> List[int]:
@@ -182,7 +182,7 @@ class SimpleGraph:
         ordered = []
         # Parse the inputs for each node
         for i, node in enumerate(self._nodes):
-            if node.op == 'Merge' or node.op == 'RefMerge':
+            if node.op == "Merge" or node.op == "RefMerge":
                 num_control_edges = sum(
                     1 for inp in node.inputs_tensors if inp.startswith("^")
                 )
@@ -274,8 +274,8 @@ class SimpleGraph:
 
 # tf contrib tensorrt supported list
 # Mean is converted into a UFF Reduce layer
-# Reduce layer will be supported in our future release but we can't disclsoure schedule information.
-# Although TensorRT has a unary layer, UFF parser doesn't support it.
+# Reduce layer will be supported in our future release but we can"t disclsoure schedule information.
+# Although TensorRT has a unary layer, UFF parser doesn"t support it.
 # https://devtalk.nvidia.com/default/topic/1028954/dimension-error-in-uff-parser/
 _SEGMENT_SUPPORTED_OP: Set[str] = {
     "Identity",
@@ -311,8 +311,8 @@ class GraphSegment:
         Index of nodes that belong to this segment.
 
     required_outputs : List[str] = []
-        Manually specified outputs. There're 3 kinds of outputs:
-        1. If a node's output is outside this segment(A cross boundary edge)
+        Manually specified outputs. There"re 3 kinds of outputs:
+        1. If a node"s output is outside this segment(A cross boundary edge)
         2. If a node has no output nodes(Maybe the node itself is the output of the main graph)
         3. If a node is in required_outputs(It is manually set to be the output node)
     """
@@ -340,7 +340,7 @@ class GraphSegment:
 
     def output_nodes(self) -> List[str]:
         """Find nodes in graph segment that output to outside of segment.
-        See the explaination of GraphSegment's `required_outputs`.
+        See the explaination of GraphSegment"s `required_outputs`.
         """
         segment_node_names = self.node_names
 
@@ -377,13 +377,13 @@ class GraphSegment:
 
     def output_offsets(self) -> List[int]:
         """
-        Used to identity the indices of a certain segment's outputs.
-        For example, the out_node_names is ['a', 'b']
-        'a' has 2 outputs that reach out of the segment,
-        and 'b' has 3 outputs that reach out of the segment.
-        Then the return value is [0, 2, 5], meaning given the order of 'a' and 'b',
-        the segment outputs 5 tensors, in which the 0th and 1st related to 'a',
-        and 2nd, 3rd, 4th related to 'b'
+        Used to identity the indices of a certain segment"s outputs.
+        For example, the out_node_names is ["a", "b"]
+        "a" has 2 outputs that reach out of the segment,
+        and "b" has 3 outputs that reach out of the segment.
+        Then the return value is [0, 2, 5], meaning given the order of "a" and "b",
+        the segment outputs 5 tensors, in which the 0th and 1st related to "a",
+        and 2nd, 3rd, 4th related to "b"
         """
         out_node_names = self.output_nodes()
         out_node_outputs: Dict[str, Set[str]] = {x: set() for x in out_node_names}
@@ -484,7 +484,7 @@ class GraphSegment:
         tf.reset_default_graph()
         graph = tf.Graph()
         with graph.as_default():
-            tf.import_graph_def(self._subgraph_graphdef, name='')
+            tf.import_graph_def(self._subgraph_graphdef, name="")
             self._subgraph_functiondef = graph_to_function_def.graph_to_function_def(
                 graph,
                 graph.get_operations(),
@@ -543,9 +543,9 @@ class GraphSegment:
             if inp.startswith("^"):
                 self._subgraph_ctl_input_names.add(inp)
                 continue
-            inp_clean = inp.strip().strip('^')
+            inp_clean = inp.strip().strip("^")
             info = tensor_info_map.get(
-                inp_clean if ':' in inp_clean else inp_clean + ':0', None
+                inp_clean if ":" in inp_clean else inp_clean + ":0", None
             )
             inode = self._graph.get_node_by_name(tf_util.tensor_name_to_node_name(inp))
             if replicate_const_inputs and inode.op == "Const":
@@ -597,17 +597,17 @@ class GraphSegment:
         for i, out_node_name in enumerate(self.output_nodes()):
             for j in range(output_node_offsets[i], output_node_offsets[i + 1]):
                 id_input_name = (
-                    (out_node_name + ':{}'.format(j))
+                    (out_node_name + ":{}".format(j))
                     if output_node_offsets[i + 1] - output_node_offsets[i] > 1
                     else out_node_name
                 )
                 id_name = (
                     "subgraph_{}-".format(seg_id)
                     + out_node_name
-                    + '-{}'.format(j - output_node_offsets[i])
+                    + "-{}".format(j - output_node_offsets[i])
                 )
                 output_tensor_name = (
-                    id_input_name if ':' in id_input_name else id_input_name + ':0'
+                    id_input_name if ":" in id_input_name else id_input_name + ":0"
                 )
                 id_node = add_identity(
                     self._subgraph_graphdef,
@@ -816,14 +816,14 @@ class GraphDefPartitioner:
 
             # Add "subgraph" node to the updated main graph
             subgraph_node = self._partitioned_main_graph.node.add()
-            subgraph_node.name = 'subgraph_{}'.format(seg_id)
+            subgraph_node.name = "subgraph_{}".format(seg_id)
             if add_function_def:
-                subgraph_node.op = 'subgraph_{}'.format(seg_id)
+                subgraph_node.op = "subgraph_{}".format(seg_id)
             # The original input tensor names, may be changed if the former node has
             # been segmented into another subgraph
             subgraph_node.input.extend(updated_ori_input_names)
             subgraph_node.input.extend(new_ctl_input_names)
-            # control inputs are not added to attributes `input_names'.
+            # control inputs are not added to attributes `input_names".
             subgraph_node.attr["input_names"].CopyFrom(
                 attr_value_pb2.AttrValue(
                     list=attr_value_pb2.AttrValue.ListValue(
@@ -834,7 +834,7 @@ class GraphDefPartitioner:
             inp_tensor_type = []
             for inp in updated_ori_input_names:
                 inp_node = self.ori_graph.get_node_by_name(
-                    inp.strip().strip('^').split(':')[0]
+                    inp.strip().strip("^").split(":")[0]
                 )
                 if "dtype" in inp_node.attr:
                     inp_tensor_type.append(inp_node.attr["dtype"].type)
@@ -872,19 +872,19 @@ class GraphDefPartitioner:
                     # Assert all outputs have been added a identity
                     add_identity(
                         self._partitioned_main_graph,
-                        'subgraph_{}:{}'.format(
+                        "subgraph_{}:{}".format(
                             seg_id, output_node_names.index(node.name)
                         ),
                         node.name,
                         tensor_info_map[
-                            node.name if ':' in node.name else node.name + ':0'
+                            node.name if ":" in node.name else node.name + ":0"
                         ].dtype,
                     )
 
         def process_input_node_inside_a_subgraph(checked_node: tf.NodeDef) -> None:
             for i, inp in enumerate(checked_node.input):
-                ctl_prefix = '^' if inp.startswith('^') else ''
-                inp_node_name = inp.strip().strip('^').split(':')[0]
+                ctl_prefix = "^" if inp.startswith("^") else ""
+                inp_node_name = inp.strip().strip("^").split(":")[0]
 
                 # Check if the node input is from a subgraph
                 subgraph_id = 0
@@ -896,24 +896,24 @@ class GraphDefPartitioner:
                     subgraph_id += 1
                 # Input node found
                 if subgraph_id < len(subgraph_output_node_names):
-                    if ':' not in inp:
-                        checked_node.input[i] = '{}subgraph_{}:{}'.format(
+                    if ":" not in inp:
+                        checked_node.input[i] = "{}subgraph_{}:{}".format(
                             ctl_prefix,
                             subgraph_id,
                             str(subgraph_output_node_offsets[subgraph_id][out_node_id]),
                         )
                     else:
-                        checked_node.input[i] = '{}subgraph_{}:{}'.format(
+                        checked_node.input[i] = "{}subgraph_{}:{}".format(
                             ctl_prefix,
                             subgraph_id,
                             str(
                                 subgraph_output_node_offsets[subgraph_id][out_node_id]
-                                + int(inp.split(':')[1])
+                                + int(inp.split(":")[1])
                             ),
                         )
                     if subgraph_output_node_offsets[subgraph_id][-1] == 1:
-                        assert checked_node.input[i].endswith(':0')
-                        # remove ':0' for there's only one output
+                        assert checked_node.input[i].endswith(":0")
+                        # remove ":0" for there"s only one output
                         checked_node.input[i] = checked_node.input[i][:-2]
 
         # Check again to fix the input if it has been segmented into another subgraph

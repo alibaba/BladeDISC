@@ -62,7 +62,7 @@ def _create_graph_def() -> tf.GraphDef:
     with g.as_default():
         px = tf.placeholder(shape=shape, dtype=dtype, name="px")
         py = tf.placeholder(shape=shape, dtype=dtype, name="py")
-        c = tf.constant(np.random.randn(*shape).astype(dtype), name='c')
+        c = tf.constant(np.random.randn(*shape).astype(dtype), name="c")
         x = px + py
         x = x * x
         x = tf.nn.relu(x)
@@ -86,7 +86,7 @@ def _create_graph_def_circle() -> tf.GraphDef:
     with g.as_default():
         px = tf.placeholder(shape=shape, dtype=dtype, name="px")
         py = tf.placeholder(shape=shape, dtype=dtype, name="py")
-        c = tf.constant(np.random.randn(*shape).astype(dtype), name='c')
+        c = tf.constant(np.random.randn(*shape).astype(dtype), name="c")
         x = px + py
         x = x * c
         y = tf.abs(x)
@@ -109,7 +109,7 @@ def _create_graph_def_front_circle() -> tf.GraphDef:
     with g.as_default():
         px = tf.placeholder(shape=shape, dtype=dtype, name="px")
         py = tf.placeholder(shape=shape, dtype=dtype, name="py")
-        c = tf.constant(np.random.randn(*shape).astype(dtype), name='c')
+        c = tf.constant(np.random.randn(*shape).astype(dtype), name="c")
         x = px + py
         x = x * c
         x = tf.abs(x)
@@ -137,7 +137,7 @@ def _create_graph_def_while_loop() -> tf.GraphDef:
     with g.as_default():
         px = tf.placeholder(shape=shape, dtype=dtype, name="px")
         py = tf.placeholder(shape=shape, dtype=dtype, name="py")
-        c = tf.constant(np.random.randn(*shape).astype(dtype), name='c')
+        c = tf.constant(np.random.randn(*shape).astype(dtype), name="c")
         x = px * py
 
         i = tf.constant(1, dtype=tf.int32)
@@ -167,7 +167,7 @@ def _create_graph_def_with_quirky_type_attr() -> tf.GraphDef:
     with g.as_default():
         px = tf.placeholder(shape=shape, dtype=dtype, name="px")
         py = tf.placeholder(shape=shape, dtype=dtype, name="py")
-        c = tf.constant(np.random.randn(*shape).astype(dtype), name='c')
+        c = tf.constant(np.random.randn(*shape).astype(dtype), name="c")
         x = px + py
         x = x * x
         x = tf.nn.relu(x)
@@ -194,11 +194,11 @@ def _create_graph_def_ctl_depenency() -> tf.GraphDef:
     dtype = np.float32
     with g.as_default():
         px = tf.placeholder(shape=shape, dtype=dtype, name="px")
-        y1 = tf.abs(px, name='y1')
+        y1 = tf.abs(px, name="y1")
         with tf.control_dependencies([y1]):
-            t0 = tf.nn.relu(px, name='t0')
-        t1 = tf.nn.relu(t0, name='t1')
-        _ = tf.add(t1, y1, name='out')
+            t0 = tf.nn.relu(px, name="t0")
+        t1 = tf.nn.relu(t0, name="t1")
+        _ = tf.add(t1, y1, name="out")
         return g.as_graph_def()
 
 
@@ -312,7 +312,7 @@ class GraphSegmentTest(unittest.TestCase):
         seg_list = p.graph_segment_list
         self.assertEqual(len(seg_list), 2)
         self.assertListEqual(seg_list[0].node_names, ["Rsqrt", "c", "add_1"])
-        self.assertListEqual(seg_list[1].node_names, ['add', 'mul', 'Relu'])
+        self.assertListEqual(seg_list[1].node_names, ["add", "mul", "Relu"])
 
     def test_segment_graph_circle(self) -> None:
         """                   -> Relu --
@@ -410,8 +410,8 @@ class SegmentToSubgraphTest(unittest.TestCase):
         self.assertListEqual(
             new_input_names,
             [
-                ['subgraph_0_placeholder_0'],
-                ['subgraph_1_placeholder_0', 'subgraph_1_placeholder_1'],
+                ["subgraph_0_placeholder_0"],
+                ["subgraph_1_placeholder_0", "subgraph_1_placeholder_1"],
             ],
         )
 
@@ -453,13 +453,13 @@ class SegmentToSubgraphTest(unittest.TestCase):
             SimpleNode(
                 "Abs",
                 "Abs",
-                ['subgraph_1:0'],
+                ["subgraph_1:0"],
                 ["subgraph_0"],
                 {"Abs:0": ["subgraph_0"]},
             ),
         )
         self.assertEqual(
-            m.node(6), SimpleNode("Relu_1", "Relu", ['subgraph_0:1'], [], {},),
+            m.node(6), SimpleNode("Relu_1", "Relu", ["subgraph_0:1"], [], {},),
         )
 
         s0 = SimpleGraph(subgraphs[0])
@@ -596,8 +596,8 @@ class SegmentToSubgraphTest(unittest.TestCase):
         self.assertListEqual(
             new_input_names,
             [
-                ['subgraph_0_placeholder_0'],
-                ['subgraph_1_placeholder_0', 'subgraph_1_placeholder_1'],
+                ["subgraph_0_placeholder_0"],
+                ["subgraph_1_placeholder_0", "subgraph_1_placeholder_1"],
             ],
         )
 
@@ -635,7 +635,7 @@ class SegmentToSubgraphTest(unittest.TestCase):
             SimpleNode(
                 "Abs",
                 "Abs",
-                ['subgraph_1:0'],
+                ["subgraph_1:0"],
                 ["subgraph_0"],
                 {"Abs:0": ["subgraph_0"]},
             ),
@@ -781,7 +781,7 @@ class SegmentToSubgraphTest(unittest.TestCase):
         self.assertEqual(len(subgraphs), 1)
         self.assertListEqual(ori_input_names, [["px:0", "py:0"]])
         self.assertListEqual(
-            new_input_names, [['subgraph_0_placeholder_0', 'subgraph_0_placeholder_1']]
+            new_input_names, [["subgraph_0_placeholder_0", "subgraph_0_placeholder_1"]]
         )
 
         m = SimpleGraph(main_graph)
@@ -896,7 +896,7 @@ class SegmentToSubgraphTest(unittest.TestCase):
                             └────────────────────────┘
         """
         graph_def = _create_graph_def_ctl_depenency()
-        p = GraphDefPartitioner(graph_def, supported_list=set(['Relu']))
+        p = GraphDefPartitioner(graph_def, supported_list=set(["Relu"]))
         (
             main_graph,
             subgraphs,
@@ -908,20 +908,20 @@ class SegmentToSubgraphTest(unittest.TestCase):
         self.assertEqual(ori_input_names, [["px:0"]])
         self.assertEqual(new_input_names, [["subgraph_0_placeholder_0"]])
 
-        subgraph_nodes = [n for n in main_graph.node if n.name.startswith('subgraph_')]
+        subgraph_nodes = [n for n in main_graph.node if n.name.startswith("subgraph_")]
         self.assertEqual(len(subgraph_nodes), 1)
         subgraph_node_0 = subgraph_nodes[0]
-        self.assertEqual(subgraph_node_0.name, 'subgraph_0')
-        self.assertEqual(subgraph_node_0.op, 'subgraph_0')
-        self.assertTrue('px' in subgraph_node_0.input)
-        self.assertTrue('^y1' in subgraph_node_0.input)
+        self.assertEqual(subgraph_node_0.name, "subgraph_0")
+        self.assertEqual(subgraph_node_0.op, "subgraph_0")
+        self.assertTrue("px" in subgraph_node_0.input)
+        self.assertTrue("^y1" in subgraph_node_0.input)
 
         self.assertEqual(len(main_graph.library.function), 1)
         subgraph_func = main_graph.library.function[0]
-        self.assertEqual(subgraph_func.signature.name, 'subgraph_0')
+        self.assertEqual(subgraph_func.signature.name, "subgraph_0")
         func_ops = [(n.name, n.op) for n in subgraph_func.node_def]
-        self.assertTrue(('t0', 'Relu') in func_ops)
-        self.assertTrue(('t1', 'Relu') in func_ops)
+        self.assertTrue(("t0", "Relu") in func_ops)
+        self.assertTrue(("t1", "Relu") in func_ops)
 
 
 class SegmentToFunctionDefTest(unittest.TestCase):
@@ -1163,9 +1163,9 @@ class SegmentToFunctionDefTest(unittest.TestCase):
         self.assertEqual(len(p.graph_segment_list), 2)
         self.assertListEqual(
             p.graph_segment_list[0].node_names,
-            ['while/mul', 'while/Identity_2', 'while/add_1'],
+            ["while/mul", "while/Identity_2", "while/add_1"],
         )
-        self.assertListEqual(p.graph_segment_list[1].node_names, ['Rsqrt', 'Relu'])
+        self.assertListEqual(p.graph_segment_list[1].node_names, ["Rsqrt", "Relu"])
 
         (
             main_graph,
@@ -1176,13 +1176,13 @@ class SegmentToFunctionDefTest(unittest.TestCase):
         ) = p.generate_subgraph_from_segment(True)
         self.assertListEqual(
             ori_input_names,
-            [['while/add_1/Enter:0', 'while/Switch_2:1'], ['while/Exit_2:0']],
+            [["while/add_1/Enter:0", "while/Switch_2:1"], ["while/Exit_2:0"]],
         )
         self.assertListEqual(
             new_input_names,
             [
-                ['subgraph_0_placeholder_0', 'subgraph_0_placeholder_1'],
-                ['subgraph_1_placeholder_0'],
+                ["subgraph_0_placeholder_0", "subgraph_0_placeholder_1"],
+                ["subgraph_1_placeholder_0"],
             ],
         )
 
@@ -1194,8 +1194,8 @@ class SegmentToFunctionDefTest(unittest.TestCase):
                 "subgraph_0_placeholder_0",
                 "Placeholder",
                 [],
-                ['while/add_1', 'while/mul'],
-                {'subgraph_0_placeholder_0:0': ['while/add_1', 'while/mul']},
+                ["while/add_1", "while/mul"],
+                {"subgraph_0_placeholder_0:0": ["while/add_1", "while/mul"]},
             ),
         )
         self.assertEqual(
@@ -1204,8 +1204,8 @@ class SegmentToFunctionDefTest(unittest.TestCase):
                 "subgraph_0_placeholder_1",
                 "Placeholder",
                 [],
-                ['while/Identity_2'],
-                {'subgraph_0_placeholder_1:0': ['while/Identity_2']},
+                ["while/Identity_2"],
+                {"subgraph_0_placeholder_1:0": ["while/Identity_2"]},
             ),
         )
         self.assertEqual(
@@ -1213,9 +1213,9 @@ class SegmentToFunctionDefTest(unittest.TestCase):
             SimpleNode(
                 "while/Identity_2",
                 "Identity",
-                ['subgraph_0_placeholder_1:0'],
-                ['while/add_1'],
-                {'while/Identity_2:0': ['while/add_1']},
+                ["subgraph_0_placeholder_1:0"],
+                ["while/add_1"],
+                {"while/Identity_2:0": ["while/add_1"]},
             ),
         )
         self.assertEqual(
@@ -1223,9 +1223,9 @@ class SegmentToFunctionDefTest(unittest.TestCase):
             SimpleNode(
                 "while/add_1",
                 "AddV2",
-                ['while/Identity_2:0', 'subgraph_0_placeholder_0:0'],
-                ['while/mul'],
-                {'while/add_1:0': ['while/mul']},
+                ["while/Identity_2:0", "subgraph_0_placeholder_0:0"],
+                ["while/mul"],
+                {"while/add_1:0": ["while/mul"]},
             ),
         )
         self.assertEqual(
@@ -1233,14 +1233,14 @@ class SegmentToFunctionDefTest(unittest.TestCase):
             SimpleNode(
                 "while/mul",
                 "Mul",
-                ['while/add_1:0', 'subgraph_0_placeholder_0:0'],
-                ['subgraph_0-while/mul-0'],
-                {'while/mul:0': ['subgraph_0-while/mul-0']},
+                ["while/add_1:0", "subgraph_0_placeholder_0:0"],
+                ["subgraph_0-while/mul-0"],
+                {"while/mul:0": ["subgraph_0-while/mul-0"]},
             ),
         )
         self.assertEqual(
             s0.node(5),
-            SimpleNode("subgraph_0-while/mul-0", "Identity", ['while/mul:0'], [], {}),
+            SimpleNode("subgraph_0-while/mul-0", "Identity", ["while/mul:0"], [], {}),
         )
 
         s1 = SimpleGraph(subgraphs[1])
@@ -1252,7 +1252,7 @@ class SegmentToFunctionDefTest(unittest.TestCase):
                 "Placeholder",
                 [],
                 ["Relu"],
-                {'subgraph_1_placeholder_0:0': ['Relu']},
+                {"subgraph_1_placeholder_0:0": ["Relu"]},
             ),
         )
         self.assertEqual(
@@ -1260,9 +1260,9 @@ class SegmentToFunctionDefTest(unittest.TestCase):
             SimpleNode(
                 "Relu",
                 "Relu",
-                ['subgraph_1_placeholder_0:0'],
-                ['Rsqrt'],
-                {'Relu:0': ['Rsqrt']},
+                ["subgraph_1_placeholder_0:0"],
+                ["Rsqrt"],
+                {"Relu:0": ["Rsqrt"]},
             ),
         )
         self.assertEqual(
@@ -1270,9 +1270,9 @@ class SegmentToFunctionDefTest(unittest.TestCase):
             SimpleNode(
                 "Rsqrt",
                 "Rsqrt",
-                ['Relu:0'],
-                ['subgraph_1-Rsqrt-0'],
-                {'Rsqrt:0': ['subgraph_1-Rsqrt-0']},
+                ["Relu:0"],
+                ["subgraph_1-Rsqrt-0"],
+                {"Rsqrt:0": ["subgraph_1-Rsqrt-0"]},
             ),
         )
         self.assertEqual(
@@ -1378,7 +1378,7 @@ class SegmentToFunctionDefTest(unittest.TestCase):
         self.assertEqual(g.node(8), SimpleNode("Rsqrt", "Rsqrt", ["add_1:0"], [], {}))
         self.assertEqual(
             g.node(9),
-            SimpleNode("Relu_1", "Relu", ["add_1:0"], ['Cast'], {'Relu_1:0': ['Cast']}),
+            SimpleNode("Relu_1", "Relu", ["add_1:0"], ["Cast"], {"Relu_1:0": ["Cast"]}),
         )
         self.assertEqual(g.node(10), SimpleNode("Cast", "Cast", ["Relu_1:0"], [], {}))
 

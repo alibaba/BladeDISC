@@ -24,8 +24,8 @@ class Tf2TrtPlusTest(unittest.TestCase):
         conv_net_maker = ConvNetMaker()
         self.static_graph_def = conv_net_maker.gen_simple_conv_net(32)
         self.dynamic_graph_def = conv_net_maker.gen_simple_conv_net(-1)
-        self.opt_pass_static = Tf2TrtOpt(TRT_SUPPORTED_LIST, 2, False, '')
-        self.opt_pass_dynamic = Tf2TrtOpt(TRT_SUPPORTED_LIST, 2, True, '')
+        self.opt_pass_static = Tf2TrtOpt(TRT_SUPPORTED_LIST, 2, False, "")
+        self.opt_pass_dynamic = Tf2TrtOpt(TRT_SUPPORTED_LIST, 2, True, "")
 
     def test_dynamic_shape_fp16(self) -> None:
         # set test data
@@ -82,5 +82,5 @@ class Tf2TrtPlusTest(unittest.TestCase):
                 self.assertTrue(len(func.signature.attr) == 0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

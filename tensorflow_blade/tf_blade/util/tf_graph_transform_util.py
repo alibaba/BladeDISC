@@ -24,63 +24,63 @@ from tf_blade.util.tf_util import tensor_name_to_node_name
 
 
 class OpType(Enum):
-    ADD = 'Add'
-    ADD_N = 'AddN'
-    ADD_V2 = 'AddV2'
-    AVG_POOL = 'AvgPool'
-    BATCH_MAT_MUL = 'BatchMatMul'
-    BATCH_MAT_MUL_V2 = 'BatchMatMulV2'
-    BATCH_NORM_WITH_GOLBAL_NORMALIZATION = 'BatchNormWithGlobalNormalization'
-    BIAS_ADD = 'BiasAdd'
-    CAST = 'Cast'
-    CONCAT_V2 = 'ConcatV2'
-    CONST = 'Const'
-    CONV2D = 'Conv2D'
-    CUDNN_RNN = 'CudnnRNN'
-    ENTER = 'Enter'
-    EXIT = 'Exit'
-    EXPAND_DIMS = 'ExpandDims'
-    FUSED_BATCH_NORM = 'FusedBatchNorm'
-    FUSED_BATCH_NORM_V2 = 'FusedBatchNormV2'
-    FUSED_BATCH_NORM_V3 = 'FusedBatchNormV3'
-    GATHERV2 = 'GatherV2'
-    GREATER = 'Greater'
-    IDENTITY = 'Identity'
-    IDENTITY_N = 'IdentityN'
-    LESS = 'Less'
-    LOOP_COND = 'LoopCond'
-    MAT_MUL = 'MatMul'
-    MAX = 'Max'
-    MAX_POOL = 'MaxPool'
-    MAXIMUM = 'Maximum'
-    MEAN = 'Mean'
-    MERGE = 'Merge'
-    MINIMUM = 'Minimum'
-    MUL = 'Mul'
-    NEXT_ITERATION = 'NextIteration'
-    PACK = 'Pack'
-    PAD = 'Pad'
-    PLACEHOLDER = 'Placeholder'
-    RELU = 'Relu'
-    RESHAPE = 'Reshape'
-    RSQRT = 'Rsqrt'
-    SHAPE = 'Shape'
-    SLICE = 'Slice'
-    SQUARE = 'Square'
-    STRIDED_SLICE = 'StridedSlice'
-    SUB = 'Sub'
-    SUM = 'Sum'
-    SWITCH = 'Switch'
-    TRANSPOSE = 'Transpose'
-    UNPACK = 'Unpack'
-    SPARSE_SEGMENT_MEAN = 'SparseSegmentMean'
-    SPARSE_SEGMENT_SUM = 'SparseSegmentSum'
+    ADD = "Add"
+    ADD_N = "AddN"
+    ADD_V2 = "AddV2"
+    AVG_POOL = "AvgPool"
+    BATCH_MAT_MUL = "BatchMatMul"
+    BATCH_MAT_MUL_V2 = "BatchMatMulV2"
+    BATCH_NORM_WITH_GOLBAL_NORMALIZATION = "BatchNormWithGlobalNormalization"
+    BIAS_ADD = "BiasAdd"
+    CAST = "Cast"
+    CONCAT_V2 = "ConcatV2"
+    CONST = "Const"
+    CONV2D = "Conv2D"
+    CUDNN_RNN = "CudnnRNN"
+    ENTER = "Enter"
+    EXIT = "Exit"
+    EXPAND_DIMS = "ExpandDims"
+    FUSED_BATCH_NORM = "FusedBatchNorm"
+    FUSED_BATCH_NORM_V2 = "FusedBatchNormV2"
+    FUSED_BATCH_NORM_V3 = "FusedBatchNormV3"
+    GATHERV2 = "GatherV2"
+    GREATER = "Greater"
+    IDENTITY = "Identity"
+    IDENTITY_N = "IdentityN"
+    LESS = "Less"
+    LOOP_COND = "LoopCond"
+    MAT_MUL = "MatMul"
+    MAX = "Max"
+    MAX_POOL = "MaxPool"
+    MAXIMUM = "Maximum"
+    MEAN = "Mean"
+    MERGE = "Merge"
+    MINIMUM = "Minimum"
+    MUL = "Mul"
+    NEXT_ITERATION = "NextIteration"
+    PACK = "Pack"
+    PAD = "Pad"
+    PLACEHOLDER = "Placeholder"
+    RELU = "Relu"
+    RESHAPE = "Reshape"
+    RSQRT = "Rsqrt"
+    SHAPE = "Shape"
+    SLICE = "Slice"
+    SQUARE = "Square"
+    STRIDED_SLICE = "StridedSlice"
+    SUB = "Sub"
+    SUM = "Sum"
+    SWITCH = "Switch"
+    TRANSPOSE = "Transpose"
+    UNPACK = "Unpack"
+    SPARSE_SEGMENT_MEAN = "SparseSegmentMean"
+    SPARSE_SEGMENT_SUM = "SparseSegmentSum"
     # custom ops
-    BLADE_BATCH_MAT_MUL = 'BladeOptBatchMatMul'
-    BLADE_BILSTM = 'BladeBilstm'
-    BLADE_FUSED_LSTM_ELEMENT_WISE = 'BladeFusedLSTMElementWise'
-    FUSED_NMT_LAYER_NORM = 'BladeFusedTransformerLayerNorm'
-    BLADE_FUSED_EMBEDDING_SPARSE = 'BladeFusedEmbeddingSparse'
+    BLADE_BATCH_MAT_MUL = "BladeOptBatchMatMul"
+    BLADE_BILSTM = "BladeBilstm"
+    BLADE_FUSED_LSTM_ELEMENT_WISE = "BladeFusedLSTMElementWise"
+    FUSED_NMT_LAYER_NORM = "BladeFusedTransformerLayerNorm"
+    BLADE_FUSED_EMBEDDING_SPARSE = "BladeFusedEmbeddingSparse"
 
 
 # [Set node attribute]
@@ -90,14 +90,14 @@ def copy_node_attr(
     try:
         dst_node.attr[dst_key].CopyFrom(src_node.attr[src_key])
     except Exception as err:
-        logging.warning('Failed to copy attribute: {}'.format(err))
+        logging.warning("Failed to copy attribute: {}".format(err))
 
 
 def set_attr_bool(node: tf.NodeDef, key: str, value: bool) -> None:
     try:
         node.attr[key].CopyFrom(attr_value_pb2.AttrValue(b=value))
     except Exception as err:
-        logging.warning('Failed to set attribute: {}'.format(err))
+        logging.warning("Failed to set attribute: {}".format(err))
 
 
 def set_attr_dtype(node: tf.NodeDef, key: str, value: tf.DType) -> None:
@@ -105,7 +105,7 @@ def set_attr_dtype(node: tf.NodeDef, key: str, value: tf.DType) -> None:
         enum = value.as_datatype_enum
         node.attr[key].CopyFrom(attr_value_pb2.AttrValue(type=enum))
     except Exception as err:
-        logging.warning('Failed to set attribute: {}'.format(err))
+        logging.warning("Failed to set attribute: {}".format(err))
 
 
 def set_attr_dtype_list(node: tf.NodeDef, key: str, value: List[tf.DType]) -> None:
@@ -114,21 +114,21 @@ def set_attr_dtype_list(node: tf.NodeDef, key: str, value: List[tf.DType]) -> No
     try:
         node.attr[key].CopyFrom(attr_value_pb2.AttrValue(list=list_value))
     except Exception as err:
-        logging.warning('Failed to set attribute: {}'.format(err))
+        logging.warning("Failed to set attribute: {}".format(err))
 
 
 def set_attr_float(node: tf.NodeDef, key: str, value: float) -> None:
     try:
         node.attr[key].CopyFrom(attr_value_pb2.AttrValue(f=value))
     except Exception as err:
-        logging.warning('Failed to set attribute: {}'.format(err))
+        logging.warning("Failed to set attribute: {}".format(err))
 
 
 def set_attr_int(node: tf.NodeDef, key: str, value: int) -> None:
     try:
         node.attr[key].CopyFrom(attr_value_pb2.AttrValue(i=value))
     except Exception as err:
-        logging.warning('Failed to set attribute: {}'.format(err))
+        logging.warning("Failed to set attribute: {}".format(err))
 
 
 def set_attr_int_list(node: tf.NodeDef, key: str, value: List[int]) -> None:
@@ -136,7 +136,7 @@ def set_attr_int_list(node: tf.NodeDef, key: str, value: List[int]) -> None:
     try:
         node.attr[key].CopyFrom(attr_value_pb2.AttrValue(list=list_value))
     except Exception as err:
-        logging.warning('Failed to set attribute: {}'.format(err))
+        logging.warning("Failed to set attribute: {}".format(err))
 
 
 def set_attr_shape(
@@ -148,21 +148,21 @@ def set_attr_shape(
         shape_attr = attr_value_pb2.AttrValue(shape=shape_prt)
         node.attr[key].CopyFrom(shape_attr)
     except Exception as err:
-        logging.warning('Failed to set attribute: {}'.format(err))
+        logging.warning("Failed to set attribute: {}".format(err))
 
 
 def set_attr_string(node: tf.NodeDef, key: str, value: str) -> None:
     try:
-        node.attr[key].CopyFrom(attr_value_pb2.AttrValue(s=value.encode('utf-8')))
+        node.attr[key].CopyFrom(attr_value_pb2.AttrValue(s=value.encode("utf-8")))
     except Exception as err:
-        logging.warning('Failed to set attribute: {}'.format(err))
+        logging.warning("Failed to set attribute: {}".format(err))
 
 
 def set_attr_byte(node: tf.NodeDef, key: str, value: bytes) -> None:
     try:
         node.attr[key].CopyFrom(attr_value_pb2.AttrValue(s=value))
     except Exception as err:
-        logging.warning('Failed to set attribute: {}'.format(err))
+        logging.warning("Failed to set attribute: {}".format(err))
 
 
 # [Add node]
@@ -184,7 +184,7 @@ def add_binary_op(
     data_type: tf.DType,
 ) -> None:
     node = _add_op_common(graph_def, op_type, input_name_list, name)
-    set_attr_dtype(node, 'T', data_type)
+    set_attr_dtype(node, "T", data_type)
 
 
 def add_bias_add(
@@ -193,12 +193,12 @@ def add_bias_add(
     bias_name: str,
     name: str,
     data_type: tf.DType,
-    data_format: str = 'NHWC',
+    data_format: str = "NHWC",
 ) -> None:
     input_name_list = [input_name, bias_name]
     node = _add_op_common(graph_def, OpType.BIAS_ADD, input_name_list, name)
-    set_attr_dtype(node, 'T', data_type)
-    set_attr_string(node, 'data_format', data_format)
+    set_attr_dtype(node, "T", data_type)
+    set_attr_string(node, "data_format", data_format)
 
 
 def add_cast(
@@ -209,8 +209,8 @@ def add_cast(
     dst_type: tf.DType,
 ) -> None:
     node = _add_op_common(graph_def, OpType.CAST, [input_name], name)
-    set_attr_dtype(node, 'SrcT', src_type)
-    set_attr_dtype(node, 'DstT', dst_type)
+    set_attr_dtype(node, "SrcT", src_type)
+    set_attr_dtype(node, "DstT", dst_type)
 
 
 def add_concat_v2(
@@ -223,13 +223,13 @@ def add_concat_v2(
     axis: int = 0,
 ) -> None:
     if input_axis_name is None:
-        input_axis_name = '{}/axis'.format(name)
+        input_axis_name = "{}/axis".format(name)
         add_const(graph_def, np.array(axis), input_axis_name, idx_type)
     input_name_list.append(input_axis_name)
     node = _add_op_common(graph_def, OpType.CONCAT_V2, input_name_list, name)
-    set_attr_int(node, 'N', len(input_name_list) - 1)
-    set_attr_dtype(node, 'T', data_type)
-    set_attr_dtype(node, 'Tidx', idx_type)
+    set_attr_int(node, "N", len(input_name_list) - 1)
+    set_attr_dtype(node, "T", data_type)
+    set_attr_dtype(node, "Tidx", idx_type)
 
 
 def add_const(
@@ -251,14 +251,14 @@ def add_cudnn_rnn_lstm(
 ) -> None:
     input_name_list = [input_name, input_h_name, input_c_name, param_name]
     node = _add_op_common(graph_def, OpType.CUDNN_RNN, input_name_list, name)
-    set_attr_dtype(node, 'T', data_type)
-    set_attr_string(node, 'direction', 'unidirectional')
-    set_attr_float(node, 'dropout', 0.0)
-    set_attr_string(node, 'input_mode', 'linear_input')
-    set_attr_bool(node, 'is_training', False)
-    set_attr_string(node, 'rnn_mode', 'lstm')
-    set_attr_int(node, 'seed', 0)
-    set_attr_int(node, 'seed2', 0)
+    set_attr_dtype(node, "T", data_type)
+    set_attr_string(node, "direction", "unidirectional")
+    set_attr_float(node, "dropout", 0.0)
+    set_attr_string(node, "input_mode", "linear_input")
+    set_attr_bool(node, "is_training", False)
+    set_attr_string(node, "rnn_mode", "lstm")
+    set_attr_int(node, "seed", 0)
+    set_attr_int(node, "seed2", 0)
 
 
 def add_expand_dims(
@@ -271,12 +271,12 @@ def add_expand_dims(
     dim: int = 0,
 ) -> None:
     if input_dim_name is None:
-        input_dim_name = '{}/dim'.format(name)
+        input_dim_name = "{}/dim".format(name)
         add_const(graph_def, np.array(dim), input_dim_name, dim_type)
     input_name_list = [input_name, input_dim_name]
     node = _add_op_common(graph_def, OpType.EXPAND_DIMS, input_name_list, name)
-    set_attr_dtype(node, 'T', data_type)
-    set_attr_dtype(node, 'Tdim', dim_type)
+    set_attr_dtype(node, "T", data_type)
+    set_attr_dtype(node, "Tdim", dim_type)
 
 
 def add_fused_batch_norm(
@@ -289,16 +289,16 @@ def add_fused_batch_norm(
 ) -> None:
     op_type = OpType.FUSED_BATCH_NORM
     node = _add_op_common(graph_def, op_type, input_name_list, name)
-    set_attr_dtype(node, 'T', data_type)
-    set_attr_float(node, 'epsilon', epsilon)
-    set_attr_bool(node, 'is_training', is_training)
+    set_attr_dtype(node, "T", data_type)
+    set_attr_float(node, "epsilon", epsilon)
+    set_attr_bool(node, "is_training", is_training)
 
 
 def add_identity(
     graph_def: tf.GraphDef, input_name: str, name: str, data_type: tf.DType
 ) -> tf.NodeDef:
     node = _add_op_common(graph_def, OpType.IDENTITY, [input_name], name)
-    set_attr_dtype(node, 'T', data_type)
+    set_attr_dtype(node, "T", data_type)
     return node
 
 
@@ -309,7 +309,7 @@ def add_identity_n(
     data_type_list: List[tf.DType],
 ) -> None:
     node = _add_op_common(graph_def, OpType.IDENTITY_N, input_name_list, name)
-    set_attr_dtype_list(node, 'T', data_type_list)
+    set_attr_dtype_list(node, "T", data_type_list)
 
 
 def add_max(
@@ -323,9 +323,9 @@ def add_max(
 ) -> None:
     input_name_list = [input_name, axis_input_name]
     node = _add_op_common(graph_def, OpType.MAX, input_name_list, name)
-    set_attr_dtype(node, 'T', data_type)
-    set_attr_dtype(node, 'Tidx', idx_type)
-    set_attr_bool(node, 'keep_dims', keep_dims)
+    set_attr_dtype(node, "T", data_type)
+    set_attr_dtype(node, "Tidx", idx_type)
+    set_attr_bool(node, "keep_dims", keep_dims)
 
 
 def add_maximum(
@@ -339,8 +339,8 @@ def add_merge(
     graph_def: tf.GraphDef, input_name_list: List[str], name: str, data_type: tf.DType
 ) -> None:
     node = _add_op_common(graph_def, OpType.MERGE, input_name_list, name)
-    set_attr_dtype(node, 'T', data_type)
-    set_attr_int(node, 'N', len(input_name_list))
+    set_attr_dtype(node, "T", data_type)
+    set_attr_int(node, "N", len(input_name_list))
 
 
 def add_minimum(
@@ -363,24 +363,24 @@ def add_gather(
 ) -> None:
     input_name_list = [weight_name, query_name, axis_name]
     node = _add_op_common(graph_def, OpType.GATHERV2, input_name_list, name)
-    set_attr_dtype(node, 'Taxis', axis_type)
-    set_attr_dtype(node, 'Tindices', id_type)
-    set_attr_dtype(node, 'Tparams', params_type)
-    set_attr_int(node, 'batch_dims', batch_dims)
+    set_attr_dtype(node, "Taxis", axis_type)
+    set_attr_dtype(node, "Tindices", id_type)
+    set_attr_dtype(node, "Tparams", params_type)
+    set_attr_int(node, "batch_dims", batch_dims)
 
 
 def add_next_iteration(
     graph_def: tf.GraphDef, input_name_list: List[str], name: str, data_type: tf.DType
 ) -> None:
     node = _add_op_common(graph_def, OpType.NEXT_ITERATION, input_name_list, name)
-    set_attr_dtype(node, 'T', data_type)
+    set_attr_dtype(node, "T", data_type)
 
 
 def add_exit(
     graph_def: tf.GraphDef, input_name_list: List[str], name: str, data_type: tf.DType
 ) -> None:
     node = _add_op_common(graph_def, OpType.EXIT, input_name_list, name)
-    set_attr_dtype(node, 'T', data_type)
+    set_attr_dtype(node, "T", data_type)
 
 
 def add_pack(
@@ -391,9 +391,9 @@ def add_pack(
     axis: int = 0,
 ) -> None:
     node = _add_op_common(graph_def, OpType.PACK, input_name_list, name)
-    set_attr_dtype(node, 'T', data_type)
-    set_attr_int(node, 'N', len(input_name_list))
-    set_attr_int(node, 'axis', axis)
+    set_attr_dtype(node, "T", data_type)
+    set_attr_int(node, "N", len(input_name_list))
+    set_attr_int(node, "axis", axis)
 
 
 def add_pad(
@@ -406,8 +406,8 @@ def add_pad(
 ) -> None:
     input_name_list = [input_name, paddings_name]
     node = _add_op_common(graph_def, OpType.PAD, input_name_list, name)
-    set_attr_dtype(node, 'T', data_type)
-    set_attr_dtype(node, 'Tpaddings', paddings_type)
+    set_attr_dtype(node, "T", data_type)
+    set_attr_dtype(node, "Tpaddings", paddings_type)
 
 
 def add_placeholder(
@@ -429,8 +429,8 @@ def add_shape(
     out_type: tf.DType = tf.int32,
 ) -> None:
     node = _add_op_common(graph_def, OpType.SHAPE, [input_name], name)
-    set_attr_dtype(node, 'T', data_type)
-    set_attr_dtype(node, 'out_type', out_type)
+    set_attr_dtype(node, "T", data_type)
+    set_attr_dtype(node, "out_type", out_type)
 
 
 def add_reshape(
@@ -442,8 +442,8 @@ def add_reshape(
     shape_type: tf.DType = tf.int32,
 ) -> None:
     node = _add_op_common(graph_def, OpType.RESHAPE, [input_name, shape_name], name)
-    set_attr_dtype(node, 'T', data_type)
-    set_attr_dtype(node, 'Tshape', shape_type)
+    set_attr_dtype(node, "T", data_type)
+    set_attr_dtype(node, "Tshape", shape_type)
 
 
 def add_slice(
@@ -457,8 +457,8 @@ def add_slice(
 ) -> None:
     input_name_list = [input_name, begin_name, size_name]
     node = _add_op_common(graph_def, OpType.SLICE, input_name_list, name)
-    set_attr_dtype(node, 'T', data_type)
-    set_attr_dtype(node, 'Index', index_type)
+    set_attr_dtype(node, "T", data_type)
+    set_attr_dtype(node, "Index", index_type)
 
 
 def add_strided_slice(
@@ -475,13 +475,13 @@ def add_strided_slice(
 ) -> None:
     op_type = OpType.STRIDED_SLICE
     node = _add_op_common(graph_def, op_type, input_name_list, name)
-    set_attr_dtype(node, 'T', data_type)
-    set_attr_dtype(node, 'Index', index_type)
-    set_attr_int(node, 'begin_mask', begin_mask)
-    set_attr_int(node, 'ellipsis_mask', ellipsis_mask)
-    set_attr_int(node, 'end_mask', end_mask)
-    set_attr_int(node, 'new_axis_mask', new_axis_mask)
-    set_attr_int(node, 'shrink_axis_mask', shrink_axis_mask)
+    set_attr_dtype(node, "T", data_type)
+    set_attr_dtype(node, "Index", index_type)
+    set_attr_int(node, "begin_mask", begin_mask)
+    set_attr_int(node, "ellipsis_mask", ellipsis_mask)
+    set_attr_int(node, "end_mask", end_mask)
+    set_attr_int(node, "new_axis_mask", new_axis_mask)
+    set_attr_int(node, "shrink_axis_mask", shrink_axis_mask)
 
 
 def add_subgraph(
@@ -498,15 +498,15 @@ def add_subgraph(
             continue
         new_node = dst.node.add()
         new_node.MergeFrom(node)
-        new_node.name = f'{scope}/{node.name}'
-        new_inputs = [f'{scope}/{name}' for name in node.input]
-        new_node.ClearField('input')
+        new_node.name = f"{scope}/{node.name}"
+        new_inputs = [f"{scope}/{name}" for name in node.input]
+        new_node.ClearField("input")
         new_node.input.extend(new_inputs)
         if node.name in output_nodes:
             output_nodes[node.name] = new_node
     rename_node_inputs(
         dst,
-        {f'{scope}/{src_name}': dst_name for src_name, dst_name in input_dict.items()},
+        {f"{scope}/{src_name}": dst_name for src_name, dst_name in input_dict.items()},
     )
     return output_nodes
 
@@ -522,9 +522,9 @@ def add_sum(
 ) -> None:
     input_name_list = [input_name, axis_input_name]
     node = _add_op_common(graph_def, OpType.SUM, input_name_list, name)
-    set_attr_dtype(node, 'T', data_type)
-    set_attr_dtype(node, 'Tidx', idx_type)
-    set_attr_bool(node, 'keep_dims', keep_dims)
+    set_attr_dtype(node, "T", data_type)
+    set_attr_dtype(node, "Tidx", idx_type)
+    set_attr_bool(node, "keep_dims", keep_dims)
 
 
 def add_switch(
@@ -543,8 +543,8 @@ def add_transpose(
 ) -> None:
     input_name_list = [input_name, perm_name]
     node = _add_op_common(graph_def, OpType.TRANSPOSE, input_name_list, name)
-    set_attr_dtype(node, 'T', data_type)
-    set_attr_dtype(node, 'Tperm', perm_type)
+    set_attr_dtype(node, "T", data_type)
+    set_attr_dtype(node, "Tperm", perm_type)
 
 
 def add_unpack(
@@ -556,9 +556,9 @@ def add_unpack(
     axis: int = 0,
 ) -> None:
     node = _add_op_common(graph_def, OpType.UNPACK, [input_name], name)
-    set_attr_dtype(node, 'T', data_type)
-    set_attr_int(node, 'num', num)
-    set_attr_int(node, 'axis', axis)
+    set_attr_dtype(node, "T", data_type)
+    set_attr_int(node, "num", num)
+    set_attr_int(node, "axis", axis)
 
 
 def make_const_node(
@@ -571,17 +571,17 @@ def make_const_node(
 
 # [Basic graph utils]
 def get_node_name_parts_from_input(input_name: str) -> Tuple[str, str, str]:
-    input_parts = input_name.split(':')
+    input_parts = input_name.split(":")
     if len(input_parts) < 2:
-        suffix = ''
+        suffix = ""
     else:
-        suffix = ':' + input_parts[1]
+        suffix = ":" + input_parts[1]
     node_name = input_parts[0]
-    if node_name[0] == '^':
-        prefix = '^'
+    if node_name[0] == "^":
+        prefix = "^"
         node_name = node_name[1:]
     else:
-        prefix = ''
+        prefix = ""
     return prefix, node_name, suffix
 
 
@@ -594,7 +594,7 @@ def get_node_name_from_input(input_name: Optional[str]) -> str:
 
 def get_canonical_input_name(input_name: str) -> str:
     prefix, node_name, suffix = get_node_name_parts_from_input(input_name)
-    suffix = ':0' if suffix == '' else suffix
+    suffix = ":0" if suffix == "" else suffix
     return prefix + node_name + suffix
 
 
@@ -602,7 +602,7 @@ def get_unique_name(unique_name: str, graph_def: tf.GraphDef) -> str:
     node_name_list = [node.name for node in graph_def.node]
     if unique_name in node_name_list:
         for i in range(len(node_name_list)):
-            unique_name = '{}/{}'.format(unique_name, i + 1)
+            unique_name = "{}/{}".format(unique_name, i + 1)
             if unique_name not in node_name_list:
                 break
     return unique_name
@@ -610,8 +610,8 @@ def get_unique_name(unique_name: str, graph_def: tf.GraphDef) -> str:
 
 def get_const_value(node: tf.NodeDef) -> np.ndarray:
     # Alternatively
-    # tf.contrib.util.constant_value(tensor) will get a tensor's constant value
-    return tensor_util.MakeNdarray(node.attr['value'].tensor)
+    # tf.contrib.util.constant_value(tensor) will get a tensor"s constant value
+    return tensor_util.MakeNdarray(node.attr["value"].tensor)
 
 
 def get_const_value_by_name(
@@ -624,7 +624,7 @@ def get_const_value_by_name(
         node_name = get_node_name_from_input(name)
         founds = [nd for nd in graph_def.node if nd.name == node_name]
         if len(founds) == 0:
-            error_msg = 'Unknown node name: {}'.format(node_name)
+            error_msg = "Unknown node name: {}".format(node_name)
             raise Exception(error_msg)
         return get_const_value(founds[0])
 
@@ -656,13 +656,13 @@ def get_node_attr_value(node: tf.NodeDef, attr: str, vname: str) -> Any:
 def get_node_attr_value_ex(node: tf.NodeDef, attr: str, vname: str) -> Any:
     ret = get_node_attr_value(node, attr, vname)
     if ret is None:
-        error_msg = 'Unknown attribute {} in {}'.format(attr, node.name)
+        error_msg = "Unknown attribute {} in {}".format(attr, node.name)
         raise Exception(error_msg)
     return ret
 
 
 def get_node_type(node: tf.NodeDef, attr: str) -> tf.DType:
-    return tf.DType(get_node_attr_value_ex(node, attr, 'type'))
+    return tf.DType(get_node_attr_value_ex(node, attr, "type"))
 
 
 def get_node_type_by_name(
@@ -686,11 +686,11 @@ def get_shape_by_name(graph: tf.Graph, name: str) -> Optional[List[int]]:
 
 
 def get_tensor_format(node: tf.NodeDef, attr: str) -> str:
-    return str(node.attr[attr].s.decode('utf-8')) if attr in node.attr else 'NHWC'
+    return str(node.attr[attr].s.decode("utf-8")) if attr in node.attr else "NHWC"
 
 
 def get_filter_format(node: tf.NodeDef, attr: str) -> str:
-    return str(node.attr[attr].s.decode('utf-8')) if attr in node.attr else 'OHWI'
+    return str(node.attr[attr].s.decode("utf-8")) if attr in node.attr else "OHWI"
 
 
 # [Graph transform utils]
@@ -728,7 +728,7 @@ def rename_node_inputs(graph_def: tf.GraphDef, rename_dict: Dict[str, str]) -> N
                     new_inputs.append(rename_dict[canonical_input_name])
                 else:
                     new_inputs.append(input_name)
-            graph_def.node[i].ClearField('input')
+            graph_def.node[i].ClearField("input")
             graph_def.node[i].input.extend(new_inputs)
 
 
@@ -741,8 +741,8 @@ def check_inputs(  # noqa: C901
     matched_name_map: Dict[str, str],
 ) -> bool:
     # check op type
-    if first_node.op != '*':
-        matched_ops = [op.strip() for op in first_node.op.split('|')]
+    if first_node.op != "*":
+        matched_ops = [op.strip() for op in first_node.op.split("|")]
         if current_node.op not in matched_ops:
             return False
     # check node name
@@ -750,12 +750,12 @@ def check_inputs(  # noqa: C901
         if matched_name_map[first_node.name] != current_node.name:
             return False
     # check inputs
-    if (len(first_node.inputs) == 1) and (first_node.inputs[0] == '*'):
+    if (len(first_node.inputs) == 1) and (first_node.inputs[0] == "*"):
         matched_name_map[first_node.name] = current_node.name
         return True
     # if inputs contains both unknown inputs and known inputs
-    if (len(first_node.inputs) > 1) and ('*' in first_node.inputs):
-        known_inputs = [name for name in first_node.inputs if name != '*']
+    if (len(first_node.inputs) > 1) and ("*" in first_node.inputs):
+        known_inputs = [name for name in first_node.inputs if name != "*"]
         start_idx = 0
         for key_name in known_inputs:
             matched = False
@@ -766,8 +766,8 @@ def check_inputs(  # noqa: C901
                 input_name = current_node.inputs[i]
                 cur_input_node = simple_graph.get_simple_node_by_name(input_name)
                 expected_input_op_str = (pattern_nodes[key_name].op).strip()
-                if '|' in expected_input_op_str:
-                    expected_input_ops = expected_input_op_str.split('|')
+                if "|" in expected_input_op_str:
+                    expected_input_ops = expected_input_op_str.split("|")
                 else:
                     expected_input_ops = list([expected_input_op_str])
                 if (cur_input_node.op in expected_input_ops) and (
@@ -846,11 +846,11 @@ def gen_pattern_graphviz(
                     inode = pattern_nodes[input]
                     if name not in inode.output_nodes:
                         raise Exception(
-                            f"node '{input}' in node '{name}' input list, but node '{name}' not in node '{input}' output list"
+                            f"node {input} in node {name} input list, but node {name} not in node {input} output list"
                         )
             else:
                 inop = "-"
-            vizcode += f'    "{input}@{inop}" -> "{node.name}@{node.op}";\n'
+            vizcode += f"    {input}@{inop} -> {node.name}@{node.op};\n"
     vizcode += "}\n"
 
     return vizcode
@@ -936,20 +936,20 @@ def add_condition_pattern(
             if input_name in updated_inputs:
                 switch_name = updated_inputs[input_name]
             else:
-                switch_name = '{}/cond/Switch/input_{}'.format(node.name, i)
+                switch_name = "{}/cond/Switch/input_{}".format(node.name, i)
                 updated_inputs[input_name] = switch_name
                 input_name_list = [input_name, condition_name]
                 add_switch(graph_def, input_name_list, switch_name, data_type)
-            name = '{}:1'.format(switch_name) if condition else switch_name
+            name = "{}:1".format(switch_name) if condition else switch_name
             node.input[i] = name
     # Add Merge ops for outputs
     output_names = list()
     for i in range(output_num):
         true_name = true_node.name
         false_name = false_node.name
-        true_out = '{}:{}'.format(true_name, i) if i > 0 else true_name
-        false_out = '{}:{}'.format(false_name, i) if i > 0 else false_name
-        output_names.append('{}/cond/Merge/output_{}'.format(output_name, i))
+        true_out = "{}:{}".format(true_name, i) if i > 0 else true_name
+        false_out = "{}:{}".format(false_name, i) if i > 0 else false_name
+        output_names.append("{}/cond/Merge/output_{}".format(output_name, i))
         tmp_inputs = [true_out, false_out]
         add_merge(graph_def, tmp_inputs, output_names[-1], data_type)
     data_type_list = [data_type] * output_num
@@ -960,15 +960,15 @@ def add_condition_pattern(
 def transform_graph(
     graph_def: tf.GraphDef, inputs: List[str], outputs: List[str], transforms: List[str]
 ) -> Optional[tf.GraphDef]:
-    logging.info(('Graph transformations:\n{}').format(transforms))
+    logging.info(("Graph transformations:\n{}").format(transforms))
     try:
         opt_graph_def = TransformGraph(graph_def, inputs, outputs, transforms)
         tf.reset_default_graph()
-        tf.import_graph_def(opt_graph_def, name='')
+        tf.import_graph_def(opt_graph_def, name="")
     except Exception as err:
-        info = 'Error encountered while transformation: {}'.format(err)
+        info = "Error encountered while transformation: {}".format(err)
         if len(info) > 1024:
-            info = info[:1024] + '...'
+            info = info[:1024] + "..."
         logging.warning(info)
         return None
     return opt_graph_def
@@ -978,7 +978,7 @@ def remove_identity_nodes(
     graph_def: tf.GraphDef, graph_inputs: List[str], graph_outputs: List[str]
 ) -> tf.GraphDef:
     opt_graph_def = transform_graph(
-        graph_def, graph_inputs, graph_outputs, ['remove_nodes(op=Identity)']
+        graph_def, graph_inputs, graph_outputs, ["remove_nodes(op=Identity)"]
     )
     return opt_graph_def or graph_def
 
@@ -987,9 +987,9 @@ def sort_by_execution_order(
     graph_def: tf.GraphDef, graph_inputs: List[str], graph_outputs: List[str]
 ) -> tf.GraphDef:
     transforms = [
-        'merge_duplicate_nodes',
-        'strip_unused_nodes',
-        'sort_by_execution_order',
+        "merge_duplicate_nodes",
+        "strip_unused_nodes",
+        "sort_by_execution_order",
     ]
     for transform in transforms:
         opt_graph_def = transform_graph(
@@ -1022,7 +1022,7 @@ def try_get_const_or_enter_node_value(
         return try_get_const_or_enter_node_value(
             graph_def, simple_graph, str(node.input[0])
         )
-    logging.warning('Failed to get Const value from Node named: {}.'.format(name))
+    logging.warning("Failed to get Const value from Node named: {}.".format(name))
     return None
 
 
@@ -1032,12 +1032,12 @@ def try_get_2d_weight_tensor_shape(
     tensor_weight = try_get_const_or_enter_node_value(graph_def, simple_graph, name)
     if tensor_weight is None:
         logging.error(
-            'Fail to get const or enter-const node {} weight shape'.format(name)
+            "Fail to get const or enter-const node {} weight shape".format(name)
         )
         return None
     weight_shape_list = list(tensor_weight.shape)
     if len(weight_shape_list) != 2:
-        logging.error('Invalid MatMul weight tensor, with shape dimensions not equal 2')
+        logging.error("Invalid MatMul weight tensor, with shape dimensions not equal 2")
         return None
     return weight_shape_list
 
@@ -1047,22 +1047,22 @@ def try_get_1d_tensor_strided_slice_info(
 ) -> Optional[List[int]]:
     if node.op != OpType.STRIDED_SLICE.value:
         return None
-    if not (node.attr['begin_mask'].i == int(0) or node.attr['begin_mask'].i == int(1)):
+    if not (node.attr["begin_mask"].i == int(0) or node.attr["begin_mask"].i == int(1)):
         return None
-    if node.attr['end_mask'].i != int(0):
+    if node.attr["end_mask"].i != int(0):
         return None
-    if node.attr['ellipsis_mask'].i != int(0):
+    if node.attr["ellipsis_mask"].i != int(0):
         return None
     beg = try_get_const_or_enter_node_value(graph_def, simple_graph, str(node.input[1]))
     if beg is None:
         logging.warning(
-            'Fail to get beg info for strided_slice node {}'.format(node.name)
+            "Fail to get beg info for strided_slice node {}".format(node.name)
         )
         return None
     end = try_get_const_or_enter_node_value(graph_def, simple_graph, str(node.input[2]))
     if end is None:
         logging.warning(
-            'Fail to get end info for strided_slice node {}'.format(node.name)
+            "Fail to get end info for strided_slice node {}".format(node.name)
         )
         return None
     stride = try_get_const_or_enter_node_value(
@@ -1070,13 +1070,13 @@ def try_get_1d_tensor_strided_slice_info(
     )
     if stride is None:
         logging.warning(
-            'Fail to get stride info for strided_slice node {}'.format(node.name)
+            "Fail to get stride info for strided_slice node {}".format(node.name)
         )
         return None
     out = list()
     for x in [beg, end, stride]:
         if (x.dtype != np.int32) or (x.size != 1):
-            logging.warning('Got invalid 1D Tensor StridedSlice stack info.')
+            logging.warning("Got invalid 1D Tensor StridedSlice stack info.")
             return None
         else:
             out.append(int(x))

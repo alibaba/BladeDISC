@@ -13,8 +13,6 @@
 set -o pipefail
 set -e
 
-export CXXFLAGS=${CXXFLAGS:-"-Wno-deprecated-declarations"}
-export CFLAGS=${CFLAGS:-"-Wno-deprecated-declarations"}
 export CUDA_HOME=${CUDA_HOME:-/usr/local/cuda/}
 export CUDACXX=${CUDACXX:-"${CUDA_HOME}/bin/nvcc"}
 export PATH=${CUDA_HOME}/bin/:$PATH
@@ -45,6 +43,7 @@ function ci_build() {
     else
       extra_args=""
       python3 ../scripts/python/common_setup.py
+      bazel clean --expunge
     fi
 
     export TORCH_BLADE_BUILD_TENSORRT=ON

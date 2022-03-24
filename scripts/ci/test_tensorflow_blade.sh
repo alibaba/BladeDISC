@@ -27,6 +27,10 @@ python -m virtualenv venv && source venv/bin/activate
   && ./build.py ../venv/ -s configure \
   && ./build.py ../venv/ -s check \
   && ./build.py ../venv/ -s build \
-  && ./build.py ../venv/ -s test)
+  && ./build.py ../venv/ -s test \
+  && ./build.py ../venv/ -s package)
+
+mkdir -p build && \
+mv tensorflow_blade/dist/tensorflow_blade*.whl ./build
 
 deactivate

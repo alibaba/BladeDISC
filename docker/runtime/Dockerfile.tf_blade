@@ -3,6 +3,7 @@ FROM ${BASEIMAGE}
 
 ADD ./docker/scripts /install/scripts
 RUN bash /install/scripts/find-fastest-apt.sh
+RUN apt-get install -y wget
 RUN bash /install/scripts/install-tensorrt.sh
 
 ADD ./build/tensorflow_blade*.whl  /install/python/

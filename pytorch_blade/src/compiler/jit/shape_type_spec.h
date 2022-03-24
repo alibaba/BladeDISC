@@ -48,7 +48,10 @@ class ShapeTypeSpec {
   static ShapeTypeSpec Deserialize(const std::string&);
   static ShapeTypeSpec GetShapeTypeSpec(const torch::List<torch::Tensor>&);
   static ShapeTypeSpec GetShapeTypeSpec(
-      const std::vector<const torch::jit::Value*>& values);
+      const std::vector<const torch::jit::Value*>& values,
+      bool force_concurrent = true);
+  // static ShapeTypeSpec GetShapeTypeSpec(
+  //    const std::vector<const torch::jit::Value*>& values);
 
   const std::vector<ShapeType>& shape_types() const {
     return shape_types_;

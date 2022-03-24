@@ -184,17 +184,16 @@ std::vector<torch::lazy::BackendDataPtr> DISCBackendImpl::ExecuteComputation(
     torch::lazy::Computation& computation,
     c10::ArrayRef<torch::lazy::BackendDataPtr> arguments,
     const torch::lazy::BackendDevice& device) const {
-  auto ts_computation = static_cast<torch::lazy::TSComputation&>(computation);
+  auto& ts_computation = static_cast<torch::lazy::TSComputation&>(computation);
   std::vector<c10::IValue> disc_inputs;
   try {
-    disc_inputs = DiscJIT(ts_computation, arguments);
+    disc_inputs = DiscJIT(ts_computation.graph(), arguments);
   } catch (std::exception& e) {
     LOG(FATAL) << e.what();
     throw(e);
   }
-  // torch::jit::GraphExecutor& graph_executor =
-  // ts_computation.graph_executor();
-  torch::jit::GraphExecutor graph_executor(ts_computation.graph(), "");
+  torch::jit::GraphExecutor& graph_executor = ts_computation.graph_executor();
+  // torch::jit::GraphExecutor graph_executor(ts_computation.graph(), "");
 
   std::vector<torch::jit::IValue> stack;
   for (auto argument : arguments) {
@@ -209,7 +208,7 @@ std::vector<torch::lazy::BackendDataPtr> DISCBackendImpl::ExecuteComputation(
       stack.emplace_back(ts_data->data());
     }
   }
-  stack.insert(stack.end(), disc_inputs.begin(), disc_inputs.end());
+  // stack.insert(stack.end(), disc_inputs.begin(), disc_inputs.end());
   graph_executor.run(stack);
   std::vector<torch::lazy::BackendDataPtr> results;
   for (torch::jit::IValue component : stack) {

@@ -14,7 +14,7 @@ namespace torch_disc {
 namespace compiler {
 
 std::vector<c10::IValue> DiscJIT(
-    torch::lazy::TSComputation& computation,
+    const std::shared_ptr<torch::jit::Graph>& graph,
     c10::ArrayRef<torch::lazy::BackendDataPtr> arguments);
 
 }  //  namespace compiler

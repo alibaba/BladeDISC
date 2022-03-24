@@ -78,8 +78,8 @@ void DiscSubgraphInputsCast(Graph* disc_graph, size_t i) {
   disc_graph->eraseInput(i + 1);
 }
 
-void CastToTensorInputs(const std::shared_ptr<Graph>& graph, Node* sub_graph,
-                        Node* disc_node) {
+void CastGraphInputsToTensor(const std::shared_ptr<Graph>& graph,
+                             Node* sub_graph, Node* disc_node) {
   auto disc_graph = disc_node->owningGraph();
 
   size_t inputs = sub_graph->inputs().size();
@@ -118,7 +118,7 @@ void FusionDiscNodes(const std::shared_ptr<Graph>& graph) {
       group_out->setType(out->type());
     }
     node->destroy();
-    CastToTensorInputs(graph, group, node_merged);
+    CastGraphInputsToTensor(graph, group, node_merged);
   }
   torch::jit::EliminateDeadCode(graph);
 }
@@ -158,6 +158,13 @@ std::string CallDiscCompiler(const std::string& mlir_fname) {
   return out_fname;
 }
 
+std::vector<const torch::jit::Value*> ToConstValue(
+    c10::ArrayRef<torch::jit::Value*> values) {
+  std::vector<const torch::jit::Value*> const_vals;
+  std::copy(values.begin(), values.end(), std::back_inserter(const_vals));
+  return const_vals;
+}
+
 std::vector<c10::IValue> DiscCompilation(const std::shared_ptr<Graph>& graph) {
   std::vector<c10::IValue> disc_inputs;
   std::vector<torch::jit::Node*> disc_nodes;
@@ -176,6 +183,14 @@ std::vector<c10::IValue> DiscCompilation(const std::shared_ptr<Graph>& graph) {
     auto output_fname = CallDiscCompiler(mlir_fname);
     option->executable_prog_bytes = ReadFileBytes(output_fname);
     option->constant_bytes = ReadFileBytes(output_fname + ".pbtxt");
+    option->input_type_spec_str =
+        torch::blade::ShapeTypeSpec::GetShapeTypeSpec(
+            ToConstValue(sub_graph->inputs()), false /**force_concrete**/)
+            .Serialize();
+    option->output_type_spec_str =
+        torch::blade::ShapeTypeSpec::GetShapeTypeSpec(
+            ToConstValue(sub_graph->outputs()), false /**force_concret**/)
+            .Serialize();
 
     // add DiscClass object as graph input
     c10::IValue disc_val = torch::make_custom_class<DiscClass>(option);
@@ -217,7 +232,10 @@ std::vector<c10::IValue> DiscCompilation(const std::shared_ptr<Graph>& graph) {
 
 void InferShapes(const std::shared_ptr<Graph>& graph,
                  c10::ArrayRef<torch::lazy::BackendDataPtr> arguments) {
-  for (size_t i = 0; i < graph->inputs().size(); ++i) {
+  std::cout << "InferShape graph: \n" << graph->toString() << std::endl;
+  std::cout << "input size: " << graph->inputs().size() << "\t"
+            << arguments.size() << std::endl;
+  for (size_t i = 0; i < arguments.size(); ++i) {
     auto argument = arguments[i];
     auto input = graph->inputs()[i];
     const auto ts_data = std::static_pointer_cast<TSData>(argument);
@@ -234,10 +252,9 @@ void RegisterDiscClass(const std::shared_ptr<Graph>& graph,
                        const std::string& meta_fname) {}
 
 std::vector<c10::IValue> DiscJIT(
-    torch::lazy::TSComputation& computation,
+    const std::shared_ptr<Graph>& graph,
     c10::ArrayRef<torch::lazy::BackendDataPtr> arguments) {
   // auto graph = computation.graph()->copy();
-  auto graph = computation.graph();
   // 1. clustering and group DISC nodes
   // 2. conversion from torchscript Graph to mhlo Dialect on DISC nodes
   // 2. register DISC Custom Class

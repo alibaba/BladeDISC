@@ -31,8 +31,8 @@ DiscClass::DiscClass(std::shared_ptr<DiscClassOption>& option) {
 
 torch::List<torch::Tensor> DiscClass::Run(
     const torch::List<torch::Tensor>& inputs) {
-  std::cout << "DiscClass::Run !!!" << std::endl;
-  return ral_ctx_->Forward(inputs);
+  auto ret = ral_ctx_->Forward(inputs);
+  return ret;
 }
 
 }  //  namespace compiler

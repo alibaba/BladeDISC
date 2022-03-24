@@ -190,10 +190,10 @@ std::vector<torch::lazy::BackendDataPtr> DISCBackendImpl::ExecuteComputation(
     disc_inputs = DiscJIT(ts_computation.graph(), arguments);
   } catch (std::exception& e) {
     LOG(FATAL) << e.what();
-    throw(e);
   }
   // TODO(yancey1989): should cache the graph_executor to avoid re-initialize
   // it at each iteration.
+  // auto graph_executor = ts_computation.graph_executor();
   torch::jit::GraphExecutor graph_executor(ts_computation.graph(), "");
 
   std::vector<torch::jit::IValue> stack;

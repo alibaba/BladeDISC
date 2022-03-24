@@ -1,3 +1,3 @@
 try-import ../tf_community/.bazelrc
 try-import ../tf_community/.bazelrc.user
-build --verbose_failures --remote_cache=http://172.17.101.135:9090 --config=disc_cuda
+build --verbose_failures --remote_cache=http://172.17.101.135:9090 --config=disc_cuda --copt=-DTORCH_BLADE_BUILD_WITH_CUDA

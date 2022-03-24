@@ -56,6 +56,7 @@ class BazelBuild():
 
         self.shell_setting = "set -e; set -o pipefail; "
         self.build_cmd = "bazel build"
+        self.ci_flag = "--noshow_loading_progress --show_progress_rate_limit=600"
 
     def fix_generated_code(self):
         cmd = [os.path.join("scripts", "pytorch_patch.sh")]
@@ -80,6 +81,9 @@ class BazelBuild():
             [self.shell_setting, self.build_cmd]
             + self.extra_opts
         )
+        if os.getenv("GITHUB_ACTIONS", ""):
+            bazel_cmd += "--noshow_loading_progress --show_progress_rate_limit=600"
+
         with open("debug_bazel.sh", "w") as f:
             f.write("#!/bin/bash\n")
             f.write("export LD_LIBRARY_PATH={}\n".format(ld_library_path))

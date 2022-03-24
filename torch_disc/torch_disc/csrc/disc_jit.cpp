@@ -247,10 +247,6 @@ void InferShapes(const std::shared_ptr<Graph>& graph,
   torch::jit::PropagateInputShapes(graph);
 }
 
-void RegisterDiscClass(const std::shared_ptr<Graph>& graph,
-                       const std::string& executable_prog_fname,
-                       const std::string& meta_fname) {}
-
 std::vector<c10::IValue> DiscJIT(
     const std::shared_ptr<Graph>& graph,
     c10::ArrayRef<torch::lazy::BackendDataPtr> arguments) {

@@ -192,8 +192,10 @@ std::vector<torch::lazy::BackendDataPtr> DISCBackendImpl::ExecuteComputation(
     LOG(FATAL) << e.what();
     throw(e);
   }
-  torch::jit::GraphExecutor& graph_executor = ts_computation.graph_executor();
-  // torch::jit::GraphExecutor graph_executor(ts_computation.graph(), "");
+  // TODO(yancey1989): should implement DISC JIT
+  // torch::jit::GraphExecutor& graph_executor =
+  // ts_computation.graph_executor();
+  torch::jit::GraphExecutor graph_executor(ts_computation.graph(), "");
 
   std::vector<torch::jit::IValue> stack;
   for (auto argument : arguments) {
@@ -208,7 +210,7 @@ std::vector<torch::lazy::BackendDataPtr> DISCBackendImpl::ExecuteComputation(
       stack.emplace_back(ts_data->data());
     }
   }
-  // stack.insert(stack.end(), disc_inputs.begin(), disc_inputs.end());
+  stack.insert(stack.end(), disc_inputs.begin(), disc_inputs.end());
   graph_executor.run(stack);
   std::vector<torch::lazy::BackendDataPtr> results;
   for (torch::jit::IValue component : stack) {

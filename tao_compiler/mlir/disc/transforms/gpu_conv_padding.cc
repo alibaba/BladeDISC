@@ -190,8 +190,8 @@ struct DiscGpuConvPaddingLegalizationPass
       return;
     }
 
-    // We only support Conv2D ATM.
-    if (num_spatial_dims != 2) {
+    // We only support Conv1D and Conv2D ATM.
+    if (num_spatial_dims > 2) {
       return;
     }
 

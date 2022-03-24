@@ -80,15 +80,7 @@ torch::jit::Node* create_get_attr_node(
 bool is_concrete_shape_tensor_type(const torch::jit::Value& val) {
   const auto& tensor_type = val.type()->cast<torch::TensorType>();
   if (tensor_type) {
-    std::cout << "is tensor type"
-              << "\t" << int(tensor_type->scalarType().has_value()) << "\t"
-              << tensor_type->dim() << "\t"
-              << (tensor_type->sizes().concrete_sizes().has_value())
-              << std::endl;
     return tensor_type->scalarType() && tensor_type->sizes().concrete_sizes();
-    // return tensor_type->scalarType().has_value();
-  } else {
-    std::cout << "not tensor type" << std::endl;
   }
 
   return false;

@@ -82,7 +82,7 @@ class BazelBuild():
             + self.extra_opts
         )
         if os.getenv("GITHUB_ACTIONS", ""):
-            bazel_cmd += "--noshow_loading_progress --show_progress_rate_limit=600"
+            bazel_cmd += self.ci_flag
 
         with open("debug_bazel.sh", "w") as f:
             f.write("#!/bin/bash\n")

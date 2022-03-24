@@ -192,9 +192,8 @@ std::vector<torch::lazy::BackendDataPtr> DISCBackendImpl::ExecuteComputation(
     LOG(FATAL) << e.what();
     throw(e);
   }
-  // TODO(yancey1989): should implement DISC JIT
-  // torch::jit::GraphExecutor& graph_executor =
-  // ts_computation.graph_executor();
+  // TODO(yancey1989): should cache the graph_executor to avoid re-initialize
+  // it at each iteration.
   torch::jit::GraphExecutor graph_executor(ts_computation.graph(), "");
 
   std::vector<torch::jit::IValue> stack;

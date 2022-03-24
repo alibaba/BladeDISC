@@ -300,14 +300,14 @@ def parse_args():
         "--tf", required=False, choices=["1.15", "2.4"], help="Tensorflow version.",
     )
     parser.add_argument(
-        '--skip_trt',
+        '--skip-trt',
         action="store_true",
         required=False,
         default=False,
         help="If True, tensorrt will be skipped for gpu build",
     )
     parser.add_argument(
-        '--skip_hie',
+        '--skip-hie',
         action="store_true",
         required=False,
         default=True,

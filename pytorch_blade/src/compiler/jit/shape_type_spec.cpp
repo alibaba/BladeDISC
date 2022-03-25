@@ -162,7 +162,7 @@ ShapeTypeSpec ShapeTypeSpec::GetShapeTypeSpec(
 }
 
 ShapeTypeSpec ShapeTypeSpec::GetShapeTypeSpec(
-    const std::vector<const torch::jit::Value*>& values) {
+    const std::vector<torch::jit::Value*>& values) {
   std::vector<ShapeType> shape_types;
   shape_types.reserve(values.size());
   for (const auto& val : values) {

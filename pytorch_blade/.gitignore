@@ -5,12 +5,10 @@ _generate/
 *.so
 *.py[cod]
 *.egg-info
-*.yml
 /.vscode/
 /*/__pycache__/
 *.proto3.pb.*
 *.gz
-/benchmark/*/
 compile_commands.json
 *.pt
 core.*

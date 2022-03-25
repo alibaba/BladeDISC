@@ -1,5 +1,4 @@
-#!/bin/bash
-# Copyright 2021 The BladeDISC Authors. All rights reserved.
+# Copyright 2022 The BladeDISC Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -11,15 +10,15 @@
 # limitations under the License.
 
 
+cwd=$(cd $(dirname "$0"); pwd)
+cd $cwd
+echo DIR: $(pwd)
 
-SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+wget -cnv https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/torch-blade/benchmark/torch-tensorrt/models.tar.gz -O models.tar.gz
+tar xfz models.tar.gz
 
-source ${SCRIPT_DIR}/deploy_docker.sh
+python3 perf_run.py --config=config/vgg16.yml
+python3 perf_run.py --config=config/yolov5.yml
+python3 perf_run.py --config=config/crnn.yml
 
-# build runtime Docker
-docker build -t ${REMOTE_RUNTIME_DOCKER} -f ${DOCKERFILE} \
-  --build-arg BASEIMAGE=${RUNTIME_BASEIMAGE} .
-
-
-# push TorchBlade runtime Docker images
-push_images
+cd ..

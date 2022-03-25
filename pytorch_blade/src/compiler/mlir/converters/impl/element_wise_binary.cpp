@@ -122,7 +122,7 @@ bool ConvertAtenBinaryCompareOp(
     auto rhs_rank = GetRankOfMlirValue(hlo_rhs);
     // TODO: to support type promotion
     if (rhs_rank != 0 && lhs_elem_type != rhs_elem_type) {
-      DLOG(INFO)
+      LOG(WARNING)
           << "Could not convert comparision operation with different element type";
       return false;
     }
@@ -190,7 +190,7 @@ bool ConvertAtenArange(
   const auto& loc = GetNodeLocation(ctx, node);
   auto dtype = node.input(1);
   if (!IsPrimConstant(*dtype)) {
-    DLOG(INFO) << "Only support static dtype.";
+    LOG(WARNING) << "Only support static dtype.";
     return false;
   }
   auto end = ctx.GetMlirValue(node.input(0));
@@ -207,7 +207,7 @@ bool ConvertAtenArange(
   if (!dtype_jit_ival || dtype_jit_ival->isNone()) {
     // Infer dtype from `end`.
     if (!input_mlir_type.isIntOrIndexOrFloat()) {
-      DLOG(INFO) << "Unsupported dtype of argument `end` for arange.";
+      LOG(WARNING) << "Unsupported dtype of argument `end` for arange.";
       return false;
     }
     if (input_mlir_type.isBF16() || input_mlir_type.isF16() ||

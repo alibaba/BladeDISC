@@ -17,11 +17,12 @@ cc_library(
     name = "torch_blade_mhlo_converter",
     srcs = [":torch_blade_mhlo_converter_srcs"],
     hdrs = [":torch_blade_mhlo_converter_hdrs"],
-    includes = ["../../../"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
+	"//src:torch_blade_include",
+	"//src/common_utils:torch_blade_logging",
         "@local_org_torch//:libtorch",
         "@org_mhlo_builder//csrc:mhlo_library",
     ],

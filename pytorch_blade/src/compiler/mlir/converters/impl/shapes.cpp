@@ -112,7 +112,7 @@ bool ConvertAtenT(MhloConversionContext& ctx, const torch::jit::Node& node) {
         BuildPermute(builder, loc, ml_tensor, {1, 0});
   } else {
     // It's illegal, ref: https://pytorch.org/docs/stable/generated/torch.t.html
-    DLOG(ERROR)
+    LOG(ERROR)
         << "Illegal torch.t usage found, please reference to https://pytorch.org/docs/stable/generated/torch.t.html";
     return false;
   }
@@ -130,7 +130,7 @@ bool ConvertAtenPermute(
 
   auto dims_ival = torch::jit::toIValue(jit_dims);
   if (!(dims_ival && dims_ival->isIntList())) {
-    DLOG(WARNING) << "Permute dimensions must be constants";
+    LOG(WARNING) << "Permute dimensions must be constants";
     return false;
   }
   auto dims = dims_ival->toIntList();
@@ -190,7 +190,7 @@ bool ConvertAtenSqueeze(
   c10::optional<uint64_t> optional_rank = tensor_type->sizes().size();
   mlir_dim_t rank = 0;
   if (!optional_rank) {
-    DLOG(WARNING) << "The tensor rank is unknown";
+    LOG(WARNING) << "The tensor rank is unknown";
     return false;
   } else {
     rank = *optional_rank;
@@ -324,13 +324,13 @@ bool ConvertAtenRoll(MhloConversionContext& ctx, const torch::jit::Node& node) {
 
   auto shifts_ival = torch::jit::toIValue(jit_shifts);
   if (!(shifts_ival && shifts_ival->isIntList())) {
-    DLOG(WARNING) << "aten::roll shifts must be constants";
+    LOG(WARNING) << "aten::roll shifts must be constants";
     return false;
   }
 
   auto dims_ival = torch::jit::toIValue(jit_dims);
   if (!(dims_ival && dims_ival->isIntList())) {
-    DLOG(WARNING) << "aten::roll dims must be constants";
+    LOG(WARNING) << "aten::roll dims must be constants";
     return false;
   }
   auto shifts = shifts_ival->toIntList();
@@ -412,7 +412,7 @@ bool ConvertAtenFlip(MhloConversionContext& ctx, const torch::jit::Node& node) {
   }
   auto dims_ival = torch::jit::toIValue(jit_dims);
   if (!(dims_ival && dims_ival->isIntList())) {
-    DLOG(WARNING) << "Flip dimensions must be constants";
+    LOG(WARNING) << "Flip dimensions must be constants";
     return false;
   }
   auto dims = dims_ival->toIntList();

@@ -11,10 +11,5 @@
 
 #pragma once
 
-#include "c10/util/Logging.h"
-
-#define DLOG(...)                                      \
-  if (std::getenv("TORCH_BLADE_DEBUG_LOG") != nullptr) \
-  LOG(__VA_ARGS__)
-
-#define LOG_ASSERT(condition) FATAL_IF(condition)
+#include "c10/util/Exception.h"
+#include "tensorflow/core/platform/default/logging.h"

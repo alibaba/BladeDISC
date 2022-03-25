@@ -22,5 +22,14 @@ namespace blade {
 std::vector<std::string> split(std::string line, const std::string& sep);
 TorchBladeDeclNewFlag(bool, TrustTracingShape);
 TorchBladeDeclNewFlag(bool, RecordClusterIOFlag);
+
+std::string AsciiStrToLower(const char* cstr);
+
+namespace env {
+bool ReadBoolFromEnvVar(const char* env_var_name, bool default_val);
+std::string ReadStringFromEnvVar(
+    const char* env_var_name,
+    std::string default_val);
+} // namespace env
 } // namespace blade
 } // namespace torch

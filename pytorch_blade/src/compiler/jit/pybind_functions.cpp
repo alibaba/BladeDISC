@@ -59,6 +59,7 @@ void initToolsBindings(py::module& m) {
   py::module tools =
       m.def_submodule("_tools", "torch_blade python toolkit bindings");
 
+  tools.def("read_bool_from_env", env::ReadBoolFromEnvVar);
   tools.def("merge_node_into_group", &torch::blade::MergeNodeIntoGroup);
   tools.def("clone_cpp_module", &torch::blade::clone_cpp_module);
   tools.def(

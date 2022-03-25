@@ -49,7 +49,7 @@ bool ConvertAtenSoftmax(
       BuildCastWithJitType(builder, loc, ml_raw_input, jit_dtype);
   if (!optional_input_casted) {
     TORCH_CHECK(jit_dtype != nullptr);
-    DLOG(INFO)
+    LOG(WARNING)
         << "Could not convert aten::softmax with invalid parameter: dtype %"
         << jit_dtype->debugName();
     return false;

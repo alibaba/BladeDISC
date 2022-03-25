@@ -94,7 +94,7 @@ bool IsMlirMhloSupported(const torch::jit::Node& node) {
       }
     }
   } catch (std::exception& err) {
-    DLOG(ERROR) << err.what();
+    LOG(ERROR) << err.what();
     return false;
   }
   return false;
@@ -209,7 +209,7 @@ ConvertTorchScriptToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
     ConvertToMhloImpl impl(graph, mlir_context);
     return impl.Run();
   } catch (std::exception& err) {
-    DLOG(ERROR) << err.what();
+    LOG(ERROR) << err.what();
     return std::make_tuple("", "", "", "");
   }
 }

@@ -1,6 +1,8 @@
 name: NGC Reusable workflow
 
 on:
+  schedule:
+    - cron: '30 23 * * *' # 11:30 pm
   workflow_call:
     secrets:
       ALIYUN_DOCKER_USERNAME:

@@ -5,7 +5,6 @@ _generate/
 *.so
 *.py[cod]
 *.egg-info
-*.yml
 /.vscode/
 /*/__pycache__/
 *.proto3.pb.*

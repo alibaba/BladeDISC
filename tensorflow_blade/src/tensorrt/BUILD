@@ -51,7 +51,6 @@ cc_library(
         ":tensorrt_tf_impl",
         "@local_config_tensorrt//:nvonnxparser_static",
         "@local_config_cuda//cuda:cudart_static",
-        # TODO(lanbo.llb): Add a static version for cudnn/cublas ???
         "@local_config_cuda//cuda:cudnn",
         "@local_config_cuda//cuda:cublas",
         "@local_config_cuda//cuda:cublasLt",

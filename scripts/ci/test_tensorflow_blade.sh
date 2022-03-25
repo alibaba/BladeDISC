@@ -24,7 +24,7 @@ VENV_PATH=venv
 python -m virtualenv ${VENV_PATH} && source ${VENV_PATH}/bin/activate
 
 (cd tensorflow_blade \
-  && python -m pip install --user -q -r requirement-tf2.4-cu110.txt \
+  && python -m pip install -q -r requirement-tf2.4-cu110.txt \
   && ./build.py ../${VENV_PATH} -s configure \
   && ./build.py ../${VENV_PATH} -s check \
   && ./build.py ../${VENV_PATH} -s build \

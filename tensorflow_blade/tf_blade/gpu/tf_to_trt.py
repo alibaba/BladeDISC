@@ -22,7 +22,7 @@ try:
 except ImportError:
     pass
 from tf_blade.util.simple_graph import GraphDefPartitioner
-from tf_blade.util.tf_conversion_util import get_subgraph_test_inputs_shapes
+from tf_blade.util.tf_conversion_util import get_subgraph_test_inputs_shapes, TRT_SUPPORTED_LIST
 from tf_blade.util.tf_graph_transform_util import OpType, set_attr_byte
 from tf_blade.util.tf_import_helper import tf
 
@@ -43,10 +43,10 @@ class Tf2TrtOpt:
 
     def __init__(
         self,
-        supported_list: List[str],
-        minimum_segment_size: int,
-        dynamic_opt: bool,
-        dump_dir: str,
+        supported_list: List[str] = list(TRT_SUPPORTED_LIST),
+        minimum_segment_size: int = 50,
+        dynamic_opt: bool = False,
+        dump_dir: str = '',
     ) -> None:
         super().__init__()
         self._supported_list = supported_list

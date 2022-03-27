@@ -614,80 +614,80 @@ CudnnConvParamsKey makeConvTuningCacheKey(MemRefType<T, N>& input,
   CudnnConvParamsKey key;
   static_assert(N > 2);
   const int effectiveN = (N < 4) ? 4 : N;
+  bool is_1d_conv = (N == 3);
   std::vector<int64_t> input_sizes(effectiveN);
   std::vector<int64_t> filter_sizes(effectiveN);
+  std::vector<int64_t> paddings_sizes(paddings.sizes[0] +
+                                      static_cast<int64_t>(is_1d_conv) * 2);
   std::vector<int64_t> output_sizes(effectiveN);
-  int64_t padding_orig_sizes = paddings.sizes[0];
-  std::vector<int32_t> padding_data(effectiveN);
-  int64_t metadata_orig_sizes = metadata.sizes[0];
-  std::vector<int32_t> metadata_data;
+  std::vector<int64_t> metadata_data(effectiveN * 3 + (effectiveN - 2) * 2);
 
-  bool is_1d_conv = (N == 3);
+  std::vector<std::vector<int64_t>*> target_sizes(
+      {&input_sizes, &filter_sizes, &output_sizes});
+  std::vector<int64_t*> source_sizes(
+      {&(input.sizes[0]), &(filter.sizes[0]), &(output.sizes[0])});
   // input, kernel, and output layout & sizes.
   for (int64_t layout_idx = 0; layout_idx < 3; layout_idx++) {
-    std::vector<int64_t>* sizes;
-    int64_t* orig_sizes;
-    if (layout_idx == 0) {
-      sizes = &input_sizes;
-      orig_sizes = &(input.sizes[0]);
-    } else if (layout_idx == 1) {
-      sizes = &filter_sizes;
-      orig_sizes = &(filter.sizes[0]);
-    } else {
-      sizes = &output_sizes;
-      orig_sizes = &(output.sizes[0]);
-    }
-    int64_t metadata_idx_base = layout_idx * N;
-    int64_t spatial_dim = metadata.data[metadata_idx_base + 2];
+    std::vector<int64_t>* target = target_sizes[layout_idx];
+    int64_t* source = source_sizes[layout_idx];
+    int64_t src_meta_idx_base = layout_idx * N;
+    int64_t spatial_dim = metadata.data[src_meta_idx_base + 2];
+    int64_t target_meta_idx_base = layout_idx * effectiveN;
     for (int64_t i = 0; i < N; i++) {
-      int64_t idx = metadata_idx_base + i;
-      int64_t orig_dim = metadata.data[idx];
-      int64_t dim = orig_dim;
-      if (is_1d_conv && (orig_dim > spatial_dim)) {
-        // We will insert one spatial dim just after the existing spatial dim.
-        dim = orig_dim + 1;
-      } else {
-        dim = orig_dim;
+      int64_t src_meta_idx = src_meta_idx_base + i;
+      int64_t src_dim = metadata.data[src_meta_idx];
+      int64_t target_dim = src_dim;
+      int64_t target_meta_idx = target_meta_idx_base + i;
+      if (is_1d_conv) {
+        // We will insert one spatial dim just before the existing spatial dim.
+        // The dims after spatial dim, including the existing spatial dim, will
+        // move right one step. The index of existing spatial dim in metadata
+        // array will also move right.
+        if (src_dim >= spatial_dim) {
+          target_dim++;
+        }
+        if (i == N - 1) {
+          target_meta_idx++;
+        }
       }
-      metadata_data.push_back(dim);
-      (*sizes)[dim] = orig_sizes[orig_dim];
+      metadata_data[target_meta_idx] = target_dim;
+      (*target)[target_dim] = source[src_dim];
     }
     if (is_1d_conv) {
-      metadata_data.push_back(spatial_dim + 1);
-      (*sizes)[spatial_dim + 1] = 1;
+      metadata_data[target_meta_idx_base + effectiveN - 2] = spatial_dim;
+      (*target)[spatial_dim] = 1;
     }
   }
   // strides and dilations.
   for (int64_t idx = 0; idx < 2; idx++) {
-    int64_t metadata_idx_base = N * 3 + (N - 2) * idx;
-    for (int64_t i = 0; i < N - 2; i++) {
-      metadata_data.push_back(metadata.data[metadata_idx_base + i]);
-    }
+    int64_t src_meta_idx_base = N * 3 + (N - 2) * idx;
+    int64_t target_meta_idx_base = effectiveN * 3 + (effectiveN - 2) * idx;
     if (is_1d_conv) {
-      metadata_data.push_back(1);
+      // The new dim is insert before existing spatial dims for Conv1D.
+      metadata_data[target_meta_idx_base++] = 1;
     }
+    for (int64_t i = 0; i < N - 2; i++) {
+      metadata_data[target_meta_idx_base++] =
+          metadata.data[src_meta_idx_base + i];
+    }
+  }
+  // paddings.
+  if (is_1d_conv) {
+    // Note that the new dim is insert before existing spatial dims for Conv1D.
+    paddings_sizes[0] = 0;
+    paddings_sizes[1] = 0;
+  }
+  int64_t offset = static_cast<int64>(is_1d_conv) * 2;
+  for (int i = 0; i < paddings.sizes[0]; ++i) {
+    paddings_sizes[offset + i] = paddings.data[i];
   }
 
-  key.input_shape.reserve(effectiveN);
-  key.filter_shape.reserve(effectiveN);
-  key.output_shape.reserve(effectiveN);
-  for (int i = 0; i < effectiveN; ++i) {
-    key.input_shape.push_back(input_sizes[i]);
-    key.filter_shape.push_back(filter_sizes[i]);
-    key.output_shape.push_back(output_sizes[i]);
-  }
-  key.paddings.reserve(paddings.sizes[0]);
-  for (int i = 0; i < paddings.sizes[0]; ++i) {
-    key.paddings.push_back(paddings.data[i]);
-  }
-  if (is_1d_conv) {
-    key.paddings.push_back(0);
-    key.paddings.push_back(0);
-  }
-  key.metadata.reserve(metadata_data.size());
-  for (int i = 0; i < metadata_data.size(); ++i) {
-    key.metadata.push_back(metadata_data[i]);
-  }
+  key.input_shape = std::move(input_sizes);
+  key.filter_shape = std::move(filter_sizes);
+  key.paddings = std::move(paddings_sizes);
+  key.output_shape = std::move(output_sizes);
+  key.metadata = std::move(metadata_data);
+
   return key;
 }
 

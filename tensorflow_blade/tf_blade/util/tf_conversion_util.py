@@ -50,7 +50,7 @@ TRT_SUPPORTED_LIST = [
     "DepthwiseConv2dNative",
     "Div",
     "Elu",
-    "esize_mode]",
+    "Erf",
     "Exp",
     "ExpandDims",
     "Fill",

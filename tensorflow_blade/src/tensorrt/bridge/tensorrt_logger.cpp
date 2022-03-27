@@ -19,7 +19,7 @@
 namespace tf_blade {
 namespace trt {
 TensorrtLogger::TensorrtLogger() : log_level_(Severity::kERROR) {
-  const auto trt_log_lvl_cstr = std::getenv("TRT_LOG_LEVEL");
+  const auto trt_log_lvl_cstr = std::getenv("TF_BLADE_TRT_LOG_LEVEL");
   if (trt_log_lvl_cstr == nullptr) {
     return;
   }

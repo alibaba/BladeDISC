@@ -134,13 +134,19 @@ TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
     }
     auto trt_engine = TrtUniquePtr<nvinfer1::ICudaEngine>(
         context.builder->buildEngineWithConfig(*context.network, *config));
-    if (trt_engine == nullptr) {
-      LOG(INFO) << "Failed to build the engine, error message are:";
+
+    // We had meet segfault when retrive error message after build engine
+    // failed. It's a issue of TensorRT.
+    // To make our process more robust we would like to enable log
+    // message only when TORCH_BLADE_DEBUG_LOG is set.
+    bool debug_log_flag = env::ReadBoolFromEnvVar("TORCH_BLADE_DEBUG_LOG");
+    if (trt_engine == nullptr && enable_debug_log) {
+      LOG(ERROR) << "Failed to build the engine, error message are:";
       auto error_recorder = context.builder->getErrorRecorder();
       auto nb_error = error_recorder->getNbErrors();
       for (int i = 0; i < nb_error; i++) {
         auto error_msg = error_recorder->getErrorDesc(i);
-        LOG(INFO) << error_msg;
+        LOG(ERROR) << error_msg;
       }
     }
     return trt_engine;

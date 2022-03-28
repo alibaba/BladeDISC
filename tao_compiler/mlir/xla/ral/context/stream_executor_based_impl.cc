@@ -602,23 +602,92 @@ CudnnConvParamsKey makeConvTuningCacheKey(MemRefType<T, N>& input,
                                           MemRefType<int32_t, 1>& paddings,
                                           MemRefType<T, N>& output,
                                           MemRefType<int32_t, 1>& metadata) {
+  // Note metadata order:
+  //   - input layout: each field for one dimension. The order is:
+  //     * batch, channel, spatial dimensions
+  //   - kernel layout: each field for one dimension. The order is:
+  //     * in_channel, out_channel, spatial dimensions
+  //   - output layout: each field for one dimension. The order is:
+  //     * batch, channel, spatial dimensions
+  //   - strides: each filed for one spatial dimension.
+  //   - dilations: each filed for one spatial dimension.
   CudnnConvParamsKey key;
-  key.input_shape.reserve(N);
-  key.filter_shape.reserve(N);
-  key.output_shape.reserve(N);
-  for (int i = 0; i < N; ++i) {
-    key.input_shape.push_back(input.sizes[i]);
-    key.filter_shape.push_back(filter.sizes[i]);
-    key.output_shape.push_back(output.sizes[i]);
+  static_assert(N > 2);
+  const int effectiveN = (N < 4) ? 4 : N;
+  bool is_1d_conv = (N == 3);
+  std::vector<int64_t> input_sizes(effectiveN);
+  std::vector<int64_t> filter_sizes(effectiveN);
+  std::vector<int64_t> paddings_sizes(paddings.sizes[0] +
+                                      static_cast<int64_t>(is_1d_conv) * 2);
+  std::vector<int64_t> output_sizes(effectiveN);
+  std::vector<int64_t> metadata_data(effectiveN * 3 + (effectiveN - 2) * 2);
+
+  std::vector<std::vector<int64_t>*> target_sizes(
+      {&input_sizes, &filter_sizes, &output_sizes});
+  std::vector<int64_t*> source_sizes(
+      {&(input.sizes[0]), &(filter.sizes[0]), &(output.sizes[0])});
+  // input, kernel, and output layout & sizes.
+  for (int64_t layout_idx = 0; layout_idx < 3; layout_idx++) {
+    std::vector<int64_t>* target = target_sizes[layout_idx];
+    int64_t* source = source_sizes[layout_idx];
+    int64_t src_meta_idx_base = layout_idx * N;
+    int64_t spatial_dim = metadata.data[src_meta_idx_base + 2];
+    int64_t target_meta_idx_base = layout_idx * effectiveN;
+    for (int64_t i = 0; i < N; i++) {
+      int64_t src_meta_idx = src_meta_idx_base + i;
+      int64_t src_dim = metadata.data[src_meta_idx];
+      int64_t target_dim = src_dim;
+      int64_t target_meta_idx = target_meta_idx_base + i;
+      if (is_1d_conv) {
+        // We will insert one spatial dim just before the existing spatial dim.
+        // The dims after spatial dim, including the existing spatial dim, will
+        // move right one step. The index of existing spatial dim in metadata
+        // array will also move right.
+        if (src_dim >= spatial_dim) {
+          target_dim++;
+        }
+        if (i == N - 1) {
+          target_meta_idx++;
+        }
+      }
+      metadata_data[target_meta_idx] = target_dim;
+      (*target)[target_dim] = source[src_dim];
+    }
+    if (is_1d_conv) {
+      metadata_data[target_meta_idx_base + effectiveN - 2] = spatial_dim;
+      (*target)[spatial_dim] = 1;
+    }
   }
-  key.paddings.reserve(paddings.sizes[0]);
+  // strides and dilations.
+  for (int64_t idx = 0; idx < 2; idx++) {
+    int64_t src_meta_idx_base = N * 3 + (N - 2) * idx;
+    int64_t target_meta_idx_base = effectiveN * 3 + (effectiveN - 2) * idx;
+    if (is_1d_conv) {
+      // The new dim is insert before existing spatial dims for Conv1D.
+      metadata_data[target_meta_idx_base++] = 1;
+    }
+    for (int64_t i = 0; i < N - 2; i++) {
+      metadata_data[target_meta_idx_base++] =
+          metadata.data[src_meta_idx_base + i];
+    }
+  }
+  // paddings.
+  if (is_1d_conv) {
+    // Note that the new dim is insert before existing spatial dims for Conv1D.
+    paddings_sizes[0] = 0;
+    paddings_sizes[1] = 0;
+  }
+  int64_t offset = static_cast<int64>(is_1d_conv) * 2;
   for (int i = 0; i < paddings.sizes[0]; ++i) {
-    key.paddings.push_back(paddings.data[i]);
+    paddings_sizes[offset + i] = paddings.data[i];
   }
-  key.metadata.reserve(metadata.sizes[0]);
-  for (int i = 0; i < metadata.sizes[0]; ++i) {
-    key.metadata.push_back(metadata.data[i]);
-  }
+
+  key.input_shape = std::move(input_sizes);
+  key.filter_shape = std::move(filter_sizes);
+  key.paddings = std::move(paddings_sizes);
+  key.output_shape = std::move(output_sizes);
+  key.metadata = std::move(metadata_data);
+
   return key;
 }
 
@@ -1162,7 +1231,7 @@ void ral_conv(ExecutionContext* ctx, void* stream_handle,
               MemRefType<T, N> input, MemRefType<T, N> kernel,
               MemRefType<int32_t, 1> padding, MemRefType<T, N> output,
               MemRefType<int32_t, 1> metadata) {
-  static_assert(N > 2, "dimension should large than 2");
+  static_assert(N > 2, "dimension should be larger than 2");
   if (isEmptyMemref(input) || isEmptyMemref(kernel) || isEmptyMemref(output)) {
     TAO_VLOG(1) << "ral_conv: early return for empty tensor";
     return;
@@ -1273,6 +1342,9 @@ TAO_RAL_API("ral_gemm", "gpu",
 TAO_RAL_API("ral_conv", "gpu", gpu::se_impl::gpu_conv_impl::ral_conv<float, 4>);
 TAO_RAL_API("ral_conv", "gpu",
             gpu::se_impl::gpu_conv_impl::ral_conv<Eigen::half, 4>);
+TAO_RAL_API("ral_conv", "gpu", gpu::se_impl::gpu_conv_impl::ral_conv<float, 3>);
+TAO_RAL_API("ral_conv", "gpu",
+            gpu::se_impl::gpu_conv_impl::ral_conv<Eigen::half, 3>);
 
 }  // namespace ral
 }  // namespace tao

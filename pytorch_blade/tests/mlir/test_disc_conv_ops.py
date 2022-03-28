@@ -25,7 +25,6 @@ class TestMlirConvolution(DiscTestCase):
             test_data = (test_data.to(self.device),)
         self._test_cvt_to_disc(conv_func, test_data)
 
-    @unittest.skipIf(torch_blade.version.cuda_available, "disc-gpu not support 1d conv yet.")
     def test_conv1d(self):
         conv = torch.nn.Conv1d(16, 33, 3, stride=2, padding=2)
         self._test_conv(conv, torch.randn([20, 16, 60], device=self.device))

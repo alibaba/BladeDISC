@@ -3,12 +3,13 @@ Tensorflow-Blade is a optimization toolkit for tensorflow model inference on mul
 
 ## build and use Tensorflow-Blade
 [build and install Tensorflow-Blade](docs/build_from_source.md)
+
 [optimize BERT model with Tensorflow-Blade](docs/tutorials/tensorflow_blade_bert_inference.md)
 
 ## design of tf2trt optimization(WIP)
 
 ## Make contribution for Tensorflow-Blade
-First ref to [How to make contribution](../../docs/contribution.md) to setup the basic develop environment and fork code to your own branch.
+First ref to [How to make contribution](/docs/contribution.md) to setup the basic develop environment and fork code to your own branch.
 Then we will get to now the code for Tensorflow-Blade.
 
 ### Code tree for Tensorflow-Blade

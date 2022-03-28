@@ -1,8 +1,6 @@
 name: NGC Reusable workflow
 
 on:
-  schedule:
-    - cron: '30 23 * * *' # 11:30 pm
   workflow_call:
     secrets:
       ALIYUN_DOCKER_USERNAME:
@@ -16,7 +14,7 @@ on:
 
 jobs:
   TORCH-NGC:
-    if: github.repository == 'alibaba/BladeDISC' && github.event.ref == 'refs/heads/main'
+    if: github.repository == 'alibaba/BladeDISC'
     # The type of runner that the job will run on
     runs-on: [self-hosted, gpu-t4]
     # Steps represent a sequence of tasks that will be executed as part of the job

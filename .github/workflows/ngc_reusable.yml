@@ -27,8 +27,6 @@ jobs:
         set -e
         git submodule sync
         git submodule update --depth=1 --init --recursive
-        # docker pull bladedisc/bladedisc:latest-devel-pt-ngc
-        # docker build --cache-from bladedisc/bladedisc:latest-devel-pt-ngc -t disc-dev-pt-ngc \
         docker build -t disc-dev-pt-ngc \
           --build-arg BASEIMAGE=nvcr.io/nvidia/pytorch:21.11-py3 -f docker/dev/Dockerfile.torch.ngc .
     - name: Build and Test DISC
@@ -57,10 +55,10 @@ jobs:
         GITHUB_PULL_REQUEST: ${{ github.event.number }}
         LOCAL_DEV_DOCKER: disc-dev-pt-ngc
         REMOTE_DEV_DOCKER: bladedisc:disc-dev-pt-ngc
-        REMOTE_RUNTIME_DOCKER: bladedisc:disc-dev-pt-ngc
+        REMOTE_RUNTIME_DOCKER: bladedisc:disc-runtime-pt-ngc
         RUNTIME_BASEIMAGE: nvcr.io/nvidia/pytorch:21.11-py3
         TORCH_BLADE_CI_BUILD_TORCH_VERSION: ngc
-        DOCKERFILE: docker/dev/Dockerfile.torch.ngc
+        DOCKERFILE: docker/runtime/Dockerfile.torch.ngc
       run: |
         set -e
         bash ./scripts/ci/deploy_pytorch_blade.sh

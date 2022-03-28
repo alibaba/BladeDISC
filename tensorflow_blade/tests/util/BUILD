@@ -18,13 +18,3 @@ py_test(
         "//tf_blade/util:tf_graph_transform_util",
     ],
 )
-
-py_test(
-    name = "tf_hierarchy_pattern_match_test",
-    srcs = ["tf_hierarchy_pattern_match_test.py"],
-    deps = [
-        "//:context",
-        "//tf_blade/util:simple_graph",
-        "//tf_blade/util:tf_hierarchy_pattern_match",
-    ],
-)

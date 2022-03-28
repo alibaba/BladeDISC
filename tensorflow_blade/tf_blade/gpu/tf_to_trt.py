@@ -14,7 +14,6 @@ import logging
 from typing import Any, Iterator, List, Tuple
 
 import onnx
-import tf2onnx
 from tensorflow.core.framework import attr_value_pb2, tensor_shape_pb2
 
 try:
@@ -25,6 +24,7 @@ from tf_blade.util.simple_graph import GraphDefPartitioner
 from tf_blade.util.tf_conversion_util import get_subgraph_test_inputs_shapes, TRT_SUPPORTED_LIST
 from tf_blade.util.tf_graph_transform_util import OpType, set_attr_byte
 from tf_blade.util.tf_import_helper import tf
+from tf_blade.util.tf2onnx_import_helper import tf2onnx
 
 Shape = List[int]
 

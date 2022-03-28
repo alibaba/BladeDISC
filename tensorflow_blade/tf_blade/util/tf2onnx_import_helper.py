@@ -8,3 +8,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+import os
+
+__TF_LOG_ENV = 'TF_CPP_MIN_LOG_LEVEL'
+__ENV_VALUE = os.environ.get(__TF_LOG_ENV, None)
+try:
+    import tf2onnx  # noqa: F401
+finally:
+    if __ENV_VALUE is not None:
+        os.environ[__TF_LOG_ENV] = __ENV_VALUE
+    else:
+        del os.environ[__TF_LOG_ENV]

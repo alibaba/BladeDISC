@@ -47,8 +47,11 @@ class ShapeTypeSpec {
   std::string Serialize() const;
   static ShapeTypeSpec Deserialize(const std::string&);
   static ShapeTypeSpec GetShapeTypeSpec(const torch::List<torch::Tensor>&);
+  // if force_concret is true, GetShapeTypeSpec checks whether each value shape
+  // is concrete
   static ShapeTypeSpec GetShapeTypeSpec(
-      const std::vector<const torch::jit::Value*>& values);
+      const std::vector<torch::jit::Value*>& values,
+      bool force_concrete = true);
 
   const std::vector<ShapeType>& shape_types() const {
     return shape_types_;

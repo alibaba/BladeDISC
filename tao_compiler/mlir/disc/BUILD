@@ -1775,7 +1775,8 @@ tf_cc_shared_object(
     linkopts = select({
         "//conditions:default": [
             "-z defs",
-            "-lm", "-Wl,-ldl"
+            "-lm", "-Wl,-ldl",
+            "-Wl,--version-script,$(location :mhlo_disc_builder.lds)",
         ],
     }),
     deps = [
@@ -1783,6 +1784,9 @@ tf_cc_shared_object(
         ":rng_uniform_custom_call",
         ":topk_custom_call",
         "//tensorflow/compiler/mlir/hlo:hlo",
+    ],
+    data = [
+        ":mhlo_disc_builder.lds"
     ],
     visibility = ["//visibility:public"],
 )

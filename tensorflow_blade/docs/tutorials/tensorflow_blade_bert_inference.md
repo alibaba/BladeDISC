@@ -23,7 +23,7 @@ These packages are required:
 
 To build and install `tensorflow_blade` package, please refer to
 ["Installation of TensorflowBlade"](../build_from_source.md) and
-["Install BladeDISC With Docker"](../install_with_docker.md).
+["Install BladeDISC With Docker"](../../docs/install_with_docker.md) to get a pre-build tensorflow-runtime docker.
 
 The system environments and packages used in this tutorial:
 

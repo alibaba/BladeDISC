@@ -84,4 +84,4 @@ If you want to install the wheel package under develop mode for debug, the follo
 ## NOTE
 Currently only tensorflow-gpu==2.4.0 with CUDA 11.0 is supported for Tensorflow-Blade.
 
-Supports for more tensorflow and device will be coming soon.
+Supports for more tensorflow versions and devices will be coming soon.

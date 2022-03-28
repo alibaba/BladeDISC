@@ -21,6 +21,9 @@ cc_library(
        "//:enable_cuda": ["-DTORCH_BLADE_BUILD_WITH_CUDA"],
        "//conditions:default": []}),
     alwayslink = True,
+    visibility = [
+        "//visibility:public",
+    ]
 )
 
 cc_library(

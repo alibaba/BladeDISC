@@ -9,12 +9,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
+#include <torch/script.h>
+
 namespace torch_disc {
 namespace compiler {
 
-void DiscJIT(torch::lazy::TSComputation& computation,
-             c10::ArrayRef<torch::lazy::BackendDataPtr> arguments);
+void ClusterDiscNodes(const std::shared_ptr<torch::jit::Graph>& graph);
 
 }  //  namespace compiler
 }  //  namespace torch_disc

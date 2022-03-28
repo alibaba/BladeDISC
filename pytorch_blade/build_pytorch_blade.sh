@@ -10,22 +10,39 @@
 # limitations under the License.
 
 # !/bin/bash
+set -o pipefail
+set -e
+
 export CUDA_HOME=${CUDA_HOME:-/usr/local/cuda/}
 export CUDACXX=${CUDACXX:-"${CUDA_HOME}/bin/nvcc"}
 export PATH=${CUDA_HOME}/bin/:$PATH
 export TENSORRT_INSTALL_PATH=${TENSORRT_INSTALL_PATH:-/usr/local/TensorRT/}
+export LD_LIBRARY_PATH=${TENSORRT_INSTALL_PATH}/lib/:${TENSORRT_INSTALL_PATH}/lib64/:${CUDA_HOME}/lib64:$LD_LIBRARY_PATH
+export LIBRARY_PATH=${TENSORRT_INSTALL_PATH}/lib/:${TENSORRT_INSTALL_PATH}/lib64/:${CUDA_HOME}/lib64:$LIBRARY_PATH
 
 # Build TorchBlade with DEBUG
 # export DEBUG=1
 export TORCH_BLADE_BUILD_MLIR_SUPPORT=${TORCH_BLADE_BUILD_MLIR_SUPPORT:-ON}
 export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=${TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT:-ON}
 
-function build_torch_blade() {
+function pip_install_deps() {
+    # set TORCH_BLADE_CI_BUILD_TORCH_VERSION default to 1.7.1+cu110
+    TORCH_BLADE_CI_BUILD_TORCH_VERSION=${TORCH_BLADE_CI_BUILD_TORCH_VERSION:-1.7.1+cu110}
+    requirements=requirements-dev-${TORCH_BLADE_CI_BUILD_TORCH_VERSION}.txt
+    python3 -m pip install --upgrade pip
+    python3 -m pip install cmake ninja virtualenv
+    python3 -m pip install -r ${requirements} -f https://download.pytorch.org/whl/torch_stable.html
+}
+
+function ci_build() {
+    echo "DO TORCH_BLADE CI_BUILD"
+    pip_install_deps
+
     if [ "$TORCH_BLADE_USE_CMAKE_BUILD" = "ON"  ]; then
       extra_args="--cmake"
     else
       extra_args=""
-      python3 ../scripts/python/common_setup.py
+      # python3 ../scripts/python/common_setup.py
     fi
 
     export TORCH_BLADE_BUILD_TENSORRT=ON
@@ -33,17 +50,9 @@ function build_torch_blade() {
     # The following are UNIT TESTS
     export TORCH_BLADE_DEBUG_LOG=ON
     python3 setup.py cpp_test ${extra_args} 2>&1 | tee -a cpp_test.out;
+    python3 -m unittest discover tests/ -v 2>&1 | tee -a py_test.out;
     python3 setup.py bdist_wheel ${extra_args};
-    (cd ../../ && mkdir -p build && \
-      mv pytorch_blade/dist/torch_blade*.whl ./build)
 }
 
 # Build
-python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
-build_torch_blade
-# python3 -m pip install -r benchmark/requirements.txt
-# bash benchmark/detectron2/test_d2_benchmark.sh 2>&1 | tee test_d2.log
-# bash benchmark/torch-tensorrt/test_trt_benchmark.sh 2>&1 | tee test_trt.log
-# 
-# grep "|" test_d2.log
-# grep "|" test_trt.log
+ci_build

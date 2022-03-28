@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "torch_disc/csrc/disc_class.h"
+#include "torch_disc/csrc/disc_compiler/passes/disc_class.h"
 
 namespace torch_disc {
 namespace compiler {

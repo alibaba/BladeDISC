@@ -34,7 +34,7 @@
 #include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
 
 #include "compiler/mlir/converters/mhlo_conversion.h"
-#include "torch_disc/csrc/backend_impl.h"
+#include "torch_disc/csrc/disc_backend/backend_impl.h"
 
 namespace torch_disc {
 namespace {

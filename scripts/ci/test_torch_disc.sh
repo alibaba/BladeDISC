@@ -20,7 +20,8 @@ python -m virtualenv --system-site-packages myenv && source myenv/bin/activate
 # 3. call LTC code generator, that's used in ts lowering
 cd torch_disc
 bash pytorch/lazy_tensor_core/scripts/generate_code.sh
-# 4. build "_torch_disc.so"
+# 4. run unit tests and build _torch_disc.so
+python setup.py test
 python setup.py develop
 # 5. test a e2e demo
 ln -s bazel-bin/torch_disc/_torch_disc.so ./_torch_disc.so

@@ -162,16 +162,16 @@ ShapeTypeSpec ShapeTypeSpec::GetShapeTypeSpec(
 }
 
 ShapeTypeSpec ShapeTypeSpec::GetShapeTypeSpec(
-    const std::vector<const torch::jit::Value*>& values,
-    bool force_concurrent) {
+    const std::vector<torch::jit::Value*>& values,
+    bool force_concrete) {
   std::vector<ShapeType> shape_types;
   shape_types.reserve(values.size());
   for (const auto& val : values) {
-    if (force_concurrent)
+    if (force_concrete)
       CHECK(is_concrete_shape_tensor_type(*val));
     auto type = val->type()->cast<TensorType>();
     ShapeType shape_type;
-    if (force_concurrent)
+    if (force_concrete)
       shape_type.shape = *(type->sizes().concrete_sizes());
     shape_type.type = *(type->scalarType());
     shape_types.emplace_back(shape_type);

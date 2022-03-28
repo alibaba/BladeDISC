@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "torch_disc/csrc/backend_impl.h"
+#include "torch_disc/csrc/disc_backend/backend_impl.h"
 
 #include <ATen/Functions.h>
 #include <torch/csrc/jit/passes/shape_analysis.h>
@@ -17,7 +17,7 @@
 #include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
 
 #include "lazy_tensor_core/csrc/ts_backend/backend_impl.h"
-#include "torch_disc/csrc/disc_jit.h"
+#include "torch_disc/csrc/disc_compiler/disc_compiler.h"
 
 namespace torch_disc {
 namespace compiler {
@@ -184,43 +184,14 @@ std::vector<torch::lazy::BackendDataPtr> DISCBackendImpl::ExecuteComputation(
     torch::lazy::Computation& computation,
     c10::ArrayRef<torch::lazy::BackendDataPtr> arguments,
     const torch::lazy::BackendDevice& device) const {
-  auto& ts_computation = static_cast<torch::lazy::TSComputation&>(computation);
-  std::vector<c10::IValue> disc_inputs;
-  try {
-    disc_inputs = DiscJIT(ts_computation.graph(), arguments);
-  } catch (std::exception& e) {
-    LOG(FATAL) << e.what();
-  }
-  // TODO(yancey1989): should cache the graph_executor to avoid re-initialize
-  // it at each iteration.
-  // auto graph_executor = ts_computation.graph_executor();
-  torch::jit::GraphExecutor graph_executor(ts_computation.graph(), "");
+  auto graph = static_cast<torch::lazy::TSComputation&>(computation).graph();
+  // TODO(yancey1989): cache the executable program to avoid re-compile for each
+  // iteration
+  auto executable = CompileToDiscExecutable(graph, arguments);
 
-  std::vector<torch::jit::IValue> stack;
-  for (auto argument : arguments) {
-    const auto ts_data = std::static_pointer_cast<TSData>(argument);
-    if (ts_data->scalar.has_value()) {
-      stack.emplace_back(ts_data->scalar.value());
-    } else {
-      // TODO(whc) should this check be made more general? it's written somewhat
-      // oddly
-      CHECK((c10::DeviceType)default_device_type_.type != at::kCUDA ||
-            ts_data->data().device().type() == at::kCUDA);
-      stack.emplace_back(ts_data->data());
-    }
-  }
-  stack.insert(stack.end(), disc_inputs.begin(), disc_inputs.end());
-  graph_executor.run(stack);
-  std::vector<torch::lazy::BackendDataPtr> results;
-  for (torch::jit::IValue component : stack) {
-    at::Tensor result = component.toTensor();
-    at::IntArrayRef result_sizes = result.sizes();
-    torch::lazy::Shape shape(
-        result.scalar_type(),
-        std::vector<int64_t>(result_sizes.begin(), result_sizes.end()));
-    results.push_back(std::make_shared<TSData>(result, shape, device));
-  }
-  return results;
+  bool default_device_is_cuda =
+      ((c10::DeviceType)default_device_type_.type != at::kCUDA);
+  return executable->Run(arguments, device, default_device_is_cuda);
 }
 
 std::vector<torch::lazy::BackendDevice> DISCBackendImpl::GetBackendDevices()

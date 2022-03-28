@@ -238,17 +238,21 @@ def build_with_bazel(args):
 
 def package_whl_with_bazel(args):
     with cwd(ROOT):
-        execute("bazel run //:build_pip_package")
-        dist_dir = os.path.join(ROOT, 'dist')
-        build_dir = os.path.join(
-            ROOT,
-            'bazel-bin',
-            'build_pip_package.runfiles',
-            'org_tf_blade',
-            'dist',
-        )
-        ensure_empty_dir(dist_dir)
-        execute(f"mv {build_dir}/*.whl {dist_dir}")
+        if args.develop:
+            execute("bazel run //:develop_pip_package")
+        else:
+            execute("bazel run //:build_pip_package")
+            dist_dir = os.path.join(ROOT, 'dist')
+            build_dir = os.path.join(
+                ROOT,
+                'bazel-bin',
+                'build_pip_package.runfiles',
+                'org_tf_blade',
+                'dist',
+            )
+            ensure_empty_dir(dist_dir)
+            execute(f"mv {build_dir}/*.whl {dist_dir}")
+
 
 def test_with_bazel(args):
     with cwd(ROOT):
@@ -325,6 +329,13 @@ def parse_args():
         required=False,
         action="store_true",
         help="Show more information in each stage",
+    )
+    parser.add_argument(
+        '--develop',
+        action="store_true",
+        required=False,
+        default=False,
+        help="If True, python wheel develop mode will be installed for local development or debug.",
     )
 
     # flag validation

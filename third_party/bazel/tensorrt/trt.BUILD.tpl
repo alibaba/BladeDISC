@@ -175,6 +175,33 @@ cc_import(
     visibility = ["//visibility:private"],
 )
 
+cc_import(
+    name = "nvonnxparser_static_lib",
+    static_library = select({
+        ":aarch64_linux": "lib/aarch64-linux-gnu/libnvonnxparser_static.a",
+        "//conditions:default": "lib/libnvonnxparser_static.a",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+cc_import(
+    name = "nvonnx_proto_static_lib",
+    static_library = select({
+        ":aarch64_linux": "lib/aarch64-linux-gnu/libonnx_proto.a",
+        "//conditions:default": "lib/libonnx_proto.a",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+cc_import(
+    name = "proto_static_lib",
+    static_library = select({
+        ":aarch64_linux": "lib/aarch64-linux-gnu/libprotobuf.a",
+        "//conditions:default": "lib/libprotobuf.a",
+    }),
+    visibility = ["//visibility:private"],
+)
+
 cc_library(
     name = "nvonnxparser_headers",
     hdrs = select({
@@ -209,6 +236,18 @@ cc_library(
         "nvinfer",
         "nvonnxparser_headers",
         "nvonnxparser_lib",
+    ],
+)
+
+cc_library(
+    name = "nvonnxparser_static",
+    visibility = ["//visibility:public"],
+    deps = [
+        "nvinfer_static",
+        "nvonnxparser_headers",
+        "nvonnxparser_static_lib",
+        "nvonnx_proto_static_lib",
+        "proto_static_lib",
     ],
 )
 
@@ -326,6 +365,46 @@ cc_library(
         "//conditions:default": ["@local_config_cuda//cuda:cublas"],
     }),
     alwayslink = True,
+    copts = [
+        "-pthread"
+    ],
+    linkopts = [
+        "-lpthread",
+    ] + select({
+        ":aarch64_linux": ["-Wl,--no-as-needed -ldl -lrt -Wl,--as-needed"],
+        "//conditions:default": []
+    })
+)
+
+cc_import(
+    name = "nvinferplugin_static_lib",
+    static_library = select({
+        ":aarch64_linux": "lib/aarch64-linux-gnu/libnvinfer_plugin_static.a",
+        "//conditions:default": "lib/libnvinfer_plugin_static.a",
+    }),
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "nvinferplugin_static",
+    hdrs = select({
+        ":aarch64_linux": glob(["include/aarch64-linux-gnu/NvInferPlugin*.h"]),
+        "//conditions:default": glob(["include/NvInferPlugin*.h"]),
+    }),
+    includes = select({
+        ":aarch64_linux": ["include/aarch64-linux-gnu/"],
+        "//conditions:default": ["include/"],
+    }),
+    deps = [
+        "nvinfer_static",
+        "nvinferplugin_static_lib",
+        "@local_config_cuda//cuda:cudart_static",
+    ] + select({
+        ":windows": ["@local_config_cuda//cuda:cublas"],
+        "//conditions:default": ["@local_config_cuda//cuda:cublas"],
+    }),
+    alwayslink = True,
+    linkstatic = 1,
     copts = [
         "-pthread"
     ],

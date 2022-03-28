@@ -19,14 +19,19 @@ SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 
+VENV_PATH=venv
 # note(yancey.yx): using virtualenv to avoid permission issue on workflow actions CI,
-python -m virtualenv venv && source venv/bin/activate
+python -m virtualenv ${VENV_PATH} && source ${VENV_PATH}/bin/activate
 
 (cd tensorflow_blade \
   && python -m pip install -q -r requirement-tf2.4-cu110.txt \
-  && ./build.py ../venv/ -s configure \
-  && ./build.py ../venv/ -s check \
-  && ./build.py ../venv/ -s build \
-  && ./build.py ../venv/ -s test)
+  && ./build.py ../${VENV_PATH} -s configure \
+  && ./build.py ../${VENV_PATH} -s check \
+  && ./build.py ../${VENV_PATH} -s build \
+  && ./build.py ../${VENV_PATH} -s test \
+  && ./build.py ../${VENV_PATH} -s package)
+
+mkdir -p build && \
+mv tensorflow_blade/dist/tensorflow_blade*.whl ./build
 
 deactivate

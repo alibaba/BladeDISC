@@ -17,7 +17,7 @@ RUN apt-get install -y git curl vim libssl-dev wget unzip openjdk-11-jdk && \
 RUN python3 -m pip install virtualenv
 RUN python3 -m pip install 'git+https://github.com/facebookresearch/detectron2.git'
 
-ADD ./build/torch_blade*.whl  /install/python/
+ADD ./pytorch_blade/dist/torch_blade*.whl  /install/python/
 RUN python3 -m pip install /install/python/torch_blade*.whl
 
 ENV PATH="/opt/cmake/bin:${PATH}"

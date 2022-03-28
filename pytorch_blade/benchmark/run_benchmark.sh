@@ -34,8 +34,6 @@ function build_torch_blade() {
     export TORCH_BLADE_DEBUG_LOG=ON
     python3 setup.py cpp_test ${extra_args} 2>&1 | tee -a cpp_test.out;
     python3 setup.py bdist_wheel ${extra_args};
-    (cd ../../ && mkdir -p build && \
-      mv pytorch_blade/dist/torch_blade*.whl ./build)
 }
 
 # Build

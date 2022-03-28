@@ -56,9 +56,9 @@ bool ConvertAtenLayerNorm(
   }
   auto ml_norm_shape = ctx.GetMlirValueList(jit_norm_shape);
   if (input_rank < ml_norm_shape.size()) {
-    DLOG(INFO) << " Could not convert " << op_name
-               << " with normalized_shape has rank greater than the input: "
-               << ml_norm_shape.size() << " vs " << input_rank;
+    LOG(WARNING) << " Could not convert " << op_name
+                 << " with normalized_shape has rank greater than the input: "
+                 << ml_norm_shape.size() << " vs " << input_rank;
     return false;
   }
 

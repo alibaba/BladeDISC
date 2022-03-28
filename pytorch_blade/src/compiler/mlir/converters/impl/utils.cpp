@@ -24,9 +24,9 @@ bool CheckConstAttribute(
     const std::string& param_name) {
   if (!IsPrimConstant(attr_val)) {
     TORCH_CHECK(attr_val != nullptr);
-    DLOG(INFO) << "Could not convert " << op_name
-               << " with non-compilation time parameter: " << param_name << " %"
-               << attr_val->debugName();
+    LOG(WARNING) << "Could not convert " << op_name
+                 << " with non-compilation time parameter: " << param_name
+                 << " %" << attr_val->debugName();
     return false;
   }
   return true;

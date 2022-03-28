@@ -13,35 +13,36 @@
 
 #include <cstdlib>
 #include "common_utils/logging.h"
+#include "common_utils/utils.h"
 
 namespace torch {
 namespace blade {
 TensorrtLogger::TensorrtLogger() : log_level_(Severity::kERROR) {
-  const char* torch_blade_debug = std::getenv("TORCH_BLADE_DEBUG_LOG");
-  const char* trt_log_lvl_cstr = std::getenv("TORCH_BLADE_TRT_LOG_LEVEL");
+  bool debug_mode = env::ReadBoolFromEnvVar("TORCH_BLADE_DEBUG_LOG", false);
+  std::string trt_log_lvl_str;
+  if (debug_mode) {
+    trt_log_lvl_str = "ERROR";
+  }
 
-  if (trt_log_lvl_cstr == nullptr) {
-    if (torch_blade_debug != nullptr) {
-      trt_log_lvl_cstr = "ERROR";
-    } else {
-      return;
-    }
+  trt_log_lvl_str =
+      env::ReadStringFromEnvVar("TORCH_BLADE_TRT_LOG_LEVEL", trt_log_lvl_str);
+  if (trt_log_lvl_str.empty()) {
+    return;
   }
 
   log_enable_ = true;
-  std::string trt_log_lvl_str = std::string(trt_log_lvl_cstr);
-  std::for_each(trt_log_lvl_str.begin(), trt_log_lvl_str.end(), [](char& c) {
-    c = ::toupper(c);
-  });
+  trt_log_lvl_str = AsciiStrToLower(trt_log_lvl_str.c_str());
 
-  if (trt_log_lvl_str == "FATAL") {
+  if (trt_log_lvl_str == "fatal") {
     log_level_ = Severity::kINTERNAL_ERROR;
-  } else if (trt_log_lvl_str == "ERROR") {
+  } else if (trt_log_lvl_str == "error") {
     log_level_ = Severity::kERROR;
-  } else if (trt_log_lvl_str == "WARNING") {
+  } else if (trt_log_lvl_str == "warning") {
     log_level_ = Severity::kWARNING;
-  } else if (trt_log_lvl_str == "INFO") {
+  } else if (trt_log_lvl_str == "info") {
     log_level_ = Severity::kINFO;
+  } else {
+    log_enable_ = false;
   }
 }
 
@@ -66,7 +67,7 @@ void TensorrtLogger::log(Severity severity, const char* msg) noexcept {
       LOG(INFO) << msg;
       break;
     default:
-      DLOG(INFO) << "UNKOWN: " << msg;
+      LOG(WARNING) << "UNKOWN: " << msg;
       break;
   }
 }

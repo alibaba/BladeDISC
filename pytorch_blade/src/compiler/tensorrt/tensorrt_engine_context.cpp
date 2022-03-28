@@ -95,8 +95,8 @@ std::shared_ptr<nvinfer1::IExecutionContext> TRTContext::GetExecutionContext(
     auto contextes = found->second;
     return contextes[optimization_profile_];
   } else {
-    DLOG(INFO) << "Create a new context for stream: " << stream.id()
-               << std::endl;
+    LOG(INFO) << "Create a new context for stream: " << stream.id()
+              << std::endl;
     nvinfer1::IExecutionContext* ctx = engine_->createExecutionContext();
     if (ctx == nullptr) {
       throw std::runtime_error(

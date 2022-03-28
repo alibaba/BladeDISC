@@ -56,7 +56,7 @@ bool ConvertAtenTensor(
       BuildCastWithJitType(builder, loc, ml_tensor, jit_dtype);
   if (!optional_input_casted) {
     TORCH_CHECK(jit_dtype != nullptr);
-    DLOG(INFO)
+    LOG(WARNING)
         << "Could not convert aten::tensor with invalid parameter: dtype %"
         << jit_dtype->debugName();
     return false;

@@ -11,6 +11,12 @@
 
 #include "common_utils/utils.h"
 
+#include <algorithm>
+#include <cstdlib>
+#include <string>
+
+#include "common_utils/logging.h"
+
 namespace torch {
 namespace blade {
 std::vector<std::string> split(std::string line, const std::string& sep) {
@@ -33,7 +39,48 @@ std::vector<std::string> split(std::string line, const std::string& sep) {
   return result;
 }
 
+std::string AsciiStrToLower(const char* cstr) {
+  if (cstr == nullptr) {
+    return "";
+  } else {
+    std::string str(cstr);
+    std::for_each(str.begin(), str.end(), [](char& c) { c = ::tolower(c); });
+    return str;
+  }
+}
+
 TorchBladeDefNewFlag(bool, TrustTracingShape);
 TorchBladeDefNewFlag(bool, RecordClusterIOFlag);
+
+namespace env {
+bool ReadBoolFromEnvVar(const char* env_var_name, bool default_val) {
+  const char* env_var_val = std::getenv(env_var_name);
+  if (env_var_val == nullptr) {
+    return default_val;
+  }
+
+  std::string str_value = AsciiStrToLower(env_var_val);
+  if (str_value == "0" || str_value == "false" || str_value == "off") {
+    return false;
+  } else if (str_value == "1" || str_value == "true" || str_value == "on") {
+    return true;
+  }
+  LOG(ERROR) << "Failed to parse the env-var ${" << env_var_name
+             << "} into bool: " << env_var_val
+             << ". Use the default value: " << default_val;
+  return default_val;
+}
+
+std::string ReadStringFromEnvVar(
+    const char* env_var_name,
+    std::string default_val) {
+  const char* env_var_val = std::getenv(env_var_name);
+  if (env_var_val == nullptr) {
+    return default_val;
+  }
+
+  return std::string(env_var_val);
+}
+} // namespace env
 } // namespace blade
 } // namespace torch

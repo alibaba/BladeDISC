@@ -29,10 +29,10 @@ bool GetSegmentList(
 
   if (!supported) {
     auto error_num = context.parser->getNbErrors();
-    DLOG(INFO) << "TensorRT unsupported model, because of:";
+    LOG(WARNING) << "TensorRT unsupported model, because of:";
     for (int i = 0; i < error_num; i++) {
       auto error_msg = context.parser->getError(i);
-      DLOG(INFO) << "Reason " << i << ": " << error_msg->desc();
+      LOG(WARNING) << "Reason " << i << ": " << error_msg->desc();
     }
   }
 
@@ -135,12 +135,12 @@ TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
     auto trt_engine = TrtUniquePtr<nvinfer1::ICudaEngine>(
         context.builder->buildEngineWithConfig(*context.network, *config));
     if (trt_engine == nullptr) {
-      DLOG(INFO) << "Failed to build the engine, error message are:";
+      LOG(INFO) << "Failed to build the engine, error message are:";
       auto error_recorder = context.builder->getErrorRecorder();
       auto nb_error = error_recorder->getNbErrors();
       for (int i = 0; i < nb_error; i++) {
         auto error_msg = error_recorder->getErrorDesc(i);
-        DLOG(INFO) << error_msg;
+        LOG(INFO) << error_msg;
       }
     }
     return trt_engine;

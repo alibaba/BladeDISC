@@ -11,7 +11,9 @@
 
 #include "common_utils/tempfs.h"
 
+#include <fstream>
 #include <iostream>
+#include <string>
 #include "common_utils/logging.h"
 
 namespace torch {

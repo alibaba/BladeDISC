@@ -6,6 +6,14 @@ load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
 load("//bazel:build_defs.bzl", "if_tensorrt_enabled")
 
 cc_library(
+    name = "torch_blade_include",
+    includes = ["."],
+    visibility = [
+        "//visibility:public",
+    ],
+)
+
+cc_library(
     name = "torch_blade",
     deps = [
         "//src/common_utils:torch_blade_common",

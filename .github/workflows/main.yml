@@ -203,4 +203,5 @@ jobs:
           -v $HOME/.cache:$HOME/.cache \
           -v /etc/passwd:/etc/passwd:ro \
           -v /etc/group:/etc/group:ro \
+          -e GITHUB_ACTIONS="ON" \
           -w /workspace torch-disc-devel-cuda11.0 bash ./scripts/ci/test_torch_disc.sh

@@ -16,7 +16,7 @@ import bazel_build
 import torch
 
 from setuptools import setup, find_packages
-from setuptools import setup, Extension
+from setuptools import setup, Extension, Command
 from setuptools.command.build_ext import build_ext
 
 
@@ -28,12 +28,27 @@ class TorchBladeExtension(Extension):
         Extension.__init__(self, name, sources=[])
         self.sourcedir = os.path.abspath(sourcedir)
 
+
 class TorchBladeBuild(build_ext):
     def run(self):
         # version.txt Would be package into C++ SDK by CPACK
         for ext in self.extensions:
             extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
             builder.run(extdir=extdir, srcdir=ext.sourcedir, build_temp="build/temp")
+
+
+class TestCommand(Command):
+    user_options = []
+    def initialize_options(self):
+        # must override abstract method
+        pass
+
+    def finalize_options(self):
+        # must override abstract method
+        pass
+
+    def run(self):
+        builder.test()
 
 
 setup(
@@ -46,7 +61,9 @@ setup(
     # Exclude the build files.
     packages=find_packages(exclude=['build']),
     ext_modules=[TorchBladeExtension("torch_disc._torch_disc")],
-    cmdclass=dict(build_ext=TorchBladeBuild),
+    cmdclass=dict(
+        build_ext=TorchBladeBuild,
+        test=TestCommand),
     package_data = {
         'torch_disc': [
             'lib/*.so*',

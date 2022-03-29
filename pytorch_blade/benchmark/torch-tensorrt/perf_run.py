@@ -33,7 +33,7 @@ import torch_blade
 import torch_blade.config as config
 import torch_blade.tensorrt as torch_blade_trt
 
-WARMUP_ITER = 10
+WARMUP_ITER = 50
 results = []
 config_name = None
 
@@ -73,7 +73,7 @@ def run_torch(model, input_tensors, params, precision):
     if precision == "fp16" or precision == "half":
         model = model.half()
 
-    iters = params.get("iterations", 20)
+    iters = params.get("iterations", 100)
 
     # Warm up
     with torch.no_grad():
@@ -110,7 +110,7 @@ def run_torch_blade(model, input_tensors, params, precision):
     with open("model.torch_blade.code.py", "w") as writer:
         writer.write(str(model.forward.code))
 
-    iters = params.get("iterations", 20)
+    iters = params.get("iterations", 100)
     # Warm up
     with torch.no_grad():
         for _ in range(WARMUP_ITER):
@@ -149,7 +149,7 @@ def run_torch_tensorrt(model, input_tensors, params, precision):
         compile_settings.update({"calib": params.get("calibration_cache")})
 
     model = torchtrt.compile(model, **compile_settings)
-    iters = params.get("iterations", 20)
+    iters = params.get("iterations", 100)
     # Warm up
     with torch.no_grad():
         for _ in range(WARMUP_ITER):
@@ -217,7 +217,7 @@ def run_tensorrt(model, input_tensors, params, precision, is_trt_engine=False):
         engine = runtime.deserialize_cuda_engine(model)
 
     print("Running TensorRT")
-    iters = params.get("iterations", 20)
+    iters = params.get("iterations", 100)
     batch_size = params.get("batch", 1)
 
     # Compiling the bindings

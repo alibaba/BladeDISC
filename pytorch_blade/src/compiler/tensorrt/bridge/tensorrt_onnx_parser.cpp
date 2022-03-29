@@ -141,7 +141,7 @@ TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
     // message only when TORCH_BLADE_DEBUG_LOG is set.
     bool debug_log_flag =
         env::ReadBoolFromEnvVar("TORCH_BLADE_DEBUG_LOG", false);
-    if (trt_engine == nullptr && enable_debug_log) {
+    if (trt_engine == nullptr && debug_log_flag) {
       LOG(ERROR) << "Failed to build the engine, error message are:";
       auto error_recorder = context.builder->getErrorRecorder();
       auto nb_error = error_recorder->getNbErrors();

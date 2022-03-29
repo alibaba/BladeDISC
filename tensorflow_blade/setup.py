@@ -113,7 +113,7 @@ setuptools.setup(
     author="Alibaba PAI Team",
     # TODO(xiafei.qiuxf): need a public email address.
     # author_email="author@example.com",
-    description="Tensorflow Blade is a general automatic inference optimization system.",
+    description="TensorFlow-Blade is a general automatic inference optimization system.",
     packages=packages,
     package_data=package_data,
     install_requires=install_requires,

@@ -31,8 +31,6 @@ cc_library(
     name = "tf_blade_ops",
     deps = select({
         "//:gpu": [
-            "//src/custom_ops/non_max_suppression",
-            "//src/custom_ops/rnn_ops",
             ":tensorrt_ops",
             ":internal_gpu_ops",
         ],

@@ -40,12 +40,10 @@ ROOT = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
 BUILD_CONFIG = os.path.join(ROOT, ".build_config")
 
 
-def get_tf_info(python_dir):
-    python_dir = os.path.abspath(python_dir)
-    python_bin = os.path.join(python_dir, 'bin', 'python')
+def get_tf_info():
     output = subprocess.check_output(
         '{} -c "import tensorflow as tf; print(tf.__version__); print(\'\\n\'.join(tf.sysconfig.get_compile_flags())); print(\'\\n\'.join(tf.sysconfig.get_link_flags()))"'.format(
-            python_bin
+            which("python3")
         ),
         shell=True,
     ).decode()
@@ -126,9 +124,9 @@ def check(args):
         # every folder under python should contain a __init__.py file
         # check tests dir
         check_init_file_miss("tests", ignore_root=True)
-        execute("{}/bin/black --check --diff tests".format(args.python_dir))
-        execute("{}/bin/flake8 tests".format(args.python_dir))
-        execute("{}/bin/mypy tests".format(args.python_dir))
+        execute("black --check --diff tests")
+        execute("flake8 tests")
+        execute("mypy tests")
 
 
 def configure_with_bazel(args):
@@ -150,9 +148,7 @@ def configure_with_bazel(args):
         _opt("compilation_mode", "opt")
         _opt("cxxopt", "-DBUILD_WITH_BAZEL")
         _action_env("BUILD_WITH_BAZEL", "1")
-        _action_env("PYTHON_BIN_PATH", os.path.join(args.python_dir, 'bin', 'python'))
-
-        site_packages_dir = os.path.join(get_site_packages_dir(args.python_dir))
+        _action_env("PYTHON_BIN_PATH", which("python3"))
 
         (
             tf_major,
@@ -162,7 +158,7 @@ def configure_with_bazel(args):
             tf_lib_dir,
             tf_lib_name,
             tf_cxx11_abi,
-        ) = get_tf_info(args.python_dir)
+        ) = get_tf_info()
         _action_env("BLADE_WITH_TF", "1")
         _opt("cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
         _opt("host_cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
@@ -266,13 +262,6 @@ def parse_args():
 
     parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
     parser.add_argument(
-        "python_dir",
-        help="""
-            Directory of virtualenv where target tensorflow installed.
-            If not specificed, the default python will be used(from `which python3`).
-        """
-    )
-    parser.add_argument(
         "-s",
         "--stage",
         required=False,
@@ -301,14 +290,14 @@ def parse_args():
         help='Build target device',
     )
     parser.add_argument(
-        "--tf", required=False, choices=["1.15", "2.4"], help="Tensorflow version.",
+        "--tf", required=False, choices=["1.15", "2.4"], help="TensorFlow version.",
     )
     parser.add_argument(
         '--skip-trt',
         action="store_true",
         required=False,
         default=False,
-        help="If True, tensorrt will be skipped for gpu build",
+        help="If True, TensorRT will be skipped for gpu build",
     )
     parser.add_argument(
         '--skip-hie',
@@ -335,12 +324,11 @@ def parse_args():
         action="store_true",
         required=False,
         default=False,
-        help="If True, python wheel develop mode will be installed for local development or debug.",
+        help="If True, python develop mode for TensorFlow-Blade will be set up for local development or debug.",
     )
 
     # flag validation
     args = parser.parse_args()
-    args.python_dir = os.path.abspath(args.python_dir)
     return args
 
 

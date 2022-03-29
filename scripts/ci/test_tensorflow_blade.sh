@@ -25,11 +25,11 @@ python -m virtualenv ${VENV_PATH} && source ${VENV_PATH}/bin/activate
 
 (cd tensorflow_blade \
   && python -m pip install -q -r requirement-tf2.4-cu110.txt \
-  && ./build.py ../${VENV_PATH} -s configure \
-  && ./build.py ../${VENV_PATH} -s check \
-  && ./build.py ../${VENV_PATH} -s build \
-  && ./build.py ../${VENV_PATH} -s test \
-  && ./build.py ../${VENV_PATH} -s package)
+  && ./build.py -s configure \
+  && ./build.py -s check \
+  && ./build.py -s build \
+  && ./build.py -s test \
+  && ./build.py -s package)
 
 mkdir -p build && \
 mv tensorflow_blade/dist/tensorflow_blade*.whl ./build

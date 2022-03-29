@@ -15,6 +15,13 @@ py_library(
 )
 
 py_library(
+    name = "tf2onnx_import_helper",
+    srcs = [
+        "tf2onnx_import_helper.py",
+    ],
+)
+
+py_library(
     name = "tf_util",
     srcs = [
         "tf_util.py",
@@ -69,18 +76,6 @@ py_library(
 )
 
 py_library(
-    name = "tf_hierarchy_pattern_match",
-    srcs = [
-        "tf_hierarchy_pattern_match.py",
-    ],
-    deps = [
-        ":simple_graph",
-        ":tf_graph_transform_util",
-        ":tf_import_helper",
-    ],
-)
-
-py_library(
     name = "util",
     deps = [
         ":graph_transform",
@@ -88,6 +83,7 @@ py_library(
         ":tf_conversion_util",
         ":tf_graph_transform_util",
         ":tf_import_helper",
+        ":tf2onnx_import_helper",
         ":tf_util",
     ],
 )

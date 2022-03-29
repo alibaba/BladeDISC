@@ -1,11 +1,9 @@
 # TensorFlow-Blade
-TensorFlow-Blade is a optimization toolkit for TensorFlow model inference on multiple devices, like GPGPUs and CPUs.
-
-Inference optimization inside TensorFlow-Blade are done by **TensorRT** and **DISC** as optimization backends.
-
-Currently only **TensorRT** optimization engine has been released. Support for **DISC** is coming soon.
+Blade is an optimization toolkit that support multiple tools (aka, **TensorRT** and **DISC** for open sourced version) as backend. It facilitates users in using TensorRT as backend transparently, and provides automatic selection between TensorRT and DISC provided with specific workloads. The automatic selection logics will be opensourced soon. TensorFlow-Blade is Blade for TensorFlow frontends.
 
 ## build and use TensorFlow-Blade
+**NOTE: Currently only `python3` is supported.**
+
 [build and install TensorFlow-Blade](docs/build_from_source.md)
 
 [optimize BERT model with TensorFlow-Blade](docs/tutorials/tensorflow_blade_bert_inference.md)
@@ -49,10 +47,10 @@ All the python source codes are under **tf\_blade** dir.
 All the tests files are under **tests** dir.
 
 ### CI pipeline for TensorFlow-Blade
-When running CI actions for TensorFlow-Blade, all the configure/build/package stages as in [build and install TensorFlow-Blade](docs/build_from_source.md) are executed. Also we will run the python linter check for python code and run all the tests under tests dir.
+When running CI actions for TensorFlow-Blade, all the configure/build/package stages as in [build and install TensorFlow-Blade](docs/build_from_source.md) are executed. Also we will run the python linter check and run all the tests under tests dir.
  - run checks for python and cpp code
 ```bash
-./build.py ${VENV_PATH} -s check
+./build.py -s check
 ```
 The checks will be done using python's flake8/black/mypy modules.
 Please make sure all the python functions or classes have **type hints** as we have done in current code.
@@ -61,6 +59,6 @@ As for cpp code, the check will be done by the **pre-commit** tool using clang-f
 
  - run unit tests
 ```bash
-./build.py ${VENV_PATH} -s test
+./build.py -s test
 ```
 All the unit tests under **tests/** dir will be executed.

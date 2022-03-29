@@ -7,7 +7,14 @@ In this tutotial, we use a pre-trained "**bert-base-cased**" BERT model from **H
 
 **TensorRT** is an SDK for deep learning inference powered by Nvidia, which includes a deep learning inference optimizer and runtime that delivers low latency and high throughput for inference applications.
 
-TensorFlowBlade can do ahead-of-time optimization with **TensorRT** backend, providing a state-of-the-art inference performance on Nvidia's GPGPUs.
+TensorFlow-Blade can do ahead-of-time optimization with **TensorRT** backend, providing a state-of-the-art inference performance on Nvidia GPGPUs.
+
+As for TF-TRT inside TensorFlow, since it is compiled with TensorRT 7.1.3, which does not support optimization for BERT-like models. Thus we only compare the optimized model from TensorFlow-Blade with the origin TensorFlow baseline.
+```bash
+python3 -c 'from tensorflow.python.compiler.tensorrt import trt_convert as trt;print(trt._pywrap_py_utils.get_linked_tensorrt_version())'
+
+(7, 1, 3)
+```
 
 The content of this tutorial is as following.
   - [Prologue: Prepare](#prologue-prepare)

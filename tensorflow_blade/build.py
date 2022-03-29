@@ -297,7 +297,7 @@ def parse_args():
         action="store_true",
         required=False,
         default=False,
-        help="If True, tensorrt will be skipped for gpu build",
+        help="If True, TensorRT will be skipped for gpu build",
     )
     parser.add_argument(
         '--skip-hie',

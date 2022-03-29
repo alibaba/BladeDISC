@@ -202,6 +202,9 @@ std::unique_ptr<OperationPass<ModuleOp>> createRalInjectExecutionContextPass(
 // inline lmhlo.Fusion
 std::unique_ptr<OperationPass<FuncOp>> createLhloFusionInlinerPass();
 
+// Dot merge optimization.
+std::unique_ptr<OperationPass<FuncOp>> createDiscDotMergePass();
+
 }  // namespace disc_ral
 }  // namespace mlir
 

@@ -42,6 +42,10 @@ namespace scf {
 class SCFDialect;
 }
 
+namespace shape {
+class ShapeDialect;
+}
+
 namespace disc_ral {
 
 #define GEN_PASS_CLASSES

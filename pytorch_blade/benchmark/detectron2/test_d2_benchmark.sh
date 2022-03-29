@@ -9,9 +9,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-oldpwd=$(pwd)
-cwd=$(cd $(dirname "$0"); pwd)
-cd $cwd
+script_dir=$(cd $(dirname "$0"); pwd)
+pushd $script_dir
 echo DIR: $(pwd)
 
 python3 run_blade.py --model testCascadeRCNN
@@ -22,4 +21,4 @@ python3 run_blade.py --model testMaskRCNNFPN_pproc
 python3 run_blade.py --model testRetinaNet
 python3 run_blade.py --model testRetinaNet_scripted
 
-cd $oldpwd
+popd # $script_dir

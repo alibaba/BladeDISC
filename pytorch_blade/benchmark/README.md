@@ -4,8 +4,8 @@ TorchBlade supports optimization via different backends. TensorRT is one of
 TorchBlade's accelerators which is integrated via ONNX.
 
 The benchmarking shows how to use in TorchBlade's TensorRT to speed up ML
-models. It's consist of `[detectron2](detectron2/)` and
-`[torch-tensorrt](torch-tensorrt/)`.
+models. It's consist of [Detectron2](./detectron2/) and
+[torch-tensorrt](./torch-tensorrt/).
 
 ## Prerequisite
 

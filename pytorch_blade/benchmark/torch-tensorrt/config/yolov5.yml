@@ -9,8 +9,8 @@ input:
     - 640
   num_inputs: 1
 model: 
-  filename: models/yolov5.jit.pt
-  name: yolov5
+  filename: models/yolov5s.jit.pt
+  name: yolov5s
 runtime: 
   device: 0
   precision: 

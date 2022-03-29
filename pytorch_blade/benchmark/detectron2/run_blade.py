@@ -92,7 +92,7 @@ def benchmark(func_name, backend, enable_fp16, model, inp, batch_size):
 
 
 # TODO: this test requires manifold access, see: T88318502
-class TestTracing:
+class TestDetectron2:
     def testRetinaNet_scripted(self):
         def load_retinanet(config_path):
             model = model_zoo.get(config_path, trained=True).eval()
@@ -295,7 +295,7 @@ class TestTracing:
 
 
 if __name__ == "__main__":
-    tracing = TestTracing()
+    tracing = TestDetectron2()
     parser = argparse.ArgumentParser(description="TorchBlade Detectron2 Benchmark")
     parser.add_argument(
         "--model",

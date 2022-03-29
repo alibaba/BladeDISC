@@ -36,6 +36,11 @@ function build_torch_blade() {
     python3 setup.py bdist_wheel ${extra_args};
 }
 
+script_dir=$(cd $(dirname "$0"); pwd)
+# step in TorchBlade root dir
+pushd $script_dir/..
+echo DIR: $(pwd)
+
 # Build
 python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
 build_torch_blade
@@ -45,3 +50,5 @@ bash benchmark/torch-tensorrt/test_trt_benchmark.sh 2>&1 | tee test_trt.log
 
 grep "|" test_d2.log
 grep "|" test_trt.log
+
+popd # $script_dir/..

@@ -1,7 +1,7 @@
 # Build Tensorflow-Blade from Source
 
 This document introduces how to build Tensorflow-Blade from source.
-As for the preparation part, you can refer to **Prerequisite**, **Checkout the Source**, **Launch a development Docker container**
+As for the preparation part, you can refer to [Prerequisite](../../docs/build_from_source.md#prerequisite), [Checkout the Source](../../docs/build_from_source.md#checkout-the-source), [Launch a development Docker container](../../docs/build_from_source.md#launch-a-development-docker-container)
 parts from [build from sources docs for BladeDisc for TensorFlow Users](../../docs/build_from_source.md).
 
 ## Building Tensorflow-Blade
@@ -14,12 +14,6 @@ We have provided an all-in-on script for developers/users to use instead of usin
 #./build.py -h
 usage: build.py [-h] [-s stage] [--device {cpu,gpu}] [--tf {1.15,2.4}]
                 [--skip-trt] [--skip-hie] [--internal] [--verbose] [--develop]
-                python_dir
-
-positional arguments:
-  python_dir
-                                    Directory of virtualenv where target tensorflow installed.
-                                    If not specificed, the default python will be used(from `which python3`).
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -41,15 +35,13 @@ optional arguments:
 ```
 
 ### A typical build flow for GPU device and Tensorflow-gpu==2.4.0
- - 1. Create an venv for build
+ - 1. Set up python requirements for build
 ```bash
-# create a simple venv in docker
-python -m virtualenv ${VENV_PATH} && source ${VENV_PATH}/bin/activate
-python -m pip install -r requirement-tf2.4-cu110.txt
+python3 -m pip install -r requirement-tf2.4-cu110.txt
 ```
  - 2. Configure for bazel build
 ```bash
-./build.py ${VENV_PATH} -s configure
+./build.py -s configure
 ```
 After configuration, all the generated options can be found in .bazelrc_gen file in tensorflow_blade dir.
 ```bash
@@ -67,21 +59,21 @@ build --host_cxxopt=-D_GLIBCXX_USE_CXX11_ABI=0
  - 3. build or package
 **-s build** command wile build all the cpp related targets -- **_tf_blade.so and libtf_blade.so**
 ```bash
-./build.py ${VENV_PATH} -s build
+./build.py -s build
 ```
 
 **-s package** command will generate python wheel package for tensorflow-blade under the dir of tensorflow_blade/dist
 The wheel should have the name similar to **tensorflow_blade_gpu-0.0.0+cu110-py3-none-any.whl**
 ```bash
-./build.py ${VENV_PATH} -s package
+./build.py -s package
 ```
 
 If you want to install the wheel package under develop mode for debug, the following command can be applied.
 ```bash
-./build.py ${VENV_PATH} -s package --develop
+./build.py -s package --develop
 ```
 
 ## NOTE
 Currently only tensorflow-gpu==2.4.0 with CUDA 11.0 is supported for Tensorflow-Blade.
 
-Supports for more tensorflow versions and devices will be coming soon.
+Supports for more tensorflow versions and devices is coming soon.

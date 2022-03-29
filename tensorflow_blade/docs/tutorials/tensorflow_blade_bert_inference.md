@@ -1,6 +1,6 @@
 # Tutorial: Optimize BERT Inference with Tensorflow-Blade
 
-In this tutorial, we show how to optimize BERT model for inference with a few lines code to call tensorrt optimization pass from tensorflow-blade.
+In this tutorial, we show how to optimize BERT model for inference with a few lines code to call TensorRT optimization pass from Tensorflow-Blade.
 
 **BERT**, short for Bidirectional Encoder Representations from Transformers, is one of the most popular natural language processing (NLP) model in the world. BERT models and its many varieties have been widely used for language modelling tasks. **However, with great model accuracy comes with a great amount of computations.** The latency of BERT model is quite high, since it has both massive GEMM operations and element-wise operations with lots of redundancy memory accesses, making BERT model difficult to deploy for real-time applications.
 In this tutotial, we use a pre-trained "**bert-base-cased**" BERT model from **Huggingface Transformers**.
@@ -17,7 +17,7 @@ The content of this tutorial is as following.
 ## Prologue: Prepare
 ### environment setup
 These packages are required:
-- tensorflow == 2.4.0
+- tensorflow-gpu == 2.4.0
 - transformers
 - tensorflow_blade
 
@@ -50,7 +50,7 @@ feed_dicts.append({
 ```
 
 ## Optimize model with Tensorflow-Blade
-We will use tensorflow-blade's tensorrt optimization pass, which can be imported like this:
+We will use Tensorflow-Blade TensorRT optimization pass, which can be imported like this:
 ```python
 from tf_blade.gpu.tf_to_trt import Tf2TrtOpt
 ```
@@ -105,6 +105,6 @@ And we can get the following result:
 Latency of origin model: 12.40ms
 Latency of optimized model: 3.39ms
 ```
-There we can see, using Tensorrt's fp32 optimization, we get a **3.66X** speedup for BERT model inference with acceptable numerical errors.
+There we can see, using TensorRT's fp32 optimization, we get a **3.66X** speedup for BERT model inference with acceptable numerical errors.
 
 The complete python scripts for this tutorial can be found at [TensorFlow BERT Inference with TensorRT](https://github.com/alibaba/BladeDISC/tree/main/examples/TensorFlow/Inference/CUDA/BERT/TensorRT).

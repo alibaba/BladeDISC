@@ -12,4 +12,3 @@ optimization and compilation for inference workloads.
 - [BladeDISC Pass Pipeline Walkthough](/docs/developers/pass_pipeline.md)
 - [Runtime Abstraction Layer](/docs/developers/runtime_abstraction_layer.md)
 - [Build BladeDISC for PyTorch](/docs/build_from_source.md#build-bladedisc-for-pytorch.md).
-

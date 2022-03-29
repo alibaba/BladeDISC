@@ -1,10 +1,12 @@
 # Performance Benchmarking
 
-This is a comprehensive Python benchmark suite to accelerate detectron2 models using TorchBlade.
+This is a comprehensive Python benchmark suite to accelerate detectron2 models
+using TorchBlade.
 
 ## Prerequisite
 
-Benchmark scripts depends on following Python packages in addition to [requirements.txt](../requirements.txt) packages.
+Benchmark scripts depend on the following Python packages and
+[requirements.txt](../requirements.txt) packages:
 
 + [Detectron2](https://github.com/facebookresearch/detectron2)
 + Torch
@@ -31,11 +33,14 @@ optional arguments:
 
 ## About Detectron2 and TorchBlade
 
-Detectron2 can be [deploy with TorchScript](https://detectron2.readthedocs.io/en/latest/tutorials/deployment.html#deployment-with-tracing-or-scripting),
-by either tracing or scripting. The output model file can be loaded without detectron2 dependency in either Python or C++.
+Detectron2 can be
+[deployed with TorchScript](https://detectron2.readthedocs.io/en/latest/tutorials/deployment.html#deployment-with-tracing-or-scripting),
+by either tracing or scripting. The output model file can be loaded without
+detectron2 dependency in either Python or C++.
 
-TorchBlade provides PyTorch/TorchScript module optimization. With TorchScript exported from Detectron2, a model can be accelerated
-by TorchBlade with just a few lines of code:
+TorchBlade provides PyTorch/TorchScript module optimization. With TorchScript
+exported from Detectron2, a model can be accelerated by TorchBlade with just a
+few lines of code:
 
 ```python3
 # code snippet from run_blade.py
@@ -70,10 +75,10 @@ class TestDetectron2:
                 benchmark(func_name, "Torch-Blade", enable_fp16, wrapper, inputs, batch)
 ```
 
-
 ## Detectron2 TorchBlade Inference Optimization
 
-Our benchmark shows accelerating detectron2 models with TensorRT via TorchBlade would improve performance up to 2.7x.
+Our benchmark shows accelerating detectron2 models with TensorRT via TorchBlade
+would improve performance up to 2.7x.
 
 | Model(traced)   | Backend    | precision | Median(FPS) |   Mean(FPS) | Median(ms) |   Mean(ms) |    99th_p |    std_dev |
 |:------------|:-----------|:-------|-----------:|------------:|----------:|-----------:|----------:|-----------:|

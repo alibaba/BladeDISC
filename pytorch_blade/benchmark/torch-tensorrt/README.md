@@ -1,26 +1,28 @@
-
 # Performance Benchmarking
 
-**NOTE that this package is modified from:**\
+**NOTE that this package is modified from**\
 [Torch-TensorRT/exmaples/benchmark/py/README.md](https://github.com/NVIDIA/Torch-TensorRT/blob/95d2b6e003a0392fe08ce49520f015c230d4c750/examples/benchmark/py/README.md)
 
-This is a comprehensive Python benchmark suite to run perf runs using different supported backends. Following backends are supported:
+This is a comprehensive Python benchmark suite to run perf runs using different
+supported backends. The following backends are supported:
 
-1. Torch
-2. Torch-TensorRT
-3. TensorRT
-4. Torch-Blade
+- Torch
+- Torch-TensorRT
+- TensorRT
+- Torch-Blade
 
-Note: Please note that for ONNX models, user can convert the ONNX model to TensorRT serialized engine and then use this package.
+Note: Please note that for ONNX models, the user can convert the ONNX model to
+TensorRT serialized engine and then use this package.
 
 ## Prerequisite
 
-Benchmark scripts depends on following Python packages in addition to [requirements.txt](../requirements.txt) packages
+Benchmark scripts depend on the following Python packages in addition to
+[requirements.txt](../requirements.txt) packages
 
-1. Torch-TensorRT
-2. Torch
-3. TensorRT
-4. Torch-Blade
+- Torch-TensorRT
+- Torch
+- TensorRT
+- Torch-Blade
 
 ## Structure
 
@@ -36,7 +38,8 @@ Benchmark scripts depends on following Python packages in addition to [requireme
 └── README.md
 ```
 
-Please save your configuration files at config directory. Similarly, place your model files at models path.
+Please save your configuration files at config directory. Similarly, place your
+model files at models path.
 
 ## Usage
 
@@ -50,7 +53,8 @@ python perf_run.py --config=config/vgg16.yml
 
 There are two sample configuration files added.
 
-* crnn.yml, vgg16.yml and yolov5.yml demonstrates a configuration with all the supported backends (Torch, Torch-TensorRT, TensorRT, Torch-Blade)
+- crnn.yml, vgg16.yml, and yolov5.yml demonstrates a configuration with all the
+  supported backends (Torch, Torch-TensorRT, TensorRT, Torch-Blade)
 
 ### Supported fields
 
@@ -68,35 +72,35 @@ There are two sample configuration files added.
 
 Note:
 
-1. Please note that torch runtime perf is not supported for int8 yet.
-2. Torchscript module filename should end with .jit.pt otherwise it will be treated as a TensorRT engine.
+- Please note that torch runtime perf is not supported for int8 yet.
+- Torchscript module filename should end with .jit.pt otherwise it will be
+  treated as a TensorRT engine.
 
 Additional sample use case:
 
 ```text
-backend: 
+backend:
   - torch
   - torch_tensorrt
   - tensorrt
   - torch_blade
-input: 
-  input0: 
+input:
+  input0:
     - 3
     - 224
     - 224
   num_inputs: 1
-model: 
+model:
   filename: model.plan
   name: vgg16
-runtime: 
+runtime:
   device: 0
-  precision: 
+  precision:
     - fp32
     - fp16
 ```
 
-
-## Compairison (@Nvidia T4)
+## Comparison (@Nvidia T4)
 
 | Model | Backend        | precision   |   Median(FPS) |   Mean(FPS) |   Median-Latency(ms) |   Mean-Latency(ms) |     99th_p |     std_dev |
 |------:|:---------------|:------------|--------------:|------------:|---------------------:|-------------------:|-----------:|------------:|
@@ -109,7 +113,8 @@ runtime:
 | vgg16 | Torch-TensorRT | fp16        |       381.676 |     364.289 |           0.00262002 |         0.00280076 | 0.00422715 | 0.000472002 |
 | vgg16 | TensorRT       | fp16        |       384.943 |     390.188 |           0.00259779 |         0.00256511 | 0.00267093 | 7.56818e-05 |
 
-The benchmark on vgg16 shows that TorchBlade has similar performance to Torch-TensorRT and TensorRT.
+The benchmark on vgg16 shows that TorchBlade has similar performance to
+Torch-TensorRT and TensorRT.
 
 | Model   | Backend     | precision   |   Median(FPS) |   Mean(FPS) |   Median-Latency(ms) |   Mean-Latency(ms) |     99th_p |     std_dev |
 |--------:|:------------|:------------|--------------:|------------:|---------------------:|-------------------:|-----------:|------------:|
@@ -121,4 +126,5 @@ The benchmark on vgg16 shows that TorchBlade has similar performance to Torch-Te
 | crnn    | Torch-Blade | fp32        |       175.106 |     175.274 |           0.00571081 |         0.00570566 | 0.00579444 | 4.15103e-05 |
 | crnn    | Torch-Blade | fp16        |       258.254 |     258.346 |           0.00387215 |         0.00387082 | 0.00389814 | 1.38553e-05 |
 
-The benchmark on yolov5s and crnn shows that TorchBlade is robust, while Torch-TensorRT/TensorRT failed to optimize the model.
+The benchmark on yolov5s and crnn shows that TorchBlade is robust, while
+Torch-TensorRT/TensorRT failed to optimize the model.

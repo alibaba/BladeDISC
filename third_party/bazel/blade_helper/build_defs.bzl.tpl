@@ -1,17 +1,42 @@
 def python_bin_path():
     return "%{PYTHON_BIN_PATH}"
 
-def if_tensorrt_enabled(x):
-    if %{TENSORRT_ENABLED}:
-        return select({"//conditions:default": x})
-    return select({"//conditions:default": []})
+def cc_bin_path():
+    return "%{CC_BIN_PATH}"
 
-def if_tensorrt_disabled(x):
-    if %{TENSORRT_ENABLED}:
-        return select({"//conditions:default": []})
-    return select({"//conditions:default": x})
+def cxx_bin_path():
+    return "%{CXX_BIN_PATH}"
 
-def if_internal(x):
+def nvcc_bin_path():
+    return "%{NVCC_BIN_PATH}"
+
+def cuda_home():
+    return "%{CUDA_HOME}"
+
+def cuda_version():
+    return "%{CUDA_VERSION}"
+
+def if_hie_enabled(if_true, if_false = []):
+    if %{IF_HIE}:
+        return if_true
+    return if_false
+
+def if_hie_disabled(if_true, if_false = []):
+    if not %{IF_HIE}:
+        return if_true
+    return if_false
+
+def if_tensorrt_enabled(if_true, if_false = []):
+    if %{TENSORRT_ENABLED}:
+        return if_true
+    return if_false
+
+def if_tensorrt_disabled(if_true, if_false = []):
+    if not %{TENSORRT_ENABLED}:
+        return if_true
+    return if_false
+
+def if_internal(if_true, if_false = []):
     if %{IF_INTERNAL}:
-        return select({"//conditions:default": x})
-    return select({"//conditions:default": []})
+        return if_true
+    return if_false

@@ -1,3 +1,13 @@
+def if_pai_tf(x):
+    if %{IS_PAI_TF}:
+        return select({"//conditions:default": x})
+    return select({"//conditions:default": []})
+
+def if_not_pai_tf(x):
+    if %{IS_PAI_TF}:
+        return select({"//conditions:default": []})
+    return select({"//conditions:default": x})
+
 def tf_copts():
     return %{TF_COPTS}
 

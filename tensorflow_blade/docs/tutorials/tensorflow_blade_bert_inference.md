@@ -1,17 +1,17 @@
-# Tutorial: Optimize BERT Inference with Tensorflow-Blade
+# Tutorial: Optimize BERT Inference with TensorFlow-Blade
 
-In this tutorial, we show how to optimize BERT model for inference with a few lines code to call TensorRT optimization pass from Tensorflow-Blade.
+In this tutorial, we show how to optimize BERT model for inference with a few lines code to call TensorRT optimization pass from TensorFlow-Blade.
 
 **BERT**, short for Bidirectional Encoder Representations from Transformers, is one of the most popular natural language processing (NLP) model in the world. BERT models and its many varieties have been widely used for language modelling tasks. **However, with great model accuracy comes with a great amount of computations.** The latency of BERT model is quite high, since it has both massive GEMM operations and element-wise operations with lots of redundancy memory accesses, making BERT model difficult to deploy for real-time applications.
 In this tutotial, we use a pre-trained "**bert-base-cased**" BERT model from **Huggingface Transformers**.
 
 **TensorRT** is an SDK for deep learning inference powered by Nvidia, which includes a deep learning inference optimizer and runtime that delivers low latency and high throughput for inference applications.
 
-TensorflowBlade can do ahead-of-time optimization with **TensorRT** backend, providing a state-of-the-art inference performance on Nvidia's GPGPUs.
+TensorFlowBlade can do ahead-of-time optimization with **TensorRT** backend, providing a state-of-the-art inference performance on Nvidia's GPGPUs.
 
 The content of this tutorial is as following.
   - [Prologue: Prepare](#prologue-prepare)
-  - [Optimize with Tensorflow-Blade's TensorRT backend](#optimize-with-tensorflow-blade)
+  - [Optimize with TensorFlow-Blade's TensorRT backend](#optimize-with-tensorflow-blade)
   - [Epilogue: Run Inference for origin and optimized model](#epilogue-run-inference-for-origin-and-optimized-model)
 
 ## Prologue: Prepare
@@ -22,7 +22,7 @@ These packages are required:
 - tensorflow_blade
 
 To build and install `tensorflow_blade` package, please refer to
-["Installation of TensorflowBlade"](../build_from_source.md) and
+["Installation of TensorFlowBlade"](../build_from_source.md) and
 ["Install BladeDISC With Docker"](../../docs/install_with_docker.md) to get a pre-build tensorflow-runtime docker.
 
 The system environments and packages used in this tutorial:
@@ -49,8 +49,8 @@ feed_dicts.append({
 })
 ```
 
-## Optimize model with Tensorflow-Blade
-We will use Tensorflow-Blade TensorRT optimization pass, which can be imported like this:
+## Optimize model with TensorFlow-Blade
+We will use TensorFlow-Blade TensorRT optimization pass, which can be imported like this:
 ```python
 from tf_blade.gpu.tf_to_trt import Tf2TrtOpt
 ```

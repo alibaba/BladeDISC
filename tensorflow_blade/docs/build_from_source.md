@@ -1,12 +1,12 @@
-# Build Tensorflow-Blade from Source
+# Build TensorFlow-Blade from Source
 
-This document introduces how to build Tensorflow-Blade from source.
+This document introduces how to build TensorFlow-Blade from source.
 As for the preparation part, you can refer to [Prerequisite](../../docs/build_from_source.md#prerequisite), [Checkout the Source](../../docs/build_from_source.md#checkout-the-source), [Launch a development Docker container](../../docs/build_from_source.md#launch-a-development-docker-container)
 parts from [build from sources docs for BladeDisc for TensorFlow Users](../../docs/build_from_source.md).
 
-## Building Tensorflow-Blade
+## Building TensorFlow-Blade
 
-Build/test/package for Tensorflow-Blade are all done by bazel.
+Build/test/package for TensorFlow-Blade are all done by bazel.
 We have provided an all-in-on script for developers/users to use instead of using complex bazel command.
 
 ### options for build script
@@ -26,7 +26,7 @@ optional arguments:
                             - test: test tf blade framework.
                             - package: make tf blade python packages.
   --device {cpu,gpu}    Build target device
-  --tf {1.15,2.4}       Tensorflow version.
+  --tf {1.15,2.4}       TensorFlow version.
   --skip-trt            If True, tensorrt will be skipped for gpu build
   --skip-hie            If True, hie will be skipped for internal build
   --internal            If True, internal objects will be built
@@ -34,7 +34,7 @@ optional arguments:
   --develop             If True, python wheel develop mode will be installed for local development or debug.
 ```
 
-### A typical build flow for GPU device and Tensorflow-gpu==2.4.0
+### A typical build flow for GPU device and TensorFlow-gpu==2.4.0
  - 1. Set up python requirements for build
 ```bash
 python3 -m pip install -r requirement-tf2.4-cu110.txt
@@ -74,6 +74,6 @@ If you want to install the wheel package under develop mode for debug, the follo
 ```
 
 ## NOTE
-Currently only tensorflow-gpu==2.4.0 with CUDA 11.0 is supported for Tensorflow-Blade.
+Currently only tensorflow-gpu==2.4.0 with CUDA 11.0 is supported for TensorFlow-Blade.
 
 Supports for more tensorflow versions and devices is coming soon.

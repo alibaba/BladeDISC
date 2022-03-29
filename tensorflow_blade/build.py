@@ -290,7 +290,7 @@ def parse_args():
         help='Build target device',
     )
     parser.add_argument(
-        "--tf", required=False, choices=["1.15", "2.4"], help="Tensorflow version.",
+        "--tf", required=False, choices=["1.15", "2.4"], help="TensorFlow version.",
     )
     parser.add_argument(
         '--skip-trt',
@@ -324,7 +324,7 @@ def parse_args():
         action="store_true",
         required=False,
         default=False,
-        help="If True, python develop mode for Tensorflow-Blade will be set up for local development or debug.",
+        help="If True, python develop mode for TensorFlow-Blade will be set up for local development or debug.",
     )
 
     # flag validation

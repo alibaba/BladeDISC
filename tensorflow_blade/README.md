@@ -15,7 +15,7 @@ First ref to [How to make contribution](/docs/contribution.md) to setup the basi
 Then we will get to know the code for TensorFlow-Blade.
 
 ### Code layout for TensorFlow-Blade
-All the code for TensorFlow-Blade are under the **tensorflor\_blade** dir.
+All the code for TensorFlow-Blade are under the `tensorflor_blade` dir.
 
 ```bash
 tree -L 1
@@ -42,23 +42,23 @@ tree -L 1
 └── workspace2.bzl
 ```
 All the files with name containing `workspace` and `build` are all used for **bazel build**.
-All the cpp source codes are under **src** dir.
-All the python source codes are under **tf\_blade** dir.
-All the tests files are under **tests** dir.
+All the cpp source codes are under `src` dir.
+All the python source codes are under `tf_blade` dir.
+All the tests files are under `tests` dir.
 
 ### CI pipeline for TensorFlow-Blade
-When running CI actions for TensorFlow-Blade, all the configure/build/package stages as in [build and install TensorFlow-Blade](docs/build_from_source.md) are executed. Also we will run the python linter check and run all the tests under tests dir.
+When running CI actions for TensorFlow-Blade, all the `configure/build/package` stages as in [build and install TensorFlow-Blade](docs/build_from_source.md) are executed. Also we will run the python linter check and run all the tests under tests dir.
  - run checks for python and cpp code
 ```bash
 ./build.py -s check
 ```
-The checks will be done using python's flake8/black/mypy modules.
-Please make sure all the python functions or classes have **type hints** as we have done in current code.
+The checks will be done using python's `flake8/black/mypy` modules.
+Please make sure all the python functions or classes have `type hints` as we have done in current code.
 
-As for cpp code, the check will be done by the **pre-commit** tool using clang-format.
+As for cpp code, the check will be done by the `pre-commit` tool using clang-format.
 
  - run unit tests
 ```bash
 ./build.py -s test
 ```
-All the unit tests under **tests/** dir will be executed.
+All the unit tests under `tests/` dir will be executed.

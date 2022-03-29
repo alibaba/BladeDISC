@@ -12,7 +12,7 @@
 #include "tensorrt_onnx_parser.h"
 #include <cmath>
 #include <iterator>
-// #include "compiler/onnx/onnx_utils.h"
+#include "common_utils/utils.h"
 #include "compiler/tensorrt/bridge/tensorrt_flags.h"
 
 namespace torch {
@@ -139,7 +139,8 @@ TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
     // failed. It's a issue of TensorRT.
     // To make our process more robust we would like to enable log
     // message only when TORCH_BLADE_DEBUG_LOG is set.
-    bool debug_log_flag = env::ReadBoolFromEnvVar("TORCH_BLADE_DEBUG_LOG");
+    bool debug_log_flag =
+        env::ReadBoolFromEnvVar("TORCH_BLADE_DEBUG_LOG", false);
     if (trt_engine == nullptr && enable_debug_log) {
       LOG(ERROR) << "Failed to build the engine, error message are:";
       auto error_recorder = context.builder->getErrorRecorder();

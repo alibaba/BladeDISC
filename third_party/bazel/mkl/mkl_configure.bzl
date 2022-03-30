@@ -54,10 +54,12 @@ def _mkl_configure_impl(repository_ctx):
         '        ":' + repository_ctx.path(lib).basename + '",'
         for lib in _MKL_STATIC_LIBS
     ])
+    dynamic_lib_target = "lib/" + _MKL_IOMP5_SO
 
     _tpl(repository_ctx, "BUILD", {
         "%{mkl_static_lib_targets}": static_lib_targets,
         "%{mkl_static_lib_imports}": "\n\n".join(static_lib_imports),
+        "%{mkl_iomp_dynamic_lib_target}": dynamic_lib_target,
     })
     _tpl(repository_ctx, "build_defs.bzl", {
         "%{if_mkl}": "if_true",

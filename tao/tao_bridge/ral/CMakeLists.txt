@@ -148,7 +148,7 @@ if(${TAO_ENABLE_PATINE})
 endif()
 
 if(${ENABLE_BLADE_GEMM})
-  include_directories(${PLATFORM_ALIBABA_DIR}/third_party/blade_gemm/include)
+  include_directories(${PLATFORM_ALIBABA_DIR}/blade_gemm/include)
   target_link_libraries(ral PRIVATE blade_gemm)
 endif()
 

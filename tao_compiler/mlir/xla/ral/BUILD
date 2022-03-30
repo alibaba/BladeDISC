@@ -178,7 +178,7 @@ cc_library(
 
 cc_library(
     name = "disc_blade_gemm_deps",
-    deps = if_platform_alibaba(["//tao/third_party/blade_gemm:blade_gemm"]),
+    deps = if_platform_alibaba(["//tao/blade_gemm:blade_gemm"]),
 )
 
 

@@ -182,7 +182,7 @@ def configure_with_bazel(args):
             _action_env("GCC_HOST_COMPILER_PATH", which("gcc"))
             _action_env("TF_CUDA_CLANG", "0")
             _action_env("TF_CUDA_VERSION", cuda_ver)
-            _action_env("TF_cuda_homeS", cuda_home)
+            _action_env("TF_CUDA_HOME", cuda_home)
             _action_env("TF_CUDNN_VERSION", cudnn_ver)
             if '11\.' in cuda_ver:
                 _action_env("TF_CUDA_COMPUTE_CAPABILITIES", "7.0,7.5,8.0")

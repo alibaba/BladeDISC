@@ -128,7 +128,7 @@ std::vector<c10::IValue> RegisterDiscClass(
 
     // add DiscClass object as graph input
     auto disc_class = torch::make_custom_class<DiscClass>(option);
-    auto input_name = c10::str("disc_class_p" + disc_inputs.size());
+    auto input_name = c10::str("disc_class_p", disc_inputs.size());
     disc_inputs.push_back(disc_class);
 
     ReplaceDiscClass(graph, node, input_name, disc_class);

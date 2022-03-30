@@ -24,10 +24,17 @@ using namespace ::torch::jit;
 // conversion module into a group. We should re-implement this.
 std::vector<Node*> FakeCluster(const std::shared_ptr<Graph>& graph) {
   std::vector<Node*> nodes;
+  int cnt = 0;
   for (auto node : graph->nodes()) {
     if (torch::blade::IsMlirMhloSupported(*node) &&
         node->kind() != prim::Constant) {
+      if (node->kind() == aten::addmm) continue;
       nodes.push_back(node);
+      // cnt++;
+      // if (cnt == 3) {
+      //  nodes.push_back(node);
+      //  break;
+      //}
     }
   }
   return nodes;
@@ -79,8 +86,6 @@ void CastGraphInputsToTensor(const std::shared_ptr<Graph>& graph,
       CastBoundaryScalarToTensor(disc_graph, i);
     }
   }
-  LOG(WARNING) << "After [CastToTensorInputs]: \n"
-               << graph->toString() << std::endl;
 }
 
 void ClusterDiscNodes(const std::shared_ptr<Graph>& graph) {

@@ -1,6 +1,6 @@
 // Copyright 2022 The BladeDISC Authors. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
+// you may not use this file    except in compliance with the License.
 // You may obtain a copy of the License at
 // http://www.apache.org/licenses/LICENSE-2.0
 // Unless required by applicable law or agreed to in writing, software
@@ -14,6 +14,7 @@
 #include <ATen/Functions.h>
 #include <torch/csrc/jit/passes/shape_analysis.h>
 #include <torch/csrc/lazy/backend/backend_device.h>
+#include <torch/csrc/lazy/core/ir_dump_util.h>
 #include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
 
 #include "lazy_tensor_core/csrc/ts_backend/backend_impl.h"
@@ -50,6 +51,8 @@ class DISCBackendImpl : public torch::lazy::BackendImplInterface {
   DISCBackendImpl() : default_device_type_(at::kCPU) {
     auto type = at::kCPU;
     default_device_type_ = TSBackendDeviceType(type);
+    cache_ = std::make_shared<DiscComputationCache>(
+        FLAGS_torch_lazy_compilation_cache_size);
   }
   std::unique_ptr<torch::lazy::LoweringContext> CreateLoweringContext(
       const std::string& name, torch::lazy::BackendDevice device,
@@ -163,6 +166,10 @@ class DISCBackendImpl : public torch::lazy::BackendImplInterface {
 
  private:
   TSBackendDeviceType default_device_type_;
+  // std::unordered_map<torch::lazy::TSComputation*, ExecutablePtr> cache_;
+  std::shared_ptr<DiscComputationCache> cache_;
+  // ComputationCache* cache =
+  //    new ComputationCache(FLAGS_torch_lazy_compilation_cache_size);
 };
 
 torch::lazy::BackendDataPtr DISCBackendImpl::CreateDataPlaceholder(
@@ -184,14 +191,27 @@ std::vector<torch::lazy::BackendDataPtr> DISCBackendImpl::ExecuteComputation(
     torch::lazy::Computation& computation,
     c10::ArrayRef<torch::lazy::BackendDataPtr> arguments,
     const torch::lazy::BackendDevice& device) const {
-  auto graph = static_cast<torch::lazy::TSComputation&>(computation).graph();
-  // TODO(yancey1989): cache the executable program to avoid re-compile for each
-  // iteration
-  auto executable = CompileToDiscExecutable(graph, arguments);
-
+  auto ts_computation = static_cast<torch::lazy::TSComputation&>(computation);
   bool default_device_is_cuda =
-      ((c10::DeviceType)default_device_type_.type != at::kCUDA);
-  return executable->Run(arguments, device, default_device_is_cuda);
+      ((c10::DeviceType)default_device_type_.type == at::kCUDA);
+
+  // Note: hasing graph is just solution for PoC, that supports each LazyTensor
+  // topology mapping a exclusive TorchScript Graph.
+  // TODO(yancey1989): Cache each Disc cluster separately
+  auto disc_hash = torch::lazy::DataHash(ts_computation.graph().get(),
+                                         sizeof(*ts_computation.graph().get()));
+  if (cache_->Get(disc_hash)) {
+    return cache_->Get(disc_hash)->executable->Run(arguments, device,
+                                                   default_device_is_cuda);
+  }
+
+  ExecutablePtr executable =
+      CompileToDiscExecutable(ts_computation.graph()->copy(), arguments);
+  auto result = executable->Run(arguments, device, default_device_is_cuda);
+  auto cachedExecutable =
+      std::make_shared<CachedExecutable>(std::move(executable));
+  cache_->Add(disc_hash, cachedExecutable);
+  return result;
 }
 
 std::vector<torch::lazy::BackendDevice> DISCBackendImpl::GetBackendDevices()

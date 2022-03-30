@@ -33,13 +33,12 @@ std::vector<torch::lazy::BackendDataPtr> Executable::Run(
     } else {
       // TODO(whc) should this check be made more general? it's written somewhat
       // oddly
-      CHECK(default_device_is_cuda ||
+      CHECK(!default_device_is_cuda ||
             ts_data->data().device().type() == at::kCUDA);
       stack.emplace_back(ts_data->data());
     }
   }
   stack.insert(stack.end(), disc_inputs_.begin(), disc_inputs_.end());
-
   graph_executor_.run(stack);
 
   std::vector<torch::lazy::BackendDataPtr> results;
@@ -68,12 +67,13 @@ void EnhancementInputShape(
   }
 }
 
-std::shared_ptr<Executable> CompileToDiscExecutable(
+ExecutablePtr CompileToDiscExecutable(
     const std::shared_ptr<torch::jit::Graph>& graph,
     c10::ArrayRef<torch::lazy::BackendDataPtr> arguments) {
   EnhancementInputShape(graph, arguments);
   // Inference shape
   torch::jit::PropagateInputShapes(graph);
+
   // cluster disc compitable nodes into a sub-graph
   ClusterDiscNodes(graph);
   torch::jit::EliminateDeadCode(graph);

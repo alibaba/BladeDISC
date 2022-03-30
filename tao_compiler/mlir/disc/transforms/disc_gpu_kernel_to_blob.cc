@@ -92,6 +92,15 @@ class GpuKernelToBlobPass
     cc_minor_ = cc_minor;
     multi_cc_support_ = multi_cc_support;
     multi_cc_support_dbg_ptx_only_ = multi_cc_support_dbg_ptx_only;
+    if (multi_cc_support) {
+      // TODO: support customized fusion speculation for multiple GPU
+      // generations with exact sm count. Note that we cannot distinguish GPUs
+      // with only cc numbers (e.g., A10 and A40 are both sm_86).
+      LOG(INFO) << "Multiple GPU compute capability compilation is enabled. "
+                   "The AOT compiled binary is functional on sm_60, sm_70, "
+                   "sm_75, sm_80 and sm_86. While the optimal performance can "
+                   "be achived only on currently GPU generation.";
+    }
   }
 
   void runOnOperation() override {

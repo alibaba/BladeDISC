@@ -147,9 +147,14 @@ Operation* GetCandidateColReduceOp(FusionOp fusion_op) {
 struct DiscSpecializeFusionWithSpeculationPass
     : public DiscSpecializeFusionWithSpeculationPassBase<
           DiscSpecializeFusionWithSpeculationPass> {
-  DiscSpecializeFusionWithSpeculationPass(int cc_major, int cc_minor) {
-    cc_major_ = cc_major;
-    cc_minor_ = cc_minor;
+  DiscSpecializeFusionWithSpeculationPass(int sm_count,
+                                          int max_threads_per_sm) {
+    // If the parameter value is not positive, we will use a default value. The
+    // default value is the data of the most popular NVIDIA GPU generation for
+    // inference. Currently, it is A10.
+    sm_count_ = (sm_count > 0) ? sm_count : 72;
+    // TODO: double check on A10.
+    max_threads_per_sm_ = (max_threads_per_sm > 0) ? max_threads_per_sm : 1024;
   }
 
   void getDependentDialects(DialectRegistry& registry) const override {
@@ -269,19 +274,26 @@ struct DiscSpecializeFusionWithSpeculationPass
     Value col_size = b.create<memref::DimOp>(loc, operand, 1);
     Value pred;
 
-    auto thread_number_info =
-        ArchToGPUThreadNumber.find({cc_major_, cc_minor_});
-    if (thread_number_info != ArchToGPUThreadNumber.end()) {
-      // Enhanced schedule selection policy is as following:
+    // TODO: this feature will be experimental in the first release, and will be
+    // set as default in the near future after evaluated on benchmarks. And
+    // later, the two speculations will be merge into one according to the
+    // adaptive thread mapping approach in AStitch. Then there will be more
+    // flexible per-reduce-thread-number setting.
+    bool experimental_tlp_enhance = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE",
+                                   false, &experimental_tlp_enhance);
+    bool legacy_tlp_enhance = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_LEGACY_TLP_ENHANCE",
+                                   false, &legacy_tlp_enhance);
+    if (experimental_tlp_enhance) {
+    } else if (legacy_tlp_enhance) {
+      // Experimental schedule selection policy is as following:
       //   1. use schedule 1 if
       //      (col-size >= block-dim) &&
       //      (row-number / row-per-block-in-sched-2 < max-blocks-per-wave / 2);
       //   2. use schedule 2 otherwise.
-      const auto& info = thread_number_info->second;
-      int64_t sm_number = info.first;
-      int64_t max_threads_per_wave_per_sm = info.second;
       int64_t max_blocks_per_wave =
-          max_threads_per_wave_per_sm / block_size * sm_number;
+          max_threads_per_sm_ / block_size * sm_count_;
       int64_t row_per_block_in_sched_2 = block_size / kWarpSize;
       Value row_size = b.create<memref::DimOp>(loc, operand, 0);
       Value block_size_val = b.create<arith::ConstantIndexOp>(loc, block_size);
@@ -353,16 +365,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     Value cur_threads = b.create<arith::ConstantIndexOp>(loc, thread_per_block);
     Value cur_blocks =
         b.create<arith::CeilDivSIOp>(loc, matrix_size, cur_threads);
-    int sm_num;
-    auto thread_number_info =
-        ArchToGPUThreadNumber.find({cc_major_, cc_minor_});
-    if (thread_number_info != ArchToGPUThreadNumber.end()) {
-      auto info = thread_number_info->second;
-      sm_num = info.first;
-    } else {
-      sm_num = 80;  // Default is the data of V100.
-    }
-    Value ref_blocks = b.create<arith::ConstantIndexOp>(loc, sm_num);
+    Value ref_blocks = b.create<arith::ConstantIndexOp>(loc, sm_count_);
 
     Value pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt,
                                          cur_blocks, ref_blocks);
@@ -419,21 +422,12 @@ struct DiscSpecializeFusionWithSpeculationPass
     // 2) Otherwise apply vectorization/tiling with width of
     //    `kVectorizeOrTileSize`, which is 2 currently.
 
-    int max_threads_per_wave;
-    auto thread_number_info =
-        ArchToGPUThreadNumber.find({cc_major_, cc_minor_});
-    if (thread_number_info != ArchToGPUThreadNumber.end()) {
-      auto info = thread_number_info->second;
-      max_threads_per_wave = info.first * info.second;
-    } else {
-      max_threads_per_wave = 40 * 1024;  // Default is the data of T4.
-    }
-
     OpBuilder b(fusion_op);
     Location loc = fusion_op.getLoc();
 
     Value out_element_number;
     Value threshold;
+    int max_threads_per_wave = sm_count_ * max_threads_per_sm_;
     if (fusion_type == FusionType::kRowReduction ||
         fusion_type == FusionType::kStitch) {
       Operation* dominant_equivalent_op = GetCandidateRowReduceOp(fusion_op);
@@ -534,9 +528,10 @@ struct DiscSpecializeFusionWithSpeculationPass
 }  // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-createDiscSpecializeFusionWithSpeculationPass(int cc_major, int cc_minor) {
-  return std::make_unique<DiscSpecializeFusionWithSpeculationPass>(cc_major,
-                                                                   cc_minor);
+createDiscSpecializeFusionWithSpeculationPass(int sm_count,
+                                              int max_threads_per_sm) {
+  return std::make_unique<DiscSpecializeFusionWithSpeculationPass>(
+      sm_count, max_threads_per_sm);
 }
 
 }  // namespace disc_ral

@@ -1,4 +1,5 @@
 """Setup TensorFlow as external dependency"""
+load("//bazel:common.bzl", "get_env_bool_value_str")
 
 _BLADE_WITH_TF = "BLADE_WITH_TF"
 _TF_IS_PAI = "TF_IS_PAI"
@@ -37,7 +38,7 @@ def _tf_configure_impl(repository_ctx):
 
     tf_major = repository_ctx.os.environ[_TF_MAJOR_VERSION]
     tf_minor = repository_ctx.os.environ[_TF_MINOR_VERSION]
-    tf_is_pai = repository_ctx.os.environ[_TF_IS_PAI].lower() in ["1", "true", "on"]
+    tf_is_pai = get_env_bool_value_str(repository_ctx, _TF_IS_PAI)
     tf_copt = [
         "-DTF_{}_{}".format(tf_major, tf_minor),
         "-DTF_MAJOR={}".format(tf_major),

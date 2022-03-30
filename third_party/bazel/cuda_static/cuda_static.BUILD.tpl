@@ -10,10 +10,7 @@ cc_import(
     static_library = "lib64/libcublas_static.a",
 )
 
-cc_import(
-    name = "cublasLt_static",
-    static_library = "lib64/libcublasLt_static.a",
-)
+%{import_cublaslt}
 
 cc_import(
     name = "culibos_static",

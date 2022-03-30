@@ -1,4 +1,5 @@
 load("@local_config_tf//:build_defs.bzl", "tf_copts")
+load("@local_config_cuda_static//:build_defs.bzl", "if_has_cublaslt")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -53,9 +54,10 @@ cc_library(
         "@local_config_cuda//cuda:cudart_static",
         "@local_config_cuda//cuda:cudnn",
         "@local_config_cuda//cuda:cublas",
-        "@local_config_cuda//cuda:cublasLt",
         "//src/util:logging",
-    ],
+    ] + if_has_cublaslt([
+        "@local_config_cuda//cuda:cublasLt",
+    ]),
     alwayslink = 1,  # targets depending on it should carry all symbols in its children.
 )
 

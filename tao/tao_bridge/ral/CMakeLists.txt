@@ -147,6 +147,11 @@ if(${TAO_ENABLE_PATINE})
   target_link_libraries(ral PRIVATE patine_client)
 endif()
 
+if(${ENABLE_BLADE_GEMM})
+  include_directories(${PLATFORM_ALIBABA_DIR}/third_party/blade_gemm/include)
+  target_link_libraries(ral PRIVATE blade_gemm)
+endif()
+
 if(${TAO_ENABLE_MKLDNN})
   target_link_libraries(ral PRIVATE dnnl)
   set(MKL_LINK_OPTION "-Wl,--start-group ${MKL_ROOT}/lib/libmkl_intel_ilp64.a ${MKL_ROOT}/lib/libmkl_gnu_thread.a ${MKL_ROOT}/lib/libmkl_core.a -Wl,--end-group -lgomp -lpthread -lm -ldl")

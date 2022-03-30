@@ -34,6 +34,11 @@ config_setting(
 )
 
 config_setting(
+    name = "is_blade_gemm",
+    define_values = {"is_blade_gemm": "true"},
+)
+
+config_setting(
     name = "is_mkldnn",
     define_values = {"is_mkldnn": "true"},
 )

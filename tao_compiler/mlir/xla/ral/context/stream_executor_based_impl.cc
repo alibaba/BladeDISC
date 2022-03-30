@@ -23,6 +23,9 @@
 #include "tensorflow/compiler/mlir/xla/ral/ral_logging.h"
 #include "tensorflow/core/public/version.h"
 #include "tensorflow/core/util/env_var.h"
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
+#include "blade_gemm.h"
+#endif
 
 #ifdef TAO_RAL_USE_STREAM_EXECUTOR
 
@@ -275,6 +278,24 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
     TAO_VLOG(1) << "ral_gemm: early return for empty tensor";
     return;
   }
+
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
+  if (std::is_same<InT, Eigen::half>::value || std::is_same<InT, float>::value) {
+    auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
+    auto stream =
+       static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
+    void* s = stream->implementation()->GpuStreamHack();
+    bool fp16_in = std::is_same<InT, Eigen::half>::value;
+    bool fp16_out = std::is_same<OutT, Eigen::half>::value;
+    bool ret = blade::blade_gemm(s, fp16_in, fp16_out,
+              A.data, A.sizes[0], A.sizes[1], tp_a,
+              B.data, B.sizes[0], B.sizes[1], tp_b,
+              C.data, C.sizes[0], C.sizes[1]);
+    if (ret) {
+      return;
+    }
+  }
+#endif
 
   auto lhs_matrix =
       makeMatrixDescriptor(ctx, A.data, A.sizes[0], A.sizes[1], tp_a);

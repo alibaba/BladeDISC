@@ -33,6 +33,16 @@ class TestDiscShapes(DiscTestCase):
         test_data = (x, y)
         self._test_cvt_to_disc(reshape_as, test_data)
 
+    def test_view_as(self):
+        @torch.jit.script
+        def view_as(x, y):
+            return x.view_as(y)
+
+        x = torch.randn([2, 3, 224, 224], device=self.device)
+        y = torch.randn([6, 224, 224], device=self.device)
+        test_data = (x, y)
+        self._test_cvt_to_disc(view_as, test_data)
+
     def test_reshape(self):
         @torch.jit.script
         def static_reshape(x):
@@ -285,6 +295,21 @@ class TestDiscShapes(DiscTestCase):
             y = torch.flip(x, [0, 1])
             return y
 
+        self._test_cvt_to_disc(func, test_data)
+
+    def test_chunk(self):
+
+        @torch.jit.script
+        def func(x):
+            z1, z2, z3, z4, z5, z6 = torch.chunk(x, 6, -1)
+            return z1, z2, z3, z4, z5, z6
+
+        x = torch.randn([4, 64, 11], device=self.device)
+        test_data = (x, )
+        self._test_cvt_to_disc(func, test_data)
+
+        x = torch.randn([4, 64, 12], device=self.device)
+        test_data = (x, )
         self._test_cvt_to_disc(func, test_data)
 
 if __name__ == "__main__":

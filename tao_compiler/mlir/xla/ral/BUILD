@@ -386,6 +386,7 @@ cc_library(
         ":ral_logging",
         "@com_google_absl//absl/strings",
         "@curl",
+        "//third_party/eigen3",
     ] + if_cuda_or_rocm([
         "//tensorflow/core:stream_executor_headers_lib",
     ]),

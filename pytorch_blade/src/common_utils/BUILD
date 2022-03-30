@@ -1,5 +1,5 @@
 package(default_visibility = ["//visibility:public"])
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_library")
 
 cc_library(
     name = "torch_blade_logging",
@@ -24,11 +24,6 @@ cc_library(
 )
 
 cc_library(
-    name = "torch_blade_version",
-    hdrs = ["version.h"],
-)
-
-cc_library(
     name = "torch_blade_utils",
     srcs = ["utils.cpp"],
     hdrs = ["utils.h"],
@@ -47,7 +42,6 @@ cc_library(
         ":torch_blade_logging",
         ":torch_blade_tmpfs",
         ":torch_blade_macros",
-        ":torch_blade_version",
         ":torch_blade_utils",
     ],
     alwayslink = True,

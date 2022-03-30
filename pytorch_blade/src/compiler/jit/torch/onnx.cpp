@@ -31,8 +31,6 @@ through a callback function `deleteDeadValues`.
 #include <sstream>
 #include <unordered_map>
 
-#include "common_utils/version.h"
-
 namespace torch {
 namespace blade {
 using namespace torch::jit;

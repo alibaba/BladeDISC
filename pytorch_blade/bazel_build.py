@@ -114,14 +114,8 @@ class BazelBuild(TorchBladeBuild):
             bazel_cmd, shell=True, env=env, executable="/bin/bash"
         )
 
-        ext_so_fpath = "src/_torch_blade.so"
-        ral_so_fpath = "external/org_tensorflow/tensorflow/compiler/mlir/xla/ral/libral_base_context.so"
-        disc_bin_fpath = (
-            "external/org_tensorflow/tensorflow/compiler/mlir/disc/disc_compiler_main"
-        )
-
-        for fpath in [ext_so_fpath, ral_so_fpath, disc_bin_fpath]:
-            fpath = os.path.realpath(os.path.join(bazel_bin_dir, fpath))
+        for fpath in open("bazel_target_cfg.txt"):
+            fpath = os.path.realpath(os.path.join(bazel_bin_dir, fpath.strip()))
             fname = os.path.basename(fpath)
             _symlink_force(fpath, os.path.join(extdir, fname))
 

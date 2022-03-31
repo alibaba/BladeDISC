@@ -44,7 +44,7 @@ def _tf_configure_impl(repository_ctx):
         "-DTF_MAJOR={}".format(tf_major),
         "-DTF_MINOR={}".format(tf_minor),
     ]
-    if tf_is_pai:
+    if tf_is_pai == "True":
         tf_copt.append("-DTF_IS_PAI")
 
     _tpl(repository_ctx, "build_defs.bzl", {
@@ -52,7 +52,7 @@ def _tf_configure_impl(repository_ctx):
         "%{TF_LIB_DIR}": tf_lib_dir,
         "%{IS_TF2}": "True" if tf_major == "2" else "False",
         "%{TF_VERSION}": "{}.{}".format(tf_major, tf_minor),
-        "%{IS_PAI_TF}": "True" if tf_is_pai else "False",
+        "%{IS_PAI_TF}": tf_is_pai,
     })
 
 tf_configure = repository_rule(

@@ -47,7 +47,7 @@ class BazelBuild(TorchBladeBuild):
         ]
         torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]
         self.extra_opts = [
-            "--copt=-DPYTORCH_VERSION_STRING={}".format(self.torch_version),
+            "--copt=-DPYTORCH_VERSION_STRING=\\\"{}\\\"".format(self.torch_version),
             "--copt=-DPYTORCH_MAJOR_VERSION={}".format(torch_major_version),
             "--copt=-DPYTORCH_MINOR_VERSION={}".format(torch_minor_version),
             "--copt=-DTORCH_BLADE_CUDA_VERSION={}".format(self.cuda_version),
@@ -66,9 +66,9 @@ class BazelBuild(TorchBladeBuild):
             self.configs.append("--config=dbg")
 
         if self.cuda_available:
-            self.configs.append("--config=torch_disc_cuda")
+            self.configs.append("--config=torch_cuda")
         else:
-            self.configs += ["--config=torch_disc_cpu"]
+            self.configs += ["--config=torch_cpu"]
 
         if self.cuda_available and self.build_tensorrt:
             self.configs.append("--config=torch_tensorrt")

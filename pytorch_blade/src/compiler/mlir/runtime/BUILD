@@ -35,6 +35,7 @@ cc_library(
     ],
     deps = [
         ":torch_blade_ral_context",
+	"//src/compiler/backends:torch_blade_backends",
         "@local_org_torch//:libtorch",
     ],
     copts = select({

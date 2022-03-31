@@ -193,7 +193,7 @@ void BuildDotClusters(Block* block,
 class DotShareOperandMergeConverter {
  public:
   DotShareOperandMergeConverter(FuncOp func) : func_(func){};
-  bool run();
+  void run();
 
  public:
   enum ShareType : int32_t { LEFT = 0, RIGHT = 1 };
@@ -242,17 +242,16 @@ class DotShareOperandMergeConverter {
   bool buildShareOperandMap(Block* block, ShareOperandMap& share_operand_map,
                             ShareType share_type);
   bool applyMerging(DotCluster& cluster, ShareType share_type);
-  std::pair<int64_t, int64_t> getMNDim(mhlo::DotGeneralOp op);
 
  private:
   FuncOp func_;
 };
 
-bool DotShareOperandMergeConverter::run() {
+void DotShareOperandMergeConverter::run() {
   SmallVector<Block*> blocks;
   func_.walk([&](Block* block) { blocks.push_back(block); });
   for (Block* block : blocks) {
-    for(auto share_type : SmallVector<ShareType, 2>({LEFT,RIGHT})) {
+    for (auto share_type : SmallVector<ShareType, 2>({LEFT, RIGHT})) {
       // A map to help to cluster dots with same shape and dim-numbers together.
       ShareOperandMap share_operand_map;
       if (!buildShareOperandMap(block, share_operand_map, share_type)) {
@@ -261,20 +260,19 @@ bool DotShareOperandMergeConverter::run() {
       // Find merging clusters.
       SmallVector<DotCluster> merging_clusters;
       BuildDotClusters<ShareOperandMap>(block, share_operand_map,
-                                            merging_clusters);
+                                        merging_clusters);
       // Apply merging.
       for (auto& cluster : merging_clusters) {
         applyMerging(cluster, share_type);
       }
     }
   }
-  return true;
 }
 
 bool DotShareOperandMergeConverter::buildShareOperandMap(
     Block* block, ShareOperandMap& share_operand_map, ShareType share_type) {
   block->walk([&](mhlo::DotGeneralOp op) {
-    //get one-side operand shareinfo according to the share_type
+    // get one-side operand shareinfo according to the share_type
     DotShareInfo share_info;
     share_info.share_operand = (share_type == LEFT) ? op.lhs() : op.rhs();
     share_info.dimension_numbers = op.dot_dimension_numbers();
@@ -282,49 +280,6 @@ bool DotShareOperandMergeConverter::buildShareOperandMap(
     shared_op_list.push_back(op);
   });
   return true;
-}
-
-// getMNDim get the m-dim and n-dim of the input dot of (m,k)x(k,n)
-std::pair<int64_t, int64_t> DotShareOperandMergeConverter::getMNDim(
-    mhlo::DotGeneralOp op) {
-  Value lhs = op.lhs();
-  Value rhs = op.rhs();
-  int64_t m_dim, n_dim;
-  // Initialize `dimension_numbers`.
-  auto dimension_numbers = op.dot_dimension_numbers();
-  // Initialize `batching_dims`.
-  auto lhs_batch_dims = dimension_numbers.getLhsBatchingDimensions();
-  auto rhs_batch_dims = dimension_numbers.getRhsBatchingDimensions();
-  assert(lhs_batch_dims.size() == rhs_batch_dims.size());
-  // Initialize `m_dim`.
-  int64_t lhs_rank = lhs.getType().cast<RankedTensorType>().getRank();
-  assert(lhs_batch_dims.size() + 2 == lhs_rank);
-  DenseSet<int64_t> lhs_batch_dims_set(lhs_batch_dims.begin(),
-                                       lhs_batch_dims.end());
-  auto lhs_contracting_dims = dimension_numbers.getLhsContractingDimensions();
-  assert(lhs_contracting_dims.size() == 1);
-  for (int64_t i = 0; i < lhs_rank; i++) {
-    if ((lhs_batch_dims_set.find(i) == lhs_batch_dims_set.end()) &&
-        (i != lhs_contracting_dims[0])) {
-      m_dim = i;
-      break;
-    }
-  }
-  // Initialize `n_dim`.
-  int64_t rhs_rank = rhs.getType().cast<RankedTensorType>().getRank();
-  assert(rhs_batch_dims.size() + 2 == rhs_rank);
-  DenseSet<int64_t> rhs_batch_dims_set(rhs_batch_dims.begin(),
-                                       rhs_batch_dims.end());
-  auto rhs_contracting_dims = dimension_numbers.getRhsContractingDimensions();
-  assert(rhs_contracting_dims.size() == 1);
-  for (int64_t i = 0; i < rhs_rank; i++) {
-    if ((rhs_batch_dims_set.find(i) == rhs_batch_dims_set.end()) &&
-        (i != rhs_contracting_dims[0])) {
-      n_dim = i;
-      break;
-    }
-  }
-  return std::make_pair(m_dim, n_dim);
 }
 
 bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
@@ -348,100 +303,103 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
     op->moveBefore(foremost);
     ArrangeOperandsInsertPointInBlock(op);
   }
+
   auto foremost_dot = dyn_cast<mhlo::DotGeneralOp>(foremost);
+
   OpBuilder builder(foremost_dot);
   auto non_concat_op =
       (share_type == LEFT) ? foremost_dot.lhs() : foremost_dot.rhs();
-  auto orig_lhs_type = foremost_dot.lhs().getType().dyn_cast<RankedTensorType>();
-  auto orig_rhs_type = foremost_dot.rhs().getType().dyn_cast<RankedTensorType>();
+  auto orig_lhs_type =
+      foremost_dot.lhs().getType().dyn_cast<RankedTensorType>();
+  auto orig_rhs_type =
+      foremost_dot.rhs().getType().dyn_cast<RankedTensorType>();
   auto orig_concat_op_type =
       (share_type == LEFT) ? orig_rhs_type : orig_lhs_type;
   auto orig_non_concat_op_type =
       (share_type == LEFT) ? orig_lhs_type : orig_rhs_type;
   auto orig_result_type = foremost_dot.getType().dyn_cast<RankedTensorType>();
 
-  auto m_dim = getMNDim(foremost_dot).first;
-  auto n_dim = getMNDim(foremost_dot).second;
-  int64_t& concat_dim = (share_type == LEFT) ? n_dim : m_dim;
+  // All op share the same rank and elementType.
+  auto rank = orig_non_concat_op_type.getRank();
+  auto element_type = orig_non_concat_op_type.getElementType();
+
+  // Find concat dim.
+  int64_t concat_dim = -1;
+  DenseSet<int64_t> non_concat_dims;
+  auto dim_numbers = foremost_dot.dot_dimension_numbers();
+  // Batching and contracting dims of the to-concat operands.
+  const auto& batch_dims = (share_type == LEFT)
+                               ? dim_numbers.getRhsBatchingDimensions()
+                               : dim_numbers.getLhsBatchingDimensions();
+  const auto& contract_dims = (share_type == LEFT)
+                                  ? dim_numbers.getRhsContractingDimensions()
+                                  : dim_numbers.getLhsContractingDimensions();
+  non_concat_dims.insert(batch_dims.begin(), batch_dims.end());
+  non_concat_dims.insert(contract_dims.begin(), contract_dims.end());
+
+  assert(rank == non_concat_dims.size() + 1);
+  for (int64_t i = 0; i < rank; i++) {
+    if (!non_concat_dims.contains(i)) {
+      concat_dim = i;
+      break;
+    }
+  }
+  assert(concat_dim > 0);
+
+  // Initial to_concat_ops, concat_dim_sum, is_dynamic_shape.
+  SmallVector<Value> to_concat_ops;
   bool is_dynamic_shape = false;
   int64_t concat_dim_sum = 0;
-  SmallVector<Value> to_concat_ops;
-
-  // Initial to_concat_ops, concat_dim_sum, is_dynamic_shape
   for (auto op : ops) {
     mhlo::DotGeneralOp dot = dyn_cast<mhlo::DotGeneralOp>(op);
-    auto concat_op_type =
-        (share_type == LEFT) ? dot.rhs().getType().dyn_cast<RankedTensorType>()
-                             : dot.lhs().getType().dyn_cast<RankedTensorType>();
+    auto to_concat = (share_type == LEFT) ? dot.rhs() : dot.lhs();
+    auto concat_op_type = to_concat.getType().dyn_cast<RankedTensorType>();
     auto concat_dim_size = concat_op_type.getDimSize(concat_dim);
     if (concat_dim_size == ShapedType::kDynamicSize) {
       is_dynamic_shape = true;
     } else if (!is_dynamic_shape) {
       concat_dim_sum += concat_dim_size;
     }
-    auto to_concat = (share_type == LEFT) ? dot.rhs() : dot.lhs();
     to_concat_ops.push_back(to_concat);
   }
 
-  // Build concat op
-  auto concat_op_rank = orig_rhs_type.getRank();
-  SmallVector<int64_t, 4> concat_op_shapes(concat_op_rank,
-                                           ShapedType::kDynamicSize);
-  for (int64_t i = 0; i < concat_op_rank; i++) {
+  // Build concat op.
+  SmallVector<int64_t, 4> concat_op_shapes(rank, ShapedType::kDynamicSize);
+  for (int64_t i = 0; i < rank; i++) {
     if (i != concat_dim) {
       concat_op_shapes[i] = orig_rhs_type.getDimSize(i);
     } else if (!is_dynamic_shape) {
       concat_op_shapes[i] = concat_dim_sum;
     }
   }
-  auto concat_op_type =
-      RankedTensorType::get(concat_op_shapes, orig_rhs_type.getElementType());
+  auto concat_op_type = RankedTensorType::get(concat_op_shapes, element_type);
   auto concat_op = builder.create<mhlo::ConcatenateOp>(
       loc, concat_op_type, to_concat_ops, concat_dim);
 
-  // Build new dot type.
-  auto result_rank = orig_result_type.getRank();
-  SmallVector<int64_t, 4> result_shapes(result_rank, ShapedType::kDynamicSize);
-  for (int64_t i = 0; i < result_rank; i++) {
-    if (i != concat_dim) {
+  // According to `DotGeneralOp::reifyReturnTypeShapes`, m and n dims are the
+  // last two dimensions. In other words, the result rank order of the
+  // dot_general is always (batch,m,n). So the concat_dim may change, and we
+  // need to use concat_dim_in_result other than concat_dim.
+  auto concat_dim_in_result = (share_type == LEFT) ? (rank - 1) : (rank - 2);
+
+  // Build result type.
+  SmallVector<int64_t, 4> result_shapes(rank, ShapedType::kDynamicSize);
+  for (int64_t i = 0; i < rank; i++) {
+    if (i != concat_dim_in_result) {
       result_shapes[i] = orig_result_type.getDimSize(i);
     } else if (!is_dynamic_shape) {
       result_shapes[i] = concat_dim_sum;
     }
   }
-  auto result_type =
-      RankedTensorType::get(result_shapes, orig_result_type.getElementType());
-
-  // Build new dot dimension numbers.
-  auto dim_numbers = foremost_dot.dot_dimension_numbers();
-
-  SmallVector<int64_t> lhs_batching_dims;
-  auto lhs_batch = dim_numbers.getLhsBatchingDimensions();
-  lhs_batching_dims.insert(lhs_batching_dims.end(), lhs_batch.begin(),
-                           lhs_batch.end());
-
-  SmallVector<int64_t> rhs_batching_dims;
-  auto rhs_batch = dim_numbers.getRhsBatchingDimensions();
-  rhs_batching_dims.insert(rhs_batching_dims.end(), rhs_batch.begin(),
-                           rhs_batch.end());
-
-  SmallVector<int64_t> lhs_contracting_dims;
-  auto lhs_contract = dim_numbers.getLhsContractingDimensions();
-  for (auto& val : lhs_contract) {
-    lhs_contracting_dims.push_back(val);
-  }
-
-  SmallVector<int64_t> rhs_contracting_dims;
-  auto rhs_contract = dim_numbers.getRhsContractingDimensions();
-  for (auto& val : rhs_contract) {
-    rhs_contracting_dims.push_back(val);
-  }
-
+  result_shapes[concat_dim_in_result] = concat_dim_sum;
+  auto result_type = RankedTensorType::get(result_shapes, element_type);
   auto dot_dimension_attr = mhlo::DotDimensionNumbersAttr::get(
-      builder.getContext(), lhs_batching_dims, rhs_batching_dims,
-      lhs_contracting_dims, rhs_contracting_dims);
+      builder.getContext(), dim_numbers.getLhsBatchingDimensions(),
+      dim_numbers.getRhsBatchingDimensions(),
+      dim_numbers.getLhsContractingDimensions(),
+      dim_numbers.getRhsContractingDimensions());
 
-  // Build relust DotGeneralOp
+  // Build result DotGeneralOp
   auto lhs = (share_type == LEFT) ? non_concat_op : concat_op;
   auto rhs = (share_type == LEFT) ? concat_op : non_concat_op;
   Value merged_dot = builder.create<mhlo::DotGeneralOp>(
@@ -455,23 +413,21 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
       mhlo::DotGeneralOp op = dyn_cast<mhlo::DotGeneralOp>(ops[i]);
       auto orig_dot_type = op.getType().dyn_cast<RankedTensorType>();
 
-      SmallVector<int64_t> start(result_rank, 0);
-      SmallVector<int64_t> limit(result_rank);   
-      SmallVector<int64_t> strides(result_rank, 1);
-      
-      for (int64_t j = 0; j < result_rank; j++) {
-        if (j == concat_dim) {
-          start[j] = concat_dim_start;
-          limit[j] = concat_dim_start +
-                    orig_dot_type.getDimSize(concat_dim);
+      SmallVector<int64_t> start(rank, 0);
+      SmallVector<int64_t> limit(rank);
+      SmallVector<int64_t> strides(rank, 1);
+      start[concat_dim_in_result] = concat_dim_start;
+      for (int64_t j = 0; j < rank; j++) {
+        if (j == concat_dim_in_result) {
+          limit[j] =
+              concat_dim_start + orig_dot_type.getDimSize(concat_dim_in_result);
           concat_dim_start = limit[j];
         } else {
           limit[j] = orig_dot_type.getDimSize(j);
         }
       }
       auto slice = builder.create<mhlo::SliceOp>(
-          loc, merged_dot, 
-          GetI64ElementsAttr(start, &builder),
+          loc, merged_dot, GetI64ElementsAttr(start, &builder),
           GetI64ElementsAttr(limit, &builder),
           GetI64ElementsAttr(strides, &builder));
       op->replaceAllUsesWith(slice);
@@ -481,7 +437,7 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
     Value concat_dim_start = builder.create<arith::ConstantIndexOp>(loc, 0);
     Value one = builder.create<arith::ConstantIndexOp>(loc, 1);
     Value zero = builder.create<arith::ConstantIndexOp>(loc, 0);
-    
+
     for (int64_t i = 0; i < ops.size(); i++) {
       mhlo::DotGeneralOp op = dyn_cast<mhlo::DotGeneralOp>(ops[i]);
       // Note that we do not use op but op's rhs and lhs to build DimOp.
@@ -491,17 +447,17 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
       auto non_concatenate_op = (share_type == LEFT) ? op.lhs() : op.rhs();
       auto orig_dot_type = op.getType().dyn_cast<RankedTensorType>();
 
-      
-      SmallVector<Value, 4> start_values(result_rank, zero);
-      SmallVector<Value, 4> limit_values(result_rank);
-      SmallVector<Value, 4> strides_values(result_rank, one);
+      SmallVector<Value, 4> start_values(rank, zero);
+      SmallVector<Value, 4> limit_values(rank);
+      SmallVector<Value, 4> strides_values(rank, one);
 
-      for (int64_t j = 0; j < result_rank; j++) {
-        if (j == concat_dim) {
+      for (int64_t j = 0; j < rank; j++) {
+        if (j == concat_dim_in_result) {
           start_values[j] = concat_dim_start;
           limit_values[j] = builder.create<arith::AddIOp>(
               loc, start_values[j],
-              builder.create<tensor::DimOp>(loc, concatenate_op, concat_dim));
+              builder.create<tensor::DimOp>(loc, concatenate_op,
+                                            concat_dim_in_result));
           concat_dim_start = limit_values[j];
         } else {
           limit_values[j] =
@@ -525,21 +481,16 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
           RankedTensorType::get({static_cast<int64_t>(strides_values.size())},
                                 index_ty),
           strides_values);
-      SmallVector<int64_t, 4> slice_shapes(result_rank,
-                                           ShapedType::kDynamicSize);
-      // slice_shapes is exactly the same as the op which has been concatenated.
-      for (int64_t j = 0; j < result_rank; j++) {
+      SmallVector<int64_t, 4> slice_shapes(rank, ShapedType::kDynamicSize);
+      for (int64_t j = 0; j < rank; j++) {
         slice_shapes[j] = orig_dot_type.getDimSize(j);
       }
-      auto slice_type =
-          RankedTensorType::get(slice_shapes, orig_dot_type.getElementType());
-      
-      // printf("limit_values.size = %d\n", limit_values.size());
-      
+      auto slice_type = RankedTensorType::get(slice_shapes, element_type);
+
       auto dyn_slice = builder.create<mhlo::RealDynamicSliceOp>(
           loc, slice_type, merged_dot, start_indices, limit_indices,
           strides_indices);
-      
+
       op->replaceAllUsesWith(dyn_slice);
     }
   }
@@ -851,7 +802,8 @@ bool DotBatchMergeConverter::applyMerging(DotCluster& cluster) {
       SmallVector<Value, 4> start_values(result_rank, zero);
       start_values[0] = builder.create<arith::ConstantIndexOp>(loc, i);
       SmallVector<Value, 4> limit_values;
-      limit_values.push_back(builder.create<arith::ConstantIndexOp>(loc, i + 1));
+      limit_values.push_back(
+          builder.create<arith::ConstantIndexOp>(loc, i + 1));
       for (int64_t j = 1; j < result_rank; j++) {
         limit_values.push_back(
             builder.create<tensor::DimOp>(loc, batched_dot, j));
@@ -948,28 +900,25 @@ struct DiscDotMergePass : public DiscDotMergePassBase<DiscDotMergePass> {
   void runOnOperation() override;
 
  private:
-  bool dotShareOperandMerging(FuncOp& func);
+  void dotShareOperandMerging(FuncOp& func);
   bool dotBatchMerging(FuncOp& func);
-  
 };
 
 void DiscDotMergePass::runOnOperation() {
   FuncOp func = getOperation();
-
-  if (!dotShareOperandMerging(func) && !dotBatchMerging(func)) {
+  dotShareOperandMerging(func);
+  if (!dotBatchMerging(func)) {
     signalPassFailure();
   }
 }
 
-bool DiscDotMergePass::dotShareOperandMerging(FuncOp& func) {
-  return DotShareOperandMergeConverter(func).run();
+void DiscDotMergePass::dotShareOperandMerging(FuncOp& func) {
+  DotShareOperandMergeConverter(func).run();
 }
 
 bool DiscDotMergePass::dotBatchMerging(FuncOp& func) {
   return DotBatchMergeConverter(func).run();
 }
-
-
 
 }  // namespace
 

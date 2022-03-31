@@ -1,7 +1,7 @@
 // RUN: disc-opt -disc-dot-merge -split-input-file %s -o - | FileCheck %s
 
 // CHECK-LABEL: func @dot_merging_dynamic
-func @dot_merging(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %m: tensor<index>, %n: tensor<index>, %k: tensor<index>) -> tensor<?x?xf32> {
+func @dot_merging_dynamic(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %m: tensor<index>, %n: tensor<index>, %k: tensor<index>) -> tensor<?x?xf32> {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %dim_m = tensor.extract %m[] : tensor<index>
@@ -57,9 +57,10 @@ func @dot_merging_static(%arg0: tensor<128x256xf32>, %arg1: tensor<256x512xf32>)
   %3 = "mhlo.dot_general"(%arg0, %2) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>} : (tensor<128x256xf32>, tensor<256x512xf32>) -> tensor<128x512xf32>
   %4 = "mhlo.add"(%0, %3) : (tensor<128x512xf32>, tensor<128x512xf32>) -> tensor<128x512xf32>
   // CHECK:     mhlo.concatenate
+  // CHECK:     -> tensor<256x1024xf32>
   // CHECK:     mhlo.dot_general
-  // CHECK:     -> tensor<128x1024xf32>
   // CHECK-NOT: mhlo.dot_general
+  // CHECK:     mhlo.slice
   // CHECK:     mhlo.slice
   // CHECK-NOT: mhlo.real_dynamic_slice
   return %4: tensor<128x512xf32>
@@ -75,9 +76,10 @@ func @dot_merging_static_batch(%arg0: tensor<2x128x256xf32>, %arg1: tensor<2x256
   %3 = "mhlo.dot_general"(%arg0, %2) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>} : (tensor<2x128x256xf32>, tensor<2x256x512xf32>) -> tensor<2x128x512xf32>
   %4 = "mhlo.add"(%0, %3) : (tensor<2x128x512xf32>, tensor<2x128x512xf32>) -> tensor<2x128x512xf32>
   // CHECK:     mhlo.concatenate
+  // CHECK:     -> tensor<2x256x1024xf32>
   // CHECK:     mhlo.dot_general
-  // CHECK:     -> tensor<2x128x1024xf32>
   // CHECK-NOT: mhlo.dot_general
+  // CHECK:     mhlo.slice
   // CHECK:     mhlo.slice
   // CHECK-NOT: mhlo.real_dynamic_slice
   return %4: tensor<2x128x512xf32>
@@ -233,5 +235,3 @@ func @dot_not_batching_cycle(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %ar
   // CHECK-NOT: rhs_batching_dimensions = [0]
   return %5: tensor<?x?xf32>
 }
-
-

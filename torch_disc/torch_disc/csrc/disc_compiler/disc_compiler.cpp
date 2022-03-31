@@ -76,7 +76,6 @@ ExecutablePtr CompileToDiscExecutable(
     auto disc_inputs = std::vector<c10::IValue>{};
     return std::make_shared<Executable>(graph, disc_inputs);
   }
-  std::cout << graph->toString() << std::endl;
   EnhancementInputShape(graph, arguments);
   // Inference shape
   torch::jit::PropagateInputShapes(graph);
@@ -86,7 +85,6 @@ ExecutablePtr CompileToDiscExecutable(
   torch::jit::EliminateDeadCode(graph);
   // register a disc custom class to run RAL at runtime stage
   auto disc_inputs = RegisterDiscClass(graph);
-  std::cout << graph->toString() << std::endl;
   return std::make_shared<Executable>(graph, disc_inputs);
 }
 

@@ -24,7 +24,6 @@ using namespace ::torch::jit;
 // conversion module into a group. We should re-implement this.
 std::vector<Node*> FakeCluster(const std::shared_ptr<Graph>& graph) {
   std::vector<Node*> nodes;
-  int cnt = 0;
   for (auto node : graph->nodes()) {
     if (torch::blade::IsMlirMhloSupported(*node) &&
         node->kind() != prim::Constant) {

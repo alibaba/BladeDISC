@@ -42,6 +42,7 @@ class Net(nn.Module):
 
 def train(args, model, device, train_loader, optimizer, epoch):
     model.train()
+    train_loss = 0
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
@@ -50,12 +51,15 @@ def train(args, model, device, train_loader, optimizer, epoch):
         loss.backward()
         optimizer.step()
         disc._step_marker()
+        train_loss += loss.item() * len(data)
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
-                100. * batch_idx / len(train_loader), loss))
+                100. * batch_idx / len(train_loader), loss.item()))
             if args.dry_run:
                 break
+    train_loss /= len(train_loader.dataset)
+    print('Train Epoch:{} Average loss: {:.4f}'.format(epoch, train_loss))
 
 
 def test(model, device, test_loader):
@@ -70,8 +74,6 @@ def test(model, device, test_loader):
             pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum().item()
             disc._step_marker()
-            break
-            
 
     test_loss /= len(test_loader.dataset)
 

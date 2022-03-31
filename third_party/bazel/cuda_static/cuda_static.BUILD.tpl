@@ -21,3 +21,8 @@ cc_import(
     name = "cudnn_static",
     static_library = "lib64/libcudnn_static.a",
 )
+
+cc_import(
+    name = "nvrtc",
+    shared_library = "lib64/libnvrtc.so",
+)

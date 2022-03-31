@@ -18,6 +18,7 @@
 #include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
 
 #include "lazy_tensor_core/csrc/ts_backend/backend_impl.h"
+#include "lazy_tensors/computation_client/sys_util.h"
 #include "torch_disc/csrc/disc_compiler/disc_compiler.h"
 
 namespace torch_disc {
@@ -49,7 +50,9 @@ const std::set<int8_t> TSBackendDeviceType::supported_device_types_ = {
 class DISCBackendImpl : public torch::lazy::BackendImplInterface {
  public:
   DISCBackendImpl() : default_device_type_(at::kCPU) {
-    auto type = at::kCPU;
+    auto type = lazy_tensors::sys_util::GetEnvBool("LTC_TS_CUDA", false)
+                    ? at::kCUDA
+                    : at::kCPU;
     default_device_type_ = TSBackendDeviceType(type);
     cache_ = std::make_shared<DiscComputationCache>(
         FLAGS_torch_lazy_compilation_cache_size);

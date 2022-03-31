@@ -15,6 +15,7 @@
 #include <torch/csrc/jit/passes/shape_analysis.h>
 
 #include "lazy_tensor_core/csrc/ts_backend/backend_impl.h"
+#include "lazy_tensors/computation_client/sys_util.h"
 #include "torch_disc/csrc/disc_compiler/passes/cluster.h"
 #include "torch_disc/csrc/disc_compiler/passes/register_disc_class.h"
 
@@ -70,6 +71,12 @@ void EnhancementInputShape(
 ExecutablePtr CompileToDiscExecutable(
     const std::shared_ptr<torch::jit::Graph>& graph,
     c10::ArrayRef<torch::lazy::BackendDataPtr> arguments) {
+  bool disable_disc = lazy_tensors::sys_util::GetEnvBool("DISABLE_DISC", false);
+  if (disable_disc) {
+    auto disc_inputs = std::vector<c10::IValue>{};
+    return std::make_shared<Executable>(graph, disc_inputs);
+  }
+  std::cout << graph->toString() << std::endl;
   EnhancementInputShape(graph, arguments);
   // Inference shape
   torch::jit::PropagateInputShapes(graph);
@@ -79,6 +86,7 @@ ExecutablePtr CompileToDiscExecutable(
   torch::jit::EliminateDeadCode(graph);
   // register a disc custom class to run RAL at runtime stage
   auto disc_inputs = RegisterDiscClass(graph);
+  std::cout << graph->toString() << std::endl;
   return std::make_shared<Executable>(graph, disc_inputs);
 }
 

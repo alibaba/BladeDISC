@@ -15,6 +15,7 @@
 #include <torch/csrc/jit/passes/shape_analysis.h>
 
 #include "lazy_tensor_core/csrc/ts_backend/backend_impl.h"
+#include "lazy_tensors/computation_client/sys_util.h"
 #include "torch_disc/csrc/disc_compiler/passes/cluster.h"
 #include "torch_disc/csrc/disc_compiler/passes/register_disc_class.h"
 
@@ -33,13 +34,12 @@ std::vector<torch::lazy::BackendDataPtr> Executable::Run(
     } else {
       // TODO(whc) should this check be made more general? it's written somewhat
       // oddly
-      CHECK(default_device_is_cuda ||
+      CHECK(!default_device_is_cuda ||
             ts_data->data().device().type() == at::kCUDA);
       stack.emplace_back(ts_data->data());
     }
   }
   stack.insert(stack.end(), disc_inputs_.begin(), disc_inputs_.end());
-
   graph_executor_.run(stack);
 
   std::vector<torch::lazy::BackendDataPtr> results;
@@ -68,12 +68,18 @@ void EnhancementInputShape(
   }
 }
 
-std::shared_ptr<Executable> CompileToDiscExecutable(
+ExecutablePtr CompileToDiscExecutable(
     const std::shared_ptr<torch::jit::Graph>& graph,
     c10::ArrayRef<torch::lazy::BackendDataPtr> arguments) {
+  bool disable_disc = lazy_tensors::sys_util::GetEnvBool("DISABLE_DISC", false);
+  if (disable_disc) {
+    auto disc_inputs = std::vector<c10::IValue>{};
+    return std::make_shared<Executable>(graph, disc_inputs);
+  }
   EnhancementInputShape(graph, arguments);
   // Inference shape
   torch::jit::PropagateInputShapes(graph);
+
   // cluster disc compitable nodes into a sub-graph
   ClusterDiscNodes(graph);
   torch::jit::EliminateDeadCode(graph);

@@ -114,10 +114,20 @@ class BazelBuild(TorchBladeBuild):
             bazel_cmd, shell=True, env=env, executable="/bin/bash"
         )
 
-        for fpath in open("bazel_target_cfg.txt"):
+        # If you want to package more files, please extends the distribution.cfg.
+        # We symlink those files into extension's directory, since that
+        # python distribute utils will copy into the distribution package.
+        #
+        # Note that only the following file pathes would be accepted:
+        # 1. file pathes relevent to your bazel bin directory
+        # 2. absolute file pathes
+        for fpath in open("distribution.cfg"):
             fpath = os.path.realpath(os.path.join(bazel_bin_dir, fpath.strip()))
             fname = os.path.basename(fpath)
-            _symlink_force(fpath, os.path.join(extdir, fname))
+            if os.path.exists(fpath):
+                _symlink_force(fpath, os.path.join(extdir, fname))
+            else:
+                print(f"{fpath} configured to distribution doesn't exists")
 
     def test(self):
         env = os.environ.copy()

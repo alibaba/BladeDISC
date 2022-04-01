@@ -32,7 +32,7 @@
 namespace torch {
 namespace blade {
 
-constexpr bool is_community_version = TORCH_BLADE_COMMUNITY_VERSION;
+constexpr bool is_platform_alibaba = TORCH_BLADE_PLATFORM_ALIBABA;
 
 namespace py = pybind11;
 namespace {
@@ -47,7 +47,7 @@ std::string pybind_version() {
 } // anonymous namespace
 
 template <>
-void initModules<true>(py::module& m) {
+void initModules<false>(py::module& m) {
   torch::blade::initToolsBindings(m);
   m.def(
       "jit_pass_onnx_constant_f64_to_f32",
@@ -110,7 +110,7 @@ PYBIND11_MODULE(_torch_blade, m) {
   m.attr("__version__") = "dev";
 #endif
 
-  initModules<is_community_version>(m);
+  initModules<is_platform_alibaba>(m);
 }
 
 } // namespace blade

@@ -70,8 +70,8 @@ pybind_library(
     copts = ["-DTORCH_BLADE_BUILD_MLIR"] +
       if_tensorrt_enabled(["-DTORCH_BLADE_BUILD_TENSORRT"]) +
       if_platform_alibaba(
-        ["-DTORCH_BLADE_COMMUNITY_VERSION=false"],
-        ["-DTORCH_BLADE_COMMUNITY_VERSION=true"]
+        ["-DTORCH_BLADE_PLATFORM_ALIBABA=true"],
+        ["-DTORCH_BLADE_PLATFORM_ALIBABA=true"]
       ),
 )
 

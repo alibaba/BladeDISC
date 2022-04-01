@@ -17,7 +17,7 @@
 namespace torch {
 namespace blade {
 
-template <bool COMMUNITY_VERSION>
+template <bool IS_PLATFORM_ALIBABA>
 void initModules(pybind11::module&);
 
 } // namespace blade

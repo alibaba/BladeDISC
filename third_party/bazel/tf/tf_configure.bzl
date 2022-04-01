@@ -1,5 +1,5 @@
 """Setup TensorFlow as external dependency"""
-load("//bazel:common.bzl", "get_env_bool_value_str")
+load("//bazel:common.bzl", "get_env_bool_value")
 
 _BLADE_WITH_TF = "BLADE_WITH_TF"
 _TF_IS_PAI = "TF_IS_PAI"
@@ -38,13 +38,13 @@ def _tf_configure_impl(repository_ctx):
 
     tf_major = repository_ctx.os.environ[_TF_MAJOR_VERSION]
     tf_minor = repository_ctx.os.environ[_TF_MINOR_VERSION]
-    tf_is_pai = get_env_bool_value_str(repository_ctx, _TF_IS_PAI)
+    tf_is_pai = get_env_bool_value(repository_ctx, _TF_IS_PAI)
     tf_copt = [
         "-DTF_{}_{}".format(tf_major, tf_minor),
         "-DTF_MAJOR={}".format(tf_major),
         "-DTF_MINOR={}".format(tf_minor),
     ]
-    if tf_is_pai == "True":
+    if tf_is_pai:
         tf_copt.append("-DTF_IS_PAI")
 
     _tpl(repository_ctx, "build_defs.bzl", {
@@ -52,7 +52,7 @@ def _tf_configure_impl(repository_ctx):
         "%{TF_LIB_DIR}": tf_lib_dir,
         "%{IS_TF2}": "True" if tf_major == "2" else "False",
         "%{TF_VERSION}": "{}.{}".format(tf_major, tf_minor),
-        "%{IS_PAI_TF}": tf_is_pai,
+        "%{IS_PAI_TF}": str(tf_is_pai),
     })
 
 tf_configure = repository_rule(

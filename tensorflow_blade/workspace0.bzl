@@ -4,7 +4,7 @@ load("@org_third_party//bazel:common.bzl", "maybe_http_archive")
 load("@org_third_party//bazel/mkl:mkl_configure.bzl", "mkl_configure")
 load("@org_third_party//bazel/tensorrt:repo.bzl", "tensorrt_configure")
 load("@org_third_party//bazel/tf:tf_configure.bzl", "tf_configure")
-load("@org_third_party//bazel/cuda_static:cuda_static_configure.bzl", "cuda_static_configure")
+load("@org_third_party//bazel/cuda_supplement:cuda_supplement_configure.bzl", "cuda_supplement_configure")
 
 load("@org_tensorflow//third_party/gpus:cuda_configure.bzl", "cuda_configure")
 
@@ -55,7 +55,7 @@ def _tf_blade_toolchains():
 
     cuda_configure(name = "local_config_cuda")
 
-    cuda_static_configure(name = "local_config_cuda_static")
+    cuda_supplement_configure(name = "local_config_cuda_supplement")
 
     tensorrt_configure(name = "local_config_tensorrt")
 

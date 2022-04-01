@@ -45,7 +45,7 @@ def _impl(repo_ctx):
     repo_ctx.symlink(tensorrt_path + "/include", "include")
     repo_ctx.symlink(tensorrt_path + "/lib", "lib")
 
-    has_myelin = files_exist(
+    if_has_myelin = all(files_exist(
             repo_ctx,
             [
                 "lib/libmyelin_compiler_static.a",
@@ -53,8 +53,7 @@ def _impl(repo_ctx):
                 "lib/libmyelin_pattern_library_static.a",
                 "lib/libmyelin_pattern_runtime_static.a",
             ]
-    )
-    if_has_myelin = has_myelin[0] and has_myelin[1] and has_myelin[2] and has_myelin[3]
+    ))
     repo_ctx.template("BUILD", Label("//bazel/tensorrt:trt.BUILD.tpl"), {
         "%{myelin_static_rule}": _cc_import_myelin() if if_has_myelin else "",
     })

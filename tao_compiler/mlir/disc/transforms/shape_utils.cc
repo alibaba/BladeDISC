@@ -28,6 +28,7 @@
 #include "mlir/IR/OpDefinition.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
+#include "tensorflow/compiler/mlir/disc/disc_util.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -996,6 +997,35 @@ LogicalResult ShapeAnalysis::applyMhloOpConstraint(Operation* op) {
     for (int64_t i = 0; i < mn_values.size(); i++) {
       mapDimEqual(mn_values[i].first, mn_values[i].second, result,
                   i + lhs_batching_dims.size());
+    }
+  } else if (auto einsum = dyn_cast<mhlo::EinsumOp>(op)) {
+    StringRef equation = einsum.einsum_config();
+    llvm::SmallDenseMap<char, llvm::SmallDenseMap<EquationVariable, size_t>>
+        all_tokens;
+    if (!parseEinsumEquation(equation, all_tokens, nullptr, nullptr, nullptr)) {
+      return einsum.emitError("unexpected character in einsum equation");
+    }
+    for (auto token : all_tokens) {
+      SmallVector<std::pair<Value, int64_t>> equalValues;
+      for (auto item : token.second) {
+        if (item.first == kIsLhs) {
+          equalValues.push_back(std::make_pair(einsum.lhs(), item.second));
+        } else if (item.first == kIsRhs) {
+          equalValues.push_back(std::make_pair(einsum.rhs(), item.second));
+        } else {
+          // kIsResult
+          equalValues.push_back(
+              std::make_pair(einsum.getResult(), item.second));
+        }
+      }
+      if (equalValues.size() >= 2) {
+        mapDimEqual(equalValues[0].first, equalValues[0].second,
+                    equalValues[1].first, equalValues[1].second);
+      }
+      if (equalValues.size() == 3) {
+        mapDimEqual(equalValues[0].first, equalValues[0].second,
+                    equalValues[2].first, equalValues[2].second);
+      }
     }
   } else if (auto clamp = dyn_cast<mhlo::ClampOp>(op)) {
     int64_t min_rank = clamp.min().getType().cast<RankedTensorType>().getRank();

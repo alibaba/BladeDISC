@@ -55,8 +55,6 @@ def _impl(repo_ctx):
             ]
     )
     if_has_myelin = has_myelin[0] and has_myelin[1] and has_myelin[2] and has_myelin[3]
-    if not if_has_myelin:
-        fail("{} {} {} {}".format(has_myelin[0], has_myelin[1], has_myelin[2], has_myelin[3]))
     repo_ctx.template("BUILD", Label("//bazel/tensorrt:trt.BUILD.tpl"), {
         "%{myelin_static_rule}": _cc_import_myelin() if if_has_myelin else "",
     })

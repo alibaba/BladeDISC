@@ -64,6 +64,8 @@ class BazelBuild(TorchBladeBuild):
         self.configs = ["--config=cxx11abi_{}".format(int(self.GLIBCXX_USE_CXX11_ABI))]
         if self.is_debug:
             self.configs.append("--config=dbg")
+        else:
+            self.configs.append("--compilation_mode=opt")
 
         if self.cuda_available:
             self.configs.append("--config=torch_disc_cuda")
@@ -109,7 +111,6 @@ class BazelBuild(TorchBladeBuild):
         _make_executable("debug_bazel.sh")
 
         bazel_cmd = " ".join([bazel_cmd] + self.targets)
-
         subprocess.check_call(
             bazel_cmd, shell=True, env=env, executable="/bin/bash"
         )

@@ -66,6 +66,7 @@ void initToolsBindings(py::module& m) {
       "create_method_from_graph", &torch::blade::create_method_from_graph);
   tools.def("unsafe_remove_method", &torch::blade::unsafe_remove_method);
   tools.def("get_list_tensor_type", &torch::blade::get_list_tensor_type);
+  tools.def("tensor_type_from_scalar", &torch::blade::tensor_type_from_scalar);
   tools.def("_jit_pass_const_loop_unrolling", &torch::blade::UnrollConstLoops);
 
   // PyTorch does not expose `torch::jit::Node::{isBefore,isAfter}` to

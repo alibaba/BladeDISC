@@ -27,6 +27,7 @@ std::vector<Node*> FakeCluster(const std::shared_ptr<Graph>& graph) {
   for (auto node : graph->nodes()) {
     if (torch::blade::IsMlirMhloSupported(*node) &&
         node->kind() != prim::Constant) {
+      if (node->kind() == aten::addmm) continue;
       nodes.push_back(node);
     }
   }
@@ -79,8 +80,6 @@ void CastGraphInputsToTensor(const std::shared_ptr<Graph>& graph,
       CastBoundaryScalarToTensor(disc_graph, i);
     }
   }
-  LOG(WARNING) << "After [CastToTensorInputs]: \n"
-               << graph->toString() << std::endl;
 }
 
 void ClusterDiscNodes(const std::shared_ptr<Graph>& graph) {

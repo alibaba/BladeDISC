@@ -1,4 +1,6 @@
 load("@local_config_tf//:build_defs.bzl", "tf_copts")
+load("@local_config_cuda_supplement//:build_defs.bzl", "if_has_cublaslt")
+load("@local_config_tensorrt//:build_defs.bzl", "if_has_myelin")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -53,9 +55,13 @@ cc_library(
         "@local_config_cuda//cuda:cudart_static",
         "@local_config_cuda//cuda:cudnn",
         "@local_config_cuda//cuda:cublas",
-        "@local_config_cuda//cuda:cublasLt",
         "//src/util:logging",
-    ],
+    ] + if_has_cublaslt([
+        "@local_config_cuda_supplement//:cublasLt_static",
+    ]) + if_has_myelin([
+        "@local_config_cuda_supplement//:nvrtc",
+        "@local_config_tensorrt//:myelin_static",
+    ]),
     alwayslink = 1,  # targets depending on it should carry all symbols in its children.
 )
 

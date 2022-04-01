@@ -10,10 +10,7 @@ cc_import(
     static_library = "lib64/libcublas_static.a",
 )
 
-cc_import(
-    name = "cublasLt_static",
-    static_library = "lib64/libcublasLt_static.a",
-)
+%{import_cublaslt}
 
 cc_import(
     name = "culibos_static",
@@ -23,4 +20,9 @@ cc_import(
 cc_import(
     name = "cudnn_static",
     static_library = "lib64/libcudnn_static.a",
+)
+
+cc_import(
+    name = "nvrtc",
+    shared_library = "lib64/libnvrtc.so",
 )

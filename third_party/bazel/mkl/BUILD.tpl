@@ -21,3 +21,5 @@ cc_library(
 %{mkl_static_lib_targets}
     ],
 )
+
+exports_files(["%{mkl_iomp_dynamic_lib_target}"])

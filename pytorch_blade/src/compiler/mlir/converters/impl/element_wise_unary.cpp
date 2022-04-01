@@ -63,6 +63,23 @@ bool ConvertAtenToDtype(
   return true;
 }
 
+bool ConvertAtenTypeAs(
+    MhloConversionContext& ctx,
+    const torch::jit::Node& node) {
+  auto loc = GetNodeLocation(ctx, node);
+  auto torch_inp = node.input(0);
+  auto torch_other = node.input(1);
+
+  auto input_val = ctx.GetMlirValue(torch_inp);
+  auto other_val = ctx.GetMlirValue(torch_other);
+  auto elem_type =
+      other_val.getType().cast<mlir::RankedTensorType>().getElementType();
+  auto output_val =
+      ctx.builder->create<mlir::mhlo::ConvertOp>(loc, input_val, elem_type);
+  ctx.value_map[node.output(0)] = output_val.getResult();
+  return true;
+}
+
 namespace {
 auto mhlo_conversion =
     MhloConversionPatternRegister()
@@ -101,7 +118,10 @@ auto mhlo_conversion =
             ConvertAtenIdentity)
         .pattern(
             "aten::detach(Tensor(a) self) -> (Tensor(a))",
-            ConvertAtenIdentity);
+            ConvertAtenIdentity)
+        .pattern(
+            "aten::type_as(Tensor self, Tensor other) -> Tensor",
+            ConvertAtenTypeAs);
 }
 } // namespace blade
 } // namespace torch

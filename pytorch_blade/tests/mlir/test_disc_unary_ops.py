@@ -70,6 +70,15 @@ class TestDiscUnaryOps(DiscTestCase):
 
         self._test_unary_ops(to_func)
 
+    def test_type_as(self):
+        @torch.jit.script
+        def type_as(x, y):
+            return x.type_as(y)
+
+        x = torch.randn([2, 3, 224, 224], dtype=torch.float32, device=self.device)
+        y = torch.randn([6, 224], dtype=torch.half, device=self.device)
+        test_data = (x, y)
+        self._test_cvt_to_disc(type_as, test_data)
 
 if __name__ == "__main__":
     unittest.main()

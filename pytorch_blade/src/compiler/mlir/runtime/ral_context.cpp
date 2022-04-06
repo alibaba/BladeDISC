@@ -97,7 +97,8 @@ std::tuple<void*, void*> RalContext::LoadEngine(
     const std::string& ral_engine_bytes) {
   // Also had tried with shm_fs, however, dlopen tao_lib is not always
   // successful.
-  lib_tmpf_.WriteBytesToFile(ral_engine_bytes);
+  auto is_ok = lib_tmpf_.WriteBytesToFile(ral_engine_bytes);
+  TORCH_CHECK(is_ok, "Failed to dump RAL engine to file");
   std::string filename = lib_tmpf_.GetFilename();
   void* tao_lib = dlopen(filename.c_str(), RTLD_NOW | RTLD_LOCAL);
   TORCH_CHECK(tao_lib, "Fail to open ral engine");
@@ -115,7 +116,8 @@ RalContext::~RalContext() {
 
 RalContext::RalContext(std::shared_ptr<backends::EngineState> state)
     : engine_state_(state) {
-  meta_tmpf_.WriteBytesToFile(state->model_proto);
+  auto is_ok = meta_tmpf_.WriteBytesToFile(state->model_proto);
+  TORCH_CHECK(is_ok, "FAiled to dump model proto to file.");
   default_opt_.metadata_file_path = meta_tmpf_.GetFilename();
   default_opt_.cache_workspace_mem_across_execution = true;
   cpu_opt_.cpu_allocator.reset(new RalAllocator(c10::alloc_cpu, c10::free_cpu));

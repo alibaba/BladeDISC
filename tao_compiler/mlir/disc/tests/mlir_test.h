@@ -49,10 +49,7 @@ using tensorflow::DataType;
 
 enum class DeviceType { kCPU, kGPU };
 
-enum class BackendType {
-  kCuda,
-  kX86  // unimplemented, just placeholder
-};
+enum class BackendType { kCuda, kX86, kAArch64 };
 
 class MlirTest {
  public:

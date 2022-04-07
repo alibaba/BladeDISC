@@ -26,7 +26,8 @@ const std::string c_ft_path =
 TEST(TFIdentityOpTest, StaticShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "identity_s_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x100xf32_X"},
@@ -37,7 +38,8 @@ TEST(TFIdentityOpTest, StaticShape2DF32) {
 TEST(TFIdentityOpTest, FullyDynamicShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "identity_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100xf32_X"},
@@ -48,7 +50,8 @@ TEST(TFIdentityOpTest, FullyDynamicShape2DF32) {
 TEST(TFIdentityOpTest, PartialShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "identity_p_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"11x100xf32_X"},
@@ -59,7 +62,8 @@ TEST(TFIdentityOpTest, PartialShape2DF32) {
 TEST(TFIdentityOpTest, ProvidedDataShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "identity_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x5xf32_X"},

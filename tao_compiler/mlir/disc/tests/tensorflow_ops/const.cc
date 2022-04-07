@@ -26,7 +26,8 @@ const std::string c_ft_path =
 TEST(TFConstOpTest, ScalarF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "const_scalar_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 0,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {},
@@ -37,7 +38,8 @@ TEST(TFConstOpTest, ScalarF32) {
 TEST(TFConstOpTest, 2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "const_2d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 0,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {},
@@ -48,7 +50,8 @@ TEST(TFConstOpTest, 2DF32) {
 TEST(TFConstOpTest, ScalarI32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "const_scalar_i32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 0,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {},
@@ -59,7 +62,8 @@ TEST(TFConstOpTest, ScalarI32) {
 TEST(TFConstOpTest, 2DI32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "const_2d_i32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 0,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {},
@@ -70,7 +74,8 @@ TEST(TFConstOpTest, 2DI32) {
 TEST(TFConstOpTest, ScalarI64) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "const_scalar_i64.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 0,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {},

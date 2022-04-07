@@ -26,7 +26,8 @@ const std::string c_ft_path =
 TEST(TFStridedSliceOpTest, StaticShapeF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "dynamic_stitch_s_f32.mlir",
-      /*backend_types*/ {BackendType::kX86, BackendType::kCuda},
+      /*backend_types*/
+      {BackendType::kX86, BackendType::kAArch64, BackendType::kCuda},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2xf32_X", "2x2x2xf32_X"},
@@ -37,7 +38,8 @@ TEST(TFStridedSliceOpTest, StaticShapeF32) {
 TEST(TFStridedSliceOpTest, DynamicShapeF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "dynamic_stitch_d_f32.mlir",
-      /*backend_types*/ {BackendType::kX86, BackendType::kCuda},
+      /*backend_types*/
+      {BackendType::kX86, BackendType::kAArch64, BackendType::kCuda},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2xf32_X", "2x2x2xf32_X"},

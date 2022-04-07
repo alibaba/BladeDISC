@@ -26,7 +26,8 @@ const std::string c_ft_path =
 TEST(TFProdOpTest, ColReduceFullyDynamicShape3DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "prod_col_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100x13xf32_X"},
@@ -37,7 +38,8 @@ TEST(TFProdOpTest, ColReduceFullyDynamicShape3DF32) {
 TEST(TFProdOpTest, ColReduceStaticShape3DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "prod_col_s_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100x13xf32_X"},
@@ -48,7 +50,8 @@ TEST(TFProdOpTest, ColReduceStaticShape3DF32) {
 TEST(TFProdOpTest, ColReducePartialDynamicShape3DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "prod_col_p_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100x13xf32_X"},
@@ -59,7 +62,8 @@ TEST(TFProdOpTest, ColReducePartialDynamicShape3DF32) {
 TEST(TFProdOpTest, RowReduceFullyDynamicShape3DLargeF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "prod_row_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100x12321xf32_X"},
@@ -70,7 +74,8 @@ TEST(TFProdOpTest, RowReduceFullyDynamicShape3DLargeF32) {
 TEST(TFProdOpTest, RowReduceStaticShape3DSmallF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "prod_row_s_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100x123xf32_X"},
@@ -81,7 +86,8 @@ TEST(TFProdOpTest, RowReduceStaticShape3DSmallF32) {
 TEST(TFProdOpTest, RowReducePartialDynamicShape3DSmallF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "prod_row_p_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100x123xf32_X"},
@@ -92,7 +98,8 @@ TEST(TFProdOpTest, RowReducePartialDynamicShape3DSmallF32) {
 TEST(TFProdOpTest, MultidimReduceFullyDynamicShape3DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "prod_multidim_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100x123xf32_X"},

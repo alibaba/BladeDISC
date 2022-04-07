@@ -26,7 +26,8 @@ const std::string c_ft_path =
 TEST(TFMatMulOpTest, StaticShapeNNF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "matmul_nn_s_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x110xf32_X", "110x100xf32_X"},
@@ -37,7 +38,8 @@ TEST(TFMatMulOpTest, StaticShapeNNF32) {
 TEST(TFMatMulOpTest, StaticShapeNTF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "matmul_nt_s_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x110xf32_X", "100x110xf32_X"},
@@ -48,7 +50,8 @@ TEST(TFMatMulOpTest, StaticShapeNTF32) {
 TEST(TFMatMulOpTest, StaticShapeTNF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "matmul_tn_s_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100xf32_X", "110x100xf32_X"},
@@ -59,7 +62,8 @@ TEST(TFMatMulOpTest, StaticShapeTNF32) {
 TEST(TFMatMulOpTest, StaticShapeTTF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "matmul_tt_s_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100xf32_X", "100x110xf32_X"},
@@ -70,7 +74,8 @@ TEST(TFMatMulOpTest, StaticShapeTTF32) {
 TEST(TFMatMulOpTest, DynamicShapeNNF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "matmul_nn_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x110xf32_X", "110x100xf32_X"},
@@ -81,7 +86,8 @@ TEST(TFMatMulOpTest, DynamicShapeNNF32) {
 TEST(TFMatMulOpTest, DynamicShapeNTF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "matmul_nt_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x110xf32_X", "100x110xf32_X"},
@@ -92,7 +98,8 @@ TEST(TFMatMulOpTest, DynamicShapeNTF32) {
 TEST(TFMatMulOpTest, DynamicShapeTNF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "matmul_tn_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100xf32_X", "110x100xf32_X"},
@@ -103,7 +110,8 @@ TEST(TFMatMulOpTest, DynamicShapeTNF32) {
 TEST(TFMatMulOpTest, DynamicShapeTTF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "matmul_tt_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100xf32_X", "100x110xf32_X"},
@@ -114,7 +122,8 @@ TEST(TFMatMulOpTest, DynamicShapeTTF32) {
 TEST(TFMatMulOpTest, PartialDynamicShapeNNF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "matmul_nn_p_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x110xf32_X", "110x100xf32_X"},
@@ -125,7 +134,8 @@ TEST(TFMatMulOpTest, PartialDynamicShapeNNF32) {
 TEST(TFMatMulOpTest, PartialDynamicShapeNTF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "matmul_nt_p_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x110xf32_X", "100x110xf32_X"},
@@ -136,7 +146,8 @@ TEST(TFMatMulOpTest, PartialDynamicShapeNTF32) {
 TEST(TFMatMulOpTest, PartialDynamicShapeTNF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "matmul_tn_p_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x112xf32_X", "100x108xf32_X"},
@@ -147,7 +158,8 @@ TEST(TFMatMulOpTest, PartialDynamicShapeTNF32) {
 TEST(TFMatMulOpTest, PartialDynamicShapeTTF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "matmul_tt_p_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x101xf32_X", "100x100xf32_X"},

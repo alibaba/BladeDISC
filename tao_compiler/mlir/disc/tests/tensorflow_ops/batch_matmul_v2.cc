@@ -31,7 +31,8 @@ const std::string c_ft_path =
 // TEST(TFBatchMatMulV2OpTest, StaticShapeNNF32) {
 //   EXPECT_TRUE(feature_test_main(
 //       /*mlir_file_path*/ c_ft_path + "batch_matmul_v2_nn_s_f32.mlir",
-//       /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+//       /*backend_types*/ {BackendType::kCuda, BackendType::kX86,
+//       BackendType::kAArch64},
 //       /*num_inputs*/ 2,
 //       /*num_outputs*/ 1,
 //       /*input_descriptors*/ {"1x3x100x110xf32_X", "2x1x110x100xf32_X"},
@@ -42,7 +43,8 @@ const std::string c_ft_path =
 TEST(TFBatchMatMulV2OpTest, PartialDynamicShapeNNF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_v2_nn_p_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x3x100x110xf32_X", "3x1x110x100xf32_X"},
@@ -53,7 +55,8 @@ TEST(TFBatchMatMulV2OpTest, PartialDynamicShapeNNF32) {
 TEST(TFBatchMatMulV2OpTest, DynamicShapeNNF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_v2_nn_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3x100x110xf32_X", "2x3x110x100xf32_X"},
@@ -64,7 +67,8 @@ TEST(TFBatchMatMulV2OpTest, DynamicShapeNNF32) {
 TEST(TFBatchMatMulV2OpTest, DynamicShapeNTF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_v2_nt_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3x100x110xf32_X", "2x3x100x110xf32_X"},
@@ -75,7 +79,8 @@ TEST(TFBatchMatMulV2OpTest, DynamicShapeNTF32) {
 TEST(TFBatchMatMulV2OpTest, DynamicShapeTNF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_v2_tn_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3x110x100xf32_X", "2x3x110x100xf32_X"},
@@ -86,7 +91,8 @@ TEST(TFBatchMatMulV2OpTest, DynamicShapeTNF32) {
 TEST(TFBatchMatMulV2OpTest, DynamicShapeTTF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_v2_tt_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3x110x100xf32_X", "2x3x100x110xf32_X"},
@@ -97,7 +103,8 @@ TEST(TFBatchMatMulV2OpTest, DynamicShapeTTF32) {
 TEST(TFBatchMatMulV2OpTest, IBDynamicShapeNNF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_v2_nn_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x3x100x110xf32_X", "2x1x110x100xf32_X"},
@@ -108,7 +115,8 @@ TEST(TFBatchMatMulV2OpTest, IBDynamicShapeNNF32) {
 TEST(TFBatchMatMulV2OpTest, IBDynamicShapeNTF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_v2_nt_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x3x100x110xf32_X", "2x1x100x110xf32_X"},
@@ -119,7 +127,8 @@ TEST(TFBatchMatMulV2OpTest, IBDynamicShapeNTF32) {
 TEST(TFBatchMatMulV2OpTest, IBDynamicShapeTNF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_v2_tn_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x3x110x100xf32_X", "2x1x110x100xf32_X"},
@@ -130,7 +139,8 @@ TEST(TFBatchMatMulV2OpTest, IBDynamicShapeTNF32) {
 TEST(TFBatchMatMulV2OpTest, IBDynamicShapeTTF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_v2_tt_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x3x110x100xf32_X", "2x1x100x110xf32_X"},

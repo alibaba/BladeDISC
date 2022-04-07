@@ -62,7 +62,8 @@ TEST(TFConv2DBackpropInputOpTest, PartialDynamicShape4DNHWCF16) {
 TEST(TFConv2DBackpropInputOpTest, PartialShape4DNHWCF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "conv2d_backprop_input_p_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"4xi32_X", "3x3x1x32xf32_X", "100x26x26x32xf32_X"},
@@ -74,7 +75,8 @@ TEST(TFConv2DBackpropInputOpTest, PartialShape4DNHWCF32) {
 TEST(TFConv2DBackpropInputOpTest, StaticShape4DNHWCF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "conv2d_backprop_input_s_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"3x3x1x32xf32_X", "100x26x26x32xf32_X"},

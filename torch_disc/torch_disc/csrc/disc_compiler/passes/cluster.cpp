@@ -29,14 +29,6 @@ std::vector<Node*> FakeCluster(const std::shared_ptr<Graph>& graph) {
                  return torch::blade::IsMlirMhloSupported(*node) &&
                         node->kind() != prim::Constant;
                });
-  /**
-    for (auto node : graph->nodes()) {
-      if (torch::blade::IsMlirMhloSupported(*node) &&
-          node->kind() != prim::Constant) {
-        nodes.push_back(node);
-      }
-    }
-  **/
   return nodes;
 }
 

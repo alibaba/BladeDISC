@@ -792,14 +792,14 @@ Status Encapsulator::Subgraph::RecordArg(
     DataType dtype = edge->dst()->input_type(edge->dst_input());
     builder.Attr("T", dtype);
     builder.Attr("index", arg_index);
-    if (src_node->attrs().Find("_output_shapes") != nullptr) {
-      const auto& output_shape =
-          src_node->attrs().Find("_output_shapes")->shape();
-      builder.Attr("_output_shapes", PartialTensorShape(output_shape));
-      VLOG(2) << "Adding _output_shapes info to node: "
-              << absl::StrCat(src_node->name(), "_", src_slot, "_arg");
-      VLOG(2) << "Shape info: " << output_shape.DebugString();
-    }
+    // if (src_node->attrs().Find("_output_shapes") != nullptr) {
+    //   const auto& output_shape =
+    //       src_node->attrs().Find("_output_shapes")->shape();
+    //   builder.Attr("_output_shapes", PartialTensorShape(output_shape));
+    //   VLOG(2) << "Adding _output_shapes info to node: "
+    //           << absl::StrCat(src_node->name(), "_", src_slot, "_arg");
+    //   VLOG(2) << "Shape info: " << output_shape.DebugString();
+    // }
     Status s = builder.Finalize(&arg_def);
     if (!s.ok()) return s;
 
@@ -1482,6 +1482,7 @@ Status Encapsulator::CopySubgraphNodes(
     image->ClearAttr(group_attribute_);
     image->ClearAttr("_grappler:ArithmeticOptimizer:MinimizeBroadcasts");
     image->ClearAttr("_grappler:ArithmeticOptimizer:AddOpsRewriteStage");
+    image->ClearAttr("_output_shapes");
     (*node_images)[node] = image;
   }
   return Status::OK();

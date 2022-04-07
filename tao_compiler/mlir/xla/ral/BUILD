@@ -26,6 +26,8 @@ load("//tensorflow/compiler/mlir/disc:disc.bzl",
      "if_platform_alibaba",
      "if_patine",
      "if_mkldnn",
+     "if_disc_aarch64",
+     "if_disc_x86",
 )
 
 package(
@@ -187,12 +189,19 @@ cc_library(
       "-Wl,--start-group",
       "$(location //tao/third_party/mkldnn:build)/install/lib64/libdnnl.a",
       "-Wl,--end-group",
+    ] + if_disc_x86([
       "-Wl,--start-group",
       "$(location //tao/third_party/mkldnn:build)/intel/lib/libmkl_intel_ilp64.a",
       "$(location //tao/third_party/mkldnn:build)/intel/lib/libmkl_gnu_thread.a",
       "$(location //tao/third_party/mkldnn:build)/intel/lib/libmkl_core.a",
       "-Wl,--end-group",
-    ],
+    ]) + if_disc_aarch64([
+      "-Wl,--start-group",
+      "$(location //tao/third_party/mkldnn:build)/acl/ComputeLibrary/build/libarm_compute.a",
+      "$(location //tao/third_party/mkldnn:build)/acl/ComputeLibrary/build/libarm_compute_core.a",
+      "$(location //tao/third_party/mkldnn:build)/acl/ComputeLibrary/build/libarm_compute_graph.a",
+      "-Wl,--end-group",
+    ]),
     data = ["//tao/third_party/mkldnn:build"],
     deps = [
         "//tao/third_party/mkldnn:onednn",

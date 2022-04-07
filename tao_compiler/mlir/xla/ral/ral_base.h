@@ -18,6 +18,7 @@
 #ifndef RAL_RAL_BASE_H_
 #define RAL_RAL_BASE_H_
 
+#include <cstdint>
 #include <functional>
 #include <vector>
 

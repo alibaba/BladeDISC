@@ -38,6 +38,16 @@ config_setting(
     define_values = {"is_mkldnn": "true"},
 )
 
+config_setting(
+    name = "disc_aarch64",
+    define_values = {"disc_aarch64": "true"},
+)
+
+config_setting(
+    name = "disc_x86",
+    define_values = {"disc_x86": "true"},
+)
+
 package(
     default_visibility = [":friends"],
     licenses = ["notice"],  # Apache 2.0

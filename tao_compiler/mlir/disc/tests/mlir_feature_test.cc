@@ -254,8 +254,7 @@ bool feature_test_main(const std::string& mlir_file_path,
                                  multi_cc_mode, multi_cc_mode_dbg_ptx_only);
 #endif
       } else if (backend_type == BackendType::kX86) {
-// TODO(disc): make a more fine-grained check here (e.g. check if x86 platform)
-#if TAO_CPU_ONLY
+#if TAO_CPU_ONLY and defined(TAO_X86)
         VLOG(0) << "Testing for X86 backend";
         pass = pass &&
                feature_test_main(mlir_file_path, backend_type, num_inputs,

@@ -18,11 +18,11 @@ function echoerr() {
 
 download_dir=$1
 pb_ver=$2
+suffix=$3
 
 download_dir="${download_dir}/.download_cache"
 mkdir -p ${download_dir}
-
-protoc_dir="protoc-${pb_ver}-linux-x86_64"
+protoc_dir="protoc-${pb_ver}-${suffix}"
 protoc_file="${protoc_dir}.zip"
 protoc_url="https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/protobuf/v${pb_ver}/${protoc_file}"
 protoc_url_bak="https://github.com/protocolbuffers/protobuf/releases/download/v${pb_ver}/${protoc_file}"

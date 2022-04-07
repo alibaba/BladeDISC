@@ -48,3 +48,15 @@ def if_mkldnn(if_true, if_false=[]):
         "//tensorflow/compiler/mlir/disc:is_mkldnn": if_true,
         "//conditions:default": if_false
     })
+
+def if_disc_aarch64(if_true, if_false=[]):
+    return select({
+        "//tensorflow/compiler/mlir/disc:disc_aarch64": if_true,
+        "//conditions:default": if_false
+    })
+
+def if_disc_x86(if_true, if_false=[]):
+    return select({
+        "//tensorflow/compiler/mlir/disc:disc_x86": if_true,
+        "//conditions:default": if_false
+    })

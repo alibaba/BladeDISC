@@ -793,7 +793,7 @@ Status Encapsulator::Subgraph::RecordArg(
     builder.Attr("T", dtype);
     builder.Attr("index", arg_index);
     // `tao_compiler_main` failed to load graphdef with ops having
-    // `_output_shapes`. Just remote such attribute here as a workaround to fix
+    // `_output_shapes`. Just remove such attribute here as a workaround to fix
     // such problem.
     //
     // if (src_node->attrs().Find("_output_shapes") != nullptr) {
@@ -1487,7 +1487,7 @@ Status Encapsulator::CopySubgraphNodes(
     image->ClearAttr("_grappler:ArithmeticOptimizer:MinimizeBroadcasts");
     image->ClearAttr("_grappler:ArithmeticOptimizer:AddOpsRewriteStage");
     // `tao_compiler_main` failed to load graphdef with ops having
-    // `_output_shapes`. Just remote such attribute here as a workaround to fix
+    // `_output_shapes`. Just remove such attribute here as a workaround to fix
     // such problem.
     image->ClearAttr("_output_shapes");
     (*node_images)[node] = image;

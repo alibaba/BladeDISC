@@ -47,7 +47,7 @@ class BazelBuild(TorchBladeBuild):
         ]
         torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]
         self.extra_opts = [
-            "--copt=-DPYTORCH_VERSION_STRING={}".format(self.torch_version),
+            "--copt=-DPYTORCH_VERSION_STRING=\\\"{}\\\"".format(self.torch_version),
             "--copt=-DPYTORCH_MAJOR_VERSION={}".format(torch_major_version),
             "--copt=-DPYTORCH_MINOR_VERSION={}".format(torch_minor_version),
             "--copt=-DTORCH_BLADE_CUDA_VERSION={}".format(self.cuda_version),
@@ -66,9 +66,9 @@ class BazelBuild(TorchBladeBuild):
             self.configs.append("--config=dbg")
 
         if self.cuda_available:
-            self.configs.append("--config=torch_disc_cuda")
+            self.configs.append("--config=torch_cuda")
         else:
-            self.configs += ["--config=torch_disc_cpu"]
+            self.configs += ["--config=torch_cpu"]
 
         if self.cuda_available and self.build_tensorrt:
             self.configs.append("--config=torch_tensorrt")
@@ -114,16 +114,20 @@ class BazelBuild(TorchBladeBuild):
             bazel_cmd, shell=True, env=env, executable="/bin/bash"
         )
 
-        ext_so_fpath = "src/_torch_blade.so"
-        ral_so_fpath = "external/org_tensorflow/tensorflow/compiler/mlir/xla/ral/libral_base_context.so"
-        disc_bin_fpath = (
-            "external/org_tensorflow/tensorflow/compiler/mlir/disc/disc_compiler_main"
-        )
-
-        for fpath in [ext_so_fpath, ral_so_fpath, disc_bin_fpath]:
-            fpath = os.path.realpath(os.path.join(bazel_bin_dir, fpath))
+        # If you want to package more files, please extends the distribution.cfg.
+        # We symlink those files into extension's directory, since that
+        # python distribute utils will copy into the distribution package.
+        #
+        # Note that only the following file pathes would be accepted:
+        # 1. file pathes relevent to your bazel bin directory
+        # 2. absolute file pathes
+        for fpath in open("distribution.cfg"):
+            fpath = os.path.realpath(os.path.join(bazel_bin_dir, fpath.strip()))
             fname = os.path.basename(fpath)
-            _symlink_force(fpath, os.path.join(extdir, fname))
+            if os.path.exists(fpath):
+                _symlink_force(fpath, os.path.join(extdir, fname))
+            else:
+                print(f"{fpath} configured to distribution doesn't exists")
 
     def test(self):
         env = os.environ.copy()

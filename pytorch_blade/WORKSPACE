@@ -70,6 +70,14 @@ http_archive(
     ],
 )
 
+load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
+
+rules_foreign_cc_dependencies(
+    register_built_tools = False,  # do not build cmake/make from source,
+    register_default_tools = False,  # nor download from official site,
+    register_preinstalled_tools = True,  # just use the pre-installed.
+)
+
 http_archive(
     name = "io_bazel_rules_docker",
     sha256 = "85ffff62a4c22a74dbd98d05da6cf40f497344b3dbf1e1ab0a37ab2a1a6ca014",
@@ -105,6 +113,9 @@ local_repository(
     name = "org_tensorflow",
     path = "../tf_community",
 )
+
+load("//bazel:platform_alibaba/workspace.bzl", "alibaba_workspace")
+alibaba_workspace()
 
 # Initialize TensorFlow's external dependencies.
 load("@org_tensorflow//tensorflow:workspace3.bzl", "tf_workspace3")

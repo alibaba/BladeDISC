@@ -1,9 +1,14 @@
+package(default_visibility = ["//visibility:public"])
 load(
     "@local_config_cuda//cuda:build_defs.bzl",
     "if_cuda_is_configured",
 )
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
-load("//bazel:build_defs.bzl", "if_tensorrt_enabled")
+load("//bazel:build_defs.bzl", "if_tensorrt_enabled", "if_platform_alibaba")
+
+exports_files([
+    "pybind.h",
+])
 
 cc_library(
     name = "torch_blade_include",
@@ -24,7 +29,7 @@ cc_library(
     ] + if_tensorrt_enabled(["//src/compiler/tensorrt:tensorrt_runtime_impl"])
       + if_cuda_is_configured([
         "@local_config_cuda//cuda:cudart",
-    ]),
+    ]) + if_platform_alibaba(["//src/platform_alibaba:torch_blade",])
 )
 
 # Pybind11 bindings for TorchBlade
@@ -47,7 +52,9 @@ filegroup(
 
 pybind_library(
     name = "torch_blade_pybind11",
-    srcs = [":torch_blade_py_sources"],
+    srcs = [
+        ":torch_blade_py_sources",
+    ],
     hdrs = [
         ":torch_blade_py_headers",
     ],
@@ -61,15 +68,20 @@ pybind_library(
         "@local_org_torch//:torch_python",
     ],
     copts = ["-DTORCH_BLADE_BUILD_MLIR"] +
-      if_tensorrt_enabled(["-DTORCH_BLADE_BUILD_TENSORRT"])
+      if_tensorrt_enabled(["-DTORCH_BLADE_BUILD_TENSORRT"]) +
+      if_platform_alibaba(
+        ["-DTORCH_BLADE_PLATFORM_ALIBABA=true"],
+        ["-DTORCH_BLADE_PLATFORM_ALIBABA=false"]
+      ),
 )
 
 pybind_extension(
     name = "_torch_blade",
     linkopts = ["-Wl,-rpath,$$ORIGIN"],
     deps = [
+        ":torch_blade",
         ":torch_blade_pybind11",
-    ],
+    ] + if_platform_alibaba(["//src/platform_alibaba:torch_blade_pybind11",]),
 )
 
 test_suite(
@@ -79,3 +91,4 @@ test_suite(
         "//src/compiler/mlir/converters:mhlo_converter_register_test",
     ],
 )
+

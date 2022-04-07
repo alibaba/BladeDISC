@@ -1,4 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+load("//bazel:build_defs.bzl", "if_platform_alibaba")
 
 filegroup(
     name = "torch_blade_mhlo_converter_srcs",
@@ -39,9 +40,8 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//src/compiler/jit:torch_blade_jit",
-        "//src/compiler/mlir/converters:torch_blade_mhlo_converter",
+        "//src:torch_blade",
         "@googltest//:gtest_main",
         "@local_org_torch//:libtorch",
-    ],
+    ]
 )

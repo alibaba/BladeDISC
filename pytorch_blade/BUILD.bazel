@@ -14,3 +14,8 @@ config_setting(
     values = {"define": "enable_tensorrt=true"},
 )
 
+config_setting(
+    name = "platform_alibaba",
+    values = {"define": "platform_alibaba=true"},
+)
+

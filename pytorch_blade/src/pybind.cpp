@@ -12,7 +12,6 @@
 #include "pybind.h"
 
 #include <mutex>
-#include "common_utils/version.h"
 #include "compiler/backends/engine_class.h"
 #include "compiler/backends/engine_interface.h"
 #include "compiler/jit/onnx_funcs.h"
@@ -33,6 +32,8 @@
 namespace torch {
 namespace blade {
 
+constexpr bool is_platform_alibaba = TORCH_BLADE_PLATFORM_ALIBABA;
+
 namespace py = pybind11;
 namespace {
 std::string pybind_version() {
@@ -46,7 +47,7 @@ std::string pybind_version() {
 } // anonymous namespace
 
 template <>
-void initModules<COMMUNITY_VERSION_ID>(py::module& m) {
+void initModules<false>(py::module& m) {
   torch::blade::initToolsBindings(m);
   m.def(
       "jit_pass_onnx_constant_f64_to_f32",
@@ -109,7 +110,7 @@ PYBIND11_MODULE(_torch_blade, m) {
   m.attr("__version__") = "dev";
 #endif
 
-  initModules<TORCH_BLADE_PLATFORM_VERSION_ID>(m);
+  initModules<is_platform_alibaba>(m);
 }
 
 } // namespace blade

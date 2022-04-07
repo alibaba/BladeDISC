@@ -24,36 +24,46 @@ using namespace ::torch::jit;
 // conversion module into a group. We should re-implement this.
 std::vector<Node*> FakeCluster(const std::shared_ptr<Graph>& graph) {
   std::vector<Node*> nodes;
-  for (auto node : graph->nodes()) {
-    if (torch::blade::IsMlirMhloSupported(*node) &&
-        node->kind() != prim::Constant) {
-      if (node->kind() == aten::addmm) continue;
-      nodes.push_back(node);
+  std::copy_if(graph->nodes().begin(), graph->nodes().end(),
+               std::back_inserter(nodes), [](torch::jit::Node* node) {
+                 return torch::blade::IsMlirMhloSupported(*node) &&
+                        node->kind() != prim::Constant;
+               });
+  /**
+    for (auto node : graph->nodes()) {
+      if (torch::blade::IsMlirMhloSupported(*node) &&
+          node->kind() != prim::Constant) {
+        nodes.push_back(node);
+      }
     }
-  }
+  **/
   return nodes;
 }
 
 // Give:
 //  with prim::FusionGroup(
-//      %1: Scalar,
-//      %2: Scalar):
-//    %3 Tensor = aten::add(%1, %2)
-//  return %3
+//      %p0: Tensor,
+//      %p1: Tensor,
+//      %p2: Scalar):
+//    %1 Tensor = aten::add(%p0, %p1, %p2)
+//  return %1
 //
 // Execute: CastToTensorInputs(sub_graph)
 //
 // After:
 //  with prim::FusionGroup(
-//      %1.1: Tensor,
-//      %2.1: Tensor):
-//    %4 = aten::item(%1.1, 1)
-//    %5 = aten::item(%2.1, 1)
-//    %3 Tensor = aten::add(%4, %5)
-//    return %3
+//      %p0.1: Tensor,
+//      %p1.1: Tensor,
+//      %p2.1: Tensor):
+//    %1 int = aten::item(%p2.1)
+//    %2 Tensor = aten::add(%p0.1, %p1.1, %1)
+//    return %2
 void CastBoundaryScalarToTensor(Graph* disc_graph, size_t i) {
   auto new_input = disc_graph->insertInput(
       i, c10::string(disc_graph->inputs()[i]->debugName() + ".1"));
+  // TODO(disc): derivate input scalar type
+  new_input->setType(
+      TensorType::create(at::ScalarType::Int, c10::nullopt, 0, false));
   auto orig_input = disc_graph->inputs()[i + 1];
   auto item_node = disc_graph->create(aten::item, {new_input});
   // TODO(Yancey1989): supports more types

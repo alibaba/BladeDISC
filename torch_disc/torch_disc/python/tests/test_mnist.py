@@ -15,10 +15,14 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.testing import assert_allclose
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 import _torch_disc as disc
 disc._ltc_init_disc_backend()
+import unittest
+
+LOG_INTERVAL=100
 
 ## Define the NN architecture
 class Net(nn.Module):
@@ -39,8 +43,7 @@ class Net(nn.Module):
         return F.log_softmax(self.fc3(x), dim=1)
 
 
-
-def train(args, model, device, train_loader, optimizer, epoch):
+def train(model, device, train_loader, optimizer, epoch):
     model.train()
     train_loss = 0
     for batch_idx, (data, target) in enumerate(train_loader):
@@ -52,12 +55,10 @@ def train(args, model, device, train_loader, optimizer, epoch):
         optimizer.step()
         disc._step_marker()
         train_loss += loss.item() * len(data)
-        if batch_idx % args.log_interval == 0:
+        if batch_idx % LOG_INTERVAL == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
-            if args.dry_run:
-                break
     train_loss /= len(train_loader.dataset)
     print('Train Epoch:{} Average loss: {:.4f}'.format(epoch, train_loss))
 
@@ -80,6 +81,51 @@ def test(model, device, test_loader):
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
+    return test_loss
+
+
+class TestMnist(unittest.TestCase):
+    def mnit(self, device):
+        torch.manual_seed(2)
+        epochs = 2
+        lr = 1.0
+        gamma = 0.7
+        train_kwargs = {'batch_size': 64}
+        test_kwargs = {'batch_size': 1000}
+
+        transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.1307,), (0.3081,))
+        ])
+        dataset1 = datasets.MNIST('~/.cache/data', train=True, download=True,
+                       transform=transform)
+        dataset2 = datasets.MNIST('~/.cache/data', train=False,
+                       transform=transform)
+        train_loader = torch.utils.data.DataLoader(dataset1, **train_kwargs)
+        test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
+
+        model = Net().to(device)
+        optimizer = optim.Adadelta(model.parameters(), lr=lr)
+
+        scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
+        test_acc = None
+        for epoch in range(1, epochs + 1):
+            train(model, device, train_loader, optimizer, epoch)
+            test(model, device, test_loader)
+            scheduler.step()
+
+        return test_acc
+
+    def test_acc(self):
+        lazy_device = torch.device('lazy')
+        device = torch.device('cpu')
+        expect_acc = self.mnit(lazy_device)
+        # test on CUDA device
+        actual_acc = self.mnit(device)
+        assert_allclose(expect_acc, actual_acc, rtol=0.1, ltol=0.1)
+
+if __name__ == '__main__':
+    unittest.main()
 
 
 def main():
@@ -144,7 +190,3 @@ def main():
 
     if args.save_model:
         torch.save(model.state_dict(), "mnist_cnn.pt")
-
-
-if __name__ == '__main__':
-    main()

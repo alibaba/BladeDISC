@@ -26,7 +26,8 @@ const std::string c_ft_path =
 TEST(TFReshapeOpTest, StaticShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "reshape_s_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3x4xf32_X"},
@@ -37,7 +38,8 @@ TEST(TFReshapeOpTest, StaticShape2DF32) {
 TEST(TFReshapeOpTest, FullyDynamicShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "reshape_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"20x30x4xf32_X", "2xi32_h"},
@@ -49,7 +51,8 @@ TEST(TFReshapeOpTest, FullyDynamicShape2DF32) {
 TEST(TFReshapeOpTest, PartialShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "reshape_p_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"20x30x4xf32_X", "2xi32_h"},
@@ -61,7 +64,8 @@ TEST(TFReshapeOpTest, PartialShape2DF32) {
 TEST(TFReshapeOpTest, MinusOneDynamicShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "reshape_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"20x30x4xf32_X", "2xi32_h"},
@@ -73,7 +77,8 @@ TEST(TFReshapeOpTest, MinusOneDynamicShape2DF32) {
 TEST(TFReshapeOpTest, MinusOneDynamicShape2DF32Test2) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "reshape_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"20x30x4xf32_X", "2xi32_h"},

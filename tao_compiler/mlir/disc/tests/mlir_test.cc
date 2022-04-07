@@ -98,6 +98,8 @@ DeviceType getDefaultPlacementForBackend(const BackendType& backend) {
     return DeviceType::kGPU;
   } else if (backend == BackendType::kX86) {
     return DeviceType::kCPU;
+  } else if (backend == BackendType::kAArch64) {
+    return DeviceType::kCPU;
   } else {
     LOG(FATAL) << "Unrecognized backend type";
     return DeviceType::kCPU;

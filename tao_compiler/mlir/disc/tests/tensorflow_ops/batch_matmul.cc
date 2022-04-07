@@ -26,7 +26,8 @@ const std::string c_ft_path =
 TEST(TFBatchMatMulOpTest, StaticShapeNNF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_nn_s_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3x100x110xf32_X", "2x3x110x100xf32_X"},
@@ -37,7 +38,8 @@ TEST(TFBatchMatMulOpTest, StaticShapeNNF32) {
 TEST(TFBatchMatMulOpTest, StaticShapeNTF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_nt_s_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3x100x110xf32_X", "2x3x100x110xf32_X"},
@@ -48,7 +50,8 @@ TEST(TFBatchMatMulOpTest, StaticShapeNTF32) {
 TEST(TFBatchMatMulOpTest, StaticShapeTNF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_tn_s_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3x110x100xf32_X", "2x3x110x100xf32_X"},
@@ -59,7 +62,8 @@ TEST(TFBatchMatMulOpTest, StaticShapeTNF32) {
 TEST(TFBatchMatMulOpTest, StaticShapeTTF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_tt_s_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3x110x100xf32_X", "2x3x100x110xf32_X"},
@@ -70,7 +74,8 @@ TEST(TFBatchMatMulOpTest, StaticShapeTTF32) {
 TEST(TFBatchMatMulOpTest, DynamicShapeNNF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_nn_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3x100x110xf32_X", "2x3x110x100xf32_X"},
@@ -81,7 +86,8 @@ TEST(TFBatchMatMulOpTest, DynamicShapeNNF32) {
 TEST(TFBatchMatMulOpTest, DynamicShapeNTF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_nt_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3x100x110xf32_X", "2x3x100x110xf32_X"},
@@ -92,7 +98,8 @@ TEST(TFBatchMatMulOpTest, DynamicShapeNTF32) {
 TEST(TFBatchMatMulOpTest, DynamicShapeTNF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_tn_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3x110x100xf32_X", "2x3x110x100xf32_X"},
@@ -103,7 +110,8 @@ TEST(TFBatchMatMulOpTest, DynamicShapeTNF32) {
 TEST(TFBatchMatMulOpTest, DynamicShapeTTF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_tt_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3x110x100xf32_X", "2x3x100x110xf32_X"},
@@ -114,7 +122,8 @@ TEST(TFBatchMatMulOpTest, DynamicShapeTTF32) {
 TEST(TFBatchMatMulOpTest, PartialDynamicShapeNNF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_nn_p_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x3x100x110xf32_X", "1x3x110x100xf32_X"},
@@ -125,7 +134,8 @@ TEST(TFBatchMatMulOpTest, PartialDynamicShapeNNF32) {
 TEST(TFBatchMatMulOpTest, PartialDynamicShapeNTF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_nt_p_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x1x100x110xf32_X", "2x1x100x110xf32_X"},
@@ -136,7 +146,8 @@ TEST(TFBatchMatMulOpTest, PartialDynamicShapeNTF32) {
 TEST(TFBatchMatMulOpTest, PartialDynamicShapeTNF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_tn_p_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x3x100x112xf32_X", "1x3x100x108xf32_X"},
@@ -147,7 +158,8 @@ TEST(TFBatchMatMulOpTest, PartialDynamicShapeTNF32) {
 TEST(TFBatchMatMulOpTest, PartialDynamicShapeTTF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "batch_matmul_tt_p_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x1x100x101xf32_X", "2x1x100x100xf32_X"},

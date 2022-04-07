@@ -26,7 +26,8 @@ const std::string c_ft_path =
 TEST(TFAnyOpTest, ColReduceNotKeepDimStaticShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "any_s_i1.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x100xf32_X"},
@@ -37,7 +38,8 @@ TEST(TFAnyOpTest, ColReduceNotKeepDimStaticShape2DF32) {
 TEST(TFAnyOpTest, ReduceToScalarKeepDimFullyDynamicShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "any_d_i1.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x100xf32_X"},
@@ -48,7 +50,8 @@ TEST(TFAnyOpTest, ReduceToScalarKeepDimFullyDynamicShape2DF32) {
 TEST(TFAnyOpTest, ReduceToScalarKeepDimPartialShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "any_p_i1.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x100xf32_X"},

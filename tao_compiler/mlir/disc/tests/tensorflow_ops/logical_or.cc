@@ -26,7 +26,8 @@ const std::string c_ft_path =
 TEST(TFLogicalOrOpTest, StaticShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "logical_or_s_i1.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x11xi1_X", "123x1xi1_X"},
@@ -37,7 +38,8 @@ TEST(TFLogicalOrOpTest, StaticShape2DF32) {
 TEST(TFLogicalOrOpTest, FullyDynamicShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "logical_or_d_i1.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x100xi1_X", "100x100xi1_X"},
@@ -48,7 +50,8 @@ TEST(TFLogicalOrOpTest, FullyDynamicShape2DF32) {
 TEST(TFLogicalOrOpTest, PartialShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "logical_or_p_i1.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x11xi1_X", "1x11xi1_X"},
@@ -59,7 +62,8 @@ TEST(TFLogicalOrOpTest, PartialShape2DF32) {
 TEST(TFLogicalOrOpTest, ImplicitBroadcast2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "logical_or_d_i1.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x100xi1_X", "17x1xi1_X"},

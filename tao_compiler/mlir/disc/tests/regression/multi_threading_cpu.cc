@@ -30,7 +30,7 @@ static bool init_threads = []() {
 TEST(MultiThreadingTest, 2DTest0) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "multi_threading_cpu_2d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ kSupportedCPUBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"50x1xf32_X"},
@@ -41,7 +41,7 @@ TEST(MultiThreadingTest, 2DTest0) {
 TEST(MultiThreadingTest, 2DTest1) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "multi_threading_cpu_2d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ kSupportedCPUBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"20x300xf32_X"},
@@ -52,7 +52,7 @@ TEST(MultiThreadingTest, 2DTest1) {
 TEST(MultiThreadingTest, 2DTest2) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "multi_threading_cpu_2d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ kSupportedCPUBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"60x100xf32_X"},
@@ -63,7 +63,7 @@ TEST(MultiThreadingTest, 2DTest2) {
 TEST(MultiThreadingTest, 3DTest1) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "multi_threading_cpu_3d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ kSupportedCPUBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"5x1x1xf32_X"},
@@ -74,7 +74,7 @@ TEST(MultiThreadingTest, 3DTest1) {
 TEST(MultiThreadingTest, 3DTest2) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "multi_threading_cpu_3d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ kSupportedCPUBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x1x2xf32_X"},
@@ -85,7 +85,7 @@ TEST(MultiThreadingTest, 3DTest2) {
 TEST(MultiThreadingTest, 3DTest3) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "multi_threading_cpu_3d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ kSupportedCPUBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x1x50xf32_X"},
@@ -96,7 +96,7 @@ TEST(MultiThreadingTest, 3DTest3) {
 TEST(MultiThreadingTest, 3DTest4) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "multi_threading_cpu_3d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ kSupportedCPUBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3x50xf32_X"},
@@ -107,7 +107,7 @@ TEST(MultiThreadingTest, 3DTest4) {
 TEST(MultiThreadingTest, 4DTest1) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "multi_threading_cpu_4d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ kSupportedCPUBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x2x2x2xf32_X"},
@@ -118,7 +118,7 @@ TEST(MultiThreadingTest, 4DTest1) {
 TEST(MultiThreadingTest, 4DTest2) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "multi_threading_cpu_4d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ kSupportedCPUBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x1x1x1xf32_X"},
@@ -129,7 +129,7 @@ TEST(MultiThreadingTest, 4DTest2) {
 TEST(MultiThreadingTest, 4DTest3) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "multi_threading_cpu_4d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ kSupportedCPUBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x1x1x100xf32_X"},
@@ -140,7 +140,7 @@ TEST(MultiThreadingTest, 4DTest3) {
 TEST(MultiThreadingTest, 4DTest4) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "multi_threading_cpu_4d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ kSupportedCPUBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"5x2x1x100xf32_X"},
@@ -151,7 +151,7 @@ TEST(MultiThreadingTest, 4DTest4) {
 TEST(MultiThreadingTest, 4DTest5) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "multi_threading_cpu_4d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ kSupportedCPUBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x2x1x100xf32_X"},

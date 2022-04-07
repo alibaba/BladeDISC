@@ -10,14 +10,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+set -ex
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 source ${SCRIPT_DIR}/deploy_docker.sh
 
-# build runtime Docker
-docker build -t ${REMOTE_RUNTIME_DOCKER} -f docker/runtime/Dockerfile.tf \
-  --build-arg BASEIMAGE=${RUNTIME_BASEIMAGE} .
+export RUNTIME_DOCKER_FILE=${RUNTIME_DOCKER_FILE:-docker/runtime/Dockerfile.tf}
 
-push_images
+if [[ ! -z "${REMOTE_DEV_DOCKER}" ]]; then
+  push_dev_image
+fi
+
+if [[ ! -z "${REMOTE_RUNTIME_DOCKER}" ]]; then
+  # build runtime Docker
+  docker build -t ${REMOTE_RUNTIME_DOCKER} -f ${RUNTIME_DOCKER_FILE} \
+    --build-arg BASEIMAGE=${RUNTIME_BASEIMAGE} .
+  push_deploy_image
+fi

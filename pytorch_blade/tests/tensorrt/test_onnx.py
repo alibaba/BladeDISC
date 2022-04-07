@@ -20,7 +20,9 @@ from torch import nn
 from torch.testing import FileCheck
 from torch_blade import exporter
 from torch_blade.testing.common_utils import TestCase
+from tests.tensorrt import skipIfNoTensorRT
 
+@skipIfNoTensorRT()
 class TestOnnx(TestCase):
     def test_convolution(self):
         class Net(nn.Module):

@@ -371,7 +371,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     # backward compatibility
-    args.ral_cxx11_abi = cxx11_abi
+    args.ral_cxx11_abi = args.cxx11_abi
     update_cpu_specific_setting(args)
 
     root = get_source_root_dir()

@@ -27,7 +27,7 @@ TEST(TFStridedSliceOpTest, StaticShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "strided_slice_s_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"3x4xf32_X"},
@@ -39,7 +39,7 @@ TEST(TFStridedSliceOpTest, StaticShapeNegativeStrides2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "strided_slice_s_f32_2.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"3x4xf32_X"},
@@ -51,7 +51,7 @@ TEST(TFStridedSliceOpTest, FullyDynamicShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "strided_slice_d_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 3,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"200x300xf32_X", "2xi32_h", "2xi32_h"},
@@ -64,7 +64,7 @@ TEST(TFStridedSliceOpTest, FullyDynamicShapeNegativeStrides2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "strided_slice_d_f32_2.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 3,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"3x4xf32_X", "2xi32_h", "2xi32_h"},
@@ -77,7 +77,7 @@ TEST(TFStridedSliceOpTest, FullyDynamicShape3DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "strided_slice_d_3d_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"200x300x3xf32_X", "2xi32_h", "2xi32_h"},
@@ -90,7 +90,7 @@ TEST(TFStridedSliceOpTest, PartialDynamicShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "strided_slice_p_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 3,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"200x300xf32_X", "2xi32_h", "2xi32_h"},
@@ -103,7 +103,7 @@ TEST(TFStridedSliceOpTest, PartialDynamicShapeI32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "strided_slice_p_i32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"300xi32_X", "1xi32_h"},
@@ -116,7 +116,7 @@ TEST(TFStridedSliceOpTest, PartialDynamicShapeI32Test2) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "strided_slice_p_i32_2.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"300xi32_X"},
@@ -129,7 +129,7 @@ TEST(TFStridedSliceOpTest, FullyDynamicShapeWithNewAxisAttr2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "strided_slice_with_newaxis_d_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"3x4xf32_X", "4xi32_h", "4xi32_h"},

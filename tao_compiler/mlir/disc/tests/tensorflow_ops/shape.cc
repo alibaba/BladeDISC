@@ -27,7 +27,7 @@ TEST(TFShapeOpTest, ScalarI32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "shape_scalar_i32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"i32_h"},
@@ -39,7 +39,7 @@ TEST(TFShapeOpTest, ScalarI64) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "shape_scalar_i64.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"i32_h"},
@@ -51,7 +51,7 @@ TEST(TFShapeOpTest, DynamicShape2DI32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "shape_2d_d_i32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"4x5xf32_h"},
@@ -63,7 +63,7 @@ TEST(TFShapeOpTest, StaticShape2DI32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "shape_2d_s_i32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"13x14xf32_h"},
@@ -75,7 +75,7 @@ TEST(TFShapeOpTest, PartialDynamicShape2DI32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "shape_2d_p_i32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"13x14xf32_h"},
@@ -87,7 +87,7 @@ TEST(TFShapeOpTest, DynamicShape2DI64) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "shape_2d_d_i64.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"4x5xf32_h"},

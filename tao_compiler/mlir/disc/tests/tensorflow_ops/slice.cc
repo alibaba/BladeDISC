@@ -27,7 +27,7 @@ TEST(TFSliceOpTest, StaticShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "slice_s_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"3x4xf32_X"},
@@ -39,7 +39,7 @@ TEST(TFSliceOpTest, FullyDynamicShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "slice_d_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"200x300xf32_X", "2xi32_h", "2xi32_h"},
@@ -52,7 +52,7 @@ TEST(TFSliceOpTest, PartialShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "slice_p_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"200x300xf32_X", "2xi32_h", "2xi32_h"},
@@ -65,7 +65,7 @@ TEST(TFSliceOpTest, PartialShape2DF32Test2) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "slice_p_f32_2.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"200x300xf32_X", "2xi32_h", "2xi32_h"},

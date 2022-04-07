@@ -26,8 +26,7 @@ const std::string c_ft_path =
 TEST(EmptyTensor, FullyDynamicShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "empty_tensor.mlir",
-      /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      /*backend_types*/ kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x0xf32_X", "100x0xf32_X"},
@@ -39,7 +38,7 @@ TEST(EmptyTensor, ImplicitBroadcast2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "empty_tensor.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x100xf32_X", "0x1xf32_X"},

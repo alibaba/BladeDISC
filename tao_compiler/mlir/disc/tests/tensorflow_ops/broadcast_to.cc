@@ -27,7 +27,7 @@ TEST(TFBroadcastOpTest, StaticShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "broadcast_to_s_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x4xf32_X"},
@@ -39,7 +39,7 @@ TEST(TFBroadcastOpTest, FullyDynamicShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "broadcast_to_d_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x30x1xf32_X", "3xi32_h"},
@@ -52,7 +52,7 @@ TEST(TFBroadcastOpTest, PartialShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "broadcast_to_p_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"20x1x4xf32_X", "3xi32_h"},

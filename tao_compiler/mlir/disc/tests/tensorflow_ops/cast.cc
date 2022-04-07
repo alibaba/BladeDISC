@@ -88,7 +88,7 @@ TEST(TFCastOpTest, StaticShape2DF32ToI32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "cast_s_f32toi32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x100xf32_X"},
@@ -100,7 +100,7 @@ TEST(TFCastOpTest, StaticShape2DI32ToI1) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "cast_s_i32toi1.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x100xi32_X"},

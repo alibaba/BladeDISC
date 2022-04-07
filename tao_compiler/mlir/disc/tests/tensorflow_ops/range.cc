@@ -27,7 +27,7 @@ TEST(TFRangeOpTest, ProvidedDataShape2DI64) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "range_s_i64.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"i64_X", "i64_X", "i64_X"},
@@ -40,7 +40,7 @@ TEST(TFRangeOpTest, ProvidedDataShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "range_s_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"f32_X", "f32_X", "f32_X"},
@@ -53,7 +53,7 @@ TEST(TFRangeOpTest, DynamicShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "range_d_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"f32_X", "f32_X", "f32_X"},
@@ -66,7 +66,7 @@ TEST(TFRangeOpTest, ReverseF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "range_d_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"f32_X", "f32_X", "f32_X"},

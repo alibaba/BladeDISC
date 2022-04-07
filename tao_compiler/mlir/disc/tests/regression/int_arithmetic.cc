@@ -26,7 +26,7 @@ TEST(I8AddTest, I8AddTest) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "int_arithmetic_add_d_i8.mlir",
       /*backend_types*/
-      {BackendType::kX86, BackendType::kAArch64, BackendType::kCuda},
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3xi8_X", "2x1xi8_X"},
@@ -38,7 +38,7 @@ TEST(I8SubTest, I8SubTest) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "int_arithmetic_sub_d_i8.mlir",
       /*backend_types*/
-      {BackendType::kX86, BackendType::kAArch64, BackendType::kCuda},
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3xi8_X", "2x1xi8_X"},
@@ -50,7 +50,7 @@ TEST(I8MulTest, I8MulTest) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "int_arithmetic_mul_d_i8.mlir",
       /*backend_types*/
-      {BackendType::kX86, BackendType::kAArch64, BackendType::kCuda},
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3xi8_X", "2x1xi8_X"},
@@ -62,7 +62,7 @@ TEST(I8DivTest, I8DivTest) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "int_arithmetic_div_d_i8.mlir",
       /*backend_types*/
-      {BackendType::kX86, BackendType::kAArch64, BackendType::kCuda},
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3xi8_X", "2x1xi8_X"},
@@ -74,7 +74,7 @@ TEST(UI8AddTest, UI8AddTest) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "int_arithmetic_add_d_ui8.mlir",
       /*backend_types*/
-      {BackendType::kX86, BackendType::kAArch64, BackendType::kCuda},
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3xui8_X", "2x1xui8_X"},
@@ -86,7 +86,7 @@ TEST(UI8SubTest, UI8SubTest) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "int_arithmetic_sub_d_ui8.mlir",
       /*backend_types*/
-      {BackendType::kX86, BackendType::kAArch64, BackendType::kCuda},
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3xui8_X", "2x1xui8_X"},
@@ -98,7 +98,7 @@ TEST(UI8MulTest, UI8MulTest) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "int_arithmetic_mul_d_ui8.mlir",
       /*backend_types*/
-      {BackendType::kX86, BackendType::kAArch64, BackendType::kCuda},
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3xui8_X", "2x1xui8_X"},
@@ -123,7 +123,7 @@ TEST(I32AddTest, I32AddTest) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "int_arithmetic_add_d_i32.mlir",
       /*backend_types*/
-      {BackendType::kX86, BackendType::kAArch64, BackendType::kCuda},
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3xi32_X", "2x1xi32_X"},

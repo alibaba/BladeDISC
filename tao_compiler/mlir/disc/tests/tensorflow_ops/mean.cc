@@ -27,7 +27,7 @@ TEST(TFMeanOpTest, ColReduceFullyDynamicShape3DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "mean_col_d_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100x13xf32_X"},
@@ -39,7 +39,7 @@ TEST(TFMeanOpTest, ColReduceStaticShape3DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "mean_col_s_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100x13xf32_X"},
@@ -51,7 +51,7 @@ TEST(TFMeanOpTest, ColReducePartialDynamicShape3DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "mean_col_p_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100x13xf32_X"},
@@ -63,7 +63,7 @@ TEST(TFMeanOpTest, RowReduceFullyDynamicShape3DLargeF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "mean_row_d_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100x12321xf32_X"},
@@ -75,7 +75,7 @@ TEST(TFMeanOpTest, RowReduceStaticShape3DSmallF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "mean_row_s_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100x123xf32_X"},
@@ -87,7 +87,7 @@ TEST(TFMeanOpTest, RowReducePartialDynamicShape3DSmallF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "mean_row_p_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100x123xf32_X"},
@@ -99,7 +99,7 @@ TEST(TFMeanOpTest, MultidimReduceFullyDynamicShape3DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "mean_multidim_d_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"110x100x123xf32_X"},

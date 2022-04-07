@@ -173,7 +173,7 @@ TEST(KStitchFusionCPUTest, MultiOutputs) {
   setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "kstitch_fusion_cpu_multioutputs.mlir",
-      /*backend_types*/ {BackendType::kX86, BackendType::kAArch64},
+      /*backend_types*/ kSupportedCPUBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"1x128x768xf32_X"},

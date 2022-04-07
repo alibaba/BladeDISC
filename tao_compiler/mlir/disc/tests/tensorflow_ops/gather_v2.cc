@@ -27,7 +27,7 @@ TEST(TFGatherV2OpTest, StaticShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "gather_v2_s_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"10x20x30xf32_X", "2x3xi32_h"},
@@ -40,7 +40,7 @@ TEST(TFGatherV2OpTest, StaticShapeI32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "gather_v2_s_i32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2xi32_X"},
@@ -52,7 +52,7 @@ TEST(TFGatherV2OpTest, FullyDynamicShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "gather_v2_d_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"10x20x30xf32_X", "2x3xi32_h"},
@@ -65,7 +65,7 @@ TEST(TFGatherV2OpTest, FullyDynamicShape2DF32Test2) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "gather_v2_d_f32_2.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"10x20x30xf32_X", "2x3xi64_h"},
@@ -78,7 +78,7 @@ TEST(TFGatherV2OpTest, PartialShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "gather_v2_p_f32.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"10x20x30xf32_X", "2x3xi32_h"},

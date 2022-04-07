@@ -27,7 +27,7 @@ TEST(TFLogicalNotOpTest, StaticShape2DI1) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "logical_not_s_i1.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"123x11xi1_X"},
@@ -39,7 +39,7 @@ TEST(TFLogicalNotOpTest, FullyDynamicShape2DI1) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "logical_not_d_i1.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x100xi1_X"},
@@ -51,7 +51,7 @@ TEST(TFLogicalNotOpTest, PartialShape2DI1) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "logical_not_p_i1.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"13x12xi1_X"},
@@ -63,7 +63,7 @@ TEST(TFLogicalNotOpTest, ProvidedDataShape2DI1) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "logical_not_d_i1.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3xi1_X"},

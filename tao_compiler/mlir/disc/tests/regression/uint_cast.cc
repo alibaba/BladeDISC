@@ -26,7 +26,7 @@ TEST(UintCastTest, UintCastTest) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "uint_cast.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3xui8_X"},

@@ -26,7 +26,7 @@ TEST(LargeConcat, CPUTest) {
   std::vector<std::string> input_descriptors(64, "30x4xf32_X");
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "large_concat_cpu.mlir",
-      /*backend_types*/ {BackendType::kX86, BackendType::kAArch64},
+      /*backend_types*/ kSupportedCPUBackendList,
       /*num_inputs*/ input_descriptors.size(),
       /*num_outputs*/ 1,
       /*input_descriptors*/ input_descriptors,
@@ -37,7 +37,7 @@ TEST(LargeConcat, FusedCPUTest) {
   std::vector<std::string> input_descriptors(64, "30x4xf32_X");
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "large_concat_cpu_fused.mlir",
-      /*backend_types*/ {BackendType::kX86, BackendType::kAArch64},
+      /*backend_types*/ kSupportedCPUBackendList,
       /*num_inputs*/ input_descriptors.size(),
       /*num_outputs*/ 1,
       /*input_descriptors*/ input_descriptors,

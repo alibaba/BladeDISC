@@ -76,7 +76,7 @@ TEST(RalIOForwarding, CPUCPUTest) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "io_forwarding_cpu_cpu.mlir",
       /*backend_types*/
-      {BackendType::kCuda, BackendType::kX86, BackendType::kAArch64},
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"2x3xf32_h", "3x4xf32_h"},

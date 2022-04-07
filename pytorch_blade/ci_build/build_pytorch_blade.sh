@@ -42,7 +42,11 @@ function ci_build() {
       extra_args="--cmake"
     else
       extra_args=""
-      python3 ../scripts/python/common_setup.py
+      if [ "$TORCH_BLADE_USE_CMAKE_BUILD" = "ON"  ]; then
+        python3 ../scripts/python/common_setup.py
+      else
+        python3 ../scripts/python/common_setup.py --cpu_only
+      fi
     fi
 
     export TORCH_BLADE_BUILD_TENSORRT=ON

@@ -378,5 +378,5 @@ if __name__ == "__main__":
     symlink_files(root)
 
     if args.enable_mkldnn:
-        config_mkldnn(root, args.cxx11_abi)
+        config_mkldnn(root, args)
         build_mkldnn(root)

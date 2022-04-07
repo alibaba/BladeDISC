@@ -211,6 +211,7 @@ def configure(root, args):
         cmake_cmd = (
             "{} cmake .. -DPYTHON={}/bin/{} {}".format(
                 envs, args.venv_dir, PYTHON_BIN_NAME, flags
+            )
         )
         logger.info("configuring tao_bridge ......")
         execute(cmake_cmd)

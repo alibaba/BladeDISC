@@ -378,6 +378,7 @@ cc_library(
         "."
     ],
     deps = [
+        ":disc_util",
         ":pass_details",
         "//tensorflow/compiler/mlir/hlo:hlo",
         "@llvm-project//mlir:IR",
@@ -605,6 +606,7 @@ cc_library(
     srcs = ["transforms/shape_utils.cc"],
     hdrs = ["transforms/shape_utils.h"],
     deps = [
+        ":disc_util",
         ":mhlo_disc",
         ":pass_details",
         "//tensorflow/compiler/mlir/hlo:hlo",

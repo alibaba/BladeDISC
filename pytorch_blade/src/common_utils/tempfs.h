@@ -24,8 +24,7 @@ class TempFile {
   ~TempFile();
   DISALLOW_COPY_AND_ASSIGN(TempFile);
 
-  /// Write byte content to temp file and return number of bytes written. Return
-  /// true on success.
+  /// Write bytes content to temp file and return true on success.
   bool WriteBytesToFile(const std::string& bytes);
 
   /// Read byte content from temp file.

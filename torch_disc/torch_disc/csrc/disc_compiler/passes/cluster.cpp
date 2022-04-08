@@ -24,11 +24,13 @@ using namespace ::torch::jit;
 // conversion module into a group. We should re-implement this.
 std::vector<Node*> FakeCluster(const std::shared_ptr<Graph>& graph) {
   std::vector<Node*> nodes;
+
   std::copy_if(graph->nodes().begin(), graph->nodes().end(),
                std::back_inserter(nodes), [](torch::jit::Node* node) {
                  return torch::blade::IsMlirMhloSupported(*node) &&
                         node->kind() != prim::Constant;
                });
+
   return nodes;
 }
 
@@ -50,12 +52,11 @@ std::vector<Node*> FakeCluster(const std::shared_ptr<Graph>& graph) {
 //    %1 int = aten::item(%p2.1)
 //    %2 Tensor = aten::add(%p0.1, %p1.1, %1)
 //    return %2
-void CastBoundaryScalarToTensor(Graph* disc_graph, size_t i) {
+void CastBoundaryScalarToTensor(Graph* disc_graph, size_t i,
+                                at::ScalarType& typ) {
   auto new_input = disc_graph->insertInput(
       i, c10::string(disc_graph->inputs()[i]->debugName() + ".1"));
-  // TODO(disc): derivate input scalar type
-  new_input->setType(
-      TensorType::create(at::ScalarType::Int, c10::nullopt, 0, false));
+  new_input->setType(TensorType::create(typ, c10::nullopt, 0, false));
   auto orig_input = disc_graph->inputs()[i + 1];
   auto item_node = disc_graph->create(aten::item, {new_input});
   // TODO(Yancey1989): supports more types
@@ -64,6 +65,17 @@ void CastBoundaryScalarToTensor(Graph* disc_graph, size_t i) {
   orig_input->replaceAllUsesWith(item_node->output());
   item_node->moveBefore(item_node->output()->uses()[0].user);
   disc_graph->eraseInput(i + 1);
+}
+
+at::ScalarType DerivateScalarType(const Type& typ) {
+  if (typ.isSubtypeOf(*c10::IntType::get())) {
+    return at::ScalarType::Int;
+  } else if (typ.isSubtypeOf(*FloatType::get())) {
+    return at::ScalarType::Float;
+  } else if (typ.isSubtypeOf(*BoolType::get())) {
+    return at::ScalarType::Bool;
+  }
+  TORCH_CHECK(false, "unsupported input dtype: ", typ.str());
 }
 
 void CastGraphInputsToTensor(const std::shared_ptr<Graph>& graph,
@@ -79,7 +91,8 @@ void CastGraphInputsToTensor(const std::shared_ptr<Graph>& graph,
       sub_graph->replaceInput(i, cast_tensor->output());
 
       // TODO(Yancey1989): cast output
-      CastBoundaryScalarToTensor(disc_graph, i);
+      auto scalar_type = DerivateScalarType(*input->type());
+      CastBoundaryScalarToTensor(disc_graph, i, scalar_type);
     }
   }
 }

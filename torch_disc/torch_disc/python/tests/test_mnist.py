@@ -87,7 +87,7 @@ def test(model, device, test_loader):
 class TestMnist(unittest.TestCase):
     def mnit(self, device):
         torch.manual_seed(2)
-        epochs = 2
+        epochs = 1
         lr = 1.0
         gamma = 0.7
         train_kwargs = {'batch_size': 64}
@@ -111,7 +111,7 @@ class TestMnist(unittest.TestCase):
         test_acc = None
         for epoch in range(1, epochs + 1):
             train(model, device, train_loader, optimizer, epoch)
-            test(model, device, test_loader)
+            test_acc = test(model, device, test_loader)
             scheduler.step()
 
         return test_acc
@@ -122,7 +122,9 @@ class TestMnist(unittest.TestCase):
         expect_acc = self.mnit(lazy_device)
         # test on CUDA device
         actual_acc = self.mnit(device)
-        assert_allclose(expect_acc, actual_acc, rtol=0.1, ltol=0.1)
+        print(expect_acc)
+        print(actual_acc)
+        assert_allclose(expect_acc, actual_acc, rtol=1e-6, atol=0)
 
 if __name__ == '__main__':
     unittest.main()

@@ -29,7 +29,8 @@ cc_library(
     ] + if_tensorrt_enabled(["//src/compiler/tensorrt:tensorrt_runtime_impl"])
       + if_cuda_is_configured([
         "@local_config_cuda//cuda:cudart",
-    ]) + if_platform_alibaba(["//src/platform_alibaba:torch_blade",])
+    ]) + if_platform_alibaba(["//src/platform_alibaba:torch_blade",]),
+    linkopts = ["-Wl,-rpath,$$ORIGIN"],
 )
 
 cc_binary(

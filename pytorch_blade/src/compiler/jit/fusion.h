@@ -23,5 +23,6 @@ torch::jit::Node* MergeNodeIntoGroup(
     torch::jit::Node* group,
     torch::jit::Node* n);
 torch::TypePtr get_list_tensor_type();
+torch::TypePtr create_tensor_type_from_scalar_type(const c10::Type& typ);
 } // namespace blade
 } // namespace torch

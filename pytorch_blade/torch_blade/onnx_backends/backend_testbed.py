@@ -38,17 +38,43 @@ class OnnxBackendChecker:
         )
         return all_concrete_inputs and all_tensor_outputs
 
+    def _patch_inputs_scalar_types(self, graph, scalar_types):
+        """Add scalar type and dim to plain TensorType."""
+        assert len(list(graph.inputs())) == len(scalar_types)
+        for inp, scalar_type in zip(graph.inputs(), scalar_types):
+            inp_type = inp.type()
+            if scalar_type and inp_type.isSubtypeOf(torch._C.TensorType.get()):
+                new_type = tools.create_tensor_type_from_scalar_type(scalar_type)
+                inp.setType(new_type)
+
+    def _record_inputs_scalar_types(self, graph):
+        scalar_inputs = []
+        for inp in graph.inputs():
+            if inp.type().isSubtypeOf(torch._C.NumberType.get()):
+                scalar_inputs.append(inp.type())
+            else:
+                scalar_inputs.append(None)
+        return scalar_inputs
+
     def __call__(self):
         try:
             graph = self._graph
             # use mannual rules to filter the graph
             if not onnx_lower_guard.check_graph_with_rules(graph):
                 return False
+
+            # Even though direct non-tensor inputs are forbidden in `appendNode`
+            # method, indirect non-tensor may still be introduced by recursive
+            # call of `_appendNode` and `_add_graph_input_if_need` method. To be
+            # robust here we record these scalar inputs and convert them into
+            # tensor types.
+            scalar_types = self._record_inputs_scalar_types(graph)
             graph, _ = pass_manager._jit_pass_lower_to_onnx(graph)
+            self._patch_inputs_scalar_types(graph, scalar_types)
             if not self._check_concrete_shape(graph):
                 return False
 
-            proto = pass_manager._export_onnx(graph, {})
+            proto = pass_manager._export_onnx(graph, {}, fold_constants=True)
             onnx_model = onnx.load_from_string(proto)
             # pylint: disable=maybe-no-member
             if len(onnx_model.graph.node) == 0:
@@ -102,6 +128,7 @@ class OnnxBackendTestBed:
 
         # was used to create clone node from original graph -> segment
         self._orig2segment_value_map = dict()
+        self._segment2orig_value_map = dict()
 
         cfg = Config.get_current_context_or_new()
         self._black_list = set(
@@ -291,6 +318,7 @@ class OnnxBackendTestBed:
         self._current_segment = torch._C.Graph()
         self._current_segment_size = 0
         self._orig2segment_value_map.clear()
+        self._segment2orig_value_map.clear()
 
     def _add_graph_input_if_need(self, old_node):
         # all prim::Constant inputs of node is fused into subgraph if need
@@ -309,6 +337,7 @@ class OnnxBackendTestBed:
 
             inp_ = self._current_segment.addInput()
             self._orig2segment_value_map[inp] = inp_
+            self._segment2orig_value_map[inp_] = inp
             inp_.copyMetadata(inp)
 
     def _add_unsupported(self, node):
@@ -353,7 +382,7 @@ class OnnxBackendTestBed:
                 # Because only tensor usages of boundary nodes would lead to
                 # runtime interpreter input device mismatch exception.
                 if isinstance(val.type(), torch._C.TensorType):
-                    if not tools.is_gpu_tensor_type(val):
+                    if val.uses() and not tools.is_gpu_tensor_type(val):
                         self._add_unsupported(node)
                         return False
 
@@ -387,30 +416,30 @@ class OnnxBackendTestBed:
         self._current_segment.appendNode(node)
         for src_out, dst_out in zip(old_node.outputs(), node.outputs()):
             self._orig2segment_value_map[src_out] = dst_out
+            self._segment2orig_value_map[dst_out] = src_out
 
     def _segment_to_subgraph(self):
         # graph.copy() would change the value debugName
         subgraph = self._current_segment.copy()
+        # swap, need original values to look up self._segment2orig_value_map
+        subgraph, self._current_segment = self._current_segment, subgraph
 
-        input_list = subgraph.input_list()
-        src_input_list = self._current_segment.input_list()
+        all_used_values = {
+            val for node in subgraph.nodes() for val in node.inputs()
+        }
+        all_inter_outputs = {
+            val for node in subgraph.nodes() for val in node.outputs()
+        }
 
-        all_used_values = set()
-        all_inter_outputs = set()
-        for node in subgraph.nodes():
-            for inp in node.inputs():
-                all_used_values.add(inp)
-            for out in node.outputs():
-                all_inter_outputs.add(out)
+        def _orig_node_used(n):
+            return (
+                n in self._segment2orig_value_map
+                and self._segment2orig_value_map[n].uses()
+            )
 
-        maybe_graph_outputs = set()
         for out in all_inter_outputs:
-            if out not in all_used_values:
-                maybe_graph_outputs.add(out)
-
-        # register graph outputs
-        for out in maybe_graph_outputs:
-            subgraph.registerOutput(out)
+            if out not in all_used_values and _orig_node_used(out):
+                subgraph.registerOutput(out)
 
         return subgraph
 

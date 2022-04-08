@@ -16,6 +16,7 @@ from torch.nn import functional as F
 from torch_blade import tensorrt
 from torch_blade import utils
 from torch_blade import tools
+from torch_blade import Config
 from torch_blade.logging import logger
 from torch_blade.testing.common_utils import Feedforward, TestCase
 from tests.tensorrt import skipIfNoTensorRT
@@ -467,6 +468,35 @@ class TestManRules(TestCase):
             """
         )
         self._make_check(graph, False)
+
+    def test_const_fold_before_export(self):
+        graph = torch.parse_ir(
+            """
+            graph(%input0.2 : Float(1:165888, 512:324, 18:18, 18:1, requires_grad=0, device=cuda:0)):
+                %1 : None = prim::Constant() # :0:0
+                %2 : bool = prim::Constant[value=1]()
+                %3 : float[] = prim::Constant[value=[2., 2.]]()
+                %x1.3 : Float(1:663552, 512:1296, 36:36, 36:1, requires_grad=0, device=cuda:0) = aten::upsample_bilinear2d(%input0.2, %1, %2, %3)
+                return (%x1.3)
+            """
+        )
+        cfg = Config.get_current_context_or_new().clone()
+        cfg.customize_onnx_opset_version = 11
+        with cfg:
+            self._make_check(graph, True)
+
+    def test_scalar_input_on_graph(self):
+        graph = torch.parse_ir(
+            """
+            graph(%x.3 : Float(1:64, 64:1, 1:1, 1:1, requires_grad=0, device=cuda:0),
+                    %1 : int):
+                %2 : int = prim::Constant[value=-1]()
+                %3 : int[] = prim::ListConstruct(%1, %2)
+                %input.14 : Float(1:64, 64:1, requires_grad=0, device=cuda:0) = aten::view(%x.3, %3)
+                return (%input.14)
+            """
+        )
+        self._make_check(graph, True)
 
 
 if __name__ == "__main__":

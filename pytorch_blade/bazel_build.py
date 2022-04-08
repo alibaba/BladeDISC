@@ -42,6 +42,8 @@ class BazelBuild(TorchBladeBuild):
         self.test_suite = "//src:torch_blade_gtests"
         self.targets = [
             "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_compiler_main",
+            "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:libral_base_context.so",
+            "//src:libtorch_blade.so",
             "//src:_torch_blade.so",
             self.test_suite,
         ]

@@ -81,13 +81,12 @@ def test(model, device, test_loader):
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset),
         100. * correct / len(test_loader.dataset)))
-    return test_loss
-
+    return correct * 1.0 / len(test_loader.dataset)
 
 class TestMnist(unittest.TestCase):
     def mnit(self, device):
         torch.manual_seed(2)
-        epochs = 1
+        epochs = 2
         lr = 1.0
         gamma = 0.7
         train_kwargs = {'batch_size': 64}
@@ -119,12 +118,12 @@ class TestMnist(unittest.TestCase):
     def test_acc(self):
         lazy_device = torch.device('lazy')
         device = torch.device('cpu')
-        expect_acc = self.mnit(lazy_device)
+        actual_acc = self.mnit(lazy_device)
         # test on CUDA device
-        actual_acc = self.mnit(device)
+        expect_acc = self.mnit(device)
         print(expect_acc)
         print(actual_acc)
-        assert_allclose(expect_acc, actual_acc, rtol=1e-6, atol=0)
+        assert_allclose(expect_acc, actual_acc, rtol=1e-3, atol=0)
 
 if __name__ == '__main__':
     unittest.main()

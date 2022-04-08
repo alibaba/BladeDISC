@@ -40,3 +40,21 @@ def if_internal(if_true, if_false = []):
     if %{IF_INTERNAL}:
         return if_true
     return if_false
+
+def disc_build_version():
+    return "%{DISC_BUILD_VERSION}"
+
+def disc_build_git_branch():
+    return "%{DISC_BUILD_GIT_BRANCH}"
+
+def disc_build_git_head():
+    return "%{DISC_BUILD_GIT_HEAD}"
+
+def disc_build_host():
+    return "%{DISC_BUILD_HOST}"
+
+def disc_build_ip():
+    return "%{DISC_BUILD_IP}"
+
+def disc_build_time():
+    return "%{DISC_BUILD_TIME}"

@@ -109,7 +109,6 @@ def add_ral_link_if_not_exist(root):
         execute("ln -s {0}/{1}/ral/{2} {2}".format(root, RAL_DIR_IN_TF, PROTO))
 
 
-
 def tao_ci_conf_file():
     root = get_source_root_dir()
     return os.path.join(root, "scripts", "ci", ".tao_ci_conf")

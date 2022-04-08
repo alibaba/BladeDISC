@@ -19,7 +19,7 @@
 #include "tao_bridge/kernels/disc_launch.h"
 #endif  // PLATFORM_ALIBABA
 
-#include "tao_bridge/ral/tensorflow/compiler/mlir/xla/ral/ral_api.h"
+#include "tensorflow/compiler/mlir/xla/ral/ral_api.h"
 
 namespace tensorflow {
 namespace tao {

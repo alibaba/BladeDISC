@@ -1,6 +1,6 @@
 load("@local_config_tf//:build_defs.bzl", "tf_copts")
 load("@local_config_cuda_supplement//:build_defs.bzl", "if_has_cublaslt")
-load("@local_config_tensorrt//:build_defs.bzl", "if_has_myelin")
+load("@local_config_trt//:build_defs.bzl", "if_has_myelin")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -20,8 +20,8 @@ cc_library(
         "//src/util:tf_allocator_util",
         "//src/util:logging",
         "@local_config_cuda//cuda:cuda_headers",
-        "@local_config_tensorrt//:nvinfer_static",
-        "@local_config_tensorrt//:nvinferplugin_static",
+        "@local_config_trt//:nvinfer_static",
+        "@local_config_trt//:nvinferplugin_static",
         "@local_config_tf//:libtensorflow_framework",
         "@local_config_tf//:tf_header_lib",
     ],
@@ -51,7 +51,7 @@ cc_library(
     linkstatic = 1,  # this target only allow static linking, no .so file generated.
     deps = [
         ":tensorrt_tf_impl",
-        "@local_config_tensorrt//:nvonnxparser_static",
+        "@local_config_trt//:nvonnxparser_static",
         "@local_config_cuda//cuda:cudart_static",
         "@local_config_cuda//cuda:cudnn",
         "@local_config_cuda//cuda:cublas",
@@ -60,7 +60,7 @@ cc_library(
         "@local_config_cuda_supplement//:cublasLt_static",
     ]) + if_has_myelin([
         "@local_config_cuda_supplement//:nvrtc",
-        "@local_config_tensorrt//:myelin_static",
+        "@local_config_trt//:myelin_static",
     ]),
     alwayslink = 1,  # targets depending on it should carry all symbols in its children.
 )

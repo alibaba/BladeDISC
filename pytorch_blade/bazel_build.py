@@ -137,7 +137,7 @@ class BazelBuild(TorchBladeBuild):
             [self.shell_setting, self.test_cmd]
             + self.extra_opts
             + self.configs
-            + ["//src/..."]
+            + ["//src/...", "--build_tests_only"]
         )
         subprocess.check_call(test_cmd, shell=True, env=env, executable="/bin/bash")
 

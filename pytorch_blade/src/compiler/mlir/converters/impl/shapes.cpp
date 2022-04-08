@@ -441,7 +441,7 @@ bool ConvertAtenViewAs(
   auto other_ty = ml_other.getType().cast<mlir::RankedTensorType>();
   auto other_shape = other_ty.getShape();
   auto rank = other_ty.getRank();
-  llvm::SmallVector<mlir::Value> dim_values;
+  ::llvm::SmallVector<mlir::Value> dim_values;
   for (int64_t idx = 0; idx < rank; ++idx) {
     mlir::Value dim_val = other_shape[idx] == mlir::ShapedType::kDynamicSize
         ? builder.create<mlir::tensor::DimOp>(loc, ml_other, idx).getResult()

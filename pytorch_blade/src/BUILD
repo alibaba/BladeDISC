@@ -3,7 +3,7 @@ load(
     "@local_config_cuda//cuda:build_defs.bzl",
     "if_cuda_is_configured",
 )
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_import")
 load("//bazel:build_defs.bzl", "if_tensorrt_enabled", "if_platform_alibaba")
 
 exports_files([
@@ -30,6 +30,17 @@ cc_library(
       + if_cuda_is_configured([
         "@local_config_cuda//cuda:cudart",
     ]) + if_platform_alibaba(["//src/platform_alibaba:torch_blade",])
+)
+
+cc_binary(
+    name = "libtorch_blade.so",
+    deps = [":torch_blade"],
+    linkshared = 1,
+)
+
+cc_import(
+    name = "torch_blade_shared",
+    shared_library = "libtorch_blade.so",
 )
 
 # Pybind11 bindings for TorchBlade
@@ -64,9 +75,9 @@ pybind_library(
         "//visibility:public",
     ],
     deps = [
-        ":torch_blade",
+        ":torch_blade_shared",
         "@local_org_torch//:torch_python",
-    ],
+    ] + if_tensorrt_enabled(["@tensorrt//:nvinfer_headers"]),
     copts = ["-DTORCH_BLADE_BUILD_MLIR"] +
       if_tensorrt_enabled(["-DTORCH_BLADE_BUILD_TENSORRT"]) +
       if_platform_alibaba(
@@ -79,7 +90,7 @@ pybind_extension(
     name = "_torch_blade",
     linkopts = ["-Wl,-rpath,$$ORIGIN"],
     deps = [
-        ":torch_blade",
+        ":torch_blade_shared",
         ":torch_blade_pybind11",
     ] + if_platform_alibaba(["//src/platform_alibaba:torch_blade_pybind11",]),
 )

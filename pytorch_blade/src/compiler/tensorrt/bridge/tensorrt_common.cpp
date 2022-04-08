@@ -11,6 +11,7 @@
 
 #include "tensorrt_common.h"
 
+#include "common_utils/logging.h"
 #include "tensorrt_logger.h"
 
 #include <map>

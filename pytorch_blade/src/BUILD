@@ -83,12 +83,3 @@ pybind_extension(
         ":torch_blade_pybind11",
     ] + if_platform_alibaba(["//src/platform_alibaba:torch_blade_pybind11",]),
 )
-
-test_suite(
-    name = "torch_blade_gtests",
-    tests = [
-        "//src/compiler/jit:shape_type_test",
-        "//src/compiler/mlir/converters:mhlo_converter_register_test",
-    ],
-)
-

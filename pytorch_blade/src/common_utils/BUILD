@@ -45,8 +45,8 @@ cc_library(
     deps = [
         ":torch_blade_logging",
         ":torch_blade_macros",
+        ":torch_blade_tmpfs",
         ":torch_blade_utils",
-        ":torch_blade_version",
     ],
     alwayslink = True,
 )

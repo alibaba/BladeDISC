@@ -39,11 +39,9 @@ def _symlink_force(target, link_name):
 class BazelBuild(TorchBladeBuild):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.test_suite = "//src:torch_blade_gtests"
         self.targets = [
             "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_compiler_main",
-            "//src:_torch_blade.so",
-            self.test_suite,
+            "//src:_torch_blade.so"
         ]
         torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]
         self.extra_opts = [
@@ -139,7 +137,7 @@ class BazelBuild(TorchBladeBuild):
             [self.shell_setting, self.test_cmd]
             + self.extra_opts
             + self.configs
-            + [self.test_suite]
+            + ["//src/..."]
         )
         subprocess.check_call(test_cmd, shell=True, env=env, executable="/bin/bash")
 

@@ -42,7 +42,7 @@ function ci_build() {
       extra_args="--cmake"
     else
       extra_args=""
-      if [ "$TORCH_BLADE_USE_CMAKE_BUILD" = "ON"  ]; then
+      if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" = "ON"  ]; then
         python3 ../scripts/python/common_setup.py
       else
         python3 ../scripts/python/common_setup.py --cpu_only

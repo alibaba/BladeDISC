@@ -44,7 +44,7 @@ class OnnxBackendChecker:
         for inp, scalar_type in zip(graph.inputs(), scalar_types):
             inp_type = inp.type()
             if scalar_type and inp_type.isSubtypeOf(torch._C.TensorType.get()):
-                new_type = tools.tensor_type_from_scalar(scalar_type)
+                new_type = tools.create_tensor_type_from_scalar_type(scalar_type)
                 inp.setType(new_type)
 
     def _record_inputs_scalar_types(self, graph):
@@ -62,6 +62,12 @@ class OnnxBackendChecker:
             # use mannual rules to filter the graph
             if not onnx_lower_guard.check_graph_with_rules(graph):
                 return False
+
+            # Even though direct non-tensor inputs are forbidden in `appendNode`
+            # method, indirect non-tensor may still be introduced by recursive
+            # call of `_appendNode` and `_add_graph_input_if_need` method. To be
+            # robust here we record these scalar inputs and convert them into
+            # tensor types.
             scalar_types = self._record_inputs_scalar_types(graph)
             graph, _ = pass_manager._jit_pass_lower_to_onnx(graph)
             self._patch_inputs_scalar_types(graph, scalar_types)
@@ -418,27 +424,22 @@ class OnnxBackendTestBed:
         # swap, need original values to look up self._segment2orig_value_map
         subgraph, self._current_segment = self._current_segment, subgraph
 
-        all_used_values = set()
-        all_inter_outputs = set()
-        for node in subgraph.nodes():
-            for inp in node.inputs():
-                all_used_values.add(inp)
-            for out in node.outputs():
-                if out in self._segment2orig_value_map:
-                    orig_out = self._segment2orig_value_map[out]
-                    if orig_out.uses():
-                        all_inter_outputs.add(out)
-                else:
-                    all_inter_outputs.add(out)
+        all_used_values = {
+            val for node in subgraph.nodes() for val in node.inputs()
+        }
+        all_inter_outputs = {
+            val for node in subgraph.nodes() for val in node.outputs()
+        }
 
-        maybe_graph_outputs = set()
+        def _orig_node_used(n):
+            return (
+                n in self._segment2orig_value_map
+                and self._segment2orig_value_map[n].uses()
+            )
+
         for out in all_inter_outputs:
-            if out not in all_used_values:
-                maybe_graph_outputs.add(out)
-
-        # register graph outputs
-        for out in maybe_graph_outputs:
-            subgraph.registerOutput(out)
+            if out not in all_used_values and _orig_node_used(out):
+                subgraph.registerOutput(out)
 
         return subgraph
 

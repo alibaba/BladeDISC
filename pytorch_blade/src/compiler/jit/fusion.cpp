@@ -125,7 +125,7 @@ torch::TypePtr get_list_tensor_type() {
   return list_type;
 }
 
-torch::TypePtr tensor_type_from_scalar(const c10::Type& typ) {
+torch::TypePtr create_tensor_type_from_scalar_type(const c10::Type& typ) {
   if (typ.isSubtypeOf(c10::IntType::get())) {
     return TensorType::createContiguous(at::kLong, at::kCPU, {});
   } else if (typ.isSubtypeOf(c10::FloatType::get())) {

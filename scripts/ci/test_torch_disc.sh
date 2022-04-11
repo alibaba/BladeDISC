@@ -26,6 +26,7 @@ python setup.py develop
 # 5. test a e2e demo
 ln -s bazel-bin/torch_disc/_torch_disc.so ./_torch_disc.so
 ln -s bazel-out/k8-opt/bin/external/org_tensorflow/tensorflow/compiler/mlir/xla/ral/libral_base_context.so ./libral_base_context.so
+python -m unittest discover torch_disc/python/tests
 python disc_demo.py
 
 deactivate

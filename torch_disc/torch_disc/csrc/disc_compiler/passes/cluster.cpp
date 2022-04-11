@@ -24,40 +24,63 @@ using namespace ::torch::jit;
 // conversion module into a group. We should re-implement this.
 std::vector<Node*> FakeCluster(const std::shared_ptr<Graph>& graph) {
   std::vector<Node*> nodes;
-  for (auto node : graph->nodes()) {
+  auto is_disc_compilable = [](torch::jit::Node* node) {
     if (torch::blade::IsMlirMhloSupported(*node) &&
         node->kind() != prim::Constant) {
-      if (node->kind() == aten::addmm) continue;
-      nodes.push_back(node);
+      for (auto& input : node->inputs()) {
+        // input should be Tensor or Scalar with explict type
+        auto typ = input->type();
+        if (!typ->cast<c10::TensorType>() &&
+            c10::tryScalarTypeFromJitType(*typ) == c10::nullopt)
+          return false;
+      }
+      return true;
     }
-  }
+    return false;
+  };
+
+  std::copy_if(graph->nodes().begin(), graph->nodes().end(),
+               std::back_inserter(nodes), is_disc_compilable);
   return nodes;
+}
+
+c10::TypePtr getScalarTypePtr(at::ScalarType& typ) {
+  if (c10::isFloatingType(typ)) {
+    return c10::FloatType::get();
+  } else if (c10::isIntegralType(typ)) {
+    return c10::IntType::get();
+  } else if (typ == c10::ScalarType::Bool) {
+    return c10::BoolType::get();
+  }
+  TORCH_CHECK(false, "unsupported scalar type: ", typ);
 }
 
 // Give:
 //  with prim::FusionGroup(
-//      %1: Scalar,
-//      %2: Scalar):
-//    %3 Tensor = aten::add(%1, %2)
-//  return %3
+//      %p0: Tensor,
+//      %p1: Tensor,
+//      %p2: Scalar):
+//    %1 Tensor = aten::add(%p0, %p1, %p2)
+//  return %1
 //
 // Execute: CastToTensorInputs(sub_graph)
 //
 // After:
 //  with prim::FusionGroup(
-//      %1.1: Tensor,
-//      %2.1: Tensor):
-//    %4 = aten::item(%1.1, 1)
-//    %5 = aten::item(%2.1, 1)
-//    %3 Tensor = aten::add(%4, %5)
-//    return %3
-void CastBoundaryScalarToTensor(Graph* disc_graph, size_t i) {
+//      %p0.1: Tensor,
+//      %p1.1: Tensor,
+//      %p2.1: Tensor):
+//    %1 int = aten::item(%p2.1)
+//    %2 Tensor = aten::add(%p0.1, %p1.1, %1)
+//    return %2
+void CastBoundaryScalarToTensor(Graph* disc_graph, size_t i,
+                                at::ScalarType& typ) {
   auto new_input = disc_graph->insertInput(
       i, c10::string(disc_graph->inputs()[i]->debugName() + ".1"));
+  new_input->setType(TensorType::create(typ, c10::nullopt, 0, false));
   auto orig_input = disc_graph->inputs()[i + 1];
   auto item_node = disc_graph->create(aten::item, {new_input});
-  // TODO(Yancey1989): supports more types
-  item_node->output()->setType(c10::IntType::get());
+  item_node->output()->setType(getScalarTypePtr(typ));
   disc_graph->appendNode(item_node);
   orig_input->replaceAllUsesWith(item_node->output());
   item_node->moveBefore(item_node->output()->uses()[0].user);
@@ -77,7 +100,8 @@ void CastGraphInputsToTensor(const std::shared_ptr<Graph>& graph,
       sub_graph->replaceInput(i, cast_tensor->output());
 
       // TODO(Yancey1989): cast output
-      CastBoundaryScalarToTensor(disc_graph, i);
+      auto scalar_type = c10::scalarTypeFromJitType(*input->type());
+      CastBoundaryScalarToTensor(disc_graph, i, scalar_type);
     }
   }
 }

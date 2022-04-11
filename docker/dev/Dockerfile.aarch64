@@ -102,3 +102,9 @@ COPY docker/scripts/install-python.sh /install/scripts/install-python.sh
 RUN bash /install/scripts/install-python.sh
 
 RUN chmod a+x /usr/local/bin/bazel
+
+# using `tf.load_op_library('`libtao_ops.so')` enconters following error on aarch64:
+#   `/lib/aarch64-linux-gnu/libgomp.so.1: cannot allocate memory in static TLS block`
+#
+# Following is a workaround for the above problem according to `https://bugzilla.redhat.com/show_bug.cgi?id=1722181`
+ENV LD_PRELOAD="/usr/lib/aarch64-linux-gnu/libgomp.so.1:${LD_PRELOAD}"

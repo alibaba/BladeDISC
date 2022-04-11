@@ -44,7 +44,7 @@ jobs:
         git submodule sync
         git submodule update --depth=1 --init --recursive
         docker build -t disc-dev-cpu \
-          --build-arg BASEIMAGE=ubuntu20.04 \
+          --build-arg BASEIMAGE=ubuntu:20.04 \
           --build-arg DISC_HOST_TF_VERSION="tensorflow==2.8" \
           -f docker/dev/Dockerfile.aarch64 .
     - name: Build And Test DISC

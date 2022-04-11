@@ -98,5 +98,4 @@ RUN echo "[global]\nindex-url = https://mirrors.aliyun.com/pypi/simple/\n\n[inst
 RUN pip3 install --upgrade pip
 
 COPY docker/scripts/install-python.sh /install/scripts/install-python.sh
-bash /install/scripts/install-python.sh
-
+RUN bash /install/scripts/install-python.sh

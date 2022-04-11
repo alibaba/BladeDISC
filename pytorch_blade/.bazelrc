@@ -3,6 +3,7 @@ try-import ../tf_community/.bazelrc.user
 
 build --disk_cache=~/.cache
 build:torch_cuda --config=cuda --config=disc_cuda --define enable_cuda=true
-build:torch_cpu --config=disc_cpu --config=disc_mkldnn
+build:torch_x86 --config=disc_x86 --config=disc_mkldnn
+build:torch_aarch64 --config=disc_aarch64 --config=disc_mkldnn
 
 build:torch_tensorrt --define enable_tensorrt=true --config=torch_cuda

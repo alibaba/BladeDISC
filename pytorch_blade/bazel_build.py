@@ -17,6 +17,7 @@ import sys
 import venv
 
 from common_setup import running_on_ci, remote_cache_token, which
+from common_setup import is_aarch64
 from torch_blade_build import TorchBladeBuild, get_fullpath_or_create
 
 cwd = os.path.dirname(os.path.abspath(__file__))
@@ -70,7 +71,10 @@ class BazelBuild(TorchBladeBuild):
         if self.cuda_available:
             self.configs.append("--config=torch_cuda")
         else:
-            self.configs += ["--config=torch_cpu"]
+            if is_aarch64():
+                self.configs += ["--config=torch_aarch64"]
+            else:
+                self.configs += ["--config=torch_x86"]
 
         if self.cuda_available and self.build_tensorrt:
             self.configs.append("--config=torch_tensorrt")

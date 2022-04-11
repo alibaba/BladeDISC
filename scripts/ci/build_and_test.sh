@@ -17,6 +17,10 @@ SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 source ${SCRIPT_DIR}/parse_args.sh "$@"
 
+if [[ -f ~/.cache/.bashrc ]]; then
+  source ~/.cache/.bashrc
+fi
+
 ENTRY=scripts/python/tao_build.py
 VENV_PATH=/opt/venv_disc
 BLADE_DISC_DIR=tao/python/blade_disc_tf

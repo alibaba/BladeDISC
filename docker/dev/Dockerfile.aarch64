@@ -100,3 +100,5 @@ RUN pip3 install --upgrade pip
 
 COPY docker/scripts/install-python.sh /install/scripts/install-python.sh
 RUN bash /install/scripts/install-python.sh
+
+RUN chmod a+x /usr/local/bin/bazel

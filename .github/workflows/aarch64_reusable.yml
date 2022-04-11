@@ -61,6 +61,7 @@ jobs:
           -v $HOME/.cache:$HOME/.cache \
           -v /etc/passwd:/etc/passwd:ro \
           -v /etc/group:/etc/group:ro \
+          -v $HOME/.bashrc:$HOME/.bashrc:ro \
           -v $PWD:/disc \
           -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
           ${{ inputs.extra_envs }} \

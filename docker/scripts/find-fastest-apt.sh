@@ -49,6 +49,7 @@ function find_fastest_apt_source() {
     # We need to specify \t as the terminate indicator character; otherwise, the
     # read command would return an non-zero exit code.
     read -r -d '\t' apt_sources <<EOM
+https://mirrors.aliyun.com
 http://mirrors.cloud.aliyuncs.com
 http://archive.ubuntu.com
 \t

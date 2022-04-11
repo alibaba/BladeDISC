@@ -16,8 +16,10 @@ SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 source ${SCRIPT_DIR}/deploy_docker.sh
 
+export RUNTIME_DOCKER_FILE=${RUNTIME_DOCKER_FILE:-docker/runtime/Dockerfile.tf}
+
 # build runtime Docker
-docker build -t ${REMOTE_RUNTIME_DOCKER} -f docker/runtime/Dockerfile.tf \
+docker build -t ${REMOTE_RUNTIME_DOCKER} -f ${RUNTIME_DOCKER_FILE} \
   --build-arg BASEIMAGE=${RUNTIME_BASEIMAGE} .
 
 push_images

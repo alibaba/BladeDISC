@@ -15,6 +15,12 @@ on:
       remote_runtime_docker:
         required: false
         type: string
+      runtime_docker_file:
+        required: false
+        type: string
+      remote_dev_docker:
+        required: false
+        type: string
       runtime_base_image:
         required: false
         type: string
@@ -70,6 +76,8 @@ jobs:
         GITHUB_PULL_REQUEST: ${{ github.event.number }}
         REMOTE_RUNTIME_DOCKER: ${{ inputs.remote_runtime_docker }}
         RUNTIME_BASEIMAGE: ${{ inputs.runtime_base_image }}
+        REMOTE_DEV_DOCKER: ${{ inputs.remote_dev_docker }}
+        RUNTIME_DOCKER_FILE: ${{ inputs.runtime_docker_file }}
       run: |
         set -e
         if [[ ! -z "${{ inputs.deploy_command }}" ]]; then

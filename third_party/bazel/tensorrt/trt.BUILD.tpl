@@ -57,7 +57,6 @@ cc_library(
         ":windows": ["include/"],
         "//conditions:default": ["include/"],
     }),
-    visibility = ["//visibility:private"],
 )
 
 cc_import(

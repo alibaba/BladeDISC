@@ -15,7 +15,6 @@
 
 #include "NvInfer.h"
 #include "NvInferPlugin.h"
-#include "common_utils/logging.h"
 
 namespace torch {
 namespace blade {

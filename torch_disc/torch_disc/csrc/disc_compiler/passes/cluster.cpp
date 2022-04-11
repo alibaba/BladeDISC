@@ -44,6 +44,17 @@ std::vector<Node*> FakeCluster(const std::shared_ptr<Graph>& graph) {
   return nodes;
 }
 
+c10::TypePtr getScalarTypePtr(at::ScalarType& typ) {
+  if (c10::isFloatingType(typ)) {
+    return c10::FloatType::get();
+  } else if (c10::isIntegralType(typ)) {
+    return c10::IntType::get();
+  } else if (typ == c10::ScalarType::Bool) {
+    return c10::BoolType::get();
+  }
+  TORCH_CHECK(false, "unsupported scalar type: ", typ);
+}
+
 // Give:
 //  with prim::FusionGroup(
 //      %p0: Tensor,
@@ -69,8 +80,7 @@ void CastBoundaryScalarToTensor(Graph* disc_graph, size_t i,
   new_input->setType(TensorType::create(typ, c10::nullopt, 0, false));
   auto orig_input = disc_graph->inputs()[i + 1];
   auto item_node = disc_graph->create(aten::item, {new_input});
-  // TODO(Yancey1989): supports more types
-  item_node->output()->setType(c10::IntType::get());
+  item_node->output()->setType(getScalarTypePtr(typ));
   disc_graph->appendNode(item_node);
   orig_input->replaceAllUsesWith(item_node->output());
   item_node->moveBefore(item_node->output()->uses()[0].user);

@@ -24,13 +24,23 @@ using namespace ::torch::jit;
 // conversion module into a group. We should re-implement this.
 std::vector<Node*> FakeCluster(const std::shared_ptr<Graph>& graph) {
   std::vector<Node*> nodes;
+  auto is_disc_compilable = [](torch::jit::Node* node) {
+    if (torch::blade::IsMlirMhloSupported(*node) &&
+        node->kind() != prim::Constant) {
+      for (auto& input : node->inputs()) {
+        // input should be Tensor or Scalar with explict type
+        auto typ = input->type();
+        if (!typ->cast<c10::TensorType>() &&
+            c10::tryScalarTypeFromJitType(*typ) == c10::nullopt)
+          return false;
+      }
+      return true;
+    }
+    return false;
+  };
 
   std::copy_if(graph->nodes().begin(), graph->nodes().end(),
-               std::back_inserter(nodes), [](torch::jit::Node* node) {
-                 return torch::blade::IsMlirMhloSupported(*node) &&
-                        node->kind() != prim::Constant;
-               });
-
+               std::back_inserter(nodes), is_disc_compilable);
   return nodes;
 }
 
@@ -67,17 +77,6 @@ void CastBoundaryScalarToTensor(Graph* disc_graph, size_t i,
   disc_graph->eraseInput(i + 1);
 }
 
-at::ScalarType DerivateScalarType(const Type& typ) {
-  if (typ.isSubtypeOf(*c10::IntType::get())) {
-    return at::ScalarType::Int;
-  } else if (typ.isSubtypeOf(*FloatType::get())) {
-    return at::ScalarType::Float;
-  } else if (typ.isSubtypeOf(*BoolType::get())) {
-    return at::ScalarType::Bool;
-  }
-  TORCH_CHECK(false, "unsupported input dtype: ", typ.str());
-}
-
 void CastGraphInputsToTensor(const std::shared_ptr<Graph>& graph,
                              Node* sub_graph, Node* disc_node) {
   auto disc_graph = disc_node->owningGraph();
@@ -91,7 +90,7 @@ void CastGraphInputsToTensor(const std::shared_ptr<Graph>& graph,
       sub_graph->replaceInput(i, cast_tensor->output());
 
       // TODO(Yancey1989): cast output
-      auto scalar_type = DerivateScalarType(*input->type());
+      auto scalar_type = c10::scalarTypeFromJitType(*input->type());
       CastBoundaryScalarToTensor(disc_graph, i, scalar_type);
     }
   }

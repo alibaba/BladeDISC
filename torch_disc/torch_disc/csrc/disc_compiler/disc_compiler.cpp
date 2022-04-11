@@ -79,7 +79,6 @@ ExecutablePtr CompileToDiscExecutable(
   EnhancementInputShape(graph, arguments);
   // Inference shape
   torch::jit::PropagateInputShapes(graph);
-
   // cluster disc compitable nodes into a sub-graph
   ClusterDiscNodes(graph);
   torch::jit::EliminateDeadCode(graph);

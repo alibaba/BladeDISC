@@ -4,9 +4,7 @@ FROM ${BASEIMAGE}
 ARG DISC_HOST_TF_VERSION=""
 ENV DISC_HOST_TF_VERSION="${DISC_HOST_TF_VERSION}"
 
-COPY docker/scripts/find-fastest-apt.sh /install/scripts/find-fastest-apt.sh
-
-RUN bash /install/scripts/find-fastest-apt.sh
+COPY sources.list /etc/apt/sources.list
 
 RUN apt-get -y update && \
     apt-get -y install software-properties-common && \

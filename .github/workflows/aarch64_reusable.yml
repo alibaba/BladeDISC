@@ -43,6 +43,7 @@ jobs:
         set -e
         git submodule sync
         git submodule update --depth=1 --init --recursive
+        cp /etc/apt/sources.list .
         docker build -t disc-dev-cpu \
           --build-arg BASEIMAGE=ubuntu:20.04 \
           --build-arg DISC_HOST_TF_VERSION="tensorflow==2.8" \

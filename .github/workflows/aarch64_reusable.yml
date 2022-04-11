@@ -46,7 +46,7 @@ jobs:
         cp /etc/apt/sources.list .
         docker build -t disc-dev-cpu \
           --build-arg BASEIMAGE=ubuntu:20.04 \
-          --build-arg DISC_HOST_TF_VERSION="tensorflow==2.8" \
+          --build-arg DISC_HOST_TF_VERSION="tensorflow-aarch64==2.8" \
           -f docker/dev/Dockerfile.aarch64 .
     - name: Build And Test DISC
       run: |

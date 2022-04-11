@@ -91,8 +91,18 @@ RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 1 && \
     update-alternatives --install /usr/bin/python python /usr/bin/python3 1 && \
     update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
 
+wget -O /usr/local/bin/bazel https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/bladedisc/bazel/bazel-5.0.0-linux-arm64
+
+RUN cat <<EOF > ~/.pip/pip.conf
+[global]
+index-url = https://mirrors.aliyun.com/pypi/simple/
+
+[install]
+trusted-host=mirrors.aliyun.com
+EOF
+
 RUN pip3 install --upgrade pip
 
-# bash /install/scripts/install-bazel.sh && \
-# bash /install/scripts/install-python.sh
+COPY docker/scripts/install-python.sh /install/scripts/install-python.sh
+bash /install/scripts/install-python.sh
 

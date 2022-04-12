@@ -188,7 +188,7 @@ jobs:
     with:
       remote_dev_docker: bladedisc:latest-devel-cpu-aarch64
       remote_runtime_docker: bladedisc:latest-runtime-tensorflow2.8-cpu-aarch64
-      runtime_base_image: bladedisc:latest-devel-cpu-aarch64
+      runtime_base_image: disc-cpu-dev
       exec_command: bash ./scripts/ci/build_and_test.sh --cpu-only
       deploy_command: bash ./scripts/ci/deploy_tf_wrapper.sh
       runtime_docker_file: docker/runtime/Dockerfile.tf.aarch64
@@ -197,9 +197,9 @@ jobs:
       ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-  # AArch64-CPU-TORCH181:
-  #   uses: ./.github/workflows/cpu_reusable.yml
+  # AArch64-CPU-TORCH1100:
+  #   uses: ./.github/workflows/aarch64_reusable.yml
   #   with:
   #     extra_envs: -e TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
-  #       -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cpu
+  #       -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.10.0+cpu
   #     exec_command: bash ./scripts/ci/test_pytorch_blade.sh

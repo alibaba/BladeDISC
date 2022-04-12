@@ -2,7 +2,7 @@ load("@bazel_skylib//lib:selects.bzl", "selects")
 load("@local_config_mkl//:build_defs.bzl", "if_mkl_enabled")
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension")
 load("@local_config_tf//:build_defs.bzl", "tf_copts", "tf_version")
-load("@local_config_blade_helper//:build_defs.bzl", "if_tensorrt_enabled", "if_internal")
+load("@local_config_blade_disc_helper//:build_defs.bzl", "if_tensorrt_enabled", "if_internal")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -53,6 +53,7 @@ cc_binary(
     linkstatic = 1,
     deps = [
         ":tf_blade_ops",
+        "@org_tao_bridge//:tao_bridge",
     ] + if_tensorrt_enabled([
         "//src/tensorrt:tensorrt_bridge_impl",
     ]),

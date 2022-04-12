@@ -1,9 +1,10 @@
 # Import repository rules.
-load("@org_third_party//bazel/blade_helper:blade_helper_configure.bzl", "blade_helper_configure")
+load("@org_third_party//bazel/blade_disc_helper:blade_disc_helper_configure.bzl", "blade_disc_helper_configure")
 load("@org_third_party//bazel:common.bzl", "maybe_http_archive")
 load("@org_third_party//bazel/mkl:mkl_configure.bzl", "mkl_configure")
 load("@org_third_party//bazel/tensorrt:repo.bzl", "tensorrt_configure")
 load("@org_third_party//bazel/tf:tf_configure.bzl", "tf_configure")
+load("@org_third_party//bazel/tf_protobuf:tf_protobuf_configure.bzl", "tf_protobuf_configure")
 load("@org_third_party//bazel/cuda_supplement:cuda_supplement_configure.bzl", "cuda_supplement_configure")
 
 load("@org_tensorflow//third_party/gpus:cuda_configure.bzl", "cuda_configure")
@@ -53,18 +54,17 @@ def _tf_blade_repositories():
 def _tf_blade_toolchains():
     tf_configure(name = "local_config_tf")
 
-    cuda_configure(name = "local_config_cuda")
-
     cuda_supplement_configure(name = "local_config_cuda_supplement")
 
-    tensorrt_configure(name = "local_config_tensorrt")
+    tensorrt_configure(name = "local_config_trt")
 
     mkl_configure(name = "local_config_mkl")
 
-    blade_helper_configure(name = "local_config_blade_helper")
+    blade_disc_helper_configure(name = "local_config_blade_disc_helper")
 
     python_configure(name = "local_config_python")
 
+    tf_protobuf_configure(name = "local_config_tf_protobuf")
 
 def workspace():
     _tf_blade_repositories()

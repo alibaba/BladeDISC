@@ -17,7 +17,10 @@ import argparse
 import os
 import random
 import re
+import socket
 import subprocess
+import sys
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "scripts", "python"))
 
 from six.moves import cPickle as pickle
 
@@ -30,10 +33,14 @@ from common_internal import (
     get_cudnn_version,
     get_site_packages_dir,
     get_trt_version,
+    git_branch,
+    git_head,
     logger,
     safe_run,
     which,
 )
+from datetime import datetime
+from tao_build import get_version_file
 
 # Source code root dir.
 ROOT = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
@@ -62,7 +69,23 @@ def get_tf_info():
             lib_name = 'lib' + line[2:] + '.so'
         elif '_GLIBCXX_USE_CXX11_ABI' in line:
             cxx11_abi = line.split('=')[-1]
-    return major, minor, is_pai, header_dir, lib_dir, lib_name, cxx11_abi
+    PB_HEADER_FILE = "google/protobuf/stubs/common.h"
+    proto_file_path = os.path.join(header_dir, PB_HEADER_FILE)
+    if os.path.exists(proto_file_path):
+        with open(proto_file_path, 'r') as f:
+            content = f.read()
+        try:
+            match = re.findall("#define GOOGLE_PROTOBUF_VERSION [0-9]+", content)[0]
+            raw_version = int(re.findall("[^0-9]+([0-9]+)$", match)[0])
+            major_version = int(raw_version / 1000000)
+            minor_version = int(raw_version / 1000) - major_version * 1000
+            micro_version = raw_version - major_version * 1000000 - minor_version * 1000
+            tf_pb_version = f"{major_version}.{minor_version}.{micro_version}"
+        except IndexError as err:
+            raise Exception("Can not find tensorflow's built-in pb version!")
+    else:
+        raise Exception("Can not find {PB_HEADER_FILE} in tf's include dir!")
+    return major, minor, is_pai, header_dir, lib_dir, lib_name, cxx11_abi, tf_pb_version
 
 
 def save_build_config(args):
@@ -158,6 +181,7 @@ def configure_with_bazel(args):
             tf_lib_dir,
             tf_lib_name,
             tf_cxx11_abi,
+            tf_pb_version,
         ) = get_tf_info()
         _action_env("BLADE_WITH_TF", "1")
         _opt("cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
@@ -168,10 +192,24 @@ def configure_with_bazel(args):
         _action_env("TF_HEADER_DIR", tf_header_dir)
         _action_env("TF_SHARED_LIBRARY_DIR", tf_lib_dir)
         _action_env("TF_SHARED_LIBRARY_NAME", tf_lib_name)
+        _action_env("TF_PROTOBUF_VERSION", tf_pb_version)
 
         # TF-Blade
         _action_env("BLADE_WITH_TF_BLADE", "1")
         _action_env("BLADE_WITH_INTERNAL", "1" if args.internal else "0")
+        if not args.skip_disc:
+            # Build environments. They all starts with `DISC_BUILD_`.
+            host = socket.gethostname()
+            ip = socket.gethostbyname(host)
+            _action_env("DISC_BUILD_VERSION", args.version)
+            _action_env("DISC_BUILD_GIT_BRANCH", git_branch().decode("utf-8").replace('/', '-'))
+            _action_env("DISC_BUILD_GIT_HEAD", git_head().decode("utf-8"))
+            _action_env("DISC_BUILD_HOST", host)
+            _action_env("DISC_BUILD_IP", ip)
+            _action_env("DISC_BUILD_TIME", datetime.today().strftime("%Y%m%d%H%M%S"))
+            if args.platform_alibaba:
+                _opt("cxxopt", "-DPLATFORM_ALIBABA")
+                _opt("define", "is_platform_alibaba=true")
 
         # CUDA
         if args.device == "gpu":
@@ -227,6 +265,10 @@ def configure_with_bazel(args):
         _action_env("BAZEL_LINKLIBS", os.environ.get("BAZEL_LINKLIBS", "-lstdc++"))
     logger.info("Writing to .bazelrc_gen done.")
 
+    # This is a hack when cmake generated pb.h & pb.cc files will affect bazel build
+    # Since tf's ci for disc and tensorflow-blade share the same code dirs
+    execute("rm -f ../tao/tao_bridge/*.pb.* ../tao/tao_bridge/ral/tensorflow/compiler/mlir/xla/*.pb.*")
+
 
 def build_with_bazel(args):
     with cwd(ROOT):
@@ -261,6 +303,13 @@ def parse_args():
     from argparse import RawTextHelpFormatter
 
     parser = argparse.ArgumentParser(formatter_class=RawTextHelpFormatter)
+    parser.add_argument(
+        "-v",
+        "--version",
+        required=False,
+        default="auto",
+        help="Version of built packages, defaults to %(default)s. auto: read from VERSION file.",
+    )
     parser.add_argument(
         "-s",
         "--stage",
@@ -307,11 +356,25 @@ def parse_args():
         help="If True, hie will be skipped for internal build",
     )
     parser.add_argument(
+        '--skip-disc',
+        action="store_true",
+        required=False,
+        default=False,
+        help="If True, disc compiler will be skipped for build",
+    )
+    parser.add_argument(
         '--internal',
         action="store_true",
         required=False,
         default=False,
         help="If True, internal objects will be built",
+    )
+    parser.add_argument(
+        '--platform-alibaba',
+        action="store_true",
+        required=False,
+        default=False,
+        help="If True, objects inside macro PLATFORM_ALIBABA will be built",
     )
     parser.add_argument(
         "--verbose",
@@ -329,6 +392,9 @@ def parse_args():
 
     # flag validation
     args = parser.parse_args()
+    if args.version == "auto":
+        args.version = open(get_version_file()).read().split()[0]
+
     return args
 
 

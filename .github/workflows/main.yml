@@ -298,7 +298,7 @@ jobs:
         DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         GITHUB_PULL_REQUEST: ${{ github.event.number }}
         RUNTIME_BASEIMAGE: bladedisc/bladedisc:latest-devel-cpu-aarch64
-        RUNTIME_DOCKER_FILE: docker/runtime/Dockerfile.torch.aarch64
+        RUNTIME_DOCKER_FILE: docker/runtime/Dockerfile.pytorch.aarch64
         REMOTE_RUNTIME_DOCKER: bladedisc:latest-runtime-torch1.10.0-cpu-aarch64
       run: |
         set -e

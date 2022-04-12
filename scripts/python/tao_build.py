@@ -578,7 +578,7 @@ def parse_args():
     parser.add_argument(
         "--compiler-gcc",
         required=False,
-        choices=["7.3", "default"],
+        choices=["7.3", "7.5", "default"],
         help="GCC version to compile tao compiler, required for configure stages.",
     )
     parser.add_argument(
@@ -730,7 +730,7 @@ def main():
             configure(root, args)
 
     restore_gcc_conf(args)
-    assert args.compiler_gcc in ["7.3", "default"], "compiler_gcc {} not supported".format(
+    assert args.compiler_gcc in ["7.3", "7.5", "default"], "compiler_gcc {} not supported".format(
         args.compiler_gcc
     )
 

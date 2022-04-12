@@ -27,6 +27,8 @@ GCC_65_BIN_PATH = '/usr/local/alicpp/built/gcc-6.5.1/gcc-6.5.1/bin'
 GCC_65_LIB_PATH = '/usr/local/alicpp/built/gcc-6.5.1/gcc-6.5.1/lib64'
 GCC_73_BIN_PATH = '/opt/rh/devtoolset-7/root/usr/bin'
 GCC_73_LIB_PATH = '/opt/rh/devtoolset-7/root/usr/lib/gcc/x86_64-redhat-linux/7'
+GCC_75_BIN_PATH = '/usr/bin'
+GCC_75_LIB_PATH = '/usr/lib64'
 DEFAULT_BIN_PATH = '/usr/bin'
 DEFAULT_LIB_PATH = '/usr/lib64'
 
@@ -37,6 +39,7 @@ VALID_GCC = {
     '5.3': (GCC_53_BIN_PATH, GCC_53_LIB_PATH),
     '6.5': (GCC_65_BIN_PATH, GCC_65_LIB_PATH),
     '7.3': (GCC_73_BIN_PATH, GCC_73_LIB_PATH),
+    '7.5': (GCC_75_BIN_PATH, GCC_75_LIB_PATH),
     'default': (DEFAULT_BIN_PATH, DEFAULT_LIB_PATH)
 }
 

@@ -12,19 +12,19 @@ on:
       deploy_command:
         required: false
         type: string
-      remote_runtime_docker:
-        required: false
-        type: string
-      runtime_docker_file:
+      local_dev_docker:
         required: false
         type: string
       remote_dev_docker:
         required: false
         type: string
-      local_dev_docker:
+      runtime_docker_file:
         required: false
         type: string
       runtime_base_image:
+        required: false
+        type: string
+      remote_runtime_docker:
         required: false
         type: string
     secrets:
@@ -69,36 +69,36 @@ jobs:
     #       ${{ inputs.extra_envs }} \
     #       -w /disc \
     #       ${{ inputs.local_dev_docker }} ${{ inputs.exec_command }}
-    - name: Deploy Dev Docker Image
-      # if: github.event.ref == 'refs/heads/main'
-      env:
-        ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
-        ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
-        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-        GITHUB_PULL_REQUEST: ${{ github.event.number }}
-        LOCAL_DEV_DOCKER: ${{ inputs.local_dev_docker }}
-        REMOTE_DEV_DOCKER: ${{ inputs.remote_dev_docker }}
-      run: |
-        set -e
-        if [[ ! -z "${{ inputs.deploy_command }}" ]]; then
-          echo "Try to deploy dev docker image..."
-          ${{ inputs.deploy_command }}
-        fi
-    - name: Deploy Runtime Docker Image
-      # if: github.event.ref == 'refs/heads/main'
-      env:
-        ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
-        ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
-        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-        GITHUB_PULL_REQUEST: ${{ github.event.number }}
-        RUNTIME_BASEIMAGE: ${{ inputs.runtime_base_image }}
-        RUNTIME_DOCKER_FILE: ${{ inputs.runtime_docker_file }}
-        REMOTE_RUNTIME_DOCKER: ${{ inputs.remote_runtime_docker }}
-      run: |
-        set -e
-        if [[ ! -z "${{ inputs.deploy_command }}" ]]; then
-          echo "Try to deploy runtime docker image..."
-          ${{ inputs.deploy_command }}
-        fi
+    # - name: Deploy Dev Docker Image
+    #   # if: github.event.ref == 'refs/heads/main'
+    #   env:
+    #     ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+    #     ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+    #     DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+    #     DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+    #     GITHUB_PULL_REQUEST: ${{ github.event.number }}
+    #     LOCAL_DEV_DOCKER: ${{ inputs.local_dev_docker }}
+    #     REMOTE_DEV_DOCKER: ${{ inputs.remote_dev_docker }}
+    #   run: |
+    #     set -e
+    #     if [[ ! -z "${{ inputs.deploy_command }}" ]]; then
+    #       echo "Try to deploy dev docker image..."
+    #       ${{ inputs.deploy_command }}
+    #     fi
+    # - name: Deploy Runtime Docker Image
+    #   # if: github.event.ref == 'refs/heads/main'
+    #   env:
+    #     ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+    #     ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+    #     DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+    #     DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+    #     GITHUB_PULL_REQUEST: ${{ github.event.number }}
+    #     RUNTIME_BASEIMAGE: ${{ inputs.runtime_base_image }}
+    #     RUNTIME_DOCKER_FILE: ${{ inputs.runtime_docker_file }}
+    #     REMOTE_RUNTIME_DOCKER: ${{ inputs.remote_runtime_docker }}
+    #   run: |
+    #     set -e
+    #     if [[ ! -z "${{ inputs.deploy_command }}" ]]; then
+    #       echo "Try to deploy runtime docker image..."
+    #       ${{ inputs.deploy_command }}
+    #     fi

@@ -75,5 +75,86 @@ bool isSameUnderlineBuffer(Value lhs, Value rhs) {
   return getRootMemRef(lhs) == getRootMemRef(rhs);
 }
 
+bool parseEinsumEquation(
+    llvm::StringRef equation,
+    llvm::SmallDenseMap<char, llvm::SmallDenseMap<EquationVariable, size_t>>&
+        tokens,
+    SmallVector<char>* lhs_original_tokens,
+    SmallVector<char>* rhs_original_tokens,
+    SmallVector<char>* result_original_tokens) {
+  size_t index = 0;
+  size_t sub_index = 0;
+  EquationVariable current_variable = kIsLhs;
+  SmallVector<char> lhs_original_tokens_internal;
+  SmallVector<char> rhs_original_tokens_internal;
+  SmallVector<char> result_original_tokens_internal;
+  bool explicit_result = false;
+  while (index < equation.size()) {
+    if (std::isalpha(equation[index])) {
+      if (current_variable == kIsLhs) {
+        tokens[equation[index]][kIsLhs] = sub_index;
+        lhs_original_tokens_internal.push_back(equation[index]);
+        sub_index++;
+      } else if (current_variable == kIsRhs) {
+        tokens[equation[index]][kIsRhs] = sub_index;
+        rhs_original_tokens_internal.push_back(equation[index]);
+        sub_index++;
+      } else {
+        tokens[equation[index]][kIsResult] = sub_index;
+        result_original_tokens_internal.push_back(equation[index]);
+        sub_index++;
+      }
+    } else if (equation.substr(index, 1).contains(",")) {
+      current_variable = kIsRhs;
+      sub_index = 0;
+    } else if ((index < (equation.size() - 1)) &&
+               (equation.substr(index, 2).contains("->"))) {
+      current_variable = kIsResult;
+      explicit_result = true;
+      sub_index = 0;
+      index++;
+    } else if (equation[index] == ' ') {
+      // do nothing but continue
+    } else {
+      return false;
+    }
+    index++;
+  }
+
+  // If no "->" in the equation, deduce the result tokens
+  // TODO: handle when operands contain ellipsis
+  if (!explicit_result) {
+    sub_index = 0;
+    for (char lhs_c : lhs_original_tokens_internal) {
+      if (std::find(rhs_original_tokens_internal.begin(),
+                    rhs_original_tokens_internal.end(),
+                    lhs_c) == rhs_original_tokens_internal.end()) {
+        tokens[lhs_c][kIsResult] = sub_index;
+        result_original_tokens_internal.push_back(lhs_c);
+        sub_index++;
+      }
+    }
+    for (char rhs_c : rhs_original_tokens_internal) {
+      if (std::find(lhs_original_tokens_internal.begin(),
+                    lhs_original_tokens_internal.end(),
+                    rhs_c) == lhs_original_tokens_internal.end()) {
+        tokens[rhs_c][kIsResult] = sub_index;
+        result_original_tokens_internal.push_back(rhs_c);
+        sub_index++;
+      }
+    }
+  }
+  if (lhs_original_tokens) {
+    lhs_original_tokens->swap(lhs_original_tokens_internal);
+  }
+  if (rhs_original_tokens) {
+    rhs_original_tokens->swap(rhs_original_tokens_internal);
+  }
+  if (result_original_tokens) {
+    result_original_tokens->swap(result_original_tokens_internal);
+  }
+  return true;
+}
+
 }  // namespace disc_ral
 }  // namespace mlir

@@ -17,6 +17,7 @@ import sys
 import venv
 
 from common_setup import running_on_ci, remote_cache_token, which
+from common_setup import is_aarch64
 from torch_blade_build import TorchBladeBuild, get_fullpath_or_create
 
 cwd = os.path.dirname(os.path.abspath(__file__))
@@ -41,6 +42,8 @@ class BazelBuild(TorchBladeBuild):
         super().__init__(*args, **kwargs)
         self.targets = [
             "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_compiler_main",
+            "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:libral_base_context.so",
+            "//src:libtorch_blade.so",
             "//src:_torch_blade.so"
         ]
         torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]
@@ -62,11 +65,16 @@ class BazelBuild(TorchBladeBuild):
         self.configs = ["--config=cxx11abi_{}".format(int(self.GLIBCXX_USE_CXX11_ABI))]
         if self.is_debug:
             self.configs.append("--config=dbg")
+        else:
+            self.configs.append("--compilation_mode=opt")
 
         if self.cuda_available:
             self.configs.append("--config=torch_cuda")
         else:
-            self.configs += ["--config=torch_cpu"]
+            if is_aarch64():
+                self.configs += ["--config=torch_aarch64"]
+            else:
+                self.configs += ["--config=torch_x86"]
 
         if self.cuda_available and self.build_tensorrt:
             self.configs.append("--config=torch_tensorrt")
@@ -107,7 +115,6 @@ class BazelBuild(TorchBladeBuild):
         _make_executable("debug_bazel.sh")
 
         bazel_cmd = " ".join([bazel_cmd] + self.targets)
-
         subprocess.check_call(
             bazel_cmd, shell=True, env=env, executable="/bin/bash"
         )

@@ -38,6 +38,16 @@ config_setting(
     define_values = {"is_mkldnn": "true"},
 )
 
+config_setting(
+    name = "disc_aarch64",
+    define_values = {"disc_aarch64": "true"},
+)
+
+config_setting(
+    name = "disc_x86",
+    define_values = {"disc_x86": "true"},
+)
+
 package(
     default_visibility = [":friends"],
     licenses = ["notice"],  # Apache 2.0
@@ -378,6 +388,7 @@ cc_library(
         "."
     ],
     deps = [
+        ":disc_util",
         ":pass_details",
         "//tensorflow/compiler/mlir/hlo:hlo",
         "@llvm-project//mlir:IR",
@@ -605,6 +616,7 @@ cc_library(
     srcs = ["transforms/shape_utils.cc"],
     hdrs = ["transforms/shape_utils.h"],
     deps = [
+        ":disc_util",
         ":mhlo_disc",
         ":pass_details",
         "//tensorflow/compiler/mlir/hlo:hlo",

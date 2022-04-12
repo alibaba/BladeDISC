@@ -124,7 +124,7 @@ class BuildDepsCommand(CustomCommand):
             cmd += " --cxx11_abi"
 
         if not build.cuda_available:
-            cmd += " --build_mkldnn"
+            cmd += " --cpu_only"
 
         subprocess.check_call(cmd, shell=True, executable="/bin/bash")
 

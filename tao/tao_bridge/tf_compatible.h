@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "tensorflow/core/framework/resource_mgr.h"
 #include "tensorflow/core/public/version.h"
 
 // defs moved or renamed between headers in different tf versions

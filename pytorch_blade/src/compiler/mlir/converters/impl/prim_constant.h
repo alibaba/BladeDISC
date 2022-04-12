@@ -40,6 +40,8 @@ int64_t CastJitConstToInt64(const torch::jit::Value& val);
 double CastJitConstToDouble(const torch::jit::Value& val);
 // Cast a prim::Constant of numeric scalar value to bool
 bool CastJitConstToBool(const torch::jit::Value& val);
+// Cast a prim::Constant of numeric scalar value to string
+std::string CastJitConstToString(const torch::jit::Value& val);
 
 mlir::Value BuildMlirConstFromTorchTensor(
     mlir::OpBuilder& builder,

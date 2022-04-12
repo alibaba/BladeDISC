@@ -125,5 +125,16 @@ torch::TypePtr get_list_tensor_type() {
   return list_type;
 }
 
+torch::TypePtr create_tensor_type_from_scalar_type(const c10::Type& typ) {
+  if (typ.isSubtypeOf(c10::IntType::get())) {
+    return TensorType::createContiguous(at::kLong, at::kCPU, {});
+  } else if (typ.isSubtypeOf(c10::FloatType::get())) {
+    return TensorType::createContiguous(at::kDouble, at::kCPU, {});
+  } else if (typ.isSubtypeOf(c10::BoolType::get())) {
+    return TensorType::createContiguous(at::kBool, at::kCPU, {});
+  }
+  return nullptr;
+}
+
 } // namespace blade
 } // namespace torch

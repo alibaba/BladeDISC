@@ -44,14 +44,28 @@ def _get_dynamic_axes(input_list, dynamic_axes):
     return dyn_axs
 
 
-def _export_onnx(graph, dynamic_axes):
-    # Note: TRT7 support opset 11
+def _set_opset_version_from_config():
+    """
+    Consulting cfg.customize_onnx_opset_version and set global ONNX opset
+    version. And return the opset version.
+    """
     cfg = Config.get_current_context_or_new()
     if cfg.customize_onnx_opset_version:
         opset_version = cfg.customize_onnx_opset_version
     else:
         opset_version = _default_onnx_opset_version
     _set_opset_version(opset_version)
+    return opset_version
+
+
+def _export_onnx(graph, dynamic_axes, fold_constants=False):
+    # Note: TRT7 support opset 11
+    opset_version = _set_opset_version_from_config()
+
+    if fold_constants:
+        graph, params_dict = _jit_pass_onnx_constfold(graph, {})
+    else:
+        params_dict = {}
 
     dynamic_axes = _get_dynamic_axes(graph.input_list(), dynamic_axes)
     defer_weight_export = False
@@ -61,7 +75,7 @@ def _export_onnx(graph, dynamic_axes):
     custom_opsets = {}
     val_add_node_names = True
     proto = graph._export_onnx(
-        dict(),
+        params_dict,
         opset_version,
         dynamic_axes,
         defer_weight_export,
@@ -84,6 +98,9 @@ def _jit_pass_lint(graph):
 
 def _jit_pass_lower_to_onnx(graph):
     """ currently _jit_pass_lower_all_tuples will modified the graph output if it's tuple"""
+    # NB(xiafei.qiuxf): Should set opset version here to be consistent with _export_onnx.
+    _set_opset_version_from_config()
+
     # onnx does not support tuples, so try to remove them
     # torch._C._jit_pass_lower_all_tuples(graph)
     # torch._C._jit_pass_peephole(graph, True)

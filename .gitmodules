@@ -1,6 +1,6 @@
 [submodule "pytorch_blade/third_party/googletest"]
 	path = pytorch_blade/third_party/googletest
-        url = https://github.com/google/googletest.git 
+        url = https://github.com/google/googletest.git
 [submodule "tf_community"]
 	path = tf_community
         url = https://github.com/pai-disc/tensorflow.git
@@ -10,3 +10,6 @@
 [submodule "tao/third_party/mkldnn/oneDNN"]
 	path = tao/third_party/mkldnn/oneDNN
 	url = https://github.com/oneapi-src/oneDNN.git
+[submodule "tao/third_party/mkldnn/compute_library"]
+	path = tao/third_party/mkldnn/compute_library
+	url = https://github.com/ARM-software/ComputeLibrary.git

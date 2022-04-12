@@ -172,6 +172,9 @@ def configure_with_bazel(args):
         _opt("cxxopt", "-DBUILD_WITH_BAZEL")
         _action_env("BUILD_WITH_BAZEL", "1")
         _action_env("PYTHON_BIN_PATH", which("python3"))
+        _action_env("GCC_HOST_COMPILER_PATH", which("gcc"))
+        _action_env("CC", which("gcc"))
+        _action_env("CXX", which("g++"))
 
         (
             tf_major,
@@ -186,6 +189,7 @@ def configure_with_bazel(args):
         _action_env("BLADE_WITH_TF", "1")
         _opt("cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
         _opt("host_cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
+        _opt("define", f"is_cxx11_abi={tf_cxx11_abi}")
         _action_env("TF_IS_PAI", int(is_pai))
         _action_env("TF_MAJOR_VERSION", tf_major)
         _action_env("TF_MINOR_VERSION", tf_minor)
@@ -217,7 +221,6 @@ def configure_with_bazel(args):
             cudnn_ver = get_cudnn_version(cuda_home)
             # Following tf community's cuda related action envs
             _action_env("TF_NEED_CUDA", "1")
-            _action_env("GCC_HOST_COMPILER_PATH", which("gcc"))
             _action_env("TF_CUDA_CLANG", "0")
             _action_env("TF_CUDA_VERSION", cuda_ver)
             _action_env("TF_CUDA_HOME", cuda_home)
@@ -255,6 +258,13 @@ def configure_with_bazel(args):
                 mkl_root = os.environ.get("MKL_INSTALL_PATH", "/opt/intel/compilers_and_libraries_2020.1.217/linux")
                 assert os.path.exists(mkl_root), f"MKL root path missing: {mkl_root}"
                 _action_env("MKL_INSTALL_PATH", mkl_root)
+                if not args.skip_disc:
+                    if args.enable_mkldnn:
+                        _opt("define", "is_mkldnn=true")
+                    if args.aarch64:
+                        _opt("define", "disc_aarch64=true")
+                    else:
+                        _opt("define", "disc_x86=true")
 
         _write(f"--//:framework=tf")
         _write(
@@ -272,7 +282,10 @@ def configure_with_bazel(args):
 
 def build_with_bazel(args):
     with cwd(ROOT):
-        execute("bazel build //src:_tf_blade.so")
+        if args.device == "cpu":
+            execute("bazel build @org_tao_bridge//:libtao_ops.so")
+        else:
+            execute("bazel build //src:_tf_blade.so")
 
 def package_whl_with_bazel(args):
     with cwd(ROOT):
@@ -361,6 +374,20 @@ def parse_args():
         required=False,
         default=False,
         help="If True, disc compiler will be skipped for build",
+    )
+    parser.add_argument(
+        '--enable-mkldnn',
+        action="store_true",
+        required=False,
+        default=False,
+        help="If True, mkl will be enabled for disc compiler.",
+    )
+    parser.add_argument(
+        '--aarch64',
+        action="store_true",
+        required=False,
+        default=False,
+        help="If True, we will only build tao bridge with aarch64 support.",
     )
     parser.add_argument(
         '--internal',

@@ -34,6 +34,7 @@ def _blade_disc_helper_impl(repository_ctx):
         "%{DISC_BUILD_HOST}": get_host_environ(repository_ctx, _DISC_BUILD_HOST, ""),
         "%{DISC_BUILD_IP}": get_host_environ(repository_ctx, _DISC_BUILD_IP, ""),
         "%{DISC_BUILD_TIME}": get_host_environ(repository_ctx, _DISC_BUILD_TIME, ""),
+	"%{IF_CXX11_ABI}": "False",
     })
 
     repository_ctx.template("BUILD", Label("//bazel/blade_disc_helper:BUILD.tpl"), {

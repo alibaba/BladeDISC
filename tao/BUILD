@@ -109,8 +109,8 @@ tf_cc_shared_object(
     linkopts = select({
         "//conditions:default": [
             "-z defs",
-            "-Wl,--version-script",  #  This line must be directly followed by the version_script.lds file
-            "$(location //:bridge_version_scripts.lds)",
+            # "-Wl,--version-script",  #  This line must be directly followed by the version_script.lds file
+            # "$(location //:bridge_version_scripts.lds)",
         ],
     }),
     deps = [

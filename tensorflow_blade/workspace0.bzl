@@ -51,12 +51,38 @@ def _tf_blade_repositories():
     )
 
     # mkldnn cmake external rules
-    new_local_repository(
+    maybe_http_archive(
+        name = "mkl_static",
+        build_file = "@org_third_party//bazel/third_party:mkl_static.BUILD",
+        sha256 = "b0f4f03c5a2090bc1194f348746396183cfb63a5a379d6e86f7fa89006abe28b",
+        urls = [
+            "https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-static-2022.0.1-intel_117.tar.bz2",
+            "https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-static-2022.0.1-intel_117.tar.bz2",
+        ],
+    )
+
+    maybe_http_archive(
+        name = "mkl_include",
+        build_file = "@org_third_party//bazel/third_party:mkl_include.BUILD",
+        sha256 = "3df729b9fa66f2e1e566c70baa6799b15c9d0e5d3890b9bd084e02299af25002",
+        urls = [
+            "https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-include-2022.0.1-h8d4b97c_803.tar.bz2",
+            "https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-include-2022.0.1-h8d4b97c_803.tar.bz2",
+        ],
+    )
+
+    native.new_local_repository(
         name = "mkldnn",
-        build_file = "//bazel/third_party:mkldnn.BUILD",
+        build_file = "@org_third_party//bazel/third_party:mkldnn.BUILD",
         path = "../tao/third_party/mkldnn"
     )
 
+    # for aarch64 related acl library
+    native.new_local_repository(
+        name = "compute_library",
+        build_file = "@org_third_party//bazel/third_party:compute_library.BUILD",
+        path = "../tao/third_party/mkldnn/compute_library"
+    )
 
 def _tf_blade_toolchains():
     tf_configure(name = "local_config_tf")

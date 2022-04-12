@@ -50,6 +50,13 @@ def _tf_blade_repositories():
         register_preinstalled_tools = True,  # just use the pre-installed.
     )
 
+    # mkldnn cmake external rules
+    new_local_repository(
+        name = "mkldnn",
+        build_file = "//bazel/third_party:mkldnn.BUILD",
+        path = "../tao/third_party/mkldnn"
+    )
+
 
 def _tf_blade_toolchains():
     tf_configure(name = "local_config_tf")

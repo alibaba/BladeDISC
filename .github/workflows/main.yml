@@ -183,98 +183,102 @@ jobs:
   #     exec_command: bash ./scripts/ci/test_pytorch_blade.sh
   # NGC-TORCH-1110:
   #   uses: ./.github/workflows/ngc_reusable.yml
-  AArch64-CPU-TF280:
-    if: github.repository == 'alibaba/BladeDISC'
-    # The type of runner that the job will run on
-    runs-on: [self-hosted, aarch64]
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v2.4.0
-    - name: Build Dev Docker
-      run: |
-        set -e
-        git submodule sync
-        git submodule update --depth=1 --init --recursive
-        cp /etc/apt/sources.list .
-        docker build -t disc-dev-cpu-aarch64 \
-          --build-arg BASEIMAGE=ubuntu:20.04 \
-          --build-arg DISC_HOST_TF_VERSION="tensorflow-aarch64==2.8" \
-          -f docker/dev/Dockerfile.aarch64 .
-    - name: Deploy Dev Docker Image
-      # if: github.event.ref == 'refs/heads/main'
-      env:
-        ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
-        ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
-        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-        GITHUB_PULL_REQUEST: ${{ github.event.number }}
-        RUNTIME_BASEIMAGE: ${{ inputs.runtime_base_image }}
-        LOCAL_DEV_DOCKER: disc-dev-cpu-aarch64
-        REMOTE_DEV_DOCKER: bladedisc:latest-devel-cpu-aarch64
-      run: |
-        set -e
-        if [[ ! -z "${{ inputs.deploy_command }}" ]]; then
-          echo "Try to deploy runtime docker image..."
-          ${{ inputs.deploy_command }}
-        fi
-
-      # - name: aarch64_cpu_common
-      #   uses: ./.github/workflows/aarch64_reusable.yml
-      #   with:
-      #     exec_command: bash ./scripts/ci/build_and_test.sh --cpu-only
-      # - name: Deploy Dev Docker Image
-      #   # if: github.event.ref == 'refs/heads/main'
-      #   env:
-      #     ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
-      #     ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
-      #     DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      #     DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      #     GITHUB_PULL_REQUEST: ${{ github.event.number }}
-      #     LOCAL_DEV_DOCKER:
-      #     REMOTE_DEV_DOCKER:
-      #   run: |
-      #     set -e
-      #     if [[ ! -z "${{ inputs.deploy_command }}" ]]; then
-      #       echo "Try to deploy dev docker image..."
-      #       ${{ inputs.deploy_command }}
-      #     fi
-      # - name: Deploy Runtime Docker Image
-      #   # if: github.event.ref == 'refs/heads/main'
-      #   env:
-      #     ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
-      #     ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
-      #     DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      #     DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      #     GITHUB_PULL_REQUEST: ${{ github.event.number }}
-      #     RUNTIME_BASEIMAGE: ${{ inputs.runtime_base_image }}
-      #     RUNTIME_DOCKER_FILE: ${{ inputs.runtime_docker_file }}
-      #     REMOTE_RUNTIME_DOCKER: ${{ inputs.remote_runtime_docker }}
-      #   run: |
-      #     set -e
-      #     if [[ ! -z "${{ inputs.deploy_command }}" ]]; then
-      #       echo "Try to deploy runtime docker image..."
-      #       ${{ inputs.deploy_command }}
-      #     fi
-
-
-      # uses: ./.github/workflows/aarch64_reusable.yml
-      # with:
-      #   local_dev_docker: disc-dev-cpu
-      #   remote_dev_docker: bladedisc:latest-devel-cpu-aarch64
-      #   runtime_base_image: bladedisc:latest-devel-cpu-aarch64
-      #   runtime_docker_file: docker/runtime/Dockerfile.tf.aarch64
-      #   remote_runtime_docker: bladedisc:latest-runtime-tensorflow2.8-cpu-aarch64
-      #   exec_command: bash ./scripts/ci/build_and_test.sh --cpu-only
-      #   deploy_command: bash ./scripts/ci/deploy_tf_wrapper.sh
-      # secrets:
-      #   ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
-      #   ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
-      #   DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      #   DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+  #AArch64-CPU-TF280:
+  #  if: github.repository == 'alibaba/BladeDISC'
+  #  # The type of runner that the job will run on
+  #  runs-on: [self-hosted, aarch64]
+  #  # Steps represent a sequence of tasks that will be executed as part of the job
+  #  steps:
+  #  - name: Checkout
+  #    uses: actions/checkout@v2.4.0
+  #  - name: Build Dev Docker
+  #    run: |
+  #      set -e
+  #      git submodule sync
+  #      git submodule update --depth=1 --init --recursive
+  #      cp /etc/apt/sources.list .
+  #      docker build -t disc-dev-cpu-aarch64 \
+  #        --build-arg BASEIMAGE=ubuntu:20.04 \
+  #        --build-arg DISC_HOST_TF_VERSION="tensorflow-aarch64==2.8" \
+  #        -f docker/dev/Dockerfile.aarch64 .
+  #  - name: Deploy Dev Docker Image
+  #    # if: github.event.ref == 'refs/heads/main'
+  #    env:
+  #      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+  #      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+  #      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  #      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+  #      GITHUB_PULL_REQUEST: ${{ github.event.number }}
+  #      RUNTIME_BASEIMAGE: ${{ inputs.runtime_base_image }}
+  #      LOCAL_DEV_DOCKER: disc-dev-cpu-aarch64
+  #      REMOTE_DEV_DOCKER: bladedisc:latest-devel-cpu-aarch64
+  #    run: |
+  #      set -e
+  #      if [[ ! -z "${{ inputs.deploy_command }}" ]]; then
+  #        echo "Try to deploy runtime docker image..."
+  #        ${{ inputs.deploy_command }}
+  #      fi
+  #    # - name: aarch64_cpu_common
+  #    #   uses: ./.github/workflows/aarch64_reusable.yml
+  #    #   with:
+  #    #     exec_command: bash ./scripts/ci/build_and_test.sh --cpu-only
+  #    # - name: Deploy Dev Docker Image
+  #    #   # if: github.event.ref == 'refs/heads/main'
+  #    #   env:
+  #    #     ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+  #    #     ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+  #    #     DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  #    #     DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+  #    #     GITHUB_PULL_REQUEST: ${{ github.event.number }}
+  #    #     LOCAL_DEV_DOCKER:
+  #    #     REMOTE_DEV_DOCKER:
+  #    #   run: |
+  #    #     set -e
+  #    #     if [[ ! -z "${{ inputs.deploy_command }}" ]]; then
+  #    #       echo "Try to deploy dev docker image..."
+  #    #       ${{ inputs.deploy_command }}
+  #    #     fi
+  #    # - name: Deploy Runtime Docker Image
+  #    #   # if: github.event.ref == 'refs/heads/main'
+  #    #   env:
+  #    #     ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+  #    #     ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+  #    #     DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  #    #     DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+  #    #     GITHUB_PULL_REQUEST: ${{ github.event.number }}
+  #    #     RUNTIME_BASEIMAGE: ${{ inputs.runtime_base_image }}
+  #    #     RUNTIME_DOCKER_FILE: ${{ inputs.runtime_docker_file }}
+  #    #     REMOTE_RUNTIME_DOCKER: ${{ inputs.remote_runtime_docker }}
+  #    #   run: |
+  #    #     set -e
+  #    #     if [[ ! -z "${{ inputs.deploy_command }}" ]]; then
+  #    #       echo "Try to deploy runtime docker image..."
+  #    #       ${{ inputs.deploy_command }}
+  #    #     fi
+  #    # uses: ./.github/workflows/aarch64_reusable.yml
+  #    # with:
+  #    #   local_dev_docker: disc-dev-cpu
+  #    #   remote_dev_docker: bladedisc:latest-devel-cpu-aarch64
+  #    #   runtime_base_image: bladedisc:latest-devel-cpu-aarch64
+  #    #   runtime_docker_file: docker/runtime/Dockerfile.tf.aarch64
+  #    #   remote_runtime_docker: bladedisc:latest-runtime-tensorflow2.8-cpu-aarch64
+  #    #   exec_command: bash ./scripts/ci/build_and_test.sh --cpu-only
+  #    #   deploy_command: bash ./scripts/ci/deploy_tf_wrapper.sh
+  #    # secrets:
+  #    #   ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+  #    #   ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+  #    #   DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+  #    #   DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
   # AArch64-CPU-TORCH1100:
   #   uses: ./.github/workflows/aarch64_reusable.yml
   #   with:
   #     extra_envs: -e TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
   #       -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.10.0+cpu
   #     exec_command: bash ./scripts/ci/test_pytorch_blade.sh
+  AArch64-CPU-TF280:
+    if: github.repository == 'alibaba/BladeDISC'
+    # The type of runner that the job will run on
+    runs-on: [self-hosted, aarch64]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2.4.0

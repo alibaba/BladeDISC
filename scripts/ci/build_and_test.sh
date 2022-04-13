@@ -17,8 +17,8 @@ SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 source ${SCRIPT_DIR}/parse_args.sh "$@"
 
-if [[ -f ~/.cache/.bashrc ]]; then
-  source ~/.cache/.bashrc
+if [[ -f ~/.cache/proxy_config ]]; then
+  source ~/.cache/proxy_config
 fi
 
 ENTRY=scripts/python/tao_build.py

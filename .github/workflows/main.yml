@@ -225,7 +225,7 @@ jobs:
       run: |
         set -e
         echo "Try to deploy runtime docker image..."
-        source $HOME/.cache/.bashrc
+        source $HOME/.cache/proxy_config
         bash ./scripts/ci/deploy_tf_wrapper.sh
     - name: Deploy Runtime Docker Image
       if: github.event.ref == 'refs/heads/main'
@@ -241,7 +241,7 @@ jobs:
       run: |
         set -e
         echo "Try to deploy runtime docker image..."
-        source $HOME/.cache/.bashrc
+        source $HOME/.cache/proxy_config
         bash ./scripts/ci/deploy_tf_wrapper.sh
   AArch64-CPU-TORCH_1_10:
     if: github.repository == 'alibaba/BladeDISC'
@@ -287,7 +287,7 @@ jobs:
       run: |
         set -e
         echo "Try to deploy runtime docker image..."
-        source $HOME/.cache/.bashrc
+        source $HOME/.cache/proxy_config
         bash ./scripts/ci/deploy_tf_wrapper.sh
     - name: Deploy Runtime Docker Image
       if: github.event.ref == 'refs/heads/main'
@@ -303,6 +303,6 @@ jobs:
       run: |
         set -e
         echo "Try to deploy runtime docker image..."
-        source $HOME/.cache/.bashrc
+        source $HOME/.cache/proxy_config
         bash ./scripts/ci/deploy_tf_wrapper.sh
 

@@ -23,8 +23,8 @@ export LD_LIBRARY_PATH=${CUDA_HOME}/lib64:$LD_LIBRARY_PATH
 export LIBRARY_PATH=${CUDA_HOME}/lib64:$LIBRARY_PATH
 export TF_REMOTE_CACHE=${TF_REMOTE_CACHE}
 
-if [[ -f ~/.cache/.bashrc ]]; then
-  source ~/.cache/.bashrc
+if [[ -f ~/.cache/proxy_config ]]; then
+  source ~/.cache/proxy_config
 fi
 
 # cleanup build cache

@@ -1,4 +1,4 @@
-# Design Doc: Accelerate PyTorch training vis BladeDISC and PyTorch Lazy Tensor Core
+# Design Doc: Accelerate PyTorch training via BladeDISC and PyTorch Lazy Tensor Core
 
 BladeDISC is an end-to-end compiler that accelerates AI workload based on MLIR.
 PyTorch [Lazy Tensor Core (LTC)](https://github.com/pytorch/pytorch/blob/lazy_tensor_staging/lazy_tensor_core/README.md)
@@ -30,7 +30,7 @@ The above illustration shows the key process:
 
 ### Extend LTC TorchScript Backend
 
-After reading the LTC code, we decide to rewrite the
+After reading the LTC code, we decide to override the
 `BackendImplInterface::ExecuteComputation` API to optimize a sub-graph with Disc
 compilation pipeline.
 

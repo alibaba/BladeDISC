@@ -1,0 +1,1 @@
+https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/torch-ltc/torch-1.12.0a0%2Bgitd9896b8-cp38-cp38-linux_x86_64.whl

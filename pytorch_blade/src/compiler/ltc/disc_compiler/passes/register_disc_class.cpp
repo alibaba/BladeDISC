@@ -15,9 +15,19 @@
 #include "compiler/ltc/disc_compiler/passes/io.h"
 #include "compiler/mlir/converters/mhlo_conversion.h"
 
+#define _GNU_SOURCE
+#include <dlfcn.h>
+
 namespace torch_disc {
 namespace compiler {
 using namespace ::torch::jit;
+
+std::string CurrentLibLocation() {
+  Dl_info dl_info;
+  dladdr((void*)CurrentLibLocation, &dl_info);
+  auto fname = std::string(dl_info.dli_fname);
+  return fname.substr(0, fname.find_last_of("/"));
+}
 
 std::string DiscCMD(
     const std::string& mlir_fname,
@@ -26,7 +36,7 @@ std::string DiscCMD(
   std::string logf = mlir_fname + ".log";
   // auto binary_path = lazy_tensors::sys_util::GetEnvString(
   //    "DISC_COMPILER_BINARY_PATH", "./disc_compiler_main");
-  std::string binary_path = "./disc_compiler_main";
+  std::string binary_path = CurrentLibLocation() + "/disc_compiler_main";
   ss << binary_path << " " << mlir_fname << " " << out_fname << " > " << logf
      << " 2>&1 ";
   return ss.str();

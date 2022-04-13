@@ -3,23 +3,6 @@ workspace(name = "org_torch_blade")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
-# # buildifier is written in Go and hence needs rules_go to be built.
-# # See https://github.com/bazelbuild/rules_go for the up to date setup instructions.
-# http_archive(
-#     name = "io_bazel_rules_go",
-#     sha256 = "2b1641428dff9018f9e85c0384f03ec6c10660d935b750e3fa1492a281a53b0f",
-#     urls = [
-#         "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.29.0/rules_go-v0.29.0.zip",
-#         "https://github.com/bazelbuild/rules_go/releases/download/v0.29.0/rules_go-v0.29.0.zip",
-#     ],
-# )
-#
-# load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
-#
-# go_rules_dependencies()
-#
-# go_register_toolchains(version = "1.17.2")
-
 http_archive(
     name = "com_github_bazelbuild_buildtools",
     sha256 = "ae34c344514e08c23e90da0e2d6cb700fcd28e80c02e23e4d5715dddcb42f7b3",

@@ -20,8 +20,9 @@ namespace compiler {
 // ReadFileBytes reads a file as bytes
 std::string ReadFileBytes(const std::string& fname) {
   std::ifstream input(fname, std::ios::binary);
-  std::vector<char> bytes((std::istreambuf_iterator<char>(input)),
-                          (std::istreambuf_iterator<char>()));
+  std::vector<char> bytes(
+      (std::istreambuf_iterator<char>(input)),
+      (std::istreambuf_iterator<char>()));
   return std::string(bytes.begin(), bytes.end());
 }
 
@@ -34,10 +35,10 @@ std::string GetTempDirectory(std::string dir) {
           .count();
   std::stringstream ss;
   ss << dir << "/" << tid << "-" << pid << "-" << us;
-  TORCH_CHECK(!mkdir(ss.str().c_str(), 0755),
-              "unable to create dir: " + ss.str());
+  TORCH_CHECK(
+      !mkdir(ss.str().c_str(), 0755), "unable to create dir: " + ss.str());
   return ss.str();
 }
 
-}  // namespace compiler
-}  // namespace torch_disc
+} // namespace compiler
+} // namespace torch_disc

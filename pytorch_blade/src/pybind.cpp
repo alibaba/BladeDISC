@@ -18,6 +18,7 @@
 #ifdef TORCH_BLADE_BUILD_MLIR
 #include "compiler/mlir/pybind_functions.h"
 #endif // TORCH_BLADE_BUILD_MLIR)
+#include "compiler/ltc/init_python_bindings.h"
 
 // this include resolve some pybind11 incompatible problem of torch data
 // structures like Dict
@@ -60,6 +61,7 @@ PYBIND11_MODULE(_torch_blade, m) {
 #endif
 
   initModules<TORCH_BLADE_PLATFORM_VERSION_ID>(m);
+  torch_disc::InitLtcModuleBindings(m);
 }
 
 } // namespace blade

@@ -9,23 +9,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "torch_disc/csrc/disc_compiler/disc_compiler.h"
+#include "compiler/ltc/disc_compiler/disc_compiler.h"
 
 #include <torch/csrc/jit/passes/dead_code_elimination.h>
 #include <torch/csrc/jit/passes/shape_analysis.h>
 
-#include "lazy_tensor_core/csrc/ts_backend/backend_impl.h"
-#include "lazy_tensors/computation_client/sys_util.h"
-#include "torch_disc/csrc/disc_compiler/passes/cluster.h"
-#include "torch_disc/csrc/disc_compiler/passes/register_disc_class.h"
+#include <torch/csrc/lazy/ts_backend/ts_backend_impl.h>
+#include "compiler/ltc/disc_compiler/passes/cluster.h"
+#include "compiler/ltc/disc_compiler/passes/register_disc_class.h"
 
 namespace torch_disc {
 namespace compiler {
-using TSData = torch_lazy_tensors::compiler::TSData;
+using TSData = torch::lazy::TSData;
 
 std::vector<torch::lazy::BackendDataPtr> Executable::Run(
     c10::ArrayRef<torch::lazy::BackendDataPtr> arguments,
-    const torch::lazy::BackendDevice& device, bool default_device_is_cuda) {
+    const torch::lazy::BackendDevice& device,
+    bool default_device_is_cuda) {
   std::vector<c10::IValue> stack;
   for (auto argument : arguments) {
     const auto ts_data = std::static_pointer_cast<TSData>(argument);
@@ -34,8 +34,9 @@ std::vector<torch::lazy::BackendDataPtr> Executable::Run(
     } else {
       // TODO(whc) should this check be made more general? it's written somewhat
       // oddly
-      CHECK(!default_device_is_cuda ||
-            ts_data->data().device().type() == at::kCUDA);
+      CHECK(
+          !default_device_is_cuda ||
+          ts_data->data().device().type() == at::kCUDA);
       stack.emplace_back(ts_data->data());
     }
   }
@@ -71,7 +72,8 @@ void EnhancementInputShape(
 ExecutablePtr CompileToDiscExecutable(
     const std::shared_ptr<torch::jit::Graph>& graph,
     c10::ArrayRef<torch::lazy::BackendDataPtr> arguments) {
-  bool disable_disc = lazy_tensors::sys_util::GetEnvBool("DISABLE_DISC", false);
+  bool disable_disc =
+      false; // lazy_tensors::sys_util::GetEnvBool("DISABLE_DISC", false);
   if (disable_disc) {
     auto disc_inputs = std::vector<c10::IValue>{};
     return std::make_shared<Executable>(graph, disc_inputs);
@@ -87,5 +89,5 @@ ExecutablePtr CompileToDiscExecutable(
   return std::make_shared<Executable>(graph, disc_inputs);
 }
 
-}  //  namespace compiler
-}  //  namespace torch_disc
+} //  namespace compiler
+} //  namespace torch_disc

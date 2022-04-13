@@ -48,12 +48,14 @@ pybind_library(
     ],
     deps = [
         ":torch_blade",
+        "//src/compiler/ltc:torch_disc_pybind11",
         "@local_org_torch//:torch_python",
     ],
 )
 
 pybind_extension(
     name = "_torch_blade",
+    #linkopts = ["-Wl,-rpath,$$ORIGIN", "-Wl,-L/home/tianyou.gty/develop/opensource/BladeDISC/pytorch_blade/temp/lazy_tensor_core/", "-Wl,-lptltc",],
     linkopts = ["-Wl,-rpath,$$ORIGIN"],
     deps = [
         ":torch_blade_pybind11",

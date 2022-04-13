@@ -25,15 +25,19 @@ namespace compiler {
 // Executable represents an executable program
 class Executable {
  public:
-  Executable(const std::shared_ptr<torch::jit::Graph>& graph,
-             const std::vector<c10::IValue>& disc_inputs)
+  Executable(
+      const std::shared_ptr<torch::jit::Graph>& graph,
+      const std::vector<c10::IValue>& disc_inputs)
       : graph_(graph), graph_executor_(graph, ""), disc_inputs_(disc_inputs) {}
 
   std::vector<torch::lazy::BackendDataPtr> Run(
       c10::ArrayRef<torch::lazy::BackendDataPtr> arguments,
-      const torch::lazy::BackendDevice& device, bool default_device_is_cuda);
+      const torch::lazy::BackendDevice& device,
+      bool default_device_is_cuda);
 
-  std::shared_ptr<torch::jit::Graph> graph() { return graph_; }
+  std::shared_ptr<torch::jit::Graph> graph() {
+    return graph_;
+  }
 
  private:
   std::shared_ptr<torch::jit::Graph> graph_;
@@ -47,5 +51,5 @@ ExecutablePtr CompileToDiscExecutable(
     const std::shared_ptr<torch::jit::Graph>& graph,
     c10::ArrayRef<torch::lazy::BackendDataPtr> arguments);
 
-}  //  namespace compiler
-}  //  namespace torch_disc
+} //  namespace compiler
+} //  namespace torch_disc

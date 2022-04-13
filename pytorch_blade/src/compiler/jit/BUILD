@@ -6,12 +6,12 @@ filegroup(
     name = "torch_blade_jit_srcs",
     srcs = glob(
         ["**/*.cpp"],
-        exclude = [
-            "**/torch/onnx.cpp",
-            "**/*test.cpp",
-            "**/pybind*.cpp",
-            "**/freeze_module.cpp" # TODO(yancey.yx): fix this pass to pass building with PyTorch LTC branch
-        ],
+         exclude = [
+             "**/torch/onnx.cpp",
+             "**/*test.cpp",
+             "**/pybind*.cpp",
+             "**/freeze_module.cpp" # TODO(yancey.yx): fix this pass to pass building with PyTorch LTC branch
+         ],
     ),
 )
 

@@ -17,7 +17,9 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
-import _torch_disc as disc
+import torch_blade._torch_blade as disc
+import torch._lazy as ltm
+torch._C._lazy_ts_backend._init()
 disc._ltc_init_disc_backend()
 
 ## Define the NN architecture
@@ -50,7 +52,7 @@ def train(args, model, device, train_loader, optimizer, epoch):
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
-        disc._step_marker()
+        ltm.mark_step()
         train_loss += loss.item() * len(data)
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
@@ -73,7 +75,7 @@ def test(model, device, test_loader):
             test_loss += F.nll_loss(output, target, reduction='sum').item()  # sum up batch loss
             pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum(dtype=torch.int).item()
-            disc._step_marker()
+            ltm.mark_step()
 
     test_loss /= len(test_loader.dataset)
 

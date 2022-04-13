@@ -154,12 +154,14 @@ torch::TypePtr register_disc_engine(
     const std::string& ral_engine_bytes,
     const std::string& ral_const_bytes,
     const std::string& original_subgraph,
-    const std::vector<const torch::jit::Value*>& input_values,
-    const std::vector<const torch::jit::Value*>& output_values,
+    const std::vector<torch::jit::Value*>& input_values,
+    const std::vector<torch::jit::Value*>& output_values,
     const std::string& input_dev_str,
     const std::string& output_dev_str) {
-  const auto& input_type_spec = ShapeTypeSpec::GetShapeTypeSpec(input_values);
-  const auto& output_type_spec = ShapeTypeSpec::GetShapeTypeSpec(output_values);
+  const auto& input_type_spec =
+      ShapeTypeSpec::GetShapeTypeSpec(input_values, true);
+  const auto& output_type_spec =
+      ShapeTypeSpec::GetShapeTypeSpec(output_values, true);
   DiscEngineClass::State state = DiscEngineClass::MakeState(
       engine_debug_name,
       ral_engine_bytes,

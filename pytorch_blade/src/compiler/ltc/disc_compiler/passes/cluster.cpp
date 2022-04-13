@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "torch_disc/csrc/disc_compiler/passes/cluster.h"
+#include "compiler/ltc/disc_compiler/passes/cluster.h"
 
 #include "compiler/jit/fusion.h"
 #include "compiler/mlir/converters/mhlo_conversion.h"
@@ -39,8 +39,11 @@ std::vector<Node*> FakeCluster(const std::shared_ptr<Graph>& graph) {
     return false;
   };
 
-  std::copy_if(graph->nodes().begin(), graph->nodes().end(),
-               std::back_inserter(nodes), is_disc_compilable);
+  std::copy_if(
+      graph->nodes().begin(),
+      graph->nodes().end(),
+      std::back_inserter(nodes),
+      is_disc_compilable);
   return nodes;
 }
 
@@ -73,8 +76,10 @@ c10::TypePtr getScalarTypePtr(at::ScalarType& typ) {
 //    %1 int = aten::item(%p2.1)
 //    %2 Tensor = aten::add(%p0.1, %p1.1, %1)
 //    return %2
-void CastBoundaryScalarToTensor(Graph* disc_graph, size_t i,
-                                at::ScalarType& typ) {
+void CastBoundaryScalarToTensor(
+    Graph* disc_graph,
+    size_t i,
+    at::ScalarType& typ) {
   auto new_input = disc_graph->insertInput(
       i, c10::string(disc_graph->inputs()[i]->debugName() + ".1"));
   new_input->setType(TensorType::create(typ, c10::nullopt, 0, false));
@@ -87,8 +92,10 @@ void CastBoundaryScalarToTensor(Graph* disc_graph, size_t i,
   disc_graph->eraseInput(i + 1);
 }
 
-void CastGraphInputsToTensor(const std::shared_ptr<Graph>& graph,
-                             Node* sub_graph, Node* disc_node) {
+void CastGraphInputsToTensor(
+    const std::shared_ptr<Graph>& graph,
+    Node* sub_graph,
+    Node* disc_node) {
   auto disc_graph = disc_node->owningGraph();
 
   size_t inputs = sub_graph->inputs().size();
@@ -130,5 +137,5 @@ void ClusterDiscNodes(const std::shared_ptr<Graph>& graph) {
   }
 }
 
-}  //  namespace compiler
-}  //  namespace torch_disc
+} //  namespace compiler
+} //  namespace torch_disc

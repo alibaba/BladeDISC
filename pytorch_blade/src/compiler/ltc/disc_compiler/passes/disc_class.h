@@ -43,5 +43,5 @@ class DiscClass : public torch::CustomClassHolder {
   std::unique_ptr<torch::blade::RalContext> ral_ctx_;
 };
 
-}  //  namespace compiler
-}  //  namespace torch_disc
+} //  namespace compiler
+} //  namespace torch_disc

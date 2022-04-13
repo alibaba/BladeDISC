@@ -84,14 +84,14 @@ void initToolsBindings(py::module& m) {
   tools.def("graph_create_get_attr", &torch::blade::create_get_attr_node);
 
   // PyTorch torch::jit::freeze_module
-  tools.def(
-      "freeze_module",
-      &torch::blade::freeze_module,
-      py::arg("module"),
-      py::arg("preservedAttrs") = std::vector<std::string>(),
-      py::arg("freezeInterfaces") = true,
-      py::arg("preserveParameters") = false,
-      py::arg("disableShapePeephole") = true);
+  // tools.def(
+  //     "freeze_module",
+  //     &torch::blade::freeze_module,
+  //     py::arg("module"),
+  //     py::arg("preservedAttrs") = std::vector<std::string>(),
+  //     py::arg("freezeInterfaces") = true,
+  //     py::arg("preserveParameters") = false,
+  //     py::arg("disableShapePeephole") = true);
 
   tools.def("licm", &torch::blade::licm);
   tools.def("_jit_pass_onnx", torch::blade::ToONNX);

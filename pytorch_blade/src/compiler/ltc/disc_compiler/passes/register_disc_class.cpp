@@ -9,23 +9,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "torch_disc/csrc/disc_compiler/passes/register_disc_class.h"
+#include "compiler/ltc/disc_compiler/passes/register_disc_class.h"
 
+#include "compiler/ltc/disc_compiler/passes/disc_class.h"
+#include "compiler/ltc/disc_compiler/passes/io.h"
 #include "compiler/mlir/converters/mhlo_conversion.h"
-#include "lazy_tensors/computation_client/sys_util.h"
-#include "torch_disc/csrc/disc_compiler/passes/disc_class.h"
-#include "torch_disc/csrc/disc_compiler/passes/io.h"
 
 namespace torch_disc {
 namespace compiler {
 using namespace ::torch::jit;
 
-std::string DiscCMD(const std::string& mlir_fname,
-                    const std::string& out_fname) {
+std::string DiscCMD(
+    const std::string& mlir_fname,
+    const std::string& out_fname) {
   std::stringstream ss;
   std::string logf = mlir_fname + ".log";
-  auto binary_path = lazy_tensors::sys_util::GetEnvString(
-      "DISC_COMPILER_BINARY_PATH", "./disc_compiler_main");
+  // auto binary_path = lazy_tensors::sys_util::GetEnvString(
+  //    "DISC_COMPILER_BINARY_PATH", "./disc_compiler_main");
+  std::string binary_path = "./disc_compiler_main";
   ss << binary_path << " " << mlir_fname << " " << out_fname << " > " << logf
      << " 2>&1 ";
   return ss.str();
@@ -52,8 +53,8 @@ std::tuple<std::string, std::string, std::string> MhloConversaion(
 std::string CallDiscCompiler(const std::string& mlir_fname) {
   std::string out_fname = mlir_fname + ".out";
   std::string cmd = DiscCMD(mlir_fname, out_fname);
-  TORCH_CHECK(std::system(cmd.c_str()) == 0,
-              "disc compile failed with cmd: " + cmd);
+  TORCH_CHECK(
+      std::system(cmd.c_str()) == 0, "disc compile failed with cmd: " + cmd);
   return out_fname;
 }
 
@@ -65,9 +66,11 @@ const std::vector<torch::jit::Value*> ArrayToVector(
 }
 
 // ReplaceDiscClass replace the disc node with prim::CallMethod
-void ReplaceDiscClass(const std::shared_ptr<Graph>& graph,
-                      torch::jit::Node* disc_node, std::string& param_name,
-                      c10::IValue& disc_obj) {
+void ReplaceDiscClass(
+    const std::shared_ptr<Graph>& graph,
+    torch::jit::Node* disc_node,
+    std::string& param_name,
+    c10::IValue& disc_obj) {
   // add DiscClass object as graph input
   auto val = graph->addInput(param_name);
   val->setType(disc_obj.type());
@@ -106,10 +109,11 @@ std::vector<c10::IValue> RegisterDiscClass(
     const std::shared_ptr<Graph>& graph) {
   std::vector<c10::IValue> disc_inputs;
   std::vector<torch::jit::Node*> disc_nodes;
-  std::copy_if(graph->nodes().begin(), graph->nodes().end(),
-               std::back_inserter(disc_nodes), [](torch::jit::Node* node) {
-                 return node->kind() == prim::FusionGroup;
-               });
+  std::copy_if(
+      graph->nodes().begin(),
+      graph->nodes().end(),
+      std::back_inserter(disc_nodes),
+      [](torch::jit::Node* node) { return node->kind() == prim::FusionGroup; });
 
   for (auto node : disc_nodes) {
     auto sub_graph = node->g(attr::Subgraph);
@@ -138,5 +142,5 @@ std::vector<c10::IValue> RegisterDiscClass(
   }
   return disc_inputs;
 }
-}  //  namespace compiler
-}  //  namespace torch_disc
+} //  namespace compiler
+} //  namespace torch_disc

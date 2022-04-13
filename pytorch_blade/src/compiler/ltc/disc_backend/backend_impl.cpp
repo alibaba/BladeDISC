@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "torch_disc/csrc/disc_backend/backend_impl.h"
+#include "compiler/ltc/disc_backend/backend_impl.h"
 
 #include <ATen/Functions.h>
 #include <torch/csrc/jit/passes/shape_analysis.h>
@@ -17,21 +17,21 @@
 #include <torch/csrc/lazy/core/ir_dump_util.h>
 #include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
 
-#include "lazy_tensor_core/csrc/ts_backend/backend_impl.h"
-#include "lazy_tensors/computation_client/sys_util.h"
-#include "torch_disc/csrc/disc_compiler/disc_compiler.h"
+#include <torch/csrc/lazy/ts_backend/ts_backend_impl.h>
+#include "compiler/ltc/disc_compiler/disc_compiler.h"
 
 namespace torch_disc {
 namespace compiler {
 
 using BackendDeviceType = torch::lazy::BackendDeviceType;
-using TSData = torch_lazy_tensors::compiler::TSData;
+using TSData = torch::lazy::TSData;
 
 struct TSBackendDeviceType : public BackendDeviceType {
   TSBackendDeviceType() = delete;
   TSBackendDeviceType(c10::DeviceType deviceType) {
-    TORCH_CHECK(supported_device_types_.find((int8_t)deviceType) !=
-                supported_device_types_.end());
+    TORCH_CHECK(
+        supported_device_types_.find((int8_t)deviceType) !=
+        supported_device_types_.end());
     type = (int8_t)deviceType;
   }
 
@@ -39,26 +39,31 @@ struct TSBackendDeviceType : public BackendDeviceType {
     return c10::DeviceTypeName((c10::DeviceType)type);
   }
 
-  c10::DeviceType c10Type() const { return (c10::DeviceType)type; }
+  c10::DeviceType c10Type() const {
+    return (c10::DeviceType)type;
+  }
 
  private:
   static const std::set<int8_t> supported_device_types_;
 };
 const std::set<int8_t> TSBackendDeviceType::supported_device_types_ = {
-    (int8_t)at::kCPU, (int8_t)at::kCUDA};
+    (int8_t)at::kCPU,
+    (int8_t)at::kCUDA};
 
 class DISCBackendImpl : public torch::lazy::BackendImplInterface {
  public:
   DISCBackendImpl() : default_device_type_(at::kCPU) {
-    auto type = lazy_tensors::sys_util::GetEnvBool("LTC_TS_CUDA", false)
-                    ? at::kCUDA
-                    : at::kCPU;
+    //  auto type = lazy_tensors::sys_util::GetEnvBool("LTC_TS_CUDA", false)
+    //                  ? at::kCUDA
+    //                  : at::kCPU;
+    auto type = at::kCUDA;
     default_device_type_ = TSBackendDeviceType(type);
     cache_ = std::make_shared<DiscComputationCache>(
         FLAGS_torch_lazy_compilation_cache_size);
   }
   std::unique_ptr<torch::lazy::LoweringContext> CreateLoweringContext(
-      const std::string& name, torch::lazy::BackendDevice device,
+      const std::string& name,
+      torch::lazy::BackendDevice device,
       c10::ArrayRef<torch::lazy::Node*> post_order,
       torch::lazy::Util::EmissionMap emit_status) const override {
     return std::make_unique<torch::lazy::TSLoweringContext>(
@@ -85,14 +90,15 @@ class DISCBackendImpl : public torch::lazy::BackendImplInterface {
   }
 
   torch::lazy::BackendDataPtr MakeComputationDataFromTensor(
-      const at::Tensor& tensor, const torch::lazy::Shape& shape,
+      const at::Tensor& tensor,
+      const torch::lazy::Shape& shape,
       const torch::lazy::BackendDevice& device) const override {
     at::TensorOptions options = tensor.options().device(
         default_device_type_.c10Type(), device.ordinal());
     if (tensor.device().type() == default_device_type_.c10Type() &&
         default_device_type_.c10Type() == at::kCUDA) {
-      return std::make_shared<TSData>(tensor.to(options, /*non_blocking=*/true),
-                                      shape, device);
+      return std::make_shared<TSData>(
+          tensor.to(options, /*non_blocking=*/true), shape, device);
     } else if (tensor.device().type() == at::kCPU && tensor.numel() == 1) {
       // calling .item() on singleton cpu tensor is fast, and using fill is a
       // safe, async way to copy cpu to cuda for a single value
@@ -145,9 +151,9 @@ class DISCBackendImpl : public torch::lazy::BackendImplInterface {
     // to account for that, at::scalar_tensor constructor triggers everything we
     // need.
     static auto init_cuda = default_device_type_.c10Type() == at::kCUDA
-                                ? c10::optional<at::Tensor>(at::scalar_tensor(
-                                      0, at::TensorOptions().device(at::kCUDA)))
-                                : c10::nullopt;
+        ? c10::optional<at::Tensor>(
+              at::scalar_tensor(0, at::TensorOptions().device(at::kCUDA)))
+        : c10::nullopt;
   }
 
   std::vector<torch::lazy::BackendDevice> GetBackendDevices() const override;
@@ -201,11 +207,11 @@ std::vector<torch::lazy::BackendDataPtr> DISCBackendImpl::ExecuteComputation(
   // Note: hasing graph is just solution for PoC, that supports each LazyTensor
   // topology mapping a exclusive TorchScript Graph.
   // TODO(yancey1989): Cache each Disc cluster separately
-  auto disc_hash = torch::lazy::DataHash(ts_computation.graph().get(),
-                                         sizeof(*ts_computation.graph().get()));
+  auto disc_hash = torch::lazy::DataHash(
+      ts_computation.graph().get(), sizeof(*ts_computation.graph().get()));
   if (cache_->Get(disc_hash)) {
-    return cache_->Get(disc_hash)->executable->Run(arguments, device,
-                                                   default_device_is_cuda);
+    return cache_->Get(disc_hash)->executable->Run(
+        arguments, device, default_device_is_cuda);
   }
 
   ExecutablePtr executable =
@@ -253,5 +259,5 @@ void InitTorchScriptBackend() {
       new torch::lazy::BackendRegistrar(compiler::GetDISCBackendImpl()));
 }
 
-}  //  namespace compiler
-}  //  namespace torch_disc
+} //  namespace compiler
+} //  namespace torch_disc

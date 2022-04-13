@@ -8,15 +8,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#pragma once
 
-#include <torch/script.h>
-
+#include <pybind11/pybind11.h>
 namespace torch_disc {
-namespace compiler {
-
-std::vector<c10::IValue> RegisterDiscClass(
-    const std::shared_ptr<torch::jit::Graph>& graph);
-
-}  //  namespace compiler
-}  //  namespace torch_disc
+void InitLtcModuleBindings(pybind11::module m);
+} //  namespace torch_disc

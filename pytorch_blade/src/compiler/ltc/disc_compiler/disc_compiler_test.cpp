@@ -28,9 +28,11 @@ class MyMethod : public torch::CustomClassHolder {
 
 static auto my_method_class =
     torch::class_<MyMethod>("torch_disc", "MyMethod")
-        .def("Run",
-             [](const c10::intrusive_ptr<MyMethod>& self, torch::Tensor& a,
-                torch::Tensor& b) { return self->Run(a, b); });
+        .def(
+            "Run",
+            [](const c10::intrusive_ptr<MyMethod>& self,
+               torch::Tensor& a,
+               torch::Tensor& b) { return self->Run(a, b); });
 
 // this unit test demonstrates how DiscClass works
 // 1. implement a CustomClassHolder
@@ -53,10 +55,11 @@ TEST(DiscEngineTest, Registry) {
     auto input0 = g->addInput("input_obj")->setType(obj.type());
     auto input1 = g->addInput("p0");
     auto input2 = g->addInput("p1");
-    auto result = g->insertNode(g->create(torch::jit::prim::CallMethod,
-                                          {input0, input1, input2}))
-                      ->s_(torch::jit::attr::name, std::move("Run"))
-                      ->output();
+    auto result =
+        g->insertNode(
+             g->create(torch::jit::prim::CallMethod, {input0, input1, input2}))
+            ->s_(torch::jit::attr::name, std::move("Run"))
+            ->output();
     g->registerOutput(result);
   }
 
@@ -71,5 +74,5 @@ TEST(DiscEngineTest, Registry) {
   EXPECT_TRUE(stack[0].toTensor().equal(ret));
 }
 
-}  // namespace compiler
-}  // namespace torch_disc
+} // namespace compiler
+} // namespace torch_disc

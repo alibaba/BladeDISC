@@ -13,7 +13,7 @@
 #include <torch/csrc/lazy/core/cache.h>
 #include <torch/csrc/lazy/core/config.h>
 
-#include "torch_disc/csrc/disc_compiler/disc_compiler.h"
+#include "compiler/ltc/disc_compiler/disc_compiler.h"
 
 namespace torch_disc {
 namespace compiler {
@@ -25,13 +25,12 @@ struct CachedExecutable {
   ExecutablePtr executable;
 };
 
-using DiscComputationCache =
-    torch::lazy::Cache<torch::lazy::hash_t, CachedExecutable,
-                       torch::lazy::HashReducer>;
+using DiscComputationCache = torch::lazy::
+    Cache<torch::lazy::hash_t, CachedExecutable, torch::lazy::HashReducer>;
 
 torch::lazy::BackendImplInterface* GetTSBackendImpl();
 
 void InitTorchScriptBackend();
 
-}  //  namespace compiler
-}  //  namespace torch_disc
+} //  namespace compiler
+} //  namespace torch_disc

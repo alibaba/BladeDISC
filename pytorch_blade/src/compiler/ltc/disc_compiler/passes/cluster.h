@@ -16,5 +16,5 @@ namespace compiler {
 
 void ClusterDiscNodes(const std::shared_ptr<torch::jit::Graph>& graph);
 
-}  //  namespace compiler
-}  //  namespace torch_disc
+} //  namespace compiler
+} //  namespace torch_disc

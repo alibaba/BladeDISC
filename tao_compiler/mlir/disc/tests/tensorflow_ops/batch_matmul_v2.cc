@@ -169,4 +169,16 @@ TEST(TFBatchMatMulV2OpTest, IBDynamicShapeNNF64) {
       /*output_descriptors*/ {"f64_X"}));
 }
 
+// dynamic shape test case with m = 1
+TEST(TFBatchMatMulV2OpTest, DynamicShapeM1F32) {
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "batch_matmul_v2_nn_d_f32.mlir",
+      /*backend_types*/
+      kSupportedBackendList,
+      /*num_inputs*/ 2,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"2x3x1x110xf32_X", "2x3x110x100xf32_X"},
+      /*output_descriptors*/ {"f32_X"}));
+}
+
 }  // namespace mlir_test

@@ -173,7 +173,7 @@ static bool DoGemmWithAlgorithm(
   auto k = lhs_matrix.transpose ? lhs_matrix.num_rows : lhs_matrix.num_cols;
   auto n = rhs_matrix.transpose ? rhs_matrix.num_rows : rhs_matrix.num_cols;
   if (std::is_same<InT, float>::value && std::is_same<OutT, float>::value &&
-      std::is_same<AlphaBeta, float>::value && m == 1) {
+      std::is_same<AlphaBeta, float>::value && m == 1 && batch_size == 1) {
     return TrySgemvInternal<InT, OutT, AlphaBeta>(
         stream, rhs_transpose, n, k,
         /*alpha=*/alpha, rhs_data,

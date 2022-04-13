@@ -17,10 +17,7 @@ cc_library (
   ],
   deps = [
     "@local_org_torch//:ltc_ts_backend",
-    "@org_torch_blade//src/compiler/mlir/converters:torch_blade_mhlo_converter",
-    "@org_torch_blade//src/compiler/mlir/converters/impl:torch_blade_mhlo_converter_impl",
-    "@org_torch_blade//src/compiler/jit:torch_blade_jit",
-    "@org_torch_blade//src/compiler/mlir/runtime:torch_blade_ral_context",
+    "@org_torch_blade//src/compiler/mlir:torch_blade_mlir",
     "@local_org_torch//:ATen",
     "@local_org_torch//:libtorch",
   ],

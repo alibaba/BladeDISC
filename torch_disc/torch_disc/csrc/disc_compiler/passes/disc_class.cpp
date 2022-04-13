@@ -21,17 +21,15 @@ static auto disc_class =
           return self->Run(inputs);
         });
 
-DiscClass::DiscClass(std::shared_ptr<DiscClassOption>& option) {
-  ral_ctx_ = std::make_unique<torch::blade::RalContext>(
-      option->executable_prog_bytes, option->constant_bytes,
-      option->input_type_spec_str, option->output_type_spec_str,
-      option->input_dev_str, option->output_dev_str);
+DiscClass::DiscClass(
+    std::shared_ptr<torch::blade::backends::EngineState>& state) {
+  ral_ctx_ = std::make_unique<torch::blade::RalContext>(state);
   CHECK_NOTNULL(ral_ctx_);
 }
 
 torch::List<torch::Tensor> DiscClass::Run(
     const torch::List<torch::Tensor>& inputs) {
-  auto ret = ral_ctx_->Forward(inputs);
+  auto ret = ral_ctx_->Execute(inputs);
   return ret;
 }
 

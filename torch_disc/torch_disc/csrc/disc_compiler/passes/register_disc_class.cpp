@@ -113,24 +113,26 @@ std::vector<c10::IValue> RegisterDiscClass(
 
   for (auto node : disc_nodes) {
     auto sub_graph = node->g(attr::Subgraph);
+    auto state = std::make_shared<torch::blade::backends::EngineState>();
+    std::vector<torch::blade::backends::EngineState::TensorType> inputs,
+        outputs;
 
-    auto option = DiscClass::MakeOption();
-    std::string mlir_fname;
-    std::tie(mlir_fname, option->input_dev_str, option->output_dev_str) =
-        MhloConversaion(sub_graph);
-    auto output_fname = CallDiscCompiler(mlir_fname);
-    option->executable_prog_bytes = ReadFileBytes(output_fname);
-    option->constant_bytes = ReadFileBytes(output_fname + ".pbtxt");
-    option->input_type_spec_str = torch::blade::ShapeTypeSpec::GetShapeTypeSpec(
-                                      ArrayToVector(sub_graph->inputs()), false)
-                                      .Serialize();
-    option->output_type_spec_str =
-        torch::blade::ShapeTypeSpec::GetShapeTypeSpec(
-            ArrayToVector(sub_graph->outputs()), false)
-            .Serialize();
+    auto cvt_ret = MhloConversaion(sub_graph);
+    auto output_fname =
+        CallDiscCompiler(std::get<0>(cvt_ret) /*mlir file name*/);
+    state->set_engine_bytes(ReadFileBytes(output_fname));
+    state->set_model_proto(ReadFileBytes(output_fname + ".pbtxt"));
+    for (auto input : sub_graph->inputs()) {
+      inputs.push_back(torch::blade::backends::TensorInfo(*input));
+    }
+    for (auto output : sub_graph->outputs()) {
+      outputs.push_back(torch::blade::backends::TensorInfo(*output));
+    }
+    state->set_inputs(inputs);
+    state->set_outputs(outputs);
 
     // add DiscClass object as graph input
-    auto disc_class = torch::make_custom_class<DiscClass>(option);
+    auto disc_class = torch::make_custom_class<DiscClass>(state);
     auto input_name = c10::str("disc_class_p", disc_inputs.size());
     disc_inputs.push_back(disc_class);
 

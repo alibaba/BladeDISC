@@ -30,7 +30,7 @@ struct DiscClassOption {
 
 class DiscClass : public torch::CustomClassHolder {
  public:
-  DiscClass(std::shared_ptr<DiscClassOption>& option);
+  DiscClass(std::shared_ptr<torch::blade::backends::EngineState>& state);
 
   static std::shared_ptr<DiscClassOption> MakeOption() {
     return std::make_shared<DiscClassOption>();
@@ -39,7 +39,7 @@ class DiscClass : public torch::CustomClassHolder {
   torch::List<torch::Tensor> Run(const torch::List<torch::Tensor>& inputs);
 
  private:
-  std::shared_ptr<DiscClassOption> option_;
+  std::shared_ptr<torch::blade::backends::EngineState> state_;
   std::unique_ptr<torch::blade::RalContext> ral_ctx_;
 };
 

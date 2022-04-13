@@ -17,6 +17,7 @@ import io
 import os
 import re
 
+import pkg_resources
 import subprocess
 from setuptools import find_packages, setup
 
@@ -33,12 +34,11 @@ VERSION = None
 
 
 def detect_host_tf_version():
-    version = tf.__version__
-    if tf.test.is_gpu_available():
-        return "tensorflow-gpu=={}".format(version)
-    else:
-        return "tensorflow=={}".format(version)
-
+    for pkg in pkg_resources.working_set:
+        if 'tensorflow-io' in pkg.project_name:
+            continue
+        if 'tensorflow' in pkg.project_name:
+            return f"{pkg.project_name}=={pkg.version}"
 
 # Format the Blade-DISC package name prefix on GPU or CPU:
 # blade-disc-gpu-tf24 for tensorflow==2.4

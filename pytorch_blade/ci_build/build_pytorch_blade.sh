@@ -49,7 +49,10 @@ function ci_build() {
       fi
     fi
 
-    export TORCH_BLADE_BUILD_TENSORRT=ON
+    if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" = "ON"  ]; then
+      export TORCH_BLADE_BUILD_TENSORRT=ON
+    fi
+
     rm -rf build && python3 setup.py develop ${extra_args};
     # The following are UNIT TESTS
     export TORCH_BLADE_DEBUG_LOG=ON

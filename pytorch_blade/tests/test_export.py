@@ -17,6 +17,7 @@ import torchvision
 from torch_blade.testing.common_utils import TestCase
 from torch_blade.exporter import export, match_submodules
 from torch.testing import FileCheck
+from torch_blade import utils
 from torch_blade import version
 
 class TestExport(TestCase):
@@ -60,7 +61,7 @@ class TestExport(TestCase):
         ddp_output = ddp_scripted_model(self.dummy_input)
         self.assertEqual(self.original_output, ddp_output)
 
-    @unittest.skipIf(torch.version.__version__.split('+')[0] >= "1.7.1", "torch.no_grad() has been support")
+    @unittest.skipIf(utils.torch_version_number() >= utils.parse_version("1.7.1"), "torch.no_grad() has been support")
     def test_partial_export(self):
         class SubModel(nn.Module):
             def __init__(self):

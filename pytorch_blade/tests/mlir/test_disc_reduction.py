@@ -90,7 +90,7 @@ class TestDiscReduction(DiscTestCase):
         self._test_reduction(sum_func)
 
     @unittest.skipIf(
-        utils.torch_version_number() >= utils.parse_version("1.11.0"),
+        utils.torch_version_number() >= utils.parse_version("1.10.0"),
         "mean(): input dtype should be either floating point or complex dtypes.",
     )
     def test_cvt_to_disc_mean_dtype_i32(self):

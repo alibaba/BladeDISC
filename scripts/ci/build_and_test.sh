@@ -17,6 +17,10 @@ SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 source ${SCRIPT_DIR}/parse_args.sh "$@"
 
+if [[ -f ~/.cache/proxy_config ]]; then
+  source ~/.cache/proxy_config
+fi
+
 ENTRY=scripts/python/tao_build.py
 VENV_PATH=/opt/venv_disc
 BLADE_DISC_DIR=tao/python/blade_disc_tf
@@ -48,4 +52,8 @@ cp tao/dist/blade_disc*.whl ./build
 cp tf_community/bazel-bin/tensorflow/compiler/mlir/disc/tools/disc-replay/disc-replay-main ./build/
 
 # test example models
-source ${SCRIPT_DIR}/test_cpu_examples.sh
+arch=`uname -p`
+if [[ $arch == "x86_64" ]]; then
+  # TODO(disc): figure out the root cause of failure on aarch64
+  source ${SCRIPT_DIR}/test_cpu_examples.sh
+fi

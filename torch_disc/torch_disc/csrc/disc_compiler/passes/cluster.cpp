@@ -24,15 +24,20 @@ using namespace ::torch::jit;
 // conversion module into a group. We should re-implement this.
 std::vector<Node*> FakeCluster(const std::shared_ptr<Graph>& graph) {
   std::vector<Node*> nodes;
-  auto is_disc_compilable = [](torch::jit::Node* node) {
+  auto is_disc_compilable = [&](torch::jit::Node* node) {
     if (torch::blade::IsMlirMhloSupported(*node) &&
         node->kind() != prim::Constant) {
       for (auto& input : node->inputs()) {
         // input should be Tensor or Scalar with explict type
         auto typ = input->type();
         if (!typ->cast<c10::TensorType>() &&
-            c10::tryScalarTypeFromJitType(*typ) == c10::nullopt)
+            c10::tryScalarTypeFromJitType(*typ) == c10::nullopt) {
           return false;
+        }
+      }
+      for (auto& output : node->outputs()) {
+        auto typ = output->type();
+        if (!typ->cast<c10::TensorType>()) return false;
       }
       return true;
     }

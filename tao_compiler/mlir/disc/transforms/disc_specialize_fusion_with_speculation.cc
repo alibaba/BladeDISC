@@ -510,7 +510,12 @@ struct DiscSpecializeFusionWithSpeculationPass
         [&](FusionOp fusion_op) { fusion_ops.emplace_back(fusion_op); });
 
     for (FusionOp fusion_op : fusion_ops) {
-      cb(this, fusion_op);
+      FusionPatternBase fusion_pattern(fusion_op);
+      auto root_ops = fusion_pattern.getRootOps();
+      // Skip dead fusions
+      if (!root_ops.empty()) {
+        cb(this, fusion_op);
+      }
     };
   }
 

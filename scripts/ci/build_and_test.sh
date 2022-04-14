@@ -52,8 +52,4 @@ cp tao/dist/blade_disc*.whl ./build
 cp tf_community/bazel-bin/tensorflow/compiler/mlir/disc/tools/disc-replay/disc-replay-main ./build/
 
 # test example models
-arch=`uname -p`
-if [[ $arch == "x86_64" ]]; then
-  # TODO(disc): figure out the root cause of failure on aarch64
-  source ${SCRIPT_DIR}/test_cpu_examples.sh
-fi
+source ${SCRIPT_DIR}/test_cpu_examples.sh

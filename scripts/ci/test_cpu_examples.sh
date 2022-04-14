@@ -12,7 +12,7 @@
 set -ex
 if [ ! -z "$CPU_ONLY" ]; then
   # install disc python wheel
-  python -m virtualenv venv && source venv/bin/activate
+  source /opt/venv_disc/bin/activate
   python -m pip install ./build/blade_disc*.whl
 
   pushd examples/TensorFlow/Inference/X86/BERT
@@ -21,5 +21,5 @@ if [ ! -z "$CPU_ONLY" ]; then
   # clean up download files
   rm -rf model
   popd
-  rm -rf venv
+  python -m pip uninstall blade-disc-* -y
 fi

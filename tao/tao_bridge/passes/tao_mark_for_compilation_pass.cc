@@ -1485,6 +1485,17 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
         continue;
       }
 
+      // Skip Squeeze with no explicit squeeze_dims attributes, since
+      // it will bring dynamic rank issue when shapes are unknown.
+      if (node->type_string() == "Squeeze") {
+        constexpr char kAttrSqueezeDims[] = "squeeze_dims";
+        const auto* squeeze_dims_attr = node->attrs().Find(kAttrSqueezeDims);
+        if (squeeze_dims_attr == nullptr ||
+            squeeze_dims_attr->list().i_size() == 0) {
+          continue;
+        }
+      }
+
       bool to_continue = false;
       for (auto s : absl::StrSplit(
                GetTaoBridgeOptions()->op_type_clustering_black_list, ',')) {

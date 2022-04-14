@@ -1,5 +1,6 @@
 # Import repository rules.
 load("@org_third_party//bazel:common.bzl", "maybe_http_archive")
+load("@org_third_party//bazel/mkldnn:mkldnn_configure.bzl", "mkldnn_configure")
 
 def _tf_blade_repositories():
     maybe_http_archive(
@@ -33,9 +34,12 @@ def _tf_blade_repositories():
         ],
     )
 
+def _tf_blade_toolchains():
+    mkldnn_configure(name = "local_config_mkldnn")
 
 def workspace():
     _tf_blade_repositories()
+    _tf_blade_toolchains()
 
 # Alias so it can be loaded without assigning to a different symbol to prevent
 # shadowing previous loads and trigger a buildifier warning.

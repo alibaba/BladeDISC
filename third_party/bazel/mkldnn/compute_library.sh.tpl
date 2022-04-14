@@ -55,7 +55,7 @@ while true; do
     esac
 done
 
-pushd external/compute_library
+pushd external/acl_compute_library
 
 log "=================== Build Arguments ==================="
 log "Current dir      : $(pwd)"
@@ -66,7 +66,14 @@ log "build_neon       : ${build_neon}"
 scons --silent -j$(($(nproc) - 1)) Werror=0 debug=0 neon=${build_neon} opencl=0 embed_kernels=0 os=${os} arch=${arch} build=native extra_cxx_flags="-fPIC"
 
 # a workaround for static linking
-rm -f build/*.so
+rm -f build/libarm*.so
 mv build/libarm_compute-static.a build/libarm_compute.a
 mv build/libarm_compute_core-static.a build/libarm_compute_core.a
 mv build/libarm_compute_graph-static.a build/libarm_compute_graph.a
+
+# BUILD.bazel is linked from dir where target acl_compute_library should be
+# origin_path=`readlink -f BUILD.bazel`
+# origin_dir=$(dirname $origin_path)
+# echo $origin_dir
+# cp -r build/ $origin_dir
+popd

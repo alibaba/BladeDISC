@@ -6,7 +6,6 @@ cc_library(
     includes = ["include"],
 )
 
-
 cc_library(
     name = "libtensorflow_framework",
     srcs = glob(["lib/libtensorflow_framework.so.*"]),

@@ -12,6 +12,7 @@ load("@org_tensorflow//third_party/gpus:cuda_configure.bzl", "cuda_configure")
 # Import external repository rules.
 load("@pybind11_bazel//:python_configure.bzl", "python_configure")
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 
 def _tf_blade_repositories():
     maybe_http_archive(
@@ -50,10 +51,17 @@ def _tf_blade_repositories():
         register_preinstalled_tools = True,  # just use the pre-installed.
     )
 
+    maybe_http_archive(
+        name = "rules_java",
+        sha256 = "f5a3e477e579231fca27bf202bb0e8fbe4fc6339d63b38ccb87c2760b533d1c3",
+        strip_prefix = "rules_java-981f06c3d2bd10225e85209904090eb7b5fb26bd",
+        urls = ["http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/bazelbuild/rules_java/archive/981f06c3d2bd10225e85209904090eb7b5fb26bd.tar.gz"],
+    )
+
     # mkldnn cmake external rules
     maybe_http_archive(
         name = "mkl_static",
-        build_file = "@org_third_party//bazel/third_party:mkl_static.BUILD",
+        build_file = "@local_config_mkldnn//:mkl_static.BUILD",
         sha256 = "b0f4f03c5a2090bc1194f348746396183cfb63a5a379d6e86f7fa89006abe28b",
         urls = [
             "https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-static-2022.0.1-intel_117.tar.bz2",
@@ -63,7 +71,7 @@ def _tf_blade_repositories():
 
     maybe_http_archive(
         name = "mkl_include",
-        build_file = "@org_third_party//bazel/third_party:mkl_include.BUILD",
+        build_file = "@local_config_mkldnn//:mkl_include.BUILD",
         sha256 = "3df729b9fa66f2e1e566c70baa6799b15c9d0e5d3890b9bd084e02299af25002",
         urls = [
             "https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-include-2022.0.1-h8d4b97c_803.tar.bz2",
@@ -72,16 +80,18 @@ def _tf_blade_repositories():
     )
 
     native.new_local_repository(
-        name = "mkldnn",
-        build_file = "@org_third_party//bazel/third_party:mkldnn.BUILD",
+        name = "onednn",
+        build_file = "@local_config_mkldnn//:onednn.BUILD",
         path = "../tao/third_party/mkldnn"
     )
 
     # for aarch64 related acl library
-    native.new_local_repository(
-        name = "compute_library",
-        build_file = "@org_third_party//bazel/third_party:compute_library.BUILD",
-        path = "../tao/third_party/mkldnn/compute_library"
+    new_git_repository(
+        name = "acl_compute_library",
+        build_file = "@local_config_mkldnn//:compute_library.BUILD",
+        remote = "https://github.com/ARM-software/ComputeLibrary.git",
+        tag = "v22.02",
+        init_submodules = True,
     )
 
 def _tf_blade_toolchains():

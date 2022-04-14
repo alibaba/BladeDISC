@@ -485,9 +485,9 @@ cc_library(
         "context/mkldnn/ideep/ideep/operators/*.hpp",
     ]),
     linkopts = [
-      "-L$$(dirname $(locations @mkldnn//:onednn_lib)",
+      "-L$$(dirname $(locations @onednn//:onednn_lib)",
       "-Wl,--start-group",
-      "$(location @mkldnn//:onednn_lib)",
+      "$(location @onednn//:onednn_lib)",
       "-Wl,--end-group",
     ] + if_disc_x86([
       "-L$(location @mkl_static//:lib)/",
@@ -497,11 +497,11 @@ cc_library(
       "$(location @mkl_static//:lib)/libmkl_core.a",
       "-Wl,--end-group",
     ]) + if_disc_aarch64([
-      "-L$(location @compute_library//:build)",
+      "-L$(location @org_tao_bridge//third_party/mkldnn:acl)/build",
       "-Wl,--start-group",
-      "$(location @compute_library//:build)/acl/ComputeLibrary/build/libarm_compute.a",
-      "$(location @compute_library//:build)/acl/ComputeLibrary/build/libarm_compute_core.a",
-      "$(location @compute_library//:build)/acl/ComputeLibrary/build/libarm_compute_graph.a",
+      "$(location @org_tao_bridge//third_party/mkldnn:acl)/build/libarm_compute.a",
+      "$(location @org_tao_bridge//third_party/mkldnn:acl)/build/libarm_compute_core.a",
+      "$(location @org_tao_bridge//third_party/mkldnn:acl)/build/libarm_compute_graph.a",
       "-Wl,--end-group",
     ]),
     copts = [
@@ -510,10 +510,11 @@ cc_library(
     data = [
         "@mkl_static//:lib",
         "@mkl_include//:include",
-        "@mkldnn//:onednn_lib",
+        "@onednn//:onednn_lib",
+        "@org_tao_bridge//third_party/mkldnn:acl",
     ],
     deps = [
-        "@mkldnn//:onednn",
+        "@onednn//:onednn",
     ],
 )
 

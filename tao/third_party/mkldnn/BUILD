@@ -1,6 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-exports_files(["build"])
+exports_files(["build", "acl"])
 
 cc_library(
     name = "onednn",
@@ -14,4 +14,3 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
 )
-

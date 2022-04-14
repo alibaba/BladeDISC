@@ -44,6 +44,7 @@ from tao_build import get_version_file
 
 # Source code root dir.
 ROOT = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
+ACL_ROOT = os.path.join(ROOT, os.pardir, "tao", "third_party", "mkldnn", "acl")
 BUILD_CONFIG = os.path.join(ROOT, ".build_config")
 
 
@@ -189,7 +190,7 @@ def configure_with_bazel(args):
         _action_env("BLADE_WITH_TF", "1")
         _opt("cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
         _opt("host_cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
-        _opt("define", f"is_cxx11_abi={tf_cxx11_abi}")
+        _action_env("IF_CXX11_ABI", int(tf_cxx11_abi))
         _action_env("TF_IS_PAI", int(is_pai))
         _action_env("TF_MAJOR_VERSION", tf_major)
         _action_env("TF_MINOR_VERSION", tf_minor)
@@ -254,15 +255,20 @@ def configure_with_bazel(args):
             _write("--//:device=cpu")
             if args.device == 'cpu':
                 # TODO(lanbo.llb): unify mkl configure with tao_bridge
-                _action_env("BLADE_WITH_MKL", "1")
-                mkl_root = os.environ.get("MKL_INSTALL_PATH", "/opt/intel/compilers_and_libraries_2020.1.217/linux")
-                assert os.path.exists(mkl_root), f"MKL root path missing: {mkl_root}"
-                _action_env("MKL_INSTALL_PATH", mkl_root)
+                if not args.aarch64:
+                    _action_env("BLADE_WITH_MKL", "1")
+                    mkl_root = os.environ.get("MKL_INSTALL_PATH", "/opt/intel/compilers_and_libraries_2020.1.217/linux")
+                    assert os.path.exists(mkl_root), f"MKL root path missing: {mkl_root}"
+                    _action_env("MKL_INSTALL_PATH", mkl_root)
                 if not args.skip_disc:
                     if args.enable_mkldnn:
                         _opt("define", "is_mkldnn=true")
+                        _action_env("BUILD_WITH_MKLDNN", "1")
                     if args.aarch64:
                         _opt("define", "disc_aarch64=true")
+                        _action_env("BUILD_WITH_AARCH64", "1")
+                        assert os.path.exists(ACL_ROOT), f"ACL root path missing: {ACL_ROOT}"
+                        _action_env("ACL_ROOT_PATH", ACL_ROOT)
                     else:
                         _opt("define", "disc_x86=true")
 
@@ -283,7 +289,21 @@ def configure_with_bazel(args):
 def build_with_bazel(args):
     with cwd(ROOT):
         if args.device == "cpu":
-            execute("bazel build @org_tao_bridge//:libtao_ops.so")
+            if args.aarch64:
+                execute(f"rm -rf {ACL_ROOT}/*")
+                execute("bazel run @acl_compute_library//:scons_build_acl")
+                build_dir = os.path.join(
+                    ROOT,
+                    'bazel-bin',
+                    'external',
+                    'acl_compute_library',
+                    'scons_build_acl.runfiles',
+                    'org_tf_blade',
+                    'external',
+                    'acl_compute_library',
+                )
+                execute(f"cp -r {build_dir}/* {ACL_ROOT}")
+                # execute("bazel build @org_tao_bridge//:libtao_ops.so")
         else:
             execute("bazel build //src:_tf_blade.so")
 

@@ -9,10 +9,14 @@ PyTorch LTC to accelerate PyTorch training via BladeDISC.
 ## Overview
 
 In PyTorch LTC world, TorchScript backend lowing Lazy Tensors into TorchScript
-and execute it with `torch::jit:GraphExecutor`.  LTC provides a way to add a
-new vender with implementing `BackendImplInterface`.  To BladeDISC, the ROI
-is too low to lowing all Lazy Tensors to BladeDISC IR, a better way is to extend
-TorchScript backend, which only optimizes a sub-graph of the whole TorchScript graph.
+and execute it with `torch::jit:GraphExecutor`.  To a new vender backend, LTC
+suggests implement `BackendImplInterface` and serval coordinates pieces, ref:
+[adding vender backend](https://github.com/pytorch/pytorch/tree/lazy_tensor_staging/lazy_tensor_core#adding-vendor-backends).
+But to BladeDISC, optimizing a sub-graph achieves higher
+[ROI](https://en.wikipedia.org/wiki/Return_on_investment), we can refuse most
+TorchScript symbols and runtime mechanism, so a better way is to extend
+TorchScript Backend(TSBackend in LTC) which only optimize a sub-graph of the
+whole TorchScript graph.
 
 ![overview](./images/ltc_disc_overview.png)
 
@@ -30,9 +34,20 @@ The above illustration shows the key process:
 
 ### Extend LTC TorchScript Backend
 
-After reading the LTC code, we decide to override the
-`BackendImplInterface::ExecuteComputation` API to optimize a sub-graph with Disc
-compilation pipeline.
+After reading PyTorch LTC source code, `BackendImplInterface` provides some
+important interface:
+
+- `[]ComputationPtr Compile(ComputationPtr[])`, takes a Computation object and
+  returns a compiled graph, `Computation` object contains TorchScript runtime
+  instance and some coordinates pieces.
+- `BackendDataPtr ExecuteComputation(Computation, BackendDataPtr[], BackendDevice)`,
+  execute the TorchScript runtime with input Tensors and return
+  the result Tensors.
+
+Disc compiler requires input Tensors contain `rank` and `dtype ` meta
+information, so we should do some shape inference with the input Tensors before
+calling the Disc compilation pipeline, that we decide to override
+`ExecuteComputation` as the following rough pseudocode:
 
 ``` cpp
 DISCBackendImpl::ExecuteComputation(...) {
@@ -53,13 +68,14 @@ DISCBackendImpl::ExecuteComputation(...) {
 program with many pass functions:
 
 ``` c++
-void CompileToDiscExecutable(std::shared<graph> graph) {
+ExecutablePtr CompileToDiscExecutable(std::shared<graph> graph) {
   ...
   ClusterDiscNodesPass(graph);
   torch::jit::EliminateDeadCode(graph);
   ...
   RegisterDiscClassPass(graph);
   torch::jit::EliminateDeadCode(graph);
+  return std::make_shared<Executable>(graph);
 }
 ```
 

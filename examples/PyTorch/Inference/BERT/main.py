@@ -104,9 +104,7 @@ def disc_optimize_torch(in_file : str, out_file : str):
     torch.jit.save(optimized_ts, out_file)
 
 
-def run_torch_script(script_file : str, batch : int = 1 , seq_len : int = 64, in_data = None):
-    model = torch.jit.load(script_file).cuda().eval()
-
+def run_torch_script(model, batch : int = 1 , seq_len : int = 64, in_data = None):
     if in_data is None: 
         inputs = get_torch_test_data(batch, seq_len, cuda = True)
     else:
@@ -136,8 +134,6 @@ def run_torch_script(script_file : str, batch : int = 1 , seq_len : int = 64, in
     model(*tuple(inputs))
     res = _cudart.cudaProfilerStop()
     # profile end
-
-    # print(model(*tuple(inputs)))
 
 
 def export_torch_to_onnx(model, output_file : str):
@@ -209,16 +205,20 @@ def run_trt_engine(trt_engine_name : str, batch : int = 1, seq_len : int = 64):
     # profile end
 
 
-def execute_torch_opt():
+def run(optimize_config : str = None):
     batch = 1
     seq = 64
     bert_large_amp = get_torch_bert_large_model(amp = True)
-
-    # BladeDISC optimization.
-    save_torch_jit(bert_large_amp, 'bert_large_amp.pt')
     inputs = get_torch_test_data(batch = batch, seq_len = seq, cuda = True)
-    disc_optimize_torch('bert_large_amp.pt', 'bert_large_amp.opt.pt')
-    run_torch_script('bert_large_amp.opt.pt', batch = batch, seq_len = seq, in_data = inputs)
+
+    model = bert_large_amp
+    if optimize_config is 'disc':
+        # BladeDISC optimization.
+        save_torch_jit(bert_large_amp, 'bert_large_amp.pt')
+        disc_optimize_torch('bert_large_amp.pt', 'bert_large_amp.opt.pt')
+        model = torch.jit.load(script_file).cuda().eval()
+    run_torch(model, batch = batch, seq_len = seq, in_data = inputs)
+
 
     # TRT Optimization. To be removed in the final release.
     # To use TRT amp rather than Torch AMP.
@@ -229,4 +229,5 @@ def execute_torch_opt():
 
 
 if __name__ == '__main__':
-  execute_torch_opt()
+    # `optimize_config` can be 'disc' or None.
+    run(optimize_config = 'disc')

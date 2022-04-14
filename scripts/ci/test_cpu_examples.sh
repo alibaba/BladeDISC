@@ -12,7 +12,12 @@
 set -ex
 if [ ! -z "$CPU_ONLY" ]; then
   # install disc python wheel
-  source /opt/venv_disc/bin/activate
+  python -m virtualenv venv && source venv/bin/activate
+  arch=`uname -p`
+  if [[ $arch == "aarch64" ]]; then
+    # TODO(disc): a workaround for issue #224
+    pip install https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/bladedisc/aarch64/tensorflow-2.8.0-cp38-cp38-linux_aarch64.whl
+  fi
   python -m pip install ./build/blade_disc*.whl
 
   pushd examples/TensorFlow/Inference/X86/BERT
@@ -21,5 +26,5 @@ if [ ! -z "$CPU_ONLY" ]; then
   # clean up download files
   rm -rf model
   popd
-  python -m pip uninstall blade-disc-* -y
+  rm -rf venv
 fi

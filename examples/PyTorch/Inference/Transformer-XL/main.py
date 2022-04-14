@@ -11,7 +11,6 @@
 
 import os
 
-# set TORCH_BLADE_DEBUG_LOG=on
 #os.environ["TORCH_BLADE_DEBUG_LOG"] = "on"
 os.environ["DISC_ENABLE_ASTITCH"] = "true"
 
@@ -23,40 +22,80 @@ import ctypes
 import torch_blade
 
 _cudart = ctypes.CDLL('libcudart.so')
+
+
 def cu_prof_start():
     ret = _cudart.cudaProfilerStart()
     if ret != 0:
         raise Exception('cudaProfilerStart() returned %d' % ret)
+
 
 def cu_prof_stop():
     ret = _cudart.cudaProfilerStop()
     if ret != 0:
         raise Exception('cudaProfilerStop() returned %d' % ret)
 
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
-model = TransfoXLModel.from_pretrained('transfo-xl-wt103', torchscript=True).to(device)
-#tokenizer = TransfoXLTokenizer.from_pretrained('transfo-xl-wt103')
-#inputs = tokenizer("Hello, my dog is cute", return_tensors="pt").to(device)
-inputs = torch.tensor([[14049, 2, 617, 3225, 23, 16072]]).long().to(device)
+def run(optimize_config: str = None):
+    model = TransfoXLModel.from_pretrained('transfo-xl-wt103',
+                                           torchscript=True).cuda()
+    tokenizer = TransfoXLTokenizer.from_pretrained('transfo-xl-wt103')
+    inputs = tokenizer("Hello, my dog is cute", return_tensors="pt").cuda()
+    # inputs = torch.tensor([[14049, 2, 617, 3225, 23, 16072]]).long().to(device)
 
-model.eval()
-traced_model = torch.jit.trace(model, inputs, strict = False)
+    model.eval()
+    traced_model = torch.jit.trace(model, inputs, strict=False)
 
-#last_hidden_states = outputs[0]  # The last hidden-state is the first element of the output tuple
-#
-torch_config = torch_blade.config.Config()
-torch_config.enable_mlir_amp = False # disable mix-precision
-with torch.no_grad(), torch_config:
-  # BladeDISC torch_blade optimize will return an optimized TorchScript
-  optimized_ts = torch_blade.optimize(traced_model, allow_tracing=True, model_inputs=inputs)
+    model = traced_model
+    if optimize_config is 'DISC':
+        # Optimize with BladeDISC
+        torch_config = torch_blade.config.Config()
+        torch_config.enable_mlir_amp = True  # enable mix-precision
+        torch_config.enable_force_to_cuda = True
+        with torch.no_grad(), torch_config:
+            # It will return an optimized TorchScript
+            optimized_ts = torch_blade.optimize(traced_model,
+                                                allow_tracing=True,
+                                                model_inputs=inputs)
 
-# The optimized module could be saved as a TorchScript
-torch.jit.save(optimized_ts, "opt.disc.stitch.pt")
+        output_pt_file = "trans-xl_disc_opt.pt"
+        torch.jit.save(optimized_ts, output_pt_file)
+        model = torch.jit.load(output_pt_file).eval()
+    elif optimize_config is 'TRT':
+        cfg = torch_blade.Config.get_current_context_or_new().clone()
+        cfg.optimization_pipeline = torch_blade.tensorrt.backend_name()
+        cfg.customize_onnx_opset_version = 12
+        cfg.enable_fp16 = True
 
-optimized_ts = torch.jit.load("opt.disc.stitch.pt")
+        with cfg, torch_blade.logging.logger_level_context('DEBUG'):
+            print("Go!")
+            opt_model = torch_blade.optimize(traced_model.cuda(),
+                                             False,
+                                             model_inputs=inputs)
 
-cu_prof_start()
-outputs = optimized_ts(inputs)
-cu_prof_stop()
-print(outputs)
+        print("Optimize finish!")
+        output_pt_file = "trans-xl_trt_opt.pt"
+        torch.jit.save(opt_model, output_pt_file)
+        print("Done!")
+        model = torch.jit.load(output_pt_file).eval()
+
+    # warmup
+    for i in range(100):
+        output = model(inputs)
+
+    # normal measure
+    tic = time.time()
+    for i in range(100):
+        output = model(inputs)
+    rt_ms = (time.time() - tic) / 100
+    print(f'average exec time: {rt_ms} s')
+
+    cu_prof_start()
+    for i in range(100):
+        output = model(inputs)
+    cu_prof_stop()
+
+
+if __name__ == '__main__':
+    # `optimize_config` can be 'TRT', 'DISC' or None.
+    run(optimize_config='DISC')

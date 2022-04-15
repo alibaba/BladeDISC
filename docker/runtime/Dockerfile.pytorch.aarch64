@@ -5,5 +5,5 @@ ARG WHEEL_FILE=torch_blade*.whl
 
 ADD ./build/${WHEEL_FILE}  /install/python/
 
-RUN source /opt/venv_disc/bin/activate && \
+RUN . /opt/venv_disc/bin/activate && \
     pip install /install/python/${WHEEL_FILE}

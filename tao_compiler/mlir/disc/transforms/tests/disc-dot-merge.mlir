@@ -40,6 +40,7 @@ func @dot_merging_dynamic_batch(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf3
   %5 = "mhlo.dot_general"(%0, %4) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0],lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>} : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
   %6 = "mhlo.add"(%2, %5) : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
   // CHECK:     mhlo.concatenate
+  // CHECK-SAME: -> tensor<?x?x?xf32>
   // CHECK:     mhlo.dot_general
   // CHECK-NOT: mhlo.dot_general
   // CHECK:     mhlo.real_dynamic_slice
@@ -57,7 +58,7 @@ func @dot_merging_static(%arg0: tensor<128x256xf32>, %arg1: tensor<256x512xf32>)
   %3 = "mhlo.dot_general"(%arg0, %2) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>} : (tensor<128x256xf32>, tensor<256x512xf32>) -> tensor<128x512xf32>
   %4 = "mhlo.add"(%0, %3) : (tensor<128x512xf32>, tensor<128x512xf32>) -> tensor<128x512xf32>
   // CHECK:     mhlo.concatenate
-  // CHECK:     -> tensor<256x1024xf32>
+  // CHECK-SAME: -> tensor<256x1024xf32>
   // CHECK:     mhlo.dot_general
   // CHECK-NOT: mhlo.dot_general
   // CHECK:     mhlo.slice

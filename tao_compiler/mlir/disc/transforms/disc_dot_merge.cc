@@ -357,6 +357,7 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
     auto concat_dim_size = concat_op_type.getDimSize(concat_dim);
     if (concat_dim_size == ShapedType::kDynamicSize) {
       is_dynamic_shape = true;
+      concat_dim_sum = ShapedType::kDynamicSize;
     } else if (!is_dynamic_shape) {
       concat_dim_sum += concat_dim_size;
     }

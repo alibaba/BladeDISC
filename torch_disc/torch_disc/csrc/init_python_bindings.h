@@ -9,15 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "torch_disc/csrc/init_python_bindings.h"
-
-#include "torch_disc/csrc/disc_backend/backend_impl.h"
-
+#include <pybind11/pybind11.h>
 namespace torch_disc {
-namespace py = pybind11;
-void InitLtcModuleBindings(py::module m) {
-  m.def("_ltc_init_disc_backend", []() { compiler::InitTorchScriptBackend(); });
-}
-
-PYBIND11_MODULE(_torch_disc, m) { torch_disc::InitLtcModuleBindings(m); }
+void InitLtcModuleBindings(pybind11::module m);
 }  //  namespace torch_disc

@@ -13,7 +13,7 @@
 #include <torch/csrc/lazy/core/cache.h>
 #include <torch/csrc/lazy/core/config.h>
 
-#include "torch_disc/csrc/disc_compiler/disc_compiler.h"
+#include "torch_cisc/csrc/disc_compiler/disc_compiler.h"
 
 namespace torch_disc {
 namespace compiler {

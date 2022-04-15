@@ -98,8 +98,8 @@ RUN mkdir -p ~/.pip && \
 
 RUN pip3 install --upgrade pip
 
-COPY docker/scripts/install-python.sh /install/scripts/install-python.sh
-RUN bash /install/scripts/install-python.sh
+COPY docker/scripts/install-python-aarch64.sh /install/scripts/install-python-aarch64.sh
+RUN bash /install/scripts/install-python-aarch64.sh
 
 RUN chmod a+x /usr/local/bin/bazel
 

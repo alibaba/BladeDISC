@@ -6,4 +6,5 @@ ARG WHEEL_FILE=blade_disc*.whl
 ADD ./build/${WHEEL_FILE}  /install/python/
 ADD ./build/disc-replay-main /usr/bin/disc-replay-main
 
-RUN pip install /install/python/${WHEEL_FILE}
+RUN source /opt/venv_disc/bin/activate && \
+    pip install /install/python/${WHEEL_FILE}

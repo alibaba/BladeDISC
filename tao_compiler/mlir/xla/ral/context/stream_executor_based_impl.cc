@@ -280,17 +280,17 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
   }
 
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
-  if (std::is_same<InT, Eigen::half>::value || std::is_same<InT, float>::value) {
+  if (std::is_same<InT, Eigen::half>::value ||
+      std::is_same<InT, float>::value) {
     auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
     auto stream =
-       static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
+        static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
     void* s = stream->implementation()->GpuStreamHack();
     bool fp16_in = std::is_same<InT, Eigen::half>::value;
     bool fp16_out = std::is_same<OutT, Eigen::half>::value;
-    bool ret = blade::blade_gemm(s, fp16_in, fp16_out,
-              A.data, A.sizes[0], A.sizes[1], tp_a,
-              B.data, B.sizes[0], B.sizes[1], tp_b,
-              C.data, C.sizes[0], C.sizes[1]);
+    bool ret = blade::blade_gemm(
+        s, fp16_in, fp16_out, A.data, A.sizes[0], A.sizes[1], tp_a, B.data,
+        B.sizes[0], B.sizes[1], tp_b, C.data, C.sizes[0], C.sizes[1]);
     if (ret) {
       return;
     }

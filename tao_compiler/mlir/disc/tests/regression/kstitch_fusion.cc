@@ -133,4 +133,52 @@ TEST(KStitchFusionGPUTest, KStitch3DF64) {
   unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
 }
 
+// With splat const in the kStitch fusion
+TEST(KStitchFusionGPUTest, KStitchSimpleWithSplatConstF32) {
+  setenv("DISC_ENABLE_STITCH", "true", 1);
+  setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "kstitch_fusion_with_splat_const.mlir",
+      /*backend_types*/ {BackendType::kCuda},
+      /*num_inputs*/ 1,
+      /*num_outputs*/ 2,
+      /*input_descriptors*/ {"11000x123xf32_X"},
+      /*output_descriptors*/ {"f32_X", "f32_X"}));
+  unsetenv("DISC_ENABLE_STITCH");
+  unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
+}
+
+// With transpose in the kStitch fusion
+TEST(KStitchFusionGPUTest, KStitchSimpleWithTransposeF32) {
+  setenv("DISC_ENABLE_STITCH", "true", 1);
+  setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "kstitch_fusion_with_transpose.mlir",
+      /*backend_types*/ {BackendType::kCuda},
+      /*num_inputs*/ 1,
+      /*num_outputs*/ 2,
+      /*input_descriptors*/ {"123x11000xf32_X"},
+      /*output_descriptors*/ {"f32_X", "f32_X"}));
+  unsetenv("DISC_ENABLE_STITCH");
+  unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
+}
+
+// multi-outputs
+TEST(KStitchFusionCPUTest, MultiOutputs) {
+  std::vector<float> input_val;
+  for (int64_t i = 0; i < 1 * 128 * 768; i++) {
+    input_val.push_back(0.5);
+  }
+  setenv("DISC_ENABLE_STITCH", "true", 1);
+  setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "kstitch_fusion_cpu_multioutputs.mlir",
+      /*backend_types*/ kSupportedCPUBackendList,
+      /*num_inputs*/ 1,
+      /*num_outputs*/ 2,
+      /*input_descriptors*/ {"1x128x768xf32_X"},
+      /*output_descriptors*/ {"f32_X", "f32_X"}, {input_val}));
+  unsetenv("DISC_ENABLE_STITCH");
+  unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
+}
 }  // namespace mlir_test

@@ -91,80 +91,80 @@ class ValueWrapper {
 
 bool operator<(const ValueWrapper& lhs, const ValueWrapper& rhs);
 
+struct DimValue {
+  enum State : int32_t { FOLD = 0, UNFOLD = 1, INVALID = 2 } state;
+  int64_t foldVal = INT64_MIN;
+  Value unfoldVal = nullptr;
+  DimValue() { state = INVALID; }
+  explicit DimValue(Value val) {
+    unfoldVal = val;
+    state = (val == nullptr) ? INVALID : UNFOLD;
+  }
+  explicit DimValue(int64_t val) {
+    foldVal = val;
+    state = (val >= 0) ? FOLD : INVALID;
+  }
+  bool isValid() const { return state != INVALID; }
+  bool isFold() const { return state == FOLD; }
+  bool isUnfold() const { return state == UNFOLD; }
+  void dump() const {
+    if (isFold()) {
+      llvm::errs() << "Fold value: " << foldVal << "\n";
+    } else if (isUnfold()) {
+      llvm::errs() << "Unfold value: ";
+      auto& non_const = const_cast<Value&>(unfoldVal);
+      non_const.dump();
+    } else {
+      llvm::errs() << "Invalid DimValue\n";
+    }
+  }
+  inline bool operator==(const DimValue& dimVal) const {
+    if (state == dimVal.state) {
+      return (isFold() && foldVal == dimVal.foldVal) ||
+             (isUnfold() && unfoldVal == dimVal.unfoldVal);
+    }
+    return false;
+  }
+  inline bool operator!=(const DimValue& dimVal) const {
+    return !(*this == dimVal);
+  }
+  inline bool operator<(const DimValue& dimVal) const {
+    if (state != dimVal.state) {
+      return state < dimVal.state;
+    } else if (foldVal != dimVal.foldVal) {
+      return foldVal < dimVal.foldVal;
+    } else {
+      return unfoldVal.getAsOpaquePointer() <
+             dimVal.unfoldVal.getAsOpaquePointer();
+    }
+  }
+  std::size_t hash() const {
+    std::size_t h = llvm::hash_value(state);
+    h = llvm::hash_combine(h, llvm::hash_value(foldVal));
+    h = llvm::hash_combine(h, mlir::hash_value(unfoldVal));
+    return h;
+  }
+};
+
+struct DimValueHash {
+  std::size_t operator()(const DimValue& dimVal) const { return dimVal.hash(); }
+};
+
+struct DimValueContainerHash {
+  std::size_t operator()(const std::vector<DimValue>& ds) const {
+    std::size_t hash = llvm::hash_value(ds.size());
+    for (const auto& d : ds) {
+      hash = llvm::hash_combine(hash, d.hash());
+    }
+    return hash;
+  }
+};
+
 // Shape analysis for propagating and analyzing known shape information in
 // compilation time in a given operation.
 class ShapeAnalysis {
  public:
   explicit ShapeAnalysis(Operation* op) : op_(op) {}
-
-  struct DimValue {
-    enum State : int32_t { FOLD = 0, UNFOLD = 1, INVALID = 2 } state;
-    int64_t foldVal = INT64_MIN;
-    Value unfoldVal = nullptr;
-    DimValue() { state = INVALID; }
-    explicit DimValue(Value val) {
-      unfoldVal = val;
-      state = (val == nullptr) ? INVALID : UNFOLD;
-    }
-    explicit DimValue(int64_t val) {
-      foldVal = val;
-      state = (val >= 0) ? FOLD : INVALID;
-    }
-    bool isValid() const { return state != INVALID; }
-    void dump() const {
-      if (state == FOLD) {
-        llvm::errs() << "Fold value: " << foldVal << "\n";
-      } else if (state == UNFOLD) {
-        llvm::errs() << "Unfold value: ";
-        auto& non_const = const_cast<Value&>(unfoldVal);
-        non_const.dump();
-      } else {
-        llvm::errs() << "Invalid DimValue\n";
-      }
-    }
-    inline bool operator==(const DimValue& dimVal) const {
-      if (state == dimVal.state) {
-        return (state == FOLD && foldVal == dimVal.foldVal) ||
-               (state == UNFOLD && unfoldVal == dimVal.unfoldVal);
-      }
-      return false;
-    }
-    inline bool operator!=(const DimValue& dimVal) const {
-      return !(*this == dimVal);
-    }
-    inline bool operator<(const DimValue& dimVal) const {
-      if (state != dimVal.state) {
-        return state < dimVal.state;
-      } else if (foldVal != dimVal.foldVal) {
-        return foldVal < dimVal.foldVal;
-      } else {
-        return unfoldVal.getAsOpaquePointer() <
-               dimVal.unfoldVal.getAsOpaquePointer();
-      }
-    }
-    std::size_t hash() const {
-      std::size_t h = llvm::hash_value(state);
-      h = llvm::hash_combine(h, llvm::hash_value(foldVal));
-      h = llvm::hash_combine(h, mlir::hash_value(unfoldVal));
-      return h;
-    }
-  };
-
-  struct DimValueHash {
-    std::size_t operator()(const DimValue& dimVal) const {
-      return dimVal.hash();
-    }
-  };
-
-  struct DimValueContainerHash {
-    std::size_t operator()(const std::vector<DimValue>& ds) const {
-      std::size_t hash = llvm::hash_value(ds.size());
-      for (const auto& d : ds) {
-        hash = llvm::hash_combine(hash, d.hash());
-      }
-      return hash;
-    }
-  };
 
   LogicalResult run();
 
@@ -172,6 +172,8 @@ class ShapeAnalysis {
 
   Type getRefinedType(Value value);
 
+  SymbolShape* getShape(Value value);
+  DimValue getDimValue(Value operand, int64_t dim);
   bool isDimEqual(Value lhs, int64_t lhsDim, Value rhs, int64_t rhsDim);
   bool isShapeEqual(Value lhs, Value rhs);
   bool isShapeValueEqual(Value lhs, Value rhs);
@@ -235,8 +237,6 @@ class ShapeAnalysis {
   SymbolDim* getDim(Value value, int64_t dim);
   DimValue getRootDimValue(DimValue dimValue);
   DimValue getDimValue(SymbolDim* symbolDim);
-  DimValue getDimValue(Value operand, int64_t dim);
-  SymbolShape* getShape(Value value);
 
   LogicalResult mapDimEqual(SymbolDim* lhs, SymbolDim* rhs);
   LogicalResult mapDimEqual(Value lhs, int64_t lhsDim, Value rhs,

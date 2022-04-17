@@ -87,12 +87,21 @@ find_package(Protobuf ${Tensorflow_PB_VERSION}
     QUIET
 )
 if(NOT DEFINED Protobuf_PROTOC_EXECUTABLE)
-    tao_execute_cmd('
-        DESC "download protoc"
-        PWD "."
-        COMMAND bash ${tao_ops_SOURCE_DIR}/tools/download_protoc.sh ${CMAKE_CURRENT_BINARY_DIR} ${Tensorflow_PB_VERSION}
-        STD_OUT Protobuf_PROTOC_EXECUTABLE
-    )
+    if(${TAO_AARCH64})
+        tao_execute_cmd('
+            DESC "download protoc"
+            PWD "."
+            COMMAND bash ${tao_ops_SOURCE_DIR}/tools/download_protoc.sh ${CMAKE_CURRENT_BINARY_DIR} ${Tensorflow_PB_VERSION} "linux-aarch_64"
+            STD_OUT Protobuf_PROTOC_EXECUTABLE
+        )
+    else()
+        tao_execute_cmd('
+            DESC "download protoc"
+            PWD "."
+            COMMAND bash ${tao_ops_SOURCE_DIR}/tools/download_protoc.sh ${CMAKE_CURRENT_BINARY_DIR} ${Tensorflow_PB_VERSION} "linux-x86_64"
+            STD_OUT Protobuf_PROTOC_EXECUTABLE
+        )
+    endif()
 endif()
 message(STATUS "Download protoc to:\n   " ${Protobuf_PROTOC_EXECUTABLE})
 
@@ -145,6 +154,14 @@ add_compile_options(-g -DNDEBUG -O3 ${TF_CFLAGS})
 
 if(${TAO_CPU_ONLY})
   add_compile_options(-DTAO_CPU_ONLY)
+endif()
+
+if(${TAO_X86})
+  add_compile_options(-DTAO_X86)
+endif()
+
+if(${TAO_AARCH64})
+  add_compile_options(-DTAO_AARCH64)
 endif()
 
 if(${BLAZE_OPT})
@@ -283,6 +300,8 @@ if(${ENABLE_BLADE_GEMM})
 endif()
 if(${TAO_ENABLE_MKLDNN})
   target_link_libraries(tao_ops dnnl)
-  set(MKL_LINK_OPTION "-Wl,--start-group ${MKL_ROOT}/lib/libmkl_intel_ilp64.a ${MKL_ROOT}/lib/libmkl_gnu_thread.a ${MKL_ROOT}/lib/libmkl_core.a -Wl,--end-group -lgomp -lpthread -lm -ldl")
-  target_link_libraries(tao_ops ${MKL_LINK_OPTION})
+  if(${TAO_X86})
+    set(MKL_LINK_OPTION "-Wl,--start-group ${MKL_ROOT}/lib/libmkl_intel_ilp64.a ${MKL_ROOT}/lib/libmkl_gnu_thread.a ${MKL_ROOT}/lib/libmkl_core.a -Wl,--end-group -lgomp -lpthread -lm -ldl")
+    target_link_libraries(tao_ops ${MKL_LINK_OPTION})
+  endif()
 endif()

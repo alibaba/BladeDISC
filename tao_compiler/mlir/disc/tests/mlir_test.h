@@ -49,9 +49,17 @@ using tensorflow::DataType;
 
 enum class DeviceType { kCPU, kGPU };
 
-enum class BackendType {
-  kCuda,
-  kX86  // unimplemented, just placeholder
+enum class BackendType { kCuda, kX86, kAArch64 };
+
+static const std::vector<BackendType> kSupportedBackendList{
+    BackendType::kCuda,
+    BackendType::kX86,
+    BackendType::kAArch64,
+};
+
+static const std::vector<BackendType> kSupportedCPUBackendList{
+    BackendType::kX86,
+    BackendType::kAArch64,
 };
 
 class MlirTest {

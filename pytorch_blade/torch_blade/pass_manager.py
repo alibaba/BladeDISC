@@ -15,6 +15,7 @@ from torch.onnx import OperatorExportTypes
 from torch.onnx.symbolic_helper import _export_onnx_opset_version
 
 import torch_blade
+from torch_blade import utils
 from torch_blade import tools
 from torch_blade.config import Config, OptPipelines
 from torch_blade.python_ir_analysis import _jit_pass_clean_python_ir
@@ -27,34 +28,53 @@ from torch_blade.python_ir_analysis import _jit_pass_clean_python_ir
 IGNORE_DYNAMIC_RANK = True
 
 
-def _get_dynamic_axes(input_list):
+def _get_dynamic_axes(input_list, dynamic_axes):
     dyn_axs = {}
-    for inp in input_list:
+    if dynamic_axes is None:
+        return dyn_axs
+
+    for inp, axes_ds in zip(input_list, dynamic_axes):
         name = inp.debugName()
         axes = {}
         for idx, d in enumerate(inp.type().sizes()):
+            if axes_ds[idx] == d:
+                continue
             axes[idx] = "{}_axis_{}".format(name, idx)
         dyn_axs[name] = axes
     return dyn_axs
 
 
-def _export_onnx(graph, params_dict, use_dyn=False):
-    # Note: TRT7 support opset 11
+def _set_opset_version_from_config():
+    """
+    Consulting cfg.customize_onnx_opset_version and set global ONNX opset
+    version. And return the opset version.
+    """
     cfg = Config.get_current_context_or_new()
     if cfg.customize_onnx_opset_version:
         opset_version = cfg.customize_onnx_opset_version
     else:
         opset_version = _default_onnx_opset_version
     _set_opset_version(opset_version)
+    return opset_version
 
-    dynamic_axes = {} if not use_dyn else _get_dynamic_axes(graph.input_list())
+
+def _export_onnx(graph, dynamic_axes, fold_constants=False):
+    # Note: TRT7 support opset 11
+    opset_version = _set_opset_version_from_config()
+
+    if fold_constants:
+        graph, params_dict = _jit_pass_onnx_constfold(graph, {})
+    else:
+        params_dict = {}
+
+    dynamic_axes = _get_dynamic_axes(graph.input_list(), dynamic_axes)
     defer_weight_export = False
     operator_export_type = OperatorExportTypes.ONNX
     strip_doc_string = True
     val_keep_init_as_ip = False
     custom_opsets = {}
     val_add_node_names = True
-    proto, _ = graph._export_onnx(
+    proto = graph._export_onnx(
         params_dict,
         opset_version,
         dynamic_axes,
@@ -64,7 +84,7 @@ def _export_onnx(graph, params_dict, use_dyn=False):
         val_keep_init_as_ip,
         custom_opsets,
         val_add_node_names,
-    )
+    )[0]
     return proto
 
 
@@ -78,6 +98,9 @@ def _jit_pass_lint(graph):
 
 def _jit_pass_lower_to_onnx(graph):
     """ currently _jit_pass_lower_all_tuples will modified the graph output if it's tuple"""
+    # NB(xiafei.qiuxf): Should set opset version here to be consistent with _export_onnx.
+    _set_opset_version_from_config()
+
     # onnx does not support tuples, so try to remove them
     # torch._C._jit_pass_lower_all_tuples(graph)
     # torch._C._jit_pass_peephole(graph, True)
@@ -93,9 +116,19 @@ def _jit_pass_lower_to_onnx(graph):
     # onnx only supports tensors, so we turn all out number types into tensors
     torch._C._jit_pass_erase_number_types(graph)
 
-    onnx_graph, value_map = torch_blade.tools._jit_pass_onnx(
-        graph, OperatorExportTypes.ONNX
-    )
+    # Should update torch_blade.tools._jit_pass_onnx to
+    # https://github.com/pytorch/pytorch/blob/v1.11.0/torch/csrc/jit/passes/onnx.cpp#L167
+    #
+    # But something weird happened:
+    # call to ConstantValueMap::ClearMaps() in C++ will segfault
+    if utils.torch_version_number() >= utils.parse_version("1.11.0"):
+        onnx_graph = torch._C._jit_pass_onnx(graph, OperatorExportTypes.ONNX)
+        # fix(tanyo): call to torch_blade.tools._jit_pass_onnx would segfault
+        value_map = dict()
+    else:
+        onnx_graph, value_map = torch_blade.tools._jit_pass_onnx(
+            graph, OperatorExportTypes.ONNX
+        )
 
     # extract debugName to avoid crash (caused by jit_pass which may modify jit.Value)
     value_map = {
@@ -109,10 +142,13 @@ def _jit_pass_lower_to_onnx(graph):
     # lint the graph
     torch._C._jit_pass_lint(onnx_graph)
 
-    torch._C._jit_pass_onnx_scalar_type_analysis(onnx_graph)
+    from torch.onnx.symbolic_helper import _export_onnx_opset_version
+    if utils.torch_version_number() >= utils.parse_version("1.11.0"):
+        torch._C._jit_pass_onnx_scalar_type_analysis(onnx_graph, True, _export_onnx_opset_version)
+    else:
+        torch._C._jit_pass_onnx_scalar_type_analysis(onnx_graph)
     torch._C._jit_pass_lint(onnx_graph)
 
-    from torch.onnx.symbolic_helper import _export_onnx_opset_version
     torch._C._jit_pass_onnx_peephole(onnx_graph, _export_onnx_opset_version, False)
     torch._C._jit_pass_lint(onnx_graph)
 

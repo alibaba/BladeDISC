@@ -19,8 +19,8 @@
 #include <vector>
 
 #include "tao_bridge/common.h"
-#include "tao_bridge/ral/tensorflow/compiler/mlir/xla/ral/context/tensorflow/tf_context_impl.h"
 #include "tao_bridge/tao_compilation_result.pb.h"
+#include "tensorflow/compiler/mlir/xla/ral/context/tensorflow/tf_context_impl.h"
 #include "tensorflow/core/framework/op_kernel.h"
 #include "tensorflow/stream_executor/device_memory.h"
 

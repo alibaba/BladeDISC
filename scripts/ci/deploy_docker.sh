@@ -43,12 +43,21 @@ function docker_login() {
       docker login --username "$ALIYUN_DOCKER_USERNAME" --password-stdin ${ALIYUN_DOCKER_DOMAIN}
 }
 
-function push_images() {
+function push_dev_image() {
   docker_login
   if [[ ! -z "${REMOTE_DEV_DOCKER}" ]]; then
     push_image ${LOCAL_DEV_DOCKER} ${REMOTE_DEV_DOCKER}
   fi
+}
+
+function push_deploy_image() {
+  docker_login
   if [[ ! -z "${REMOTE_RUNTIME_DOCKER}" ]]; then
     push_image ${REMOTE_RUNTIME_DOCKER} ${REMOTE_RUNTIME_DOCKER}
   fi
+}
+
+function push_images() {
+  push_dev_image
+  push_deploy_image
 }

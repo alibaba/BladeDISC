@@ -17,6 +17,7 @@ import sys
 import venv
 
 from common_setup import running_on_ci, remote_cache_token, which
+from common_setup import is_aarch64
 from torch_blade_build import TorchBladeBuild, get_fullpath_or_create
 
 cwd = os.path.dirname(os.path.abspath(__file__))
@@ -39,16 +40,15 @@ def _symlink_force(target, link_name):
 class BazelBuild(TorchBladeBuild):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.test_suite = "//src:torch_blade_gtests"
         self.targets = [
             "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_compiler_main",
-            "//src:_torch_blade.so",
-            self.test_suite,
+            "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:libral_base_context.so",
+            "//src:libtorch_blade.so",
+            "//src:_torch_blade.so"
         ]
-        self.torch_lib_dir = os.path.join(self.torch_dir, 'lib')
         torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]
         self.extra_opts = [
-            "--copt=-DPYTORCH_VERSION_STRING={}".format(self.torch_version),
+            "--copt=-DPYTORCH_VERSION_STRING=\\\"{}\\\"".format(self.torch_version),
             "--copt=-DPYTORCH_MAJOR_VERSION={}".format(torch_major_version),
             "--copt=-DPYTORCH_MINOR_VERSION={}".format(torch_minor_version),
             "--copt=-DTORCH_BLADE_CUDA_VERSION={}".format(self.cuda_version),
@@ -65,20 +65,30 @@ class BazelBuild(TorchBladeBuild):
         self.configs = ["--config=cxx11abi_{}".format(int(self.GLIBCXX_USE_CXX11_ABI))]
         if self.is_debug:
             self.configs.append("--config=dbg")
+        else:
+            self.configs.append("--compilation_mode=opt")
 
         if self.cuda_available:
-            self.configs.append("--config=torch_disc_cuda")
+            self.configs.append("--config=torch_cuda")
         else:
-            self.configs += ["--config=torch_disc_cpu"]
+            if is_aarch64():
+                self.configs += ["--config=torch_aarch64"]
+            else:
+                self.configs += ["--config=torch_x86"]
+
+        if self.cuda_available and self.build_tensorrt:
+            self.configs.append("--config=torch_tensorrt")
+            self.extra_opts += [
+                "--action_env TENSORRT_INSTALL_PATH={}".format(self.tensorrt_dir)]
 
         if running_on_ci():
             self.configs += ["--config=ci_build"]
 
         self.shell_setting = "set -e; set -o pipefail; "
         # Workaround: this venv ensure that $(/usr/bin/env python) is evaluated to python3
-        venv.create("bazel_pyenv")
-        self.build_cmd = "source bazel_pyenv/bin/activate; bazel build"
-        self.test_cmd = "source bazel_pyenv/bin/activate; bazel test"
+        venv.create(".bazel_pyenv", clear=True)
+        self.build_cmd = "source .bazel_pyenv/bin/activate; bazel build"
+        self.test_cmd = "source .bazel_pyenv/bin/activate; bazel test"
 
     def run(self, extdir=None, srcdir=None, build_temp=None):
         srcdir = get_fullpath_or_create(
@@ -105,21 +115,24 @@ class BazelBuild(TorchBladeBuild):
         _make_executable("debug_bazel.sh")
 
         bazel_cmd = " ".join([bazel_cmd] + self.targets)
-
         subprocess.check_call(
             bazel_cmd, shell=True, env=env, executable="/bin/bash"
         )
 
-        ext_so_fpath = "src/_torch_blade.so"
-        ral_so_fpath = "external/org_tensorflow/tensorflow/compiler/mlir/xla/ral/libral_base_context.so"
-        disc_bin_fpath = (
-            "external/org_tensorflow/tensorflow/compiler/mlir/disc/disc_compiler_main"
-        )
-
-        for fpath in [ext_so_fpath, ral_so_fpath, disc_bin_fpath]:
-            fpath = os.path.realpath(os.path.join(bazel_bin_dir, fpath))
+        # If you want to package more files, please extends the distribution.cfg.
+        # We symlink those files into extension's directory, since that
+        # python distribute utils will copy into the distribution package.
+        #
+        # Note that only the following file pathes would be accepted:
+        # 1. file pathes relevent to your bazel bin directory
+        # 2. absolute file pathes
+        for fpath in open("distribution.cfg"):
+            fpath = os.path.realpath(os.path.join(bazel_bin_dir, fpath.strip()))
             fname = os.path.basename(fpath)
-            _symlink_force(fpath, os.path.join(extdir, fname))
+            if os.path.exists(fpath):
+                _symlink_force(fpath, os.path.join(extdir, fname))
+            else:
+                print(f"{fpath} configured to distribution doesn't exists")
 
     def test(self):
         env = os.environ.copy()
@@ -131,7 +144,7 @@ class BazelBuild(TorchBladeBuild):
             [self.shell_setting, self.test_cmd]
             + self.extra_opts
             + self.configs
-            + [self.test_suite]
+            + ["//src/...", "--build_tests_only"]
         )
         subprocess.check_call(test_cmd, shell=True, env=env, executable="/bin/bash")
 

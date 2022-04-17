@@ -26,7 +26,8 @@ const std::string c_ft_path =
 TEST(TFAddV2OpTest, StaticShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "add_v2_s_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x100xf32_X", "100x100xf32_X"},
@@ -37,7 +38,8 @@ TEST(TFAddV2OpTest, StaticShape2DF32) {
 TEST(TFAddV2OpTest, FullyDynamicShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "add_v2_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x100xf32_X", "100x100xf32_X"},
@@ -48,7 +50,8 @@ TEST(TFAddV2OpTest, FullyDynamicShape2DF32) {
 TEST(TFAddV2OpTest, PartialShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "add_v2_p_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x13xf32_X", "100x13xf32_X"},
@@ -59,7 +62,8 @@ TEST(TFAddV2OpTest, PartialShape2DF32) {
 TEST(TFAddV2OpTest, ImplicitBroadcast2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "add_v2_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x100xf32_X", "17x1xf32_X"},

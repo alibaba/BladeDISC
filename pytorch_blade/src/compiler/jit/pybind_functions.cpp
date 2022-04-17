@@ -59,12 +59,16 @@ void initToolsBindings(py::module& m) {
   py::module tools =
       m.def_submodule("_tools", "torch_blade python toolkit bindings");
 
+  tools.def("read_bool_from_env", env::ReadBoolFromEnvVar);
   tools.def("merge_node_into_group", &torch::blade::MergeNodeIntoGroup);
   tools.def("clone_cpp_module", &torch::blade::clone_cpp_module);
   tools.def(
       "create_method_from_graph", &torch::blade::create_method_from_graph);
   tools.def("unsafe_remove_method", &torch::blade::unsafe_remove_method);
   tools.def("get_list_tensor_type", &torch::blade::get_list_tensor_type);
+  tools.def(
+      "create_tensor_type_from_scalar_type",
+      &torch::blade::create_tensor_type_from_scalar_type);
   tools.def("_jit_pass_const_loop_unrolling", &torch::blade::UnrollConstLoops);
 
   // PyTorch does not expose `torch::jit::Node::{isBefore,isAfter}` to

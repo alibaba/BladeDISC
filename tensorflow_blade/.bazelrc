@@ -1,0 +1,12 @@
+# common config
+common --color=yes
+common --experimental_ui_max_stdouterr_bytes=5242880
+common --experimental_repo_remote_exec
+test --jobs=1
+test --test_timeout=100000
+test --verbose_failures
+test --test_output=errors
+build --verbose_failures
+build --spawn_strategy=local  # this is a workaround to include third party source files with BUILD.bazel.
+
+try-import %workspace%/.bazelrc_gen

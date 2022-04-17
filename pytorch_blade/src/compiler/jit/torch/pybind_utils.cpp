@@ -9,7 +9,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "common_utils/version.h"
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 8
 
 #include <torch/csrc/jit/python/pybind_utils.h>
@@ -236,7 +235,12 @@ IValue toIValue(py::handle obj, const TypePtr& type, c10::optional<int32_t> N) {
       }
       // check if the classType conform with the interface or not
       std::stringstream why_not;
+
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 11
+      if (!classType->isSubtypeOfExt(*interfaceType, &why_not)) {
+#else
       if (!classType->isSubtypeOfExt(interfaceType, &why_not)) {
+#endif
         throw py::cast_error(c10::str(
             "Object ",
             py::str(obj),

@@ -44,6 +44,8 @@ from common_setup import (
     running_on_ci,
     ci_build_flag,
     remote_cache_token,
+    update_cpu_specific_setting,
+    acl_root_dir,
 )
 
 from tao_common import (
@@ -107,7 +109,6 @@ def add_ral_link_if_not_exist(root):
         execute("ln -s {0}/{1}/ral/{2} {2}".format(root, RAL_DIR_IN_TF, PROTO))
 
 
-
 def tao_ci_conf_file():
     root = get_source_root_dir()
     return os.path.join(root, "scripts", "ci", ".tao_ci_conf")
@@ -155,6 +156,11 @@ def configure_compiler(root, args):
                 f.write("\n")
                 f.write("build --remote_cache={}\n".format(token))
                 f.write("test --remote_cache={}\n".format(token))
+        with open(".tf_configure.bazelrc", "a") as f:
+            f.write("\n")
+            bazel_startup_opts = "--host_jvm_args=-Djdk.http.auth.tunneling.disabledSchemes="
+            f.write("startup {}\n".format(bazel_startup_opts))
+
     logger.info("Stage [configure] success.")
 
 @time_stage()
@@ -172,6 +178,7 @@ def configure(root, args):
     with cwd(tao_bridge_build_dir), gcc_env(args.bridge_gcc):
         cc = which("gcc")
         cxx = which("g++")
+        envs = " CC={} CXX={} ".format(cc, cxx)
         if args.build_in_tf_addon:
             # called from tensorflow_addons
             flags = "-DTAO_ENABLE_WARMUP_XFLOW=OFF"
@@ -192,10 +199,17 @@ def configure(root, args):
         )
         if args.enable_mkldnn:
             flags +=" -DMKL_ROOT={} ".format(mkl_install_dir(root))
+        flags += " -DTAO_X86={}".format(args.x86)
+        flags += " -DTAO_AARCH64={}".format(args.aarch64)
+        if args.aarch64:
+             acl_root = acl_root_dir(root)
+             envs += " ACL_ROOT_DIR={} ".format(acl_root)
+             flags += " -DDNNL_AARCH64_USE_ACL=ON "
+
 
         cmake_cmd = (
-            "CC={} CXX={} cmake .. -DPYTHON={}/bin/{} {}".format(
-                cc, cxx, args.venv_dir, PYTHON_BIN_NAME, flags
+            "{} cmake .. -DPYTHON={}/bin/{} {}".format(
+                envs, args.venv_dir, PYTHON_BIN_NAME, flags
             )
         )
         logger.info("configuring tao_bridge ......")
@@ -209,42 +223,6 @@ def configure(root, args):
             )
         )
     configure_compiler(root, args)
-
-
-@time_stage()
-def configure_cpu(root, args):
-    """ For cpu only, venv activation required"""
-    save_gcc_conf(args)
-    add_ral_link_if_not_exist(root)
-    tao_bridge_build_dir = tao_build_dir(root)
-    old = os.environ.get("LD_LIBRARY_PATH")
-    tvm_path = "{}/lib/python3.6/site-packages/tvm".format(args.venv_dir)
-    if old:
-        os.environ["LD_LIBRARY_PATH"] = tvm_path + ":" + old
-    else:
-        os.environ["LD_LIBRARY_PATH"] = tvm_path
-    ensure_empty_dir(tao_bridge_build_dir, clear_hidden=False)
-    with cwd(tao_bridge_build_dir), gcc_env(args.bridge_gcc):
-        cc = which("gcc")
-        cxx = which("g++")
-        flags = "-DTAO_CPU_ONLY=true"
-        cmake_cmd = "CC={} CXX={} cmake .. -DPYTHON={}/bin/python -DTAO_ENABLE_CXX_TESTING=ON  {}".format(
-            cc, cxx, args.venv_dir, flags
-        )
-        logger.info("configuring tao_bridge ......")
-        execute(cmake_cmd)
-        logger.info("Stage [configure_cpu] success.")
-
-    with cwd(root), gcc_env(args.compiler_gcc), default_env("TF_NEED_TVM", "0"):
-        logger.info("configuring tao_compiler ......")
-        # copy version.h from tao_bridge
-        execute(
-            "cp {}/tao_bridge/version.h tensorflow/compiler/decoupling/version.h".format(
-                tao_bridge_build_dir
-            )
-        )
-        execute("source {}/bin/activate;./auto_configure".format(args.venv_dir))
-
 
 
 @time_stage()
@@ -274,7 +252,10 @@ def build_tao_compiler(root, args):
         )
 
         if args.cpu_only:
-            flag = '--cxxopt=-DTAO_CPU_ONLY --config=release_cpu_linux'
+            if args.aarch64:
+                flag = '--config=disc_aarch64 '
+            else:
+                flag = '--config=disc_x86 '
         elif args.dcu:
             flag = "--config=dcu"
         else:
@@ -287,7 +268,7 @@ def build_tao_compiler(root, args):
             flag += ' --cxxopt="-DBLAZE_OPT"'
 
         if args.enable_mkldnn:
-            flag += ' --cxxopt="-DTAO_ENABLE_MKLDNN" --define is_mkldnn=true'
+            flag += ' --config=disc_mkldnn'
 
         bazel_build(TARGET_TAO_COMPILER_MAIN, flag=flag)
         bazel_build(TARGET_DISC_OPT, flag=flag)
@@ -309,7 +290,10 @@ def build_mlir_ral(root, args):
         else:
             configs.append('--config=disc_cuda')
     else:
-        configs.append('--config=disc_cpu')
+        if args.aarch64:
+            configs.append('--config=disc_aarch64')
+        else:
+            configs.append('--config=disc_x86')
 
     if args.enable_blaze_opt:
         configs.append('--config=disc_blaze')
@@ -393,9 +377,12 @@ def test_tao_compiler(root, args):
             )
         )
         if args.cpu_only:
-            flag = '--cxxopt="-DTAO_CPU_ONLY" --config=release_cpu_linux '
+            if args.aarch64:
+                flag = '--config=disc_aarch64 '
+            else:
+                flag = '--config=disc_x86 '
             if args.enable_mkldnn:
-                flag += ' --cxxopt="-DTAO_ENABLE_MKLDNN" --define is_mkldnn=true'
+                flag += ' --config=disc_mkldnn'
             mlir_test_list = [
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
@@ -591,7 +578,7 @@ def parse_args():
     parser.add_argument(
         "--compiler-gcc",
         required=False,
-        choices=["7.3", "default"],
+        choices=["7.3", "7.5", "default"],
         help="GCC version to compile tao compiler, required for configure stages.",
     )
     parser.add_argument(
@@ -706,8 +693,7 @@ def parse_args():
     assert os.path.exists(args.venv_dir), "virtualenv directory does not exist."
     args.venv_dir = os.path.abspath(args.venv_dir)
 
-    # TODO(disc): support other type of CPUs.
-    args.enable_mkldnn = args.cpu_only
+    update_cpu_specific_setting(args)
 
     if args.stage in ["all", "configure"]:
         assert args.bridge_gcc, "--bridge-gcc is required."
@@ -737,14 +723,14 @@ def main():
     if stage in ["all", "configure", "configure_pytorch"]:
         if args.enable_mkldnn:
             with gcc_env(args.bridge_gcc):
-                config_mkldnn(root, args.ral_cxx11_abi)
+                config_mkldnn(root, args)
         if stage == "configure_pytorch":
             configure_pytorch(root, args)
         else:
             configure(root, args)
 
     restore_gcc_conf(args)
-    assert args.compiler_gcc in ["7.3", "default"], "compiler_gcc {} not supported".format(
+    assert args.compiler_gcc in ["7.3", "7.5", "default"], "compiler_gcc {} not supported".format(
         args.compiler_gcc
     )
 

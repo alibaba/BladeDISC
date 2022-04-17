@@ -251,32 +251,66 @@ def mkldnn_build_dir(root=None):
 def mkl_install_dir(root):
     return os.path.join(mkldnn_build_dir(root), "intel")
 
+def acl_root_dir(root):
+    return os.path.join(mkldnn_build_dir(root), 'acl', 'ComputeLibrary')
 
-def config_mkldnn(root, cxx11_abi):
+def config_mkldnn(root, args):
     build_dir = mkldnn_build_dir(root)
     ensure_empty_dir(build_dir, clear_hidden=False)
     mkl_dir = mkl_install_dir(root)
+    acl_dir = acl_root_dir(root)
     ensure_empty_dir(mkl_dir, clear_hidden=False)
-    # download mkl-lib/include
-    with cwd(mkl_dir):
-        download_cmd = """
-          unset HTTPS_PROXY
-          curl -fsSL https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-static-2022.0.1-intel_117.tar.bz2  | tar xjv
-          curl -fsSL https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-include-2022.0.1-h8d4b97c_803.tar.bz2 | tar xjv
-        """
-        execute(download_cmd)
+    ensure_empty_dir(acl_dir, clear_hidden=False)
+    if args.x86:
+        with cwd(mkl_dir):
+            # download mkl-lib/include
+            download_cmd = """
+              unset HTTPS_PROXY
+              curl -fsSL https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-static-2022.0.1-intel_117.tar.bz2  | tar xjv
+              curl -fsSL https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-include-2022.0.1-h8d4b97c_803.tar.bz2 | tar xjv
+            """
+            execute(download_cmd)
+
+    if args.aarch64:
+        with cwd(acl_dir):
+            # downlaod and build acl for onednn
+            cmd = '''
+              readonly ACL_REPO="https://github.com/ARM-software/ComputeLibrary.git"
+              MAKE_NP="-j$(grep -c processor /proc/cpuinfo)"
+
+              ACL_DIR={}
+              git clone --branch v22.02 --depth 1 $ACL_REPO $ACL_DIR
+              cd $ACL_DIR
+
+              scons --silent $MAKE_NP Werror=0 debug=0 neon=1 opencl=0 embed_kernels=0 os=linux arch=arm64-v8a build=native extra_cxx_flags="-fPIC"
+
+              exit $?
+            '''.format(acl_dir)
+            execute(cmd)
+            # a workaround for static linking
+            execute('rm -f build/*.so')
+            execute('mv build/libarm_compute-static.a build/libarm_compute.a')
+            execute('mv build/libarm_compute_core-static.a build/libarm_compute_core.a')
+            execute('mv build/libarm_compute_graph-static.a build/libarm_compute_graph.a')
 
     with cwd(build_dir):
         cc = which("gcc")
         cxx = which("g++")
         # always link patine statically
-        cmake_cmd = "CC={} CXX={} cmake .. -DMKL_ROOT={}".format(cc, cxx, mkl_dir)
-        if cxx11_abi:
-            cmake_cmd += " -DUSE_CXX11_ABI=ON"
+        flags = " -DMKL_ROOT={} ".format(mkl_dir)
+        envs = " CC={} CXX={} ".format(cc, cxx)
+        if args.aarch64:
+            envs += " ACL_ROOT_DIR={} ".format(acl_dir)
+            flags += " -DDNNL_AARCH64_USE_ACL=ON "
+
+        if args.ral_cxx11_abi:
+            flags += " -DUSE_CXX11_ABI=ON"
+
+        cmake_cmd = "{}  cmake .. {}".format(envs, flags)
+
         logger.info("configuring mkldnn ......")
         execute(cmake_cmd)
         logger.info("mkldnn configure success.")
-
 
 @time_stage()
 def build_mkldnn(root):
@@ -286,6 +320,40 @@ def build_mkldnn(root):
         execute("make install")
     logger.info("Stage [build_mkldnn] success.")
 
+def is_x86():
+    import platform
+    # TODO(disc): fine-grained check for intel/amd64
+    return platform.processor() == 'x86_64'
+
+def is_aarch64():
+    import platform
+    return platform.processor() == 'aarch64'
+
+def auto_detect_host_cpu(args):
+    if not hasattr(args, 'x86') or not args.x86:
+        args.x86 = is_x86()
+    if not hasattr(args, 'aarch64') or not args.aarch64:
+        args.aarch64 = is_aarch64()
+
+    enabled_cpus = int(args.x86) + int(args.aarch64)
+    if enabled_cpus > 1:
+        raise RuntimeError("invalid config: more than oen cpu type is specified")
+    if enabled_cpus < 1:
+        raise RuntimeError("auto_detect_host_cpu failed")
+
+def update_cpu_specific_setting(args):
+    if not hasattr(args, 'x86'):
+        args.x86 = False
+    if not hasattr(args, 'aarch64'):
+        args.aarch64 = False
+    if not hasattr(args, 'enable_mkldnn'):
+        args.enable_mkldnn = False
+    if not hasattr(args, 'cpu_only'):
+        args.cpu_only = False
+
+    if args.cpu_only:
+        auto_detect_host_cpu(args)
+        args.enable_mkldnn = (args.x86 or args.aarch64)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -295,9 +363,20 @@ if __name__ == "__main__":
         action="store_true",
         help="Build with cxx11 abi or not",
     )
+    parser.add_argument(
+        "--cpu_only",
+        required=False,
+        action="store_true",
+        help="Build tao with cpu support only",
+    )
     args = parser.parse_args()
+    # backward compatibility
+    args.ral_cxx11_abi = args.cxx11_abi
+    update_cpu_specific_setting(args)
 
     root = get_source_root_dir()
     symlink_files(root)
-    config_mkldnn(root, args.cxx11_abi)
-    build_mkldnn(root)
+
+    if args.enable_mkldnn:
+        config_mkldnn(root, args)
+        build_mkldnn(root)

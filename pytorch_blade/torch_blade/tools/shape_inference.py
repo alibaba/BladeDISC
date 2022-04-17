@@ -156,4 +156,3 @@ def record_shape_by_tracing(module, inputs, graph=None):
         loop_inps = loop.input_list()[2:]
         for blk_inp, loop_inp in zip(blk_inps, loop_inps):
             blk_inp.setTypeAs(loop_inp)
-

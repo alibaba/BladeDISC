@@ -1,4 +1,5 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+load("//bazel:build_defs.bzl", "if_platform_alibaba")
 
 filegroup(
     name = "torch_blade_mhlo_converter_srcs",
@@ -17,11 +18,12 @@ cc_library(
     name = "torch_blade_mhlo_converter",
     srcs = [":torch_blade_mhlo_converter_srcs"],
     hdrs = [":torch_blade_mhlo_converter_hdrs"],
-    includes = ["../../../"],
     visibility = [
         "//visibility:public",
     ],
     deps = [
+	"//src:torch_blade_include",
+	"//src/common_utils:torch_blade_logging",
         "@local_org_torch//:libtorch",
         "@org_mhlo_builder//csrc:mhlo_library",
     ],
@@ -38,9 +40,8 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//src/compiler/jit:torch_blade_jit",
-        "//src/compiler/mlir/converters:torch_blade_mhlo_converter",
+        "//src:torch_blade",
         "@googltest//:gtest_main",
         "@local_org_torch//:libtorch",
-    ],
+    ]
 )

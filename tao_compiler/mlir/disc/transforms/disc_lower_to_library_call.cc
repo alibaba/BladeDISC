@@ -248,7 +248,7 @@ struct DotGeneralOpConvertor : public OpRewritePattern<DotGeneralOp> {
 template <typename OpTy>
 Value GetConvMetadata(OpTy op, PatternRewriter& rewriter) {
   // Metadata:
-  //   - input layput: each field for one dimension. The order is:
+  //   - input layout: each field for one dimension. The order is:
   //     * batch, channel, spatial dimensions
   //   - kernel layout: each field for one dimension. The order is:
   //     * in_channel, out_channel, spatial dimensions

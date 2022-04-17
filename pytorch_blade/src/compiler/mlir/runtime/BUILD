@@ -17,14 +17,17 @@ cc_library(
     ] + if_cuda_is_configured([
         "@local_config_cuda//cuda:cuda_headers",
     ]),
+    copts = select({
+       "//:enable_cuda": ["-DTORCH_BLADE_BUILD_WITH_CUDA"],
+       "//conditions:default": []}),
     alwayslink = True,
 )
 
 cc_library(
     name = "torch_blade_disc_rt",
-    srcs = ["disc_engine_class.cpp"],
+    srcs = ["disc_engine.cpp"],
     hdrs = [
-        "disc_engine_class.h",
+        "disc_engine.h",
         "ral_context.h",
     ],
     visibility = [
@@ -32,7 +35,11 @@ cc_library(
     ],
     deps = [
         ":torch_blade_ral_context",
+	"//src/compiler/backends:torch_blade_backends",
         "@local_org_torch//:libtorch",
     ],
+    copts = select({
+       "//:enable_cuda": ["-DTORCH_BLADE_BUILD_WITH_CUDA"],
+       "//conditions:default": []}),
     alwayslink = True,
 )

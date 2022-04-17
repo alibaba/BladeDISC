@@ -66,7 +66,6 @@ MhloConverterRegistery& MhloConverterRegistery::RegisterPattern(
 MhloConverterRegistery& MhloConverterRegistery::RegisterPattern(
     const torch::jit::FunctionSchema& signature,
     const OpConverter& converter) {
-  DLOG(INFO) << "Registering converter for " << signature;
   const auto& name = signature.operator_name();
   return RegisterPattern(name, converter);
 }
@@ -92,7 +91,7 @@ c10::optional<OpConverter> MhloConverterRegistery::GetNodeConverter(
   if (iter != converter_lut_.end()) {
     return iter->second;
   }
-  DLOG(INFO) << "Unable to get OpConverter for node: " << node;
+  LOG(WARNING) << "Unable to get OpConverter for node: " << node;
   return c10::nullopt;
 }
 

@@ -14,7 +14,7 @@
 set -ex
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 # bazel cache
-export CXXFLAGS=${CXXFLAGS:-"-Wno-deprecated-dewlarations"}
+export CXXFLAGS=${CXXFLAGS:-"-Wno-deprecated-declarations"}
 export CFLAGS=${CFLAGS:-"-Wno-deprecated-declarations"}
 export CUDA_HOME=${CUDA_HOME:-/usr/local/cuda}
 export CUDACXX=${CUDACXX:-"${CUDA_HOME}/bin/nvcc"}
@@ -23,16 +23,24 @@ export LD_LIBRARY_PATH=${CUDA_HOME}/lib64:$LD_LIBRARY_PATH
 export LIBRARY_PATH=${CUDA_HOME}/lib64:$LIBRARY_PATH
 export TF_REMOTE_CACHE=${TF_REMOTE_CACHE}
 
+if [[ -f ~/.cache/proxy_config ]]; then
+  source ~/.cache/proxy_config
+fi
+
 # cleanup build cache
 (cd tf_community && bazel clean --expunge)
 
 # note(yancey.yx): using virtualenv to avoid permission issue on workflow actions CI,
-python -m virtualenv venv && source venv/bin/activate
+if [ $TORCH_BLADE_CI_BUILD_TORCH_VERSION = "ngc" ]; then
+  python -m virtualenv venv --system-site-packages && source venv/bin/activate
+else
+  python -m virtualenv venv && source venv/bin/activate
+fi
 
 export TORCH_BLADE_CI_BUILD_TORCH_VERSION=${TORCH_BLADE_CI_BUILD_TORCH_VERSION:-1.7.1+cu110}
-(cd pytorch_blade \
+(cd pytorch_blade && bazel clean --expunge \
   && python -m pip install -q -r requirements-dev-${TORCH_BLADE_CI_BUILD_TORCH_VERSION}.txt \
-       -f https://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/pytorch/wheels/repo.html \
+       -f https://download.pytorch.org/whl/torch_stable.html \
   && TORCH_LIB=$(python -c 'import torch; import os; print(os.path.dirname(os.path.abspath(torch.__file__)) + "/lib/")') \
   && export LD_LIBRARY_PATH=$TORCH_LIB:$LD_LIBRARY_PATH \
   && bash ./ci_build/build_pytorch_blade.sh)

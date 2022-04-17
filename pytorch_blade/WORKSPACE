@@ -3,23 +3,6 @@ workspace(name = "org_torch_blade")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
-# buildifier is written in Go and hence needs rules_go to be built.
-# See https://github.com/bazelbuild/rules_go for the up to date setup instructions.
-http_archive(
-    name = "io_bazel_rules_go",
-    sha256 = "2b1641428dff9018f9e85c0384f03ec6c10660d935b750e3fa1492a281a53b0f",
-    urls = [
-        "https://mirror.bazel.build/github.com/bazelbuild/rules_go/releases/download/v0.29.0/rules_go-v0.29.0.zip",
-        "https://github.com/bazelbuild/rules_go/releases/download/v0.29.0/rules_go-v0.29.0.zip",
-    ],
-)
-
-load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
-
-go_rules_dependencies()
-
-go_register_toolchains(version = "1.17.2")
-
 http_archive(
     name = "com_github_bazelbuild_buildtools",
     sha256 = "ae34c344514e08c23e90da0e2d6cb700fcd28e80c02e23e4d5715dddcb42f7b3",
@@ -70,6 +53,14 @@ http_archive(
     ],
 )
 
+load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
+
+rules_foreign_cc_dependencies(
+    register_built_tools = False,  # do not build cmake/make from source,
+    register_default_tools = False,  # nor download from official site,
+    register_preinstalled_tools = True,  # just use the pre-installed.
+)
+
 http_archive(
     name = "io_bazel_rules_docker",
     sha256 = "85ffff62a4c22a74dbd98d05da6cf40f497344b3dbf1e1ab0a37ab2a1a6ca014",
@@ -80,8 +71,15 @@ http_archive(
     ],
 )
 
+local_repository(
+    name = "org_third_party",
+    path = "../third_party/",
+)
+
+load("@org_third_party//bazel/tensorrt:repo.bzl", "tensorrt_configure")
 load("//bazel/torch:repo.bzl", "torch_configure", "torch_pybind11_configure")
 
+tensorrt_configure(name = "tensorrt")
 torch_configure(name = "local_org_torch")
 
 torch_pybind11_configure(
@@ -98,6 +96,9 @@ local_repository(
     name = "org_tensorflow",
     path = "../tf_community",
 )
+
+load("//bazel:platform_alibaba/workspace.bzl", "alibaba_workspace")
+alibaba_workspace()
 
 # Initialize TensorFlow's external dependencies.
 load("@org_tensorflow//tensorflow:workspace3.bzl", "tf_workspace3")

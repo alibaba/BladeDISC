@@ -78,21 +78,17 @@ bool RalContext::CheckCurrentDevice(
   // TODO: to support cpu only torch
   torch::Device cur_cuda_device =
       torch::Device(torch::kCUDA, c10::cuda::current_device());
-  if (input_dev_.empty()) {
-    // NB: to be compatiable with version < 0.0.3
-    return std::all_of(inputs.begin(), inputs.end(), [&](torch::Tensor t) {
-      return t.device() == cur_cuda_device;
-    });
-  } else {
-    TORCH_CHECK(input_dev_.size() == inputs.size());
-    for (size_t k = 0; k < input_dev_.size(); ++k) {
-      torch::Tensor inp = inputs[k];
-      if (input_dev_[k] == "gpu" && inp.device() != cur_cuda_device) {
-        return false;
-      }
+
+  auto& inputs_info = engine_state_->inputs;
+  TORCH_CHECK(inputs_info.size() == inputs.size());
+  for (size_t k = 0; k < inputs.size(); ++k) {
+    torch::Tensor inp = inputs[k];
+    auto device = inputs_info[k].device;
+    if (device == "cuda" && inp.device() != cur_cuda_device) {
+      return false;
     }
-    return true;
   }
+  return true;
 #endif // TORCH_BLADE_BUILD_WITH_CUDA
   return true;
 }
@@ -101,7 +97,8 @@ std::tuple<void*, void*> RalContext::LoadEngine(
     const std::string& ral_engine_bytes) {
   // Also had tried with shm_fs, however, dlopen tao_lib is not always
   // successful.
-  lib_tmpf_.WriteBytesToFile(ral_engine_bytes);
+  auto is_ok = lib_tmpf_.WriteBytesToFile(ral_engine_bytes);
+  TORCH_CHECK(is_ok, "Failed to dump RAL engine to file");
   std::string filename = lib_tmpf_.GetFilename();
   void* tao_lib = dlopen(filename.c_str(), RTLD_NOW | RTLD_LOCAL);
   TORCH_CHECK(tao_lib, "Fail to open ral engine");
@@ -117,21 +114,10 @@ RalContext::~RalContext() {
   }
 }
 
-RalContext::RalContext(
-    const std::string& ral_engine_bytes,
-    const std::string& ral_const_bytes,
-    const std::string& input_type_spec_str,
-    const std::string& output_type_spec_str,
-    const std::string& input_dev_str,
-    const std::string& output_dev_str)
-    : input_type_spec_(
-          std::move(ShapeTypeSpec::Deserialize(input_type_spec_str))),
-      output_type_spec_(
-          std::move(ShapeTypeSpec::Deserialize(output_type_spec_str))) {
-  input_dev_ = split(input_dev_str, ",");
-  output_dev_ = split(output_dev_str, ",");
-
-  meta_tmpf_.WriteBytesToFile(ral_const_bytes);
+RalContext::RalContext(std::shared_ptr<backends::EngineState> state)
+    : engine_state_(state) {
+  auto is_ok = meta_tmpf_.WriteBytesToFile(state->model_proto);
+  TORCH_CHECK(is_ok, "FAiled to dump model proto to file.");
   default_opt_.metadata_file_path = meta_tmpf_.GetFilename();
   default_opt_.cache_workspace_mem_across_execution = true;
   cpu_opt_.cpu_allocator.reset(new RalAllocator(c10::alloc_cpu, c10::free_cpu));
@@ -144,7 +130,7 @@ RalContext::RalContext(
 #endif // TORCH_BLADE_BUILD_WITH_CUDA
 
   void* func_handle = nullptr;
-  std::tie(tao_lib_, func_handle) = LoadEngine(ral_engine_bytes);
+  std::tie(tao_lib_, func_handle) = LoadEngine(state->engine_bytes);
 
   using func_t = void (*)(void**);
   entry_func_ = (func_t)func_handle;
@@ -176,19 +162,17 @@ void RalContext::BindingInputs(
   }
 }
 
-bool IsEmptyTensor(const tao::ral::buffer_shape_t& shape) {
-  for (int64_t dim : shape) {
-    if (dim == 0)
-      return true;
-  }
-  return false;
+inline bool IsEmptyTensor(const tao::ral::buffer_shape_t& shape) {
+  return shape.size() > 0 &&
+      std::any_of(
+             shape.begin(), shape.end(), [](int64_t dim) { return dim == 0; });
 }
 
 torch::List<torch::Tensor> RalContext::CreateAndBindingOutputs(
     tao::ral::ExecutionContext& exec_ctx) const {
   torch::List<torch::Tensor> outputs;
-  const auto& shape_types = output_type_spec_.shape_types();
-  auto num_outputs = shape_types.size();
+
+  auto num_outputs = engine_state_->outputs.size();
   outputs.reserve(num_outputs);
   std::vector<std::unique_ptr<tao::ral::OutputBufferWrapper>> out_bufs(
       num_outputs);
@@ -198,15 +182,11 @@ torch::List<torch::Tensor> RalContext::CreateAndBindingOutputs(
     // So it's thread-safe to reuse the underline memory.
     exec_ctx.bindOutput(idx, &out_buf);
 
-    const auto& shape_type = shape_types[idx];
-    auto scalar_type = shape_type.type;
-
+    const auto& output_info = engine_state_->outputs[idx];
+    auto scalar_type = output_info.scalar_type;
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
-    torch::DeviceType dev_type =
-        torch::kCUDA; // default compatiable with torch_blade version < 0.0.3
-    if (output_dev_.size() > 0) {
-      dev_type = (output_dev_[idx] == "gpu") ? torch::kCUDA : torch::kCPU;
-    }
+    torch::DeviceType dev_type = torch::kCUDA;
+    dev_type = (output_info.device == "cuda") ? torch::kCUDA : torch::kCPU;
 #else
     torch::DeviceType dev_type = torch::kCPU;
 #endif // TORCH_BLADE_BUILD_WITH_CUDA
@@ -254,7 +234,7 @@ tao::ral::BaseContext* RalContext::LoadCache() {
 }
 #endif // TORCH_BLADE_BUILD_WITH_CUDA
 
-torch::List<torch::Tensor> RalContext::Forward(
+torch::List<torch::Tensor> RalContext::Execute(
     const torch::List<torch::Tensor>& inputs) {
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
   auto ral_ctx = LoadCache();

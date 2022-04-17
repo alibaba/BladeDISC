@@ -254,8 +254,17 @@ bool feature_test_main(const std::string& mlir_file_path,
                                  multi_cc_mode, multi_cc_mode_dbg_ptx_only);
 #endif
       } else if (backend_type == BackendType::kX86) {
-#ifdef TAO_CPU_ONLY
+#if TAO_CPU_ONLY and defined(TAO_X86)
         VLOG(0) << "Testing for X86 backend";
+        pass = pass &&
+               feature_test_main(mlir_file_path, backend_type, num_inputs,
+                                 num_outputs, input_descriptors,
+                                 output_descriptors, input_vals, profiling,
+                                 multi_cc_mode, multi_cc_mode_dbg_ptx_only);
+#endif
+      } else if (backend_type == BackendType::kAArch64) {
+#if TAO_CPU_ONLY and defined(TAO_AARCH64)
+        VLOG(0) << "Testing for AArch64 backend";
         pass = pass &&
                feature_test_main(mlir_file_path, backend_type, num_inputs,
                                  num_outputs, input_descriptors,

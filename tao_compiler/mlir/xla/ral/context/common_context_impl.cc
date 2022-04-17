@@ -36,7 +36,7 @@
 #define GCC_WITHOUT_INTRINSICS
 #endif
 
-#if !defined(GCC_WITHOUT_INTRINSICS)
+#if !defined(GCC_WITHOUT_INTRINSICS) and defined(TAO_X86)
 #define X86_DENORM_USE_INTRINSICS
 #endif
 

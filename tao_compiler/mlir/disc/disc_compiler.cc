@@ -128,17 +128,36 @@ LogicalResult RewriteLLVMModule(llvm::Module* m) {
 }
 
 std::unique_ptr<llvm::TargetMachine> GetTargetMachine(llvm::Module* module) {
-  auto tmBuilderOrError = llvm::orc::JITTargetMachineBuilder::detectHost();
-  if (!tmBuilderOrError) {
-    llvm::errs() << "Failed to create a JITTargetMachineBuilder for the host\n";
+  llvm::Triple triple(module->getTargetTriple());
+  if (triple.getTriple().empty()) {
+    triple = llvm::Triple(llvm::sys::getDefaultTargetTriple());
+    module->setTargetTriple(triple.getTriple());
+  }
+  if (VLOG_IS_ON(1)) {
+    llvm::errs() << "host default target triple: "
+                 << llvm::sys::getDefaultTargetTriple() << "\n";
+    llvm::errs() << "host cpu name: " << llvm::sys::getHostCPUName() << "\n";
+  }
+
+  std::string error;
+  const llvm::Target* target =
+      llvm::TargetRegistry::lookupTarget("", triple, error);
+  if (!target) {
     return nullptr;
   }
-  auto tmOrError = tmBuilderOrError->createTargetMachine();
-  if (!tmOrError) {
-    llvm::errs() << "Failed to create a TargetMachine for the host\n";
-    return nullptr;
-  }
-  return std::move(*tmOrError);
+
+  // Retrieve host CPU name and sub-target features and add them to builder.
+  // Relocation model, code model and codegen opt level are kept to default
+  // values.
+  llvm::StringMap<bool> FeatureMap;
+  llvm::SubtargetFeatures Features;
+  llvm::sys::getHostCPUFeatures(FeatureMap);
+  for (auto& Feature : FeatureMap)
+    Features.AddFeature(Feature.first(), Feature.second);
+
+  return std::unique_ptr<llvm::TargetMachine>(target->createTargetMachine(
+      triple.str(), std::string(llvm::sys::getHostCPUName()),
+      Features.getString(), llvm::TargetOptions(), llvm::Reloc::Model::PIC_));
 }
 
 }  // namespace
@@ -217,6 +236,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   pm.addNestedPass<FuncOp>(disc_ral::createDiscSplitLargeOpsPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscDotRewriterPass());
+
+  // Either merge dots to batched dot or merge dots sharing the same operand.
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscDotMergePass());
 
   if (gpu_enabled) {
     pm.addNestedPass<FuncOp>(mhlo::createHloCanonicalizeReductionPass());
@@ -311,6 +333,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(disc_ral::createDiscFusionPass(
       gpu_enabled, enable_stitch ? "stitch" : "base"));
   if (gpu_enabled) {
+    // TODO: Support cpu stitch with splat const
+    pm.addNestedPass<FuncOp>(disc_ral::createDiscFuseSplatConstPass());
     auto& gpu_options = options.gpu_info;
     pm.addNestedPass<FuncOp>(
         disc_ral::createDiscSpecializeFusionWithSpeculationPass(
@@ -615,6 +639,12 @@ LogicalResult LowerLLVMToBinary(ModuleOp module,
     llvm::errs() << "create TargetMachine failed\n";
     return failure();
   }
+
+  if (tm->getRelocationModel() != llvm::Reloc::Model::PIC_) {
+    llvm::errs() << "-fPIC must be specified\n";
+    return failure();
+  }
+  llvm_module->setDataLayout(tm->createDataLayout());
 
   if (!gpu_enabled && failed(ApplyCpuOptionsAfterTranslatingToLLVM(
                           llvm_module.get(), options))) {

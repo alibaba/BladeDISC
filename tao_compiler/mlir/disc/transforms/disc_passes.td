@@ -122,6 +122,11 @@ def DiscFusionPass : Pass<"disc-fusion", "FuncOp"> {
   ];
 }
 
+def DiscFuseSplatConstPass: Pass<"disc-fuse-splat-const", "FuncOp"> {
+  let summary = "Fuse splat constant to avoid memory access.";
+  let constructor = "createDiscFuseSplatConstPass()";
+}
+
 def DiscMarkShapeCalculationPass : Pass<"disc-mhlo-mark-shape-calc", "ModuleOp"> {
   let summary = "Identify and mark with an attribute operations performing shape calculation";
   let constructor = "createDiscMarkShapeCalcOpPass()";
@@ -362,4 +367,10 @@ def LhloFusionInlinerPass : Pass<"lhlo-fusion-inliner", "FuncOp"> {
   let summary = "Inline the contents of its body to the parent region "
     "after its body has been lowered";
   let constructor = "createLhloFusionInlinerPass()";
+}
+
+def DiscDotMergePass : Pass<"disc-dot-merge", "FuncOp"> {
+  let summary = "Dot merge optimization. Either merge same-shape dots into "
+                "batched dot, or merge dots with same operand into one (on-going)";
+  let constructor = "createDiscDotMergePass()";
 }

@@ -16,7 +16,9 @@
 #include <mlir/mhlo/builder/mlir_shape_builder.h>
 #include <mlir/mhlo/builder/mlir_utils.h>
 
+#include "compiler/mlir/converters/impl/prim_constant.h"
 #include "compiler/mlir/converters/mhlo_converter_register.h"
+#include "compiler/mlir/converters/mlir_type_utils.h"
 
 #include <torch/script.h>
 
@@ -104,6 +106,57 @@ bool ConvertAtenMatmul(
   return true;
 }
 
+bool ConvertAtenEinsum(
+    MhloConversionContext& ctx,
+    const torch::jit::Node& node) {
+  auto loc = GetNodeLocation(ctx, node);
+  auto jit_equation = node.input(0);
+  auto jit_input_list = node.input(1);
+  bool is_const_equation = IsPrimConstant(*jit_equation);
+  if (!is_const_equation) {
+    LOG(WARNING) << "equation must be constant for aten::einsum";
+    return false;
+  }
+  if (ctx.list_map.find(jit_input_list) == ctx.list_map.end()) {
+    LOG(WARNING) << "input_list not found for aten::einsum";
+    return false;
+  }
+  std::string equation = CastJitConstToString(*jit_equation);
+  auto input_list_vals = ctx.GetMlirValueList(jit_input_list);
+  if (input_list_vals.size() > 2) {
+    LOG(WARNING)
+        << "aten::einsum with more than 2 inputs are not supported yet";
+    return false;
+  }
+  // TODO: an equation with "..." may require for implicit broadcast
+  // and is not supported a.t.m.
+  if (equation.find("...") != std::string::npos) {
+    LOG(WARNING) << "unsupported equation for aten::einsum";
+    return false;
+  }
+  auto builder = *ctx.builder;
+  mlir::Value lhs = input_list_vals[0];
+  mlir::Value rhs = input_list_vals[1];
+  auto lhs_ty = lhs.getType().cast<mlir::RankedTensorType>();
+  auto rhs_ty = rhs.getType().cast<mlir::RankedTensorType>();
+  auto result_ty = BuildMlirRankedTensorType(builder, *node.output(0));
+  auto result_elem_ty = result_ty.getElementType();
+  if (lhs_ty.getElementType() != result_elem_ty) {
+    lhs = builder.create<mlir::mhlo::ConvertOp>(loc, lhs, result_elem_ty);
+  }
+  if (rhs_ty.getElementType() != result_elem_ty) {
+    rhs = builder.create<mlir::mhlo::ConvertOp>(loc, rhs, result_elem_ty);
+  }
+  auto result = builder.create<mlir::mhlo::EinsumOp>(
+      loc,
+      result_ty,
+      lhs,
+      rhs,
+      mlir::StringAttr::get(builder.getContext(), equation));
+  ctx.value_map[node.output(0)] = result;
+  return true;
+}
+
 bool ConvertAtenAddmm(
     MhloConversionContext& ctx,
     const torch::jit::Node& node) {
@@ -154,6 +207,20 @@ bool ConvertAtenLinear(
   return true;
 }
 
+// bmm
+bool ConvertAtenBmm(MhloConversionContext& ctx, const torch::jit::Node& node) {
+  auto loc = GetNodeLocation(ctx, node);
+  auto inp0 = node.input(0);
+  auto inp1 = node.input(1);
+  auto lhs = ctx.GetMlirValue(inp0);
+  auto rhs = ctx.GetMlirValue(inp1);
+
+  auto& builder = *ctx.builder;
+  ctx.value_map[node.output(0)] = BuildDotProduct_bmm(builder, loc, lhs, rhs);
+
+  return true;
+}
+
 namespace {
 // >>> # vector x vector
 // >>> tensor1 = torch.randn(3)
@@ -176,7 +243,7 @@ namespace {
 // >>> # batched matrix x batched matrix
 // >>> tensor1 = torch.randn(10, 3, 4)
 // >>> tensor2 = torch.randn(10, 4, 5)
-// >>> torch.matmul(tensor1, tensor2).size()
+// >>> torch.matmul(tensor1, tensor2).size() # or torch.bmm
 // torch.Size([10, 3, 5])
 //
 // >>> # batched matrix x broadcasted matrix
@@ -198,7 +265,14 @@ auto mhlo_conversion =
             ConvertAtenAddmm)
         .pattern(
             "aten::linear(Tensor input, Tensor weight, Tensor? bias) -> Tensor",
-            ConvertAtenLinear);
+            ConvertAtenLinear)
+        .pattern(
+            // Ref: https://pytorch.org/docs/stable/generated/torch.bmm.html
+            "aten::bmm(Tensor self, Tensor mat2) -> Tensor",
+            ConvertAtenBmm)
+        .pattern(
+            "aten::einsum(str equation, Tensor[] tensors) -> Tensor",
+            ConvertAtenEinsum);
 } // namespace
 } // namespace blade
 } // namespace torch

@@ -47,8 +47,9 @@ bool ConvertAtenReduction(
       BuildCastWithJitType(builder, loc, ml_input_val, jit_dtype);
   if (!optional_input_val) {
     TORCH_CHECK(jit_dtype != nullptr);
-    DLOG(INFO) << "Could not convert reduction with invalid parameter: dtype %"
-               << jit_dtype->debugName();
+    LOG(WARNING)
+        << "Could not convert reduction with invalid parameter: dtype %"
+        << jit_dtype->debugName();
     return false;
   }
   auto input_val = *optional_input_val;

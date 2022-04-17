@@ -90,6 +90,9 @@ std::unique_ptr<OperationPass<FuncOp>> createParallelLoopTilingPass(
 std::unique_ptr<OperationPass<FuncOp>> createDiscFusionPass(
     bool gpu_enabled = true, const std::string& fusion_strategy = "base");
 
+// Fuse splat constant to avoid memory access
+std::unique_ptr<OperationPass<FuncOp>> createDiscFuseSplatConstPass();
+
 // Mark shape calculating Ops.
 std::unique_ptr<OperationPass<ModuleOp>> createDiscMarkShapeCalcOpPass();
 
@@ -198,6 +201,9 @@ std::unique_ptr<OperationPass<ModuleOp>> createRalInjectExecutionContextPass(
 
 // inline lmhlo.Fusion
 std::unique_ptr<OperationPass<FuncOp>> createLhloFusionInlinerPass();
+
+// Dot merge optimization.
+std::unique_ptr<OperationPass<FuncOp>> createDiscDotMergePass();
 
 }  // namespace disc_ral
 }  // namespace mlir

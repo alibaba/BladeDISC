@@ -9,6 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <mlir/mhlo/builder/gather.h>
 #include <mlir/mhlo/builder/mlir_attr_utils.h>
 #include <mlir/mhlo/builder/mlir_shape_builder.h>
 #include <mlir/mhlo/builder/mlir_utils.h>
@@ -52,7 +53,7 @@ bool ConvertAtenView(MhloConversionContext& ctx, const torch::jit::Node& node) {
   auto ml_rank = ml_dim_sizes.size();
   TORCH_CHECK(result_type.getRank() == ml_rank);
   if (ml_rank == 0) {
-    // if reshape output is a scalar
+    // if reshape output is a rank-0 tensor
     auto result =
         builder.create<mlir::mhlo::ReshapeOp>(loc, result_type, ml_tensor);
     ctx.value_map[node.output(0)] = result.getResult();
@@ -111,7 +112,7 @@ bool ConvertAtenT(MhloConversionContext& ctx, const torch::jit::Node& node) {
         BuildPermute(builder, loc, ml_tensor, {1, 0});
   } else {
     // It's illegal, ref: https://pytorch.org/docs/stable/generated/torch.t.html
-    DLOG(ERROR)
+    LOG(ERROR)
         << "Illegal torch.t usage found, please reference to https://pytorch.org/docs/stable/generated/torch.t.html";
     return false;
   }
@@ -129,7 +130,7 @@ bool ConvertAtenPermute(
 
   auto dims_ival = torch::jit::toIValue(jit_dims);
   if (!(dims_ival && dims_ival->isIntList())) {
-    DLOG(WARNING) << "Permute dimensions must be constants";
+    LOG(WARNING) << "Permute dimensions must be constants";
     return false;
   }
   auto dims = dims_ival->toIntList();
@@ -189,7 +190,7 @@ bool ConvertAtenSqueeze(
   c10::optional<uint64_t> optional_rank = tensor_type->sizes().size();
   mlir_dim_t rank = 0;
   if (!optional_rank) {
-    DLOG(WARNING) << "The tensor rank is unknown";
+    LOG(WARNING) << "The tensor rank is unknown";
     return false;
   } else {
     rank = *optional_rank;
@@ -237,14 +238,36 @@ bool ConvertAtenSlice(
   const auto& loc = GetNodeLocation(ctx, node);
   auto ml_tensor = ctx.GetMlirValue(node.input(0));
   auto jit_dim = node.input(1);
-  auto start_val = ctx.GetMlirValue(node.input(2));
-  auto end_val = ctx.GetMlirValue(node.input(3));
-  auto step_val = ctx.GetMlirValue(node.input(4));
+  auto jit_start = node.input(2);
+  auto jit_end = node.input(3);
   if (!CheckConstAttribute(jit_dim, "aten::slice", "dim")) {
     return false;
   }
+
+  auto start_ivalue = torch::jit::toIValue(jit_start);
+  auto end_ivalue = torch::jit::toIValue(jit_end);
+  auto start_isnone = !start_ivalue || start_ivalue->isNone();
+  auto end_isnone = !end_ivalue || end_ivalue->isNone();
+  if (start_isnone && end_isnone) {
+    ctx.value_map[node.output(0)] = ml_tensor;
+    return true;
+  }
+
   auto& builder = *ctx.builder;
   auto dim_index = CastJitConstToInt64(*jit_dim);
+  auto start_val = BuildStdConstForI64(builder, loc, 0);
+  auto end_val = start_val;
+
+  if (!start_isnone) {
+    start_val = ctx.GetMlirValue(jit_start);
+  }
+  if (end_isnone) {
+    end_val = BuildStdDimSizeOfTensor(builder, loc, ml_tensor, dim_index);
+  } else {
+    end_val = ctx.GetMlirValue(jit_end);
+  }
+
+  auto step_val = ctx.GetMlirValue(node.input(4));
   ctx.value_map[node.output(0)] = BuildDynamicSlice(
       builder, loc, ml_tensor, start_val, end_val, step_val, dim_index);
   return true;
@@ -301,13 +324,13 @@ bool ConvertAtenRoll(MhloConversionContext& ctx, const torch::jit::Node& node) {
 
   auto shifts_ival = torch::jit::toIValue(jit_shifts);
   if (!(shifts_ival && shifts_ival->isIntList())) {
-    DLOG(WARNING) << "aten::roll shifts must be constants";
+    LOG(WARNING) << "aten::roll shifts must be constants";
     return false;
   }
 
   auto dims_ival = torch::jit::toIValue(jit_dims);
   if (!(dims_ival && dims_ival->isIntList())) {
-    DLOG(WARNING) << "aten::roll dims must be constants";
+    LOG(WARNING) << "aten::roll dims must be constants";
     return false;
   }
   auto shifts = shifts_ival->toIntList();
@@ -322,6 +345,7 @@ bool ConvertAtenRoll(MhloConversionContext& ctx, const torch::jit::Node& node) {
 
   return true;
 }
+
 bool ConvertAtenUnbind(
     MhloConversionContext& ctx,
     const torch::jit::Node& node) {
@@ -363,6 +387,135 @@ bool ConvertAtenUnbind(
   return true;
 }
 
+bool ConvertAtenIndexSelect(
+    MhloConversionContext& ctx,
+    const torch::jit::Node& node) {
+  auto loc = GetNodeLocation(ctx, node);
+  auto input = ctx.GetMlirValue(node.input(0));
+  auto jit_dim = node.input(1);
+  auto dim = CastJitConstToInt64(*jit_dim);
+  auto index = ctx.GetMlirValue(node.input(2));
+
+  auto& builder = *ctx.builder;
+  ctx.value_map[node.output(0)] =
+      mlir::mhlo::BuildGather(builder, loc, input, index, dim);
+  return true;
+}
+
+bool ConvertAtenFlip(MhloConversionContext& ctx, const torch::jit::Node& node) {
+  const auto& loc = GetNodeLocation(ctx, node);
+  auto input = ctx.GetMlirValue(node.input(0));
+  auto jit_dims = node.input(1);
+  const char* op_name = node.kind().toDisplayString();
+  if (!CheckConstAttribute(jit_dims, op_name, "dims")) {
+    return false;
+  }
+  auto dims_ival = torch::jit::toIValue(jit_dims);
+  if (!(dims_ival && dims_ival->isIntList())) {
+    LOG(WARNING) << "Flip dimensions must be constants";
+    return false;
+  }
+  auto dims = dims_ival->toIntList();
+  mlir_dim_t rank = GetRankOfMlirValue(input);
+  SmallVec4<mlir_dim_t> dims_vec(dims.begin(), dims.end());
+  SmallVec4<mlir_dim_t> trans_dim_vec = NormalizeDimIndex(dims_vec, rank);
+
+  auto& builder = *ctx.builder;
+  ctx.value_map[node.output(0)] = builder.create<mlir::mhlo::ReverseOp>(
+      loc, input, BuildI64ElementsAttr(builder, trans_dim_vec));
+  return true;
+}
+
+bool ConvertAtenViewAs(
+    MhloConversionContext& ctx,
+    const torch::jit::Node& node) {
+  auto loc = GetNodeLocation(ctx, node);
+  auto jit_tensor = node.input(0);
+  auto jit_other = node.input(1);
+  auto ml_tensor = ctx.GetMlirValue(jit_tensor);
+  auto ml_other = ctx.GetMlirValue(jit_other);
+
+  auto& builder = *ctx.builder;
+  auto result_type = BuildMlirRankedTensorType(builder, *node.output(0));
+
+  auto other_ty = ml_other.getType().cast<mlir::RankedTensorType>();
+  auto other_shape = other_ty.getShape();
+  auto rank = other_ty.getRank();
+  ::llvm::SmallVector<mlir::Value> dim_values;
+  for (int64_t idx = 0; idx < rank; ++idx) {
+    mlir::Value dim_val = other_shape[idx] == mlir::ShapedType::kDynamicSize
+        ? builder.create<mlir::tensor::DimOp>(loc, ml_other, idx).getResult()
+        : builder.create<mlir::arith::ConstantIndexOp>(loc, other_shape[idx])
+              .getResult();
+    dim_values.push_back(dim_val);
+  }
+  mlir::Value new_shape =
+      builder.create<mlir::tensor::FromElementsOp>(loc, dim_values);
+  TORCH_CHECK(result_type.getRank() == rank);
+  if (rank == 0) {
+    // if reshape output is a rank-0 tensor
+    auto result =
+        builder.create<mlir::mhlo::ReshapeOp>(loc, result_type, ml_tensor);
+    ctx.value_map[node.output(0)] = result.getResult();
+  } else {
+    // if reshape output is a tensor
+    auto result = builder.create<mlir::mhlo::DynamicReshapeOp>(
+        loc, result_type, ml_tensor, new_shape);
+    ctx.value_map[node.output(0)] = result.getResult();
+  }
+  return true;
+}
+
+// chunk_size = (dim_size + chunks - 1) / chunks
+// start_index = 0;
+// for (int i = 0; i < chunks; ++i) {
+//   end_index = start_index + chunk_size > dim_size ?
+//               dim_size : start_index + chunk_size;
+//   output[i] = mhlo.dynamic_slice(input, start_index, end_index, strides);
+//   start_index = end_index;
+// }
+bool ConvertAtenChunk(
+    MhloConversionContext& ctx,
+    const torch::jit::Node& node) {
+  auto loc = GetNodeLocation(ctx, node);
+  auto jit_input = node.input(0);
+  auto jit_chunks = node.input(1);
+  auto jit_dim = node.input(2);
+  bool is_const_dims = IsPrimConstant(*jit_chunks) && IsPrimConstant(*jit_dim);
+  if (!is_const_dims) {
+    LOG(WARNING) << "chunks and dim must be constant for aten::chunk";
+    return false;
+  }
+
+  auto& builder = *ctx.builder;
+  auto ml_input = ctx.GetMlirValue(jit_input);
+  mlir_dim_t rank = GetRankOfMlirValue(ml_input);
+  mlir_dim_t trans_chunks = CastJitConstToInt64(*jit_chunks);
+  mlir_dim_t trans_dim = CastJitConstToInt64(*jit_dim);
+  trans_dim = NormalizeDimIndex(trans_dim, rank);
+  auto dim_size = BuildStdDimSizeOfTensor(builder, loc, ml_input, trans_dim);
+  auto chunks = BuildStdConstForI64(builder, loc, trans_chunks);
+  auto one = BuildStdConstForI64(builder, loc, 1);
+  auto dim_size_p_chunks_m_1 = builder.create<mlir::arith::SubIOp>(
+      loc, builder.create<mlir::arith::AddIOp>(loc, dim_size, chunks), one);
+  auto chunked_size =
+      builder.create<mlir::arith::DivUIOp>(loc, dim_size_p_chunks_m_1, chunks);
+  mlir::Value last_end_val = BuildStdConstForI64(builder, loc, 0);
+  SmallVec4<mlir::Value> outputs;
+  for (mlir_dim_t i = 0; i < trans_chunks; ++i) {
+    mlir::Value end_val = BuildStdMinimumSigned(
+        builder,
+        loc,
+        builder.create<mlir::arith::AddIOp>(loc, last_end_val, chunked_size),
+        dim_size);
+    outputs.push_back(BuildDynamicSliceInternal(
+        builder, loc, ml_input, last_end_val, end_val, one, trans_dim));
+    last_end_val = end_val;
+  }
+  ctx.list_map[node.output()] = outputs;
+  return true;
+}
+
 namespace {
 auto mhlo_conversion =
     MhloConversionPatternRegister()
@@ -376,6 +529,9 @@ auto mhlo_conversion =
             // a copy
             "aten::reshape(Tensor self, int[] shape) -> Tensor",
             ConvertAtenView)
+        .pattern(
+            "aten::view_as(Tensor(a) self, Tensor other) -> Tensor(a)",
+            ConvertAtenViewAs)
         .pattern(
             "aten::transpose.int(Tensor(a) self, int dim0, int dim1) -> Tensor(a)",
             ConvertAtenTranspose)
@@ -393,7 +549,7 @@ auto mhlo_conversion =
             "aten::squeeze(Tensor(a) self) -> Tensor(a)",
             ConvertAtenSqueeze)
         .pattern(
-            "aten::slice.Tensor(Tensor(a) self, int dim=0, int start=0, int end=9223372036854775807, int step=1) -> Tensor(a)",
+            "aten::slice.Tensor(Tensor(a) self, int dim=0, int? start=None, int? end=None, int step=1) -> Tensor(a)",
             ConvertAtenSlice)
         .pattern("aten::size.int(Tensor self, int dim) -> int", ConvertAtenSize)
         .pattern("aten::size(Tensor self) -> int[]", ConvertAtenSize)
@@ -405,7 +561,17 @@ auto mhlo_conversion =
             ConvertAtenUnbind)
         .pattern(
             "aten::roll(Tensor self, int[1] shifts, int[1] dims=[]) -> (Tensor)",
-            ConvertAtenRoll);
+            ConvertAtenRoll)
+        .pattern(
+            "aten::index_select(Tensor self, int dim, Tensor index) -> Tensor",
+            ConvertAtenIndexSelect)
+        .pattern(
+            "aten::flip(Tensor self, int[] dims) -> Tensor",
+            ConvertAtenFlip)
+        .pattern(
+            "aten::chunk(Tensor self, int chunks, int dim=0) -> (Tensor[])",
+            ConvertAtenChunk);
 } // namespace
+
 } // namespace blade
 } // namespace torch

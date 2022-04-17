@@ -81,14 +81,20 @@ bool miscFuseHelper<ConstOp>(PatternRewriter& rewriter, Operation* user,
                              const SmallVector<memref::LoadOp>& load_ops,
                              LowerConfig* lower_config) {
   if (!isa<ConstOp>(producer)) return false;
-  auto memref_type =
-      cast<LmhloOp>(producer).getResultBuffer().getType().cast<MemRefType>();
-  assert(memref_type.getRank() == 0 && "only scalar ConstOp can be fused");
+  auto constant = cast<lmhlo::ConstOp>(producer);
+  auto memref_type = constant.output().getType().cast<MemRefType>();
+  bool is_splat = constant.value().isSplat();
+  assert((memref_type.getRank() == 0 || is_splat) &&
+         "only scalar ConstOp can be fused");
   auto loc = user->getLoc();
   rewriter.setInsertionPoint(load_op);
-  Value inlined_result = rewriter.create<arith::ConstantOp>(
-      loc, memref_type.getElementType(),
-      cast<ConstOp>(producer).value().getValues<Attribute>()[{}]);
+  Value inlined_result = is_splat
+                             ? rewriter.create<arith::ConstantOp>(
+                                   loc, memref_type.getElementType(),
+                                   constant.value().getSplatValue<Attribute>())
+                             : rewriter.create<arith::ConstantOp>(
+                                   loc, memref_type.getElementType(),
+                                   constant.value().getValues<Attribute>()[{}]);
   for (memref::LoadOp to_be_replaced : load_ops)
     to_be_replaced.replaceAllUsesWith(inlined_result);
   return true;

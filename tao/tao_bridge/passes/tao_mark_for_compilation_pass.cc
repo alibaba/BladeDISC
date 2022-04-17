@@ -1262,12 +1262,15 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
   FunctionLibraryRuntime* lib_runtime =
       pflr->GetFLR(ProcessFunctionLibraryRuntime::kDefaultFLRDevice);
   std::vector<bool> compile_time_const_nodes(graph_->num_node_ids(), false);
+  std::vector<bool> compile_time_fixed_shape_nodes(graph_->num_node_ids(),
+                                                   false);
   TF_RETURN_IF_ERROR(BackwardsConstAnalysis(
       *graph_, /*compile_time_const_arg_indices=*/nullptr,
       &compile_time_const_nodes,
       /*compile_time_fixed_shape_arg_indices*/ nullptr,
-      /*compile_time_fixed_shape_nodes*/ nullptr, lib_runtime,
-      [](const Edge& e) { return true; }, debug_options_.cluster_for_mlir));
+      /*compile_time_fixed_shape_nodes*/ &compile_time_fixed_shape_nodes,
+      lib_runtime, [](const Edge& e) { return true; },
+      debug_options_.cluster_for_mlir));
   // Iterate over nodes in sorted order so that compiler fuel is deterministic.
   // We can't simply pass op_nodes().begin() and op_nodes().end() to the
   // std::vector constructor because they're not proper iterators, with
@@ -1482,6 +1485,17 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
         continue;
       }
 
+      // Skip Squeeze with no explicit squeeze_dims attributes, since
+      // it will bring dynamic rank issue when shapes are unknown.
+      if (node->type_string() == "Squeeze") {
+        constexpr char kAttrSqueezeDims[] = "squeeze_dims";
+        const auto* squeeze_dims_attr = node->attrs().Find(kAttrSqueezeDims);
+        if (squeeze_dims_attr == nullptr ||
+            squeeze_dims_attr->list().i_size() == 0) {
+          continue;
+        }
+      }
+
       bool to_continue = false;
       for (auto s : absl::StrSplit(
                GetTaoBridgeOptions()->op_type_clustering_black_list, ',')) {
@@ -1505,6 +1519,68 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
       if (to_continue) {
         continue;
       }
+    }
+
+    // This is used to fix some corner cases of our clustering strategy.
+    // We roughly divide the operands of an op into two categories: data operand
+    // and shape operand. The shape operand (e.g. the first operand of tf.Fill
+    // op) does not affect the content of the outputs of the op and is only used
+    // to calcaulate the rank and shape of the outputs. Because BladeDISC
+    // requires all tensors have static rank, the shape operand (and the
+    // subgraph used to calcaulate it) should be fix shaped or a const,
+    // depending on the rank of the output is affected by the shape or the
+    // content of the shape operand.
+    //
+    // The subgraph used to compute the shape operands is usually cheap and
+    // simple. Thus the above requirement is not a big problem for the most of
+    // common cases. However, we do find that seme shape-operand-related
+    // subgraphs can be very complicated and expensive in some cases.
+    //   An Example from a real TTS model:
+    //    ```
+    //    ...
+    //    %tx = tf.Matmul(...)
+    //    ...
+    //    %ty = tf.Max(use(%tx))
+    //    %shape = tf.pack(%ty, ...)
+    //    %out = tf.Fill(%shape, ...)
+    //    ```
+    // If we group the `tf.Fill` and the related subgraph into the same cluster,
+    // the whole cluster will have to be fix-shaped, leading to unnecessary
+    // re-compilation.
+    //
+    // In this workaround, we try to find such `tf.Fill` ops and exclude them
+    // from compilation to make sure the remaining shape-operand-related-graph
+    // only needs to be compiled once.
+    //
+    // TODO(disc): support other ops having shape operands.
+    auto hasShapeOperand = [](Node* node) {
+      return node->type_string() == "Fill" || node->type_string() == "Range";
+    };
+    if (debug_options_.cluster_for_mlir && hasShapeOperand(node) &&
+        !compile_time_fixed_shape_nodes[node->id()]) {
+      std::unordered_set<Node*> visitedNodeSet;
+      auto hasExpensiveProducers = [&](Node* node) {
+        std::vector<Node*> node_queue{node};
+        while (!node_queue.empty()) {
+          Node* cur = node_queue.back();
+          node_queue.pop_back();
+          if (!visitedNodeSet.insert(cur).second) continue;
+          for (auto e : cur->in_edges()) {
+            if (e->IsControlEdge()) continue;
+            Node* src = e->src();
+            if (!compile_time_fixed_shape_nodes[src->id()]) continue;
+            if (src->type_string() == "MatMul") return true;
+            node_queue.push_back(src);
+          }
+        }
+        return false;
+      };
+      if (hasExpensiveProducers(node)) {
+        continue;
+      }
+    }
+
+    if (compile_time_fixed_shape_nodes[node->id()]) {
     }
 
     compilation_candidates_.insert(node);
@@ -2542,7 +2618,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "RandomUniform", "ReluGrad", "Square",
-                      "Pad", "DynamicStitch", "LeakyRelu", "Erf", "Sqrt", "Softplus"
+                      "Pad", "DynamicStitch", "LeakyRelu", "Erf", "Sqrt", "Softplus", "Relu6"
 #else
                       "MatMul", "BatchMatMul", "Conv2D",
                       "Abs", "LessEqual", "Maximum", "Minimum","Sign",
@@ -2561,7 +2637,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "LogSoftmax", "Reciprocal",
                       "RandomUniform", "ReluGrad", "Square", "Pad", "DynamicStitch", "LeakyRelu",
-                      "Erf", "Sqrt", "Softplus"
+                      "Erf", "Sqrt", "Softplus", "Relu6"
 #endif
                     })
                 :
@@ -2583,7 +2659,8 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "Size", "RandomUniform", "Square",
-                      "Pad", "DynamicStitch", "LeakyRelu", "Erf", "Sqrt", "Softplus"
+                      "Pad", "DynamicStitch", "LeakyRelu", "Erf", "Sqrt", "Softplus",
+                      "Relu6"
 #else
                       "MatMul", "BatchMatMul", "Conv2D",
                       "Abs", "LessEqual", "Maximum", "Minimum","Sign",
@@ -2602,7 +2679,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
                       "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
                       "SigmoidGrad", "BroadcastTo", "LogSoftmax", "Reciprocal", "Size",
                       "Conv2D", "RandomUniform", "Square", "Pad", "DynamicStitch", "LeakyRelu",
-                      "Erf", "Sqrt", "Softplus"
+                      "Erf", "Sqrt", "Softplus", "Relu6"
 #endif
                     })
             )

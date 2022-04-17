@@ -1,0 +1,6 @@
+RalBaseContext {
+  global:
+    *tao*;
+  local:
+    *;
+};

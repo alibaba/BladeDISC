@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <string>
 
+#include "common_utils/macros.h"
 namespace torch {
 namespace blade {
 
@@ -21,9 +22,18 @@ class TempFile {
  public:
   TempFile();
   ~TempFile();
-  void WriteBytesToFile(const std::string& bytes);
+  DISALLOW_COPY_AND_ASSIGN(TempFile);
+
+  /// Write bytes content to temp file and return true on success.
+  bool WriteBytesToFile(const std::string& bytes);
+
+  /// Read byte content from temp file.
   std::string ReadBytesFromFile();
+
+  /// Read string content from temp file..
   std::string ReadStringFromFile();
+
+  /// Get the filename of the temp file.
   std::string GetFilename();
 
  private:

@@ -32,7 +32,7 @@ class DiscTestCase(TestCase):
 
     def cvt_to_disc(self, nn_module, test_data):
         cfg = Config.get_current_context_or_new()
-        cfg.optimization_pipeline = "DISC"
+        cfg.optimization_pipeline = mlir.backend_name()
         with mlir.testing_context(), support_fusion_group.min_group_nodes(1), cfg:
             nn_module = self._ScriptFunction2Module(nn_module)
             nn_module = nn_module.eval().to(self.device)

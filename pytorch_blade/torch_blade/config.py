@@ -14,6 +14,8 @@ from collections import defaultdict
 import copy
 import threading
 
+import torch_blade._torch_blade._backends as _backends
+
 class OptPipelines:
 
     pipelines = defaultdict(None)
@@ -30,20 +32,27 @@ def _check_dynamic_ranges(val):
     min_shape = val["min"]
     max_shape = val["max"]
     opt_shapes = val["opts"]
+    all_shapes = [min_shape, max_shape] + opt_shapes
 
-    inp_nums = len(min_shape)
-    assert inp_nums == len(max_shape), "the number of inputs should be equal between min_shape and max_shape"
-    for min_inp, max_inp in zip(min_shape, max_shape):
-        assert all(dim_min <= dim_max for dim_min, dim_max in zip(min_inp, max_inp)), \
-            "The number in min_shape needs to be less than or equal to max_shape"
+    def _is_list_of_int(shapes):
+        if not isinstance(shapes, list):
+            return False
+        return all(isinstance(x, int) for shape in shapes for x in shape)
 
-    for single_opt_shape in opt_shapes:
-        assert inp_nums == len(single_opt_shape), \
-            "the number of inputs of each group in opts must be consistent with the min_shape and max_shape"
-        for min_inp, opt_inp, max_inp in zip(min_shape, single_opt_shape, max_shape):
-            assert all(dim_min <= dim_opt <= dim_max for dim_min, dim_opt, dim_max in zip(min_inp, opt_inp, max_inp)), \
-                "The number in opt_shape needs to be between min_shape and max_shape"
-
+    input_is_shape = all(_is_list_of_int(inps) for inps in all_shapes)
+    if input_is_shape:
+        dynamic_ranges = _backends.DynamicRanges()
+        dynamic_ranges.min_shape = min_shape
+        dynamic_ranges.max_shape = max_shape
+        dynamic_ranges.opt_shapes = opt_shapes
+        if not dynamic_ranges.validate(len(min_shape)):
+            raise Exception("The dynamic tuning shapes setting is illegal, will fallback to static")
+    elif not all(isinstance(inps, tuple) for inps in all_shapes):
+        raise Exception("The dynamic tuning shapes setting is illegal, will fallback to static")
+    else:
+        # use tuple of inputs as the setting
+        # the dynmaic tuning shapes' setting will be recorded by tracing
+        pass
 
 def _validate_dynamic_ranges(val):
     if isinstance(val, dict):
@@ -102,7 +111,7 @@ class Config(ConfigContext):
       import torch_blade
 
       config = torch_blade.Config()
-      config.enable_mlir_amp = False
+      config.enable_fp16 = False
       with config:
         # do optimization under configure with mlir amp enable
         blade.optimize(module, ...)
@@ -114,7 +123,7 @@ class Config(ConfigContext):
         # get higher accuracy performance
         self._fp16_fallback_op_ratio = 0.0
         # Allow BladeDISC to do some AMP optimization if set.
-        self._enable_mlir_amp = False
+        self._enable_fp16 = False
         # Controls the extent that BladeDISC is allowed to use fast math for
         # acceleration. Higher number usually means faster speed while it may
         # lead to some accuracy loss in some cases.
@@ -143,7 +152,7 @@ class Config(ConfigContext):
         self._preserved_attributes = []
         self._customize_onnx_opset_version = None
         self._enable_force_to_cuda = False
-        self._enable_trt_shape_white_list = False
+        self._enable_onnx_shape_white_list = True
         self._customize_op_white_list = []
         self._customize_op_black_list = []
         self._customize_jit_passes = []
@@ -165,19 +174,19 @@ class Config(ConfigContext):
         self._opt_pipeline = val
 
     @property
-    def enable_trt_shape_white_list(self):
-        """The flag is used to force convert shape aten operations to TensorRT. Currently the list contains,
+    def enable_onnx_shape_white_list(self):
+        """The flag is used to force convert shape aten operations to TensorRT. Currently the list contains, 
         'aten::view', 'aten::size', 'aten::reshape', 'aten::floor_divide', 'aten::Int', 'prim::NumToTensor'.
 
         :type: bool
-        :default: False
+        :default: True
         """
-        return self._enable_trt_shape_white_list
+        return self._enable_onnx_shape_white_list
 
-    @enable_trt_shape_white_list.setter
-    def enable_trt_shape_white_list(self, val):
-        assert isinstance(val, bool), "enable_trt_shape_white_list should be bool, got {}".format(type(val))
-        self._enable_trt_shape_white_list = val
+    @enable_onnx_shape_white_list.setter
+    def enable_onnx_shape_white_list(self, val):
+        assert isinstance(val, bool), "enable_onnx_shape_white_list should be bool, got {}".format(type(val))
+        self._enable_onnx_shape_white_list = val
 
     @property
     def fp16_fallback_op_ratio(self):
@@ -196,17 +205,33 @@ class Config(ConfigContext):
 
     @property
     def enable_mlir_amp(self):
-        """The flag to enable mlir amp.
+        """[Deprecated] Please use enable_fp16.
+        The flag to enable mlir amp.
 
         :type: bool
         :default: False
         """
-        return self._enable_mlir_amp
+        return self._enable_fp16
 
     @enable_mlir_amp.setter
     def enable_mlir_amp(self, val):
         assert isinstance(val, bool), "enable_mlir_amp should be bool, got {}".format(type(val))
-        self._enable_mlir_amp = val
+        self._enable_fp16 = val
+
+
+    @property
+    def enable_fp16(self):
+        """The flag to enable amp(aka fp16).
+
+        :type: bool
+        :default: False
+        """
+        return self._enable_fp16
+
+    @enable_fp16.setter
+    def enable_fp16(self, val):
+        assert isinstance(val, bool), "enable_fp16 should be bool, got {}".format(type(val))
+        self._enable_fp16 = val
 
     @property
     def disc_cpu_fast_math_level(self):

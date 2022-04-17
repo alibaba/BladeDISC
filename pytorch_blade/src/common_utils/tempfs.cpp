@@ -11,7 +11,9 @@
 
 #include "common_utils/tempfs.h"
 
+#include <fstream>
 #include <iostream>
+#include <string>
 #include "common_utils/logging.h"
 
 namespace torch {
@@ -26,9 +28,20 @@ TempFile::TempFile() : tmp_file_(std::tmpfile()) {
   CHECK_NOTNULL(tmp_file_);
 }
 
-void TempFile::WriteBytesToFile(const std::string& bytes) {
-  std::fwrite(bytes.data(), sizeof(char), bytes.size(), tmp_file_);
-  std::fflush(tmp_file_);
+bool TempFile::WriteBytesToFile(const std::string& bytes) {
+  auto sz = std::fwrite(bytes.data(), sizeof(char), bytes.size(), tmp_file_);
+  if (sz != bytes.length()) {
+    LOG(ERROR) << "Failed to write content to temp file: " << GetFilename()
+               << ", error: " << strerror(errno);
+    return false;
+  }
+  auto ret = std::fflush(tmp_file_);
+  if (ret != 0) {
+    LOG(ERROR) << "Failed to flush content to temp file: " << GetFilename()
+               << ", error: " << strerror(errno);
+    return false;
+  }
+  return true;
 }
 
 std::string TempFile::GetFilename() {

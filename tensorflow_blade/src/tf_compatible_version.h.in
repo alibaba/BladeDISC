@@ -1,0 +1,11 @@
+#ifndef SRC_TF_VERSION_H
+#define SRC_TF_VERSION_H
+#pragma once
+
+#include <string>
+
+std::string compatible_tf_version() {
+  return std::string("TF_COMPATIBLE_STRING");
+}
+
+#endif // SRC_TF_VERSION_H

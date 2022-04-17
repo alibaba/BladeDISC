@@ -17,9 +17,11 @@ from datetime import datetime
 
 import torch
 import torch_blade
-from torch_blade.config import Config
+
 from torch_blade import mlir
 from torch_blade import tools
+from torch_blade._torch_blade import _backends
+from torch_blade.config import Config
 from torch_blade.clustering import support_fusion_group, support_group_conversion
 from torch_blade.logging import logger
 
@@ -43,7 +45,8 @@ def _compile_torchscript(graph):
         inp_mlir_file = _dump_to_tempfile(tmp_dir, mhlo_bytes)
         # dump the pretty mlir bytes(for debug) into file
         mlir_pretty_file = _dump_to_tempfile(tmp_dir, pretty_bytes)
-        if os.environ.get('TORCH_BLADE_DEBUG_LOG', None) is None:
+
+        if tools.read_bool_from_env('TORCH_BLADE_DEBUG_LOG', False):
             mlir_dump_dir = os.path.join(tmp_dir, mlir_dump_dir)
 
         # copy mlir files to mlir_dump_dir
@@ -61,7 +64,7 @@ def _compile_torchscript(graph):
         out_file_pbtxt = out_file_name + ".pbtxt"
         compile_log = os.devnull
         env = os.environ.copy()
-        if os.environ.get("TORCH_BLADE_DEBUG_LOG", None) is not None:
+        if tools.read_bool_from_env('TORCH_BLADE_DEBUG_LOG', False):
             env['TF_CPP_VMODULE'] = "disc_compiler=1"
             compile_log = os.path.join(mlir_dump_dir, "mhlo_compile." + time_str + ".log")
             shutil.copy(inp_mlir_file.name, os.path.join(mlir_dump_dir, f"dump.{time_str}.mlir"))
@@ -89,7 +92,7 @@ def _compile_torchscript(graph):
         with open(out_file_pbtxt, "rb") as f_pbtxt:
             pb_bytes = f_pbtxt.read()
 
-        if os.environ.get('TORCH_BLADE_DEBUG_LOG', None) is not None:
+        if tools.read_bool_from_env('TORCH_BLADE_DEBUG_LOG', False):
             # copy result to mlir_dump_dir
             shutil.move(out_file_name, os.path.join(mlir_dump_dir, f"out.{time_str}.so"))
             shutil.move(out_file_pbtxt, os.path.join(mlir_dump_dir, f"out.{time_str}.so.pbtxt"))
@@ -110,10 +113,25 @@ def _disc_engine_conversion(module):
             subg_str = str(subgraph)
             inputs = subgraph.input_list()
             outputs = subgraph.output_list()
-            otype = mlir.register_disc_engine(
-                c_module, attr_name, so_bytes, pb_bytes, subg_str, inputs, outputs, input_dev_str, output_dev_str
+
+            state = _backends.EngineState()
+            state.inputs = [_backends.TensorInfo(inp) for inp in subgraph.inputs()]
+            state.outputs = [_backends.TensorInfo(out) for out in subgraph.outputs()]
+            state.engine_bytes = so_bytes
+            state.model_proto = pb_bytes
+            state.backend_name = mlir.backend_name()
+            fallback_bytes = ""
+            # register engine into module, something like:
+            # __torch__.torch.classes.torch_blade.Engine = prim::GetAttr[name="disc_grp0"](%self)
+            eng_type = _backends.register_engine(
+                c_module,
+                state,
+                attr_name,
+                fallback_bytes,
+                str(subgraph),
             )
-            return attr_name, otype
+
+            return attr_name, eng_type
         except Exception as error:
             logger.warning(error)
             return None

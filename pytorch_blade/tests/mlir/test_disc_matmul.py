@@ -89,6 +89,15 @@ class TestDiscMatMul(DiscTestCase):
         y = torch.randn(256).to(self.device)
         self._test_cvt_to_disc(matmul, (x, y))
 
+    def test_bmm(self):
+        @torch.jit.script
+        def bmm(x, y):
+            return torch.bmm(x, y)
+
+        input = torch.randn(10, 3, 4).to(self.device)
+        mat2 = torch.randn(10, 4, 5).to(self.device)
+        self._test_cvt_to_disc(bmm, (input, mat2))
+
     def test_addmm(self):
         @torch.jit.script
         def addmm(M, mat1, mat2):
@@ -110,7 +119,58 @@ class TestDiscMatMul(DiscTestCase):
             return torch.addmm(M, mat1, mat2)
 
         self._test_cvt_to_disc(addmm, (M, mat1, mat2))
+        
+    def test_einsum(self):
+        @torch.jit.script
+        def einsum_0(x, y):
+            return torch.einsum("ijbn,jbnd->ibnd", [x, y])
 
+        @torch.jit.script
+        def einsum_1(x, y):
+            return torch.einsum("ibnd,jnd->ijbn", [x, y])
+
+        @torch.jit.script
+        def einsum_2(x, y):
+            return torch.einsum("ibnd,jbnd->ijbn", [x, y])
+
+        @torch.jit.script
+        def einsum_3(x, y):
+            return torch.einsum("ibn d,jbnd-> ijbn", [x, y])
+
+        @torch.jit.script
+        def einsum_4(x, y):
+            return torch.einsum("ij,jk", [x, y])
+
+        i = 4
+        j = 8
+        b = 16
+        n = 20
+        d = 32
+
+        # "ijbn,jbnd->ibnd"
+        x = torch.randn(i, j, b, n).to(self.device)
+        y = torch.randn(j, b, n, d).to(self.device)
+        self._test_cvt_to_disc(einsum_0, (x, y))
+
+        # "ibnd,jnd->ijbn"
+        x = torch.randn(i, b, n, d).to(self.device)
+        y = torch.randn(j, n, d).to(self.device)
+        self._test_cvt_to_disc(einsum_1, (x, y))
+
+        # "ibnd,jbnd->ijbn"
+        x = torch.randn(i, b, n, d).to(self.device)
+        y = torch.randn(j, b, n, d).to(self.device)
+        self._test_cvt_to_disc(einsum_2, (x, y))
+
+        # "ibnd,jbnd->ijbn" with blank char
+        x = torch.randn(i, b, n, d).to(self.device)
+        y = torch.randn(j, b, n, d).to(self.device)
+        self._test_cvt_to_disc(einsum_3, (x, y))
+
+        # "ij,jk" with no explicit result
+        x = torch.randn(i, j).to(self.device)
+        y = torch.randn(j, d).to(self.device)
+        self._test_cvt_to_disc(einsum_4, (x, y))
 
 if __name__ == "__main__":
     unittest.main()

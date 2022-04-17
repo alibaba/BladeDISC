@@ -1,10 +1,6 @@
 load(
-    "//tensorflow:tensorflow.bzl",
+    "@org_tensorflow//tensorflow:tensorflow.bzl",
     "tf_copts",
-)
-load(
-    "//tensorflow/core/platform:rules_cc.bzl",
-    "cc_library",
 )
 load(
     "@local_config_cuda//cuda:build_defs.bzl",
@@ -19,7 +15,7 @@ load(
 def disc_cc_library(copts = tf_copts(), **kwargs):
     """Generate a cc_library with device related copts.
     """
-    cc_library(
+    native.cc_library(
         copts = (copts + if_cuda(["-DGOOGLE_CUDA=1"]) + if_dcu(["-DTENSORFLOW_USE_DCU=1"]) + if_rocm(["-DTENSORFLOW_USE_ROCM=1"])),
         **kwargs
     )
@@ -52,5 +48,17 @@ def if_blade_gemm(if_true, if_false=[]):
 def if_mkldnn(if_true, if_false=[]):
     return select({
         "//tensorflow/compiler/mlir/disc:is_mkldnn": if_true,
+        "//conditions:default": if_false
+    })
+
+def if_disc_aarch64(if_true, if_false=[]):
+    return select({
+        "//tensorflow/compiler/mlir/disc:disc_aarch64": if_true,
+        "//conditions:default": if_false
+    })
+
+def if_disc_x86(if_true, if_false=[]):
+    return select({
+        "//tensorflow/compiler/mlir/disc:disc_x86": if_true,
         "//conditions:default": if_false
     })

@@ -26,7 +26,8 @@ const std::string c_ft_path =
 TEST(TFAddNOpTest, StaticShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "add_n_s_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_descriptors*/
@@ -38,7 +39,8 @@ TEST(TFAddNOpTest, StaticShape2DF32) {
 TEST(TFAddNOpTest, FullyDynamicShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "add_n_d_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_descriptors*/
@@ -50,7 +52,8 @@ TEST(TFAddNOpTest, FullyDynamicShape2DF32) {
 TEST(TFAddNOpTest, PartialShape2DF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "add_n_p_f32.mlir",
-      /*backend_types*/ {BackendType::kCuda, BackendType::kX86},
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_descriptors*/

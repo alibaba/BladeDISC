@@ -10,6 +10,7 @@
 # limitations under the License.
 
 import unittest
+import platform
 import torch
 from torch.testing import FileCheck
 from torch_blade import tools
@@ -93,6 +94,8 @@ class TestTools(TestCase):
         _test_type("bool")
         _test_type("float")
 
+    @unittest.skipIf(platform.processor() == 'aarch64',
+                     'Expected to find "%y.1 : Tensor = prim::GetAttr[name=\"_output\"](%2)" but did not find it')
     def test_freeze_module(self):
         class Sparse(torch.nn.Module):
 

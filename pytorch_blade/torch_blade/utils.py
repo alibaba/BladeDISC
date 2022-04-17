@@ -193,8 +193,29 @@ def num_engines(script_module, group_type):
     """
     return len(collect_engines(script_module, group_type))
 
+
+def parse_version(version: str) -> (int, int, int):
+    """
+    Parses a version string into (major, minor, patch) version numbers.
+
+    Args:
+      version: Full version number string, possibly including revision / commit hash.
+
+    Returns:
+      An int 3-tuple of (major, minor, patch) version numbers.
+    """
+    # Extract version number part (i.e. toss any revision / hash parts).
+    version_number_str = version
+    for i in range(len(version)):
+        c = version[i]
+        if not (c.isdigit() or c == "."):
+            version_number_str = version[:i]
+            break
+
+    return tuple([int(n) for n in version_number_str.split(".")])
+
 def torch_version_number():
-    return torch.version.__version__.split('+')[0]
+    return parse_version(torch.__version__)
 
 def create_list_construct(graph, vals, list_type):
     list_ctr = graph.create('prim::ListConstruct')
@@ -230,3 +251,9 @@ def dump_graph_and_code(module, fpath):
 
     with open(fpath + ".code.py", "w") as out:
         out.write(str(module.forward.code))
+
+def disable_pytorch_jit():
+    torch._C._jit_set_profiling_executor(False)
+    torch._C._jit_set_profiling_mode(False)
+    torch._C._jit_set_texpr_fuser_enabled(False)
+    torch._C._jit_set_nvfuser_enabled(False)

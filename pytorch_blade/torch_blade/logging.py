@@ -9,14 +9,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import contextlib
 import logging
+
+import torch_blade._torch_blade._tools as tools
 
 # create logger
 logger = logging.getLogger(__name__)
 # Default logging nothing
-if os.environ.get('TORCH_BLADE_DEBUG_LOG', None) is None:
+if tools.read_bool_from_env('TORCH_BLADE_DEBUG_LOG', False):
     logger.addHandler(logging.NullHandler())
 
 @contextlib.contextmanager

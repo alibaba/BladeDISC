@@ -53,10 +53,10 @@ struct matmul_forward : public dnnl::matmul,
       data_type x_dtype = data_type::f32,
       const engine& aengine = engine::cpu_engine()) {
     auto ndims = weights_dims.size();
-    auto x_dims = weights_dims;
+    dims x_dims = weights_dims;
     x_dims[ndims - 2] = 1;
     x_dims[ndims - 1] = weights_dims[ndims - 2];
-    auto y_dims = {x_dims[0], weights_dims[1]};
+    dims y_dims = {x_dims[0], weights_dims[1]};
     if (ndims == 3) y_dims = {x_dims[0], x_dims[1], weights_dims[2]};
     auto y_dtype = (dtype != data_type::s8) ? dtype : data_type::s32;
 

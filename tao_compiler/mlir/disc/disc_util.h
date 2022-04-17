@@ -74,7 +74,41 @@ Value getRootMemRef(Value memref);
 
 bool isSameUnderlineBuffer(Value lhs, Value rhs);
 
+// For mhlo.EinsumOp. TODO: merge into mhlo dialect
+enum EquationVariable { kIsLhs, kIsRhs, kIsResult };
+bool parseEinsumEquation(
+    llvm::StringRef equation,
+    llvm::SmallDenseMap<char, llvm::SmallDenseMap<EquationVariable, size_t>>&
+        tokens,
+    SmallVector<char>* lhs_original_tokens,
+    SmallVector<char>* rhs_original_tokens,
+    SmallVector<char>* result_original_tokens);
+
 }  // namespace disc_ral
 }  // namespace mlir
+
+namespace llvm {
+
+template <>
+struct DenseMapInfo<mlir::disc_ral::EquationVariable> {
+  using StorageInfo = DenseMapInfo<uint32_t>;
+  static inline mlir::disc_ral::EquationVariable getEmptyKey() {
+    return static_cast<mlir::disc_ral::EquationVariable>(
+        StorageInfo::getEmptyKey());
+  }
+  static inline mlir::disc_ral::EquationVariable getTombstoneKey() {
+    return static_cast<mlir::disc_ral::EquationVariable>(
+        StorageInfo::getTombstoneKey());
+  }
+  static unsigned getHashValue(mlir::disc_ral::EquationVariable v) {
+    return StorageInfo::getHashValue(static_cast<uint32_t>(v));
+  }
+  static bool isEqual(mlir::disc_ral::EquationVariable lhs,
+                      mlir::disc_ral::EquationVariable rhs) {
+    return lhs == rhs;
+  }
+};
+
+}  // namespace llvm
 
 #endif  // DISC_DISC_UTIL_H_

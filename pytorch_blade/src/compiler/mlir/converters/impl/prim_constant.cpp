@@ -94,6 +94,18 @@ T CastJitConstToNumeric(const torch::jit::Value& val) {
       typeid(T).name());
 }
 
+std::string CastJitConstToString(const torch::jit::Value& val) {
+  TORCH_CHECK(
+      IsPrimConstant(val),
+      "The torch::jit::Value %",
+      val.debugName(),
+      " producer node must be prim::Constant");
+  auto const_ival = torch::jit::toIValue(&val);
+  TORCH_CHECK(
+      const_ival, "The torch::jit::Value %", val.debugName(), " is empty");
+  return const_ival->toString()->string();
+}
+
 int64_t CastJitConstToInt64(const torch::jit::Value& val) {
   return CastJitConstToNumeric<int64_t>(val);
 }

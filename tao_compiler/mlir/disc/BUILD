@@ -1,5 +1,5 @@
 load(
-    "//tensorflow:tensorflow.bzl",
+    "@org_tensorflow//tensorflow:tensorflow.bzl",
     "get_compatible_with_cloud",
     "tf_cc_binary",
     "tf_cc_shared_object",
@@ -9,12 +9,12 @@ load(
     "transitive_hdrs",
 )
 load(
-    "//tensorflow/core/platform:build_config.bzl",
+    "@org_tensorflow//tensorflow/core/platform:build_config.bzl",
     "tf_proto_library",
     "if_llvm_aarch64_available",
     "if_llvm_system_z_available",
 )
-load("//tensorflow/core/platform:build_config_root.bzl", "if_static")
+load("@org_tensorflow//tensorflow/core/platform:build_config_root.bzl", "if_static")
 load("@llvm-project//mlir:tblgen.bzl", "gentbl_cc_library", "gentbl_filegroup", "td_library")
 load("@local_config_cuda//cuda:build_defs.bzl", "if_cuda_is_configured")
 load("@local_config_rocm//rocm:build_defs.bzl", "if_rocm_is_configured")
@@ -41,6 +41,16 @@ config_setting(
 config_setting(
     name = "is_mkldnn",
     define_values = {"is_mkldnn": "true"},
+)
+
+config_setting(
+    name = "disc_aarch64",
+    define_values = {"disc_aarch64": "true"},
+)
+
+config_setting(
+    name = "disc_x86",
+    define_values = {"disc_x86": "true"},
 )
 
 package(
@@ -161,6 +171,7 @@ disc_cc_library(
         "//tensorflow/compiler/mlir/hlo:lhlo_gpu",
         "//tensorflow/core/platform:status",
         "//tensorflow/compiler/mlir/tensorflow:compile_mlir_util",
+        "//tensorflow/compiler/mlir/tensorflow:tf_dialect_passes",
         "@llvm-project//llvm:OrcJIT",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:ExecutionEngineUtils",
@@ -314,6 +325,22 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_fuse_splat_const",
+    srcs = ["transforms/disc_fuse_splat_const.cc"],
+    deps = [
+        ":pass_details",
+        "//tensorflow/compiler/mlir/hlo:LmhloPassIncGen",
+        "//tensorflow/compiler/mlir/hlo:lhlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "revise_args_for_static_rank",
     srcs = [
         "transforms/revise_args_for_static_rank.cc",
@@ -366,6 +393,7 @@ cc_library(
         "."
     ],
     deps = [
+        ":disc_util",
         ":pass_details",
         "//tensorflow/compiler/mlir/hlo:hlo",
         "@llvm-project//mlir:IR",
@@ -593,6 +621,7 @@ cc_library(
     srcs = ["transforms/shape_utils.cc"],
     hdrs = ["transforms/shape_utils.h"],
     deps = [
+        ":disc_util",
         ":mhlo_disc",
         ":pass_details",
         "//tensorflow/compiler/mlir/hlo:hlo",
@@ -1271,6 +1300,30 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_dot_merge",
+    srcs = ["transforms/disc_dot_merge.cc"],
+    hdrs = [
+        "transforms/passes.h",
+    ],
+    deps = [
+        ":disc_util",
+        ":mhlo_disc",
+        ":pass_details",
+        ":shape_utils",
+        "//tensorflow/compiler/mlir/hlo:hlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Shape",
+        "@llvm-project//mlir:StandardOps",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_math_approximation",
     srcs = [
         "transforms/disc_math_approximation.cc",
@@ -1462,12 +1515,14 @@ cc_library(
     deps = [
         ":MhloDiscPassIncGen",
         ":conv_rewriter",
+        ":disc_dot_merge",
         ":disc_assign_kernel_name",
         ":disc_assign_memory_space",
         ":disc_canonicalizer",
         ":disc_convert_const_to_ral",
         ":disc_cpu_map_parallel_loop",
         ":disc_flatten_memref_access",
+        ":disc_fuse_splat_const",
         ":disc_fusion",
         ":disc_hlo_legalize_to_lhlo",
         ":disc_hlo_to_std",
@@ -1762,7 +1817,8 @@ tf_cc_shared_object(
     linkopts = select({
         "//conditions:default": [
             "-z defs",
-            "-lm", "-Wl,-ldl"
+            "-lm", "-Wl,-ldl",
+            "-Wl,--version-script,$(location :mhlo_disc_builder.lds)",
         ],
     }),
     deps = [
@@ -1770,6 +1826,9 @@ tf_cc_shared_object(
         ":rng_uniform_custom_call",
         ":topk_custom_call",
         "//tensorflow/compiler/mlir/hlo:hlo",
+    ],
+    data = [
+        ":mhlo_disc_builder.lds"
     ],
     visibility = ["//visibility:public"],
 )

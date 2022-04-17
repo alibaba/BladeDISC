@@ -1,4 +1,4 @@
-// Copyright 2022 The BladeDISC Authors. All rights reserved.
+// Copyright 2021 The BladeDISC Authors. All rights reserved.
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
@@ -9,10 +9,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#include <gtest/gtest.h>
 
-#define COMMUNITY_VERSION_ID 1
+#include <common_utils/tempfs.h>
 
-#ifndef TORCH_BLADE_PLATFORM_VERSION_ID
-#define TORCH_BLADE_PLATFORM_VERSION_ID COMMUNITY_VERSION_ID
-#endif
+using torch::blade::TempFile;
+
+TEST(Tempfs, TestNormal) {
+  TempFile f;
+  std::string payload("hello, I'am the payload.");
+  ASSERT_TRUE(f.WriteBytesToFile(payload));
+
+  auto loaded_bytes = f.ReadBytesFromFile();
+  ASSERT_EQ(payload, loaded_bytes);
+
+  auto loaded_str = f.ReadStringFromFile();
+  ASSERT_EQ(payload, loaded_str);
+
+  ASSERT_FALSE(f.GetFilename().empty());
+}

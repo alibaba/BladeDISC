@@ -41,6 +41,7 @@ using disc_shape::DelinearizeOp;
 using disc_shape::LinearizeOp;
 using shape::BroadcastOp;
 using shape::ConcatOp;
+using shape::ConstShapeOp;
 using shape::NumElementsOp;
 using shape::ShapeOfOp;
 using shape::ShapeType;
@@ -100,6 +101,36 @@ LogicalResult ShapeOfOpConversion::matchAndRewrite(
   }
   rewriter.replaceOp(op, ValueRange{staticExtentTensor});
 
+  return success();
+}
+
+class ConstShapeOpConverter : public OpConversionPattern<ConstShapeOp> {
+ public:
+  using OpConversionPattern<ConstShapeOp>::OpConversionPattern;
+
+  LogicalResult matchAndRewrite(
+      ConstShapeOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override;
+};
+
+LogicalResult ConstShapeOpConverter::matchAndRewrite(
+    ConstShapeOp op, OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  // For now, this lowering supports only extent tensors, not `shape.shape`
+  // types.
+  if (op.getType().isa<ShapeType>()) return failure();
+
+  auto loc = op.getLoc();
+  SmallVector<Value, 4> extentOperands;
+  for (auto extent : op.getShape()) {
+    extentOperands.push_back(
+        rewriter.create<arith::ConstantIndexOp>(loc, extent.getLimitedValue()));
+  }
+  Type resultTy =
+      RankedTensorType::get({op.getShape().size()}, rewriter.getIndexType());
+  Value tensor =
+      rewriter.create<tensor::FromElementsOp>(loc, resultTy, extentOperands);
+  rewriter.replaceOpWithNewOp<tensor::CastOp>(op, resultTy, tensor);
   return success();
 }
 
@@ -412,10 +443,11 @@ void ConvertShapeToStandardPass::runOnOperation() {
   // Setup conversion patterns.
   RewritePatternSet patterns(&ctx);
   // clang-format: off
-  patterns.insert<BroadcastOpConverter, ConcatOpConversion,
-                  NumElementsOpConversion, ShapeOfOpConversion,
-                  SplitAtOpConversion, ToExtentTensorOpConversion,
-                  LinearizeOpConversion, DelinearizeOpConversion>(&ctx);
+  patterns
+      .insert<BroadcastOpConverter, ConcatOpConversion, NumElementsOpConversion,
+              ShapeOfOpConversion, SplitAtOpConversion,
+              ToExtentTensorOpConversion, LinearizeOpConversion,
+              DelinearizeOpConversion, ConstShapeOpConverter>(&ctx);
   // clang-format: on
 
   // Apply conversion.

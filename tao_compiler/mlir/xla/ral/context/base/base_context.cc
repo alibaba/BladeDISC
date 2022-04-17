@@ -21,9 +21,12 @@
 #include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_logging.h"
+#include "third_party/eigen3/Eigen/Core"
 
 namespace tao {
 namespace ral {
+
+DEFINE_TAO_TYPE_NAME_HELPER(Eigen::half, "f16");
 
 BaseContext::BaseContext(BaseContextOption& opt) {
   getOrCreateResource(tao::ral::kRalGlobalConstantState, [opt, this]() {
@@ -293,14 +296,6 @@ RAL_REGISTER_IO_FUNC(bool, 5);
 RAL_REGISTER_IO_FUNC(bool, 6);
 RAL_REGISTER_IO_FUNC(bool, 7);
 RAL_REGISTER_IO_FUNC(bool, 8);
-
-}  // namespace ral
-}  // namespace tao
-
-#ifdef TAO_RAL_USE_STREAM_EXECUTOR
-#include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
-namespace tao {
-namespace ral {
 RAL_REGISTER_IO_FUNC_0D(Eigen::half);
 RAL_REGISTER_IO_FUNC(Eigen::half, 1);
 RAL_REGISTER_IO_FUNC(Eigen::half, 2);
@@ -312,4 +307,3 @@ RAL_REGISTER_IO_FUNC(Eigen::half, 7);
 RAL_REGISTER_IO_FUNC(Eigen::half, 8);
 }  // namespace ral
 }  // namespace tao
-#endif  // TAO_RAL_USE_STREAM_EXECUTOR

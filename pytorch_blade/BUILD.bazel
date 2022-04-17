@@ -3,3 +3,19 @@ load("@com_github_bazelbuild_buildtools//buildifier:def.bzl", "buildifier")
 buildifier(
     name = "buildifier",
 )
+
+config_setting(
+    name = "enable_cuda",
+    values = {"define": "enable_cuda=true"},
+)
+
+config_setting(
+    name = "enable_tensorrt",
+    values = {"define": "enable_tensorrt=true"},
+)
+
+config_setting(
+    name = "platform_alibaba",
+    values = {"define": "platform_alibaba=true"},
+)
+

@@ -72,8 +72,8 @@ set(CMAKE_BUILD_WITH_INSTALL_RPATH ON)
 file(GLOB_RECURSE TORCH_BLADE_TEST_SRCS src/*test.cpp)
 file(GLOB TORCH_BLADE_PYTHON_SRCS src/pybind*.cpp src/compiler/jit/pybind*.cpp src/compiler/jit/torch/pybind*.cpp)
 file(GLOB TORCH_BLADE_PYTHON_HEADERS src/pybind*.h src/compiler/jit/pybind*.h src/compiler/jit/torch/pybind*.h)
-file(GLOB_RECURSE TORCH_BLADE_SRCS src/common_utils/*.cpp src/compiler/jit/*.cpp src/compiler/jit/torch/*.cpp)
-file(GLOB_RECURSE TORCH_BLADE_HEADERS src/common_utils/*.h src/compiler/jit/*.h)
+file(GLOB_RECURSE TORCH_BLADE_SRCS src/common_utils/*.cpp src/compiler/backends/*.cpp src/compiler/jit/*.cpp src/compiler/jit/torch/*.cpp)
+file(GLOB_RECURSE TORCH_BLADE_HEADERS src/common_utils/*.h src/compiler/backends/*.h csrc/compiler/jit/*.h)
 
 if (TORCH_BLADE_BUILD_MLIR_SUPPORT)
   file(GLOB_RECURSE TORCH_BLADE_MLIR_PYTHON_SRCS src/compiler/mlir/*pybind*.cpp)
@@ -123,6 +123,8 @@ if (TORCH_BLADE_BUILD_PYTHON_SUPPORT)
   )
 endif (TORCH_BLADE_BUILD_PYTHON_SUPPORT)
 
+include(${CMAKE_SOURCE_DIR}/cmake/backends.cmake)
+
 if (TORCH_BLADE_PLATFORM_ALIBABA)
   if (EXISTS ${CMAKE_SOURCE_DIR}/cmake/inside_alibaba.cmake)
     include(${CMAKE_SOURCE_DIR}/cmake/inside_alibaba.cmake)
@@ -145,7 +147,7 @@ resolve_env(PYTORCH_VERSION_STRING)
 resolve_env(PYTORCH_MAJOR_VERSION)
 resolve_env(PYTORCH_MINOR_VERSION)
 target_compile_definitions(torch_blade PUBLIC
-   -DPYTORCH_VERSION_STRING="${PYTORCH_VERSION_STRING}"  # a str
+   -DPYTORCH_VERSION_STRING="${PYTORCH_VERSION_STRING}"
    -DPYTORCH_MAJOR_VERSION=${PYTORCH_MAJOR_VERSION}
    -DPYTORCH_MINOR_VERSION=${PYTORCH_MINOR_VERSION}
 )
@@ -188,8 +190,7 @@ if (TORCH_BLADE_BUILD_PYTHON_SUPPORT)
 
   target_link_libraries(_torch_blade PUBLIC
     torch_python torch_blade)
-  set_target_properties(_torch_blade PROPERTIES PREFIX "${PYTHON_MODULE_PREFIX}"
-                                           SUFFIX "${PYTHON_MODULE_EXTENSION}")
+  set_target_properties(_torch_blade PROPERTIES PREFIX "${PYTHON_MODULE_PREFIX}" SUFFIX ".so")
 endif (TORCH_BLADE_BUILD_PYTHON_SUPPORT)
 
 install(TARGETS torch_blade LIBRARY PERMISSIONS OWNER_WRITE OWNER_READ GROUP_READ OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE)

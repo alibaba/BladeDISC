@@ -791,6 +791,7 @@ class AttributePropagator {
 }; // class AttributePropagator
 } // namespace
 
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MIN_VERSION < 12
 Module freeze_module(
     const Module& module,
     std::vector<std::string> preservedAttrs,
@@ -817,6 +818,7 @@ Module freeze_module(
   attrPropagator.run();
   return moduleClone;
 }
+#endif
 
 } // namespace blade
 } // namespace torch

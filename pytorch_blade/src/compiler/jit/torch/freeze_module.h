@@ -81,12 +81,13 @@ namespace blade {
 //
 // TODO: this function could be removed once torch::jit::freeze_module has the
 // corresponding functionality.
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MIN_VERSION < 12
 torch::jit::Module freeze_module(
     const torch::jit::Module& module,
     std::vector<std::string> preservedAttrs = std::vector<std::string>(),
     bool freezeInterfaces = true,
     bool preserveParameters = false,
     bool disableShapePeephole = true);
-
+#endif
 } // namespace blade
 } // namespace torch

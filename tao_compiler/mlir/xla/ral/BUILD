@@ -496,13 +496,6 @@ cc_library(
       "$(location @mkl_static//:lib)/libmkl_gnu_thread.a",
       "$(location @mkl_static//:lib)/libmkl_core.a",
       "-Wl,--end-group",
-    ]) + if_disc_aarch64([
-      # "-L$(location @acl_compute_library//:build)",
-      # "-Wl,--start-group",
-      # "$(location @acl_compute_library//:build)/libarm_compute.a",
-      # "$(location @acl_compute_library//:build)/libarm_compute_core.a",
-      # "$(location @acl_compute_library//:build)/libarm_compute_graph.a",
-      # "-Wl,--end-group",
     ]),
     copts = [
         "-I$(location @mkl_include//:include)"
@@ -514,7 +507,6 @@ cc_library(
     ],
     deps = [
         "@onednn//:onednn",
-        # "@acl_compute_library//:acl",
     ],
 )
 
@@ -596,6 +588,7 @@ cuda_library(
     name = "dynamic_sort_kernel_bridge",
     srcs = [
         "context/custom_library/dynamic_sort.cu.cc",
+        "context/custom_library/tf_topk.cu.h",
     ],
     hdrs = [
         "context/custom_library/dynamic_sort.h",

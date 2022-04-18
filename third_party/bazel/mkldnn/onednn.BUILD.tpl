@@ -2,6 +2,7 @@ load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
 load("@local_config_blade_disc_helper//:build_defs.bzl",
     "cc_bin_path",
     "cxx_bin_path",
+    "if_disc_aarch64",
 )
 
 package(default_visibility = ["//visibility:public"])
@@ -36,9 +37,9 @@ cmake(
     out_static_libs = [
         "libdnnl.a",
     ],
-    deps = [
+    deps = if_disc_aarch64([
         "@acl_compute_library//:acl",
-    ],
+    ]),
     alwayslink = 1,
     visibility = ["//visibility:public"],
 )

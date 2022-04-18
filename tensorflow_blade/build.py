@@ -256,7 +256,7 @@ def configure_with_bazel(args):
             _write("--//:device=cpu")
             if args.device == 'cpu':
                 # TODO(lanbo.llb): unify mkl configure with tao_bridge
-                if not args.aarch64:
+                if args.internal:
                     _action_env("BLADE_WITH_MKL", "1")
                     mkl_root = os.environ.get("MKL_INSTALL_PATH", "/opt/intel/compilers_and_libraries_2020.1.217/linux")
                     assert os.path.exists(mkl_root), f"MKL root path missing: {mkl_root}"

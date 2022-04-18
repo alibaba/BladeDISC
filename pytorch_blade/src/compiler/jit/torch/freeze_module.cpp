@@ -394,13 +394,14 @@ class AttributePropagator {
             function.name(),
             "' to ",
             *user_node);
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION < 12
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
+        if (auto graphFunction = tryToGraphFunction(function)) {
+          GRAPH_UPDATE("Function body: ", graphFunction->optimized_graph());
+          inlineCallTo(user_node, graphFunction);
+        }
+#else
         GRAPH_UPDATE("Function body: ", *function.optimized_graph());
         inlineCallTo(user_node, &function);
-#else
-        auto graphFunction = toGraphFunction(function);
-        GRAPH_UPDATE("Function body: ", *graphFunction.optimized_graph());
-        inlineCallTo(user_node, &graphFunction);
 #endif
         inlined = true;
       }

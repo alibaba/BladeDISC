@@ -791,7 +791,7 @@ class AttributePropagator {
 }; // class AttributePropagator
 } // namespace
 
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MIN_VERSION < 12
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION < 12
 Module freeze_module(
     const Module& module,
     std::vector<std::string> preservedAttrs,

@@ -26,6 +26,7 @@ load("//tensorflow/compiler/mlir/disc:disc.bzl",
      "if_cuda_or_rocm",
      "if_platform_alibaba",
      "if_patine",
+     "if_blade_gemm",
      "if_mkldnn",
      "if_disc_aarch64",
      "if_disc_x86",
@@ -160,6 +161,13 @@ cc_library(
     deps = if_platform_alibaba([":real_disc_patine_client_deps"])
 )
 
+
+cc_library(
+    name = "disc_blade_gemm_deps",
+    deps = if_platform_alibaba(["//tao/blade_gemm:blade_gemm"]),
+)
+
+
 cc_library(
     name = "disc_mkl",
     hdrs = glob([
@@ -240,6 +248,8 @@ cc_library(
         "//tensorflow/core:framework",
     ]) + if_patine([
         ":disc_patine_client_deps",
+    ]) + if_blade_gemm([
+        ":disc_blade_gemm_deps",
     ]) + if_mkldnn([
         ":disc_mkl",
     ]),

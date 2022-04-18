@@ -147,6 +147,11 @@ if(${TAO_ENABLE_PATINE})
   target_link_libraries(ral PRIVATE patine_client)
 endif()
 
+if(${ENABLE_BLADE_GEMM})
+  include_directories(${PLATFORM_ALIBABA_DIR}/blade_gemm/include)
+  target_link_libraries(ral PRIVATE blade_gemm)
+endif()
+
 if(${TAO_ENABLE_MKLDNN})
   target_link_libraries(ral PRIVATE dnnl)
   if(${TAO_X86})

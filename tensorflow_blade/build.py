@@ -44,7 +44,8 @@ from tao_build import get_version_file
 
 # Source code root dir.
 ROOT = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
-ACL_ROOT = os.path.join(ROOT, os.pardir, "tao", "third_party", "mkldnn", "acl")
+# bazel-bin/external/acl_compute_library/acl
+ACL_ROOT = os.path.join(ROOT, "bazel-bin", "external", "acl_compute_library", "acl")
 BUILD_CONFIG = os.path.join(ROOT, ".build_config")
 
 
@@ -289,21 +290,7 @@ def configure_with_bazel(args):
 def build_with_bazel(args):
     with cwd(ROOT):
         if args.device == "cpu":
-            if args.aarch64:
-                execute(f"rm -rf {ACL_ROOT}/*")
-                execute("bazel run @acl_compute_library//:scons_build_acl")
-                build_dir = os.path.join(
-                    ROOT,
-                    'bazel-bin',
-                    'external',
-                    'acl_compute_library',
-                    'scons_build_acl.runfiles',
-                    'org_tf_blade',
-                    'external',
-                    'acl_compute_library',
-                )
-                execute(f"cp -r {build_dir}/* {ACL_ROOT}")
-                # execute("bazel build @org_tao_bridge//:libtao_ops.so")
+            execute("bazel build @org_tao_bridge//:libtao_ops.so")
         else:
             execute("bazel build //src:_tf_blade.so")
 

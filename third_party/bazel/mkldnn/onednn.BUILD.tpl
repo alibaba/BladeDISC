@@ -36,6 +36,9 @@ cmake(
     out_static_libs = [
         "libdnnl.a",
     ],
+    deps = [
+        "@acl_compute_library//:acl",
+    ],
     alwayslink = 1,
     visibility = ["//visibility:public"],
 )

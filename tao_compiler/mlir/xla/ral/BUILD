@@ -497,12 +497,12 @@ cc_library(
       "$(location @mkl_static//:lib)/libmkl_core.a",
       "-Wl,--end-group",
     ]) + if_disc_aarch64([
-      "-L$(location @org_tao_bridge//third_party/mkldnn:acl)/build",
-      "-Wl,--start-group",
-      "$(location @org_tao_bridge//third_party/mkldnn:acl)/build/libarm_compute.a",
-      "$(location @org_tao_bridge//third_party/mkldnn:acl)/build/libarm_compute_core.a",
-      "$(location @org_tao_bridge//third_party/mkldnn:acl)/build/libarm_compute_graph.a",
-      "-Wl,--end-group",
+      # "-L$(location @acl_compute_library//:build)",
+      # "-Wl,--start-group",
+      # "$(location @acl_compute_library//:build)/libarm_compute.a",
+      # "$(location @acl_compute_library//:build)/libarm_compute_core.a",
+      # "$(location @acl_compute_library//:build)/libarm_compute_graph.a",
+      # "-Wl,--end-group",
     ]),
     copts = [
         "-I$(location @mkl_include//:include)"
@@ -511,10 +511,10 @@ cc_library(
         "@mkl_static//:lib",
         "@mkl_include//:include",
         "@onednn//:onednn_lib",
-        "@org_tao_bridge//third_party/mkldnn:acl",
     ],
     deps = [
         "@onednn//:onednn",
+        # "@acl_compute_library//:acl",
     ],
 )
 

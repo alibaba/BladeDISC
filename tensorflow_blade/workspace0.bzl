@@ -8,6 +8,7 @@ load("@org_third_party//bazel/tf_protobuf:tf_protobuf_configure.bzl", "tf_protob
 load("@org_third_party//bazel/cuda_supplement:cuda_supplement_configure.bzl", "cuda_supplement_configure")
 
 load("@org_tensorflow//third_party/gpus:cuda_configure.bzl", "cuda_configure")
+load("@org_tensorflow//third_party:repo.bzl", "tf_http_archive", "tf_mirror_urls")
 
 # Import external repository rules.
 load("@pybind11_bazel//:python_configure.bzl", "python_configure")
@@ -86,12 +87,13 @@ def _tf_blade_repositories():
     )
 
     # for aarch64 related acl library
-    new_git_repository(
+    tf_http_archive(
         name = "acl_compute_library",
-        build_file = "@local_config_mkldnn//:compute_library.BUILD",
-        remote = "https://github.com/ARM-software/ComputeLibrary.git",
-        tag = "v22.02",
-        init_submodules = True,
+        sha256 = "11244b05259fb1c4af7384d0c3391aeaddec8aac144774207582db4842726540",
+        strip_prefix = "ComputeLibrary-22.02",
+        build_file = "@local_config_mkldnn//:acl_compute_library.BUILD",
+        patch_file = ["@local_config_mkldnn//:acl_makefile.patch"],
+        urls = tf_mirror_urls("https://github.com/ARM-software/ComputeLibrary/archive/v22.02.tar.gz"),
     )
 
 def _tf_blade_toolchains():

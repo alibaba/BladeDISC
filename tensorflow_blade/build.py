@@ -44,8 +44,6 @@ from tao_build import get_version_file
 
 # Source code root dir.
 ROOT = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
-# bazel-bin/external/acl_compute_library/acl
-ACL_ROOT = os.path.join(ROOT, "bazel-bin", "external", "acl_compute_library", "acl")
 BUILD_CONFIG = os.path.join(ROOT, ".build_config")
 
 
@@ -268,8 +266,6 @@ def configure_with_bazel(args):
                     if args.aarch64:
                         _opt("define", "disc_aarch64=true")
                         _action_env("BUILD_WITH_AARCH64", "1")
-                        assert os.path.exists(ACL_ROOT), f"ACL root path missing: {ACL_ROOT}"
-                        _action_env("ACL_ROOT_PATH", ACL_ROOT)
                     else:
                         _opt("define", "disc_x86=true")
 

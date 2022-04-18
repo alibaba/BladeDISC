@@ -37,9 +37,12 @@ cmake(
     out_static_libs = [
         "libdnnl.a",
     ],
-    deps = if_disc_aarch64([
-        "@acl_compute_library//:acl",
+    data = if_disc_aarch64([
+        "@acl_compute_library//:Makefile",
     ]),
+    deps = [
+        "@acl_compute_library//:acl",
+    ],
     alwayslink = 1,
     visibility = ["//visibility:public"],
 )

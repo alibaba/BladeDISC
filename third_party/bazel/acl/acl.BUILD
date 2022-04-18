@@ -25,15 +25,4 @@ make(
     ],
 )
 
-exports_files(["build"])
-
-genrule(
-    name = "arm_compute",
-    srcs = [
-        ":acl",
-    ],
-    outs = [
-        "acl_lib/libarm_compute.a",
-    ],
-    cmd = "mkdir acl_lib; cp -r $(SRCS) $(@D)",
-)
+exports_files(["build", "Makefile"])

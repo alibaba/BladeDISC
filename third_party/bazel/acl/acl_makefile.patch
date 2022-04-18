@@ -13,5 +13,5 @@ index 0000000..bd9a183
 +install:
 +	mkdir -p $(INSTALLDIR)/build $(INSTALLDIR)
 +	cp build/libarm_compute.a build/libarm_compute_core.a build/libarm_compute_graph.a $(INSTALLDIR)/build/
-+	cp -r arm_compute/ src/ utils/ support/ include/ $(INSTALLDIR)
++	cp -r build/src/core/arm_compute_version.embed arm_compute/ src/ utils/ support/ include/ $(INSTALLDIR)
 \ No newline at end of file

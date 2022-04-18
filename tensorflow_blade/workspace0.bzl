@@ -2,6 +2,7 @@
 load("@org_third_party//bazel/blade_disc_helper:blade_disc_helper_configure.bzl", "blade_disc_helper_configure")
 load("@org_third_party//bazel:common.bzl", "maybe_http_archive")
 load("@org_third_party//bazel/mkl:mkl_configure.bzl", "mkl_configure")
+load("@org_third_party//bazel/onednn:onednn_configure.bzl", "onednn_configure")
 load("@org_third_party//bazel/tensorrt:repo.bzl", "tensorrt_configure")
 load("@org_third_party//bazel/tf:tf_configure.bzl", "tf_configure")
 load("@org_third_party//bazel/tf_protobuf:tf_protobuf_configure.bzl", "tf_protobuf_configure")
@@ -62,7 +63,7 @@ def _tf_blade_repositories():
     # mkldnn cmake external rules
     maybe_http_archive(
         name = "mkl_static",
-        build_file = "@local_config_mkldnn//:mkl_static.BUILD",
+        build_file = "@org_third_party//bazel/mkldnn:mkl_static.BUILD",
         sha256 = "b0f4f03c5a2090bc1194f348746396183cfb63a5a379d6e86f7fa89006abe28b",
         urls = [
             "https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-static-2022.0.1-intel_117.tar.bz2",
@@ -72,7 +73,7 @@ def _tf_blade_repositories():
 
     maybe_http_archive(
         name = "mkl_include",
-        build_file = "@local_config_mkldnn//:mkl_include.BUILD",
+        build_file = "@org_third_party//bazel/mkldnn:mkl_include.BUILD",
         sha256 = "3df729b9fa66f2e1e566c70baa6799b15c9d0e5d3890b9bd084e02299af25002",
         urls = [
             "https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-include-2022.0.1-h8d4b97c_803.tar.bz2",
@@ -80,20 +81,22 @@ def _tf_blade_repositories():
         ],
     )
 
-    native.new_local_repository(
-        name = "onednn",
-        build_file = "@local_config_mkldnn//:onednn.BUILD",
-        path = "../tao/third_party/mkldnn"
-    )
-
     # for aarch64 related acl library
     tf_http_archive(
         name = "acl_compute_library",
         sha256 = "11244b05259fb1c4af7384d0c3391aeaddec8aac144774207582db4842726540",
         strip_prefix = "ComputeLibrary-22.02",
-        build_file = "@local_config_mkldnn//:acl_compute_library.BUILD",
-        patch_file = ["@local_config_mkldnn//:acl_makefile.patch"],
+        build_file = "@org_third_party//bazel/acl:acl.BUILD",
+        patch_file = ["@org_third_party//bazel/acl:acl_makefile.patch"],
         urls = tf_mirror_urls("https://github.com/ARM-software/ComputeLibrary/archive/v22.02.tar.gz"),
+    )
+
+    onednn_configure(name = "local_config_onednn")
+
+    native.new_local_repository(
+        name = "onednn",
+        build_file = "@local_config_onednn//:onednn.BUILD",
+        path = "../tao/third_party/mkldnn"
     )
 
 def _tf_blade_toolchains():

@@ -246,8 +246,8 @@ bool ConvertAtenSlice(
 
   auto start_ivalue = torch::jit::toIValue(jit_start);
   auto end_ivalue = torch::jit::toIValue(jit_end);
-  auto start_isnone = !start_ivalue || start_ivalue->isNone();
-  auto end_isnone = !end_ivalue || end_ivalue->isNone();
+  auto start_isnone = start_ivalue && start_ivalue->isNone();
+  auto end_isnone = end_ivalue && end_ivalue->isNone();
   if (start_isnone && end_isnone) {
     ctx.value_map[node.output(0)] = ml_tensor;
     return true;

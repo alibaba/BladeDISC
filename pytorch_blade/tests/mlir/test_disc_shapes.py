@@ -119,15 +119,15 @@ class TestDiscShapes(DiscTestCase):
             def forward(self, x):
                 return x.permute(self.permute_dims)
 
-        permute = TestModel([]) 
+        permute = TestModel([])
         self._test_reshape(permute, x=torch.tensor(5, device=self.device))
-        permute = TestModel([]) 
+        permute = TestModel([])
         self._test_reshape(permute, x=torch.randn([], device=self.device))
-        permute = TestModel([0]) 
+        permute = TestModel([0])
         self._test_reshape(permute, x=torch.randn([5], device=self.device))
-        permute = TestModel([1, 0]) 
+        permute = TestModel([1, 0])
         self._test_reshape(permute, x=torch.randn([3, 4], device=self.device))
-        permute = TestModel([1, -1, 0]) 
+        permute = TestModel([1, -1, 0])
         self._test_reshape(permute, x=torch.randn([2, 3, 4], device=self.device))
 
 
@@ -199,6 +199,17 @@ class TestDiscShapes(DiscTestCase):
 
         self._test_reshape(slice_func)
         self._test_reshape(slice_func, x=torch.randn([2, 0, 0, 224]))
+
+    def test_dyn_slices(self):
+        @torch.jit.script
+        def dyn_slice_func(x, y):
+            d = y.size(1)
+            return x[:,0:d]
+
+        x = torch.randn([224, 224], device=self.device)
+        y = torch.randn([6, 112], device=self.device)
+        test_data = (x, y)
+        self._test_cvt_to_disc(dyn_slice_func, test_data)
 
     def test_size(self):
         @torch.jit.script

@@ -18,7 +18,9 @@ import torch.optim as optim
 from torch.testing import assert_allclose
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
+import torch._lazy as ltc
 import _torch_disc as disc
+torch._C._lazy_ts_backend._init()
 disc._ltc_init_disc_backend()
 import unittest
 
@@ -53,7 +55,7 @@ def train(model, device, train_loader, optimizer, epoch):
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
-        disc._step_marker()
+        ltc.mark_step()
         train_loss += loss.item() * len(data)
         if batch_idx % LOG_INTERVAL == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
@@ -74,7 +76,7 @@ def test(model, device, test_loader):
             test_loss += F.nll_loss(output, target, reduction='sum').item()  # sum up batch loss
             pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             correct += pred.eq(target.view_as(pred)).sum(dtype=torch.int).item()
-            disc._step_marker()
+            ltc.mark_step()
 
     test_loss /= len(test_loader.dataset)
 
@@ -123,7 +125,7 @@ class TestMnist(unittest.TestCase):
         expect_acc = self.mnit(device)
         print(expect_acc)
         print(actual_acc)
-        assert_allclose(expect_acc, actual_acc, rtol=1e-3, atol=0)
+        assert_allclose(expect_acc, actual_acc, rtol=1e-2, atol=0)
 
 if __name__ == '__main__':
     unittest.main()

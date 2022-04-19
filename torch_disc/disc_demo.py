@@ -14,7 +14,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.optim.lr_scheduler import StepLR
+import torch._lazy as ltc
 import _torch_disc as disc
+torch._C._lazy_ts_backend._init()
 disc._ltc_init_disc_backend()
 
 class SimpleNet(nn.Module):
@@ -45,5 +47,5 @@ for i in range(10):
     loss = F.nll_loss(output, target)
     loss.backward()
     optimizer.step()
-    disc._step_marker()
+    ltc.mark_step()
     print("step: {}, loss: {}".format(i, loss))

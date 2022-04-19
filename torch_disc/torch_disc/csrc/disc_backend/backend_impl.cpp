@@ -250,10 +250,5 @@ void InitTorchScriptBackend() {
       new torch::lazy::BackendRegistrar(compiler::GetDISCBackendImpl()));
 }
 
-<<<<<<< HEAD:torch_disc/torch_disc/csrc/disc_backend/backend_impl.cpp
 }  //  namespace compiler
 }  //  namespace torch_disc
-=======
-}  //  namespace compiler
-}  //  namespace torch_disc
->>>>>>> 7e6f61c... bak:pytorch_blade/src/compiler/ltc/disc_backend/backend_impl.cpp

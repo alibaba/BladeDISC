@@ -15,8 +15,8 @@ cc_library (
     "passes/register_disc_class.h",
     "passes/disc_class.h",
   ],
+  includes = ["../include"],
   deps = [
-    "@local_org_torch//:ltc_ts_backend",
     "@org_torch_blade//src/compiler/mlir:torch_blade_mlir",
     "@local_org_torch//:ATen",
     "@local_org_torch//:libtorch",

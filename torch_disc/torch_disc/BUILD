@@ -9,7 +9,6 @@ cc_library (
     "csrc/disc_backend/backend_impl.h",
   ],
   deps = [
-    "@local_org_torch//:ltc_ts_backend",
     "//torch_disc/csrc/disc_compiler:disc_compiler"
   ]
 )
@@ -17,6 +16,7 @@ cc_library (
 pybind_library (
   name = "torch_disc_pybind11",
   srcs = ["csrc/init_python_bindings.cpp"],
+  hdrs = ["csrc/init_python_bindings.h"],
   deps = [
     ":torch_disc_backend",
   ]

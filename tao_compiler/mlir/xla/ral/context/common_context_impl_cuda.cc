@@ -12,6 +12,7 @@
 #include <fcntl.h>
 
 #include <cstring>
+#include <numeric>
 
 #include "absl/strings/str_split.h"
 #include "google/protobuf/io/zero_copy_stream_impl.h"

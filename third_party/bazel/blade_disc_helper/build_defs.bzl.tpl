@@ -58,3 +58,21 @@ def disc_build_ip():
 
 def disc_build_time():
     return "%{DISC_BUILD_TIME}"
+
+def if_mkldnn(if_true, if_false=[]):
+    return select({
+        "@local_config_blade_disc_helper//:is_mkldnn": if_true,
+        "//conditions:default": if_false
+    })
+
+def if_disc_aarch64(if_true, if_false=[]):
+    return select({
+        "@local_config_blade_disc_helper//:disc_aarch64": if_true,
+        "//conditions:default": if_false
+    })
+
+def if_cxx11_abi(if_true, if_false=[]):
+    return select({
+        "@local_config_blade_disc_helper//:is_cxx11_abi": if_true,
+        "//conditions:default": if_false
+    })

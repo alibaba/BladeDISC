@@ -488,6 +488,47 @@ tf_gpu_kernel_library(
 # The targets following are for tf bridge side build. Get rid of all the deps from tf source code, only use some of the `.bzl` utils from tensorflow.
 
 cc_library(
+    name = "disc_mkl_bridge",
+    hdrs = glob([
+        "context/mkldnn/ideep/*.hpp",
+        "context/mkldnn/ideep/ideep/*.hpp",
+        "context/mkldnn/ideep/ideep/operators/*.hpp",
+    ]),
+    linkopts = [
+        "-Wl,--start-group",
+        "$(location @onednn//:onednn_lib)",
+        "-Wl,--end-group",
+    ] + if_disc_x86([
+        "-Wl,--start-group",
+        "$(location @mkl_static//:lib)/libmkl_intel_ilp64.a",
+        "$(location @mkl_static//:lib)/libmkl_gnu_thread.a",
+        "$(location @mkl_static//:lib)/libmkl_core.a",
+        "-Wl,--end-group",
+    ]) + if_disc_aarch64([
+        "-Wl,--start-group",
+        "$(location @acl_compute_library//:build/libarm_compute.a)",
+        "$(location @acl_compute_library//:build/libarm_compute_core.a)",
+        "$(location @acl_compute_library//:build/libarm_compute_graph.a)",
+        "-Wl,--end-group",
+    ]),
+    data = [
+        "@onednn//:onednn_lib",
+    ] + if_disc_x86([
+        "@mkl_static//:lib",
+    ]) + if_disc_aarch64([
+        "@acl_compute_library//:build/libarm_compute.a",
+        "@acl_compute_library//:build/libarm_compute_core.a",
+        "@acl_compute_library//:build/libarm_compute_graph.a",
+    ]),
+    deps = [
+        "@onednn//:onednn",  # acl is not needed in `deps` since the dependency is carried by `onednn`
+    ] + if_disc_x86([
+        "@mkl_include//:mkl_include",
+        "@mkl_static//:mkl_static_lib",
+    ]),
+)
+
+cc_library(
     name = "common_context_bridge",
     srcs = [
         "context/common_context_impl.cc",
@@ -501,13 +542,15 @@ cc_library(
     ]),
     hdrs = [
         "context/common_context_impl.h",
-    ] + if_cuda_or_rocm([
         "context/stream_executor_based_impl.h",
+    ] + if_cuda_or_rocm([
     ]),
     copts = [
         "-fopenmp",
         "-DDISC_BUILD_FROM_TF_BRIDGE"
-    ] + if_cuda_or_rocm(["-DTAO_RAL_USE_STREAM_EXECUTOR"]),
+    ] + if_cuda_or_rocm([
+        "-DTAO_RAL_USE_STREAM_EXECUTOR"
+    ]),
     linkopts = [
         "-fopenmp",
         "-ldl"
@@ -515,6 +558,7 @@ cc_library(
     deps = [
         ":ral_context",
         ":ral_cpu_driver",
+        ":ral_gpu_driver",
         ":ral_logging",
         ":context_util",
         "//tensorflow/compiler/mlir/xla:compile_metadata_bridge",
@@ -526,11 +570,10 @@ cc_library(
     ]) + if_rocm_is_configured([
         "@local_config_rocm//rocm:rocm_headers",
     ]) + if_cuda_or_rocm([
-        ":ral_gpu_driver",
     ]) + if_patine([
         ":disc_patine_client_deps",
     ]) + if_mkldnn([
-        ":disc_mkl",
+        ":disc_mkl_bridge",
     ]),
     alwayslink = 1,
 )
@@ -541,7 +584,9 @@ cc_library(
         "context/tensorflow/tf_context_impl.cc",
         "context/tensorflow/tf_kernel_impl.cc",
     ],
-    hdrs = ["context/tensorflow/tf_context_impl.h"],
+    hdrs = [
+        "context/tensorflow/tf_context_impl.h"
+    ],
     copts = [
         "-DDISC_BUILD_FROM_TF_BRIDGE"
     ],
@@ -659,9 +704,10 @@ cc_library(
     name = "ral_bridge",
     deps = [
         ":common_context_bridge",
-        ":dynamic_sort_bridge",
         ":ral_tf_context_bridge",
+    ] + if_cuda_or_rocm([
+        ":dynamic_sort_bridge",
         ":random_bridge",
-    ],
+    ]),
     alwayslink = 1,
 )

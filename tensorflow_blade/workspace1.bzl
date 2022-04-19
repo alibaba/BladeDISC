@@ -33,7 +33,6 @@ def _tf_blade_repositories():
         ],
     )
 
-
 def workspace():
     _tf_blade_repositories()
 

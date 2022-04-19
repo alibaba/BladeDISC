@@ -1,0 +1,17 @@
+diff --git a/Makefile b/Makefile
+new file mode 100644
+index 0000000..bd9a183
+--- /dev/null
++++ b/Makefile
+@@ -0,0 +1,10 @@
++all:
++	scons --silent -j$(np) Werror=0 debug=0 neon=1 opencl=0 embed_kernels=0 os=$(os) arch=$(arch) build=native extra_cxx_flags="-fPIC"
++	rm -f build/*.so
++	mv build/libarm_compute-static.a build/libarm_compute.a
++	mv build/libarm_compute_core-static.a build/libarm_compute_core.a
++	mv build/libarm_compute_graph-static.a build/libarm_compute_graph.a
++install:
++	mkdir -p $(INSTALLDIR)/build $(INSTALLDIR)
++	cp build/libarm_compute.a build/libarm_compute_core.a build/libarm_compute_graph.a $(INSTALLDIR)/build/
++	cp -r build/src/core/arm_compute_version.embed arm_compute/ src/ utils/ support/ include/ $(INSTALLDIR)
+\ No newline at end of file

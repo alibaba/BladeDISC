@@ -119,7 +119,6 @@ tf_cc_shared_object(
     ]
 )
 
-
 tao_bridge_cc_test(
     name = "tao_bridge_tests",
     srcs = [
@@ -129,6 +128,7 @@ tao_bridge_cc_test(
         "tao_bridge/errors_test.cc",
         "tao_bridge/tao_util_test.cc",
     ],
+    tags = ["gpu"],
 )
 
 tao_bridge_cc_test(

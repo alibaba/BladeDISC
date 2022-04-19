@@ -651,6 +651,12 @@ def parse_args():
         help="Build tao with cpu support only",
     )
     parser.add_argument(
+        "--aarch64",
+        required=False,
+        action="store_true",
+        help="Build tao with aarch64 support only",
+    )
+    parser.add_argument(
         "--dcu",
         required=False,
         action="store_true",

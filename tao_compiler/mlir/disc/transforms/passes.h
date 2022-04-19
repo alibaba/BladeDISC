@@ -208,6 +208,10 @@ std::unique_ptr<OperationPass<FuncOp>> createDiscDotMergePass();
 // Apply some basic algebra simplification optimizations.
 std::unique_ptr<OperationPass<FuncOp>> createDiscAlgebraSimplifierPass();
 
+// apply some shape-related optimization.
+std::unique_ptr<OperationPass<ModuleOp>> createDiscShapeOptimizationPass(
+    const std::string& entry_func_name = "main", bool keep_tie_shape = false);
+
 }  // namespace disc_ral
 }  // namespace mlir
 

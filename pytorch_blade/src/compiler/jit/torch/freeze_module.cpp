@@ -73,7 +73,6 @@ class AttributePropagator {
         insertMutableAttr(name, attr, module_._ivalue());
         return true;
       }
-
       for (auto& fn : module_.type()->methods()) {
         if (fn->name() == name) {
           preservedMethods_.insert(fn);
@@ -115,6 +114,13 @@ class AttributePropagator {
     }
   }
 
+  std::shared_ptr<Graph> getGraphFromFunction(Function* function) {
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
+    return toGraphFunction(*function).graph();
+#else
+    return function->graph();
+#endif
+  }
   void run() {
     auto applyInline = [](std::shared_ptr<Graph>& subgraph) {
       Inline(*subgraph);
@@ -125,7 +131,7 @@ class AttributePropagator {
     };
     for (auto function : preservedMethods_) {
       GRAPH_DEBUG("Analyzing function: " + function->name());
-      auto graph = function->graph();
+      auto graph = getGraphFromFunction(function);
       optimizeSubGraphs(graph, applyInline);
       if (freezeInterfaces_) {
         inlineInterfaceCalls(graph);
@@ -137,7 +143,7 @@ class AttributePropagator {
 
     for (auto function : preservedMethods_) {
       GRAPH_DEBUG("Propagating function: " + function->name());
-      auto graph = function->graph();
+      auto graph = getGraphFromFunction(function);
       propagateAttributes(graph);
       optimizeSubGraphs(graph, applyOptimizations);
     }
@@ -388,9 +394,15 @@ class AttributePropagator {
             function.name(),
             "' to ",
             *user_node);
-
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
+        if (auto graphFunction = tryToGraphFunction(function)) {
+          GRAPH_UPDATE("Function body: ", graphFunction->optimized_graph());
+          inlineCallTo(user_node, graphFunction);
+        }
+#else
         GRAPH_UPDATE("Function body: ", *function.optimized_graph());
         inlineCallTo(user_node, &function);
+#endif
         inlined = true;
       }
     }
@@ -601,7 +613,7 @@ class AttributePropagator {
   // 3) Remove non public unreferenced methods.
   void cleanupFrozenModule() {
     for (auto function : preservedMethods_) {
-      auto graph = function->graph();
+      auto graph = getGraphFromFunction(function);
       recordReferencedAttrs(graph);
       handleSharedClassType(module_, graph);
       removeExtraWaitCalls(graph->block());

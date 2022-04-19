@@ -502,17 +502,20 @@ cc_library(
         "-Wl,--end-group",
     ]),
     data = [
-        "@mkl_static//:lib",
         "@onednn//:onednn_lib",
+    ] + if_disc_x86([
+        "@mkl_static//:lib",
+    ]) + if_disc_aarch64([
         "@acl_compute_library//:build/libarm_compute.a",
         "@acl_compute_library//:build/libarm_compute_core.a",
         "@acl_compute_library//:build/libarm_compute_graph.a",
-    ],
+    ]),
     deps = [
-        "@onednn//:onednn",
+        "@onednn//:onednn",  # acl is not needed in `deps` since the dependency is carried by `onednn`
+    ] + if_disc_x86([
         "@mkl_include//:mkl_include",
         "@mkl_static//:mkl_static_lib",
-    ],
+    ]),
 )
 
 cc_library(

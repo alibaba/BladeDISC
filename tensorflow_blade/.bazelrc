@@ -9,7 +9,26 @@ test --test_output=errors
 build --verbose_failures
 build --spawn_strategy=local  # this is a workaround to include third party source files with BUILD.bazel.
 
-# mkl_aarch64 are from tensorflow
+# these comes from tensorflow's source code
+build:v2 --define=tf_api_version=2 --action_env=TF2_BEHAVIOR=1
+# base
+build:release_base --config=v2
+build:release_base --distinct_host_configuration=false
+# cpu
+build:avx_linux --copt=-mavx
+build:avx_linux --host_copt=-mavx
+
+build:release_cpu_linux --config=release_base
+build:release_cpu_linux --config=avx_linux
+build:release_cpu_linux --crosstool_top="@ubuntu18.04-gcc7_manylinux2010-cuda11.2-cudnn8.1-tensorrt7.2_config_cuda//crosstool:toolchain"
+# cuda
+build:cuda --repo_env TF_NEED_CUDA=1
+build:cuda --crosstool_top=@local_config_cuda//crosstool:toolchain
+build:cuda --@local_config_cuda//:enable_cuda
+# dcu
+build:dcu --crosstool_top=@local_config_rocm//crosstool:toolchain
+build:dcu --define=using_rocm=true --define=using_rocm_hipcc=true --define=using_dcu=true
+build:dcu --repo_env TF_NEED_ROCM=1 --repo_env TF_NEED_DCU=1
 # Config setting to build oneDNN with Compute Library for the Arm Architecture (ACL).
 # This build is for the inference regime only.
 build:mkl_aarch64 --define=build_with_mkl_aarch64=true

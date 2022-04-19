@@ -121,7 +121,7 @@ def _jit_pass_lower_to_onnx(graph):
     #
     # But something weird happened:
     # call to ConstantValueMap::ClearMaps() in C++ will segfault
-    if utils.torch_version_number() >= utils.parse_version("1.11.0"):
+    if utils.torch_version_number() >= utils.parse_version("1.9.0"):
         onnx_graph = torch._C._jit_pass_onnx(graph, OperatorExportTypes.ONNX)
         # fix(tanyo): call to torch_blade.tools._jit_pass_onnx would segfault
         value_map = dict()
@@ -143,7 +143,7 @@ def _jit_pass_lower_to_onnx(graph):
     torch._C._jit_pass_lint(onnx_graph)
 
     from torch.onnx.symbolic_helper import _export_onnx_opset_version
-    if utils.torch_version_number() >= utils.parse_version("1.11.0"):
+    if utils.torch_version_number() >= utils.parse_version("1.9.0"):
         torch._C._jit_pass_onnx_scalar_type_analysis(onnx_graph, True, _export_onnx_opset_version)
     else:
         torch._C._jit_pass_onnx_scalar_type_analysis(onnx_graph)

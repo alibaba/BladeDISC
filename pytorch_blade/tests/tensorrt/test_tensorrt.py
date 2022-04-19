@@ -69,7 +69,7 @@ class TestTensorRTEngine(TestCase):
         input = torch.Tensor([3]).to(type).cuda()
         model = self._load_model(type)
         cfg = Config.get_current_context_or_new()
-        cfg.optimization_pipeline = "TensorRT"
+        cfg.optimization_pipeline = tensorrt.backend_name()
         with cfg:
             opt_model = optimize(model, allow_tracing=True, model_inputs=input)
         self._test_tensorrt_type_normal(model, opt_model, type)
@@ -85,7 +85,7 @@ class TestTensorRTEngine(TestCase):
 
         x = torch.randn(1)
         cfg = Config.get_current_context_or_new()
-        cfg.optimization_pipeline = "TensorRT"
+        cfg.optimization_pipeline = tensorrt.backend_name()
         with cfg:
             triple = optimize(Triple().eval(), allow_tracing=True, model_inputs=x)
 
@@ -117,7 +117,7 @@ class TestTensorRTEngine(TestCase):
         model = Model().cuda().eval()
         out = model(one)
         cfg = Config.get_current_context_or_new()
-        cfg.optimization_pipeline = "TensorRT"
+        cfg.optimization_pipeline = tensorrt.backend_name()
         with cfg:
             opt = optimize(model, allow_tracing=True, model_inputs=one)
         self.assertEqual(tensorrt.num_engines(opt), 1)
@@ -129,7 +129,7 @@ class TestTensorRTEngine(TestCase):
         input = torch.Tensor([3]).to(type).cuda()
         model = self._load_model(type)
         cfg = Config.get_current_context_or_new()
-        cfg.optimization_pipeline = "TensorRT"
+        cfg.optimization_pipeline = tensorrt.backend_name()
         with cfg:
             opt_model = optimize(model, allow_tracing=True, model_inputs=input)
         trt_engines = tensorrt.collect_engines(opt_model)

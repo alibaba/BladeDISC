@@ -35,6 +35,12 @@ try:
 except ImportError as e:
     pass
 
+try:
+    import torch_blade.tensorrt
+except ImportError as e:
+    pass
+
+
 warnings.filterwarnings("ignore")
 
 utils.add_method(torch._C.ScriptModule)(tools.create_method_from_graph)

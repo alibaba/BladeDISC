@@ -50,6 +50,7 @@ void set_value_type(
     bool is_contiguous);
 
 std::string node_schema_str(const torch::jit::Node& node);
+bool cast_to_i32_tensor_type(torch::jit::Value& value);
 bool cast_to_tensor_type(torch::jit::Value& value);
 } // namespace blade
 } // namespace torch

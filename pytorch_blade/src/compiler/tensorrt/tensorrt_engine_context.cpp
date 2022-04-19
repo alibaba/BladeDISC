@@ -300,7 +300,6 @@ bool TRTContext::ChangingShape(
   const auto& graph_inputs = engine_state_->inputs;
   for (size_t k = 0; k < inputs.size(); ++k) {
     torch::Tensor inp_tensor = inputs[k];
-    TORCH_CHECK(inp_tensor.scalar_type() == graph_inputs[k].scalar_type);
     int bind_index = input_bind_indices_[optimization_profile_][k];
     // The subgraph input should have been eliminated in TensorRT engine
     if (bind_index < 0) {
@@ -343,6 +342,7 @@ torch::List<torch::Tensor> TRTContext::PreProcessInputs(
     // add to cuda_ctu_inputs, make the ctu_tensor has lifetime out of the loop
     cuda_ctu_inputs.push_back(ctu_tensor);
   }
+
   return cuda_ctu_inputs;
 }
 

@@ -114,6 +114,7 @@ void initToolsBindings(py::module& m) {
   tools.def("set_value_type", set_value_type);
   tools.def("node_schema_str", node_schema_str);
   tools.def("cast_to_tensor_type", cast_to_tensor_type);
+  tools.def("cast_to_i32_tensor_type", cast_to_i32_tensor_type);
 
   tools.def(
       "set_trust_tracing_shape",

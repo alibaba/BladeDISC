@@ -9,7 +9,6 @@ RUN apt-get update -y && \
     ln -s /usr/bin/python3.8 /usr/bin/python && \
     python -m pip install --upgrade pip && \
     python -m pip install cpython pyyaml typing_extensions virtualenv numpy torchvision
-# the torch whlee build from https://github.com/pytorch/pytorch/tree/lazy_tensor_staging, here we should
-# uninstall pytorch comes from torchvision firstly.
+
 # TODO(Yancey): build torchvision from the same git sha of pytorch
-RUN python -m pip uninstall pytorch && python -m pip install https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/torch-ltc/torch-1.12.0a0%2Bgitd9896b8-cp38-cp38-linux_x86_64.whl
+RUN python -m pip uninstall pytorch && python -m pip install https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/torch-ltc/torch-1.12.0a0%2Bgit6402e62-cp38-cp38-linux_x86_64.whl

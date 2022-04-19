@@ -323,7 +323,7 @@ torch::List<torch::Tensor> TRTContext::PreProcessInputs(
   // TODO: we currently only support inputs on the same device as tensorrt
   TORCH_CHECK(tensorrt_device_ == c10::cuda::current_device());
   TORCH_CHECK(CheckCurrentDevice(inputs));
-  TORCH_CHECK(ChangingShape(cuda_ctu_inputs, context));
+  TORCH_CHECK(ChangingShape(inputs, context));
 
   const auto& graph_inputs = engine_state_->inputs;
   // pre-process the input bindings

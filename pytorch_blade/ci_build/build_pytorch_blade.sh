@@ -30,7 +30,7 @@ function pip_install_deps() {
     TORCH_BLADE_CI_BUILD_TORCH_VERSION=${TORCH_BLADE_CI_BUILD_TORCH_VERSION:-1.7.1+cu110}
     requirements=requirements-dev-${TORCH_BLADE_CI_BUILD_TORCH_VERSION}.txt
     python3 -m pip install --upgrade pip
-    python3 -m pip install cmake ninja virtualenv
+    python3 -m pip install virtualenv
     python3 -m pip install -r ${requirements} -f https://download.pytorch.org/whl/torch_stable.html
 }
 
@@ -38,27 +38,19 @@ function ci_build() {
     echo "DO TORCH_BLADE CI_BUILD"
     pip_install_deps
 
-    if [ "$TORCH_BLADE_USE_CMAKE_BUILD" = "ON"  ]; then
-      extra_args="--cmake"
-    else
-      extra_args=""
-      if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" = "ON"  ]; then
-        python3 ../scripts/python/common_setup.py
-      else
-        python3 ../scripts/python/common_setup.py --cpu_only
-      fi
-    fi
-
     if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" = "ON"  ]; then
       export TORCH_BLADE_BUILD_TENSORRT=ON
+      python3 ../scripts/python/common_setup.py
+    else
+      python3 ../scripts/python/common_setup.py --cpu_only
     fi
 
-    rm -rf build && python3 setup.py develop ${extra_args};
+    rm -rf build && python3 setup.py develop;
     # The following are UNIT TESTS
     export TORCH_BLADE_DEBUG_LOG=ON
-    python3 setup.py cpp_test ${extra_args} 2>&1 | tee -a cpp_test.out;
+    python3 setup.py cpp_test 2>&1 | tee -a cpp_test.out;
     python3 -m unittest discover tests/ -v 2>&1 | tee -a py_test.out;
-    python3 setup.py bdist_wheel ${extra_args};
+    python3 setup.py bdist_wheel;
 }
 
 # Build

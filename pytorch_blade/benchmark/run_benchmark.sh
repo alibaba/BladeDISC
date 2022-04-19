@@ -21,19 +21,14 @@ export TORCH_BLADE_BUILD_MLIR_SUPPORT=${TORCH_BLADE_BUILD_MLIR_SUPPORT:-ON}
 export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=${TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT:-ON}
 
 function build_torch_blade() {
-    if [ "$TORCH_BLADE_USE_CMAKE_BUILD" = "ON"  ]; then
-      extra_args="--cmake"
-    else
-      extra_args=""
-      python3 ../scripts/python/common_setup.py
-    fi
+    python3 ../scripts/python/common_setup.py
 
     export TORCH_BLADE_BUILD_TENSORRT=ON
-    rm -rf build && python3 setup.py develop ${extra_args};
+    rm -rf build && python3 setup.py develop;
     # The following are UNIT TESTS
     export TORCH_BLADE_DEBUG_LOG=ON
-    python3 setup.py cpp_test ${extra_args} 2>&1 | tee -a cpp_test.out;
-    python3 setup.py bdist_wheel ${extra_args};
+    python3 setup.py cpp_test 2>&1 | tee -a cpp_test.out;
+    python3 setup.py bdist_wheel;
 }
 
 script_dir=$(cd $(dirname "$0"); pwd)

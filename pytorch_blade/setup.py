@@ -25,7 +25,6 @@ from setuptools import find_packages
 from setuptools import setup, Extension, Command
 from setuptools.command.build_ext import build_ext
 import bazel_build
-import cmake_build
 
 # Constant known variables used throughout this file
 cwd = os.path.dirname(os.path.abspath(__file__))
@@ -47,11 +46,7 @@ class TorchBladeExtension(Extension):
         Extension.__init__(self, name, sources=[])
         self.sourcedir = os.path.abspath(sourcedir)
 
-if '--cmake' in sys.argv:
-  BuildClass = cmake_build.CMakeBuild
-  sys.argv = [a for a in sys.argv if a != '--cmake']
-else:
-  BuildClass = bazel_build.BazelBuild
+BuildClass = bazel_build.BazelBuild
 
 build = BuildClass(
     os.path.dirname(torch.__file__),

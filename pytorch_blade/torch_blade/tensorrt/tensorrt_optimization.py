@@ -53,6 +53,7 @@ def trt_engine_conversion(
         q_info,
         disable_fallback,
         dynamic_settings,
+        cast_int_to_i32=True
     )
 
 

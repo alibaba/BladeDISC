@@ -138,6 +138,16 @@ torch::TypePtr fromNumberType(torch::TypePtr typ) {
   return nullptr;
 }
 
+bool cast_to_i32_tensor_type(torch::jit::Value& value) {
+  const auto& tensor_type = value.type()->cast<torch::TensorType>();
+  if (tensor_type) {
+    return value.setType(tensor_type->withScalarType(at::kInt));
+  } else {
+    return value.setType(
+        torch::TensorType::createContiguous(at::kInt, at::kCPU, {}));
+  }
+}
+
 bool cast_to_tensor_type(torch::jit::Value& value) {
   auto tensor_type = fromNumberType(value.type());
   if (tensor_type != nullptr) {

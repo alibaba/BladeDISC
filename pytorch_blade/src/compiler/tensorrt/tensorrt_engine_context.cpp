@@ -323,8 +323,6 @@ torch::List<torch::Tensor> TRTContext::PreProcessInputs(
     std::shared_ptr<nvinfer1::IExecutionContext>& context) {
   // TODO: we currently only support inputs on the same device as tensorrt
   TORCH_CHECK(tensorrt_device_ == c10::cuda::current_device());
-  TORCH_CHECK(CheckCurrentDevice(inputs));
-  TORCH_CHECK(ChangingShape(inputs, context));
 
   const auto& graph_inputs = engine_state_->inputs;
   // pre-process the input bindings
@@ -343,6 +341,9 @@ torch::List<torch::Tensor> TRTContext::PreProcessInputs(
     // add to cuda_ctu_inputs, make the ctu_tensor has lifetime out of the loop
     cuda_ctu_inputs.push_back(ctu_tensor);
   }
+
+  TORCH_CHECK(CheckCurrentDevice(ctu_inputs));
+  TORCH_CHECK(ChangingShape(ctu_inputs, context));
   return cuda_ctu_inputs;
 }
 

@@ -17,6 +17,8 @@ import torch_blade._torch_blade._backends as _backends
 
 from torch_blade import pass_manager
 from torch_blade import utils
+from torch_blade import tools
+from torch_blade.config import Config
 from torch_blade.clustering.support_group_conversion import group_to_engine_conversion
 from torch_blade.logging import logger
 
@@ -37,7 +39,20 @@ def _deduplicate_onnx_graph_outputs(graph):
         visited.add(v)
 
 
-def _build_onnx_engine(subgraph, engine_build_func, q_info=None, dynamic_settings=None):
+def _try_cast_graph_integer_inputs_to_i32(graph):
+    # Refer to https://github.com/onnx/onnx-tensorrt/blob/main/docs/operators.md.
+    # There is limited support for INT32, INT64, and DOUBLE types.
+    # Convert INT64 to INT32.
+    for val in graph.inputs():
+        if val.type().scalarType() == "Long":
+            tools.cast_int_to_i32_tensor_type(val)
+
+
+def _build_onnx_engine(subgraph, engine_build_func, q_info=None,
+                       dynamic_settings=None, cast_int_to_i32=False):
+    if cast_int_to_i32:
+        _try_cast_graph_integer_inputs_to_i32(subgraph)
+
     # pass lower to onnx & constfold
     graph, value_map = pass_manager._jit_pass_lower_to_onnx(subgraph)
 
@@ -112,6 +127,7 @@ def build_onnx_engine(
     q_info=None,
     disable_fallback=False,
     dynamic_settings=None,
+    cast_int_to_i32=False
 ):
     # q_info passed to this function and `try_cvt_to_onnx_func`
     # only contains quantization information for each `prim::FusionGroup`
@@ -126,7 +142,7 @@ def build_onnx_engine(
         )
         try:
             engine_data = _build_onnx_engine(
-                subgraph, _try_build_onnx_engine, q_info, grp_dynamic_settings
+                subgraph, _try_build_onnx_engine, q_info, grp_dynamic_settings, cast_int_to_i32
             )
         except Exception as error:
             logger.warning(error)

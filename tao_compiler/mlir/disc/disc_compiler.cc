@@ -227,6 +227,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   // propagate some known shape information.
   pm.addPass(disc_ral::createDiscShapeSimplifierPass());
 
+  // shape-related optimization
+  pm.addPass(disc_ral::createDiscShapeOptimizationPass());
+
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertTensorToStandardPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertHloToStandardPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());

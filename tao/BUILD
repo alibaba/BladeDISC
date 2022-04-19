@@ -119,7 +119,6 @@ tf_cc_shared_object(
     ]
 )
 
-
 tao_bridge_cc_test(
     name = "tao_bridge_tests",
     srcs = [

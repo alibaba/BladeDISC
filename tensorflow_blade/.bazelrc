@@ -9,4 +9,25 @@ test --test_output=errors
 build --verbose_failures
 build --spawn_strategy=local  # this is a workaround to include third party source files with BUILD.bazel.
 
+# mkl_aarch64 are from tensorflow
+# Config setting to build oneDNN with Compute Library for the Arm Architecture (ACL).
+# This build is for the inference regime only.
+build:mkl_aarch64 --define=build_with_mkl_aarch64=true
+build:mkl_aarch64 --define=tensorflow_mkldnn_contraction_kernel=0
+build:mkl_aarch64 --define=build_with_openmp=true
+build:mkl_aarch64 -c opt
+
+# these comes from tao_compiler, unify these setting in the future
+build:disc --define framework_shared_object=false --experimental_multi_threaded_digest
+build:disc_cpu --config=disc --cxxopt=-DTAO_CPU_ONLY
+build:disc_x86 --config=disc_cpu --config=release_cpu_linux --cxxopt=-DTAO_X86 --define disc_x86=true
+build:disc_aarch64 --config=disc_cpu --config=mkl_aarch64 --cxxopt=-DTAO_AARCH64 --define disc_aarch64=true --linkopt="-Xlinker --stub-group-size -Xlinker 10000000"
+build:disc_cuda --config=disc --config=cuda
+build:disc_dcu --config=disc --config=dcu
+
+build:disc_mkldnn --config=disc --cxxopt=-DTAO_ENABLE_MKLDNN --define is_mkldnn=true
+build:disc_blaze --config=disc --cxxopt=-DBLAZE_OPT
+
+build:cxx11abi_0 --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=0
+build:cxx11abi_1 --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=1
 try-import %workspace%/.bazelrc_gen

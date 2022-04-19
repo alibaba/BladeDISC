@@ -485,31 +485,24 @@ cc_library(
         "context/mkldnn/ideep/ideep/operators/*.hpp",
     ]),
     linkopts = [
-        "-L$$(dirname $(locations @onednn//:onednn_lib)",
         "-Wl,--start-group",
         "$(location @onednn//:onednn_lib)",
         "-Wl,--end-group",
     ] + if_disc_x86([
-        "-L$(location @mkl_static//:lib)/",
         "-Wl,--start-group",
         "$(location @mkl_static//:lib)/libmkl_intel_ilp64.a",
         "$(location @mkl_static//:lib)/libmkl_gnu_thread.a",
         "$(location @mkl_static//:lib)/libmkl_core.a",
         "-Wl,--end-group",
     ]) + if_disc_aarch64([
-        "-L$$(dirname $(location @acl_compute_library//:build/libarm_compute.a)",
         "-Wl,--start-group",
         "$(location @acl_compute_library//:build/libarm_compute.a)",
         "$(location @acl_compute_library//:build/libarm_compute_core.a)",
         "$(location @acl_compute_library//:build/libarm_compute_graph.a)",
         "-Wl,--end-group",
     ]),
-    copts = [
-        "-I$(location @mkl_include//:include)",
-    ],
     data = [
         "@mkl_static//:lib",
-        "@mkl_include//:include",
         "@onednn//:onednn_lib",
         "@acl_compute_library//:build/libarm_compute.a",
         "@acl_compute_library//:build/libarm_compute_core.a",
@@ -517,6 +510,8 @@ cc_library(
     ],
     deps = [
         "@onednn//:onednn",
+        "@mkl_include//:mkl_include",
+        "@mkl_static//:mkl_static_lib",
     ],
 )
 
@@ -524,9 +519,9 @@ cc_library(
     name = "common_context_bridge",
     srcs = [
         "context/common_context_impl.cc",
+    ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
-    ] + if_cuda_or_rocm([
     ]) + if_patine([
         "context/common_context_impl_patine.cc",
     ]) + if_mkldnn([
@@ -540,7 +535,9 @@ cc_library(
     copts = [
         "-fopenmp",
         "-DDISC_BUILD_FROM_TF_BRIDGE"
-    ] + if_cuda_or_rocm(["-DTAO_RAL_USE_STREAM_EXECUTOR"]),
+    ] + if_cuda_or_rocm([
+        "-DTAO_RAL_USE_STREAM_EXECUTOR"
+    ]),
     linkopts = [
         "-fopenmp",
         "-ldl"

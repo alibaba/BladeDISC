@@ -285,10 +285,18 @@ def configure_with_bazel(args):
 
 def build_with_bazel(args):
     with cwd(ROOT):
-        if args.device == "cpu":
-            execute("bazel build @org_tao_bridge//:libtao_ops.so")
-        else:
-            execute("bazel build //src:_tf_blade.so")
+        bazel_config = ""
+        if not args.skip_disc:
+            bazel_config = "--config=disc"
+            if args.device == "gpu":
+                # TODO(lanbo.llb): support dcu with a more generate device name
+                bazel_config = "--config=cuda"
+            elif args.device == "cpu":
+                if args.aarch64:
+                    bazel_config = "--config=disc_aarch64"
+                else:
+                    bazel_config = "--config=disc_x86"
+        execute(f"bazel build {bazel_config} //src:_tf_blade.so")
 
 def package_whl_with_bazel(args):
     with cwd(ROOT):

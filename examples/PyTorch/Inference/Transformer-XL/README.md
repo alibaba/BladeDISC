@@ -3,6 +3,7 @@
 The Transformer-XL model is proposed in [this paper](https://arxiv.org/abs/1901.02860).
 This repository uses the
 [model mantained in Hugging Face](https://huggingface.co/transformers/v3.0.2/model_doc/transformerxl.html),
+It prepares sample input data.
 
 ## Configure and run.
 
@@ -22,17 +23,16 @@ You can run the example with the following command:
 python main.py
 ```
 
-By configuring `optimize_config` as `'TRT'`, `'DISC'`, or `None` in the script,
-you can run the model with DISC or without any optimization.
-
+It will run optimizations of BladeDISC and TensorRT.
 
 ## Performance results.
 
-We evaluate this example on T4 GPU, The CUDA version is 11.0. CuDNN version is 8.2.
-PyTorch version is 1.7.1. The average execution time of the 100 inferences is as following.
+We evaluate this example on T4 GPU, The CUDA version is 11.0. CuDNN version is
+8.0. PyTorch version is 1.7.1. The average execution time of the 100 inferences
+is as following (ms).
 
-| PyTorch | TRT |   DISC    |
-|---------|-----|-----------|
-|      |   |  |
+| PyTorch | Blade TRT static | DISC |
+|---------|------------------|------|
+|         |                  |      |
 
-DISC shows a TBDx speedup over basic PyTorch.
+DISC shows a ?x speedup over basic PyTorch.

@@ -11,8 +11,9 @@
 
 import os
 
-#os.environ["TORCH_BLADE_DEBUG_LOG"] = "on"
-os.environ["DISC_ENABLE_ASTITCH"] = "true"
+# Enable stitch fusion optimization.
+os.environ["DISC_ENABLE_STITCH"] = "true"
+os.environ["DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE"] = "true"
 
 from transformers import TransfoXLModel, TransfoXLTokenizer
 import torch
@@ -36,66 +37,95 @@ def cu_prof_stop():
         raise Exception('cudaProfilerStop() returned %d' % ret)
 
 
-def run(optimize_config: str = None):
-    model = TransfoXLModel.from_pretrained('transfo-xl-wt103',
-                                           torchscript=True).cuda()
+def trace_model(model, inputs, amp: bool):
+    if amp is True:
+        with torch.cuda.amp.autocast(amp), torch.no_grad():
+            traced_model = torch.jit.trace(model, inputs, strict=False)
+    else:
+        traced_model = torch.jit.trace(model, inputs, strict=False)
+    torch._C._jit_pass_inline(traced_model.graph)
+    return traced_model
+
+
+def evaluate_torch(model, inputs):
+    # warmup
+    for i in range(20):
+        model(*tuple(inputs))
+
+    iters = 100
+    tic = time.time()
+    for i in range(iters):
+        model(*tuple(inputs))
+    avg_time = (time.time() - tic) / iters
+    print("average time in {} iterations: {} seconds".format(iters, avg_time))
+
+    # profile start
+    cu_prof_start()
+    model(*tuple(inputs))
+    cu_prof_stop()
+    # profile end
+
+
+def disc_optimize(model, inputs, out_file: str):
+    torch_config = torch_blade.config.Config()
+    torch_config.enable_mlir_amp = False  # disable mix-precision
+    torch_config.enable_force_to_cuda = True
+
+    traced_model = torch.jit.trace(model.cuda(), inputs,
+                                   strict=False).cuda().eval()
+
+    torch._C._jit_pass_inline(traced_model._c.forward.graph)
+    torch._C._jit_pass_remove_dropout(traced_model._c)
+
+    with torch.no_grad(), torch_config:
+        # BladeDISC torch_blade optimize will return an optimized TorchScript
+        optimized_ts = torch_blade.optimize(traced_model,
+                                            allow_tracing=True,
+                                            model_inputs=tuple(inputs))
+    torch.jit.save(optimized_ts, out_file)
+
+
+def blade_trt_optimize(model, inputs, fp16: bool, out_file: str):
+    cfg = torch_blade.Config.get_current_context_or_new().clone()
+    cfg.optimization_pipeline = torch_blade.tensorrt.backend_name()
+    cfg.customize_onnx_opset_version = 12
+    cfg.enable_fp16 = fp16
+
+    traced_model = torch.jit.trace(model.cuda().eval(), inputs,
+                                   strict=False).cuda().eval()
+
+    with cfg, torch_blade.logging.logger_level_context('INFO'):
+        opt_model = torch_blade.optimize(traced_model,
+                                         False,
+                                         model_inputs=tuple(inputs))
+    torch.jit.save(opt_model, out_file)
+
+
+def run():
     tokenizer = TransfoXLTokenizer.from_pretrained('transfo-xl-wt103')
     inputs = tokenizer("Hello, my dog is cute", return_tensors="pt").cuda()
     # inputs = torch.tensor([[14049, 2, 617, 3225, 23, 16072]]).long().to(device)
 
-    model.eval()
-    traced_model = torch.jit.trace(model, inputs, strict=False)
+    model = TransfoXLModel.from_pretrained('transfo-xl-wt103',
+                                           torchscript=True).cuda().eval()
+    traced_model_amp = trace_model(model, inputs, True).eval().cuda()
 
-    model = traced_model
-    if optimize_config is 'DISC':
-        # Optimize with BladeDISC
-        torch_config = torch_blade.config.Config()
-        torch_config.enable_mlir_amp = True  # enable mix-precision
-        torch_config.enable_force_to_cuda = True
-        with torch.no_grad(), torch_config:
-            # It will return an optimized TorchScript
-            optimized_ts = torch_blade.optimize(traced_model,
-                                                allow_tracing=True,
-                                                model_inputs=inputs)
+    # Run naive torch.
+    print("Naive PyTorch.")
+    evaluate_torch(traced_model_amp, inputs)
 
-        output_pt_file = "trans-xl_disc_opt.pt"
-        torch.jit.save(optimized_ts, output_pt_file)
-        model = torch.jit.load(output_pt_file).eval()
-    elif optimize_config is 'TRT':
-        cfg = torch_blade.Config.get_current_context_or_new().clone()
-        cfg.optimization_pipeline = torch_blade.tensorrt.backend_name()
-        cfg.customize_onnx_opset_version = 12
-        cfg.enable_fp16 = True
+    # Run BladeDISC optimization.
+    print("BladeDISC Optimization.")
+    disc_optimize(traced_model_amp, inputs, 'trans-xl_amp.disc.pt')
+    model = torch.jit.load('trans-xl_amp.disc.pt').cuda().eval()
+    evaluate_torch(model, inputs)
 
-        with cfg, torch_blade.logging.logger_level_context('DEBUG'):
-            print("Go!")
-            opt_model = torch_blade.optimize(traced_model.cuda(),
-                                             False,
-                                             model_inputs=inputs)
-
-        print("Optimize finish!")
-        output_pt_file = "trans-xl_trt_opt.pt"
-        torch.jit.save(opt_model, output_pt_file)
-        print("Done!")
-        model = torch.jit.load(output_pt_file).eval()
-
-    # warmup
-    for i in range(100):
-        output = model(inputs)
-
-    # normal measure
-    tic = time.time()
-    for i in range(100):
-        output = model(inputs)
-    rt_ms = (time.time() - tic) / 100
-    print(f'average exec time: {rt_ms} s')
-
-    cu_prof_start()
-    for i in range(100):
-        output = model(inputs)
-    cu_prof_stop()
+    # Run TorchBlade-TensorRT optimization.
+    print("TorchBlade-TensorRT Optimization.")
+    blade_trt_optimize(model, inputs, True, 'trans-xl_amp.trt.pt')
+    model = torch.jit.load('trans-xl_amp.trt.pt').cuda().eval()
+    evaluate_torch(model, inputs)
 
 
 if __name__ == '__main__':
-    # `optimize_config` can be 'TRT', 'DISC' or None.
-    run(optimize_config='DISC')
+    run()

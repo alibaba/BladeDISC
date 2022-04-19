@@ -42,7 +42,7 @@ def cu_prof_stop():
 
 def trace_model(model, inputs, amp: bool):
     if amp is True:
-        with torch.cuda.amp.autocast(enable_amp), torch.no_grad():
+        with torch.cuda.amp.autocast(amp), torch.no_grad():
             traced_model = torch.jit.trace(model, inputs, strict=False)
     else:
         traced_model = torch.jit.trace(model, inputs, strict=False)
@@ -72,6 +72,7 @@ def evaluate_torch(model, inputs):
 def disc_optimize(model, inputs, out_file: str):
     torch_config = torch_blade.config.Config()
     torch_config.enable_mlir_amp = False  # disable mix-precision
+    torch_config.enable_force_to_cuda = True
 
     traced_model = torch.jit.trace(model.cuda(), inputs,
                                    strict=False).cuda().eval()
@@ -116,7 +117,6 @@ def run():
     inputs = (input_ids, mask, decoder_input_ids)
 
     model = T5Model.from_pretrained("t5-small", torchscript=True).eval().cuda()
-    traced_model = trace_model(model, inputs, False).eval().cuda()
     traced_model_amp = trace_model(model, inputs, True).eval().cuda()
 
     # Run naive torch.

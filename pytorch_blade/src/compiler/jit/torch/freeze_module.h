@@ -87,6 +87,5 @@ torch::jit::Module freeze_module(
     bool freezeInterfaces = true,
     bool preserveParameters = false,
     bool disableShapePeephole = true);
-
 } // namespace blade
 } // namespace torch

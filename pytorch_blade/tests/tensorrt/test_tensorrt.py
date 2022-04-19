@@ -69,7 +69,7 @@ class TestTensorRTEngine(TestCase):
         input = torch.Tensor([3]).to(type).cuda()
         model = self._load_model(type)
         cfg = Config.get_current_context_or_new()
-        cfg.optimization_pipeline = "TensorRT"
+        cfg.optimization_pipeline = torch_blade.tensorrt.backend_name() 
         with cfg:
             opt_model = optimize(model, allow_tracing=True, model_inputs=input)
         self._test_tensorrt_type_normal(model, opt_model, type)

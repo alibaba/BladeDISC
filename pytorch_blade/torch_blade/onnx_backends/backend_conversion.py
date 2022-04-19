@@ -18,7 +18,6 @@ import torch_blade._torch_blade._backends as _backends
 from torch_blade import pass_manager
 from torch_blade import utils
 from torch_blade import tools
-from torch_blade.config import Config
 from torch_blade.clustering.support_group_conversion import group_to_engine_conversion
 from torch_blade.logging import logger
 
@@ -45,7 +44,7 @@ def _try_cast_graph_integer_inputs_to_i32(graph):
     # Convert INT64 to INT32.
     for val in graph.inputs():
         if val.type().scalarType() == "Long":
-            tools.cast_int_to_i32_tensor_type(val)
+            tools.cast_to_i32_tensor_type(val)
 
 
 def _build_onnx_engine(subgraph, engine_build_func, q_info=None,

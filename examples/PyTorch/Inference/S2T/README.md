@@ -4,7 +4,7 @@ The Speech to Text Transformer (S2T) model is used for automatic speech
 recognition (ASR). The S2T model was proposed in the paper
 ["fairseq S2T"](https://arxiv.org/abs/2010.05171). This repository uses the
 [model mantained in Hugging Face](https://huggingface.co/facebook/s2t-small-librispeech-asr),
-It prepares fake input data for execution.
+It prepares fake input data for execution and run one step of the forward.
 
 
 ## Configure and run.
@@ -25,17 +25,16 @@ You can run the example with the following command:
 python main.py
 ```
 
-By configuring `optimize_config` as `'TRT'`, `'DISC'`, or `None` in the script,
-you can run the model with DISC or without any optimization.
-
 
 ## Performance results.
 
-We evaluate this example on T4 GPU, The CUDA version is 11.0. CuDNN version is 8.2.
-PyTorch version is 1.7.1. The average execution time of the 100 inferences is as following.
+We evaluate this example on T4 GPU, The CUDA version is 11.0. CuDNN version is
+8.0. PyTorch version is 1.7.1. The average execution time of the 100 inferences
+is as following (ms). (We do not show the performance of TensorRT because the
+result of TensorRT is not correct.)
 
-| PyTorch |    DISC    |
-|-------------|-----------|
-|      |   |
+| PyTorch | DISC |
+|---------|------|
+|  31.25  | 6.72 |
 
-DISC shows a TBDx speedup over basic PyTorch.
+DISC shows a 4.65x speedup over basic PyTorch.

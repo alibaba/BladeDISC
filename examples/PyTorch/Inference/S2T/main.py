@@ -11,16 +11,17 @@
 
 import os
 
-# os.environ["TORCH_BLADE_DEBUG_LOG"] = "on"
+# Enable stitch fusion optimization.
 os.environ["DISC_ENABLE_STITCH"] = "true"
+os.environ["DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE"] = "true"
 
 import torch
 import time
 import numpy as np
 import ctypes
+from transformers import Speech2TextForConditionalGeneration
 
 import torch_blade
-# import torch_blade.tensorrt
 
 _cudart = ctypes.CDLL('libcudart.so')
 
@@ -37,11 +38,12 @@ def cu_prof_stop():
         raise Exception('cudaProfilerStop() returned %d' % ret)
 
 
-class wrapper(torch.nn.Module):
+class ModelWrapper(torch.nn.Module):
 
-    def __init__(self, original_model):
+    def __init__(self, original_model, amp: bool):
         super().__init__()
         self.model = original_model
+        self.amp = amp
 
     def forward(
         self,
@@ -50,26 +52,70 @@ class wrapper(torch.nn.Module):
         decoder_input_ids=None,
         **kwargs,
     ):
-        result = self.model(input_features, attention_mask, decoder_input_ids,
-                            **kwargs)
+        if self.amp is True:
+            with torch.cuda.amp.autocast():
+                result = self.model(input_features, attention_mask,
+                                    decoder_input_ids, **kwargs)
+        else:
+            result = self.model(input_features, attention_mask,
+                                decoder_input_ids, **kwargs)
         keys = result.keys()
         return tuple([result[key] for key in keys])
 
 
-def printTensorShapesInTuple(value):
-    if type(value) is tuple:
-        for val in value:
-            printTensorShapesInTuple(val)
-    elif type(value) is list:
-        for val in value:
-            printTensorShapesInTuple(val)
-    else:
-        print(value.shape)
+def evaluate_torch(model, inputs):
+    # warmup
+    for i in range(20):
+        model(inputs[0], inputs[1], inputs[2])
+
+    iters = 100
+    tic = time.time()
+    for i in range(iters):
+        model(inputs[0], inputs[1], inputs[2])
+    avg_time = (time.time() - tic) / iters
+    print("average time in {} iterations: {} seconds".format(iters, avg_time))
+
+    # profile start
+    cu_prof_start()
+    model(inputs[0], inputs[1], inputs[2])
+    cu_prof_stop()
 
 
-def run(optimize_config: str = None):
-    from transformers import Speech2TextForConditionalGeneration
+def disc_optimize(model, inputs, out_file: str):
+    torch_config = torch_blade.config.Config()
+    torch_config.enable_mlir_amp = False  # disable mix-precision
 
+    traced_model = torch.jit.trace(model.cuda().eval(), inputs,
+                                   strict=False).cuda().eval()
+
+    torch._C._jit_pass_inline(traced_model._c.forward.graph)
+    torch._C._jit_pass_remove_dropout(traced_model._c)
+
+    with torch.no_grad(), torch_config:
+        # BladeDISC torch_blade optimize will return an optimized TorchScript
+        optimized_ts = torch_blade.optimize(traced_model,
+                                            allow_tracing=True,
+                                            model_inputs=tuple(inputs))
+    torch.jit.save(optimized_ts, out_file)
+
+
+def blade_trt_optimize(model, inputs, fp16: bool, out_file: str):
+    cfg = torch_blade.Config.get_current_context_or_new().clone()
+    cfg.optimization_pipeline = torch_blade.tensorrt.backend_name()
+    cfg.customize_onnx_opset_version = 12
+    cfg.enable_fp16 = fp16
+
+    traced_model = torch.jit.trace(model.cuda().eval(), inputs,
+                                   strict=False).cuda().eval()
+
+    with cfg, torch_blade.logging.logger_level_context('INFO'):
+        opt_model = torch_blade.optimize(traced_model,
+                                         False,
+                                         model_inputs=tuple(inputs))
+    torch.jit.save(opt_model, out_file)
+
+
+def run():
     batch_size = 1
     sequence_length = 584
     feature_size = 80
@@ -78,104 +124,25 @@ def run(optimize_config: str = None):
     input_features = torch.rand(batch_size, sequence_length, feature_size)
     attention_mask = torch.rand(batch_size, sequence_length).long()
     decoder_input_ids = torch.tensor([[2]] * batch_size)
-
-    # Trace the model. Batch dim is static and seq_len dim is dynamic after
-    # tracing.
-    traced_model = torch.jit.trace(wrapper(model.cuda()), [
+    inputs = [
         input_features.cuda(),
         attention_mask.cuda(),
         decoder_input_ids.cuda()
-    ],
-                                   strict=False)
-    traced_model = traced_model.eval()
+    ]
 
-    model = traced_model
-    if optimize_config is 'disc':
-        # Optimize with BladeDISC
-        torch_config = torch_blade.config.Config()
-        torch_config.enable_mlir_amp = True  # enable mix-precision
-        torch_config.enable_force_to_cuda = True
-        with torch.no_grad(), torch_config:
-            # It will return an optimized TorchScript
-            optimized_ts = torch_blade.optimize(traced_model.cuda(),
-                                                allow_tracing=True,
-                                                model_inputs=tuple([
-                                                    input_features.cuda(),
-                                                    attention_mask.cuda(),
-                                                    decoder_input_ids.cuda()
-                                                ]))
+    # Trace the model. Batch dim is static and seq_len dim is dynamic after
+    # tracing.
+    s2t_model_amp = ModelWrapper(model.cuda(), True)
 
-        output_pt_file = "s2t_disc_opt.pt"
-        torch.jit.save(optimized_ts, output_pt_file)
-        model = torch.jit.load(output_pt_file).eval()
-    elif optimize_config is 'trt':
-        cfg = torch_blade.Config.get_current_context_or_new().clone()
-        cfg.optimization_pipeline = torch_blade.tensorrt.backend_name()
-        cfg.customize_onnx_opset_version = 12
-        cfg.enable_fp16 = True
+    # Run naive torch.
+    model = s2t_model_amp
+    evaluate_torch(model, inputs)
 
-        with cfg, torch_blade.logging.logger_level_context('DEBUG'):
-            print("Go!")
-            opt_model = torch_blade.optimize(traced_model.cuda(),
-                                             False,
-                                             model_inputs=tuple([
-                                                 input_features.cuda(),
-                                                 attention_mask.cuda(),
-                                                 decoder_input_ids.cuda()
-                                             ]))
-
-        print("Optimize finish!")
-        output_pt_file = "s2t_trt_opt.pt"
-        torch.jit.save(opt_model, output_pt_file)
-        print("Done!")
-        model = torch.jit.load(output_pt_file).eval()
-
-    # warmup
-    for i in range(100):
-        #output = optimized_ts(input_features.cuda())
-        output = model(input_features.cuda(), attention_mask.cuda(),
-                       decoder_input_ids.cuda())
-
-    # normal measure
-    tic = time.time()
-    for i in range(100):
-        output = model(input_features.cuda(), attention_mask.cuda(),
-                       decoder_input_ids.cuda())
-    rt_ms = (time.time() - tic) / 100
-    print(f'average exec time: {rt_ms} s')
-
-    cu_prof_start()
-    for i in range(100):
-        output = model(input_features.cuda(), attention_mask.cuda(),
-                       decoder_input_ids.cuda())
-    cu_prof_stop()
-
-    if False:
-        printTensorShapesInTuple(output)
-        print(f"data for tensor {output[0].shape}")
-        print(output[0])
-        print(output[-1])
-
-    if False:
-        vanila = torch.jit.load(input_pt)
-        output2 = vanila(input_features.cuda(), attention_mask.cuda(),
-                         decoder_input_ids.cuda())
-        print("\n\ntorch-script output tensor shapes:")
-        printTensorShapesInTuple(output2)
-        print(f"data for tensor {output2[0].shape}")
-        print(output2[0])
-        print(f"data for tensor {output2[-1].shape}")
-        print(output2[-1])
-
-    if False:
-        print("Blade TRT:")
-        blade_trt_out = blade_trt_opt(input_pt, 'blade-trt.pt', input_features,
-                                      attention_mask, decoder_input_ids)
-        printTensorShapesInTuple(blade_trt_out)
-        print(blade_trt_out[0])
-        print(blade_trt_out[-1])
+    # Run BladeDISC optimization.
+    disc_optimize(s2t_model_amp, inputs, 's2t_amp.disc.pt')
+    model = torch.jit.load('s2t_amp.disc.pt').cuda().eval()
+    evaluate_torch(model, inputs)
 
 
 if __name__ == '__main__':
-    # `optimize_config` can be 'trt', 'disc' or None.
-    run(optimize_config='disc')
+    run()

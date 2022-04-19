@@ -176,5 +176,6 @@ ShapeTypeSpec ShapeTypeSpec::GetShapeTypeSpec(
 
   return ShapeTypeSpec(shape_types);
 }
+
 } // namespace blade
 } // namespace torch

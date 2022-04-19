@@ -183,6 +183,36 @@ jobs:
       exec_command: bash ./scripts/ci/test_pytorch_blade.sh
   NGC-TORCH-1110:
     uses: ./.github/workflows/ngc_reusable.yml
+  CUDA11-TORCH-DISC:
+    if: github.repository == 'alibaba/BladeDISC'
+    runs-on: [self-hosted, gpu-t4]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2.4.0
+      with:
+        path: ./torch_disc_devel
+    - name: Build Dev Docker
+      working-directory: ./torch_disc_devel
+      run: |
+        set -e
+        git submodule sync
+        git submodule update --init --depth=1
+        docker pull bladedisc/torch-disc:devel-cuda11.0
+        docker pull bladedisc/bladedisc:latest-devel-cuda11.0
+        docker build --cache-from bladedisc/torch-disc:devel-cuda11.0 -t torch-disc-devel-cuda11.0 \
+          --build-arg PYTORCH_COMMIT=$(git submodule status torch_disc/pytorch | awk '{print $1}') \
+          -f docker/dev/Dockerfile.torch-disc ./docker/
+    - name: Build and Test
+      working-directory: ./torch_disc_devel
+      run: |
+        set -e
+        nvidia-docker run --rm -t --user $(id -u) \
+          -v $PWD:/workspace \
+          -v $HOME/.cache:$HOME/.cache \
+          -v /etc/passwd:/etc/passwd:ro \
+          -v /etc/group:/etc/group:ro \
+          -e GITHUB_ACTIONS="ON" \
+          -w /workspace torch-disc-devel-cuda11.0 bash ./scripts/ci/test_torch_disc.sh
   AArch64-CPU-TF280:
     if: github.repository == 'alibaba/BladeDISC'
     # The type of runner that the job will run on

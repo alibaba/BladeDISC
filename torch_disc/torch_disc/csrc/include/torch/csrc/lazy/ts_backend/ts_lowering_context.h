@@ -46,9 +46,7 @@ class TORCH_API TSComputation : public Computation {
     }
   }
 
-  int parameters_size() const override {
-    return parameter_names_.size();
-  }
+  int parameters_size() const override { return parameter_names_.size(); }
 
   const std::vector<Shape>& parameter_shapes() const override {
     throw std::runtime_error(
@@ -66,13 +64,9 @@ class TORCH_API TSComputation : public Computation {
     return result_shape_;
   }
 
-  std::shared_ptr<torch::jit::Graph> graph() const {
-    return graph_;
-  }
+  std::shared_ptr<torch::jit::Graph> graph() const { return graph_; }
 
-  torch::jit::GraphExecutor& graph_executor() {
-    return graph_executor_;
-  }
+  torch::jit::GraphExecutor& graph_executor() { return graph_executor_; }
 
  private:
   std::shared_ptr<torch::jit::Graph> graph_;
@@ -86,11 +80,9 @@ class TORCH_API TSLoweringContext : public LoweringContext {
  public:
   TSLoweringContext(const std::string& name, const BackendDevice device);
 
-  TSLoweringContext(
-      const std::string& name,
-      BackendDevice device,
-      c10::ArrayRef<Node*> post_order,
-      Util::EmissionMap emit_status);
+  TSLoweringContext(const std::string& name, BackendDevice device,
+                    c10::ArrayRef<Node*> post_order,
+                    Util::EmissionMap emit_status);
 
   // TODO(whc) replace these when real impl lands;
   // I am just landing the interface in this diff, but MSVC won't allow
@@ -103,11 +95,8 @@ class TORCH_API TSLoweringContext : public LoweringContext {
     return AddResult(GetOutputOp(output));
   }
 
-  void AddParameter(
-      const torch::lazy::Output& output,
-      size_t index,
-      const Shape& shape,
-      const std::string& name) override {
+  void AddParameter(const torch::lazy::Output& output, size_t index,
+                    const Shape& shape, const std::string& name) override {
     TORCH_INTERNAL_ASSERT(false, "not implemented");
   }
 
@@ -132,10 +121,8 @@ class TORCH_API TSLoweringContext : public LoweringContext {
       // At this point the output better be present, otherwise there is an issue
       // with the lowering code.
       it = emitted_outputs_.find(output);
-      TORCH_CHECK(
-          it != emitted_outputs_.end(),
-          "No TS operation emitted for output: ",
-          output.ToString());
+      TORCH_CHECK(it != emitted_outputs_.end(),
+                  "No TS operation emitted for output: ", output.ToString());
     }
     return it->second;
   }
@@ -150,9 +137,7 @@ class TORCH_API TSLoweringContext : public LoweringContext {
   // held in data.
   torch::jit::Value* GetParameter(BackendDataPtr data);
 
-  std::shared_ptr<torch::jit::Graph> graph() const {
-    return graph_;
-  }
+  std::shared_ptr<torch::jit::Graph> graph() const { return graph_; }
 
  private:
   struct Parameter {
@@ -172,5 +157,5 @@ class TORCH_API TSLoweringContext : public LoweringContext {
   std::unique_ptr<TSNodeLoweringInterface> lowering_;
 };
 
-} // namespace lazy
-} // namespace torch
+}  // namespace lazy
+}  // namespace torch

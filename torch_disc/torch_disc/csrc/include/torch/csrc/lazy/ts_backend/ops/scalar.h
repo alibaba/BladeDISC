@@ -28,9 +28,7 @@ class TORCH_API Scalar : public TsNode {
 
   std::string ToString() const override;
 
-  const at::Scalar& value() const {
-    return value_;
-  }
+  const at::Scalar& value() const { return value_; }
 
  private:
   at::Scalar value_;
@@ -38,5 +36,5 @@ class TORCH_API Scalar : public TsNode {
 
 TORCH_API hash_t ScalarHash(const at::Scalar& s);
 
-} // namespace lazy
-} // namespace torch
+}  // namespace lazy
+}  // namespace torch

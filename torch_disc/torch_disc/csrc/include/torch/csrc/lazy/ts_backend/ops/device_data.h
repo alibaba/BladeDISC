@@ -23,9 +23,7 @@ class TORCH_API DeviceData : public TsNode {
 
   std::string ToString() const override;
 
-  const std::shared_ptr<BackendData>& data() const {
-    return data_;
-  }
+  const std::shared_ptr<BackendData>& data() const { return data_; }
 
   static const DeviceData* Cast(const Node* node);
 
@@ -33,5 +31,5 @@ class TORCH_API DeviceData : public TsNode {
   std::shared_ptr<BackendData> data_;
 };
 
-} // namespace lazy
-} // namespace torch
+}  // namespace lazy
+}  // namespace torch

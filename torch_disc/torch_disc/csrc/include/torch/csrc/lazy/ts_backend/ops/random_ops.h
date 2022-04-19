@@ -18,11 +18,8 @@ namespace lazy {
 
 class Normal : public torch::lazy::TsNode {
  public:
-  Normal(
-      const torch::lazy::Value& self,
-      const double& mean,
-      const double& std,
-      std::vector<torch::lazy::Shape>&& shapes);
+  Normal(const torch::lazy::Value& self, const double& mean, const double& std,
+         std::vector<torch::lazy::Shape>&& shapes);
 
   std::string ToString() const override;
   torch::lazy::TSOpVector Lower(
@@ -33,5 +30,5 @@ class Normal : public torch::lazy::TsNode {
   double std_;
 };
 
-} // namespace lazy
-} // namespace torch
+}  // namespace lazy
+}  // namespace torch

@@ -24,13 +24,9 @@ class TORCH_API Expand : public TsNode {
 
   std::string ToString() const override;
 
-  const std::vector<int64_t>& size() const {
-    return size_;
-  }
+  const std::vector<int64_t>& size() const { return size_; }
 
-  bool is_scalar_expand() const {
-    return is_scalar_expand_;
-  }
+  bool is_scalar_expand() const { return is_scalar_expand_; }
 
  private:
   std::vector<int64_t> size_;
@@ -40,5 +36,5 @@ class TORCH_API Expand : public TsNode {
   bool is_scalar_expand_;
 };
 
-} // namespace lazy
-} // namespace torch
+}  // namespace lazy
+}  // namespace torch

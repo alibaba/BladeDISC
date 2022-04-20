@@ -383,10 +383,10 @@ if __name__ == "__main__":
         config_mkldnn(root, args)
         build_mkldnn(root)
 
-def get_tf_info():
+def get_tf_info(python_executable):
     output = subprocess.check_output(
         '{} -c "import tensorflow as tf; print(tf.__version__); print(\'\\n\'.join(tf.sysconfig.get_compile_flags())); print(\'\\n\'.join(tf.sysconfig.get_link_flags()))"'.format(
-            sys.executable
+            python_executable
         ),
         shell=True,
     ).decode()

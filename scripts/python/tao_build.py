@@ -246,7 +246,8 @@ def configure_bridge_bazel(root, args):
         def _write(line, cmd="build"):
             f.write(f"{cmd} {line}\n")
 
-        _action_env("PYTHON_BIN_PATH", which("python3"))
+        python_bin = os.path.join(args.venv_dir, "bin", "python3")
+        _action_env("PYTHON_BIN_PATH", python_bin)
         _action_env("GCC_HOST_COMPILER_PATH", which("gcc"))
         _action_env("CC", which("gcc"))
         _action_env("CXX", which("g++"))
@@ -259,7 +260,7 @@ def configure_bridge_bazel(root, args):
             tf_lib_name,
             tf_cxx11_abi,
             tf_pb_version,
-        ) = get_tf_info()
+        ) = get_tf_info(python_bin)
         _opt("cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
         _opt("host_cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
         _action_env("BLADE_WITH_TF", "1")

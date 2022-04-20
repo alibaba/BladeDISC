@@ -147,7 +147,7 @@ def configure_with_bazel(args):
             tf_lib_name,
             tf_cxx11_abi,
             tf_pb_version,
-        ) = get_tf_info()
+        ) = get_tf_info(which("python3"))
         _action_env("BLADE_WITH_TF", "1")
         _opt("cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
         _opt("host_cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")

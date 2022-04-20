@@ -506,7 +506,7 @@ def tao_bridge_bazel_config(args):
         if args.x86:
             bazel_config += " --config=disc_x86"
         elif args.aarch64:
-            bazel_config += " --config=aarch64"
+            bazel_config += " --config=disc_aarch64"
         if args.enable_mkldnn:
             bazel_config += " --config=disc_mkldnn"
     elif args.dcu:

@@ -1,6 +1,6 @@
 load("@rules_proto//proto:defs.bzl", "proto_library")
 load(
-    "@com_google_protobuf//:protobuf.bzl",
+    "@tf_protobuf//:protobuf.bzl",
     "cc_proto_library",
     "proto_gen",
     "py_proto_library",
@@ -95,7 +95,7 @@ cc_proto_library(
 proto_gen(
     name = "protobuf_python_genproto",
     includes = ["."],
-    protoc = "@com_google_protobuf//:protoc",
+    protoc = "@tf_protobuf//:protoc",
     visibility = ["//visibility:public"],
 )
 

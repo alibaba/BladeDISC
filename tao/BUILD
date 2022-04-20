@@ -161,4 +161,5 @@ tao_bridge_cc_test(
         "tao_bridge/passes/tao_defuse_pass_test.cc",
         "tao_bridge/passes/tao_remove_small_cluster_pass_test.cc",
     ],
+    tags = ["cpu"],
 )

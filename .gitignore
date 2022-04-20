@@ -15,4 +15,10 @@ tensorflow_blade/bazel-testlogs
 tensorflow_blade/dist
 tensorflow_blade/.build_config
 tensorflow_blade/.bazelrc_gen
-tao/third_party/mkldnn/acl/*
+tao/bazel-bin
+tao/bazel-out
+tao/bazel-tao
+tao/bazel-testlogs
+tao/.bazelrc_gen
+tao/py_test.out
+tao/cpp_test.out

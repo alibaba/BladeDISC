@@ -16,6 +16,8 @@ import subprocess
 import shutil
 import logging
 import sys
+import re
+from subprocess import Popen, PIPE, STDOUT
 from contextlib import contextmanager
 from datetime import datetime
 
@@ -380,3 +382,150 @@ if __name__ == "__main__":
     if args.enable_mkldnn:
         config_mkldnn(root, args)
         build_mkldnn(root)
+
+def get_tf_info():
+    output = subprocess.check_output(
+        '{} -c "import tensorflow as tf; print(tf.__version__); print(\'\\n\'.join(tf.sysconfig.get_compile_flags())); print(\'\\n\'.join(tf.sysconfig.get_link_flags()))"'.format(
+            sys.executable
+        ),
+        shell=True,
+    ).decode()
+    lines = output.split("\n")
+    major, minor, _ = lines[0].split(".")  # lines[0] is version like 1.15.0
+    is_pai = "PAI" in lines[0]
+    header_dir, lib_dir, lib_name, cxx11_abi = '', '', '', ''
+    for line in lines[1:]:
+        if line.startswith("-I"):
+            header_dir = line[2:]
+        elif line.startswith("-L"):
+            lib_dir = line[2:]
+        elif line.startswith("-l:"):  # in case of -l:libtensorflow_framework.so.1
+            lib_name = line[3:]
+        elif line.startswith("-l"):  # in case of -ltensorflow_framework
+            lib_name = 'lib' + line[2:] + '.so'
+        elif '_GLIBCXX_USE_CXX11_ABI' in line:
+            cxx11_abi = line.split('=')[-1]
+    PB_HEADER_FILE = "google/protobuf/stubs/common.h"
+    proto_file_path = os.path.join(header_dir, PB_HEADER_FILE)
+    if os.path.exists(proto_file_path):
+        with open(proto_file_path, 'r') as f:
+            content = f.read()
+        try:
+            match = re.findall("#define GOOGLE_PROTOBUF_VERSION [0-9]+", content)[0]
+            raw_version = int(re.findall("[^0-9]+([0-9]+)$", match)[0])
+            major_version = int(raw_version / 1000000)
+            minor_version = int(raw_version / 1000) - major_version * 1000
+            micro_version = raw_version - major_version * 1000000 - minor_version * 1000
+            tf_pb_version = f"{major_version}.{minor_version}.{micro_version}"
+        except IndexError as err:
+            raise Exception("Can not find tensorflow's built-in pb version!")
+    else:
+        raise Exception("Can not find {PB_HEADER_FILE} in tf's include dir!")
+    return major, minor, is_pai, header_dir, lib_dir, lib_name, cxx11_abi, tf_pb_version
+
+def deduce_cuda_info():
+    """Deduce cuda major and minor version and cuda directory."""
+
+    def _deduce_from_version_file(cuda_home):
+        version_file = os.path.join(cuda_home, "version.txt")
+        if os.path.exists(version_file):
+            with open(version_file) as f:
+                matched = re.findall(r"[0-9]+\.[0-9]+\.[0-9]+", f.read())
+                if len(matched) == 1:
+                    # return major and minor only.
+                    return ".".join(matched[0].split(".")[0:2])
+        version_file = os.path.join(cuda_home, "version.json")
+        if os.path.exists(version_file):
+            with open(version_file) as f:
+                data = json.loads(f.read())
+                parts = data['cuda']['version'].split(".")
+                return parts[0] + "." + parts[1]
+        return None
+
+    def _deduce_from_nvcc():
+        out = safe_run("nvcc --version", shell=True, verbose=False)
+        patt = re.compile(r"release ([0-9]+\.[0-9]+)", re.M)
+        found = patt.findall(out)
+        if len(found) == 1:
+            nvcc = which("nvcc")
+            cuda_home = os.path.join(os.path.dirname(nvcc), os.path.pardir)
+            return found[0], os.path.abspath(cuda_home)
+        else:
+            return None, None
+
+    cuda_home = os.environ.get("TF_CUDA_HOME", None)
+    if cuda_home:
+        ver = _deduce_from_version_file(cuda_home)
+        if ver is not None:
+            return ver, cuda_home
+        else:
+            raise Exception(
+                f"Failed to deduce cuda version from BLADE_CUDA_HOME: {cuda_home}"
+            )
+
+    ver = _deduce_from_version_file("/usr/local/cuda")
+    if ver is not None:
+        return ver, "/usr/local/cuda"
+
+    all_cuda = [
+        os.path.join("/usr/local", d)
+        for d in os.listdir("/usr/local")
+        if d.startswith("cuda-")
+    ]
+    assert (
+        len(all_cuda) == 1
+    ), "Mutiple cuda installed, but none linked to `/usr/local/cuda`."
+    ver = _deduce_from_version_file(all_cuda[0])
+    if ver is not None:
+        return ver, all_cuda[0]
+
+    ver, cuda_home = _deduce_from_nvcc()
+    if ver is not None:
+        return ver, cuda_home
+    raise Exception("Failed to deduce cuda version from local installation.")
+
+
+def get_cudnn_version(cuda_home):
+    serched = []
+    for hdr in ["cudnn.h", "cudnn_version.h"]:
+        fname = os.path.join(cuda_home, "include", hdr)
+        serched.append(fname)
+        if not os.path.exists(fname):
+            fname = os.path.join("/usr/include", hdr)
+        with open(fname, "r") as f:
+            major, minor, patch = None, None, None
+            for line in f.readlines():
+                line = line.strip()
+                if "#define CUDNN_MAJOR" in line:
+                    major = line.split(" ")[2]
+                elif "#define CUDNN_MINOR" in line:
+                    minor = line.split(" ")[2]
+                elif "#define CUDNN_PATCHLEVEL" in line:
+                    patch = line.split(" ")[2]
+            if None not in [major, minor, patch]:
+                return ".".join([major, minor, patch])
+    raise Exception(f"Failed to decuce cuDNN version after searching: {fname}")
+
+def safe_run(cmd, shell=False, verbose=True):
+    assert isinstance(cmd, str) or isinstance(cmd, unicode)
+    if shell:
+        popen = Popen(cmd, stdout=PIPE, stderr=STDOUT, shell=shell)
+    else:
+        args = shlex.split(cmd)
+        popen = Popen(args, stdout=PIPE, stderr=STDOUT, shell=shell)
+    # wait until subprocess terminated
+    # stdout, stderr = popen.communicate()
+    stdout = ""
+    for line in iter(popen.stdout.readline, b""):
+        clean_line = line.strip().decode("utf-8")
+        if verbose:
+            logger.info(clean_line)
+        stdout += "{}\n".format(clean_line)
+    if stdout and "error" in stdout.lower():
+        logger.info(
+            'Running "{}" with shell mode {}'.format(cmd, "ON" if shell else "OFF")
+        )
+        raise AssertionError("{} failed!".format(cmd))
+    return stdout
+
+

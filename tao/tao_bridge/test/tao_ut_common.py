@@ -36,7 +36,7 @@ class TaoTestCase(unittest.TestCase):
         """
         if 'TAO_COMPILER_PATH' not in os.environ:
             file_dir = os.path.abspath(os.path.dirname(__file__))
-            compiler = os.path.join(file_dir, "..", "..", "..", "tf_community",
+            compiler = os.path.join(file_dir, os.pardir, os.pardir, os.pardir, "tf_community",
                                     "bazel-bin", "tensorflow", "compiler", "decoupling",
                                     "tao_compiler_main")
             compiler = os.path.abspath(compiler)
@@ -54,8 +54,14 @@ class TaoTestCase(unittest.TestCase):
         import tensorflow as tf
         file_dir = os.path.abspath(os.path.dirname(__file__))
         if TaoTestCase.LIB_TAO_OPS is None:
-            tao_lib = os.path.join(
-                file_dir, "..", "..", "build", "libtao_ops.so")
+            tao_lib_cmake = os.path.join(
+                file_dir, os.pardir, os.pardir, "build", "libtao_ops.so")
+            tao_lib_bazel = os.path.join(
+                file_dir, os.pardir, os.pardir, "bazel-bin", "libtao_ops.so")
+            if os.path.exists(tao_lib_bazel):
+                tao_lib = tao_lib_bazel
+            else:
+                tao_lib = tao_lib_cmake
             tao_lib = os.path.abspath(tao_lib)
             assert os.path.exists(tao_lib), \
                 "libtao_ops.so not found at: " + tao_lib

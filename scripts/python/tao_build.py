@@ -46,6 +46,8 @@ from common_setup import (
     remote_cache_token,
     update_cpu_specific_setting,
     acl_root_dir,
+    get_tf_info,
+    deduce_cuda_info,
 )
 
 from tao_common import (
@@ -90,6 +92,10 @@ def tao_build_dir(root=None):
         root = get_source_root_dir()
     return os.path.join(root, "tao", "build")
 
+def tao_bazel_dir(root=None):
+    if root is None:
+        root = get_source_root_dir()
+    return os.path.join(root, "tao")
 
 def tao_ral_dir(root=None):
     if root is None:
@@ -161,7 +167,7 @@ def configure_compiler(root, args):
             bazel_startup_opts = "--host_jvm_args=-Djdk.http.auth.tunneling.disabledSchemes="
             f.write("startup {}\n".format(bazel_startup_opts))
 
-    logger.info("Stage [configure] success.")
+    logger.info("Stage [configure compiler] success.")
 
 @time_stage()
 def configure_pytorch(root, args):
@@ -170,7 +176,7 @@ def configure_pytorch(root, args):
     configure_compiler(root, args)
 
 @time_stage()
-def configure(root, args):
+def configure_bridge_cmake(root, args):
     save_gcc_conf(args)
     add_ral_link_if_not_exist(root)
     tao_bridge_build_dir = tao_build_dir(root)
@@ -206,7 +212,6 @@ def configure(root, args):
              envs += " ACL_ROOT_DIR={} ".format(acl_root)
              flags += " -DDNNL_AARCH64_USE_ACL=ON "
 
-
         cmake_cmd = (
             "{} cmake .. -DPYTHON={}/bin/{} {}".format(
                 envs, args.venv_dir, PYTHON_BIN_NAME, flags
@@ -222,6 +227,94 @@ def configure(root, args):
                 tao_bridge_build_dir
             )
         )
+    logger.info("Stage [configure bridge(cmake)] success.")
+
+@time_stage()
+def configure_bridge_bazel(root, args):
+    save_gcc_conf(args)
+    # TODO(lanbo.llb): support tf_addons build with bazel
+    # TODO(lanbo.llb): support TAO_DISABLE_LINK_TF_FRAMEWORK in bazel??
+    tao_bazel_root = tao_bazel_dir(root)
+    with open(os.path.join(tao_bazel_root, ".bazelrc_gen"), "w") as f:
+
+        def _opt(opt, value, cmd="build"):
+            f.write(f"{cmd} --{opt}={value}\n")
+
+        def _action_env(key, value, cmd="build"):
+            f.write(f"{cmd} --action_env {key}={value}\n")
+
+        def _write(line, cmd="build"):
+            f.write(f"{cmd} {line}\n")
+
+        _action_env("PYTHON_BIN_PATH", which("python3"))
+        _action_env("GCC_HOST_COMPILER_PATH", which("gcc"))
+        _action_env("CC", which("gcc"))
+        _action_env("CXX", which("g++"))
+        (
+            tf_major,
+            tf_minor,
+            is_pai,
+            tf_header_dir,
+            tf_lib_dir,
+            tf_lib_name,
+            tf_cxx11_abi,
+            tf_pb_version,
+        ) = get_tf_info()
+        _opt("cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
+        _opt("host_cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
+        _action_env("BLADE_WITH_TF", "1")
+        _action_env("IF_CXX11_ABI", int(tf_cxx11_abi))
+        _action_env("TF_IS_PAI", int(is_pai))
+        _action_env("TF_MAJOR_VERSION", tf_major)
+        _action_env("TF_MINOR_VERSION", tf_minor)
+        _action_env("TF_HEADER_DIR", tf_header_dir)
+        _action_env("TF_SHARED_LIBRARY_DIR", tf_lib_dir)
+        _action_env("TF_SHARED_LIBRARY_NAME", tf_lib_name)
+        _action_env("TF_PROTOBUF_VERSION", tf_pb_version)
+        # Build environments. They all starts with `DISC_BUILD_`.
+        host = socket.gethostname()
+        ip = socket.gethostbyname(host)
+        _action_env("DISC_BUILD_VERSION", args.version)
+        _action_env("DISC_BUILD_GIT_BRANCH", git_branch().decode("utf-8").replace('/', '-'))
+        _action_env("DISC_BUILD_GIT_HEAD", git_head().decode("utf-8"))
+        _action_env("DISC_BUILD_HOST", host)
+        _action_env("DISC_BUILD_IP", ip)
+        _action_env("DISC_BUILD_TIME", datetime.today().strftime("%Y%m%d%H%M%S"))
+
+        is_cuda = not (args.cpu_only or args.dcu)
+        if is_cuda:
+            cuda_ver, _ = deduce_cuda_info()
+            if '11\.' in cuda_ver:
+                _action_env("TF_CUDA_COMPUTE_CAPABILITIES", "7.0,7.5,8.0")
+            elif '10\.' in cuda_ver:
+                _action_env("TF_CUDA_COMPUTE_CAPABILITIES", "7.0,7.5")
+            _action_env("NVCC", which("nvcc"))
+            _write("--test_tag_filters=-cpu", cmd="test")
+        elif args.cpu_only:
+            _write("--test_tag_filters=-gpu", cmd="test")
+
+        logger.info("configuring tao_bridge with bazel ......")
+
+    with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
+        # make sure version.h is generated
+        execute("bazel build --config=release //:version_header_genrule")
+
+    with cwd(root):
+        # copy version.h from tao_bridge
+        # NOTE(lanbo.llb): This is no longer needed when tao_compiler is build
+        # in workspace `org_tao_compiler` instead of `org_tensorflow`
+        execute(
+            f"cp {tao_bazel_root}/bazel-bin/tao_bridge/version.h tao_compiler/decoupling/version.h"
+        )
+    logger.info("Stage [configure bridge(bazel)] success.")
+
+
+@time_stage()
+def configure(root, args):
+    if args.bazel_bridge:
+        configure_bridge_bazel(root, args)
+    else:
+        configure_bridge_cmake(root, args)
     configure_compiler(root, args)
 
 
@@ -404,11 +497,33 @@ def test_tao_compiler(root, args):
             flag += " --action_env=BRIDGE_ENABLE_TAO=true "
     logger.info("Stage [test_tao_compiler] success.")
 
+def tao_bridge_bazel_config(args):
+    bazel_config = ""
+    if args.enable_blaze_opt:
+        bazel_config += " --config=disc_blaze"
+    if args.cpu_only:
+        if args.x86:
+            bazel_config += " --config=disc_x86"
+        elif args.aarch64:
+            bazel_config += " --config=aarch64"
+        if args.enable_mkldnn:
+            bazel_config += " --config=disc_mkldnn"
+    elif args.dcu:
+        bazel_config += " --config=disc_dcu"
+    else:
+        bazel_config += " --config=disc_cuda"
+    return bazel_config
+
 @time_stage()
 def build_tao_bridge(root, args):
-    tao_bridge_build_dir = tao_build_dir(root)
-    with cwd(tao_bridge_build_dir), gcc_env(args.bridge_gcc):
-        execute("make -j")
+    if args.bazel_bridge:
+        tao_bazel_root = tao_bazel_dir(root)
+        with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
+            execute(f"bazel build {tao_bridge_bazel_config(args)} //:libtao_ops.so")
+    else:
+        tao_bridge_build_dir = tao_build_dir(root)
+        with cwd(tao_bridge_build_dir), gcc_env(args.bridge_gcc):
+            execute("make -j")
     logger.info("Stage [build_tao_bridge] success.")
 
 
@@ -461,21 +576,37 @@ def run_py_test(py_bin, test_root, output_file, includes, envs=[]):
 
 @time_stage()
 def test_tao_bridge(root, args, cpp=True, python=True):
-    tao_bridge_build_dir = tao_build_dir(root)
-    # Perform test within tao bridge GCC environment.
-    with cwd(tao_bridge_build_dir), gcc_env(args.bridge_gcc):
-        if cpp:
-            output_file = os.path.join(tao_bridge_build_dir, "cpp_test.out")
-            execute("make test ARGS='-V' | tee {}".format(output_file))
-            logger.info("Stage [test_tao_bridge_cpp] success, output: " + output_file)
-        if python:
-            output_file = os.path.join(tao_bridge_build_dir, "py_test.out")
-            py_bin = os.path.join(args.venv_dir, "bin", PYTHON_BIN_NAME)
-            test_root_disc = "{}/tao/tao_bridge/test/gpu".format(root)
-            if not args.cpu_only:
-                run_py_test(py_bin, test_root_disc, output_file, ["test_mlir*.py"])
+    if args.bazel_bridge:
+        tao_bazel_root = tao_bazel_dir(root)
+        with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
+            if cpp:
+                output_file = os.path.join(tao_bazel_root, "cpp_test.out")
+                execute(f"bazel test {tao_bridge_bazel_config(args)} //...")
+                logger.info("Stage [test_tao_bridge_cpp] with bazel success, output: " + output_file)
+            if python:
+                output_file = os.path.join(tao_bazel_root, "py_test.out")
+                py_bin = os.path.join(args.venv_dir, "bin", PYTHON_BIN_NAME)
+                test_root_disc = "{}/tao/tao_bridge/test/gpu".format(root)
+                if not args.cpu_only:
+                    run_py_test(py_bin, test_root_disc, output_file, ["test_mlir*.py"])
 
-            logger.info("Stage [test_tao_bridge_py] success, output: " + output_file)
+                logger.info("Stage [test_tao_bridge_py] success, output: " + output_file)
+    else:
+        tao_bridge_build_dir = tao_build_dir(root)
+        # Perform test within tao bridge GCC environment.
+        with cwd(tao_bridge_build_dir), gcc_env(args.bridge_gcc):
+            if cpp:
+                output_file = os.path.join(tao_bridge_build_dir, "cpp_test.out")
+                execute("make test ARGS='-V' | tee {}".format(output_file))
+                logger.info("Stage [test_tao_bridge_cpp] success, output: " + output_file)
+            if python:
+                output_file = os.path.join(tao_bridge_build_dir, "py_test.out")
+                py_bin = os.path.join(args.venv_dir, "bin", PYTHON_BIN_NAME)
+                test_root_disc = "{}/tao/tao_bridge/test/gpu".format(root)
+                if not args.cpu_only:
+                    run_py_test(py_bin, test_root_disc, output_file, ["test_mlir*.py"])
+
+                logger.info("Stage [test_tao_bridge_py] success, output: " + output_file)
 
 
 def prepare_env(args):
@@ -691,6 +822,12 @@ def parse_args():
         help="bazel build/test targets for tao compiler",
     )
     parser.add_argument(
+        "--bazel_bridge",
+        required=False,
+        action="store_true",
+        help="bazel build/test targets for tao bridge",
+    )
+    parser.add_argument(
         "--build_dbg_symbol", action="store_true", help="Add -g to build options"
     )
     # flag validation
@@ -740,7 +877,7 @@ def main():
         args.compiler_gcc
     )
 
-    is_test = stage in ["test", "test_tao_bridge_cpp", "test_tao_bridge_cpp"]
+    is_test = stage in ["test", "test_tao_bridge_cpp", "test_tao_bridge_py"]
 
     if (
         stage in ["all", "build", "build_tao_compiler", "build_mlir_ral"]

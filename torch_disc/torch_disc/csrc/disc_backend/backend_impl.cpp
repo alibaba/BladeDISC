@@ -15,17 +15,16 @@
 #include <torch/csrc/jit/passes/shape_analysis.h>
 #include <torch/csrc/lazy/backend/backend_device.h>
 #include <torch/csrc/lazy/core/ir_dump_util.h>
+#include <torch/csrc/lazy/ts_backend/ts_backend_impl.h>
 #include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
 
-#include "lazy_tensor_core/csrc/ts_backend/backend_impl.h"
-#include "lazy_tensors/computation_client/sys_util.h"
 #include "torch_disc/csrc/disc_compiler/disc_compiler.h"
 
 namespace torch_disc {
 namespace compiler {
 
 using BackendDeviceType = torch::lazy::BackendDeviceType;
-using TSData = torch_lazy_tensors::compiler::TSData;
+using TSData = torch::lazy::TSData;
 
 struct TSBackendDeviceType : public BackendDeviceType {
   TSBackendDeviceType() = delete;
@@ -50,9 +49,7 @@ const std::set<int8_t> TSBackendDeviceType::supported_device_types_ = {
 class DISCBackendImpl : public torch::lazy::BackendImplInterface {
  public:
   DISCBackendImpl() : default_device_type_(at::kCPU) {
-    auto type = lazy_tensors::sys_util::GetEnvBool("LTC_TS_CUDA", false)
-                    ? at::kCUDA
-                    : at::kCPU;
+    auto type = at::kCUDA;
     default_device_type_ = TSBackendDeviceType(type);
     cache_ = std::make_shared<DiscComputationCache>(
         FLAGS_torch_lazy_compilation_cache_size);

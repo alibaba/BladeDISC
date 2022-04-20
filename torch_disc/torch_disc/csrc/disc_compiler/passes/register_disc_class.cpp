@@ -12,7 +12,6 @@
 #include "torch_disc/csrc/disc_compiler/passes/register_disc_class.h"
 
 #include "compiler/mlir/converters/mhlo_conversion.h"
-#include "lazy_tensors/computation_client/sys_util.h"
 #include "torch_disc/csrc/disc_compiler/passes/disc_class.h"
 #include "torch_disc/csrc/disc_compiler/passes/io.h"
 
@@ -24,8 +23,7 @@ std::string DiscCMD(const std::string& mlir_fname,
                     const std::string& out_fname) {
   std::stringstream ss;
   std::string logf = mlir_fname + ".log";
-  auto binary_path = lazy_tensors::sys_util::GetEnvString(
-      "DISC_COMPILER_BINARY_PATH", "./disc_compiler_main");
+  auto binary_path = "./disc_compiler_main";
   ss << binary_path << " " << mlir_fname << " " << out_fname << " > " << logf
      << " 2>&1 ";
   return ss.str();

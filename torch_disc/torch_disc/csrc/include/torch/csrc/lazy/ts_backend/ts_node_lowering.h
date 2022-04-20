@@ -9,15 +9,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "torch_disc/csrc/init_python_bindings.h"
+#pragma once
 
-#include "torch_disc/csrc/disc_backend/backend_impl.h"
+#include <torch/csrc/api/include/torch/jit.h>
+#include <torch/csrc/lazy/backend/lowering_context.h>
 
-namespace torch_disc {
-namespace py = pybind11;
-void InitLtcModuleBindings(py::module m) {
-  m.def("_ltc_init_disc_backend", []() { compiler::InitTorchScriptBackend(); });
-}
+namespace torch {
+namespace lazy {
+using TSOpVector = std::vector<torch::jit::Value*>;
 
-PYBIND11_MODULE(_torch_disc, m) { torch_disc::InitLtcModuleBindings(m); }
-}  //  namespace torch_disc
+TORCH_API TSOpVector LowerTSBuiltin(
+    std::shared_ptr<torch::jit::GraphFunction> function, c10::Symbol sym,
+    const std::vector<torch::jit::NamedValue>& arguments,
+    const std::vector<torch::jit::NamedValue>& kwarguments = {});
+
+}  // namespace lazy
+}  // namespace torch

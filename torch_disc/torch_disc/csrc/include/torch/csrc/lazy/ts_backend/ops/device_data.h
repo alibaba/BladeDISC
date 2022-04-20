@@ -9,15 +9,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "torch_disc/csrc/init_python_bindings.h"
+#pragma once
 
-#include "torch_disc/csrc/disc_backend/backend_impl.h"
+#include <torch/csrc/lazy/backend/backend_data.h>
+#include <torch/csrc/lazy/ts_backend/ts_node.h>
 
-namespace torch_disc {
-namespace py = pybind11;
-void InitLtcModuleBindings(py::module m) {
-  m.def("_ltc_init_disc_backend", []() { compiler::InitTorchScriptBackend(); });
-}
+namespace torch {
+namespace lazy {
 
-PYBIND11_MODULE(_torch_disc, m) { torch_disc::InitLtcModuleBindings(m); }
-}  //  namespace torch_disc
+class TORCH_API DeviceData : public TsNode {
+ public:
+  explicit DeviceData(std::shared_ptr<BackendData> data);
+
+  std::string ToString() const override;
+
+  const std::shared_ptr<BackendData>& data() const { return data_; }
+
+  static const DeviceData* Cast(const Node* node);
+
+ private:
+  std::shared_ptr<BackendData> data_;
+};
+
+}  // namespace lazy
+}  // namespace torch

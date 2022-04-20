@@ -9,15 +9,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "torch_disc/csrc/init_python_bindings.h"
+#pragma once
 
-#include "torch_disc/csrc/disc_backend/backend_impl.h"
+#include <c10/core/ScalarType.h>
+#include <c10/util/Optional.h>
+#include <torch/csrc/lazy/ts_backend/ts_node.h>
 
-namespace torch_disc {
-namespace py = pybind11;
-void InitLtcModuleBindings(py::module m) {
-  m.def("_ltc_init_disc_backend", []() { compiler::InitTorchScriptBackend(); });
-}
+namespace torch {
+namespace lazy {
 
-PYBIND11_MODULE(_torch_disc, m) { torch_disc::InitLtcModuleBindings(m); }
-}  //  namespace torch_disc
+class TORCH_API Cast : public TsNode {
+ public:
+  Cast(const Value& input, at::ScalarType dtype,
+       c10::optional<at::ScalarType> stype = c10::nullopt);
+
+  std::string ToString() const override;
+
+  at::ScalarType dtype() const { return dtype_; }
+
+  const c10::optional<at::ScalarType>& stype() const { return stype_; }
+
+ private:
+  at::ScalarType dtype_;
+  c10::optional<at::ScalarType> stype_;
+};
+
+}  // namespace lazy
+}  // namespace torch

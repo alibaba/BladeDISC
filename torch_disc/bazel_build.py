@@ -58,16 +58,7 @@ class BazelBuild():
         self.build_cmd = "bazel build"
         self.ci_flag = "--noshow_loading_progress --show_progress_rate_limit=600"
 
-    def fix_generated_code(self):
-        cmd = [os.path.join("scripts", "pytorch_patch.sh")]
-        if subprocess.call(cmd) != 0:
-            print(
-                'Failed to correct ATEN bindins head files: {}'.format(cmd),
-                file=sys.stderr)
-            sys.exit(1)
-
     def run(self, extdir=None, srcdir=None, build_temp=None):
-        self.fix_generated_code()
         srcdir = get_fullpath_or_create(
             srcdir or os.path.dirname(os.path.abspath(__file__))
         )

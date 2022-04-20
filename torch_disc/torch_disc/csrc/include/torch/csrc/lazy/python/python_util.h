@@ -9,15 +9,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "torch_disc/csrc/init_python_bindings.h"
+#pragma once
+#include <c10/macros/Export.h>
+#include <c10/util/Optional.h>
+#include <torch/csrc/lazy/core/ir_metadata.h>
 
-#include "torch_disc/csrc/disc_backend/backend_impl.h"
+#include <vector>
 
-namespace torch_disc {
-namespace py = pybind11;
-void InitLtcModuleBindings(py::module m) {
-  m.def("_ltc_init_disc_backend", []() { compiler::InitTorchScriptBackend(); });
-}
+namespace torch {
+namespace lazy {
 
-PYBIND11_MODULE(_torch_disc, m) { torch_disc::InitLtcModuleBindings(m); }
-}  //  namespace torch_disc
+c10::optional<SourceLocation> TORCH_API GetPythonFrameTop();
+
+std::vector<SourceLocation> TORCH_API GetPythonFrames();
+
+}  // namespace lazy
+}  // namespace torch

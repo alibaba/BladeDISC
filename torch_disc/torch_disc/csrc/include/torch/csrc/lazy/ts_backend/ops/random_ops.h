@@ -9,15 +9,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "torch_disc/csrc/init_python_bindings.h"
+#pragma once
 
-#include "torch_disc/csrc/disc_backend/backend_impl.h"
+#include <torch/csrc/lazy/ts_backend/ts_node.h>
 
-namespace torch_disc {
-namespace py = pybind11;
-void InitLtcModuleBindings(py::module m) {
-  m.def("_ltc_init_disc_backend", []() { compiler::InitTorchScriptBackend(); });
-}
+namespace torch {
+namespace lazy {
 
-PYBIND11_MODULE(_torch_disc, m) { torch_disc::InitLtcModuleBindings(m); }
-}  //  namespace torch_disc
+class Normal : public torch::lazy::TsNode {
+ public:
+  Normal(const torch::lazy::Value& self, const double& mean, const double& std,
+         std::vector<torch::lazy::Shape>&& shapes);
+
+  std::string ToString() const override;
+  torch::lazy::TSOpVector Lower(
+      std::shared_ptr<torch::jit::GraphFunction> function,
+      torch::lazy::TSLoweringContext* loctx) const override;
+
+  double mean_;
+  double std_;
+};
+
+}  // namespace lazy
+}  // namespace torch

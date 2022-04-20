@@ -9,15 +9,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "torch_disc/csrc/init_python_bindings.h"
+#pragma once
+#include <c10/util/Flags.h>
 
-#include "torch_disc/csrc/disc_backend/backend_impl.h"
+// TODO(whc) either deprecate this, or use it for all shape inference
+C10_DECLARE_int(torch_lazy_ts_shape_cache_size);
 
-namespace torch_disc {
-namespace py = pybind11;
-void InitLtcModuleBindings(py::module m) {
-  m.def("_ltc_init_disc_backend", []() { compiler::InitTorchScriptBackend(); });
-}
+// TODO(whc) unclear if this is useful, has only been tested as true
+C10_DECLARE_bool(torch_lazy_ts_tensor_update_sync);
 
-PYBIND11_MODULE(_torch_disc, m) { torch_disc::InitLtcModuleBindings(m); }
-}  //  namespace torch_disc
+C10_DECLARE_bool(torch_lazy_ts_cuda);

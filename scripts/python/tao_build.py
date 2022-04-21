@@ -293,6 +293,10 @@ def configure_bridge_bazel(root, args):
             _write("--test_tag_filters=-cpu", cmd="test")
         elif args.cpu_only:
             _write("--test_tag_filters=-gpu", cmd="test")
+            if args.enable_mkldnn:
+                _action_env("BUILD_WITH_MKLDNN", "1")
+            if args.aarch64:
+                _action_env("BUILD_WITH_AARCH64", "1")
 
         logger.info("configuring tao_bridge with bazel ......")
 

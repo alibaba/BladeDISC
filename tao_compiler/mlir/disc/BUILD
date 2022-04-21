@@ -759,6 +759,7 @@ cc_library(
         ":codegen_utils",
         ":disc_util",
         ":disc_ral",
+        ":fusion_utils",
         ":lmhlo_disc",
         ":pass_details",
         ":placement_utils",

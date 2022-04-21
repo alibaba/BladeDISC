@@ -8,7 +8,7 @@ module attributes {tf.versions = {bad_consumers = [], min_consumer = 0 : i32, pr
         dilations = [1, 1, 1, 1],
         padding = "SAME",
         strides = [1, 3, 3, 1]
-      } : (tensor<?x?x?x?xf32>, tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
+      } : (tensor<?x?x?x?xf32>, tensor<3x3x6x16xf32>) -> tensor<?x?x?x?xf32>
       tf_executor.fetch %0 : tensor<?x?x?x?xf32>
     }
     return %graph : tensor<?x?x?x?xf32>

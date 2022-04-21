@@ -417,7 +417,7 @@ func @dynamic_conv(%arg0: !disc_ral.context) {
   %66 = arith.index_cast %60 : i32 to index
   %67 = arith.index_cast %65 : i32 to index
   %68 = memref.alloc(%8, %2, %66, %67) : memref<?x?x?x?xf32, "gpu">
-  // CHECK: memref.store {{.*}} : memref<16xi32, "cpu">
+  // CHECK: memref.store {{.*}} : memref<17xi32, "cpu">
   // CHECK: "disc_ral.dispatch"
   // CHECK-SAME: call_target_name = "ral_conv"
   // CHECK-NOT: lmhlo.dynamic_conv

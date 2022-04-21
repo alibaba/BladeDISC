@@ -15,6 +15,11 @@ config_setting(
 )
 
 config_setting(
+    name = "enable_static_trt",
+    values = {"define": "enable_static_trt=true"},
+)
+
+config_setting(
     name = "platform_alibaba",
     values = {"define": "platform_alibaba=true"},
 )

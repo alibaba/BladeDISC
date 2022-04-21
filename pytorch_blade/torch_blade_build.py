@@ -56,6 +56,9 @@ class TorchBladeBuild:
         self.build_tensorrt = check_env_flag(
             "TORCH_BLADE_BUILD_TENSORRT", "OFF"
         )
+        self.static_tensorrt = check_env_flag(
+            "TORCH_BLADE_BUILD_TENSORRT_STATIC", "OFF"
+        )
         self.tensorrt_dir = os.getenv("TENSORRT_INSTALL_PATH", "/usr/local/TensorRT/")
         self.version = self.get_version()
 
@@ -98,6 +101,7 @@ class TorchBladeBuild:
             f.write("cuda = {}\n".format(repr(self.cuda_version)))
             f.write("cuda_available = {}\n".format(repr(self.cuda_available)))
             f.write("build_tensorrt = {}\n".format(repr(self.build_tensorrt)))
+            f.write("static_tensorrt = {}\n".format(repr(self.static_tensorrt)))
             f.write("git_version = {}\n".format(repr(self.git_version)))
             f.write("torch_version = {}\n".format(repr(self.torch_version)))
             f.write("torch_git_version = {}\n".format(repr(self.torch_git_version)))

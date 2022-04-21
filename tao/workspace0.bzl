@@ -6,6 +6,7 @@ load("@org_third_party//bazel/tf:tf_configure.bzl", "tf_configure")
 load("@org_third_party//bazel/tf_protobuf:tf_protobuf_configure.bzl", "tf_protobuf_configure")
 
 load("@org_tensorflow//third_party/gpus:cuda_configure.bzl", "cuda_configure")
+load("@org_tensorflow//third_party/gpus:rocm_configure.bzl", "rocm_configure")
 load("@org_tensorflow//third_party:repo.bzl", "tf_http_archive", "tf_mirror_urls")
 
 # Import external repository rules.
@@ -93,6 +94,10 @@ def _tao_bridge_toolchains():
     tf_protobuf_configure(name = "local_config_tf_protobuf")
 
     blade_disc_helper_configure(name = "local_config_blade_disc_helper")
+
+    cuda_configure(name = "local_config_cuda")
+
+    rocm_configure(name = "local_config_rocm")
 
 def workspace():
     _tao_bridge_repositories()

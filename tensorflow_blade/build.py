@@ -39,10 +39,12 @@ from common_setup import (
     cwd,
     ensure_empty_dir,
     execute,
-    git_branch,
-    git_head,
     which,
     safe_run,
+)
+from tao_common import (
+    git_branch,
+    git_head,
 )
 
 # Source code root dir.

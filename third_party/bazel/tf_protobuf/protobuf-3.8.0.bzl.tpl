@@ -174,10 +174,10 @@ def cc_proto_library(
         deps = [],
         cc_libs = [],
         include = None,
-        protoc = "@tf_protobuf//:protoc",
+        protoc = "@com_google_protobuf//:protoc",
         internal_bootstrap_hack = False,
         use_grpc_plugin = False,
-        default_runtime = "@tf_protobuf//:protobuf",
+        default_runtime = "@com_google_protobuf//:protobuf",
         **kargs):
     """Bazel rule to create a C++ protobuf library from proto source files
     NOTE: the rule is only an internal workaround to generate protos. The
@@ -265,8 +265,8 @@ def internal_gen_well_known_protos_java(srcs):
     Args:
       srcs: the well known protos
     """
-    root = Label("%s//protobuf_java" % (REPOSITORY_NAME)).workspace_root
-    pkg = PACKAGE_NAME + "/" if PACKAGE_NAME else ""
+    root = Label("%s//protobuf_java" % (native.repository_name())).workspace_root
+    pkg = native.package_name() + "/" if native.package_name() else ""
     if root == "":
         include = " -I%ssrc " % pkg
     else:
@@ -319,8 +319,8 @@ def py_proto_library(
         py_libs = [],
         py_extra_srcs = [],
         include = None,
-        default_runtime = "@tf_protobuf//:protobuf_python",
-        protoc = "@tf_protobuf//:protoc",
+        default_runtime = "@com_google_protobuf//:protobuf_python",
+        protoc = "@com_google_protobuf//:protoc",
         use_grpc_plugin = False,
         **kargs):
     """Bazel rule to create a Python protobuf library from proto source files

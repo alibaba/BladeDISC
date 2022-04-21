@@ -532,6 +532,7 @@ cc_library(
     name = "common_context_bridge",
     srcs = [
         "context/common_context_impl.cc",
+        "//tensorflow/compiler/mlir/xla:compile_metadata_bridge_genproto",
     ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
@@ -561,7 +562,6 @@ cc_library(
         ":ral_gpu_driver",
         ":ral_logging",
         ":context_util",
-        "//tensorflow/compiler/mlir/xla:compile_metadata_bridge",
         "@local_config_tf//:libtensorflow_framework",
         "@local_config_tf//:tf_header_lib",
     ] + if_cuda_is_configured([

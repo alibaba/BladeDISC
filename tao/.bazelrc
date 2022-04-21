@@ -12,14 +12,12 @@ build:release_base --compilation_mode=opt
 build:avx_linux --copt=-mavx
 build:avx_linux --host_copt=-mavx
 
-build:release_cpu_linux --config=release_base
 build:release_cpu_linux --config=avx_linux
 build:release_cpu_linux --crosstool_top="@ubuntu18.04-gcc7_manylinux2010-cuda11.2-cudnn8.1-tensorrt7.2_config_cuda//crosstool:toolchain"
 # cuda
 build:cuda --repo_env TF_NEED_CUDA=1
 build:cuda --crosstool_top=@local_config_cuda//crosstool:toolchain
 build:cuda --@local_config_cuda//:enable_cuda
-build:cuda --config=release
 # dcu
 build:dcu --crosstool_top=@local_config_rocm//crosstool:toolchain
 build:dcu --define=using_rocm=true --define=using_rocm_hipcc=true --define=using_dcu=true
@@ -27,6 +25,8 @@ build:dcu --repo_env TF_NEED_ROCM=1 --repo_env TF_NEED_DCU=1
 
 # these comes from tao_compiler, unify these setting in the future
 build:disc --define framework_shared_object=false --experimental_multi_threaded_digest
+build:disc --config=release_base
+
 build:disc_cpu --config=disc --cxxopt=-DTAO_CPU_ONLY
 build:disc_x86 --config=disc_cpu --config=release_cpu_linux --cxxopt=-DTAO_X86 --define disc_x86=true
 build:disc_aarch64 --config=disc_cpu --cxxopt=-DTAO_AARCH64 --define disc_aarch64=true --linkopt="-Xlinker --stub-group-size -Xlinker 10000000"

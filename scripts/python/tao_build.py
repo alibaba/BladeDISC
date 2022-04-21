@@ -520,7 +520,7 @@ def build_tao_bridge(root, args):
     if args.bazel_bridge:
         tao_bazel_root = tao_bazel_dir(root)
         with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
-            execute(f"bazel build {tao_bridge_bazel_config(args)} //:libtao_ops.so")
+            execute(f"bazel build {tao_bridge_bazel_config(args)} //:tao_ops")
     else:
         tao_bridge_build_dir = tao_build_dir(root)
         with cwd(tao_bridge_build_dir), gcc_env(args.bridge_gcc):

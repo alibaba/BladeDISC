@@ -1,5 +1,5 @@
 package(default_visibility = ["//visibility:public"])
-load("@local_config_tf_protobuf//:protobuf.bzl", "cc_proto_library")
+load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
 load("@local_config_tf//:build_defs.bzl", "tf_copts")
 load("@local_config_cuda//cuda:build_defs.bzl", "cuda_library", "if_cuda")
 load("//:tao_bridge.bzl", "tao_bridge_cc_test")
@@ -11,7 +11,7 @@ load("@local_config_blade_disc_helper//:build_defs.bzl",
     "disc_build_ip",
     "disc_build_time"
 )
-load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_shared_object")
+# load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_shared_object")
 
 ############################################################
 
@@ -80,7 +80,11 @@ cc_library(
         exclude = [
             "tao_bridge/**/*test.cc",
         ],
-    ),
+    ) + [
+        ":tao_compiler_input_genproto",
+        ":tao_compilation_result_genproto",
+        ":xla_activity_genproto",
+    ],
     hdrs = glob(
         include = [
             "tao_bridge/**/*.h"
@@ -90,9 +94,6 @@ cc_library(
     ),
     deps = [
         ":version_header",
-        ":tao_compiler_input",
-        ":tao_compilation_result",
-        ":xla_activity",
         "@local_config_tf//:tf_header_lib",
         "@local_config_tf//:libtensorflow_framework",
         "@org_tao_compiler//tensorflow/compiler/mlir/xla/ral:ral_bridge",
@@ -104,19 +105,29 @@ cc_library(
     linkstatic = 1,
 )
 
-tf_cc_shared_object(
-    name = "libtao_ops.so",
+cc_binary(
+    name = "tao_ops",
     linkopts = select({
         "//conditions:default": [
+            "-ldl",
+            "-lm",
+            "-lstdc++",
             "-z defs",
             "-Wl,--version-script",  #  This line must be directly followed by the version_script.lds file
             "$(location //:bridge_version_scripts.lds)",
+            "-Wl,-rpath,$$ORIGIN",
+            "-Wl,-soname,libtao_ops.so",
         ],
     }),
+    linkshared = 1,
+    linkstatic = 1,
     deps = [
         ":tao_bridge",
         "//:bridge_version_scripts.lds",
-    ]
+    ],
+    data = [
+        ":bridge_version_scripts.lds",
+    ],
 )
 
 tao_bridge_cc_test(

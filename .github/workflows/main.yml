@@ -158,7 +158,6 @@ jobs:
           -v /etc/group:/etc/group:ro \
           -v $PWD:/disc \
           -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
-          -e HTTPS_PROXY= \
           -w /disc \
           disc-dev-cpu-aarch64 \
           bash ./scripts/ci/build_and_test.sh --cpu-only

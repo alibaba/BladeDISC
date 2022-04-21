@@ -85,7 +85,7 @@ def _tao_bridge_repositories():
     native.new_local_repository(
         name = "onednn",
         build_file = "@local_config_onednn//:onednn.BUILD",
-        path = "../tao/third_party/mkldnn"
+        path = "third_party/mkldnn"
     )
 
 def _tao_bridge_toolchains():

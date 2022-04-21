@@ -1,11 +1,12 @@
-package(default_visibility = ["//visibility:public"])
-
 load(
     "@local_config_cuda//cuda:build_defs.bzl",
     "if_cuda_is_configured",
 )
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_import", "cc_library")
 load("//bazel:build_defs.bzl", "if_platform_alibaba", "if_tensorrt_enabled")
+load("@pybind11_bazel//:build_defs.bzl", "pybind_extension", "pybind_library")
+
+package(default_visibility = ["//visibility:public"])
 
 exports_files([
     "pybind.h",
@@ -49,8 +50,6 @@ cc_import(
 )
 
 # Pybind11 bindings for TorchBlade
-
-load("@pybind11_bazel//:build_defs.bzl", "pybind_extension", "pybind_library")
 
 licenses(["notice"])
 

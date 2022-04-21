@@ -1,4 +1,5 @@
 load("//bazel:build_defs.bzl", "if_tensorrt_static_linked")
+load("@tensorrt//:build_defs.bzl", "if_has_myelin")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -16,6 +17,7 @@ cc_library(
         "bridge/tensorrt_logger.h",
         "bridge/tensorrt_onnx_parser.h",
     ],
+    visibility = ["//visibility:private"],
     deps = [
         "//src/common_utils:torch_blade_common",
         "//src/compiler/backends:torch_blade_backends",
@@ -29,7 +31,9 @@ cc_library(
             "@tensorrt//:nvinfer",
             "@tensorrt//:nvinferplugin",
             "@tensorrt//:nvonnxparser",
-        ],
+        ] + if_has_myelin([
+            "@local_config_trt//:myelin_static",
+        ]),
     ),
     alwayslink = 1,  # targets depending on it should carry all symbols in its children.
 )

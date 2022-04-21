@@ -506,9 +506,9 @@ cc_library(
         "-Wl,--end-group",
     ]) + if_disc_aarch64([
         "-Wl,--start-group",
-        "$(location @acl_compute_library//:build/libarm_compute.a)",
-        "$(location @acl_compute_library//:build/libarm_compute_core.a)",
-        "$(location @acl_compute_library//:build/libarm_compute_graph.a)",
+        "$(location @acl_compute_library//:build)/libarm_compute.a",
+        "$(location @acl_compute_library//:build)/libarm_compute_core.a",
+        "$(location @acl_compute_library//:build)/libarm_compute_graph.a",
         "-Wl,--end-group",
     ]),
     data = [
@@ -516,9 +516,7 @@ cc_library(
     ] + if_disc_x86([
         "@mkl_static//:lib",
     ]) + if_disc_aarch64([
-        "@acl_compute_library//:build/libarm_compute.a",
-        "@acl_compute_library//:build/libarm_compute_core.a",
-        "@acl_compute_library//:build/libarm_compute_graph.a",
+        "@acl_compute_library//:build",
     ]),
     deps = [
         "@onednn//:onednn",  # acl is not needed in `deps` since the dependency is carried by `onednn`

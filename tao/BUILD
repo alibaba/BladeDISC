@@ -9,9 +9,10 @@ load("@local_config_blade_disc_helper//:build_defs.bzl",
     "disc_build_git_head",
     "disc_build_host",
     "disc_build_ip",
-    "disc_build_time"
+    "disc_build_time",
+    "if_disc_aarch64",
 )
-# load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_shared_object")
+load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_shared_object")
 
 ############################################################
 
@@ -105,29 +106,22 @@ cc_library(
     linkstatic = 1,
 )
 
-cc_binary(
-    name = "tao_ops",
+tf_cc_shared_object(
+    name = "libtao_ops.so",
     linkopts = select({
         "//conditions:default": [
-            "-ldl",
-            "-lm",
-            "-lstdc++",
             "-z defs",
             "-Wl,--version-script",  #  This line must be directly followed by the version_script.lds file
             "$(location //:bridge_version_scripts.lds)",
-            "-Wl,-rpath,$$ORIGIN",
-            "-Wl,-soname,libtao_ops.so",
         ],
     }),
-    linkshared = 1,
-    linkstatic = 1,
     deps = [
         ":tao_bridge",
         "//:bridge_version_scripts.lds",
     ],
-    data = [
-        ":bridge_version_scripts.lds",
-    ],
+    data = if_disc_aarch64([
+        "@acl_compute_library//:build",
+    ]),
 )
 
 tao_bridge_cc_test(

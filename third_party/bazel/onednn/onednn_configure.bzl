@@ -18,7 +18,7 @@ def _onednn_impl(repository_ctx):
         repository_ctx.template("onednn.BUILD", Label("//bazel/onednn:onednn.BUILD.tpl"), {
             "%{ACL_ROOT}": "\"ACL_ROOT_DIR\": \"{}\",".format(acl_root) if with_aarch64 else "",
             "%{ACL_SETTING}": "\"DNNL_AARCH64_USE_ACL\": \"ON\"," if with_aarch64 else "",
-            "%{CXX11_SETTING}": "\"USE_CXX11_ABI\": \"ON\"" if if_cxx11_abi else "",
+            "%{CXX11_SETTING}": "\"USE_CXX11_ABI\": \"ON\"," if if_cxx11_abi else "",
         })
         repository_ctx.template("BUILD", Label("//bazel/onednn:BUILD.tpl"), {})
 

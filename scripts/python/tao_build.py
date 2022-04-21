@@ -479,8 +479,8 @@ def test_tao_compiler(root, args):
                 flag = '--config=disc_aarch64 '
             else:
                 flag = '--config=disc_x86 '
-            if args.enable_mkldnn:
-                flag += ' --config=disc_mkldnn'
+                if args.enable_mkldnn:
+                    flag += ' --config=disc_mkldnn'
             mlir_test_list = [
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
@@ -524,7 +524,7 @@ def build_tao_bridge(root, args):
     if args.bazel_bridge:
         tao_bazel_root = tao_bazel_dir(root)
         with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
-            execute(f"bazel build {tao_bridge_bazel_config(args)} //:tao_ops")
+            execute(f"bazel build {tao_bridge_bazel_config(args)} //:libtao_ops.so")
     else:
         tao_bridge_build_dir = tao_build_dir(root)
         with cwd(tao_bridge_build_dir), gcc_env(args.bridge_gcc):

@@ -991,14 +991,22 @@ class BaseCpuFusionStrategy : public BaseFusionStrategy {
   virtual StringRef getName() override { return "BaseCpuFusionStrategy"; }
 };
 
+bool enableEagerTransposeFusion() {
+  static const char* env = getenv("DISC_CPU_ENABLE_EAGER_TRANSPOSE_FUSION");
+  if (!env) return false;
+  return std::atoi(env) != 0;
+}
+
 bool BaseCpuFusionStrategy::isFusible(Operation* op) {
   if (isa<lmhlo::ReshapeOp, lmhlo::DynamicReshapeOp>(op)) {
     return false;
   }
 
-  if (auto transposeOp = dyn_cast<lmhlo::TransposeOp>(op)) {
-    auto permutation = transposeOp.permutation().getValues<int64_t>();
-    if (*--permutation.end() != permutation.size() - 1) return false;
+  if (!enableEagerTransposeFusion()) {
+    if (auto transposeOp = dyn_cast<lmhlo::TransposeOp>(op)) {
+      auto permutation = transposeOp.permutation().getValues<int64_t>();
+      if (*--permutation.end() != permutation.size() - 1) return false;
+    }
   }
 
   // Do not fuse shape computation.
@@ -1052,8 +1060,15 @@ bool BaseCpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
   return (inferredFusionType != FusionType::kNone && inferredDominantOp);
 }
 
+static int getLargeConcatNumOperandsLimit() {
+  static const char* env = getenv("DISC_CPU_LARGE_CONCAT_NUM_OPERANDS");
+  if (!env) return 32;
+  return std::atoi(env);
+}
+
 bool isLargeConcatOp(Operation* op) {
-  return isa<lmhlo::ConcatenateOp>(op) && op->getNumOperands() > 32;
+  return isa<lmhlo::ConcatenateOp>(op) &&
+         op->getNumOperands() >= getLargeConcatNumOperandsLimit();
 }
 
 bool BaseCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,

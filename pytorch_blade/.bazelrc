@@ -9,3 +9,4 @@ build:torch_x86 --config=disc_x86 --config=disc_mkldnn
 build:torch_aarch64 --config=disc_aarch64 --config=disc_mkldnn
 
 build:torch_tensorrt --define enable_tensorrt=true --config=torch_cuda
+build:torch_static_tensorrt --define enable_static_trt=true --config=torch_tensorrt

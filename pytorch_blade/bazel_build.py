@@ -22,10 +22,12 @@ from torch_blade_build import TorchBladeBuild, get_fullpath_or_create
 
 cwd = os.path.dirname(os.path.abspath(__file__))
 
+
 def _make_executable(path):
     mode = os.stat(path).st_mode
-    mode |= (mode & 0o444) >> 2    # copy R bits to X
+    mode |= (mode & 0o444) >> 2  # copy R bits to X
     os.chmod(path, mode)
+
 
 def _symlink_force(target, link_name):
     try:
@@ -37,6 +39,7 @@ def _symlink_force(target, link_name):
         else:
             raise e
 
+
 class BazelBuild(TorchBladeBuild):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -44,18 +47,18 @@ class BazelBuild(TorchBladeBuild):
             "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_compiler_main",
             "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:libral_base_context.so",
             "//src:libtorch_blade.so",
-            "//src:_torch_blade.so"
+            "//src:_torch_blade.so",
         ]
         torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]
         self.extra_opts = [
-            "--copt=-DPYTORCH_VERSION_STRING=\\\"{}\\\"".format(self.torch_version),
+            '--copt=-DPYTORCH_VERSION_STRING=\\"{}\\"'.format(self.torch_version),
             "--copt=-DPYTORCH_MAJOR_VERSION={}".format(torch_major_version),
             "--copt=-DPYTORCH_MINOR_VERSION={}".format(torch_minor_version),
             "--copt=-DTORCH_BLADE_CUDA_VERSION={}".format(self.cuda_version),
             "--action_env PYTHON_BIN_PATH={}".format(sys.executable),
             "--action_env TORCH_BLADE_TORCH_INSTALL_PATH={}".format(self.torch_dir),
             # Workaroud issue: https://github.com/bazelbuild/bazel/issues/10327
-            "--action_env BAZEL_LINKLIBS=-lstdc++"
+            "--action_env BAZEL_LINKLIBS=-lstdc++",
         ]
 
         remote_cache = remote_cache_token()
@@ -77,9 +80,14 @@ class BazelBuild(TorchBladeBuild):
                 self.configs += ["--config=torch_x86"]
 
         if self.cuda_available and self.build_tensorrt:
-            self.configs.append("--config=torch_tensorrt")
+            self.configs.append(
+                "--config=torch_static_tensorrt"
+                if self.static_tensorrt
+                else "--config=torch_tensorrt"
+            )
             self.extra_opts += [
-                "--action_env TENSORRT_INSTALL_PATH={}".format(self.tensorrt_dir)]
+                "--action_env TENSORRT_INSTALL_PATH={}".format(self.tensorrt_dir)
+            ]
 
         if running_on_ci():
             self.configs += ["--config=ci_build"]
@@ -103,21 +111,21 @@ class BazelBuild(TorchBladeBuild):
         env["GCC_HOST_COMPILER_PATH"] = env.get("GCC_HOST_COMPILER_PATH", which("gcc"))
 
         bazel_cmd = " ".join(
-            [self.shell_setting, self.build_cmd]
-            + self.extra_opts
-            + self.configs
+            [self.shell_setting, self.build_cmd] + self.extra_opts + self.configs
         )
         with open("debug_bazel.sh", "w") as f:
             f.write("#!/bin/bash\n")
             f.write("export LD_LIBRARY_PATH={}\n".format(ld_library_path))
-            f.write("export GCC_HOST_COMPILER_PATH={}\n".format(env.get("GCC_HOST_COMPILER_PATH", "")))
+            f.write(
+                "export GCC_HOST_COMPILER_PATH={}\n".format(
+                    env.get("GCC_HOST_COMPILER_PATH", "")
+                )
+            )
             f.write(bazel_cmd + " $@")
         _make_executable("debug_bazel.sh")
 
         bazel_cmd = " ".join([bazel_cmd] + self.targets)
-        subprocess.check_call(
-            bazel_cmd, shell=True, env=env, executable="/bin/bash"
-        )
+        subprocess.check_call(bazel_cmd, shell=True, env=env, executable="/bin/bash")
 
         # If you want to package more files, please extends the distribution.cfg.
         # We symlink those files into extension's directory, since that

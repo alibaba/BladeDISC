@@ -61,7 +61,7 @@ TEST(TFConv2DOpTest, FullyDynamicShape4DNHWCF32) {
 }
 
 // fully dynamic shape + const weight test case with NHWC/SAME/FP32
-TEST(TFConv2DOpTest, FullyDynamicShape4DNHWCF32) {
+TEST(TFConv2DConstWeightOpTest, FullyDynamicShape4DNHWCF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "conv2d_const_weight_d_f32.mlir",
       /*backend_types*/

@@ -66,9 +66,9 @@ TEST(TFConv2DOpTest, FullyDynamicShape4DNHWCF32) {
       /*mlir_file_path*/ c_ft_path + "conv2d_const_weight_d_f32.mlir",
       /*backend_types*/
       kSupportedBackendList,
-      /*num_inputs*/ 2,
+      /*num_inputs*/ 1,
       /*num_outputs*/ 1,
-      /*input_descriptors*/ {"2x32x32x6xf32_X", "3x3x6x16xf32_X"},
+      /*input_descriptors*/ {"2x32x32x6xf32_X"},
       /*output_descriptors*/ {"f32_X"},
       /*input_vals*/ {}));
 }

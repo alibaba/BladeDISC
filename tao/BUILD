@@ -119,9 +119,6 @@ tf_cc_shared_object(
         ":tao_bridge",
         "//:bridge_version_scripts.lds",
     ],
-    data = if_disc_aarch64([
-        "@acl_compute_library//:build",
-    ]),
 )
 
 tao_bridge_cc_test(

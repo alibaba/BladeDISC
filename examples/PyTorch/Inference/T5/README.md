@@ -1,4 +1,4 @@
-# DISC optimization example for PyTorch S2T model.
+# DISC optimization example for PyTorch T5-base model.
 
 T5 is an encoder-decoder model for NLP tasks, which is proposed in
 [Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer](https://arxiv.org/pdf/1910.10683.pdf).
@@ -13,6 +13,7 @@ These python packages are required for executing this example:
 
 - torch >= 1.6.0
 - transformers
+- sentencepiece
 - torch_blade
 
 To build and install `torch_blade` package, please refer to
@@ -35,6 +36,7 @@ is as following (ms).
 
 | PyTorch | Blade TRT static | DISC |
 |---------|------------------|------|
-|         |                  |      |
+|  36.45  |       7.47       | 7.08 |
 
-DISC shows a ?x speedup over basic PyTorch.
+DISC shows a 5.15x speedup over basic PyTorch, and 1.05x speedup over TRT static
+optimization.

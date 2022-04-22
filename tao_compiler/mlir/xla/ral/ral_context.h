@@ -134,6 +134,13 @@ class OutputBufferWrapper {
   virtual ~OutputBufferWrapper() {}
   virtual const_buffer_t data() = 0;
   virtual const buffer_shape_t& shape() = 0;
+  // Returns true if this wrapper is the exclusive owner
+  virtual bool owned() const = 0;
+  // mark that this wrapper exclusively owns the underlying buffer.
+  virtual void markOwned() = 0;
+  // Release the ownership of the wrapper buffer.
+  // This requires that the buffer is owned the this wrapper.
+  virtual void release() = 0;
 };
 
 // Context wrapper for a single execution

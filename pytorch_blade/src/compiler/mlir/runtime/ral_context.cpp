@@ -196,11 +196,27 @@ at::List<at::Tensor> RalContext::CreateAndBindingOutputs(
     auto option = torch::device(dev_type)
                       .dtype(scalar_type)
                       .memory_format(torch::MemoryFormat::Contiguous);
-    at::Tensor out_tensor = IsEmptyTensor(out_buf->shape())
-        ? torch::zeros(out_buf->shape(), option)
-        : torch::from_blob(
+    at::Tensor out_tensor;
+    if (IsEmptyTensor(out_buf->shape())) {
+      out_tensor = torch::zeros(out_buf->shape(), option);
+    } else if (out_buf->owned()) {
+#ifdef TORCH_BLADE_BUILD_WITH_CUDA
+      auto deleter = c10::cuda::CUDACachingAllocator::raw_delete;
+#else
+      auto deleter = c10::free_cpu;
+#endif
+      out_tensor = torch::from_blob(
+          const_cast<void*>(out_buf->data()),
+          out_buf->shape(),
+          deleter,
+          option);
+      out_buf->release();
+    } else {
+      out_tensor =
+          torch::from_blob(
               const_cast<void*>(out_buf->data()), out_buf->shape(), option)
               .clone();
+    }
     outputs.push_back(out_tensor);
   }
   return outputs;

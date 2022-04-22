@@ -755,13 +755,15 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
   mlir::PassManager tf2xla(module_op.getContext());
 
   tf2xla.getContext()->disableMultithreading();
+  auto printingFlags = mlir::OpPrintingFlags();
+  printingFlags.elideLargeElementsAttrs(16);
   tf2xla.enableIRPrinting(
       /*shouldPrintBeforePass=*/nullptr,
       /*shouldPrintAfterPass=*/
       [](mlir::Pass* pass, mlir::Operation*) { return VLOG_IS_ON(1); },
       /*printModuleScope=*/false,
       /*printAfterOnlyOnChange=*/true,
-      /*printAfterOnlyOnFailure*/ false, llvm::dbgs());
+      /*printAfterOnlyOnFailure*/ false, llvm::dbgs(), printingFlags);
 
   tf2xla.addPass(mlir::disc_ral::createReviseArgsForStaticRankPass());
 

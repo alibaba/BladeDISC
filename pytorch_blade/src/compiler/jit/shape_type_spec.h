@@ -19,11 +19,11 @@
 namespace torch {
 namespace blade {
 const char* ScalarTypeToString(ScalarType t);
-c10::optional<torch::ScalarType> ScalarTypeFromString(const std::string& dtype);
+c10::optional<at::ScalarType> ScalarTypeFromString(const std::string& dtype);
 
 struct ShapeType {
   std::vector<int64_t> shape;
-  torch::ScalarType type;
+  at::ScalarType type;
   bool operator==(const ShapeType& rhs) const {
     return shape == rhs.shape && type == rhs.type;
   }

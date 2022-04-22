@@ -40,11 +40,10 @@ const char* ScalarTypeToString(ScalarType t) {
 #undef DEFINE_CASE
 }
 
-c10::optional<torch::ScalarType> ScalarTypeFromString(
-    const std::string& dtype) {
-#define DEFINE_SCALAR_TYPE(_, name) {#name, torch::ScalarType::name},
+c10::optional<at::ScalarType> ScalarTypeFromString(const std::string& dtype) {
+#define DEFINE_SCALAR_TYPE(_, name) {#name, at::ScalarType::name},
 
-  static std::unordered_map<std::string, torch::ScalarType> type_map = {
+  static std::unordered_map<std::string, at::ScalarType> type_map = {
       AT_FORALL_SCALAR_TYPES_WITH_COMPLEX_AND_QINTS(DEFINE_SCALAR_TYPE)};
 
   auto type = type_map.find(dtype);

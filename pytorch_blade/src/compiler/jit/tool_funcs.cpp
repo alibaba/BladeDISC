@@ -106,7 +106,7 @@ void set_value_type(
     int64_t dtype,
     bool requires_grad,
     bool is_contiguous) {
-  torch::ScalarType scalar_type = static_cast<torch::ScalarType>(dtype);
+  at::ScalarType scalar_type = static_cast<at::ScalarType>(dtype);
   torch::Device device(device_str);
   c10::VaryingShape<int64_t> sizes = shape_vec;
   c10::VaryingShape<int64_t> strides = stride_vec;

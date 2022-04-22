@@ -24,7 +24,7 @@
 namespace torch {
 namespace blade {
 namespace tensorrt {
-torch::ScalarType NvDataType2TorchDataType(nvinfer1::DataType dtype);
+at::ScalarType NvDataType2TorchDataType(nvinfer1::DataType dtype);
 
 class TRTContext {
   using State = torch::blade::backends::EngineState;

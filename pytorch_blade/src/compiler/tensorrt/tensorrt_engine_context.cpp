@@ -23,8 +23,8 @@
 namespace torch {
 namespace blade {
 namespace tensorrt {
-torch::ScalarType NvDataType2TorchDataType(nvinfer1::DataType dtype) {
-  static std::map<nvinfer1::DataType, torch::ScalarType> d2t = {
+at::ScalarType NvDataType2TorchDataType(nvinfer1::DataType dtype) {
+  static std::map<nvinfer1::DataType, at::ScalarType> d2t = {
       {nvinfer1::DataType::kFLOAT, torch::kFloat},
       {nvinfer1::DataType::kHALF, torch::kFloat16},
       {nvinfer1::DataType::kINT8, torch::kInt8},
@@ -375,7 +375,7 @@ at::List<at::Tensor> TRTContext::PostProcessOutputs(
   auto const& graph_outputs = engine_state_->outputs;
   for (size_t k = 0; k < outputs.size(); ++k) {
     at::Tensor out = outputs[k];
-    torch::ScalarType type = graph_outputs[k].scalar_type;
+    at::ScalarType type = graph_outputs[k].scalar_type;
     new_outputs.push_back(out.to(type));
   }
   return new_outputs;

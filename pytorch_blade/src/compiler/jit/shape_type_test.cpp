@@ -18,7 +18,7 @@
 using namespace torch::blade;
 TEST(ShapeTypeTest, ShapeTypeString) {
   ShapeType shape_type;
-  shape_type.type = torch::ScalarType::Int;
+  shape_type.type = at::ScalarType::Int;
   shape_type.shape = {1, 3, 224, 224};
 
   std::string serial_str = shape_type.Serialize();

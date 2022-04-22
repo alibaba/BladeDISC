@@ -53,8 +53,7 @@ bool ConvertAtenToDtype(
   }
   // TODO: if the target type is the same with input type, return identity.
   // ScalarType in jit::Graph is type of int
-  torch::ScalarType dtype =
-      static_cast<torch::ScalarType>(dtype_value->toInt());
+  at::ScalarType dtype = static_cast<at::ScalarType>(dtype_value->toInt());
   auto input_val = ctx.GetMlirValue(torch_inp);
   auto elem_type = BuildMlirElemType(*ctx.builder, dtype);
   auto output_val =

@@ -214,12 +214,12 @@ bool ConvertAtenArange(
         input_mlir_type.isF32() || input_mlir_type.isF64()) {
       target_scalar_type = default_scalar_type;
     } else {
-      target_scalar_type = torch::ScalarType::Long;
+      target_scalar_type = at::ScalarType::Long;
     }
   } else {
     auto target_dtype_value =
         CastStdConstToI64(ctx.GetMlirValue(node.input(1)));
-    target_scalar_type = static_cast<torch::ScalarType>(*target_dtype_value);
+    target_scalar_type = static_cast<at::ScalarType>(*target_dtype_value);
   }
 
   if (!end.getType().isa<mlir::TensorType>()) {

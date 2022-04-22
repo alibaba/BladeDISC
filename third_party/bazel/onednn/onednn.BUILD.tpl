@@ -4,6 +4,7 @@ load("@local_config_blade_disc_helper//:build_defs.bzl",
     "cxx_bin_path",
     "if_disc_aarch64",
 )
+load("@local_config_onednn//:onednn.bzl", "filter_static_lib")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -42,4 +43,11 @@ cmake(
     ]),
     alwayslink = 1,
     visibility = ["//visibility:public"],
+)
+
+filter_static_lib(
+    name = "onednn_lib",
+    srcs = [
+        ":onednn",
+    ],
 )

@@ -21,6 +21,7 @@ def _onednn_impl(repository_ctx):
             "%{CXX11_SETTING}": "\"USE_CXX11_ABI\": \"ON\"," if if_cxx11_abi else "",
         })
         repository_ctx.template("BUILD", Label("//bazel/onednn:BUILD.tpl"), {})
+        repository_ctx.template("onednn.bzl", Label("//bazel/onednn:onednn.bzl.tpl"), {})
 
 onednn_configure = repository_rule(
     implementation = _onednn_impl,

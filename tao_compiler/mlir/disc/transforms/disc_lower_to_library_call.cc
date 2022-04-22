@@ -45,6 +45,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
+#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/rewriters.h"
 
@@ -245,6 +246,14 @@ struct DotGeneralOpConvertor : public OpRewritePattern<DotGeneralOp> {
   }
 };
 
+bool isConstant(Value value) {
+  Value root = getRootMemRef(value);
+  for (Operation* user : getValueUsers(root)) {
+    if (isa<lmhlo::ConstOp>(user)) return true;
+  }
+  return false;
+}
+
 template <typename OpTy>
 Value GetConvMetadata(OpTy op, PatternRewriter& rewriter) {
   // Metadata:
@@ -256,11 +265,12 @@ Value GetConvMetadata(OpTy op, PatternRewriter& rewriter) {
   //     * batch, channel, spatial dimensions
   //   - strides: each filed for one spatial dimension.
   //   - dilations: each filed for one spatial dimension.
+  //   - weight_is_const : indicate whether the weight is const.
   Location loc = op.getLoc();
   Type field_type = rewriter.getI32Type();
   int rank = op.output().getType().template dyn_cast<ShapedType>().getRank();
   int num_spatial_dims = rank - 2;
-  int num_metadata_fields = rank * 3 + (rank - 2) * 2;
+  int num_metadata_fields = rank * 3 + (rank - 2) * 2 + 1;
   Value metadata_value = rewriter.create<memref::AllocaOp>(
       loc, MemRefType::get(
                {num_metadata_fields}, field_type, MemRefLayoutAttrInterface(),
@@ -293,6 +303,7 @@ Value GetConvMetadata(OpTy op, PatternRewriter& rewriter) {
   // rhs_dilation
   auto rhs_dilation = disc_ral::ConvertDenseIntAttr(op.rhs_dilation());
   fields.insert(fields.end(), rhs_dilation.begin(), rhs_dilation.end());
+  fields.push_back(isConstant(op->getOperand(1)));
 
   for (auto&& en : llvm::enumerate(fields)) {
     Value value =

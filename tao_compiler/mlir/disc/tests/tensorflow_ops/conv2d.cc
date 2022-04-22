@@ -60,6 +60,19 @@ TEST(TFConv2DOpTest, FullyDynamicShape4DNHWCF32) {
       /*input_vals*/ {}));
 }
 
+// fully dynamic shape + const weight test case with NHWC/SAME/FP32
+TEST(TFConv2DConstWeightOpTest, FullyDynamicShape4DNHWCF32) {
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "conv2d_const_weight_d_f32.mlir",
+      /*backend_types*/
+      kSupportedBackendList,
+      /*num_inputs*/ 1,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"2x32x32x6xf32_X"},
+      /*output_descriptors*/ {"f32_X"},
+      /*input_vals*/ {}));
+}
+
 // fully dynamic shape test case with NHWC/SAME/FP16
 TEST(TFConv2DOpTest, FullyDynamicShape4DNHWCF16) {
   EXPECT_TRUE(feature_test_main(

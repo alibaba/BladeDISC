@@ -38,6 +38,7 @@ struct convolution_forward
   }
 
   // prepare without bias
+  template <bool plain_format = false>
   static void prepare(convolution_forward_params& param, const tensor& src,
                       const tensor& weights, const dims& dst_dims, tensor& dst,
                       const dims& strides, const dims& dilates,
@@ -51,7 +52,7 @@ struct convolution_forward
                       const lowp_kind alowp_kind = u8s8,
                       const engine& aengine = engine::cpu_engine()) {
     static tensor dummy_bias;
-    do_prepare</*with_bias=*/false, /*keep_format=*/false>(
+    do_prepare</*with_bias=*/false, /*keep_format=*/plain_format>(
         param, src, weights, dummy_bias, dst_dims, dst, strides, dilates,
         padding_l, padding_r, groups, src_scales, weights_scales, dst_scales,
         attr, aalgorithm, aprop_kind, alowp_kind, aengine);

@@ -118,6 +118,7 @@ struct ConvParams {
   dims padding_l;
   dims padding_r;
   int groups;
+  bool weight_is_const;
 };
 
 format_tag str2format(const std::string& fmt) {
@@ -326,6 +327,7 @@ bool parseConvParams(ExecutionContext* ctx, MemRefType<Tinput, N> input,
     params->dilates.push_back(metadata.data[idx++]);
   }
   params->groups = ic / kc;
+  params->weight_is_const = metadata.data[idx++];
   if (TAO_VLOG_IS_ON(1)) {
     TAO_VLOG(0) << "strides: ";
     for (int i = 0; i < effectiveN - 2; ++i) {
@@ -351,6 +353,7 @@ bool parseConvParams(ExecutionContext* ctx, MemRefType<Tinput, N> input,
     for (int i = 0; i < effectiveN; ++i) {
       TAO_VLOG(0) << "\t" << output_dims[i];
     }
+    TAO_VLOG(0) << "weight_is_const = " << params->weight_is_const;
   }
 
   data_type input_dtype = toDataType<Tinput>();
@@ -380,6 +383,11 @@ bool parseConvParams(ExecutionContext* ctx, MemRefType<Tinput, N> input,
   return true;
 }
 
+struct MkldnnConvState : public Context::Resource {
+  std::mutex mu;
+  std::unordered_map<opaque_t, std::vector<ideep::tensor>> packed_weight_cache;
+};
+
 template <typename Tinput, int N, typename Tfilter = Tinput,
           typename Toutput = Tinput>
 void ral_conv(ExecutionContext* ctx, opaque_t /*stream_handle*/,
@@ -407,9 +415,42 @@ void ral_conv(ExecutionContext* ctx, opaque_t /*stream_handle*/,
     // reorder to dst format
     y.reorder_to(params.dst);
   } else {
-    ideep::convolution_forward::compute<true>(
-        params.src, params.weight, params.dst_dims, params.dst, params.strides,
-        params.dilates, params.padding_l, params.padding_r, params.groups);
+    if (params.weight_is_const) {
+      ideep::convolution_forward_params conv_params;
+      ideep::convolution_forward::prepare<true>(
+          conv_params, params.src, params.weight, params.dst_dims, params.dst,
+          params.strides, params.dilates, params.padding_l, params.padding_r,
+          params.groups);
+
+      ideep::tensor packed_weight;
+      std::string unique_name = "tao_ral.cpu.mkldnn_conv_" +
+                                tao::ral::TaoTypeNameHelper<Tinput>::Invoke();
+      auto state = ctx->getOrCreateResource<MkldnnConvState>(
+          unique_name, []() { return new MkldnnConvState; });
+      {
+        std::lock_guard<std::mutex> l(state->mu);
+        auto& packed_weights = state->packed_weight_cache[kernel.data];
+        for (auto& tensor : packed_weights) {
+          if (conv_params.pd.weights_desc() == tensor.get_desc()) {
+            packed_weight = tensor;
+            break;
+          }
+        }
+        if (packed_weight.is_empty()) {
+          packed_weight =
+              params.weight.make_grouped_weights(params.groups)
+                  .reorder_if_differ_in(conv_params.pd.weights_desc());
+          packed_weights.push_back(packed_weight);
+        }
+      }
+      ideep::convolution_forward::compute(conv_params, params.src,
+                                          packed_weight, params.dst);
+    } else {
+      ideep::convolution_forward::compute<true>(
+          params.src, params.weight, params.dst_dims, params.dst,
+          params.strides, params.dilates, params.padding_l, params.padding_r,
+          params.groups);
+    }
   }
 
   timer.Stop();

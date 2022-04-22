@@ -507,9 +507,7 @@ cc_library(
         "$(location @acl_compute_library//:build)/libarm_compute_graph.a",
         "-Wl,--end-group",
     ]),
-    data = [
-        "@onednn//:onednn_lib",
-    ] + if_disc_x86([
+    data = if_disc_x86([
         "@mkl_static//:lib",
     ]) + if_disc_aarch64([
         "@acl_compute_library//:build",

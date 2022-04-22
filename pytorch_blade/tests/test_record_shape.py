@@ -84,6 +84,7 @@ class TestRecordShape(TestCase):
         )
         FileCheck().run(expect_graph_str, model._c.forward.graph)
 
+    @unittest.skip("Trace the shape of the result of prim::If/prim::Loop is disabled, re-visit this when necessary")
     def test_unintialized(self):
         class TestModel(torch.nn.Module):
             def forward(self, x):

@@ -83,6 +83,10 @@ def _add_tensor_observers(graph):
     def _is_normal_tensor(tensor):
         if 'prim::Uninitialized' in tensor.node().kind():
             return False
+        if 'prim::Loop' in tensor.node().kind():
+            return False
+        if 'prim::If' in tensor.node().kind():
+            return False
         if len(list(tensor.uses())) == 0:
             return False
         return True

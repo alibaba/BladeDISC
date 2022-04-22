@@ -11,7 +11,8 @@
 
 #pragma once
 
-#include <torch/script.h>
+#include <ATen/core/List.h>
+#include <ATen/core/Tensor.h>
 #include "compiler/backends/backend_input_outputs.h"
 
 namespace torch {
@@ -54,10 +55,9 @@ class EngineInterface {
     return "Engine";
   }
 
-  virtual torch::List<torch::Tensor> Execute(
-      const torch::List<torch::Tensor>& inputs) = 0;
+  virtual at::List<at::Tensor> Execute(const at::List<at::Tensor>& inputs) = 0;
 
-  virtual bool ShouldFallback(const torch::List<torch::Tensor>& inputs) {
+  virtual bool ShouldFallback(const at::List<at::Tensor>& inputs) {
     return false;
   }
 

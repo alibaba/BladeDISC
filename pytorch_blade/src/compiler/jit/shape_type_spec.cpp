@@ -40,11 +40,10 @@ const char* ScalarTypeToString(ScalarType t) {
 #undef DEFINE_CASE
 }
 
-c10::optional<torch::ScalarType> ScalarTypeFromString(
-    const std::string& dtype) {
-#define DEFINE_SCALAR_TYPE(_, name) {#name, torch::ScalarType::name},
+c10::optional<at::ScalarType> ScalarTypeFromString(const std::string& dtype) {
+#define DEFINE_SCALAR_TYPE(_, name) {#name, at::ScalarType::name},
 
-  static std::unordered_map<std::string, torch::ScalarType> type_map = {
+  static std::unordered_map<std::string, at::ScalarType> type_map = {
       AT_FORALL_SCALAR_TYPES_WITH_COMPLEX_AND_QINTS(DEFINE_SCALAR_TYPE)};
 
   auto type = type_map.find(dtype);
@@ -146,11 +145,11 @@ ShapeTypeSpec ShapeTypeSpec::Deserialize(const std::string& serial_str) {
 }
 
 ShapeTypeSpec ShapeTypeSpec::GetShapeTypeSpec(
-    const torch::List<torch::Tensor>& inputs) {
+    const at::List<at::Tensor>& inputs) {
   std::vector<ShapeType> shape_types(inputs.size());
   for (size_t k = 0; k < inputs.size(); ++k) {
     auto& shape_type = shape_types[k];
-    torch::Tensor inp_tensor = inputs[k];
+    at::Tensor inp_tensor = inputs[k];
     const auto& inp_shape = inp_tensor.sizes();
     std::copy(
         inp_shape.cbegin(),

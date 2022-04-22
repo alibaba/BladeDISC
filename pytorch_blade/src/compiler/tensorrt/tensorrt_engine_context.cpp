@@ -23,8 +23,8 @@
 namespace torch {
 namespace blade {
 namespace tensorrt {
-torch::ScalarType NvDataType2TorchDataType(nvinfer1::DataType dtype) {
-  static std::map<nvinfer1::DataType, torch::ScalarType> d2t = {
+at::ScalarType NvDataType2TorchDataType(nvinfer1::DataType dtype) {
+  static std::map<nvinfer1::DataType, at::ScalarType> d2t = {
       {nvinfer1::DataType::kFLOAT, torch::kFloat},
       {nvinfer1::DataType::kHALF, torch::kFloat16},
       {nvinfer1::DataType::kINT8, torch::kInt8},
@@ -64,8 +64,7 @@ void NvinferExecutionContextDeleter(nvinfer1::IExecutionContext* ctx) {
 
 // Check if every tensor in a list of tensors matches the current
 // device.
-bool TRTContext::CheckCurrentDevice(
-    const torch::List<torch::Tensor>& inputs) const {
+bool TRTContext::CheckCurrentDevice(const at::List<at::Tensor>& inputs) const {
   if (inputs.empty()) {
     return true;
   }
@@ -76,7 +75,7 @@ bool TRTContext::CheckCurrentDevice(
   auto& inputs_info = engine_state_->inputs;
   TORCH_CHECK(inputs_info.size() == inputs.size());
   for (size_t k = 0; k < inputs.size(); ++k) {
-    torch::Tensor inp = inputs[k];
+    at::Tensor inp = inputs[k];
     auto device = inputs_info[k].device;
     if (device == "cuda" && inp.device() != cur_cuda_device) {
       return false;
@@ -87,7 +86,7 @@ bool TRTContext::CheckCurrentDevice(
 
 std::shared_ptr<nvinfer1::IExecutionContext> TRTContext::GetExecutionContext(
     c10::cuda::CUDAStream& stream,
-    const torch::List<torch::Tensor>& inputs) {
+    const at::List<at::Tensor>& inputs) {
   UpdateProfileIfNeed(inputs);
   auto found = contexts_map_.find(stream);
   if (found != contexts_map_.end() &&
@@ -176,10 +175,10 @@ std::string TRTContext::SerializeAsString() const {
 // Input/output blob mem ptr should be provided by the caller,
 // the TRTEngine is not the owner of the blobs' cuda memory.
 void TRTContext::BindingInputs(
-    const torch::List<torch::Tensor>& inputs,
+    const at::List<at::Tensor>& inputs,
     std::vector<void*>& binding_buffers) const {
   for (size_t k = 0; k < inputs.size(); ++k) {
-    torch::Tensor inp_tensor = inputs[k];
+    at::Tensor inp_tensor = inputs[k];
     int bind_index = input_bind_indices_[optimization_profile_][k];
     // The subgraph input should have been eliminated in TensorRT engine
     if (bind_index < 0) {
@@ -192,17 +191,17 @@ void TRTContext::BindingInputs(
   }
 }
 
-torch::List<torch::Tensor> TRTContext::CreateAndBindingOutputs(
+at::List<at::Tensor> TRTContext::CreateAndBindingOutputs(
     std::vector<void*>& binding_buffers,
     std::shared_ptr<nvinfer1::IExecutionContext>& context) const {
-  torch::List<torch::Tensor> outputs{};
+  at::List<at::Tensor> outputs{};
   const auto& graph_outputs = engine_state_->outputs;
   outputs.reserve(graph_outputs.size());
   // Note: output_blob_names is aligned to the TRTEngine Operator's outputs, it
   // maybe duplicates. However, duplicate outputs to TensorRT engine are not
   // allowed. So, we use output name mapping between the TRTEngine Operator and
   // TensorRT Engine.
-  std::unordered_map<std::string, torch::Tensor> dedup_tensors;
+  std::unordered_map<std::string, at::Tensor> dedup_tensors;
   for (size_t k = 0; k < graph_outputs.size(); ++k) {
     const auto& name = graph_outputs[k].name;
     const auto& found = dedup_tensors.find(name);
@@ -219,7 +218,7 @@ torch::List<torch::Tensor> TRTContext::CreateAndBindingOutputs(
     auto option = torch::device(torch::kCUDA)
                       .dtype(torch_type.type)
                       .memory_format(torch::MemoryFormat::Contiguous);
-    torch::Tensor out_tensor = torch::empty(torch_type.shape, option);
+    at::Tensor out_tensor = torch::empty(torch_type.shape, option);
     binding_buffers[output_bind_indices_[optimization_profile_][k]] =
         out_tensor.data_ptr();
     outputs.push_back(out_tensor);
@@ -229,7 +228,7 @@ torch::List<torch::Tensor> TRTContext::CreateAndBindingOutputs(
 }
 
 bool TRTContext::IsInRange(
-    const torch::List<torch::Tensor>& inputs,
+    const at::List<at::Tensor>& inputs,
     int64_t profile_index) {
   /* Determine whether the inputs shapes in ranges of the profile. */
   const auto& profile_input_bind_indices = input_bind_indices_[profile_index];
@@ -240,7 +239,7 @@ bool TRTContext::IsInRange(
       // skip invalid input
       continue;
     }
-    torch::Tensor inp_tensor = inputs[k];
+    at::Tensor inp_tensor = inputs[k];
     const auto& inp_shape = inp_tensor.sizes();
     // bindingIndex of getProfileDimensions must belong to the given
     // profile, or be between 0 and bindingsPerProfile-1
@@ -263,7 +262,7 @@ bool TRTContext::IsInRange(
   return true;
 }
 
-bool TRTContext::IsInRange(const torch::List<torch::Tensor>& inputs) {
+bool TRTContext::IsInRange(const at::List<at::Tensor>& inputs) {
   for (int64_t j = 0; j < profile_num_; ++j) {
     // start iterate from optimization_profile_
     auto i = (j + optimization_profile_) % profile_num_;
@@ -274,7 +273,7 @@ bool TRTContext::IsInRange(const torch::List<torch::Tensor>& inputs) {
   return false;
 }
 
-void TRTContext::UpdateProfileIfNeed(const torch::List<torch::Tensor>& inputs) {
+void TRTContext::UpdateProfileIfNeed(const at::List<at::Tensor>& inputs) {
   /* Update profile according to the inputs' shapes if multiple profiles are
    * used */
   if (profile_num_ <= 1) {
@@ -291,7 +290,7 @@ void TRTContext::UpdateProfileIfNeed(const torch::List<torch::Tensor>& inputs) {
 }
 
 bool TRTContext::ChangingShape(
-    const torch::List<torch::Tensor>& inputs,
+    const at::List<at::Tensor>& inputs,
     std::shared_ptr<nvinfer1::IExecutionContext>& context) {
   if (!IsInRange(inputs, optimization_profile_)) {
     return false;
@@ -299,7 +298,7 @@ bool TRTContext::ChangingShape(
 
   const auto& graph_inputs = engine_state_->inputs;
   for (size_t k = 0; k < inputs.size(); ++k) {
-    torch::Tensor inp_tensor = inputs[k];
+    at::Tensor inp_tensor = inputs[k];
     int bind_index = input_bind_indices_[optimization_profile_][k];
     // The subgraph input should have been eliminated in TensorRT engine
     if (bind_index < 0) {
@@ -317,8 +316,8 @@ bool TRTContext::ChangingShape(
   return true;
 }
 
-torch::List<torch::Tensor> TRTContext::PreProcessInputs(
-    const torch::List<torch::Tensor>& inputs,
+at::List<at::Tensor> TRTContext::PreProcessInputs(
+    const at::List<at::Tensor>& inputs,
     std::shared_ptr<nvinfer1::IExecutionContext>& context) {
   // TODO: we currently only support inputs on the same device as tensorrt
   TORCH_CHECK(tensorrt_device_ == c10::cuda::current_device());
@@ -327,10 +326,10 @@ torch::List<torch::Tensor> TRTContext::PreProcessInputs(
 
   const auto& graph_inputs = engine_state_->inputs;
   // pre-process the input bindings
-  torch::List<torch::Tensor> cuda_ctu_inputs;
+  at::List<at::Tensor> cuda_ctu_inputs;
   for (int k = 0; k < inputs.size(); ++k) {
     // make sure the input is in contiguous layout
-    torch::Tensor inp_tensor = inputs[k];
+    at::Tensor inp_tensor = inputs[k];
     auto dtype = graph_inputs[k].scalar_type;
     // TODO: the option follow not valid for contiguous
     // auto option = torch::device(torch::kCUDA)
@@ -346,8 +345,7 @@ torch::List<torch::Tensor> TRTContext::PreProcessInputs(
   return cuda_ctu_inputs;
 }
 
-torch::List<torch::Tensor> TRTContext::Execute(
-    const torch::List<torch::Tensor>& inputs) {
+at::List<at::Tensor> TRTContext::Execute(const at::List<at::Tensor>& inputs) {
   std::vector<void*> binding_buffers(engine_->getNbBindings());
 
   // TODO: we assume the inputs are all computed on the current cuda
@@ -361,24 +359,23 @@ torch::List<torch::Tensor> TRTContext::Execute(
   std::lock_guard<std::mutex> guard(lock_);
   // the inputs is pass as args to select a suitable profile
   auto context = GetExecutionContext(stream, inputs);
-  torch::List<torch::Tensor> cuda_ctu_inputs =
-      PreProcessInputs(inputs, context);
+  at::List<at::Tensor> cuda_ctu_inputs = PreProcessInputs(inputs, context);
 
   // Input/output CUDA memory bindings
   BindingInputs(cuda_ctu_inputs, binding_buffers);
-  torch::List<torch::Tensor> outputs =
+  at::List<at::Tensor> outputs =
       CreateAndBindingOutputs(binding_buffers, context);
   context->enqueueV2(&binding_buffers[0], stream, nullptr);
   return PostProcessOutputs(outputs);
 }
 
-torch::List<torch::Tensor> TRTContext::PostProcessOutputs(
-    const torch::List<torch::Tensor>& outputs) const {
-  torch::List<torch::Tensor> new_outputs;
+at::List<at::Tensor> TRTContext::PostProcessOutputs(
+    const at::List<at::Tensor>& outputs) const {
+  at::List<at::Tensor> new_outputs;
   auto const& graph_outputs = engine_state_->outputs;
   for (size_t k = 0; k < outputs.size(); ++k) {
-    torch::Tensor out = outputs[k];
-    torch::ScalarType type = graph_outputs[k].scalar_type;
+    at::Tensor out = outputs[k];
+    at::ScalarType type = graph_outputs[k].scalar_type;
     new_outputs.push_back(out.to(type));
   }
   return new_outputs;

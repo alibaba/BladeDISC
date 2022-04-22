@@ -120,8 +120,8 @@ Node* MergeNodeIntoGroup(Node* group, Node* n) {
 }
 
 torch::TypePtr get_list_tensor_type() {
-  auto tensor_type = torch::TensorType::get();
-  auto list_type = torch::ListType::create(tensor_type);
+  auto tensor_type = at::TensorType::get();
+  auto list_type = at::ListType::create(tensor_type);
   return list_type;
 }
 

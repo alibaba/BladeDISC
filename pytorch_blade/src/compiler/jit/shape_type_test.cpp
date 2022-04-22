@@ -18,7 +18,7 @@
 using namespace torch::blade;
 TEST(ShapeTypeTest, ShapeTypeString) {
   ShapeType shape_type;
-  shape_type.type = torch::ScalarType::Int;
+  shape_type.type = at::ScalarType::Int;
   shape_type.shape = {1, 3, 224, 224};
 
   std::string serial_str = shape_type.Serialize();
@@ -38,7 +38,7 @@ TEST(ShapeTypeTest, ShapeTypeString) {
 }
 
 TEST(ShapeTypeSpecTest, ShapeTypeSpecString) {
-  torch::List<torch::Tensor> list;
+  at::List<at::Tensor> list;
   auto option = torch::dtype(torch::kInt8);
   list.push_back(torch::ones({1, 3, 2, 2}).to(option));
   option = torch::dtype(torch::kDouble);

@@ -110,8 +110,8 @@ bool ConvertAtenBinaryCompareOp(
 
   if (GetTrustTracingShape() && jit_inp0->isCompleteTensor() &&
       jit_inp1->isCompleteTensor()) {
-    auto inp_type0 = jit_inp0->type()->cast<torch::TensorType>();
-    auto inp_type1 = jit_inp1->type()->cast<torch::TensorType>();
+    auto inp_type0 = jit_inp0->type()->cast<at::TensorType>();
+    auto inp_type1 = jit_inp1->type()->cast<at::TensorType>();
 
     no_implicit_broadcast = inp_type0->sizes() == inp_type1->sizes();
   }
@@ -214,12 +214,12 @@ bool ConvertAtenArange(
         input_mlir_type.isF32() || input_mlir_type.isF64()) {
       target_scalar_type = default_scalar_type;
     } else {
-      target_scalar_type = torch::ScalarType::Long;
+      target_scalar_type = at::ScalarType::Long;
     }
   } else {
     auto target_dtype_value =
         CastStdConstToI64(ctx.GetMlirValue(node.input(1)));
-    target_scalar_type = static_cast<torch::ScalarType>(*target_dtype_value);
+    target_scalar_type = static_cast<at::ScalarType>(*target_dtype_value);
   }
 
   if (!end.getType().isa<mlir::TensorType>()) {

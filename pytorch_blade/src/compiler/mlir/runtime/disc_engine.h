@@ -15,6 +15,7 @@ namespace torch {
 namespace blade {
 namespace disc {
 const char* GetBackendName();
+void InitBladeDiscEngine();
 } // namespace disc
 } // namespace blade
 } // namespace torch

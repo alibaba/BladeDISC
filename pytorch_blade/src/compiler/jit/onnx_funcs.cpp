@@ -27,9 +27,9 @@ void CastDownAllConstantDoubleToFloat(Block* block) {
 
     if (node->kind() == ::c10::onnx::Constant) {
       auto val = node->t(attr::value);
-      torch::ScalarType dtype = val.scalar_type();
-      if (dtype == torch::ScalarType::Double) {
-        val = val.to(torch::ScalarType::Float);
+      at::ScalarType dtype = val.scalar_type();
+      if (dtype == at::ScalarType::Double) {
+        val = val.to(at::ScalarType::Float);
         node->removeAttribute(attr::value);
         node->t_(attr::value, val);
       }

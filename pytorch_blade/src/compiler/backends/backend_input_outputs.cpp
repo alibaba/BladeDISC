@@ -148,7 +148,7 @@ TensorInfo::TensorInfo(const torch::jit::Value& val) {
   // default to device cpu
   name = val.debugName();
   device = is_gpu_tensor_type(val) ? "cuda" : "cpu";
-  auto tensor_type = val.type()->cast<torch::TensorType>();
+  auto tensor_type = val.type()->cast<at::TensorType>();
   TORCH_CHECK(tensor_type != nullptr);
   auto concrete_sizes = tensor_type->sizes().concrete_sizes();
   if (concrete_sizes) {

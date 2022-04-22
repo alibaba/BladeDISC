@@ -258,7 +258,7 @@ torch::TypePtr register_engine(
     const std::string& fallback_module_bytes,
     const std::string& original_subgraph) {
   auto custom_class_obj = create_engine(
-      engine_stae, attr_debug_name, fallback_module_bytes, original_subgraph);
+      engine_state, attr_debug_name, fallback_module_bytes, original_subgraph);
   module.register_attribute(
       attr_debug_name, custom_class_obj.type(), custom_class_obj);
   return custom_class_obj.type();

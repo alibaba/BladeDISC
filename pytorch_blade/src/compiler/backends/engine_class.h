@@ -22,12 +22,12 @@
 #include <ATen/core/List.h>
 #include <ATen/core/Tensor.h>
 #include <ATen/core/ivalue.h>
-#include <ATen/core/type_ptr.h>
+#include <ATen/core/jit_type_base.h>
 
 namespace torch {
 namespace jit {
 class Module;
-}
+} // namespace jit
 } // namespace torch
 
 namespace torch {

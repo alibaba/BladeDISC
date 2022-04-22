@@ -277,6 +277,7 @@ def config_mkldnn(root, args):
         with cwd(acl_dir):
             # downlaod and build acl for onednn
             cmd = '''
+              source ~/.cache/proxy_config
               readonly ACL_REPO="https://github.com/ARM-software/ComputeLibrary.git"
               MAKE_NP="-j$(grep -c processor /proc/cpuinfo)"
 

@@ -498,6 +498,7 @@ cc_library(
       "-Wl,--start-group",
       "$(locations @onednn//:onednn_lib)",
       "-Wl,--end-group",
+      "-lgomp -lpthread -lm -ldl", 
     ] + if_disc_x86([
         "-Wl,--start-group",
         "$(location @mkl_static//:lib)/libmkl_intel_ilp64.a",

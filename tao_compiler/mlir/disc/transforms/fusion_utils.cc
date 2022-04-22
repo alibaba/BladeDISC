@@ -994,7 +994,10 @@ class BaseCpuFusionStrategy : public BaseFusionStrategy {
 bool enableEagerTransposeFusion() {
   static const char* env = getenv("DISC_CPU_ENABLE_EAGER_TRANSPOSE_FUSION");
   if (!env) return false;
-  return std::atoi(env) != 0;
+  std::string envStr = env;
+  std::transform(envStr.begin(), envStr.end(), envStr.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  return envStr == "true" || envStr == "1";
 }
 
 bool BaseCpuFusionStrategy::isFusible(Operation* op) {

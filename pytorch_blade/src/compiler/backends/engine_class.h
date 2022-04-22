@@ -10,7 +10,6 @@
 // limitations under the License.
 
 #pragma once
-#include <torch/script.h>
 
 #include <fstream>
 #include <mutex>
@@ -18,6 +17,18 @@
 
 #include "common_utils/macros.h"
 #include "compiler/backends/engine_interface.h"
+
+#include <ATen/core/Dict.h>
+#include <ATen/core/List.h>
+#include <ATen/core/Tensor.h>
+#include <ATen/core/ivalue.h>
+#include <ATen/core/type_ptr.h>
+
+namespace torch {
+namespace jit {
+class Module;
+}
+} // namespace torch
 
 namespace torch {
 namespace blade {
@@ -39,7 +50,7 @@ class EngineClass : public torch::CustomClassHolder {
   DISALLOW_COPY_AND_ASSIGN(EngineClass);
 
   EngineClass(SerialType serialized);
-  torch::List<torch::Tensor> Execute(const torch::List<torch::Tensor>& inputs);
+  at::List<at::Tensor> Execute(const at::List<at::Tensor>& inputs);
   void DumpAttrToFile(const std::string&, const std::string& dump_file) const;
   void DumpModelProto(const std::string& dump_file) const;
   std::string GetAttrString(const std::string&) const;
@@ -55,29 +66,36 @@ class EngineClass : public torch::CustomClassHolder {
       std::string fallback_module_bytes,
       std::string original_subgraph);
 
-  torch::List<torch::Tensor> last_inputs();
-  torch::List<torch::Tensor> last_outputs();
+  at::List<at::Tensor> last_inputs();
+  at::List<at::Tensor> last_outputs();
 
  private:
   torch::jit::Module GetFallback();
-  torch::List<torch::Tensor> Fallback(const torch::List<torch::Tensor>& inputs);
+  at::List<at::Tensor> Fallback(const at::List<at::Tensor>& inputs);
 
   std::once_flag fallback_loaded_;
   std::string attr_debug_name_;
   AttrDictType attr_dict_;
-  torch::jit::Module fallback_module_;
+  c10::intrusive_ptr<c10::ivalue::Object> fallback_module_;
   std::shared_ptr<EngineInterface> engine_;
-  torch::List<torch::Tensor> last_inputs_;
-  torch::List<torch::Tensor> last_outputs_;
+  at::List<at::Tensor> last_inputs_;
+  at::List<at::Tensor> last_outputs_;
 };
 
-torch::TypePtr register_engine(
+c10::TypePtr register_engine(
     torch::jit::Module& module,
     const EngineState& engine_state,
     const std::string& attr_name,
     const std::string& fallback_module_bytes,
     const std::string& original_subgraph);
 
+c10::IValue create_engine(
+    const EngineState& engine_state,
+    const std::string& attr_name,
+    const std::string& fallback_module_bytes,
+    const std::string& original_subgraph);
+
+void InitTorchBladeEngine();
 } // namespace backends
 } // namespace blade
 } // namespace torch

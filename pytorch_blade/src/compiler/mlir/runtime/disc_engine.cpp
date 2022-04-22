@@ -95,11 +95,11 @@ const char* GetBackendName() {
   return DiscEngine::GetBackendName();
 }
 
-static auto torch_blade_engine_creator =
-    torch::blade::backends::EngineCreatorRegister().RegisterBackend(
-        DiscEngine::GetBackendName(),
-        &DiscEngine::Create);
-
+void InitBladeDiscEngine() {
+  static auto torch_blade_engine_creator =
+      torch::blade::backends::EngineCreatorRegister().RegisterBackend(
+          DiscEngine::GetBackendName(), &DiscEngine::Create);
+}
 } // namespace disc
 } // namespace blade
 } // namespace torch

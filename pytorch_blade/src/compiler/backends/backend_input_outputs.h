@@ -11,8 +11,13 @@
 
 #pragma once
 
-#include <torch/script.h>
+#include <ATen/core/ScalarType.h>
 #include <vector>
+namespace torch {
+namespace jit {
+class Value;
+}
+} // namespace torch
 
 namespace torch {
 namespace blade {

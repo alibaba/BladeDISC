@@ -37,6 +37,7 @@ struct EngineCreatorRegistry {
   std::shared_ptr<EngineInterface> CreateEngine(const EngineState& state) {
     auto creator = lut.find(state.backend_name);
     if (creator == lut.end()) {
+      LOG(WARNING) << "Can not found backend " << state.backend_name;
       return nullptr;
     }
     TORCH_CHECK(

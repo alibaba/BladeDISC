@@ -52,8 +52,8 @@ bool ConvertAtenGRUCell(
   if (!(torch_input_weight->isTensor() && torch_hidden_weight->isTensor())) {
     return false;
   }
-  torch::Tensor input_weight = torch_input_weight->toTensor();
-  torch::Tensor hidden_weight = torch_hidden_weight->toTensor();
+  at::Tensor input_weight = torch_input_weight->toTensor();
+  at::Tensor hidden_weight = torch_hidden_weight->toTensor();
   const auto& loc = GetNodeLocation(ctx, node);
   auto& builder = *ctx.builder;
   auto ml_w_ih_t =

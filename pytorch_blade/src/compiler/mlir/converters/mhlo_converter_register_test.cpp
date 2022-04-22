@@ -21,7 +21,7 @@
 using namespace torch::blade;
 namespace {
 // the custom dummy function in TorchScript
-torch::Tensor dummy_func(torch::Tensor input) {
+at::Tensor dummy_func(at::Tensor input) {
   return input;
 }
 

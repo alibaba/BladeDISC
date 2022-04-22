@@ -49,17 +49,17 @@ class RalContext {
   RalContext(std::shared_ptr<backends::EngineState> state);
   ~RalContext();
 
-  torch::List<torch::Tensor> Execute(const torch::List<torch::Tensor>&);
+  at::List<at::Tensor> Execute(const at::List<at::Tensor>&);
 
  private:
   void BindingInputs(
-      const torch::List<torch::Tensor>& inputs,
+      const at::List<at::Tensor>& inputs,
       tao::ral::ExecutionContext& exec_ctx) const;
-  bool CheckCurrentDevice(const torch::List<torch::Tensor>& inputs) const;
-  torch::List<torch::Tensor> CreateAndBindingOutputs(
+  bool CheckCurrentDevice(const at::List<at::Tensor>& inputs) const;
+  at::List<at::Tensor> CreateAndBindingOutputs(
       tao::ral::ExecutionContext& exec_ctx) const;
-  torch::List<torch::Tensor> PreProcessInputs(
-      const torch::List<torch::Tensor>& inputs) const;
+  at::List<at::Tensor> PreProcessInputs(
+      const at::List<at::Tensor>& inputs) const;
   std::tuple<void*, void*> LoadEngine(const std::string& ral_engine_bytes);
 
   std::shared_ptr<backends::EngineState> engine_state_;

@@ -68,8 +68,7 @@ class RalAllocator : public tao::ral::Allocator {
 
 // Check if every tensor in a list of tensors matches the current
 // device.
-bool RalContext::CheckCurrentDevice(
-    const torch::List<torch::Tensor>& inputs) const {
+bool RalContext::CheckCurrentDevice(const at::List<at::Tensor>& inputs) const {
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
   TORCH_CHECK(gpu_device_ == c10::cuda::current_device());
   // TODO(gty): Refactor this function together with the one defined in TensorRT
@@ -85,7 +84,7 @@ bool RalContext::CheckCurrentDevice(
   auto& inputs_info = engine_state_->inputs;
   TORCH_CHECK(inputs_info.size() == inputs.size());
   for (size_t k = 0; k < inputs.size(); ++k) {
-    torch::Tensor inp = inputs[k];
+    at::Tensor inp = inputs[k];
     auto device = inputs_info[k].device;
     if (device == "cuda" && inp.device() != cur_cuda_device) {
       return false;
@@ -141,13 +140,13 @@ RalContext::RalContext(std::shared_ptr<backends::EngineState> state)
   CHECK_NOTNULL(entry_func_);
 }
 
-torch::List<torch::Tensor> RalContext::PreProcessInputs(
-    const torch::List<torch::Tensor>& inputs) const {
+at::List<at::Tensor> RalContext::PreProcessInputs(
+    const at::List<at::Tensor>& inputs) const {
   // TODO: we currently only support inputs on the same device as tensorrt
   TORCH_CHECK(CheckCurrentDevice(inputs));
 
-  torch::List<torch::Tensor> contiguous_inputs;
-  for (torch::Tensor inp_tensor : inputs) {
+  at::List<at::Tensor> contiguous_inputs;
+  for (at::Tensor inp_tensor : inputs) {
     // make sure the input is in contiguous layout
     auto contiguous_tensor = inp_tensor.contiguous();
     contiguous_inputs.push_back(contiguous_tensor);
@@ -156,10 +155,10 @@ torch::List<torch::Tensor> RalContext::PreProcessInputs(
 }
 
 void RalContext::BindingInputs(
-    const torch::List<torch::Tensor>& inputs,
+    const at::List<at::Tensor>& inputs,
     tao::ral::ExecutionContext& exec_ctx) const {
   for (size_t idx = 0; idx < inputs.size(); ++idx) {
-    torch::Tensor inp = inputs[idx];
+    at::Tensor inp = inputs[idx];
     const auto& shape = inp.sizes();
     exec_ctx.bindInput(idx, inp.data_ptr(), shape.vec());
   }
@@ -171,9 +170,9 @@ inline bool IsEmptyTensor(const tao::ral::buffer_shape_t& shape) {
              shape.begin(), shape.end(), [](int64_t dim) { return dim == 0; });
 }
 
-torch::List<torch::Tensor> RalContext::CreateAndBindingOutputs(
+at::List<at::Tensor> RalContext::CreateAndBindingOutputs(
     tao::ral::ExecutionContext& exec_ctx) const {
-  torch::List<torch::Tensor> outputs;
+  at::List<at::Tensor> outputs;
 
   auto num_outputs = engine_state_->outputs.size();
   outputs.reserve(num_outputs);
@@ -197,7 +196,7 @@ torch::List<torch::Tensor> RalContext::CreateAndBindingOutputs(
     auto option = torch::device(dev_type)
                       .dtype(scalar_type)
                       .memory_format(torch::MemoryFormat::Contiguous);
-    torch::Tensor out_tensor = IsEmptyTensor(out_buf->shape())
+    at::Tensor out_tensor = IsEmptyTensor(out_buf->shape())
         ? torch::zeros(out_buf->shape(), option)
         : torch::from_blob(
               const_cast<void*>(out_buf->data()), out_buf->shape(), option)
@@ -237,8 +236,7 @@ tao::ral::BaseContext* RalContext::LoadCache() {
 }
 #endif // TORCH_BLADE_BUILD_WITH_CUDA
 
-torch::List<torch::Tensor> RalContext::Execute(
-    const torch::List<torch::Tensor>& inputs) {
+at::List<at::Tensor> RalContext::Execute(const at::List<at::Tensor>& inputs) {
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
   auto ral_ctx = LoadCache();
   // execution context is per-inference context and thread-safe

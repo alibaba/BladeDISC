@@ -46,7 +46,7 @@ class ShapeTypeSpec {
 
   std::string Serialize() const;
   static ShapeTypeSpec Deserialize(const std::string&);
-  static ShapeTypeSpec GetShapeTypeSpec(const torch::List<torch::Tensor>&);
+  static ShapeTypeSpec GetShapeTypeSpec(const at::List<at::Tensor>&);
   static ShapeTypeSpec GetShapeTypeSpec(
       const std::vector<const torch::jit::Value*>& values);
 

@@ -110,8 +110,8 @@ bool ConvertAtenBinaryCompareOp(
 
   if (GetTrustTracingShape() && jit_inp0->isCompleteTensor() &&
       jit_inp1->isCompleteTensor()) {
-    auto inp_type0 = jit_inp0->type()->cast<torch::TensorType>();
-    auto inp_type1 = jit_inp1->type()->cast<torch::TensorType>();
+    auto inp_type0 = jit_inp0->type()->cast<at::TensorType>();
+    auto inp_type1 = jit_inp1->type()->cast<at::TensorType>();
 
     no_implicit_broadcast = inp_type0->sizes() == inp_type1->sizes();
   }

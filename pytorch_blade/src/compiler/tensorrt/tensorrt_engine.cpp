@@ -31,8 +31,7 @@ class TRTEngine : public torch::blade::backends::EngineInterface {
   DISALLOW_COPY_AND_ASSIGN(TRTEngine);
   TRTEngine(const State& state);
 
-  torch::List<torch::Tensor> Execute(
-      const torch::List<torch::Tensor>& inputs) override;
+  at::List<at::Tensor> Execute(const at::List<at::Tensor>& inputs) override;
 
   const State& GetState() const {
     return *engine_state_;
@@ -42,7 +41,7 @@ class TRTEngine : public torch::blade::backends::EngineInterface {
     return "TensorRT";
   }
   static std::shared_ptr<TRTEngine> Create(const State& engine_state);
-  bool ShouldFallback(const torch::List<torch::Tensor>& inputs) override;
+  bool ShouldFallback(const at::List<at::Tensor>& inputs) override;
 
  private:
   std::shared_ptr<TRTContext> engine_ctx_;
@@ -54,12 +53,11 @@ TRTEngine::TRTEngine(const State& state) {
   engine_ctx_ = std::make_shared<TRTContext>(engine_state_);
 }
 
-torch::List<torch::Tensor> TRTEngine::Execute(
-    const torch::List<torch::Tensor>& inputs) {
+at::List<at::Tensor> TRTEngine::Execute(const at::List<at::Tensor>& inputs) {
   return engine_ctx_->Execute(inputs);
 }
 
-bool TRTEngine::ShouldFallback(const torch::List<torch::Tensor>& inputs) {
+bool TRTEngine::ShouldFallback(const at::List<at::Tensor>& inputs) {
   return !engine_ctx_->IsInRange(inputs);
 }
 

@@ -146,11 +146,11 @@ ShapeTypeSpec ShapeTypeSpec::Deserialize(const std::string& serial_str) {
 }
 
 ShapeTypeSpec ShapeTypeSpec::GetShapeTypeSpec(
-    const torch::List<torch::Tensor>& inputs) {
+    const at::List<at::Tensor>& inputs) {
   std::vector<ShapeType> shape_types(inputs.size());
   for (size_t k = 0; k < inputs.size(); ++k) {
     auto& shape_type = shape_types[k];
-    torch::Tensor inp_tensor = inputs[k];
+    at::Tensor inp_tensor = inputs[k];
     const auto& inp_shape = inp_tensor.sizes();
     std::copy(
         inp_shape.cbegin(),

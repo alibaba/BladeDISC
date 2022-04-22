@@ -11,7 +11,11 @@
 
 #pragma once
 
+#include <ATen/core/List.h>
+#include <ATen/core/ScalarType.h>
+#include <ATen/core/Tensor.h>
 #include <c10/cuda/CUDAStream.h>
+
 #include <atomic>
 #include "common_utils/macros.h"
 #include "compiler/backends/engine_interface.h"
@@ -31,34 +35,33 @@ class TRTContext {
   // this is not thread-safe initialization
   TRTContext(std::shared_ptr<State> state);
   std::string SerializeAsString() const;
-  torch::List<torch::Tensor> Execute(const torch::List<torch::Tensor>&);
-  bool IsInRange(const torch::List<torch::Tensor>& inputs);
+  at::List<at::Tensor> Execute(const at::List<at::Tensor>&);
+  bool IsInRange(const at::List<at::Tensor>& inputs);
 
  private:
   // Setup binding buffers to the input/output blobs on the GPU.
   // Input/output blob mem ptr should be provided by the caller,
   // the TRTEngine is not the owner of the blobs' cuda memory.
-  void BindingInputs(
-      const torch::List<torch::Tensor>& inputs,
-      std::vector<void*>&) const;
-  torch::List<torch::Tensor> CreateAndBindingOutputs(
+  void BindingInputs(const at::List<at::Tensor>& inputs, std::vector<void*>&)
+      const;
+  at::List<at::Tensor> CreateAndBindingOutputs(
       std::vector<void*>&,
       std::shared_ptr<nvinfer1::IExecutionContext>& context) const;
-  torch::List<torch::Tensor> PostProcessOutputs(
-      const torch::List<torch::Tensor>& outputs) const;
-  torch::List<torch::Tensor> PreProcessInputs(
-      const torch::List<torch::Tensor>& inputs,
+  at::List<at::Tensor> PostProcessOutputs(
+      const at::List<at::Tensor>& outputs) const;
+  at::List<at::Tensor> PreProcessInputs(
+      const at::List<at::Tensor>& inputs,
       std::shared_ptr<nvinfer1::IExecutionContext>& context);
   bool ChangingShape(
-      const torch::List<torch::Tensor>& inputs,
+      const at::List<at::Tensor>& inputs,
       std::shared_ptr<nvinfer1::IExecutionContext>& context);
 
-  bool CheckCurrentDevice(const torch::List<torch::Tensor>& inputs) const;
+  bool CheckCurrentDevice(const at::List<at::Tensor>& inputs) const;
   std::shared_ptr<nvinfer1::IExecutionContext> GetExecutionContext(
       c10::cuda::CUDAStream& stream,
-      const torch::List<torch::Tensor>& inputs);
-  void UpdateProfileIfNeed(const torch::List<torch::Tensor>& inputs);
-  bool IsInRange(const torch::List<torch::Tensor>&, int64_t);
+      const at::List<at::Tensor>& inputs);
+  void UpdateProfileIfNeed(const at::List<at::Tensor>& inputs);
+  bool IsInRange(const at::List<at::Tensor>&, int64_t);
   int64_t tensorrt_device_;
   mutable std::mutex lock_;
   TrtUniquePtr<nvinfer1::ICudaEngine> engine_;

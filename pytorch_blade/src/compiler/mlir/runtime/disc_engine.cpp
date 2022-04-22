@@ -30,8 +30,7 @@ class DiscEngine : public torch::blade::backends::EngineInterface {
   DISALLOW_COPY_AND_ASSIGN(DiscEngine);
   DiscEngine(const State& state);
 
-  torch::List<torch::Tensor> Execute(
-      const torch::List<torch::Tensor>& inputs) override;
+  at::List<at::Tensor> Execute(const at::List<at::Tensor>& inputs) override;
 
   const State& GetState() const {
     return *engine_state_;
@@ -59,8 +58,7 @@ DiscEngine::DiscEngine(const State& state) {
   CHECK_NOTNULL(engine_ctx);
 }
 
-torch::List<torch::Tensor> DiscEngine::Execute(
-    const torch::List<torch::Tensor>& inputs) {
+at::List<at::Tensor> DiscEngine::Execute(const at::List<at::Tensor>& inputs) {
   auto engine_ctx = FetchRalContext();
   CHECK_NOTNULL(engine_ctx);
   return engine_ctx->Execute(inputs);

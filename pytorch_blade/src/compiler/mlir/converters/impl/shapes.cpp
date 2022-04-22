@@ -185,7 +185,7 @@ bool ConvertAtenSqueeze(
     return false;
   }
 
-  auto tensor_type = jit_tensor->type()->cast<torch::TensorType>();
+  auto tensor_type = jit_tensor->type()->cast<at::TensorType>();
   TORCH_CHECK(tensor_type != nullptr);
   c10::optional<uint64_t> optional_rank = tensor_type->sizes().size();
   mlir_dim_t rank = 0;
@@ -368,7 +368,7 @@ bool ConvertAtenUnbind(
   }
   mlir_dim_t dim = CastJitConstToInt64(*jit_dim);
 
-  auto tensor_type = jit_self->type()->cast<torch::TensorType>();
+  auto tensor_type = jit_self->type()->cast<at::TensorType>();
   TORCH_CHECK(tensor_type != nullptr);
 
   // NB: we get number of outputs from the Tensor's shape.

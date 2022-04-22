@@ -78,7 +78,7 @@ torch::jit::Node* create_get_attr_node(
 }
 
 bool is_concrete_shape_tensor_type(const torch::jit::Value& val) {
-  const auto& tensor_type = val.type()->cast<torch::TensorType>();
+  const auto& tensor_type = val.type()->cast<at::TensorType>();
   if (tensor_type) {
     return tensor_type->scalarType() && tensor_type->sizes().concrete_sizes();
   }
@@ -87,11 +87,11 @@ bool is_concrete_shape_tensor_type(const torch::jit::Value& val) {
 }
 
 bool is_gpu_tensor_type(const torch::jit::Value& val) {
-  if (!val.type()->isSubtypeOf(torch::TensorType::get())) {
+  if (!val.type()->isSubtypeOf(at::TensorType::get())) {
     return false;
   }
   c10::optional<torch::Device> dev =
-      val.type()->cast<torch::TensorType>()->device();
+      val.type()->cast<at::TensorType>()->device();
   if (dev) {
     return dev->is_cuda();
   }
@@ -110,7 +110,7 @@ void set_value_type(
   torch::Device device(device_str);
   c10::VaryingShape<int64_t> sizes = shape_vec;
   c10::VaryingShape<int64_t> strides = stride_vec;
-  auto type = torch::TensorType::create(
+  auto type = at::TensorType::create(
       scalar_type, device, sizes, strides, requires_grad, false, is_contiguous);
 
   CHECK(type->requires_grad() == requires_grad);
@@ -129,22 +129,22 @@ std::string node_schema_str(const torch::jit::Node& node) {
 
 torch::TypePtr fromNumberType(torch::TypePtr typ) {
   if (typ->isSubtypeOf(IntType::get())) {
-    return torch::TensorType::createContiguous(at::kLong, at::kCPU, {});
+    return at::TensorType::createContiguous(at::kLong, at::kCPU, {});
   } else if (typ->isSubtypeOf(FloatType::get())) {
-    return torch::TensorType::createContiguous(at::kFloat, at::kCPU, {});
+    return at::TensorType::createContiguous(at::kFloat, at::kCPU, {});
   } else if (typ->isSubtypeOf(BoolType::get())) {
-    return torch::TensorType::createContiguous(at::kBool, at::kCPU, {});
+    return at::TensorType::createContiguous(at::kBool, at::kCPU, {});
   }
   return nullptr;
 }
 
 bool cast_to_i32_tensor_type(torch::jit::Value& value) {
-  const auto& tensor_type = value.type()->cast<torch::TensorType>();
+  const auto& tensor_type = value.type()->cast<at::TensorType>();
   if (tensor_type) {
     return value.setType(tensor_type->withScalarType(at::kInt));
   } else {
     return value.setType(
-        torch::TensorType::createContiguous(at::kInt, at::kCPU, {}));
+        at::TensorType::createContiguous(at::kInt, at::kCPU, {}));
   }
 }
 

@@ -23,6 +23,9 @@ def tao_bridge_cc_test(
             "@local_config_tf//:libtensorflow_framework",
         ],
         data = data,
-        linkstatic = linkstatic,
+        linkstatic = select({
+            "@local_config_blade_disc_helper//:is_mkldnn": 1,
+            "//conditions:default": linkstatic,
+        }),
         **kwargs
     )

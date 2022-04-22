@@ -498,7 +498,7 @@ cc_library(
       "-Wl,--start-group",
       "$(locations @onednn//:onednn_lib)",
       "-Wl,--end-group",
-      "-lgomp -lpthread -lm -ldl", 
+      "-lgomp -lpthread -lm -ldl",
     ] + if_disc_x86([
         "-Wl,--start-group",
         "$(location @mkl_static//:lib)/libmkl_intel_ilp64.a",
@@ -525,6 +525,7 @@ cc_library(
         "@mkl_include//:mkl_include",
         "@mkl_static//:mkl_static_lib",
     ]),
+    alwayslink = 1,
 )
 
 cc_library(
@@ -568,7 +569,6 @@ cc_library(
         "@local_config_cuda//cuda:cuda_headers",
     ]) + if_rocm_is_configured([
         "@local_config_rocm//rocm:rocm_headers",
-    ]) + if_cuda_or_rocm([
     ]) + if_patine([
         ":disc_patine_client_deps",
     ]) + if_mkldnn([

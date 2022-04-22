@@ -29,5 +29,3 @@ config_setting(
     name = "is_cxx11_abi",
     define_values = {"is_cxx11_abi": "true"},
 )
-
-

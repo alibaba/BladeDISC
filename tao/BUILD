@@ -1,4 +1,3 @@
-package(default_visibility = ["//visibility:public"])
 load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
 load("@local_config_tf//:build_defs.bzl", "tf_copts")
 load("@local_config_cuda//cuda:build_defs.bzl", "cuda_library", "if_cuda")
@@ -10,9 +9,10 @@ load("@local_config_blade_disc_helper//:build_defs.bzl",
     "disc_build_host",
     "disc_build_ip",
     "disc_build_time",
-    "if_disc_aarch64",
 )
 load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_shared_object")
+
+package(default_visibility = ["//visibility:public"])
 
 ############################################################
 

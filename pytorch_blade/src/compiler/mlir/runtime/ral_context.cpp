@@ -201,7 +201,9 @@ at::List<at::Tensor> RalContext::CreateAndBindingOutputs(
       out_tensor = torch::zeros(out_buf->shape(), option);
     } else if (out_buf->owned()) {
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
-      auto deleter = c10::cuda::CUDACachingAllocator::raw_delete;
+      auto deleter = (output_info.device == "cuda")
+          ? c10::cuda::CUDACachingAllocator::raw_delete
+          : c10::free_cpu;
 #else
       auto deleter = c10::free_cpu;
 #endif

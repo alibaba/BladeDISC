@@ -50,7 +50,7 @@ jobs:
     - name: Build And Test DISC
       run: |
         set -e
-        docker run --rm -t --user $(id -u) \
+      docker run --rm -t --user $(id -u):$(id -g) \
           -v $HOME/.cache:$HOME/.cache \
           -v /etc/passwd:/etc/passwd:ro \
           -v /etc/group:/etc/group:ro \

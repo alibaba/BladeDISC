@@ -43,15 +43,3 @@ cmake(
     alwayslink = 1,
     visibility = ["//visibility:public"],
 )
-
-genrule(
-    name = "onednn_lib",
-    srcs = [
-        ":onednn",
-    ],
-    outs = [
-        "libdnnl.a",
-    ],
-    cmd = "cp -r $(SRCS) $(@D)",
-    visibility = ["//visibility:public"],
-)

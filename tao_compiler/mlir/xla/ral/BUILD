@@ -494,11 +494,7 @@ cc_library(
         "context/mkldnn/ideep/ideep/*.hpp",
         "context/mkldnn/ideep/ideep/operators/*.hpp",
     ]),
-    linkopts = [
-        "-Wl,--start-group",
-        "$(location @onednn//:onednn_lib)",
-        "-Wl,--end-group",
-    ] + if_disc_x86([
+    linkopts = if_disc_x86([
         "-Wl,--start-group",
         "$(location @mkl_static//:lib)/libmkl_intel_ilp64.a",
         "$(location @mkl_static//:lib)/libmkl_gnu_thread.a",

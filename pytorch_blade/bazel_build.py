@@ -158,7 +158,7 @@ class BazelBuild(TorchBladeBuild):
         self.test_suites = ["//src:torch_blade_test_suite"]
         if self.torch_major_version >= 1 and self.torch_minor_version >= 12:
             # Build TorchDISC LTC tests
-            self.test_suites += ["//src/ltc:torch_disc_test_suite.so"]
+            self.test_suites += ["//src/ltc:torch_disc_test_suite"]
 
         test_cmd = " ".join(
             [self.shell_setting, self.test_cmd]

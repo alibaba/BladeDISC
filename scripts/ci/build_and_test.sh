@@ -24,6 +24,7 @@ BLADE_DISC_DIR=tao/python/blade_disc_tf
 # cleanup build cache
 (rm -rf build \
   && rm -rf tao/build \
+  && cd tao && bazel clean --expunge \
   && cd tf_community && bazel clean --expunge)
 
 python ${ENTRY} ${VENV_PATH} -s configure --bridge-gcc default --compiler-gcc default ${CPU_ONLY} --bazel_bridge
@@ -32,7 +33,7 @@ python ${ENTRY} ${VENV_PATH} -s build_tao_compiler ${CPU_ONLY}
 python ${ENTRY} ${VENV_PATH} -s build_mlir_ral ${CPU_ONLY}
 python ${ENTRY} ${VENV_PATH} -s test_tao_bridge_cpp ${CPU_ONLY} --bazel_bridge
 python ${ENTRY} ${VENV_PATH} -s test_tao_bridge_py ${CPU_ONLY} --bazel_bridge
-python ${ENTRY} ${VENV_PATH} -s test_tao_compiler ${CPU_ONLY}
+# python ${ENTRY} ${VENV_PATH} -s test_tao_compiler ${CPU_ONLY}
 
 # copy libtao_ops.so and tao_compiler_main to blade-disc-tf
 cp tao/bazel-bin/libtao_ops.so ${BLADE_DISC_DIR}

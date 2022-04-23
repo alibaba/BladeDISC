@@ -24,7 +24,7 @@ BLADE_DISC_DIR=tao/python/blade_disc_tf
 # cleanup build cache
 (rm -rf build \
   && rm -rf tao/build \
-  && cd tao && bazel clean --expunge \
+  && cd tao && bazel clean --expunge && cd .. \
   && cd tf_community && bazel clean --expunge)
 
 python ${ENTRY} ${VENV_PATH} -s configure --bridge-gcc default --compiler-gcc default ${CPU_ONLY} --bazel_bridge

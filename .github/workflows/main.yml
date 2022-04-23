@@ -13,6 +13,156 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "greet"
+  CUDA10-TF115:
+    if: github.repository == 'alibaba/BladeDISC'
+    # The type of runner that the job will run on
+    runs-on: [self-hosted, gpu-t4]
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    # Runs a single command using the runners shell
+    - name: Checkout
+      uses: actions/checkout@v2.4.0
+    - name: pre-commit
+      shell: bash
+      run: |
+        export PATH=$HOME/.local/bin:$PATH
+        pre-commit run -a --show-diff-on-failure
+    - name: Build Dev Docker
+      shell: bash
+      run: |
+        set -e
+        git submodule sync
+        git submodule update --depth=1 --init --recursive
+        docker build -t disc-dev-cuda10.0 \
+          --build-arg BASEIMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04 \
+          --build-arg DISC_HOST_TF_VERSION="tensorflow-gpu==1.15" \
+          -f docker/dev/Dockerfile .
+    - name: Build And Test DISC
+      run: |
+        set -e
+        nvidia-docker run --rm -t --user $(id -u):$(id -g) \
+          -v $HOME/.cache:$HOME/.cache \
+          -v /etc/passwd:/etc/passwd:ro \
+          -v /etc/group:/etc/group:ro \
+          -v $PWD:/disc \
+          -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
+          -w /disc \
+          disc-dev-cuda10.0 bash ./scripts/ci/build_and_test.sh
+    - name: Deploy Docker
+      if: github.event.ref == 'refs/heads/main'
+      env:
+        ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+        ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        GITHUB_PULL_REQUEST: ${{ github.event.number }}
+        LOCAL_DEV_DOCKER: disc-dev-cuda10.0
+        REMOTE_DEV_DOCKER: bladedisc:latest-devel-cuda10.0
+        REMOTE_RUNTIME_DOCKER: bladedisc:latest-runtime-tensorflow1.15
+        RUNTIME_BASEIMAGE: tensorflow/tensorflow:1.15.5-gpu
+      run: |
+        set -e
+        bash ./scripts/ci/deploy_tf_wrapper.sh
+  CUDA11-TF24:
+    if: github.repository == 'alibaba/BladeDISC'
+    # The type of runner that the job will run on
+    runs-on: [self-hosted, gpu-t4]
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    # Runs a single command using the runners shell
+    - name: Checkout
+      uses: actions/checkout@v2.4.0
+    - name: Build Dev Docker
+      run: |
+        set -e
+        git submodule sync
+        git submodule update --depth=1 --init --recursive
+        docker pull bladedisc/bladedisc:latest-devel-cuda11.0
+        docker build --cache-from bladedisc/bladedisc:latest-devel-cuda11.0 -t disc-dev-cuda11.0 \
+          --build-arg BASEIMAGE=nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04 \
+          --build-arg DISC_HOST_TF_VERSION="tensorflow-gpu==2.4" \
+          -f docker/dev/Dockerfile .
+    - name: Build And Test DISC
+      run: |
+        set -e
+        nvidia-docker run --rm -t --user $(id -u):$(id -g) \
+          -v $HOME/.cache:$HOME/.cache \
+          -v /etc/passwd:/etc/passwd:ro \
+          -v /etc/group:/etc/group:ro \
+          -v $PWD:/disc \
+          -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
+          -w /disc \
+          disc-dev-cuda11.0 bash ./scripts/ci/build_and_test.sh
+    - name: Build And Test TF Blade
+      run: |
+        set -e
+        nvidia-docker run --rm -t --user $(id -u):$(id -g) \
+          -v $HOME/.cache:$HOME/.cache \
+          -v /etc/passwd:/etc/passwd:ro \
+          -v /etc/group:/etc/group:ro \
+          -v $PWD:/disc \
+          -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
+          -w /disc \
+          disc-dev-cuda11.0 bash ./scripts/ci/test_tensorflow_blade.sh
+    - name: Deploy Docker
+      if: github.event.ref == 'refs/heads/main'
+      env:
+        ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+        ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        GITHUB_PULL_REQUEST: ${{ github.event.number }}
+        LOCAL_DEV_DOCKER: disc-dev-cuda11.0
+        REMOTE_DEV_DOCKER: bladedisc:latest-devel-cuda11.0
+        REMOTE_RUNTIME_DOCKER: bladedisc:latest-runtime-tensorflow2.4
+        RUNTIME_BASEIMAGE: tensorflow/tensorflow:2.4.0-gpu
+      run: |
+        set -e
+        bash ./scripts/ci/deploy_tensorflow_blade.sh
+  CUDA11-TORCH171:
+    if: github.repository == 'alibaba/BladeDISC'
+    # The type of runner that the job will run on
+    runs-on: [self-hosted, gpu-t4]
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    # Runs a single command using the runners shell
+    - name: Checkout
+      uses: actions/checkout@v2.4.0
+    - name: Build Dev Docker
+      run: |
+        set -e
+        git submodule sync
+        git submodule update --depth=1 --init --recursive
+        docker pull bladedisc/bladedisc:latest-devel-cuda11.0
+        docker build --cache-from bladedisc/bladedisc:latest-devel-cuda11.0 -t disc-dev-cuda11.0 \
+          --build-arg BASEIMAGE=nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04 -f docker/dev/Dockerfile .
+    - name: Build and Test DISC
+      run: |
+        set -e
+        nvidia-docker run --rm -t --user $(id -u):$(id -g) \
+          -v $HOME/.cache:$HOME/.cache \
+          -v /etc/passwd:/etc/passwd:ro \
+          -v /etc/group:/etc/group:ro \
+          -v $PWD:/disc \
+          -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
+          -w /disc \
+          disc-dev-cuda11.0 bash ./scripts/ci/test_pytorch_blade.sh
+    - name: Deploy PyTorch Blade
+      if: github.event.ref == 'refs/heads/main'
+      env:
+        ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+        ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        GITHUB_PULL_REQUEST: ${{ github.event.number }}
+        LOCAL_DEV_DOCKER: disc-dev-cuda11.0
+        REMOTE_DEV_DOCKER: bladedisc:latest-devel-cuda11.0
+        REMOTE_RUNTIME_DOCKER: bladedisc:latest-runtime-torch1.7.1
+        RUNTIME_BASEIMAGE: nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
+      run: |
+        set -e
+        bash ./scripts/ci/deploy_pytorch_blade.sh
   CPU-TF115:
     uses: ./.github/workflows/cpu_reusable.yml
     with:
@@ -25,6 +175,44 @@ jobs:
       ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+  CPU-TORCH181:
+    uses: ./.github/workflows/cpu_reusable.yml
+    with:
+      extra_envs: -e TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
+        -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cpu
+      exec_command: bash ./scripts/ci/test_pytorch_blade.sh
+  NGC-TORCH-1110:
+    uses: ./.github/workflows/ngc_reusable.yml
+  CUDA11-TORCH-DISC:
+    if: github.repository == 'alibaba/BladeDISC'
+    runs-on: [self-hosted, gpu-t4]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2.4.0
+      with:
+        path: ./torch_disc_devel
+    - name: Build Dev Docker
+      working-directory: ./torch_disc_devel
+      run: |
+        set -e
+        git submodule sync
+        git submodule update --init --depth=1
+        docker pull bladedisc/torch-disc:devel-cuda11.0
+        docker pull bladedisc/bladedisc:latest-devel-cuda11.0
+        docker build --cache-from bladedisc/torch-disc:devel-cuda11.0 -t torch-disc-devel-cuda11.0 \
+          --build-arg PYTORCH_COMMIT=$(git submodule status torch_disc/pytorch | awk '{print $1}') \
+          -f docker/dev/Dockerfile.torch-disc ./docker/
+    - name: Build and Test
+      working-directory: ./torch_disc_devel
+      run: |
+        set -e
+        nvidia-docker run --rm -t --user $(id -u):$(id -g) \
+          -v $PWD:/workspace \
+          -v $HOME/.cache:$HOME/.cache \
+          -v /etc/passwd:/etc/passwd:ro \
+          -v /etc/group:/etc/group:ro \
+          -e GITHUB_ACTIONS="ON" \
+          -w /workspace torch-disc-devel-cuda11.0 bash ./scripts/ci/test_torch_disc.sh
   AArch64-CPU-TF280:
     if: github.repository == 'alibaba/BladeDISC'
     # The type of runner that the job will run on
@@ -85,3 +273,66 @@ jobs:
         echo "Try to deploy runtime docker image..."
         source $HOME/.cache/proxy_config
         bash ./scripts/ci/deploy_tf_wrapper.sh
+  AArch64-CPU-TORCH_1_10:
+    if: github.repository == 'alibaba/BladeDISC'
+    # The type of runner that the job will run on
+    runs-on: [self-hosted, aarch64]
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2.4.0
+    - name: Build Dev Docker
+      run: |
+        set -e
+        git submodule sync
+        git submodule update --depth=1 --init --recursive
+        cp /etc/apt/sources.list .
+        docker build -t disc-dev-cpu-aarch64 \
+          --build-arg BASEIMAGE=ubuntu:20.04 \
+          --build-arg DISC_HOST_TF_VERSION="tensorflow-aarch64==2.8" \
+          -f docker/dev/Dockerfile.aarch64 .
+    - name: Build And Test DISC
+      run: |
+        set -e
+        docker run --rm -t --user $(id -u):$(id -g) \
+          -v /mnt/cache:$HOME/.cache \
+          -v /etc/passwd:/etc/passwd:ro \
+          -v /etc/group:/etc/group:ro \
+          -v $PWD:/disc \
+          -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
+          -e TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF \
+          -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.10.0+aarch64 \
+          -w /disc \
+          disc-dev-cpu-aarch64 \
+          bash ./scripts/ci/test_pytorch_blade.sh
+    - name: Deploy Dev Docker Image
+      if: github.event.ref == 'refs/heads/main'
+      env:
+        ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+        ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        GITHUB_PULL_REQUEST: ${{ github.event.number }}
+        LOCAL_DEV_DOCKER: disc-dev-cpu-aarch64
+        REMOTE_DEV_DOCKER: bladedisc:latest-devel-cpu-aarch64
+      run: |
+        set -e
+        echo "Try to deploy runtime docker image..."
+        source $HOME/.cache/proxy_config
+        bash ./scripts/ci/deploy_tf_wrapper.sh
+    - name: Deploy Runtime Docker Image
+      if: github.event.ref == 'refs/heads/main'
+      env:
+        ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+        ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        GITHUB_PULL_REQUEST: ${{ github.event.number }}
+        RUNTIME_BASEIMAGE: bladedisc/bladedisc:latest-devel-cpu-aarch64
+        RUNTIME_DOCKER_FILE: docker/runtime/Dockerfile.pytorch.aarch64
+        REMOTE_RUNTIME_DOCKER: bladedisc:latest-runtime-torch1.10.0-cpu-aarch64
+      run: |
+        set -e
+        echo "Try to deploy runtime docker image..."
+        source $HOME/.cache/proxy_config
+        bash ./scripts/ci/deploy_tf_wrapper.sh
+

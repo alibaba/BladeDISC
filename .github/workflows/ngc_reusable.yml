@@ -40,7 +40,7 @@ jobs:
         mkdir -p $HOME/.cache/.torch/.cache
         cp $HOME/.cache/remote_cache_token $HOME/.cache/.torch/.cache
 
-        nvidia-docker run --rm -t --user $(id -u) \
+        nvidia-docker run --rm -t --user $(id -u):$(id -g) \
           -v $HOME/.cache/.torch/:$HOME/.torch \
           -v $HOME/.cache/.torch/.cache:$HOME/.cache \
           -v /etc/passwd:/etc/passwd:ro \

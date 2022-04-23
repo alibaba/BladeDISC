@@ -316,10 +316,10 @@ def configure_bridge_bazel(root, args):
 
 @time_stage()
 def configure(root, args):
-    if args.bazel_bridge:
-        configure_bridge_bazel(root, args)
-    else:
+    if args.cmake:
         configure_bridge_cmake(root, args)
+    else:
+        configure_bridge_bazel(root, args)
     configure_compiler(root, args)
 
 
@@ -479,8 +479,8 @@ def test_tao_compiler(root, args):
                 flag = '--config=disc_aarch64 '
             else:
                 flag = '--config=disc_x86 '
-                if args.enable_mkldnn:
-                    flag += ' --config=disc_mkldnn'
+            if args.enable_mkldnn:
+                flag += ' --config=disc_mkldnn'
             mlir_test_list = [
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
@@ -521,14 +521,15 @@ def tao_bridge_bazel_config(args):
 
 @time_stage()
 def build_tao_bridge(root, args):
-    if args.bazel_bridge:
-        tao_bazel_root = tao_bazel_dir(root)
-        with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
-            execute(f"bazel build {tao_bridge_bazel_config(args)} //:libtao_ops.so")
-    else:
+    if args.cmake:
         tao_bridge_build_dir = tao_build_dir(root)
         with cwd(tao_bridge_build_dir), gcc_env(args.bridge_gcc):
             execute("make -j")
+    else:
+        tao_bazel_root = tao_bazel_dir(root)
+        with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
+            execute(f"bazel build {tao_bridge_bazel_config(args)} //:libtao_ops.so")
+
     logger.info("Stage [build_tao_bridge] success.")
 
 
@@ -581,22 +582,7 @@ def run_py_test(py_bin, test_root, output_file, includes, envs=[]):
 
 @time_stage()
 def test_tao_bridge(root, args, cpp=True, python=True):
-    if args.bazel_bridge:
-        tao_bazel_root = tao_bazel_dir(root)
-        with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
-            if cpp:
-                output_file = os.path.join(tao_bazel_root, "cpp_test.out")
-                execute(f"bazel test {tao_bridge_bazel_config(args)} //...")
-                logger.info("Stage [test_tao_bridge_cpp] with bazel success, output: " + output_file)
-            if python:
-                output_file = os.path.join(tao_bazel_root, "py_test.out")
-                py_bin = os.path.join(args.venv_dir, "bin", PYTHON_BIN_NAME)
-                test_root_disc = "{}/tao/tao_bridge/test/gpu".format(root)
-                if not args.cpu_only:
-                    run_py_test(py_bin, test_root_disc, output_file, ["test_mlir*.py"])
-
-                logger.info("Stage [test_tao_bridge_py] success, output: " + output_file)
-    else:
+    if args.cmake:
         tao_bridge_build_dir = tao_build_dir(root)
         # Perform test within tao bridge GCC environment.
         with cwd(tao_bridge_build_dir), gcc_env(args.bridge_gcc):
@@ -606,6 +592,21 @@ def test_tao_bridge(root, args, cpp=True, python=True):
                 logger.info("Stage [test_tao_bridge_cpp] success, output: " + output_file)
             if python:
                 output_file = os.path.join(tao_bridge_build_dir, "py_test.out")
+                py_bin = os.path.join(args.venv_dir, "bin", PYTHON_BIN_NAME)
+                test_root_disc = "{}/tao/tao_bridge/test/gpu".format(root)
+                if not args.cpu_only:
+                    run_py_test(py_bin, test_root_disc, output_file, ["test_mlir*.py"])
+
+                logger.info("Stage [test_tao_bridge_py] success, output: " + output_file)
+    else:
+        tao_bazel_root = tao_bazel_dir(root)
+        with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
+            if cpp:
+                output_file = os.path.join(tao_bazel_root, "cpp_test.out")
+                execute(f"bazel test {tao_bridge_bazel_config(args)} //...")
+                logger.info("Stage [test_tao_bridge_cpp] with bazel success, output: " + output_file)
+            if python:
+                output_file = os.path.join(tao_bazel_root, "py_test.out")
                 py_bin = os.path.join(args.venv_dir, "bin", PYTHON_BIN_NAME)
                 test_root_disc = "{}/tao/tao_bridge/test/gpu".format(root)
                 if not args.cpu_only:
@@ -827,10 +828,10 @@ def parse_args():
         help="bazel build/test targets for tao compiler",
     )
     parser.add_argument(
-        "--bazel_bridge",
+        "--cmake",
         required=False,
         action="store_true",
-        help="bazel build/test targets for tao bridge",
+        help="cmake build/test targets for tao bridge",
     )
     parser.add_argument(
         "--build_dbg_symbol", action="store_true", help="Add -g to build options"

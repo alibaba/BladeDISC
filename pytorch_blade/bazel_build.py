@@ -51,7 +51,9 @@ class BazelBuild(TorchBladeBuild):
         ]
 
         torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]
-        if int(torch_major_version) >= 1 and int(torch_minor_version) >= 12:
+        self.torch_major_version = int(torch_major_version)
+        self.torch_minor_version = int(torch_minor_version)
+        if self.torch_major_version >= 1 and self.torch_minor_version >= 12:
             # Build TorchDISC LTC
             self.targets += ["//src/ltc:_torch_disc.so"]
 
@@ -153,11 +155,15 @@ class BazelBuild(TorchBladeBuild):
         env["LD_LIBRARY_PATH"] = ld_library_path
         env["GCC_HOST_COMPILER_PATH"] = env.get("GCC_HOST_COMPILER_PATH", which("gcc"))
 
+        self.test_suites = ["//src:torch_blade_test_suite"]
+        if self.torch_major_version >= 1 and self.torch_minor_version >= 12:
+            # Build TorchDISC LTC tests
+            self.test_suites += ["//src/ltc:torch_disc_test_suite.so"]
+
         test_cmd = " ".join(
             [self.shell_setting, self.test_cmd]
             + self.extra_opts
-            + self.configs
-            + ["//src/...", "--build_tests_only"]
+            + self.configs + self.test_suites
         )
         subprocess.check_call(test_cmd, shell=True, env=env, executable="/bin/bash")
 

@@ -31,7 +31,7 @@ pybind_extension(
 )
 
 test_suite(
-  name = "torch_disc_test_suit",
+  name = "torch_disc_test_suite",
   tests = [
     "//src/ltc/disc_compiler:torch_disc_test"
   ]

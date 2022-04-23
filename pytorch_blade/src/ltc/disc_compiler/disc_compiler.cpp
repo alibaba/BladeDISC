@@ -11,16 +11,29 @@
 
 #include "ltc/disc_compiler/disc_compiler.h"
 
-#include <torch/csrc/jit/passes/dead_code_elimination.h>
-#include <torch/csrc/jit/passes/shape_analysis.h>
-
+#include "common_utils/utils.h"
 #include "ltc/disc_compiler/passes/cluster.h"
 #include "ltc/disc_compiler/passes/register_disc_class.h"
-#include "torch/csrc/lazy/ts_backend/ts_backend_impl.h"
+
+#include <ATen/Functions.h>
+#include <torch/csrc/jit/passes/dead_code_elimination.h>
+#include <torch/csrc/jit/passes/shape_analysis.h>
+#include <torch/csrc/lazy/backend/backend_data.h>
+#include <torch/csrc/lazy/backend/backend_device.h>
+#include <torch/csrc/lazy/ts_backend/ts_backend_impl.h>
+#include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
+#include <torch/script.h>
 
 namespace torch_disc {
 namespace compiler {
 using TSData = torch::lazy::TSData;
+
+Executable::Executable(
+    const std::shared_ptr<torch::jit::Graph>& graph,
+    const std::vector<c10::IValue>& disc_inputs)
+    : graph_(graph), disc_inputs_(disc_inputs) {
+  graph_executor_ = std::make_shared<torch::jit::GraphExecutor>(graph, "");
+}
 
 std::vector<torch::lazy::BackendDataPtr> Executable::Run(
     c10::ArrayRef<torch::lazy::BackendDataPtr> arguments,
@@ -41,7 +54,7 @@ std::vector<torch::lazy::BackendDataPtr> Executable::Run(
     }
   }
   stack.insert(stack.end(), disc_inputs_.begin(), disc_inputs_.end());
-  graph_executor_.run(stack);
+  graph_executor_->run(stack);
 
   std::vector<torch::lazy::BackendDataPtr> results;
   for (torch::jit::IValue component : stack) {
@@ -72,7 +85,8 @@ void EnhancementInputShape(
 ExecutablePtr CompileToDiscExecutable(
     const std::shared_ptr<torch::jit::Graph>& graph,
     c10::ArrayRef<torch::lazy::BackendDataPtr> arguments) {
-  bool disable_disc = false;
+  bool disable_disc = torch::blade::env::ReadBoolFromEnvVar(
+      "TORCH_DISC_LTC_DISABLE_DISC", false);
   if (disable_disc) {
     auto disc_inputs = std::vector<c10::IValue>{};
     return std::make_shared<Executable>(graph, disc_inputs);

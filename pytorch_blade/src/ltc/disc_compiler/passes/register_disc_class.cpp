@@ -11,20 +11,31 @@
 
 #include "ltc/disc_compiler/passes/register_disc_class.h"
 
+#include "compiler/backends/engine_class.h"
 #include "compiler/mlir/converters/mhlo_conversion.h"
-#include "ltc/disc_compiler/passes/disc_class.h"
+#include "compiler/mlir/runtime/disc_engine.h"
 #include "ltc/disc_compiler/passes/io.h"
 
+#include <torch/script.h>
+#define _GNU_SOURCE
+#include <dlfcn.h>
 namespace torch_disc {
 namespace compiler {
 using namespace ::torch::jit;
+
+std::string CurrentLibLocation() {
+  Dl_info dl_info;
+  dladdr((void*)CurrentLibLocation, &dl_info);
+  auto fname = std::string(dl_info.dli_fname);
+  return fname.substr(0, fname.find_last_of("/"));
+}
 
 std::string DiscCMD(
     const std::string& mlir_fname,
     const std::string& out_fname) {
   std::stringstream ss;
   std::string logf = mlir_fname + ".log";
-  auto binary_path = "./disc_compiler_main";
+  std::string binary_path = CurrentLibLocation() + "/disc_compiler_main";
   ss << binary_path << " " << mlir_fname << " " << out_fname << " > " << logf
      << " 2>&1 ";
   return ss.str();
@@ -45,6 +56,7 @@ std::tuple<std::string, std::string, std::string> MhloConversaion(
   std::ofstream outfile(in_fname);
   outfile << parsable_mlir << std::endl;
   outfile.flush();
+  outfile.close();
   return std::make_tuple(in_fname, input_dev_str, output_dev_str);
 }
 
@@ -85,7 +97,7 @@ void ReplaceDiscClass(
   // %5 : Tensor[] = prim::CallMethod[name="Run"](%disc_class_p0, %4)
   auto call_method = graph->insertNode(graph->create(
       torch::jit::prim::CallMethod, {val, list_construct->output()}));
-  call_method->s_(torch::jit::attr::name, std::move("Run"))
+  call_method->s_(torch::jit::attr::name, std::move("execute"))
       ->output()
       ->setType(torch::ListType::create(torch::TensorType::get()));
   call_method->moveBefore(disc_node);
@@ -105,6 +117,8 @@ void ReplaceDiscClass(
 
 std::vector<c10::IValue> RegisterDiscClass(
     const std::shared_ptr<Graph>& graph) {
+  torch::blade::backends::InitTorchBladeEngine();
+  torch::blade::disc::InitBladeDiscEngine();
   std::vector<c10::IValue> disc_inputs;
   std::vector<torch::jit::Node*> disc_nodes;
   std::copy_if(
@@ -122,6 +136,7 @@ std::vector<c10::IValue> RegisterDiscClass(
     auto cvt_ret = MhloConversaion(sub_graph);
     auto output_fname =
         CallDiscCompiler(std::get<0>(cvt_ret) /*mlir file name*/);
+
     state->set_engine_bytes(ReadFileBytes(output_fname));
     state->set_model_proto(ReadFileBytes(output_fname + ".pbtxt"));
     for (auto input : sub_graph->inputs()) {
@@ -132,9 +147,10 @@ std::vector<c10::IValue> RegisterDiscClass(
     }
     state->set_inputs(inputs);
     state->set_outputs(outputs);
-
+    state->set_backend_name(torch::blade::disc::GetBackendName());
     // add DiscClass object as graph input
-    auto disc_class = torch::make_custom_class<DiscClass>(state);
+    auto disc_class =
+        torch::blade::backends::create_engine(*state, "attr_name", "", "");
     auto input_name = c10::str("disc_class_p", disc_inputs.size());
     disc_inputs.push_back(disc_class);
 

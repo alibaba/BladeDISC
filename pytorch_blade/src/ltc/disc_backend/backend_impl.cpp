@@ -14,14 +14,28 @@
 #include <ATen/Functions.h>
 #include <torch/csrc/jit/passes/shape_analysis.h>
 #include <torch/csrc/lazy/backend/backend_device.h>
+#include <torch/csrc/lazy/core/cache.h>
+#include <torch/csrc/lazy/core/config.h>
 #include <torch/csrc/lazy/core/ir_dump_util.h>
+#include <torch/csrc/lazy/core/lazy_graph_executor.h>
 #include <torch/csrc/lazy/ts_backend/ts_backend_impl.h>
 #include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
-
 #include "ltc/disc_compiler/disc_compiler.h"
 
 namespace torch_disc {
 namespace compiler {
+
+struct CachedExecutable {
+  explicit CachedExecutable(ExecutablePtr executable)
+      : executable(std::move(executable)) {}
+
+  ExecutablePtr executable;
+};
+
+using DiscComputationCache = torch::lazy::
+    Cache<torch::lazy::hash_t, CachedExecutable, torch::lazy::HashReducer>;
+
+torch::lazy::BackendImplInterface* GetTSBackendImpl();
 
 using BackendDeviceType = torch::lazy::BackendDeviceType;
 using TSData = torch::lazy::TSData;

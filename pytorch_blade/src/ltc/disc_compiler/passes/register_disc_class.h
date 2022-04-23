@@ -10,7 +10,13 @@
 // limitations under the License.
 #pragma once
 
-#include <torch/script.h>
+#include <ATen/core/ivalue.h>
+
+namespace torch {
+namespace jit {
+class Graph;
+} // namespace jit
+} // namespace torch
 
 namespace torch_disc {
 namespace compiler {

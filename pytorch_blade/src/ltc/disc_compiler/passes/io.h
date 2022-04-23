@@ -11,14 +11,14 @@
 
 #include <sys/stat.h>
 #include <unistd.h>
-
 #include <sstream>
+#include <thread>
 
 namespace torch_disc {
 namespace compiler {
 
 // ReadFileBytes reads a file as bytes
-std::string ReadFileBytes(const std::string& fname) {
+inline std::string ReadFileBytes(const std::string& fname) {
   std::ifstream input(fname, std::ios::binary);
   std::vector<char> bytes(
       (std::istreambuf_iterator<char>(input)),
@@ -26,7 +26,7 @@ std::string ReadFileBytes(const std::string& fname) {
   return std::string(bytes.begin(), bytes.end());
 }
 
-std::string GetTempDirectory(std::string dir) {
+inline std::string GetTempDirectory(std::string dir) {
   auto tid = std::this_thread::get_id();
   uint64_t pid = getpid();
   uint64_t us =

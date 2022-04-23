@@ -6,22 +6,20 @@ cc_library (
     "disc_compiler.cpp",
     "passes/cluster.cpp",
     "passes/register_disc_class.cpp",
-    "passes/disc_class.cpp",
   ],
   hdrs = [
     "disc_compiler.h",
     "passes/io.h",
     "passes/cluster.h",
     "passes/register_disc_class.h",
-    "passes/disc_class.h",
   ],
   includes = ["../include"],
   deps = [
-    "@org_torch_blade//src/compiler/mlir:torch_blade_mlir",
+    "//src:torch_blade_include",
+    "//src:torch_blade_shared",
     "@local_org_torch//:ATen",
     "@local_org_torch//:libtorch",
   ],
-  alwayslink = True,
   visibility = [
     "//visibility:public",
   ],
@@ -32,12 +30,10 @@ cc_test(
   srcs = [
     "disc_compiler_test.cpp",
   ],
-  linkopts = [
-    "-lpython3.8"
-  ],
   deps = [
-    #":torch_disc_backend",
-    #"@local_org_torch//:torch_python",
+    ":disc_compiler",    
+    "//src:torch_blade_shared",
+    "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:ral_base_context_lib",
     "@local_org_torch//:libtorch",
     "@googltest//:gtest_main",
   ]

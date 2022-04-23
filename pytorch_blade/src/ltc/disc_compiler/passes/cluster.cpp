@@ -14,6 +14,7 @@
 #include "compiler/jit/fusion.h"
 #include "compiler/mlir/converters/mhlo_conversion.h"
 
+#include <torch/script.h>
 namespace torch_disc {
 namespace compiler {
 using namespace ::torch::jit;

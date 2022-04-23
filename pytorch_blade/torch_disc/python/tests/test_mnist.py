@@ -19,7 +19,7 @@ from torch.testing import assert_allclose
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 import torch._lazy as ltc
-import _torch_disc as disc
+import torch_disc as disc
 torch._C._lazy_ts_backend._init()
 disc._ltc_init_disc_backend()
 import unittest

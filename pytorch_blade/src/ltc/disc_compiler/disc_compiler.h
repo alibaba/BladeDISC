@@ -11,13 +11,20 @@
 
 #pragma once
 
-#include <ATen/Functions.h>
+#include <ATen/core/ivalue.h>
 #include <sys/stat.h>
-#include <torch/csrc/lazy/backend/backend_data.h>
-#include <torch/csrc/lazy/backend/backend_device.h>
-#include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
-#include <torch/script.h>
 #include <unistd.h>
+
+namespace torch {
+namespace jit {
+class Graph;
+class GraphExecutor;
+} // namespace jit
+namespace lazy {
+class BackendData;
+class BackendDevice;
+} // namespace lazy
+} // namespace torch
 
 namespace torch_disc {
 namespace compiler {
@@ -27,11 +34,10 @@ class Executable {
  public:
   Executable(
       const std::shared_ptr<torch::jit::Graph>& graph,
-      const std::vector<c10::IValue>& disc_inputs)
-      : graph_(graph), graph_executor_(graph, ""), disc_inputs_(disc_inputs) {}
+      const std::vector<c10::IValue>& disc_inputs);
 
-  std::vector<torch::lazy::BackendDataPtr> Run(
-      c10::ArrayRef<torch::lazy::BackendDataPtr> arguments,
+  std::vector<std::shared_ptr<torch::lazy::BackendData>> Run(
+      c10::ArrayRef<std::shared_ptr<torch::lazy::BackendData>> arguments,
       const torch::lazy::BackendDevice& device,
       bool default_device_is_cuda);
 
@@ -41,7 +47,7 @@ class Executable {
 
  private:
   std::shared_ptr<torch::jit::Graph> graph_;
-  torch::jit::GraphExecutor graph_executor_;
+  std::shared_ptr<torch::jit::GraphExecutor> graph_executor_;
   std::vector<c10::IValue> disc_inputs_;
 };
 
@@ -49,7 +55,7 @@ using ExecutablePtr = std::shared_ptr<Executable>;
 
 ExecutablePtr CompileToDiscExecutable(
     const std::shared_ptr<torch::jit::Graph>& graph,
-    c10::ArrayRef<torch::lazy::BackendDataPtr> arguments);
+    c10::ArrayRef<std::shared_ptr<torch::lazy::BackendData>> arguments);
 
 } //  namespace compiler
 } //  namespace torch_disc

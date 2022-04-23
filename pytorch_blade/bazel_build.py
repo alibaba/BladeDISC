@@ -49,7 +49,12 @@ class BazelBuild(TorchBladeBuild):
             "//src:libtorch_blade.so",
             "//src:_torch_blade.so",
         ]
+
         torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]
+        if int(torch_major_version) >= 1 and int(torch_minor_version) >= 12:
+            # Build TorchDISC LTC
+            self.targets += ["//src/ltc:_torch_disc.so"]
+
         self.extra_opts = [
             '--copt=-DPYTORCH_VERSION_STRING=\\"{}\\"'.format(self.torch_version),
             "--copt=-DPYTORCH_MAJOR_VERSION={}".format(torch_major_version),

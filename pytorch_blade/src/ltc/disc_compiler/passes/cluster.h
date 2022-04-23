@@ -9,8 +9,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <torch/script.h>
-
+#pragma once
+#include <memory>
+namespace torch {
+namespace jit {
+class Graph;
+}
+} // namespace torch
 namespace torch_disc {
 namespace compiler {
 

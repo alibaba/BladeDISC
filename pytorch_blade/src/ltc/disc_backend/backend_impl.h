@@ -9,27 +9,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <torch/csrc/lazy/backend/backend_interface.h>
-#include <torch/csrc/lazy/core/cache.h>
-#include <torch/csrc/lazy/core/config.h>
-
-#include "ltc/disc_compiler/disc_compiler.h"
-
+#pragma once
 namespace torch_disc {
 namespace compiler {
-
-struct CachedExecutable {
-  explicit CachedExecutable(ExecutablePtr executable)
-      : executable(std::move(executable)) {}
-
-  ExecutablePtr executable;
-};
-
-using DiscComputationCache = torch::lazy::
-    Cache<torch::lazy::hash_t, CachedExecutable, torch::lazy::HashReducer>;
-
-torch::lazy::BackendImplInterface* GetTSBackendImpl();
-
 void InitTorchScriptBackend();
 
 } //  namespace compiler

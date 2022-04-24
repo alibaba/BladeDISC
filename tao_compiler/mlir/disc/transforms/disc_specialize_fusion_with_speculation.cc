@@ -269,19 +269,10 @@ struct DiscSpecializeFusionWithSpeculationPass
     Value col_size = b.create<memref::DimOp>(loc, operand, 1);
     Value pred;
 
-    // TODO: this feature will be experimental in the first release, and will be
-    // set as default in the near future after evaluated on benchmarks. And
-    // later, the two speculations will be merge into one according to the
-    // adaptive thread mapping approach in AStitch. Then there will be more
-    // flexible per-reduce-thread-number setting.
-    bool experimental_tlp_enhance = false;
-    tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE",
-                                   false, &experimental_tlp_enhance);
     auto thread_number_info =
         ArchToGPUThreadNumber.find({cc_major_, cc_minor_});
-    if (experimental_tlp_enhance &&
-        (thread_number_info != ArchToGPUThreadNumber.end())) {
-      // Experimental schedule selection policy is as following:
+    if (thread_number_info != ArchToGPUThreadNumber.end()) {
+      // Enhanced schedule selection policy is as following:
       //   1. use schedule 1 if
       //      (col-size >= block-dim) &&
       //      (row-number / row-per-block-in-sched-2 < max-blocks-per-wave / 2);

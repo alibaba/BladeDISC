@@ -13,7 +13,6 @@ import os
 
 # Enable stitch fusion optimization.
 os.environ["DISC_ENABLE_STITCH"] = "true"
-os.environ["DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE"] = "true"
 
 import torch
 import time

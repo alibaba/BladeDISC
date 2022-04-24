@@ -33,7 +33,6 @@ def load_frozen_graph(model_file: str):
 def run_bert(optimize_config: str = None):
     if optimize_config is 'disc':
         disc.enable()
-        os.environ["DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE"] = "true"
 
     session_config = tf.ConfigProto()
     session_config.allow_soft_placement = True

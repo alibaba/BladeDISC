@@ -23,7 +23,7 @@ sh download_model.sh
 python main.py
 ```
 
-By configuring `optimize_config` as `'DISC'`, `'XLA'` or `None` in the script,
+By configuring `optimize_config` as `'disc'`, `'xla'` or `None` in the script,
 you can run the model with XLA, DISC or without any optimization.
 
 

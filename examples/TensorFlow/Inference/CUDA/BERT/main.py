@@ -10,15 +10,22 @@
 # limitations under the License.
 
 import os
+
+os.environ["DISC_ENABLE_ASTITCH"] = "true"
+os.environ["TAO_ENFORCE_VERBOSE_COMPILATION_LOG"] = "1"
+os.environ["TF_CPP_VMODULE"] = "disc_compiler=1"
+
+
 import time
 import numpy as np
 import tensorflow.compat.v1 as tf
+
 tf.disable_v2_behavior()
 
 import blade_disc_tf as disc
 
 
-def load_frozen_graph(model_file : str):
+def load_frozen_graph(model_file: str):
     graph_def = tf.GraphDef()
     with open(model_file, 'rb') as f:
         graph_def.ParseFromString(f.read())
@@ -28,7 +35,7 @@ def load_frozen_graph(model_file : str):
     return graph
 
 
-def run_bert(optimize_config : str = None):
+def run_bert(optimize_config: str = None):
     if optimize_config is 'disc':
         disc.enable()
 
@@ -39,30 +46,30 @@ def run_bert(optimize_config : str = None):
     if optimize_config is "xla":
         session_config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_1
     graph = load_frozen_graph('./model/frozen.pb')
-    sess = tf.Session(graph = graph, config = session_config)
+    sess = tf.Session(graph=graph, config=session_config)
 
     # Warmup.
     print("Warming up...")
     fetch = ["unstack:0", "unstack:1"]
     feed_dict = {
-            'input_ids_1:0' : np.ones((1, 384), dtype=int),
-            'segment_ids_1:0' : np.zeros((1, 384), dtype=int),
-            'input_mask_1:0' : np.ones((1, 384), dtype=int),
-            }
+        'input_ids_1:0': np.ones((1, 384), dtype=int),
+        'segment_ids_1:0': np.zeros((1, 384), dtype=int),
+        'input_mask_1:0': np.ones((1, 384), dtype=int),
+    }
     for i in range(50):
-        outs = sess.run(fetch, feed_dict = feed_dict)
+        outs = sess.run(fetch, feed_dict=feed_dict)
 
     # Measure performance.
     print("Run 10 inferences with dynamic batch sizes.")
     all_times = []
     for batch in [2, 2, 4, 1, 1, 8, 8, 2, 16, 2]:
         feed_dict = {
-                'input_ids_1:0' : np.ones((batch, 384), dtype=int),
-                'segment_ids_1:0' : np.zeros((batch, 384), dtype=int),
-                'input_mask_1:0' : np.ones((batch, 384), dtype=int),
-                }
+            'input_ids_1:0': np.ones((batch, 384), dtype=int),
+            'segment_ids_1:0': np.zeros((batch, 384), dtype=int),
+            'input_mask_1:0': np.ones((batch, 384), dtype=int),
+        }
         s = time.time()
-        outs = sess.run(fetch, feed_dict = feed_dict)
+        outs = sess.run(fetch, feed_dict=feed_dict)
         e = time.time()
         print(f'inference batch-size {batch}: {e - s} s.')
         all_times.append(e - s)
@@ -71,4 +78,4 @@ def run_bert(optimize_config : str = None):
 
 if __name__ == '__main__':
     # `optimize_config` can be 'xla', 'disc' or None.
-    run_bert(optimize_config = 'disc')
+    run_bert(optimize_config='disc')

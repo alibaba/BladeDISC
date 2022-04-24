@@ -109,10 +109,9 @@ def evaluate_torch(model, inputs):
     print("average time in {} iterations: {} seconds".format(iters, avg_time))
 
     # profile start
-    _cudart = ctypes.CDLL('/usr/local/cuda/lib64/libcudart.so')
-    res = _cudart.cudaProfilerStart()
+    cu_prof_start()
     model(*tuple(inputs))
-    res = _cudart.cudaProfilerStop()
+    cu_prof_stop()
     # profile end
 
 

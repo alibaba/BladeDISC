@@ -36,11 +36,14 @@ cc_library(
 
 """
 
+def warn(msg):
+    print('{red}{msg}{nc}'.format(red='\033[0;31m', msg=msg, nc='\033[0m'))
 
 def _impl(repo_ctx):
     tensorrt_path = repo_ctx.os.environ.get(_TENSORRT_INSTALL_PATH, None)
     if tensorrt_path == None:
-        fail("Please set the tensorrt library path via env var: {}".format(_TENSORRT_INSTALL_PATH))
+        warn("Please set the customize tensorrt library path via env var: {}".format(_TENSORRT_INSTALL_PATH))
+        tensorrt_path = "/usr/local/TensorRT/"
 
     repo_ctx.symlink(tensorrt_path + "/include", "include")
     repo_ctx.symlink(tensorrt_path + "/lib", "lib")

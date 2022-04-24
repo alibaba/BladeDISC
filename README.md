@@ -84,7 +84,7 @@ XLA and TensorRT), DISC shows comparable or even better performance.
 <img src="./docs/pics/numbers.png" style="width:60%">
 <figcaption align = "center">
 <b>
-Fig.1 Performance Comparison. 
+Fig.1 Performance speedup over framework. 
 <i>Framework</i> means either TensorFlow or PyTorch. 
 <i>FastSpeech2</i> is TensorFlow model and others are PyTorch models.
 The <i>static compiler</i> for TensorFlow is XLA and that for PyTorch is TensorRT.

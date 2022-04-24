@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2021 The BladeDISC Authors. All rights reserved.
+# Copyright 2022 The BladeDISC Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -11,6 +11,5 @@
 # limitations under the License.
 
 
-# Following is the tmp link for debugging.
-wget http://zhengzhen.oss-cn-hangzhou-zmf.aliyuncs.com/model-data/Speech/TF-FastSpeech2/saved_model.tar.gz
+wget http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/bladedisc_notebook_binaries/models/disc_fastspeech2_example/saved_model.tar.gz
 tar -xzvf saved_model.tar.gz

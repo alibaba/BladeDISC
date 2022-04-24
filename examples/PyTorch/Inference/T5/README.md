@@ -26,7 +26,7 @@ You can run the example with the following command:
 python main.py
 ```
 
-It will run optimizations of BladeDISC and TensorRT.
+It will run optimizations of BladeDISC.
 
 ## Performance results.
 
@@ -34,9 +34,8 @@ We evaluate this example on T4 GPU, The CUDA version is 11.0. CuDNN version is
 8.0. PyTorch version is 1.7.1. The average execution time of the 100 inferences
 is as following (ms).
 
-| PyTorch | Blade TRT static | DISC |
-|---------|------------------|------|
-|  36.45  |       7.47       | 7.08 |
+| PyTorch | DISC |
+|---------|------|
+|  36.45  | 7.08 |
 
-DISC shows a 5.15x speedup over basic PyTorch, and 1.05x speedup over TRT static
-optimization.
+DISC shows a 5.15x speedup over basic PyTorch.

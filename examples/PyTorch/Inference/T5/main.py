@@ -82,22 +82,6 @@ def disc_optimize(model, inputs, out_file: str):
     torch.jit.save(optimized_ts, out_file)
 
 
-def blade_trt_optimize(model, inputs, fp16: bool, out_file: str):
-    cfg = torch_blade.Config.get_current_context_or_new().clone()
-    cfg.optimization_pipeline = torch_blade.tensorrt.backend_name()
-    cfg.customize_onnx_opset_version = 12
-    cfg.enable_fp16 = fp16
-
-    traced_model = torch.jit.trace(model.cuda().eval(), inputs,
-                                   strict=False).cuda().eval()
-
-    with cfg, torch_blade.logging.logger_level_context('INFO'):
-        opt_model = torch_blade.optimize(traced_model,
-                                         False,
-                                         model_inputs=tuple(inputs))
-    torch.jit.save(opt_model, out_file)
-
-
 def run():
     tokenizer = T5Tokenizer.from_pretrained("t5-base")
     input_ids = tokenizer(
@@ -122,12 +106,6 @@ def run():
     print("BladeDISC Optimization.")
     disc_optimize(traced_model_amp, inputs, 't5-base_amp.disc.pt')
     model = torch.jit.load('t5-base_amp.disc.pt').cuda().eval()
-    evaluate_torch(model, inputs)
-
-    # Run TorchBlade-TensorRT optimization.
-    print("TorchBlade-TensorRT Optimization.")
-    blade_trt_optimize(model, inputs, True, 't5-base_amp.trt.pt')
-    model = torch.jit.load('t5-base_amp.trt.pt').cuda().eval()
     evaluate_torch(model, inputs)
 
 

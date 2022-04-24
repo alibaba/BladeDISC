@@ -88,7 +88,7 @@ Fig.1 Performance speedup over framework.
 <i>Framework</i> means either TensorFlow or PyTorch. 
 <i>FastSpeech2</i> is TensorFlow model and others are PyTorch models.
 The <i>static compiler</i> for TensorFlow is XLA and that for PyTorch is TensorRT.
-Note that <i>S2T</i> has no TensorRT performance due to wrong result.
+Note that <i>S2T</i> and <i>T5</i> have no TensorRT performance due to wrong result.
 </b>
 </figcaption>
 </figure>

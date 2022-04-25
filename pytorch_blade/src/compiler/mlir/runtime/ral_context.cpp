@@ -210,7 +210,7 @@ at::List<at::Tensor> RalContext::CreateAndBindingOutputs(
     } else if (out_buf->owned()) {
       auto cpu_allocator = c10::GetAllocator(torch::kCPU);
       TORCH_CHECK(cpu_allocator != nullptr);
-      auto deleter = [cpu_allocator](void* ptr) {
+      std::function<void(void*)> deleter = [cpu_allocator](void* ptr) {
         cpu_allocator->raw_deallocate(ptr);
       };
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA

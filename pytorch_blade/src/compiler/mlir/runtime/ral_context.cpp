@@ -122,7 +122,15 @@ RalContext::RalContext(std::shared_ptr<backends::EngineState> state)
   TORCH_CHECK(is_ok, "FAiled to dump model proto to file.");
   default_opt_.metadata_file_path = meta_tmpf_.GetFilename();
   default_opt_.cache_workspace_mem_across_execution = true;
-  cpu_opt_.cpu_allocator.reset(new RalAllocator(c10::alloc_cpu, c10::free_cpu));
+  auto torch_allocator = c10::GetAllocator(torch::kCPU);
+  TORCH_CHECK(torch_allocator != nullptr);
+  auto cpu_alloc = [torch_allocator](size_t n) {
+    return torch_allocator->raw_allocate(n);
+  };
+  auto cpu_delete = [torch_allocator](void* ptr) {
+    torch_allocator->raw_deallocate(ptr);
+  };
+  cpu_opt_.cpu_allocator.reset(new RalAllocator(cpu_alloc, cpu_delete));
 
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
   at::globalContext().lazyInitCUDA();
@@ -197,15 +205,23 @@ at::List<at::Tensor> RalContext::CreateAndBindingOutputs(
                       .dtype(scalar_type)
                       .memory_format(torch::MemoryFormat::Contiguous);
     at::Tensor out_tensor;
+    auto cpu_allocator = c10::GetAllocator(torch::kCPU);
+    TORCH_CHECK(cpu_allocator != nullptr);
+    auto cpu_delete = [cpu_allocator](void* ptr) {
+      cpu_allocator->raw_deallocate(ptr);
+    };
     if (IsEmptyTensor(out_buf->shape())) {
       out_tensor = torch::zeros(out_buf->shape(), option);
     } else if (out_buf->owned()) {
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
-      auto deleter = (output_info.device == "cuda")
-          ? c10::cuda::CUDACachingAllocator::raw_delete
-          : c10::free_cpu;
+      auto cuda_allocator = c10::GetAllocator(torch::kCUDA);
+      TORCH_CHECK(cuda_allocator != nullptr);
+      auto cuda_delete = [cuda_allocator](void* ptr) {
+        cuda_allocator->raw_deallocate(ptr);
+      };
+      auto deleter = (output_info.device == "cuda") ? cuda_delete : cpu_delete;
 #else
-      auto deleter = c10::free_cpu;
+      auto deleter = cpu_delete;
 #endif
       out_tensor = torch::from_blob(
           const_cast<void*>(out_buf->data()),
@@ -234,9 +250,15 @@ tao::ral::BaseContext* RalContext::LoadCache() {
   tao::ral::gpu::BaseCudaContextOption gpu_opt;
   gpu_opt.device_ordinal = gpu_device_;
   gpu_opt.use_stream_executor = true;
-  gpu_opt.gpu_allocator.reset(new RalAllocator(
-      c10::cuda::CUDACachingAllocator::raw_alloc,
-      c10::cuda::CUDACachingAllocator::raw_delete));
+  auto torch_allocator = c10::GetAllocator(torch::kCUDA);
+  TORCH_CHECK(torch_allocator != nullptr);
+  auto cuda_alloc = [torch_allocator](size_t n) {
+    return torch_allocator->raw_allocate(n);
+  };
+  auto cuda_delete = [torch_allocator](void* ptr) {
+    torch_allocator->raw_deallocate(ptr);
+  };
+  gpu_opt.gpu_allocator.reset(new RalAllocator(cuda_alloc, cuda_delete));
 
   std::lock_guard<std::mutex> guard(mtx_);
   tao::ral::BaseContext* ral_ctx_ptr;

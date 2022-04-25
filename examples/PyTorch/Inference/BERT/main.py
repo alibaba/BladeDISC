@@ -214,7 +214,8 @@ def run_trt_engine(trt_engine_name: str, inputs):
     # profile end
 
 
-def blade_trt_optimize(model, inputs, fp16: bool, out_file: str):
+def blade_trt_optimize(model, inputs, fp16: bool, is_static: bool,
+                       out_file: str):
     cfg = torch_blade.Config.get_current_context_or_new().clone()
     cfg.optimization_pipeline = torch_blade.tensorrt.backend_name()
     cfg.customize_onnx_opset_version = 12
@@ -224,9 +225,13 @@ def blade_trt_optimize(model, inputs, fp16: bool, out_file: str):
                                    strict=False).cuda().eval()
 
     with cfg, torch_blade.logging.logger_level_context('INFO'):
-        opt_model = torch_blade.optimize(traced_model,
-                                         False,
-                                         model_inputs=tuple(inputs))
+        if is_static is True:
+            opt_model = torch_blade.optimization._static_optimize(
+                traced_model, False, model_inputs=tuple(inputs))
+        else:
+            opt_model = torch_blade.optimize(traced_model,
+                                             False,
+                                             model_inputs=tuple(inputs))
     torch.jit.save(opt_model, out_file)
 
 
@@ -258,7 +263,7 @@ def run():
 
     # Run TorchBlade-TensorRT optimization.
     print("TorchBlade-TensorRT Optimization.")
-    blade_trt_optimize(bert_large, inputs, True, 'bert_large_amp.trt.pt')
+    blade_trt_optimize(bert_large, inputs, True, True, 'bert_large_amp.trt.pt')
     model = torch.jit.load('bert_large_amp.trt.pt').cuda().eval()
     evaluate_torch(model, inputs)
 

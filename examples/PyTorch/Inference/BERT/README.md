@@ -38,7 +38,8 @@ following (ms).
 
 | PyTorch | TRT static | Blade TRT static |  DISC  |
 |---------|------------|------------------|--------|
-|  40.77  |    4.56    |       17.01      |  4.71  |
+|  40.77  |    4.56    |       4.30       |  4.71  |
 
 DISC shows a 8.66x speedup over basic PyTorch, and achieves similar performance
-with TensorRT static optimization.
+with TensorRT static optimization. Blade optimization with TRT achieves even
+better performance.

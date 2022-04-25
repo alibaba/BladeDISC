@@ -21,6 +21,10 @@ ENTRY=scripts/python/tao_build.py
 VENV_PATH=/opt/venv_disc
 BLADE_DISC_DIR=tao/python/blade_disc_tf
 
+if [[ -f ~/.cache/proxy_config ]]; then
+    source ~/.cache/proxy_config
+fi
+
 # cleanup build cache
 (rm -rf build \
   && rm -rf tao/build \

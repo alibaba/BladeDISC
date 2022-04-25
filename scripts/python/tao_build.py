@@ -208,9 +208,9 @@ def configure_bridge_cmake(root, args):
         flags += " -DTAO_X86={}".format(args.x86)
         flags += " -DTAO_AARCH64={}".format(args.aarch64)
         if args.aarch64:
-             acl_root = acl_root_dir(root)
-             envs += " ACL_ROOT_DIR={} ".format(acl_root)
-             flags += " -DDNNL_AARCH64_USE_ACL=ON "
+            acl_root = acl_root_dir(root)
+            envs += " ACL_ROOT_DIR={} ".format(acl_root)
+            flags += " -DDNNL_AARCH64_USE_ACL=ON "
 
         cmake_cmd = (
             "{} cmake .. -DPYTHON={}/bin/{} {}".format(
@@ -298,6 +298,7 @@ def configure_bridge_bazel(root, args):
             if args.aarch64:
                 _action_env("BUILD_WITH_AARCH64", "1")
 
+        _write("--host_jvm_args=-Djdk.http.auth.tunneling.disabledSchemes=", cmd = "startup")
         logger.info("configuring tao_bridge with bazel ......")
 
     with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):

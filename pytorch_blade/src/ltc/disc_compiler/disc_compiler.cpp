@@ -95,10 +95,12 @@ ExecutablePtr CompileToDiscExecutable(
   // Inference shape
   torch::jit::PropagateInputShapes(graph);
   // cluster disc compitable nodes into a sub-graph
-  ClusterDiscNodes(graph);
+  DiscFusion(graph);
   torch::jit::EliminateDeadCode(graph);
+  std::cout << graph->toString() << std::endl;
   // register a disc custom class to run RAL at runtime stage
   auto disc_inputs = RegisterDiscClass(graph);
+  std::cout << graph->toString() << std::endl;
   return std::make_shared<Executable>(graph, disc_inputs);
 }
 

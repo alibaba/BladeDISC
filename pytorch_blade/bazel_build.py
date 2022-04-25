@@ -44,7 +44,7 @@ class BazelBuild(TorchBladeBuild):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.targets = [
-            "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_compiler_main",
+            #"@org_tensorflow//tensorflow/compiler/mlir/disc:disc_compiler_main",
             "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:libral_base_context.so",
             "//src:libtorch_blade.so",
             "//src:_torch_blade.so",
@@ -158,7 +158,7 @@ class BazelBuild(TorchBladeBuild):
         self.test_suites = ["//src:torch_blade_test_suite"]
         if self.torch_major_version >= 1 and self.torch_minor_version >= 12:
             # Build TorchDISC LTC tests
-            self.test_suites += ["//src/ltc:torch_disc_test_suite"]
+            self.test_suites = ["//src/ltc:torch_disc_test_suite"]
 
         test_cmd = " ".join(
             [self.shell_setting, self.test_cmd]

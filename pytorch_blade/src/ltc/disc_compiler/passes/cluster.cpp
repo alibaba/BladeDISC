@@ -11,13 +11,36 @@
 
 #include "ltc/disc_compiler/passes/cluster.h"
 
+#include <torch/csrc/jit/passes/dead_code_elimination.h>
 #include "compiler/jit/fusion.h"
 #include "compiler/mlir/converters/mhlo_conversion.h"
+#include "ltc/disc_compiler/passes/graph_fuser.h"
 
 #include <torch/script.h>
 namespace torch_disc {
 namespace compiler {
 using namespace ::torch::jit;
+
+bool IsDiscSupports(const torch::jit::Node* node) {
+  if (torch::blade::IsMlirMhloSupported(*node) &&
+      node->kind() != prim::Constant) {
+    for (auto& input : node->inputs()) {
+      // input should be Tensor or Scalar with explict type
+      auto typ = input->type();
+      if (!typ->cast<c10::TensorType>() &&
+          c10::tryScalarTypeFromJitType(*typ) == c10::nullopt) {
+        return false;
+      }
+    }
+    for (auto& output : node->outputs()) {
+      auto typ = output->type();
+      if (!typ->cast<c10::TensorType>())
+        return false;
+    }
+    return true;
+  }
+  return false;
+}
 
 // TODO(Yancey1989):
 // This a very rough implementation to go thought the whole DiscBackend,
@@ -118,6 +141,36 @@ void CastGraphInputsToTensor(
       CastBoundaryScalarToTensor(disc_graph, i, scalar_type);
     }
   }
+}
+
+bool IsDiscFusable(const torch::jit::Node* node) {
+  if (node->kind() == prim::Constant)
+    return true;
+  if (torch::blade::IsMlirMhloSupported(*node)) {
+    // node->kind() != prim::Constant) {
+    for (auto& input : node->inputs()) {
+      // input should be Tensor or Scalar with explict type
+      if (input->type()->isSubtypeOf(*torch::NumberType::get()) &&
+          input->node()->kind() != torch::prim::Constant)
+        return false;
+    }
+    for (auto& output : node->outputs()) {
+      if (!output->type()->cast<c10::TensorType>())
+        return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+void DiscFusion(const std::shared_ptr<Graph>& graph) {
+  overrideCanFuseOnCPULegacy(true);
+  DiscCustomFuseGraph(
+      const_cast<std::shared_ptr<Graph>&>(graph),
+      &IsDiscFusable,
+      torch::jit::Symbol::fromQualString("prim::FusionGroup"));
+  overrideCanFuseOnCPULegacy(false);
+  torch::jit::EliminateDeadCode(graph);
 }
 
 void ClusterDiscNodes(const std::shared_ptr<Graph>& graph) {

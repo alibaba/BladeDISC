@@ -60,8 +60,11 @@ class BaseOutputBufferWrapper : public OutputBufferWrapper {
   void markOwned() override { owned_ = true; }
 
   // Release the ownership of the wrapper buffer.
-  // This requires that the buffer is owned the this wrapper.
-  void release() override { deleter_ = nullptr; }
+  // This requires that the buffer is owned by this wrapper.
+  void release() override {
+    deleter_ = nullptr;
+    owned_ = false;
+  }
 
  private:
   buffer_t data_;

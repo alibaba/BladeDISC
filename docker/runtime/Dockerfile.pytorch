@@ -1,6 +1,7 @@
 ARG BASEIMAGE=nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
 FROM ${BASEIMAGE}
 
+ARG DEVICE=cu110
 ADD ./docker/scripts /install/scripts
 RUN bash /install/scripts/find-fastest-apt.sh
 RUN bash /install/scripts/install-tensorrt.sh

@@ -17,11 +17,13 @@ SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 export CXXFLAGS=${CXXFLAGS:-"-Wno-deprecated-declarations"}
 export CFLAGS=${CFLAGS:-"-Wno-deprecated-declarations"}
 export CUDA_HOME=${CUDA_HOME:-/usr/local/cuda}
+export TF_CUDA_HOME=${CUDA_HOME}
 export CUDACXX=${CUDACXX:-"${CUDA_HOME}/bin/nvcc"}
 export PATH=${CUDA_HOME}/bin/:$PATH
 export LD_LIBRARY_PATH=${CUDA_HOME}/lib64:$LD_LIBRARY_PATH
 export LIBRARY_PATH=${CUDA_HOME}/lib64:$LIBRARY_PATH
 export TF_REMOTE_CACHE=${TF_REMOTE_CACHE}
+export TORCH_BLADE_BUILD_TENSORRT_STATIC=${TORCH_BLADE_BUILD_TENSORRT_STATIC:-OFF}
 
 if [[ -f ~/.cache/proxy_config ]]; then
   source ~/.cache/proxy_config

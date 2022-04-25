@@ -40,8 +40,14 @@ cc_library(
 
 cc_binary(
     name = "libtorch_blade.so",
+    linkopts = [
+        "-Wl,--version-script,$(location :torch_blade.lds)",
+    ],
     linkshared = 1,
-    deps = [":torch_blade"],
+    deps = [
+        ":torch_blade",
+        ":torch_blade.lds",
+    ],
 )
 
 cc_import(

@@ -1,4 +1,5 @@
 load("//bazel:build_defs.bzl", "if_tensorrt_static_linked")
+load("@local_config_cuda_supplement//:build_defs.bzl", "if_has_cublaslt")
 load("@tensorrt//:build_defs.bzl", "if_has_myelin")
 
 package(default_visibility = ["//visibility:public"])
@@ -26,14 +27,20 @@ cc_library(
             "@tensorrt//:nvinfer_static",
             "@tensorrt//:nvinferplugin_static",
             "@tensorrt//:nvonnxparser_static",
-        ],
+            "@local_config_cuda_supplement//:cudnn_static",
+            "@local_config_cuda_supplement//:culibos_static",
+            "@local_config_cuda//cuda:cublas",
+        ] + if_has_cublaslt([
+            "@local_config_cuda_supplement//:cublasLt_static",
+        ]) + if_has_myelin([
+            "@local_config_cuda_supplement//:nvrtc",
+            "@tensorrt//:myelin_static",
+        ]),
         if_false = [
             "@tensorrt//:nvinfer",
             "@tensorrt//:nvinferplugin",
             "@tensorrt//:nvonnxparser",
-        ] + if_has_myelin([
-            "@local_config_trt//:myelin_static",
-        ]),
+        ],
     ),
     alwayslink = 1,  # targets depending on it should carry all symbols in its children.
 )

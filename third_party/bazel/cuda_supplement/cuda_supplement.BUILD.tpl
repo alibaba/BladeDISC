@@ -14,7 +14,7 @@ cc_import(
 
 cc_import(
     name = "culibos_static",
-    static_library = "lib64/libculibos_static.a",
+    static_library = "lib64/libculibos.a",
 )
 
 cc_import(

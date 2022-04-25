@@ -14,7 +14,8 @@ RUN bash /install/scripts/find-fastest-apt.sh && \
     bash /install/scripts/install-bazel.sh && \
     bash /install/scripts/install-python.sh
 
-RUN bash /install/scripts/install-tensorrt.sh
+ARG DEVICE=
+RUN bash /install/scripts/install-tensorrt.sh ${DEVICE}
 
 ENV PATH="/opt/cmake/bin:${PATH}"
 ENV LD_LIBRARY_PATH="/usr/local/TensorRT/lib/:${LD_LIBRARY_PATH}"

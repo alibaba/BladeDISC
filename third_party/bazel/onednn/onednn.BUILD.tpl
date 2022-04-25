@@ -4,6 +4,7 @@ load("@local_config_blade_disc_helper//:build_defs.bzl",
     "cxx_bin_path",
     "if_disc_aarch64",
 )
+load("@local_config_onednn//:onednn.bzl", "filter_static_lib")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -37,9 +38,6 @@ cmake(
     out_static_libs = [
         "libdnnl.a",
     ],
-    data = if_disc_aarch64([
-        "@acl_compute_library//:Makefile",
-    ]),
     deps = if_disc_aarch64([
         "@acl_compute_library//:acl",
     ]),
@@ -47,14 +45,9 @@ cmake(
     visibility = ["//visibility:public"],
 )
 
-genrule(
+filter_static_lib(
     name = "onednn_lib",
     srcs = [
         ":onednn",
     ],
-    outs = [
-        "libdnnl.a",
-    ],
-    cmd = "cp -r $(SRCS) $(@D)",
-    visibility = ["//visibility:public"],
 )

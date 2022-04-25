@@ -17,17 +17,18 @@ SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 source ${SCRIPT_DIR}/parse_args.sh "$@"
 
-if [[ -f ~/.cache/proxy_config ]]; then
-  source ~/.cache/proxy_config
-fi
-
 ENTRY=scripts/python/tao_build.py
 VENV_PATH=/opt/venv_disc
 BLADE_DISC_DIR=tao/python/blade_disc_tf
 
+if [[ -f ~/.cache/proxy_config ]]; then
+    source ~/.cache/proxy_config
+fi
+
 # cleanup build cache
 (rm -rf build \
   && rm -rf tao/build \
+  && cd tao && bazel clean --expunge && cd .. \
   && cd tf_community && bazel clean --expunge)
 
 python ${ENTRY} ${VENV_PATH} -s configure --bridge-gcc default --compiler-gcc default ${CPU_ONLY}
@@ -39,7 +40,7 @@ python ${ENTRY} ${VENV_PATH} -s test_tao_bridge_py ${CPU_ONLY}
 python ${ENTRY} ${VENV_PATH} -s test_tao_compiler ${CPU_ONLY}
 
 # copy libtao_ops.so and tao_compiler_main to blade-disc-tf
-cp tao/build/libtao_ops.so ${BLADE_DISC_DIR}
+cp tao/bazel-bin/libtao_ops.so ${BLADE_DISC_DIR}
 cp tf_community/bazel-bin/tensorflow/compiler/decoupling/tao_compiler_main ${BLADE_DISC_DIR}
 
 (cd tao && \

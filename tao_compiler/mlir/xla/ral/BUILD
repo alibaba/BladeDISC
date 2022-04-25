@@ -495,9 +495,10 @@ cc_library(
         "context/mkldnn/ideep/ideep/operators/*.hpp",
     ]),
     linkopts = [
-        "-Wl,--start-group",
-        "$(location @onednn//:onednn_lib)",
-        "-Wl,--end-group",
+      "-Wl,--start-group",
+      "$(locations @onednn//:onednn_lib)",
+      "-Wl,--end-group",
+      "-lgomp -lpthread -lm -ldl",
     ] + if_disc_x86([
         "-Wl,--start-group",
         "$(location @mkl_static//:lib)/libmkl_intel_ilp64.a",
@@ -506,9 +507,9 @@ cc_library(
         "-Wl,--end-group",
     ]) + if_disc_aarch64([
         "-Wl,--start-group",
-        "$(location @acl_compute_library//:build/libarm_compute.a)",
-        "$(location @acl_compute_library//:build/libarm_compute_core.a)",
-        "$(location @acl_compute_library//:build/libarm_compute_graph.a)",
+        "$(location @acl_compute_library//:build)/libarm_compute.a",
+        "$(location @acl_compute_library//:build)/libarm_compute_core.a",
+        "$(location @acl_compute_library//:build)/libarm_compute_graph.a",
         "-Wl,--end-group",
     ]),
     data = [
@@ -516,9 +517,7 @@ cc_library(
     ] + if_disc_x86([
         "@mkl_static//:lib",
     ]) + if_disc_aarch64([
-        "@acl_compute_library//:build/libarm_compute.a",
-        "@acl_compute_library//:build/libarm_compute_core.a",
-        "@acl_compute_library//:build/libarm_compute_graph.a",
+        "@acl_compute_library//:build",
     ]),
     deps = [
         "@onednn//:onednn",  # acl is not needed in `deps` since the dependency is carried by `onednn`
@@ -526,12 +525,14 @@ cc_library(
         "@mkl_include//:mkl_include",
         "@mkl_static//:mkl_static_lib",
     ]),
+    alwayslink = 1,
 )
 
 cc_library(
     name = "common_context_bridge",
     srcs = [
         "context/common_context_impl.cc",
+        "//tensorflow/compiler/mlir/xla:compile_metadata_bridge_genproto",
     ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
@@ -561,7 +562,6 @@ cc_library(
         ":ral_gpu_driver",
         ":ral_logging",
         ":context_util",
-        "//tensorflow/compiler/mlir/xla:compile_metadata_bridge",
         "@local_config_tf//:libtensorflow_framework",
         "@local_config_tf//:tf_header_lib",
     ] + if_cuda_is_configured([
@@ -569,7 +569,6 @@ cc_library(
         "@local_config_cuda//cuda:cuda_headers",
     ]) + if_rocm_is_configured([
         "@local_config_rocm//rocm:rocm_headers",
-    ]) + if_cuda_or_rocm([
     ]) + if_patine([
         ":disc_patine_client_deps",
     ]) + if_mkldnn([

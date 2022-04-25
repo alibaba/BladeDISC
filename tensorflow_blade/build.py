@@ -26,66 +26,30 @@ from six.moves import cPickle as pickle
 
 from common_internal import (
     PY_VER,
-    cwd,
-    deduce_cuda_info,
-    ensure_empty_dir,
-    execute,
-    get_cudnn_version,
-    get_site_packages_dir,
     get_trt_version,
-    git_branch,
-    git_head,
     logger,
-    safe_run,
-    which,
 )
+
 from datetime import datetime
 from tao_build import get_version_file
+from common_setup import (
+    deduce_cuda_info,
+    get_cudnn_version,
+    get_tf_info,
+    cwd,
+    ensure_empty_dir,
+    execute,
+    which,
+    safe_run,
+)
+from tao_common import (
+    git_branch,
+    git_head,
+)
 
 # Source code root dir.
 ROOT = os.path.abspath(os.path.dirname(os.path.abspath(__file__)))
 BUILD_CONFIG = os.path.join(ROOT, ".build_config")
-
-
-def get_tf_info():
-    output = subprocess.check_output(
-        '{} -c "import tensorflow as tf; print(tf.__version__); print(\'\\n\'.join(tf.sysconfig.get_compile_flags())); print(\'\\n\'.join(tf.sysconfig.get_link_flags()))"'.format(
-            which("python3")
-        ),
-        shell=True,
-    ).decode()
-    lines = output.split("\n")
-    major, minor, _ = lines[0].split(".")  # lines[0] is version like 1.15.0
-    is_pai = "PAI" in lines[0]
-    header_dir, lib_dir, lib_name, cxx11_abi = '', '', '', ''
-    for line in lines[1:]:
-        if line.startswith("-I"):
-            header_dir = line[2:]
-        elif line.startswith("-L"):
-            lib_dir = line[2:]
-        elif line.startswith("-l:"):  # in case of -l:libtensorflow_framework.so.1
-            lib_name = line[3:]
-        elif line.startswith("-l"):  # in case of -ltensorflow_framework
-            lib_name = 'lib' + line[2:] + '.so'
-        elif '_GLIBCXX_USE_CXX11_ABI' in line:
-            cxx11_abi = line.split('=')[-1]
-    PB_HEADER_FILE = "google/protobuf/stubs/common.h"
-    proto_file_path = os.path.join(header_dir, PB_HEADER_FILE)
-    if os.path.exists(proto_file_path):
-        with open(proto_file_path, 'r') as f:
-            content = f.read()
-        try:
-            match = re.findall("#define GOOGLE_PROTOBUF_VERSION [0-9]+", content)[0]
-            raw_version = int(re.findall("[^0-9]+([0-9]+)$", match)[0])
-            major_version = int(raw_version / 1000000)
-            minor_version = int(raw_version / 1000) - major_version * 1000
-            micro_version = raw_version - major_version * 1000000 - minor_version * 1000
-            tf_pb_version = f"{major_version}.{minor_version}.{micro_version}"
-        except IndexError as err:
-            raise Exception("Can not find tensorflow's built-in pb version!")
-    else:
-        raise Exception("Can not find {PB_HEADER_FILE} in tf's include dir!")
-    return major, minor, is_pai, header_dir, lib_dir, lib_name, cxx11_abi, tf_pb_version
 
 
 def save_build_config(args):
@@ -185,7 +149,7 @@ def configure_with_bazel(args):
             tf_lib_name,
             tf_cxx11_abi,
             tf_pb_version,
-        ) = get_tf_info()
+        ) = get_tf_info(which("python3"))
         _action_env("BLADE_WITH_TF", "1")
         _opt("cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
         _opt("host_cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
@@ -290,7 +254,7 @@ def build_with_bazel(args):
             bazel_config = "--config=disc"
             if args.device == "gpu":
                 # TODO(lanbo.llb): support dcu with a more generate device name
-                bazel_config = "--config=cuda"
+                bazel_config = "--config=disc_cuda"
             elif args.device == "cpu":
                 if args.aarch64:
                     bazel_config = "--config=disc_aarch64"

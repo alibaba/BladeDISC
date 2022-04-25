@@ -1,5 +1,4 @@
-package(default_visibility = ["//visibility:public"])
-load("@local_config_tf_protobuf//:protobuf.bzl", "cc_proto_library")
+load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
 load("@local_config_tf//:build_defs.bzl", "tf_copts")
 load("@local_config_cuda//cuda:build_defs.bzl", "cuda_library", "if_cuda")
 load("//:tao_bridge.bzl", "tao_bridge_cc_test")
@@ -9,9 +8,11 @@ load("@local_config_blade_disc_helper//:build_defs.bzl",
     "disc_build_git_head",
     "disc_build_host",
     "disc_build_ip",
-    "disc_build_time"
+    "disc_build_time",
 )
 load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_shared_object")
+
+package(default_visibility = ["//visibility:public"])
 
 ############################################################
 
@@ -80,7 +81,11 @@ cc_library(
         exclude = [
             "tao_bridge/**/*test.cc",
         ],
-    ),
+    ) + [
+        ":tao_compiler_input_genproto",
+        ":tao_compilation_result_genproto",
+        ":xla_activity_genproto",
+    ],
     hdrs = glob(
         include = [
             "tao_bridge/**/*.h"
@@ -90,9 +95,6 @@ cc_library(
     ),
     deps = [
         ":version_header",
-        ":tao_compiler_input",
-        ":tao_compilation_result",
-        ":xla_activity",
         "@local_config_tf//:tf_header_lib",
         "@local_config_tf//:libtensorflow_framework",
         "@org_tao_compiler//tensorflow/compiler/mlir/xla/ral:ral_bridge",
@@ -116,7 +118,7 @@ tf_cc_shared_object(
     deps = [
         ":tao_bridge",
         "//:bridge_version_scripts.lds",
-    ]
+    ],
 )
 
 tao_bridge_cc_test(
@@ -161,4 +163,5 @@ tao_bridge_cc_test(
         "tao_bridge/passes/tao_defuse_pass_test.cc",
         "tao_bridge/passes/tao_remove_small_cluster_pass_test.cc",
     ],
+    tags = ["cpu"],
 )

@@ -1,4 +1,4 @@
-load("@local_config_tf_protobuf//:protobuf.bzl", "cc_proto_library")
+load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
 
 cc_proto_library(
     name = "compile_metadata_bridge",

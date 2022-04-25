@@ -205,23 +205,22 @@ at::List<at::Tensor> RalContext::CreateAndBindingOutputs(
                       .dtype(scalar_type)
                       .memory_format(torch::MemoryFormat::Contiguous);
     at::Tensor out_tensor;
-    auto cpu_allocator = c10::GetAllocator(torch::kCPU);
-    TORCH_CHECK(cpu_allocator != nullptr);
-    auto cpu_delete = [cpu_allocator](void* ptr) {
-      cpu_allocator->raw_deallocate(ptr);
-    };
     if (IsEmptyTensor(out_buf->shape())) {
       out_tensor = torch::zeros(out_buf->shape(), option);
     } else if (out_buf->owned()) {
-#ifdef TORCH_BLADE_BUILD_WITH_CUDA
-      auto cuda_allocator = c10::GetAllocator(torch::kCUDA);
-      TORCH_CHECK(cuda_allocator != nullptr);
-      auto cuda_delete = [cuda_allocator](void* ptr) {
-        cuda_allocator->raw_deallocate(ptr);
+      auto cpu_allocator = c10::GetAllocator(torch::kCPU);
+      TORCH_CHECK(cpu_allocator != nullptr);
+      auto deleter = [cpu_allocator](void* ptr) {
+        cpu_allocator->raw_deallocate(ptr);
       };
-      auto deleter = (output_info.device == "cuda") ? cuda_delete : cpu_delete;
-#else
-      auto deleter = cpu_delete;
+#ifdef TORCH_BLADE_BUILD_WITH_CUDA
+      if (output_info.device == "cuda") {
+        auto cuda_allocator = c10::GetAllocator(torch::kCUDA);
+        TORCH_CHECK(cuda_allocator != nullptr);
+        deleter = [cuda_allocator](void* ptr) {
+          cuda_allocator->raw_deallocate(ptr);
+        };
+      }
 #endif
       out_tensor = torch::from_blob(
           const_cast<void*>(out_buf->data()),

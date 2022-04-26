@@ -11,11 +11,6 @@
 
 import os
 
-os.environ["DISC_ENABLE_ASTITCH"] = "true"
-os.environ["TAO_ENFORCE_VERBOSE_COMPILATION_LOG"] = "1"
-os.environ["TF_CPP_VMODULE"] = "disc_compiler=1"
-
-
 import time
 import numpy as np
 import tensorflow.compat.v1 as tf

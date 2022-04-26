@@ -16,8 +16,8 @@ These python packages are required for executing this example:
 - torch_blade
 
 To build and install `torch_blade` package, please refer to
-["Installation of TorchBlade"](../build_from_source.md) and
-["Install BladeDISC With Docker"](../install_with_docker.md).
+["Build BladeDISC from source"](../../../../docs/build_from_source.md) and
+["Install BladeDISC with Docker"](../../../../docs/install_with_docker.md).
 
 You can run the example with the following command:
 

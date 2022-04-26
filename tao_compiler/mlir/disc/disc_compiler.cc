@@ -234,6 +234,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscAlgebraSimplifierPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscSplitLargeOpsPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscDotRewriterPass());
 

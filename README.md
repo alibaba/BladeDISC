@@ -76,10 +76,22 @@ training workloads.
 ### Numbers of Typical Workloads
 
 By evaluating BladeDISC using a set of typical machine learning workloads for
-production purpose, DISC shows up to 3x speedup compared with
-TensorFlow/PyTorch.
+production purpose, BladeDISC shows up to 8.66x speedup compared with
+TensorFlow/PyTorch. Moreover, compared to static optimizing compilers (i.e.,
+XLA and TensorRT), DISC shows comparable or even better performance.
 
-![Numbers](./docs/pics/numbers.png)
+<figure align="center">
+<img src="./docs/pics/numbers.png" style="width:60%">
+<figcaption align = "center">
+<b>
+Fig.1 Performance speedup over framework. 
+<i>Framework</i> means either TensorFlow or PyTorch. 
+<i>FastSpeech2</i> is TensorFlow model and others are PyTorch models.
+The <i>static compiler</i> for TensorFlow is XLA and that for PyTorch is TensorRT.
+Note that <i>S2T</i> and <i>T5</i> have no TensorRT performance due to wrong result.
+</b>
+</figcaption>
+</figure>
 
 #### Advantage in Dynamic Shape Workloads
 

@@ -1,4 +1,4 @@
-# Copyright 2021 The BladeDISC Authors. All rights reserved.
+# Copyright 2022 The BladeDISC Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -10,11 +10,11 @@
 # limitations under the License.
 
 import os
-
 import time
 import numpy as np
 import tensorflow.compat.v1 as tf
-
+from tensorflow.compat.v1.saved_model import tag_constants
+# from tensorflow.python.framework import convert_to_constants
 tf.disable_v2_behavior()
 
 import blade_disc_tf as disc
@@ -40,35 +40,36 @@ def run_bert(optimize_config: str = None):
     session_config.graph_options.rewrite_options.auto_mixed_precision = 1
     if optimize_config is "xla":
         session_config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_1
-    graph = load_frozen_graph('./model/frozen.pb')
-    sess = tf.Session(graph=graph, config=session_config)
 
-    # Warmup.
-    print("Warming up...")
-    fetch = ["unstack:0", "unstack:1"]
+    model_dir = "saved_model"
+    sess = tf.Session(graph=tf.Graph(), config=session_config)
+    tf.saved_model.loader.load(sess, [tag_constants.SERVING], model_dir)
+
+    fetch = [
+        "StatefulPartitionedCall:0", "StatefulPartitionedCall:1",
+        "StatefulPartitionedCall:2", "StatefulPartitionedCall:3",
+        "StatefulPartitionedCall:4"
+    ]
     feed_dict = {
-        'input_ids_1:0': np.ones((1, 384), dtype=int),
-        'segment_ids_1:0': np.zeros((1, 384), dtype=int),
-        'input_mask_1:0': np.ones((1, 384), dtype=int),
+        'serving_default_input_1:0': np.ones((30, 10), dtype=int),
+        'serving_default_input_2:0': np.zeros((1), dtype=int),
+        'serving_default_input_3:0': np.ones((1), dtype=float),
+        'serving_default_input_4:0': np.ones((1), dtype=float),
+        'serving_default_input_5:0': np.ones((1), dtype=float),
     }
-    for i in range(50):
+
+
+    # warmup.
+    for i in range(20):
         outs = sess.run(fetch, feed_dict=feed_dict)
 
-    # Measure performance.
-    print("Run 10 inferences with dynamic batch sizes.")
-    all_times = []
-    for batch in [2, 2, 4, 1, 1, 8, 8, 2, 16, 2]:
-        feed_dict = {
-            'input_ids_1:0': np.ones((batch, 384), dtype=int),
-            'segment_ids_1:0': np.zeros((batch, 384), dtype=int),
-            'input_mask_1:0': np.ones((batch, 384), dtype=int),
-        }
-        s = time.time()
+    # evaluate.
+    iters = 100
+    tic = time.time()
+    for i in range(iters):
         outs = sess.run(fetch, feed_dict=feed_dict)
-        e = time.time()
-        print(f'inference batch-size {batch}: {e - s} s.')
-        all_times.append(e - s)
-    print(f'total: {np.sum(all_times)} s.')
+    avg_time = (time.time() - tic) / iters
+    print("average time in {} iterations: {} seconds".format(iters, avg_time))
 
 
 if __name__ == '__main__':

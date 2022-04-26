@@ -20,6 +20,8 @@
 #include <torch/csrc/lazy/core/lazy_graph_executor.h>
 #include <torch/csrc/lazy/ts_backend/ts_backend_impl.h>
 #include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
+#include "common_utils/utils.h"
+#include "ltc/disc_backend/debug_utils.h"
 #include "ltc/disc_compiler/disc_compiler.h"
 
 namespace torch_disc {
@@ -220,9 +222,20 @@ std::vector<torch::lazy::BackendDataPtr> DISCBackendImpl::ExecuteComputation(
   // TODO(yancey1989): Cache each Disc cluster separately
   auto disc_hash = torch::lazy::DataHash(
       ts_computation.graph().get(), sizeof(*ts_computation.graph().get()));
+
   if (cache_->Get(disc_hash)) {
     return cache_->Get(disc_hash)->executable->Run(
         arguments, device, default_device_is_cuda);
+  }
+
+  bool dump_ts_graph_and_data = torch::blade::env::ReadBoolFromEnvVar(
+      "TORCH_DISC_LTC_DUMP_TS_GRAPH_DATA", false);
+
+  if (dump_ts_graph_and_data) {
+    auto disc_hash_str = torch::lazy::HashToString(disc_hash);
+    ::torch_disc::SaveTSGraphAsModule(
+        ts_computation.graph(), "ts_graph." + disc_hash_str + ".pt");
+    ::torch_disc::SaveTSData(arguments, "ts_data." + disc_hash_str);
   }
 
   ExecutablePtr executable =

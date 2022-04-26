@@ -4,9 +4,11 @@ cc_library (
   name = "torch_disc_backend",
   srcs =  [
     "disc_backend/backend_impl.cpp",
+    "disc_backend/debug_utils.cpp",
   ],
   hdrs = [
     "disc_backend/backend_impl.h",
+    "disc_backend/debug_utils.h",
   ],
   deps = [
     "//src/ltc/disc_compiler:disc_compiler"

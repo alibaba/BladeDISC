@@ -38,6 +38,19 @@ torch::jit::Module clone_cpp_module(torch::jit::Module& self) {
   return torch::jit::Module(self.clone(false));
 }
 
+void return_multi_outputs_with_tuple(std::shared_ptr<torch::jit::Graph> graph) {
+  auto return_node = graph->return_node();
+  if (return_node->inputs().size() <= 1) {
+    return;
+  }
+
+  auto tuple_construct =
+      graph->insertNode(graph->createTuple(return_node->inputs()));
+  tuple_construct->moveBefore(return_node);
+  return_node->removeAllInputs();
+  return_node->addInput(tuple_construct->output());
+}
+
 void create_method_from_graph(
     torch::jit::Module& self,
     const std::string& name,
@@ -45,6 +58,7 @@ void create_method_from_graph(
   // The graph would be modified and passed to the compilation unit,
   // and referenced by the GraphFunction is being created
   auto graph = orig_graph->copy();
+  return_multi_outputs_with_tuple(graph);
   auto self_type = self._ivalue()->type();
   bool has_input = graph->inputs().size() > 0;
   bool has_param_self = false;

@@ -14,7 +14,7 @@ cc_library (
     "passes/graph_fuser.h",
   ],
   deps = [
-    "@org_torch_blade//src/compiler/mlir:torch_blade_mlir",
+    "//src/compiler/mlir:torch_blade_mlir",
     "@local_org_torch//:ATen",
     "@local_org_torch//:libtorch", 
   ],
@@ -50,8 +50,6 @@ cc_test(
   ],
   deps = [
     ":disc_passes",
-    #":torch_disc_backend",
-    #"@local_org_torch//:torch_python",
     "@local_org_torch//:libtorch",
     "@googltest//:gtest_main",
   ]

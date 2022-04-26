@@ -12,11 +12,12 @@
 #include "ltc/disc_compiler/passes/disc_fuser.h"
 
 #include <torch/csrc/jit/passes/dead_code_elimination.h>
+#include <torch/script.h>
+
 #include "compiler/jit/fusion.h"
 #include "compiler/mlir/converters/mhlo_conversion.h"
 #include "ltc/disc_compiler/passes/graph_fuser.h"
 
-#include <torch/script.h>
 namespace torch_disc {
 namespace compiler {
 using namespace ::torch::jit;

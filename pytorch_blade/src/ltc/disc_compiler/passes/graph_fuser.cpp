@@ -393,19 +393,6 @@ struct GraphFuser {
           in_group->setType(input->type());
           inputs_map[input] = in_group;
           group->addInput(input);
-          // We don't support passing in scalars as arguments to fused kernels,
-          // so we generally don't allow fusing tensor-scalar operations unless
-          // the scalar is constant. In those cases we inline the constants
-          // directly in the body of the fused group.
-          /**
-          AT_ASSERT(input->node()->kind() == prim::Constant);
-          Node* in_const =
-              subgraph.createClone(input->node(), [](Value*) -> Value* {
-                throw std::runtime_error("unexpected input");
-              });
-          subgraph.insertNode(in_const);
-          inputs_map[input] = in_const->output();
-          **/
         }
       }
     }
@@ -454,7 +441,6 @@ struct GraphFuser {
   }
 
   at::optional<Node*> tryFuse(Node* consumer, Value* producer) {
-    // "\tproducer:" << *producer->node();
     // this handles cases where producer can be moved _into_ the fusion group of
     // consumer.
     // TODO: extend to fusion of consumer into _producer's_ fusion blob
@@ -1031,13 +1017,6 @@ struct GraphFuser {
           shape_of.emplace(o, regular_size);
         }
         shape_of.emplace(outputs.at(outputs.size() - 1), last_size);
-        continue;
-      }
-      if (n->kind() == aten::sort) {
-        TORCH_INTERNAL_ASSERT(
-            shape_of.count(n->input(0)) > 0,
-            "buildShapeExpressions failed at accessing input shapes");
-        shape_of.emplace(n->output(0), shape_of.at(n->input(0)));
         continue;
       }
       auto tensor_inputs = filter(n->inputs(), [](Value* v) {

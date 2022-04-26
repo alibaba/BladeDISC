@@ -10,9 +10,6 @@
 // limitations under the License.
 
 #include <gtest/gtest.h>
-#include <torch/csrc/jit/ir/irparser.h>
-#include <torch/csrc/jit/passes/dead_code_elimination.h>
-#include <torch/csrc/jit/passes/graph_fuser.h>
 #include <torch/custom_class.h>
 #include <torch/script.h>
 

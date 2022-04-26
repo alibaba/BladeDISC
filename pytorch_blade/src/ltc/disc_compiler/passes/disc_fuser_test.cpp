@@ -16,7 +16,7 @@
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/custom_class.h>
 #include <torch/script.h>
-#include "ltc/disc_compiler/passes/cluster.h"
+#include "ltc/disc_compiler/passes/disc_fuser.h"
 #include "ltc/disc_compiler/passes/graph_fuser.h"
 
 namespace torch_disc {
@@ -40,11 +40,33 @@ graph(%p1 : Float(64, 1, 28, 28, strides=[784, 784, 28, 1], requires_grad=0, dev
       ->run(*g);
 }
 
+TEST(TestDiscFusion, TestScalarInput) {
+  const std::string graph_str = R"IR(
+graph(%p0 : int,
+      %p1 : Float(4, 1, strides=[1, 1], requires_grad=0, device=cuda:0),
+      %p2 : Float(4, strides=[1], requires_grad=0, device=cuda:0)):
+  %4 : Float(*, *, device=cuda:0) = aten::relu(%p2)
+  %3 : Float(*, *, device=cuda:0) = aten::add(%4, %p1, %p0)
+  return (%3)
+)IR";
+  auto g = std::make_shared<torch::jit::Graph>();
+  torch::jit::parseIR(graph_str, g.get());
+  DiscFusion(g);
+  torch::jit::EliminateDeadCode(g);
+  torch::jit::testing::FileCheck()
+      .check("prim::NumToTensor")
+      ->check("prim::FusionGroup_0")
+      ->check("aten::relu")
+      ->check("aten::item")
+      ->check("aten::add")
+      ->run(*g);
+}
+
 TEST(TestDiscFusion, TestCycle) {
   //
   //    sort
   //   /     \
-//  ↓       ↓
+  //  ↓       ↓
   // relu -> add
   //
   auto graph_string_cycle = R"IR(
@@ -64,7 +86,7 @@ graph(%p1 : Float(2, 2, strides=[2, 1], requires_grad=0, device=cuda:0),
   torch::jit::EliminateDeadCode(g);
   torch::jit::AliasDb db(g);
   overrideCanFuseOnCPULegacy(true);
-  DiscCustomFuseGraph(
+  CustomFuseGraph(
       g,
       [](torch::jit::Node* n) {
         if (n->kind() == torch::prim::Param || n->kind() == torch::aten::relu)

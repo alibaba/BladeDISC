@@ -38,7 +38,7 @@ TORCH_API void FuseGraph(
 // \arg arg_limit The maximum number of args the resultant fused subgraph
 //                should have.  Note: This will likely develop into a general
 //                post condition on the fused subgraph.
-TORCH_API void DiscCustomFuseGraph(
+TORCH_API void CustomFuseGraph(
     std::shared_ptr<torch::jit::Graph>& graph,
     const std::function<bool(torch::jit::Node*)>& is_fusable,
     torch::jit::Symbol kind,

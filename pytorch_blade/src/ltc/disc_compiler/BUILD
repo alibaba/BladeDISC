@@ -9,7 +9,7 @@ cc_library (
   ],
   hdrs = [
     "passes/io.h",
-    "passes/cluster.h",
+    "passes/disc_fuser.h",
     "passes/register_disc_class.h",
     "passes/graph_fuser.h",
   ],
@@ -46,7 +46,7 @@ cc_test(
   name = "torch_disc_test",
   srcs = [
     "disc_compiler_test.cpp",
-    "passes/graph_fuser_test.cpp",
+    "passes/disc_fuser_test.cpp",
   ],
   deps = [
     ":disc_passes",

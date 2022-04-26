@@ -215,7 +215,7 @@ at::List<at::Tensor> RalContext::CreateAndBindingOutputs(
       };
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
       if (output_info.device == "cuda") {
-        auto cuda_allocator = c10::GetAllocator(torch::kCUDA);
+        auto cuda_allocator = at::cuda::getCUDADeviceAllocator();
         TORCH_CHECK(cuda_allocator != nullptr);
         deleter = [cuda_allocator](void* ptr) {
           cuda_allocator->raw_deallocate(ptr);
@@ -249,7 +249,7 @@ tao::ral::BaseContext* RalContext::LoadCache() {
   tao::ral::gpu::BaseCudaContextOption gpu_opt;
   gpu_opt.device_ordinal = gpu_device_;
   gpu_opt.use_stream_executor = true;
-  auto torch_allocator = c10::GetAllocator(torch::kCUDA);
+  auto torch_allocator = at::cuda::getCUDADeviceAllocator();
   TORCH_CHECK(torch_allocator != nullptr);
   auto cuda_alloc = [torch_allocator](size_t n) {
     return torch_allocator->raw_allocate(n);

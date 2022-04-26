@@ -22,3 +22,5 @@ tao/bazel-testlogs
 tao/.bazelrc_gen
 tao/py_test.out
 tao/cpp_test.out
+tao/tao_bridge/gpu
+tao/tao_bridge/tao_launch_op

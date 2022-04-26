@@ -102,6 +102,21 @@ def tao_ral_dir(root=None):
         root = get_source_root_dir()
     return os.path.join(root, "tao", "tao_bridge", "ral")
 
+def internal_root_dir():
+    return os.path.join(get_source_root_dir(), os.pardir)
+
+def internal_tao_bridge_dir():
+    return os.path.join(internal_root_dir(), "platform_alibaba", "tao_bridge")
+
+def link_internal_tao_bridge(args):
+    # softlink ["tao_launch_op", "gpu"] dirs, "tvm" and "transform" dirs are not needed for now.
+    for dir_name in ["tao_launch_op", "gpu"]:
+        src_file = os.path.join(internal_tao_bridge_dir(), dir_name)
+        link_in_bridge = os.path.join(tao_bridge_dir(), dir_name)
+        if args.platform_alibaba:
+            execute("rm -rf {0} && ln -s {1} {0}".format(link_in_bridge, src_file))
+        else:
+            execute("rm -rf {0}".format(link_in_bridge))
 
 def add_ral_link_if_not_exist(root):
     RAL_DIR_IN_TF = "tao_compiler/mlir/xla"
@@ -235,6 +250,7 @@ def configure_bridge_bazel(root, args):
     # TODO(lanbo.llb): support tf_addons build with bazel
     # TODO(lanbo.llb): support TAO_DISABLE_LINK_TF_FRAMEWORK in bazel??
     tao_bazel_root = tao_bazel_dir(root)
+    link_internal_tao_bridge(args)
     with open(os.path.join(tao_bazel_root, ".bazelrc_gen"), "w") as f:
 
         def _opt(opt, value, cmd="build"):
@@ -518,6 +534,10 @@ def tao_bridge_bazel_config(args):
         bazel_config += " --config=disc_dcu"
     else:
         bazel_config += " --config=disc_cuda"
+    if args.platform_alibaba:
+        bazel_config += " --config=platform_alibaba"
+        if args.blade_gemm:
+            bazel_config += " --config=blade_gemm"
     return bazel_config
 
 @time_stage()
@@ -836,6 +856,12 @@ def parse_args():
     )
     parser.add_argument(
         "--build_dbg_symbol", action="store_true", help="Add -g to build options"
+    )
+    parser.add_argument(
+        "--platform_alibaba", action="store_true", help="build with is_platform_alibaba=True"
+    )
+    parser.add_argument(
+        "--blade_gemm", action="store_true", help="build with is_blade_gemm=True"
     )
     # flag validation
     args = parser.parse_args()

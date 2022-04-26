@@ -76,3 +76,9 @@ def if_cxx11_abi(if_true, if_false=[]):
         "@local_config_blade_disc_helper//:is_cxx11_abi": if_true,
         "//conditions:default": if_false
     })
+
+def if_platform_alibaba(if_true, if_false=[]):
+    return select({
+        "@local_config_blade_disc_helper//:is_platform_alibaba": if_true,
+        "//conditions:default": if_false
+    })

@@ -554,8 +554,10 @@ cc_library(
     ]),
     linkopts = [
         "-fopenmp",
-        "-ldl"
-    ],
+        "-ldl",
+    ] + if_blade_gemm([
+        "-lm",
+    ]),
     deps = [
         ":ral_context",
         ":ral_cpu_driver",
@@ -569,8 +571,8 @@ cc_library(
         "@local_config_cuda//cuda:cuda_headers",
     ]) + if_rocm_is_configured([
         "@local_config_rocm//rocm:rocm_headers",
-    ]) + if_patine([
-        ":disc_patine_client_deps",
+    ]) + if_blade_gemm([
+        "@blade_gemm//:blade_gemm",
     ]) + if_mkldnn([
         ":disc_mkl_bridge",
     ]),

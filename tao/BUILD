@@ -9,6 +9,7 @@ load("@local_config_blade_disc_helper//:build_defs.bzl",
     "disc_build_host",
     "disc_build_ip",
     "disc_build_time",
+    "if_platform_alibaba",
 )
 load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_shared_object")
 
@@ -72,6 +73,19 @@ cc_proto_library(
     ],
 )
 
+filegroup(
+    name = "exclude_srcs",
+    srcs = if_platform_alibaba([
+        "tao_bridge/gpu/bace_gemm_thunk.cc",
+    ]),
+)
+
+filegroup(
+    name = "exclude_hdrs",
+    srcs = if_platform_alibaba([
+    ]),
+)
+
 cc_library(
     name = "tao_bridge",
     srcs = glob(
@@ -80,6 +94,7 @@ cc_library(
         ],
         exclude = [
             "tao_bridge/**/*test.cc",
+            "tao_bridge/gpu/bace_gemm_thunk.cc",
         ],
     ) + [
         ":tao_compiler_input_genproto",
@@ -91,6 +106,9 @@ cc_library(
             "tao_bridge/**/*.h"
         ] + [
             "third_party/json/single_include/nlohmann/json.hpp",
+        ],
+        exclude = [
+            "tao_bridge/gpu/bace_gemm_thunk.h",
         ],
     ),
     deps = [

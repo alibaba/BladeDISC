@@ -4,6 +4,7 @@ load("@org_third_party//bazel:common.bzl", "maybe_http_archive")
 load("@org_third_party//bazel/onednn:onednn_configure.bzl", "onednn_configure")
 load("@org_third_party//bazel/tf:tf_configure.bzl", "tf_configure")
 load("@org_third_party//bazel/tf_protobuf:tf_protobuf_configure.bzl", "tf_protobuf_configure")
+load("@org_third_party//bazel/blade_gemm:blade_gemm_configure.bzl", "blade_gemm_configure")
 
 load("@org_tensorflow//third_party/gpus:cuda_configure.bzl", "cuda_configure")
 load("@org_tensorflow//third_party/gpus:rocm_configure.bzl", "rocm_configure")
@@ -98,6 +99,8 @@ def _tao_bridge_toolchains():
     cuda_configure(name = "local_config_cuda")
 
     rocm_configure(name = "local_config_rocm")
+
+    blade_gemm_configure(name = "local_config_blade_gemm")
 
 def workspace():
     _tao_bridge_repositories()

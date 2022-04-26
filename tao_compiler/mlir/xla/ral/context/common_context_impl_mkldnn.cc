@@ -431,7 +431,7 @@ void ral_conv(ExecutionContext* ctx, opaque_t /*stream_handle*/,
     // reorder to dst format
     y.reorder_to(params.dst);
   } else {
-    if (params.weight_is_const) {
+    if (params.weight_is_const && enableWeightPrePacking()) {
       ideep::convolution_forward_params conv_params;
       ideep::convolution_forward::prepare<true>(
           conv_params, params.src, params.weight, params.dst_dims, params.dst,

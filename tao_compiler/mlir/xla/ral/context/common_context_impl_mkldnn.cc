@@ -97,6 +97,22 @@ bool enableInOutLayoutTuning() {
   return enabled;
 }
 
+bool initEnableWeightPrePacking() {
+  const char* env = getenv("DISC_CPU_ENABLE_WEIGHT_PRE_PACKING");
+  // TODO(disc): change this to true once we can limit the max number of cache
+  // memory used.
+  if (!env) return false;
+  std::string envStr = env;
+  std::transform(envStr.begin(), envStr.end(), envStr.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  return envStr == "true" || envStr == "1";
+}
+
+bool enableWeightPrePacking() {
+  static bool enabled = initEnableWeightPrePacking();
+  return enabled;
+}
+
 }  // namespace
 
 using ideep::data_type;
@@ -518,7 +534,8 @@ template <typename Tinput, int N = 2, typename Tweight = Tinput,
           typename Toutput = Tinput>
 void mkl_ral_gemm(ExecutionContext* ctx, void* stream_handle,
                   MemRefType<Tinput, N> A, MemRefType<Tweight, N> B,
-                  MemRefType<Toutput, N> C, bool tp_a, bool tp_b) {
+                  MemRefType<Toutput, N> C, bool tp_a, bool tp_b,
+                  bool weight_is_const) {
 #if not defined(TAO_X86)
   ctx->signalError(Context::FAILURE, "mkl_ral_gemm not impl");
 #else
@@ -534,11 +551,17 @@ void mkl_ral_gemm(ExecutionContext* ctx, void* stream_handle,
 #endif
 }
 
+struct OnednnGemmState : public Context::Resource {
+  std::mutex mu;
+  std::unordered_map<opaque_t, std::vector<ideep::tensor>> packed_weight_cache;
+};
+
 template <typename Tinput, int N = 2, typename Tweight = Tinput,
           typename Toutput = Tinput>
 void onednn_ral_gemm(ExecutionContext* ctx, void* stream_handle,
                      MemRefType<Tinput, N> A, MemRefType<Tweight, N> B,
-                     MemRefType<Toutput, N> C, bool tp_a, bool tp_b) {
+                     MemRefType<Toutput, N> C, bool tp_a, bool tp_b,
+                     bool weight_is_const) {
   int m = tp_a ? A.sizes[1] : A.sizes[0];
   int k = tp_a ? A.sizes[0] : A.sizes[1];
   int n = tp_b ? B.sizes[0] : B.sizes[1];
@@ -555,10 +578,46 @@ void onednn_ral_gemm(ExecutionContext* ctx, void* stream_handle,
 
   ideep::matmul_forward::compute<true>(src, weight, output);
 #else
-  dnnl::sgemm(tp_a ? 'T' : 'N', tp_b ? 'T' : 'N', m, n, k, 1.0,
-              reinterpret_cast<const float*>(A.data), A.strides[0],
-              reinterpret_cast<const float*>(B.data), B.strides[0], 0.0,
-              reinterpret_cast<float*>(C.data), C.strides[0]);
+  if (!enableWeightPrePacking() || !weight_is_const) {
+    dnnl::sgemm(tp_a ? 'T' : 'N', tp_b ? 'T' : 'N', m, n, k, 1.0,
+                reinterpret_cast<const float*>(A.data), A.strides[0],
+                reinterpret_cast<const float*>(B.data), B.strides[0], 0.0,
+                reinterpret_cast<float*>(C.data), C.strides[0]);
+    return;
+  }
+  data_type input_dtype = toDataType<Tinput>();
+  tensor src{dims{m, k}, input_dtype, tp_a ? format_tag::ba : format_tag::ab,
+             A.data};
+  data_type weight_dtype = toDataType<Tweight>();
+  tensor weight{dims{k, n}, weight_dtype,
+                tp_b ? format_tag::ba : format_tag::ab, B.data};
+  data_type output_dtype = toDataType<Toutput>();
+  tensor output{dims{m, n}, output_dtype, format_tag::ab, C.data};
+  auto weights_desc =
+      ideep::matmul_forward::expected_weights_desc(src, weight, output);
+
+  ideep::tensor packed_weight;
+  std::string unique_name = "tao_ral.cpu.onednn_gemm_" +
+                            tao::ral::TaoTypeNameHelper<Tinput>::Invoke();
+  auto state = ctx->getOrCreateResource<OnednnGemmState>(
+      unique_name, []() { return new OnednnGemmState; });
+  {
+    std::lock_guard<std::mutex> l(state->mu);
+    auto& packed_weights = state->packed_weight_cache[B.data];
+    for (auto& tensor : packed_weights) {
+      if (weights_desc == tensor.get_desc()) {
+        packed_weight = tensor;
+        break;
+      }
+    }
+    if (packed_weight.is_empty()) {
+      packed_weight = weight.reorder_if_differ_in(weights_desc);
+      packed_weights.push_back(packed_weight);
+    }
+  }
+  ideep::matmul_forward::compute</* keep_format */ true,
+                                 /* weight_format_any */ true>(
+      src, packed_weight, output);
 #endif
 }
 
@@ -566,7 +625,8 @@ template <typename Tinput, int N = 2, typename Tweight = Tinput,
           typename Toutput = Tinput>
 void ral_gemm(ExecutionContext* ctx, void* stream_handle,
               MemRefType<Tinput, N> A, MemRefType<Tweight, N> B,
-              MemRefType<Toutput, N> C, bool tp_a, bool tp_b) {
+              MemRefType<Toutput, N> C, bool tp_a, bool tp_b,
+              bool weight_is_const) {
   CpuTimer timer("ral_cpu_gemm");
   if (isEmptyMemref(A) || isEmptyMemref(B) || isEmptyMemref(C)) {
     TAO_VLOG(1) << "ral_gemm: early return for empty tensor";
@@ -582,9 +642,9 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle,
   int64_t n = (tp_b ? B.sizes[0] : B.sizes[1]);
   DiscCpuMathKernelMode mode = GetDiscCpuMathKernelMode();
   if (mode == kDiscPreferOneDNN) {
-    onednn_ral_gemm(ctx, stream_handle, A, B, C, tp_a, tp_b);
+    onednn_ral_gemm(ctx, stream_handle, A, B, C, tp_a, tp_b, weight_is_const);
   } else if (mode == kDiscPreferMKL) {
-    mkl_ral_gemm(ctx, stream_handle, A, B, C, tp_a, tp_b);
+    mkl_ral_gemm(ctx, stream_handle, A, B, C, tp_a, tp_b, weight_is_const);
   } else {
     assert(mode == kDiscPreferTuningBasedSelection);
     ctx->signalError(Context::FAILURE,
@@ -606,6 +666,7 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle,
                 << "\tk = " << k << "\n"
                 << "\ttp_a = " << tp_a << "\n"
                 << "\ttp_b = " << tp_b << "\n"
+                << "\tweight_is_const = " << weight_is_const << "\n"
                 << "\tMath Ops = " << 2 * m * n * k << "\n"
                 << "\tBytes = " << bytes << "\n"
                 << "\tBandwidth = "
@@ -631,7 +692,8 @@ template <typename Tinput, int N, typename Tweight = Tinput,
           typename Toutput = Tinput>
 void mkl_ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
                         MemRefType<Tinput, N> A, MemRefType<Tweight, N> B,
-                        MemRefType<Toutput, N> C, bool tp_a, bool tp_b) {
+                        MemRefType<Toutput, N> C, bool tp_a, bool tp_b,
+                        bool weight_is_const) {
 #if not defined(TAO_X86)
   ctx->signalError(Context::FAILURE, "mkl_ral_batch_gemm not impl");
 #else
@@ -659,7 +721,8 @@ template <typename Tinput, int N, typename Tweight = Tinput,
           typename Toutput = Tinput>
 void onednn_ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
                            MemRefType<Tinput, N> A, MemRefType<Tweight, N> B,
-                           MemRefType<Toutput, N> C, bool tp_a, bool tp_b) {
+                           MemRefType<Toutput, N> C, bool tp_a, bool tp_b,
+                           bool weight_is_const) {
   int b = GetBatchSize(A);
   int m = tp_a ? A.sizes[N - 1] : A.sizes[N - 2];
   int n = tp_b ? B.sizes[N - 2] : B.sizes[N - 1];
@@ -681,7 +744,8 @@ template <typename Tinput, int N, typename Tweight = Tinput,
           typename Toutput = Tinput>
 void ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
                     MemRefType<Tinput, N> A, MemRefType<Tweight, N> B,
-                    MemRefType<Toutput, N> C, bool tp_a, bool tp_b) {
+                    MemRefType<Toutput, N> C, bool tp_a, bool tp_b,
+                    bool weight_is_const) {
   static_assert(N > 2, "batch gemm requires operands with rank higher than 2");
   CpuTimer timer("ral_cpu_batch_gemm");
   if (isEmptyMemref(A) || isEmptyMemref(B) || isEmptyMemref(C)) {
@@ -708,9 +772,11 @@ void ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
 
   DiscCpuMathKernelMode mode = GetDiscCpuMathKernelMode();
   if (mode == kDiscPreferOneDNN) {
-    onednn_ral_batch_gemm(ctx, stream_handle, A, B, C, tp_a, tp_b);
+    onednn_ral_batch_gemm(ctx, stream_handle, A, B, C, tp_a, tp_b,
+                          weight_is_const);
   } else if (mode == kDiscPreferMKL) {
-    mkl_ral_batch_gemm(ctx, stream_handle, A, B, C, tp_a, tp_b);
+    mkl_ral_batch_gemm(ctx, stream_handle, A, B, C, tp_a, tp_b,
+                       weight_is_const);
   } else {
     assert(mode == kDiscPreferTuningBasedSelection);
     ctx->signalError(
@@ -734,6 +800,7 @@ void ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
                 << "\tk = " << k << "\n"
                 << "\ttp_a = " << tp_a << "\n"
                 << "\ttp_b = " << tp_b << "\n"
+                << "\tweight_is_const = " << weight_is_const << "\n"
                 << "\tMath Ops = " << 2 * batch_a * m * n * k << "\n"
                 << "\tBytes = " << bytes << "\n"
                 << "\tBandwidth = "

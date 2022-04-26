@@ -98,6 +98,15 @@ void InsertSyncOnStream(Operation* op, Value ctx, Value stream_handle,
                               "sync_on_stream", false, "gpu");
 }
 
+// Returns true if the underlying buffer of this memref is a const buffer.
+bool isConstant(Value value) {
+  Value root = getRootMemRef(value);
+  for (Operation* user : getValueUsers(root)) {
+    if (isa<lmhlo::ConstOp>(user)) return true;
+  }
+  return false;
+}
+
 // Converting:
 //   %output = disc_ral.recv_input(ctx, input_idx)
 //     to
@@ -236,6 +245,8 @@ struct DotGeneralOpConvertor : public OpRewritePattern<DotGeneralOp> {
         op.getLoc(), tp_lhs, /*bitWidth*/ 1));
     newOperands.push_back(rewriter.create<arith::ConstantIntOp>(
         op.getLoc(), tp_rhs, /*bitWidth*/ 1));
+    newOperands.push_back(rewriter.create<arith::ConstantIntOp>(
+        op.getLoc(), isConstant(op->getOperand(1)), /*bitWidth*/ 1));
 
     bool on_gpu = placement_utils::isGpuMemRef(op->getOperand(2));
     rewriter.replaceOpWithNewOp<DispatchOp>(op, llvm::None, ctx, newOperands,
@@ -245,14 +256,6 @@ struct DotGeneralOpConvertor : public OpRewritePattern<DotGeneralOp> {
     return success();
   }
 };
-
-bool isConstant(Value value) {
-  Value root = getRootMemRef(value);
-  for (Operation* user : getValueUsers(root)) {
-    if (isa<lmhlo::ConstOp>(user)) return true;
-  }
-  return false;
-}
 
 template <typename OpTy>
 Value GetConvMetadata(OpTy op, PatternRewriter& rewriter) {

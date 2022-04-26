@@ -122,7 +122,15 @@ RalContext::RalContext(std::shared_ptr<backends::EngineState> state)
   TORCH_CHECK(is_ok, "FAiled to dump model proto to file.");
   default_opt_.metadata_file_path = meta_tmpf_.GetFilename();
   default_opt_.cache_workspace_mem_across_execution = true;
-  cpu_opt_.cpu_allocator.reset(new RalAllocator(c10::alloc_cpu, c10::free_cpu));
+  auto torch_allocator = c10::GetAllocator(torch::kCPU);
+  TORCH_CHECK(torch_allocator != nullptr);
+  auto cpu_alloc = [torch_allocator](size_t n) {
+    return torch_allocator->raw_allocate(n);
+  };
+  auto cpu_delete = [torch_allocator](void* ptr) {
+    torch_allocator->raw_deallocate(ptr);
+  };
+  cpu_opt_.cpu_allocator.reset(new RalAllocator(cpu_alloc, cpu_delete));
 
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
   at::globalContext().lazyInitCUDA();
@@ -196,11 +204,32 @@ at::List<at::Tensor> RalContext::CreateAndBindingOutputs(
     auto option = torch::device(dev_type)
                       .dtype(scalar_type)
                       .memory_format(torch::MemoryFormat::Contiguous);
-    at::Tensor out_tensor = IsEmptyTensor(out_buf->shape())
-        ? torch::zeros(out_buf->shape(), option)
-        : torch::from_blob(
+    at::Tensor out_tensor;
+    if (IsEmptyTensor(out_buf->shape())) {
+      out_tensor = torch::zeros(out_buf->shape(), option);
+    } else if (out_buf->owned()) {
+      auto cpu_allocator = c10::GetAllocator(torch::kCPU);
+      TORCH_CHECK(cpu_allocator != nullptr);
+      std::function<void(void*)> deleter = [cpu_allocator](void* ptr) {
+        cpu_allocator->raw_deallocate(ptr);
+      };
+#ifdef TORCH_BLADE_BUILD_WITH_CUDA
+      if (output_info.device == "cuda") {
+        deleter = c10::cuda::CUDACachingAllocator::raw_delete;
+      }
+#endif
+      out_tensor = torch::from_blob(
+          const_cast<void*>(out_buf->data()),
+          out_buf->shape(),
+          deleter,
+          option);
+      out_buf->release();
+    } else {
+      out_tensor =
+          torch::from_blob(
               const_cast<void*>(out_buf->data()), out_buf->shape(), option)
               .clone();
+    }
     outputs.push_back(out_tensor);
   }
   return outputs;

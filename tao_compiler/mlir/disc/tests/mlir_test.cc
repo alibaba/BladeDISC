@@ -29,6 +29,8 @@
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
 #include "tensorflow/compiler/mlir/xla/ral/context/base/cuda/cuda_context_impl.h"
 #else
+// TODO(disc): figure out why the bazel does not trigger re-compile this file
+// after we update ral.
 #include "tensorflow/compiler/mlir/xla/ral/context/base/cpu/cpu_context_impl.h"
 #endif
 

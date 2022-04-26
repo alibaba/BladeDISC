@@ -109,6 +109,9 @@ void BaseCpuExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {
             state->cpu_allocator->dealloc(data);
           });
     }
+    if (outputSharedOrder[output.data()] == 1) {
+      output.markOwned();
+    }
   } else {
     // Cpu buffer allocted by the compiler directly.
     // TODO: make compiler use ral to alloc cpu memory as well to remove this

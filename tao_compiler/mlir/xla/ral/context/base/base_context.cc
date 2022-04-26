@@ -198,6 +198,7 @@ void ral_base_cuda_send_output(ExecutionContext* ctx, int64_t output_idx,
   tensor.buffer = memref.data;
 
   exec_ctx->outputs.insert(std::make_pair(output_idx, tensor));
+  ++(exec_ctx->outputSharedOrder[tensor.buffer]);
   TAO_VLOG(1) << "set_output #" << output_idx;
 }
 

@@ -223,6 +223,9 @@ void BaseCudaExecutionContext::setOutputDeleter(OutputBufferWrapper& output) {
               state->gpu_allocator->dealloc(data);
             });
       }
+      if (outputSharedOrder[output.data()] == 1) {
+        output.markOwned();
+      }
       return;
     }
   }

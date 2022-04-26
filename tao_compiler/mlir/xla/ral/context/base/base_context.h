@@ -53,10 +53,24 @@ class BaseOutputBufferWrapper : public OutputBufferWrapper {
   const buffer_shape_t& shape() override { return shape_; }
   void set_deleter(Deleter deleter) { deleter_ = deleter; }
 
+  // Returns true if this wrapper is the exclusive owner
+  bool owned() const override { return owned_; };
+
+  // mark that this wrapper exclusively owns the underlying buffer.
+  void markOwned() override { owned_ = true; }
+
+  // Release the ownership of the wrapper buffer.
+  // This requires that the buffer is owned by this wrapper.
+  void release() override {
+    deleter_ = nullptr;
+    owned_ = false;
+  }
+
  private:
   buffer_t data_;
   buffer_shape_t shape_;
   Deleter deleter_;
+  bool owned_ = false;
 };
 
 class InternalAllocator : public Allocator {
@@ -101,6 +115,9 @@ struct BaseExecutionContext : public tao::ral::ExecutionContext {
   std::unordered_map<int32_t, Tensor> inputs;
   // Output bindings
   std::unordered_map<int32_t, Tensor> outputs;
+  // Record one underlying output buffer is shared by how many different
+  // outputs.
+  std::unordered_map<const_buffer_t, int32_t> outputSharedOrder;
 
  protected:
   virtual void setOutputDeleter(OutputBufferWrapper& output) = 0;

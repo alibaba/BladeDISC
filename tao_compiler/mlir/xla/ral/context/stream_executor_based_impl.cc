@@ -272,8 +272,8 @@ struct RalGemmState : public Context::Resource {
 
 template <typename InT, typename OutT, typename E = float>
 void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
-              MemRefType<InT, 2> B, MemRefType<OutT, 2> C, bool tp_a,
-              bool tp_b) {
+              MemRefType<InT, 2> B, MemRefType<OutT, 2> C, bool tp_a, bool tp_b,
+              bool weight_is_const) {
   if (isEmptyMemref(A) || isEmptyMemref(B) || isEmptyMemref(C)) {
     TAO_VLOG(1) << "ral_gemm: early return for empty tensor";
     return;
@@ -375,7 +375,8 @@ int64_t GetBatchSize(MemRefType<T, N> memref) {
 template <typename InT, typename OutT, int N, typename E = float>
 void ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
                     MemRefType<InT, N> A, MemRefType<InT, N> B,
-                    MemRefType<OutT, N> C, bool tp_a, bool tp_b) {
+                    MemRefType<OutT, N> C, bool tp_a, bool tp_b,
+                    bool weight_is_const) {
   if (isEmptyMemref(A) || isEmptyMemref(B) || isEmptyMemref(C)) {
     TAO_VLOG(1) << "ral_batch_gemm: early return for empty tensor";
     return;

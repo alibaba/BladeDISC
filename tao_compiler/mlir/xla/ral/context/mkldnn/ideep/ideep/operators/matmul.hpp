@@ -7,13 +7,13 @@ struct matmul_forward : public dnnl::matmul,
                         utils::computation_cache<dnnl::matmul::primitive_desc> {
   using super = dnnl::matmul;
 
-  template <bool keep_format = true>
+  template <bool keep_format = true, bool weight_format_any = false>
   static void compute(const tensor& src, const tensor& weights, tensor& dst,
                       const attr_t& attr = attr_t(),
                       const engine& aengine = engine::cpu_engine()) {
     static tensor dummy_bias;
-    compute_impl</*with_bias=*/false, keep_format>(src, weights, dummy_bias,
-                                                   dst, attr, aengine);
+    compute_impl</*with_bias=*/false, keep_format, weight_format_any>(
+        src, weights, dummy_bias, dst, attr, aengine);
   }
 
   static void compute(const tensor& src, const tensor& weights,
@@ -70,8 +70,20 @@ struct matmul_forward : public dnnl::matmul,
     return pd.weights_desc();
   }
 
+  static tensor::desc expected_weights_desc(
+      const tensor& src, const tensor& weights, tensor& dst,
+      const attr_t& attr = attr_t(),
+      const engine& aengine = engine::cpu_engine()) {
+    auto src_desc = src.get_desc();
+    auto weights_desc = weights.get_desc().to_format_any();
+    auto dst_desc = dst.get_desc();
+    auto pd = primitive_desc({src_desc, weights_desc, dst_desc}, aengine);
+    return pd.weights_desc();
+  }
+
  private:
-  template <bool with_bias = false, bool keep_format = true>
+  template <bool with_bias = false, bool keep_format = true,
+            bool weight_format_any = false>
   static primitive_desc get_primitive_desc(
       const tensor::desc& src_desc, const tensor::desc& weights_desc,
       const tensor::desc& bias_desc, const tensor::desc& dst_desc,
@@ -86,6 +98,8 @@ struct matmul_forward : public dnnl::matmul,
       weights_desc_query = weights_desc.to_format_any();
       bias_desc_query = with_bias ? bias_desc.to_format_any() : tensor::desc();
       dst_desc_query = dst_desc.to_format_any();
+    } else if (weight_format_any) {
+      weights_desc_query = weights_desc.to_format_any();
     }
 
     auto key =
@@ -100,7 +114,8 @@ struct matmul_forward : public dnnl::matmul,
     });
   }
 
-  template <bool with_bias = false, bool keep_format = true>
+  template <bool with_bias = false, bool keep_format = true,
+            bool weight_format_any = false>
   static void compute_impl(const tensor& src, const tensor& weights,
                            const tensor& bias, tensor& dst,
                            const attr_t& attr = attr_t(),
@@ -112,7 +127,7 @@ struct matmul_forward : public dnnl::matmul,
       bias_desc = bias.get_desc();
     }
     dst_desc = dst.get_desc();
-    auto pd = get_primitive_desc<with_bias, keep_format>(
+    auto pd = get_primitive_desc<with_bias, keep_format, weight_format_any>(
         src_desc, weights_desc, bias_desc, dst_desc, attr, aengine);
     if (with_bias) {
       super(pd).execute(stream::default_stream(), {{DNNL_ARG_SRC, src},

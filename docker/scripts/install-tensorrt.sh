@@ -15,7 +15,7 @@ set -ex
 
 device=$1
 [[ -z "${device}" ]] && { echo "Device is required, but got '${device}'"; exit 1; }
-
+[[ ! "${device}" =~ ^cu[0-9]+ ]] && { echo "Skip installing TensorRT for non-CUDA image."; exit 0; }
 
 echo "Install TensorRT for: ${device}"
 

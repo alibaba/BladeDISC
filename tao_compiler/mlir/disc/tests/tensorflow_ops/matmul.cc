@@ -223,6 +223,8 @@ TEST(TFMatMulOpTest, DynamicShapeTTF64) {
 
 // const weight test case
 TEST(TFMatMulOpTest, ConstWeightF32) {
+  setenv("DISC_CPU_MATH_KERNEL_MODE", "onednn", 1);
+  setenv("DISC_CPU_ENABLE_WEIGHT_PRE_PACKING", "true", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "matmul_nn_const_weight_f32.mlir",
       /*backend_types*/
@@ -231,6 +233,8 @@ TEST(TFMatMulOpTest, ConstWeightF32) {
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x110xf32_X"},
       /*output_descriptors*/ {"f32_X"}));
+  unsetenv("DISC_CPU_ENABLE_WEIGHT_PRE_PACKING");
+  unsetenv("DISC_CPU_MATH_KERNEL_MODE");
 }
 
 }  // namespace mlir_test

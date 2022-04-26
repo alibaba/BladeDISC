@@ -3,7 +3,7 @@ load("@pybind11_bazel//:build_defs.bzl", "pybind_extension", "pybind_library")
 cc_library (
   name = "disc_passes",
   srcs = [
-    "passes/cluster.cpp",
+    "passes/disc_fuser.cpp",
     "passes/register_disc_class.cpp",
     "passes/graph_fuser.cpp",
   ],

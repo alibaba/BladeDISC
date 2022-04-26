@@ -1195,7 +1195,8 @@ struct GraphFuser {
       }
     }
 
-    fuseConcats();
+    //
+    // fuseConcats();
 
     optimizeFusedGraphs();
 

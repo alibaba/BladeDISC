@@ -44,6 +44,8 @@ struct ExpandPowOp : public OpRewritePattern<mhlo::PowOp> {
                             int64_t exponential) const {
     // TODO(disc): support non-positive exponential
     if (exponential <= 0) return failure();
+    // TODO(disc): support larger exponential
+    if (exponential > 8) return failure();
 
     Location loc = op.getLoc();
     Value newResult = op->getOperand(0);

@@ -374,3 +374,8 @@ def DiscDotMergePass : Pass<"disc-dot-merge", "FuncOp"> {
                 "batched dot, or merge dots with same operand into one (on-going)";
   let constructor = "createDiscDotMergePass()";
 }
+
+def DiscAlgebraSimplifierPass : Pass<"disc-algebra-simplifier", "FuncOp"> {
+  let summary = "Apply some basic algebra simplification optimizations";
+  let constructor = "createDiscAlgebraSimplifierPass()";
+}

@@ -1506,6 +1506,25 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_algebra_simplifier",
+    srcs = ["transforms/disc_algebra_simplifier.cc"],
+    deps = [
+        ":mhlo_disc",
+        ":pass_details",
+        "//tensorflow/compiler/mlir/hlo:hlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Shape",
+        "@llvm-project//mlir:StandardOps",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "all_passes",
     hdrs = [
         "transforms/register_passes.h",
@@ -1517,6 +1536,7 @@ cc_library(
         ":MhloDiscPassIncGen",
         ":conv_rewriter",
         ":disc_dot_merge",
+        ":disc_algebra_simplifier",
         ":disc_assign_kernel_name",
         ":disc_assign_memory_space",
         ":disc_canonicalizer",

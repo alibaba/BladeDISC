@@ -216,6 +216,10 @@ def remote_cache_token():
     if os.path.exists(fn):
         with open(fn) as f:
             return str(f.read()).strip()
+    else:
+        if "TF_REMOTE_CACHE" in os.environ:
+            token = os.getenv("TF_REMOTE_CACHE")
+            return token
     return None
 
 
@@ -472,12 +476,12 @@ def deduce_cuda_info():
         for d in os.listdir("/usr/local")
         if d.startswith("cuda-")
     ]
-    assert (
-        len(all_cuda) == 1
-    ), "Mutiple cuda installed, but none linked to `/usr/local/cuda`."
-    ver = _deduce_from_version_file(all_cuda[0])
-    if ver is not None:
-        return ver, all_cuda[0]
+    if (len(all_cuda) != 1):
+        logger.info("Mutiple cuda installed.")
+    else:
+        ver = _deduce_from_version_file(all_cuda[0])
+        if ver is not None:
+            return ver, all_cuda[0]
 
     ver, cuda_home = _deduce_from_nvcc()
     if ver is not None:

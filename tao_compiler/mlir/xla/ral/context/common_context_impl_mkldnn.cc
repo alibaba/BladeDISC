@@ -582,6 +582,11 @@ struct OnednnACLGemmKey {
   }
 };
 
+std::thread::id getThreadId() {
+  static thread_local std::thread::id tid = std::this_thread::get_id();
+  return tid;
+};
+
 struct OnednnACLKeyHasher {
   std::size_t operator()(const OnednnACLGemmKey& key) const {
     std::size_t seed = std::hash<int>()(key.m);
@@ -831,7 +836,8 @@ void onednn_ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
   MatmulPrimitive* primitive;
   {
     std::lock_guard<std::mutex> l(state->mu);
-    OnednnACLGemmKey key{m, n, k, b, tp_a, tp_b, B.data};
+    OnednnACLGemmKey key{m,    n,    k,      b,
+                         tp_a, tp_b, B.data, std::this_thread::get_id()};
     primitive = getOrCreateMatmulPrimitive(state->cached_primitive, key, src,
                                            weight, output);
   }

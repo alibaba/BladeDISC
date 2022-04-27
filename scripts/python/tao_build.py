@@ -802,7 +802,7 @@ def sanity_check(git_target="origin/master"):
     # Clang format for all h/c/cc file
     # This will only check the difference between current branch and the git target
     root = get_source_root_dir()
-    clang_format_cmd = root + "../platform_alibaba/ci_build/lint/git-clang-format.sh " + git_target
+    clang_format_cmd = root + "/../platform_alibaba/ci_build/lint/git-clang-format.sh " + git_target
     execute(clang_format_cmd)
     # TODO(): Add python lint later
 

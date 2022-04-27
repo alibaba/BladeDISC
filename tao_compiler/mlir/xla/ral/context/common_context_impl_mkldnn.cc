@@ -824,8 +824,6 @@ void onednn_ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
     return;
   }
 
-  TAO_VLOG(0) << "xxxxxx debug";
-
   std::string unique_name = "tao_ral.cpu.onednn_acl_batch_gemm_" +
                             tao::ral::TaoTypeNameHelper<Tinput>::Invoke();
   auto state = ctx->getOrCreateResource<OnednnACLGemmState>(

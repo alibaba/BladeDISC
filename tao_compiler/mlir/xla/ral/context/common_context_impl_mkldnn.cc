@@ -12,6 +12,7 @@
 #if defined(TAO_CPU_ONLY) && defined(TAO_ENABLE_MKLDNN)
 
 #include <sstream>
+#include <thread>
 
 #include "dnnl_threadpool_iface.hpp"
 #if defined(TAO_X86)
@@ -556,6 +557,69 @@ struct OnednnGemmState : public Context::Resource {
   std::unordered_map<opaque_t, std::vector<ideep::tensor>> packed_weight_cache;
 };
 
+template <class T>
+inline void hash_combine(std::size_t& seed, const T& v) {
+  std::hash<T> hasher;
+  seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
+
+struct OnednnACLGemmKey {
+  int m = -1;
+  int n = -1;
+  int k = -1;
+  int batch = 1;
+  bool transpose_a = false;
+  bool transpose_b = false;
+  opaque_t const_weight_ptr = nullptr;
+  // We need this since the matmul primitive is not thead safe.
+  // To enable large parallelism, we cache the primitive per-thread.
+  std::thread::id tid;
+
+  bool operator==(const OnednnACLGemmKey& rhs) const {
+    return m == rhs.m && n == rhs.n && k == rhs.k && batch == rhs.batch &&
+           transpose_a == rhs.transpose_a && transpose_b == rhs.transpose_b &&
+           const_weight_ptr == rhs.const_weight_ptr && tid == rhs.tid;
+  }
+};
+
+struct OnednnACLKeyHasher {
+  std::size_t operator()(const OnednnACLGemmKey& key) const {
+    std::size_t seed = std::hash<int>()(key.m);
+    hash_combine(seed, key.n);
+    hash_combine(seed, key.k);
+    hash_combine(seed, key.batch);
+    hash_combine(seed, key.transpose_a);
+    hash_combine(seed, key.transpose_b);
+    hash_combine(seed, key.const_weight_ptr);
+    hash_combine(seed, key.tid);
+    return seed;
+  }
+};
+
+using MatmulPrimitive = ideep::matmul_forward::super;
+using OnednnACLGemmCache =
+    std::unordered_map<OnednnACLGemmKey, std::shared_ptr<MatmulPrimitive>,
+                       OnednnACLKeyHasher>;
+
+struct OnednnACLGemmState : public Context::Resource {
+  std::mutex mu;
+  OnednnACLGemmCache cached_primitive;
+};
+
+MatmulPrimitive* getOrCreateMatmulPrimitive(
+    OnednnACLGemmCache& cached_primitive, const OnednnACLGemmKey& key,
+    const tensor& src, const tensor& weight, tensor& output) {
+  auto it = cached_primitive.find(key);
+  if (it == cached_primitive.end()) {
+    auto pb =
+        ideep::matmul_forward::get_primitive_desc<true>(src, weight, output);
+    std::shared_ptr<MatmulPrimitive> primitive(new MatmulPrimitive(pb));
+    it = cached_primitive.insert(std::make_pair(key, std::move(primitive)))
+             .first;
+  }
+  return it->second.get();
+}
+
 template <typename Tinput, int N = 2, typename Tweight = Tinput,
           typename Toutput = Tinput>
 void onednn_ral_gemm(ExecutionContext* ctx, void* stream_handle,
@@ -566,7 +630,16 @@ void onednn_ral_gemm(ExecutionContext* ctx, void* stream_handle,
   int k = tp_a ? A.sizes[0] : A.sizes[1];
   int n = tp_b ? B.sizes[0] : B.sizes[1];
 
-#if defined(TAO_AARCH64)
+#if defined(TAO_X86)
+  if (!enableWeightPrePacking() || !weight_is_const) {
+    dnnl::sgemm(tp_a ? 'T' : 'N', tp_b ? 'T' : 'N', m, n, k, 1.0,
+                reinterpret_cast<const float*>(A.data), A.strides[0],
+                reinterpret_cast<const float*>(B.data), B.strides[0], 0.0,
+                reinterpret_cast<float*>(C.data), C.strides[0]);
+    return;
+  }
+#endif
+
   data_type input_dtype = toDataType<Tinput>();
   tensor src{dims{m, k}, input_dtype, tp_a ? format_tag::ba : format_tag::ab,
              A.data};
@@ -576,23 +649,27 @@ void onednn_ral_gemm(ExecutionContext* ctx, void* stream_handle,
   data_type output_dtype = toDataType<Toutput>();
   tensor output{dims{m, n}, output_dtype, format_tag::ab, C.data};
 
-  ideep::matmul_forward::compute<true>(src, weight, output);
-#else
+#if defined(TAO_AARCH64)
+  // not using pre-packing path
   if (!enableWeightPrePacking() || !weight_is_const) {
-    dnnl::sgemm(tp_a ? 'T' : 'N', tp_b ? 'T' : 'N', m, n, k, 1.0,
-                reinterpret_cast<const float*>(A.data), A.strides[0],
-                reinterpret_cast<const float*>(B.data), B.strides[0], 0.0,
-                reinterpret_cast<float*>(C.data), C.strides[0]);
+    ideep::matmul_forward::compute<true>(src, weight, output);
     return;
   }
-  data_type input_dtype = toDataType<Tinput>();
-  tensor src{dims{m, k}, input_dtype, tp_a ? format_tag::ba : format_tag::ab,
-             A.data};
-  data_type weight_dtype = toDataType<Tweight>();
-  tensor weight{dims{k, n}, weight_dtype,
-                tp_b ? format_tag::ba : format_tag::ab, B.data};
-  data_type output_dtype = toDataType<Toutput>();
-  tensor output{dims{m, n}, output_dtype, format_tag::ab, C.data};
+
+  std::string unique_name = "tao_ral.cpu.onednn_acl_gemm_" +
+                            tao::ral::TaoTypeNameHelper<Tinput>::Invoke();
+  auto state = ctx->getOrCreateResource<OnednnACLGemmState>(
+      unique_name, []() { return new OnednnACLGemmState; });
+  MatmulPrimitive* primitive;
+  {
+    OnednnACLGemmKey key{m,    n,    k,      1,
+                         tp_a, tp_b, B.data, std::this_thread::get_id()};
+    std::lock_guard<std::mutex> l(state->mu);
+    primitive = getOrCreateMatmulPrimitive(state->cached_primitive, key, src,
+                                           weight, output);
+  }
+  ideep::matmul_forward::compute(*primitive, src, weight, output);
+#else
   auto weights_desc =
       ideep::matmul_forward::expected_weights_desc(src, weight, output);
 
@@ -737,7 +814,33 @@ void onednn_ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
   data_type output_dtype = toDataType<Toutput>();
   tensor output{dims{b, m, n}, output_dtype, format_tag::abc, C.data};
 
+#if defined(TAO_X86)
+  // TODO(disc): oneDNN does not support pre-packing for batch gemm????
   ideep::matmul_forward::compute<true>(src, weight, output);
+#elif defined(TAO_AARCH64)
+  // not using pre-packing path
+  if (!enableWeightPrePacking() || !weight_is_const) {
+    ideep::matmul_forward::compute<true>(src, weight, output);
+    return;
+  }
+
+  TAO_VLOG(0) << "xxxxxx debug";
+
+  std::string unique_name = "tao_ral.cpu.onednn_acl_batch_gemm_" +
+                            tao::ral::TaoTypeNameHelper<Tinput>::Invoke();
+  auto state = ctx->getOrCreateResource<OnednnACLGemmState>(
+      unique_name, []() { return new OnednnACLGemmState; });
+  MatmulPrimitive* primitive;
+  {
+    std::lock_guard<std::mutex> l(state->mu);
+    OnednnACLGemmKey key{m, n, k, b, tp_a, tp_b, B.data};
+    primitive = getOrCreateMatmulPrimitive(state->cached_primitive, key, src,
+                                           weight, output);
+  }
+  ideep::matmul_forward::compute(*primitive, src, weight, output);
+#else
+  ctx->signalError(Context::FAILURE, "one_ral_batch_gemm not impl");
+#endif
 }
 
 template <typename Tinput, int N, typename Tweight = Tinput,

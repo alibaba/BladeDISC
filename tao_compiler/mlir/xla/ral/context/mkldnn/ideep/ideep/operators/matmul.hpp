@@ -4,7 +4,7 @@
 namespace ideep {
 
 struct matmul_forward : public dnnl::matmul,
-                        utils::computation_cache<dnnl::matmul::primitive_desc> {
+                        utils::computation_cache<dnnl::matmul> {
   using super = dnnl::matmul;
 
   template <bool keep_format = true, bool weight_format_any = false>
@@ -84,7 +84,7 @@ struct matmul_forward : public dnnl::matmul,
  private:
   template <bool with_bias = false, bool keep_format = true,
             bool weight_format_any = false>
-  static primitive_desc get_primitive_desc(
+  static super get_primitive_desc(
       const tensor::desc& src_desc, const tensor::desc& weights_desc,
       const tensor::desc& bias_desc, const tensor::desc& dst_desc,
       const attr_t& attr = attr_t(),
@@ -105,12 +105,12 @@ struct matmul_forward : public dnnl::matmul,
     auto key =
         utils::create_key(src_desc_query, weights_desc_query, with_bias, attr);
     return fetch_or_create(key, [&]() {
-      return with_bias ? primitive_desc({src_desc_query, weights_desc_query,
+      return with_bias ? super(primitive_desc({src_desc_query, weights_desc_query,
                                          bias_desc_query, dst_desc_query},
-                                        attr, aengine)
-                       : primitive_desc({src_desc_query, weights_desc_query,
+                                        attr, aengine))
+                       : super(primitive_desc({src_desc_query, weights_desc_query,
                                          dst_desc_query},
-                                        attr, aengine);
+                                        attr, aengine));
     });
   }
 
@@ -127,16 +127,16 @@ struct matmul_forward : public dnnl::matmul,
       bias_desc = bias.get_desc();
     }
     dst_desc = dst.get_desc();
-    auto pd = get_primitive_desc<with_bias, keep_format, weight_format_any>(
+    auto super_primitive = get_primitive_desc<with_bias, keep_format, weight_format_any>(
         src_desc, weights_desc, bias_desc, dst_desc, attr, aengine);
     if (with_bias) {
-      super(pd).execute(stream::default_stream(), {{DNNL_ARG_SRC, src},
+      super_primitive.execute(stream::default_stream(), {{DNNL_ARG_SRC, src},
                                                    {DNNL_ARG_WEIGHTS, weights},
                                                    {DNNL_ARG_BIAS, bias},
                                                    {DNNL_ARG_DST, dst}});
 
     } else {
-      super(pd).execute(stream::default_stream(), {{DNNL_ARG_SRC, src},
+      super_primitive.execute(stream::default_stream(), {{DNNL_ARG_SRC, src},
                                                    {DNNL_ARG_WEIGHTS, weights},
                                                    {DNNL_ARG_DST, dst}});
     }

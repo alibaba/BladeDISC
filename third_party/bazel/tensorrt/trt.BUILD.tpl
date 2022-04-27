@@ -101,10 +101,7 @@ cc_library(
         "nvinfer_static_lib",
         "@local_config_cuda//cuda:cudart_static",
         #"@cudnn",
-    ] + select({
-        ":windows": ["@local_config_cuda//cuda:cublas"],
-        "//conditions:default": ["@local_config_cuda//cuda:cublas"],
-    }),
+    ] ,
 )
 
 %{myelin_static_rule}
@@ -400,10 +397,7 @@ cc_library(
         "nvinfer_static",
         "nvinferplugin_static_lib",
         "@local_config_cuda//cuda:cudart_static",
-    ] + select({
-        ":windows": ["@local_config_cuda//cuda:cublas"],
-        "//conditions:default": ["@local_config_cuda//cuda:cublas"],
-    }),
+    ],
     alwayslink = True,
     linkstatic = 1,
     copts = [

@@ -8,18 +8,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 #pragma once
+
 #include <memory>
 namespace torch {
 namespace jit {
 class Graph;
-}
+class Node;
+} // namespace jit
 } // namespace torch
 namespace torch_disc {
 namespace compiler {
 
-void ClusterDiscNodes(const std::shared_ptr<torch::jit::Graph>& graph);
+bool IsDiscFusable(const torch::jit::Node* node);
+void CastingScalarInputToTensor(
+    const std::shared_ptr<torch::jit::Graph>& graph);
+
+void DiscFusion(const std::shared_ptr<torch::jit::Graph>& graph);
 
 } //  namespace compiler
 } //  namespace torch_disc

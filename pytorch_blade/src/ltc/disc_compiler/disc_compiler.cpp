@@ -12,7 +12,7 @@
 #include "ltc/disc_compiler/disc_compiler.h"
 
 #include "common_utils/utils.h"
-#include "ltc/disc_compiler/passes/cluster.h"
+#include "ltc/disc_compiler/passes/disc_fuser.h"
 #include "ltc/disc_compiler/passes/register_disc_class.h"
 
 #include <ATen/Functions.h>
@@ -95,7 +95,7 @@ ExecutablePtr CompileToDiscExecutable(
   // Inference shape
   torch::jit::PropagateInputShapes(graph);
   // cluster disc compitable nodes into a sub-graph
-  ClusterDiscNodes(graph);
+  DiscFusion(graph);
   torch::jit::EliminateDeadCode(graph);
   // register a disc custom class to run RAL at runtime stage
   auto disc_inputs = RegisterDiscClass(graph);

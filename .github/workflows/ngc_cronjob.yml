@@ -1,0 +1,57 @@
+name: NGC Regression Cronjob
+
+on:
+  schedule:
+    - cron: '30 23 * * *' # 11:30 pm
+
+jobs:
+  TORCH-NGC:
+    if: github.repository == 'alibaba/BladeDISC' && github.ref == 'refs/heads/main'
+    # The type of runner that the job will run on
+    runs-on: [self-hosted, gpu-t4]
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    # Runs a single command using the runners shell
+    - name: Checkout
+      uses: actions/checkout@v2.4.0
+    - name: Build Dev Docker
+      run: |
+        set -e
+        git submodule sync
+        git submodule update --depth=1 --init --recursive
+        # docker pull bladedisc/bladedisc:latest-devel-pt-ngc
+        # docker build --cache-from bladedisc/bladedisc:latest-devel-pt-ngc -t disc-dev-pt-ngc \
+        docker build -t disc-dev-pt-ngc \
+          --build-arg BASEIMAGE=nvcr.io/nvidia/pytorch:21.11-py3 -f docker/dev/Dockerfile.torch.ngc .
+    - name: Build and Test DISC
+      run: |
+        set -e
+        mkdir -p $HOME/.cache/.torch/
+        mkdir -p $HOME/.cache/.torch/.cache
+        cp $HOME/.cache/remote_cache_token $HOME/.cache/.torch/.cache
+        nvidia-docker run --rm -t --user $(id -u):$(id -g) \
+          -v $HOME/.cache/.torch/:$HOME/.torch \
+          -v $HOME/.cache/.torch/.cache:$HOME/.cache \
+          -v /etc/passwd:/etc/passwd:ro \
+          -v /etc/group:/etc/group:ro \
+          -v $PWD:/disc \
+          -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
+          -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=ngc \
+          -w /disc/pytorch_blade \
+          disc-dev-pt-ngc bash ./benchmark/run_benchmark.sh
+    - name: Deploy PyTorch Blade
+      env:
+        ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+        ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        GITHUB_PULL_REQUEST: ${{ github.event.number }}
+        LOCAL_DEV_DOCKER: disc-dev-pt-ngc
+        REMOTE_DEV_DOCKER: bladedisc:disc-dev-pt-ngc
+        REMOTE_RUNTIME_DOCKER: bladedisc:disc-dev-pt-ngc
+        RUNTIME_BASEIMAGE: nvcr.io/nvidia/pytorch:21.11-py3
+        TORCH_BLADE_CI_BUILD_TORCH_VERSION: ngc
+        DOCKERFILE: docker/dev/Dockerfile.torch.ngc
+      run: |
+        set -e
+        bash ./scripts/ci/deploy_pytorch_blade.sh

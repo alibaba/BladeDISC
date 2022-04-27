@@ -182,8 +182,11 @@ jobs:
       extra_envs: -e TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
         -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cpu
       exec_command: bash ./scripts/ci/test_pytorch_blade.sh
-  NGC-TORCH-1110:
-    uses: ./.github/workflows/ngc_reusable.yml
+    secrets:
+      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
   CUDA11-TORCH-DISC:
     if: github.repository == 'alibaba/BladeDISC'
     runs-on: [self-hosted, gpu-t4]
@@ -336,4 +339,3 @@ jobs:
         echo "Try to deploy runtime docker image..."
         source $HOME/.cache/proxy_config
         bash ./scripts/ci/deploy_tf_wrapper.sh
-

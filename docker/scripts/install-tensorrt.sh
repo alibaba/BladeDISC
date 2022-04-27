@@ -11,6 +11,7 @@
 # limitations under the License.
 set -ex
 
+apt-get update -y && apt-get install -y wget
 tensorrt_pkg=TensorRT-8.0.1.6.Linux.x86_64-gnu.cuda-11.3.cudnn8.2.tar.gz
 wget https://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/tensorrt_versions/${tensorrt_pkg}
 

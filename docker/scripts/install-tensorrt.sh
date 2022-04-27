@@ -19,9 +19,6 @@ device=$1
 
 echo "Install TensorRT for: ${device}"
 
-# ensure wget
-apt-get update -y && apt-get install -y wget
-
 if [[ ${device} == "cu102" ]]; then
     tensorrt_pkg=TensorRT-8.0.1.6.Linux.x86_64-gnu.cuda-10.2.cudnn8.2.tar.gz
 else

@@ -182,10 +182,8 @@ jobs:
         set -e
         git submodule sync
         git submodule update --depth=1 --init --recursive
-        # docker pull bladedisc/bladedisc:latest-devel-cuda10.2
-        # --cache-from bladedisc/bladedisc:latest-devel-cuda10.2
         docker build -t disc-dev-cuda10.2 \
-          --build-arg BASEIMAGE=nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04 \
+          --build-arg BASEIMAGE=nvidia/cuda:10.2-cudnn8-devel-ubuntu18.04 \
           --build-arg DEVICE=cu102 \
           -f docker/dev/Dockerfile .
     - name: Build and Test DISC
@@ -212,7 +210,7 @@ jobs:
         LOCAL_DEV_DOCKER: disc-dev-cuda10.2
         REMOTE_DEV_DOCKER: bladedisc:latest-devel-cuda10.2
         REMOTE_RUNTIME_DOCKER: bladedisc:latest-runtime-torch1.8.1+cu102
-        RUNTIME_BASEIMAGE: nvidia/cuda:10.2-cudnn7-devel-ubuntu18.04
+        RUNTIME_BASEIMAGE: nvidia/cuda:10.2-cudnn8-devel-ubuntu18.04
       run: |
         set -e
         bash ./scripts/ci/deploy_pytorch_blade.sh

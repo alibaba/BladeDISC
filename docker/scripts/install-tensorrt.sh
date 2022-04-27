@@ -27,7 +27,7 @@ if [[ ${device} == "cu102" ]]; then
 else
     tensorrt_pkg=TensorRT-8.0.1.6.Linux.x86_64-gnu.cuda-11.3.cudnn8.2.tar.gz
 fi
-wget -nv https://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/tensorrt_versions/${tensorrt_pkg}
+curl -sL https://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/tensorrt_versions/${tensorrt_pkg} -o ${tensorrt_pkg} 
 
 tar xvfz $tensorrt_pkg -C /usr/local/ 1>/dev/null 2>&1
 ln -s /usr/local/TensorRT-8.0.1.6 /usr/local/TensorRT

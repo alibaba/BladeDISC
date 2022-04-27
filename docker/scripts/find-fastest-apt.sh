@@ -50,6 +50,7 @@ function find_fastest_apt_source() {
     # read command would return an non-zero exit code.
     read -r -d '\t' apt_sources <<EOM
 http://mirrors.cloud.aliyuncs.com
+http://mirrors.aliyun.com
 http://archive.ubuntu.com
 \t
 EOM

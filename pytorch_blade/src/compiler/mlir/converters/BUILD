@@ -44,6 +44,7 @@ cc_test(
     linkstatic = True,
     deps = [
         "//src:libtorch_blade.so",
+        "@zlib",
         "@googltest//:gtest_main",
         "@local_org_torch//:libtorch",
         "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:ral_base_context_lib",

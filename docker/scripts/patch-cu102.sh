@@ -26,3 +26,13 @@ for lib in ${libs[@]}; do
     echo "Copy /usr/lib/x86_64-linux-gnu/${lib} to cuda home."
 	cp /usr/lib/x86_64-linux-gnu/${lib} /usr/local/cuda/lib64/
 done
+
+# patch 1
+curl -sL https://developer.download.nvidia.com/compute/cuda/10.2/Prod/patches/1/cuda_10.2.1_linux.run -o cuda_10.2.1_linux.run
+bash ./cuda_10.2.1_linux.run --silent --toolkit
+rm -f ./cuda_10.2.1_linux.run
+
+# patch 2
+curl -sL https://developer.download.nvidia.com/compute/cuda/10.2/Prod/patches/2/cuda_10.2.2_linux.run -o cuda_10.2.2_linux.run
+bash ./cuda_10.2.2_linux.run --silent --toolkit
+rm -f ./cuda_10.2.2_linux.run

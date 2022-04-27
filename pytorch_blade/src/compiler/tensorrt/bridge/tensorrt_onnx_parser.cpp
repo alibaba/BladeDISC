@@ -135,19 +135,21 @@ TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
     auto trt_engine = TrtUniquePtr<nvinfer1::ICudaEngine>(
         context.builder->buildEngineWithConfig(*context.network, *config));
 
-    // We had meet segfault when retrive error message after build engine
-    // failed. It's a issue of TensorRT.
-    // To make our process more robust we would like to enable log
-    // message only when TORCH_BLADE_DEBUG_LOG is set.
     bool debug_log_flag =
         env::ReadBoolFromEnvVar("TORCH_BLADE_DEBUG_LOG", false);
     if (trt_engine == nullptr && debug_log_flag) {
-      LOG(ERROR) << "Failed to build the engine, error message are:";
       auto error_recorder = context.builder->getErrorRecorder();
-      auto nb_error = error_recorder->getNbErrors();
-      for (int i = 0; i < nb_error; i++) {
-        auto error_msg = error_recorder->getErrorDesc(i);
-        LOG(ERROR) << error_msg;
+      if (error_recorder != nullptr) {
+        LOG(ERROR) << "Failed to build the engine, error message are:";
+        auto nb_error = error_recorder->getNbErrors();
+        for (int i = 0; i < nb_error; i++) {
+          auto error_msg = error_recorder->getErrorDesc(i);
+          LOG(ERROR) << error_msg;
+        }
+      } else {
+        // Keep quiet when `error_recorder` is nullptr, error's will be written
+        // to log stream said TensorRT doc:
+        //    https://docs.nvidia.com/deeplearning/tensorrt/api/c_api/classnvinfer1_1_1_i_builder.html#aa83591ea175b212a9d05ad938ebc7e24
       }
     }
     return trt_engine;

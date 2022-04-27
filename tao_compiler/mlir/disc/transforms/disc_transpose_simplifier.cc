@@ -27,8 +27,9 @@ limitations under the License.
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+// #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
 #include "mlir/IR/MLIRContext.h"            // TF:llvm-project
 #include "mlir/IR/OpDefinition.h"
@@ -796,10 +797,10 @@ struct TransposeSimplifierPass
   }
 
   LogicalResult runOnBlock(Block* block);
-  LogicalResult runCanonicalizer(FuncOp func);
+  LogicalResult runCanonicalizer(func::FuncOp func);
 };
 
-LogicalResult TransposeSimplifierPass::runCanonicalizer(FuncOp func) {
+LogicalResult TransposeSimplifierPass::runCanonicalizer(func::FuncOp func) {
   RewritePatternSet patterns(func.getContext());
   populateTransposeSimplifierPatterns(patterns);
   // ignore the not-converged error since we are in a loop.
@@ -841,7 +842,7 @@ LogicalResult TransposeSimplifierPass::runOnBlock(Block* block) {
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createTransposeSimplifierPass() {
+std::unique_ptr<OperationPass<func::FuncOp>> createTransposeSimplifierPass() {
   return std::make_unique<TransposeSimplifierPass>();
 }
 

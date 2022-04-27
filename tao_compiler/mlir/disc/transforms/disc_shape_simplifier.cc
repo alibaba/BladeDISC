@@ -58,9 +58,10 @@ limitations under the License.
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
-#include "mlir/Dialect/Tensor/IR/Tensor.h"    // TF:llvm-project
+// #include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
+#include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/MLIRContext.h"  // TF:llvm-project
 #include "mlir/IR/OpDefinition.h"
@@ -402,7 +403,7 @@ void ShapeSimplifierPass::populateShapeRefinerPatterns(
 
 void ShapeSimplifierPass::runOnOperation() {
   ModuleOp m = getOperation();
-  FuncOp main = m.lookupSymbol<FuncOp>(entry_func_name_);
+  func::FuncOp main = m.lookupSymbol<func::FuncOp>(entry_func_name_);
   if (!main) {
     m.emitError("entry func: " + entry_func_name_ + " not found");
     signalPassFailure();
@@ -456,7 +457,7 @@ void ShapeSimplifierPass::runOnOperation() {
 
 LogicalResult ShapeSimplifierPass::applyShapeAnalysis(ShapeAnalysis& analysis,
                                                       bool& changed) {
-  FuncOp func = dyn_cast_or_null<FuncOp>(analysis.getOperation());
+  func::FuncOp func = dyn_cast_or_null<func::FuncOp>(analysis.getOperation());
   if (func == nullptr) {
     return failure();
   }
@@ -491,7 +492,8 @@ LogicalResult ShapeSimplifierPass::applyShapeAnalysis(ShapeAnalysis& analysis,
   // 3, refine function type to new type
   auto newFuncTy = FunctionType::get(func.getContext(), refinedInputTypes,
                                      refinedOutputTypes);
-  if (func.getType() != newFuncTy) {
+  // if (func.getType() != newFuncTy) {
+  if (func.getFunctionType() != newFuncTy) {
     func.setType(newFuncTy);
     changed = true;
   }
@@ -501,7 +503,7 @@ LogicalResult ShapeSimplifierPass::applyShapeAnalysis(ShapeAnalysis& analysis,
 
 LogicalResult ShapeSimplifierPass::applySymbolicShapeOptimization(
     ShapeAnalysis& analysis, bool& changed) {
-  FuncOp func = dyn_cast_or_null<FuncOp>(analysis.getOperation());
+  func::FuncOp func = dyn_cast_or_null<func::FuncOp>(analysis.getOperation());
   if (func == nullptr) {
     return failure();
   }

@@ -21,7 +21,7 @@ limitations under the License.
 #include "mlir-hlo/Dialect/mhlo/transforms/register_passes.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
-#include "mlir/Support/MlirOptMain.h"
+#include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
@@ -40,7 +40,7 @@ int main(int argc, char** argv) {
   mlir::registerAllDialects(registry);
   registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::mhlo_disc::MhloDiscDialect>();
-  registry.insert<mlir::chlo::HloClientDialect>();
+  registry.insert<mlir::chlo::ChloDialect>();
   registry.insert<mlir::lmhlo::LmhloDialect>();
   registry.insert<mlir::lmhlo_disc::LmhloDiscDialect>();
   registry.insert<mlir::lmhlo_gpu::LmhloGpuDialect>();

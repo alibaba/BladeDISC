@@ -20,10 +20,10 @@ limitations under the License.
 namespace mlir {
 namespace disc_ral {
 
-template <typename T>
-static LogicalResult Verify(T op) {
-  return success();
-}
+// template <typename T>
+// static LogicalResult Verify(T op) {
+//   return success();
+// }
 
 //===----------------------------------------------------------------------===//
 // ral Dialect Constructor

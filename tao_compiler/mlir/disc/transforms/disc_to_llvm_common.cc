@@ -25,8 +25,10 @@ namespace disc_ral {
 LogicalResult RemoveUselessUnrealizedConversionCastOp::matchAndRewrite(
     UnrealizedConversionCastOp op, OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
-  auto in_type = op.inputs().getTypes().front();
-  auto out_type = op.outputs().getTypes().front();
+  // auto in_type = op.inputs().getTypes().front();
+  // auto out_type = op.outputs().getTypes().front();
+  auto in_type = op.getInputs().getTypes().front();
+  auto out_type = op.getOutputs().getTypes().front();
 
   bool isSignToSignless =
       (in_type.isSignedInteger() || in_type.isUnsignedInteger()) &&

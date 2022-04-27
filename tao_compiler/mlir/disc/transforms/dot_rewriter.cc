@@ -18,7 +18,8 @@
 #include <vector>
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"             // from @llvm-project
+// #include "mlir/Dialect/StandardOps/IR/Ops.h"             // from
+// @llvm-project
 #include "mlir/IR/Attributes.h"                          // from @llvm-project
 #include "mlir/IR/Location.h"                            // from @llvm-project
 #include "mlir/IR/MLIRContext.h"                         // from @llvm-project
@@ -639,7 +640,7 @@ Value EinsumToDotGeneralPattern::processResult(
 
 struct DotRewriterPass : public DotRewriterPassBase<DotRewriterPass> {
   void runOnOperation() override {
-    FuncOp func = getOperation();
+    func::FuncOp func = getOperation();
     // TODO: if needs to do const reformat, we need the xla_hlo.dot with its
     // inputs
 
@@ -656,7 +657,7 @@ struct DotRewriterPass : public DotRewriterPassBase<DotRewriterPass> {
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscDotRewriterPass() {
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscDotRewriterPass() {
   return std::make_unique<DotRewriterPass>();
 }
 

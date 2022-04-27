@@ -16,6 +16,7 @@ limitations under the License.
 // This file implements the logic to flattern memref to 1D format.
 
 #include "llvm/Support/Debug.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
@@ -59,7 +60,7 @@ LogicalResult ReinterpretCastOpConverter::matchAndRewrite(
 struct DiscMemrefCanonicalizer
     : DiscMemrefCanonicalizerBase<DiscMemrefCanonicalizer> {
   void runOnOperation() override {
-    FuncOp func = getOperation();
+    func::FuncOp func = getOperation();
     MLIRContext* ctx = func.getContext();
 
     // Populate patterns.
@@ -71,7 +72,8 @@ struct DiscMemrefCanonicalizer
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscMemrefCanonicalizerPass() {
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscMemrefCanonicalizerPass() {
   return std::make_unique<DiscMemrefCanonicalizer>();
 }
 

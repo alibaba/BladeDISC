@@ -40,13 +40,15 @@ limitations under the License.
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
-#include "mlir/Parser.h"                 // from @llvm-project
+#include "mlir/Parser/Parser.h"  // from @llvm-project
+// #include "mlir/Parser.h"                 // from @llvm-project
 #include "mlir/Pass/PassManager.h"       // from @llvm-project
 #include "mlir/Support/FileUtilities.h"  // from @llvm-project
-#include "mlir/Support/MlirOptMain.h"
+// #include "mlir/Support/MlirOptMain.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"  // from @llvm-project
 #include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"  // from @llvm-project
 #include "mlir/Target/LLVMIR/Export.h"  // from @llvm-project
+#include "mlir/Tools/mlir-opt/MlirOptMain.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
@@ -100,7 +102,8 @@ static mlir::OwningOpRef<mlir::ModuleOp> parseMLIRInput(StringRef inputFilename,
 
   llvm::SourceMgr sourceMgr;
   sourceMgr.AddNewSourceBuffer(std::move(file), llvm::SMLoc());
-  return mlir::OwningOpRef<mlir::ModuleOp>(parseSourceFile(sourceMgr, context));
+  return mlir::OwningOpRef<mlir::ModuleOp>(
+      parseSourceFile<mlir::ModuleOp>(sourceMgr, context));
 }
 
 #ifndef TAO_CPU_ONLY
@@ -156,7 +159,8 @@ int RealMain() {
   mlir::registerNVVMDialectTranslation(registry);
   registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::mhlo_disc::MhloDiscDialect>();
-  registry.insert<mlir::chlo::HloClientDialect>();
+  registry.insert<mlir::chlo::ChloDialect>();
+  // registry.insert<mlir::chlo::HloClientDialect>();
   registry.insert<mlir::lmhlo::LmhloDialect>();
   registry.insert<mlir::lmhlo_disc::LmhloDiscDialect>();
   registry.insert<mlir::lmhlo_gpu::LmhloGpuDialect>();

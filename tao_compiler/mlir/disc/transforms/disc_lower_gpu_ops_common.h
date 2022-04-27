@@ -19,9 +19,9 @@ limitations under the License.
 // This file implements common patterns for GPUToNVVM and GPUToROCDL
 
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
-#include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
+// #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+// #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_to_llvm_common.h"
 

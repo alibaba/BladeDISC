@@ -20,7 +20,7 @@ def DiscToLLVMPass : Pass<"disc-to-llvm", "ModuleOp"> {
   let constructor = "createDiscToLLVMPass()";
 }
 
-def SplitLargeOpsPass : Pass<"split-large-ops", "FuncOp"> {
+def SplitLargeOpsPass : Pass<"split-large-ops", "mlir::func::FuncOp"> {
   let summary = "Split large hlo ops (e.g. having too many operands) into a "
                 "sequence of hlo ops.";
   let constructor = "createDiscSplitLargeOpsPass()";
@@ -35,7 +35,7 @@ def ReviseArgumentsForStaticRankPass : Pass<"disc-tf-revise-args-for-static-rank
   let constructor = "createReviseArgsForStaticRankPass()";
 }
 
-def DiscLhloLegalizeRootsToParallelLoopsPass : Pass<"disc-lhlo-legalize-roots-to-parallel-loops", "FuncOp"> {
+def DiscLhloLegalizeRootsToParallelLoopsPass : Pass<"disc-lhlo-legalize-roots-to-parallel-loops", "mlir::func::FuncOp"> {
   let summary = "Legalize the roots of lmhlo.fusion to parallel loops.";
   let constructor = "createDiscLhloLegalizeRootsToParallelLoopsPass()";
   let dependentDialects = [
@@ -47,22 +47,22 @@ def DiscLhloLegalizeRootsToParallelLoopsPass : Pass<"disc-lhlo-legalize-roots-to
   ];
 }
 
-def ConvRewriterPass : Pass<"disc-conv-rewriter", "FuncOp"> {
+def ConvRewriterPass : Pass<"disc-conv-rewriter", "mlir::func::FuncOp"> {
   let summary = "Canonicalize conv ops to be suitable for lowering to cudnn lib calls.";
   let constructor = "createDiscConvRewriter()";
 }
 
-def DotRewriterPass : Pass<"disc-dot-rewriter", "FuncOp"> {
+def DotRewriterPass : Pass<"disc-dot-rewriter", "mlir::func::FuncOp"> {
   let summary = "Rewrite dot to fold transpose.";
   let constructor = "createDiscDotRewriterPass()";
 }
 
-def GpuConvPaddingLegalizationPass : Pass<"disc-gpu-conv-padding-legalization", "FuncOp"> {
+def GpuConvPaddingLegalizationPass : Pass<"disc-gpu-conv-padding-legalization", "mlir::func::FuncOp"> {
   let summary = "Convert conv ops' padding value to be suitable for lowering to cudnn lib calls.";
   let constructor = "createDiscGpuConvPaddingLegalization()";
 }
 
-def DiscSpecializeFusionWithSpeculationPass : Pass<"disc-specialize-fusion-with-speculation", "FuncOp"> {
+def DiscSpecializeFusionWithSpeculationPass : Pass<"disc-specialize-fusion-with-speculation", "mlir::func::FuncOp"> {
   let summary = "Pass for specializing a fusion op with some speculations.";
   let constructor = "createDiscSpecializeFusionWithSpeculationPass()";
   let options = [
@@ -73,7 +73,7 @@ def DiscSpecializeFusionWithSpeculationPass : Pass<"disc-specialize-fusion-with-
   ];
 }
 
-def ElementTypeConverterPass : Pass<"disc-element-type-converter", "FuncOp"> {
+def ElementTypeConverterPass : Pass<"disc-element-type-converter", "mlir::func::FuncOp"> {
   let summary = "Eliminates certain element types as the input or output of ops "
                 "by inserting Convert ops.";
   let constructor = "createDiscElementTypeConverterPass()";
@@ -83,7 +83,7 @@ def ElementTypeConverterPass : Pass<"disc-element-type-converter", "FuncOp"> {
   ];
 }
 
-def MapParallelLoopsPass : Pass<"map-parallel-loops-to-gpu", "FuncOp"> {
+def MapParallelLoopsPass : Pass<"map-parallel-loops-to-gpu", "mlir::func::FuncOp"> {
   let summary = "Greedily maps loops to GPU hardware dimensions.";
   let constructor = "createMapParallelLoopsPass()";
   let description = [{
@@ -91,12 +91,12 @@ def MapParallelLoopsPass : Pass<"map-parallel-loops-to-gpu", "FuncOp"> {
   }];
 }
 
-def ParallelLoopCollapsing : Pass<"disc-parallel-loop-collapsing", "FuncOp"> {
+def ParallelLoopCollapsing : Pass<"disc-parallel-loop-collapsing", "mlir::func::FuncOp"> {
   let summary = "Collapse parallel loops";
   let constructor = "createDiscParallelLoopCollapsingPass()";
 }
 
-def SCFParallelLoopTiling : Pass<"disc-parallel-loop-tiling", "FuncOp"> {
+def SCFParallelLoopTiling : Pass<"disc-parallel-loop-tiling", "mlir::func::FuncOp"> {
   let summary = "Tile parallel loops";
   let constructor = "createParallelLoopTilingPass()";
   let options = [
@@ -111,7 +111,7 @@ def SCFParallelLoopTiling : Pass<"disc-parallel-loop-tiling", "FuncOp"> {
   let dependentDialects = ["mlir::AffineDialect"];
 }
 
-def DiscFusionPass : Pass<"disc-fusion", "FuncOp"> {
+def DiscFusionPass : Pass<"disc-fusion", "mlir::func::FuncOp"> {
   let summary = "Fuse lmhlo ops to kLoop/kInput fusion patterns.";
   let constructor = "createDiscFusionPass()";
   let options = [
@@ -122,7 +122,7 @@ def DiscFusionPass : Pass<"disc-fusion", "FuncOp"> {
   ];
 }
 
-def DiscFuseSplatConstPass: Pass<"disc-fuse-splat-const", "FuncOp"> {
+def DiscFuseSplatConstPass: Pass<"disc-fuse-splat-const", "mlir::func::FuncOp"> {
   let summary = "Fuse splat constant to avoid memory access.";
   let constructor = "createDiscFuseSplatConstPass()";
 }
@@ -155,7 +155,7 @@ def ReviseGpuKernelOutliningPass : Pass<"disc-revise-gpu-kernel-outlining", "Mod
   let constructor = "createReviseGpuKernelOutliningPass()";
 }
 
-def DiscLowerToLibraryCallPass : Pass<"disc-lower-to-library-call", "FuncOp"> {
+def DiscLowerToLibraryCallPass : Pass<"disc-lower-to-library-call", "mlir::func::FuncOp"> {
   let summary = "Lower some specific ops to library calls (modeled by `disc_ral.launch` op).";
   let constructor = "createDiscLowerToLibraryCallPass()";
 }
@@ -188,17 +188,17 @@ def GpuKernelToBlobPass : Pass<"disc-gpu-kernel-to-blob", "gpu::GPUModuleOp"> {
   let constructor = "CreateDiscGpuKernelToBlobPass()";
 }
 
-def ConvertShapeToStandardPass : Pass<"disc-convert-shape-to-std", "FuncOp"> {
+def ConvertShapeToStandardPass : Pass<"disc-convert-shape-to-std", "mlir::func::FuncOp"> {
   let summary = "Pass to convert shape ops to std dialect";
   let constructor = "createDiscConvertShapeToStandardPass()";
 }
 
-def ConvertTensorToStandardPass : Pass<"disc-convert-tensor-to-std", "FuncOp"> {
+def ConvertTensorToStandardPass : Pass<"disc-convert-tensor-to-std", "mlir::func::FuncOp"> {
   let summary = "Pass to convert tensor ops to std dialect";
   let constructor = "createDiscConvertTensorToStandardPass()";
 }
 
-def InputInlineFusionPass : Pass<"disc-input-inline-fusion", "FuncOp"> {
+def InputInlineFusionPass : Pass<"disc-input-inline-fusion", "mlir::func::FuncOp"> {
   let summary = "Fuse the rest of the lmhlo nodes into the parallel loops after the roots "
     "has been expanded into loops in LhloLegalizeRootsToParallelLoops";
   let constructor = "createDiscInputInlineFusionPass()";
@@ -209,37 +209,37 @@ def InputInlineFusionPass : Pass<"disc-input-inline-fusion", "FuncOp"> {
   ];
 }
 
-def RemoveShapeConstraintsPass : Pass<"disc-remove-shape-constraint", "FuncOp"> {
+def RemoveShapeConstraintsPass : Pass<"disc-remove-shape-constraint", "mlir::func::FuncOp"> {
   let summary = "Pass to remove all shape constraint ops";
   let constructor = "createDiscRemoveShapeConstraintsPass()";
 }
 
-def ConvertHloToStandardPass : Pass<"disc-convert-hlo-to-std", "FuncOp"> {
+def ConvertHloToStandardPass : Pass<"disc-convert-hlo-to-std", "mlir::func::FuncOp"> {
   let summary = "Pass to convert some hlo ops to std dialect";
   let constructor = "createDiscConvertHloToStandardPass()";
 }
 
-def StdBufferizePass : Pass<"disc-std-bufferize", "FuncOp"> {
+def StdBufferizePass : Pass<"disc-std-bufferize", "mlir::func::FuncOp"> {
   let summary = "Pass to convert tensor std.constant ops to hlo dialect";
   let constructor = "createDiscStdBufferizePass()";
 }
 
-def DiscMemRefCSEPass : Pass<"disc-memref-cse", "FuncOp"> {
+def DiscMemRefCSEPass : Pass<"disc-memref-cse", "mlir::func::FuncOp"> {
   let summary = "Perform CSE on memref.load";
   let constructor = "createDiscMemRefCSEPass()";
 }
 
-def DiscMemRefLoadStoreSimplifierPass : Pass<"disc-memref-load-store-simplifier", "FuncOp"> {
+def DiscMemRefLoadStoreSimplifierPass : Pass<"disc-memref-load-store-simplifier", "mlir::func::FuncOp"> {
   let summary = "Perform load/store simplifier on memref";
   let constructor = "createDiscMemRefLoadStoreSimplifierPass()";
 }
 
-def DiscLowerTfPass : Pass<"disc-lower-tf", "FuncOp"> {
+def DiscLowerTfPass : Pass<"disc-lower-tf", "mlir::func::FuncOp"> {
   let summary = "Lowering some tensorflow ops";
   let constructor = "createDiscLowerTfPass()";
 }
 
-def RemoveDeadBufferPass : Pass<"disc-remove-dead-buffer", "FuncOp"> {
+def RemoveDeadBufferPass : Pass<"disc-remove-dead-buffer", "mlir::func::FuncOp"> {
   let summary = "Pass to remove buffers that are not accessed by others";
   let constructor = "createDiscRemoveDeadBufferPass()";
 }
@@ -271,7 +271,7 @@ def DiscLowerGpuOpsToROCDLOpsPass : Pass<"disc-convert-gpu-to-rocdl", "gpu::GPUM
   ];
 }
 
-def UnhandledAtomicRMWConverterPass : Pass<"disc-convert-unhandled-atomic-rmw", "FuncOp"> {
+def UnhandledAtomicRMWConverterPass : Pass<"disc-convert-unhandled-atomic-rmw", "mlir::func::FuncOp"> {
   let summary = "Convert unhandled AtomicRMWOp to memref::GenericAtomicRMWOp.";
   let constructor = "createDiscUnhandledAtomicRMWConverterPass()";
   let dependentDialects = ["memref::MemRefDialect"];
@@ -289,7 +289,7 @@ def DiscShapeSimplifierPass : Pass<"disc-shape-simplifier", "ModuleOp"> {
   ];
 }
 
-def DiscMathApproximationPass : Pass<"disc-math-approximation", "FuncOp"> {
+def DiscMathApproximationPass : Pass<"disc-math-approximation", "mlir::func::FuncOp"> {
   let summary = "using approximation for some special math ops.";
   let constructor = "createDiscMathApproximationPass()";
   let dependentDialects = [
@@ -298,7 +298,7 @@ def DiscMathApproximationPass : Pass<"disc-math-approximation", "FuncOp"> {
   ];
 }
 
-def DiscFlattenMemrefAccessPass : Pass<"disc-flatten-memref-access", "FuncOp"> {
+def DiscFlattenMemrefAccessPass : Pass<"disc-flatten-memref-access", "mlir::func::FuncOp"> {
   let summary = "flatten memref access to its 1D format.";
   let constructor = "createDiscFlattenMemrefAccessPass()";
   let dependentDialects = [
@@ -329,7 +329,7 @@ def Canonicalizer : Pass<"disc-canonicalize"> {
   ];
 }
 
-def DiscMemrefCanonicalizer : Pass<"disc-memref-canonicalize", "FuncOp"> {
+def DiscMemrefCanonicalizer : Pass<"disc-memref-canonicalize", "mlir::func::FuncOp"> {
   let summary = "Do some memref-related cleanup.";
   let constructor = "createDiscMemrefCanonicalizerPass()";
 }
@@ -339,17 +339,17 @@ def DiscOutlineCpuKernel : Pass<"disc-outline-cpu-kernel", "ModuleOp"> {
   let constructor = "createDiscOutlineCpuKernelPass()";
 }
 
-def DiscCpuMapParallelLoop : Pass<"disc-cpu-map-parallel-loop", "FuncOp"> {
+def DiscCpuMapParallelLoop : Pass<"disc-cpu-map-parallel-loop", "mlir::func::FuncOp"> {
   let summary = "assign a parallel schedule for each parallel op on cpu.";
   let constructor = "createDiscCpuMapParallelLoopPass()";
 }
 
-def DiscStitchFusion : Pass<"disc-stitch-fusion", "FuncOp"> {
+def DiscStitchFusion : Pass<"disc-stitch-fusion", "mlir::func::FuncOp"> {
   let summary = "Lowring stitch fusion pattern to parallel for loops.";
   let constructor = "createDiscStitchFusionPass()";
 }
 
-def TransposeSimplifierPass : Pass<"disc-transpose-simplifier", "FuncOp"> {
+def TransposeSimplifierPass : Pass<"disc-transpose-simplifier", "mlir::func::FuncOp"> {
   let summary = "Remove some redundant transpose ops in the graph.";
   let constructor = "createTransposeSimplifierPass()";
 }
@@ -363,13 +363,13 @@ def RalInjectExecutionContextPass : Pass<"disc-ral-inject-execution-context", "M
   ];
 }
 
-def LhloFusionInlinerPass : Pass<"lhlo-fusion-inliner", "FuncOp"> {
+def LhloFusionInlinerPass : Pass<"lhlo-fusion-inliner", "mlir::func::FuncOp"> {
   let summary = "Inline the contents of its body to the parent region "
     "after its body has been lowered";
   let constructor = "createLhloFusionInlinerPass()";
 }
 
-def DiscDotMergePass : Pass<"disc-dot-merge", "FuncOp"> {
+def DiscDotMergePass : Pass<"disc-dot-merge", "mlir::func::FuncOp"> {
   let summary = "Dot merge optimization. Either merge same-shape dots into "
                 "batched dot, or merge dots with same operand into one (on-going)";
   let constructor = "createDiscDotMergePass()";

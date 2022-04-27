@@ -104,7 +104,7 @@ ShapeOperandList getShapeCalcOperandList(Operation* op) {
   return getShapeCalcOperandList(op->getRegisteredInfo()->getTypeID());
 }
 
-LogicalResult parsePlacementAttribute(FuncOp main, bool default_on_gpu,
+LogicalResult parsePlacementAttribute(func::FuncOp main, bool default_on_gpu,
                                       StringRef attrName, int numAttribute,
                                       SmallVectorImpl<StringRef>& out) {
   auto dict_attr = main->getAttrOfType<DictionaryAttr>("tf.entry_function");
@@ -153,13 +153,13 @@ LogicalResult parsePlacementAttribute(FuncOp main, bool default_on_gpu,
 }
 
 LogicalResult parseEntryFunctionInputPlacements(
-    FuncOp main, bool default_on_gpu, SmallVectorImpl<StringRef>& out) {
+    func::FuncOp main, bool default_on_gpu, SmallVectorImpl<StringRef>& out) {
   return parsePlacementAttribute(main, default_on_gpu, kInputPlacementAttr,
                                  main.getNumArguments(), out);
 }
 
 LogicalResult parseEntryFunctionOutputPlacements(
-    FuncOp main, bool default_on_gpu, SmallVectorImpl<StringRef>& out) {
+    func::FuncOp main, bool default_on_gpu, SmallVectorImpl<StringRef>& out) {
   return parsePlacementAttribute(main, default_on_gpu, kOutputPlacementAttr,
                                  main.getNumResults(), out);
 }
@@ -185,7 +185,8 @@ StringRef PlacementToString(PlacementType type) {
 }
 
 LogicalResult parseEntryFunctionInputPlacements(
-    FuncOp main, bool default_on_gpu, SmallVectorImpl<PlacementType>& out) {
+    func::FuncOp main, bool default_on_gpu,
+    SmallVectorImpl<PlacementType>& out) {
   SmallVector<StringRef, 4> str_out;
   if (failed(parseEntryFunctionInputPlacements(main, default_on_gpu, str_out)))
     return failure();
@@ -194,7 +195,8 @@ LogicalResult parseEntryFunctionInputPlacements(
 }
 
 LogicalResult parseEntryFunctionOutputPlacements(
-    FuncOp main, bool default_on_gpu, SmallVectorImpl<PlacementType>& out) {
+    func::FuncOp main, bool default_on_gpu,
+    SmallVectorImpl<PlacementType>& out) {
   SmallVector<StringRef, 4> str_out;
   if (failed(parseEntryFunctionOutputPlacements(main, default_on_gpu, str_out)))
     return failure();

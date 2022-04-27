@@ -79,7 +79,8 @@ def LHLO_CustomCallOp : LHLODISC_Op<"custom_call", [AttrSizedOperandSegments]> {
     DefaultValuedAttr<StrAttr, "">:$backend_config,
     OptionalAttr<CustomCallTargetArgMapping>:$target_arg_mapping
   );
-  let verifier = [{ return Verify(*this); }];
+  let hasVerifier = 1;
+  // let verifier = [{ return Verify(*this); }];
 }
 
 // TODO(feiwen.zfw): support print float/half/double and memref

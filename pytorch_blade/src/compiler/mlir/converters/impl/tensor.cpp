@@ -10,7 +10,7 @@
 // limitations under the License.
 
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
-#include <mlir/Dialect/StandardOps/IR/Ops.h>
+// #include <mlir/Dialect/StandardOps/IR/Ops.h>
 #include <mlir/mhlo/builder/mlir_type_utils.h>
 #include <mlir/mhlo/builder/mlir_utils.h>
 #include <mlir/mhlo/builder/standard.h>

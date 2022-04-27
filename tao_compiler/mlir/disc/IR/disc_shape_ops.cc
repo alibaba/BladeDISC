@@ -253,6 +253,10 @@ struct IdentityTieShapeOp : public OpRewritePattern<TieShapeOp> {
 
 }  // namespace
 
+//===----------------------------------------------------------------------===//
+// LinearizeOp
+//===----------------------------------------------------------------------===//
+
 void LinearizeOp::getCanonicalizationPatterns(RewritePatternSet& results,
                                               MLIRContext* context) {
   // clang-format off
@@ -262,6 +266,12 @@ void LinearizeOp::getCanonicalizationPatterns(RewritePatternSet& results,
   >(context);
   // clang-format on
 }
+
+LogicalResult LinearizeOp::verify() { return Verify(*this); }
+
+//===----------------------------------------------------------------------===//
+// DelinearizeOp
+//===----------------------------------------------------------------------===//
 
 void DelinearizeOp::getCanonicalizationPatterns(RewritePatternSet& results,
                                                 MLIRContext* context) {
@@ -273,10 +283,18 @@ void DelinearizeOp::getCanonicalizationPatterns(RewritePatternSet& results,
   // clang-format on
 }
 
+LogicalResult DelinearizeOp::verify() { return Verify(*this); }
+
+//===----------------------------------------------------------------------===//
+// TieShapeOp
+//===----------------------------------------------------------------------===//
+
 void TieShapeOp::getCanonicalizationPatterns(RewritePatternSet& results,
                                              MLIRContext* context) {
   results.insert<IdentityTieShapeOp>(context);
 }
+
+LogicalResult TieShapeOp::verify() { return Verify(*this); }
 
 }  // namespace disc_shape
 }  // namespace mlir

@@ -11,7 +11,7 @@
 
 #include <mlir-hlo/Dialect/mhlo/IR/chlo_ops.h> // from tf repo
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
-#include <mlir/Dialect/StandardOps/IR/Ops.h> // from tf repo
+// #include <mlir/Dialect/StandardOps/IR/Ops.h> // from tf repo
 #include <mlir/mhlo/builder/element_wise_binary.h>
 
 #include "common_utils/logging.h"
@@ -304,12 +304,6 @@ bool ConvertAtenFloorDiv(
 }
 
 namespace {
-static constexpr const char kCompare_GT[] = "GT";
-static constexpr const char kCompare_GE[] = "GE";
-static constexpr const char kCompare_EQ[] = "EQ";
-static constexpr const char kCompare_NE[] = "NE";
-static constexpr const char kCompare_LE[] = "LE";
-static constexpr const char kCompare_LT[] = "LT";
 
 auto mhlo_conversion =
     MhloConversionPatternRegister()

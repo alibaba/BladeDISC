@@ -29,7 +29,7 @@ struct LhloFusionInlinerPass
     : public LhloFusionInlinerPassBase<LhloFusionInlinerPass> {
  public:
   void runOnOperation() override {
-    FuncOp func = getOperation();
+    func::FuncOp func = getOperation();
     SmallVector<FusionOp> worklist;
     func.walk([&](FusionOp fusion) { worklist.push_back(fusion); });
     for (FusionOp fusion : worklist) {
@@ -50,7 +50,7 @@ struct LhloFusionInlinerPass
   }
 };
 
-std::unique_ptr<OperationPass<FuncOp>> createLhloFusionInlinerPass() {
+std::unique_ptr<OperationPass<func::FuncOp>> createLhloFusionInlinerPass() {
   return std::make_unique<LhloFusionInlinerPass>();
 }
 

@@ -169,7 +169,7 @@ mlir::Type DataTypeToMlirType(mlir::OpBuilder b, DataType dtype) {
 Status AppendIOAttr(mlir::ModuleOp module, const GraphImportConfig& specs,
                     const TaoCompilerInput& input,
                     const std::string& default_device) {
-  auto main_func = module.lookupSymbol<mlir::FuncOp>("main");
+  auto main_func = module.lookupSymbol<mlir::func::FuncOp>("main");
   auto dict_attr =
       main_func->getAttrOfType<mlir::DictionaryAttr>("tf.entry_function");
   assert(dict_attr && "main_func must has tf.entry_function attr");

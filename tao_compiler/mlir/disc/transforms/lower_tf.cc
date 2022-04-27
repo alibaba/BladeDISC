@@ -18,7 +18,8 @@ limitations under the License.
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"             // from @llvm-project
+// #include "mlir/Dialect/StandardOps/IR/Ops.h"             // from
+// @llvm-project
 #include "mlir/IR/Attributes.h"                          // from @llvm-project
 #include "mlir/IR/BuiltinOps.h"                          // from @llvm-project
 #include "mlir/IR/BuiltinTypes.h"                        // from @llvm-project
@@ -206,7 +207,7 @@ class ConvertUniformOp : public OpRewritePattern<TF::RandomUniformOp> {
 void PrepareTFPass::runOnOperation() {
   MLIRContext* ctx = &getContext();
   RewritePatternSet patterns(ctx);
-  FuncOp func = getOperation();
+  func::FuncOp func = getOperation();
   populateWithGenerated(patterns);
   patterns.insert<ConvertSqueezeOpDynamic, ConvertTopKV2OpDynamic,
                   ConvertUniformOp>(ctx);
@@ -216,7 +217,7 @@ void PrepareTFPass::runOnOperation() {
 }  // namespace
 
 // Lower some tf ops before tf2mhlo lowering.
-std::unique_ptr<OperationPass<FuncOp>> createDiscLowerTfPass() {
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscLowerTfPass() {
   return std::make_unique<PrepareTFPass>();
 }
 

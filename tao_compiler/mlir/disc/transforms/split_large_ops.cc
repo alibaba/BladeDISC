@@ -19,7 +19,7 @@ limitations under the License.
 #include <iostream>
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"             // TF:llvm-project
+// #include "mlir/Dialect/StandardOps/IR/Ops.h"             // TF:llvm-project
 #include "mlir/IR/Attributes.h"                          // TF:llvm-project
 #include "mlir/IR/Location.h"                            // TF:llvm-project
 #include "mlir/IR/MLIRContext.h"                         // TF:llvm-project
@@ -99,7 +99,7 @@ struct SplitLargeOpsPass : public SplitLargeOpsPassBase<SplitLargeOpsPass> {
   }
 
   void runOnOperation() override {
-    FuncOp func = getOperation();
+    func::FuncOp func = getOperation();
     RewritePatternSet patterns(func.getContext());
     patterns.insert<ConvertConcatOp>(func.getContext(),
                                      max_num_operands_per_op_);
@@ -113,7 +113,7 @@ struct SplitLargeOpsPass : public SplitLargeOpsPassBase<SplitLargeOpsPass> {
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscSplitLargeOpsPass(
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscSplitLargeOpsPass(
     int max_num_operands_per_op) {
   return std::make_unique<SplitLargeOpsPass>(max_num_operands_per_op);
 }

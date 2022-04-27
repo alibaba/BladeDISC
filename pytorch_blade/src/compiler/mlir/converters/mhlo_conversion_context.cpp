@@ -12,11 +12,14 @@
 #include "compiler/mlir/converters/mhlo_conversion_context.h"
 
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
-#include <mlir/Dialect/StandardOps/IR/Ops.h> // from tf repo
+// #include <mlir/Dialect/StandardOps/IR/Ops.h> // from tf repo
 #include "compiler/jit/tool_funcs.h"
 #include "compiler/mlir/converters/mlir_type_utils.h"
 
 #include <torch/script.h>
+#if 1
+#include <fstream>
+#endif
 
 namespace torch {
 namespace blade {
@@ -81,11 +84,14 @@ std::string GetAttrString(const SmallVec4<std::string>& str_vec) {
   return ss.str();
 }
 
-std::tuple<mlir::FuncOp, std::string, std::string> CreateMlirFunction(
+std::tuple<mlir::func::FuncOp, std::string, std::string> CreateMlirFunction(
     MhloConversionContext& ctx,
     const std::string& function_name,
     at::ArrayRef<const torch::jit::Value*> inputs,
     at::ArrayRef<const torch::jit::Value*> outputs) {
+#if 1
+  std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
   SmallVec4<mlir::Type> args;
   SmallVec4<mlir::Type> rets;
   SmallVec4<std::string> input_names;
@@ -105,6 +111,9 @@ std::tuple<mlir::FuncOp, std::string, std::string> CreateMlirFunction(
       input_devices.push_back("cpu");
     }
   }
+#if 1
+  std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
 
   for (auto& output : outputs) {
     // The output type would be reset during the function building being
@@ -119,10 +128,16 @@ std::tuple<mlir::FuncOp, std::string, std::string> CreateMlirFunction(
       output_devices.push_back("cpu");
     }
   }
+#if 1
+  std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
 
   auto mlir_context = ctx.mlir_module->getContext();
   auto mlir_func_type = mlir::FunctionType::get(mlir_context, args, rets);
   SmallVec4<mlir::NamedAttribute> attrs;
+#if 1
+  std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
 
   auto inputs_attr = builder.getNamedAttr(
       "inputs", builder.getStringAttr(GetAttrString(input_names)));
@@ -142,13 +157,23 @@ std::tuple<mlir::FuncOp, std::string, std::string> CreateMlirFunction(
            outputs_attr,
            input_placements_attr,
            output_placements_attr})));
+#if 1
+  std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
 
   ::llvm::ArrayRef<mlir::NamedAttribute> attr_arr = attrs;
-  auto func = mlir::FuncOp::create(
-      mlir::UnknownLoc::get(mlir_context),
-      function_name,
-      mlir_func_type,
-      attr_arr);
+  // auto func = mlir::func::FuncOp::create(
+  // mlir::UnknownLoc::get(mlir_context),
+  // function_name,
+  // mlir_func_type,
+  // attr_arr);
+#if 1
+  auto func = builder.create<mlir::func::FuncOp>(
+      ctx.mlir_module->getLoc(), function_name, mlir_func_type, attr_arr);
+#endif
+#if 1
+  std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
 
   auto entry_block = func.addEntryBlock();
   builder.setInsertionPointToStart(entry_block);

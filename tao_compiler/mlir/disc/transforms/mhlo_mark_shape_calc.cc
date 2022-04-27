@@ -14,10 +14,10 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
-#include "mlir/IR/MLIRContext.h"              // TF:llvm-project
-#include "mlir/Pass/Pass.h"                   // TF:local_config_mlir
-#include "mlir/Transforms/Passes.h"           // TF:llvm-project
+// #include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
+#include "mlir/IR/MLIRContext.h"     // TF:llvm-project
+#include "mlir/Pass/Pass.h"          // TF:local_config_mlir
+#include "mlir/Transforms/Passes.h"  // TF:llvm-project
 #include "transforms/PassDetail.h"
 #include "transforms/placement_utils.h"
 
@@ -52,11 +52,12 @@ struct DiscMarkShapeCalc
   // Update marked set.
   // Add some operands of dynamic shape OPs into marked set according to lookup
   // table.
-  void markShapeCalculationOps(FuncOp func, DenseSet<Operation*>& marked_ops);
+  void markShapeCalculationOps(func::FuncOp func,
+                               DenseSet<Operation*>& marked_ops);
 
   // Update marked set.
   // If a OP is in marked set, add all of its operands to marked set.
-  void inferOperands(FuncOp func, llvm::DenseSet<Operation*>& marked_ops);
+  void inferOperands(func::FuncOp func, llvm::DenseSet<Operation*>& marked_ops);
 };
 
 void DiscMarkShapeCalc::runOnOperation() {
@@ -71,7 +72,7 @@ void DiscMarkShapeCalc::MarkShapeCalcOps() {
   Builder builder(&getContext());
   llvm::DenseSet<Operation*> shape_calc_ops;
 
-  mlir::FuncOp func = module.lookupSymbol<mlir::FuncOp>("main");
+  mlir::func::FuncOp func = module.lookupSymbol<mlir::func::FuncOp>("main");
   if (!func) return signalPassFailure();
 
   markShapeCalculationOps(func, shape_calc_ops);
@@ -91,7 +92,7 @@ void DiscMarkShapeCalc::MarkShapeCalcOps() {
 }
 
 void DiscMarkShapeCalc::markShapeCalculationOps(
-    FuncOp func, llvm::DenseSet<Operation*>& marked_ops) {
+    func::FuncOp func, llvm::DenseSet<Operation*>& marked_ops) {
   auto& block = func.getBlocks().front();
   for (Operation& op : block) {
     // TODO(disc): If the operand of the op is a nested FuncOp, mark the
@@ -121,7 +122,7 @@ void DiscMarkShapeCalc::markShapeCalculationOps(
   };
 }
 
-void DiscMarkShapeCalc::inferOperands(FuncOp func,
+void DiscMarkShapeCalc::inferOperands(func::FuncOp func,
                                       llvm::DenseSet<Operation*>& marked_ops) {
   auto& block = func.getBlocks().front();
   for (auto& op : llvm::make_early_inc_range(

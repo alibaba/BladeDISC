@@ -19,7 +19,8 @@ limitations under the License.
 // generally not the fastest approach, but it works.
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"             // from @llvm-project
+// #include "mlir/Dialect/StandardOps/IR/Ops.h"             // from
+// @llvm-project
 #include "mlir/IR/Attributes.h"                          // from @llvm-project
 #include "mlir/IR/Location.h"                            // from @llvm-project
 #include "mlir/IR/MLIRContext.h"                         // from @llvm-project
@@ -200,7 +201,7 @@ struct ElementTypeConverterPass
   }
 
   void runOnOperation() override {
-    FuncOp func = getOperation();
+    func::FuncOp func = getOperation();
     MLIRContext& ctx = getContext();
     RewritePatternSet patterns(&ctx);
     patterns.insert<ConvertReduceOpWithSmallWidthIntType>(&ctx);
@@ -217,7 +218,7 @@ struct ElementTypeConverterPass
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscElementTypeConverterPass(
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscElementTypeConverterPass(
     bool enable_fp16_gemm) {
   return std::make_unique<ElementTypeConverterPass>(enable_fp16_gemm);
 }

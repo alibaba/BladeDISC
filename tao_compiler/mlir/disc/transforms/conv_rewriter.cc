@@ -17,7 +17,8 @@ limitations under the License.
 // format of CUDNN library call.
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"             // TF:llvm-project
+// #include "mlir/Dialect/StandardOps/IR/Ops.h"             // TF:llvm-project
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Attributes.h"                          // TF:llvm-project
 #include "mlir/IR/Location.h"                            // TF:llvm-project
 #include "mlir/IR/MLIRContext.h"                         // TF:llvm-project
@@ -377,7 +378,7 @@ struct DiscConvRewriterPass
   }
 
   LogicalResult convToDynamicConv() {
-    FuncOp func = getOperation();
+    func::FuncOp func = getOperation();
     MLIRContext* ctx = func.getContext();
     RewritePatternSet patterns(ctx);
     patterns.insert<ConvToDynamicConvConvert>(ctx);
@@ -411,7 +412,7 @@ struct DiscConvRewriterPass
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscConvRewriter() {
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvRewriter() {
   return std::make_unique<DiscConvRewriterPass>();
 }
 

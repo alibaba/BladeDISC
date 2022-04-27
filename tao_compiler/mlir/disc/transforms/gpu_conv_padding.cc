@@ -20,15 +20,15 @@ limitations under the License.
 // input tensor such that we can pass it to cuDNN.
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
-#include "mlir/Dialect/Tensor/IR/Tensor.h"    // TF:llvm-project
-#include "mlir/IR/Attributes.h"               // TF:llvm-project
-#include "mlir/IR/Builders.h"                 // TF:llvm-project
-#include "mlir/IR/Location.h"                 // TF:llvm-project
-#include "mlir/IR/MLIRContext.h"              // TF:llvm-project
-#include "mlir/IR/Matchers.h"                 // TF:llvm-project
-#include "mlir/IR/Operation.h"                // TF:llvm-project
-#include "mlir/Pass/Pass.h"                   // TF:local_config_mlir
+// #include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
+#include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
+#include "mlir/IR/Attributes.h"             // TF:llvm-project
+#include "mlir/IR/Builders.h"               // TF:llvm-project
+#include "mlir/IR/Location.h"               // TF:llvm-project
+#include "mlir/IR/MLIRContext.h"            // TF:llvm-project
+#include "mlir/IR/Matchers.h"               // TF:llvm-project
+#include "mlir/IR/Operation.h"              // TF:llvm-project
+#include "mlir/Pass/Pass.h"                 // TF:local_config_mlir
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "transforms/PassDetail.h"
 #include "transforms/placement_utils.h"
@@ -224,7 +224,8 @@ struct DiscGpuConvPaddingLegalizationPass
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscGpuConvPaddingLegalization() {
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscGpuConvPaddingLegalization() {
   return std::make_unique<DiscGpuConvPaddingLegalizationPass>();
 }
 

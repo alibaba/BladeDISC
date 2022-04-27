@@ -47,6 +47,9 @@ std::tuple<std::string, std::string, std::string> MhloConversaion(
   std::string pretty_mlir;
   std::string input_dev_str;
   std::string output_dev_str;
+#if 1
+  std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
   std::tie(parsable_mlir, pretty_mlir, input_dev_str, output_dev_str) =
       torch::blade::ConvertTorchScriptToMhlo(graph);
   TORCH_CHECK(!parsable_mlir.empty(), "mhlo conversaion failed!");

@@ -13,7 +13,8 @@
 
 #include <mlir-hlo/Dialect/mhlo/IR/chlo_ops.h>
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h>
-#include <mlir/Dialect/StandardOps/IR/Ops.h>
+// #include <mlir/Dialect/StandardOps/IR/Ops.h>
+#include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 
@@ -62,11 +63,13 @@ inline bool AllTensorTypeAnalyzed(const torch::jit::Node& node) {
 }
 
 void RegisterDialects(mlir::DialectRegistry& registry) {
-  registry.insert<mlir::StandardOpsDialect>();
-  registry.insert<mlir::tensor::TensorDialect>(),
-      registry.insert<mlir::mhlo::MhloDialect>();
+  // registry.insert<mlir::StandardOpsDialect>();
+  registry.insert<mlir::func::FuncDialect>();
+  registry.insert<mlir::tensor::TensorDialect>();
+  registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::mhlo_disc::MhloDiscDialect>();
-  registry.insert<mlir::chlo::HloClientDialect>();
+  // registry.insert<mlir::chlo::HloClientDialect>();
+  registry.insert<mlir::chlo::ChloDialect>();
 }
 
 bool IsMlirMhloSupported(const torch::jit::Node& node) {
@@ -122,12 +125,27 @@ class ConvertToMhloImpl {
 
   std::tuple<std::string, std::string, std::string, std::string> Run() {
     // make this function call only once.
+#if 1
+    std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
     TORCH_CHECK(
         !converted_.test_and_set(std::memory_order_acquire),
         "the conversion is called multiple times");
+#if 1
+    std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
     BuildMainFunc();
+#if 1
+    std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
     RunImpl(cvt_context_.torch_graph->block());
+#if 1
+    std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
     FinalizeMainFunc();
+#if 1
+    std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
 
     std::string parsable_str = GenerateMlirModuleString(false);
     std::string pretty_str = GenerateMlirModuleString(true);
@@ -140,12 +158,18 @@ class ConvertToMhloImpl {
 
  private:
   void BuildMainFunc() {
+#if 1
+    std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
     std::tie(mlir_main_func_, input_dev_str_, output_dev_str_) =
         CreateMlirFunction(
             cvt_context_,
             "main",
             cvt_context_.torch_graph->inputs(),
             cvt_context_.torch_graph->outputs());
+#if 1
+    std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
     cvt_context_.mlir_module->push_back(mlir_main_func_);
   }
 
@@ -163,8 +187,9 @@ class ConvertToMhloImpl {
           *output->node());
       return_values.push_back(out_iter->second);
     }
-    cvt_context_.builder->create<mlir::ReturnOp>(loc, return_values);
-    auto main_func_type = mlir_main_func_.getType();
+    cvt_context_.builder->create<mlir::func::ReturnOp>(loc, return_values);
+    auto main_func_type = mlir_main_func_.getFunctionType();
+    // auto main_func_type = mlir_main_func_.getType();
     SmallVec4<mlir::Type> rets;
     for (auto& output : return_values) {
       rets.emplace_back(output.getType());
@@ -194,7 +219,7 @@ class ConvertToMhloImpl {
 
   std::string input_dev_str_;
   std::string output_dev_str_;
-  mlir::FuncOp mlir_main_func_;
+  mlir::func::FuncOp mlir_main_func_;
   MhloConversionContext cvt_context_;
   std::atomic_flag converted_ = ATOMIC_FLAG_INIT;
 };
@@ -202,11 +227,26 @@ class ConvertToMhloImpl {
 std::tuple<std::string, std::string, std::string, std::string>
 ConvertTorchScriptToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
   try {
+#if 1
+    std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
     mlir::DialectRegistry registry;
     RegisterDialects(registry);
+#if 1
+    std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
     mlir::MLIRContext mlir_context(registry);
+#if 1
+    std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
     mlir_context.loadAllAvailableDialects();
+#if 1
+    std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
     ConvertToMhloImpl impl(graph, mlir_context);
+#if 1
+    std::cout << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << std::endl;
+#endif
     return impl.Run();
   } catch (std::exception& err) {
     LOG(ERROR) << err.what();

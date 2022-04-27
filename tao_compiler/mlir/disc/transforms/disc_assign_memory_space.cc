@@ -16,9 +16,10 @@ limitations under the License.
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+// #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Attributes.h"   // TF:llvm-project
 #include "mlir/IR/Location.h"     // TF:llvm-project
@@ -129,7 +130,7 @@ struct DiscAssignMemorySpacePass
       DenseMap<Value, StringRef>& assignment, bool& converged);
 
   LogicalResult applyAssignment(
-      FuncOp main, DenseMap<Value, StringRef>& assignment,
+      func::FuncOp main, DenseMap<Value, StringRef>& assignment,
       const SmallVectorImpl<StringRef>& input_placements,
       const SmallVectorImpl<StringRef>& output_placements);
 
@@ -146,7 +147,7 @@ struct DiscAssignMemorySpacePass
 
   void runOnOperation() override {
     ModuleOp m = getOperation();
-    FuncOp main = m.lookupSymbol<FuncOp>(entry_func_name_);
+    func::FuncOp main = m.lookupSymbol<func::FuncOp>(entry_func_name_);
     if (!main) {
       m.emitError("entry func: " + entry_func_name_ + " not found");
       signalPassFailure();
@@ -361,7 +362,7 @@ LogicalResult DiscAssignMemorySpacePass::processOperation(
 
   // TODO(disc): using an unsupported op list
   // TODO(disc): support cross function inference.
-  if (isa<CallOp>(op)) {
+  if (isa<func::CallOp>(op)) {
     return op->emitOpError() << "function call is not supported a.t.m.";
   }
 
@@ -446,7 +447,7 @@ LogicalResult DiscAssignMemorySpacePass::processLmhloOperation(
 }
 
 LogicalResult DiscAssignMemorySpacePass::applyAssignment(
-    FuncOp main, DenseMap<Value, StringRef>& assignment,
+    func::FuncOp main, DenseMap<Value, StringRef>& assignment,
     const SmallVectorImpl<StringRef>& input_placements,
     const SmallVectorImpl<StringRef>& output_placements) {
   // apply assignment inside the region
@@ -457,16 +458,20 @@ LogicalResult DiscAssignMemorySpacePass::applyAssignment(
   MLIRContext* ctx = main.getContext();
   SmallVector<Type, 4> input_types;
   SmallVector<Type, 4> output_types;
-  llvm::transform(llvm::zip(main.getType().getInputs(), input_placements),
-                  std::back_inserter(input_types),
-                  [&](const std::tuple<Type, StringRef>& v) {
-                    return maybeConvert(ctx, std::get<0>(v), std::get<1>(v));
-                  });
-  llvm::transform(llvm::zip(main.getType().getResults(), output_placements),
-                  std::back_inserter(output_types),
-                  [&](const std::tuple<Type, StringRef>& v) {
-                    return maybeConvert(ctx, std::get<0>(v), std::get<1>(v));
-                  });
+  // llvm::transform(llvm::zip(main.getType().getInputs(), input_placements),
+  llvm::transform(
+      llvm::zip(main.getFunctionType().getInputs(), input_placements),
+      std::back_inserter(input_types),
+      [&](const std::tuple<Type, StringRef>& v) {
+        return maybeConvert(ctx, std::get<0>(v), std::get<1>(v));
+      });
+  // llvm::transform(llvm::zip(main.getType().getResults(), output_placements),
+  llvm::transform(
+      llvm::zip(main.getFunctionType().getResults(), output_placements),
+      std::back_inserter(output_types),
+      [&](const std::tuple<Type, StringRef>& v) {
+        return maybeConvert(ctx, std::get<0>(v), std::get<1>(v));
+      });
 
   // Update entry function type.
   main.setType(FunctionType::get(ctx, input_types, output_types));
@@ -475,7 +480,7 @@ LogicalResult DiscAssignMemorySpacePass::applyAssignment(
 
 LogicalResult DiscAssignMemorySpacePass::applyRegionAssignment(
     Region* region, DenseMap<Value, StringRef>& assignment) {
-  auto main = cast<FuncOp>(region->getParentOp());
+  auto main = cast<func::FuncOp>(region->getParentOp());
   for (Block& block : llvm::make_early_inc_range(*region)) {
     if (failed(applyBlockAssignment(&block, assignment))) return failure();
   }
@@ -504,7 +509,7 @@ LogicalResult DiscAssignMemorySpacePass::applyBlockAssignment(
     block->eraseArgument(0);
   }
 
-  auto main = cast<FuncOp>(block->getParentOp());
+  auto main = cast<func::FuncOp>(block->getParentOp());
   for (Operation& op : llvm::make_early_inc_range(*block)) {
     if (failed(applyOperationAssignment(&op, assignment))) return failure();
   }

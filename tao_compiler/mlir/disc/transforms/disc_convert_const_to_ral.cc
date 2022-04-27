@@ -175,7 +175,7 @@ LogicalResult DiscConstToRALPass::convertConstOp(ConstOp const_op,
   Value zero = builder.create<LLVM::ConstantOp>(loc, IntegerType::get(ctx, 32),
                                                 builder.getI32IntegerAttr(0));
   Value stream_idx = builder.create<LLVM::IntToPtrOp>(loc, pointer_type, zero);
-  Value ral_context = const_op->getParentOfType<FuncOp>().getArgument(0);
+  Value ral_context = const_op->getParentOfType<func::FuncOp>().getArgument(0);
 
   SmallVector<Value, 12> newOperands{stream_idx, const_name_global};
   auto dispatch_op = builder.create<disc_ral::DispatchOp>(

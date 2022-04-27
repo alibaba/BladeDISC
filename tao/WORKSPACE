@@ -23,10 +23,6 @@ load("@local_config_tf_protobuf//:tf_protobuf_workspace.bzl", "tf_protobuf_works
 
 tf_protobuf_workspace()
 
-load("@local_config_blade_gemm//:blade_gemm_workspace.bzl", "blade_gemm_workspace")
-
-blade_gemm_workspace()
-
 # Initialize TensorFlow's external dependencies.
 load("@org_tensorflow//tensorflow:workspace3.bzl", "tf_workspace3")
 

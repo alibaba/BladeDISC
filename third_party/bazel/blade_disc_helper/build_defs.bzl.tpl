@@ -10,6 +10,15 @@ def cxx_bin_path():
 def nvcc_bin_path():
     return "%{NVCC_BIN_PATH}"
 
+def blade_gemm_nvcc():
+    return "%{BLADE_GEMM_NVCC}"
+
+def blade_gemm_nvcc_archs():
+    return "%{BLADE_GEMM_NVCC_ARCHS}"
+
+def blade_gemm_library_kernels():
+    return "%{BLADE_GEMM_LIBRARY_KERNELS}"
+
 def cuda_home():
     return "%{CUDA_HOME}"
 
@@ -68,12 +77,6 @@ def if_disc_mkldnn(if_true, if_false=[]):
 def if_disc_aarch64(if_true, if_false=[]):
     return select({
         "@local_config_blade_disc_helper//:disc_aarch64": if_true,
-        "//conditions:default": if_false
-    })
-
-def if_cxx11_abi(if_true, if_false=[]):
-    return select({
-        "@local_config_blade_disc_helper//:is_cxx11_abi": if_true,
         "//conditions:default": if_false
     })
 

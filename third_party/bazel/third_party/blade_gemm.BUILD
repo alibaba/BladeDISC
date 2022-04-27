@@ -2,6 +2,9 @@ load("@rules_foreign_cc//foreign_cc:defs.bzl", "cmake")
 load("@local_config_blade_disc_helper//:build_defs.bzl",
     "cc_bin_path",
     "cxx_bin_path",
+    "blade_gemm_nvcc",
+    "blade_gemm_nvcc_archs",
+    "blade_gemm_library_kernels",
 )
 
 filegroup(
@@ -17,15 +20,13 @@ cmake(
         "CMAKE_VERBOSE_MAKEFILE": "ON",
         "CMAKE_C_COMPILER": cc_bin_path(),
         "CMAKE_CXX_COMPILER": cxx_bin_path(),
-        "CUTLASS_NVCC_ARCHS": "%{CUTLASS_NVCC_ARCHS}",
-        "CUTLASS_LIBRARY_KERNELS": "%{CUTLASS_LIBRARY_KERNELS}",
-        "CUTLASS_ENABLE_TESTS": "OFF",
-        "CUTLASS_UNITY_BUILD_ENABLED": "ON",
+        "BLADE_GEMM_NVCC_ARCHS": blade_gemm_nvcc_archs(),
+        "BLADE_GEMM_LIBRARY_KERNELS": blade_gemm_library_kernels(),
     },
     env = {
         "CC": cc_bin_path(),
         "CXX": cxx_bin_path(),
-        "CUDACXX": "%{CUTLASS_CUDACXX}",
+        "CUDACXX": blade_gemm_nvcc(),
     },
     generate_crosstool_file=False, ## This makes sure we use cxx by cache_entries settings
     build_args = ["-j"],

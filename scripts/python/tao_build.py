@@ -318,9 +318,16 @@ def configure_bridge_bazel(root, args):
         is_cuda = not (args.cpu_only or args.dcu)
         if is_cuda:
             cuda_ver, _ = deduce_cuda_info()
-            if '11\.' in cuda_ver:
+            logger.info(f"Builing with cuda-{cuda_ver}")
+            if '11.' in cuda_ver:
                 _action_env("TF_CUDA_COMPUTE_CAPABILITIES", "7.0,7.5,8.0")
-            elif '10\.' in cuda_ver:
+                if os.path.exists(args.blade_gemm_nvcc):
+                    _action_env("BLADE_GEMM_NVCC", args.blade_gemm_nvcc)
+                    _action_env("BLADE_GEMM_NVCC_ARCHS", "80")  # Currently only for Ampere, add a arg for this when support more archs
+                    _action_env("BLADE_GEMM_LIBRARY_KERNELS", "s1688tf32gemm,f16_s1688gemm_f16,f16_s16816gemm_f16,s16816tf32gemm")
+                else:
+                    raise Exception(f"blade_gemm_gcc in args {args.blade_gemm_nvcc} not exists")
+            elif '10.' in cuda_ver:
                 _action_env("TF_CUDA_COMPUTE_CAPABILITIES", "7.0,7.5")
             _action_env("NVCC", which("nvcc"))
             _write("--test_tag_filters=-cpu", cmd="test")
@@ -958,6 +965,12 @@ def parse_args():
     )
     parser.add_argument(
         "--blade_gemm", default=True, action="store_true", help="build with is_blade_gemm=True"
+    )
+    parser.add_argument(
+        "--blade_gemm_nvcc",
+        required=False,
+        default="/usr/local/cuda-11.6/bin/nvcc",
+        help="Nvcc used for blade gemm kernel build.",
     )
     # flag validation
     args = parser.parse_args()

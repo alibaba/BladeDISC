@@ -73,19 +73,6 @@ cc_proto_library(
     ],
 )
 
-filegroup(
-    name = "exclude_srcs",
-    srcs = if_platform_alibaba([
-        "tao_bridge/gpu/bace_gemm_thunk.cc",
-    ]),
-)
-
-filegroup(
-    name = "exclude_hdrs",
-    srcs = if_platform_alibaba([
-    ]),
-)
-
 cc_library(
     name = "tao_bridge",
     srcs = glob(
@@ -120,6 +107,9 @@ cc_library(
     copts = if_cuda([
         "-DGOOGLE_CUDA=1",
     ]) + tf_copts(),
+    linkopts = [
+        "-lm",
+    ],
     alwayslink = 1,  # targets depending on it should carry all symbols in its children.
     linkstatic = 1,
 )

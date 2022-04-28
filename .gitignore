@@ -26,3 +26,5 @@ tao/tao_bridge/gpu
 tao/tao_bridge/tao_launch_op
 tao/blade_gemm
 tao/third_party/PatineClient
+tao/build.txt
+tao/*.tgz

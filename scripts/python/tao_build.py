@@ -268,7 +268,7 @@ def configure_bridge_bazel(root, args):
     # TODO(lanbo.llb): support TAO_DISABLE_LINK_TF_FRAMEWORK in bazel??
     tao_bazel_root = tao_bazel_dir(root)
     link_internal_tao_bridge(args)
-    with open(os.path.join(tao_bazel_root, ".bazelrc_gen"), "w") as f:
+    with gcc_env(args.bridge_gcc), open(os.path.join(tao_bazel_root, ".bazelrc_gen"), "w") as f:
 
         def _opt(opt, value, cmd="build"):
             f.write(f"{cmd} --{opt}={value}\n")
@@ -281,9 +281,9 @@ def configure_bridge_bazel(root, args):
 
         python_bin = os.path.join(args.venv_dir, "bin", "python3")
         _action_env("PYTHON_BIN_PATH", python_bin)
-        _action_env("GCC_HOST_COMPILER_PATH", which("gcc"))
-        _action_env("CC", which("gcc"))
-        _action_env("CXX", which("g++"))
+        _action_env("GCC_HOST_COMPILER_PATH", os.path.realpath(which("gcc")))
+        _action_env("CC", os.path.realpath(which("gcc")))
+        _action_env("CXX", os.path.realpath(which("g++")))
         (
             tf_major,
             tf_minor,
@@ -319,15 +319,16 @@ def configure_bridge_bazel(root, args):
         if is_cuda:
             cuda_ver, _ = deduce_cuda_info()
             logger.info(f"Builing with cuda-{cuda_ver}")
-            if '11.' in cuda_ver:
+            if cuda_ver.startswith('11.'):
                 _action_env("TF_CUDA_COMPUTE_CAPABILITIES", "7.0,7.5,8.0")
-                if os.path.exists(args.blade_gemm_nvcc):
-                    _action_env("BLADE_GEMM_NVCC", args.blade_gemm_nvcc)
-                    _action_env("BLADE_GEMM_NVCC_ARCHS", "80")  # Currently only for Ampere, add a arg for this when support more archs
-                    _action_env("BLADE_GEMM_LIBRARY_KERNELS", "s1688tf32gemm,f16_s1688gemm_f16,f16_s16816gemm_f16,s16816tf32gemm")
-                else:
-                    raise Exception(f"blade_gemm_gcc in args {args.blade_gemm_nvcc} not exists")
-            elif '10.' in cuda_ver:
+                if args.platform_alibaba and args.blade_gemm:
+                    if os.path.exists(args.blade_gemm_nvcc):
+                        _action_env("BLADE_GEMM_NVCC", args.blade_gemm_nvcc)
+                        _action_env("BLADE_GEMM_NVCC_ARCHS", "80")  # Currently only for Ampere, add a arg for this when support more archs
+                        _action_env("BLADE_GEMM_LIBRARY_KERNELS", "s1688tf32gemm,f16_s1688gemm_f16,f16_s16816gemm_f16,s16816tf32gemm")
+                    else:
+                        raise Exception(f"blade_gemm_gcc in args {args.blade_gemm_nvcc} not exists")
+            elif cuda_ver.startswith('10.'):
                 _action_env("TF_CUDA_COMPUTE_CAPABILITIES", "7.0,7.5")
             _action_env("NVCC", which("nvcc"))
             _write("--test_tag_filters=-cpu", cmd="test")
@@ -341,9 +342,10 @@ def configure_bridge_bazel(root, args):
         _write("--host_jvm_args=-Djdk.http.auth.tunneling.disabledSchemes=", cmd = "startup")
         logger.info("configuring tao_bridge with bazel ......")
 
+    proxy_setting = "HTTPS_PROXY= " if args.platform_alibaba else ""
     with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
         # make sure version.h is generated
-        execute("bazel build --config=release //:version_header_genrule")
+        execute(f"{proxy_setting} bazel build --config=release //:version_header_genrule")
 
     with cwd(root):
         # copy version.h from tao_bridge
@@ -590,8 +592,9 @@ def build_tao_bridge(root, args):
             execute("make -j")
     else:
         tao_bazel_root = tao_bazel_dir(root)
+        proxy_setting = "HTTPS_PROXY= " if args.platform_alibaba else ""
         with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
-            execute(f"bazel build {tao_bridge_bazel_config(args)} //:libtao_ops.so")
+            execute(f"{proxy_setting} bazel build {tao_bridge_bazel_config(args)} //:libtao_ops.so")
 
     logger.info("Stage [build_tao_bridge] success.")
 
@@ -733,7 +736,7 @@ def prepare_env(args):
     os.environ["TAO_BUILD_TIME"] = timestamp
 
 def generate_build_info(file):
-    with open(file, "w") as f:
+    with open(file, "w+") as f:
         f.write(
             "# Use the following command to check version info embedded in libtao_ops.so:\n"
         )
@@ -777,7 +780,7 @@ def make_package(root, args):
     project_root = get_source_root_dir()
     with cwd(root):
         logger.info("packaging for version: " + args.version)
-        build_info_file = "{}/built/tao/build.txt".format(root)
+        build_info_file = "{}/tao/build.txt".format(root)
         generate_build_info(build_info_file)
 
         F_TAO_COMPILER_MAIN = (
@@ -792,7 +795,7 @@ def make_package(root, args):
             tar.add(file, arcname=full_path_in_tar)
 
         # pkg for dsw.
-        dsw_tgz = "{}/built/tao/tao_dsw_{}.tgz".format(root, args.version)
+        dsw_tgz = "{}/tao/tao_sdk_{}.tgz".format(root, args.version)
         with tarfile.open(dsw_tgz, "w:gz") as tar:
             add_to_tar(tar, F_TAO_COMPILER_MAIN)
             add_to_tar(tar, F_TAO_OPS_SO)
@@ -800,7 +803,7 @@ def make_package(root, args):
             add_to_tar(tar, build_info_file)
             if libstdcxx_path:
                 add_to_tar(tar, libstdcxx_path, name_in_tar=libstdcxx_name)
-        logger.info("dsw package created   : " + dsw_tgz)
+        logger.info("sdk package created   : " + dsw_tgz)
 
         logger.info("Stage [make_package] success.")
 
@@ -964,7 +967,7 @@ def parse_args():
         "--platform_alibaba", action="store_true", help="build with is_platform_alibaba=True"
     )
     parser.add_argument(
-        "--blade_gemm", default=True, action="store_true", help="build with is_blade_gemm=True"
+        "--blade_gemm", action="store_true", help="build with is_blade_gemm=True"
     )
     parser.add_argument(
         "--blade_gemm_nvcc",
@@ -996,10 +999,12 @@ def parse_args():
     if args.version == "auto":
         args.version = open(get_version_file()).read().split()[0]
 
-    if args.platform_alibaba and args.blade_gemm:
+    if args.platform_alibaba and args.build_in_aone:
         cuda_ver, _ = deduce_cuda_info()
-        if '10\.' in cuda_ver:
+        if cuda_ver.startswith("10.0"):
             args.blade_gemm = False
+        elif cuda_ver.startswith("11.0"):
+            args.blade_gemm = True
     return args
 
 

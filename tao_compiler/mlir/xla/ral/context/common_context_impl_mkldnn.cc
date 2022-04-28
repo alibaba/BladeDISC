@@ -620,7 +620,7 @@ struct OnednnACLGemmState : public Context::Resource {
   OnednnACLGemmCache cached_primitive{getWeightPrePackingCacheCapacity()};
 };
 
-MatmulPrimitive* getOrCreateMatmulPrimitive(
+std::shared_ptr<MatmulPrimitive> getOrCreateMatmulPrimitive(
     OnednnACLGemmCache& cached_primitive, const OnednnACLGemmKey& key,
     const tensor& src, const tensor& weight, tensor& output) {
   auto it = cached_primitive.find(key);
@@ -674,7 +674,7 @@ void onednn_ral_gemm(ExecutionContext* ctx, void* stream_handle,
                             tao::ral::TaoTypeNameHelper<Tinput>::Invoke();
   auto state = ctx->getOrCreateResource<OnednnACLGemmState>(
       unique_name, []() { return new OnednnACLGemmState; });
-  MatmulPrimitive* primitive;
+  std::shared_ptr<MatmulPrimitive> primitive;
   {
     OnednnACLGemmKey key{m,    n,    k,      1,
                          tp_a, tp_b, B.data, std::this_thread::get_id()};
@@ -844,7 +844,7 @@ void onednn_ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
                             tao::ral::TaoTypeNameHelper<Tinput>::Invoke();
   auto state = ctx->getOrCreateResource<OnednnACLGemmState>(
       unique_name, []() { return new OnednnACLGemmState; });
-  MatmulPrimitive* primitive;
+  std::shared_ptr<MatmulPrimitive> primitive;
   {
     std::lock_guard<std::mutex> l(state->mu);
     OnednnACLGemmKey key{m,    n,    k,      b,

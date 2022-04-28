@@ -631,7 +631,7 @@ std::shared_ptr<MatmulPrimitive> getOrCreateMatmulPrimitive(
     it = cached_primitive.insert(std::make_pair(key, std::move(primitive)))
              .first;
   }
-  return it->second.get();
+  return it->second;
 }
 
 template <typename Tinput, int N = 2, typename Tweight = Tinput,

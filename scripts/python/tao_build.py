@@ -108,6 +108,12 @@ def internal_root_dir():
 def internal_tao_bridge_dir():
     return os.path.join(internal_root_dir(), "platform_alibaba", "tao_bridge")
 
+def blade_gemm_dir(root=None):
+    if root is None:
+        root = get_source_root_dir()
+    return os.path.join(root, os.pardir, "platform_alibaba", "blade_gemm", "build")
+
+
 def link_internal_tao_bridge(args):
     # softlink ["tao_launch_op", "gpu"] dirs, "tvm" and "transform" dirs are not needed for now.
     for dir_name in ["tao_launch_op", "gpu"]:
@@ -173,6 +179,7 @@ def configure_compiler(root, args):
     if args.platform_alibaba:
         symlink_internal_files(root)
 
+    config_blade_gemm(root, args)
     # configure tensorflow
     with cwd(tf_root_dir()), gcc_env(args.compiler_gcc):
         cmd = "set -a && source {} && set +a &&".format(
@@ -205,6 +212,7 @@ def configure_compiler(root, args):
 def configure_pytorch(root, args):
     save_gcc_conf(args)
     logger.info("configuring aicompiler for pytorch ......")
+    config_blade_gemm(root, args)
     configure_compiler(root, args)
 
 @time_stage()
@@ -260,6 +268,33 @@ def configure_bridge_cmake(root, args):
             )
         )
     logger.info("Stage [configure bridge(cmake)] success.")
+
+def config_blade_gemm(root, args):
+    if not (args.platform_alibaba and args.blade_gemm):
+        return
+    if args.cpu_only or args.dcu:
+        return
+    blade_gemm_build_dir = blade_gemm_dir(root)
+    ensure_empty_dir(blade_gemm_build_dir, clear_hidden=False)
+    with cwd(blade_gemm_build_dir), gcc_env(args.bridge_gcc):
+        cc = which("gcc")
+        cxx = which("g++")
+        cmake_cmd = "CC={} CXX={} CUDA_CXX={} cmake .. -DBLADE_GEMM_NVCC_ARCHS='80' -DBLADE_GEMM_LIBRARY_KERNELS=s1688tf32gemm,f16_s1688gemm_f16,f16_s16816gemm_f16,s16816tf32gemm".format(cc, cxx, args.blade_gemm_nvcc)
+        logger.info("configuring blade_gemm ......")
+        execute(cmake_cmd)
+        logger.info("blade_gemm configure success.")
+
+@time_stage()
+def build_blade_gemm(root, args):
+    if not (args.platform_alibaba and args.blade_gemm):
+        return
+    if args.cpu_only or args.dcu:
+        return
+    blade_gemm_build_dir = blade_gemm_dir(root)
+    with cwd(blade_gemm_build_dir), gcc_env(args.bridge_gcc):
+        execute("make -j")
+    logger.info("Stage [build_blade_gemm] success.")
+
 
 @time_stage()
 def configure_bridge_bazel(root, args):
@@ -523,6 +558,7 @@ def test_tao_compiler(root, args):
         execute(" ".join([BAZEL_BUILD_CMD, flag, target]))
         execute(" ".join([BAZEL_TEST_CMD, flag + ' --test_env=TF_CPP_VMODULE=disc_compiler=1' , target]))
 
+    build_blade_gemm(root, args)
     with cwd(tf_root_dir(root)), gcc_env(args.compiler_gcc):
         execute(
             "cp -f -p {}/tao*.proto tensorflow/compiler/decoupling/".format(
@@ -999,12 +1035,14 @@ def parse_args():
     if args.version == "auto":
         args.version = open(get_version_file()).read().split()[0]
 
-    if args.platform_alibaba and args.build_in_aone:
+    if args.platform_alibaba and (args.build_in_aone or args.blade_gemm):
         cuda_ver, _ = deduce_cuda_info()
-        if cuda_ver.startswith("10.0"):
-            args.blade_gemm = False
-        elif cuda_ver.startswith("11.0"):
+        if float(cuda_ver) >= 11.0:
             args.blade_gemm = True
+            if not os.path.exists(args.blade_gemm_nvcc):
+                raise Exception(f"blade_gemm_gcc in args {args.blade_gemm_nvcc} not exists")
+        else:
+            args.blade_gemm = False
     return args
 
 
@@ -1053,6 +1091,7 @@ def main():
         if args.enable_mkldnn:
             with gcc_env(args.bridge_gcc):
                 build_mkldnn(root)
+        build_blade_gemm(root, args)
         if stage == "build_mlir_ral":
             build_mlir_ral(root, args)
         else:

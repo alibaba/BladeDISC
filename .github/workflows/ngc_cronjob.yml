@@ -1,22 +1,12 @@
-name: NGC Reusable workflow
+name: NGC Regression Cronjob
 
 on:
   schedule:
     - cron: '30 23 * * *' # 11:30 pm
-  workflow_call:
-    secrets:
-      ALIYUN_DOCKER_USERNAME:
-        required: false
-      ALIYUN_DOCKER_PASSWORD:
-        required: false
-      DOCKER_USERNAME:
-        required: false
-      DOCKER_PASSWORD:
-        required: false
 
 jobs:
   TORCH-NGC:
-    if: github.repository == 'alibaba/BladeDISC' && github.event.ref == 'refs/heads/main'
+    if: github.repository == 'alibaba/BladeDISC' && github.ref == 'refs/heads/main'
     # The type of runner that the job will run on
     runs-on: [self-hosted, gpu-t4]
     # Steps represent a sequence of tasks that will be executed as part of the job
@@ -39,7 +29,6 @@ jobs:
         mkdir -p $HOME/.cache/.torch/
         mkdir -p $HOME/.cache/.torch/.cache
         cp $HOME/.cache/remote_cache_token $HOME/.cache/.torch/.cache
-
         nvidia-docker run --rm -t --user $(id -u):$(id -g) \
           -v $HOME/.cache/.torch/:$HOME/.torch \
           -v $HOME/.cache/.torch/.cache:$HOME/.cache \

@@ -114,6 +114,17 @@ bool enableWeightPrePacking() {
   return enabled;
 }
 
+int initWeightPrePackingCacheCapacity() {
+  const char* env = getenv("DISC_CPU_WEIGHT_PRE_PACKING_CACHE_CAPACITY");
+  if (!env) return 1000;
+  return std::atoi(env);
+}
+
+int getWeightPrePackingCacheCapacity() {
+  static int capacity = initWeightPrePackingCacheCapacity();
+  return capacity;
+}
+
 }  // namespace
 
 using ideep::data_type;
@@ -582,11 +593,6 @@ struct OnednnACLGemmKey {
   }
 };
 
-std::thread::id getThreadId() {
-  static thread_local std::thread::id tid = std::this_thread::get_id();
-  return tid;
-};
-
 struct OnednnACLKeyHasher {
   std::size_t operator()(const OnednnACLGemmKey& key) const {
     std::size_t seed = std::hash<int>()(key.m);
@@ -602,13 +608,16 @@ struct OnednnACLKeyHasher {
 };
 
 using MatmulPrimitive = ideep::matmul_forward::super;
+template <typename TKey, typename TValue>
+using OnednnACLGemmKeyMap =
+    std::unordered_map<TKey, TValue, OnednnACLKeyHasher>;
 using OnednnACLGemmCache =
-    std::unordered_map<OnednnACLGemmKey, std::shared_ptr<MatmulPrimitive>,
-                       OnednnACLKeyHasher>;
+    ideep::utils::lru_cache<OnednnACLGemmKey, std::shared_ptr<MatmulPrimitive>,
+                            OnednnACLGemmKeyMap>;
 
 struct OnednnACLGemmState : public Context::Resource {
   std::mutex mu;
-  OnednnACLGemmCache cached_primitive;
+  OnednnACLGemmCache cached_primitive{getWeightPrePackingCacheCapacity()};
 };
 
 MatmulPrimitive* getOrCreateMatmulPrimitive(
@@ -674,7 +683,7 @@ void onednn_ral_gemm(ExecutionContext* ctx, void* stream_handle,
                                            weight, output);
   }
   ideep::matmul_forward::compute(*primitive, src, weight, output);
-#else
+#elif defined(TAO_X86)
   auto weights_desc =
       ideep::matmul_forward::expected_weights_desc(src, weight, output);
 
@@ -700,6 +709,8 @@ void onednn_ral_gemm(ExecutionContext* ctx, void* stream_handle,
   ideep::matmul_forward::compute</* keep_format */ true,
                                  /* weight_format_any */ true>(
       src, packed_weight, output);
+#else
+  ctx->signalError(Context::FAILURE, "onednn_ral_gemm not impl");
 #endif
 }
 
@@ -843,7 +854,7 @@ void onednn_ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
   }
   ideep::matmul_forward::compute(*primitive, src, weight, output);
 #else
-  ctx->signalError(Context::FAILURE, "one_ral_batch_gemm not impl");
+  ctx->signalError(Context::FAILURE, "onednn_ral_batch_gemm not impl");
 #endif
 }
 

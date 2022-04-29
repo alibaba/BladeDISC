@@ -16,6 +16,9 @@ _DISC_BUILD_GIT_HEAD = "DISC_BUILD_GIT_HEAD"
 _DISC_BUILD_HOST = "DISC_BUILD_HOST"
 _DISC_BUILD_IP = "DISC_BUILD_IP"
 _DISC_BUILD_TIME = "DISC_BUILD_TIME"
+_BLADE_GEMM_NVCC = "BLADE_GEMM_NVCC"
+_BLADE_GEMM_NVCC_ARCHS = "BLADE_GEMM_NVCC_ARCHS"
+_BLADE_GEMM_LIBRARY_KERNELS = "BLADE_GEMM_LIBRARY_KERNELS"
 
 def _blade_disc_helper_impl(repository_ctx):
     repository_ctx.template("build_defs.bzl", Label("//bazel/blade_disc_helper:build_defs.bzl.tpl"), {
@@ -34,7 +37,9 @@ def _blade_disc_helper_impl(repository_ctx):
         "%{DISC_BUILD_HOST}": get_host_environ(repository_ctx, _DISC_BUILD_HOST, ""),
         "%{DISC_BUILD_IP}": get_host_environ(repository_ctx, _DISC_BUILD_IP, ""),
         "%{DISC_BUILD_TIME}": get_host_environ(repository_ctx, _DISC_BUILD_TIME, ""),
-        "%{IF_CXX11_ABI}": "False",
+        "%{BLADE_GEMM_NVCC}": get_host_environ(repository_ctx, _BLADE_GEMM_NVCC, ""),
+        "%{BLADE_GEMM_NVCC_ARCHS}": get_host_environ(repository_ctx, _BLADE_GEMM_NVCC_ARCHS, ""),
+        "%{BLADE_GEMM_LIBRARY_KERNELS}": get_host_environ(repository_ctx, _BLADE_GEMM_LIBRARY_KERNELS, ""),
     })
 
     repository_ctx.template("BUILD", Label("//bazel/blade_disc_helper:BUILD.tpl"), {
@@ -57,6 +62,9 @@ blade_disc_helper_configure = repository_rule(
         _DISC_BUILD_GIT_HEAD,
         _DISC_BUILD_HOST,
         _DISC_BUILD_IP,
-        _DISC_BUILD_TIME
+        _DISC_BUILD_TIME,
+        _BLADE_GEMM_NVCC,
+        _BLADE_GEMM_NVCC_ARCHS,
+        _BLADE_GEMM_LIBRARY_KERNELS,
     ],
 )

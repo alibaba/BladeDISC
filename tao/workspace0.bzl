@@ -88,6 +88,12 @@ def _tao_bridge_repositories():
         path = "third_party/mkldnn"
     )
 
+    native.new_local_repository(
+        name = "blade_gemm",
+        build_file = "@org_third_party//bazel/third_party:blade_gemm.BUILD",
+        path = "../../platform_alibaba/blade_gemm"
+    )
+
 def _tao_bridge_toolchains():
     tf_configure(name = "local_config_tf")
 

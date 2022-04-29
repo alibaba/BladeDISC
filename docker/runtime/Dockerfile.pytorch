@@ -6,7 +6,7 @@ ADD ./docker/scripts /install/scripts
 RUN bash /install/scripts/find-fastest-apt.sh && \
         apt-get install -y -qq wget curl unzip
 RUN bash /install/scripts/install-tensorrt.sh "${DEVICE}"
-RUn bash /install/scripts/patch-cu102.sh "${DEVICE}"
+RUn bash /install/scripts/patch-cuda.sh "${DEVICE}"
 
 ADD ./build/torch_blade*.whl  /install/python/
 

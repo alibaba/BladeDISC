@@ -83,8 +83,10 @@ set -xe
 # Need to sign nv's key.
 ubuntu_ver=$(cat /etc/os-release | awk -F '=' '/VERSION_ID/ {gsub(/\.|\"/, "", $2); print($2)}')
 arch=$(lscpu | awk '/Architecture/ {print $2}')
-apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/${ubuntu_ver}/${arch}/7fa2af80.pub
-apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/${ubuntu_ver}/${arch}/3bf863cc.pub
+deb_name='cuda-keyring_1.0-1_all.deb'
+wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${ubuntu_ver}/${arch}/${deb_name} && \
+    dpkg -i ${deb_name} && \
+    rm -f ${deb_name}
 
 apt-get -qq update
 apt-get install -y iputils-ping bc

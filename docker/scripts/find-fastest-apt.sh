@@ -10,7 +10,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -ex
 
 # Returns the domain name of an URL.
 function get_domain_from_url() {
@@ -79,9 +78,13 @@ deb-src $fastest $codename-backports main restricted universe multiverse
 EOF
 }
 
+set -xe
+
 # Need to sign nv's key.
 ubuntu_ver=$(cat /etc/os-release | awk -F '=' '/VERSION_ID/ {gsub(/\.|\"/, "", $2); print($2)}')
 arch=$(lscpu | awk '/Architecture/ {print $2}')
+apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/${ubuntu_ver}/${arch}/7fa2af80.pub
+apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/${ubuntu_ver}/${arch}/3bf863cc.pub
 
 apt-get -qq update
 apt-get install -y iputils-ping bc

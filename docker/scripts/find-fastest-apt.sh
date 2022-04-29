@@ -83,3 +83,10 @@ apt-get -qq update
 apt-get install -y iputils-ping bc
 find_fastest_apt_source > /etc/apt/sources.list
 apt-get -qq update
+
+# Need to sign nv's key.
+ubuntu_ver=$(cat /etc/os-release | awk -F '=' '/VERSION_ID/ {print $2; gsub(/\./, "", $2); print($2)}')
+arch=$(lscpu | awk '/Architecture/ {print $2}')
+
+apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/machine-learning/repos/${ubuntu_ver}/${arch}/7fa2af80.pub
+apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/${ubuntu_ver}/${arch}/3bf863cc.pub

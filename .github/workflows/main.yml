@@ -209,7 +209,7 @@ jobs:
         GITHUB_PULL_REQUEST: ${{ github.event.number }}
         LOCAL_DEV_DOCKER: disc-dev-cuda10.2
         REMOTE_DEV_DOCKER: bladedisc:latest-devel-cuda10.2
-        REMOTE_RUNTIME_DOCKER: bladedisc:latest-runtime-torch1.8.1+cu102
+        REMOTE_RUNTIME_DOCKER: bladedisc:latest-runtime-torch1.8.1-cu102
         RUNTIME_BASEIMAGE: nvidia/cuda:10.2-cudnn8-devel-ubuntu18.04
       run: |
         set -e

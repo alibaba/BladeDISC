@@ -80,13 +80,15 @@ EOF
 
 set -xe
 
-# Need to sign nv's key.
-ubuntu_ver=$(cat /etc/os-release | awk -F '=' '/VERSION_ID/ {gsub(/\.|\"/, "", $2); print($2)}')
-arch=$(lscpu | awk '/Architecture/ {print $2}')
-deb_name='cuda-keyring_1.0-1_all.deb'
-wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${ubuntu_ver}/${arch}/${deb_name} && \
-    dpkg -i ${deb_name} && \
-    rm -f ${deb_name}
+# # Need to sign nv's key.
+# ubuntu_ver=$(cat /etc/os-release | awk -F '=' '/VERSION_ID/ {gsub(/\.|\"/, "", $2); print($2)}')
+# arch=$(lscpu | awk '/Architecture/ {print $2}')
+# deb_name='cuda-keyring_1.0-1_all.deb'
+# wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${ubuntu_ver}/${arch}/${deb_name} && \
+#     dpkg -i ${deb_name} && \
+#     rm -f ${deb_name}
+
+rm -f /etc/apt/sources.list.d/cuda.list /etc/apt/sources.list.d/nvidia-ml.list
 
 apt-get -qq update
 apt-get install -y iputils-ping bc

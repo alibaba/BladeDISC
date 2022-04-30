@@ -3,7 +3,7 @@ ARG PYTORCH_COMMIT=""
 ENV PYTORCH_COMMIT=${PYTORCH_COMMIT}
 
 COPY ./scripts /opt/scripts
-RUN apt-get update -y && \
+RUN bash /opt/scripts/find-fastest-apt.sh && \
     apt-get install -y clang-8 clang++-8 python3.8 python3.8-dev && \
     rm /usr/bin/python && \
     ln -s /usr/bin/python3.8 /usr/bin/python && \

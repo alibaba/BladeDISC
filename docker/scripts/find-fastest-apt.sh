@@ -11,7 +11,6 @@
 # limitations under the License.
 
 
-
 # Returns the domain name of an URL.
 function get_domain_from_url() {
     # cut extract the domain, domain is the third field split by '/'
@@ -78,6 +77,13 @@ deb-src $fastest $codename-proposed main restricted universe multiverse
 deb-src $fastest $codename-backports main restricted universe multiverse
 EOF
 }
+
+set -xe
+
+# Note(xiafei.qiuxf): Since we never install CUDA-related packages via apt-get, but
+#                     actually from .tar.gz file on OSS, just remove cuda's apt repo to
+#                     get free of its GPG key rotation issue.
+rm -f /etc/apt/sources.list.d/cuda.list /etc/apt/sources.list.d/nvidia-ml.list
 
 apt-get -qq update
 apt-get install -y iputils-ping bc

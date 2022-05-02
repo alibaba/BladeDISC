@@ -48,7 +48,7 @@ jobs:
           --build-arg DISC_HOST_TF_VERSION="tensorflow==1.15.5" \
           --build-arg DEVICE=cpu \
           -f docker/dev/Dockerfile .
-    - name: Build And Test DISC
+    - name: Build And Test
       run: |
         set -e
         docker run --rm -t --user $(id -u):$(id -g) \

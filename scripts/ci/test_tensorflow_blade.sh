@@ -32,10 +32,15 @@ VENV_PATH=venv
 python -m virtualenv ${VENV_PATH} && source ${VENV_PATH}/bin/activate
 
 pushd tensorflow_blade
+
 require_txt="requirement-tf${tf_ver}-${device}.txt"
 [[ ! -f ${require_txt} ]] && echo "requirement-tf${tf_ver}-${device}.txt not found" && exit -1
 python -m pip install -q -r ${require_txt}
-./build.py -s configure
+
+device_type="gpu"
+[[ ${device} == "cpu" ]] && device_type="cpu"
+
+./build.py -s configure --device ${device_type}
 ./build.py -s check
 ./build.py -s build
 ./build.py -s test

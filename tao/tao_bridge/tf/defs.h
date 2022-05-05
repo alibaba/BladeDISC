@@ -22,6 +22,8 @@ limitations under the License.
 namespace tensorflow {
 namespace tao {
 
+// TODO(yancey): we should merge "kXla..." and "kReuseXla..." into "kDisc..."
+
 // Name of attribute used to tag operators for compilation with XLA
 
 // Implies must-compile semantics: either it will be compiled

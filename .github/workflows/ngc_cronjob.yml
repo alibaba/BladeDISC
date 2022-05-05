@@ -3,7 +3,7 @@ name: NGC Regression Cronjob
 on:
   schedule:
     - cron: '30 23 * * *' # 11:30 pm
-  pull_request:
+  push:
     branches: [ main ]
 
 jobs:

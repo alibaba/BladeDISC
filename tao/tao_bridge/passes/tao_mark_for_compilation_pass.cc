@@ -1075,7 +1075,7 @@ absl::optional<string> MarkForCompilationPassImpl::GetXlaScope(Node* node) {
     }
   } else {
     // If global_jit_level_ is OFF, respect only _XlaScope.
-    const string& scope = GetNodeAttrString(node->attrs(), kXlaScopeAttr);
+    const string& scope = GetNodeAttrString(node->attrs(), kReuseXlaScopeAttr);
     if (!scope.empty()) {
       return scope;
     }
@@ -1156,7 +1156,9 @@ Status MarkForCompilationPassImpl::BuildInitialClusterSet() {
 
     bool is_xla_compile_attr_true =
         GetNodeOrFuncAttr(node, flib_def_, kXlaCompileAttr) ||
-        GetNodeOrFuncAttr(node, flib_def_, kXlaMustCompileAttr);
+        GetNodeOrFuncAttr(node, flib_def_, kXlaMustCompileAttr) ||
+        GetNodeOrFuncAttr(node, flib_def_, kReuseXlaCompileAttr);
+
     DeviceSet devices;
     devices.Insert(device);
 
@@ -1449,7 +1451,7 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
     // if global_jit_level is OFF, we only need to care about the node in jit
     // scope
     if (global_jit_level_ == OptimizerOptions::OFF &&
-        GetNodeAttrString(node->attrs(), kXlaScopeAttr).empty()) {
+        GetNodeAttrString(node->attrs(), kReuseXlaScopeAttr).empty()) {
       VLOG(2) << "Rejecting " << node->name() << ": not in jit scope";
       continue;
     }
@@ -2020,7 +2022,6 @@ StatusOr<bool> MarkForCompilationPassImpl::ShouldCompileClusterImpl(
       << "chosen device = " << device_info_cache_.GetNameFor(chosen_device)
       << "; device type = " << device_type.type() << "; devices ("
       << device_info_cache_.DebugString(cluster.devices());
-
   bool should_compile =
       cluster.is_xla_compile_attr_true() ||
       registration->autoclustering_policy ==

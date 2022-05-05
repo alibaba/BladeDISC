@@ -31,9 +31,12 @@ extern const char* const kXlaMustCompileAttr;  // "_XlaMustCompile"
 // Implies auto-clustering: tagged nodes will be clustered and compiled with XLA
 // on a best-effort basis.
 extern const char* const kXlaCompileAttr;  // "_XlaCompile"
+extern const char* const kReuseXlaCompileAttr;
 
 // Implies auto-clustering within the given scope.
-extern const char* const kXlaScopeAttr;          // "_XlaScope"
+extern const char* const kXlaScopeAttr;  // "_XlaScope"
+extern const char* const kReuseXlaScopeAttr;
+
 extern const char* const kXlaInternalScopeAttr;  // "_XlaInternalScope"
 
 }  // namespace tao

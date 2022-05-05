@@ -41,7 +41,7 @@ jobs:
           -v /etc/passwd:/etc/passwd:ro \
           -v /etc/group:/etc/group:ro \
           -v $PWD:/disc \
-          -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
+          -e GITHUB_WORKFLOW="$GITHUB_WORKFLOW" \
           -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=ngc \
           -w /disc/pytorch_blade \
           disc-dev-pt-ngc bash ./benchmark/run_benchmark.sh

@@ -6,6 +6,7 @@ def _create_dummy_repository(repo_ctx):
     repo_ctx.symlink(Label("//bazel/cuda_supplement:dummy.BUILD.tpl"), "BUILD")
     repo_ctx.template("build_defs.bzl", Label("//bazel/cuda_supplement:build_defs.bzl.tpl"), {
         "%{IF_HAS_CUBLASLT}": "False",
+        "%{IF_HAS_CUDNN_STATIC}": "False",
     })
 
 

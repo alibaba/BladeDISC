@@ -14,6 +14,14 @@
 set -ex
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
+if [[ $# -ne 2 ]]; then
+    echo "Usage: $0 <device> <tf_version>"
+    exit -1
+fi
+
+device=$1
+tf_ver=$2
+
 # RuntimeError: Click will abort further execution because Python was configured to use ASCII as encoding for the environment. Consult https://click.palletsprojects.com/unicode-support/ for mitigation steps.
 # This system supports the C.UTF-8 locale which is recommended. You might be able to resolve your issue by exporting the following environment variables:
 export LC_ALL=C.UTF-8
@@ -23,13 +31,21 @@ VENV_PATH=venv
 # note(yancey.yx): using virtualenv to avoid permission issue on workflow actions CI,
 python -m virtualenv ${VENV_PATH} && source ${VENV_PATH}/bin/activate
 
-(cd tensorflow_blade \
-  && python -m pip install -q -r requirement-tf2.4-cu110.txt \
-  && ./build.py -s configure \
-  && ./build.py -s check \
-  && ./build.py -s build \
-  && ./build.py -s test \
-  && ./build.py -s package)
+pushd tensorflow_blade
+
+require_txt="requirement-tf${tf_ver}-${device}.txt"
+[[ ! -f ${require_txt} ]] && echo "requirement-tf${tf_ver}-${device}.txt not found" && exit -1
+python -m pip install -q -r ${require_txt}
+
+device_type="gpu"
+[[ ${device} == "cpu" ]] && device_type="cpu"
+
+./build.py -s configure --device ${device_type}
+./build.py -s check
+./build.py -s build
+./build.py -s test
+./build.py -s package
+popd
 
 mkdir -p build && \
 mv tensorflow_blade/dist/tensorflow_blade*.whl ./build

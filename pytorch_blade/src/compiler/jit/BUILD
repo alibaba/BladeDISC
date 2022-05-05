@@ -79,3 +79,23 @@ cc_test(
         "@local_org_torch//:libtorch",
     ],
 )
+
+cc_test(
+    name = "graph_mutation_test",
+    srcs = [
+        "graph_mutation_test.cpp"
+    ],
+    linkopts = [
+        "-lpthread",
+        "-lm",
+        "-ldl",
+    ],
+    linkstatic = True,
+    deps = [
+        ":tool_funcs",
+        "//src/common_utils:torch_blade_common",
+        "@googltest//:gtest_main",
+        "@local_org_torch//:libtorch",
+    ],
+)
+

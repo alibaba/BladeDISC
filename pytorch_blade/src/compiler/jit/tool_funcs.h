@@ -27,6 +27,8 @@ void create_method_from_graph(
     const std::string& name,
     const std::shared_ptr<torch::jit::Graph>& graph);
 
+void return_multi_outputs_with_tuple(std::shared_ptr<torch::jit::Graph> graph);
+
 void register_attr(
     torch::jit::Module& module,
     const std::string& name,

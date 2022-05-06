@@ -14,7 +14,6 @@
 #include "llvm/IR/Function.h"  // TF:llvm-project
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormatVariadic.h"
-// #include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
 #include "mlir/Pass/Pass.h"              // TF:llvm-project
 #include "mlir/Support/LogicalResult.h"  // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/disc_util.h"

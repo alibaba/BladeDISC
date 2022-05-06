@@ -14,8 +14,7 @@ limitations under the License.
 ==============================================================================*/
 
 #include "mlir/Dialect/Shape/IR/Shape.h"  // TF:llvm-project
-// #include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
-#include "mlir/IR/MLIRContext.h"  // TF:llvm-project
+#include "mlir/IR/MLIRContext.h"          // TF:llvm-project
 #include "mlir/IR/Matchers.h"
 #include "mlir/Pass/Pass.h"               // TF:local_config_mlir
 #include "mlir/Transforms/RegionUtils.h"  // TF:llvm-project

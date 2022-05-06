@@ -171,7 +171,6 @@ struct DiscLowerGpuOpsToNVVMOpsPass
     mlir::arith::populateArithmeticToLLVMConversionPatterns(converter,
                                                             llvmPatterns);
     populateMathToLLVMConversionPatterns(converter, patterns);
-    // populateStdToLLVMConversionPatterns(converter, llvmPatterns);
     populateMemRefToLLVMConversionPatterns(converter, llvmPatterns);
     populateFuncToLLVMConversionPatterns(converter, patterns);
     cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
@@ -182,7 +181,6 @@ struct DiscLowerGpuOpsToNVVMOpsPass
     LLVMConversionTarget target(getContext());
     configureGpuToNVVMConversionLegality(target);
     target.addLegalDialect<LLVM::LLVMDialect>();
-    // target.addIllegalDialect<StandardOpsDialect, arith::ArithmeticDialect,
     target.addIllegalDialect<arith::ArithmeticDialect, math::MathDialect,
                              cf::ControlFlowDialect>();
     target.addIllegalOp<UnrealizedConversionCastOp>();

@@ -32,7 +32,6 @@ def HLODISC_Dialect : Dialect {
 class HLODISC_Op<string mnemonic, list<Trait> traits> :
     Op<HLODISC_Dialect, mnemonic, traits> {
   let hasVerifier = 1;
-  // let verifier = [{ return Verify(*this); }];
 }
 
 class HLODISC_ShapedInterfaceOp<string mnemonic, list<Trait> traits> :

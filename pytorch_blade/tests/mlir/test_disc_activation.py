@@ -15,10 +15,6 @@ import unittest
 from tests.mlir.testing_utils import DiscTestCase
 from torch_blade import Config
 
-# import pdb
-# pdb.set_trace()
-# import faulthandler
-# faulthandler.enable()
 
 class TestDiscActivation(DiscTestCase):
     def _test_activation(self, activation_func):

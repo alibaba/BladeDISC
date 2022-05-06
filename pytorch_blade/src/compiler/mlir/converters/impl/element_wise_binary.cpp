@@ -11,7 +11,6 @@
 
 #include <mlir-hlo/Dialect/mhlo/IR/chlo_ops.h> // from tf repo
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
-// #include <mlir/Dialect/StandardOps/IR/Ops.h> // from tf repo
 #include <mlir/mhlo/builder/element_wise_binary.h>
 
 #include "common_utils/logging.h"

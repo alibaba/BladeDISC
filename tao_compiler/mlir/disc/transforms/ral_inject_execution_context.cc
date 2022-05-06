@@ -47,7 +47,6 @@ limitations under the License.
 // to the entry function. Thus, we don't rewrite all call ops and other
 // functions a.t.m. Re-visit this assumption if necessary.
 
-// #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"

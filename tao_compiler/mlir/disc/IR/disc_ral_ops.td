@@ -29,8 +29,6 @@ def RAL_Dialect : Dialect {
 
 class RAL_Op<string mnemonic, list<Trait> traits> :
     Op<RAL_Dialect, mnemonic, traits> {
-  // let hasVerifier = 0;
-  // let verifier = [{ return Verify(*this); }];
 }
 
 def RAL_RalExecutionContextType : DialectType<RAL_Dialect,

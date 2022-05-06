@@ -22,15 +22,11 @@ limitations under the License.
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
-// #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
-// #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/Dialect/Arithmetic/Transforms/Passes.h"
 #include "mlir/Dialect/GPU/GPUDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/Dialect/Math/IR/Math.h"
-// #include "mlir/Dialect/StandardOps/IR/Ops.h"
-// #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -1007,7 +1003,6 @@ class DiscToLLVMPass : public DiscToLLVMPassBase<DiscToLLVMPass> {
     // Set target.
     ConversionTarget target(*ctx);
     target.addLegalDialect<LLVM::LLVMDialect>();
-    // target.addIllegalDialect<StandardOpsDialect, arith::ArithmeticDialect,
     target.addIllegalDialect<arith::ArithmeticDialect, gpu::GPUDialect,
                              disc_ral::RalDialect, math::MathDialect>();
     // Mark modules as legal.

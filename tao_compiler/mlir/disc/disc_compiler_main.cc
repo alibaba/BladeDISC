@@ -40,11 +40,9 @@ limitations under the License.
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
-#include "mlir/Parser/Parser.h"  // from @llvm-project
-// #include "mlir/Parser.h"                 // from @llvm-project
+#include "mlir/Parser/Parser.h"          // from @llvm-project
 #include "mlir/Pass/PassManager.h"       // from @llvm-project
 #include "mlir/Support/FileUtilities.h"  // from @llvm-project
-// #include "mlir/Support/MlirOptMain.h"
 #include "mlir/Target/LLVMIR/Dialect/LLVMIR/LLVMToLLVMIRTranslation.h"  // from @llvm-project
 #include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"  // from @llvm-project
 #include "mlir/Target/LLVMIR/Export.h"  // from @llvm-project
@@ -160,7 +158,6 @@ int RealMain() {
   registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::mhlo_disc::MhloDiscDialect>();
   registry.insert<mlir::chlo::ChloDialect>();
-  // registry.insert<mlir::chlo::HloClientDialect>();
   registry.insert<mlir::lmhlo::LmhloDialect>();
   registry.insert<mlir::lmhlo_disc::LmhloDiscDialect>();
   registry.insert<mlir::lmhlo_gpu::LmhloGpuDialect>();

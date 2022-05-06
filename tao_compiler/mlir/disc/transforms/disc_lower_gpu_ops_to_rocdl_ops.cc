@@ -207,7 +207,6 @@ struct DiscLowerGpuOpsToROCDLOpsPass
     llvmPatterns.add<RemoveUselessUnrealizedConversionCastOp>(converter);
     populateVectorToLLVMConversionPatterns(converter, llvmPatterns);
     populateVectorToROCDLConversionPatterns(converter, llvmPatterns);
-    // populateStdToLLVMConversionPatterns(converter, llvmPatterns);
     populateMathToLLVMConversionPatterns(converter, patterns);
     populateMemRefToLLVMConversionPatterns(converter, llvmPatterns);
     populateFuncToLLVMConversionPatterns(converter, patterns);

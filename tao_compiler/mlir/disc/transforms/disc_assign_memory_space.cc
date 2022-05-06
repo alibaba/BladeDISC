@@ -19,7 +19,6 @@ limitations under the License.
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
-// #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Attributes.h"   // TF:llvm-project
 #include "mlir/IR/Location.h"     // TF:llvm-project
@@ -458,14 +457,12 @@ LogicalResult DiscAssignMemorySpacePass::applyAssignment(
   MLIRContext* ctx = main.getContext();
   SmallVector<Type, 4> input_types;
   SmallVector<Type, 4> output_types;
-  // llvm::transform(llvm::zip(main.getType().getInputs(), input_placements),
   llvm::transform(
       llvm::zip(main.getFunctionType().getInputs(), input_placements),
       std::back_inserter(input_types),
       [&](const std::tuple<Type, StringRef>& v) {
         return maybeConvert(ctx, std::get<0>(v), std::get<1>(v));
       });
-  // llvm::transform(llvm::zip(main.getType().getResults(), output_placements),
   llvm::transform(
       llvm::zip(main.getFunctionType().getResults(), output_placements),
       std::back_inserter(output_types),

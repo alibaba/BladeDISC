@@ -18,7 +18,6 @@ limitations under the License.
 #include "mlir/Dialect/Bufferization/Transforms/Bufferize.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-// #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
@@ -130,11 +129,8 @@ void StdBufferizePass::runOnOperation() {
 
   target.addLegalDialect<memref::MemRefDialect>();
   target.addLegalOp<func::FuncOp, ModuleOp>();
-  target
-      // .addDynamicallyLegalDialect<StandardOpsDialect,
-      // arith::ArithmeticDialect>(
-      .addDynamicallyLegalDialect<arith::ArithmeticDialect>(
-          [&](Operation* op) { return typeConverter.isLegal(op); });
+  target.addDynamicallyLegalDialect<arith::ArithmeticDialect>(
+      [&](Operation* op) { return typeConverter.isLegal(op); });
 
   // Setup conversion patterns.
   RewritePatternSet patterns(&ctx);

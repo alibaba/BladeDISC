@@ -16,7 +16,6 @@ limitations under the License.
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
-// #include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
@@ -437,7 +436,6 @@ void ConvertShapeToStandardPass::runOnOperation() {
   // Setup target legality.
   MLIRContext& ctx = getContext();
   ConversionTarget target(ctx);
-  // target.addLegalDialect<arith::ArithmeticDialect, StandardOpsDialect,
   target.addLegalDialect<arith::ArithmeticDialect, tensor::TensorDialect>();
   target.addLegalOp<func::FuncOp, ModuleOp>();
 

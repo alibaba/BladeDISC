@@ -11,7 +11,6 @@
 
 #include "compiler/mlir/converters/impl/prim_constant.h"
 
-// #include <mlir/Dialect/StandardOps/IR/Ops.h> // from tf repo
 #include <mlir/mhlo/builder/constant.h>
 #include <mlir/mhlo/builder/mlir_attr_utils.h>
 #include <mlir/mhlo/builder/standard.h>

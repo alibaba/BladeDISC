@@ -58,7 +58,6 @@ struct ChloBinaryOpBuilder {
                           mlir::DenseIntElementsAttr broadcast_attr) {
     auto compare_direction =
         getComparisonDirectionFromString(std::string(DIRECTION));
-    // mlir::StringAttr::get(builder.getContext(), DIRECTION);
     return builder.create<MLIR_BINARY_OP>(loc, input_lhs, input_rhs,
                                           /*broadcast_dims=*/broadcast_attr,
                                           compare_direction);
@@ -83,7 +82,6 @@ struct HloBinaryOpBuilder {
                           const mlir::Value& input_rhs) {
     auto compare_direction =
         getComparisonDirectionFromString(std::string(DIRECTION));
-    // mlir::StringAttr::get(builder.getContext(), DIRECTION);
     return builder.create<MLIR_BINARY_OP>(loc, input_lhs, input_rhs,
                                           compare_direction);
   }

@@ -145,7 +145,6 @@ static func::FuncOp outlineKernelFuncImpl(Operation* launchOp,
   // operation.
   Block& entryBlock = *outlinedFunc.addEntryBlock();
   Region& outlinedFuncBody = outlinedFunc.getBody();
-  // Region& outlinedFuncBody = outlinedFunc.body();
   for (auto operand : enumerate(operands))
     map.map(operand.value(), entryBlock.getArgument(operand.index()));
 
@@ -251,8 +250,6 @@ LogicalResult cloneAndMoveTo(OpBuilder& b, scf::ParallelOp parallelOp,
 
   if (cloned
           .walk([&](LoopLikeOpInterface loopLike) {
-            // if (failed(moveLoopInvariantCode(loopLike)))
-            // return WalkResult::interrupt();
             moveLoopInvariantCode(loopLike);
             return WalkResult::advance();
           })
@@ -260,7 +257,6 @@ LogicalResult cloneAndMoveTo(OpBuilder& b, scf::ParallelOp parallelOp,
     return failure();
   }
 
-  // return moveLoopInvariantCode(cloned);
   moveLoopInvariantCode(cloned);
   return success();
 }

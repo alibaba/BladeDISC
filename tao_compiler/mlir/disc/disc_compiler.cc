@@ -37,8 +37,6 @@ limitations under the License.
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/SCFToGPU/SCFToGPUPass.h"
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"  // from @llvm-project
-// #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVM.h"
-// #include "mlir/Conversion/StandardToLLVM/ConvertStandardToLLVMPass.h"
 #include "mlir/Dialect/Arithmetic/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -48,15 +46,13 @@ limitations under the License.
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/Shape/Transforms/Passes.h"
-// #include "mlir/Dialect/StandardOps/Transforms/Passes.h"
 #include "mlir/Dialect/Tensor/Transforms/Passes.h"
 #include "mlir/ExecutionEngine/ExecutionEngine.h"
 #include "mlir/ExecutionEngine/OptUtils.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"  // from @llvm-project
-// #include "mlir/Parser.h"          // from @llvm-project
-#include "mlir/Parser/Parser.h"  // from @llvm-project
+#include "mlir/Parser/Parser.h"   // from @llvm-project
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Support/FileUtilities.h"  // from @llvm-project
 #include "mlir/Support/Timing.h"         // from @llvm-project
@@ -74,8 +70,6 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/tensorflow/utils/compile_mlir_util.h"
 #include "tensorflow/compiler/mlir/tensorflow/utils/error_util.h"
 #include "tensorflow/core/util/env_var.h"
-
-// using mlir::func::FuncOp;
 
 namespace mlir {
 namespace disc_ral {

@@ -20,7 +20,6 @@ limitations under the License.
 // input tensor such that we can pass it to cuDNN.
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-// #include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
 #include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
 #include "mlir/IR/Attributes.h"             // TF:llvm-project
 #include "mlir/IR/Builders.h"               // TF:llvm-project

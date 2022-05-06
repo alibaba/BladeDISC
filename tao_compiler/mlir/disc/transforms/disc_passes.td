@@ -375,7 +375,7 @@ def DiscDotMergePass : Pass<"disc-dot-merge", "mlir::func::FuncOp"> {
   let constructor = "createDiscDotMergePass()";
 }
 
-def DiscAlgebraSimplifierPass : Pass<"disc-algebra-simplifier", "FuncOp"> {
+def DiscAlgebraSimplifierPass : Pass<"disc-algebra-simplifier", "mlir::func::FuncOp"> {
   let summary = "Apply some basic algebra simplification optimizations";
   let constructor = "createDiscAlgebraSimplifierPass()";
 }

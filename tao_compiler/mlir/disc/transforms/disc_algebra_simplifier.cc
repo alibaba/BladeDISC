@@ -143,7 +143,7 @@ void DiscAlgebraSimplifierPass::runOnOperation() {
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscAlgebraSimplifierPass() {
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscAlgebraSimplifierPass() {
   return std::make_unique<DiscAlgebraSimplifierPass>();
 }
 

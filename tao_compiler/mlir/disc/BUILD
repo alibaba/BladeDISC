@@ -140,8 +140,8 @@ cc_library(
 
 cc_library(
     name = "cycle_detector",
-    srcs = ["transforms/utils/cycle_detector.cc"],
-    hdrs = ["transforms/utils/cycle_detector.h"],
+    srcs = ["utils/cycle_detector.cc"],
+    hdrs = ["utils/cycle_detector.h"],
     includes = ["include"],
     deps = [
         "@llvm-project//llvm:Support",

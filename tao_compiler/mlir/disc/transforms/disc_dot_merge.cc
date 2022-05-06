@@ -23,7 +23,7 @@
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/shape_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/utils/cycle_detector.h"
+#include "tensorflow/compiler/mlir/disc/utils/cycle_detector.h"
 
 #define DEBUG_TYPE "disc-dot-merge"
 

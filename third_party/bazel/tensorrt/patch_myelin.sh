@@ -29,7 +29,12 @@ nm ${compiler_lib} | awk '/ T / && /myelin/ {print $3}' | sort > compiler_symbol
 nm ${executor_lib} | awk '/ T / && /myelin/ {print $3}' | sort > executor_symbols.txt
 
 comm -12 compiler_symbols.txt executor_symbols.txt > common_symbols.txt
-objcopy --weaken-symbols common_symbols.txt ${executor_lib} ${patched_executor_lib}
 
-num_weakened=$(wc -l common_symbols.txt | awk '{print $1}')
-echo "Patching done, ${num_weakened} symbols were weakened from ${executor_lib}."
+if [[ -s common_symbols.txt ]]; then
+    objcopy --weaken-symbols common_symbols.txt ${executor_lib} ${patched_executor_lib}
+    num_weakened=$(wc -l common_symbols.txt | awk '{print $1}')
+    echo "Patching done, ${num_weakened} symbols were weakened from ${executor_lib}."
+else
+    echo "No common symbol, skip patching, just copy ..."
+    cp ${executor_lib} ${patched_executor_lib}
+fi

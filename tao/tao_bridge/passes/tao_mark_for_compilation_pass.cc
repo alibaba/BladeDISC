@@ -947,7 +947,6 @@ Status MarkForCompilationPassImpl::CreateClusters() {
     // min_cluster_size non-trivial nodes in them.  It would be more principled
     // to (recursively) verify this fact, but that's probably not worth the
     // trouble.
-
     if (cluster->effective_cluster_size() >= debug_options_.min_cluster_size ||
         cluster->has_functional_control_flow() ||
         cluster->is_xla_compile_attr_true()) {
@@ -1076,7 +1075,7 @@ absl::optional<string> MarkForCompilationPassImpl::GetXlaScope(Node* node) {
     }
   } else {
     // If global_jit_level_ is OFF, respect only _XlaScope.
-    const string& scope = GetNodeAttrString(node->attrs(), kXlaScopeAttr);
+    const string& scope = GetNodeAttrString(node->attrs(), kReuseXlaScopeAttr);
     if (!scope.empty()) {
       return scope;
     }
@@ -1157,7 +1156,8 @@ Status MarkForCompilationPassImpl::BuildInitialClusterSet() {
 
     bool is_xla_compile_attr_true =
         GetNodeOrFuncAttr(node, flib_def_, kXlaCompileAttr) ||
-        GetNodeOrFuncAttr(node, flib_def_, kXlaMustCompileAttr);
+        GetNodeOrFuncAttr(node, flib_def_, kXlaMustCompileAttr) ||
+        GetNodeOrFuncAttr(node, flib_def_, kReuseXlaCompileAttr);
 
     DeviceSet devices;
     devices.Insert(device);
@@ -1448,6 +1448,14 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
       continue;
     }
 
+    // if global_jit_level is OFF, we only need to care about the node in jit
+    // scope
+    if (global_jit_level_ == OptimizerOptions::OFF &&
+        GetNodeAttrString(node->attrs(), kReuseXlaScopeAttr).empty()) {
+      VLOG(2) << "Rejecting " << node->name() << ": not in jit scope";
+      continue;
+    }
+
     if (!GetTaoBridgeOptions()
              ->experimental_enable_mlir_whole_graph_compilation) {
       if (node->type_string() == "Const") {
@@ -1601,6 +1609,7 @@ bool MarkForCompilationPassImpl::CompilationDisallowedByXlaCompileAttr(
   // If there is a _XlaCompile annotation, use its value.
   bool compile = false;
   Status status = GetNodeAttr(node->attrs(), kXlaCompileAttr, &compile);
+
   if (status.ok()) {
     if (!compile) {
       VLOG(2) << "Rejecting " << node->name() << ": kXlaCompileAttr("
@@ -1758,7 +1767,6 @@ Status MarkForCompilationPassImpl::Run() {
   // Start the timer after XlaOpRegistry::RegisterCompilationKernels which does
   // some one-time work.
   XLA_SCOPED_LOGGING_TIMER_LEVEL("MarkForCompilationPassImpl::Run", 1);
-
   TF_ASSIGN_OR_RETURN(bool initialized, Initialize());
   if (!initialized) {
     // Initialization exited early which means this instance of
@@ -2005,7 +2013,6 @@ StatusOr<bool> MarkForCompilationPassImpl::ShouldCompileClusterImpl(
   TF_ASSIGN_OR_RETURN(DeviceId chosen_device,
                       PickDeviceForXla(device_info_cache_, cluster.devices(),
                                        /*allow_mixing_unknown_and_cpu=*/false));
-
   const DeviceType& device_type =
       device_info_cache_.GetDeviceTypeFor(chosen_device);
   const XlaOpRegistry::DeviceRegistration* registration =
@@ -2015,7 +2022,6 @@ StatusOr<bool> MarkForCompilationPassImpl::ShouldCompileClusterImpl(
       << "chosen device = " << device_info_cache_.GetNameFor(chosen_device)
       << "; device type = " << device_type.type() << "; devices ("
       << device_info_cache_.DebugString(cluster.devices());
-
   bool should_compile =
       cluster.is_xla_compile_attr_true() ||
       registration->autoclustering_policy ==

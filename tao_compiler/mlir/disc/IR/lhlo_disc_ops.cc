@@ -37,7 +37,6 @@ LmhloDiscDialect::LmhloDiscDialect(MLIRContext* context)
 // CustomCallOp.
 //===----------------------------------------------------------------------===//
 
-// static LogicalResult Verify(CustomCallOp op) {
 LogicalResult CustomCallOp::verify() {
   CustomCallOp op = *this;
   if (op.target_arg_mapping()) {

@@ -4,7 +4,7 @@
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32>) -> tensor<?x?xf32>
 func @basic_test(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
   // CHECK-NOT: mhlo.transpose
-  // CHECK: %[[RET:.*]] = "mhlo.abs"(%[[ARG0]])
+  // CHECK: %[[RET:.*]] = mhlo.abs %[[ARG0]]
   // CHECK-NOT: mhlo.transpose
   // CHECK: return %[[RET]]
   %0 = "mhlo.transpose"(%arg0) {permutation = dense<[1, 0]> : tensor<2xi64>} : (tensor<?x?xf32>) -> tensor<?x?xf32>
@@ -19,7 +19,7 @@ func @basic_test(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32>) -> tensor<?x?xf32>
 func @basic_test_2(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
   // CHECK-NOT: mhlo.transpose
-  // CHECK: %[[T0:.*]] = "mhlo.abs"(%[[ARG0]])
+  // CHECK: %[[T0:.*]] = mhlo.abs %[[ARG0]]
   // CHECK-NOT: mhlo.transpose
   // CHECK: %[[RET:.*]] = mhlo.add %[[ARG0]], %[[T0]]
   // CHECK-NOT: mhlo.transpose
@@ -37,7 +37,7 @@ func @basic_test_2(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<10x9xf32>) -> tensor<10x9xf32>
 func @static_shape_test(%arg0: tensor<10x9xf32>) -> tensor<10x9xf32> {
   // CHECK-NOT: mhlo.transpose
-  // CHECK: %[[T0:.*]] = "mhlo.abs"(%[[ARG0]]) : (tensor<10x9xf32>) -> tensor<10x9xf32>
+  // CHECK: %[[T0:.*]] = mhlo.abs %[[ARG0]] : tensor<10x9xf32>
   // CHECK-NOT: mhlo.transpose
   // CHECK: %[[RET:.*]] = mhlo.add %[[ARG0]], %[[T0]] : tensor<10x9xf32>
   // CHECK-NOT: mhlo.transpose
@@ -56,7 +56,7 @@ func @static_shape_test(%arg0: tensor<10x9xf32>) -> tensor<10x9xf32> {
 func @const_operand(%arg0: tensor<10x9xf32>) -> tensor<10x9xf32> {
   // CHECK: %[[CST:.*]] = mhlo.constant dense<1.000000e+00> : tensor<10x9xf32>
   // CHECK-NOT: mhlo.transpose
-  // CHECK: %[[T0:.*]] = "mhlo.abs"(%[[ARG0]]) : (tensor<10x9xf32>) -> tensor<10x9xf32>
+  // CHECK: %[[T0:.*]] = mhlo.abs %[[ARG0]] : tensor<10x9xf32>
   // CHECK-NOT: mhlo.transpose
   // CHECK: %[[RET:.*]] = mhlo.subtract %[[CST]], %[[T0]] : tensor<10x9xf32>
   // CHECK-NOT: mhlo.transpose
@@ -76,7 +76,7 @@ func @const_operand(%arg0: tensor<10x9xf32>) -> tensor<10x9xf32> {
 func @rand_3d_const_operand(%arg0: tensor<11x10x9xf32>) -> (tensor<11x10x9xf32>) {
   // CHECK: %[[CST:.*]] = mhlo.constant dense<1.000000e+00> : tensor<11x10x9xf32>
   // CHECK-NOT: mhlo.transpose
-  // CHECK: %[[T0:.*]] = "mhlo.abs"(%[[ARG0]]) : (tensor<11x10x9xf32>) -> tensor<11x10x9xf32>
+  // CHECK: %[[T0:.*]] = mhlo.abs %[[ARG0]] : tensor<11x10x9xf32>
   // CHECK-NOT: mhlo.transpose
   // CHECK: %[[RET:.*]] = mhlo.subtract %[[T0]], %[[CST]] : tensor<11x10x9xf32>
   // CHECK-NOT: mhlo.transpose

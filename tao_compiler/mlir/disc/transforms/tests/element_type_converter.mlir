@@ -23,9 +23,9 @@ func @rank2_colunm_reduction_i1(%arg0: tensor<?x?xi1>) -> tensor<?xi1> {
     %2 = mhlo.add %arg1, %arg2 : tensor<i1>
     "mhlo.return"(%2) : (tensor<i1>) -> ()
   }) {dimensions = dense<[0]> : tensor<1xi64>} : (tensor<?x?xi1>, tensor<i1>) -> tensor<?xi1>
-  // BASIC: "mhlo.convert"({{.*}}) : (tensor<?x?xi1>) -> tensor<?x?xi32>
+  // BASIC: mhlo.convert({{.*}}) : (tensor<?x?xi1>) -> tensor<?x?xi32>
   // BASIC-NEXT: mhlo.reduce
   // BASIC-NOT: i1
-  // BASIC: "mhlo.convert"({{.*}}) : (tensor<?xi32>) -> tensor<?xi1>
+  // BASIC: mhlo.convert({{.*}}) : (tensor<?xi32>) -> tensor<?xi1>
   return %1 : tensor<?xi1>
 }

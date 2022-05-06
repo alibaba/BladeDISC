@@ -7,6 +7,8 @@ func @main(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x?x?x?xf32>) -> tensor<?x?
   // CHECK: %[[T5:.*]] = "disc_shape.tie_shape"(%[[ARG1:.*]], %[[T0]], %[[T1]], %[[T2]], %[[T3]])
   // CHECK: %[[RESULT:.*]] = "mhlo.compare"
   // CHECK: %[[T6:.*]] = "disc_shape.tie_shape"(%[[RESULT]], %[[T0]], %[[T1]], %[[T2]], %[[T3]])
-  %0 = "mhlo.compare"(%arg0, %arg1) {comparison_direction = "LT"} : (tensor<?x?x?x?xf32>, tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xi1>
+  %0 = "mhlo.compare"(%arg0, %arg1) {comparison_direction = #mhlo<"comparison_direction LT">} : (tensor<?x?x?x?xf32>, tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xi1>
   return %0 : tensor<?x?x?x?xi1>
 }
+
+      // %1 = "mhlo.compare"(%arg1, %arg1) {comparison_direction = #mhlo<"comparison_direction LT">} : (tensor<i64>, tensor<i64>) -> tensor<i1>

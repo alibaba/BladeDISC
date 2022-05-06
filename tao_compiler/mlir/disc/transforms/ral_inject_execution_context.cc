@@ -85,7 +85,6 @@ struct RalInjectExecutionContextPass
     }
 
     Location loc = main.getLoc();
-    // FunctionType funcType = main.getType();
     FunctionType funcType = main.getFunctionType();
     OpBuilder b(&main.getBody());
     Block* entry_block = &main.getBody().front();

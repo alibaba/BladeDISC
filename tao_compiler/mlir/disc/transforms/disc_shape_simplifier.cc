@@ -491,7 +491,6 @@ LogicalResult ShapeSimplifierPass::applyShapeAnalysis(ShapeAnalysis& analysis,
   // 3, refine function type to new type
   auto newFuncTy = FunctionType::get(func.getContext(), refinedInputTypes,
                                      refinedOutputTypes);
-  // if (func.getType() != newFuncTy) {
   if (func.getFunctionType() != newFuncTy) {
     func.setType(newFuncTy);
     changed = true;

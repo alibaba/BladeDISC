@@ -14,7 +14,6 @@ limitations under the License.
 ==============================================================================*/
 
 include "mlir/IR/OpBase.td"
-// include "mlir/Dialect/StandardOps/IR/Ops.td"
 include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.td"
 include "tensorflow/compiler/mlir/hlo/include/mlir-hlo/Dialect/mhlo/IR/hlo_ops.td"
 include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.td"

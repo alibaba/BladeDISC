@@ -992,7 +992,6 @@ class DiscToLLVMPass : public DiscToLLVMPassBase<DiscToLLVMPass> {
     mlir::arith::populateArithmeticToLLVMConversionPatterns(type_converter,
                                                             patterns);
     arith::populateArithmeticExpandOpsPatterns(patterns);
-    // populateStdToLLVMConversionPatterns(type_converter, patterns);
     populateMemRefToLLVMConversionPatterns(type_converter, patterns);
     populateMathToLLVMConversionPatterns(type_converter, patterns);
     populateFuncToLLVMConversionPatterns(type_converter, patterns);

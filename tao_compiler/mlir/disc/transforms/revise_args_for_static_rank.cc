@@ -106,7 +106,6 @@ void ReviseArgsForStaticRankPass::runOnOperation() {
   // A shape inference pass will run in seperate to propagate the shape
   // information to the needed nodes
   auto func_type = main_func.getFunctionType();
-  // auto func_type = main_func.getType();
   SmallVector<Type, 4> input_types(func_type.getInputs().begin(),
                                    func_type.getInputs().end());
   assert(input_types.size() == num_inputs);

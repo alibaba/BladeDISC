@@ -156,10 +156,12 @@ struct ConvertReduceOpWithSmallWidthIntType
     return success();
   }
 };
-struct ConvertDynamicConvOp : public OpRewritePattern<mhlo::DynamicConvOp> {
-  using OpRewritePattern<mhlo::DynamicConvOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(mhlo::DynamicConvOp op,
+template <typename OpTy>
+struct ConvertConvOp : public OpRewritePattern<OpTy> {
+  using OpRewritePattern<OpTy>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(OpTy op,
                                 PatternRewriter& rewriter) const override {
     Location loc = op.getLoc();
     Value lhs = op->getOperand(0);
@@ -168,8 +170,8 @@ struct ConvertDynamicConvOp : public OpRewritePattern<mhlo::DynamicConvOp> {
     FloatType f32_ty = rewriter.getF32Type();
     RankedTensorType lhs_ty = lhs.getType().dyn_cast<RankedTensorType>();
     RankedTensorType rhs_ty = rhs.getType().dyn_cast<RankedTensorType>();
-    RankedTensorType result_ty = op.getType().dyn_cast<RankedTensorType>();
-
+    RankedTensorType result_ty =
+        op.getType().template dyn_cast<RankedTensorType>();
     if (!lhs_ty || !rhs_ty || lhs_ty.getElementType() != f32_ty ||
         rhs_ty.getElementType() != f32_ty) {
       return failure();
@@ -179,10 +181,12 @@ struct ConvertDynamicConvOp : public OpRewritePattern<mhlo::DynamicConvOp> {
     Value rhs_f16 = rewriter.create<mhlo::ConvertOp>(loc, rhs, f16_ty);
     RankedTensorType f16_tensor_ty =
         RankedTensorType::getChecked(loc, result_ty.getShape(), f16_ty);
-    // tensor dynamic_conv
-    SmallVector<Value, 4> newOperands = {lhs_f16, rhs_f16, op->getOperand(2)};
-    Value conv = rewriter.create<mhlo::DynamicConvOp>(
-        loc, f16_tensor_ty, newOperands, op->getAttrs());
+    SmallVector<Value, 4> newOperands = {lhs_f16, rhs_f16};
+    for (int i = 2; i < op->getOperands().size(); ++i) {
+      newOperands.push_back(op->getOperand(i));
+    }
+    Value conv =
+        rewriter.create<OpTy>(loc, f16_tensor_ty, newOperands, op->getAttrs());
     Value fp32_conv = rewriter.create<mhlo::ConvertOp>(loc, conv, f32_ty);
     rewriter.replaceOp(op, fp32_conv);
     return success();
@@ -236,8 +240,8 @@ struct ElementTypeConverterPass
     RewritePatternSet patterns(&ctx);
     patterns.insert<ConvertReduceOpWithSmallWidthIntType>(&ctx);
     if (enable_fp16_gemm_) {
-      patterns.insert<ConvertDotGeneralOp>(&ctx);
-      patterns.insert<ConvertDynamicConvOp>(&ctx);
+      patterns.insert<ConvertDotGeneralOp, ConvertConvOp<mhlo::DynamicConvOp>,
+                      ConvertConvOp<mhlo::ConvOp>>(&ctx);
     }
 
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {

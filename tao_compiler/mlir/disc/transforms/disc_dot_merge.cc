@@ -13,9 +13,8 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir-hlo/utils/cycle_detector.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/Pass.h"
@@ -24,6 +23,7 @@
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/shape_utils.h"
+#include "tensorflow/compiler/mlir/disc/utils/cycle_detector.h"
 
 #define DEBUG_TYPE "disc-dot-merge"
 
@@ -192,7 +192,7 @@ void BuildDotClusters(Block* block,
 
 class DotShareOperandMergeConverter {
  public:
-  DotShareOperandMergeConverter(FuncOp func) : func_(func){};
+  DotShareOperandMergeConverter(func::FuncOp func) : func_(func){};
   void run();
 
  public:
@@ -244,7 +244,7 @@ class DotShareOperandMergeConverter {
   bool applyMerging(DotCluster& cluster, ShareType share_type);
 
  private:
-  FuncOp func_;
+  func::FuncOp func_;
 };
 
 void DotShareOperandMergeConverter::run() {
@@ -506,7 +506,7 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
 
 class DotBatchMergeConverter {
  public:
-  DotBatchMergeConverter(FuncOp func) : func_(func){};
+  DotBatchMergeConverter(func::FuncOp func) : func_(func){};
   bool run();
 
  public:
@@ -574,7 +574,7 @@ class DotBatchMergeConverter {
   Value expandDim0(OpBuilder& builder, Location& loc, Value value);
 
  private:
-  FuncOp func_;
+  func::FuncOp func_;
 };
 
 bool DotBatchMergeConverter::run() {
@@ -901,29 +901,29 @@ struct DiscDotMergePass : public DiscDotMergePassBase<DiscDotMergePass> {
   void runOnOperation() override;
 
  private:
-  void dotShareOperandMerging(FuncOp& func);
-  bool dotBatchMerging(FuncOp& func);
+  void dotShareOperandMerging(func::FuncOp& func);
+  bool dotBatchMerging(func::FuncOp& func);
 };
 
 void DiscDotMergePass::runOnOperation() {
-  FuncOp func = getOperation();
+  func::FuncOp func = getOperation();
   dotShareOperandMerging(func);
   if (!dotBatchMerging(func)) {
     signalPassFailure();
   }
 }
 
-void DiscDotMergePass::dotShareOperandMerging(FuncOp& func) {
+void DiscDotMergePass::dotShareOperandMerging(func::FuncOp& func) {
   DotShareOperandMergeConverter(func).run();
 }
 
-bool DiscDotMergePass::dotBatchMerging(FuncOp& func) {
+bool DiscDotMergePass::dotBatchMerging(func::FuncOp& func) {
   return DotBatchMergeConverter(func).run();
 }
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscDotMergePass() {
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscDotMergePass() {
   return std::make_unique<DiscDotMergePass>();
 }
 

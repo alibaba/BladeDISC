@@ -21,6 +21,32 @@
 namespace mlir {
 namespace mhlo {
 
+static constexpr const char kCompare_EQ[] = "EQ";
+static constexpr const char kCompare_NE[] = "NE";
+static constexpr const char kCompare_GE[] = "GE";
+static constexpr const char kCompare_GT[] = "GT";
+static constexpr const char kCompare_LE[] = "LE";
+static constexpr const char kCompare_LT[] = "LT";
+
+mhlo::ComparisonDirection inline getComparisonDirectionFromString(
+    std::string cmp) {
+  if (cmp == kCompare_EQ) {
+    return mhlo::ComparisonDirection::EQ;
+  } else if (cmp == kCompare_NE) {
+    return mhlo::ComparisonDirection::NE;
+  } else if (cmp == kCompare_GE) {
+    return mhlo::ComparisonDirection::GE;
+  } else if (cmp == kCompare_GT) {
+    return mhlo::ComparisonDirection::GT;
+  } else if (cmp == kCompare_LE) {
+    return mhlo::ComparisonDirection::LE;
+  } else if (cmp == kCompare_LT) {
+    return mhlo::ComparisonDirection::LT;
+  } else {
+    assert(false && "Unhandled comparison direction.");
+  }
+}
+
 // NB: BuildMlirOp functions are a group of tools that were
 // given inputs/output information to build up an MLIR subgraph,
 // which represents specific math calculation on MLIR values.
@@ -31,7 +57,7 @@ struct ChloBinaryOpBuilder {
                           const mlir::Value& input_rhs,
                           mlir::DenseIntElementsAttr broadcast_attr) {
     auto compare_direction =
-        mlir::StringAttr::get(builder.getContext(), DIRECTION);
+        getComparisonDirectionFromString(std::string(DIRECTION));
     return builder.create<MLIR_BINARY_OP>(loc, input_lhs, input_rhs,
                                           /*broadcast_dims=*/broadcast_attr,
                                           compare_direction);
@@ -55,7 +81,7 @@ struct HloBinaryOpBuilder {
                           const mlir::Value& input_lhs,
                           const mlir::Value& input_rhs) {
     auto compare_direction =
-        mlir::StringAttr::get(builder.getContext(), DIRECTION);
+        getComparisonDirectionFromString(std::string(DIRECTION));
     return builder.create<MLIR_BINARY_OP>(loc, input_lhs, input_rhs,
                                           compare_direction);
   }

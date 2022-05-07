@@ -15,7 +15,7 @@ limitations under the License.
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
@@ -134,8 +134,7 @@ void ConvertHloToStandardPass::runOnOperation() {
   // Setup target legality.
   MLIRContext& ctx = getContext();
   ConversionTarget target(ctx);
-  target.addLegalDialect<StandardOpsDialect, tensor::TensorDialect,
-                         arith::ArithmeticDialect>();
+  target.addLegalDialect<tensor::TensorDialect, arith::ArithmeticDialect>();
   target.addIllegalOp<ComputeReshapeShapeOp>();
 
   // Setup conversion patterns.
@@ -145,14 +144,15 @@ void ConvertHloToStandardPass::runOnOperation() {
   // clang-format: on
 
   // Apply conversion.
-  FuncOp func = getOperation();
+  func::FuncOp func = getOperation();
   if (failed(applyPartialConversion(func, target, std::move(patterns))))
     signalPassFailure();
 }
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscConvertHloToStandardPass() {
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscConvertHloToStandardPass() {
   return std::make_unique<ConvertHloToStandardPass>();
 }
 

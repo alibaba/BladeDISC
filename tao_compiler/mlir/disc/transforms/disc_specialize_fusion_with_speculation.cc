@@ -14,8 +14,8 @@
 
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/utils/codegen_utils.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/MLIRContext.h"  // TF:llvm-project
 #include "mlir/Pass/Pass.h"       // TF:local_config_mlir
@@ -533,7 +533,7 @@ struct DiscSpecializeFusionWithSpeculationPass
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>>
+std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscSpecializeFusionWithSpeculationPass(int cc_major, int cc_minor) {
   return std::make_unique<DiscSpecializeFusionWithSpeculationPass>(cc_major,
                                                                    cc_minor);

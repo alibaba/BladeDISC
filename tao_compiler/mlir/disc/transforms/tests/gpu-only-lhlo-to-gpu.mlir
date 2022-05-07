@@ -1,11 +1,12 @@
 // RUN: disc-opt %s \
 // RUN: -disc-lhlo-legalize-roots-to-parallel-loops \
 // RUN: -disc-input-inline-fusion \
-// RUN: -pass-pipeline='builtin.func(disc-parallel-loop-tiling{parallel-loop-tile-sizes=256 with-inbound-check=true})' \
+// RUN: -pass-pipeline='func.func(disc-parallel-loop-tiling{parallel-loop-tile-sizes=256 with-inbound-check=true})' \
 // RUN: -map-parallel-loops-to-gpu \
 // RUN: -convert-parallel-loops-to-gpu \
 // RUN: -disc-convert-shape-to-std \
 // RUN: -lhlo-fusion-inliner \
+// RUN: -gpu-launch-sink-index-computations \
 // RUN: -gpu-kernel-outlining \
 // RUN: -disc-revise-gpu-kernel-outlining \
 // RUN: -pass-pipeline='gpu.module(convert-scf-to-cf,lower-affine,strip-debuginfo,convert-gpu-to-nvvm{index-bitwidth=32},disc-gpu-kernel-to-blob{gpu-sm-cc-major=3 gpu-sm-cc-minor=5 multi-cc-support=false multi-cc-support-dbg-ptx-only=false blob-annotation=gpu.binary})' -split-input-file | FileCheck %s

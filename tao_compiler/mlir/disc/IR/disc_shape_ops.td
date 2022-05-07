@@ -28,7 +28,7 @@ def DISCShape_Dialect : Dialect {
 
 class DISCShape_Op<string mnemonic, list<Trait> traits> :
     Op<DISCShape_Dialect, mnemonic, traits> {
-  let verifier = [{ return Verify(*this); }];
+  let hasVerifier = 1;
 }
 
 def DISCShape_LinearizeOp: DISCShape_Op<"linearize", [NoSideEffect, AttrSizedOperandSegments]> {

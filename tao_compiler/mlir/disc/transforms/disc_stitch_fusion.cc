@@ -16,9 +16,9 @@ limitations under the License.
 // This file implements logic for lowering LHLO dialect to Affine dialect.
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -90,7 +90,7 @@ LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion) {
 
 struct DiscStitchFusion : public DiscStitchFusionBase<DiscStitchFusion> {
   void runOnOperation() override {
-    FuncOp func = getOperation();
+    func::FuncOp func = getOperation();
     OpBuilder b(func);
     SmallVector<Operation*, 4> gpu_fusion_worklist;
     SmallVector<Operation*, 4> cpu_fusion_worklist;
@@ -119,7 +119,7 @@ struct DiscStitchFusion : public DiscStitchFusionBase<DiscStitchFusion> {
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscStitchFusionPass() {
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscStitchFusionPass() {
   return std::make_unique<DiscStitchFusion>();
 }
 

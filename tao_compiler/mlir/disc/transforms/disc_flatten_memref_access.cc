@@ -35,7 +35,7 @@ namespace {
 struct DiscFlattenMemrefAccessPass
     : DiscFlattenMemrefAccessPassBase<DiscFlattenMemrefAccessPass> {
   void runOnOperation() override {
-    FuncOp func = getOperation();
+    func::FuncOp func = getOperation();
 
     // Collect target load/store ops before rewrite to avoid modify while
     // traveling.
@@ -98,7 +98,8 @@ LogicalResult DiscFlattenMemrefAccessPass::processStoreOp(memref::StoreOp op) {
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscFlattenMemrefAccessPass() {
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscFlattenMemrefAccessPass() {
   return std::make_unique<DiscFlattenMemrefAccessPass>();
 }
 

@@ -27,6 +27,7 @@ limitations under the License.
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Transforms/LoopInvariantCodeMotionUtils.h"
 #include "mlir/Transforms/Passes.h"
 #include "mlir/Transforms/RegionUtils.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
@@ -114,8 +115,9 @@ LogicalResult sinkOperationsIntoLaunchOp(Region& launchOpBody) {
 
 /// Outline the `launch` operation body into a kernel function. Replace
 /// `scf.yield` operations by `return` in the generated function.
-static FuncOp outlineKernelFuncImpl(Operation* launchOp, StringRef kernelFnName,
-                                    SetVector<Value>& operands) {
+static func::FuncOp outlineKernelFuncImpl(Operation* launchOp,
+                                          StringRef kernelFnName,
+                                          SetVector<Value>& operands) {
   Location loc = launchOp->getLoc();
   // Create a builder with no insertion point, insertion will happen separately
   // due to symbol table manipulation.
@@ -134,7 +136,7 @@ static FuncOp outlineKernelFuncImpl(Operation* launchOp, StringRef kernelFnName,
   }
   FunctionType type =
       FunctionType::get(launchOp->getContext(), kernelOperandTypes, {});
-  auto outlinedFunc = builder.create<FuncOp>(loc, kernelFnName, type);
+  auto outlinedFunc = builder.create<func::FuncOp>(loc, kernelFnName, type);
   outlinedFunc->setAttr(kCpuKernelFunc, builder.getUnitAttr());
 
   BlockAndValueMapping map;
@@ -142,7 +144,7 @@ static FuncOp outlineKernelFuncImpl(Operation* launchOp, StringRef kernelFnName,
   // Map arguments from launch region to the arguments of the func
   // operation.
   Block& entryBlock = *outlinedFunc.addEntryBlock();
-  Region& outlinedFuncBody = outlinedFunc.body();
+  Region& outlinedFuncBody = outlinedFunc.getBody();
   for (auto operand : enumerate(operands))
     map.map(operand.value(), entryBlock.getArgument(operand.index()));
 
@@ -172,14 +174,14 @@ static FuncOp outlineKernelFuncImpl(Operation* launchOp, StringRef kernelFnName,
   for (Operation* op : toBeRemoved) {
     OpBuilder replacer(op);
     assert(op->getNumResults() == 0);
-    replacer.create<ReturnOp>(op->getLoc());
+    replacer.create<func::ReturnOp>(op->getLoc());
     op->erase();
   }
   return outlinedFunc;
 }
 
-FuncOp outlineKernelFunc(Operation* launchOp, StringRef kernelFnName,
-                         llvm::SmallVectorImpl<Value>& operands) {
+func::FuncOp outlineKernelFunc(Operation* launchOp, StringRef kernelFnName,
+                               llvm::SmallVectorImpl<Value>& operands) {
   DenseSet<Value> inputOperandSet;
   inputOperandSet.insert(operands.begin(), operands.end());
   SetVector<Value> operandSet(operands.begin(), operands.end());
@@ -205,7 +207,7 @@ std::string getKernelName(int index, scf::ParallelOp op, StringRef funcName) {
 /// Replace `parallel` operations with an `disc_ral.cpu_launch` operation
 /// launching `kernelFunc`. The kernel func contains the body of the
 /// `parallelOp` with constant region arguments inlined.
-static void convertToLaunchFuncOp(Operation* launchOp, FuncOp kernelFunc,
+static void convertToLaunchFuncOp(Operation* launchOp, func::FuncOp kernelFunc,
                                   ValueRange operands) {
   Location loc = launchOp->getLoc();
   OpBuilder builder(launchOp);
@@ -248,15 +250,15 @@ LogicalResult cloneAndMoveTo(OpBuilder& b, scf::ParallelOp parallelOp,
 
   if (cloned
           .walk([&](LoopLikeOpInterface loopLike) {
-            if (failed(moveLoopInvariantCode(loopLike)))
-              return WalkResult::interrupt();
+            moveLoopInvariantCode(loopLike);
             return WalkResult::advance();
           })
           .wasInterrupted()) {
     return failure();
   }
 
-  return moveLoopInvariantCode(cloned);
+  moveLoopInvariantCode(cloned);
+  return success();
 }
 
 LogicalResult rewriteLaunchOpSetting(scf::ParallelOp parallelOp,
@@ -330,15 +332,15 @@ LogicalResult rewriteLaunchOpSetting(scf::ParallelOp parallelOp,
 struct DiscOutlineCpuKernel : DiscOutlineCpuKernelBase<DiscOutlineCpuKernel> {
   void runOnOperation() override {
     ModuleOp m = getOperation();
-    SmallVector<FuncOp> candidateFuncOps;
-    for (FuncOp func : m.getOps<FuncOp>()) {
+    SmallVector<func::FuncOp> candidateFuncOps;
+    for (func::FuncOp func : m.getOps<func::FuncOp>()) {
       if (func->getAttrOfType<UnitAttr>(kCpuKernelFunc)) continue;
       candidateFuncOps.push_back(func);
     }
     if (candidateFuncOps.empty()) return;
 
     SymbolTable symbolTable(getOperation());
-    for (FuncOp func : candidateFuncOps) {
+    for (func::FuncOp func : candidateFuncOps) {
       if (failed(processFunction(symbolTable, func))) {
         signalPassFailure();
         return;
@@ -346,11 +348,11 @@ struct DiscOutlineCpuKernel : DiscOutlineCpuKernelBase<DiscOutlineCpuKernel> {
     }
   }
 
-  LogicalResult processFunction(SymbolTable& symbolTable, FuncOp func);
+  LogicalResult processFunction(SymbolTable& symbolTable, func::FuncOp func);
 };
 
 LogicalResult DiscOutlineCpuKernel::processFunction(SymbolTable& symbolTable,
-                                                    FuncOp func) {
+                                                    func::FuncOp func) {
   SmallVector<scf::ParallelOp> parallelOps;
   func.walk([&](scf::ParallelOp op) {
     // skip nested parallel op.
@@ -389,7 +391,8 @@ LogicalResult DiscOutlineCpuKernel::processFunction(SymbolTable& symbolTable,
       return wrapperOp->emitError("failed to sink operations into parallel op");
     }
 
-    FuncOp outlinedFunc = outlineKernelFunc(wrapperOp, kernelFnName, operands);
+    func::FuncOp outlinedFunc =
+        outlineKernelFunc(wrapperOp, kernelFnName, operands);
     symbolTable.insert(outlinedFunc, insertPt);
     convertToLaunchFuncOp(wrapperOp, outlinedFunc, operands);
   }

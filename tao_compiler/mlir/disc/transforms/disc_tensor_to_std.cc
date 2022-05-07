@@ -13,8 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BlockAndValueMapping.h"
@@ -102,8 +102,8 @@ void ConvertTensorToStandardPass::runOnOperation() {
   // Setup target legality.
   MLIRContext& ctx = getContext();
   ConversionTarget target(ctx);
-  target.addLegalDialect<StandardOpsDialect, arith::ArithmeticDialect>();
-  target.addLegalOp<FuncOp, ModuleOp>();
+  target.addLegalDialect<arith::ArithmeticDialect>();
+  target.addLegalOp<func::FuncOp, ModuleOp>();
   target.addLegalOp<tensor::ExtractOp, tensor::DimOp, tensor::FromElementsOp>();
   target.addIllegalOp<GenerateOp>();
 
@@ -114,14 +114,15 @@ void ConvertTensorToStandardPass::runOnOperation() {
   // clang-format: on
 
   // Apply conversion.
-  FuncOp func = getOperation();
+  func::FuncOp func = getOperation();
   if (failed(applyPartialConversion(func, target, std::move(patterns))))
     signalPassFailure();
 }
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscConvertTensorToStandardPass() {
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscConvertTensorToStandardPass() {
   return std::make_unique<ConvertTensorToStandardPass>();
 }
 

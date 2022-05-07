@@ -19,7 +19,6 @@ limitations under the License.
 
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -57,7 +56,7 @@ class InputInlineFusion : public InputInlineFusionPassBase<InputInlineFusion> {
 
 // This pass works after LhloLegalizeRootsToParallelLoops pass for the
 // XLA-style fusion codegen.
-std::unique_ptr<OperationPass<FuncOp>> createDiscInputInlineFusionPass() {
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscInputInlineFusionPass() {
   return std::make_unique<InputInlineFusion>();
 }
 
@@ -66,7 +65,7 @@ namespace {
 constexpr unsigned c_MAX_ITERATION = 4096 * 1000;
 
 void InputInlineFusion::runOnOperation() {
-  FuncOp func = getOperation();
+  func::FuncOp func = getOperation();
   auto* context = &this->getContext();
   RewritePatternSet patterns(context);
   patterns.insert<InputInlineFusionPattern>(context);

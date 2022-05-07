@@ -12,7 +12,6 @@
 #include "compiler/mlir/converters/mlir_type_utils.h"
 
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
-#include <mlir/Dialect/StandardOps/IR/Ops.h> // from tf repo
 #include <mlir/mhlo/builder/mlir_type_utils.h>
 
 #include <torch/script.h>

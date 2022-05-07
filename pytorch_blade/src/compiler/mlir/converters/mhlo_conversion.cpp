@@ -13,7 +13,7 @@
 
 #include <mlir-hlo/Dialect/mhlo/IR/chlo_ops.h>
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h>
-#include <mlir/Dialect/StandardOps/IR/Ops.h>
+#include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 
@@ -62,11 +62,11 @@ inline bool AllTensorTypeAnalyzed(const torch::jit::Node& node) {
 }
 
 void RegisterDialects(mlir::DialectRegistry& registry) {
-  registry.insert<mlir::StandardOpsDialect>();
-  registry.insert<mlir::tensor::TensorDialect>(),
-      registry.insert<mlir::mhlo::MhloDialect>();
+  registry.insert<mlir::func::FuncDialect>();
+  registry.insert<mlir::tensor::TensorDialect>();
+  registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::mhlo_disc::MhloDiscDialect>();
-  registry.insert<mlir::chlo::HloClientDialect>();
+  registry.insert<mlir::chlo::ChloDialect>();
 }
 
 bool IsMlirMhloSupported(const torch::jit::Node& node) {
@@ -163,8 +163,8 @@ class ConvertToMhloImpl {
           *output->node());
       return_values.push_back(out_iter->second);
     }
-    cvt_context_.builder->create<mlir::ReturnOp>(loc, return_values);
-    auto main_func_type = mlir_main_func_.getType();
+    cvt_context_.builder->create<mlir::func::ReturnOp>(loc, return_values);
+    auto main_func_type = mlir_main_func_.getFunctionType();
     SmallVec4<mlir::Type> rets;
     for (auto& output : return_values) {
       rets.emplace_back(output.getType());
@@ -194,7 +194,7 @@ class ConvertToMhloImpl {
 
   std::string input_dev_str_;
   std::string output_dev_str_;
-  mlir::FuncOp mlir_main_func_;
+  mlir::func::FuncOp mlir_main_func_;
   MhloConversionContext cvt_context_;
   std::atomic_flag converted_ = ATOMIC_FLAG_INIT;
 };

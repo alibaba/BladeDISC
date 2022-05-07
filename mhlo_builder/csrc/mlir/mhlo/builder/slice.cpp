@@ -10,7 +10,6 @@
 // limitations under the License.
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/mhlo/builder/mlir_shape_builder.h"
 #include "mlir/mhlo/builder/mlir_utils.h"
 #include "mlir/mhlo/builder/standard.h"

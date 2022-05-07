@@ -28,7 +28,6 @@
 #include "mlir/Dialect/SCF/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 
 namespace mlir {
@@ -75,7 +74,7 @@ struct ParallelLoopTiling
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createParallelLoopTilingPass(
+std::unique_ptr<OperationPass<func::FuncOp>> createParallelLoopTilingPass(
     ArrayRef<int64_t> tileSizes, bool withInboundCheck) {
   return std::make_unique<ParallelLoopTiling>(tileSizes, withInboundCheck);
 }

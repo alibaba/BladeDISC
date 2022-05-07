@@ -14,6 +14,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
 #include "mlir/IR/MLIRContext.h"            // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
@@ -45,16 +46,18 @@ using ShapeOperandList = SmallVector<int, 3>;
 ShapeOperandList getShapeCalcOperandList(Operation* op);
 
 LogicalResult parseEntryFunctionInputPlacements(
-    FuncOp main, bool default_on_gpu, SmallVectorImpl<StringRef>& out);
+    func::FuncOp main, bool default_on_gpu, SmallVectorImpl<StringRef>& out);
 
 LogicalResult parseEntryFunctionOutputPlacements(
-    FuncOp main, bool default_on_gpu, SmallVectorImpl<StringRef>& out);
+    func::FuncOp main, bool default_on_gpu, SmallVectorImpl<StringRef>& out);
 
 LogicalResult parseEntryFunctionInputPlacements(
-    FuncOp main, bool default_on_gpu, SmallVectorImpl<PlacementType>& out);
+    func::FuncOp main, bool default_on_gpu,
+    SmallVectorImpl<PlacementType>& out);
 
 LogicalResult parseEntryFunctionOutputPlacements(
-    FuncOp main, bool default_on_gpu, SmallVectorImpl<PlacementType>& out);
+    func::FuncOp main, bool default_on_gpu,
+    SmallVectorImpl<PlacementType>& out);
 
 // If Op is placed on GPU
 bool OnGpu(Operation* op);

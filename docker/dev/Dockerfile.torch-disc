@@ -8,7 +8,8 @@ RUN bash /opt/scripts/find-fastest-apt.sh && \
     rm /usr/bin/python && \
     ln -s /usr/bin/python3.8 /usr/bin/python && \
     python -m pip install --upgrade pip && \
-    python -m pip install cpython pyyaml typing_extensions virtualenv numpy torchvision
+    python -m pip install cpython pyyaml typing_extensions virtualenv numpy torchvision && \
+    bash /opt/scripts/install-bazel.sh
 
 # TODO(Yancey): build torchvision from the same git sha of pytorch
 RUN python -m pip uninstall pytorch && python -m pip install https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/torch-ltc/torch-1.12.0a0%2Bgit6402e62-cp38-cp38-linux_x86_64.whl

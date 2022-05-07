@@ -23,7 +23,6 @@ limitations under the License.
 #include "mlir/Dialect/GPU/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BlockAndValueMapping.h"
@@ -3167,7 +3166,7 @@ class DiscLhloLegalizeRootsToParallelLoops
     : public DiscLhloLegalizeRootsToParallelLoopsPassBase<
           DiscLhloLegalizeRootsToParallelLoops> {
   void runOnOperation() override {
-    FuncOp func = getOperation();
+    func::FuncOp func = getOperation();
 
     ShapeAnalysis shape_analysis(func);
     if (failed(shape_analysis.run())) {
@@ -3307,7 +3306,7 @@ class DiscLhloLegalizeRootsToParallelLoops
   }
 };
 
-std::unique_ptr<OperationPass<FuncOp>>
+std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscLhloLegalizeRootsToParallelLoopsPass() {
   return std::make_unique<DiscLhloLegalizeRootsToParallelLoops>();
 }

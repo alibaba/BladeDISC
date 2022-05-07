@@ -14,9 +14,8 @@
 #include "llvm/IR/Function.h"  // TF:llvm-project
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/FormatVariadic.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
-#include "mlir/Pass/Pass.h"                   // TF:llvm-project
-#include "mlir/Support/LogicalResult.h"       // TF:llvm-project
+#include "mlir/Pass/Pass.h"              // TF:llvm-project
+#include "mlir/Support/LogicalResult.h"  // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
 #include "transforms/PassDetail.h"
@@ -43,12 +42,12 @@ struct ReviseArgsForStaticRankPass
             ReviseArgumentsForStaticRankPassBase() {}
 
   void runOnOperation() override;
-  void replaceArgWithConstOp(FuncOp main, DictionaryAttr dict_attr,
+  void replaceArgWithConstOp(func::FuncOp main, DictionaryAttr dict_attr,
                              unsigned idx);
 };
 
 void ReviseArgsForStaticRankPass::replaceArgWithConstOp(
-    FuncOp main, DictionaryAttr dict_attr, unsigned idx) {
+    func::FuncOp main, DictionaryAttr dict_attr, unsigned idx) {
   ModuleOp module = getOperation();
   auto attr = dict_attr.get(
       (disc_ral::kDhloInputValueAttr + ("_" + llvm::Twine(idx))).str());
@@ -66,7 +65,7 @@ void ReviseArgsForStaticRankPass::replaceArgWithConstOp(
 
 void ReviseArgsForStaticRankPass::runOnOperation() {
   ModuleOp module = getOperation();
-  FuncOp main_func = module.lookupSymbol<FuncOp>("main");
+  func::FuncOp main_func = module.lookupSymbol<func::FuncOp>("main");
   if (!main_func) {
     module.emitError("Error: main_func not found.\n");
     return signalPassFailure();
@@ -106,7 +105,7 @@ void ReviseArgsForStaticRankPass::runOnOperation() {
   // Step 2, for each fixed-shaped input, update the type of the Arg
   // A shape inference pass will run in seperate to propagate the shape
   // information to the needed nodes
-  auto func_type = main_func.getType();
+  auto func_type = main_func.getFunctionType();
   SmallVector<Type, 4> input_types(func_type.getInputs().begin(),
                                    func_type.getInputs().end());
   assert(input_types.size() == num_inputs);

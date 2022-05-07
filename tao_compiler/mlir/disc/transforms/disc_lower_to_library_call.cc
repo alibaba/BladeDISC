@@ -29,7 +29,6 @@ limitations under the License.
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -69,7 +68,7 @@ using lmhlo_disc::H2DOp;
 // Suppose that the first argument of the function is the ctx value
 Value GetContextValueFromFunctionArguments(Operation* op) {
   Value ctx;
-  if (auto func = op->getParentOfType<FuncOp>()) {
+  if (auto func = op->getParentOfType<func::FuncOp>()) {
     if (func.getArgument(0).getType().isa<RalExecutionContextType>()) {
       return func.getArgument(0);
     }
@@ -601,7 +600,7 @@ struct DiscLowerToLibraryCallPass
   }
 
   void runOnOperation() override {
-    FuncOp func = getOperation();
+    func::FuncOp func = getOperation();
     MLIRContext* context = &getContext();
     RewritePatternSet patterns(context);
     // clang-format off
@@ -631,7 +630,8 @@ struct DiscLowerToLibraryCallPass
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscLowerToLibraryCallPass() {
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscLowerToLibraryCallPass() {
   return std::make_unique<DiscLowerToLibraryCallPass>();
 }
 

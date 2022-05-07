@@ -14,10 +14,10 @@ limitations under the License.
 ==============================================================================*/
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Shape/Transforms/Passes.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
@@ -69,7 +69,7 @@ void RemoveShapeConstraintsPass::runOnOperation() {
   // clang-format: on
   populateRemoveShapeConstraintsPatterns(patterns);
 
-  FuncOp func = getOperation();
+  func::FuncOp func = getOperation();
   if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
     func.emitError("applyPatternsAndFoldGreedily does not converge");
     signalPassFailure();
@@ -78,7 +78,8 @@ void RemoveShapeConstraintsPass::runOnOperation() {
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscRemoveShapeConstraintsPass() {
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscRemoveShapeConstraintsPass() {
   return std::make_unique<RemoveShapeConstraintsPass>();
 }
 

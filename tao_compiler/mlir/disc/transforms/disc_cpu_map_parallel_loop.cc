@@ -134,7 +134,7 @@ LogicalResult tileInnerMostParallelAxis(OpBuilder& b, scf::ParallelOp op) {
 struct DiscCpuMapParallelLoop
     : DiscCpuMapParallelLoopBase<DiscCpuMapParallelLoop> {
   void runOnOperation() override {
-    FuncOp func = getOperation();
+    func::FuncOp func = getOperation();
     SmallVector<scf::ParallelOp> candidates;
     func.walk([&](scf::ParallelOp op) {
       if (op->getParentOfType<scf::ParallelOp>()) return;
@@ -166,7 +166,8 @@ LogicalResult DiscCpuMapParallelLoop::processParallelOp(scf::ParallelOp op) {
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscCpuMapParallelLoopPass() {
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscCpuMapParallelLoopPass() {
   return std::make_unique<DiscCpuMapParallelLoop>();
 }
 

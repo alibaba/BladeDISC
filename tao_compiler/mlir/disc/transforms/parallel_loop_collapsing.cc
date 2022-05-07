@@ -27,7 +27,6 @@
 #include "mlir/Dialect/SCF/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -53,7 +52,8 @@ struct ParallelLoopCollapsing
 };
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscParallelLoopCollapsingPass() {
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscParallelLoopCollapsingPass() {
   return std::make_unique<ParallelLoopCollapsing>();
 }
 

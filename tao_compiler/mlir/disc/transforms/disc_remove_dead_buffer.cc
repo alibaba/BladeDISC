@@ -22,6 +22,7 @@ limitations under the License.
 
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Support/Debug.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
@@ -78,7 +79,7 @@ struct RemoveDeadBufferPass
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscRemoveDeadBufferPass() {
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscRemoveDeadBufferPass() {
   return std::make_unique<RemoveDeadBufferPass>();
 }
 

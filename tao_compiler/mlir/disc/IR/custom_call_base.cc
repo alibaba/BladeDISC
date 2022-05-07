@@ -12,22 +12,6 @@ limitations under the License.
 
 // This file defines the basic macros for custom call.
 
-//#include "llvm/ADT/StringRef.h"
-//#include "mlir/Dialect/MemRef/IR/MemRef.h"
-//#include "mlir/Dialect/StandardOps/IR/Ops.h"
-//#include "mlir/IR/Attributes.h"
-//#include "mlir/IR/BuiltinTypes.h"
-//#include "mlir/IR/Dialect.h"
-//#include "mlir/IR/DialectImplementation.h"
-//#include "mlir/IR/Location.h"
-//#include "mlir/IR/MLIRContext.h"
-//#include "mlir/IR/OpDefinition.h"
-//#include "mlir/IR/Operation.h"
-//#include "mlir/IR/TypeUtilities.h"
-//#include "mlir/IR/Types.h"
-//#include "mlir/Interfaces/InferTypeOpInterface.h"
-//#include "mlir/Interfaces/SideEffectInterfaces.h"
-
 #include "tensorflow/compiler/mlir/disc/IR/custom_call_base.h"
 
 #include <unordered_map>

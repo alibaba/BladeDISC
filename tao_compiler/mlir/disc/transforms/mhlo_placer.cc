@@ -13,11 +13,10 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
-#include "mlir/Dialect/Tensor/IR/Tensor.h"    // TF:llvm-project
-#include "mlir/IR/MLIRContext.h"              // TF:llvm-project
-#include "mlir/Pass/Pass.h"                   // TF:local_config_mlir
-#include "mlir/Transforms/Passes.h"           // TF:llvm-project
+#include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
+#include "mlir/IR/MLIRContext.h"            // TF:llvm-project
+#include "mlir/Pass/Pass.h"                 // TF:local_config_mlir
+#include "mlir/Transforms/Passes.h"         // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "transforms/PassDetail.h"
 #include "transforms/placement_utils.h"
@@ -61,7 +60,7 @@ struct OpsPlacer : public PlaceOpsPassBase<OpsPlacer> {
 
   void runOnOperation() override {
     ModuleOp module = getOperation();
-    main_func_ = module.lookupSymbol<mlir::FuncOp>("main");
+    main_func_ = module.lookupSymbol<mlir::func::FuncOp>("main");
     if (!main_func_) {
       module.emitError("entry function not found.");
       signalPassFailure();
@@ -110,7 +109,8 @@ struct OpsPlacer : public PlaceOpsPassBase<OpsPlacer> {
   void markI64ReturnedCpuScalarOps(llvm::DenseSet<Operation*>& marked_ops);
 
   // Insert Op's operands into set if Op in set
-  void markOperands(mlir::FuncOp func, llvm::DenseSet<Operation*>& marked_ops);
+  void markOperands(mlir::func::FuncOp func,
+                    llvm::DenseSet<Operation*>& marked_ops);
 
   // Get placement vector of func's output.
   SmallVector<PlacementType, 4> getOutputPlacements();
@@ -126,11 +126,11 @@ struct OpsPlacer : public PlaceOpsPassBase<OpsPlacer> {
   PlacementType getArgumentPlacement(Value arg);
 
   // Get argument's index of func
-  int64_t getArgumentIndex(mlir::FuncOp op, Value value);
+  int64_t getArgumentIndex(mlir::func::FuncOp op, Value value);
 
   // Enforce output's placement.
   void enforceOutputPlacement(
-      Operation* dst, FuncOp main_func,
+      Operation* dst, func::FuncOp main_func,
       SmallVector<std::pair<Operation*, size_t>, 4>& d2h_worklist,
       SmallVector<std::pair<Operation*, size_t>, 4>& h2d_worklist);
 
@@ -150,7 +150,7 @@ struct OpsPlacer : public PlaceOpsPassBase<OpsPlacer> {
   SmallVector<PlacementType, 4> output_placements_;
 
   // main func
-  mlir::FuncOp main_func_;
+  mlir::func::FuncOp main_func_;
 };
 
 // Mark i64 Scalar output
@@ -159,7 +159,7 @@ void OpsPlacer::markI64ReturnedCpuScalarOps(
   Builder builder(&getContext());
 
   auto return_op = main_func_.front().getTerminator();
-  if (!isa<mlir::ReturnOp>(return_op)) return;
+  if (!isa<mlir::func::ReturnOp>(return_op)) return;
 
   auto result_attrs = main_func_.getAllResultAttrs();
   const auto& output_placements = getOutputPlacements();
@@ -236,14 +236,14 @@ void OpsPlacer::placeShapeOpOnCpu() {
   });
 }
 
-int64_t OpsPlacer::getArgumentIndex(mlir::FuncOp op, Value value) {
+int64_t OpsPlacer::getArgumentIndex(mlir::func::FuncOp op, Value value) {
   BlockArgument arg = value.dyn_cast<BlockArgument>();
   if (!arg || arg.getOwner() != &op.front()) return -1;
   return arg.getArgNumber();
 }
 
 void OpsPlacer::enforceOutputPlacement(
-    Operation* dst, FuncOp main_func,
+    Operation* dst, func::FuncOp main_func,
     SmallVector<std::pair<Operation*, size_t>, 4>& d2h_worklist,
     SmallVector<std::pair<Operation*, size_t>, 4>& h2d_worklist) {
   const auto& output_placements = getOutputPlacements();
@@ -278,20 +278,20 @@ void OpsPlacer::insertMemcpyNodes() {
 
   module.walk([&](Operation* dst) {
     // Enforce output placement specified by the users using attrs.
-    if (isa<mlir::ReturnOp>(dst)) {
+    if (isa<mlir::func::ReturnOp>(dst)) {
       auto parent = dst->getParentOp();
-      if (!isa<mlir::FuncOp>(parent) ||
-          (cast<mlir::FuncOp>(parent).getName() != "main")) {
+      if (!isa<mlir::func::FuncOp>(parent) ||
+          (cast<mlir::func::FuncOp>(parent).getName() != "main")) {
         return;
       }
-      auto main_func = dyn_cast<mlir::FuncOp>(parent);
+      auto main_func = dyn_cast<mlir::func::FuncOp>(parent);
       enforceOutputPlacement(dst, main_func, d2h_worklist, h2d_worklist);
     }
     if (isa<tensor::ExtractOp>(dst)) {
       auto operand = dst->getOperand(0);
       auto parent = operand.getParentRegion()->getParentOp();
-      if (!isa<mlir::FuncOp>(parent) ||
-          (cast<mlir::FuncOp>(parent).getName() != "main")) {
+      if (!isa<mlir::func::FuncOp>(parent) ||
+          (cast<mlir::func::FuncOp>(parent).getName() != "main")) {
         return;
       }
       auto defining_op = operand.getDefiningOp();
@@ -312,8 +312,8 @@ void OpsPlacer::insertMemcpyNodes() {
       // insert the potential memcpy outside the parent Op.
       if (!operand_op) {
         auto parent = operand.getParentRegion()->getParentOp();
-        if (!isa<mlir::FuncOp>(parent) ||
-            (cast<mlir::FuncOp>(parent).getName() != "main")) {
+        if (!isa<mlir::func::FuncOp>(parent) ||
+            (cast<mlir::func::FuncOp>(parent).getName() != "main")) {
           continue;
         }
       }
@@ -487,7 +487,7 @@ void OpsPlacer::addDefaultPlacements() {
   });
 }
 
-void OpsPlacer::markOperands(mlir::FuncOp func,
+void OpsPlacer::markOperands(mlir::func::FuncOp func,
                              llvm::DenseSet<Operation*>& marked_ops) {
   auto& block = func.getBlocks().front();
   for (auto& op : llvm::make_early_inc_range(
@@ -511,8 +511,9 @@ void OpsPlacer::markOperands(mlir::FuncOp func,
 
 PlacementType OpsPlacer::getArgumentPlacement(Value arg) {
   auto parent = arg.getParentRegion()->getParentOp();
-  assert(isa<mlir::FuncOp>(parent) && "invalid use of getArgumentPlacement");
-  auto main_func = cast<mlir::FuncOp>(parent);
+  assert(isa<mlir::func::FuncOp>(parent) &&
+         "invalid use of getArgumentPlacement");
+  auto main_func = cast<mlir::func::FuncOp>(parent);
   assert(main_func.getName() == "main" &&
          "invalid use of getArgumentPlacement");
   auto arg_index = getArgumentIndex(main_func, arg);

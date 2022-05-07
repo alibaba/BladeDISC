@@ -9,8 +9,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"               // TF:llvm-project
-#include "mlir/Dialect/StandardOps/IR/Ops.h"             // TF:llvm-project
 #include "mlir/IR/Location.h"                            // TF:llvm-project
 #include "mlir/IR/MLIRContext.h"                         // TF:llvm-project
 #include "mlir/IR/PatternMatch.h"                        // TF:llvm-project
@@ -84,7 +84,7 @@ struct UnhandledAtomicRMWConverterPass
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>>
+std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscUnhandledAtomicRMWConverterPass() {
   return std::make_unique<UnhandledAtomicRMWConverterPass>();
 }

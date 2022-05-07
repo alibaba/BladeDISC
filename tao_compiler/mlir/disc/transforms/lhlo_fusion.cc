@@ -13,10 +13,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "mlir-hlo/utils/cycle_detector.h"
-#include "mlir/Dialect/Shape/IR/Shape.h"      // TF:llvm-project
-#include "mlir/Dialect/StandardOps/IR/Ops.h"  // TF:llvm-project
-#include "mlir/IR/MLIRContext.h"              // TF:llvm-project
+#include "mlir/Dialect/Shape/IR/Shape.h"  // TF:llvm-project
+#include "mlir/IR/MLIRContext.h"          // TF:llvm-project
 #include "mlir/IR/Matchers.h"
 #include "mlir/Pass/Pass.h"               // TF:local_config_mlir
 #include "mlir/Transforms/RegionUtils.h"  // TF:llvm-project
@@ -24,6 +22,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/shape_utils.h"
+#include "tensorflow/compiler/mlir/disc/utils/cycle_detector.h"
 #include "tensorflow/core/util/env_var.h"
 
 // This pass has similar functionality of the fusion pass in XLA stack.
@@ -500,7 +499,7 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
   }
 
   void runOnOperation() override {
-    FuncOp func = getOperation();
+    func::FuncOp func = getOperation();
 
     // collect all blocks inside the function.
     SmallVector<Block*, 4> blocks;
@@ -627,7 +626,8 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
     return true;
   }
 
-  void CollectBlocksInsideFunction(FuncOp op, SmallVectorImpl<Block*>& blocks) {
+  void CollectBlocksInsideFunction(func::FuncOp op,
+                                   SmallVectorImpl<Block*>& blocks) {
     op.walk([&](Block* block) {
       // It does not make sense to fuse the region attached to these ops.
       if (!isa<lmhlo::ReduceOp, lmhlo::FusionOp>(block->getParentOp()))
@@ -642,7 +642,7 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscFusionPass(
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscFusionPass(
     bool gpu_enabled, const std::string& fusion_strategy) {
   return std::make_unique<DiscFusionPass>(gpu_enabled, fusion_strategy);
 }

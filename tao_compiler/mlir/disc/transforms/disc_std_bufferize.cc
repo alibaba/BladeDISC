@@ -16,8 +16,8 @@ limitations under the License.
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Bufferization/Transforms/Bufferize.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
@@ -128,10 +128,9 @@ void StdBufferizePass::runOnOperation() {
   bufferization::populateBufferizeMaterializationLegality(target);
 
   target.addLegalDialect<memref::MemRefDialect>();
-  target.addLegalOp<FuncOp, ModuleOp>();
-  target
-      .addDynamicallyLegalDialect<StandardOpsDialect, arith::ArithmeticDialect>(
-          [&](Operation* op) { return typeConverter.isLegal(op); });
+  target.addLegalOp<func::FuncOp, ModuleOp>();
+  target.addDynamicallyLegalDialect<arith::ArithmeticDialect>(
+      [&](Operation* op) { return typeConverter.isLegal(op); });
 
   // Setup conversion patterns.
   RewritePatternSet patterns(&ctx);
@@ -142,14 +141,14 @@ void StdBufferizePass::runOnOperation() {
   // clang-format on
 
   // Apply conversion.
-  FuncOp func = getOperation();
+  func::FuncOp func = getOperation();
   if (failed(applyPartialConversion(func, target, std::move(patterns))))
     signalPassFailure();
 }
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscStdBufferizePass() {
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscStdBufferizePass() {
   return std::make_unique<StdBufferizePass>();
 }
 

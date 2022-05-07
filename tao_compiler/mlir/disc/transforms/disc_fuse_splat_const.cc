@@ -49,7 +49,7 @@ class DiscFuseSplatConstPass
 // step 2, fuse them in to the consumers
 // step 3, if not used anymore, erase the original
 void DiscFuseSplatConstPass::runOnOperation() {
-  FuncOp func = getOperation();
+  func::FuncOp func = getOperation();
   auto* context = &this->getContext();
 
   SmallVector<lmhlo::ConstOp, 4> worklist;
@@ -109,7 +109,7 @@ void DiscFuseSplatConstPass::processSplatConst(
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscFuseSplatConstPass() {
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscFuseSplatConstPass() {
   return std::make_unique<DiscFuseSplatConstPass>();
 }
 

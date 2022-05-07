@@ -86,7 +86,8 @@ se::Stream* GetOrCreateDefaultCudaStreamExecutorStream(int device_ordinal,
     // StreamExecutor use cuda primary context.
     // A non-primary context was not verfied by StreamExectuor.
     // So we would not support non-primary cuda context currently.
-    e.stream = new se::Stream(executor, new CUDAStream(cuda_executor, stream));
+    e.stream = new se::Stream(
+        executor, std::make_unique<CUDAStream>(cuda_executor, stream), false);
     e.stream->Init();
     e.SaveCurrentContext();
     it = table.emplace(key, std::move(e)).first;

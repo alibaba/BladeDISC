@@ -16,6 +16,7 @@ limitations under the License.
 // This file implements CSE of memref.load specific for DISC
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/Support/Debug.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
@@ -90,7 +91,7 @@ bool DiscMemRefCSEPass::tryMemRefLoadCSE(LoadOp load) {
 }
 
 bool DiscMemRefCSEPass::runMemRefLoadCSE() {
-  FuncOp func = getOperation();
+  func::FuncOp func = getOperation();
   func.walk([&](LoadOp load) { load_set_.insert(load); });
   bool changed = false;
   while (load_set_.size() > 0) {
@@ -101,7 +102,7 @@ bool DiscMemRefCSEPass::runMemRefLoadCSE() {
 }
 
 void DiscMemRefCSEPass::runCleanUp() {
-  FuncOp func = getOperation();
+  func::FuncOp func = getOperation();
   OpPassManager cleanupPipeline(OpPassManager("func"));
   cleanupPipeline.addPass(createCSEPass());
   (void)runPipeline(cleanupPipeline, func);
@@ -109,7 +110,7 @@ void DiscMemRefCSEPass::runCleanUp() {
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscMemRefCSEPass() {
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscMemRefCSEPass() {
   return std::make_unique<DiscMemRefCSEPass>();
 }
 

@@ -56,6 +56,8 @@ LogicalResult H2DOp::reifyReturnTypeShapes(
                                       &reifiedReturnShapes);
 }
 
+LogicalResult H2DOp::verify() { return Verify(*this); }
+
 //===----------------------------------------------------------------------===//
 // D2HOp
 //===----------------------------------------------------------------------===//
@@ -66,6 +68,8 @@ LogicalResult D2HOp::reifyReturnTypeShapes(
   return mhlo::deriveShapeFromOperand(&builder, getOperation(), operands[0],
                                       &reifiedReturnShapes);
 }
+
+LogicalResult D2HOp::verify() { return Verify(*this); }
 
 //===----------------------------------------------------------------------===//
 // CustomCallOp
@@ -84,6 +88,8 @@ LogicalResult CustomCallOp::reifyReturnTypeShapes(
   }
   return reify_shapes_func(*this, builder, operands, reifiedReturnShapes);
 }
+
+LogicalResult CustomCallOp::verify() { return Verify(*this); }
 
 }  // namespace mhlo_disc
 }  // namespace mlir

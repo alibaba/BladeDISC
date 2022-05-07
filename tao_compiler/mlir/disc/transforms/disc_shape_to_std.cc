@@ -13,9 +13,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
@@ -436,9 +436,8 @@ void ConvertShapeToStandardPass::runOnOperation() {
   // Setup target legality.
   MLIRContext& ctx = getContext();
   ConversionTarget target(ctx);
-  target.addLegalDialect<arith::ArithmeticDialect, StandardOpsDialect,
-                         tensor::TensorDialect>();
-  target.addLegalOp<FuncOp, ModuleOp>();
+  target.addLegalDialect<arith::ArithmeticDialect, tensor::TensorDialect>();
+  target.addLegalOp<func::FuncOp, ModuleOp>();
 
   // Setup conversion patterns.
   RewritePatternSet patterns(&ctx);
@@ -451,14 +450,15 @@ void ConvertShapeToStandardPass::runOnOperation() {
   // clang-format: on
 
   // Apply conversion.
-  FuncOp func = getOperation();
+  func::FuncOp func = getOperation();
   if (failed(applyPartialConversion(func, target, std::move(patterns))))
     signalPassFailure();
 }
 
 }  // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> createDiscConvertShapeToStandardPass() {
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscConvertShapeToStandardPass() {
   return std::make_unique<ConvertShapeToStandardPass>();
 }
 

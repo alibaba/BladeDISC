@@ -12,7 +12,6 @@
 #include "compiler/mlir/converters/mhlo_conversion_context.h"
 
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
-#include <mlir/Dialect/StandardOps/IR/Ops.h> // from tf repo
 #include "compiler/jit/tool_funcs.h"
 #include "compiler/mlir/converters/mlir_type_utils.h"
 
@@ -81,7 +80,7 @@ std::string GetAttrString(const SmallVec4<std::string>& str_vec) {
   return ss.str();
 }
 
-std::tuple<mlir::FuncOp, std::string, std::string> CreateMlirFunction(
+std::tuple<mlir::func::FuncOp, std::string, std::string> CreateMlirFunction(
     MhloConversionContext& ctx,
     const std::string& function_name,
     at::ArrayRef<const torch::jit::Value*> inputs,
@@ -144,11 +143,8 @@ std::tuple<mlir::FuncOp, std::string, std::string> CreateMlirFunction(
            output_placements_attr})));
 
   ::llvm::ArrayRef<mlir::NamedAttribute> attr_arr = attrs;
-  auto func = mlir::FuncOp::create(
-      mlir::UnknownLoc::get(mlir_context),
-      function_name,
-      mlir_func_type,
-      attr_arr);
+  auto func = builder.create<mlir::func::FuncOp>(
+      ctx.mlir_module->getLoc(), function_name, mlir_func_type, attr_arr);
 
   auto entry_block = func.addEntryBlock();
   builder.setInsertionPointToStart(entry_block);

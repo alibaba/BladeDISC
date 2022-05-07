@@ -14,7 +14,7 @@
 #include <dlfcn.h>
 
 #include <c10/core/CPUAllocator.h>
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 11
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
 #include <c10/core/impl/alloc_cpu.h>
 #endif
 

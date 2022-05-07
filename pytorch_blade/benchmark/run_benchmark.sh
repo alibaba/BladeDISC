@@ -10,7 +10,9 @@
 # limitations under the License.
 
 # !/bin/bash
+set -e
 export CUDA_HOME=${CUDA_HOME:-/usr/local/cuda/}
+export TF_CUDA_HOME=${CUDA_HOME} # for cuda_supplement_configure.bzl
 export CUDACXX=${CUDACXX:-"${CUDA_HOME}/bin/nvcc"}
 export PATH=${CUDA_HOME}/bin/:$PATH
 export TENSORRT_INSTALL_PATH=${TENSORRT_INSTALL_PATH:-/usr/local/TensorRT/}

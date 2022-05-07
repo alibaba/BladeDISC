@@ -25,7 +25,7 @@ jobs:
           --build-arg BASEIMAGE=nvcr.io/nvidia/pytorch:21.11-py3 -f docker/dev/Dockerfile.torch.ngc .
     - name: Build and Test DISC
       run: |
-        set -e
+        set -ex
         mkdir -p $HOME/.cache/.torch/
         mkdir -p $HOME/.cache/.torch/.cache
         cp $HOME/.cache/remote_cache_token $HOME/.cache/.torch/.cache
@@ -35,7 +35,7 @@ jobs:
           -v /etc/passwd:/etc/passwd:ro \
           -v /etc/group:/etc/group:ro \
           -v $PWD:/disc \
-          -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
+          -e GITHUB_WORKFLOW="$GITHUB_WORKFLOW" \
           -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=ngc \
           -w /disc/pytorch_blade \
           disc-dev-pt-ngc bash ./benchmark/run_benchmark.sh

@@ -1229,11 +1229,12 @@ REGISTER_XLA_OP_FOR_TAO(Name("Tanh"));
 REGISTER_XLA_OP_FOR_TAO(Name("Real"));
 REGISTER_XLA_OP_FOR_TAO(Name("Imag"));
 
-#if TF_MAJOR_VERSION > 1 || TF_MINOR_VERSION > 12
+#if TF_MAJOR_VERSION > 1 || TF_MAJOR_VERSION==1 && TF_MINOR_VERSION > 12
 REGISTER_XLA_OP_FOR_TAO(Name("AddV2"));
 REGISTER_XLA_OP_FOR_TAO(Name("BatchMatMulV2"));
 REGISTER_XLA_OP_FOR_TAO(Name("FusedBatchNormV3"));
 REGISTER_XLA_OP_FOR_TAO(Name("FusedBatchNormGradV3"));
+REGISTER_XLA_OP_FOR_TAO(Name("SelectV2"));
 #endif // after tf1.12
 
 // clang-format on

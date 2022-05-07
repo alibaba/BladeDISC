@@ -21,7 +21,7 @@ def _impl(repo_ctx):
             patch_cudnn_sh = repo_ctx.path(Label("//bazel/cuda_supplement:patch_cudnn.sh"))
             result = repo_ctx.execute([get_bash_bin(repo_ctx), patch_cudnn_sh, cuda_path, "./"])
             if result.return_code != 0:
-                auto_config_fail("Failed to patch myelin static libraries.\nstdout: {}\nstderr: {}".format(
+                auto_config_fail("Failed to patch cudnn static libraries.\nstdout: {}\nstderr: {}".format(
                     result.stdout,
                     result.stderr,
                 ))

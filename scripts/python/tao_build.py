@@ -167,6 +167,9 @@ def symlink_internal_files(root):
         logger.info("linking blade_gemm")
         execute("rm -rf {0} && ln -s {1} {0}".format(os.path.join('tf_community', 'tao', 'blade_gemm'),
                 os.path.join(internal_root_dir(), 'platform_alibaba', 'blade_gemm')))
+        logger.info("linking blade_service_common")
+        execute("rm -rf {0} && ln -s {1} {0}".format(os.path.join('tf_community', 'tao', 'third_party', 'blade_service_common'),
+                os.path.join(internal_root_dir(), 'platform_alibaba', 'third_party', 'blade_service_common')))
 
         logger.info("cleanup tao_compiler with XLA always...")
         src = os.path.join(internal_root_dir(), "platform_alibaba/tao_compiler/xla")

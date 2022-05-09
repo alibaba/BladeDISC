@@ -1,22 +1,22 @@
-# BladeDISC Introduction
+# BladeDISC Introduction <!-- omit in toc -->
 
-* [Overview](#overview)
-  + [Features and Roadmap](#features-and-roadmap)
+- [Overview](#overview)
+  - [Features and Roadmap](#features-and-roadmap)
     - [Frontend Framework Support Matrix](#frontend-framework-support-matrix)
     - [Backend Support Matrix](#backend-support-matrix)
     - [Deployment Solutions](#deployment-solutions)
-  + [Numbers of Typical Workloads](#numbers-of-typical-workloads)
+  - [Numbers of Typical Workloads](#numbers-of-typical-workloads)
     - [Advantage in Dynamic Shape Workloads](#advantage-in-dynamic-shape-workloads)
-* [API QuickView](#api-quickview)
-  + [For TensorFlow Users](#for-tensorflow-users)
-  + [For PyTorch Users](#for-pytorch-users)
-* [Setup and Examples](#setup-and-examples)
-* [Publications](#publications)
-* [Tutorials and Documents for Developers](#tutorials-and-documents-for-developers)
-* [How to Contribute](#how-to-contribute)
-* [FAQ](#faq)
-  + [Roadmap with mlir-hlo Project](#roadmap-with-mlir-hlo-project)
-* [Contact Us](#contact-us)
+- [API QuickView](#api-quickview)
+  - [For TensorFlow Users](#for-tensorflow-users)
+  - [For PyTorch Users](#for-pytorch-users)
+- [Setup and Examples](#setup-and-examples)
+- [Publications](#publications)
+- [Tutorials and Documents for Developers](#tutorials-and-documents-for-developers)
+- [How to Contribute](#how-to-contribute)
+- [FAQ](#faq)
+  - [Roadmap with mlir-hlo Project](#roadmap-with-mlir-hlo-project)
+- [Contact Us](#contact-us)
 
 ## Overview
 
@@ -61,6 +61,7 @@ training workloads.
 | AMD GPU    |  Ongoing      |
 | Hygon DCU  |    Yes        |
 |  X86       |    Yes        |
+| AArch64    |    Yes        |
 
 #### Deployment Solutions
 
@@ -84,8 +85,8 @@ XLA and TensorRT), DISC shows comparable or even better performance.
 <img src="./docs/pics/numbers.png" style="width:60%">
 <figcaption align = "center">
 <b>
-Fig.1 Performance speedup over framework. 
-<i>Framework</i> means either TensorFlow or PyTorch. 
+Fig.1 Performance speedup over framework.
+<i>Framework</i> means either TensorFlow or PyTorch.
 <i>FastSpeech2</i> is TensorFlow model and others are PyTorch models.
 The <i>static compiler</i> for TensorFlow is XLA and that for PyTorch is TensorRT.
 Note that <i>S2T</i> and <i>T5</i> have no TensorRT performance due to wrong result.

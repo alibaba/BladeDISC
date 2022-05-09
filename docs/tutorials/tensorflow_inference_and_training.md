@@ -1,4 +1,4 @@
-# Tutorial: Optimize TensorFlow Models with BladeDISC
+# Tutorial: Optimize TensorFlow Models with BladeDISC <!-- omit in toc -->
 
 In this tutorial, we show how to optimize TensorFlow models with BladeDISC for
 both inference and training. Users only need to add two lines of code to
@@ -11,13 +11,13 @@ The content of this tutorial is as following.
   - [Prologue: Download Frozen Model](#prologue-download-frozen-model)
   - [All You Need Are the Two Lines!](#all-you-need-are-the-two-lines)
   - [Epilogue: Normal Process to Run Inference](#epilogue-normal-process-to-run-inference)
-- [BERT X86 Inference](#bert-x86-inference)
-  - [Prologue: Download Frozen Model For X86 CPU](#prologue-download-frozen-model-for-x86-cpu)
-  - [Still, All You Need Are the Two Lines](#still-all-you-need-are-the-two-lines)
-  - [Epilogue: Normal Process to Run Inference on X86 CPU](#epilogue-normal-process-to-run-inference-on-x86-cpu)
-- [DeePMD training](#deepmd-training)
+- [BERT CPU Inference](#bert-cpu-inference)
+  - [Prologue: Download Frozen Model For CPU](#prologue-download-frozen-model-for-cpu)
+  - [Still, All You Need Are the Two Lines!](#still-all-you-need-are-the-two-lines)
+  - [Epilogue: Normal Process to Run Inference on CPU](#epilogue-normal-process-to-run-inference-on-cpu)
+- [DeePMD Training](#deepmd-training)
   - [Prologue: Install DeePMD-kit and Download Data](#prologue-install-deepmd-kit-and-download-data)
-  - [Aagin, All You Need Are the Two Lines!](#again-all-you-need-are-the-two-lines)
+  - [Aagin, All You Need Are the Two Lines!](#aagin-all-you-need-are-the-two-lines)
   - [Epilogue: Normal Process to Run MD Training with DeePMD-kit API](#epilogue-normal-process-to-run-md-training-with-deepmd-kit-api)
 
 
@@ -92,12 +92,12 @@ for more scripts to compare the performance of BladeDISC optimization with naive
 TensorFlow and XLA.
 
 
-## BERT X86 Inference
+## BERT CPU Inference
 
 Similar to the CUDA example, The BERT model we show in this tutorial has varied
 batch-size.
 
-### Prologue: Download Frozen Model For X86 CPU
+### Prologue: Download Frozen Model For CPU
 
 ```python
 !mkdir -p model
@@ -116,7 +116,7 @@ disc.enable(
 )
 ```
 
-### Epilogue: Normal Process to Run Inference on X86 CPU
+### Epilogue: Normal Process to Run Inference on CPU
 
 After enabling BladeDISC with the two lines above, we can load and run the
 frozen model with normal process.
@@ -158,8 +158,7 @@ for batch in [2, 2, 4, 1, 1, 8, 8, 2, 16, 2]:
 
 The above code shows the complete process to optimize BERT inference model with
 BladeDISC. Please refer to [TensorFlow BERT Inference
-Example](https://github.com/alibaba/BladeDISC/tree/main/examples/TensorFlow/Inference/X86/BERT)
-for more scripts to compare the performance of BladeDISC optimization with naive
+Example on X86](https://github.com/alibaba/BladeDISC/tree/main/examples/TensorFlow/Inference/X86/BERT), or [TensorFlow BERT Inference Example on AArch64](https://github.com/alibaba/BladeDISC/tree/main/examples/TensorFlow/Inference/AArch64/BERT) for more scripts to compare the performance of BladeDISC optimization with naive
 TensorFlow and XLA.
 
 

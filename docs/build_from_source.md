@@ -23,8 +23,11 @@ cd BladeDISC && git submodule update --init --recursive
 # For GPU backend
 docker run --gpus all --rm -it -v $PWD:/disc bladedisc/bladedisc:latest-devel-cuda11.0 bash
 
-# For CPU backend
+# For x86 CPU backend
 docker run --rm -it -v $PWD:/disc bladedisc/bladedisc:latest-devel-cuda11.0 bash
+
+# For AArch64 CPU backend
+docker run --rm -it -v $PWD:/disc bladedisc/bladedisc:latest-devel-cpu-aarch64 bash
 ```
 
 please goto [this website](https://hub.docker.com/r/bladedisc/bladedisc/tags?page=1&name=devel) to find more images with various CUDA versions.
@@ -39,7 +42,7 @@ build and test tensorflow_bladedisc with an all-in-on bash script.
 # For GPU backend
 bash ./scripts/ci/build_and_test.sh
 
-# For CPU backend
+# For x86 or AArch64 CPU backend
 bash ./scripts/ci/build_and_test.sh --cpu-only
 ```
 
@@ -55,9 +58,14 @@ installation toolkit.
     # For GPU backend
     cd pytorch_blade && bash ./ci_build/build_pytorch_blade.sh
 
-    # For CPU backend
+    # For x86 CPU backend
     export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
     export TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cpu
+    cd pytorch_blade && bash ./ci_build/build_pytorch_blade.sh
+
+    # For AArch64 CPU backend
+    export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
+    export TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.10.0+aarch64
     cd pytorch_blade && bash ./ci_build/build_pytorch_blade.sh
     ```
 
@@ -67,9 +75,14 @@ installation toolkit.
     # For GPU backend
     python setup.py bdist_wheel
 
-    # For CPU backend
+    # For x86 CPU backend
     export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
     export TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cpu
+    python setup.py bdist_wheel
+
+    # For AArch64 CPU backend
+    export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
+    export TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.10.0+aarch64
     python setup.py bdist_wheel
     ```
 

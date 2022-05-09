@@ -49,6 +49,8 @@ build:blade_gemm --define is_blade_gemm=true
 build:blade_gemm --cxxopt=-DENABLE_BLADE_GEMM
 
 build:platform_alibaba --cxxopt=-DPLATFORM_ALIBABA
+build:platform_alibaba --cxxopt=-DUSE_BLADE_SERVICE_COMMON
+build:platform_alibaba --cxxopt=-DBUILD_WITH_BAZEL
 build:platform_alibaba --define is_platform_alibaba=true
 build:platform_alibaba --repo_env IS_PLATFORM_ALIBABA=1
 

@@ -1,4 +1,4 @@
-# Tutorial: Optimize TensorFlow Models with BladeDISC
+# Tutorial: Optimize TensorFlow Models with BladeDISC <!-- omit in toc -->
 
 In this tutorial, we show how to optimize TensorFlow models with BladeDISC for
 both inference and training. Users only need to add two lines of code to
@@ -7,19 +7,18 @@ Please refer to ["Install BladeDISC With Docker"](/docs/install_with_docker.md)
 for environment setup.
 
 The content of this tutorial is as following.
-- [Tutorial: Optimize TensorFlow Models with BladeDISC](#tutorial-optimize-tensorflow-models-with-bladedisc)
-  - [BERT CUDA Inference](#bert-cuda-inference)
-    - [Prologue: Download Frozen Model](#prologue-download-frozen-model)
-    - [All You Need Are the Two Lines!](#all-you-need-are-the-two-lines)
-    - [Epilogue: Normal Process to Run Inference](#epilogue-normal-process-to-run-inference)
-  - [BERT CPU Inference](#bert-cpu-inference)
-    - [Prologue: Download Frozen Model For CPU](#prologue-download-frozen-model-for-cpu)
-    - [Still, All You Need Are the Two Lines!](#still-all-you-need-are-the-two-lines)
-    - [Epilogue: Normal Process to Run Inference on CPU](#epilogue-normal-process-to-run-inference-on-cpu)
-  - [DeePMD Training](#deepmd-training)
-    - [Prologue: Install DeePMD-kit and Download Data](#prologue-install-deepmd-kit-and-download-data)
-    - [Aagin, All You Need Are the Two Lines!](#aagin-all-you-need-are-the-two-lines)
-    - [Epilogue: Normal Process to Run MD Training with DeePMD-kit API](#epilogue-normal-process-to-run-md-training-with-deepmd-kit-api)
+- [BERT CUDA Inference](#bert-cuda-inference)
+  - [Prologue: Download Frozen Model](#prologue-download-frozen-model)
+  - [All You Need Are the Two Lines!](#all-you-need-are-the-two-lines)
+  - [Epilogue: Normal Process to Run Inference](#epilogue-normal-process-to-run-inference)
+- [BERT CPU Inference](#bert-cpu-inference)
+  - [Prologue: Download Frozen Model For CPU](#prologue-download-frozen-model-for-cpu)
+  - [Still, All You Need Are the Two Lines!](#still-all-you-need-are-the-two-lines)
+  - [Epilogue: Normal Process to Run Inference on CPU](#epilogue-normal-process-to-run-inference-on-cpu)
+- [DeePMD Training](#deepmd-training)
+  - [Prologue: Install DeePMD-kit and Download Data](#prologue-install-deepmd-kit-and-download-data)
+  - [Aagin, All You Need Are the Two Lines!](#aagin-all-you-need-are-the-two-lines)
+  - [Epilogue: Normal Process to Run MD Training with DeePMD-kit API](#epilogue-normal-process-to-run-md-training-with-deepmd-kit-api)
 
 
 ## BERT CUDA Inference

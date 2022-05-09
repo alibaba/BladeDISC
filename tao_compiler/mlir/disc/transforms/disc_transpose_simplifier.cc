@@ -349,14 +349,31 @@ LogicalResult backwardPermutation(Operation* op, int operandIdx,
 bool TransposeSimpliferContext::dominates(
     Value from, Value to, const SmallVector<int64_t>& permutation,
     DenseMap<Operation*, SmallVector<int64_t>>& permMap) {
+  LLVM_DEBUG(llvm::dbgs() << "transpose dominant:\n\tfrom: " << from
+                          << "\n\tto:" << to << "\n");
   Operation* out = nullptr;
   for (Operation* user : to.getUsers()) {
     if (isa<tensor::DimOp, shape::ShapeOfOp>(user)) continue;
     // multiple consumers.
-    if (out) return false;
+    if (out) {
+      LLVM_DEBUG(
+          llvm::dbgs()
+          << "transpose dominant: multiple outside consumers detected\n\t"
+          << *out << "\n\t" << *user << "\n");
+      return false;
+    }
     out = user;
   }
-  if (!inTargetBlock(out)) return false;
+  if (!inTargetBlock(out)) {
+    LLVM_DEBUG(
+        llvm::dbgs()
+        << "transpose dominant: consumers is not in the same block, consumer = "
+        << out);
+    if (out) {
+      LLVM_DEBUG(llvm::dbgs() << "\tconsumer:  " << *out << "\n");
+    }
+    return false;
+  }
   SmallVector<ValueTransposeRequest> queue{{to, permutation}};
   DenseMap<Value, std::set<SmallVector<int64_t>>> visitedValues;
   DenseSet<Operation*> consumers;
@@ -365,13 +382,22 @@ bool TransposeSimpliferContext::dominates(
   auto tryEnqueue = [&](Operation* op, const SmallVector<int64_t>& perm) {
     for (const auto& en : llvm::enumerate(op->getOperands())) {
       SmallVector<int64_t> operandPerm;
-      if (failed(backwardPermutation(op, en.index(), perm, operandPerm)))
+      if (failed(backwardPermutation(op, en.index(), perm, operandPerm))) {
+        LLVM_DEBUG(llvm::dbgs()
+                   << "transpose dominant: backward permutation failed for "
+                   << *op << " operand #" << en.index() << "\n");
         return false;
+      }
       if (isIdentityPermutation(operandPerm)) continue;
       auto it = visitedValues[en.value()].insert(operandPerm);
       if (!it.second) continue;
       // inconsistent transpose request for the same value.
-      if (visitedValues[en.value()].size() > 1) return false;
+      if (visitedValues[en.value()].size() > 1) {
+        LLVM_DEBUG(llvm::dbgs() << "transpose dominant: inconsistent transpose "
+                                   "request for the same value: "
+                                << en.value() << "\n");
+        return false;
+      }
       ValueTransposeRequest request{en.value(), operandPerm};
       queue.emplace_back(std::move(request));
     }
@@ -386,14 +412,28 @@ bool TransposeSimpliferContext::dominates(
 
     if (val == from) continue;
     Operation* definingOp = val.getDefiningOp();
-    if (!definingOp) return false;
+    if (!definingOp) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "transpose dominant: block arg is not supported\n");
+      return false;
+    }
     if (isa<mhlo::ConstOp>(definingOp)) continue;
 
     // producer should in the same block.
-    if (!inTargetBlock(definingOp)) return false;
+    if (!inTargetBlock(definingOp)) {
+      LLVM_DEBUG(llvm::dbgs() << "transpose dominant: producer is not in the "
+                                 "same block, producer = "
+                              << *definingOp);
+      return false;
+    }
 
     auto it = permMap.find(definingOp);
-    if (it != permMap.end() && it->second != perm) return false;
+    if (it != permMap.end() && it->second != perm) {
+      LLVM_DEBUG(llvm::dbgs() << "transpose dominant: inconsistent transpose "
+                                 "request for the same op: "
+                              << *definingOp << "\n");
+      return false;
+    }
     permMap[definingOp] = perm;
 
     if (!tryEnqueue(definingOp, perm)) return false;
@@ -404,7 +444,12 @@ bool TransposeSimpliferContext::dominates(
     intermidateOps.insert(definingOp);
   }
   for (Operation* consumer : consumers)
-    if (!intermidateOps.count(consumer)) return false;
+    if (!intermidateOps.count(consumer)) {
+      LLVM_DEBUG(llvm::dbgs() << "transpose dominant: detect outside consumer "
+                                 "not in intermidate ops set: "
+                              << *consumer << "\n");
+      return false;
+    }
   return true;
 }
 
@@ -515,7 +560,11 @@ LogicalResult pairMirroredTransposeOps(Block* block, bool& changed) {
     for (int j = i + 1; j < numTransposeOps; ++j) {
       Operation* x = transposeOps[i];
       Operation* y = transposeOps[j];
+      LLVM_DEBUG(llvm::dbgs() << "Try transpose dominant\n");
+      LLVM_DEBUG(llvm::dbgs() << "\tfrom: " << *x << "\n");
+      LLVM_DEBUG(llvm::dbgs() << "\tto  : " << *y << "\n");
       if (!isMirroredTranspose(x, y)) continue;
+      LLVM_DEBUG(llvm::dbgs() << "\tmirrored transpose check passed\n");
       Value from = x->getResult(0);
       Value to = y->getOperand(0);
       auto permAttr =
@@ -524,6 +573,7 @@ LogicalResult pairMirroredTransposeOps(Block* block, bool& changed) {
       DenseMap<Operation*, SmallVector<int64_t>> intermedateOpsPermutationMap;
       if (!ctx.dominates(from, to, perm, intermedateOpsPermutationMap))
         continue;
+      LLVM_DEBUG(llvm::dbgs() << "\tdominant check passed\n");
       if (failed(ctx.rewriteIntermediateOps(intermedateOpsPermutationMap)))
         return x->emitError("failed to rewrite intermidate ops");
       changed = true;
@@ -658,13 +708,35 @@ LogicalResult reverseIfOperandsAreConsistentTransposeOps(Operation* op,
 //                     y -> add -> ... -> yyy
 //                              \
 //                               -> transpose^{-1} ... -> zzz
+//  or convert:
+//                const ---
+//                          \
+//                           v
+//   y -> transpose^{-1} -> add -> ... -> transpose -> yyy
+//                              \
+//                               -> ... -> zzz
+//  to:
+//                const' --
+//                          \
+//                           v
+//                     y -> add -> ... -> yyy
+//                              \
+//                               -> transpose^{-1} ... -> zzz
 LogicalResult reverseIfOperandsAndResultsAreConsistent(Operation* op,
                                                        bool& changed) {
+  LLVM_DEBUG(llvm::dbgs() << "reverseIfOperandsAndResultsAreConsistent: " << *op
+                          << "\n");
   Value lhs = op->getOperand(0);
   Value rhs = op->getOperand(1);
   auto transposeLHS = findTransposeProducer(lhs, op);
   auto transposeRHS = findTransposeProducer(rhs, op);
   if ((transposeLHS == nullptr) == (transposeRHS == nullptr)) return success();
+
+  if (transposeLHS) {
+    LLVM_DEBUG(llvm::dbgs() << "\ttransposeLHS: " << transposeLHS << "\n");
+  } else {
+    LLVM_DEBUG(llvm::dbgs() << "\ttransposeRHS: " << transposeRHS << "\n");
+  }
 
   mhlo::TransposeOp transposeOp = transposeLHS ? transposeLHS : transposeRHS;
   Value otherVal = transposeLHS ? rhs : lhs;
@@ -679,6 +751,8 @@ LogicalResult reverseIfOperandsAndResultsAreConsistent(Operation* op,
       otherVal = otherDefiningOp->getOperand(0);
     }
   }
+  LLVM_DEBUG(llvm::dbgs() << "\timplicit_bcast: " << implicit_bcast << "\n");
+  LLVM_DEBUG(llvm::dbgs() << "\totherVal: " << otherVal << "\n");
 
   Block* block = op->getBlock();
   SmallVector<int64_t> reversePerm{
@@ -694,6 +768,8 @@ LogicalResult reverseIfOperandsAndResultsAreConsistent(Operation* op,
     transposeOps.push_back(&candidate);
   }
 
+  bool input_is_const =
+      (dyn_cast_or_null<mhlo::ConstOp>(otherVal.getDefiningOp()) != nullptr);
   bool input_has_tranpose_consumer = false;
   bool output_has_tranpose_consumer = false;
   SmallVector<DenseMap<Operation*, SmallVector<int64_t>>> permMaps;
@@ -722,7 +798,14 @@ LogicalResult reverseIfOperandsAndResultsAreConsistent(Operation* op,
     }
   }
 
-  if (!input_has_tranpose_consumer || !output_has_tranpose_consumer)
+  LLVM_DEBUG(llvm::dbgs() << "\tinput_is_const: " << input_is_const << "\n");
+  LLVM_DEBUG(llvm::dbgs() << "\tinput_has_tranpose_consumer: "
+                          << input_has_tranpose_consumer << "\n");
+  LLVM_DEBUG(llvm::dbgs() << "\toutput_has_tranpose_consumer: "
+                          << output_has_tranpose_consumer << "\n");
+
+  if (!input_has_tranpose_consumer && !input_is_const ||
+      !output_has_tranpose_consumer)
     return success();
   for (auto& permMap : permMaps)
     if (failed(ctx.rewriteIntermediateOps(permMap))) return failure();

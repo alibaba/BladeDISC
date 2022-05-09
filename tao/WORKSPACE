@@ -19,6 +19,10 @@ load("@//:workspace0.bzl", "tao_bridge_workspace0")
 
 tao_bridge_workspace0()
 
+load("@org_third_party//bazel/third_party:blade_service_common_workspace.bzl", "blade_service_common_workspace")
+
+blade_service_common_workspace()
+
 load("@local_config_tf_protobuf//:tf_protobuf_workspace.bzl", "tf_protobuf_workspace")
 
 tf_protobuf_workspace()

@@ -235,12 +235,12 @@ func @reverse_transpose_test_2(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32
 //                              \
 //                               -> transpose^{-1} ... -> zzz
 
-// CHECK-LABEL: reverse_transpose_test_0
-func @reverse_transpose_test_3(%arg0: tensor<?x?x?xf32>, %arg1: tensor<3xindex>, %arg2: tensor<?x?x?xf32>, %arg3: tensor<3xindex>, %arg4: tensor<3xindex>) -> (tensor<?x?x?xf32>, tensor<?x?x?xf32>, tensor<?x?x?xf32>) {
+// CHECK-LABEL: @reverse_transpose_test_3
+func @reverse_transpose_test_3(%arg0: tensor<?x?x?xf32>, %arg1: tensor<3xindex>, %arg2: tensor<?x?x?xf32>, %arg3: tensor<3xindex>, %arg4: tensor<3xindex>) -> (tensor<?x?x?xf32>, tensor<?x?x?xf32>) {
   // CHECK: mhlo.transpose
   // CHECK-NOT: mhlo.transpose
   %0 = mhlo.constant dense<0.000000e+00> : tensor<f32>
-  %1 = "mhlo.dynamic_broadcast_in_dim"(%0, %arg3) {broadcast_dimensions = dense<[0, 1, 2]> : tensor<3xi64>, disc.device = "cpu"} : (tensor<?x?x?xf32>, tensor<3xindex>) -> tensor<?x?x?xf32>
+  %1 = "mhlo.dynamic_broadcast_in_dim"(%0, %arg3) {broadcast_dimensions = dense<[]> : tensor<0xi64>, disc.device = "cpu"} : (tensor<f32>, tensor<3xindex>) -> tensor<?x?x?xf32>
 
   %2 = "mhlo.transpose"(%arg2) {permutation = dense<[0, 2, 1]> : tensor<3xi64>, disc.device = "cpu"} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
   %3 = "mhlo.dynamic_broadcast_in_dim"(%2, %arg3) {broadcast_dimensions = dense<[0, 1, 2]> : tensor<3xi64>, disc.device = "cpu"} : (tensor<?x?x?xf32>, tensor<3xindex>) -> tensor<?x?x?xf32>
@@ -249,5 +249,5 @@ func @reverse_transpose_test_3(%arg0: tensor<?x?x?xf32>, %arg1: tensor<3xindex>,
   %5 = "mhlo.dynamic_broadcast_in_dim"(%4, %arg4) {broadcast_dimensions = dense<[0, 1, 2]> : tensor<3xi64>, disc.device = "cpu"} : (tensor<?x?x?xf32>, tensor<3xindex>) -> tensor<?x?x?xf32>
   %6 = "mhlo.transpose"(%5) {permutation = dense<[0, 2, 1]> : tensor<3xi64>, disc.device = "cpu"} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
 
-  return %1, %4, %6 : tensor<?x?x?xf32>, tensor<?x?x?xf32>, tensor<?x?x?xf32>
+  return %4, %6 : tensor<?x?x?xf32>, tensor<?x?x?xf32>
 }

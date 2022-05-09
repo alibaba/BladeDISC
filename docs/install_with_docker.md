@@ -23,6 +23,9 @@ The released Image tag is as the following table:
 | latest-runtime-tensorflow2.4 | latest release of BladeDISC, includes TensorFlow 1.15 and CUDA 11.0 |
 | latest-devel-cuda10.0 | latest build of development environment, includes CUDA 11.0 and required development toolkit |
 | latest-devel-cuda11.0 | latest build of development environment, includes CUDA 11.0 and required development toolkit |
+| latest-devel-cpu-aarch64 | latest build of development environment for AArch64 platform |
+| latest-runtime-tensorflow2.8-cpu-aarch64 | latest release of BladeDISC for TensorFlow 2.8 on AArch64 platform |
+| latest-runtime-torch1.10.0-cpu-aarch64 | latest release of BladeDISC for PyTorch 1.10.0 on AArch64 platform |
 
 **Note**: Users located in China can use `registry.cn-shanghai.aliyuncs.com/bladedisc/bladedisc` to get
 higher download speed.

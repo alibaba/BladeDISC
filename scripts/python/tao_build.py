@@ -377,10 +377,9 @@ def configure_bridge_bazel(root, args):
         _write("--host_jvm_args=-Djdk.http.auth.tunneling.disabledSchemes=", cmd = "startup")
         logger.info("configuring tao_bridge with bazel ......")
 
-    proxy_setting = "HTTPS_PROXY= " if args.platform_alibaba else ""
     with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
         # make sure version.h is generated
-        execute(f"{proxy_setting} bazel build --config=release //:version_header_genrule")
+        execute(f"bazel build --config=release //:version_header_genrule")
 
     with cwd(root):
         # copy version.h from tao_bridge
@@ -628,9 +627,8 @@ def build_tao_bridge(root, args):
             execute("make -j")
     else:
         tao_bazel_root = tao_bazel_dir(root)
-        proxy_setting = "HTTPS_PROXY= " if args.platform_alibaba else ""
         with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
-            execute(f"{proxy_setting} bazel build {tao_bridge_bazel_config(args)} //:libtao_ops.so")
+            execute(f"bazel build {tao_bridge_bazel_config(args)} //:libtao_ops.so")
 
     logger.info("Stage [build_tao_bridge] success.")
 

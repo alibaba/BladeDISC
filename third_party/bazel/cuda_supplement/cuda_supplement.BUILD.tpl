@@ -22,7 +22,7 @@ cc_import(
 
 cc_import(
     name = "cudnn_static",
-    static_library = "lib64/libcudnn_static.a",
+    static_library = "libcudnn_static_patched.a",
 )
 
 cc_import(

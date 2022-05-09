@@ -216,9 +216,11 @@ class TestDiscShapes(DiscTestCase):
         def basic_test_0(x):
             return torch.flatten(x)
 
+        @torch.jit.script
         def basic_test_1(x):
             return torch.flatten(x, 1)
 
+        @torch.jit.script
         def basic_test_2(x):
             return torch.flatten(x, 2, 3)
 

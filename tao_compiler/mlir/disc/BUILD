@@ -1548,17 +1548,40 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_shape_optimization_utils",
+    srcs = [
+        "transforms/disc_shape_optimization_utils.cc"
+    ],
+    hdrs = [
+        "transforms/disc_shape_optimization_utils.h",
+    ],
+    deps = [
+        ":disc_shape",
+        ":disc_util",
+        ":pass_details",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Shape",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_shape_optimization",
     srcs = [
         "transforms/disc_shape_optimization.cc"
     ],
-    hdrs = [
-        "transforms/disc_shape_optimization.h",
-    ],
     deps = [
         ":mhlo_disc",
+        ":disc_shape_optimization_utils",
+        ":disc_util",
         ":pass_details",
-        ":shape_utils",
         "//tensorflow/compiler/mlir/hlo:hlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",

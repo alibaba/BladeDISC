@@ -15,9 +15,6 @@ limitations under the License.
 
 // This file implements the logic to do some shape optimizations on tensor
 // level.
-
-#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization.h"
-
 #include <unordered_set>
 #include <utility>
 
@@ -40,7 +37,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/transforms/shape_utils.h"
+#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 
 #undef LLVM_DEBUG
 
@@ -50,25 +47,6 @@ namespace mlir {
 namespace disc_ral {
 
 using ::mlir::func::FuncOp;
-
-int64_t SymbolicDim::uniqueId() const {
-  // TODO
-  return 0;
-}
-
-SymbolicDimMgr::SymbolicDimMgr(ModuleOp m) {
-  // TODO
-}
-
-LogicalResult SymbolicDimMgr::load() {
-  // TODO
-  return success();
-}
-
-LogicalResult SymbolicDimMgr::save() {
-  // TODO
-  return success();
-}
 
 namespace {
 
@@ -346,7 +324,9 @@ class ShapeComputationIRAnalysis {
   LogicalResult runOnRegion(Region* region);
   LogicalResult runOnBlock(Block* block);
   LogicalResult runOnOperation(Operation* op);
+  LogicalResult runOnScalarIntOperation(Operation* op);
   LogicalResult buildSymbolicShape(Value value);
+  LogicalResult buildSymbolicShapeForResultsOfOp(Operation* op);
   LogicalResult applyOpConstraint(Operation* op);
 
  private:
@@ -419,18 +399,58 @@ LogicalResult ShapeComputationIRAnalysis::runOnBlock(Block* block) {
 }
 
 LogicalResult ShapeComputationIRAnalysis::runOnOperation(Operation* op) {
+  if (op->getNumResults() == 0) return success();
+
+  Type ty = op->getResult(0).getType();
+  if (ty.isIntOrIndex()) {
+    return runOnScalarIntOperation(op);
+  }
+
+  if (failed(buildSymbolicShapeForResultsOfOp(op))) return failure();
+
+  // apply op's shape constraint
+  return applyOpConstraint(op);
+}
+
+LogicalResult ShapeComputationIRAnalysis::runOnScalarIntOperation(
+    Operation* op) {
+  if (isa<arith::IndexCastOp>(op)) {
+    value2SymDim_[op->getResult(0)] = value2SymDim_[op->getOperand(0)];
+  } else if (auto dimOp = dyn_cast<tensor::DimOp>(op)) {
+    Optional<int64_t> dimIndex = dimOp.getConstantIndex();
+    if (!dimIndex) return buildSymbolicShapeForResultsOfOp(op);
+    value2SymDim_[op->getOperand(0)] =
+        rankedTensor2SymDims_[dimOp.source()][*dimIndex];
+  } else {
+    // TODO: add support for arith::addi/subi/...
+
+    // fallback path: build new symbol dims for the results of op
+    return buildSymbolicShapeForResultsOfOp(op);
+  }
+  return success();
+}
+
+LogicalResult ShapeComputationIRAnalysis::buildSymbolicShapeForResultsOfOp(
+    Operation* op) {
   // build shapes for the results of op
   for (Value result : op->getResults()) {
     if (failed(buildSymbolicShape(result))) {
       return op->emitError("failed to build shape for op's result");
     }
   }
-
-  // apply op's shape constraint
-  return applyOpConstraint(op);
+  return success();
 }
 
 LogicalResult ShapeComputationIRAnalysis::buildSymbolicShape(Value value) {
+  Type ty = value.getType();
+  if (ty.isIntOrIndex()) {
+    SymbolicDim* sym = mgr_.newSymbolicDim();
+    value2SymDim_[value] = sym;
+  } else if (auto tensorTy = ty.dyn_cast<RankedTensorType>()) {
+    SmallVector<SymbolicDim*> symbols =
+        mgr_.getOrCreateSymbolicDimsForRankedValue(value);
+    rankedTensor2SymDims_[value] = std::move(symbols);
+  }
   return success();
 }
 

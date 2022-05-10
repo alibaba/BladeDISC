@@ -68,15 +68,13 @@ class BazelBuild(TorchBladeBuild):
             "--action_env BAZEL_LINKLIBS=-lstdc++",
             "--action_env CC={}".format(which("gcc")),
             "--action_env CXX={}".format(which("g++")),
-            # for onednn cmake external build
-            "--action_env IF_CXX11_ABI={}".format(int(self.GLIBCXX_USE_CXX11_ABI)),
         ]
 
         remote_cache = remote_cache_token()
         if remote_cache:
             self.extra_opts += ["--remote_cache={}".format(remote_cache)]
 
-        self.configs = ["--config=cxx11abi_{}".format(int(self.GLIBCXX_USE_CXX11_ABI))]
+        self.configs = ["--config=torch_cxx11abi_{}".format(int(self.GLIBCXX_USE_CXX11_ABI))]
         if self.is_debug:
             self.configs.append("--config=dbg")
         else:
@@ -101,14 +99,8 @@ class BazelBuild(TorchBladeBuild):
                 "--action_env NVCC={}".format(which("nvcc"))
             ]
 
-        if self.cuda_available and float(self.cuda_version) >= 11.0 \
-                and self.blade_gemm and os.path.exists(self.blade_gemm_nvcc):
+        if self.cuda_available and float(self.cuda_version) >= 11.0 and self.blade_gemm:
             self.configs += ["--config=blade_gemm"]
-            self.extra_opts += [
-                f"--action_env BLADE_GEMM_NVCC={self.blade_gemm_nvcc}",
-                f"--action_env BLADE_GEMM_NVCC_ARCHS={self.blade_gemm_nvcc_archs}",
-                f"--action_env BLADE_GEMM_LIBRARY_KERNELS={self.blade_gemm_library_kernels}",
-            ]
 
         if running_on_ci():
             self.configs += ["--config=ci_build"]

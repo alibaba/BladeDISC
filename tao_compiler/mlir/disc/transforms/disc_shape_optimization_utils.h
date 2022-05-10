@@ -17,8 +17,8 @@
 #include "llvm/ADT/SmallVector.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 
-#ifndef TENSORFLOW_COMPILER_MLIR_DISC_TRANSFORMS_DISC_SHAPE_OPTIMIZATION_H_
-#define TENSORFLOW_COMPILER_MLIR_DISC_TRANSFORMS_DISC_SHAPE_OPTIMIZATION_H_
+#ifndef TENSORFLOW_COMPILER_MLIR_DISC_TRANSFORMS_DISC_SHAPE_OPTIMIZATION_UTILS_H_
+#define TENSORFLOW_COMPILER_MLIR_DISC_TRANSFORMS_DISC_SHAPE_OPTIMIZATION_UTILS_H_
 
 namespace mlir {
 namespace disc_ral {
@@ -31,11 +31,23 @@ class SymbolicDim {
  private:
 };
 
+// Return the symbolicDim ref attribute if there is an attached disc
+// shape-constraint specific attribute filed. Return nullptr if there isn't an
+// attached symbolic dim ref attributes.
+llvm::Optional<SmallVector<FlatSymbolRefAttr>> getRankedValueSymbolicDimRefs(
+    Value value);
+
 class SymbolicDimMgr {
  public:
   explicit SymbolicDimMgr(ModuleOp m);
 
   LogicalResult load();
+
+  SymbolicDim* newSymbolicDim();
+
+  SmallVector<SymbolicDim*> getOrCreateSymbolicDimsForRankedValue(Value value);
+
+  //   SymbolicDim* getSymbolicDimUsingRef(const FlatSymbolRefAttr& ref);
 
   LogicalResult save();
 
@@ -45,4 +57,4 @@ class SymbolicDimMgr {
 }  // namespace disc_ral
 }  // namespace mlir
 
-#endif  // TENSORFLOW_COMPILER_MLIR_DISC_TRANSFORMS_DISC_SHAPE_OPTIMIZATION_H_
+#endif  // TENSORFLOW_COMPILER_MLIR_DISC_TRANSFORMS_DISC_SHAPE_OPTIMIZATION_UTILS_H_

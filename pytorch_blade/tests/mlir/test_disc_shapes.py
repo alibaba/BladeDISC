@@ -211,6 +211,33 @@ class TestDiscShapes(DiscTestCase):
         test_data = (x, y)
         self._test_cvt_to_disc(dyn_slice_func, test_data)
 
+    def test_flatten(self):
+        @torch.jit.script
+        def basic_test_0(x):
+            return torch.flatten(x)
+
+        @torch.jit.script
+        def basic_test_1(x):
+            return torch.flatten(x, 1)
+
+        @torch.jit.script
+        def basic_test_2(x):
+            return torch.flatten(x, 2, 3)
+
+        x = torch.randn([2, 3, 224, 224], device=self.device)
+        test_data = (x,)
+        self._test_cvt_to_disc(basic_test_0, test_data)
+        self._test_cvt_to_disc(basic_test_1, test_data)
+        self._test_cvt_to_disc(basic_test_2, test_data)
+
+        @torch.jit.script
+        def test_rank_0_input(x):
+            return torch.flatten(x)
+
+        x = torch.randn([], device=self.device)
+        test_data = (x,)
+        self._test_cvt_to_disc(test_rank_0_input, test_data)
+
     def test_size(self):
         @torch.jit.script
         def size_func(x):

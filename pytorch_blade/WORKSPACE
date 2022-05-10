@@ -99,6 +99,22 @@ local_repository(
     path = "../tf_community",
 )
 
+load("@org_third_party//bazel:blade_disc_dnn_workspace.bzl", "blade_disc_dnn_workspace")
+
+blade_disc_dnn_workspace()
+
+new_local_repository(
+    name = "onednn",
+    build_file = "@local_config_onednn//:onednn.BUILD",
+    path = "../tao/third_party/mkldnn"
+)
+
+new_local_repository(
+    name = "blade_gemm",
+    build_file = "@org_third_party//bazel/third_party:blade_gemm.BUILD",
+    path = "../../platform_alibaba/blade_gemm"
+)
+
 load("//bazel:platform_alibaba/workspace.bzl", "alibaba_workspace")
 alibaba_workspace()
 

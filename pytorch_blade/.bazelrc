@@ -5,8 +5,8 @@ try-import ../tf_community/.bazelrc.user
 
 build --disk_cache=~/.cache
 build:torch_cuda --config=cuda --config=disc_cuda --define enable_cuda=true
-build:torch_x86 --config=disc_x86 --config=disc_mkldnn
-build:torch_aarch64 --config=disc_aarch64 --config=disc_mkldnn
+build:torch_x86 --config=disc_x86 --config=disc_mkldnn --action_env BUILD_WITH_MKLDNN=1
+build:torch_aarch64 --config=disc_aarch64 --config=disc_mkldnn --action_env BUILD_WITH_MKLDNN=1 --action_env BUILD_WITH_AARCH64=1
 
 build:torch_tensorrt --define enable_tensorrt=true --config=torch_cuda
 build:torch_static_tensorrt --define enable_static_trt=true --config=torch_tensorrt

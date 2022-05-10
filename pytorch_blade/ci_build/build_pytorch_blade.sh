@@ -42,10 +42,9 @@ function ci_build() {
     if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" = "ON"  ]; then
       export TORCH_BLADE_BUILD_TENSORRT=ON
       export TORCH_BLADE_BUILD_TENSORRT_STATIC=${TORCH_BLADE_BUILD_TENSORRT_STATIC:-OFF}
-      python3 ../scripts/python/common_setup.py
-    else
-      python3 ../scripts/python/common_setup.py --cpu_only
     fi
+    # only need symlink files in common_setup.py now
+    python3 ../scripts/python/common_setup.py
 
     rm -rf build && python3 setup.py develop;
     # The following are UNIT TESTS

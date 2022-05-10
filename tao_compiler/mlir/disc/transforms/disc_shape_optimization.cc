@@ -165,6 +165,31 @@ LogicalResult insertTieShapeOnRegion(Region* region) {
   return success();
 }
 
+// convert:
+//   %shape = shape.shape_of %0 : tensor<?x?xf32> -> tensor<2xindex>
+// to:
+//   %d0 = tensor.dim %0, %c0 : tensor<?x?xf32>
+//   %d1 = tensor.dim %0, %c0 : tensor<?x?xf32>
+//   %shape = tensor.from_elements %d0, %1 : tensor<2xindex>
+struct ExpandShapeOfOpPattern : public OpRewritePattern<shape::ShapeOfOp> {
+  using OpRewritePattern<shape::ShapeOfOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(shape::ShapeOfOp op,
+                                PatternRewriter& rewriter) const override {
+    auto ty = op.getResult().getType().dyn_cast<RankedTensorType>();
+    if (!ty || !ty.hasStaticShape() || !ty.getElementType().isIndex())
+      return failure();
+
+    SmallVector<Value> dimSizes;
+    for (int dim = 0, rank = ty.getShape()[0]; dim < rank; ++dim)
+      dimSizes.push_back(
+          rewriter.create<tensor::DimOp>(op.getLoc(), op.getArg(), dim));
+
+    rewriter.replaceOpWithNewOp<tensor::FromElementsOp>(op, dimSizes);
+    return success();
+  }
+};
+
 /// Fold dim of an operation that implements the InferShapedTypeOpInterface
 template <typename OpTy>
 struct DimOfShapedTypeOpInterface : public OpRewritePattern<OpTy> {
@@ -236,8 +261,12 @@ LogicalResult materializeShapeComputation(ModuleOp m, FuncOp main) {
   }
 
   RewritePatternSet patterns(m.getContext());
-  patterns.add<DimOfShapedTypeOpInterface<tensor::DimOp>>(
-      patterns.getContext());
+  // clang-format off
+  patterns.add<
+      ExpandShapeOfOpPattern,
+      DimOfShapedTypeOpInterface<tensor::DimOp>
+  >(patterns.getContext());
+  // clang-format on
 
   if (failed(
           applyPatternsAndFoldGreedily(m->getRegions(), std::move(patterns)))) {
@@ -253,6 +282,37 @@ LogicalResult materializeShapeComputation(ModuleOp m, FuncOp main) {
 using PassPipelineRunner =
     std::function<LogicalResult(OpPassManager&, ModuleOp)>;
 
+// convert:
+//   %1 = disc_shape.tie_shape %0, %d0, %d1, ... : (tensor<?x?xf32>, ...) ->
+//   tensor<?x?xf32> %dim_size = tensor.dim %1[%c0] : tensor<2xindex>
+//   use(%dim_size)
+// to:
+//   use(%d0)
+struct DimOfTieShapeOpCanonicalizationPattern
+    : public OpRewritePattern<tensor::DimOp> {
+  using OpRewritePattern<tensor::DimOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::DimOp op,
+                                PatternRewriter& rewriter) const override {
+    auto tieShapeOp = op.source().getDefiningOp<disc_shape::TieShapeOp>();
+    if (!tieShapeOp) return failure();
+    Optional<int64_t> dimIndex = op.getConstantIndex();
+    if (!dimIndex) return failure();
+    rewriter.replaceOp(op, tieShapeOp->getOperand(1 + *dimIndex));
+    return success();
+  }
+};
+
+// Adds shape optimization related patterns.
+void populateShapeOptimizationPatterns(MLIRContext* context,
+                                       RewritePatternSet* patterns) {
+  // clang-format off
+  patterns->insert<
+      DimOfTieShapeOpCanonicalizationPattern
+  >(patterns->getContext());
+  // clang-format on
+}
+
 // Adds canonicalization patterns to the list of patterns.
 void addCanonicalizationPatterns(MLIRContext* context,
                                  RewritePatternSet* patterns) {
@@ -263,8 +323,8 @@ void addCanonicalizationPatterns(MLIRContext* context,
 LogicalResult runCanonicalizer(ModuleOp m, PassPipelineRunner runner) {
   MLIRContext* context = m.getContext();
   RewritePatternSet patterns(context);
-  for (RegisteredOperationName op : context->getRegisteredOperations())
-    op.getCanonicalizationPatterns(patterns, context);
+  populateShapeOptimizationPatterns(context, &patterns);
+  addCanonicalizationPatterns(context, &patterns);
 
   if (failed(
           applyPatternsAndFoldGreedily(m->getRegions(), std::move(patterns)))) {

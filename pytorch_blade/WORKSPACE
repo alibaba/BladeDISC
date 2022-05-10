@@ -78,11 +78,13 @@ local_repository(
 
 load("@org_third_party//bazel/tensorrt:repo.bzl", "tensorrt_configure")
 load("@org_third_party//bazel/cuda_supplement:cuda_supplement_configure.bzl", "cuda_supplement_configure")
+load("@org_third_party//bazel/blade_disc_helper:blade_disc_helper_configure.bzl", "blade_disc_helper_configure")
 load("//bazel/torch:repo.bzl", "torch_configure", "torch_pybind11_configure")
 
 tensorrt_configure(name = "tensorrt")
 cuda_supplement_configure(name = "local_config_cuda_supplement")
 torch_configure(name = "local_org_torch")
+blade_disc_helper_configure(name = "local_config_blade_disc_helper")
 
 torch_pybind11_configure(
     name = "pybind11",

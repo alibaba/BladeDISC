@@ -88,8 +88,80 @@ namespace {
 //    %0_new = disc_shape.tie_shape(%0, %0_d0, %0_d1) : tensor<?x10xf32>
 //    use(%0_new)
 //  ```
-LogicalResult insertTieShapeOps(FuncOp main) {
-  // TODO
+LogicalResult insertTieShapeOnValue(Value value, OpBuilder& b,
+                                    const Location& loc) {
+  // Only insert tie_shape ops for non-zero ranked tensor type
+  auto ty = value.getType().dyn_cast<RankedTensorType>();
+  if (!ty || ty.getRank() == 0) return success();
+
+  DenseSet<Operation*> dimOps;
+  SmallVector<Value> dimSizes;
+  for (int dim = 0, rank = ty.getRank(); dim < rank; ++dim) {
+    auto dimOp = b.create<tensor::DimOp>(loc, value, dim);
+    dimOps.insert(dimOp);
+    dimSizes.push_back(dimOp.getResult());
+  }
+
+  Value newValue = b.create<disc_shape::TieShapeOp>(loc, ty, value, dimSizes);
+  auto users = llvm::to_vector<4>(value.getUsers());
+  for (Operation* user : users) {
+    // skip those dim ops used to fetch the dim size values of original shaped
+    // value.
+    if (dimOps.find(user) != dimOps.end()) continue;
+    if (user == newValue.getDefiningOp()) continue;
+    user->replaceUsesOfWith(value, newValue);
+  }
+  return success();
+}
+
+// forward declaration
+LogicalResult insertTieShapeOnRegion(Region* region);
+
+LogicalResult insertTieShapeOnOperation(Operation* op) {
+  if (isa<disc_shape::TieShapeOp>(op)) return success();
+  // recursively visit the regions of the op.
+  if (!isa<mhlo::ReduceOp, mhlo::ReduceWindowOp>(op)) {
+    for (Region& region : op->getRegions())
+      if (failed(insertTieShapeOnRegion(&region)))
+        return op->emitError("fail to insert tie shape for op's region\n");
+  }
+
+  OpBuilder b(op);
+  b.setInsertionPointAfter(op);
+  for (Value v : op->getResults()) {
+    if (failed(insertTieShapeOnValue(v, b, op->getLoc())))
+      return op->emitError("fail to insert tie shape for op's result\n");
+  }
+
+  return success();
+}
+
+LogicalResult insertTieShapeOnBlock(Block* block) {
+  // mapping block arguments
+  OpBuilder b(block, block->begin());
+  Location loc = block->getParentOp()->getLoc();
+  for (Value value : block->getArguments()) {
+    if (failed(insertTieShapeOnValue(value, b, loc))) {
+      return block->getParentOp()->emitError(
+          "failed to insert tie_shape op for block arg");
+    }
+  }
+
+  // mapping each op inside the block
+  // save a snapshot before visiting in case new ops are inserted during
+  // visiting.
+  SmallVector<Operation*> op_list;
+  for (Operation& op : *block) op_list.push_back(&op);
+  for (Operation* op : op_list) {
+    if (failed(insertTieShapeOnOperation(op))) return failure();
+  }
+  return success();
+}
+
+LogicalResult insertTieShapeOnRegion(Region* region) {
+  for (Block& block : *region) {
+    if (failed(insertTieShapeOnBlock(&block))) return failure();
+  }
   return success();
 }
 
@@ -159,7 +231,7 @@ struct DimOfShapedTypeOpInterface : public OpRewritePattern<OpTy> {
 LogicalResult materializeShapeComputation(ModuleOp m, FuncOp main) {
   // Currently we call inline before all disc passes and thus we do not need to
   // worry about function call ops. Re-visit this once we change the strategy.
-  if (failed(insertTieShapeOps(main))) {
+  if (failed(insertTieShapeOnRegion(&main.getBody()))) {
     return failure();
   }
 

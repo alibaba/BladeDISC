@@ -408,16 +408,13 @@ LogicalResult ShapeComputationIRAnalysis::runOnBlock(Block* block) {
   }
 
   // mapping each op inside the block
-  WalkResult result = block->walk([&](Operation* op) {
-    if (failed(runOnOperation(op))) {
-      return WalkResult::interrupt();
-    }
-    return WalkResult::advance();
-  });
-  if (result.wasInterrupted()) {
-    return failure();
+  // save a snapshot before visiting in case new ops are inserted during
+  // visiting.
+  SmallVector<Operation*> op_list;
+  for (Operation& op : *block) op_list.push_back(&op);
+  for (Operation* op : op_list) {
+    if (failed(runOnOperation(op))) return failure();
   }
-
   return success();
 }
 

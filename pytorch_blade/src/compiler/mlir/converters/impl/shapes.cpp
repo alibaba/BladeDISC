@@ -537,28 +537,28 @@ bool ConvertAtenFlatten(
   mlir_dim_t start_dim = CastJitConstToInt64(*jit_start_dim);
   mlir_dim_t end_dim = CastJitConstToInt64(*jit_end_dim);
 
-  start_dim = (start_dim + rank) % rank;
-  end_dim = (end_dim + rank) % rank;
-
   auto& builder = *ctx.builder;
   auto result_type = BuildMlirRankedTensorType(builder, *node.output(0));
   ::llvm::SmallVector<mlir::Value> dim_values;
-
-  for (int64_t idx = 0; idx < rank; ++idx) {
-    auto dz =
-        builder.create<mlir::tensor::DimOp>(loc, ml_tensor, idx).getResult();
-    if (idx > start_dim && idx < end_dim + 1) {
-      dim_values[start_dim] =
-          BuildStdMulSigned(builder, loc, dim_values[start_dim], dz);
-    } else {
-      dim_values.push_back(dz);
-    }
-  }
 
   // In case the input is a rank-0 tensor, return a rank-1 flatten tensor
   // according to https://pytorch.org/docs/stable/generated/torch.flatten.html
   if (rank == 0) {
     dim_values.push_back(builder.create<mlir::arith::ConstantIndexOp>(loc, 1));
+  } else {
+    start_dim = (start_dim + rank) % rank;
+    end_dim = (end_dim + rank) % rank;
+
+    for (int64_t idx = 0; idx < rank; ++idx) {
+      auto dz =
+          builder.create<mlir::tensor::DimOp>(loc, ml_tensor, idx).getResult();
+      if (idx > start_dim && idx < end_dim + 1) {
+        dim_values[start_dim] =
+            BuildStdMulSigned(builder, loc, dim_values[start_dim], dz);
+      } else {
+        dim_values.push_back(dz);
+      }
+    }
   }
 
   mlir::Value new_shape =

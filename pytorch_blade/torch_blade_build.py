@@ -59,6 +59,12 @@ class TorchBladeBuild:
         self.static_tensorrt = check_env_flag(
             "TORCH_BLADE_BUILD_TENSORRT_STATIC", "OFF"
         )
+        self.blade_gemm = check_env_flag(
+            "TORCH_BLADE_BUILD_BLADE_GEMM", "OFF"
+        )
+        self.blade_gemm_nvcc = check_env_flag(
+            "TORCH_BLADE_BUILD_BLADE_GEMM_NVCC", "/usr/local/cuda-11.6/bin/nvcc"
+        )
         self.tensorrt_dir = os.getenv("TENSORRT_INSTALL_PATH", "/usr/local/TensorRT/")
         self.version = self.get_version()
 

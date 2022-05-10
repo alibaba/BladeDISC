@@ -96,6 +96,10 @@ class BazelBuild(TorchBladeBuild):
                 "--action_env TENSORRT_INSTALL_PATH={}".format(self.tensorrt_dir)
             ]
 
+        if self.cuda_available and float(self.cuda_version) >= 11.0 \
+                and self.blade_gemm and os.path.exists(self.blade_gemm_nvcc):
+            self.configs += ["--config=blade_gemm"]
+
         if running_on_ci():
             self.configs += ["--config=ci_build"]
 

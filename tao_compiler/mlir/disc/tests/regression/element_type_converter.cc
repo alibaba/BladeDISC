@@ -25,37 +25,25 @@ const std::string c_ft_path =
 TEST(ElementTypeConverterTest, Gemm) {
   setenv("TAO_MLIR_ENABLE_AMP", "true", 1);
   EXPECT_TRUE(feature_test_main(
-      /*mlir_file_path*/ c_ft_path + "onednn_gemm.mlir",
+      /*mlir_file_path*/ c_ft_path + "element_type_converter_gemm.mlir",
       /*backend_types*/ {BackendType::kCuda},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
-      /*input_descriptors*/ {"50x199xf32_X", "199x50xf32_X"},
+      /*input_descriptors*/ {"3x4xf32_X", "4x3xf32_X"},
       /*output_descriptors*/ {"f32_X"},
       /*input_vals*/ {}));
-  unsetenv("TAO_MLIR_ENABLE_AMP");
-}
-
-TEST(ElementTypeConverterTest, GemmWeightConst) {
-  setenv("TAO_MLIR_ENABLE_AMP", "true", 1);
-  EXPECT_TRUE(feature_test_main(
-      /*mlir_file_path*/ c_ft_path + "weight_prepacking_cpu_matmul.mlir",
-      /*backend_types*/ {BackendType::kCuda},
-      /*num_inputs*/ 1,
-      /*num_outputs*/ 1,
-      /*input_descriptors*/ {"100x110xf32_X"},
-      /*output_descriptors*/ {"f32_X"}));
   unsetenv("TAO_MLIR_ENABLE_AMP");
 }
 
 TEST(ElementTypeConverterTest, ConvReluConvReluAddTest0) {
   setenv("TAO_MLIR_ENABLE_AMP", "true", 1);
   EXPECT_TRUE(feature_test_main(
-      /*mlir_file_path*/ c_ft_path + "transpose_simplifier_test0.mlir",
+      /*mlir_file_path*/ c_ft_path + "element_type_converter_conv.mlir",
       /*backend_types*/ {BackendType::kCuda},
       /*num_inputs*/ 1,
-      /*num_outputs*/ 2,
-      /*input_descriptors*/ {"2x16x32x32xf32_X"},
-      /*output_descriptors*/ {"f32_X", "f32_X"},
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"1x2x2x2xf32_X"},
+      /*output_descriptors*/ {"f32_X"},
       /*input_vals*/ {}));
   unsetenv("TAO_MLIR_ENABLE_AMP");
 }

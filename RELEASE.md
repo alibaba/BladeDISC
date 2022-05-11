@@ -11,6 +11,9 @@ It implements partial functions described in paper [AStitch](https://dl.acm.org/
 It is currently under refactoring to enhance the robustness, for which it is not enabled by default.
 Users of BladeDISC can enable it by setting the environment variable `DISC_ENABLE_STITCH=true`.
 
+Note that we have already released the CPU stitch optimization when we open-source the BladeDISC project, which is enabled by default.
+Refer to the [materials](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/performance-optimization-practice.pdf) for more information about CPU stitch technique details.
+
 ## GEMM merging
 
 Support two types of GEMM merging optimization.
@@ -53,6 +56,7 @@ referring to the related [issue](https://github.com/alibaba/BladeDISC/issues/156
 Enhance the shape equality analysis according to the dimension values.
 Add the function to analyze the collapse and expand relationship between dimensions,
 which helps to identify the dimension mapping between input and output values of reshape operator.
+This is the basic function to support GPU stitch fusion.
 
 ## Codegen support for int8 datatype
 

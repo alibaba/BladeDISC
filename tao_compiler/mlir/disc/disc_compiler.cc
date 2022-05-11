@@ -252,18 +252,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
-  pm.addNestedPass<FuncOp>(disc_ral::createDiscConvRewriter());
-  // Run CSE after conv rewriter pass to eliminate some redundant transpose ops.
-  pm.addNestedPass<FuncOp>(createCanonicalizerPass());
-  pm.addNestedPass<FuncOp>(createCSEPass());
-  pm.addNestedPass<FuncOp>(createCanonicalizerPass());
-  pm.addNestedPass<FuncOp>(disc_ral::createTransposeSimplifierPass());
-  if (gpu_enabled) {
-    // Cudnn only supports using same padding value for both left side & right
-    // side. This pass ensures this property.
-    pm.addNestedPass<FuncOp>(disc_ral::createDiscGpuConvPaddingLegalization());
-  }
-
   // We currently do not support AMP in AICompiler side. If
   // `TAO_MLIR_ENABLE_AMP` is set, we simply convert all gemm ops to fp16.
   //
@@ -275,6 +263,18 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   tensorflow::ReadBoolFromEnvVar("TAO_MLIR_ENABLE_AMP", false, &enable_fp16);
   pm.addNestedPass<FuncOp>(
       disc_ral::createDiscElementTypeConverterPass(enable_fp16));
+
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscConvRewriter());
+  // Run CSE after conv rewriter pass to eliminate some redundant transpose ops.
+  pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+  pm.addNestedPass<FuncOp>(createCSEPass());
+  pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+  pm.addNestedPass<FuncOp>(disc_ral::createTransposeSimplifierPass());
+  if (gpu_enabled) {
+    // Cudnn only supports using same padding value for both left side & right
+    // side. This pass ensures this property.
+    pm.addNestedPass<FuncOp>(disc_ral::createDiscGpuConvPaddingLegalization());
+  }
 
   // Create tie_shape ops to explicitly express dim size equality info.
   pm.addPass(disc_ral::createDiscShapeSimplifierPass("main", true));

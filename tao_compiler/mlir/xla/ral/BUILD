@@ -30,6 +30,7 @@ load("//tensorflow/compiler/mlir/disc:disc.bzl",
      "if_mkldnn",
      "if_disc_aarch64",
      "if_disc_x86",
+     "if_torch_disc",
 )
 
 package(
@@ -162,9 +163,16 @@ cc_library(
 )
 
 cc_library(
+    name = "blade_gemm_deps",
+    deps = if_torch_disc(
+        ["@blade_gemm//:blade_gemm"],
+        ["//tao/blade_gemm:blade_gemm"],
+    )
+)
+cc_library(
     name = "disc_blade_gemm_deps",
     deps = if_platform_alibaba([
-        "@blade_gemm//:blade_gemm"
+        ":blade_gemm_deps"
     ]),
     alwayslink = 1,
 )

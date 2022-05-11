@@ -452,8 +452,7 @@ def build_tao_compiler(root, args):
 
         bazel_build(TARGET_TAO_COMPILER_MAIN, flag=flag)
         bazel_build(TARGET_DISC_OPT, flag=flag)
-        if not (args.platform_alibaba and args.blade_gemm):
-            bazel_build(TARGET_DISC_REPLAY, flag=flag)
+        bazel_build(TARGET_DISC_REPLAY, flag=flag)
         execute(
             "cp -f -p {}/tao/third_party/ptxas/10.2/ptxas ./bazel-bin/tensorflow/compiler/decoupling/".format(
                 root
@@ -592,9 +591,8 @@ def test_tao_compiler(root, args):
             mlir_tests_list = [
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
+                TARGET_DISC_REPLAY_TEST,
             ]
-            if not (args.platform_alibaba and args.blade_gemm):
-                mlir_tests_list.append(TARGET_DISC_REPLAY_TEST)
             MLIR_TESTS = " ".join(mlir_tests_list)
             bazel_test(MLIR_TESTS, flag=flag)
             flag += " --action_env=BRIDGE_ENABLE_TAO=true "

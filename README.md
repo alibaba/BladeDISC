@@ -13,6 +13,7 @@
 - [Setup and Examples](#setup-and-examples)
 - [Publications](#publications)
 - [Tutorials and Documents for Developers](#tutorials-and-documents-for-developers)
+- [Presentations and Talks](#presentations-and-talks)
 - [How to Contribute](#how-to-contribute)
 - [FAQ](#faq)
   - [Roadmap with mlir-hlo Project](#roadmap-with-mlir-hlo-project)
@@ -173,6 +174,9 @@ for PyTorch Users](./docs/quickstart.md#quickstart-for-pytorch-users).
 * [Introduction on Runtime Abstraction Layer](./docs/developers/runtime_abstraction_layer.md)
 * [TorchBlade Overview](./docs/developers/bladedisc_torch_overview.md)
 * [Tutorial: How to Add a New Torch Operator Converter](./docs/developers/torch_add_a_new_converter.md)
+
+## Presentations and Talks
+* [Performance optimization practice for dynamic shape AI workloads via a compiler-based approach](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/performance-optimization-practice.pdf)
 
 ## How to Contribute
 

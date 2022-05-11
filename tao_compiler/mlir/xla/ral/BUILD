@@ -163,23 +163,9 @@ cc_library(
 )
 
 cc_library(
-    name = "blade_gemm_deps",
-    deps = if_torch_disc(
-        [
-            "@blade_gemm//:blade_gemm"
-        ],
-        [
-            "//tao/blade_gemm:blade_gemm"
-        ],
-    ),
-    alwayslink = 1,
-)
-
-
-cc_library(
     name = "disc_blade_gemm_deps",
     deps = if_platform_alibaba([
-        ":blade_gemm_deps"
+        "@blade_gemm//:blade_gemm"
     ]),
     alwayslink = 1,
 )
@@ -602,7 +588,7 @@ cc_library(
     ]) + if_rocm_is_configured([
         "@local_config_rocm//rocm:rocm_headers",
     ]) + if_blade_gemm([
-        "@blade_gemm//:blade_gemm",
+        ":disc_blade_gemm_deps",
     ]) + if_mkldnn([
         ":disc_mkl_bazel",
     ]),

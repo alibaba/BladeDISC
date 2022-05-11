@@ -452,7 +452,8 @@ def build_tao_compiler(root, args):
 
         bazel_build(TARGET_TAO_COMPILER_MAIN, flag=flag)
         bazel_build(TARGET_DISC_OPT, flag=flag)
-        bazel_build(TARGET_DISC_REPLAY, flag=flag)
+        if not (args.platform_alibaba and args.blade_gemm):
+            bazel_build(TARGET_DISC_REPLAY, flag=flag)
         execute(
             "cp -f -p {}/tao/third_party/ptxas/10.2/ptxas ./bazel-bin/tensorflow/compiler/decoupling/".format(
                 root

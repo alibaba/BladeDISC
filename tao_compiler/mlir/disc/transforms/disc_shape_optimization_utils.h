@@ -57,6 +57,8 @@ class SymbolicDimMgr {
   // this SymbolicDim belongs to.
   SymbolicDim* getRootSymbolicDim(SymbolicDim* symbol);
 
+  LogicalResult mapSymbolicDimEqual(SymbolicDim* lhs, SymbolicDim* rhs);
+
   //   SymbolicDim* getSymbolicDimUsingRef(const FlatSymbolRefAttr& ref);
 
   LogicalResult save();

@@ -345,6 +345,8 @@ class ShapeComputationIRAnalysis {
   // dim size values by the SymbolicDim, and return the results.
   DenseMap<SymbolicDim*, SmallVector<Value>> getSymbolicDimSSAValueInstance();
 
+  Type getRefinedType(Value value);
+
  private:
   LogicalResult runOnRegion(Region* region);
   LogicalResult runOnBlock(Block* block);
@@ -522,6 +524,10 @@ ShapeComputationIRAnalysis::getSymbolicDimSSAValueInstance() {
   return instanceMap;
 }
 
+Type ShapeComputationIRAnalysis::getRefinedType(Value value) {
+  return value.getType();
+}
+
 DenseMap<Value, Value> buildSymbolDimInstancesDominantMap(
     DenseMap<SymbolicDim*, SmallVector<Value>>& instanceMap,
     DominanceInfo& dominanceInfo) {
@@ -568,9 +574,54 @@ LogicalResult useSameSSAValueIfSymbolicEqual(
   for (auto& pair : dominantMap) {
     Value v = pair.first;
     Value dominant = pair.second;
-    if (v != dominant) v.replaceAllUsesWith(dominant);
+    if (v != dominant) {
+      changed = true;
+      v.replaceAllUsesWith(dominant);
+    }
   }
 
+  return success();
+}
+
+LogicalResult refineTensorType(ShapeComputationIRAnalysis& analysis,
+                               bool& changed) {
+  auto updateIfNotSame = [&](Value value) {
+    Type refinedTy = analysis.getRefinedType(value);
+    if (refinedTy != value.getType()) {
+      changed = true;
+      value.setType(refinedTy);
+    }
+  };
+
+  FuncOp func = analysis.getFunc();
+
+  // apply refined type for each value
+  func.walk([&](Operation* op) {
+    for (Value operand : op->getOperands()) updateIfNotSame(operand);
+
+    for (Value result : op->getResults()) updateIfNotSame(result);
+  });
+
+  // apply refined function type
+  // 1, collect input types
+  SmallVector<Type, 4> refinedInputTypes;
+  for (Value arg : func.getArguments())
+    refinedInputTypes.push_back(analysis.getRefinedType(arg));
+
+  // 2, collect output types
+  SmallVector<Type, 4> refinedOutputTypes;
+  assert(func.getBody().getBlocks().size() == 1);
+  Operation& op = func.getBody().front().getOperations().back();
+  for (Value operand : op.getOperands())
+    refinedOutputTypes.push_back(analysis.getRefinedType(operand));
+
+  // 3, refine function type to new type
+  auto newFuncTy = FunctionType::get(func.getContext(), refinedInputTypes,
+                                     refinedOutputTypes);
+  if (func.getFunctionType() != newFuncTy) {
+    func.setType(newFuncTy);
+    changed = true;
+  }
   return success();
 }
 
@@ -580,6 +631,12 @@ LogicalResult applyShapeComputationOptimization(
   if (failed(useSameSSAValueIfSymbolicEqual(analysis, changed)))
     return analysis.getFunc()->emitError(
         "useSameSSAValueIfSymbolicEqual failed");
+
+  // 2, After propagation some (partial) known dim size infos, refined
+  // the ranked tensor type.
+  if (failed(refineTensorType(analysis, changed)))
+    return analysis.getFunc()->emitError("refineTensorType failed");
+
   return success();
 }
 

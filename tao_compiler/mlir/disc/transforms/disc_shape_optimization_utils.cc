@@ -42,6 +42,15 @@ int64_t SymbolicDim::uniqueId() const {
   return 0;
 }
 
+// Merge two SymbolicDim if they are compatible.
+LogicalResult SymbolicDim::Merge(SymbolicDim* other) {
+  if (!isDynamic() && !other->isDynamic() &&
+      getDimSize() != other->getDimSize())
+    return failure();
+  if (isDynamic()) dimSize_ = other->getDimSize();
+  return success();
+}
+
 SymbolicDimMgr::SymbolicDimMgr(ModuleOp m) {
   // TODO
 }
@@ -53,7 +62,13 @@ LogicalResult SymbolicDimMgr::load() {
 
 SymbolicDim* SymbolicDimMgr::newSymbolicDim() {
   // TODO
-  return new SymbolicDim;
+  symbolicDimStorage_.emplace_back(new SymbolicDim);
+  return symbolicDimStorage_.back().get();
+}
+
+SymbolicDim* SymbolicDimMgr::getRootSymbolicDim(SymbolicDim* symbol) {
+  // TODO
+  return symbol;
 }
 
 LogicalResult SymbolicDimMgr::save() {
@@ -63,7 +78,12 @@ LogicalResult SymbolicDimMgr::save() {
 
 SmallVector<SymbolicDim*> SymbolicDimMgr::getOrCreateSymbolicDimsForRankedValue(
     Value value) {
+  // TODO: load existing symbols from the attribute attached on the tensor type
   SmallVector<SymbolicDim*> symbols;
+  auto ty = value.getType().cast<RankedTensorType>();
+  for (int d = 0, rank = ty.getRank(); d < rank; ++d)
+    symbols.push_back(newSymbolicDim());
+
   return symbols;
 }
 

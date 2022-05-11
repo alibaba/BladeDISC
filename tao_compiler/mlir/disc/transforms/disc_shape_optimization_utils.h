@@ -9,9 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
+#include <memory>
 
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/SmallVector.h"
@@ -28,7 +26,14 @@ class SymbolicDim {
  public:
   int64_t uniqueId() const;
 
+  int64_t getDimSize() const { return dimSize_; }
+
+  bool isDynamic() const { return getDimSize() == ShapedType::kDynamicSize; }
+
+  LogicalResult Merge(SymbolicDim* other);
+
  private:
+  int64_t dimSize_;
 };
 
 // Return the symbolicDim ref attribute if there is an attached disc
@@ -47,11 +52,18 @@ class SymbolicDimMgr {
 
   SmallVector<SymbolicDim*> getOrCreateSymbolicDimsForRankedValue(Value value);
 
+  // All symbolic-equal dims form a group.
+  // Returns the root SymbolicDim of the symbolic-equal symbolic dim group that
+  // this SymbolicDim belongs to.
+  SymbolicDim* getRootSymbolicDim(SymbolicDim* symbol);
+
   //   SymbolicDim* getSymbolicDimUsingRef(const FlatSymbolRefAttr& ref);
 
   LogicalResult save();
 
  private:
+  //   DenseMap<std::string, SymbolicDim*> symbolRef2symbolicDim_;
+  SmallVector<std::unique_ptr<SymbolicDim>, 4> symbolicDimStorage_;
 };
 
 }  // namespace disc_ral

@@ -21,6 +21,9 @@
 namespace mlir {
 namespace disc_ral {
 
+// Returns a unique id for each call.
+int64_t getNextSymbolicDimUniqueId();
+
 // Represents a symbolic dimension.
 class SymbolicDim {
  public:
@@ -28,12 +31,15 @@ class SymbolicDim {
 
   int64_t getDimSize() const { return dimSize_; }
 
+  void setDimSize(int64_t val) { dimSize_ = val; }
+
   bool isDynamic() const { return getDimSize() == ShapedType::kDynamicSize; }
 
   LogicalResult Merge(SymbolicDim* other);
 
  private:
-  int64_t dimSize_;
+  int64_t uniqueId_ = getNextSymbolicDimUniqueId();
+  int64_t dimSize_ = ShapedType::kDynamicSize;
 };
 
 // Return the symbolicDim ref attribute if there is an attached disc
@@ -50,6 +56,9 @@ class SymbolicDimMgr {
 
   SymbolicDim* newSymbolicDim();
 
+  // Returns a symbolicDim which have static dim size == `val`.
+  SymbolicDim* newConstantSymbolicDim(int64_t val);
+
   SmallVector<SymbolicDim*> getOrCreateSymbolicDimsForRankedValue(Value value);
 
   // All symbolic-equal dims form a group.
@@ -57,6 +66,11 @@ class SymbolicDimMgr {
   // this SymbolicDim belongs to.
   SymbolicDim* getRootSymbolicDim(SymbolicDim* symbol);
 
+  // Returns true if lhs and rhs are known to be equal.
+  bool isSymbolicDimEqual(SymbolicDim* lhs, SymbolicDim* rhs);
+
+  // Marks lhs and rhs have same size and try to merge lhs & rhs static known
+  // info. Returns failure if failed to merge lhs & rhs.
   LogicalResult mapSymbolicDimEqual(SymbolicDim* lhs, SymbolicDim* rhs);
 
   //   SymbolicDim* getSymbolicDimUsingRef(const FlatSymbolRefAttr& ref);
@@ -66,6 +80,15 @@ class SymbolicDimMgr {
  private:
   //   DenseMap<std::string, SymbolicDim*> symbolRef2symbolicDim_;
   SmallVector<std::unique_ptr<SymbolicDim>, 4> symbolicDimStorage_;
+
+  // map a symbolic dim -> its root SymbolicDim
+  // Here root symbolic dim means the representative member in the
+  // symbolic-equal symbolic dim set that this symbolic dim belongs to.
+  DenseMap<SymbolicDim*, SymbolicDim*> symbolDimUnionSet_;
+
+  // map a concret constant value to a symbolic dim instance that represents the
+  // constant.
+  DenseMap<int64_t, SymbolicDim*> constantSymbolicDimMap_;
 };
 
 }  // namespace disc_ral

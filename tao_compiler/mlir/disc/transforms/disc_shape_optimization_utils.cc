@@ -37,10 +37,12 @@ namespace disc_ral {
 
 using ::mlir::func::FuncOp;
 
-int64_t SymbolicDim::uniqueId() const {
-  // TODO
-  return 0;
+int64_t getNextSymbolicDimUniqueId() {
+  static int64_t id = 0;
+  return id++;
 }
+
+int64_t SymbolicDim::uniqueId() const { return uniqueId_; }
 
 // Merge two SymbolicDim if they are compatible.
 LogicalResult SymbolicDim::Merge(SymbolicDim* other) {
@@ -61,14 +63,50 @@ LogicalResult SymbolicDimMgr::load() {
 }
 
 SymbolicDim* SymbolicDimMgr::newSymbolicDim() {
-  // TODO
   symbolicDimStorage_.emplace_back(new SymbolicDim);
-  return symbolicDimStorage_.back().get();
+  SymbolicDim* symbol = symbolicDimStorage_.back().get();
+  symbolDimUnionSet_[symbol] = symbol;
+  return symbol;
+}
+
+SymbolicDim* SymbolicDimMgr::newConstantSymbolicDim(int64_t val) {
+  auto it = constantSymbolicDimMap_.find(val);
+  if (it == constantSymbolicDimMap_.end()) {
+    it = constantSymbolicDimMap_.insert(std::make_pair(val, newSymbolicDim()))
+             .first;
+    it->second->setDimSize(val);
+  }
+  return it->second;
 }
 
 SymbolicDim* SymbolicDimMgr::getRootSymbolicDim(SymbolicDim* symbol) {
-  // TODO
-  return symbol;
+  SymbolicDim* current = symbol;
+  while (symbolDimUnionSet_[current] != current)
+    current = symbolDimUnionSet_[current];
+  return current;
+}
+
+bool SymbolicDimMgr::isSymbolicDimEqual(SymbolicDim* lhs, SymbolicDim* rhs) {
+  SymbolicDim* lhsRoot = getRootSymbolicDim(lhs);
+  SymbolicDim* rhsRoot = getRootSymbolicDim(rhs);
+  return lhsRoot == rhsRoot;
+}
+
+LogicalResult SymbolicDimMgr::mapSymbolicDimEqual(SymbolicDim* lhs,
+                                                  SymbolicDim* rhs) {
+  SymbolicDim* lhsRoot = getRootSymbolicDim(lhs);
+  SymbolicDim* rhsRoot = getRootSymbolicDim(rhs);
+
+  if (lhsRoot != rhsRoot) {
+    if (lhsRoot->uniqueId() < rhsRoot->uniqueId()) {
+      if (failed(lhsRoot->Merge(rhsRoot))) return failure();
+      symbolDimUnionSet_[rhsRoot] = lhsRoot;
+    } else {
+      if (failed(rhsRoot->Merge(lhsRoot))) return failure();
+      symbolDimUnionSet_[lhsRoot] = rhsRoot;
+    }
+  }
+  return success();
 }
 
 LogicalResult SymbolicDimMgr::save() {
@@ -81,8 +119,11 @@ SmallVector<SymbolicDim*> SymbolicDimMgr::getOrCreateSymbolicDimsForRankedValue(
   // TODO: load existing symbols from the attribute attached on the tensor type
   SmallVector<SymbolicDim*> symbols;
   auto ty = value.getType().cast<RankedTensorType>();
-  for (int d = 0, rank = ty.getRank(); d < rank; ++d)
-    symbols.push_back(newSymbolicDim());
+  for (int64_t dim : ty.getShape()) {
+    symbols.push_back(dim == ShapedType::kDynamicSize
+                          ? newSymbolicDim()
+                          : newConstantSymbolicDim(dim));
+  }
 
   return symbols;
 }

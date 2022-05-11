@@ -383,7 +383,10 @@ def DiscAlgebraSimplifierPass : Pass<"disc-algebra-simplifier", "mlir::func::Fun
 def DiscShapeOptimizationPass : Pass<"disc-shape-optimization", "ModuleOp"> {
   let summary = "apply some shape-related optimizations.";
   let constructor = "createDiscShapeOptimizationPass()";
-  let dependentDialects = ["disc_shape::DISCShapeDialect"];
+  let dependentDialects = [
+      "disc_shape::DISCShapeDialect",
+      "shape::ShapeDialect"
+  ];
   let options = [
     Option<"entry_func_name_", "entry-func-name", "std::string",
            /*default=*/"\"main\"", "Name of the entry function.">,

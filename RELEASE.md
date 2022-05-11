@@ -73,10 +73,10 @@ Migrate TorchBlade's compilation toolchain from the original CMake to bazel, enh
 
 # Other
 
-## Benchmark preparation
+## Example preparation
 
 Prepare a set of commonly used models as the examples for BladeDISC.
-Compare the performance of BladeDISC with TensorRT and XLA upon the examples.
+Compare the performance of BladeDISC with TensorRT, XLA and ONNX Runtime (ORT) upon the examples.
 
 ## Community TF rebase
 

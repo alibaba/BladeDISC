@@ -20,7 +20,7 @@ The GEMM merging optimization helps to increase hardware utilization and to redu
 
 ## CPU GEMM/Convolution weight pre-packing optimization
 
-Support weight pre-packing optimization for convolution (calling mkldnn library) and GEMM (calling mkldnn/onednn/acl libraries) operations.
+Support weight pre-packing optimization for convolution (calling onednn library) and GEMM (calling mkl/onednn/acl libraries) operations.
 
 ## Convolution layout optimization and transpose elimination
 

@@ -582,7 +582,7 @@ cc_library(
     ]) + if_rocm_is_configured([
         "@local_config_rocm//rocm:rocm_headers",
     ]) + if_blade_gemm([
-        ":disc_blade_gemm_deps",
+        "@blade_gemm//:blade_gemm",
     ]) + if_mkldnn([
         ":disc_mkl_bazel",
     ]),

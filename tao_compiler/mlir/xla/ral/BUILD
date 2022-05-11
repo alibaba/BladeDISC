@@ -30,7 +30,6 @@ load("//tensorflow/compiler/mlir/disc:disc.bzl",
      "if_mkldnn",
      "if_disc_aarch64",
      "if_disc_x86",
-     "if_torch_disc",
 )
 
 package(
@@ -246,19 +245,6 @@ cc_library(
 )
 
 cc_library(
-    name = "disc_mkl",
-    deps = if_torch_disc(
-        [
-            ":disc_mkl_bazel"
-        ],
-        [
-            ":disc_mkl_cmake",
-        ],
-    ),
-    alwayslink = 1,
-)
-
-cc_library(
     name = "common_context",
     srcs = [
         "context/common_context_impl.cc",
@@ -308,7 +294,7 @@ cc_library(
     ]) + if_blade_gemm([
         ":disc_blade_gemm_deps",
     ]) + if_mkldnn([
-        ":disc_mkl",
+        ":disc_mkl_cmake",
     ]),
     alwayslink = 1,
 )

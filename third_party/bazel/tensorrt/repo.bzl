@@ -11,7 +11,7 @@ cc_import(
 
 cc_import(
     name = "myelin_executor_static",
-    static_library = "libmyelin_executor_static_patched.a",  # use patched one
+    static_library = "lib/libmyelin_executor_static.a",  # use patched one
 )
 
 cc_import(

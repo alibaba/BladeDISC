@@ -304,8 +304,12 @@ LogicalResult runCanonicalizer(ModuleOp m, PassPipelineRunner runner) {
   populateShapeOptimizationPatterns(context, &patterns);
   addCanonicalizationPatterns(context, &patterns);
 
-  if (failed(
-          applyPatternsAndFoldGreedily(m->getRegions(), std::move(patterns)))) {
+  SmallVector<std::string> disablePatterns = {
+      "mlir::disc_shape::{anonymous}::IdentityTieShapeOp"};
+  FrozenRewritePatternSet frozenSet(std::move(patterns), disablePatterns);
+
+  if (failed(applyPatternsAndFoldGreedily(m->getRegions(),
+                                          std::move(frozenSet)))) {
     return m.emitError() << "fail to run canonicalizer\n";
   }
 
@@ -351,11 +355,16 @@ class ShapeComputationIRAnalysis {
   LogicalResult runOnRegion(Region* region);
   LogicalResult runOnBlock(Block* block);
   LogicalResult runOnOperation(Operation* op);
-  LogicalResult runOnScalarIntOperation(Operation* op);
-  LogicalResult runOnShapeTensorOperation(Operation* op);
+
   LogicalResult buildSymbolicShape(Value value);
   LogicalResult buildSymbolicShapeForResultsOfOp(Operation* op);
+
   LogicalResult applyOpConstraint(Operation* op);
+  LogicalResult applyIndexOpConstraint(Operation* op);
+  LogicalResult applyShapeTensorOpConstraint(Operation* op);
+  LogicalResult applyMhloOpConstraint(Operation* op);
+
+  LogicalResult mapRankedValueShapeEqual(Value lhs, Value rhs);
 
  private:
   bool initialized_ = false;
@@ -421,58 +430,14 @@ LogicalResult ShapeComputationIRAnalysis::runOnBlock(Block* block) {
 }
 
 LogicalResult ShapeComputationIRAnalysis::runOnOperation(Operation* op) {
-  if (op->getNumResults() == 0) return success();
-
-  Type ty = op->getResult(0).getType();
-  if (ty.isIntOrIndex()) {
-    return runOnScalarIntOperation(op);
-  }
-
-  if (isCandidateShapeTensorType(ty)) {
-    return runOnShapeTensorOperation(op);
-  }
-
-  if (failed(buildSymbolicShapeForResultsOfOp(op))) return failure();
+  if (failed(buildSymbolicShapeForResultsOfOp(op)))
+    return op->emitError() << "fail to buildSymbolicShapeForResultsOfOp\n";
 
   // TODO(disc): visit the regions of op once we support funcitonal control
   // flow.
 
   // apply op's shape constraint
   return applyOpConstraint(op);
-}
-
-LogicalResult ShapeComputationIRAnalysis::runOnScalarIntOperation(
-    Operation* op) {
-  if (isa<arith::IndexCastOp>(op)) {
-    value2SymDim_[op->getResult(0)] = value2SymDim_[op->getOperand(0)];
-  } else if (auto dimOp = dyn_cast<tensor::DimOp>(op)) {
-    Optional<int64_t> dimIndex = dimOp.getConstantIndex();
-    if (!dimIndex) return buildSymbolicShapeForResultsOfOp(op);
-    value2SymDim_[op->getResult(0)] =
-        rankedTensor2SymDims_[dimOp.source()][*dimIndex];
-  } else {
-    // TODO: add support for arith::addi/subi/...
-
-    // fallback path: build new symbol dims for the results of op
-    return buildSymbolicShapeForResultsOfOp(op);
-  }
-  return success();
-}
-
-LogicalResult ShapeComputationIRAnalysis::runOnShapeTensorOperation(
-    Operation* op) {
-  if (isa<tensor::FromElementsOp>(op)) {
-    SmallVector<SymbolicDim*> symbols;
-    for (Value operand : op->getOperands())
-      symbols.push_back(value2SymDim_[operand]);
-    shapeTensor2SymDims_[op->getResult(0)] = symbols;
-  } else {
-    // TODO: add support for shape.broadcast/mhlo.add/...
-
-    // fallback path: build new symbol dims for the results of op
-    return buildSymbolicShapeForResultsOfOp(op);
-  }
-  return success();
 }
 
 LogicalResult ShapeComputationIRAnalysis::buildSymbolicShapeForResultsOfOp(
@@ -506,7 +471,150 @@ LogicalResult ShapeComputationIRAnalysis::buildSymbolicShape(Value value) {
   return success();
 }
 
+LogicalResult ShapeComputationIRAnalysis::mapRankedValueShapeEqual(Value lhs,
+                                                                   Value rhs) {
+  auto& lhsDims = rankedTensor2SymDims_[lhs];
+  auto& rhsDims = rankedTensor2SymDims_[rhs];
+
+  if (lhsDims.size() != rhsDims.size()) {
+    return mlir::emitError(lhs.getLoc())
+           << "miss match rank:\n\t"
+           << "lhs = " << lhs << "\n\trhs = " << rhs << "\n";
+  }
+
+  for (const auto& en : llvm::zip(lhsDims, rhsDims)) {
+    if (failed(mgr_.mapSymbolicDimEqual(std::get<0>(en), std::get<1>(en))))
+      return mlir::emitError(lhs.getLoc())
+             << "fail to merge:\n\t"
+             << "lhs = " << lhs << "\n\trhs = " << rhs << "\n";
+  }
+  return success();
+}
+
+LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
+    Operation* op) {
+  if (op->getNumResults() == 0) return success();
+
+  // Only handle scalar int/index op
+  Type ty = op->getResult(0).getType();
+  if (!ty.isIntOrIndex()) return success();
+
+  if (isa<arith::IndexCastOp>(op)) {
+    if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[op->getResult(0)],
+                                        value2SymDim_[op->getOperand(0)])))
+      return op->emitError() << "fail to merge dim\n";
+  } else if (auto dimOp = dyn_cast<tensor::DimOp>(op)) {
+    Optional<int64_t> dimIndex = dimOp.getConstantIndex();
+    if (!dimIndex) return success();
+    if (failed(mgr_.mapSymbolicDimEqual(
+            value2SymDim_[op->getResult(0)],
+            rankedTensor2SymDims_[dimOp.source()][*dimIndex])))
+      return op->emitError() << "fail to merge dim\n";
+  } else if (isa<arith::ConstantIndexOp, arith::ConstantIntOp>(op)) {
+    int64_t val = op->getAttrOfType<IntegerAttr>("value").getInt();
+    if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[op->getResult(0)],
+                                        mgr_.newConstantSymbolicDim(val))))
+      return op->emitError() << "fail to merge dim\n";
+  }
+
+  // TODO: add support for arith::addi/subi/...
+
+  return success();
+}
+
+LogicalResult ShapeComputationIRAnalysis::applyShapeTensorOpConstraint(
+    Operation* op) {
+  if (isa<tensor::FromElementsOp>(op)) {
+    auto& symbols = shapeTensor2SymDims_[op->getResult(0)];
+    if (symbols.size() != op->getOperands().size())
+      op->emitError() << "miss match dim size and num operands\n";
+    for (const auto& z : llvm::zip(op->getOperands(), symbols)) {
+      if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[std::get<0>(z)],
+                                          std::get<1>(z))))
+        return op->emitError() << "fail to merge dim\n";
+    }
+  }
+
+  // TODO: add support for arith::addi/subi/...
+
+  return success();
+}
+
+LogicalResult ShapeComputationIRAnalysis::applyMhloOpConstraint(Operation* op) {
+  if (op->hasTrait<mlir::OpTrait::SameOperandsAndResultType>() ||
+      op->hasTrait<mlir::OpTrait::SameOperandsAndResultShape>()) {
+    Value ref;
+    if (op->getNumOperands() > 0) ref = op->getOperands().front();
+    if (op->getNumResults() > 0) ref = op->getResults().front();
+    if (!ref) return success();
+    for (Value operand : op->getOperands())
+      if (failed(mapRankedValueShapeEqual(operand, ref)))
+        return op->emitError()
+               << "fail to merge symbolic dim of operand of element op\n";
+    for (Value result : op->getResults())
+      if (failed(mapRankedValueShapeEqual(result, ref)))
+        return op->emitError()
+               << "fail to merge symbolic dim of result of element op\n";
+  } else if (op->hasTrait<mlir::OpTrait::SameTypeOperands>() ||
+             op->hasTrait<mlir::OpTrait::SameOperandsShape>()) {
+    if (op->getNumOperands() == 0) return success();
+    Value ref = op->getOperands().front();
+    for (Value operand : op->getOperands())
+      if (failed(mapRankedValueShapeEqual(operand, ref)))
+        return op->emitError()
+               << "fail to merge symbolic dim between operands of element op\n";
+  }
+
+  // TODO: add support for dot/dot_general/...
+
+  return success();
+}
+
 LogicalResult ShapeComputationIRAnalysis::applyOpConstraint(Operation* op) {
+  if (failed(applyIndexOpConstraint(op)))
+    return op->emitError() << "fail to apply constraint for index op\n";
+
+  if (failed(applyShapeTensorOpConstraint(op)))
+    return op->emitError() << "fail to apply constraint for shape tensor op\n";
+
+  if (op->getDialect() == op->getContext()->getLoadedDialect("mhlo") ||
+      op->getDialect() == op->getContext()->getLoadedDialect("mhlo_disc")) {
+    if (failed(applyMhloOpConstraint(op)))
+      return op->emitError() << "fail to apply constraint for mhlo op\n";
+  }
+
+  // supppose:
+  //   %out = disc_shape.tie_shape(%in, %d0, %d1, ...)
+  // we have
+  //   - %in and %out should have same shape
+  //   - the shape of %out == [d0, d1, ...]
+  if (auto tieShape = dyn_cast<disc_shape::TieShapeOp>(op)) {
+    if (failed(mapRankedValueShapeEqual(op->getOperand(0), op->getResult(0))))
+      return op->emitError()
+             << "fail to map the shape of input and output of tie shape op\n";
+
+    auto& resultDims = rankedTensor2SymDims_[op->getResult(0)];
+    if (resultDims.size() + 1 != op->getNumOperands())
+      return op->emitError()
+             << "miss match number shape operand and the rank of result\n";
+    for (const auto& en : llvm::enumerate(op->getOperands().drop_front())) {
+      if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[en.value()],
+                                          resultDims[en.index()])))
+        return op->emitError() << "fail to merge symbolic dim\n";
+    }
+
+    if (isCandidateShapeTensorType(op->getResult(0).getType())) {
+      auto& lhsShapeTensorDims = shapeTensor2SymDims_[op->getOperand(0)];
+      auto& rhsShapeTensorDims = shapeTensor2SymDims_[op->getResult(0)];
+      if (lhsShapeTensorDims.size() != rhsShapeTensorDims.size())
+        return op->emitError()
+               << "miss match input/output dim size for tie_shape op\n";
+      for (const auto& z : llvm::zip(lhsShapeTensorDims, rhsShapeTensorDims)) {
+        if (failed(mgr_.mapSymbolicDimEqual(std::get<0>(z), std::get<1>(z))))
+          return op->emitError() << "fail to merge dim\n";
+      }
+    }
+  }
   return success();
 }
 
@@ -525,7 +633,14 @@ ShapeComputationIRAnalysis::getSymbolicDimSSAValueInstance() {
 }
 
 Type ShapeComputationIRAnalysis::getRefinedType(Value value) {
-  return value.getType();
+  auto ty = value.getType().dyn_cast<RankedTensorType>();
+  if (!ty) return value.getType();
+
+  SmallVector<int64_t> newShape;
+  for (SymbolicDim* sym : rankedTensor2SymDims_[value])
+    newShape.push_back(sym->getDimSize());
+
+  return RankedTensorType::get(newShape, ty.getElementType(), ty.getEncoding());
 }
 
 DenseMap<Value, Value> buildSymbolDimInstancesDominantMap(
@@ -657,6 +772,11 @@ LogicalResult optimizeShapeComputation(ModuleOp m, FuncOp main,
       return failure();
     }
 
+    LLVM_DEBUG(
+        llvm::dbgs()
+        << "Module after runCanonicalizer in optimize-shape-computation:\n"
+        << m << "\n");
+
     SymbolicDimMgr mgr(m);
     if (failed(mgr.load())) {
       return m.emitError() << "fail to load shape constraint IR\n";
@@ -671,9 +791,19 @@ LogicalResult optimizeShapeComputation(ModuleOp m, FuncOp main,
       return m.emitError() << "fail to optimize shape computation IR\n";
     }
 
+    LLVM_DEBUG(
+        llvm::dbgs()
+        << "Module after apply-shape-opt in optimize-shape-computation:\n"
+        << m << "\n");
+
     if (failed(mgr.save())) {
       return m.emitError() << "fail to save shape constraint IR\n";
     }
+
+    LLVM_DEBUG(llvm::dbgs()
+               << "Module after save-shape-ir in optimize-shape-computation:\n"
+               << m << "\n");
+
   } while (changed);
   return success();
 }

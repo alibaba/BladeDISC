@@ -244,6 +244,42 @@ struct DiscSpecializeFusionWithSpeculationPass
   }
 
   void DoRowReductionSpeculation(FusionOp fusion_op) {
+    bool experimental_tlp_enhance = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE",
+                                   false, &experimental_tlp_enhance);
+    if (experimental_tlp_enhance == true) {
+      return;
+    }
+#if 0
+    // To select codegen schedule and block-size setting.
+    // 
+    // The rule to select codegen schedule.
+    //   1. If #cols >= 512, use one-block-one-row schedule.
+    //   2. If #cols < 512, there are two scenarios:
+    //      a) #rows < #max-warps-per-wave / 2, use one-block-one-row;
+    //      b) else, use one-warp-one-row.
+    // 
+    // The rule to select block-size.
+    //   1. If #rows < #SM, block-size is 512.
+    //   2. Else if #rows < #SM * 2, block-size is 256.
+    //   3. Else, block-size is 128.
+    //
+    // TODO: the selection result should be cached during the compilation
+    // optimization. The following logic should be in roots-to-loops phase.
+    Value col_threshold = b.create<arith::ConstantIndexOp>(loc, 512);
+    Value one_block_one_row =
+        b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge, col_size,
+                                col_threshold);
+    int64_t max_warps_per_wave = max_threads_per_sm_ / kWarpSize * sm_count_;
+    Value row_threshold =
+        b.create<arith::ConstantIndexOp>(loc, max_warps_per_wave / 2);
+    one_block_one_row =
+        b.create<arith::OrIOp>(
+            loc, one_block_one_row,
+            b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt, row_size,
+                                    row_threshold));
+#endif
+
     FusionType fusion_type = getFusionType(fusion_op.getOperation());
     if (fusion_type != FusionType::kRowReduction &&
         fusion_type != FusionType::kStitch) {
@@ -279,14 +315,10 @@ struct DiscSpecializeFusionWithSpeculationPass
     // later, the two speculations will be merge into one according to the
     // adaptive thread mapping approach in AStitch. Then there will be more
     // flexible per-reduce-thread-number setting.
-    bool experimental_tlp_enhance = false;
-    tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE",
-                                   false, &experimental_tlp_enhance);
     bool legacy_tlp_enhance = false;
-    tensorflow::ReadBoolFromEnvVar("DISC_LEGACY_TLP_ENHANCE",
-                                   false, &legacy_tlp_enhance);
-    if (experimental_tlp_enhance) {
-    } else if (legacy_tlp_enhance) {
+    tensorflow::ReadBoolFromEnvVar("DISC_LEGACY_TLP_ENHANCE", false,
+                                   &legacy_tlp_enhance);
+    if (legacy_tlp_enhance) {
       // Experimental schedule selection policy is as following:
       //   1. use schedule 1 if
       //      (col-size >= block-dim) &&

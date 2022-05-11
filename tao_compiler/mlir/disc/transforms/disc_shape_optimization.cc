@@ -314,24 +314,50 @@ LogicalResult runCanonicalizer(ModuleOp m, PassPipelineRunner runner) {
   return runner(dynamicPM, m);
 }
 
+// Returns true if the type is possible to be a shape tensor type.
+// Here shape tensor type is defined as follow:
+// - rank-1 static-shaped tensor type
+// - element type of the tensor is int or index
+// - number of elements of the tensor < 32, supposing that the
+//   higiest possible rank is smaller than 32.
+bool isCandidateShapeTensorType(Type ty) {
+  // Try to check if it's a candidate shape tensor.
+  auto tensorTy = ty.dyn_cast<RankedTensorType>();
+
+  return (tensorTy && tensorTy.getRank() == 1 && tensorTy.hasStaticShape() &&
+          tensorTy.getElementType().isIntOrIndex() &&
+          tensorTy.getShape()[0] < 32);
+}
+
 class ShapeComputationIRAnalysis {
  public:
-  explicit ShapeComputationIRAnalysis(ModuleOp m, SymbolicDimMgr& mgr);
+  explicit ShapeComputationIRAnalysis(FuncOp func, SymbolicDimMgr& mgr);
 
+  // Analyzes the shape computation IR and the shape constraint IR in the target
+  // module Returns failure if failed.
   LogicalResult run();
+
+  // Returns the func op this analysis object runs on.
+  FuncOp getFunc() { return funcOp_; }
+
+  // Each dim size value (as one shape operand of one disc_shape.tie_shape) is
+  // mapped to one SymbolicDim after the analysis. This function group all such
+  // dim size values by the SymbolicDim, and return the results.
+  DenseMap<SymbolicDim*, SmallVector<Value>> getSymbolicDimSSAValueInstance();
 
  private:
   LogicalResult runOnRegion(Region* region);
   LogicalResult runOnBlock(Block* block);
   LogicalResult runOnOperation(Operation* op);
   LogicalResult runOnScalarIntOperation(Operation* op);
+  LogicalResult runOnShapeTensorOperation(Operation* op);
   LogicalResult buildSymbolicShape(Value value);
   LogicalResult buildSymbolicShapeForResultsOfOp(Operation* op);
   LogicalResult applyOpConstraint(Operation* op);
 
  private:
   bool initialized_ = false;
-  ModuleOp moduleOp_;
+  FuncOp funcOp_;
   SymbolicDimMgr& mgr_;
 
   // Map scalar int/index SSA value to a symbolicDim
@@ -346,24 +372,18 @@ class ShapeComputationIRAnalysis {
   DenseMap<Value, SmallVector<SymbolicDim*>> rankedTensor2SymDims_;
 };
 
-ShapeComputationIRAnalysis::ShapeComputationIRAnalysis(ModuleOp m,
+ShapeComputationIRAnalysis::ShapeComputationIRAnalysis(FuncOp func,
                                                        SymbolicDimMgr& mgr)
-    : moduleOp_(m), mgr_(mgr) {}
+    : funcOp_(func), mgr_(mgr) {}
 
 LogicalResult ShapeComputationIRAnalysis::run() {
-  ModuleOp& m = moduleOp_;
   // Make sure only run once.
   if (initialized_) {
-    return m->emitError() << "re-initialized shape analysis is not supported\n";
+    return funcOp_->emitError()
+           << "re-initialized shape analysis is not supported\n";
   }
   initialized_ = true;
-
-  for (auto& region : m->getRegions()) {
-    if (failed(runOnRegion(&region))) {
-      return failure();
-    }
-  }
-  return success();
+  return runOnRegion(&funcOp_.getBody());
 }
 
 LogicalResult ShapeComputationIRAnalysis::runOnRegion(Region* region) {
@@ -406,7 +426,14 @@ LogicalResult ShapeComputationIRAnalysis::runOnOperation(Operation* op) {
     return runOnScalarIntOperation(op);
   }
 
+  if (isCandidateShapeTensorType(ty)) {
+    return runOnShapeTensorOperation(op);
+  }
+
   if (failed(buildSymbolicShapeForResultsOfOp(op))) return failure();
+
+  // TODO(disc): visit the regions of op once we support funcitonal control
+  // flow.
 
   // apply op's shape constraint
   return applyOpConstraint(op);
@@ -419,10 +446,26 @@ LogicalResult ShapeComputationIRAnalysis::runOnScalarIntOperation(
   } else if (auto dimOp = dyn_cast<tensor::DimOp>(op)) {
     Optional<int64_t> dimIndex = dimOp.getConstantIndex();
     if (!dimIndex) return buildSymbolicShapeForResultsOfOp(op);
-    value2SymDim_[op->getOperand(0)] =
+    value2SymDim_[op->getResult(0)] =
         rankedTensor2SymDims_[dimOp.source()][*dimIndex];
   } else {
     // TODO: add support for arith::addi/subi/...
+
+    // fallback path: build new symbol dims for the results of op
+    return buildSymbolicShapeForResultsOfOp(op);
+  }
+  return success();
+}
+
+LogicalResult ShapeComputationIRAnalysis::runOnShapeTensorOperation(
+    Operation* op) {
+  if (isa<tensor::FromElementsOp>(op)) {
+    SmallVector<SymbolicDim*> symbols;
+    for (Value operand : op->getOperands())
+      symbols.push_back(value2SymDim_[operand]);
+    shapeTensor2SymDims_[op->getResult(0)] = symbols;
+  } else {
+    // TODO: add support for shape.broadcast/mhlo.add/...
 
     // fallback path: build new symbol dims for the results of op
     return buildSymbolicShapeForResultsOfOp(op);
@@ -450,6 +493,13 @@ LogicalResult ShapeComputationIRAnalysis::buildSymbolicShape(Value value) {
     SmallVector<SymbolicDim*> symbols =
         mgr_.getOrCreateSymbolicDimsForRankedValue(value);
     rankedTensor2SymDims_[value] = std::move(symbols);
+    // Try to check if it's a candidate shape tensor.
+    if (isCandidateShapeTensorType(ty)) {
+      SmallVector<SymbolicDim*> symbols;
+      for (int i = 0, d = tensorTy.getShape()[0]; i < d; ++i)
+        symbols.push_back(mgr_.newSymbolicDim());
+      shapeTensor2SymDims_[value] = symbols;
+    }
   }
   return success();
 }
@@ -458,8 +508,78 @@ LogicalResult ShapeComputationIRAnalysis::applyOpConstraint(Operation* op) {
   return success();
 }
 
+DenseMap<SymbolicDim*, SmallVector<Value>>
+ShapeComputationIRAnalysis::getSymbolicDimSSAValueInstance() {
+  DenseMap<SymbolicDim*, SmallVector<Value>> instanceMap;
+  funcOp_.walk([&](disc_shape::TieShapeOp tieShapeOp) {
+    Value rankedValue = tieShapeOp->getOperand(0);
+    auto& symbolicDims = rankedTensor2SymDims_[rankedValue];
+    for (auto& en : llvm::enumerate(tieShapeOp->getOperands().drop_front())) {
+      SymbolicDim* root = mgr_.getRootSymbolicDim(symbolicDims[en.index()]);
+      instanceMap[root].push_back(en.value());
+    }
+  });
+  return instanceMap;
+}
+
+DenseMap<Value, Value> buildSymbolDimInstancesDominantMap(
+    DenseMap<SymbolicDim*, SmallVector<Value>>& instanceMap,
+    DominanceInfo& dominanceInfo) {
+  DenseMap<Value, Value> dominantMap;
+  for (auto& it : instanceMap) {
+    auto& instances = it.second;
+
+    // in normal cases, there should be only one root, aka, dominant value
+    // of all the values of instances
+    SmallVector<Value> roots;
+    for (Value v : instances) {
+      bool is_root = true;
+      for (Value other : instances) {
+        if (v == other) continue;
+        if (dominanceInfo.dominates(other, v.getDefiningOp())) {
+          is_root = false;
+          continue;
+        }
+      }
+      if (is_root) {
+        roots.push_back(v);
+      }
+    }
+    // we should let as much values as possible to be dominated by a same root
+    for (Value root : roots) {
+      for (Value v : instances) {
+        if (dominantMap.find(v) == dominantMap.end() &&
+            dominanceInfo.dominates(root, v.getDefiningOp())) {
+          dominantMap[v] = root;
+        }
+      }
+    }
+  }
+  return dominantMap;
+}
+
+LogicalResult useSameSSAValueIfSymbolicEqual(
+    ShapeComputationIRAnalysis& analysis, bool& changed) {
+  auto instanceMap = analysis.getSymbolicDimSSAValueInstance();
+  DominanceInfo dominanceInfo(analysis.getFunc());
+  auto dominantMap =
+      buildSymbolDimInstancesDominantMap(instanceMap, dominanceInfo);
+
+  for (auto& pair : dominantMap) {
+    Value v = pair.first;
+    Value dominant = pair.second;
+    if (v != dominant) v.replaceAllUsesWith(dominant);
+  }
+
+  return success();
+}
+
 LogicalResult applyShapeComputationOptimization(
     ShapeComputationIRAnalysis& analysis, bool& changed) {
+  // 1, using the same ssa value for all symbolic-equal dim instances.
+  if (failed(useSameSSAValueIfSymbolicEqual(analysis, changed)))
+    return analysis.getFunc()->emitError(
+        "useSameSSAValueIfSymbolicEqual failed");
   return success();
 }
 
@@ -485,7 +605,7 @@ LogicalResult optimizeShapeComputation(ModuleOp m, FuncOp main,
       return m.emitError() << "fail to load shape constraint IR\n";
     }
 
-    ShapeComputationIRAnalysis analysis(m, mgr);
+    ShapeComputationIRAnalysis analysis(main, mgr);
     if (failed(analysis.run())) {
       return m.emitError() << "fail to analysis shape computation IR\n";
     }

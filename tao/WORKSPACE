@@ -15,6 +15,10 @@ load("@//:workspace1.bzl", "tao_bridge_workspace1")
 
 tao_bridge_workspace1()
 
+load("@org_third_party//bazel:blade_disc_dnn_workspace.bzl", "blade_disc_dnn_workspace")
+
+blade_disc_dnn_workspace()
+
 load("@//:workspace0.bzl", "tao_bridge_workspace0")
 
 tao_bridge_workspace0()

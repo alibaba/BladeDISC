@@ -17,6 +17,7 @@ import shutil
 import logging
 import sys
 import re
+import json
 from subprocess import Popen, PIPE, STDOUT
 from contextlib import contextmanager
 from datetime import datetime

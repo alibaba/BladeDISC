@@ -281,12 +281,33 @@ struct DimOfTieShapeOpCanonicalizationPattern
   }
 };
 
+// convert:
+//   %1 = disc_shape.tie_shape %0, %d0, %d1, ... : (tensor<?x?xf32>, ...) ->
+//   tensor<?x?xf32> %dim_size = tensor.dim %1[%c0] : tensor<2xindex>
+//   %2 = tensor.extract %1[...] : ...
+// to:
+//   %2 = tensor.extract %0[...] : ...
+struct ExtractElementOfTieShapeOpCanonicalizationPattern
+    : public OpRewritePattern<tensor::ExtractOp> {
+  using OpRewritePattern<tensor::ExtractOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::ExtractOp op,
+                                PatternRewriter& rewriter) const override {
+    auto tieShapeOp = op.tensor().getDefiningOp<disc_shape::TieShapeOp>();
+    if (!tieShapeOp) return failure();
+    rewriter.replaceOpWithNewOp<tensor::ExtractOp>(
+        op, tieShapeOp->getOperand(0), op.indices());
+    return success();
+  }
+};
+
 // Adds shape optimization related patterns.
 void populateShapeOptimizationPatterns(MLIRContext* context,
                                        RewritePatternSet* patterns) {
   // clang-format off
   patterns->insert<
-      DimOfTieShapeOpCanonicalizationPattern
+      DimOfTieShapeOpCanonicalizationPattern,
+      ExtractElementOfTieShapeOpCanonicalizationPattern
   >(patterns->getContext());
   // clang-format on
 }
@@ -506,6 +527,7 @@ LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
   } else if (auto dimOp = dyn_cast<tensor::DimOp>(op)) {
     Optional<int64_t> dimIndex = dimOp.getConstantIndex();
     if (!dimIndex) return success();
+    // TODO: set isKnownNonNegative
     if (failed(mgr_.mapSymbolicDimEqual(
             value2SymDim_[op->getResult(0)],
             rankedTensor2SymDims_[dimOp.source()][*dimIndex])))
@@ -514,6 +536,19 @@ LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
     int64_t val = op->getAttrOfType<IntegerAttr>("value").getInt();
     if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[op->getResult(0)],
                                         mgr_.newConstantSymbolicDim(val))))
+      return op->emitError() << "fail to merge dim\n";
+  } else if (auto extractOp = dyn_cast<tensor::ExtractOp>(op)) {
+    if (!isCandidateShapeTensorType(extractOp.tensor().getType()))
+      return success();
+    auto indexOp = dyn_cast_or_null<arith::ConstantIndexOp>(
+        op->getOperand(1).getDefiningOp());
+    if (!indexOp) return success();
+    int64_t index = indexOp.getValue().cast<IntegerAttr>().getInt();
+    auto& shapeTensorDims = shapeTensor2SymDims_[extractOp.tensor()];
+    if (index >= shapeTensorDims.size())
+      return op->emitError() << "miss match shape tensor size\n";
+    if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[op->getResult(0)],
+                                        shapeTensorDims[index])))
       return op->emitError() << "fail to merge dim\n";
   }
 
@@ -532,6 +567,39 @@ LogicalResult ShapeComputationIRAnalysis::applyShapeTensorOpConstraint(
       if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[std::get<0>(z)],
                                           std::get<1>(z))))
         return op->emitError() << "fail to merge dim\n";
+    }
+  } else if (isa<shape::BroadcastOp>(op)) {
+    // TODO(disc): support more than two operands
+    if (op->getNumOperands() != 2) return success();
+    auto& lhsDims = shapeTensor2SymDims_[op->getOperand(0)];
+    auto& rhsDims = shapeTensor2SymDims_[op->getOperand(1)];
+    auto& outDims = shapeTensor2SymDims_[op->getResult(0)];
+
+    SymbolicDim* sizeOneDim = mgr_.newConstantSymbolicDim(1);
+    int lhsRank = static_cast<int>(lhsDims.size());
+    int rhsRank = static_cast<int>(rhsDims.size());
+    int outRank = static_cast<int>(outDims.size());
+    for (int d = outRank - 1; d >= 0; --d) {
+      int reverseD = outRank - 1 - d;
+      SymbolicDim* lhsSymbol =
+          ((reverseD < lhsRank) ? lhsDims[lhsRank - 1 - reverseD] : sizeOneDim);
+      SymbolicDim* rhsSymbol =
+          ((reverseD < rhsRank) ? rhsDims[rhsRank - 1 - reverseD] : sizeOneDim);
+      SymbolicDim* outSymbol = outDims[d];
+
+      auto getRoot = [&](SymbolicDim* sym) {
+        return mgr_.getRootSymbolicDim(sym);
+      };
+
+      if (getRoot(lhsSymbol) == getRoot(rhsSymbol))
+        if (failed(mgr_.mapSymbolicDimEqual(lhsSymbol, outSymbol)))
+          return op->emitError() << "fail to merge dim\n";
+      if (getRoot(lhsSymbol) == getRoot(sizeOneDim))
+        if (failed(mgr_.mapSymbolicDimEqual(rhsSymbol, outSymbol)))
+          return op->emitError() << "fail to merge dim\n";
+      if (getRoot(rhsSymbol) == getRoot(sizeOneDim))
+        if (failed(mgr_.mapSymbolicDimEqual(lhsSymbol, outSymbol)))
+          return op->emitError() << "fail to merge dim\n";
     }
   }
 
@@ -563,6 +631,16 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloOpConstraint(Operation* op) {
       if (failed(mapRankedValueShapeEqual(operand, ref)))
         return op->emitError()
                << "fail to merge symbolic dim between operands of element op\n";
+  } else if (isa<mhlo::DynamicBroadcastInDimOp>(op)) {
+    auto& shapeTensorDims = shapeTensor2SymDims_[op->getOperand(1)];
+    auto& outDims = rankedTensor2SymDims_[op->getResult(0)];
+
+    if (shapeTensorDims.size() != outDims.size())
+      return op->emitError() << "mismatch out rank and shape tensor size\n";
+    for (const auto& z : llvm::zip(shapeTensorDims, outDims)) {
+      if (failed(mgr_.mapSymbolicDimEqual(std::get<0>(z), std::get<1>(z))))
+        return op->emitError() << "fail to merge dim\n";
+    }
   }
 
   // TODO: add support for dot/dot_general/...
@@ -638,7 +716,7 @@ Type ShapeComputationIRAnalysis::getRefinedType(Value value) {
 
   SmallVector<int64_t> newShape;
   for (SymbolicDim* sym : rankedTensor2SymDims_[value])
-    newShape.push_back(sym->getDimSize());
+    newShape.push_back(mgr_.getRootSymbolicDim(sym)->getDimSize());
 
   return RankedTensorType::get(newShape, ty.getElementType(), ty.getEncoding());
 }

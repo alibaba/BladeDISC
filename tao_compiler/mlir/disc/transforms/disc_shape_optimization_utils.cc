@@ -76,7 +76,7 @@ SymbolicDim* SymbolicDimMgr::newConstantSymbolicDim(int64_t val) {
              .first;
     it->second->setDimSize(val);
   }
-  return it->second;
+  return getRootSymbolicDim(it->second);
 }
 
 SymbolicDim* SymbolicDimMgr::getRootSymbolicDim(SymbolicDim* symbol) {

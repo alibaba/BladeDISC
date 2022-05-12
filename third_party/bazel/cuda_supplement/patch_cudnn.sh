@@ -25,3 +25,4 @@ cudnn_lib="${cuda_home}/lib64/libcudnn_static.a"
 patched_cudnn_lib="${out_dir}/libcudnn_static_patched.a"
 
 #objcopy --weaken-symbols $(dirname $0)/zlib_symbols.txt ${cudnn_lib} ${patched_cudnn_lib}
+

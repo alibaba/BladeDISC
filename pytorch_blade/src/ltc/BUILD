@@ -19,7 +19,7 @@ pybind_library (
   hdrs = ["init_python_bindings.h"],
   deps = [
     ":torch_disc_backend",
-  ]
+  ],
   alwayslink = 1
 )
 

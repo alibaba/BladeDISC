@@ -106,6 +106,7 @@ pybind_library(
     ] + if_tensorrt_enabled([
         "@tensorrt//:nvinfer_headers",
     ]),
+    alwayslink = 1,
 )
 
 pybind_extension(

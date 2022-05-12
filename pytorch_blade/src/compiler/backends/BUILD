@@ -16,5 +16,6 @@ cc_library(
         "//src/common_utils:torch_blade_common",
         "//src/compiler/jit:torch_blade_jit",
     ],
+    alwayslink = 1,
 )
 

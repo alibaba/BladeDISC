@@ -20,6 +20,7 @@ pybind_library (
   deps = [
     ":torch_disc_backend",
   ]
+  alwayslink = 1
 )
 
 pybind_extension(

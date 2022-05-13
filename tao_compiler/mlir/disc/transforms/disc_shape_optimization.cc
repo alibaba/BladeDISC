@@ -147,8 +147,8 @@ LogicalResult insertTieShapeOnRegion(Region* region) {
 //   %shape = shape.shape_of %0 : tensor<?x?xf32> -> tensor<2xindex>
 // to:
 //   %d0 = tensor.dim %0, %c0 : tensor<?x?xf32>
-//   %d1 = tensor.dim %0, %c0 : tensor<?x?xf32>
-//   %shape = tensor.from_elements %d0, %1 : tensor<2xindex>
+//   %d1 = tensor.dim %0, %c1 : tensor<?x?xf32>
+//   %shape = tensor.from_elements %d0, %d1 : tensor<2xindex>
 struct ExpandShapeOfOpPattern : public OpRewritePattern<shape::ShapeOfOp> {
   using OpRewritePattern<shape::ShapeOfOp>::OpRewritePattern;
 

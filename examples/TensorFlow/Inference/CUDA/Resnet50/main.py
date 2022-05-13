@@ -1,4 +1,4 @@
-# Copyright 2022 The BladeDISC Authors. All rights reserved.
+# Copyright 2021 The BladeDISC Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -9,19 +9,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os, sys
+import os
 import time
 import numpy as np
 import tensorflow.compat.v1 as tf
-from tensorflow.compat.v1.saved_model import tag_constants
-# from tensorflow.python.framework import convert_to_constants
+import click, sys
 tf.disable_v2_behavior()
-import click
+
+#import blade_disc_tf as disc
 
 
-
-
-def load_frozen_graph(model_file: str):
+def load_frozen_graph(model_file : str):
     graph_def = tf.GraphDef()
     with open(model_file, 'rb') as f:
         graph_def.ParseFromString(f.read())
@@ -30,11 +28,13 @@ def load_frozen_graph(model_file: str):
         tf.import_graph_def(graph_def, name='')
     return graph
 
+
+
 @click.command()
 @click.option("--disc", is_flag=True)
 @click.option("--fp16", is_flag=True)
 @click.option("--xla", is_flag=True)
-@click.option("--batch", type=int, default=100)
+@click.option("--batch", type=int, default=32)
 def run_bert(disc, fp16, batch, xla):
     if disc:
         sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../../common"))
@@ -42,41 +42,46 @@ def run_bert(disc, fp16, batch, xla):
     session_config = tf.ConfigProto()
     session_config.allow_soft_placement = True
     session_config.gpu_options.allow_growth = True
-
     if fp16:
         session_config.graph_options.rewrite_options.auto_mixed_precision = 1
     if xla:
         session_config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_1
+    pbfile = './tf_resnet50_v1.5/frozen.pb'
+    graph = load_frozen_graph(pbfile)
+    sess = tf.Session(graph = graph, config = session_config)
 
-    model_dir = "saved_model"
-    sess = tf.Session(graph=tf.Graph(), config=session_config)
-    tf.saved_model.loader.load(sess, [tag_constants.SERVING], model_dir)
+    gf = tf.GraphDef()
+    gf.ParseFromString(open(pbfile, 'rb').read())
+    for n in gf.node:
+        if n.name == "input_tensor":
+            print(n.name, n.op, n)
 
-    fetch = [
-        "StatefulPartitionedCall:0", "StatefulPartitionedCall:1",
-        "StatefulPartitionedCall:2", "StatefulPartitionedCall:3",
-        "StatefulPartitionedCall:4"
-    ]
-    feed_dict = {
-        'serving_default_input_1:0': np.ones((30, 10), dtype=int),
-        'serving_default_input_2:0': np.zeros((1), dtype=int),
-        'serving_default_input_3:0': np.ones((1), dtype=float),
-        'serving_default_input_4:0': np.ones((1), dtype=float),
-        'serving_default_input_5:0': np.ones((1), dtype=float),
-    }
+    # Warmup.
+    print("Warming up...")
+    datafile = "tf_resnet50_v1.5/test_bc32.npy"
+    data = np.load(datafile, allow_pickle=True, encoding="bytes").item()
 
+    fetch = ["softmax_tensor:0"]
+    feed_dict = data
+#    print(data.values())
+            
+    for i in range(5):
+        outs = sess.run(fetch, feed_dict = feed_dict)
 
-    # warmup.
-    for i in range(20):
-        outs = sess.run(fetch, feed_dict=feed_dict)
+    # Measure performance.
+    print("Run {} inferences with dynamic batch sizes.".format(batch))
+    #384
+    all_times = []
+    targets = [2, 2, 4, 1, 1, 8, 8, 2, 16, 2]
+    targets = [32] * batch
+    for _ in targets:
+        s = time.time()
+        outs = sess.run(fetch, feed_dict = feed_dict)
+        e = time.time()
+        #print(f'inference batch-size {batch}: {e - s} s.')
+        all_times.append(e - s)
+    print(f'total: {np.sum(all_times)} s.')
 
-    # evaluate.
-    iters = batch
-    tic = time.time()
-    for i in range(iters):
-        outs = sess.run(fetch, feed_dict=feed_dict)
-    avg_time = (time.time() - tic) / iters
-    print("average time in {} iterations: {} seconds".format(iters, avg_time))
 
 if __name__ == '__main__':
     # `optimize_config` can be 'xla', 'disc' or None.

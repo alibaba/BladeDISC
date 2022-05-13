@@ -115,7 +115,7 @@ class AttributePropagator {
   }
 
   std::shared_ptr<Graph> getGraphFromFunction(Function* function) {
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 11
     return toGraphFunction(*function).graph();
 #else
     return function->graph();
@@ -394,7 +394,7 @@ class AttributePropagator {
             function.name(),
             "' to ",
             *user_node);
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 11
         if (auto graphFunction = tryToGraphFunction(function)) {
           GRAPH_UPDATE("Function body: ", graphFunction->optimized_graph());
           inlineCallTo(user_node, graphFunction);

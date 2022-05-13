@@ -37,72 +37,68 @@ namespace disc_ral {
 
 using ::mlir::func::FuncOp;
 
-int64_t getNextSymbolicDimUniqueId() {
-  static int64_t id = 0;
-  return id++;
-}
-
-int64_t SymbolicDim::uniqueId() const { return uniqueId_; }
-
-// Merge two SymbolicDim if they are compatible.
-LogicalResult SymbolicDim::Merge(SymbolicDim* other) {
-  if (!isDynamic() && !other->isDynamic() &&
-      getDimSize() != other->getDimSize())
-    return failure();
-  if (isDynamic()) dimSize_ = other->getDimSize();
-  return success();
-}
-
-SymbolicDimMgr::SymbolicDimMgr(ModuleOp m) {
+SymbolicDimMgr::SymbolicDimMgr(ModuleOp m) : m_(m) {
   // TODO
 }
 
 LogicalResult SymbolicDimMgr::load() {
-  // TODO
+  m_.walk([&](disc_shape::SymbolicDimOp op) {
+    symbolDimUnionSet_[op] = op;
+    symbolNameSet_.insert(op.getName().str());
+  });
   return success();
 }
 
-SymbolicDim* SymbolicDimMgr::newSymbolicDim() {
-  symbolicDimStorage_.emplace_back(new SymbolicDim);
-  SymbolicDim* symbol = symbolicDimStorage_.back().get();
+std::string SymbolicDimMgr::getNextName() {
+  std::string name;
+  do {
+    name = (llvm::Twine("S") + llvm::Twine(nextSymbolicOpIdx_++)).str();
+  } while (!symbolNameSet_.insert(name).second);
+  return name;
+}
+
+SymbolicDimOp SymbolicDimMgr::newSymbolicDim() {
+  OpBuilder b(m_);
+  auto symbol = b.create<SymbolicDimOp>(m_.getLoc(), getNextName());
   symbolDimUnionSet_[symbol] = symbol;
+  m_.push_back(symbol);
   return symbol;
 }
 
-SymbolicDim* SymbolicDimMgr::newConstantSymbolicDim(int64_t val) {
+SymbolicDimOp SymbolicDimMgr::newConstantSymbolicDim(int64_t val) {
   auto it = constantSymbolicDimMap_.find(val);
   if (it == constantSymbolicDimMap_.end()) {
     it = constantSymbolicDimMap_.insert(std::make_pair(val, newSymbolicDim()))
              .first;
-    it->second->setDimSize(val);
+    it->second.setDimSize(val);
   }
   return getRootSymbolicDim(it->second);
 }
 
-SymbolicDim* SymbolicDimMgr::getRootSymbolicDim(SymbolicDim* symbol) {
-  SymbolicDim* current = symbol;
+SymbolicDimOp SymbolicDimMgr::getRootSymbolicDim(SymbolicDimOp symbol) {
+  SymbolicDimOp current = symbol;
   while (symbolDimUnionSet_[current] != current)
     current = symbolDimUnionSet_[current];
   return current;
 }
 
-bool SymbolicDimMgr::isSymbolicDimEqual(SymbolicDim* lhs, SymbolicDim* rhs) {
-  SymbolicDim* lhsRoot = getRootSymbolicDim(lhs);
-  SymbolicDim* rhsRoot = getRootSymbolicDim(rhs);
+bool SymbolicDimMgr::isSymbolicDimEqual(SymbolicDimOp lhs, SymbolicDimOp rhs) {
+  SymbolicDimOp lhsRoot = getRootSymbolicDim(lhs);
+  SymbolicDimOp rhsRoot = getRootSymbolicDim(rhs);
   return lhsRoot == rhsRoot;
 }
 
-LogicalResult SymbolicDimMgr::mapSymbolicDimEqual(SymbolicDim* lhs,
-                                                  SymbolicDim* rhs) {
-  SymbolicDim* lhsRoot = getRootSymbolicDim(lhs);
-  SymbolicDim* rhsRoot = getRootSymbolicDim(rhs);
+LogicalResult SymbolicDimMgr::mapSymbolicDimEqual(SymbolicDimOp lhs,
+                                                  SymbolicDimOp rhs) {
+  SymbolicDimOp lhsRoot = getRootSymbolicDim(lhs);
+  SymbolicDimOp rhsRoot = getRootSymbolicDim(rhs);
 
   if (lhsRoot != rhsRoot) {
-    if (lhsRoot->uniqueId() < rhsRoot->uniqueId()) {
-      if (failed(lhsRoot->Merge(rhsRoot))) return failure();
+    if (lhsRoot.getName() < rhsRoot.getName()) {
+      if (failed(lhsRoot.Merge(rhsRoot))) return failure();
       symbolDimUnionSet_[rhsRoot] = lhsRoot;
     } else {
-      if (failed(rhsRoot->Merge(lhsRoot))) return failure();
+      if (failed(rhsRoot.Merge(lhsRoot))) return failure();
       symbolDimUnionSet_[lhsRoot] = rhsRoot;
     }
   }
@@ -114,15 +110,27 @@ LogicalResult SymbolicDimMgr::save() {
   return success();
 }
 
-SmallVector<SymbolicDim*> SymbolicDimMgr::getOrCreateSymbolicDimsForRankedValue(
-    Value value) {
+SmallVector<SymbolicDimOp>
+SymbolicDimMgr::getOrCreateSymbolicDimsForRankedValue(Value value) {
   // TODO: load existing symbols from the attribute attached on the tensor type
-  SmallVector<SymbolicDim*> symbols;
+  SmallVector<SymbolicDimOp> symbols;
   auto ty = value.getType().cast<RankedTensorType>();
-  for (int64_t dim : ty.getShape()) {
-    symbols.push_back(dim == ShapedType::kDynamicSize
-                          ? newSymbolicDim()
-                          : newConstantSymbolicDim(dim));
+  if (auto attrs = value.getType()
+                       .cast<RankedTensorType>()
+                       .getEncoding()
+                       .dyn_cast_or_null<ArrayAttr>()) {
+    for (Attribute attr : attrs) {
+      auto sym = m_.lookupSymbol<SymbolicDimOp>(attr.cast<FlatSymbolRefAttr>());
+      assert(sym);
+      symbols.push_back(sym);
+    }
+    assert(ty.getRank() == symbols.size());
+  } else {
+    for (int64_t dim : ty.getShape()) {
+      symbols.push_back(dim == ShapedType::kDynamicSize
+                            ? newSymbolicDim()
+                            : newConstantSymbolicDim(dim));
+    }
   }
 
   return symbols;

@@ -482,6 +482,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addPass(createStripDebugInfoPass());
+  // remove disc_shape.SymbolicDim ops and related ops.
+  pm.addPass(disc_ral::createStripShapeConstraintOpsPass());
 
   // Host side codegen: std -> binary
   pm.addPass(disc_ral::createDiscToLLVMPass());

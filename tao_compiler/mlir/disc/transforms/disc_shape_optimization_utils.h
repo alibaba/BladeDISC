@@ -10,10 +10,10 @@
 // limitations under the License.
 
 #include <memory>
+#include <unordered_set>
 
-#include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/SmallVector.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 
 #ifndef TENSORFLOW_COMPILER_MLIR_DISC_TRANSFORMS_DISC_SHAPE_OPTIMIZATION_UTILS_H_
 #define TENSORFLOW_COMPILER_MLIR_DISC_TRANSFORMS_DISC_SHAPE_OPTIMIZATION_UTILS_H_
@@ -21,26 +21,7 @@
 namespace mlir {
 namespace disc_ral {
 
-// Returns a unique id for each call.
-int64_t getNextSymbolicDimUniqueId();
-
-// Represents a symbolic dimension.
-class SymbolicDim {
- public:
-  int64_t uniqueId() const;
-
-  int64_t getDimSize() const { return dimSize_; }
-
-  void setDimSize(int64_t val) { dimSize_ = val; }
-
-  bool isDynamic() const { return getDimSize() == ShapedType::kDynamicSize; }
-
-  LogicalResult Merge(SymbolicDim* other);
-
- private:
-  int64_t uniqueId_ = getNextSymbolicDimUniqueId();
-  int64_t dimSize_ = ShapedType::kDynamicSize;
-};
+using disc_shape::SymbolicDimOp;
 
 // Return the symbolicDim ref attribute if there is an attached disc
 // shape-constraint specific attribute filed. Return nullptr if there isn't an
@@ -52,43 +33,64 @@ class SymbolicDimMgr {
  public:
   explicit SymbolicDimMgr(ModuleOp m);
 
+  // Loads pre-defined SymbolicDim ops from the module this mgr runs on.
   LogicalResult load();
 
-  SymbolicDim* newSymbolicDim();
+  // Returns a new symbolicDim instance. The returned symbolicDim is owned by
+  // this mgr.
+  SymbolicDimOp newSymbolicDim();
 
   // Returns a symbolicDim which have static dim size == `val`.
-  SymbolicDim* newConstantSymbolicDim(int64_t val);
+  SymbolicDimOp newConstantSymbolicDim(int64_t val);
 
-  SmallVector<SymbolicDim*> getOrCreateSymbolicDimsForRankedValue(Value value);
+  SmallVector<SymbolicDimOp> getOrCreateSymbolicDimsForRankedValue(Value value);
 
   // All symbolic-equal dims form a group.
   // Returns the root SymbolicDim of the symbolic-equal symbolic dim group that
   // this SymbolicDim belongs to.
-  SymbolicDim* getRootSymbolicDim(SymbolicDim* symbol);
+  SymbolicDimOp getRootSymbolicDim(SymbolicDimOp symbol);
 
   // Returns true if lhs and rhs are known to be equal.
-  bool isSymbolicDimEqual(SymbolicDim* lhs, SymbolicDim* rhs);
+  bool isSymbolicDimEqual(SymbolicDimOp lhs, SymbolicDimOp rhs);
 
   // Marks lhs and rhs have same size and try to merge lhs & rhs static known
   // info. Returns failure if failed to merge lhs & rhs.
-  LogicalResult mapSymbolicDimEqual(SymbolicDim* lhs, SymbolicDim* rhs);
+  LogicalResult mapSymbolicDimEqual(SymbolicDimOp lhs, SymbolicDimOp rhs);
 
-  //   SymbolicDim* getSymbolicDimUsingRef(const FlatSymbolRefAttr& ref);
+  //   SymbolicDimOp getSymbolicDimUsingRef(const FlatSymbolRefAttr& ref);
 
   LogicalResult save();
 
  private:
-  //   DenseMap<std::string, SymbolicDim*> symbolRef2symbolicDim_;
-  SmallVector<std::unique_ptr<SymbolicDim>, 4> symbolicDimStorage_;
+  // Returns next unique name for a new SymbolicDim op.
+  std::string getNextName();
+
+ private:
+  // The module this SymbolicDimMgr runs on.
+  ModuleOp m_;
+
+  // A unique id to generate unique name.
+  int64_t nextSymbolicOpIdx_ = 0;
+
+  // Set of name of SymbolicDim.
+  // It stores all the seen names and is used to give a unique name
+  // to new created symbolic dim ops.
+  std::unordered_set<std::string> symbolNameSet_;
 
   // map a symbolic dim -> its root SymbolicDim
   // Here root symbolic dim means the representative member in the
   // symbolic-equal symbolic dim set that this symbolic dim belongs to.
-  DenseMap<SymbolicDim*, SymbolicDim*> symbolDimUnionSet_;
+  DenseMap<SymbolicDimOp, SymbolicDimOp> symbolDimUnionSet_;
 
   // map a concret constant value to a symbolic dim instance that represents the
   // constant.
-  DenseMap<int64_t, SymbolicDim*> constantSymbolicDimMap_;
+  DenseMap<int64_t, SymbolicDimOp> constantSymbolicDimMap_;
+
+  // Map pre-defined the name of SymbolicDimOp to its corresponding SymbolicDim
+  // instance.
+  // DenseMap<std::string, SymbolicDimOp> symbolRef2symbolicDim_;
+
+  // DenseMap<disc_shape::SymbolicDimOp, SymbolicDimOp> symbolRef2symbolicDim_;
 };
 
 }  // namespace disc_ral

@@ -1597,6 +1597,28 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_strip_shape_constraint_ops",
+    srcs = [
+        "transforms/disc_strip_shape_constraint_ops.cc"
+    ],
+    deps = [
+        ":disc_shape_optimization_utils",
+        ":disc_util",
+        ":pass_details",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Shape",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "all_passes",
     hdrs = [
         "transforms/register_passes.h",
@@ -1637,6 +1659,7 @@ cc_library(
         ":disc_specialize_fusion_with_speculation",
         ":disc_std_bufferize",
         ":disc_stitch_fusion",
+        ":disc_strip_shape_constraint_ops",
         ":disc_tensor_to_std",
         ":disc_to_llvm",
         ":disc_transpose_simplifier",

@@ -416,8 +416,15 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   }
   // CodeGen passes: lhlo -> gpu.launch_func
   // TODO: move to aicompiler repo and add more schedules/op coverage
-  pm.addNestedPass<FuncOp>(
-      disc_ral::createDiscLhloLegalizeRootsToParallelLoopsPass());
+  if (gpu_enabled) {
+    auto& gpu_options = options.gpu_info;
+    pm.addNestedPass<FuncOp>(
+        disc_ral::createDiscLhloLegalizeRootsToParallelLoopsPass(
+            gpu_options.sm_count, gpu_options.max_threads_per_sm));
+  } else {
+    pm.addNestedPass<FuncOp>(
+        disc_ral::createDiscLhloLegalizeRootsToParallelLoopsPass());
+  }
   // Converts `atomic_rmw` to `generic_atomic_rmw` when necessary to use CAS.
   pm.addNestedPass<FuncOp>(memref::createExpandOpsPass());
   // Converts `atomic_rmw` to `generic_atomic_rmw` that is unhandled in

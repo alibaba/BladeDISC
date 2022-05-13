@@ -726,6 +726,7 @@ Type ShapeComputationIRAnalysis::getRefinedType(Value value) {
 
   if (noDynamicDim) {
     // static shape ranked tensor type: no needs to add symbolic dim ref attrs.
+    value.setType(RankedTensorType::get(ty.getShape(), ty.getElementType()));
     return RankedTensorType::get(newShape, ty.getElementType());
   } else {
     auto symbolicShapeAttr = ArrayAttr::get(value.getContext(), refAttrs);

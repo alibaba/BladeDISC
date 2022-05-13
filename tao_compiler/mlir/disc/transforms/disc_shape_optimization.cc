@@ -368,7 +368,7 @@ class ShapeComputationIRAnalysis {
   // Each dim size value (as one shape operand of one disc_shape.tie_shape) is
   // mapped to one SymbolicDim after the analysis. This function group all such
   // dim size values by the SymbolicDim, and return the results.
-  DenseMap<SymbolicDim*, SmallVector<Value>> getSymbolicDimSSAValueInstance();
+  DenseMap<SymbolicDimOp, SmallVector<Value>> getSymbolicDimSSAValueInstance();
 
   Type getRefinedType(Value value);
 
@@ -393,15 +393,15 @@ class ShapeComputationIRAnalysis {
   SymbolicDimMgr& mgr_;
 
   // Map scalar int/index SSA value to a symbolicDim
-  DenseMap<Value, SymbolicDim*> value2SymDim_;
+  DenseMap<Value, SymbolicDimOp> value2SymDim_;
 
   // Map a shape tensor value (1D ranked int/index tensor) to an array of
   // symbolicDims, each for one component of the shape tensor.
-  DenseMap<Value, SmallVector<SymbolicDim*>> shapeTensor2SymDims_;
+  DenseMap<Value, SmallVector<SymbolicDimOp>> shapeTensor2SymDims_;
 
   // Map a ranked tensor value to an array of symbolicDims, each represents one
   // dimension size of the tensor.
-  DenseMap<Value, SmallVector<SymbolicDim*>> rankedTensor2SymDims_;
+  DenseMap<Value, SmallVector<SymbolicDimOp>> rankedTensor2SymDims_;
 };
 
 ShapeComputationIRAnalysis::ShapeComputationIRAnalysis(FuncOp func,
@@ -475,15 +475,15 @@ LogicalResult ShapeComputationIRAnalysis::buildSymbolicShapeForResultsOfOp(
 LogicalResult ShapeComputationIRAnalysis::buildSymbolicShape(Value value) {
   Type ty = value.getType();
   if (ty.isIntOrIndex()) {
-    SymbolicDim* sym = mgr_.newSymbolicDim();
+    SymbolicDimOp sym = mgr_.newSymbolicDim();
     value2SymDim_[value] = sym;
   } else if (auto tensorTy = ty.dyn_cast<RankedTensorType>()) {
-    SmallVector<SymbolicDim*> symbols =
+    SmallVector<SymbolicDimOp> symbols =
         mgr_.getOrCreateSymbolicDimsForRankedValue(value);
     rankedTensor2SymDims_[value] = std::move(symbols);
     // Try to check if it's a candidate shape tensor.
     if (isCandidateShapeTensorType(ty)) {
-      SmallVector<SymbolicDim*> symbols;
+      SmallVector<SymbolicDimOp> symbols;
       for (int i = 0, d = tensorTy.getShape()[0]; i < d; ++i)
         symbols.push_back(mgr_.newSymbolicDim());
       shapeTensor2SymDims_[value] = symbols;
@@ -575,19 +575,19 @@ LogicalResult ShapeComputationIRAnalysis::applyShapeTensorOpConstraint(
     auto& rhsDims = shapeTensor2SymDims_[op->getOperand(1)];
     auto& outDims = shapeTensor2SymDims_[op->getResult(0)];
 
-    SymbolicDim* sizeOneDim = mgr_.newConstantSymbolicDim(1);
+    SymbolicDimOp sizeOneDim = mgr_.newConstantSymbolicDim(1);
     int lhsRank = static_cast<int>(lhsDims.size());
     int rhsRank = static_cast<int>(rhsDims.size());
     int outRank = static_cast<int>(outDims.size());
     for (int d = outRank - 1; d >= 0; --d) {
       int reverseD = outRank - 1 - d;
-      SymbolicDim* lhsSymbol =
+      SymbolicDimOp lhsSymbol =
           ((reverseD < lhsRank) ? lhsDims[lhsRank - 1 - reverseD] : sizeOneDim);
-      SymbolicDim* rhsSymbol =
+      SymbolicDimOp rhsSymbol =
           ((reverseD < rhsRank) ? rhsDims[rhsRank - 1 - reverseD] : sizeOneDim);
-      SymbolicDim* outSymbol = outDims[d];
+      SymbolicDimOp outSymbol = outDims[d];
 
-      auto getRoot = [&](SymbolicDim* sym) {
+      auto getRoot = [&](SymbolicDimOp sym) {
         return mgr_.getRootSymbolicDim(sym);
       };
 
@@ -696,14 +696,14 @@ LogicalResult ShapeComputationIRAnalysis::applyOpConstraint(Operation* op) {
   return success();
 }
 
-DenseMap<SymbolicDim*, SmallVector<Value>>
+DenseMap<SymbolicDimOp, SmallVector<Value>>
 ShapeComputationIRAnalysis::getSymbolicDimSSAValueInstance() {
-  DenseMap<SymbolicDim*, SmallVector<Value>> instanceMap;
+  DenseMap<SymbolicDimOp, SmallVector<Value>> instanceMap;
   funcOp_.walk([&](disc_shape::TieShapeOp tieShapeOp) {
     Value rankedValue = tieShapeOp->getOperand(0);
     auto& symbolicDims = rankedTensor2SymDims_[rankedValue];
     for (auto& en : llvm::enumerate(tieShapeOp->getOperands().drop_front())) {
-      SymbolicDim* root = mgr_.getRootSymbolicDim(symbolicDims[en.index()]);
+      SymbolicDimOp root = mgr_.getRootSymbolicDim(symbolicDims[en.index()]);
       instanceMap[root].push_back(en.value());
     }
   });
@@ -715,14 +715,29 @@ Type ShapeComputationIRAnalysis::getRefinedType(Value value) {
   if (!ty) return value.getType();
 
   SmallVector<int64_t> newShape;
-  for (SymbolicDim* sym : rankedTensor2SymDims_[value])
-    newShape.push_back(mgr_.getRootSymbolicDim(sym)->getDimSize());
+  SmallVector<Attribute> refAttrs;
+  bool noDynamicDim = true;
+  for (SymbolicDimOp sym : rankedTensor2SymDims_[value]) {
+    auto root = mgr_.getRootSymbolicDim(sym);
+    newShape.push_back(root.getDimSize());
+    if (newShape.back() == ShapedType::kDynamicSize) noDynamicDim = false;
+    refAttrs.push_back(SymbolRefAttr::get(value.getContext(), root.getName()));
+  }
 
-  return RankedTensorType::get(newShape, ty.getElementType(), ty.getEncoding());
+  if (noDynamicDim) {
+    // static shape ranked tensor type: no needs to add symbolic dim ref attrs.
+    return RankedTensorType::get(newShape, ty.getElementType());
+  } else {
+    auto symbolicShapeAttr = ArrayAttr::get(value.getContext(), refAttrs);
+    value.setType(RankedTensorType::get(ty.getShape(), ty.getElementType(),
+                                        symbolicShapeAttr));
+    return RankedTensorType::get(newShape, ty.getElementType(),
+                                 symbolicShapeAttr);
+  }
 }
 
 DenseMap<Value, Value> buildSymbolDimInstancesDominantMap(
-    DenseMap<SymbolicDim*, SmallVector<Value>>& instanceMap,
+    DenseMap<SymbolicDimOp, SmallVector<Value>>& instanceMap,
     DominanceInfo& dominanceInfo) {
   DenseMap<Value, Value> dominantMap;
   for (auto& it : instanceMap) {
@@ -793,28 +808,35 @@ LogicalResult refineTensorType(ShapeComputationIRAnalysis& analysis,
     for (Value operand : op->getOperands()) updateIfNotSame(operand);
 
     for (Value result : op->getResults()) updateIfNotSame(result);
+
+    // if (auto constOp = dyn_cast<mhlo::ConstOp>(op)) {
+    //   auto attr = constOp.value().cast<DenseElementsAttr>();
+    //   auto newAttr = DenseElementsAttr::get(op->getResult(0).getType(),
+    //   attr.getRawData()); op->setAttr("value", newAttr);
+    // }
   });
 
   // apply refined function type
   // 1, collect input types
   SmallVector<Type, 4> refinedInputTypes;
-  for (Value arg : func.getArguments())
+  for (Value arg : func.getArguments()) {
     refinedInputTypes.push_back(analysis.getRefinedType(arg));
+    if (arg.getType() != refinedInputTypes.back()) changed = true;
+  }
 
   // 2, collect output types
   SmallVector<Type, 4> refinedOutputTypes;
   assert(func.getBody().getBlocks().size() == 1);
   Operation& op = func.getBody().front().getOperations().back();
-  for (Value operand : op.getOperands())
+  for (Value operand : op.getOperands()) {
     refinedOutputTypes.push_back(analysis.getRefinedType(operand));
+    if (operand.getType() != refinedOutputTypes.back()) changed = true;
+  }
 
   // 3, refine function type to new type
   auto newFuncTy = FunctionType::get(func.getContext(), refinedInputTypes,
                                      refinedOutputTypes);
-  if (func.getFunctionType() != newFuncTy) {
-    func.setType(newFuncTy);
-    changed = true;
-  }
+  func.setType(newFuncTy);
   return success();
 }
 

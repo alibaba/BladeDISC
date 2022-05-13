@@ -19,6 +19,7 @@ limitations under the License.
 #define DISC_SHAPE_OPS
 
 include "mlir/IR/OpBase.td"
+include "mlir/IR/SymbolInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 
 def DISCShape_Dialect : Dialect {
@@ -69,6 +70,32 @@ def DISCShape_TieShapeOp: DISCShape_Op<"tie_shape", [NoSideEffect]> {
     Arg<Variadic<Index>, "">:$shapeDimIndexes
   );
   let results = (outs TensorOf<[AnyType]>);
+
+  let hasCanonicalizer = 1;
+}
+
+def DISCShape_SymbolicDimOp:
+      DISCShape_Op<"SymbolicDim", [IsolatedFromAbove, Symbol]> {
+  let summary = "representing a symbolic dimension size";
+  let description = [{
+    Representing a symbolic dimension size.
+  }];
+  let arguments = (ins
+    SymbolNameAttr:$sym_name
+    // DefaultValuedAttr<I64Attr, "-1">:$value,
+    // DefaultValuedAttr<BoolAttr, "false">:$knownNotNegative,
+    // DefaultValuedAttr<BoolAttr, "false">:$knownSizeOne,
+    // DefaultValuedAttr<BoolAttr, "false">:$knownNotSizeOne,
+    // DefaultValuedAttr<BoolAttr, "false">:$knownSizeNegativeOne
+    // TODO(disc): add likely values
+  );
+  let extraClassDeclaration = [{
+    int64_t getDimSize();
+    void setDimSize(int64_t val);
+    bool isDynamic();
+
+    LogicalResult Merge(SymbolicDimOp other);
+  }];
 
   let hasCanonicalizer = 1;
 }

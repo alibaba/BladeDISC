@@ -296,6 +296,37 @@ void TieShapeOp::getCanonicalizationPatterns(RewritePatternSet& results,
 
 LogicalResult TieShapeOp::verify() { return Verify(*this); }
 
+//===----------------------------------------------------------------------===//
+// SymbolicDimOp
+//===----------------------------------------------------------------------===//
+
+void SymbolicDimOp::getCanonicalizationPatterns(RewritePatternSet& results,
+                                                MLIRContext* context) {}
+
+LogicalResult SymbolicDimOp::verify() { return Verify(*this); }
+
+int64_t SymbolicDimOp::getDimSize() {
+  if (auto attr = (*this)->getAttrOfType<IntegerAttr>("value"))
+    return attr.getInt();
+  return ShapedType::kDynamicSize;
+}
+
+void SymbolicDimOp::setDimSize(int64_t val) {
+  OpBuilder b(*this);
+  (*this)->setAttr("value", b.getI64IntegerAttr(val));
+}
+
+bool SymbolicDimOp::isDynamic() {
+  return getDimSize() == ShapedType::kDynamicSize;
+}
+
+LogicalResult SymbolicDimOp::Merge(SymbolicDimOp other) {
+  if (!isDynamic() && !other.isDynamic() && getDimSize() != other.getDimSize())
+    return failure();
+  if (isDynamic()) setDimSize(other.getDimSize());
+  return success();
+}
+
 }  // namespace disc_shape
 }  // namespace mlir
 

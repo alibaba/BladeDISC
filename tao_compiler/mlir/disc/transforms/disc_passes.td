@@ -394,3 +394,11 @@ def DiscShapeOptimizationPass : Pass<"disc-shape-optimization", "ModuleOp"> {
            /*default=*/"false", "whether to keep tie shape op after this pass.">,
   ];
 }
+
+def DiscStripShapeConstraintOpsPass : Pass<"disc-strip-shape-constraint-ops", "ModuleOp"> {
+  let summary = "strip disc shape constraint ops.";
+  let constructor = "createStripShapeConstraintOpsPass()";
+  let dependentDialects = [
+      "disc_shape::DISCShapeDialect",
+  ];
+}

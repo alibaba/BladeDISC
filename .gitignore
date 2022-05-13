@@ -28,6 +28,10 @@ tao/blade_gemm
 tao/third_party/PatineClient
 tao/build.txt
 tao/*.tgz
-*hsaco
-*so
+*.hsaco
+*.so
+*.o
+*.ll
 dist
+core.*
+ld.lld*

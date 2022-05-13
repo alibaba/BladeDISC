@@ -209,10 +209,10 @@ struct DiscLowerGpuOpsToROCDLOpsPass
                                                             llvmPatterns);
     populateVectorToLLVMConversionPatterns(converter, llvmPatterns);
     populateVectorToROCDLConversionPatterns(converter, llvmPatterns);
+    cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
     populateMathToLLVMConversionPatterns(converter, patterns);
     populateMemRefToLLVMConversionPatterns(converter, llvmPatterns);
     populateFuncToLLVMConversionPatterns(converter, patterns);
-    cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
     ::mlir::disc_ral::populateGpuToROCDLConversionPatterns(converter,
                                                            llvmPatterns);
     ::mlir::LLVMConversionTarget target(getContext());

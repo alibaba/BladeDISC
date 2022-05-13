@@ -199,12 +199,14 @@ class GpuKernelToBlobPass
     bool use_llvm;
     tensorflow::ReadBoolFromEnvVar("DISC_USE_LLVM",
                                      true, &use_llvm);
+    bool dump_files;
+    tensorflow::ReadBoolFromEnvVar("DISC_ROCM_DUMP_FILES",
+                                     false, &dump_files);                   
 
 //#if (TENSORFLOW_USE_DCU && !TENSORFLOW_USE_DCU_WITH_LLVM_ROCM_BACKEND)
 #if (TENSORFLOW_USE_ROCM)
   if (!use_llvm) {
-    VLOG(0) << "Use ROCM NORMAL";
-  
+    // VLOG(0) << "Use ROCM NORMAL";
     // std::string arch_str = "gfx" + std::to_string(arch_type); //906";
     std::string libdevice_dir = tensorflow::RocdlRoot();
     std::string rocm_path;
@@ -226,7 +228,7 @@ class GpuKernelToBlobPass
     //   // ll_fs->flush();
     // }
     auto arch_str = RocmCurrentArch();
-    VLOG(0) << "Arch type " << arch_str;
+    VLOG(0) << "In rocm llvm bin pass with arch type " << arch_str;
     TF_RETURN_IF_ERROR(xla::gpu::LinkWithBitcodeVector(
         llvmModule.get(), xla::gpu::GetROCDLPaths(arch_str, libdevice_dir)));
 
@@ -253,10 +255,12 @@ class GpuKernelToBlobPass
     std::string isabin_path = tmp_path + random_number + ".o";
     std::string hsaco_path = tmp_path + random_number + ".hsaco";
     auto kname = gpu_module.getName().str();
-    VLOG(0) << "Kernel name "  << gpu_module.getName().str();
-    ll_path =  kname+"_debug.ll";
-    isabin_path = kname+"_debug.o";
-    hsaco_path = kname+ "_debug.hsaco";
+    VLOG(1) << "Kernel name "  << gpu_module.getName().str();
+    if (dump_files) {
+      ll_path =  kname+"_debug.ll";
+      isabin_path = kname+"_debug.o";
+      hsaco_path = kname+ "_debug.hsaco";
+    }
 
     std::error_code ec;
     std::unique_ptr<llvm::raw_fd_ostream> ll_fs(
@@ -283,7 +287,7 @@ class GpuKernelToBlobPass
     //   ll_path = "/home/fl237079/newll.ll";
     // }
     //
-    VLOG(0) << "Compile opt level " << opt_level << " arch str " << arch_str << " ll " << ll_path;
+    VLOG(1) << "Compile opt level " << opt_level << " arch str " << arch_str << " ll " << ll_path;
 
     if (VLOG_IS_ON(2)) {
       // Dump asm file
@@ -343,15 +347,13 @@ class GpuKernelToBlobPass
         AsStringRef(hsaco_path)};
     TF_RETURN_IF_ERROR(ExecuteProgram(*lld_program, lld_args));
 
-    VLOG(0) << "Dump to " << ll_path << " " << isabin_path << " "<< hsaco_path;
     std::string given_hsaco = "";
     TF_CHECK_OK(tensorflow::ReadStringFromEnvVar("DISC_HSACO",
 			    "", &given_hsaco));
     if (!given_hsaco.empty()) {
     	hsaco_path = given_hsaco;
+      VLOG(0) << "Read hsaco path " << hsaco_path;
     }
-
-    VLOG(0) << "Read hsaco path " << hsaco_path;
     std::ifstream hsaco_file(hsaco_path, std::ios::binary | std::ios::ate);
     std::ifstream::pos_type hsaco_file_size = hsaco_file.tellg();
 
@@ -363,21 +365,32 @@ class GpuKernelToBlobPass
     TF_CHECK_OK(tensorflow::ReadBoolFromEnvVar("DISC_ROCM_KEEP_TEMPFILES",
                                                /*default_val=*/false,
                                                &keep_tempfiles));
-    /*if (!keep_tempfiles) {
-      remove(ll_path.c_str());
-      remove(isabin_path.c_str());
-      remove(hsaco_path.c_str());
-    }*/
+    if (!dump_files) {
+      if (!keep_tempfiles) {
+        remove(ll_path.c_str());
+        remove(isabin_path.c_str());
+        remove(hsaco_path.c_str());
+      }
+    } else {
+        VLOG(0) << "Dump to " << ll_path << " " << isabin_path << " "<< hsaco_path;
+        const auto& blob = hsaco;  
+        hipModule_t hipmodule;
+        hipError_t res = tensorflow::wrap::hipModuleLoadData(&hipmodule, reinterpret_cast<const void*>(blob.data()));
+        if (res != hipSuccess) {
+          VLOG(0) << "error for hsoco build " << res << " " << kname;
+        } else {
+          VLOG(0) << "Finish for hsoco build " << res << " " << kname;
+        }
+    }
     return hsaco;
   } else {
-    VLOG(0) << "Use ROCM LLVM";
 //#elif (TENSORFLOW_USE_DCU_WITH_LLVM_ROCM_BACKEND || TENSORFLOW_USE_ROCM)
     xla::HloModuleConfig config;
     xla::DebugOptions options = xla::GetDebugOptionsFromFlags();
     config.set_debug_options(options);
     using AmdGpuHsaco = std::vector<tensorflow::uint8>;
     auto arch_str = RocmCurrentArch();
-    VLOG(0) << arch_str;
+    VLOG(0) << "In llvm source path with arch type " << arch_str;
     // Parse ROCm architecture.
     absl::string_view consumable_arch(arch_str);
     if (!absl::ConsumePrefix(&consumable_arch, "gfx")) {
@@ -397,7 +410,7 @@ class GpuKernelToBlobPass
 #endif
 
     auto kname = gpu_module.getName().str();
-    VLOG(0) << "Kernel name "  << gpu_module.getName().str();
+    VLOG(1) << "Kernel name "  << gpu_module.getName().str();
     // if (gpu_module.getName().str() == "main_kernel_3") {
     //   {
     //     std::ifstream old("/home/fl237079/shenshi/deepmd-kit/examples/water/test/copper/trueir");  
@@ -464,6 +477,7 @@ class GpuKernelToBlobPass
           llvm_module_copy.get(),
           tensorflow::se::RocmComputeCapability{arch_str}, config,
           libdevice_dir);
+
     if (!given_ll.empty()) {
         std::ifstream old(given_ll);  
         std::stringstream ss;
@@ -479,12 +493,27 @@ class GpuKernelToBlobPass
     }
 
     if (hsaco_or.ok()) {
-    	const auto& blob = hsaco_or.ValueOrDie();
-      std::string llvmpath = kname+"_debugllvm.hsaco";
-      auto myfile = std::fstream(llvmpath, std::ios::out | std::ios::binary);
-      myfile.write((char*)blob.data(), blob.size());
-      myfile.close();
-      VLOG(0) << "llvm hsaco to " << llvmpath;
+      if (dump_files) {
+        std::error_code ec;
+        std::string ll_path = kname+"_debugllvm.ll";
+        std::unique_ptr<llvm::raw_fd_ostream> ll_fs(
+          new llvm::raw_fd_ostream(ll_path, ec, llvm::sys::fs::OF_None));
+        llvmModule->print(*ll_fs, nullptr);
+        ll_fs->flush();
+        const auto& blob = hsaco_or.ValueOrDie();
+        std::string llvmpath = kname+"_debugllvm.hsaco";
+        auto myfile = std::fstream(llvmpath, std::ios::out | std::ios::binary);
+        myfile.write((char*)blob.data(), blob.size());
+        myfile.close();
+        VLOG(0) << "llvm hsaco to " << llvmpath;
+        hipModule_t hipmodule;
+        hipError_t res = tensorflow::wrap::hipModuleLoadData(&hipmodule, reinterpret_cast<const void*>(blob.data()));
+        if (res != hipSuccess) {
+          VLOG(0) << "error for hsoco build " << res << " " << kname;
+        } else {
+          VLOG(0) << "Finish for hsoco build " << res << " " << kname;
+        }
+      }
     } else {
 	    VLOG(0) << "llvm compile hsaco fail";
     }

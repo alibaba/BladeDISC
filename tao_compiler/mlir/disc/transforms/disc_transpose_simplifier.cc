@@ -238,10 +238,19 @@ RankedTensorType getTransposeOutputType(
     Value value, const SmallVectorImpl<int64_t>& permutation, OpBuilder& b) {
   // Compute the resulting shape.
   llvm::SmallVector<int64_t, 4> transposed_shape;
-  ShapedType input_type = value.getType().cast<ShapedType>();
+  auto input_type = value.getType().cast<RankedTensorType>();
   auto input_shape = input_type.getShape();
   for (int64_t val : permutation) {
     transposed_shape.push_back(input_shape[val]);
+  }
+  if (auto attrs = input_type.getEncoding().dyn_cast_or_null<ArrayAttr>()) {
+    SmallVector<Attribute> newAttrs;
+    for (int64_t val : permutation) {
+      newAttrs.push_back(attrs[val]);
+    }
+    auto symbolicShapeAttr = ArrayAttr::get(value.getContext(), newAttrs);
+    return RankedTensorType::get(transposed_shape, input_type.getElementType(),
+                                 symbolicShapeAttr);
   }
   return RankedTensorType::get(transposed_shape, input_type.getElementType());
 }

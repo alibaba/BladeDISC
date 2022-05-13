@@ -147,9 +147,10 @@ struct ConvertReduceOpWithSmallWidthIntType
     assert(new_op && "convert element type of reduce op failed");
 
     SmallVector<Value, 4> converted_results;
-    for (auto value : new_op.getResults()) {
-      converted_results.push_back(
-          rewriter.create<mhlo::ConvertOp>(loc, value, ty.getElementType()));
+    for (const auto& z : llvm::zip(new_op.getResults(), op.getResults())) {
+      converted_results.push_back(rewriter.create<mhlo::ConvertOp>(
+          loc, std::get<0>(z), ty.getElementType()));
+      converted_results.back().setType(std::get<1>(z).getType());
     }
 
     rewriter.replaceOp(op, converted_results);

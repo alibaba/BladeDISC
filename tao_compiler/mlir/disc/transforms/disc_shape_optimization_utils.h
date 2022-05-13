@@ -65,6 +65,9 @@ class SymbolicDimMgr {
   // Returns next unique name for a new SymbolicDim op.
   std::string getNextName();
 
+  // Gives a consistent order of a list op SymbolicDim Ops
+  bool compareSymbolicDimOpNames(StringRef lhs, StringRef rhs);
+
  private:
   // The module this SymbolicDimMgr runs on.
   ModuleOp m_;

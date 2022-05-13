@@ -21,6 +21,12 @@ cc_import(
 )
 
 cc_import(
+    name = "culibos_static_whole_archived",
+    static_library = "lib64/libculibos.a",
+    alwayslink = 1,
+)
+
+cc_import(
     name = "cudnn_static",
     static_library = "lib64/libcudnn_static.a",
 )
@@ -33,6 +39,12 @@ cc_import(
 cc_import(
     name = "cudnn_cnn_infer_static",
     static_library = "lib64/libcudnn_cnn_infer_static.a",
+)
+
+cc_import(
+    name = "cudnn_cnn_infer_static_whole_archived",
+    static_library = "lib64/libcudnn_cnn_infer_static.a",
+    alwayslink = 1,
 )
 
 cc_import(

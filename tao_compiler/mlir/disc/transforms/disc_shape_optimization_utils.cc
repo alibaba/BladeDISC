@@ -21,9 +21,11 @@ limitations under the License.
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/MLIRContext.h"  // TF:llvm-project
 #include "mlir/IR/OpDefinition.h"
+#include "mlir/IR/SymbolTable.h"
 #include "mlir/Pass/Pass.h"  // TF:local_config_mlir
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
@@ -88,13 +90,24 @@ bool SymbolicDimMgr::isSymbolicDimEqual(SymbolicDimOp lhs, SymbolicDimOp rhs) {
   return lhsRoot == rhsRoot;
 }
 
+bool SymbolicDimMgr::compareSymbolicDimOpNames(StringRef lhs, StringRef rhs) {
+  // Not known encoding schema, fallback branch
+  if (lhs[0] != 'S' || rhs[0] != 'S') return lhs < rhs;
+
+  int64_t lhsIdx, rhsIdx;
+  if (lhs.substr(1).getAsInteger(10, lhsIdx) ||
+      rhs.substr(1).getAsInteger(10, rhsIdx))
+    return lhs < rhs;
+  return lhsIdx < rhsIdx;
+}
+
 LogicalResult SymbolicDimMgr::mapSymbolicDimEqual(SymbolicDimOp lhs,
                                                   SymbolicDimOp rhs) {
   SymbolicDimOp lhsRoot = getRootSymbolicDim(lhs);
   SymbolicDimOp rhsRoot = getRootSymbolicDim(rhs);
 
   if (lhsRoot != rhsRoot) {
-    if (lhsRoot.getName() < rhsRoot.getName()) {
+    if (compareSymbolicDimOpNames(lhsRoot.getName(), rhsRoot.getName())) {
       if (failed(lhsRoot.Merge(rhsRoot))) return failure();
       symbolDimUnionSet_[rhsRoot] = lhsRoot;
     } else {
@@ -106,7 +119,88 @@ LogicalResult SymbolicDimMgr::mapSymbolicDimEqual(SymbolicDimOp lhs,
 }
 
 LogicalResult SymbolicDimMgr::save() {
-  // TODO
+  SymbolTable table(m_);
+
+  using Visitor =
+      std::function<void(Value value, RankedTensorType ty, ArrayAttr attrs)>;
+  using TypeRefiner = std::function<Type(Value)>;
+  auto WalkRankedTensorValue = [&](Visitor visitor) {
+    m_.walk([&](Operation* op) {
+      for (Value value : op->getResults()) {
+        auto ty = value.getType().dyn_cast<RankedTensorType>();
+        if (!ty) return;
+        auto attrs = ty.getEncoding().dyn_cast_or_null<ArrayAttr>();
+        if (!attrs) return;
+        visitor(value, ty, attrs);
+      }
+    });
+    m_.walk([&](Block* block) {
+      for (Value value : block->getArguments()) {
+        auto ty = value.getType().dyn_cast<RankedTensorType>();
+        if (!ty) return;
+        auto attrs = ty.getEncoding().dyn_cast_or_null<ArrayAttr>();
+        if (!attrs) return;
+        visitor(value, ty, attrs);
+      }
+    });
+  };
+
+  auto updateFunctionType = [&]() {
+    m_.walk([&](FuncOp func) {
+      assert(func.getBody().getBlocks().size() == 1);
+      SmallVector<Type, 4> refinedInputTypes;
+      for (Value arg : func.getBody().front().getArguments()) {
+        refinedInputTypes.push_back(arg.getType());
+      }
+
+      // 2, collect output types
+      SmallVector<Type, 4> refinedOutputTypes;
+      Operation& op = func.getBody().front().getOperations().back();
+      for (Value operand : op.getOperands()) {
+        refinedOutputTypes.push_back(operand.getType());
+      }
+
+      // 3, refine function type to new type
+      auto newFuncTy = FunctionType::get(func.getContext(), refinedInputTypes,
+                                         refinedOutputTypes);
+      func.setType(newFuncTy);
+    });
+  };
+
+  // replace all uses of a symbolic dim op with its root symbolic dim op
+  WalkRankedTensorValue([&](Value value, RankedTensorType ty, ArrayAttr attrs) {
+    SmallVector<Attribute> newAttrs;
+    for (Attribute attr : attrs) {
+      auto sym = m_.lookupSymbol<SymbolicDimOp>(attr.cast<FlatSymbolRefAttr>());
+      assert(sym);
+      SymbolicDimOp root = getRootSymbolicDim(sym);
+      FlatSymbolRefAttr rootSymbol = FlatSymbolRefAttr::get(root);
+      newAttrs.push_back(rootSymbol);
+    }
+    auto symbolicShapeAttr = ArrayAttr::get(value.getContext(), newAttrs);
+    auto newTy = RankedTensorType::get(ty.getShape(), ty.getElementType(),
+                                       symbolicShapeAttr);
+  });
+
+  // Update function type
+  updateFunctionType();
+
+  // collect symbolic dim ops that are referred by other ops/types.
+  DenseSet<SymbolicDimOp> usedSymbolicOps;
+  WalkRankedTensorValue([&](Value value, RankedTensorType ty, ArrayAttr attrs) {
+    SmallVector<Attribute> newAttrs;
+    for (Attribute attr : attrs) {
+      auto sym = m_.lookupSymbol<SymbolicDimOp>(attr.cast<FlatSymbolRefAttr>());
+      assert(sym);
+      usedSymbolicOps.insert(sym);
+    }
+  });
+
+  // remove symbolic dim ops that are known not used by any other ops/types.
+  for (auto& p : symbolDimUnionSet_) {
+    if (!usedSymbolicOps.count(p.first)) p.first->erase();
+  }
+
   return success();
 }
 

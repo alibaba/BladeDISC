@@ -11,8 +11,20 @@ cc_import(
 )
 
 cc_import(
+    name = "cublas_static_whole_archived",
+    static_library = "lib64/libcublas_static.a",
+    alwayslink = 1,
+)
+
+cc_import(
     name = "cublasLt_static",
     static_library = "lib64/libcublasLt_static.a",
+)
+
+cc_import(
+    name = "cublasLt_static_whole_archived",
+    static_library = "lib64/libcublasLt_static.a",
+    alwayslink = 1,
 )
 
 cc_import(

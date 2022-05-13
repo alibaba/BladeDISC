@@ -27,7 +27,7 @@ cc_library(
             "@tensorrt//:nvinfer_static",
             "@tensorrt//:nvinferplugin_static",
             "@tensorrt//:nvonnxparser_static",
-            "@local_config_cuda_supplement//:cublas_static",
+            "@local_config_cuda_supplement//:cublas_static_whole_archived",
             "@local_config_cuda_supplement//:culibos_static_whole_archived",
         ] + if_has_cudnn_static(
             [
@@ -42,7 +42,7 @@ cc_library(
                 "@local_config_cuda_supplement//:cudnn_ops_train_static",
             ],
         ) + if_has_cublaslt([
-            "@local_config_cuda_supplement//:cublasLt_static",
+            "@local_config_cuda_supplement//:cublasLt_static_whole_archived",
         ]) + if_has_myelin([
             "@local_config_cuda_supplement//:nvrtc",
             "@tensorrt//:myelin_static",

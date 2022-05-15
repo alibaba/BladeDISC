@@ -1,0 +1,41 @@
+
+cc_library (
+  name = "torch_xla",
+  srcs =  [
+    "batch_norm.cpp",
+    "convert_ops.cpp",
+    # "data_ops.cpp",
+    "device.cpp",
+    # "elementwise.cpp",
+    "helpers.cpp",
+    "layout_manager.cpp",
+    # "nll_loss.cpp",
+    "reduction.cpp",
+    # "random.cpp",
+    "tensor_util.cpp",
+    "torch_util.cpp",
+    # "xla_lower_util.cpp"
+  ],
+  hdrs = [
+    "batch_norm.h",
+    "convert_ops.h",
+    # "data_ops.h",
+    "device.h",
+    # "elementwise.h",
+    "helpers.h",
+    "layout_manager.h",
+    # "nll_loss.h",
+    # "random.h",
+    "reduction.h",
+    "tensor_util.h",
+    "torch_util.h",
+    "xla_lower_util.h",
+  ],
+  deps = [
+    "//torch_xla/csrc/client:mhlo_builder",
+    "@org_tensorflow//tensorflow/compiler/xla/xla_client:xla_client",
+    "@local_org_torch//:ATen",
+    "@local_org_torch//:libtorch", 
+  ],
+  visibility = ["//visibility:public"],
+)

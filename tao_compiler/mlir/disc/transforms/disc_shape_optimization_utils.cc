@@ -238,13 +238,13 @@ LogicalResult walkRankedTensorValue(Operation* op, Visitor visitor) {
   if (op->walk([&](Operation* op) {
           for (Value value : op->getResults()) {
             auto ty = value.getType().dyn_cast<RankedTensorType>();
-            if (!ty) return WalkResult::advance();
+            if (!ty) continue;
             auto attrs = ty.getEncoding().dyn_cast_or_null<ArrayAttr>();
-            if (!attrs) return WalkResult::advance();
+            if (!attrs) continue;
             if (failed(visitor(value, ty, attrs)))
               return WalkResult::interrupt();
-            return WalkResult::advance();
           }
+          return WalkResult::advance();
         }).wasInterrupted()) {
     return failure();
   }
@@ -252,13 +252,13 @@ LogicalResult walkRankedTensorValue(Operation* op, Visitor visitor) {
   if (op->walk([&](Block* block) {
           for (Value value : block->getArguments()) {
             auto ty = value.getType().dyn_cast<RankedTensorType>();
-            if (!ty) return WalkResult::advance();
+            if (!ty) continue;
             auto attrs = ty.getEncoding().dyn_cast_or_null<ArrayAttr>();
-            if (!attrs) return WalkResult::advance();
+            if (!attrs) continue;
             if (failed(visitor(value, ty, attrs)))
               return WalkResult::interrupt();
-            return WalkResult::advance();
           }
+          return WalkResult::advance();
         }).wasInterrupted()) {
     return failure();
   }

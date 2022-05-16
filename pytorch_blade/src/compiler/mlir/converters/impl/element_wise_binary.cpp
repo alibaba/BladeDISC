@@ -122,8 +122,8 @@ bool ConvertAtenBinaryCompareOp(
     // TODO: to support type promotion
     if (rhs_rank != 0 && lhs_elem_type != rhs_elem_type) {
       LOG(WARNING)
-          << "Could not convert comparision operation with different element type";
-      return false;
+          << "Convert comparision operation with different element type";
+      hlo_rhs = TryBuildElementTypeCast(builder, loc, hlo_rhs, rhs_elem_type);
     }
   }
 
@@ -309,6 +309,30 @@ auto mhlo_conversion =
         .pattern(
             "aten::__and__.bool(bool a, bool b) -> (bool)",
             ConvertAtenBinaryScalar<mlir::arith::AndIOp>)
+        .pattern(
+            "aten::__and__.Tensor(Tensor self, Tensor other) -> Tensor",
+            ConvertAtenBinaryOp<mlir::chlo::BroadcastAndOp>)
+        .pattern(
+            "aten::logical_and(Tensor self, Tensor other) -> (Tensor)",
+            ConvertAtenBinaryOp<mlir::chlo::BroadcastAndOp>)
+        .pattern(
+            "aten::__or__.bool(bool a, bool b) -> (bool)",
+            ConvertAtenBinaryScalar<mlir::arith::OrIOp>)
+        .pattern(
+            "aten::__or__.Tensor(Tensor self, Tensor other) -> Tensor",
+            ConvertAtenBinaryOp<mlir::chlo::BroadcastOrOp>)
+        .pattern(
+            "aten::logical_or(Tensor self, Tensor other) -> Tensor",
+            ConvertAtenBinaryOp<mlir::chlo::BroadcastOrOp>)
+        .pattern(
+            "aten::__xor__.bool(bool a, bool b) -> (bool)",
+            ConvertAtenBinaryScalar<mlir::arith::XOrIOp>)
+        .pattern(
+            "aten::__xor__.Tensor(Tensor self, Tensor other) -> Tensor",
+            ConvertAtenBinaryOp<mlir::chlo::BroadcastXorOp>)
+        .pattern(
+            "aten::logical_xor(Tensor self, Tensor other) -> Tensor",
+            ConvertAtenBinaryOp<mlir::chlo::BroadcastXorOp>)
         .pattern(
             "aten::add.int(int a, int b) -> (int)",
             ConvertAtenBinaryScalar<mlir::arith::AddIOp>)

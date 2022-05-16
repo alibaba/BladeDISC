@@ -151,6 +151,8 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_binary_type_promotion(torch.true_divide)
         self._test_binary_type_promotion(torch.floor_divide)
         self._test_binary_type_promotion(torch.rsub)
+        self._test_func(torch.logical_and)
+        self._test_func(torch.logical_or)
 
     def test_arithmetic_func(self):
         self._test_func(torch.sub)
@@ -159,6 +161,11 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_func(torch.true_divide)
         self._test_func(torch.floor_divide)
         self._test_func(torch.rsub)
+        self._test_func(torch.logical_and)
+        self._test_func(torch.logical_or)
+        # skip the test because disc compilation failed, refs to debug logs:
+        # https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/debug/dump_dir.logic_xor.0516.tar.gz
+        # self._test_func(torch.logical_xor)
 
     def test_arithmetic_func_has_alpha(self):
         self._test_func_has_alpha(torch.sub)
@@ -171,6 +178,42 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_scalar_func(torch.mul)
         self._test_scalar_func(torch.div)
         self._test_rhs_scalar_func(torch.rsub)
+        self._test_func(torch.logical_and)
+        self._test_func(torch.logical_or)
+
+    def _test_logic_func(self, torch_func):
+        @torch.jit.script
+        def func(x, y):
+            return torch_func(x, y)
+
+        x = torch.randint(0, 2, [4, 4], device=self.device).bool()
+        y = torch.randint(0, 2, [4, 4], device=self.device).bool()
+        test_data = (x, y)
+        out, res = self._test_cvt_to_disc(func, test_data)
+        self._check_type(out, res)
+
+        @torch.jit.script
+        def func(x, y):
+            return torch_func(x, y)
+
+        y = torch.randint(0, 2, [4], device=self.device).bool()
+        test_data = (x, y)
+        out, res = self._test_cvt_to_disc(func, test_data)
+        self._check_type(out, res)
+
+    def test_logic_funcs(self):
+
+        @torch.jit.script
+        def logical_and(x, y):
+            return x & y
+
+        self._test_logic_func(logical_and)
+
+        @torch.jit.script
+        def logical_or(x, y):
+            return x | y
+
+        self._test_logic_func(logical_or)
 
     def test_pow(self):
         self._test_func(torch.pow)

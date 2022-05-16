@@ -46,7 +46,7 @@ def _compile_torchscript(graph):
         # dump the pretty mlir bytes(for debug) into file
         mlir_pretty_file = _dump_to_tempfile(tmp_dir, pretty_bytes)
 
-        if tools.read_bool_from_env('TORCH_BLADE_DEBUG_LOG', False):
+        if not tools.read_bool_from_env('TORCH_BLADE_DEBUG_LOG', False):
             mlir_dump_dir = os.path.join(tmp_dir, mlir_dump_dir)
 
         # copy mlir files to mlir_dump_dir

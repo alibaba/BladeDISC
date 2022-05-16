@@ -24,6 +24,10 @@ cc_library(
     deps = [
         "//src:torch_blade_include",
         "//src/common_utils:torch_blade_logging",
+	"//torch_xla/csrc/client:mhlo_builder",
+	# "//torch_xla/csrc:torch_xla",
+        "@org_tensorflow//tensorflow/compiler/xla/client/lib:constants",
+	# "//torch_xla/csrc/client:xla_builder",
         "@local_org_torch//:libtorch",
         "@org_mhlo_builder//csrc:mhlo_library",
     ],

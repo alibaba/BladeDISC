@@ -22,6 +22,7 @@
 
 #include <torch/script.h>
 #include "compiler/jit/shape_type_spec.h"
+#include "torch_xla/csrc/client/mlir_hlo_builder.h"
 
 namespace torch {
 namespace blade {
@@ -39,7 +40,6 @@ bool ConvertAtenBinaryOpCommon(
   auto hlo_rhs = ctx.GetMlirValue(jit_inp1);
 
   auto& builder = *ctx.builder;
-
   if (rhs_scalar) {
     hlo_rhs = BuildStdScalarToHloTensor(builder, loc, hlo_rhs);
   }
@@ -68,13 +68,46 @@ bool ConvertAtenBinaryOpCommon(
     return true;
   }
 
-  ctx.value_map[node.output(0)] = BuildMlirBinaryOp<MLIR_BINARY_OP>(
+  mlir_dim_t lhs_rank = GetRankOfMlirValue(hlo_lhs);
+  mlir_dim_t rhs_rank = GetRankOfMlirValue(hlo_rhs);
+
+  mlir_dim_t max_rank = std::max(lhs_rank, rhs_rank);
+  mlir_dim_t min_rank = std::min(lhs_rank, rhs_rank);
+
+  SmallVec4<mlir_dim_t> broadcast_dims;
+  if (max_rank > min_rank) {
+    broadcast_dims =
+        RangeIndices(max_rank - min_rank, max_rank);
+  }
+  
+  auto elem_type = result_type.getElementType();
+  hlo_lhs = TryBuildElementTypeCast(builder, loc, hlo_lhs, elem_type);
+  hlo_rhs = TryBuildElementTypeCast(builder, loc, hlo_rhs, elem_type);
+  auto xla_inp0 = ctx.mhlo_builder_->MakeXlaOp(hlo_lhs); 
+  auto xla_inp1 = ctx.mhlo_builder_->MakeXlaOp(hlo_rhs);
+  mlir::Value res;  
+  if (node.kind() == c10::Symbol::aten("mul")) {
+      auto xla_res = xla::Mul(xla_inp0.ValueOrDie(), xla_inp1.ValueOrDie(), broadcast_dims);
+      res = ctx.mhlo_builder_->GetValue(xla_res);
+  } else if (node.kind() == c10::Symbol::aten("div")) {
+      auto xla_res = xla::Div(xla_inp0.ValueOrDie(), xla_inp1.ValueOrDie(), broadcast_dims);
+      res = ctx.mhlo_builder_->GetValue(xla_res);
+  } else if (node.kind() == c10::Symbol::aten("add")) {
+      auto xla_res = xla::Add(xla_inp0.ValueOrDie(), xla_inp1.ValueOrDie(), broadcast_dims);
+      res = ctx.mhlo_builder_->GetValue(xla_res);
+  } else if (node.kind() == c10::Symbol::aten("sub")) {
+      auto xla_res = xla::Sub(xla_inp0.ValueOrDie(), xla_inp1.ValueOrDie(), broadcast_dims);
+      res = ctx.mhlo_builder_->GetValue(xla_res);
+  } else {
+      res = BuildMlirBinaryOp<MLIR_BINARY_OP>(
       builder,
       loc,
       hlo_lhs,
       hlo_rhs,
-      result_type.getElementType(),
+      elem_type,
       no_implicit_broadcast);
+  }
+  ctx.value_map[node.output()] = res;
   return true;
 }
 

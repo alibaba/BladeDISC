@@ -10,11 +10,15 @@
 // limitations under the License.
 
 #include <mlir/mhlo/builder/algebra_statistics.h>
+#include <mlir/mhlo/builder/broadcast.h>
 #include <mlir/mhlo/builder/mlir_utils.h>
 
 #include "compiler/mlir/converters/impl/prim_constant.h"
 #include "compiler/mlir/converters/impl/utils.h"
 #include "compiler/mlir/converters/mhlo_converter_register.h"
+#include "torch_xla/csrc/batch_norm.h"
+#include "torch_xla/csrc/client/mlir_hlo_builder.h"
+#include "mlir/mhlo/builder/mlir_shape_builder.h"
 
 // was included last because of llvm headers conflicts
 #include <torch/script.h>
@@ -31,10 +35,6 @@ bool ConvertAtenBatchNorm(
   if (!CheckConstAttribute(jit_training, op_name, "training")) {
     return false;
   }
-  if (CastJitConstToBool(*jit_training)) {
-    // currently training version not support
-    return false;
-  }
   auto jit_eps = node.input(7);
   if (!CheckConstAttribute(jit_eps, op_name, "eps")) {
     return false;
@@ -42,6 +42,41 @@ bool ConvertAtenBatchNorm(
 
   auto& builder = *ctx.builder;
   const auto& loc = GetNodeLocation(ctx, node);
+  ctx.mhlo_builder_->SetLocation(loc);
+  std::cout << "is_training: " << CastJitConstToBool(*jit_training) << std::endl;
+  if (CastJitConstToBool(*jit_training)) {
+    // currently training version not support
+    auto xla_input = ctx.GetXlaOp(node.input(0));
+    auto xla_weight = ctx.GetXlaOpOrOne(node.input(1), xla_input);
+    auto xla_bias = ctx.GetXlaOpOrZero(node.input(2), xla_input);
+    // auto xla_running_mean = ctx.GetXlaOpOrZero(node.input(3), xla_input);
+    // auto xla_running_var = ctx.GetXlaOpOrZero(node.input(4), xla_input);
+
+    // auto mhlo_shape = BuildDimSizeListOfTensor(builder, loc, ctx.mhlo_builder_->GetValue(xla_input));
+    // xla_weight = ctx.mhlo_builder_->MakeXlaOp(BuildBroadcastTensorInDims(builder, loc, ctx.mhlo_builder_->GetValue(xla_weight), mhlo_shape, broadcast_dims)).ValueOrDie();
+    // xla_bias = ctx.mhlo_builder_->MakeXlaOp(BuildBroadcastTensorInDims(builder, loc, ctx.mhlo_builder_->GetValue(xla_bias), mhlo_shape, broadcast_dims)).ValueOrDie();
+    // xla_weight = xla::InDimBroadcast(shape, xla_weight, broadcast_dims);
+    // xla_bias = xla::InDimBroadcast(shape, xla_bias, broadcast_dims);
+    // xla_running_mean = xla::InDimBroadcast(shape, xla_running_mean, broadcast_dims);
+    // xla_running_var = xla::InDimBroadcast(shape, xla_running_var, broadcast_dims);
+    auto eps = CastJitConstToDouble(*jit_eps);
+    torch_xla::BatchNormOutput batch_norm_output =
+        torch_xla::BuildBatchNormTraining(xla_input, xla_weight, xla_bias, eps);
+
+    ctx.value_map[node.output(0)] = ctx.mhlo_builder_->GetValue(batch_norm_output.output);
+    return true;
+  } else {
+    auto xla_input = ctx.GetXlaOp(node.input(0));
+    auto xla_weight = ctx.GetXlaOpOrOne(node.input(1), xla_input);
+    auto xla_bias = ctx.GetXlaOpOrZero(node.input(2), xla_input);
+    auto xla_running_mean = ctx.GetXlaOpOrZero(node.input(3), xla_input);
+    auto xla_running_var = ctx.GetXlaOpOrZero(node.input(4), xla_input);
+    auto eps = CastJitConstToDouble(*jit_eps);
+
+    ctx.value_map[node.output(0)] = ctx.mhlo_builder_->GetValue(
+	torch_xla::BuildBatchNormInference(xla_input, xla_weight, xla_bias, xla_running_mean, xla_running_var, eps));
+    return true;
+  }
 
   auto ml_input = ctx.GetMlirValue(node.input(0));
   mlir_dim_t input_rank = GetRankOfMlirValue(ml_input);

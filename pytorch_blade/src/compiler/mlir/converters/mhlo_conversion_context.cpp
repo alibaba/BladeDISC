@@ -14,6 +14,7 @@
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
 #include "compiler/jit/tool_funcs.h"
 #include "compiler/mlir/converters/mlir_type_utils.h"
+#include "tensorflow/compiler/xla/client/lib/constants.h"
 
 #include <torch/script.h>
 
@@ -42,6 +43,34 @@ mlir::Value MhloConversionContext::GetMlirValue(const torch::jit::Value* val) {
       val->debugName(),
       " not found, please report a bug");
   return found->second;
+}
+
+xla::XlaOp MhloConversionContext::GetXlaOp(const torch::jit::Value* val) {
+   return mhlo_builder_->MakeXlaOp(GetMlirValue(val)).ValueOrDie();
+}
+
+xla::XlaOp MhloConversionContext::GetXlaOpOrZero(const torch::jit::Value* val, const xla::XlaOp& from) {
+   ::llvm::Optional<mlir::Value> opt_val = GetOptionalMlirValue(val);
+   if (opt_val) {
+      return mhlo_builder_->MakeXlaOp(*opt_val).ValueOrDie();
+   } else {
+      return mhlo_builder_->ReportErrorOrReturn([&]() -> xla::StatusOr<xla::XlaOp> {
+        TF_ASSIGN_OR_RETURN(xla::Shape shape, mhlo_builder_->GetShape(from));
+        return xla::Zero(mhlo_builder_.get(), shape.element_type());
+      });
+   }
+}
+
+xla::XlaOp MhloConversionContext::GetXlaOpOrOne(const torch::jit::Value* val, const xla::XlaOp& from) {
+   ::llvm::Optional<mlir::Value> opt_val = GetOptionalMlirValue(val);
+   if (opt_val) {
+      return mhlo_builder_->MakeXlaOp(*opt_val).ValueOrDie();
+   } else {
+      return mhlo_builder_->ReportErrorOrReturn([&]() -> xla::StatusOr<xla::XlaOp> {
+        TF_ASSIGN_OR_RETURN(xla::Shape shape, mhlo_builder_->GetShape(from));
+        return xla::One(mhlo_builder_.get(), shape.element_type());
+      });
+   }
 }
 
 ::llvm::Optional<mlir::Value> MhloConversionContext::GetOptionalMlirValue(

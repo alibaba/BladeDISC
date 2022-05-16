@@ -21,6 +21,7 @@
 #include <c10/util/ArrayRef.h>
 
 #include "common_utils/macros.h"
+#include "torch_xla/csrc/client/mlir_hlo_builder.h"
 
 namespace torch {
 namespace jit {
@@ -54,6 +55,9 @@ struct MhloConversionContext {
       bool is_support_testing);
 
   mlir::Value GetMlirValue(const torch::jit::Value* val);
+  xla::XlaOp GetXlaOp(const torch::jit::Value* val);
+  xla::XlaOp GetXlaOpOrZero(const torch::jit::Value* val, const xla::XlaOp& from);
+  xla::XlaOp GetXlaOpOrOne(const torch::jit::Value* val, const xla::XlaOp& from);
   ::llvm::Optional<mlir::Value> GetOptionalMlirValue(
       const torch::jit::Value* val);
 
@@ -62,6 +66,7 @@ struct MhloConversionContext {
   bool IsSameContext(mlir::Value);
   bool IsSupportTesting();
 
+  std::shared_ptr<xla::MlirHloBuilder> mhlo_builder_ = nullptr;
   mlir::OwningOpRef<mlir::ModuleOp> mlir_module;
   std::shared_ptr<mlir::OpBuilder> builder;
   std::shared_ptr<const torch::jit::Graph> torch_graph;

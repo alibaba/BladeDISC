@@ -17,6 +17,7 @@
 #include "compiler/mlir/converters/mhlo_converter_register.h"
 #include "compiler/mlir/converters/mlir_type_utils.h"
 
+#include "torch_xla/csrc/reduction.h"
 #include <torch/script.h>
 
 namespace torch {
@@ -71,6 +72,13 @@ bool ConvertAtenReduction(
   }
 
   bool keepdim = jit_keepdim != nullptr && CastJitConstToBool(*jit_keepdim);
+  if (IsMean) {
+     ctx.mhlo_builder_->SetLocation(loc);
+     auto xla_input = ctx.mhlo_builder_->MakeXlaOp(ml_input_val).ValueOrDie();
+     auto result = torch_xla::BuildMean(xla_input, reduce_dims, keepdim);
+     ctx.value_map[jit_output] = ctx.mhlo_builder_->GetValue(result);
+     return true;
+  }
   auto elem_type = GetMlirTensorElemType(input_val);
   auto init_value = BuildReductionInitValue<MathOp>(builder, loc, elem_type);
   auto result = BuildReduction<MathOp, IsMean>(
@@ -102,6 +110,7 @@ bool ConvertAtenReductionWithDims(
   auto jit_dims = node.input(1);
   auto jit_keepdims = node.input(2);
   auto jit_dtype = node.input(3);
+
   return ConvertAtenReduction<MathOp, IsMean>(
       ctx,
       loc,

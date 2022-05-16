@@ -20,6 +20,7 @@
 #include "common_utils/logging.h"
 #include "compiler/mlir/converters/mhlo_converter_register.h"
 
+#include "torch_xla/csrc/client/mlir_hlo_builder.h"
 #include <torch/script.h>
 
 namespace torch {
@@ -177,10 +178,17 @@ class ConvertToMhloImpl {
   }
 
   void RunImpl(const torch::jit::Block* block) {
+    cvt_context_.mhlo_builder_ = std::make_shared<xla::MlirHloBuilder>(mlir_main_func_);
+    block->owningGraph()->dump();
+    cvt_context_.mlir_module->dump();
     for (auto node : block->nodes()) {
       for (auto inner_block : node->blocks()) {
         RunImpl(inner_block);
       }
+      if (node->kind() == c10::Symbol::aten("mul")) {
+	node->dump();
+      }
+
       c10::optional<OpConverter> op_converter = GetMlirMhloConverter(*node);
       TORCH_CHECK(
           op_converter, *node, " hasn't been supported, please report a bug");
@@ -190,6 +198,7 @@ class ConvertToMhloImpl {
         TORCH_CHECK(false, "meet error during converting ", *node);
       }
     }
+    cvt_context_.mlir_module->dump();
   }
 
   std::string input_dev_str_;

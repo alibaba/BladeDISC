@@ -44,7 +44,7 @@ class BazelBuild(TorchBladeBuild):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.targets = [
-            "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_compiler_main",
+            # "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_compiler_main",
             "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:libral_base_context.so",
             "//src:libtorch_blade.so",
             "//src:_torch_blade.so",
@@ -53,9 +53,9 @@ class BazelBuild(TorchBladeBuild):
         torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]
         self.torch_major_version = int(torch_major_version)
         self.torch_minor_version = int(torch_minor_version)
-        if self.torch_major_version >= 1 and self.torch_minor_version >= 12:
-            # Build TorchDISC LTC
-            self.targets += ["//src/ltc:_torch_disc.so"]
+        # if self.torch_major_version >= 1 and self.torch_minor_version >= 12:
+        #     # Build TorchDISC LTC
+        #     self.targets += ["//src/ltc:_torch_disc.so"]
 
         self.extra_opts = [
             '--copt=-DPYTORCH_VERSION_STRING=\\"{}\\"'.format(self.torch_version),
@@ -76,7 +76,7 @@ class BazelBuild(TorchBladeBuild):
 
         self.configs = ["--config=torch_cxx11abi_{}".format(int(self.GLIBCXX_USE_CXX11_ABI))]
         if self.is_debug:
-            self.configs.append("--config=dbg")
+            self.configs.append("--config=torch_debug")
         else:
             self.configs.append("--compilation_mode=opt")
 
@@ -162,9 +162,9 @@ class BazelBuild(TorchBladeBuild):
         env["GCC_HOST_COMPILER_PATH"] = env.get("GCC_HOST_COMPILER_PATH", which("gcc"))
 
         self.test_suites = ["//src:torch_blade_test_suite"]
-        if self.torch_major_version >= 1 and self.torch_minor_version >= 12:
-            # Build TorchDISC LTC tests
-            self.test_suites += ["//src/ltc:torch_disc_test_suite"]
+        # if self.torch_major_version >= 1 and self.torch_minor_version >= 12:
+        #     # Build TorchDISC LTC tests
+        #     self.test_suites += ["//src/ltc:torch_disc_test_suite"]
 
         test_cmd = " ".join(
             [self.shell_setting, self.test_cmd]

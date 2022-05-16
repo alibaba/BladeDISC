@@ -135,7 +135,7 @@ setup(
     description="The pytorch blade project",
     install_requires=install_requires,
     packages=find_packages(exclude=["tests", "tests.*"]),
-    ext_modules=[TorchBladeExtension("torch_blade._torch_blade"), TorchBladeExtension("torch_disc._torch_disc")],
+    ext_modules=[TorchBladeExtension("torch_blade._torch_blade")], #, TorchBladeExtension("torch_disc._torch_disc")],
     cmdclass=dict(
         build_ext=TorchBladeBuild,
         test=TestCommand,

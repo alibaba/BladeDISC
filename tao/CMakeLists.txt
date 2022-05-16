@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.8.2)
+cmake_minimum_required (VERSION 3.21.0)
 
 project (tao_ops)
 
@@ -13,6 +13,10 @@ include(CMake/TaoHelpers.cmake)
 # https://ecpci-test.alcf.anl.gov/jgalaro/calc_pi/-/blob/7d7d0582d339ee5ccaf656f903b73977abce8b9e/blt/master_20Feb19/cmake/thirdparty/SetupCUDA.cmake
 if(${TAO_CUDA})
   include(CMake/SetupCUDA.cmake)
+endif()
+
+if((${TAO_DCU}) OR (${TAO_ROCM}))
+  include(CMake/SetupROCM.cmake)
 endif()
 
 if(EXISTS ${PROJECT_BINARY_DIR}/config.cmake)

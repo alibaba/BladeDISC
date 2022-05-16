@@ -11,6 +11,10 @@
 
 #include "tensorflow/compiler/mlir/xla/ral/context/custom_library/random.h"
 
+#if TENSORFLOW_USE_ROCM
+#include "hip/hip_runtime.h"
+#endif
+
 namespace tao {
 namespace ral {
 namespace random {

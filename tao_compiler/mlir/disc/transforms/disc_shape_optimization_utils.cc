@@ -133,6 +133,7 @@ LogicalResult SymbolicDimMgr::save() {
         auto symbolicShapeAttr = ArrayAttr::get(value.getContext(), newAttrs);
         auto newTy = RankedTensorType::get(ty.getShape(), ty.getElementType(),
                                            symbolicShapeAttr);
+        value.setType(newTy);
         return success();
       }))) {
     return failure();
@@ -143,6 +144,7 @@ LogicalResult SymbolicDimMgr::save() {
 
   // collect symbolic dim ops that are referred by other ops/types.
   DenseSet<SymbolicDimOp> usedSymbolicOps;
+  SmallVector<std::string> usedSymbolNames;
   if (failed(walkRankedTensorValue(m_, [&](Value value, RankedTensorType ty,
                                            ArrayAttr attrs) {
         SmallVector<Attribute> newAttrs;
@@ -150,7 +152,8 @@ LogicalResult SymbolicDimMgr::save() {
           auto sym =
               m_.lookupSymbol<SymbolicDimOp>(attr.cast<FlatSymbolRefAttr>());
           assert(sym);
-          usedSymbolicOps.insert(sym);
+          if (usedSymbolicOps.insert(sym).second)
+            usedSymbolNames.push_back(sym.getName().str());
         }
         return success();
       }))) {
@@ -161,6 +164,42 @@ LogicalResult SymbolicDimMgr::save() {
   for (auto& p : symbolDimUnionSet_) {
     if (!usedSymbolicOps.count(p.first)) p.first->erase();
   }
+
+  // canonicalize the name of symbolic dim ops
+  llvm::sort(usedSymbolNames,
+             [&](const std::string& lhs, const std::string& rhs) {
+               return compareSymbolicDimOpNames(lhs, rhs);
+             });
+  std::unordered_map<std::string, std::string> nameMapping;
+  for (const auto& en : llvm::enumerate(usedSymbolNames)) {
+    nameMapping[en.value()] =
+        (llvm::Twine("S") + llvm::Twine(en.index())).str();
+  }
+  for (SymbolicDimOp op : usedSymbolicOps)
+    op.setName(nameMapping[op.getName().str()]);
+
+  // replace the name of a symbolic dim op to its new name.
+  if (failed(walkRankedTensorValue(m_, [&](Value value, RankedTensorType ty,
+                                           ArrayAttr attrs) {
+        SmallVector<Attribute> newAttrs;
+        for (Attribute attr : attrs) {
+          auto sym = m_.lookupSymbol<SymbolicDimOp>(
+              nameMapping[attr.cast<FlatSymbolRefAttr>().getValue().str()]);
+          assert(sym);
+          FlatSymbolRefAttr newAttr = FlatSymbolRefAttr::get(sym);
+          newAttrs.push_back(newAttr);
+        }
+        auto symbolicShapeAttr = ArrayAttr::get(value.getContext(), newAttrs);
+        auto newTy = RankedTensorType::get(ty.getShape(), ty.getElementType(),
+                                           symbolicShapeAttr);
+        value.setType(newTy);
+        return success();
+      }))) {
+    return failure();
+  }
+
+  // Update function type
+  if (failed(updateFunctionType(m_))) return failure();
 
   return success();
 }

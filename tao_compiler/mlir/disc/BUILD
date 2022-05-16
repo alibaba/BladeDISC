@@ -1532,6 +1532,7 @@ cc_library(
     name = "disc_algebra_simplifier",
     srcs = ["transforms/disc_algebra_simplifier.cc"],
     deps = [
+        ":disc_shape_optimization_utils",
         ":mhlo_disc",
         ":pass_details",
         "//tensorflow/compiler/mlir/hlo:hlo",

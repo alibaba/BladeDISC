@@ -224,11 +224,17 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
-  // propagate some known shape information.
-  pm.addPass(disc_ral::createDiscShapeSimplifierPass());
-
-  // shape-related optimization
-  pm.addPass(disc_ral::createDiscShapeOptimizationPass());
+  bool enable_shape_constraint_ir = true;
+  tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_SHAPE_CONSTRAINT_IR",
+                                 enable_shape_constraint_ir,
+                                 &enable_shape_constraint_ir);
+  if (!enable_shape_constraint_ir) {
+    // propagate some known shape information.
+    pm.addPass(disc_ral::createDiscShapeSimplifierPass());
+  } else {
+    // shape-related optimization
+    pm.addPass(disc_ral::createDiscShapeOptimizationPass());
+  }
 
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertTensorToStandardPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertHloToStandardPass());
@@ -279,8 +285,14 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     pm.addNestedPass<FuncOp>(disc_ral::createDiscGpuConvPaddingLegalization());
   }
 
-  // Create tie_shape ops to explicitly express dim size equality info.
-  pm.addPass(disc_ral::createDiscShapeSimplifierPass("main", true));
+  if (true || !enable_shape_constraint_ir) {
+    // Create tie_shape ops to explicitly express dim size equality info.
+    pm.addPass(disc_ral::createDiscShapeSimplifierPass("main", true));
+  } else {
+    // shape-related optimization
+    // Create tie_shape ops to explicitly express dim size equality info.
+    pm.addPass(disc_ral::createDiscShapeOptimizationPass("main", true));
+  }
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());

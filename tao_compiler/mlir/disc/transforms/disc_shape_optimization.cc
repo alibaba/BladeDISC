@@ -954,13 +954,40 @@ LogicalResult cleanUp(ModuleOp m, bool keep_tie_shape) {
 
     // Part #1: attach the symbolicDim reference attribute to each
     // `disc_shape.tie_shape` op.
+    SmallVector<disc_shape::TieShapeOp> tieShapeOps;
     m.walk([&](disc_shape::TieShapeOp op) {
       auto ty = op->getResult(0).getType().dyn_cast<RankedTensorType>();
       if (!ty) return;
       auto attrs = ty.getEncoding().dyn_cast_or_null<ArrayAttr>();
       if (!attrs) return;
       op->setAttr(disc_shape::SymbolicDimOp::getSymbolicDimAttrName(), attrs);
+      tieShapeOps.push_back(op);
     });
+
+    for (disc_shape::TieShapeOp op : tieShapeOps) {
+      Operation* definingOp = op->getOperand(0).getDefiningOp();
+      if (!definingOp) continue;
+      if (definingOp->getBlock() != op->getBlock())
+        return op->emitError(
+            "tie_shape op and the defining op of its source tensor are not in "
+            "the same block\n");
+      // Try to move the definingOp as close to op as possible.
+      SmallVector<Operation*> notUseDefiningOpVec;
+      DenseSet<Value> consumersOfDefiningOpSet{definingOp->getResults().begin(),
+                                               definingOp->getResults().end()};
+      for (auto it = Block::iterator(definingOp), end = Block::iterator(op);
+           it != end; ++it) {
+        if (llvm::any_of(it->getOperands(), [&](Value val) {
+              return consumersOfDefiningOpSet.count(val);
+            })) {
+          for (Value val : it->getResults())
+            consumersOfDefiningOpSet.insert(val);
+        } else {
+          notUseDefiningOpVec.push_back(&*it);
+        }
+      }
+      for (Operation* op : notUseDefiningOpVec) op->moveBefore(definingOp);
+    }
 
     if (failed(walkRankedTensorValue(
             m, [&](Value value, RankedTensorType ty, ArrayAttr attrs) {

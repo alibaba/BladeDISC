@@ -216,6 +216,8 @@ struct IdentityTieShapeOp : public OpRewritePattern<TieShapeOp> {
 
   LogicalResult matchAndRewrite(TieShapeOp op,
                                 PatternRewriter& rewriter) const override {
+    // Do not touch tie_shape op with symbolic dim ref attrs.
+    if (op->hasAttr(SymbolicDimOp::getSymbolicDimAttrName())) return success();
     Value operand = op.value();
     auto operandTy = operand.getType().dyn_cast<RankedTensorType>();
     if (!operandTy) return failure();

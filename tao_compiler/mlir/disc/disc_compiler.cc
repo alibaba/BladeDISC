@@ -285,7 +285,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     pm.addNestedPass<FuncOp>(disc_ral::createDiscGpuConvPaddingLegalization());
   }
 
-  if (true || !enable_shape_constraint_ir) {
+  if (!enable_shape_constraint_ir) {
     // Create tie_shape ops to explicitly express dim size equality info.
     pm.addPass(disc_ral::createDiscShapeSimplifierPass("main", true));
   } else {

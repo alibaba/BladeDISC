@@ -34,6 +34,7 @@ cc_test(
     name = "mhlo_converter_register_test",
     srcs = [
         "mhlo_converter_register_test.cpp",
+        "//src:libtorch_blade.so",
     ],
     linkopts = [
         "-lpthread",
@@ -42,11 +43,10 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        ":torch_blade_mhlo_converter",
-        "//src/compiler/jit:tool_funcs",
+        "//src:libtorch_blade.so",
+        "@zlib",
         "@googltest//:gtest_main",
         "@local_org_torch//:libtorch",
         "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:ral_base_context_lib",
-        "@zlib",
     ],
 )

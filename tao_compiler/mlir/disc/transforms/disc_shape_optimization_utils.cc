@@ -21,7 +21,6 @@ limitations under the License.
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/MLIRContext.h"  // TF:llvm-project
 #include "mlir/IR/OpDefinition.h"
@@ -119,82 +118,44 @@ LogicalResult SymbolicDimMgr::mapSymbolicDimEqual(SymbolicDimOp lhs,
 }
 
 LogicalResult SymbolicDimMgr::save() {
-  SymbolTable table(m_);
-
-  using Visitor =
-      std::function<void(Value value, RankedTensorType ty, ArrayAttr attrs)>;
-  using TypeRefiner = std::function<Type(Value)>;
-  auto WalkRankedTensorValue = [&](Visitor visitor) {
-    m_.walk([&](Operation* op) {
-      for (Value value : op->getResults()) {
-        auto ty = value.getType().dyn_cast<RankedTensorType>();
-        if (!ty) return;
-        auto attrs = ty.getEncoding().dyn_cast_or_null<ArrayAttr>();
-        if (!attrs) return;
-        visitor(value, ty, attrs);
-      }
-    });
-    m_.walk([&](Block* block) {
-      for (Value value : block->getArguments()) {
-        auto ty = value.getType().dyn_cast<RankedTensorType>();
-        if (!ty) return;
-        auto attrs = ty.getEncoding().dyn_cast_or_null<ArrayAttr>();
-        if (!attrs) return;
-        visitor(value, ty, attrs);
-      }
-    });
-  };
-
-  auto updateFunctionType = [&]() {
-    m_.walk([&](FuncOp func) {
-      assert(func.getBody().getBlocks().size() == 1);
-      SmallVector<Type, 4> refinedInputTypes;
-      for (Value arg : func.getBody().front().getArguments()) {
-        refinedInputTypes.push_back(arg.getType());
-      }
-
-      // 2, collect output types
-      SmallVector<Type, 4> refinedOutputTypes;
-      Operation& op = func.getBody().front().getOperations().back();
-      for (Value operand : op.getOperands()) {
-        refinedOutputTypes.push_back(operand.getType());
-      }
-
-      // 3, refine function type to new type
-      auto newFuncTy = FunctionType::get(func.getContext(), refinedInputTypes,
-                                         refinedOutputTypes);
-      func.setType(newFuncTy);
-    });
-  };
-
   // replace all uses of a symbolic dim op with its root symbolic dim op
-  WalkRankedTensorValue([&](Value value, RankedTensorType ty, ArrayAttr attrs) {
-    SmallVector<Attribute> newAttrs;
-    for (Attribute attr : attrs) {
-      auto sym = m_.lookupSymbol<SymbolicDimOp>(attr.cast<FlatSymbolRefAttr>());
-      assert(sym);
-      SymbolicDimOp root = getRootSymbolicDim(sym);
-      FlatSymbolRefAttr rootSymbol = FlatSymbolRefAttr::get(root);
-      newAttrs.push_back(rootSymbol);
-    }
-    auto symbolicShapeAttr = ArrayAttr::get(value.getContext(), newAttrs);
-    auto newTy = RankedTensorType::get(ty.getShape(), ty.getElementType(),
-                                       symbolicShapeAttr);
-  });
+  if (failed(walkRankedTensorValue(m_, [&](Value value, RankedTensorType ty,
+                                           ArrayAttr attrs) {
+        SmallVector<Attribute> newAttrs;
+        for (Attribute attr : attrs) {
+          auto sym =
+              m_.lookupSymbol<SymbolicDimOp>(attr.cast<FlatSymbolRefAttr>());
+          assert(sym);
+          SymbolicDimOp root = getRootSymbolicDim(sym);
+          FlatSymbolRefAttr rootSymbol = FlatSymbolRefAttr::get(root);
+          newAttrs.push_back(rootSymbol);
+        }
+        auto symbolicShapeAttr = ArrayAttr::get(value.getContext(), newAttrs);
+        auto newTy = RankedTensorType::get(ty.getShape(), ty.getElementType(),
+                                           symbolicShapeAttr);
+        return success();
+      }))) {
+    return failure();
+  }
 
   // Update function type
-  updateFunctionType();
+  if (failed(updateFunctionType(m_))) return failure();
 
   // collect symbolic dim ops that are referred by other ops/types.
   DenseSet<SymbolicDimOp> usedSymbolicOps;
-  WalkRankedTensorValue([&](Value value, RankedTensorType ty, ArrayAttr attrs) {
-    SmallVector<Attribute> newAttrs;
-    for (Attribute attr : attrs) {
-      auto sym = m_.lookupSymbol<SymbolicDimOp>(attr.cast<FlatSymbolRefAttr>());
-      assert(sym);
-      usedSymbolicOps.insert(sym);
-    }
-  });
+  if (failed(walkRankedTensorValue(m_, [&](Value value, RankedTensorType ty,
+                                           ArrayAttr attrs) {
+        SmallVector<Attribute> newAttrs;
+        for (Attribute attr : attrs) {
+          auto sym =
+              m_.lookupSymbol<SymbolicDimOp>(attr.cast<FlatSymbolRefAttr>());
+          assert(sym);
+          usedSymbolicOps.insert(sym);
+        }
+        return success();
+      }))) {
+    return failure();
+  }
 
   // remove symbolic dim ops that are known not used by any other ops/types.
   for (auto& p : symbolDimUnionSet_) {
@@ -244,6 +205,73 @@ llvm::Optional<SmallVector<FlatSymbolRefAttr>> getRankedValueSymbolicDimRefs(
     symbols.push_back(symbol);
   }
   return symbols;
+}
+
+// Updates the function types according to the types of entry block arguments
+// and the types of operands of the return op of the func op. This function
+// suppose that there is only one block inside the function region.
+LogicalResult updateFunctionType(FuncOp func) {
+  if (func.getBody().getBlocks().size() == 0) return success();
+  if (func.getBody().getBlocks().size() > 1)
+    return func->emitError() << "not support multi-block function\n";
+  SmallVector<Type, 4> refinedInputTypes;
+  for (Value arg : func.getBody().front().getArguments()) {
+    refinedInputTypes.push_back(arg.getType());
+  }
+
+  // 2, collect output types
+  SmallVector<Type, 4> refinedOutputTypes;
+  Operation& op = func.getBody().front().getOperations().back();
+  for (Value operand : op.getOperands()) {
+    refinedOutputTypes.push_back(operand.getType());
+  }
+
+  // 3, refine function type to new type
+  auto newFuncTy = FunctionType::get(func.getContext(), refinedInputTypes,
+                                     refinedOutputTypes);
+  func.setType(newFuncTy);
+  return success();
+}
+
+// Walk each ranked tensor type values inside op.
+LogicalResult walkRankedTensorValue(Operation* op, Visitor visitor) {
+  if (op->walk([&](Operation* op) {
+          for (Value value : op->getResults()) {
+            auto ty = value.getType().dyn_cast<RankedTensorType>();
+            if (!ty) return WalkResult::advance();
+            auto attrs = ty.getEncoding().dyn_cast_or_null<ArrayAttr>();
+            if (!attrs) return WalkResult::advance();
+            if (failed(visitor(value, ty, attrs)))
+              return WalkResult::interrupt();
+            return WalkResult::advance();
+          }
+        }).wasInterrupted()) {
+    return failure();
+  }
+
+  if (op->walk([&](Block* block) {
+          for (Value value : block->getArguments()) {
+            auto ty = value.getType().dyn_cast<RankedTensorType>();
+            if (!ty) return WalkResult::advance();
+            auto attrs = ty.getEncoding().dyn_cast_or_null<ArrayAttr>();
+            if (!attrs) return WalkResult::advance();
+            if (failed(visitor(value, ty, attrs)))
+              return WalkResult::interrupt();
+            return WalkResult::advance();
+          }
+        }).wasInterrupted()) {
+    return failure();
+  }
+  return success();
+}
+
+LogicalResult updateFunctionType(Operation* op) {
+  if (op->walk([&](FuncOp func) {
+          if (failed(updateFunctionType(func))) return WalkResult::interrupt();
+          return WalkResult::advance();
+        }).wasInterrupted())
+    return failure();
+  return success();
 }
 
 }  // namespace disc_ral

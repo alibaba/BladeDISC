@@ -90,11 +90,21 @@ def DISCShape_SymbolicDimOp:
     // TODO(disc): add likely values
   );
   let extraClassDeclaration = [{
+    // Returns the dimension value this SymbolicDim op represents.
     int64_t getDimSize();
+
+    // Sets the dimension value this SymbolicDim op represents to `val`
     void setDimSize(int64_t val);
+
+    // Returns true if this SymbolicDim is not known at compile-time.
     bool isDynamic();
 
+    // Try to merge two SymbolicDim ops.
+    // Returns failure if fail to merge.
     LogicalResult Merge(SymbolicDimOp other);
+
+    // Returns the name of attribute used for store the symbolicDim op reference attribute.
+    static StringRef getSymbolicDimAttrName() { return "kDiscSymbolicDimAttr"; }
   }];
 
   let hasCanonicalizer = 1;

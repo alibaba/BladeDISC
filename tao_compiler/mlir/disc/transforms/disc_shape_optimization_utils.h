@@ -10,6 +10,7 @@
 // limitations under the License.
 
 #include <memory>
+#include <unordered_map>
 #include <unordered_set>
 
 #include "llvm/ADT/SmallVector.h"

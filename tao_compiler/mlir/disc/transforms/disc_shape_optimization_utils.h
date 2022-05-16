@@ -13,6 +13,7 @@
 #include <unordered_set>
 
 #include "llvm/ADT/SmallVector.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 
 #ifndef TENSORFLOW_COMPILER_MLIR_DISC_TRANSFORMS_DISC_SHAPE_OPTIMIZATION_UTILS_H_
@@ -28,6 +29,19 @@ using disc_shape::SymbolicDimOp;
 // attached symbolic dim ref attributes.
 llvm::Optional<SmallVector<FlatSymbolRefAttr>> getRankedValueSymbolicDimRefs(
     Value value);
+
+using Visitor = std::function<LogicalResult(Value value, RankedTensorType ty,
+                                            ArrayAttr attrs)>;
+// Walk each ranked tensor type values inside op.
+LogicalResult walkRankedTensorValue(Operation* op, Visitor visitor);
+
+// Updates the function types according to the types of entry block arguments
+// and the types of operands of the return op of the func op. This function
+// suppose that there is only one block inside the function region.
+LogicalResult updateFunctionType(func::FuncOp func);
+
+// Updates the type of all functions inside the op.
+LogicalResult updateFunctionType(Operation* op);
 
 class SymbolicDimMgr {
  public:

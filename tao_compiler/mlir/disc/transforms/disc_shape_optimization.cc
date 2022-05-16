@@ -933,6 +933,44 @@ LogicalResult cleanUp(ModuleOp m, bool keep_tie_shape) {
                                             std::move(patterns)))) {
       return m.emitError() << "fail to do cleanup\n";
     }
+  } else {
+    // We will keep a `disc_shape.tie_shape` for each ranked tensor type value.
+    // And thus we can safely: 1, drop all symbolicDim reference attributes in
+    // ranked tensor type to prepare for bufferization (currently bufferizaiton
+    // pass does not support symbolicDim reference). 2, add an attribute to
+    // `disc_shape.tie_shape` op to record symbolicDim reference attribute.
+    // Example. convert from:
+    // ```
+    //   %1 = mhlo.abs(%0) : (tensor<?x?xf32, [@S0, @S1]>) -> tensor<?x?xf32,
+    //   [@S0, @S1]> %2 = disc_shape.tie_shape(%1, %d0, %d1) : tensor<?x?xf32,
+    //   [@S0, @S1]>
+    // ```
+    // to
+    // ```
+    //   %1 = mhlo.abs(%0) : (tensor<?x?xf32>) -> tensor<?x?xf32>
+    //   %2 = disc_shape.tie_shape(%1, %d0, %d1) {kDiscSymbolicDimAttr = [@S0,
+    //   @S1]} : tensor<?x?xf32>
+    // ```
+
+    // Part #1: attach the symbolicDim reference attribute to each
+    // `disc_shape.tie_shape` op.
+    m.walk([&](disc_shape::TieShapeOp op) {
+      auto ty = op->getResult(0).getType().dyn_cast<RankedTensorType>();
+      if (!ty) return;
+      auto attrs = ty.getEncoding().dyn_cast_or_null<ArrayAttr>();
+      if (!attrs) return;
+      op->setAttr(disc_shape::SymbolicDimOp::getSymbolicDimAttrName(), attrs);
+    });
+
+    if (failed(walkRankedTensorValue(
+            m, [&](Value value, RankedTensorType ty, ArrayAttr attrs) {
+              value.setType(
+                  RankedTensorType::get(ty.getShape(), ty.getElementType()));
+              return success();
+            }))) {
+      return failure();
+    }
+    if (failed(updateFunctionType(m))) return failure();
   }
   return success();
 }

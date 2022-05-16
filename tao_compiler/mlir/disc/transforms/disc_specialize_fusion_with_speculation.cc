@@ -147,14 +147,15 @@ Operation* GetCandidateColReduceOp(FusionOp fusion_op) {
 struct DiscSpecializeFusionWithSpeculationPass
     : public DiscSpecializeFusionWithSpeculationPassBase<
           DiscSpecializeFusionWithSpeculationPass> {
-  DiscSpecializeFusionWithSpeculationPass(int sm_count,
-                                          int max_threads_per_sm) {
+  DiscSpecializeFusionWithSpeculationPass(int core_count,
+                                          int max_threads_per_core) {
     // If the parameter value is not positive, we will use a default value. The
     // default value is the data of the most popular NVIDIA GPU generation for
     // inference. Currently, it is A10.
-    sm_count_ = (sm_count > 0) ? sm_count : 72;
+    core_count_ = (core_count > 0) ? core_count : 72;
     // TODO: double check on A10.
-    max_threads_per_sm_ = (max_threads_per_sm > 0) ? max_threads_per_sm : 1024;
+    max_threads_per_core_ =
+        (max_threads_per_core > 0) ? max_threads_per_core : 1024;
   }
 
   void getDependentDialects(DialectRegistry& registry) const override {
@@ -252,8 +253,8 @@ struct DiscSpecializeFusionWithSpeculationPass
     }
 
     FusionType fusion_type = getFusionType(fusion_op.getOperation());
-    if (fusion_type != FusionType::kRowReduction &&
-        fusion_type != FusionType::kStitch) {
+    if (fusion_type != FusionType::kRowReduction) {
+      // fusion_type != FusionType::kStitch) {
       return;
     }
 
@@ -296,7 +297,7 @@ struct DiscSpecializeFusionWithSpeculationPass
       //      (row-number / row-per-block-in-sched-2 < max-blocks-per-wave / 2);
       //   2. use schedule 2 otherwise.
       int64_t max_blocks_per_wave =
-          max_threads_per_sm_ / block_size * sm_count_;
+          max_threads_per_core_ / block_size * core_count_;
       int64_t row_per_block_in_sched_2 = block_size / kWarpSize;
       Value row_size = b.create<memref::DimOp>(loc, operand, 0);
       Value block_size_val = b.create<arith::ConstantIndexOp>(loc, block_size);
@@ -368,7 +369,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     Value cur_threads = b.create<arith::ConstantIndexOp>(loc, thread_per_block);
     Value cur_blocks =
         b.create<arith::CeilDivSIOp>(loc, matrix_size, cur_threads);
-    Value ref_blocks = b.create<arith::ConstantIndexOp>(loc, sm_count_);
+    Value ref_blocks = b.create<arith::ConstantIndexOp>(loc, core_count_);
 
     Value pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt,
                                          cur_blocks, ref_blocks);
@@ -430,7 +431,7 @@ struct DiscSpecializeFusionWithSpeculationPass
 
     Value out_element_number;
     Value threshold;
-    int max_threads_per_wave = sm_count_ * max_threads_per_sm_;
+    int max_threads_per_wave = core_count_ * max_threads_per_core_;
     if (fusion_type == FusionType::kRowReduction ||
         fusion_type == FusionType::kStitch) {
       Operation* dominant_equivalent_op = GetCandidateRowReduceOp(fusion_op);
@@ -523,18 +524,20 @@ struct DiscSpecializeFusionWithSpeculationPass
         &DiscSpecializeFusionWithSpeculationPass::DoRowReductionSpeculation);
 
     // Stage #4: speculation of vectorization/tiling.
+#if 0
     Speculator(
         &DiscSpecializeFusionWithSpeculationPass::DoVectorizeOrTileSpeculation);
+#endif
   }
 };
 
 }  // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-createDiscSpecializeFusionWithSpeculationPass(int sm_count,
-                                              int max_threads_per_sm) {
+createDiscSpecializeFusionWithSpeculationPass(int core_count,
+                                              int max_threads_per_core) {
   return std::make_unique<DiscSpecializeFusionWithSpeculationPass>(
-      sm_count, max_threads_per_sm);
+      core_count, max_threads_per_core);
 }
 
 }  // namespace disc_ral

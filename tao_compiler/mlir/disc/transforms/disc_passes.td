@@ -45,6 +45,12 @@ def DiscLhloLegalizeRootsToParallelLoopsPass : Pass<"disc-lhlo-legalize-roots-to
     "gpu::GPUDialect",
     "disc_shape::DISCShapeDialect"
   ];
+  let options = [
+    Option<"core_count_", "core-count", "int",
+            /*default=*/"-1", "core count (e.g., SM count on NVIDIA GPU).">,
+    Option<"max_threads_per_core_", "max-threads-per-core", "int",
+            /*default=*/"-1", "max thread number that a core supports concurrently.">,
+  ];
 }
 
 def ConvRewriterPass : Pass<"disc-conv-rewriter", "mlir::func::FuncOp"> {
@@ -66,10 +72,10 @@ def DiscSpecializeFusionWithSpeculationPass : Pass<"disc-specialize-fusion-with-
   let summary = "Pass for specializing a fusion op with some speculations.";
   let constructor = "createDiscSpecializeFusionWithSpeculationPass()";
   let options = [
-    Option<"sm_count_", "gpu-sm-count", "int",
-            /*default=*/"-1", "gpu sm count.">,
-    Option<"max_threads_per_sm_", "gpu-max-threads-per-sm", "int",
-            /*default=*/"-1", "gpu max threads per sm.">,
+    Option<"core_count_", "core-count", "int",
+            /*default=*/"-1", "core count (e.g., SM count on NVIDIA GPU).">,
+    Option<"max_threads_per_core_", "max-threads-per-core", "int",
+            /*default=*/"-1", "max thread number that a core supports concurrently.">,
   ];
 }
 

@@ -2143,13 +2143,11 @@ LogicalResult emitSecondRoundShuffleStitch(
   return success();
 }
 
-LogicalResult emitInBlockRowReduce(OpBuilder& b, Location loc, Block* block,
-                                   Operation* op, Value block_id,
-                                   Value thread_id, int64_t block_size,
-                                   int row_reduction_schedule, int64_t row_tile,
-                                   Value result_buffer_shm,
-                                   ShapeAnalysis* shape_analysis,
-                                   bool is_output, bool external_output_only) {
+LogicalResult emitRowReduceThreadBlock(
+    OpBuilder& b, Location loc, Block* block, Operation* op, Value block_id,
+    Value thread_id, int64_t block_size, int row_reduction_schedule,
+    int64_t row_tile, Value result_buffer_shm, ShapeAnalysis* shape_analysis,
+    bool is_output, bool external_output_only) {
   Value lhs = op->getOperand(0);
   const MemRefType& lhs_type = lhs.getType().template cast<MemRefType>();
   Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
@@ -2450,7 +2448,8 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
       b.create<arith::CeilDivUIOp>(loc, shape_h, row_per_block_val);
 
   auto load_config_func = [&](OpBuilder& b, Value value, ValueRange indices,
-                              Value shm_buffer, int64_t row_per_block) {
+                              // Value shm_buffer, int64_t row_per_block) {
+                              Value shm_buffer, Value row_per_block) {
     auto loc = value.getLoc();
     assert(shm_buffer != nullptr);
     // shm index = linear_index % row_per_block;
@@ -2458,10 +2457,11 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
     auto shape = getShapeValues(&b, value);
     assert(shape.size() == indices.size());
     Value linear_index = calcLinearIndex(&b, loc, indices, shape);
-    Value row_per_block_val =
-        b.create<arith::ConstantIndexOp>(loc, row_per_block);
+    // Value row_per_block_val =
+    // b.create<arith::ConstantIndexOp>(loc, row_per_block);
     Value smem_index =
-        b.create<arith::RemUIOp>(loc, linear_index, row_per_block_val);
+        b.create<arith::RemUIOp>(loc, linear_index, row_per_block);
+    // b.create<arith::RemUIOp>(loc, linear_index, row_per_block_val);
     Value res =
         b.create<memref::LoadOp>(loc, shm_buffer, ValueRange({smem_index}));
     return res;
@@ -2502,12 +2502,12 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
         return failure();
       }
       LowerConfig::SpecificLoader loader(load_config_func, result_shmem,
-                                         row_per_block);
+                                         row_per_block_val);
       lower_config.setSpecificLoader(
           std::make_pair(fusion_op.getOperation(), out_value), loader);
 
       bool external_only = external_only_roots.contains(skeleton);
-      if (failed(emitInBlockRowReduce(
+      if (failed(emitRowReduceThreadBlock(
               b, loc, parallel_op.getBody(), skeleton, block_id, thread_id,
               thread_per_block, row_reduction_schedule, row_tile, result_shmem,
               shape_analysis, roots.contains(skeleton), external_only))) {
@@ -2663,8 +2663,12 @@ LogicalResult emitWarpReduce(OpBuilder& b, Location loc, Operation* op,
       }
     }
     Value offset = b.create<arith::ConstantIntOp>(loc, i, b.getIntegerType(32));
-    Value shuffle_res = emitWidthAdaptShuffle(
-        b, loc, target, shuffleElemType, offset, target, gpu::ShuffleMode::XOR);
+    Value v_width =
+        b.create<arith::ConstantIntOp>(loc, width, b.getIntegerType(32));
+    Value shuffle_res =
+        emitWidthAdaptShuffle(b, loc, target, shuffleElemType, offset, v_width,
+                              gpu::ShuffleMode::XOR);
+
     if (elemType != shuffleElemType) {
       if (failed(truncateShuffleElemType(b, loc, target, elemType, &target)) ||
           failed(truncateShuffleElemType(b, loc, shuffle_res, elemType,
@@ -2686,54 +2690,62 @@ LogicalResult emitWarpReduce(OpBuilder& b, Location loc, Operation* op,
     return failure();
   }
 
+  width = b.create<arith::IndexCastOp>(loc, b.getIntegerType(32), width);
+
   // Build the while loop for the reduce.
-  SmallVector<Type> while_type({b.getIndexType()});
-  Value one = b.create<arith::ConstantIndexOp>(loc, 1);
-  ValueRange while_lb({one});
+  SmallVector<Type> while_types({b.getIntegerType(32), elemType});
+  Value one = b.create<arith::ConstantIntOp>(loc, 1, b.getIntegerType(32));
+  SmallVector<Value> while_in({one, target});
   scf::WhileOp while_warp_reduce =
-      b.create<scf::WhileOp>(loc, while_type, while_lb);
+      b.create<scf::WhileOp>(loc, while_types, while_in);
 
   // Build the "before" region, which effectively consists of a
   // conjunction of "i < upper" tests on all induction.
-  Block* before = b.createBlock(&while_warp_reduce.getBefore());
+  SmallVector<Location> locs(while_types.size(), loc);
+  Block* before =
+      b.createBlock(&while_warp_reduce.getBefore(), {}, while_types, locs);
   b.setInsertionPointToStart(before);
   {
     Value reduce_index = before->getArgument(0);
-    Value cond = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::lt,
+    Value cond = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt,
                                          reduce_index, width);
     b.create<scf::ConditionOp>(loc, cond, before->getArguments());
   }
 
   // The computation body of `while` is in the `after` block.
-  Block* after = b.createBlock(&while_warp_reduce.getAfter());
+  Block* after =
+      b.createBlock(&while_warp_reduce.getAfter(), {}, while_types, locs);
   b.setInsertionPointToStart(after);
   {
     Value shuffle_offset = after->getArgument(0);
+    Value input = after->getArgument(1);
     // TODO: move it out of the loop.
     if (elemType != shuffleElemType) {
-      if (failed(extendShuffleElemType(b, loc, target, shuffleElemType,
-                                       &target))) {
+      if (failed(
+              extendShuffleElemType(b, loc, input, shuffleElemType, &input))) {
         return failure();
       }
     }
     Value shuffle_result =
-        emitWidthAdaptShuffle(b, loc, target, shuffleElemType, shuffle_offset,
+        emitWidthAdaptShuffle(b, loc, input, shuffleElemType, shuffle_offset,
                               width, gpu::ShuffleMode::XOR);
     if (elemType != shuffleElemType) {
-      if (failed(truncateShuffleElemType(b, loc, target, elemType, &target)) ||
+      if (failed(truncateShuffleElemType(b, loc, input, elemType, &input)) ||
           failed(truncateShuffleElemType(b, loc, shuffle_result, elemType,
                                          &shuffle_result))) {
         return failure();
       }
     }
-    target = accumFactory(target, shuffle_result);
+    input = accumFactory(input, shuffle_result);
 
     // Update while condition.
     Value reduce_index_update = b.create<arith::MulIOp>(
-        loc, shuffle_offset, b.create<arith::ConstantIndexOp>(loc, 2));
-    b.create<scf::YieldOp>(loc, ValueRange({reduce_index_update}));
+        loc, shuffle_offset,
+        b.create<arith::ConstantIntOp>(loc, 2, b.getIntegerType(32)));
+    b.create<scf::YieldOp>(loc, ValueRange({reduce_index_update, input}));
   }
   b.setInsertionPointAfter(while_warp_reduce);
+  target = while_warp_reduce.getResult(1);
 
   return success();
 }
@@ -2798,11 +2810,12 @@ LogicalResult emitWarpReduce(OpBuilder& b, Location loc, Operation* op,
  * }
  */
 // TODO: support to emit several row-reduces together to increase ILP.
-LogicalResult emitInBlockRowReduce(OpBuilder& b, Location loc, Block* block,
-                                   Operation* op, Value threads_per_row,
-                                   Value result_buffer_shm,
-                                   ShapeAnalysis* shape_analysis,
-                                   bool is_output, bool external_output_only) {
+LogicalResult emitRowReduceThreadBlock(OpBuilder& b, Location loc, Block* block,
+                                       Operation* op, Value threads_per_row,
+                                       Value result_buffer_shm,
+                                       ShapeAnalysis* shape_analysis,
+                                       bool is_output,
+                                       bool external_output_only) {
   Value block_dim =
       b.create<gpu::BlockDimOp>(loc, b.getIndexType(), gpu::Dimension::x);
   Value block_id =
@@ -2822,41 +2835,46 @@ LogicalResult emitInBlockRowReduce(OpBuilder& b, Location loc, Block* block,
   Value cols = b.create<memref::DimOp>(loc, lhs, one);
 
   // Calculate `row_index` and `tid_in_row`.
-  Value row_index = nullptr;
-  Value tid_in_row = nullptr;
+  // Value row_index = nullptr;
+  // Value tid_in_row = nullptr;
   auto is_one_block_one_row = b.create<arith::CmpIOp>(
       loc, arith::CmpIPredicate::eq, threads_per_row, block_dim);
   scf::IfOp if_is_one_block_one_row = b.create<scf::IfOp>(
-      loc, /*resultTypes*/ ArrayRef<Type>{}, is_one_block_one_row,
-      /*hasElseRegion*/ true);
+      loc,
+      /*resultTypes*/ SmallVector<Type>({b.getIndexType(), b.getIndexType()}),
+      is_one_block_one_row, /*hasElseRegion*/ true);
   if_is_one_block_one_row.getThenRegion().front().clear();
-  b->setInsertionPointToEnd(&if_is_one_block_one_row.getThenRegion().front());
+  b.setInsertionPointToEnd(&if_is_one_block_one_row.getThenRegion().front());
   {
-    row_index = block_id;
-    tid_in_row = thread_id;
-    b.create<scf::YieldOp>(loc, ValueRange({}));
+    Value row_index = block_id;
+    Value tid_in_row = thread_id;
+    b.create<scf::YieldOp>(loc, ValueRange({row_index, tid_in_row}));
   }
   if_is_one_block_one_row.getElseRegion().front().clear();
-  b->setInsertionPointToEnd(&if_is_one_block_one_row.getElseRegion().front());
+  b.setInsertionPointToEnd(&if_is_one_block_one_row.getElseRegion().front());
   {
-    row_index = b.create<arith::AddIOp>(
+    Value row_index = b.create<arith::AddIOp>(
         loc, b.create<arith::MulIOp>(loc, block_id, warps_per_block), warp_id);
-    tid_in_row = lane_id;
-    b.create<scf::YieldOp>(loc, ValueRange({}));
+    Value tid_in_row = lane_id;
+    b.create<scf::YieldOp>(loc, ValueRange({row_index, tid_in_row}));
   }
-  b->setInsertionPointAfter(if_is_one_block_one_row);
+  b.setInsertionPointAfter(if_is_one_block_one_row);
+  Value row_index = if_is_one_block_one_row.getResult(0);
+  Value tid_in_row = if_is_one_block_one_row.getResult(1);
 
   // if (row_index < rows)
   auto is_row_valid =
-      b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::lt, row_index, rows);
+      b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt, row_index, rows);
   scf::IfOp if_is_row_valid =
       b.create<scf::IfOp>(loc, /*resultTypes*/ ArrayRef<Type>{}, is_row_valid,
                           /*hasElseRegion*/ false);
   if_is_row_valid.getThenRegion().front().clear();
   b.setInsertionPointToStart(&if_is_row_valid.getThenRegion().front());
   {
-    auto init_value =
+    Value init_value =
         b.create<memref::LoadOp>(loc, *(reduce_op.init_values().begin()));
+    AccumulatorFactory accumFactory =
+        getFactory(b, op->getLoc(), reduce_op.body());
 
     // 1. Emit in-thread local reduction.
     Value col_index = nullptr;
@@ -2870,22 +2888,20 @@ LogicalResult emitInBlockRowReduce(OpBuilder& b, Location loc, Block* block,
       ValueRange input_index(multidim);
       auto input = createLoadOrUseCachedValue(loc, &b, op, lhs, input_index,
                                               b.saveInsertionPoint());
-      AccumulatorFactory accumFactory =
-          getFactory(b, op->getLoc(), reduce_op.body());
       local_reduce =
-          accumFactory(*(for_local_reduce.getRegionIterArgs().begin()), data);
+          accumFactory(*(for_local_reduce.getRegionIterArgs().begin()), input);
       b.create<scf::YieldOp>(loc, local_reduce);
     }
     b.setInsertionPointAfter(for_local_reduce);
 
     // 2. Emit per-warp reduction.
     Value warp_reduce = *(for_local_reduce.getResults().begin());
-    emitWarpReduce(b, loc, op, accumFactor, warp_reduce, kWarpSize);
+    emitWarpReduce(b, loc, op, accumFactory, warp_reduce, kWarpSize);
 
     // 3. Store warp-reduce result.
     // If it is one-block-one-row reduce, the result will be stored in shm for
     // the second round reduce. Otherwise will be written to output.
-    SmallVector<Value> warp_reduce_result_shm =
+    Value warp_reduce_result_shm =
         createSharedMemoryForOp(b, loc, op, kWarpSize);
     if (warp_reduce_result_shm == nullptr) {
       return failure();
@@ -2897,13 +2913,14 @@ LogicalResult emitInBlockRowReduce(OpBuilder& b, Location loc, Block* block,
         /*hasElseRegion*/ false);
     // if (lane_id == 0)
     if_lane_id_is_zero.getThenRegion().front().clear();
+    b.setInsertionPointToEnd(&if_lane_id_is_zero.getThenRegion().front());
     {
       scf::IfOp if_is_one_block_one_row_2 = b.create<scf::IfOp>(
           loc, /*resultTypes*/ ArrayRef<Type>{}, is_one_block_one_row,
           /*hasElseRegion*/ true);
       // if (threads_per_row != 32)
       if_is_one_block_one_row_2.getThenRegion().front().clear();
-      b->setInsertionPointToEnd(
+      b.setInsertionPointToEnd(
           &if_is_one_block_one_row_2.getThenRegion().front());
       {
         // Store result to shm for second round reduce. Note that we do not deal
@@ -2914,7 +2931,7 @@ LogicalResult emitInBlockRowReduce(OpBuilder& b, Location loc, Block* block,
         b.create<scf::YieldOp>(loc, ValueRange({}));
       }
       if_is_one_block_one_row_2.getElseRegion().front().clear();
-      b->setInsertionPointToEnd(
+      b.setInsertionPointToEnd(
           &if_is_one_block_one_row_2.getElseRegion().front());
       {
         // Write back result to output, including stitch shm and final output.
@@ -2930,7 +2947,7 @@ LogicalResult emitInBlockRowReduce(OpBuilder& b, Location loc, Block* block,
         }
         b.create<scf::YieldOp>(loc, ValueRange({}));
       }
-      b->setInsertionPointAfter(if_is_one_block_one_row_2);
+      b.setInsertionPointAfter(if_is_one_block_one_row_2);
       b.create<scf::YieldOp>(loc, ValueRange({}));
     }
     b.setInsertionPointAfter(if_lane_id_is_zero);
@@ -2947,7 +2964,7 @@ LogicalResult emitInBlockRowReduce(OpBuilder& b, Location loc, Block* block,
       // __syncthreads()
       b.create<gpu::BarrierOp>(loc);
       auto is_first_warp = b.create<arith::CmpIOp>(
-          loc, arith::CmpIPredicate::lt, thread_id, warp_size);
+          loc, arith::CmpIPredicate::slt, thread_id, warp_size);
       scf::IfOp if_is_first_warp = b.create<scf::IfOp>(
           loc, /*resultTypes*/ ArrayRef<Type>{}, is_first_warp,
           /*hasElseRegion*/ false);
@@ -2957,6 +2974,11 @@ LogicalResult emitInBlockRowReduce(OpBuilder& b, Location loc, Block* block,
         // Read results of the first round reduce.
         Value lane_id_inbound = b.create<arith::CmpIOp>(
             loc, arith::CmpIPredicate::slt, lane_id, warps_per_block);
+        const auto elemType = getLhloOpsElementType(op);
+        Type shuffleElemType;
+        if (failed(getShuffleElemType(b, elemType, &shuffleElemType))) {
+          return failure();
+        }
         scf::IfOp if_lane_id_inbound =
             b.create<scf::IfOp>(loc, /*resultTypes*/ elemType, lane_id_inbound,
                                 /*hasElseRegion*/ true);
@@ -2980,7 +3002,7 @@ LogicalResult emitInBlockRowReduce(OpBuilder& b, Location loc, Block* block,
 
         // Perform the second round warp reduce.
         Value reduce_r2 = if_lane_id_inbound.getResult(0);
-        emitWarpReduce(b, loc, op, accumFactor, reduce_r2, warps_per_block);
+        emitWarpReduce(b, loc, op, accumFactory, reduce_r2, warps_per_block);
 
         // Finally, write the output to either stitch shm buffer or global
         // memory.
@@ -3011,18 +3033,19 @@ LogicalResult emitInBlockRowReduce(OpBuilder& b, Location loc, Block* block,
     b.setInsertionPointAfter(if_is_one_block_one_row_3);
     b.create<scf::YieldOp>(loc, ValueRange({}));
   }
-  // b.setInsertionPointAfter(if_is_row_valid);
+  b.setInsertionPointAfter(if_is_row_valid);
   b.setInsertionPointToEnd(block);
 
   return success();
 }
 
 LogicalResult getGPURowReduceLaunchDimensionAndSchedule(
-    OpBuilder& b, Location loc, Operation* op, Value& block_number,
-    Value& block_size, Value& threads_per_row) {
+    OpBuilder& b, Location loc, Operation* op, int core_count,
+    int max_threads_per_core, Value& block_number, Value& block_size,
+    Value& threads_per_row) {
   // TODO: cache the selection result.
 
-  auto reduce = dyn_cast_or_null<lmhlo::ReduceOp>(dominant_op);
+  auto reduce = dyn_cast_or_null<lmhlo::ReduceOp>(op);
   if (reduce == nullptr) {
     return failure();
   }
@@ -3033,6 +3056,14 @@ LogicalResult getGPURowReduceLaunchDimensionAndSchedule(
   Value rows = b.create<memref::DimOp>(loc, input, zero);
   Value cols = b.create<memref::DimOp>(loc, input, one);
 
+  // if (core_count == -1 || max_threads_per_core == -1) {
+  //   // Use default schedule.
+  //   block_number = rows;
+  //   block_size = b.create<arith::ConstantIndexOp>(loc, 128);
+  //   threads_per_row = b.create<arith::ConstantIndexOp>(loc, 128);
+  //   return success();
+  // }
+
   // Decide block-size.
   //
   // The rule to select block-size.
@@ -3040,32 +3071,46 @@ LogicalResult getGPURowReduceLaunchDimensionAndSchedule(
   //   2. Else if #rows < #SM * 2, block-size is 256.
   //   3. Else, block-size is 128.
 
-  Value sm_count = b.create<arith::ConstantIntOp>(loc, core_count_);
+  Value sm_count = b.create<arith::ConstantIndexOp>(loc, core_count);
   Value is_small_rows =
-      b.create<arith::CmpIOp>(loc, arith::CmpIPredict::lt, rows, sm_count);
-  auto if_is_small_rows =
-      b.create<scf::IfOp>(loc, llvm::None, is_small_rows, true);
+      b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt, rows, sm_count);
+  auto if_is_small_rows = b.create<scf::IfOp>(
+      loc, SmallVector<Type>({b.getIndexType()}), is_small_rows, true);
   Block* is_small_then = &if_is_small_rows.getThenRegion().getBlocks().front();
   b.setInsertionPoint(is_small_then, is_small_then->begin());
-  { block_size = b.create<arith::ConstantIndexOp>(loc, 512); }
+  {
+    Value block_size = b.create<arith::ConstantIndexOp>(loc, 512);
+    b.create<scf::YieldOp>(loc, ValueRange({block_size}));
+  }
   Block* is_small_else = &if_is_small_rows.getElseRegion().getBlocks().front();
   b.setInsertionPoint(is_small_else, is_small_else->begin());
   {
-    Value twice_sm_count = b.create<arith::ConstantIntOp>(loc, 2 * core_count_);
-    Value is_medium_rows = b.create<arith::CmpIOp>(loc, arith::CmpIPredict::lt,
-                                                   rows, twice_sm_count);
-    auto if_is_medium_rows =
-        b.create<scf::IfOp>(loc, llvm::None, is_medium_rows, true);
+    Value twice_sm_count =
+        b.create<arith::ConstantIndexOp>(loc, 2 * core_count);
+    Value is_medium_rows = b.create<arith::CmpIOp>(
+        loc, arith::CmpIPredicate::slt, rows, twice_sm_count);
+    auto if_is_medium_rows = b.create<scf::IfOp>(
+        loc, SmallVector<Type>({b.getIndexType()}), is_medium_rows, true);
     Block* is_medium_then =
         &if_is_medium_rows.getThenRegion().getBlocks().front();
     b.setInsertionPoint(is_medium_then, is_medium_then->begin());
-    { block_size = b.create<arith::ConstantIndexOp>(loc, 256); }
+    {
+      Value block_size = b.create<arith::ConstantIndexOp>(loc, 256);
+      b.create<scf::YieldOp>(loc, ValueRange({block_size}));
+    }
     Block* is_medium_else =
         &if_is_medium_rows.getElseRegion().getBlocks().front();
     b.setInsertionPoint(is_medium_else, is_medium_else->begin());
-    { block_size = b.create<arith::ConstantIndexOp>(loc, 128); }
+    {
+      Value block_size = b.create<arith::ConstantIndexOp>(loc, 128);
+      b.create<scf::YieldOp>(loc, ValueRange({block_size}));
+    }
+    b.setInsertionPointAfter(if_is_medium_rows);
+
+    b.create<scf::YieldOp>(loc, ValueRange({if_is_medium_rows.getResult(0)}));
   }
   b.setInsertionPointAfter(if_is_small_rows);
+  block_size = if_is_small_rows.getResult(0);
 
   // Code generation schedule decision, i.e., `threads-per-row` decision.
   //
@@ -3079,34 +3124,36 @@ LogicalResult getGPURowReduceLaunchDimensionAndSchedule(
   Value col_threshold = b.create<arith::ConstantIndexOp>(loc, 512);
   Value one_block_one_row = b.create<arith::CmpIOp>(
       loc, arith::CmpIPredicate::sge, cols, col_threshold);
-  int64_t max_warps_per_wave = max_threads_per_core_ / kWarpSize * core_count_;
+  int64_t max_warps_per_wave = max_threads_per_core / kWarpSize * core_count;
   Value row_threshold =
       b.create<arith::ConstantIndexOp>(loc, max_warps_per_wave / 2);
   one_block_one_row = b.create<arith::OrIOp>(
       loc, one_block_one_row,
       b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt, rows,
                               row_threshold));
-  auto if_one_block_one_row =
-      b.create<scf::IfOp>(loc, llvm::None, one_block_one_row, true);
+  auto if_one_block_one_row = b.create<scf::IfOp>(
+      loc, SmallVector<Type>({b.getIndexType(), b.getIndexType()}),
+      one_block_one_row, true);
 
   Block* one_block_one_row_then =
       &if_one_block_one_row.getThenRegion().getBlocks().front();
   b.setInsertionPoint(one_block_one_row_then, one_block_one_row_then->begin());
-  {
-    threads_per_row = block_size;
-    row_per_block = one;
-  }
+  { b.create<scf::YieldOp>(loc, ValueRange({block_size, one})); }
   Block* one_block_one_row_else =
       &if_one_block_one_row.getElseRegion().getBlocks().front();
   b.setInsertionPoint(one_block_one_row_else, one_block_one_row_else->begin());
   {
-    threads_per_row = b.create<arith::ConstantIndexOp>(loc, kWarpSize);
-    row_per_block = b.create<arith::DivUIOp>(loc, block_size, threads_per_row);
+    Value threads_per_row = b.create<arith::ConstantIndexOp>(loc, kWarpSize);
+    Value row_per_block =
+        b.create<arith::DivUIOp>(loc, block_size, threads_per_row);
+    b.create<scf::YieldOp>(loc, ValueRange({threads_per_row, row_per_block}));
   }
   b.setInsertionPointAfter(if_one_block_one_row);
+  threads_per_row = if_one_block_one_row.getResult(0);
+  row_per_block = if_one_block_one_row.getResult(1);
 
   // Finally, get the block number value.
-  Value block_number = b.create<arith::CeilDivUIOp>(loc, rows, row_per_block);
+  block_number = b.create<arith::CeilDivUIOp>(loc, rows, row_per_block);
 
   return success();
 }
@@ -3114,6 +3161,7 @@ LogicalResult getGPURowReduceLaunchDimensionAndSchedule(
 LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
                                       FusionPattern& fusion_pattern,
                                       ShapeAnalysis* shape_analysis,
+                                      int core_count, int max_threads_per_core,
                                       LowerConfig& lower_config) {
   auto root_ops = fusion_pattern.getRootOps();
   auto sub_root_ops = fusion_pattern.getSubRootOps();
@@ -3171,6 +3219,17 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
   Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
   Value one = b.create<arith::ConstantIndexOp>(loc, 1);
   Value shape_h = b.create<memref::DimOp>(loc, lhs, zero);
+
+  // TODO: update the launch setting.
+  Value block_number;
+  Value block_size;
+  Value threads_per_row;
+  if (failed(getGPURowReduceLaunchDimensionAndSchedule(
+          b, loc, dominant_op, core_count, max_threads_per_core, block_number,
+          block_size, threads_per_row))) {
+    LLVM_DEBUG(llvm::dbgs() << "Fail to generate schedule config.\n");
+    return failure();
+  }
   // Value block_size = b.create<arith::ConstantIndexOp>(loc, thread_per_block);
 
   // loop over (block-number, threads-per-block)
@@ -3209,6 +3268,8 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
   // Value warp_size_val = b.create<arith::ConstantIndexOp>(loc, kWarpSize);
   // Value warp_id = b.create<arith::DivUIOp>(loc, thread_id, warp_size_val);
   // Value lane_id = b.create<arith::RemUIOp>(loc, thread_id, warp_size_val);
+  Value block_dim =
+      b.create<gpu::BlockDimOp>(loc, b.getIndexType(), gpu::Dimension::x);
   Value block_id =
       b.create<gpu::BlockIdOp>(loc, b.getIndexType(), gpu::Dimension::x);
   Value thread_id =
@@ -3227,7 +3288,7 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
     if (isRank2RowReduction(skeleton)) {
       Value out_value = cast<lmhlo::LmhloOp>(skeleton).getResultBuffer();
       Value result_shmem;
-      result_shmem = createSharedMemoryForOp(b, loc, skeleton, row_per_block);
+      result_shmem = createSharedMemoryForOp(b, loc, skeleton, kWarpSize);
       if (result_shmem == nullptr) {
         LLVM_DEBUG(llvm::dbgs()
                    << "Create shared memory failed for: " << *skeleton << "\n");
@@ -3248,10 +3309,10 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
           std::make_pair(fusion_op.getOperation(), out_value), loader);
 
       bool external_only = external_only_roots.contains(skeleton);
-      if (failed(emitInBlockRowReduce(b, loc, parallel_op.getBody(), skeleton,
-                                      threads_per_row, result_shmem,
-                                      shape_analysis, roots.contains(skeleton),
-                                      external_only))) {
+      if (failed(emitRowReduceThreadBlock(
+              b, loc, parallel_op.getBody(), skeleton, threads_per_row,
+              result_shmem, shape_analysis, roots.contains(skeleton),
+              external_only))) {
         LLVM_DEBUG(llvm::dbgs() << "Failed to emit InBlockRowReduce for: "
                                 << *skeleton << "\n");
         return failure();
@@ -3280,65 +3341,95 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
       // Get row-id according to codegen schedule.
       // TODO: reuse row_ids between sub-roots and external-only-roots.
 
-      Value block_row_base =
-          b.create<arith::MulIOp>(loc, block_id, row_per_block);
-      Value block_row_offset = b.create<arith::ConstantIndexOp>(loc, 0);
-      if (row_reduction_schedule == DISC_WARP_WISE_ROW_REDUCE) {
-        block_row_offset = warp_id;
+      // Value block_row_base =
+      // b.create<arith::MulIOp>(loc, block_id, row_per_block);
+      // Value block_row_offset = b.create<arith::ConstantIndexOp>(loc, 0);
+      // if (row_reduction_schedule == DISC_WARP_WISE_ROW_REDUCE) {
+      // block_row_offset = warp_id;
+      // }
+      // Value row_id =
+      // b.create<arith::AddIOp>(loc, block_row_base, block_row_offset);
+      auto is_one_block_one_row = b.create<arith::CmpIOp>(
+          loc, arith::CmpIPredicate::eq, threads_per_row, block_dim);
+      scf::IfOp if_is_one_block_one_row = b.create<scf::IfOp>(
+          loc, /*resultTypes*/
+          SmallVector<Type>({b.getIndexType(), b.getIndexType()}),
+          is_one_block_one_row,
+          /*hasElseRegion*/ true);
+      if_is_one_block_one_row.getThenRegion().front().clear();
+      b.setInsertionPointToEnd(
+          &if_is_one_block_one_row.getThenRegion().front());
+      {
+        Value row_index = block_id;
+        Value tid_in_row = thread_id;
+        b.create<scf::YieldOp>(loc, ValueRange({row_index, tid_in_row}));
       }
-      Value row_id =
-          b.create<arith::AddIOp>(loc, block_row_base, block_row_offset);
+      if_is_one_block_one_row.getElseRegion().front().clear();
+      b.setInsertionPointToEnd(
+          &if_is_one_block_one_row.getElseRegion().front());
+      {
+        Value row_index = b.create<arith::AddIOp>(
+            loc, b.create<arith::MulIOp>(loc, block_id, row_per_block),
+            warp_id);
+        Value tid_in_row = lane_id;
+        b.create<scf::YieldOp>(loc, ValueRange({row_index, tid_in_row}));
+      }
+      b.setInsertionPointAfter(if_is_one_block_one_row);
+      Value row_index = if_is_one_block_one_row.getResult(0);
+      Value tid_in_row = if_is_one_block_one_row.getResult(1);
 
       scf::IfOp if_row_in_bound;
-      if (row_reduction_schedule == DISC_WARP_WISE_ROW_REDUCE) {
-        // We only check the largest row-id processed in this thread.
-        auto row_in_bound = b.create<arith::CmpIOp>(
-            loc, arith::CmpIPredicate::slt, row_id, shape_h);
-        if_row_in_bound =
-            b.create<scf::IfOp>(loc, /*resultTypes*/ ArrayRef<Type>{},
-                                row_in_bound, /*hasElseRegion*/ false);
-        if_row_in_bound.getThenRegion().front().clear();
-        b.setInsertionPointToStart(&if_row_in_bound.getThenRegion().front());
-      }
-
-      SmallVector<Value> outShapeValues = getShapeValues(&b, out_value);
-      // Deal with the case that tiled dims are not the same between result and
-      // sub-roots' input.
-      Value tiled_linear = nullptr;
-      for (auto en : llvm::enumerate(outShapeValues)) {
-        if (tile_info->second.tileSizes.count(en.index()) > 0) {
-          tiled_linear =
-              (tiled_linear == nullptr)
-                  ? en.value()
-                  : b.create<arith::MulIOp>(loc, tiled_linear, en.value());
+      // if (row_reduction_schedule == DISC_WARP_WISE_ROW_REDUCE) {
+      // We only check the largest row-id processed in this thread.
+      auto row_in_bound = b.create<arith::CmpIOp>(
+          loc, arith::CmpIPredicate::slt, row_index, shape_h);
+      if_row_in_bound =
+          b.create<scf::IfOp>(loc, /*resultTypes*/ ArrayRef<Type>{},
+                              row_in_bound, /*hasElseRegion*/ false);
+      if_row_in_bound.getThenRegion().front().clear();
+      b.setInsertionPointToStart(&if_row_in_bound.getThenRegion().front());
+      // }
+      {
+        SmallVector<Value> outShapeValues = getShapeValues(&b, out_value);
+        // Deal with the case that tiled dims are not the same between result
+        // and sub-roots' input.
+        Value tiled_linear = nullptr;
+        for (auto en : llvm::enumerate(outShapeValues)) {
+          if (tile_info->second.tileSizes.count(en.index()) > 0) {
+            tiled_linear =
+                (tiled_linear == nullptr)
+                    ? en.value()
+                    : b.create<arith::MulIOp>(loc, tiled_linear, en.value());
+          }
         }
-      }
-      if (tiled_linear == nullptr) {
-        tiled_linear = b.create<arith::ConstantIndexOp>(loc, 1);
-      }
-      Value reduce_threads_val =
-          b.create<arith::ConstantIndexOp>(loc, reduce_threads);
-      Value var_j = nullptr;
-      Value lb = row_reduction_schedule == DISC_BLOCK_WISE_ROW_REDUCE
-                     ? thread_id
-                     : lane_id;
-      scf::ForOp for_op_j =
-          createLoopAndSetInsPt(b, loc, var_j,
-                                /*lb*/ lb, /*ub*/ tiled_linear,
-                                /*step*/ reduce_threads_val, {});
-      Value index = b.create<arith::AddIOp>(
-          loc, b.create<arith::MulIOp>(loc, row_id, tiled_linear), var_j);
-      if (failed(lowerHelper(b, loc, skeleton, index, shape_analysis, 1,
-                             &lower_config))) {
-        LLVM_DEBUG(llvm::dbgs() << "Failed to lower: " << *skeleton << "\n");
-        return failure();
-      }
+        if (tiled_linear == nullptr) {
+          tiled_linear = b.create<arith::ConstantIndexOp>(loc, 1);
+        }
+        // Value reduce_threads_val =
+        // b.create<arith::ConstantIndexOp>(loc, reduce_threads);
+        Value elemwise_index = nullptr;
+        // Value lb = row_reduction_schedule == DISC_BLOCK_WISE_ROW_REDUCE
+        //  ? thread_id
+        //  : lane_id;
+        scf::ForOp for_elemwise =
+            createLoopAndSetInsPt(b, loc, elemwise_index,
+                                  /*lb*/ tid_in_row, /*ub*/ tiled_linear,
+                                  /*step*/ threads_per_row, {});
+        Value index = b.create<arith::AddIOp>(
+            loc, b.create<arith::MulIOp>(loc, row_index, tiled_linear),
+            elemwise_index);
+        if (failed(lowerHelper(b, loc, skeleton, index, shape_analysis, 1,
+                               &lower_config))) {
+          LLVM_DEBUG(llvm::dbgs() << "Failed to lower: " << *skeleton << "\n");
+          return failure();
+        }
 
-      b.setInsertionPointAfter(for_op_j);
-      if (row_reduction_schedule == DISC_WARP_WISE_ROW_REDUCE) {
+        b.setInsertionPointAfter(for_elemwise);
+        // if (row_reduction_schedule == DISC_WARP_WISE_ROW_REDUCE) {
         b.create<scf::YieldOp>(loc, ValueRange({}));
-        b.setInsertionPointAfter(if_row_in_bound);
       }
+      b.setInsertionPointAfter(if_row_in_bound);
+      // }
 
       // Currently, a non-sub-root skeleton op will always be external only. We
       // many need the following check for non-reduce sub-root someday.
@@ -3406,7 +3497,8 @@ static void createPrintFusionParams(lmhlo::FusionOp fusion,
 }
 
 LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
-                                ShapeAnalysis* shape_analysis,
+                                ShapeAnalysis* shape_analysis, int core_count,
+                                int max_threads_per_core,
                                 LowerConfig& lower_config) {
   auto fusion_op = cast<lmhlo::FusionOp>(fusion);
   assert(fusion_op);
@@ -3497,15 +3589,19 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
     } break;
 
     case FusionType::kStitch: {
-#if 0
-lowerWithScheduleStitch(fusion_op, fusion_pattern, shape_analysis, block_number,
-                        block_size, threads_per_row, lower_config);
-#endif
+#if 1
+      if (failed(lowerWithScheduleStitch(fusion_op, fusion_pattern,
+                                         shape_analysis, core_count,
+                                         max_threads_per_core, lower_config))) {
+        return fusion->emitError() << "failed to lower kStitch fusion.";
+      }
+#else
       if (failed(lowerWithScheduleStitch(
               fusion_op, fusion_pattern, shape_analysis, tile_size,
               lower_config, row_reduction_schedule))) {
         return fusion->emitError() << "failed to lower kStitch fusion.";
       }
+#endif
     } break;
 
     default: {
@@ -3894,12 +3990,14 @@ LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion,
 // calculation lowering for mhlo.FusionOp. Reconsider the fusion representation
 // after these are done, a lmhlo.FusionOp with mhlo inside would be more
 // friendly to the legacy FusedIrEmitter.
-class DiscLhloLegalizeRootsToParallelLoops
+struct DiscLhloLegalizeRootsToParallelLoopsPass
     : public DiscLhloLegalizeRootsToParallelLoopsPassBase<
-          DiscLhloLegalizeRootsToParallelLoops> {
-  DiscSpecializeFusionWithSpeculationPass(int core_count,
-                                          int max_threads_per_sm)
-      : core_count_(core_count), max_threads_per_core_(max_threads_per_core) {}
+          DiscLhloLegalizeRootsToParallelLoopsPass> {
+  DiscLhloLegalizeRootsToParallelLoopsPass(int core_count,
+                                           int max_threads_per_core) {
+    core_count_ = core_count;
+    max_threads_per_core_ = max_threads_per_core;
+  }
 
   void runOnOperation() override {
     func::FuncOp func = getOperation();
@@ -3974,7 +4072,8 @@ class DiscLhloLegalizeRootsToParallelLoops
     LowerConfig lower_config;
     for (Operation* fusion : gpu_fusion_worklist) {
       // Error message should be emitted inside the function.
-      if (failed(HandleGpuFusionOp(b, fusion, &shape_analysis, lower_config))) {
+      if (failed(HandleGpuFusionOp(b, fusion, &shape_analysis, core_count_,
+                                   max_threads_per_core_, lower_config))) {
         signalPassFailure();
         return;
       }
@@ -4046,7 +4145,7 @@ class DiscLhloLegalizeRootsToParallelLoops
 std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscLhloLegalizeRootsToParallelLoopsPass(int core_count,
                                                int max_threads_per_core) {
-  return std::make_unique<DiscLhloLegalizeRootsToParallelLoops>(
+  return std::make_unique<DiscLhloLegalizeRootsToParallelLoopsPass>(
       core_count, max_threads_per_core);
 }
 

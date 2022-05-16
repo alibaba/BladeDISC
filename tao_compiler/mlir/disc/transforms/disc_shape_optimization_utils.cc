@@ -232,7 +232,18 @@ SymbolicDimMgr::getOrCreateSymbolicDimsForRankedValue(Value value) {
 
 llvm::Optional<SmallVector<FlatSymbolRefAttr>> getRankedValueSymbolicDimRefs(
     Value value) {
-  return {};
+  auto ty = value.getType().dyn_cast<RankedTensorType>();
+  if (!ty) return {};
+  auto attrs = ty.getEncoding().dyn_cast_or_null<ArrayAttr>();
+  if (!attrs) return {};
+  if (attrs.size() != ty.getRank()) return {};
+  SmallVector<FlatSymbolRefAttr> symbols;
+  for (const auto& attr : attrs) {
+    auto symbol = attr.dyn_cast<FlatSymbolRefAttr>();
+    if (!symbol) return {};
+    symbols.push_back(symbol);
+  }
+  return symbols;
 }
 
 }  // namespace disc_ral

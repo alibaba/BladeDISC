@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tensorflow/compiler/mlir/xla/type_to_shape.h"
+#include "type_to_shape.h"
 
 #include <string>
 
@@ -25,7 +25,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/hlo/include/mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "tensorflow/compiler/mlir/tensorflow/utils/convert_tensor.h"
 #include "tensorflow/compiler/mlir/tensorflow/utils/convert_type.h"
-#include "tensorflow/compiler/xla/shape_util.h"
+#include "shape_util.h"
 #include "tensorflow/compiler/xla/statusor.h"
 #include "tensorflow/compiler/xla/xla_data.pb.h"
 #include "tensorflow/core/framework/tensor_shape.h"
@@ -38,7 +38,7 @@ using mlir::MemRefType;
 using mlir::RankedTensorType;
 using mlir::VectorType;
 using xla::PrimitiveType;
-using xla::ShapeUtil;
+using xla::DynamicShapeUtil;
 
 namespace xla {
 
@@ -80,27 +80,11 @@ PrimitiveType TypeToPrimitiveType(mlir::Type type) {
   return PrimitiveType::PRIMITIVE_TYPE_INVALID;
 }
 
-StatusOr<Shape> TypeToShape(
-    mlir::Type type, CustomShapeRepresentationFn shape_representation_fn) {
-  tensorflow::PartialTensorShape partial_tensor_shape =
-      tensorflow::ConvertTypeToTensorShape(type);
-
-  tensorflow::TensorShape fully_defined_tensor_shape;
-  if (!partial_tensor_shape.AsTensorShape(&fully_defined_tensor_shape)) {
-    return tensorflow::errors::InvalidArgument(
-        "XLA HLO only allows fully-defined shape");
-  }
-
-  tensorflow::DataType dtype;
-  TF_RETURN_IF_ERROR(tensorflow::ConvertToDataType(type, &dtype));
-
-  return shape_representation_fn(fully_defined_tensor_shape, dtype);
-}
 
 Shape TypeToShape(mlir::Type type) {
   PrimitiveType ptype = TypeToPrimitiveType(type);
   if (ptype != PrimitiveType::PRIMITIVE_TYPE_INVALID)
-    return ShapeUtil::MakeShape(ptype, {});
+    return DynamicShapeUtil::MakeShape(ptype, {});
 
   if (type.isIntOrFloat()) {
     auto* context = type.getContext();
@@ -113,7 +97,7 @@ Shape TypeToShape(mlir::Type type) {
     mlir::Type element_type = v.getElementType();
     PrimitiveType primitive_type = TypeToPrimitiveType(element_type);
     if (primitive_type != PrimitiveType::PRIMITIVE_TYPE_INVALID)
-      return ShapeUtil::MakeShape(primitive_type, span);
+      return DynamicShapeUtil::MakeShape(primitive_type, span);
   } else if (auto m = type.dyn_cast<mlir::MemRefType>()) {
     llvm::SmallVector<int64_t, 6> span(m.getShape().begin(),
                                        m.getShape().end());
@@ -130,7 +114,7 @@ Shape TypeToShape(mlir::Type type) {
     // vector type case (i.e., it is, modulo the layout, the same dimensions
     // and primitive type).
     if (m.getLayout().isIdentity())
-      return ShapeUtil::MakeShape(primitive_type, span);
+      return DynamicShapeUtil::MakeShape(primitive_type, span);
 
     llvm::SmallVector<int64_t, 4> strides;
     int64_t offset;
@@ -156,7 +140,7 @@ Shape TypeToShape(mlir::Type type) {
 
     llvm::SmallVector<int64_t, 4> dimensions(m.getShape().begin(),
                                              m.getShape().end());
-    return ::xla::ShapeUtil::MakeShapeWithLayout(primitive_type, dimensions,
+    return ::xla::DynamicShapeUtil::MakeShapeWithLayout(primitive_type, dimensions,
                                                  minor_to_major);
   } else if (auto t = type.dyn_cast<mlir::RankedTensorType>()) {
     // TODO(jpienaar): This is only handling the base case with primitive
@@ -165,24 +149,24 @@ Shape TypeToShape(mlir::Type type) {
                                        t.getShape().end());
     // Only fully static shapes are supported.
     // TODO(b/115638799): Update once xla::Shape can support dynamic shapes.
-    if (std::find(t.getShape().begin(), t.getShape().end(), -1) !=
-        t.getShape().end())
-      return {};
+    // if (std::find(t.getShape().begin(), t.getShape().end(), -1) !=
+    //     t.getShape().end())
+    //   return {};
     mlir::Type element_type = t.getElementType();
     PrimitiveType primitive_type = TypeToPrimitiveType(element_type);
     // Only primitive element type supported.
     if (primitive_type != PrimitiveType::PRIMITIVE_TYPE_INVALID)
-      return ShapeUtil::MakeShape(primitive_type, span);
+      return DynamicShapeUtil::MakeShape(primitive_type, span);
   } else if (auto tuple_type = type.dyn_cast<mlir::TupleType>()) {
     llvm::SmallVector<Shape, 4> shapes;
     shapes.reserve(tuple_type.size());
     for (mlir::Type sub_type : tuple_type.getTypes()) {
       shapes.push_back(TypeToShape(sub_type));
     }
-    return ShapeUtil::MakeTupleShape(shapes);
+    return DynamicShapeUtil::MakeTupleShape(shapes);
 
   } else if (type.isa<mlir::mhlo::TokenType>()) {
-    return ShapeUtil::MakeTokenShape();
+    return DynamicShapeUtil::MakeTokenShape();
   }
 
   // Return empty XLA shape to signify error. No MLIR Type maps to a empty

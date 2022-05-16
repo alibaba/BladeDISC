@@ -7,7 +7,7 @@
 #include "tensorflow/compiler/xla/literal.h"
 #include "tensorflow/compiler/xla/shape.h"
 #include "tensorflow/compiler/xla/types.h"
-#include "tensorflow/compiler/xla/xla_client/computation_client.h"
+// #include "tensorflow/compiler/xla/xla_client/computation_client.h"
 #include "torch/csrc/autograd/variable.h"
 #include "torch/csrc/lazy/core/hash.h"
 #include "torch_xla/csrc/device.h"
@@ -20,6 +20,7 @@ std::vector<int64_t> ComputeShapeStrides(const xla::Shape& shape);
 at::Tensor MakeTensorFromXlaLiteral(const xla::Literal& literal,
                                     at::ScalarType dest_element_type);
 
+/*
 // TODO LTC @wonjoo - Migrate to upstream after Device -> BackendDevice
 std::vector<at::Tensor> XlaDataToTensors(
     absl::Span<const xla::ComputationClient::DataPtr> xla_data,
@@ -42,7 +43,7 @@ torch::lazy::hash_t TensorHash(const at::Tensor& tensor);
 std::vector<xla::ComputationClient::DataPtr> CreateTensorsData(
     const std::vector<at::Tensor>& tensors,
     const std::vector<std::string>& devices, bool transfer_async = false);
-
+*/
 // Creates an XLA literal out of an ATEN tensor. If shape is specified, that
 // shape+layout will be used, otherwise one will be generated out of the ATEN
 // tensor shape. The device argument (can be nullptr for the default device)

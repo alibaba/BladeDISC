@@ -16,9 +16,7 @@ limitations under the License.
 // Shapes are protobuf messages, so this utility header offers a bunch of
 // functionality for querying / poking at them.
 
-#ifndef TENSORFLOW_COMPILER_XLA_SHAPE_UTIL_H_
-#define TENSORFLOW_COMPILER_XLA_SHAPE_UTIL_H_
-
+#pragma once
 #include <algorithm>
 #include <functional>
 #include <initializer_list>
@@ -33,6 +31,7 @@ limitations under the License.
 #include "tensorflow/compiler/xla/layout_util.h"
 #include "tensorflow/compiler/xla/primitive_util.h"
 #include "tensorflow/compiler/xla/shape.h"
+#include "tensorflow/compiler/xla/shape_util.h"
 #include "tensorflow/compiler/xla/status_macros.h"
 #include "tensorflow/compiler/xla/statusor.h"
 #include "tensorflow/compiler/xla/types.h"
@@ -43,53 +42,11 @@ limitations under the License.
 #include "tensorflow/core/platform/env.h"
 
 namespace xla {
-
-// A view into a ShapeIndex below, with the cheap/easy ability to consume the
-// value at the front of the view.
-//
-// NB! ShapeIndexView does not own the memory backing the index array.
-// The memory backing the index array should be owned by an object
-// that lives longer than the ShapeIndexView instances pointing into
-// it.
-using ShapeIndexView = absl::Span<const int64_t>;
-
-// An index for specifying a particular nested subshape within a shape. Used in
-// ShapeUtil::GetSubshape and other interfaces. Shapes are recursive data
-// structures (trees) and ShapeIndex defines a path through the tree where each
-// element of ShapeIndex indexes into a tuple (or nested tuple) within the
-// shape. For a non-nested tuple, an index has a single element. For example,
-// given a 3-element tuple (a, b, c) containing arrays a, b, and c, the index
-// {1} corresponds to array b. For a nested tuple, the index can have more than
-// one element. For the nested tuple (a, (b, c, d), e) below are the values
-// corresponding to the given indices:
-//
-//   index {0}    : array a
-//   index {1, 2} : array d
-//   index {2}    : array e
-//   index {0, 0} : invalid index (element at {0} is an array not a tuple)
-//
-// For indexing into array shapes, the index is always trivially empty, ie {}.
-struct ShapeIndex : public absl::InlinedVector<int64_t, 2> {
-  using InlinedVector::InlinedVector;
-
-  ShapeIndex() = default;  // Needed to make MSVC work for some reason.
-  explicit ShapeIndex(ShapeIndexView view)
-      : ShapeIndex(view.begin(), view.end()) {}
-
-  // push_front is O(n), but shapes don't usually have a ton of dimensions.
-  void push_front(int64_t value) { insert(begin(), value); }
-  void pop_front() { erase(begin()); }
-
-  std::string ToString() const;
-};
-
-std::ostream& operator<<(std::ostream& out, const ShapeIndex& shape_index);
-
 // Namespaced collection of (static) shape utilities.
 //
 // These are all effectively convenience functions for testing/tweaking proto
 // properties, which do invariant checks before / after the operation.
-class ShapeUtil {
+class DynamicShapeUtil : public ShapeUtil {
  public:
   // Data structure which describes the coordinates and the shape, of a tuple
   // shaped sub-shape.
@@ -173,7 +130,7 @@ class ShapeUtil {
     if (ElementIsFloating(a) && ElementIsFloating(b)) {
       return true;
     }
-    return ShapeUtil::SameElementType(a, b);
+    return DynamicShapeUtil::SameElementType(a, b);
   }
 
   // Returns the higher-precision element type if a and b are both floating
@@ -343,7 +300,7 @@ class ShapeUtil {
   // dimensions
   template <typename T>
   static Shape MakeShapeWithType(absl::Span<const int64_t> dimensions) {
-    return ShapeUtil::MakeShape(primitive_util::NativeToPrimitiveType<T>(),
+    return DynamicShapeUtil::MakeShape(primitive_util::NativeToPrimitiveType<T>(),
                                 dimensions);
   }
 
@@ -569,7 +526,7 @@ class ShapeUtil {
                                const Shape& output_shape);
 
   // Find a physical layout for 'output_shape' such that
-  // ShapeUtil::ReshapeIsBitcast(input_shape, output_shape_with_layout) returns
+  // DynamicShapeUtil::ReshapeIsBitcast(input_shape, output_shape_with_layout) returns
   // true (where 'output_shape_with_layout' is 'output_shape' with the found
   // layout). The layout of 'input_shape' is kept fixed. Returns
   // 'output_shape_with_layout' if such a layout can be found, and an error
@@ -621,7 +578,7 @@ class ShapeUtil {
         });
   }
 
-  // Simple ergonomic wrapper around ShapeUtil::ForEachIndexWithStatus.
+  // Simple ergonomic wrapper around DynamicShapeUtil::ForEachIndexWithStatus.
   struct IndexIterationSpace {
     std::vector<int64_t> index_base;
     std::vector<int64_t> index_count;
@@ -632,7 +589,7 @@ class ShapeUtil {
   static Status ForEachIndexWithStatus(
       const Shape& shape, const IndexIterationSpace& iteration_space,
       FnTy&& function) {
-    return ShapeUtil::ForEachIndexWithStatus(
+    return DynamicShapeUtil::ForEachIndexWithStatus(
         shape, iteration_space.index_base, iteration_space.index_count,
         iteration_space.index_incr, std::forward<FnTy>(function));
   }
@@ -761,7 +718,7 @@ class ShapeUtil {
                                      absl::Span<const int64_t> incr,
                                      const FnType& visitor_function,
                                      bool parallel = false) {
-    if (ShapeUtil::IsZeroElementArray(shape)) {
+    if (DynamicShapeUtil::IsZeroElementArray(shape)) {
       return Status::OK();
     }
     CHECK_EQ(shape.rank(), base.size());
@@ -814,10 +771,9 @@ class ShapeUtil {
     return status;
   }
 
-  ShapeUtil(const ShapeUtil&) = delete;
-  ShapeUtil& operator=(const ShapeUtil&) = delete;
+  DynamicShapeUtil(const DynamicShapeUtil&) = delete;
+  DynamicShapeUtil& operator=(const DynamicShapeUtil&) = delete;
 };
 
 }  // namespace xla
 
-#endif  // TENSORFLOW_COMPILER_XLA_SHAPE_UTIL_H_

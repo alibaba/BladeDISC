@@ -27,18 +27,6 @@ namespace xla {
 // Returns a XLA Shape equivalent of a MLIR Type, else returns empty shape.
 Shape TypeToShape(mlir::Type type);
 
-// Type of a custom function that converts a TensorFlow type and shape into an
-// XLA shape with optional layout info.
-typedef llvm::function_ref<xla::StatusOr<xla::Shape>(
-    const tensorflow::TensorShape&, tensorflow::DataType)>
-    CustomShapeRepresentationFn;
-
-// Compute an XLA shape based in given MLIR type and an
-// CustomShapeRepresentationFn, which allows setting custom layout in returned
-// XLA shape.
-StatusOr<Shape> TypeToShape(
-    mlir::Type type, CustomShapeRepresentationFn shape_representation_fn);
-
 // Returns a XLA PrimitiveType equivalent of a MLIR Type that represents a
 // primitive type (e.g., i8, f32), else returns PRIMITIVE_TYPE_INVALID.
 PrimitiveType TypeToPrimitiveType(mlir::Type type);

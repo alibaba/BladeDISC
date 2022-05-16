@@ -12,7 +12,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-#include "tensorflow/compiler/mlir/xla/ir/mlir_hlo_builder.h"
+#include "mlir_hlo_builder.h"
 
 #include <string>
 #include <utility>
@@ -21,22 +21,44 @@ limitations under the License.
 #include "llvm/Support/raw_ostream.h"
 #include "mlir/IR/Builders.h"  // from @llvm-project
 #include "mlir/IR/BuiltinTypes.h"  // from @llvm-project
+#include "tensorflow/compiler/mlir/hlo/include/mlir-hlo/Dialect/mhlo/IR/chlo_ops.h"
 #include "tensorflow/compiler/mlir/hlo/include/mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "tensorflow/compiler/mlir/xla/attribute_importer.h"
 #include "tensorflow/compiler/mlir/xla/hlo_function_importer.h"
 #include "tensorflow/compiler/mlir/xla/hlo_utils.h"
-#include "tensorflow/compiler/mlir/xla/type_to_shape.h"
+//#include "tensorflow/compiler/mlir/xla/type_to_shape.h"
+#include "type_to_shape.h"
 #include "tensorflow/compiler/xla/comparison_util.h"
 #include "tensorflow/compiler/xla/service/hlo_module.h"
 #include "tensorflow/compiler/xla/service/shape_inference.h"
 #include "tensorflow/compiler/xla/util.h"
 
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "shape_util.h"
+#include "shape_inference.h"
+#include "mlir_shape_builder.h"
+
 namespace xla {
+
+static std::vector<int64_t> RangeIndices(const int64_t min, const int64_t max) {
+  std::vector<int64_t> range;
+  for (int64_t k = min; k < max; ++k) {
+    range.push_back(k);
+  }
+  return range;
+}
 
 static std::string GetMlirOpName(HloOpcode opcode) {
   std::string op_name = HloOpcodeString(opcode);
   absl::c_replace(op_name, '-', '_');
   return mlir::mhlo::MhloDialect::getDialectNamespace().str() + "." + op_name;
+}
+
+static std::string GetMlirOpNameBroadcast(HloOpcode opcode) {
+  std::string op_name = HloOpcodeString(opcode);
+  absl::c_replace(op_name, '-', '_');
+  std::cout << op_name << std::endl;
+  return mlir::chlo::ChloDialect::getDialectNamespace().str() + ".broadcast_" + op_name;
 }
 
 static std::string ToString(mlir::Type ty) {
@@ -194,6 +216,34 @@ StatusOr<XlaOp> MlirHloBuilder::CustomCallInternal(
   return MakeXlaOp(op.getResult(0));
 }
 
+XlaOp MlirHloBuilder::Reduce(absl::Span<const XlaOp> operands,
+                         absl::Span<const XlaOp> init_values,
+                         const XlaComputation& computation,
+                         absl::Span<const int64_t> dimensions_to_reduce) {
+  return ReportErrorOrReturn([&]() -> StatusOr<XlaOp> {
+    TF_ASSIGN_OR_RETURN(const ProgramShape& called_program_shape,
+                        computation.GetProgramShape());
+
+    std::vector<XlaOp> all_operands;
+    all_operands.insert(all_operands.end(), operands.begin(), operands.end());
+    all_operands.insert(all_operands.end(), init_values.begin(),
+                        init_values.end());
+
+    std::vector<const Shape*> operand_shape_ptrs;
+    TF_ASSIGN_OR_RETURN(const auto& operand_shapes,
+                        GetOperandShapes(all_operands));
+    absl::c_transform(operand_shapes, std::back_inserter(operand_shape_ptrs),
+                      [](const Shape& shape) { return &shape; });
+
+    TF_ASSIGN_OR_RETURN(
+        Shape shape,
+        DynamicShapeInference::InferReduceShape(
+            operand_shape_ptrs, dimensions_to_reduce, called_program_shape));
+    return ReduceInternal(shape, all_operands, computation,
+                          dimensions_to_reduce);
+  });
+}
+
 StatusOr<XlaOp> MlirHloBuilder::ReduceInternal(
     const Shape& shape, absl::Span<const XlaOp> all_operands,
     const XlaComputation& computation,
@@ -210,6 +260,12 @@ StatusOr<XlaOp> MlirHloBuilder::ReduceInternal(
   if (op.getNumResults() == 1) return MakeXlaOp(op.getResult(0));
   auto tuple = builder_.create<mlir::mhlo::TupleOp>(loc_, op.getResults());
   return MakeXlaOp(tuple);
+}
+
+xla::XlaOp MlirHloBuilder::UnsqueezeInDims(xla::XlaOp input,
+                           absl::Span<const int64_t> unsqz_dims) {
+   auto op = DynamicShapeHelper::UnsqueezeTensorInDims(builder_, loc_, GetValue(input), unsqz_dims);
+   return MakeXlaOp(op).ValueOrDie();
 }
 
 StatusOr<XlaOp> MlirHloBuilder::ReduceWindowInternal(
@@ -242,6 +298,78 @@ StatusOr<XlaOp> MlirHloBuilder::ReduceWindowInternal(
   return MakeXlaOp(op.getResult(0));
 }
 
+XlaOp MlirHloBuilder::BatchNormTraining(XlaOp operand, XlaOp scale, XlaOp offset,
+                                    float epsilon, int64_t feature_index) {
+  return ReportErrorOrReturn([&]() -> StatusOr<XlaOp> {
+    TF_ASSIGN_OR_RETURN(const Shape* operand_shape, GetShapePtr(operand));
+    TF_ASSIGN_OR_RETURN(const Shape* scale_shape, GetShapePtr(scale));
+    TF_ASSIGN_OR_RETURN(const Shape* offset_shape, GetShapePtr(offset));
+    TF_ASSIGN_OR_RETURN(
+        Shape shape,
+        DynamicShapeInference::InferBatchNormTrainingShape(
+            *operand_shape, *scale_shape, *offset_shape, feature_index));
+
+    llvm::SmallVector<mlir::NamedAttribute> attributes;
+    attributes.push_back(
+        builder_.getNamedAttr("epsilon", builder_.getF32FloatAttr(epsilon)));
+    attributes.push_back(
+        builder_.getNamedAttr("feature_index", builder_.getI64IntegerAttr(feature_index)));
+
+    return CreateOp(GetMlirOpName(HloOpcode::kBatchNormTraining), shape, {operand, scale, offset}, attributes);
+  });
+}
+
+XlaOp MlirHloBuilder::BatchNormInference(XlaOp operand, XlaOp scale, XlaOp offset,
+                                     XlaOp mean, XlaOp variance, float epsilon,
+                                     int64_t feature_index) {
+  return ReportErrorOrReturn([&]() -> StatusOr<XlaOp> {
+    TF_ASSIGN_OR_RETURN(const Shape* operand_shape, GetShapePtr(operand));
+    TF_ASSIGN_OR_RETURN(const Shape* scale_shape, GetShapePtr(scale));
+    TF_ASSIGN_OR_RETURN(const Shape* offset_shape, GetShapePtr(offset));
+    TF_ASSIGN_OR_RETURN(const Shape* mean_shape, GetShapePtr(mean));
+    TF_ASSIGN_OR_RETURN(const Shape* variance_shape, GetShapePtr(variance));
+    TF_ASSIGN_OR_RETURN(Shape shape,
+                        DynamicShapeInference::InferBatchNormInferenceShape(
+                            *operand_shape, *scale_shape, *offset_shape,
+                            *mean_shape, *variance_shape, feature_index));
+
+    llvm::SmallVector<mlir::NamedAttribute> attributes;
+    attributes.push_back(
+        builder_.getNamedAttr("epsilon", builder_.getF32FloatAttr(epsilon)));
+    attributes.push_back(
+        builder_.getNamedAttr("feature_index", builder_.getI64IntegerAttr(feature_index)));
+
+    return CreateOp(GetMlirOpName(HloOpcode::kBatchNormInference), shape, {operand, scale, offset, mean, variance}, attributes);
+  });
+}
+
+XlaOp MlirHloBuilder::BatchNormGrad(XlaOp operand, XlaOp scale, XlaOp batch_mean,
+                                XlaOp batch_var, XlaOp grad_output,
+                                float epsilon, int64_t feature_index) {
+  return ReportErrorOrReturn([&]() -> StatusOr<XlaOp> {
+    HloInstructionProto instr;
+
+    TF_ASSIGN_OR_RETURN(const Shape* operand_shape, GetShapePtr(operand));
+    TF_ASSIGN_OR_RETURN(const Shape* scale_shape, GetShapePtr(scale));
+    TF_ASSIGN_OR_RETURN(const Shape* batch_mean_shape, GetShapePtr(batch_mean));
+    TF_ASSIGN_OR_RETURN(const Shape* batch_var_shape, GetShapePtr(batch_var));
+    TF_ASSIGN_OR_RETURN(const Shape* grad_output_shape,
+                        GetShapePtr(grad_output));
+    TF_ASSIGN_OR_RETURN(
+        Shape shape, DynamicShapeInference::InferBatchNormGradShape(
+                         *operand_shape, *scale_shape, *batch_mean_shape,
+                         *batch_var_shape, *grad_output_shape, feature_index));
+    *instr.mutable_shape() = shape.ToProto();
+
+    instr.set_epsilon(epsilon);
+    instr.set_feature_index(feature_index);
+
+    return AddInstruction(std::move(instr), HloOpcode::kBatchNormGrad,
+                          {operand, scale, batch_mean, batch_var, grad_output});
+  });
+}
+
+
 XlaOp MlirHloBuilder::Iota(const Shape& shape, int64_t iota_dimension) {
   return ReportErrorOrReturn([&]() -> StatusOr<XlaOp> {
     TF_ASSIGN_OR_RETURN(
@@ -251,6 +379,18 @@ XlaOp MlirHloBuilder::Iota(const Shape& shape, int64_t iota_dimension) {
         loc_, ty,
         builder_.getIntegerAttr(builder_.getI64Type(), iota_dimension));
     return MakeXlaOp(op);
+  });
+}
+
+XlaOp MlirHloBuilder::ConvertElementType(XlaOp operand,
+                                     PrimitiveType new_element_type) {
+  return ReportErrorOrReturn([&]() -> StatusOr<XlaOp> {
+    TF_ASSIGN_OR_RETURN(const Shape* operand_shape, GetShapePtr(operand));
+    TF_ASSIGN_OR_RETURN(Shape shape, ShapeInference::InferConvertShape(
+                                         *operand_shape, new_element_type));
+
+    operand = operand_shape->rank() == 0? ConvertScalarToTensor(operand):operand;
+    return AddOpWithShape(HloOpcode::kConvert, shape, {operand});
   });
 }
 
@@ -382,10 +522,77 @@ StatusOr<XlaOp> MlirHloBuilder::ScatterInternal(
   return MakeXlaOp(op);
 }
 
+XlaOp MlirHloBuilder::GetDimensionSize(XlaOp operand, int64_t dimension) {
+  return ReportErrorOrReturn([&]() -> StatusOr<XlaOp> {
+    HloInstructionProto instr;
+    TF_ASSIGN_OR_RETURN(const Shape* operand_shape, GetShapePtr(operand));
+    TF_ASSIGN_OR_RETURN(Shape shape, ShapeInference::InferGetDimensionSizeShape(
+                                         *operand_shape, dimension));
+    // Calling GetDimensionSize on a static dimension returns a constant
+    // instruction.
+    if (!operand_shape->is_dynamic_dimension(dimension)) {
+      auto op = builder_.create<mlir::arith::ConstantOp>(
+          loc_, builder_.getI32IntegerAttr(operand_shape->dimensions(dimension)));
+      return MakeXlaOp(op);
+      // return ConstantR0<int32_t>(this, operand_shape->dimensions(dimension));
+    }
+
+    auto op = builder_.create<mlir::arith::IndexCastOp>(
+        loc_, builder_.getI32Type(),
+        builder_.create<mlir::tensor::DimOp>(loc_, GetValue(operand), dimension));
+    return MakeXlaOp(op);
+    /*
+    llvm::SmallVector<mlir::NamedAttribute> attributes;
+    attributes.push_back(
+        builder_.getNamedAttr("dimension", builder_.getI64IntegerAttr(dimension)));
+
+    return CreateOp(GetMlirOpName(HloOpcode::kGetDimensionSize), shape, {operand}, attributes);*/
+  });
+}
+
+XlaOp MlirHloBuilder::RemoveDynamicDimension(XlaOp operand, int64_t dimension) {
+  return ReportErrorOrReturn([&]() -> StatusOr<XlaOp> {
+    HloInstructionProto instr;
+    TF_ASSIGN_OR_RETURN(const Shape* operand_shape, GetShapePtr(operand));
+
+    Shape shape = *operand_shape;
+    shape.set_dynamic_dimension(dimension, false);
+    // Setting an op's dynamic dimension to its static size removes the dynamic
+    // dimension.
+    XlaOp static_size =
+        ConstantR0<int32_t>(this, operand_shape->dimensions(dimension));
+    return SetDimensionSizeInternal(shape, operand, static_size, dimension);
+  });
+}
+
+XlaOp MlirHloBuilder::SetDimensionSize(XlaOp operand, XlaOp val,
+                                   int64_t dimension) {
+  return ReportErrorOrReturn([&]() -> StatusOr<XlaOp> {
+    TF_ASSIGN_OR_RETURN(const Shape* operand_shape, GetShapePtr(operand));
+    TF_ASSIGN_OR_RETURN(const Shape* val_shape, GetShapePtr(val));
+
+    TF_ASSIGN_OR_RETURN(Shape shape,
+                        ShapeInference::InferSetDimensionSizeShape(
+                            *operand_shape, *val_shape, dimension));
+    return SetDimensionSizeInternal(shape, operand, val, dimension);
+  });
+}
+
 StatusOr<XlaOp> MlirHloBuilder::SetDimensionSizeInternal(const Shape& shape,
-                                                         XlaOp operand,
-                                                         XlaOp val,
-                                                         int64_t dimension) {
+                                                     XlaOp operand, XlaOp val,
+                                                     int64_t dimension) {
+  TF_ASSIGN_OR_RETURN(const HloInstructionProto* val_proto,
+                      LookUpInstruction(val));
+  if (StringToHloOpcode(val_proto->opcode()).ValueOrDie() ==
+          HloOpcode::kConstant &&
+      shape.is_dynamic_dimension(dimension)) {
+    TF_ASSIGN_OR_RETURN(auto constant_size,
+                        Literal::CreateFromProto(val_proto->literal(), true));
+    if (constant_size.Get<int32_t>({}) == shape.dimensions(dimension)) {
+      return operand;
+    }
+  }
+
   TF_ASSIGN_OR_RETURN(mlir::Type ty, ConvertShapeToType<mlir::RankedTensorType>(
                                          shape, builder_));
   auto op = builder_.create<mlir::mhlo::SetDimensionSizeOp>(
@@ -507,6 +714,99 @@ StatusOr<XlaOp> MlirHloBuilder::Compare(const Shape& shape, XlaOp lhs,
   return MakeXlaOp(op.getResult());
 }
 
+XlaOp MlirHloBuilder::ConvertScalarToTensor(XlaOp operand) {
+  return ReportErrorOrReturn([&]() -> StatusOr<XlaOp> {
+    TF_ASSIGN_OR_RETURN(const Shape* shape, GetShapePtr(operand));
+    if (shape->rank() > 0) {
+       return operand;
+    }
+    auto scalar = GetValue(operand);
+    if (scalar.getType().isa<mlir::RankedTensorType>()) {
+      return operand;
+    }
+    TF_ASSIGN_OR_RETURN(mlir::Type ty, ConvertShapeToType<mlir::RankedTensorType>(*shape, builder_));
+    scalar = builder_.create<mlir::tensor::FromElementsOp>(loc_, scalar);
+    scalar = builder_.create<mlir::mhlo::ReshapeOp>(
+      loc_, ty, scalar);
+    return MakeXlaOp(scalar);
+   });
+}
+
+XlaOp MlirHloBuilder::BinaryOp(HloOpcode binop, XlaOp lhs, XlaOp rhs,
+                           absl::Span<const int64_t> broadcast_dimensions,
+                           absl::optional<ComparisonDirection> direction,
+                           absl::optional<Comparison::Type> type) {
+  return ReportErrorOrReturn([&]() -> StatusOr<XlaOp> {
+    TF_ASSIGN_OR_RETURN(const Shape* lhs_shape, GetShapePtr(lhs));
+    TF_ASSIGN_OR_RETURN(const Shape* rhs_shape, GetShapePtr(rhs));
+    TF_ASSIGN_OR_RETURN(
+        Shape shape, DynamicShapeInference::InferBinaryOpShape(
+                         binop, *lhs_shape, *rhs_shape, broadcast_dimensions));
+
+    const int64_t lhs_rank = lhs_shape->rank();
+    const int64_t rhs_rank = rhs_shape->rank();
+    if (lhs_rank == rhs_rank && lhs_rank == 0) {
+      if (primitive_util::IsIntegralType(shape.element_type())) {
+        auto std_lhs = GetValue(lhs);
+        auto std_rhs = GetValue(rhs);
+	mlir::Value ret_val;
+        switch(binop) {
+           case HloOpcode::kMultiply:
+             ret_val = builder_.create<mlir::arith::MulIOp>(loc_, std_lhs, std_rhs); break;
+           case HloOpcode::kAdd:
+             ret_val = builder_.create<mlir::arith::AddIOp>(loc_, std_lhs, std_rhs); break;
+           case HloOpcode::kSubtract:
+             ret_val = builder_.create<mlir::arith::SubIOp>(loc_, std_lhs, std_rhs); break;
+           case HloOpcode::kAnd:
+             ret_val = builder_.create<mlir::arith::AndIOp>(loc_, std_lhs, std_rhs); break;
+	   default:
+             return InvalidArgument(
+	        "The binary op for integer scalars not provided, opcode: %s", 
+                 HloOpcodeString(binop));
+	}
+	return MakeXlaOp(ret_val);
+      }
+    }
+
+    XlaOp updated_lhs = lhs_rank == 0? ConvertScalarToTensor(lhs):lhs;
+    XlaOp updated_rhs = rhs_rank == 0? ConvertScalarToTensor(rhs):rhs;
+
+    if (binop == HloOpcode::kCompare) {
+      if (!direction.has_value()) {
+        return InvalidArgument(
+            "kCompare expects a ComparisonDirection, but none provided.");
+      }
+      if (type == absl::nullopt) {
+        return XlaBuilder::Compare(shape, updated_lhs, updated_rhs, *direction);
+      } else {
+        return Compare(shape, updated_lhs, updated_rhs, *direction, *type);
+      }
+    }
+
+    if (direction.has_value()) {
+      return InvalidArgument(
+          "A comparison direction is provided for a non-compare opcode: %s.",
+          HloOpcodeString(binop));
+    }
+
+    auto max_rank = std::max(lhs_rank, rhs_rank);
+    auto min_rank = std::min(lhs_rank, rhs_rank);
+  
+    llvm::SmallVector<mlir::NamedAttribute> attributes;
+    if (max_rank > min_rank) {
+      auto broadcast_dims =
+          RangeIndices(max_rank - min_rank, max_rank);
+      mlir::DenseIntElementsAttr broadcast_attr = nullptr;
+      broadcast_attr = GetI64ElementsAttr(broadcast_dims, &builder_);
+      attributes.push_back(
+        builder_.getNamedAttr("broadcast_dims", broadcast_attr));
+    }
+
+    return CreateOp(GetMlirOpNameBroadcast(binop), shape, {updated_lhs, updated_rhs}, attributes);
+    // return BinaryOpNoBroadcast(binop, shape, updated_lhs, updated_rhs);
+  });
+}
+
 XlaOp MlirHloBuilder::BinaryOpNoBroadcast(HloOpcode binop, const Shape& shape,
                                           XlaOp lhs, XlaOp rhs) {
   return ReportErrorOrReturn([&]() -> StatusOr<XlaOp> {
@@ -599,6 +899,25 @@ StatusOr<XlaOp> MlirHloBuilder::ConcatInDimInternal(
       loc_, result_type, mlir_operands, builder_.getI64IntegerAttr(dimension)));
 }
 
+XlaOp MlirHloBuilder::GetTupleElement(XlaOp tuple_data, int64_t index) {
+  return ReportErrorOrReturn([&]() -> StatusOr<XlaOp> {
+    TF_ASSIGN_OR_RETURN(const Shape* tuple_shape, GetShapePtr(tuple_data));
+    if (!tuple_shape->IsTuple()) {
+      return InvalidArgument(
+          "Operand to GetTupleElement() is not a tuple; got %s",
+          DynamicShapeUtil::HumanString(*tuple_shape));
+    }
+    if (index < 0 || index >= DynamicShapeUtil::TupleElementCount(*tuple_shape)) {
+      return InvalidArgument(
+          "GetTupleElement() index (%d) out of range for tuple shape %s", index,
+          DynamicShapeUtil::HumanString(*tuple_shape));
+    }
+    return GetTupleElementInternal(
+        DynamicShapeUtil::GetTupleElementShape(*tuple_shape, index), tuple_data,
+        index);
+  });
+}
+
 StatusOr<XlaOp> MlirHloBuilder::GetTupleElementInternal(const Shape& shape,
                                                         XlaOp tuple_data,
                                                         int64_t index) {
@@ -668,6 +987,7 @@ StatusOr<XlaOp> MlirHloBuilder::TupleInternal(
   }
   return MakeXlaOp(builder_.create<mlir::mhlo::TupleOp>(loc_, operands));
 }
+
 
 StatusOr<XlaOp> MlirHloBuilder::CreateOp(
     const std::string& op_name, const Shape& shape,

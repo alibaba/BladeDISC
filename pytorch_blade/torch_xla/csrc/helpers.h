@@ -18,6 +18,8 @@
 #include "tensorflow/core/lib/bfloat16/bfloat16.h"
 #include "torch/csrc/lazy/core/util.h"
 
+#include "client/mlir_hlo_builder.h"
+
 namespace torch_xla {
 
 // Miscellaneous helpers for XLA lowering.
@@ -150,6 +152,9 @@ class XlaHelpers {
     return ScalarBroadcast<T>(scalar_value, shape.element_type(),
                               shape.dimensions(), builder);
   }
+
+  static xla::XlaOp UnsqueezeInDims(xla::XlaOp input,
+                                   absl::Span<const int64_t> unsqz_dims);
 
   static absl::optional<DynamicReshapeInfo> GetDynamicReshapeInfo(
       const xla::Shape& input_shape, absl::Span<const int64_t> output_sizes);

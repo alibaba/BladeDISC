@@ -63,6 +63,8 @@ class MlirHloBuilder : public XlaBuilder {
 
   ~MlirHloBuilder() override;
 
+  mlir::OpBuilder& GetOpBuilder() { return builder_; }
+
   // Wraps the given MLIR value under an XlaOp instance. Note that all HLO
   // operations returns exactly one result therefore each op has an XlaOp
   // wrapping result of the op.
@@ -92,6 +94,7 @@ class MlirHloBuilder : public XlaBuilder {
 
   // Sets location for newly built ops, until reset.
   void SetLocation(mlir::Location loc) { loc_ = loc; }
+  const mlir::Location& GetLocation() { return loc_; }
 
   // Update insertion point so that newly built ops are inserted before the
   // given op in order, until reset.
@@ -108,6 +111,17 @@ class MlirHloBuilder : public XlaBuilder {
     return builder_.create<OpTy>(loc_, std::forward<Args>(args)...);
   }
 
+  // Internal helper method that does the building for an arbitrary binary op.
+  // broadcast_dimensions specifies which dimensions to use for broadcasting
+  // when the operation is between tensors of different ranks. The direction is
+  // only used if opcode is kCompare.
+  XlaOp BinaryOp(HloOpcode binop, XlaOp lhs, XlaOp rhs,
+                 absl::Span<const int64_t> broadcast_dimensions,
+                 absl::optional<ComparisonDirection> direction = absl::nullopt,
+                 absl::optional<Comparison::Type> type = absl::nullopt) override;
+
+  xla::XlaOp UnsqueezeInDims(xla::XlaOp input,
+                             absl::Span<const int64_t> unsqz_dims);
  private:
   XlaOp ConstantLiteral(const LiteralSlice& literal) override;
 
@@ -143,6 +157,11 @@ class MlirHloBuilder : public XlaBuilder {
       absl::optional<ConvolutionDimensionNumbers> dnums,
       CustomCallSchedule schedule, CustomCallApiVersion api_version) override;
 
+  XlaOp Reduce(absl::Span<const XlaOp> operands,
+               absl::Span<const XlaOp> init_values,
+               const XlaComputation& computation,
+               absl::Span<const int64_t> dimensions_to_reduce);
+
   StatusOr<XlaOp> ReduceInternal(
       const Shape& shape, absl::Span<const XlaOp> all_operands,
       const XlaComputation& computation,
@@ -153,8 +172,31 @@ class MlirHloBuilder : public XlaBuilder {
                                        const XlaComputation& computation,
                                        Window window) override;
 
+  XlaOp BatchNormTraining(XlaOp operand, XlaOp scale, XlaOp offset,
+                          float epsilon, int64_t feature_index);
+
+  XlaOp BatchNormInference(XlaOp operand, XlaOp scale, XlaOp offset, XlaOp mean,
+                           XlaOp variance, float epsilon,
+                           int64_t feature_index);
+
+  XlaOp BatchNormGrad(XlaOp operand, XlaOp scale, XlaOp batch_mean,
+                      XlaOp batch_var, XlaOp grad_output, float epsilon,
+                      int64_t feature_index);
+  XlaOp GetDimensionSize(XlaOp operand, int64_t dimension);
+
+  XlaOp SetDimensionSize(XlaOp operand, XlaOp val, int64_t dimension);
+
+  StatusOr<XlaOp> SetDimensionSizeInternal(const Shape& shape,
+                                           XlaOp operand, XlaOp val,
+                                           int64_t dimension);
+
+  XlaOp RemoveDynamicDimension(XlaOp operand, int64_t dimension);
+
+
   XlaOp Iota(const Shape& shape, int64_t iota_dimension) override;
 
+  XlaOp ConvertScalarToTensor(XlaOp operand);
+  XlaOp ConvertElementType(XlaOp operand, PrimitiveType new_element_type);
   StatusOr<XlaOp> BitcastConvertTypeInternal(const Shape& shape,
                                              XlaOp operand) override;
 
@@ -189,10 +231,6 @@ class MlirHloBuilder : public XlaBuilder {
       const XlaComputation& update_computation,
       const ScatterDimensionNumbers& dimension_numbers, bool indices_are_sorted,
       bool unique_indices) override;
-
-  StatusOr<XlaOp> SetDimensionSizeInternal(const Shape& shape, XlaOp operand,
-                                           XlaOp val,
-                                           int64_t dimension) override;
 
   StatusOr<XlaOp> RngOpInternal(RandomDistribution distribution,
                                 absl::Span<const XlaOp> parameters,
@@ -239,6 +277,7 @@ class MlirHloBuilder : public XlaBuilder {
                                       absl::Span<const XlaOp> operands,
                                       int64_t dimension) override;
 
+  XlaOp GetTupleElement(XlaOp tuple_data, int64_t index) override;
   StatusOr<XlaOp> GetTupleElementInternal(const Shape& shape, XlaOp tuple_data,
                                           int64_t index) override;
 

@@ -16,17 +16,11 @@ limitations under the License.
 // Shape inference is used by the XLA service as the user builds up
 // computation requests.
 
-#ifndef TENSORFLOW_COMPILER_XLA_SERVICE_SHAPE_INFERENCE_H_
-#define TENSORFLOW_COMPILER_XLA_SERVICE_SHAPE_INFERENCE_H_
+#pragma once
 
 #include <vector>
 
-#include "absl/types/span.h"
-#include "tensorflow/compiler/xla/service/hlo_instruction.h"
-#include "tensorflow/compiler/xla/service/hlo_opcode.h"
-#include "tensorflow/compiler/xla/statusor.h"
-#include "tensorflow/compiler/xla/types.h"
-#include "tensorflow/compiler/xla/xla_data.pb.h"
+#include "tensorflow/compiler/xla/service/shape_inference.h"
 
 namespace xla {
 
@@ -40,7 +34,7 @@ namespace xla {
 // part because HloInstruction::ToString() is not available since shape
 // inference runs before the HloInstruction object is created. We need a
 // solution for this.
-class ShapeInference {
+class DynamicShapeInference: public ShapeInference {
  public:
   // Infers the shape produced by applying the given unary operation to the
   // given input shape.
@@ -406,10 +400,9 @@ class ShapeInference {
       const Shape& smaller_shape, const Shape& larger_shape,
       absl::Span<const int64_t> broadcast_dimensions);
 
-  ShapeInference(const ShapeInference&) = delete;
-  ShapeInference& operator=(const ShapeInference&) = delete;
+  DynamicShapeInference(const DynamicShapeInference&) = delete;
+  DynamicShapeInference& operator=(const DynamicShapeInference&) = delete;
 };
 
 }  // namespace xla
 
-#endif  // TENSORFLOW_COMPILER_XLA_SERVICE_SHAPE_INFERENCE_H_

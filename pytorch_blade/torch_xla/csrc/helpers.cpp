@@ -251,6 +251,12 @@ xla::XlaOp XlaHelpers::ReshapeToRank(xla::XlaOp input, int64_t expected_rank,
   return xla::Reshape(input, dimensions);
 }
 
+xla::XlaOp XlaHelpers::UnsqueezeInDims(xla::XlaOp input,
+                           absl::Span<const int64_t> unsqz_dims) {
+  auto builder = dynamic_cast<xla::MlirHloBuilder*>(input.builder());
+  return builder->UnsqueezeInDims(input, unsqz_dims);  
+}
+
 absl::optional<XlaHelpers::DynamicReshapeInfo>
 XlaHelpers::GetDynamicReshapeInfo(const xla::Shape& input_shape,
                                   absl::Span<const int64_t> output_sizes) {

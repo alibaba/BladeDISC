@@ -1,4 +1,4 @@
-load("//bazel:common.bzl", "auto_config_fail", "files_exist", "get_bash_bin")
+load("//bazel:common.bzl", "files_exist")
 
 _TENSORRT_INSTALL_PATH = "TENSORRT_INSTALL_PATH"
 
@@ -11,7 +11,7 @@ cc_import(
 
 cc_import(
     name = "myelin_executor_static",
-    static_library = "libmyelin_executor_static_patched.a",  # use patched one
+    static_library = "lib/libmyelin_executor_static.a",
 )
 
 cc_import(
@@ -57,24 +57,6 @@ def _impl(repo_ctx):
             "lib/libmyelin_pattern_runtime_static.a",
         ],
     ))
-    if if_has_myelin:
-        # Since tensorflow enables --whole-archive for all static libs(see 
-        # https://github.com/tensorflow/tensorflow/blob/master/.bazelrc#L130 ), which
-        # causes symbol conflicts when myelin static libraries are linked. More
-        # specifically, libmyelin_compiler_static.a and libmyelin_executor_static.a have
-        # common symbols, `multiple definition` error will be raised when both of them
-        # are linked.
-        # To work around this issue, we weaken symbols in libmyelin_executor_static.a
-        # which also appears in libmyelin_compiler_static.a. This can be removed once
-        # tensorflow doesn't depend on Bazel for whole-archive linking or we drop
-        # supporting for lower version TensorRT with myelin libraries.
-        patch_myelin_sh = repo_ctx.path(Label("//bazel/tensorrt:patch_myelin.sh"))
-        result = repo_ctx.execute([get_bash_bin(repo_ctx), patch_myelin_sh, tensorrt_path, "./"])
-        if result.return_code != 0:
-            auto_config_fail("Failed to patch myelin static libraries.\nstdout: {}\nstderr: {}".format(
-                result.stdout,
-                result.stderr,
-            ))
 
     repo_ctx.template("BUILD", Label("//bazel/tensorrt:trt.BUILD.tpl"), {
         "%{myelin_static_rule}": _cc_import_myelin() if if_has_myelin else "",

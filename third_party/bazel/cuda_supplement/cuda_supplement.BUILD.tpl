@@ -11,8 +11,20 @@ cc_import(
 )
 
 cc_import(
+    name = "cublas_static_whole_archived",
+    static_library = "lib64/libcublas_static.a",
+    alwayslink = 1,
+)
+
+cc_import(
     name = "cublasLt_static",
     static_library = "lib64/libcublasLt_static.a",
+)
+
+cc_import(
+    name = "cublasLt_static_whole_archived",
+    static_library = "lib64/libcublasLt_static.a",
+    alwayslink = 1,
 )
 
 cc_import(
@@ -21,8 +33,14 @@ cc_import(
 )
 
 cc_import(
+    name = "culibos_static_whole_archived",
+    static_library = "lib64/libculibos.a",
+    alwayslink = 1,
+)
+
+cc_import(
     name = "cudnn_static",
-    static_library = "libcudnn_static_patched.a",
+    static_library = "lib64/libcudnn_static.a",
 )
 
 cc_import(
@@ -33,6 +51,12 @@ cc_import(
 cc_import(
     name = "cudnn_cnn_infer_static",
     static_library = "lib64/libcudnn_cnn_infer_static.a",
+)
+
+cc_import(
+    name = "cudnn_cnn_infer_static_whole_archived",
+    static_library = "lib64/libcudnn_cnn_infer_static.a",
+    alwayslink = 1,
 )
 
 cc_import(

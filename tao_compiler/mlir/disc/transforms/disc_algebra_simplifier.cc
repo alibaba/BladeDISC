@@ -52,6 +52,7 @@ struct ExpandPowOp : public OpRewritePattern<mhlo::PowOp> {
     for (int i = 1; i < exponential; ++i)
       newResult =
           rewriter.create<mhlo::MulOp>(loc, newResult, op->getOperand(0));
+    newResult.setType(op->getResult(0).getType());
     rewriter.replaceOp(op, newResult);
     return success();
   }

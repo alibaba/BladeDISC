@@ -27,7 +27,31 @@ func @main(%arg0 : tensor<?xf32>, %arg1 : tensor<10xf32>) -> tensor<?xf32> {
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x10xf32, [@[[S0:.*]], @[[S1:.*]]]>, %[[ARG1:.*]]: tensor<?x10xf32, [@[[S0]], @[[S1]]]>) -> tensor<?x20xf32, [@[[S0]], @[[S2:.*]]]>
 func @main(%arg0 : tensor<?x10xf32>, %arg1 : tensor<?x10xf32>) -> tensor<?x?xf32> {
   // CHECK: %[[T0:.*]] = "mhlo.concatenate"(%[[ARG0]], %[[ARG1]])
-  // CHECK: return %[[T1]] : tensor<?x20xf32, [@[[S0]], @[[S2]]]>
+  // CHECK: return %[[T0]] : tensor<?x20xf32, [@[[S0]], @[[S2]]]>
   %0 = "mhlo.concatenate"(%arg0, %arg1) { dimension = 1 : i64 } : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x?xf32>
   return %0 : tensor<?x?xf32>
+}
+
+// -----
+
+// Test mhlo.dot_general
+// CHECK-LABEL: main
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?x?x?xf32, [@[[S0:.*]], @[[S1:.*]], @[[S2:.*]], @[[S3:.*]]]>, %[[ARG1:.*]]: tensor<?x?x?x?xf32, [@[[S0]], @[[S1]], @[[S3]], @[[S4:.*]]]>) -> tensor<?x?x?x?xf32, [@[[S0]], @[[S1]], @[[S2]], @[[S4]]]>
+func @main(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32> {
+  // CHECK: %[[T0:.*]] = "mhlo.dot_general"(%[[ARG0]], %[[ARG1]])
+  // CHECK: return %[[T0]] : tensor<?x?x?x?xf32, [@[[S0]], @[[S1]], @[[S2]], @[[S4]]]>
+  %0 = "mhlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0, 1], rhs_batching_dimensions = [0, 1], lhs_contracting_dimensions = [3], rhs_contracting_dimensions = [2]>} : (tensor<?x?x?x?xf32>, tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
+  return %0 : tensor<?x?x?x?xf32>
+}
+
+// -----
+
+// Test mhlo.dot
+// CHECK-LABEL: main
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32, [@[[S0:.*]], @[[S1:.*]]]>, %[[ARG1:.*]]: tensor<?x?xf32, [@[[S1]], @[[S2:.*]]]>) -> tensor<?x?xf32, [@[[S0]], @[[S2]]]>
+func @main(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>) -> tensor<?x?xf32> {
+  // CHECK: %[[T0:.*]] = "mhlo.dot"(%[[ARG0]], %[[ARG1]])
+  // CHECK: return %[[T0]] : tensor<?x?xf32, [@[[S0]], @[[S2]]]>
+  %1 = "mhlo.dot"(%arg0, %arg1) : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+  return %1: tensor<?x?xf32>
 }

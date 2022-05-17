@@ -660,10 +660,51 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloOpConstraint(Operation* op) {
           return op->emitError() << "fail to merge dim\n";
       }
     }
+  } else if (auto dot_general = dyn_cast<mhlo::DotGeneralOp>(op)) {
+    Value lhs = op->getOperand(0);
+    Value rhs = op->getOperand(1);
+    auto lhsTy = lhs.getType().dyn_cast<RankedTensorType>();
+    auto rhsTy = rhs.getType().dyn_cast<RankedTensorType>();
+    if (!lhsTy || !rhsTy) return success();
+    auto& lhsDims = rankedTensor2SymDims_[lhs];
+    auto& rhsDims = rankedTensor2SymDims_[rhs];
+    if (lhsTy.getRank() != lhsDims.size() || rhsTy.getRank() != rhsDims.size())
+      return op->emitError("lhs or rhs mismatch rank\n");
+    auto dim_numbers = dot_general.dot_dimension_numbers();
+    // Contracting dimensions.
+    auto lhs_contracting_dims = dim_numbers.getLhsContractingDimensions();
+    auto rhs_contracting_dims = dim_numbers.getRhsContractingDimensions();
+    assert(lhs_contracting_dims.size() == rhs_contracting_dims.size());
+    for (int64_t i = 0; i < lhs_contracting_dims.size(); i++) {
+      int64_t lhs_dim = lhs_contracting_dims[i];
+      int64_t rhs_dim = rhs_contracting_dims[i];
+      if (failed(mgr_.mapSymbolicDimEqual(lhsDims[lhs_dim], rhsDims[rhs_dim])))
+        return op->emitError() << "fail to merge dim\n";
+    }
+    // Batching dimensions.
+    auto lhs_batching_dims = dim_numbers.getLhsBatchingDimensions();
+    auto rhs_batching_dims = dim_numbers.getRhsBatchingDimensions();
+    assert(lhs_batching_dims.size() == rhs_batching_dims.size());
+    for (int64_t i = 0; i < lhs_batching_dims.size(); i++) {
+      int64_t lhs_dim = lhs_batching_dims[i];
+      int64_t rhs_dim = rhs_batching_dims[i];
+      if (failed(mgr_.mapSymbolicDimEqual(lhsDims[lhs_dim], rhsDims[rhs_dim])))
+        return op->emitError() << "fail to merge dim\n";
+    }
+  } else if (auto dot = dyn_cast<mhlo::DotOp>(op)) {
+    Value lhs = op->getOperand(0);
+    Value rhs = op->getOperand(1);
+    auto lhsTy = lhs.getType().dyn_cast<RankedTensorType>();
+    auto rhsTy = rhs.getType().dyn_cast<RankedTensorType>();
+    if (!lhsTy || !rhsTy) return success();
+    auto& lhsDims = rankedTensor2SymDims_[lhs];
+    auto& rhsDims = rankedTensor2SymDims_[rhs];
+    if (lhsTy.getRank() != lhsDims.size() || rhsTy.getRank() != rhsDims.size())
+      return op->emitError("lhs or rhs mismatch rank\n");
+
+    if (failed(mgr_.mapSymbolicDimEqual(lhsDims[1], rhsDims[0])))
+      return op->emitError() << "fail to merge dim\n";
   }
-
-  // TODO: add support for dot/dot_general/...
-
   return success();
 }
 

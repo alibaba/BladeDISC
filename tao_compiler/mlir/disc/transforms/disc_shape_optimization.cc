@@ -39,9 +39,9 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 
-#undef LLVM_DEBUG
+// #undef LLVM_DEBUG
 
-#define LLVM_DEBUG(x) (x)
+// #define LLVM_DEBUG(x) (x)
 
 namespace mlir {
 namespace disc_ral {
@@ -383,6 +383,7 @@ class ShapeComputationIRAnalysis {
   LogicalResult applyOpConstraint(Operation* op);
   LogicalResult applyIndexOpConstraint(Operation* op);
   LogicalResult applyShapeTensorOpConstraint(Operation* op);
+  LogicalResult applyRankedTensorOpConstraint(Operation* op);
   LogicalResult applyMhloOpConstraint(Operation* op);
 
   LogicalResult mapRankedValueShapeEqual(Value lhs, Value rhs);
@@ -648,6 +649,19 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloOpConstraint(Operation* op) {
   return success();
 }
 
+LogicalResult ShapeComputationIRAnalysis::applyRankedTensorOpConstraint(
+    Operation* op) {
+  if (isa<tensor::CastOp>(op)) {
+    auto inTy = op->getOperand(0).getType().dyn_cast<RankedTensorType>();
+    auto outTy = op->getResult(0).getType().dyn_cast<RankedTensorType>();
+    if (!inTy || !outTy) return success();
+    if (failed(mapRankedValueShapeEqual(op->getOperand(0), op->getResult(0))))
+      return op->emitError() << "fail to merge the symbolic dim of operand and "
+                                "result of tensor::CastOp\n";
+  }
+  return success();
+}
+
 LogicalResult ShapeComputationIRAnalysis::applyOpConstraint(Operation* op) {
   if (failed(applyIndexOpConstraint(op)))
     return op->emitError() << "fail to apply constraint for index op\n";
@@ -659,6 +673,10 @@ LogicalResult ShapeComputationIRAnalysis::applyOpConstraint(Operation* op) {
       op->getDialect() == op->getContext()->getLoadedDialect("mhlo_disc")) {
     if (failed(applyMhloOpConstraint(op)))
       return op->emitError() << "fail to apply constraint for mhlo op\n";
+  }
+
+  if (failed(applyRankedTensorOpConstraint(op))) {
+    return op->emitError() << "fail to apply constraint for ranked tensor op\n";
   }
 
   // supppose:

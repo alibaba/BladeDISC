@@ -42,6 +42,17 @@ class TestDiscActivation(DiscTestCase):
 
         self._test_activation(leaky_relu_func)
 
+    def test_silu(self):
+        relu = torch.nn.SiLU()
+        self._test_activation(relu)
+
+        @torch.jit.script
+        def silu_func(x):
+            return torch.nn.functional.silu(x)
+
+        self._test_activation(silu_func)
+
+
     def test_sigmoid(self):
         sigmoid_func = torch.nn.Sigmoid()
         self._test_activation(sigmoid_func)

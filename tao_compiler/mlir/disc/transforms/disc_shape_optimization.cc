@@ -722,6 +722,32 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloOpConstraint(Operation* op) {
                << "fail to merge the symbolic dim of operand and "
                   "max of mhlo::ClampOp\n";
     }
+  } else if (auto select = dyn_cast<mhlo::SelectOp>(op)) {
+    auto predTy = select.pred().getType().dyn_cast<RankedTensorType>();
+    auto trueTy = select.on_true().getType().dyn_cast<RankedTensorType>();
+    auto falseTy = select.on_false().getType().dyn_cast<RankedTensorType>();
+    auto resultTy = select.getResult().getType().dyn_cast<RankedTensorType>();
+    if (!predTy || !trueTy || !falseTy || !resultTy) return success();
+
+    if (predTy.getRank() != 0) {
+      if (failed(mapRankedValueShapeEqual(select.pred(), select.getResult())))
+        return op->emitError() << "fail to merge the symbolic dim of pred and "
+                                  "result of mhlo::SelectOp\n";
+    }
+    if (trueTy.getRank() != 0) {
+      if (failed(
+              mapRankedValueShapeEqual(select.on_true(), select.getResult())))
+        return op->emitError()
+               << "fail to merge the symbolic dim of on_true and "
+                  "result of mhlo::SelectOp\n";
+    }
+    if (falseTy.getRank() != 0) {
+      if (failed(
+              mapRankedValueShapeEqual(select.on_false(), select.getResult())))
+        return op->emitError()
+               << "fail to merge the symbolic dim of on_false and "
+                  "result of mhlo::SelectOp\n";
+    }
   }
   return success();
 }

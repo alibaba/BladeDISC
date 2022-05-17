@@ -109,3 +109,15 @@ func.func @main(%arg0: tensor<?xi1>, %arg1: tensor<?xf32>, %arg2: tensor<?xf32>)
   %0 = "mhlo.select"(%arg0, %arg1, %arg2)  : (tensor<?xi1>, tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>
   func.return %0 : tensor<?xf32>
 }
+
+// -----
+
+// Test mhlo.einsum
+// CHECK-LABEL: main
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?x?xf32, [@[[S0:.*]], @[[S1:.*]], @[[S2:.*]]]>, %[[ARG1:.*]]: tensor<?x?x?xf32, [@[[S0]], @[[S2]], @[[S3:.*]]]>) -> tensor<?x?x?xf32, [@[[S0]], @[[S1]], @[[S3]]]>
+func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>) -> tensor<?x?x?xf32> attributes {tf.entry_function = {input_placements = "cpu,cpu", inputs = "input0,input1", output_placements = "cpu", outputs = "output0"}} {
+  // CHECK: %[[T0:.*]] = "mhlo.einsum"(%[[ARG0]], %[[ARG1]])
+  // CHECK: return %[[T0]] : tensor<?x?x?xf32, [@[[S0]], @[[S1]], @[[S3]]]>
+  %0 = "mhlo.einsum"(%arg0, %arg1) {einsum_config = "ijk,ikm->ijm"} : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
+  return %0 : tensor<?x?x?xf32>
+}

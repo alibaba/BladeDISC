@@ -293,6 +293,7 @@ struct EinsumToDotGeneralPattern : public OpRewritePattern<mhlo::EinsumOp> {
         batching_tokens, lhs_non_contracting_tokens, rhs_non_contracting_tokens,
         lhs_original_tokens, rhs_original_tokens, result_original_tokens,
         result_reordered_tokens);
+    result.setType(op.getResult().getType());
 
     rewriter.replaceOp(op, result);
     return success();

@@ -36,6 +36,7 @@ limitations under the License.
 #include "mlir/Transforms/Passes.h"  // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
+#include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 
@@ -747,6 +748,62 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloOpConstraint(Operation* op) {
         return op->emitError()
                << "fail to merge the symbolic dim of on_false and "
                   "result of mhlo::SelectOp\n";
+    }
+  } else if (auto einsum = dyn_cast<mhlo::EinsumOp>(op)) {
+    auto lhsTy = einsum.lhs().getType().dyn_cast<RankedTensorType>();
+    auto rhsTy = einsum.rhs().getType().dyn_cast<RankedTensorType>();
+    auto outTy = einsum.getResult().getType().dyn_cast<RankedTensorType>();
+    if (!lhsTy || !rhsTy || !outTy) return success();
+
+    auto& lhsDims = rankedTensor2SymDims_[einsum.lhs()];
+    auto& rhsDims = rankedTensor2SymDims_[einsum.rhs()];
+    auto& outDims = rankedTensor2SymDims_[einsum.getResult()];
+
+    StringRef equation = einsum.einsum_config();
+    llvm::SmallDenseMap<char, llvm::SmallDenseMap<EquationVariable, size_t>>
+        all_tokens;
+    if (!parseEinsumEquation(equation, all_tokens, nullptr, nullptr, nullptr)) {
+      return einsum.emitError("unexpected character in einsum equation");
+    }
+    for (auto token : all_tokens) {
+      SmallVector<int64_t> equalValues(3, -1);
+      for (auto item : token.second) {
+        if (item.first == kIsLhs) {
+          equalValues[0] = item.second;
+        } else if (item.first == kIsRhs) {
+          equalValues[1] = item.second;
+        } else {
+          // kIsResult
+          equalValues[2] = item.second;
+        }
+      }
+      if (equalValues[0] >= 0 && equalValues[1] >= 0) {
+        int64_t lhsIdx = equalValues[0];
+        int64_t rhsIdx = equalValues[1];
+        if (lhsIdx >= lhsDims.size() || rhsIdx >= rhsDims.size()) {
+          return op->emitError("lhs or rhs mismatch rank\n");
+        }
+        if (failed(mgr_.mapSymbolicDimEqual(lhsDims[lhsIdx], rhsDims[rhsIdx])))
+          return op->emitError() << "fail to merge dim\n";
+      }
+      if (equalValues[0] >= 0 && equalValues[2] >= 0) {
+        int64_t lhsIdx = equalValues[0];
+        int64_t outIdx = equalValues[2];
+        if (lhsIdx >= lhsDims.size() || outIdx >= outDims.size()) {
+          return op->emitError("lhs or rhs mismatch rank\n");
+        }
+        if (failed(mgr_.mapSymbolicDimEqual(lhsDims[lhsIdx], outDims[outIdx])))
+          return op->emitError() << "fail to merge dim\n";
+      }
+      if (equalValues[1] >= 0 && equalValues[2] >= 0) {
+        int64_t rhsIdx = equalValues[1];
+        int64_t outIdx = equalValues[2];
+        if (rhsIdx >= rhsDims.size() || outIdx >= outDims.size()) {
+          return op->emitError("lhs or rhs mismatch rank\n");
+        }
+        if (failed(mgr_.mapSymbolicDimEqual(rhsDims[rhsIdx], outDims[outIdx])))
+          return op->emitError() << "fail to merge dim\n";
+      }
     }
   }
   return success();

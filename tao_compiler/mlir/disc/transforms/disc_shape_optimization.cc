@@ -704,6 +704,24 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloOpConstraint(Operation* op) {
 
     if (failed(mgr_.mapSymbolicDimEqual(lhsDims[1], rhsDims[0])))
       return op->emitError() << "fail to merge dim\n";
+  } else if (auto clamp = dyn_cast<mhlo::ClampOp>(op)) {
+    auto operandTy = clamp.operand().getType().dyn_cast<RankedTensorType>();
+    auto minTy = clamp.min().getType().dyn_cast<RankedTensorType>();
+    auto maxTy = clamp.max().getType().dyn_cast<RankedTensorType>();
+    if (!operandTy || !minTy || !maxTy) return success();
+
+    if (minTy.getRank() != 0) {
+      if (failed(mapRankedValueShapeEqual(clamp.operand(), clamp.min())))
+        return op->emitError()
+               << "fail to merge the symbolic dim of operand and "
+                  "min of mhlo::ClampOp\n";
+    }
+    if (maxTy.getRank() != 0) {
+      if (failed(mapRankedValueShapeEqual(clamp.operand(), clamp.max())))
+        return op->emitError()
+               << "fail to merge the symbolic dim of operand and "
+                  "max of mhlo::ClampOp\n";
+    }
   }
   return success();
 }

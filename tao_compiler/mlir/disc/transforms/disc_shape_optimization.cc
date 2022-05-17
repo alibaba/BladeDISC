@@ -642,6 +642,24 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloOpConstraint(Operation* op) {
       if (failed(mgr_.mapSymbolicDimEqual(std::get<0>(z), std::get<1>(z))))
         return op->emitError() << "fail to merge dim\n";
     }
+  } else if (auto concat = dyn_cast<mhlo::ConcatenateOp>(op)) {
+    Value out = op->getResult(0);
+    int64_t axis = concat.dimension();
+    auto ty = out.getType().dyn_cast<RankedTensorType>();
+    if (!ty) return success();
+    auto& outDims = rankedTensor2SymDims_[out];
+    if (ty.getRank() != outDims.size())
+      return op->emitError() << "output rank mismatch\n";
+    for (Value operand : op->getOperands()) {
+      auto& inDims = rankedTensor2SymDims_[operand];
+      if (inDims.size() != outDims.size())
+        return op->emitError() << "input and output rank mismatch\n";
+      for (int64_t i = 0; i < ty.getRank(); ++i) {
+        if (i == axis) continue;
+        if (failed(mgr_.mapSymbolicDimEqual(inDims[i], outDims[i])))
+          return op->emitError() << "fail to merge dim\n";
+      }
+    }
   }
 
   // TODO: add support for dot/dot_general/...

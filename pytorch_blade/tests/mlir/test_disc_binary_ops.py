@@ -227,26 +227,32 @@ class TestDiscBinaryOps(DiscTestCase):
 
     def test_gt(self):
         self._test_func(torch.gt)
+        self._test_binary_type_promotion(torch.gt)
         self._test_cmp_func(torch.gt)
 
     def test_ge(self):
         self._test_func(torch.ge)
+        self._test_binary_type_promotion(torch.ge)
         self._test_cmp_func(torch.ge)
 
     def test_eq(self):
         self._test_func(torch.eq)
+        self._test_binary_type_promotion(torch.eq)
         self._test_cmp_func(torch.eq)
 
     def test_ne(self):
         self._test_func(torch.ne)
+        self._test_binary_type_promotion(torch.ne)
         self._test_cmp_func(torch.ne)
 
     def test_le(self):
         self._test_func(torch.le)
+        self._test_binary_type_promotion(torch.le)
         self._test_cmp_func(torch.le)
 
     def test_lt(self):
         self._test_func(torch.lt)
+        self._test_binary_type_promotion(torch.lt)
         self._test_cmp_func(torch.lt)
 
     def test_arange(self):

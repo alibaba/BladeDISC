@@ -55,3 +55,29 @@ func @main(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>) -> tensor<?x?xf32> {
   %1 = "mhlo.dot"(%arg0, %arg1) : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
   return %1: tensor<?x?xf32>
 }
+
+// -----
+
+// Test mhlo.clamp: zero rank min/max
+
+// CHECK-LABEL: main
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?xf32, [@[[S0:.*]]]>, %[[ARG1:.*]]: tensor<f32>, %[[ARG2:.*]]: tensor<f32>) -> tensor<?xf32, [@[[S0]]]>
+func.func @main(%arg0 : tensor<?xf32>, %arg1 : tensor<f32>, %arg2 : tensor<f32>) -> tensor<?xf32> {
+  // CHECK: %[[T0:.*]] = "mhlo.clamp"(%[[ARG1]], %[[ARG0]], %[[ARG2]])
+  // CHECK: return %[[T0]] : tensor<?xf32, [@[[S0]]]>
+  %0 = "mhlo.clamp"(%arg1, %arg0, %arg2) : (tensor<f32>, tensor<?xf32>, tensor<f32>) -> tensor<?xf32>
+  func.return %0 : tensor<?xf32>
+}
+
+// -----
+
+// Test mhlo.clamp: same shape
+
+// CHECK-LABEL: main
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?xf32, [@[[S0:.*]]]>, %[[ARG1:.*]]: tensor<?xf32, [@[[S0:.*]]]>, %[[ARG2:.*]]: tensor<?xf32, [@[[S0:.*]]]>) -> tensor<?xf32, [@[[S0]]]>
+func.func @main(%arg0 : tensor<?xf32>, %arg1 : tensor<?xf32>, %arg2 : tensor<?xf32>) -> tensor<?xf32> {
+  // CHECK: %[[T0:.*]] = "mhlo.clamp"(%[[ARG1]], %[[ARG0]], %[[ARG2]])
+  // CHECK: return %[[T0]] : tensor<?xf32, [@[[S0]]]>
+  %0 = "mhlo.clamp"(%arg1, %arg0, %arg2) : (tensor<?xf32>, tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>
+  func.return %0 : tensor<?xf32>
+}

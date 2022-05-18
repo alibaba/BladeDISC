@@ -121,3 +121,44 @@ func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>) -> tensor<?x?x?xf
   %0 = "mhlo.einsum"(%arg0, %arg1) {einsum_config = "ijk,ikm->ijm"} : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
   return %0 : tensor<?x?x?xf32>
 }
+
+// -----
+
+// Test arith.cmpi
+// CHECK-LABEL: main
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?x?xf32, [@[[S0:.*]], @[[S1:.*]], @[[S2:.*]]]>, %[[ARG1:.*]]: tensor<?x?xf32, [@[[S3:.*]], @[[S4:.*]]]>) -> tensor<?x?xf32, [@[[S3]], @[[S4]]]>
+func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?xf32>) -> tensor<?x?xf32> {
+  %c-1 = arith.constant -1 : index
+  %c2 = arith.constant 2 : index
+  %c1 = arith.constant 1 : index
+  %c0 = arith.constant 0 : index
+  // CHECK: %[[T0:.*]] = tensor.dim %[[ARG1]], %c0
+  // CHECK: %[[T1:.*]] = tensor.dim %[[ARG1]], %c1
+  // CHECK: %[[T2:.*]] = tensor.from_elements %[[T0]], %[[T1]] : tensor<2xindex>
+  // CHECK: %[[T3:.*]] = "mhlo.dynamic_reshape"(%[[ARG0]], %[[T2]])
+  // CHECK: return %[[T3]] : tensor<?x?xf32, [@[[S3]], @[[S4]]]>
+  %0 = tensor.dim %arg0, %c0 : tensor<?x?x?xf32>
+  %1 = tensor.dim %arg0, %c1 : tensor<?x?x?xf32>
+  %2 = tensor.dim %arg0, %c2 : tensor<?x?x?xf32>
+  %3 = arith.muli %1, %0 : index
+  %4 = arith.muli %2, %3 : index
+  %5 = tensor.dim %arg1, %c0 : tensor<?x?xf32>
+  %6 = arith.muli %5, %c-1 : index
+  %7 = tensor.dim %arg1, %c1 : tensor<?x?xf32>
+  %8 = arith.muli %7, %6 : index
+  %9 = arith.cmpi eq, %4, %c0 : index
+  %10 = arith.cmpi slt, %8, %c0 : index
+  %11 = arith.ori %9, %10 : i1
+  %12 = arith.select %11, %c1, %8 : index
+  %13 = tensor.dim %arg1, %c0 : tensor<?x?xf32>
+  %14 = arith.cmpi eq, %13, %c-1 : index
+  %15 = arith.divui %4, %12 : index
+  %16 = arith.select %14, %15, %13 : index
+  %17 = tensor.dim %arg1, %c1 : tensor<?x?xf32>
+  %18 = arith.cmpi eq, %17, %c-1 : index
+  %19 = arith.divui %4, %12 : index
+  %20 = arith.select %18, %19, %17 : index
+  %21 = tensor.from_elements %16, %20 : tensor<2xindex>
+  %22 = "mhlo.dynamic_reshape"(%arg0, %21) : (tensor<?x?x?xf32>, tensor<2xindex>) -> tensor<?x?xf32>
+  return %22 : tensor<?x?xf32>
+}

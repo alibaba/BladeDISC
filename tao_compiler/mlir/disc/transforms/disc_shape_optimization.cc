@@ -372,6 +372,8 @@ class ShapeComputationIRAnalysis {
 
   Type getRefinedType(Value value);
 
+  SymbolicDimOp value2SymbolicDimOp(Value value);
+
  private:
   LogicalResult runOnRegion(Region* region);
   LogicalResult runOnBlock(Block* block);
@@ -529,7 +531,7 @@ LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
   } else if (auto dimOp = dyn_cast<tensor::DimOp>(op)) {
     Optional<int64_t> dimIndex = dimOp.getConstantIndex();
     if (!dimIndex) return success();
-    // TODO: set isKnownNonNegative
+    value2SymDim_[op->getResult(0)].setKnownNonNegative(true);
     if (failed(mgr_.mapSymbolicDimEqual(
             value2SymDim_[op->getResult(0)],
             rankedTensor2SymDims_[dimOp.source()][*dimIndex])))
@@ -933,6 +935,12 @@ Type ShapeComputationIRAnalysis::getRefinedType(Value value) {
   }
 }
 
+SymbolicDimOp ShapeComputationIRAnalysis::value2SymbolicDimOp(Value value) {
+  auto it = value2SymDim_.find(value);
+  if (it == value2SymDim_.end()) return {};
+  return mgr_.getRootSymbolicDim(it->second);
+}
+
 DenseMap<Value, Value> buildSymbolDimInstancesDominantMap(
     DenseMap<SymbolicDimOp, SmallVector<Value>>& instanceMap,
     DominanceInfo& dominanceInfo) {
@@ -1037,17 +1045,75 @@ LogicalResult refineTensorType(ShapeComputationIRAnalysis& analysis,
   return success();
 }
 
+LogicalResult tryToSimplifyCompareOp(ShapeComputationIRAnalysis& analysis,
+                                     bool& changed) {
+  FuncOp func = analysis.getFunc();
+
+  SmallVector<arith::CmpIOp> ops;
+  func.walk([&](arith::CmpIOp op) { ops.push_back(op); });
+
+  for (arith::CmpIOp op : ops) {
+    OpBuilder b(op);
+    auto lhsSym = analysis.value2SymbolicDimOp(op.getLhs());
+    auto rhsSym = analysis.value2SymbolicDimOp(op.getRhs());
+    if (!lhsSym || !rhsSym) continue;
+
+    Value pred;
+    Value truePred = b.create<arith::ConstantIntOp>(op.getLoc(), 1, 1);
+    Value falsePred = b.create<arith::ConstantIntOp>(op.getLoc(), 0, 1);
+    if (op.getPredicate() == arith::CmpIPredicate::eq) {
+      if (lhsSym == rhsSym) {
+        pred = truePred;
+      } else if (lhsSym.knownNonNegative() && rhsSym.knownNegativeOne()) {
+        pred = falsePred;
+      } else if (rhsSym.knownNonNegative() && lhsSym.knownNegativeOne()) {
+        pred = falsePred;
+      }
+      // TODO(disc): support other cases
+    } else if (op.getPredicate() == arith::CmpIPredicate::ne) {
+      if (lhsSym == rhsSym) {
+        pred = falsePred;
+      } else if (lhsSym.knownNonNegative() && rhsSym.knownNegativeOne()) {
+        pred = truePred;
+      } else if (rhsSym.knownNonNegative() && lhsSym.knownNegativeOne()) {
+        pred = truePred;
+      }
+      // TODO(disc): support other cases
+    }
+    // TODO(disc): support arith::CmpIPredicate::lt/...
+    if (pred) {
+      op.getResult().replaceAllUsesWith(pred);
+      changed = true;
+    }
+  }
+  return success();
+}
+
+LogicalResult simplifyAccordingToShapeConstraintInfo(
+    ShapeComputationIRAnalysis& analysis, bool& changed) {
+  if (failed(tryToSimplifyCompareOp(analysis, changed))) return failure();
+
+  // TODO(disc): add other possible simplifier here.
+  return success();
+}
+
 LogicalResult applyShapeComputationOptimization(
     ShapeComputationIRAnalysis& analysis, bool& changed) {
   // 1, using the same ssa value for all symbolic-equal dim instances.
   if (failed(useSameSSAValueIfSymbolicEqual(analysis, changed)))
     return analysis.getFunc()->emitError(
-        "useSameSSAValueIfSymbolicEqual failed");
+        "useSameSSAValueIfSymbolicEqual failed\n");
 
   // 2, After propagation some (partial) known dim size infos, refined
   // the ranked tensor type.
   if (failed(refineTensorType(analysis, changed)))
-    return analysis.getFunc()->emitError("refineTensorType failed");
+    return analysis.getFunc()->emitError("refineTensorType failed\n");
+
+  // 3, simplify some expression after propagation shape constraint info.
+  // e.g. if symbolic dim %d is known not negative, then `arith.cmpi eq, %6,
+  // %c-1` could be replaced with a const.
+  if (failed(simplifyAccordingToShapeConstraintInfo(analysis, changed)))
+    return analysis.getFunc()->emitError("fail to simplify\n");
 
   return success();
 }

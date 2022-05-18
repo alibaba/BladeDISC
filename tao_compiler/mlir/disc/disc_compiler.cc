@@ -245,12 +245,24 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(disc_ral::createDiscAlgebraSimplifierPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscSplitLargeOpsPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscDotRewriterPass());
+  if (enable_shape_constraint_ir) {
+    // shape-related optimization
+    pm.addPass(disc_ral::createDiscShapeOptimizationPass());
+  }
 
   // Either merge dots to batched dot or merge dots sharing the same operand.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscDotMergePass());
+  if (enable_shape_constraint_ir) {
+    // shape-related optimization
+    pm.addPass(disc_ral::createDiscShapeOptimizationPass());
+  }
 
   if (gpu_enabled) {
     pm.addNestedPass<FuncOp>(mhlo::createHloCanonicalizeReductionPass());
+    if (enable_shape_constraint_ir) {
+      // shape-related optimization
+      pm.addPass(disc_ral::createDiscShapeOptimizationPass());
+    }
   }
 
   pm.addPass(disc_ral::createDiscMarkShapeCalcOpPass());
@@ -272,8 +284,16 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   tensorflow::ReadBoolFromEnvVar("TAO_MLIR_ENABLE_AMP", false, &enable_fp16);
   pm.addNestedPass<FuncOp>(
       disc_ral::createDiscElementTypeConverterPass(enable_fp16));
+  if (enable_shape_constraint_ir) {
+    // shape-related optimization
+    pm.addPass(disc_ral::createDiscShapeOptimizationPass());
+  }
 
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvRewriter());
+  if (enable_shape_constraint_ir) {
+    // shape-related optimization
+    pm.addPass(disc_ral::createDiscShapeOptimizationPass());
+  }
   // Run CSE after conv rewriter pass to eliminate some redundant transpose ops.
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());

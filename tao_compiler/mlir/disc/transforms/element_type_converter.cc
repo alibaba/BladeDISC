@@ -189,6 +189,7 @@ struct ConvertConvOp : public OpRewritePattern<OpTy> {
     Value conv =
         rewriter.create<OpTy>(loc, f16_tensor_ty, newOperands, op->getAttrs());
     Value fp32_conv = rewriter.create<mhlo::ConvertOp>(loc, conv, f32_ty);
+    fp32_conv.setType(op.getResult().getType());
     rewriter.replaceOp(op, fp32_conv);
     return success();
   }
@@ -222,6 +223,7 @@ struct ConvertDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
         loc, f16_tensor_ty, lhs_f16, rhs_f16, op.dot_dimension_numbers(),
         nullptr);
     Value fp32_dot = rewriter.create<mhlo::ConvertOp>(loc, dot, f32_ty);
+    fp32_dot.setType(op.getResult().getType());
     rewriter.replaceOp(op, fp32_dot);
     return success();
   }

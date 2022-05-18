@@ -282,8 +282,8 @@ struct DimOfTieShapeOpCanonicalizationPattern
 };
 
 // convert:
-//   %1 = disc_shape.tie_shape %0, %d0, %d1, ... : (tensor<?x?xf32>, ...) ->
-//   tensor<?x?xf32> %dim_size = tensor.dim %1[%c0] : tensor<2xindex>
+//   %1 = disc_shape.tie_shape %0, %d0, %d1, ...
+//         : (tensor<?x?xf32>, ...) -> tensor<?x?xf32>
 //   %2 = tensor.extract %1[...] : ...
 // to:
 //   %2 = tensor.extract %0[...] : ...

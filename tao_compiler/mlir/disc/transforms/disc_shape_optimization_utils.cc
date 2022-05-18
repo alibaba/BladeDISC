@@ -117,6 +117,19 @@ LogicalResult SymbolicDimMgr::mapSymbolicDimEqual(SymbolicDimOp lhs,
   return success();
 }
 
+bool isSymbolicDimProductEqual(const SmallVectorImpl<SymbolicDimOp>& lhs,
+                               const SmallVectorImpl<SymbolicDimOp>& rhs) {
+  // TODO
+  return false;
+}
+
+LogicalResult mapSymbolicDimProductEqual(
+    const SmallVectorImpl<SymbolicDimOp>& lhs,
+    const SmallVectorImpl<SymbolicDimOp>& rhs) {
+  // TODO
+  return success();
+}
+
 LogicalResult SymbolicDimMgr::save() {
   // replace all uses of a symbolic dim op with its root symbolic dim op
   if (failed(walkRankedTensorValue(m_, [&](Value value, RankedTensorType ty,
@@ -275,7 +288,7 @@ LogicalResult updateFunctionType(FuncOp func) {
 // Walk each ranked tensor type values inside op.
 LogicalResult walkRankedTensorValue(Operation* op, Visitor visitor) {
   if (op->walk([&](Operation* op) {
-          for (Value value : op->getResults()) {
+          for (Value value : llvm::to_vector(op->getResults())) {
             auto ty = value.getType().dyn_cast<RankedTensorType>();
             if (!ty) continue;
             auto attrs = ty.getEncoding().dyn_cast_or_null<ArrayAttr>();
@@ -289,7 +302,7 @@ LogicalResult walkRankedTensorValue(Operation* op, Visitor visitor) {
   }
 
   if (op->walk([&](Block* block) {
-          for (Value value : block->getArguments()) {
+          for (Value value : llvm::to_vector((block->getArguments()))) {
             auto ty = value.getType().dyn_cast<RankedTensorType>();
             if (!ty) continue;
             auto attrs = ty.getEncoding().dyn_cast_or_null<ArrayAttr>();

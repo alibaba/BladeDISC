@@ -72,6 +72,16 @@ class SymbolicDimMgr {
   // info. Returns failure if failed to merge lhs & rhs.
   LogicalResult mapSymbolicDimEqual(SymbolicDimOp lhs, SymbolicDimOp rhs);
 
+  // mark group [a0, b0, ...] and group [a1, b1, c1, ...] are group
+  // multiplication equal `a0 * b0 * ... = a1 * b1 * c1 * ...`
+  bool isSymbolicDimProductEqual(const SmallVectorImpl<SymbolicDimOp>& lhs,
+                                 const SmallVectorImpl<SymbolicDimOp>& rhs);
+
+  // mark `product([a0, b0, ...]) == product([a1, b1, c1, ...])`
+  LogicalResult mapSymbolicDimProductEqual(
+      const SmallVectorImpl<SymbolicDimOp>& lhs,
+      const SmallVectorImpl<SymbolicDimOp>& rhs);
+
   //   SymbolicDimOp getSymbolicDimUsingRef(const FlatSymbolRefAttr& ref);
 
   LogicalResult save();

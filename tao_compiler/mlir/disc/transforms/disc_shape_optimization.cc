@@ -40,9 +40,8 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 
-// #undef LLVM_DEBUG
-
-// #define LLVM_DEBUG(x) (x)
+#undef LLVM_DEBUG
+#define LLVM_DEBUG(x) (x)
 
 namespace mlir {
 namespace disc_ral {
@@ -453,6 +452,7 @@ LogicalResult ShapeComputationIRAnalysis::runOnBlock(Block* block) {
 }
 
 LogicalResult ShapeComputationIRAnalysis::runOnOperation(Operation* op) {
+  LLVM_DEBUG(llvm::dbgs() << "runOnOperation: " << *op << "\n");
   if (failed(buildSymbolicShapeForResultsOfOp(op)))
     return op->emitError() << "fail to buildSymbolicShapeForResultsOfOp\n";
 
@@ -536,6 +536,8 @@ LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
       return op->emitError() << "fail to merge dim\n";
   } else if (isa<arith::ConstantIndexOp, arith::ConstantIntOp>(op)) {
     int64_t val = op->getAttrOfType<IntegerAttr>("value").getInt();
+    LLVM_DEBUG(llvm::dbgs() << "applyIndexOpConstraint arith const op val = "
+                            << val << "\n");
     if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[op->getResult(0)],
                                         mgr_.newConstantSymbolicDim(val))))
       return op->emitError() << "fail to merge dim\n";
@@ -804,6 +806,22 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloOpConstraint(Operation* op) {
         if (failed(mgr_.mapSymbolicDimEqual(rhsDims[rhsIdx], outDims[outIdx])))
           return op->emitError() << "fail to merge dim\n";
       }
+    }
+  } else if (auto dynReshape = dyn_cast<mhlo::DynamicReshapeOp>(op)) {
+    Value in = op->getOperand(0);
+    Value targetShape = op->getOperand(1);
+    Value out = op->getResult(0);
+    auto inTy = in.getType().dyn_cast<RankedTensorType>();
+    auto outTy = out.getType().dyn_cast<RankedTensorType>();
+    if (!inTy || !outTy) return success();
+
+    auto& shapeTensorDims = shapeTensor2SymDims_[targetShape];
+    auto& outDims = rankedTensor2SymDims_[out];
+    if (shapeTensorDims.size() != outDims.size())
+      return op->emitError() << "mismatch out rank and shape tensor size\n";
+    for (const auto& z : llvm::zip(shapeTensorDims, outDims)) {
+      if (failed(mgr_.mapSymbolicDimEqual(std::get<0>(z), std::get<1>(z))))
+        return op->emitError() << "fail to merge dim\n";
     }
   }
   return success();

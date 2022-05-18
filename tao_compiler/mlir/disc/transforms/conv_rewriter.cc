@@ -324,10 +324,12 @@ struct DiscConvRewriterPass
     OpBuilder b(params.conv);
     b.setInsertionPointAfter(params.conv);
     auto new_tp = GetTransposeOutputType(params.output, in2OutAttr, b);
+    auto originalOutputTy = params.output.getType();
     params.output.setType(new_tp);
 
     auto transpose_op =
         InsertTranspose(params.conv, params.output, out2InAttr, b);
+    transpose_op->getResult(0).setType(originalOutputTy);
     params.output.replaceAllUsesWith(transpose_op->getResult(0));
     transpose_op->setOperand(0, params.output);
   }

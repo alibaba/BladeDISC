@@ -431,6 +431,7 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
           loc, merged_dot, GetI64ElementsAttr(start, &builder),
           GetI64ElementsAttr(limit, &builder),
           GetI64ElementsAttr(strides, &builder));
+      slice.getResult().setType(op->getResult(0).getType());
       op->replaceAllUsesWith(slice);
     }
   } else {
@@ -491,6 +492,7 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
       auto dyn_slice = builder.create<mhlo::RealDynamicSliceOp>(
           loc, slice_type, merged_dot, start_indices, limit_indices,
           strides_indices);
+      dyn_slice.getResult().setType(op->getResult(0).getType());
 
       op->replaceAllUsesWith(dyn_slice);
     }

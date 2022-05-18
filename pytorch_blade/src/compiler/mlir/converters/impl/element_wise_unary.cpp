@@ -98,6 +98,9 @@ auto mhlo_conversion =
             "aten::erf(Tensor self) -> Tensor",
             ConvertAtenUnaryOp<mlir::chlo::ErfOp>)
         .pattern(
+            "aten::bitwise_not(Tensor self) -> Tensor",
+            ConvertAtenUnaryOp<mlir::mhlo::NotOp>)
+        .pattern(
             "aten::contiguous(Tensor self, *, MemoryFormat "
             "memory_format=contiguous_format) -> Tensor",
             ConvertAtenIdentity)

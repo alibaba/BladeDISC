@@ -16,9 +16,10 @@ from tests.mlir.testing_utils import DiscTestCase
 
 
 class TestDiscUnaryOps(DiscTestCase):
-    def _test_unary_ops(self, unary_ops_func):
+    def _test_unary_ops(self, unary_ops_func, test_data=None):
         x = torch.randn([2, 3, 224, 224]).to(self.device)
-        test_data = (x[:, :, :128, :],)
+        if test_data is None:
+            test_data = (x[:, :, :128, :],)
         self._test_cvt_to_disc(unary_ops_func, test_data)
 
     def test_rsqrt(self):
@@ -48,6 +49,20 @@ class TestDiscUnaryOps(DiscTestCase):
             return -x
 
         self._test_unary_ops(neg_func)
+
+    def test_bitwise_not(self):
+        @torch.jit.script
+        def not_func(x):
+            return torch.bitwise_not(x)
+
+        # Please fix disc compilation error of the following test:
+        # https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/debug/dump_dir.bitwise_not.tar.gz
+        # x = torch.randint(0, 2, [2, 3, 224, 224],
+        #                   dtype=torch.int32, device=self.device)
+        # self._test_unary_ops(not_func, (x,))
+
+        y = torch.randint(0, 2, [6, 224], dtype=torch.bool, device=self.device)
+        self._test_unary_ops(not_func, (y,))
 
     def test_tanh(self):
         @torch.jit.script

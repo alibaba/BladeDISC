@@ -12,6 +12,7 @@
 #include "tensorflow/compiler/mlir/disc/tests/mlir_feature_test.h"
 #include "tensorflow/compiler/mlir/disc/tests/mlir_test.h"
 #include "tensorflow/core/platform/test.h"
+#include "tensorflow/core/util/env_var.h"
 
 namespace mlir_test {
 
@@ -51,10 +52,18 @@ TEST(KStitchFusionGPUTest, KStitchSimpleLargeColumnF32) {
 // There is a root op that is not a skeleton op in the kStitch fusion.
 TEST(KStitchFusionGPUTest, KStitchNonSkeletonOutputF32) {
   setenv("DISC_ENABLE_STITCH", "true", 1);
-  // TODO: even though it means kStitch works when there are 2 kernels formed,
-  // we can further reduce the kernel number to 1 after optimizing shape ops
-  // like compute_reshape_shape successfully.
-  setenv("DISC_EXPECTED_KERNELS_IN_UT", "2", 1);
+  bool enable_shape_constraint_ir = true;
+  tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_SHAPE_CONSTRAINT_IR",
+                                 enable_shape_constraint_ir,
+                                 &enable_shape_constraint_ir);
+  if (enable_shape_constraint_ir) {
+    setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
+  } else {
+    // TODO: even though it means kStitch works when there are 2 kernels formed,
+    // we can further reduce the kernel number to 1 after optimizing shape ops
+    // like compute_reshape_shape successfully.
+    setenv("DISC_EXPECTED_KERNELS_IN_UT", "2", 1);
+  }
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "kstitch_fusion_non_skl_output.mlir",
       /*backend_types*/ {BackendType::kCuda},

@@ -223,6 +223,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   // pm.addNestedPass<FuncOp>(mhlo::createBroadcastPropagationPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertShapeToStandardPass());
 
   bool enable_shape_constraint_ir = true;
   tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_SHAPE_CONSTRAINT_IR",

@@ -81,12 +81,11 @@ def DISCShape_SymbolicDimOp:
     Representing a symbolic dimension size.
   }];
   let arguments = (ins
-    SymbolNameAttr:$sym_name
-    // DefaultValuedAttr<I64Attr, "-1">:$value,
-    // DefaultValuedAttr<BoolAttr, "false">:$knownNotNegative,
-    // DefaultValuedAttr<BoolAttr, "false">:$knownSizeOne,
-    // DefaultValuedAttr<BoolAttr, "false">:$knownNotSizeOne,
-    // DefaultValuedAttr<BoolAttr, "false">:$knownSizeNegativeOne
+    SymbolNameAttr:$sym_name,
+    DefaultValuedAttr<I64Attr, "-1">:$value,
+    DefaultValuedAttr<BoolAttr, "false">:$knownNonNegative,
+    DefaultValuedAttr<BoolAttr, "false">:$knownNegativeOne,
+    DefaultValuedAttr<BoolAttr, "false">:$knownNonSizeOne
     // TODO(disc): add likely values
   );
   let extraClassDeclaration = [{
@@ -98,6 +97,19 @@ def DISCShape_SymbolicDimOp:
 
     // Returns true if this SymbolicDim is not known at compile-time.
     bool isDynamic();
+
+    // Returns true if we know that the dimension value this SymbolicDim op
+    // represents is size one.
+    bool knownSizeOne() { return getDimSize() == 1; }
+
+    // Sets `knownNonNegative` to the value of `flag`
+    void setKnownNonNegative(bool flag);
+
+    // Sets `knownNegativeOne` to the value of `flag`
+    void setKnownNegativeOne(bool flag);
+
+    // Sets `knownNonSizeOne` to the value of `flag`
+    void setKnownNonSizeOne(bool flag);
 
     // Try to merge two SymbolicDim ops.
     // Returns failure if fail to merge.

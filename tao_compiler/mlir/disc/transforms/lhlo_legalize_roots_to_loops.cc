@@ -3258,11 +3258,25 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
     return res;
   };
 
-  SmallVector<Value, 2> vars;
-  scf::ParallelOp parallel_op = createParallelAndSetInsPt(
-      b, loc, vars, {zero, zero}, {block_number, block_size}, {one, one}, {});
-  parallel_op.getBody()->clear();
-  b.setInsertionPointToStart(parallel_op.getBody());
+  auto global_workgroup = b.create<scf::ParallelOp>(
+      loc, SmallVector<Value>({zero}), SmallVector<Value>({block_number}),
+      SmallVector<Value>({one}), SmallVector<Value>({}),
+      /*bodyBuilderFn=*/nullptr);
+  // global_workgroup.getBody()->clear();
+  b.setInsertionPointToStart(global_workgroup.getBody());
+  auto local_workgroup = b.create<scf::ParallelOp>(
+      loc, SmallVector<Value>({zero}), SmallVector<Value>({block_size}),
+      SmallVector<Value>({one}), SmallVector<Value>({}),
+      /*bodyBuilderFn=*/nullptr);
+  local_workgroup.getBody()->clear();
+  b.setInsertionPointToStart(local_workgroup.getBody());
+
+  // SmallVector<Value, 2> vars;
+  // scf::ParallelOp parallel_op = createParallelAndSetInsPt(
+  // b, loc, vars, {zero, zero}, {block_number, block_size}, {one, one}, {});
+  // parallel_op.getBody()->clear();
+  // b.setInsertionPointToStart(parallel_op.getBody());
+
   // Value block_id = vars[0];
   // Value thread_id = vars[1];
   // Value warp_size_val = b.create<arith::ConstantIndexOp>(loc, kWarpSize);
@@ -3283,7 +3297,7 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
   for (auto& skeleton_group : skeleton_groups) {
     auto skeleton = skeleton_group.skeleton;
     Location loc = skeleton->getLoc();
-    b.setInsertionPointToEnd(parallel_op.getBody());
+    b.setInsertionPointToEnd(local_workgroup.getBody());
 
     if (isRank2RowReduction(skeleton)) {
       Value out_value = cast<lmhlo::LmhloOp>(skeleton).getResultBuffer();
@@ -3310,7 +3324,7 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
 
       bool external_only = external_only_roots.contains(skeleton);
       if (failed(emitRowReduceThreadBlock(
-              b, loc, parallel_op.getBody(), skeleton, threads_per_row,
+              b, loc, local_workgroup.getBody(), skeleton, threads_per_row,
               result_shmem, shape_analysis, roots.contains(skeleton),
               external_only))) {
         LLVM_DEBUG(llvm::dbgs() << "Failed to emit InBlockRowReduce for: "
@@ -3440,8 +3454,10 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
     }
   }
 
-  b.setInsertionPointToEnd(parallel_op.getBody());
+  // b.setInsertionPointToEnd(parallel_op.getBody());
+  b.setInsertionPointToEnd(local_workgroup.getBody());
   b.create<scf::YieldOp>(loc, ValueRange({}));
+  b.setInsertionPointAfter(global_workgroup);
 
   for (auto& skeleton_group : skeleton_groups) {
     auto skeleton = skeleton_group.skeleton;

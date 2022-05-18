@@ -27,6 +27,8 @@
 #include "mlir/Dialect/SCF/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
+#include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
+#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -38,6 +40,17 @@ struct ParallelLoopCollapsing
     SmallVector<scf::ParallelOp, 2> innermostPloops;
     getInnermostParallelLoops(getOperation(), innermostPloops);
     for (scf::ParallelOp ploop : innermostPloops) {
+      // Skip kStitch fusion with no thread-block size hint.
+      lmhlo::FusionOp fusion = ploop->getParentOfType<lmhlo::FusionOp>();
+      if (fusion &&
+          !(fusion->getAttrOfType<IntegerAttr>(kThreadPerBlockHint))) {
+        auto fusionTypeAttr =
+            fusion->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName);
+        if (fusionTypeAttr && fusionTypeAttr.getValue() == "kStitch") {
+          continue;
+        }
+      }
+
       if (ploop.getInductionVars().size() > 1) {
         std::vector<unsigned> inds(ploop.getInductionVars().size());
         for (unsigned int id = 0; id < ploop.getInductionVars().size(); id++) {

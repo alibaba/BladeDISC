@@ -29,6 +29,7 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
+#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -61,6 +62,13 @@ struct ParallelLoopTiling
           if (auto attr =
                   fusion->getAttrOfType<IntegerAttr>(kThreadPerBlockHint)) {
             localTileSizes = {attr.getInt()};
+          } else {
+            // Do not deal with kStitch fusion.
+            auto fusionTypeAttr =
+                fusion->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName);
+            if (fusionTypeAttr && fusionTypeAttr.getValue() == "kStitch") {
+              continue;
+            }
           }
         }
         // TODO(zk): we should wrap the tileParallelLoop() from llvm

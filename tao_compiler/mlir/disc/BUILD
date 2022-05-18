@@ -586,6 +586,8 @@ cc_library(
         "."
     ],
     deps = [
+        ":codegen_utils",
+        ":fusion_utils",
         ":pass_details",
         "//tensorflow/compiler/mlir/hlo:lhlo",
         "@llvm-project//llvm:Support",
@@ -606,6 +608,7 @@ cc_library(
     ],
     deps = [
         ":codegen_utils",
+        ":fusion_utils",
         ":pass_details",
         "//tensorflow/compiler/mlir/hlo:lhlo",
         "@llvm-project//llvm:Support",

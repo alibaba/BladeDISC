@@ -72,6 +72,7 @@ SymbolicDimOp SymbolicDimMgr::newConstantSymbolicDim(int64_t val) {
     it = constantSymbolicDimMap_.insert(std::make_pair(val, newSymbolicDim()))
              .first;
     it->second.setDimSize(val);
+    it->second.setName((llvm::Twine("C") + llvm::Twine(val)).str());
   }
   return getRootSymbolicDim(it->second);
 }
@@ -91,13 +92,16 @@ bool SymbolicDimMgr::isSymbolicDimEqual(SymbolicDimOp lhs, SymbolicDimOp rhs) {
 
 bool SymbolicDimMgr::compareSymbolicDimOpNames(StringRef lhs, StringRef rhs) {
   // Not known encoding schema, fallback branch
-  if (lhs[0] != 'S' || rhs[0] != 'S') return lhs < rhs;
+  // S -> unknown dimension size at compile time
+  // C -> constant dimension size at compile time
+  if (lhs.size() < 1 || lhs[0] != 'S' && lhs[0] != 'C') return lhs < rhs;
+  if (rhs.size() < 1 || rhs[0] != 'S' && rhs[0] != 'C') return lhs < rhs;
 
   int64_t lhsIdx, rhsIdx;
   if (lhs.substr(1).getAsInteger(10, lhsIdx) ||
       rhs.substr(1).getAsInteger(10, rhsIdx))
     return lhs < rhs;
-  return lhsIdx < rhsIdx;
+  return (lhs[0] < rhs[0]) || (lhs[0] == rhs[0] && lhsIdx < rhsIdx);
 }
 
 LogicalResult SymbolicDimMgr::mapSymbolicDimEqual(SymbolicDimOp lhs,
@@ -183,10 +187,15 @@ LogicalResult SymbolicDimMgr::save() {
              [&](const std::string& lhs, const std::string& rhs) {
                return compareSymbolicDimOpNames(lhs, rhs);
              });
+  int numNonConstDims = 0;
   std::unordered_map<std::string, std::string> nameMapping;
   for (const auto& en : llvm::enumerate(usedSymbolNames)) {
-    nameMapping[en.value()] =
-        (llvm::Twine("S") + llvm::Twine(en.index())).str();
+    if (en.value().size() > 0 && en.value()[0] == 'C') {
+      nameMapping[en.value()] = en.value();
+    } else {
+      nameMapping[en.value()] =
+          (llvm::Twine("S") + llvm::Twine(numNonConstDims++)).str();
+    }
   }
   for (SymbolicDimOp op : usedSymbolicOps)
     op.setName(nameMapping[op.getName().str()]);
@@ -325,6 +334,9 @@ LogicalResult updateFunctionType(Operation* op) {
     return failure();
   return success();
 }
+
+SymbolicDimExpr::SymbolicDimExpr(SymbolicDimOp op)
+    : expr(getAffineSymbolExpr(0, op.getContext())), symbols(1, op) {}
 
 }  // namespace disc_ral
 }  // namespace mlir

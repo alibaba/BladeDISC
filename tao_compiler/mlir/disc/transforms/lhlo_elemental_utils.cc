@@ -63,7 +63,7 @@ LowerConfig::SpecificLoader* LowerConfig::getSpecificLoader(Operation* op,
 
 Value createMaySpecificLoad(OpBuilder& b, Location loc, Operation* op,
                             Value memref, ValueRange indices,
-                            LowerConfig* lower_config) {
+                            LowerConfig* lower_config, bool debug) {
   if (lower_config != nullptr) {
     auto loader = lower_config->getSpecificLoader(op, memref);
     if (loader != nullptr) {
@@ -77,7 +77,7 @@ Value createMaySpecificLoad(OpBuilder& b, Location loc, Operation* op,
 Value createLoadOrUseCachedValue(Location loc, OpBuilder* b, Operation* op,
                                  Value memref, ValueRange indices,
                                  OpBuilder::InsertPoint insert_point,
-                                 LowerConfig* lower_config) {
+                                 LowerConfig* lower_config, bool debug) {
   // Check if there are any cached value that can be reused,
   // within the current Block. Alternatively we can do this for
   // all the Blocks that dominant this Block, but that will be
@@ -94,9 +94,9 @@ Value createLoadOrUseCachedValue(Location loc, OpBuilder* b, Operation* op,
       });
   if (!store_ops.empty()) return store_ops[0].getOperand(0);
   int rank = memref.getType().cast<MemRefType>().getRank();
-  return rank > 0
-             ? createMaySpecificLoad(*b, loc, op, memref, indices, lower_config)
-             : b->create<LoadOp>(loc, memref);
+  return rank > 0 ? createMaySpecificLoad(*b, loc, op, memref, indices,
+                                          lower_config, debug)
+                  : b->create<LoadOp>(loc, memref);
 }
 
 Value mayCreateStore(OpBuilder* b, Location loc, Operation* op, Value value,
@@ -307,9 +307,9 @@ Value elementalLowerImplForBroadcastInDimOps(OpBuilder* b, Location loc,
                               operand_memref, input_index, lower_config)
                         : b->create<LoadOp>(loc, operand_memref, ValueRange());
   } else {
-    result = createLoadOrUseCachedValue(loc, b, broadcast_in_dim.getOperation(),
-                                        operand_memref, input_index,
-                                        b->saveInsertionPoint(), lower_config);
+    result = createLoadOrUseCachedValue(
+        loc, b, broadcast_in_dim.getOperation(), operand_memref, input_index,
+        b->saveInsertionPoint(), lower_config, true);
   }
   return result;
 }

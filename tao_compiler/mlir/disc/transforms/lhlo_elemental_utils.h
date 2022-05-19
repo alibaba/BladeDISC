@@ -54,16 +54,23 @@ class LowerConfig {
   // with specific shm memref.
   using SpecificLoaderFunc = std::function</*output*/ Value(
       OpBuilder&, /*operand-memref*/ Value, /*indices*/ ValueRange,
-      /*shmem-buffer*/ Value, /*row-per-block*/ Value)>;
+      /*shmem-buffer*/ Value, /*block-size*/ Value, /*threads-per-row*/ Value)>;
   struct SpecificLoader {
     SpecificLoader() {}
-    SpecificLoader(SpecificLoaderFunc f, Value shm, Value row_per_block)
-        : func_(f), target_shm_(shm), row_per_block_(row_per_block) {}
+    SpecificLoader(SpecificLoaderFunc f, Value shm, Value block_size,
+                   Value threads_per_row)
+        : func_(f),
+          target_shm_(shm),
+          block_size_(block_size),
+          threads_per_row_(threads_per_row) {}
     SpecificLoaderFunc func_;
     Value target_shm_;
-    Value row_per_block_;
+    // Value row_per_block_;
+    Value block_size_;
+    Value threads_per_row_;
     Value operator()(OpBuilder& b, Value memref, ValueRange indices) {
-      return func_(b, memref, indices, target_shm_, row_per_block_);
+      return func_(b, memref, indices, target_shm_, block_size_,
+                   threads_per_row_);
     }
   };
 
@@ -85,7 +92,8 @@ class LowerConfig {
 
 Value createMaySpecificLoad(OpBuilder& b, Location loc, Operation* op,
                             Value memref, ValueRange indices,
-                            LowerConfig* lower_config = nullptr);
+                            LowerConfig* lower_config = nullptr,
+                            bool debug = false);
 
 Value mayCreateStore(OpBuilder* b, Location loc, Operation* op, Value value,
                      ValueRange out_indices, LowerConfig* lower_config);
@@ -97,7 +105,8 @@ AccumulatorFactory getFactory(OpBuilder& b, Location loc, Region& body);
 Value createLoadOrUseCachedValue(Location loc, OpBuilder* b, Operation* op,
                                  Value memref, ValueRange indices,
                                  OpBuilder::InsertPoint insert_point,
-                                 LowerConfig* lower_config = nullptr);
+                                 LowerConfig* lower_config = nullptr,
+                                 bool debug = false);
 
 template <typename LHLO_OpTy>
 Value elementalLower(OpBuilder* b, Location loc, LHLO_OpTy op,

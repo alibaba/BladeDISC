@@ -2438,6 +2438,8 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
   Value one = b.create<arith::ConstantIndexOp>(loc, 1);
   Value shape_h = b.create<memref::DimOp>(loc, lhs, zero);
   Value num_threads = b.create<arith::ConstantIndexOp>(loc, thread_per_block);
+  Value reduce_threads_val =
+      b.create<arith::ConstantIndexOp>(loc, reduce_threads);
 
   // loop over (block-number, threads-per-block)
   // Note that we know `shape_h` can be divided by `row_tile` exactly.
@@ -2449,7 +2451,8 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
 
   auto load_config_func = [&](OpBuilder& b, Value value, ValueRange indices,
                               // Value shm_buffer, int64_t row_per_block) {
-                              Value shm_buffer, Value row_per_block) {
+                              Value shm_buffer, Value block_size,
+                              Value threads_per_row) {
     auto loc = value.getLoc();
     assert(shm_buffer != nullptr);
     // shm index = linear_index % row_per_block;
@@ -2459,11 +2462,13 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
     Value linear_index = calcLinearIndex(&b, loc, indices, shape);
     // Value row_per_block_val =
     // b.create<arith::ConstantIndexOp>(loc, row_per_block);
-    Value smem_index =
+    Value row_per_block =
+        b.create<arith::DivUIOp>(loc, block_size, threads_per_row);
+    Value shmem_index =
         b.create<arith::RemUIOp>(loc, linear_index, row_per_block);
     // b.create<arith::RemUIOp>(loc, linear_index, row_per_block_val);
     Value res =
-        b.create<memref::LoadOp>(loc, shm_buffer, ValueRange({smem_index}));
+        b.create<memref::LoadOp>(loc, shm_buffer, ValueRange({shmem_index}));
     return res;
   };
 
@@ -2502,7 +2507,7 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
         return failure();
       }
       LowerConfig::SpecificLoader loader(load_config_func, result_shmem,
-                                         row_per_block_val);
+                                         num_threads, reduce_threads_val);
       lower_config.setSpecificLoader(
           std::make_pair(fusion_op.getOperation(), out_value), loader);
 
@@ -2582,8 +2587,6 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
       if (tiled_linear == nullptr) {
         tiled_linear = b.create<arith::ConstantIndexOp>(loc, 1);
       }
-      Value reduce_threads_val =
-          b.create<arith::ConstantIndexOp>(loc, reduce_threads);
       Value var_j = nullptr;
       Value lb = row_reduction_schedule == DISC_BLOCK_WISE_ROW_REDUCE
                      ? thread_id
@@ -2837,6 +2840,7 @@ LogicalResult emitRowReduceThreadBlock(OpBuilder& b, Location loc, Block* block,
   // Calculate `row_index` and `tid_in_row`.
   // Value row_index = nullptr;
   // Value tid_in_row = nullptr;
+  // The following computation may be reused by non-reduce skeleton ops.
   auto is_one_block_one_row = b.create<arith::CmpIOp>(
       loc, arith::CmpIPredicate::eq, threads_per_row, block_dim);
   scf::IfOp if_is_one_block_one_row = b.create<scf::IfOp>(
@@ -3143,10 +3147,10 @@ LogicalResult getGPURowReduceLaunchDimensionAndSchedule(
       &if_one_block_one_row.getElseRegion().getBlocks().front();
   b.setInsertionPoint(one_block_one_row_else, one_block_one_row_else->begin());
   {
-    Value threads_per_row = b.create<arith::ConstantIndexOp>(loc, kWarpSize);
-    Value row_per_block =
-        b.create<arith::DivUIOp>(loc, block_size, threads_per_row);
-    b.create<scf::YieldOp>(loc, ValueRange({threads_per_row, row_per_block}));
+    Value warp_size = b.create<arith::ConstantIndexOp>(loc, kWarpSize);
+    Value warps_per_block =
+        b.create<arith::DivUIOp>(loc, block_size, warp_size);
+    b.create<scf::YieldOp>(loc, ValueRange({warp_size, warps_per_block}));
   }
   b.setInsertionPointAfter(if_one_block_one_row);
   threads_per_row = if_one_block_one_row.getResult(0);
@@ -3241,7 +3245,8 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
   // b.create<arith::CeilDivUIOp>(loc, shape_h, row_per_block_val);
 
   auto load_config_func = [](OpBuilder& b, Value value, ValueRange indices,
-                             Value shm_buffer, Value row_per_block) {
+                             Value shm_buffer, Value block_size,
+                             Value threads_per_row) {
     auto loc = value.getLoc();
     assert(shm_buffer != nullptr);
     // shm index = linear_index % row_per_block;
@@ -3251,10 +3256,12 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
     Value linear_index = calcLinearIndex(&b, loc, indices, shape);
     // Value row_per_block_val =
     // b.create<arith::ConstantIndexOp>(loc, row_per_block);
-    Value smem_index =
+    Value row_per_block =
+        b.create<arith::DivUIOp>(loc, block_size, threads_per_row);
+    Value shmem_index =
         b.create<arith::RemUIOp>(loc, linear_index, row_per_block);
     Value res =
-        b.create<memref::LoadOp>(loc, shm_buffer, ValueRange({smem_index}));
+        b.create<memref::LoadOp>(loc, shm_buffer, ValueRange({shmem_index}));
     return res;
   };
 
@@ -3291,8 +3298,8 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
   Value warp_size = b.create<arith::ConstantIndexOp>(loc, kWarpSize);
   Value warp_id = b.create<arith::DivUIOp>(loc, thread_id, warp_size);
   Value lane_id = b.create<arith::RemUIOp>(loc, thread_id, warp_size);
-  Value row_per_block =
-      b.create<arith::DivUIOp>(loc, block_size, threads_per_row);
+  // Value row_per_block =
+  // b.create<arith::DivUIOp>(loc, block_size, threads_per_row);
 
   for (auto& skeleton_group : skeleton_groups) {
     auto skeleton = skeleton_group.skeleton;
@@ -3318,7 +3325,7 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
         return failure();
       }
       LowerConfig::SpecificLoader loader(load_config_func, result_shmem,
-                                         row_per_block);
+                                         block_size, threads_per_row);
       lower_config.setSpecificLoader(
           std::make_pair(fusion_op.getOperation(), out_value), loader);
 
@@ -3382,6 +3389,8 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
       b.setInsertionPointToEnd(
           &if_is_one_block_one_row.getElseRegion().front());
       {
+        Value row_per_block =
+            b.create<arith::DivUIOp>(loc, block_size, threads_per_row);
         Value row_index = b.create<arith::AddIOp>(
             loc, b.create<arith::MulIOp>(loc, block_id, row_per_block),
             warp_id);

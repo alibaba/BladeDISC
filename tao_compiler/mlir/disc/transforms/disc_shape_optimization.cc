@@ -405,6 +405,9 @@ class ShapeComputationIRAnalysis {
   // Map a ranked tensor value to an array of symbolicDims, each represents one
   // dimension size of the tensor.
   DenseMap<Value, SmallVector<SymbolicDimOp>> rankedTensor2SymDims_;
+
+  // Map an index value to its defining symbolic expr;
+  DenseMap<Value, SymbolicDimExpr> value2DefiningExpr_;
 };
 
 ShapeComputationIRAnalysis::ShapeComputationIRAnalysis(FuncOp func,
@@ -481,6 +484,7 @@ LogicalResult ShapeComputationIRAnalysis::buildSymbolicShape(Value value) {
   if (ty.isIntOrIndex()) {
     SymbolicDimOp sym = mgr_.newSymbolicDim();
     value2SymDim_[value] = sym;
+    value2DefiningExpr_[value] = SymbolicDimExpr(value);
   } else if (auto tensorTy = ty.dyn_cast<RankedTensorType>()) {
     SmallVector<SymbolicDimOp> symbols =
         mgr_.getOrCreateSymbolicDimsForRankedValue(value);
@@ -490,7 +494,7 @@ LogicalResult ShapeComputationIRAnalysis::buildSymbolicShape(Value value) {
       SmallVector<SymbolicDimOp> symbols;
       for (int i = 0, d = tensorTy.getShape()[0]; i < d; ++i)
         symbols.push_back(mgr_.newSymbolicDim());
-      shapeTensor2SymDims_[value] = symbols;
+      shapeTensor2SymDims_[value] = std::move(symbols);
     }
   }
   return success();
@@ -525,9 +529,11 @@ LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
   if (!ty.isIntOrIndex()) return success();
 
   if (isa<arith::IndexCastOp>(op)) {
-    if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[op->getResult(0)],
-                                        value2SymDim_[op->getOperand(0)])))
+    Value in = op->getOperand(0);
+    Value out = op->getResult(0);
+    if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[in], value2SymDim_[out])))
       return op->emitError() << "fail to merge dim\n";
+    value2DefiningExpr_[out] = value2DefiningExpr_[in];
   } else if (auto dimOp = dyn_cast<tensor::DimOp>(op)) {
     Optional<int64_t> dimIndex = dimOp.getConstantIndex();
     if (!dimIndex) return success();
@@ -540,9 +546,11 @@ LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
     int64_t val = op->getAttrOfType<IntegerAttr>("value").getInt();
     LLVM_DEBUG(llvm::dbgs() << "applyIndexOpConstraint arith const op val = "
                             << val << "\n");
-    if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[op->getResult(0)],
+    Value out = op->getResult(0);
+    if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[out],
                                         mgr_.newConstantSymbolicDim(val))))
       return op->emitError() << "fail to merge dim\n";
+    value2DefiningExpr_[out] = SymbolicDimExpr(val, out.getContext());
   } else if (auto extractOp = dyn_cast<tensor::ExtractOp>(op)) {
     if (!isCandidateShapeTensorType(extractOp.tensor().getType()))
       return success();
@@ -556,9 +564,16 @@ LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
     if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[op->getResult(0)],
                                         shapeTensorDims[index])))
       return op->emitError() << "fail to merge dim\n";
+  } else if (auto mulOp = dyn_cast<arith::MulIOp>(op)) {
+    // TODO: propagete attributes like knownNonNegative/...
+    Value lhs = op->getOperand(0);
+    Value rhs = op->getOperand(1);
+    Value out = op->getResult(0);
+    value2DefiningExpr_[out] = SymbolicDimExpr::buildMulExpr(
+        value2DefiningExpr_[lhs], value2DefiningExpr_[rhs]);
   }
 
-  // TODO: add support for arith::addi/subi/...
+  // TODO: add support for arith::addi/subi/divi...
 
   return success();
 }

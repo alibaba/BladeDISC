@@ -335,8 +335,35 @@ LogicalResult updateFunctionType(Operation* op) {
   return success();
 }
 
-SymbolicDimExpr::SymbolicDimExpr(SymbolicDimOp op)
-    : expr(getAffineSymbolExpr(0, op.getContext())), symbols(1, op) {}
+SymbolicDimExpr::SymbolicDimExpr(Value sym)
+    : expr(getAffineSymbolExpr(0, sym.getContext())), symbols(1, sym) {}
+
+SymbolicDimExpr::SymbolicDimExpr(int64_t val, MLIRContext* context)
+    : expr(getAffineConstantExpr(val, context)) {}
+
+llvm::Optional<int64_t> SymbolicDimExpr::getConstValue() {
+  if (auto cstExpr = expr.dyn_cast<AffineConstantExpr>())
+    return cstExpr.getValue();
+  return {};
+}
+
+template <typename Combiner>
+/* static */ SymbolicDimExpr SymbolicDimExpr::buildBinaryExpr(
+    const SymbolicDimExpr& lhs, const SymbolicDimExpr& rhs,
+    Combiner&& combiner) {
+  SymbolicDimExpr expr;
+  expr.symbols.append(lhs.symbols);
+  expr.symbols.append(rhs.symbols);
+  expr.expr = combiner(
+      lhs.expr, rhs.expr.shiftSymbols(rhs.symbols.size(), lhs.symbols.size()));
+  return expr;
+}
+
+/* static */ SymbolicDimExpr SymbolicDimExpr::buildMulExpr(
+    const SymbolicDimExpr& lhs, const SymbolicDimExpr& rhs) {
+  return buildBinaryExpr(lhs, rhs,
+                         [](AffineExpr a, AffineExpr b) { return a + b; });
+}
 
 }  // namespace disc_ral
 }  // namespace mlir

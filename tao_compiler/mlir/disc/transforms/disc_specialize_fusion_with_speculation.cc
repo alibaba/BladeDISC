@@ -149,13 +149,8 @@ struct DiscSpecializeFusionWithSpeculationPass
           DiscSpecializeFusionWithSpeculationPass> {
   DiscSpecializeFusionWithSpeculationPass(int core_count,
                                           int max_threads_per_core) {
-    // If the parameter value is not positive, we will use a default value. The
-    // default value is the data of the most popular NVIDIA GPU generation for
-    // inference. Currently, it is A10.
-    core_count_ = (core_count > 0) ? core_count : 72;
-    // TODO: double check on A10.
-    max_threads_per_core_ =
-        (max_threads_per_core > 0) ? max_threads_per_core : 1024;
+    core_count_ = core_count;
+    max_threads_per_core_ = max_threads_per_core;
   }
 
   void getDependentDialects(DialectRegistry& registry) const override {
@@ -246,15 +241,12 @@ struct DiscSpecializeFusionWithSpeculationPass
 
   void DoRowReductionSpeculation(FusionOp fusion_op) {
     bool experimental_tlp_enhance = false;
-    tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE",
-                                   false, &experimental_tlp_enhance);
-    if (experimental_tlp_enhance == true) {
-      return;
-    }
-
+    tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_TLP_ENHANCE", false,
+                                   &experimental_tlp_enhance);
     FusionType fusion_type = getFusionType(fusion_op.getOperation());
-    if (fusion_type != FusionType::kRowReduction) {
-      // fusion_type != FusionType::kStitch) {
+    if (fusion_type != FusionType::kRowReduction &&
+        (fusion_type != FusionType::kStitch ||
+         (fusion_type == FusionType::kStitch && experimental_tlp_enhance))) {
       return;
     }
 
@@ -290,7 +282,8 @@ struct DiscSpecializeFusionWithSpeculationPass
     bool legacy_tlp_enhance = false;
     tensorflow::ReadBoolFromEnvVar("DISC_LEGACY_TLP_ENHANCE", false,
                                    &legacy_tlp_enhance);
-    if (legacy_tlp_enhance) {
+    if (legacy_tlp_enhance && core_count_ != -1 &&
+        max_threads_per_core_ != -1) {
       // Experimental schedule selection policy is as following:
       //   1. use schedule 1 if
       //      (col-size >= block-dim) &&
@@ -343,6 +336,11 @@ struct DiscSpecializeFusionWithSpeculationPass
   void DoColReductionSpeculation(FusionOp fusion_op) {
     // We only do specialization fusion op on GPU a.t.m.
     if (!placement_utils::isGpuMhlo(fusion_op)) {
+      return;
+    }
+
+    if (core_count_ == -1 || max_threads_per_core_ == -1) {
+      // Do not know about device information.
       return;
     }
 
@@ -402,13 +400,22 @@ struct DiscSpecializeFusionWithSpeculationPass
       return;
     }
 
+    if (core_count_ == -1 || max_threads_per_core_ == -1) {
+      // Do not know about device information.
+      return;
+    }
+
     // Already have a hint
     if (fusion_op->getAttrOfType<IntegerAttr>(kVectorizeOrTileHint)) return;
 
+    bool experimental_tlp_enhance = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_TLP_ENHANCE", false,
+                                   &experimental_tlp_enhance);
     FusionType fusion_type = getFusionType(fusion_op.getOperation());
     if (fusion_type != FusionType::kLoop &&
         fusion_type != FusionType::kRowReduction &&
-        fusion_type != FusionType::kStitch) {
+        (fusion_type != FusionType::kStitch ||
+         (fusion_type == FusionType::kStitch && experimental_tlp_enhance))) {
       return;
     }
 
@@ -524,10 +531,8 @@ struct DiscSpecializeFusionWithSpeculationPass
         &DiscSpecializeFusionWithSpeculationPass::DoRowReductionSpeculation);
 
     // Stage #4: speculation of vectorization/tiling.
-#if 0
     Speculator(
         &DiscSpecializeFusionWithSpeculationPass::DoVectorizeOrTileSpeculation);
-#endif
   }
 };
 

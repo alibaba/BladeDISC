@@ -92,8 +92,7 @@ class LowerConfig {
 
 Value createMaySpecificLoad(OpBuilder& b, Location loc, Operation* op,
                             Value memref, ValueRange indices,
-                            LowerConfig* lower_config = nullptr,
-                            bool debug = false);
+                            LowerConfig* lower_config = nullptr);
 
 Value mayCreateStore(OpBuilder* b, Location loc, Operation* op, Value value,
                      ValueRange out_indices, LowerConfig* lower_config);
@@ -105,8 +104,7 @@ AccumulatorFactory getFactory(OpBuilder& b, Location loc, Region& body);
 Value createLoadOrUseCachedValue(Location loc, OpBuilder* b, Operation* op,
                                  Value memref, ValueRange indices,
                                  OpBuilder::InsertPoint insert_point,
-                                 LowerConfig* lower_config = nullptr,
-                                 bool debug = false);
+                                 LowerConfig* lower_config = nullptr);
 
 template <typename LHLO_OpTy>
 Value elementalLower(OpBuilder* b, Location loc, LHLO_OpTy op,

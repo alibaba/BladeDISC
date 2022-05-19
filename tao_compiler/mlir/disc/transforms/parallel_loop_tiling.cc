@@ -30,6 +30,7 @@
 #include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
+#include "tensorflow/core/util/env_var.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -51,6 +52,9 @@ struct ParallelLoopTiling
   void runOnOperation() override {
     SmallVector<ParallelOp, 2> innermostPloops;
     getInnermostParallelLoops(getOperation(), innermostPloops);
+    bool experimental_tlp_enhance = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_TLP_ENHANCE", false,
+                                   &experimental_tlp_enhance);
     for (ParallelOp ploop : innermostPloops) {
       // FIXME: Add reduction support.
       SmallVector<long> localTileSizes(tileSizes.begin(), tileSizes.end());
@@ -62,7 +66,7 @@ struct ParallelLoopTiling
           if (auto attr =
                   fusion->getAttrOfType<IntegerAttr>(kThreadPerBlockHint)) {
             localTileSizes = {attr.getInt()};
-          } else {
+          } else if (experimental_tlp_enhance) {
             // Do not deal with kStitch fusion.
             auto fusionTypeAttr =
                 fusion->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName);

@@ -40,6 +40,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/input_inline_fusion_pattern.h"
 #include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "tensorflow/core/util/env_var.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -2634,21 +2635,22 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
   return success();
 }
 
-LogicalResult emitPerElementReductionImpl(OpBuilder& b, Location loc,
-                                          Operation* op, Value& target,
-                                          ValueRange& input_index,
-                                          Value& yield_value) {
-  auto reduce_op = dyn_cast_or_null<lmhlo::ReduceOp>(op);
-  if (reduce_op == nullptr) {
-    return failure();
-  }
-  auto data = createLoadOrUseCachedValue(loc, &b, op, op->getOperand(0),
-                                         input_index, b.saveInsertionPoint());
-  AccumulatorFactory accumFactory =
-      getFactory(b, op->getLoc(), reduce_op.body());
-  yield_value = accumFactory(target, data);
-  return success();
-}
+// LogicalResult emitPerElementReductionImpl(OpBuilder& b, Location loc,
+//                                           Operation* op, Value& target,
+//                                           ValueRange& input_index,
+//                                           Value& yield_value) {
+//   auto reduce_op = dyn_cast_or_null<lmhlo::ReduceOp>(op);
+//   if (reduce_op == nullptr) {
+//     return failure();
+//   }
+//   auto data = createLoadOrUseCachedValue(loc, &b, op, op->getOperand(0),
+//                                          input_index,
+//                                          b.saveInsertionPoint());
+//   AccumulatorFactory accumFactory =
+//       getFactory(b, op->getLoc(), reduce_op.body());
+//   yield_value = accumFactory(target, data);
+//   return success();
+// }
 
 LogicalResult emitWarpReduce(OpBuilder& b, Location loc, Operation* op,
                              AccumulatorFactory& accumFactory, Value& target,
@@ -3614,19 +3616,41 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
     } break;
 
     case FusionType::kStitch: {
-#if 1
-      if (failed(lowerWithScheduleStitch(fusion_op, fusion_pattern,
-                                         shape_analysis, core_count,
-                                         max_threads_per_core, lower_config))) {
-        return fusion->emitError() << "failed to lower kStitch fusion.";
+      bool experimental_tlp_enhance = false;
+      tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_TLP_ENHANCE", false,
+                                     &experimental_tlp_enhance);
+      if (experimental_tlp_enhance) {
+        if (failed(lowerWithScheduleStitch(
+                fusion_op, fusion_pattern, shape_analysis, core_count,
+                max_threads_per_core, lower_config))) {
+          return fusion->emitError() << "failed to lower kStitch fusion.";
+        }
+      } else {
+        const int tile_size = getVectorizeOrTileHint(dominant_op);
+        const int row_reduction_schedule =
+            getRowReductionScheduleHint(dominant_op);
+        if (failed(lowerWithScheduleStitch(
+                fusion_op, fusion_pattern, shape_analysis, tile_size,
+                lower_config, row_reduction_schedule))) {
+          return fusion->emitError() << "failed to lower kStitch fusion.";
+        }
       }
-#else
-      if (failed(lowerWithScheduleStitch(
-              fusion_op, fusion_pattern, shape_analysis, tile_size,
-              lower_config, row_reduction_schedule))) {
-        return fusion->emitError() << "failed to lower kStitch fusion.";
-      }
-#endif
+      // #if 1
+      //       if (failed(lowerWithScheduleStitch(fusion_op, fusion_pattern,
+      //                                          shape_analysis, core_count,
+      //                                          max_threads_per_core,
+      //                                          lower_config))) {
+      //         return fusion->emitError() << "failed to lower kStitch
+      //         fusion.";
+      //       }
+      // #else
+      //       if (failed(lowerWithScheduleStitch(
+      //               fusion_op, fusion_pattern, shape_analysis, tile_size,
+      //               lower_config, row_reduction_schedule))) {
+      //         return fusion->emitError() << "failed to lower kStitch
+      //         fusion.";
+      //       }
+      // #endif
     } break;
 
     default: {

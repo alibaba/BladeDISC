@@ -15,6 +15,7 @@
 
 #include "llvm/ADT/SmallVector.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/IR/AffineExpr.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 
 #ifndef TENSORFLOW_COMPILER_MLIR_DISC_TRANSFORMS_DISC_SHAPE_OPTIMIZATION_UTILS_H_
@@ -43,6 +44,22 @@ LogicalResult updateFunctionType(func::FuncOp func);
 
 // Updates the type of all functions inside the op.
 LogicalResult updateFunctionType(Operation* op);
+
+// Reprensets a symbolic expression of symbolicDims.
+class SymbolicDimExpr {
+ public:
+  explicit SymbolicDimExpr(SymbolicDimOp op);
+
+ private:
+  // TODO(disc): AffineExpr is known not able to simplify even basic symbolic
+  // expression. For example, `affine_map<(d0, d1) -> (d0 + d1 - d0 - 1)>` can
+  // not be simplified to `affine_map<(d0, d1) -> (d1 - 1)>`
+  //
+  // We may change to a professional symbolic expression tool (e.g. SymPy in
+  // python, or GiNaC in C++) in the future.
+  AffineExpr expr;
+  SmallVector<SymbolicDimOp> symbols;
+};
 
 class SymbolicDimMgr {
  public:

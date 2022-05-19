@@ -2450,28 +2450,26 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
   Value num_blocks =
       b.create<arith::CeilDivUIOp>(loc, shape_h, row_per_block_val);
 
-  auto load_config_func = [&](OpBuilder& b, Value value, ValueRange indices,
-                              // Value shm_buffer, int64_t row_per_block) {
-                              Value shm_buffer, Value block_size,
-                              Value threads_per_row) {
-    auto loc = value.getLoc();
-    assert(shm_buffer != nullptr);
-    // shm index = linear_index % row_per_block;
-    // It requires the elements store in shm_buffer are in index order.
-    auto shape = getShapeValues(&b, value);
-    assert(shape.size() == indices.size());
-    Value linear_index = calcLinearIndex(&b, loc, indices, shape);
-    // Value row_per_block_val =
-    // b.create<arith::ConstantIndexOp>(loc, row_per_block);
-    Value row_per_block =
-        b.create<arith::DivUIOp>(loc, block_size, threads_per_row);
-    Value shmem_index =
-        b.create<arith::RemUIOp>(loc, linear_index, row_per_block);
-    // b.create<arith::RemUIOp>(loc, linear_index, row_per_block_val);
-    Value res =
-        b.create<memref::LoadOp>(loc, shm_buffer, ValueRange({shmem_index}));
-    return res;
-  };
+  // auto load_config_func = [](OpBuilder& b, Value value, ValueRange indices,
+  //                             Value shm_buffer, int64_t row_per_block) {
+  //   auto loc = value.getLoc();
+  //   assert(shm_buffer != nullptr);
+  //   // shm index = linear_index % row_per_block;
+  //   // It requires the elements store in shm_buffer are in index order.
+  //   auto shape = getShapeValues(&b, value);
+  //   assert(shape.size() == indices.size());
+  //   Value linear_index = calcLinearIndex(&b, loc, indices, shape);
+  //   Value row_per_block_val =
+  //       b.create<arith::ConstantIndexOp>(loc, row_per_block);
+  //   // Value row_per_block =
+  //       // b.create<arith::DivUIOp>(loc, block_size, threads_per_row);
+  //   Value shmem_index =
+  //       // b.create<arith::RemUIOp>(loc, linear_index, row_per_block);
+  //       b.create<arith::RemUIOp>(loc, linear_index, row_per_block_val);
+  //   Value res =
+  //       b.create<memref::LoadOp>(loc, shm_buffer, ValueRange({shmem_index}));
+  //   return res;
+  // };
 
   SmallVector<Value, 2> vars;
   scf::ParallelOp parallel_op = createParallelAndSetInsPt(
@@ -2507,8 +2505,9 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
                    << "Tile info error for: " << *skeleton << "\n");
         return failure();
       }
-      LowerConfig::SpecificLoader loader(load_config_func, result_shmem,
-                                         num_threads, reduce_threads_val);
+      // LowerConfig::SpecificLoader loader(load_config_func, result_shmem,
+      LowerConfig::SpecificLoader loader(result_shmem, row_per_block);
+      //  num_threads, reduce_threads_val);
       lower_config.setSpecificLoader(
           std::make_pair(fusion_op.getOperation(), out_value), loader);
 
@@ -3246,26 +3245,26 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
   // Value block_number =
   // b.create<arith::CeilDivUIOp>(loc, shape_h, row_per_block_val);
 
-  auto load_config_func = [](OpBuilder& b, Value value, ValueRange indices,
-                             Value shm_buffer, Value block_size,
-                             Value threads_per_row) {
-    auto loc = value.getLoc();
-    assert(shm_buffer != nullptr);
-    // shm index = linear_index % row_per_block;
-    // It requires the elements store in shm_buffer are in index order.
-    auto shape = getShapeValues(&b, value);
-    assert(shape.size() == indices.size());
-    Value linear_index = calcLinearIndex(&b, loc, indices, shape);
-    // Value row_per_block_val =
-    // b.create<arith::ConstantIndexOp>(loc, row_per_block);
-    Value row_per_block =
-        b.create<arith::DivUIOp>(loc, block_size, threads_per_row);
-    Value shmem_index =
-        b.create<arith::RemUIOp>(loc, linear_index, row_per_block);
-    Value res =
-        b.create<memref::LoadOp>(loc, shm_buffer, ValueRange({shmem_index}));
-    return res;
-  };
+  // auto load_config_func = [](OpBuilder& b, Value value, ValueRange indices,
+  //                            Value shm_buffer, Value block_size,
+  //                            Value threads_per_row) {
+  //   auto loc = value.getLoc();
+  //   assert(shm_buffer != nullptr);
+  //   // shm index = linear_index % row_per_block;
+  //   // It requires the elements store in shm_buffer are in index order.
+  //   auto shape = getShapeValues(&b, value);
+  //   assert(shape.size() == indices.size());
+  //   Value linear_index = calcLinearIndex(&b, loc, indices, shape);
+  //   // Value row_per_block_val =
+  //   // b.create<arith::ConstantIndexOp>(loc, row_per_block);
+  //   Value row_per_block =
+  //       b.create<arith::DivUIOp>(loc, block_size, threads_per_row);
+  //   Value shmem_index =
+  //       b.create<arith::RemUIOp>(loc, linear_index, row_per_block);
+  //   Value res =
+  //       b.create<memref::LoadOp>(loc, shm_buffer, ValueRange({shmem_index}));
+  //   return res;
+  // };
 
   auto global_workgroup = b.create<scf::ParallelOp>(
       loc, SmallVector<Value>({zero}), SmallVector<Value>({block_number}),
@@ -3326,8 +3325,9 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
                    << "Tile info error for: " << *skeleton << "\n");
         return failure();
       }
-      LowerConfig::SpecificLoader loader(load_config_func, result_shmem,
-                                         block_size, threads_per_row);
+      // LowerConfig::SpecificLoader loader(load_config_func, result_shmem,
+      LowerConfig::SpecificLoader loader(result_shmem, block_size,
+                                         threads_per_row);
       lower_config.setSpecificLoader(
           std::make_pair(fusion_op.getOperation(), out_value), loader);
 
@@ -3619,38 +3619,39 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
       bool experimental_tlp_enhance = false;
       tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_TLP_ENHANCE", false,
                                      &experimental_tlp_enhance);
-      if (experimental_tlp_enhance) {
-        if (failed(lowerWithScheduleStitch(
-                fusion_op, fusion_pattern, shape_analysis, core_count,
-                max_threads_per_core, lower_config))) {
-          return fusion->emitError() << "failed to lower kStitch fusion.";
+      // if (experimental_tlp_enhance) {
+      //   if (failed(lowerWithScheduleStitch(
+      //           fusion_op, fusion_pattern, shape_analysis, core_count,
+      //           max_threads_per_core, lower_config))) {
+      //     return fusion->emitError() << "failed to lower kStitch fusion.";
+      //   }
+      // } else {
+      const int tile_size = getVectorizeOrTileHint(dominant_op);
+      const int row_reduction_schedule =
+          getRowReductionScheduleHint(dominant_op);
+      if (failed(lowerWithScheduleStitch(
+              fusion_op, fusion_pattern, shape_analysis, tile_size,
+              lower_config, row_reduction_schedule))) {
+        return fusion->emitError() << "failed to lower kStitch fusion.";
         }
-      } else {
-        const int tile_size = getVectorizeOrTileHint(dominant_op);
-        const int row_reduction_schedule =
-            getRowReductionScheduleHint(dominant_op);
-        if (failed(lowerWithScheduleStitch(
-                fusion_op, fusion_pattern, shape_analysis, tile_size,
-                lower_config, row_reduction_schedule))) {
-          return fusion->emitError() << "failed to lower kStitch fusion.";
-        }
-      }
-      // #if 1
-      //       if (failed(lowerWithScheduleStitch(fusion_op, fusion_pattern,
-      //                                          shape_analysis, core_count,
-      //                                          max_threads_per_core,
-      //                                          lower_config))) {
-      //         return fusion->emitError() << "failed to lower kStitch
-      //         fusion.";
-      //       }
-      // #else
-      //       if (failed(lowerWithScheduleStitch(
-      //               fusion_op, fusion_pattern, shape_analysis, tile_size,
-      //               lower_config, row_reduction_schedule))) {
-      //         return fusion->emitError() << "failed to lower kStitch
-      //         fusion.";
-      //       }
-      // #endif
+        // }
+
+        // #if 1
+        //       if (failed(lowerWithScheduleStitch(fusion_op, fusion_pattern,
+        //                                          shape_analysis, core_count,
+        //                                          max_threads_per_core,
+        //                                          lower_config))) {
+        //         return fusion->emitError() << "failed to lower kStitch
+        //         fusion.";
+        //       }
+        // #else
+        //       if (failed(lowerWithScheduleStitch(
+        //               fusion_op, fusion_pattern, shape_analysis, tile_size,
+        //               lower_config, row_reduction_schedule))) {
+        //         return fusion->emitError() << "failed to lower kStitch
+        //         fusion.";
+        //       }
+        // #endif
     } break;
 
     default: {

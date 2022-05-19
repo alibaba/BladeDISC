@@ -48,7 +48,23 @@ LogicalResult updateFunctionType(Operation* op);
 // Reprensets a symbolic expression of symbolicDims.
 class SymbolicDimExpr {
  public:
-  explicit SymbolicDimExpr(SymbolicDimOp op);
+  SymbolicDimExpr() = default;
+  explicit SymbolicDimExpr(Value symbol);
+  SymbolicDimExpr(int64_t val, MLIRContext* context);
+
+  explicit operator bool() const { return static_cast<bool>(expr); }
+
+  // Returns null if not a const SymbolicDimExpr, or the const value.
+  llvm::Optional<int64_t> getConstValue();
+
+  static SymbolicDimExpr buildMulExpr(const SymbolicDimExpr& lhs,
+                                      const SymbolicDimExpr& rhs);
+
+ private:
+  template <typename Combiner>
+  static SymbolicDimExpr buildBinaryExpr(const SymbolicDimExpr& lhs,
+                                         const SymbolicDimExpr& rhs,
+                                         Combiner&& combiner);
 
  private:
   // TODO(disc): AffineExpr is known not able to simplify even basic symbolic
@@ -58,7 +74,7 @@ class SymbolicDimExpr {
   // We may change to a professional symbolic expression tool (e.g. SymPy in
   // python, or GiNaC in C++) in the future.
   AffineExpr expr;
-  SmallVector<SymbolicDimOp> symbols;
+  SmallVector<Value> symbols;
 };
 
 class SymbolicDimMgr {

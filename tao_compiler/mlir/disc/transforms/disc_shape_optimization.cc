@@ -387,6 +387,11 @@ class ShapeComputationIRAnalysis {
   LogicalResult applyShapeTensorOpConstraint(Operation* op);
   LogicalResult applyRankedTensorOpConstraint(Operation* op);
   LogicalResult applyMhloOpConstraint(Operation* op);
+  LogicalResult applyMhloElemOpConstraint(Operation* op);
+  LogicalResult applyMhloDotLikeOpConstraint(Operation* op);
+  LogicalResult applyMhloBcastOpConstraint(Operation* op);
+  LogicalResult applyMhloConcatOpConstraint(Operation* op);
+  LogicalResult applyMhloReshapeLikeOpConstraint(Operation* op);
   LogicalResult applyTieShapeOpConstraint(Operation* op);
 
   LogicalResult mapRankedValueShapeEqual(Value lhs, Value rhs);
@@ -630,7 +635,8 @@ LogicalResult ShapeComputationIRAnalysis::applyShapeTensorOpConstraint(
   return success();
 }
 
-LogicalResult ShapeComputationIRAnalysis::applyMhloOpConstraint(Operation* op) {
+LogicalResult ShapeComputationIRAnalysis::applyMhloElemOpConstraint(
+    Operation* op) {
   if (op->hasTrait<mlir::OpTrait::SameOperandsAndResultType>() ||
       op->hasTrait<mlir::OpTrait::SameOperandsAndResultShape>()) {
     Value ref;
@@ -653,78 +659,6 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloOpConstraint(Operation* op) {
       if (failed(mapRankedValueShapeEqual(operand, ref)))
         return op->emitError()
                << "fail to merge symbolic dim between operands of element op\n";
-  } else if (isa<mhlo::DynamicBroadcastInDimOp>(op)) {
-    auto& shapeTensorDims = shapeTensor2SymDims_[op->getOperand(1)];
-    auto& outDims = rankedTensor2SymDims_[op->getResult(0)];
-
-    if (shapeTensorDims.size() != outDims.size())
-      return op->emitError() << "mismatch out rank and shape tensor size\n";
-    for (const auto& z : llvm::zip(shapeTensorDims, outDims)) {
-      if (failed(mgr_.mapSymbolicDimEqual(std::get<0>(z), std::get<1>(z))))
-        return op->emitError() << "fail to merge dim\n";
-    }
-  } else if (auto concat = dyn_cast<mhlo::ConcatenateOp>(op)) {
-    Value out = op->getResult(0);
-    int64_t axis = concat.dimension();
-    auto ty = out.getType().dyn_cast<RankedTensorType>();
-    if (!ty) return success();
-    auto& outDims = rankedTensor2SymDims_[out];
-    if (ty.getRank() != outDims.size())
-      return op->emitError() << "output rank mismatch\n";
-    for (Value operand : op->getOperands()) {
-      auto& inDims = rankedTensor2SymDims_[operand];
-      if (inDims.size() != outDims.size())
-        return op->emitError() << "input and output rank mismatch\n";
-      for (int64_t i = 0; i < ty.getRank(); ++i) {
-        if (i == axis) continue;
-        if (failed(mgr_.mapSymbolicDimEqual(inDims[i], outDims[i])))
-          return op->emitError() << "fail to merge dim\n";
-      }
-    }
-  } else if (auto dot_general = dyn_cast<mhlo::DotGeneralOp>(op)) {
-    Value lhs = op->getOperand(0);
-    Value rhs = op->getOperand(1);
-    auto lhsTy = lhs.getType().dyn_cast<RankedTensorType>();
-    auto rhsTy = rhs.getType().dyn_cast<RankedTensorType>();
-    if (!lhsTy || !rhsTy) return success();
-    auto& lhsDims = rankedTensor2SymDims_[lhs];
-    auto& rhsDims = rankedTensor2SymDims_[rhs];
-    if (lhsTy.getRank() != lhsDims.size() || rhsTy.getRank() != rhsDims.size())
-      return op->emitError("lhs or rhs mismatch rank\n");
-    auto dim_numbers = dot_general.dot_dimension_numbers();
-    // Contracting dimensions.
-    auto lhs_contracting_dims = dim_numbers.getLhsContractingDimensions();
-    auto rhs_contracting_dims = dim_numbers.getRhsContractingDimensions();
-    assert(lhs_contracting_dims.size() == rhs_contracting_dims.size());
-    for (int64_t i = 0; i < lhs_contracting_dims.size(); i++) {
-      int64_t lhs_dim = lhs_contracting_dims[i];
-      int64_t rhs_dim = rhs_contracting_dims[i];
-      if (failed(mgr_.mapSymbolicDimEqual(lhsDims[lhs_dim], rhsDims[rhs_dim])))
-        return op->emitError() << "fail to merge dim\n";
-    }
-    // Batching dimensions.
-    auto lhs_batching_dims = dim_numbers.getLhsBatchingDimensions();
-    auto rhs_batching_dims = dim_numbers.getRhsBatchingDimensions();
-    assert(lhs_batching_dims.size() == rhs_batching_dims.size());
-    for (int64_t i = 0; i < lhs_batching_dims.size(); i++) {
-      int64_t lhs_dim = lhs_batching_dims[i];
-      int64_t rhs_dim = rhs_batching_dims[i];
-      if (failed(mgr_.mapSymbolicDimEqual(lhsDims[lhs_dim], rhsDims[rhs_dim])))
-        return op->emitError() << "fail to merge dim\n";
-    }
-  } else if (auto dot = dyn_cast<mhlo::DotOp>(op)) {
-    Value lhs = op->getOperand(0);
-    Value rhs = op->getOperand(1);
-    auto lhsTy = lhs.getType().dyn_cast<RankedTensorType>();
-    auto rhsTy = rhs.getType().dyn_cast<RankedTensorType>();
-    if (!lhsTy || !rhsTy) return success();
-    auto& lhsDims = rankedTensor2SymDims_[lhs];
-    auto& rhsDims = rankedTensor2SymDims_[rhs];
-    if (lhsTy.getRank() != lhsDims.size() || rhsTy.getRank() != rhsDims.size())
-      return op->emitError("lhs or rhs mismatch rank\n");
-
-    if (failed(mgr_.mapSymbolicDimEqual(lhsDims[1], rhsDims[0])))
-      return op->emitError() << "fail to merge dim\n";
   } else if (auto clamp = dyn_cast<mhlo::ClampOp>(op)) {
     auto operandTy = clamp.operand().getType().dyn_cast<RankedTensorType>();
     auto minTy = clamp.min().getType().dyn_cast<RankedTensorType>();
@@ -769,6 +703,57 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloOpConstraint(Operation* op) {
                << "fail to merge the symbolic dim of on_false and "
                   "result of mhlo::SelectOp\n";
     }
+  }
+
+  return success();
+}
+
+LogicalResult ShapeComputationIRAnalysis::applyMhloDotLikeOpConstraint(
+    Operation* op) {
+  if (auto dot_general = dyn_cast<mhlo::DotGeneralOp>(op)) {
+    Value lhs = op->getOperand(0);
+    Value rhs = op->getOperand(1);
+    auto lhsTy = lhs.getType().dyn_cast<RankedTensorType>();
+    auto rhsTy = rhs.getType().dyn_cast<RankedTensorType>();
+    if (!lhsTy || !rhsTy) return success();
+    auto& lhsDims = rankedTensor2SymDims_[lhs];
+    auto& rhsDims = rankedTensor2SymDims_[rhs];
+    if (lhsTy.getRank() != lhsDims.size() || rhsTy.getRank() != rhsDims.size())
+      return op->emitError("lhs or rhs mismatch rank\n");
+    auto dim_numbers = dot_general.dot_dimension_numbers();
+    // Contracting dimensions.
+    auto lhs_contracting_dims = dim_numbers.getLhsContractingDimensions();
+    auto rhs_contracting_dims = dim_numbers.getRhsContractingDimensions();
+    assert(lhs_contracting_dims.size() == rhs_contracting_dims.size());
+    for (int64_t i = 0; i < lhs_contracting_dims.size(); i++) {
+      int64_t lhs_dim = lhs_contracting_dims[i];
+      int64_t rhs_dim = rhs_contracting_dims[i];
+      if (failed(mgr_.mapSymbolicDimEqual(lhsDims[lhs_dim], rhsDims[rhs_dim])))
+        return op->emitError() << "fail to merge dim\n";
+    }
+    // Batching dimensions.
+    auto lhs_batching_dims = dim_numbers.getLhsBatchingDimensions();
+    auto rhs_batching_dims = dim_numbers.getRhsBatchingDimensions();
+    assert(lhs_batching_dims.size() == rhs_batching_dims.size());
+    for (int64_t i = 0; i < lhs_batching_dims.size(); i++) {
+      int64_t lhs_dim = lhs_batching_dims[i];
+      int64_t rhs_dim = rhs_batching_dims[i];
+      if (failed(mgr_.mapSymbolicDimEqual(lhsDims[lhs_dim], rhsDims[rhs_dim])))
+        return op->emitError() << "fail to merge dim\n";
+    }
+  } else if (auto dot = dyn_cast<mhlo::DotOp>(op)) {
+    Value lhs = op->getOperand(0);
+    Value rhs = op->getOperand(1);
+    auto lhsTy = lhs.getType().dyn_cast<RankedTensorType>();
+    auto rhsTy = rhs.getType().dyn_cast<RankedTensorType>();
+    if (!lhsTy || !rhsTy) return success();
+    auto& lhsDims = rankedTensor2SymDims_[lhs];
+    auto& rhsDims = rankedTensor2SymDims_[rhs];
+    if (lhsTy.getRank() != lhsDims.size() || rhsTy.getRank() != rhsDims.size())
+      return op->emitError("lhs or rhs mismatch rank\n");
+
+    if (failed(mgr_.mapSymbolicDimEqual(lhsDims[1], rhsDims[0])))
+      return op->emitError() << "fail to merge dim\n";
   } else if (auto einsum = dyn_cast<mhlo::EinsumOp>(op)) {
     auto lhsTy = einsum.lhs().getType().dyn_cast<RankedTensorType>();
     auto rhsTy = einsum.rhs().getType().dyn_cast<RankedTensorType>();
@@ -825,7 +810,53 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloOpConstraint(Operation* op) {
           return op->emitError() << "fail to merge dim\n";
       }
     }
-  } else if (auto dynReshape = dyn_cast<mhlo::DynamicReshapeOp>(op)) {
+  }
+  return success();
+}
+
+LogicalResult ShapeComputationIRAnalysis::applyMhloBcastOpConstraint(
+    Operation* op) {
+  if (isa<mhlo::DynamicBroadcastInDimOp>(op)) {
+    auto& shapeTensorDims = shapeTensor2SymDims_[op->getOperand(1)];
+    auto& outDims = rankedTensor2SymDims_[op->getResult(0)];
+
+    if (shapeTensorDims.size() != outDims.size())
+      return op->emitError() << "mismatch out rank and shape tensor size\n";
+    for (const auto& z : llvm::zip(shapeTensorDims, outDims)) {
+      if (failed(mgr_.mapSymbolicDimEqual(std::get<0>(z), std::get<1>(z))))
+        return op->emitError() << "fail to merge dim\n";
+    }
+  }
+  return success();
+}
+
+LogicalResult ShapeComputationIRAnalysis::applyMhloConcatOpConstraint(
+    Operation* op) {
+  if (auto concat = dyn_cast<mhlo::ConcatenateOp>(op)) {
+    Value out = op->getResult(0);
+    int64_t axis = concat.dimension();
+    auto ty = out.getType().dyn_cast<RankedTensorType>();
+    if (!ty) return success();
+    auto& outDims = rankedTensor2SymDims_[out];
+    if (ty.getRank() != outDims.size())
+      return op->emitError() << "output rank mismatch\n";
+    for (Value operand : op->getOperands()) {
+      auto& inDims = rankedTensor2SymDims_[operand];
+      if (inDims.size() != outDims.size())
+        return op->emitError() << "input and output rank mismatch\n";
+      for (int64_t i = 0; i < ty.getRank(); ++i) {
+        if (i == axis) continue;
+        if (failed(mgr_.mapSymbolicDimEqual(inDims[i], outDims[i])))
+          return op->emitError() << "fail to merge dim\n";
+      }
+    }
+  }
+  return success();
+}
+
+LogicalResult ShapeComputationIRAnalysis::applyMhloReshapeLikeOpConstraint(
+    Operation* op) {
+  if (auto dynReshape = dyn_cast<mhlo::DynamicReshapeOp>(op)) {
     Value in = op->getOperand(0);
     Value targetShape = op->getOperand(1);
     Value out = op->getResult(0);
@@ -842,6 +873,20 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloOpConstraint(Operation* op) {
         return op->emitError() << "fail to merge dim\n";
     }
   }
+  return success();
+}
+
+LogicalResult ShapeComputationIRAnalysis::applyMhloOpConstraint(Operation* op) {
+  if (failed(applyMhloElemOpConstraint(op))) return failure();
+
+  if (failed(applyMhloDotLikeOpConstraint(op))) return failure();
+
+  if (failed(applyMhloBcastOpConstraint(op))) return failure();
+
+  if (failed(applyMhloConcatOpConstraint(op))) return failure();
+
+  if (failed(applyMhloReshapeLikeOpConstraint(op))) return failure();
+
   return success();
 }
 

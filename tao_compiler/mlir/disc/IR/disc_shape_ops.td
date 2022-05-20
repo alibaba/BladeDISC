@@ -126,4 +126,39 @@ def DISCShape_SymbolicDimOp:
   let hasCanonicalizer = 1;
 }
 
+def DISCShape_DimOp:
+      DISCShape_Op<"dim", [NoSideEffect]> {
+  let summary = "binding to a symbolic dimension size";
+  let description = [{
+    Binding to a symbolic dimension size.
+  }];
+  let arguments = (ins
+    FlatSymbolRefAttr:$name
+  );
+  let results = (outs Index);
+}
+
+def SymbolicDimPredicateStructuredInterface : OpInterface<"PredicateOp"> {
+  let cppNamespace = "::mlir::disc_shape";
+
+  let methods = [
+  ];
+}
+
+class DISCShape_PredicateOp<string mnemonic, list<Trait> traits> :
+    DISCShape_Op<mnemonic, !listconcat(
+      [SymbolicDimPredicateStructuredInterface], traits)> {
+}
+
+def DISCShape_TieProductEqualOp: DISCShape_Op<"tie_product_equal", [AttrSizedOperandSegments]> {
+  let summary = "mark two groups x and y satisfy: product(x) == product(y)";
+  let description = [{
+    Mark two groups x and y satisfy: product(x) == product(y)
+  }];
+  let arguments = (ins
+    Arg<Variadic<Index>, "">:$lhs,
+    Arg<Variadic<Index>, "">:$rhs
+  );
+}
+
 #endif // DISC_RAL_OPS

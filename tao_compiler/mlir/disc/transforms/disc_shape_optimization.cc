@@ -872,6 +872,11 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloReshapeLikeOpConstraint(
       if (failed(mgr_.mapSymbolicDimEqual(std::get<0>(z), std::get<1>(z))))
         return op->emitError() << "fail to merge dim\n";
     }
+    if (failed(mgr_.mapSymbolicDimProductEqual(
+            SymbolicDimProduct{outDims},
+            SymbolicDimProduct{rankedTensor2SymDims_[in]})))
+      return op->emitError() << "fail to map product equal between the operand "
+                                "and result of reshape op\n";
   }
   return success();
 }
@@ -1236,8 +1241,13 @@ LogicalResult optimizeShapeComputation(ModuleOp m, FuncOp main,
     LLVM_DEBUG(llvm::dbgs()
                << "Module after save-shape-ir in optimize-shape-computation:\n"
                << m << "\n");
-
   } while (changed);
+
+  if (failed(runCanonicalizer(m, runner))) {
+    return failure();
+  }
+  LLVM_DEBUG(llvm::dbgs() << "Module after optimizeShapeComputation:\n"
+                          << m << "\n");
   return success();
 }
 

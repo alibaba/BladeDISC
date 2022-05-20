@@ -22,6 +22,7 @@ limitations under the License.
 #include "mlir/Support/LogicalResult.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -38,6 +39,10 @@ struct DiscStripShapeConstraintOpsPass
     for (disc_shape::SymbolicDimOp op : ops) {
       op->erase();
     }
+    StringRef funcName = SymbolicDimMgr::getShapeConstraintGraphFunctionName();
+    // first try to remove the old shape constraint graph
+    if (auto func = getOperation().lookupSymbol<func::FuncOp>(funcName))
+      func->erase();
   }
 };
 

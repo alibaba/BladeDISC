@@ -162,3 +162,32 @@ func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?xf32>) -> tensor<?x?xf32> 
   %22 = "mhlo.dynamic_reshape"(%arg0, %21) : (tensor<?x?x?xf32>, tensor<2xindex>) -> tensor<?x?xf32>
   return %22 : tensor<?x?xf32>
 }
+
+// -----
+
+// Test disc_shape.tie_product_equal op
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32, [@[[S0:.*]], @[[S1:.*]]]>, %[[ARG1:.*]]: tensor<1xindex>, %[[ARG2:.*]]: tensor<3xindex>) -> tensor<?x?x?xf32, [@[[S3:.*]], @[[S4:.*]], @[[S5:.*]]]>
+func @main(%arg0 : tensor<?x?xf32>, %arg1 : tensor<1xindex>, %arg2 : tensor<3xindex>) -> tensor<?x?x?xf32> {
+   // CHECK-NEXT: %[[T0:.*]] = "mhlo.dynamic_reshape"(%[[ARG0]], %[[ARG1]])
+   // CHECK-SAME: tensor<?xf32, [@[[S2:.*]]]>
+   %0 = "mhlo.dynamic_reshape"(%arg0, %arg1) : (tensor<?x?xf32>, tensor<1xindex>) -> tensor<?xf32>
+   // CHECK-NEXT: %[[T1:.*]] = mhlo.abs %[[T0]] : tensor<?xf32, [@[[S2]]]>
+   %1 = "mhlo.abs"(%0) : (tensor<?xf32>) -> tensor<?xf32>
+   // CHECK-NEXT: %[[T2:.*]] = "mhlo.dynamic_reshape"(%[[T1]], %[[ARG2]])
+   // CHECK-SAME: tensor<?x?x?xf32, [@[[S3]], @[[S4]], @[[S5]]]>
+   %2 = "mhlo.dynamic_reshape"(%1, %arg2) : (tensor<?xf32>, tensor<3xindex>) -> tensor<?x?x?xf32>
+   // CHECK-NEXT: return %[[T2]] : tensor<?x?x?xf32, [@[[S3]], @[[S4]], @[[S5]]]>
+   return %2 : tensor<?x?x?xf32>
+}
+
+// CHECK-LABEL: @shape_constraint_graph
+// CHECK-DAG: %[[TT0:.*]] = "disc_shape.dim"() {name = @[[S0]]} : () -> index
+// CHECK-DAG: %[[TT1:.*]] = "disc_shape.dim"() {name = @[[S1]]} : () -> index
+// CHECK-DAG: %[[TT2:.*]] = "disc_shape.dim"() {name = @[[S2]]} : () -> index
+// CHECK-DAG: %[[TT3:.*]] = "disc_shape.dim"() {name = @[[S3]]} : () -> index
+// CHECK-DAG: %[[TT4:.*]] = "disc_shape.dim"() {name = @[[S4]]} : () -> index
+// CHECK-DAG: %[[TT5:.*]] = "disc_shape.dim"() {name = @[[S5]]} : () -> index
+// CHECK-DAG: "disc_shape.tie_product_equal"(%[[TT2]], %[[TT3]], %[[TT4]], %[[TT5]])
+// CHECK-DAG: "disc_shape.tie_product_equal"(%[[TT2]], %[[TT0]], %[[TT1]])
+// CHECK-DAG: "disc_shape.tie_product_equal"(%[[TT0]], %[[TT1]], %[[TT3]], %[[TT4]], %[[TT5]])

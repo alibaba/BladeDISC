@@ -55,6 +55,28 @@ bool compareSymbolicDimOpNames(StringRef lhs, StringRef rhs) {
   return (lhs[0] < rhs[0]) || (lhs[0] == rhs[0] && lhsIdx < rhsIdx);
 }
 
+bool compareSymbolicDimProduct(const SymbolicDimProduct& lhs,
+                               const SymbolicDimProduct& rhs) {
+  if (lhs.symbols.size() < rhs.symbols.size()) return true;
+  if (lhs.symbols.size() == rhs.symbols.size()) {
+    for (const auto& z : llvm::zip(lhs.symbols, rhs.symbols)) {
+      StringRef lhsName = const_cast<SymbolicDimOp&>(std::get<0>(z)).getName();
+      StringRef rhsName = const_cast<SymbolicDimOp&>(std::get<1>(z)).getName();
+      if (compareSymbolicDimOpNames(lhsName, rhsName)) return true;
+      if (lhsName != rhsName) return false;
+    }
+  }
+  return false;
+}
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream& os,
+                              const SymbolicDimProduct& product) {
+  os << "SymbolicDimProduct[\n\tfactor: " << product.factor << ",\n";
+  for (auto& s : product.symbols) os << "\tsymbol: " << s << "\n";
+  os << "]\n";
+  return os;
+}
+
 SymbolicDimMgr::SymbolicDimMgr(ModuleOp m) : m_(m) {
   // TODO
 }
@@ -64,7 +86,7 @@ LogicalResult SymbolicDimMgr::load() {
     symbolDimUnionSet_[op] = op;
     symbolNameSet_.insert(op.getName().str());
   });
-  return success();
+  return loadShapeConstraintGraph();
 }
 
 std::string SymbolicDimMgr::getNextName() {
@@ -199,8 +221,12 @@ SymbolicDimMgr::simplifySymbolicDimProductPair(const SymbolicDimProduct& x,
 
 llvm::Optional<SymbolicDimProduct> SymbolicDimMgr::symbolicDimProductDivide(
     const SymbolicDimProduct& lhs, const SymbolicDimProduct& rhs) {
+  LLVM_DEBUG(llvm::dbgs() << "Try to check if x % y == 0?\nx = " << lhs
+                          << "y = " << rhs << "\n");
   SymbolicDimProduct newLhs, newRhs;
   std::tie(newLhs, newRhs) = simplifySymbolicDimProductPair(lhs, rhs);
+  LLVM_DEBUG(llvm::dbgs() << "Try to check if x % y == 0? after simplify:\nx = "
+                          << newLhs << "y = " << newRhs << "\n");
 
   // early return if any is zero.
   if (newLhs.factor == 0 || newRhs.factor == 0) return {};
@@ -212,9 +238,9 @@ llvm::Optional<SymbolicDimProduct> SymbolicDimMgr::symbolicDimProductDivide(
   result.factor = newLhs.factor / newRhs.factor;
 
   DenseMap<SymbolicDimOp, int> symProcMap;
-  for (SymbolicDimOp sym : rhs.symbols) ++symProcMap[sym];
+  for (SymbolicDimOp sym : newRhs.symbols) ++symProcMap[sym];
 
-  for (SymbolicDimOp sym : rhs.symbols) {
+  for (SymbolicDimOp sym : newLhs.symbols) {
     auto it = symProcMap.find(sym);
     if (it == symProcMap.end()) {
       result.symbols.push_back(sym);
@@ -227,6 +253,8 @@ llvm::Optional<SymbolicDimProduct> SymbolicDimMgr::symbolicDimProductDivide(
   }
 
   if (!symProcMap.empty()) return {};
+  LLVM_DEBUG(llvm::dbgs() << "x % y == 0\nx = " << newLhs << "y = " << newRhs
+                          << "x / y = " << result << "\n");
   return result;
 }
 
@@ -242,7 +270,7 @@ bool SymbolicDimMgr::isMultipleOfKnownSymbolicDimProductEqualPair(
     if (!factorX) continue;
     for (auto& pairInner : pairOutter.second) {
       if (!pairInner.second) continue;
-      SymbolicDimProduct& y = pairOutter.first;
+      SymbolicDimProduct& y = pairInner.first;
       auto factorY = symbolicDimProductDivide(rhs, y);
       if (!factorY || factorX != factorY) continue;
       return true;
@@ -267,8 +295,12 @@ bool SymbolicDimMgr::isSymbolicDimProductEqual(const SymbolicDimProduct& lhs,
 
 LogicalResult SymbolicDimMgr::mapSymbolicDimProductEqual(
     const SymbolicDimProduct& lhs, const SymbolicDimProduct& rhs) {
+  LLVM_DEBUG(llvm::dbgs() << "Try to map product equal: x = " << lhs
+                          << "\ny = " << rhs << "\n");
   SymbolicDimProduct newLhs, newRhs;
   std::tie(newLhs, newRhs) = simplifySymbolicDimProductPair(lhs, rhs);
+  LLVM_DEBUG(llvm::dbgs() << "Try to map product equal after simplify: x = "
+                          << newLhs << "\ny = " << newRhs << "\n");
 
   // early return for identity case.
   if (newLhs == newRhs) return success();
@@ -286,7 +318,7 @@ LogicalResult SymbolicDimMgr::updateProductEqualityMap() {
     SymbolicDimProduct& x = pairOutter.first;
     for (auto& pairInner : pairOutter.second) {
       if (!pairInner.second) continue;
-      SymbolicDimProduct& y = pairOutter.first;
+      SymbolicDimProduct& y = pairInner.first;
       SymbolicDimProduct newX, newY;
       std::tie(newX, newY) = simplifySymbolicDimProductPair(x, y);
       if (newX == newY) continue;
@@ -302,8 +334,8 @@ LogicalResult SymbolicDimMgr::updateProductEqualityMap() {
     for (auto& x : productSet)
       for (auto& y : productSet)
         for (auto& z : productSet) {
-          if (newMap[x][y] && newMap[y][z] && !newMap[x][z]) {
-            newMap[x][z] = true;
+          if (x != z && newMap[x][y] && newMap[y][z] && !newMap[x][z]) {
+            newMap[x][z] = newMap[z][x] = true;
             changed = true;
           }
         }
@@ -320,6 +352,30 @@ LogicalResult SymbolicDimMgr::updateProductEqualityMap() {
       }
     }
 
+  DenseSet<SymbolicDimProduct> toRemove;
+  for (auto& x : productSet) {
+    if (llvm::all_of(productSet, [&](const SymbolicDimProduct& y) {
+          return !productEqualityMap_[x][y];
+        })) {
+      toRemove.insert(x);
+    }
+  }
+  for (auto& x : toRemove) {
+    productEqualityMap_.erase(x);
+    LLVM_DEBUG(llvm::dbgs() << "When updateProductEqualityMap try to remove "
+                               "redundant symbolicDimProduct "
+                            << x << "\n");
+  }
+
+  LLVM_DEBUG(llvm::dbgs() << "After updateProductEqualityMap:\n");
+  for (auto& pairOutter : productEqualityMap_) {
+    SymbolicDimProduct& x = pairOutter.first;
+    for (auto& pairInner : pairOutter.second) {
+      if (!pairInner.second) continue;
+      SymbolicDimProduct& y = pairInner.first;
+      LLVM_DEBUG(llvm::dbgs() << "Pair: x = " << x << "\ny = " << y << "\n");
+    }
+  }
   return success();
 }
 
@@ -412,6 +468,93 @@ LogicalResult SymbolicDimMgr::save() {
   // Update function type
   if (failed(updateFunctionType(m_))) return failure();
 
+  // Save shape constraint graph function
+  return saveShapeConstraintGraph();
+}
+
+/* static */ StringRef SymbolicDimMgr::getShapeConstraintGraphFunctionName() {
+  return "shape_constraint_graph";
+}
+
+LogicalResult SymbolicDimMgr::saveShapeConstraintGraph() {
+  if (failed(updateProductEqualityMap()))
+    return m_->emitError() << "fail to update prodcut euqal map\n";
+
+  // first try to remove the old shape constraint graph
+  StringRef funcName = getShapeConstraintGraphFunctionName();
+  if (auto func = m_.lookupSymbol<FuncOp>(funcName)) func->erase();
+
+  OpBuilder moduleBuilder(m_);
+  auto funcTy = FunctionType::get(m_.getContext(), {}, {});
+  FuncOp func = moduleBuilder.create<FuncOp>(m_.getLoc(), funcName, funcTy);
+  Block* block = func.addEntryBlock();
+  OpBuilder b(block, block->begin());
+  auto returnOp = b.create<func::ReturnOp>(func.getLoc());
+  m_.push_back(func);
+  Location loc = func.getLoc();
+  b.setInsertionPoint(returnOp);
+
+  // save product equal predicate
+  // TODO(disc): return null if the symbolicOps not exists.
+  auto build_dim_op = [&](const SymbolicDimProduct& prod) {
+    SmallVector<Value> values;
+    if (prod.factor != 1) {
+      values.push_back(b.create<arith::ConstantIndexOp>(loc, prod.factor));
+    }
+    for (SymbolicDimOp sym : prod.symbols) {
+      values.push_back(b.create<disc_shape::DimOp>(
+          loc, b.getIndexType(), FlatSymbolRefAttr::get(sym)));
+    }
+    return values;
+  };
+  SmallVector<SymbolicDimProduct> sortedProductVec;
+  for (auto& p : productEqualityMap_) sortedProductVec.push_back(p.first);
+  llvm::sort(sortedProductVec, compareSymbolicDimProduct);
+  for (auto& x : sortedProductVec) {
+    for (auto& y : sortedProductVec) {
+      if (!compareSymbolicDimProduct(x, y)) continue;
+      if (!productEqualityMap_[x][y]) continue;
+      auto lhsOperands = build_dim_op(x);
+      auto rhsOperands = build_dim_op(y);
+      b.create<disc_shape::TieProductEqualOp>(loc, llvm::None, lhsOperands,
+                                              rhsOperands);
+    }
+  }
+  return success();
+}
+
+LogicalResult SymbolicDimMgr::loadShapeConstraintGraph() {
+  StringRef funcName = getShapeConstraintGraphFunctionName();
+  auto func = m_.lookupSymbol<FuncOp>(funcName);
+  if (!func) return success();
+
+  auto build_sym_product = [&](ValueRange range,
+                               SymbolicDimProduct& product) -> LogicalResult {
+    for (Value v : range) {
+      auto definingOp = v.getDefiningOp();
+      if (auto constOp = dyn_cast_or_null<arith::ConstantIndexOp>(definingOp)) {
+        product.factor *= constOp->getAttrOfType<IntegerAttr>("value").getInt();
+        continue;
+      } else if (auto dimOp = dyn_cast_or_null<disc_shape::DimOp>(definingOp)) {
+        auto sym = m_.lookupSymbol<SymbolicDimOp>(dimOp.name());
+        if (!sym) return dimOp->emitError() << "fail to find symbolic dim op\n";
+        product.symbols.push_back(sym);
+        continue;
+      }
+      return failure();
+    }
+    return success();
+  };
+  if (func.walk([&](disc_shape::TieProductEqualOp op) {
+            SymbolicDimProduct lhs, rhs;
+            if (failed(build_sym_product(op.lhs(), lhs)) ||
+                failed(build_sym_product(op.rhs(), rhs)))
+              return WalkResult::interrupt();
+            return WalkResult::advance();
+          })
+          .wasInterrupted()) {
+    return func->emitError() << "fail to load product equal constraint\n";
+  }
   return success();
 }
 

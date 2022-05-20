@@ -375,6 +375,16 @@ LogicalResult SymbolicDimOp::Merge(SymbolicDimOp other) {
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// DimOp
+//===----------------------------------------------------------------------===//
+LogicalResult DimOp::verify() { return Verify(*this); }
+
+//===----------------------------------------------------------------------===//
+// TieProductEqualOp
+//===----------------------------------------------------------------------===//
+LogicalResult TieProductEqualOp::verify() { return Verify(*this); }
+
 }  // namespace disc_shape
 }  // namespace mlir
 

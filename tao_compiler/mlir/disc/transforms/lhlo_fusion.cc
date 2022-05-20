@@ -19,6 +19,7 @@ limitations under the License.
 #include "mlir/Pass/Pass.h"               // TF:local_config_mlir
 #include "mlir/Transforms/RegionUtils.h"  // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/shape_utils.h"
@@ -500,6 +501,10 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
 
   void runOnOperation() override {
     func::FuncOp func = getOperation();
+
+    // skip shape constraint graph
+    if (func.getName() == SymbolicDimMgr::getShapeConstraintGraphFunctionName())
+      return;
 
     // collect all blocks inside the function.
     SmallVector<Block*, 4> blocks;

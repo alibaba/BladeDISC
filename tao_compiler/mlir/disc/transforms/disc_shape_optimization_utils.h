@@ -61,6 +61,14 @@ inline bool operator==(const SymbolicDimProduct& lhs,
   return lhs.factor == rhs.factor && lhs.symbols == rhs.symbols;
 }
 
+inline bool operator!=(const SymbolicDimProduct& lhs,
+                       const SymbolicDimProduct& rhs) {
+  return !(lhs == rhs);
+}
+
+llvm::raw_ostream& operator<<(llvm::raw_ostream& os,
+                              const SymbolicDimProduct& product);
+
 }  // namespace disc_ral
 }  // namespace mlir
 
@@ -196,12 +204,20 @@ class SymbolicDimMgr {
 
   LogicalResult save();
 
+  // Returns the name of the shape constraint graph
+  static StringRef getShapeConstraintGraphFunctionName();
+
  private:
   // Returns next unique name for a new SymbolicDim op.
   std::string getNextName();
 
   // Simplify the ProductEqualityMap
   LogicalResult updateProductEqualityMap();
+
+  // Save shape constraint graph.
+  // The shape constraint graph stores predicates between symbolicDim ops.
+  LogicalResult saveShapeConstraintGraph();
+  LogicalResult loadShapeConstraintGraph();
 
   // Try to check if:
   //   lhs = common_factors * lhs'

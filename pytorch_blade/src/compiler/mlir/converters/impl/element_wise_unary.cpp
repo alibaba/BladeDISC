@@ -110,6 +110,9 @@ auto mhlo_conversion =
             "memory_format=None) -> (Tensor)",
             ConvertAtenToDtype)
         .pattern(
+            "aten::to.dtype_layout(Tensor(a) self, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, bool non_blocking=False, bool copy=False, int? memory_format=None) -> (Tensor(a))",
+            ConvertAtenToDtype)
+        .pattern(
             "aten::cuda(Tensor(a) self) -> (Tensor(b|a))",
             ConvertAtenIdentity)
         .pattern(

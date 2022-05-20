@@ -173,6 +173,16 @@ class SymbolicDimMgr {
   simplifySymbolicDimProductPair(const SymbolicDimProduct& x,
                                  const SymbolicDimProduct& y);
 
+  // Returns null if x is not divided exactly by y, or else the result of x / y
+  // Suppose that all symbols are not zero, thus common symbolic dim factors can
+  // be elimiated safely.
+  // For example:
+  //   x = 6 * symbol_0 * symbol_1 * symbol_2
+  //   y = 3 * symbol_0 * symbol_1
+  //   x / y == 2 * symbol_2 (suppose symbol_0 and symbol_1 are not zero)
+  llvm::Optional<SymbolicDimProduct> symbolicDimProductDivide(
+      const SymbolicDimProduct& x, const SymbolicDimProduct& y);
+
   // mark group [a0, b0, ...] and group [a1, b1, c1, ...] are group
   // multiplication equal `a0 * b0 * ... = a1 * b1 * c1 * ...`
   bool isSymbolicDimProductEqual(const SymbolicDimProduct& lhs,
@@ -189,6 +199,16 @@ class SymbolicDimMgr {
  private:
   // Returns next unique name for a new SymbolicDim op.
   std::string getNextName();
+
+  // Simplify the ProductEqualityMap
+  LogicalResult updateProductEqualityMap();
+
+  // Try to check if:
+  //   lhs = common_factors * lhs'
+  //   rhs = common_factors * rhs'
+  //   and we already know that product(lhs') == product(rhs')
+  bool isMultipleOfKnownSymbolicDimProductEqualPair(
+      const SymbolicDimProduct& lhs, const SymbolicDimProduct& rhs);
 
  private:
   // The module this SymbolicDimMgr runs on.
@@ -219,10 +239,10 @@ class SymbolicDimMgr {
 
   // DenseMap<disc_shape::SymbolicDimOp, SymbolicDimOp> symbolRef2symbolicDim_;
 
-  // Stores all seen SymbolicDimProducts.
-  DenseSet<SymbolicDimProduct> symbolProductSet_;
-  // m[k] = v iff product(k) == product(v)
-  DenseMap<SymbolicDimProduct, SymbolicDimProduct> productEqualityUnionSet_;
+  // m[p1][p2] = true iff product(p1) == product(p2)
+  using SymbolicDimProductMap =
+      DenseMap<SymbolicDimProduct, DenseMap<SymbolicDimProduct, bool>>;
+  SymbolicDimProductMap productEqualityMap_;
 };
 
 }  // namespace disc_ral

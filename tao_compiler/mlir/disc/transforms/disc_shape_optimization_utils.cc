@@ -134,6 +134,7 @@ int64_t gcd(int64_t m, int64_t n) {
 SymbolicDimProduct SymbolicDimMgr::simplifySymbolicDimProduct(
     const SymbolicDimProduct& x) {
   SmallVector<SymbolicDimOp> copied;
+  // TODO(disc): expand op if it can be factorized into other symbol dims.
   for (SymbolicDimOp op : x.symbols) copied.push_back(getRootSymbolicDim(op));
 
   llvm::sort(copied, [&](SymbolicDimOp lhs, SymbolicDimOp rhs) {
@@ -165,8 +166,14 @@ SymbolicDimMgr::simplifySymbolicDimProductPair(const SymbolicDimProduct& x,
   // newLhs & newRhs
   if (!gcdFactor) return std::make_pair(std::move(newLhs), std::move(newRhs));
 
-  // Canonicalization factor form: let lhs always being positive number.
-  if (lhs.factor < 0) gcdFactor = -gcdFactor;
+  // Canonicalization factor form: always let the smaller factor being positive
+  // number.
+  if (std::abs(lhs.factor) < std::abs(rhs.factor)) {
+    if (lhs.factor < 0) gcdFactor = -gcdFactor;
+  } else {
+    if (rhs.factor < 0) gcdFactor = -gcdFactor;
+  }
+
   newLhs.factor = lhs.factor / gcdFactor;
   newRhs.factor = rhs.factor / gcdFactor;
 
@@ -190,6 +197,61 @@ SymbolicDimMgr::simplifySymbolicDimProductPair(const SymbolicDimProduct& x,
   return std::make_pair(std::move(newLhs), std::move(newRhs));
 }
 
+llvm::Optional<SymbolicDimProduct> SymbolicDimMgr::symbolicDimProductDivide(
+    const SymbolicDimProduct& lhs, const SymbolicDimProduct& rhs) {
+  SymbolicDimProduct newLhs, newRhs;
+  std::tie(newLhs, newRhs) = simplifySymbolicDimProductPair(lhs, rhs);
+
+  // early return if any is zero.
+  if (newLhs.factor == 0 || newRhs.factor == 0) return {};
+  // early return if the const factor is divisible.
+  if (newLhs.factor % newRhs.factor != 0) return {};
+  if (newLhs.symbols.size() < newRhs.symbols.size()) return {};
+
+  SymbolicDimProduct result;
+  result.factor = newLhs.factor / newRhs.factor;
+
+  DenseMap<SymbolicDimOp, int> symProcMap;
+  for (SymbolicDimOp sym : rhs.symbols) ++symProcMap[sym];
+
+  for (SymbolicDimOp sym : rhs.symbols) {
+    auto it = symProcMap.find(sym);
+    if (it == symProcMap.end()) {
+      result.symbols.push_back(sym);
+      continue;
+    }
+    if (--it->second == 0) {
+      symProcMap.erase(it);
+      continue;
+    }
+  }
+
+  if (!symProcMap.empty()) return {};
+  return result;
+}
+
+// Try to check if:
+//   lhs = common_factors * lhs'
+//   rhs = common_factors * rhs'
+//   and we already know that product(lhs') == product(rhs')
+bool SymbolicDimMgr::isMultipleOfKnownSymbolicDimProductEqualPair(
+    const SymbolicDimProduct& lhs, const SymbolicDimProduct& rhs) {
+  for (auto& pairOutter : productEqualityMap_) {
+    SymbolicDimProduct& x = pairOutter.first;
+    auto factorX = symbolicDimProductDivide(lhs, x);
+    if (!factorX) continue;
+    for (auto& pairInner : pairOutter.second) {
+      if (!pairInner.second) continue;
+      SymbolicDimProduct& y = pairOutter.first;
+      auto factorY = symbolicDimProductDivide(rhs, y);
+      if (!factorY || factorX != factorY) continue;
+      return true;
+    }
+  }
+
+  return false;
+}
+
 bool SymbolicDimMgr::isSymbolicDimProductEqual(const SymbolicDimProduct& lhs,
                                                const SymbolicDimProduct& rhs) {
   SymbolicDimProduct newLhs, newRhs;
@@ -197,8 +259,10 @@ bool SymbolicDimMgr::isSymbolicDimProductEqual(const SymbolicDimProduct& lhs,
 
   // early return for identity case.
   if (newLhs == newRhs) return true;
-  // TODO
-  return false;
+
+  LogicalResult status = updateProductEqualityMap();
+  assert(!failed(status));
+  return isMultipleOfKnownSymbolicDimProductEqualPair(newLhs, newRhs);
 }
 
 LogicalResult SymbolicDimMgr::mapSymbolicDimProductEqual(
@@ -209,7 +273,53 @@ LogicalResult SymbolicDimMgr::mapSymbolicDimProductEqual(
   // early return for identity case.
   if (newLhs == newRhs) return success();
 
-  // TODO
+  productEqualityMap_[newLhs][newRhs] = productEqualityMap_[newRhs][newLhs] =
+      true;
+
+  return updateProductEqualityMap();
+}
+
+LogicalResult SymbolicDimMgr::updateProductEqualityMap() {
+  SymbolicDimProductMap newMap;
+  DenseSet<SymbolicDimProduct> productSet;
+  for (auto& pairOutter : productEqualityMap_) {
+    SymbolicDimProduct& x = pairOutter.first;
+    for (auto& pairInner : pairOutter.second) {
+      if (!pairInner.second) continue;
+      SymbolicDimProduct& y = pairOutter.first;
+      SymbolicDimProduct newX, newY;
+      std::tie(newX, newY) = simplifySymbolicDimProductPair(x, y);
+      if (newX == newY) continue;
+      newMap[newX][newY] = newMap[newY][newX] = true;
+      productSet.insert(newX);
+      productSet.insert(newY);
+    }
+  }
+
+  bool changed;
+  do {
+    changed = false;
+    for (auto& x : productSet)
+      for (auto& y : productSet)
+        for (auto& z : productSet) {
+          if (newMap[x][y] && newMap[y][z] && !newMap[x][z]) {
+            newMap[x][z] = true;
+            changed = true;
+          }
+        }
+  } while (changed);
+
+  productEqualityMap_ = std::move(newMap);
+
+  for (auto& x : productSet)
+    for (auto& y : productSet) {
+      if (!productEqualityMap_[x][y]) continue;
+      productEqualityMap_[x][y] = productEqualityMap_[y][x] = false;
+      if (!isMultipleOfKnownSymbolicDimProductEqualPair(x, y)) {
+        productEqualityMap_[x][y] = productEqualityMap_[y][x] = true;
+      }
+    }
+
   return success();
 }
 

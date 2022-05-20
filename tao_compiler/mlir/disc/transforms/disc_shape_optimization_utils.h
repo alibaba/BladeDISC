@@ -45,6 +45,63 @@ LogicalResult updateFunctionType(func::FuncOp func);
 // Updates the type of all functions inside the op.
 LogicalResult updateFunctionType(Operation* op);
 
+// Represents a product of symbolic and concrete factors. This will allow us to
+// prove product equalities symbolically.
+struct SymbolicDimProduct {
+  // List all symbolic factors as they can not be aggregated.
+  llvm::SmallVector<SymbolicDimOp> symbols;
+
+  // Product of all const factors.
+  int64_t factor = 1;
+  bool empty() { return factor == 1 && symbols.empty(); }
+};
+
+inline bool operator==(const SymbolicDimProduct& lhs,
+                       const SymbolicDimProduct& rhs) {
+  return lhs.factor == rhs.factor && lhs.symbols == rhs.symbols;
+}
+
+}  // namespace disc_ral
+}  // namespace mlir
+
+namespace llvm {
+
+template <>
+struct DenseMapInfo<mlir::disc_ral::SymbolicDimProduct> {
+  static inline mlir::disc_ral::SymbolicDimProduct getEmptyKey() {
+    return {
+        llvm::SmallVector<mlir::disc_shape::SymbolicDimOp>{
+            llvm::DenseMapInfo<mlir::disc_shape::SymbolicDimOp>::getEmptyKey()},
+        llvm::DenseMapInfo<int64_t>::getEmptyKey()};
+  }
+  static inline mlir::disc_ral::SymbolicDimProduct getTombstoneKey() {
+    return {
+        llvm::SmallVector<mlir::disc_shape::SymbolicDimOp>{llvm::DenseMapInfo<
+            mlir::disc_shape::SymbolicDimOp>::getTombstoneKey()},
+        llvm::DenseMapInfo<int64_t>::getTombstoneKey()};
+  }
+  static unsigned getHashValue(mlir::disc_ral::SymbolicDimProduct symProd) {
+    unsigned hash =
+        llvm::DenseMapInfo<size_t>::getHashValue(symProd.symbols.size());
+    for (mlir::disc_shape::SymbolicDimOp op : symProd.symbols)
+      hash = llvm::hash_combine(
+          hash,
+          llvm::DenseMapInfo<mlir::disc_shape::SymbolicDimOp>::getHashValue(
+              op));
+    return llvm::hash_combine(
+        hash, llvm::DenseMapInfo<int64_t>::getHashValue(symProd.factor));
+  }
+  static bool isEqual(const mlir::disc_ral::SymbolicDimProduct& lhs,
+                      const mlir::disc_ral::SymbolicDimProduct& rhs) {
+    return lhs == rhs;
+  }
+};
+
+}  // namespace llvm
+
+namespace mlir {
+namespace disc_ral {
+
 // Reprensets a symbolic expression of symbolicDims.
 class SymbolicDimExpr {
  public:
@@ -105,15 +162,25 @@ class SymbolicDimMgr {
   // info. Returns failure if failed to merge lhs & rhs.
   LogicalResult mapSymbolicDimEqual(SymbolicDimOp lhs, SymbolicDimOp rhs);
 
+  // Returns the simplified version of SymbolicDimProduct.
+  // This will try to fold some symbolicDim ops with const values.
+  SymbolicDimProduct simplifySymbolicDimProduct(const SymbolicDimProduct& x);
+
+  // Returns the simplified version of SymbolicDimProductPair.
+  // This will try to reduce some common symbolic ops if they are known not
+  // zero.
+  std::pair<SymbolicDimProduct, SymbolicDimProduct>
+  simplifySymbolicDimProductPair(const SymbolicDimProduct& x,
+                                 const SymbolicDimProduct& y);
+
   // mark group [a0, b0, ...] and group [a1, b1, c1, ...] are group
   // multiplication equal `a0 * b0 * ... = a1 * b1 * c1 * ...`
-  bool isSymbolicDimProductEqual(const SmallVectorImpl<SymbolicDimOp>& lhs,
-                                 const SmallVectorImpl<SymbolicDimOp>& rhs);
+  bool isSymbolicDimProductEqual(const SymbolicDimProduct& lhs,
+                                 const SymbolicDimProduct& rhs);
 
   // mark `product([a0, b0, ...]) == product([a1, b1, c1, ...])`
-  LogicalResult mapSymbolicDimProductEqual(
-      const SmallVectorImpl<SymbolicDimOp>& lhs,
-      const SmallVectorImpl<SymbolicDimOp>& rhs);
+  LogicalResult mapSymbolicDimProductEqual(const SymbolicDimProduct& lhs,
+                                           const SymbolicDimProduct& rhs);
 
   //   SymbolicDimOp getSymbolicDimUsingRef(const FlatSymbolRefAttr& ref);
 
@@ -122,9 +189,6 @@ class SymbolicDimMgr {
  private:
   // Returns next unique name for a new SymbolicDim op.
   std::string getNextName();
-
-  // Gives a consistent order of a list op SymbolicDim Ops
-  bool compareSymbolicDimOpNames(StringRef lhs, StringRef rhs);
 
  private:
   // The module this SymbolicDimMgr runs on.
@@ -154,6 +218,11 @@ class SymbolicDimMgr {
   // DenseMap<std::string, SymbolicDimOp> symbolRef2symbolicDim_;
 
   // DenseMap<disc_shape::SymbolicDimOp, SymbolicDimOp> symbolRef2symbolicDim_;
+
+  // Stores all seen SymbolicDimProducts.
+  DenseSet<SymbolicDimProduct> symbolProductSet_;
+  // m[k] = v iff product(k) == product(v)
+  DenseMap<SymbolicDimProduct, SymbolicDimProduct> productEqualityUnionSet_;
 };
 
 }  // namespace disc_ral

@@ -387,6 +387,7 @@ class ShapeComputationIRAnalysis {
   LogicalResult applyShapeTensorOpConstraint(Operation* op);
   LogicalResult applyRankedTensorOpConstraint(Operation* op);
   LogicalResult applyMhloOpConstraint(Operation* op);
+  LogicalResult applyTieShapeOpConstraint(Operation* op);
 
   LogicalResult mapRankedValueShapeEqual(Value lhs, Value rhs);
 
@@ -857,23 +858,8 @@ LogicalResult ShapeComputationIRAnalysis::applyRankedTensorOpConstraint(
   return success();
 }
 
-LogicalResult ShapeComputationIRAnalysis::applyOpConstraint(Operation* op) {
-  if (failed(applyIndexOpConstraint(op)))
-    return op->emitError() << "fail to apply constraint for index op\n";
-
-  if (failed(applyShapeTensorOpConstraint(op)))
-    return op->emitError() << "fail to apply constraint for shape tensor op\n";
-
-  if (op->getDialect() == op->getContext()->getLoadedDialect("mhlo") ||
-      op->getDialect() == op->getContext()->getLoadedDialect("mhlo_disc")) {
-    if (failed(applyMhloOpConstraint(op)))
-      return op->emitError() << "fail to apply constraint for mhlo op\n";
-  }
-
-  if (failed(applyRankedTensorOpConstraint(op))) {
-    return op->emitError() << "fail to apply constraint for ranked tensor op\n";
-  }
-
+LogicalResult ShapeComputationIRAnalysis::applyTieShapeOpConstraint(
+    Operation* op) {
   // supppose:
   //   %out = disc_shape.tie_shape(%in, %d0, %d1, ...)
   // we have
@@ -906,6 +892,30 @@ LogicalResult ShapeComputationIRAnalysis::applyOpConstraint(Operation* op) {
       }
     }
   }
+  return success();
+}
+
+LogicalResult ShapeComputationIRAnalysis::applyOpConstraint(Operation* op) {
+  if (failed(applyIndexOpConstraint(op)))
+    return op->emitError() << "fail to apply constraint for index op\n";
+
+  if (failed(applyShapeTensorOpConstraint(op)))
+    return op->emitError() << "fail to apply constraint for shape tensor op\n";
+
+  if (op->getDialect() == op->getContext()->getLoadedDialect("mhlo") ||
+      op->getDialect() == op->getContext()->getLoadedDialect("mhlo_disc")) {
+    if (failed(applyMhloOpConstraint(op)))
+      return op->emitError() << "fail to apply constraint for mhlo op\n";
+  }
+
+  if (failed(applyRankedTensorOpConstraint(op))) {
+    return op->emitError() << "fail to apply constraint for ranked tensor op\n";
+  }
+
+  if (failed(applyTieShapeOpConstraint(op))) {
+    return op->emitError() << "fail to apply constraint for tie_shape op\n";
+  }
+
   return success();
 }
 

@@ -318,6 +318,10 @@ void SymbolicDimOp::setDimSize(int64_t val) {
   (*this)->setAttr("value", b.getI64IntegerAttr(val));
   if (val == -1) {
     setKnownNegativeOne(true);
+  } else if (val >= 0) {
+    setKnownNonNegative(true);
+    if (val != 0) setKnownNonSizeZero(true);
+    if (val != 1) setKnownNonSizeOne(true);
   }
 }
 
@@ -333,12 +337,20 @@ void SymbolicDimOp::setKnownNonNegative(bool flag) {
 void SymbolicDimOp::setKnownNegativeOne(bool flag) {
   OpBuilder b(*this);
   (*this)->setAttr("knownNegativeOne", b.getBoolAttr(flag));
-  if (flag) (*this)->setAttr("knownNonSizeOne", b.getBoolAttr(flag));
+  if (flag) {
+    setKnownNonSizeOne(true);
+    setKnownNonSizeZero(true);
+  }
 }
 
 void SymbolicDimOp::setKnownNonSizeOne(bool flag) {
   OpBuilder b(*this);
   (*this)->setAttr("knownNonSizeOne", b.getBoolAttr(flag));
+}
+
+void SymbolicDimOp::setKnownNonSizeZero(bool flag) {
+  OpBuilder b(*this);
+  (*this)->setAttr("knownNonSizeZero", b.getBoolAttr(flag));
 }
 
 LogicalResult SymbolicDimOp::Merge(SymbolicDimOp other) {
@@ -350,9 +362,12 @@ LogicalResult SymbolicDimOp::Merge(SymbolicDimOp other) {
   bool knownNegativeOneFlag = knownNegativeOne() || other.knownNegativeOne();
   bool knownNonSizeOneFlag =
       knownNonSizeOne() || other.knownNonSizeOne() || knownNegativeOneFlag;
+  bool knownNonSizeZeroFlag =
+      knownNonSizeZero() || other.knownNonSizeZero() || knownNegativeOneFlag;
 
   if (knownNonNegativeFlag && knownNegativeOneFlag) return failure();
 
+  setKnownNonSizeZero(knownNonSizeZeroFlag);
   setKnownNonSizeOne(knownNonSizeOneFlag);
   setKnownNegativeOne(knownNegativeOneFlag);
   setKnownNonNegative(knownNonNegativeFlag);

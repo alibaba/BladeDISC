@@ -18,6 +18,8 @@ limitations under the License.
 
 #include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 
+#include <algorithm>
+
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
@@ -37,6 +39,21 @@ namespace mlir {
 namespace disc_ral {
 
 using ::mlir::func::FuncOp;
+
+// Gives a consistent order of a list op SymbolicDim Ops
+bool compareSymbolicDimOpNames(StringRef lhs, StringRef rhs) {
+  // Not known encoding schema, fallback branch
+  // S -> unknown dimension size at compile time
+  // C -> constant dimension size at compile time
+  if (lhs.size() < 1 || lhs[0] != 'S' && lhs[0] != 'C') return lhs < rhs;
+  if (rhs.size() < 1 || rhs[0] != 'S' && rhs[0] != 'C') return lhs < rhs;
+
+  int64_t lhsIdx, rhsIdx;
+  if (lhs.substr(1).getAsInteger(10, lhsIdx) ||
+      rhs.substr(1).getAsInteger(10, rhsIdx))
+    return lhs < rhs;
+  return (lhs[0] < rhs[0]) || (lhs[0] == rhs[0] && lhsIdx < rhsIdx);
+}
 
 SymbolicDimMgr::SymbolicDimMgr(ModuleOp m) : m_(m) {
   // TODO
@@ -90,20 +107,6 @@ bool SymbolicDimMgr::isSymbolicDimEqual(SymbolicDimOp lhs, SymbolicDimOp rhs) {
   return lhsRoot == rhsRoot;
 }
 
-bool SymbolicDimMgr::compareSymbolicDimOpNames(StringRef lhs, StringRef rhs) {
-  // Not known encoding schema, fallback branch
-  // S -> unknown dimension size at compile time
-  // C -> constant dimension size at compile time
-  if (lhs.size() < 1 || lhs[0] != 'S' && lhs[0] != 'C') return lhs < rhs;
-  if (rhs.size() < 1 || rhs[0] != 'S' && rhs[0] != 'C') return lhs < rhs;
-
-  int64_t lhsIdx, rhsIdx;
-  if (lhs.substr(1).getAsInteger(10, lhsIdx) ||
-      rhs.substr(1).getAsInteger(10, rhsIdx))
-    return lhs < rhs;
-  return (lhs[0] < rhs[0]) || (lhs[0] == rhs[0] && lhsIdx < rhsIdx);
-}
-
 LogicalResult SymbolicDimMgr::mapSymbolicDimEqual(SymbolicDimOp lhs,
                                                   SymbolicDimOp rhs) {
   SymbolicDimOp lhsRoot = getRootSymbolicDim(lhs);
@@ -121,15 +124,91 @@ LogicalResult SymbolicDimMgr::mapSymbolicDimEqual(SymbolicDimOp lhs,
   return success();
 }
 
-bool isSymbolicDimProductEqual(const SmallVectorImpl<SymbolicDimOp>& lhs,
-                               const SmallVectorImpl<SymbolicDimOp>& rhs) {
+// Suppose m and n are non-negative integers.
+int64_t gcd(int64_t m, int64_t n) {
+  if (!m) return n;
+  if (!n) return m;
+  return (m < n) ? gcd(m, n % m) : gcd(m % n, n);
+}
+
+SymbolicDimProduct SymbolicDimMgr::simplifySymbolicDimProduct(
+    const SymbolicDimProduct& x) {
+  SmallVector<SymbolicDimOp> copied;
+  for (SymbolicDimOp op : x.symbols) copied.push_back(getRootSymbolicDim(op));
+
+  llvm::sort(copied, [&](SymbolicDimOp lhs, SymbolicDimOp rhs) {
+    return compareSymbolicDimOpNames(lhs.getName(), rhs.getName());
+  });
+  SymbolicDimProduct newX;
+  newX.factor = x.factor;
+  for (SymbolicDimOp op : copied) {
+    if (!op.isDynamic()) {
+      newX.factor *= op.getDimSize();
+    } else {
+      newX.symbols.push_back(op);
+    }
+  }
+  return newX;
+}
+
+std::pair<SymbolicDimProduct, SymbolicDimProduct>
+SymbolicDimMgr::simplifySymbolicDimProductPair(const SymbolicDimProduct& x,
+                                               const SymbolicDimProduct& y) {
+  // First do some basic clean up (e.g. folding const symbolic dim op into the
+  // fator field)
+  auto lhs = simplifySymbolicDimProduct(x);
+  auto rhs = simplifySymbolicDimProduct(y);
+
+  SymbolicDimProduct newLhs, newRhs;
+  int64_t gcdFactor = gcd(std::abs(lhs.factor), std::abs(rhs.factor));
+  // 0 * lhs_symbols = 0 * rhs_symbols, no more information, just return empty
+  // newLhs & newRhs
+  if (!gcdFactor) return std::make_pair(std::move(newLhs), std::move(newRhs));
+
+  // Canonicalization factor form: let lhs always being positive number.
+  if (lhs.factor < 0) gcdFactor = -gcdFactor;
+  newLhs.factor = lhs.factor / gcdFactor;
+  newRhs.factor = rhs.factor / gcdFactor;
+
+  DenseSet<SymbolicDimOp> rhsSymbolSet(rhs.symbols.begin(), rhs.symbols.end());
+  DenseSet<SymbolicDimOp> nonZeroCommonSymbolSet;
+  for (SymbolicDimOp op : lhs.symbols) {
+    if (rhsSymbolSet.count(op) && op.knownNonSizeZero()) {
+      nonZeroCommonSymbolSet.insert(op);
+    } else {
+      newLhs.symbols.push_back(op);
+    }
+  }
+  for (SymbolicDimOp op : rhs.symbols) {
+    if (nonZeroCommonSymbolSet.count(op)) continue;
+    newRhs.symbols.push_back(op);
+  }
+
+  if (!newLhs.factor) newLhs.symbols.clear();
+  if (!newRhs.factor) newRhs.symbols.clear();
+
+  return std::make_pair(std::move(newLhs), std::move(newRhs));
+}
+
+bool SymbolicDimMgr::isSymbolicDimProductEqual(const SymbolicDimProduct& lhs,
+                                               const SymbolicDimProduct& rhs) {
+  SymbolicDimProduct newLhs, newRhs;
+  std::tie(newLhs, newRhs) = simplifySymbolicDimProductPair(lhs, rhs);
+
+  // early return for identity case.
+  if (newLhs == newRhs) return true;
   // TODO
   return false;
 }
 
-LogicalResult mapSymbolicDimProductEqual(
-    const SmallVectorImpl<SymbolicDimOp>& lhs,
-    const SmallVectorImpl<SymbolicDimOp>& rhs) {
+LogicalResult SymbolicDimMgr::mapSymbolicDimProductEqual(
+    const SymbolicDimProduct& lhs, const SymbolicDimProduct& rhs) {
+  SymbolicDimProduct newLhs, newRhs;
+  std::tie(newLhs, newRhs) = simplifySymbolicDimProductPair(lhs, rhs);
+
+  // early return for identity case.
+  if (newLhs == newRhs) return success();
+
   // TODO
   return success();
 }

@@ -85,7 +85,8 @@ def DISCShape_SymbolicDimOp:
     DefaultValuedAttr<I64Attr, "-1">:$value,
     DefaultValuedAttr<BoolAttr, "false">:$knownNonNegative,
     DefaultValuedAttr<BoolAttr, "false">:$knownNegativeOne,
-    DefaultValuedAttr<BoolAttr, "false">:$knownNonSizeOne
+    DefaultValuedAttr<BoolAttr, "false">:$knownNonSizeOne,
+    DefaultValuedAttr<BoolAttr, "false">:$knownNonSizeZero
     // TODO(disc): add likely values
   );
   let extraClassDeclaration = [{
@@ -110,6 +111,9 @@ def DISCShape_SymbolicDimOp:
 
     // Sets `knownNonSizeOne` to the value of `flag`
     void setKnownNonSizeOne(bool flag);
+
+    // Sets `knownNonSizeZero` to the value of `flag`
+    void setKnownNonSizeZero(bool flag);
 
     // Try to merge two SymbolicDim ops.
     // Returns failure if fail to merge.

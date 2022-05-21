@@ -394,6 +394,25 @@ void ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
     return;
   }
 
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
+  if (std::is_same<InT, Eigen::half>::value ||
+      std::is_same<InT, float>::value) {
+    auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
+    auto stream =
+        static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
+    void* s = stream->implementation()->GpuStreamHack();
+    bool fp16_in = std::is_same<InT, Eigen::half>::value;
+    bool fp16_out = std::is_same<OutT, Eigen::half>::value;
+    bool ret = blade::blade_gemm(s, fp16_in, fp16_out, A.data, A.sizes[N - 2],
+                                 A.sizes[N - 1], tp_a, B.data, B.sizes[N - 2],
+                                 B.sizes[N - 1], tp_b, C.data, C.sizes[N - 2],
+                                 C.sizes[N - 1], batch_a);
+    if (ret) {
+      return;
+    }
+  }
+#endif
+
   auto lhs_matrix = makeMatrixDescriptor(ctx, A.data, A.sizes[N - 2],
                                          A.sizes[N - 1], tp_a, batch_a);
   auto rhs_matrix = makeMatrixDescriptor(ctx, B.data, B.sizes[N - 2],

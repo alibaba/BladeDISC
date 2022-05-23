@@ -52,25 +52,26 @@ TEST(KStitchFusionGPUTest, KStitchSimpleLargeColumnF32) {
 // There is a root op that is not a skeleton op in the kStitch fusion.
 TEST(KStitchFusionGPUTest, KStitchNonSkeletonOutputF32) {
   setenv("DISC_ENABLE_STITCH", "true", 1);
-  bool enable_shape_constraint_ir = false;
-  tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_SHAPE_CONSTRAINT_IR",
-                                 enable_shape_constraint_ir,
-                                 &enable_shape_constraint_ir);
-  if (enable_shape_constraint_ir) {
-    setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
-  } else {
-    // TODO: even though it means kStitch works when there are 2 kernels formed,
-    // we can further reduce the kernel number to 1 after optimizing shape ops
-    // like compute_reshape_shape successfully.
-    setenv("DISC_EXPECTED_KERNELS_IN_UT", "2", 1);
+  for (int i = 0; i < 2; ++i) {
+    bool enable_shape_constraint_ir = (i == 0);
+    setenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR",
+           enable_shape_constraint_ir ? "true" : "false", 1);
+    if (enable_shape_constraint_ir) {
+      setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
+    } else {
+      // TODO: even though it means kStitch works when there are 2 kernels
+      // formed, we can further reduce the kernel number to 1 after optimizing
+      // shape ops like compute_reshape_shape successfully.
+      setenv("DISC_EXPECTED_KERNELS_IN_UT", "2", 1);
+    }
+    EXPECT_TRUE(feature_test_main(
+        /*mlir_file_path*/ c_ft_path + "kstitch_fusion_non_skl_output.mlir",
+        /*backend_types*/ {BackendType::kCuda},
+        /*num_inputs*/ 3,
+        /*num_outputs*/ 2,
+        /*input_descriptors*/ {"128x768xf32_X", "1x128x768xf32_X", "768xf32_X"},
+        /*output_descriptors*/ {"f32_X", "f32_X"}));
   }
-  EXPECT_TRUE(feature_test_main(
-      /*mlir_file_path*/ c_ft_path + "kstitch_fusion_non_skl_output.mlir",
-      /*backend_types*/ {BackendType::kCuda},
-      /*num_inputs*/ 3,
-      /*num_outputs*/ 2,
-      /*input_descriptors*/ {"128x768xf32_X", "1x128x768xf32_X", "768xf32_X"},
-      /*output_descriptors*/ {"f32_X", "f32_X"}));
   unsetenv("DISC_ENABLE_STITCH");
   unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
 }

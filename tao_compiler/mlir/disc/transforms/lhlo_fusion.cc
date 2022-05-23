@@ -539,7 +539,9 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
                                     &disc_expected_kernels_in_ut);
     if ((disc_expected_kernels_in_ut >= 0) &&
         (disc_expected_kernels_in_ut != fusion_pattern_number)) {
-      emitError(func.getLoc(), "fusion pattern number is not as expected.");
+      func->emitError() << "fusion pattern number is not as expected ("
+                        << disc_expected_kernels_in_ut << " vs "
+                        << fusion_pattern_number << ")\n";
       signalPassFailure();
       return;
     }

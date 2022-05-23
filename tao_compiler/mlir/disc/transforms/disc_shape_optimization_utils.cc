@@ -300,6 +300,11 @@ LogicalResult SymbolicDimMgr::mapSymbolicDimProductEqual(
   // early return for identity case.
   if (newLhs == newRhs) return success();
 
+  if (newLhs.factor == newRhs.factor && newLhs.symbols.size() == 1 &&
+      newRhs.symbols.size() == 1) {
+    return mapSymbolicDimEqual(newLhs.symbols[0], newRhs.symbols[0]);
+  }
+
   productEqualityMap_[newLhs][newRhs] = productEqualityMap_[newRhs][newLhs] =
       true;
 
@@ -543,7 +548,8 @@ LogicalResult SymbolicDimMgr::loadShapeConstraintGraph() {
   if (func.walk([&](disc_shape::TieProductEqualOp op) {
             SymbolicDimProduct lhs, rhs;
             if (failed(build_sym_product(op.lhs(), lhs)) ||
-                failed(build_sym_product(op.rhs(), rhs)))
+                failed(build_sym_product(op.rhs(), rhs)) ||
+                failed(mapSymbolicDimProductEqual(lhs, rhs)))
               return WalkResult::interrupt();
             return WalkResult::advance();
           })

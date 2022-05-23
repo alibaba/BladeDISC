@@ -1352,8 +1352,8 @@ LogicalResult cleanUp(ModuleOp m, bool keep_tie_shape) {
     // Example. convert from:
     // ```
     //   %1 = mhlo.abs(%0) : (tensor<?x?xf32, [@S0, @S1]>) -> tensor<?x?xf32,
-    //   [@S0, @S1]> %2 = disc_shape.tie_shape(%1, %d0, %d1) : tensor<?x?xf32,
     //   [@S0, @S1]>
+    //   %2 = disc_shape.tie_shape(%1, %d0, %d1) : tensor<?x?xf32, [@S0, @S1]>
     // ```
     // to
     // ```

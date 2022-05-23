@@ -194,17 +194,26 @@ SymbolicDimMgr::simplifySymbolicDimProductPair(const SymbolicDimProduct& x,
   newLhs.factor = lhs.factor / gcdFactor;
   newRhs.factor = rhs.factor / gcdFactor;
 
-  DenseSet<SymbolicDimOp> rhsSymbolSet(rhs.symbols.begin(), rhs.symbols.end());
-  DenseSet<SymbolicDimOp> nonZeroCommonSymbolSet;
+  DenseMap<SymbolicDimOp, int> lhsSymbolMap;
+  DenseMap<SymbolicDimOp, int> rhsSymbolMap;
+  for (SymbolicDimOp op : lhs.symbols) ++lhsSymbolMap[op];
+  for (SymbolicDimOp op : rhs.symbols) ++rhsSymbolMap[op];
+
   for (SymbolicDimOp op : lhs.symbols) {
-    if (rhsSymbolSet.count(op) && op.knownNonSizeZero()) {
-      nonZeroCommonSymbolSet.insert(op);
-    } else {
-      newLhs.symbols.push_back(op);
+    auto it = rhsSymbolMap.find(op);
+    if (it != rhsSymbolMap.end() && op.knownNonSizeZero()) {
+      if (--it->second == 0) rhsSymbolMap.erase(it);
+      continue;
     }
+    newLhs.symbols.push_back(op);
   }
+
   for (SymbolicDimOp op : rhs.symbols) {
-    if (nonZeroCommonSymbolSet.count(op)) continue;
+    auto it = lhsSymbolMap.find(op);
+    if (it != lhsSymbolMap.end() && op.knownNonSizeZero()) {
+      if (--it->second == 0) lhsSymbolMap.erase(it);
+      continue;
+    }
     newRhs.symbols.push_back(op);
   }
 
@@ -496,7 +505,7 @@ LogicalResult SymbolicDimMgr::saveShapeConstraintGraph() {
 
   // save product equal predicate
   // TODO(disc): return null if the symbolicOps not exists.
-  auto build_dim_op = [&](const SymbolicDimProduct& prod) {
+  auto build_operands = [&](const SymbolicDimProduct& prod) {
     SmallVector<Value> values;
     if (prod.factor != 1) {
       values.push_back(b.create<arith::ConstantIndexOp>(loc, prod.factor));
@@ -514,8 +523,8 @@ LogicalResult SymbolicDimMgr::saveShapeConstraintGraph() {
     for (auto& y : sortedProductVec) {
       if (!compareSymbolicDimProduct(x, y)) continue;
       if (!productEqualityMap_[x][y]) continue;
-      auto lhsOperands = build_dim_op(x);
-      auto rhsOperands = build_dim_op(y);
+      auto lhsOperands = build_operands(x);
+      auto rhsOperands = build_operands(y);
       b.create<disc_shape::TieProductEqualOp>(loc, llvm::None, lhsOperands,
                                               rhsOperands);
     }

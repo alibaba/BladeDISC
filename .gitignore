@@ -35,3 +35,8 @@ tao/*.tgz
 dist
 core.*
 ld.lld*
+*.log
+*.txt
+*.csv
+*.db
+*.json

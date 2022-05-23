@@ -65,7 +65,7 @@ Status TaoOptimizationPass::Run(const GraphOptimizationPassOptions& options) {
   static std::atomic<int> optimization_counter{0};
 
   bool enable_tao = GetTaoBridgeOptions()->enable_tao;
-  if (!enable_tao || !ForOptimizeTo(2022, 5, 20)) {
+  if (!enable_tao || !ForOptimizeTo(2022, 10, 20)) {
     return Status::OK();
   }
 

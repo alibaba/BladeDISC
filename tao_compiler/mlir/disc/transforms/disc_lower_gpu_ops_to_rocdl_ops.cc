@@ -22,6 +22,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/FormatVariadic.h"
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
@@ -74,6 +75,7 @@ struct GPUShuffleOpLowering : public ConvertOpToLLVMPattern<gpu::ShuffleOp> {
   LogicalResult matchAndRewrite(
       gpu::ShuffleOp op, OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override {
+    // llvm::errs() << "New Op outside" << "\n";    
     Location loc = op->getLoc();
     auto valueTy = adaptor.value().getType();
     auto int32Type = IntegerType::get(rewriter.getContext(), 32);
@@ -100,6 +102,156 @@ struct GPUShuffleOpLowering : public ConvertOpToLLVMPattern<gpu::ShuffleOp> {
   }
 };
 
+
+// static Optional<LLVM::AtomicBinOp>
+// matchSimpleAtomicOp(memref::AtomicRMWOp atomicOp) {
+//   switch (atomicOp.kind()) {
+//   case arith::AtomicRMWKind::addf:
+//     return LLVM::AtomicBinOp::fadd;
+//   case arith::AtomicRMWKind::addi:
+//     return LLVM::AtomicBinOp::add;
+//   case arith::AtomicRMWKind::assign:
+//     return LLVM::AtomicBinOp::xchg;
+//   case arith::AtomicRMWKind::maxs:
+//     return LLVM::AtomicBinOp::max;
+//   case arith::AtomicRMWKind::maxu:
+//     return LLVM::AtomicBinOp::umax;
+//   case arith::AtomicRMWKind::mins:
+//     return LLVM::AtomicBinOp::min;
+//   case arith::AtomicRMWKind::minu:
+//     return LLVM::AtomicBinOp::umin;
+//   case arith::AtomicRMWKind::ori:
+//     return LLVM::AtomicBinOp::_or;
+//   case arith::AtomicRMWKind::andi:
+//     return LLVM::AtomicBinOp::_and;
+//   default:
+//     return llvm::None;
+//   }
+//   llvm_unreachable("Invalid AtomicRMWKind");
+// }
+
+// struct AtomicRMWOpLowering
+//     : public ConvertOpToLLVMPattern<memref::AtomicRMWOp> {
+//   using ConvertOpToLLVMPattern<memref::AtomicRMWOp>::ConvertOpToLLVMPattern;
+// // struct AtomicRMWOpLowering : public LoadStoreOpLowering<memref::AtomicRMWOp> {
+// //   using Base::Base;
+//   LogicalResult
+//   matchAndRewrite(memref::AtomicRMWOp atomicOp, OpAdaptor adaptor,
+//                   ConversionPatternRewriter &rewriter) const override {
+//     llvm::errs() << "New Op inside" << "\n";    
+//     llvm::errs() << "check 0" << "\n";   
+//     if (failed(match(atomicOp)))
+//       return failure();
+//     llvm::errs() << "check 1" << "\n";      
+//     auto maybeKind = matchSimpleAtomicOp(atomicOp);
+//     if (!maybeKind)
+//       return failure();
+//     llvm::errs() << "check 2" << "\n";       
+//     auto resultType = adaptor.value().getType();
+//     auto memRefType = atomicOp.getMemRefType();
+//     auto dataPtr =
+//         getStridedElementPtr(atomicOp.getLoc(), memRefType, adaptor.memref(),
+//                              adaptor.indices(), rewriter);
+//     rewriter.replaceOpWithNewOp<LLVM::AtomicRMWOp>(
+//         atomicOp, resultType, *maybeKind, dataPtr, adaptor.value(),
+//         LLVM::AtomicOrdering::monotonic);
+//     llvm::errs() << "check 3" << "\n";          
+//     return success();
+//   }
+// };
+
+
+class  AtomicRMWOpRewrite
+    : public OpRewritePattern<LLVM::AtomicRMWOp> {
+ public:
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(LLVM::AtomicRMWOp atomicOp,
+                                PatternRewriter& rewriter) const override {
+// struct AtomicRMWOpLowering : public LoadStoreOpLowering<memref::AtomicRMWOp> {
+//   using Base::Base;
+  // LogicalResult
+  // matchAndRewrite(LLVM::AtomicRMWOp atomicOp, OpAdaptor adaptor,
+  //                 ConversionPatternRewriter &rewriter) const override {
+  
+  // llvm::errs() << "New Op inside" << "\n";    
+  if (atomicOp.getOrdering() ==  LLVM::AtomicOrdering::acq_rel) {
+    // atomicOp.setOrdering(LLVM::AtomicOrdering::monotonic);
+
+    // llvm::errs() << "check 0" << "\n";   
+    // // if (failed(match(atomicOp)))
+    // //   return failure();
+    // llvm::errs() << "check 1" << "\n";      
+    // auto maybeKind = matchSimpleAtomicOp(atomicOp);
+    // if (!maybeKind)
+    //   return failure();
+    // llvm::errs() << "check 2" << "\n";       
+    // auto resultType = adaptor.value().getType();
+    // auto memRefType = atomicOp.getMemRefType();
+    // auto dataPtr =
+    //     getStridedElementPtr(atomicOp.getLoc(), memRefType, adaptor.memref(),
+    //                          adaptor.indices(), rewriter);
+    // rewriter.replaceOpWithNewOp<LLVM::AtomicRMWOp>(
+    //     atomicOp, resultType, *maybeKind, dataPtr, adaptor.value(),
+    //     LLVM::AtomicOrdering::monotonic);
+    // llvm::AtomicRMWInst::BinOp Op, llvm::Value *Ptr,
+    //               llvm::Value *Val, llvm::AtomicOrdering Ordering,
+    //               llvm::SyncScope::ID SSID = llvm::SyncScope::System
+
+    rewriter.replaceOpWithNewOp<LLVM::AtomicRMWOp>(
+        atomicOp, atomicOp.getRes().getType(),
+        atomicOp.getBinOp(), atomicOp.getPtr(), atomicOp.getVal(),
+        LLVM::AtomicOrdering::monotonic);
+  }
+
+  // auto ptrType = getPtr().getType().cast<LLVM::LLVMPointerType>();
+  // auto valType = getVal().getType();
+  // if (valType != ptrType.getElementType())
+  //   return emitOpError("expected LLVM IR element type for operand #0 to "
+  //                      "match type for operand #1");
+  // auto resType = getRes().getType();
+  // if (resType != valType)
+  //   return emitOpError(
+  //       "expected LLVM IR result type to match type for operand #1");
+  // if (getBinOp() == AtomicBinOp::fadd || getBinOp() == AtomicBinOp::fsub) {
+  //   if (!mlir::LLVM::isCompatibleFloatingPointType(valType))
+  //     return emitOpError("expected LLVM IR floating point type");
+  // } else if (getBinOp() == AtomicBinOp::xchg) {
+  //   auto intType = valType.dyn_cast<IntegerType>();
+  //   unsigned intBitWidth = intType ? intType.getWidth() : 0;
+  //   if (intBitWidth != 8 && intBitWidth != 16 && intBitWidth != 32 &&
+  //       intBitWidth != 64 && !valType.isa<BFloat16Type>() &&
+  //       !valType.isa<Float16Type>() && !valType.isa<Float32Type>() &&
+  //       !valType.isa<Float64Type>())
+  //     return emitOpError("unexpected LLVM IR type for 'xchg' bin_op");
+  // } else {
+  //   auto intType = valType.dyn_cast<IntegerType>();
+  //   unsigned intBitWidth = intType ? intType.getWidth() : 0;
+  //   if (intBitWidth != 8 && intBitWidth != 16 && intBitWidth != 32 &&
+  //       intBitWidth != 64)
+  //     return emitOpError("expected LLVM IR integer type");
+  // }
+
+  // if (static_cast<unsigned>(getOrdering()) <
+  //     static_cast<unsigned>(AtomicOrdering::monotonic))
+  //   return emitOpError() << "expected at least '"
+  //                        << stringifyAtomicOrdering(AtomicOrdering::monotonic)
+  //                        << "' ordering";
+
+  // return success();
+
+
+
+
+
+
+       
+    return success();
+  }
+};
+
+
+
 /// Import the GPU Ops to ROCDL Patterns.
 #include "GPUToROCDL.cpp.inc"
 
@@ -118,6 +270,9 @@ void configureGpuToROCDLConversionLegality(ConversionTarget& target) {
   target.addLegalOp<gpu::YieldOp, gpu::GPUModuleOp, gpu::ModuleEndOp>();
 }
 
+
+
+
 void populateGpuToROCDLConversionPatterns(LLVMTypeConverter& converter,
                                           RewritePatternSet& patterns) {
   populateWithGenerated(patterns);
@@ -130,7 +285,7 @@ void populateGpuToROCDLConversionPatterns(LLVMTypeConverter& converter,
                                        ROCDL::BlockIdYOp, ROCDL::BlockIdZOp>,
            GPUIndexIntrinsicOpLowering<gpu::GridDimOp, ROCDL::GridDimXOp,
                                        ROCDL::GridDimYOp, ROCDL::GridDimZOp>,
-           GPUShuffleOpLowering, GPUReturnOpLowering>(converter);
+           GPUShuffleOpLowering, GPUReturnOpLowering>(converter);    
   patterns.add<GPUFuncOpLowering>(
       converter, /*allocaAddrSpace=*/5,
       StringAttr::get(&converter.getContext(),
@@ -197,9 +352,12 @@ struct DiscLowerGpuOpsToROCDLOpsPass
 
     RewritePatternSet patterns(m.getContext());
     RewritePatternSet llvmPatterns(m.getContext());
+    RewritePatternSet postpatterns(m.getContext());
+
 
     populateGpuRewritePatterns(patterns);
     (void)applyPatternsAndFoldGreedily(m, std::move(patterns));
+    // llvmPatterns.add<AtomicRMWOpLowering>(converter); 
 
     // Add the fix before official patterns.
     llvmPatterns.add<GenericAtomicRMWOpLoweringWithBitcast>(
@@ -211,14 +369,20 @@ struct DiscLowerGpuOpsToROCDLOpsPass
     populateVectorToROCDLConversionPatterns(converter, llvmPatterns);
     cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
     populateMathToLLVMConversionPatterns(converter, patterns);
+   
     populateMemRefToLLVMConversionPatterns(converter, llvmPatterns);
+    
     populateFuncToLLVMConversionPatterns(converter, patterns);
     ::mlir::disc_ral::populateGpuToROCDLConversionPatterns(converter,
                                                            llvmPatterns);
+    // llvmPatterns.add<AtomicRMWOpLowering>(converter); 
     ::mlir::LLVMConversionTarget target(getContext());
     ::mlir::disc_ral::configureGpuToROCDLConversionLegality(target);
     if (failed(applyPartialConversion(m, target, std::move(llvmPatterns))))
       signalPassFailure();
+
+    postpatterns.add<AtomicRMWOpRewrite>(postpatterns.getContext());
+    (void)applyPatternsAndFoldGreedily(m, std::move(postpatterns));
   }
 };
 

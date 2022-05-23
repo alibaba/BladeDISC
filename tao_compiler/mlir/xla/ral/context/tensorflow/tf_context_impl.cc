@@ -36,6 +36,8 @@
 #include <iostream>
 #include <fstream>
 
+#include "tensorflow/core/util/env_var.h"
+
 
 namespace se = stream_executor;
 
@@ -421,6 +423,7 @@ void ral_tf_gpu_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
   se::Stream* stream = nullptr;
   se::StreamExecutor* executor = nullptr;
   se::KernelBase* kernel_ptr = nullptr;
+  std::string namedeb;
   {
     std::lock_guard<std::mutex> lock(state->mu);
     stream = ral_tf_ctx->getOpContext()->op_device_context()->stream();
@@ -464,6 +467,7 @@ void ral_tf_gpu_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
 
     auto key = std::make_pair(blob, std::string(kernel_name));
     auto it = state->kernels.find(key);
+    namedeb = key.second;
     // VLOG(0) << "Kernel " << key.second << " " << num_args;
     // VLOG(0) << sizeof((char*) blob);
 //     if (key.second == "main_kRowReduction_reduce__4_1_0___1w1rX_vectile2X_no_vectile_revised_re
@@ -502,13 +506,21 @@ void ral_tf_gpu_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
     kernel_ptr = it->second.get();
   }
 
-//  VLOG(0) << "inside launch kernel";
   RalTfKernelArgsArrayBase kernel_args(params, num_args);
 
-  se::KernelArgIterator iter = kernel_args.arg_iterator();
-  while (iter.has_next()) {
-	se::KernelArg arg = iter.next();
-	VLOG(1) << "*(arg.address):" << reinterpret_cast<void*>(*static_cast<const uint64_t*>(arg.address));
+  bool args_dump = false;
+  tensorflow::ReadBoolFromEnvVar("DISC_ARGS", false,
+                                 &args_dump);
+
+//   if (namedeb == "main_kColReduction_dynamic_reshape_reduce__26_2_3___no_ibX8w32h_1_revised_revised_revised")  
+  if (args_dump)
+  {
+    VLOG(0) << "kernel is " << namedeb;
+    se::KernelArgIterator iter = kernel_args.arg_iterator();
+    while (iter.has_next()) {
+    se::KernelArg arg = iter.next();
+    VLOG(0) << "*(arg.address):" << reinterpret_cast<uint64_t>(*static_cast<const uint64_t*>(arg.address));
+    }
   }
 
 

@@ -907,6 +907,15 @@ Status CompileFunctionImpl(
       VLOG(1) << ss.str();
     }
   }
+  static int cnt = 0;
+  std::string debug_name = "cluster" + std::to_string(cnt) + ".log.txt";
+
+  std::ofstream debug(debug_name);
+  debug << ss.str();
+  debug.close();
+  VLOG(0) << "Write culster compiler log into " << debug_name;
+  cnt++;
+
 
   if (exit_status == 0) {
     return Status::OK();

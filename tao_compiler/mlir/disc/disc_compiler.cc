@@ -223,7 +223,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   // pm.addNestedPass<FuncOp>(mhlo::createBroadcastPropagationPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
-  pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertShapeToStandardPass());
 
   bool enable_shape_constraint_ir = true;
   tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_SHAPE_CONSTRAINT_IR",
@@ -233,6 +232,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     // propagate some known shape information.
     pm.addPass(disc_ral::createDiscShapeSimplifierPass());
   } else {
+    pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertShapeToStandardPass());
     // shape-related optimization
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());
   }
@@ -520,8 +520,11 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addPass(createStripDebugInfoPass());
-  // remove disc_shape.SymbolicDim ops and related ops.
-  pm.addPass(disc_ral::createStripShapeConstraintOpsPass());
+
+  if (enable_shape_constraint_ir) {
+    // remove disc_shape.SymbolicDim ops and related ops.
+    pm.addPass(disc_ral::createStripShapeConstraintOpsPass());
+  }
 
   // Host side codegen: std -> binary
   pm.addPass(disc_ral::createDiscToLLVMPass());

@@ -24,7 +24,7 @@
 #include "tensorflow/core/public/version.h"
 #include "tensorflow/core/util/env_var.h"
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
-#include "blade_gemm/blade_gemm.h"
+#include "bladnn/bladnn.h"
 #endif
 
 #ifdef TAO_RAL_USE_STREAM_EXECUTOR
@@ -270,6 +270,22 @@ struct RalGemmState : public Context::Resource {
   std::map<GemmTuningCacheKey, se::blas::AlgorithmType> gemm_tuning_cache;
 };
 
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
+template <typename T>
+bladnn::Dtype toBlaDNNDtype() {
+  if (std::is_same<T, Eigen::half>::value) {
+    return bladnn::Dtype::kF16;
+  }
+  if (std::is_same<T, float>::value) {
+    return bladnn::Dtype::kF32;
+  }
+  if (std::is_same<T, double>::value) {
+    return bladnn::Dtype::kF64;
+  }
+  return bladnn::Dtype::kUnknown;
+}
+#endif
+
 template <typename InT, typename OutT, typename E = float>
 void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
               MemRefType<InT, 2> B, MemRefType<OutT, 2> C, bool tp_a, bool tp_b,
@@ -280,17 +296,18 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
   }
 
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
-  if (std::is_same<InT, Eigen::half>::value ||
-      std::is_same<InT, float>::value) {
+  {
     auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
     auto stream =
         static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
     void* s = stream->implementation()->GpuStreamHack();
-    bool fp16_in = std::is_same<InT, Eigen::half>::value;
-    bool fp16_out = std::is_same<OutT, Eigen::half>::value;
-    bool ret = blade::blade_gemm(
-        s, fp16_in, fp16_out, A.data, A.sizes[0], A.sizes[1], tp_a, B.data,
-        B.sizes[0], B.sizes[1], tp_b, C.data, C.sizes[0], C.sizes[1]);
+    bladnn::Context bladnn_ctx{s};
+    bladnn::Dtype in_dtype = toBlaDNNDtype<InT>();
+    bladnn::Dtype out_dtype = toBlaDNNDtype<OutT>();
+    bool ret =
+        bladnn::gemm(&bladnn_ctx, in_dtype, tp_a, A.data, A.sizes[0],
+                     A.sizes[1], in_dtype, tp_b, B.data, B.sizes[0], B.sizes[1],
+                     out_dtype, C.data, C.sizes[0], C.sizes[1]);
     if (ret) {
       return;
     }
@@ -393,6 +410,25 @@ void ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
     ctx->signalError(Context::FAILURE, "mismatch batch size");
     return;
   }
+
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
+  {
+    auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
+    auto stream =
+        static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
+    void* s = stream->implementation()->GpuStreamHack();
+    bladnn::Context bladnn_ctx{s};
+    bladnn::Dtype in_dtype = toBlaDNNDtype<InT>();
+    bladnn::Dtype out_dtype = toBlaDNNDtype<OutT>();
+    bool ret =
+        bladnn::gemm(&bladnn_ctx, in_dtype, tp_a, A.data, A.sizes[0],
+                     A.sizes[1], in_dtype, tp_b, B.data, B.sizes[0], B.sizes[1],
+                     out_dtype, C.data, C.sizes[0], C.sizes[1], batch_a);
+    if (ret) {
+      return;
+    }
+  }
+#endif
 
   auto lhs_matrix = makeMatrixDescriptor(ctx, A.data, A.sizes[N - 2],
                                          A.sizes[N - 1], tp_a, batch_a);

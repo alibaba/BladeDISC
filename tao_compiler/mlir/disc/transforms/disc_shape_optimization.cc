@@ -40,9 +40,6 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 
-#undef LLVM_DEBUG
-#define LLVM_DEBUG(x) (x)
-
 namespace mlir {
 namespace disc_ral {
 
@@ -1165,12 +1162,6 @@ LogicalResult refineTensorType(ShapeComputationIRAnalysis& analysis,
     for (Value operand : op->getOperands()) updateIfNotSame(operand);
 
     for (Value result : op->getResults()) updateIfNotSame(result);
-
-    // if (auto constOp = dyn_cast<mhlo::ConstOp>(op)) {
-    //   auto attr = constOp.value().cast<DenseElementsAttr>();
-    //   auto newAttr = DenseElementsAttr::get(op->getResult(0).getType(),
-    //   attr.getRawData()); op->setAttr("value", newAttr);
-    // }
   });
 
   // apply refined function type
@@ -1262,7 +1253,7 @@ LogicalResult applyShapeComputationOptimization(
     return analysis.getFunc()->emitError("refineTensorType failed\n");
 
   // 3, simplify some expression after propagation shape constraint info.
-  // e.g. if symbolic dim %d is known not negative, then `arith.cmpi eq, %6,
+  // e.g. if symbolic dim %d is known not negative, then `arith.cmpi eq, %d,
   // %c-1` could be replaced with a const.
   if (failed(simplifyAccordingToShapeConstraintInfo(analysis, changed)))
     return analysis.getFunc()->emitError("fail to simplify\n");

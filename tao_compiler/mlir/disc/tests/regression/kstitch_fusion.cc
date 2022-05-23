@@ -52,7 +52,7 @@ TEST(KStitchFusionGPUTest, KStitchSimpleLargeColumnF32) {
 // There is a root op that is not a skeleton op in the kStitch fusion.
 TEST(KStitchFusionGPUTest, KStitchNonSkeletonOutputF32) {
   setenv("DISC_ENABLE_STITCH", "true", 1);
-  bool enable_shape_constraint_ir = true;
+  bool enable_shape_constraint_ir = false;
   tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_SHAPE_CONSTRAINT_IR",
                                  enable_shape_constraint_ir,
                                  &enable_shape_constraint_ir);

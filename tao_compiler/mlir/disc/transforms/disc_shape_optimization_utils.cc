@@ -24,16 +24,12 @@ limitations under the License.
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
 #include "mlir/IR/Dominance.h"
-#include "mlir/IR/MLIRContext.h"  // TF:llvm-project
+#include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/IR/SymbolTable.h"
-#include "mlir/Pass/Pass.h"  // TF:local_config_mlir
+#include "mlir/Pass/Pass.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-
-#undef LLVM_DEBUG
-
-#define LLVM_DEBUG(x) (x)
 
 namespace mlir {
 namespace disc_ral {
@@ -42,9 +38,9 @@ using ::mlir::func::FuncOp;
 
 // Gives a consistent order of a list op SymbolicDim Ops
 bool compareSymbolicDimOpNames(StringRef lhs, StringRef rhs) {
-  // Not known encoding schema, fallback branch
   // S -> unknown dimension size at compile time
   // C -> constant dimension size at compile time
+  // Not known encoding schema, fallback branch
   if (lhs.size() < 1 || lhs[0] != 'S' && lhs[0] != 'C') return lhs < rhs;
   if (rhs.size() < 1 || rhs[0] != 'S' && rhs[0] != 'C') return lhs < rhs;
 
@@ -55,6 +51,7 @@ bool compareSymbolicDimOpNames(StringRef lhs, StringRef rhs) {
   return (lhs[0] < rhs[0]) || (lhs[0] == rhs[0] && lhsIdx < rhsIdx);
 }
 
+// Gives a consistent order of a list op SymbolicDimProducts
 bool compareSymbolicDimProduct(const SymbolicDimProduct& lhs,
                                const SymbolicDimProduct& rhs) {
   if (lhs.symbols.size() < rhs.symbols.size()) return true;
@@ -77,9 +74,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os,
   return os;
 }
 
-SymbolicDimMgr::SymbolicDimMgr(ModuleOp m) : m_(m) {
-  // TODO
-}
+SymbolicDimMgr::SymbolicDimMgr(ModuleOp m) : m_(m) {}
 
 LogicalResult SymbolicDimMgr::load() {
   m_.walk([&](disc_shape::SymbolicDimOp op) {

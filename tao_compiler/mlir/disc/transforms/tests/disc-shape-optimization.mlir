@@ -165,7 +165,7 @@ func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?xf32>) -> tensor<?x?xf32> 
 
 // -----
 
-// Test disc_shape.tie_product_equal op
+// Test disc_shape.tie_product_equal op case 1
 // CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32, [@[[S0:.*]], @[[S1:.*]]]>, %[[ARG1:.*]]: tensor<1xindex>, %[[ARG2:.*]]: tensor<3xindex>) -> tensor<?x?x?xf32, [@[[S3:.*]], @[[S4:.*]], @[[S5:.*]]]>
 func @main(%arg0 : tensor<?x?xf32>, %arg1 : tensor<1xindex>, %arg2 : tensor<3xindex>) -> tensor<?x?x?xf32> {
@@ -191,3 +191,36 @@ func @main(%arg0 : tensor<?x?xf32>, %arg1 : tensor<1xindex>, %arg2 : tensor<3xin
 // CHECK-DAG: "disc_shape.tie_product_equal"(%[[TT2]], %[[TT3]], %[[TT4]], %[[TT5]])
 // CHECK-DAG: "disc_shape.tie_product_equal"(%[[TT2]], %[[TT0]], %[[TT1]])
 // CHECK-DAG: "disc_shape.tie_product_equal"(%[[TT0]], %[[TT1]], %[[TT3]], %[[TT4]], %[[TT5]])
+
+// -----
+
+// Test disc_shape.tie_product_equal op case 2
+
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?x?xf32, [@[[S0:.*]], @[[S1:.*]], @[[S2:.*]]]>) -> tensor<?x?xf32, [@[[S1]], @[[S2]]]>
+func @main(%arg0: tensor<?x?x?xf32>) -> tensor<?x?xf32> {
+  %c2 = arith.constant 2 : index
+  %c1 = arith.constant 1 : index
+  %c0 = arith.constant 0 : index
+  %0 = mhlo.constant dense<-0.000000e+00> : tensor<f32>
+  %1 = mhlo.abs %arg0 : tensor<?x?x?xf32>
+  %2 = tensor.dim %1, %c0 : tensor<?x?x?xf32>
+  %3 = tensor.dim %1, %c1 : tensor<?x?x?xf32>
+  %4 = tensor.dim %1, %c2 : tensor<?x?x?xf32>
+  %5 = arith.muli %3, %4 : index
+  %6 = tensor.from_elements %2, %5 : tensor<2xindex>
+  %7 = "mhlo.dynamic_reshape"(%1, %6) : (tensor<?x?x?xf32>, tensor<2xindex>) -> tensor<?x?xf32>
+  %8 = mhlo.reduce(%7 init: %0) applies mhlo.add across dimensions = [0] : (tensor<?x?xf32>, tensor<f32>) -> tensor<?xf32>
+  %9 = tensor.dim %1, %c1 : tensor<?x?x?xf32>
+  %10 = tensor.dim %1, %c2 : tensor<?x?x?xf32>
+  %11 = tensor.from_elements %9, %10 : tensor<2xindex>
+  %12 = "mhlo.dynamic_reshape"(%8, %11) : (tensor<?xf32>, tensor<2xindex>) -> tensor<?x?xf32>
+  return %12 : tensor<?x?xf32>
+}
+
+// CHECK-LABEL: @shape_constraint_graph
+// CHECK-DAG: %[[TT1:.*]] = "disc_shape.dim"() {name = @[[S1]]} : () -> index
+// CHECK-DAG: %[[TT2:.*]] = "disc_shape.dim"() {name = @[[S2]]} : () -> index
+// CHECK-DAG: %[[TT3:.*]] = "disc_shape.dim"() {name = @[[S3]]} : () -> index
+// CHECK-DAG: "disc_shape.tie_product_equal"(%[[TT3]], %[[TT1]], %[[TT2]])
+

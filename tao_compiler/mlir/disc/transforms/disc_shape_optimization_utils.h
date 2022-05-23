@@ -124,6 +124,7 @@ class SymbolicDimExpr {
 
   static SymbolicDimExpr buildMulExpr(const SymbolicDimExpr& lhs,
                                       const SymbolicDimExpr& rhs);
+  static bool isEqual(const SymbolicDimExpr& lhs, const SymbolicDimExpr& rhs);
 
  private:
   template <typename Combiner>

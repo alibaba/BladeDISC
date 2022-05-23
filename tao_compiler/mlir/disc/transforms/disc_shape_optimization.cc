@@ -392,7 +392,13 @@ class ShapeComputationIRAnalysis {
   LogicalResult applyMhloBcastOpConstraint(Operation* op);
   LogicalResult applyMhloConcatOpConstraint(Operation* op);
   LogicalResult applyMhloReshapeLikeOpConstraint(Operation* op);
+
   LogicalResult applyTieShapeOpConstraint(Operation* op);
+  LogicalResult applyTieShapeOfReshapePatternConstraint(Operation* op);
+  LogicalResult tryToBuildProductEqualityForReshape(
+      Operation* reshapeOp, const SmallVectorImpl<SymbolicDimExpr>& inExprs,
+      int inStartIdx, const SmallVectorImpl<SymbolicDimExpr>& outExprs,
+      int outStartIdx);
 
   LogicalResult mapRankedValueShapeEqual(Value lhs, Value rhs);
 
@@ -908,6 +914,73 @@ LogicalResult ShapeComputationIRAnalysis::applyRankedTensorOpConstraint(
   return success();
 }
 
+LogicalResult ShapeComputationIRAnalysis::tryToBuildProductEqualityForReshape(
+    Operation* reshapeOp, const SmallVectorImpl<SymbolicDimExpr>& inExprs,
+    int inStartIdx, const SmallVectorImpl<SymbolicDimExpr>& outExprs,
+    int outStartIdx) {
+  SmallVector<SymbolicDimExpr> subInExprs, subOutExprs;
+  SmallVector<SymbolicDimOp> subInDims, subOutDims;
+  auto& inDims = rankedTensor2SymDims_[reshapeOp->getOperand(0)];
+  auto& outDims = rankedTensor2SymDims_[reshapeOp->getResult(0)];
+  auto MergeExprs = [&](const SmallVector<SymbolicDimExpr>& exprs) {
+    SymbolicDimExpr result = SymbolicDimExpr(1, reshapeOp->getContext());
+    for (const auto& expr : exprs)
+      result = SymbolicDimExpr::buildMulExpr(result, expr);
+    return result;
+  };
+  for (int outIdx = outStartIdx; outIdx < outExprs.size(); ++outIdx) {
+    subOutExprs.push_back(outExprs[outIdx]);
+    subOutDims.push_back(outDims[outIdx]);
+    subInExprs.clear();
+    subInDims.clear();
+    SymbolicDimExpr outProduct = MergeExprs(subOutExprs);
+    for (int inIdx = inStartIdx; inIdx < inExprs.size(); ++inIdx) {
+      subInExprs.push_back(inExprs[inIdx]);
+      subInDims.push_back(inDims[inIdx]);
+      SymbolicDimExpr inProduct = MergeExprs(subInExprs);
+      if (SymbolicDimExpr::isEqual(outProduct, inProduct)) {
+        if (failed(mgr_.mapSymbolicDimProductEqual(
+                SymbolicDimProduct{subOutDims},
+                SymbolicDimProduct{subInDims}))) {
+          return reshapeOp->emitError()
+                 << "fail to map partial product equal between the operand "
+                    "and result of reshape op\n";
+        }
+        return tryToBuildProductEqualityForReshape(
+            reshapeOp, inExprs, inIdx + 1, outExprs, outIdx + 1);
+      }
+    }
+  }
+  return success();
+}
+
+// match:
+//   %0 = disc_shape.tie_shape %in, %in_d0, %in_d1, ...
+//   %out = mhlo.dynamic_reshape(%0, %target_shape) ...
+//   %1 = disc_shape.tie_shape %out, %out_d0, %out_d1, ...
+// and try to build product-equality between (%in_d0, %in_d1, ...) and
+// (%out_d0, %out_d1, ...).
+LogicalResult
+ShapeComputationIRAnalysis::applyTieShapeOfReshapePatternConstraint(
+    Operation* op) {
+  auto outTieShape = dyn_cast<disc_shape::TieShapeOp>(op);
+  if (!outTieShape) return success();
+  auto reshapeOp = dyn_cast_or_null<mhlo::DynamicReshapeOp>(
+      outTieShape->getOperand(0).getDefiningOp());
+  if (!reshapeOp) return success();
+  auto inTieShape = dyn_cast_or_null<disc_shape::TieShapeOp>(
+      reshapeOp->getOperand(0).getDefiningOp());
+  if (!inTieShape) return success();
+  SmallVector<SymbolicDimExpr> inExprs, outExprs;
+  llvm::for_each(inTieShape->getOperands().drop_front(),
+                 [&](Value v) { inExprs.push_back(value2DefiningExpr_[v]); });
+  llvm::for_each(outTieShape->getOperands().drop_front(),
+                 [&](Value v) { outExprs.push_back(value2DefiningExpr_[v]); });
+
+  return tryToBuildProductEqualityForReshape(reshapeOp, inExprs, 0, outExprs,
+                                             0);
+}
+
 LogicalResult ShapeComputationIRAnalysis::applyTieShapeOpConstraint(
     Operation* op) {
   // supppose:
@@ -941,6 +1014,10 @@ LogicalResult ShapeComputationIRAnalysis::applyTieShapeOpConstraint(
           return op->emitError() << "fail to merge dim\n";
       }
     }
+
+    if (failed(applyTieShapeOfReshapePatternConstraint(op)))
+      return op->emitError() << "fail to apply tie_shape + reshape like op "
+                                "pattern constraint\n";
   }
   return success();
 }

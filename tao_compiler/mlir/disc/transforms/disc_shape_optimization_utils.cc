@@ -697,5 +697,12 @@ template <typename Combiner>
                          [](AffineExpr a, AffineExpr b) { return a + b; });
 }
 
+/* static */ bool SymbolicDimExpr::isEqual(const SymbolicDimExpr& lhs,
+                                           const SymbolicDimExpr& rhs) {
+  // TODO(disc): canonicalize the order of symbols of lhs and rhs first
+  // TODO(disc): simplify expr of lhs and rhs first
+  return lhs.symbols == rhs.symbols && lhs.expr == rhs.expr;
+}
+
 }  // namespace disc_ral
 }  // namespace mlir

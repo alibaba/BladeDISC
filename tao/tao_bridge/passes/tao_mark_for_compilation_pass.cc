@@ -2556,6 +2556,114 @@ std::unordered_set<string>* GetFusedOpTable() {
   return result;
 }
 
+std::vector<string> GetDiscSupportedOps() {
+  std::vector<string> ops;
+  // clang-format off
+  ops.insert(ops.end(), {
+    "Abs",
+    "Add",
+    "AddN",
+    "All",
+    "Any",
+    "BatchMatMul",
+    "BiasAdd",
+    "BiasAddGrad",
+    "BroadcastTo",
+    "Cast",
+    "Ceil",
+    "ConcatV2",
+    "Const",
+    "Conv2D",
+    "DynamicStitch",
+    "Equal",
+    "Erf",
+    "Exp",
+    "ExpandDims",
+    "Fill",
+    "Floor",
+    "FloorDiv",
+    "FloorMod",
+    "GatherNd",
+    "Greater",
+    "GreaterEqual",
+    "Identity",
+    "If",
+    "IsFinite",
+    "LeakyRelu",
+    "Less",
+    "LessEqual",
+    "Log",
+    "LogicalAnd",
+    "LogicalNot",
+    "LogicalOr",
+    "LogSoftmax",
+    "MatMul",
+    "Max",
+    "Maximum",
+    "Mean",
+    "Min",
+    "Minimum",
+    "Mul",
+    "Neg",
+    "NoOp",
+    "NotEqual",
+    "Pack",
+    "Pad",
+    "Pow",
+    "Prod",
+    "RandomUniform",
+    "Range",
+    "RealDiv",
+    "Reciprocal",
+    "Relu",
+    "Relu6",
+    "ReluGrad",
+    "Reshape",
+    "Round",
+    "Rsqrt",
+    "RsqrtGrad",
+    "Select",
+    "SelectV2",
+    "Shape",
+    "Sigmoid",
+    "SigmoidGrad",
+    "Sign",
+    "Size",
+    "Slice",
+    "Snapshot",
+    "Softmax",
+    "SoftmaxCrossEntropyWithLogits",
+    "Softplus",
+    "Split",
+    "Sqrt",
+    "Square",
+    "SquaredDifference",
+    "Squeeze",
+    "StopGradient",
+    "StridedSlice",
+    "Sub",
+    "Sum",
+    "Tanh",
+    "TanhGrad",
+    "Tile",
+    "TopKV2",
+    "Transpose",
+    "Unpack",
+    "While",
+    "ZerosLike"
+  });
+
+#ifndef TF_1_12
+  ops.insert(ops.end(), {
+    "AddV2",
+    "BatchMatMulV2",
+    "GatherV2"
+  });
+#endif
+  // clang-format on
+  return ops;
+}
+
 std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
   // Table format: category name: {list of TF operations in that category}
   // clang-format off
@@ -2602,95 +2710,7 @@ std::unordered_map<string, std::vector<string>>* GetWhitelistTable() {
             "_FusedBatchNormEx", "FusedBatchNormGrad", "FusedBatchNormGradV2",
             "FusedBatchNormGradV3"}},
           {"SORT", {"TopKV2"}},  // XLA version much faster then TF version.
-          {"MLIR",
-            (
-              GetTaoBridgeOptions()
-                ->experimental_enable_mlir_whole_graph_compilation ?
-                    std::vector<string>({
-#ifndef TF_1_12
-                      "MatMul", "BatchMatMul", "BatchMatMulV2", "Conv2D",
-                      "Abs", "AddV2", "LessEqual", "Maximum", "Minimum","Sign",
-                      "Const", "Cast", "Identity", "ConcatV2",
-                      "Transpose", "Reshape", "Range", "RealDiv", "Ceil",
-                      "Shape", "GatherV2", "Prod", "Pack", "BiasAdd", "Mean",
-                      "StopGradient", "SquaredDifference", "Add", "Rsqrt",
-                      "Mul", "Sub", "ExpandDims", "Tile", "StridedSlice",
-                      "Less", "Sum", "Fill", "Pow", "Squeeze",
-                      "TopKV2", "GatherNd", "While", "Any", "Select", "Equal",
-                      "FloorDiv", "If", "Softmax", "Relu", "Sigmoid", "Max",
-                      "IsFinite", "ZerosLike", "Exp", "Log", "FloorMod", "Floor", "Min",
-                      "Greater", "All", "LogicalNot", "LogicalAnd","LogicalOr", "Unpack",
-                      "AddN", "Tanh", "GreaterEqual", "Neg", "NotEqual",
-                      "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
-                      "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
-                      "SigmoidGrad", "BroadcastTo", "RandomUniform", "ReluGrad", "Square",
-                      "Pad", "DynamicStitch", "LeakyRelu", "Erf", "Sqrt", "Softplus", "Relu6",
-                      "SelectV2"
-#else
-                      "MatMul", "BatchMatMul", "Conv2D",
-                      "Abs", "LessEqual", "Maximum", "Minimum","Sign",
-                      "Const", "Cast", "Identity", "ConcatV2",
-                      "Transpose", "Reshape", "Range", "RealDiv", "Ceil",
-                      "Shape", /*"GatherV2",*/ "Prod", "Pack", "BiasAdd", "Mean",
-                      "StopGradient", "SquaredDifference", "Add", "Rsqrt",
-                      "Mul", "Sub", "ExpandDims", "Tile", "StridedSlice",
-                      "Less", "Sum", "Fill", "Pow", "Squeeze",
-                      "TopKV2", "GatherNd", "While", "Any", "Select", "Equal",
-                      "FloorDiv", "If", "Softmax", "Relu", "Sigmoid", "Max",
-                      "IsFinite", "ZerosLike", "Exp", "Log", "FloorMod", "Floor", "Min",
-                      "Greater", "All", "LogicalNot", "LogicalAnd", "LogicalOr", "Unpack",
-                      "AddN", "Tanh", "GreaterEqual", "Neg", "NotEqual",
-                      "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
-                      "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
-                      "SigmoidGrad", "BroadcastTo", "LogSoftmax", "Reciprocal",
-                      "RandomUniform", "ReluGrad", "Square", "Pad", "DynamicStitch", "LeakyRelu",
-                      "Erf", "Sqrt", "Softplus", "Relu6", "SelectV2"
-#endif
-                    })
-                :
-                    std::vector<string>({
-#ifndef TF_1_12
-                      "MatMul", "BatchMatMul", "BatchMatMulV2", "Conv2D",
-                      "Abs", "AddV2", "LessEqual", "Maximum", "Minimum","Sign",
-                      "Const", "Cast", "Identity", "ConcatV2",
-                      "Transpose", "Reshape", "Range", "RealDiv", "Ceil",
-                      "Shape", "GatherV2", "Prod", "Pack", "BiasAdd", "Mean",
-                      "StopGradient", "SquaredDifference", "Add", "Rsqrt",
-                      "Mul", "Sub", "ExpandDims", "Tile", "StridedSlice",
-                      "Less", "Sum", "Fill", "Pow", "Squeeze",
-                      "TopKV2", "GatherNd", "While", "Any", "Select", "Equal",
-                      "FloorDiv", "If", "Softmax", "Relu", "Sigmoid", "Max",
-                      "IsFinite", "ZerosLike", "Exp", "Log", "FloorMod", "Floor", "Min",
-                      "Greater", "All", "LogicalNot", "LogicalAnd", "LogicalOr", "Unpack",
-                      "AddN", "Tanh", "GreaterEqual", "Neg", "NotEqual",
-                      "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
-                      "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
-                      "SigmoidGrad", "BroadcastTo", "Size", "RandomUniform", "Square",
-                      "Pad", "DynamicStitch", "LeakyRelu", "Erf", "Sqrt", "Softplus",
-                      "Relu6", "SelectV2"
-#else
-                      "MatMul", "BatchMatMul", "Conv2D",
-                      "Abs", "LessEqual", "Maximum", "Minimum","Sign",
-                      "MatMul", "Const", "Cast", "Identity", "ConcatV2",
-                      "Transpose", "Reshape", "Range", "RealDiv", "Ceil",
-                      "Shape", "GatherV2", "Prod", "Pack", "BiasAdd", "Mean",
-                      "StopGradient", "SquaredDifference", "Add", "Rsqrt",
-                      "Mul", "Sub", "ExpandDims", "Tile", "StridedSlice",
-                      "Less", "Sum", "Fill", "BatchMatMul", "Pow", "Squeeze",
-                      "TopKV2", "GatherNd", "While", "Any", "Select", "Equal",
-                      "FloorDiv", "If", "Softmax", "Relu", "Sigmoid", "Max",
-                      "IsFinite", "ZerosLike", "Exp", "Log", "FloorMod", "Floor", "Min",
-                      "Greater", "All", "LogicalNot", "LogicalAnd", "LogicalOr", "Unpack",
-                      "AddN", "Tanh", "GreaterEqual", "Neg", "NotEqual",
-                      "Slice", "TanhGrad", "BiasAddGrad", "NoOp", "RsqrtGrad", "Round",
-                      "Split", /*"SplitV",*/ "SoftmaxCrossEntropyWithLogits", "Snapshot",
-                      "SigmoidGrad", "BroadcastTo", "LogSoftmax", "Reciprocal", "Size",
-                      "Conv2D", "RandomUniform", "Square", "Pad", "DynamicStitch", "LeakyRelu",
-                      "Erf", "Sqrt", "Softplus", "Relu6", "SelectV2"
-#endif
-                    })
-            )
-          },
+          {"MLIR", GetDiscSupportedOps()},
           {"MISC",
                 {"BroadcastTo", "ExpandDims", "Fill", "NoOp",
        "Range", "Rank", "Reshape", "Shape", "ShapeN", "Size", "Squeeze",

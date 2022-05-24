@@ -128,6 +128,14 @@ install_requires = ["networkx", "onnx>=1.6.0", f"torch=={torch.__version__}"]
 
 wheel_suffix = "" if build.cuda_available else "-cpu"
 
+torch_major_version, torch_minor_version = torch.__version__.split(".")[:2]
+torch_major_version = int(torch_major_version)
+torch_minor_version = int(torch_minor_version)
+
+ext_modules = [TorchBladeExtension("torch_blade._torch_blade")]
+if torch_major_version >= 1 and torch_minor_version >= 12:
+    ext_modules.append(TorchBladeExtension("torch_disc._torch_disc"))
+
 setup(
     name=wheel_name + wheel_suffix,
     version=build.version,
@@ -135,7 +143,7 @@ setup(
     description="The pytorch blade project",
     install_requires=install_requires,
     packages=find_packages(exclude=["tests", "tests.*"]),
-    ext_modules=[TorchBladeExtension("torch_blade._torch_blade"), TorchBladeExtension("torch_disc._torch_disc")],
+    ext_modules=ext_modules,
     cmdclass=dict(
         build_ext=TorchBladeBuild,
         test=TestCommand,

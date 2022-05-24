@@ -61,7 +61,7 @@ if(${TAO_CUDA})
     include_directories("/usr/local/cuda/targets/x86_64-linux/include")
 endif()
 
-if(${TAO_ROCM})
+if(${TAO_ROCM} OR ${TAO_DCU})
     set(CMAKE_HIP_STANDARD 11)
     set(CMAKE_HIP_STANDARD_REQUIRED ON)
     MESSAGE("Include header files from ROCM path ${ROCM_PATH}")
@@ -125,23 +125,29 @@ if(${TAO_CUDA})
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr")
 endif()
 
-if(${TAO_ROCM})
+if(${TAO_ROCM} OR ${TAO_DCU})
   list(APPEND RAL_SRCS
-    "tensorflow/compiler/mlir/xla/ral/context/dynamic_sort_impl.cc"
-    "tensorflow/compiler/mlir/xla/ral/context/random_impl.cc"
     "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_cuda.cc"
   )
-  list(APPEND RAL_CU_SRCS
-      "tensorflow/compiler/mlir/xla/ral/context/custom_library/dynamic_sort.cu.cc"
-      "tensorflow/compiler/mlir/xla/ral/context/custom_library/random_gpu.cu.cc"
-  )
-  foreach(file ${RAL_CU_SRCS})
-    set_source_files_properties(${file} PROPERTIES LANGUAGE HIP)
-  endforeach()
   include_directories("${CMAKE_SOURCE_DIR}")
   list(APPEND RAL_HDRS
     "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_cuda.h"
   )
+endif()
+
+#CustomLib Support for DCU to be revisited later
+if(${TAO_ROCM})
+  list(APPEND RAL_SRCS
+  "tensorflow/compiler/mlir/xla/ral/context/dynamic_sort_impl.cc"
+  "tensorflow/compiler/mlir/xla/ral/context/random_impl.cc"
+  )
+  list(APPEND RAL_CU_SRCS
+    "tensorflow/compiler/mlir/xla/ral/context/custom_library/dynamic_sort.cu.cc"
+    "tensorflow/compiler/mlir/xla/ral/context/custom_library/random_gpu.cu.cc"
+  )
+  foreach(file ${RAL_CU_SRCS})
+  set_source_files_properties(${file} PROPERTIES LANGUAGE HIP)
+  endforeach()
 endif()
 
 if(${TAO_ENABLE_PATINE})

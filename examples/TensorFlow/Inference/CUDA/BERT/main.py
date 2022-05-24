@@ -11,12 +11,14 @@
 
 import os
 
-import time, sys
+import time
 import numpy as np
 import tensorflow.compat.v1 as tf
-import click
 
 tf.disable_v2_behavior()
+
+import blade_disc_tf as disc
+
 
 def load_frozen_graph(model_file: str):
     graph_def = tf.GraphDef()
@@ -27,21 +29,16 @@ def load_frozen_graph(model_file: str):
         tf.import_graph_def(graph_def, name='')
     return graph
 
-@click.command()
-@click.option("--disc", is_flag=True)
-@click.option("--fp16", is_flag=True)
-@click.option("--xla", is_flag=True)
-@click.option("--batch", type=int, default=32)
-def run_bert(disc, fp16, batch, xla):
-    if disc:
-        sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../../common"))
-        import disc_init
+
+def run_bert(optimize_config: str = None):
+    if optimize_config is 'disc':
+        disc.enable()
+
     session_config = tf.ConfigProto()
     session_config.allow_soft_placement = True
     session_config.gpu_options.allow_growth = True
-    if fp16:
-        session_config.graph_options.rewrite_options.auto_mixed_precision = 1
-    if xla:
+    session_config.graph_options.rewrite_options.auto_mixed_precision = 1
+    if optimize_config is "xla":
         session_config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_1
     graph = load_frozen_graph('./model/frozen.pb')
     sess = tf.Session(graph=graph, config=session_config)
@@ -60,11 +57,7 @@ def run_bert(disc, fp16, batch, xla):
     # Measure performance.
     print("Run 10 inferences with dynamic batch sizes.")
     all_times = []
-    if batch == -1:
-        targets = [2, 2, 4, 1, 1, 8, 8, 2, 16, 2]
-    else:
-        targets = [batch] * 10
-    for batch in targets:
+    for batch in [2, 2, 4, 1, 1, 8, 8, 2, 16, 2]:
         feed_dict = {
             'input_ids_1:0': np.ones((batch, 384), dtype=int),
             'segment_ids_1:0': np.zeros((batch, 384), dtype=int),
@@ -80,4 +73,4 @@ def run_bert(disc, fp16, batch, xla):
 
 if __name__ == '__main__':
     # `optimize_config` can be 'xla', 'disc' or None.
-    run_bert()
+    run_bert(optimize_config='disc')

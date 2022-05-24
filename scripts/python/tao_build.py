@@ -64,9 +64,10 @@ from tao_common import (
 PYTHON_BIN_NAME = os.getenv("PYTHON", "python")
 
 def get_rocm_path(args):
-    rocm_env = os.environ.get("ROCM_PATH", None)
-    if rocm_env is None:
+    if args.rocm_path is not None:
         rocm_env = args.rocm_path
+    else:
+        rocm_env = os.environ.get("ROCM_PATH", "/opt/rocm")
     return rocm_env
 
 def get_rocm_headers(args):
@@ -188,25 +189,19 @@ def configure_compiler(root, args):
     symlink_files(root)
     if args.platform_alibaba:
         symlink_internal_files(root)
-    with cwd(root):
-        if args.dcu or args.rocm:
-            src = get_rocm_headers(args)
-            rocm_header_root = os.path.join(tao_ral_dir(root), 'rocm')
-            if not os.path.exists(rocm_header_root):
-                os.makedirs(rocm_header_root)
-            execute("rm -rf {0} && ln -s {1} {0}".format(os.path.join(rocm_header_root, "include"),
-                     src))
 
     config_blade_gemm(root, args)
+
+    def _action_env(key, value, cmd="build"):
+        f.write(f"{cmd} --action_env {key}={value}\n")
     # configure tensorflow
-    python_path = which("python3")
     with cwd(tf_root_dir()), gcc_env(args.compiler_gcc):
         cmd = "set -a && source {} && set +a &&".format(
             os.getenv("TAO_COMPILER_BUILD_ENV")
         )
         cmd += " env USE_DEFAULT_PYTHON_LIB_PATH=1"
         # tf master doesn't support python2 any more
-        cmd += " PYTHON_BIN_PATH=" + python_path
+        cmd += " PYTHON_BIN_PATH=" + which("python3")
         cmd += ' CC_OPT_FLAGS="-Wno-sign-compare"'
         cmd += " ./configure"
         logger.info(cmd)
@@ -224,6 +219,7 @@ def configure_compiler(root, args):
             f.write("\n")
             bazel_startup_opts = "--host_jvm_args=-Djdk.http.auth.tunneling.disabledSchemes="
             f.write("startup {}\n".format(bazel_startup_opts))
+            _action_env("ROCM_PATH", get_rocm_path(args))
 
     logger.info("Stage [configure compiler] success.")
 
@@ -257,7 +253,7 @@ def configure_bridge_cmake(root, args):
             flags += " -DBLAZE_OPT=true"
         flags += " -DTAO_CPU_ONLY={}".format(args.cpu_only)
         flags += " -DTAO_DCU={}".format(args.dcu)
-        flags += " -DTAO_ROCM={}".format(args.rocm or args.dcu)
+        flags += " -DTAO_ROCM={}".format(args.rocm)
         flags += " -DROCM_PATH={}".format(get_rocm_path(args))
         is_cuda = not (args.cpu_only or args.dcu or args.rocm)
         flags += " -DTAO_CUDA={}".format(is_cuda)
@@ -340,6 +336,7 @@ def configure_bridge_bazel(root, args):
         _action_env("GCC_HOST_COMPILER_PATH", os.path.realpath(which("gcc")))
         _action_env("CC", os.path.realpath(which("gcc")))
         _action_env("CXX", os.path.realpath(which("g++")))
+        _action_env("ROCM_PATH", get_rocm_path(args))
         (
             tf_major,
             tf_minor,
@@ -414,7 +411,7 @@ def configure_bridge_bazel(root, args):
 
 @time_stage()
 def configure(root, args):
-    if args.cmake or args.dcu or args.rocm:
+    if args.cmake:
         configure_bridge_cmake(root, args)
     else:
         configure_bridge_bazel(root, args)
@@ -434,17 +431,11 @@ def build_tao_compiler(root, args):
 
     @time_stage(incl_args=[0])
     def bazel_build(target, flag=""):
-        rocm_env = os.environ.get("ROCM_PATH", None)
-        if rocm_env is None:
-            os.environ["ROCM_PATH"] = args.rocm_path
-        print(os.environ.get("ROCM_PATH", None))
         if targets is not None and target not in targets:
             logger.info("Skip bazel target: " + target)
             return
         logger.info("Building bazel target: " + target)
         execute(" ".join([BAZEL_BUILD_CMD, flag, target]))
-        if rocm_env is None:
-            os.unsetenv("ROCM_PATH")
 
     with cwd(tf_root_dir(root)), gcc_env(args.compiler_gcc):
         execute(
@@ -669,7 +660,7 @@ def tao_bridge_bazel_config(args):
 
 @time_stage()
 def build_tao_bridge(root, args):
-    if args.cmake or args.dcu or args.rocm:
+    if args.cmake:
         tao_bridge_build_dir = tao_build_dir(root)
         with cwd(tao_bridge_build_dir), gcc_env(args.bridge_gcc):
             execute("make -j")
@@ -730,7 +721,7 @@ def run_py_test(py_bin, test_root, output_file, includes, envs=[]):
 
 @time_stage()
 def test_tao_bridge(root, args, cpp=True, python=True):
-    if args.cmake or args.dcu or args.rocm:
+    if args.cmake:
         tao_bridge_build_dir = tao_build_dir(root)
         # Perform test within tao bridge GCC environment.
         with cwd(tao_bridge_build_dir), gcc_env(args.bridge_gcc):
@@ -1023,7 +1014,7 @@ def parse_args():
     parser.add_argument(
         "--rocm_path",
         required=False,
-        default='/opt/rocm-5.1.0',
+        default=None,
         help="Build tao where rocm locates",
     )
     parser.add_argument(

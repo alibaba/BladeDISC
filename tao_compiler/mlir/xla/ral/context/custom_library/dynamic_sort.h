@@ -16,7 +16,7 @@
 #include <cuda_runtime.h>
 using gpuStream_t = cudaStream_t;
 #elif TENSORFLOW_USE_ROCM
-#include "rocm/include/hip/hip_runtime.h"
+#include <hip/hip_runtime.h>
 using gpuStream_t = hipStream_t;
 #endif
 

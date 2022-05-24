@@ -12,6 +12,7 @@ load("@local_config_blade_disc_helper//:build_defs.bzl",
     "if_platform_alibaba",
 )
 load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_shared_object")
+load("@local_config_rocm//rocm:build_defs.bzl", "if_dcu", "if_rocm")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -104,9 +105,11 @@ cc_library(
         "@local_config_tf//:libtensorflow_framework",
         "@org_tao_compiler//tensorflow/compiler/mlir/xla/ral:ral_bridge",
     ],
-    copts = if_cuda([
-        "-DGOOGLE_CUDA=1",
-    ]) + tf_copts(),
+    copts = if_cuda(["-DGOOGLE_CUDA=1"
+        ]) + if_dcu(["-DTENSORFLOW_USE_DCU=1"
+        ]) + if_rocm(["-DTENSORFLOW_USE_ROCM=1",
+            "-x rocm",
+        ]) + tf_copts(),
     linkopts = [
         "-lm",
     ],

@@ -1,8 +1,4 @@
-if(${TAO_ROCM})
-  cmake_minimum_required (VERSION 3.21.0)
-else()
-  cmake_minimum_required (VERSION 3.8.2)
-endif()
+cmake_minimum_required (VERSION 3.8.2)
 
 project (tao_ops)
 
@@ -143,6 +139,8 @@ endif()
 if(${TAO_DCU})
     list(APPEND TAO_OPS_DEFINITIONS "-DTENSORFLOW_USE_DCU")
     message(STATUS "Define preprocess macro: -DTENSORFLOW_USE_DCU")
+    list(APPEND TAO_OPS_DEFINITIONS "-DTENSORFLOW_USE_ROCM")
+    message(STATUS "Define preprocess macro: -DTENSORFLOW_USE_ROCM")
 endif()
 
 if(${TAO_ROCM})

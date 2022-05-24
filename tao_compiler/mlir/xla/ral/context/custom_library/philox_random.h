@@ -12,6 +12,10 @@
 #ifndef TENSORFLOW_COMPILER_MLIR_XLA_RAL_CONTEXT_CUSTOM_LIBRARY_PHILOX_RANDDOM_H_
 #define TENSORFLOW_COMPILER_MLIR_XLA_RAL_CONTEXT_CUSTOM_LIBRARY_PHILOX_RANDDOM_H_
 
+#if TENSORFLOW_USE_ROCM
+#include <hip/hip_runtime.h>
+#endif
+
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>

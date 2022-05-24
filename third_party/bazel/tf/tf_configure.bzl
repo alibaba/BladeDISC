@@ -1,4 +1,5 @@
 """Setup TensorFlow as external dependency"""
+
 load("//bazel:common.bzl", "get_env_bool_value")
 
 _BLADE_WITH_TF = "BLADE_WITH_TF"
@@ -25,8 +26,9 @@ def _tf_configure_impl(repository_ctx):
             "%{TF_COPTS}": "[]",
             "%{TF_LIB_DIR}": "",
             "%{IS_TF2}": "False",
-            "%{TF_VERSION}": "{}.{}".format(tf_major, tf_minor)
+            "%{TF_VERSION}": "{}.{}".format("", ""),
         })
+        repository_ctx.symlink(Label("//bazel/tf:BUILD.empty.tpl"), "BUILD")
         return
 
     tf_header_dir = repository_ctx.os.environ[_TF_HEADER_DIR]

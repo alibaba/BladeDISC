@@ -1,4 +1,4 @@
-load("//bazel:common.bzl", "get_env_bool_value", "get_host_environ")
+load("//bazel:common.bzl", "get_env_bool_value")
 
 _BUILD_WITH_AARCH64 = "BUILD_WITH_AARCH64"
 _BUILD_WITH_MKLDNN = "BUILD_WITH_MKLDNN"

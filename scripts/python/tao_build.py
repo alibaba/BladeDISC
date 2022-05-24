@@ -352,27 +352,38 @@ def configure_bridge_bazel(root, args):
         _action_env("CXX", os.path.realpath(which("g++")))
         if args.dcu or args.rocm:
             _action_env("ROCM_PATH", get_rocm_path(args))
-        (
-            tf_major,
-            tf_minor,
-            is_pai,
-            tf_header_dir,
-            tf_lib_dir,
-            tf_lib_name,
-            tf_cxx11_abi,
-            tf_pb_version,
-        ) = get_tf_info(python_bin)
-        _opt("cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
-        _opt("host_cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
-        _action_env("BLADE_WITH_TF", "1")
-        _action_env("IF_CXX11_ABI", int(tf_cxx11_abi))
-        _action_env("TF_IS_PAI", int(is_pai))
-        _action_env("TF_MAJOR_VERSION", tf_major)
-        _action_env("TF_MINOR_VERSION", tf_minor)
-        _action_env("TF_HEADER_DIR", tf_header_dir)
-        _action_env("TF_SHARED_LIBRARY_DIR", tf_lib_dir)
-        _action_env("TF_SHARED_LIBRARY_NAME", tf_lib_name)
-        _action_env("TF_PROTOBUF_VERSION", tf_pb_version)
+        if not args.tf_serving:
+            _action_env("BLADE_WITH_TF", "1")
+            (
+                tf_major,
+                tf_minor,
+                is_pai,
+                tf_header_dir,
+                tf_lib_dir,
+                tf_lib_name,
+                tf_cxx11_abi,
+                tf_pb_version,
+            ) = get_tf_info(python_bin)
+            _opt("cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
+            _opt("host_cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
+            _action_env("IF_CXX11_ABI", int(tf_cxx11_abi))
+            _action_env("TF_IS_PAI", int(is_pai))
+            _action_env("TF_MAJOR_VERSION", tf_major)
+            _action_env("TF_MINOR_VERSION", tf_minor)
+            _action_env("TF_HEADER_DIR", tf_header_dir)
+            _action_env("TF_SHARED_LIBRARY_DIR", tf_lib_dir)
+            _action_env("TF_SHARED_LIBRARY_NAME", tf_lib_name)
+            _action_env("TF_PROTOBUF_VERSION", tf_pb_version)
+        else:
+            _action_env("BLADE_WITH_TF", "0")
+            _action_env("TF_SERVING_VERSION", args.tf_serving)
+            # make abi configurable? Community's tf serving uses pre-cxx11 abi for 2.4.x
+            tf_cxx11_abi=0
+            _opt("cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
+            _opt("host_cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
+            _action_env("IF_CXX11_ABI", int(tf_cxx11_abi))
+            _action_env("TF_MAJOR_VERSION", args.tf_serving.split(".")[0])
+            _action_env("TF_MINOR_VERSION", args.tf_serving.split(".")[1])
         # Build environments. They all starts with `DISC_BUILD_`.
         host = socket.gethostname()
         ip = socket.gethostbyname(host)
@@ -674,6 +685,8 @@ def tao_bridge_bazel_config(args):
             bazel_config += " --config=blade_gemm"
     if args.platform_alibaba:
         bazel_config += " --config=platform_alibaba"
+    if args.tf_serving:
+        bazel_config += " --config=tf_serving"
     return bazel_config
 
 @time_stage()
@@ -1083,6 +1096,12 @@ def parse_args():
         required=False,
         default="/usr/local/cuda-11.6/bin/nvcc",
         help="Nvcc used for blade gemm kernel build.",
+    )
+    parser.add_argument(
+        "--tf_serving",
+        required=False,
+        default="",
+        help="Tensorflow-Serving version to build with. Default to empty, if non-empty, will build tao bridge with tf serving",
     )
     # flag validation
     args = parser.parse_args()

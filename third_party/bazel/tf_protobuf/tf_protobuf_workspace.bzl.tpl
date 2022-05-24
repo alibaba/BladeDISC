@@ -1,4 +1,4 @@
-load("@org_tensorflow//third_party:repo.bzl", "tf_http_archive", "tf_mirror_urls")
+load("@org_third_party//bazel:common.bzl", "tf_mirror_urls", "tf_http_archive")
 
 def _tf_protobuf_workspace():
     # NOTE(lanbo.llb): tf_http_archive will check if rule with same already exists,

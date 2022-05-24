@@ -1,15 +1,19 @@
 load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
 load("@local_config_tf//:build_defs.bzl", "tf_copts")
 load("@local_config_cuda//cuda:build_defs.bzl", "cuda_library", "if_cuda")
+
+# NOTE(lanbo.llb): if_dcu when building for tf serving is just a dummy impl
+load("@local_config_rocm//rocm:build_defs.bzl", "if_dcu", "if_rocm")
 load("//:tao_bridge.bzl", "tao_bridge_cc_test")
-load("@local_config_blade_disc_helper//:build_defs.bzl",
-    "disc_build_version",
+load(
+    "@local_config_blade_disc_helper//:build_defs.bzl",
     "disc_build_git_branch",
     "disc_build_git_head",
     "disc_build_host",
     "disc_build_ip",
     "disc_build_time",
-    "if_platform_alibaba",
+    "disc_build_version",
+    "if_tf_serving",
 )
 load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_shared_object")
 load("@local_config_rocm//rocm:build_defs.bzl", "if_dcu", "if_rocm")
@@ -21,14 +25,14 @@ package(default_visibility = ["//visibility:public"])
 filegroup(
     name = "input_version_header",
     srcs = [
-        "tao_bridge/version.h.in"
+        "tao_bridge/version.h.in",
     ],
 )
 
 genrule(
     name = "version_header_genrule",
     srcs = [
-        ":input_version_header"
+        ":input_version_header",
     ],
     outs = ["tao_bridge/version.h"],
     cmd = """pwd;
@@ -40,14 +44,21 @@ genrule(
         sed -i 's/@TAO_BUILD_HOST@/%s/g' $@;
         sed -i 's/@TAO_BUILD_IP@/%s/g' $@;
         sed -i 's/@TAO_BUILD_TIME@/%s/g' $@
-    """ % (disc_build_version(), disc_build_git_branch(), disc_build_git_head(), disc_build_host(), disc_build_ip(), disc_build_time()),
+    """ % (
+        disc_build_version(),
+        disc_build_git_branch(),
+        disc_build_git_head(),
+        disc_build_host(),
+        disc_build_ip(),
+        disc_build_time(),
+    ),
 )
 
 cc_library(
     name = "version_header",
     srcs = ["tao_bridge/version.h"],
     data = [
-        ':version_header_genrule'
+        ":version_header_genrule",
     ],
 )
 
@@ -78,7 +89,7 @@ cc_library(
     name = "tao_bridge",
     srcs = glob(
         include = [
-            "tao_bridge/**/*.cc"
+            "tao_bridge/**/*.cc",
         ],
         exclude = [
             "tao_bridge/**/*test.cc",
@@ -91,7 +102,7 @@ cc_library(
     ],
     hdrs = glob(
         include = [
-            "tao_bridge/**/*.h"
+            "tao_bridge/**/*.h",
         ] + [
             "third_party/json/single_include/nlohmann/json.hpp",
         ],
@@ -99,27 +110,40 @@ cc_library(
             "tao_bridge/gpu/bace_gemm_thunk.h",
         ],
     ),
-    deps = [
-        ":version_header",
-        "@local_config_tf//:tf_header_lib",
-        "@local_config_tf//:libtensorflow_framework",
-        "@org_tao_compiler//tensorflow/compiler/mlir/xla/ral:ral_bridge",
-    ] + if_platform_alibaba([
-            "//third_party/blade_service_common:blade_service_common_deps",
-    ]),
     copts = if_cuda([
-        "-DGOOGLE_CUDA=1"
+        "-DGOOGLE_CUDA=1",
     ]) + if_dcu([
-        "-DTENSORFLOW_USE_DCU=1"
+        "-DTENSORFLOW_USE_DCU=1",
     ]) + if_rocm([
         "-DTENSORFLOW_USE_ROCM=1",
         "-x rocm",
-    ])+ tf_copts(),
+    ]) + if_tf_serving(
+        [],
+        tf_copts(),
+    ),
     linkopts = [
         "-lm",
     ],
-    alwayslink = 1,  # targets depending on it should carry all symbols in its children.
     linkstatic = 1,
+    deps = [
+        ":version_header",
+        "@org_tao_compiler//tensorflow/compiler/mlir/xla/ral:ral_bridge",
+    ] + if_tf_serving(
+        [
+            "@org_tensorflow//tensorflow/core:lib",
+            "@org_tensorflow//tensorflow/core:framework",
+            "@org_tensorflow//tensorflow/core/common_runtime:core_cpu",
+            "@org_tensorflow//tensorflow/core/platform:stream_executor_no_cuda",
+            "@org_tensorflow//tensorflow/stream_executor:stream_executor_impl",
+        ],
+        [
+            "@local_config_tf//:tf_header_lib",
+            "@local_config_tf//:libtensorflow_framework",
+        ],
+    ) + if_platform_alibaba([
+            "//third_party/blade_service_common:blade_service_common_deps",
+    ]),
+    alwayslink = 1,  # targets depending on it should carry all symbols in its children.
 )
 
 tf_cc_shared_object(

@@ -1,4 +1,4 @@
-load("//bazel:common.bzl", "get_python_bin", "get_env_bool_value_str", "get_host_environ")
+load("//bazel:common.bzl", "get_env_bool_value_str", "get_host_environ", "get_python_bin")
 
 _PYTHON_BIN_PATH = "PYTHON_BIN_PATH"
 _BLADE_NEED_TENSORRT = "BLADE_WITH_TENSORRT"
@@ -9,6 +9,7 @@ _NVCC_BIN_PATH = "NVCC"
 _CUDA_HOME = "TF_CUDA_HOME"
 _CUDA_VERSION = "TF_CUDA_VERSION"
 _IF_HIE = "BLADE_WITH_HIE"
+
 # for generating disc compiler's version.h
 _DISC_BUILD_VERSION = "DISC_BUILD_VERSION"
 _DISC_BUILD_GIT_BRANCH = "DISC_BUILD_GIT_BRANCH"

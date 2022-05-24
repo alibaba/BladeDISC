@@ -1,2 +1,4 @@
-
-exports_files(["repo.bzl", "trt.BUILD.bzl"])
+exports_files([
+    "repo.bzl",
+    "trt.BUILD.bzl",
+])

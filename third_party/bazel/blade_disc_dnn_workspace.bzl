@@ -1,5 +1,4 @@
-load("@org_tensorflow//third_party:repo.bzl", "tf_http_archive", "tf_mirror_urls")
-load("@org_third_party//bazel:common.bzl", "maybe_http_archive")
+load("@org_third_party//bazel:common.bzl", "maybe_http_archive", "tf_http_archive", "tf_mirror_urls")
 load("@org_third_party//bazel/onednn:onednn_configure.bzl", "onednn_configure")
 
 def _blade_disc_dnn_repositories():
@@ -35,6 +34,12 @@ def _blade_disc_dnn_repositories():
 
     # ACL_ROOT setting is done in `onednn_configure`
     onednn_configure(name = "local_config_onednn")
+
+    native.new_local_repository(
+        name = "onednn",
+        build_file = "@local_config_onednn//:onednn.BUILD",
+        path = "third_party/mkldnn",
+    )
 
 def workspace():
     _blade_disc_dnn_repositories()

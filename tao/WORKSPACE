@@ -15,10 +15,6 @@ load("@//:workspace1.bzl", "tao_bridge_workspace1")
 
 tao_bridge_workspace1()
 
-load("@org_third_party//bazel:blade_disc_dnn_workspace.bzl", "blade_disc_dnn_workspace")
-
-blade_disc_dnn_workspace()
-
 load("@//:workspace0.bzl", "tao_bridge_workspace0")
 
 tao_bridge_workspace0()
@@ -31,19 +27,14 @@ load("@local_config_tf_protobuf//:tf_protobuf_workspace.bzl", "tf_protobuf_works
 
 tf_protobuf_workspace()
 
-# Initialize TensorFlow's external dependencies.
-load("@org_tensorflow//tensorflow:workspace3.bzl", "tf_workspace3")
+load("@local_config_tf_source//:tf_source_workspace1.bzl", "tf_source_workspace1")
 
-tf_workspace3()
+tf_source_workspace1()
 
-load("@org_tensorflow//tensorflow:workspace2.bzl", "tf_workspace2")
+load("@local_config_tf_source//:tf_source_workspace0.bzl", "tf_source_workspace0")
 
-tf_workspace2()
+tf_source_workspace0()
 
-load("@org_tensorflow//tensorflow:workspace1.bzl", "tf_workspace1")
+load("@org_third_party//bazel:blade_disc_dnn_workspace.bzl", "blade_disc_dnn_workspace")
 
-tf_workspace1()
-
-load("@org_tensorflow//tensorflow:workspace0.bzl", "tf_workspace0")
-
-tf_workspace0()
+blade_disc_dnn_workspace()

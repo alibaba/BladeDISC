@@ -486,7 +486,7 @@ Status MlirTest::RunGoldenTF() {
     } else if (dtype == tensorflow::DT_INT32) {
       // Using bitcast instead of `flat` in case the output has quantized
       // integer type.
-      auto datas = output_tensors[i].bit_casted_shaped<uint8_t, 1>(
+      auto datas = output_tensors[i].bit_casted_shaped<int32_t, 1>(
           {output_tensors[i].NumElements()});
       for (int64_t n = 0; n < datas.size(); ++n) {
         int32_t actual =

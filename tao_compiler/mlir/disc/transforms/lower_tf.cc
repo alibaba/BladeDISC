@@ -290,74 +290,241 @@ struct ConvertQuantizeV2Op : public OpRewritePattern<TF::QuantizeV2Op> {
     //   tensorflow/core/kernels/quantize_op.cc
     if (op.axis() != -1 && op.mode() == "MIN_FIRST") return failure();
 
+    // TODO(disc): support `MIN_COMBINED` mode
+    if (op.mode() == "MIN_COMBINED") return failure();
+
+    // TODO(disc): support `HALF_TO_EVEN` mode
+    if (op.round_mode() == "HALF_TO_EVEN") return failure();
+
     if (op.axis() == -1 && op.mode() == "MIN_FIRST") {
-      return quantizeTensor(op, rewriter);
+      return quantizePerElement(op, rewriter);
     }
 
-    return success();
+    return quantizePerChannel(op, rewriter);
   }
 
-  LogicalResult quantizeTensor(TF::QuantizeV2Op op,
-                               PatternRewriter& rewriter) const;
+  LogicalResult adjustMinMaxRange(TF::QuantizeV2Op op,
+                                  PatternRewriter& rewriter, Value& minRange,
+                                  Value& maxRange) const;
+
+  LogicalResult quantizePerElement(TF::QuantizeV2Op op,
+                                   PatternRewriter& rewriter) const;
+
+  LogicalResult quantizePerChannel(TF::QuantizeV2Op op,
+                                   PatternRewriter& rewriter) const;
 };
 
 // reference implementation:
 //   tensorflow/core/kernels/quantize_op.cc
-LogicalResult ConvertQuantizeV2Op::quantizeTensor(
-    TF::QuantizeV2Op op, PatternRewriter& rewriter) const {
+LogicalResult ConvertQuantizeV2Op::adjustMinMaxRange(TF::QuantizeV2Op op,
+                                                     PatternRewriter& rewriter,
+                                                     Value& minRange,
+                                                     Value& maxRange) const {
   Location loc = op.getLoc();
 
-  Value zeros = rewriter.create<TF::ConstOp>(
-      loc, DenseFPElementsAttr::get(op.min_range().getType(), {0.0f}));
-  Value ones = rewriter.create<TF::ConstOp>(
-      loc, DenseFPElementsAttr::get(op.min_range().getType(), {1.0f}));
-  Value ensureMinimumRange = rewriter.create<TF::ConstOp>(
-      loc, DenseFPElementsAttr::get(op.min_range().getType(),
-                                    {op.ensure_minimum_range()}));
+  auto inputMinRangeTy = op.min_range().getType().cast<RankedTensorType>();
+  auto scalarTensorTy =
+      RankedTensorType::get({}, inputMinRangeTy.getElementType());
 
-  Value minRange = rewriter.create<TF::MinimumOp>(loc, zeros, op.min_range());
+  Value zeros = rewriter.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(scalarTensorTy, {0.0f}));
+  Value ones = rewriter.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(scalarTensorTy, {1.0f}));
+  Value ensureMinimumRange = rewriter.create<TF::ConstOp>(
+      loc,
+      DenseFPElementsAttr::get(scalarTensorTy, {op.ensure_minimum_range()}));
+
+  minRange = rewriter.create<TF::MinimumOp>(loc, zeros, op.min_range());
   Value absInputMinRange = rewriter.create<TF::AbsOp>(loc, op.min_range());
   Value absInputMaxRange = rewriter.create<TF::AbsOp>(loc, op.max_range());
   Value maxAbsInputRange =
       rewriter.create<TF::MaximumOp>(loc, absInputMinRange, absInputMaxRange);
   Value epsilon = rewriter.create<TF::MaximumOp>(loc, maxAbsInputRange, ones);
   epsilon = rewriter.create<TF::MulOp>(loc, epsilon, ensureMinimumRange);
-  Value maxRange = rewriter.create<TF::AddOp>(loc, epsilon, minRange);
+  maxRange = rewriter.create<TF::AddOp>(loc, epsilon, minRange);
   maxRange = rewriter.create<TF::MaximumOp>(loc, op.max_range(), maxRange);
   maxRange = rewriter.create<TF::MaximumOp>(loc, zeros, maxRange);
 
+  return success();
+}
+
+LogicalResult ConvertQuantizeV2Op::quantizePerElement(
+    TF::QuantizeV2Op op, PatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+
+  auto inputMinRangeTy = op.min_range().getType().cast<RankedTensorType>();
+  auto scalarTensorTy =
+      RankedTensorType::get({}, inputMinRangeTy.getElementType());
+
+  Value zeros = rewriter.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(scalarTensorTy, {0.0f}));
+  Value ones = rewriter.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(scalarTensorTy, {1.0f}));
+
+  Value minRange, maxRange;
+  if (failed(adjustMinMaxRange(op, rewriter, minRange, maxRange)))
+    return op->emitError("fail to adjust min/max range\n");
+
   auto resultTy = op.output().getType().dyn_cast<RankedTensorType>();
   auto resultElemTy = QuantizedTypeToIntegerType(resultTy.getElementType());
-
-  Value rangeScale = rewriter.create<TF::SubOp>(loc, maxRange, minRange);
-  Value numStepsMinusOne = rewriter.create<TF::ConstOp>(
-      loc,
-      DenseFPElementsAttr::get(op.min_range().getType(),
-                               {(1ull << resultElemTy.getWidth()) - 1.0f}));
-  rangeScale = rewriter.create<TF::DivOp>(loc, rangeScale, numStepsMinusOne);
-
-  Value result = rewriter.create<TF::MulOp>(loc, op.input(), rangeScale);
-  result = rewriter.create<TF::RoundOp>(loc, result);
-
-  Value rangeMinScaled = rewriter.create<TF::MulOp>(loc, minRange, rangeScale);
-  rangeMinScaled = rewriter.create<TF::RoundOp>(loc, rangeMinScaled);
   auto limits = GetNumericLimits(resultElemTy);
 
-  Value lowestQuantized = rewriter.create<TF::ConstOp>(
-      loc, DenseFPElementsAttr::get(op.min_range().getType(),
-                                    {limits.lowest_quantized}));
-  Value lowerBound = rewriter.create<TF::ConstOp>(
-      loc, DenseFPElementsAttr::get(op.min_range().getType(),
-                                    {limits.lower_bound_float}));
-  Value upperBound = rewriter.create<TF::ConstOp>(
-      loc, DenseFPElementsAttr::get(op.min_range().getType(),
-                                    {limits.upper_bound_float}));
-  Value bias = rewriter.create<TF::SubOp>(loc, rangeMinScaled, lowestQuantized);
-  result = rewriter.create<TF::SubOp>(loc, result, bias);
-  result = rewriter.create<TF::MaximumOp>(loc, result, lowerBound);
-  result = rewriter.create<TF::MinimumOp>(loc, result, upperBound);
-  result = rewriter.create<TF::CastOp>(loc, op.output().getType(), result);
+  if (op.mode() == "MIN_FIRST") {
+    Value rangeScale = rewriter.create<TF::SubOp>(loc, maxRange, minRange);
+    Value numStepsMinusOne = rewriter.create<TF::ConstOp>(
+        loc,
+        DenseFPElementsAttr::get(op.min_range().getType(),
+                                 {(1ull << resultElemTy.getWidth()) - 1.0f}));
+    rangeScale = rewriter.create<TF::DivOp>(loc, rangeScale, numStepsMinusOne);
 
+    Value result = rewriter.create<TF::MulOp>(loc, op.input(), rangeScale);
+    result = rewriter.create<TF::RoundOp>(loc, result);
+
+    Value rangeMinScaled =
+        rewriter.create<TF::MulOp>(loc, minRange, rangeScale);
+    rangeMinScaled = rewriter.create<TF::RoundOp>(loc, rangeMinScaled);
+
+    Value lowestQuantized = rewriter.create<TF::ConstOp>(
+        loc, DenseFPElementsAttr::get(op.min_range().getType(),
+                                      {limits.lowest_quantized}));
+    Value lowerBound = rewriter.create<TF::ConstOp>(
+        loc, DenseFPElementsAttr::get(op.min_range().getType(),
+                                      {limits.lower_bound_float}));
+    Value upperBound = rewriter.create<TF::ConstOp>(
+        loc, DenseFPElementsAttr::get(op.min_range().getType(),
+                                      {limits.upper_bound_float}));
+    Value bias =
+        rewriter.create<TF::SubOp>(loc, rangeMinScaled, lowestQuantized);
+    result = rewriter.create<TF::SubOp>(loc, result, bias);
+    result = rewriter.create<TF::MaximumOp>(loc, result, lowerBound);
+    result = rewriter.create<TF::MinimumOp>(loc, result, upperBound);
+    result = rewriter.create<TF::CastOp>(loc, op.output().getType(), result);
+
+    SmallVector<Value> newResults{result, minRange, maxRange};
+    rewriter.replaceOp(op, newResults);
+    return success();
+  }
+
+  return op->emitError() << "not supported quantization mode: " << op.mode()
+                         << "\n";
+}
+
+LogicalResult ConvertQuantizeV2Op::quantizePerChannel(
+    TF::QuantizeV2Op op, PatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+
+  auto inputMinRangeTy = op.min_range().getType().cast<RankedTensorType>();
+  auto scalarTensorTy =
+      RankedTensorType::get({}, inputMinRangeTy.getElementType());
+
+  Value zeros = rewriter.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(scalarTensorTy, {0.0f}));
+  Value ones = rewriter.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(scalarTensorTy, {1.0f}));
+
+  Value minRange, maxRange;
+  if (failed(adjustMinMaxRange(op, rewriter, minRange, maxRange)))
+    return op->emitError("fail to adjust min/max range\n");
+
+  auto resultTy = op.output().getType().dyn_cast<RankedTensorType>();
+  auto resultElemTy = QuantizedTypeToIntegerType(resultTy.getElementType());
+  auto limits = GetNumericLimits(resultElemTy);
+
+  Value minOutputValue = rewriter.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(
+               scalarTensorTy, {limits.lower_bound_float + op.narrow_range()}));
+  Value maxOutputValue = rewriter.create<TF::ConstOp>(
+      loc,
+      DenseFPElementsAttr::get(scalarTensorTy, {limits.upper_bound_float}));
+  Value epsilon = rewriter.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(scalarTensorTy, {1e-6f}));
+  Value maxFloat = rewriter.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(scalarTensorTy,
+                                    {std::numeric_limits<float>::max()}));
+  if (inputMinRangeTy.getRank() != 0) {
+    auto rangeShapeType =
+        RankedTensorType::get({1}, rewriter.getIntegerType(32));
+    Value rangeShape =
+        rewriter.create<TF::ShapeOp>(loc, rangeShapeType, minRange);
+    maxFloat = rewriter.create<TF::BroadcastToOp>(loc, inputMinRangeTy,
+                                                  maxFloat, rangeShape);
+  }
+
+  auto boolTensorTy = RankedTensorType::get(inputMinRangeTy.getShape(),
+                                            rewriter.getIntegerType(1));
+
+  Value minRangeIsZero =
+      rewriter.create<TF::EqualOp>(loc, boolTensorTy, minRange, zeros);
+  minRangeIsZero =
+      rewriter.create<TF::CastOp>(loc, minRange.getType(), minRangeIsZero);
+  Value minEpsilon = rewriter.create<TF::MulOp>(loc, minRangeIsZero, epsilon);
+  // minRange is a non-positive number, minus a positive number to make sure the
+  // result is not zero.
+  Value adjustMinRange = rewriter.create<TF::SubOp>(loc, minRange, minEpsilon);
+  Value scaleFactorFromMinSide =
+      rewriter.create<TF::DivOp>(loc, minOutputValue, adjustMinRange);
+  Value minProduct = rewriter.create<TF::MulOp>(loc, minRange, minOutputValue);
+  Value minProductIsPositive =
+      rewriter.create<TF::GreaterOp>(loc, boolTensorTy, minProduct, zeros);
+  scaleFactorFromMinSide = rewriter.create<TF::SelectOp>(
+      loc, scaleFactorFromMinSide.getType(), minProductIsPositive,
+      scaleFactorFromMinSide, maxFloat);
+
+  Value maxRangeIsZero =
+      rewriter.create<TF::EqualOp>(loc, boolTensorTy, maxRange, zeros);
+  maxRangeIsZero =
+      rewriter.create<TF::CastOp>(loc, maxRange.getType(), maxRangeIsZero);
+  Value maxEpsilon = rewriter.create<TF::MulOp>(loc, maxRangeIsZero, epsilon);
+  // maxRange is a non-negative number, minus a positive number to make sure the
+  // result is not zero.
+  Value adjustMaxRange = rewriter.create<TF::SubOp>(loc, maxRange, maxEpsilon);
+  Value scaleFactorFromMaxSide =
+      rewriter.create<TF::DivOp>(loc, maxOutputValue, adjustMaxRange);
+  Value maxProduct = rewriter.create<TF::MulOp>(loc, maxRange, maxOutputValue);
+  Value maxProductIsPositive =
+      rewriter.create<TF::GreaterOp>(loc, boolTensorTy, maxProduct, zeros);
+  scaleFactorFromMaxSide = rewriter.create<TF::SelectOp>(
+      loc, scaleFactorFromMaxSide.getType(), maxProductIsPositive,
+      scaleFactorFromMaxSide, maxFloat);
+
+  Value scaleFactor = rewriter.create<TF::MinimumOp>(
+      loc, scaleFactorFromMinSide, scaleFactorFromMaxSide);
+  minRange = rewriter.create<TF::DivOp>(loc, minOutputValue, scaleFactor);
+  maxRange = rewriter.create<TF::DivOp>(loc, maxOutputValue, scaleFactor);
+
+  auto expandDims = [&](Value v) {
+    // scalar case, no need to do broadcast.
+    if (op.axis() == -1) return v;
+    auto scalarIntTensorTy =
+        RankedTensorType::get({}, rewriter.getIntegerType(32));
+    Value minusOneDim = rewriter.create<TF::ConstOp>(
+        loc, DenseFPElementsAttr::get(scalarIntTensorTy, {-1}));
+    for (int i = op.axis() + 1; i < resultTy.getRank(); ++i) {
+      SmallVector<int64_t> newShape;
+      auto oldType = v.getType().cast<RankedTensorType>();
+      for (int64_t d : oldType.getShape()) newShape.push_back(d);
+      newShape.push_back(1);
+      auto newType = RankedTensorType::get(newShape, oldType.getElementType());
+      v = rewriter.create<TF::ExpandDimsOp>(loc, newType, v, minusOneDim);
+    }
+    return v;
+  };
+
+  Value result = op.input();
+  Value expandedMinRange = expandDims(minRange);
+  Value expandedMaxRange = expandDims(maxRange);
+  Value expandedScaleFactor = expandDims(scaleFactor);
+  result = rewriter.create<TF::MaximumOp>(loc, result, expandedMinRange);
+  result = rewriter.create<TF::MinimumOp>(loc, result, expandedMaxRange);
+  result = rewriter.create<TF::MulOp>(loc, result, expandedScaleFactor);
+  if (op.round_mode() == "HALF_AWAY_FROM_ZERO") {
+    result = rewriter.create<TF::RoundOp>(loc, result);
+  } else {
+    return op->emitError() << "not supported round_mode: " << op.round_mode()
+                           << "\n";
+  }
+
+  result = rewriter.create<TF::CastOp>(loc, op.output().getType(), result);
   SmallVector<Value> newResults{result, minRange, maxRange};
   rewriter.replaceOp(op, newResults);
   return success();

@@ -31,10 +31,10 @@ int getRowReductionScheduleHint(Operation* op) {
   assert(op);
   lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
   // Use schedule 2 by default.
-  if (!fusion) return DISC_WARP_WISE_ROW_REDUCE;
+  if (!fusion) return DISC_BLOCK_WISE_ROW_REDUCE;
   IntegerAttr attr =
       fusion->getAttrOfType<IntegerAttr>(kRowReductionScheduleHint);
-  if (!attr) return DISC_WARP_WISE_ROW_REDUCE;
+  if (!attr) return DISC_BLOCK_WISE_ROW_REDUCE;
   return attr.getInt();
 }
 

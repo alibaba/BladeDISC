@@ -56,29 +56,19 @@ class LowerConfig {
   struct SpecificLoader {
     SpecificLoader() {}
 
-    SpecificLoader(Value shm, Value block_size, Value threads_per_row)
-        : shm_buffer_(shm),
-          block_size_(block_size),
-          threads_per_row_(threads_per_row) {}
-
     SpecificLoader(Value shm, int64_t row_per_block)
         : shm_buffer_(shm), row_per_block_(row_per_block) {}
 
     Value operator()(OpBuilder& b, Value memref, ValueRange indices) {
-      return row_per_block_ != -1
-                 ? loadShmemWithStaticSchedule(b, memref, indices)
-                 : loadShmemWithDynamicSchedule(b, memref, indices);
+      return loadShmem(b, memref, indices);
     }
 
    private:
     Value shm_buffer_;
-    Value block_size_;
-    Value threads_per_row_;
-    int64_t row_per_block_ = -1;
+    int64_t row_per_block_;
 
    private:
-    Value loadShmemWithStaticSchedule(OpBuilder& b, Value value,
-                                      ValueRange indices) {
+    Value loadShmem(OpBuilder& b, Value value, ValueRange indices) {
       auto loc = shm_buffer_.getLoc();
       assert(shm_buffer_ != nullptr);
       // It requires the elements store in shm_buffer are in index order.
@@ -89,23 +79,6 @@ class LowerConfig {
           b.create<arith::ConstantIndexOp>(loc, row_per_block_);
       Value shmem_index =
           b.create<arith::RemUIOp>(loc, linear_index, row_per_block_val);
-      Value res =
-          b.create<memref::LoadOp>(loc, shm_buffer_, ValueRange({shmem_index}));
-      return res;
-    }
-
-    Value loadShmemWithDynamicSchedule(OpBuilder& b, Value value,
-                                       ValueRange indices) {
-      auto loc = shm_buffer_.getLoc();
-      assert(shm_buffer_ != nullptr);
-      // It requires the elements store in shm_buffer are in index order.
-      auto shape = getShapeValues(&b, value);
-      assert(shape.size() == indices.size());
-      Value linear_index = calcLinearIndex(&b, loc, indices, shape);
-      Value row_per_block =
-          b.create<arith::DivUIOp>(loc, block_size_, threads_per_row_);
-      Value shmem_index =
-          b.create<arith::RemUIOp>(loc, linear_index, row_per_block);
       Value res =
           b.create<memref::LoadOp>(loc, shm_buffer_, ValueRange({shmem_index}));
       return res;

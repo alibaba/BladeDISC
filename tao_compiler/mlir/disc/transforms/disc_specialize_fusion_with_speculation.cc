@@ -181,6 +181,7 @@ struct DiscSpecializeFusionWithSpeculationPass
         cloneWithBroadcastSimplifying(b, fusion_op, broadcast_ops);
     addFusionTag(b, cloned, "no_ib");
 
+#if 0
     // Generate the predition.
     for (Operation* op : broadcast_ops) {
       Value operand = op->getOperand(0);
@@ -203,6 +204,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     Block* else_block = &if_op.getElseRegion().getBlocks().front();
     cloned.getOperation()->moveBefore(then_block, then_block->begin());
     fusion_op.getOperation()->moveBefore(else_block, else_block->begin());
+#endif
 
     DenseMap<Value, Value> viewMap;
     SmallVector<Operation*, 4> op_list;
@@ -237,16 +239,19 @@ struct DiscSpecializeFusionWithSpeculationPass
     cloned.walk([&](Operation* op) {
       for (auto& it : viewMap) op->replaceUsesOfWith(it.first, it.second);
     });
+#if 1
+    fusion_op.erase();
+#endif
   }
 
   void DoRowReductionSpeculation(FusionOp fusion_op) {
-    bool experimental_tlp_enhance = false;
-    tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_TLP_ENHANCE", false,
-                                   &experimental_tlp_enhance);
+    // bool experimental_tlp_enhance = false;
+    // tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_TLP_ENHANCE", false,
+    //  &experimental_tlp_enhance);
     FusionType fusion_type = getFusionType(fusion_op.getOperation());
     if (fusion_type != FusionType::kRowReduction &&
-        (fusion_type != FusionType::kStitch ||
-         (fusion_type == FusionType::kStitch && experimental_tlp_enhance))) {
+        fusion_type != FusionType::kStitch) {
+      //  (fusion_type == FusionType::kStitch && experimental_tlp_enhance))) {
       return;
     }
 
@@ -527,12 +532,12 @@ struct DiscSpecializeFusionWithSpeculationPass
     // Stage #3: speculation of row reduce op.
     // We do row-reduction speculation before vectorization/tiling because TLP
     // is usually more important than ILP on GPU.
-    Speculator(
-        &DiscSpecializeFusionWithSpeculationPass::DoRowReductionSpeculation);
+    // Speculator(
+    // &DiscSpecializeFusionWithSpeculationPass::DoRowReductionSpeculation);
 
     // Stage #4: speculation of vectorization/tiling.
-    Speculator(
-        &DiscSpecializeFusionWithSpeculationPass::DoVectorizeOrTileSpeculation);
+    // Speculator(
+    // &DiscSpecializeFusionWithSpeculationPass::DoVectorizeOrTileSpeculation);
   }
 };
 

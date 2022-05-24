@@ -33,6 +33,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/IR/topk_custom_call_op.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
+#include "tensorflow/compiler/mlir/tensorflow/ir/tf_types.h"
 
 #define DEBUG_TYPE "disc-lower-tf"
 
@@ -200,6 +201,168 @@ class ConvertUniformOp : public OpRewritePattern<TF::RandomUniformOp> {
   }
 };
 
+IntegerType QuantizedTypeToIntegerType(Type ty) {
+  auto ctx = ty.getContext();
+  if (ty.isa<TF::Qint8Type>()) {
+    return IntegerType::get(ctx, 8, IntegerType::SignednessSemantics::Signed);
+  } else if (ty.isa<TF::Qint16Type>()) {
+    return IntegerType::get(ctx, 16, IntegerType::SignednessSemantics::Signed);
+  } else if (ty.isa<TF::Qint32Type>()) {
+    return IntegerType::get(ctx, 32, IntegerType::SignednessSemantics::Signed);
+  } else if (ty.isa<TF::Quint8Type>()) {
+    return IntegerType::get(ctx, 8, IntegerType::SignednessSemantics::Unsigned);
+  } else if (ty.isa<TF::Quint16Type>()) {
+    return IntegerType::get(ctx, 16,
+                            IntegerType::SignednessSemantics::Unsigned);
+  }
+  return {};
+}
+
+struct NumericLimits {
+  float lowest_quantized;
+  float lower_bound_float;
+  float upper_bound_float;
+};
+
+NumericLimits GetNumericLimits(IntegerType ty) {
+  NumericLimits limits;
+  if (ty.isSigned()) {
+    if (ty.getWidth() == 8) {
+      limits.lowest_quantized = std::numeric_limits<int8_t>::min();
+      limits.lower_bound_float = std::numeric_limits<int8_t>::min();
+      limits.upper_bound_float = std::numeric_limits<int8_t>::max();
+    } else if (ty.getWidth() == 16) {
+      limits.lowest_quantized = std::numeric_limits<int16_t>::min();
+      limits.lower_bound_float = std::numeric_limits<int16_t>::min();
+      limits.upper_bound_float = std::numeric_limits<int16_t>::max();
+    } else {
+      assert(ty.getWidth() == 32);
+      limits.lowest_quantized = std::numeric_limits<int32_t>::min();
+      limits.lower_bound_float = std::numeric_limits<int32_t>::min();
+      limits.lower_bound_float =
+          std::max(limits.lower_bound_float, -2.147483648e+09f);
+      limits.upper_bound_float = std::numeric_limits<int32_t>::max();
+      limits.upper_bound_float =
+          std::min(limits.upper_bound_float, +2.147483520e+09f);
+    }
+  } else {
+    assert(ty.isUnsigned());
+    if (ty.getWidth() == 8) {
+      limits.lowest_quantized = std::numeric_limits<uint8_t>::min();
+      limits.lower_bound_float = std::numeric_limits<uint8_t>::min();
+      limits.upper_bound_float = std::numeric_limits<uint8_t>::max();
+    } else {
+      assert(ty.getWidth() == 16);
+      limits.lowest_quantized = std::numeric_limits<uint16_t>::min();
+      limits.lower_bound_float = std::numeric_limits<uint16_t>::min();
+      limits.upper_bound_float = std::numeric_limits<uint16_t>::max();
+    }
+  }
+  return limits;
+}
+
+struct ConvertQuantizeV2Op : public OpRewritePattern<TF::QuantizeV2Op> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::QuantizeV2Op op,
+                                PatternRewriter& rewriter) const final {
+    auto inputTy = op.input().getType().dyn_cast<RankedTensorType>();
+    auto inputMinRangeTy =
+        op.min_range().getType().dyn_cast<RankedTensorType>();
+    auto inputMaxRangeTy =
+        op.max_range().getType().dyn_cast<RankedTensorType>();
+    auto resultTy = op.output().getType().dyn_cast<RankedTensorType>();
+
+    if (!inputTy || !inputMinRangeTy || !inputMaxRangeTy || !resultTy)
+      return failure();
+
+    auto resultElemTy = QuantizedTypeToIntegerType(resultTy.getElementType());
+    if (!resultElemTy) return failure();
+
+    // TODO(disc): support other float type
+    if (!inputTy.getElementType().isF32() ||
+        !inputMinRangeTy.getElementType().isF32() ||
+        !inputMaxRangeTy.getElementType().isF32()) {
+      return failure();
+    }
+
+    // Not supported according to:
+    //   tensorflow/core/kernels/quantize_op.cc
+    if (op.axis() != -1 && op.mode() == "MIN_FIRST") return failure();
+
+    if (op.axis() == -1 && op.mode() == "MIN_FIRST") {
+      return quantizeTensor(op, rewriter);
+    }
+
+    return success();
+  }
+
+  LogicalResult quantizeTensor(TF::QuantizeV2Op op,
+                               PatternRewriter& rewriter) const;
+};
+
+// reference implementation:
+//   tensorflow/core/kernels/quantize_op.cc
+LogicalResult ConvertQuantizeV2Op::quantizeTensor(
+    TF::QuantizeV2Op op, PatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+
+  Value zeros = rewriter.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(op.min_range().getType(), {0.0f}));
+  Value ones = rewriter.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(op.min_range().getType(), {1.0f}));
+  Value ensureMinimumRange = rewriter.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(op.min_range().getType(),
+                                    {op.ensure_minimum_range()}));
+
+  Value minRange = rewriter.create<TF::MinimumOp>(loc, zeros, op.min_range());
+  Value absInputMinRange = rewriter.create<TF::AbsOp>(loc, op.min_range());
+  Value absInputMaxRange = rewriter.create<TF::AbsOp>(loc, op.max_range());
+  Value maxAbsInputRange =
+      rewriter.create<TF::MaximumOp>(loc, absInputMinRange, absInputMaxRange);
+  Value epsilon = rewriter.create<TF::MaximumOp>(loc, maxAbsInputRange, ones);
+  epsilon = rewriter.create<TF::MulOp>(loc, epsilon, ensureMinimumRange);
+  Value maxRange = rewriter.create<TF::AddOp>(loc, epsilon, minRange);
+  maxRange = rewriter.create<TF::MaximumOp>(loc, op.max_range(), maxRange);
+  maxRange = rewriter.create<TF::MaximumOp>(loc, zeros, maxRange);
+
+  auto resultTy = op.output().getType().dyn_cast<RankedTensorType>();
+  auto resultElemTy = QuantizedTypeToIntegerType(resultTy.getElementType());
+
+  Value rangeScale = rewriter.create<TF::SubOp>(loc, maxRange, minRange);
+  Value numStepsMinusOne = rewriter.create<TF::ConstOp>(
+      loc,
+      DenseFPElementsAttr::get(op.min_range().getType(),
+                               {(1ull << resultElemTy.getWidth()) - 1.0f}));
+  rangeScale = rewriter.create<TF::DivOp>(loc, rangeScale, numStepsMinusOne);
+
+  Value result = rewriter.create<TF::MulOp>(loc, op.input(), rangeScale);
+  result = rewriter.create<TF::RoundOp>(loc, result);
+
+  Value rangeMinScaled = rewriter.create<TF::MulOp>(loc, minRange, rangeScale);
+  rangeMinScaled = rewriter.create<TF::RoundOp>(loc, rangeMinScaled);
+  auto limits = GetNumericLimits(resultElemTy);
+
+  Value lowestQuantized = rewriter.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(op.min_range().getType(),
+                                    {limits.lowest_quantized}));
+  Value lowerBound = rewriter.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(op.min_range().getType(),
+                                    {limits.lower_bound_float}));
+  Value upperBound = rewriter.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(op.min_range().getType(),
+                                    {limits.upper_bound_float}));
+  Value bias = rewriter.create<TF::SubOp>(loc, rangeMinScaled, lowestQuantized);
+  result = rewriter.create<TF::SubOp>(loc, result, bias);
+  result = rewriter.create<TF::MaximumOp>(loc, result, lowerBound);
+  result = rewriter.create<TF::MinimumOp>(loc, result, upperBound);
+  result = rewriter.create<TF::CastOp>(loc, op.output().getType(), result);
+
+  SmallVector<Value> newResults{result, minRange, maxRange};
+  rewriter.replaceOp(op, newResults);
+  return success();
+}
+
 #include "tensorflow/compiler/mlir/disc/transforms/lower_tf.inc"
 
 void PrepareTFPass::runOnOperation() {
@@ -207,8 +370,14 @@ void PrepareTFPass::runOnOperation() {
   RewritePatternSet patterns(ctx);
   func::FuncOp func = getOperation();
   populateWithGenerated(patterns);
-  patterns.insert<ConvertSqueezeOpDynamic, ConvertTopKV2OpDynamic,
-                  ConvertUniformOp>(ctx);
+  // clang-format off
+  patterns.insert<
+      ConvertQuantizeV2Op,
+      ConvertSqueezeOpDynamic,
+      ConvertTopKV2OpDynamic,
+      ConvertUniformOp
+  >(ctx);
+  // clang-format on
   (void)applyPatternsAndFoldGreedily(func, std::move(patterns));
 }
 

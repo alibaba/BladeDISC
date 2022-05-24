@@ -484,7 +484,10 @@ Status MlirTest::RunGoldenTF() {
         }
       }
     } else if (dtype == tensorflow::DT_INT32) {
-      auto datas = output_tensors[i].flat<int32_t>();
+      // Using bitcast instead of `flat` in case the output has quantized
+      // integer type.
+      auto datas = output_tensors[i].bit_casted_shaped<uint8_t, 1>(
+          {output_tensors[i].NumElements()});
       for (int64_t n = 0; n < datas.size(); ++n) {
         int32_t actual =
             reinterpret_cast<int32_t*>(actual_results_[i].get())[n];
@@ -520,7 +523,10 @@ Status MlirTest::RunGoldenTF() {
         }
       }
     } else if (dtype == tensorflow::DT_UINT8) {
-      auto datas = output_tensors[i].flat<uint8_t>();
+      // Using bitcast instead of `flat` in case the output has quantized
+      // integer type.
+      auto datas = output_tensors[i].bit_casted_shaped<uint8_t, 1>(
+          {output_tensors[i].NumElements()});
       for (int64_t n = 0; n < datas.size(); ++n) {
         uint8_t actual =
             reinterpret_cast<uint8_t*>(actual_results_[i].get())[n];
@@ -532,7 +538,10 @@ Status MlirTest::RunGoldenTF() {
         }
       }
     } else if (dtype == tensorflow::DT_INT8) {
-      auto datas = output_tensors[i].flat<int8_t>();
+      // Using bitcast instead of `flat` in case the output has quantized
+      // integer type.
+      auto datas = output_tensors[i].bit_casted_shaped<int8_t, 1>(
+          {output_tensors[i].NumElements()});
       for (int64_t n = 0; n < datas.size(); ++n) {
         int8_t actual = reinterpret_cast<int8_t*>(actual_results_[i].get())[n];
         VLOG(2) << "expected: " << datas(n) << ", actual: " << actual;

@@ -2659,6 +2659,9 @@ std::vector<string> GetDiscSupportedOps() {
     "BatchMatMulV2",
     "GatherV2"
   });
+  ops.insert(ops.end(), {
+    "QuantizeV2"
+  });
 #endif
   // clang-format on
   return ops;

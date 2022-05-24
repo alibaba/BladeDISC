@@ -29,15 +29,6 @@
 #include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
 #include "tensorflow/core/public/version.h"
 #include "tensorflow/stream_executor/device_description.h"
-#if TENSORFLOW_USE_ROCM
-#include "tensorflow/compiler/mlir/xla/ral/context/tvm_kernel_collector.h"
-#include "tensorflow/stream_executor/rocm/rocm_driver_wrapper.h"
-#endif
-#include <iostream>
-#include <fstream>
-
-#include "tensorflow/core/util/env_var.h"
-
 
 namespace se = stream_executor;
 
@@ -121,10 +112,6 @@ struct RalTFContextState : public ::tao::ral::Context::Resource {
 
 RalTfContext::RalTfContext(const RalTfContextOptions& options) {
   // TODO: add a macro to control if we should enbale gpu.
-  #if TENSORFLOW_USE_ROCM
-  tao::ral::tvm_impl::CollectorCheckEnable();
-  tao::ral::tvm_impl::CollectorCheckDevice();
-  #endif
   addDriver(::tao::ral::gpu::GPUDriver::name(),
             absl::make_unique<::tao::ral::gpu::GPUDriver>(this));
   addDriver(::tao::ral::cpu::CPUDriver::name(),
@@ -152,26 +139,14 @@ RalTfContext::RalTfContext(const RalTfContextOptions& options) {
   }
 }
 
-RalTfContext::~RalTfContext() {
-  #if TENSORFLOW_USE_ROCM
-  tao::ral::tvm_impl::CollectorDumpResults();
-  #endif
-}
+RalTfContext::~RalTfContext() {}
 
 RalTfExecutionContext::RalTfExecutionContext(RalTfContext* ctx)
     : ExecutionContext(ctx), impl_(new Impl) {
-      #if TENSORFLOW_USE_ROCM
-  tao::ral::tvm_impl::CollectorCheckEnable();  
-  tao::ral::tvm_impl::CollectorCheckDevice();  
-  #endif 
   onExecutionStart();
 }
 
-RalTfExecutionContext::~RalTfExecutionContext() { onExecutionFinish(); 
-#if TENSORFLOW_USE_ROCM
- tao::ral::tvm_impl::CollectorDumpResults();
- #endif
-}
+RalTfExecutionContext::~RalTfExecutionContext() { onExecutionFinish(); }
 
 void RalTfExecutionContext::setOpContext(OpKernelContext* ctx) {
   impl_->op_ctx = ctx;
@@ -423,7 +398,6 @@ void ral_tf_gpu_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
   se::Stream* stream = nullptr;
   se::StreamExecutor* executor = nullptr;
   se::KernelBase* kernel_ptr = nullptr;
-  std::string namedeb;
   {
     std::lock_guard<std::mutex> lock(state->mu);
     stream = ral_tf_ctx->getOpContext()->op_device_context()->stream();
@@ -467,36 +441,12 @@ void ral_tf_gpu_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
 
     auto key = std::make_pair(blob, std::string(kernel_name));
     auto it = state->kernels.find(key);
-    namedeb = key.second;
-    // VLOG(0) << "Kernel " << key.second << " " << num_args;
-    // VLOG(0) << sizeof((char*) blob);
-//     if (key.second == "main_kRowReduction_reduce__4_1_0___1w1rX_vectile2X_no_vectile_revised_re
-// vised") {
-    // {
-    //   hipModule_t hipmodule;
-    //   hipError_t res = tensorflow::wrap::hipModuleLoadData(&hipmodule, reinterpret_cast<const void*>(blob));
-    //    if (res != hipSuccess) {
-    //     VLOG(0) << "error for hsoco build in bridge";
-    //   } else {
-    //     VLOG(0) << "Finish for hsoco build in bridge ";
-    //   }
-
-    // }
-    // std::ofstream of("bridge.txt", std::ios_base::app);
-    // of << key.second << std::endl;
-    // for (int i = 0; i < 9500; i++) {
-    //     of << (int)((reinterpret_cast<const uint8_t*>(blob))[i]) << " ";
-    // }
-    // of << std::endl;
-
     if (it == state->kernels.end()) {
       se::MultiKernelLoaderSpec spec(num_args);
       spec.AddCudaCubinInMemory((char*)blob, (char*)kernel_name);
       std::unique_ptr<se::KernelBase> kernel(new se::KernelBase(executor));
-      Status res = executor->GetKernel(spec, kernel.get());
-      auto status = ral_to_bool(res); //executor->GetKernel(spec, kernel.get()));
+      auto status = ral_to_bool(executor->GetKernel(spec, kernel.get()));
       if (!status) {
-        VLOG(0) <<  res.error_message();
         VLOG(0) << "unable to load kernel";
         ctx->signalError(Context::FAILURE, "fail to find kernel " + key.second);
         return;
@@ -507,25 +457,6 @@ void ral_tf_gpu_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
   }
 
   RalTfKernelArgsArrayBase kernel_args(params, num_args);
-
-  bool args_dump = false;
-  tensorflow::ReadBoolFromEnvVar("DISC_ARGS", false,
-                                 &args_dump);
-
-//   if (namedeb == "main_kColReduction_dynamic_reshape_reduce__26_2_3___no_ibX8w32h_1_revised_revised_revised")  
-  if (args_dump)
-  {
-    VLOG(0) << "kernel is " << namedeb;
-    se::KernelArgIterator iter = kernel_args.arg_iterator();
-    while (iter.has_next()) {
-    se::KernelArg arg = iter.next();
-    VLOG(0) << "*(arg.address):" << reinterpret_cast<uint64_t>(*static_cast<const uint64_t*>(arg.address));
-    }
-  }
-
-
-
-
   auto status = ral_to_bool(executor->Launch(
       stream, se::ThreadDim(blockX, blockY, blockZ),
       se::BlockDim(gridX, gridY, gridZ), *kernel_ptr, kernel_args));

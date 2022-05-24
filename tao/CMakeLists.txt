@@ -1,4 +1,8 @@
-cmake_minimum_required (VERSION 3.21.0)
+if(${TAO_ROCM})
+  cmake_minimum_required (VERSION 3.21.0)
+else()
+  cmake_minimum_required (VERSION 3.8.2)
+endif()
 
 project (tao_ops)
 
@@ -15,7 +19,7 @@ if(${TAO_CUDA})
   include(CMake/SetupCUDA.cmake)
 endif()
 
-if((${TAO_DCU}) OR (${TAO_ROCM}))
+if(${TAO_ROCM})
   include(CMake/SetupROCM.cmake)
 endif()
 
@@ -37,7 +41,7 @@ tao_option(ENABLE_BLADE_GEMM "if ON, using blade_gemm for gpu dot-general" OFF)
 tao_option(TAO_ENABLE_MKLDNN "if ON, using mkldnn for compute-intensive ops" OFF)
 set(MKL_ROOT "third_party/mkldnn/build/intel" CACHE STRING "Set to mkl_root if enable MKL")
 tao_option(GTEST_TAR_URL "download cmake tarball via URL" "https://github.com/google/googletest/archive/refs/tags/release-1.11.0.tar.gz")
-tao_option(ROCM_PATH "Path to the ROCM toolchain" /opt/rocm-4.5.0/)
+tao_option(ROCM_PATH "Path to the ROCM toolchain" /opt/rocm)
 
 ############## config start ##############
 if (NOT UNIX)
@@ -138,9 +142,7 @@ endif()
 
 if(${TAO_DCU})
     list(APPEND TAO_OPS_DEFINITIONS "-DTENSORFLOW_USE_DCU")
-    list(APPEND TAO_OPS_DEFINITIONS "-DTENSORFLOW_USE_ROCM")
     message(STATUS "Define preprocess macro: -DTENSORFLOW_USE_DCU")
-    message(STATUS "Define preprocess macro: -DTENSORFLOW_USE_ROCM")
 endif()
 
 if(${TAO_ROCM})

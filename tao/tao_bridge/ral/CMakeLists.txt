@@ -61,7 +61,7 @@ if(${TAO_CUDA})
     include_directories("/usr/local/cuda/targets/x86_64-linux/include")
 endif()
 
-if((${TAO_DCU}) OR (${TAO_ROCM}))
+if(${TAO_ROCM})
     set(CMAKE_HIP_STANDARD 11)
     set(CMAKE_HIP_STANDARD_REQUIRED ON)
     MESSAGE("Include header files from ROCM path ${ROCM_PATH}")
@@ -71,12 +71,6 @@ if((${TAO_DCU}) OR (${TAO_ROCM}))
     include_directories("${ROCM_PATH}/include/rocprofiler")
     include_directories("${ROCM_PATH}/include/roctracer")
     add_definitions(-D__HIP_PLATFORM_HCC__ -DTENSORFLOW_USE_ROCM) 
-    # if (${TAO_DCU})
-    #   add_definitions(-DTAO_DCU)
-    # endif()
-    # if (${TAO_ROCM})
-    #   add_definitions(-DTAO_ROCM)
-    # endif()
 endif()
 
 
@@ -111,7 +105,6 @@ list(APPEND RAL_SRCS
 )
 
 #TODO: revisit this when support DCU in tf bridge
-#if(NOT ${TAO_CPU_ONLY})
 if(${TAO_CUDA})
   list(APPEND RAL_SRCS
       "tensorflow/compiler/mlir/xla/ral/context/dynamic_sort_impl.cc"
@@ -132,13 +125,11 @@ if(${TAO_CUDA})
   set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --expt-relaxed-constexpr")
 endif()
 
-if((${TAO_DCU}) OR (${TAO_ROCM}))
+if(${TAO_ROCM})
   list(APPEND RAL_SRCS
     "tensorflow/compiler/mlir/xla/ral/context/dynamic_sort_impl.cc"
     "tensorflow/compiler/mlir/xla/ral/context/random_impl.cc"
     "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_cuda.cc"
-    "tensorflow/compiler/mlir/xla/ral/context/tvm_kernel_cache.cc"
-    "tensorflow/compiler/mlir/xla/ral/context/tvm_kernel_collector.cc"  
   )
   list(APPEND RAL_CU_SRCS
       "tensorflow/compiler/mlir/xla/ral/context/custom_library/dynamic_sort.cu.cc"
@@ -148,12 +139,8 @@ if((${TAO_DCU}) OR (${TAO_ROCM}))
     set_source_files_properties(${file} PROPERTIES LANGUAGE HIP)
   endforeach()
   include_directories("${CMAKE_SOURCE_DIR}")
-  # set(CMAKE_HIP_FLAGS "${CMAKE_HIP_FLAGS} --expt-relaxed-constexpr")
-
   list(APPEND RAL_HDRS
     "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_cuda.h"
-    "tensorflow/compiler/mlir/xla/ral/context/tvm_kernel_cache.h"
-    "tensorflow/compiler/mlir/xla/ral/context/tvm_kernel_collector.h"
   )
 endif()
 

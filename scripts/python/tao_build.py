@@ -257,7 +257,7 @@ def configure_bridge_cmake(root, args):
             flags += " -DBLAZE_OPT=true"
         flags += " -DTAO_CPU_ONLY={}".format(args.cpu_only)
         flags += " -DTAO_DCU={}".format(args.dcu)
-        flags += " -DTAO_ROCM={}".format(args.rocm)
+        flags += " -DTAO_ROCM={}".format(args.rocm or args.dcu)
         flags += " -DROCM_PATH={}".format(get_rocm_path(args))
         is_cuda = not (args.cpu_only or args.dcu or args.rocm)
         flags += " -DTAO_CUDA={}".format(is_cuda)
@@ -414,7 +414,7 @@ def configure_bridge_bazel(root, args):
 
 @time_stage()
 def configure(root, args):
-    if args.cmake:
+    if args.cmake or args.dcu or args.rocm:
         configure_bridge_cmake(root, args)
     else:
         configure_bridge_bazel(root, args)
@@ -669,7 +669,7 @@ def tao_bridge_bazel_config(args):
 
 @time_stage()
 def build_tao_bridge(root, args):
-    if args.cmake:
+    if args.cmake or args.dcu or args.rocm:
         tao_bridge_build_dir = tao_build_dir(root)
         with cwd(tao_bridge_build_dir), gcc_env(args.bridge_gcc):
             execute("make -j")
@@ -730,7 +730,7 @@ def run_py_test(py_bin, test_root, output_file, includes, envs=[]):
 
 @time_stage()
 def test_tao_bridge(root, args, cpp=True, python=True):
-    if args.cmake:
+    if args.cmake or args.dcu or args.rocm:
         tao_bridge_build_dir = tao_build_dir(root)
         # Perform test within tao bridge GCC environment.
         with cwd(tao_bridge_build_dir), gcc_env(args.bridge_gcc):

@@ -22,6 +22,7 @@ limitations under the License.
 #include "mlir/IR/Builders.h"           // from @llvm-project
 #include "mlir/IR/BuiltinAttributes.h"  // from @llvm-project
 #include "mlir/IR/BuiltinTypes.h"
+#include "tensorflow/compiler/mlir/disc/utils/cycle_detector.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -83,6 +84,11 @@ bool parseEinsumEquation(
     SmallVector<char>* lhs_original_tokens,
     SmallVector<char>* rhs_original_tokens,
     SmallVector<char>* result_original_tokens);
+
+llvm::Optional<int32_t> TryMergeNode(GraphCycles* graph_cycles, int32_t a,
+                                     int32_t b);
+
+SmallVector<Value, 4> GetAllPossibleUsedValues(Operation* op);
 
 }  // namespace disc_ral
 }  // namespace mlir

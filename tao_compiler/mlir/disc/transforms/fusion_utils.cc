@@ -655,7 +655,7 @@ void FusionPattern::findOpsOfSkeletonGroup(SkeletonGroup group,
                                            DenseSet<Operation*>& ops) {
   ops.clear();
   // All operators dominanted by `group` can be traced back from skeleton op.
-  Operation* skeleton = group.skeleton;
+  SmallVector<Operation*> skeletons = group.skeletons;
   DenseSet<Operation*> fusion_ops(op_list_.begin(), op_list_.end());
   DenseSet<Operation*> xroot_members(group.root_member_list.begin(),
                                      group.root_member_list.end());
@@ -678,8 +678,10 @@ void FusionPattern::findOpsOfSkeletonGroup(SkeletonGroup group,
       findGroupOps(input_op, grp_ops);
     }
   };
-  ops.insert(skeleton);
-  findGroupOps(skeleton, ops);
+  for (auto skeleton : skeletons) {
+    ops.insert(skeleton);
+    findGroupOps(skeleton, ops);
+  }
 }
 
 bool getOrderedSkeletonGroups(
@@ -778,11 +780,111 @@ bool getOrderedSkeletonGroups(
       }
     }
     FusionPattern::SkeletonGroup group;
-    group.skeleton = skeleton;
+    group.skeletons = SmallVector<Operation*>({skeleton});
     group.root_member_list = std::move(root_member_list);
     group.irregular_root_member_set = std::move(irregular_members);
     groups.emplace_back(std::move(group));
   }
+
+  return true;
+}
+
+bool mergeSkeletonGroupsInOrder(
+    FusionPattern& pattern, SmallVector<FusionPattern::SkeletonGroup>& groups,
+    ShapeAnalysis* shape_analysis) {
+  const auto& op_list = pattern.getOpList();
+  DenseMap<Operation*, int64_t> op_to_node_id;
+  for (int64_t i = 0; i < op_list.size(); i++) {
+    auto op = op_list[i];
+    op_to_node_id.try_emplace(op, i);
+  }
+  GraphCycles cycle_detector(op_list.size());
+  for (int64_t node_id = 0; node_id < op_list.size(); node_id++) {
+    Operation* op = op_list[node_id];
+    for (Value operand : GetAllPossibleUsedValues(op)) {
+      Operation* operand_op = operand.getDefiningOp();
+      // Only consider the operand_op inside the target block.
+      auto iter = op_to_node_id.find(operand_op);
+      if (iter == op_to_node_id.end()) {
+        continue;
+      }
+      cycle_detector.InsertEdge(iter->second, node_id);
+    }
+  }
+  SmallVector<std::pair<int64_t, FusionPattern::SkeletonGroup>> merged_groups;
+  for (auto& group : groups) {
+    assert(group.skeletons.size() == 1);
+    merged_groups.emplace_back(op_to_node_id[group.skeletons[0]], group);
+  }
+
+  // Try to merge skeleton-groups.
+  for (int64_t i = 0; i < merged_groups.size(); i++) {
+    auto& merged = merged_groups[i];
+    auto& merged_grp = merged.second;
+    // Only deal with reduce ops currently.
+    // TODO: deal with non-reduce ops.
+    auto merged_grp_reduce =
+        dyn_cast_or_null<lmhlo::ReduceOp>(merged_grp.skeletons[0]);
+    if (merged.first == -1 || !merged_grp_reduce) {
+      continue;
+    }
+    for (int64_t j = i + 1; j < merged_groups.size(); j++) {
+      auto& to_merge = merged_groups[j];
+      auto& to_merge_grp = to_merge.second;
+      auto to_merge_grp_reduce =
+          dyn_cast_or_null<lmhlo::ReduceOp>(to_merge_grp.skeletons[0]);
+      if (to_merge.first == -1 || !to_merge_grp_reduce) {
+        continue;
+      }
+      if (!shape_analysis->isShapeEqual(
+              merged_grp.skeletons[0]->getOperand(0),
+              to_merge_grp.skeletons[0]->getOperand(0))) {
+        continue;
+      }
+
+      auto optional_merged_id =
+          TryMergeNode(&cycle_detector, merged.first, to_merge.first);
+      if (!optional_merged_id.hasValue()) {
+        // It forms a cycle.
+        continue;
+      }
+
+      merged_grp.skeletons.insert(merged_grp.skeletons.end(),
+                                  to_merge_grp.skeletons.begin(),
+                                  to_merge_grp.skeletons.end());
+      merged_grp.irregular_root_member_set.insert(
+          to_merge_grp.irregular_root_member_set.begin(),
+          to_merge_grp.irregular_root_member_set.end());
+      SmallVector<Operation*> root_member_list;
+      DenseSet<Operation*> root_member_set;
+      root_member_set.insert(merged_grp.root_member_list.begin(),
+                             merged_grp.root_member_list.end());
+      root_member_set.insert(to_merge_grp.root_member_list.begin(),
+                             to_merge_grp.root_member_list.end());
+      for (auto op : op_list) {
+        if (root_member_set.contains(op)) {
+          root_member_list.push_back(op);
+        }
+      }
+      merged_grp.root_member_list = std::move(root_member_list);
+
+      to_merge.first = -1;
+      merged.first = *optional_merged_id;
+    }
+  }
+
+  std::vector<int32_t> ordered_nodes = cycle_detector.AllNodesInPostOrder();
+  std::reverse(ordered_nodes.begin(), ordered_nodes.end());
+  SmallVector<FusionPattern::SkeletonGroup> result;
+  for (auto id : ordered_nodes) {
+    for (auto& group : merged_groups) {
+      if (group.first == id) {
+        result.push_back(group.second);
+        break;
+      }
+    }
+  }
+  groups = std::move(result);
 
   return true;
 }

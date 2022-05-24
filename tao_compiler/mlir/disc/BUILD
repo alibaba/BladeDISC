@@ -173,6 +173,7 @@ cc_library(
         "disc_util.h",
     ],
     deps = [
+        ":cycle_detector",
         ":placement_utils",
         "@llvm-project//mlir:MemRefDialect",
         "@llvm-project//llvm:Support",

@@ -23,9 +23,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/FormatVariadic.h"
+#include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
-#include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
 #include "mlir/Conversion/GPUToROCDL/GPUToROCDLPass.h"
 #include "mlir/Conversion/LLVMCommon/ConversionTarget.h"
 #include "mlir/Conversion/LLVMCommon/LoweringOptions.h"
@@ -100,19 +100,19 @@ struct GPUShuffleOpLowering : public ConvertOpToLLVMPattern<gpu::ShuffleOp> {
   }
 };
 
-/* Fix atomic codegen problem on AMDMI210, corresponding to the hipcc compilcation results
-*/
-class  AtomicRMWOpRewrite
-    : public OpRewritePattern<LLVM::AtomicRMWOp> {
+/* Fix atomic codegen problem on AMDMI210, corresponding to the hipcc
+ * compilcation results
+ */
+class AtomicRMWOpRewrite : public OpRewritePattern<LLVM::AtomicRMWOp> {
  public:
   using OpRewritePattern::OpRewritePattern;
 
   LogicalResult matchAndRewrite(LLVM::AtomicRMWOp atomicOp,
                                 PatternRewriter& rewriter) const override {
-    if (atomicOp.getOrdering() ==  LLVM::AtomicOrdering::acq_rel) {
+    if (atomicOp.getOrdering() == LLVM::AtomicOrdering::acq_rel) {
       rewriter.replaceOpWithNewOp<LLVM::AtomicRMWOp>(
-          atomicOp, atomicOp.getRes().getType(),
-          atomicOp.getBinOp(), atomicOp.getPtr(), atomicOp.getVal(),
+          atomicOp, atomicOp.getRes().getType(), atomicOp.getBinOp(),
+          atomicOp.getPtr(), atomicOp.getVal(),
           LLVM::AtomicOrdering::monotonic);
     }
     return success();
@@ -231,9 +231,9 @@ struct DiscLowerGpuOpsToROCDLOpsPass
     populateVectorToROCDLConversionPatterns(converter, llvmPatterns);
     cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
     populateMathToLLVMConversionPatterns(converter, patterns);
-   
+
     populateMemRefToLLVMConversionPatterns(converter, llvmPatterns);
-    
+
     populateFuncToLLVMConversionPatterns(converter, patterns);
     ::mlir::disc_ral::populateGpuToROCDLConversionPatterns(converter,
                                                            llvmPatterns);

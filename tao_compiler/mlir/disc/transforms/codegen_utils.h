@@ -31,7 +31,7 @@ limitations under the License.
 namespace mlir {
 namespace disc_ral {
 
-#if TENSORFLOW_USE_ROCM 
+#if TENSORFLOW_USE_ROCM
 constexpr int kWarpSize = 32;
 #else
 constexpr int kWarpSize = 32;
@@ -89,7 +89,7 @@ constexpr const char* kThreadPerBlockHint = "disc_thread_per_block_hint";
 constexpr const int kRowReductionScheduleTurningSize = 512;
 
 // default num of threads per block used when doing codegen
-#if TENSORFLOW_USE_ROCM 
+#if TENSORFLOW_USE_ROCM
 constexpr const int kThreadsRowReduction = 256;
 #else
 constexpr const int kThreadsRowReduction = 256;

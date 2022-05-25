@@ -51,9 +51,9 @@ limitations under the License.
 #include "tensorflow/core/platform/rocm_rocdl_path.h"
 #include "tensorflow/stream_executor/rocm/rocm_driver_wrapper.h"
 #define CUDA_SUCCESS hipSuccess
-#define ROCM_CALL(func)                                              \
-  {                                                                  \
-    hipError_t e = (func);                                           \
+#define ROCM_CALL(func)                                             \
+  {                                                                 \
+    hipError_t e = (func);                                          \
     CHECK(e == hipSuccess) << "ROCM HIP: " << hipGetErrorString(e); \
   }
 #endif
@@ -64,16 +64,16 @@ namespace {
 
 #if TENSORFLOW_USE_ROCM
 static std::string RocmCurrentArch() {
-    int device_id;
-    ROCM_CALL(hipGetDevice(&device_id));
-    hipDeviceProp_t prop;
-    ROCM_CALL(hipGetDeviceProperties(&prop, device_id));
-    auto arch_type = prop.gcnArch;
-    std::string arch_str = "gfx" + std::to_string(arch_type);
-    if(arch_str == "gfx910") {
-      arch_str = "gfx90a";
-    }
-    return std::move(arch_str);
+  int device_id;
+  ROCM_CALL(hipGetDevice(&device_id));
+  hipDeviceProp_t prop;
+  ROCM_CALL(hipGetDeviceProperties(&prop, device_id));
+  auto arch_type = prop.gcnArch;
+  std::string arch_str = "gfx" + std::to_string(arch_type);
+  if (arch_str == "gfx910") {
+    arch_str = "gfx90a";
+  }
+  return std::move(arch_str);
 }
 #endif
 
@@ -154,8 +154,7 @@ class GpuKernelToBlobPass
 #if TENSORFLOW_USE_ROCM_COMPILE_TOOLKIT
     std::string libdevice_dir = tensorflow::RocdlRoot();
     std::string rocm_path;
-    tensorflow::ReadStringFromEnvVar("DISC_ROCM_PATH",
-                                     "/opt/rocm", &rocm_path);
+    tensorflow::ReadStringFromEnvVar("DISC_ROCM_PATH", "/opt/rocm", &rocm_path);
 #if (TF_ROCM_VERSION >= 30900 || TENSORFLOW_USE_DCU)
     libdevice_dir = tensorflow::io::JoinPath(rocm_path, "amdgcn/bitcode");
 #else
@@ -276,8 +275,7 @@ class GpuKernelToBlobPass
     }
     std::string libdevice_dir = tensorflow::RocdlRoot();
     std::string rocm_path;
-    tensorflow::ReadStringFromEnvVar("DISC_ROCM_PATH",
-                                     "/opt/rocm", &rocm_path);
+    tensorflow::ReadStringFromEnvVar("DISC_ROCM_PATH", "/opt/rocm", &rocm_path);
 
 #if (TF_ROCM_VERSION >= 30900 || TENSORFLOW_USE_DCU)
     libdevice_dir = tensorflow::io::JoinPath(rocm_path, "amdgcn/bitcode");
@@ -287,12 +285,11 @@ class GpuKernelToBlobPass
 
     auto llvm_module_copy = llvm::CloneModule(*llvmModule);
     auto hsaco_or = xla::gpu::amdgpu::CompileToHsaco(
-          llvm_module_copy.get(),
-          tensorflow::se::RocmComputeCapability{arch_str}, config,
-          libdevice_dir);
+        llvm_module_copy.get(), tensorflow::se::RocmComputeCapability{arch_str},
+        config, libdevice_dir);
 
     if (!hsaco_or.ok()) {
-	    VLOG(0) << "LLVM Backend compile HSACO fail.";
+      VLOG(0) << "LLVM Backend compile HSACO fail.";
     }
     return hsaco_or;
 

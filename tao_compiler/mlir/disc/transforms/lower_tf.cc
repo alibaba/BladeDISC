@@ -261,6 +261,25 @@ NumericLimits GetNumericLimits(IntegerType ty) {
   return limits;
 }
 
+// Expand v in order to be broacast compatiable with the target ranked value.
+Value expandValueDims(Value v, int axis, int rank, PatternRewriter& rewriter,
+                      Location loc) {
+  // Early return since it's already compatible
+  if (axis == -1) return v;
+  auto scalarIntTensorTy =
+      RankedTensorType::get({}, rewriter.getIntegerType(32));
+  Value minusOneDim = rewriter.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(scalarIntTensorTy, {-1}));
+  for (int i = axis + 1; i < rank; ++i) {
+    auto oldType = v.getType().cast<RankedTensorType>();
+    auto newShape = llvm::to_vector(oldType.getShape());
+    newShape.push_back(1);
+    auto newType = RankedTensorType::get(newShape, oldType.getElementType());
+    v = rewriter.create<TF::ExpandDimsOp>(loc, newType, v, minusOneDim);
+  }
+  return v;
+}
+
 struct ConvertQuantizeV2Op : public OpRewritePattern<TF::QuantizeV2Op> {
   using OpRewritePattern::OpRewritePattern;
 
@@ -493,21 +512,7 @@ LogicalResult ConvertQuantizeV2Op::quantizeModeScaledOrMinCombined(
   maxRange = rewriter.create<TF::DivOp>(loc, maxOutputValue, scaleFactor);
 
   auto expandDims = [&](Value v) {
-    // scalar case, no need to do broadcast.
-    if (op.axis() == -1) return v;
-    auto scalarIntTensorTy =
-        RankedTensorType::get({}, rewriter.getIntegerType(32));
-    Value minusOneDim = rewriter.create<TF::ConstOp>(
-        loc, DenseFPElementsAttr::get(scalarIntTensorTy, {-1}));
-    for (int i = op.axis() + 1; i < resultTy.getRank(); ++i) {
-      SmallVector<int64_t> newShape;
-      auto oldType = v.getType().cast<RankedTensorType>();
-      for (int64_t d : oldType.getShape()) newShape.push_back(d);
-      newShape.push_back(1);
-      auto newType = RankedTensorType::get(newShape, oldType.getElementType());
-      v = rewriter.create<TF::ExpandDimsOp>(loc, newType, v, minusOneDim);
-    }
-    return v;
+    return expandValueDims(v, op.axis(), resultTy.getRank(), rewriter, loc);
   };
 
   Value result = op.input();
@@ -530,6 +535,99 @@ LogicalResult ConvertQuantizeV2Op::quantizeModeScaledOrMinCombined(
   return success();
 }
 
+struct ConvertDequantizeOp : public OpRewritePattern<TF::DequantizeOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::DequantizeOp op,
+                                PatternRewriter& rewriter) const final {
+    auto inputTy = op.input().getType().dyn_cast<RankedTensorType>();
+    auto inputMinRangeTy =
+        op.min_range().getType().dyn_cast<RankedTensorType>();
+    auto inputMaxRangeTy =
+        op.max_range().getType().dyn_cast<RankedTensorType>();
+    auto resultTy = op.output().getType().dyn_cast<RankedTensorType>();
+
+    if (!inputTy || !inputMinRangeTy || !inputMaxRangeTy || !resultTy)
+      return failure();
+
+    auto inputElemTy = QuantizedTypeToIntegerType(inputTy.getElementType());
+    if (!inputElemTy) return failure();
+
+    // TODO(disc): support other float type
+    if (!resultTy.getElementType().isF32() ||
+        !inputMinRangeTy.getElementType().isF32() ||
+        !inputMaxRangeTy.getElementType().isF32()) {
+      return failure();
+    }
+
+    // TODO(disc): support `MIN_FIRST` mode
+    if (op.mode() == "MIN_FIRST") return failure();
+
+    // TODO(disc): support `MIN_COMBINED` mode
+    if (op.mode() == "MIN_COMBINED") return failure();
+
+    return dequantize(op, rewriter);
+  }
+
+  LogicalResult dequantize(TF::DequantizeOp op,
+                           PatternRewriter& rewriter) const;
+};
+
+LogicalResult ConvertDequantizeOp::dequantize(TF::DequantizeOp op,
+                                              PatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+
+  auto inputMinRangeTy = op.min_range().getType().cast<RankedTensorType>();
+  auto scalarTensorTy =
+      RankedTensorType::get({}, inputMinRangeTy.getElementType());
+
+  auto inputTy = op.input().getType().dyn_cast<RankedTensorType>();
+  auto inputElemTy = QuantizedTypeToIntegerType(inputTy.getElementType());
+  auto resultTy = op.output().getType().dyn_cast<RankedTensorType>();
+  auto limits = GetNumericLimits(inputElemTy);
+
+  Value minRange = op.min_range();
+  Value maxRange = op.max_range();
+  Value input = op.input();
+  auto newInputTy =
+      RankedTensorType::get(inputTy.getShape(), resultTy.getElementType());
+  input = rewriter.create<TF::CastOp>(loc, newInputTy, input);
+
+  Value maxOutputValue = rewriter.create<TF::ConstOp>(
+      loc,
+      DenseFPElementsAttr::get(scalarTensorTy, {limits.upper_bound_float}));
+
+  if (op.mode() == "SCALED") {
+    // `tf.Dequantive` and `_MklDequantize` have different behaviours.
+    // We have to disable onednn before testing `tf.Dequantive` since
+    // `tf.Dequantive` will be converted to `_MklDequantize` by default when
+    // onednn is enabled.
+    // TODO(disc): figure out how to combine the TF version and the MKL version.
+    Value minOutputValue = rewriter.create<TF::ConstOp>(
+        loc,
+        DenseFPElementsAttr::get(
+            scalarTensorTy, {limits.lower_bound_float + op.narrow_range()}));
+    Value scaleFactorFromMax =
+        rewriter.create<TF::DivOp>(loc, maxRange, maxOutputValue);
+    Value scaleFactor = scaleFactorFromMax;
+    if (limits.lower_bound_float != 0.f) {
+      Value scaleFactorFromMin =
+          rewriter.create<TF::DivOp>(loc, minRange, minOutputValue);
+      scaleFactor = rewriter.create<TF::MaximumOp>(loc, scaleFactorFromMin,
+                                                   scaleFactorFromMax);
+    }
+    scaleFactor = expandValueDims(scaleFactor, op.axis(), inputTy.getRank(),
+                                  rewriter, loc);
+    Value result = rewriter.create<TF::MulOp>(loc, scaleFactor, input);
+    result.setType(op.output().getType());
+    rewriter.replaceOp(op, {result});
+    return success();
+  }
+
+  return op->emitError() << "not supported quantization mode: " << op.mode()
+                         << "\n";
+}
+
 #include "tensorflow/compiler/mlir/disc/transforms/lower_tf.inc"
 
 void PrepareTFPass::runOnOperation() {
@@ -539,6 +637,7 @@ void PrepareTFPass::runOnOperation() {
   populateWithGenerated(patterns);
   // clang-format off
   patterns.insert<
+      ConvertDequantizeOp,
       ConvertQuantizeV2Op,
       ConvertSqueezeOpDynamic,
       ConvertTopKV2OpDynamic,

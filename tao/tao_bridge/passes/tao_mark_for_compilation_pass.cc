@@ -2660,6 +2660,7 @@ std::vector<string> GetDiscSupportedOps() {
     "GatherV2"
   });
   ops.insert(ops.end(), {
+    "Dequantize",
     "QuantizeV2"
   });
 #endif

@@ -580,7 +580,7 @@ def test_tao_compiler(root, args):
             return
         logger.info("Testing bazel target: " + target)
         execute(" ".join([BAZEL_BUILD_CMD, flag, target]))
-        execute(" ".join([BAZEL_TEST_CMD, flag + ' --test_env=TF_CPP_VMODULE=disc_compiler=1' , target]))
+        execute(" ".join([BAZEL_TEST_CMD, flag + ' --test_env=TF_CPP_VMODULE=disc_compiler=1 --test_env=TF_ENABLE_ONEDNN_OPTS=0' , target]))
 
     build_blade_gemm(root, args)
     with cwd(tf_root_dir(root)), gcc_env(args.compiler_gcc):

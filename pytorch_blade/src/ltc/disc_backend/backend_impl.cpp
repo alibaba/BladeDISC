@@ -67,7 +67,9 @@ const std::set<int8_t> TSBackendDeviceType::supported_device_types_ = {
 class DISCBackendImpl : public torch::lazy::BackendImplInterface {
  public:
   DISCBackendImpl() : default_device_type_(at::kCPU) {
-    auto type = at::kCUDA;
+    bool env_use_cuda = std::getenv("LTC_DISC_CUDA") != nullptr;
+    auto type = env_use_cuda ? at::kCUDA : at::kCPU;
+
     default_device_type_ = TSBackendDeviceType(type);
     cache_ = std::make_shared<DiscComputationCache>(
         FLAGS_torch_lazy_compilation_cache_size);

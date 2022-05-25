@@ -91,7 +91,7 @@ c10::optional<OpConverter> MhloConverterRegistery::GetNodeConverter(
   if (iter != converter_lut_.end()) {
     return iter->second;
   }
-  LOG(WARNING) << "Unable to get OpConverter for node: " << node;
+  VLOG(2) << "Unable to get OpConverter for node: " << node;
   return c10::nullopt;
 }
 

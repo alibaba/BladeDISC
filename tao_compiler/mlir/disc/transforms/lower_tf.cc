@@ -290,28 +290,28 @@ struct ConvertQuantizeV2Op : public OpRewritePattern<TF::QuantizeV2Op> {
     //   tensorflow/core/kernels/quantize_op.cc
     if (op.axis() != -1 && op.mode() == "MIN_FIRST") return failure();
 
+    if (op.axis() == -1 && op.mode() == "MIN_FIRST") {
+      return quantizeModeMinFirst(op, rewriter);
+    }
+
     // TODO(disc): support `MIN_COMBINED` mode
     if (op.mode() == "MIN_COMBINED") return failure();
 
     // TODO(disc): support `HALF_TO_EVEN` mode
     if (op.round_mode() == "HALF_TO_EVEN") return failure();
 
-    if (op.axis() == -1 && op.mode() == "MIN_FIRST") {
-      return quantizePerElement(op, rewriter);
-    }
-
-    return quantizePerChannel(op, rewriter);
+    return quantizeModeScaledOrMinCombined(op, rewriter);
   }
 
   LogicalResult adjustMinMaxRange(TF::QuantizeV2Op op,
                                   PatternRewriter& rewriter, Value& minRange,
                                   Value& maxRange) const;
 
-  LogicalResult quantizePerElement(TF::QuantizeV2Op op,
-                                   PatternRewriter& rewriter) const;
+  LogicalResult quantizeModeMinFirst(TF::QuantizeV2Op op,
+                                     PatternRewriter& rewriter) const;
 
-  LogicalResult quantizePerChannel(TF::QuantizeV2Op op,
-                                   PatternRewriter& rewriter) const;
+  LogicalResult quantizeModeScaledOrMinCombined(
+      TF::QuantizeV2Op op, PatternRewriter& rewriter) const;
 };
 
 // reference implementation:
@@ -348,7 +348,7 @@ LogicalResult ConvertQuantizeV2Op::adjustMinMaxRange(TF::QuantizeV2Op op,
   return success();
 }
 
-LogicalResult ConvertQuantizeV2Op::quantizePerElement(
+LogicalResult ConvertQuantizeV2Op::quantizeModeMinFirst(
     TF::QuantizeV2Op op, PatternRewriter& rewriter) const {
   Location loc = op.getLoc();
 
@@ -409,7 +409,7 @@ LogicalResult ConvertQuantizeV2Op::quantizePerElement(
                          << "\n";
 }
 
-LogicalResult ConvertQuantizeV2Op::quantizePerChannel(
+LogicalResult ConvertQuantizeV2Op::quantizeModeScaledOrMinCombined(
     TF::QuantizeV2Op op, PatternRewriter& rewriter) const {
   Location loc = op.getLoc();
 

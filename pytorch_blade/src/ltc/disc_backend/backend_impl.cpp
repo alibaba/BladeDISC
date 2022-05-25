@@ -20,8 +20,8 @@
 #include <torch/csrc/lazy/core/lazy_graph_executor.h>
 #include <torch/csrc/lazy/ts_backend/ts_backend_impl.h>
 #include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
+#include "common_utils/utils.h"
 #include "ltc/disc_compiler/disc_compiler.h"
-
 namespace torch_disc {
 namespace compiler {
 
@@ -67,7 +67,8 @@ const std::set<int8_t> TSBackendDeviceType::supported_device_types_ = {
 class DISCBackendImpl : public torch::lazy::BackendImplInterface {
  public:
   DISCBackendImpl() : default_device_type_(at::kCPU) {
-    bool env_use_cuda = std::getenv("LTC_DISC_CUDA") != nullptr;
+    bool env_use_cuda =
+        torch::blade::env::ReadBoolFromEnvVar("LTC_DISC_CUDA", false);
     auto type = env_use_cuda ? at::kCUDA : at::kCPU;
 
     default_device_type_ = TSBackendDeviceType(type);

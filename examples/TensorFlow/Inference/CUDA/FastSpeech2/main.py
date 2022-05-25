@@ -9,16 +9,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os, sys
+import os
 import time
 import numpy as np
 import tensorflow.compat.v1 as tf
 from tensorflow.compat.v1.saved_model import tag_constants
 # from tensorflow.python.framework import convert_to_constants
 tf.disable_v2_behavior()
-import click
 
-
+import blade_disc_tf as disc
 
 
 def load_frozen_graph(model_file: str):
@@ -30,22 +29,16 @@ def load_frozen_graph(model_file: str):
         tf.import_graph_def(graph_def, name='')
     return graph
 
-@click.command()
-@click.option("--disc", is_flag=True)
-@click.option("--fp16", is_flag=True)
-@click.option("--xla", is_flag=True)
-@click.option("--batch", type=int, default=100)
-def run_bert(disc, fp16, batch, xla):
-    if disc:
-        sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), "../../../common"))
-        import disc_init
+
+def run_bert(optimize_config: str = None):
+    if optimize_config is 'disc':
+        disc.enable()
+
     session_config = tf.ConfigProto()
     session_config.allow_soft_placement = True
     session_config.gpu_options.allow_growth = True
-
-    if fp16:
-        session_config.graph_options.rewrite_options.auto_mixed_precision = 1
-    if xla:
+    session_config.graph_options.rewrite_options.auto_mixed_precision = 1
+    if optimize_config is "xla":
         session_config.graph_options.optimizer_options.global_jit_level = tf.OptimizerOptions.ON_1
 
     model_dir = "saved_model"
@@ -71,13 +64,14 @@ def run_bert(disc, fp16, batch, xla):
         outs = sess.run(fetch, feed_dict=feed_dict)
 
     # evaluate.
-    iters = batch
+    iters = 100
     tic = time.time()
     for i in range(iters):
         outs = sess.run(fetch, feed_dict=feed_dict)
     avg_time = (time.time() - tic) / iters
     print("average time in {} iterations: {} seconds".format(iters, avg_time))
 
+
 if __name__ == '__main__':
     # `optimize_config` can be 'xla', 'disc' or None.
-    run_bert()
+    run_bert(optimize_config='disc')

@@ -70,10 +70,6 @@ def get_rocm_path(args):
         rocm_env = os.environ.get("ROCM_PATH", "/opt/rocm")
     return rocm_env
 
-def get_rocm_headers(args):
-    rocm_env = get_rocm_path(args)
-    return os.path.join(rocm_env, "include")
-
 def get_version_file(root=None):
     if root is None:
         root = get_source_root_dir()
@@ -219,7 +215,8 @@ def configure_compiler(root, args):
             f.write("\n")
             bazel_startup_opts = "--host_jvm_args=-Djdk.http.auth.tunneling.disabledSchemes="
             f.write("startup {}\n".format(bazel_startup_opts))
-            _action_env("ROCM_PATH", get_rocm_path(args))
+            if args.dcu or args.rocm:
+                _action_env("ROCM_PATH", get_rocm_path(args))
 
     logger.info("Stage [configure compiler] success.")
 
@@ -336,7 +333,8 @@ def configure_bridge_bazel(root, args):
         _action_env("GCC_HOST_COMPILER_PATH", os.path.realpath(which("gcc")))
         _action_env("CC", os.path.realpath(which("gcc")))
         _action_env("CXX", os.path.realpath(which("g++")))
-        _action_env("ROCM_PATH", get_rocm_path(args))
+        if args.dcu or args.rocm:
+            _action_env("ROCM_PATH", get_rocm_path(args))
         (
             tf_major,
             tf_minor,
@@ -461,8 +459,8 @@ def build_tao_compiler(root, args):
         if args.platform_alibaba:
             flag += " --config=platform_alibaba"
 
-        if args.dcu_liquid:
-            flag += ' --cxxopt="-DTENSORFLOW_USE_DCU_WITH_LLVM_ROCM_BACKEND=1"'
+        if args.rocm_toolkit_codegen:
+            flag += ' --cxxopt="-DTENSORFLOW_USE_ROCM_COMPILE_TOOLKIT=1"'
 
         if args.build_dbg_symbol:
             flag += " --copt=-g"
@@ -497,8 +495,8 @@ def build_mlir_ral(root, args):
             configs.append('--config=disc_cuda')
             if args.platform_alibaba and args.blade_gemm:
                 configs.append('--config=blade_gemm')
-        if args.dcu_liquid:
-            configs.append('--cxxopt="-DTENSORFLOW_USE_DCU_WITH_LLVM_ROCM_BACKEND=1"')
+        if args.rocm_toolkit_codegen:
+            configs.append('--cxxopt="-DTENSORFLOW_USE_ROCM_COMPILE_TOOLKIT=1"')
     else:
         if args.aarch64:
             configs.append('--config=disc_aarch64')
@@ -528,13 +526,8 @@ def build_mlir_ral(root, args):
     TARGET_MLIR_DISC_BUILDER_HEADER = "//tensorflow/compiler/mlir/disc:install_mlir_disc_headers"
 
     def bazel_build(target, flag=""):
-        rocm_env = os.environ.get("ROCM_PATH", None)
-        if rocm_env is None:
-            os.environ["ROCM_PATH"] = args.rocm_path
         logger.info("Building bazel target: " + target)
         execute(" ".join([BAZEL_BUILD_CMD, flag, target]))
-        if rocm_env is None:
-            os.unsetenv("ROCM_PATH")
 
     flag = ""
     with cwd(tf_root_dir(root)), gcc_env(args.bridge_gcc):
@@ -623,8 +616,8 @@ def test_tao_compiler(root, args):
                     flag += ' --config=blade_gemm'
             if args.platform_alibaba:
                 flag += " --config=platform_alibaba"
-            if args.dcu_liquid:
-                flag += ' --cxxopt="-DTENSORFLOW_USE_DCU_WITH_LLVM_ROCM_BACKEND=1"'
+            if args.rocm_toolkit_codegen:
+                flag += ' --cxxopt="-DTENSORFLOW_USE_ROCM_COMPILE_TOOLKIT=1"'
             mlir_tests_list = [
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
@@ -941,7 +934,7 @@ def parse_args():
         "build stages\nwill be triggered before test stages run.",
     )
     parser.add_argument(
-        "--dcu_liquid", action="store_true", help="enable liquid heat dissipation dcu mode"
+        "--rocm_toolkit_codegen", action="store_true", help="enable codegen using rocm native toolkit."
     )
     parser.add_argument(
         "-s",

@@ -73,7 +73,7 @@ struct GPUShuffleOpLowering : public ConvertOpToLLVMPattern<gpu::ShuffleOp> {
   ///
   LogicalResult matchAndRewrite(
       gpu::ShuffleOp op, OpAdaptor adaptor,
-      ConversionPatternRewriter& rewriter) const override {   
+      ConversionPatternRewriter& rewriter) const override {
     Location loc = op->getLoc();
     auto valueTy = adaptor.value().getType();
     auto int32Type = IntegerType::get(rewriter.getContext(), 32);

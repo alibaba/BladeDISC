@@ -59,7 +59,7 @@ training workloads.
 |            |   Status      |
 |----------- | ------------- |
 | Nvidia GPU |    Yes        |
-| AMD GPU    |  Ongoing      |
+| AMD GPU    |    Yes        |
 | Hygon DCU  |    Yes        |
 |  X86       |    Yes        |
 | AArch64    |    Yes        |

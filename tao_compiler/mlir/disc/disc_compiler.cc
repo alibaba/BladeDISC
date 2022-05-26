@@ -492,6 +492,10 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
     // Device side codegen: gpu.module -> cubin
     auto& kernelPm = pm.nest<mlir::gpu::GPUModuleOp>();
+    kernelPm.addNestedPass<gpu::GPUFuncOp>(
+        disc_ral::createForLoopUnrollPass(4));
+    kernelPm.addPass(createLoopInvariantCodeMotionPass());
+    kernelPm.addPass(createCSEPass());
     kernelPm.addPass(createConvertSCFToCFPass());
     kernelPm.addPass(createLowerAffinePass());
     kernelPm.addNestedPass<FuncOp>(createCanonicalizerPass());

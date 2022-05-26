@@ -27,6 +27,8 @@
 #include "mlir/Dialect/SCF/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
+#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
+#include "tensorflow/core/util/env_var.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -37,7 +39,21 @@ struct ParallelLoopCollapsing
   void runOnOperation() override {
     SmallVector<scf::ParallelOp, 2> innermostPloops;
     getInnermostParallelLoops(getOperation(), innermostPloops);
+    bool experimental_tlp_enhance = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_TLP_ENHANCE", false,
+                                   &experimental_tlp_enhance);
     for (scf::ParallelOp ploop : innermostPloops) {
+      if (experimental_tlp_enhance) {
+        // Skip kStitch fusion with no thread-block size hint.
+        lmhlo::FusionOp fusion = ploop->getParentOfType<lmhlo::FusionOp>();
+        if (fusion) {
+          auto fusionTypeAttr =
+              fusion->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName);
+          if (fusionTypeAttr && fusionTypeAttr.getValue() == "kStitch") {
+            continue;
+          }
+        }
+      }
       if (ploop.getInductionVars().size() > 1) {
         std::vector<unsigned> inds(ploop.getInductionVars().size());
         for (unsigned int id = 0; id < ploop.getInductionVars().size(); id++) {

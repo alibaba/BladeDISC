@@ -408,3 +408,12 @@ def DiscStripShapeConstraintOpsPass : Pass<"disc-strip-shape-constraint-ops", "M
       "disc_shape::DISCShapeDialect",
   ];
 }
+
+def ForLoopUnroll : Pass<"disc-for-loop-unroll"> {
+  let summary = "Unroll SCF for loops";
+  let constructor = "createForLoopUnrollPass()";
+  let options = [
+    Option<"unrollFactor", "unroll-factor", "int64_t",
+           /*default=*/"4", "The unroll factor.">
+  ];
+}

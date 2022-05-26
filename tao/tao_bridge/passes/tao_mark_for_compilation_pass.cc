@@ -2653,7 +2653,6 @@ std::vector<string> GetDiscSupportedOps() {
     "ZerosLike"
   });
 
-#if defined(TAO_CPU_ONLY)
 #ifndef TF_1_12
   ops.insert(ops.end(), {
     "AddV2",
@@ -2661,13 +2660,14 @@ std::vector<string> GetDiscSupportedOps() {
     "GatherV2"
   });
 #endif
-#endif
 
+#if defined(TAO_CPU_ONLY)
 #if TF_MAJOR_VERSION > 2 || TF_MAJOR_VERSION==2 && TF_MINOR_VERSION >= 4
   ops.insert(ops.end(), {
     "Dequantize",
     "QuantizeV2"
   });
+#endif
 #endif
 
   // clang-format on

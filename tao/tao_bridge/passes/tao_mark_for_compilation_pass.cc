@@ -2659,11 +2659,15 @@ std::vector<string> GetDiscSupportedOps() {
     "BatchMatMulV2",
     "GatherV2"
   });
+#endif
+
+#if TF_MAJOR_VERSION > 2 || TF_MAJOR_VERSION==2 && TF_MINOR_VERSION >= 4
   ops.insert(ops.end(), {
     "Dequantize",
     "QuantizeV2"
   });
 #endif
+
   // clang-format on
   return ops;
 }

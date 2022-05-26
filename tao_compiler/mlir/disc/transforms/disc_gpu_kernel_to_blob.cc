@@ -47,17 +47,35 @@ limitations under the License.
 #endif
 
 #if TENSORFLOW_USE_ROCM
+#include "rocm/rocm_config.h"
 #include "tensorflow/core/platform/rocm_rocdl_path.h"
 #include "tensorflow/stream_executor/rocm/rocm_driver_wrapper.h"
-#endif
-
-#if TENSORFLOW_USE_ROCM
 #define CUDA_SUCCESS hipSuccess
+#define ROCM_CALL(func)                                             \
+  {                                                                 \
+    hipError_t e = (func);                                          \
+    CHECK(e == hipSuccess) << "ROCM HIP: " << hipGetErrorString(e); \
+  }
 #endif
 
 namespace mlir {
 namespace disc_ral {
 namespace {
+
+#if TENSORFLOW_USE_ROCM
+static std::string RocmCurrentArch() {
+  int device_id;
+  ROCM_CALL(hipGetDevice(&device_id));
+  hipDeviceProp_t prop;
+  ROCM_CALL(hipGetDeviceProperties(&prop, device_id));
+  auto arch_type = prop.gcnArch;
+  std::string arch_str = "gfx" + std::to_string(arch_type);
+  if (arch_str == "gfx910") {
+    arch_str = "gfx90a";
+  }
+  return std::move(arch_str);
+}
+#endif
 
 using xla::InternalError;
 using xla::llvm_ir::AsArrayRef;
@@ -132,15 +150,23 @@ class GpuKernelToBlobPass
     llvm::LLVMContext llvmContext;
     auto llvmModule = mlir::translateModuleToLLVMIR(gpu_module, llvmContext);
 
-#if TENSORFLOW_USE_DCU
-    const std::string arch_str = "gfx906";
+#if TENSORFLOW_USE_ROCM
+#if TENSORFLOW_USE_ROCM_COMPILE_TOOLKIT
     std::string libdevice_dir = tensorflow::RocdlRoot();
+    std::string rocm_path;
+    tensorflow::ReadStringFromEnvVar("DISC_ROCM_PATH", "/opt/rocm", &rocm_path);
+#if (TF_ROCM_VERSION >= 30900 || TENSORFLOW_USE_DCU)
+    libdevice_dir = tensorflow::io::JoinPath(rocm_path, "amdgcn/bitcode");
+#else
+    libdevice_dir = tensorflow::io::JoinPath(rocm_path, "lib");
+#endif
+    auto arch_str = RocmCurrentArch();
     TF_RETURN_IF_ERROR(xla::gpu::LinkWithBitcodeVector(
         llvmModule.get(), xla::gpu::GetROCDLPaths(arch_str, libdevice_dir)));
 
     std::string llvm_path_1;
-    tensorflow::ReadStringFromEnvVar("DISC_DCU_BACKEND_PATH",
-                                     "/opt/dtk-21.10/llvm/bin/", &llvm_path_1);
+    tensorflow::ReadStringFromEnvVar("DISC_ROCM_BACKEND_PATH",
+                                     "/opt/rocm/llvm/bin/", &llvm_path_1);
     std::string llvm_path_2 = tensorflow::io::JoinPath("/opt/rocm", "hcc/bin");
     std::string llvm_path_3 = tensorflow::io::JoinPath("/opt/rocm", "llvm/bin");
     auto llc_program = llvm::sys::findProgramByName(
@@ -168,7 +194,7 @@ class GpuKernelToBlobPass
     ll_fs->flush();
 
     std::string opt_level;
-    tensorflow::ReadStringFromEnvVar("DISC_DCU_BACKEND_OPT_LEVEL", "3",
+    tensorflow::ReadStringFromEnvVar("DISC_ROCM_BACKEND_OPT_LEVEL", "3",
                                      &opt_level);
     if (VLOG_IS_ON(2)) {
       // Dump asm file
@@ -226,6 +252,7 @@ class GpuKernelToBlobPass
     TF_CHECK_OK(tensorflow::ReadBoolFromEnvVar("DISC_ROCM_KEEP_TEMPFILES",
                                                /*default_val=*/false,
                                                &keep_tempfiles));
+
     if (!keep_tempfiles) {
       remove(ll_path.c_str());
       remove(isabin_path.c_str());
@@ -233,12 +260,13 @@ class GpuKernelToBlobPass
     }
     return hsaco;
 
-#elif TENSORFLOW_USE_DCU_WITH_LLVM_ROCM_BACKEND
+#else
     xla::HloModuleConfig config;
     xla::DebugOptions options = xla::GetDebugOptionsFromFlags();
     config.set_debug_options(options);
 
-    std::string arch_str = "gfx906";
+    using AmdGpuHsaco = std::vector<tensorflow::uint8>;
+    auto arch_str = RocmCurrentArch();
     // Parse ROCm architecture.
     absl::string_view consumable_arch(arch_str);
     if (!absl::ConsumePrefix(&consumable_arch, "gfx")) {
@@ -246,15 +274,26 @@ class GpuKernelToBlobPass
           "Could not parse ROCm architecture prefix (expected gfx)");
     }
     std::string libdevice_dir = tensorflow::RocdlRoot();
+    std::string rocm_path;
+    tensorflow::ReadStringFromEnvVar("DISC_ROCM_PATH", "/opt/rocm", &rocm_path);
+
+#if (TF_ROCM_VERSION >= 30900 || TENSORFLOW_USE_DCU)
+    libdevice_dir = tensorflow::io::JoinPath(rocm_path, "amdgcn/bitcode");
+#else
+    libdevice_dir = tensorflow::io::JoinPath(rocm_path, "lib");
+#endif
+
     auto llvm_module_copy = llvm::CloneModule(*llvmModule);
-    xla::gpu::GpuVersion gpu_version{arch_str};
     auto hsaco_or = xla::gpu::amdgpu::CompileToHsaco(
-        llvm_module_copy.get(), gpu_version, config, libdevice_dir);
+        llvm_module_copy.get(), tensorflow::se::RocmComputeCapability{arch_str},
+        config, libdevice_dir);
+
+    if (!hsaco_or.ok()) {
+      VLOG(0) << "LLVM Backend compile HSACO fail.";
+    }
     return hsaco_or;
 
-#elif TENSORFLOW_USE_ROCM
-    return InternalError("ROCM devices except for DCU is not implemented yet");
-
+#endif
 #elif GOOGLE_CUDA
     if (!llvmModule) {
       return InternalError("Could not translate MLIR module to NVVM");

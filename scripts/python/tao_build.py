@@ -63,6 +63,13 @@ from tao_common import (
 
 PYTHON_BIN_NAME = os.getenv("PYTHON", "python")
 
+def get_rocm_path(args):
+    if args.rocm_path is not None:
+        rocm_env = args.rocm_path
+    else:
+        rocm_env = os.environ.get("ROCM_PATH", "/opt/rocm")
+    return rocm_env
+
 def get_version_file(root=None):
     if root is None:
         root = get_source_root_dir()
@@ -180,6 +187,9 @@ def configure_compiler(root, args):
         symlink_internal_files(root)
 
     config_blade_gemm(root, args)
+
+    def _action_env(key, value, cmd="build"):
+        f.write(f"{cmd} --action_env {key}={value}\n")
     # configure tensorflow
     with cwd(tf_root_dir()), gcc_env(args.compiler_gcc):
         cmd = "set -a && source {} && set +a &&".format(
@@ -205,6 +215,8 @@ def configure_compiler(root, args):
             f.write("\n")
             bazel_startup_opts = "--host_jvm_args=-Djdk.http.auth.tunneling.disabledSchemes="
             f.write("startup {}\n".format(bazel_startup_opts))
+            if args.dcu or args.rocm:
+                _action_env("ROCM_PATH", get_rocm_path(args))
 
     logger.info("Stage [configure compiler] success.")
 
@@ -238,7 +250,9 @@ def configure_bridge_cmake(root, args):
             flags += " -DBLAZE_OPT=true"
         flags += " -DTAO_CPU_ONLY={}".format(args.cpu_only)
         flags += " -DTAO_DCU={}".format(args.dcu)
-        is_cuda = not (args.cpu_only or args.dcu)
+        flags += " -DTAO_ROCM={}".format(args.rocm)
+        flags += " -DROCM_PATH={}".format(get_rocm_path(args))
+        is_cuda = not (args.cpu_only or args.dcu or args.rocm)
         flags += " -DTAO_CUDA={}".format(is_cuda)
         flags += " -DTAO_ENABLE_MKLDNN={} ".format(
             "ON" if args.enable_mkldnn else "OFF"
@@ -272,7 +286,7 @@ def configure_bridge_cmake(root, args):
 def config_blade_gemm(root, args):
     if not (args.platform_alibaba and args.blade_gemm):
         return
-    if args.cpu_only or args.dcu:
+    if args.cpu_only or args.dcu or args.rocm:
         return
     blade_gemm_build_dir = blade_gemm_dir(root)
     ensure_empty_dir(blade_gemm_build_dir, clear_hidden=False)
@@ -288,7 +302,7 @@ def config_blade_gemm(root, args):
 def build_blade_gemm(root, args):
     if not (args.platform_alibaba and args.blade_gemm):
         return
-    if args.cpu_only or args.dcu:
+    if args.cpu_only or args.dcu or args.rocm:
         return
     blade_gemm_build_dir = blade_gemm_dir(root)
     with cwd(blade_gemm_build_dir), gcc_env(args.bridge_gcc):
@@ -319,6 +333,8 @@ def configure_bridge_bazel(root, args):
         _action_env("GCC_HOST_COMPILER_PATH", os.path.realpath(which("gcc")))
         _action_env("CC", os.path.realpath(which("gcc")))
         _action_env("CXX", os.path.realpath(which("g++")))
+        if args.dcu or args.rocm:
+            _action_env("ROCM_PATH", get_rocm_path(args))
         (
             tf_major,
             tf_minor,
@@ -350,7 +366,7 @@ def configure_bridge_bazel(root, args):
         _action_env("DISC_BUILD_IP", ip)
         _action_env("DISC_BUILD_TIME", datetime.today().strftime("%Y%m%d%H%M%S"))
 
-        is_cuda = not (args.cpu_only or args.dcu)
+        is_cuda = not (args.cpu_only or args.dcu or args.rocm)
         if is_cuda:
             cuda_ver, _ = deduce_cuda_info()
             logger.info(f"Builing with cuda-{cuda_ver}")
@@ -433,6 +449,8 @@ def build_tao_compiler(root, args):
                 flag = '--config=disc_x86 '
         elif args.dcu:
             flag = "--config=dcu"
+        elif args.rocm:
+            flag = "--config=rocm"
         else:
             flag = "--config=cuda"
             if args.platform_alibaba and args.blade_gemm:
@@ -440,6 +458,9 @@ def build_tao_compiler(root, args):
 
         if args.platform_alibaba:
             flag += " --config=platform_alibaba"
+
+        if args.rocm_toolkit_codegen:
+            flag += ' --cxxopt="-DTENSORFLOW_USE_ROCM_COMPILE_TOOLKIT=1"'
 
         if args.build_dbg_symbol:
             flag += " --copt=-g"
@@ -467,10 +488,14 @@ def build_mlir_ral(root, args):
     if not args.cpu_only:
         if args.dcu:
             configs.append('--config=disc_dcu')
+        elif args.rocm:
+            configs.append("--config=disc_rocm")
         else:
             configs.append('--config=disc_cuda')
             if args.platform_alibaba and args.blade_gemm:
                 configs.append('--config=blade_gemm')
+        if args.rocm_toolkit_codegen:
+            configs.append('--cxxopt="-DTENSORFLOW_USE_ROCM_COMPILE_TOOLKIT=1"')
     else:
         if args.aarch64:
             configs.append('--config=disc_aarch64')
@@ -582,12 +607,16 @@ def test_tao_compiler(root, args):
         else:
             if args.dcu:
                 flag = "--config=dcu"
+            if args.rocm:
+                flag = "--config=rocm"
             else:
                 flag = "--config=cuda"
                 if args.platform_alibaba and args.blade_gemm:
                     flag += ' --config=blade_gemm'
             if args.platform_alibaba:
                 flag += " --config=platform_alibaba"
+            if args.rocm_toolkit_codegen:
+                flag += ' --cxxopt="-DTENSORFLOW_USE_ROCM_COMPILE_TOOLKIT=1"'
             mlir_tests_list = [
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
@@ -609,6 +638,8 @@ def tao_bridge_bazel_config(args):
             bazel_config += " --config=disc_aarch64"
         if args.enable_mkldnn:
             bazel_config += " --config=disc_mkldnn"
+    elif args.rocm:
+            bazel_config += " --config=disc_rocm"
     elif args.dcu:
         bazel_config += " --config=disc_dcu"
     else:
@@ -735,6 +766,9 @@ def prepare_env(args):
     if args.dcu:
         os.environ["TF_DEVICE"] = "dcu"
         logger.info("[BUILD] build for DCU ...")
+    elif args.rocm:
+        os.environ["TF_DEVICE"] = "rocm"
+        logger.info("[BUILD] build for ROCM ...")
     elif not args.cpu_only:
         os.environ["TF_DEVICE"] = "gpu"
         os.environ["TF_GPU_VERSION"] = get_tf_gpu_version()
@@ -899,6 +933,9 @@ def parse_args():
         "build stages\nwill be triggered before test stages run.",
     )
     parser.add_argument(
+        "--rocm_toolkit_codegen", action="store_true", help="enable codegen using rocm native toolkit."
+    )
+    parser.add_argument(
         "-s",
         "--stage",
         required=False,
@@ -959,6 +996,18 @@ def parse_args():
         required=False,
         action="store_true",
         help="Build tao with dcu support only",
+    )
+    parser.add_argument(
+        "--rocm",
+        required=False,
+        action="store_true",
+        help="Build tao with rocm support only",
+    )
+    parser.add_argument(
+        "--rocm_path",
+        required=False,
+        default=None,
+        help="Build tao where rocm locates",
     )
     parser.add_argument(
         "--build_in_aone",

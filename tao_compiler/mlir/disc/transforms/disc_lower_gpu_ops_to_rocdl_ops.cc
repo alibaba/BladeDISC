@@ -23,6 +23,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/FormatVariadic.h"
+#include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
 #include "mlir/Conversion/GPUToROCDL/GPUToROCDLPass.h"
@@ -95,6 +96,25 @@ struct GPUShuffleOpLowering : public ConvertOpToLLVMPattern<gpu::ShuffleOp> {
         maskAndClamp);
 
     rewriter.replaceOp(op, {shfl, yes});
+    return success();
+  }
+};
+
+/* Fix atomic codegen problem on AMDMI210, corresponding to the hipcc
+ * compilcation results
+ */
+class AtomicRMWOpRewrite : public OpRewritePattern<LLVM::AtomicRMWOp> {
+ public:
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(LLVM::AtomicRMWOp atomicOp,
+                                PatternRewriter& rewriter) const override {
+    if (atomicOp.getOrdering() == LLVM::AtomicOrdering::acq_rel) {
+      rewriter.replaceOpWithNewOp<LLVM::AtomicRMWOp>(
+          atomicOp, atomicOp.getRes().getType(), atomicOp.getBinOp(),
+          atomicOp.getPtr(), atomicOp.getVal(),
+          LLVM::AtomicOrdering::monotonic);
+    }
     return success();
   }
 };
@@ -196,6 +216,7 @@ struct DiscLowerGpuOpsToROCDLOpsPass
 
     RewritePatternSet patterns(m.getContext());
     RewritePatternSet llvmPatterns(m.getContext());
+    RewritePatternSet postpatterns(m.getContext());
 
     populateGpuRewritePatterns(patterns);
     (void)applyPatternsAndFoldGreedily(m, std::move(patterns));
@@ -204,18 +225,25 @@ struct DiscLowerGpuOpsToROCDLOpsPass
     llvmPatterns.add<GenericAtomicRMWOpLoweringWithBitcast>(
         converter, /* PatternBenefit */ 3);
     llvmPatterns.add<RemoveUselessUnrealizedConversionCastOp>(converter);
+    mlir::arith::populateArithmeticToLLVMConversionPatterns(converter,
+                                                            llvmPatterns);
     populateVectorToLLVMConversionPatterns(converter, llvmPatterns);
     populateVectorToROCDLConversionPatterns(converter, llvmPatterns);
-    populateMathToLLVMConversionPatterns(converter, patterns);
-    populateMemRefToLLVMConversionPatterns(converter, llvmPatterns);
-    populateFuncToLLVMConversionPatterns(converter, patterns);
     cf::populateControlFlowToLLVMConversionPatterns(converter, llvmPatterns);
+    populateMathToLLVMConversionPatterns(converter, patterns);
+
+    populateMemRefToLLVMConversionPatterns(converter, llvmPatterns);
+
+    populateFuncToLLVMConversionPatterns(converter, patterns);
     ::mlir::disc_ral::populateGpuToROCDLConversionPatterns(converter,
                                                            llvmPatterns);
     ::mlir::LLVMConversionTarget target(getContext());
     ::mlir::disc_ral::configureGpuToROCDLConversionLegality(target);
     if (failed(applyPartialConversion(m, target, std::move(llvmPatterns))))
       signalPassFailure();
+
+    postpatterns.add<AtomicRMWOpRewrite>(postpatterns.getContext());
+    (void)applyPatternsAndFoldGreedily(m, std::move(postpatterns));
   }
 };
 

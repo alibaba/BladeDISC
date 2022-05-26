@@ -20,8 +20,12 @@ build:cuda --crosstool_top=@local_config_cuda//crosstool:toolchain
 build:cuda --@local_config_cuda//:enable_cuda
 # dcu
 build:dcu --crosstool_top=@local_config_rocm//crosstool:toolchain
-build:dcu --define=using_rocm=true --define=using_rocm_hipcc=true --define=using_dcu=true
+build:dcu --define=using_rocm=true --define=using_rocm_hipcc=true --define=using_dcu=true --cxxopt -D__HIPCC__
 build:dcu --repo_env TF_NEED_ROCM=1 --repo_env TF_NEED_DCU=1
+#rocm
+build:rocm --crosstool_top=@local_config_rocm//crosstool:toolchain
+build:rocm --define=using_rocm=true --define=using_rocm_hipcc=true --define=using_dcu=false --cxxopt -D__HIPCC__
+build:rocm --repo_env TF_NEED_ROCM=1 --repo_env TF_NEED_DCU=0
 
 # these comes from tao_compiler, unify these setting in the future
 build:disc --define framework_shared_object=false --experimental_multi_threaded_digest
@@ -32,6 +36,7 @@ build:disc_x86 --config=disc_cpu --config=release_cpu_linux --cxxopt=-DTAO_X86 -
 build:disc_aarch64 --config=disc_cpu --cxxopt=-DTAO_AARCH64 --define disc_aarch64=true --linkopt="-Xlinker --stub-group-size -Xlinker 10000000"
 build:disc_cuda --config=disc --config=cuda
 build:disc_dcu --config=disc --config=dcu
+build:disc_rocm --config=disc --config=rocm
 
 build:disc_mkldnn --config=disc --cxxopt=-DTAO_ENABLE_MKLDNN --define is_mkldnn=true
 build:disc_blaze --config=disc --cxxopt=-DBLAZE_OPT

@@ -27,7 +27,9 @@ limitations under the License.
 namespace tensorflow {
 namespace tao {
 
+#if !TENSORFLOW_USE_ROCM
 using se::port::StatusOr;
+#endif
 
 string TaoCloneConstantsForBetterClusteringPass::GenerateUniqueName(
     const std::unordered_set<string>& name_set, absl::string_view prefix) {

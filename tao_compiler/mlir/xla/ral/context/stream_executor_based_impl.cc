@@ -516,6 +516,64 @@ enum class ConvolutionKind {
 struct CudnnConvParams;
 class ScratchAllocator;
 
+struct CudnnConvParamsKey {
+  std::vector<int64_t> input_shape;
+  std::vector<int64_t> filter_shape;
+  std::vector<int64_t> paddings;
+  std::vector<int64_t> output_shape;
+  // strides & dilation & layouts
+  std::vector<int64_t> metadata;
+};
+
+struct CudnnConvParamsKeyHasher {
+  std::size_t operator()(const CudnnConvParamsKey& k) const {
+    auto h = std::hash<int>()(0);
+    for (auto vec : {&k.input_shape, &k.filter_shape, &k.paddings,
+                     &k.output_shape, &k.metadata}) {
+      h = std::hash<size_t>()(vec->size()) ^ (h << 1);
+      for (auto v : *vec) {
+        h = std::hash<size_t>()(v) ^ (h << 1);
+      }
+    }
+    return h;
+  }
+};
+
+struct CudnnConvParamsKeyEqual {
+  bool operator()(const CudnnConvParamsKey& lhs,
+                  const CudnnConvParamsKey& rhs) const {
+    return (
+        lhs.input_shape == rhs.input_shape &&
+        lhs.filter_shape == rhs.filter_shape && lhs.paddings == rhs.paddings &&
+        lhs.output_shape == rhs.output_shape && lhs.metadata == rhs.metadata);
+  }
+};
+
+struct CudnnConvParams {
+  ConvolutionKind kind;
+  std::vector<int64_t> window_strides;
+  std::vector<int64_t> rhs_dilations;
+  std::vector<std::pair<int64_t, int64_t>> paddings;
+
+  std::vector<int64_t> input_shape;
+  std::vector<int64_t> filter_shape;
+  std::vector<int64_t> output_shape;
+  std::vector<int64_t> metadata;
+
+  DataLayout input_dl;
+  FilterLayout filter_dl;
+  DataLayout output_dl;
+
+  int64_t algo_id;
+  size_t best_result_bytes_used;
+  bool tensor_ops_enabled;
+
+  BatchDescriptor input_descriptor;
+  FilterDescriptor filter_descriptor;
+  ConvolutionDescriptor convolution_descriptor;
+  BatchDescriptor output_descriptor;
+};
+
 #if TENSORFLOW_USE_ROCM
 
 template <typename T>
@@ -578,64 +636,6 @@ std::vector<AlgorithmDesc> GetAlgorithms(ConvolutionKind kind,
 }
 
 #endif  // TENSORFLOW_USE_ROCM
-
-struct CudnnConvParamsKey {
-  std::vector<int64_t> input_shape;
-  std::vector<int64_t> filter_shape;
-  std::vector<int64_t> paddings;
-  std::vector<int64_t> output_shape;
-  // strides & dilation & layouts
-  std::vector<int64_t> metadata;
-};
-
-struct CudnnConvParamsKeyHasher {
-  std::size_t operator()(const CudnnConvParamsKey& k) const {
-    auto h = std::hash<int>()(0);
-    for (auto vec : {&k.input_shape, &k.filter_shape, &k.paddings,
-                     &k.output_shape, &k.metadata}) {
-      h = std::hash<size_t>()(vec->size()) ^ (h << 1);
-      for (auto v : *vec) {
-        h = std::hash<size_t>()(v) ^ (h << 1);
-      }
-    }
-    return h;
-  }
-};
-
-struct CudnnConvParamsKeyEqual {
-  bool operator()(const CudnnConvParamsKey& lhs,
-                  const CudnnConvParamsKey& rhs) const {
-    return (
-        lhs.input_shape == rhs.input_shape &&
-        lhs.filter_shape == rhs.filter_shape && lhs.paddings == rhs.paddings &&
-        lhs.output_shape == rhs.output_shape && lhs.metadata == rhs.metadata);
-  }
-};
-
-struct CudnnConvParams {
-  ConvolutionKind kind;
-  std::vector<int64_t> window_strides;
-  std::vector<int64_t> rhs_dilations;
-  std::vector<std::pair<int64_t, int64_t>> paddings;
-
-  std::vector<int64_t> input_shape;
-  std::vector<int64_t> filter_shape;
-  std::vector<int64_t> output_shape;
-  std::vector<int64_t> metadata;
-
-  DataLayout input_dl;
-  FilterLayout filter_dl;
-  DataLayout output_dl;
-
-  int64_t algo_id;
-  size_t best_result_bytes_used;
-  bool tensor_ops_enabled;
-
-  BatchDescriptor input_descriptor;
-  FilterDescriptor filter_descriptor;
-  ConvolutionDescriptor convolution_descriptor;
-  BatchDescriptor output_descriptor;
-};
 
 // process-level states, using to store the conv tuning result.
 // Not using a context-level state to reduce peak memory consumption.

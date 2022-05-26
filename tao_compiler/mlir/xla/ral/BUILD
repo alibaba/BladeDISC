@@ -354,7 +354,7 @@ tf_gpu_kernel_library(
         "context/custom_library/philox_random.h",
     ],
     copts = if_rocm_is_configured([
-        "-DTENSORFLOW_USE_ROCM",
+        "-DTENSORFLOW_USE_ROCM=1",
     ]),
     deps = [
         "@local_config_cuda//cuda:cuda_headers",
@@ -522,7 +522,7 @@ tf_gpu_kernel_library(
         "context/custom_library/dynamic_sort.h",
     ],
     copts = if_rocm_is_configured([
-        "-DTENSORFLOW_USE_ROCM",
+        "-DTENSORFLOW_USE_ROCM=1",
     ]),
     deps = [
         "@com_google_absl//absl/base",
@@ -561,6 +561,9 @@ cc_library(
         "-DDISC_BUILD_FROM_TF_BRIDGE"
     ] + if_cuda_or_rocm([
         "-DTAO_RAL_USE_STREAM_EXECUTOR"
+    ]) + if_rocm_is_configured([
+        "-DTENSORFLOW_USE_ROCM=1",
+        "-x rocm",
     ]),
     linkopts = [
         "-fopenmp",
@@ -600,7 +603,10 @@ cc_library(
     ],
     copts = [
         "-DDISC_BUILD_FROM_TF_BRIDGE"
-    ],
+    ] + if_rocm_is_configured([
+        "-DTENSORFLOW_USE_ROCM=1",
+        "-x rocm",
+    ]),
     deps = [
         ":context_util",
         ":common_context_bridge",
@@ -627,7 +633,8 @@ cuda_library(
     copts = [
         "-DDISC_BUILD_FROM_TF_BRIDGE"
     ] + if_rocm_is_configured([
-        "-DTENSORFLOW_USE_ROCM",
+        "-DTENSORFLOW_USE_ROCM=1",
+        "-x rocm",
     ]) + cuda_default_copts(),
     deps = [
         "@local_config_tf//:libtensorflow_framework",
@@ -678,7 +685,8 @@ cuda_library(
         "context/custom_library/philox_random.h",
     ],
     copts = if_rocm_is_configured([
-        "-DTENSORFLOW_USE_ROCM",
+        "-DTENSORFLOW_USE_ROCM=1",
+        "-x rocm",
     ]) + cuda_default_copts(),
     deps = if_cuda_is_configured([
         "@cub_archive//:cub",

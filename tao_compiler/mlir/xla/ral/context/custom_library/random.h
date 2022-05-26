@@ -147,7 +147,8 @@ PHILOX_DEVICE_INLINE float Uint32ToFloat(uint32_t x) {
 
   // Assumes that endian-ness is same for float and uint32_t.
   float result;
-  std::memcpy(&result, &val, sizeof(val));
+  // std::memcpy(&result, &val, sizeof(val));
+  result = *(reinterpret_cast<const float*>(&val));
   return result - 1.0f;
 }
 

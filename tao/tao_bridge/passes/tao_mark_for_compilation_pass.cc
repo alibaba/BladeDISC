@@ -2653,12 +2653,14 @@ std::vector<string> GetDiscSupportedOps() {
     "ZerosLike"
   });
 
+#if defined(TAO_CPU_ONLY)
 #ifndef TF_1_12
   ops.insert(ops.end(), {
     "AddV2",
     "BatchMatMulV2",
     "GatherV2"
   });
+#endif
 #endif
 
 #if TF_MAJOR_VERSION > 2 || TF_MAJOR_VERSION==2 && TF_MINOR_VERSION >= 4

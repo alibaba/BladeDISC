@@ -1237,10 +1237,12 @@ REGISTER_XLA_OP_FOR_TAO(Name("FusedBatchNormGradV3"));
 REGISTER_XLA_OP_FOR_TAO(Name("SelectV2"));
 #endif // after tf1.12
 
-#if TF_MAJOR_VERSION > 2 || TF_MAJOR_VERSION==2 && TF_MINOR_VERSION > 4
+#if defined(TAO_CPU_ONLY)
+#if TF_MAJOR_VERSION > 2 || TF_MAJOR_VERSION==2 && TF_MINOR_VERSION >= 4
 REGISTER_XLA_OP_FOR_TAO(Name("QuantizeV2"));
 REGISTER_XLA_OP_FOR_TAO(Name("Dequantize"));
-#endif // after tf1.12
+#endif
+#endif
 
 // clang-format on
 

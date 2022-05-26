@@ -13,7 +13,7 @@ index 000000000..3b9cbd810
 +install:
 +	mkdir -p $(INSTALLDIR)/build $(INSTALLDIR)
 +	cp build/libarm_compute.a build/libarm_compute_core.a build/libarm_compute_graph.a $(INSTALLDIR)/build/
-+	cp -r build/src/core/arm_compute_version.embed arm_compute/ src/ utils/ support/ include/ $(INSTALLDIR)
++	cp -r build/src/core/arm_compute_version.embed arm_compute/ src/ utils/ support/ include/* $(INSTALLDIR)
 diff --git a/build/.gitignore b/build/.gitignore
 new file mode 100644
 index 000000000..48cdce852

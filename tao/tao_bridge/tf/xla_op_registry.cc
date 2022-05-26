@@ -1241,6 +1241,10 @@ REGISTER_XLA_OP_FOR_TAO(Name("SelectV2"));
 #if TF_MAJOR_VERSION > 2 || TF_MAJOR_VERSION==2 && TF_MINOR_VERSION >= 4
 REGISTER_XLA_OP_FOR_TAO(Name("QuantizeV2"));
 REGISTER_XLA_OP_FOR_TAO(Name("Dequantize"));
+#if defined(TAO_AARCH64)
+// TODO(disc): support `QuantizedConv2DWithBiasAndRequantize` on other platforms
+REGISTER_XLA_OP_FOR_TAO(Name("QuantizedConv2DWithBiasAndRequantize"));
+#endif
 #endif
 #endif
 

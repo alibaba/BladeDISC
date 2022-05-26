@@ -205,9 +205,11 @@ cc_library(
       "-Wl,--end-group",
     ]),
     data = ["//tao/third_party/mkldnn:build"],
-    deps = [
+    deps = if_disc_x86([
         "//tao/third_party/mkldnn:onednn",
-    ],
+    ]) + if_disc_aarch64([
+        "//tao/third_party/mkldnn:onednn_acl",
+    ]),
 )
 
 # depend on mkldnn and onednn from bazel workspace
@@ -263,11 +265,14 @@ cc_library(
         "context/common_context_impl_patine.cc",
     ]) + if_mkldnn([
         "context/common_context_impl_mkldnn.cc",
+        "context/common_context_impl_quantization.cc",
     ]),
     hdrs = [
         "context/common_context_impl.h",
     ] + if_cuda_or_rocm([
         "context/stream_executor_based_impl.h",
+    ]) + if_mkldnn([
+        "context/common_context_impl_mkldnn.h",
     ]),
     copts = [
         # "-DTF_1_12",
@@ -550,11 +555,14 @@ cc_library(
         "context/common_context_impl_patine.cc",
     ]) + if_mkldnn([
         "context/common_context_impl_mkldnn.cc",
+        "context/common_context_impl_quantization.cc",
     ]),
     hdrs = [
         "context/common_context_impl.h",
         "context/stream_executor_based_impl.h",
     ] + if_cuda_or_rocm([
+    ])+ if_mkldnn([
+        "context/common_context_impl_mkldnn.h",
     ]),
     copts = [
         "-fopenmp",

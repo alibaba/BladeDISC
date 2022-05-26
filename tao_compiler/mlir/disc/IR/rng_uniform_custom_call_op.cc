@@ -97,7 +97,8 @@ LogicalResult lowerToLibraryCallImpl<RngUniformBackendConfig>(
   }
   // seed & seed2
   llvm::Expected<RngUniformBackendConfig> backend_config =
-      llvm::json::parse<RngUniformBackendConfig>(op.backend_config());
+      llvm::json::parse<RngUniformBackendConfig>(
+          op.backend_config().cast<StringAttr>());
   if (auto e = backend_config.takeError()) {
     return op.emitOpError()
            << "Problem with parsing rng_uniform backend_config: "

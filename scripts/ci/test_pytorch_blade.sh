@@ -39,6 +39,10 @@ else
   python -m virtualenv venv && source venv/bin/activate
 fi
 
+# higher prootbuf version has compatible problem.
+# TODO(disc): upgrade protobuf once we fix the problem.
+python -m pip install protobuf==3.20.1
+
 export TORCH_BLADE_CI_BUILD_TORCH_VERSION=${TORCH_BLADE_CI_BUILD_TORCH_VERSION:-1.7.1+cu110}
 (cd pytorch_blade && bazel clean --expunge \
   && python -m pip install -q -r requirements-dev-${TORCH_BLADE_CI_BUILD_TORCH_VERSION}.txt \

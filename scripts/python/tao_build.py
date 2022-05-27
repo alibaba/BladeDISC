@@ -286,7 +286,7 @@ def configure_bridge_cmake(root, args):
 def config_blade_gemm(root, args):
     if not (args.platform_alibaba and args.blade_gemm):
         return
-    if args.cpu_only or args.dcu or args.rocm:
+    if args.cpu_only:
         return
     blade_gemm_build_dir = blade_gemm_dir(root)
     ensure_empty_dir(blade_gemm_build_dir, clear_hidden=False)
@@ -294,6 +294,8 @@ def config_blade_gemm(root, args):
         cc = which("gcc")
         cxx = which("g++")
         cmake_cmd = "CC={} CXX={} CUDA_CXX={} cmake .. -DBLADE_GEMM_NVCC_ARCHS='80' -DBLADE_GEMM_LIBRARY_KERNELS=s1688tf32gemm,f16_s1688gemm_f16,f16_s16816gemm_f16,s16816tf32gemm".format(cc, cxx, args.blade_gemm_nvcc)
+        if args.dcu or args.rocm:
+            cmake_cmd = "CC={} CXX={} cmake .. -DUSE_TVM=ON -DROCM_PATH={}".format(cc, cxx, get_rocm_path(args))
         logger.info("configuring blade_gemm ......")
         execute(cmake_cmd)
         logger.info("blade_gemm configure success.")
@@ -302,7 +304,7 @@ def config_blade_gemm(root, args):
 def build_blade_gemm(root, args):
     if not (args.platform_alibaba and args.blade_gemm):
         return
-    if args.cpu_only or args.dcu or args.rocm:
+    if args.cpu_only:
         return
     blade_gemm_build_dir = blade_gemm_dir(root)
     with cwd(blade_gemm_build_dir), gcc_env(args.bridge_gcc):
@@ -389,6 +391,11 @@ def configure_bridge_bazel(root, args):
                 _action_env("BUILD_WITH_MKLDNN", "1")
             if args.aarch64:
                 _action_env("BUILD_WITH_AARCH64", "1")
+        else:
+            if args.platform_alibaba and args.blade_gemm:
+                _action_env("BLADE_GEMM_TVM", "ON")
+                _action_env("BLADE_GEMM_ROCM_PATH", get_rocm_path(args))
+
 
         _write("--host_jvm_args=-Djdk.http.auth.tunneling.disabledSchemes=", cmd = "startup")
         logger.info("configuring tao_bridge with bazel ......")
@@ -639,9 +646,13 @@ def tao_bridge_bazel_config(args):
         if args.enable_mkldnn:
             bazel_config += " --config=disc_mkldnn"
     elif args.rocm:
-            bazel_config += " --config=disc_rocm"
+        bazel_config += " --config=disc_rocm"
+        if args.platform_alibaba and args.blade_gemm:
+            bazel_config += " --config=blade_gemm"
     elif args.dcu:
         bazel_config += " --config=disc_dcu"
+        if args.platform_alibaba and args.blade_gemm:
+            bazel_config += " --config=blade_gemm"
     else:
         bazel_config += " --config=disc_cuda"
         if args.platform_alibaba and args.blade_gemm:
@@ -1082,7 +1093,7 @@ def parse_args():
     if args.version == "auto":
         args.version = open(get_version_file()).read().split()[0]
 
-    if args.platform_alibaba and (args.build_in_aone or args.blade_gemm):
+    if args.platform_alibaba and (args.build_in_aone or args.blade_gemm) and not (args.dcu or args.rocm):
         cuda_ver, _ = deduce_cuda_info()
         if float(cuda_ver) >= 11.0:
             args.blade_gemm = True

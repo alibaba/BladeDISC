@@ -13,6 +13,12 @@ def nvcc_bin_path():
 def blade_gemm_nvcc():
     return "%{BLADE_GEMM_NVCC}"
 
+def blade_gemm_tvm():
+    return "%{BLADE_GEMM_TVM}"
+
+def blade_gemm_rocm_path():
+    return "%{BLADE_GEMM_ROCM_PATH}"
+
 def blade_gemm_nvcc_archs():
     return "%{BLADE_GEMM_NVCC_ARCHS}"
 

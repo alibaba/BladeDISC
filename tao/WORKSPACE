@@ -35,6 +35,29 @@ load("@local_config_tf_source//:tf_source_workspace0.bzl", "tf_source_workspace0
 
 tf_source_workspace0()
 
+# NOTE(lanbo.llb): This logic of load tf's workspaces can only happen here
+# each workspace func should be executed directly after load.
+# Also load in .bzl can only be at top level, making these logic can only happend here
+# otherwise bazel will detect `cycle in workspace files`.
+# NOTE(lanbo.llb): Since r2.5.0 tf break single workspace.bzl into 4 workspacex.bzls
+# when build for 2.4.x, we should comment the lines below to make it work
+# Initialize TensorFlow's external dependencies.
+load("@org_tensorflow//tensorflow:workspace3.bzl", "tf_workspace3")
+
+tf_workspace3()
+
+load("@org_tensorflow//tensorflow:workspace2.bzl", "tf_workspace2")
+
+tf_workspace2()
+
+load("@org_tensorflow//tensorflow:workspace1.bzl", "tf_workspace1")
+
+tf_workspace1()
+
+load("@org_tensorflow//tensorflow:workspace0.bzl", "tf_workspace0")
+
+tf_workspace0()
+
 load("@org_third_party//bazel:blade_disc_dnn_workspace.bzl", "blade_disc_dnn_workspace")
 
 blade_disc_dnn_workspace()

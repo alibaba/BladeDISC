@@ -3,6 +3,8 @@ load("//bazel:common.bzl", "get_env_bool_value")
 # tf serving's versions are the same with it's corresponding tensorflow version
 # e.g. tf-serving 2.4.1 uses tensorflow==2.4.1's source code
 _TF_SERVING_VERSION = "TF_SERVING_VERSION"
+_TF_MAJOR_VERSION = "TF_MAJOR_VERSION"
+_TF_MINOR_VERSION = "TF_MINOR_VERSION"
 
 tf_serving_version_dict = {
     "2.4.0": [
@@ -26,6 +28,8 @@ def _tf_source_configure_impl(repository_ctx):
         repository_ctx.template("tf_source_workspace0.bzl", Label("//bazel/tf_source:no_tf_serving_workspace0.bzl.tpl"), {})
     else:
         tf_serving_version = repository_ctx.os.environ[_TF_SERVING_VERSION]
+        tf_major_version = repository_ctx.os.environ[_TF_MAJOR_VERSION]
+        tf_minor_version = repository_ctx.os.environ[_TF_MINOR_VERSION]
         tf_serving_info = tf_serving_version_dict.get(tf_serving_version)
         if tf_serving_info == None:
             fail("The tf_serving version - {} is not supported now!".format(tf_serving_version))
@@ -37,7 +41,10 @@ def _tf_source_configure_impl(repository_ctx):
                 "%{TF_SOURCE_GIT_COMMIT}": tf_serving_info[1],
             },
         )
-        repository_ctx.template("tf_source_workspace0.bzl", Label("//bazel/tf_source:tf_source_workspace0.bzl.tpl"), {})
+        if tf_major_version == "2" and float(tf_minor_version) < 5:
+            repository_ctx.template("tf_source_workspace0.bzl", Label("//bazel/tf_source:tf_source_workspace0.bzl.tpl"), {})
+        else:
+            repository_ctx.template("tf_source_workspace0.bzl", Label("//bazel/tf_source:tf_source_2.5_plus_workspace0.bzl.tpl"), {})
         repository_ctx.template("BUILD", Label("//bazel/tf_source:BUILD.tpl"), {})
         repository_ctx.template("tf_source_code.patch", Label("//bazel/tf_source:tf_source_code-{}.patch.tpl".format(tf_serving_version)), {})
 
@@ -45,5 +52,7 @@ tf_source_configure = repository_rule(
     implementation = _tf_source_configure_impl,
     environ = [
         _TF_SERVING_VERSION,
+        _TF_MAJOR_VERSION,
+        _TF_MINOR_VERSION,
     ],
 )

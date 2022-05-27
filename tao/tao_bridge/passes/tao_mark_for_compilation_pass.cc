@@ -2660,6 +2660,16 @@ std::vector<string> GetDiscSupportedOps() {
     "GatherV2"
   });
 #endif
+
+#if defined(TAO_CPU_ONLY)
+#if TF_MAJOR_VERSION > 2 || TF_MAJOR_VERSION==2 && TF_MINOR_VERSION >= 4
+  ops.insert(ops.end(), {
+    "Dequantize",
+    "QuantizeV2"
+  });
+#endif
+#endif
+
   // clang-format on
   return ops;
 }

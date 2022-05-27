@@ -67,8 +67,12 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/passes.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/rewriters.h"
+#include "tensorflow/compiler/mlir/hlo/include/mlir-hlo/Dialect/mhlo/transforms/passes.h"
+#include "tensorflow/compiler/mlir/tensorflow/transforms/passes.h"
 #include "tensorflow/compiler/mlir/tensorflow/utils/compile_mlir_util.h"
 #include "tensorflow/compiler/mlir/tensorflow/utils/error_util.h"
+#include "tensorflow/compiler/mlir/xla/transforms/adjust_layout.h"
+#include "tensorflow/compiler/mlir/xla/transforms/passes.h"
 #include "tensorflow/core/util/env_var.h"
 
 namespace mlir {
@@ -753,34 +757,106 @@ LogicalResult LowerHLOToSharedLibrary(ModuleOp m,
 namespace tensorflow {
 
 Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
-  mlir::PassManager tf2xla(module_op.getContext());
+  mlir::PassManager pm(module_op.getContext());
 
-  tf2xla.getContext()->disableMultithreading();
+  pm.getContext()->disableMultithreading();
   auto printingFlags = mlir::OpPrintingFlags();
   printingFlags.elideLargeElementsAttrs(16);
-  tf2xla.enableIRPrinting(
+  pm.enableIRPrinting(
       /*shouldPrintBeforePass=*/nullptr,
       /*shouldPrintAfterPass=*/
       [](mlir::Pass* pass, mlir::Operation*) { return VLOG_IS_ON(1); },
       /*printModuleScope=*/false,
       /*printAfterOnlyOnChange=*/true,
       /*printAfterOnlyOnFailure*/ false, llvm::dbgs(), printingFlags);
+  bool prefer_tf2xla = false;
+  llvm::StringRef device_type = "XLA_CPU_JIT";
 
-  tf2xla.addPass(mlir::disc_ral::createReviseArgsForStaticRankPass());
+  // Replace const arguments to ConstOp and update argument type if it is a
+  // fixed-shaped input
+  pm.addPass(mlir::disc_ral::createReviseArgsForStaticRankPass());
 
-  mlir::SmallVector<std::unique_ptr<mlir::Pass>, 1> lower_passes;
-  lower_passes.emplace_back(mlir::disc_ral::createDiscLowerTfPass());
-  CreateConvertMlirToXlaHloPipeline(
-      tf2xla, "XLA_CPU_JIT",
-      /*prefer_tf2xla=*/false,
-      /*custom_legalization_passes=*/lower_passes);
+  // Note that the region-based control-flow produced here still contains
+  // function call ops which get inlined by the subsequent inliner pass.
+  pm.addPass(mlir::TF::CreateTFFunctionalControlFlowToRegions());
+  pm.addPass(mlir::createInlinerPass());
+  pm.addNestedPass<mlir::func::FuncOp>(
+      mlir::TF::CreateDropWhileShapeInvariantPass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+  // The SCCP pass performs constant propagation across the IR, which, for
+  // example, propagates constant arguments into callee functions.
+  // TOOD(hinsu): Investigate if we really need SCCP pass before shape inference
+  // and can do with just one pass after the shape inference.
+  pm.addPass(mlir::createSCCPPass());
+  // Guarantee all functions have one use, which enables shape inference.
+  pm.addPass(mlir::TF::CreateGuaranteeAllFuncsOneUsePass());
+  // Run shape inference pass before tensorlist decomposition to get buffer
+  // shape of uninitialized TensorLists.
+  pm.addPass(mlir::TF::CreateTFShapeInferencePass());
+
+  // Run SCCP pass again as the availability of shapes may open up new
+  // opportunities for constant propagation. Note that the shape inference pass
+  // doesn't materialize new constants even if those are computed internally for
+  // the purpose of shape inference. These constants might be required by the
+  // legalization passes.
+  pm.addPass(mlir::createSCCPPass());
+
+  pm.addPass(mlir::TF::CreateTensorListOpsDecompositionPass());
+  pm.addPass(mlir::TF::CreateStackOpsDecompositionPass());
+  pm.addPass(mlir::TF::CreateTensorArrayOpsDecompositionPass());
+  pm.addNestedPass<mlir::func::FuncOp>(
+      mlir::TFDevice::CreateDecomposeResourceOpsPass());
+  pm.addPass(mlir::TF::CreatePromoteResourcesToArgsPass());
+  pm.addPass(mlir::createSymbolDCEPass());
+  pm.addPass(mlir::TF::CreateTFShapeInferencePass());
+  // TODO(b/171426148): We cannot completely remove region to functional control
+  // flow conversion from this pipeline yet as it causes some unit tests to
+  // fail.
+  pm.addPass(mlir::TF::CreateTFRegionControlFlowToFunctional());
+  // LegalizeTFControlFlow encapsulates arguments for control flow operations
+  // with a tuple argument which break the assumption of resource lifting
+  // inside PromoteResourcesToArgs.
+  pm.addPass(mlir::mhlo::createLegalizeTFControlFlowPass());
+
+  // customized tf2mhlo converters of DISC
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::disc_ral::createDiscLowerTfPass());
+
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::TF::CreateLowerQuantizedPass());
+  pm.addPass(mlir::mhlo::CreateLegalizeTfTypesPass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::createLegalizeTFPass(
+      /*allow_partial_conversion=*/true, /*legalize_chlo=*/true,
+      /*tf2xla_fallback_device_type=*/device_type, prefer_tf2xla));
+
+  // customized tf2mhlo converters of DISC
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::disc_ral::createDiscLowerTfPass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::CreateAdjustLayoutPass());
+  pm.addPass(mlir::mhlo::CreateLegalizeTFCommunicationPass());
+  pm.addPass(mlir::mhlo::CreateLegalizeTFCollectivePass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::createCanonicalizerPass());
+  // Run shape inference pass to propagate shapes through tensor_cast operations
+  // from static to dynamic shapes. This could be generated if the shape
+  // inference was originally missing in a TF op but the corresponding HLO op
+  // had static shape after lowering.
+  pm.addPass(mlir::TF::CreateTFShapeInferencePass());
+  // Run LegalizeTFPass again because the previous legalization passes can
+  // expose more graph pruning and canonicalization opportunities that are
+  // necessary for the second LegalizeTFPass(allow_partial_conversion=false)
+  // invocation.
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::createLegalizeTFPass(
+      /*allow_partial_conversion=*/false, /*legalize_chlo=*/true,
+      /*tf2xla_fallback_device_type=*/device_type, prefer_tf2xla));
+
+  // In order to export to XLA, we must sink constants to control flow regions,
+  // since XLA uses functional control flow.
+  pm.addNestedPass<mlir::func::FuncOp>(
+      mlir::mhlo::createSinkConstantsToControlFlowPass());
 
   // Make sure we catch any error reported by MLIR and forward it to the TF
   // error reporting system. Report a generic error if pass manager failed
   // without emitting a diagnostic.
   mlir::StatusScopedDiagnosticHandler error_handler(module_op.getContext());
 
-  if (failed(tf2xla.run(module_op))) {
+  if (failed(pm.run(module_op))) {
     return error_handler.Combine(
         errors::Internal("MLIR TF to XLA legalization failed"));
   }

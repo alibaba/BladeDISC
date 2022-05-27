@@ -5,7 +5,10 @@ load("@local_config_blade_disc_helper//:build_defs.bzl",
     "blade_gemm_nvcc",
     "blade_gemm_nvcc_archs",
     "blade_gemm_library_kernels",
+    "blade_gemm_tvm",
+    "blade_gemm_rocm_path",
 )
+load("@local_config_rocm//rocm:build_defs.bzl", "if_rocm")
 
 filegroup(
     name = "all_source_files",
@@ -22,6 +25,8 @@ cmake(
         "CMAKE_CXX_COMPILER": cxx_bin_path(),
         "BLADE_GEMM_NVCC_ARCHS": blade_gemm_nvcc_archs(),
         "BLADE_GEMM_LIBRARY_KERNELS": blade_gemm_library_kernels(),
+        "USE_TVM": blade_gemm_tvm(),
+        "ROCM_PATH": blade_gemm_rocm_path(),
     },
     env = {
         "CC": cc_bin_path(),

@@ -168,10 +168,10 @@ struct IdentityBroadCastInDimOpCanonicalizationPattern
 //  %d1 = tensor.dim %0, %c1 : tensor<?x?xf32>
 //  %new_shape = tensor.from_elements %d0, %d1, %c1 : tensor<3xindex>
 //  %1 = "mhlo.dynamic_reshape"(%0, %new_shape) : (tensor<?x?xf32>,
-//  tensor<3xindex>) -> tensor<?x?x1xf32> %2 =
-//  "mhlo.dynamic_broadcast_in_dim"(%1, %...) {broadcast_dimensions = dense<[0,
-//  1, 2]> : tensor<3xi64>} : (tensor<?x?x1xf32>, tensor<3xindex>) ->
-//  tensor<?x?x?xf32>
+//  tensor<3xindex>) -> tensor<?x?x1xf32>
+//  %2 = "mhlo.dynamic_broadcast_in_dim"(%1, %...) {broadcast_dimensions =
+//  dense<[0, 1, 2]> : tensor<3xi64>} : (tensor<?x?x1xf32>, tensor<3xindex>)
+//  ->tensor<?x?x?xf32>
 //
 // This pattern will be converted to:
 //

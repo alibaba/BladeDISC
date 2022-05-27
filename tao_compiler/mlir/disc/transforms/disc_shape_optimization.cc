@@ -210,7 +210,7 @@ struct DimOfShapedTypeOpInterface : public OpRewritePattern<OpTy> {
 };
 
 // materialize shape computation IR by resolving tensor.dim + op having
-// interface ShapedTypeOpInterface: before
+// interface InferShapedTypeOpInterface: before
 //  ```
 //    %arg0 = ... : tensor<?x10xf32>
 //    %0 = mhlo.transpose(%arg0) : tensor<?x?xf32>

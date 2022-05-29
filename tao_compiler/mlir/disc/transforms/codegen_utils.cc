@@ -392,27 +392,6 @@ int getReductionTileSizeOnCPU() {
   return size;
 }
 
-// bool getInnermostForLoops(Operation* rootOp,
-//                           SmallVectorImpl<scf::ForOp>& result) {
-//   assert(rootOp != nullptr && "Root operation must not be a nullptr.");
-//   bool rootEnclosesFloops = false;
-//   for (Region& region : rootOp->getRegions()) {
-//     for (Block& block : region.getBlocks()) {
-//       for (Operation& op : block) {
-//         bool enclosesFloops = getInnermostForLoops(&op, result);
-//         rootEnclosesFloops |= enclosesFloops;
-//         if (auto floop = dyn_cast<scf::ForOp>(op)) {
-//           rootEnclosesFloops = true;
-
-//           // Collect For loop if it is an innermost one.
-//           if (!enclosesFloops) result.push_back(floop);
-//         }
-//       }
-//     }
-//   }
-//   return rootEnclosesFloops;
-// }
-
 // Get ops that depends on the given op in the same block. It assumes the ops in
 // the block do not have regions.
 void getDependentOps(Operation* op, DenseSet<Operation*>& dependences) {
@@ -441,76 +420,10 @@ void getDependentOps(Operation* op, DenseSet<Operation*>& dependences) {
 
 // Check whether a depends on b.
 bool dependsOn(Operation* a, Operation* b) {
-  // if (!b->isBeforeInBlock(a)) {
-  // return false;
-  // }
   DenseSet<Operation*> dependences;
   getDependentOps(b, dependences);
   return dependences.contains(a);
 }
-
-// // Check whether `source` has effect on`target`. For example, if `source`
-// // generates some results that are used by `target`, it returns `true`.
-// bool hasEffectOn(Operation* source, Opetion* target) {
-
-//   Value root = target;
-//   while (Operation* operandOp = root.getDefiningOp()) {
-//     auto view = dyn_cast<ViewLikeOpInterface>(operandOp);
-//     if (!view) break;
-//     root = operandOp->getOperand(0);
-//   }
-
-//   // SmallVector<Operation*, 4> users;
-//   SmallVector<Value, 4> worklist;
-//   worklist.push_back(root);
-//   while (!worklist.empty()) {
-//     Value curr = worklist.back();
-//     worklist.pop_back();
-//     for (Operation* user : curr.getUsers()) {
-//       // Skip non-data users
-//       if (isa<memref::DimOp, memref::DeallocOp, shape::ShapeOfOp>(user)) {
-//         continue;
-//       }
-//       // alias value
-//       if (auto view = dyn_cast<ViewLikeOpInterface>(user)) {
-//         worklist.push_back(view->getResult(0));
-//       } else {
-//         users.push_back(user);
-//       }
-//     }
-//   }
-//   return users;
-// }
-
-// SmallVector<Operation*, 4> getValueUsers(Value v) {
-//   Value root = v;
-//   while (Operation* operandOp = root.getDefiningOp()) {
-//     auto view = dyn_cast<ViewLikeOpInterface>(operandOp);
-//     if (!view) break;
-//     root = operandOp->getOperand(0);
-//   }
-
-//   SmallVector<Operation*, 4> users;
-//   SmallVector<Value, 4> worklist;
-//   worklist.push_back(root);
-//   while (!worklist.empty()) {
-//     Value curr = worklist.back();
-//     worklist.pop_back();
-//     for (Operation* user : curr.getUsers()) {
-//       // Skip non-data users
-//       if (isa<memref::DimOp, memref::DeallocOp, shape::ShapeOfOp>(user)) {
-//         continue;
-//       }
-//       // alias value
-//       if (auto view = dyn_cast<ViewLikeOpInterface>(user)) {
-//         worklist.push_back(view->getResult(0));
-//       } else {
-//         users.push_back(user);
-//       }
-//     }
-//   }
-//   return users;
-// }
 
 /// Generates unrolled copies of scf::ForOp 'loopBodyBlock', with
 /// associated 'forOpIV' by 'unrollFactor', calling 'ivRemapFn' to remap
@@ -541,7 +454,6 @@ LogicalResult generateUnrolledLoopMayInterleave(
       Value ivUnroll = ivRemapFn(i, forOpIV, builder);
       ivs[i] = ivUnroll;
     }
-    // operandMap.map(forOpIV, ivUnroll);
   }
 
   // The index of the first non-induction-variable transformation instruction,
@@ -550,7 +462,6 @@ LogicalResult generateUnrolledLoopMayInterleave(
   int64_t beginIdx = std::distance(loopBodyBlock->begin(),
                                    std::prev(loopBodyBlock->end(), 1)) -
                      numOps;
-  // std::prev(std::prev(loopBodyBlock->end(), 1), numOps);
 
   // Keep a pointer to the last non-terminator operation in the original block
   // so that we know what to clone (since we are doing this in-place).
@@ -568,81 +479,6 @@ LogicalResult generateUnrolledLoopMayInterleave(
   }
 #endif
 
-  // // The last cloned op of each operator in loopBodyBlock. The init value is
-  // the
-  // // original operators.
-  // llvm::DenseMap<Operation*, Operation*> lastClonedOp;
-  // SmallVector<SmallVector<Operation*>> clonedOpsMap;
-  // for (auto it = loopBodyBlock->begin(); it != std::next(srcBlockEnd); it++)
-  // {
-  //   lastClonedOp[&(*it)] = &(*it);
-  //   clonedOpsMap.emplace_back(std::move(SmallVector<Operation*>({&(*it)})));
-  // }
-  // #if 0
-  // int64_t numOps = std::distance(loopBodyBlock->begin(),
-  // std::next(srcBlockEnd)); llvm::errs() << "[ZZ] numOps: " << numOps << "\n";
-  // for (int64_t opIdx = 0; opIdx < numOps; opIdx++) {
-  //   auto yield_iter = std::prev(loopBodyBlock->end(), 1);
-  //   llvm::errs() << "[ZZ] yield op: " << *yield_iter << "\n";
-  //   auto iter = std::prev(yield_iter, numOps - opIdx);
-
-  //   llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-  //   builder.setInsertionPointAfter(&(*iter));
-  //   llvm::errs() << "[ZZ] the to cloned op is: " << *iter << "\n";
-  //   // TODO: update map for i == 0
-  //   for (unsigned i = 1; i < unrollFactor; i++) {
-  //     BlockAndValueMapping operandMap;
-
-  //     // Prepare operand map.
-  //     operandMap.map(iterArgs, lastYielded);
-
-  //     // If the induction variable is used, create a remapping to the value
-  //     for
-  //     // this unrolled instance.
-  //     if (!forOpIV.use_empty()) {
-  //       Value ivUnroll = ivRemapFn(i, forOpIV, builder);
-  //       operandMap.map(forOpIV, ivUnroll);
-  //     }
-
-  //     llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-  //     Operation* clonedOp = builder.clone(*iter, operandMap);
-  //     llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-  //     llvm::errs() << "[ZZ] clone " << *clonedOp << "\n";
-  //     annotateFn(i, clonedOp, builder);
-
-  //     // // Clone the original body of 'forOp'.
-  //     // for (auto it = loopBodyBlock->begin(); it != std::next(srcBlockEnd);
-  //     it++) {
-  //     //   // if (lastClonedOp.count(&(*it)) == 0) {
-  //     //     // llvm::errs() << "[ZZ] do not have the key: " << *it << "\n";
-  //     //   // }
-  //     //   Operation* clonedOp = builder.clone(*it, operandMap);
-  //     //   annotateFn(i, clonedOp, builder);
-  //     // }
-
-  //     // Update yielded values.
-  //     auto yieldValues = loopBodyBlock->getTerminator()->getOperands();
-  //     llvm::errs() << "[ZZ] final yield op: " <<
-  //     *(loopBodyBlock->getTerminator()) << "\n"; for (unsigned i = 0, e =
-  //     lastYielded.size(); i < e; i++) {
-  //       // if ()
-  //       // if () {
-  //         // lastYielded[i] = operandMap.lookup(yieldedValues[i]);
-  //       // } else {
-  //         // lastYielded[i] = yieldValues[i];
-  //       // }
-  //       if (operandMap.contains(yieldedValues[i])) {
-  //         llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ <<
-  //         "\n"; lastYielded[i] = operandMap.lookup(yieldedValues[i]);
-  //       }
-  //       llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-  //       llvm::errs() << "[ZZ] last yield " << i << ": " << lastYielded[i] <<
-  //       "\n"; llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ <<
-  //       "\n";
-  //     }
-  //   }
-  // }
-  // #else
   for (unsigned i = 1; i < unrollFactor; i++) {
     BlockAndValueMapping operandMap;
 
@@ -681,7 +517,6 @@ LogicalResult generateUnrolledLoopMayInterleave(
     for (unsigned i = 0, e = lastYielded.size(); i < e; i++)
       lastYielded[i] = operandMap.lookup(yieldedValues[i]);
   }
-  // #endif
 
   // // Make sure we annotate the Ops in the original body. We do this last so
   // that

@@ -152,6 +152,10 @@ scf::ParallelOp createParallelAndSetInsPt(OpBuilder& b, Location loc,
 std::pair<scf::ParallelOp, scf::ParallelOp> tileParallelLoop(
     scf::ParallelOp op, ArrayRef<int64_t> tileSizes, bool withInboundCheck);
 
+LogicalResult loopUnrollByFactorAndTryInterleave(
+    scf::ForOp forOp, uint64_t unrollFactor,
+    function_ref<void(unsigned, Operation*, OpBuilder)> annotateFn = nullptr);
+
 }  // namespace disc_ral
 }  // namespace mlir
 

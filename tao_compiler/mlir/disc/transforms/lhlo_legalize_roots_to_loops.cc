@@ -3571,6 +3571,19 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
   // remove the root_op if it has no other users except the memref
   cleanUnusedLhloOps(parent);
 
+  //   // Unroll code.
+  //   SmallVector<scf::ForOp> forOps;
+  //   parent->walk([&](scf::ForOp forOp) {
+  //     forOps.push_back(forOp);
+  //   });
+  //   for (auto forOp : forOps) {
+  //     disc_ral::loopUnrollByFactorAndTryInterleave(forOp, 4);
+  //   }
+  // #if 1
+  //   llvm::errs() << "[ZZ] the fusion is: " << *(parent->getParentOp()) <<
+  //   "\n";
+  // #endif
+
   return success();
 }
 
@@ -4262,6 +4275,36 @@ struct DiscLhloLegalizeRootsToParallelLoopsPass
       });
       for (auto op : to_be_removed) {
         op->erase();
+      }
+    }
+
+    // Unroll and interleave for kStitch fusions.
+    {
+      std::vector<scf::ForOp> for_ops;
+      func.walk([&](lmhlo::FusionOp fusion) {
+        auto op = fusion.getOperation();
+        if (!isOnGpu(op)) {
+          return;
+        }
+        FusionType fusionType = FusionType::kNone;
+        auto fusionTypeAttr =
+            op->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName);
+        if (fusionTypeAttr) {
+          fusionType = fusionTypeFromString(fusionTypeAttr.getValue());
+        }
+        if (fusionType != FusionType::kStitch) {
+          return;
+        }
+
+        SmallVector<scf::ParallelOp, 2> innermostPloops;
+        getInnermostParallelLoops(fusion.getOperation(), innermostPloops);
+        for (auto ploop : innermostPloops) {
+          ploop.walk([&](scf::ForOp op) { for_ops.push_back(op); });
+        }
+      });
+
+      for (auto op : for_ops) {
+        disc_ral::loopUnrollByFactorAndTryInterleave(op, 4);
       }
     }
   }

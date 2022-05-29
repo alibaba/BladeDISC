@@ -507,6 +507,7 @@ cc_library(
     ],
     deps = [
         ":disc_shape",
+        ":disc_util",
         "//tensorflow/compiler/mlir/hlo:lhlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Affine",
@@ -628,29 +629,29 @@ cc_library(
     alwayslink = 1,
 )
 
-cc_library(
-    name = "disc_for_loop_unroll",
-    srcs = ["transforms/disc_for_loop_unroll.cc"],
-    includes = [
-        "tensorflow/compiler/mlir/hlo/include",
-        "."
-    ],
-    deps = [
-        ":codegen_utils",
-        ":fusion_utils",
-        ":pass_details",
-        "//tensorflow/compiler/mlir/hlo:lhlo",
-        # "//tensorflow/core/util:env_var",
-        "//tensorflow/core:lib",
-        "@llvm-project//llvm:Support",
-        "@llvm-project//mlir:Affine",
-        "@llvm-project//mlir:FuncDialect",
-        "@llvm-project//mlir:IR",
-        "@llvm-project//mlir:Pass",
-        "@llvm-project//mlir:SCFDialect",
-    ],
-    alwayslink = 1,
-)
+# cc_library(
+#     name = "disc_for_loop_unroll",
+#     srcs = ["transforms/disc_for_loop_unroll.cc"],
+#     includes = [
+#         "tensorflow/compiler/mlir/hlo/include",
+#         "."
+#     ],
+#     deps = [
+#         ":codegen_utils",
+#         ":fusion_utils",
+#         ":pass_details",
+#         "//tensorflow/compiler/mlir/hlo:lhlo",
+#         # "//tensorflow/core/util:env_var",
+#         "//tensorflow/core:lib",
+#         "@llvm-project//llvm:Support",
+#         "@llvm-project//mlir:Affine",
+#         "@llvm-project//mlir:FuncDialect",
+#         "@llvm-project//mlir:IR",
+#         "@llvm-project//mlir:Pass",
+#         "@llvm-project//mlir:SCFDialect",
+#     ],
+#     alwayslink = 1,
+# )
 
 cc_library(
     name = "revise_gpu_kernel_outlining",
@@ -1673,7 +1674,7 @@ cc_library(
         ":disc_convert_const_to_ral",
         ":disc_cpu_map_parallel_loop",
         ":disc_flatten_memref_access",
-        ":disc_for_loop_unroll",
+        # ":disc_for_loop_unroll",
         ":disc_fuse_splat_const",
         ":disc_fusion",
         ":disc_hlo_legalize_to_lhlo",

@@ -4,7 +4,7 @@ load(
   "tf_cc_test",
 )
 
-load("//tensorflow/compiler/mlir/disc:disc.bzl",
+load("//tensorflow/compiler/mlir:util.bzl",
      "disc_cc_library",
      "if_cuda_or_rocm",
 )

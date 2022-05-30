@@ -435,6 +435,15 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(arith::createArithmeticExpandOpsPass());
   pm.addNestedPass<FuncOp>(memref::createFoldSubViewOpsPass());
 
+  bool mem_intensive_opt_experimental = false;
+  tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", false,
+                                 &mem_intensive_opt_experimental);
+  if (gpu_enabled && mem_intensive_opt_experimental) {
+    // More benchmarks are on the way to evaluate the effectiveness of this
+    // optimization. Then this pass will be enabled by default.
+    pm.addNestedPass<FuncOp>(disc_ral::createForLoopUnrollInterleavePass());
+  }
+
   // Flatten multi dim memref accesses to its 1D format to enable more
   // opportunities for linearizeOp/delinearizeOp elimination.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscFlattenMemrefAccessPass());
@@ -492,10 +501,14 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
     // Device side codegen: gpu.module -> cubin
     auto& kernelPm = pm.nest<mlir::gpu::GPUModuleOp>();
-    // kernelPm.addNestedPass<gpu::GPUFuncOp>(
-    // disc_ral::createForLoopUnrollPass(4));
-    kernelPm.addPass(createLoopInvariantCodeMotionPass());
-    kernelPm.addPass(createCSEPass());
+    if (mem_intensive_opt_experimental) {
+      // We do not enable the LICM pass by default because this function is not
+      // widely used and we worry about the robustness. It is not guaranteed to
+      // be bug-free. We will enable it by default after evaluation on more
+      // benchmarks.
+      kernelPm.addPass(createLoopInvariantCodeMotionPass());
+      kernelPm.addPass(createCSEPass());
+    }
     kernelPm.addPass(createConvertSCFToCFPass());
     kernelPm.addPass(createLowerAffinePass());
     kernelPm.addNestedPass<FuncOp>(createCanonicalizerPass());

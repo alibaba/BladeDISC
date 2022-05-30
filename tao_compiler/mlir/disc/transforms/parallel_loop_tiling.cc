@@ -52,9 +52,9 @@ struct ParallelLoopTiling
   void runOnOperation() override {
     SmallVector<ParallelOp, 2> innermostPloops;
     getInnermostParallelLoops(getOperation(), innermostPloops);
-    bool experimental_tlp_enhance = false;
-    tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_TLP_ENHANCE", false,
-                                   &experimental_tlp_enhance);
+    bool mem_intensive_opt_experimental = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", false,
+                                   &mem_intensive_opt_experimental);
     for (ParallelOp ploop : innermostPloops) {
       // FIXME: Add reduction support.
       SmallVector<long> localTileSizes(tileSizes.begin(), tileSizes.end());
@@ -63,7 +63,7 @@ struct ParallelLoopTiling
         // TODO: Change this to a assert check after lhlo_fusion pass
         // put even single nodes into a lmhlo.FusionOp
         if (fusion) {
-          if (experimental_tlp_enhance) {
+          if (mem_intensive_opt_experimental) {
             // Do not deal with kStitch fusion.
             auto fusionTypeAttr =
                 fusion->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName);

@@ -80,7 +80,9 @@ LogicalResult elemwiseLowerHelper(OpBuilder& b, Location loc, Operation* op,
   Value memref_1d = createMemRef1DReinterpretCast(b, loc, result_memref);
   // Assuming alignment is to help vectorization optimization. Vectorization
   // pass in llvm requires an alignment of `data-byte-width * vector-size`.
-  createAlignMemrefWithTile(b, memref_1d, vector_size);
+  if (vector_size > 1) {
+    createAlignMemrefWithTile(b, memref_1d, vector_size);
+  }
   Value vec_size = b.create<arith::ConstantIndexOp>(loc, vector_size);
   if (vector_size > 1) {
     output_linear_index =
@@ -183,7 +185,9 @@ LogicalResult miscLowerHelper(OpBuilder& b, Location loc, Operation* opaque_op,
   Value memref_1d = createMemRef1DReinterpretCast(b, loc, result_memref);
   // Assuming alignment is to help vectorization optimization. Vectorization
   // pass in llvm requires an alignment of `data-byte-width * vector-size`.
-  createAlignMemrefWithTile(b, memref_1d, vector_size);
+  if (vector_size > 1) {
+    createAlignMemrefWithTile(b, memref_1d, vector_size);
+  }
   // For vectorize optimization.
   for (int i = 0; i < vector_size; i++) {
     b.create<memref::StoreOp>(loc, operand_datas[i], memref_1d,
@@ -1189,7 +1193,9 @@ LogicalResult lowerWithScheduleRowReduction<DISC_WARP_WISE_ROW_REDUCE>(
       Operation* root_op = root_pair.value();
       int idx = root_pair.index();
       auto output_memref = root_op->getOperand(root_op->getNumOperands() - 1);
-      createAlignMemrefWithTile(b, output_memref, vector_size);
+      if (vector_size > 1) {
+        createAlignMemrefWithTile(b, output_memref, vector_size);
+      }
       for (int i = 0; i < vector_size; i++) {
         b.create<memref::StoreOp>(
             loc, shuffle_val[i * row_reduction_roots.size() + idx],
@@ -1403,7 +1409,9 @@ LogicalResult emitSecondRoundShuffle(
     b.setInsertionPointToStart(&if_thread_id_is_zero.getThenRegion().front());
     auto res_memref =
         *(root_op->getOperands().begin() + (root_op->getNumOperands() - 1));
-    createAlignMemrefWithTile(b, res_memref, vector_size);
+    if (vector_size > 1) {
+      createAlignMemrefWithTile(b, res_memref, vector_size);
+    }
     for (int i = 0; i < vector_size; i++) {
       b.create<memref::StoreOp>(loc, sum_vec[i], res_memref,
                                 output_indices_vec[i]);
@@ -1983,7 +1991,9 @@ LogicalResult emitFirstRoundShuffleStitch(
   }
   if (reduce_threads == kWarpSize) {
     if (result_buffer_shm != nullptr && !external_output_only) {
-      createAlignMemrefWithTile(b, result_buffer_shm, row_tile);
+      if (row_tile > 1) {
+        createAlignMemrefWithTile(b, result_buffer_shm, row_tile);
+      }
       for (int i = 0; i < row_tile; i++) {
         // The elements store in result shm buffer are in index order. (Note it
         // is linear index.)
@@ -1993,7 +2003,9 @@ LogicalResult emitFirstRoundShuffleStitch(
     }
     if (is_output) {
       auto res_memref = op->getOperand(2);
-      createAlignMemrefWithTile(b, res_memref, row_tile);
+      if (row_tile > 1) {
+        createAlignMemrefWithTile(b, res_memref, row_tile);
+      }
       for (int i = 0; i < row_tile; i++) {
         b.create<memref::StoreOp>(loc, sum_vec[i], res_memref, row_ids[i]);
       }
@@ -2123,7 +2135,9 @@ LogicalResult emitSecondRoundShuffleStitch(
   if_thread_id_is_zero.getThenRegion().front().clear();
   b.setInsertionPointToStart(&if_thread_id_is_zero.getThenRegion().front());
   if (result_buffer_shm != nullptr && !external_output_only) {
-    createAlignMemrefWithTile(b, result_buffer_shm, row_tile);
+    if (row_tile > 1) {
+      createAlignMemrefWithTile(b, result_buffer_shm, row_tile);
+    }
     for (int i = 0; i < row_tile; i++) {
       Value index = b.create<arith::ConstantIndexOp>(loc, i);
       b.create<memref::StoreOp>(loc, results[i], result_buffer_shm, index);
@@ -2131,7 +2145,9 @@ LogicalResult emitSecondRoundShuffleStitch(
   }
   if (is_output) {
     auto res_memref = *(op->getOperands().begin() + (op->getNumOperands() - 1));
-    createAlignMemrefWithTile(b, res_memref, row_tile);
+    if (row_tile > 1) {
+      createAlignMemrefWithTile(b, res_memref, row_tile);
+    }
     for (int i = 0; i < row_tile; i++) {
       b.create<memref::StoreOp>(loc, results[i], res_memref, output_indices[i]);
     }
@@ -3722,13 +3738,13 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
     } break;
 
     case FusionType::kStitch: {
-      bool experimental_tlp_enhance = false;
-      tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_TLP_ENHANCE", false,
-                                     &experimental_tlp_enhance);
+      bool mem_intensive_opt_experimental = false;
+      tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL",
+                                     false, &mem_intensive_opt_experimental);
       const int row_reduction_schedule =
           getRowReductionScheduleHint(dominant_op);
       const int tile_size = getVectorizeOrTileHint(dominant_op);
-      if (experimental_tlp_enhance) {
+      if (mem_intensive_opt_experimental) {
         if (failed(lowerWithScheduleStitchV2(
                 fusion_op, fusion_pattern, shape_analysis, tile_size,
                 lower_config, row_reduction_schedule))) {
@@ -4275,36 +4291,6 @@ struct DiscLhloLegalizeRootsToParallelLoopsPass
       });
       for (auto op : to_be_removed) {
         op->erase();
-      }
-    }
-
-    // Unroll and interleave for kStitch fusions.
-    {
-      std::vector<scf::ForOp> for_ops;
-      func.walk([&](lmhlo::FusionOp fusion) {
-        auto op = fusion.getOperation();
-        if (!isOnGpu(op)) {
-          return;
-        }
-        FusionType fusionType = FusionType::kNone;
-        auto fusionTypeAttr =
-            op->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName);
-        if (fusionTypeAttr) {
-          fusionType = fusionTypeFromString(fusionTypeAttr.getValue());
-        }
-        if (fusionType != FusionType::kStitch) {
-          return;
-        }
-
-        SmallVector<scf::ParallelOp, 2> innermostPloops;
-        getInnermostParallelLoops(fusion.getOperation(), innermostPloops);
-        for (auto ploop : innermostPloops) {
-          ploop.walk([&](scf::ForOp op) { for_ops.push_back(op); });
-        }
-      });
-
-      for (auto op : for_ops) {
-        disc_ral::loopUnrollByFactorAndTryInterleave(op, 4);
       }
     }
   }

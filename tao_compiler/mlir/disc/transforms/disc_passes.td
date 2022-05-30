@@ -409,11 +409,7 @@ def DiscStripShapeConstraintOpsPass : Pass<"disc-strip-shape-constraint-ops", "M
   ];
 }
 
-def ForLoopUnroll : Pass<"disc-for-loop-unroll"> {
-  let summary = "Unroll SCF for loops";
-  let constructor = "createForLoopUnrollPass()";
-  let options = [
-    Option<"unrollFactor", "unroll-factor", "int64_t",
-           /*default=*/"4", "The unroll factor.">
-  ];
+def ForLoopUnrollInterleave : Pass<"disc-for-loop-unroll-interleave", "mlir::func::FuncOp"> {
+  let summary = "Unroll SCF for loops and interleave the unrolling";
+  let constructor = "createForLoopUnrollInterleavePass()";
 }

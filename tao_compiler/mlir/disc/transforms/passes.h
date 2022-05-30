@@ -216,8 +216,8 @@ std::unique_ptr<OperationPass<ModuleOp>> createDiscShapeOptimizationPass(
 // strip disc shape constraint related ops.
 std::unique_ptr<OperationPass<ModuleOp>> createStripShapeConstraintOpsPass();
 
-// SCF for-loop unrolling.
-std::unique_ptr<Pass> createForLoopUnrollPass(int64_t unrollFactor = 4);
+// SCF for-loop unrolling and interleaving.
+std::unique_ptr<OperationPass<FuncOp>> createForLoopUnrollInterleavePass();
 
 }  // namespace disc_ral
 }  // namespace mlir

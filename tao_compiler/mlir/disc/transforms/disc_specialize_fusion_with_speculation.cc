@@ -245,13 +245,15 @@ struct DiscSpecializeFusionWithSpeculationPass
   }
 
   void DoRowReductionSpeculation(FusionOp fusion_op) {
-    // bool experimental_tlp_enhance = false;
-    // tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_TLP_ENHANCE", false,
-    //  &experimental_tlp_enhance);
+    // bool mem_intensive_opt_experimental = false;
+    // tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL",
+    // false,
+    //  &mem_intensive_opt_experimental);
     FusionType fusion_type = getFusionType(fusion_op.getOperation());
     if (fusion_type != FusionType::kRowReduction &&
         fusion_type != FusionType::kStitch) {
-      //  (fusion_type == FusionType::kStitch && experimental_tlp_enhance))) {
+      //  (fusion_type == FusionType::kStitch &&
+      //  mem_intensive_opt_experimental))) {
       return;
     }
 
@@ -413,14 +415,15 @@ struct DiscSpecializeFusionWithSpeculationPass
     // Already have a hint
     if (fusion_op->getAttrOfType<IntegerAttr>(kVectorizeOrTileHint)) return;
 
-    bool experimental_tlp_enhance = false;
-    tensorflow::ReadBoolFromEnvVar("DISC_EXPERIMENTAL_TLP_ENHANCE", false,
-                                   &experimental_tlp_enhance);
+    bool mem_intensive_opt_experimental = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", false,
+                                   &mem_intensive_opt_experimental);
     FusionType fusion_type = getFusionType(fusion_op.getOperation());
     if (fusion_type != FusionType::kLoop &&
         fusion_type != FusionType::kRowReduction &&
         (fusion_type != FusionType::kStitch ||
-         (fusion_type == FusionType::kStitch && experimental_tlp_enhance))) {
+         (fusion_type == FusionType::kStitch &&
+          mem_intensive_opt_experimental))) {
       return;
     }
 

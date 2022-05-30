@@ -314,8 +314,11 @@ class GpuKernelToBlobPass
 
     xla::HloModuleConfig config;
     xla::DebugOptions options = xla::GetDebugOptionsFromFlags();
-    bool use_fast_math = true;
-    tensorflow::ReadBoolFromEnvVar("DISC_CUDA_USE_FAST_MATH", true,
+    // The default value is false currently. If it is guaranteed that the
+    // accuracy is good enough for a wide range of benchmarks, it will set to
+    // true by default.
+    bool use_fast_math = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_CUDA_USE_FAST_MATH", false,
                                    &use_fast_math);
     if (use_fast_math) {
       // prec-div is set to 1 instead of 0 for better precision.

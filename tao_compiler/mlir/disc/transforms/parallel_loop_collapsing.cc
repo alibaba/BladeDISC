@@ -44,7 +44,8 @@ struct ParallelLoopCollapsing
                                    &mem_intensive_opt_experimental);
     for (scf::ParallelOp ploop : innermostPloops) {
       if (mem_intensive_opt_experimental) {
-        // Skip kStitch fusion with no thread-block size hint.
+        // The kStitch fusion's parallel loop is formed directly when lowering
+        // roots to loops, if `DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL` is true.
         lmhlo::FusionOp fusion = ploop->getParentOfType<lmhlo::FusionOp>();
         if (fusion) {
           auto fusionTypeAttr =

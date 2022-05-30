@@ -32,7 +32,9 @@ namespace disc_ral {
 int getRowReductionScheduleHint(Operation* op) {
   assert(op);
   lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
-  // Use schedule 2 by default.
+  // Use schedule 1 by default.
+  // Schedule 1 has a better performance in a wider range of shapes than
+  // schedule 2.
   if (!fusion) return DISC_BLOCK_WISE_ROW_REDUCE;
   IntegerAttr attr =
       fusion->getAttrOfType<IntegerAttr>(kRowReductionScheduleHint);
@@ -470,14 +472,6 @@ LogicalResult generateUnrolledLoopMayInterleave(
 
   // Unroll the contents of 'forOp' (append unrollFactor - 1 additional copies).
   SmallVector<Value, 4> lastYielded(yieldedValues);
-#if 0
-  for (auto yield : yieldedValues) {
-    llvm::errs() << "[ZZ] yield: " << yield << "\n";
-  }
-  for (auto yield : lastYielded) {
-    llvm::errs() << "[ZZ] yield: " << yield << "\n";
-  }
-#endif
 
   for (unsigned i = 1; i < unrollFactor; i++) {
     BlockAndValueMapping operandMap;
@@ -488,8 +482,6 @@ LogicalResult generateUnrolledLoopMayInterleave(
     // If the induction variable is used, create a remapping to the value for
     // this unrolled instance.
     if (!forOpIV.use_empty()) {
-      // Value ivUnroll = ivRemapFn(i, forOpIV, builder);
-      // operandMap.map(forOpIV, ivUnroll);
       operandMap.map(forOpIV, ivs[i]);
     }
 
@@ -497,32 +489,21 @@ LogicalResult generateUnrolledLoopMayInterleave(
     int64_t op_idx = 0;
     for (auto it = std::next(loopBodyBlock->begin(), beginIdx);
          it != std::next(srcBlockEnd); it++) {
-      // if (lastClonedOp.count(&(*it)) == 0) {
-      // llvm::errs() << "[ZZ] do not have the key: " << *it << "\n";
-      // }
       Operation* clonedOp = builder.clone(*it, operandMap);
-#if 0
-      llvm::errs() << "[ZZ] it: " << *it << "\n";
-      llvm::errs() << "[ZZ] clonedOp: " << *clonedOp << "\n";
-      lastClonedOp[&(*it)] = clonedOp;
-      clonedOpsMap[op_idx++].push_back(clonedOp);
-#endif
       annotateFn(i, clonedOp, builder);
     }
-#if 0
-    llvm::errs() << "[ZZ] after clone.\n\n\n";
-#endif
 
     // Update yielded values.
     for (unsigned i = 0, e = lastYielded.size(); i < e; i++)
       lastYielded[i] = operandMap.lookup(yieldedValues[i]);
   }
 
-  // // Make sure we annotate the Ops in the original body. We do this last so
-  // that
-  // // any annotations are not copied into the cloned Ops above.
-  // for (auto it = loopBodyBlock->begin(); it != std::next(srcBlockEnd); it++)
-  //   annotateFn(0, &*it, builder);
+  // Make sure we annotate the Ops in the original body. We do this last so that
+  // any annotations are not copied into the cloned Ops above.
+  for (auto it = std::next(loopBodyBlock->begin(), beginIdx);
+       it != std::next(srcBlockEnd); it++) {
+    annotateFn(0, &*it, builder);
+  }
 
   // Update operands of the yield statement.
   loopBodyBlock->getTerminator()->setOperands(lastYielded);
@@ -539,12 +520,6 @@ LogicalResult generateUnrolledLoopMayInterleave(
   int64_t numEffectiveOps = std::distance(loopBodyBlock->begin(),
                                           std::prev(loopBodyBlock->end(), 1)) -
                             beginIdx;
-#if 0
-  llvm::errs() << "[ZZ] numOps: " << numOps
-               << ", numEffectiveOps: " << numEffectiveOps
-               << ", beginIdx: " << beginIdx << "\n";
-  llvm::errs() << "[ZZ] the for op is: " << *(loopBodyBlock->getParentOp()) << "\n";
-#endif
   if (numEffectiveOps != numOps * unrollFactor) {
     return failure();
   }
@@ -555,25 +530,11 @@ LogicalResult generateUnrolledLoopMayInterleave(
     assert(toMove->getParent() == toMoveAfter->getParent());
     // DominanceInfo dom(toMove->getParentOp());
     bool canMove = true;
-#if 0
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-  llvm::errs() << "[ZZ] toMove: " << *toMove << ", toMoveAfter: " << *toMoveAfter << "\n";
-  loopBodyBlock->getParentOp()->dump();
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
     for (auto iter = std::prev(toMove); iter != toMoveAfter;
          std::advance(iter, -1)) {
-#if 0
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-  llvm::errs() << "[ZZ] iter:" << *iter << "\n";
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
       // if (dom.dominates(&(*iter), &(*toMove))) {
       if (dependsOn(&(*toMove), &(*iter))) {
         canMove = false;
-#if 0
-        llvm::errs() << "[ZZ] cannot move " << *toMove << " before " << *iter << "\n";
-#endif
         break;
       }
     }
@@ -600,9 +561,7 @@ LogicalResult generateUnrolledLoopMayInterleave(
   return success();
 }
 
-// The corresponding functions in llvm community is buggy when dealing with
-// iter_args of for loop. Thus DISC maintains its own loop unroll utils.
-/// Unrolls 'forOp' by 'unrollFactor', returns success if the loop is unrolled.
+// This function unrolls the given for-loop op and interleaves the instructions
 LogicalResult loopUnrollByFactorAndTryInterleave(
     scf::ForOp forOp, uint64_t unrollFactor,
     function_ref<void(unsigned, Operation*, OpBuilder)> annotateFn) {
@@ -632,7 +591,6 @@ LogicalResult loopUnrollByFactorAndTryInterleave(
     assert(lbCst >= 0 && ubCst >= 0 && stepCst >= 0 &&
            "expected positive loop bounds and step");
     int64_t tripCount = (ubCst - lbCst + stepCst - 1) / stepCst;
-    // int64_t tripCount = mlir::ceilDiv(ubCst - lbCst, stepCst);
 
     if (unrollFactor == 1) {
       if (tripCount == 1 && failed(promoteIfSingleIteration(forOp)))
@@ -667,7 +625,6 @@ LogicalResult loopUnrollByFactorAndTryInterleave(
     Value diff =
         boundsBuilder.create<arith::SubIOp>(loc, upperBound, lowerBound);
     Value tripCount = boundsBuilder.create<arith::CeilDivUIOp>(loc, diff, step);
-    // ceilDivPositive(boundsBuilder, loc, diff, step);
     Value unrollFactorCst =
         boundsBuilder.create<arith::ConstantIndexOp>(loc, unrollFactor);
     Value tripCountRem =
@@ -714,11 +671,6 @@ LogicalResult loopUnrollByFactorAndTryInterleave(
   auto iterArgs = ValueRange(forOp.getRegionIterArgs());
   auto yieldedValues = forOp.getBody()->getTerminator()->getOperands();
 
-#if 0
-  llvm::errs() << "\n\n\n";
-  forOp.dump();
-  llvm::errs() << "\n\n\n";
-#endif
   generateUnrolledLoopMayInterleave(
       forOp.getBody(), forOp.getInductionVar(), unrollFactor,
       [&](unsigned i, Value iv, OpBuilder b) {

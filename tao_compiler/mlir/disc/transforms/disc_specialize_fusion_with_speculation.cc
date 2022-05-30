@@ -271,10 +271,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     Value pred;
 
     // TODO: this feature will be experimental in the first release, and will be
-    // set as default in the near future after evaluated on benchmarks. And
-    // later, the two speculations will be merge into one according to the
-    // adaptive thread mapping approach in AStitch. Then there will be more
-    // flexible per-reduce-thread-number setting.
+    // set as default in the near future after evaluated on benchmarks.
     bool mem_intensive_opt_experimental = false;
     tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", false,
                                    &mem_intensive_opt_experimental);
@@ -426,6 +423,8 @@ struct DiscSpecializeFusionWithSpeculationPass
         (fusion_type != FusionType::kStitch ||
          (fusion_type == FusionType::kStitch &&
           mem_intensive_opt_experimental))) {
+      // TODO: support tile optimization for kStitch fusion when
+      // `DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL` is `true`.
       return;
     }
 

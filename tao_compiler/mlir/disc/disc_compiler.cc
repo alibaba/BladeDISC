@@ -211,7 +211,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
       /*shouldPrintAfterPass=*/
       [](Pass* pass, Operation*) { return VLOG_IS_ON(1); },
       /*printModuleScope=*/false,
-      /*printAfterOnlyOnChange=*/false,
+      /*printAfterOnlyOnChange=*/true,
       /*printAfterOnlyOnFailure*/ false, llvm::dbgs(), printingFlags);
 
   pm.addPass(mlir::createInlinerPass());

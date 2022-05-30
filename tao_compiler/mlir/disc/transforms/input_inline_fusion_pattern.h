@@ -94,7 +94,6 @@ class InputInlineFusionPattern : public RewritePattern {
     getInnermostParallelLoops(op, innermostPloops);
 
     for (scf::ParallelOp parallelOp : innermostPloops) {
-      //  llvm::to_vector<4>(parent_block.getOps<scf::ParallelOp>())) {
       if (!failed(processParallelOp(parallelOp, &parent_block, rewriter,
                                     dominance_info)))
         return success();

@@ -26,6 +26,12 @@ def _tao_bridge_repositories():
     )
 
     native.new_local_repository(
+        name = "onednn",
+        build_file = "@local_config_onednn//:onednn.BUILD",
+        path = "third_party/mkldnn",
+    )
+
+    native.new_local_repository(
         name = "blade_gemm",
         build_file = "@org_third_party//bazel/third_party:blade_gemm.BUILD",
         path = "../../platform_alibaba/blade_gemm"

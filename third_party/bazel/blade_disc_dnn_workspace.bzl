@@ -35,11 +35,6 @@ def _blade_disc_dnn_repositories():
     # ACL_ROOT setting is done in `onednn_configure`
     onednn_configure(name = "local_config_onednn")
 
-    native.new_local_repository(
-        name = "onednn",
-        build_file = "@local_config_onednn//:onednn.BUILD",
-        path = "third_party/mkldnn",
-    )
 
 def workspace():
     _blade_disc_dnn_repositories()

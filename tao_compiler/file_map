@@ -1,5 +1,6 @@
 # relative path under tao_compiler, relative path under tf_community
 decoupling,tensorflow/compiler/decoupling
+mlir/util.bzl,tensorflow/compiler/mlir/util.bzl
 mlir/disc,tensorflow/compiler/mlir/disc
 mlir/xla/ral,tensorflow/compiler/mlir/xla/ral
 .bazelrc.user,tensorflow/../.bazelrc.user

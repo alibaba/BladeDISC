@@ -211,7 +211,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
       /*shouldPrintAfterPass=*/
       [](Pass* pass, Operation*) { return VLOG_IS_ON(1); },
       /*printModuleScope=*/false,
-      /*printAfterOnlyOnChange=*/true,
+      /*printAfterOnlyOnChange=*/false,
       /*printAfterOnlyOnFailure*/ false, llvm::dbgs(), printingFlags);
 
   pm.addPass(mlir::createInlinerPass());
@@ -432,9 +432,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(
       disc_ral::createDiscUnhandledAtomicRMWConverterPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscInputInlineFusionPass());
-  pm.addNestedPass<FuncOp>(arith::createArithmeticExpandOpsPass());
-  pm.addNestedPass<FuncOp>(memref::createFoldSubViewOpsPass());
-
   bool mem_intensive_opt_experimental = false;
   tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", false,
                                  &mem_intensive_opt_experimental);
@@ -443,6 +440,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     // optimization. Then this pass will be enabled by default.
     pm.addNestedPass<FuncOp>(disc_ral::createForLoopUnrollInterleavePass());
   }
+  pm.addNestedPass<FuncOp>(arith::createArithmeticExpandOpsPass());
+  pm.addNestedPass<FuncOp>(memref::createFoldSubViewOpsPass());
 
   // Flatten multi dim memref accesses to its 1D format to enable more
   // opportunities for linearizeOp/delinearizeOp elimination.

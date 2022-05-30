@@ -181,7 +181,6 @@ struct DiscSpecializeFusionWithSpeculationPass
         cloneWithBroadcastSimplifying(b, fusion_op, broadcast_ops);
     addFusionTag(b, cloned, "no_ib");
 
-#if 0
     // Generate the predition.
     for (Operation* op : broadcast_ops) {
       Value operand = op->getOperand(0);
@@ -204,7 +203,6 @@ struct DiscSpecializeFusionWithSpeculationPass
     Block* else_block = &if_op.getElseRegion().getBlocks().front();
     cloned.getOperation()->moveBefore(then_block, then_block->begin());
     fusion_op.getOperation()->moveBefore(else_block, else_block->begin());
-#endif
 
     DenseMap<Value, Value> viewMap;
     SmallVector<Operation*, 4> op_list;
@@ -239,21 +237,12 @@ struct DiscSpecializeFusionWithSpeculationPass
     cloned.walk([&](Operation* op) {
       for (auto& it : viewMap) op->replaceUsesOfWith(it.first, it.second);
     });
-#if 1
-    fusion_op.erase();
-#endif
   }
 
   void DoRowReductionSpeculation(FusionOp fusion_op) {
-    // bool mem_intensive_opt_experimental = false;
-    // tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL",
-    // false,
-    //  &mem_intensive_opt_experimental);
     FusionType fusion_type = getFusionType(fusion_op.getOperation());
     if (fusion_type != FusionType::kRowReduction &&
         fusion_type != FusionType::kStitch) {
-      //  (fusion_type == FusionType::kStitch &&
-      //  mem_intensive_opt_experimental))) {
       return;
     }
 
@@ -286,29 +275,42 @@ struct DiscSpecializeFusionWithSpeculationPass
     // later, the two speculations will be merge into one according to the
     // adaptive thread mapping approach in AStitch. Then there will be more
     // flexible per-reduce-thread-number setting.
-    bool legacy_tlp_enhance = false;
-    tensorflow::ReadBoolFromEnvVar("DISC_LEGACY_TLP_ENHANCE", false,
-                                   &legacy_tlp_enhance);
-    if (legacy_tlp_enhance && core_count_ != -1 &&
+    bool mem_intensive_opt_experimental = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", false,
+                                   &mem_intensive_opt_experimental);
+    if (mem_intensive_opt_experimental && core_count_ != -1 &&
         max_threads_per_core_ != -1) {
-      // Experimental schedule selection policy is as following:
-      //   1. use schedule 1 if
-      //      (col-size >= block-dim) &&
-      //      (row-number / row-per-block-in-sched-2 < max-blocks-per-wave / 2);
-      //   2. use schedule 2 otherwise.
-      int64_t max_blocks_per_wave =
-          max_threads_per_core_ / block_size * core_count_;
-      int64_t row_per_block_in_sched_2 = block_size / kWarpSize;
+      // When the number of rows is small or the number of cols is large, we
+      // use one-block-one-row schedule. Specifically, we use one-block-one-row
+      // schedule for the following conditions (otherwise use one-warp-one-row
+      // schedule):
+      //   1. row < max-warps-per-wave / 4
+      //   2. row < max-warps-per-wave / 2 & col >= 1024
+      //   3. row >= max-warps-per-wave / 2 & cols >= 512
+      // Note the block-size is 256 currently.
+      int64_t max_warps_per_wave =
+          max_threads_per_core_ / block_size * core_count_ / kWarpSize;
       Value row_size = b.create<memref::DimOp>(loc, operand, 0);
-      Value block_size_val = b.create<arith::ConstantIndexOp>(loc, block_size);
-      auto threshold_row_number = b.create<arith::ConstantIndexOp>(
-          loc, max_blocks_per_wave / 2 * row_per_block_in_sched_2);
-      Value large_col = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge,
-                                                col_size, block_size_val);
-      Value small_row = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt,
-                                                row_size, threshold_row_number);
-
-      pred = b.create<arith::AndIOp>(loc, large_col, small_row);
+      Value col_size = b.create<memref::DimOp>(loc, operand, 1);
+      Value cond1 = b.create<arith::CmpIOp>(
+          loc, arith::CmpIPredicate::slt, row_size,
+          b.create<arith::ConstantIndexOp>(loc, max_warps_per_wave / 4));
+      Value cond2 = b.create<arith::AndIOp>(
+          loc,
+          b.create<arith::CmpIOp>(
+              loc, arith::CmpIPredicate::slt, row_size,
+              b.create<arith::ConstantIndexOp>(loc, max_warps_per_wave / 2)),
+          b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge, col_size,
+                                  b.create<arith::ConstantIndexOp>(loc, 1024)));
+      Value cond3 = b.create<arith::AndIOp>(
+          loc,
+          b.create<arith::CmpIOp>(
+              loc, arith::CmpIPredicate::sge, row_size,
+              b.create<arith::ConstantIndexOp>(loc, max_warps_per_wave / 2)),
+          b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge, col_size,
+                                  b.create<arith::ConstantIndexOp>(loc, 512)));
+      pred = b.create<arith::OrIOp>(loc, cond1, cond2);
+      pred = b.create<arith::OrIOp>(loc, pred, cond3);
     } else {
       // Default schedule selection policy:
       //   use schedule 1 if col size > `kRowReductionScheduleTurningSize`;
@@ -535,12 +537,12 @@ struct DiscSpecializeFusionWithSpeculationPass
     // Stage #3: speculation of row reduce op.
     // We do row-reduction speculation before vectorization/tiling because TLP
     // is usually more important than ILP on GPU.
-    // Speculator(
-    // &DiscSpecializeFusionWithSpeculationPass::DoRowReductionSpeculation);
+    Speculator(
+        &DiscSpecializeFusionWithSpeculationPass::DoRowReductionSpeculation);
 
     // Stage #4: speculation of vectorization/tiling.
-    // Speculator(
-    // &DiscSpecializeFusionWithSpeculationPass::DoVectorizeOrTileSpeculation);
+    Speculator(
+        &DiscSpecializeFusionWithSpeculationPass::DoVectorizeOrTileSpeculation);
   }
 };
 

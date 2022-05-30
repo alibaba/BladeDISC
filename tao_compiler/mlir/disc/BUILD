@@ -687,6 +687,7 @@ cc_library(
     name = "disc_fusion",
     srcs = ["transforms/lhlo_fusion.cc"],
     deps = [
+        ":disc_shape_optimization_utils",
         ":fusion_utils",
         ":pass_details",
         ":placement_utils",
@@ -1532,6 +1533,7 @@ cc_library(
     name = "disc_algebra_simplifier",
     srcs = ["transforms/disc_algebra_simplifier.cc"],
     deps = [
+        ":disc_shape_optimization_utils",
         ":mhlo_disc",
         ":pass_details",
         "//tensorflow/compiler/mlir/hlo:hlo",
@@ -1540,6 +1542,77 @@ cc_library(
         "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:Shape",
         "@llvm-project//mlir:StandardOps",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "disc_shape_optimization_utils",
+    srcs = [
+        "transforms/disc_shape_optimization_utils.cc"
+    ],
+    hdrs = [
+        "transforms/disc_shape_optimization_utils.h",
+    ],
+    deps = [
+        ":disc_shape",
+        ":disc_util",
+        ":pass_details",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Shape",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "disc_shape_optimization",
+    srcs = [
+        "transforms/disc_shape_optimization.cc"
+    ],
+    deps = [
+        ":mhlo_disc",
+        ":disc_shape_optimization_utils",
+        ":disc_util",
+        ":pass_details",
+        "//tensorflow/compiler/mlir/hlo:hlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Shape",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "disc_strip_shape_constraint_ops",
+    srcs = [
+        "transforms/disc_strip_shape_constraint_ops.cc"
+    ],
+    deps = [
+        ":disc_shape_optimization_utils",
+        ":disc_util",
+        ":pass_details",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Shape",
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TensorDialect",
         "@llvm-project//mlir:Transforms",
@@ -1582,11 +1655,13 @@ cc_library(
         ":disc_parallel_loop_tiling",
         ":disc_remove_dead_buffer",
         ":disc_remove_shape_constraints",
+        ":disc_shape_optimization",
         ":disc_shape_simplifier",
         ":disc_shape_to_std",
         ":disc_specialize_fusion_with_speculation",
         ":disc_std_bufferize",
         ":disc_stitch_fusion",
+        ":disc_strip_shape_constraint_ops",
         ":disc_tensor_to_std",
         ":disc_to_llvm",
         ":disc_transpose_simplifier",

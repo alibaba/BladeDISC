@@ -53,6 +53,10 @@ LogicalResult ReinterpretCastOpConverter::matchAndRewrite(
   if (!allocTy.hasStaticShape()) {
     alloc->setOperands(op.sizes());
   }
+  StringRef attrName = disc_shape::SymbolicDimOp::getSymbolicDimAttrName();
+  if (op->hasAttr(attrName)) {
+    alloc->setAttr(attrName, op->getAttr(attrName));
+  }
   rewriter.replaceOp(op, alloc->getResults());
   return success();
 }

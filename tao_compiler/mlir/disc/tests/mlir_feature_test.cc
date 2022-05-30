@@ -223,6 +223,58 @@ bool feature_test_read_input_from_file(const std::string& mlir_file_path,
                            input_vals, profiling);
 }
 
+// key -> (value, pre-exist?)
+using EnvSetting =
+    std::unordered_map<std::string, std::pair<std::string, bool>>;
+using EnvSettings = std::vector<EnvSetting>;
+
+void addBoolFlags(EnvSettings& envSettings, const std::string& key) {
+  char* value = getenv(key.c_str());
+  if (value) {
+    for (auto& setting : envSettings) {
+      setting[key].first = value;
+      setting[key].second = true;
+    }
+  } else {
+    size_t original_size = envSettings.size();
+    for (int i = 0; i < original_size; ++i) {
+      envSettings[i][key].first = "false";
+      envSettings.push_back(envSettings[i]);
+      envSettings[i][key].first = "true";
+    }
+  }
+}
+
+EnvSettings getEnvironmentSettings() {
+  EnvSettings envSettings{{}};
+  addBoolFlags(envSettings, "DISC_ENABLE_STITCH");
+  addBoolFlags(envSettings, "DISC_ENABLE_SHAPE_CONSTRAINT_IR");
+  return envSettings;
+}
+
+struct EnvSettingContext {
+  explicit EnvSettingContext(const EnvSetting& setting) : setting(setting) {
+    VLOG(0) << "Apply env setting:";
+    for (const auto& kv : setting) {
+      VLOG(0) << "\t" << kv.first << " = " << kv.second.first;
+      setenv(kv.first.c_str(), kv.second.first.c_str(), 1);
+    }
+  }
+
+  ~EnvSettingContext() {
+    VLOG(0) << "Unset env setting:";
+    for (const auto& kv : setting) {
+      // not a pre-exist flag, unset it.
+      if (!kv.second.second) {
+        VLOG(0) << "\t" << kv.first << " = " << kv.second.first;
+        unsetenv(kv.first.c_str());
+      }
+    }
+  }
+
+  EnvSetting setting;
+};
+
 bool feature_test_main(const std::string& mlir_file_path,
                        const std::vector<BackendType>& backend_types,
                        int num_inputs, int num_outputs,
@@ -232,17 +284,10 @@ bool feature_test_main(const std::string& mlir_file_path,
                        bool profiling, bool multi_cc_mode,
                        bool multi_cc_mode_dbg_ptx_only) {
   bool pass = true;
-  const char* stitch_name = "DISC_ENABLE_STITCH";
-  std::vector<const char*> stitch_fusion_flags;
-  char* stitch_flag = getenv(stitch_name);
-  if (stitch_flag) {
-    stitch_fusion_flags.push_back(stitch_flag);
-  } else {
-    stitch_fusion_flags.push_back("true");
-    stitch_fusion_flags.push_back("false");
-  }
-  for (const auto flag : stitch_fusion_flags) {
-    setenv(stitch_name, flag, 1);
+  auto envSettings = getEnvironmentSettings();
+  for (const auto& setting : envSettings) {
+    EnvSettingContext ctx(setting);
+
     for (auto backend_type : backend_types) {
       if (backend_type == BackendType::kCuda) {
 #if (GOOGLE_CUDA) || (TENSORFLOW_USE_ROCM)

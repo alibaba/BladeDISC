@@ -20,6 +20,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 
 #define DEBUG_TYPE "disc-algebra-simplifier"
 
@@ -51,6 +52,7 @@ struct ExpandPowOp : public OpRewritePattern<mhlo::PowOp> {
     for (int i = 1; i < exponential; ++i)
       newResult =
           rewriter.create<mhlo::MulOp>(loc, newResult, op->getOperand(0));
+    newResult.setType(op->getResult(0).getType());
     rewriter.replaceOp(op, newResult);
     return success();
   }
@@ -115,10 +117,185 @@ struct ExpandPowOp : public OpRewritePattern<mhlo::PowOp> {
   }
 };
 
+// convert:
+//   %1 = mhlo.dynamic_broadcast_in_dim(%0, %target_shape) :
+//     (tensor<?x?xf32, [@S0, @S1]>, ...) -> tensor<?x?xf32, [@S0, @S1]>
+//   use(%1)
+// to:
+//   use(%0)
+template <typename OpTy>
+struct IdentityBroadCastInDimOpCanonicalizationPattern
+    : public OpRewritePattern<OpTy> {
+  using OpRewritePattern<OpTy>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(OpTy op,
+                                PatternRewriter& rewriter) const override {
+    auto fromTy =
+        op->getOperand(0).getType().template dyn_cast<RankedTensorType>();
+    auto toTy =
+        op->getResult(0).getType().template dyn_cast<RankedTensorType>();
+    if (!fromTy || !toTy) return failure();
+    // identity bcast op if fromTy & toTy have the same static shape
+    if (fromTy.hasStaticShape() && toTy.hasStaticShape() && fromTy == toTy) {
+      rewriter.replaceOp(op, op->getOperands());
+      return success();
+    }
+
+    // (partial) dynamic shape cases.
+    // Try to check if the input and out have the same symbolic dim shape.
+    auto fromSymbols = getRankedValueSymbolicDimRefs(op->getOperand(0));
+    auto toSymbols = getRankedValueSymbolicDimRefs(op->getResult(0));
+    if (!fromSymbols || !toSymbols ||
+        (*fromSymbols).size() != (*toSymbols).size())
+      return failure();
+
+    for (const auto& z : llvm::zip(*fromSymbols, *toSymbols))
+      if (std::get<0>(z) != std::get<1>(z)) return failure();
+
+    rewriter.replaceOp(op, op->getOperands());
+    return success();
+  }
+};
+
+// Convert an tf.expand like reshape op followed by a dynamic-broadcast-in-dim
+// op to a single dynamic-broadcast-in-dim op. The dim size of expanded dims
+// should be one.
+//
+// An example is like following:
+//
+//  %0 = ...: tensor<?x?xf32>
+//  %d0 = tensor.dim %0, %c0 : tensor<?x?xf32>
+//  %d1 = tensor.dim %0, %c1 : tensor<?x?xf32>
+//  %new_shape = tensor.from_elements %d0, %d1, %c1 : tensor<3xindex>
+//  %1 = "mhlo.dynamic_reshape"(%0, %new_shape) : (tensor<?x?xf32>,
+//  tensor<3xindex>) -> tensor<?x?x1xf32>
+//  %2 = "mhlo.dynamic_broadcast_in_dim"(%1, %...) {broadcast_dimensions =
+//  dense<[0, 1, 2]> : tensor<3xi64>} : (tensor<?x?x1xf32>, tensor<3xindex>)
+//  ->tensor<?x?x?xf32>
+//
+// This pattern will be converted to:
+//
+//  %2 = "mhlo.dynamic_broadcast_in_dim"(%0, %...) {broadcast_dimensions =
+//  dense<[0, 1]> : tensor<3xi64>} : (tensor<?x?xf32>, tensor<3xindex>) ->
+//  tensor<?x?x?xf32>
+//
+// Note that the reshape op can be either `mhlo::DynamicReshapeOp` or
+// `mhlo::ReshapeOp`. The expanded dim can be in any axis.
+template <typename T>
+LogicalResult tryToExtractDimMap(const SmallVectorImpl<T>& in,
+                                 const SmallVectorImpl<T>& out,
+                                 RankedTensorType outTy,
+                                 DenseMap<int64_t, int64_t>& dimMap) {
+  int64_t inRank = static_cast<int64_t>(in.size());
+  int64_t outRank = static_cast<int64_t>(out.size());
+
+  int64_t outIdx = 0;
+  for (int64_t inIdx = 0; inIdx < inRank; ++inIdx, ++outIdx) {
+    while (in[inIdx] != out[outIdx]) {
+      if (outTy.getShape()[outIdx] != 1) return failure();
+      if (++outIdx >= outRank) return failure();
+    }
+    dimMap[inIdx] = outIdx;
+  }
+  return success();
+}
+
+void newBcastOp(mhlo::BroadcastInDimOp op, PatternRewriter& rewriter,
+                SmallVector<Value>& newOperands,
+                DenseIntElementsAttr bcastAttr) {
+  rewriter.replaceOpWithNewOp<mhlo::BroadcastInDimOp>(
+      op, op.getType(), newOperands[0], bcastAttr);
+}
+
+void newBcastOp(mhlo::DynamicBroadcastInDimOp op, PatternRewriter& rewriter,
+                SmallVector<Value>& newOperands,
+                DenseIntElementsAttr bcastAttr) {
+  rewriter.replaceOpWithNewOp<mhlo::DynamicBroadcastInDimOp>(
+      op, op.getType(), newOperands[0], newOperands[1], bcastAttr);
+}
+
+template <typename OpTy>
+struct BroadCastInDimOfReshapeOpCanonicalizationPattern
+    : public OpRewritePattern<OpTy> {
+  using OpRewritePattern<OpTy>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(OpTy op,
+                                PatternRewriter& rewriter) const override {
+    Value bcastOut = op->getResult(0);
+    Value reshapeOut = op->getOperand(0);
+    auto reshapeOp = reshapeOut.getDefiningOp();
+    if (!reshapeOp || !isa<mhlo::ReshapeOp, mhlo::DynamicReshapeOp>(reshapeOp))
+      return failure();
+    Value reshapeInput = reshapeOp->getOperand(0);
+
+    auto bcastOutTy = bcastOut.getType().template dyn_cast<RankedTensorType>();
+    auto reshapeOutTy =
+        reshapeOut.getType().template dyn_cast<RankedTensorType>();
+    auto reshapeInputTy =
+        reshapeInput.getType().template dyn_cast<RankedTensorType>();
+    if (!bcastOutTy || !reshapeOutTy || !reshapeInputTy) return failure();
+
+    // early stop if not a tf.expand like reshape
+    if (reshapeInputTy.getRank() >= reshapeOutTy.getRank()) return failure();
+
+    bool matched = false;
+    // map one dimension of the input of the reshape to one dimension of the
+    // output of the reshape.
+    DenseMap<int64_t, int64_t> dimMap;
+
+    if (reshapeOutTy.hasStaticShape() && reshapeInputTy.hasStaticShape()) {
+      // static shape casse
+      if (failed(
+              tryToExtractDimMap(llvm::to_vector<4>(reshapeInputTy.getShape()),
+                                 llvm::to_vector<4>(reshapeOutTy.getShape()),
+                                 reshapeOutTy, dimMap))) {
+        return failure();
+      }
+      matched = true;
+    } else {
+      // (partial) dynamic shape cases.
+      // Try to check if the input and out have the compatible symbolic dim
+      // shape.
+      auto reshapeInputSymbols = getRankedValueSymbolicDimRefs(reshapeInput);
+      auto reshapeOutSymbols = getRankedValueSymbolicDimRefs(reshapeOut);
+      if (!reshapeInputSymbols || !reshapeOutSymbols) return failure();
+
+      if (failed(tryToExtractDimMap(*reshapeInputSymbols, *reshapeOutSymbols,
+                                    reshapeOutTy, dimMap))) {
+        return failure();
+      }
+      matched = true;
+    }
+
+    if (!matched) return failure();
+
+    SmallVector<int64_t> newBcastDims;
+    auto oldBcastDims = op.broadcast_dimensions().template getValues<int64_t>();
+    for (size_t d = 0, rank = dimMap.size(); d < rank; ++d)
+      newBcastDims.push_back(oldBcastDims[dimMap[d]]);
+
+    RankedTensorType ty =
+        RankedTensorType::get({static_cast<int64_t>(newBcastDims.size())},
+                              rewriter.getIntegerType(64));
+    SmallVector<Value> newOperands{reshapeInput};
+    for (Value operand : op->getOperands().drop_front())
+      newOperands.push_back(operand);
+
+    newBcastOp(op, rewriter, newOperands,
+               DenseIntElementsAttr::get(ty, newBcastDims));
+    return success();
+  }
+};
+
 void populateDiscAlgebraSimplifierPatterns(RewritePatternSet& patterns) {
   // clang-format off
   patterns.insert<
-    ExpandPowOp
+    BroadCastInDimOfReshapeOpCanonicalizationPattern<mhlo::BroadcastInDimOp>,
+    BroadCastInDimOfReshapeOpCanonicalizationPattern<mhlo::DynamicBroadcastInDimOp>,
+    ExpandPowOp,
+    IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastInDimOp>,
+    IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastOp>,
+    IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::DynamicBroadcastInDimOp>
   >(patterns.getContext());
   // clang-format on
 }

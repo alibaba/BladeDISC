@@ -19,6 +19,7 @@ limitations under the License.
 #include "mlir/Pass/Pass.h"               // TF:local_config_mlir
 #include "mlir/Transforms/RegionUtils.h"  // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/shape_utils.h"
@@ -501,6 +502,10 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
   void runOnOperation() override {
     func::FuncOp func = getOperation();
 
+    // skip shape constraint graph
+    if (func.getName() == SymbolicDimMgr::getShapeConstraintGraphFunctionName())
+      return;
+
     // collect all blocks inside the function.
     SmallVector<Block*, 4> blocks;
     CollectBlocksInsideFunction(func, blocks);
@@ -534,7 +539,9 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
                                     &disc_expected_kernels_in_ut);
     if ((disc_expected_kernels_in_ut >= 0) &&
         (disc_expected_kernels_in_ut != fusion_pattern_number)) {
-      emitError(func.getLoc(), "fusion pattern number is not as expected.");
+      func->emitError() << "fusion pattern number is not as expected ("
+                        << disc_expected_kernels_in_ut << " vs "
+                        << fusion_pattern_number << ")\n";
       signalPassFailure();
       return;
     }

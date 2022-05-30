@@ -216,6 +216,8 @@ struct IdentityTieShapeOp : public OpRewritePattern<TieShapeOp> {
 
   LogicalResult matchAndRewrite(TieShapeOp op,
                                 PatternRewriter& rewriter) const override {
+    // Do not touch tie_shape op with symbolic dim ref attrs.
+    if (op->hasAttr(SymbolicDimOp::getSymbolicDimAttrName())) return success();
     Value operand = op.value();
     auto operandTy = operand.getType().dyn_cast<RankedTensorType>();
     if (!operandTy) return failure();
@@ -295,6 +297,93 @@ void TieShapeOp::getCanonicalizationPatterns(RewritePatternSet& results,
 }
 
 LogicalResult TieShapeOp::verify() { return Verify(*this); }
+
+//===----------------------------------------------------------------------===//
+// SymbolicDimOp
+//===----------------------------------------------------------------------===//
+
+void SymbolicDimOp::getCanonicalizationPatterns(RewritePatternSet& results,
+                                                MLIRContext* context) {}
+
+LogicalResult SymbolicDimOp::verify() { return Verify(*this); }
+
+int64_t SymbolicDimOp::getDimSize() {
+  if (auto attr = (*this)->getAttrOfType<IntegerAttr>("value"))
+    return attr.getInt();
+  return ShapedType::kDynamicSize;
+}
+
+void SymbolicDimOp::setDimSize(int64_t val) {
+  OpBuilder b(*this);
+  (*this)->setAttr("value", b.getI64IntegerAttr(val));
+  if (val == -1) {
+    setKnownNegativeOne(true);
+  } else if (val >= 0) {
+    setKnownNonNegative(true);
+    if (val != 0) setKnownNonSizeZero(true);
+    if (val != 1) setKnownNonSizeOne(true);
+  }
+}
+
+bool SymbolicDimOp::isDynamic() {
+  return getDimSize() == ShapedType::kDynamicSize;
+}
+
+void SymbolicDimOp::setKnownNonNegative(bool flag) {
+  OpBuilder b(*this);
+  (*this)->setAttr("knownNonNegative", b.getBoolAttr(flag));
+}
+
+void SymbolicDimOp::setKnownNegativeOne(bool flag) {
+  OpBuilder b(*this);
+  (*this)->setAttr("knownNegativeOne", b.getBoolAttr(flag));
+  if (flag) {
+    setKnownNonSizeOne(true);
+    setKnownNonSizeZero(true);
+  }
+}
+
+void SymbolicDimOp::setKnownNonSizeOne(bool flag) {
+  OpBuilder b(*this);
+  (*this)->setAttr("knownNonSizeOne", b.getBoolAttr(flag));
+}
+
+void SymbolicDimOp::setKnownNonSizeZero(bool flag) {
+  OpBuilder b(*this);
+  (*this)->setAttr("knownNonSizeZero", b.getBoolAttr(flag));
+}
+
+LogicalResult SymbolicDimOp::Merge(SymbolicDimOp other) {
+  if (!isDynamic() && !other.isDynamic() && getDimSize() != other.getDimSize())
+    return failure();
+  if (isDynamic() && !other.isDynamic()) setDimSize(other.getDimSize());
+
+  bool knownNonNegativeFlag = knownNonNegative() || other.knownNonNegative();
+  bool knownNegativeOneFlag = knownNegativeOne() || other.knownNegativeOne();
+  bool knownNonSizeOneFlag =
+      knownNonSizeOne() || other.knownNonSizeOne() || knownNegativeOneFlag;
+  bool knownNonSizeZeroFlag =
+      knownNonSizeZero() || other.knownNonSizeZero() || knownNegativeOneFlag;
+
+  if (knownNonNegativeFlag && knownNegativeOneFlag) return failure();
+
+  setKnownNonSizeZero(knownNonSizeZeroFlag);
+  setKnownNonSizeOne(knownNonSizeOneFlag);
+  setKnownNegativeOne(knownNegativeOneFlag);
+  setKnownNonNegative(knownNonNegativeFlag);
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// DimOp
+//===----------------------------------------------------------------------===//
+LogicalResult DimOp::verify() { return Verify(*this); }
+
+//===----------------------------------------------------------------------===//
+// TieProductEqualOp
+//===----------------------------------------------------------------------===//
+LogicalResult TieProductEqualOp::verify() { return Verify(*this); }
 
 }  // namespace disc_shape
 }  // namespace mlir

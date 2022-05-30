@@ -379,3 +379,26 @@ def DiscAlgebraSimplifierPass : Pass<"disc-algebra-simplifier", "mlir::func::Fun
   let summary = "Apply some basic algebra simplification optimizations";
   let constructor = "createDiscAlgebraSimplifierPass()";
 }
+
+def DiscShapeOptimizationPass : Pass<"disc-shape-optimization", "ModuleOp"> {
+  let summary = "apply some shape-related optimizations.";
+  let constructor = "createDiscShapeOptimizationPass()";
+  let dependentDialects = [
+      "disc_shape::DISCShapeDialect",
+      "shape::ShapeDialect"
+  ];
+  let options = [
+    Option<"entry_func_name_", "entry-func-name", "std::string",
+           /*default=*/"\"main\"", "Name of the entry function.">,
+    Option<"keep_tie_shape_", "keep-tie-shape", "bool",
+           /*default=*/"false", "whether to keep tie shape op after this pass.">,
+  ];
+}
+
+def DiscStripShapeConstraintOpsPass : Pass<"disc-strip-shape-constraint-ops", "ModuleOp"> {
+  let summary = "strip disc shape constraint ops.";
+  let constructor = "createStripShapeConstraintOpsPass()";
+  let dependentDialects = [
+      "disc_shape::DISCShapeDialect",
+  ];
+}

@@ -201,6 +201,10 @@ struct TieShapeOpConverter : public BaseOpConversion<TieShapeOp> {
 
     Value castedValue = disc_ral::CastMemRefTo(rewriter, loc, memref, memrefTy,
                                                operands.drop_front());
+    StringRef attrName = disc_shape::SymbolicDimOp::getSymbolicDimAttrName();
+    if (op->hasAttr(attrName)) {
+      castedValue.getDefiningOp()->setAttr(attrName, op->getAttr(attrName));
+    }
     rewriter.replaceOp(op, {castedValue});
     return success();
   }

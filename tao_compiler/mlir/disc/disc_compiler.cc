@@ -228,8 +228,18 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
-  // propagate some known shape information.
-  pm.addPass(disc_ral::createDiscShapeSimplifierPass());
+  bool enable_shape_constraint_ir = false;
+  tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_SHAPE_CONSTRAINT_IR",
+                                 enable_shape_constraint_ir,
+                                 &enable_shape_constraint_ir);
+  if (!enable_shape_constraint_ir) {
+    // propagate some known shape information.
+    pm.addPass(disc_ral::createDiscShapeSimplifierPass());
+  } else {
+    pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertShapeToStandardPass());
+    // shape-related optimization
+    pm.addPass(disc_ral::createDiscShapeOptimizationPass());
+  }
 
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertTensorToStandardPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertHloToStandardPass());
@@ -240,12 +250,24 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(disc_ral::createDiscAlgebraSimplifierPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscSplitLargeOpsPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscDotRewriterPass());
+  if (enable_shape_constraint_ir) {
+    // shape-related optimization
+    pm.addPass(disc_ral::createDiscShapeOptimizationPass());
+  }
 
   // Either merge dots to batched dot or merge dots sharing the same operand.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscDotMergePass());
+  if (enable_shape_constraint_ir) {
+    // shape-related optimization
+    pm.addPass(disc_ral::createDiscShapeOptimizationPass());
+  }
 
   if (gpu_enabled) {
     pm.addNestedPass<FuncOp>(mhlo::createHloCanonicalizeReductionPass());
+    if (enable_shape_constraint_ir) {
+      // shape-related optimization
+      pm.addPass(disc_ral::createDiscShapeOptimizationPass());
+    }
   }
 
   pm.addPass(disc_ral::createDiscMarkShapeCalcOpPass());
@@ -267,8 +289,16 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   tensorflow::ReadBoolFromEnvVar("TAO_MLIR_ENABLE_AMP", false, &enable_fp16);
   pm.addNestedPass<FuncOp>(
       disc_ral::createDiscElementTypeConverterPass(enable_fp16));
+  if (enable_shape_constraint_ir) {
+    // shape-related optimization
+    pm.addPass(disc_ral::createDiscShapeOptimizationPass());
+  }
 
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvRewriter());
+  if (enable_shape_constraint_ir) {
+    // shape-related optimization
+    pm.addPass(disc_ral::createDiscShapeOptimizationPass());
+  }
   // Run CSE after conv rewriter pass to eliminate some redundant transpose ops.
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
@@ -279,9 +309,20 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     // side. This pass ensures this property.
     pm.addNestedPass<FuncOp>(disc_ral::createDiscGpuConvPaddingLegalization());
   }
+  if (enable_shape_constraint_ir) {
+    // shape-related optimization
+    pm.addPass(disc_ral::createDiscShapeOptimizationPass());
+    pm.addNestedPass<FuncOp>(disc_ral::createDiscAlgebraSimplifierPass());
+  }
 
-  // Create tie_shape ops to explicitly express dim size equality info.
-  pm.addPass(disc_ral::createDiscShapeSimplifierPass("main", true));
+  if (!enable_shape_constraint_ir) {
+    // Create tie_shape ops to explicitly express dim size equality info.
+    pm.addPass(disc_ral::createDiscShapeSimplifierPass("main", true));
+  } else {
+    // shape-related optimization
+    // Create tie_shape ops to explicitly express dim size equality info.
+    pm.addPass(disc_ral::createDiscShapeOptimizationPass("main", true));
+  }
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
@@ -483,6 +524,11 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addPass(createStripDebugInfoPass());
+
+  if (enable_shape_constraint_ir) {
+    // remove disc_shape.SymbolicDim ops and related ops.
+    pm.addPass(disc_ral::createStripShapeConstraintOpsPass());
+  }
 
   // Host side codegen: std -> binary
   pm.addPass(disc_ral::createDiscToLLVMPass());

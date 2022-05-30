@@ -151,6 +151,11 @@ buffer_t ral_base_cpu_alloc_persistent(ExecutionContext* ctx, size_t bytes) {
 }
 
 void ral_base_cpu_dealloc(ExecutionContext* ctx, buffer_t buffer) {
+  if (!buffer) {
+    TAO_VLOG(1) << "ral_base_cpu_dealloc early return for nullptr";
+    return;
+  }
+
   auto* state = ctx->getResource<BaseCpuContextState>(kRalBaseCpuContextState);
   auto exec_ctx = dynamic_cast<BaseCpuExecutionContext*>(ctx);
 
@@ -176,6 +181,11 @@ buffer_t ral_base_cpu_raw_alloc(Context* ctx, size_t bytes) {
 }
 
 void ral_base_cpu_raw_dealloc(Context* ctx, buffer_t buffer) {
+  if (!buffer) {
+    TAO_VLOG(1) << "ral_base_cpu_raw_dealloc early return for nullptr";
+    return;
+  }
+
   auto* state = static_cast<BaseCpuContextState*>(
       ctx->getOrCreateResource(kRalBaseCpuContextState, nullptr).get());
   TAO_VLOG(1) << "before ral_base_raw_cpu_dealloc dealloc with ptr =  "

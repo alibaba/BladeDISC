@@ -264,6 +264,11 @@ buffer_t ral_base_cuda_alloc_persistent(ExecutionContext* ctx, size_t bytes) {
 }
 
 void ral_base_cuda_dealloc(ExecutionContext* ctx, buffer_t buffer) {
+  if (!buffer) {
+    TAO_VLOG(1) << "ral_base_cuda_dealloc early return for nullptr";
+    return;
+  }
+
   auto* state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
   auto exec_ctx = dynamic_cast<BaseCudaExecutionContext*>(ctx);
@@ -298,6 +303,11 @@ buffer_t ral_base_cuda_raw_alloc(Context* ctx, size_t bytes) {
 }
 
 void ral_base_cuda_raw_dealloc(Context* ctx, buffer_t buffer) {
+  if (!buffer) {
+    TAO_VLOG(1) << "ral_base_cuda_raw_dealloc early return for nullptr";
+    return;
+  }
+
   auto* state = static_cast<BaseCudaContextState*>(
       ctx->getOrCreateResource(kRalBaseCudaContextState, nullptr).get());
   TAO_VLOG(1) << "before ral_base_gpu_raw_dealloc dealloc with ptr =  "

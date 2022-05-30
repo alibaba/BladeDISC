@@ -45,4 +45,18 @@ TEST(EmptyTensor, ImplicitBroadcast2DF32) {
       /*output_descriptors*/ {"f32_X"}));
 }
 
+// Corner case
+// Empty reshape + matmul
+TEST(EmptyTensor, EmptyReshapeMatmul) {
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "empty_tensor_reshape_matmul.mlir",
+      /*backend_types*/
+      kSupportedBackendList,
+      /*num_inputs*/ 3,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"0x2x3xf32_X", "6x11xf32_X", "2xi32_h"},
+      /*output_descriptors*/ {"f32_X"},
+      /*input_vals*/ {{}, {}, {0, 6}}));
+}
+
 }  // namespace mlir_test

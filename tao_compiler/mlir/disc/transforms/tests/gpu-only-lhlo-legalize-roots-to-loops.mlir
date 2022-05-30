@@ -395,17 +395,23 @@ func @kstitch_small_output(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2
 
   // CHECK: scf.for
 
-  // It is the default schedule, which is warp-wise. Thus it has only one round
-  // of shuffle.
+  // It is the default schedule, which is block-wise. Thus it has two rounds of
+  // shuffle.
 
+  // round-one
   // CHECK: gpu.shuffle
-  // CHECK: memref.store %[[INTER_RES:.*]], %[[SMEM_BUFFER:.*]][
+  // CHECK: memref.store %[[INTER_RES:.*]], %[[SMEM_BUFFER1:.*]][
+  // CHECK: gpu.barrier
+
+  // round-two
+  // CHECK: gpu.shuffle
+  // CHECK: memref.store %[[INTER_RES:.*]], %[[SMEM_BUFFER2:.*]][
   // CHECK: gpu.barrier
 
   // Local loop for `abs`, which has different shape with the input of reduce.
   // CHECK: scf.for
 
   // Load from smem buffer.
-  // CHECK: memref.load %[[SMEM_BUFFER]]
+  // CHECK: memref.load %[[SMEM_BUFFER2]]
   return %arg4 : memref<?xf32>
 }

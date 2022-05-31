@@ -333,7 +333,7 @@ class GpuKernelToBlobPass
       case 3:
         // Full fase-math for CUDA.
         (*options.mutable_xla_backend_extra_options())["-nvptx-prec-divf32"] =
-            "2";
+            "0";
         (*options.mutable_xla_backend_extra_options())["-nvptx-prec-sqrtf32"] =
             "0";
         options.set_xla_gpu_ftz(true);
@@ -361,9 +361,6 @@ class GpuKernelToBlobPass
             libdevice_dir, enable_fusion));
 
     VLOG(1) << "PTX code: \n" << ptx;
-#if 1
-    llvm::errs() << "[ZZ] ptx code is: " << ptx << "\n";
-#endif
 
     std::vector<uint8_t> gpu_asm;
     if (virtual_compute_arch) {

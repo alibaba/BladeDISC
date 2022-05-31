@@ -687,6 +687,7 @@ cc_library(
     name = "disc_fusion",
     srcs = ["transforms/lhlo_fusion.cc"],
     deps = [
+        ":cycle_detector",
         ":disc_shape_optimization_utils",
         ":fusion_utils",
         ":pass_details",

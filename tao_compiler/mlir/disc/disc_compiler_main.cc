@@ -62,9 +62,10 @@ limitations under the License.
 
 #ifndef TAO_CPU_ONLY
 #if TENSORFLOW_USE_ROCM
-#define CUDA_SUCCESS hipSuccess
+#define GPU_SUCCESS hipSuccess
 #include "tensorflow/stream_executor/rocm/rocm_driver_wrapper.h"
 #else
+#define GPU_SUCCESS CUDA_SUCCESS
 #include "cuda.h"
 #endif
 #endif
@@ -105,19 +106,32 @@ static mlir::OwningOpRef<mlir::ModuleOp> parseMLIRInput(StringRef inputFilename,
 }
 
 #ifndef TAO_CPU_ONLY
-#define RETURN_ON_CUDA_ERROR(expr, msg) \
-  {                                     \
-    auto _cuda_error = (expr);          \
-    if (_cuda_error != CUDA_SUCCESS) {  \
-      llvm::errs() << msg << "\n";      \
-      return 1;                         \
-    }                                   \
+
+template <typename Error>
+void dumpGpuError(Error error) {
+#if defined(TENSORFLOW_USE_ROCM)
+  llvm::errs() << "HIP Error: " << hipGetErrorString(error) << "\n";
+#elif defined(GOOGLE_CUDA)
+  const char* errstr;
+  cuGetErrorString(error, &errstr);
+  llvm::errs() << "CUDA error: " << errstr << "\n";
+#endif
+}
+
+#define RETURN_ON_GPU_ERROR(expr, msg) \
+  {                                    \
+    auto _gpu_error = (expr);          \
+    if (_gpu_error != GPU_SUCCESS) {   \
+      llvm::errs() << msg << "\n";     \
+      dumpGpuError(_gpu_error);        \
+      return 1;                        \
+    }                                  \
   }
 
 #if TENSORFLOW_USE_ROCM
 
-int InitCuda(GpuDeviceInfo& ctx) {
-  RETURN_ON_CUDA_ERROR(hipInit(0), "hipInit");
+int InitGPU(GpuDeviceInfo& ctx) {
+  RETURN_ON_GPU_ERROR(hipInit(0), "hipInit");
   // TODO: cc is not used for DCU for now
   ctx.cc_major = 0;
   ctx.cc_minor = 0;
@@ -126,14 +140,14 @@ int InitCuda(GpuDeviceInfo& ctx) {
 
 #else
 
-int InitCuda(GpuDeviceInfo& ctx) {
+int InitGPU(GpuDeviceInfo& ctx) {
   CUdevice device;
   CUcontext context;
-  RETURN_ON_CUDA_ERROR(cuInit(0), "cuInit");
-  RETURN_ON_CUDA_ERROR(cuDeviceGet(&device, /*device_ordinal*/ 0),
-                       "cuDeviceGet");
-  RETURN_ON_CUDA_ERROR(cuCtxCreate(&context, 0, device), "cuCtxCreate");
-  RETURN_ON_CUDA_ERROR(
+  RETURN_ON_GPU_ERROR(cuInit(0), "cuInit");
+  RETURN_ON_GPU_ERROR(cuDeviceGet(&device, /*device_ordinal*/ 0),
+                      "cuDeviceGet");
+  RETURN_ON_GPU_ERROR(cuCtxCreate(&context, 0, device), "cuCtxCreate");
+  RETURN_ON_GPU_ERROR(
       cuDeviceComputeCapability(&ctx.cc_major, &ctx.cc_minor, device),
       "cuDeviceComputeCapability");
   return 0;
@@ -196,7 +210,7 @@ int RealMain() {
   disc_options.gpu_options.multi_cc_support = MultiCCSupport;
   disc_options.gpu_options.multi_cc_support_dbg_ptx_only =
       MultiCCSupportDbgPtxOnly;
-  if (InitCuda(disc_options.gpu_info)) {
+  if (InitGPU(disc_options.gpu_info)) {
     return 1;
   };
 #else

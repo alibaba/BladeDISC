@@ -383,7 +383,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     auto& gpu_options = options.gpu_info;
     pm.addNestedPass<FuncOp>(
         disc_ral::createDiscSpecializeFusionWithSpeculationPass(
-            gpu_options.cc_major, gpu_options.cc_minor));
+            gpu_options.sm_count, gpu_options.max_threads_per_sm));
   } else {
     pm.addNestedPass<FuncOp>(
         disc_ral::createDiscSpecializeFusionWithSpeculationPass());

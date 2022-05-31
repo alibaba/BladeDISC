@@ -147,9 +147,10 @@ Operation* GetCandidateColReduceOp(FusionOp fusion_op) {
 struct DiscSpecializeFusionWithSpeculationPass
     : public DiscSpecializeFusionWithSpeculationPassBase<
           DiscSpecializeFusionWithSpeculationPass> {
-  DiscSpecializeFusionWithSpeculationPass(int cc_major, int cc_minor) {
-    cc_major_ = cc_major;
-    cc_minor_ = cc_minor;
+  DiscSpecializeFusionWithSpeculationPass(int core_count,
+                                          int max_threads_per_core) {
+    core_count_ = core_count;
+    max_threads_per_core_ = max_threads_per_core;
   }
 
   void getDependentDialects(DialectRegistry& registry) const override {
@@ -269,30 +270,44 @@ struct DiscSpecializeFusionWithSpeculationPass
     Value col_size = b.create<memref::DimOp>(loc, operand, 1);
     Value pred;
 
-    auto thread_number_info =
-        ArchToGPUThreadNumber.find({cc_major_, cc_minor_});
-    if (thread_number_info != ArchToGPUThreadNumber.end()) {
-      // Enhanced schedule selection policy is as following:
-      //   1. use schedule 1 if
-      //      (col-size >= block-dim) &&
-      //      (row-number / row-per-block-in-sched-2 < max-blocks-per-wave / 2);
-      //   2. use schedule 2 otherwise.
-      const auto& info = thread_number_info->second;
-      int64_t sm_number = info.first;
-      int64_t max_threads_per_wave_per_sm = info.second;
-      int64_t max_blocks_per_wave =
-          max_threads_per_wave_per_sm / block_size * sm_number;
-      int64_t row_per_block_in_sched_2 = block_size / kWarpSize;
+    // TODO: this feature will be experimental in the first release, and will be
+    // set as default in the near future after evaluated on benchmarks.
+    bool mem_intensive_opt_experimental = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", false,
+                                   &mem_intensive_opt_experimental);
+    if (mem_intensive_opt_experimental && core_count_ != -1 &&
+        max_threads_per_core_ != -1) {
+      // When the number of rows is small or the number of cols is large, we
+      // use one-block-one-row schedule. Specifically, we use one-block-one-row
+      // schedule for the following conditions (otherwise use one-warp-one-row
+      // schedule):
+      //   1. row < max-warps-per-wave / 4
+      //   2. row < max-warps-per-wave / 2 & col >= 1024
+      //   3. row >= max-warps-per-wave / 2 & cols >= 512
+      // Note the block-size is 256 currently.
+      int64_t max_warps_per_wave =
+          max_threads_per_core_ / block_size * core_count_ / kWarpSize;
       Value row_size = b.create<memref::DimOp>(loc, operand, 0);
-      Value block_size_val = b.create<arith::ConstantIndexOp>(loc, block_size);
-      auto threshold_row_number = b.create<arith::ConstantIndexOp>(
-          loc, max_blocks_per_wave / 2 * row_per_block_in_sched_2);
-      Value large_col = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge,
-                                                col_size, block_size_val);
-      Value small_row = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::slt,
-                                                row_size, threshold_row_number);
-
-      pred = b.create<arith::AndIOp>(loc, large_col, small_row);
+      Value col_size = b.create<memref::DimOp>(loc, operand, 1);
+      Value cond1 = b.create<arith::CmpIOp>(
+          loc, arith::CmpIPredicate::slt, row_size,
+          b.create<arith::ConstantIndexOp>(loc, max_warps_per_wave / 4));
+      Value cond2 = b.create<arith::AndIOp>(
+          loc,
+          b.create<arith::CmpIOp>(
+              loc, arith::CmpIPredicate::slt, row_size,
+              b.create<arith::ConstantIndexOp>(loc, max_warps_per_wave / 2)),
+          b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge, col_size,
+                                  b.create<arith::ConstantIndexOp>(loc, 1024)));
+      Value cond3 = b.create<arith::AndIOp>(
+          loc,
+          b.create<arith::CmpIOp>(
+              loc, arith::CmpIPredicate::sge, row_size,
+              b.create<arith::ConstantIndexOp>(loc, max_warps_per_wave / 2)),
+          b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge, col_size,
+                                  b.create<arith::ConstantIndexOp>(loc, 512)));
+      pred = b.create<arith::OrIOp>(loc, cond1, cond2);
+      pred = b.create<arith::OrIOp>(loc, pred, cond3);
     } else {
       // Default schedule selection policy:
       //   use schedule 1 if col size > `kRowReductionScheduleTurningSize`;
@@ -330,6 +345,11 @@ struct DiscSpecializeFusionWithSpeculationPass
       return;
     }
 
+    if (core_count_ == -1 || max_threads_per_core_ == -1) {
+      // Do not know about device information.
+      return;
+    }
+
     // Already have a hint
     if (fusion_op->getAttrOfType<IntegerAttr>(kColReductionScheduleHint))
       return;
@@ -353,16 +373,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     Value cur_threads = b.create<arith::ConstantIndexOp>(loc, thread_per_block);
     Value cur_blocks =
         b.create<arith::CeilDivSIOp>(loc, matrix_size, cur_threads);
-    int sm_num;
-    auto thread_number_info =
-        ArchToGPUThreadNumber.find({cc_major_, cc_minor_});
-    if (thread_number_info != ArchToGPUThreadNumber.end()) {
-      auto info = thread_number_info->second;
-      sm_num = info.first;
-    } else {
-      sm_num = 80;  // Default is the data of V100.
-    }
-    Value ref_blocks = b.create<arith::ConstantIndexOp>(loc, sm_num);
+    Value ref_blocks = b.create<arith::ConstantIndexOp>(loc, core_count_);
 
     Value pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt,
                                          cur_blocks, ref_blocks);
@@ -395,6 +406,11 @@ struct DiscSpecializeFusionWithSpeculationPass
       return;
     }
 
+    if (core_count_ == -1 || max_threads_per_core_ == -1) {
+      // Do not know about device information.
+      return;
+    }
+
     // Already have a hint
     if (fusion_op->getAttrOfType<IntegerAttr>(kVectorizeOrTileHint)) return;
 
@@ -419,21 +435,12 @@ struct DiscSpecializeFusionWithSpeculationPass
     // 2) Otherwise apply vectorization/tiling with width of
     //    `kVectorizeOrTileSize`, which is 2 currently.
 
-    int max_threads_per_wave;
-    auto thread_number_info =
-        ArchToGPUThreadNumber.find({cc_major_, cc_minor_});
-    if (thread_number_info != ArchToGPUThreadNumber.end()) {
-      auto info = thread_number_info->second;
-      max_threads_per_wave = info.first * info.second;
-    } else {
-      max_threads_per_wave = 40 * 1024;  // Default is the data of T4.
-    }
-
     OpBuilder b(fusion_op);
     Location loc = fusion_op.getLoc();
 
     Value out_element_number;
     Value threshold;
+    int max_threads_per_wave = core_count_ * max_threads_per_core_;
     if (fusion_type == FusionType::kRowReduction ||
         fusion_type == FusionType::kStitch) {
       Operation* dominant_equivalent_op = GetCandidateRowReduceOp(fusion_op);
@@ -534,9 +541,10 @@ struct DiscSpecializeFusionWithSpeculationPass
 }  // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-createDiscSpecializeFusionWithSpeculationPass(int cc_major, int cc_minor) {
-  return std::make_unique<DiscSpecializeFusionWithSpeculationPass>(cc_major,
-                                                                   cc_minor);
+createDiscSpecializeFusionWithSpeculationPass(int core_count,
+                                              int max_threads_per_core) {
+  return std::make_unique<DiscSpecializeFusionWithSpeculationPass>(
+      core_count, max_threads_per_core);
 }
 
 }  // namespace disc_ral

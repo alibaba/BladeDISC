@@ -30,11 +30,13 @@ namespace disc_ral {
 int getRowReductionScheduleHint(Operation* op) {
   assert(op);
   lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
-  // Use schedule 2 by default.
-  if (!fusion) return DISC_WARP_WISE_ROW_REDUCE;
+  // Use schedule 1 by default.
+  // Schedule 1 has a better performance in a wider range of shapes than
+  // schedule 2.
+  if (!fusion) return DISC_BLOCK_WISE_ROW_REDUCE;
   IntegerAttr attr =
       fusion->getAttrOfType<IntegerAttr>(kRowReductionScheduleHint);
-  if (!attr) return DISC_WARP_WISE_ROW_REDUCE;
+  if (!attr) return DISC_BLOCK_WISE_ROW_REDUCE;
   return attr.getInt();
 }
 

@@ -305,9 +305,24 @@ class GpuKernelToBlobPass
 
     xla::HloModuleConfig config;
     xla::DebugOptions options = xla::GetDebugOptionsFromFlags();
-    // Make sure we use full precision division operations.
-    // We need this to pass the ut for `tf.FloorDiv`.
-    (*options.mutable_xla_backend_extra_options())["-nvptx-prec-divf32"] = "2";
+    // The default value is false currently because the UT of tf.FloorDiv UT
+    // fails if prec-div is not 2.
+    bool use_fast_math = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_CUDA_USE_FAST_MATH", false,
+                                   &use_fast_math);
+    if (use_fast_math) {
+      // prec-div is set to 1 instead of 0 for better precision.
+      (*options.mutable_xla_backend_extra_options())["-nvptx-prec-divf32"] =
+          "1";
+      (*options.mutable_xla_backend_extra_options())["-nvptx-prec-sqrtf32"] =
+          "0";
+      options.set_xla_gpu_ftz(true);
+    } else {
+      // Make sure we use full precision division operations.
+      // We need this to pass the ut for `tf.FloorDiv`.
+      (*options.mutable_xla_backend_extra_options())["-nvptx-prec-divf32"] =
+          "2";
+    }
     config.set_debug_options(options);
 
     auto enable_fusion = [](llvm::TargetMachine* target) {

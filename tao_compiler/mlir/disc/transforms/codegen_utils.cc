@@ -20,7 +20,9 @@ limitations under the License.
 #include "mlir/Dialect/SCF/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
+#include "mlir/IR/Dominance.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
+#include "tensorflow/compiler/mlir/disc/disc_util.h"
 
 using mlir::memref::DimOp;
 
@@ -390,6 +392,297 @@ int initReductionTileSizeOnCPU() {
 int getReductionTileSizeOnCPU() {
   static int size = initReductionTileSizeOnCPU();
   return size;
+}
+
+// Get ops that depends on the given op in the same block. It assumes the ops in
+// the block do not have regions.
+void getDependentOps(Operation* op, DenseSet<Operation*>& dependences) {
+  SmallVector<Value> affectedValues;
+  // TODO: deal with AssumeAlignmentOp.
+  for (auto result : op->getResults()) {
+    affectedValues.push_back(result);
+  }
+  for (auto operand : op->getOperands()) {
+    if (IsOpWriteValue(op, operand)) {
+      affectedValues.push_back(operand);
+    }
+  }
+
+  for (auto value : affectedValues) {
+    for (auto user : value.getUsers()) {
+      if (!user->isBeforeInBlock(op)) {
+        continue;
+      }
+      DenseSet<Operation*> deps;
+      getDependentOps(user, deps);
+      dependences.insert(deps.begin(), deps.end());
+    }
+  }
+}
+
+// Check whether a depends on b.
+bool dependsOn(Operation* a, Operation* b) {
+  DenseSet<Operation*> dependences;
+  getDependentOps(b, dependences);
+  return dependences.contains(a);
+}
+
+/// Generates unrolled copies of scf::ForOp 'loopBodyBlock', with
+/// associated 'forOpIV' by 'unrollFactor', calling 'ivRemapFn' to remap
+/// 'forOpIV' for each unrolled body. If specified, annotates the Ops in each
+/// unrolled iteration using annotateFn. It tries to interleave the unrolled
+// loop.
+LogicalResult generateUnrolledLoopMayInterleave(
+    Block* loopBodyBlock, Value forOpIV, uint64_t unrollFactor,
+    function_ref<Value(unsigned, Value, OpBuilder)> ivRemapFn,
+    function_ref<void(unsigned, Operation*, OpBuilder)> annotateFn,
+    ValueRange iterArgs, ValueRange yieldedValues) {
+  // Builder to insert unrolled bodies just before the terminator of the body of
+  // 'forOp'.
+  auto builder = OpBuilder::atBlockTerminator(loopBodyBlock);
+
+  if (!annotateFn) annotateFn = [](unsigned, Operation*, OpBuilder) {};
+
+  // The number of operators excep the terminator of this block.
+  int64_t numOps =
+      std::distance(loopBodyBlock->begin(), std::prev(loopBodyBlock->end(), 1));
+
+  // If the induction variable is used, create the transformed value for each
+  // iteration of this unrolled instance.
+  SmallVector<Value> ivs(unrollFactor);
+  if (!forOpIV.use_empty()) {
+    builder.setInsertionPointToStart(loopBodyBlock);
+    for (int64_t i = 1; i < unrollFactor; i++) {
+      Value ivUnroll = ivRemapFn(i, forOpIV, builder);
+      ivs[i] = ivUnroll;
+    }
+  }
+
+  // The index of the first non-induction-variable transformation instruction,
+  // i.e., the index of the first to-be-cloned instruction. It is the same with
+  // the number of instructions created when building `ivs`.
+  int64_t beginIdx = std::distance(loopBodyBlock->begin(),
+                                   std::prev(loopBodyBlock->end(), 1)) -
+                     numOps;
+
+  // Keep a pointer to the last non-terminator operation in the original block
+  // so that we know what to clone (since we are doing this in-place).
+  Block::iterator srcBlockEnd = std::prev(loopBodyBlock->end(), 2);
+  builder.setInsertionPointAfter(&(*srcBlockEnd));
+
+  // Unroll the contents of 'forOp' (append unrollFactor - 1 additional copies).
+  SmallVector<Value, 4> lastYielded(yieldedValues);
+
+  for (unsigned i = 1; i < unrollFactor; i++) {
+    BlockAndValueMapping operandMap;
+
+    // Prepare operand map.
+    operandMap.map(iterArgs, lastYielded);
+
+    // If the induction variable is used, create a remapping to the value for
+    // this unrolled instance.
+    if (!forOpIV.use_empty()) {
+      operandMap.map(forOpIV, ivs[i]);
+    }
+
+    // Clone the original body of 'forOp'.
+    int64_t op_idx = 0;
+    for (auto it = std::next(loopBodyBlock->begin(), beginIdx);
+         it != std::next(srcBlockEnd); it++) {
+      Operation* clonedOp = builder.clone(*it, operandMap);
+      annotateFn(i, clonedOp, builder);
+    }
+
+    // Update yielded values.
+    for (unsigned i = 0, e = lastYielded.size(); i < e; i++)
+      lastYielded[i] = operandMap.lookup(yieldedValues[i]);
+  }
+
+  // Make sure we annotate the Ops in the original body. We do this last so that
+  // any annotations are not copied into the cloned Ops above.
+  for (auto it = std::next(loopBodyBlock->begin(), beginIdx);
+       it != std::next(srcBlockEnd); it++) {
+    annotateFn(0, &*it, builder);
+  }
+
+  // Update operands of the yield statement.
+  loopBodyBlock->getTerminator()->setOperands(lastYielded);
+
+  // Try to interleave instructions.
+  // Note we do not support to interleave ops with nested blocks.
+  for (auto& op : *loopBodyBlock) {
+    if (op.getNumRegions() != 0) {
+      return success();
+    }
+  }
+
+  // Check that the number of cloned instructions is correct.
+  int64_t numEffectiveOps = std::distance(loopBodyBlock->begin(),
+                                          std::prev(loopBodyBlock->end(), 1)) -
+                            beginIdx;
+  if (numEffectiveOps != numOps * unrollFactor) {
+    return failure();
+  }
+
+  // Make sure `toMove` is after `toMoveAfter` when calling this lambda
+  // function.
+  auto canMoveAfter = [&](Block::iterator toMove, Block::iterator toMoveAfter) {
+    assert(toMove->getParent() == toMoveAfter->getParent());
+    // DominanceInfo dom(toMove->getParentOp());
+    bool canMove = true;
+    for (auto iter = std::prev(toMove); iter != toMoveAfter;
+         std::advance(iter, -1)) {
+      // if (dom.dominates(&(*iter), &(*toMove))) {
+      if (dependsOn(&(*toMove), &(*iter))) {
+        canMove = false;
+        break;
+      }
+    }
+    return canMove;
+  };
+
+  bool canMove = true;
+  // Note only the first `numOps - 1` ops need to be moved to do interleaving.
+  for (int64_t opIdx = 0; opIdx < (numOps - 1) && canMove; opIdx++) {
+    auto firstInst =
+        std::next(loopBodyBlock->begin(), beginIdx + opIdx * unrollFactor);
+    auto toMoveAfter = firstInst;
+    for (int64_t unrollIdx = 1; unrollIdx < unrollFactor && canMove;
+         unrollIdx++) {
+      auto toInterleave = std::next(firstInst, (numOps - opIdx) * unrollIdx);
+      canMove &= canMoveAfter(toInterleave, toMoveAfter);
+      if (canMove) {
+        toInterleave->moveAfter(&(*toMoveAfter));
+        std::advance(toMoveAfter, 1);
+      }
+    }
+  }
+
+  return success();
+}
+
+// This function unrolls the given for-loop op and interleaves the instructions
+LogicalResult loopUnrollByFactorAndTryInterleave(
+    scf::ForOp forOp, uint64_t unrollFactor,
+    function_ref<void(unsigned, Operation*, OpBuilder)> annotateFn) {
+  assert(unrollFactor > 0 && "expected positive unroll factor");
+
+  // Return if the loop body is empty.
+  if (llvm::hasSingleElement(forOp.getBody()->getOperations()))
+    return success();
+
+  // Compute tripCount = ceilDiv((upperBound - lowerBound), step) and populate
+  // 'upperBoundUnrolled' and 'stepUnrolled' for static and dynamic cases.
+  OpBuilder boundsBuilder(forOp);
+  auto loc = forOp.getLoc();
+  auto step = forOp.getStep();
+  Value upperBoundUnrolled;
+  Value stepUnrolled;
+  bool generateEpilogueLoop = true;
+
+  auto lbCstOp = forOp.getLowerBound().getDefiningOp<arith::ConstantIndexOp>();
+  auto ubCstOp = forOp.getUpperBound().getDefiningOp<arith::ConstantIndexOp>();
+  auto stepCstOp = forOp.getStep().getDefiningOp<arith::ConstantIndexOp>();
+  if (lbCstOp && ubCstOp && stepCstOp) {
+    // Constant loop bounds computation.
+    int64_t lbCst = lbCstOp.value();
+    int64_t ubCst = ubCstOp.value();
+    int64_t stepCst = stepCstOp.value();
+    assert(lbCst >= 0 && ubCst >= 0 && stepCst >= 0 &&
+           "expected positive loop bounds and step");
+    int64_t tripCount = (ubCst - lbCst + stepCst - 1) / stepCst;
+
+    if (unrollFactor == 1) {
+      if (tripCount == 1 && failed(promoteIfSingleIteration(forOp)))
+        return failure();
+      return success();
+    }
+
+    int64_t tripCountEvenMultiple = tripCount - (tripCount % unrollFactor);
+    int64_t upperBoundUnrolledCst = lbCst + tripCountEvenMultiple * stepCst;
+    assert(upperBoundUnrolledCst <= ubCst);
+    int64_t stepUnrolledCst = stepCst * unrollFactor;
+
+    // Create constant for 'upperBoundUnrolled' and set epilogue loop flag.
+    generateEpilogueLoop = upperBoundUnrolledCst < ubCst;
+    if (generateEpilogueLoop)
+      upperBoundUnrolled = boundsBuilder.create<arith::ConstantIndexOp>(
+          loc, upperBoundUnrolledCst);
+    else
+      upperBoundUnrolled = ubCstOp;
+
+    // Create constant for 'stepUnrolled'.
+    stepUnrolled = stepCst == stepUnrolledCst
+                       ? step
+                       : boundsBuilder.create<arith::ConstantIndexOp>(
+                             loc, stepUnrolledCst);
+  } else {
+    // Dynamic loop bounds computation.
+    // TODO: Add dynamic asserts for negative lb/ub/step, or
+    // consider using ceilDiv from AffineApplyExpander.
+    auto lowerBound = forOp.getLowerBound();
+    auto upperBound = forOp.getUpperBound();
+    Value diff =
+        boundsBuilder.create<arith::SubIOp>(loc, upperBound, lowerBound);
+    Value tripCount = boundsBuilder.create<arith::CeilDivUIOp>(loc, diff, step);
+    Value unrollFactorCst =
+        boundsBuilder.create<arith::ConstantIndexOp>(loc, unrollFactor);
+    Value tripCountRem =
+        boundsBuilder.create<arith::RemSIOp>(loc, tripCount, unrollFactorCst);
+    // Compute tripCountEvenMultiple = tripCount - (tripCount % unrollFactor)
+    Value tripCountEvenMultiple =
+        boundsBuilder.create<arith::SubIOp>(loc, tripCount, tripCountRem);
+    // Compute upperBoundUnrolled = lowerBound + tripCountEvenMultiple * step
+    upperBoundUnrolled = boundsBuilder.create<arith::AddIOp>(
+        loc, lowerBound,
+        boundsBuilder.create<arith::MulIOp>(loc, tripCountEvenMultiple, step));
+    // Scale 'step' by 'unrollFactor'.
+    stepUnrolled =
+        boundsBuilder.create<arith::MulIOp>(loc, step, unrollFactorCst);
+  }
+
+  // Create epilogue clean up loop starting at 'upperBoundUnrolled'.
+  if (generateEpilogueLoop) {
+    OpBuilder epilogueBuilder(forOp->getContext());
+    epilogueBuilder.setInsertionPoint(forOp->getBlock(),
+                                      std::next(Block::iterator(forOp)));
+    auto epilogueForOp = cast<scf::ForOp>(epilogueBuilder.clone(*forOp));
+    epilogueForOp.setLowerBound(upperBoundUnrolled);
+
+    // Update uses of loop results.
+    auto results = forOp.getResults();
+    auto epilogueResults = epilogueForOp.getResults();
+    auto epilogueIterOperands = epilogueForOp.getIterOperands();
+
+    for (auto e : llvm::zip(results, epilogueResults)) {
+      std::get<0>(e).replaceAllUsesWith(std::get<1>(e));
+    }
+    for (int64_t i = 0; i < epilogueForOp.getNumIterOperands(); i++) {
+      epilogueForOp.getOperation()->setOperand(
+          i + epilogueForOp.getNumControlOperands(), results[i]);
+    }
+    (void)promoteIfSingleIteration(epilogueForOp);
+  }
+
+  // Create unrolled loop.
+  forOp.setUpperBound(upperBoundUnrolled);
+  forOp.setStep(stepUnrolled);
+
+  auto iterArgs = ValueRange(forOp.getRegionIterArgs());
+  auto yieldedValues = forOp.getBody()->getTerminator()->getOperands();
+
+  generateUnrolledLoopMayInterleave(
+      forOp.getBody(), forOp.getInductionVar(), unrollFactor,
+      [&](unsigned i, Value iv, OpBuilder b) {
+        // iv' = iv + step * i;
+        auto stride = b.create<arith::MulIOp>(
+            loc, step, b.create<arith::ConstantIndexOp>(loc, i));
+        return b.create<arith::AddIOp>(loc, iv, stride);
+      },
+      annotateFn, iterArgs, yieldedValues);
+  // Promote the loop body up if this has turned into a single iteration loop.
+  (void)promoteIfSingleIteration(forOp);
+  return success();
 }
 
 }  // namespace disc_ral

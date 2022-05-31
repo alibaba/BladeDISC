@@ -1,7 +1,7 @@
 licenses(["notice"])  # Apache 2.0
 
 load("//tensorflow:tensorflow.bzl", "tf_cc_binary", "tf_cc_test")
-load("//tensorflow/compiler/mlir:util.bzl", "if_platform_alibaba", "if_cuda_or_rocm")
+load("//tensorflow/compiler/mlir/util:util.bzl", "if_platform_alibaba", "if_cuda_or_rocm")
 
 package_group(
     name = "internal",

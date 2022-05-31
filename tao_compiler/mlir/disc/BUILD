@@ -19,7 +19,7 @@ load("@llvm-project//mlir:tblgen.bzl", "gentbl_cc_library", "gentbl_filegroup", 
 load("@local_config_cuda//cuda:build_defs.bzl", "if_cuda_is_configured")
 load("@local_config_rocm//rocm:build_defs.bzl", "if_rocm_is_configured")
 load(
-    "//tensorflow/compiler/mlir:util.bzl",
+    "//tensorflow/compiler/mlir/util:util.bzl",
     "disc_cc_library",
     "if_cuda_or_rocm",
 )

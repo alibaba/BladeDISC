@@ -22,7 +22,7 @@ load(
     "cc_proto_library",
 )
 load(
-    "//tensorflow/compiler/mlir:util.bzl",
+    "//tensorflow/compiler/mlir/util:util.bzl",
     "disc_cc_library",
     "if_blade_gemm",
     "if_cuda_or_rocm",

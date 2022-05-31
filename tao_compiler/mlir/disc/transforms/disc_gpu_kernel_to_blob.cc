@@ -305,23 +305,41 @@ class GpuKernelToBlobPass
 
     xla::HloModuleConfig config;
     xla::DebugOptions options = xla::GetDebugOptionsFromFlags();
-    // The default value is false currently because the UT of tf.FloorDiv UT
-    // fails if prec-div is not 2.
-    bool use_fast_math = false;
-    tensorflow::ReadBoolFromEnvVar("DISC_CUDA_USE_FAST_MATH", false,
-                                   &use_fast_math);
-    if (use_fast_math) {
-      // prec-div is set to 1 instead of 0 for better precision.
-      (*options.mutable_xla_backend_extra_options())["-nvptx-prec-divf32"] =
-          "1";
-      (*options.mutable_xla_backend_extra_options())["-nvptx-prec-sqrtf32"] =
-          "0";
-      options.set_xla_gpu_ftz(true);
-    } else {
-      // Make sure we use full precision division operations.
-      // We need this to pass the ut for `tf.FloorDiv`.
-      (*options.mutable_xla_backend_extra_options())["-nvptx-prec-divf32"] =
-          "2";
+    int64_t fast_math_level = 1;
+    tensorflow::ReadInt64FromEnvVar("DISC_CUDA_FAST_MATH_LEVEL", 1,
+                                    &fast_math_level);
+    switch (fast_math_level) {
+      case 0:
+        // No fast-math at all.
+        (*options.mutable_xla_backend_extra_options())["-nvptx-prec-divf32"] =
+            "2";
+        (*options.mutable_xla_backend_extra_options())["-nvptx-prec-sqrtf32"] =
+            "1";
+        options.set_xla_gpu_ftz(false);
+        break;
+      case 1:
+        // This is the default value, which is the same with XLA. Nothing will
+        // be changed. Note that it sets nvptx-prec-divf32 to 1.
+        break;
+      case 2:
+        // Note that this is not the full fase-math for CUDA. The prec-div is
+        // set to 1 instead of 0 for better precision.
+        (*options.mutable_xla_backend_extra_options())["-nvptx-prec-divf32"] =
+            "1";
+        (*options.mutable_xla_backend_extra_options())["-nvptx-prec-sqrtf32"] =
+            "0";
+        options.set_xla_gpu_ftz(true);
+        break;
+      case 3:
+        // Full fase-math for CUDA.
+        (*options.mutable_xla_backend_extra_options())["-nvptx-prec-divf32"] =
+            "2";
+        (*options.mutable_xla_backend_extra_options())["-nvptx-prec-sqrtf32"] =
+            "0";
+        options.set_xla_gpu_ftz(true);
+        break;
+      default:
+        break;
     }
     config.set_debug_options(options);
 
@@ -343,6 +361,9 @@ class GpuKernelToBlobPass
             libdevice_dir, enable_fusion));
 
     VLOG(1) << "PTX code: \n" << ptx;
+#if 1
+    llvm::errs() << "[ZZ] ptx code is: " << ptx << "\n";
+#endif
 
     std::vector<uint8_t> gpu_asm;
     if (virtual_compute_arch) {

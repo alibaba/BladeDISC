@@ -24,6 +24,8 @@ const std::string c_ft_path =
 
 // static shape test case
 TEST(TFFloorDivOpTest, StaticShape2DF32) {
+  // Disable any fast-math setting for this UT.
+  setenv("DISC_CUDA_FAST_MATH_LEVEL", "0", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "floor_div_s_f32.mlir",
       /*backend_types*/
@@ -32,10 +34,13 @@ TEST(TFFloorDivOpTest, StaticShape2DF32) {
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x100xf32_X", "100x100xf32_X"},
       /*output_descriptors*/ {"f32_X"}));
+  unsetenv("DISC_CUDA_FAST_MATH_LEVEL");
 }
 
 // fully dynamic shape test case
 TEST(TFFloorDivOpTest, FullyDynamicShape2DF32) {
+  // Disable any fast-math setting for this UT.
+  setenv("DISC_CUDA_FAST_MATH_LEVEL", "0", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "floor_div_d_f32.mlir",
       /*backend_types*/
@@ -44,10 +49,13 @@ TEST(TFFloorDivOpTest, FullyDynamicShape2DF32) {
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x100xf32_X", "100x100xf32_X"},
       /*output_descriptors*/ {"f32_X"}));
+  unsetenv("DISC_CUDA_FAST_MATH_LEVEL");
 }
 
 // partial dynamic shape test case
 TEST(TFFloorDivOpTest, PartialShape2DF32) {
+  // Disable any fast-math setting for this UT.
+  setenv("DISC_CUDA_FAST_MATH_LEVEL", "0", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "floor_div_p_f32.mlir",
       /*backend_types*/
@@ -56,10 +64,13 @@ TEST(TFFloorDivOpTest, PartialShape2DF32) {
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"100x13xf32_X", "100x13xf32_X"},
       /*output_descriptors*/ {"f32_X"}));
+  unsetenv("DISC_CUDA_FAST_MATH_LEVEL");
 }
 
 // implicit broadcast test case
 TEST(TFFloorDivOpTest, ImplicitBroadcast2DF32) {
+  // Disable any fast-math setting for this UT.
+  setenv("DISC_CUDA_FAST_MATH_LEVEL", "0", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "floor_div_d_f32.mlir",
       /*backend_types*/
@@ -68,10 +79,13 @@ TEST(TFFloorDivOpTest, ImplicitBroadcast2DF32) {
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x100xf32_X", "17x1xf32_X"},
       /*output_descriptors*/ {"f32_X"}));
+  unsetenv("DISC_CUDA_FAST_MATH_LEVEL");
 }
 
 // test with provided data
 TEST(TFFloorDivOpTest, ProvidedDataShape2DI64) {
+  // Disable any fast-math setting for this UT.
+  setenv("DISC_CUDA_FAST_MATH_LEVEL", "0", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "floor_div_d_f32.mlir",
       /*backend_types*/
@@ -81,6 +95,7 @@ TEST(TFFloorDivOpTest, ProvidedDataShape2DI64) {
       /*input_descriptors*/ {"1x3xf32_X", "1x3xf32_X"},
       /*output_descriptors*/ {"f32_X"},
       /*input_vals*/ {{-2, 0, 23}, {3, 0, -22}}));
+  unsetenv("DISC_CUDA_FAST_MATH_LEVEL");
 }
 
 }  // namespace mlir_test

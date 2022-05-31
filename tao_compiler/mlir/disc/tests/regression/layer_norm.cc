@@ -56,29 +56,4 @@ TEST(LayerNormTest, LayerNormGPUStitchOnly3DF32) {
   unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
 }
 
-// LayerNorm on GPU with DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL and
-// DISC_CUDA_USE_FAST_MATH on.
-TEST(LayerNormTest, LayerNormGPUStitchOnlyOpt3DF32) {
-  std::vector<float> input_val;
-  std::vector<float> vars({0.1, 0.2, 0.3});
-  for (int64_t i = 0; i < 1 * 512 * 2048; i++) {
-    input_val.push_back(0.51 + vars[i % vars.size()]);
-  }
-  setenv("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", "true", 1);
-  setenv("DISC_CUDA_USE_FAST_MATH", "true", 1);
-  setenv("DISC_ENABLE_STITCH", "true", 1);
-  cudaProfilerStart();
-  EXPECT_TRUE(feature_test_main(
-      /*mlir_file_path*/ c_ft_path + "layer_norm.mlir",
-      /*backend_types*/ {BackendType::kCuda},
-      /*num_inputs*/ 1,
-      /*num_outputs*/ 1,
-      /*input_descriptors*/ {"1x512x2048xf32_X"},
-      /*output_descriptors*/ {"f32_X"}, {input_val}));
-  cudaProfilerStop();
-  unsetenv("DISC_ENABLE_STITCH");
-  unsetenv("DISC_CUDA_USE_FAST_MATH");
-  unsetenv("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL");
-}
-
 }  // namespace mlir_test

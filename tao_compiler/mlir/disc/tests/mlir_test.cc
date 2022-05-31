@@ -65,11 +65,13 @@ using ::stream_executor::gpu::GpuStatus;
 #define GPU_MEMCPYDTOH_API tensorflow::wrap::hipMemcpyDtoH
 #define GPU_MEMCPYHTOD_API tensorflow::wrap::hipMemcpyHtoD
 #define GPU_MALLOC_API tensorflow::wrap::hipMalloc
+#define GPU_FREE_API tensorflow::wrap::hipFree
 #else
 #define GPU_SUCCESS CUDA_SUCCESS
 #define GPU_MEMCPYDTOH_API cuMemcpyDtoH
 #define GPU_MEMCPYHTOD_API cuMemcpyHtoD
 #define GPU_MALLOC_API cuMemAlloc
+#define GPU_FREE_API cuMemFree
 #endif
 
 DataType ParseDataType(const std::string& s) {
@@ -164,6 +166,15 @@ static int32_t reportErrorIfAny(GpuStatus result, const char* where) {
   printErrorIfAny(result, where);
   return result;
 }
+static void gpu_dealloc(void* buffer) {
+#if TENSORFLOW_USE_ROCM
+  reportErrorIfAny(GPU_FREE_API(absl::bit_cast<hipDeviceptr_t>(buffer)),
+                   "hipFree");
+#else
+  reportErrorIfAny(GPU_FREE_API(CUdeviceptr(buffer)), "cuMemFree");
+#endif
+}
+
 #endif
 
 void print_output_shape(void* d_result, const buffer_shape_t& shape) {
@@ -1150,6 +1161,16 @@ Status MlirTestImpl::GenerateInputAndRun() {
     }
 #endif
   }
+
+#if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
+  for (int idx = 0; idx < num_inputs_; ++idx) {
+    if (input_placement_[idx] != DeviceType::kCPU &&
+        d_addr_vec[idx] != nullptr) {
+      gpu_dealloc(d_addr_vec[idx]);
+    }
+  }
+#endif
+
   return Status::OK();
 }
 

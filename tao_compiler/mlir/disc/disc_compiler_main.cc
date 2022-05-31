@@ -62,7 +62,7 @@ limitations under the License.
 
 #ifndef TAO_CPU_ONLY
 #if TENSORFLOW_USE_ROCM
-#define CUDA_SUCCESS hipSuccess
+// #define CUDA_SUCCESS hipSuccess
 #include "tensorflow/stream_executor/rocm/rocm_driver_wrapper.h"
 #else
 #include "cuda.h"
@@ -105,19 +105,31 @@ static mlir::OwningOpRef<mlir::ModuleOp> parseMLIRInput(StringRef inputFilename,
 }
 
 #ifndef TAO_CPU_ONLY
-#define RETURN_ON_CUDA_ERROR(expr, msg) \
-  {                                     \
-    auto _cuda_error = (expr);          \
-    if (_cuda_error != CUDA_SUCCESS) {  \
-      llvm::errs() << msg << "\n";      \
-      return 1;                         \
-    }                                   \
+#define RETURN_ON_CUDA_ERROR(expr, msg)                 \
+  {                                                     \
+    auto _cuda_error = (expr);                          \
+    if (_cuda_error != CUDA_SUCCESS) {                  \
+      const char* errstr;                               \
+      cuGetErrorString(_cuda_error, &errstr);           \
+      llvm::errs() << msg << ", "                       \
+                   << "CUDA error: " << errstr << "\n"; \
+      return 1;                                         \
+    }                                                   \
+  }
+
+#define RETURN_ON_HIP_ERROR(expr, msg) \
+  {                                    \
+    auto _cuda_error = (expr);         \
+    if (_cuda_error != hipSuccess) {   \
+      llvm::errs() << msg << "\n";     \
+      return 1;                        \
+    }                                  \
   }
 
 #if TENSORFLOW_USE_ROCM
 
 int InitCuda(GpuDeviceInfo& ctx) {
-  RETURN_ON_CUDA_ERROR(hipInit(0), "hipInit");
+  RETURN_ON_HIP_ERROR(hipInit(0), "hipInit");
   // TODO: cc is not used for DCU for now
   ctx.cc_major = 0;
   ctx.cc_minor = 0;

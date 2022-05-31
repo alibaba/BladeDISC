@@ -17,7 +17,7 @@ module attributes {tf.versions = {bad_consumers = [], min_consumer = 0 : i32, pr
       %5:2 = tf_executor.island wraps "tf.BroadcastTo"(%4, %s) : (tensor<?x?x?xf32>, tensor<3xi32>) -> tensor<?x?x?xf32>
       // softmax = exp(z) / sum(exp(z))
       %6:2 = tf_executor.island wraps "tf.Div"(%1, %5) : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
-      tf_executor.fetch %4 : tensor<?x?x?xf32>
+      tf_executor.fetch %6 : tensor<?x?x?xf32>
     }
     return %graph : tensor<?x?x?xf32>
   }

@@ -802,7 +802,10 @@ bool mergeSkeletonGroupsInOrder(
   for (int64_t node_id = 0; node_id < op_list.size(); node_id++) {
     Operation* op = op_list[node_id];
     for (Value operand : GetAllPossibleUsedValues(op)) {
-      Operation* operand_op = operand.getDefiningOp();
+      Operation* operand_op = pattern.findLastWriter(operand);
+      if (operand_op == op) {
+        continue;
+      }
       // Only consider the operand_op inside the target block.
       auto iter = op_to_node_id.find(operand_op);
       if (iter == op_to_node_id.end()) {
@@ -811,6 +814,7 @@ bool mergeSkeletonGroupsInOrder(
       cycle_detector.InsertEdge(iter->second, node_id);
     }
   }
+
   SmallVector<std::pair<int64_t, FusionPattern::SkeletonGroup>> merged_groups;
   for (auto& group : groups) {
     assert(group.skeletons.size() == 1);
@@ -839,6 +843,12 @@ bool mergeSkeletonGroupsInOrder(
       if (!shape_analysis->isShapeEqual(
               merged_grp.skeletons[0]->getOperand(0),
               to_merge_grp.skeletons[0]->getOperand(0))) {
+        continue;
+      }
+
+      // If one is the producer of the other, they cannot be merged.
+      if (cycle_detector.IsReachable(merged.first, to_merge.first) ||
+          cycle_detector.IsReachable(to_merge.first, merged.first)) {
         continue;
       }
 

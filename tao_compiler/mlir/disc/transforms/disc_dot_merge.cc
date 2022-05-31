@@ -36,41 +36,6 @@ namespace mlir {
 namespace disc_ral {
 namespace {
 
-llvm::Optional<int32_t> TryMergeNode(GraphCycles* graph_cycles, int32_t a,
-                                     int32_t b) {
-  if (graph_cycles == nullptr) {
-    return llvm::None;
-  }
-  bool has_edge_inserted_a2b = false;
-  if (!graph_cycles->HasEdge(a, b) && !graph_cycles->HasEdge(b, a)) {
-    has_edge_inserted_a2b = graph_cycles->InsertEdge(a, b);
-    if (!has_edge_inserted_a2b) {
-      // Cannot merge a and b as we cannot even insert an edge between a and b.
-      return llvm::None;
-    }
-  }
-  int32_t from = graph_cycles->HasEdge(a, b) ? a : b;
-  int32_t to = (from == a) ? b : a;
-  auto result = graph_cycles->ContractEdge(from, to);
-  if (!result.hasValue() && has_edge_inserted_a2b) {
-    // Restore the graph.
-    graph_cycles->RemoveEdge(a, b);
-  }
-  return result;
-}
-
-// NOTE: this function is copied from `lhlo_fusion.cc`.
-// Returns all the values touched by this op or its nested ops.
-SmallVector<Value, 4> GetAllPossibleUsedValues(Operation* op) {
-  SmallVector<Value, 4> values;
-  op->walk([&](Operation* nest_op) {
-    for (Value v : nest_op->getOperands()) {
-      values.push_back(v);
-    }
-  });
-  return values;
-}
-
 // Arrange the insert-point of `op`'s operands in the same block. Do not deal
 // with cross-block operands.
 void ArrangeOperandsInsertPointInBlock(Operation* op) {

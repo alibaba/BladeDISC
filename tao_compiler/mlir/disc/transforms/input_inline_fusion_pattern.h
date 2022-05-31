@@ -14,6 +14,7 @@
 
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "mlir/IR/Dominance.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
@@ -87,9 +88,12 @@ class InputInlineFusionPattern : public RewritePattern {
     auto fusion = cast<lmhlo::FusionOp>(op);
     auto& parent_block = fusion.region().front();
     DominanceInfo dominance_info(op);
+
+    SmallVector<scf::ParallelOp, 2> innermostPloops;
+    getInnermostParallelLoops(op, innermostPloops);
+
     // Returns success if any of parallelOp is processed.
-    for (scf::ParallelOp parallelOp :
-         llvm::to_vector<4>(parent_block.getOps<scf::ParallelOp>())) {
+    for (scf::ParallelOp parallelOp : innermostPloops) {
       if (!failed(processParallelOp(parallelOp, &parent_block, rewriter,
                                     dominance_info)))
         return success();

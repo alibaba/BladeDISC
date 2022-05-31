@@ -254,6 +254,7 @@ EnvSettings getEnvironmentSettings() {
   EnvSettings envSettings{{}};
   addBoolFlags(envSettings, "DISC_ENABLE_STITCH");
   addBoolFlags(envSettings, "DISC_ENABLE_SHAPE_CONSTRAINT_IR");
+  addBoolFlags(envSettings, "DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL");
   return envSettings;
 }
 

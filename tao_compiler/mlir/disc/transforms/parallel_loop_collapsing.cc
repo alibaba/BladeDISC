@@ -27,6 +27,8 @@
 #include "mlir/Dialect/SCF/Passes.h"
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
+#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
+#include "tensorflow/core/util/env_var.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -37,7 +39,22 @@ struct ParallelLoopCollapsing
   void runOnOperation() override {
     SmallVector<scf::ParallelOp, 2> innermostPloops;
     getInnermostParallelLoops(getOperation(), innermostPloops);
+    bool mem_intensive_opt_experimental = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", false,
+                                   &mem_intensive_opt_experimental);
     for (scf::ParallelOp ploop : innermostPloops) {
+      if (mem_intensive_opt_experimental) {
+        // The kStitch fusion's parallel loop is formed directly when lowering
+        // roots to loops, if `DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL` is true.
+        lmhlo::FusionOp fusion = ploop->getParentOfType<lmhlo::FusionOp>();
+        if (fusion) {
+          auto fusionTypeAttr =
+              fusion->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName);
+          if (fusionTypeAttr && fusionTypeAttr.getValue() == "kStitch") {
+            continue;
+          }
+        }
+      }
       if (ploop.getInductionVars().size() > 1) {
         std::vector<unsigned> inds(ploop.getInductionVars().size());
         for (unsigned int id = 0; id < ploop.getInductionVars().size(); id++) {

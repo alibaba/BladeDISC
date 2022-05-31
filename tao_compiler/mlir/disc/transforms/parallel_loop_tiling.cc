@@ -29,6 +29,8 @@
 #include "mlir/Dialect/SCF/SCF.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
+#include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
+#include "tensorflow/core/util/env_var.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -50,6 +52,9 @@ struct ParallelLoopTiling
   void runOnOperation() override {
     SmallVector<ParallelOp, 2> innermostPloops;
     getInnermostParallelLoops(getOperation(), innermostPloops);
+    bool mem_intensive_opt_experimental = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", false,
+                                   &mem_intensive_opt_experimental);
     for (ParallelOp ploop : innermostPloops) {
       // FIXME: Add reduction support.
       SmallVector<long> localTileSizes(tileSizes.begin(), tileSizes.end());
@@ -58,6 +63,14 @@ struct ParallelLoopTiling
         // TODO: Change this to a assert check after lhlo_fusion pass
         // put even single nodes into a lmhlo.FusionOp
         if (fusion) {
+          if (mem_intensive_opt_experimental) {
+            // Do not deal with kStitch fusion.
+            auto fusionTypeAttr =
+                fusion->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName);
+            if (fusionTypeAttr && fusionTypeAttr.getValue() == "kStitch") {
+              continue;
+            }
+          }
           if (auto attr =
                   fusion->getAttrOfType<IntegerAttr>(kThreadPerBlockHint)) {
             localTileSizes = {attr.getInt()};

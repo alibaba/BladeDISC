@@ -414,10 +414,17 @@ struct DiscSpecializeFusionWithSpeculationPass
     // Already have a hint
     if (fusion_op->getAttrOfType<IntegerAttr>(kVectorizeOrTileHint)) return;
 
+    bool mem_intensive_opt_experimental = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", false,
+                                   &mem_intensive_opt_experimental);
     FusionType fusion_type = getFusionType(fusion_op.getOperation());
     if (fusion_type != FusionType::kLoop &&
         fusion_type != FusionType::kRowReduction &&
-        fusion_type != FusionType::kStitch) {
+        (fusion_type != FusionType::kStitch ||
+         (fusion_type == FusionType::kStitch &&
+          mem_intensive_opt_experimental))) {
+      // TODO: support tile optimization for kStitch fusion when
+      // `DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL` is `true`.
       return;
     }
 

@@ -193,6 +193,7 @@ MlirTest::MlirTest(const std::string& mlir_file_path,
                    const std::vector<std::vector<float>>& input_vals,
                    const std::vector<DataType>& out_elem_types,
                    const std::vector<DeviceType>& output_placement,
+                   const std::vector<tensorflow::Tensor>& expected_output_vals,
                    bool profiling, bool multi_cc_mode,
                    bool multi_cc_mode_dbg_ptx_only)
     : mlir_file_path_(mlir_file_path),
@@ -206,6 +207,7 @@ MlirTest::MlirTest(const std::string& mlir_file_path,
       input_vals_(input_vals),
       out_elem_types_(out_elem_types),
       output_placement_(output_placement),
+      expected_output_vals_(expected_output_vals),
       h_data_(num_inputs),
       actual_results_(num_outputs),
       profiling_(profiling),
@@ -232,7 +234,10 @@ MlirTest::MlirTest(const std::string& mlir_file_path,
 Status MlirTest::Run() {
   TF_RETURN_IF_ERROR(CompileMlirToBinary());
   TF_RETURN_IF_ERROR(GenerateInputAndRun());
-  TF_RETURN_IF_ERROR(RunGoldenTF());
+  if (expected_output_vals_.empty()) {
+    TF_RETURN_IF_ERROR(RunGoldenTF());
+  }
+  TF_RETURN_IF_ERROR(CompareResults());
   return Status::OK();
 }
 
@@ -459,13 +464,18 @@ Status MlirTest::RunGoldenTF() {
     }
   }
 
+  expected_output_vals_ = std::move(output_tensors);
+  return Status::OK();
+}
+
+Status MlirTest::CompareResults() {
   for (int64_t i = 0; i < num_outputs_; ++i) {
     VLOG(0) << "processing output " << i;
     DataType dtype = out_elem_types_[i];
     std::string msg = "Error in output ";
     absl::StrAppend(&msg, i, ":\n");
     if (dtype == tensorflow::DT_FLOAT) {
-      auto datas = output_tensors[i].flat<float>();
+      auto datas = expected_output_vals_[i].flat<float>();
       for (int64_t n = 0; n < datas.size(); ++n) {
         float actual = reinterpret_cast<float*>(actual_results_[i].get())[n];
         VLOG(2) << "  expected: " << datas(n) << ", actual: " << actual;
@@ -476,7 +486,7 @@ Status MlirTest::RunGoldenTF() {
         }
       }
     } else if (dtype == tensorflow::DT_DOUBLE) {
-      auto datas = output_tensors[i].flat<double>();
+      auto datas = expected_output_vals_[i].flat<double>();
       for (int64_t n = 0; n < datas.size(); ++n) {
         double actual = reinterpret_cast<double*>(actual_results_[i].get())[n];
         VLOG(2) << "  expected: " << datas(n) << ", actual: " << actual;
@@ -488,7 +498,7 @@ Status MlirTest::RunGoldenTF() {
         }
       }
     } else if (dtype == tensorflow::DT_HALF) {
-      auto datas = output_tensors[i].flat<half>();
+      auto datas = expected_output_vals_[i].flat<half>();
       for (int64_t n = 0; n < datas.size(); ++n) {
         half actual = reinterpret_cast<half*>(actual_results_[i].get())[n];
         VLOG(2) << "  expected: " << datas(n) << ", actual: " << actual;
@@ -502,8 +512,8 @@ Status MlirTest::RunGoldenTF() {
     } else if (dtype == tensorflow::DT_INT32) {
       // Using bitcast instead of `flat` in case the output has quantized
       // integer type.
-      auto datas = output_tensors[i].bit_casted_shaped<int32_t, 1>(
-          {output_tensors[i].NumElements()});
+      auto datas = expected_output_vals_[i].bit_casted_shaped<int32_t, 1>(
+          {expected_output_vals_[i].NumElements()});
       for (int64_t n = 0; n < datas.size(); ++n) {
         int32_t actual =
             reinterpret_cast<int32_t*>(actual_results_[i].get())[n];
@@ -515,7 +525,7 @@ Status MlirTest::RunGoldenTF() {
         }
       }
     } else if (dtype == tensorflow::DT_INT64) {
-      auto datas = output_tensors[i].flat<tensorflow::int64>();
+      auto datas = expected_output_vals_[i].flat<tensorflow::int64>();
       for (int64_t n = 0; n < datas.size(); ++n) {
         tensorflow::int64 actual =
             reinterpret_cast<int64_t*>(actual_results_[i].get())[n];
@@ -527,7 +537,7 @@ Status MlirTest::RunGoldenTF() {
         }
       }
     } else if (dtype == tensorflow::DT_BOOL) {
-      auto datas = output_tensors[i].flat<bool>();
+      auto datas = expected_output_vals_[i].flat<bool>();
       for (int64_t n = 0; n < datas.size(); ++n) {
         bool actual = reinterpret_cast<bool*>(actual_results_[i].get())[n];
         VLOG(2) << "expected: " << datas(n) << ", actual: " << actual;
@@ -542,8 +552,8 @@ Status MlirTest::RunGoldenTF() {
                dtype == tensorflow::DT_QUINT8) {
       // Using bitcast instead of `flat` in case the output has quantized
       // integer type.
-      auto datas = output_tensors[i].bit_casted_shaped<uint8_t, 1>(
-          {output_tensors[i].NumElements()});
+      auto datas = expected_output_vals_[i].bit_casted_shaped<uint8_t, 1>(
+          {expected_output_vals_[i].NumElements()});
       for (int64_t n = 0; n < datas.size(); ++n) {
         uint8_t actual =
             reinterpret_cast<uint8_t*>(actual_results_[i].get())[n];
@@ -557,8 +567,8 @@ Status MlirTest::RunGoldenTF() {
     } else if (dtype == tensorflow::DT_INT8 || dtype == tensorflow::DT_QINT8) {
       // Using bitcast instead of `flat` in case the output has quantized
       // integer type.
-      auto datas = output_tensors[i].bit_casted_shaped<int8_t, 1>(
-          {output_tensors[i].NumElements()});
+      auto datas = expected_output_vals_[i].bit_casted_shaped<int8_t, 1>(
+          {expected_output_vals_[i].NumElements()});
       for (int64_t n = 0; n < datas.size(); ++n) {
         int8_t actual = reinterpret_cast<int8_t*>(actual_results_[i].get())[n];
         VLOG(2) << "expected: " << datas(n) << ", actual: " << actual;
@@ -572,26 +582,24 @@ Status MlirTest::RunGoldenTF() {
       return Internal("Error: unexpected output tensor dtype");
     }
   }
-
   return Status::OK();
 }
 
-MlirTestImpl::MlirTestImpl(const std::string& mlir_file_path,
-                           const std::string& tmp_dir,
-                           const std::string& test_name, int num_inputs,
-                           int num_outputs,
-                           const std::vector<buffer_shape_t>& input_shapes,
-                           const std::vector<DataType>& input_elem_types,
-                           const std::vector<DeviceType>& input_placement,
-                           const std::vector<std::vector<float>>& input_vals,
-                           const std::vector<DataType>& out_elem_types,
-                           const std::vector<DeviceType>& output_placement,
-                           bool profiling, bool multi_cc_mode,
-                           bool multi_cc_mode_dbg_ptx_only)
+MlirTestImpl::MlirTestImpl(
+    const std::string& mlir_file_path, const std::string& tmp_dir,
+    const std::string& test_name, int num_inputs, int num_outputs,
+    const std::vector<buffer_shape_t>& input_shapes,
+    const std::vector<DataType>& input_elem_types,
+    const std::vector<DeviceType>& input_placement,
+    const std::vector<std::vector<float>>& input_vals,
+    const std::vector<DataType>& out_elem_types,
+    const std::vector<DeviceType>& output_placement,
+    const std::vector<tensorflow::Tensor>& expected_output_vals, bool profiling,
+    bool multi_cc_mode, bool multi_cc_mode_dbg_ptx_only)
     : MlirTest(mlir_file_path, tmp_dir, test_name, num_inputs, num_outputs,
                input_shapes, input_elem_types, input_placement, input_vals,
-               out_elem_types, output_placement, profiling, multi_cc_mode,
-               multi_cc_mode_dbg_ptx_only) {
+               out_elem_types, output_placement, expected_output_vals,
+               profiling, multi_cc_mode, multi_cc_mode_dbg_ptx_only) {
   tao_ral_func_ptr_ = reinterpret_cast<void*>(&tao_ral_call_impl);
   if (!tao_ral_func_ptr_) {
     LOG(ERROR) << "Error: fail to find tao_ral_call_impl";

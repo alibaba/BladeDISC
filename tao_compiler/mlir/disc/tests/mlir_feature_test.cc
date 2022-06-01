@@ -22,7 +22,6 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
-#include "tensorflow/compiler/mlir/disc/tests/mlir_test.h"
 #include "tensorflow/core/framework/types.h"
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/platform/env.h"
@@ -87,14 +86,14 @@ uint64_t getNextTestInstanceId() {
   return next_index++;
 }
 
-bool feature_test_main(const std::string& mlir_file_path,
-                       BackendType backend_type, int num_inputs,
-                       int num_outputs,
-                       const std::vector<std::string>& input_descriptors,
-                       const std::vector<std::string>& output_descriptors,
-                       const std::vector<std::vector<float>>& input_vals,
-                       bool profiling = false, bool multi_cc_mode = false,
-                       bool multi_cc_mode_dbg_ptx_only = false) {
+bool feature_test_main(
+    const std::string& mlir_file_path, BackendType backend_type, int num_inputs,
+    int num_outputs, const std::vector<std::string>& input_descriptors,
+    const std::vector<std::string>& output_descriptors,
+    const std::vector<std::vector<float>>& input_vals,
+    const std::vector<tensorflow::Tensor>& expected_output_vals,
+    bool profiling = false, bool multi_cc_mode = false,
+    bool multi_cc_mode_dbg_ptx_only = false) {
   std::vector<buffer_shape_t> input_shapes(num_inputs);
   std::vector<DataType> input_elem_types(num_inputs, tensorflow::DT_INVALID);
   std::vector<DeviceType> input_placement(num_inputs);
@@ -127,6 +126,12 @@ bool feature_test_main(const std::string& mlir_file_path,
         << "If assigned, the size of input_vals must be equal to num_inputs";
     return false;
   }
+  if ((expected_output_vals.size() != 0) &&
+      (expected_output_vals.size() != num_outputs)) {
+    LOG(ERROR) << "If assigned, the size of expected_output_vals must be equal "
+                  "to num_outputs";
+    return false;
+  }
 
   // Read tf code.
   std::string tf_code;
@@ -156,8 +161,8 @@ bool feature_test_main(const std::string& mlir_file_path,
 
   MlirTestImpl test(new_mlir_file, tmp_dir, test_name, num_inputs, num_outputs,
                     input_shapes, input_elem_types, input_placement, input_vals,
-                    output_elem_types, output_placement, profiling,
-                    multi_cc_mode, multi_cc_mode_dbg_ptx_only);
+                    output_elem_types, output_placement, expected_output_vals,
+                    profiling, multi_cc_mode, multi_cc_mode_dbg_ptx_only);
   auto status = test.Run();
   if (status != tensorflow::Status::OK()) {
     VLOG(0) << "[[FAILED]]: " << status.error_message();
@@ -220,7 +225,7 @@ bool feature_test_read_input_from_file(const std::string& mlir_file_path,
   }
   return feature_test_main(mlir_file_path, backend_type, num_inputs,
                            num_outputs, input_descriptors, output_descriptors,
-                           input_vals, profiling);
+                           input_vals, /*expected_output_vals*/ {}, profiling);
 }
 
 // key -> (value, pre-exist?)
@@ -275,14 +280,14 @@ struct EnvSettingContext {
   EnvSetting setting;
 };
 
-bool feature_test_main(const std::string& mlir_file_path,
-                       const std::vector<BackendType>& backend_types,
-                       int num_inputs, int num_outputs,
-                       const std::vector<std::string>& input_descriptors,
-                       const std::vector<std::string>& output_descriptors,
-                       const std::vector<std::vector<float>>& input_vals,
-                       bool profiling, bool multi_cc_mode,
-                       bool multi_cc_mode_dbg_ptx_only) {
+bool feature_test_main(
+    const std::string& mlir_file_path,
+    const std::vector<BackendType>& backend_types, int num_inputs,
+    int num_outputs, const std::vector<std::string>& input_descriptors,
+    const std::vector<std::string>& output_descriptors,
+    const std::vector<std::vector<float>>& input_vals,
+    const std::vector<tensorflow::Tensor>& expected_output_vals, bool profiling,
+    bool multi_cc_mode, bool multi_cc_mode_dbg_ptx_only) {
   bool pass = true;
   auto envSettings = getEnvironmentSettings();
   for (const auto& setting : envSettings) {
@@ -292,29 +297,29 @@ bool feature_test_main(const std::string& mlir_file_path,
       if (backend_type == BackendType::kCuda) {
 #if (GOOGLE_CUDA) || (TENSORFLOW_USE_ROCM)
         VLOG(0) << "Testing for CUDA backend";
-        pass = pass &&
-               feature_test_main(mlir_file_path, backend_type, num_inputs,
-                                 num_outputs, input_descriptors,
-                                 output_descriptors, input_vals, profiling,
-                                 multi_cc_mode, multi_cc_mode_dbg_ptx_only);
+        pass = pass && feature_test_main(
+                           mlir_file_path, backend_type, num_inputs,
+                           num_outputs, input_descriptors, output_descriptors,
+                           input_vals, expected_output_vals, profiling,
+                           multi_cc_mode, multi_cc_mode_dbg_ptx_only);
 #endif
       } else if (backend_type == BackendType::kX86) {
 #if TAO_CPU_ONLY and defined(TAO_X86)
         VLOG(0) << "Testing for X86 backend";
-        pass = pass &&
-               feature_test_main(mlir_file_path, backend_type, num_inputs,
-                                 num_outputs, input_descriptors,
-                                 output_descriptors, input_vals, profiling,
-                                 multi_cc_mode, multi_cc_mode_dbg_ptx_only);
+        pass = pass && feature_test_main(
+                           mlir_file_path, backend_type, num_inputs,
+                           num_outputs, input_descriptors, output_descriptors,
+                           input_vals, expected_output_vals, profiling,
+                           multi_cc_mode, multi_cc_mode_dbg_ptx_only);
 #endif
       } else if (backend_type == BackendType::kAArch64) {
 #if TAO_CPU_ONLY and defined(TAO_AARCH64)
         VLOG(0) << "Testing for AArch64 backend";
-        pass = pass &&
-               feature_test_main(mlir_file_path, backend_type, num_inputs,
-                                 num_outputs, input_descriptors,
-                                 output_descriptors, input_vals, profiling,
-                                 multi_cc_mode, multi_cc_mode_dbg_ptx_only);
+        pass = pass && feature_test_main(
+                           mlir_file_path, backend_type, num_inputs,
+                           num_outputs, input_descriptors, output_descriptors,
+                           input_vals, expected_output_vals, profiling,
+                           multi_cc_mode, multi_cc_mode_dbg_ptx_only);
 #endif
       } else {
         LOG(ERROR) << "unknown backend type";

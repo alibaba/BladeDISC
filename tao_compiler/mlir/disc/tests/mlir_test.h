@@ -73,6 +73,7 @@ class MlirTest {
                     const std::vector<std::vector<float>>& input_vals,
                     const std::vector<tensorflow::DataType>& out_elem_types,
                     const std::vector<DeviceType>& output_placement,
+                    const std::vector<tensorflow::Tensor>& expected_output_vals,
                     bool profiling = false, bool multi_cc_mode = false,
                     bool multi_cc_mode_dbg_ptx_only = false);
 
@@ -84,6 +85,7 @@ class MlirTest {
   virtual tensorflow::Status GenerateInputAndRun() = 0;
   tensorflow::Status LoadGraph(const std::string& graph_file_name);
   tensorflow::Status RunGoldenTF();
+  tensorflow::Status CompareResults();
   template <class T>
   static bool IsAcceptableNear(T a, T b, double rel_err_limit = 1e-2,
                                double abs_err_limit = 1e-4);
@@ -117,6 +119,9 @@ class MlirTest {
   // actual run results in host memory
   std::vector<std::shared_ptr<void>> actual_results_;
 
+  // Stores the expected output of the test.
+  std::vector<tensorflow::Tensor> expected_output_vals_;
+
   std::unordered_map<std::string, std::string> output_tensor_name_map_;
 };
 
@@ -130,8 +135,10 @@ class MlirTestImpl : public MlirTest {
       const std::vector<DeviceType>& input_placement,
       const std::vector<std::vector<float>>& input_vals,
       const std::vector<tensorflow::DataType>& out_elem_types,
-      const std::vector<DeviceType>& output_placement, bool profiling = false,
-      bool multi_cc_mode = false, bool multi_cc_mode_dbg_ptx_only = false);
+      const std::vector<DeviceType>& output_placement,
+      const std::vector<tensorflow::Tensor>& expected_output_vals,
+      bool profiling = false, bool multi_cc_mode = false,
+      bool multi_cc_mode_dbg_ptx_only = false);
 
   ~MlirTestImpl();
 

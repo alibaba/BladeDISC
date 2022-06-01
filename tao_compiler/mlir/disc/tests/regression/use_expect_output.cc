@@ -22,34 +22,26 @@ namespace mlir_test {
 const std::string c_ft_path =
     "tensorflow/compiler/mlir/disc/tests/regression/data/";
 
-TEST(MultiCCTest, BasicTest) {
-  EXPECT_TRUE(feature_test_main(
-      /*mlir_file_path*/ c_ft_path + "multi_cc.mlir",
-      /*backend_types*/ {BackendType::kCuda},
-      /*num_inputs*/ 1,
-      /*num_outputs*/ 1,
-      /*input_descriptors*/ {"13x21x100xf32_X"},
-      /*output_descriptors*/ {"f32_X"},
-      /*input_vals*/ {},
-      /*expected_output_vals*/ {},
-      /*profiling*/ false,
-      /*multi_cc_mode*/ true,
-      /*multi_cc_mode_dbg_ptx_only*/ false));
-}
+TEST(UseExpectOutput, BasicTest) {
+  tensorflow::Tensor output(tensorflow::DataType::DT_FLOAT, {2, 3});
+  auto datas = output.flat<float>();
+  datas(0) = 255.0f;
+  datas(1) = 128.0f;
+  datas(2) = 0.0f;
+  datas(3) = 63.0f;
+  datas(4) = 158.0f;
+  datas(5) = 33.0f;
 
-TEST(MultiCCTest, PtxTest) {
   EXPECT_TRUE(feature_test_main(
-      /*mlir_file_path*/ c_ft_path + "multi_cc.mlir",
-      /*backend_types*/ {BackendType::kCuda},
+      /*mlir_file_path*/ c_ft_path + "use_expect_output.mlir",
+      /*backend_types*/
+      kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
-      /*input_descriptors*/ {"13x21x100xf32_X"},
+      /*input_descriptors*/ {"2x3xui8_X"},
       /*output_descriptors*/ {"f32_X"},
-      /*input_vals*/ {},
-      /*expected_output_vals*/ {},
-      /*profiling*/ false,
-      /*multi_cc_mode*/ true,
-      /*multi_cc_mode_dbg_ptx_only*/ true));
+      /*input_vals*/ {{255, 128, 0, 63, 158, 33}},
+      /*expect_output_vals*/ {output}));
 }
 
 }  // namespace mlir_test

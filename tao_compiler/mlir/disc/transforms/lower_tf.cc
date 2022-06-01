@@ -657,23 +657,6 @@ Type ToLegalElementType(Type type) {
       .Default([&type](Type) { return type; });
 }
 
-struct ConvertDequantizeConstOp : public OpRewritePattern<TF::ConstOp> {
-  using OpRewritePattern::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(TF::ConstOp op,
-                                PatternRewriter& rewriter) const final {
-    auto resultTy = op->getResult(0).getType().cast<RankedTensorType>();
-    auto elemTy = resultTy.getElementType();
-    Type newElemTy = ToLegalElementType(elemTy);
-    if (newElemTy == elemTy) return failure();
-    Value newResult = rewriter.create<TF::ConstOp>(
-        op.getLoc(), op.value().cast<DenseElementsAttr>().bitcast(newElemTy));
-    newResult = rewriter.create<TF::CastOp>(op.getLoc(), resultTy, newResult);
-    rewriter.replaceOp(op, newResult);
-    return success();
-  }
-};
-
 bool isConstantZeroTensor(Value v) {
   auto castOp = dyn_cast_or_null<TF::CastOp>(v.getDefiningOp());
   if (castOp) return isConstantZeroTensor(castOp->getOperand(0));
@@ -1085,7 +1068,6 @@ void PrepareTFPass::runOnOperation() {
   populateWithGenerated(patterns);
   // clang-format off
   patterns.insert<
-      ConvertDequantizeConstOp,
       ConvertDequantizeOp,
       ConvertQuantizeV2Op,
       ConvertSqueezeOpDynamic,

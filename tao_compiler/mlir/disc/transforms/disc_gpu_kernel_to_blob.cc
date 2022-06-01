@@ -305,9 +305,42 @@ class GpuKernelToBlobPass
 
     xla::HloModuleConfig config;
     xla::DebugOptions options = xla::GetDebugOptionsFromFlags();
-    // Make sure we use full precision division operations.
-    // We need this to pass the ut for `tf.FloorDiv`.
-    (*options.mutable_xla_backend_extra_options())["-nvptx-prec-divf32"] = "2";
+    int64_t fast_math_level = 1;
+    tensorflow::ReadInt64FromEnvVar("DISC_CUDA_FAST_MATH_LEVEL", 1,
+                                    &fast_math_level);
+    switch (fast_math_level) {
+      case 0:
+        // No fast-math at all.
+        (*options.mutable_xla_backend_extra_options())["-nvptx-prec-divf32"] =
+            "2";
+        (*options.mutable_xla_backend_extra_options())["-nvptx-prec-sqrtf32"] =
+            "1";
+        options.set_xla_gpu_ftz(false);
+        break;
+      case 1:
+        // This is the default value, which is the same with XLA. Nothing will
+        // be changed. Note that it sets nvptx-prec-divf32 to 1.
+        break;
+      case 2:
+        // Note that this is not the full fase-math for CUDA. The prec-div is
+        // set to 1 instead of 0 for better precision.
+        (*options.mutable_xla_backend_extra_options())["-nvptx-prec-divf32"] =
+            "1";
+        (*options.mutable_xla_backend_extra_options())["-nvptx-prec-sqrtf32"] =
+            "0";
+        options.set_xla_gpu_ftz(true);
+        break;
+      case 3:
+        // Full fase-math for CUDA.
+        (*options.mutable_xla_backend_extra_options())["-nvptx-prec-divf32"] =
+            "0";
+        (*options.mutable_xla_backend_extra_options())["-nvptx-prec-sqrtf32"] =
+            "0";
+        options.set_xla_gpu_ftz(true);
+        break;
+      default:
+        break;
+    }
     config.set_debug_options(options);
 
     auto enable_fusion = [](llvm::TargetMachine* target) {

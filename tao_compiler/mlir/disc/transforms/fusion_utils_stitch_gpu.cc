@@ -14,12 +14,11 @@
 namespace mlir {
 namespace disc_ral {
 
-////////////////////// Stitch GPU FusionStrategy Implemenation /////////
-////////////////////////////////////////////////////////////////////////
+// Stitch GPU FusionStrategy implemenation.
 
-bool findValidReductionOps(FusionPatternBase& target,
-                           SmallVectorImpl<Operation*>& row_reductions,
-                           SmallVectorImpl<Operation*>& col_reductions) {
+bool findAndVerifyReductionOps(FusionPatternBase& target,
+                               SmallVectorImpl<Operation*>& row_reductions,
+                               SmallVectorImpl<Operation*>& col_reductions) {
   row_reductions.clear();
   col_reductions.clear();
   auto& op_list = target.getOpList();
@@ -284,11 +283,21 @@ bool StitchGpuFusionStrategy::tileInfoPropagateI2O(
   return true;
 }
 
+// Check whether the output indices can cover all input indices.
+bool StitchGpuFusionStrategy::isOutputIndicesCoverInputIndices(Operation* op) {
+  return !isa<lmhlo::RealDynamicSliceOp, lmhlo::SliceOp, lmhlo::DynamicGatherOp,
+              lmhlo::GatherOp>(op);
+}
+
 bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
     ShapeAnalysis& shapeAnalysis, DenseMap<Value, TileInfo>& tile_plan,
     Operation* op, SmallVector<std::pair<Value, TileInfo>, 4>& in_info,
-    bool& cover) {
+    bool& cover, bool propagate_cover_only) {
   if (isa<lmhlo::ConstOp>(op)) {
+    return true;
+  }
+  cover &= isOutputIndicesCoverInputIndices(op);
+  if (propagate_cover_only) {
     return true;
   }
   if (isElementWise(op) || isa<lmhlo::ConcatenateOp>(op)) {
@@ -302,8 +311,6 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
     auto tile_info = tile_plan[out_value];
     Value in_value = op->getOperand(0);
     in_info.emplace_back(in_value, tile_info);
-    // The output indices cannot cover all input indices.
-    cover = false;
   } else if (isa<lmhlo::BroadcastInDimOp, lmhlo::DynamicBroadcastInDimOp>(op)) {
     Value in_value = op->getOperand(0);
     Value out_value = cast<lmhlo::LmhloOp>(op).getResultBuffer();
@@ -398,20 +405,6 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
       return false;
     }
     in_info.emplace_back(in_value, in_tile);
-  } else if (isa<lmhlo::TransposeOp>(op)) {
-    auto transpose = cast<lmhlo::TransposeOp>(op);
-    auto permutation = transpose.permutation().getValues<int64_t>();
-    Value out_value = transpose.output();
-    auto tile_info = tile_plan[out_value];
-    int64_t rank = out_value.getType().cast<MemRefType>().getRank();
-    TileInfo in_tile;
-    for (int64_t i = 0; i < rank; i++) {
-      if (tile_info.tileSizes.find(i) != tile_info.tileSizes.end()) {
-        in_tile.tileSizes[permutation[i]] = tile_info.tileSizes[i];
-      }
-    }
-    Value in_value = transpose.operand();
-    in_info.emplace_back(in_value, in_tile);
   } else if (isa<lmhlo::DynamicGatherOp, lmhlo::GatherOp>(op)) {
     Value in_value = op->getOperand(0);
     Value out_value = cast<lmhlo::LmhloOp>(op).getResultBuffer();
@@ -489,7 +482,6 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
       return false;
     }
     in_info.emplace_back(in_value, in_tile);
-    cover = false;
   } else {
     // TODO: if there is no root op as direct or indirect producer of this op,
     // do not do any propagation.
@@ -508,7 +500,8 @@ bool StitchGpuFusionStrategy::findFusionPatternTypeAndSubroot(
 
   SmallVector<Operation*, 4> row_reductions;
   SmallVector<Operation*, 4> col_reductions;
-  if (!findValidReductionOps(fusion_pattern, row_reductions, col_reductions)) {
+  if (!findAndVerifyReductionOps(fusion_pattern, row_reductions,
+                                 col_reductions)) {
     LLVM_DEBUG(llvm::dbgs() << "Check reduction ops failed.");
     return false;
   }
@@ -538,14 +531,16 @@ bool StitchGpuFusionStrategy::findFusionPatternTypeAndSubroot(
 
   // Check basic fusion types.
   // Check compatibility for kRowReduction, kColReduction and kLoop:
-  // - for kRowReduction, all row-reduces should have the same shape with
+  //
+  // 1) kRowReduction, all row-reduces should have the same shape with
   // dominant, and other results should have the same number of elements.
   // Otherwise we set it as kStitch fusion.
-  // - for kColReduction, all col-reduces should have the same shape with
+  //
+  // 2) kColReduction, all col-reduces should have the same shape with
   // dominant, and other results should have the same number of elements.
-  // - for kLoop, all results should have the same number of elements.
-  // Note that kRowReduce that do not meet compatibility constraint are already
-  // regarded as kStitch already.
+  //
+  // 3) kLoop, all results should have the same number of elements. Otherwise
+  // we set it as kStitch fusion.
   if (fusion_type != FusionType::kStitch) {
     if (!row_reductions.empty()) {
       fusion_type = FusionType::kRowReduction;
@@ -589,7 +584,9 @@ bool StitchGpuFusionStrategy::findFusionPatternTypeAndSubroot(
           // Ignore if already a kRowReduction or kColReduction, otherwise
           // update the fusion type to kLoop and dominant op to current op. This
           // supposes that the last op inside the block is a valid candidate
-          // dominant op if the fusion pattern is a kLoop.
+          // dominant op if the fusion pattern is a kLoop. If we regard it as a
+          // kStitch fusion later, we may change the dominant op setting in
+          // later steps.
           if (fusion_type == FusionType::kNone ||
               fusion_type == FusionType::kLoop) {
             fusion_type = FusionType::kLoop;
@@ -608,7 +605,7 @@ bool StitchGpuFusionStrategy::findFusionPatternTypeAndSubroot(
               Value shape = getEffectiveShape(fusion_pattern, result);
               return shapeAnalysis.HasSameNumElements(ref_shape, shape);
             })) {
-          return false;
+          fusion_type = FusionType::kStitch;
         }
       }
     }
@@ -623,128 +620,174 @@ bool StitchGpuFusionStrategy::findFusionPatternTypeAndSubroot(
 
   fusion_pattern.setDominantOp(dominant_op);
   fusion_pattern.setFusionType(fusion_type);
-  if (fusion_type == FusionType::kStitch) {
-    fusion_pattern.setSubRootOps(row_reductions);
+  if (fusion_type == FusionType::kStitch && !row_reductions.empty()) {
+    fusion_pattern.setSubRootOps(std::move(row_reductions));
   }
 
   return true;
 }
 
-bool StitchGpuFusionStrategy::tileXroots(ShapeAnalysis& shapeAnalysis,
-                                         FusionPattern& fusion_pattern) {
+bool StitchGpuFusionStrategy::tileAndIdentifyXroots(
+    ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern) {
   DenseMap<Value, TileInfo>& tile_plan = fusion_pattern.getTilePlan();
   tile_plan.clear();
-
-  // Check constraint: all sub-roots have equivalent tiled dims and equivalent
-  // non-tiled dims. As all sub-roots are rank-2 row-reductions, the checking is
-  // simplified to check shape equality.
-  const auto& subroots = fusion_pattern.getSubRootOps();
-  const auto& dominant_op = fusion_pattern.getDominantOp();
-  if (!llvm::all_of(subroots, [&](Operation* op) {
-        if (op == dominant_op) {
-          return true;
-        } else {
-          return shapeAnalysis.isShapeEqual(dominant_op->getOperand(0),
-                                            op->getOperand(0));
-        }
-      })) {
-    LLVM_DEBUG(llvm::dbgs() << "Sub-roots do not have the same shape.");
-    return false;
-  }
-
-  // Tile subroots (row reductions).
-  for (Operation* op : subroots) {
-    // Tile input dimentions for input.
-    auto& in = tile_plan[op->getOperand(0)];
-    auto reduce = cast<lmhlo::ReduceOp>(op);
-    auto dimensions = reduce.dimensions().getValues<int64_t>();
-    for (auto& en : llvm::enumerate(dimensions)) {
-      in.tileSizes[en.value()] = ShapedType::kDynamicSize;
-    }
-    // No tile dimention for output.
-    tile_plan.try_emplace(op->getOperand(2), std::move(TileInfo()));
-  }
-
-  // Tile non-subroot results. Successfully tiled roots are identified as
-  // regular xroots, while other roots are identified as irregular xroots.
   auto& regular_xroots = fusion_pattern.getRegularXroots();
+  regular_xroots.clear();
   auto& irregular_xroots = fusion_pattern.getIrregularXroots();
-  regular_xroots.insert(subroots.begin(), subroots.end());
-  DenseSet<Operation*> subroots_set(subroots.begin(), subroots.end());
-  const auto& dominant = fusion_pattern.getDominantOp()->getOperand(0);
-  auto& dominant_tile = tile_plan[dominant];
-  const auto& results = fusion_pattern.getResults();
-  for (auto res : results) {
-    bool irregular = false;
-    Operation* op = fusion_pattern.findLastWriter(res);
-    if (subroots_set.contains(op)) {
-      continue;
+  irregular_xroots.clear();
+
+  const auto& subroots = fusion_pattern.getSubRootOps();
+  const auto& external_only_results = fusion_pattern.getExternalOnlyResults();
+
+  auto dominant_op = fusion_pattern.getDominantOp();
+  if (subroots.empty()) {
+    // There is no row-reduce here. Note that a subroot op is a row-reduce op in
+    // current implementation.
+
+    assert(!external_only_results.empty());
+    SmallVector<Operation*> external_only_roots;
+    bool dominant_valid = false;
+    for (const auto& result : external_only_results) {
+      Operation* op = fusion_pattern.findLastWriter(result);
+      external_only_roots.push_back(op);
+      // A valid dominant should be an external-only-root op.
+      dominant_valid |= (op == dominant_op);
     }
-    // Find equal dims between res and a sub-root.
-    SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>> equal;
-    shapeAnalysis.extractContinuousDimEqualInfo(dominant, res, equal);
-    int64_t dominant_non_tiled_dim_matched_n = 0;
-    DenseSet<int64_t> res_non_tiled_dims;
-    for (auto eq_dim : equal) {
-      auto lhs = eq_dim.first;
-      bool non_tiled = (dominant_tile.tileSizes.count(lhs[0]) == 0);
-      for (int64_t i = 1; i < lhs.size(); i++) {
-        if ((dominant_tile.tileSizes.count(lhs[i]) == 0) != non_tiled) {
-          // Both tiled and non-tiled dims are mapped to the same dim of res,
-          // thus cannot determine the tile plan for res;
-          irregular_xroots.insert(op);
-          irregular = true;
+    if (!dominant_valid) {
+      dominant_op = external_only_roots.back();
+    }
+    // Check constraint: all external-only-roots should have the same number of
+    // elements.
+    // TODO: Support external-only-roots with different number of elements. It
+    // requires some complex tiling checking. For example, smaller results' dims
+    // should be fully mapped to dims of larger results, thus we will know the
+    // outer loop's upper-bound. One extra constraint is that, it only allows
+    // connected results to have different elements. The largest num-elements
+    // between remotely fused ops (also called horizontal fusion) should be the
+    // same.
+    if (!llvm::all_of(external_only_roots, [&](Operation* op) {
+          if (op == dominant_op) {
+            return true;
+          } else {
+            return shapeAnalysis.HasSameNumElements(dominant_op->getOperand(0),
+                                                    op->getOperand(0));
+          }
+        })) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "External-only roots do not have same number of elements.");
+      return false;
+    }
+  } else {
+    // This means there are row-reduce ops in the fusion pattern.
+
+    // Check constraint: all sub-roots have equivalent tiled dims and equivalent
+    // non-tiled dims. As all sub-roots are rank-2 row-reductions, the checking
+    // is simplified to check shape equality.
+    if (!llvm::all_of(subroots, [&](Operation* op) {
+          if (op == dominant_op) {
+            return true;
+          } else {
+            return shapeAnalysis.isShapeEqual(dominant_op->getOperand(0),
+                                              op->getOperand(0));
+          }
+        })) {
+      LLVM_DEBUG(llvm::dbgs() << "Sub-roots do not have the same shape.");
+      return false;
+    }
+
+    // Tile subroots (row reductions).
+    for (Operation* op : subroots) {
+      // Tile input dimentions for input.
+      auto& in = tile_plan[op->getOperand(0)];
+      auto reduce = cast<lmhlo::ReduceOp>(op);
+      auto dimensions = reduce.dimensions().getValues<int64_t>();
+      for (auto& en : llvm::enumerate(dimensions)) {
+        in.tileSizes[en.value()] = ShapedType::kDynamicSize;
+      }
+      // No tile dimention for output.
+      tile_plan.try_emplace(op->getOperand(2), std::move(TileInfo()));
+    }
+
+    // Tile non-subroot results. Successfully tiled roots are identified as
+    // regular xroots, while other roots are identified as irregular xroots.
+    regular_xroots.insert(subroots.begin(), subroots.end());
+    DenseSet<Operation*> subroots_set(subroots.begin(), subroots.end());
+    const auto& dominant = fusion_pattern.getDominantOp()->getOperand(0);
+    auto& dominant_tile = tile_plan[dominant];
+    const auto& results = fusion_pattern.getResults();
+    for (auto res : results) {
+      bool irregular = false;
+      Operation* op = fusion_pattern.findLastWriter(res);
+      if (subroots_set.contains(op)) {
+        continue;
+      }
+      // Find equal dims between res and a sub-root.
+      SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>> equal;
+      shapeAnalysis.extractContinuousDimEqualInfo(dominant, res, equal);
+      int64_t dominant_non_tiled_dim_matched_n = 0;
+      DenseSet<int64_t> res_non_tiled_dims;
+      for (auto eq_dim : equal) {
+        auto lhs = eq_dim.first;
+        bool non_tiled = (dominant_tile.tileSizes.count(lhs[0]) == 0);
+        for (int64_t i = 1; i < lhs.size(); i++) {
+          if ((dominant_tile.tileSizes.count(lhs[i]) == 0) != non_tiled) {
+            // Both tiled and non-tiled dims are mapped to the same dim of res,
+            // thus cannot determine the tile plan for res;
+            irregular_xroots.insert(op);
+            irregular = true;
+            break;
+          }
+        }
+        if (irregular) {
           break;
+        }
+        if (non_tiled) {
+          res_non_tiled_dims.insert(eq_dim.second.begin(), eq_dim.second.end());
+          dominant_non_tiled_dim_matched_n += lhs.size();
         }
       }
       if (irregular) {
-        break;
+        continue;
+      } else if (dominant_non_tiled_dim_matched_n != 1) {
+        // Check constraint: the element-number of non-tiled dims are the same
+        // between sub-roots and regular xroots. If not every non-tiled dim is
+        // matched between sub-root and current op, it is an irregular xroot.
+        // Note we know that sub-root is reduction and has only 1 non-tiled dim.
+        irregular_xroots.insert(op);
+        continue;
+      } else if (*std::max_element(res_non_tiled_dims.begin(),
+                                   res_non_tiled_dims.end()) !=
+                 res_non_tiled_dims.size() - 1) {
+        // Check constraint: the tiled dims are all minor dims for all regular
+        // xroot ops. This means the non-tiled dims should all be the major
+        // dims.
+        irregular_xroots.insert(op);
+        continue;
       }
-      if (non_tiled) {
-        res_non_tiled_dims.insert(eq_dim.second.begin(), eq_dim.second.end());
-        dominant_non_tiled_dim_matched_n += lhs.size();
+
+      auto& plan = tile_plan[res];
+      int64_t rank = res.getType().cast<MemRefType>().getRank();
+      for (int64_t i = 0; i < rank; i++) {
+        if (res_non_tiled_dims.count(i) == 0) {
+          // Note that we only log whether a dimension is tiled or not. We do
+          // not care about the tiling size. Thus we set all tiled dims with
+          // `kDynamicSize`.
+          plan.tileSizes[i] = ShapedType::kDynamicSize;
+        }
       }
-    }
-    if (irregular) {
-      continue;
-    } else if (dominant_non_tiled_dim_matched_n != 1) {
-      // Check constraint: the element-number of non-tiled dims are the same
-      // between sub-roots and regular xroots. If not every non-tiled dim is
-      // matched between sub-root and current op, it is an irregular xroot. Note
-      // we know that sub-root is reduction and has only 1 non-tiled dim.
-      irregular_xroots.insert(op);
-      continue;
-    } else if (*std::max_element(res_non_tiled_dims.begin(),
-                                 res_non_tiled_dims.end()) !=
-               res_non_tiled_dims.size() - 1) {
-      // Check constraint: the tiled dims are all minor dims for all regular
-      // xroot ops. This means the non-tiled dims should all be the major dims.
-      irregular_xroots.insert(op);
-      continue;
+      regular_xroots.insert(op);
     }
 
-    auto& plan = tile_plan[res];
-    int64_t rank = res.getType().cast<MemRefType>().getRank();
-    for (int64_t i = 0; i < rank; i++) {
-      if (res_non_tiled_dims.count(i) == 0) {
-        // Note that we only log whether a dimension is tiled or not. We do not
-        // care about the tiling size. Thus we set all tiled dims with with the
-        // value `kDynamicSize`.
-        plan.tileSizes[i] = ShapedType::kDynamicSize;
+    // Check constraint: all the external-only-roots should be regular. This is
+    // because all external-only-roots are skeleton ops. It requires all
+    // skeleton ops have the same non-tiling element numbers to ease the
+    // building of loop loop skeleton of the fusion during code generation.
+    for (auto extern_only_res : fusion_pattern.getExternalOnlyResults()) {
+      Operation* op = fusion_pattern.findLastWriter(extern_only_res);
+      if (irregular_xroots.contains(op)) {
+        LLVM_DEBUG(llvm::dbgs() << "Invalid irregular xroot: " << *op);
+        return false;
       }
-    }
-    regular_xroots.insert(op);
-  }
-
-  // Check constraint: all the external-only-roots should be regular. This is
-  // because all external-only-roots are skeleton ops. It requires all skeleton
-  // ops have the same non-tiling element numbers to ease the building of loop
-  // loop skeleton of the fusion during code generation.
-  for (auto extern_only_res : fusion_pattern.getExternalOnlyResults()) {
-    Operation* op = fusion_pattern.findLastWriter(extern_only_res);
-    if (irregular_xroots.contains(op)) {
-      LLVM_DEBUG(llvm::dbgs() << "Invalid irregular xroot: " << *op);
-      return false;
     }
   }
 
@@ -752,7 +795,8 @@ bool StitchGpuFusionStrategy::tileXroots(ShapeAnalysis& shapeAnalysis,
 }
 
 bool StitchGpuFusionStrategy::backtraceTileAndCover(
-    ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern, Value value) {
+    ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern, Value value,
+    bool backtrace_cover_only) {
   const auto& op_list = fusion_pattern.getOpList();
   const auto& subroots = fusion_pattern.getSubRootOps();
   const auto& roots = fusion_pattern.getRootOps();
@@ -768,8 +812,10 @@ bool StitchGpuFusionStrategy::backtraceTileAndCover(
       return true;
     }
     SmallVector<std::pair<Value, TileInfo>, 4> in_info;
-    if (tileCoverInfoPropagateO2I(shapeAnalysis, tile_plan, op, in_info,
-                                  cover)) {
+    if (tileCoverInfoPropagateO2I(shapeAnalysis, tile_plan, op, in_info, cover,
+                                  backtrace_cover_only)) {
+      // Note that if `backtrace_cover_only` is true, `in_info` will be empty
+      // and the following loop will not be executed.
       for (auto& info : in_info) {
         // Check constraint: if an xroot is not skeleton, all results of this op
         // should be able to be inferred by skeleton. The simplified logic is to
@@ -822,7 +868,7 @@ bool StitchGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
 
   // Analyze tile information of sub-roots and roots, identify regular/irregular
   // xroots.
-  if (!tileXroots(shapeAnalysis, fusion_pattern)) {
+  if (!tileAndIdentifyXroots(shapeAnalysis, fusion_pattern)) {
     return false;
   }
   DenseMap<Value, TileInfo>& tile_plan = fusion_pattern.getTilePlan();
@@ -845,13 +891,15 @@ bool StitchGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
       // one by one.
       value = cast<lmhlo::LmhloOp>(op).getResultBuffer();
     }
-    if (!backtraceTileAndCover(shapeAnalysis, fusion_pattern, value)) {
+    if (!backtraceTileAndCover(shapeAnalysis, fusion_pattern, value,
+                               subroots.empty())) {
       return false;
     }
   }
 
-  // TODO: global memory buffer for intermeidate common operands.
-  // TODO: add speculation hint here.
+  // TODO: global memory buffer for intermeidate common operands to prevent too
+  // many op replication.
+  // TODO: add speculation hint here, after ShapeAnalysisV2 is done.
 
   return true;
 }

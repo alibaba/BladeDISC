@@ -26,7 +26,7 @@ TEST(QuantizedConv2DWithBiasAndRequantizeOpTest, I8I8I8_NO_BIAS) {
   std::vector<float> inputs(1 * 2 * 2 * 25, -0.6);
   tensorflow::Tensor output(tensorflow::DataType::DT_FLOAT, {1, 2, 2, 8});
   auto datas = output.flat<float>();
-  for (int i = 0; i < 1 * 2 * 2 * 9; ++i) datas(i) = 12.0;
+  for (int i = 0; i < output.NumElements(); ++i) datas(i) = 12.0;
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path +
           "quantized_conv2d_with_bias_and_requantize_p_i8_i8_i8_no_bias.mlir",

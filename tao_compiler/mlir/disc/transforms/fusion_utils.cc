@@ -829,6 +829,9 @@ bool mergeSkeletonGroupsInOrder(
     // TODO: deal with non-reduce ops.
     auto merged_grp_reduce =
         dyn_cast_or_null<lmhlo::ReduceOp>(merged_grp.skeletons[0]);
+    // The value of `merged.first` is the group index after merging, which is
+    // the index of one op in the group. When one group is merged into another,
+    // the index is set to `-1`.
     if (merged.first == -1 || !merged_grp_reduce) {
       continue;
     }
@@ -859,6 +862,7 @@ bool mergeSkeletonGroupsInOrder(
         continue;
       }
 
+      // Merge `to_merge_grp` into `merged_grp`.
       merged_grp.skeletons.insert(merged_grp.skeletons.end(),
                                   to_merge_grp.skeletons.begin(),
                                   to_merge_grp.skeletons.end());
@@ -878,6 +882,7 @@ bool mergeSkeletonGroupsInOrder(
       }
       merged_grp.root_member_list = std::move(root_member_list);
 
+      // Set `to_merge` invalid.
       to_merge.first = -1;
       merged.first = *optional_merged_id;
     }

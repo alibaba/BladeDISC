@@ -2857,7 +2857,7 @@ LogicalResult emitRowReduceThreadBlockV2(
   int64_t row_per_block_wave = block_size / reduce_threads;
   int64_t row_per_block = row_per_block_wave * ilp_factor;
   Value row_per_block_val =
-      b.create<arith::ConstantIndexOp>(loc, row_per_block_wave * ilp_factor);
+      b.create<arith::ConstantIndexOp>(loc, row_per_block);
   Value block_row_base =
       b.create<arith::MulIOp>(loc, block_id, row_per_block_val);
   Value row_index;
@@ -3136,8 +3136,8 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
   Value block_size = b.create<arith::ConstantIndexOp>(loc, thread_per_block);
   Value threads_per_row = b.create<arith::ConstantIndexOp>(loc, reduce_threads);
   int64_t row_per_block = thread_per_block / reduce_threads * ilp_factor;
-  Value row_per_block_val = b.create<arith::ConstantIndexOp>(
-      loc, thread_per_block / reduce_threads * ilp_factor);
+  Value row_per_block_val =
+      b.create<arith::ConstantIndexOp>(loc, row_per_block);
   Value block_number =
       b.create<arith::CeilDivUIOp>(loc, shape_h, row_per_block_val);
 

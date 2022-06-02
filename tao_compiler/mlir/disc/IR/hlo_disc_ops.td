@@ -79,7 +79,7 @@ def HLODISC_CustomCallOp: HLODISC_ShapedInterfaceOp<"custom_call", []> {
     Variadic<HLO_TensorOrIndexTensor>:$args,
     StrAttr:$call_target_name,
     DefaultValuedAttr<BoolAttr, "false">:$has_side_effect,
-    DefaultValuedAttr<StrAttr, "">:$backend_config
+    DefaultValuedAttr<AnyAttr, "">:$backend_config
   );
   let results = (outs Variadic<HLO_TensorOrIndexTensor>);
 }

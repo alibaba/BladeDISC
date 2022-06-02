@@ -15,13 +15,15 @@ limitations under the License.
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/IR/Attributes.h"                          // from @llvm-project
-#include "mlir/IR/BuiltinOps.h"                          // from @llvm-project
-#include "mlir/IR/BuiltinTypes.h"                        // from @llvm-project
-#include "mlir/IR/MLIRContext.h"                         // from @llvm-project
+#include "mlir/IR/Attributes.h"    // from @llvm-project
+#include "mlir/IR/BuiltinOps.h"    // from @llvm-project
+#include "mlir/IR/BuiltinTypes.h"  // from @llvm-project
+#include "mlir/IR/MLIRContext.h"   // from @llvm-project
+#include "mlir/IR/Matchers.h"
 #include "mlir/IR/Operation.h"                           // from @llvm-project
 #include "mlir/Pass/Pass.h"                              // from @llvm-project
 #include "mlir/Support/LLVM.h"                           // from @llvm-project
@@ -34,6 +36,9 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_types.h"
+#include "tensorflow/core/framework/kernel_shape_util.h"
+#include "tensorflow/core/util/padding.h"
+#include "tensorflow/core/util/tensor_format.h"
 
 #define DEBUG_TYPE "disc-lower-tf"
 
@@ -169,7 +174,7 @@ class ConvertTopKV2OpDynamic : public OpRewritePattern<TF::TopKV2Op> {
         ValueRange{op.input(), iota_op, op.k()},
         /*call_target_name*/ "topk",
         /*has_side_effect*/ false,
-        /*backend_config*/ ostream.str());
+        /*backend_config*/ StringAttr::get(op->getContext(), ostream.str()));
     rewriter.replaceOp(op, {topk_custom_call_op.getResult(0),
                             topk_custom_call_op.getResult(1)});
     return success();
@@ -628,12 +633,438 @@ LogicalResult ConvertDequantizeOp::dequantize(TF::DequantizeOp op,
                          << "\n";
 }
 
+Type ToLegalElementType(Type type) {
+  return llvm::TypeSwitch<Type, Type>(type)
+      .Case<mlir::TF::Qint8Type>([&type](Type) {
+        return mlir::IntegerType::get(type.getContext(), 8);
+      })
+      .Case<mlir::TF::Qint16Type>([&type](Type) {
+        return mlir::IntegerType::get(type.getContext(), 16);
+      })
+      .Case<mlir::TF::Qint32Type>([&type](Type) {
+        return mlir::IntegerType::get(type.getContext(), 32);
+      })
+      .Case<mlir::TF::Quint8Type>([&type](Type) {
+        return mlir::IntegerType::get(
+            type.getContext(), 8,
+            mlir::IntegerType::SignednessSemantics::Unsigned);
+      })
+      .Case<mlir::TF::Quint16Type>([&type](Type) {
+        return mlir::IntegerType::get(
+            type.getContext(), 16,
+            mlir::IntegerType::SignednessSemantics::Unsigned);
+      })
+      .Default([&type](Type) { return type; });
+}
+
+bool isConstantZeroTensor(Value v) {
+  auto castOp = dyn_cast_or_null<TF::CastOp>(v.getDefiningOp());
+  if (castOp) return isConstantZeroTensor(castOp->getOperand(0));
+
+  DenseElementsAttr denseAttr;
+  if (!matchPattern(v, m_Constant(&denseAttr))) return false;
+  if (denseAttr.getNumElements() != 1 && !denseAttr.isSplat()) return false;
+
+  Type elemTy = denseAttr.getElementType();
+  if (elemTy.isIntOrIndex()) {
+    return (*denseAttr.getValues<APInt>().begin()).getSExtValue() == 0;
+  } else if (elemTy.isa<FloatType>()) {
+    return (*denseAttr.getValues<APFloat>().begin()).convertToDouble() == 0;
+  }
+  return false;
+}
+
+struct ConvParams {
+  Value input;
+  Value filter;
+  Value output;
+  Value padding;
+  Operation* op;
+  Attribute config;
+};
+
+LogicalResult getPaddingValues(Operation* op, OpBuilder& rewriter,
+                               Value input_size, Value filter_size,
+                               int64_t dilation_rate, int64_t stride,
+                               tensorflow::Padding padding_type,
+                               Type shape_scalar_type, Value* padding_low,
+                               Value* padding_high) {
+  // Stride must be > 0
+  if (stride <= 0)
+    return op->emitError() << "stride of conv is suppose positive but got: "
+                           << stride << "\n";
+  // Dilation rate must be >= 1
+  if (dilation_rate < 1)
+    return op->emitError()
+           << "dilation_rate of conv must be large than zero but got: "
+           << dilation_rate << "\n";
+
+  Location loc = op->getLoc();
+  switch (padding_type) {
+    case tensorflow::Padding::VALID: {
+      auto zero =
+          rewriter.create<arith::ConstantIntOp>(loc, 0, shape_scalar_type);
+      *padding_low = *padding_high = zero;
+      break;
+    }
+    case tensorflow::Padding::EXPLICIT:
+      break;
+    case tensorflow::Padding::SAME: {
+      auto zero =
+          rewriter.create<arith::ConstantIntOp>(loc, 0, shape_scalar_type);
+      auto one =
+          rewriter.create<arith::ConstantIntOp>(loc, 1, shape_scalar_type);
+      auto two =
+          rewriter.create<arith::ConstantIntOp>(loc, 2, shape_scalar_type);
+      // See also the parallel implementation in
+      // GetWindowedOutputSizeFromDimsV2. effective_filter_size = (filter_size
+      // - 1) * dilation_rate + 1
+      Value stride_value =
+          rewriter.create<arith::ConstantIntOp>(loc, stride, shape_scalar_type);
+      Value dilation_rate_value = rewriter.create<arith::ConstantIntOp>(
+          loc, dilation_rate, shape_scalar_type);
+      Value effective_filter_size_op = rewriter.create<arith::AddIOp>(
+          loc, one,
+          rewriter.create<arith::MulIOp>(
+              loc, dilation_rate_value,
+              rewriter.create<arith::SubIOp>(loc, filter_size, one)));
+      // output_size = (input_size + stride - 1) / stride;
+      Value output_size = rewriter.create<arith::DivUIOp>(
+          loc,
+          rewriter.create<arith::AddIOp>(
+              loc, input_size,
+              rewriter.create<arith::SubIOp>(loc, stride_value, one)),
+          stride_value);
+      // std::max(int64{0}, (output_size - 1) * stride +
+      //     effective_filter_size - input_size);
+      Value padding_needed = rewriter.create<arith::SubIOp>(
+          loc,
+          rewriter.create<arith::AddIOp>(
+              loc, effective_filter_size_op,
+              rewriter.create<arith::MulIOp>(
+                  loc, stride_value,
+                  rewriter.create<arith::SubIOp>(loc, output_size, one))),
+          input_size);
+      Value cond = rewriter.create<mlir::arith::CmpIOp>(
+          loc, arith::CmpIPredicate::sge, padding_needed, zero);
+      padding_needed = rewriter.create<mlir::arith::SelectOp>(
+          loc, padding_needed.getType(), cond, padding_needed, zero);
+      *padding_low = rewriter.create<arith::DivUIOp>(loc, padding_needed, two);
+      *padding_high =
+          rewriter.create<arith::SubIOp>(loc, padding_needed, *padding_low);
+      break;
+    }
+  }
+  return success();
+}
+
+// Returns size of dimension at the specified index, if ranked tensor.
+// Otherwise, returns -1.
+//
+// Aborts if the type is ranked but doesn't have the dimension.
+int64_t getDimSize(Type ty, int64_t index) {
+  RankedTensorType ranked_ty = ty.dyn_cast<RankedTensorType>();
+  if (!ranked_ty) return -1;
+
+  return ranked_ty.getDimSize(index);
+}
+
+mlir::DenseIntElementsAttr getI64ElementsAttr(ArrayRef<int64_t> values,
+                                              Builder* builder) {
+  RankedTensorType ty = RankedTensorType::get(
+      {static_cast<int64_t>(values.size())}, builder->getIntegerType(64));
+  return mlir::DenseIntElementsAttr::get(ty, values);
+}
+
+NamedAttribute getConvDimensionNumbersAttr(
+    ArrayRef<int64_t> spatial_dims, tensorflow::TensorFormat format,
+    Builder* builder,
+    tensorflow::FilterTensorFormat filter_format = tensorflow::FORMAT_HWIO) {
+  int64_t num_spatial_dims = spatial_dims.size();
+  int64_t num_dims = num_spatial_dims + 2;
+
+  int64_t batch_dim = GetTensorBatchDimIndex(num_dims, format);
+  int64_t feature_dim = GetTensorFeatureDimIndex(num_dims, format);
+
+  int64_t kernel_input_feature_dim = num_spatial_dims;
+  int64_t kernel_output_feature_dim = num_spatial_dims + 1;
+  SmallVector<int64_t, 4> kernel_spatial_dimensions;
+  kernel_spatial_dimensions.resize(num_spatial_dims);
+  if (filter_format == tensorflow::FORMAT_OHWI) {
+    kernel_input_feature_dim = num_spatial_dims + 1;
+    kernel_output_feature_dim = 0;
+    std::iota(kernel_spatial_dimensions.begin(),
+              kernel_spatial_dimensions.end(), 1);
+  } else {
+    assert(filter_format == tensorflow::FORMAT_HWIO);
+    // Filters data_format is always HWIO so input channels dimension is after
+    // all spatial dimensions.
+    std::iota(kernel_spatial_dimensions.begin(),
+              kernel_spatial_dimensions.end(), 0);
+  }
+
+  return builder->getNamedAttr(
+      "dimension_numbers",
+      mhlo::ConvDimensionNumbersAttr::get(
+          builder->getContext(), batch_dim, feature_dim, spatial_dims,
+          kernel_input_feature_dim, kernel_output_feature_dim,
+          kernel_spatial_dimensions, batch_dim, feature_dim, spatial_dims));
+}
+
+LogicalResult parseConvParams(ConvParams& params, OpBuilder& b, Location& loc) {
+  Operation* op = params.op;
+  auto input_ty = params.input.getType().dyn_cast<RankedTensorType>();
+  auto filter_ty = params.filter.getType().dyn_cast<RankedTensorType>();
+  int num_dims = input_ty.getRank();
+  int64_t num_spatial_dims = num_dims - 2;
+  Type shape_scalar_type = b.getIntegerType(32);
+
+  tensorflow::TensorFormat data_format = tensorflow::TensorFormat::FORMAT_NHWC;
+  tensorflow::Padding padding;
+  auto paddingStr = op->getAttrOfType<StringAttr>("padding").str();
+  if (!tensorflow::GetPaddingFromString(paddingStr, &padding).ok())
+    return op->emitError() << "fail to parse padding attributes\n";
+
+  ArrayRef<Attribute> dilations =
+      op->getAttrOfType<ArrayAttr>("dilations").getValue();
+  ArrayRef<Attribute> strides =
+      op->getAttrOfType<ArrayAttr>("strides").getValue();
+  ArrayRef<Attribute> explicit_paddings;
+  if (padding == tensorflow::Padding::EXPLICIT) {
+    // EXPLICIT padding mode and the associated attribute is attached to
+    // Conv2D.
+    explicit_paddings = op->getAttrOfType<ArrayAttr>("padding_list").getValue();
+  }
+
+  SmallVector<int64_t> spatial_dim_indices;
+  SmallVector<int64_t> rhs_dilations;
+  SmallVector<int64_t> window_strides;
+  SmallVector<Value> paddings;
+  auto get_int = [](Attribute attr) {
+    return attr.cast<IntegerAttr>().getInt();
+  };
+  auto get_const = [&](int64_t val) {
+    return b.create<mlir::arith::ConstantIntOp>(loc, val, shape_scalar_type);
+  };
+  auto get_dim_value = [&](Value val, int64_t dim) {
+    Value dim_value = b.create<tensor::DimOp>(loc, val, dim);
+    return b.create<arith::IndexCastOp>(loc, shape_scalar_type, dim_value);
+  };
+
+  for (auto i : llvm::seq<int>(0, num_spatial_dims)) {
+    const int64_t dim =
+        tensorflow::GetTensorSpatialDimIndex(num_dims, data_format, i);
+    spatial_dim_indices.push_back(dim);
+
+    const int64_t dilation = get_int(dilations[dim]);
+    rhs_dilations.push_back(dilation);
+    const int64_t stride = get_int(strides[dim]);
+    window_strides.push_back(stride);
+
+    Value pad_low, pad_high;
+    if (padding == tensorflow::Padding::EXPLICIT) {
+      pad_low = get_const(get_int(explicit_paddings[2 * dim]));
+      pad_high = get_const(get_int(explicit_paddings[2 * dim + 1]));
+    } else {
+      auto input_size = get_dim_value(params.input, dim);
+      // filter layout OHWI
+      auto filter_size = get_dim_value(params.filter, i + 1);
+      if (failed(getPaddingValues(op, b, input_size, filter_size, dilation,
+                                  stride, padding, shape_scalar_type, &pad_low,
+                                  &pad_high))) {
+        return failure();
+      }
+    }
+    paddings.push_back(pad_low);
+    paddings.push_back(pad_high);
+  }
+
+  auto rhs_dilations_attr =
+      b.getNamedAttr("rhs_dilation", getI64ElementsAttr(rhs_dilations, &b));
+
+  auto window_strides_attr =
+      b.getNamedAttr("window_strides", getI64ElementsAttr(window_strides, &b));
+
+  auto dimension_numbers_attr = getConvDimensionNumbersAttr(
+      spatial_dim_indices, data_format, &b, tensorflow::FORMAT_OHWI);
+
+  const int64_t input_channels = getDimSize(
+      input_ty, tensorflow::GetTensorFeatureDimIndex(num_dims, data_format));
+  // Filters data_format is always HWIO so input channels dimension is after
+  // all spatial dimensions.
+  const int64_t filter_channels = getDimSize(filter_ty, num_spatial_dims);
+  // TensorFlow convolution op verifies that the number of input channels is
+  // divisible by the number of filter channels.
+  // For depthwise convolution the feature_group_count argument would be set
+  // to the input feature dimension.
+  const int64_t feature_group_count = input_channels / filter_channels;
+  auto feature_group_count_attr = b.getNamedAttr(
+      "feature_group_count", b.getI64IntegerAttr(feature_group_count));
+
+  auto batch_group_count_attr =
+      b.getNamedAttr("batch_group_count", b.getI64IntegerAttr(1));
+
+  params.padding = b.create<tensor::FromElementsOp>(
+      loc, RankedTensorType::get(2 * num_spatial_dims, b.getI32Type()),
+      paddings);
+
+  NamedAttribute attrs[] = {rhs_dilations_attr, window_strides_attr,
+                            dimension_numbers_attr, feature_group_count_attr,
+                            batch_group_count_attr};
+  params.config = b.getDictionaryAttr(attrs);
+
+  return success();
+}
+
+LogicalResult matchAndRwriterQuantizedConv2DWithBiasAndRequantizeOp(
+    Operation* op) {
+  if (op->getNumOperands() != 9 || op->getNumResults() != 3)
+    return op->emitError() << "mismatch # operands or # results\n";
+
+  Value input = op->getOperand(0);
+  Value filter = op->getOperand(1);
+  Value bias = op->getOperand(2);
+  Value minInput = op->getOperand(3);
+  Value maxInput = op->getOperand(4);
+  Value minFilter = op->getOperand(5);
+  Value maxFilter = op->getOperand(6);
+  Value minFreezedOutput = op->getOperand(7);
+  Value maxFreezedOutput = op->getOperand(8);
+  Value output = op->getResult(0);
+  Value minOutput = op->getResult(1);
+  Value maxOutput = op->getResult(2);
+
+  auto inputTy = input.getType().dyn_cast<RankedTensorType>();
+  auto filterTy = filter.getType().dyn_cast<RankedTensorType>();
+  auto biasTy = bias.getType().dyn_cast<RankedTensorType>();
+  auto minInputTy = minInput.getType().dyn_cast<RankedTensorType>();
+  auto maxInputTy = maxInput.getType().dyn_cast<RankedTensorType>();
+  auto minFilterTy = minFilter.getType().dyn_cast<RankedTensorType>();
+  auto maxFilterTy = maxFilter.getType().dyn_cast<RankedTensorType>();
+  auto minFreezedOutputTy =
+      minFreezedOutput.getType().dyn_cast<RankedTensorType>();
+  auto maxFreezedOutputTy =
+      maxFreezedOutput.getType().dyn_cast<RankedTensorType>();
+  auto outputTy = output.getType().dyn_cast<RankedTensorType>();
+  auto minOutputTy = minOutput.getType().dyn_cast<RankedTensorType>();
+  auto maxOutputTy = maxOutput.getType().dyn_cast<RankedTensorType>();
+
+  // only try to match the op has static rank.
+  if (!inputTy || !filterTy || !biasTy || !minInputTy || !maxInputTy ||
+      !minFilterTy || !maxFilterTy || !minFreezedOutputTy ||
+      !maxFreezedOutputTy || !outputTy || !minOutputTy || !maxOutputTy)
+    return success();
+
+  // Currently only support const zero bias (a.k.a no bias at all)
+  // TODO(disc): support non-zero bias.
+  if (!isConstantZeroTensor(bias)) return success();
+
+  // Currently only support s8s8s8 config.
+  // TODO(disc): support other configs.
+  if (!inputTy.getElementType().isa<TF::Qint8Type>() ||
+      !filterTy.getElementType().isa<TF::Qint8Type>() ||
+      !outputTy.getElementType().isa<TF::Qint8Type>())
+    return success();
+
+  OpBuilder b(op);
+  Location loc = op->getLoc();
+
+  ConvParams params;
+  params.op = op;
+  auto newInputTy =
+      RankedTensorType::get(inputTy.getShape(), b.getIntegerType(8));
+  params.input = b.create<TF::CastOp>(loc, newInputTy, input);
+  auto newFilterTy =
+      RankedTensorType::get(filterTy.getShape(), b.getIntegerType(8));
+  params.filter = b.create<TF::CastOp>(loc, newFilterTy, filter);
+  // filter layout conversion: HWIO -> OHWI
+  int rank = newFilterTy.getRank();
+  SmallVector<int> permutation(rank);
+  SmallVector<int64_t> newFilterShape(rank);
+  permutation[0] = rank - 1;
+  newFilterShape[0] = filterTy.getShape()[rank - 1];
+  permutation[rank - 1] = rank - 2;
+  newFilterShape[rank - 1] = filterTy.getShape()[rank - 2];
+  for (int i = 1; i < rank - 1; ++i) {
+    permutation[i] = i - 1;
+    newFilterShape[i] = filterTy.getShape()[i - 1];
+  }
+  auto permTensorTy =
+      RankedTensorType::get({permutation.size()}, b.getIntegerType(32));
+  Value permutationValue = b.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(permTensorTy, permutation));
+  newFilterTy =
+      RankedTensorType::get(newFilterShape, newFilterTy.getElementType());
+  params.filter = b.create<TF::TransposeOp>(loc, newFilterTy, params.filter,
+                                            permutationValue);
+
+  if (failed(parseConvParams(params, b, loc))) return failure();
+
+  Value absMinInput = b.create<TF::AbsOp>(loc, minInput);
+  Value absMaxInput = b.create<TF::AbsOp>(loc, maxInput);
+  Value inputRange = b.create<TF::MaximumOp>(loc, absMinInput, absMaxInput);
+  Value absMinOutput = b.create<TF::AbsOp>(loc, minFreezedOutput);
+  Value absMaxOutput = b.create<TF::AbsOp>(loc, maxFreezedOutput);
+  Value outputRange = b.create<TF::MaximumOp>(loc, absMinOutput, absMaxOutput);
+  Value absMinFilter = b.create<TF::AbsOp>(loc, minFilter);
+  Value absMaxFilter = b.create<TF::AbsOp>(loc, maxFilter);
+  Value filterRange = b.create<TF::MaximumOp>(loc, absMinFilter, absMaxFilter);
+
+  auto scalarFpTensorTy =
+      RankedTensorType::get({}, minInputTy.getElementType());
+  Value s8Limit = b.create<TF::ConstOp>(
+      loc, DenseFPElementsAttr::get(scalarFpTensorTy, {127.0f}));
+
+  Value inputScales = b.create<TF::DivOp>(loc, inputRange, s8Limit);
+  Value filterScales = b.create<TF::DivOp>(loc, filterRange, s8Limit);
+  Value outputScales = b.create<TF::DivOp>(loc, outputRange, s8Limit);
+
+  SmallVector<Value> newOperands{params.input, params.filter, params.padding,
+                                 inputScales,  filterScales,  outputScales};
+
+  auto newOutputTy =
+      RankedTensorType::get(outputTy.getShape(), b.getIntegerType(8));
+  auto customOp = b.create<mhlo_disc::CustomCallOp>(
+      loc, newOutputTy, newOperands,
+      /*call_target_name*/ "ral_qconv_s8_s8_s8",
+      /*has_side_effect*/ false,
+      /*backend_config*/ params.config);
+
+  auto newOutput = b.create<TF::CastOp>(loc, outputTy, customOp->getResult(0));
+  op->getResult(0).replaceAllUsesWith(newOutput);
+  op->getResult(1).replaceAllUsesWith(minFreezedOutput);
+  op->getResult(2).replaceAllUsesWith(maxFreezedOutput);
+  op->erase();
+  return success();
+}
+
+LogicalResult convertQuantizedConv2DWithBiasAndRequantizeOp(func::FuncOp func) {
+  SmallVector<Operation*> qconvOps;
+  func.walk([&](Operation* op) {
+    if (op->getName().stripDialect().str() ==
+        "QuantizedConv2DWithBiasAndRequantize")
+      qconvOps.push_back(op);
+  });
+
+  for (Operation* op : qconvOps) {
+    if (failed(matchAndRwriterQuantizedConv2DWithBiasAndRequantizeOp(op)))
+      return failure();
+  }
+  return success();
+}
+
 #include "tensorflow/compiler/mlir/disc/transforms/lower_tf.inc"
 
 void PrepareTFPass::runOnOperation() {
   MLIRContext* ctx = &getContext();
   RewritePatternSet patterns(ctx);
   func::FuncOp func = getOperation();
+
+  if (failed(convertQuantizedConv2DWithBiasAndRequantizeOp(func))) {
+    signalPassFailure();
+    return;
+  }
+
   populateWithGenerated(patterns);
   // clang-format off
   patterns.insert<

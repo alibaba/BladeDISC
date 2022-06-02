@@ -52,7 +52,8 @@ LogicalResult reifyReturnTypeShapesImpl<TopKBackendConfig>(
     CustomCallOp op, OpBuilder& builder, ValueRange operands,
     SmallVectorImpl<Value>& reifiedReturnShapes) {
   llvm::Expected<TopKBackendConfig> backend_config =
-      llvm::json::parse<TopKBackendConfig>(op.backend_config());
+      llvm::json::parse<TopKBackendConfig>(
+          op.backend_config().cast<StringAttr>());
   int64_t dimension = backend_config->dimension;
 
   Value keys_operand = operands[0];
@@ -132,7 +133,8 @@ LogicalResult lowerToLibraryCallImpl<TopKBackendConfig>(
   }
   // dimension
   llvm::Expected<TopKBackendConfig> backend_config =
-      llvm::json::parse<TopKBackendConfig>(op.backend_config());
+      llvm::json::parse<TopKBackendConfig>(
+          op.backend_config().cast<StringAttr>());
   if (auto e = backend_config.takeError()) {
     return op.emitOpError() << "Problem with parsing topk backend_config: "
                             << llvm::toString(std::move(e));

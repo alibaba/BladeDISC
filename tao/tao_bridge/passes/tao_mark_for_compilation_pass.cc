@@ -2667,6 +2667,12 @@ std::vector<string> GetDiscSupportedOps() {
     "Dequantize",
     "QuantizeV2"
   });
+#if defined(TAO_AARCH64)
+  // TODO(disc): support `QuantizedConv2DWithBiasAndRequantize` on other platforms
+  ops.insert(ops.end(), {
+    "QuantizedConv2DWithBiasAndRequantize"
+  });
+#endif
 #endif
 #endif
 

@@ -1,3 +1,14 @@
+// Copyright 2022 The BladeDISC Authors. All rights reserved.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 //===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -12,7 +23,7 @@
 #include "torch-mlir/Conversion/TorchToMhlo/MhloLegalizeUtils.h"
 
 #include <mlir-hlo/Dialect/mhlo/IR/chlo_ops.h> // from tf repo
-#include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h>  // from tf repo
+#include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
 
 #include "../PassDetail.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
@@ -37,12 +48,13 @@ namespace {
 // There is no supported quantized integer mode for these.
 template <typename AtenOpT, typename MhloOpT>
 class ConvertAtenUnaryFPOnlyOp : public OpConversionPattern<AtenOpT> {
-public:
+ public:
   using OpConversionPattern<AtenOpT>::OpConversionPattern;
   using OpAdaptor = typename AtenOpT::Adaptor;
-  LogicalResult
-  matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
     Value self = adaptor.self();
     auto selfTy = self.getType().cast<TensorType>();
 
@@ -67,12 +79,13 @@ public:
 // or quantized types
 template <typename AtenOpT, typename MhloOpT>
 class ConvertAtenUnaryOp : public OpConversionPattern<AtenOpT> {
-public:
+ public:
   using OpConversionPattern<AtenOpT>::OpConversionPattern;
   using OpAdaptor = typename AtenOpT::Adaptor;
-  LogicalResult
-  matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
     rewriter.replaceOpWithNewOp<MhloOpT>(
         op,
         OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
@@ -86,12 +99,13 @@ public:
 // or quantized types
 template <typename AtenOpT, typename MhloOpT>
 class ConvertAtenBinaryOp : public OpConversionPattern<AtenOpT> {
-public:
+ public:
   using OpConversionPattern<AtenOpT>::OpConversionPattern;
   using OpAdaptor = typename AtenOpT::Adaptor;
-  LogicalResult
-  matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
     Value lhs = adaptor.self();
     auto lhsTy = lhs.getType().cast<TensorType>();
     Value rhs = adaptor.other();
@@ -110,14 +124,18 @@ public:
         op,
         OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
             op.getType()),
-        lhs, rhs);
+        lhs,
+        rhs);
     return success();
   }
 };
 
 template <typename T>
-static bool isInValidRange(bool isFloat, const double &doubleValue, bool isInt,
-                           const int64_t &intValue) {
+static bool isInValidRange(
+    bool isFloat,
+    const double& doubleValue,
+    bool isInt,
+    const int64_t& intValue) {
   if (isFloat) {
     // Do a round-trip check here instead of numeric limits due to
     // compiler warnings around double <-> int conversion.
@@ -125,16 +143,19 @@ static bool isInValidRange(bool isFloat, const double &doubleValue, bool isInt,
   } else {
     assert(isInt);
     return (intValue >= std::numeric_limits<T>::min()) &&
-           (intValue <= std::numeric_limits<T>::max());
+        (intValue <= std::numeric_limits<T>::max());
   }
   return true;
 }
 
 // FIXME: This will eventually go into a Mhlo*Utils file.
-LogicalResult torchScalarToMhloTensor(ConversionPatternRewriter &rewriter,
-                                      Operation *op, Value torchScalarValue,
-                                      Value &mhloTensor, Type dtype,
-                                      llvm::ArrayRef<int64_t> dshape) {
+LogicalResult torchScalarToMhloTensor(
+    ConversionPatternRewriter& rewriter,
+    Operation* op,
+    Value torchScalarValue,
+    Value& mhloTensor,
+    Type dtype,
+    llvm::ArrayRef<int64_t> dshape) {
   // Retrieve a const float or int value but create the out Tensor with dtype.
   double doubleValue;
   auto isFloat =
@@ -157,8 +178,9 @@ LogicalResult torchScalarToMhloTensor(ConversionPatternRewriter &rewriter,
 
     if (w == 32) {
       if (!isInValidRange<int32_t>(isFloat, doubleValue, isInt, intValue)) {
-        return op->emitError("Supplied value of scalar constant exceeds limits "
-                             "of destination type");
+        return op->emitError(
+            "Supplied value of scalar constant exceeds limits "
+            "of destination type");
       }
       int32_t d = isFloat ? static_cast<int32_t>(doubleValue)
                           : static_cast<int32_t>(intValue);
@@ -166,8 +188,9 @@ LogicalResult torchScalarToMhloTensor(ConversionPatternRewriter &rewriter,
           mhlo::getConstTensor<int32_t>(rewriter, op, {d}, dshape).getValue();
     } else if (w == 64) {
       if (!isInValidRange<int64_t>(isFloat, doubleValue, isInt, intValue)) {
-        return op->emitError("Supplied value of scalar constant exceeds limits "
-                             "of destination type");
+        return op->emitError(
+            "Supplied value of scalar constant exceeds limits "
+            "of destination type");
       }
       int64_t d = (isFloat ? static_cast<int64_t>(doubleValue) : intValue);
       mhloTensor =
@@ -179,19 +202,23 @@ LogicalResult torchScalarToMhloTensor(ConversionPatternRewriter &rewriter,
   return success();
 }
 
-LogicalResult torchAlphaToMhloTensor(ConversionPatternRewriter &rewriter,
-                                     Operation *op, Value alphaScalar,
-                                     Value &alphaTensor, Type dtype,
-                                     bool checkForUnity) {
-  if (succeeded(torchScalarToMhloTensor(rewriter, op, alphaScalar, alphaTensor,
-                                        dtype, {})))
+LogicalResult torchAlphaToMhloTensor(
+    ConversionPatternRewriter& rewriter,
+    Operation* op,
+    Value alphaScalar,
+    Value& alphaTensor,
+    Type dtype,
+    bool checkForUnity) {
+  if (succeeded(torchScalarToMhloTensor(
+          rewriter, op, alphaScalar, alphaTensor, dtype, {})))
     return success();
 
   // `alpha` has not been specified.
   int64_t alphaValue;
   if (!matchPattern(alphaScalar, m_TorchConstantInt(&alphaValue)))
-    return op->emitError("Currently only scalar constants are supported for "
-                         "alpha in MHLO operation");
+    return op->emitError(
+        "Currently only scalar constants are supported for "
+        "alpha in MHLO operation");
   // When no alpha has been specified, this must be 1.
   if (checkForUnity && alphaValue != 1)
     return op->emitError("Unsupported integer value for alpha");
@@ -206,12 +233,13 @@ LogicalResult torchAlphaToMhloTensor(ConversionPatternRewriter &rewriter,
 // alpha multiplier.
 template <typename AtenOpT, typename MhloOpT>
 class ConvertAtenAddSubOp : public OpConversionPattern<AtenOpT> {
-public:
+ public:
   using OpConversionPattern<AtenOpT>::OpConversionPattern;
   using OpAdaptor = typename AtenOpT::Adaptor;
-  LogicalResult
-  matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
     Value lhs = adaptor.self();
     auto lhsType = lhs.getType().dyn_cast<TensorType>();
     Value rhs = adaptor.other();
@@ -238,20 +266,26 @@ public:
 
     Value rhsAsTensor;
     if (!rhsType) {
-      if (failed(torchScalarToMhloTensor(rewriter, op, op.other(), rhsAsTensor,
-                                         outElemTy, {})))
-        return op.emitError("Currently only scalar constants are supported for "
-                            "conversion in MHLO operation");
+      if (failed(torchScalarToMhloTensor(
+              rewriter, op, op.other(), rhsAsTensor, outElemTy, {})))
+        return op.emitError(
+            "Currently only scalar constants are supported for "
+            "conversion in MHLO operation");
     }
     auto rhsTensor = rhsType ? rhs : rhsAsTensor;
 
     // Handle alpha.
     Value alphaTensor;
-    if (failed(torchAlphaToMhloTensor(rewriter, op.getOperation(), op.alpha(),
-                                      alphaTensor, outElemTy,
-                                      /*checkForUnity=*/false))) {
-      return op.emitError("Currently only scalar constants are supported for "
-                          "alpha in conversion to MHLO operation");
+    if (failed(torchAlphaToMhloTensor(
+            rewriter,
+            op.getOperation(),
+            op.alpha(),
+            alphaTensor,
+            outElemTy,
+            /*checkForUnity=*/false))) {
+      return op.emitError(
+          "Currently only scalar constants are supported for "
+          "alpha in conversion to MHLO operation");
     }
 
     auto mhlo_shape =
@@ -260,12 +294,17 @@ public:
         RankedTensorType::get({0}, rewriter.getI64Type()), ArrayRef<int64_t>{});
     auto alpha_broadcast = rewriter
                                .create<mhlo::DynamicBroadcastInDimOp>(
-                                   op.getLoc(), rhsTensor.getType(),
-                                   alphaTensor, mhlo_shape, broadcast_dims)
+                                   op.getLoc(),
+                                   rhsTensor.getType(),
+                                   alphaTensor,
+                                   mhlo_shape,
+                                   broadcast_dims)
                                .getResult();
     auto multTensor = rewriter.create<mhlo::MulOp>(
-        op.getLoc(), rhsType ? rhsType : RankedTensorType::get({}, outElemTy),
-        rhsTensor, alpha_broadcast);
+        op.getLoc(),
+        rhsType ? rhsType : RankedTensorType::get({}, outElemTy),
+        rhsTensor,
+        alpha_broadcast);
 
     /*
      auto multTensor = rewriter.create<chlo::BroadcastMulOp>(
@@ -276,8 +315,8 @@ public:
       if (lhsType.getElementType() != outElemTy)
         lhs = rewriter.create<mhlo::ConvertOp>(op.getLoc(), outType, lhs);
 
-      rewriter.replaceOpWithNewOp<MhloOpT>(op, outType, lhs, multTensor,
-                                           nullptr);
+      rewriter.replaceOpWithNewOp<MhloOpT>(
+          op, outType, lhs, multTensor, nullptr);
 
       return success();
     } else {
@@ -290,12 +329,13 @@ public:
 // Binary op legalizations for comparator ops.
 template <typename AtenOpT, typename MhloOpT>
 class ConvertAtenCompareOp : public OpConversionPattern<AtenOpT> {
-public:
+ public:
   using OpConversionPattern<AtenOpT>::OpConversionPattern;
   using OpAdaptor = typename AtenOpT::Adaptor;
-  LogicalResult
-  matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
     Value lhs = adaptor.self();
     auto lhsTy = lhs.getType().dyn_cast<TensorType>();
     Value rhs = adaptor.other();
@@ -312,27 +352,31 @@ public:
     // For bitwise operators, only integer datatype legalization is supported
     if (lhsElemTy.isa<mlir::FloatType>() &&
         std::is_same<AtenOpT, AtenBitwiseAndTensorOp>()) {
-      return op.emitError("For bitwise operators, only integer datatype "
-                          "legalization is supported");
+      return op.emitError(
+          "For bitwise operators, only integer datatype "
+          "legalization is supported");
     }
 
     Value rhsAsTensor;
     if (!rhsTy) {
-      if (failed(torchScalarToMhloTensor(rewriter, op, op.other(), rhsAsTensor,
-                                         lhsElemTy, {})))
-        return op.emitError("Currently only scalar constants are supported for "
-                            "conversion in MHLO operation");
+      if (failed(torchScalarToMhloTensor(
+              rewriter, op, op.other(), rhsAsTensor, lhsElemTy, {})))
+        return op.emitError(
+            "Currently only scalar constants are supported for "
+            "conversion in MHLO operation");
     }
     auto rhsTensor = rhsTy ? rhs : rhsAsTensor;
     // There is no Lesser operator in MHLO.
-    auto swapLhsRhs = (std::is_same<AtenOpT, AtenLtTensorOp>() ||
-                       std::is_same<AtenOpT, AtenLtScalarOp>());
+    auto swapLhsRhs =
+        (std::is_same<AtenOpT, AtenLtTensorOp>() ||
+         std::is_same<AtenOpT, AtenLtScalarOp>());
 
     auto resultOp = rewriter.create<MhloOpT>(
         op.getLoc(),
         OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
             op.getType()),
-        (swapLhsRhs ? rhsTensor : lhs), (swapLhsRhs ? lhs : rhsTensor));
+        (swapLhsRhs ? rhsTensor : lhs),
+        (swapLhsRhs ? lhs : rhsTensor));
 
     // There is no NE operator in MHLO.
     if (std::is_same<AtenOpT, AtenNeTensorOp>() ||
@@ -352,12 +396,13 @@ public:
 // Binary op legalizations for Mul variants.
 template <typename AtenOpT>
 class ConvertAtenMulOp : public OpConversionPattern<AtenOpT> {
-public:
+ public:
   using OpConversionPattern<AtenOpT>::OpConversionPattern;
   using OpAdaptor = typename AtenOpT::Adaptor;
-  LogicalResult
-  matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
     Value lhs = adaptor.self();
     auto lhsType = lhs.getType().dyn_cast<TensorType>();
 
@@ -381,8 +426,8 @@ public:
       Value rhs = adaptor.other();
       auto rhsType = rhs.getType().dyn_cast<TensorType>();
       if (!rhsType) {
-        if (failed(torchScalarToMhloTensor(rewriter, op, op.other(),
-                                           rhsAsTensor, outElemTy, {})))
+        if (failed(torchScalarToMhloTensor(
+                rewriter, op, op.other(), rhsAsTensor, outElemTy, {})))
           return op.emitError(
               "Currently only scalar constants are supported for "
               "conversion in MHLO operation");
@@ -399,24 +444,27 @@ public:
           op,
           OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
               op.getType()),
-          lhs, rhsTensor);
+          lhs,
+          rhsTensor);
       return success();
     } else {
       // Quantized multiplication may need to rescale inputs.
-      return op.emitError("Only floating-point or integer datatype "
-                          "legalization currently supported");
+      return op.emitError(
+          "Only floating-point or integer datatype "
+          "legalization currently supported");
     }
   }
 };
 
 template <typename AtenOpT>
 class ConvertAtenDivOp : public OpConversionPattern<AtenOpT> {
-public:
+ public:
   using OpConversionPattern<AtenOpT>::OpConversionPattern;
   using OpAdaptor = typename AtenOpT::Adaptor;
-  LogicalResult
-  matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
     Value lhs = adaptor.self();
     auto lhsTy = lhs.getType().dyn_cast<TensorType>();
     Value rhs = adaptor.other();
@@ -432,10 +480,11 @@ public:
 
     Value rhsAsTensor;
     if (!rhsTy) {
-      if (failed(torchScalarToMhloTensor(rewriter, op, op.other(), rhsAsTensor,
-                                         lhsElemTy, {})))
-        return op.emitError("Currently only scalar constants are supported for "
-                            "conversion in MHLO operation");
+      if (failed(torchScalarToMhloTensor(
+              rewriter, op, op.other(), rhsAsTensor, lhsElemTy, {})))
+        return op.emitError(
+            "Currently only scalar constants are supported for "
+            "conversion in MHLO operation");
     }
     auto rhsTensor = rhsTy ? rhs : rhsAsTensor;
 
@@ -443,7 +492,9 @@ public:
         op,
         OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
             op.getType()),
-        lhs, rhsTensor, nullptr);
+        lhs,
+        rhsTensor,
+        nullptr);
     return success();
   }
 };
@@ -452,18 +503,20 @@ public:
 // specialized.
 template <typename AtenOpT>
 class ConvertAtenOp : public OpConversionPattern<AtenOpT> {
-public:
+ public:
   using OpConversionPattern<AtenOpT>::OpConversionPattern;
   using OpAdaptor = typename AtenOpT::Adaptor;
-  LogicalResult
-  matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override;
+  LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override;
 };
 
 template <>
 LogicalResult ConvertAtenOp<AtenTanhOp>::matchAndRewrite(
-    AtenTanhOp op, OpAdaptor adaptor,
-    ConversionPatternRewriter &rewriter) const {
+    AtenTanhOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
   Value self = adaptor.self();
   auto selfTy = self.getType().cast<TensorType>();
   if (selfTy && selfTy.getElementType().isa<mlir::FloatType>()) {
@@ -480,8 +533,9 @@ LogicalResult ConvertAtenOp<AtenTanhOp>::matchAndRewrite(
 
 template <>
 LogicalResult ConvertAtenOp<AtenSigmoidOp>::matchAndRewrite(
-    AtenSigmoidOp op, OpAdaptor adaptor,
-    ConversionPatternRewriter &rewriter) const {
+    AtenSigmoidOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
   Value self = adaptor.self();
   auto selfTy = self.getType().cast<TensorType>();
   if (selfTy && selfTy.getElementType().isa<mlir::FloatType>()) {
@@ -527,32 +581,39 @@ LogicalResult ConvertAtenOp<AtenReluOp>::matchAndRewrite(
   }
 }*/
 
-using ReductionConvFunc = llvm::Optional<Value> (*)(PatternRewriter &,
-                                                    Operation *,
-                                                    RankedTensorType, Value,
-                                                    ElementsAttr, bool);
+using ReductionConvFunc = llvm::Optional<Value> (*)(
+    PatternRewriter&,
+    Operation*,
+    RankedTensorType,
+    Value,
+    ElementsAttr,
+    bool);
 
 // They all constitute a common form invoking the appropriate
 // converion function in MhloLegalizeCommon.cpp
 template <typename AtenOpT, ReductionConvFunc ConversionFuncT>
 class ConvertAtenReductionOp : public OpConversionPattern<AtenOpT> {
-public:
+ public:
   using OpConversionPattern<AtenOpT>::OpConversionPattern;
   using OpAdaptor = typename AtenOpT::Adaptor;
 
   // Each variant must implement corresponding parameter parsing options
   virtual LogicalResult readReduceDimsAndKeepDims(
-      AtenOpT op, OpAdaptor adaptor, ConversionPatternRewriter &rewriter,
-      ElementsAttr &reduceDimsAttr, bool &keepDims) const {
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter,
+      ElementsAttr& reduceDimsAttr,
+      bool& keepDims) const {
     return rewriter.notifyMatchFailure(
         op, "Unimplemented reduce_dims and keep_dims parsing function");
   }
 
   // Common rewriter for all reduction ops, calls the specific implementation of
   // readReduceDimsAndKeepDims() needed for the op variant.
-  LogicalResult
-  matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
     Value self = adaptor.self();
     auto selfTy = self.getType().cast<TensorType>();
 
@@ -569,8 +630,8 @@ public:
     ElementsAttr reduceDimsAttr;
     bool keepDims;
 
-    if (failed(readReduceDimsAndKeepDims(op, adaptor, rewriter, reduceDimsAttr,
-                                         keepDims)))
+    if (failed(readReduceDimsAndKeepDims(
+            op, adaptor, rewriter, reduceDimsAttr, keepDims)))
       return failure();
 
     llvm::Optional<Value> result =
@@ -593,21 +654,23 @@ public:
 template <typename AtenOpT, ReductionConvFunc ConversionFuncT>
 class ConvertAtenMultipleDimsReductionOp
     : public ConvertAtenReductionOp<AtenOpT, ConversionFuncT> {
-  using ConvertAtenReductionOp<AtenOpT,
-                               ConversionFuncT>::ConvertAtenReductionOp;
+  using ConvertAtenReductionOp<AtenOpT, ConversionFuncT>::
+      ConvertAtenReductionOp;
   using OpAdaptor = typename AtenOpT::Adaptor;
-  LogicalResult readReduceDimsAndKeepDims(AtenOpT op, OpAdaptor adaptor,
-                                          ConversionPatternRewriter &rewriter,
-                                          ElementsAttr &reduceDimsAttr,
-                                          bool &keepDims) const override {
+  LogicalResult readReduceDimsAndKeepDims(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter,
+      ElementsAttr& reduceDimsAttr,
+      bool& keepDims) const override {
     SmallVector<int64_t, 4> reduceDims;
     if (!matchPattern(op.dim(), m_TorchConstantIntList(reduceDims)))
-      return rewriter.notifyMatchFailure(op,
-                                         "non-const dim parameter unsupported");
+      return rewriter.notifyMatchFailure(
+          op, "non-const dim parameter unsupported");
     int64_t N = reduceDims.size();
     auto reduceDimsType = RankedTensorType::get({N}, rewriter.getI64Type());
-    reduceDimsAttr = DenseIntElementsAttr::get(reduceDimsType,
-                                               llvm::makeArrayRef(reduceDims));
+    reduceDimsAttr = DenseIntElementsAttr::get(
+        reduceDimsType, llvm::makeArrayRef(reduceDims));
 
     keepDims = false;
     if (!matchPattern(op.keepdim(), m_TorchConstantBool(&keepDims)))
@@ -624,20 +687,22 @@ class ConvertAtenMultipleDimsReductionOp
 template <typename AtenOpT, ReductionConvFunc ConversionFuncT>
 class ConvertAtenOneDimReductionOp
     : public ConvertAtenReductionOp<AtenOpT, ConversionFuncT> {
-  using ConvertAtenReductionOp<AtenOpT,
-                               ConversionFuncT>::ConvertAtenReductionOp;
+  using ConvertAtenReductionOp<AtenOpT, ConversionFuncT>::
+      ConvertAtenReductionOp;
   using OpAdaptor = typename AtenOpT::Adaptor;
-  LogicalResult readReduceDimsAndKeepDims(AtenOpT op, OpAdaptor adaptor,
-                                          ConversionPatternRewriter &rewriter,
-                                          ElementsAttr &reduceDimsAttr,
-                                          bool &keepDims) const override {
+  LogicalResult readReduceDimsAndKeepDims(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter,
+      ElementsAttr& reduceDimsAttr,
+      bool& keepDims) const override {
     int64_t reduceDim;
     if (!matchPattern(op.dim(), m_TorchConstantInt(&reduceDim)))
-      return rewriter.notifyMatchFailure(op,
-                                         "non-const dim parameter unsupported");
+      return rewriter.notifyMatchFailure(
+          op, "non-const dim parameter unsupported");
     auto reduceDimsType = RankedTensorType::get({1}, rewriter.getI64Type());
-    reduceDimsAttr = DenseIntElementsAttr::get(reduceDimsType,
-                                               llvm::makeArrayRef({reduceDim}));
+    reduceDimsAttr = DenseIntElementsAttr::get(
+        reduceDimsType, llvm::makeArrayRef({reduceDim}));
 
     keepDims = false;
     if (!matchPattern(op.keepdim(), m_TorchConstantBool(&keepDims)))
@@ -653,14 +718,16 @@ class ConvertAtenOneDimReductionOp
 template <typename AtenOpT, ReductionConvFunc ConversionFuncT>
 class ConvertAtenAllDimsReductionOp
     : public ConvertAtenReductionOp<AtenOpT, ConversionFuncT> {
-public:
-  using ConvertAtenReductionOp<AtenOpT,
-                               ConversionFuncT>::ConvertAtenReductionOp;
+ public:
+  using ConvertAtenReductionOp<AtenOpT, ConversionFuncT>::
+      ConvertAtenReductionOp;
   using OpAdaptor = typename AtenOpT::Adaptor;
-  LogicalResult readReduceDimsAndKeepDims(AtenOpT op, OpAdaptor adaptor,
-                                          ConversionPatternRewriter &rewriter,
-                                          ElementsAttr &reduceDimsAttr,
-                                          bool &keepDims) const override {
+  LogicalResult readReduceDimsAndKeepDims(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter,
+      ElementsAttr& reduceDimsAttr,
+      bool& keepDims) const override {
     auto self = adaptor.self();
     auto selfTy = self.getType().template cast<RankedTensorType>();
 
@@ -670,8 +737,8 @@ public:
       reduceDims.push_back(i);
     int64_t N = selfTy.getRank();
     auto reduceDimsType = RankedTensorType::get({N}, rewriter.getI64Type());
-    reduceDimsAttr = DenseIntElementsAttr::get(reduceDimsType,
-                                               llvm::makeArrayRef(reduceDims));
+    reduceDimsAttr = DenseIntElementsAttr::get(
+        reduceDimsType, llvm::makeArrayRef(reduceDims));
     keepDims = false;
 
     return success();
@@ -788,9 +855,9 @@ class ConvertAtenSqueezeAllDimsOp : public ConvertAtenSqueezeOp<AtenOpT> {
 
 template <>
 LogicalResult ConvertAtenOp<AtenPowTensorScalarOp>::matchAndRewrite(
-    AtenPowTensorScalarOp op, OpAdaptor adaptor,
-    ConversionPatternRewriter &rewriter) const {
-
+    AtenPowTensorScalarOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
   Value self = adaptor.self();
   auto selfTy = self.getType().template cast<RankedTensorType>();
 
@@ -802,10 +869,11 @@ LogicalResult ConvertAtenOp<AtenPowTensorScalarOp>::matchAndRewrite(
 
   Value expTensor;
   Value expScalar = op.exponent();
-  if (failed(torchScalarToMhloTensor(rewriter, op, expScalar, expTensor,
-                                     selfTy.getElementType(), {})))
-    return op.emitError("Currently only scalar constants are supported for "
-                        "conversion in MHLO Pow operation");
+  if (failed(torchScalarToMhloTensor(
+          rewriter, op, expScalar, expTensor, selfTy.getElementType(), {})))
+    return op.emitError(
+        "Currently only scalar constants are supported for "
+        "conversion in MHLO Pow operation");
 
   rewriter.replaceOpWithNewOp<mhlo::PowOp>(
       op, getTypeConverter()->convertType(op.getType()), self, expTensor);
@@ -815,9 +883,9 @@ LogicalResult ConvertAtenOp<AtenPowTensorScalarOp>::matchAndRewrite(
 
 template <>
 LogicalResult ConvertAtenOp<AtenRsubScalarOp>::matchAndRewrite(
-    AtenRsubScalarOp op, OpAdaptor adaptor,
-    ConversionPatternRewriter &rewriter) const {
-
+    AtenRsubScalarOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
   auto self = adaptor.self();
   auto otherScalar = op.other();
   auto alphaScalar = op.alpha();
@@ -831,22 +899,31 @@ LogicalResult ConvertAtenOp<AtenRsubScalarOp>::matchAndRewrite(
 
   Value otherTensor, alphaTensor;
 
-  if (failed(torchScalarToMhloTensor(rewriter, op, otherScalar, otherTensor,
-                                     selfTy.getElementType(), {})))
-    return op.emitError("Currently only scalar constants are supported for "
-                        "conversion in MHLO Rsub operation");
+  if (failed(torchScalarToMhloTensor(
+          rewriter, op, otherScalar, otherTensor, selfTy.getElementType(), {})))
+    return op.emitError(
+        "Currently only scalar constants are supported for "
+        "conversion in MHLO Rsub operation");
 
-  if (failed(torchAlphaToMhloTensor(rewriter, op.getOperation(), alphaScalar,
-                                    alphaTensor, selfTy.getElementType(),
-                                    /*checkForUnity=*/true)))
+  if (failed(torchAlphaToMhloTensor(
+          rewriter,
+          op.getOperation(),
+          alphaScalar,
+          alphaTensor,
+          selfTy.getElementType(),
+          /*checkForUnity=*/true)))
     return failure();
 
   auto multTensor = rewriter.create<mhlo::MulOp>(
-      op->getLoc(), getTypeConverter()->convertType(op.getType()), self,
+      op->getLoc(),
+      getTypeConverter()->convertType(op.getType()),
+      self,
       alphaTensor);
 
   rewriter.replaceOpWithNewOp<mhlo::SubOp>(
-      op, getTypeConverter()->convertType(op.getType()), otherTensor,
+      op,
+      getTypeConverter()->convertType(op.getType()),
+      otherTensor,
       multTensor);
 
   return success();
@@ -1021,8 +1098,9 @@ LogicalResult ConvertAtenOp<AtenBatchNormOp>::matchAndRewrite(
 // Torch constants are converted to mhlo.const .
 template <>
 LogicalResult ConvertAtenOp<ValueTensorLiteralOp>::matchAndRewrite(
-    ValueTensorLiteralOp op, OpAdaptor adaptor,
-    ConversionPatternRewriter &rewriter) const {
+    ValueTensorLiteralOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
   auto outputTy = getTypeConverter()
                       ->convertType(op.getType())
                       .template cast<RankedTensorType>();
@@ -1125,9 +1203,9 @@ LogicalResult ConvertAtenOp<AtenPermuteOp>::matchAndRewrite(
 
 template <>
 LogicalResult ConvertAtenOp<AtenLog2Op>::matchAndRewrite(
-    AtenLog2Op op, OpAdaptor adaptor,
-    ConversionPatternRewriter &rewriter) const {
-
+    AtenLog2Op op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
   // Not a tensor type.
   auto selfType = adaptor.self().getType().dyn_cast<TensorType>();
   if (!selfType)
@@ -1196,9 +1274,9 @@ LogicalResult ConvertAtenOp<AtenUnsqueezeOp>::matchAndRewrite(
 
 template <>
 LogicalResult ConvertAtenOp<AtenContiguousOp>::matchAndRewrite(
-    AtenContiguousOp op, OpAdaptor adaptor,
-    ConversionPatternRewriter &rewriter) const {
-
+    AtenContiguousOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
   // Not a tensor type.
   auto selfType = adaptor.self().getType().dyn_cast<TensorType>();
   if (!selfType)
@@ -1213,9 +1291,9 @@ LogicalResult ConvertAtenOp<AtenContiguousOp>::matchAndRewrite(
 
 template <>
 LogicalResult ConvertAtenOp<AtenDropoutOp>::matchAndRewrite(
-    AtenDropoutOp op, OpAdaptor adaptor,
-    ConversionPatternRewriter &rewriter) const {
-
+    AtenDropoutOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
   // Not a tensor type.
   auto selfType = adaptor.input().getType().dyn_cast<TensorType>();
   if (!selfType)
@@ -1266,25 +1344,33 @@ LogicalResult ConvertAtenOp<AtenViewOp>::matchAndRewrite(
 
 template <typename AtenOpT, typename MhloOpT>
 class ConvertAtenPoolingBaseOp : public OpConversionPattern<AtenOpT> {
-public:
+ public:
   using OpConversionPattern<AtenOpT>::OpConversionPattern;
   using OpAdaptor = typename AtenOpT::Adaptor;
 
   // Different pooling variants need to process inputs differently, e.g.
   // adaptive pooling generates the kernel size rather than receive it. This
   // function also transposes inputs.
-  virtual LogicalResult processInputs(AtenOpT op, OpAdaptor adaptor,
-                                      ConversionPatternRewriter &rewriter,
-                                      Value &input, ArrayAttr &kernel,
-                                      ArrayAttr &stride, ArrayAttr &pad,
-                                      Type &outputTy) const {
+  virtual LogicalResult processInputs(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter,
+      Value& input,
+      ArrayAttr& kernel,
+      ArrayAttr& stride,
+      ArrayAttr& pad,
+      Type& outputTy) const {
     return rewriter.notifyMatchFailure(
         op, "Unimplemented pooling input parsing function");
   }
 
-  int64_t getOutputDim(int64_t inputDim, int64_t kernelDim, int64_t stride,
-                       int64_t padBefore, int64_t padAfter,
-                       int64_t dilation) const {
+  int64_t getOutputDim(
+      int64_t inputDim,
+      int64_t kernelDim,
+      int64_t stride,
+      int64_t padBefore,
+      int64_t padAfter,
+      int64_t dilation) const {
     if (inputDim == ShapedType::kDynamicSize) {
       return ShapedType::kDynamicSize;
     } else {
@@ -1296,68 +1382,82 @@ public:
   }
 
   // Apply the transposeDims vector on input to generate a transposed form.
-  Value transposeTensor(AtenOpT op, ConversionPatternRewriter &rewriter,
-                        Value input, ArrayRef<int32_t> transposeDims) const {
+  Value transposeTensor(
+      AtenOpT op,
+      ConversionPatternRewriter& rewriter,
+      Value input,
+      ArrayRef<int32_t> transposeDims) const {
     auto inputTy = input.getType().template cast<RankedTensorType>();
     auto inputElemTy = inputTy.getElementType();
     auto inputShape = inputTy.getShape();
     auto inputRank = inputTy.getRank();
 
     llvm::Optional<Value> transposeDimsConst = mhlo::getConstTensor<int32_t>(
-        rewriter, op,
+        rewriter,
+        op,
         /*vec=*/transposeDims,
         /*shape=*/{static_cast<int32_t>(inputRank)});
 
     SmallVector<int64_t> transposedInputShape;
-    for (auto &dim : transposeDims)
+    for (auto& dim : transposeDims)
       transposedInputShape.push_back(inputShape[dim]);
     auto transposedInputType =
         RankedTensorType::get(transposedInputShape, inputElemTy);
     return rewriter
-        .create<mhlo::TransposeOp>(op->getLoc(), transposedInputType, input,
-                                   transposeDimsConst.getValue())
+        .create<mhlo::TransposeOp>(
+            op->getLoc(),
+            transposedInputType,
+            input,
+            transposeDimsConst.getValue())
         .getResult();
   }
 
-  Value transposePoolingInputToHwc(AtenOpT op,
-                                   ConversionPatternRewriter &rewriter,
-                                   Value input) const {
+  Value transposePoolingInputToHwc(
+      AtenOpT op,
+      ConversionPatternRewriter& rewriter,
+      Value input) const {
     auto inputRank =
         input.getType().template cast<RankedTensorType>().getRank();
 
     SmallVector<int32_t> nchwToNhwc4DTransposeDims({0, 2, 3, 1});
     SmallVector<int32_t> chwToHwc3DTransposeDims({1, 2, 0});
 
-    return transposeTensor(op, rewriter, input,
-                           inputRank == 3 ? chwToHwc3DTransposeDims
-                                          : nchwToNhwc4DTransposeDims);
+    return transposeTensor(
+        op,
+        rewriter,
+        input,
+        inputRank == 3 ? chwToHwc3DTransposeDims : nchwToNhwc4DTransposeDims);
   }
 
-  Value transposePoolingOutputToChw(AtenOpT op,
-                                    ConversionPatternRewriter &rewriter,
-                                    Value input) const {
+  Value transposePoolingOutputToChw(
+      AtenOpT op,
+      ConversionPatternRewriter& rewriter,
+      Value input) const {
     auto inputTy = input.getType().template cast<RankedTensorType>();
     auto inputRank = inputTy.getRank();
 
     SmallVector<int32_t> nhwcToNchw4DTransposeDims({0, 3, 1, 2});
     SmallVector<int32_t> hwcToChw3DTransposeDims({2, 0, 1});
 
-    return transposeTensor(op, rewriter, input,
-                           inputRank == 3 ? hwcToChw3DTransposeDims
-                                          : nhwcToNchw4DTransposeDims);
+    return transposeTensor(
+        op,
+        rewriter,
+        input,
+        inputRank == 3 ? hwcToChw3DTransposeDims : nhwcToNchw4DTransposeDims);
   }
 
-  LogicalResult
-  matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
     Value input;
     ArrayAttr kernel, stride, pad;
     Type outputTy;
 
     // Attempts to read input and kernel parameters, or synthesize them in the
     // case of adaptive pooling. Also performs input CHW->HWC transpose.
-    if (failed(processInputs(op, adaptor, rewriter, input, kernel, stride, pad,
-                             outputTy)))
+    if (failed(processInputs(
+            op, adaptor, rewriter, input, kernel, stride, pad, outputTy)))
       return op.emitError("Failed to process inputs for pooling");
 
     auto pooledOutput =
@@ -1382,13 +1482,18 @@ public:
 template <typename AtenOpT, typename MhloOpT>
 class ConvertAtenAdaptivePoolingOp
     : public ConvertAtenPoolingBaseOp<AtenOpT, MhloOpT> {
-public:
+ public:
   using ConvertAtenPoolingBaseOp<AtenOpT, MhloOpT>::ConvertAtenPoolingBaseOp;
   using OpAdaptor = typename AtenOpT::Adaptor;
-  LogicalResult processInputs(AtenOpT op, OpAdaptor adaptor,
-                              ConversionPatternRewriter &rewriter, Value &input,
-                              ArrayAttr &kernel, ArrayAttr &stride,
-                              ArrayAttr &pad, Type &outputTy) const override {
+  LogicalResult processInputs(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter,
+      Value& input,
+      ArrayAttr& kernel,
+      ArrayAttr& stride,
+      ArrayAttr& pad,
+      Type& outputTy) const override {
     auto inputXchw = adaptor.self();
     auto inputTy = inputXchw.getType().template cast<RankedTensorType>();
     if (!inputTy)
@@ -1460,14 +1565,18 @@ public:
 
 template <typename AtenOpT, typename MhloOpT>
 class ConvertAtenPoolingOp : public ConvertAtenPoolingBaseOp<AtenOpT, MhloOpT> {
-public:
+ public:
   using ConvertAtenPoolingBaseOp<AtenOpT, MhloOpT>::ConvertAtenPoolingBaseOp;
   using OpAdaptor = typename AtenOpT::Adaptor;
-  LogicalResult processInputs(AtenOpT op, OpAdaptor adaptor,
-                              ConversionPatternRewriter &rewriter, Value &input,
-                              ArrayAttr &kernel, ArrayAttr &stride,
-                              ArrayAttr &pad, Type &outputTy) const override {
-
+  LogicalResult processInputs(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter,
+      Value& input,
+      ArrayAttr& kernel,
+      ArrayAttr& stride,
+      ArrayAttr& pad,
+      Type& outputTy) const override {
     auto inputXchw = adaptor.self();
     auto inputTy = inputXchw.getType().template cast<RankedTensorType>();
     if (!inputTy)
@@ -1517,12 +1626,20 @@ public:
 
     int64_t outputHDim =
         ConvertAtenPoolingBaseOp<AtenOpT, MhloOpT>::getOutputDim(
-            inputShape[inputRank - 2], kernelSize[0], strideArray[0],
-            padArray[0], padArray[0], dilationArray[0]);
+            inputShape[inputRank - 2],
+            kernelSize[0],
+            strideArray[0],
+            padArray[0],
+            padArray[0],
+            dilationArray[0]);
     int64_t outputWDim =
         ConvertAtenPoolingBaseOp<AtenOpT, MhloOpT>::getOutputDim(
-            inputShape[inputRank - 1], kernelSize[1], strideArray[1],
-            padArray[1], padArray[1], dilationArray[1]);
+            inputShape[inputRank - 1],
+            kernelSize[1],
+            strideArray[1],
+            padArray[1],
+            padArray[1],
+            dilationArray[1]);
     SmallVector<int64_t> outputShape;
     if (inputRank > 3)
       outputShape.push_back(inputShape[0]);
@@ -1538,13 +1655,13 @@ public:
 // Ref: Error checking based on the Torch to LinAlg lowering
 template <typename AtenOpT, int fillVal>
 class ConvertAtenConstPatternOp : public OpConversionPattern<AtenOpT> {
-public:
+ public:
   using OpConversionPattern<AtenOpT>::OpConversionPattern;
   using OpAdaptor = typename AtenOpT::Adaptor;
-  LogicalResult
-  matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
-
+  LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
     auto outType = OpConversionPattern<AtenOpT>::getTypeConverter()
                        ->convertType(op.getType())
                        .template dyn_cast<TensorType>();
@@ -1591,12 +1708,13 @@ public:
 
 template <typename AtenOpT>
 class ConvertAtenFillScalarOp : public OpConversionPattern<AtenOpT> {
-public:
+ public:
   using OpConversionPattern<AtenOpT>::OpConversionPattern;
   using OpAdaptor = typename AtenOpT::Adaptor;
-  LogicalResult
-  matchAndRewrite(AtenOpT op, OpAdaptor adaptor,
-                  ConversionPatternRewriter &rewriter) const override {
+  LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
     auto outType = OpConversionPattern<AtenOpT>::getTypeConverter()
                        ->convertType(op.getType())
                        .template dyn_cast<TensorType>();
@@ -1611,8 +1729,8 @@ public:
           "Only floating-point or integer datatype legalization supported");
     }
     Value constOp;
-    if (failed(torchScalarToMhloTensor(rewriter, op, op.value(), constOp,
-                                       outElemTy, outType.getShape())))
+    if (failed(torchScalarToMhloTensor(
+            rewriter, op, op.value(), constOp, outElemTy, outType.getShape())))
       return op.emitError("Supplied value must be a Scalar constant");
 
     rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(op, outType, constOp);
@@ -1629,8 +1747,8 @@ public:
 
 namespace {
 class ConvertTorchToMhlo : public ConvertTorchToMhloBase<ConvertTorchToMhlo> {
-public:
-  void getDependentDialects(DialectRegistry &registry) const override {
+ public:
+  void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<chlo::ChloDialect>();
     registry.insert<mhlo::MhloDialect>();
     registry.insert<tensor::TensorDialect>();
@@ -1639,10 +1757,13 @@ public:
   }
 
   void runOnOperation() override {
-    MLIRContext *context = &getContext();
+    MLIRContext* context = &getContext();
     ConversionTarget target(*context);
-    target.addLegalDialect<chlo::ChloDialect, mhlo::MhloDialect,
-                           tensor::TensorDialect, arith::ArithmeticDialect>();
+    target.addLegalDialect<
+        chlo::ChloDialect,
+        mhlo::MhloDialect,
+        tensor::TensorDialect,
+        arith::ArithmeticDialect>();
 
     TypeConverter typeConverter;
     typeConverter.addConversion([](Type type) { return type; });
@@ -1650,17 +1771,17 @@ public:
 
     RewritePatternSet patterns(context);
 
-#define INSERT_UNARY_FPONLY_PATTERN(AtenOp, MhloOp)                            \
-  target.addIllegalOp<AtenOp>();                                               \
-  patterns.add<ConvertAtenUnaryFPOnlyOp<AtenOp, MhloOp>>(typeConverter,        \
-                                                         context);
+#define INSERT_UNARY_FPONLY_PATTERN(AtenOp, MhloOp)       \
+  target.addIllegalOp<AtenOp>();                          \
+  patterns.add<ConvertAtenUnaryFPOnlyOp<AtenOp, MhloOp>>( \
+      typeConverter, context);
     INSERT_UNARY_FPONLY_PATTERN(AtenLogOp, mhlo::LogOp)
     INSERT_UNARY_FPONLY_PATTERN(AtenExpOp, mhlo::ExpOp)
     INSERT_UNARY_FPONLY_PATTERN(AtenErfOp, chlo::ErfOp)
 #undef INSERT_UNARY_FPONLY_PATTERN
 
-#define INSERT_UNARY_PATTERN(AtenOp, MhloOp)                                   \
-  target.addIllegalOp<AtenOp>();                                               \
+#define INSERT_UNARY_PATTERN(AtenOp, MhloOp) \
+  target.addIllegalOp<AtenOp>();             \
   patterns.add<ConvertAtenUnaryOp<AtenOp, MhloOp>>(typeConverter, context);
     INSERT_UNARY_PATTERN(AtenNegOp, mhlo::NegOp)
     INSERT_UNARY_PATTERN(AtenFloorOp, mhlo::FloorOp)
@@ -1670,15 +1791,15 @@ public:
     // INSERT_UNARY_PATTERN(AtenReciprocalOp, mhlo::ReciprocalOp)
 #undef INSERT_UNARY_PATTERN
 
-#define INSERT_BINARY_PATTERN(AtenOp, MhloOp)                                  \
-  target.addIllegalOp<AtenOp>();                                               \
+#define INSERT_BINARY_PATTERN(AtenOp, MhloOp) \
+  target.addIllegalOp<AtenOp>();              \
   patterns.add<ConvertAtenBinaryOp<AtenOp, MhloOp>>(typeConverter, context);
     INSERT_BINARY_PATTERN(AtenMaximumOp, mhlo::MaxOp)
     INSERT_BINARY_PATTERN(AtenMinimumOp, mhlo::MinOp)
 #undef INSERT_BINARY_PATTERN
 
-#define INSERT_BINARY_ADDSUB_PATTERN(AtenOp, MhloOp)                           \
-  target.addIllegalOp<AtenOp>();                                               \
+#define INSERT_BINARY_ADDSUB_PATTERN(AtenOp, MhloOp) \
+  target.addIllegalOp<AtenOp>();                     \
   patterns.add<ConvertAtenAddSubOp<AtenOp, MhloOp>>(typeConverter, context);
     // INSERT_BINARY_ADDSUB_PATTERN(AtenAddTensorOp, mhlo::AddOp)
     // INSERT_BINARY_ADDSUB_PATTERN(AtenAddScalarOp, mhlo::AddOp)
@@ -1705,15 +1826,15 @@ public:
     INSERT_BINARY_COMPARE_PATTERN(AtenBitwiseAndTensorOp, mhlo::BitwiseAndOp)
 #undef INSERT_BINARY_COMPARE_PATTERN
 */
-#define INSERT_BINARY_MUL_PATTERN(AtenOp)                                      \
-  target.addIllegalOp<AtenOp>();                                               \
+#define INSERT_BINARY_MUL_PATTERN(AtenOp) \
+  target.addIllegalOp<AtenOp>();          \
   patterns.add<ConvertAtenMulOp<AtenOp>>(typeConverter, context);
     INSERT_BINARY_MUL_PATTERN(AtenMulTensorOp);
     INSERT_BINARY_MUL_PATTERN(AtenMulScalarOp);
 #undef INSERT_BINARY_MUL_PATTERN
 
-#define INSERT_BINARY_DIV_PATTERN(AtenOp)                                      \
-  target.addIllegalOp<AtenOp>();                                               \
+#define INSERT_BINARY_DIV_PATTERN(AtenOp) \
+  target.addIllegalOp<AtenOp>();          \
   patterns.add<ConvertAtenDivOp<AtenOp>>(typeConverter, context);
     INSERT_BINARY_DIV_PATTERN(AtenDivTensorOp);
     INSERT_BINARY_DIV_PATTERN(AtenDivScalarOp);
@@ -1789,22 +1910,22 @@ public:
                                            mhlo::AvgPool2dOp);
 #undef INSERT_ADAPTIVE_POOLING_ATEMOP_PATTERN
 */
-#define INSERT_CONSTANT_FILL_PATTERN(AtenOp, fillVal)                          \
-  target.addIllegalOp<AtenOp>();                                               \
-  patterns.add<ConvertAtenConstPatternOp<AtenOp, fillVal>>(typeConverter,      \
-                                                           context);
+#define INSERT_CONSTANT_FILL_PATTERN(AtenOp, fillVal)       \
+  target.addIllegalOp<AtenOp>();                            \
+  patterns.add<ConvertAtenConstPatternOp<AtenOp, fillVal>>( \
+      typeConverter, context);
     INSERT_CONSTANT_FILL_PATTERN(AtenOnesOp, 1);
     INSERT_CONSTANT_FILL_PATTERN(AtenZerosOp, 0);
 #undef INSERT_CONSTANT_FILL_PATTERN
 
-#define INSERT_FILL_SCALAR_PATTERN(AtenOp)                                     \
-  target.addIllegalOp<AtenOp>();                                               \
+#define INSERT_FILL_SCALAR_PATTERN(AtenOp) \
+  target.addIllegalOp<AtenOp>();           \
   patterns.add<ConvertAtenFillScalarOp<AtenOp>>(typeConverter, context);
     INSERT_FILL_SCALAR_PATTERN(AtenFill_ScalarOp);
 #undef INSERT_FILL_SCALAR_PATTERN
 
-#define INSERT_ATENOP_PATTERN(AtenOp)                                          \
-  target.addIllegalOp<AtenOp>();                                               \
+#define INSERT_ATENOP_PATTERN(AtenOp) \
+  target.addIllegalOp<AtenOp>();      \
   patterns.add<ConvertAtenOp<AtenOp>>(typeConverter, context);
     INSERT_ATENOP_PATTERN(AtenTanhOp);
     INSERT_ATENOP_PATTERN(AtenSigmoidOp);
@@ -1825,14 +1946,14 @@ public:
     // INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
 #undef INSERT_ATENOP_PATTERN
 
-    if (failed(applyPartialConversion(getOperation(), target,
-                                      std::move(patterns))))
+    if (failed(applyPartialConversion(
+            getOperation(), target, std::move(patterns))))
       return signalPassFailure();
   }
 };
 } // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::torch::createConvertTorchToMhloPass() {
+std::unique_ptr<OperationPass<func::FuncOp>> mlir::torch::
+    createConvertTorchToMhloPass() {
   return std::make_unique<ConvertTorchToMhlo>();
 }

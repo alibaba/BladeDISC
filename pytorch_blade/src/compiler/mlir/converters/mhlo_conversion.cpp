@@ -105,10 +105,11 @@ mlir::NamedAttribute GetFunctionAttrs(
 
   return builder.getNamedAttr(
       "tf.entry_function",
-      builder.getDictionaryAttr({inputs_attr,
-                                 outputs_attr,
-                                 input_placements_attr,
-                                 output_placements_attr}));
+      builder.getDictionaryAttr(
+          {inputs_attr,
+           outputs_attr,
+           input_placements_attr,
+           output_placements_attr}));
 }
 
 std::tuple<mlir::func::FuncOp, std::string, std::string> CreateMlirFunction(

@@ -1,3 +1,14 @@
+// Copyright 2022 The BladeDISC Authors. All rights reserved.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 //===-- ShapeUtils.h - MHLO shape support declarations ----------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -13,11 +24,11 @@
 #ifndef MLIR_DIALECT_MHLO_UTILS_SHAPEUTILS_H
 #define MLIR_DIALECT_MHLO_UTILS_SHAPEUTILS_H
 
+#include "llvm/ADT/Sequence.h"
+#include "llvm/ADT/SmallVector.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Types.h"
 #include "mlir/Interfaces/InferTypeOpInterface.h"
-#include "llvm/ADT/Sequence.h"
-#include "llvm/ADT/SmallVector.h"
 
 namespace mlir {
 namespace mhlo {
@@ -39,7 +50,9 @@ struct ValueKnowledge {
       sizes.push_back(size);
   }
 
-  operator bool() const { return !hasError; }
+  operator bool() const {
+    return !hasError;
+  }
 
   // Get the static knowledge intrinsic to `type`.
   static ValueKnowledge getKnowledgeFromType(Type type) {
@@ -72,14 +85,15 @@ struct ValueKnowledge {
     return UnrankedTensorType::get(dtype);
   }
 
-  bool operator==(const ValueKnowledge &rhs) const {
+  bool operator==(const ValueKnowledge& rhs) const {
     return hasRank == rhs.hasRank && sizes == rhs.sizes && dtype == rhs.dtype;
   }
 
   // Given two pieces of static knowledge, calculate conservatively the
   // information we can be sure about.
-  static ValueKnowledge join(const ValueKnowledge &lhs,
-                             const ValueKnowledge &rhs) {
+  static ValueKnowledge join(
+      const ValueKnowledge& lhs,
+      const ValueKnowledge& rhs) {
     // Mental model: All conditions are checking how to change from the safe "no
     // knowledge" default-initialized state to a state with more knowledge
     // consistent with lhs and rhs.
@@ -115,7 +129,7 @@ struct ValueKnowledge {
     for (auto i : llvm::seq<unsigned>(0, result.sizes.size())) {
       int64_t lhsSize = lhs.sizes[i];
       int64_t rhsSize = rhs.sizes[i];
-      int64_t &resultSize = result.sizes[i];
+      int64_t& resultSize = result.sizes[i];
       if (lhsSize == ShapedType::kDynamicSize) {
         resultSize = rhsSize;
       } else if (rhsSize == ShapedType::kDynamicSize) {
@@ -133,8 +147,9 @@ struct ValueKnowledge {
   // Given to types, generate a new ValueKnowledge that meets to cover both
   // cases. E.g. if the rank of the LHS and RHS differ, the resulting tensor
   // has unknown rank.
-  static ValueKnowledge meet(const ValueKnowledge &lhs,
-                             const ValueKnowledge &rhs) {
+  static ValueKnowledge meet(
+      const ValueKnowledge& lhs,
+      const ValueKnowledge& rhs) {
     ValueKnowledge result = getPessimisticValueState();
     result.hasError = true;
 

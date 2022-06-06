@@ -1,3 +1,14 @@
+// Copyright 2022 The BladeDISC Authors. All rights reserved.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 //===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -21,9 +32,9 @@
 #include "mlir/Transforms/Passes.h"
 
 #include "torch-mlir/Conversion/MhloPasses.h"
+#include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
 #include "torch-mlir/Conversion/TorchToSCF/TorchToSCF.h"
 #include "torch-mlir/Conversion/TorchToStd/TorchToStd.h"
-#include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
 
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
@@ -37,8 +48,8 @@ using namespace mlir::torch::TorchConversion;
 namespace {
 class VerifyMhloBackendContractPass
     : public VerifyMhloBackendContractBase<VerifyMhloBackendContractPass> {
-
-  template <typename T> Type removeUser(Value arg, Type default_type) {
+  template <typename T>
+  Type removeUser(Value arg, Type default_type) {
     Type new_type = default_type;
     for (auto user : arg.getUsers()) {
       if (mlir::isa<T>(user)) {
@@ -51,7 +62,8 @@ class VerifyMhloBackendContractPass
     return new_type;
   }
 
-  template <typename T> Value backtraceOperand(Value operand) {
+  template <typename T>
+  Value backtraceOperand(Value operand) {
     auto op = operand.getDefiningOp();
     if (mlir::isa<T>(op)) {
       return op->getOperand(0);
@@ -59,12 +71,12 @@ class VerifyMhloBackendContractPass
     return operand;
   }
 
-  void refineFuncArgTypes(func::FuncOp &func) {
+  void refineFuncArgTypes(func::FuncOp& func) {
     SmallVector<Type> new_types;
     SmallVector<Value> old_args;
 
     auto n_args = func.getNumArguments();
-    auto &body = func.getBody();
+    auto& body = func.getBody();
     for (size_t idx = 0; idx < n_args; ++idx) {
       Value arg = body.getArgument(idx);
       Type new_type = arg.getType();
@@ -108,12 +120,12 @@ class VerifyMhloBackendContractPass
     });
 
     // Update the function type.
-    func.setType(FunctionType::get(funcType.getContext(), new_types,
-                                   returnOp->getOperandTypes()));
+    func.setType(FunctionType::get(
+        funcType.getContext(), new_types, returnOp->getOperandTypes()));
   }
 
   void runOnOperation() override {
-    MLIRContext *context = &getContext();
+    MLIRContext* context = &getContext();
     auto module = getOperation();
     module.walk([&](func::FuncOp funcOp) { refineFuncArgTypes(funcOp); });
 
@@ -138,7 +150,7 @@ class VerifyMhloBackendContractPass
       return nullptr;
     });
 
-    auto opHasLegalTypes = [&](Operation *op) { return converter.isLegal(op); };
+    auto opHasLegalTypes = [&](Operation* op) { return converter.isLegal(op); };
 
     ConversionTarget target(*context);
 
@@ -166,14 +178,14 @@ class VerifyMhloBackendContractPass
 };
 } // namespace
 
-std::unique_ptr<OperationPass<ModuleOp>>
-mlir::torch::TorchConversion::createVerifyMhloBackendContractPass() {
+std::unique_ptr<OperationPass<ModuleOp>> mlir::torch::TorchConversion::
+    createVerifyMhloBackendContractPass() {
   return std::make_unique<VerifyMhloBackendContractPass>();
 }
 
-
 void TorchConversion::createTorchBackendToMhloBackendPipeline(
-    OpPassManager &pm, const Torch::TorchLoweringPipelineOptions &options) {
+    OpPassManager& pm,
+    const Torch::TorchLoweringPipelineOptions& options) {
   // Check some invariants to catch errors in a clear way.
   pm.addPass(
       TorchConversion::createVerifyInvariantsBeforeBackendLoweringPass());
@@ -203,4 +215,3 @@ void TorchConversion::createTorchBackendToMhloBackendPipeline(
   // correct form.
   pm.addPass(TorchConversion::createVerifyMhloBackendContractPass());
 }
-

@@ -181,6 +181,16 @@ class tensor : public memory {
              strides[w] == 1;
     };
 
+    inline bool is_hwio() const {
+      if (!is_plain() || data.ndims != 4) return false;
+      const auto& dims = data.dims;
+      const auto& strides = blocking_strides();
+      const auto o = 0, i = 1, h = 2, w = 3;
+      return strides[h] == dims[w] * dims[i] * dims[o] &&
+             strides[w] == dims[i] * dims[o] && strides[i] == dims[o] &&
+             strides[o] == 1;
+    };
+
     // workaround for issue intel/mkl-dnn#588
     bool is_4c_blocked() {
       const auto& blk = blocking_desc();
@@ -689,6 +699,9 @@ class tensor : public memory {
       if (is_channels_last) {
         // goihw (abcde) => gohwi (abdec)
         grouped_desc = grouped_desc.to_format(format_tag::abdec);
+      } else if (old_desc.is_hwio()) {
+        // goihw (abcde) -> hwigo (decab)
+        grouped_desc = grouped_desc.to_format(format_tag::decab);
       }
     }
 

@@ -1,0 +1,66 @@
+# This file is licensed under the Apache License v2.0 with LLVM Exceptions.
+# See https://llvm.org/LICENSE.txt for license information.
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+load("@llvm-project//mlir:tblgen.bzl", "gentbl_cc_library", "gentbl_filegroup", "td_library")
+
+package(
+    default_visibility = [
+    "//visibility:public",
+    ],
+)
+
+# MhloConversion
+td_library(
+    name = "TorchMLIRConversionMhloPassesTdFiles",
+    includes = ["include"],
+    srcs = [
+        "include/torch-mlir/Conversion/MhloPasses.td"
+    ]
+)
+
+gentbl_cc_library(
+    name = "TorchMLIRConversionMhloPassesIncGen",
+    strip_include_prefix = "include",
+    tbl_outs = [
+        (
+            ["-gen-pass-decls"],
+            "include/torch-mlir/Conversion/MhloPasses.h.inc",
+        )
+    ],
+    td_file = "include/torch-mlir/Conversion/MhloPasses.td",
+    tblgen = "@llvm-project//mlir:mlir-tblgen",
+    deps = [
+        ":TorchMLIRConversionMhloPassesTdFiles",
+        "@llvm-project//mlir:PassBaseTdFiles",
+    ]
+)
+
+cc_library(
+    name = "TorchMLIRTorchToMhlo",
+    srcs = [
+        "lib/Conversion/TorchToMhlo/TorchToMhlo.cpp",
+        "lib/Conversion/TorchToMhlo/MhloLegalizeCommon.cpp",
+        "lib/Conversion/TorchToMhlo/MhloLegalizeUtils.cpp",
+        "lib/Dialect/TorchConversion/Transforms/VerifyMhloBackendContract.cpp",
+    ] ,
+    hdrs = [
+        "include/torch-mlir/Conversion/MhloPasses.h",
+	"include/torch-mlir/Conversion/TorchToMhlo/ShapeUtils.h",
+        "include/torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h",
+        "include/torch-mlir/Conversion/TorchToMhlo/MhloLegalizeCommon.h",
+        "include/torch-mlir/Conversion/TorchToMhlo/MhloLegalizeUtils.h"
+    ],
+    strip_include_prefix = "include",
+    deps = [
+        ":TorchMLIRConversionMhloPassesIncGen",
+        "@llvm-project//mlir:Dialect",
+        "@torch-mlir//:TorchMLIRTorchBackendTypeConversion",
+        "@torch-mlir//:TorchMLIRTorchConversionDialect",
+	"@torch-mlir//:TorchMLIRTorchConversionPasses",
+	"@torch-mlir//:TorchMLIRTorchConversionPassesIncGen",
+        "@torch-mlir//:TorchMLIRConversionPassesIncGen",
+	"@org_tensorflow//tensorflow/compiler/mlir/hlo:hlo",
+    ]
+)
+

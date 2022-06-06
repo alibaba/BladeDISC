@@ -456,8 +456,11 @@ struct convolution_forward
     auto& pd = param.pd;
     auto scratchpad = param.scratchpad;
     auto expected_src = src.reorder_if_differ_in(pd.src_desc());
-    auto expected_weights = weights.make_grouped_weights(param.groups)
-                                .reorder_if_differ_in(pd.weights_desc());
+    auto expected_weights = weights;
+    if (expected_weights.get_desc() != pd.weights_desc()) {
+      expected_weights = weights.make_grouped_weights(param.groups)
+                             .reorder_if_differ_in(pd.weights_desc());
+    }
     dst.reinit_if_possible(pd.dst_desc());
 
     if (!param.dst_scales.empty() && dst.get_data_type() != data_type::f32) {

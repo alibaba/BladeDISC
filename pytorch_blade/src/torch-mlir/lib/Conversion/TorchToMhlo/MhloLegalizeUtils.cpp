@@ -20,7 +20,6 @@
 
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
 
-#include "torch-mlir/Conversion/TorchToMhlo/MhloLegalizeCommon.h"
 #include "torch-mlir/Conversion/TorchToMhlo/MhloLegalizeUtils.h"
 
 namespace mlir {

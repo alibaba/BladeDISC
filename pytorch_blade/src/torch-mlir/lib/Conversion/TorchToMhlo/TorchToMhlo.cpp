@@ -1656,6 +1656,7 @@ public:
                                                          context);
     INSERT_UNARY_FPONLY_PATTERN(AtenLogOp, mhlo::LogOp)
     INSERT_UNARY_FPONLY_PATTERN(AtenExpOp, mhlo::ExpOp)
+    INSERT_UNARY_FPONLY_PATTERN(AtenErfOp, chlo::ErfOp)
 #undef INSERT_UNARY_FPONLY_PATTERN
 
 #define INSERT_UNARY_PATTERN(AtenOp, MhloOp)                                   \

@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <mlir-hlo/Dialect/mhlo/IR/chlo_ops.h> // from tf repo
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
 
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
@@ -146,6 +147,7 @@ class VerifyMhloBackendContractPass
         opHasLegalTypes);
     // Basic scalar operations.
     target.addLegalDialect<mhlo::MhloDialect>();
+    target.addLegalDialect<chlo::ChloDialect>();
     target.addIllegalOp<TensorStaticInfoCastOp>();
     target.addIllegalOp<CopyToValueTensorOp>();
     target.addIllegalOp<ToBuiltinTensorOp>();

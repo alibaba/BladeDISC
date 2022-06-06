@@ -33,7 +33,8 @@ TEST(Tempfs, TestNormal) {
     ASSERT_EQ(payload, loaded_str);
 
     ASSERT_FALSE(tmp_file.GetFilename().empty());
-    ASSERT_TRUE(tmp_file.GetFilename().find("/tmp/ThePrefix") != std::string::npos);
+    ASSERT_TRUE(
+        tmp_file.GetFilename().find("/tmp/ThePrefix") != std::string::npos);
 
     std::ifstream f(fname);
     ASSERT_TRUE(f.good()); // tempfile still acessable

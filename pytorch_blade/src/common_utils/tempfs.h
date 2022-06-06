@@ -20,7 +20,7 @@ namespace blade {
 
 class TempFile {
  public:
-  TempFile(std::string prefix="");
+  TempFile(std::string prefix = "");
   ~TempFile();
   DISALLOW_COPY_AND_ASSIGN(TempFile);
 

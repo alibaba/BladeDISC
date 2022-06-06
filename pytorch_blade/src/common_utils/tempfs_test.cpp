@@ -11,20 +11,33 @@
 
 #include <gtest/gtest.h>
 
+#include <fstream>
+
 #include <common_utils/tempfs.h>
 
 using torch::blade::TempFile;
 
 TEST(Tempfs, TestNormal) {
-  TempFile f;
-  std::string payload("hello, I'am the payload.");
-  ASSERT_TRUE(f.WriteBytesToFile(payload));
+  std::string fname;
+  {
+    TempFile tmp_file("ThePrefix");
+    fname = tmp_file.GetFilename();
+    std::cerr << "Fname: " << fname << std::endl;
+    std::string payload("hello, I'am the payload.");
+    ASSERT_TRUE(tmp_file.WriteBytesToFile(payload));
 
-  auto loaded_bytes = f.ReadBytesFromFile();
-  ASSERT_EQ(payload, loaded_bytes);
+    auto loaded_bytes = tmp_file.ReadBytesFromFile();
+    ASSERT_EQ(payload, loaded_bytes);
 
-  auto loaded_str = f.ReadStringFromFile();
-  ASSERT_EQ(payload, loaded_str);
+    auto loaded_str = tmp_file.ReadStringFromFile();
+    ASSERT_EQ(payload, loaded_str);
 
-  ASSERT_FALSE(f.GetFilename().empty());
+    ASSERT_FALSE(tmp_file.GetFilename().empty());
+    ASSERT_TRUE(tmp_file.GetFilename().find("/tmp/ThePrefix") != std::string::npos);
+
+    std::ifstream f(fname);
+    ASSERT_TRUE(f.good()); // tempfile still acessable
+  }
+  std::ifstream f(fname);
+  ASSERT_FALSE(f.good()); // tempfile not still acessable
 }

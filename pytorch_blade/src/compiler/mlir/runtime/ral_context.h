@@ -63,8 +63,8 @@ class RalContext {
   std::tuple<void*, void*> LoadEngine(const std::string& ral_engine_bytes);
 
   std::shared_ptr<backends::EngineState> engine_state_;
-  TempFile lib_tmpf_;
-  TempFile meta_tmpf_;
+  TempFile lib_tmpf_{"ral_lib.so"};
+  TempFile meta_tmpf_{"ral_meta.pb"};
 
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
   int64_t gpu_device_;

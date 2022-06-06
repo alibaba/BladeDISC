@@ -11,48 +11,85 @@
 
 #include "common_utils/tempfs.h"
 
+#include <unistd.h>
+
 #include <fstream>
-#include <iostream>
 #include <string>
+
 #include "common_utils/logging.h"
 
 namespace torch {
 namespace blade {
-TempFile::~TempFile() {
-  if (tmp_file_ != nullptr) {
-    std::fclose(tmp_file_);
+
+namespace {
+// This function is copied from c10/util/tempfile.h, so it follows to these
+// temperary directory evn variables, too.
+inline std::vector<char> make_filename(std::string name_prefix) {
+  // The filename argument to `mkstemp` needs "XXXXXX" at the end according to
+  // http://pubs.opengroup.org/onlinepubs/009695399/functions/mkstemp.html
+  static const std::string kRandomPattern = "XXXXXX";
+
+  // We see if any of these environment variables is set and use their value, or
+  // else default the temporary directory to `/tmp`.
+  static const char* env_variables[] = {"TMPDIR", "TMP", "TEMP", "TEMPDIR"};
+
+  std::string tmp_directory = "/tmp";
+  for (const char* variable : env_variables) {
+    if (const char* path = getenv(variable)) {
+      tmp_directory = path;
+      break;
+    }
+  }
+
+  std::vector<char> filename;
+  filename.reserve(
+      tmp_directory.size() + name_prefix.size() + kRandomPattern.size() + 2);
+
+  filename.insert(filename.end(), tmp_directory.begin(), tmp_directory.end());
+  filename.push_back('/');
+  filename.insert(filename.end(), name_prefix.begin(), name_prefix.end());
+  filename.insert(filename.end(), kRandomPattern.begin(), kRandomPattern.end());
+  filename.push_back('\0');
+
+  return filename;
+}
+} // namespace
+
+TempFile::TempFile(std::string prefix) : fname_(""), fd_(-1) {
+  auto fname = make_filename(prefix);
+  fd_ = mkstemp(fname.data());
+  fname_ = std::string(fname.data());
+  if (fd_ == -1) {
+    LOG(FATAL) << "Error generating temporary file, file name: " << fname_
+               << ", error: " << std::strerror(errno);
   }
 }
 
-TempFile::TempFile() : tmp_file_(std::tmpfile()) {
-  CHECK_NOTNULL(tmp_file_);
+TempFile::~TempFile() {
+  if (!fname_.empty()) {
+    ::unlink(fname_.c_str());
+  }
+  if (fd_ > 0) {
+    ::close(fd_);
+  }
 }
 
 bool TempFile::WriteBytesToFile(const std::string& bytes) {
-  auto sz = std::fwrite(bytes.data(), sizeof(char), bytes.size(), tmp_file_);
+  auto sz = ::write(fd_, bytes.data(), bytes.length());
   if (sz != bytes.length()) {
     LOG(ERROR) << "Failed to write content to temp file: " << GetFilename()
-               << ", error: " << strerror(errno);
-    return false;
-  }
-  auto ret = std::fflush(tmp_file_);
-  if (ret != 0) {
-    LOG(ERROR) << "Failed to flush content to temp file: " << GetFilename()
                << ", error: " << strerror(errno);
     return false;
   }
   return true;
 }
 
-std::string TempFile::GetFilename() {
-  char fname[FILENAME_MAX] = {0};
-  sprintf(fname, "/proc/self/fd/%d", fileno(tmp_file_));
-  return fname;
+const std::string& TempFile::GetFilename() const {
+  return fname_;
 }
 
 std::string TempFile::ReadBytesFromFile() {
-  auto filename = GetFilename();
-  std::ifstream infile(filename, std::ios::binary);
+  std::ifstream infile(fname_, std::ios::binary);
   std::string str(
       (std::istreambuf_iterator<char>(infile)),
       std::istreambuf_iterator<char>());
@@ -60,8 +97,7 @@ std::string TempFile::ReadBytesFromFile() {
 }
 
 std::string TempFile::ReadStringFromFile() {
-  auto filename = GetFilename();
-  std::ifstream infile(filename);
+  std::ifstream infile(fname_);
   std::string str(
       (std::istreambuf_iterator<char>(infile)),
       std::istreambuf_iterator<char>());

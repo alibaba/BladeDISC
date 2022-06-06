@@ -20,7 +20,7 @@ namespace blade {
 
 class TempFile {
  public:
-  TempFile();
+  TempFile(std::string prefix="");
   ~TempFile();
   DISALLOW_COPY_AND_ASSIGN(TempFile);
 
@@ -34,10 +34,11 @@ class TempFile {
   std::string ReadStringFromFile();
 
   /// Get the filename of the temp file.
-  std::string GetFilename();
+  const std::string& GetFilename() const;
 
  private:
-  std::FILE* tmp_file_;
+  std::string fname_;
+  int fd_;
 };
 } // namespace blade
 } // namespace torch

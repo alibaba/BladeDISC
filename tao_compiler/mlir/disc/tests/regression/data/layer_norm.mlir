@@ -26,7 +26,7 @@ module attributes {tf.versions = {bad_consumers = [], min_consumer = 0 : i32, pr
       %15:2 = tf_executor.island wraps "tf.Div"(%13, %14) : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
       %16:2 = tf_executor.island wraps "tf.Const"() {device = "", value = dense<2.300000> : tensor<f32>} : () -> (tensor<f32>)
       %17:2 = tf_executor.island wraps "tf.BroadcastTo"(%16, %11) : (tensor<f32>, tensor<3xi32>) -> tensor<?x?x?xf32>
-      %18:2 = tf_executor.island wraps "tf.Mul"(%14, %17) : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
+      %18:2 = tf_executor.island wraps "tf.Mul"(%15, %17) : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
       %19:2 = tf_executor.island wraps "tf.Const"() {device = "", value = dense<3.300000> : tensor<f32>} : () -> (tensor<f32>)
       %20:2 = tf_executor.island wraps "tf.BroadcastTo"(%19, %11) : (tensor<f32>, tensor<3xi32>) -> tensor<?x?x?xf32>
       %21:2 = tf_executor.island wraps "tf.Add"(%18, %20) : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>

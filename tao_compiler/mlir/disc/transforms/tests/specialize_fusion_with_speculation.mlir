@@ -1,4 +1,6 @@
-// RUN: disc-opt -disc-specialize-fusion-with-speculation %s --split-input-file | FileCheck %s
+// RUN: disc-opt \
+// RUN:   -pass-pipeline='func.func(disc-specialize-fusion-with-speculation{core-count=72 max-threads-per-core=1536})' \
+// RUN:   %s --split-input-file | FileCheck %s
 
 // CHECK-LABEL: simple_broadcast_specialization
 func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
@@ -66,13 +68,8 @@ func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
 func @simple_row_reduction_vectorization_specialization(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2: memref<?xf32>, %arg3: memref<f32>) -> (memref<?x?xf32>, memref<?xf32>) {
   // CHECK: %[[c1:.*]] = arith.constant 1 : index
   // CHECK: %[[T0:.*]] = memref.dim %arg1, %[[c1]] : memref<?x?xf32>
-  // CHECK: %[[c0:.*]] = arith.constant 0 : index
-  // CHECK: %[[T1:.*]] = memref.dim %arg1, %[[c0]] : memref<?x?xf32>
-  // CHECK: %[[c256:.*]] = arith.constant 256 : index
-  // CHECK: %[[c640:.*]] = arith.constant 640 : index
-  // CHECK: %[[T2:.*]] = arith.cmpi sge, %[[T0]], %[[c256]] : index
-  // CHECK: %[[T3:.*]] = arith.cmpi slt, %[[T1]], %[[c640]] : index
-  // CHECK: %[[T4:.*]] = arith.andi %[[T2]], %[[T3]] : i1
+  // CHECK: %[[c512:.*]] = arith.constant 512 : index
+  // CHECK: %[[T4:.*]] = arith.cmpi sgt, %[[T0]], %[[c512]] : index
   // Schedule 1
   // CHECK: scf.if %[[T4]] {
   // Vectorize with width 2.

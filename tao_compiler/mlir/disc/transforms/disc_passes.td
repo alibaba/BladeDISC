@@ -66,10 +66,10 @@ def DiscSpecializeFusionWithSpeculationPass : Pass<"disc-specialize-fusion-with-
   let summary = "Pass for specializing a fusion op with some speculations.";
   let constructor = "createDiscSpecializeFusionWithSpeculationPass()";
   let options = [
-    Option<"cc_major_", "gpu-sm-cc-major", "int",
-            /*default=*/"7", "gpu sm cc_major.">,
-    Option<"cc_minor_", "gpu-sm-cc-minor", "int",
-            /*default=*/"5", "gpu sm cc_minor.">,
+    Option<"core_count_", "core-count", "int",
+            /*default=*/"-1", "core count (e.g., SM count on NVIDIA GPU).">,
+    Option<"max_threads_per_core_", "max-threads-per-core", "int",
+            /*default=*/"-1", "max thread number that a core supports concurrently.">,
   ];
 }
 

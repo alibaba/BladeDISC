@@ -49,6 +49,40 @@ bool getInnermostForLoops(Operation* rootOp,
   return rootEnclosesFloops;
 }
 
+// This pass unrolls the for loop in kStitch fusion on GPU with the factor of 4.
+// The unrolled instructions will be interleaved if possible. Following is an
+// example.
+//
+// Original loop:
+// %result = scf.for %arg0 = %0 to %1 step %c256 iter_args(%arg1 = %cst)
+//     -> (f32) {
+//   %3 = memref.load %2[%arg0] : memref<?xf32, "gpu">
+//   %4 = arith.addf %arg1, %3: f32
+//   scf.yield %4 : f32
+// }
+//
+// Optimized loops:
+// %result0 = scf.for %arg0 = %0 to %peeling step %c256 iter_args(%arg1 = %cst)
+//     -> (f32) {
+//   %3 = arith.addi %arg0, %c256
+//   %4 = arith.addi %arg0, %c512
+//   %5 = arith.addi %arg0, %c768
+//   %6 = memref.load %2[%arg0] : memref<?xf32, "gpu">
+//   %7 = memref.load %2[%3] : memref<?xf32, "gpu">
+//   %8 = memref.load %2[%4] : memref<?xf32, "gpu">
+//   %9 = memref.load %2[%5] : memref<?xf32, "gpu">
+//   %10 = arith.addf %arg1, %6: f32
+//   %11 = arith.addf %10, %7: f32
+//   %12 = arith.addf %11, %8: f32
+//   %13 = arith.addf %12, %9: f32
+//   scf.yield %13 : f32
+// }
+// %result = scf.for %arg0 = %peeling to %1 step %c256
+//     iter_args(%arg1 = %result0) -> (f32) {
+//   %3 = memref.load %2[%arg0] : memref<?xf32, "gpu">
+//   %4 = arith.addf %arg1, %3: f32
+//   scf.yield %4 : f32
+// }
 struct ForLoopUnrollInterleave
     : public ForLoopUnrollInterleaveBase<ForLoopUnrollInterleave> {
  public:
@@ -60,6 +94,7 @@ struct ForLoopUnrollInterleave
       auto op = fusion.getOperation();
       // Currently, it only unrolls and interleaves loops for kStitch fusion on
       // GPU.
+      // TODO: support more types of fusions.
       if (isStitchFusion(op) && isOnGpu(op)) {
         SmallVector<scf::ParallelOp, 2> innermostPloops;
         getInnermostParallelLoops(op, innermostPloops);

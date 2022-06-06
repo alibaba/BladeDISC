@@ -494,8 +494,9 @@ LogicalResult generateUnrolledLoopMayInterleave(
     }
 
     // Update yielded values.
-    for (unsigned i = 0, e = lastYielded.size(); i < e; i++)
+    for (unsigned i = 0, e = lastYielded.size(); i < e; i++) {
       lastYielded[i] = operandMap.lookup(yieldedValues[i]);
+    }
   }
 
   // Make sure we annotate the Ops in the original body. We do this last so that
@@ -568,8 +569,9 @@ LogicalResult loopUnrollByFactorAndTryInterleave(
   assert(unrollFactor > 0 && "expected positive unroll factor");
 
   // Return if the loop body is empty.
-  if (llvm::hasSingleElement(forOp.getBody()->getOperations()))
+  if (llvm::hasSingleElement(forOp.getBody()->getOperations())) {
     return success();
+  }
 
   // Compute tripCount = ceilDiv((upperBound - lowerBound), step) and populate
   // 'upperBoundUnrolled' and 'stepUnrolled' for static and dynamic cases.
@@ -593,8 +595,9 @@ LogicalResult loopUnrollByFactorAndTryInterleave(
     int64_t tripCount = (ubCst - lbCst + stepCst - 1) / stepCst;
 
     if (unrollFactor == 1) {
-      if (tripCount == 1 && failed(promoteIfSingleIteration(forOp)))
+      if (tripCount == 1 && failed(promoteIfSingleIteration(forOp))) {
         return failure();
+      }
       return success();
     }
 
@@ -605,11 +608,12 @@ LogicalResult loopUnrollByFactorAndTryInterleave(
 
     // Create constant for 'upperBoundUnrolled' and set epilogue loop flag.
     generateEpilogueLoop = upperBoundUnrolledCst < ubCst;
-    if (generateEpilogueLoop)
+    if (generateEpilogueLoop) {
       upperBoundUnrolled = boundsBuilder.create<arith::ConstantIndexOp>(
           loc, upperBoundUnrolledCst);
-    else
+    } else {
       upperBoundUnrolled = ubCstOp;
+    }
 
     // Create constant for 'stepUnrolled'.
     stepUnrolled = stepCst == stepUnrolledCst

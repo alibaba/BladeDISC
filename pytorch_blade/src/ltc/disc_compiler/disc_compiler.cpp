@@ -11,11 +11,8 @@
 
 #include "ltc/disc_compiler/disc_compiler.h"
 
-#include "common_utils/utils.h"
-#include "ltc/disc_compiler/passes/disc_fuser.h"
-#include "ltc/disc_compiler/passes/register_disc_class.h"
-
 #include <ATen/Functions.h>
+#include <torch/csrc/jit/jit_log.h>
 #include <torch/csrc/jit/passes/dead_code_elimination.h>
 #include <torch/csrc/jit/passes/shape_analysis.h>
 #include <torch/csrc/lazy/backend/backend_data.h>
@@ -23,6 +20,9 @@
 #include <torch/csrc/lazy/ts_backend/ts_backend_impl.h>
 #include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
 #include <torch/script.h>
+#include "common_utils/utils.h"
+#include "ltc/disc_compiler/passes/disc_fuser.h"
+#include "ltc/disc_compiler/passes/register_disc_class.h"
 
 namespace torch_disc {
 namespace compiler {
@@ -95,10 +95,17 @@ ExecutablePtr CompileToDiscExecutable(
   // Inference shape
   torch::jit::PropagateInputShapes(graph);
   // cluster disc compitable nodes into a sub-graph
+  GRAPH_DEBUG("before DiscFusion\n ", *graph);
   DiscFusion(graph);
+  GRAPH_DEBUG("after DiscFusion, before EliminateDeadCode\n", *graph)
+  // torch::blade::GRAPH_DEBUG("before EliminateDeadCode, after DiscFusion: \n",
+  // graph);
   torch::jit::EliminateDeadCode(graph);
   // register a disc custom class to run RAL at runtime stage
+  GRAPH_DEBUG("after EliminateDeadCode, before RegisterDiscClass\n", *graph);
   auto disc_inputs = RegisterDiscClass(graph);
+  GRAPH_DEBUG("after RegisterDiscClass\n", *graph);
+  GRAPH_DUMP("after CompileToDiscExecutable\n", graph);
   return std::make_shared<Executable>(graph, disc_inputs);
 }
 

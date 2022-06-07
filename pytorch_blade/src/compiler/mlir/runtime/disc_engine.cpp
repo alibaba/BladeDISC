@@ -98,6 +98,14 @@ void InitBladeDiscEngine() {
       torch::blade::backends::EngineCreatorRegister().RegisterBackend(
           DiscEngine::GetBackendName(), &DiscEngine::Create);
 }
+
+bool patch_disc_engine() {
+    InitBladeDiscEngine();
+    return true;
+}
+
+static auto dummy_disc = patch_disc_engine();
+
 } // namespace disc
 } // namespace blade
 } // namespace torch

@@ -237,6 +237,12 @@ void InitTorchBladeEngine() {
                 return EngineClass::Deserialize(std::move(serialized));
               });
 }
+bool patch_init_class() {
+    InitTorchBladeEngine();
+    return true;
+}
+
+static auto dummy = patch_init_class();
 
 torch::IValue create_engine(
     const EngineState& engine_state,

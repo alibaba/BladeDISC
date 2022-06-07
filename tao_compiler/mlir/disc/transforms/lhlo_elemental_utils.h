@@ -23,6 +23,7 @@ limitations under the License.
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Builders.h"
+#include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 
 namespace mlir {
 
@@ -52,18 +53,35 @@ class LowerConfig {
  public:
   // SpecificLoader is for stitch codegen, which helps to hook the original load
   // with specific shm memref.
-  using SpecificLoaderFunc = std::function</*output*/ Value(
-      OpBuilder&, /*operand-memref*/ Value, /*indices*/ ValueRange,
-      /*shmem-buffer*/ Value, /*row-per-block*/ int64_t)>;
   struct SpecificLoader {
     SpecificLoader() {}
-    SpecificLoader(SpecificLoaderFunc f, Value shm, int64_t tile_size)
-        : func_(f), target_shm_(shm), row_per_block_(tile_size) {}
-    SpecificLoaderFunc func_;
-    Value target_shm_;
-    int64_t row_per_block_;
+
+    SpecificLoader(Value shm, int64_t row_per_block)
+        : shm_buffer_(shm), row_per_block_(row_per_block) {}
+
     Value operator()(OpBuilder& b, Value memref, ValueRange indices) {
-      return func_(b, memref, indices, target_shm_, row_per_block_);
+      return loadShmem(b, memref, indices);
+    }
+
+   private:
+    Value shm_buffer_;
+    int64_t row_per_block_;
+
+   private:
+    Value loadShmem(OpBuilder& b, Value value, ValueRange indices) {
+      auto loc = shm_buffer_.getLoc();
+      assert(shm_buffer_ != nullptr);
+      // It requires the elements store in shm_buffer are in index order.
+      auto shape = getShapeValues(&b, value);
+      assert(shape.size() == indices.size());
+      Value linear_index = calcLinearIndex(&b, loc, indices, shape);
+      Value row_per_block_val =
+          b.create<arith::ConstantIndexOp>(loc, row_per_block_);
+      Value shmem_index =
+          b.create<arith::RemUIOp>(loc, linear_index, row_per_block_val);
+      Value res =
+          b.create<memref::LoadOp>(loc, shm_buffer_, ValueRange({shmem_index}));
+      return res;
     }
   };
 

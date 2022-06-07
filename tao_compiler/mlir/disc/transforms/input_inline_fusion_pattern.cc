@@ -152,7 +152,7 @@ LogicalResult InputInlineFusionPattern::processParallelOp(
     //    C should fuse B first before fusing A.
     //    This is the same logic as in instruction_fusion pass of XLA
     //
-    // 2, When multiple loads consumes the same result of lhlo_op and
+    // 2, When multiple loads consume the same result of lhlo_op and
     //    the load indices are also identical, the ir should be
     //    emitted only once. Other LoadOps should use cached Value.
 

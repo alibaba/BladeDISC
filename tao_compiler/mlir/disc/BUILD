@@ -173,6 +173,7 @@ cc_library(
         "disc_util.h",
     ],
     deps = [
+        ":cycle_detector",
         ":placement_utils",
         "@llvm-project//mlir:MemRefDialect",
         "@llvm-project//llvm:Support",
@@ -334,6 +335,7 @@ cc_library(
         "//tensorflow/compiler/mlir/hlo:hlo",
         "//tensorflow/compiler/mlir/hlo:lhlo",
         "//tensorflow/compiler/mlir/hlo:map_lmhlo_to_scalar_op",
+        "//tensorflow/core:lib",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:GPUDialect",
@@ -588,8 +590,11 @@ cc_library(
         "."
     ],
     deps = [
+        ":codegen_utils",
+        ":fusion_utils",
         ":pass_details",
         "//tensorflow/compiler/mlir/hlo:lhlo",
+        "//tensorflow/core:lib",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",
@@ -608,8 +613,10 @@ cc_library(
     ],
     deps = [
         ":codegen_utils",
+        ":fusion_utils",
         ":pass_details",
         "//tensorflow/compiler/mlir/hlo:lhlo",
+        "//tensorflow/core:lib",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Affine",
         "@llvm-project//mlir:FuncDialect",

@@ -1,4 +1,8 @@
 // RUN: disc-opt %s -disc-lhlo-legalize-roots-to-parallel-loops -split-input-file | FileCheck %s
+// RUN: DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL=true disc-opt \
+// RUN:   %s -disc-lhlo-legalize-roots-to-parallel-loops -split-input-file | \
+// RUN:   FileCheck %s --check-prefix=MEMOPT
+
 
 // CHECK-LABEL: @non_fusion_elemwise_gpu
 // CHECK-SAME: (%[[INPUT1:.*]]: memref<?x?x?xf32, "gpu">, %[[INPUT2:.*]]: memref<?x?x?xf32, "gpu">, %[[OUT:.*]]: memref<?x?x?xf32, "gpu">) -> memref<?x?x?xf32, "gpu">
@@ -413,5 +417,59 @@ func @kstitch_small_output(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2
 
   // Load from smem buffer.
   // CHECK: memref.load %[[SMEM_BUFFER2]]
+  return %arg4 : memref<?xf32>
+}
+
+// MEMOPT-LABEL: @kstitch_independent_reduce_interleave
+func @kstitch_independent_reduce_interleave(%arg0: memref<?x?xf32>,
+    %arg1: memref<?x?xf32>, %arg2: memref<?xf32>, %arg3: memref<f32>,
+    %arg4: memref<?xf32>, %argn1: memref<?x?xf32>, %argn2: memref<?xf32>) ->
+    memref<?xf32> {
+  "lmhlo.fusion"() ({
+    "lmhlo.abs"(%arg0, %arg1) : (memref<?x?xf32>, memref<?x?xf32>) -> ()
+    "lmhlo.reduce"(%arg1, %arg3, %arg2) ( {
+    ^bb0(%arg5: memref<f32>, %arg6: memref<f32>, %arg7: memref<f32>):  // no predecessors
+      "lmhlo.add"(%arg5, %arg6, %arg7) : (memref<f32>, memref<f32>, memref<f32>) -> ()
+      "lmhlo.terminator"() : () -> ()
+    }) {dimensions = dense<1> : tensor<1xi64>} : (memref<?x?xf32>, memref<f32>, memref<?xf32>) -> ()
+    "lmhlo.negate"(%arg0, %argn1) : (memref<?x?xf32>, memref<?x?xf32>) -> ()
+    "lmhlo.reduce"(%argn1, %arg3, %argn2) ( {
+    ^bb0(%arg5: memref<f32>, %arg6: memref<f32>, %arg7: memref<f32>):  // no predecessors
+      "lmhlo.add"(%arg5, %arg6, %arg7) : (memref<f32>, memref<f32>, memref<f32>) -> ()
+      "lmhlo.terminator"() : () -> ()
+    }) {dimensions = dense<1> : tensor<1xi64>} : (memref<?x?xf32>, memref<f32>, memref<?xf32>) -> ()
+    "lmhlo.add"(%arg2, %argn2, %arg4) : (memref<?xf32>, memref<?xf32>, memref<?xf32>) -> ()
+    "lmhlo.terminator"() : () -> ()
+  }) {disc.fusion.name = "kstitch_independent_reduce", disc.fusion_type = "kStitch", disc.device = "gpu"} : () -> ()
+  // MEMOPT: lmhlo.fusion
+  // MEMOPT-COUNT-2: scf.parallel
+  // MEMOPT: gpu.block_id x
+  // MEMOPT: gpu.thread_id x
+
+  // Interleaved in-thread reduce.
+  // MEMOPT: scf.for
+  // MEMOPT-COUNT-2: arith.addf
+  // MEMOPT: scf.yield
+
+  // Interleaved first-round reduce.
+  // MEMOPT-COUNT-2: gpu.shuffle
+  // MEMOPT-COUNT-2: arith.addf
+
+  // MEMOPT: scf.if
+  // MEMOPT-COUNT-2: memref.store
+  // CHECK: gpu.barrier
+
+  // Interleaved second-round reduce.
+  // MEMOPT: scf.if
+  // MEMOPT-COUNT-2: gpu.shuffle
+  // MEMOPT-COUNT-2: arith.addf
+  // CHECK: gpu.barrier
+
+  // Finally, stitch with add op.
+  // MEMOPT: scf.for
+  // MEMOPT-COUNT-2: memref.load
+  // MEMOPT: arith.addf
+  // MEMOPT: memref.store
+
   return %arg4 : memref<?xf32>
 }

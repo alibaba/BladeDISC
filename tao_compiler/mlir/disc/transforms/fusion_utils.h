@@ -328,7 +328,7 @@ class FusionPattern : public FusionPatternBase {
   }
 
   struct SkeletonGroup {
-    Operation* skeleton;
+    SmallVector<Operation*> skeletons;
     SmallVector<Operation*> root_member_list;
     // An irregular member means whose non-tiled dims are not exactly matched
     // with skeleton. This requires special designe for GPU block mapping when
@@ -363,6 +363,11 @@ void dumpFusionPattern(FusionPattern& pattern);
 // given fusion pattern.
 bool getOrderedSkeletonGroups(
     FusionPattern& pattern, SmallVector<FusionPattern::SkeletonGroup>& groups);
+
+// Merge skeleton-ops that are not producer-consumer relationship together.
+bool mergeSkeletonGroupsInOrder(
+    FusionPattern& pattern, SmallVector<FusionPattern::SkeletonGroup>& groups,
+    ShapeAnalysis* shape_analysis);
 
 void dumpTilePlan(DenseMap<Value, TileInfo>& tilePlan);
 

@@ -18,6 +18,7 @@ cc_library(
     deps = [
         ":torch_blade_logging",
         ":torch_blade_macros",
+        ":torch_blade_utils",
         "//src:torch_blade_include",
     ],
 )

@@ -44,7 +44,6 @@ class BazelBuild(TorchBladeBuild):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.targets = [
-            "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_compiler_main",
             "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:libral_base_context.so",
             "//src:libtorch_blade.so",
             "//src:_torch_blade.so",
@@ -57,29 +56,51 @@ class BazelBuild(TorchBladeBuild):
             # Build TorchDISC LTC
             self.targets += ["//src/ltc:_torch_disc.so"]
 
-        self.extra_opts = [
-            '--copt=-DPYTORCH_VERSION_STRING=\\"{}\\"'.format(self.torch_version),
-            "--copt=-DPYTORCH_MAJOR_VERSION={}".format(torch_major_version),
-            "--copt=-DPYTORCH_MINOR_VERSION={}".format(torch_minor_version),
-            "--copt=-DTORCH_BLADE_CUDA_VERSION={}".format(self.cuda_version),
+        # ----------------------------------------------------------------------- #
+        # ------------  Basic Settings for DISC: disc_base_opts   --------------- #
+        # ----------------------------------------------------------------------- #
+        self.disc_base_opts = [
             "--action_env PYTHON_BIN_PATH={}".format(sys.executable),
-            "--action_env TORCH_BLADE_TORCH_INSTALL_PATH={}".format(self.torch_dir),
             # Workaroud issue: https://github.com/bazelbuild/bazel/issues/10327
             "--action_env BAZEL_LINKLIBS=-lstdc++",
             "--action_env CC={}".format(which("gcc")),
             "--action_env CXX={}".format(which("g++")),
         ]
-
         remote_cache = remote_cache_token()
         if remote_cache:
-            self.extra_opts += ["--remote_cache={}".format(remote_cache)]
+            self.disc_base_opts += ["--remote_cache={}".format(remote_cache)]
 
-        self.configs = ["--config=torch_cxx11abi_{}".format(int(self.GLIBCXX_USE_CXX11_ABI))]
+        # ----------------------------------------------------------------------- #
+        # ------   Extra Settings for Torch Frontend: torch_extra_opts    ------- #
+        # ----------------------------------------------------------------------- #
+        self.torch_extra_opts = [
+            '--copt=-DPYTORCH_VERSION_STRING=\\"{}\\"'.format(self.torch_version),
+            "--copt=-DPYTORCH_MAJOR_VERSION={}".format(torch_major_version),
+            "--copt=-DPYTORCH_MINOR_VERSION={}".format(torch_minor_version),
+            "--copt=-DTORCH_BLADE_CUDA_VERSION={}".format(self.cuda_version),
+            "--action_env TORCH_BLADE_TORCH_INSTALL_PATH={}".format(self.torch_dir),
+        ]
+
         if self.is_debug:
-            self.configs.append("--config=dbg")
+            self.torch_extra_opts.append("--config=torch_debug")
         else:
-            self.configs.append("--compilation_mode=opt")
+            self.torch_extra_opts.append("--compilation_mode=opt")
 
+        if self.cuda_available and self.build_tensorrt:
+            self.torch_extra_opts.append(
+                "--config=torch_static_tensorrt"
+                if self.static_tensorrt
+                else "--config=torch_tensorrt"
+            )
+            self.torch_extra_opts += [
+                "--action_env TENSORRT_INSTALL_PATH={}".format(self.tensorrt_dir),
+                "--action_env NVCC={}".format(which("nvcc"))
+            ]
+
+        # ----------------------------------------------------------------------- #
+        # ---------------    Configurations Settings: configs    ---------------- #
+        # ----------------------------------------------------------------------- #
+        self.configs = ["--config=torch_cxx11abi_{}".format(int(self.GLIBCXX_USE_CXX11_ABI))]
         if self.cuda_available:
             self.configs.append("--config=torch_cuda")
         else:
@@ -87,17 +108,6 @@ class BazelBuild(TorchBladeBuild):
                 self.configs += ["--config=torch_aarch64"]
             else:
                 self.configs += ["--config=torch_x86"]
-
-        if self.cuda_available and self.build_tensorrt:
-            self.configs.append(
-                "--config=torch_static_tensorrt"
-                if self.static_tensorrt
-                else "--config=torch_tensorrt"
-            )
-            self.extra_opts += [
-                "--action_env TENSORRT_INSTALL_PATH={}".format(self.tensorrt_dir),
-                "--action_env NVCC={}".format(which("nvcc"))
-            ]
 
         if self.cuda_available and float(self.cuda_version) >= 11.0 and self.blade_gemm:
             self.configs += ["--config=blade_gemm"]
@@ -123,8 +133,20 @@ class BazelBuild(TorchBladeBuild):
         env["LD_LIBRARY_PATH"] = ld_library_path
         env["GCC_HOST_COMPILER_PATH"] = env.get("GCC_HOST_COMPILER_PATH", which("gcc"))
 
+        # 1. build disc_compiler_main, only needs basic opts and configs
+        # FIXME: debug mode compilation would failed for now
+        bazel_disc_build_cmd = " ".join(
+            [self.shell_setting, self.build_cmd]
+            + self.disc_base_opts + self.configs
+            + ["--compilation_mode=opt",
+               "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_compiler_main"]
+        )
+        subprocess.check_call(bazel_disc_build_cmd, shell=True, env=env, executable="/bin/bash")
+
+        # 2. build other targets, support both debug mode & opt mode compilation
         bazel_cmd = " ".join(
-            [self.shell_setting, self.build_cmd] + self.extra_opts + self.configs
+            [self.shell_setting, self.build_cmd]
+            + self.disc_base_opts + self.torch_extra_opts + self.configs
         )
         with open("debug_bazel.sh", "w") as f:
             f.write("#!/bin/bash\n")
@@ -168,7 +190,7 @@ class BazelBuild(TorchBladeBuild):
 
         test_cmd = " ".join(
             [self.shell_setting, self.test_cmd]
-            + self.extra_opts
+            + self.disc_base_opts + self.torch_extra_opts
             + self.configs + self.test_suites
         )
         subprocess.check_call(test_cmd, shell=True, env=env, executable="/bin/bash")

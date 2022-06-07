@@ -402,3 +402,8 @@ def DiscStripShapeConstraintOpsPass : Pass<"disc-strip-shape-constraint-ops", "M
       "disc_shape::DISCShapeDialect",
   ];
 }
+
+def ForLoopUnrollInterleave : Pass<"disc-for-loop-unroll-interleave", "mlir::func::FuncOp"> {
+  let summary = "Unroll SCF for loops and interleave the unrolling";
+  let constructor = "createForLoopUnrollInterleavePass()";
+}

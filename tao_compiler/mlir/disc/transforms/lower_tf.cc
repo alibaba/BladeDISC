@@ -101,7 +101,8 @@ class ConvertSqueezeOpDynamic : public OpRewritePattern<TF::SqueezeOp> {
       llvm::SetVector<int64_t> squeeze_dims;
       for (int64_t i = 0; i < squeeze_dims_attr_size; ++i) {
         int64_t dim = squeeze_dims_attr[i].cast<IntegerAttr>().getInt();
-        if (dim == -1) dim += input_ty.getRank();
+        if (dim < -input_ty.getRank()) return failure();
+        if (dim < 0) dim += input_ty.getRank();
         squeeze_dims.insert(dim);
       }
       SmallVector<Value, 4> shape_values;

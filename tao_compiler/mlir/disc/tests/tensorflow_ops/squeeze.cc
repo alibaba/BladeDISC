@@ -58,7 +58,7 @@ TEST(TFSqueezeOpTest, PartialDynamicShapeTest) {
       /*output_descriptors*/ {"f32_X"}));
 }
 
-// dynamic shape test with dim_size 1
+// dynamic shape test with dim_size -1
 TEST(TFSqueezeOpTest, DynamicShapeTest2) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "squeeze_d_f32_2.mlir",
@@ -67,6 +67,18 @@ TEST(TFSqueezeOpTest, DynamicShapeTest2) {
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"2x3x1xf32_X"},
+      /*output_descriptors*/ {"f32_X"}));
+}
+
+// dynamic shape test with dim_size -rank
+TEST(TFSqueezeOpTest, DynamicShapeTest3) {
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "squeeze_d_f32_3.mlir",
+      /*backend_types*/
+      kSupportedBackendList,
+      /*num_inputs*/ 1,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"1x3x2xf32_X"},
       /*output_descriptors*/ {"f32_X"}));
 }
 

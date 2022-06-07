@@ -66,7 +66,7 @@ TEST(TFSqueezeOpTest, DynamicShapeTest2) {
       kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
-      /*input_descriptors*/ {"2x1x3xf32_X"},
+      /*input_descriptors*/ {"2x3x1xf32_X"},
       /*output_descriptors*/ {"f32_X"}));
 }
 

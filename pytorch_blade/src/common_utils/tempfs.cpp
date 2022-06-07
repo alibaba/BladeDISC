@@ -17,14 +17,15 @@
 #include <string>
 
 #include "common_utils/logging.h"
+#include "common_utils/utils.h"
 
 namespace torch {
 namespace blade {
 
 namespace {
 // This function is copied from c10/util/tempfile.h, so it follows to these
-// temperary directory evn variables, too.
-inline std::vector<char> make_filename(std::string name_prefix) {
+// temperary directory env variables, too.
+std::vector<char> make_filename(std::string name_prefix) {
   // The filename argument to `mkstemp` needs "XXXXXX" at the end according to
   // http://pubs.opengroup.org/onlinepubs/009695399/functions/mkstemp.html
   static const std::string kRandomPattern = "XXXXXX";
@@ -35,7 +36,8 @@ inline std::vector<char> make_filename(std::string name_prefix) {
 
   std::string tmp_directory = "/tmp";
   for (const char* variable : env_variables) {
-    if (const char* path = getenv(variable)) {
+    auto path = env::ReadStringFromEnvVar(variable, "");
+    if (!path.empty()) {
       tmp_directory = path;
       break;
     }

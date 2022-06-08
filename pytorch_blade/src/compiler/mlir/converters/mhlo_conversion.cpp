@@ -13,18 +13,148 @@
 
 #include <mlir-hlo/Dialect/mhlo/IR/chlo_ops.h>
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h>
+#include <mlir/CAPI/IR.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 
 #include "common_utils/logging.h"
+#include "common_utils/utils.h"
+#include "compiler/jit/tool_funcs.h"
 #include "compiler/mlir/converters/mhlo_converter_register.h"
+#include "compiler/mlir/converters/mlir_type_utils.h"
+
+#include "function_importer.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/Pass/PassManager.h"
+#include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
+#include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
+#include "torch-mlir/InitAll.h"
 
 #include <torch/script.h>
 
 namespace torch {
 namespace blade {
 using namespace mlir::mhlo;
+
+std::string GenerateMlirModuleString(bool pretty, mlir::ModuleOp module) {
+  std::string s;
+  ::llvm::raw_string_ostream ss(s);
+  mlir::OpPrintingFlags print_flags;
+  // IR generated with 'prettyForm' is not parsable.
+  if (pretty) {
+    print_flags.elideLargeElementsAttrs();
+  }
+  print_flags.enableDebugInfo(/*prettyForm*/ pretty);
+  module.print(ss, print_flags);
+  return ss.str();
+}
+
+std::string GetAttrString(const ::llvm::ArrayRef<std::string>& str_vec) {
+  std::string s;
+  ::llvm::raw_string_ostream ss(s);
+  ::llvm::interleave(str_vec, ss, ",");
+  return ss.str();
+}
+
+std::vector<std::string> GetDeviceStrs(
+    at::ArrayRef<const torch::jit::Value*> vals) {
+  std::vector<std::string> dev_strs;
+  dev_strs.reserve(vals.size());
+  for (auto& val : vals) {
+    // default to device cpu
+    if (is_gpu_tensor_type(*val)) {
+      dev_strs.push_back("gpu");
+    } else {
+      dev_strs.push_back("cpu");
+    }
+  }
+  return dev_strs;
+}
+
+std::vector<std::string> GetDebugNames(
+    at::ArrayRef<const torch::jit::Value*> vals) {
+  std::vector<std::string> debug_names;
+  debug_names.reserve(vals.size());
+  for (auto& val : vals) {
+    debug_names.push_back(val->debugName());
+  }
+  return debug_names;
+}
+
+mlir::NamedAttribute GetFunctionAttrs(
+    mlir::Builder& builder,
+    at::ArrayRef<const torch::jit::Value*> inputs,
+    at::ArrayRef<const torch::jit::Value*> outputs) {
+  auto input_devices = GetDeviceStrs(inputs);
+  auto output_devices = GetDeviceStrs(outputs);
+  auto input_names = GetDebugNames(inputs);
+  auto output_names = GetDebugNames(outputs);
+
+  auto inputs_attr = builder.getNamedAttr(
+      "inputs", builder.getStringAttr(GetAttrString(input_names)));
+  auto outputs_attr = builder.getNamedAttr(
+      "outputs", builder.getStringAttr(GetAttrString(output_names)));
+  auto input_dev_str = GetAttrString(input_devices);
+  auto input_placements_attr = builder.getNamedAttr(
+      "input_placements", builder.getStringAttr(input_dev_str));
+  auto output_dev_str = GetAttrString(output_devices);
+  auto output_placements_attr = builder.getNamedAttr(
+      "output_placements", builder.getStringAttr(output_dev_str));
+
+  return builder.getNamedAttr(
+      "tf.entry_function",
+      builder.getDictionaryAttr(
+          {inputs_attr,
+           outputs_attr,
+           input_placements_attr,
+           output_placements_attr}));
+}
+
+std::tuple<mlir::func::FuncOp, std::string, std::string> CreateMlirFunction(
+    MhloConversionContext& ctx,
+    const std::string& function_name,
+    at::ArrayRef<const torch::jit::Value*> inputs,
+    at::ArrayRef<const torch::jit::Value*> outputs) {
+  SmallVec4<mlir::Type> args;
+  SmallVec4<mlir::Type> rets;
+
+  auto& builder = *ctx.builder;
+  for (auto& input : inputs) {
+    auto mlir_tensor_type = BuildMlirRankedTensorType(builder, *input);
+    args.emplace_back(mlir_tensor_type);
+  }
+
+  for (auto& output : outputs) {
+    // The output type would be reset during the function building being
+    // finalized. Currently it's set to placeholder unranked tensor type.
+    auto unk_default_type = mlir::UnrankedTensorType::get(builder.getF32Type());
+    rets.emplace_back(unk_default_type);
+  }
+
+  auto mlir_context = ctx.mlir_module->getContext();
+  auto mlir_func_type = mlir::FunctionType::get(mlir_context, args, rets);
+  auto entry_attr = GetFunctionAttrs(builder, inputs, outputs);
+  auto func = builder.create<mlir::func::FuncOp>(
+      ctx.mlir_module->getLoc(),
+      function_name,
+      mlir_func_type,
+      ::llvm::ArrayRef<::mlir::NamedAttribute>{entry_attr});
+
+  auto entry_block = func.addEntryBlock();
+  builder.setInsertionPointToStart(entry_block);
+
+  size_t idx = 0;
+  for (auto& input : inputs) {
+    ctx.value_map[input] = func.getArgument(idx++);
+  }
+
+  return std::make_tuple(
+      func,
+      GetAttrString(GetDeviceStrs(inputs)),
+      GetAttrString(GetDeviceStrs(outputs)));
+}
 
 // TODO(wenyi): Using registration system instead of using explicit listing.
 bool SafeToCallConverter(const torch::jit::Node& node) {
@@ -107,30 +237,20 @@ class ConvertToMhloImpl {
       mlir::MLIRContext& mlir_context)
       : cvt_context_(mlir_context, graph, /*is_support_testing*/ false) {}
 
-  std::string GenerateMlirModuleString(bool pretty) {
-    std::string s;
-    ::llvm::raw_string_ostream ss(s);
-    mlir::OpPrintingFlags print_flags;
-    // IR generated with 'prettyForm' is not parsable.
-    if (pretty) {
-      print_flags.elideLargeElementsAttrs();
-    }
-    print_flags.enableDebugInfo(/*prettyForm*/ pretty);
-    cvt_context_.mlir_module->print(ss, print_flags);
-    return ss.str();
-  }
-
   std::tuple<std::string, std::string, std::string, std::string> Run() {
     // make this function call only once.
     TORCH_CHECK(
         !converted_.test_and_set(std::memory_order_acquire),
         "the conversion is called multiple times");
+
     BuildMainFunc();
     RunImpl(cvt_context_.torch_graph->block());
     FinalizeMainFunc();
 
-    std::string parsable_str = GenerateMlirModuleString(false);
-    std::string pretty_str = GenerateMlirModuleString(true);
+    std::string parsable_str =
+        GenerateMlirModuleString(false, *cvt_context_.mlir_module);
+    std::string pretty_str =
+        GenerateMlirModuleString(true, *cvt_context_.mlir_module);
     return std::make_tuple(
         std::move(parsable_str),
         std::move(pretty_str),
@@ -200,14 +320,102 @@ class ConvertToMhloImpl {
 };
 
 std::tuple<std::string, std::string, std::string, std::string>
+ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
+  std::shared_ptr<const torch::jit::Graph> const_graph = graph;
+  mlir::DialectRegistry registry;
+  RegisterDialects(registry);
+  ::mlir::torch::registerAllDialects(registry);
+  mlir::MLIRContext mlir_context(registry);
+  mlir_context.loadAllAvailableDialects();
+  bool enable_printing =
+      env::ReadBoolFromEnvVar("TORCH_BLADE_DEBUG_LOG", false);
+  if (enable_printing) {
+    mlir_context.disableMultithreading();
+  }
+  auto mlir_module =
+      ::mlir::ModuleOp::create(::mlir::UnknownLoc::get(&mlir_context));
+  torch::jit::CompilationUnit unit;
+  auto fn = unit.create_function("main", graph);
+  auto op = torch_mlir::importJitFunctionAsFuncOp(wrap(&mlir_context), fn);
+  auto builder = ::mlir::OpBuilder(&mlir_context);
+  mlir_module.push_back(unwrap(op));
+
+  ::mlir::PassManager pm(
+      &mlir_context, ::mlir::OpPassManager::Nesting::Implicit);
+  if (enable_printing) {
+    pm.enableIRPrinting();
+  }
+  ::mlir::torch::Torch::TorchLoweringPipelineOptions options;
+  ::mlir::torch::Torch::createTorchFunctionToTorchBackendPipeline(pm, options);
+  if (mlir::failed(pm.run(mlir_module))) {
+    mlir_module.emitError() << "TorchFunctionToTorchBackendPipeline failed";
+    return std::make_tuple("", "", "", "");
+  }
+
+  ::mlir::PassManager pm2(
+      &mlir_context, ::mlir::OpPassManager::Nesting::Implicit);
+  if (enable_printing) {
+    pm2.enableIRPrinting();
+  }
+  ::mlir::torch::TorchConversion::createTorchBackendToMhloBackendPipeline(
+      pm2, options);
+  if (mlir::failed(pm2.run(mlir_module))) {
+    mlir_module.emitError() << "TorchBackendToMhloBackendPipeline failed";
+    return std::make_tuple("", "", "", "");
+  }
+
+  // Find the unique return op.
+  ::mlir::func::FuncOp funcOp;
+  ::mlir::WalkResult walkResult =
+      mlir_module.walk([&](::mlir::func::FuncOp op) {
+        if (funcOp)
+          return ::mlir::WalkResult::interrupt();
+        funcOp = op;
+        return ::mlir::WalkResult::advance();
+      });
+  if (walkResult.wasInterrupted()) {
+    mlir_module.emitError()
+        << "unimplemented: refining returns for function with "
+           "more than one return op";
+    return std::make_tuple("", "", "", "");
+  }
+  auto entry_attr =
+      GetFunctionAttrs(builder, const_graph->inputs(), const_graph->outputs());
+  auto funcType = funcOp.getFunctionType();
+  auto tf_func = builder.create<mlir::func::FuncOp>(
+      funcOp.getLoc(),
+      "main",
+      funcType,
+      ::llvm::ArrayRef<::mlir::NamedAttribute>{entry_attr});
+  ::mlir::BlockAndValueMapping mapper;
+  funcOp.cloneInto(tf_func, mapper);
+  funcOp.erase();
+  mlir_module.push_back(tf_func);
+
+  std::string parsable_str = GenerateMlirModuleString(false, mlir_module);
+  std::string pretty_str = GenerateMlirModuleString(true, mlir_module);
+  return std::make_tuple(
+      std::move(parsable_str),
+      std::move(pretty_str),
+      GetAttrString(GetDeviceStrs(const_graph->inputs())),
+      GetAttrString(GetDeviceStrs(const_graph->outputs())));
+}
+
+std::tuple<std::string, std::string, std::string, std::string>
 ConvertTorchScriptToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
   try {
-    mlir::DialectRegistry registry;
-    RegisterDialects(registry);
-    mlir::MLIRContext mlir_context(registry);
-    mlir_context.loadAllAvailableDialects();
-    ConvertToMhloImpl impl(graph, mlir_context);
-    return impl.Run();
+    if (env::ReadBoolFromEnvVar("TORCH_DISC_USE_TORCH_MLIR", false)) {
+      return ConvertTorchToMhlo(graph);
+    } else {
+      mlir::DialectRegistry registry;
+      RegisterDialects(registry);
+      mlir::MLIRContext mlir_context(registry);
+      mlir_context.loadAllAvailableDialects();
+
+      // will be deprecated soon.
+      ConvertToMhloImpl impl(graph, mlir_context);
+      return impl.Run();
+    }
   } catch (std::exception& err) {
     LOG(ERROR) << err.what();
     return std::make_tuple("", "", "", "");

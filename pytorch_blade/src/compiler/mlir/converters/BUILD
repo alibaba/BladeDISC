@@ -22,10 +22,13 @@ cc_library(
         "//visibility:public",
     ],
     deps = [
-        "//src:torch_blade_include",
         "//src/common_utils:torch_blade_logging",
+        "//src:torch_blade_include",
+        "//src/torch-mlir:TorchMLIRTorchToMhlo",
         "@local_org_torch//:libtorch",
         "@org_mhlo_builder//csrc:mhlo_library",
+	"@torch-mlir-importer//:jit_ir_importer",
+	"@llvm-project//mlir:CAPIIR",
     ],
     alwayslink = True,
 )
@@ -34,7 +37,6 @@ cc_test(
     name = "mhlo_converter_register_test",
     srcs = [
         "mhlo_converter_register_test.cpp",
-        "//src:libtorch_blade.so",
     ],
     linkopts = [
         "-lpthread",
@@ -43,10 +45,12 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//src:libtorch_blade.so",
+        "//src:torch_blade_include",
+        "//src:torch_blade_shared",
         "@zlib",
         "@googltest//:gtest_main",
         "@local_org_torch//:libtorch",
+        "@org_mhlo_builder//csrc:mhlo_library",
         "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:ral_base_context_lib",
     ],
 )

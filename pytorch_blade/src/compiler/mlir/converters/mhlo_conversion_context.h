@@ -79,12 +79,6 @@ struct MhloConversionContext {
   bool is_support_testing_;
 };
 
-std::tuple<mlir::func::FuncOp, std::string, std::string> CreateMlirFunction(
-    MhloConversionContext& ctx,
-    const std::string& function_name,
-    at::ArrayRef<const torch::jit::Value*> inputs,
-    at::ArrayRef<const torch::jit::Value*> outputs);
-
 mlir::Location GetNodeLocation(
     MhloConversionContext& ctx,
     const torch::jit::Node& node);

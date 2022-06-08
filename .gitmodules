@@ -10,3 +10,6 @@
 [submodule "tao/third_party/mkldnn/oneDNN"]
 	path = tao/third_party/mkldnn/oneDNN
 	url = https://github.com/oneapi-src/oneDNN.git
+[submodule "pytorch_blade/third_party/torch-mlir"]
+	path = pytorch_blade/third_party/torch-mlir
+	url = https://github.com/pai-disc/torch-mlir.git

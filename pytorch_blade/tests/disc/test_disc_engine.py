@@ -12,7 +12,7 @@
 import unittest
 import torch
 
-from tests.mlir.testing_utils import DiscTestCase
+from tests.disc.testing_base import DiscTestCase
 
 class TestDiscEngine(DiscTestCase):
     def test_no_output_overwrite(self):

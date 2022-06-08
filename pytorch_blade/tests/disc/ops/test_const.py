@@ -15,7 +15,7 @@ import unittest
 from torch.testing import FileCheck
 from torch_blade import mlir
 
-from tests.mlir.testing_utils import DiscTestCase
+from tests.disc.testing_base import DiscTestCase
 
 
 class TestConstOps(DiscTestCase):

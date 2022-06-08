@@ -78,7 +78,7 @@ another frontend other than torch is introduced.
 ## Add a Unit Test
 
 A unit test is also required. Please refer to the unit tests in
-`pytorch_blade/tests/mlir`, an example is:
+`pytorch_blade/tests/disc`, an example is:
 
 ```python
 class TestDiscActivation(DiscTestCase):

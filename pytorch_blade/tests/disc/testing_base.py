@@ -10,13 +10,25 @@
 # limitations under the License.
 
 import torch
+import unittest
 
 from torch_blade import mlir
 from torch_blade import optimize
+from torch_blade.mlir import is_available
 from torch_blade.config import Config
 from torch_blade.clustering import support_fusion_group
 from torch_blade.testing.common_utils import TestCase
-from tests.mlir import skipIfNoDISC
+from torch_blade.tools import read_bool_from_env
+
+
+def skipIfNoDISC():
+    return unittest.skipIf(not is_available(), "DISC support was not built")
+
+
+def skipIfNoTorchMlir():
+    return unittest.skipIf(read_bool_from_env("TORCH_DISC_USE_TORCH_MLIR",
+                           False), "haven't supported")
+
 
 @skipIfNoDISC()
 class DiscTestCase(TestCase):

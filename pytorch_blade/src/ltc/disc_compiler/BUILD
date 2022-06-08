@@ -32,8 +32,6 @@ cc_library (
   includes = ["../include"],
   deps = [
     ":disc_passes",
-    "//src:torch_blade_include",
-    "//src:torch_blade_shared",
     "@local_org_torch//:ATen",
     "@local_org_torch//:libtorch",
   ],

@@ -358,6 +358,3 @@ def _jit_pass_hack_cpu_device(graph):
         if prim_const.hasAttribute('value') and prim_const.kindOf('value') == 's' and prim_const.s('value') == 'cpu':
             prim_const.s_('value', 'cuda')
 
-
-OptPipelines.register_pipeline("LICM", _jit_pass_licm)
-OptPipelines.register_pipeline("PATINE_CONV2D", _jit_pass_patine_conv2d)

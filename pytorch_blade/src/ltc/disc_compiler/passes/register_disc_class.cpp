@@ -16,7 +16,9 @@
 #include "compiler/mlir/runtime/disc_engine.h"
 #include "ltc/disc_compiler/passes/io.h"
 
+#include <torch/csrc/jit/jit_log.h>
 #include <torch/script.h>
+
 #define _GNU_SOURCE
 #include <dlfcn.h>
 namespace torch_disc {
@@ -60,12 +62,13 @@ std::tuple<std::string, std::string, std::string> MhloConversaion(
   return std::make_tuple(in_fname, input_dev_str, output_dev_str);
 }
 
-std::string CallDiscCompiler(const std::string& mlir_fname) {
+std::tuple<std::string, std::string> CallDiscCompiler(
+    const std::string& mlir_fname) {
   std::string out_fname = mlir_fname + ".out";
   std::string cmd = DiscCMD(mlir_fname, out_fname);
   TORCH_CHECK(
       std::system(cmd.c_str()) == 0, "disc compile failed with cmd: " + cmd);
-  return out_fname;
+  return {cmd, out_fname};
 }
 
 const std::vector<torch::jit::Value*> ArrayToVector(
@@ -134,8 +137,14 @@ std::vector<c10::IValue> RegisterDiscClass(
         outputs;
 
     auto cvt_ret = MhloConversaion(sub_graph);
-    auto output_fname =
-        CallDiscCompiler(std::get<0>(cvt_ret) /*mlir file name*/);
+    auto ret = CallDiscCompiler(std::get<0>(cvt_ret) /*mlir file name*/);
+    auto cmd = std::get<0>(ret);
+    auto output_fname = std::get<1>(ret);
+    GRAPH_DEBUG(
+        "disc compile fusionGroup ",
+        node->maybeSchema()->operator_name(),
+        " cmd: ",
+        cmd);
 
     state->set_engine_bytes(ReadFileBytes(output_fname));
     state->set_model_proto(ReadFileBytes(output_fname + ".pbtxt"));

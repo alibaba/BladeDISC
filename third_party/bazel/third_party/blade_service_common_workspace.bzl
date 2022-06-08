@@ -79,7 +79,7 @@ def _blade_service_common_repositories():
     )
 
     maybe_http_archive(
-        name = "openssl",
+        name = "platform_alibaba_openssl",
         build_file = "@org_third_party//bazel/third_party:openssl.BUILD",
         sha256 = "892a0875b9872acd04a9fde79b1f943075d5ea162415de3047c327df33fbaee5",
         strip_prefix = "openssl-1.1.1k",

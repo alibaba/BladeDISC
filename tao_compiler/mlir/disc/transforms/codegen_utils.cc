@@ -689,5 +689,17 @@ LogicalResult loopUnrollByFactorAndTryInterleave(
   return success();
 }
 
+void createAlignMemrefWithTile(OpBuilder& b, Value memref, int64_t tile_size) {
+  assert(memref != nullptr);
+  auto memref_ty = memref.getType().cast<MemRefType>();
+  int byte_width = memref_ty.getElementTypeBitWidth() / 8;
+  if (byte_width == 0) {
+    // Currently, load and store are at least aligned to 1 byte.
+    byte_width = 1;
+  }
+  Location loc = memref.getLoc();
+  b.create<memref::AssumeAlignmentOp>(loc, memref, byte_width * tile_size);
+}
+
 }  // namespace disc_ral
 }  // namespace mlir

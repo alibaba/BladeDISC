@@ -49,6 +49,24 @@ bool getInnermostForLoops(Operation* rootOp,
   return rootEnclosesFloops;
 }
 
+void assumeAlignment(scf::ForOp op, int tile_size) {
+  // Set alignment of buffers accessed by `load` op.
+  DenseSet<Value> buffers_to_align;
+  op.walk(
+      [&](memref::LoadOp load) { buffers_to_align.insert(load.getMemRef()); });
+  OpBuilder builder(op);
+  for (auto buffer : buffers_to_align) {
+    auto definingOp = buffer.getDefiningOp();
+    // Note that we are dealing with the innermost for op.
+    if (definingOp->getParentOfType<scf::ForOp>() == op) {
+      builder.setInsertionPointAfter(definingOp);
+    } else {
+      builder.setInsertionPointToStart(op.getBody());
+    }
+    createAlignMemrefWithTile(builder, buffer, tile_size);
+  }
+}
+
 // This pass unrolls the for loop in kStitch fusion on GPU with the factor of 4.
 // The unrolled instructions will be interleaved if possible. Following is an
 // example.
@@ -95,7 +113,10 @@ struct ForLoopUnrollInterleave
       // Currently, it only unrolls and interleaves loops for kStitch fusion on
       // GPU.
       // TODO: support more types of fusions.
-      if (isStitchFusion(op) && isOnGpu(op)) {
+      if (!isOnGpu(op)) {
+        return WalkResult::advance();
+      }
+      if (isFusionType<FusionType::kStitch, FusionType::kLoop>(op)) {
         SmallVector<scf::ParallelOp, 2> innermostPloops;
         getInnermostParallelLoops(op, innermostPloops);
         for (auto ploop : innermostPloops) {
@@ -107,7 +128,16 @@ struct ForLoopUnrollInterleave
     });
 
     for (auto op : target_ops) {
-      disc_ral::loopUnrollByFactorAndTryInterleave(op, 4);
+      // Assume alignment for vectorization.
+      auto fusion = op->getParentOfType<lmhlo::FusionOp>();
+      int vector_size = getVectorizeOrTileHint(fusion.getOperation());
+      if (vector_size > 1) {
+        assumeAlignment(op, vector_size);
+      }
+
+      int64_t default_unroll_factor = 4;
+      disc_ral::loopUnrollByFactorAndTryInterleave(
+          op, vector_size > 1 ? vector_size : default_unroll_factor);
     }
   }
 };

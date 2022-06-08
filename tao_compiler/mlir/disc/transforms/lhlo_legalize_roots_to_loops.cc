@@ -326,6 +326,44 @@ LogicalResult lowerWithScheduleLoop(
   return success();
 }
 
+LogicalResult lowerWithScheduleLoopV2(
+    ArrayRef<Operation*> root_ops, Operation* dominant_op,
+    Block* parent = nullptr, const ShapeAnalysis* shape_analysis = nullptr,
+    int vector_size = 1) {
+  const auto loc = dominant_op->getLoc();
+  OpBuilder b(root_ops.back());
+  Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
+  Value one = b.create<arith::ConstantIndexOp>(loc, 1);
+  Value vec_size = b.create<arith::ConstantIndexOp>(loc, vector_size);
+  auto num_elements = emitNumElementsComputation(b, loc, dominant_op);
+  auto thread_number = b.create<arith::DivUIOp>(loc, num_elements, vec_size);
+  Value var;
+  SmallVector<Value, 2> vars;
+  scf::ParallelOp simt_loop = createParallelAndSetInsPt(
+      b, loc, vars, {zero}, {thread_number}, {one}, {});
+  var = vars[0];
+
+  // This loop will be unrolled and interleaved for vectorization.
+  scf::ForOp vec_loop =
+      b.create<scf::ForOp>(loc, zero, vec_size, one, ValueRange({}));
+  vec_loop.getBody()->clear();
+  b.setInsertionPointToStart(vec_loop.getBody());
+  {
+    for (Operation* root_op : root_ops) {
+      if (failed(lowerHelper(b, loc, root_op, var, shape_analysis, 1))) {
+        return failure();
+      }
+    }
+  }
+  b.create<scf::YieldOp>(loc, ValueRange({}));
+
+  // remove the root_op if it has no other users except the memref
+  assert(parent != nullptr && "Parent must be provided for fusion lowering");
+  cleanUnusedLhloOps(parent);
+
+  return success();
+}
+
 Operation* getMapOpInReduceRegion(Operation* op) {
   if (!op || !isa<lmhlo::ReduceOp>(op)) {
     return nullptr;
@@ -3390,6 +3428,10 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
   // ColReduction root. This will be further lowered to a init_kernel
   maybeEmitInitLoops(b, root_ops);
 
+  bool mem_intensive_opt_experimental = false;
+  tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", false,
+                                 &mem_intensive_opt_experimental);
+
   // 1, If any reduce op among the 'root_ops', follow the schedule of it;
   //    or else, follow the schedule of kLoop.
   // 2, If there are a mixer of column reductions and row reductions,
@@ -3440,11 +3482,18 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
 
     case FusionType::kLoop: {
       const int vector_size = getVectorizeOrTileHint(dominant_op);
-      if (failed(lowerWithScheduleLoop(root_ops, dominant_op, fused_block,
-                                       /*non_fusion*/ false,
-                                       /*parallel_loop*/ true, shape_analysis,
-                                       vector_size))) {
-        return dominant_op->emitError() << "failed to lower to loops";
+      if (mem_intensive_opt_experimental) {
+        if (failed(lowerWithScheduleLoopV2(root_ops, dominant_op, fused_block,
+                                           shape_analysis, vector_size))) {
+          return dominant_op->emitError() << "failed to lower to loops";
+        }
+      } else {
+        if (failed(lowerWithScheduleLoop(root_ops, dominant_op, fused_block,
+                                         /*non_fusion*/ false,
+                                         /*parallel_loop*/ true, shape_analysis,
+                                         vector_size))) {
+          return dominant_op->emitError() << "failed to lower to loops";
+        }
       }
     } break;
 
@@ -3452,9 +3501,6 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
       const int tile_size = getVectorizeOrTileHint(dominant_op);
       const int row_reduction_schedule =
           getRowReductionScheduleHint(dominant_op);
-      bool mem_intensive_opt_experimental = false;
-      tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL",
-                                     false, &mem_intensive_opt_experimental);
       if (mem_intensive_opt_experimental) {
         if (failed(lowerWithScheduleStitchV2(
                 fusion_op, fusion_pattern, shape_analysis, tile_size,

@@ -455,12 +455,14 @@ int64_t getFirstOperandIndex(Operation* op, Value value) {
 FusionStrategy& getFusionStrategy(StringRef device, StringRef strategy);
 
 bool isStitchFusion(Operation* op) {
-  FusionType fusionType = FusionType::kNone;
-  auto fusionTypeAttr = op->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName);
-  if (fusionTypeAttr) {
-    fusionType = fusionTypeFromString(fusionTypeAttr.getValue());
-  }
-  return fusionType == FusionType::kStitch;
+  return isFusionType<FusionType::kStitch>(op);
+  // FusionType fusionType = FusionType::kNone;
+  // auto fusionTypeAttr =
+  // op->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName); if (fusionTypeAttr)
+  // {
+  //   fusionType = fusionTypeFromString(fusionTypeAttr.getValue());
+  // }
+  // return fusionType == FusionType::kStitch;
 }
 
 // Create a new fusion pattern from a single op.

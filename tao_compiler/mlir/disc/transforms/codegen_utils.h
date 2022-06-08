@@ -156,6 +156,8 @@ LogicalResult loopUnrollByFactorAndTryInterleave(
     scf::ForOp forOp, uint64_t unrollFactor,
     function_ref<void(unsigned, Operation*, OpBuilder)> annotateFn = nullptr);
 
+void createAlignMemrefWithTile(OpBuilder& b, Value memref, int64_t tile_size);
+
 }  // namespace disc_ral
 }  // namespace mlir
 

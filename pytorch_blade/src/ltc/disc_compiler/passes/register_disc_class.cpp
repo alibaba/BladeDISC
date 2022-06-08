@@ -68,7 +68,6 @@ std::tuple<std::string, std::string> CallDiscCompiler(
   std::string cmd = DiscCMD(mlir_fname, out_fname);
   TORCH_CHECK(
       std::system(cmd.c_str()) == 0, "disc compile failed with cmd: " + cmd);
-  // GRAPH_DEBUG("call disc-compiler-main with cmd: ", cmd);
   return {cmd, out_fname};
 }
 

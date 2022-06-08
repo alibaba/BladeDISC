@@ -98,8 +98,6 @@ ExecutablePtr CompileToDiscExecutable(
   GRAPH_DEBUG("before DiscFusion\n ", *graph);
   DiscFusion(graph);
   GRAPH_DEBUG("after DiscFusion, before EliminateDeadCode\n", *graph)
-  // torch::blade::GRAPH_DEBUG("before EliminateDeadCode, after DiscFusion: \n",
-  // graph);
   torch::jit::EliminateDeadCode(graph);
   // register a disc custom class to run RAL at runtime stage
   GRAPH_DEBUG("after EliminateDeadCode, before RegisterDiscClass\n", *graph);

@@ -95,7 +95,7 @@ c10::IValue create_engine(
     const std::string& fallback_module_bytes,
     const std::string& original_subgraph);
 
-void InitTorchBladeEngine();
+bool InitTorchBladeEngine();
 } // namespace backends
 } // namespace blade
 } // namespace torch

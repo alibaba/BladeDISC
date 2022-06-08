@@ -159,83 +159,90 @@ c10::intrusive_ptr<EngineClass> EngineClass::Deserialize(
   return c10::make_intrusive<EngineClass>(std::move(serialized));
 }
 
-void InitTorchBladeEngine() {
-  // Notice a few things:
-  // - We pass the class to be registered as a template parameter to
-  //   `torch::class_`. In this instance, we've passed the
-  //   specialization of the MyStackClass class ``MyStackClass<std::string>``.
-  //   In general, you cannot register a non-specialized template
-  //   class. For non-templated classes, you can just pass the
-  //   class name directly as the template parameter.
-  // - The arguments passed to the constructor make up the "qualified name"
-  //   of the class. In this case, the registered class will appear in
-  //   Python and C++ as `torch.classes.my_classes.MyStackClass`. We call
-  //   the first argument the "namespace" and the second argument the
-  //   actual class name.
-  static auto torch_blade_engine_class =
-      // TODO(GTY): Use inheritance or template to do version control
-      torch::class_<EngineClass>("torch_blade", "Engine")
-          // The following line registers the contructor of our MyStackClass
-          // class that takes a single `std::vector<std::string>` argument,
-          // i.e. it exposes the C++ method `MyStackClass(std::vector<T> init)`.
-          // Currently, we do not support registering overloaded
-          // constructors, so for now you can only `def()` one instance of
-          // `torch::init`.
-          .def(torch::init<EngineClass::SerialType>())
-          // The next line registers a stateless (i.e. no captures) C++ lambda
-          // function as a method. Note that a lambda function must take a
-          // `c10::intrusive_ptr<YourClass>` (or some const/ref version of that)
-          // as the first argument. Other arguments can be whatever you want.
-          .def(
-              "execute",
-              [](const c10::intrusive_ptr<EngineClass>& self,
-                 at::List<at::Tensor> inputs) { return self->Execute(inputs); })
-          // The following four lines expose methods of the
-          // MyStackClass<std::string> class as-is. `torch::class_` will
-          // automatically examine the argument and return types of the
-          // passed-in method pointers and expose these to Python and
-          // TorchScript accordingly. Finally, notice that we must take the
-          // *address* of the fully-qualified method name, i.e. use the unary
-          // `&` operator, due to C++ typing rules.
-          .def("dump_attr_to_file", &EngineClass::DumpAttrToFile)
-          .def("dump_model_proto", &EngineClass::DumpModelProto)
-          .def("get_attr_string", &EngineClass::GetAttrString)
-          .def("get_attr_keys", &EngineClass::GetAttrKeys)
-          .def("last_inputs", &EngineClass::last_inputs)
-          .def("last_outputs", &EngineClass::last_outputs)
-          // class_<>::def_pickle allows you to define the serialization
-          // and deserialization methods for your C++ class.
-          // Currently, we only support passing stateless lambda functions
-          // as arguments to def_pickle
-          .def_pickle(
-              // __getstate__
-              // This function defines what data structure should be produced
-              // when we serialize an instance of this class. The function
-              // must take a single `self` argument, which is an intrusive_ptr
-              // to the instance of the object. The function can return
-              // any type that is supported as a return value of the TorchScript
-              // custom operator API. In this instance, we've chosen to return
-              // a std::vector<std::string> as the salient data to preserve
-              // from the class.
-              [](const c10::intrusive_ptr<EngineClass>& self)
-                  -> EngineClass::SerialType { return self->Serialize(); },
-              // __setstate__
-              // This function defines how to create a new instance of the C++
-              // class when we are deserializing. The function must take a
-              // single argument of the same type as the return value of
-              // `__getstate__`. The function must return an intrusive_ptr
-              // to a new instance of the C++ class, initialized however
-              // you would like given the serialized state.
-              [](EngineClass::SerialType serialized)
-                  -> c10::intrusive_ptr<EngineClass> {
-                // A convenient way to instantiate an object and get an
-                // intrusive_ptr to it is via `make_intrusive`. We use
-                // that here to allocate an instance of
-                // MyStackClass<std::string> and call the single-argument
-                // std::vector<std::string> constructor with the serialized
-                // state.
-                return EngineClass::Deserialize(std::move(serialized));
-              });
+bool InitTorchBladeEngine() {
+  static std::once_flag flag;
+  std::call_once(flag, [&]() {
+    // Notice a few things:
+    // - We pass the class to be registered as a template parameter to
+    //   `torch::class_`. In this instance, we've passed the
+    //   specialization of the MyStackClass class ``MyStackClass<std::string>``.
+    //   In general, you cannot register a non-specialized template
+    //   class. For non-templated classes, you can just pass the
+    //   class name directly as the template parameter.
+    // - The arguments passed to the constructor make up the "qualified name"
+    //   of the class. In this case, the registered class will appear in
+    //   Python and C++ as `torch.classes.my_classes.MyStackClass`. We call
+    //   the first argument the "namespace" and the second argument the
+    //   actual class name.
+    auto torch_blade_engine_class =
+        // TODO(GTY): Use inheritance or template to do version control
+        torch::class_<EngineClass>("torch_blade", "Engine")
+            // The following line registers the contructor of our MyStackClass
+            // class that takes a single `std::vector<std::string>` argument,
+            // i.e. it exposes the C++ method `MyStackClass(std::vector<T>
+            // init)`. Currently, we do not support registering overloaded
+            // constructors, so for now you can only `def()` one instance of
+            // `torch::init`.
+            .def(torch::init<EngineClass::SerialType>())
+            // The next line registers a stateless (i.e. no captures) C++ lambda
+            // function as a method. Note that a lambda function must take a
+            // `c10::intrusive_ptr<YourClass>` (or some const/ref version of
+            // that) as the first argument. Other arguments can be whatever you
+            // want.
+            .def(
+                "execute",
+                [](const c10::intrusive_ptr<EngineClass>& self,
+                   at::List<at::Tensor> inputs) {
+                  return self->Execute(inputs);
+                })
+            // The following four lines expose methods of the
+            // MyStackClass<std::string> class as-is. `torch::class_` will
+            // automatically examine the argument and return types of the
+            // passed-in method pointers and expose these to Python and
+            // TorchScript accordingly. Finally, notice that we must take the
+            // *address* of the fully-qualified method name, i.e. use the unary
+            // `&` operator, due to C++ typing rules.
+            .def("dump_attr_to_file", &EngineClass::DumpAttrToFile)
+            .def("dump_model_proto", &EngineClass::DumpModelProto)
+            .def("get_attr_string", &EngineClass::GetAttrString)
+            .def("get_attr_keys", &EngineClass::GetAttrKeys)
+            .def("last_inputs", &EngineClass::last_inputs)
+            .def("last_outputs", &EngineClass::last_outputs)
+            // class_<>::def_pickle allows you to define the serialization
+            // and deserialization methods for your C++ class.
+            // Currently, we only support passing stateless lambda functions
+            // as arguments to def_pickle
+            .def_pickle(
+                // __getstate__
+                // This function defines what data structure should be produced
+                // when we serialize an instance of this class. The function
+                // must take a single `self` argument, which is an intrusive_ptr
+                // to the instance of the object. The function can return
+                // any type that is supported as a return value of the
+                // TorchScript custom operator API. In this instance, we've
+                // chosen to return a std::vector<std::string> as the salient
+                // data to preserve from the class.
+                [](const c10::intrusive_ptr<EngineClass>& self)
+                    -> EngineClass::SerialType { return self->Serialize(); },
+                // __setstate__
+                // This function defines how to create a new instance of the C++
+                // class when we are deserializing. The function must take a
+                // single argument of the same type as the return value of
+                // `__getstate__`. The function must return an intrusive_ptr
+                // to a new instance of the C++ class, initialized however
+                // you would like given the serialized state.
+                [](EngineClass::SerialType serialized)
+                    -> c10::intrusive_ptr<EngineClass> {
+                  // A convenient way to instantiate an object and get an
+                  // intrusive_ptr to it is via `make_intrusive`. We use
+                  // that here to allocate an instance of
+                  // MyStackClass<std::string> and call the single-argument
+                  // std::vector<std::string> constructor with the serialized
+                  // state.
+                  return EngineClass::Deserialize(std::move(serialized));
+                });
+  });
+  return true;
 }
 
 torch::IValue create_engine(
@@ -263,6 +270,8 @@ torch::TypePtr register_engine(
       attr_debug_name, custom_class_obj.type(), custom_class_obj);
   return custom_class_obj.type();
 }
+
+static bool init_dummy = InitTorchBladeEngine();
 } // namespace backends
 } // namespace blade
 } // namespace torch

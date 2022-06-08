@@ -528,7 +528,7 @@ LogicalResult generateUnrolledLoopMayInterleave(
   // Make sure `toMove` is after `toMoveAfter` when calling this lambda
   // function.
   auto canMoveAfter = [&](Block::iterator toMove, Block::iterator toMoveAfter) {
-    assert(toMove->getParent() == toMoveAfter->getParent());
+    assert(toMove->getParentOp() == toMoveAfter->getParentOp());
     // DominanceInfo dom(toMove->getParentOp());
     bool canMove = true;
     for (auto iter = std::prev(toMove); iter != toMoveAfter;

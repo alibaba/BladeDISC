@@ -9,6 +9,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#define DEBUG_TYPE "disc-shape-utils"
+
 #include "tensorflow/compiler/mlir/disc/transforms/shape_utils.h"
 
 #include <unordered_set>
@@ -1364,7 +1366,7 @@ LogicalResult ShapeAnalysis::visitSymbolShapes(SymbolShapeVisitor visitor) {
     Location loc = op_->getLoc();
     Operation* definingOp = value.getDefiningOp();
     if (!definingOp) {
-      Block* block = cast<BlockArgument>(value).getOwner();
+      Block* block = value.dyn_cast<BlockArgument>().getOwner();
       loc = block->getParentOp()->getLoc();
       b.setInsertionPoint(block, block->begin());
     } else {

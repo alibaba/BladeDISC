@@ -27,11 +27,13 @@
 #include "mlir/Transforms/Passes.h"
 
 namespace mlir {
-namespace torch {
+class ModuleOp;
 
+namespace torch {
+namespace TorchConversion {
 #define GEN_PASS_CLASSES
 #include "torch-mlir/Conversion/MhloPasses.h.inc"
-
+} // namespace TorchConversion
 } // namespace torch
 } // end namespace mlir
 

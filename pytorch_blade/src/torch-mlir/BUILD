@@ -42,6 +42,7 @@ cc_library(
         "lib/Conversion/TorchToMhlo/TorchToMhlo.cpp",
         "lib/Conversion/TorchToMhlo/MhloLegalizeUtils.cpp",
         "lib/Dialect/TorchConversion/Transforms/VerifyMhloBackendContract.cpp",
+        "lib/Dialect/TorchConversion/Transforms/ApplyValueSemantics.cpp",
     ] ,
     hdrs = [
         "include/torch-mlir/Conversion/MhloPasses.h",

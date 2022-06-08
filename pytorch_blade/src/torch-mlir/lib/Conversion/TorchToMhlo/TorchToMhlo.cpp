@@ -1275,7 +1275,8 @@ class ConvertAtenFillScalarOp : public OpConversionPattern<AtenOpT> {
 // -----------------------------------------------------------------------------
 
 namespace {
-class ConvertTorchToMhlo : public ConvertTorchToMhloBase<ConvertTorchToMhlo> {
+class ConvertTorchToMhlo
+    : public TorchConversion::ConvertTorchToMhloBase<ConvertTorchToMhlo> {
  public:
   void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<chlo::ChloDialect>();
@@ -1317,6 +1318,7 @@ class ConvertTorchToMhlo : public ConvertTorchToMhloBase<ConvertTorchToMhlo> {
     INSERT_UNARY_PATTERN(AtenRsqrtOp, mhlo::RsqrtOp)
     INSERT_UNARY_PATTERN(AtenBitwiseNotOp, mhlo::NotOp)
     INSERT_UNARY_PATTERN(AtenCeilOp, mhlo::CeilOp)
+    INSERT_UNARY_PATTERN(AtenContiguousOp, mhlo::ConvertOp)
     // INSERT_UNARY_PATTERN(AtenReciprocalOp, mhlo::ReciprocalOp)
 #undef INSERT_UNARY_PATTERN
 
@@ -1383,7 +1385,7 @@ class ConvertTorchToMhlo : public ConvertTorchToMhloBase<ConvertTorchToMhlo> {
     // INSERT_ATENOP_PATTERN(AtenPermuteOp);
     INSERT_ATENOP_PATTERN(AtenLog2Op);
     // INSERT_ATENOP_PATTERN(AtenUnsqueezeOp);
-    INSERT_ATENOP_PATTERN(AtenContiguousOp);
+    // INSERT_ATENOP_PATTERN(AtenContiguousOp);
     INSERT_ATENOP_PATTERN(AtenDropoutOp);
     // INSERT_ATENOP_PATTERN(AtenViewOp);
     // INSERT_ATENOP_PATTERN(AtenGeluOp);
@@ -1397,7 +1399,7 @@ class ConvertTorchToMhlo : public ConvertTorchToMhloBase<ConvertTorchToMhlo> {
 };
 } // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>> mlir::torch::
+std::unique_ptr<OperationPass<func::FuncOp>> mlir::torch::TorchConversion::
     createConvertTorchToMhloPass() {
   return std::make_unique<ConvertTorchToMhlo>();
 }

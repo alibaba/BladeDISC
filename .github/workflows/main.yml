@@ -211,6 +211,7 @@ jobs:
         REMOTE_DEV_DOCKER: bladedisc:latest-devel-cuda10.2
         REMOTE_RUNTIME_DOCKER: bladedisc:latest-runtime-torch1.8.1-cu102
         RUNTIME_BASEIMAGE: nvidia/cuda:10.2-cudnn8-devel-ubuntu18.04
+        DOCKERFILE: docker/runtime/Dockerfile.pytorch
       run: |
         set -e
         bash ./scripts/ci/deploy_pytorch_blade.sh

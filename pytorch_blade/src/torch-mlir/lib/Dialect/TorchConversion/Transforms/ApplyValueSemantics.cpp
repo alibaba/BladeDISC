@@ -9,37 +9,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//===- ApplyValueSemantics.cpp --------------------------------*- C++-*-===//
-//
-// This file is licensed under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-// Also available under a BSD-style license. See LICENSE.
-//
-//===----------------------------------------------------------------------===//
-
 #include "torch-mlir/Conversion/MhloPasses.h"
 #include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
+#include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
+#include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Builders.h"
-#include "mlir/IR/BuiltinOps.h"
-#include "mlir/IR/PatternMatch.h"
-#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
-#include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
-#include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
 
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
 
 namespace {
+
+//  Greedily apply value-semantic tensors where possible to make the program
+//  more easier to convert by later passes (also, backends prefer value
+//  semantics as well).
 class ApplyValueSemanticsPass
     : public TorchConversion::ApplyValueSemanticsBase<ApplyValueSemanticsPass> {
   void runOnOperation() override {
     MLIRContext* context = &getContext();
     auto func = getOperation();
 
+    // 1. Replace all return type from "!torch.tensor" to "!torch.vtensor"
+    // 2. Erase all "torch.copy.to_tensor" and "torch.copy.to_vtensor"
     func.walk([&](mlir::Operation* op) {
       if (isa<CopyToNonValueTensorOp, CopyToValueTensorOp>(op)) {
         op->getResult(0).replaceAllUsesWith(op->getOpOperand(0).get());
@@ -47,7 +41,6 @@ class ApplyValueSemanticsPass
         return;
       }
 
-      // process Operation `op`
       for (auto val : op->getResults()) {
         auto tensor_type = val.getType().dyn_cast_or_null<NonValueTensorType>();
         if (!tensor_type) {

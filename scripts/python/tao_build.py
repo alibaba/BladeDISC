@@ -115,13 +115,16 @@ def internal_root_dir():
 def internal_tao_bridge_dir():
     return os.path.join(internal_root_dir(), "platform_alibaba", "tao_bridge")
 
+def platform_alibaba_dir():
+    return os.path.join(internal_root_dir(), "platform_alibaba")
+
 def blade_gemm_dir(root=None):
     if root is None:
         root = get_source_root_dir()
     return os.path.join(root, os.pardir, "platform_alibaba", "blade_gemm", "build")
 
 
-def link_internal_tao_bridge(args):
+def link_internal_for_tao_bridge(args):
     # softlink ["tao_launch_op", "gpu"] dirs, "tvm" and "transform" dirs are not needed for now.
     for dir_name in ["tao_launch_op", "gpu"]:
         src_file = os.path.join(internal_tao_bridge_dir(), dir_name)
@@ -130,6 +133,13 @@ def link_internal_tao_bridge(args):
             execute("rm -rf {0} && ln -s {1} {0}".format(link_in_bridge, src_file))
         else:
             execute("rm -rf {0}".format(link_in_bridge))
+    if args.platform_alibaba:
+        src_dir = os.path.join(platform_alibaba_dir(), "bazel", "blade_service_common")
+        dst_dir = os.path.join(get_source_root_dir(), "third_party", "bazel", "blade_service_common")
+        files = os.listdir(src_dir)
+        for f in files:
+            execute("rm -rf {0} && ln -s {1} {0}".format(os.path.join(dst_dir, f), os.path.join(src_dir, f)))
+
 
 def add_ral_link_if_not_exist(root):
     RAL_DIR_IN_TF = "tao_compiler/mlir/xla"
@@ -321,7 +331,7 @@ def configure_bridge_bazel(root, args):
     # TODO(lanbo.llb): support tf_addons build with bazel
     # TODO(lanbo.llb): support TAO_DISABLE_LINK_TF_FRAMEWORK in bazel??
     tao_bazel_root = tao_bazel_dir(root)
-    link_internal_tao_bridge(args)
+    link_internal_for_tao_bridge(args)
     with gcc_env(args.bridge_gcc), open(os.path.join(tao_bazel_root, ".bazelrc_gen"), "w") as f:
 
         def _opt(opt, value, cmd="build"):

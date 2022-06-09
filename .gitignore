@@ -29,3 +29,5 @@ tao/third_party/PatineClient
 tao/third_party/blade_service_common
 tao/build.txt
 tao/*.tgz
+third_party/bazel/blade_service_common/*.BUILD
+third_party/bazel/blade_service_common/blade_service_common_workspace.bzl.tpl

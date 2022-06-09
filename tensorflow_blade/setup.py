@@ -10,40 +10,34 @@
 # limitations under the License.
 
 # type: ignore
-import fnmatch
 import os
 import re
 import subprocess
-import sys
-from itertools import chain
-from typing import List
-
 import setuptools
-from setuptools.command.build_py import build_py
+from setuptools import setup, Extension, Command
+from setuptools.command.build_ext import build_ext
 
 from version import __version__
 
-SKIP_TRT = os.environ.get('SKIP_TRT').lower() == 'true'
+
+def _get_device():
+    # To get device info from bazel configuration. Another option is to retrieve from
+    # TensorFlow API. But since 
+    with open("./.bazelrc_gen", "r") as f:
+        devices = []
+        for line in f:
+            line = line.strip()
+            if 'build --config=cuda' == line:
+                devices.append('gpu')
+            elif 'build --config=cpu' == line:
+                devices.append('cpu')
+        assert (
+            len(devices) == 1
+        ), f"Multiple devices detected from .bazelrc_gen file: {devices}"
+        return devices[0]
 
 
-def get_tf_blade_files() -> List[str]:
-    """
-    Just list all files under tf_blade and all .so files under other directoies. Bazel
-    helps to put native files on correct place.
-    """
-    res = []
-    for root, dirs, files in os.walk('tf_blade/'):
-        root = root[len('tf_blade/') :]
-        for fname in files:
-            if '.so' in fname or '.so.' in fname:
-                res.append(os.path.join(root, fname))
-    return res
-
-
-device = os.environ.get('PKG_DEVICE', 'gpu').lower()
-if device is not None:
-    if device not in ['cpu', 'gpu']:
-        raise Exception("The device must be in choice of ['cpu', 'gpu']")
+device = _get_device()
 
 install_requires = [
     'numpy',
@@ -54,7 +48,7 @@ if device == 'gpu':
     install_requires.extend(['tf2onnx>=1.9.1'])
 
 
-def get_version(device):  # noqa: C901
+def _get_version(device):  # noqa: C901
     tf_version = ''
     try:
         import tensorflow.compat.v1 as tf
@@ -88,7 +82,7 @@ def get_version(device):  # noqa: C901
             if len(tf_version) == 0:
                 raise Exception("Failed to get tf version")
             else:
-                return f'+cu{major_minor}_{tf_version}'
+                return f'+cu{major_minor}.{tf_version}'
         raise Exception("Failed to get cuda version")
     else:
         if len(tf_version) != 0:
@@ -96,26 +90,54 @@ def get_version(device):  # noqa: C901
         else:
             raise Exception("Failed to get tf version")
 
-is_develop = 'develop' in sys.argv
-print("IS DEVELOP MODE: ", is_develop)
 
-packages = setuptools.find_packages(
-    exclude=['src', 'src.*']
-)
+class CppBuild(build_ext):
+    def run(self):
+        assert len(self.extensions) == 1, "We've just a single extension."
+        ext = self.extensions[0]
+        print(f"[DEBUG] ext: {ext.name} - {ext.sourcedir}")
+        extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
+        subprocess.check_call(
+            "bazel build //src:_tf_blade.so", shell=True, executable="/bin/bash"
+        )
+        bazel_bin_dir = os.path.join(ext.sourcedir, "bazel-bin")
+        for fpath in ['src/libtf_blade.so', 'src/_tf_blade.so']:
+            fpath = os.path.join(bazel_bin_dir, fpath)
+            fname = os.path.basename(fpath)
+            assert os.path.exists(fpath), f"{fpath} not found!"
+            link_name = os.path.join(extdir, fname)
+            if os.path.exists(link_name):
+                os.remove(link_name)
+            os.symlink(fpath, link_name)
+            print(f"Link: {link_name} -> {fpath}")
 
-package_data = {
-    "tf_blade": get_tf_blade_files(),
-}
+
+class CppTestCommand(Command):
+    user_options = []
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        print("[TODO] CppTestCommand run....")
+        pass
+
+
+class TfBladeExtension(Extension):
+    def __init__(self, name, sourcedir=""):
+        Extension.__init__(self, name, sources=[])
+        self.sourcedir = os.path.abspath(sourcedir)
+
 
 setuptools.setup(
     name="tensorflow-blade-" + device,
-    version=(__version__ + get_version(device)),
+    version=(__version__ + _get_version(device)),
     author="Alibaba PAI Team",
-    # TODO(xiafei.qiuxf): need a public email address.
-    # author_email="author@example.com",
     description="TensorFlow-Blade is a general automatic inference optimization system.",
-    packages=packages,
-    package_data=package_data,
+    packages=setuptools.find_packages(exclude=['src', 'src.*', 'tests']),
     install_requires=install_requires,
     classifiers=[
         "Topic :: Scientific/Engineering",
@@ -126,6 +148,9 @@ setuptools.setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
     python_requires='>=3.6',
-    ext_modules=[],
-    cmdclass={},
+    ext_modules=[TfBladeExtension("tf_blade._tf_blade")],
+    cmdclass=dict(
+        build_ext=CppBuild,
+        cpp_test=CppTestCommand,
+    ),
 )

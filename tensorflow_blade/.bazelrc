@@ -1,4 +1,4 @@
-# common config
+# common bazel flags
 common --color=yes
 common --experimental_ui_max_stdouterr_bytes=5242880
 common --experimental_repo_remote_exec
@@ -9,24 +9,45 @@ test --test_output=errors
 build --verbose_failures
 build --spawn_strategy=local  # this is a workaround to include third party source files with BUILD.bazel.
 
+# basic project setting
+build --cxxopt=-std=c++14
+build --host_cxxopt=-std=c++14
+build --cxxopt=-DBUILD_WITH_BAZEL
+build --action_env BUILD_WITH_BAZEL=1
+build:cxx11abi_0 --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=0
+build:cxx11abi_1 --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=1
+build:release --compilation_mode=opt
+build:debug --compilation_mode=dbg --strip=never --copt=-O0 
+
 # these comes from tensorflow's source code
-# base
 build:release_base --distinct_host_configuration=false
-# cpu
 build:avx_linux --copt=-mavx
 build:avx_linux --host_copt=-mavx
-
 build:release_cpu_linux --config=release_base
 build:release_cpu_linux --config=avx_linux
 build:release_cpu_linux --crosstool_top="@ubuntu18.04-gcc7_manylinux2010-cuda11.2-cudnn8.1-tensorrt7.2_config_cuda//crosstool:toolchain"
-# cuda
+
+# CUDA
 build:cuda --repo_env TF_NEED_CUDA=1
+build:cuda --repo_env TF_CUDA_CLANG=0
+build:cuda --define=using_cuda=true
 build:cuda --crosstool_top=@local_config_cuda//crosstool:toolchain
 build:cuda --@local_config_cuda//:enable_cuda
+build:cuda --//:device=gpu
+build:cuda --action_env BLADE_WITH_MKL=0
+
 # dcu
 build:dcu --crosstool_top=@local_config_rocm//crosstool:toolchain
 build:dcu --define=using_rocm=true --define=using_rocm_hipcc=true --define=using_dcu=true
 build:dcu --repo_env TF_NEED_ROCM=1 --repo_env TF_NEED_DCU=1
+
+# CPU
+build:cpu --repo_env TF_NEED_CUDA=0
+build:cpu --repo_env BLADE_WITH_TENSORRT=0
+build:cpu --repo_env BLADE_WITH_HIE=0
+build:cpu --define=using_cuda=false
+build:cpu --//:device=cpu
+
 # Config setting to build oneDNN with Compute Library for the Arm Architecture (ACL).
 # This build is for the inference regime only.
 build:mkl_aarch64 --define=build_with_mkl_aarch64=true
@@ -35,16 +56,30 @@ build:mkl_aarch64 --define=build_with_openmp=true
 build:mkl_aarch64 -c opt
 
 # these comes from tao_compiler, unify these setting in the future
-build:disc --define framework_shared_object=false --experimental_multi_threaded_digest
-build:disc_cpu --config=disc --cxxopt=-DTAO_CPU_ONLY
-build:disc_x86 --config=disc_cpu --config=release_cpu_linux --cxxopt=-DTAO_X86 --define disc_x86=true
-build:disc_aarch64 --config=disc_cpu --config=mkl_aarch64 --cxxopt=-DTAO_AARCH64 --define disc_aarch64=true --linkopt="-Xlinker --stub-group-size -Xlinker 10000000"
+build:disc --define framework_shared_object=false
+build:disc_cpu --config=disc
+build:disc_cpu --cxxopt=-DTAO_CPU_ONLY
+build:disc_x86 --config=disc_cpu
+build:disc_x86 --config=release_cpu_linux
+build:disc_x86 --cxxopt=-DTAO_X86
+build:disc_x86 --define disc_x86=true
+build:disc_aarch64 --config=disc_cpu
+build:disc_aarch64 --config=mkl_aarch64
+build:disc_aarch64 --cxxopt=-DTAO_AARCH64
+build:disc_aarch64 --define disc_aarch64=true
+build:disc_aarch64 --linkopt="-Xlinker --stub-group-size -Xlinker 10000000"
+build:disc_aarch64 --action_env BUILD_WITH_AARCH64=1
 build:disc_cuda --config=disc --config=cuda
 build:disc_dcu --config=disc --config=dcu
 
-build:disc_mkldnn --config=disc --cxxopt=-DTAO_ENABLE_MKLDNN --define is_mkldnn=true
+build:disc_mkldnn --config=disc
+build:disc_mkldnn --cxxopt=-DTAO_ENABLE_MKLDNN
+build:disc_mkldnn --define is_mkldnn=true
+build:disc_mkldnn --action_env BUILD_WITH_MKLDNN=1
+
 build:disc_blaze --config=disc --cxxopt=-DBLAZE_OPT
 
-build:cxx11abi_0 --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=0
-build:cxx11abi_1 --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=1
+# Platform alibaba
+build:platform_alibaba --cxxopt=-DPLATFORM_ALIBABA --define=is_platform_alibaba=true
+
 try-import %workspace%/.bazelrc_gen

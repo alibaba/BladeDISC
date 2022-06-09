@@ -31,3 +31,6 @@ tao/build.txt
 tao/*.tgz
 third_party/bazel/blade_service_common/*.BUILD
 third_party/bazel/blade_service_common/blade_service_common_workspace.bzl.tpl
+*.so
+*.egg-info
+build/

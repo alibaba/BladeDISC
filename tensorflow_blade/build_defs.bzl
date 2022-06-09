@@ -41,15 +41,3 @@ def device_name():
         "//:gpu": ["gpu"],
         "//:cpu": ["cpu"],
     })
-
-def if_tf_supported(if_true, if_false = []):
-    return select({
-        "//:tf_supported": if_true,
-        "//conditions:default": if_false,
-    })
-
-def if_tf_unsupported(if_true, if_false = []):
-    return select({
-        "//:tf_supported": if_false,
-        "//conditions:default": if_true,
-    })

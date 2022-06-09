@@ -183,7 +183,7 @@ class BazelBuild(TorchBladeBuild):
         env["LD_LIBRARY_PATH"] = ld_library_path
         env["GCC_HOST_COMPILER_PATH"] = env.get("GCC_HOST_COMPILER_PATH", which("gcc"))
 
-        self.test_suites = ["//src:torch_blade_test_suite"]
+        self.test_suites = ["//tests/mhlo/...", "//src:torch_blade_test_suite"]
         if self.torch_major_version >= 1 and self.torch_minor_version >= 12:
             # Build TorchDISC LTC tests
             self.test_suites += ["//src/ltc:torch_disc_test_suite"]

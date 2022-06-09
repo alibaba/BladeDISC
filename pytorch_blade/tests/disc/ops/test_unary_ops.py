@@ -71,7 +71,6 @@ class TestDiscUnaryOps(DiscTestCase):
 
         self._test_unary_ops(tanh_func)
 
-    @skipIfNoTorchMlir()
     def test_contiguous(self):
         @torch.jit.script
         def contiguous_func(x):

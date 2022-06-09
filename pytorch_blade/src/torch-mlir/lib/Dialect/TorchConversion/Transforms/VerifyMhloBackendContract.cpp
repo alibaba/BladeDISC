@@ -65,7 +65,7 @@ class VerifyMhloBackendContractPass
   template <typename T>
   Value backtraceOperand(Value operand) {
     auto op = operand.getDefiningOp();
-    if (mlir::isa<T>(op)) {
+    if (op && mlir::isa<T>(op)) {
       return op->getOperand(0);
     }
     return operand;
@@ -114,6 +114,8 @@ class VerifyMhloBackendContractPass
       for (size_t k = 0; k < n_operands; ++k) {
         auto operand = returnOp->getOperand(k);
         operand = backtraceOperand<ToBuiltinTensorOp>(operand);
+        operand = backtraceOperand<CopyToValueTensorOp>(operand);
+        operand = backtraceOperand<CopyToNonValueTensorOp>(operand);
         operand = backtraceOperand<FromBuiltinTensorOp>(operand);
         returnOp->setOperand(k, operand);
       }
@@ -190,6 +192,7 @@ void TorchConversion::createTorchBackendToMhloBackendPipeline(
   pm.addPass(
       TorchConversion::createVerifyInvariantsBeforeBackendLoweringPass());
 
+  pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToMhloPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToSCFPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToStdPass());

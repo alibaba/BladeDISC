@@ -22,7 +22,27 @@ def ConvertTorchToMhlo: Pass<"convert-torch-to-mhlo", "func::FuncOp"> {
   let constructor = "mlir::torch::createConvertTorchToMhloPass()";
 }
 
- 
+def ApplyValueSemantics : Pass<"torch-apply-value-semantics", "func::FuncOp"> {
+  let summary = "Use value-semantic tensors where possible.";
+  let description = [{
+    Use value-semantic tensors where possible to make the program more
+    analyzable by later passes (also, backends prefer value semantics as well).
+
+    This pass is analogous to an SSA-formation pass in a
+    traditional compiler, with the added complication that arrays can alias
+    each other in interesting ways.
+
+    The current code doesn't implement any fancy algorithm, and is intended
+    to be just sufficient for a first e2e spike. An algorithm inspired by the
+    SSA formation literature will need to be implemented.
+
+    Also, this pass doesn't currently handle interprocedural rewriting
+    (of private functions), which is even more complex.
+  }];
+  let constructor = "mlir::torch::Torch::createApplyValueSemanticsPass()";
+}
+
+
 def VerifyMhloBackendContract : Pass<"torch-verify-mhlo-backend-contract", "ModuleOp"> {
   let summary = "Verifies conformity to the mhlo backend contract";
   let constructor = "mlir::torch::TorchConversion::createVerifyMhloBackendContractPass()";

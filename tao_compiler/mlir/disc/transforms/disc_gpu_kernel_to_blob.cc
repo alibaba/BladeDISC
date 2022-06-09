@@ -371,9 +371,6 @@ class GpuKernelToBlobPass
             libdevice_dir, enable_fusion));
 
     VLOG(1) << "PTX code: \n" << ptx;
-#if 1
-    llvm::errs() << "[ZZ] PTX code: \n" << ptx << "\n";
-#endif
 
     std::vector<uint8_t> gpu_asm;
     if (virtual_compute_arch) {

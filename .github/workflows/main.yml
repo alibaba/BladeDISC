@@ -34,7 +34,7 @@ jobs:
       run: |
         set -e
         git submodule sync
-        git submodule update --depth=1 --init --recursive
+        HTTPS_PROXY=http://blade_disc:r299eNZXVTUpuyg7@8.217.91.10:12357 git submodule update --depth=1 --init --recursive
         docker build -t disc-dev-cuda10.0 \
           --build-arg BASEIMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04 \
           --build-arg DISC_HOST_TF_VERSION="tensorflow-gpu==1.15" \

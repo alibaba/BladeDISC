@@ -12,7 +12,7 @@
 import torch
 import unittest
 
-from tests.mlir.testing_utils import DiscTestCase
+from tests.disc.testing_base import DiscTestCase
 
 class MatMul(torch.nn.Module):
     def __init__(self, device=torch.device('cuda')):

@@ -13,7 +13,7 @@ import torch
 import unittest
 
 from torch_blade.version import cuda_available
-from tests.mlir.testing_utils import DiscTestCase
+from tests.disc.testing_base import DiscTestCase
 
 class TestDiscNNOps(DiscTestCase):
     def _test_nn_ops(self, nn_ops_func, x=None):

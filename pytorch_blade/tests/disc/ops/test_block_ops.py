@@ -13,7 +13,7 @@ import torch
 import unittest
 
 from typing import List
-from tests.mlir.testing_utils import DiscTestCase
+from tests.disc.testing_base import DiscTestCase
 
 
 class TestDiscBlockOps(DiscTestCase):

@@ -14,7 +14,7 @@ from typing import List
 import unittest
 
 from torch_blade import tools
-from tests.mlir.testing_utils import DiscTestCase
+from tests.disc.testing_base import DiscTestCase
 
 
 class TestDiscShapes(DiscTestCase):

@@ -13,8 +13,7 @@ import torch
 import unittest
 from unittest import skipIf
 
-from tests.mlir.testing_utils import DiscTestCase
-from torch_blade.tools import read_bool_from_env
+from tests.disc.testing_base import DiscTestCase, skipIfNoTorchMlir
 
 class TestDiscUnaryOps(DiscTestCase):
     def _test_unary_ops(self, unary_ops_func, test_data=None):
@@ -72,7 +71,7 @@ class TestDiscUnaryOps(DiscTestCase):
 
         self._test_unary_ops(tanh_func)
 
-    @skipIf(read_bool_from_env("TORCH_DISC_USE_TORCH_MLIR", False), "haven't supported")
+    @skipIfNoTorchMlir()
     def test_contiguous(self):
         @torch.jit.script
         def contiguous_func(x):
@@ -80,7 +79,7 @@ class TestDiscUnaryOps(DiscTestCase):
 
         self._test_unary_ops(contiguous_func)
 
-    @skipIf(read_bool_from_env("TORCH_DISC_USE_TORCH_MLIR", False), "haven't supported")
+    @skipIfNoTorchMlir()
     def test_to_dtype(self):
         @torch.jit.script
         def to_func(x):
@@ -88,7 +87,7 @@ class TestDiscUnaryOps(DiscTestCase):
 
         self._test_unary_ops(to_func)
 
-    @skipIf(read_bool_from_env("TORCH_DISC_USE_TORCH_MLIR", False), "haven't supported")
+    @skipIfNoTorchMlir()
     def test_type_as(self):
         @torch.jit.script
         def type_as(x, y):
@@ -98,6 +97,7 @@ class TestDiscUnaryOps(DiscTestCase):
         y = torch.randn([6, 224], dtype=torch.half, device=self.device)
         test_data = (x, y)
         self._test_cvt_to_disc(type_as, test_data)
+
 
 if __name__ == "__main__":
     unittest.main()

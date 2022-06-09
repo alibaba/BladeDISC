@@ -31,7 +31,10 @@ namespace disc_ral {
 
 int getRowReductionScheduleHint(Operation* op) {
   assert(op);
-  lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
+  lmhlo::FusionOp fusion = dyn_cast<lmhlo::FusionOp>(op);
+  if (!fusion) {
+    fusion = op->getParentOfType<lmhlo::FusionOp>();
+  }
   // Use schedule 1 by default.
   // Schedule 1 has a better performance in a wider range of shapes than
   // schedule 2.
@@ -44,17 +47,27 @@ int getRowReductionScheduleHint(Operation* op) {
 
 int getVectorizeOrTileHint(Operation* op) {
   assert(op);
-  lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
-  if (!fusion) return 1;
+  lmhlo::FusionOp fusion = dyn_cast<lmhlo::FusionOp>(op);
+  if (!fusion) {
+    fusion = op->getParentOfType<lmhlo::FusionOp>();
+  }
+  if (!fusion) {
+    return 1;
+  }
   IntegerAttr attr = fusion->getAttrOfType<IntegerAttr>(kVectorizeOrTileHint);
-  if (!attr) return 1;
+  if (!attr) {
+    return 1;
+  }
   return attr.getInt();
 }
 
 int getThreadPerBlock(Operation* op) {
   int thread_per_block = kThreadsRowReduction;
   if (!op) return thread_per_block;
-  lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
+  lmhlo::FusionOp fusion = dyn_cast<lmhlo::FusionOp>(op);
+  if (!fusion) {
+    fusion = op->getParentOfType<lmhlo::FusionOp>();
+  }
   if (!fusion) return thread_per_block;
   IntegerAttr attr = fusion->getAttrOfType<IntegerAttr>(kThreadPerBlockHint);
   if (!attr) return thread_per_block;
@@ -63,7 +76,10 @@ int getThreadPerBlock(Operation* op) {
 
 int getColReductionScheduleHint(Operation* op) {
   assert(op);
-  lmhlo::FusionOp fusion = op->getParentOfType<lmhlo::FusionOp>();
+  lmhlo::FusionOp fusion = dyn_cast<lmhlo::FusionOp>(op);
+  if (!fusion) {
+    fusion = op->getParentOfType<lmhlo::FusionOp>();
+  }
   // Use schedule 1 by default.
   if (!fusion) return DISC_TILE_W8_H32;
   IntegerAttr attr =

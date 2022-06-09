@@ -47,18 +47,6 @@ namespace disc_ral {
 
 namespace {
 
-void createAlignMemrefWithTile(OpBuilder& b, Value memref, int64_t tile_size) {
-  assert(memref != nullptr);
-  auto memref_ty = memref.getType().cast<MemRefType>();
-  int byte_width = memref_ty.getElementTypeBitWidth() / 8;
-  if (byte_width == 0) {
-    // Currently, load and store are at least aligned to 1 byte.
-    byte_width = 1;
-  }
-  Location loc = memref.getLoc();
-  b.create<memref::AssumeAlignmentOp>(loc, memref, byte_width * tile_size);
-}
-
 template <typename LHLO_OpTy>
 LogicalResult elemwiseLowerHelper(OpBuilder& b, Location loc, Operation* op,
                                   Value output_linear_index,
@@ -341,21 +329,28 @@ LogicalResult lowerWithScheduleLoopV2(
   SmallVector<Value, 2> vars;
   scf::ParallelOp simt_loop = createParallelAndSetInsPt(
       b, loc, vars, {zero}, {thread_number}, {one}, {});
-  var = vars[0];
+  Value output_linear_index = vars[0];
 
-  // This loop will be unrolled and interleaved for vectorization.
-  scf::ForOp vec_loop =
-      b.create<scf::ForOp>(loc, zero, vec_size, one, ValueRange({}));
-  vec_loop.getBody()->clear();
-  b.setInsertionPointToStart(vec_loop.getBody());
-  {
-    for (Operation* root_op : root_ops) {
-      if (failed(lowerHelper(b, loc, root_op, var, shape_analysis, 1))) {
-        return failure();
-      }
+  if (vector_size > 1) {
+    // This loop will be unrolled and interleaved for vectorization.
+    scf::ForOp vec_loop =
+        b.create<scf::ForOp>(loc, zero, vec_size, one, ValueRange({}));
+    Value vec_id = vec_loop.getInductionVar();
+    vec_loop.getBody()->clear();
+    b.setInsertionPointToStart(vec_loop.getBody());
+    output_linear_index = b.create<arith::AddIOp>(
+        loc, b.create<arith::MulIOp>(loc, output_linear_index, vec_size),
+        vec_id);
+  }
+  for (Operation* root_op : root_ops) {
+    if (failed(lowerHelper(b, loc, root_op, output_linear_index, shape_analysis,
+                           1))) {
+      return failure();
     }
   }
-  b.create<scf::YieldOp>(loc, ValueRange({}));
+  if (vector_size > 1) {
+    b.create<scf::YieldOp>(loc, ValueRange({}));
+  }
 
   // remove the root_op if it has no other users except the memref
   assert(parent != nullptr && "Parent must be provided for fusion lowering");

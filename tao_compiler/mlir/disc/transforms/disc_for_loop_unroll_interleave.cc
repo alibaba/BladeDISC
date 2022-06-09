@@ -54,6 +54,9 @@ void assumeAlignment(scf::ForOp op, int tile_size) {
   DenseSet<Value> buffers_to_align;
   op.walk(
       [&](memref::LoadOp load) { buffers_to_align.insert(load.getMemRef()); });
+  op.walk([&](memref::StoreOp store) {
+    buffers_to_align.insert(store.getMemRef());
+  });
   OpBuilder builder(op);
   for (auto buffer : buffers_to_align) {
     auto definingOp = buffer.getDefiningOp();
@@ -131,6 +134,10 @@ struct ForLoopUnrollInterleave
       // Assume alignment for vectorization.
       auto fusion = op->getParentOfType<lmhlo::FusionOp>();
       int vector_size = getVectorizeOrTileHint(fusion.getOperation());
+#if 1
+      llvm::errs() << "[ZZ] vector size: " << vector_size << " for " << fusion
+                   << "\n";
+#endif
       if (vector_size > 1) {
         assumeAlignment(op, vector_size);
       }

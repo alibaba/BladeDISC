@@ -430,7 +430,7 @@ struct DiscSpecializeFusionWithSpeculationPass
 
     // TODO: aware of row-reduction hints.
 
-    // Vectorization/tiling policy:
+    // Default vectorization/tiling policy:
     //
     // 1) No vectorization/Tiling.
     //     - dominanted by column reduction (codegen support now). TODO: add
@@ -446,8 +446,9 @@ struct DiscSpecializeFusionWithSpeculationPass
     Location loc = fusion_op.getLoc();
 
     Value out_element_number;
-    Value threshold;
+    Value pred;
     int max_threads_per_wave = core_count_ * max_threads_per_core_;
+    int vector_size = kVectorizeOrTileSize;
     if (fusion_type == FusionType::kRowReduction ||
         fusion_type == FusionType::kStitch) {
       Operation* dominant_equivalent_op = GetCandidateRowReduceOp(fusion_op);
@@ -461,38 +462,54 @@ struct DiscSpecializeFusionWithSpeculationPass
                                : 1;
       auto max_rows_per_wave =
           max_threads_per_wave / block_size * row_per_block;
-      threshold = b.create<arith::ConstantIndexOp>(loc, max_rows_per_wave);
+      Value threshold =
+          b.create<arith::ConstantIndexOp>(loc, max_rows_per_wave);
       Value operand = dominant_equivalent_op->getOperand(0);
       // #out-element is row numbers.
-      out_element_number = b.create<memref::DimOp>(loc, operand, 0);
+      Value out_element_number = b.create<memref::DimOp>(loc, operand, 0);
+
+      Value larger = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt,
+                                             out_element_number, threshold);
+      Value divisible = b.create<arith::CmpIOp>(
+          loc, arith::CmpIPredicate::eq,
+          b.create<arith::RemUIOp>(
+              loc, out_element_number,
+              b.create<arith::ConstantIndexOp>(loc, vector_size)),
+          b.create<arith::ConstantIndexOp>(loc, 0));
+      pred = b.create<arith::AndIOp>(loc, larger, divisible);
     } else if (fusion_type == FusionType::kLoop) {
-      threshold = b.create<arith::ConstantIndexOp>(loc, max_threads_per_wave);
       FusionPatternBase fusion_pattern(fusion_op);
       Operation* dominant_equivalent_op = fusion_pattern.getRootOps().back();
-      out_element_number =
+      Value out_element_number =
           emitNumElementsComputation(b, loc, dominant_equivalent_op);
+      if (mem_intensive_opt_experimental) {
+        vector_size = 4;
+      }
+      Value divisible = b.create<arith::CmpIOp>(
+          loc, arith::CmpIPredicate::eq,
+          b.create<arith::RemUIOp>(
+              loc, out_element_number,
+              b.create<arith::ConstantIndexOp>(loc, vector_size)),
+          b.create<arith::ConstantIndexOp>(loc, 0));
+      if (mem_intensive_opt_experimental) {
+        pred = divisible;
+      } else {
+        Value threshold =
+            b.create<arith::ConstantIndexOp>(loc, max_threads_per_wave);
+        Value larger = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt,
+                                               out_element_number, threshold);
+        pred = b.create<arith::AndIOp>(loc, larger, divisible);
+      }
     } else {
       // Either a column reduction dominanted fusion, or a non-fusion op.
       return;
     }
 
-    Value larger = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt,
-                                           out_element_number, threshold);
-    Value is_even = b.create<arith::CmpIOp>(
-        loc, arith::CmpIPredicate::eq,
-        b.create<arith::RemUIOp>(
-            loc, out_element_number,
-            b.create<arith::ConstantIndexOp>(loc, kVectorizeOrTileSize)),
-        b.create<arith::ConstantIndexOp>(loc, 0));
-    Value pred = b.create<arith::AndIOp>(loc, larger, is_even);
     auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
 
     // Vectorization/tiling branch.
-    auto vec_tile =
-        b.getIntegerAttr(b.getIntegerType(32), kVectorizeOrTileSize);
+    auto vec_tile = b.getIntegerAttr(b.getIntegerType(32), vector_size);
     fusion_op->setAttr(kVectorizeOrTileHint, vec_tile);
-    addFusionTag(b, fusion_op,
-                 "_vectile" + std::to_string(kVectorizeOrTileSize));
     Block* then_block = &if_op.getThenRegion().getBlocks().front();
     fusion_op.getOperation()->moveBefore(then_block, then_block->begin());
 
@@ -500,9 +517,11 @@ struct DiscSpecializeFusionWithSpeculationPass
     FusionOp cloned = dyn_cast<FusionOp>(b.clone(*fusion_op.getOperation()));
     auto no_vec_tile = b.getIntegerAttr(b.getIntegerType(32), 1);
     cloned->setAttr(kVectorizeOrTileHint, no_vec_tile);
-    addFusionTag(b, cloned, "_no_vectile");
     Block* else_block = &if_op.getElseRegion().getBlocks().front();
     cloned.getOperation()->moveBefore(else_block, else_block->begin());
+
+    // Add tag for vectorized op after it is cloned.
+    addFusionTag(b, fusion_op, "Vec" + std::to_string(vector_size));
   }
 
   void Speculator(

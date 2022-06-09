@@ -134,10 +134,6 @@ struct ForLoopUnrollInterleave
       // Assume alignment for vectorization.
       auto fusion = op->getParentOfType<lmhlo::FusionOp>();
       int vector_size = getVectorizeOrTileHint(fusion.getOperation());
-#if 1
-      llvm::errs() << "[ZZ] vector size: " << vector_size << " for " << fusion
-                   << "\n";
-#endif
       if (vector_size > 1) {
         assumeAlignment(op, vector_size);
       }

@@ -525,25 +525,87 @@ LogicalResult ConvertAtenOp<AtenTanhOp>::matchAndRewrite(
   }
 }
 
+// Convert a Aten::Relu to HLO
+// Relu(x) = 0 if x < 0 else x
+template <>
+LogicalResult ConvertAtenOp<AtenReluOp>::matchAndRewrite(
+    AtenReluOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  Value input = adaptor.self();
+  auto inputTy = input.getType().cast<TensorType>();
+  Value zero = chlo::getConstantLike(rewriter, loc, 0.0, input);
+  Value compareGtZero = rewriter.create<mhlo::CompareOp>(
+      loc, input, zero, mhlo::ComparisonDirection::GT);
+  rewriter.replaceOpWithNewOp<mhlo::SelectOp>(
+      op, inputTy, compareGtZero, input, zero);
+  return success();
+}
+
+// Convert a Aten::LeakyRelu to HLO
+// LeakyRelu(x) = max(0, x) + negative_slop * min(0, x)
+template <>
+LogicalResult ConvertAtenOp<AtenLeakyReluOp>::matchAndRewrite(
+    AtenLeakyReluOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  Value input = adaptor.self();
+  Value negativeSlope = op.negative_slope();
+  auto inputTy = input.getType().cast<TensorType>();
+
+  double scaleValue;
+  if (!matchPattern(negativeSlope, m_TorchConstantFloat(&scaleValue)))
+    return op->emitError(
+        "Currently only scalar constants are supported for "
+        "negative_slope in MHLO operation");
+
+  Value zeroVal = chlo::getConstantLike(rewriter, loc, 0.0, input);
+  Value scaleVal = chlo::getConstantLike(rewriter, loc, scaleValue, input);
+
+  Value leakyActivationVal = rewriter.create<mhlo::MulOp>(
+      loc, getTypeConverter()->convertType(op.getType()), input, scaleVal);
+
+  Value compareGtZero = rewriter.create<mhlo::CompareOp>(
+      loc, input, zeroVal, mhlo::ComparisonDirection::GT);
+
+  rewriter.replaceOpWithNewOp<mhlo::SelectOp>(
+      op, inputTy, compareGtZero, input, leakyActivationVal);
+  return success();
+}
+
+// Convert a Aten::Sigmoid to HLO
+// Sigmoid(x) = 1.0 / (1.0 + exp(x))
 template <>
 LogicalResult ConvertAtenOp<AtenSigmoidOp>::matchAndRewrite(
     AtenSigmoidOp op,
     OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
   Value self = adaptor.self();
   auto selfTy = self.getType().cast<TensorType>();
-  if (selfTy && selfTy.getElementType().isa<mlir::FloatType>()) {
-    // rewriter.replaceOpWithNewOp<mhlo::SigmoidOp>(
-    //     op, getTypeConverter()->convertType(op.getType()), self);
-    // return success();
-    return op.emitError(
-        "Only floating-point datatype legalization currently supported");
-  } else {
-    // Sigmoid legalization in MHLO for quantized element-type uses
-    // specialized mhlo.table construct.
-    return op.emitError(
-        "Only floating-point datatype legalization currently supported");
-  }
+  Value one = chlo::getConstantLike(rewriter, loc, 1.0, self);
+  Value negVal = rewriter.create<mhlo::NegOp>(loc, self);
+  Value expVal = rewriter.create<mhlo::ExpOp>(loc, negVal);
+  Value addVal = rewriter.create<mhlo::AddOp>(loc, expVal, one);
+  rewriter.replaceOpWithNewOp<mhlo::DivOp>(op, one, addVal);
+  return success();
+}
+
+// Convert a Aten::SiLu to HLO
+// SiLu(x) = x * Sigmoid(x)
+template <>
+LogicalResult ConvertAtenOp<AtenSiluOp>::matchAndRewrite(
+    AtenSiluOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  Value input = adaptor.self();
+  auto inputTy = input.getType().cast<TensorType>();
+  Value sigmoid = rewriter.create<AtenSigmoidOp>(loc, inputTy, input);
+  rewriter.replaceOpWithNewOp<mhlo::MulOp>(op, input, sigmoid);
+  return success();
 }
 
 using ReductionConvFunc = llvm::Optional<Value> (*)(
@@ -1373,7 +1435,9 @@ class ConvertTorchToMhlo : public ConvertTorchToMhloBase<ConvertTorchToMhlo> {
   patterns.add<ConvertAtenOp<AtenOp>>(typeConverter, context);
     INSERT_ATENOP_PATTERN(AtenTanhOp);
     INSERT_ATENOP_PATTERN(AtenSigmoidOp);
-    // INSERT_ATENOP_PATTERN(AtenReluOp);
+    INSERT_ATENOP_PATTERN(AtenReluOp);
+    INSERT_ATENOP_PATTERN(AtenLeakyReluOp);
+    INSERT_ATENOP_PATTERN(AtenSiluOp);
     // INSERT_ATENOP_PATTERN(AtenArgmaxOp);
     INSERT_ATENOP_PATTERN(AtenPowTensorScalarOp);
     INSERT_ATENOP_PATTERN(AtenRsubScalarOp);

@@ -703,6 +703,7 @@ cc_library(
         ":disc_lhlo_elemental_utils",
         ":disc_supported_list",
         ":disc_util",
+        ":lmhlo_disc",
         ":placement_utils",
         ":shape_utils",
         "//tensorflow/compiler/mlir/hlo:lhlo",

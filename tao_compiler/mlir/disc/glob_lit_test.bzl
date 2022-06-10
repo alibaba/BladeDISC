@@ -50,6 +50,8 @@ def _run_lit_test(name, data, size, tags, driver, features, exec_properties):
 
     if name.startswith('gpu-only'):
         tags.append('gpu')
+    if name.startswith('cpu-only'):
+        tags.append('cpu')
 
     # Disable tests on windows for now, to enable testing rest of all xla and mlir.
     native.py_test(

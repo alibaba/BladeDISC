@@ -445,7 +445,6 @@ struct DiscSpecializeFusionWithSpeculationPass
     OpBuilder b(fusion_op);
     Location loc = fusion_op.getLoc();
 
-    Value out_element_number;
     Value pred;
     int max_threads_per_wave = core_count_ * max_threads_per_core_;
     int vector_size = kVectorizeOrTileSize;

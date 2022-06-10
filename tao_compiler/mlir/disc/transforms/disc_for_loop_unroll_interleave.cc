@@ -18,10 +18,11 @@
 #include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
+#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/core/util/env_var.h"
 
 // This pass unrolls and interleaves the inner-most SCF for-loop ops in kStitch
-// fusion on GPU.
+// and kLoop fusion on GPU.
 
 namespace mlir {
 namespace disc_ral {
@@ -49,30 +50,39 @@ bool getInnermostForLoops(Operation* rootOp,
   return rootEnclosesFloops;
 }
 
-void assumeAlignment(scf::ForOp op, int tile_size) {
-  // Set alignment of buffers accessed by `load` op.
+// Assume the alignment of memrefs on GPU used in the given op.
+void assumeAlignmentOnGPU(Operation* op, int tile_size) {
   DenseSet<Value> buffers_to_align;
-  op.walk(
-      [&](memref::LoadOp load) { buffers_to_align.insert(load.getMemRef()); });
-  op.walk([&](memref::StoreOp store) {
-    buffers_to_align.insert(store.getMemRef());
+  DenseSet<Operation*> ops;
+  Block* body = op->getBlock();
+  body->walk([&](Operation* operation) {
+    Value buffer;
+    if (auto load = dyn_cast<memref::LoadOp>(operation)) {
+      buffer = load.getMemRef();
+    } else if (auto store = dyn_cast<memref::StoreOp>(operation)) {
+      buffer = store.getMemRef();
+    }
+    if (buffer && placement_utils::isGpuMemRef(buffer)) {
+      buffers_to_align.insert(buffer);
+    }
+    ops.insert(operation);
   });
   OpBuilder builder(op);
   for (auto buffer : buffers_to_align) {
     auto definingOp = buffer.getDefiningOp();
-    // Note that we are dealing with the innermost for op.
-    if (definingOp->getParentOfType<scf::ForOp>() == op) {
+    if (ops.contains(definingOp)) {
       builder.setInsertionPointAfter(definingOp);
     } else {
-      builder.setInsertionPointToStart(op.getBody());
+      // The `definingOp` is before this block.
+      builder.setInsertionPointToStart(body);
     }
     createAlignMemrefWithTile(builder, buffer, tile_size);
   }
 }
 
-// This pass unrolls the for loop in kStitch fusion on GPU with the factor of 4.
-// The unrolled instructions will be interleaved if possible. Following is an
-// example.
+// This pass unrolls the for loop in kStitch and kLoop fusion on GPU with the
+// default factor (which is 4) or given vectorization factor. The unrolled
+// instructions will be interleaved if possible. Following is an example.
 //
 // Original loop:
 // %result = scf.for %arg0 = %0 to %1 step %c256 iter_args(%arg1 = %cst)
@@ -113,8 +123,8 @@ struct ForLoopUnrollInterleave
     SmallVector<scf::ForOp> target_ops;
     func.walk([&](lmhlo::FusionOp fusion) {
       auto op = fusion.getOperation();
-      // Currently, it only unrolls and interleaves loops for kStitch fusion on
-      // GPU.
+      // Currently, it only unrolls and interleaves loops for kStitch and
+      // kLoop fusion on GPU.
       // TODO: support more types of fusions.
       if (!isOnGpu(op)) {
         return WalkResult::advance();
@@ -135,7 +145,7 @@ struct ForLoopUnrollInterleave
       auto fusion = op->getParentOfType<lmhlo::FusionOp>();
       int vector_size = getVectorizeOrTileHint(fusion.getOperation());
       if (vector_size > 1) {
-        assumeAlignment(op, vector_size);
+        assumeAlignmentOnGPU(op.getOperation(), vector_size);
       }
 
       int64_t default_unroll_factor = 4;

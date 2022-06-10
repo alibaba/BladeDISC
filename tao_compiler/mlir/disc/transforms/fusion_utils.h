@@ -632,7 +632,6 @@ bool isFusionType(Operation* op) {
     fusionType = fusionTypeFromString(fusionTypeAttr.getValue());
   }
   return llvm::find(fusionTypes, fusionType) != fusionTypes.end();
-  // return fusionType == T;
 }
 
 bool isStitchFusion(Operation* op);

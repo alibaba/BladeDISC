@@ -473,3 +473,22 @@ func @kstitch_independent_reduce_interleave(%arg0: memref<?x?xf32>,
 
   return %arg4 : memref<?xf32>
 }
+
+// MEMOPT-LABEL: @kloop_tile
+func @kloop_tile(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2: memref<?x?xf32>) -> memref<?x?xf32> {
+  %0 = memref.alloc() : memref<f32>
+  "lmhlo.fusion"() ({
+    "lmhlo.constant"(%0) {value = dense<1.000000e+00> : tensor<f32>} : (memref<f32>) -> ()
+    "lmhlo.multiply"(%arg0, %arg1, %arg2) {disc.device = "gpu"} : (memref<?x?xf32>, memref<?x?xf32>, memref<?x?xf32>) -> ()
+    "lmhlo.subtract"(%arg1, %arg2, %arg0) {disc.device = "gpu"} : (memref<?x?xf32>, memref<?x?xf32>, memref<?x?xf32>) -> ()
+    "lmhlo.multiply"(%arg0, %arg2, %arg1) {disc.device = "gpu"} : (memref<?x?xf32>, memref<?x?xf32>, memref<?x?xf32>) -> ()
+    "lmhlo.terminator"() : () -> ()
+  }) {disc.device = "gpu", disc.fusion.name = "main_kLoop", disc.fusion_type = "kLoop", disc_vectorize_or_tile_hint = 4 : i32} : () -> ()
+  // MEMOPT-DAG: %[[C0:.*]] = arith.constant 0 : index
+  // MEMOPT-DAG: %[[C1:.*]] = arith.constant 1 : index
+  // MEMOPT-DAG: %[[C4:.*]] = arith.constant 4 : index
+  // MEMOPT: lmhlo.fusion
+  // MEMOPT: scf.parallel
+  // MEMOPT: scf.for %[[ARG4:.*]] = %[[C0]] to %[[C4]] step %[[C1]]
+  return %arg2 : memref<?x?xf32>
+}

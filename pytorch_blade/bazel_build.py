@@ -135,7 +135,7 @@ class BazelBuild(TorchBladeBuild):
 
         # 1. build disc_compiler_main, only needs basic opts and configs
         # FIXME: debug mode compilation would failed for now
-        if self.skip_disc_cmd_build:
+        if not self.skip_disc_cmd_build:
             bazel_disc_build_cmd = " ".join(
                 [self.shell_setting, self.build_cmd]
                 + self.disc_base_opts + self.configs

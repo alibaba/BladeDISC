@@ -83,6 +83,7 @@ def check_init_file_miss(path, ignore_root=False):
         if (
             "/build" in dir
             or "/dist" in dir
+            or '.pytest_cache' in dir
             or name == 'lib'
             or name.endswith(".egg-info")
         ):

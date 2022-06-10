@@ -20,6 +20,7 @@ from tf_blade.util.tf_import_helper import tf
 
 tf.disable_v2_behavior()
 
+
 @pytest.mark.gpu_only
 class Tf2TrtPlusTest(unittest.TestCase):
     def setUp(self) -> None:

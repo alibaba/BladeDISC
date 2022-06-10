@@ -11,6 +11,8 @@
 
 import unittest
 
+import pytest
+
 from tests.tf_test_common import ConvNetMaker
 from tf_blade.gpu.tf_to_trt import Tf2TrtOpt
 from tf_blade.util.tf_conversion_util import TRT_SUPPORTED_LIST
@@ -18,7 +20,7 @@ from tf_blade.util.tf_import_helper import tf
 
 tf.disable_v2_behavior()
 
-
+@pytest.mark.gpu_only
 class Tf2TrtPlusTest(unittest.TestCase):
     def setUp(self) -> None:
         conv_net_maker = ConvNetMaker()

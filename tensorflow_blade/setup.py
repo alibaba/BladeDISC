@@ -21,8 +21,11 @@ from version import __version__
 
 
 def _get_device():
-    # To get device info from bazel configuration. Another option is to retrieve from
-    # TensorFlow API. But since 
+    # To get device info from bazel configuration.
+    # Another option is to retrieve from TensorFlow API. But since we may build GPU 
+    # package in a docker container with no GPU device mounted, tf.test.is_gpu_available
+    # becomes not suitable. Reading from generated bazel configuration file to keep
+    # consistent with C++ part.
     with open("./.bazelrc_gen", "r") as f:
         devices = []
         for line in f:

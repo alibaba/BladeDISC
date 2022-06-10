@@ -70,21 +70,6 @@ def restore_config(args):
             args.__dict__[k] = saved_dict[k]
 
 
-def get_test_tag_filters(args, tf_major=None):
-    if args.device == "cpu":
-        config = "--test_tag_filters=-gpu"
-    elif args.device == "gpu":
-        config = "--test_tag_filters=-cpu"
-
-    if tf_major is None and args.tf:
-        tf_major = args.tf.split('.')[0]
-    if tf_major == "2":
-        config += ",-tf1"  # skip tf1-only tests when it's tf2.
-    elif tf_major == "1":
-        config += ",-tf2"  # skip tf2-only tests when it's tf1.
-    return config
-
-
 def check_init_file_miss(path, ignore_root=False):
     path = os.path.abspath(path)
     for dir, _, _ in os.walk(path):
@@ -225,10 +210,6 @@ def configure(args):
                 else:
                     _config("disc_x86")
 
-        _write(
-            get_test_tag_filters(args, tf_major=tf_major),
-            cmd="test",
-        )
         # Working around bazel #10327
         _action_env("BAZEL_LINKOPTS", os.environ.get("BAZEL_LINKOPTS", ""))
         _action_env("BAZEL_LINKLIBS", os.environ.get("BAZEL_LINKLIBS", "-lstdc++"))
@@ -255,7 +236,8 @@ def package(args):
 
 def test(args):
     execute("python3 setup.py cpp_test")
-    execute("python3 -m unittest discover -s tests/ -p '*test*.py' -v")
+    mark = "not gpu_only" if args.device != "gpu" else "not cpu_only"
+    execute(f"pytest  tests/ -m '{mark}' -v --forked")
 
 
 def parse_args():

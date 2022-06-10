@@ -18,5 +18,5 @@ try:
 finally:
     if __ENV_VALUE is not None:
         os.environ[__TF_LOG_ENV] = __ENV_VALUE
-    else:
+    elif __TF_LOG_ENV in os.environ:
         del os.environ[__TF_LOG_ENV]

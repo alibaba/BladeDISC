@@ -46,6 +46,7 @@ device_type="gpu"
 ./build.py -s configure --device ${device_type}
 ./build.py -s check
 ./build.py -s build
+./build.py -s develop
 ./build.py -s test
 ./build.py -s package
 popd

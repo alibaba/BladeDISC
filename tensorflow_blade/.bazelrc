@@ -17,7 +17,7 @@ build --action_env BUILD_WITH_BAZEL=1
 build:cxx11abi_0 --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=0
 build:cxx11abi_1 --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=1
 build:release --compilation_mode=opt
-build:debug --compilation_mode=dbg --strip=never --copt=-O0 
+build:debug --compilation_mode=dbg --strip=never --copt=-O0
 
 # these comes from tensorflow's source code
 build:release_base --distinct_host_configuration=false

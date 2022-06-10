@@ -30,6 +30,7 @@ class ModuleOp;
 namespace torch {
 namespace Torch {
 class TorchLoweringPipelineOptions;
+LogicalResult reduceTensorConversions(func::FuncOp& func);
 } // namespace Torch
 
 namespace TorchConversion {

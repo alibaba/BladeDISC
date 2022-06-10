@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//===- PassDetail.h - Conversion Pass class details -------------*- C++ -*-===//
+//===- torch-mlir-opt.cpp - MLIR Optimizer Driver -------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -18,23 +18,25 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TORCHMLIR_CONVERSION_MHLO_PASSES_H
-#define TORCHMLIR_CONVERSION_MHLO_PASSES_H
+#include "mlir/InitAllDialects.h"
+#include "mlir/InitAllPasses.h"
+#include "mlir/Tools/mlir-opt/MlirOptMain.h"
+#include "torch-mlir/InitAll.h"
 
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Pass/PassManager.h"
-#include "mlir/Transforms/Passes.h"
+using namespace mlir;
 
-namespace mlir {
-class ModuleOp;
+int main(int argc, char** argv) {
+  registerAllPasses();
+  mlir::torch::registerAllPasses();
 
-namespace torch {
-namespace TorchConversion {
-#define GEN_PASS_CLASSES
-#include "torch-mlir/Conversion/MhloPasses.h.inc"
-} // namespace TorchConversion
-} // namespace torch
-} // end namespace mlir
+  DialectRegistry registry;
+  registerAllDialects(registry);
+  mlir::torch::registerAllDialects(registry);
 
-#endif // TORCHMLIR_CONVERSION_MHLO_PASSES_H
+  return mlir::asMainReturnCode(mlir::MlirOptMain(
+      argc,
+      argv,
+      "MLIR modular optimizer driver\n",
+      registry,
+      /*preloadDialectsInContext=*/false));
+}

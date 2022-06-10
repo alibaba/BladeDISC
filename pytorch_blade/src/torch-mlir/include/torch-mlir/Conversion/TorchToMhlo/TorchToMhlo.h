@@ -27,16 +27,14 @@
 
 namespace mlir {
 class ModuleOp;
-
 namespace torch {
-
-std::unique_ptr<OperationPass<func::FuncOp>> createConvertTorchToMhloPass();
-
 namespace Torch {
 class TorchLoweringPipelineOptions;
-}
+} // namespace Torch
 
 namespace TorchConversion {
+std::unique_ptr<OperationPass<func::FuncOp>> createConvertTorchToMhloPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createApplyValueSemanticsPass();
 std::unique_ptr<OperationPass<ModuleOp>> createVerifyMhloBackendContractPass();
 
 void createTorchBackendToMhloBackendPipeline(

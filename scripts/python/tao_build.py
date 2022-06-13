@@ -123,6 +123,8 @@ def blade_gemm_dir(root=None):
         root = get_source_root_dir()
     return os.path.join(root, os.pardir, "platform_alibaba", "blade_gemm", "build")
 
+def link_dirs(dst_dir, src_dir):
+    execute("rm -rf {0} && ln -s {1} {0}".format(dst_dir, src_dir))
 
 def link_internal_for_tao_bridge(args):
     # softlink ["tao_launch_op", "gpu"] dirs, "tvm" and "transform" dirs are not needed for now.
@@ -130,7 +132,7 @@ def link_internal_for_tao_bridge(args):
         src_file = os.path.join(internal_tao_bridge_dir(), dir_name)
         link_in_bridge = os.path.join(tao_bridge_dir(), dir_name)
         if args.platform_alibaba:
-            execute("rm -rf {0} && ln -s {1} {0}".format(link_in_bridge, src_file))
+            link_dirs(link_in_bridge, src_file)
         else:
             execute("rm -rf {0}".format(link_in_bridge))
     if args.platform_alibaba:
@@ -138,7 +140,7 @@ def link_internal_for_tao_bridge(args):
         dst_dir = os.path.join(get_source_root_dir(), "third_party", "bazel", "blade_service_common")
         files = os.listdir(src_dir)
         for f in files:
-            execute("rm -rf {0} && ln -s {1} {0}".format(os.path.join(dst_dir, f), os.path.join(src_dir, f)))
+            link_dirs(os.path.join(dst_dir, f), os.path.join(src_dir, f))
 
 
 def add_ral_link_if_not_exist(root):
@@ -179,19 +181,19 @@ def restore_gcc_conf(args):
 def symlink_internal_files(root):
     with cwd(root):
         logger.info("linking PatineClient")
-        execute("rm -rf {0} && ln -s {1} {0}".format(os.path.join('tf_community', 'tao', 'third_party', 'PatineClient'),
-                os.path.join(internal_root_dir(), 'platform_alibaba', 'third_party', 'PatineClient')))
+        link_dirs(os.path.join('tf_community', 'tao', 'third_party', 'PatineClient'),
+                os.path.join(internal_root_dir(), 'platform_alibaba', 'third_party', 'PatineClient'))
         logger.info("linking blade_gemm")
-        execute("rm -rf {0} && ln -s {1} {0}".format(os.path.join('tf_community', 'tao', 'blade_gemm'),
-                os.path.join(internal_root_dir(), 'platform_alibaba', 'blade_gemm')))
+        link_dirs(os.path.join('tf_community', 'tao', 'blade_gemm'),
+                os.path.join(internal_root_dir(), 'platform_alibaba', 'blade_gemm'))
         logger.info("linking blade_service_common")
-        execute("rm -rf {0} && ln -s {1} {0}".format(os.path.join('tf_community', 'tao', 'third_party', 'blade_service_common'),
-                os.path.join(internal_root_dir(), 'platform_alibaba', 'third_party', 'blade_service_common')))
+        link_dirs(os.path.join('tf_community', 'tao', 'third_party', 'blade_service_common'),
+                os.path.join(internal_root_dir(), 'platform_alibaba', 'third_party', 'blade_service_common'))
 
         logger.info("cleanup tao_compiler with XLA always...")
         src = os.path.join(internal_root_dir(), "platform_alibaba/tao_compiler/xla")
-        dest = "tf_community/tensorflow/compiler/decoupling_xla"
-        execute("rm -rf {1} && ln -s {0} {1}".format(src, dest))
+        dst = "tf_community/tensorflow/compiler/decoupling_xla"
+        link_dirs(dst, src)
 
 
 def configure_compiler(root, args):

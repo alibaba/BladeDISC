@@ -675,7 +675,8 @@ bool isQint32ConstantZeroTensor(Value v) {
   for (int64_t i = 0; i < numElems; ++i) {
     if (flat(i) != 0) return false;
   }
-  return true;
+  // in case the value is an empty tensor.
+  return (numElems != 0);
 }
 
 bool isConstantZeroTensor(Value v) {

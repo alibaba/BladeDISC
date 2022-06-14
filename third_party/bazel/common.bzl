@@ -343,5 +343,5 @@ def get_env_bool_value_str(repository_ctx, env_name):
     else:
         return "False"
 
-def get_env_bool_value(repository_ctx, env_name):
-    return True if get_host_environ(repository_ctx, env_name, "False").lower() in ["1", "true", "on"] else False
+def get_env_bool_value(repository_ctx, env_name, default_value = False):
+    return True if get_host_environ(repository_ctx, env_name, str(default_value)).lower() in ["1", "true", "on"] else False

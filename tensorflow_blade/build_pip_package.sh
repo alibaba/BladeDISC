@@ -35,7 +35,6 @@ if [ $? != 0 ]; then
 fi
 eval set -- "${ARGS}"
 
-export BUILD_WITH_BAZEL=true
 export SKIP_TRT=false
 export PKG_DEVICE=gpu
 py_bin=""

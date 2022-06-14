@@ -307,15 +307,18 @@ void runACLConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
                       MemRefType<int32_t, 1> metadata, const ConvParams& params,
                       CpuTimer& timer) {
   auto AclConvCreator = [&]() {
-    int N = input.sizes[0];
-    int Ih = input.sizes[1];
-    int Iw = input.sizes[2];
-    int Ci = input.sizes[3];
-    int Oh = output.sizes[1];
-    int Ow = output.sizes[2];
-    int Co = output.sizes[3];
-    int Kh = kernel.sizes[1];
-    int Kw = kernel.sizes[2];
+    auto src_dims = params.src.get_dims();
+    auto dst_dims = params.dst.get_dims();
+    auto weight_dims = params.weight.get_dims();
+    int N = src_dims[0];
+    int Ci = src_dims[1];
+    int Ih = src_dims[2];
+    int Iw = src_dims[3];
+    int Co = dst_dims[1];
+    int Oh = dst_dims[2];
+    int Ow = dst_dims[3];
+    int Kh = weight_dims[2];
+    int Kw = weight_dims[3];
 
     if (TAO_VLOG_IS_ON(1)) {
       TAO_VLOG(1) << "N = " << N;

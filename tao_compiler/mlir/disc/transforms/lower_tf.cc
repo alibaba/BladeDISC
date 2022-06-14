@@ -36,6 +36,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_types.h"
+#include "tensorflow/compiler/mlir/tensorflow/utils/convert_tensor.h"
 #include "tensorflow/core/framework/kernel_shape_util.h"
 #include "tensorflow/core/util/padding.h"
 #include "tensorflow/core/util/tensor_format.h"
@@ -660,9 +661,31 @@ Type ToLegalElementType(Type type) {
       .Default([&type](Type) { return type; });
 }
 
+bool isQint32ConstantZeroTensor(Value v) {
+  auto constOp = dyn_cast_or_null<TF::ConstOp>(v.getDefiningOp());
+  if (!constOp) return false;
+
+  tensorflow::Tensor out;
+  if (tensorflow::ConvertToTensor(constOp.value(), &out) !=
+      tensorflow::Status::OK())
+    return false;
+
+  int64_t numElems = out.NumElements();
+  auto flat = out.bit_casted_shaped<int32_t, 1>({numElems});
+  for (int64_t i = 0; i < numElems; ++i) {
+    if (flat(i) != 0) return false;
+  }
+  return true;
+}
+
 bool isConstantZeroTensor(Value v) {
   auto castOp = dyn_cast_or_null<TF::CastOp>(v.getDefiningOp());
   if (castOp) return isConstantZeroTensor(castOp->getOperand(0));
+
+  auto ty = v.getType().dyn_cast<RankedTensorType>();
+  if (ty && ty.getElementType().isa<mlir::TF::Qint32Type>()) {
+    return isQint32ConstantZeroTensor(v);
+  }
 
   DenseElementsAttr denseAttr;
   if (!matchPattern(v, m_Constant(&denseAttr))) return false;

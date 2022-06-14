@@ -1178,6 +1178,7 @@ cc_library(
         ":qconv_custom_call",
         "//tensorflow/compiler/mlir/hlo:hlo",
         "//tensorflow/compiler/mlir/tensorflow:tensorflow",
+        "//tensorflow/compiler/mlir/tensorflow:convert_tensor",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",

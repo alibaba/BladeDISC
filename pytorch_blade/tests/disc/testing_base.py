@@ -18,7 +18,7 @@ from torch_blade.mlir import is_available
 from torch_blade.config import Config
 from torch_blade.clustering import support_fusion_group
 from torch_blade.testing.common_utils import TestCase
-from torch_blade.tools import read_bool_from_env
+from torch_blade.tools import read_bool_from_env, tensor_to_dynamic_shape 
 
 
 def skipIfNoDISC():
@@ -42,26 +42,27 @@ class DiscTestCase(TestCase):
         else:
             return nn_module
 
-    def cvt_to_disc(self, nn_module, test_data):
+    def cvt_to_disc(self, nn_module, test_data, input_dims):
         cfg = Config.get_current_context_or_new()
         cfg.optimization_pipeline = mlir.backend_name()
+        cfg.force_input_dims = input_dims
         with mlir.testing_context(), support_fusion_group.min_group_nodes(1), cfg:
             nn_module = self._ScriptFunction2Module(nn_module)
             nn_module = nn_module.eval().to(self.device)
             opt_module = optimize(
                 nn_module,
                 allow_tracing=True,
-                model_inputs=test_data,
+                model_inputs=test_data
             )
         return opt_module
 
     def _test_cvt_to_disc(
-        self, nn_module, test_data, rtol=1e-6, atol=1e-3, n_engines=1
+        self, nn_module, test_data, dims=[], rtol=1e-6, atol=1e-3, n_engines=1
     ):
         nn_module = self._ScriptFunction2Module(nn_module)
         nn_module = nn_module.eval().to(self.device)
         result = nn_module(*test_data)
-        opt_module = self.cvt_to_disc(nn_module, test_data)
+        opt_module = self.cvt_to_disc(nn_module, test_data, dims)
         output = opt_module.forward(*test_data)
         self.assertEqual(output, result, rtol=rtol, atol=atol)
         self.assertGreaterEqual(mlir.num_engines(opt_module), n_engines)

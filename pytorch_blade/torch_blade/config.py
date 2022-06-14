@@ -157,6 +157,7 @@ class Config(ConfigContext):
         self._customize_op_black_list = []
         self._customize_jit_passes = []
         self._opt_pipeline = 'DISC'
+        self._force_input_dims = []
 
     @property
     def optimization_pipeline(self):
@@ -455,3 +456,11 @@ class Config(ConfigContext):
     def customize_jit_passes(self, val):
         assert isinstance(val, list), "customize_jit_passes should be list, got {}".format(type(val))
         self._customize_jit_passes = val
+    
+    @property
+    def force_input_dims(self):
+        return self._force_input_dims
+    
+    @force_input_dims.setter
+    def force_input_dims(self, dims):
+        self._force_input_dims = dims

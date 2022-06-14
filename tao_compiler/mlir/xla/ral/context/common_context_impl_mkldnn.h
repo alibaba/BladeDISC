@@ -404,6 +404,63 @@ bool parseConvParams(ExecutionContext* ctx, MemRefType<Tinput, N> input,
   return true;
 }
 
+template <typename Tinput, typename Tfilter = Tinput, typename Toutput = Tinput>
+void dumpConvLikeKernelProflingInfo(const ConvParams& params, size_t nanosec,
+                                    const char* message) {
+  const auto& src_dims = params.src.get_dims();
+  const auto& kernel_dims = params.weight.get_dims();
+  const auto& dst_dims = params.dst.get_dims();
+
+  int64_t bytes =
+      static_cast<int64_t>(params.src.get_nelems()) * sizeof(Tinput) +
+      static_cast<int64_t>(params.weight.get_nelems()) * sizeof(Tfilter) +
+      static_cast<int64_t>(params.dst.get_nelems()) * sizeof(Toutput);
+
+  int64_t OC = params.dst.get_dims()[1];
+  // 2 * KH * KW * KIC - 1
+  int64_t flops_per_output =
+      2 * static_cast<int64_t>(params.weight.get_nelems()) / OC - 1;
+  // #outputs * flops_per_output
+  int64_t gflops =
+      static_cast<int64_t>(params.dst.get_nelems()) * flops_per_output;
+
+  std::ostringstream sout;
+  sout << message << ":\n";
+  sout << "  input logical NCHW shape:\n\t";
+  for (const auto& d : src_dims) {
+    sout << d << " ";
+  }
+  sout << "\n  kernel logical OIHW shape:\n\t";
+  for (const auto& d : kernel_dims) {
+    sout << d << " ";
+  }
+  sout << "\n  output logical NCHW shape:\n\t";
+  for (const auto& d : dst_dims) {
+    sout << d << " ";
+  }
+  sout << "\n  strides:\n\t";
+  for (size_t i = 0; i < params.strides.size(); ++i) {
+    sout << params.strides[i] << " ";
+  }
+  sout << "\n  dilates:\n\t";
+  for (size_t i = 0; i < params.dilates.size(); ++i) {
+    sout << params.dilates[i] << " ";
+  }
+  sout << "\n  paddings_l:\n\t";
+  for (size_t i = 0; i < params.padding_l.size(); ++i) {
+    sout << params.padding_l[i] << " ";
+  }
+  sout << "\n  paddings_r:\n\t";
+  for (size_t i = 0; i < params.padding_r.size(); ++i) {
+    sout << params.padding_r[i] << " ";
+  }
+  TAO_VLOG(0) << sout.str() << "\n roofline:\n"
+              << "\tMath Ops = " << gflops << "\n"
+              << "\tBytes = " << bytes << "\n"
+              << "\tBandwidth = " << double(bytes) / double(nanosec) << " GB\n"
+              << "\tGFLOPS = " << double(gflops) / double(nanosec) << "\n";
+}
+
 #if defined(TAO_AARCH64)
 struct AclDepthwiseConvInfo {
   arm_compute::Tensor src;
@@ -463,64 +520,7 @@ struct ACLConvState : public Context::Resource {
   }
 };
 
-template <typename Tinput, typename Tfilter = Tinput, typename Toutput = Tinput>
-void dumpConvLikeKernelProflingInfo(const ConvParams& params, size_t nanosec,
-                                    const char* message) {
-  const auto& src_dims = params.src.get_dims();
-  const auto& kernel_dims = params.weight.get_dims();
-  const auto& dst_dims = params.dst.get_dims();
-
-  int64_t bytes =
-      static_cast<int64_t>(params.src.get_nelems()) * sizeof(Tinput) +
-      static_cast<int64_t>(params.weight.get_nelems()) * sizeof(Tfilter) +
-      static_cast<int64_t>(params.dst.get_nelems()) * sizeof(Toutput);
-
-  int64_t OC = params.dst.get_dims()[1];
-  // 2 * KH * KW * KIC - 1
-  int64_t flops_per_output =
-      2 * static_cast<int64_t>(params.weight.get_nelems()) / OC - 1;
-  // #outputs * flops_per_output
-  int64_t gflops =
-      static_cast<int64_t>(params.dst.get_nelems()) * flops_per_output;
-
-  std::ostringstream sout;
-  sout << message << ":\n";
-  sout << "  input logical NCHW shape:\n\t";
-  for (const auto& d : src_dims) {
-    sout << d << " ";
-  }
-  sout << "\n  kernel logical OIHW shape:\n\t";
-  for (const auto& d : kernel_dims) {
-    sout << d << " ";
-  }
-  sout << "\n  output logical NCHW shape:\n\t";
-  for (const auto& d : dst_dims) {
-    sout << d << " ";
-  }
-  sout << "\n  strides:\n\t";
-  for (size_t i = 0; i < params.strides.size(); ++i) {
-    sout << params.strides[i] << " ";
-  }
-  sout << "\n  dilates:\n\t";
-  for (size_t i = 0; i < params.dilates.size(); ++i) {
-    sout << params.dilates[i] << " ";
-  }
-  sout << "\n  paddings_l:\n\t";
-  for (size_t i = 0; i < params.padding_l.size(); ++i) {
-    sout << params.padding_l[i] << " ";
-  }
-  sout << "\n  paddings_r:\n\t";
-  for (size_t i = 0; i < params.padding_r.size(); ++i) {
-    sout << params.padding_r[i] << " ";
-  }
-  TAO_VLOG(0) << sout.str() << "\n roofline:\n"
-              << "\tMath Ops = " << gflops << "\n"
-              << "\tBytes = " << bytes << "\n"
-              << "\tBandwidth = " << double(bytes) / double(nanosec) << " GB\n"
-              << "\tGFLOPS = " << double(gflops) / double(nanosec) << "\n";
-}
-
-#endif
+#endif  // TAO_AARCH64
 
 }  // namespace ral
 }  // namespace tao

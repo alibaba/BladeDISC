@@ -482,7 +482,20 @@ struct DiscSpecializeFusionWithSpeculationPass
       Value out_element_number =
           emitNumElementsComputation(b, loc, dominant_equivalent_op);
       if (mem_intensive_opt_experimental) {
-        vector_size = 4;
+        // Maximize the vector-size according to data type of all outputs. The
+        // maximum vector-size is 8 (128 / 16).
+        auto& results = fusion_pattern.getResults();
+        const int gpu_vector_width = 128;
+        int min_bits = gpu_vector_width;
+        for (auto result : results) {
+          auto memref_ty = result.getType().cast<MemRefType>();
+          int byte_width = memref_ty.getElementTypeBitWidth();
+          min_bits = std::min(byte_width, min_bits);
+        }
+        // The minimum bit-width for vector-size calculation is 16.
+        min_bits = std::max(min_bits, 16);
+        assert(gpu_vector_width % min_bits == 0);
+        vector_size = gpu_vector_width / min_bits;
       }
       Value divisible = b.create<arith::CmpIOp>(
           loc, arith::CmpIPredicate::eq,

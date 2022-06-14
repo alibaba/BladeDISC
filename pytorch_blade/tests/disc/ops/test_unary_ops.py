@@ -78,7 +78,6 @@ class TestDiscUnaryOps(DiscTestCase):
 
         self._test_unary_ops(contiguous_func)
 
-    @skipIfNoTorchMlir()
     def test_to_dtype(self):
         @torch.jit.script
         def to_func(x):
@@ -86,7 +85,6 @@ class TestDiscUnaryOps(DiscTestCase):
 
         self._test_unary_ops(to_func)
 
-    @skipIfNoTorchMlir()
     def test_type_as(self):
         @torch.jit.script
         def type_as(x, y):

@@ -19,7 +19,7 @@ def ConvertTorchToMhlo: Pass<"convert-torch-to-mhlo", "func::FuncOp"> {
     This pass assumes that MHLO ops are responsible for emitting error
     guards in case of shape mismatches.
   }];
-  let constructor = "mlir::torch::createConvertTorchToMhloPass()";
+  let constructor = "mlir::torch::TorchConversion::createConvertTorchToMhloPass()";
 }
 
 def ApplyValueSemantics : Pass<"torch-apply-value-semantics", "func::FuncOp"> {
@@ -39,7 +39,7 @@ def ApplyValueSemantics : Pass<"torch-apply-value-semantics", "func::FuncOp"> {
     Also, this pass doesn't currently handle interprocedural rewriting
     (of private functions), which is even more complex.
   }];
-  let constructor = "mlir::torch::Torch::createApplyValueSemanticsPass()";
+  let constructor = "mlir::torch::TorchConversion::createApplyValueSemanticsPass()";
 }
 
 

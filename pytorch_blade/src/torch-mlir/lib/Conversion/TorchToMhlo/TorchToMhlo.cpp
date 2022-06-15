@@ -893,6 +893,54 @@ LogicalResult ConvertAtenOp<AtenDropoutOp>::matchAndRewrite(
   return success();
 }
 
+template <>
+LogicalResult ConvertAtenOp<AtenViewOp>::matchAndRewrite(
+    AtenViewOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  // Not a tensor type.
+  auto selfType = adaptor.self().getType().dyn_cast<TensorType>();
+  if (!selfType)
+    return op.emitError("Only tensor types are currently supported");
+
+  SmallVector<Value> dimsSize;
+  if (!getListConstructElements(adaptor.size(), dimsSize)) {
+    return op.emitError("Dims size must be a list of Scalar");
+  }
+
+  auto loc = op.getLoc();
+  auto rankType = selfType.dyn_cast<RankedTensorType>();
+  auto self_rank = rankType ? rankType.getRank() : 0;
+  auto new_rank = dimsSize.size();
+  auto leading_rank = new_rank - self_rank;
+  for (size_t d = 0; d < new_rank; ++d) {
+    auto dsize = dimsSize[d];
+    int64_t dval;
+    if (matchPattern(dsize, m_TorchConstantInt(&dval)) && dval == -1) {
+      return op.emitError(
+          "For the new leading dimensions, the size cannot be set to -1.");
+    } else {
+      dsize = rewriter.create<ToI64Op>(loc, dsize).getResult();
+      dsize = rewriter.create<mlir::arith::IndexCastOp>(
+          loc, rewriter.getIndexType(), dsize);
+    }
+    dsize = rewriter.create<mlir::arith::IndexCastOp>(
+        loc, rewriter.getI32Type(), dsize);
+    dimsSize[d] = dsize;
+  }
+
+  auto mhlo_shape =
+      rewriter.create<mlir::tensor::FromElementsOp>(loc, dimsSize);
+
+  rewriter.replaceOpWithNewOp<mhlo::DynamicReshapeOp>(
+      op,
+      getTypeConverter()->convertType(op.getType()),
+      adaptor.self(),
+      mhlo_shape);
+
+  return success();
+}
+
 // Ref: https://pytorch.org/docs/stable/generated/torch.Tensor.expand.html
 // aten.broadcast_to has similar semantics with torch.expand
 template <>
@@ -1473,7 +1521,7 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenLog2Op);
     // INSERT_ATENOP_PATTERN(AtenUnsqueezeOp);
     INSERT_ATENOP_PATTERN(AtenDropoutOp);
-    // INSERT_ATENOP_PATTERN(AtenViewOp);
+    INSERT_ATENOP_PATTERN(AtenViewOp);
     // INSERT_ATENOP_PATTERN(AtenGeluOp);
     // INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
 #undef INSERT_ATENOP_PATTERN

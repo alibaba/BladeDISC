@@ -910,15 +910,12 @@ LogicalResult ConvertAtenOp<AtenViewOp>::matchAndRewrite(
 
   auto loc = op.getLoc();
   auto rankType = selfType.dyn_cast<RankedTensorType>();
-  auto self_rank = rankType ? rankType.getRank() : 0;
-  auto new_rank = dimsSize.size();
-  auto leading_rank = new_rank - self_rank;
-  for (size_t d = 0; d < new_rank; ++d) {
+  auto newRank = dimsSize.size();
+  for (size_t d = 0; d < newRank; ++d) {
     auto dsize = dimsSize[d];
     int64_t dval;
     if (matchPattern(dsize, m_TorchConstantInt(&dval)) && dval == -1) {
-      return op.emitError(
-          "For the new leading dimensions, the size cannot be set to -1.");
+      return op.emitError("The size cannot be set to -1.");
     } else {
       dsize = rewriter.create<ToI64Op>(loc, dsize).getResult();
       dsize = rewriter.create<mlir::arith::IndexCastOp>(
@@ -929,14 +926,13 @@ LogicalResult ConvertAtenOp<AtenViewOp>::matchAndRewrite(
     dimsSize[d] = dsize;
   }
 
-  auto mhlo_shape =
-      rewriter.create<mlir::tensor::FromElementsOp>(loc, dimsSize);
+  auto mhloShape = rewriter.create<mlir::tensor::FromElementsOp>(loc, dimsSize);
 
   rewriter.replaceOpWithNewOp<mhlo::DynamicReshapeOp>(
       op,
       getTypeConverter()->convertType(op.getType()),
       adaptor.self(),
-      mhlo_shape);
+      mhloShape);
 
   return success();
 }
@@ -961,42 +957,48 @@ LogicalResult ConvertAtenOp<AtenBroadcastToOp>::matchAndRewrite(
 
   auto loc = op.getLoc();
   auto rankType = selfType.dyn_cast<RankedTensorType>();
-  auto self_rank = rankType ? rankType.getRank() : 0;
-  auto new_rank = dimsSize.size();
-  auto leading_rank = new_rank - self_rank;
-  for (size_t d = 0; d < new_rank; ++d) {
+  auto selfRank = rankType ? rankType.getRank() : 0;
+  auto newRank = dimsSize.size();
+  auto leadingRank = newRank - selfRank;
+  for (size_t d = 0; d < newRank; ++d) {
+    // !torch.int
     auto dsize = dimsSize[d];
     int64_t dval;
     if (matchPattern(dsize, m_TorchConstantInt(&dval)) && dval == -1) {
-      if (d < leading_rank) {
+      if (d < leadingRank) {
         return op.emitError(
+            "Ref: https://pytorch.org/docs/stable/generated/torch.Tensor.expand.html."
             "For the new leading dimensions, the size cannot be set to -1.");
       } else {
         // Passing -1 as the size for a dimension means not changing the size
         // of that dimension.
+        //
+        // tensor.dim %self -> index
         dsize = rewriter.create<tensor::DimOp>(
-            loc, adaptor.self(), d - leading_rank);
+            loc, adaptor.self(), d - leadingRank);
       }
     } else {
+      // !torch.int -> i64
       dsize = rewriter.create<ToI64Op>(loc, dsize).getResult();
+      // i64 -> index
       dsize = rewriter.create<mlir::arith::IndexCastOp>(
           loc, rewriter.getIndexType(), dsize);
     }
+    // index -> i32
     dsize = rewriter.create<mlir::arith::IndexCastOp>(
         loc, rewriter.getI32Type(), dsize);
     dimsSize[d] = dsize;
   }
 
-  auto mhlo_shape =
-      rewriter.create<mlir::tensor::FromElementsOp>(loc, dimsSize);
-  auto broadcast_dims =
-      BuildI64ElementsAttr(rewriter, RangeIndices(leading_rank, new_rank));
+  auto mhloShape = rewriter.create<mlir::tensor::FromElementsOp>(loc, dimsSize);
+  auto broadcastDims =
+      BuildI64ElementsAttr(rewriter, RangeIndices(leadingRank, newRank));
   rewriter.replaceOpWithNewOp<mhlo::DynamicBroadcastInDimOp>(
       op,
       getTypeConverter()->convertType(op.getType()),
       adaptor.self(),
-      mhlo_shape,
-      broadcast_dims);
+      mhloShape,
+      broadcastDims);
   return success();
 }
 

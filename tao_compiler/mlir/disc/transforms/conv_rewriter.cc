@@ -146,6 +146,12 @@ void fillOHWI(SmallVector<int64_t>& layout, int num_spatial_dims) {
   }
 }
 
+// Returns true if the conv is depthwise.
+bool isDepthwiseConv(ConvParams& params) {
+  auto filterTy = params.filter.getType().cast<RankedTensorType>();
+  return filterTy.getShape()[params.filterLayout[0]] == 1;
+}
+
 LogicalResult inferExpectedLayout(ConvParams& params) {
   bool onGpu = placement_utils::isGpuMhlo(params.conv);
   auto inputTy = params.input.getType().dyn_cast<RankedTensorType>();
@@ -174,10 +180,22 @@ LogicalResult inferExpectedLayout(ConvParams& params) {
       fillOIHW(filterLayout, num_spatial_dims);
     }
   } else {
+#if defined(TAO_AARCH64)
+    if (isDepthwiseConv(params)) {
+      fillNHWC(inputLayout, num_spatial_dims);
+      fillNHWC(outputLayout, num_spatial_dims);
+      fillHWIO(filterLayout, num_spatial_dims);
+    } else {
+      fillNHWC(inputLayout, num_spatial_dims);
+      fillNHWC(outputLayout, num_spatial_dims);
+      fillOHWI(filterLayout, num_spatial_dims);
+    }
+#else
     // CPU conv, default layout:
     fillNHWC(inputLayout, num_spatial_dims);
     fillNHWC(outputLayout, num_spatial_dims);
     fillHWIO(filterLayout, num_spatial_dims);
+#endif
   }
 
   return success();

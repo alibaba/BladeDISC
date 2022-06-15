@@ -848,23 +848,6 @@ LogicalResult ConvertAtenOp<AtenLog2Op>::matchAndRewrite(
 }
 
 template <>
-LogicalResult ConvertAtenOp<AtenContiguousOp>::matchAndRewrite(
-    AtenContiguousOp op,
-    OpAdaptor adaptor,
-    ConversionPatternRewriter& rewriter) const {
-  // Not a tensor type.
-  auto selfType = adaptor.self().getType().dyn_cast<TensorType>();
-  if (!selfType)
-    return op.emitError("Only tensor types are currently supported");
-
-  // FIXME: memory_format is not handled.
-
-  rewriter.replaceOp(op, adaptor.self());
-
-  return success();
-}
-
-template <>
 LogicalResult ConvertAtenOp<AtenDropoutOp>::matchAndRewrite(
     AtenDropoutOp op,
     OpAdaptor adaptor,
@@ -1336,8 +1319,12 @@ class ConvertTorchToMhlo
     INSERT_UNARY_PATTERN(AtenRsqrtOp, mhlo::RsqrtOp)
     INSERT_UNARY_PATTERN(AtenBitwiseNotOp, mhlo::NotOp)
     INSERT_UNARY_PATTERN(AtenCeilOp, mhlo::CeilOp)
+
+    // It's tricky that ConvertOp will use type from the return,
+    // but not from the operand here.
     INSERT_UNARY_PATTERN(AtenContiguousOp, mhlo::ConvertOp)
-    // INSERT_UNARY_PATTERN(AtenReciprocalOp, mhlo::ReciprocalOp)
+    INSERT_UNARY_PATTERN(AtenToDtypeOp, mhlo::ConvertOp);
+    INSERT_UNARY_PATTERN(AtenTypeAsOp, mhlo::ConvertOp);
 #undef INSERT_UNARY_PATTERN
 
 #define INSERT_BINARY_PATTERN(AtenOp, MhloOp) \
@@ -1403,7 +1390,6 @@ class ConvertTorchToMhlo
     // INSERT_ATENOP_PATTERN(AtenPermuteOp);
     INSERT_ATENOP_PATTERN(AtenLog2Op);
     // INSERT_ATENOP_PATTERN(AtenUnsqueezeOp);
-    // INSERT_ATENOP_PATTERN(AtenContiguousOp);
     INSERT_ATENOP_PATTERN(AtenDropoutOp);
     // INSERT_ATENOP_PATTERN(AtenViewOp);
     // INSERT_ATENOP_PATTERN(AtenGeluOp);

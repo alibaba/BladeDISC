@@ -57,10 +57,14 @@ LogicalResult elemwiseLowerHelper(OpBuilder& b, Location loc, Operation* op,
 
   Value result_memref = cast<lmhlo::LmhloOp>(op).getResultBuffer();
   Value memref = result_memref;
-  if (shape_analysis != nullptr) {
+  // TODO(disc): we acutally don't need this after shape constraint refactor
+  // Remove this part of code after we finish the benchamrk after the refactor.
+  if (auto analysis_deprecated =
+          dynamic_cast<const ShapeAnalysisDeprecated*>(shape_analysis)) {
     auto parent_fusion = op->getParentOfType<mhlo::FusionOp>();
-    Value leader_memref = shape_analysis->GetLeaderValueWithSameShapeInFusion(
-        parent_fusion, result_memref);
+    Value leader_memref =
+        analysis_deprecated->GetLeaderValueWithSameShapeInFusion(parent_fusion,
+                                                                 result_memref);
     if (leader_memref != nullptr) {
       memref = leader_memref;
     }
@@ -128,10 +132,14 @@ LogicalResult miscLowerHelper(OpBuilder& b, Location loc, Operation* opaque_op,
   if (!op) return failure();
   Value result_memref = cast<lmhlo::LmhloOp>(&*op).getResultBuffer();
   Value memref = result_memref;
-  if (shape_analysis) {
+  // TODO(disc): we acutally don't need this after shape constraint refactor
+  // Remove this part of code after we finish the benchamrk after the refactor.
+  if (auto analysis_deprecated =
+          dynamic_cast<const ShapeAnalysisDeprecated*>(shape_analysis)) {
     lmhlo::FusionOp fusion = opaque_op->getParentOfType<lmhlo::FusionOp>();
-    Value leader_memref = shape_analysis->GetLeaderValueWithSameShapeInFusion(
-        fusion, result_memref);
+    Value leader_memref =
+        analysis_deprecated->GetLeaderValueWithSameShapeInFusion(fusion,
+                                                                 result_memref);
     if (leader_memref != nullptr) {
       memref = leader_memref;
     }
@@ -3397,7 +3405,9 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
   assert(fusion_op);
 
   FusionPattern fusion_pattern(fusion_op, shape_analysis);
-  {  // Update in-fusio shape equality information.
+  if (auto analysis_deprecated =
+          dynamic_cast<ShapeAnalysisDeprecated*>(shape_analysis)) {
+    // Update in-fusion shape equality information.
     DenseSet<Value> values_in_fusion;
     auto operands = fusion_pattern.getOperands();
     values_in_fusion.insert(operands.begin(), operands.end());
@@ -3405,7 +3415,7 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
     values_in_fusion.insert(internal_results.begin(), internal_results.end());
     auto results = fusion_pattern.getResults();
     values_in_fusion.insert(results.begin(), results.end());
-    shape_analysis->buildEqualShapesInFusion(fusion, values_in_fusion);
+    analysis_deprecated->buildEqualShapesInFusion(fusion, values_in_fusion);
   }
   LLVM_DEBUG(createPrintFusionParams(fusion_op, fusion_pattern));
 

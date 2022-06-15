@@ -176,10 +176,6 @@ class ShapeAnalysis {
       Value lhs, Value rhs,
       SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>>&
           equal) = 0;
-  virtual Value GetLeaderValueWithSameShapeInFusion(const Operation* fusion,
-                                                    Value val) const = 0;
-  virtual void buildEqualShapesInFusion(
-      const Operation* fusion, const DenseSet<Value>& values_in_fusion) = 0;
 };
 
 // Shape analysis for propagating and analyzing known shape information in
@@ -221,15 +217,14 @@ class ShapeAnalysisDeprecated : public ShapeAnalysis {
 
   // Build equal shape information for the given values. The equal information
   // is maintained in a self-maintained map with `fusion` as the key.
-  void buildEqualShapesInFusion(
-      const Operation* fusion,
-      const DenseSet<Value>& values_in_fusion) override;
+  void buildEqualShapesInFusion(const Operation* fusion,
+                                const DenseSet<Value>& values_in_fusion);
 
   // Deprecated. Get the leader value with same shape for `val` in `op_`.
   Value GetLeaderValueWithSameShapeGlobal(Value val) const;
   // Get the leader value with same shape for `val` in  `fusion`.
   Value GetLeaderValueWithSameShapeInFusion(const Operation* fusion,
-                                            Value val) const override;
+                                            Value val) const;
 
  private:
   LogicalResult buildShapeMap();

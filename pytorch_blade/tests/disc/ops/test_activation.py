@@ -12,15 +12,8 @@
 from enum import Enum
 import torch
 import unittest
-from tests.disc.testing_base import skipIfEnableTorchMlir
-
-from tests.disc.testing_base import DiscTestCase, skipIfNoDISC
+from tests.disc.testing_base import skipIfEnableTorchMlir, DiscTestCase
 from torch_blade import Config
-
-class ShapeTesting(Enum):
-    FULL_DYNAMIC_SHAPE = 1
-    PARTIAL_DYNAMIC_SHAPE = 2
-    STATIC_SHAPE = 3
 
 
 class TestDiscActivation(DiscTestCase):

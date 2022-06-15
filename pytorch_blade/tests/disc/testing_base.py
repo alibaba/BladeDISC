@@ -44,7 +44,7 @@ class DiscTestCase(TestCase):
         else:
             return nn_module
 
-    def cvt_to_disc(self, nn_module, test_data, input_dims):
+    def cvt_to_disc(self, nn_module, test_data, input_dims=[]):
         cfg = Config.get_current_context_or_new()
         cfg.optimization_pipeline = mlir.backend_name()
         cfg.annotate_args = input_dims

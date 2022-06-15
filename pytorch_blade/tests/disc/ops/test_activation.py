@@ -10,7 +10,6 @@
 # limitations under the License.
 
 from enum import Enum
-from parameterized import parameterized
 import torch
 import unittest
 from tests.disc.testing_base import skipIfEnableTorchMlir

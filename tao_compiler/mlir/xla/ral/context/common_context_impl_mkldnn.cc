@@ -148,7 +148,7 @@ struct MkldnnConvState : public Context::Resource {
 #if defined(TAO_AARCH64)
 template <typename Tinput, int N, typename Tfilter = Tinput,
           typename Toutput = Tinput>
-bool isACLSupportedDepthwiseConv(
+bool isAclSupportedDepthwiseConv(
     ExecutionContext* ctx, opaque_t /*stream_handle*/,
     MemRefType<Tinput, N> input, MemRefType<Tfilter, N> kernel,
     MemRefType<int32_t, 1> padding, MemRefType<Toutput, N> output,
@@ -171,7 +171,7 @@ bool isACLSupportedDepthwiseConv(
 
 template <typename Tinput, int NDims, typename Tfilter = Tinput,
           typename Toutput = Tinput>
-void runACLDepthwiseKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
+void runAclDepthwiseKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
                            MemRefType<Tinput, NDims> input,
                            MemRefType<Tfilter, NDims> kernel,
                            MemRefType<int32_t, 1> padding,
@@ -225,7 +225,7 @@ void runACLDepthwiseKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
     weights.allocator()->init(weights_info);
     dst.allocator()->init(dst_info);
 
-    if (!info->depthwise_conv.validate(
+    if (!info->op.validate(
             &src_info, &weights_info, nullptr, &dst_info,
             arm_compute::PadStrideInfo{
                 params.strides[1], params.strides[0], params.padding_l[1],
@@ -235,7 +235,7 @@ void runACLDepthwiseKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
             arm_compute::Size2D{params.dilates[1], params.dilates[0]})) {
       ctx->signalError(Context::FAILURE, "fail to validate acl depthwise conv");
     } else {
-      info->depthwise_conv.configure(
+      info->op.configure(
           &src, &weights, nullptr, &dst,
           arm_compute::PadStrideInfo{params.strides[1], params.strides[0],
                                      params.padding_l[1], params.padding_r[1],
@@ -251,8 +251,8 @@ void runACLDepthwiseKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
   std::shared_ptr<AclDepthwiseConvInfo> info;
   if (isWeightPrePackingEnabled() && params.weight_is_const) {
     std::string unique_name = "disc.ral.cpu.acl_depthwise_conv";
-    auto state = ctx->getOrCreateResource<ACLDepthwiseConvState>(
-        unique_name, []() { return new ACLDepthwiseConvState; });
+    auto state = ctx->getOrCreateResource<AclDepthwiseConvState>(
+        unique_name, []() { return new AclDepthwiseConvState; });
     auto key = makeConvParamsKey(input, kernel, padding, output, metadata,
                                  std::this_thread::get_id());
     info = state->getOrCreate(key, AclDepthwiseConvCreator);
@@ -263,7 +263,7 @@ void runACLDepthwiseKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
   info->src.allocator()->import_memory(input.data);
   info->weights.allocator()->import_memory(kernel.data);
   info->dst.allocator()->import_memory(output.data);
-  info->depthwise_conv.run();
+  info->op.run();
 
   timer.Stop();
   if (isProfilingEnabled()) {
@@ -274,7 +274,7 @@ void runACLDepthwiseKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
 
 template <typename Tinput, int N, typename Tfilter = Tinput,
           typename Toutput = Tinput>
-bool isACLSupportedConv(ExecutionContext* ctx, opaque_t /*stream_handle*/,
+bool isAclSupportedConv(ExecutionContext* ctx, opaque_t /*stream_handle*/,
                         MemRefType<Tinput, N> input,
                         MemRefType<Tfilter, N> kernel,
                         MemRefType<int32_t, 1> padding,
@@ -299,7 +299,7 @@ bool isACLSupportedConv(ExecutionContext* ctx, opaque_t /*stream_handle*/,
 
 template <typename Tinput, int NDims, typename Tfilter = Tinput,
           typename Toutput = Tinput>
-void runACLConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
+void runAclConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
                       MemRefType<Tinput, NDims> input,
                       MemRefType<Tfilter, NDims> kernel,
                       MemRefType<int32_t, 1> padding,
@@ -364,7 +364,7 @@ void runACLConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
     weights.allocator()->init(weights_info);
     dst.allocator()->init(dst_info);
 
-    if (!info->conv.validate(
+    if (!info->op.validate(
             &src_info, &weights_info, nullptr, &dst_info,
             arm_compute::PadStrideInfo{
                 params.strides[1], params.strides[0], params.padding_l[1],
@@ -374,7 +374,7 @@ void runACLConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
             arm_compute::Size2D{params.dilates[1], params.dilates[0]})) {
       ctx->signalError(Context::FAILURE, "fail to validate acl depthwise conv");
     } else {
-      info->conv.configure(
+      info->op.configure(
           &src, &weights, nullptr, &dst,
           arm_compute::PadStrideInfo{params.strides[1], params.strides[0],
                                      params.padding_l[1], params.padding_r[1],
@@ -390,8 +390,8 @@ void runACLConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
   std::shared_ptr<AclConvInfo> info;
   if (isWeightPrePackingEnabled() && params.weight_is_const) {
     std::string unique_name = "tao_ral.cpu.acl_conv";
-    auto state = ctx->getOrCreateResource<ACLConvState>(
-        unique_name, []() { return new ACLConvState; });
+    auto state = ctx->getOrCreateResource<AclConvState>(
+        unique_name, []() { return new AclConvState; });
     auto key = makeConvParamsKey(input, kernel, padding, output, metadata,
                                  std::this_thread::get_id());
     info = state->getOrCreate(key, AclConvCreator);
@@ -402,7 +402,7 @@ void runACLConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
   info->src.allocator()->import_memory(input.data);
   info->weights.allocator()->import_memory(kernel.data);
   info->dst.allocator()->import_memory(output.data);
-  info->conv.run();
+  info->op.run();
 
   timer.Stop();
   if (isProfilingEnabled()) {
@@ -432,14 +432,14 @@ void ral_conv(ExecutionContext* ctx, opaque_t stream_handle,
   }
 
 #if defined(TAO_AARCH64)
-  if (isACLSupportedDepthwiseConv(ctx, stream_handle, input, kernel, padding,
+  if (isAclSupportedDepthwiseConv(ctx, stream_handle, input, kernel, padding,
                                   output, metadata, params)) {
-    return runACLDepthwiseKernel(ctx, stream_handle, input, kernel, padding,
+    return runAclDepthwiseKernel(ctx, stream_handle, input, kernel, padding,
                                  output, metadata, params, timer);
   }
-  if (isACLSupportedConv(ctx, stream_handle, input, kernel, padding, output,
+  if (isAclSupportedConv(ctx, stream_handle, input, kernel, padding, output,
                          metadata, params)) {
-    return runACLConvKernel(ctx, stream_handle, input, kernel, padding, output,
+    return runAclConvKernel(ctx, stream_handle, input, kernel, padding, output,
                             metadata, params, timer);
   }
 #endif
@@ -634,17 +634,17 @@ struct OnednnGemmState : public Context::Resource {
 };
 
 using MatmulPrimitive = ideep::matmul_forward::super;
-using OnednnACLGemmCache =
+using OnednnAclGemmCache =
     ideep::utils::lru_cache<CpuGemmKey, std::shared_ptr<MatmulPrimitive>,
                             CpuGemmKeyMap>;
 
-struct OnednnACLGemmState : public Context::Resource {
+struct OnednnAclGemmState : public Context::Resource {
   std::mutex mu;
-  OnednnACLGemmCache cached_primitive{getWeightPrePackingCacheCapacity()};
+  OnednnAclGemmCache cached_primitive{getWeightPrePackingCacheCapacity()};
 };
 
 std::shared_ptr<MatmulPrimitive> getOrCreateMatmulPrimitive(
-    OnednnACLGemmCache& cached_primitive, const CpuGemmKey& key,
+    OnednnAclGemmCache& cached_primitive, const CpuGemmKey& key,
     const tensor& src, const tensor& weight, tensor& output) {
   auto it = cached_primitive.find(key);
   if (it == cached_primitive.end()) {
@@ -695,8 +695,8 @@ void onednn_ral_gemm(ExecutionContext* ctx, void* stream_handle,
 
   std::string unique_name = "tao_ral.cpu.onednn_acl_gemm_" +
                             tao::ral::TaoTypeNameHelper<Tinput>::Invoke();
-  auto state = ctx->getOrCreateResource<OnednnACLGemmState>(
-      unique_name, []() { return new OnednnACLGemmState; });
+  auto state = ctx->getOrCreateResource<OnednnAclGemmState>(
+      unique_name, []() { return new OnednnAclGemmState; });
   std::shared_ptr<MatmulPrimitive> primitive;
   {
     CpuGemmKey key{m, n, k, 1, tp_a, tp_b, B.data, std::this_thread::get_id()};
@@ -864,8 +864,8 @@ void onednn_ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
 
   std::string unique_name = "tao_ral.cpu.onednn_acl_batch_gemm_" +
                             tao::ral::TaoTypeNameHelper<Tinput>::Invoke();
-  auto state = ctx->getOrCreateResource<OnednnACLGemmState>(
-      unique_name, []() { return new OnednnACLGemmState; });
+  auto state = ctx->getOrCreateResource<OnednnAclGemmState>(
+      unique_name, []() { return new OnednnAclGemmState; });
   std::shared_ptr<MatmulPrimitive> primitive;
   {
     std::lock_guard<std::mutex> l(state->mu);

@@ -106,7 +106,7 @@ struct ConvParamsKey {
   std::vector<int64_t> weight_dims;
   std::vector<int64_t> dst_dims;
   // padding & stride & dilation & groups & weight_is_const ...
-  std::vector<int32_t> metadatas;
+  std::vector<int32_t> metadata;
   opaque_t weight_ptr = nullptr;
   // We need this in case the cased kernel is not thead safe.
   // To enable large parallelism, we cache the primitive per-thread.
@@ -115,7 +115,7 @@ struct ConvParamsKey {
 
 inline bool operator==(const ConvParamsKey& lhs, const ConvParamsKey& rhs) {
   return (lhs.src_dims == rhs.src_dims && lhs.weight_dims == rhs.weight_dims &&
-          lhs.dst_dims == rhs.dst_dims && lhs.metadatas == rhs.metadatas &&
+          lhs.dst_dims == rhs.dst_dims && lhs.metadata == rhs.metadata &&
           lhs.weight_ptr == rhs.weight_ptr && lhs.tid == rhs.tid);
 }
 
@@ -124,7 +124,7 @@ struct ConvParamsKeyHasher {
     std::size_t seed = std::hash<size_t>()(key.src_dims.size());
     hash_combine(seed, key.weight_dims.size());
     hash_combine(seed, key.dst_dims.size());
-    hash_combine(seed, key.metadatas.size());
+    hash_combine(seed, key.metadata.size());
     hash_combine(seed, key.weight_ptr);
     hash_combine(seed, key.tid);
     for (size_t i = 0; i < key.src_dims.size(); ++i) {
@@ -136,8 +136,8 @@ struct ConvParamsKeyHasher {
     for (size_t i = 0; i < key.dst_dims.size(); ++i) {
       hash_combine(seed, key.dst_dims[i]);
     }
-    for (size_t i = 0; i < key.metadatas.size(); ++i) {
-      hash_combine(seed, key.metadatas[i]);
+    for (size_t i = 0; i < key.metadata.size(); ++i) {
+      hash_combine(seed, key.metadata[i]);
     }
     return seed;
   }
@@ -155,17 +155,17 @@ inline ConvParamsKey makeConvParamsKey(MemRefType<Tinput, NDims> input,
   key.src_dims.reserve(NDims);
   key.weight_dims.reserve(NDims);
   key.dst_dims.reserve(NDims);
-  key.metadatas.reserve(metadata.sizes[0] + padding.sizes[0]);
+  key.metadata.reserve(metadata.sizes[0] + padding.sizes[0]);
   for (int i = 0; i < NDims; ++i) {
     key.src_dims.push_back(input.sizes[i]);
     key.weight_dims.push_back(kernel.sizes[i]);
     key.dst_dims.push_back(output.sizes[i]);
   }
   for (int i = 0; i < metadata.sizes[0]; ++i) {
-    key.metadatas.push_back(metadata.data[i]);
+    key.metadata.push_back(metadata.data[i]);
   }
   for (int i = 0; i < padding.sizes[0]; ++i) {
-    key.metadatas.push_back(padding.data[i]);
+    key.metadata.push_back(padding.data[i]);
   }
   key.weight_ptr = kernel.data;
   key.tid = tid;
@@ -462,26 +462,28 @@ void dumpConvLikeKernelProflingInfo(const ConvParams& params, size_t nanosec,
 }
 
 #if defined(TAO_AARCH64)
-struct AclDepthwiseConvInfo {
+template <typename OpTy>
+struct AclConvLikeInfo {
   arm_compute::Tensor src;
   arm_compute::Tensor weights;
   arm_compute::Tensor dst;
-  arm_compute::NEDepthwiseConvolutionLayer depthwise_conv;
+  OpTy op;
 };
 
 template <typename TKey, typename TValue>
-using ACLDepthwiseConvMap =
-    std::unordered_map<TKey, TValue, ConvParamsKeyHasher>;
-using ACLDepthwiseCache = ideep::utils::lru_cache<
-    ConvParamsKey, std::shared_ptr<AclDepthwiseConvInfo>, ACLDepthwiseConvMap>;
+using AclConvLikeMap = std::unordered_map<TKey, TValue, ConvParamsKeyHasher>;
+template <typename OpTy>
+using AclConvLikeCache = ideep::utils::lru_cache<
+    ConvParamsKey, std::shared_ptr<AclConvLikeInfo<OpTy>>, AclConvLikeMap>;
 
-struct ACLDepthwiseConvState : public Context::Resource {
+template <typename OpTy>
+struct AclConvLikeState : public Context::Resource {
   std::mutex mu;
-  ACLDepthwiseCache cache{getWeightPrePackingCacheCapacity()};
+  AclConvLikeCache<OpTy> cache{getWeightPrePackingCacheCapacity()};
 
-  inline std::shared_ptr<AclDepthwiseConvInfo> getOrCreate(
+  inline std::shared_ptr<AclConvLikeInfo<OpTy>> getOrCreate(
       const ConvParamsKey& key,
-      std::function<std::shared_ptr<AclDepthwiseConvInfo>()> creator) {
+      std::function<std::shared_ptr<AclConvLikeInfo<OpTy>>()> creator) {
     std::lock_guard<std::mutex> l(mu);
     auto it = cache.find(key);
     if (it == cache.end()) {
@@ -491,34 +493,12 @@ struct ACLDepthwiseConvState : public Context::Resource {
   }
 };
 
-struct AclConvInfo {
-  arm_compute::Tensor src;
-  arm_compute::Tensor weights;
-  arm_compute::Tensor dst;
-  arm_compute::NEConvolutionLayer conv;
-};
-
-template <typename TKey, typename TValue>
-using ACLConvMap = std::unordered_map<TKey, TValue, ConvParamsKeyHasher>;
-using ACLConvCache =
-    ideep::utils::lru_cache<ConvParamsKey, std::shared_ptr<AclConvInfo>,
-                            ACLConvMap>;
-
-struct ACLConvState : public Context::Resource {
-  std::mutex mu;
-  ACLConvCache cache{getWeightPrePackingCacheCapacity()};
-
-  inline std::shared_ptr<AclConvInfo> getOrCreate(
-      const ConvParamsKey& key,
-      std::function<std::shared_ptr<AclConvInfo>()> creator) {
-    std::lock_guard<std::mutex> l(mu);
-    auto it = cache.find(key);
-    if (it == cache.end()) {
-      it = cache.insert(std::make_pair(key, creator())).first;
-    }
-    return it->second;
-  }
-};
+using AclDepthwiseConvInfo =
+    AclConvLikeInfo<arm_compute::NEDepthwiseConvolutionLayer>;
+using AclDepthwiseConvState =
+    AclConvLikeState<arm_compute::NEDepthwiseConvolutionLayer>;
+using AclConvInfo = AclConvLikeInfo<arm_compute::NEConvolutionLayer>;
+using AclConvState = AclConvLikeState<arm_compute::NEConvolutionLayer>;
 
 #endif  // TAO_AARCH64
 

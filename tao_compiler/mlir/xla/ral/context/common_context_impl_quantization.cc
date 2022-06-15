@@ -85,7 +85,7 @@ void ral_qconv_s8_s8_s8(
     TAO_VLOG(0) << "params.dilates[0] = " << params.dilates[0];
   }
 
-  auto AclConvCreator = [&]() {
+  auto AclQconvCreator = [&]() {
     std::shared_ptr<AclConvInfo> info(new AclConvInfo);
     DataLayout data_layout = DataLayout::NHWC;
 
@@ -115,7 +115,7 @@ void ral_qconv_s8_s8_s8(
     weights.allocator()->init(weights_info);
     dst.allocator()->init(dst_info);
 
-    if (!info->conv.validate(
+    if (!info->op.validate(
             &src_info, &weights_info, nullptr, &dst_info,
             PadStrideInfo{params.strides[1], params.strides[0],
                           params.padding_l[1], params.padding_r[1],
@@ -124,13 +124,13 @@ void ral_qconv_s8_s8_s8(
             WeightsInfo{}, Size2D{params.dilates[1], params.dilates[0]})) {
       ctx->signalError(Context::FAILURE, "fail to validate acl depthwise conv");
     } else {
-      info->conv.configure(
-          &src, &weights, nullptr, &dst,
-          PadStrideInfo{params.strides[1], params.strides[0],
-                        params.padding_l[1], params.padding_r[1],
-                        params.padding_l[0], params.padding_r[0],
-                        DimensionRoundingType::FLOOR},
-          WeightsInfo{}, Size2D{params.dilates[1], params.dilates[0]});
+      info->op.configure(&src, &weights, nullptr, &dst,
+                         PadStrideInfo{params.strides[1], params.strides[0],
+                                       params.padding_l[1], params.padding_r[1],
+                                       params.padding_l[0], params.padding_r[0],
+                                       DimensionRoundingType::FLOOR},
+                         WeightsInfo{},
+                         Size2D{params.dilates[1], params.dilates[0]});
     }
     return info;
   };
@@ -138,19 +138,19 @@ void ral_qconv_s8_s8_s8(
   std::shared_ptr<AclConvInfo> info;
   if (isWeightPrePackingEnabled() && params.weight_is_const) {
     std::string unique_name = "tao_ral.cpu.acl_qconv_s8s8s8";
-    auto state = ctx->getOrCreateResource<ACLConvState>(
-        unique_name, []() { return new ACLConvState; });
+    auto state = ctx->getOrCreateResource<AclConvState>(
+        unique_name, []() { return new AclConvState; });
     auto key = makeConvParamsKey(input, kernel, padding, output, metadata,
                                  std::this_thread::get_id());
-    info = state->getOrCreate(key, AclConvCreator);
+    info = state->getOrCreate(key, AclQconvCreator);
   } else {
-    info = AclConvCreator();
+    info = AclQconvCreator();
   }
 
   info->src.allocator()->import_memory(input.data);
   info->weights.allocator()->import_memory(kernel.data);
   info->dst.allocator()->import_memory(output.data);
-  info->conv.run();
+  info->op.run();
 
   timer.Stop();
   if (isProfilingEnabled()) {

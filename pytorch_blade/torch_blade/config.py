@@ -462,5 +462,8 @@ class Config(ConfigContext):
         return self._annotate_args
 
     @annotate_args.setter
-    def annotate_args(self, dims):
-        self._annotate_args = dims
+    def annotate_args(self, val):
+        assert isinstance(val, list), "annotate_args should be list, got {}".format(type(val))
+        for i, v in enumerate(val):
+            assert isinstance(v, list), "annotate_args[{}] should be list, got{}".format(i, type(v))
+        self._annotate_args = val

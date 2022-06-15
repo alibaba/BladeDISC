@@ -136,7 +136,9 @@ torch::TypePtr create_tensor_type_from_scalar_type(const c10::Type& typ) {
   return nullptr;
 }
 
-void set_tensor_shape(torch::jit::Value* val, std::vector<int64_t>& dims) {
+void set_tensor_shape(
+    const torch::jit::Value* val,
+    const std::vector<int64_t>& dims) {
   auto tensor_type = val->type()->cast<c10::TensorType>();
   if (tensor_type) {
     val->setType(c10::TensorType::create(

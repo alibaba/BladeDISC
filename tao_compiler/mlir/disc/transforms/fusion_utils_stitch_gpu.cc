@@ -562,7 +562,7 @@ bool StitchGpuFusionStrategy::findFusionPatternTypeAndSubroot(
             Value shape = getEffectiveShape(fusion_pattern, result);
             return isRank2RowReduction(op)
                        ? shapeAnalysis.isShapeEqual(ref_shape, shape)
-                       : shapeAnalysis.HasSameNumElements(ref_shape, shape);
+                       : shapeAnalysis.isSameNumElements(ref_shape, shape);
           })) {
         fusion_type = FusionType::kStitch;
       }
@@ -579,7 +579,7 @@ bool StitchGpuFusionStrategy::findFusionPatternTypeAndSubroot(
             Value shape = getEffectiveShape(fusion_pattern, result);
             return isRank2ColReduction(op)
                        ? shapeAnalysis.isShapeEqual(ref_shape, shape)
-                       : shapeAnalysis.HasSameNumElements(ref_shape, shape);
+                       : shapeAnalysis.isSameNumElements(ref_shape, shape);
           })) {
         return false;
       }
@@ -606,7 +606,7 @@ bool StitchGpuFusionStrategy::findFusionPatternTypeAndSubroot(
         Value ref_shape = getEffectiveShape(fusion_pattern, results[0]);
         if (!llvm::all_of(results, [&](Value result) {
               Value shape = getEffectiveShape(fusion_pattern, result);
-              return shapeAnalysis.HasSameNumElements(ref_shape, shape);
+              return shapeAnalysis.isSameNumElements(ref_shape, shape);
             })) {
           return false;
         }

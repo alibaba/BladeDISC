@@ -49,7 +49,7 @@ LogicalResult SymbolDim::Merge(SymbolDim* other) {
   return success();
 }
 
-Type ShapeAnalysis::getRefinedType(Value value) {
+Type ShapeAnalysisDeprecated::getRefinedType(Value value) {
   SymbolShape* symbolShape = getShape(value);
 
   // not-shaped type
@@ -60,7 +60,7 @@ Type ShapeAnalysis::getRefinedType(Value value) {
   return RankedTensorType::get(dims, ty.getElementType());
 }
 
-LogicalResult ShapeAnalysis::run() {
+LogicalResult ShapeAnalysisDeprecated::run() {
   // Make sure only run once.
   if (initialized) {
     op_->emitError() << "re-initialized shape analysis";
@@ -71,7 +71,7 @@ LogicalResult ShapeAnalysis::run() {
   return buildShapeMap();
 }
 
-LogicalResult ShapeAnalysis::buildShapeMap() {
+LogicalResult ShapeAnalysisDeprecated::buildShapeMap() {
   // Do not merge the region loops. We want to compute shape-map, dim-value-map
   // and decompose one-by-one.
   for (auto& region : op_->getRegions()) {
@@ -94,7 +94,7 @@ LogicalResult ShapeAnalysis::buildShapeMap() {
   return success();
 }
 
-void ShapeAnalysis::postProcessingDimValues() {
+void ShapeAnalysisDeprecated::postProcessingDimValues() {
   // Update dimValue roots.
   for (auto sym2val : dimSymbol2DimValue_) {
     dimSymbol2DimValue_[sym2val.first] = getRootDimValue(sym2val.second);
@@ -169,7 +169,7 @@ void ShapeAnalysis::postProcessingDimValues() {
   dimValueMulDecompose_ = std::move(dimValMulDecomp);
 }
 
-LogicalResult ShapeAnalysis::buildSymbolShape(Value value) {
+LogicalResult ShapeAnalysisDeprecated::buildSymbolShape(Value value) {
   if (shapeMap_.find(value) != shapeMap_.end()) {
     return success();
   }
@@ -191,7 +191,7 @@ LogicalResult ShapeAnalysis::buildSymbolShape(Value value) {
   return success();
 }
 
-LogicalResult ShapeAnalysis::buildRegionShapeMap(Region* region) {
+LogicalResult ShapeAnalysisDeprecated::buildRegionShapeMap(Region* region) {
   // Only SCF is supported a.t.m.
   if (region->getBlocks().size() != 1) {
     return region->getParentOp()->emitError(
@@ -203,7 +203,7 @@ LogicalResult ShapeAnalysis::buildRegionShapeMap(Region* region) {
   return success();
 }
 
-LogicalResult ShapeAnalysis::buildBlockShapeMap(Block* block) {
+LogicalResult ShapeAnalysisDeprecated::buildBlockShapeMap(Block* block) {
   // mapping block arguments
   for (Value value : block->getArguments()) {
     if (failed(buildSymbolShape(value))) {
@@ -226,7 +226,8 @@ LogicalResult ShapeAnalysis::buildBlockShapeMap(Block* block) {
   return success();
 }
 
-LogicalResult ShapeAnalysis::buildOperationShapeValueMap(Operation* op) {
+LogicalResult ShapeAnalysisDeprecated::buildOperationShapeValueMap(
+    Operation* op) {
   auto updateShapeValueEqual = [&](Value lhs, Value rhs) {
     if (!isShapeValueEqual(lhs, rhs)) {
       if (!shapeValueEqual_.isEquivalent(ValueWrapper(lhs),
@@ -269,7 +270,7 @@ LogicalResult ShapeAnalysis::buildOperationShapeValueMap(Operation* op) {
   return success();
 }
 
-LogicalResult ShapeAnalysis::buildOperationShapeMap(Operation* op) {
+LogicalResult ShapeAnalysisDeprecated::buildOperationShapeMap(Operation* op) {
   // build shapes for the results of op
   for (Value result : op->getResults()) {
     if (failed(buildSymbolShape(result))) {
@@ -284,7 +285,7 @@ LogicalResult ShapeAnalysis::buildOperationShapeMap(Operation* op) {
   return applyOpConstraint(op);
 }
 
-LogicalResult ShapeAnalysis::buildRegionDimValueMap(Region* region) {
+LogicalResult ShapeAnalysisDeprecated::buildRegionDimValueMap(Region* region) {
   // Only SCF is supported a.t.m.
   if (region->getBlocks().size() != 1) {
     return region->getParentOp()->emitError(
@@ -297,7 +298,7 @@ LogicalResult ShapeAnalysis::buildRegionDimValueMap(Region* region) {
   return success();
 }
 
-LogicalResult ShapeAnalysis::buildBlockDimValueMap(Block* block) {
+LogicalResult ShapeAnalysisDeprecated::buildBlockDimValueMap(Block* block) {
   // TODO: deal with memref.load and store directory rather than infer from
   // reshape.
   auto extractLmhloValueOfDim = [&](Value valueOfDims, int64_t index,
@@ -612,8 +613,9 @@ LogicalResult ShapeAnalysis::buildBlockDimValueMap(Block* block) {
   return success();
 }
 
-LogicalResult ShapeAnalysis::buildDimValueMap(Value operand, int64_t dim,
-                                              DimValue dimValue) {
+LogicalResult ShapeAnalysisDeprecated::buildDimValueMap(Value operand,
+                                                        int64_t dim,
+                                                        DimValue dimValue) {
   auto symbol = getDim(operand, dim);
   if (symbol == nullptr) {
     return failure();
@@ -631,7 +633,7 @@ LogicalResult ShapeAnalysis::buildDimValueMap(Value operand, int64_t dim,
   return success();
 }
 
-SymbolShape* ShapeAnalysis::getShape(Value value) {
+SymbolShape* ShapeAnalysisDeprecated::getShape(Value value) {
   auto it = shapeMap_.find(value);
   if (it == shapeMap_.end()) return nullptr;
 
@@ -641,7 +643,7 @@ SymbolShape* ShapeAnalysis::getShape(Value value) {
   return &it->second;
 }
 
-SymbolDim* ShapeAnalysis::getRootDim(SymbolDim* symbolDim) {
+SymbolDim* ShapeAnalysisDeprecated::getRootDim(SymbolDim* symbolDim) {
   assert(symbolDim != nullptr);
   SymbolDim* parentSymbolDim = symbolDim;
   do {
@@ -653,7 +655,7 @@ SymbolDim* ShapeAnalysis::getRootDim(SymbolDim* symbolDim) {
   return parentSymbolDim;
 }
 
-SymbolDim* ShapeAnalysis::getDim(Value value, int64_t dim) {
+SymbolDim* ShapeAnalysisDeprecated::getDim(Value value, int64_t dim) {
   auto it = shapeMap_.find(value);
   if (it == shapeMap_.end()) return nullptr;
 
@@ -666,11 +668,11 @@ SymbolDim* ShapeAnalysis::getDim(Value value, int64_t dim) {
   return symbolDim;
 }
 
-DimValue ShapeAnalysis::getRootDimValue(DimValue dimValue) {
+DimValue ShapeAnalysisDeprecated::getRootDimValue(DimValue dimValue) {
   return dimValueEquivalence_.getOrInsertLeaderValue(dimValue);
 }
 
-DimValue ShapeAnalysis::getDimValue(SymbolDim* symbolDim) {
+DimValue ShapeAnalysisDeprecated::getDimValue(SymbolDim* symbolDim) {
   if (symbolDim == nullptr) {
     return DimValue(Value(nullptr));
   }
@@ -687,7 +689,7 @@ DimValue ShapeAnalysis::getDimValue(SymbolDim* symbolDim) {
   return rootDimValue;
 }
 
-DimValue ShapeAnalysis::getDimValue(Value operand, int64_t dim) {
+DimValue ShapeAnalysisDeprecated::getDimValue(Value operand, int64_t dim) {
   auto ty = operand.getType().dyn_cast<ShapedType>();
   if (!ty.hasRank() || dim >= ty.getRank()) {
     return DimValue(Value(nullptr));
@@ -711,7 +713,8 @@ DimValue ShapeAnalysis::getDimValue(Value operand, int64_t dim) {
   return getDimValue(symbolDim);
 }
 
-LogicalResult ShapeAnalysis::mapDimEqual(SymbolDim* lhs, SymbolDim* rhs) {
+LogicalResult ShapeAnalysisDeprecated::mapDimEqual(SymbolDim* lhs,
+                                                   SymbolDim* rhs) {
   if (lhs == nullptr || rhs == nullptr) {
     return success();
   }
@@ -731,7 +734,8 @@ LogicalResult ShapeAnalysis::mapDimEqual(SymbolDim* lhs, SymbolDim* rhs) {
   }
 }
 
-LogicalResult ShapeAnalysis::mapShapeEqual(SymbolShape* lhs, SymbolShape* rhs) {
+LogicalResult ShapeAnalysisDeprecated::mapShapeEqual(SymbolShape* lhs,
+                                                     SymbolShape* rhs) {
   if (!lhs || !rhs || lhs->rank() != rhs->rank()) return failure();
 
   for (auto&& en : llvm::zip(lhs->getSymbolDims(), rhs->getSymbolDims())) {
@@ -740,7 +744,7 @@ LogicalResult ShapeAnalysis::mapShapeEqual(SymbolShape* lhs, SymbolShape* rhs) {
   return success();
 }
 
-LogicalResult ShapeAnalysis::mapShapeEqual(Value lhs, Value rhs) {
+LogicalResult ShapeAnalysisDeprecated::mapShapeEqual(Value lhs, Value rhs) {
   SymbolShape* lhsShape = getShape(lhs);
   SymbolShape* rhsShape = getShape(rhs);
 
@@ -777,23 +781,24 @@ LogicalResult ShapeAnalysis::mapShapeEqual(Value lhs, Value rhs) {
   return mapShapeEqual(lhsShape, rhsShape);
 }
 
-LogicalResult ShapeAnalysis::mapDimEqual(Value lhs, int64_t lhsIdx, Value rhs,
-                                         int64_t rhsIdx) {
+LogicalResult ShapeAnalysisDeprecated::mapDimEqual(Value lhs, int64_t lhsIdx,
+                                                   Value rhs, int64_t rhsIdx) {
   SymbolDim* lhsDim = getDim(lhs, lhsIdx);
   SymbolDim* rhsDim = getDim(rhs, rhsIdx);
   return mapDimEqual(lhsDim, rhsDim);
 }
 
 // TODO: map const and constOp equal.
-LogicalResult ShapeAnalysis::mapDimValueEqual(DimValue lhs, DimValue rhs) {
+LogicalResult ShapeAnalysisDeprecated::mapDimValueEqual(DimValue lhs,
+                                                        DimValue rhs) {
   if (!dimValueEquivalence_.isEquivalent(lhs, rhs)) {
     dimValueEquivalence_.unionSets(lhs, rhs);
   }
   return success();
 }
 
-bool ShapeAnalysis::isDimEqual(Value lhs, int64_t lhsDim, Value rhs,
-                               int64_t rhsDim) {
+bool ShapeAnalysisDeprecated::isDimEqual(Value lhs, int64_t lhsDim, Value rhs,
+                                         int64_t rhsDim) {
   auto lhs_ty = lhs.getType().dyn_cast<ShapedType>();
   auto rhs_ty = rhs.getType().dyn_cast<ShapedType>();
   if (!lhs_ty.hasRank() || !rhs_ty.hasRank()) {
@@ -813,7 +818,7 @@ bool ShapeAnalysis::isDimEqual(Value lhs, int64_t lhsDim, Value rhs,
          (getDimValue(lhs, lhsDim) == getDimValue(rhs, rhsDim));
 }
 
-SmallVector<std::vector<DimValue>> ShapeAnalysis::getDimDecompose(
+SmallVector<std::vector<DimValue>> ShapeAnalysisDeprecated::getDimDecompose(
     Value value, int64_t index) {
   auto dim_val = getDimValue(value, index);
   auto iter = dimValueMulDecompose_.find(dim_val);
@@ -822,7 +827,7 @@ SmallVector<std::vector<DimValue>> ShapeAnalysis::getDimDecompose(
              : iter->second;
 }
 
-bool ShapeAnalysis::isShapeEqual(Value lhs, Value rhs) {
+bool ShapeAnalysisDeprecated::isShapeEqual(Value lhs, Value rhs) {
   SymbolShape* lhsShape = getShape(lhs);
   SymbolShape* rhsShape = getShape(rhs);
   if (!lhsShape || !lhsShape) return false;
@@ -833,15 +838,15 @@ bool ShapeAnalysis::isShapeEqual(Value lhs, Value rhs) {
   return true;
 }
 
-bool ShapeAnalysis::isShapeValueEqual(Value lhs, Value rhs) {
+bool ShapeAnalysisDeprecated::isShapeValueEqual(Value lhs, Value rhs) {
   return shapeValueEqual_.isEquivalent(ValueWrapper(lhs), ValueWrapper(rhs));
 }
 
-bool ShapeAnalysis::isDimValueEqual(DimValue lhs, DimValue rhs) {
+bool ShapeAnalysisDeprecated::isDimValueEqual(DimValue lhs, DimValue rhs) {
   return dimValueEquivalence_.isEquivalent(lhs, rhs);
 }
 
-LogicalResult ShapeAnalysis::applyOpConstraint(Operation* op) {
+LogicalResult ShapeAnalysisDeprecated::applyOpConstraint(Operation* op) {
   if (op->getDialect() == op->getContext()->getLoadedDialect("tensor")) {
     return applyTensorOpConstraint(op);
   } else if (op->getDialect() == op->getContext()->getLoadedDialect("mhlo") ||
@@ -857,14 +862,14 @@ LogicalResult ShapeAnalysis::applyOpConstraint(Operation* op) {
   return success();
 }
 
-LogicalResult ShapeAnalysis::applyTensorOpConstraint(Operation* op) {
+LogicalResult ShapeAnalysisDeprecated::applyTensorOpConstraint(Operation* op) {
   if (isa<tensor::CastOp>(op)) {
     return mapShapeEqual(op->getResult(0), op->getOperand(0));
   }
   return success();
 }
 
-LogicalResult ShapeAnalysis::applyMhloOpConstraint(Operation* op) {
+LogicalResult ShapeAnalysisDeprecated::applyMhloOpConstraint(Operation* op) {
   if (op->hasTrait<mlir::OpTrait::SameOperandsAndResultType>() ||
       op->hasTrait<mlir::OpTrait::SameOperandsAndResultShape>()) {
     Value ref;
@@ -1086,7 +1091,7 @@ LogicalResult ShapeAnalysis::applyMhloOpConstraint(Operation* op) {
   return success();
 }
 
-LogicalResult ShapeAnalysis::applyLmhloOpConstraint(Operation* op) {
+LogicalResult ShapeAnalysisDeprecated::applyLmhloOpConstraint(Operation* op) {
   auto mapValueEquivalent = [&](Value lhs, Value rhs,
                                 EquivalenceClasses<ValueWrapper>& impl) {
     if (!impl.isEquivalent(ValueWrapper(lhs), ValueWrapper(rhs))) {
@@ -1240,7 +1245,7 @@ LogicalResult ShapeAnalysis::applyLmhloOpConstraint(Operation* op) {
   return success();
 }
 
-LogicalResult ShapeAnalysis::applyDimEqualWithDimValue() {
+LogicalResult ShapeAnalysisDeprecated::applyDimEqualWithDimValue() {
   std::unordered_map<DimValue, SmallVector<SymbolDim*, 4>, DimValueHash>
       dimValue2DimSymbols;
   for (auto symbol_value : dimSymbol2DimValue_) {
@@ -1262,7 +1267,7 @@ LogicalResult ShapeAnalysis::applyDimEqualWithDimValue() {
   return success();
 }
 
-LogicalResult ShapeAnalysis::buildRegionMulDecompose(Region* region) {
+LogicalResult ShapeAnalysisDeprecated::buildRegionMulDecompose(Region* region) {
   if (region->getBlocks().size() != 1) {
     return region->getParentOp()->emitError(
         "only single block region is supported");
@@ -1273,7 +1278,7 @@ LogicalResult ShapeAnalysis::buildRegionMulDecompose(Region* region) {
   return success();
 }
 
-LogicalResult ShapeAnalysis::buildBlockMulDecompose(Block* block) {
+LogicalResult ShapeAnalysisDeprecated::buildBlockMulDecompose(Block* block) {
   // mapping each op inside the block
   WalkResult result = block->walk([&](Operation* op) {
     if (auto muli = dyn_cast_or_null<arith::MulIOp>(op)) {
@@ -1358,7 +1363,8 @@ LogicalResult ShapeAnalysis::buildBlockMulDecompose(Block* block) {
   }
 }
 
-LogicalResult ShapeAnalysis::visitSymbolShapes(SymbolShapeVisitor visitor) {
+LogicalResult ShapeAnalysisDeprecated::visitSymbolShapes(
+    SymbolShapeVisitor visitor) {
   for (auto it = shapeMap_.begin(), stop = shapeMap_.end(); it != stop; ++it) {
     Value value = it->first;
     SymbolShape& symbolShape = it->second;
@@ -1378,7 +1384,7 @@ LogicalResult ShapeAnalysis::visitSymbolShapes(SymbolShapeVisitor visitor) {
   return success();
 }
 
-LogicalResult ShapeAnalysis::buildSymbolDimInstances(
+LogicalResult ShapeAnalysisDeprecated::buildSymbolDimInstances(
     DenseMap<SymbolDim*, SmallVector<Value>>& symbolDim2Instances,
     DenseMap<Value, SmallVector<Value>>& shapedValue2Dims) {
   // Instantiate each symbol dim and group all instances for each symbol dim.
@@ -1398,7 +1404,7 @@ LogicalResult ShapeAnalysis::buildSymbolDimInstances(
   return visitSymbolShapes(visitor);
 }
 
-LogicalResult ShapeAnalysis::buildSymbolDimInstancesDominantMap(
+LogicalResult ShapeAnalysisDeprecated::buildSymbolDimInstancesDominantMap(
     DenseMap<SymbolDim*, SmallVector<Value>>& instanceMap,
     DenseMap<SymbolDim*, DenseMap<Value, Value>>& dominantMap) {
   DominanceInfo dominanceInfo(op_);
@@ -1437,7 +1443,7 @@ LogicalResult ShapeAnalysis::buildSymbolDimInstancesDominantMap(
   return success();
 }
 
-void ShapeAnalysis::dumpSymbol2InstancesDominant(
+void ShapeAnalysisDeprecated::dumpSymbol2InstancesDominant(
     Symbol2InstancesDominantType symbol2InstancesDominant) {
   llvm::dbgs() << "symbol2InstancesDominant: "
                << symbol2InstancesDominant.size() << "\n";
@@ -1511,7 +1517,7 @@ void ShapeAnalysis::dumpSymbol2InstancesDominant(
 // value if they are the same (e.g. the operands for allocOp or reinterpret_cast
 // itself if it's external buffer) and following passes can simply reply on
 // normal CSE & canonicalization pass to simplify index computation.
-LogicalResult ShapeAnalysis::buildTieShapeOps() {
+LogicalResult ShapeAnalysisDeprecated::buildTieShapeOps() {
   // create a dim op for each dimension of a shaped Value and group all such dim
   // ops by SymbolDim. Examples:
   //   %1 = mhlo.abs(%0) : (tensor<?xf32>) -> tensor<?xf32>
@@ -1576,7 +1582,7 @@ LogicalResult ShapeAnalysis::buildTieShapeOps() {
   return visitSymbolShapes(visitor);
 }
 
-bool ShapeAnalysis::HasSameNumElements(Value lhs, Value rhs) {
+bool ShapeAnalysisDeprecated::isSameNumElements(Value lhs, Value rhs) {
   if (valueWithSameElements_.isEquivalent(ValueWrapper(lhs),
                                           ValueWrapper(rhs))) {
     return true;
@@ -1598,7 +1604,7 @@ bool ShapeAnalysis::HasSameNumElements(Value lhs, Value rhs) {
   return (lhs_mapped == lhs_rank) && (rhs_mapped == rhs_rank);
 }
 
-bool ShapeAnalysis::extractContinuousDimEqualInfo(
+bool ShapeAnalysisDeprecated::extractContinuousDimEqualInfo(
     Value lhs, Value rhs,
     SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>>& equal) {
   equal.clear();
@@ -1777,7 +1783,7 @@ bool ShapeAnalysis::extractContinuousDimEqualInfo(
   return true;
 }
 
-void ShapeAnalysis::buildEqualShapesInFusion(
+void ShapeAnalysisDeprecated::buildEqualShapesInFusion(
     const Operation* fusion, const DenseSet<Value>& values_in_fusion) {
   auto& equal_in_fusion = valueWithEqualShapeInFusion_[fusion];
   DenseMap<SymbolShape*, SmallVector<Value>> value_classes;
@@ -1796,7 +1802,8 @@ void ShapeAnalysis::buildEqualShapesInFusion(
   }
 }
 
-Value ShapeAnalysis::GetLeaderValueWithSameShapeGlobal(Value val) const {
+Value ShapeAnalysisDeprecated::GetLeaderValueWithSameShapeGlobal(
+    Value val) const {
   if (valueWithEqualShape_.findLeader(ValueWrapper(val)) ==
       valueWithEqualShape_.member_end()) {
     return nullptr;
@@ -1804,7 +1811,7 @@ Value ShapeAnalysis::GetLeaderValueWithSameShapeGlobal(Value val) const {
   return valueWithEqualShape_.getLeaderValue(ValueWrapper(val)).getValue();
 }
 
-Value ShapeAnalysis::GetLeaderValueWithSameShapeInFusion(
+Value ShapeAnalysisDeprecated::GetLeaderValueWithSameShapeInFusion(
     const Operation* fusion, Value val) const {
   if (fusion == nullptr) {
     return nullptr;
@@ -1822,7 +1829,7 @@ Value ShapeAnalysis::GetLeaderValueWithSameShapeInFusion(
 
 // update with view map
 
-bool ShapeAnalysis::getConstIntValue(Operation* op, int64_t& result) {
+bool ShapeAnalysisDeprecated::getConstIntValue(Operation* op, int64_t& result) {
   if (auto constOp = dyn_cast_or_null<arith::ConstantIndexOp>(op)) {
     result = constOp.value();
     return true;

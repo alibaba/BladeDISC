@@ -3903,7 +3903,7 @@ class DiscLhloLegalizeRootsToParallelLoops
   void runOnOperation() override {
     func::FuncOp func = getOperation();
 
-    ShapeAnalysis shape_analysis(func);
+    ShapeAnalysisDeprecated shape_analysis(func);
     if (failed(shape_analysis.run())) {
       func->emitError("failed to do shape analysis");
       signalPassFailure();

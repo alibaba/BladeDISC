@@ -160,11 +160,33 @@ struct DimValueContainerHash {
   }
 };
 
-// Shape analysis for propagating and analyzing known shape information in
-// compilation time in a given operation.
+// A helper class to query and manipulate shape constraint IR on buffer level.
 class ShapeAnalysis {
  public:
-  explicit ShapeAnalysis(Operation* op) : op_(op) {}
+  virtual ~ShapeAnalysis() = default;
+
+  // Returns true if the two value have the same symbolic shape.
+  virtual bool isShapeEqual(Value lhs, Value rhs) = 0;
+
+  // Returns true if the two value have the same number elements.
+  virtual bool isSameNumElements(Value lhs, Value rhs) = 0;
+
+  // TODO(disc) : remove this
+  virtual bool extractContinuousDimEqualInfo(
+      Value lhs, Value rhs,
+      SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>>&
+          equal) = 0;
+  virtual Value GetLeaderValueWithSameShapeInFusion(const Operation* fusion,
+                                                    Value val) const = 0;
+  virtual void buildEqualShapesInFusion(
+      const Operation* fusion, const DenseSet<Value>& values_in_fusion) = 0;
+};
+
+// Shape analysis for propagating and analyzing known shape information in
+// compilation time in a given operation.
+class ShapeAnalysisDeprecated : public ShapeAnalysis {
+ public:
+  explicit ShapeAnalysisDeprecated(Operation* op) : op_(op) {}
 
   LogicalResult run();
 
@@ -175,7 +197,7 @@ class ShapeAnalysis {
   SymbolShape* getShape(Value value);
   DimValue getDimValue(Value operand, int64_t dim);
   bool isDimEqual(Value lhs, int64_t lhsDim, Value rhs, int64_t rhsDim);
-  bool isShapeEqual(Value lhs, Value rhs);
+  bool isShapeEqual(Value lhs, Value rhs) override;
   bool isShapeValueEqual(Value lhs, Value rhs);
 
   // Insert tie_shape ops to explicit tie dimension equality in the IR level.
@@ -184,7 +206,7 @@ class ShapeAnalysis {
 
   // Returns true if `lhs` and `rhs` are supposed to have same number of
   // elements.
-  bool HasSameNumElements(Value lhs, Value rhs);
+  bool isSameNumElements(Value lhs, Value rhs) override;
 
   // Extract continuous equal dims between `lhs` and `rhs`, with the
   // consideration of dim-linearize (e.g., caused by reshape). Note that when
@@ -194,19 +216,20 @@ class ShapeAnalysis {
   // TODO: deal with multiple mappings with context information.
   bool extractContinuousDimEqualInfo(
       Value lhs, Value rhs,
-      SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>>&
-          equal);
+      SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>>& equal)
+      override;
 
   // Build equal shape information for the given values. The equal information
   // is maintained in a self-maintained map with `fusion` as the key.
-  void buildEqualShapesInFusion(const Operation* fusion,
-                                const DenseSet<Value>& values_in_fusion);
+  void buildEqualShapesInFusion(
+      const Operation* fusion,
+      const DenseSet<Value>& values_in_fusion) override;
 
   // Deprecated. Get the leader value with same shape for `val` in `op_`.
   Value GetLeaderValueWithSameShapeGlobal(Value val) const;
   // Get the leader value with same shape for `val` in  `fusion`.
   Value GetLeaderValueWithSameShapeInFusion(const Operation* fusion,
-                                            Value val) const;
+                                            Value val) const override;
 
  private:
   LogicalResult buildShapeMap();
@@ -311,7 +334,7 @@ class OpListShapeAnalysis {
 
   // Returns true if `lhs` and `rhs` are supposed to have same number of
   // elements.
-  bool HasSameNumElements(Value lhs, Value rhs) {
+  bool isSameNumElements(Value lhs, Value rhs) {
     return same_num_elements_impl_.isEquivalent(ValueWrapper(lhs),
                                                 ValueWrapper(rhs));
   }

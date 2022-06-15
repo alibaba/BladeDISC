@@ -510,7 +510,7 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
     SmallVector<Block*, 4> blocks;
     CollectBlocksInsideFunction(func, blocks);
 
-    ShapeAnalysis shapeAnalysis(func);
+    ShapeAnalysisDeprecated shapeAnalysis(func);
     shapeAnalysis.run();
 
     // process each block and do fusion within a block.

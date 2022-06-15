@@ -1089,7 +1089,7 @@ bool BaseFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
         Value shape = getEffectiveShape(target, result);
         return checkSameShape(lhs, rhs, target)
                    ? shapeAnalysis.isShapeEqual(ref_shape, shape)
-                   : shapeAnalysis.HasSameNumElements(ref_shape, shape);
+                   : shapeAnalysis.isSameNumElements(ref_shape, shape);
       })) {
     return false;
   }

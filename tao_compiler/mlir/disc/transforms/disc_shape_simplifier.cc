@@ -379,9 +379,9 @@ struct ShapeSimplifierPass
 
   void runOnOperation() override;
 
-  LogicalResult applyShapeAnalysis(ShapeAnalysis&, bool&);
+  LogicalResult applyShapeAnalysis(ShapeAnalysisDeprecated&, bool&);
 
-  LogicalResult applySymbolicShapeOptimization(ShapeAnalysis&, bool&);
+  LogicalResult applySymbolicShapeOptimization(ShapeAnalysisDeprecated&, bool&);
 };
 
 void ShapeSimplifierPass::populateShapeRefinerPatterns(
@@ -423,7 +423,7 @@ void ShapeSimplifierPass::runOnOperation() {
     (void)applyPatternsAndFoldGreedily(main, std::move(patterns));
 
     // Stage #2: propagate shape information globally
-    ShapeAnalysis analysis(main);
+    ShapeAnalysisDeprecated analysis(main);
     if (failed(analysis.run())) {
       // error message should be generated inside the above function call.
       signalPassFailure();
@@ -454,8 +454,8 @@ void ShapeSimplifierPass::runOnOperation() {
   }
 }
 
-LogicalResult ShapeSimplifierPass::applyShapeAnalysis(ShapeAnalysis& analysis,
-                                                      bool& changed) {
+LogicalResult ShapeSimplifierPass::applyShapeAnalysis(
+    ShapeAnalysisDeprecated& analysis, bool& changed) {
   func::FuncOp func = dyn_cast_or_null<func::FuncOp>(analysis.getOperation());
   if (func == nullptr) {
     return failure();
@@ -500,7 +500,7 @@ LogicalResult ShapeSimplifierPass::applyShapeAnalysis(ShapeAnalysis& analysis,
 }
 
 LogicalResult ShapeSimplifierPass::applySymbolicShapeOptimization(
-    ShapeAnalysis& analysis, bool& changed) {
+    ShapeAnalysisDeprecated& analysis, bool& changed) {
   func::FuncOp func = dyn_cast_or_null<func::FuncOp>(analysis.getOperation());
   if (func == nullptr) {
     return failure();

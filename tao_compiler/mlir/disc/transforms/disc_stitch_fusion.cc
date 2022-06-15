@@ -64,7 +64,7 @@ LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion) {
   // TODO: use FuncOp that contains `fusionOp` to construct shape-analysis,
   // which will use global information for shape equality and decomposition
   // analysis.
-  ShapeAnalysis shapeAnalysis(fusionOp);
+  ShapeAnalysisDeprecated shapeAnalysis(fusionOp);
   FusionPattern fusionPattern(fusionOp, &shapeAnalysis);
   if (!fusionPattern.isStitchFusion()) {
     // skip non-stitch fusion pattern.

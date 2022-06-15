@@ -479,10 +479,11 @@ class DotBatchMergeConverter {
  public:
   struct MergingShape {
     // TODO: use shape-symbol rather than dim-value of m/n/k in this struct
-    // after reconstructing ShapeAnalysis. We actually do not need to
+    // after reconstructing ShapeAnalysisDeprecated. We actually do not need to
     // distinguish m/n/k but only need to use the overall shape-symbol here in
     // the future. We do not use shape-symbol currently because of the
-    // incomplete implementation of currently ShapeAnalysis data structure...
+    // incomplete implementation of currently ShapeAnalysisDeprecated data
+    // structure...
     DimValue m_dim;
     DimValue n_dim;
     DimValue contracting_dim;
@@ -535,7 +536,7 @@ class DotBatchMergeConverter {
                          MergingShapeHash>;
 
  private:
-  bool buildMergingShapeMap(Block* block, ShapeAnalysis& analysis,
+  bool buildMergingShapeMap(Block* block, ShapeAnalysisDeprecated& analysis,
                             MergingShapeEqualMap& equal_merge_shape_map);
   bool applyMerging(DotCluster& cluster);
   Value expandDim0(OpBuilder& builder, Location& loc, Value value);
@@ -545,9 +546,10 @@ class DotBatchMergeConverter {
 };
 
 bool DotBatchMergeConverter::run() {
-  ShapeAnalysis analysis(func_);
+  ShapeAnalysisDeprecated analysis(func_);
   if (failed(analysis.run())) {
-    LLVM_DEBUG(llvm::dbgs() << "ShapeAnalysis failes for dot merge.\n");
+    LLVM_DEBUG(llvm::dbgs()
+               << "ShapeAnalysisDeprecated failes for dot merge.\n");
     return false;
   }
 
@@ -574,7 +576,7 @@ bool DotBatchMergeConverter::run() {
 }
 
 bool DotBatchMergeConverter::buildMergingShapeMap(
-    Block* block, ShapeAnalysis& analysis,
+    Block* block, ShapeAnalysisDeprecated& analysis,
     MergingShapeEqualMap& equal_merge_shape_map) {
   block->walk([&](mhlo::DotGeneralOp op) {
     MergingShape dot_shape;

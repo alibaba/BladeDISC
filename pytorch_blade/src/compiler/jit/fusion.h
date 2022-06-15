@@ -24,8 +24,6 @@ torch::jit::Node* MergeNodeIntoGroup(
     torch::jit::Node* n);
 torch::TypePtr get_list_tensor_type();
 torch::TypePtr create_tensor_type_from_scalar_type(const c10::Type& typ);
-void tensor_to_dynamic_shape(
-    torch::jit::Value* val,
-    std::vector<int64_t>& dims);
+void set_tensor_shape(torch::jit::Value* val, std::vector<int64_t>& dims);
 } // namespace blade
 } // namespace torch

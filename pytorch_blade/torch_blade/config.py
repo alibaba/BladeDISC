@@ -157,7 +157,7 @@ class Config(ConfigContext):
         self._customize_op_black_list = []
         self._customize_jit_passes = []
         self._opt_pipeline = 'DISC'
-        self._force_input_dims = []
+        self._annotate_args = []
 
     @property
     def optimization_pipeline(self):
@@ -458,9 +458,9 @@ class Config(ConfigContext):
         self._customize_jit_passes = val
     
     @property
-    def force_input_dims(self):
-        return self._force_input_dims
-    
-    @force_input_dims.setter
-    def force_input_dims(self, dims):
-        self._force_input_dims = dims
+    def annotate_args(self):
+        return self._annotate_args
+
+    @annotate_args.setter
+    def annotate_args(self, dims):
+        self._annotate_args = dims

@@ -60,11 +60,16 @@ cc_library(
     ],
 )
 
+filegroup(
+    name = "torch_blade_jit_test_src",
+    srcs = glob(["**/*_test.cpp"]),
+)
+
 cc_test(
-    name = "shape_type_test",
+    name = "jit_test",
     srcs = [
-        "shape_type_spec.cpp",
-        "shape_type_test.cpp",
+        ":torch_blade_jit_test_src",
+        ":torch_blade_jit_srcs",
     ],
     linkopts = [
         "-lpthread",

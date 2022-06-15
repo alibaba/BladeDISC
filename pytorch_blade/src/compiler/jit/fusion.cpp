@@ -136,9 +136,7 @@ torch::TypePtr create_tensor_type_from_scalar_type(const c10::Type& typ) {
   return nullptr;
 }
 
-void tensor_to_dynamic_shape(
-    torch::jit::Value* val,
-    std::vector<int64_t>& dims) {
+void set_tensor_shape(torch::jit::Value* val, std::vector<int64_t>& dims) {
   auto tensor_type = val->type()->cast<c10::TensorType>();
   if (tensor_type) {
     val->setType(c10::TensorType::create(
@@ -147,8 +145,9 @@ void tensor_to_dynamic_shape(
         c10::SymbolicShape(dims),
         c10::VaryingShape<c10::Stride>(dims.size()),
         tensor_type->requires_grad()));
+    return;
   }
-  TORCH_CHECK("input value should be tensor type");
+  TORCH_CHECK(false, "input value should be tensor type");
 }
 
 } // namespace blade

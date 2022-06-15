@@ -336,8 +336,6 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
       ::mlir::ModuleOp::create(::mlir::UnknownLoc::get(&mlir_context));
   torch::jit::CompilationUnit unit;
   auto fn = unit.create_function("main", graph);
-  // removeInputShape(graph);
-  std::cout << graph->toString() << std::endl;
   auto op = torch_mlir::importJitFunctionAsFuncOp(wrap(&mlir_context), fn);
   auto builder = ::mlir::OpBuilder(&mlir_context);
   mlir_module.push_back(unwrap(op));

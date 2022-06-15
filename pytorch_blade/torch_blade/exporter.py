@@ -21,7 +21,7 @@ import torch.nn as nn
 import torch_blade.pass_manager as pm
 from torch_blade.config import Config
 from torch_blade.logging import logger
-from torch_blade.tools import tensor_to_dynamic_shape
+from torch_blade.tools import set_tensor_shape
 from torch_blade.tools.shape_inference import record_shape_by_tracing
 
 __all__ = ['export', 'match_submodules']
@@ -37,12 +37,14 @@ def _record_shape_information(s_module, inputs):
     record_shape_by_tracing(s_module._c, inputs)
 
 
-def _force_set_input_dims(s_module, input_dims):
+def _set_annotate_args(s_module, input_dims):
     graph = s_module._c.forward.graph
-    inputs = [input for input in graph.inputs() if isinstance(input.type(), torch._C.TensorType)]
-    for idx, input in enumerate(inputs):
-        tensor_to_dynamic_shape(input, input_dims[idx])
-
+    for idx, input in enumerate(graph.inputs()):
+        # skip the 1th self input value
+        if idx == 0:
+            continue
+        set_tensor_shape(input, input_dims[idx-1])
+        
 
 def _script_module_preprocess(s_module, inputs, input_dims=[]):
     graph = s_module._c.forward.graph
@@ -57,8 +59,8 @@ def _script_module_preprocess(s_module, inputs, input_dims=[]):
     # and devices, that are useful for analysis and optimizations
     # by tracing with auxiliary inputs.
     _record_shape_information(s_module, inputs)
-    if cfg.force_input_dims:
-        _force_set_input_dims(s_module, cfg.force_input_dims)
+    if cfg.annotate_args:
+        _set_annotate_args(s_module, cfg.annotate_args)
 
 
 def _deep_copy_script_module(model):

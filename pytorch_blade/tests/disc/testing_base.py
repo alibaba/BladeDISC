@@ -9,8 +9,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import random
 import torch
 import unittest
+import copy
 
 from torch_blade import mlir
 from torch_blade import optimize
@@ -18,14 +20,14 @@ from torch_blade.mlir import is_available
 from torch_blade.config import Config
 from torch_blade.clustering import support_fusion_group
 from torch_blade.testing.common_utils import TestCase
-from torch_blade.tools import read_bool_from_env, tensor_to_dynamic_shape 
+from torch_blade.tools import read_bool_from_env
 
 
 def skipIfNoDISC():
     return unittest.skipIf(not is_available(), "DISC support was not built")
 
 
-def skipIfNoTorchMlir():
+def skipIfEnableTorchMlir():
     return unittest.skipIf(read_bool_from_env("TORCH_DISC_USE_TORCH_MLIR",
                            False), "haven't supported")
 
@@ -45,7 +47,7 @@ class DiscTestCase(TestCase):
     def cvt_to_disc(self, nn_module, test_data, input_dims):
         cfg = Config.get_current_context_or_new()
         cfg.optimization_pipeline = mlir.backend_name()
-        cfg.force_input_dims = input_dims
+        cfg.annotate_args = input_dims
         with mlir.testing_context(), support_fusion_group.min_group_nodes(1), cfg:
             nn_module = self._ScriptFunction2Module(nn_module)
             nn_module = nn_module.eval().to(self.device)
@@ -67,3 +69,16 @@ class DiscTestCase(TestCase):
         self.assertEqual(output, result, rtol=rtol, atol=atol)
         self.assertGreaterEqual(mlir.num_engines(opt_module), n_engines)
         return output, result
+
+    def _gen_test_data(self, dims):
+        test_data = []
+        for dim in dims:
+            for i, dim_i in enumerate(dim):
+                if dim_i == -1:
+                    dim[i] = random.randint(1, 100)
+            test_data.append(torch.randn(dim, device=self.device))
+        return tuple(test_data)
+
+    def _test_disc(self, nn_module, dims):
+        test_data = self._gen_test_data(copy.deepcopy(dims))
+        self._test_cvt_to_disc(nn_module, test_data, dims)

@@ -137,7 +137,6 @@ std::vector<Value> getDimSizesOfTensor(
   auto currentKnowledge = ValueKnowledge::getKnowledgeFromType(value.getType());
   std::vector<Value> dim_sizes;
   if (!currentKnowledge.hasRank) {
-    op->emitOpError("getDimSizesOfTensor(): the Value is not ranked.");
     return dim_sizes;
   }
 
@@ -160,12 +159,17 @@ std::vector<Value> getDimSizesOfTensor(
   return dim_sizes;
 }
 
-Value getMhloShapeOfTensor(
+llvm::Optional<Value> getMhloShapeOfTensor(
     PatternRewriter& rewriter,
     Operation* op,
     Value& value) {
   auto dim_sizes = getDimSizesOfTensor(rewriter, op, value);
-  return rewriter.create<mlir::tensor::FromElementsOp>(op->getLoc(), dim_sizes);
+  if (dim_sizes.size() == 0) {
+    return llvm::None;
+  }
+  return rewriter.create<mlir::tensor::FromElementsOp>(op->getLoc(), dim_sizes)
+      .getResult();
 }
+
 } // namespace mhlo
 } // namespace mlir

@@ -26,11 +26,11 @@ from torch_blade.tools import read_bool_from_env
 def skipIfNoDISC():
     return unittest.skipIf(not is_available(), "DISC support was not built")
 
+def isTorchMlirEnable():
+    return read_bool_from_env("TORCH_DISC_USE_TORCH_MLIR", False)
 
 def skipIfEnableTorchMlir():
-    return unittest.skipIf(read_bool_from_env("TORCH_DISC_USE_TORCH_MLIR",
-                           False), "haven't supported")
-
+    return unittest.skipIf(isTorchMlirEnable(), "haven't supported")
 
 @skipIfNoDISC()
 class DiscTestCase(TestCase):

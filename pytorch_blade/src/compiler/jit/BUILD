@@ -61,15 +61,14 @@ cc_library(
 )
 
 filegroup(
-    name = "torch_blade_jit_test_src",
+    name = "torch_blade_jit_test_srcs",
     srcs = glob(["**/*_test.cpp"]),
 )
 
 cc_test(
     name = "jit_test",
     srcs = [
-        ":torch_blade_jit_test_src",
-        ":torch_blade_jit_srcs",
+        ":torch_blade_jit_test_srcs",
     ],
     linkopts = [
         "-lpthread",
@@ -79,6 +78,7 @@ cc_test(
     linkstatic = True,
     deps = [
         ":tool_funcs",
+        ":torch_blade_jit",
         "//src/common_utils:torch_blade_common",
         "@googltest//:gtest_main",
         "@local_org_torch//:libtorch",

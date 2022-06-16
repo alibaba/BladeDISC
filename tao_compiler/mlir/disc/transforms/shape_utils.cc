@@ -1899,5 +1899,28 @@ void OpListShapeAnalysis::PropagateEquality(
   } while (!converged);
 }
 
+ShapeConstraintIRAnalysis::ShapeConstraintIRAnalysis(Operation* op)
+    : op_(op), mgr_(op->getParentOfType<ModuleOp>()) {
+  ModuleOp m = op_->getParentOfType<ModuleOp>();
+  op_->walk([&](Operation* op) {
+    if (!isa<memref::AllocOp, memref::ReinterpretCastOp>(op)) return;
+    Value result = op->getResult(0);
+    auto resultTy = result.getType().dyn_cast<MemRefType>();
+    // Only support ranked memref types.
+    if (!resultTy) return;
+    // Ealry return if the memref is static or does not have symbolic dim attr
+    auto attrs = op->getAttrOfType<ArrayAttr>(
+        disc_shape::SymbolicDimOp::getSymbolicDimAttrName());
+    if (resultTy.hasStaticShape() || !attrs) return;
+    auto& symbols = memrefValue2SymDims_[result];
+    for (const auto& attr : attrs) {
+      auto symOp =
+          m.lookupSymbol<disc_shape::SymbolicDimOp>(attr.cast<SymbolRefAttr>());
+      assert(symOp && "symbolic op is not found");
+      symbols.push_back(symOp);
+    }
+  });
+}
+
 }  // namespace disc_ral
 }  // namespace mlir

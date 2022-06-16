@@ -677,6 +677,7 @@ cc_library(
     srcs = ["transforms/shape_utils.cc"],
     hdrs = ["transforms/shape_utils.h"],
     deps = [
+        ":disc_shape_optimization_utils",
         ":disc_util",
         ":mhlo_disc",
         ":pass_details",

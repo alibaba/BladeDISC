@@ -16,6 +16,7 @@
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/SmallVector.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 
 #ifndef TENSORFLOW_COMPILER_MLIR_XLA_SHAPE_UTILS_H_
 #define TENSORFLOW_COMPILER_MLIR_XLA_SHAPE_UTILS_H_
@@ -176,6 +177,26 @@ class ShapeAnalysis {
       Value lhs, Value rhs,
       SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>>&
           equal) = 0;
+};
+
+class ShapeConstraintIRAnalysis : public ShapeAnalysis {
+ public:
+  explicit ShapeConstraintIRAnalysis(Operation* op);
+
+  // Returns the `SymbolicDimMgr` this object holds.
+  SymbolicDimMgr& symbolicDimMgr() { return mgr_; }
+  const SymbolicDimMgr& symbolicDimMgr() const { return mgr_; }
+
+ private:
+  // The operation this analysis runs on.
+  Operation* op_;
+
+  // The `SymbolicDimMgr` this analysis holds.
+  SymbolicDimMgr mgr_;
+
+  // Map a ranked memref value to an array of symbolicDims, each represents one
+  // dimension size of the memref value.
+  DenseMap<Value, SmallVector<disc_shape::SymbolicDimOp>> memrefValue2SymDims_;
 };
 
 // Shape analysis for propagating and analyzing known shape information in

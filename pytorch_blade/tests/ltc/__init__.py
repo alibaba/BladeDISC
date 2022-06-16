@@ -9,5 +9,3 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import torch
-from ._torch_disc import _ltc_init_disc_backend

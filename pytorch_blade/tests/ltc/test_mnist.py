@@ -18,10 +18,9 @@ import torch.optim as optim
 from torch.testing import assert_allclose
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
+import torch_blade
 import torch._lazy as ltc
-import torch_disc as disc
-torch._C._lazy_ts_backend._init()
-disc._ltc_init_disc_backend()
+torch_blade.init_ltc_disc_backend()
 import unittest
 
 LOG_INTERVAL=100

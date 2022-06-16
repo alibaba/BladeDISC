@@ -15,7 +15,6 @@ cc_library(
         "//src/compiler/mlir/runtime:torch_blade_disc_rt",
         "@local_org_torch//:libtorch",
     ],
-    alwayslink = True,
 )
 
 filegroup(

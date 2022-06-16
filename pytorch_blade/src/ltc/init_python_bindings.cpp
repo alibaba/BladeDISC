@@ -16,10 +16,8 @@
 namespace torch_disc {
 namespace py = pybind11;
 void InitLtcModuleBindings(py::module m) {
-  m.def("_ltc_init_disc_backend", []() { compiler::InitTorchScriptBackend(); });
-}
-
-PYBIND11_MODULE(_torch_disc, m) {
-  torch_disc::InitLtcModuleBindings(m);
+  py::module ltc =
+      m.def_submodule("_ltc", "torch_blade python bindings to mlir");
+  ltc.def("_init_disc_backend", &compiler::InitTorchScriptBackend);
 }
 } //  namespace torch_disc

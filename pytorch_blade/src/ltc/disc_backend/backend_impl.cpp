@@ -269,6 +269,8 @@ torch::lazy::BackendImplInterface* GetDISCBackendImpl() {
 
 void InitTorchScriptBackend() {
   static std::unique_ptr<torch::lazy::BackendRegistrar> s_registrar;
+  std::cout << "Welcome to Disc accelerator based on PyTorch LazyTensor Core!!!"
+            << std::endl;
   s_registrar.reset(
       new torch::lazy::BackendRegistrar(compiler::GetDISCBackendImpl()));
 }

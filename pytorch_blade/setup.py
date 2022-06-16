@@ -133,8 +133,6 @@ torch_major_version = int(torch_major_version)
 torch_minor_version = int(torch_minor_version)
 
 ext_modules = [TorchBladeExtension("torch_blade._torch_blade")]
-if torch_major_version >= 1 and torch_minor_version >= 12:
-    ext_modules.append(TorchBladeExtension("torch_disc._torch_disc"))
 
 setup(
     name=wheel_name + wheel_suffix,

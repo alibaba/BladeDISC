@@ -9,31 +9,26 @@ cc_library (
     "disc_backend/backend_impl.h",
   ],
   deps = [
-    "//src/ltc/disc_compiler:disc_compiler"
-  ]
-)
-
-pybind_library (
-  name = "torch_disc_pybind11",
-  srcs = ["init_python_bindings.cpp"],
-  hdrs = ["init_python_bindings.h"],
-  deps = [
-    ":torch_disc_backend",
+    "//src/ltc/disc_compiler:disc_compiler",
   ],
-  alwayslink = 1
-)
-
-pybind_extension(
-  name = "_torch_disc",
-  linkopts = ["-Wl,-rpath,$$ORIGIN"],
-  deps = [
-    ":torch_disc_pybind11",
+  visibility = [
+      "//visibility:public",
   ],
+  alwayslink = True,
 )
 
-test_suite(
-  name = "torch_disc_test_suite",
-  tests = [
-    "//src/ltc/disc_compiler:torch_disc_test"
-  ]
+filegroup(
+    name = "torch_blade_ltc_py_srcs",
+    srcs = ["init_python_bindings.cpp"],
+    visibility = [
+      "//visibility:public",
+    ],
+)
+
+filegroup(
+    name = "torch_blade_ltc_py_hdrs",
+    srcs = ["init_python_bindings.h"],
+    visibility = [
+      "//visibility:public",
+    ],
 )

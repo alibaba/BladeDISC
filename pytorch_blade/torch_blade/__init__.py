@@ -16,6 +16,7 @@ except ImportError as e:
     pass
 
 from ._torch_blade import *
+from ._torch_blade import _ltc as ltc
 
 import torch_blade.optimization as optimization
 import torch_blade.tools as tools
@@ -40,6 +41,10 @@ try:
 except ImportError as e:
     pass
 
+
+def init_ltc_disc_backend():
+    torch._C._lazy_ts_backend._init()
+    ltc._init_disc_backend()
 
 warnings.filterwarnings("ignore")
 

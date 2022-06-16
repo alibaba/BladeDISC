@@ -20,6 +20,7 @@
 #include <torch/csrc/lazy/core/lazy_graph_executor.h>
 #include <torch/csrc/lazy/ts_backend/ts_backend_impl.h>
 #include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
+#include "common_utils/logging.h"
 #include "common_utils/utils.h"
 #include "ltc/disc_compiler/disc_compiler.h"
 namespace torch_disc {
@@ -269,8 +270,7 @@ torch::lazy::BackendImplInterface* GetDISCBackendImpl() {
 
 void InitTorchScriptBackend() {
   static std::unique_ptr<torch::lazy::BackendRegistrar> s_registrar;
-  std::cout << "Welcome to Disc accelerator based on PyTorch LazyTensor Core!!!"
-            << std::endl;
+  VLOG(0) << "Welcome to Disc accelerator based on PyTorch LazyTensor Core!!!";
   s_registrar.reset(
       new torch::lazy::BackendRegistrar(compiler::GetDISCBackendImpl()));
 }

@@ -19,6 +19,7 @@ from torch.testing import assert_allclose
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 import torch_blade
+import pytest
 import torch._lazy as ltc
 torch_blade.init_ltc_disc_backend()
 import unittest
@@ -84,6 +85,7 @@ def test(model, device, test_loader):
         100. * correct / len(test_loader.dataset)))
     return correct * 1.0 / len(test_loader.dataset)
 
+@pytest.mark.ltc
 class TestMnist(unittest.TestCase):
     def mnit(self, device):
         torch.manual_seed(2)

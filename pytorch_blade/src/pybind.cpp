@@ -23,7 +23,6 @@
 
 #ifdef TORCH_BLADE_BUILD_MLIR
 #include "compiler/mlir/pybind_functions.h"
-#include "compiler/mlir/runtime/disc_engine.h"
 #endif // TORCH_BLADE_BUILD_MLIR
 
 #ifdef TORCH_BLADE_ENABLE_LTC
@@ -53,7 +52,6 @@ std::string pybind_version() {
 
 template <>
 void initModules<false>(py::module& m) {
-  torch::blade::disc::InitBladeDiscEngine();
   torch::blade::initToolsBindings(m);
   m.def(
       "jit_pass_onnx_constant_f64_to_f32",

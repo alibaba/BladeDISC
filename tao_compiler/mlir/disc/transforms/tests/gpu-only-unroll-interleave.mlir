@@ -115,3 +115,61 @@ func @mean_stitch_fusion(%arg0: !disc_ral.context) attributes {tf.entry_function
   "disc_ral.dispatch"(%arg0, %c0, %25) {backend_config = "cpu", call_target_name = "ral_send_output", has_side_effect = false} : (!disc_ral.context, index, memref<?x?xf32, "gpu">) -> ()
   return
 }
+
+// CHECK-LABEL: @sigmoid_grad
+func @sigmoid_grad(%arg0: !disc_ral.context) attributes {tf.entry_function = {input_placements = "gpu,gpu", inputs = "input0,input1", output_placements = "gpu", outputs = "output0"}} {
+  %cst = arith.constant 1.000000e+00 : f32
+  %c4 = arith.constant 4 : index
+  %c1 = arith.constant 1 : index
+  %c0 = arith.constant 0 : index
+  %0 = "disc_ral.dispatch"(%arg0, %c0) {backend_config = "cpu", call_target_name = "ral_recv_input", has_side_effect = false} : (!disc_ral.context, index) -> memref<?x?xf32, "gpu">
+  %1 = "disc_ral.dispatch"(%arg0, %c1) {backend_config = "cpu", call_target_name = "ral_recv_input", has_side_effect = false} : (!disc_ral.context, index) -> memref<?x?xf32, "gpu">
+  %2 = memref.dim %1, %c0 : memref<?x?xf32, "gpu">
+  %3 = memref.dim %0, %c0 : memref<?x?xf32, "gpu">
+  %4 = memref.dim %1, %c1 : memref<?x?xf32, "gpu">
+  %5 = memref.dim %0, %c1 : memref<?x?xf32, "gpu">
+  %6 = arith.cmpi eq, %3, %c1 : index
+  %7 = arith.select %6, %2, %3 : index
+  %8 = arith.cmpi eq, %5, %c1 : index
+  %9 = arith.select %8, %4, %5 : index
+  %10 = arith.select %6, %7, %3 : index
+  %11 = arith.select %8, %9, %5 : index
+  %12 = memref.alloc(%10, %11) : memref<?x?xf32, "gpu">
+  %13 = memref.reinterpret_cast %1 to offset: [0], sizes: [%3, %5], strides: [%5, 1] : memref<?x?xf32, "gpu"> to memref<?x?xf32, "gpu">
+  %14 = memref.reinterpret_cast %0 to offset: [0], sizes: [%3, %5], strides: [%5, 1] : memref<?x?xf32, "gpu"> to memref<?x?xf32, "gpu">
+  // CHECK: %[[T13:.*]] = memref.reinterpret_cast
+  // CHECK: %[[T14:.*]] = memref.reinterpret_cast
+  "lmhlo.fusion"() ({
+    %15 = arith.muli %3, %5 : index
+    %16 = arith.divui %15, %c4 : index
+    scf.parallel (%arg1) = (%c0) to (%16) step (%c1) {
+      scf.for %arg2 = %c0 to %c4 step %c1 {
+        %17 = arith.muli %arg1, %c4 : index
+        %18 = arith.addi %17, %arg2 : index
+        %19 = arith.muli %3, %5 : index
+        %20 = memref.reinterpret_cast %12 to offset: [%c0], sizes: [%19], strides: [%c1] : memref<?x?xf32, "gpu"> to memref<?xf32, "gpu">
+        %21:2 = "disc_shape.delinearize"(%18, %3, %5) : (index, index, index) -> (index, index)
+        %22 = memref.load %13[%21#0, %21#1] : memref<?x?xf32, "gpu">
+        %23 = memref.load %14[%21#0, %21#1] : memref<?x?xf32, "gpu">
+        %24 = arith.mulf %22, %23 : f32
+        %25 = memref.load %14[%21#0, %21#1] : memref<?x?xf32, "gpu">
+        %26 = arith.subf %cst, %25 : f32
+        %27 = arith.mulf %24, %26 : f32
+        memref.store %27, %20[%18] : memref<?xf32, "gpu">
+      }
+      scf.yield
+    }
+    // CHECK-NOT: scf.for
+    // CHECK-DAG: memref.assume_alignment %[[T13]], 16
+    // CHECK-DAG: memref.assume_alignment %[[T14]], 16
+    // CHECK-COUNT-4: memref.load %[[T13]]
+    // CHECK-COUNT-4: memref.load %[[T14]]
+    // CHECK-COUNT-4: arith.mulf
+    // CHECK-COUNT-4: arith.subf
+    // CHECK-COUNT-4: arith.mulf
+    // CHECK-COUNT-4: memref.store
+    "lmhlo.terminator"() : () -> ()
+  }) {disc.device = "gpu", disc.fusion.name = "main_kLoop_multiply__9_1_0", disc.fusion.tag = "no_ibXVec4", disc.fusion_type = "kLoop", disc_vectorize_or_tile_hint = 4 : i32} : () -> ()
+  "disc_ral.dispatch"(%arg0, %c0, %12) {backend_config = "cpu", call_target_name = "ral_send_output", has_side_effect = false} : (!disc_ral.context, index, memref<?x?xf32, "gpu">) -> ()
+  return
+}

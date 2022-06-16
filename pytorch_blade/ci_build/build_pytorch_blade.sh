@@ -47,11 +47,13 @@ function ci_build() {
       python3 ../scripts/python/common_setup.py --cpu_only
     fi
 
+    export TORCH_BLADE_SKIP_DISC_CMD_BUILD=OFF
     rm -rf build && python3 setup.py develop;
     # The following are UNIT TESTS
     export TORCH_BLADE_DEBUG_LOG=ON
     python3 -m unittest discover tests/ -v 2>&1 | tee -a py_test.out;
     TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_unary_ops.py
+    TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_broadcast.py
     # DEBUG=1 will trigger debug mode compilation
     DEBUG=1 python3 setup.py cpp_test 2>&1 | tee -a cpp_test.out;
     python3 setup.py bdist_wheel;

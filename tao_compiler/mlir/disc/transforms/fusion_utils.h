@@ -623,6 +623,17 @@ class StitchCPUAnalysis {
   Operation* parallelOp_;
 };
 
+template <FusionType... Types>
+bool isFusionType(Operation* op) {
+  SmallVector<FusionType, 2> fusionTypes({Types...});
+  FusionType fusionType = FusionType::kNone;
+  auto fusionTypeAttr = op->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName);
+  if (fusionTypeAttr) {
+    fusionType = fusionTypeFromString(fusionTypeAttr.getValue());
+  }
+  return llvm::find(fusionTypes, fusionType) != fusionTypes.end();
+}
+
 bool isStitchFusion(Operation* op);
 
 class StitchGpuFusionStrategy : public FusionStrategy {

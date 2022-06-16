@@ -1166,8 +1166,24 @@ memref::ReinterpretCastOp createMemRef1DReinterpretCast(OpBuilder& b,
   auto memref_1d_type =
       MemRefType::get({ShapedType::kDynamicSize}, memref_ty.getElementType(),
                       memref_ty.getLayout(), memref_ty.getMemorySpace());
-  return b.create<memref::ReinterpretCastOp>(
+  auto cast = b.create<memref::ReinterpretCastOp>(
       loc, memref_1d_type, memref, zero, ValueRange{size}, ValueRange{stride});
+
+  // Inherit assume_alignment. If there is assume_alignment operator for
+  // `memref`, create the alignment for the castop.
+  memref::AssumeAlignmentOp alignment;
+  for (auto user : memref.getUsers()) {
+    alignment = dyn_cast<memref::AssumeAlignmentOp>(user);
+    if (alignment) {
+      // We assume there is not conflict alignment setting.
+      break;
+    }
+  }
+  if (alignment) {
+    b.create<memref::AssumeAlignmentOp>(loc, cast, alignment.alignment());
+  }
+
+  return cast;
 }
 
 void createOffsetStore(OpBuilder& b, Location loc, Value res, Value memref,

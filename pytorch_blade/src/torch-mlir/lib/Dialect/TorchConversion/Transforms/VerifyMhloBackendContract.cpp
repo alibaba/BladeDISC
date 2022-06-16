@@ -124,9 +124,10 @@ class VerifyMhloBackendContractPass
     // Structural operations.
     target.addDynamicallyLegalOp<ModuleOp, func::FuncOp, func::ReturnOp>(
         opHasLegalTypes);
-    target.addLegalDialect<mhlo::MhloDialect>();
-    target.addLegalDialect<chlo::ChloDialect>();
-
+    target.addLegalDialect<
+        mhlo::MhloDialect,
+        chlo::ChloDialect,
+        arith::ArithmeticDialect>();
     RewritePatternSet patterns(context);
     populateReturnOpTypeConversionPattern(patterns, converter);
     if (failed(applyFullConversion(module, target, std::move(patterns)))) {

@@ -18,8 +18,8 @@
 using namespace torch::blade;
 TEST(SetTensorShapeTest, TestCase) {
   const std::string graph_str = R"IR(
-graph(%p1 : Float(64, 1, 28, 28, strides=[784, 784, 28, 1], requires_grad=0, device=cuda:0)):
-  %1 : Float(64, 1, 28, 28, strides=[784, 784, 28, 1], requires_grad=0, device=cuda:0) = aten::relu(%p1)
+graph(%p1 : Float(64, 1, 28, 28, requires_grad=0, device=cuda:0)):
+  %1 : Float(64, 1, 28, 28, requires_grad=0, device=cuda:0) = aten::relu(%p1)
   return (%1)
 )IR";
   auto g = std::make_shared<torch::jit::Graph>();

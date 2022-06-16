@@ -133,8 +133,6 @@ def configure_with_bazel(args):
         _opt("cxxopt", "-std=c++14")
         _opt("host_cxxopt", "-std=c++14")
         _opt("compilation_mode", "opt")
-        _opt("cxxopt", "-DBUILD_WITH_BAZEL")
-        _action_env("BUILD_WITH_BAZEL", "1")
         _action_env("PYTHON_BIN_PATH", which("python3"))
         _action_env("GCC_HOST_COMPILER_PATH", which("gcc"))
         _action_env("CC", which("gcc"))

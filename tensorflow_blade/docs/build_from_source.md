@@ -50,8 +50,6 @@ head .bazelrc_gen
 build --cxxopt=-std=c++14
 build --host_cxxopt=-std=c++14
 build --compilation_mode=opt
-build --cxxopt=-DBUILD_WITH_BAZEL
-build --action_env BUILD_WITH_BAZEL=1
 build --action_env BLADE_WITH_TF=1
 build --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=0
 build --host_cxxopt=-D_GLIBCXX_USE_CXX11_ABI=0

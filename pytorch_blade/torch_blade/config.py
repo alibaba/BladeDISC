@@ -157,6 +157,7 @@ class Config(ConfigContext):
         self._customize_op_black_list = []
         self._customize_jit_passes = []
         self._opt_pipeline = 'DISC'
+        self._annotate_args = []
 
     @property
     def optimization_pipeline(self):
@@ -455,3 +456,14 @@ class Config(ConfigContext):
     def customize_jit_passes(self, val):
         assert isinstance(val, list), "customize_jit_passes should be list, got {}".format(type(val))
         self._customize_jit_passes = val
+    
+    @property
+    def annotate_args(self):
+        return self._annotate_args
+
+    @annotate_args.setter
+    def annotate_args(self, val):
+        assert isinstance(val, list), "annotate_args should be list, got {}".format(type(val))
+        for i, v in enumerate(val):
+            assert isinstance(v, list), "annotate_args[{}] should be list, got{}".format(i, type(v))
+        self._annotate_args = val

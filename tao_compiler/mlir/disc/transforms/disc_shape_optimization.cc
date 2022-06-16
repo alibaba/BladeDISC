@@ -590,9 +590,16 @@ LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
 LogicalResult ShapeComputationIRAnalysis::applyShapeTensorOpConstraint(
     Operation* op) {
   if (isa<tensor::FromElementsOp>(op)) {
+    // FromElementsOp supports tensor with any rank. We only want to process
+    // those `FromElementsOp` which are likely to be shape tensor.
+    if (!isCandidateShapeTensorType(op->getResult(0).getType())) {
+      return success();
+    }
     auto& symbols = shapeTensor2SymDims_[op->getResult(0)];
     if (symbols.size() != op->getOperands().size())
-      op->emitError() << "miss match dim size and num operands\n";
+      return op->emitError()
+             << "miss match dim size and num operands: " << symbols.size()
+             << " vs " << op->getNumOperands();
     for (const auto& z : llvm::zip(op->getOperands(), symbols)) {
       if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[std::get<0>(z)],
                                           std::get<1>(z))))

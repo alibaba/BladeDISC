@@ -26,6 +26,7 @@ limitations under the License.
 #include "mlir/IR/MLIRContext.h"  // TF:llvm-project
 #include "mlir/IR/Matchers.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
+#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
@@ -401,7 +402,15 @@ bool isFusible(Operation* op) {
 // For some ops (e.g. lmhlo ops), some operands are the output memrefs
 // Thus these operands are supposed to be updated.
 int getNumResultOperands(Operation* op) {
-  if (op->getDialect()->getTypeID() != TypeID::get<lmhlo::LmhloDialect>()) {
+  if (auto customOp = dyn_cast_or_null<lmhlo_disc::CustomCallOp>(op)) {
+    // TODO(disc): add a registration base mechanism to support custom call op
+    // with more than one results.
+    return 1;
+  }
+
+  if (op->getDialect()->getTypeID() != TypeID::get<lmhlo::LmhloDialect>() &&
+      op->getDialect()->getTypeID() !=
+          TypeID::get<lmhlo_disc::LmhloDiscDialect>()) {
     return 0;
   }
   return llvm::count_if(op->getOperands(),
@@ -455,12 +464,7 @@ int64_t getFirstOperandIndex(Operation* op, Value value) {
 FusionStrategy& getFusionStrategy(StringRef device, StringRef strategy);
 
 bool isStitchFusion(Operation* op) {
-  FusionType fusionType = FusionType::kNone;
-  auto fusionTypeAttr = op->getAttrOfType<StringAttr>(kDiscFusionTypeAttrName);
-  if (fusionTypeAttr) {
-    fusionType = fusionTypeFromString(fusionTypeAttr.getValue());
-  }
-  return fusionType == FusionType::kStitch;
+  return isFusionType<FusionType::kStitch>(op);
 }
 
 // Create a new fusion pattern from a single op.

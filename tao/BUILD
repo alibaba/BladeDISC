@@ -104,12 +104,17 @@ cc_library(
         "@local_config_tf//:tf_header_lib",
         "@local_config_tf//:libtensorflow_framework",
         "@org_tao_compiler//tensorflow/compiler/mlir/xla/ral:ral_bridge",
-    ],
-    copts = if_cuda(["-DGOOGLE_CUDA=1"
-        ]) + if_dcu(["-DTENSORFLOW_USE_DCU=1"
-        ]) + if_rocm(["-DTENSORFLOW_USE_ROCM=1",
-            "-x rocm",
-        ]) + tf_copts(),
+    ] + if_platform_alibaba([
+            "//third_party/blade_service_common:blade_service_common_deps",
+    ]),
+    copts = if_cuda([
+        "-DGOOGLE_CUDA=1"
+    ]) + if_dcu([
+        "-DTENSORFLOW_USE_DCU=1"
+    ]) + if_rocm([
+        "-DTENSORFLOW_USE_ROCM=1",
+        "-x rocm",
+    ])+ tf_copts(),
     linkopts = [
         "-lm",
     ],

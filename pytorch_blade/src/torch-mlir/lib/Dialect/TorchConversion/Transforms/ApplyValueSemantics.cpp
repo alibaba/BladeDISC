@@ -11,18 +11,25 @@
 
 #include "torch-mlir/Conversion/MhloPasses.h"
 #include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
+#include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
+#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Builders.h"
+#include "mlir/Transforms/DialectConversion.h"
 
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
+using namespace mlir::torch::TorchConversion;
 
 namespace {
-
 //  Greedily apply value-semantic tensors where possible to make the program
 //  more easier to convert by later passes (also, backends prefer value
 //  semantics as well).
@@ -49,6 +56,36 @@ class ApplyValueSemanticsPass
         val.setType(tensor_type.getWithValueSemantics());
       }
     });
+    reduceTensorConversions(func);
+
+    ConversionTarget target(*context);
+    target.addLegalDialect<
+        Torch::TorchDialect,
+        func::FuncDialect,
+        arith::ArithmeticDialect,
+        tensor::TensorDialect,
+        cf::ControlFlowDialect,
+        math::MathDialect>();
+    target.addLegalOp<ModuleOp>();
+
+    target.addIllegalOp<TensorStaticInfoCastOp>();
+    target.addIllegalOp<CopyToValueTensorOp>();
+    target.addIllegalOp<CopyToNonValueTensorOp>();
+    target.addIllegalOp<ToBuiltinTensorOp>();
+    target.addIllegalOp<FromBuiltinTensorOp>();
+
+    TypeConverter typeConverter;
+    typeConverter.addConversion([](Type type) { return type; });
+
+    RewritePatternSet patterns(context);
+    if (failed(applyPartialConversion(func, target, std::move(patterns)))) {
+      // We avoid `func.emitError()` so that mlir-print-op-on-diagnostics
+      // doesn't unnecessarily spew out the entire module.
+      emitError(func.getLoc())
+          << "Func does not conform to the MHLO backend contract. "
+             "See dialect conversion legality information above.";
+      signalPassFailure();
+    }
   }
 };
 

@@ -224,3 +224,18 @@ func @main(%arg0: tensor<?x?x?xf32>) -> tensor<?x?xf32> {
 // CHECK-DAG: %[[TT3:.*]] = "disc_shape.dim"() {name = @[[S3]]} : () -> index
 // CHECK-DAG: "disc_shape.tie_product_equal"(%[[TT3]], %[[TT1]], %[[TT2]])
 
+// -----
+
+// regression test: non-shape-tensor from_element op
+
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: i32) -> (tensor<i32>, tensor<2x1xi32>
+func @main(%arg0 : i32) -> (tensor<i32>, tensor<2x1xi32>) {
+  // CHECK: %[[T0:.*]] = tensor.from_elements %[[ARG0]] : tensor<i32>
+  // CHECK: %[[T1:.*]] = tensor.from_elements %[[ARG0]], %[[ARG0]] : tensor<2x1xi32>
+  // CHECK: return %[[T0]], %[[T1]]
+  %0 = tensor.from_elements %arg0 : tensor<i32>
+  %1 = tensor.from_elements %arg0, %arg0 : tensor<2x1xi32>
+  return %0, %1 : tensor<i32>, tensor<2x1xi32>
+}
+

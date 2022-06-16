@@ -2574,6 +2574,7 @@ std::vector<string> GetDiscSupportedOps() {
     "ConcatV2",
     "Const",
     "Conv2D",
+    "DepthwiseConv2dNative",
     "DynamicStitch",
     "Equal",
     "Erf",

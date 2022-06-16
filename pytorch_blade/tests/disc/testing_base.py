@@ -70,8 +70,9 @@ class DiscTestCase(TestCase):
         self.assertGreaterEqual(mlir.num_engines(opt_module), n_engines)
         return output, result
 
-    def _gen_test_data(self, dims):
+    def _gen_test_data(self, dims, random_seed):
         test_data = []
+        random.seed(random_seed)
         for dim in dims:
             for i, dim_i in enumerate(dim):
                 if dim_i == -1:
@@ -79,6 +80,6 @@ class DiscTestCase(TestCase):
             test_data.append(torch.randn(dim, device=self.device))
         return tuple(test_data)
 
-    def _test_disc(self, nn_module, dims):
-        test_data = self._gen_test_data(copy.deepcopy(dims))
+    def _test_disc(self, nn_module, dims, random_seed=10):
+        test_data = self._gen_test_data(copy.deepcopy(dims), random_seed)
         self._test_cvt_to_disc(nn_module, test_data, dims)

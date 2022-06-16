@@ -124,7 +124,7 @@ test_suite(
     name = "torch_blade_test_suite",
     tests = [
         "//src/common_utils:torch_blade_tmpfs_test",
-        "//src/compiler/jit:shape_type_test",
+        "//src/compiler/jit:jit_test",
         "//src/compiler/mlir/converters:mhlo_converter_register_test",
     ],
 )

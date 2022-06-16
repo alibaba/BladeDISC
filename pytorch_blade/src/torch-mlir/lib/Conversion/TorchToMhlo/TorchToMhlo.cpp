@@ -544,6 +544,24 @@ LogicalResult ConvertAtenOp<AtenTanhOp>::matchAndRewrite(
   }
 }
 
+// Convert a Aten::Relu to HLO
+// Relu(x) = 0 if x < 0 else x
+template <>
+LogicalResult ConvertAtenOp<AtenReluOp>::matchAndRewrite(
+    AtenReluOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  Value input = adaptor.self();
+  auto inputTy = input.getType().cast<TensorType>();
+  Value zero = chlo::getConstantLike(rewriter, loc, 0.0, input);
+  Value compareGtZero = rewriter.create<mhlo::CompareOp>(
+      loc, input, zero, mhlo::ComparisonDirection::GT);
+  rewriter.replaceOpWithNewOp<mhlo::SelectOp>(
+      op, inputTy, compareGtZero, input, zero);
+  return success();
+}
+
 template <>
 LogicalResult ConvertAtenOp<AtenSigmoidOp>::matchAndRewrite(
     AtenSigmoidOp op,
@@ -1512,7 +1530,7 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenSigmoidOp);
     INSERT_ATENOP_PATTERN(AtenSizeIntOp);
     INSERT_ATENOP_PATTERN(AtenTanhOp);
-    // INSERT_ATENOP_PATTERN(AtenReluOp);
+    INSERT_ATENOP_PATTERN(AtenReluOp);
     // INSERT_ATENOP_PATTERN(AtenArgmaxOp);
     INSERT_ATENOP_PATTERN(AtenPowTensorScalarOp);
     INSERT_ATENOP_PATTERN(AtenRsubScalarOp);

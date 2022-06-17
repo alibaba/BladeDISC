@@ -20,8 +20,10 @@ from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 import torch_blade
 import pytest
-import torch._lazy as ltc
-torch_blade.init_ltc_disc_backend()
+
+if torch_blade._is_ltc_available:
+    import torch._lazy as ltc
+    torch_blade.init_ltc_disc_backend()
 import unittest
 
 LOG_INTERVAL=100

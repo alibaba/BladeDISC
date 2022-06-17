@@ -81,5 +81,6 @@ build:disc_blaze --config=disc --cxxopt=-DBLAZE_OPT
 
 # Platform alibaba
 build:platform_alibaba --cxxopt=-DPLATFORM_ALIBABA --define=is_platform_alibaba=true
+build:platform_alibaba --action_env IS_PLATFORM_ALIBABA=1
 
 try-import %workspace%/.bazelrc_gen

@@ -51,11 +51,6 @@ def if_tensorrt_disabled(if_true, if_false = []):
         return if_true
     return if_false
 
-def if_internal(if_true, if_false = []):
-    if %{IF_INTERNAL}:
-        return if_true
-    return if_false
-
 def disc_build_version():
     return "%{DISC_BUILD_VERSION}"
 

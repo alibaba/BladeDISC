@@ -34,14 +34,18 @@ from common_internal import (
     logger,
 )
 
-from tao_build import get_version_file
 from common_setup import (
     deduce_cuda_info,
     get_cudnn_version,
     get_tf_info,
+    get_version_file,
     execute,
     which,
     safe_run,
+    symlink_disc_files,
+    symlink_dir,
+    get_source_root_dir,
+    internal_root_dir
 )
 from tao_common import (
     git_branch,
@@ -102,7 +106,16 @@ def check(args):
     execute("mypy tests")
 
 
+def link_files(args):
+    symlink_disc_files(args.platform_alibaba)
+    excludes = ['ci_build', 'test.py', 'tf_blade.lds', 'link_files.sh', 'pybind.cpp']
+    src_dir = os.path.join(internal_root_dir(), 'platform_alibaba', 'tensorflow_blade')
+    dst_dir = os.path.join(get_source_root_dir(), 'tensorflow_blade')
+    symlink_dir(src_dir, dst_dir, excludes=excludes)
+
+
 def configure(args):
+    link_files(args)
     save_build_config(args)
     with open(os.path.join(ROOT, ".bazelrc_gen"), "w") as f:
 
@@ -145,7 +158,6 @@ def configure(args):
 
         # TF-Blade
         _action_env("BLADE_WITH_TF_BLADE", "1")
-        _action_env("BLADE_WITH_INTERNAL", "1" if args.platform_alibaba else "0")
         if not args.skip_disc:
             # Build environments. They all starts with `DISC_BUILD_`.
             host = socket.gethostname()
@@ -198,11 +210,11 @@ def configure(args):
             if args.platform_alibaba:
                 _action_env("BLADE_WITH_MKL", "1")
                 mkl_root = os.environ.get(
-                    "MKL_INSTALL_PATH",
+                    "MKL_ROOT",
                     "/opt/intel/compilers_and_libraries_2020.1.217/linux",
                 )
                 assert os.path.exists(mkl_root), f"MKL root path missing: {mkl_root}"
-                _action_env("MKL_INSTALL_PATH", mkl_root)
+                _action_env("MKL_ROOT", mkl_root)
             if not args.skip_disc:
                 if args.enable_mkldnn:
                     _config("disc_mkldnn")
@@ -284,58 +296,46 @@ def parse_args():
         help='Build target device',
     )
     parser.add_argument(
-        "--tf",
-        required=False,
-        choices=["1.15", "2.4"],
-        help="TensorFlow version.",
-    )
-    parser.add_argument(
         '--skip-trt',
         action="store_true",
         required=False,
         default=False,
-        help="If True, TensorRT will be skipped for gpu build",
+        help="Skip TensorRT support",
     )
     parser.add_argument(
         '--skip-hie',
         action="store_true",
         required=False,
         default=True,
-        help="If True, hie will be skipped for internal build",
+        help="Skip HIE support for internal build",
     )
     parser.add_argument(
         '--skip-disc',
         action="store_true",
         required=False,
         default=False,
-        help="If True, disc compiler will be skipped for build",
+        help="Skip BladeDISC compiler support.",
     )
     parser.add_argument(
         '--enable-mkldnn',
         action="store_true",
         required=False,
         default=False,
-        help="If True, mkl will be enabled for disc compiler.",
+        help="Enable MKL for disc compiler.",
     )
     parser.add_argument(
         '--aarch64',
         action="store_true",
         required=False,
         default=False,
-        help="If True, we will only build tao bridge with aarch64 support.",
+        help="If specified, only build tao bridge with aarch64 support.",
     )
     parser.add_argument(
         '--platform-alibaba',
         action="store_true",
         required=False,
         default=False,
-        help="If True, objects inside macro PLATFORM_ALIBABA will be built",
-    )
-    parser.add_argument(
-        "--verbose",
-        required=False,
-        action="store_true",
-        help="Show more information in each stage",
+        help="Build with targets inside alibaba.",
     )
     parser.add_argument(
         '--debug-build',

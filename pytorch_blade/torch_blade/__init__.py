@@ -42,11 +42,11 @@ try:
 except ImportError as e:
     pass
 
+_is_ltc_available = False
 try:
     from ._torch_blade import _ltc as ltc
     _is_ltc_available = True
 except ImportError as e:
-    _is_ltc_available = True
     pass
 
 

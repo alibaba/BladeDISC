@@ -85,35 +85,34 @@ void ral_qconv_s8_s8_s8(
     TAO_VLOG(0) << "params.dilates[0] = " << params.dilates[0];
   }
 
+  auto src_shape = TensorShape(Ci, Iw, Ih, N);
+  auto weights_shape = TensorShape(Ci, Kw, Kh, Co);
+  auto dst_shape = TensorShape(Co, Ow, Oh, N);
+
+  DataLayout data_layout = DataLayout::NHWC;
+  DataType data_type = DataType::QASYMM8_SIGNED;
+  TensorInfo src_info = TensorInfo(src_shape, 1, data_type, data_layout);
+  TensorInfo weights_info =
+      TensorInfo(weights_shape, 1, DataType::QSYMM8_PER_CHANNEL, data_layout);
+  TensorInfo dst_info = TensorInfo(dst_shape, 1, data_type, data_layout);
+
+  const QuantizationInfo src_qinfo = QuantizationInfo();
+  src_info.set_quantization_info(QuantizationInfo(*inputScales.data, 0));
+  std::vector<float> scales(filterScales.data,
+                            filterScales.data + filterScales.sizes[0]);
+  weights_info.set_quantization_info(QuantizationInfo(std::move(scales)));
+  dst_info.set_quantization_info(QuantizationInfo(*outputScales.data, 0));
+
+  arm_compute::Tensor src, weights, dst;
+  src.allocator()->init(src_info);
+  weights.allocator()->init(weights_info);
+  dst.allocator()->init(dst_info);
+  src.allocator()->import_memory(input.data);
+  weights.allocator()->import_memory(kernel.data);
+  dst.allocator()->import_memory(output.data);
+
   auto AclQconvCreator = [&]() {
     std::shared_ptr<AclConvInfo> info(new AclConvInfo);
-    DataLayout data_layout = DataLayout::NHWC;
-
-    auto src_shape = TensorShape(Ci, Iw, Ih, N);
-    auto weights_shape = TensorShape(Ci, Kw, Kh, Co);
-    auto dst_shape = TensorShape(Co, Ow, Oh, N);
-
-    DataType data_type = DataType::QASYMM8_SIGNED;
-    TensorInfo src_info = TensorInfo(src_shape, 1, data_type, data_layout);
-    TensorInfo weights_info =
-        TensorInfo(weights_shape, 1, DataType::QSYMM8_PER_CHANNEL, data_layout);
-    TensorInfo dst_info = TensorInfo(dst_shape, 1, data_type, data_layout);
-
-    const QuantizationInfo src_qinfo = QuantizationInfo();
-    src_info.set_quantization_info(QuantizationInfo(*inputScales.data, 0));
-    std::vector<float> scales(filterScales.data,
-                              filterScales.data + filterScales.sizes[0]);
-    weights_info.set_quantization_info(QuantizationInfo(std::move(scales)));
-    dst_info.set_quantization_info(QuantizationInfo(*outputScales.data, 0));
-
-    arm_compute::Tensor& src = info->src;
-    arm_compute::Tensor& weights = info->weights;
-    arm_compute::Tensor& dst = info->dst;
-
-    // Initialize tensors
-    src.allocator()->init(src_info);
-    weights.allocator()->init(weights_info);
-    dst.allocator()->init(dst_info);
 
     if (!info->op.validate(
             &src_info, &weights_info, nullptr, &dst_info,
@@ -132,6 +131,7 @@ void ral_qconv_s8_s8_s8(
                          WeightsInfo{},
                          Size2D{params.dilates[1], params.dilates[0]});
     }
+    info->op.prepare(&src, &weights, nullptr, &dst);
     return info;
   };
 
@@ -141,16 +141,13 @@ void ral_qconv_s8_s8_s8(
     auto state = ctx->getOrCreateResource<AclConvState>(
         unique_name, []() { return new AclConvState; });
     auto key = makeConvParamsKey(input, kernel, padding, output, metadata,
-                                 std::this_thread::get_id());
+                                 kDiscCpuDefaultThreadId);
     info = state->getOrCreate(key, AclQconvCreator);
   } else {
     info = AclQconvCreator();
   }
 
-  info->src.allocator()->import_memory(input.data);
-  info->weights.allocator()->import_memory(kernel.data);
-  info->dst.allocator()->import_memory(output.data);
-  info->op.run();
+  info->op.run(&src, &weights, nullptr, &dst);
 
   timer.Stop();
   if (isProfilingEnabled()) {

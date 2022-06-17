@@ -90,7 +90,7 @@ int initWeightPrePackingCacheCapacity() {
 
 }  // namespace
 
-std::thread::id kDiscCpuDefaultThreadId{};
+const std::thread::id kDiscCpuDefaultThreadId{};
 
 DiscCpuMathKernelMode GetDiscCpuMathKernelMode() {
   static DiscCpuMathKernelMode mode = initDiscCpuMathKernelMode();
@@ -178,53 +178,53 @@ void runAclDepthwiseKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
                            MemRefType<Toutput, NDims> output,
                            MemRefType<int32_t, 1> metadata,
                            const ConvParams& params, CpuTimer& timer) {
+  arm_compute::DataLayout data_layout = arm_compute::DataLayout::NHWC;
+
+  auto src_dims = params.src.get_dims();
+  auto dst_dims = params.dst.get_dims();
+  auto weight_dims = params.weight.get_dims();
+  int N = src_dims[0];
+  int Ci = src_dims[1];
+  int Ih = src_dims[2];
+  int Iw = src_dims[3];
+  int Co = dst_dims[1];
+  int Oh = dst_dims[2];
+  int Ow = dst_dims[3];
+  int Kh = weight_dims[2];
+  int Kw = weight_dims[3];
+
+  if (TAO_VLOG_IS_ON(1)) {
+    TAO_VLOG(0) << "N = " << N;
+    TAO_VLOG(0) << "Ih = " << Ih;
+    TAO_VLOG(0) << "Iw = " << Iw;
+    TAO_VLOG(0) << "Ci = " << Ci;
+    TAO_VLOG(1) << "Oh = " << Oh;
+    TAO_VLOG(1) << "Ow = " << Ow;
+    TAO_VLOG(0) << "Co = " << Co;
+    TAO_VLOG(0) << "Kh = " << Kh;
+    TAO_VLOG(0) << "Kw = " << Kw;
+  }
+
+  auto src_shape = arm_compute::TensorShape(Ci, Iw, Ih, N);
+  auto weights_shape = arm_compute::TensorShape(Co, Kw, Kh, 1);
+  auto dst_shape = arm_compute::TensorShape(Co, Ow, Oh, N);
+
+  arm_compute::DataType data_type = arm_compute::DataType::F32;
+  auto src_info = arm_compute::TensorInfo(src_shape, 1, data_type, data_layout);
+  auto weights_info =
+      arm_compute::TensorInfo(weights_shape, 1, data_type, data_layout);
+  auto dst_info = arm_compute::TensorInfo(dst_shape, 1, data_type, data_layout);
+
+  arm_compute::Tensor src, weights, dst;
+  src.allocator()->init(src_info);
+  weights.allocator()->init(weights_info);
+  dst.allocator()->init(dst_info);
+  src.allocator()->import_memory(input.data);
+  weights.allocator()->import_memory(kernel.data);
+  dst.allocator()->import_memory(output.data);
+
   auto AclDepthwiseConvCreator = [&]() {
     std::shared_ptr<AclDepthwiseConvInfo> info(new AclDepthwiseConvInfo);
-    arm_compute::DataLayout data_layout = arm_compute::DataLayout::NHWC;
-
-    int N = input.sizes[0];
-    int Ih = input.sizes[1];
-    int Iw = input.sizes[2];
-    int Ci = input.sizes[3];
-    int Oh = output.sizes[1];
-    int Ow = output.sizes[2];
-    int Co = output.sizes[3];
-    int Kh = params.weight.get_dims()[2];
-    int Kw = params.weight.get_dims()[3];
-
-    if (TAO_VLOG_IS_ON(1)) {
-      TAO_VLOG(0) << "N = " << N;
-      TAO_VLOG(0) << "Ih = " << Ih;
-      TAO_VLOG(0) << "Iw = " << Iw;
-      TAO_VLOG(0) << "Ci = " << Ci;
-      TAO_VLOG(1) << "Oh = " << Oh;
-      TAO_VLOG(1) << "Ow = " << Ow;
-      TAO_VLOG(0) << "Co = " << Co;
-      TAO_VLOG(0) << "Kh = " << Kh;
-      TAO_VLOG(0) << "Kw = " << Kw;
-    }
-
-    auto src_shape = arm_compute::TensorShape(Ci, Iw, Ih, N);
-    auto weights_shape = arm_compute::TensorShape(Co, Kw, Kh, 1);
-    auto dst_shape = arm_compute::TensorShape(Co, Ow, Oh, N);
-
-    arm_compute::DataType data_type = arm_compute::DataType::F32;
-    auto src_info =
-        arm_compute::TensorInfo(src_shape, 1, data_type, data_layout);
-    auto weights_info =
-        arm_compute::TensorInfo(weights_shape, 1, data_type, data_layout);
-    auto dst_info =
-        arm_compute::TensorInfo(dst_shape, 1, data_type, data_layout);
-
-    arm_compute::Tensor& src = info->src;
-    arm_compute::Tensor& weights = info->weights;
-    arm_compute::Tensor& dst = info->dst;
-
-    // Initialize tensors
-    src.allocator()->init(src_info);
-    weights.allocator()->init(weights_info);
-    dst.allocator()->init(dst_info);
-
     if (!info->op.validate(
             &src_info, &weights_info, nullptr, &dst_info,
             arm_compute::PadStrideInfo{
@@ -244,6 +244,7 @@ void runAclDepthwiseKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
           /* multiplier */ Co / Ci, arm_compute::ActivationLayerInfo{},
           arm_compute::Size2D{params.dilates[1], params.dilates[0]});
     }
+    info->op.prepare(&src, &weights, nullptr, &dst);
 
     return info;
   };
@@ -254,16 +255,13 @@ void runAclDepthwiseKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
     auto state = ctx->getOrCreateResource<AclDepthwiseConvState>(
         unique_name, []() { return new AclDepthwiseConvState; });
     auto key = makeConvParamsKey(input, kernel, padding, output, metadata,
-                                 std::this_thread::get_id());
+                                 kDiscCpuDefaultThreadId);
     info = state->getOrCreate(key, AclDepthwiseConvCreator);
   } else {
     info = AclDepthwiseConvCreator();
   }
 
-  info->src.allocator()->import_memory(input.data);
-  info->weights.allocator()->import_memory(kernel.data);
-  info->dst.allocator()->import_memory(output.data);
-  info->op.run();
+  info->op.run(&src, &weights, nullptr, &dst);
 
   timer.Stop();
   if (isProfilingEnabled()) {
@@ -306,63 +304,60 @@ void runAclConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
                       MemRefType<Toutput, NDims> output,
                       MemRefType<int32_t, 1> metadata, const ConvParams& params,
                       CpuTimer& timer) {
+  auto src_dims = params.src.get_dims();
+  auto dst_dims = params.dst.get_dims();
+  auto weight_dims = params.weight.get_dims();
+  int N = src_dims[0];
+  int Ci = src_dims[1];
+  int Ih = src_dims[2];
+  int Iw = src_dims[3];
+  int Co = dst_dims[1];
+  int Oh = dst_dims[2];
+  int Ow = dst_dims[3];
+  int Kh = weight_dims[2];
+  int Kw = weight_dims[3];
+
+  if (TAO_VLOG_IS_ON(1)) {
+    TAO_VLOG(1) << "N = " << N;
+    TAO_VLOG(1) << "Ih = " << Ih;
+    TAO_VLOG(1) << "Iw = " << Iw;
+    TAO_VLOG(1) << "Ci = " << Ci;
+    TAO_VLOG(1) << "Oh = " << Oh;
+    TAO_VLOG(1) << "Ow = " << Ow;
+    TAO_VLOG(1) << "Co = " << Co;
+    TAO_VLOG(1) << "Kh = " << Kh;
+    TAO_VLOG(1) << "Kw = " << Kw;
+    TAO_VLOG(0) << "params.strides[1] = " << params.strides[1];
+    TAO_VLOG(0) << "params.strides[0] = " << params.strides[0];
+    TAO_VLOG(0) << "params.padding_l[1] = " << params.padding_l[1];
+    TAO_VLOG(0) << "params.padding_l[0] = " << params.padding_l[0];
+    TAO_VLOG(0) << "params.padding_r[1] = " << params.padding_r[1];
+    TAO_VLOG(0) << "params.padding_r[0] = " << params.padding_r[0];
+    TAO_VLOG(0) << "params.dilates[1] = " << params.dilates[1];
+    TAO_VLOG(0) << "params.dilates[0] = " << params.dilates[0];
+  }
+
+  arm_compute::DataType data_type = arm_compute::DataType::F32;
+  arm_compute::DataLayout data_layout = arm_compute::DataLayout::NHWC;
+  auto src_shape = arm_compute::TensorShape(Ci, Iw, Ih, N);
+  auto weights_shape = arm_compute::TensorShape(Ci, Kw, Kh, Co);
+  auto dst_shape = arm_compute::TensorShape(Co, Ow, Oh, N);
+
+  auto src_info = arm_compute::TensorInfo(src_shape, 1, data_type, data_layout);
+  auto weights_info =
+      arm_compute::TensorInfo(weights_shape, 1, data_type, data_layout);
+  auto dst_info = arm_compute::TensorInfo(dst_shape, 1, data_type, data_layout);
+
+  arm_compute::Tensor src, weights, dst;
+  src.allocator()->init(src_info);
+  weights.allocator()->init(weights_info);
+  dst.allocator()->init(dst_info);
+  src.allocator()->import_memory(input.data);
+  weights.allocator()->import_memory(kernel.data);
+  dst.allocator()->import_memory(output.data);
+
   auto AclConvCreator = [&]() {
-    auto src_dims = params.src.get_dims();
-    auto dst_dims = params.dst.get_dims();
-    auto weight_dims = params.weight.get_dims();
-    int N = src_dims[0];
-    int Ci = src_dims[1];
-    int Ih = src_dims[2];
-    int Iw = src_dims[3];
-    int Co = dst_dims[1];
-    int Oh = dst_dims[2];
-    int Ow = dst_dims[3];
-    int Kh = weight_dims[2];
-    int Kw = weight_dims[3];
-
-    if (TAO_VLOG_IS_ON(1)) {
-      TAO_VLOG(1) << "N = " << N;
-      TAO_VLOG(1) << "Ih = " << Ih;
-      TAO_VLOG(1) << "Iw = " << Iw;
-      TAO_VLOG(1) << "Ci = " << Ci;
-      TAO_VLOG(1) << "Oh = " << Oh;
-      TAO_VLOG(1) << "Ow = " << Ow;
-      TAO_VLOG(1) << "Co = " << Co;
-      TAO_VLOG(1) << "Kh = " << Kh;
-      TAO_VLOG(1) << "Kw = " << Kw;
-      TAO_VLOG(0) << "params.strides[1] = " << params.strides[1];
-      TAO_VLOG(0) << "params.strides[0] = " << params.strides[0];
-      TAO_VLOG(0) << "params.padding_l[1] = " << params.padding_l[1];
-      TAO_VLOG(0) << "params.padding_l[0] = " << params.padding_l[0];
-      TAO_VLOG(0) << "params.padding_r[1] = " << params.padding_r[1];
-      TAO_VLOG(0) << "params.padding_r[0] = " << params.padding_r[0];
-      TAO_VLOG(0) << "params.dilates[1] = " << params.dilates[1];
-      TAO_VLOG(0) << "params.dilates[0] = " << params.dilates[0];
-    }
-
     std::shared_ptr<AclConvInfo> info(new AclConvInfo);
-
-    arm_compute::DataType data_type = arm_compute::DataType::F32;
-    arm_compute::DataLayout data_layout = arm_compute::DataLayout::NHWC;
-    auto src_shape = arm_compute::TensorShape(Ci, Iw, Ih, N);
-    auto weights_shape = arm_compute::TensorShape(Ci, Kw, Kh, Co);
-    auto dst_shape = arm_compute::TensorShape(Co, Ow, Oh, N);
-
-    auto src_info =
-        arm_compute::TensorInfo(src_shape, 1, data_type, data_layout);
-    auto weights_info =
-        arm_compute::TensorInfo(weights_shape, 1, data_type, data_layout);
-    auto dst_info =
-        arm_compute::TensorInfo(dst_shape, 1, data_type, data_layout);
-
-    arm_compute::Tensor& src = info->src;
-    arm_compute::Tensor& weights = info->weights;
-    arm_compute::Tensor& dst = info->dst;
-
-    // Initialize tensors
-    src.allocator()->init(src_info);
-    weights.allocator()->init(weights_info);
-    dst.allocator()->init(dst_info);
 
     if (!info->op.validate(
             &src_info, &weights_info, nullptr, &dst_info,
@@ -383,6 +378,7 @@ void runAclConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
           arm_compute::WeightsInfo{},
           arm_compute::Size2D{params.dilates[1], params.dilates[0]});
     }
+    info->op.prepare(&src, &weights, nullptr, &dst);
 
     return info;
   };
@@ -393,16 +389,13 @@ void runAclConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
     auto state = ctx->getOrCreateResource<AclConvState>(
         unique_name, []() { return new AclConvState; });
     auto key = makeConvParamsKey(input, kernel, padding, output, metadata,
-                                 std::this_thread::get_id());
+                                 kDiscCpuDefaultThreadId);
     info = state->getOrCreate(key, AclConvCreator);
   } else {
     info = AclConvCreator();
   }
 
-  info->src.allocator()->import_memory(input.data);
-  info->weights.allocator()->import_memory(kernel.data);
-  info->dst.allocator()->import_memory(output.data);
-  info->op.run();
+  info->op.run(&src, &weights, nullptr, &dst);
 
   timer.Stop();
   if (isProfilingEnabled()) {

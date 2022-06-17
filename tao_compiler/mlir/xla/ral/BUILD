@@ -266,6 +266,8 @@ cc_library(
     ]) + if_mkldnn([
         "context/common_context_impl_mkldnn.cc",
         "context/common_context_impl_quantization.cc",
+    ]) + if_disc_aarch64([
+        "context/common_context_impl_acl.cc",
     ]),
     hdrs = [
         "context/common_context_impl.h",
@@ -273,6 +275,8 @@ cc_library(
         "context/stream_executor_based_impl.h",
     ]) + if_mkldnn([
         "context/common_context_impl_mkldnn.h",
+    ]) + if_disc_aarch64([
+        "context/common_context_impl_acl.h",
     ]),
     copts = [
         # "-DTF_1_12",
@@ -556,6 +560,8 @@ cc_library(
     ]) + if_mkldnn([
         "context/common_context_impl_mkldnn.cc",
         "context/common_context_impl_quantization.cc",
+    ]) + if_disc_aarch64([
+        "context/common_context_impl_acl.cc",
     ]),
     hdrs = [
         "context/common_context_impl.h",
@@ -563,6 +569,8 @@ cc_library(
     ] + if_cuda_or_rocm([
     ])+ if_mkldnn([
         "context/common_context_impl_mkldnn.h",
+    ]) + if_disc_aarch64([
+        "context/common_context_impl_acl.h",
     ]),
     copts = [
         "-fopenmp",

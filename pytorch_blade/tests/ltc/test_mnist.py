@@ -47,7 +47,7 @@ class Net(nn.Module):
         return F.log_softmax(self.fc3(x), dim=1)
 
 
-def train(model, device, train_loader, optimizer, epoch):
+def run_train(model, device, train_loader, optimizer, epoch):
     model.train()
     train_loss = 0
     for batch_idx, (data, target) in enumerate(train_loader):
@@ -67,7 +67,7 @@ def train(model, device, train_loader, optimizer, epoch):
     print('Train Epoch:{} Average loss: {:.4f}'.format(epoch, train_loss))
 
 
-def test(model, device, test_loader):
+def run_test(model, device, test_loader):
     model.eval()
     test_loss = 0
     correct = 0
@@ -114,8 +114,8 @@ class TestMnist(unittest.TestCase):
         scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
         test_acc = None
         for epoch in range(1, epochs + 1):
-            train(model, device, train_loader, optimizer, epoch)
-            test_acc = test(model, device, test_loader)
+            run_train(model, device, train_loader, optimizer, epoch)
+            test_acc = run_test(model, device, test_loader)
             scheduler.step()
 
         return test_acc

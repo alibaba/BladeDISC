@@ -13,6 +13,7 @@ import torch
 import unittest
 from tests.disc.testing_base import skipIfEnableTorchMlir, DiscTestCase
 from torch_blade import Config
+import pytest
 
 
 class TestDiscActivation(DiscTestCase):
@@ -26,40 +27,38 @@ class TestDiscActivation(DiscTestCase):
                 return native_func(x)
 
             self._test_disc(jit_script_func, dims)
-
+    
     def test_relu_dynamic_shape(self):
         self._test_activation(torch.nn.ReLU(), torch.nn.functional.relu, [[-1, -1, -1, -1]])
-
+    
     def test_relu_static_shape(self):
         self._test_activation(torch.nn.ReLU(), torch.nn.functional.relu, [[2, 4, 16, 16]])
-
-    @skipIfEnableTorchMlir()
+    
     def test_leaky_relu_static_shape(self):
         self._test_activation(torch.nn.LeakyReLU(), torch.nn.functional.leaky_relu, [[2, 4, 16, 16]])
-
-    @skipIfEnableTorchMlir()
+    
     def test_silu_static_shape(self):
         self._test_activation(torch.nn.SiLU(), torch.nn.functional.silu, [[2, 4, 16, 16]])
-
-    @skipIfEnableTorchMlir()
+    
     def test_sigmoid(self):
         self._test_activation(torch.nn.Sigmoid(), torch.sigmoid, [[2, 4, 16, 16]])
 
     @skipIfEnableTorchMlir()
+    #TODO(yancey1989): dependence binary op
     def test_hardtanh(self):
         self._test_activation(torch.nn.Hardtanh(), torch.nn.functional.hardtanh, [[2, 4, 16, 16]])
 
     @skipIfEnableTorchMlir()
+    #TODO(yancey1989): dependence torch dialect add glu op
     def test_glu(self):
         self._test_activation(torch.nn.GLU(), torch.nn.functional.glu, [[2, 4, 16, 16]])
 
-    @skipIfEnableTorchMlir()
     def test_gelu(self):
         self._test_activation(torch.nn.GELU(), torch.nn.functional.gelu, [[2, 4, 16, 16]])
 
     @skipIfEnableTorchMlir()
+    #TODO(yancey1989): need a white list which is separate from old mhlo converter
     def test_hardswish(self):
-
         def _jit_pass_hardswish(graph):
             from_graph_str = """
             graph(%x):

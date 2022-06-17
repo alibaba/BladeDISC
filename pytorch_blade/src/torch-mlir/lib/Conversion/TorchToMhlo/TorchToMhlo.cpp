@@ -627,6 +627,29 @@ LogicalResult ConvertAtenOp<AtenSiluOp>::matchAndRewrite(
   return success();
 }
 
+// Convert a Aten::GELU to HLO
+// Gelu(x) = x * 1/2 * [1 + erf(x/(sqrt(2)))]
+template <>
+LogicalResult ConvertAtenOp<AtenGeluOp>::matchAndRewrite(
+    AtenGeluOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  Value input = adaptor.self();
+  auto inputTy = input.getType().cast<TensorType>();
+  auto elem_type = inputTy.getElementType();
+  Value one = chlo::getConstantLike(rewriter, loc, 1.0, input);
+  Value two = chlo::getConstantLike(rewriter, loc, 2.0, input);
+  Value half = chlo::getConstantLike(rewriter, loc, 0.5, input);
+  auto rsqrt_two = rewriter.create<mlir::mhlo::RsqrtOp>(loc, two);
+  auto erf_element = rewriter.create<mhlo::MulOp>(loc, input, rsqrt_two);
+  auto erf = rewriter.create<mlir::chlo::ErfOp>(loc, erf_element);
+  auto erf_add = rewriter.create<mhlo::AddOp>(loc, erf, one);
+  auto half_mul = rewriter.create<mhlo::MulOp>(loc, erf_add, half);
+  rewriter.replaceOpWithNewOp<mhlo::MulOp>(op, input, half_mul);
+  return success();
+}
+
 using ReductionConvFunc = llvm::Optional<Value> (*)(
     PatternRewriter&,
     Operation*,
@@ -1575,6 +1598,7 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenReluOp);
     INSERT_ATENOP_PATTERN(AtenLeakyReluOp);
     INSERT_ATENOP_PATTERN(AtenSiluOp);
+    INSERT_ATENOP_PATTERN(AtenGeluOp);
     INSERT_ATENOP_PATTERN(AtenSizeIntOp);
     INSERT_ATENOP_PATTERN(AtenTanhOp);
     // INSERT_ATENOP_PATTERN(AtenArgmaxOp);

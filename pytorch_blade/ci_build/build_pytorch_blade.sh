@@ -51,7 +51,7 @@ function ci_build() {
     rm -rf build && python3 setup.py develop;
     # The following are UNIT TESTS
     export TORCH_BLADE_DEBUG_LOG=ON
-    python3 -m unittest discover tests/ -v 2>&1 | tee -a py_test.out;
+    pytest tests tests -v -m "not ltc" 2>&1 | tee -a py_test.out
     TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_unary_ops.py
     TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_broadcast.py
     # DEBUG=1 will trigger debug mode compilation

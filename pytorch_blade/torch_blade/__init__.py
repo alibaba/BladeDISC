@@ -9,6 +9,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from ast import Raise
 import torch
 try:
     import torchvision
@@ -22,6 +23,7 @@ import torch_blade.tools as tools
 import torch_blade.utils as utils
 import torch_blade.version as version
 import warnings
+import importlib
 
 from torch_blade.config import Config
 from torch_blade.optimization import optimize
@@ -40,6 +42,21 @@ try:
 except ImportError as e:
     pass
 
+_is_ltc_available = False
+try:
+    from ._torch_blade import _ltc as ltc
+    _is_ltc_available = True
+except ImportError as e:
+    pass
+
+
+def init_ltc_disc_backend():
+    if _is_ltc_available:
+        torch._C._lazy_ts_backend._init()
+        ltc._init_disc_backend()
+    else:
+        raise RuntimeError('''LTC Disc accelerator is not released in the
+current TorchBlade version, please update to the latest.''')
 
 warnings.filterwarnings("ignore")
 

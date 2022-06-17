@@ -1,4 +1,5 @@
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension", "pybind_library")
+load("//bazel:build_defs.bzl", "if_ltc_disc_backend")
 
 cc_library (
   name = "disc_passes",
@@ -41,14 +42,16 @@ cc_library (
 )
 
 cc_test(
-  name = "torch_disc_test",
-  srcs = [
+  name = "ltc_disc_test",
+  srcs = []
+  + if_ltc_disc_backend([
     "disc_compiler_test.cpp",
     "passes/disc_fuser_test.cpp",
-  ],
+  ]),
   deps = [
-    ":disc_passes",
     "@local_org_torch//:libtorch",
     "@googltest//:gtest_main",
-  ]
+  ] + if_ltc_disc_backend([
+    ":disc_passes",
+  ])
 )

@@ -18,10 +18,12 @@ import torch.optim as optim
 from torch.testing import assert_allclose
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
-import torch._lazy as ltc
-import torch_disc as disc
-torch._C._lazy_ts_backend._init()
-disc._ltc_init_disc_backend()
+import torch_blade
+import pytest
+
+if torch_blade._is_ltc_available:
+    import torch._lazy as ltc
+    torch_blade.init_ltc_disc_backend()
 import unittest
 
 LOG_INTERVAL=100
@@ -45,7 +47,7 @@ class Net(nn.Module):
         return F.log_softmax(self.fc3(x), dim=1)
 
 
-def train(model, device, train_loader, optimizer, epoch):
+def run_train(model, device, train_loader, optimizer, epoch):
     model.train()
     train_loss = 0
     for batch_idx, (data, target) in enumerate(train_loader):
@@ -65,7 +67,7 @@ def train(model, device, train_loader, optimizer, epoch):
     print('Train Epoch:{} Average loss: {:.4f}'.format(epoch, train_loss))
 
 
-def test(model, device, test_loader):
+def run_test(model, device, test_loader):
     model.eval()
     test_loss = 0
     correct = 0
@@ -85,6 +87,7 @@ def test(model, device, test_loader):
         100. * correct / len(test_loader.dataset)))
     return correct * 1.0 / len(test_loader.dataset)
 
+@pytest.mark.ltc
 class TestMnist(unittest.TestCase):
     def mnit(self, device):
         torch.manual_seed(2)
@@ -111,8 +114,8 @@ class TestMnist(unittest.TestCase):
         scheduler = StepLR(optimizer, step_size=1, gamma=gamma)
         test_acc = None
         for epoch in range(1, epochs + 1):
-            train(model, device, train_loader, optimizer, epoch)
-            test_acc = test(model, device, test_loader)
+            run_train(model, device, train_loader, optimizer, epoch)
+            test_acc = run_test(model, device, test_loader)
             scheduler.step()
 
         return test_acc

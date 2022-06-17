@@ -49,8 +49,9 @@ cc_test(
     "passes/disc_fuser_test.cpp",
   ]),
   deps = [
-    ":disc_passes",
     "@local_org_torch//:libtorch",
     "@googltest//:gtest_main",
-  ]
+  ] + if_ltc_disc_backend([
+    ":disc_passes",
+  ])
 )

@@ -27,6 +27,7 @@
 #if defined(TAO_AARCH64)
 #include "arm_compute/core/Types.h"
 #include "arm_compute/runtime/NEON/NEFunctions.h"
+#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_acl.h"
 #endif
 
 namespace tao {
@@ -81,7 +82,7 @@ inline void hash_combine(std::size_t& seed, const T& v) {
   seed ^= hasher(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
 }
 
-extern std::thread::id kDiscCpuDefaultThreadId;
+extern const std::thread::id kDiscCpuDefaultThreadId;
 
 struct ConvParams {
   format_tag input_format;
@@ -494,11 +495,11 @@ struct AclConvLikeState : public Context::Resource {
 };
 
 using AclDepthwiseConvInfo =
-    AclConvLikeInfo<arm_compute::NEDepthwiseConvolutionLayer>;
+    AclConvLikeInfo<arm_compute::DISCNEDepthwiseConvolutionLayer>;
 using AclDepthwiseConvState =
-    AclConvLikeState<arm_compute::NEDepthwiseConvolutionLayer>;
-using AclConvInfo = AclConvLikeInfo<arm_compute::NEConvolutionLayer>;
-using AclConvState = AclConvLikeState<arm_compute::NEConvolutionLayer>;
+    AclConvLikeState<arm_compute::DISCNEDepthwiseConvolutionLayer>;
+using AclConvInfo = AclConvLikeInfo<arm_compute::DISCNEConvolutionLayer>;
+using AclConvState = AclConvLikeState<arm_compute::DISCNEConvolutionLayer>;
 
 #endif  // TAO_AARCH64
 

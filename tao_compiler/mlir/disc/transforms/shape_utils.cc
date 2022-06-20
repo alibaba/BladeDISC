@@ -1922,5 +1922,60 @@ ShapeConstraintIRAnalysis::ShapeConstraintIRAnalysis(Operation* op)
   });
 }
 
+bool ShapeConstraintIRAnalysis::isShapeEqual(Value lhs, Value rhs) {
+  auto lhsTy = lhs.getType().dyn_cast<ShapedType>();
+  auto rhsTy = rhs.getType().dyn_cast<ShapedType>();
+
+  if (lhsTy && rhsTy && lhsTy.hasStaticShape() && rhsTy.hasStaticShape()) {
+    return lhsTy.getShape() == rhsTy.getShape();
+  }
+
+  auto lhsIt = memrefValue2SymDims_.find(lhs);
+  auto rhsIt = memrefValue2SymDims_.find(rhs);
+
+  if (lhsIt == memrefValue2SymDims_.end() ||
+      rhsIt == memrefValue2SymDims_.end() ||
+      lhsIt->second.size() != rhsIt->second.size())
+    return false;
+
+  SmallVector<disc_shape::SymbolicDimOp> lhsSyms;
+  SmallVector<disc_shape::SymbolicDimOp> rhsSyms;
+  for (auto sym : lhsIt->second) {
+    lhsSyms.push_back(mgr_.getRootSymbolicDim(sym));
+  }
+  for (auto sym : rhsIt->second) {
+    rhsSyms.push_back(mgr_.getRootSymbolicDim(sym));
+  }
+  return lhsSyms == rhsSyms;
+}
+
+bool ShapeConstraintIRAnalysis::isSameNumElements(Value lhs, Value rhs) {
+  auto lhsTy = lhs.getType().dyn_cast<ShapedType>();
+  auto rhsTy = rhs.getType().dyn_cast<ShapedType>();
+  auto lhsIt = memrefValue2SymDims_.find(lhs);
+  auto rhsIt = memrefValue2SymDims_.find(rhs);
+
+  SymbolicDimProduct lhsProd;
+  SymbolicDimProduct rhsProd;
+
+  if (lhsTy && lhsTy.hasStaticShape()) {
+    lhsProd.factor = lhsTy.getNumElements();
+  } else if (lhsIt != memrefValue2SymDims_.end()) {
+    lhsProd.symbols = lhsIt->second;
+  } else {
+    return false;
+  }
+
+  if (rhsTy && rhsTy.hasStaticShape()) {
+    rhsProd.factor = rhsTy.getNumElements();
+  } else if (rhsIt != memrefValue2SymDims_.end()) {
+    rhsProd.symbols = rhsIt->second;
+  } else {
+    return false;
+  }
+
+  return mgr_.isSymbolicDimProductEqual(lhsProd, rhsProd);
+}
+
 }  // namespace disc_ral
 }  // namespace mlir

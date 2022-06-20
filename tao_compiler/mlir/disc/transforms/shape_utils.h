@@ -187,6 +187,12 @@ class ShapeConstraintIRAnalysis : public ShapeAnalysis {
   SymbolicDimMgr& symbolicDimMgr() { return mgr_; }
   const SymbolicDimMgr& symbolicDimMgr() const { return mgr_; }
 
+  // Returns true if the two value have the same symbolic shape.
+  bool isShapeEqual(Value lhs, Value rhs) override;
+
+  // Returns true if the two value have the same number elements.
+  bool isSameNumElements(Value lhs, Value rhs) override;
+
  private:
   // The operation this analysis runs on.
   Operation* op_;

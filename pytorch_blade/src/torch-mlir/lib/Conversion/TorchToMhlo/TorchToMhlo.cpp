@@ -553,7 +553,10 @@ LogicalResult ConvertAtenOp<AtenReluOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   Value input = adaptor.self();
-  auto inputTy = input.getType().cast<TensorType>();
+  auto inputTy = input.getType().template cast<RankedTensorType>();
+  if (!inputTy) {
+    return op.emitError("Only RankedTensorType is supported in Aten ReLU op.");
+  }
   Value zero = chlo::getConstantLike(rewriter, loc, 0.0, input);
   Value compareGtZero = rewriter.create<mhlo::CompareOp>(
       loc, input, zero, mhlo::ComparisonDirection::GT);
@@ -572,7 +575,11 @@ LogicalResult ConvertAtenOp<AtenLeakyReluOp>::matchAndRewrite(
   Location loc = op.getLoc();
   Value input = adaptor.self();
   Value negativeSlope = op.negative_slope();
-  auto inputTy = input.getType().cast<TensorType>();
+  auto inputTy = input.getType().template cast<RankedTensorType>();
+  if (!inputTy) {
+    return op.emitError(
+        "Only RankedTensorType is supported in Aten LeakyReLU op.");
+  }
 
   double scaleValue;
   if (!matchPattern(negativeSlope, m_TorchConstantFloat(&scaleValue)))
@@ -602,10 +609,14 @@ LogicalResult ConvertAtenOp<AtenSigmoidOp>::matchAndRewrite(
     OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
-  Value self = adaptor.self();
-  auto selfTy = self.getType().cast<TensorType>();
-  Value one = chlo::getConstantLike(rewriter, loc, 1.0, self);
-  Value negVal = rewriter.create<mhlo::NegOp>(loc, self);
+  Value input = adaptor.self();
+  auto inputTy = input.getType().template cast<RankedTensorType>();
+  if (!inputTy) {
+    return op.emitError(
+        "Only RankedTensorType is supported in Aten Sigmoid op.");
+  }
+  Value one = chlo::getConstantLike(rewriter, loc, 1.0, input);
+  Value negVal = rewriter.create<mhlo::NegOp>(loc, input);
   Value expVal = rewriter.create<mhlo::ExpOp>(loc, negVal);
   Value addVal = rewriter.create<mhlo::AddOp>(loc, expVal, one);
   rewriter.replaceOpWithNewOp<mhlo::DivOp>(op, one, addVal);
@@ -621,7 +632,10 @@ LogicalResult ConvertAtenOp<AtenSiluOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   Value input = adaptor.self();
-  auto inputTy = input.getType().cast<TensorType>();
+  auto inputTy = input.getType().template cast<RankedTensorType>();
+  if (!inputTy) {
+    return op.emitError("Only RankedTensorType is supported in Aten SiLu op.");
+  }
   Value sigmoid = rewriter.create<AtenSigmoidOp>(loc, inputTy, input);
   rewriter.replaceOpWithNewOp<mhlo::MulOp>(op, input, sigmoid);
   return success();
@@ -636,7 +650,11 @@ LogicalResult ConvertAtenOp<AtenGeluOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   Value input = adaptor.self();
-  auto inputTy = input.getType().cast<TensorType>();
+  auto inputTy = input.getType().template cast<RankedTensorType>();
+  if (!inputTy) {
+    return op.emitError("Only RankedTensorType is supported in Aten GELU op.");
+  }
+
   auto elem_type = inputTy.getElementType();
   Value one = chlo::getConstantLike(rewriter, loc, 1.0, input);
   Value two = chlo::getConstantLike(rewriter, loc, 2.0, input);

@@ -553,7 +553,10 @@ LogicalResult ConvertAtenOp<AtenReluOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   Value input = adaptor.self();
-  auto inputTy = input.getType().cast<TensorType>();
+  auto inputTy = input.getType().template cast<RankedTensorType>();
+  if (!inputTy) {
+    return op.emitError("Only RankedTensorType is supported in Aten ReLU op.");
+  }
   Value zero = chlo::getConstantLike(rewriter, loc, 0.0, input);
   Value compareGtZero = rewriter.create<mhlo::CompareOp>(
       loc, input, zero, mhlo::ComparisonDirection::GT);
@@ -562,25 +565,107 @@ LogicalResult ConvertAtenOp<AtenReluOp>::matchAndRewrite(
   return success();
 }
 
+// Convert a Aten::LeakyRelu to HLO
+// LeakyRelu(x) = max(0, x) + negative_slop * min(0, x)
+template <>
+LogicalResult ConvertAtenOp<AtenLeakyReluOp>::matchAndRewrite(
+    AtenLeakyReluOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  Value input = adaptor.self();
+  Value negativeSlope = op.negative_slope();
+  auto inputTy = input.getType().template cast<RankedTensorType>();
+  if (!inputTy) {
+    return op.emitError(
+        "Only RankedTensorType is supported in Aten LeakyReLU op.");
+  }
+
+  double scaleValue;
+  if (!matchPattern(negativeSlope, m_TorchConstantFloat(&scaleValue)))
+    return op->emitError(
+        "Currently only scalar constants are supported for "
+        "negative_slope in MHLO operation");
+
+  Value zeroVal = chlo::getConstantLike(rewriter, loc, 0.0, input);
+  Value scaleVal = chlo::getConstantLike(rewriter, loc, scaleValue, input);
+
+  Value leakyActivationVal = rewriter.create<mhlo::MulOp>(
+      loc, getTypeConverter()->convertType(op.getType()), input, scaleVal);
+
+  Value compareGtZero = rewriter.create<mhlo::CompareOp>(
+      loc, input, zeroVal, mhlo::ComparisonDirection::GT);
+
+  rewriter.replaceOpWithNewOp<mhlo::SelectOp>(
+      op, inputTy, compareGtZero, input, leakyActivationVal);
+  return success();
+}
+
+// Convert a Aten::Sigmoid to HLO
+// Sigmoid(x) = 1.0 / (1.0 + exp(x))
 template <>
 LogicalResult ConvertAtenOp<AtenSigmoidOp>::matchAndRewrite(
     AtenSigmoidOp op,
     OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
-  Value self = adaptor.self();
-  auto selfTy = self.getType().cast<TensorType>();
-  if (selfTy && selfTy.getElementType().isa<mlir::FloatType>()) {
-    // rewriter.replaceOpWithNewOp<mhlo::SigmoidOp>(
-    //     op, getTypeConverter()->convertType(op.getType()), self);
-    // return success();
+  Location loc = op.getLoc();
+  Value input = adaptor.self();
+  auto inputTy = input.getType().template cast<RankedTensorType>();
+  if (!inputTy) {
     return op.emitError(
-        "Only floating-point datatype legalization currently supported");
-  } else {
-    // Sigmoid legalization in MHLO for quantized element-type uses
-    // specialized mhlo.table construct.
-    return op.emitError(
-        "Only floating-point datatype legalization currently supported");
+        "Only RankedTensorType is supported in Aten Sigmoid op.");
   }
+  Value one = chlo::getConstantLike(rewriter, loc, 1.0, input);
+  Value negVal = rewriter.create<mhlo::NegOp>(loc, input);
+  Value expVal = rewriter.create<mhlo::ExpOp>(loc, negVal);
+  Value addVal = rewriter.create<mhlo::AddOp>(loc, expVal, one);
+  rewriter.replaceOpWithNewOp<mhlo::DivOp>(op, one, addVal);
+  return success();
+}
+
+// Convert a Aten::SiLu to HLO
+// SiLu(x) = x * Sigmoid(x)
+template <>
+LogicalResult ConvertAtenOp<AtenSiluOp>::matchAndRewrite(
+    AtenSiluOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  Value input = adaptor.self();
+  auto inputTy = input.getType().template cast<RankedTensorType>();
+  if (!inputTy) {
+    return op.emitError("Only RankedTensorType is supported in Aten SiLu op.");
+  }
+  Value sigmoid = rewriter.create<AtenSigmoidOp>(loc, inputTy, input);
+  rewriter.replaceOpWithNewOp<mhlo::MulOp>(op, input, sigmoid);
+  return success();
+}
+
+// Convert a Aten::GELU to HLO
+// Gelu(x) = x * 1/2 * [1 + erf(x/(sqrt(2)))]
+template <>
+LogicalResult ConvertAtenOp<AtenGeluOp>::matchAndRewrite(
+    AtenGeluOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  Value input = adaptor.self();
+  auto inputTy = input.getType().template cast<RankedTensorType>();
+  if (!inputTy) {
+    return op.emitError("Only RankedTensorType is supported in Aten GELU op.");
+  }
+
+  auto elem_type = inputTy.getElementType();
+  Value one = chlo::getConstantLike(rewriter, loc, 1.0, input);
+  Value two = chlo::getConstantLike(rewriter, loc, 2.0, input);
+  Value half = chlo::getConstantLike(rewriter, loc, 0.5, input);
+  auto rsqrt_two = rewriter.create<mlir::mhlo::RsqrtOp>(loc, two);
+  auto erf_element = rewriter.create<mhlo::MulOp>(loc, input, rsqrt_two);
+  auto erf = rewriter.create<mlir::chlo::ErfOp>(loc, erf_element);
+  auto erf_add = rewriter.create<mhlo::AddOp>(loc, erf, one);
+  auto half_mul = rewriter.create<mhlo::MulOp>(loc, erf_add, half);
+  rewriter.replaceOpWithNewOp<mhlo::MulOp>(op, input, half_mul);
+  return success();
 }
 
 using ReductionConvFunc = llvm::Optional<Value> (*)(
@@ -1528,9 +1613,12 @@ class ConvertTorchToMhlo
   patterns.add<ConvertAtenOp<AtenOp>>(typeConverter, context);
     INSERT_ATENOP_PATTERN(AtenBroadcastToOp);
     INSERT_ATENOP_PATTERN(AtenSigmoidOp);
+    INSERT_ATENOP_PATTERN(AtenReluOp);
+    INSERT_ATENOP_PATTERN(AtenLeakyReluOp);
+    INSERT_ATENOP_PATTERN(AtenSiluOp);
+    INSERT_ATENOP_PATTERN(AtenGeluOp);
     INSERT_ATENOP_PATTERN(AtenSizeIntOp);
     INSERT_ATENOP_PATTERN(AtenTanhOp);
-    INSERT_ATENOP_PATTERN(AtenReluOp);
     // INSERT_ATENOP_PATTERN(AtenArgmaxOp);
     INSERT_ATENOP_PATTERN(AtenPowTensorScalarOp);
     INSERT_ATENOP_PATTERN(AtenRsubScalarOp);

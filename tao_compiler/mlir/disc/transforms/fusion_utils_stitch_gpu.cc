@@ -176,8 +176,49 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
       }
       in_info.emplace_back(in_value, in_tile);
     } else {
-      // TODO(disc): use shape-constraint-ir based analysis
-      return false;
+      bool last_is_tiled = false;
+      auto& out_tile = tile_plan[out_value];
+      // Partition output dims according to tile information to make sure
+      // each group is continuous and is either tiled or non-tiled.
+      SmallVector<int> out_group_end_dims;
+      auto outShape = out_value.getType().cast<MemRefType>().getShape();
+      for (int i = 0; i < out_rank; ++i) {
+        if (out_tile.tileSizes.count(i) == 0) {
+          if (!last_is_tiled) continue;
+          // ignore size-1 dim between tiled dims.
+          if (outShape[i] == 1) continue;
+          last_is_tiled = false;
+          out_group_end_dims.push_back(i);
+        } else {
+          if (last_is_tiled) continue;
+          last_is_tiled = true;
+          if (i != 0) out_group_end_dims.push_back(i);
+        }
+      }
+
+      TileInfo in_tile;
+      int last_map_input_dim = 0;
+      int last_map_output_dim = 0;
+      for (int out_group_end_dim : out_group_end_dims) {
+        bool matched = false;
+        for (int i = last_map_input_dim; i <= in_rank; ++i) {
+          if (shapeAnalysis.isProductEqual(out_value, last_map_output_dim,
+                                           out_group_end_dim, in_value,
+                                           last_map_input_dim, i)) {
+            last_map_input_dim = i;
+            last_map_output_dim = out_group_end_dim;
+            if (out_tile.tileSizes.count(last_map_output_dim) != 0) {
+              for (int inIdx = last_map_input_dim; inIdx < i; ++inIdx) {
+                in_tile.tileSizes[inIdx] = ShapedType::kDynamicSize;
+              }
+            }
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) return false;
+      }
+      in_info.emplace_back(in_value, in_tile);
     }
   } else if (isa<lmhlo::TransposeOp>(op)) {
     auto transpose = cast<lmhlo::TransposeOp>(op);
@@ -455,6 +496,18 @@ bool StitchGpuFusionStrategy::tileXroots(ShapeAnalysis& shapeAnalysis,
   const auto& dominant = fusion_pattern.getDominantOp()->getOperand(0);
   auto& dominant_tile = tile_plan[dominant];
   const auto& results = fusion_pattern.getResults();
+
+  SmallVector<int> dominant_non_tiled_dims;
+  for (int i = 0; i < dominant.getType().cast<MemRefType>().getRank(); ++i) {
+    if (dominant_tile.tileSizes.count(i) == 0) {
+      dominant_non_tiled_dims.push_back(i);
+    } else {
+      // Suppose that non-tiled dims are the continuous most-major dims.
+      // TODO(disc): change this once we support sub-roots other than
+      // row-reduction.
+      break;
+    }
+  }
   for (auto res : results) {
     bool irregular = false;
     Operation* op = fusion_pattern.findLastWriter(res);
@@ -520,8 +573,32 @@ bool StitchGpuFusionStrategy::tileXroots(ShapeAnalysis& shapeAnalysis,
       }
       regular_xroots.insert(op);
     } else {
-      // TODO(disc): use shape-constraint-ir based analysis.
-      return false;
+      int last_non_tied_dim = -1;
+      SmallVector<int> res_non_tiled_dims;
+      int result_rank = res.getType().cast<MemRefType>().getRank();
+      do {
+        if (shapeAnalysis.isProductEqual(dominant, dominant_non_tiled_dims, res,
+                                         res_non_tiled_dims)) {
+          break;
+        }
+        ++last_non_tied_dim;
+        res_non_tiled_dims.push_back(last_non_tied_dim);
+      } while (last_non_tied_dim < result_rank);
+
+      if (last_non_tied_dim >= result_rank) {
+        irregular = true;
+        irregular_xroots.insert(op);
+        continue;
+      }
+
+      auto& plan = tile_plan[res];
+      for (int i = last_non_tied_dim + 1; i < result_rank; ++i) {
+        // Note that we only log whether a dimension is tiled or not. We do
+        // not care about the tiling size. Thus we set all tiled dims with
+        // with the value `kDynamicSize`.
+        plan.tileSizes[i] = ShapedType::kDynamicSize;
+      }
+      regular_xroots.insert(op);
     }
   }
 

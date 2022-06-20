@@ -120,57 +120,65 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
     Value out_value = cast<lmhlo::LmhloOp>(op).getResultBuffer();
     int64_t in_rank = in_value.getType().cast<MemRefType>().getRank();
     int64_t out_rank = out_value.getType().cast<MemRefType>().getRank();
-    if (!shapeAnalysis.extractContinuousDimEqualInfo(in_value, out_value,
-                                                     dim_eq)) {
-      return false;
-    }
 
-    auto& out_tile = tile_plan[out_value];
-    TileInfo in_tile;
-
-    int64_t out_tiles_left = out_tile.tileSizes.size();
-    int64_t out_non_tiles_left = out_rank - out_tiles_left;
-    DenseSet<int64_t> in_ranks_mapped;
-    for (auto equal : dim_eq) {
-      SmallVector<int64_t> ins = equal.first;
-      SmallVector<int64_t> outs = equal.second;
-      in_ranks_mapped.insert(ins.begin(), ins.end());
-      bool is_tiled = (out_tile.tileSizes.count(outs[0]) != 0);
-      // Make sure tile-info of all out dims are consistent.
-      for (int64_t i = 1; i < outs.size(); i++) {
-        if ((out_tile.tileSizes.count(outs[i]) != 0) != is_tiled) {
-          LLVM_DEBUG(llvm::dbgs() << "tile backprop failed: " << *op);
-          return false;
-        }
+    if (auto analysis_deprecated =
+            dynamic_cast<ShapeAnalysisDeprecated*>(&shapeAnalysis)) {
+      auto& shapeAnalysis = *analysis_deprecated;
+      if (!shapeAnalysis.extractContinuousDimEqualInfo(in_value, out_value,
+                                                       dim_eq)) {
+        return false;
       }
-      if (is_tiled) {
-        for (auto in : ins) {
-          in_tile.tileSizes[in] = ShapedType::kDynamicSize;
-        }
-        out_tiles_left -= outs.size();
-      } else {
-        out_non_tiles_left -= outs.size();
-      }
-    }
 
-    if (out_non_tiles_left == 0) {
-      if (out_tiles_left != 0) {
-        // Sometimes, we failed to map all equal relationships. Since we know
-        // all non-tiled dims in equal-map are processed when reach here, all
-        // dims not in equal-map are tiled.
-        for (int64_t i = 0; i < in_rank; i++) {
-          if (!in_ranks_mapped.contains(i)) {
-            in_tile.tileSizes[i] = ShapedType::kDynamicSize;
+      auto& out_tile = tile_plan[out_value];
+      TileInfo in_tile;
+
+      int64_t out_tiles_left = out_tile.tileSizes.size();
+      int64_t out_non_tiles_left = out_rank - out_tiles_left;
+      DenseSet<int64_t> in_ranks_mapped;
+      for (auto equal : dim_eq) {
+        SmallVector<int64_t> ins = equal.first;
+        SmallVector<int64_t> outs = equal.second;
+        in_ranks_mapped.insert(ins.begin(), ins.end());
+        bool is_tiled = (out_tile.tileSizes.count(outs[0]) != 0);
+        // Make sure tile-info of all out dims are consistent.
+        for (int64_t i = 1; i < outs.size(); i++) {
+          if ((out_tile.tileSizes.count(outs[i]) != 0) != is_tiled) {
+            LLVM_DEBUG(llvm::dbgs() << "tile backprop failed: " << *op);
+            return false;
           }
         }
+        if (is_tiled) {
+          for (auto in : ins) {
+            in_tile.tileSizes[in] = ShapedType::kDynamicSize;
+          }
+          out_tiles_left -= outs.size();
+        } else {
+          out_non_tiles_left -= outs.size();
+        }
       }
-    } else if (out_tiles_left != 0) {
-      // This means some dims not in o2i-map are tiled. But we cannot figure
-      // out who are they...
-      LLVM_DEBUG(llvm::dbgs() << "tile backprop failed: " << *op);
+
+      if (out_non_tiles_left == 0) {
+        if (out_tiles_left != 0) {
+          // Sometimes, we failed to map all equal relationships. Since we know
+          // all non-tiled dims in equal-map are processed when reach here, all
+          // dims not in equal-map are tiled.
+          for (int64_t i = 0; i < in_rank; i++) {
+            if (!in_ranks_mapped.contains(i)) {
+              in_tile.tileSizes[i] = ShapedType::kDynamicSize;
+            }
+          }
+        }
+      } else if (out_tiles_left != 0) {
+        // This means some dims not in o2i-map are tiled. But we cannot figure
+        // out who are they...
+        LLVM_DEBUG(llvm::dbgs() << "tile backprop failed: " << *op);
+        return false;
+      }
+      in_info.emplace_back(in_value, in_tile);
+    } else {
+      // TODO(disc): use shape-constraint-ir based analysis
       return false;
     }
-    in_info.emplace_back(in_value, in_tile);
   } else if (isa<lmhlo::TransposeOp>(op)) {
     auto transpose = cast<lmhlo::TransposeOp>(op);
     auto permutation = transpose.permutation().getValues<int64_t>();
@@ -453,60 +461,68 @@ bool StitchGpuFusionStrategy::tileXroots(ShapeAnalysis& shapeAnalysis,
     if (subroots_set.contains(op)) {
       continue;
     }
-    // Find equal dims between res and a sub-root.
-    SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>> equal;
-    shapeAnalysis.extractContinuousDimEqualInfo(dominant, res, equal);
-    int64_t dominant_non_tiled_dim_matched_n = 0;
-    DenseSet<int64_t> res_non_tiled_dims;
-    for (auto eq_dim : equal) {
-      auto lhs = eq_dim.first;
-      bool non_tiled = (dominant_tile.tileSizes.count(lhs[0]) == 0);
-      for (int64_t i = 1; i < lhs.size(); i++) {
-        if ((dominant_tile.tileSizes.count(lhs[i]) == 0) != non_tiled) {
-          // Both tiled and non-tiled dims are mapped to the same dim of res,
-          // thus cannot determine the tile plan for res;
-          irregular_xroots.insert(op);
-          irregular = true;
+    if (auto analysis_deprecated =
+            dynamic_cast<ShapeAnalysisDeprecated*>(&shapeAnalysis)) {
+      auto& shapeAnalysis = *analysis_deprecated;
+      // Find equal dims between res and a sub-root.
+      SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>> equal;
+      shapeAnalysis.extractContinuousDimEqualInfo(dominant, res, equal);
+      int64_t dominant_non_tiled_dim_matched_n = 0;
+      DenseSet<int64_t> res_non_tiled_dims;
+      for (auto eq_dim : equal) {
+        auto lhs = eq_dim.first;
+        bool non_tiled = (dominant_tile.tileSizes.count(lhs[0]) == 0);
+        for (int64_t i = 1; i < lhs.size(); i++) {
+          if ((dominant_tile.tileSizes.count(lhs[i]) == 0) != non_tiled) {
+            // Both tiled and non-tiled dims are mapped to the same dim of res,
+            // thus cannot determine the tile plan for res;
+            irregular_xroots.insert(op);
+            irregular = true;
+            break;
+          }
+        }
+        if (irregular) {
           break;
+        }
+        if (non_tiled) {
+          res_non_tiled_dims.insert(eq_dim.second.begin(), eq_dim.second.end());
+          dominant_non_tiled_dim_matched_n += lhs.size();
         }
       }
       if (irregular) {
-        break;
+        continue;
+      } else if (dominant_non_tiled_dim_matched_n != 1) {
+        // Check constraint: the element-number of non-tiled dims are the same
+        // between sub-roots and regular xroots. If not every non-tiled dim is
+        // matched between sub-root and current op, it is an irregular xroot.
+        // Note we know that sub-root is reduction and has only 1 non-tiled dim.
+        irregular_xroots.insert(op);
+        continue;
+      } else if (*std::max_element(res_non_tiled_dims.begin(),
+                                   res_non_tiled_dims.end()) !=
+                 res_non_tiled_dims.size() - 1) {
+        // Check constraint: the tiled dims are all minor dims for all regular
+        // xroot ops. This means the non-tiled dims should all be the major
+        // dims.
+        irregular_xroots.insert(op);
+        continue;
       }
-      if (non_tiled) {
-        res_non_tiled_dims.insert(eq_dim.second.begin(), eq_dim.second.end());
-        dominant_non_tiled_dim_matched_n += lhs.size();
-      }
-    }
-    if (irregular) {
-      continue;
-    } else if (dominant_non_tiled_dim_matched_n != 1) {
-      // Check constraint: the element-number of non-tiled dims are the same
-      // between sub-roots and regular xroots. If not every non-tiled dim is
-      // matched between sub-root and current op, it is an irregular xroot. Note
-      // we know that sub-root is reduction and has only 1 non-tiled dim.
-      irregular_xroots.insert(op);
-      continue;
-    } else if (*std::max_element(res_non_tiled_dims.begin(),
-                                 res_non_tiled_dims.end()) !=
-               res_non_tiled_dims.size() - 1) {
-      // Check constraint: the tiled dims are all minor dims for all regular
-      // xroot ops. This means the non-tiled dims should all be the major dims.
-      irregular_xroots.insert(op);
-      continue;
-    }
 
-    auto& plan = tile_plan[res];
-    int64_t rank = res.getType().cast<MemRefType>().getRank();
-    for (int64_t i = 0; i < rank; i++) {
-      if (res_non_tiled_dims.count(i) == 0) {
-        // Note that we only log whether a dimension is tiled or not. We do not
-        // care about the tiling size. Thus we set all tiled dims with with the
-        // value `kDynamicSize`.
-        plan.tileSizes[i] = ShapedType::kDynamicSize;
+      auto& plan = tile_plan[res];
+      int64_t rank = res.getType().cast<MemRefType>().getRank();
+      for (int64_t i = 0; i < rank; i++) {
+        if (res_non_tiled_dims.count(i) == 0) {
+          // Note that we only log whether a dimension is tiled or not. We do
+          // not care about the tiling size. Thus we set all tiled dims with
+          // with the value `kDynamicSize`.
+          plan.tileSizes[i] = ShapedType::kDynamicSize;
+        }
       }
+      regular_xroots.insert(op);
+    } else {
+      // TODO(disc): use shape-constraint-ir based analysis.
+      return false;
     }
-    regular_xroots.insert(op);
   }
 
   // Check constraint: all the external-only-roots should be regular. This is

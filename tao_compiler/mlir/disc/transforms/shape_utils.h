@@ -171,12 +171,6 @@ class ShapeAnalysis {
 
   // Returns true if the two value have the same number elements.
   virtual bool isSameNumElements(Value lhs, Value rhs) = 0;
-
-  // TODO(disc) : remove this
-  virtual bool extractContinuousDimEqualInfo(
-      Value lhs, Value rhs,
-      SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>>&
-          equal) = 0;
 };
 
 class ShapeConstraintIRAnalysis : public ShapeAnalysis {
@@ -239,8 +233,8 @@ class ShapeAnalysisDeprecated : public ShapeAnalysis {
   // TODO: deal with multiple mappings with context information.
   bool extractContinuousDimEqualInfo(
       Value lhs, Value rhs,
-      SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>>& equal)
-      override;
+      SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>>&
+          equal);
 
   // Build equal shape information for the given values. The equal information
   // is maintained in a self-maintained map with `fusion` as the key.

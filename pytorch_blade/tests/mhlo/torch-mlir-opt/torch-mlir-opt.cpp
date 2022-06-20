@@ -21,11 +21,13 @@
 #include "mlir/InitAllDialects.h"
 #include "mlir/InitAllPasses.h"
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
+#include "torch-mlir/Conversion/MhloPasses.h"
 #include "torch-mlir/InitAll.h"
 
 using namespace mlir;
 
 int main(int argc, char** argv) {
+  mlir::torch::registerTorchToMhloPasses();
   registerAllPasses();
   mlir::torch::registerAllPasses();
 

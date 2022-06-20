@@ -18,6 +18,7 @@ limitations under the License.
 #include "mlir/IR/Matchers.h"
 #include "mlir/Pass/Pass.h"               // TF:local_config_mlir
 #include "mlir/Transforms/RegionUtils.h"  // TF:llvm-project
+#include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
@@ -510,8 +511,13 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
     SmallVector<Block*, 4> blocks;
     CollectBlocksInsideFunction(func, blocks);
 
-    ShapeAnalysisDeprecated shapeAnalysis(func);
-    shapeAnalysis.run();
+    std::unique_ptr<ShapeAnalysis> shapeAnalysisPtr;
+    if (useShapeConstraintIR()) {
+      shapeAnalysisPtr.reset(new ShapeConstraintIRAnalysis(func));
+    } else {
+      shapeAnalysisPtr.reset(new ShapeAnalysisDeprecated{func});
+      static_cast<ShapeAnalysisDeprecated*>(shapeAnalysisPtr.get())->run();
+    }
 
     // process each block and do fusion within a block.
     tensorflow::ReadInt64FromEnvVar("disc_debug_max_fusion_numbers_", INT_MIN,
@@ -519,7 +525,7 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
     FusionPipeline pipeline = makeFusionPipeline();
     int64_t fusion_pattern_number = 0;
     for (Block* block : blocks) {
-      FusionPlanner planner(pipeline, block, &shapeAnalysis);
+      FusionPlanner planner(pipeline, block, shapeAnalysisPtr.get());
       llvm::Optional<FusionPlan> plan = planner.Run();
       if (!plan) {
         emitError(func.getLoc(),
@@ -561,7 +567,7 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
     func.walk([&](FusionOp op) {
       StringRef fusionName = getFusionName(op);
       if (!fusionName.empty()) return;
-      FusionPattern pattern(op, &shapeAnalysis);
+      FusionPattern pattern(op, shapeAnalysisPtr.get());
       auto signature = generateSignatureForFusion(pattern);
       if (!nameSet.count(signature)) {
         nameVec.push_back(signature);

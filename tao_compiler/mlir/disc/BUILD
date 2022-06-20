@@ -723,6 +723,7 @@ cc_library(
     srcs = ["transforms/lhlo_fusion.cc"],
     deps = [
         ":disc_shape_optimization_utils",
+        ":disc_util",
         ":fusion_utils",
         ":pass_details",
         ":placement_utils",

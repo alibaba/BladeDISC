@@ -1923,6 +1923,7 @@ bool ShapeAnalysis::isProductEqual(Value lhs, int lhsFrom, int lhsTo, Value rhs,
 
 ShapeConstraintIRAnalysis::ShapeConstraintIRAnalysis(Operation* op)
     : op_(op), mgr_(op->getParentOfType<ModuleOp>()) {
+  mgr_.load();
   ModuleOp m = op_->getParentOfType<ModuleOp>();
   op_->walk([&](Operation* op) {
     if (!isa<memref::AllocOp, memref::ReinterpretCastOp>(op)) return;
@@ -1950,7 +1951,9 @@ bool ShapeConstraintIRAnalysis::isShapeEqual(Value lhs, Value rhs) {
   auto lhsTy = lhs.getType().dyn_cast<ShapedType>();
   auto rhsTy = rhs.getType().dyn_cast<ShapedType>();
 
-  if (lhsTy && rhsTy && lhsTy.hasStaticShape() && rhsTy.hasStaticShape()) {
+  if (!lhsTy || !rhsTy || !lhsTy.hasRank() || !rhsTy.hasRank()) return false;
+
+  if (lhsTy.hasStaticShape() && rhsTy.hasStaticShape()) {
     return lhsTy.getShape() == rhsTy.getShape();
   }
 

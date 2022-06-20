@@ -1962,9 +1962,6 @@ tf_cc_binary(
 
 tf_cc_shared_object(
     name = "mlir_disc_builder.so",
-    data = [
-        ":mhlo_disc_builder.lds",
-    ],
     linkopts = select({
         "//conditions:default": [
             "-z defs",

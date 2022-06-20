@@ -13,15 +13,11 @@ on:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "greet"
-  CUDA10-TF115:
+  steps:
+    CPU-TF115:
     if: github.repository == 'alibaba/BladeDISC'
     # The type of runner that the job will run on
-    runs-on: [amd-gpu]
-
-
-    # Steps represent a sequence of tasks that will be executed as part of the job
-    steps:
-    CPU-TF115:
+    runs-on: [self-hosted, amd-gpu]
     uses: ./.github/workflows/cpu_reusable.yml
     with:
       remote_runtime_docker: bladedisc:latest-runtime-tensorflow1.15-cpu

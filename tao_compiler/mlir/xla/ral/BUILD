@@ -207,7 +207,6 @@ cc_library(
         "$(location //tao/third_party/mkldnn:build)/acl/ComputeLibrary/build/libarm_compute_graph.a",
         "-Wl,--end-group",
     ]),
-    data = ["//tao/third_party/mkldnn:build"],
     deps = if_disc_x86([
         "//tao/third_party/mkldnn:onednn",
     ]) + if_disc_aarch64([
@@ -580,14 +579,15 @@ cc_library(
     hdrs = [
         "context/common_context_impl.h",
     ] + if_cuda_or_rocm([
-    ])+ if_mkldnn([
+        "context/stream_executor_based_impl.h",
+    ]) + if_mkldnn([
         "context/common_context_impl_mkldnn.h",
     ]),
     copts = [
         "-fopenmp",
         "-DDISC_BUILD_FROM_TF_BRIDGE",
     ] + if_cuda_or_rocm([
-        "-DTAO_RAL_USE_STREAM_EXECUTOR"
+        "-DTAO_RAL_USE_STREAM_EXECUTOR",
     ]) + if_rocm_is_configured([
         "-DTENSORFLOW_USE_ROCM=1",
         "-x rocm",
@@ -628,7 +628,7 @@ cc_library(
         "context/tensorflow/tf_context_impl.h",
     ],
     copts = [
-        "-DDISC_BUILD_FROM_TF_BRIDGE"
+        "-DDISC_BUILD_FROM_TF_BRIDGE",
     ] + if_rocm_is_configured([
         "-DTENSORFLOW_USE_ROCM=1",
         "-x rocm",

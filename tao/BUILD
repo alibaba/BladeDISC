@@ -105,7 +105,7 @@ cc_library(
         "@local_config_tf//:libtensorflow_framework",
         "@org_tao_compiler//tensorflow/compiler/mlir/xla/ral:ral_bridge",
     ] + if_platform_alibaba([
-            "//third_party/blade_service_common:blade_service_common_deps",
+        "@blade_service_common//:blade_service_common_deps",
     ]),
     copts = if_cuda([
         "-DGOOGLE_CUDA=1"

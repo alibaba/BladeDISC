@@ -1982,7 +1982,7 @@ tf_cc_shared_object(
         "//tensorflow/compiler/mlir/hlo:hlo",
     ],
     data = [
-        ":mhlo_disc_builder.lds"
+        ":mhlo_disc_builder.lds",
         "//tensorflow/compiler/mlir/hlo",
     ],
 )

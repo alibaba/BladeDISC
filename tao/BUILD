@@ -13,6 +13,7 @@ load(
     "disc_build_ip",
     "disc_build_time",
     "disc_build_version",
+    "if_platform_alibaba",
     "if_tf_serving",
 )
 load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_shared_object")

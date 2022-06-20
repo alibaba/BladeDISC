@@ -1,4 +1,4 @@
-// RUN: torch-mlir-opt %s | torch-mlir-opt | FileCheck %s
+// RUN: torch-mlir-opt <%s -convert-torch-to-mhlo -split-input-file -verify-diagnostics | FileCheck %s
 
 // CHECK-LABEL: func @builtin_tensor_interop(
 func @builtin_tensor_interop(%arg0: tensor<*xf32>, %arg1: tensor<3x?xi8>, %arg2: !torch.vtensor<*,f32>, %arg3: !torch.vtensor<[3,?],si8>) {

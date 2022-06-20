@@ -40,6 +40,7 @@ cc_library(
     name = "TorchMLIRTorchToMhlo",
     srcs = [
         "lib/Conversion/TorchToMhlo/TorchToMhlo.cpp",
+        "lib/Conversion/MhloPasses.cpp",
         "lib/Conversion/TorchToMhlo/MhloLegalizeUtils.cpp",
         "lib/Dialect/TorchConversion/Transforms/VerifyMhloBackendContract.cpp",
         "lib/Dialect/TorchConversion/Transforms/ApplyValueSemantics.cpp",
@@ -47,7 +48,7 @@ cc_library(
     ] ,
     hdrs = [
         "include/torch-mlir/Conversion/MhloPasses.h",
-	"include/torch-mlir/Conversion/TorchToMhlo/ShapeUtils.h",
+	    "include/torch-mlir/Conversion/TorchToMhlo/ShapeUtils.h",
         "include/torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h",
         "include/torch-mlir/Conversion/TorchToMhlo/MhloLegalizeUtils.h"
     ],

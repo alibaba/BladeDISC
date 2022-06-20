@@ -34,6 +34,10 @@ namespace TorchConversion {
 #define GEN_PASS_CLASSES
 #include "torch-mlir/Conversion/MhloPasses.h.inc"
 } // namespace TorchConversion
+
+/// Registers all TorchToMhlo conversion passes.
+void registerTorchToMhloPasses();
+
 } // namespace torch
 } // end namespace mlir
 

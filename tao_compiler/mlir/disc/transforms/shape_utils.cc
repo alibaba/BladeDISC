@@ -1899,6 +1899,28 @@ void OpListShapeAnalysis::PropagateEquality(
   } while (!converged);
 }
 
+bool ShapeAnalysis::isSameNumElements(Value lhs, Value rhs) {
+  if (lhs == rhs) return true;
+
+  auto lhsTy = lhs.getType().dyn_cast<ShapedType>();
+  auto rhsTy = rhs.getType().dyn_cast<ShapedType>();
+
+  if (!lhsTy || !rhsTy || !lhsTy.hasRank() || !rhsTy.hasRank()) return false;
+
+  return isProductEqual(lhs, 0, lhsTy.getRank(), rhs, 0, rhsTy.getRank());
+}
+
+bool ShapeAnalysis::isProductEqual(Value lhs, int lhsFrom, int lhsTo, Value rhs,
+                                   int rhsFrom, int rhsTo) {
+  SmallVector<int> lhsDimIdxs, rhsDimIdxs;
+  lhsDimIdxs.reserve(lhsTo - lhsFrom);
+  rhsDimIdxs.reserve(rhsTo - rhsFrom);
+  for (int i = lhsFrom; i < lhsTo; ++i) lhsDimIdxs.push_back(i);
+  for (int i = rhsFrom; i < rhsTo; ++i) rhsDimIdxs.push_back(i);
+
+  return isProductEqual(lhs, lhsDimIdxs, rhs, rhsDimIdxs);
+}
+
 ShapeConstraintIRAnalysis::ShapeConstraintIRAnalysis(Operation* op)
     : op_(op), mgr_(op->getParentOfType<ModuleOp>()) {
   ModuleOp m = op_->getParentOfType<ModuleOp>();
@@ -1923,6 +1945,8 @@ ShapeConstraintIRAnalysis::ShapeConstraintIRAnalysis(Operation* op)
 }
 
 bool ShapeConstraintIRAnalysis::isShapeEqual(Value lhs, Value rhs) {
+  if (lhs == rhs) return true;
+
   auto lhsTy = lhs.getType().dyn_cast<ShapedType>();
   auto rhsTy = rhs.getType().dyn_cast<ShapedType>();
 
@@ -1949,28 +1973,32 @@ bool ShapeConstraintIRAnalysis::isShapeEqual(Value lhs, Value rhs) {
   return lhsSyms == rhsSyms;
 }
 
-bool ShapeConstraintIRAnalysis::isSameNumElements(Value lhs, Value rhs) {
-  auto lhsTy = lhs.getType().dyn_cast<ShapedType>();
-  auto rhsTy = rhs.getType().dyn_cast<ShapedType>();
-  auto lhsIt = memrefValue2SymDims_.find(lhs);
-  auto rhsIt = memrefValue2SymDims_.find(rhs);
-
+bool ShapeConstraintIRAnalysis::isProductEqual(
+    Value lhs, const SmallVector<int>& lhsDimIdxs, Value rhs,
+    const SmallVector<int>& rhsDimIdxs) {
   SymbolicDimProduct lhsProd;
   SymbolicDimProduct rhsProd;
 
-  if (lhsTy && lhsTy.hasStaticShape()) {
-    lhsProd.factor = lhsTy.getNumElements();
-  } else if (lhsIt != memrefValue2SymDims_.end()) {
-    lhsProd.symbols = lhsIt->second;
-  } else {
-    return false;
-  }
+  auto buildSymbolicDimProduct = [&](SymbolicDimProduct& prod, Value value,
+                                     const SmallVector<int>& dimIdxs) {
+    auto ty = value.getType().dyn_cast<ShapedType>();
+    auto it = memrefValue2SymDims_.find(value);
+    if (!ty || !ty.hasRank()) return false;
 
-  if (rhsTy && rhsTy.hasStaticShape()) {
-    rhsProd.factor = rhsTy.getNumElements();
-  } else if (rhsIt != memrefValue2SymDims_.end()) {
-    rhsProd.symbols = rhsIt->second;
-  } else {
+    for (int idx : dimIdxs) {
+      if (ty.getShape()[idx] == ShapedType::kDynamicSize) {
+        if (it == memrefValue2SymDims_.end() || it->second.size() <= idx)
+          return false;
+        prod.symbols.push_back(it->second[idx]);
+      } else {
+        prod.factor *= ty.getShape()[idx];
+      }
+    }
+    return true;
+  };
+
+  if (!buildSymbolicDimProduct(lhsProd, lhs, lhsDimIdxs) ||
+      !buildSymbolicDimProduct(rhsProd, rhs, rhsDimIdxs)) {
     return false;
   }
 

@@ -169,8 +169,23 @@ class ShapeAnalysis {
   // Returns true if the two value have the same symbolic shape.
   virtual bool isShapeEqual(Value lhs, Value rhs) = 0;
 
+  // Suppose:
+  //  lhsDimIdxs = {ld0, ld1, ...}
+  //  rhsDimIdxs = {rd0, rd1, ...}
+  // Returns true if `lhs.shape[ld0] * lhs.shape[ld1] * ... ==
+  // rhs.shape[rd0] * rhs.shape[rd1] * ...`
+  virtual bool isProductEqual(Value lhs, const SmallVector<int>& lhsDimIdxs,
+                              Value rhs,
+                              const SmallVector<int>& rhsDimIdxs) = 0;
+
+  // Returns true if:
+  //  lhs.shape[lhsFrom] * ... lhs.shape[lhsTo-1] ==
+  //  rhs.shape[rhsFrom] * ... rhs.shape[rhsTo-1]
+  virtual bool isProductEqual(Value lhs, int lhsFrom, int lhsTo, Value rhs,
+                              int rhsFrom, int rhsTo);
+
   // Returns true if the two value have the same number elements.
-  virtual bool isSameNumElements(Value lhs, Value rhs) = 0;
+  virtual bool isSameNumElements(Value lhs, Value rhs);
 };
 
 class ShapeConstraintIRAnalysis : public ShapeAnalysis {
@@ -184,8 +199,13 @@ class ShapeConstraintIRAnalysis : public ShapeAnalysis {
   // Returns true if the two value have the same symbolic shape.
   bool isShapeEqual(Value lhs, Value rhs) override;
 
-  // Returns true if the two value have the same number elements.
-  bool isSameNumElements(Value lhs, Value rhs) override;
+  // Suppose:
+  //  lhsDimIdxs = {ld0, ld1, ...}
+  //  rhsDimIdxs = {rd0, rd1, ...}
+  // Returns true if `lhs.shape[ld0] * lhs.shape[ld1] * ... ==
+  // rhs.shape[rd0] * rhs.shape[rd1] * ...`
+  bool isProductEqual(Value lhs, const SmallVector<int>& lhsDimIdxs, Value rhs,
+                      const SmallVector<int>& rhsDimIdxs) override;
 
  private:
   // The operation this analysis runs on.
@@ -224,6 +244,11 @@ class ShapeAnalysisDeprecated : public ShapeAnalysis {
   // Returns true if `lhs` and `rhs` are supposed to have same number of
   // elements.
   bool isSameNumElements(Value lhs, Value rhs) override;
+
+  bool isProductEqual(Value lhs, const SmallVector<int>& lhsDimIdxs, Value rhs,
+                      const SmallVector<int>& rhsDimIdxs) override {
+    return false;
+  }
 
   // Extract continuous equal dims between `lhs` and `rhs`, with the
   // consideration of dim-linearize (e.g., caused by reshape). Note that when

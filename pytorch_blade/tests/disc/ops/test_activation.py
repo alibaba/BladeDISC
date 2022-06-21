@@ -59,14 +59,11 @@ class TestDiscActivation(DiscTestCase):
         self._test_activation(torch.nn.Hardtanh(), torch.nn.functional.hardtanh, [[2, 4, 16, 16]])
 
     @skipIfEnableTorchMlir()
-    #TODO(yancey1989): dependence torch dialect add glu op
     def test_glu(self):
         self._test_activation(torch.nn.GLU(), torch.nn.functional.glu, [[2, 4, 16, 16]])
 
-   
-    @skipIfEnableTorchMlir()
-    #TODO(yancey1989): need a white list which is separate from old mhlo converter
     def test_hardswish(self):
+
         def _jit_pass_hardswish(graph):
             from_graph_str = """
             graph(%x):
@@ -90,11 +87,13 @@ class TestDiscActivation(DiscTestCase):
                 from_graph_str, to_graph_str, graph)
             torch._C._jit_pass_dce(graph)
             torch._C._jit_pass_constant_propagation(graph)
-
-        config = Config.get_current_context_or_new()
-        config.customize_jit_passes = [_jit_pass_hardswish]
-        with config:
+        
+        with Config.get_current_context_or_new() as cfg:
+            cfg.customize_jit_passes = [_jit_pass_hardswish]
             self._test_activation(None, torch.nn.functional.hardswish, [[2, 4, 16, 16]])
+            self._test_activation(None, torch.nn.functional.hardswish, [[-1, -1, -1, -1]])
+        self.assertTrue(False)
+        
 
 
 if __name__ == "__main__":

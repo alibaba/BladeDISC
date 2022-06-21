@@ -23,6 +23,7 @@
 #include "compiler/jit/tool_funcs.h"
 #include "compiler/mlir/converters/mhlo_converter_register.h"
 #include "compiler/mlir/converters/mlir_type_utils.h"
+#include "compiler/mlir/converters/torch_mlir_op_filter.h"
 
 #include "function_importer.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -200,6 +201,11 @@ void RegisterDialects(mlir::DialectRegistry& registry) {
 }
 
 bool IsMlirMhloSupported(const torch::jit::Node& node) {
+  if (IsTorchMlirAvailable()) {
+    auto ret = IsTorchMlirSupported(node);
+    std::cout << "is supported: " << int(ret) << std::endl;
+    return ret;
+  }
   c10::optional<OpConverter> converter = GetMlirMhloConverter(node);
   try {
     if (converter) {
@@ -404,7 +410,7 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
 std::tuple<std::string, std::string, std::string, std::string>
 ConvertTorchScriptToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
   try {
-    if (env::ReadBoolFromEnvVar("TORCH_DISC_USE_TORCH_MLIR", false)) {
+    if (IsTorchMlirAvailable()) {
       return ConvertTorchToMhlo(graph);
     } else {
       mlir::DialectRegistry registry;
@@ -420,6 +426,10 @@ ConvertTorchScriptToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
     LOG(ERROR) << err.what();
     return std::make_tuple("", "", "", "");
   }
+}
+
+bool IsTorchMlirAvailable() {
+  return env::ReadBoolFromEnvVar("TORCH_DISC_USE_TORCH_MLIR", false);
 }
 
 } // namespace blade

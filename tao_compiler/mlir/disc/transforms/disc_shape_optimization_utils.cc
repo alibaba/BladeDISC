@@ -23,6 +23,7 @@ limitations under the License.
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/OpDefinition.h"
@@ -74,7 +75,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os,
   return os;
 }
 
-SymbolicDimMgr::SymbolicDimMgr(ModuleOp m) : m_(m) {}
+SymbolicDimMgr::SymbolicDimMgr(ModuleOp m) : m_(m), symbolTable(m_) {}
 
 LogicalResult SymbolicDimMgr::load() {
   m_.walk([&](disc_shape::SymbolicDimOp op) {
@@ -594,6 +595,70 @@ SymbolicDimMgr::getOrCreateSymbolicDimsForRankedValue(Value value) {
   return symbols;
 }
 
+SymbolicDimOp SymbolicDimMgr::cloneSymbol(SymbolicDimOp symbol) {
+  // early return for static shape symbol
+  if (!symbol.isDynamic()) return symbol;
+  SymbolicDimOp newSymbol = newSymbolicDim();
+
+  if (symbol.knownNonNegative()) newSymbol.setKnownNonNegative(true);
+  if (symbol.knownNegativeOne()) newSymbol.setKnownNegativeOne(true);
+  if (symbol.knownNonSizeOne()) newSymbol.setKnownNonSizeOne(true);
+  if (symbol.knownNonSizeZero()) newSymbol.setKnownNonSizeZero(true);
+  return newSymbol;
+}
+
+LogicalResult SymbolicDimMgr::cloneSymbolGroup(
+    const DenseSet<SymbolicDimOp>& symbols,
+    DenseMap<SymbolicDimOp, SymbolicDimOp>& mapping) {
+  DenseMap<SymbolicDimOp, SmallVector<SymbolicDimOp>> symbol2Root;
+  for (SymbolicDimOp symbol : symbols) {
+    SymbolicDimOp newSymbol = cloneSymbol(symbol);
+    mapping[symbol] = newSymbol;
+    SymbolicDimOp root = getRootSymbolicDim(symbol);
+    symbol2Root[root].push_back(newSymbol);
+  }
+
+  // copy dim equality predicate.
+  for (auto& it : symbol2Root) {
+    if (it.second.size() <= 1) continue;
+    for (SymbolicDimOp symbol : it.second)
+      if (failed(mapSymbolicDimEqual(symbol, it.second[0]))) return failure();
+  }
+
+  // coy dim product equality predicate
+  SmallVector<std::pair<SymbolicDimProduct, SymbolicDimProduct>> candidates;
+  for (auto& outter : productEqualityMap_) {
+    if (llvm::any_of(outter.first.symbols, [&](SymbolicDimOp sym) {
+          return symbols.count(sym) == 0;
+        }))
+      continue;
+    for (auto& inner : outter.second) {
+      if (!inner.second) continue;
+      if (llvm::any_of(inner.first.symbols, [&](SymbolicDimOp sym) {
+            return symbols.count(sym) == 0;
+          }))
+        continue;
+      auto copySymbolicDimProduct = [&](SymbolicDimProduct& prod) {
+        SymbolicDimProduct newProd;
+        newProd.factor = prod.factor;
+        for (SymbolicDimOp sym : prod.symbols) {
+          newProd.symbols.push_back(mapping[sym]);
+        }
+        return newProd;
+      };
+      candidates.emplace_back(copySymbolicDimProduct(outter.first),
+                              copySymbolicDimProduct(inner.first));
+    }
+  }
+
+  for (auto& it : candidates) {
+    productEqualityMap_[it.first][it.second] = true;
+    productEqualityMap_[it.second][it.first] = true;
+  }
+
+  return success();
+}
+
 llvm::Optional<SmallVector<FlatSymbolRefAttr>> getRankedValueSymbolicDimRefs(
     Value value) {
   auto ty = value.getType().dyn_cast<RankedTensorType>();
@@ -602,6 +667,25 @@ llvm::Optional<SmallVector<FlatSymbolRefAttr>> getRankedValueSymbolicDimRefs(
   if (!attrs) return {};
   if (attrs.size() != ty.getRank()) return {};
   SmallVector<FlatSymbolRefAttr> symbols;
+  for (const auto& attr : attrs) {
+    auto symbol = attr.dyn_cast<FlatSymbolRefAttr>();
+    if (!symbol) return {};
+    symbols.push_back(symbol);
+  }
+  return symbols;
+}
+
+llvm::Optional<SmallVector<FlatSymbolRefAttr>> getMemRefValueSymbolicDimRefs(
+    Value value) {
+  auto ty = value.getType().dyn_cast<MemRefType>();
+  Operation* op = value.getDefiningOp();
+  if (!ty || ty.hasStaticShape() || !op) return {};
+  auto attrs = op->getAttrOfType<ArrayAttr>(
+      disc_shape::SymbolicDimOp::getSymbolicDimAttrName());
+  if (!attrs || attrs.size() != ty.getRank()) return {};
+
+  SmallVector<FlatSymbolRefAttr> symbols;
+  symbols.reserve(attrs.size());
   for (const auto& attr : attrs) {
     auto symbol = attr.dyn_cast<FlatSymbolRefAttr>();
     if (!symbol) return {};

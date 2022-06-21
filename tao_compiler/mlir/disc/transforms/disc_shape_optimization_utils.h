@@ -31,6 +31,11 @@ using disc_shape::SymbolicDimOp;
 // attached symbolic dim ref attributes.
 llvm::Optional<SmallVector<FlatSymbolRefAttr>> getRankedValueSymbolicDimRefs(
     Value value);
+// Return the symbolicDim ref attribute if there is an attached disc
+// shape-constraint specific attribute filed. Return nullptr if there isn't an
+// attached symbolic dim ref attributes.
+llvm::Optional<SmallVector<FlatSymbolRefAttr>> getMemRefValueSymbolicDimRefs(
+    Value value);
 
 using Visitor = std::function<LogicalResult(Value value, RankedTensorType ty,
                                             ArrayAttr attrs)>;
@@ -212,6 +217,15 @@ class SymbolicDimMgr {
   // Returns the name of the shape constraint graph
   static StringRef getShapeConstraintGraphFunctionName();
 
+  // Returns a clone of the original symbol
+  SymbolicDimOp cloneSymbol(SymbolicDimOp symbol);
+
+  // Clones a group of symbols and the relationships among the symbols in the
+  // group. Returns ok if success, otherwise failure.
+  LogicalResult cloneSymbolGroup(
+      const DenseSet<SymbolicDimOp>& symbols,
+      DenseMap<SymbolicDimOp, SymbolicDimOp>& mapping);
+
  private:
   // Returns next unique name for a new SymbolicDim op.
   std::string getNextName();
@@ -234,6 +248,9 @@ class SymbolicDimMgr {
  private:
   // The module this SymbolicDimMgr runs on.
   ModuleOp m_;
+
+  // A symbol table corresponding to related module op.
+  SymbolTable symbolTable;
 
   // A unique id to generate unique name.
   int64_t nextSymbolicOpIdx_ = 0;

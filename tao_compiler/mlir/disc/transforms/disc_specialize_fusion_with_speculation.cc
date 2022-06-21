@@ -29,6 +29,7 @@ namespace mlir {
 namespace disc_ral {
 namespace {
 
+using disc_shape::SymbolicDimOp;
 using lmhlo::DynamicBroadcastInDimOp;
 using lmhlo::FusionOp;
 
@@ -142,6 +143,61 @@ Operation* GetCandidateColReduceOp(FusionOp fusion_op) {
     }
   }
   return nullptr;
+}
+
+struct ShapeConstraintIRContext {
+  BlockAndValueMapping valueMapping;
+  DenseMap<Value, SmallVector<SymbolicDimOp>> value2Symbols;
+  DenseMap<SymbolicDimOp, SymbolicDimOp> symbolMapping;
+  SymbolicDimMgr* mgr = nullptr;
+};
+
+FusionOp cloneFusion(OpBuilder& b, Location loc, FusionOp op,
+                     ShapeConstraintIRContext* ctx = nullptr) {
+  if (ctx == nullptr) {
+    return dyn_cast<FusionOp>(b.clone(*op.getOperation()));
+  }
+
+  SymbolTable table(op->getParentOfType<ModuleOp>());
+  DenseSet<SymbolicDimOp> originalSymbols;
+  // 1, create a local view of original (dynamic shape) buffers.
+  for (Operation& op : op.region().front()) {
+    for (Value operand : op.getOperands()) {
+      auto ty = operand.getType().dyn_cast<MemRefType>();
+      // skip staitc shape buffers.
+      if (!ty || ty.hasStaticShape()) continue;
+      if (ctx->valueMapping.lookupOrNull(operand)) continue;
+      ctx->valueMapping.map(operand, createViewLike(b, loc, operand, operand));
+      auto symbols = getMemRefValueSymbolicDimRefs(operand);
+      if (!symbols) continue;
+      auto& symbolOps = ctx->value2Symbols[operand];
+      for (const auto& sym : *symbols) {
+        auto symOp = table.lookup<SymbolicDimOp>(sym.getValue());
+        assert(symOp);
+        originalSymbols.insert(symOp);
+        symbolOps.push_back(symOp);
+      }
+    }
+  }
+  // 2, clone symbol group
+  auto status = ctx->mgr->cloneSymbolGroup(originalSymbols, ctx->symbolMapping);
+  assert(!failed(status));
+
+  // 3, attach new symbol attrs for the cloned operands.
+  for (const auto& it : ctx->valueMapping.getValueMap()) {
+    auto symIt = ctx->value2Symbols.find(it.first);
+    assert(symIt != ctx->value2Symbols.end());
+    Operation* definingOp = it.second.getDefiningOp();
+    assert(definingOp != nullptr);
+    SmallVector<Attribute> newAttrs;
+    for (SymbolicDimOp sym : symIt->second)
+      newAttrs.push_back(FlatSymbolRefAttr::get(ctx->symbolMapping[sym]));
+    auto symbolicShapeAttr = ArrayAttr::get(op->getContext(), newAttrs);
+    StringRef attrName = disc_shape::SymbolicDimOp::getSymbolicDimAttrName();
+    definingOp->setAttr(attrName, symbolicShapeAttr);
+  }
+
+  return dyn_cast<FusionOp>(b.clone(*op.getOperation(), ctx->valueMapping));
 }
 
 struct DiscSpecializeFusionWithSpeculationPass

@@ -47,6 +47,7 @@ jobs:
           --build-arg BASEIMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04 \
           --build-arg DISC_HOST_TF_VERSION="tensorflow==1.15.5" \
           --build-arg DEVICE=cpu \
+          --build-arg HTTPS_PROXY=http://blade_disc:r299eNZXVTUpuyg7@8.217.91.10:12357 \
           -f docker/dev/Dockerfile .
     - name: Build And Test
       run: |

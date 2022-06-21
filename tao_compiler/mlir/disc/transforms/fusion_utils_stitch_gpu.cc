@@ -218,6 +218,12 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
         }
         if (!matched) return false;
       }
+
+      if (last_is_tiled) {
+        for (int inIdx = last_map_input_dim; inIdx < in_rank; ++inIdx) {
+          in_tile.tileSizes[inIdx] = ShapedType::kDynamicSize;
+        }
+      }
       in_info.emplace_back(in_value, in_tile);
     }
   } else if (isa<lmhlo::TransposeOp>(op)) {

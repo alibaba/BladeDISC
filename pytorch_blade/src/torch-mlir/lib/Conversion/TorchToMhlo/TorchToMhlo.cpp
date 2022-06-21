@@ -216,6 +216,22 @@ inline SmallVector<int64_t, 4> RangeIndices(int64_t min, int64_t max) {
   return range;
 }
 
+Value scalarToMhloTensor(
+    ConversionPatternRewriter& rewriter,
+    Operation* op,
+    Value scalarValue,
+    Type dtype,
+    llvm::ArrayRef<int64_t> dshape) {
+  auto tensor = rewriter.create<tensor::FromElementsOp>(
+      op->getLoc(), ArrayRef<Value>{scalarValue});
+  auto dtype_tensor =
+      rewriter.create<mhlo::ConvertOp>(op->getLoc(), tensor, dtype);
+  return rewriter.create<mhlo::ReshapeOp>(
+      op->getLoc(),
+      RankedTensorType::get(mlir::ArrayRef<int64_t>{}, dtype),
+      dtype_tensor);
+}
+
 // FIXME: This will eventually go into a Mhlo*Utils file.
 LogicalResult torchScalarToMhloTensor(
     ConversionPatternRewriter& rewriter,
@@ -270,6 +286,57 @@ LogicalResult torchScalarToMhloTensor(
   return success();
 }
 
+LogicalResult torchScalarToMhloTensorLike(
+    ConversionPatternRewriter& rewriter,
+    Operation* op,
+    Value torchScalarValue,
+    Value input,
+    Value& mhloTensor) {
+  // Retrieve a const float or int value but create the out Tensor with dtype.
+  double doubleValue;
+  auto isFloat =
+      matchPattern(torchScalarValue, m_TorchConstantFloat(&doubleValue));
+
+  int64_t intValue;
+  auto isInt = matchPattern(torchScalarValue, m_TorchConstantInt(&intValue));
+
+  if (!isFloat && !isInt)
+    return op->emitError("Unable to extract the scalar constant");
+
+  auto dtype = input.getType().dyn_cast<TensorType>().getElementType();
+  auto loc = op->getLoc();
+  if (dtype.isa<mlir::FloatType>()) {
+    mhloTensor = chlo::getConstantLike(
+        rewriter, loc, (isFloat ? doubleValue : intValue), input);
+  } else if (auto intType = dtype.dyn_cast<mlir::IntegerType>()) {
+    auto w = intType.getWidth();
+    if (w != 32 && w != 64)
+      return op->emitError("Unsupported integer type") << intType;
+
+    if (w == 32) {
+      if (!isInValidRange<int32_t>(isFloat, doubleValue, isInt, intValue)) {
+        return op->emitError(
+            "Supplied value of scalar constant exceeds limits "
+            "of destination type");
+      }
+      int32_t d = isFloat ? static_cast<int32_t>(doubleValue)
+                          : static_cast<int32_t>(intValue);
+      mhloTensor = chlo::getConstantLike(rewriter, loc, d, input);
+    } else if (w == 64) {
+      if (!isInValidRange<int64_t>(isFloat, doubleValue, isInt, intValue)) {
+        return op->emitError(
+            "Supplied value of scalar constant exceeds limits "
+            "of destination type");
+      }
+      int64_t d = (isFloat ? static_cast<int64_t>(doubleValue) : intValue);
+      mhloTensor = chlo::getConstantLike(rewriter, loc, d, input);
+    }
+  } else
+    return op->emitError("Usupported element type");
+
+  return success();
+}
+
 LogicalResult torchAlphaToMhloTensor(
     ConversionPatternRewriter& rewriter,
     Operation* op,
@@ -313,18 +380,12 @@ class ConvertAtenBinaryCompareOp : public OpConversionPattern<AtenOpT> {
     if (!lhsTy)
       return op.emitError("Only Tensor types supported in MHLO");
 
+    auto lhsElemTy = lhsTy.getElementType();
     if (!rhsTy) {
-      auto elmType = rhs.getType(); // getTypeForScalarType(op.getContext(),
-                                    // getScalarTypeForType(rhs.getType()));
-      if (failed(torchScalarToMhloTensor(
-              rewriter, op, op.other(), rhs, elmType, {})))
-        return op.emitError(
-            "Currently only scalar constants are supported for "
-            "conversion in MHLO operation");
+      rhs = scalarToMhloTensor(rewriter, op, adaptor.other(), lhsElemTy, {});
       rhsTy = rhs.getType().cast<TensorType>();
     }
 
-    auto lhsElemTy = lhsTy.getElementType();
     auto rhsElemTy = rhsTy.getElementType();
 
     if (lhsElemTy != rhsElemTy) {
@@ -372,49 +433,20 @@ class ConvertAtenAddSubOp : public OpConversionPattern<AtenOpT> {
     Type outElemTy = outType.getElementType();
     Value rhsAsTensor;
     if (!rhsType) {
-      if (failed(torchScalarToMhloTensor(
-              rewriter, op, op.other(), rhsAsTensor, outElemTy, {})))
-        return op.emitError(
-            "Currently only scalar constants are supported for "
-            "conversion in MHLO operation");
+      rhsAsTensor =
+          scalarToMhloTensor(rewriter, op, adaptor.other(), outElemTy, {});
     }
     auto rhsTensor = rhsType ? rhs : rhsAsTensor;
     rhsType = rhsTensor.getType().dyn_cast<TensorType>();
 
     // Handle alpha.
     Value alphaTensor;
-    if (failed(torchAlphaToMhloTensor(
-            rewriter,
-            op.getOperation(),
-            op.alpha(),
-            alphaTensor,
-            outElemTy,
-            /*checkForUnity=*/false))) {
+    if (failed(torchScalarToMhloTensorLike(
+            rewriter, op.getOperation(), op.alpha(), rhsTensor, alphaTensor))) {
       return op.emitError(
           "Currently only scalar constants are supported for "
           "alpha in conversion to MHLO operation");
     }
-    auto alphaType = alphaTensor.getType().dyn_cast<TensorType>();
-    if (rhsType.getElementType() != alphaType.getElementType()) {
-      alphaTensor = rewriter.create<mhlo::ConvertOp>(
-          op.getLoc(), alphaTensor, rhsType.getElementType());
-    }
-
-    auto mhlo_shape =
-        mhlo::getMhloShapeOfTensor(rewriter, op.getOperation(), rhsTensor);
-    auto broadcast_dims = DenseIntElementsAttr::get(
-        RankedTensorType::get({0}, rewriter.getI64Type()), ArrayRef<int64_t>{});
-    if (mhlo_shape) {
-      alphaTensor = rewriter
-                        .create<mhlo::DynamicBroadcastInDimOp>(
-                            op.getLoc(),
-                            rhsType,
-                            alphaTensor,
-                            *mhlo_shape,
-                            broadcast_dims)
-                        .getResult();
-    }
-
     auto multTensor =
         rewriter
             .create<mhlo::MulOp>(op.getLoc(), rhsType, rhsTensor, alphaTensor)
@@ -431,73 +463,6 @@ class ConvertAtenAddSubOp : public OpConversionPattern<AtenOpT> {
     return success();
   }
 }; // namespace
-
-// Binary op legalizations for comparator ops.
-template <typename AtenOpT, typename MhloOpT>
-class ConvertAtenCompareOp : public OpConversionPattern<AtenOpT> {
- public:
-  using OpConversionPattern<AtenOpT>::OpConversionPattern;
-  using OpAdaptor = typename AtenOpT::Adaptor;
-  LogicalResult matchAndRewrite(
-      AtenOpT op,
-      OpAdaptor adaptor,
-      ConversionPatternRewriter& rewriter) const override {
-    Value lhs = adaptor.self();
-    auto lhsTy = lhs.getType().dyn_cast<TensorType>();
-    Value rhs = adaptor.other();
-    auto rhsTy = rhs.getType().dyn_cast<TensorType>();
-
-    if (!lhsTy)
-      return op.emitError("Only Tensor types supported in MHLO");
-
-    auto lhsElemTy = lhsTy.getElementType();
-    if (!lhsElemTy.isIntOrFloat())
-      return op.emitError(
-          "Only floating-point or integer datatype legalization supported");
-
-    // For bitwise operators, only integer datatype legalization is supported
-    if (lhsElemTy.isa<mlir::FloatType>() &&
-        std::is_same<AtenOpT, AtenBitwiseAndTensorOp>()) {
-      return op.emitError(
-          "For bitwise operators, only integer datatype "
-          "legalization is supported");
-    }
-
-    Value rhsAsTensor;
-    if (!rhsTy) {
-      if (failed(torchScalarToMhloTensor(
-              rewriter, op, op.other(), rhsAsTensor, lhsElemTy, {})))
-        return op.emitError(
-            "Currently only scalar constants are supported for "
-            "conversion in MHLO operation");
-    }
-    auto rhsTensor = rhsTy ? rhs : rhsAsTensor;
-    // There is no Lesser operator in MHLO.
-    auto swapLhsRhs =
-        (std::is_same<AtenOpT, AtenLtTensorOp>() ||
-         std::is_same<AtenOpT, AtenLtScalarOp>());
-
-    auto resultOp = rewriter.create<MhloOpT>(
-        op.getLoc(),
-        OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
-            op.getType()),
-        (swapLhsRhs ? rhsTensor : lhs),
-        (swapLhsRhs ? lhs : rhsTensor));
-
-    // There is no NE operator in MHLO.
-    if (std::is_same<AtenOpT, AtenNeTensorOp>() ||
-        std::is_same<AtenOpT, AtenNeScalarOp>())
-      rewriter.replaceOpWithNewOp<mhlo::NotOp>(
-          op,
-          OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
-              op.getType()),
-          resultOp.getResult());
-    else
-      rewriter.replaceOp(op, resultOp.getResult());
-
-    return success();
-  }
-};
 
 // Binary op legalizations for Mul variants.
 template <typename AtenOpT>
@@ -532,11 +497,8 @@ class ConvertAtenMulOp : public OpConversionPattern<AtenOpT> {
       Value rhs = adaptor.other();
       auto rhsType = rhs.getType().dyn_cast<TensorType>();
       if (!rhsType) {
-        if (failed(torchScalarToMhloTensor(
-                rewriter, op, op.other(), rhsAsTensor, outElemTy, {})))
-          return op.emitError(
-              "Currently only scalar constants are supported for "
-              "conversion in MHLO operation");
+        rhsAsTensor =
+            scalarToMhloTensor(rewriter, op, adaptor.other(), outElemTy, {});
       }
       rhsTensor = rhsType ? rhs : rhsAsTensor;
     }
@@ -592,11 +554,8 @@ class ConvertAtenDivOp : public OpConversionPattern<AtenOpT> {
 
     Value rhsAsTensor;
     if (!rhsTy) {
-      if (failed(torchScalarToMhloTensor(
-              rewriter, op, op.other(), rhsAsTensor, lhsElemTy, {})))
-        return op.emitError(
-            "Currently only scalar constants are supported for "
-            "conversion in MHLO operation");
+      rhsAsTensor =
+          scalarToMhloTensor(rewriter, op, adaptor.other(), lhsElemTy, {});
     }
     auto rhsTensor = rhsTy ? rhs : rhsAsTensor;
     rhsTy = rhsTensor.getType().dyn_cast<TensorType>();

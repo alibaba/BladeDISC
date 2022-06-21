@@ -63,6 +63,8 @@ LogicalResult Torch::reduceTensorConversions(func::FuncOp& func) {
     new_type = removeUser<TensorStaticInfoCastOp>(arg, arg.getType());
     new_type = removeUser<CopyToValueTensorOp>(arg, new_type);
     new_type = removeUser<ToBuiltinTensorOp>(arg, new_type);
+    new_type = removeUser<ToF64Op>(arg, new_type);
+    new_type = removeUser<ToI64Op>(arg, new_type);
     new_types.push_back(new_type);
   }
 
@@ -96,6 +98,8 @@ LogicalResult Torch::reduceTensorConversions(func::FuncOp& func) {
       operand = backtraceOperand<CopyToValueTensorOp>(operand);
       operand = backtraceOperand<CopyToNonValueTensorOp>(operand);
       operand = backtraceOperand<FromBuiltinTensorOp>(operand);
+      operand = backtraceOperand<FromF64Op>(operand);
+      operand = backtraceOperand<FromI64Op>(operand);
       returnOp->setOperand(k, operand);
     }
   });

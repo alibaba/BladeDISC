@@ -34,17 +34,11 @@ class TestDiscBinaryOps(DiscTestCase):
             return torch_func(x, y)
 
         # test type cast int32 -> float32
-        x = torch.randn([4, 4], dtype=torch.float32, device=self.device)
-        y = torch.randint(3, [4, 4], dtype=torch.int32, device=self.device)
-        test_data = (x, y)
-        out, res = self._test_cvt_to_disc(func, test_data)
+        out, res = self._test_disc(func, [([4, 4], torch.float), ([4, 4], torch.int32)])
         self._check_type(out, res)
 
         # test type promote float32 -> float64
-        x = torch.randn([4, 4], dtype=torch.float32, device=self.device)
-        y = torch.randn([4, 4], dtype=torch.float64, device=self.device)
-        test_data = (x, y)
-        out, res = self._test_cvt_to_disc(func, test_data)
+        out, res = self._test_disc(func, [([4, 4], torch.float), ([4, 4], torch.float64)])
         self._check_type(out, res)
 
     def _test_binary_ops(self, binary_ops_func, test_int=True):
@@ -52,37 +46,41 @@ class TestDiscBinaryOps(DiscTestCase):
         x = torch.randn([10, 2, 3, 4], device=self.device)
         y = torch.randn([10, 2, 3, 4], device=self.device)
         test_data = (x, y)
-        out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
+        annotation_x = ([-1, -1, -1, -1], torch.float)
+        annotation_y = ([-1, -1, -1, -1], torch.float)
+        out, res = self._test_disc(binary_ops_func, [annotation_x, annotation_y], test_data)
         self._check_type(out, res)
 
         # test broadcast in-dims
-        x = torch.randn([10, 2, 3, 4], device=self.device)
-        y = torch.randn([1, 2, 1, 4], device=self.device)
-        test_data = (x, y)
-        out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
+        annotation_x = ([-1, 2, -1, 4], torch.float)
+        annotation_y = ([1, 2, 1, 4], torch.float)
+        out, res = self._test_disc(binary_ops_func, [annotation_x, annotation_y])
         self._check_type(out, res)
 
         # test lower rank to higher rank broadcast
-        x = torch.randn([10, 2, 3, 4], device=self.device)
-        y = torch.randn([4], device=self.device)
-        test_data = (x, y)
-        out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
+        annotation_x = ([-1, -1, -1, 4], torch.float)
+        annotation_y = ([4], torch.float)
+        out, res = self._test_disc(binary_ops_func, [annotation_x, annotation_y])
         self._check_type(out, res)
 
         # test scalar Schema
-        x = torch.randn([10, 2, 3, 4], device=self.device)
-        y = torch.tensor(2.0, device=self.device)
-        test_data = (x, y)
-        out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
+        annotation_x = ([-1, -1, -1, -1], torch.float)
+        annotation_y = ([], torch.float)
+        out, res = self._test_disc(binary_ops_func, [annotation_x, annotation_y])
         self._check_type(out, res)
 
         # test integer
         if test_int:
-            x = torch.randint(1, 3, [10, 2], device=self.device)
-            y = torch.randint(1, 3, [10, 2], device=self.device)
-            test_data = (x, y)
-            out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
+            annotation_x = ([-1, -1, -1, -1], torch.int)
+            annotation_y = ([], torch.int)
+            out, res = self._test_disc(binary_ops_func, [annotation_x, annotation_y])
             self._check_type(out, res)
+
+            annotation_x = ([2, 2], torch.int)
+            annotation_y = ([2, 2], torch.int)
+            out, res = self._test_disc(binary_ops_func, [annotation_x, annotation_y])
+            self._check_type(out, res)
+
 
     def _test_func(self, torch_func, test_int=True):
         @torch.jit.script
@@ -108,8 +106,8 @@ class TestDiscBinaryOps(DiscTestCase):
 
         # test scalar Schema
         x = torch.randn([10, 2, 3, 4], device=self.device)
-        test_data = (x, x)
-        out, res = self._test_cvt_to_disc(func, test_data)
+        annotations = [([-1, -1, -1, -1], torch.int), ([-1, -1, -1, -1], torch.int)]
+        out, res = self._test_disc(func, annotations, (x, x))
         self._check_type(out, res)
 
     def _test_rhs_scalar_func(self, torch_func):
@@ -121,8 +119,8 @@ class TestDiscBinaryOps(DiscTestCase):
 
         # test scalar Schema
         x = torch.randn([10, 2, 3, 4], device=self.device)
-        test_data = (x, x)
-        out, res = self._test_cvt_to_disc(func, test_data)
+        annotations = [([-1, -1, -1, -1], torch.int), ([-1, -1, -1, -1], torch.int)]
+        out, res = self._test_disc(func, annotations, test_data)
         self._check_type(out, res)
 
     def _test_func_has_alpha(self, torch_func):
@@ -194,16 +192,19 @@ class TestDiscBinaryOps(DiscTestCase):
         x = torch.randint(0, 2, [4, 4], device=self.device).bool()
         y = torch.randint(0, 2, [4, 4], device=self.device).bool()
         test_data = (x, y)
-        out, res = self._test_cvt_to_disc(func, test_data)
+        annotations = [([-1, -1], torch.bool), ([-1, -1], torch.bool)]
+        out, res = self._test_disc(func, annotations, test_data)
         self._check_type(out, res)
 
         @torch.jit.script
         def func(x, y):
             return torch_func(x, y)
 
+        x = torch.randint(0, 2, [4, 4], device=self.device).bool()
         y = torch.randint(0, 2, [4], device=self.device).bool()
         test_data = (x, y)
-        out, res = self._test_cvt_to_disc(func, test_data)
+        annotations = [([-1, -1], torch.bool), ([-1], torch.bool)]
+        out, res = self._test_disc(func, annotations, test_data)
         self._check_type(out, res)
 
     def test_logic_funcs(self):

@@ -37,14 +37,14 @@ def _record_shape_information(s_module, inputs):
     record_shape_by_tracing(s_module._c, inputs)
 
 
-def _set_annotate_args(s_module, input_dims):
+def _set_annotate_args(s_module, annotations):
     graph = s_module._c.forward.graph
     for idx, input in enumerate(graph.inputs()):
         # skip the 1th self input value
         if idx == 0:
             continue
-        set_tensor_shape(input, input_dims[idx-1])
-        
+        input_dims, _ = annotations[idx-1]
+        set_tensor_shape(input, input_dims)
 
 def _script_module_preprocess(s_module, inputs, input_dims=[]):
     graph = s_module._c.forward.graph

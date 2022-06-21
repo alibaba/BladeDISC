@@ -11,9 +11,10 @@
 
 from contextlib import ContextDecorator
 from collections import defaultdict
+from typing import List, Optional, Tuple
 import copy
 import threading
-
+import torch
 import torch_blade._torch_blade._backends as _backends
 
 class OptPipelines:
@@ -98,6 +99,7 @@ class ConfigContext(ContextDecorator):
     def clone(self):
         return copy.deepcopy(self)
 
+ArgAnnotation = Tuple[List[int], Optional[torch.dtype]]
 
 class Config(ConfigContext):
     """
@@ -157,7 +159,8 @@ class Config(ConfigContext):
         self._customize_op_black_list = []
         self._customize_jit_passes = []
         self._opt_pipeline = 'DISC'
-        self._annotate_args = []
+        # TODO(tanyo): merge dynamic_tuning_shapes and annotate_args
+        self._annotate_args: List[Optional[ArgAnnotation]] = []
 
     @property
     def optimization_pipeline(self):
@@ -465,5 +468,5 @@ class Config(ConfigContext):
     def annotate_args(self, val):
         assert isinstance(val, list), "annotate_args should be list, got {}".format(type(val))
         for i, v in enumerate(val):
-            assert isinstance(v, list), "annotate_args[{}] should be list, got{}".format(i, type(v))
+            assert isinstance(v, tuple), "annotate_args[{}] should be list, got{}".format(i, type(v))
         self._annotate_args = val

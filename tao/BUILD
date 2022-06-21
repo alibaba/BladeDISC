@@ -39,7 +39,8 @@ genrule(
         sed -i 's/@TAO_BUILD_GIT_HEAD@/%s/g' $@;
         sed -i 's/@TAO_BUILD_HOST@/%s/g' $@;
         sed -i 's/@TAO_BUILD_IP@/%s/g' $@;
-        sed -i 's/@TAO_BUILD_TIME@/%s/g' $@
+        sed -i 's/@TAO_BUILD_TIME@/%s/g' $@;
+        chmod +w $@
     """ % (disc_build_version(), disc_build_git_branch(), disc_build_git_head(), disc_build_host(), disc_build_ip(), disc_build_time()),
 )
 
@@ -105,7 +106,7 @@ cc_library(
         "@local_config_tf//:libtensorflow_framework",
         "@org_tao_compiler//tensorflow/compiler/mlir/xla/ral:ral_bridge",
     ] + if_platform_alibaba([
-            "//third_party/blade_service_common:blade_service_common_deps",
+        "@blade_service_common//blade_service_common:blade_service_common_deps",
     ]),
     copts = if_cuda([
         "-DGOOGLE_CUDA=1"

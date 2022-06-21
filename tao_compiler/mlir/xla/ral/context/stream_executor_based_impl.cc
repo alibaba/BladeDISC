@@ -178,7 +178,7 @@ static bool DoGemmWithAlgorithm(
   if (std::is_same<InT, float>::value && std::is_same<OutT, float>::value &&
       std::is_same<AlphaBeta, float>::value && m == 1 && batch_size == 1) {
     return TrySgemvInternal<InT, OutT, AlphaBeta>(
-        stream, rhs_transpose, n, k,
+        stream, rhs_transpose, rhs_matrix.num_cols, rhs_matrix.num_rows,
         /*alpha=*/alpha, rhs_data,
         /*leading dim of RHS=*/rhs_matrix.num_cols, lhs_data,
         /*incx*/ 1, /*beta=*/beta, &output_data, /*incy*/ 1);

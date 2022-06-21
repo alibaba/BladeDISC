@@ -441,6 +441,9 @@ LogicalResult ShapeAnalysis::buildBlockDimValueMap(Block* block) {
           begin = 1;
           end = in_rank - 1;
         }
+        if (begin < 0) {
+          continue;
+        }
         for (int64_t in_idx = begin; in_idx < end; in_idx++) {
           if (in_mapped.contains(in_idx)) {
             continue;
@@ -656,7 +659,9 @@ SymbolDim* ShapeAnalysis::getRootDim(SymbolDim* symbolDim) {
 SymbolDim* ShapeAnalysis::getDim(Value value, int64_t dim) {
   auto it = shapeMap_.find(value);
   if (it == shapeMap_.end()) return nullptr;
-
+  if (it->second.rank() <= 0 || dim < 0 || dim > it->second.rank() - 1) {
+    return nullptr;
+  }
   SymbolDim* symbolDim = it->second.getSymbolDim(dim);
   assert(symbolDim != nullptr);
 
@@ -689,7 +694,7 @@ DimValue ShapeAnalysis::getDimValue(SymbolDim* symbolDim) {
 
 DimValue ShapeAnalysis::getDimValue(Value operand, int64_t dim) {
   auto ty = operand.getType().dyn_cast<ShapedType>();
-  if (!ty.hasRank() || dim >= ty.getRank()) {
+  if (!ty.hasRank() || ty.getRank() <= 0 || dim >= ty.getRank() || dim < 0) {
     return DimValue(Value(nullptr));
   }
 

@@ -492,3 +492,24 @@ func @kloop_tile(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2: memref<?
   // MEMOPT: scf.for %[[ARG4:.*]] = %[[C0]] to %[[C4]] step %[[C1]]
   return %arg2 : memref<?x?xf32>
 }
+
+// CHECK-LABEL: @kloop_dynamic_reshape
+// CHECK-SAME: (%[[INPUT1:.*]]: memref<1xf64>, %[[INPUT2:.*]]: memref<2xi32>, %[[OUT1:.*]]: memref<?x?xf64>) -> memref<?x?xf64>
+func @kloop_dynamic_reshape(
+  %arg0: memref<1xf64>,
+  %arg1: memref<2xi32>,
+  %arg2: memref<?x?xf64>) -> (memref<?x?xf64>) {
+      %0 = memref.alloc() : memref<f64> 
+      // CHECK: "lmhlo.fusion"() ({
+      "lmhlo.fusion"() ({
+        // CHECK: lmhlo.reshape
+        // CHECK-NOT: lmhlo.dynamic_reshape
+        // CHECK: scf.parallel
+        "lmhlo.reshape"(%arg0, %0) {disc.device = "gpu"} : (memref<1xf64>, memref<f64>) -> ()
+        "lmhlo.dynamic_reshape"(%0, %arg1, %arg2) {disc.device = "gpu"} : (memref<f64>, memref<2xi32>, memref<?x?xf64>) -> ()
+        "lmhlo.terminator"() : () -> ()
+      }) {disc.device = "gpu", disc.fusion.name = "main_kLoop_dynamic_reshape", disc.fusion.tag = "_vectile2", disc.fusion_type = "kLoop", disc_vectorize_or_tile_hint = 2 : i32} : () -> ()
+    // CHECK: return %[[OUT1]] :  memref<?x?xf64>
+    return  %arg2 :  memref<?x?xf64>
+}
+

@@ -162,7 +162,7 @@ class SymbolicDimMgr {
 
   // Returns a new symbolicDim instance. The returned symbolicDim is owned by
   // this mgr.
-  SymbolicDimOp newSymbolicDim();
+  SymbolicDimOp newSymbolicDim(StringRef name = {});
 
   // Returns a symbolicDim which have static dim size == `val`.
   SymbolicDimOp newConstantSymbolicDim(int64_t val);
@@ -226,6 +226,8 @@ class SymbolicDimMgr {
       const DenseSet<SymbolicDimOp>& symbols,
       DenseMap<SymbolicDimOp, SymbolicDimOp>& mapping);
 
+  SymbolTable& symbolTable() { return symbolTable_; }
+
  private:
   // Returns next unique name for a new SymbolicDim op.
   std::string getNextName();
@@ -250,7 +252,7 @@ class SymbolicDimMgr {
   ModuleOp m_;
 
   // A symbol table corresponding to related module op.
-  SymbolTable symbolTable;
+  SymbolTable symbolTable_;
 
   // A unique id to generate unique name.
   int64_t nextSymbolicOpIdx_ = 0;

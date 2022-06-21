@@ -53,7 +53,7 @@ jobs:
       run: |
         set -e
         docker run --rm -t --user $(id -u):$(id -g) \
-          -v $HOME/.cache:$HOME/.cache \
+          -v /apsara/github-ci/.cache:$HOME/.cache \
           -v /etc/passwd:/etc/passwd:ro \
           -v /etc/group:/etc/group:ro \
           -v $PWD:/disc \

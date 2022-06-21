@@ -17,7 +17,6 @@ load(
     "if_tf_serving",
 )
 load("@org_tensorflow//tensorflow:tensorflow.bzl", "tf_cc_shared_object")
-load("@local_config_rocm//rocm:build_defs.bzl", "if_dcu", "if_rocm")
 
 package(default_visibility = ["//visibility:public"])
 

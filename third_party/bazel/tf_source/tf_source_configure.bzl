@@ -24,8 +24,8 @@ tf_serving_version_dict = {
 def _tf_source_configure_impl(repository_ctx):
     if _TF_SERVING_VERSION not in repository_ctx.os.environ:
         repository_ctx.template("BUILD", Label("//bazel/tf_source:BUILD.tpl"), {})
-        repository_ctx.template("tf_source_workspace1.bzl", Label("//bazel/tf_source:no_tf_serving_workspace1.bzl.tpl"), {})
-        repository_ctx.template("tf_source_workspace0.bzl", Label("//bazel/tf_source:no_tf_serving_workspace0.bzl.tpl"), {})
+        repository_ctx.template("tf_source_workspace1.bzl", Label("//bazel/tf_source:tf_community_workspace1.bzl.tpl"), {})
+        repository_ctx.template("tf_source_workspace0.bzl", Label("//bazel/tf_source:tf_community_workspace0.bzl.tpl"), {})
     else:
         tf_serving_version = repository_ctx.os.environ[_TF_SERVING_VERSION]
         tf_major_version = repository_ctx.os.environ[_TF_MAJOR_VERSION]

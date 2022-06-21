@@ -528,6 +528,7 @@ cc_library(
     hdrs = ["transforms/passes.h"],
     deps = [
         ":codegen_utils",
+        ":disc_util",
         ":fusion_utils",
         ":pass_details",
         ":placement_utils",

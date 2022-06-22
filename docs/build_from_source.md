@@ -56,17 +56,17 @@ installation toolkit.
 
     ``` bash
     # For GPU backend
-    cd pytorch_blade && bash ./ci_build/build_pytorch_blade.sh
+    cd pytorch_blade && bash ./scripts/build_pytorch_blade.sh
 
     # For x86 CPU backend
     export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
     export TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cpu
-    cd pytorch_blade && bash ./ci_build/build_pytorch_blade.sh
+    cd pytorch_blade && bash ./scripts/build_pytorch_blade.sh
 
     # For AArch64 CPU backend
     export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
     export TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.10.0+aarch64
-    cd pytorch_blade && bash ./ci_build/build_pytorch_blade.sh
+    cd pytorch_blade && bash ./scripts/build_pytorch_blade.sh
     ```
 
 - step2: build the pytorch_blade Python wheel package.

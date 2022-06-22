@@ -51,7 +51,7 @@ fi
 
 export TORCH_BLADE_CI_BUILD_TORCH_VERSION=${TORCH_BLADE_CI_BUILD_TORCH_VERSION:-1.7.1+cu110}
 (cd pytorch_blade && bazel clean --expunge \
-  && bash ./ci_build/build_pytorch_blade.sh)
+  && bash ./scripts/build_pytorch_blade.sh)
 
 mkdir -p build && \
 mv pytorch_blade/dist/torch_blade*.whl ./build

@@ -21,6 +21,6 @@ cd pytorch_blade
 python setup.py cpp_test
 python setup.py develop
 # 4. test a e2e demo
-python -m unittest discover torch_disc/python/tests
+pytest tests/ltc -v -m "ltc"
 
 deactivate

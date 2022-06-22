@@ -95,6 +95,8 @@ DataType ParseDataType(const std::string& s) {
     return tensorflow::DT_QINT8;
   } else if (s == "qui8") {
     return tensorflow::DT_QUINT8;
+  } else if (s == "qi32") {
+    return tensorflow::DT_QINT32;
   } else {
     LOG(ERROR) << "Error: unsupported input/output element type " << s;
     return tensorflow::DT_INVALID;
@@ -405,7 +407,8 @@ Status MlirTest::RunGoldenTF() {
       half* ptr = reinterpret_cast<half*>(h_data_[i].get());
       std::vector<half> h_data_vec(ptr, ptr + num_elements);
       InitializeTensor<half>(h_data_vec, &input_tensor);
-    } else if (dtype == tensorflow::DT_INT32) {
+    } else if (dtype == tensorflow::DT_INT32 ||
+               dtype == tensorflow::DT_QINT32) {
       int32_t* ptr = reinterpret_cast<int32_t*>(h_data_[i].get());
       std::vector<int32_t> h_data_vec(ptr, ptr + num_elements);
       InitializeTensor<int32_t>(h_data_vec, &input_tensor);
@@ -509,7 +512,8 @@ Status MlirTest::CompareResults() {
           return Internal(msg);
         }
       }
-    } else if (dtype == tensorflow::DT_INT32) {
+    } else if (dtype == tensorflow::DT_INT32 ||
+               dtype == tensorflow::DT_QINT32) {
       // Using bitcast instead of `flat` in case the output has quantized
       // integer type.
       auto datas = expected_output_vals_[i].bit_casted_shaped<int32_t, 1>(
@@ -703,7 +707,8 @@ Status MlirTestImpl::GenerateInputAndRun() {
         }
       }
 
-    } else if (dtype == tensorflow::DT_INT32) {
+    } else if (dtype == tensorflow::DT_INT32 ||
+               dtype == tensorflow::DT_QINT32) {
       bytes = nelem * sizeof(int32_t);
       h_data_[idx] = std::shared_ptr<void>(new int32_t[nelem], [](void* p) {
         delete[] reinterpret_cast<int32_t*>(p);
@@ -817,7 +822,8 @@ Status MlirTestImpl::GenerateInputAndRun() {
       bytes = nelem * sizeof(double);
     } else if (dtype == tensorflow::DT_HALF) {
       bytes = nelem * sizeof(half);
-    } else if (dtype == tensorflow::DT_INT32) {
+    } else if (dtype == tensorflow::DT_INT32 ||
+               dtype == tensorflow::DT_QINT32) {
       bytes = nelem * sizeof(int32_t);
     } else if (dtype == tensorflow::DT_INT64) {
       bytes = nelem * sizeof(int64_t);
@@ -999,7 +1005,8 @@ Status MlirTestImpl::GenerateInputAndRun() {
         actual_results_[idx] = std::shared_ptr<void>(
             h_result, [](void* p) { delete[] reinterpret_cast<half*>(p); });
       }
-    } else if (out_elem_types_[idx] == tensorflow::DT_INT32) {
+    } else if (out_elem_types_[idx] == tensorflow::DT_INT32 ||
+               out_elem_types_[idx] == tensorflow::DT_QINT32) {
       if (output_placement_[idx] == DeviceType::kCPU) {
         for (int i = 0; i < nelem; ++i) {
           VLOG(2) << "  result #" << i << ": "
@@ -1135,7 +1142,8 @@ Status MlirTestImpl::GenerateInputAndRun() {
         VLOG(2) << "  result #" << i << ": "
                 << reinterpret_cast<half*>(result)[i];
       }
-    } else if (out_elem_types_[idx] == tensorflow::DT_INT32) {
+    } else if (out_elem_types_[idx] == tensorflow::DT_INT32 ||
+               out_elem_types_[idx] == tensorflow::DT_QINT32) {
       for (int i = 0; i < nelem; ++i) {
         VLOG(2) << "  result #" << i << ": "
                 << reinterpret_cast<int32_t*>(result)[i];

@@ -52,9 +52,6 @@ class BazelBuild(TorchBladeBuild):
         torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]
         self.torch_major_version = int(torch_major_version)
         self.torch_minor_version = int(torch_minor_version)
-        if self.torch_major_version >= 1 and self.torch_minor_version >= 12:
-            # Build TorchDISC LTC
-            self.targets += ["//src/ltc:_torch_disc.so"]
 
         # ----------------------------------------------------------------------- #
         # ------------  Basic Settings for DISC: disc_base_opts   --------------- #
@@ -81,6 +78,8 @@ class BazelBuild(TorchBladeBuild):
             "--action_env TORCH_BLADE_TORCH_INSTALL_PATH={}".format(self.torch_dir),
         ]
 
+        if self.torch_major_version >= 1 and self.torch_minor_version >= 12:
+            self.torch_extra_opts.append("--config=torch_ltc_disc_backend") 
         if self.is_debug:
             self.torch_extra_opts.append("--config=torch_debug")
         else:
@@ -135,13 +134,14 @@ class BazelBuild(TorchBladeBuild):
 
         # 1. build disc_compiler_main, only needs basic opts and configs
         # FIXME: debug mode compilation would failed for now
-        bazel_disc_build_cmd = " ".join(
-            [self.shell_setting, self.build_cmd]
-            + self.disc_base_opts + self.configs
-            + ["--compilation_mode=opt",
-               "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_compiler_main"]
-        )
-        subprocess.check_call(bazel_disc_build_cmd, shell=True, env=env, executable="/bin/bash")
+        if not self.skip_disc_cmd_build:
+            bazel_disc_build_cmd = " ".join(
+                [self.shell_setting, self.build_cmd]
+                + self.disc_base_opts + self.configs
+                + ["--compilation_mode=opt",
+                   "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_compiler_main"]
+            )
+            subprocess.check_call(bazel_disc_build_cmd, shell=True, env=env, executable="/bin/bash")
 
         # 2. build other targets, support both debug mode & opt mode compilation
         bazel_cmd = " ".join(
@@ -183,10 +183,7 @@ class BazelBuild(TorchBladeBuild):
         env["LD_LIBRARY_PATH"] = ld_library_path
         env["GCC_HOST_COMPILER_PATH"] = env.get("GCC_HOST_COMPILER_PATH", which("gcc"))
 
-        self.test_suites = ["//src:torch_blade_test_suite"]
-        if self.torch_major_version >= 1 and self.torch_minor_version >= 12:
-            # Build TorchDISC LTC tests
-            self.test_suites += ["//src/ltc:torch_disc_test_suite"]
+        self.test_suites = ["//tests/mhlo/...", "//src:torch_blade_test_suite"]
 
         test_cmd = " ".join(
             [self.shell_setting, self.test_cmd]

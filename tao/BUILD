@@ -39,7 +39,8 @@ genrule(
         sed -i 's/@TAO_BUILD_GIT_HEAD@/%s/g' $@;
         sed -i 's/@TAO_BUILD_HOST@/%s/g' $@;
         sed -i 's/@TAO_BUILD_IP@/%s/g' $@;
-        sed -i 's/@TAO_BUILD_TIME@/%s/g' $@
+        sed -i 's/@TAO_BUILD_TIME@/%s/g' $@;
+        chmod +w $@
     """ % (disc_build_version(), disc_build_git_branch(), disc_build_git_head(), disc_build_host(), disc_build_ip(), disc_build_time()),
 )
 
@@ -104,12 +105,17 @@ cc_library(
         "@local_config_tf//:tf_header_lib",
         "@local_config_tf//:libtensorflow_framework",
         "@org_tao_compiler//tensorflow/compiler/mlir/xla/ral:ral_bridge",
-    ],
-    copts = if_cuda(["-DGOOGLE_CUDA=1"
-        ]) + if_dcu(["-DTENSORFLOW_USE_DCU=1"
-        ]) + if_rocm(["-DTENSORFLOW_USE_ROCM=1",
-            "-x rocm",
-        ]) + tf_copts(),
+    ] + if_platform_alibaba([
+        "@blade_service_common//blade_service_common:blade_service_common_deps",
+    ]),
+    copts = if_cuda([
+        "-DGOOGLE_CUDA=1"
+    ]) + if_dcu([
+        "-DTENSORFLOW_USE_DCU=1"
+    ]) + if_rocm([
+        "-DTENSORFLOW_USE_ROCM=1",
+        "-x rocm",
+    ])+ tf_copts(),
     linkopts = [
         "-lm",
     ],

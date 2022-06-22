@@ -11,67 +11,65 @@
 
 import torch
 import unittest
-
-from tests.disc.testing_base import DiscTestCase
-from torch_blade import Config
+from unittest import skipIf
+from tests.disc.testing_base import skipIfEnableTorchMlir, DiscTestCase
+from torch_blade import Config, utils
+import pytest
 
 
 class TestDiscActivation(DiscTestCase):
-    def _test_activation(self, activation_func):
-        x = torch.randn([2, 4, 16, 16], device=self.device)
-        test_data = (x,)
-        self._test_cvt_to_disc(activation_func, test_data)
+    def _test_activation(self, nn_func=None, native_func=None, dims=[]):
+        if nn_func:
+            self._test_disc(nn_func, dims)
 
-    def test_relu(self):
-        relu = torch.nn.ReLU()
-        self._test_activation(relu)
+        if native_func:
+            @torch.jit.script
+            def jit_script_func(x):
+                return native_func(x)
 
-        @torch.jit.script
-        def relu_func(x):
-            return torch.nn.functional.relu(x)
+            self._test_disc(jit_script_func, dims)
 
-        self._test_activation(relu_func)
+    def test_relu_dynamic_shape(self):
+        self._test_activation(torch.nn.ReLU(), torch.nn.functional.relu, [([-1, -1, -1, -1], torch.float)])
 
-    def test_leaky_relu(self):
-        leaky_relu = torch.nn.LeakyReLU()
-        self._test_activation(leaky_relu)
+    def test_relu_static_shape(self):
+        self._test_activation(torch.nn.ReLU(), torch.nn.functional.relu, [([2, 4, 16, 16], torch.float)])
 
-        @torch.jit.script
-        def leaky_relu_func(x):
-            return torch.nn.functional.leaky_relu(x)
+    def test_leaky_relu_static_shape(self):
+        self._test_activation(torch.nn.LeakyReLU(), torch.nn.functional.leaky_relu, [([2, 4, 16, 16], torch.float)])
 
-        self._test_activation(leaky_relu_func)
+    def test_silu_static_shape(self):
+        self._test_activation(torch.nn.SiLU(), torch.nn.functional.silu, [([2, 4, 16, 16], torch.float)])
 
-    def test_silu(self):
-        relu = torch.nn.SiLU()
-        self._test_activation(relu)
+    def test_sigmoid_static_shape(self): 
+        self._test_activation(torch.nn.Sigmoid(), torch.sigmoid, [([2, 4, 16, 16], torch.float)])
 
-        @torch.jit.script
-        def silu_func(x):
-            return torch.nn.functional.silu(x)
+    def test_sigmoid_dynamic_shape(self):
+        self._test_activation(torch.nn.Sigmoid(), torch.sigmoid, [([-1, -1, -1, -1], torch.float)])
 
-        self._test_activation(silu_func)
+    @skipIf(utils.torch_version_number() <= utils.parse_version("1.11.1"), "TODO: torch dialect compatabilty")
+    def test_gelu_static_shape(self):
+        self._test_activation(torch.nn.GELU(), torch.nn.functional.gelu, [([2, 4, 16, 16], torch.float)])
+
+    @skipIf(utils.torch_version_number() <= utils.parse_version("1.11.1"), "TODO: torch dialect compatabilty")
+    def test_gelu_dynamic_shape(self):
+        self._test_activation(torch.nn.GELU(), torch.nn.functional.gelu, [([-1, -1, -1, -1], torch.float)])
 
 
-    def test_sigmoid(self):
-        sigmoid_func = torch.nn.Sigmoid()
-        self._test_activation(sigmoid_func)
+    @skipIfEnableTorchMlir()
+    #TODO(yancey1989): dependence binary op
+    def test_hardtanh(self):
+        self._test_activation(torch.nn.Hardtanh(), torch.nn.functional.hardtanh, [([2, 4, 16, 16], torch.float)])
 
+    @skipIfEnableTorchMlir()
+    #TODO(yancey1989): dependence torch dialect add glu op
     def test_glu(self):
-        @torch.jit.script
-        def glu_func(x):
-            return torch.nn.functional.glu(x)
+        self._test_activation(torch.nn.GLU(), torch.nn.functional.glu, [([2, 4, 16, 16], torch.float)])
 
-        self._test_activation(glu_func)
-
-    def test_gelu(self):
-        @torch.jit.script
-        def gelu_func(x):
-            return torch.nn.functional.gelu(x)
-        self._test_activation(gelu_func)
-
+   
+    @skipIfEnableTorchMlir()
+    #TODO(yancey1989): need a white list which is separate from old mhlo converter
     def test_hardswish(self):
-
         def _jit_pass_hardswish(graph):
             from_graph_str = """
             graph(%x):
@@ -96,21 +94,10 @@ class TestDiscActivation(DiscTestCase):
             torch._C._jit_pass_dce(graph)
             torch._C._jit_pass_constant_propagation(graph)
 
-        @torch.jit.script
-        def hardswish_func(x):
-            return torch.nn.functional.hardswish(x)
-
         config = Config.get_current_context_or_new()
         config.customize_jit_passes = [_jit_pass_hardswish]
         with config:
-            self._test_activation(hardswish_func)
-
-    def test_hardtanh(self):
-        @torch.jit.script
-        def hardtanh_func(x):
-            return torch.nn.functional.hardtanh(x, -0.1, 0.1)
-
-        self._test_activation(hardtanh_func)
+            self._test_activation(None, torch.nn.functional.hardswish, [([2, 4, 16, 16], torch.float)])
 
 
 if __name__ == "__main__":

@@ -24,3 +24,7 @@ config_setting(
     values = {"define": "platform_alibaba=true"},
 )
 
+config_setting(
+    name = "enable_ltc_disc_backend",
+    values = {"define": "enable_ltc_disc_backend=true"}
+)

@@ -24,7 +24,6 @@ def _recursive_optimize(model, static_shape, q_info=None):
         model._reconstruct(optimized_c_module)
         optimizaiton_func = OptPipelines.pipelines[cfg.optimization_pipeline]
         optimizaiton_func(model)
-        return
     else:
         assert not cfg.dynamic_tuning_shapes, \
             "TensorRT Dynamic shape is currently not supported for models" \

@@ -8,7 +8,7 @@ RUN bash /opt/scripts/find-fastest-apt.sh && \
     rm /usr/bin/python && \
     ln -s /usr/bin/python3.8 /usr/bin/python && \
     python -m pip install --upgrade pip && \
-    python -m pip install cpython pyyaml typing_extensions virtualenv numpy torchvision && \
+    python -m pip install cpython pyyaml typing_extensions virtualenv numpy torchvision pytest networkx onnx>=1.6.0 && \
     bash /opt/scripts/install-bazel.sh
 
 # TODO(Yancey): build torchvision from the same git sha of pytorch

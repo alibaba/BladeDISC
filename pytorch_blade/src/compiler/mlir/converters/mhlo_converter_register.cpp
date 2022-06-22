@@ -54,11 +54,6 @@ class MhloConverterRegistery {
 MhloConverterRegistery& MhloConverterRegistery::RegisterPattern(
     const c10::OperatorName& op_name,
     const OpConverter& converter) {
-  auto iter = converter_lut_.find(op_name);
-  if (iter != converter_lut_.end()) {
-    LOG(WARNING) << "Overriding already registered converter " << op_name
-                 << ", unexpected behavior may occur";
-  }
   converter_lut_[op_name] = converter;
   return *this;
 }

@@ -12,7 +12,7 @@
 import torch
 import unittest
 
-from tests.disc.testing_base import DiscTestCase
+from tests.disc.testing_base import DiscTestCase, skipIfEnableTorchMlir, isTorchMlirEnable
 
 
 class TestDiscBinaryOps(DiscTestCase):
@@ -34,17 +34,11 @@ class TestDiscBinaryOps(DiscTestCase):
             return torch_func(x, y)
 
         # test type cast int32 -> float32
-        x = torch.randn([4, 4], dtype=torch.float32, device=self.device)
-        y = torch.randint(3, [4, 4], dtype=torch.int32, device=self.device)
-        test_data = (x, y)
-        out, res = self._test_cvt_to_disc(func, test_data)
+        out, res = self._test_disc(func, [([4, 4], torch.float), ([4, 4], torch.int32)])
         self._check_type(out, res)
 
         # test type promote float32 -> float64
-        x = torch.randn([4, 4], dtype=torch.float32, device=self.device)
-        y = torch.randn([4, 4], dtype=torch.float64, device=self.device)
-        test_data = (x, y)
-        out, res = self._test_cvt_to_disc(func, test_data)
+        out, res = self._test_disc(func, [([4, 4], torch.float), ([4, 4], torch.float64)])
         self._check_type(out, res)
 
     def _test_binary_ops(self, binary_ops_func, test_int=True):
@@ -52,50 +46,54 @@ class TestDiscBinaryOps(DiscTestCase):
         x = torch.randn([10, 2, 3, 4], device=self.device)
         y = torch.randn([10, 2, 3, 4], device=self.device)
         test_data = (x, y)
-        out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
+        annotation_x = ([-1, -1, -1, -1], torch.float)
+        annotation_y = ([-1, -1, -1, -1], torch.float)
+        out, res = self._test_disc(binary_ops_func, [annotation_x, annotation_y], test_data)
         self._check_type(out, res)
 
         # test broadcast in-dims
-        x = torch.randn([10, 2, 3, 4], device=self.device)
-        y = torch.randn([1, 2, 1, 4], device=self.device)
-        test_data = (x, y)
-        out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
+        annotation_x = ([-1, 2, -1, 4], torch.float)
+        annotation_y = ([1, 2, 1, 4], torch.float)
+        out, res = self._test_disc(binary_ops_func, [annotation_x, annotation_y])
         self._check_type(out, res)
 
         # test lower rank to higher rank broadcast
-        x = torch.randn([10, 2, 3, 4], device=self.device)
-        y = torch.randn([4], device=self.device)
-        test_data = (x, y)
-        out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
+        annotation_x = ([-1, -1, -1, 4], torch.float)
+        annotation_y = ([4], torch.float)
+        out, res = self._test_disc(binary_ops_func, [annotation_x, annotation_y])
         self._check_type(out, res)
 
         # test scalar Schema
-        x = torch.randn([10, 2, 3, 4], device=self.device)
-        y = torch.tensor(2.0, device=self.device)
-        test_data = (x, y)
-        out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
+        annotation_x = ([-1, -1, -1, -1], torch.float)
+        annotation_y = ([], torch.float)
+        out, res = self._test_disc(binary_ops_func, [annotation_x, annotation_y])
         self._check_type(out, res)
 
         # test integer
         if test_int:
-            x = torch.randint(1, 3, [10, 2], device=self.device)
-            y = torch.randint(1, 3, [10, 2], device=self.device)
-            test_data = (x, y)
-            out, res = self._test_cvt_to_disc(binary_ops_func, test_data)
+            annotation_x = ([-1, -1, -1, -1], torch.int)
+            annotation_y = ([], torch.int)
+            out, res = self._test_disc(binary_ops_func, [annotation_x, annotation_y])
             self._check_type(out, res)
 
-    def _test_func(self, torch_func):
+            annotation_x = ([2, 2], torch.int)
+            annotation_y = ([2, 2], torch.int)
+            out, res = self._test_disc(binary_ops_func, [annotation_x, annotation_y])
+            self._check_type(out, res)
+
+
+    def _test_func(self, torch_func, test_int=True):
         @torch.jit.script
         def func1(x, y):
             return torch_func(x, y.expand_as(x))
 
-        self._test_binary_ops(func1)
+        self._test_binary_ops(func1, test_int)
 
         @torch.jit.script
         def func2(x, y):
             return torch_func(x, y)
 
-        self._test_binary_ops(func2)
+        self._test_binary_ops(func2, test_int)
 
     def _test_scalar_func(self, torch_func):
         @torch.jit.script
@@ -108,8 +106,8 @@ class TestDiscBinaryOps(DiscTestCase):
 
         # test scalar Schema
         x = torch.randn([10, 2, 3, 4], device=self.device)
-        test_data = (x, x)
-        out, res = self._test_cvt_to_disc(func, test_data)
+        annotations = [([-1, -1, -1, -1], torch.int), ([-1, -1, -1, -1], torch.int)]
+        out, res = self._test_disc(func, annotations, (x, x))
         self._check_type(out, res)
 
     def _test_rhs_scalar_func(self, torch_func):
@@ -121,8 +119,8 @@ class TestDiscBinaryOps(DiscTestCase):
 
         # test scalar Schema
         x = torch.randn([10, 2, 3, 4], device=self.device)
-        test_data = (x, x)
-        out, res = self._test_cvt_to_disc(func, test_data)
+        annotations = [([-1, -1, -1, -1], torch.int), ([-1, -1, -1, -1], torch.int)]
+        out, res = self._test_disc(func, annotations, (x, x))
         self._check_type(out, res)
 
     def _test_func_has_alpha(self, torch_func):
@@ -150,19 +148,22 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_binary_type_promotion(torch.mul)
         self._test_binary_type_promotion(torch.true_divide)
         self._test_binary_type_promotion(torch.floor_divide)
-        self._test_binary_type_promotion(torch.rsub)
-        self._test_func(torch.logical_and)
-        self._test_func(torch.logical_or)
+        if not isTorchMlirEnable():
+            self._test_binary_type_promotion(torch.rsub)
+            self._test_func(torch.logical_and)
+            self._test_func(torch.logical_or)
 
     def test_arithmetic_func(self):
         self._test_func(torch.sub)
         self._test_func(torch.add)
         self._test_func(torch.mul)
-        self._test_func(torch.true_divide)
-        self._test_func(torch.floor_divide)
-        self._test_func(torch.rsub)
-        self._test_func(torch.logical_and)
-        self._test_func(torch.logical_or)
+        # torch.aten.div between Tensor[int]s meet RefineType error in TorchMLIR
+        self._test_func(torch.true_divide, test_int=not isTorchMlirEnable())
+        self._test_func(torch.floor_divide, test_int=not isTorchMlirEnable())
+        if not isTorchMlirEnable():
+            self._test_func(torch.rsub)
+            self._test_func(torch.logical_and)
+            self._test_func(torch.logical_or)
         # skip the test because disc compilation failed, refs to debug logs:
         # https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/debug/dump_dir.logic_xor.0516.tar.gz
         # self._test_func(torch.logical_xor)
@@ -170,16 +171,18 @@ class TestDiscBinaryOps(DiscTestCase):
     def test_arithmetic_func_has_alpha(self):
         self._test_func_has_alpha(torch.sub)
         self._test_func_has_alpha(torch.add)
-        self._test_func_has_alpha(torch.rsub)
+        if not isTorchMlirEnable():
+          self._test_func_has_alpha(torch.rsub)
 
     def test_scalar_arithmetic_func(self):
         self._test_scalar_func(torch.sub)
         self._test_scalar_func(torch.add)
         self._test_scalar_func(torch.mul)
-        self._test_scalar_func(torch.div)
-        self._test_rhs_scalar_func(torch.rsub)
-        self._test_func(torch.logical_and)
-        self._test_func(torch.logical_or)
+        if not isTorchMlirEnable():
+            self._test_scalar_func(torch.div)
+            self._test_rhs_scalar_func(torch.rsub)
+            self._test_func(torch.logical_and)
+            self._test_func(torch.logical_or)
 
     def _test_logic_func(self, torch_func):
         @torch.jit.script
@@ -189,16 +192,19 @@ class TestDiscBinaryOps(DiscTestCase):
         x = torch.randint(0, 2, [4, 4], device=self.device).bool()
         y = torch.randint(0, 2, [4, 4], device=self.device).bool()
         test_data = (x, y)
-        out, res = self._test_cvt_to_disc(func, test_data)
+        annotations = [([-1, -1], torch.bool), ([-1, -1], torch.bool)]
+        out, res = self._test_disc(func, annotations, test_data)
         self._check_type(out, res)
 
         @torch.jit.script
         def func(x, y):
             return torch_func(x, y)
 
+        x = torch.randint(0, 2, [4, 4], device=self.device).bool()
         y = torch.randint(0, 2, [4], device=self.device).bool()
         test_data = (x, y)
-        out, res = self._test_cvt_to_disc(func, test_data)
+        annotations = [([-1, -1], torch.bool), ([-1], torch.bool)]
+        out, res = self._test_disc(func, annotations, test_data)
         self._check_type(out, res)
 
     def test_logic_funcs(self):
@@ -213,8 +219,10 @@ class TestDiscBinaryOps(DiscTestCase):
         def logical_or(x, y):
             return x | y
 
-        self._test_logic_func(logical_or)
+        if not isTorchMlirEnable():
+            self._test_logic_func(logical_or)
 
+    @skipIfEnableTorchMlir()
     def test_pow(self):
         self._test_func(torch.pow)
         self._test_scalar_func(torch.pow)
@@ -225,11 +233,13 @@ class TestDiscBinaryOps(DiscTestCase):
             return torch_func(x, 2.0), torch_func(y, 2.0)
         self._test_func(func)
 
+    @skipIfEnableTorchMlir()
     def test_gt(self):
         self._test_func(torch.gt)
         self._test_binary_type_promotion(torch.gt)
         self._test_cmp_func(torch.gt)
 
+    @skipIfEnableTorchMlir()
     def test_ge(self):
         self._test_func(torch.ge)
         self._test_binary_type_promotion(torch.ge)
@@ -245,6 +255,7 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_binary_type_promotion(torch.ne)
         self._test_cmp_func(torch.ne)
 
+    @skipIfEnableTorchMlir()
     def test_le(self):
         self._test_func(torch.le)
         self._test_binary_type_promotion(torch.le)
@@ -255,6 +266,7 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_binary_type_promotion(torch.lt)
         self._test_cmp_func(torch.lt)
 
+    @skipIfEnableTorchMlir()
     def test_arange(self):
         # Given int dtype.
         @torch.jit.script

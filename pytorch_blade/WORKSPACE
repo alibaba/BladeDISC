@@ -86,6 +86,12 @@ cuda_supplement_configure(name = "local_config_cuda_supplement")
 torch_configure(name = "local_org_torch")
 blade_disc_helper_configure(name = "local_config_blade_disc_helper")
 
+# To load blade_service_common
+load("@org_third_party//bazel/blade_service_common:blade_service_common_configure.bzl", "blade_service_common_configure")
+blade_service_common_configure(name = "local_config_blade_service_common")
+load("@local_config_blade_service_common//:blade_service_common_workspace.bzl", "blade_service_common_workspace")
+blade_service_common_workspace()
+
 torch_pybind11_configure(
     name = "pybind11",
     build_file = "@pybind11_bazel//:pybind11.BUILD",

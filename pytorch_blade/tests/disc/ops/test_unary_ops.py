@@ -13,7 +13,7 @@ import torch
 import unittest
 from unittest import skipIf
 
-from tests.disc.testing_base import DiscTestCase, skipIfNoTorchMlir
+from tests.disc.testing_base import DiscTestCase, skipIfEnableTorchMlir
 
 class TestDiscUnaryOps(DiscTestCase):
     def _test_unary_ops(self, unary_ops_func, test_data=None):
@@ -71,7 +71,6 @@ class TestDiscUnaryOps(DiscTestCase):
 
         self._test_unary_ops(tanh_func)
 
-    @skipIfNoTorchMlir()
     def test_contiguous(self):
         @torch.jit.script
         def contiguous_func(x):
@@ -79,7 +78,6 @@ class TestDiscUnaryOps(DiscTestCase):
 
         self._test_unary_ops(contiguous_func)
 
-    @skipIfNoTorchMlir()
     def test_to_dtype(self):
         @torch.jit.script
         def to_func(x):
@@ -87,7 +85,6 @@ class TestDiscUnaryOps(DiscTestCase):
 
         self._test_unary_ops(to_func)
 
-    @skipIfNoTorchMlir()
     def test_type_as(self):
         @torch.jit.script
         def type_as(x, y):

@@ -12,7 +12,7 @@
 import torch
 import unittest
 from unittest import skipIf
-from tests.disc.testing_base import skipIfEnableTorchMlir, DiscTestCase, skipTorchEarly
+from tests.disc.testing_base import skipIfEnableTorchMlir, DiscTestCase, skipTorchLE
 from torch_blade import Config
 import pytest
 
@@ -47,11 +47,11 @@ class TestDiscActivation(DiscTestCase):
     def test_sigmoid_dynamic_shape(self):
         self._test_activation(torch.nn.Sigmoid(), torch.sigmoid, [([-1, -1, -1, -1], torch.float)])
 
-    @skipTorchEarly("1.11.1")
+    @skipTorchLE("1.11.1")
     def test_gelu_static_shape(self):
         self._test_activation(torch.nn.GELU(), torch.nn.functional.gelu, [([2, 4, 16, 16], torch.float)])
 
-    @skipTorchEarly("1.11.1")
+    @skipTorchLE("1.11.1")
     def test_gelu_dynamic_shape(self):
         self._test_activation(torch.nn.GELU(), torch.nn.functional.gelu, [([-1, -1, -1, -1], torch.float)])
 

@@ -33,9 +33,14 @@ def skipIfEnableTorchMlir():
     return unittest.skipIf(isTorchMlirEnable(), "haven't supported")
 
 
-def skipTorchEarly(version):
+def skipTorchLE(version):
     return unittest.skipIf(
         utils.torch_version_number() <= utils.parse_version(version),
+        "TODO: torch version compatible with early than {}".format(version))
+
+def skipTorchLT(version):
+    return unittest.skipIf(
+        utils.torch_version_number() < utils.parse_version(version),
         "TODO: torch version compatible with early than {}".format(version))
 
 @skipIfNoDISC()

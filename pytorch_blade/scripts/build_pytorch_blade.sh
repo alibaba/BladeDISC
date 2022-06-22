@@ -45,10 +45,6 @@ function pip_install_deps() {
     fi
 }
 
-function run_test_on_latest_version() {
-  pytest tests -v -m "ltc" 2>&1 | tee -a py_test.out
-}
-
 function ci_build() {
     echo "DO TORCH_BLADE CI_BUILD"
     pip_install_deps

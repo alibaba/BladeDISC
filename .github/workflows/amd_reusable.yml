@@ -1,0 +1,63 @@
+name: CPU Reusable workflow
+
+on:
+  workflow_call:
+    inputs:
+      extra_envs:
+        required: false
+        type: string
+      exec_command:
+        required: true
+        type: string
+      deploy_command:
+        required: false
+        type: string
+      remote_runtime_docker:
+        required: false
+        type: string
+      runtime_base_image:
+        required: false
+        type: string
+    secrets:
+      ALIYUN_DOCKER_USERNAME:
+        required: false
+      ALIYUN_DOCKER_PASSWORD:
+        required: false
+      DOCKER_USERNAME:
+        required: false
+      DOCKER_PASSWORD:
+        required: false
+
+jobs:
+  AMD:
+    if: github.repository == 'alibaba/BladeDISC'
+    # The type of runner that the job will run on
+    runs-on: [self-hosted, amd-gpu]
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+    # Runs a single command using the runners shell
+    - name: Checkout
+      uses: actions/checkout@v2.4.0
+    - name: Build Dev Docker
+      run: |
+        set -e
+        git submodule sync
+        git submodule update --depth=1 --init --recursive
+        docker build -t disc-dev-cpu \
+          --build-arg BASEIMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04 \
+          --build-arg DISC_HOST_TF_VERSION="tensorflow==1.15.5" \
+          --build-arg DEVICE=cpu \
+          --build-arg HTTPS_PROXY=http://blade_disc:r299eNZXVTUpuyg7@8.217.91.10:12357 \
+          -f docker/dev/Dockerfile .
+    - name: Build And Test
+      run: |
+        set -e
+        docker run --rm -t --user $(id -u):$(id -g) \
+          -v /apsara/github-ci/.cache:$HOME/.cache \
+          -v /etc/passwd:/etc/passwd:ro \
+          -v /etc/group:/etc/group:ro \
+          -v $PWD:/disc \
+          -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
+          ${{ inputs.extra_envs }} \
+          -w /disc \
+          disc-dev-cpu ${{ inputs.exec_command }}

@@ -47,9 +47,6 @@ function pip_install_deps() {
 
 function run_test_on_latest_version() {
   pytest tests -v -m "ltc" 2>&1 | tee -a py_test.out
-  TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_unary_ops.py
-  TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_broadcast.py
-  TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_activation.py
 }
 
 function ci_build() {
@@ -63,16 +60,21 @@ function ci_build() {
     else
       python3 ../scripts/python/common_setup.py --cpu_only
     fi
+    TORCH_LIB=$(python -c 'import torch; import os; print(os.path.dirname(os.path.abspath(torch.__file__)) + "/lib/")') \
+    export LD_LIBRARY_PATH=$TORCH_LIB:$LD_LIBRARY_PATH \
 
     export TORCH_BLADE_SKIP_DISC_CMD_BUILD=OFF
     rm -rf build && python3 setup.py develop;
     # The following are UNIT TESTS
     export TORCH_BLADE_DEBUG_LOG=ON
-    pytest tests tests -v -m "not ltc" 2>&1 | tee -a py_test.out
+    pytest tests -v -m "not ltc" 2>&1 | tee -a py_test.out
     # DEBUG=1 will trigger debug mode compilation
     DEBUG=1 python3 setup.py cpp_test 2>&1 | tee -a cpp_test.out;
+    TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_unary_ops.py
+    TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_broadcast.py
+    TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_activation.py
     if [[ "$TORCH_BLADE_CI_BUILD_TORCH_VERSION" == "latest" ]]; then
-      run_test_on_latest_version
+      pytest tests -v -m "ltc" 2>&1 | tee -a py_test.out
     fi
     python3 setup.py bdist_wheel;
 }

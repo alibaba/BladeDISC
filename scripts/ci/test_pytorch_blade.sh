@@ -48,10 +48,6 @@ fi
 
 export TORCH_BLADE_CI_BUILD_TORCH_VERSION=${TORCH_BLADE_CI_BUILD_TORCH_VERSION:-1.7.1+cu110}
 (cd pytorch_blade && bazel clean --expunge \
-  && python -m pip install -q -r requirements-dev-${TORCH_BLADE_CI_BUILD_TORCH_VERSION}.txt \
-       -f https://download.pytorch.org/whl/torch_stable.html \
-  && TORCH_LIB=$(python -c 'import torch; import os; print(os.path.dirname(os.path.abspath(torch.__file__)) + "/lib/")') \
-  && export LD_LIBRARY_PATH=$TORCH_LIB:$LD_LIBRARY_PATH \
   && bash ./ci_build/build_pytorch_blade.sh)
 
 mkdir -p build && \

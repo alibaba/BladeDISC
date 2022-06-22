@@ -90,13 +90,12 @@ class TestDiscActivation(DiscTestCase):
                 from_graph_str, to_graph_str, graph)
             torch._C._jit_pass_dce(graph)
             torch._C._jit_pass_constant_propagation(graph)
-        
+
         with Config.get_current_context_or_new() as cfg:
             cfg.customize_jit_passes = [_jit_pass_hardswish]
             self._test_activation(None, torch.nn.functional.hardswish, [([2, 4, 16, 16], torch.float)])
             self._test_activation(None, torch.nn.functional.hardswish, [([-1, -1, -1, -1], torch.float)])
-        self.assertTrue(False)
-        
+
 
 
 if __name__ == "__main__":

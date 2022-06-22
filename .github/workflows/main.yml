@@ -247,7 +247,7 @@ jobs:
       uses: actions/checkout@v2.4.0
       with:
         path: ./torch_disc_devel
-     - name: Build Dev Docker
+    - name: Build Dev Docker
       run: |
         set -e
         git submodule sync

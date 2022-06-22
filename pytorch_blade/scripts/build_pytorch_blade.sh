@@ -26,13 +26,30 @@ export LIBRARY_PATH=${TENSORRT_INSTALL_PATH}/lib/:${TENSORRT_INSTALL_PATH}/lib64
 export TORCH_BLADE_BUILD_MLIR_SUPPORT=${TORCH_BLADE_BUILD_MLIR_SUPPORT:-ON}
 export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=${TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT:-ON}
 
+function pip_install_latest_deps() {
+  python3 -m pip install -r scripts/pip/requirements-dev-latest.txt
+  python3 -m pip uninstall torch
+  python3 -m pip install https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/torch-ltc/torch-1.12.0a0%2Bgit6402e62-cp38-cp38-linux_x86_64.whl
+}
+
 function pip_install_deps() {
     # set TORCH_BLADE_CI_BUILD_TORCH_VERSION default to 1.7.1+cu110
     TORCH_BLADE_CI_BUILD_TORCH_VERSION=${TORCH_BLADE_CI_BUILD_TORCH_VERSION:-1.7.1+cu110}
     requirements=requirements-dev-${TORCH_BLADE_CI_BUILD_TORCH_VERSION}.txt
     python3 -m pip install --upgrade pip
     python3 -m pip install virtualenv
-    python3 -m pip install -r ${requirements} -f https://download.pytorch.org/whl/torch_stable.html
+    if [[ "${TORCH_BLADE_CI_BUILD_TORCH_VERSION}" == "latest" ]]; then
+      pip_install_latest_deps
+    else
+      python3 -m pip install -r scripts/pip/${requirements} -f https://download.pytorch.org/whl/torch_stable.html
+    fi
+}
+
+function run_test_on_latest_version() {
+  pytest tests -v -m "ltc" 2>&1 | tee -a py_test.out
+  TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_unary_ops.py
+  TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_broadcast.py
+  TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_activation.py
 }
 
 function ci_build() {
@@ -52,10 +69,11 @@ function ci_build() {
     # The following are UNIT TESTS
     export TORCH_BLADE_DEBUG_LOG=ON
     pytest tests tests -v -m "not ltc" 2>&1 | tee -a py_test.out
-    TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_unary_ops.py
-    TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_broadcast.py
     # DEBUG=1 will trigger debug mode compilation
     DEBUG=1 python3 setup.py cpp_test 2>&1 | tee -a cpp_test.out;
+    if [[ "$TORCH_BLADE_CI_BUILD_TORCH_VERSION" == "latest" ]]; then
+      run_test_on_latest_version
+    fi
     python3 setup.py bdist_wheel;
 }
 

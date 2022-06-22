@@ -1,0 +1,8 @@
+cpython
+pyyaml
+typing_extensions
+numpy
+torchvision
+pytest
+networkx
+onnx>=1.6.0 

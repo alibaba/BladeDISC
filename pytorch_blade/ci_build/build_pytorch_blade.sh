@@ -52,6 +52,7 @@ function ci_build() {
     # The following are UNIT TESTS
     export TORCH_BLADE_DEBUG_LOG=ON
     pytest tests tests -v -m "not ltc" 2>&1 | tee -a py_test.out
+    TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_activation.py
     TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_unary_ops.py
     TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_binary_ops.py
     TORCH_DISC_USE_TORCH_MLIR=true python3 tests/disc/ops/test_broadcast.py

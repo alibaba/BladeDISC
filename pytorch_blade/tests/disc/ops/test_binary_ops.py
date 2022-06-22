@@ -120,7 +120,7 @@ class TestDiscBinaryOps(DiscTestCase):
         # test scalar Schema
         x = torch.randn([10, 2, 3, 4], device=self.device)
         annotations = [([-1, -1, -1, -1], torch.int), ([-1, -1, -1, -1], torch.int)]
-        out, res = self._test_disc(func, annotations, test_data)
+        out, res = self._test_disc(func, annotations, (x, x))
         self._check_type(out, res)
 
     def _test_func_has_alpha(self, torch_func):

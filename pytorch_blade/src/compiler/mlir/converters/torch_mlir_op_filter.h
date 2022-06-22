@@ -10,7 +10,7 @@
 // limitations under the License.
 
 #pragma once
-#include <torch/script.h>
+#include "compiler/mlir/converters/mhlo_conversion_context.h"
 
 namespace torch {
 namespace blade {

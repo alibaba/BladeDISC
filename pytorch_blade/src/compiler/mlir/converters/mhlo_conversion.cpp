@@ -202,9 +202,7 @@ void RegisterDialects(mlir::DialectRegistry& registry) {
 
 bool IsMlirMhloSupported(const torch::jit::Node& node) {
   if (IsTorchMlirAvailable()) {
-    auto ret = IsTorchMlirSupported(node);
-    std::cout << "is supported: " << int(ret) << std::endl;
-    return ret;
+    return IsTorchMlirSupported(node);
   }
   c10::optional<OpConverter> converter = GetMlirMhloConverter(node);
   try {

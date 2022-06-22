@@ -27,9 +27,9 @@ export TORCH_BLADE_BUILD_MLIR_SUPPORT=${TORCH_BLADE_BUILD_MLIR_SUPPORT:-ON}
 export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=${TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT:-ON}
 
 function pip_install_latest_deps() {
-  python3 -m pip install -r scripts/pip/requirements-dev-latest.txt
-  python3 -m pip uninstall torch
-  python3 -m pip install https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/torch-ltc/torch-1.12.0a0%2Bgit6402e62-cp38-cp38-linux_x86_64.whl
+  python3 -m pip install -q -r scripts/pip/requirements-dev-latest.txt
+  python3 -m pip uninstall -y torch
+  python3 -m pip install -q https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/torch-ltc/torch-1.12.0a0%2Bgit6402e62-cp38-cp38-linux_x86_64.whl
 }
 
 function pip_install_deps() {

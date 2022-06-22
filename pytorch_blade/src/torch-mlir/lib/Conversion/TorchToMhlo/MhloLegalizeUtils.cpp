@@ -133,7 +133,7 @@ template llvm::Optional<Value> getConstTensor<int64_t>(
 std::vector<Value> getDimSizesOfTensor(
     PatternRewriter& rewriter,
     Operation* op,
-    Value& value) {
+    const Value& value) {
   auto currentKnowledge = ValueKnowledge::getKnowledgeFromType(value.getType());
   std::vector<Value> dim_sizes;
   if (!currentKnowledge.hasRank) {
@@ -162,7 +162,7 @@ std::vector<Value> getDimSizesOfTensor(
 llvm::Optional<Value> getMhloShapeOfTensor(
     PatternRewriter& rewriter,
     Operation* op,
-    Value& value) {
+    const Value& value) {
   auto dim_sizes = getDimSizesOfTensor(rewriter, op, value);
   if (dim_sizes.size() == 0) {
     return llvm::None;

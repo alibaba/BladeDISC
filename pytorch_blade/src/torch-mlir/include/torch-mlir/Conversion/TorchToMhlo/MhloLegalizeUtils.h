@@ -113,7 +113,7 @@ void CreateReplaceOpAndInfer(
   rewriter.replaceOp(op, result->getResults());
 }
 
-Value getMhloShapeOfTensor(
+llvm::Optional<Value> getMhloShapeOfTensor(
     PatternRewriter& rewriter,
     Operation* op,
     Value& value);

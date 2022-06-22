@@ -11,6 +11,9 @@
 
 set -ex
 if [ ! -z "$CPU_ONLY" ]; then
+  if [[ -f ~/.cache/proxy_config ]]; then
+    source ~/.cache/proxy_config
+  fi
   # install disc python wheel
   python -m virtualenv venv && source venv/bin/activate
   arch=`uname -p`

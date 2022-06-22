@@ -39,6 +39,9 @@ else
   python -m virtualenv venv && source venv/bin/activate
 fi
 
+python -m pip install -U pip
+python -m pip install onnx==1.11.0 # workaround for latest onnx installing failure
+
 arch=`uname -p`
 if [[ $arch == "aarch64" ]]; then
   # higher prootbuf version has compatible problem.

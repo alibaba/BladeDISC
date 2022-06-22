@@ -11,8 +11,9 @@
 
 import torch
 import unittest
+from unittest import skipIf
 from tests.disc.testing_base import skipIfEnableTorchMlir, DiscTestCase
-from torch_blade import Config
+from torch_blade import Config, utils
 import pytest
 
 
@@ -29,39 +30,41 @@ class TestDiscActivation(DiscTestCase):
             self._test_disc(jit_script_func, dims)
 
     def test_relu_dynamic_shape(self):
-        self._test_activation(torch.nn.ReLU(), torch.nn.functional.relu, [[-1, -1, -1, -1]])
+        self._test_activation(torch.nn.ReLU(), torch.nn.functional.relu, [([-1, -1, -1, -1], torch.float)])
 
     def test_relu_static_shape(self):
-        self._test_activation(torch.nn.ReLU(), torch.nn.functional.relu, [[2, 4, 16, 16]])
+        self._test_activation(torch.nn.ReLU(), torch.nn.functional.relu, [([2, 4, 16, 16], torch.float)])
 
     def test_leaky_relu_static_shape(self):
-        self._test_activation(torch.nn.LeakyReLU(), torch.nn.functional.leaky_relu, [[2, 4, 16, 16]])
+        self._test_activation(torch.nn.LeakyReLU(), torch.nn.functional.leaky_relu, [([2, 4, 16, 16], torch.float)])
 
     def test_silu_static_shape(self):
-        self._test_activation(torch.nn.SiLU(), torch.nn.functional.silu, [[2, 4, 16, 16]])
+        self._test_activation(torch.nn.SiLU(), torch.nn.functional.silu, [([2, 4, 16, 16], torch.float)])
 
     def test_sigmoid_static_shape(self): 
-        self._test_activation(torch.nn.Sigmoid(), torch.sigmoid, [[2, 4, 16, 16]])
+        self._test_activation(torch.nn.Sigmoid(), torch.sigmoid, [([2, 4, 16, 16], torch.float)])
 
     def test_sigmoid_dynamic_shape(self):
-        self._test_activation(torch.nn.Sigmoid(), torch.sigmoid, [[-1, -1, -1, -1]])
+        self._test_activation(torch.nn.Sigmoid(), torch.sigmoid, [([-1, -1, -1, -1], torch.float)])
 
+    @skipIf(utils.torch_version_number() <= utils.parse_version("1.11.1"), "TODO: torch dialect compatabilty")
     def test_gelu_static_shape(self):
-        self._test_activation(torch.nn.GELU(), torch.nn.functional.gelu, [[2, 4, 16, 16]])
+        self._test_activation(torch.nn.GELU(), torch.nn.functional.gelu, [([2, 4, 16, 16], torch.float)])
 
+    @skipIf(utils.torch_version_number() <= utils.parse_version("1.11.1"), "TODO: torch dialect compatabilty")
     def test_gelu_dynamic_shape(self):
-        self._test_activation(torch.nn.GELU(), torch.nn.functional.gelu, [[-1, -1, -1, -1]])
+        self._test_activation(torch.nn.GELU(), torch.nn.functional.gelu, [([-1, -1, -1, -1], torch.float)])
 
 
     @skipIfEnableTorchMlir()
     #TODO(yancey1989): dependence binary op
     def test_hardtanh(self):
-        self._test_activation(torch.nn.Hardtanh(), torch.nn.functional.hardtanh, [[2, 4, 16, 16]])
+        self._test_activation(torch.nn.Hardtanh(), torch.nn.functional.hardtanh, [([2, 4, 16, 16], torch.float)])
 
     @skipIfEnableTorchMlir()
     #TODO(yancey1989): dependence torch dialect add glu op
     def test_glu(self):
-        self._test_activation(torch.nn.GLU(), torch.nn.functional.glu, [[2, 4, 16, 16]])
+        self._test_activation(torch.nn.GLU(), torch.nn.functional.glu, [([2, 4, 16, 16], torch.float)])
 
    
     @skipIfEnableTorchMlir()
@@ -94,7 +97,7 @@ class TestDiscActivation(DiscTestCase):
         config = Config.get_current_context_or_new()
         config.customize_jit_passes = [_jit_pass_hardswish]
         with config:
-            self._test_activation(None, torch.nn.functional.hardswish, [[2, 4, 16, 16]])
+            self._test_activation(None, torch.nn.functional.hardswish, [([2, 4, 16, 16], torch.float)])
 
 
 if __name__ == "__main__":

@@ -34,6 +34,7 @@ limitations under the License.
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
+#include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
@@ -3913,12 +3914,23 @@ class DiscLhloLegalizeRootsToParallelLoops
   void runOnOperation() override {
     func::FuncOp func = getOperation();
 
-    ShapeAnalysisDeprecated shape_analysis(func);
-    if (failed(shape_analysis.run())) {
-      func->emitError("failed to do shape analysis");
-      signalPassFailure();
+    // skip shape constraint graph
+    if (func.getName() == SymbolicDimMgr::getShapeConstraintGraphFunctionName())
       return;
+
+    std::unique_ptr<ShapeAnalysis> shapeAnalysisPtr;
+    if (useShapeConstraintIR()) {
+      shapeAnalysisPtr.reset(new ShapeConstraintIRAnalysis(func));
+    } else {
+      shapeAnalysisPtr.reset(new ShapeAnalysisDeprecated{func});
+      if (failed(static_cast<ShapeAnalysisDeprecated*>(shapeAnalysisPtr.get())
+                     ->run())) {
+        func->emitError("failed to do shape analysis");
+        signalPassFailure();
+        return;
+      }
     }
+    auto& shape_analysis = *shapeAnalysisPtr;
 
     OpBuilder b(func);
     SmallVector<Operation*, 4> gpu_non_fusion_worklist;

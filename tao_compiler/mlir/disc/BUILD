@@ -328,6 +328,7 @@ cc_library(
         ":codegen_utils",
         ":disc_lhlo_elemental_utils",
         ":disc_supported_list",
+        ":disc_util",
         ":fusion_utils",
         ":input_inline_fusion_pattern",
         ":pass_details",

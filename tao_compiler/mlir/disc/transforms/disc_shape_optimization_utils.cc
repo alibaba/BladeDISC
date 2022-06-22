@@ -431,6 +431,9 @@ LogicalResult SymbolicDimMgr::save() {
     });
     op->setAttr(SymbolicDimOp::getSymbolicDimAttrName(), symbolicShapeAttr);
   });
+  // update shape production equality
+  if (failed(updateProductEqualityMap()))
+    return m_->emitError() << "fail to update prodcut euqal map\n";
 
   // Update function type
   if (failed(updateFunctionType(m_))) return failure();
@@ -470,6 +473,27 @@ LogicalResult SymbolicDimMgr::save() {
   // remove symbolic dim ops that are known not used by any other ops/types.
   for (auto& p : symbolDimUnionSet_) {
     if (!usedSymbolicOps.count(p.first)) p.first->erase();
+  }
+
+  // remove unused shape production equality
+  SmallVector<SymbolicDimProduct> candidates;
+  for (auto& outter : productEqualityMap_) {
+    if (llvm::any_of(outter.first.symbols, [&](SymbolicDimOp sym) {
+          return usedSymbolicOps.count(sym) == 0;
+        }))
+      candidates.push_back(outter.first);
+  }
+  for (auto& prod : candidates) productEqualityMap_.erase(prod);
+
+  for (auto& outter : productEqualityMap_) {
+    SmallVector<SymbolicDimProduct> candidates;
+    for (auto& inner : outter.second) {
+      if (llvm::any_of(inner.first.symbols, [&](SymbolicDimOp sym) {
+            return usedSymbolicOps.count(sym) == 0;
+          }))
+        candidates.push_back(outter.first);
+    }
+    for (auto& prod : candidates) outter.second.erase(prod);
   }
 
   // canonicalize the name of symbolic dim ops
@@ -529,9 +553,6 @@ LogicalResult SymbolicDimMgr::save() {
 }
 
 LogicalResult SymbolicDimMgr::saveShapeConstraintGraph() {
-  if (failed(updateProductEqualityMap()))
-    return m_->emitError() << "fail to update prodcut euqal map\n";
-
   // first try to remove the old shape constraint graph
   StringRef funcName = getShapeConstraintGraphFunctionName();
   if (auto func = symbolTable_.lookup<FuncOp>(funcName)) func->erase();

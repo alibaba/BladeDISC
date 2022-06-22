@@ -30,6 +30,9 @@ export LANG=C.UTF-8
 VENV_PATH=venv
 # note(yancey.yx): using virtualenv to avoid permission issue on workflow actions CI,
 python -m virtualenv ${VENV_PATH} && source ${VENV_PATH}/bin/activate
+python -m pip install -U pip
+python -m pip install onnx==1.11.0 # workaround for latest onnx installing failure
+
 
 pushd tensorflow_blade
 

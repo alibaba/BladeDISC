@@ -34,6 +34,7 @@
 #include "torch-mlir/Conversion/TorchToSCF/TorchToSCF.h"
 #include "torch-mlir/Conversion/TorchToStd/TorchToStd.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
+#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/Passes.h"
 
 #include <iostream>
@@ -54,12 +55,21 @@ class VerifyMhloBackendContractPass
       return WalkResult::advance();
     });
 
+    auto context = func.getContext();
     // the convert_ty function will convert !torch.vtensor to builtin tensor
-    auto convert_ty = [](BlockArgument& arg) -> Type {
+    auto convert_ty = [&](BlockArgument& arg) -> Type {
       Type type = arg.getType();
       auto vtensorTy = type.dyn_cast_or_null<ValueTensorType>();
       if (vtensorTy) {
         type = vtensorTy.toBuiltinTensor();
+        arg.setType(type);
+      }
+      if (type.isa<Torch::FloatType>()) {
+        type = Float64Type::get(context);
+        arg.setType(type);
+      }
+      if (type.isa<Torch::IntType>()) {
+        type = IntegerType::get(context, 64);
         arg.setType(type);
       }
       return type;
@@ -75,8 +85,7 @@ class VerifyMhloBackendContractPass
     }
     auto ret_types = returnOp.getOperandTypes();
     // update the argumetns type
-    func.setType(
-        FunctionType::get(func.getContext(), new_arg_types, ret_types));
+    func.setType(FunctionType::get(context, new_arg_types, ret_types));
   }
 
   void runOnOperation() override {
@@ -97,6 +106,15 @@ class VerifyMhloBackendContractPass
       //   }
       // ```
       updateFuncType(func);
+
+      // 1. Erase all "torch_c.from_i64" and "torch_c.to_i64"
+      func.walk([&](mlir::Operation* op) {
+        if (isa<ToI64Op, FromI64Op, ToF64Op, FromF64Op>(op)) {
+          op->getResult(0).replaceAllUsesWith(op->getOpOperand(0).get());
+          op->erase();
+          return;
+        }
+      });
     });
 
     ::mlir::PassManager pm(context, ::mlir::OpPassManager::Nesting::Implicit);
@@ -125,9 +143,10 @@ class VerifyMhloBackendContractPass
     target.addDynamicallyLegalOp<ModuleOp, func::FuncOp, func::ReturnOp>(
         opHasLegalTypes);
     target.addLegalDialect<
-        mhlo::MhloDialect,
+        arith::ArithmeticDialect,
         chlo::ChloDialect,
-        arith::ArithmeticDialect>();
+        mhlo::MhloDialect,
+        tensor::TensorDialect>();
     RewritePatternSet patterns(context);
     populateReturnOpTypeConversionPattern(patterns, converter);
     if (failed(applyFullConversion(module, target, std::move(patterns)))) {
@@ -152,7 +171,6 @@ void TorchConversion::createTorchBackendToMhloBackendPipeline(
     const Torch::TorchLoweringPipelineOptions& options) {
   // Check some invariants to catch errors in a clear way.
   pm.addPass(createVerifyInvariantsBeforeBackendLoweringPass());
-
   pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToMhloPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToSCFPass());
@@ -167,13 +185,6 @@ void TorchConversion::createTorchBackendToMhloBackendPipeline(
     // The resolution of `dim` ops tends to create identical ops. CSE them.
     pm.addNestedPass<func::FuncOp>(createCSEPass());
   }
-
-  // Finish the type conversion from `torch` types to the types of the
-  // MHLO backend contract.
-  // pm.addPass(TorchConversion::createFuncBackendTypeConversionPass());
-  // pm.addNestedPass<func::FuncOp>(
-  //     TorchConversion::createFinalizingBackendTypeConversionPass());
-
   // Verify that we have lowered to the form that MHLO backends
   // expect. This fails compilation (signalPassFailure) if the IR is not in the
   // correct form.

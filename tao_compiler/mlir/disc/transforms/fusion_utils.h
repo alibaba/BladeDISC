@@ -496,8 +496,9 @@ struct ParallelInfo {
 
 class StitchCPUAnalysis {
  public:
-  explicit StitchCPUAnalysis(FusionPattern& fusionPattern)
-      : fusionPattern_(fusionPattern) {}
+  explicit StitchCPUAnalysis(FusionPattern& fusionPattern,
+                             ShapeAnalysis& shapeAnalysis)
+      : fusionPattern_(fusionPattern), shapeAnalysis_(shapeAnalysis) {}
 
   // Returns true if the fusion pattern is a valid stitch pattern.
   bool fusibilityAnalysis();
@@ -597,6 +598,7 @@ class StitchCPUAnalysis {
 
  private:
   FusionPattern& fusionPattern_;
+  ShapeAnalysis& shapeAnalysis_;
 
   // Used for roots dominant analysis
   Value dominantValue_;

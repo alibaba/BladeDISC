@@ -37,6 +37,16 @@ llvm::Optional<SmallVector<FlatSymbolRefAttr>> getRankedValueSymbolicDimRefs(
 llvm::Optional<SmallVector<FlatSymbolRefAttr>> getMemRefValueSymbolicDimRefs(
     Value value);
 
+// Returns a ArrayAttr composed of a list of ref attributes to corresponding
+// symbols;
+ArrayAttr makeSymbolicDimOpRefArrayAttr(
+    const SmallVector<SymbolicDimOp>& symbols);
+
+// Inserts or updates disc symbolic dim attr of the op. The  disc symbolic dim
+// is created from the provided symbols.
+void attachSymbolicDimOpRefArrayAttrOnOperation(
+    Operation* op, const SmallVector<SymbolicDimOp>& symbols);
+
 using Visitor = std::function<LogicalResult(Value value, RankedTensorType ty,
                                             ArrayAttr attrs)>;
 // Walk each ranked tensor type values inside op.

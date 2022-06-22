@@ -1945,6 +1945,8 @@ ShapeConstraintIRAnalysis::ShapeConstraintIRAnalysis(Operation* op)
   });
 }
 
+ShapeConstraintIRAnalysis::~ShapeConstraintIRAnalysis() { mgr_.save(); }
+
 bool ShapeConstraintIRAnalysis::isShapeEqual(Value lhs, Value rhs) {
   if (lhs == rhs) return true;
 

@@ -191,6 +191,7 @@ class ShapeAnalysis {
 class ShapeConstraintIRAnalysis : public ShapeAnalysis {
  public:
   explicit ShapeConstraintIRAnalysis(Operation* op);
+  ~ShapeConstraintIRAnalysis();
 
   // Returns the `SymbolicDimMgr` this object holds.
   SymbolicDimMgr& symbolicDimMgr() { return mgr_; }

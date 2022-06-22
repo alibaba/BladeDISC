@@ -1521,6 +1521,7 @@ cc_library(
     deps = [
         ":codegen_utils",
         ":disc_lhlo_elemental_utils",
+        ":disc_util",
         ":fusion_utils",
         ":pass_details",
         ":placement_utils",

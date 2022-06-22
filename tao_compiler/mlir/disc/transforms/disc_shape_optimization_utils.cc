@@ -737,6 +737,24 @@ llvm::Optional<SmallVector<FlatSymbolRefAttr>> getMemRefValueSymbolicDimRefs(
   return symbols;
 }
 
+ArrayAttr makeSymbolicDimOpRefArrayAttr(
+    const SmallVector<SymbolicDimOp>& symbols) {
+  assert(!symbols.empty());
+  SmallVector<Attribute> attrs;
+  attrs.reserve(symbols.size());
+  for (auto& sym : symbols) {
+    attrs.push_back(FlatSymbolRefAttr::get(sym));
+  }
+  return ArrayAttr::get(symbols[0]->getContext(), attrs);
+}
+
+void attachSymbolicDimOpRefArrayAttrOnOperation(
+    Operation* op, const SmallVector<SymbolicDimOp>& symbols) {
+  assert(op != nullptr);
+  auto symbolicShapeAttr = makeSymbolicDimOpRefArrayAttr(symbols);
+  op->setAttr(SymbolicDimOp::getSymbolicDimAttrName(), symbolicShapeAttr);
+}
+
 // Updates the function types according to the types of entry block arguments
 // and the types of operands of the return op of the func op. This function
 // suppose that there is only one block inside the function region.

@@ -81,6 +81,17 @@ def _tf_blade_repositories():
         ],
     )
 
+    maybe_http_archive(
+        name = "googltest",
+        sha256 = "bc1cc26d1120f5a7e9eb450751c0b24160734e46a02823a573f3c6b6c0a574a7",
+        strip_prefix = "googletest-e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b",
+        urls = [
+            "http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/build_deps/googletest/e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b.zip",
+            "https://storage.googleapis.com/mirror.tensorflow.org/github.com/google/googletest/archive/e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b.zip",
+            "https://github.com/google/googletest/archive/e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b.zip",
+        ],
+    )
+
     # for aarch64 related acl library
     tf_http_archive(
         name = "acl_compute_library",

@@ -306,7 +306,7 @@ def parse_args():
         '--skip-hie',
         action="store_true",
         required=False,
-        default=True,
+        default=False,
         help="Skip HIE support for internal build",
     )
     parser.add_argument(

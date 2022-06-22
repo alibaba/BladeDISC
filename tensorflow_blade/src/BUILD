@@ -25,7 +25,7 @@ cc_binary(
         "//src/custom_ops/trt_engine_op",
         "//src/tensorrt:tensorrt_bridge_impl",
     ]) + if_platform_alibaba([
-        "//src/internal:tf_ops",
+        "//src/internal:tf_blade_internal",
     ]),
     data = [
         ":tf_blade.lds"

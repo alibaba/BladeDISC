@@ -25,3 +25,8 @@ config_setting(
     name = "cpu",
     flag_values = {":device": "cpu"},
 )
+
+config_setting(
+    name = "arm",
+    flag_values = {":device": "arm"},
+)

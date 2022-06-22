@@ -15,7 +15,7 @@ import unittest
 import copy
 
 from torch_blade import mlir
-from torch_blade import optimize
+from torch_blade import optimize, utils
 from torch_blade.mlir import is_available
 from torch_blade.config import Config
 from torch_blade.clustering import support_fusion_group
@@ -31,6 +31,12 @@ def isTorchMlirEnable():
 
 def skipIfEnableTorchMlir():
     return unittest.skipIf(isTorchMlirEnable(), "haven't supported")
+
+
+def skipTorchEarly(version):
+    return unittest.skipIf(
+        utils.torch_version_number() <= utils.parse_version(version),
+        "TODO: torch version compatible with early than {}".format(version))
 
 @skipIfNoDISC()
 class DiscTestCase(TestCase):

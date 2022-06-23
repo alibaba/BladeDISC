@@ -189,6 +189,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   DefaultTimingManager tm;
   applyDefaultTimingManagerCLOptions(tm);
+  // Records elapsed time for each pass in the passpipe
+  tm.setEnabled(true);
   TimingScope timing = tm.getRootScope();
   PassManager pm(m.getContext());
   applyPassManagerCLOptions(pm);
@@ -550,8 +552,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
   if (failed(pm.run(m))) return failure();
-
-  TimingScope outputTiming = timing.nest("Output");
   return success();
 }
 

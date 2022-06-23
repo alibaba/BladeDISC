@@ -287,6 +287,8 @@ class SymbolicDimMgr {
   using SymbolicDimProductMap =
       DenseMap<SymbolicDimProduct, DenseMap<SymbolicDimProduct, bool>>;
   SymbolicDimProductMap productEqualityMap_;
+  // Lazily update `productEqualityMap_` since it takes a lot of time.
+  bool productEqualityMapUpdated_ = true;
 };
 
 }  // namespace disc_ral

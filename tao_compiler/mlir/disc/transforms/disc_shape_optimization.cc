@@ -15,6 +15,7 @@ limitations under the License.
 
 // This file implements the logic to do some shape optimizations on tensor
 // level.
+#include <chrono>
 #include <unordered_set>
 #include <utility>
 
@@ -39,6 +40,8 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
+
+#define DEBUG_TYPE "disc-shape-optimization"
 
 namespace mlir {
 namespace disc_ral {
@@ -1281,37 +1284,88 @@ LogicalResult optimizeShapeComputation(ModuleOp m, FuncOp main,
   bool changed;
   do {
     changed = false;
+    LLVM_DEBUG(std::chrono::steady_clock::time_point begin =
+                   std::chrono::steady_clock::now());
     if (failed(runCanonicalizer(m, runner))) {
       return failure();
     }
+    LLVM_DEBUG(std::chrono::steady_clock::time_point end =
+                   std::chrono::steady_clock::now());
+    LLVM_DEBUG(llvm::dbgs()
+               << "  runCanonicalizer takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                        begin)
+                      .count()
+               << " us\n");
 
     LLVM_DEBUG(
         llvm::dbgs()
         << "Module after runCanonicalizer in optimize-shape-computation:\n"
         << m << "\n");
 
+    LLVM_DEBUG(begin = std::chrono::steady_clock::now());
     SymbolicDimMgr mgr(m);
+    LLVM_DEBUG(end = std::chrono::steady_clock::now());
+    LLVM_DEBUG(llvm::dbgs()
+               << "  Building SymbolicDimMgr takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                        begin)
+                      .count()
+               << " us\n");
+
+    LLVM_DEBUG(begin = std::chrono::steady_clock::now());
     if (failed(mgr.load())) {
       return m.emitError() << "fail to load shape constraint IR\n";
     }
+    LLVM_DEBUG(end = std::chrono::steady_clock::now());
+    LLVM_DEBUG(llvm::dbgs()
+               << "  SymbolicDimMgr.load() takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                        begin)
+                      .count()
+               << " us\n");
 
+    LLVM_DEBUG(begin = std::chrono::steady_clock::now());
     ShapeComputationIRAnalysis analysis(main, mgr);
     if (failed(analysis.run())) {
       return m.emitError() << "fail to analysis shape computation IR\n";
     }
+    LLVM_DEBUG(end = std::chrono::steady_clock::now());
+    LLVM_DEBUG(llvm::dbgs()
+               << "  Building ShapeComputationIRAnalysis takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                        begin)
+                      .count()
+               << " us\n");
 
+    LLVM_DEBUG(begin = std::chrono::steady_clock::now());
     if (failed(applyShapeComputationOptimization(analysis, changed))) {
       return m.emitError() << "fail to optimize shape computation IR\n";
     }
+    LLVM_DEBUG(end = std::chrono::steady_clock::now());
+    LLVM_DEBUG(llvm::dbgs()
+               << "  applyShapeComputationOptimization takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                        begin)
+                      .count()
+               << " us\n");
 
     LLVM_DEBUG(
         llvm::dbgs()
         << "Module after apply-shape-opt in optimize-shape-computation:\n"
         << m << "\n");
 
+    LLVM_DEBUG(begin = std::chrono::steady_clock::now());
     if (failed(mgr.save())) {
       return m.emitError() << "fail to save shape constraint IR\n";
     }
+    LLVM_DEBUG(end = std::chrono::steady_clock::now());
+    LLVM_DEBUG(llvm::dbgs()
+               << "  SymbolicDimMgr.save() takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                        begin)
+                      .count()
+               << " us\n");
 
     LLVM_DEBUG(llvm::dbgs()
                << "Module after save-shape-ir in optimize-shape-computation:\n"
@@ -1443,15 +1497,26 @@ void DiscShapeOptimizationPass::runOnOperation() {
     return;
   }
 
+  LLVM_DEBUG(std::chrono::steady_clock::time_point begin =
+                 std::chrono::steady_clock::now());
   // Stage #1: Explictily materialize shape computation IR on tensor level
   if (failed(materializeShapeComputation(m, main))) {
     signalPassFailure();
     return;
   }
+  LLVM_DEBUG(std::chrono::steady_clock::time_point end =
+                 std::chrono::steady_clock::now());
+  LLVM_DEBUG(
+      llvm::dbgs() << "materializeShapeComputation takes: "
+                   << std::chrono::duration_cast<std::chrono::microseconds>(
+                          end - begin)
+                          .count()
+                   << " us\n");
   LLVM_DEBUG(llvm::dbgs() << "Module after materialize shape computation:\n"
                           << m << "\n");
 
   // Stage #2: Optimize shape computation IR on tensor level
+  LLVM_DEBUG(begin = std::chrono::steady_clock::now());
   PassPipelineRunner runner = [this](OpPassManager& dynamicPM, ModuleOp m) {
     return runPipeline(dynamicPM, m);
   };
@@ -1459,13 +1524,28 @@ void DiscShapeOptimizationPass::runOnOperation() {
     signalPassFailure();
     return;
   }
+  LLVM_DEBUG(end = std::chrono::steady_clock::now());
+  LLVM_DEBUG(
+      llvm::dbgs() << "optimizeShapeComputation takes: "
+                   << std::chrono::duration_cast<std::chrono::microseconds>(
+                          end - begin)
+                          .count()
+                   << " us\n");
   LLVM_DEBUG(llvm::dbgs() << "Module after shape optimizaiton:\n" << m << "\n");
 
   // Stage #3: clean up
+  LLVM_DEBUG(begin = std::chrono::steady_clock::now());
   if (failed(cleanUp(m, keep_tie_shape_))) {
     signalPassFailure();
     return;
   }
+  LLVM_DEBUG(end = std::chrono::steady_clock::now());
+  LLVM_DEBUG(
+      llvm::dbgs() << "cleanUp takes: "
+                   << std::chrono::duration_cast<std::chrono::microseconds>(
+                          end - begin)
+                          .count()
+                   << " us\n");
   LLVM_DEBUG(llvm::dbgs() << "Module after cleanup:\n" << m << "\n");
 }
 

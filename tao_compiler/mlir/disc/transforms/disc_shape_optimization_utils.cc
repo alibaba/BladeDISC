@@ -32,6 +32,8 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 
+#define DEBUG_TYPE "disc-shape-optimization-utils"
+
 namespace mlir {
 namespace disc_ral {
 
@@ -118,7 +120,7 @@ SymbolicDimOp SymbolicDimMgr::getRootSymbolicDim(SymbolicDimOp symbol) {
   SymbolicDimOp current = symbol;
   while (symbolDimUnionSet_[current] != current)
     current = symbolDimUnionSet_[current];
-  return current;
+  return symbolDimUnionSet_[symbol] = current;
 }
 
 bool SymbolicDimMgr::isSymbolicDimEqual(SymbolicDimOp lhs, SymbolicDimOp rhs) {
@@ -141,6 +143,7 @@ LogicalResult SymbolicDimMgr::mapSymbolicDimEqual(SymbolicDimOp lhs,
       symbolDimUnionSet_[lhsRoot] = rhsRoot;
     }
   }
+  productEqualityMapUpdated_ = false;
   return success();
 }
 
@@ -154,6 +157,7 @@ int64_t gcd(int64_t m, int64_t n) {
 SymbolicDimProduct SymbolicDimMgr::simplifySymbolicDimProduct(
     const SymbolicDimProduct& x) {
   SmallVector<SymbolicDimOp> copied;
+  copied.reserve(x.symbols.size());
   // TODO(disc): expand op if it can be factorized into other symbol dims.
   for (SymbolicDimOp op : x.symbols) copied.push_back(getRootSymbolicDim(op));
 
@@ -320,10 +324,14 @@ LogicalResult SymbolicDimMgr::mapSymbolicDimProductEqual(
   productEqualityMap_[newLhs][newRhs] = productEqualityMap_[newRhs][newLhs] =
       true;
 
-  return updateProductEqualityMap();
+  productEqualityMapUpdated_ = false;
+  return success();
 }
 
 LogicalResult SymbolicDimMgr::updateProductEqualityMap() {
+  // early return if nothing is updated.
+  if (productEqualityMapUpdated_) return success();
+
   SymbolicDimProductMap newMap;
   DenseSet<SymbolicDimProduct> productSet;
   for (auto& pairOutter : productEqualityMap_) {
@@ -388,6 +396,7 @@ LogicalResult SymbolicDimMgr::updateProductEqualityMap() {
       LLVM_DEBUG(llvm::dbgs() << "Pair: x = " << x << "\ny = " << y << "\n");
     }
   }
+  productEqualityMapUpdated_ = true;
   return success();
 }
 

@@ -11,6 +11,7 @@
 
 import torch
 import unittest
+import pytest
 
 from tests.disc.testing_base import DiscTestCase, skipIfEnableTorchMlir, isTorchMlirEnable
 

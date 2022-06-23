@@ -8,10 +8,10 @@ COPY docker/scripts /install/scripts
 
 RUN bash /install/scripts/find-fastest-apt.sh && \
     apt-get install -y python3.8 python3.8-dev python3-pip git curl vim libssl-dev wget unzip openjdk-11-jdk && \
-    pip3 install --upgrade pip && \
     rm -rf /usr/bin/python3 && \
     ln -s /usr/bin/python3.8 /usr/bin/python3 && \
     ln -s /usr/bin/python3.8 /usr/bin/python && \
+    python -m pip install --upgrade pip && \
     bash /install/scripts/install-cmake.sh && \
     bash /install/scripts/install-bazel.sh && \
     bash /install/scripts/install-python.sh

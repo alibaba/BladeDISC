@@ -33,6 +33,8 @@
 namespace mlir {
 namespace mhlo {
 
+std::vector<int64_t> rangeIndices(int64_t min, int64_t max);
+
 // Create a 32-bit float constant operator from a float
 Value getMhloConstTensorSingleF32(
     PatternRewriter& rewriter,
@@ -124,6 +126,41 @@ llvm::Optional<Value> getMhloShapeOfTensor(
     Value value);
 
 Value getNumelOfTensor(PatternRewriter& rewriter, Operation* op, Value value);
+
+llvm::Optional<Value> getUnsqueezedTensor(
+    PatternRewriter& rewriter,
+    Operation* op,
+    Value tensor,
+    ArrayRef<int64_t> inputUnsqzDims);
+
+std::tuple<Value, std::vector<Value>> getCollapsedTensor(
+    PatternRewriter& rewriter,
+    Operation* op,
+    Value tensor,
+    ArrayRef<int64_t> inpCollapDims);
+
+llvm::Optional<Value> getZeroRankTensor(
+    PatternRewriter& rewriter,
+    Operation* op,
+    Value tensor);
+
+llvm::Optional<Value> getMvDotProduct(
+    PatternRewriter& rewriter,
+    Operation* op,
+    Value inpLhs,
+    Value inpRhs);
+
+llvm::Optional<Value> getMmDotProduct(
+    PatternRewriter& rewriter,
+    Operation* op,
+    Value inpLhs,
+    Value inpRhs);
+
+llvm::Optional<Value> getBmmDotProduct(
+    PatternRewriter& rewriter,
+    Operation* op,
+    Value inpLhs,
+    Value inpRhs);
 
 Value getPermutedTensor(
     PatternRewriter& rewriter,

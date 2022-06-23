@@ -22,6 +22,8 @@ class Node;
 namespace torch {
 namespace blade {
 
+bool IsTorchMlirAvailable();
+
 bool IsMlirMhloSupported(const torch::jit::Node&);
 
 // Return a pair of the MLIR module strings, with the first one in

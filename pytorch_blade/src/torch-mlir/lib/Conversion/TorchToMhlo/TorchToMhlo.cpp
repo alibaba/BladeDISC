@@ -659,7 +659,7 @@ LogicalResult ConvertAtenOp<AtenReluOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   Value input = adaptor.self();
-  auto inputTy = input.getType().template cast<RankedTensorType>();
+  auto inputTy = input.getType().template dyn_cast<RankedTensorType>();
   if (!inputTy) {
     return op.emitError("Only RankedTensorType is supported in Aten ReLU op.");
   }
@@ -668,6 +668,28 @@ LogicalResult ConvertAtenOp<AtenReluOp>::matchAndRewrite(
       loc, input, zero, mhlo::ComparisonDirection::GT);
   rewriter.replaceOpWithNewOp<mhlo::SelectOp>(
       op, inputTy, compareGtZero, input, zero);
+  return success();
+}
+
+// Convert a Aten::Relu6 to HLO
+// Relu6(x) = min(AtenRelu(x), 6)
+template <>
+LogicalResult ConvertAtenOp<AtenRelu6Op>::matchAndRewrite(
+    AtenRelu6Op op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  Value input = adaptor.self();
+  auto inputTy = input.getType().template dyn_cast<RankedTensorType>();
+  if (!inputTy) {
+    return op.emitError("Only RankedTensorType is supported in Aten ReLU op.");
+  }
+  Value relu = rewriter.create<AtenReluOp>(loc, inputTy, input);
+  Value six = chlo::getConstantLike(rewriter, loc, 6.0, input);
+  Value compareLtSix = rewriter.create<mhlo::CompareOp>(
+      loc, input, six, mhlo::ComparisonDirection::LT);
+  rewriter.replaceOpWithNewOp<mhlo::SelectOp>(
+      op, inputTy, compareLtSix, relu, six);
   return success();
 }
 
@@ -681,7 +703,7 @@ LogicalResult ConvertAtenOp<AtenLeakyReluOp>::matchAndRewrite(
   Location loc = op.getLoc();
   Value input = adaptor.self();
   Value negativeSlope = op.negative_slope();
-  auto inputTy = input.getType().template cast<RankedTensorType>();
+  auto inputTy = input.getType().template dyn_cast<RankedTensorType>();
   if (!inputTy) {
     return op.emitError(
         "Only RankedTensorType is supported in Aten LeakyReLU op.");
@@ -716,7 +738,7 @@ LogicalResult ConvertAtenOp<AtenSigmoidOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   Value input = adaptor.self();
-  auto inputTy = input.getType().template cast<RankedTensorType>();
+  auto inputTy = input.getType().template dyn_cast<RankedTensorType>();
   if (!inputTy) {
     return op.emitError(
         "Only RankedTensorType is supported in Aten Sigmoid op.");
@@ -738,7 +760,7 @@ LogicalResult ConvertAtenOp<AtenSiluOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   Value input = adaptor.self();
-  auto inputTy = input.getType().template cast<RankedTensorType>();
+  auto inputTy = input.getType().template dyn_cast<RankedTensorType>();
   if (!inputTy) {
     return op.emitError("Only RankedTensorType is supported in Aten SiLu op.");
   }
@@ -756,7 +778,7 @@ LogicalResult ConvertAtenOp<AtenGeluOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   Value input = adaptor.self();
-  auto inputTy = input.getType().template cast<RankedTensorType>();
+  auto inputTy = input.getType().template dyn_cast<RankedTensorType>();
   if (!inputTy) {
     return op.emitError("Only RankedTensorType is supported in Aten GELU op.");
   }
@@ -1255,7 +1277,7 @@ class ConvertAtenPoolingBaseOp : public OpConversionPattern<AtenOpT> {
       ConversionPatternRewriter& rewriter,
       Value input,
       ArrayRef<int32_t> transposeDims) const {
-    auto inputTy = input.getType().template cast<RankedTensorType>();
+    auto inputTy = input.getType().template dyn_cast<RankedTensorType>();
     auto inputElemTy = inputTy.getElementType();
     auto inputShape = inputTy.getShape();
     auto inputRank = inputTy.getRank();
@@ -1755,6 +1777,7 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenBroadcastToOp);
     INSERT_ATENOP_PATTERN(AtenSigmoidOp);
     INSERT_ATENOP_PATTERN(AtenReluOp);
+    INSERT_ATENOP_PATTERN(AtenRelu6Op);
     INSERT_ATENOP_PATTERN(AtenLeakyReluOp);
     INSERT_ATENOP_PATTERN(AtenSiluOp);
     INSERT_ATENOP_PATTERN(AtenGeluOp);

@@ -255,6 +255,7 @@ jobs:
         docker build -t disc-dev-cuda11.0 \
           --build-arg BASEIMAGE=nvidia/cuda:11.0.3-devel-ubuntu18.04 \
           --build-arg DEVICE=cu110 \
+          --build-arg PYTHON_VERSION=PYTHON3.8 \
           -f docker/dev/Dockerfile .
     - name: Build and Test DISC
       run: |

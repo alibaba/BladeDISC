@@ -22,36 +22,29 @@ std::unordered_set<std::string> GetTorchMlirWhiteList();
 bool IsTorchMlirSupported(const torch::jit::Node& node) {
   auto schema = node.maybeSchema();
   if (schema) {
-    std::cout << "schema: " << schema->operator_name().name << std::endl;
     // auto name = schema->operator_name().name;
     return GetTorchMlirWhiteList().find(schema->operator_name().name) !=
         GetTorchMlirWhiteList().end();
   } else if (node.kind().is_prim()) {
     auto name = c10::OperatorName(node.kind().toQualString(), "").name;
-    std::cout << "prim: " << name << std::endl;
     return GetTorchMlirWhiteList().find(name) != GetTorchMlirWhiteList().end();
   }
-  std::cout << "not supported" << std::endl;
   return false;
 }
 
 std::unordered_set<std::string> GetTorchMlirWhiteList() {
   return std::unordered_set<std::string>{
-      "aten::relu",
-      "aten::relu6",
-      "aten::leaky_relu",
-      "aten::sigmoid",
-      "aten::glu",
-      "aten::contiguous",
-      "aten::erf",
-      "aten::exp",
-      "aten::neg",
-      "aten::rsqrt",
-      "aten::neg",
-      "aten::to.dtype",
-      "aten::type_as",
-      "aten::bitwise_not",
-      "aten::to",
+      "aten::relu",     "aten::relu6",       "aten::leaky_relu",
+      "aten::sigmoid",  "aten::glu",         "aten::contiguous",
+      "aten::erf",      "aten::exp",         "aten::neg",
+      "aten::rsqrt",    "aten::neg",         "aten::to.dtype",
+      "aten::type_as",  "aten::bitwise_not", "aten::to",
+      "aten::gelu",     "aten::silu",        "aten::size",
+      "aten::sub",      "aten::add",         "aten::div",
+      "aten::mul",      "aten::eq",          "aten::lt",
+      "aten::ne",       "aten::__and__",     "aten::floor_divide",
+      "prim::Constant", "aten::expand_as",   "aten::repeat",
+      "aten::expand",
   };
 }
 

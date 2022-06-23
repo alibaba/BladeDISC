@@ -12,7 +12,7 @@
 
 
 set -ex
-python3 -m pip install virtualenv numpy
+python3 -m pip install cpython virtualenv numpy
 DISC_VENV=/opt/venv_disc
 
 function install_venv() {

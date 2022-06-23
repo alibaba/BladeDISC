@@ -1,4 +1,4 @@
-load("//src/custom_ops:build_defs.bzl", "tf_blade_library")
+load("//:build_defs.bzl", "tf_blade_library")
 
 package(default_visibility = ["//visibility:public"])
 

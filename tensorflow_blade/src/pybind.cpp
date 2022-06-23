@@ -17,10 +17,6 @@
 
 #include "src/tf_compatible_version.h"
 
-#ifdef PLATFORM_ALIBABA
-#include "src/internal/pybind_functions.h"
-#endif  // PLATFORM_ALIBABA
-
 #if BLADE_WITH_TENSORRT
 #include "src/tensorrt/pybind_functions.h"
 #endif  // BLADE_WITH_TENSORRT
@@ -32,7 +28,4 @@ PYBIND11_MODULE(_tf_blade, m) {
   tf_blade::trt::initTensorRTBindings(m);
 #endif  // BLADE_WITH_TENSORRT
 
-#ifdef PLATFORM_ALIBABA
-  tf_blade::internal::initInternalBindings(m);
-#endif  // PLATFORM_ALIBABA
 }

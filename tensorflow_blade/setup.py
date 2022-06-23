@@ -22,7 +22,7 @@ from version import __version__
 
 def _get_device():
     # To get device info from bazel configuration.
-    # Another option is to retrieve from TensorFlow API. But since we may build GPU 
+    # Another option is to retrieve from TensorFlow API. But since we may build GPU
     # package in a docker container with no GPU device mounted, tf.test.is_gpu_available
     # becomes not suitable. Reading from generated bazel configuration file to keep
     # consistent with C++ part.
@@ -98,21 +98,27 @@ class CppBuild(build_ext):
     def run(self):
         assert len(self.extensions) == 1, "We've just a single extension."
         ext = self.extensions[0]
-        print(f"[DEBUG] ext: {ext.name} - {ext.sourcedir}")
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
         subprocess.check_call(
             "bazel build //src:_tf_blade.so", shell=True, executable="/bin/bash"
         )
         bazel_bin_dir = os.path.join(ext.sourcedir, "bazel-bin")
-        for fpath in ['src/libtf_blade.so', 'src/_tf_blade.so']:
+        import glob
+
+        native_libs = (
+            glob.glob(os.path.join(bazel_bin_dir, "src", "*.so"))
+            + glob.glob(os.path.join(bazel_bin_dir, "src", "*.so.[0-9]"))
+            + glob.glob(os.path.join(bazel_bin_dir, "src", "internal", "*.so"))
+            + glob.glob(os.path.join(bazel_bin_dir, "src", "internal", "*.so.[0-9]"))
+        )
+        for fpath in native_libs:
             fpath = os.path.join(bazel_bin_dir, fpath)
             fname = os.path.basename(fpath)
-            assert os.path.exists(fpath), f"{fpath} not found!"
             link_name = os.path.join(extdir, fname)
             if os.path.exists(link_name):
                 os.remove(link_name)
             os.symlink(fpath, link_name)
-            print(f"Link: {link_name} -> {fpath}")
+            print(f"Link native lib: {fpath}")
 
 
 class CppTestCommand(Command):
@@ -125,7 +131,11 @@ class CppTestCommand(Command):
         pass
 
     def run(self):
-        print("[TODO] CppTestCommand run....")
+        subprocess.check_call(
+            "bazel test //src/... --build_tests_only",
+            shell=True,
+            executable="/bin/bash",
+        )
         pass
 
 

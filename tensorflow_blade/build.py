@@ -249,8 +249,10 @@ def package(args):
 
 def test(args):
     execute("python3 setup.py cpp_test")
-    mark = "not gpu_only" if args.device != "gpu" else "not cpu_only"
-    execute(f"pytest  tests/ -m '{mark}' -v --forked")
+    device_mark = "not gpu_only" if args.device != "gpu" else "not cpu_only"
+    tf_major, _, _, _, _, _, _, _ = get_tf_info(which("python3"))
+    tf_mark = "not tf1_only" if tf_major == "2" else "not tf2_only"
+    execute(f"pytest  tests/ -m '{device_mark} and {tf_mark}' -v --forked")
 
 
 def parse_args():

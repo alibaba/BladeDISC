@@ -659,7 +659,7 @@ LogicalResult ConvertAtenOp<AtenReluOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   Value input = adaptor.self();
-  auto inputTy = input.getType().template cast<RankedTensorType>();
+  auto inputTy = input.getType().template dyn_cast<RankedTensorType>();
   if (!inputTy) {
     return op.emitError("Only RankedTensorType is supported in Aten ReLU op.");
   }
@@ -680,7 +680,7 @@ LogicalResult ConvertAtenOp<AtenRelu6Op>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   Value input = adaptor.self();
-  auto inputTy = input.getType().template cast<RankedTensorType>();
+  auto inputTy = input.getType().template dyn_cast<RankedTensorType>();
   if (!inputTy) {
     return op.emitError("Only RankedTensorType is supported in Aten ReLU op.");
   }
@@ -703,7 +703,7 @@ LogicalResult ConvertAtenOp<AtenLeakyReluOp>::matchAndRewrite(
   Location loc = op.getLoc();
   Value input = adaptor.self();
   Value negativeSlope = op.negative_slope();
-  auto inputTy = input.getType().template cast<RankedTensorType>();
+  auto inputTy = input.getType().template dyn_cast<RankedTensorType>();
   if (!inputTy) {
     return op.emitError(
         "Only RankedTensorType is supported in Aten LeakyReLU op.");
@@ -738,7 +738,7 @@ LogicalResult ConvertAtenOp<AtenSigmoidOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   Value input = adaptor.self();
-  auto inputTy = input.getType().template cast<RankedTensorType>();
+  auto inputTy = input.getType().template dyn_cast<RankedTensorType>();
   if (!inputTy) {
     return op.emitError(
         "Only RankedTensorType is supported in Aten Sigmoid op.");
@@ -760,7 +760,7 @@ LogicalResult ConvertAtenOp<AtenSiluOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   Value input = adaptor.self();
-  auto inputTy = input.getType().template cast<RankedTensorType>();
+  auto inputTy = input.getType().template dyn_cast<RankedTensorType>();
   if (!inputTy) {
     return op.emitError("Only RankedTensorType is supported in Aten SiLu op.");
   }
@@ -778,7 +778,7 @@ LogicalResult ConvertAtenOp<AtenGeluOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   Value input = adaptor.self();
-  auto inputTy = input.getType().template cast<RankedTensorType>();
+  auto inputTy = input.getType().template dyn_cast<RankedTensorType>();
   if (!inputTy) {
     return op.emitError("Only RankedTensorType is supported in Aten GELU op.");
   }
@@ -1277,7 +1277,7 @@ class ConvertAtenPoolingBaseOp : public OpConversionPattern<AtenOpT> {
       ConversionPatternRewriter& rewriter,
       Value input,
       ArrayRef<int32_t> transposeDims) const {
-    auto inputTy = input.getType().template cast<RankedTensorType>();
+    auto inputTy = input.getType().template dyn_cast<RankedTensorType>();
     auto inputElemTy = inputTy.getElementType();
     auto inputShape = inputTy.getShape();
     auto inputRank = inputTy.getRank();

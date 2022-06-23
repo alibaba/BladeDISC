@@ -22,7 +22,6 @@ std::unordered_set<std::string> GetTorchMlirWhiteList();
 bool IsTorchMlirSupported(const torch::jit::Node& node) {
   auto schema = node.maybeSchema();
   if (schema) {
-    // auto name = schema->operator_name().name;
     return GetTorchMlirWhiteList().find(schema->operator_name().name) !=
         GetTorchMlirWhiteList().end();
   } else if (node.kind().is_prim()) {
@@ -44,8 +43,7 @@ std::unordered_set<std::string> GetTorchMlirWhiteList() {
       "aten::mul",      "aten::eq",          "aten::lt",
       "aten::ne",       "aten::__and__",     "aten::floor_divide",
       "prim::Constant", "aten::expand_as",   "aten::repeat",
-      "aten::expand",
-  };
+      "aten::expand",   "aten::hardtanh"};
 }
 
 } //  namespace blade

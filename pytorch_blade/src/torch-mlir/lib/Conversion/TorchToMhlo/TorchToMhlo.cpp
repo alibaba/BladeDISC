@@ -796,6 +796,37 @@ LogicalResult ConvertAtenOp<AtenGeluOp>::matchAndRewrite(
   return success();
 }
 
+template <>
+LogicalResult ConvertAtenOp<AtenEmptyMemoryFormatOp>::matchAndRewrite(
+    AtenEmptyMemoryFormatOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  SmallVector<int64_t, 4> dshape;
+  if (!matchPattern(op.size(), m_TorchConstantIntList(dshape)))
+    return rewriter.notifyMatchFailure(
+        op, "non-const size parameter unsupported");
+  auto opType = getTypeConverter()
+                    ->convertType(op.getType())
+                    .template cast<RankedTensorType>();
+  if (!opType) {
+    return op.emitError("should be RankedTensorType");
+  }
+  Type resultElementType;
+  if (op.dtype().getType().isa<Torch::NoneType>()) {
+    resultElementType = opType.getElementType();
+  } else {
+    return op.emitError("dtype should be none");
+  }
+
+  if (!resultElementType.isa<mlir::FloatType>()) {
+    return op.emitError("output dtype should be float32");
+  }
+  auto result = mhlo::getConstTensor<float>(rewriter, op, 0.0, dshape);
+  rewriter.replaceOp(op, result.getValue());
+  return success();
+}
+
 using ReductionConvFunc = llvm::Optional<Value> (*)(
     PatternRewriter&,
     Operation*,
@@ -1768,7 +1799,7 @@ class ConvertTorchToMhlo
 #define INSERT_FILL_SCALAR_PATTERN(AtenOp) \
   target.addIllegalOp<AtenOp>();           \
   patterns.add<ConvertAtenFillScalarOp<AtenOp>>(typeConverter, context);
-    INSERT_FILL_SCALAR_PATTERN(AtenFill_ScalarOp);
+    INSERT_FILL_SCALAR_PATTERN(ValsemVariantAtenFillScalarOp);
 #undef INSERT_FILL_SCALAR_PATTERN
 
 #define INSERT_ATENOP_PATTERN(AtenOp) \
@@ -1783,6 +1814,7 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenGeluOp);
     INSERT_ATENOP_PATTERN(AtenSizeIntOp);
     INSERT_ATENOP_PATTERN(AtenTanhOp);
+    INSERT_ATENOP_PATTERN(AtenEmptyMemoryFormatOp);
     // INSERT_ATENOP_PATTERN(AtenArgmaxOp);
     INSERT_ATENOP_PATTERN(AtenPowTensorScalarOp);
     INSERT_ATENOP_PATTERN(AtenRsubScalarOp);

@@ -125,6 +125,12 @@ class BuildDepsCommand(CustomCommand):
 
 
 install_requires = ["networkx", "onnx>=1.6.0", f"torch=={torch.__version__}"]
+custom_install_requires = os.getenv("TORCH_BLADE_CUSTOM_INSTALL_REQUIRES", None)
+if custom_install_requires is not None:
+    # TORCH_BLADE_CUSTOM_INSTALL_REQUIRES shoud be something like:
+    # package1,package2,package3, ....
+    custom_install_requires = custom_install_requires.split(',')
+    install_requires.extend(custom_install_requires)
 
 wheel_suffix = "" if build.cuda_available else "-cpu"
 

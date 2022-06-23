@@ -360,7 +360,7 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
         /*printModuleScope*/ false,
         /*printAfterOnlyOnChange*/ true,
         /*printAfterOnlyOnFailure*/ false,
-        /*out*/ llvm::errs(),
+        /*out*/ ::llvm::errs(),
         /*opPrintingFlags*/ print_flags);
   }
   ::mlir::torch::Torch::TorchLoweringPipelineOptions options;
@@ -381,7 +381,7 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
         /*printModuleScope*/ false,
         /*printAfterOnlyOnChange*/ true,
         /*printAfterOnlyOnFailure*/ false,
-        /*out*/ llvm::errs(),
+        /*out*/ ::llvm::errs(),
         /*opPrintingFlags*/ print_flags);
   }
   ::mlir::torch::TorchConversion::createTorchBackendToMhloBackendPipeline(

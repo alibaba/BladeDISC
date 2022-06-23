@@ -548,13 +548,10 @@ class ConvertAtenDivOp : public OpConversionPattern<AtenOpT> {
       return op.emitError("Only Tensor types supported in MHLO");
 
     auto lhsElemTy = lhsTy.getElementType();
-    Value rhsAsTensor;
     if (!rhsTy) {
-      rhsAsTensor =
-          scalarToMhloTensor(rewriter, op, adaptor.other(), lhsElemTy, {});
+      rhs = scalarToMhloTensor(rewriter, op, adaptor.other(), lhsElemTy, {});
     }
-    auto rhsTensor = rhsTy ? rhs : rhsAsTensor;
-    rhsTy = rhsTensor.getType().dyn_cast<TensorType>();
+    rhsTy = rhs.getType().dyn_cast<TensorType>();
 
     auto rhsElemTy = rhsTy.getElementType();
     if (lhsElemTy != rhsElemTy) {
@@ -577,12 +574,11 @@ class ConvertAtenDivOp : public OpConversionPattern<AtenOpT> {
     if (lhsTy.getElementType() != outElemTy)
       lhs = rewriter.create<mhlo::ConvertOp>(op.getLoc(), lhs, outElemTy);
     if (rhsTy.getElementType() != outElemTy)
-      rhsTensor =
-          rewriter.create<mhlo::ConvertOp>(op.getLoc(), rhsTensor, outElemTy);
+      rhs = rewriter.create<mhlo::ConvertOp>(op.getLoc(), rhs, outElemTy);
 
     auto result = rewriter
                       .create<chlo::BroadcastDivOp>(
-                          op.getLoc(), outType, lhs, rhsTensor, nullptr)
+                          op.getLoc(), outType, lhs, rhs, nullptr)
                       .getResult();
 
     if (!isa<AtenDivTensorModeOp>(op)) {

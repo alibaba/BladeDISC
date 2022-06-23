@@ -7,7 +7,7 @@ ENV DISC_HOST_TF_VERSION="${DISC_HOST_TF_VERSION}"
 COPY docker/scripts /install/scripts
 
 RUN bash /install/scripts/find-fastest-apt.sh && \
-    apt-get install -y python3 python3-pip git curl vim libssl-dev wget unzip openjdk-11-jdk && \
+    apt-get install -y python3.8 python3.8-dev python3-pip git curl vim libssl-dev wget unzip openjdk-11-jdk && \
     pip3 install --upgrade pip && \
     ln -s /usr/bin/python3 /usr/bin/python && \
     bash /install/scripts/install-cmake.sh && \

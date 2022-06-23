@@ -26,7 +26,7 @@ class TestDiscReduction(DiscTestCase):
 
         test_data = (x,)
         annotation = ([-1, -1, -1, -1], dtype)
-        self._test_disc(reduce_func, [annotation, annotation], test_data, rtol=1e-3, atol=3e-3)
+        self._test_disc(reduce_func, [annotation, annotation], test_data, rtol=1e-3, atol=1e-2)
 
     def test_cvt_to_disc_sum_f64(self):
         @torch.jit.script

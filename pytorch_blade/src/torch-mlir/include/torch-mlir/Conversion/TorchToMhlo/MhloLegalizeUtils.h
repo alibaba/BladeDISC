@@ -28,7 +28,6 @@
 #include "mlir/Interfaces/InferTypeOpInterface.h" // from @llvm-project
 #include "mlir/Support/LLVM.h" // from @llvm-project
 
-#include "torch-mlir/Conversion/TorchToMhlo/MhloLegalizeUtils.h"
 #include "torch-mlir/Conversion/TorchToMhlo/ShapeUtils.h"
 
 namespace mlir {
@@ -117,12 +116,14 @@ void CreateReplaceOpAndInfer(
 std::vector<Value> getDimSizesOfTensor(
     PatternRewriter& rewriter,
     Operation* op,
-    const Value& value);
+    Value value);
 
 llvm::Optional<Value> getMhloShapeOfTensor(
     PatternRewriter& rewriter,
     Operation* op,
-    const Value& value);
+    Value value);
+
+Value getNumelOfTensor(PatternRewriter& rewriter, Operation* op, Value value);
 } // namespace mhlo
 } // namespace mlir
 

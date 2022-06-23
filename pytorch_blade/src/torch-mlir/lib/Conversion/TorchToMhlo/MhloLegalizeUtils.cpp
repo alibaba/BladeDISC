@@ -133,7 +133,7 @@ template llvm::Optional<Value> getConstTensor<int64_t>(
 std::vector<Value> getDimSizesOfTensor(
     PatternRewriter& rewriter,
     Operation* op,
-    const Value& value) {
+    Value value) {
   auto currentKnowledge = ValueKnowledge::getKnowledgeFromType(value.getType());
   std::vector<Value> dim_sizes;
   if (!currentKnowledge.hasRank) {
@@ -162,7 +162,7 @@ std::vector<Value> getDimSizesOfTensor(
 llvm::Optional<Value> getMhloShapeOfTensor(
     PatternRewriter& rewriter,
     Operation* op,
-    const Value& value) {
+    Value value) {
   auto dim_sizes = getDimSizesOfTensor(rewriter, op, value);
   if (dim_sizes.size() == 0) {
     return llvm::None;
@@ -171,5 +171,16 @@ llvm::Optional<Value> getMhloShapeOfTensor(
       .getResult();
 }
 
+Value getNumelOfTensor(PatternRewriter& rewriter, Operation* op, Value value) {
+  auto loc = op->getLoc();
+  auto dimSizes = getDimSizesOfTensor(rewriter, op, value);
+  Value numel =
+      rewriter.create<arith::ConstantOp>(loc, rewriter.getI32IntegerAttr(1));
+  for (auto d : dimSizes) {
+    numel = rewriter.create<arith::MulIOp>(loc, numel, d);
+  }
+  numel = rewriter.create<tensor::FromElementsOp>(loc, ArrayRef<Value>{numel});
+  return numel;
+}
 } // namespace mhlo
 } // namespace mlir

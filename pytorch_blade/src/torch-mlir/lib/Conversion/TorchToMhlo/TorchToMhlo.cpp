@@ -249,7 +249,7 @@ LogicalResult torchScalarToMhloTensor(
   auto isInt = matchPattern(torchScalarValue, m_TorchConstantInt(&intValue));
 
   if (!isFloat && !isInt) {
-    return op->emitError("Unable to extract the scalar constant");
+    return op->emitError("Unable to extract the constant for a torch scalar");
   }
 
   if (dtype.isa<mlir::FloatType>()) {
@@ -544,10 +544,10 @@ class ConvertAtenDivOp : public OpConversionPattern<AtenOpT> {
     auto lhsTy = lhs.getType().dyn_cast<TensorType>();
     Value rhs = adaptor.other();
     auto rhsTy = rhs.getType().dyn_cast<TensorType>();
-    auto lhsElemTy = lhsTy.getElementType();
     if (!lhsTy)
       return op.emitError("Only Tensor types supported in MHLO");
 
+    auto lhsElemTy = lhsTy.getElementType();
     Value rhsAsTensor;
     if (!rhsTy) {
       rhsAsTensor =
@@ -799,7 +799,7 @@ LogicalResult ConvertAtenOp<AtenGeluOp>::matchAndRewrite(
 
 // They all constitute a common form invoking the appropriate
 // converion function in MhloLegalizeCommon.cpp
-template <typename AtenOpT, typename MhloOpT, bool isMean>
+template <typename AtenOpT, typename MhloOpT>
 class ConvertAtenReductionOp : public OpConversionPattern<AtenOpT> {
  public:
   using OpConversionPattern<AtenOpT>::OpConversionPattern;
@@ -879,17 +879,10 @@ class ConvertAtenReductionOp : public OpConversionPattern<AtenOpT> {
     }
     // post proccess for mean & keepDims
     auto result = reduction.getResult(0);
-    auto dimSizes = mhlo::getDimSizesOfTensor(rewriter, op, self);
+    bool isMean = isa<AtenMeanDimOp>(op);
     if (isMean || keepDims) {
       if (isMean) {
-        auto one = rewriter.create<arith::ConstantOp>(
-            loc, rewriter.getI32IntegerAttr(1));
-        Value numel = one;
-        for (auto& d : dimSizes) {
-          numel = rewriter.create<arith::MulIOp>(loc, numel, d);
-        }
-        numel = rewriter.create<tensor::FromElementsOp>(
-            loc, ArrayRef<Value>{numel});
+        auto numel = mhlo::getNumelOfTensor(rewriter, op, self);
         numel = rewriter.create<mhlo::ConvertOp>(
             loc, numel, outputTy.getElementType());
         result = rewriter.create<chlo::BroadcastDivOp>(
@@ -923,12 +916,11 @@ class ConvertAtenReductionOp : public OpConversionPattern<AtenOpT> {
 // This reduction op legalization template handles op variants that have
 // explicit reduce_dims dimensions (provided as a list) and keep_dims
 // parameters.
-template <typename AtenOpT, typename MhloOpT, bool isMean>
+template <typename AtenOpT, typename MhloOpT>
 class ConvertAtenMultipleDimsReductionOp
-    : public ConvertAtenReductionOp<AtenOpT, MhloOpT, isMean> {
+    : public ConvertAtenReductionOp<AtenOpT, MhloOpT> {
  public:
-  using ConvertAtenReductionOp<AtenOpT, MhloOpT, isMean>::
-      ConvertAtenReductionOp;
+  using ConvertAtenReductionOp<AtenOpT, MhloOpT>::ConvertAtenReductionOp;
   using OpAdaptor = typename AtenOpT::Adaptor;
   LogicalResult readReduceDimsAndKeepDims(
       AtenOpT op,
@@ -959,12 +951,11 @@ class ConvertAtenMultipleDimsReductionOp
 // This reduction op legalization template handles op variants that reduce in
 // only one explicit dim which is provided as a number (rather than a list), and
 // a keep_dims parameter.
-template <typename AtenOpT, typename MhloOpT, bool isMean>
+template <typename AtenOpT, typename MhloOpT>
 class ConvertAtenOneDimReductionOp
-    : public ConvertAtenReductionOp<AtenOpT, MhloOpT, isMean> {
+    : public ConvertAtenReductionOp<AtenOpT, MhloOpT> {
  public:
-  using ConvertAtenReductionOp<AtenOpT, MhloOpT, isMean>::
-      ConvertAtenReductionOp;
+  using ConvertAtenReductionOp<AtenOpT, MhloOpT>::ConvertAtenReductionOp;
   using OpAdaptor = typename AtenOpT::Adaptor;
   LogicalResult readReduceDimsAndKeepDims(
       AtenOpT op,
@@ -992,12 +983,11 @@ class ConvertAtenOneDimReductionOp
 
 // This reduction op legalization template handles op variants that reduce all
 // dims does not keep dims.
-template <typename AtenOpT, typename MhloOpT, bool isMean>
+template <typename AtenOpT, typename MhloOpT>
 class ConvertAtenAllDimsReductionOp
-    : public ConvertAtenReductionOp<AtenOpT, MhloOpT, isMean> {
+    : public ConvertAtenReductionOp<AtenOpT, MhloOpT> {
  public:
-  using ConvertAtenReductionOp<AtenOpT, MhloOpT, isMean>::
-      ConvertAtenReductionOp;
+  using ConvertAtenReductionOp<AtenOpT, MhloOpT>::ConvertAtenReductionOp;
   using OpAdaptor = typename AtenOpT::Adaptor;
   LogicalResult readReduceDimsAndKeepDims(
       AtenOpT op,
@@ -1170,9 +1160,8 @@ LogicalResult ConvertAtenOp<AtenNumelOp>::matchAndRewrite(
 
   auto dimSizes = mhlo::getDimSizesOfTensor(rewriter, op, adaptor.self());
   auto loc = op.getLoc();
-  auto one =
+  Value numel =
       rewriter.create<arith::ConstantOp>(loc, rewriter.getI32IntegerAttr(1));
-  Value numel = one;
   for (auto& d : dimSizes) {
     numel = rewriter.create<arith::MulIOp>(loc, numel, d);
   }
@@ -1879,28 +1868,28 @@ class ConvertTorchToMhlo
     // INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
 #undef INSERT_ATENOP_PATTERN
 
-#define INSERT_NDIMS_REDUCTION_OP_PATTERN(AtenOp, MhloOp, IsMean)           \
-  target.addIllegalOp<AtenOp>();                                            \
-  patterns.add<ConvertAtenMultipleDimsReductionOp<AtenOp, MhloOp, IsMean>>( \
+#define INSERT_NDIMS_REDUCTION_OP_PATTERN(AtenOp, MhloOp)           \
+  target.addIllegalOp<AtenOp>();                                    \
+  patterns.add<ConvertAtenMultipleDimsReductionOp<AtenOp, MhloOp>>( \
       typeConverter, context);
-    INSERT_NDIMS_REDUCTION_OP_PATTERN(AtenSumDimIntListOp, mhlo::AddOp, false)
+    INSERT_NDIMS_REDUCTION_OP_PATTERN(AtenSumDimIntListOp, mhlo::AddOp)
 #undef INSERT_NDIMS_REDUCTION_OP_PATTERN
 
-#define INSERT_ONEDIM_REDUCTION_OP_PATTERN(AtenOp, MhloOp, IsMean)    \
-  target.addIllegalOp<AtenOp>();                                      \
-  patterns.add<ConvertAtenOneDimReductionOp<AtenOp, MhloOp, IsMean>>( \
+#define INSERT_ONEDIM_REDUCTION_OP_PATTERN(AtenOp, MhloOp)    \
+  target.addIllegalOp<AtenOp>();                              \
+  patterns.add<ConvertAtenOneDimReductionOp<AtenOp, MhloOp>>( \
       typeConverter, context);
-    INSERT_ONEDIM_REDUCTION_OP_PATTERN(AtenMeanDimOp, mhlo::AddOp, true)
-    INSERT_ONEDIM_REDUCTION_OP_PATTERN(AtenAnyDimOp, mhlo::OrOp, false)
+    INSERT_ONEDIM_REDUCTION_OP_PATTERN(AtenMeanDimOp, mhlo::AddOp)
+    INSERT_ONEDIM_REDUCTION_OP_PATTERN(AtenAnyDimOp, mhlo::OrOp)
 #undef INSERT_ONEDIM_REDUCTION_OP_PATTERN
 
-#define INSERT_ALLDIMS_REDUCTION_OP_PATTERN(AtenOp, MhloOp, IsMean)    \
-  target.addIllegalOp<AtenOp>();                                       \
-  patterns.add<ConvertAtenAllDimsReductionOp<AtenOp, MhloOp, IsMean>>( \
+#define INSERT_ALLDIMS_REDUCTION_OP_PATTERN(AtenOp, MhloOp)    \
+  target.addIllegalOp<AtenOp>();                               \
+  patterns.add<ConvertAtenAllDimsReductionOp<AtenOp, MhloOp>>( \
       typeConverter, context);
-    INSERT_ALLDIMS_REDUCTION_OP_PATTERN(AtenAllOp, mhlo::AndOp, false)
-    INSERT_ALLDIMS_REDUCTION_OP_PATTERN(AtenAnyOp, mhlo::OrOp, false)
-    INSERT_ALLDIMS_REDUCTION_OP_PATTERN(AtenSumOp, mhlo::AddOp, false)
+    INSERT_ALLDIMS_REDUCTION_OP_PATTERN(AtenAllOp, mhlo::AndOp)
+    INSERT_ALLDIMS_REDUCTION_OP_PATTERN(AtenAnyOp, mhlo::OrOp)
+    INSERT_ALLDIMS_REDUCTION_OP_PATTERN(AtenSumOp, mhlo::AddOp)
 #undef INSERT_ALLDIMS_REDUCTION_OP_PATTERN
 
     if (failed(applyPartialConversion(

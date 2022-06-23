@@ -142,8 +142,8 @@ LogicalResult SymbolicDimMgr::mapSymbolicDimEqual(SymbolicDimOp lhs,
       if (failed(rhsRoot.Merge(lhsRoot))) return failure();
       symbolDimUnionSet_[lhsRoot] = rhsRoot;
     }
+    productEqualityMapUpdated_ = false;
   }
-  productEqualityMapUpdated_ = false;
   return success();
 }
 
@@ -402,9 +402,6 @@ LogicalResult SymbolicDimMgr::updateProductEqualityMap() {
 
 LogicalResult SymbolicDimMgr::save() {
   // replace all uses of a symbolic dim op with its root symbolic dim op
-  for (auto& it : symbolDimUnionSet_) {
-    it.second = getRootSymbolicDim(it.first);
-  }
   using Name2SymbolFn = std::function<SymbolicDimOp(StringRef)>;
   auto updateAttrs = [&](ArrayAttr attrs, Name2SymbolFn fn) {
     SmallVector<Attribute> newAttrs;
@@ -417,7 +414,7 @@ LogicalResult SymbolicDimMgr::save() {
     }
     return ArrayAttr::get(m_->getContext(), newAttrs);
   };
-  // update attributes attached in operations.
+  // update attributes attached in values.
   if (failed(walkRankedTensorValue(
           m_, [&](Value value, RankedTensorType ty, ArrayAttr attrs) {
             auto symbolicShapeAttr = updateAttrs(attrs, [&](StringRef name) {
@@ -430,7 +427,7 @@ LogicalResult SymbolicDimMgr::save() {
           }))) {
     return failure();
   }
-  // update attributes attached in values.
+  // update attributes attached in operations.
   m_.walk([&](Operation* op) {
     auto attrs =
         op->getAttrOfType<ArrayAttr>(SymbolicDimOp::getSymbolicDimAttrName());
@@ -451,16 +448,18 @@ LogicalResult SymbolicDimMgr::save() {
   DenseSet<SymbolicDimOp> usedSymbolicOps;
   SmallVector<std::string> usedSymbolNames;
   // collect uses in values.
+  auto collectUsedSymbols = [&](ArrayAttr attrs) {
+    for (Attribute attr : attrs) {
+      auto sym = symbolTable_.lookup<SymbolicDimOp>(
+          attr.cast<FlatSymbolRefAttr>().getValue());
+      assert(sym);
+      if (usedSymbolicOps.insert(sym).second)
+        usedSymbolNames.push_back(sym.getName().str());
+    }
+  };
   if (failed(walkRankedTensorValue(
           m_, [&](Value value, RankedTensorType ty, ArrayAttr attrs) {
-            SmallVector<Attribute> newAttrs;
-            for (Attribute attr : attrs) {
-              auto sym = symbolTable_.lookup<SymbolicDimOp>(
-                  attr.cast<FlatSymbolRefAttr>().getValue());
-              assert(sym);
-              if (usedSymbolicOps.insert(sym).second)
-                usedSymbolNames.push_back(sym.getName().str());
-            }
+            collectUsedSymbols(attrs);
             return success();
           }))) {
     return failure();
@@ -470,13 +469,7 @@ LogicalResult SymbolicDimMgr::save() {
     auto attrs =
         op->getAttrOfType<ArrayAttr>(SymbolicDimOp::getSymbolicDimAttrName());
     if (!attrs) return;
-    for (Attribute attr : attrs) {
-      auto sym = symbolTable_.lookup<SymbolicDimOp>(
-          attr.cast<FlatSymbolRefAttr>().getValue());
-      assert(sym);
-      if (usedSymbolicOps.insert(sym).second)
-        usedSymbolNames.push_back(sym.getName().str());
-    }
+    collectUsedSymbols(attrs);
   });
 
   // remove symbolic dim ops that are known not used by any other ops/types.
@@ -698,7 +691,7 @@ LogicalResult SymbolicDimMgr::cloneSymbolGroup(
       if (failed(mapSymbolicDimEqual(symbol, it.second[0]))) return failure();
   }
 
-  // coy dim product equality predicate
+  // copy dim product equality predicate
   SmallVector<std::pair<SymbolicDimProduct, SymbolicDimProduct>> candidates;
   for (auto& outter : productEqualityMap_) {
     if (llvm::any_of(outter.first.symbols, [&](SymbolicDimOp sym) {
@@ -752,7 +745,7 @@ llvm::Optional<SmallVector<FlatSymbolRefAttr>> getMemRefValueSymbolicDimRefs(
     Value value) {
   auto ty = value.getType().dyn_cast<MemRefType>();
   Operation* op = value.getDefiningOp();
-  if (!ty || ty.hasStaticShape() || !op) return {};
+  if (!ty || !op) return {};
   auto attrs = op->getAttrOfType<ArrayAttr>(
       disc_shape::SymbolicDimOp::getSymbolicDimAttrName());
   if (!attrs || attrs.size() != ty.getRank()) return {};

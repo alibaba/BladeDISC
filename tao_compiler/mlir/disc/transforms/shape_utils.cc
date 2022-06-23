@@ -1934,11 +1934,11 @@ ShapeConstraintIRAnalysis::ShapeConstraintIRAnalysis(Operation* op)
     // Ealry return if the memref is static or does not have symbolic dim attr
     auto attrs = op->getAttrOfType<ArrayAttr>(
         disc_shape::SymbolicDimOp::getSymbolicDimAttrName());
-    if (resultTy.hasStaticShape() || !attrs) return;
+    if (!attrs) return;
     auto& symbols = memrefValue2SymDims_[result];
     for (const auto& attr : attrs) {
-      auto symOp =
-          m.lookupSymbol<disc_shape::SymbolicDimOp>(attr.cast<SymbolRefAttr>());
+      auto symOp = mgr_.symbolTable().lookup<disc_shape::SymbolicDimOp>(
+          attr.cast<FlatSymbolRefAttr>().getValue());
       assert(symOp && "symbolic op is not found");
       symbols.push_back(symOp);
     }

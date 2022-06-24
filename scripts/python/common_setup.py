@@ -438,7 +438,7 @@ def deduce_cuda_info():
             return ver, cuda_home
         else:
             raise Exception(
-                f"Failed to deduce cuda version from BLADE_CUDA_HOME: {cuda_home}"
+                f"Failed to deduce cuda version from TF_CUDA_HOME: {cuda_home}"
             )
 
     ver = _deduce_from_version_file("/usr/local/cuda")

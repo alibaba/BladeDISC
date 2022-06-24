@@ -102,8 +102,11 @@ def check(args):
     # check tests dir
     check_init_file_miss("tests", ignore_root=True)
     execute("black --check --diff tests")
+    execute("flake8 tf_blade/ tests/")
     execute("flake8 tests")
-    execute("mypy tests")
+    # TODO(xiafei.qiuxf) disable for a while
+    # execute("mypy tests")
+    execute("mypy tf_blade")
 
 
 def link_files(args):

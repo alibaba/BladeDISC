@@ -18,13 +18,15 @@ from torch_blade import utils
 
 class TestDiscReduction(DiscTestCase):
     def _test_reduction(self, reduce_func, dtype=None):
+        dtype = torch.float if dtype is None else dtype
         if dtype in {torch.int32, torch.int64}:
             x = torch.randint(-256, 256, [2, 3, 224, 224], dtype=dtype).to(self.device)
         else:
             x = torch.randn([2, 3, 224, 224], dtype=dtype).to(self.device)
 
         test_data = (x,)
-        self._test_cvt_to_disc(reduce_func, test_data, rtol=1e-3, atol=3e-3)
+        annotation = ([-1, -1, -1, -1], dtype)
+        self._test_disc(reduce_func, [annotation, annotation], test_data, rtol=1e-3, atol=1e-2)
 
     def test_cvt_to_disc_sum_f64(self):
         @torch.jit.script

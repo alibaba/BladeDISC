@@ -745,15 +745,42 @@ LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
                                         shapeTensorDims[index])))
       return op->emitError() << "fail to merge dim\n";
   } else if (auto mulOp = dyn_cast<arith::MulIOp>(op)) {
-    // TODO: propagete attributes like knownNonNegative/...
     Value lhs = op->getOperand(0);
     Value rhs = op->getOperand(1);
     Value out = op->getResult(0);
     value2DefiningExpr_[out] = SymbolicDimExpr::buildMulExpr(
         value2DefiningExpr_[lhs], value2DefiningExpr_[rhs]);
+    auto lhsSym = mgr_.getRootSymbolicDim(value2SymDim_[lhs]);
+    auto rhsSym = mgr_.getRootSymbolicDim(value2SymDim_[rhs]);
+    auto outSym = mgr_.getRootSymbolicDim(value2SymDim_[out]);
+    if (lhsSym.knownNonNegative() && rhsSym.knownNonNegative()) {
+      outSym.setKnownNonNegative(true);
+    }
+    if (lhsSym.knownNonNegative() && rhsSym.knownNonSizeOne() ||
+        rhsSym.knownNonNegative() && lhsSym.knownNonSizeOne()) {
+      outSym.setKnownNonSizeOne(true);
+    }
+    if (lhsSym.knownNonSizeZero() && rhsSym.knownNonSizeZero()) {
+      outSym.setKnownNonSizeZero(true);
+    }
+    // TODO(disc): propagate other attributes/shape ranges??
+  } else if (auto addOp = dyn_cast<arith::AddIOp>(op)) {
+    // TODO(disc): build symbolic expression for AddIOp
+    Value lhs = op->getOperand(0);
+    Value rhs = op->getOperand(1);
+    Value out = op->getResult(0);
+    auto lhsSym = mgr_.getRootSymbolicDim(value2SymDim_[lhs]);
+    auto rhsSym = mgr_.getRootSymbolicDim(value2SymDim_[rhs]);
+    auto outSym = mgr_.getRootSymbolicDim(value2SymDim_[out]);
+    if (lhsSym.knownNonNegative() && rhsSym.knownNonNegative()) {
+      outSym.setKnownNonNegative(true);
+      if (lhsSym.knownNonSizeZero() || rhsSym.knownNonSizeZero())
+        outSym.setKnownNonSizeZero(true);
+    }
+    // TODO(disc): propagate other constraint attributes/shape ranges??
   }
 
-  // TODO: add support for arith::addi/subi/divi...
+  // TODO: add support for arith::subi/divi/select...
 
   return success();
 }
@@ -1176,6 +1203,7 @@ LogicalResult ShapeComputationIRAnalysis::applyTieShapeOpConstraint(
       if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[en.value()],
                                           resultDims[en.index()])))
         return op->emitError() << "fail to merge symbolic dim\n";
+      mgr_.getRootSymbolicDim(resultDims[en.index()]).setKnownNonNegative(true);
     }
 
     if (isCandidateShapeTensorType(op->getResult(0).getType())) {
@@ -1389,6 +1417,10 @@ LogicalResult tryToSimplifyCompareOp(ShapeComputationIRAnalysis& analysis,
         pred = falsePred;
       } else if (rhsSym.knownNonNegative() && lhsSym.knownNegativeOne()) {
         pred = falsePred;
+      } else if (lhsSym.knownNonSizeZero() && rhsSym.getDimSize() == 0) {
+        pred = falsePred;
+      } else if (rhsSym.knownNonSizeZero() && lhsSym.getDimSize() == 0) {
+        pred = falsePred;
       }
       // TODO(disc): support other cases
     } else if (op.getPredicate() == arith::CmpIPredicate::ne) {
@@ -1397,6 +1429,10 @@ LogicalResult tryToSimplifyCompareOp(ShapeComputationIRAnalysis& analysis,
       } else if (lhsSym.knownNonNegative() && rhsSym.knownNegativeOne()) {
         pred = truePred;
       } else if (rhsSym.knownNonNegative() && lhsSym.knownNegativeOne()) {
+        pred = truePred;
+      } else if (lhsSym.knownNonSizeZero() && rhsSym.getDimSize() == 0) {
+        pred = truePred;
+      } else if (rhsSym.knownNonSizeZero() && lhsSym.getDimSize() == 0) {
         pred = truePred;
       }
       // TODO(disc): support other cases

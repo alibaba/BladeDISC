@@ -976,7 +976,6 @@ def parse_args():
             "build_dsw",
             "build_mlir_ral",
             "test",
-            "test_bace",
             "test_tao_bridge_cpp",
             "test_tao_bridge_py",
             "test_tao_compiler",

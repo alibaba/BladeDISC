@@ -27,5 +27,4 @@ PYBIND11_MODULE(_tf_blade, m) {
 #if BLADE_WITH_TENSORRT
   tf_blade::trt::initTensorRTBindings(m);
 #endif  // BLADE_WITH_TENSORRT
-
 }

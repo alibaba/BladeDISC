@@ -479,11 +479,9 @@ class DotBatchMergeConverter {
  public:
   struct MergingShape {
     // TODO: use shape-symbol rather than dim-value of m/n/k in this struct
-    // after reconstructing ShapeAnalysisDeprecated. We actually do not need to
+    // after reconstructing ShapeAnalysis. We actually do not need to
     // distinguish m/n/k but only need to use the overall shape-symbol here in
-    // the future. We do not use shape-symbol currently because of the
-    // incomplete implementation of currently ShapeAnalysisDeprecated data
-    // structure...
+    // the future.
     DimValue m_dim;
     DimValue n_dim;
     DimValue contracting_dim;
@@ -536,7 +534,8 @@ class DotBatchMergeConverter {
                          MergingShapeHash>;
 
  private:
-  bool buildMergingShapeMap(Block* block, ShapeAnalysisDeprecated& analysis,
+  bool buildMergingShapeMap(Block* block,
+                            ShapeAnalysisDeprecated& analysisDeprecated,
                             MergingShapeEqualMap& equal_merge_shape_map);
   bool applyMerging(DotCluster& cluster);
   Value expandDim0(OpBuilder& builder, Location& loc, Value value);
@@ -546,8 +545,8 @@ class DotBatchMergeConverter {
 };
 
 bool DotBatchMergeConverter::run() {
-  ShapeAnalysisDeprecated analysis(func_);
-  if (failed(analysis.run())) {
+  ShapeAnalysisDeprecated analysisDeprecated(func_);
+  if (failed(analysisDeprecated.run())) {
     LLVM_DEBUG(llvm::dbgs()
                << "ShapeAnalysisDeprecated failes for dot merge.\n");
     return false;
@@ -559,7 +558,8 @@ bool DotBatchMergeConverter::run() {
   for (Block* block : blocks) {
     // A map to help to cluster dots with same shape and dim-numbers together.
     MergingShapeEqualMap equal_merge_shape_map;
-    if (!buildMergingShapeMap(block, analysis, equal_merge_shape_map)) {
+    if (!buildMergingShapeMap(block, analysisDeprecated,
+                              equal_merge_shape_map)) {
       continue;
     }
     // Find merging clusters.
@@ -576,7 +576,7 @@ bool DotBatchMergeConverter::run() {
 }
 
 bool DotBatchMergeConverter::buildMergingShapeMap(
-    Block* block, ShapeAnalysisDeprecated& analysis,
+    Block* block, ShapeAnalysisDeprecated& analysisDeprecated,
     MergingShapeEqualMap& equal_merge_shape_map) {
   block->walk([&](mhlo::DotGeneralOp op) {
     MergingShape dot_shape;
@@ -592,14 +592,15 @@ bool DotBatchMergeConverter::buildMergingShapeMap(
     // Initialize `batching_dims`.
     SmallVector<DimValue>& batching_dims = dot_shape.batching_dims;
     for (auto dim : lhs_batch_dims) {
-      batching_dims.emplace_back(std::move(analysis.getDimValue(lhs, dim)));
+      batching_dims.emplace_back(
+          std::move(analysisDeprecated.getDimValue(lhs, dim)));
     }
     // Initialize `contracting_dim`.
     auto lhs_contracting_dims =
         dot_shape.dimension_numbers.getLhsContractingDimensions();
     assert(lhs_contracting_dims.size() == 1);
     dot_shape.contracting_dim =
-        analysis.getDimValue(lhs, lhs_contracting_dims[0]);
+        analysisDeprecated.getDimValue(lhs, lhs_contracting_dims[0]);
     // Initialize `m_dim`.
     int64_t lhs_rank = lhs.getType().cast<RankedTensorType>().getRank();
     assert(lhs_batch_dims.size() + 2 == lhs_rank);
@@ -608,7 +609,7 @@ bool DotBatchMergeConverter::buildMergingShapeMap(
     for (int64_t i = 0; i < lhs_rank; i++) {
       if ((lhs_batch_dims_set.find(i) == lhs_batch_dims_set.end()) &&
           (i != lhs_contracting_dims[0])) {
-        dot_shape.m_dim = analysis.getDimValue(lhs, i);
+        dot_shape.m_dim = analysisDeprecated.getDimValue(lhs, i);
         break;
       }
     }
@@ -623,7 +624,7 @@ bool DotBatchMergeConverter::buildMergingShapeMap(
     for (int64_t i = 0; i < rhs_rank; i++) {
       if ((rhs_batch_dims_set.find(i) == rhs_batch_dims_set.end()) &&
           (i != rhs_contracting_dims[0])) {
-        dot_shape.n_dim = analysis.getDimValue(rhs, i);
+        dot_shape.n_dim = analysisDeprecated.getDimValue(rhs, i);
         break;
       }
     }

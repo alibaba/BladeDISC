@@ -174,9 +174,8 @@ class ShapeAnalysis {
   //  rhsDimIdxs = {rd0, rd1, ...}
   // Returns true if `lhs.shape[ld0] * lhs.shape[ld1] * ... ==
   // rhs.shape[rd0] * rhs.shape[rd1] * ...`
-  virtual bool isProductEqual(Value lhs, const SmallVector<int>& lhsDimIdxs,
-                              Value rhs,
-                              const SmallVector<int>& rhsDimIdxs) = 0;
+  virtual bool isProductEqual(Value lhs, ArrayRef<int> lhsDimIdxs, Value rhs,
+                              ArrayRef<int> rhsDimIdxs) = 0;
 
   // Returns true if:
   //  lhs.shape[lhsFrom] * ... lhs.shape[lhsTo-1] ==
@@ -188,9 +187,16 @@ class ShapeAnalysis {
   virtual bool isSameNumElements(Value lhs, Value rhs);
 };
 
+// A subclass to impement `ShapeAnalysis` on buffer level.
+// The implementation is based on shape constraint ir.
 class ShapeConstraintIRAnalysis : public ShapeAnalysis {
  public:
+  // Build shape related analysis on the provided `op`.
+  // This generally can be divided into two steps:
+  // 1, load exsiting shape constraint ir (e.g. symbolic dim ops)
+  // 2, build mapping between memref values and symbolic dim ops.
   explicit ShapeConstraintIRAnalysis(Operation* op);
+  // auto-save updated shape constriant ir when destroying.
   ~ShapeConstraintIRAnalysis();
 
   // Returns the `SymbolicDimMgr` this object holds.
@@ -205,8 +211,8 @@ class ShapeConstraintIRAnalysis : public ShapeAnalysis {
   //  rhsDimIdxs = {rd0, rd1, ...}
   // Returns true if `lhs.shape[ld0] * lhs.shape[ld1] * ... ==
   // rhs.shape[rd0] * rhs.shape[rd1] * ...`
-  bool isProductEqual(Value lhs, const SmallVector<int>& lhsDimIdxs, Value rhs,
-                      const SmallVector<int>& rhsDimIdxs) override;
+  bool isProductEqual(Value lhs, ArrayRef<int> lhsDimIdxs, Value rhs,
+                      ArrayRef<int> rhsDimIdxs) override;
 
  private:
   // The operation this analysis runs on.
@@ -246,8 +252,8 @@ class ShapeAnalysisDeprecated : public ShapeAnalysis {
   // elements.
   bool isSameNumElements(Value lhs, Value rhs) override;
 
-  bool isProductEqual(Value lhs, const SmallVector<int>& lhsDimIdxs, Value rhs,
-                      const SmallVector<int>& rhsDimIdxs) override {
+  bool isProductEqual(Value lhs, ArrayRef<int> lhsDimIdxs, Value rhs,
+                      ArrayRef<int> rhsDimIdxs) override {
     return false;
   }
 

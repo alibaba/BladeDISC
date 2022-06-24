@@ -118,9 +118,13 @@ SymbolicDimOp SymbolicDimMgr::newConstantSymbolicDim(int64_t val) {
 
 SymbolicDimOp SymbolicDimMgr::getRootSymbolicDim(SymbolicDimOp symbol) {
   SymbolicDimOp current = symbol;
-  while (symbolDimUnionSet_[current] != current)
+  SmallVector<SymbolicDimOp> path;
+  while (symbolDimUnionSet_[current] != current) {
+    path.push_back(current);
     current = symbolDimUnionSet_[current];
-  return symbolDimUnionSet_[symbol] = current;
+  }
+  for (SymbolicDimOp sym : path) symbolDimUnionSet_[sym] = current;
+  return current;
 }
 
 bool SymbolicDimMgr::isSymbolicDimEqual(SymbolicDimOp lhs, SymbolicDimOp rhs) {
@@ -666,10 +670,12 @@ SymbolicDimOp SymbolicDimMgr::cloneSymbol(SymbolicDimOp symbol) {
   if (!symbol.isDynamic()) return symbol;
   SymbolicDimOp newSymbol = newSymbolicDim();
 
-  if (symbol.knownNonNegative()) newSymbol.setKnownNonNegative(true);
-  if (symbol.knownNegativeOne()) newSymbol.setKnownNegativeOne(true);
-  if (symbol.knownNonSizeOne()) newSymbol.setKnownNonSizeOne(true);
-  if (symbol.knownNonSizeZero()) newSymbol.setKnownNonSizeZero(true);
+  // copied all attributes expect the name.
+  for (const NamedAttribute& attr : symbol->getAttrs()) {
+    StringRef name = attr.getName().strref();
+    if (name == "sym_name") continue;
+    newSymbol->setAttr(name, attr.getValue());
+  }
   return newSymbol;
 }
 

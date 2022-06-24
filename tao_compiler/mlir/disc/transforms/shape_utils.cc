@@ -1978,14 +1978,15 @@ bool ShapeConstraintIRAnalysis::isShapeEqual(Value lhs, Value rhs) {
   return lhsSyms == rhsSyms;
 }
 
-bool ShapeConstraintIRAnalysis::isProductEqual(
-    Value lhs, const SmallVector<int>& lhsDimIdxs, Value rhs,
-    const SmallVector<int>& rhsDimIdxs) {
+bool ShapeConstraintIRAnalysis::isProductEqual(Value lhs,
+                                               ArrayRef<int> lhsDimIdxs,
+                                               Value rhs,
+                                               ArrayRef<int> rhsDimIdxs) {
   SymbolicDimProduct lhsProd;
   SymbolicDimProduct rhsProd;
 
   auto buildSymbolicDimProduct = [&](SymbolicDimProduct& prod, Value value,
-                                     const SmallVector<int>& dimIdxs) {
+                                     ArrayRef<int> dimIdxs) {
     auto ty = value.getType().dyn_cast<ShapedType>();
     auto it = memrefValue2SymDims_.find(value);
     if (!ty || !ty.hasRank()) return false;

@@ -44,8 +44,7 @@ std::unordered_set<std::string> GetTorchMlirWhiteList() {
       "aten::mul",      "aten::eq",          "aten::lt",
       "aten::ne",       "aten::__and__",     "aten::floor_divide",
       "prim::Constant", "aten::expand_as",   "aten::repeat",
-      "aten::expand",
-  };
+      "aten::expand",   "aten::sum",         "aten::mean"};
 }
 
 } //  namespace blade

@@ -92,6 +92,6 @@ class DiscTestCase(TestCase):
                 test_data.append(torch.randint(lower, upper, dims, dtype=dtype, device=self.device))
         return tuple(test_data)
 
-    def _test_disc(self, nn_module, annotation, test_data=None, random_seed=10):
+    def _test_disc(self, nn_module, annotation, test_data=None, rtol=1e-6, atol=1e-3, random_seed=10):
         test_data = test_data if test_data else self._gen_test_data(annotation, random_seed)
-        return self._test_cvt_to_disc(nn_module, test_data, annotation)
+        return self._test_cvt_to_disc(nn_module, test_data, annotation, rtol=rtol, atol=atol)

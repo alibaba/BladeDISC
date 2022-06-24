@@ -113,10 +113,17 @@ void CreateReplaceOpAndInfer(
   rewriter.replaceOp(op, result->getResults());
 }
 
+std::vector<Value> getDimSizesOfTensor(
+    PatternRewriter& rewriter,
+    Operation* op,
+    Value value);
+
 llvm::Optional<Value> getMhloShapeOfTensor(
     PatternRewriter& rewriter,
     Operation* op,
-    Value& value);
+    Value value);
+
+Value getNumelOfTensor(PatternRewriter& rewriter, Operation* op, Value value);
 } // namespace mhlo
 } // namespace mlir
 

@@ -331,8 +331,13 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
   ::mlir::torch::registerAllDialects(registry);
   mlir::MLIRContext mlir_context(registry);
   mlir_context.loadAllAvailableDialects();
+
+  mlir::OpPrintingFlags print_flags;
+  print_flags.elideLargeElementsAttrs();
+  print_flags.enableDebugInfo(/*prettyForm*/ true);
+
   bool enable_printing =
-      env::ReadBoolFromEnvVar("TORCH_BLADE_DEBUG_LOG", false);
+      env::ReadBoolFromEnvVar("TORCH_BLADE_MHLO_DEBUG_LOG", false);
   if (enable_printing) {
     mlir_context.disableMultithreading();
   }
@@ -347,7 +352,16 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
   ::mlir::PassManager pm(
       &mlir_context, ::mlir::OpPassManager::Nesting::Implicit);
   if (enable_printing) {
-    pm.enableIRPrinting();
+    pm.enableIRPrinting(
+        /*shouldPrintBeforePass*/ [](mlir::Pass*,
+                                     mlir::Operation*) { return true; },
+        /*shouldPrintAfterPasss*/
+        [](mlir::Pass*, mlir::Operation*) { return true; },
+        /*printModuleScope*/ false,
+        /*printAfterOnlyOnChange*/ true,
+        /*printAfterOnlyOnFailure*/ false,
+        /*out*/ ::llvm::errs(),
+        /*opPrintingFlags*/ print_flags);
   }
   ::mlir::torch::Torch::TorchLoweringPipelineOptions options;
   ::mlir::torch::Torch::createTorchFunctionToTorchBackendPipeline(pm, options);
@@ -359,7 +373,16 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
   ::mlir::PassManager pm2(
       &mlir_context, ::mlir::OpPassManager::Nesting::Implicit);
   if (enable_printing) {
-    pm2.enableIRPrinting();
+    pm2.enableIRPrinting(
+        /*shouldPrintBeforePass*/ [](mlir::Pass*,
+                                     mlir::Operation*) { return true; },
+        /*shouldPrintAfterPasss*/
+        [](mlir::Pass*, mlir::Operation*) { return true; },
+        /*printModuleScope*/ false,
+        /*printAfterOnlyOnChange*/ true,
+        /*printAfterOnlyOnFailure*/ false,
+        /*out*/ ::llvm::errs(),
+        /*opPrintingFlags*/ print_flags);
   }
   ::mlir::torch::TorchConversion::createTorchBackendToMhloBackendPipeline(
       pm2, options);

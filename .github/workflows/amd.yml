@@ -33,6 +33,5 @@ jobs:
           -v /etc/group:/etc/group:ro \
           -v $PWD:/disc \
           -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
-          ${{ inputs.extra_envs }} \
           -w /disc \
           disc-dev-cpu bash -c "bash ./scripts/ci/build_and_test.sh --cpu-only && bash ./scripts/ci/test_tensorflow_blade.sh cpu 1.15"

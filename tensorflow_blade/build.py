@@ -111,10 +111,11 @@ def check(args):
 
 def link_files(args):
     symlink_disc_files(args.platform_alibaba)
-    excludes = ['ci_build', 'test.py', 'tf_blade.lds', 'link_files.sh', 'pybind.cpp']
-    src_dir = os.path.join(internal_root_dir(), 'platform_alibaba', 'tensorflow_blade')
-    dst_dir = os.path.join(get_source_root_dir(), 'tensorflow_blade')
-    symlink_dir(src_dir, dst_dir, excludes=excludes)
+    if args.platform_alibaba:
+        excludes = ['ci_build']
+        src_dir = os.path.join(internal_root_dir(), 'platform_alibaba', 'tensorflow_blade')
+        dst_dir = os.path.join(get_source_root_dir(), 'tensorflow_blade')
+        symlink_dir(src_dir, dst_dir, excludes=excludes)
 
 
 def configure(args):

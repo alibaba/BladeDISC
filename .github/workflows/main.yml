@@ -253,7 +253,7 @@ jobs:
         git submodule sync
         git submodule update --depth=1 --init --recursive
         docker build -t disc-dev-cuda11.0 \
-          --build-arg BASEIMAGE=nvidia/cuda:11.0.3-devel-ubuntu18.04 \
+          --build-arg BASEIMAGE=nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04 \
           --build-arg DEVICE=cu110 \
           --build-arg PYTHON_VERSION=PYTHON3.8 \
           -f docker/dev/Dockerfile .

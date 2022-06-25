@@ -54,7 +54,7 @@ def _prim_dict_construct(container_map, local, graph, node):
     local.add(node.output())
 
 def _prim_constant(container_map, local, graph, node):
-    if "Dict" in str(node.output().type()):
+    if str(node.output().type()).startswith("Dict"):
         dict_instance = node.output().toIValue()
         vals = dict_instance.values()
         vals = [graph.insertConstant(v) for v in vals]
@@ -62,7 +62,7 @@ def _prim_constant(container_map, local, graph, node):
             v.node().moveAfter(node)
         dc_inputs = dict(zip(dict_instance.keys(), vals))
         container_map[node.output()] = Container(instance=dc_inputs, static=True)
-    elif "List" in str(node.output().type()):
+    elif str(node.output().type()).startswith("List"):
         vals = [graph.insertConstant(v) for v in node.output().toIValue()]
         for v in reversed(vals):
             v.node().moveAfter(node)

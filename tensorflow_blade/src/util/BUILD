@@ -30,6 +30,17 @@ cc_library(
 )
 
 blade_cc_test(
+    name = "logging_test",
+    srcs = [
+        "logging_test.cc"
+    ],
+    deps = [
+        ":logging",
+        "@local_config_tf//:libtensorflow_framework",
+    ]
+)
+
+blade_cc_test(
     name = "tf_allocator_util_test",
     srcs = [
         "tf_allocator_util_test.cc",

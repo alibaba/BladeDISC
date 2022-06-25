@@ -150,7 +150,10 @@ setuptools.setup(
     version=(__version__ + _get_version(device)),
     author="Alibaba PAI Team",
     description="TensorFlow-Blade is a general automatic inference optimization system.",
-    packages=setuptools.find_packages(exclude=['src', 'src.*', 'tests']),
+    packages=setuptools.find_packages(exclude=['src', 'src.*', 'tests', 'tests.*']),
+    package_data={
+        'tf_blade': ['py.typed'],
+    },
     install_requires=install_requires,
     classifiers=[
         "Topic :: Scientific/Engineering",

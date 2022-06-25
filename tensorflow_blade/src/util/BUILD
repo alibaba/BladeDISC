@@ -1,4 +1,5 @@
 load("@local_config_tf//:build_defs.bzl", "tf_copts")
+load("//:build_defs.bzl", "blade_cc_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -25,5 +26,16 @@ cc_library(
     ],
     deps = [
         "@local_config_tf//:tf_header_lib",
+    ],
+)
+
+blade_cc_test(
+    name = "tf_allocator_util_test",
+    srcs = [
+        "tf_allocator_util_test.cc",
+    ],
+    deps = [
+        ":tf_allocator_util",
+        "@local_config_tf//:libtensorflow_framework",
     ],
 )

@@ -40,18 +40,17 @@ def _get_device():
         return devices[0]
 
 
-device = _get_device()
-
-install_requires = [
-    'numpy',
-    'onnx>=1.6',
-]
-
-if device == 'gpu':
-    install_requires.extend(['tf2onnx>=1.9.1'])
+DEVICE = _get_device()
 
 
-def _get_version(device):  # noqa: C901
+def get_install_requires():
+    install_requires = ['numpy', 'onnx>=1.6']
+    if DEVICE == 'gpu':
+        install_requires.extend(['tf2onnx>=1.9.1'])
+    return install_requires
+
+
+def _get_version():  # noqa: C901
     tf_version = ''
     try:
         import tensorflow.compat.v1 as tf
@@ -65,7 +64,7 @@ def _get_version(device):  # noqa: C901
         except ModuleNotFoundError:
             pass
 
-    if device == 'gpu':
+    if DEVICE == 'gpu':
         if os.path.exists('/usr/local/cuda/version.txt'):
             with open('/usr/local/cuda/version.txt', 'r') as f:
                 full_version_info = f.read()
@@ -105,6 +104,7 @@ class CppBuild(build_ext):
         bazel_bin_dir = os.path.join(ext.sourcedir, "bazel-bin")
         import glob
 
+        # copy native libraries.
         native_libs = (
             glob.glob(os.path.join(bazel_bin_dir, "src", "*.so"))
             + glob.glob(os.path.join(bazel_bin_dir, "src", "*.so.[0-9]"))
@@ -131,8 +131,9 @@ class CppTestCommand(Command):
         pass
 
     def run(self):
+        filter = "-cpu" if DEVICE == "gpu" else "-gpu"
         subprocess.check_call(
-            "bazel test //src/... --build_tests_only",
+            f"bazel test //src/... --build_tests_only --test_tag_filters={filter}",
             shell=True,
             executable="/bin/bash",
         )
@@ -146,15 +147,13 @@ class TfBladeExtension(Extension):
 
 
 setuptools.setup(
-    name="tensorflow-blade-" + device,
-    version=(__version__ + _get_version(device)),
+    name="tensorflow-blade-" + DEVICE,
+    version=(__version__ + _get_version()),
     author="Alibaba PAI Team",
     description="TensorFlow-Blade is a general automatic inference optimization system.",
     packages=setuptools.find_packages(exclude=['src', 'src.*', 'tests', 'tests.*']),
-    package_data={
-        'tf_blade': ['py.typed'],
-    },
-    install_requires=install_requires,
+    package_data={'tf_blade': ['py.typed']},
+    install_requires=get_install_requires(),
     classifiers=[
         "Topic :: Scientific/Engineering",
         "Topic :: Scientific/Engineering :: Mathematics",
@@ -165,8 +164,5 @@ setuptools.setup(
     ],
     python_requires='>=3.6',
     ext_modules=[TfBladeExtension("tf_blade._tf_blade")],
-    cmdclass=dict(
-        build_ext=CppBuild,
-        cpp_test=CppTestCommand,
-    ),
+    cmdclass=dict(build_ext=CppBuild, cpp_test=CppTestCommand,),
 )

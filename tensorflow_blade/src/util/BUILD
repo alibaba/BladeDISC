@@ -38,4 +38,5 @@ blade_cc_test(
         ":tf_allocator_util",
         "@local_config_tf//:libtensorflow_framework",
     ],
+    tags = ['gpu']
 )

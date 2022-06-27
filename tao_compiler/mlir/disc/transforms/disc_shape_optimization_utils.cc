@@ -682,16 +682,16 @@ SymbolicDimOp SymbolicDimMgr::cloneSymbol(SymbolicDimOp symbol) {
 LogicalResult SymbolicDimMgr::cloneSymbolGroup(
     const DenseSet<SymbolicDimOp>& symbols,
     DenseMap<SymbolicDimOp, SymbolicDimOp>& mapping) {
-  DenseMap<SymbolicDimOp, SmallVector<SymbolicDimOp>> symbol2Root;
+  DenseMap<SymbolicDimOp, SmallVector<SymbolicDimOp>> root2Symbol;
   for (SymbolicDimOp symbol : symbols) {
     SymbolicDimOp newSymbol = cloneSymbol(symbol);
     mapping[symbol] = newSymbol;
     SymbolicDimOp root = getRootSymbolicDim(symbol);
-    symbol2Root[root].push_back(newSymbol);
+    root2Symbol[root].push_back(newSymbol);
   }
 
   // copy dim equality predicate.
-  for (auto& it : symbol2Root) {
+  for (auto& it : root2Symbol) {
     if (it.second.size() <= 1) continue;
     for (SymbolicDimOp symbol : it.second)
       if (failed(mapSymbolicDimEqual(symbol, it.second[0]))) return failure();

@@ -57,6 +57,13 @@ class ApplyValueSemanticsPass
       }
     });
     reduceTensorConversions(func);
+    func.walk([&](mlir::Operation* op) {
+      if (isa<TensorStaticInfoCastOp>(op)) {
+        op->getResult(0).replaceAllUsesWith(op->getOpOperand(0).get());
+        op->erase();
+        return;
+      }
+    });
 
     ConversionTarget target(*context);
     target.addLegalDialect<

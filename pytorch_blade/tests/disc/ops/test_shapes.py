@@ -14,14 +14,15 @@ from typing import List
 import unittest
 
 from torch_blade import tools
-from tests.disc.testing_base import DiscTestCase
-
+from tests.disc.testing_base import DiscTestCase, skipIfEnableTorchMlir
 
 class TestDiscShapes(DiscTestCase):
     def _test_reshape(self, reshape_func, dtype=None, x=None):
+        dtype = torch.float if dtype is None else dtype
         x = torch.randn([2, 3, 224, 224], dtype=dtype, device=self.device) if x is None else x
         test_data = (x,)
-        self._test_cvt_to_disc(reshape_func, test_data)
+        annotation = ([-1] * len(x.shape), dtype)
+        self._test_disc(reshape_func, [annotation], test_data)
 
     def test_dyn_reshape(self):
         @torch.jit.script
@@ -31,8 +32,11 @@ class TestDiscShapes(DiscTestCase):
         x = torch.randn([2, 3, 224, 224], device=self.device)
         y = torch.randn([6, 224, 224], device=self.device)
         test_data = (x, y)
-        self._test_cvt_to_disc(reshape_as, test_data)
+        dtype = torch.float
+        annotations = [([-1,-1,-1,-1], dtype), ([-1,-1,-1], dtype)]
+        self._test_disc(reshape_as, annotations, test_data)
 
+    @skipIfEnableTorchMlir()
     def test_view_as(self):
         @torch.jit.script
         def view_as(x, y):
@@ -85,6 +89,7 @@ class TestDiscShapes(DiscTestCase):
 
         self._test_reshape(dynamic_reshape)
 
+    @skipIfEnableTorchMlir()
     def test_unsqueeze(self):
 
         @torch.jit.script
@@ -105,6 +110,7 @@ class TestDiscShapes(DiscTestCase):
 
         self._test_reshape(unsqueeze_2)
 
+    @skipIfEnableTorchMlir()
     def test_squeeze(self):
         x = torch.zeros(2, 1, 2, 1, 2, device=self.device)
 
@@ -145,20 +151,18 @@ class TestDiscShapes(DiscTestCase):
         def basic_test_2(x):
             return torch.flatten(x, 2, 3)
 
-        x = torch.randn([2, 3, 224, 224], device=self.device)
-        test_data = (x,)
-        self._test_cvt_to_disc(basic_test_0, test_data)
-        self._test_cvt_to_disc(basic_test_1, test_data)
-        self._test_cvt_to_disc(basic_test_2, test_data)
+        self._test_reshape(basic_test_0)
+        self._test_reshape(basic_test_1)
+        self._test_reshape(basic_test_2)
 
         @torch.jit.script
         def test_rank_0_input(x):
             return torch.flatten(x)
 
         x = torch.randn([], device=self.device)
-        test_data = (x,)
-        self._test_cvt_to_disc(test_rank_0_input, test_data)
+        self._test_reshape(test_rank_0_input, x=x)
 
+    @skipIfEnableTorchMlir()
     def test_size(self):
         @torch.jit.script
         def size_func(x):

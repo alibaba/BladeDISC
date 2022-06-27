@@ -95,6 +95,7 @@ LogicalResult Torch::reduceTensorConversions(func::FuncOp& func) {
     for (size_t k = 0; k < n_operands; ++k) {
       auto operand = returnOp->getOperand(k);
       operand = backtraceOperand<ToBuiltinTensorOp>(operand);
+      operand = backtraceOperand<TensorStaticInfoCastOp>(operand);
       operand = backtraceOperand<CopyToValueTensorOp>(operand);
       operand = backtraceOperand<CopyToNonValueTensorOp>(operand);
       operand = backtraceOperand<FromBuiltinTensorOp>(operand);

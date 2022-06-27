@@ -53,4 +53,6 @@ cp tao/dist/blade_disc*.whl ./build
 cp tf_community/bazel-bin/tensorflow/compiler/mlir/disc/tools/disc-replay/disc-replay-main ./build/
 
 # test example models
-source ${SCRIPT_DIR}/test_cpu_examples.sh
+if [[ -z "$BLADE_DISC_RUNNING_AMD" ]]; then
+  source ${SCRIPT_DIR}/test_cpu_examples.sh
+fi

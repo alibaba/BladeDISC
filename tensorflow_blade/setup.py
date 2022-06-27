@@ -10,6 +10,7 @@
 # limitations under the License.
 
 # type: ignore
+import glob
 import os
 import re
 import subprocess
@@ -101,24 +102,19 @@ class CppBuild(build_ext):
         subprocess.check_call(
             "bazel build //src:_tf_blade.so", shell=True, executable="/bin/bash"
         )
-        bazel_bin_dir = os.path.join(ext.sourcedir, "bazel-bin")
-        import glob
-
         # copy native libraries.
-        native_libs = (
-            glob.glob(os.path.join(bazel_bin_dir, "src", "*.so"))
-            + glob.glob(os.path.join(bazel_bin_dir, "src", "*.so.[0-9]"))
-            + glob.glob(os.path.join(bazel_bin_dir, "src", "internal", "*.so"))
-            + glob.glob(os.path.join(bazel_bin_dir, "src", "internal", "*.so.[0-9]"))
-        )
-        for fpath in native_libs:
-            fpath = os.path.join(bazel_bin_dir, fpath)
-            fname = os.path.basename(fpath)
-            link_name = os.path.join(extdir, fname)
-            if os.path.exists(link_name):
-                os.remove(link_name)
-            os.symlink(fpath, link_name)
-            print(f"Link native lib: {fpath}")
+        bazel_bin_dir = os.path.join(ext.sourcedir, "bazel-bin")
+        lib_pat = re.compile(r".+\.so(\.[0-9]+)?$")
+        ALLOW_LIST = ['hie_serialize']
+        for search_dir in ['src', os.path.join('src', 'internal')]:
+            for fpath in glob.glob(os.path.join(bazel_bin_dir, search_dir, '*')):
+                fname = os.path.basename(fpath)
+                if lib_pat.match(fpath) or fname in ALLOW_LIST:
+                    link_name = os.path.join(extdir, fname)
+                    if os.path.exists(link_name):
+                        os.remove(link_name)
+                    os.symlink(fpath, link_name)
+                    print(f"Link native lib: {fpath}")
 
 
 class CppTestCommand(Command):

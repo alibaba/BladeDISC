@@ -201,10 +201,9 @@ def configure(args):
             else:
                 _action_env("BLADE_WITH_TENSORRT", "0")
 
-            _action_env(
-                "BLADE_WITH_HIE",
-                "1" if args.platform_alibaba and not args.skip_hie else "0",
-            )
+            if args.platform_alibaba and not args.skip_hie:
+                _config("hie")
+
             if not args.skip_disc:
                 _config("disc_cuda")
         elif args.device == 'cpu':

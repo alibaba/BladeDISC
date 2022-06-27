@@ -25,6 +25,17 @@
 namespace mlir {
 namespace mhlo {
 
+std::vector<int64_t> normalizeDimIndex(ArrayRef<int64_t> dims, int64_t rank) {
+  std::vector<int64_t> newDims;
+  newDims.reserve(rank);
+  std::transform(
+      dims.begin(),
+      dims.end(),
+      std::back_inserter(newDims),
+      [rank](int64_t d) -> int64_t { return (d + rank) % rank; });
+  return newDims;
+}
+
 // Create a 32-bit float constant operator from a float
 Value getMhloConstTensorSingleF32(
     PatternRewriter& rewriter,
@@ -181,6 +192,32 @@ Value getNumelOfTensor(PatternRewriter& rewriter, Operation* op, Value value) {
   }
   numel = rewriter.create<tensor::FromElementsOp>(loc, ArrayRef<Value>{numel});
   return numel;
+}
+
+Value getPermutedTensor(
+    PatternRewriter& rewriter,
+    Operation* op,
+    Value input,
+    ArrayRef<int64_t> inpTransDims) {
+  auto inputTy = input.getType().dyn_cast<RankedTensorType>();
+  auto rank = inputTy.getRank();
+  auto transDims = normalizeDimIndex(inpTransDims, rank);
+  auto inpShape = inputTy.getShape();
+  std::vector<int64_t> newShape;
+  newShape.reserve(rank);
+
+  for (auto d : transDims) {
+    newShape.push_back(inpShape[d]);
+  }
+
+  auto attrTy = RankedTensorType::get(
+      {static_cast<int64_t>(transDims.size())}, rewriter.getIntegerType(64));
+  auto permuteAttr = DenseIntElementsAttr::get(attrTy, transDims);
+
+  auto outTy = RankedTensorType::get(newShape, inputTy.getElementType());
+  auto result = rewriter.create<mhlo::TransposeOp>(
+      op->getLoc(), outTy, input, permuteAttr);
+  return result.getResult();
 }
 } // namespace mhlo
 } // namespace mlir

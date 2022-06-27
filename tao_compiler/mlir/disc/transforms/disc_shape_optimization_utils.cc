@@ -509,11 +509,11 @@ LogicalResult SymbolicDimMgr::save() {
              });
   int numNonConstDims = 0;
   std::unordered_map<std::string, std::string> nameMapping;
-  for (const auto& en : llvm::enumerate(usedSymbolNames)) {
-    if (en.value().size() > 0 && en.value()[0] == 'C') {
-      nameMapping[en.value()] = en.value();
+  for (const auto& name : usedSymbolNames) {
+    if (name.size() > 0 && name[0] == 'C') {
+      nameMapping[name] = name;
     } else {
-      nameMapping[en.value()] =
+      nameMapping[name] =
           (llvm::Twine("S") + llvm::Twine(numNonConstDims++)).str();
     }
   }

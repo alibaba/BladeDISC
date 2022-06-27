@@ -1248,10 +1248,6 @@ class ConvertAtenLinearOp : public ConvertAtenMatmulBaseOp<AtenOpT> {
     if (rhsRank != 2 && rhsRank != 3)
       return op.emitError("aten.Linear called but weight rank not 2 or 3");
 
-    // Protection against crash due to unguarded code in MHLO->LinAlg.
-    if (!lhsTy.hasStaticShape() || !rhsTy.hasStaticShape())
-      return op.emitError("aten.Linear needs statically shaped input");
-
     return success();
   }
   // Override the default rewriter to perform RHS transpose and bias addition
@@ -1278,8 +1274,8 @@ class ConvertAtenLinearOp : public ConvertAtenMatmulBaseOp<AtenOpT> {
           "MHLO for bias tensor");
 
     // weight.T
-    auto weightT = getPermutedTensor(rewriter, op, rhs, {1, 0});
-    auto product = getMmDotProduct(rewriter, op, lhs, weightT);
+    auto weightT = mhlo::getPermutedTensor(rewriter, op, rhs, {1, 0});
+    auto product = mhlo::getMmDotProduct(rewriter, op, lhs, weightT);
     Value matmulOutput;
     if (product) {
       matmulOutput = *product;
@@ -1290,11 +1286,14 @@ class ConvertAtenLinearOp : public ConvertAtenMatmulBaseOp<AtenOpT> {
     Value matmulPlusBias = matmulOutput;
     if (!biasTy.template isa<Torch::NoneType>()) {
       // Bias addition broadcasts to the matmul output shape.
-      matmulPlusBias =
-          rewriter
-              .create<chlo::BroadcastAddOp>(
-                  op->getLoc(), matmulOutput.getType(), matmulOutput, bias)
-              .getResult();
+      matmulPlusBias = rewriter
+                           .create<chlo::BroadcastAddOp>(
+                               op->getLoc(),
+                               matmulOutput.getType(),
+                               matmulOutput,
+                               bias,
+                               nullptr)
+                           .getResult();
     }
 
     rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
@@ -2204,13 +2203,11 @@ class ConvertTorchToMhlo
     INSERT_MM_ATENOP_PATTERN(AtenBmmOp);
 #undef INSERT_MM_ATEMOP_PATTERN
 
-    /*
-    #define INSERT_LINEAR_ATENOP_PATTERN(AtenOp) \
-      target.addIllegalOp<AtenOp>(); \
-      patterns.add<ConvertAtenLinearOp<AtenOp>>(typeConverter, context);
-        INSERT_LINEAR_ATENOP_PATTERN(AtenLinearOp);
-    #undef INSERT_LINEAR_ATEMOP_PATTERN
-    */
+#define INSERT_LINEAR_ATENOP_PATTERN(AtenOp) \
+  target.addIllegalOp<AtenOp>();             \
+  patterns.add<ConvertAtenLinearOp<AtenOp>>(typeConverter, context);
+    INSERT_LINEAR_ATENOP_PATTERN(AtenLinearOp);
+#undef INSERT_LINEAR_ATEMOP_PATTERN
 
 #define INSERT_ATENOP_PATTERN(AtenOp) \
   target.addIllegalOp<AtenOp>();      \

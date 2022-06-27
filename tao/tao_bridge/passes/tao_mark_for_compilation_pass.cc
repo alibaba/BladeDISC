@@ -1301,7 +1301,7 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
     if (!all_ops.count(string(s))) {
       return errors::InvalidArgument(
           "The operation '", s,
-          "' passed to --tf_xla_ops_to_cluster is not supported by XLA.");
+          "' passed to --tf_xla_ops_to_cluster is not supported by DISC.");
     }
   }
 
@@ -2624,7 +2624,6 @@ std::vector<string> GetDiscSupportedOps() {
     "Rsqrt",
     "RsqrtGrad",
     "Select",
-    "SelectV2",
     "Shape",
     "Sigmoid",
     "SigmoidGrad",
@@ -2659,6 +2658,12 @@ std::vector<string> GetDiscSupportedOps() {
     "AddV2",
     "BatchMatMulV2",
     "GatherV2"
+  });
+#endif
+
+#if TF_MAJOR_VERSION > 1 || TF_MAJOR_VERSION==1 && TF_MINOR_VERSION > 12
+  ops.insert(ops.end(), {
+    "SelectV2",
   });
 #endif
 

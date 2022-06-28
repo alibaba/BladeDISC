@@ -239,3 +239,56 @@ func @main(%arg0 : i32) -> (tensor<i32>, tensor<2x1xi32>) {
   return %0, %1 : tensor<i32>, tensor<2x1xi32>
 }
 
+// -----
+
+// test shape constraint attr attached in op.
+// test symbols dim ops 2/3 are not removed (used in kDiscSymbolicDimAttr)
+
+module {
+  // CHECK-LABEL: @main
+  func @main(%arg0: tensor<?x?xf32, [@S0, @S1]>, %arg1: tensor<?x?xf32, [@S0, @S1]>) -> tensor<?x?xf32, [@S0, @S1]> {
+    %0 = mhlo.add %arg0, %arg1 {kDiscSymbolicDimAttr = [@S2, @S3]} : tensor<?x?xf32, [@S0, @S1]>
+    return %0 : tensor<?x?xf32, [@S0, @S1]>
+  }
+  // Test symbols dim ops 2/3 are not removed (used in kDiscSymbolicDimAttr)
+  // CHECK-DAG: "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64}
+  // CHECK-DAG: "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64}
+  // CHECK-DAG: "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S2", value = -1 : i64}
+  // CHECK-DAG: "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S3", value = -1 : i64}
+  "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
+  "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64} : () -> ()
+  "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S2", value = -1 : i64} : () -> ()
+  "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S3", value = -1 : i64} : () -> ()
+  func @shape_constraint_graph() {
+    return
+  }
+}
+
+// -----
+
+// test shape constraint attr attached in op.
+// test symbols dim ops 2/3 are removed.
+
+module {
+  // CHECK-LABEL: @main
+  // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32, [@[[S0:.*]], @[[S1:.*]]]>, %[[ARG1:.*]]: tensor<2xindex>) -> tensor<?x?xf32, [@[[S0]], @[[S1]]]>
+  func @main(%arg0: tensor<?x?xf32, [@S0, @S1]>, %arg1: tensor<2xindex>) -> tensor<?x?xf32, [@S0, @S1]> {
+    // CHECK:  "mhlo.dynamic_broadcast_in_dim"(%[[ARG0]], %[[ARG1]])
+    // CHECK-SAME: kDiscSymbolicDimAttr = [@[[S0]], @[[S1]]]
+    %0 = "mhlo.dynamic_broadcast_in_dim"(%arg0, %arg1) {kDiscSymbolicDimAttr = [@S2, @S3], broadcast_dimensions = dense<[0,1]> : tensor<2xi64>} : (tensor<?x?xf32, [@S0, @S1]>, tensor<2xindex>) -> tensor<?x?xf32, [@S2, @S3]>
+    // CHECK-NOT: tensor.cast
+    %1 = tensor.cast %0 : tensor<?x?xf32, [@S2, @S3]> to tensor<?x?xf32, [@S0, @S1]>
+    return %1 : tensor<?x?xf32, [@S0, @S1]>
+  }
+  // CHECK-DAG: "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64}
+  // CHECK-DAG: "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64}
+  // CHECK-NOT: "disc_shape.SymbolicDim"()
+  "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
+  "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64} : () -> ()
+  "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S2", value = -1 : i64} : () -> ()
+  "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S3", value = -1 : i64} : () -> ()
+  func @shape_constraint_graph() {
+    return
+  }
+}
+

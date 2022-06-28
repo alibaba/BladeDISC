@@ -39,6 +39,7 @@ namespace mlir {
 namespace disc_ral {
 
 using namespace lmhlo;
+using disc_shape::SymbolicDimOp;
 using placement_utils::kDiscPlaceAssignment;
 using placement_utils::kDiscShapeCalcAttr;
 
@@ -1089,7 +1090,7 @@ bool BaseFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
         Value shape = getEffectiveShape(target, result);
         return checkSameShape(lhs, rhs, target)
                    ? shapeAnalysis.isShapeEqual(ref_shape, shape)
-                   : shapeAnalysis.HasSameNumElements(ref_shape, shape);
+                   : shapeAnalysis.isSameNumElements(ref_shape, shape);
       })) {
     return false;
   }
@@ -1335,7 +1336,7 @@ bool StitchCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
     return false;
   }
 
-  StitchCPUAnalysis stitchAnalysis(target);
+  StitchCPUAnalysis stitchAnalysis(target, shapeAnalysis);
   if (!stitchAnalysis.fusibilityAnalysis()) {
     LLVM_DEBUG(llvm::dbgs() << "fusibilityAnalysis failed\n");
     return false;
@@ -2449,9 +2450,15 @@ bool StitchCPUAnalysis::emitInOutTiles(OpBuilder& b, Location loc,
                 fusionPattern_.getOperands().end());
   inOuts.insert(inOuts.end(), fusionPattern_.getResults().begin(),
                 fusionPattern_.getResults().end());
+  SymbolicDimMgr* mgr = nullptr;
+  if (auto shapeIRAnalysis =
+          dynamic_cast<ShapeConstraintIRAnalysis*>(&shapeAnalysis_)) {
+    mgr = &shapeIRAnalysis->symbolicDimMgr();
+  }
   for (Value in : inOuts) {
     auto& valueViewStore = viewStore[in];
     auto& tileInfo = tilePlan_[in];
+    auto inSymbols = getMemRefValueSymbolicDimRefs(in);
     for (int id : parallelPlan_[in]) {
       auto& parallelInfo = parallelInfoStore_[id];
       auto& indices = parallelInfo.symbolIndices;
@@ -2472,9 +2479,11 @@ bool StitchCPUAnalysis::emitInOutTiles(OpBuilder& b, Location loc,
       // logic can be simplified to:
       //   %inputView = input[i][j][0:n][0:m] : memref<1x1x?x?xf32>
 
+      bool staticShape = true;
       SmallVector<OpFoldResult> subViewSizes;
       SmallVector<OpFoldResult> subViewOffsets;
       SmallVector<OpFoldResult> subViewSteps;
+      SmallVector<SymbolicDimOp> subViewSymbols;
       int parallelIdx = 0;
       for (int d = 0; d < rank; ++d) {
         subViewSteps.push_back(getIntAttr(1));
@@ -2484,6 +2493,10 @@ bool StitchCPUAnalysis::emitInOutTiles(OpBuilder& b, Location loc,
           auto& parallelIndex = parallelIndexStore_[parallelIt->second];
           subViewSizes.push_back(getIntAttr(parallelIndex.step));
           subViewOffsets.push_back(parallelInfo.symbolIndices[parallelIdx]);
+          if (inSymbols && mgr) {
+            subViewSymbols.push_back(
+                mgr->newConstantSymbolicDim(parallelIndex.step));
+          }
           ++parallelIdx;
         } else if (tileIt != tileInfo.tileSizes.end()) {
           subViewOffsets.push_back(getIntAttr(0));
@@ -2491,19 +2504,37 @@ bool StitchCPUAnalysis::emitInOutTiles(OpBuilder& b, Location loc,
             if (inType.getShape()[d] == ShapedType::kDynamicSize) {
               Value dimSize = b.create<memref::DimOp>(loc, in, d);
               subViewSizes.push_back(dimSize);
+              if (inSymbols && mgr) {
+                subViewSymbols.push_back(
+                    mgr->symbolTable().lookup<SymbolicDimOp>(
+                        (*inSymbols)[d].getValue()));
+                staticShape = false;
+              }
             } else {
               subViewSizes.push_back(getIntAttr(inType.getShape()[d]));
+              if (inSymbols && mgr) {
+                subViewSymbols.push_back(
+                    mgr->newConstantSymbolicDim(inType.getShape()[d]));
+              }
             }
           } else {
             subViewSizes.push_back(getIntAttr(tileIt->second));
+            if (inSymbols && mgr) {
+              subViewSymbols.push_back(
+                  mgr->newConstantSymbolicDim(tileIt->second));
+            }
           }
         } else {
           assert(false && "unexpected situation\n");
           return false;
         }
       }
-      valueViewStore[indices] = b.create<memref::SubViewOp>(
-          loc, in, subViewOffsets, subViewSizes, subViewSteps);
+      auto view = b.create<memref::SubViewOp>(loc, in, subViewOffsets,
+                                              subViewSizes, subViewSteps);
+      if (inSymbols && mgr && !staticShape) {
+        attachSymbolicDimOpRefArrayAttrOnOperation(view, subViewSymbols);
+      }
+      valueViewStore[indices] = view.getResult();
     }
   }
   return true;
@@ -2527,20 +2558,43 @@ Value StitchCPUAnalysis::emitTileBuffer(OpBuilder& b, Location loc, Value val) {
     return totalSize < 64;
   }();
 
+  bool staticShape = true;
+  SymbolicDimMgr* mgr = nullptr;
+  if (auto shapeIRAnalysis =
+          dynamic_cast<ShapeConstraintIRAnalysis*>(&shapeAnalysis_)) {
+    mgr = &shapeIRAnalysis->symbolicDimMgr();
+  }
+  auto valSymbols = getMemRefValueSymbolicDimRefs(val);
   SmallVector<int64_t> newTyShape;
   SmallVector<Value> dynDims;
+  SmallVector<SymbolicDimOp> tileSymbols;
   for (int d = 0; d < ty.getRank(); ++d) {
     auto it = tileInfo.tileSizes.find(d);
     if (it == tileInfo.tileSizes.end()) {
       newTyShape.push_back(1);
+      if (mgr && valSymbols) {
+        tileSymbols.push_back(mgr->newConstantSymbolicDim(1));
+      }
       continue;
     }
     if (it->second != ShapedType::kDynamicSize) {
       newTyShape.push_back(it->second);
+      if (mgr && valSymbols) {
+        tileSymbols.push_back(mgr->newConstantSymbolicDim(it->second));
+      }
       continue;
     }
     if (ty.getShape()[d] == ShapedType::kDynamicSize) {
       dynDims.push_back(b.create<memref::DimOp>(loc, val, d));
+      if (mgr && valSymbols) {
+        tileSymbols.push_back(mgr->symbolTable().lookup<SymbolicDimOp>(
+            (*valSymbols)[d].getValue()));
+        staticShape = false;
+      }
+    } else {
+      if (mgr && valSymbols) {
+        tileSymbols.push_back(mgr->newConstantSymbolicDim(ty.getShape()[d]));
+      }
     }
     newTyShape.push_back(ty.getShape()[d]);
   }
@@ -2556,6 +2610,10 @@ Value StitchCPUAnalysis::emitTileBuffer(OpBuilder& b, Location loc, Value val) {
       tileBuffer = b.create<memref::AllocaOp>(loc, newTy, dynDims);
     } else {
       tileBuffer = b.create<memref::AllocOp>(loc, newTy, dynDims);
+    }
+    if (mgr && valSymbols && !staticShape) {
+      attachSymbolicDimOpRefArrayAttrOnOperation(tileBuffer.getDefiningOp(),
+                                                 tileSymbols);
     }
   }
 

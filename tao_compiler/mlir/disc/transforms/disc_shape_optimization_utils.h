@@ -31,6 +31,21 @@ using disc_shape::SymbolicDimOp;
 // attached symbolic dim ref attributes.
 llvm::Optional<SmallVector<FlatSymbolRefAttr>> getRankedValueSymbolicDimRefs(
     Value value);
+// Return the symbolicDim ref attribute if there is an attached disc
+// shape-constraint specific attribute filed. Return nullptr if there isn't an
+// attached symbolic dim ref attributes.
+llvm::Optional<SmallVector<FlatSymbolRefAttr>> getMemRefValueSymbolicDimRefs(
+    Value value);
+
+// Returns a ArrayAttr composed of a list of ref attributes to corresponding
+// symbols;
+ArrayAttr makeSymbolicDimOpRefArrayAttr(
+    const SmallVector<SymbolicDimOp>& symbols);
+
+// Inserts or updates disc symbolic dim attr of the op. The  disc symbolic dim
+// is created from the provided symbols.
+void attachSymbolicDimOpRefArrayAttrOnOperation(
+    Operation* op, const SmallVector<SymbolicDimOp>& symbols);
 
 using Visitor = std::function<LogicalResult(Value value, RankedTensorType ty,
                                             ArrayAttr attrs)>;
@@ -157,7 +172,7 @@ class SymbolicDimMgr {
 
   // Returns a new symbolicDim instance. The returned symbolicDim is owned by
   // this mgr.
-  SymbolicDimOp newSymbolicDim();
+  SymbolicDimOp newSymbolicDim(StringRef name = {});
 
   // Returns a symbolicDim which have static dim size == `val`.
   SymbolicDimOp newConstantSymbolicDim(int64_t val);
@@ -212,6 +227,17 @@ class SymbolicDimMgr {
   // Returns the name of the shape constraint graph
   static StringRef getShapeConstraintGraphFunctionName();
 
+  // Returns a clone of the original symbol
+  SymbolicDimOp cloneSymbol(SymbolicDimOp symbol);
+
+  // Clones a group of symbols and the relationships among the symbols in the
+  // group. Returns ok if success, otherwise failure.
+  LogicalResult cloneSymbolGroup(
+      const DenseSet<SymbolicDimOp>& symbols,
+      DenseMap<SymbolicDimOp, SymbolicDimOp>& mapping);
+
+  SymbolTable& symbolTable() { return symbolTable_; }
+
  private:
   // Returns next unique name for a new SymbolicDim op.
   std::string getNextName();
@@ -234,6 +260,9 @@ class SymbolicDimMgr {
  private:
   // The module this SymbolicDimMgr runs on.
   ModuleOp m_;
+
+  // A symbol table corresponding to related module op.
+  SymbolTable symbolTable_;
 
   // A unique id to generate unique name.
   int64_t nextSymbolicOpIdx_ = 0;
@@ -258,6 +287,8 @@ class SymbolicDimMgr {
   using SymbolicDimProductMap =
       DenseMap<SymbolicDimProduct, DenseMap<SymbolicDimProduct, bool>>;
   SymbolicDimProductMap productEqualityMap_;
+  // Lazily update `productEqualityMap_` since it takes a lot of time.
+  bool productEqualityMapUpdated_ = true;
 };
 
 }  // namespace disc_ral

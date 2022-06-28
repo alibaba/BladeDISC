@@ -23,6 +23,7 @@ limitations under the License.
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/OpDefinition.h"
@@ -30,6 +31,8 @@ limitations under the License.
 #include "mlir/Pass/Pass.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+
+#define DEBUG_TYPE "disc-shape-optimization-utils"
 
 namespace mlir {
 namespace disc_ral {
@@ -74,7 +77,7 @@ llvm::raw_ostream& operator<<(llvm::raw_ostream& os,
   return os;
 }
 
-SymbolicDimMgr::SymbolicDimMgr(ModuleOp m) : m_(m) {}
+SymbolicDimMgr::SymbolicDimMgr(ModuleOp m) : m_(m), symbolTable_(m_) {}
 
 LogicalResult SymbolicDimMgr::load() {
   m_.walk([&](disc_shape::SymbolicDimOp op) {
@@ -92,29 +95,35 @@ std::string SymbolicDimMgr::getNextName() {
   return name;
 }
 
-SymbolicDimOp SymbolicDimMgr::newSymbolicDim() {
+SymbolicDimOp SymbolicDimMgr::newSymbolicDim(StringRef name) {
   OpBuilder b(m_);
-  auto symbol = b.create<SymbolicDimOp>(m_.getLoc(), getNextName());
+  auto symbol =
+      b.create<SymbolicDimOp>(m_.getLoc(), name.empty() ? getNextName() : name);
   symbolDimUnionSet_[symbol] = symbol;
-  m_.push_back(symbol);
+  symbolTable_.insert(symbol);
   return symbol;
 }
 
 SymbolicDimOp SymbolicDimMgr::newConstantSymbolicDim(int64_t val) {
   auto it = constantSymbolicDimMap_.find(val);
   if (it == constantSymbolicDimMap_.end()) {
-    it = constantSymbolicDimMap_.insert(std::make_pair(val, newSymbolicDim()))
+    auto name = (llvm::Twine("C") + llvm::Twine(val)).str();
+    it = constantSymbolicDimMap_
+             .insert(std::make_pair(val, newSymbolicDim(name)))
              .first;
     it->second.setDimSize(val);
-    it->second.setName((llvm::Twine("C") + llvm::Twine(val)).str());
   }
   return getRootSymbolicDim(it->second);
 }
 
 SymbolicDimOp SymbolicDimMgr::getRootSymbolicDim(SymbolicDimOp symbol) {
   SymbolicDimOp current = symbol;
-  while (symbolDimUnionSet_[current] != current)
+  SmallVector<SymbolicDimOp> path;
+  while (symbolDimUnionSet_[current] != current) {
+    path.push_back(current);
     current = symbolDimUnionSet_[current];
+  }
+  for (SymbolicDimOp sym : path) symbolDimUnionSet_[sym] = current;
   return current;
 }
 
@@ -137,6 +146,7 @@ LogicalResult SymbolicDimMgr::mapSymbolicDimEqual(SymbolicDimOp lhs,
       if (failed(rhsRoot.Merge(lhsRoot))) return failure();
       symbolDimUnionSet_[lhsRoot] = rhsRoot;
     }
+    productEqualityMapUpdated_ = false;
   }
   return success();
 }
@@ -151,6 +161,7 @@ int64_t gcd(int64_t m, int64_t n) {
 SymbolicDimProduct SymbolicDimMgr::simplifySymbolicDimProduct(
     const SymbolicDimProduct& x) {
   SmallVector<SymbolicDimOp> copied;
+  copied.reserve(x.symbols.size());
   // TODO(disc): expand op if it can be factorized into other symbol dims.
   for (SymbolicDimOp op : x.symbols) copied.push_back(getRootSymbolicDim(op));
 
@@ -317,10 +328,14 @@ LogicalResult SymbolicDimMgr::mapSymbolicDimProductEqual(
   productEqualityMap_[newLhs][newRhs] = productEqualityMap_[newRhs][newLhs] =
       true;
 
-  return updateProductEqualityMap();
+  productEqualityMapUpdated_ = false;
+  return success();
 }
 
 LogicalResult SymbolicDimMgr::updateProductEqualityMap() {
+  // early return if nothing is updated.
+  if (productEqualityMapUpdated_) return success();
+
   SymbolicDimProductMap newMap;
   DenseSet<SymbolicDimProduct> productSet;
   for (auto& pairOutter : productEqualityMap_) {
@@ -385,30 +400,50 @@ LogicalResult SymbolicDimMgr::updateProductEqualityMap() {
       LLVM_DEBUG(llvm::dbgs() << "Pair: x = " << x << "\ny = " << y << "\n");
     }
   }
+  productEqualityMapUpdated_ = true;
   return success();
 }
 
 LogicalResult SymbolicDimMgr::save() {
   // replace all uses of a symbolic dim op with its root symbolic dim op
-  if (failed(walkRankedTensorValue(m_, [&](Value value, RankedTensorType ty,
-                                           ArrayAttr attrs) {
-        SmallVector<Attribute> newAttrs;
-        for (Attribute attr : attrs) {
-          auto sym =
-              m_.lookupSymbol<SymbolicDimOp>(attr.cast<FlatSymbolRefAttr>());
-          assert(sym);
-          SymbolicDimOp root = getRootSymbolicDim(sym);
-          FlatSymbolRefAttr rootSymbol = FlatSymbolRefAttr::get(root);
-          newAttrs.push_back(rootSymbol);
-        }
-        auto symbolicShapeAttr = ArrayAttr::get(value.getContext(), newAttrs);
-        auto newTy = RankedTensorType::get(ty.getShape(), ty.getElementType(),
-                                           symbolicShapeAttr);
-        value.setType(newTy);
-        return success();
-      }))) {
+  using Name2SymbolFn = std::function<SymbolicDimOp(StringRef)>;
+  auto updateAttrs = [&](ArrayAttr attrs, Name2SymbolFn fn) {
+    SmallVector<Attribute> newAttrs;
+    for (Attribute attr : attrs) {
+      auto sym = fn(attr.cast<FlatSymbolRefAttr>().getValue());
+      assert(sym);
+      SymbolicDimOp root = getRootSymbolicDim(sym);
+      FlatSymbolRefAttr rootSymbol = FlatSymbolRefAttr::get(root);
+      newAttrs.push_back(rootSymbol);
+    }
+    return ArrayAttr::get(m_->getContext(), newAttrs);
+  };
+  // update attributes attached in values.
+  if (failed(walkRankedTensorValue(
+          m_, [&](Value value, RankedTensorType ty, ArrayAttr attrs) {
+            auto symbolicShapeAttr = updateAttrs(attrs, [&](StringRef name) {
+              return symbolTable_.lookup<SymbolicDimOp>(name);
+            });
+            auto newTy = RankedTensorType::get(
+                ty.getShape(), ty.getElementType(), symbolicShapeAttr);
+            value.setType(newTy);
+            return success();
+          }))) {
     return failure();
   }
+  // update attributes attached in operations.
+  m_.walk([&](Operation* op) {
+    auto attrs =
+        op->getAttrOfType<ArrayAttr>(SymbolicDimOp::getSymbolicDimAttrName());
+    if (!attrs) return;
+    auto symbolicShapeAttr = updateAttrs(attrs, [&](StringRef name) {
+      return symbolTable_.lookup<SymbolicDimOp>(name);
+    });
+    op->setAttr(SymbolicDimOp::getSymbolicDimAttrName(), symbolicShapeAttr);
+  });
+  // update shape production equality
+  if (failed(updateProductEqualityMap()))
+    return m_->emitError() << "fail to update prodcut euqal map\n";
 
   // Update function type
   if (failed(updateFunctionType(m_))) return failure();
@@ -416,24 +451,55 @@ LogicalResult SymbolicDimMgr::save() {
   // collect symbolic dim ops that are referred by other ops/types.
   DenseSet<SymbolicDimOp> usedSymbolicOps;
   SmallVector<std::string> usedSymbolNames;
-  if (failed(walkRankedTensorValue(m_, [&](Value value, RankedTensorType ty,
-                                           ArrayAttr attrs) {
-        SmallVector<Attribute> newAttrs;
-        for (Attribute attr : attrs) {
-          auto sym =
-              m_.lookupSymbol<SymbolicDimOp>(attr.cast<FlatSymbolRefAttr>());
-          assert(sym);
-          if (usedSymbolicOps.insert(sym).second)
-            usedSymbolNames.push_back(sym.getName().str());
-        }
-        return success();
-      }))) {
+  // collect uses in values.
+  auto collectUsedSymbols = [&](ArrayAttr attrs) {
+    for (Attribute attr : attrs) {
+      auto sym = symbolTable_.lookup<SymbolicDimOp>(
+          attr.cast<FlatSymbolRefAttr>().getValue());
+      assert(sym);
+      if (usedSymbolicOps.insert(sym).second)
+        usedSymbolNames.push_back(sym.getName().str());
+    }
+  };
+  if (failed(walkRankedTensorValue(
+          m_, [&](Value value, RankedTensorType ty, ArrayAttr attrs) {
+            collectUsedSymbols(attrs);
+            return success();
+          }))) {
     return failure();
   }
+  // collect uses in operations.
+  m_.walk([&](Operation* op) {
+    auto attrs =
+        op->getAttrOfType<ArrayAttr>(SymbolicDimOp::getSymbolicDimAttrName());
+    if (!attrs) return;
+    collectUsedSymbols(attrs);
+  });
 
   // remove symbolic dim ops that are known not used by any other ops/types.
   for (auto& p : symbolDimUnionSet_) {
     if (!usedSymbolicOps.count(p.first)) p.first->erase();
+  }
+
+  // remove unused shape production equality
+  SmallVector<SymbolicDimProduct> candidates;
+  for (auto& outter : productEqualityMap_) {
+    if (llvm::any_of(outter.first.symbols, [&](SymbolicDimOp sym) {
+          return usedSymbolicOps.count(sym) == 0;
+        }))
+      candidates.push_back(outter.first);
+  }
+  for (auto& prod : candidates) productEqualityMap_.erase(prod);
+
+  for (auto& outter : productEqualityMap_) {
+    SmallVector<SymbolicDimProduct> candidates;
+    for (auto& inner : outter.second) {
+      if (llvm::any_of(inner.first.symbols, [&](SymbolicDimOp sym) {
+            return usedSymbolicOps.count(sym) == 0;
+          }))
+        candidates.push_back(outter.first);
+    }
+    for (auto& prod : candidates) outter.second.erase(prod);
   }
 
   // canonicalize the name of symbolic dim ops
@@ -443,34 +509,41 @@ LogicalResult SymbolicDimMgr::save() {
              });
   int numNonConstDims = 0;
   std::unordered_map<std::string, std::string> nameMapping;
-  for (const auto& en : llvm::enumerate(usedSymbolNames)) {
-    if (en.value().size() > 0 && en.value()[0] == 'C') {
-      nameMapping[en.value()] = en.value();
+  for (const auto& name : usedSymbolNames) {
+    if (name.size() > 0 && name[0] == 'C') {
+      nameMapping[name] = name;
     } else {
-      nameMapping[en.value()] =
+      nameMapping[name] =
           (llvm::Twine("S") + llvm::Twine(numNonConstDims++)).str();
     }
   }
-  for (SymbolicDimOp op : usedSymbolicOps)
-    op.setName(nameMapping[op.getName().str()]);
+  std::unordered_map<std::string, SymbolicDimOp> name2Symbol;
+  for (SymbolicDimOp op : usedSymbolicOps) {
+    auto name = op.getName().str();
+    op.setName(nameMapping[name]);
+    name2Symbol[name] = op;
+  }
 
   // replace the name of a symbolic dim op to its new name.
-  if (failed(walkRankedTensorValue(m_, [&](Value value, RankedTensorType ty,
-                                           ArrayAttr attrs) {
-        SmallVector<Attribute> newAttrs;
-        for (Attribute attr : attrs) {
-          auto sym = m_.lookupSymbol<SymbolicDimOp>(
-              nameMapping[attr.cast<FlatSymbolRefAttr>().getValue().str()]);
-          assert(sym);
-          FlatSymbolRefAttr newAttr = FlatSymbolRefAttr::get(sym);
-          newAttrs.push_back(newAttr);
-        }
-        auto symbolicShapeAttr = ArrayAttr::get(value.getContext(), newAttrs);
-        auto newTy = RankedTensorType::get(ty.getShape(), ty.getElementType(),
-                                           symbolicShapeAttr);
-        value.setType(newTy);
-        return success();
-      }))) {
+  // update attributes attached to operations.
+  m_.walk([&](Operation* op) {
+    auto attrs =
+        op->getAttrOfType<ArrayAttr>(SymbolicDimOp::getSymbolicDimAttrName());
+    if (!attrs) return;
+    auto symbolicShapeAttr = updateAttrs(
+        attrs, [&](StringRef name) { return name2Symbol[name.str()]; });
+    op->setAttr(SymbolicDimOp::getSymbolicDimAttrName(), symbolicShapeAttr);
+  });
+  // update attributes attached to values.
+  if (failed(walkRankedTensorValue(
+          m_, [&](Value value, RankedTensorType ty, ArrayAttr attrs) {
+            auto symbolicShapeAttr = updateAttrs(
+                attrs, [&](StringRef name) { return name2Symbol[name.str()]; });
+            auto newTy = RankedTensorType::get(
+                ty.getShape(), ty.getElementType(), symbolicShapeAttr);
+            value.setType(newTy);
+            return success();
+          }))) {
     return failure();
   }
 
@@ -486,12 +559,9 @@ LogicalResult SymbolicDimMgr::save() {
 }
 
 LogicalResult SymbolicDimMgr::saveShapeConstraintGraph() {
-  if (failed(updateProductEqualityMap()))
-    return m_->emitError() << "fail to update prodcut euqal map\n";
-
   // first try to remove the old shape constraint graph
   StringRef funcName = getShapeConstraintGraphFunctionName();
-  if (auto func = m_.lookupSymbol<FuncOp>(funcName)) func->erase();
+  if (auto func = symbolTable_.lookup<FuncOp>(funcName)) func->erase();
 
   OpBuilder moduleBuilder(m_);
   auto funcTy = FunctionType::get(m_.getContext(), {}, {});
@@ -534,7 +604,7 @@ LogicalResult SymbolicDimMgr::saveShapeConstraintGraph() {
 
 LogicalResult SymbolicDimMgr::loadShapeConstraintGraph() {
   StringRef funcName = getShapeConstraintGraphFunctionName();
-  auto func = m_.lookupSymbol<FuncOp>(funcName);
+  auto func = symbolTable_.lookup<FuncOp>(funcName);
   if (!func) return success();
 
   auto build_sym_product = [&](ValueRange range,
@@ -545,7 +615,7 @@ LogicalResult SymbolicDimMgr::loadShapeConstraintGraph() {
         product.factor *= constOp->getAttrOfType<IntegerAttr>("value").getInt();
         continue;
       } else if (auto dimOp = dyn_cast_or_null<disc_shape::DimOp>(definingOp)) {
-        auto sym = m_.lookupSymbol<SymbolicDimOp>(dimOp.name());
+        auto sym = symbolTable_.lookup<SymbolicDimOp>(dimOp.name());
         if (!sym) return dimOp->emitError() << "fail to find symbolic dim op\n";
         product.symbols.push_back(sym);
         continue;
@@ -578,7 +648,8 @@ SymbolicDimMgr::getOrCreateSymbolicDimsForRankedValue(Value value) {
                        .getEncoding()
                        .dyn_cast_or_null<ArrayAttr>()) {
     for (Attribute attr : attrs) {
-      auto sym = m_.lookupSymbol<SymbolicDimOp>(attr.cast<FlatSymbolRefAttr>());
+      auto sym = symbolTable_.lookup<SymbolicDimOp>(
+          attr.cast<FlatSymbolRefAttr>().getValue());
       assert(sym);
       symbols.push_back(sym);
     }
@@ -592,6 +663,72 @@ SymbolicDimMgr::getOrCreateSymbolicDimsForRankedValue(Value value) {
   }
 
   return symbols;
+}
+
+SymbolicDimOp SymbolicDimMgr::cloneSymbol(SymbolicDimOp symbol) {
+  // early return for static shape symbol
+  if (!symbol.isDynamic()) return symbol;
+  SymbolicDimOp newSymbol = newSymbolicDim();
+
+  // copied all attributes expect the name.
+  for (const NamedAttribute& attr : symbol->getAttrs()) {
+    StringRef name = attr.getName().strref();
+    if (name == "sym_name") continue;
+    newSymbol->setAttr(name, attr.getValue());
+  }
+  return newSymbol;
+}
+
+LogicalResult SymbolicDimMgr::cloneSymbolGroup(
+    const DenseSet<SymbolicDimOp>& symbols,
+    DenseMap<SymbolicDimOp, SymbolicDimOp>& mapping) {
+  DenseMap<SymbolicDimOp, SmallVector<SymbolicDimOp>> root2Symbol;
+  for (SymbolicDimOp symbol : symbols) {
+    SymbolicDimOp newSymbol = cloneSymbol(symbol);
+    mapping[symbol] = newSymbol;
+    SymbolicDimOp root = getRootSymbolicDim(symbol);
+    root2Symbol[root].push_back(newSymbol);
+  }
+
+  // copy dim equality predicate.
+  for (auto& it : root2Symbol) {
+    if (it.second.size() <= 1) continue;
+    for (SymbolicDimOp symbol : it.second)
+      if (failed(mapSymbolicDimEqual(symbol, it.second[0]))) return failure();
+  }
+
+  // copy dim product equality predicate
+  SmallVector<std::pair<SymbolicDimProduct, SymbolicDimProduct>> candidates;
+  for (auto& outter : productEqualityMap_) {
+    if (llvm::any_of(outter.first.symbols, [&](SymbolicDimOp sym) {
+          return symbols.count(sym) == 0;
+        }))
+      continue;
+    for (auto& inner : outter.second) {
+      if (!inner.second) continue;
+      if (llvm::any_of(inner.first.symbols, [&](SymbolicDimOp sym) {
+            return symbols.count(sym) == 0;
+          }))
+        continue;
+      auto copySymbolicDimProduct = [&](SymbolicDimProduct& prod) {
+        SymbolicDimProduct newProd;
+        newProd.factor = prod.factor;
+        for (SymbolicDimOp sym : prod.symbols) {
+          newProd.symbols.push_back(mapping[sym]);
+        }
+        return newProd;
+      };
+      candidates.emplace_back(copySymbolicDimProduct(outter.first),
+                              copySymbolicDimProduct(inner.first));
+    }
+  }
+
+  for (auto& it : candidates) {
+    productEqualityMap_[it.first][it.second] = true;
+    productEqualityMap_[it.second][it.first] = true;
+  }
+
+  return success();
 }
 
 llvm::Optional<SmallVector<FlatSymbolRefAttr>> getRankedValueSymbolicDimRefs(
@@ -608,6 +745,43 @@ llvm::Optional<SmallVector<FlatSymbolRefAttr>> getRankedValueSymbolicDimRefs(
     symbols.push_back(symbol);
   }
   return symbols;
+}
+
+llvm::Optional<SmallVector<FlatSymbolRefAttr>> getMemRefValueSymbolicDimRefs(
+    Value value) {
+  auto ty = value.getType().dyn_cast<MemRefType>();
+  Operation* op = value.getDefiningOp();
+  if (!ty || !op) return {};
+  auto attrs = op->getAttrOfType<ArrayAttr>(
+      disc_shape::SymbolicDimOp::getSymbolicDimAttrName());
+  if (!attrs || attrs.size() != ty.getRank()) return {};
+
+  SmallVector<FlatSymbolRefAttr> symbols;
+  symbols.reserve(attrs.size());
+  for (const auto& attr : attrs) {
+    auto symbol = attr.dyn_cast<FlatSymbolRefAttr>();
+    if (!symbol) return {};
+    symbols.push_back(symbol);
+  }
+  return symbols;
+}
+
+ArrayAttr makeSymbolicDimOpRefArrayAttr(
+    const SmallVector<SymbolicDimOp>& symbols) {
+  assert(!symbols.empty());
+  SmallVector<Attribute> attrs;
+  attrs.reserve(symbols.size());
+  for (auto& sym : symbols) {
+    attrs.push_back(FlatSymbolRefAttr::get(sym));
+  }
+  return ArrayAttr::get(symbols[0]->getContext(), attrs);
+}
+
+void attachSymbolicDimOpRefArrayAttrOnOperation(
+    Operation* op, const SmallVector<SymbolicDimOp>& symbols) {
+  assert(op != nullptr);
+  auto symbolicShapeAttr = makeSymbolicDimOpRefArrayAttr(symbols);
+  op->setAttr(SymbolicDimOp::getSymbolicDimAttrName(), symbolicShapeAttr);
 }
 
 // Updates the function types according to the types of entry block arguments

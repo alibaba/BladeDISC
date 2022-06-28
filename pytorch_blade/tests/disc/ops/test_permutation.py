@@ -47,6 +47,8 @@ class TestDiscPermutation(DiscTestCase):
             return x.t()
 
         if not isTorchMlirEnable():
+            # Failed to materialize conversion for result #0 of operation
+            # 'torch.aten.t' that remained live after conversion
             self._test_permute(transpose, x=torch.tensor(5, device=self.device))
             self._test_permute(transpose, x=torch.randn([], device=self.device))
             self._test_permute(transpose, x=torch.randn([5], device=self.device))

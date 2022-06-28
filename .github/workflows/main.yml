@@ -252,7 +252,7 @@ jobs:
         set -e
         git submodule sync
         git submodule update --depth=1 --init --recursive
-        docker build -t disc-dev-cuda11.0 \
+        docker build -t disc-dev-cuda11.0-py3.8 \
           --build-arg BASEIMAGE=nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04 \
           --build-arg DEVICE=cu110 \
           --build-arg PYTHON_VERSION=PYTHON3.8 \
@@ -269,7 +269,7 @@ jobs:
           -e TORCH_BLADE_BUILD_TENSORRT_STATIC=ON \
           -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=latest \
           -w /disc \
-          disc-dev-cuda11.0 bash ./scripts/ci/test_pytorch_blade.sh
+          disc-dev-cuda11.0-py3.8 bash ./scripts/ci/test_pytorch_blade.sh
   AArch64-CPU-TF280:
     if: github.repository == 'alibaba/BladeDISC'
     # The type of runner that the job will run on

@@ -41,7 +41,7 @@ class TestDiscActivation(DiscTestCase):
     def test_silu_static_shape(self):
         self._test_activation(torch.nn.SiLU(), torch.nn.functional.silu, [([2, 4, 16, 16], torch.float)])
 
-    def test_sigmoid_static_shape(self): 
+    def test_sigmoid_static_shape(self):
         self._test_activation(torch.nn.Sigmoid(), torch.sigmoid, [([2, 4, 16, 16], torch.float)])
 
     def test_sigmoid_dynamic_shape(self):

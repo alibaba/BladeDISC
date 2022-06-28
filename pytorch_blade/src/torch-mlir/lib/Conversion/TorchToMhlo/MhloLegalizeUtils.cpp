@@ -710,6 +710,11 @@ Value getDynamicSliceInternal(
   strides.reserve(rank);
 
   auto dimSizes = getDimSizesOfTensor(rewriter, op, input);
+  auto endIndexIsZero = rewriter.create<arith::CmpIOp>(
+      loc, arith::CmpIPredicate::eq, endIndex, zero);
+  endIndex = rewriter.create<arith::SelectOp>(
+      loc, endIndexIsZero, dimSizes[dimIndex], endIndex);
+
   for (size_t r = 0; r < rank; ++r) {
     if (r == dimIndex) {
       startIndices.push_back(startIndex);
@@ -742,24 +747,32 @@ Value getDynamicSlice(
     PatternRewriter& rewriter,
     Operation* op,
     Value input,
-    Value startIndex,
-    Value endIndex,
-    Value step,
+    llvm::Optional<Value> startIndexOpt,
+    llvm::Optional<Value> endIndexOpt,
+    llvm::Optional<Value> stepOpt,
     int64_t dim) {
   auto loc = op->getLoc();
   auto inputTy = input.getType().dyn_cast<RankedTensorType>();
   auto rank = inputTy.getRank();
 
   dim = (dim + rank) % rank;
-  auto dimSize = rewriter.create<arith::IndexCastOp>(
+  Value dimSize = rewriter.create<arith::IndexCastOp>(
       loc,
       rewriter.getI64Type(),
       rewriter.create<tensor::DimOp>(loc, input, dim));
 
-  auto normStartIndex =
-      getNormalizedDimSizeInternal(rewriter, op, startIndex, dimSize);
-  auto normEndIndex =
-      getNormalizedDimSizeInternal(rewriter, op, endIndex, dimSize);
+  Value normStartIndex = startIndexOpt
+      ? getNormalizedDimSizeInternal(rewriter, op, *startIndexOpt, dimSize)
+      : rewriter.create<arith::ConstantOp>(
+            loc, rewriter.getIntegerAttr(rewriter.getI64Type(), 0));
+  Value normEndIndex = endIndexOpt
+      ? getNormalizedDimSizeInternal(rewriter, op, *endIndexOpt, dimSize)
+      : dimSize;
+  Value step = stepOpt
+      ? *stepOpt
+      : rewriter.create<arith::ConstantOp>(
+            loc, rewriter.getIntegerAttr(rewriter.getI64Type(), 1));
+
   return getDynamicSliceInternal(
       rewriter, op, input, normStartIndex, normEndIndex, step, dim);
 }

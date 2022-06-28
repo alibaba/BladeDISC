@@ -34,6 +34,7 @@ namespace mlir {
 namespace mhlo {
 
 std::vector<int64_t> rangeIndices(int64_t min, int64_t max);
+std::vector<int64_t> normalizeDimIndex(ArrayRef<int64_t> dims, int64_t rank);
 
 // Create a 32-bit float constant operator from a float
 Value getMhloConstTensorSingleF32(
@@ -191,6 +192,17 @@ Value getPermutedTensor(
     Operation* op,
     Value input,
     ArrayRef<int64_t> inpTransDims);
+
+// Get dynamic slice of tensor
+Value getDynamicSlice(
+    PatternRewriter& rewriter,
+    Operation* op,
+    Value input,
+    llvm::Optional<Value> startIndexOpt,
+    llvm::Optional<Value> endIndexOpt,
+    llvm::Optional<Value> stepOpt,
+    int64_t dim);
+
 } // namespace mhlo
 } // namespace mlir
 

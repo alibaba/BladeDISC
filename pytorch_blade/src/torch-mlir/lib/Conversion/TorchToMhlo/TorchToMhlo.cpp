@@ -512,6 +512,7 @@ class ConvertAtenMulOp : public OpConversionPattern<AtenOpT> {
           lhs,
           rhsTensor,
           nullptr);
+
       return success();
     } else {
       // Quantized multiplication may need to rescale inputs.
@@ -575,6 +576,7 @@ class ConvertAtenDivOp : public OpConversionPattern<AtenOpT> {
 
     if (!isa<AtenDivTensorModeOp>(op)) {
       rewriter.replaceOp(op, result);
+
       return success();
     }
 
@@ -905,6 +907,7 @@ class ConvertAtenReductionOp : public OpConversionPattern<AtenOpT> {
       return failure();
 
     rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(op, outputTy, result);
+
     return success();
   }
 };
@@ -1325,6 +1328,76 @@ class ConvertAtenLinearOp : public ConvertAtenMatmulBaseOp<AtenOpT> {
     return success();
   }
 };
+
+template <>
+LogicalResult ConvertAtenOp<AtenSqueezeDimOp>::matchAndRewrite(
+    AtenSqueezeDimOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto self = adaptor.self();
+  auto selfTy = self.getType().template cast<RankedTensorType>();
+  if (!selfTy)
+    return op.emitError("Only ranked tensor types supported in MHLO");
+  int64_t dim;
+  if (!matchPattern(op.dim(), m_TorchConstantInt(&dim)))
+    return rewriter.notifyMatchFailure(
+        op, "Only constant dim is currently supported");
+
+  auto rank = selfTy.getRank();
+  if (rank == 0) {
+    return rewriter.notifyMatchFailure(
+        op, "The rank of tensor must be greater than 0");
+  }
+
+  dim = (dim + rank) % rank;
+  if (selfTy.getShape()[dim] != 1) {
+    return rewriter.notifyMatchFailure(
+        op, "The size of the dimension being squeezed is not equal to 1");
+  }
+
+  auto dims = mhlo::rangeIndices(0, rank);
+  dims.erase(dims.begin() + dim);
+  auto newDimSizes = mhlo::getDimSizesOfTensor(rewriter, op, self, dims);
+  auto mhloShape =
+      rewriter.create<tensor::FromElementsOp>(op.getLoc(), newDimSizes);
+  rewriter.replaceOpWithNewOp<mhlo::DynamicReshapeOp>(
+      op, getTypeConverter()->convertType(op.getType()), self, mhloShape);
+  return success();
+}
+
+template <>
+LogicalResult ConvertAtenOp<AtenSliceTensorOp>::matchAndRewrite(
+    AtenSliceTensorOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto self = adaptor.self();
+  auto selfTy = self.getType().template cast<RankedTensorType>();
+  if (!selfTy)
+    return op.emitError("Only ranked tensor types supported in MHLO Rsub");
+  int64_t dim;
+  if (!matchPattern(op.dim(), m_TorchConstantInt(&dim)))
+    return rewriter.notifyMatchFailure(
+        op, "Only constant dim is currently supported");
+
+  auto getOptionalVal = [&](Value val) -> llvm::Optional<Value> {
+    if (val.getType().isa<Torch::NoneType>()) {
+      return llvm::None;
+    } else {
+      return val;
+    }
+  };
+
+  llvm::Optional<Value> start = getOptionalVal(adaptor.start());
+  llvm::Optional<Value> end = getOptionalVal(adaptor.end());
+  llvm::Optional<Value> step = getOptionalVal(adaptor.step());
+
+  Value sliced =
+      mhlo::getDynamicSlice(rewriter, op, self, start, end, step, dim);
+  rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
+      op, getTypeConverter()->convertType(op.getType()), sliced);
+
+  return success();
+}
 
 template <>
 LogicalResult ConvertAtenOp<AtenRsubScalarOp>::matchAndRewrite(
@@ -2326,6 +2399,8 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenNumelOp);
     INSERT_ATENOP_PATTERN(PrimNumToTensorScalarOp);
     INSERT_ATENOP_PATTERN(AtenTensorIntOp);
+    INSERT_ATENOP_PATTERN(AtenSliceTensorOp);
+    INSERT_ATENOP_PATTERN(AtenSqueezeDimOp);
     // INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
 #undef INSERT_ATENOP_PATTERN
 

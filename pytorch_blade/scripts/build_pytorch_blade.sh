@@ -50,7 +50,10 @@ function ci_build() {
     pip_install_deps
 
     if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" = "ON"  ]; then
-      export TORCH_BLADE_BUILD_TENSORRT=ON
+      if [[ "$TORCH_BLADE_CI_BUILD_TORCH_VERSION" != "latest" ]]; then
+        # TODO(yancey.yx): enable trt building with latest
+        export TORCH_BLADE_BUILD_TENSORRT=ON
+      fi
       export TORCH_BLADE_BUILD_TENSORRT_STATIC=${TORCH_BLADE_BUILD_TENSORRT_STATIC:-OFF}
       python3 ../scripts/python/common_setup.py
     else

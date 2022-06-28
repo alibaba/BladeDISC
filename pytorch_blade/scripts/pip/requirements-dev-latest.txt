@@ -5,4 +5,5 @@ numpy
 torchvision
 pytest
 networkx
-onnx>=1.6.0 
+onnx>=1.6.0
+expecttest

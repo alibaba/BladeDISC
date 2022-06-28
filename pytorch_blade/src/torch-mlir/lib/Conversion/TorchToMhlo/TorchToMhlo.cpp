@@ -1440,7 +1440,7 @@ LogicalResult ConvertAtenOp<AtenTransposeIntOp>::matchAndRewrite(
   auto rank = selfType.getRank();
   dim0 = (dim0 + rank) % rank;
   dim1 = (dim1 + rank) % rank;
-  auto permutations = RangeIndices(0, rank);
+  auto permutations = mhlo::rangeIndices(0, rank);
   std::swap(permutations[dim0], permutations[dim1]);
 
   Value transposed =

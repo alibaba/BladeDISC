@@ -396,6 +396,9 @@ bool ConvertAtenIndexSelect(
   auto dim = CastJitConstToInt64(*jit_dim);
   auto index = ctx.GetMlirValue(node.input(2));
 
+  int64_t rank = input.getType().cast<mlir::RankedTensorType>().getRank();
+  if (dim < 0) dim += rank;
+
   auto& builder = *ctx.builder;
   ctx.value_map[node.output(0)] =
       mlir::mhlo::BuildGather(builder, loc, input, index, dim);

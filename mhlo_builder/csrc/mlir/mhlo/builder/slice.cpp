@@ -165,6 +165,11 @@ mlir::Value BuildSelect(mlir::OpBuilder& builder, const mlir::Location& loc,
       new_dim_sizes.push_back(BuildHloDimSizeOfTensor(builder, loc, result, k));
     }
   }
+  if (new_dim_sizes.empty()) {
+    auto resultTy = result.getType().cast<RankedTensorType>();
+    auto newResultTy = mlir::RankedTensorType::get({}, resultTy.getElementType());
+    return builder.create<mlir::mhlo::ReshapeOp>(loc, newResultTy, result);
+  }
   return BuildDynamicReshapeTensor(builder, loc, result, new_dim_sizes);
 }
 

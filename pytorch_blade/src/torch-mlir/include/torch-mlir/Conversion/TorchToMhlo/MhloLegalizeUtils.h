@@ -115,53 +115,77 @@ void CreateReplaceOpAndInfer(
   rewriter.replaceOp(op, result->getResults());
 }
 
+// Get the dimension sizes of the input tensor.
+// The dimension sizes will be cast to i32 before return
 std::vector<Value> getDimSizesOfTensor(
     PatternRewriter& rewriter,
     Operation* op,
-    Value value);
+    Value tensor);
 
+// Get the sizes of the specified dimensions of the input tensor.
+// The dimension sizes will be cast to i32 before return
+std::vector<Value> getDimSizesOfTensor(
+    PatternRewriter& rewriter,
+    Operation* op,
+    Value tensor,
+    ArrayRef<int64_t> dims);
+
+// Get a shape value that can be used by mhlo::DynamicReshapeOp.
+// The shape value is consturct with dimension sizes of the input tensor.
 llvm::Optional<Value> getMhloShapeOfTensor(
     PatternRewriter& rewriter,
     Operation* op,
-    Value value);
+    Value tensor);
 
-Value getNumelOfTensor(PatternRewriter& rewriter, Operation* op, Value value);
+// Get number of elements of the input tensor
+Value getNumelOfTensor(PatternRewriter& rewriter, Operation* op, Value tensor);
 
+// Get a tensor that unsqueezed the specified dimensions of the input tensor.
+// The function will return llvm::None if it meets illegal usages
 llvm::Optional<Value> getUnsqueezedTensor(
     PatternRewriter& rewriter,
     Operation* op,
     Value tensor,
     ArrayRef<int64_t> inputUnsqzDims);
 
+// Get a tensor that collapsed the specified dimensions of the input tensor.
+// The second element of the returned tuple stores the original dimension
+// sizes that had been collapsed.
 std::tuple<Value, std::vector<Value>> getCollapsedTensor(
     PatternRewriter& rewriter,
     Operation* op,
     Value tensor,
     ArrayRef<int64_t> inpCollapDims);
 
+// Reshape the input tensor to 0-rank.
+// Return llvm::None if the input tensor is illegal
 llvm::Optional<Value> getZeroRankTensor(
     PatternRewriter& rewriter,
     Operation* op,
     Value tensor);
 
+// Get a product of matrix x vector
 llvm::Optional<Value> getMvDotProduct(
     PatternRewriter& rewriter,
     Operation* op,
     Value inpLhs,
     Value inpRhs);
 
+// Get a product of matrix x matrix
 llvm::Optional<Value> getMmDotProduct(
     PatternRewriter& rewriter,
     Operation* op,
     Value inpLhs,
     Value inpRhs);
 
+// Get a product of batch matrix x matrix
 llvm::Optional<Value> getBmmDotProduct(
     PatternRewriter& rewriter,
     Operation* op,
     Value inpLhs,
     Value inpRhs);
 
+// Get a permuted tensor with permutation dims specified
 Value getPermutedTensor(
     PatternRewriter& rewriter,
     Operation* op,

@@ -234,14 +234,6 @@ endif()
 
 ############### libtao_ops.so ###############
 
-if(${TAO_CUDA} AND ${PLATFORM_ALIBABA})
-  message("including  BACE")
-  include_directories(../../bace)
-  add_subdirectory(../../bace bace_src)
-  include_directories(../../guard_client)
-endif()
-
-
 set(OBJS
     $<TARGET_OBJECTS:tao_bridge>
     $<TARGET_OBJECTS:tf_port>

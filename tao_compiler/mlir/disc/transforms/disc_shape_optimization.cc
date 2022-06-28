@@ -338,9 +338,9 @@ struct ExtractElementOfConcatOpCanonicalizationPattern
     if (!concatOp) return failure();
     if (!isCandidateShapeTensorType(op.tensor().getType())) return failure();
 
-    for (auto& en : llvm::enumerate(concatOp->getOperands())) {
-      if (!isCandidateShapeTensorType(en.value().getType())) return failure();
-      auto operandTy = en.value().getType().cast<RankedTensorType>();
+    for (Value operand : concatOp->getOperands()) {
+      if (!isCandidateShapeTensorType(operand.getType())) return failure();
+      auto operandTy = operand.getType().cast<RankedTensorType>();
       if (index >= operandTy.getNumElements()) {
         index -= operandTy.getNumElements();
         continue;
@@ -349,7 +349,7 @@ struct ExtractElementOfConcatOpCanonicalizationPattern
       Value newIndex =
           rewriter.create<arith::ConstantIndexOp>(op.getLoc(), index);
       Value newValue =
-          rewriter.create<tensor::ExtractOp>(op.getLoc(), en.value(), newIndex);
+          rewriter.create<tensor::ExtractOp>(op.getLoc(), operand, newIndex);
       rewriter.replaceOp(op, {newValue});
       return success();
     }

@@ -43,6 +43,7 @@ from common_setup import (
     which,
     safe_run,
     symlink_disc_files,
+    add_ral_link_if_not_exist,
     symlink_dir,
     get_source_root_dir,
     internal_root_dir
@@ -111,6 +112,7 @@ def check(args):
 
 def link_files(args):
     symlink_disc_files(args.platform_alibaba)
+    add_ral_link_if_not_exist()
     if args.platform_alibaba:
         excludes = ['ci_build']
         src_dir = os.path.join(internal_root_dir(), 'platform_alibaba', 'tensorflow_blade')
@@ -219,7 +221,7 @@ def configure(args):
                 assert os.path.exists(mkl_root), f"MKL root path missing: {mkl_root}"
                 _action_env("MKL_ROOT", mkl_root)
             if not args.skip_disc:
-                if args.enable_mkldnn:
+                if not args.disable_mkldnn:
                     _config("disc_mkldnn")
                 if args.aarch64:
                     _config("disc_aarch64")
@@ -322,7 +324,7 @@ def parse_args():
         help="Skip BladeDISC compiler support.",
     )
     parser.add_argument(
-        '--enable-mkldnn',
+        '--disable-mkldnn',
         action="store_true",
         required=False,
         default=False,

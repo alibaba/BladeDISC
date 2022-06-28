@@ -102,14 +102,23 @@ class CppBuild(build_ext):
         subprocess.check_call(
             "bazel build //src:_tf_blade.so", shell=True, executable="/bin/bash"
         )
-        # copy native libraries.
-        bazel_bin_dir = os.path.join(ext.sourcedir, "bazel-bin")
         lib_pat = re.compile(r".+\.so(\.[0-9]+)?$")
-        ALLOW_LIST = ['hie_serialize']
+        BIN_LIST = ['hie_serialize']
+
+        # remove old links.
+        for fname in os.listdir(extdir):
+            if lib_pat.match(fname) or fname in BIN_LIST:
+                full_path = os.path.join(extdir, fname)
+                if os.path.islink(full_path):
+                    os.remove(full_path)
+                    print(f"Unlink native lib: {full_path}")
+
+        # link native libraries.
+        bazel_bin_dir = os.path.join(ext.sourcedir, "bazel-bin")
         for search_dir in ['src', os.path.join('src', 'internal')]:
             for fpath in glob.glob(os.path.join(bazel_bin_dir, search_dir, '*')):
                 fname = os.path.basename(fpath)
-                if lib_pat.match(fpath) or fname in ALLOW_LIST:
+                if lib_pat.match(fpath) or fname in BIN_LIST:
                     link_name = os.path.join(extdir, fname)
                     if os.path.exists(link_name):
                         os.remove(link_name)

@@ -38,11 +38,13 @@ from common_setup import (
     symlink_disc_files,
     internal_root_dir,
     tao_bridge_dir,
+    tao_ral_dir,
     link_dirs,
     get_version_file,
     ensure_empty_dir,
     cwd,
     get_source_root_dir,
+    add_ral_link_if_not_exist,
     logger,
     which,
     running_on_ci,
@@ -74,11 +76,6 @@ def get_rocm_path(args):
         rocm_env = os.environ.get("ROCM_PATH", "/opt/rocm")
     return rocm_env
 
-#def get_version_file(root=None):
-#    if root is None:
-#        root = get_source_root_dir()
-#    return os.path.join(root, "VERSION")
-
 
 def tf_root_dir(root=None):
     if root is None:
@@ -92,61 +89,22 @@ def tao_compiler_dir(root=None):
     return os.path.join(root, "tao_compiler")
 
 
-#def tao_bridge_dir(root=None):
-#    if root is None:
-#        root = get_source_root_dir()
-#    return os.path.join(root, "tao", "tao_bridge")
-
-
 def tao_build_dir(root=None):
     if root is None:
         root = get_source_root_dir()
     return os.path.join(root, "tao", "build")
+
 
 def tao_bazel_dir(root=None):
     if root is None:
         root = get_source_root_dir()
     return os.path.join(root, "tao")
 
-def tao_ral_dir(root=None):
-    if root is None:
-        root = get_source_root_dir()
-    return os.path.join(root, "tao", "tao_bridge", "ral")
 
 def blade_gemm_dir(root=None):
     if root is None:
         root = get_source_root_dir()
     return os.path.join(root, os.pardir, "platform_alibaba", "blade_gemm", "build")
-
-#def link_dirs(dst_dir, src_dir):
-#    execute("rm -rf {0} && ln -s {1} {0}".format(dst_dir, src_dir))
-#
-#def link_internal_for_tao_bridge(args):
-#    # softlink ["tao_launch_op", "gpu"] dirs, "tvm" and "transform" dirs are not needed for now.
-#    for dir_name in ["tao_launch_op", "gpu"]:
-#        src_file = os.path.join(internal_tao_bridge_dir(), dir_name)
-#        link_in_bridge = os.path.join(tao_bridge_dir(), dir_name)
-#        if args.platform_alibaba:
-#            link_dirs(link_in_bridge, src_file)
-#        else:
-#            execute("rm -rf {0}".format(link_in_bridge))
-#    if args.platform_alibaba:
-#        src_dir = os.path.join(platform_alibaba_dir(), "bazel", "blade_service_common")
-#        dst_dir = os.path.join(get_source_root_dir(), "third_party", "bazel", "blade_service_common")
-#        files = os.listdir(src_dir)
-#        for f in files:
-#            link_dirs(os.path.join(dst_dir, f), os.path.join(src_dir, f))
-
-def add_ral_link_if_not_exist(root):
-    RAL_DIR_IN_TF = "tao_compiler/mlir/xla"
-    PROTO = "compile_metadata.proto"
-    RAL_DIR_IN_BRIDGE = os.path.join(tao_ral_dir(root), "tensorflow/compiler/mlir/xla")
-    if os.path.exists(RAL_DIR_IN_BRIDGE):
-        shutil.rmtree(RAL_DIR_IN_BRIDGE)
-    os.makedirs(RAL_DIR_IN_BRIDGE)
-    with cwd(RAL_DIR_IN_BRIDGE):
-        execute("ln -s {0}/{1}/ral ral".format(root, RAL_DIR_IN_TF))
-        execute("ln -s {0}/{1}/ral/{2} {2}".format(root, RAL_DIR_IN_TF, PROTO))
 
 
 def tao_ci_conf_file():
@@ -171,23 +129,6 @@ def restore_gcc_conf(args):
             k = k.strip()
             v = v.strip()
             setattr(args, k, v)
-
-#def symlink_internal_files(root):
-#    with cwd(root):
-#        logger.info("linking PatineClient")
-#        link_dirs(os.path.join('tf_community', 'tao', 'third_party', 'PatineClient'),
-#                os.path.join(internal_root_dir(), 'platform_alibaba', 'third_party', 'PatineClient'))
-#        logger.info("linking blade_gemm")
-#        link_dirs(os.path.join('tf_community', 'tao', 'blade_gemm'),
-#                os.path.join(internal_root_dir(), 'platform_alibaba', 'blade_gemm'))
-#        logger.info("linking blade_service_common")
-#        link_dirs(os.path.join('tf_community', 'tao', 'third_party', 'blade_service_common'),
-#                os.path.join(internal_root_dir(), 'platform_alibaba', 'third_party', 'blade_service_common'))
-#
-#        logger.info("cleanup tao_compiler with XLA always...")
-#        src = os.path.join(internal_root_dir(), "platform_alibaba/tao_compiler/xla")
-#        dst = "tf_community/tensorflow/compiler/decoupling_xla"
-#        link_dirs(dst, src)
 
 
 def configure_compiler(root, args):

@@ -514,6 +514,11 @@ def tao_bridge_dir(root=None):
         root = get_source_root_dir()
     return os.path.join(root, "tao", "tao_bridge")
 
+def tao_ral_dir(root=None):
+    if root is None:
+        root = get_source_root_dir()
+    return os.path.join(root, "tao", "tao_bridge", "ral")
+
 def internal_tao_bridge_dir():
     return os.path.join(internal_root_dir(), "platform_alibaba", "tao_bridge")
 
@@ -580,6 +585,20 @@ def symlink_disc_files(is_platform_alibaba):
         files = os.listdir(src_dir)
         for f in files:
             link_dirs(os.path.join(dst_dir, f), os.path.join(src_dir, f))
+
+
+def add_ral_link_if_not_exist():
+    root = get_source_root_dir()
+    RAL_DIR_IN_TF = "tao_compiler/mlir/xla"
+    PROTO = "compile_metadata.proto"
+    RAL_DIR_IN_BRIDGE = os.path.join(tao_ral_dir(), "tensorflow/compiler/mlir/xla")
+    if os.path.exists(RAL_DIR_IN_BRIDGE):
+        shutil.rmtree(RAL_DIR_IN_BRIDGE)
+    os.makedirs(RAL_DIR_IN_BRIDGE)
+    with cwd(RAL_DIR_IN_BRIDGE):
+        execute("ln -s {0}/{1}/ral ral".format(root, RAL_DIR_IN_TF))
+        execute("ln -s {0}/{1}/ral/{2} {2}".format(root, RAL_DIR_IN_TF, PROTO))
+
 
 def get_version_file():
     root = get_source_root_dir()

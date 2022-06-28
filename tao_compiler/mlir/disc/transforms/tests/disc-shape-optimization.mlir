@@ -292,3 +292,145 @@ module {
   }
 }
 
+// -----
+
+// test: scalarize mhlo.concat whenever possible
+
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: i32, %[[ARG1:.*]]: i32, %[[ARG2:.*]]: i32) -> (i32, i32)
+func @main(%arg0 : i32, %arg1: i32, %arg2: i32) -> (i32, i32) {
+  // CHECK-NOT: mhlo.concatenate
+  // CHECK: return %[[ARG1]], %[[ARG2]] : i32, i32
+  %0 = tensor.from_elements %arg0 : tensor<1xi32>
+  %1 = tensor.from_elements %arg1 : tensor<1xi32>
+  %2 = tensor.from_elements %arg2 : tensor<1xi32>
+  %3 = "mhlo.concatenate"(%0, %1) { dimension = 0 : i64 } : (tensor<1xi32>, tensor<1xi32>) -> tensor<2xi32>
+  %4 = "mhlo.concatenate"(%3, %2) { dimension = 0 : i64 } : (tensor<2xi32>, tensor<1xi32>) -> tensor<3xi32>
+  %c1 = arith.constant 1 : index
+  %c2 = arith.constant 2 : index
+  %5 = tensor.extract %4[%c1] : tensor<3xi32>
+  %6 = tensor.extract %4[%c2] : tensor<3xi32>
+  return %5, %6 : i32, i32
+}
+
+// -----
+
+// test: scalarize mhlo.slice whenever possible
+
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: i32, %[[ARG1:.*]]: i32, %[[ARG2:.*]]: i32) -> i32
+func @main(%arg0 : i32, %arg1: i32, %arg2: i32) -> i32 {
+  // CHECK-NOT: mhlo.slice
+  // CHECK: return %[[ARG2]] : i32
+  %0 = tensor.from_elements %arg0, %arg1, %arg2 : tensor<3xi32>
+  %1 = "mhlo.slice"(%0) {
+    start_indices = dense<[1]> : tensor<1xi64>,
+    limit_indices = dense<[3]> : tensor<1xi64>,
+    strides = dense<[1]> : tensor<1xi64>
+  } : (tensor<3xi32>) -> (tensor<2xi32>)
+  %c1 = arith.constant 1 : index
+  %2 = tensor.extract %1[%c1] : tensor<2xi32>
+  return %2 : i32
+}
+
+// -----
+
+// test: scalarize mhlo.reshape whenever possible
+// test 1: <i32> -> <1xi32>
+
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: i32) -> i32
+func @main(%arg0 : i32) -> i32 {
+  // CHECK-NOT: "mhlo.reshape
+  // CHECK: return %[[ARG0]] : i32
+  %0 = tensor.from_elements %arg0 : tensor<i32>
+  %1 = "mhlo.reshape"(%0) : (tensor<i32>) -> tensor<1xi32>
+  %c0 = arith.constant 0 : index
+  %2 = tensor.extract %1[%c0] : tensor<1xi32>
+  return %2 : i32
+}
+
+// -----
+
+// test: scalarize mhlo.reshape whenever possible
+// test 2: <1xi32> -> <i32>
+
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: i32) -> i32
+func @main(%arg0 : i32) -> i32 {
+  // CHECK-NOT: "mhlo.reshape
+  // CHECK: return %[[ARG0]] : i32
+  %0 = tensor.from_elements %arg0 : tensor<1xi32>
+  %1 = "mhlo.reshape"(%0) : (tensor<1xi32>) -> tensor<i32>
+  %2 = tensor.extract %1[] : tensor<i32>
+  return %2 : i32
+}
+
+// -----
+
+// test: scalarize mhlo.reshape whenever possible
+// test 3: <1x2xi32> -> <2x1x1xi32>
+
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: i32, %[[ARG1:.*]]: i32) -> i32
+func @main(%arg0 : i32, %arg1 : i32) -> i32 {
+  // CHECK-NOT: "mhlo.reshape
+  // CHECK: return %[[ARG1]] : i32
+  %0 = tensor.from_elements %arg0, %arg1 : tensor<1x2xi32>
+  %1 = "mhlo.reshape"(%0) : (tensor<1x2xi32>) -> tensor<2x1x1xi32>
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %2 = tensor.extract %1[%c1, %c0, %c0] : tensor<2x1x1xi32>
+  return %2 : i32
+}
+
+// -----
+
+// test: scalarize arith.constant whenever possible
+
+// CHECK-LABEL: @main
+// CHECK-SAME: () -> i32
+func @main() -> i32 {
+  // CHECK-NOT: mhlo.reshape
+  // CHECK: %[[T0:.*]] = arith.constant 2 : i32
+  // CHECK: return %[[T0]]
+  %0 = "arith.constant"() {value = dense<[1,2,3]> : tensor<3xi32>} : () -> tensor<3xi32>
+  %c1 = arith.constant 1 : index
+  %1 = tensor.extract %0[%c1] : tensor<3xi32>
+  return %1 : i32
+}
+
+// -----
+
+// test: scalarize mhlo.const whenever possible
+
+// CHECK-LABEL: @main
+// CHECK-SAME: () -> i32
+func @main() -> i32 {
+  // CHECK-NOT: mhlo.reshape
+  // CHECK: %[[T0:.*]] = arith.constant 2 : i32
+  // CHECK: return %[[T0]]
+  %0 = "mhlo.constant"() {value = dense<[1,2,3]> : tensor<3xi32>} : () -> tensor<3xi32>
+  %1 = "mhlo.reshape"(%0) : (tensor<3xi32>) -> tensor<1x3x1xi32>
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %2 = tensor.extract %1[%c0, %c1, %c0] : tensor<1x3x1xi32>
+  return %2 : i32
+}
+
+// -----
+
+// test: scalarize arith.index_cast whenever possible
+
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: i32, %[[ARG1:.*]]: i32) -> i32
+func @main(%arg0 : i32, %arg1 : i32) -> i32 {
+  // CHECK-NOT: arith.index_cast
+  // CHECK: return %[[ARG1]] : i32
+  %0 = tensor.from_elements %arg0, %arg1 : tensor<2xi32>
+  %1 = arith.index_cast %0 : tensor<2xi32> to tensor<2xindex>
+  %c1 = arith.constant 1 : index
+  %2 = tensor.extract %1[%c1] : tensor<2xindex>
+  %3 = arith.index_cast %2 : index to i32
+  return %3 : i32
+}

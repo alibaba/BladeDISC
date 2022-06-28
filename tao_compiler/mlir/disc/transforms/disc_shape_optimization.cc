@@ -260,6 +260,21 @@ LogicalResult materializeShapeComputation(ModuleOp m, FuncOp main) {
 using PassPipelineRunner =
     std::function<LogicalResult(OpPassManager&, ModuleOp)>;
 
+// Returns true if the type is possible to be a shape tensor type.
+// Here shape tensor type is defined as follow:
+// - rank-1 static-shaped tensor type
+// - element type of the tensor is int or index
+// - number of elements of the tensor < 32, supposing that the
+//   higiest possible rank is smaller than 32.
+bool isCandidateShapeTensorType(Type ty) {
+  // Try to check if it's a candidate shape tensor.
+  auto tensorTy = ty.dyn_cast<RankedTensorType>();
+
+  return (tensorTy && tensorTy.getRank() == 1 && tensorTy.hasStaticShape() &&
+          tensorTy.getElementType().isIntOrIndex() &&
+          tensorTy.getShape()[0] < 32);
+}
+
 // convert:
 //   %1 = disc_shape.tie_shape %0, %d0, %d1, ... : (tensor<?x?xf32>, ...) ->
 //   tensor<?x?xf32> %dim_size = tensor.dim %1[%c0] : tensor<2xindex>
@@ -301,13 +316,181 @@ struct ExtractElementOfTieShapeOpCanonicalizationPattern
   }
 };
 
+// convert:
+//   %3 = mhlo.concatenate %0, %1, %2
+//         : (tensor<i32>, ...) -> tensor<3xi32>
+//   %4 = tensor.extract %3[%c1] : ...
+// to:
+//   %4 = tensor.extract %1[%c0] : ...
+struct ExtractElementOfConcatOpCanonicalizationPattern
+    : public OpRewritePattern<tensor::ExtractOp> {
+  using OpRewritePattern<tensor::ExtractOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::ExtractOp op,
+                                PatternRewriter& rewriter) const override {
+    if (op.indices().size() != 1) return failure();
+    auto indexOp = dyn_cast_or_null<arith::ConstantOp>(
+        op.indices().front().getDefiningOp());
+    if (!indexOp) return failure();
+    int64_t index = indexOp.getValue().cast<IntegerAttr>().getInt();
+
+    auto concatOp = op.tensor().getDefiningOp<mhlo::ConcatenateOp>();
+    if (!concatOp) return failure();
+    if (!isCandidateShapeTensorType(op.tensor().getType())) return failure();
+
+    for (Value operand : concatOp->getOperands()) {
+      if (!isCandidateShapeTensorType(operand.getType())) return failure();
+      auto operandTy = operand.getType().cast<RankedTensorType>();
+      if (index >= operandTy.getNumElements()) {
+        index -= operandTy.getNumElements();
+        continue;
+      }
+
+      Value newIndex =
+          rewriter.create<arith::ConstantIndexOp>(op.getLoc(), index);
+      Value newValue =
+          rewriter.create<tensor::ExtractOp>(op.getLoc(), operand, newIndex);
+      rewriter.replaceOp(op, {newValue});
+      return success();
+    }
+    return failure();
+  }
+};
+
+// convert:
+//   %1 = mhlo.slice(%0) {start_indices = dense<1>, ...}
+//         : (tensor<3xi32>) -> tensor<2xi32>
+//   %2 = tensor.extract %1[%c1] : ...
+// to:
+//   %2 = tensor.extract %0[%c2] : ...
+struct ExtractElementOfSliceOpCanonicalizationPattern
+    : public OpRewritePattern<tensor::ExtractOp> {
+  using OpRewritePattern<tensor::ExtractOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::ExtractOp op,
+                                PatternRewriter& rewriter) const override {
+    if (op.indices().size() != 1) return failure();
+    auto indexOp = dyn_cast_or_null<arith::ConstantOp>(
+        op.indices().front().getDefiningOp());
+    if (!indexOp) return failure();
+    int64_t index = indexOp.getValue().cast<IntegerAttr>().getInt();
+
+    auto sliceOp = op.tensor().getDefiningOp<mhlo::SliceOp>();
+    if (!sliceOp) return failure();
+    if (!isCandidateShapeTensorType(op.tensor().getType())) return failure();
+
+    int64_t start = sliceOp.start_indices().getValues<int64_t>()[0];
+    int64_t stride = sliceOp.strides().getValues<int64_t>()[0];
+    int64_t inputIndex = (start + index * stride);
+    Value newIndex =
+        rewriter.create<arith::ConstantIndexOp>(op.getLoc(), inputIndex);
+    Value newValue = rewriter.create<tensor::ExtractOp>(
+        op.getLoc(), sliceOp.operand(), newIndex);
+
+    rewriter.replaceOp(op, {newValue});
+    return success();
+  }
+};
+
+// convert:
+//   %1 = mhlo.reshape(%0) : (tensor<i32>) -> tensor<1xi32>
+//   %2 = tensor.extract %1[%c0] : ...
+// to:
+//   %2 = tensor.extract %0[] : ...
+struct ExtractElementOfReshapeOpCanonicalizationPattern
+    : public OpRewritePattern<tensor::ExtractOp> {
+  using OpRewritePattern<tensor::ExtractOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::ExtractOp op,
+                                PatternRewriter& rewriter) const override {
+    auto tensorTy = op.tensor().getType().dyn_cast<RankedTensorType>();
+    if (!tensorTy || !tensorTy.hasStaticShape() ||
+        !tensorTy.getElementType().isIntOrIndex() ||
+        tensorTy.getNumElements() > 8 || tensorTy.getNumElements() == 0)
+      return failure();
+
+    auto reshapeOp = op.tensor().getDefiningOp<mhlo::ReshapeOp>();
+    if (!reshapeOp) return failure();
+
+    SmallVector<int64_t> indices;
+    for (Value indexValue : op.indices()) {
+      auto indexOp = indexValue.getDefiningOp<arith::ConstantOp>();
+      if (!indexOp) return failure();
+      indices.push_back(indexOp.getValue().cast<IntegerAttr>().getInt());
+    }
+
+    int linearIndex = indices.empty() ? 0 : indices[0];
+    for (size_t i = 1; i < indices.size(); ++i) {
+      linearIndex = linearIndex * tensorTy.getShape()[i] + indices[i];
+    }
+
+    SmallVector<int64_t> inputIndices;
+    auto inputTy = reshapeOp.operand().getType().dyn_cast<RankedTensorType>();
+    if (!inputTy || !inputTy.hasStaticShape()) return failure();
+    for (int i = inputTy.getRank() - 1; i >= 0; --i) {
+      inputIndices.push_back(linearIndex % inputTy.getShape()[i]);
+      linearIndex /= inputTy.getShape()[i];
+    }
+    SmallVector<Value> newIndices;
+    for (int i = inputTy.getRank() - 1; i >= 0; --i) {
+      newIndices.push_back(rewriter.create<arith::ConstantIndexOp>(
+          op.getLoc(), inputIndices[i]));
+    }
+    Value newValue = rewriter.create<tensor::ExtractOp>(
+        op.getLoc(), reshapeOp.operand(), newIndices);
+    rewriter.replaceOp(op, {newValue});
+    return success();
+  }
+};
+
+// convert:
+//   %1 = arith.index_cast(%0) : (tensor<2xi32>) -> tensor<2xindex>
+//   use(%1)
+// to:
+//   %0 = tensor.extract %0[%c0] : tensor<2xi32>
+//   %1 = arith.index_cast %0 : index
+//   %2 = tensor.extract %0[%c1] : tensor<2xi32>
+//   %3 = arith.index_cast %2 : index
+//   %4 = tensor.from_elements %1, %3 : tensor<2xindex>
+//   use(%4)
+struct ScalarizeIndexCastOpCanonicalizationPattern
+    : public OpRewritePattern<arith::IndexCastOp> {
+  using OpRewritePattern<arith::IndexCastOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(arith::IndexCastOp op,
+                                PatternRewriter& rewriter) const override {
+    if (!isCandidateShapeTensorType(op.getType())) return failure();
+    Value input = op->getOperand(0);
+    auto inTy = input.getType().cast<RankedTensorType>();
+    auto outTy = op.getType().cast<RankedTensorType>();
+
+    SmallVector<Value> elems;
+    for (int i = 0; i < inTy.getNumElements(); ++i) {
+      Value index = rewriter.create<arith::ConstantIndexOp>(op.getLoc(), i);
+      Value inElem =
+          rewriter.create<tensor::ExtractOp>(op.getLoc(), input, index);
+      elems.push_back(rewriter.create<arith::IndexCastOp>(
+          op.getLoc(), outTy.getElementType(), inElem));
+    }
+
+    Value newOut =
+        rewriter.create<tensor::FromElementsOp>(op.getLoc(), outTy, elems);
+    rewriter.replaceOpWithNewOp<tensor::FromElementsOp>(op, outTy, elems);
+    return success();
+  }
+};
+
 // Adds shape optimization related patterns.
 void populateShapeOptimizationPatterns(MLIRContext* context,
                                        RewritePatternSet* patterns) {
   // clang-format off
   patterns->insert<
       DimOfTieShapeOpCanonicalizationPattern,
-      ExtractElementOfTieShapeOpCanonicalizationPattern
+      ExtractElementOfConcatOpCanonicalizationPattern,
+      ExtractElementOfReshapeOpCanonicalizationPattern,
+      ExtractElementOfSliceOpCanonicalizationPattern,
+      ExtractElementOfTieShapeOpCanonicalizationPattern,
+      ScalarizeIndexCastOpCanonicalizationPattern
   >(patterns->getContext());
   // clang-format on
 }
@@ -337,21 +520,6 @@ LogicalResult runCanonicalizer(ModuleOp m, PassPipelineRunner runner) {
   OpPassManager dynamicPM("builtin.func");
   dynamicPM.addPass(createCSEPass());
   return runner(dynamicPM, m);
-}
-
-// Returns true if the type is possible to be a shape tensor type.
-// Here shape tensor type is defined as follow:
-// - rank-1 static-shaped tensor type
-// - element type of the tensor is int or index
-// - number of elements of the tensor < 32, supposing that the
-//   higiest possible rank is smaller than 32.
-bool isCandidateShapeTensorType(Type ty) {
-  // Try to check if it's a candidate shape tensor.
-  auto tensorTy = ty.dyn_cast<RankedTensorType>();
-
-  return (tensorTy && tensorTy.getRank() == 1 && tensorTy.hasStaticShape() &&
-          tensorTy.getElementType().isIntOrIndex() &&
-          tensorTy.getShape()[0] < 32);
 }
 
 class ShapeComputationIRAnalysis {

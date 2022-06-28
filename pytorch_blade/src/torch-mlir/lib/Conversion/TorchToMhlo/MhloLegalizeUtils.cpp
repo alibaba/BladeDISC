@@ -27,10 +27,11 @@ namespace mlir {
 namespace mhlo {
 
 std::vector<int64_t> rangeIndices(int64_t min, int64_t max) {
-  std::vector<int64_t> range;
-  for (int64_t k = min; k < max; ++k) {
-    range.push_back(k);
-  }
+  if (min > max)
+    std::swap(min, max);
+  auto len = max - min;
+  std::vector<int64_t> range(len);
+  std::iota(range.begin(), range.end(), min);
   return range;
 }
 
@@ -51,10 +52,10 @@ Value getMhloConstTensorSingleF32(
     Operation* op,
     float val) {
   auto constType = RankedTensorType::get({}, rewriter.getF32Type());
-  auto const_attr = DenseElementsAttr::get(constType, val);
+  auto constAttr = DenseElementsAttr::get(constType, val);
 
   auto const_op =
-      rewriter.create<mhlo::ConstOp>(op->getLoc(), constType, const_attr);
+      rewriter.create<mhlo::ConstOp>(op->getLoc(), constType, constAttr);
   return const_op.getResult();
 }
 
@@ -79,10 +80,10 @@ llvm::Optional<Value> getConstTensor(
 
   auto constType =
       RankedTensorType::get(shape, rewriter.getIntegerType(sizeof(T) * 8));
-  auto const_attr = DenseElementsAttr::get(constType, vec);
+  auto constAttr = DenseElementsAttr::get(constType, vec);
 
   auto const_op =
-      rewriter.create<mhlo::ConstOp>(op->getLoc(), constType, const_attr);
+      rewriter.create<mhlo::ConstOp>(op->getLoc(), constType, constAttr);
   return const_op.getResult();
 }
 
@@ -105,10 +106,10 @@ llvm::Optional<Value> getConstTensor<APInt>(
 
   auto constType = RankedTensorType::get(
       shape, rewriter.getIntegerType(vec[0].getBitWidth()));
-  auto const_attr = DenseElementsAttr::get(constType, vec);
+  auto constAttr = DenseElementsAttr::get(constType, vec);
 
   auto const_op =
-      rewriter.create<mhlo::ConstOp>(op->getLoc(), constType, const_attr);
+      rewriter.create<mhlo::ConstOp>(op->getLoc(), constType, constAttr);
   return const_op.getResult();
 }
 
@@ -130,10 +131,10 @@ llvm::Optional<Value> getConstTensor<float>(
   }
 
   auto constType = RankedTensorType::get(shape, rewriter.getF32Type());
-  auto const_attr = DenseElementsAttr::get(constType, vec);
+  auto constAttr = DenseElementsAttr::get(constType, vec);
 
   auto const_op =
-      rewriter.create<mhlo::ConstOp>(op->getLoc(), constType, const_attr);
+      rewriter.create<mhlo::ConstOp>(op->getLoc(), constType, constAttr);
   return const_op.getResult();
 }
 
@@ -158,10 +159,14 @@ std::vector<Value> getDimSizesOfTensor(
   auto currentKnowledge = ValueKnowledge::getKnowledgeFromType(value.getType());
   std::vector<Value> dimSizes;
   if (!currentKnowledge.hasRank) {
+    op->emitOpError("getDimSizesOfTensor(): the input is not a ranked tensor");
+    return dimSizes;
+  }
+  auto rank = currentKnowledge.sizes.size();
+  if (rank == 0) {
     return dimSizes;
   }
 
-  auto rank = currentKnowledge.sizes.size();
   auto dims = normalizeDimIndex(inpDims, rank);
   dimSizes.reserve(rank);
   auto loc = op->getLoc();
@@ -182,24 +187,22 @@ std::vector<Value> getDimSizesOfTensor(
   auto currentKnowledge = ValueKnowledge::getKnowledgeFromType(value.getType());
   std::vector<Value> dimSizes;
   if (!currentKnowledge.hasRank) {
+    op->emitOpError("getDimSizesOfTensor(): the input is not a ranked tensor");
+    return dimSizes;
+  }
+  auto rank = currentKnowledge.sizes.size();
+  if (rank == 0) {
     return dimSizes;
   }
 
-  auto rank = currentKnowledge.sizes.size();
   dimSizes.reserve(rank);
   auto loc = op->getLoc();
   for (auto d = 0; d < rank; ++d) {
     auto d_size = currentKnowledge.sizes[d];
-    // if (d_size == ShapedType::kDynamicSize) {
     dimSizes.emplace_back(rewriter.create<arith::IndexCastOp>(
         loc,
         rewriter.getI32Type(),
         rewriter.create<tensor::DimOp>(loc, value, d)));
-    // } else {
-    //   dimSizes.emplace_back(
-    //     rewriter.create<arith::ConstantOp>(
-    //       loc, rewriter.getI32IntegerAttr(d_size)));
-    // }
   }
   return dimSizes;
 }

@@ -1099,6 +1099,88 @@ LogicalResult ConvertAtenOp<ValueTensorLiteralOp>::matchAndRewrite(
 }
 
 template <>
+LogicalResult ConvertAtenOp<AtenPermuteOp>::matchAndRewrite(
+    AtenPermuteOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  // Not a ranked tensor type
+  auto selfType = adaptor.self().getType().dyn_cast<RankedTensorType>();
+  if (!selfType)
+    return op.emitError(
+        "Only ranked tensor types with static shapes are currently supported");
+
+  SmallVector<int64_t> dimListInt;
+  if (!matchPattern(adaptor.dims(), m_TorchConstantIntList(dimListInt)))
+    return rewriter.notifyMatchFailure(
+        op, "Only constant dimensions are currently supported");
+
+  Value transposed =
+      mhlo::getPermutedTensor(rewriter, op, adaptor.self(), dimListInt);
+
+  rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
+      op, getTypeConverter()->convertType(op.getType()), transposed);
+
+  return success();
+}
+
+template <>
+LogicalResult ConvertAtenOp<AtenTOp>::matchAndRewrite(
+    AtenTOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  // Not a ranked tensor type
+  auto selfType = adaptor.self().getType().dyn_cast<RankedTensorType>();
+  if (!selfType)
+    return op.emitError("Only ranked tensor types are currently supported");
+
+  if (selfType.getRank() != 2)
+    return rewriter.notifyMatchFailure(op, "Only 2-rank tensors are allowed");
+
+  Value transposed =
+      mhlo::getPermutedTensor(rewriter, op, adaptor.self(), {1, 0});
+
+  rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
+      op, getTypeConverter()->convertType(op.getType()), transposed);
+
+  return success();
+}
+
+template <>
+LogicalResult ConvertAtenOp<AtenTransposeIntOp>::matchAndRewrite(
+    AtenTransposeIntOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  // Not a ranked tensor type
+  auto selfType = adaptor.self().getType().dyn_cast<RankedTensorType>();
+  if (!selfType)
+    return op.emitError("Only ranked tensor types are currently supported");
+
+  if (selfType.getRank() < 2)
+    return rewriter.notifyMatchFailure(op, "Expect tensor rank greater than 1");
+
+  int64_t dim0, dim1;
+  if (!matchPattern(op.dim0(), m_TorchConstantInt(&dim0)))
+    return rewriter.notifyMatchFailure(
+        op, "Only constant dim0 are currently supported");
+  if (!matchPattern(op.dim1(), m_TorchConstantInt(&dim1)))
+    return rewriter.notifyMatchFailure(
+        op, "Only constant dim1 are currently supported");
+
+  auto rank = selfType.getRank();
+  dim0 = (dim0 + rank) % rank;
+  dim1 = (dim1 + rank) % rank;
+  auto permutations = RangeIndices(0, rank);
+  std::swap(permutations[dim0], permutations[dim1]);
+
+  Value transposed =
+      mhlo::getPermutedTensor(rewriter, op, adaptor.self(), permutations);
+  rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
+      op, getTypeConverter()->convertType(op.getType()), transposed);
+
+  return success();
+}
+
+template <>
 LogicalResult ConvertAtenOp<AtenLog2Op>::matchAndRewrite(
     AtenLog2Op op,
     OpAdaptor adaptor,
@@ -1855,7 +1937,9 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(ValueTensorLiteralOp);
     // INSERT_ATENOP_PATTERN(AtenReshapeOp);
     // INSERT_ATENOP_PATTERN(AtenFlattenUsingIntsOp);
-    // INSERT_ATENOP_PATTERN(AtenPermuteOp);
+    INSERT_ATENOP_PATTERN(AtenPermuteOp);
+    INSERT_ATENOP_PATTERN(AtenTOp);
+    INSERT_ATENOP_PATTERN(AtenTransposeIntOp);
     INSERT_ATENOP_PATTERN(AtenLog2Op);
     // INSERT_ATENOP_PATTERN(AtenUnsqueezeOp);
     INSERT_ATENOP_PATTERN(AtenDropoutOp);

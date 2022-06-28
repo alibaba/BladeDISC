@@ -14,14 +14,19 @@ from typing import List
 import unittest
 
 from torch_blade import tools
-from tests.disc.testing_base import DiscTestCase
+from tests.disc.testing_base import DiscTestCase, isTorchMlirEnable
 
 
 class TestDiscPermutation(DiscTestCase):
     def _test_permute(self, reshape_func, dtype=None, x=None):
+        dtype=torch.float if dtype is None else dtype
         x = torch.randn([2, 3, 224, 224], dtype=dtype, device=self.device) if x is None else x
         test_data = (x,)
-        self._test_cvt_to_disc(reshape_func, test_data)
+        if len(x.shape) > 0:
+            annotations = [([-1] * len(x.shape), dtype)]
+        else:
+            annotations = []
+        self._test_disc(reshape_func, annotations, test_data)
 
     def test_transpose(self):
         @torch.jit.script
@@ -41,9 +46,10 @@ class TestDiscPermutation(DiscTestCase):
         def transpose(x):
             return x.t()
 
-        self._test_permute(transpose, x=torch.tensor(5, device=self.device))
-        self._test_permute(transpose, x=torch.randn([], device=self.device))
-        self._test_permute(transpose, x=torch.randn([5], device=self.device))
+        if not isTorchMlirEnable():
+            self._test_permute(transpose, x=torch.tensor(5, device=self.device))
+            self._test_permute(transpose, x=torch.randn([], device=self.device))
+            self._test_permute(transpose, x=torch.randn([5], device=self.device))
         self._test_permute(transpose, x=torch.randn([3, 4], device=self.device))
 
     def test_permute(self):

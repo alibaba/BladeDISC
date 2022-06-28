@@ -124,6 +124,12 @@ llvm::Optional<Value> getMhloShapeOfTensor(
     Value value);
 
 Value getNumelOfTensor(PatternRewriter& rewriter, Operation* op, Value value);
+
+Value getPermutedTensor(
+    PatternRewriter& rewriter,
+    Operation* op,
+    Value input,
+    ArrayRef<int64_t> inpTransDims);
 } // namespace mhlo
 } // namespace mlir
 

@@ -16,6 +16,7 @@
 #include <mlir/CAPI/IR.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
+
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 
 #include "common_utils/logging.h"
@@ -364,7 +365,9 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
         /*opPrintingFlags*/ print_flags);
   }
   ::mlir::torch::Torch::TorchLoweringPipelineOptions options;
+  options.decompose = false;
   ::mlir::torch::Torch::createTorchFunctionToTorchBackendPipeline(pm, options);
+
   if (mlir::failed(pm.run(mlir_module))) {
     mlir_module.emitError() << "TorchFunctionToTorchBackendPipeline failed";
     return std::make_tuple("", "", "", "");

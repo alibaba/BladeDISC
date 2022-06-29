@@ -171,6 +171,12 @@ void TorchConversion::createTorchBackendToMhloBackendPipeline(
     const Torch::TorchLoweringPipelineOptions& options) {
   // Check some invariants to catch errors in a clear way.
   pm.addPass(createVerifyInvariantsBeforeBackendLoweringPass());
+  // add decompose passes
+  pm.addNestedPass<func::FuncOp>(createDiscDecomposeComplexOpsPass());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  pm.addNestedPass<func::FuncOp>(Torch::createDecomposeComplexOpsPass());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+
   pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToMhloPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToSCFPass());

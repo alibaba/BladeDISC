@@ -169,8 +169,10 @@ std::unique_ptr<OperationPass<ModuleOp>> mlir::torch::TorchConversion::
 void TorchConversion::createTorchBackendToMhloBackendPipeline(
     OpPassManager& pm,
     const Torch::TorchLoweringPipelineOptions& options) {
-  options.decompose = false;
-  ::mlir::torch::Torch::createTorchFunctionToTorchBackendPipeline(pm, options);
+  ::mlir::torch::Torch::TorchLoweringPipelineOptions funcOptions;
+  funcOptions.decompose = false;
+  ::mlir::torch::Torch::createTorchFunctionToTorchBackendPipeline(
+      pm, funcOptions);
 
   // Check some invariants to catch errors in a clear way.
   pm.addPass(createVerifyInvariantsBeforeBackendLoweringPass());

@@ -33,7 +33,6 @@ bool IsTorchMlirSupported(const torch::jit::Node& node) {
 
 // clang-format off
 std::unordered_set<std::string> GetTorchMlirWhiteList() {
-  // clang-format off
   return std::unordered_set<std::string>{
       "aten::__and__",
       "aten::add",

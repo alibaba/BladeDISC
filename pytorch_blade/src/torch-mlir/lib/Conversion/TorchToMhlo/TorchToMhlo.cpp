@@ -208,14 +208,6 @@ inline mlir::DenseIntElementsAttr BuildI64ElementsAttr(
   return mlir::DenseIntElementsAttr::get(ty, values);
 }
 
-inline SmallVector<int64_t, 4> RangeIndices(int64_t min, int64_t max) {
-  SmallVector<int64_t, 4> range;
-  for (int64_t k = min; k < max; ++k) {
-    range.push_back(k);
-  }
-  return range;
-}
-
 Value scalarToMhloTensor(
     ConversionPatternRewriter& rewriter,
     Operation* op,
@@ -1036,6 +1028,285 @@ LogicalResult ConvertAtenOp<AtenPowTensorScalarOp>::matchAndRewrite(
   return success();
 }
 
+// Perform the basic n-dim matmul operation encompassing the handling of
+// broadcasting and dynamic shape propagation.
+// All PyTorch ops that leverage matrix multiplication will derive this and
+// implement their specialized input processing (e.g transpose), and output
+// processing, e.g. GEMM or fully connected bias handling.
+template <typename AtenOpT>
+class ConvertAtenMatmulBaseOp : public OpConversionPattern<AtenOpT> {
+ public:
+  using OpConversionPattern<AtenOpT>::OpConversionPattern;
+  using OpAdaptor = typename AtenOpT::Adaptor;
+  // Each variant must implement corresponding parameter parsing options.
+  // Maintain separate input read functions for each variant because it is not
+  // necessarily true with all variants that the first two operands are the lhs
+  // and rhs.
+  virtual LogicalResult readMatMulInputs(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter,
+      Value& lhs,
+      Value& rhs) const {
+    return rewriter.notifyMatchFailure(
+        op,
+        "Unimplemented matrix multiplication variant input parsing function");
+  }
+  LogicalResult performMatmul(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter,
+      Value& lhs,
+      Value& rhs,
+      Value& output) const {
+    auto lhsTy = lhs.getType().cast<RankedTensorType>();
+    auto rhsTy = rhs.getType().cast<RankedTensorType>();
+
+    auto lhsRank = lhsTy.getRank();
+    auto rhsRank = rhsTy.getRank();
+
+    auto lhsShape = lhsTy.getShape();
+    auto rhsShape = rhsTy.getShape();
+
+    auto lhsElemTy = lhsTy.getElementType();
+    auto rhsElemTy = rhsTy.getElementType();
+
+    if (lhsElemTy != rhsElemTy)
+      return op.emitError("Matmul: input datatypes mismatched");
+    if (lhsRank < 1 || rhsRank < 1) {
+      return op.emitError("Matmul: inputs can't be 0-rank");
+    }
+
+    llvm::Optional<Value> product = llvm::None;
+    if (rhsRank == 1) {
+      if (lhsRank == 1) {
+        // If both tensors are 1-dimensional, the dot product (scalar) is
+        // returned.
+        auto unsqzLhs = mhlo::getUnsqueezedTensor(rewriter, op, lhs, {0});
+        product = mhlo::getMvDotProduct(rewriter, op, *unsqzLhs, rhs);
+        product = mhlo::getZeroRankTensor(rewriter, op, *product);
+      } else {
+        // If the first argument is 2-dimensional and the second argument is
+        // 1-dimensional, the matrix-vector product is returned.
+        // NB: if lhsRank > 2 reshape it to rank 2.
+        product = mhlo::getMvDotProduct(rewriter, op, lhs, rhs);
+      }
+    } else if (rhsRank == 2) {
+      if (lhsRank == 1) {
+        // If the first argument is 1-dimensional, a 1 is prepended to its
+        // dimension for the purpose of the batched matrix multiply and removed
+        // after.
+        auto unsqzLhs = mhlo::getUnsqueezedTensor(rewriter, op, lhs, {0});
+        product = mhlo::getMmDotProduct(rewriter, op, *unsqzLhs, rhs);
+        std::vector<Value> collapDimSizes;
+        std::tie(product, collapDimSizes) =
+            mhlo::getCollapsedTensor(rewriter, op, *product, {-2, -1});
+      } else {
+        // If both arguments are 2-dimensional, the matrix-matrix product is
+        // returned. NB: if lhsRank > 2 reshape it to rank 2.
+        product = mhlo::getMmDotProduct(rewriter, op, lhs, rhs);
+      }
+    } else {
+      // rhsRank > 2
+      if (lhsRank == 1) {
+        // If the first argument is 1-dimensional, a 1 is prepended to its
+        // dimension for the purpose of the batched matrix multiply and removed
+        // after.
+        auto unsqzLhs = mhlo::getUnsqueezedTensor(rewriter, op, lhs, {0});
+        product = mhlo::getBmmDotProduct(rewriter, op, *unsqzLhs, rhs);
+        std::vector<Value> collapDimSizes;
+        std::tie(product, collapDimSizes) =
+            mhlo::getCollapsedTensor(rewriter, op, *product, {-2, -1});
+      } else {
+        product = mhlo::getBmmDotProduct(rewriter, op, lhs, rhs);
+      }
+    }
+    if (product) {
+      output = *product;
+    } else {
+      return op.emitError("Matmul: conversion failed");
+    }
+    return success();
+  }
+
+  // The default version just reads two inputs, computes output and returns it.
+  // Other versions may add a bias, apply GEMM-style alpha/beta scaling etc.
+  virtual LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
+    Value lhs, rhs;
+
+    if (failed(readMatMulInputs(op, adaptor, rewriter, lhs, rhs)))
+      return op.emitError("Failed to read matmul inputs");
+
+    Value output;
+
+    if (failed(performMatmul(op, adaptor, rewriter, lhs, rhs, output)))
+      return op.emitError("Failed to perform matmul operation");
+
+    rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
+        op,
+        OpConversionPattern<AtenOpT>::getTypeConverter()
+            ->convertType(op.getType())
+            .template cast<RankedTensorType>(),
+        output);
+
+    return success();
+  }
+};
+
+// Legalizes the torch.matmul op for general n-dim matmul.
+template <typename AtenOpT>
+class ConvertAtenMatMulOp : public ConvertAtenMatmulBaseOp<AtenOpT> {
+ public:
+  using ConvertAtenMatmulBaseOp<AtenOpT>::ConvertAtenMatmulBaseOp;
+  using OpAdaptor = typename AtenOpT::Adaptor;
+  LogicalResult readMatMulInputs(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter,
+      Value& lhs,
+      Value& rhs) const override {
+    lhs = adaptor.self();
+    auto lhsTy = lhs.getType().cast<RankedTensorType>();
+
+    rhs = adaptor.other();
+    auto rhsTy = rhs.getType().cast<RankedTensorType>();
+
+    if (!lhsTy || !rhsTy)
+      return op.emitError("Only ranked tensor types supported in MHLO matmul");
+
+    return success();
+  }
+};
+
+// Implements handling of aten.mm and aten.bmm ops.
+template <typename AtenOpT>
+class ConvertAtenMmOp : public ConvertAtenMatmulBaseOp<AtenOpT> {
+ public:
+  using ConvertAtenMatmulBaseOp<AtenOpT>::ConvertAtenMatmulBaseOp;
+  using OpAdaptor = typename AtenOpT::Adaptor;
+  LogicalResult readMatMulInputs(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter,
+      Value& lhs,
+      Value& rhs) const override {
+    lhs = adaptor.self();
+    auto lhsTy = lhs.getType().cast<RankedTensorType>();
+
+    rhs = adaptor.mat2();
+    auto rhsTy = rhs.getType().cast<RankedTensorType>();
+
+    if (!lhsTy || !rhsTy)
+      return op.emitError("Only ranked tensor types supported in MHLO matmul");
+
+    auto lhsRank = lhsTy.getRank();
+    auto rhsRank = rhsTy.getRank();
+
+    if (isa<AtenMmOp>(op)) {
+      // Mm takes two 2D tensors.
+      if (lhsRank != 2 || rhsRank != 2)
+        return op.emitError("aten.mm called but matrix rank != 2");
+    } else if (isa<AtenBmmOp>(op)) {
+      // Bmm takes two 3D tensors.
+      if (lhsRank != 3 || rhsRank != 3)
+        return op.emitError("aten.bmm called but matrix rank != 3");
+    }
+
+    return success();
+  }
+};
+
+// Implements handling of aten.linear op.
+template <typename AtenOpT>
+class ConvertAtenLinearOp : public ConvertAtenMatmulBaseOp<AtenOpT> {
+ public:
+  using ConvertAtenMatmulBaseOp<AtenOpT>::ConvertAtenMatmulBaseOp;
+  using OpAdaptor = typename AtenOpT::Adaptor;
+  LogicalResult readMatMulInputs(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter,
+      Value& lhs,
+      Value& rhs) const override {
+    lhs = adaptor.input();
+    auto lhsTy = lhs.getType().cast<RankedTensorType>();
+
+    rhs = adaptor.weight();
+    auto rhsTy = rhs.getType().cast<RankedTensorType>();
+
+    if (!lhsTy || !rhsTy)
+      return op.emitError("Only ranked tensor types supported in MHLO matmul");
+
+    auto lhsRank = lhsTy.getRank();
+    auto rhsRank = rhsTy.getRank();
+
+    if (lhsRank != 2 && lhsRank != 3)
+      return op.emitError("aten.Linear called but input rank not 2 or 3");
+    if (rhsRank != 2 && rhsRank != 3)
+      return op.emitError("aten.Linear called but weight rank not 2 or 3");
+
+    return success();
+  }
+  // Override the default rewriter to perform RHS transpose and bias addition
+  // as well.
+  LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
+    Value lhs, rhs;
+
+    if (failed(readMatMulInputs(op, adaptor, rewriter, lhs, rhs)))
+      return op.emitError("Failed to read matmul inputs");
+
+    // The aten.Linear op has a bias tensor that is added to the matmul
+    // output.
+    auto bias = adaptor.bias();
+    auto biasTy = bias.getType();
+
+    // MHLO does not mandate that elementwise op tensors need to be ranked.
+    if (!biasTy.template isa<Torch::NoneType>() &&
+        !biasTy.template isa<TensorType>())
+      return op.emitError(
+          "Only tensor types supported in GEMM to "
+          "MHLO for bias tensor");
+
+    // weight.T
+    auto weightT = mhlo::getPermutedTensor(rewriter, op, rhs, {1, 0});
+    auto product = mhlo::getMmDotProduct(rewriter, op, lhs, weightT);
+    Value matmulOutput;
+    if (product) {
+      matmulOutput = *product;
+    } else {
+      return op.emitError("Failed to perform matmul operation");
+    }
+
+    Value matmulPlusBias = matmulOutput;
+    if (!biasTy.template isa<Torch::NoneType>()) {
+      // Bias addition broadcasts to the matmul output shape.
+      matmulPlusBias = rewriter
+                           .create<chlo::BroadcastAddOp>(
+                               op->getLoc(),
+                               matmulOutput.getType(),
+                               matmulOutput,
+                               bias,
+                               nullptr)
+                           .getResult();
+    }
+
+    rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
+        op,
+        OpConversionPattern<AtenOpT>::getTypeConverter()
+            ->convertType(op.getType())
+            .template cast<RankedTensorType>(),
+        matmulPlusBias);
+
+    return success();
+  }
+};
+
 template <>
 LogicalResult ConvertAtenOp<AtenRsubScalarOp>::matchAndRewrite(
     AtenRsubScalarOp op,
@@ -1169,7 +1440,7 @@ LogicalResult ConvertAtenOp<AtenTransposeIntOp>::matchAndRewrite(
   auto rank = selfType.getRank();
   dim0 = (dim0 + rank) % rank;
   dim1 = (dim1 + rank) % rank;
-  auto permutations = RangeIndices(0, rank);
+  auto permutations = mhlo::rangeIndices(0, rank);
   std::swap(permutations[dim0], permutations[dim1]);
 
   Value transposed =
@@ -1370,7 +1641,7 @@ LogicalResult ConvertAtenOp<AtenBroadcastToOp>::matchAndRewrite(
 
   auto mhloShape = rewriter.create<mlir::tensor::FromElementsOp>(loc, dimsSize);
   auto broadcastDims =
-      BuildI64ElementsAttr(rewriter, RangeIndices(leadingRank, newRank));
+      BuildI64ElementsAttr(rewriter, mhlo::rangeIndices(leadingRank, newRank));
   rewriter.replaceOpWithNewOp<mhlo::DynamicBroadcastInDimOp>(
       op,
       getTypeConverter()->convertType(op.getType()),
@@ -1918,6 +2189,25 @@ class ConvertTorchToMhlo
   patterns.add<ConvertAtenFillScalarOp<AtenOp>>(typeConverter, context);
     INSERT_FILL_SCALAR_PATTERN(AtenFill_ScalarOp);
 #undef INSERT_FILL_SCALAR_PATTERN
+
+#define INSERT_MATMUL_ATENOP_PATTERN(AtenOp) \
+  target.addIllegalOp<AtenOp>();             \
+  patterns.add<ConvertAtenMatMulOp<AtenOp>>(typeConverter, context);
+    INSERT_MATMUL_ATENOP_PATTERN(AtenMatmulOp);
+#undef INSERT_MATMUL_ATEMOP_PATTERN
+
+#define INSERT_MM_ATENOP_PATTERN(AtenOp) \
+  target.addIllegalOp<AtenOp>();         \
+  patterns.add<ConvertAtenMmOp<AtenOp>>(typeConverter, context);
+    INSERT_MM_ATENOP_PATTERN(AtenMmOp);
+    INSERT_MM_ATENOP_PATTERN(AtenBmmOp);
+#undef INSERT_MM_ATEMOP_PATTERN
+
+#define INSERT_LINEAR_ATENOP_PATTERN(AtenOp) \
+  target.addIllegalOp<AtenOp>();             \
+  patterns.add<ConvertAtenLinearOp<AtenOp>>(typeConverter, context);
+    INSERT_LINEAR_ATENOP_PATTERN(AtenLinearOp);
+#undef INSERT_LINEAR_ATEMOP_PATTERN
 
 #define INSERT_ATENOP_PATTERN(AtenOp) \
   target.addIllegalOp<AtenOp>();      \

@@ -11,6 +11,7 @@
 
 import unittest
 
+import torch
 from torch_blade.config import Config
 from torch_blade.testing.common_utils import TestCase
 
@@ -162,6 +163,24 @@ class TestConfig(TestCase):
             self.assertEqual(now_cfg.dynamic_tuning_shapes[1]['max'], shapes2['max'])
             self.assertEqual(now_cfg.dynamic_tuning_shapes[1]['opts'], shapes2['opts'])
 
+    def test_dynamic_tuning_inputs(self):
+        min_inp = {1: torch.tensor(1)}
+        max_inp = {3: torch.tensor(3)}
+        opt_inp = {2: torch.tensor(1)}
+        cfg = Config()
+        cfg.dynamic_tuning_inputs = {
+            "min": [min_inp],
+            "max": [max_inp],
+            "opts": [
+                [opt_inp]
+            ]
+        }
+        with cfg:
+            trt_dynamic_inputs = Config.get_current_context_or_new().dynamic_tuning_inputs
+            self.assertEqual(len(trt_dynamic_inputs), 1)
+            self.assertEqual(trt_dynamic_inputs[0]['min'], [min_inp])
+            self.assertEqual(trt_dynamic_inputs[0]['max'], [max_inp])
+            self.assertEqual(trt_dynamic_inputs[0]['opts'], [[opt_inp]])
 
     def test_customize_onnx_version(self):
         self._test_numeric_config('customize_onnx_opset_version', 9, -1)

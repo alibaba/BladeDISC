@@ -71,6 +71,15 @@ def _validate_extra_dynamic_ranges(val):
     return val
 
 
+def _validate_dynamic_inputs(val):
+    if isinstance(val, dict):
+        val = [val]
+    assert isinstance(val, list), "dynamic inputs must be Dict or List of Dict"
+    for v in val:
+        assert "min" in v and "max" in v and "opts" in v, "min/max/opt should be set for dynamic inputs."
+    return val
+
+
 class ConfigContext(ContextDecorator):
     context = threading.local()
     context.dict = defaultdict(list)
@@ -304,6 +313,15 @@ class Config(ConfigContext):
     def dynamic_tuning_shapes(self, val):
         val = _validate_dynamic_ranges(val)
         self._dynamic_tuning_shapes = val
+
+    @property
+    def dynamic_tuning_inputs(self):
+        return self._dynamic_tuning_inputs
+
+    @dynamic_tuning_inputs.setter
+    def dynamic_tuning_inputs(self, val):
+        val = _validate_dynamic_inputs(val)
+        self._dynamic_tuning_inputs = val
 
     @property
     def extra_dynamic_tuning_shapes(self):

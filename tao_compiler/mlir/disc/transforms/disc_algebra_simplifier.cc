@@ -16,6 +16,7 @@
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/Matchers.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
@@ -29,6 +30,63 @@
 namespace mlir {
 namespace disc_ral {
 namespace {
+
+// Returns true if a tensor is constant and all its elements are equal to
+// `elemVal`
+bool allElementsAreSameValue(Value tensor, int64_t elemVal) {
+  auto definingOp = tensor.getDefiningOp();
+  if (!definingOp) return false;
+  if (isa<mhlo::BroadcastOp, mhlo::BroadcastInDimOp,
+          mhlo::DynamicBroadcastInDimOp>(definingOp)) {
+    return allElementsAreSameValue(definingOp->getOperand(0), elemVal);
+  }
+  DenseElementsAttr denseAttr;
+  if (!matchPattern(tensor, m_Constant(&denseAttr))) return false;
+  if (denseAttr.getNumElements() != 1 && !denseAttr.isSplat()) return false;
+
+  Type elemTy = denseAttr.getElementType();
+  if (elemTy.isIntOrIndex()) {
+    return (*denseAttr.getValues<APInt>().begin()).getSExtValue() == elemVal;
+  } else if (elemTy.isa<FloatType>()) {
+    return (*denseAttr.getValues<APFloat>().begin()).convertToDouble() ==
+           elemVal;
+  }
+  return false;
+}
+
+// `x + 0` or `0 + x` could be simplified to `x`
+struct AddZeroTensorOp : public OpRewritePattern<mhlo::AddOp> {
+  using OpRewritePattern<mhlo::AddOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mhlo::AddOp op,
+                                PatternRewriter& rewriter) const override {
+    if (allElementsAreSameValue(op.lhs(), 0)) {
+      rewriter.replaceOp(op, op.rhs());
+    } else if (allElementsAreSameValue(op.rhs(), 0)) {
+      rewriter.replaceOp(op, op.lhs());
+    } else {
+      return failure();
+    }
+    return success();
+  }
+};
+
+// `x * 1` or `1 * x` could be simplified to `x`
+struct MulOneTensorOp : public OpRewritePattern<mhlo::MulOp> {
+  using OpRewritePattern<mhlo::MulOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mhlo::MulOp op,
+                                PatternRewriter& rewriter) const override {
+    if (allElementsAreSameValue(op.lhs(), 1)) {
+      rewriter.replaceOp(op, op.rhs());
+    } else if (allElementsAreSameValue(op.rhs(), 1)) {
+      rewriter.replaceOp(op, op.lhs());
+    } else {
+      return failure();
+    }
+    return success();
+  }
+};
 
 // convert:
 //   mhlo.pow(x, const integer n)
@@ -296,6 +354,12 @@ void populateDiscAlgebraSimplifierPatterns(RewritePatternSet& patterns) {
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastInDimOp>,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastOp>,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::DynamicBroadcastInDimOp>
+  >(patterns.getContext());
+
+  // zero tensor related patterns
+  patterns.insert<
+    AddZeroTensorOp,
+    MulOneTensorOp
   >(patterns.getContext());
   // clang-format on
 }

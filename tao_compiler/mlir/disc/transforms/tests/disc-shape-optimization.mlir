@@ -165,6 +165,47 @@ func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?xf32>) -> tensor<?x?xf32> 
 
 // -----
 
+// Test arith.cmpi + arith::muli + arith::add
+// CHECK-LABEL: main
+func @main(%arg0: tensor<?x?x?xf32>) -> (index, index) {
+  // CHECK: %c0 = arith.constant 0 : index
+  // CHECK: return %c0, %c0 : index
+  %c-1 = arith.constant -1 : index
+  %c2 = arith.constant 2 : index
+  %c1 = arith.constant 1 : index
+  %c0 = arith.constant 0 : index
+  %0 = tensor.dim %arg0, %c0 : tensor<?x?x?xf32>
+  %1 = tensor.dim %arg0, %c1 : tensor<?x?x?xf32>
+  %2 = tensor.dim %arg0, %c2 : tensor<?x?x?xf32>
+  %3 = arith.muli %0, %1 : index
+  %4 = arith.addi %3, %2 : index
+  %5 = arith.cmpi eq, %4, %c-1 : index
+  %6 = arith.select %5, %c1, %c0 : index
+  %7 = arith.addi %4, %c1 : index
+  %8 = arith.cmpi eq, %7, %c0 : index
+  %9 = arith.select %8, %c1, %c0 : index
+  return %6, %9 : index, index
+}
+
+// -----
+
+// Test arith.cmpi + tie_shape
+// CHECK-LABEL: main
+func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<2xindex>) -> (tensor<?x?xf32>, index) {
+  // CHECK: %[[C0:.*]] = arith.constant 0 : index
+  // CHECK: return %[[RET0:.*]], %[[C0]]
+  %c-1 = arith.constant -1 : index
+  %c1 = arith.constant 1 : index
+  %c0 = arith.constant 0 : index
+  %0 = "mhlo.dynamic_reshape"(%arg0, %arg1) : (tensor<?x?x?xf32>, tensor<2xindex>) -> tensor<?x?xf32>
+  %1 = tensor.extract %arg1[%c0] : tensor<2xindex>
+  %2 = arith.cmpi eq, %1, %c-1 : index
+  %3 = arith.select %2, %c1, %c0 : index
+  return %0, %3 : tensor<?x?xf32>, index
+}
+
+// -----
+
 // Test disc_shape.tie_product_equal op case 1
 // CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32, [@[[S0:.*]], @[[S1:.*]]]>, %[[ARG1:.*]]: tensor<1xindex>, %[[ARG2:.*]]: tensor<3xindex>) -> tensor<?x?x?xf32, [@[[S3:.*]], @[[S4:.*]], @[[S5:.*]]]>

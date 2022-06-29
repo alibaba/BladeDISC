@@ -1,4 +1,5 @@
 # common bazel flags
+startup --host_jvm_args=-Djdk.http.auth.tunneling.disabledSchemes=
 common --color=yes
 common --experimental_ui_max_stdouterr_bytes=5242880
 common --experimental_repo_remote_exec

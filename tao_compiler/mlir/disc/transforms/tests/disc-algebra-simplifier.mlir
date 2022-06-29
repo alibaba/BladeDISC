@@ -150,3 +150,30 @@ func @dynamic_broadcast_in_dim_of_reshape(%arg0: tensor<?x?xf32, [@S0, @S1]>, %a
 "disc_shape.SymbolicDim"() {sym_name = "S2", value = -1 : i64} : () -> ()
 "disc_shape.SymbolicDim"() {sym_name = "C1", value = 1 : i64} : () -> ()
 
+// -----
+
+// x + 0 = x
+
+// CHECK-LABEL: @add_zero_tensor
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32>, %[[ARG1:.*]]: tensor<2xindex>) -> tensor<?x?xf32>
+func @add_zero_tensor(%arg0 : tensor<?x?xf32>, %arg1 : tensor<2xindex>) -> tensor<?x?xf32> {
+  // CHECK: return %[[ARG0]] : tensor<?x?xf32>
+  %0 = mhlo.constant dense<0.0> : tensor<f32>
+  %1 = "mhlo.dynamic_broadcast_in_dim"(%0, %arg1) {broadcast_dimensions = dense<[]> : tensor<0xi64>} : (tensor<f32>, tensor<2xindex>) -> tensor<?x?xf32>
+  %2 = mhlo.add %1, %arg0 : tensor<?x?xf32>
+  return %2 : tensor<?x?xf32>
+}
+
+// -----
+// x * 1 = x
+
+// CHECK-LABEL: @mul_one_tensor
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32>, %[[ARG1:.*]]: tensor<2xindex>) -> tensor<?x?xf32>
+func @mul_one_tensor(%arg0 : tensor<?x?xf32>, %arg1 : tensor<2xindex>) -> tensor<?x?xf32> {
+  // CHECK: return %[[ARG0]] : tensor<?x?xf32>
+  %0 = mhlo.constant dense<1.0> : tensor<f32>
+  %1 = "mhlo.dynamic_broadcast_in_dim"(%0, %arg1) {broadcast_dimensions = dense<[]> : tensor<0xi64>} : (tensor<f32>, tensor<2xindex>) -> tensor<?x?xf32>
+  %2 = mhlo.multiply %1, %arg0 : tensor<?x?xf32>
+  return %2 : tensor<?x?xf32>
+}
+

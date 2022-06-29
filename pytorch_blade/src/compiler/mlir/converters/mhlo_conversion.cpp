@@ -335,7 +335,6 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
 
   mlir::OpPrintingFlags print_flags;
   print_flags.elideLargeElementsAttrs();
-  print_flags.enableDebugInfo(/*prettyForm*/ true);
 
   bool enable_printing =
       env::ReadBoolFromEnvVar("TORCH_BLADE_MHLO_DEBUG_LOG", false);
@@ -350,29 +349,7 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
   auto builder = ::mlir::OpBuilder(&mlir_context);
   mlir_module.push_back(unwrap(op));
 
-  ::mlir::PassManager pm(
-      &mlir_context, ::mlir::OpPassManager::Nesting::Implicit);
-  if (enable_printing) {
-    pm.enableIRPrinting(
-        /*shouldPrintBeforePass*/ [](mlir::Pass*,
-                                     mlir::Operation*) { return true; },
-        /*shouldPrintAfterPasss*/
-        [](mlir::Pass*, mlir::Operation*) { return true; },
-        /*printModuleScope*/ false,
-        /*printAfterOnlyOnChange*/ true,
-        /*printAfterOnlyOnFailure*/ false,
-        /*out*/ ::llvm::errs(),
-        /*opPrintingFlags*/ print_flags);
-  }
   ::mlir::torch::Torch::TorchLoweringPipelineOptions options;
-  options.decompose = false;
-  ::mlir::torch::Torch::createTorchFunctionToTorchBackendPipeline(pm, options);
-
-  if (mlir::failed(pm.run(mlir_module))) {
-    mlir_module.emitError() << "TorchFunctionToTorchBackendPipeline failed";
-    return std::make_tuple("", "", "", "");
-  }
-
   ::mlir::PassManager pm2(
       &mlir_context, ::mlir::OpPassManager::Nesting::Implicit);
   if (enable_printing) {

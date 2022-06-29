@@ -16,6 +16,7 @@ limitations under the License.
 
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "tensorflow/core/util/env_var.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -187,6 +188,17 @@ SmallVector<Value, 4> GetAllPossibleUsedValues(Operation* op) {
     }
   });
   return values;
+}
+
+bool useShapeConstraintIR() {
+  static bool enabled = []() {
+    bool enable_shape_constraint_ir = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_SHAPE_CONSTRAINT_IR",
+                                   enable_shape_constraint_ir,
+                                   &enable_shape_constraint_ir);
+    return enable_shape_constraint_ir;
+  }();
+  return enabled;
 }
 
 }  // namespace disc_ral

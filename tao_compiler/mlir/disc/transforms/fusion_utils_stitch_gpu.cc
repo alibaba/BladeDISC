@@ -57,233 +57,6 @@ Value StitchGpuFusionStrategy::getEffectiveShape(FusionPattern& target,
   return isa<lmhlo::ReduceOp>(result_op) ? result_op->getOperand(0) : v;
 }
 
-bool StitchGpuFusionStrategy::tileInfoPropagateI2O(
-    ShapeAnalysis& shapeAnalysis, DenseMap<Value, TileInfo>& tile_plan,
-    Operation* op, int64_t input_index,
-    SmallVector<std::pair<Value, TileInfo>, 4>& out_info) {
-  if (isa<lmhlo::ConstOp>(op)) {
-    return true;
-  }
-  if (isElementWise(op) ||
-      isa<lmhlo::RealDynamicSliceOp, lmhlo::SliceOp, lmhlo::ConcatenateOp>(
-          op)) {
-    Value in_value = op->getOperand(input_index);
-    Value out_value = cast<lmhlo::LmhloOp>(op).getResultBuffer();
-    auto tile_info = tile_plan[in_value];
-    out_info.emplace_back(out_value, tile_info);
-  } else if (isa<lmhlo::BroadcastInDimOp, lmhlo::DynamicBroadcastInDimOp>(op)) {
-    if (input_index != 0) {
-      return true;
-    }
-    Value in_value = op->getOperand(0);
-    Value out_value = cast<lmhlo::LmhloOp>(op).getResultBuffer();
-    auto& in_tile = tile_plan[in_value];
-    TileInfo out_tile;
-    auto dimAttr = op->getAttrOfType<DenseElementsAttr>("broadcast_dimensions");
-    assert(dimAttr);
-    auto dimensions = dimAttr.getValues<int64_t>();
-    DenseSet<int64_t> dim_set(dimensions.begin(), dimensions.end());
-    // Tiled dims should be minor dims in `broadcast_dimensions`.
-    // Broadcasted dims after tiled dims are all tiled.
-    DenseMap<int64_t, int64_t> broadcast_dim_o2i;
-    for (auto en : llvm::enumerate(dimensions)) {
-      broadcast_dim_o2i[en.value()] = en.index();
-    }
-    int64_t rank = out_value.getType().cast<MemRefType>().getRank();
-    bool tile_start = false;
-    for (int64_t i = 0; i < rank; i++) {
-      auto may_indim = broadcast_dim_o2i.find(i);
-      if (!tile_start) {
-        tile_start = may_indim != broadcast_dim_o2i.end() &&
-                     in_tile.tileSizes.find(may_indim->second) !=
-                         in_tile.tileSizes.end();
-      }
-      if (tile_start) {
-        if (may_indim != broadcast_dim_o2i.end() &&
-            in_tile.tileSizes.find(may_indim->second) ==
-                in_tile.tileSizes.end()) {
-          // Non-tiled dim becomes minor than tiled dim.
-          LLVM_DEBUG(llvm::dbgs() << "forward propagation failed: " << *op);
-          return false;
-        } else {
-          out_tile.tileSizes[i] = ShapedType::kDynamicSize;
-        }
-      }
-    }
-    out_info.emplace_back(out_value, out_tile);
-  } else if (isa<lmhlo::BroadcastOp>(op)) {
-    if (input_index != 0) {
-      return true;
-    }
-    Value in_value = op->getOperand(0);
-    Value out_value = cast<lmhlo::LmhloOp>(op).getResultBuffer();
-    auto& in_tile = tile_plan[in_value];
-    TileInfo out_tile;
-    auto sizesAttr = op->getAttrOfType<DenseElementsAttr>("broadcast_sizes");
-    assert(sizesAttr);
-    auto sizes = sizesAttr.getValues<int64_t>();
-    int64_t length = sizes.end() - sizes.begin();
-    for (auto in_tile_pair : in_tile.tileSizes) {
-      out_tile.tileSizes[in_tile_pair.first + length] = in_tile_pair.second;
-    }
-    out_info.emplace_back(out_value, out_tile);
-  } else if (isa<lmhlo::DynamicReshapeOp>(op)) {
-    if (input_index != 0) {
-      return true;
-    }
-    SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>> dim_eq;
-    Value in_value = op->getOperand(0);
-    Value out_value = cast<lmhlo::LmhloOp>(op).getResultBuffer();
-    int64_t in_rank = in_value.getType().cast<MemRefType>().getRank();
-    int64_t out_rank = out_value.getType().cast<MemRefType>().getRank();
-
-    if (!shapeAnalysis.extractContinuousDimEqualInfo(in_value, out_value,
-                                                     dim_eq)) {
-      return false;
-    }
-
-    auto& in_tile = tile_plan[in_value];
-    TileInfo out_tile;
-    int64_t in_tiles_left = in_tile.tileSizes.size();
-    int64_t in_non_tiles_left = in_rank - in_tiles_left;
-    DenseSet<int64_t> out_ranks_mapped;
-    for (auto equal : dim_eq) {
-      SmallVector<int64_t> ins = equal.first;
-      SmallVector<int64_t> outs = equal.second;
-      out_ranks_mapped.insert(outs.begin(), outs.end());
-      bool is_tiled = (in_tile.tileSizes.count(ins[0]) != 0);
-      for (int64_t i = 1; i < ins.size(); i++) {
-        if ((in_tile.tileSizes.count(ins[i]) != 0) != is_tiled) {
-          // Delinearized dims are not consistent about tiling, meaning some
-          // are tiled and some other are not tiled. This breaks propagation.
-          LLVM_DEBUG(llvm::dbgs() << "forward propagation failed: " << *op);
-          return false;
-        }
-      }
-      if (is_tiled) {
-        for (auto out : outs) {
-          out_tile.tileSizes[out] = ShapedType::kDynamicSize;
-        }
-        in_tiles_left -= ins.size();
-      } else {
-        in_non_tiles_left -= ins.size();
-      }
-    }
-
-    if (in_non_tiles_left == 0) {
-      if (in_tiles_left != 0) {
-        // Sometimes, we failed to map all equal relationships. Since we know
-        // all non-tiled dims in equal-map are processed, all dims not in
-        // equal-map are tiled.
-        for (int64_t i = 0; i < out_rank; i++) {
-          if (!out_ranks_mapped.contains(i)) {
-            out_tile.tileSizes[i] = ShapedType::kDynamicSize;
-          }
-        }
-      }
-    } else if (in_tiles_left != 0) {
-      // This means some dims not in i2o-map are tiled. But we cannot figure
-      // out who are they...
-      LLVM_DEBUG(llvm::dbgs() << "forward propagation failed: " << *op);
-      return false;
-    }
-    out_info.emplace_back(out_value, out_tile);
-  } else if (isa<lmhlo::DynamicGatherOp, lmhlo::GatherOp>(op)) {
-    Value in_value = op->getOperand(0);
-    Value out_value = cast<lmhlo::LmhloOp>(op).getResultBuffer();
-    int64_t in_rank = in_value.getType().cast<MemRefType>().getRank();
-    int64_t out_rank = out_value.getType().cast<MemRefType>().getRank();
-    auto gather = dyn_cast<lmhlo::GatherOp>(op);
-    auto d_gather = dyn_cast<lmhlo::DynamicGatherOp>(op);
-    auto dimension_numbers =
-        gather ? gather.dimension_numbers() : d_gather.dimension_numbers();
-    auto collapsed_slice_dims = dimension_numbers.getCollapsedSliceDims();
-    auto offset_dims = dimension_numbers.getOffsetDims();
-
-    SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>> dim_eq;
-    // Non-collapsed dims.
-    // Map index of offset_dims to operand.
-    SmallVector<int64_t, 4> remapped_offset_dims;
-    DenseSet<int64_t> collapsed_set(collapsed_slice_dims.begin(),
-                                    collapsed_slice_dims.end());
-    for (int64_t i = 0; i < in_rank; i++) {
-      if (collapsed_set.contains(i)) {
-        continue;
-      }
-      remapped_offset_dims.push_back(i);
-    }
-    for (auto offset : llvm::enumerate(offset_dims)) {
-      dim_eq.emplace_back(
-          SmallVector<int64_t>({remapped_offset_dims[offset.index()]}),
-          SmallVector<int64_t>({offset.value()}));
-    }
-    // Collapsed dims.
-    SmallVector<int64_t> batch_dims;
-    DenseSet<int64_t> offset_dim_set(offset_dims.begin(), offset_dims.end());
-    for (int64_t i = 0; i < out_rank; ++i) {
-      if (!offset_dim_set.contains(i)) {
-        batch_dims.push_back(i);
-      }
-    }
-    SmallVector<int64_t> collapsed_slice_dims_vec(collapsed_slice_dims.begin(),
-                                                  collapsed_slice_dims.end());
-    dim_eq.emplace_back(collapsed_slice_dims_vec, batch_dims);
-
-    // TODO: the logic is the same with reshape. Rewrite as a function.
-    auto& in_tile = tile_plan[in_value];
-    TileInfo out_tile;
-    int64_t in_tiles_left = in_tile.tileSizes.size();
-    int64_t in_non_tiles_left = in_rank - in_tiles_left;
-    DenseSet<int64_t> out_ranks_mapped;
-    for (auto equal : dim_eq) {
-      SmallVector<int64_t> ins = equal.first;
-      SmallVector<int64_t> outs = equal.second;
-      out_ranks_mapped.insert(outs.begin(), outs.end());
-      bool is_tiled = (in_tile.tileSizes.count(ins[0]) != 0);
-      for (int64_t i = 1; i < ins.size(); i++) {
-        if ((in_tile.tileSizes.count(ins[i]) != 0) != is_tiled) {
-          // The grouped dims are not consistent about tiling, meaning some
-          // are tiled and some other are not tiled. This breaks propagation.
-          LLVM_DEBUG(llvm::dbgs() << "forward propagation failed: " << *op);
-          return false;
-        }
-      }
-      if (is_tiled) {
-        for (auto out : outs) {
-          out_tile.tileSizes[out] = ShapedType::kDynamicSize;
-        }
-        in_tiles_left -= ins.size();
-      } else {
-        in_non_tiles_left -= ins.size();
-      }
-    }
-
-    // TODO: gather op do not need the following logic?
-    if (in_non_tiles_left == 0) {
-      if (in_tiles_left != 0) {
-        // Sometimes, we failed to map all equal relationships. Since we know
-        // all non-tiled dims in equal-map are processed, all dims not in
-        // equal-map are tiled.
-        for (int64_t i = 0; i < out_rank; i++) {
-          if (!out_ranks_mapped.contains(i)) {
-            out_tile.tileSizes[i] = ShapedType::kDynamicSize;
-          }
-        }
-      }
-    } else if (in_tiles_left != 0) {
-      // This means some dims not in i2o-map are tiled. But we cannot figure
-      // out who are they...
-      LLVM_DEBUG(llvm::dbgs() << "forward propagation failed: " << *op);
-      return false;
-    }
-    out_info.emplace_back(out_value, out_tile);
-  } else {
-    LLVM_DEBUG(llvm::dbgs() << "forward propagation failed: " << *op);
-    return false;
-  }
-  return true;
-}
-
 bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
     ShapeAnalysis& shapeAnalysis, DenseMap<Value, TileInfo>& tile_plan,
     Operation* op, SmallVector<std::pair<Value, TileInfo>, 4>& in_info,
@@ -347,57 +120,112 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
     Value out_value = cast<lmhlo::LmhloOp>(op).getResultBuffer();
     int64_t in_rank = in_value.getType().cast<MemRefType>().getRank();
     int64_t out_rank = out_value.getType().cast<MemRefType>().getRank();
-    if (!shapeAnalysis.extractContinuousDimEqualInfo(in_value, out_value,
-                                                     dim_eq)) {
-      return false;
-    }
 
-    auto& out_tile = tile_plan[out_value];
-    TileInfo in_tile;
-
-    int64_t out_tiles_left = out_tile.tileSizes.size();
-    int64_t out_non_tiles_left = out_rank - out_tiles_left;
-    DenseSet<int64_t> in_ranks_mapped;
-    for (auto equal : dim_eq) {
-      SmallVector<int64_t> ins = equal.first;
-      SmallVector<int64_t> outs = equal.second;
-      in_ranks_mapped.insert(ins.begin(), ins.end());
-      bool is_tiled = (out_tile.tileSizes.count(outs[0]) != 0);
-      // Make sure tile-info of all out dims are consistent.
-      for (int64_t i = 1; i < outs.size(); i++) {
-        if ((out_tile.tileSizes.count(outs[i]) != 0) != is_tiled) {
-          LLVM_DEBUG(llvm::dbgs() << "tile backprop failed: " << *op);
-          return false;
-        }
+    if (auto analysis_deprecated =
+            dynamic_cast<ShapeAnalysisDeprecated*>(&shapeAnalysis)) {
+      auto& shapeAnalysis = *analysis_deprecated;
+      if (!shapeAnalysis.extractContinuousDimEqualInfo(in_value, out_value,
+                                                       dim_eq)) {
+        return false;
       }
-      if (is_tiled) {
-        for (auto in : ins) {
-          in_tile.tileSizes[in] = ShapedType::kDynamicSize;
-        }
-        out_tiles_left -= outs.size();
-      } else {
-        out_non_tiles_left -= outs.size();
-      }
-    }
 
-    if (out_non_tiles_left == 0) {
-      if (out_tiles_left != 0) {
-        // Sometimes, we failed to map all equal relationships. Since we know
-        // all non-tiled dims in equal-map are processed when reach here, all
-        // dims not in equal-map are tiled.
-        for (int64_t i = 0; i < in_rank; i++) {
-          if (!in_ranks_mapped.contains(i)) {
-            in_tile.tileSizes[i] = ShapedType::kDynamicSize;
+      auto& out_tile = tile_plan[out_value];
+      TileInfo in_tile;
+
+      int64_t out_tiles_left = out_tile.tileSizes.size();
+      int64_t out_non_tiles_left = out_rank - out_tiles_left;
+      DenseSet<int64_t> in_ranks_mapped;
+      for (auto equal : dim_eq) {
+        SmallVector<int64_t> ins = equal.first;
+        SmallVector<int64_t> outs = equal.second;
+        in_ranks_mapped.insert(ins.begin(), ins.end());
+        bool is_tiled = (out_tile.tileSizes.count(outs[0]) != 0);
+        // Make sure tile-info of all out dims are consistent.
+        for (int64_t i = 1; i < outs.size(); i++) {
+          if ((out_tile.tileSizes.count(outs[i]) != 0) != is_tiled) {
+            LLVM_DEBUG(llvm::dbgs() << "tile backprop failed: " << *op);
+            return false;
           }
         }
+        if (is_tiled) {
+          for (auto in : ins) {
+            in_tile.tileSizes[in] = ShapedType::kDynamicSize;
+          }
+          out_tiles_left -= outs.size();
+        } else {
+          out_non_tiles_left -= outs.size();
+        }
       }
-    } else if (out_tiles_left != 0) {
-      // This means some dims not in o2i-map are tiled. But we cannot figure
-      // out who are they...
-      LLVM_DEBUG(llvm::dbgs() << "tile backprop failed: " << *op);
-      return false;
+
+      if (out_non_tiles_left == 0) {
+        if (out_tiles_left != 0) {
+          // Sometimes, we failed to map all equal relationships. Since we know
+          // all non-tiled dims in equal-map are processed when reach here, all
+          // dims not in equal-map are tiled.
+          for (int64_t i = 0; i < in_rank; i++) {
+            if (!in_ranks_mapped.contains(i)) {
+              in_tile.tileSizes[i] = ShapedType::kDynamicSize;
+            }
+          }
+        }
+      } else if (out_tiles_left != 0) {
+        // This means some dims not in o2i-map are tiled. But we cannot figure
+        // out who are they...
+        LLVM_DEBUG(llvm::dbgs() << "tile backprop failed: " << *op);
+        return false;
+      }
+      in_info.emplace_back(in_value, in_tile);
+    } else {
+      bool last_is_tiled = false;
+      auto& out_tile = tile_plan[out_value];
+      // Partition output dims according to tile information to make sure
+      // each group is continuous and is either tiled or non-tiled.
+      SmallVector<int> out_group_end_dims;
+      auto outShape = out_value.getType().cast<MemRefType>().getShape();
+      for (int i = 0; i < out_rank; ++i) {
+        if (out_tile.tileSizes.count(i) == 0) {
+          if (!last_is_tiled) continue;
+          // ignore size-1 dim between tiled dims.
+          if (outShape[i] == 1) continue;
+          last_is_tiled = false;
+          out_group_end_dims.push_back(i);
+        } else {
+          if (last_is_tiled) continue;
+          last_is_tiled = true;
+          if (i != 0) out_group_end_dims.push_back(i);
+        }
+      }
+
+      TileInfo in_tile;
+      int last_map_input_dim = 0;
+      int last_map_output_dim = 0;
+      for (int out_group_end_dim : out_group_end_dims) {
+        bool matched = false;
+        for (int i = last_map_input_dim; i <= in_rank; ++i) {
+          if (shapeAnalysis.isProductEqual(out_value, last_map_output_dim,
+                                           out_group_end_dim, in_value,
+                                           last_map_input_dim, i)) {
+            last_map_input_dim = i;
+            last_map_output_dim = out_group_end_dim;
+            if (out_tile.tileSizes.count(last_map_output_dim) != 0) {
+              for (int inIdx = last_map_input_dim; inIdx < i; ++inIdx) {
+                in_tile.tileSizes[inIdx] = ShapedType::kDynamicSize;
+              }
+            }
+            matched = true;
+            break;
+          }
+        }
+        if (!matched) return false;
+      }
+
+      if (last_is_tiled) {
+        for (int inIdx = last_map_input_dim; inIdx < in_rank; ++inIdx) {
+          in_tile.tileSizes[inIdx] = ShapedType::kDynamicSize;
+        }
+      }
+      in_info.emplace_back(in_value, in_tile);
     }
-    in_info.emplace_back(in_value, in_tile);
   } else if (isa<lmhlo::TransposeOp>(op)) {
     auto transpose = cast<lmhlo::TransposeOp>(op);
     auto permutation = transpose.permutation().getValues<int64_t>();
@@ -562,7 +390,7 @@ bool StitchGpuFusionStrategy::findFusionPatternTypeAndSubroot(
             Value shape = getEffectiveShape(fusion_pattern, result);
             return isRank2RowReduction(op)
                        ? shapeAnalysis.isShapeEqual(ref_shape, shape)
-                       : shapeAnalysis.HasSameNumElements(ref_shape, shape);
+                       : shapeAnalysis.isSameNumElements(ref_shape, shape);
           })) {
         fusion_type = FusionType::kStitch;
       }
@@ -579,7 +407,7 @@ bool StitchGpuFusionStrategy::findFusionPatternTypeAndSubroot(
             Value shape = getEffectiveShape(fusion_pattern, result);
             return isRank2ColReduction(op)
                        ? shapeAnalysis.isShapeEqual(ref_shape, shape)
-                       : shapeAnalysis.HasSameNumElements(ref_shape, shape);
+                       : shapeAnalysis.isSameNumElements(ref_shape, shape);
           })) {
         return false;
       }
@@ -606,7 +434,7 @@ bool StitchGpuFusionStrategy::findFusionPatternTypeAndSubroot(
         Value ref_shape = getEffectiveShape(fusion_pattern, results[0]);
         if (!llvm::all_of(results, [&](Value result) {
               Value shape = getEffectiveShape(fusion_pattern, result);
-              return shapeAnalysis.HasSameNumElements(ref_shape, shape);
+              return shapeAnalysis.isSameNumElements(ref_shape, shape);
             })) {
           return false;
         }
@@ -674,66 +502,110 @@ bool StitchGpuFusionStrategy::tileXroots(ShapeAnalysis& shapeAnalysis,
   const auto& dominant = fusion_pattern.getDominantOp()->getOperand(0);
   auto& dominant_tile = tile_plan[dominant];
   const auto& results = fusion_pattern.getResults();
+
+  SmallVector<int> dominant_non_tiled_dims;
+  for (int i = 0; i < dominant.getType().cast<MemRefType>().getRank(); ++i) {
+    if (dominant_tile.tileSizes.count(i) == 0) {
+      dominant_non_tiled_dims.push_back(i);
+    } else {
+      // Suppose that non-tiled dims are the continuous most-major dims.
+      // TODO(disc): change this once we support sub-roots other than
+      // row-reduction.
+      break;
+    }
+  }
   for (auto res : results) {
     bool irregular = false;
     Operation* op = fusion_pattern.findLastWriter(res);
     if (subroots_set.contains(op)) {
       continue;
     }
-    // Find equal dims between res and a sub-root.
-    SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>> equal;
-    shapeAnalysis.extractContinuousDimEqualInfo(dominant, res, equal);
-    int64_t dominant_non_tiled_dim_matched_n = 0;
-    DenseSet<int64_t> res_non_tiled_dims;
-    for (auto eq_dim : equal) {
-      auto lhs = eq_dim.first;
-      bool non_tiled = (dominant_tile.tileSizes.count(lhs[0]) == 0);
-      for (int64_t i = 1; i < lhs.size(); i++) {
-        if ((dominant_tile.tileSizes.count(lhs[i]) == 0) != non_tiled) {
-          // Both tiled and non-tiled dims are mapped to the same dim of res,
-          // thus cannot determine the tile plan for res;
-          irregular_xroots.insert(op);
-          irregular = true;
+    if (auto analysis_deprecated =
+            dynamic_cast<ShapeAnalysisDeprecated*>(&shapeAnalysis)) {
+      auto& shapeAnalysis = *analysis_deprecated;
+      // Find equal dims between res and a sub-root.
+      SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>> equal;
+      shapeAnalysis.extractContinuousDimEqualInfo(dominant, res, equal);
+      int64_t dominant_non_tiled_dim_matched_n = 0;
+      DenseSet<int64_t> res_non_tiled_dims;
+      for (auto eq_dim : equal) {
+        auto lhs = eq_dim.first;
+        bool non_tiled = (dominant_tile.tileSizes.count(lhs[0]) == 0);
+        for (int64_t i = 1; i < lhs.size(); i++) {
+          if ((dominant_tile.tileSizes.count(lhs[i]) == 0) != non_tiled) {
+            // Both tiled and non-tiled dims are mapped to the same dim of res,
+            // thus cannot determine the tile plan for res;
+            irregular_xroots.insert(op);
+            irregular = true;
+            break;
+          }
+        }
+        if (irregular) {
           break;
+        }
+        if (non_tiled) {
+          res_non_tiled_dims.insert(eq_dim.second.begin(), eq_dim.second.end());
+          dominant_non_tiled_dim_matched_n += lhs.size();
         }
       }
       if (irregular) {
-        break;
+        continue;
+      } else if (dominant_non_tiled_dim_matched_n != 1) {
+        // Check constraint: the element-number of non-tiled dims are the same
+        // between sub-roots and regular xroots. If not every non-tiled dim is
+        // matched between sub-root and current op, it is an irregular xroot.
+        // Note we know that sub-root is reduction and has only 1 non-tiled dim.
+        irregular_xroots.insert(op);
+        continue;
+      } else if (*std::max_element(res_non_tiled_dims.begin(),
+                                   res_non_tiled_dims.end()) !=
+                 res_non_tiled_dims.size() - 1) {
+        // Check constraint: the tiled dims are all minor dims for all regular
+        // xroot ops. This means the non-tiled dims should all be the major
+        // dims.
+        irregular_xroots.insert(op);
+        continue;
       }
-      if (non_tiled) {
-        res_non_tiled_dims.insert(eq_dim.second.begin(), eq_dim.second.end());
-        dominant_non_tiled_dim_matched_n += lhs.size();
-      }
-    }
-    if (irregular) {
-      continue;
-    } else if (dominant_non_tiled_dim_matched_n != 1) {
-      // Check constraint: the element-number of non-tiled dims are the same
-      // between sub-roots and regular xroots. If not every non-tiled dim is
-      // matched between sub-root and current op, it is an irregular xroot. Note
-      // we know that sub-root is reduction and has only 1 non-tiled dim.
-      irregular_xroots.insert(op);
-      continue;
-    } else if (*std::max_element(res_non_tiled_dims.begin(),
-                                 res_non_tiled_dims.end()) !=
-               res_non_tiled_dims.size() - 1) {
-      // Check constraint: the tiled dims are all minor dims for all regular
-      // xroot ops. This means the non-tiled dims should all be the major dims.
-      irregular_xroots.insert(op);
-      continue;
-    }
 
-    auto& plan = tile_plan[res];
-    int64_t rank = res.getType().cast<MemRefType>().getRank();
-    for (int64_t i = 0; i < rank; i++) {
-      if (res_non_tiled_dims.count(i) == 0) {
-        // Note that we only log whether a dimension is tiled or not. We do not
-        // care about the tiling size. Thus we set all tiled dims with with the
-        // value `kDynamicSize`.
+      auto& plan = tile_plan[res];
+      int64_t rank = res.getType().cast<MemRefType>().getRank();
+      for (int64_t i = 0; i < rank; i++) {
+        if (res_non_tiled_dims.count(i) == 0) {
+          // Note that we only log whether a dimension is tiled or not. We do
+          // not care about the tiling size. Thus we set all tiled dims with
+          // with the value `kDynamicSize`.
+          plan.tileSizes[i] = ShapedType::kDynamicSize;
+        }
+      }
+      regular_xroots.insert(op);
+    } else {
+      int last_non_tied_dim = -1;
+      SmallVector<int> res_non_tiled_dims;
+      int result_rank = res.getType().cast<MemRefType>().getRank();
+      do {
+        if (shapeAnalysis.isProductEqual(dominant, dominant_non_tiled_dims, res,
+                                         res_non_tiled_dims)) {
+          break;
+        }
+        ++last_non_tied_dim;
+        res_non_tiled_dims.push_back(last_non_tied_dim);
+      } while (last_non_tied_dim < result_rank);
+
+      if (last_non_tied_dim >= result_rank) {
+        irregular = true;
+        irregular_xroots.insert(op);
+        continue;
+      }
+
+      auto& plan = tile_plan[res];
+      for (int i = last_non_tied_dim + 1; i < result_rank; ++i) {
+        // Note that we only log whether a dimension is tiled or not. We do
+        // not care about the tiling size. Thus we set all tiled dims with
+        // with the value `kDynamicSize`.
         plan.tileSizes[i] = ShapedType::kDynamicSize;
       }
+      regular_xroots.insert(op);
     }
-    regular_xroots.insert(op);
   }
 
   // Check constraint: all the external-only-roots should be regular. This is

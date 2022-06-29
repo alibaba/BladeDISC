@@ -535,6 +535,12 @@ struct CopyLikeOpConvertor : public OpRewritePattern<OpTy> {
 
     Value newValue = CastMemRefTo(rewriter, loc, dispatchOp->getResult(0),
                                   targetType, dimSizes);
+    if (Operation* resultDefiningOp = result.getDefiningOp()) {
+      auto attrName = disc_shape::SymbolicDimOp::getSymbolicDimAttrName();
+      if (resultDefiningOp->hasAttr(attrName))
+        newValue.getDefiningOp()->setAttr(attrName,
+                                          resultDefiningOp->getAttr(attrName));
+    }
 
     // replace non-shape-consumer users of original result
     for (Operation* user : users) user->replaceUsesOfWith(result, newValue);

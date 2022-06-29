@@ -1,35 +1,38 @@
 name: AMD-Workflow 
 
-on: 
-  workflow_dispatch:
-    inputs:
-      logLevel:
-        description: 'Log level'     
-        required: true
-        default: 'warning' 
-        type: choice
-        options:
-        - info
-        - warning
-        - debug 
-      tags:
-        description: 'Test scenario tags'
-        required: false 
-        type: boolean
-      environment:
-        description: 'Environment to run tests against'
-        type: environment
-        required: true 
+on: workflow_dispatch
 
 jobs:
-  log-the-inputs:
-    runs-on: ubuntu-latest
+  AMD:
+    if: github.repository == 'alibaba/BladeDISC'
+    # The type of runner that the job will run on
+    runs-on: [self-hosted, amd-gpu]
+    # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-      - run: |
-          echo "Log level: $LEVEL"
-          echo "Tags: $TAGS"
-          echo "Environment: $ENVIRONMENT"
-        env:
-          LEVEL: ${{ inputs.logLevel }}
-          TAGS: ${{ inputs.tags }}
-          ENVIRONMENT: ${{ inputs.environment }}
+    # Runs a single command using the runners shell
+    - name: Checkout
+      uses: actions/checkout@v2.4.0
+    - name: Build Dev Docker
+      run: |
+        set -e
+        source $HOME/.cache/proxy_config
+        git submodule sync
+        git submodule update --depth=1 --init --recursive
+        docker build -t disc-dev-cpu \
+          --build-arg BASEIMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04 \
+          --build-arg DISC_HOST_TF_VERSION="tensorflow==1.15.5" \
+          --build-arg DEVICE=cpu \
+          --build-arg HTTPS_PROXY=${HTTPS_PROXY} \
+          -f docker/dev/Dockerfile .
+    - name: Build And Test
+      run: |
+        set -e
+        docker run --rm -t --user $(id -u):$(id -g) \
+          -v /apsara/github-ci/.cache:$HOME/.cache \
+          -v /etc/passwd:/etc/passwd:ro \
+          -v /etc/group:/etc/group:ro \
+          -v $PWD:/disc \
+          -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
+          -e BLADE_DISC_RUNNING_AMD=ON \
+          -w /disc \
+          disc-dev-cpu bash -c "bash ./scripts/ci/build_and_test.sh --cpu-only" 

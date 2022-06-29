@@ -31,46 +31,55 @@ bool IsTorchMlirSupported(const torch::jit::Node& node) {
   return false;
 }
 
+// clang-format off
 std::unordered_set<std::string> GetTorchMlirWhiteList() {
   // clang-format off
   return std::unordered_set<std::string>{
-    "aten::__and__",
-    "aten::add",
-    "aten::bitwise_not",
-    "aten::contiguous",
-    "aten::div",
-    "aten::empty",
-    "aten::eq",
-    "aten::erf",
-    "aten::exp",
-    "aten::expand",
-    "aten::expand_as",
-    "aten::floor_divide",
-    "aten::gelu",
-    "aten::glu",
-    "aten::hardtanh",
-    "aten::leaky_relu",
-    "aten::lt",
-    "aten::mean"
-    "aten::mul",
-    "aten::ne",
-    "aten::neg",
-    "aten::neg",
-    "aten::relu",
-    "aten::relu6",
-    "aten::repeat",
-    "aten::rsqrt",
-    "aten::sigmoid",
-    "aten::silu",
-    "aten::size",
-    "aten::sub",
-    "aten::sum",
-    "aten::to",
-    "aten::to.dtype",
-    "aten::type_as",
-    "prim::Constant"};
-  // clang-format on
+      "aten::__and__",
+      "aten::add",
+      "aten::addmm",
+      "aten::bitwise_not",
+      "aten::bmm",
+      "aten::contiguous",
+      "aten::div",
+      "aten::eq",
+      "aten::erf",
+      "aten::exp",
+      "aten::expand",
+      "aten::expand_as",
+      "aten::floor_divide",
+      "aten::gelu",
+      "aten::glu",
+      "aten::hardtanh",
+      "aten::leaky_relu",
+      "aten::linear",
+      "aten::lt",
+      "aten::matmul",
+      "aten::mean",
+      "aten::mm",
+      "aten::mul",
+      "aten::ne",
+      "aten::neg",
+      "aten::neg",
+      "aten::permute",
+      "aten::relu",
+      "aten::relu6",
+      "aten::repeat",
+      "aten::rsqrt",
+      "aten::sigmoid",
+      "aten::silu",
+      "aten::size",
+      "aten::sub",
+      "aten::sum",
+      "aten::t",
+      "aten::to",
+      "aten::to.dtype",
+      "aten::transpose",
+      "aten::type_as",
+      "prim::Constant"
+  };
 }
+// clang-format off
 
 } //  namespace blade
 } //  namespace torch

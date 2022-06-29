@@ -19,6 +19,7 @@
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/MLIRContext.h"  // TF:llvm-project
 #include "mlir/Pass/Pass.h"       // TF:local_config_mlir
+#include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
@@ -29,6 +30,7 @@ namespace mlir {
 namespace disc_ral {
 namespace {
 
+using disc_shape::SymbolicDimOp;
 using lmhlo::DynamicBroadcastInDimOp;
 using lmhlo::FusionOp;
 
@@ -91,10 +93,72 @@ Value createViewLike(OpBuilder& b, Location loc, Value from, Value to) {
   return CastMemRefTo(b, loc, from, targetType, toShape);
 }
 
+struct ShapeConstraintIRCloneContext {
+  BlockAndValueMapping valueMapping;
+  DenseMap<Value, SmallVector<SymbolicDimOp>> value2Symbols;
+  DenseMap<SymbolicDimOp, SymbolicDimOp> symbolMapping;
+  SymbolicDimMgr* mgr = nullptr;
+};
+
+FusionOp cloneFusion(OpBuilder& b, FusionOp op,
+                     ShapeConstraintIRCloneContext* ctx = nullptr) {
+  if (ctx == nullptr) {
+    return dyn_cast<FusionOp>(b.clone(*op.getOperation()));
+  }
+
+  SymbolTable& table = ctx->mgr->symbolTable();
+  DenseSet<SymbolicDimOp> originalSymbols;
+  // 1, create a local view of original (dynamic shape) buffers.
+  for (Operation& op : op.region().front()) {
+    for (Value operand : op.getOperands()) {
+      auto ty = operand.getType().dyn_cast<MemRefType>();
+      // skip staitc shape buffers.
+      if (!ty || ty.hasStaticShape()) continue;
+      if (ctx->valueMapping.lookupOrNull(operand)) continue;
+      auto symbols = getMemRefValueSymbolicDimRefs(operand);
+      if (!symbols) continue;
+      ctx->valueMapping.map(operand,
+                            createViewLike(b, op.getLoc(), operand, operand));
+      auto& symbolOps = ctx->value2Symbols[operand];
+      for (const auto& sym : *symbols) {
+        auto symOp = table.lookup<SymbolicDimOp>(sym.getValue());
+        assert(symOp);
+        originalSymbols.insert(symOp);
+        symbolOps.push_back(symOp);
+      }
+    }
+  }
+  // 2, clone symbol group
+  auto status = ctx->mgr->cloneSymbolGroup(originalSymbols, ctx->symbolMapping);
+  assert(!failed(status));
+
+  // 3, attach new symbol attrs for the cloned operands.
+  for (const auto& it : ctx->valueMapping.getValueMap()) {
+    auto symIt = ctx->value2Symbols.find(it.first);
+    assert(symIt != ctx->value2Symbols.end());
+    Operation* definingOp = it.second.getDefiningOp();
+    assert(definingOp != nullptr);
+    SmallVector<Attribute> newAttrs;
+    SmallVector<SymbolicDimOp> newSymbols;
+    for (SymbolicDimOp sym : symIt->second) {
+      SymbolicDimOp newSymbol = ctx->symbolMapping[sym];
+      newSymbols.push_back(newSymbol);
+      newAttrs.push_back(FlatSymbolRefAttr::get(newSymbol));
+    }
+    auto symbolicShapeAttr = ArrayAttr::get(op->getContext(), newAttrs);
+    StringRef attrName = disc_shape::SymbolicDimOp::getSymbolicDimAttrName();
+    definingOp->setAttr(attrName, symbolicShapeAttr);
+    ctx->value2Symbols[it.second] = std::move(newSymbols);
+  }
+
+  return dyn_cast<FusionOp>(b.clone(*op.getOperation(), ctx->valueMapping));
+}
+
 FusionOp cloneWithBroadcastSimplifying(
     OpBuilder& b, FusionOp fusion_op,
-    SmallVectorImpl<Operation*>& broadcast_ops) {
-  FusionOp cloned = dyn_cast<FusionOp>(b.clone(*fusion_op.getOperation()));
+    SmallVectorImpl<Operation*>& broadcast_ops,
+    ShapeConstraintIRCloneContext* ctx = nullptr) {
+  FusionOp cloned = cloneFusion(b, fusion_op, ctx);
 
   // Collects all candidate broadcast ops inside the fusion op.
   cloned.walk([&](DynamicBroadcastInDimOp op) {
@@ -113,6 +177,17 @@ FusionOp cloneWithBroadcastSimplifying(
         continue;
       }
       user->replaceUsesOfWith(result, operand);
+      if (ctx != nullptr) {
+        auto lhsIt = ctx->value2Symbols.find(result);
+        auto rhsIt = ctx->value2Symbols.find(operand);
+        if (lhsIt == ctx->value2Symbols.end() ||
+            rhsIt == ctx->value2Symbols.end())
+          continue;
+
+        assert(lhsIt->second.size() == rhsIt->second.size());
+        for (const auto& z : llvm::zip(lhsIt->second, rhsIt->second))
+          ctx->mgr->mapSymbolicDimEqual(std::get<0>(z), std::get<1>(z));
+      }
     }
   }
   return cloned;
@@ -176,9 +251,11 @@ struct DiscSpecializeFusionWithSpeculationPass
 
     // Clone the fusion op and mark all candidate broadcast ops within the
     // fusion op.
+    ShapeConstraintIRCloneContext ctx;
+    ctx.mgr = symbolMgr.get();
     SmallVector<Operation*, 4> broadcast_ops;
-    FusionOp cloned =
-        cloneWithBroadcastSimplifying(b, fusion_op, broadcast_ops);
+    FusionOp cloned = cloneWithBroadcastSimplifying(
+        b, fusion_op, broadcast_ops, useShapeConstraintIR() ? &ctx : nullptr);
     addFusionTag(b, cloned, "no_ib");
 
     // Generate the predition.
@@ -205,32 +282,87 @@ struct DiscSpecializeFusionWithSpeculationPass
     fusion_op.getOperation()->moveBefore(else_block, else_block->begin());
 
     DenseMap<Value, Value> viewMap;
-    SmallVector<Operation*, 4> op_list;
-    for (Operation& op : cloned.region().front()) op_list.push_back(&op);
-    OpListShapeAnalysis op_list_shape_analysis(op_list);
-    for (Operation* op : op_list) {
-      for (Value operand : op->getOperands()) {
-        if (viewMap.find(operand) != viewMap.end()) continue;
-        Value leader =
-            op_list_shape_analysis.GetLeaderValueWithSameShape(operand);
-        if (!leader || leader == operand) continue;
-        // TODO(disc): handle mismatch type case
-        auto leaderTy = leader.getType().dyn_cast<MemRefType>();
-        auto operandTy = operand.getType().dyn_cast<MemRefType>();
-        if (!leaderTy || !operandTy ||
-            leaderTy.getRank() != operandTy.getRank())
-          continue;
-        bool sameShape = true;
-        for (auto&& en : llvm::zip(leaderTy.getShape(), operandTy.getShape())) {
-          if (std::get<0>(en) != std::get<1>(en)) {
-            sameShape = false;
-            break;
+    if (useShapeConstraintIR()) {
+      OpBuilder viewBuilder(cloned);
+      // build symbolicDimOp to its corresponding SSA value map
+      DenseMap<SymbolicDimOp, Value> symbolicDim2SSAValue;
+      for (Operation& op : cloned.region().front()) {
+        for (Value operand : op.getOperands()) {
+          auto it = ctx.value2Symbols.find(operand);
+          if (it == ctx.value2Symbols.end()) continue;
+          for (const auto& en : llvm::enumerate(it->second)) {
+            SymbolicDimOp rootSym = ctx.mgr->getRootSymbolicDim(en.value());
+            if (en.value() != rootSym) continue;
+            if (rootSym.isDynamic()) {
+              symbolicDim2SSAValue[rootSym] = viewBuilder.create<memref::DimOp>(
+                  op.getLoc(), operand, en.index());
+            } else {
+              symbolicDim2SSAValue[rootSym] =
+                  viewBuilder.create<arith::ConstantIndexOp>(
+                      op.getLoc(), rootSym.getDimSize());
+            }
           }
         }
-        if (!sameShape) continue;
-        OpBuilder viewBuilder(cloned);
-        viewMap[operand] =
-            createViewLike(viewBuilder, op->getLoc(), operand, leader);
+      }
+
+      for (Operation& op : cloned.region().front()) {
+        for (Value operand : op.getOperands()) {
+          if (viewMap.find(operand) != viewMap.end()) continue;
+          auto it = ctx.value2Symbols.find(operand);
+          if (it == ctx.value2Symbols.end()) continue;
+          SmallVector<int64_t> newShape;
+          SmallVector<Value> newShapeValues;
+          SmallVector<Attribute> newAttrs;
+          for (SymbolicDimOp sym : it->second) {
+            SymbolicDimOp rootSym = ctx.mgr->getRootSymbolicDim(sym);
+            newAttrs.push_back(FlatSymbolRefAttr::get(rootSym));
+            newShapeValues.push_back(symbolicDim2SSAValue[rootSym]);
+            newShape.push_back(rootSym.isDynamic() ? ShapedType::kDynamicSize
+                                                   : rootSym.getDimSize());
+          }
+          auto oldType = operand.getType().cast<MemRefType>();
+          auto newType =
+              MemRefType::get(newShape, oldType.getElementType(),
+                              oldType.getLayout(), oldType.getMemorySpace());
+          // TODO(disc): handle mismatch type case
+          if (newType != oldType) continue;
+          viewMap[operand] = CastMemRefTo(viewBuilder, op.getLoc(), operand,
+                                          newType, newShapeValues);
+          auto symbolicShapeAttr = ArrayAttr::get(op.getContext(), newAttrs);
+          StringRef attrName = SymbolicDimOp::getSymbolicDimAttrName();
+          viewMap[operand].getDefiningOp()->setAttr(attrName,
+                                                    symbolicShapeAttr);
+        }
+      }
+    } else {
+      SmallVector<Operation*, 4> op_list;
+      for (Operation& op : cloned.region().front()) op_list.push_back(&op);
+      OpListShapeAnalysis op_list_shape_analysis(op_list);
+      for (Operation* op : op_list) {
+        for (Value operand : op->getOperands()) {
+          if (viewMap.find(operand) != viewMap.end()) continue;
+          Value leader =
+              op_list_shape_analysis.GetLeaderValueWithSameShape(operand);
+          if (!leader || leader == operand) continue;
+          // TODO(disc): handle mismatch type case
+          auto leaderTy = leader.getType().dyn_cast<MemRefType>();
+          auto operandTy = operand.getType().dyn_cast<MemRefType>();
+          if (!leaderTy || !operandTy ||
+              leaderTy.getRank() != operandTy.getRank())
+            continue;
+          bool sameShape = true;
+          for (auto&& en :
+               llvm::zip(leaderTy.getShape(), operandTy.getShape())) {
+            if (std::get<0>(en) != std::get<1>(en)) {
+              sameShape = false;
+              break;
+            }
+          }
+          if (!sameShape) continue;
+          OpBuilder viewBuilder(cloned);
+          viewMap[operand] =
+              createViewLike(viewBuilder, op->getLoc(), operand, leader);
+        }
       }
     }
 
@@ -556,6 +688,22 @@ struct DiscSpecializeFusionWithSpeculationPass
   }
 
   void runOnOperation() override {
+    if (useShapeConstraintIR()) {
+      func::FuncOp func = getOperation();
+      // skip shape constraint graph
+      if (func.getName() ==
+          SymbolicDimMgr::getShapeConstraintGraphFunctionName())
+        return;
+
+      auto m = func->getParentOfType<ModuleOp>();
+      symbolMgr.reset(new SymbolicDimMgr(m));
+      if (failed(symbolMgr->load())) {
+        getOperation()->emitError() << "fail to load shape constraint IR\n";
+        signalPassFailure();
+        return;
+      }
+    }
+
     // Stage #1: broadcast simplifier with speculation.
     Speculator(
         &DiscSpecializeFusionWithSpeculationPass::DoBroadcastSpeculation);
@@ -573,7 +721,17 @@ struct DiscSpecializeFusionWithSpeculationPass
     // Stage #4: speculation of vectorization/tiling.
     Speculator(
         &DiscSpecializeFusionWithSpeculationPass::DoVectorizeOrTileSpeculation);
+
+    if (useShapeConstraintIR()) {
+      if (failed(symbolMgr->save())) {
+        getOperation()->emitError() << "fail to load shape constraint IR\n";
+        signalPassFailure();
+        return;
+      }
+    }
   }
+
+  std::shared_ptr<SymbolicDimMgr> symbolMgr;
 };
 
 }  // namespace

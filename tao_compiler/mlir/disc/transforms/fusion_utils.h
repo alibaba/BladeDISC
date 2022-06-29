@@ -496,8 +496,9 @@ struct ParallelInfo {
 
 class StitchCPUAnalysis {
  public:
-  explicit StitchCPUAnalysis(FusionPattern& fusionPattern)
-      : fusionPattern_(fusionPattern) {}
+  explicit StitchCPUAnalysis(FusionPattern& fusionPattern,
+                             ShapeAnalysis& shapeAnalysis)
+      : fusionPattern_(fusionPattern), shapeAnalysis_(shapeAnalysis) {}
 
   // Returns true if the fusion pattern is a valid stitch pattern.
   bool fusibilityAnalysis();
@@ -597,6 +598,7 @@ class StitchCPUAnalysis {
 
  private:
   FusionPattern& fusionPattern_;
+  ShapeAnalysis& shapeAnalysis_;
 
   // Used for roots dominant analysis
   Value dominantValue_;
@@ -648,10 +650,6 @@ class StitchGpuFusionStrategy : public FusionStrategy {
  private:
   virtual Value getEffectiveShape(FusionPattern& target, Value value);
 
-  bool tileInfoPropagateI2O(
-      ShapeAnalysis& shapeAnalysis, DenseMap<Value, TileInfo>& tile_plan,
-      Operation* op, int64_t input_index,
-      SmallVector<std::pair<Value, TileInfo>, 4>& out_info);
   bool tileCoverInfoPropagateO2I(
       ShapeAnalysis& shapeAnalysis, DenseMap<Value, TileInfo>& tile_plan,
       Operation* op, SmallVector<std::pair<Value, TileInfo>, 4>& in_info,

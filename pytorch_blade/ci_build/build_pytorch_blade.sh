@@ -54,7 +54,7 @@ function ci_build() {
     pytest tests tests -v -m "not ltc" 2>&1 | tee -a py_test.out
     TORCH_DISC_USE_TORCH_MLIR=true pytest tests/disc/ops/ -v -k \
              "TestDiscActivation or TestDiscUnaryOps or TestDiscBinaryOps or \
-              TestDiscBroadcast or TestDiscReduction"
+              TestDiscBroadcast or TestDiscReduction or TestDiscMatMul"
     # DEBUG=1 will trigger debug mode compilation
     DEBUG=1 python3 setup.py cpp_test 2>&1 | tee -a cpp_test.out;
     python3 setup.py bdist_wheel;

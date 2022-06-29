@@ -175,6 +175,7 @@ cc_library(
     deps = [
         ":cycle_detector",
         ":placement_utils",
+        "//tensorflow/core:lib",
         "@llvm-project//mlir:MemRefDialect",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Pass",
@@ -327,6 +328,7 @@ cc_library(
         ":codegen_utils",
         ":disc_lhlo_elemental_utils",
         ":disc_supported_list",
+        ":disc_util",
         ":fusion_utils",
         ":input_inline_fusion_pattern",
         ":pass_details",
@@ -527,6 +529,7 @@ cc_library(
     hdrs = ["transforms/passes.h"],
     deps = [
         ":codegen_utils",
+        ":disc_util",
         ":fusion_utils",
         ":pass_details",
         ":placement_utils",
@@ -676,6 +679,7 @@ cc_library(
     srcs = ["transforms/shape_utils.cc"],
     hdrs = ["transforms/shape_utils.h"],
     deps = [
+        ":disc_shape_optimization_utils",
         ":disc_util",
         ":mhlo_disc",
         ":pass_details",
@@ -721,6 +725,7 @@ cc_library(
     srcs = ["transforms/lhlo_fusion.cc"],
     deps = [
         ":disc_shape_optimization_utils",
+        ":disc_util",
         ":fusion_utils",
         ":pass_details",
         ":placement_utils",
@@ -1517,6 +1522,7 @@ cc_library(
     deps = [
         ":codegen_utils",
         ":disc_lhlo_elemental_utils",
+        ":disc_util",
         ":fusion_utils",
         ":pass_details",
         ":placement_utils",

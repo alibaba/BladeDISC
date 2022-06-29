@@ -133,10 +133,6 @@ def restore_gcc_conf(args):
 
 def configure_compiler(root, args):
     symlink_disc_files(args.platform_alibaba)
-    #symlink_files(root)
-    #if args.platform_alibaba:
-    #    symlink_internal_files(root)
-
     config_blade_gemm(root, args)
 
     def _action_env(key, value, cmd="build"):
@@ -269,7 +265,6 @@ def configure_bridge_bazel(root, args):
     # TODO(lanbo.llb): support tf_addons build with bazel
     # TODO(lanbo.llb): support TAO_DISABLE_LINK_TF_FRAMEWORK in bazel??
     tao_bazel_root = tao_bazel_dir(root)
-    #link_internal_tao_bridge(args)
     with gcc_env(args.bridge_gcc), open(os.path.join(tao_bazel_root, ".bazelrc_gen"), "w") as f:
 
         def _opt(opt, value, cmd="build"):

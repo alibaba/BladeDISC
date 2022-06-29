@@ -99,8 +99,6 @@ def check_init_file_miss(path, ignore_root=False):
 
 # No need to do cc check, since pre-commit do cc check with clang-format
 def check(args):
-    # every folder under python should contain a __init__.py file
-    # check tests dir
     check_init_file_miss("tests", ignore_root=True)
     execute("black --check --diff tests")
     execute("flake8 tf_blade/ tests/")

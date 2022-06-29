@@ -17,6 +17,7 @@
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
+#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
@@ -32,27 +33,51 @@ using namespace mlir::torch::Torch;
 using namespace mlir::torch::TorchConversion;
 
 namespace {
-class DecomposeAtenHardtanhOp : public OpRewritePattern<AtenHardtanhOp> {
+template <typename AtenOpT>
+class ConvertAtenOp : public OpConversionPattern<AtenOpT> {
  public:
-  using OpRewritePattern::OpRewritePattern;
-  LogicalResult matchAndRewrite(AtenHardtanhOp op, PatternRewriter& rewriter)
-      const override {
-    Location loc = op.getLoc();
-    Value input = op.self();
-    BaseTensorType inputType = input.getType().cast<BaseTensorType>();
-
-    // result = min(maxVal, max(minVal, x))
-    /**
-    Value minVal = chlo::getConstantLike(rewriter, loc, op.min_val(), input);
-    Value maxVal = chlo::getConstantLike(rewriter, loc, op.max_val(), input);
-    Value maxResult =
-        rewriter.create<AtenMaximumOp>(loc, inputType, input, minVal);
-    rewriter.replaceOpWithNewOp<AtenMinimumOp>(op, op.getType(), maxVal,
-                                               maxResult);
-    **/
-    return success();
-  }
+  using OpConversionPattern<AtenOpT>::OpConversionPattern;
+  using OpAdaptor = typename AtenOpT::Adaptor;
+  LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override;
 };
+
+template <>
+LogicalResult ConvertAtenOp<AtenHardtanhOp>::matchAndRewrite(
+    AtenHardtanhOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  Value input = adaptor.self();
+  BaseTensorType inputType = input.getType().cast<BaseTensorType>();
+
+  auto sizeListType =
+      Torch::ListType::get(Torch::IntType::get(op.getContext()));
+  Value sizeList =
+      rewriter.create<AtenSizeOp>(op.getLoc(), sizeListType, input);
+
+  SmallVector<int64_t> empty;
+  Type tensorType = inputType.getWithSizesAndDtype(
+      llvm::makeArrayRef(empty), rewriter.getF32Type());
+
+  Value minTensor =
+      rewriter.create<PrimNumToTensorScalarOp>(loc, tensorType, op.min_val());
+  Value minValue = rewriter.create<AtenBroadcastToOp>(
+      loc, op.getType(), minTensor, sizeList);
+  Value maxResult =
+      rewriter.create<AtenMaximumOp>(loc, inputType, input, minValue);
+
+  Value maxTensor =
+      rewriter.create<PrimNumToTensorScalarOp>(loc, tensorType, op.max_val());
+  Value maxValue = rewriter.create<AtenBroadcastToOp>(
+      loc, op.getType(), maxTensor, sizeList);
+  rewriter.replaceOpWithNewOp<AtenMinimumOp>(
+      op, op.getType(), maxResult, maxValue);
+
+  return success();
+}
 } // namespace
 
 namespace {
@@ -61,12 +86,18 @@ class DiscDecomposeComplexOpsPass
     : public DiscDecomposeComplexOpsBase<DiscDecomposeComplexOpsPass> {
   void runOnOperation() override {
     MLIRContext* context = &getContext();
-    RewritePatternSet patterns(context);
+
     ConversionTarget target(*context);
     target.addLegalDialect<Torch::TorchDialect>();
 
-    patterns.add<DecomposeAtenHardtanhOp>(context);
+    RewritePatternSet patterns(context);
+    patterns.add<ConvertAtenOp<AtenHardtanhOp>>(context);
     target.addIllegalOp<AtenHardtanhOp>();
+
+    if (failed(applyPartialConversion(
+            getOperation(), target, std::move(patterns)))) {
+      return signalPassFailure();
+    }
   }
 };
 

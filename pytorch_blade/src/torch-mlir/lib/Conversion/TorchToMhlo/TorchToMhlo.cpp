@@ -1528,6 +1528,35 @@ LogicalResult ConvertAtenOp<AtenNumelOp>::matchAndRewrite(
 }
 
 template <>
+LogicalResult ConvertAtenOp<PrimNumToTensorScalarOp>::matchAndRewrite(
+    PrimNumToTensorScalarOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto outType =
+      OpConversionPattern<PrimNumToTensorScalarOp>::getTypeConverter()
+          ->convertType(op.getType())
+          .template dyn_cast<TensorType>();
+  if (!outType)
+    return op.emitError("output should be TensorType");
+
+  Value constOp;
+  double val;
+  if (!matchPattern(op.a(), m_TorchConstantFloat(&val)))
+    return op.emitError("input should be constant");
+
+  if (failed(torchScalarToMhloTensor(
+          rewriter,
+          op,
+          op.a(),
+          constOp,
+          outType.getElementType(),
+          outType.getShape())))
+    return op.emitError("Supplied value must be a Scalar constant");
+  rewriter.replaceOp(op, constOp);
+  return success();
+}
+
+template <>
 LogicalResult ConvertAtenOp<AtenDropoutOp>::matchAndRewrite(
     AtenDropoutOp op,
     OpAdaptor adaptor,
@@ -2243,6 +2272,7 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenDropoutOp);
     INSERT_ATENOP_PATTERN(AtenViewOp);
     INSERT_ATENOP_PATTERN(AtenNumelOp);
+    INSERT_ATENOP_PATTERN(PrimNumToTensorScalarOp);
     // INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
 #undef INSERT_ATENOP_PATTERN
 

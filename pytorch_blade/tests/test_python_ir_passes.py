@@ -10,10 +10,12 @@
 # limitations under the License.
 
 import unittest
+from typing import List, Dict
 import torch
 from torch.testing import FileCheck
 from torch_blade.python_ir_analysis import _jit_pass_clean_python_ir
 from torch_blade.testing.common_utils import TestCase
+from torch_blade import tools
 
 
 class TestPythonIrPass(TestCase):
@@ -316,6 +318,37 @@ class TestPythonIrPass(TestCase):
           %y.4 : Tensor = aten::add(%y.3, %y.3, %27)
           %32 : (Tensor, Tensor) = prim::TupleConstruct(%y.1, %y.4)
           return (%32)"""
+
+    def test_list_of_dict_constant(self):
+        class Model(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.const = [
+                    {"1": 1},
+                    {"2": 2}
+                ]
+
+            def forward(self, x: bool):
+                if x:
+                    res: List[Dict[str, int]] = []
+                    for c in self.const:
+                        res.append(c)
+                    return res
+                else:
+                    return self.const
+
+        model = torch.jit.script(Model()).eval()
+        c_module = tools.freeze_module(model._c, [], disableShapePeephole=True)
+        graph = c_module.forward.graph
+        _jit_pass_clean_python_ir(graph)
+        expect_gstr = """
+                graph(%self,
+                      %x.1 : bool):
+                  # CHECK-NOT: prim::If
+                  %46 : Dict(str, int)[] = prim::Constant[value=[{"1": 1}, {"2": 2}]]()
+                  return (%46)"""
+        FileCheck().run(expect_gstr, graph)
+
 
 if __name__ == "__main__":
     unittest.main()

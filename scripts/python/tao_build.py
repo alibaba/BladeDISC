@@ -495,7 +495,9 @@ def build_tao_compiler(root, args):
 
         bazel_build(TARGET_TAO_COMPILER_MAIN, flag=flag)
         bazel_build(TARGET_DISC_OPT, flag=flag)
-        bazel_build(TARGET_DISC_REPLAY, flag=flag)
+        # TODO:(fl237079) Support disc_replay for rocm version 
+        if not args.rocm and not args.dcu:
+            bazel_build(TARGET_DISC_REPLAY, flag=flag)
         execute(
             "cp -f -p {}/tao/third_party/ptxas/10.2/ptxas ./bazel-bin/tensorflow/compiler/decoupling/".format(
                 root
@@ -976,7 +978,6 @@ def parse_args():
             "build_dsw",
             "build_mlir_ral",
             "test",
-            "test_bace",
             "test_tao_bridge_cpp",
             "test_tao_bridge_py",
             "test_tao_compiler",

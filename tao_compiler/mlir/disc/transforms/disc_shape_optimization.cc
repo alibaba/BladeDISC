@@ -15,6 +15,7 @@ limitations under the License.
 
 // This file implements the logic to do some shape optimizations on tensor
 // level.
+#include <chrono>
 #include <unordered_set>
 #include <utility>
 
@@ -39,6 +40,8 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
+
+#define DEBUG_TYPE "disc-shape-optimization"
 
 namespace mlir {
 namespace disc_ral {
@@ -257,6 +260,21 @@ LogicalResult materializeShapeComputation(ModuleOp m, FuncOp main) {
 using PassPipelineRunner =
     std::function<LogicalResult(OpPassManager&, ModuleOp)>;
 
+// Returns true if the type is possible to be a shape tensor type.
+// Here shape tensor type is defined as follow:
+// - rank-1 static-shaped tensor type
+// - element type of the tensor is int or index
+// - number of elements of the tensor < 32, supposing that the
+//   higiest possible rank is smaller than 32.
+bool isCandidateShapeTensorType(Type ty) {
+  // Try to check if it's a candidate shape tensor.
+  auto tensorTy = ty.dyn_cast<RankedTensorType>();
+
+  return (tensorTy && tensorTy.getRank() == 1 && tensorTy.hasStaticShape() &&
+          tensorTy.getElementType().isIntOrIndex() &&
+          tensorTy.getShape()[0] < 32);
+}
+
 // convert:
 //   %1 = disc_shape.tie_shape %0, %d0, %d1, ... : (tensor<?x?xf32>, ...) ->
 //   tensor<?x?xf32> %dim_size = tensor.dim %1[%c0] : tensor<2xindex>
@@ -298,13 +316,181 @@ struct ExtractElementOfTieShapeOpCanonicalizationPattern
   }
 };
 
+// convert:
+//   %3 = mhlo.concatenate %0, %1, %2
+//         : (tensor<i32>, ...) -> tensor<3xi32>
+//   %4 = tensor.extract %3[%c1] : ...
+// to:
+//   %4 = tensor.extract %1[%c0] : ...
+struct ExtractElementOfConcatOpCanonicalizationPattern
+    : public OpRewritePattern<tensor::ExtractOp> {
+  using OpRewritePattern<tensor::ExtractOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::ExtractOp op,
+                                PatternRewriter& rewriter) const override {
+    if (op.indices().size() != 1) return failure();
+    auto indexOp = dyn_cast_or_null<arith::ConstantOp>(
+        op.indices().front().getDefiningOp());
+    if (!indexOp) return failure();
+    int64_t index = indexOp.getValue().cast<IntegerAttr>().getInt();
+
+    auto concatOp = op.tensor().getDefiningOp<mhlo::ConcatenateOp>();
+    if (!concatOp) return failure();
+    if (!isCandidateShapeTensorType(op.tensor().getType())) return failure();
+
+    for (Value operand : concatOp->getOperands()) {
+      if (!isCandidateShapeTensorType(operand.getType())) return failure();
+      auto operandTy = operand.getType().cast<RankedTensorType>();
+      if (index >= operandTy.getNumElements()) {
+        index -= operandTy.getNumElements();
+        continue;
+      }
+
+      Value newIndex =
+          rewriter.create<arith::ConstantIndexOp>(op.getLoc(), index);
+      Value newValue =
+          rewriter.create<tensor::ExtractOp>(op.getLoc(), operand, newIndex);
+      rewriter.replaceOp(op, {newValue});
+      return success();
+    }
+    return failure();
+  }
+};
+
+// convert:
+//   %1 = mhlo.slice(%0) {start_indices = dense<1>, ...}
+//         : (tensor<3xi32>) -> tensor<2xi32>
+//   %2 = tensor.extract %1[%c1] : ...
+// to:
+//   %2 = tensor.extract %0[%c2] : ...
+struct ExtractElementOfSliceOpCanonicalizationPattern
+    : public OpRewritePattern<tensor::ExtractOp> {
+  using OpRewritePattern<tensor::ExtractOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::ExtractOp op,
+                                PatternRewriter& rewriter) const override {
+    if (op.indices().size() != 1) return failure();
+    auto indexOp = dyn_cast_or_null<arith::ConstantOp>(
+        op.indices().front().getDefiningOp());
+    if (!indexOp) return failure();
+    int64_t index = indexOp.getValue().cast<IntegerAttr>().getInt();
+
+    auto sliceOp = op.tensor().getDefiningOp<mhlo::SliceOp>();
+    if (!sliceOp) return failure();
+    if (!isCandidateShapeTensorType(op.tensor().getType())) return failure();
+
+    int64_t start = sliceOp.start_indices().getValues<int64_t>()[0];
+    int64_t stride = sliceOp.strides().getValues<int64_t>()[0];
+    int64_t inputIndex = (start + index * stride);
+    Value newIndex =
+        rewriter.create<arith::ConstantIndexOp>(op.getLoc(), inputIndex);
+    Value newValue = rewriter.create<tensor::ExtractOp>(
+        op.getLoc(), sliceOp.operand(), newIndex);
+
+    rewriter.replaceOp(op, {newValue});
+    return success();
+  }
+};
+
+// convert:
+//   %1 = mhlo.reshape(%0) : (tensor<i32>) -> tensor<1xi32>
+//   %2 = tensor.extract %1[%c0] : ...
+// to:
+//   %2 = tensor.extract %0[] : ...
+struct ExtractElementOfReshapeOpCanonicalizationPattern
+    : public OpRewritePattern<tensor::ExtractOp> {
+  using OpRewritePattern<tensor::ExtractOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::ExtractOp op,
+                                PatternRewriter& rewriter) const override {
+    auto tensorTy = op.tensor().getType().dyn_cast<RankedTensorType>();
+    if (!tensorTy || !tensorTy.hasStaticShape() ||
+        !tensorTy.getElementType().isIntOrIndex() ||
+        tensorTy.getNumElements() > 8 || tensorTy.getNumElements() == 0)
+      return failure();
+
+    auto reshapeOp = op.tensor().getDefiningOp<mhlo::ReshapeOp>();
+    if (!reshapeOp) return failure();
+
+    SmallVector<int64_t> indices;
+    for (Value indexValue : op.indices()) {
+      auto indexOp = indexValue.getDefiningOp<arith::ConstantOp>();
+      if (!indexOp) return failure();
+      indices.push_back(indexOp.getValue().cast<IntegerAttr>().getInt());
+    }
+
+    int linearIndex = indices.empty() ? 0 : indices[0];
+    for (size_t i = 1; i < indices.size(); ++i) {
+      linearIndex = linearIndex * tensorTy.getShape()[i] + indices[i];
+    }
+
+    SmallVector<int64_t> inputIndices;
+    auto inputTy = reshapeOp.operand().getType().dyn_cast<RankedTensorType>();
+    if (!inputTy || !inputTy.hasStaticShape()) return failure();
+    for (int i = inputTy.getRank() - 1; i >= 0; --i) {
+      inputIndices.push_back(linearIndex % inputTy.getShape()[i]);
+      linearIndex /= inputTy.getShape()[i];
+    }
+    SmallVector<Value> newIndices;
+    for (int i = inputTy.getRank() - 1; i >= 0; --i) {
+      newIndices.push_back(rewriter.create<arith::ConstantIndexOp>(
+          op.getLoc(), inputIndices[i]));
+    }
+    Value newValue = rewriter.create<tensor::ExtractOp>(
+        op.getLoc(), reshapeOp.operand(), newIndices);
+    rewriter.replaceOp(op, {newValue});
+    return success();
+  }
+};
+
+// convert:
+//   %1 = arith.index_cast(%0) : (tensor<2xi32>) -> tensor<2xindex>
+//   use(%1)
+// to:
+//   %0 = tensor.extract %0[%c0] : tensor<2xi32>
+//   %1 = arith.index_cast %0 : index
+//   %2 = tensor.extract %0[%c1] : tensor<2xi32>
+//   %3 = arith.index_cast %2 : index
+//   %4 = tensor.from_elements %1, %3 : tensor<2xindex>
+//   use(%4)
+struct ScalarizeIndexCastOpCanonicalizationPattern
+    : public OpRewritePattern<arith::IndexCastOp> {
+  using OpRewritePattern<arith::IndexCastOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(arith::IndexCastOp op,
+                                PatternRewriter& rewriter) const override {
+    if (!isCandidateShapeTensorType(op.getType())) return failure();
+    Value input = op->getOperand(0);
+    auto inTy = input.getType().cast<RankedTensorType>();
+    auto outTy = op.getType().cast<RankedTensorType>();
+
+    SmallVector<Value> elems;
+    for (int i = 0; i < inTy.getNumElements(); ++i) {
+      Value index = rewriter.create<arith::ConstantIndexOp>(op.getLoc(), i);
+      Value inElem =
+          rewriter.create<tensor::ExtractOp>(op.getLoc(), input, index);
+      elems.push_back(rewriter.create<arith::IndexCastOp>(
+          op.getLoc(), outTy.getElementType(), inElem));
+    }
+
+    Value newOut =
+        rewriter.create<tensor::FromElementsOp>(op.getLoc(), outTy, elems);
+    rewriter.replaceOpWithNewOp<tensor::FromElementsOp>(op, outTy, elems);
+    return success();
+  }
+};
+
 // Adds shape optimization related patterns.
 void populateShapeOptimizationPatterns(MLIRContext* context,
                                        RewritePatternSet* patterns) {
   // clang-format off
   patterns->insert<
       DimOfTieShapeOpCanonicalizationPattern,
-      ExtractElementOfTieShapeOpCanonicalizationPattern
+      ExtractElementOfConcatOpCanonicalizationPattern,
+      ExtractElementOfReshapeOpCanonicalizationPattern,
+      ExtractElementOfSliceOpCanonicalizationPattern,
+      ExtractElementOfTieShapeOpCanonicalizationPattern,
+      ScalarizeIndexCastOpCanonicalizationPattern
   >(patterns->getContext());
   // clang-format on
 }
@@ -334,21 +520,6 @@ LogicalResult runCanonicalizer(ModuleOp m, PassPipelineRunner runner) {
   OpPassManager dynamicPM("builtin.func");
   dynamicPM.addPass(createCSEPass());
   return runner(dynamicPM, m);
-}
-
-// Returns true if the type is possible to be a shape tensor type.
-// Here shape tensor type is defined as follow:
-// - rank-1 static-shaped tensor type
-// - element type of the tensor is int or index
-// - number of elements of the tensor < 32, supposing that the
-//   higiest possible rank is smaller than 32.
-bool isCandidateShapeTensorType(Type ty) {
-  // Try to check if it's a candidate shape tensor.
-  auto tensorTy = ty.dyn_cast<RankedTensorType>();
-
-  return (tensorTy && tensorTy.getRank() == 1 && tensorTy.hasStaticShape() &&
-          tensorTy.getElementType().isIntOrIndex() &&
-          tensorTy.getShape()[0] < 32);
 }
 
 class ShapeComputationIRAnalysis {
@@ -574,15 +745,42 @@ LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
                                         shapeTensorDims[index])))
       return op->emitError() << "fail to merge dim\n";
   } else if (auto mulOp = dyn_cast<arith::MulIOp>(op)) {
-    // TODO: propagete attributes like knownNonNegative/...
     Value lhs = op->getOperand(0);
     Value rhs = op->getOperand(1);
     Value out = op->getResult(0);
     value2DefiningExpr_[out] = SymbolicDimExpr::buildMulExpr(
         value2DefiningExpr_[lhs], value2DefiningExpr_[rhs]);
+    auto lhsSym = mgr_.getRootSymbolicDim(value2SymDim_[lhs]);
+    auto rhsSym = mgr_.getRootSymbolicDim(value2SymDim_[rhs]);
+    auto outSym = mgr_.getRootSymbolicDim(value2SymDim_[out]);
+    if (lhsSym.knownNonNegative() && rhsSym.knownNonNegative()) {
+      outSym.setKnownNonNegative(true);
+    }
+    if (lhsSym.knownNonNegative() && rhsSym.knownNonSizeOne() ||
+        rhsSym.knownNonNegative() && lhsSym.knownNonSizeOne()) {
+      outSym.setKnownNonSizeOne(true);
+    }
+    if (lhsSym.knownNonSizeZero() && rhsSym.knownNonSizeZero()) {
+      outSym.setKnownNonSizeZero(true);
+    }
+    // TODO(disc): propagate other attributes/shape ranges??
+  } else if (auto addOp = dyn_cast<arith::AddIOp>(op)) {
+    // TODO(disc): build symbolic expression for AddIOp
+    Value lhs = op->getOperand(0);
+    Value rhs = op->getOperand(1);
+    Value out = op->getResult(0);
+    auto lhsSym = mgr_.getRootSymbolicDim(value2SymDim_[lhs]);
+    auto rhsSym = mgr_.getRootSymbolicDim(value2SymDim_[rhs]);
+    auto outSym = mgr_.getRootSymbolicDim(value2SymDim_[out]);
+    if (lhsSym.knownNonNegative() && rhsSym.knownNonNegative()) {
+      outSym.setKnownNonNegative(true);
+      if (lhsSym.knownNonSizeZero() || rhsSym.knownNonSizeZero())
+        outSym.setKnownNonSizeZero(true);
+    }
+    // TODO(disc): propagate other constraint attributes/shape ranges??
   }
 
-  // TODO: add support for arith::addi/subi/divi...
+  // TODO: add support for arith::subi/divi/select...
 
   return success();
 }
@@ -1005,6 +1203,7 @@ LogicalResult ShapeComputationIRAnalysis::applyTieShapeOpConstraint(
       if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[en.value()],
                                           resultDims[en.index()])))
         return op->emitError() << "fail to merge symbolic dim\n";
+      mgr_.getRootSymbolicDim(resultDims[en.index()]).setKnownNonNegative(true);
     }
 
     if (isCandidateShapeTensorType(op->getResult(0).getType())) {
@@ -1218,6 +1417,10 @@ LogicalResult tryToSimplifyCompareOp(ShapeComputationIRAnalysis& analysis,
         pred = falsePred;
       } else if (rhsSym.knownNonNegative() && lhsSym.knownNegativeOne()) {
         pred = falsePred;
+      } else if (lhsSym.knownNonSizeZero() && rhsSym.getDimSize() == 0) {
+        pred = falsePred;
+      } else if (rhsSym.knownNonSizeZero() && lhsSym.getDimSize() == 0) {
+        pred = falsePred;
       }
       // TODO(disc): support other cases
     } else if (op.getPredicate() == arith::CmpIPredicate::ne) {
@@ -1226,6 +1429,10 @@ LogicalResult tryToSimplifyCompareOp(ShapeComputationIRAnalysis& analysis,
       } else if (lhsSym.knownNonNegative() && rhsSym.knownNegativeOne()) {
         pred = truePred;
       } else if (rhsSym.knownNonNegative() && lhsSym.knownNegativeOne()) {
+        pred = truePred;
+      } else if (lhsSym.knownNonSizeZero() && rhsSym.getDimSize() == 0) {
+        pred = truePred;
+      } else if (rhsSym.knownNonSizeZero() && lhsSym.getDimSize() == 0) {
         pred = truePred;
       }
       // TODO(disc): support other cases
@@ -1281,37 +1488,88 @@ LogicalResult optimizeShapeComputation(ModuleOp m, FuncOp main,
   bool changed;
   do {
     changed = false;
+    LLVM_DEBUG(std::chrono::steady_clock::time_point begin =
+                   std::chrono::steady_clock::now());
     if (failed(runCanonicalizer(m, runner))) {
       return failure();
     }
+    LLVM_DEBUG(std::chrono::steady_clock::time_point end =
+                   std::chrono::steady_clock::now());
+    LLVM_DEBUG(llvm::dbgs()
+               << "  runCanonicalizer takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                        begin)
+                      .count()
+               << " us\n");
 
     LLVM_DEBUG(
         llvm::dbgs()
         << "Module after runCanonicalizer in optimize-shape-computation:\n"
         << m << "\n");
 
+    LLVM_DEBUG(begin = std::chrono::steady_clock::now());
     SymbolicDimMgr mgr(m);
+    LLVM_DEBUG(end = std::chrono::steady_clock::now());
+    LLVM_DEBUG(llvm::dbgs()
+               << "  Building SymbolicDimMgr takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                        begin)
+                      .count()
+               << " us\n");
+
+    LLVM_DEBUG(begin = std::chrono::steady_clock::now());
     if (failed(mgr.load())) {
       return m.emitError() << "fail to load shape constraint IR\n";
     }
+    LLVM_DEBUG(end = std::chrono::steady_clock::now());
+    LLVM_DEBUG(llvm::dbgs()
+               << "  SymbolicDimMgr.load() takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                        begin)
+                      .count()
+               << " us\n");
 
+    LLVM_DEBUG(begin = std::chrono::steady_clock::now());
     ShapeComputationIRAnalysis analysis(main, mgr);
     if (failed(analysis.run())) {
       return m.emitError() << "fail to analysis shape computation IR\n";
     }
+    LLVM_DEBUG(end = std::chrono::steady_clock::now());
+    LLVM_DEBUG(llvm::dbgs()
+               << "  Building ShapeComputationIRAnalysis takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                        begin)
+                      .count()
+               << " us\n");
 
+    LLVM_DEBUG(begin = std::chrono::steady_clock::now());
     if (failed(applyShapeComputationOptimization(analysis, changed))) {
       return m.emitError() << "fail to optimize shape computation IR\n";
     }
+    LLVM_DEBUG(end = std::chrono::steady_clock::now());
+    LLVM_DEBUG(llvm::dbgs()
+               << "  applyShapeComputationOptimization takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                        begin)
+                      .count()
+               << " us\n");
 
     LLVM_DEBUG(
         llvm::dbgs()
         << "Module after apply-shape-opt in optimize-shape-computation:\n"
         << m << "\n");
 
+    LLVM_DEBUG(begin = std::chrono::steady_clock::now());
     if (failed(mgr.save())) {
       return m.emitError() << "fail to save shape constraint IR\n";
     }
+    LLVM_DEBUG(end = std::chrono::steady_clock::now());
+    LLVM_DEBUG(llvm::dbgs()
+               << "  SymbolicDimMgr.save() takes: "
+               << std::chrono::duration_cast<std::chrono::microseconds>(end -
+                                                                        begin)
+                      .count()
+               << " us\n");
 
     LLVM_DEBUG(llvm::dbgs()
                << "Module after save-shape-ir in optimize-shape-computation:\n"
@@ -1443,15 +1701,26 @@ void DiscShapeOptimizationPass::runOnOperation() {
     return;
   }
 
+  LLVM_DEBUG(std::chrono::steady_clock::time_point begin =
+                 std::chrono::steady_clock::now());
   // Stage #1: Explictily materialize shape computation IR on tensor level
   if (failed(materializeShapeComputation(m, main))) {
     signalPassFailure();
     return;
   }
+  LLVM_DEBUG(std::chrono::steady_clock::time_point end =
+                 std::chrono::steady_clock::now());
+  LLVM_DEBUG(
+      llvm::dbgs() << "materializeShapeComputation takes: "
+                   << std::chrono::duration_cast<std::chrono::microseconds>(
+                          end - begin)
+                          .count()
+                   << " us\n");
   LLVM_DEBUG(llvm::dbgs() << "Module after materialize shape computation:\n"
                           << m << "\n");
 
   // Stage #2: Optimize shape computation IR on tensor level
+  LLVM_DEBUG(begin = std::chrono::steady_clock::now());
   PassPipelineRunner runner = [this](OpPassManager& dynamicPM, ModuleOp m) {
     return runPipeline(dynamicPM, m);
   };
@@ -1459,13 +1728,28 @@ void DiscShapeOptimizationPass::runOnOperation() {
     signalPassFailure();
     return;
   }
+  LLVM_DEBUG(end = std::chrono::steady_clock::now());
+  LLVM_DEBUG(
+      llvm::dbgs() << "optimizeShapeComputation takes: "
+                   << std::chrono::duration_cast<std::chrono::microseconds>(
+                          end - begin)
+                          .count()
+                   << " us\n");
   LLVM_DEBUG(llvm::dbgs() << "Module after shape optimizaiton:\n" << m << "\n");
 
   // Stage #3: clean up
+  LLVM_DEBUG(begin = std::chrono::steady_clock::now());
   if (failed(cleanUp(m, keep_tie_shape_))) {
     signalPassFailure();
     return;
   }
+  LLVM_DEBUG(end = std::chrono::steady_clock::now());
+  LLVM_DEBUG(
+      llvm::dbgs() << "cleanUp takes: "
+                   << std::chrono::duration_cast<std::chrono::microseconds>(
+                          end - begin)
+                          .count()
+                   << " us\n");
   LLVM_DEBUG(llvm::dbgs() << "Module after cleanup:\n" << m << "\n");
 }
 

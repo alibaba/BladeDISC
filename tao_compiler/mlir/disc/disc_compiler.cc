@@ -189,6 +189,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   DefaultTimingManager tm;
   applyDefaultTimingManagerCLOptions(tm);
+  // Records elapsed time for each pass in the passpipe
+  tm.setEnabled(true);
   TimingScope timing = tm.getRootScope();
   PassManager pm(m.getContext());
   applyPassManagerCLOptions(pm);
@@ -228,10 +230,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
-  bool enable_shape_constraint_ir = false;
-  tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_SHAPE_CONSTRAINT_IR",
-                                 enable_shape_constraint_ir,
-                                 &enable_shape_constraint_ir);
+  bool enable_shape_constraint_ir = useShapeConstraintIR();
   if (!enable_shape_constraint_ir) {
     // propagate some known shape information.
     pm.addPass(disc_ral::createDiscShapeSimplifierPass());
@@ -553,8 +552,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
   if (failed(pm.run(m))) return failure();
-
-  TimingScope outputTiming = timing.nest("Output");
   return success();
 }
 

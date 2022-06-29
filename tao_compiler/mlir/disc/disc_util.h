@@ -90,6 +90,9 @@ llvm::Optional<int32_t> TryMergeNode(GraphCycles* graph_cycles, int32_t a,
 
 SmallVector<Value, 4> GetAllPossibleUsedValues(Operation* op);
 
+// Returns true if the shape constraint IR is enabled.
+bool useShapeConstraintIR();
+
 }  // namespace disc_ral
 }  // namespace mlir
 

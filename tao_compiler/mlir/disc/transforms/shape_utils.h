@@ -16,6 +16,7 @@
 #include "llvm/ADT/EquivalenceClasses.h"
 #include "llvm/ADT/SmallVector.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 
 #ifndef TENSORFLOW_COMPILER_MLIR_XLA_SHAPE_UTILS_H_
 #define TENSORFLOW_COMPILER_MLIR_XLA_SHAPE_UTILS_H_
@@ -160,11 +161,76 @@ struct DimValueContainerHash {
   }
 };
 
-// Shape analysis for propagating and analyzing known shape information in
-// compilation time in a given operation.
+// A helper class to query and manipulate shape constraint IR on buffer level.
 class ShapeAnalysis {
  public:
-  explicit ShapeAnalysis(Operation* op) : op_(op) {}
+  virtual ~ShapeAnalysis() = default;
+
+  // Returns true if the two value have the same symbolic shape.
+  virtual bool isShapeEqual(Value lhs, Value rhs) = 0;
+
+  // Suppose:
+  //  lhsDimIdxs = {ld0, ld1, ...}
+  //  rhsDimIdxs = {rd0, rd1, ...}
+  // Returns true if `lhs.shape[ld0] * lhs.shape[ld1] * ... ==
+  // rhs.shape[rd0] * rhs.shape[rd1] * ...`
+  virtual bool isProductEqual(Value lhs, ArrayRef<int> lhsDimIdxs, Value rhs,
+                              ArrayRef<int> rhsDimIdxs) = 0;
+
+  // Returns true if:
+  //  lhs.shape[lhsFrom] * ... lhs.shape[lhsTo-1] ==
+  //  rhs.shape[rhsFrom] * ... rhs.shape[rhsTo-1]
+  virtual bool isProductEqual(Value lhs, int lhsFrom, int lhsTo, Value rhs,
+                              int rhsFrom, int rhsTo);
+
+  // Returns true if the two value have the same number elements.
+  virtual bool isSameNumElements(Value lhs, Value rhs);
+};
+
+// A subclass to impement `ShapeAnalysis` on buffer level.
+// The implementation is based on shape constraint ir.
+class ShapeConstraintIRAnalysis : public ShapeAnalysis {
+ public:
+  // Build shape related analysis on the provided `op`.
+  // This generally can be divided into two steps:
+  // 1, load exsiting shape constraint ir (e.g. symbolic dim ops)
+  // 2, build mapping between memref values and symbolic dim ops.
+  explicit ShapeConstraintIRAnalysis(Operation* op);
+  // auto-save updated shape constriant ir when destroying.
+  ~ShapeConstraintIRAnalysis();
+
+  // Returns the `SymbolicDimMgr` this object holds.
+  SymbolicDimMgr& symbolicDimMgr() { return mgr_; }
+  const SymbolicDimMgr& symbolicDimMgr() const { return mgr_; }
+
+  // Returns true if the two value have the same symbolic shape.
+  bool isShapeEqual(Value lhs, Value rhs) override;
+
+  // Suppose:
+  //  lhsDimIdxs = {ld0, ld1, ...}
+  //  rhsDimIdxs = {rd0, rd1, ...}
+  // Returns true if `lhs.shape[ld0] * lhs.shape[ld1] * ... ==
+  // rhs.shape[rd0] * rhs.shape[rd1] * ...`
+  bool isProductEqual(Value lhs, ArrayRef<int> lhsDimIdxs, Value rhs,
+                      ArrayRef<int> rhsDimIdxs) override;
+
+ private:
+  // The operation this analysis runs on.
+  Operation* op_;
+
+  // The `SymbolicDimMgr` this analysis holds.
+  SymbolicDimMgr mgr_;
+
+  // Map a ranked memref value to an array of symbolicDims, each represents one
+  // dimension size of the memref value.
+  DenseMap<Value, SmallVector<disc_shape::SymbolicDimOp>> memrefValue2SymDims_;
+};
+
+// Shape analysis for propagating and analyzing known shape information in
+// compilation time in a given operation.
+class ShapeAnalysisDeprecated : public ShapeAnalysis {
+ public:
+  explicit ShapeAnalysisDeprecated(Operation* op) : op_(op) {}
 
   LogicalResult run();
 
@@ -175,7 +241,7 @@ class ShapeAnalysis {
   SymbolShape* getShape(Value value);
   DimValue getDimValue(Value operand, int64_t dim);
   bool isDimEqual(Value lhs, int64_t lhsDim, Value rhs, int64_t rhsDim);
-  bool isShapeEqual(Value lhs, Value rhs);
+  bool isShapeEqual(Value lhs, Value rhs) override;
   bool isShapeValueEqual(Value lhs, Value rhs);
 
   // Insert tie_shape ops to explicit tie dimension equality in the IR level.
@@ -184,7 +250,12 @@ class ShapeAnalysis {
 
   // Returns true if `lhs` and `rhs` are supposed to have same number of
   // elements.
-  bool HasSameNumElements(Value lhs, Value rhs);
+  bool isSameNumElements(Value lhs, Value rhs) override;
+
+  bool isProductEqual(Value lhs, ArrayRef<int> lhsDimIdxs, Value rhs,
+                      ArrayRef<int> rhsDimIdxs) override {
+    return false;
+  }
 
   // Extract continuous equal dims between `lhs` and `rhs`, with the
   // consideration of dim-linearize (e.g., caused by reshape). Note that when
@@ -311,7 +382,7 @@ class OpListShapeAnalysis {
 
   // Returns true if `lhs` and `rhs` are supposed to have same number of
   // elements.
-  bool HasSameNumElements(Value lhs, Value rhs) {
+  bool isSameNumElements(Value lhs, Value rhs) {
     return same_num_elements_impl_.isEquivalent(ValueWrapper(lhs),
                                                 ValueWrapper(rhs));
   }

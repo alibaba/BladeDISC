@@ -12,7 +12,7 @@
 import torch
 import unittest
 
-from tests.disc.testing_base import DiscTestCase
+from tests.disc.testing_base import DiscTestCase, skipIfEnableTorchMlir
 
 class MatMul(torch.nn.Module):
     def __init__(self, device=torch.device('cuda')):
@@ -41,20 +41,22 @@ class TestDiscMatMul(DiscTestCase):
         x = torch.randn(4, 120, 256).to(self.device)
         y = torch.randn(4, 120, 256).to(self.device)
         test_data = (x, y)
+        annotation = ([-1, -1, -1], torch.float)
         linear = Linear(self.device).eval()
-        self._test_cvt_to_disc(linear, test_data)
-
+        self._test_disc(linear, [annotation, annotation], test_data)
         linear = torch.nn.Linear(256, 256).to(self.device)
-        self._test_cvt_to_disc(linear, (x,))
+        annotation = ([-1, 120, 256], torch.float)
+        self._test_disc(linear, [annotation],  (x,))
 
     def test_matmul_module(self):
         y = torch.randn(4, 120, 256).to(self.device)
+        annotation = ([-1, -1, 256], torch.float)
         matmul = MatMul(self.device).eval()
-        self._test_cvt_to_disc(matmul, (y,))
-
+        self._test_disc(matmul, [annotation], (y,))
         y = torch.randn(120, 256).to(self.device)
+        annotation = ([-1, 256], torch.float)
         matmul = MatMul(self.device).eval()
-        self._test_cvt_to_disc(matmul, (y,))
+        self._test_disc(matmul, [annotation], (y,))
 
     def test_matmul(self):
         @torch.jit.script
@@ -119,7 +121,8 @@ class TestDiscMatMul(DiscTestCase):
             return torch.addmm(M, mat1, mat2)
 
         self._test_cvt_to_disc(addmm, (M, mat1, mat2))
-        
+
+    @skipIfEnableTorchMlir()
     def test_einsum(self):
         @torch.jit.script
         def einsum_0(x, y):

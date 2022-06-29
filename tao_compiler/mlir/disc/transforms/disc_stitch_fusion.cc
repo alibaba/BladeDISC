@@ -27,6 +27,7 @@ limitations under the License.
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Support/LogicalResult.h"
+#include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
@@ -58,13 +59,10 @@ bool isOnGpu(Operation* op) {
          memory_space.cast<StringAttr>().getValue() == placement_utils::kGpu;
 }
 
-LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion) {
+LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion,
+                                ShapeAnalysis& shapeAnalysis) {
   auto fusionOp = cast<lmhlo::FusionOp>(fusion);
   assert(fusionOp);
-  // TODO: use FuncOp that contains `fusionOp` to construct shape-analysis,
-  // which will use global information for shape equality and decomposition
-  // analysis.
-  ShapeAnalysis shapeAnalysis(fusionOp);
   FusionPattern fusionPattern(fusionOp, &shapeAnalysis);
   if (!fusionPattern.isStitchFusion()) {
     // skip non-stitch fusion pattern.
@@ -79,7 +77,7 @@ LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion) {
     return success();
   }
 
-  StitchCPUAnalysis stitchAnalysis(fusionPattern);
+  StitchCPUAnalysis stitchAnalysis(fusionPattern, shapeAnalysis);
   if (!stitchAnalysis.doCodeGeneration(b, fusionOp)) {
     LLVM_DEBUG(llvm::dbgs() << "stitchAnalysis failed to doCodeGeneration\n");
     return failure();
@@ -101,6 +99,13 @@ struct DiscStitchFusion : public DiscStitchFusionBase<DiscStitchFusion> {
         cpu_fusion_worklist.push_back(op);
     });
 
+    std::unique_ptr<ShapeAnalysis> shapeAnalysisPtr;
+    if (!gpu_fusion_worklist.empty() || !cpu_fusion_worklist.empty()) {
+      if (useShapeConstraintIR()) {
+        shapeAnalysisPtr.reset(new ShapeConstraintIRAnalysis(func));
+      }
+    }
+
     for (Operation* fusion : gpu_fusion_worklist) {
       // TODO(disc): handling stitch fusion on GPU.
       signalPassFailure();
@@ -108,8 +113,15 @@ struct DiscStitchFusion : public DiscStitchFusionBase<DiscStitchFusion> {
     }
 
     for (Operation* fusion : cpu_fusion_worklist) {
+      if (!useShapeConstraintIR()) {
+        // TODO: use FuncOp that contains `fusionOp` to construct
+        // shape-analysis, which will use global information for shape equality
+        // and decomposition analysis.
+        shapeAnalysisPtr.reset(new ShapeAnalysisDeprecated{fusion});
+      }
+
       // Error message should be emitted inside the function.
-      if (failed(HandleCpuFusionOp(b, fusion))) {
+      if (failed(HandleCpuFusionOp(b, fusion, *shapeAnalysisPtr))) {
         signalPassFailure();
         return;
       }

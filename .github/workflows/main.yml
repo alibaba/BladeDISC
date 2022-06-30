@@ -239,7 +239,7 @@ jobs:
       ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-  CUDA11.3-TORCH-1.12:
+  CUDA11_3-TORCH-1_12:
     if: github.repository == 'alibaba/BladeDISC'
     runs-on: [self-hosted, gpu-t4]
     steps:

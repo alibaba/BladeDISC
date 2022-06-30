@@ -239,22 +239,20 @@ jobs:
       ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
       DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-  CUDA11-TORCH-LATEST:
+  CUDA11.3-TORCH-1.12:
     if: github.repository == 'alibaba/BladeDISC'
     runs-on: [self-hosted, gpu-t4]
     steps:
     - name: Checkout
       uses: actions/checkout@v2.4.0
-      with:
-        path: ./torch_disc_devel
     - name: Build Dev Docker
       run: |
         set -e
         git submodule sync
         git submodule update --depth=1 --init --recursive
-        docker build -t disc-dev-cuda11.0-py3.8 \
-          --build-arg BASEIMAGE=nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04 \
-          --build-arg DEVICE=cu110 \
+        docker build -t disc-dev-cuda11.3-py38 \
+          --build-arg BASEIMAGE=nvidia/cuda:11.3.0-cudnn8-devel-ubuntu20.04 \
+          --build-arg DEVICE=cu113 \
           --build-arg PYTHON_VERSION=PYTHON3.8 \
           -f docker/dev/Dockerfile .
     - name: Build and Test DISC
@@ -267,9 +265,9 @@ jobs:
           -v $PWD:/disc \
           -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
           -e TORCH_BLADE_BUILD_TENSORRT_STATIC=ON \
-          -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=latest \
+          -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.12.0+cu113 \
           -w /disc \
-          disc-dev-cuda11.0-py3.8 bash ./scripts/ci/test_pytorch_blade.sh
+          disc-dev-cuda11.3-py38  bash ./scripts/ci/test_pytorch_blade.sh
   AArch64-CPU-TF280:
     if: github.repository == 'alibaba/BladeDISC'
     # The type of runner that the job will run on

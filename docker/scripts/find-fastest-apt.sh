@@ -87,5 +87,7 @@ rm -f /etc/apt/sources.list.d/cuda.list /etc/apt/sources.list.d/nvidia-ml.list
 
 apt-get -qq update
 apt-get install -y iputils-ping bc
-find_fastest_apt_source > /etc/apt/sources.list
+if [[ "$ENABLE_FIND_FASTEST_APT_SOURCE" == "ON" ]]; then
+    find_fastest_apt_source > /etc/apt/sources.list
+fi
 apt-get -qq update

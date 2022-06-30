@@ -16,10 +16,23 @@
 namespace torch {
 namespace lazy {
 
-TORCH_API NodePtr operator+(const Value& node1, const Value& node2);
-TORCH_API NodePtr operator-(const Value& node1, const Value& node2);
-TORCH_API NodePtr operator*(const Value& node1, const Value& node2);
-TORCH_API NodePtr operator/(const Value& node1, const Value& node2);
+class TORCH_API Unsqueeze : public TsNode {
+ public:
+  static OpKind ClassOpKind() {
+    return OpKind(at::aten::unsqueeze);
+  }
+
+  Unsqueeze(const torch::lazy::Value& input, int dim);
+
+  std::string ToString() const override;
+
+  int dim() const {
+    return dim_;
+  }
+
+ private:
+  int dim_;
+};
 
 } // namespace lazy
 } // namespace torch

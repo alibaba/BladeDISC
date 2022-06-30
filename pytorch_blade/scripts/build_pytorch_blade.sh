@@ -26,23 +26,13 @@ export LIBRARY_PATH=${TENSORRT_INSTALL_PATH}/lib/:${TENSORRT_INSTALL_PATH}/lib64
 export TORCH_BLADE_BUILD_MLIR_SUPPORT=${TORCH_BLADE_BUILD_MLIR_SUPPORT:-ON}
 export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=${TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT:-ON}
 
-function pip_install_latest_deps() {
-  python3 -m pip install -q -r scripts/pip/requirements-dev-latest.txt
-  python3 -m pip uninstall -y torch
-  python3 -m pip install -q https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/torch-ltc/torch-1.12.0a0%2Bgit6402e62-cp38-cp38-linux_x86_64.whl
-}
-
 function pip_install_deps() {
     # set TORCH_BLADE_CI_BUILD_TORCH_VERSION default to 1.7.1+cu110
     TORCH_BLADE_CI_BUILD_TORCH_VERSION=${TORCH_BLADE_CI_BUILD_TORCH_VERSION:-1.7.1+cu110}
     requirements=requirements-dev-${TORCH_BLADE_CI_BUILD_TORCH_VERSION}.txt
     python3 -m pip install --upgrade pip
     python3 -m pip install virtualenv
-    if [[ "${TORCH_BLADE_CI_BUILD_TORCH_VERSION}" == "latest" ]]; then
-      pip_install_latest_deps
-    else
-      python3 -m pip install -r scripts/pip/${requirements} -f https://download.pytorch.org/whl/torch_stable.html
-    fi
+    python3 -m pip install -r scripts/pip/${requirements} -f https://download.pytorch.org/whl/torch_stable.html
 }
 
 function ci_build() {
@@ -50,10 +40,7 @@ function ci_build() {
     pip_install_deps
 
     if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" = "ON"  ]; then
-      if [[ "$TORCH_BLADE_CI_BUILD_TORCH_VERSION" != "latest" ]]; then
-        # TODO(yancey.yx): enable trt building with latest
-        export TORCH_BLADE_BUILD_TENSORRT=ON
-      fi
+      export TORCH_BLADE_BUILD_TENSORRT=ON
       export TORCH_BLADE_BUILD_TENSORRT_STATIC=${TORCH_BLADE_BUILD_TENSORRT_STATIC:-OFF}
       python3 ../scripts/python/common_setup.py
     else

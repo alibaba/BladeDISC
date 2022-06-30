@@ -11,36 +11,38 @@
 
 #pragma once
 
-#include <c10/core/Scalar.h>
 #include <torch/csrc/lazy/ts_backend/ts_node.h>
 
 namespace torch {
 namespace lazy {
 
-// Differently from Constant, this is a scalar value broadcasted to a shape.
-// Even though a Constant could have been used, for simple scalars broadcasted
-// to big shapes, the Constant leads to big literals expanded within the
-// computation graph.
-class TORCH_API Scalar : public TsNode {
+class TORCH_API Diagonal : public TsNode {
  public:
   static OpKind ClassOpKind() {
-    return OpKind(at::prim::Constant);
+    return OpKind(at::aten::diagonal);
   }
 
-  Scalar(const at::Scalar& value, Shape shape);
-  Scalar(const at::Scalar& value, c10::ScalarType type);
+  Diagonal(const Value& input, int64_t offset, int64_t dim1, int64_t dim2);
 
   std::string ToString() const override;
 
-  const at::Scalar& value() const {
-    return value_;
+  int64_t offset() const {
+    return offset_;
+  }
+
+  int64_t dim1() const {
+    return dim1_;
+  }
+
+  int64_t dim2() const {
+    return dim2_;
   }
 
  private:
-  at::Scalar value_;
+  int64_t offset_;
+  int64_t dim1_;
+  int64_t dim2_;
 };
-
-TORCH_API hash_t ScalarHash(const at::Scalar& s);
 
 } // namespace lazy
 } // namespace torch

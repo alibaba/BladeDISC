@@ -10,15 +10,23 @@
 # limitations under the License.
 
 import torch
-from torch.onnx.symbolic_helper import _default_onnx_opset_version, _set_opset_version
+from torch.onnx.symbolic_helper import _set_opset_version
 from torch.onnx import OperatorExportTypes
-from torch.onnx.symbolic_helper import _export_onnx_opset_version
 
 import torch_blade
 from torch_blade import utils
 from torch_blade import tools
 from torch_blade.config import Config, OptPipelines
 from torch_blade.python_ir_analysis import _jit_pass_clean_python_ir
+if utils.torch_version_number() < utils.parse_version("1.12.0"):
+    from torch.onnx.symbolic_helper import _export_onnx_opset_version
+else:
+    #from torch.onnx._constants import onnx_default_opset as _default_onnx_opset_version
+    from torch.onnx._globals import GLOBALS
+    _export_onnx_opset_version = GLOBALS.export_onnx_opset_version
+
+
+
 # tools are some function borrowed from torch that is private,
 # which should be use carefully
 
@@ -52,10 +60,9 @@ def _set_opset_version_from_config():
     cfg = Config.get_current_context_or_new()
     if cfg.customize_onnx_opset_version:
         opset_version = cfg.customize_onnx_opset_version
-    else:
-        opset_version = _default_onnx_opset_version
-    _set_opset_version(opset_version)
-    return opset_version
+        _set_opset_version(opset_version)
+        return opset_version
+    return _export_onnx_opset_version
 
 
 def _export_onnx(graph, dynamic_axes, fold_constants=False):
@@ -166,7 +173,7 @@ def _jit_pass_lower_to_onnx(graph):
 
 
 def _jit_pass_onnx_constfold(graph, params_dict):
-    if _export_onnx_opset_version in [9, 10, 11]:
+    if _export_onnx_opset_version >= 9:
         params_dict = torch._C._jit_pass_onnx_constant_fold(
             graph, params_dict, _export_onnx_opset_version
         )

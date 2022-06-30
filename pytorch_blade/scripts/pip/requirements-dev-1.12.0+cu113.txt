@@ -2,8 +2,9 @@ cpython
 pyyaml
 typing_extensions
 numpy
-torchvision
 pytest
 networkx
 onnx>=1.6.0
 expecttest
+torch==1.12.0+cu113
+torchvision

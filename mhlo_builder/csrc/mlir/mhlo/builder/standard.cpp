@@ -266,11 +266,14 @@ mlir::Value BuildStdScalarFromHloTensor(mlir::OpBuilder& builder,
                                         const mlir::Location& loc,
                                         const mlir::Value& scalar_tensor) {
   auto rank = GetRankOfMlirValue(scalar_tensor);
-  if (rank == 1) {
+  if (rank >= 1) {
+    // rank could be larger than 1, for example <1x1xf32>
+    // TODO(disc): check the number of elements is one.
     auto idx_value = builder.create<mlir::arith::ConstantOp>(
         loc, builder.getIntegerAttr(builder.getIndexType(), 0));
+    SmallVector<mlir::Value> idxs(rank, idx_value);
     return builder.create<tensor::ExtractOp>(loc, scalar_tensor,
-                                             mlir::ValueRange{idx_value});
+                                             idxs);
   } else {
     // rank == 0
     MHLO_CHECK(rank == 0, " failed checking rank == 0");

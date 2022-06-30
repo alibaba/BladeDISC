@@ -39,8 +39,6 @@
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
-#include <iostream>
-
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
@@ -1632,48 +1630,17 @@ class ConvertAtenViewOp : public OpConversionPattern<AtenOpT> {
           adaptor.self());
       return success();
     }
-    // number of element of input tensor
-    auto inputNumel = mhlo::getNumelOfTensor(rewriter, op, adaptor.self());
 
-    Value minusOne =
-        rewriter.create<arith::ConstantOp>(loc, rewriter.getI32IntegerAttr(-1));
-    SmallVector<Value, 4> newDimSizes;
-
-    // minus reduce product of shape elements
-    // for example,
-    // given shape [b, -1, w, h]:
-    //   minus knownDimSize(shape) = -1 * b * -1 * w * h = b * w * h
-    // given shape [b, c, w, h]:
-    //   minus knownDimSize(shape) = -1 * b * c * w * h
-    auto knownDimSize = minusOne;
-    auto outputRank = dimSizes.size();
-    for (size_t k = 0; k < outputRank; ++k) {
-      auto dSize = dimSizes[k];
+    std::for_each(dimSizes.begin(), dimSizes.end(), [&](Value& dSize) {
       dSize = rewriter.create<ToI64Op>(loc, dSize).getResult();
-      // cast i64 -> i32, since we only support i32 dimSize
+      // dimSize: cast i64 -> i32
       dSize =
           rewriter.create<arith::TruncIOp>(loc, rewriter.getI32Type(), dSize);
+      return dSize;
+    });
 
-      knownDimSize = rewriter.create<arith::MulIOp>(loc, dSize, knownDimSize);
-      newDimSizes.push_back(dSize);
-    }
-
-    for (size_t k = 0; k < outputRank; ++k) {
-      auto dSize = newDimSizes[k];
-
-      auto isMinusOne = rewriter.create<arith::CmpIOp>(
-          loc, arith::CmpIPredicate::eq, dSize, minusOne);
-      // isMinusOne? (inputNumel/knownDimSize) : dSize
-      auto resolvedDimSize = rewriter.create<arith::SelectOp>(
-          loc,
-          isMinusOne,
-          rewriter.create<arith::DivSIOp>(loc, inputNumel, knownDimSize),
-          dSize);
-      newDimSizes[k] = resolvedDimSize;
-    }
-
-    auto mhloShape = rewriter.create<tensor::FromElementsOp>(loc, newDimSizes);
-    rewriter.replaceOpWithNewOp<mhlo::DynamicReshapeOp>(
+    auto mhloShape = rewriter.create<tensor::FromElementsOp>(loc, dimSizes);
+    rewriter.replaceOpWithNewOp<chlo::DynamicReshapeOp>(
         op,
         OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
             op.getType()),
@@ -2357,11 +2324,8 @@ class ConvertTorchToMhlo
     // INSERT_ATENOP_PATTERN(AtenUnsqueezeOp);
     INSERT_ATENOP_PATTERN(AtenDropoutOp);
     INSERT_ATENOP_PATTERN(AtenNumelOp);
-<<<<<<< HEAD
     INSERT_ATENOP_PATTERN(PrimNumToTensorScalarOp);
-=======
     INSERT_ATENOP_PATTERN(AtenTensorIntOp);
->>>>>>> e9cdcd7 (Add shapes and views)
     // INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
 #undef INSERT_ATENOP_PATTERN
 

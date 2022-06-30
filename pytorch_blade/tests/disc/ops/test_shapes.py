@@ -113,30 +113,31 @@ class TestDiscShapes(DiscTestCase):
     @skipIfEnableTorchMlir()
     def test_squeeze(self):
         x = torch.zeros(2, 1, 2, 1, 2, device=self.device)
+        annotation = ([2, 1, 2, 1, 2], torch.float)
 
         @torch.jit.script
         def squeeze_0(x):
             return x.squeeze(0)
 
-        self._test_reshape(squeeze_0, x=x)
+        self._test_disc(squeeze_0, [annotation], (x,))
 
         @torch.jit.script
         def squeeze_1(x):
             return x.squeeze(-2)
 
-        self._test_reshape(squeeze_1, x=x)
+        self._test_disc(squeeze_1, [annotation], (x,))
 
         @torch.jit.script
         def squeeze_2(x):
             return x.squeeze(1)
 
-        self._test_reshape(squeeze_2, x=x)
+        self._test_disc(squeeze_2, [annotation], (x,))
 
         @torch.jit.script
         def squeeze_3(x):
             return x.squeeze()
 
-        self._test_reshape(squeeze_3, x=x)
+        self._test_disc(squeeze_3, [annotation], (x,))
 
     def test_flatten(self):
         @torch.jit.script

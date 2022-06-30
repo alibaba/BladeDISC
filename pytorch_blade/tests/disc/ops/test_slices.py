@@ -17,7 +17,7 @@ from torch_blade import tools
 from tests.disc.testing_base import DiscTestCase
 
 
-class TestDiscShapes(DiscTestCase):
+class TestDiscSlices(DiscTestCase):
     def _test_slice(self, reshape_func, dtype=None, x=None):
         x = torch.randn([2, 3, 224, 224], dtype=dtype, device=self.device) if x is None else x
         test_data = (x,)

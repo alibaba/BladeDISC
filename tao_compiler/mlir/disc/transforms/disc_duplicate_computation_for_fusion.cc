@@ -115,7 +115,7 @@ struct DiscDuplicateComputationForFusionPass
 //  Modern NN networks are usually composed of multiple similar layers. Thus the
 //  above patterns are very common especailly when we enable shape constraint ir
 //  optimization (if enabled, we will do shape prpagation egaerly, and may
-//  further enable cross layer CSE, which in turn increases the change of the
+//  further enable cross layer CSE, which in turn increases the chance of the
 //  occurrence of the above pattern).
 LogicalResult DiscDuplicateComputationForFusionPass::duplicateBroadcastInDimOp(
     FuncOp func, FusionStrategy& strategy) {

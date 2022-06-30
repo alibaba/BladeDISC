@@ -1664,6 +1664,28 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_duplicate_computation_for_fusion",
+    srcs = ["transforms/disc_duplicate_computation_for_fusion.cc"],
+    deps = [
+        ":disc_shape_optimization_utils",
+        ":disc_util",
+        ":fusion_utils",
+        ":pass_details",
+        ":placement_utils",
+        "//tensorflow/compiler/mlir/hlo:lhlo",
+        "@llvm-project//llvm:Core",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Shape",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TransformUtils",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "all_passes",
     hdrs = [
         "transforms/register_passes.h",
@@ -1681,6 +1703,7 @@ cc_library(
         ":disc_canonicalizer",
         ":disc_convert_const_to_ral",
         ":disc_cpu_map_parallel_loop",
+        ":disc_duplicate_computation_for_fusion",
         ":disc_flatten_memref_access",
         ":disc_for_loop_unroll_interleave",
         ":disc_fuse_splat_const",

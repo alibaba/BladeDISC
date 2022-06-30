@@ -218,6 +218,10 @@ std::unique_ptr<OperationPass<ModuleOp>> createStripShapeConstraintOpsPass();
 // SCF for-loop unrolling and interleaving.
 std::unique_ptr<OperationPass<FuncOp>> createForLoopUnrollInterleavePass();
 
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscDuplicateComputationForFusionPass(
+    bool gpu_enabled = true, const std::string& fusion_strategy = "base");
+
 }  // namespace disc_ral
 }  // namespace mlir
 

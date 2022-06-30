@@ -17,17 +17,16 @@ limitations under the License.
 #include "mlir/Pass/Pass.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
-#include "tensorflow/compiler/mlir/disc/transforms/shape_utils.h"
+
+// This file implements the logic to duplicate some lmhlo operations in order
+// to enable more opportunities for fusion and reduce memory footprint.
 
 namespace mlir {
 namespace disc_ral {
 
 using func::FuncOp;
 using namespace lmhlo;
-using placement_utils::kDiscPlaceAssignment;
 
 namespace {
 
@@ -68,6 +67,56 @@ struct DiscDuplicateComputationForFusionPass
                                           FusionStrategy& strategy);
 };
 
+// Basic idea is shown as below:
+// convert pattern like:
+//   %0 = ... : memref<f32> // scalar buffer
+//   %1 = ... : memref<2xi32> // target_shape
+//   %2 = ... : memref<?x?xf32>
+//   "lmhlo.dynamic_broadcast_in_dim"(%0, %1, %2)
+//   "lmhlo.abs"(%2, %3)
+//   "lmhlo.dot_general"(%3, %4, %5) // non fusible consumer of %2
+//   "lmhlo.exponential"(%5, %6)
+//   "lmhlo.add"(%2, %6, %7) // another fusible consumer of %2
+//   use(%7)
+// to:
+//   %0 = ... : memref<f32> // scalar buffer
+//   %1 = ... : memref<2xi32> // target_shape
+//   %2 = ... : memref<?x?xf32>
+//   "lmhlo.dynamic_broadcast_in_dim"(%0, %1, %2)
+//   "lmhlo.abs"(%2, %3)
+//   "lmhlo.dot_general"(%3, %4, %5) // non fusible consumer of %2
+//   "lmhlo.exponential"(%5, %6)
+//   %new_2 = ... : memref<?x?xf32>
+//   "lmhlo.dynamic_broadcast_in_dim"(%0, %1, %new_2) // duplicate bcast op
+//   "lmhlo.add"(%new_2, %6, %7) // another fusible consumer of %2
+//   use(%7)
+//
+// Without this transformation, we will have two fusion patterns:
+//  pattern #0: `dynamic_broadcast_in_dim` and `abs`
+//  pattern #1: `exponential` and `add`
+//  note that pattern #0 and #1 can not be further fused due to `dot_general`
+//
+//  buffer read + writer analysis:
+//    pattern #0: read buffer `%0`, writer buffer `%2`, `%3`
+//    pattern #1: read buffer `%2`, `%5`, writer buffer `%7`
+//
+// After transformation, we also have two fusion patterns:
+//  pattern #0: `dynamic_broadcast_in_dim` and `abs`
+//  pattern #1: `dynamic_broadcast_in_dim`(duplicated), `exponential` and `add`
+//
+//  but we have smaller memory footprint:
+//    pattern #0: read buffer `%0`, writer buffer `%3`
+//    pattern #1: read buffer `%0`, `%5`, writer buffer `%7`
+//
+//  As you can see from the above analysis, we increase one read of `%0`, which
+//  is a scalar buffer, and reduce one read and one write of `%2`, which is
+//  larger than `%0`.
+//
+//  Modern NN networks are usually composed of multiple similar layers. Thus the
+//  above patterns are very common especailly when we enable shape constraint ir
+//  optimization (if enabled, we will do shape prpagation egaerly, and may
+//  further enable cross layer CSE, which in turn increases the change of the
+//  occurrence of the above pattern).
 LogicalResult DiscDuplicateComputationForFusionPass::duplicateBroadcastInDimOp(
     FuncOp func, FusionStrategy& strategy) {
   SmallVector<Operation*> ops;

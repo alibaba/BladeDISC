@@ -785,6 +785,14 @@ LogicalResult ConvertAtenOp<AtenGeluOp>::matchAndRewrite(
   return success();
 }
 
+using ReductionConvFunc = llvm::Optional<Value> (*)(
+    PatternRewriter&,
+    Operation*,
+    RankedTensorType,
+    Value,
+    ElementsAttr,
+    bool);
+
 // They all constitute a common form invoking the appropriate
 // converion function in MhloLegalizeCommon.cpp
 template <typename AtenOpT, typename MhloOpT>
@@ -1520,6 +1528,35 @@ LogicalResult ConvertAtenOp<AtenNumelOp>::matchAndRewrite(
 }
 
 template <>
+LogicalResult ConvertAtenOp<PrimNumToTensorScalarOp>::matchAndRewrite(
+    PrimNumToTensorScalarOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto outType =
+      OpConversionPattern<PrimNumToTensorScalarOp>::getTypeConverter()
+          ->convertType(op.getType())
+          .template dyn_cast<TensorType>();
+  if (!outType)
+    return op.emitError("output should be TensorType");
+
+  Value constOp;
+  double val;
+  if (!matchPattern(op.a(), m_TorchConstantFloat(&val)))
+    return op.emitError("input should be constant");
+
+  if (failed(torchScalarToMhloTensor(
+          rewriter,
+          op,
+          op.a(),
+          constOp,
+          outType.getElementType(),
+          outType.getShape())))
+    return op.emitError("Supplied value must be a Scalar constant");
+  rewriter.replaceOp(op, constOp);
+  return success();
+}
+
+template <>
 LogicalResult ConvertAtenOp<AtenDropoutOp>::matchAndRewrite(
     AtenDropoutOp op,
     OpAdaptor adaptor,
@@ -2187,7 +2224,7 @@ class ConvertTorchToMhlo
 #define INSERT_FILL_SCALAR_PATTERN(AtenOp) \
   target.addIllegalOp<AtenOp>();           \
   patterns.add<ConvertAtenFillScalarOp<AtenOp>>(typeConverter, context);
-    INSERT_FILL_SCALAR_PATTERN(AtenFill_ScalarOp);
+    INSERT_FILL_SCALAR_PATTERN(ValsemVariantAtenFillScalarOp);
 #undef INSERT_FILL_SCALAR_PATTERN
 
 #define INSERT_MATMUL_ATENOP_PATTERN(AtenOp) \
@@ -2235,6 +2272,7 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenDropoutOp);
     INSERT_ATENOP_PATTERN(AtenViewOp);
     INSERT_ATENOP_PATTERN(AtenNumelOp);
+    INSERT_ATENOP_PATTERN(PrimNumToTensorScalarOp);
     // INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
 #undef INSERT_ATENOP_PATTERN
 

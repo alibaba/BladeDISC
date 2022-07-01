@@ -48,4 +48,20 @@ def VerifyMhloBackendContract : Pass<"torch-verify-mhlo-backend-contract", "Modu
   let constructor = "mlir::torch::TorchConversion::createVerifyMhloBackendContractPass()";
 }
 
+def DiscDecomposeComplexOps : Pass<"torch-disc-decompose-complex-ops", "func::FuncOp"> {
+  let summary = "Decompose Torch complex operators";
+  let description = [{
+    Decompose torch operation that are losslessly represented as combinations of
+    other operations, modulo appropropriate compiler fusion. Note that this pass
+    is similar in spirit to ReduceOpVariants, but ReduceOpVariants is about
+    systematic reductions of a large number of ops at once, guided mostly by
+    traits.
+
+    An example of the transformations done in this pass is:
+    - convert aten.softmax to softmax(x, dim)
+            => tmp=exp(x); tmp / sum(tmp, dim, keepdim=True)
+  }];
+  let constructor = "mlir::torch::TorchConversion::createDiscDecomposeComplexOpsPass()";
+}
+
 #endif // TORCHMLIR_CONVERSION_MHLO_PASSES

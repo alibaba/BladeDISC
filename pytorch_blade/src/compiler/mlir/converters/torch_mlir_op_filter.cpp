@@ -22,7 +22,6 @@ std::unordered_set<std::string> GetTorchMlirWhiteList();
 bool IsTorchMlirSupported(const torch::jit::Node& node) {
   auto schema = node.maybeSchema();
   if (schema) {
-    // auto name = schema->operator_name().name;
     return GetTorchMlirWhiteList().find(schema->operator_name().name) !=
         GetTorchMlirWhiteList().end();
   } else if (node.kind().is_prim()) {
@@ -50,6 +49,7 @@ std::unordered_set<std::string> GetTorchMlirWhiteList() {
       "aten::floor_divide",
       "aten::gelu",
       "aten::glu",
+      "aten::hardtanh",
       "aten::leaky_relu",
       "aten::linear",
       "aten::lt",

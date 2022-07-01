@@ -169,10 +169,20 @@ std::unique_ptr<OperationPass<ModuleOp>> mlir::torch::TorchConversion::
 void TorchConversion::createTorchBackendToMhloBackendPipeline(
     OpPassManager& pm,
     const Torch::TorchLoweringPipelineOptions& options) {
-  ::mlir::torch::Torch::createTorchFunctionToTorchBackendPipeline(pm, options);
-
   // Check some invariants to catch errors in a clear way.
   pm.addPass(createVerifyInvariantsBeforeBackendLoweringPass());
+
+  ::mlir::torch::Torch::TorchLoweringPipelineOptions funcOptions;
+  funcOptions.decompose = false;
+  ::mlir::torch::Torch::createTorchFunctionToTorchBackendPipeline(
+      pm, funcOptions);
+
+  // add decompose passes
+  pm.addNestedPass<func::FuncOp>(createDiscDecomposeComplexOpsPass());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  pm.addNestedPass<func::FuncOp>(Torch::createDecomposeComplexOpsPass());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+
   pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToMhloPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToSCFPass());

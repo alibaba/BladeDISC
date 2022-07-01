@@ -407,3 +407,14 @@ def ForLoopUnrollInterleave : Pass<"disc-for-loop-unroll-interleave", "mlir::fun
   let summary = "Unroll SCF for loops and interleave the unrolling";
   let constructor = "createForLoopUnrollInterleavePass()";
 }
+
+def DiscDuplicateComputationForFusionPass : Pass<"disc-duplicate-computation-for-fusion", "mlir::func::FuncOp"> {
+  let summary = "Duplicate some computations in order to enable more fusion opportunity and remove memory footprint.";
+  let constructor = "createDiscDuplicateComputationForFusionPass()";
+  let options = [
+    Option<"gpu_enabled_", "gpu-enabled", "bool",
+           /*default=*/"true", "whether gpu is available.">,
+    Option<"fusion_strategy_", "fusion-strategy", "std::string",
+           /*default=*/"\"base\"", "Name of the fusion strategy.">,
+  ];
+}

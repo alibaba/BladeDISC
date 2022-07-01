@@ -354,13 +354,19 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(disc_ral::createDiscMemrefCanonicalizerPass());
 
   pm.addPass(disc_ral::createDiscAssignMemorySpacePass("main", gpu_enabled));
-  pm.addNestedPass<FuncOp>(bufferization::createPromoteBuffersToStackPass(
-      [](Value alloc) { return IsSmallCpuAlloc(alloc); }));
 
   // Enable stitch by default on CPU.
   bool enable_stitch = !gpu_enabled;
   tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_STITCH", !gpu_enabled,
                                  &enable_stitch);
+  if (enable_shape_constraint_ir) {
+    pm.addNestedPass<FuncOp>(
+        disc_ral::createDiscDuplicateComputationForFusionPass(
+            gpu_enabled, enable_stitch ? "stitch" : "base"));
+  }
+  pm.addNestedPass<FuncOp>(bufferization::createPromoteBuffersToStackPass(
+      [](Value alloc) { return IsSmallCpuAlloc(alloc); }));
+
   if (!gpu_enabled) {
     FusionOptions fusionOptions;
     fusionOptions.max_num_arguments_per_kernel = 4096;

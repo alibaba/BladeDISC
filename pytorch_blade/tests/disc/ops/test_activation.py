@@ -55,11 +55,11 @@ class TestDiscActivation(DiscTestCase):
     def test_gelu_dynamic_shape(self):
         self._test_activation(torch.nn.GELU(), torch.nn.functional.gelu, [([-1, -1, -1, -1], torch.float)])
 
-
-    @skipIfEnableTorchMlir()
-    #TODO(yancey1989): dependence binary op
-    def test_hardtanh(self):
+    def test_hardtanh_static_shape(self):
         self._test_activation(torch.nn.Hardtanh(), torch.nn.functional.hardtanh, [([2, 4, 16, 16], torch.float)])
+
+    def test_hardtanh_dynamic_shape(self):
+        self._test_activation(torch.nn.Hardtanh(), torch.nn.functional.hardtanh, [([-1, -1, -1, -1], torch.float)])
 
     @skipIfEnableTorchMlir()
     def test_glu(self):

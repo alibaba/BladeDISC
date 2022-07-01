@@ -16,6 +16,7 @@ import copy
 import threading
 import torch
 import torch_blade._torch_blade._backends as _backends
+from torch_blade import utils
 
 class OptPipelines:
 
@@ -355,14 +356,20 @@ class Config(ConfigContext):
     @customize_onnx_opset_version.setter
     def customize_onnx_opset_version(self, version):
         import torch
-        from torch.onnx.symbolic_helper import _default_onnx_opset_version, _onnx_stable_opsets
         TORCH_VERSION = tuple(int(x) for x in torch.__version__.split(".")[:2])
         if TORCH_VERSION < (1, 8):
             from torch.onnx.symbolic_helper import _onnx_master_opset
+            from torch.onnx.symbolic_helper import _default_onnx_opset_version
+        elif TORCH_VERSION >= (1, 12):
+            from torch.onnx._constants import onnx_default_opset as _default_onnx_opset_version
+            from torch.onnx._constants import onnx_main_opset as _onnx_master_opset
+            from torch.onnx._constants import onnx_stable_opsets as _onnx_stable_opsets 
         else:
             from torch.onnx.symbolic_helper import _onnx_main_opset
+            from torch.onnx.symbolic_helper import _default_onnx_opset_version
             _onnx_master_opset = _onnx_main_opset
-        assert version == _default_onnx_opset_version or version in _onnx_stable_opsets + [_onnx_master_opset]
+
+        assert version == _default_onnx_opset_version or version in list(_onnx_stable_opsets) + [_onnx_master_opset]
         self._customize_onnx_opset_version = version
 
     @classmethod

@@ -38,10 +38,16 @@ def skipTorchLE(version):
         utils.torch_version_number() <= utils.parse_version(version),
         "TODO: torch version compatible with early than {}".format(version))
 
+
 def skipTorchLT(version):
     return unittest.skipIf(
         utils.torch_version_number() < utils.parse_version(version),
         "TODO: torch version compatible with early than {}".format(version))
+
+def skipTorchGE(version):
+    return unittest.skipIf(
+        utils.torch_version_number() >= utils.parse_version(version),
+        "TODO: torch version compatible with greater than {}".format(version))
 
 @skipIfNoDISC()
 class DiscTestCase(TestCase):

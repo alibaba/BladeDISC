@@ -21,7 +21,6 @@ from torch_blade.python_ir_analysis import _jit_pass_clean_python_ir
 if utils.torch_version_number() < utils.parse_version("1.12.0"):
     from torch.onnx.symbolic_helper import _export_onnx_opset_version
 else:
-    #from torch.onnx._constants import onnx_default_opset as _default_onnx_opset_version
     from torch.onnx._globals import GLOBALS
     _export_onnx_opset_version = GLOBALS.export_onnx_opset_version
 
@@ -149,7 +148,6 @@ def _jit_pass_lower_to_onnx(graph):
     # lint the graph
     torch._C._jit_pass_lint(onnx_graph)
 
-    from torch.onnx.symbolic_helper import _export_onnx_opset_version
     if utils.torch_version_number() >= utils.parse_version("1.9.0"):
         torch._C._jit_pass_onnx_scalar_type_analysis(onnx_graph, True, _export_onnx_opset_version)
     else:

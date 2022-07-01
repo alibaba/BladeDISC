@@ -13,7 +13,7 @@ import torch
 import unittest
 
 from torch_blade.version import cuda_available
-from tests.disc.testing_base import DiscTestCase
+from tests.disc.testing_base import DiscTestCase, skipTorchGE
 
 class TestDiscNNOps(DiscTestCase):
     def _test_nn_ops(self, nn_ops_func, x=None):
@@ -22,10 +22,12 @@ class TestDiscNNOps(DiscTestCase):
             test_data = (test_data.to(self.device),)
         self._test_cvt_to_disc(nn_ops_func, test_data)
 
+    @skipTorchGE("1.12.0")
     def test_layernorm_module(self):
         layernorm = torch.nn.LayerNorm([224, 224], elementwise_affine=False)
         self._test_nn_ops(layernorm)
 
+    @skipTorchGE("1.12.0")
     def test_layernorm_func(self):
         @torch.jit.script
         def layernorm(x):
@@ -41,6 +43,7 @@ class TestDiscNNOps(DiscTestCase):
 
         self._test_nn_ops(layernorm)
 
+    @skipTorchGE("1.12.0")
     def test_softmax(self):
         softmax = torch.nn.Softmax(dim=-1)
         self._test_nn_ops(softmax)
@@ -53,6 +56,7 @@ class TestDiscNNOps(DiscTestCase):
             softmax_func, x=torch.randint(-3, 3, [2, 3, 10, 4], dtype=torch.int32)
         )
 
+    @skipTorchGE("1.12.0")
     def test_log_softmax(self):
         log_softmax = torch.nn.LogSoftmax(dim=-1)
         self._test_nn_ops(log_softmax)
@@ -66,6 +70,7 @@ class TestDiscNNOps(DiscTestCase):
         )
 
     @unittest.skipIf(not cuda_available, "Please fix incorrect results")
+    @skipTorchGE("1.12.0") 
     def test_softmax_func(self):
         @torch.jit.script
         def softmax(x):

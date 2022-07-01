@@ -102,6 +102,7 @@ class TestDiscSlices(DiscTestCase):
         annotations = [([4, -1, 256], dtype), ([4, -1, 256], dtype)]
         self._test_cvt_to_disc(func, test_data, annotations)
 
+    @skipIfEnableTorchMlir()
     def test_unbind(self):
         x = torch.randn([4, 64, 256], device=self.device)
         y = torch.randn([1, 4, 256], device=self.device)

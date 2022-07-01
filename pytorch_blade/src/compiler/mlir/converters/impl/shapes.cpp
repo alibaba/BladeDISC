@@ -211,8 +211,11 @@ bool ConvertAtenSqueeze(
     mlir_dim_t dim = CastJitConstToInt64(*jit_dim);
     dim = NormalizeDimIndex(dim, rank);
     auto dsize = tensor_sizes[dim];
-    TORCH_CHECK(dsize && *dsize == 1, "the squeeze dimension size is not 1")
-    sqz_dims.push_back(dim);
+    if (dsize && *dsize == 1) {
+      sqz_dims.push_back(dim);
+    } else {
+      LOG(WARNING) << "the squeeze dimension size is not 1";
+    }
   } else {
     for (int k = 0; k < rank; ++k) {
       auto dsize = tensor_sizes[k];

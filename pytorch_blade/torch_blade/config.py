@@ -358,8 +358,7 @@ class Config(ConfigContext):
         import torch
         TORCH_VERSION = tuple(int(x) for x in torch.__version__.split(".")[:2])
         if TORCH_VERSION < (1, 8):
-            from torch.onnx.symbolic_helper import _onnx_master_opset
-            from torch.onnx.symbolic_helper import _default_onnx_opset_version
+            from torch.onnx.symbolic_helper import _default_onnx_opset_version, _onnx_stable_opsets, _onnx_master_opset
         elif TORCH_VERSION >= (1, 12):
             from torch.onnx._constants import onnx_default_opset as _default_onnx_opset_version
             from torch.onnx._constants import onnx_main_opset as _onnx_master_opset

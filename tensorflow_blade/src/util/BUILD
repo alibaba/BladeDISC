@@ -1,6 +1,5 @@
 load("@local_config_tf//:build_defs.bzl", "tf_copts")
-load("//:build_defs.bzl", "if_tf_unsupported", "if_tf_supported")
-load("@local_config_blade_disc_helper//:build_defs.bzl", "if_tensorrt_enabled", "if_internal")
+load("//:build_defs.bzl", "blade_cc_test")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -23,12 +22,32 @@ cc_library(
 cc_library(
     name = "logging",
     hdrs = [
-        "logging.h"
+        "logging.h",
     ],
-    copts = if_tf_unsupported([
-        "-DUSE_INTERNAL_LOGGER",
-    ]),
-    deps = if_tf_supported([
+    deps = [
         "@local_config_tf//:tf_header_lib",
-    ]),
+    ],
+)
+
+blade_cc_test(
+    name = "logging_test",
+    srcs = [
+        "logging_test.cc"
+    ],
+    deps = [
+        ":logging",
+        "@local_config_tf//:libtensorflow_framework",
+    ]
+)
+
+blade_cc_test(
+    name = "tf_allocator_util_test",
+    srcs = [
+        "tf_allocator_util_test.cc",
+    ],
+    deps = [
+        ":tf_allocator_util",
+        "@local_config_tf//:libtensorflow_framework",
+    ],
+    tags = ['gpu']
 )

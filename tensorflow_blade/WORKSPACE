@@ -19,6 +19,12 @@ load("@//:workspace0.bzl", "tf_blade_workspace0")
 
 tf_blade_workspace0()
 
+load("@//:workspace_platform_alibaba.bzl", "workspace_platform_alibaba")
+workspace_platform_alibaba()
+# blade_service_common_workspace is defined in workspace_platform_alibaba
+load("@local_config_blade_service_common//:blade_service_common_workspace.bzl", "blade_service_common_workspace")
+blade_service_common_workspace()
+
 load("@local_config_tf_protobuf//:tf_protobuf_workspace.bzl", "tf_protobuf_workspace")
 
 tf_protobuf_workspace()

@@ -77,7 +77,11 @@ cc_library(
     alwayslink = 1,  # targets depending on it should carry all symbols in its children.
 )
 
-exports_files([
-    "pybind_functions.h",
-    "pybind_functions.cpp",
-])
+filegroup(
+    name = "pybind_srcs",
+    srcs = [
+        "pybind_functions.h",
+        "pybind_functions.cpp",
+    ]
+)
+

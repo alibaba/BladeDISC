@@ -64,7 +64,6 @@ bool InitializeTrtPlugins(nvinfer1::ILogger* trt_logger) {
     if (!initLibNvInferPlugins(trt_logger, "")) {
       LOG(ERROR) << "Failed to initialize TensorRT plugins, and conversion may "
                     "fail later.";
-      return false;
     }
   });
   return true;

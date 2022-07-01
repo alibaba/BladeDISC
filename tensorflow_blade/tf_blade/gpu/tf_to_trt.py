@@ -21,10 +21,13 @@ try:
 except ImportError:
     pass
 from tf_blade.util.simple_graph import GraphDefPartitioner
-from tf_blade.util.tf_conversion_util import get_subgraph_test_inputs_shapes, TRT_SUPPORTED_LIST
+from tf_blade.util.tf2onnx_import_helper import tf2onnx
+from tf_blade.util.tf_conversion_util import (
+    TRT_SUPPORTED_LIST,
+    get_subgraph_test_inputs_shapes,
+)
 from tf_blade.util.tf_graph_transform_util import OpType, set_attr_byte
 from tf_blade.util.tf_import_helper import tf
-from tf_blade.util.tf2onnx_import_helper import tf2onnx
 
 Shape = List[int]
 

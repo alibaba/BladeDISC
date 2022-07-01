@@ -224,30 +224,29 @@ def remote_cache_token():
     return None
 
 
-def symlink_files(root):
-    with cwd(root):
-        logger.info("configuring tao_compiler ......")
-        # map compiler codes into tf tree for build
-        with open("tao_compiler/file_map") as fh:
-            for line in fh:
-                if line.startswith("#") or line.strip() == "":
-                    continue
-                info = line.strip().split(",")
-                if len(info) != 2:
-                    continue
-                src_file = os.path.join(root, "tao_compiler", info[0])
-                link_in_tf = os.path.join("tf_community", info[1])
-                dst_folder = os.path.dirname(link_in_tf)
-                if not os.path.exists(dst_folder):
-                    os.makedirs(dst_folder)
-                execute("rm -rf {0} && ln -s {1} {0}".format(link_in_tf, src_file))
-        logger.info("linking ./tao to tf_community/tao")
-        execute(
-            "rm -rf {0} && ln -s {1} {0}".format(
-                os.path.join("tf_community", "tao"), os.path.join(root, "tao")
-            )
-        )
+def symlink_dir(srcdir, dstdir, excludes=None):
+    """
+    Recursively symlink all files and directories under `srcdir` to `dstdir`.
+    """
+    for f in os.listdir(srcdir):
+        src_f = os.path.join(srcdir, f)
+        dst_f = os.path.join(dstdir, f)
+        if excludes and f in excludes:
+            print(f"Exclude: {src_f}")
+            continue
 
+        if os.path.exists(dst_f) and os.path.samefile(src_f, dst_f):
+            continue
+        elif not os.path.exists(dst_f):
+            cmd = ['ln', '-sfL', src_f, dst_f]
+            print(" ".join(cmd))
+            subprocess.check_output(cmd)
+        elif os.path.isdir(src_f):
+            symlink_dir(src_f, dst_f, excludes)
+        else:
+            cmd = ['ln', '-sfL', src_f, dst_f]
+            print(" ".join(cmd))
+            subprocess.check_output(cmd)
 
 def mkldnn_build_dir(root=None):
     if root is None:
@@ -362,32 +361,6 @@ def update_cpu_specific_setting(args):
         auto_detect_host_cpu(args)
         args.enable_mkldnn = (args.x86 or args.aarch64)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "--cxx11_abi",
-        required=False,
-        action="store_true",
-        help="Build with cxx11 abi or not",
-    )
-    parser.add_argument(
-        "--cpu_only",
-        required=False,
-        action="store_true",
-        help="Build tao with cpu support only",
-    )
-    args = parser.parse_args()
-    # backward compatibility
-    args.ral_cxx11_abi = args.cxx11_abi
-    update_cpu_specific_setting(args)
-
-    root = get_source_root_dir()
-    symlink_files(root)
-
-    if args.enable_mkldnn:
-        config_mkldnn(root, args)
-        build_mkldnn(root)
-
 def get_tf_info(python_executable):
     output = subprocess.check_output(
         '{} -c "import tensorflow as tf; print(tf.__version__); print(\'\\n\'.join(tf.sysconfig.get_compile_flags())); print(\'\\n\'.join(tf.sysconfig.get_link_flags()))"'.format(
@@ -465,7 +438,7 @@ def deduce_cuda_info():
             return ver, cuda_home
         else:
             raise Exception(
-                f"Failed to deduce cuda version from BLADE_CUDA_HOME: {cuda_home}"
+                f"Failed to deduce cuda version from TF_CUDA_HOME: {cuda_home}"
             )
 
     ver = _deduce_from_version_file("/usr/local/cuda")
@@ -533,4 +506,127 @@ def safe_run(cmd, shell=False, verbose=True):
         raise AssertionError("{} failed!".format(cmd))
     return stdout
 
+def internal_root_dir():
+    return os.path.join(get_source_root_dir(), os.pardir)
+
+def tao_bridge_dir(root=None):
+    if root is None:
+        root = get_source_root_dir()
+    return os.path.join(root, "tao", "tao_bridge")
+
+def tao_ral_dir(root=None):
+    if root is None:
+        root = get_source_root_dir()
+    return os.path.join(root, "tao", "tao_bridge", "ral")
+
+def internal_tao_bridge_dir():
+    return os.path.join(internal_root_dir(), "platform_alibaba", "tao_bridge")
+
+def link_dirs(dst_dir, src_dir):
+    execute("rm -rf {0} && ln -s {1} {0}".format(dst_dir, src_dir))
+
+def symlink_disc_files(is_platform_alibaba):
+    dir_tf_community = os.path.join(get_source_root_dir(), "tf_community")
+    dir_platform_alibaba = os.path.join(internal_root_dir(), "platform_alibaba")
+
+    logger.info("linking via tao_compiler/file_map ...")
+    # map compiler codes into tf tree for build
+    mapping_file = os.path.join(get_source_root_dir(), "tao_compiler", "file_map")
+    with open(mapping_file) as fh:
+        for line in fh:
+            if line.startswith("#") or line.strip() == "":
+                continue
+            info = line.strip().split(",")
+            if len(info) != 2:
+                continue
+            src_file = os.path.join(get_source_root_dir(), "tao_compiler", info[0])
+            link_in_tf = os.path.join(get_source_root_dir(), "tf_community", info[1])
+            dst_folder = os.path.dirname(link_in_tf)
+            if not os.path.exists(dst_folder):
+                os.makedirs(dst_folder)
+            execute("rm -rf {0} && ln -s {1} {0}".format(link_in_tf, src_file))
+
+    logger.info("linking ./tao to tf_community/tao")
+    execute(
+        "rm -rf {0} && ln -s {1} {0}".format(
+            os.path.join(get_source_root_dir(), "tf_community", "tao"),
+            os.path.join(get_source_root_dir(), "tao")
+        )
+    )
+
+    logger.info("linking PatineClient")
+    link_dirs(os.path.join(dir_tf_community, 'tao', 'third_party', 'PatineClient'),
+            os.path.join(dir_platform_alibaba, 'third_party', 'PatineClient'))
+    logger.info("linking blade_gemm")
+    link_dirs(os.path.join(get_source_root_dir(), 'tf_community', 'tao', 'blade_gemm'),
+            os.path.join(dir_platform_alibaba, 'blade_gemm'))
+    logger.info("linking blade_service_common")
+    link_dirs(os.path.join(get_source_root_dir(), 'tf_community', 'tao', 'third_party', 'blade_service_common'),
+            os.path.join(dir_platform_alibaba, 'third_party', 'blade_service_common'))
+
+    logger.info("cleanup tao_compiler with XLA always...")
+    src = os.path.join(dir_platform_alibaba, "tao_compiler", "xla")
+    dst = os.path.join(get_source_root_dir(), "tf_community/tensorflow/compiler/decoupling_xla")
+    link_dirs(dst, src)
+
+    # def link_internal_tao_bridge(is_platform_alibaba):
+    # softlink ["tao_launch_op", "gpu"] dirs, "tvm" and "transform" dirs are not needed for now.
+    for dir_name in ["tao_launch_op", "gpu"]:
+        src_file = os.path.join(internal_tao_bridge_dir(), dir_name)
+        link_in_bridge = os.path.join(tao_bridge_dir(), dir_name)
+        if is_platform_alibaba:
+            link_dirs(link_in_bridge, src_file)
+        else:
+            execute("rm -rf {0}".format(link_in_bridge))
+    if is_platform_alibaba:
+        logger.info("linking blade_service_common bazel files")
+        src_dir = os.path.join(internal_root_dir(), "platform_alibaba", "bazel", "blade_service_common")
+        dst_dir = os.path.join(get_source_root_dir(), "third_party", "bazel", "blade_service_common")
+        files = os.listdir(src_dir)
+        for f in files:
+            link_dirs(os.path.join(dst_dir, f), os.path.join(src_dir, f))
+
+
+def add_ral_link_if_not_exist():
+    root = get_source_root_dir()
+    RAL_DIR_IN_TF = "tao_compiler/mlir/xla"
+    PROTO = "compile_metadata.proto"
+    RAL_DIR_IN_BRIDGE = os.path.join(tao_ral_dir(), "tensorflow/compiler/mlir/xla")
+    if os.path.exists(RAL_DIR_IN_BRIDGE):
+        shutil.rmtree(RAL_DIR_IN_BRIDGE)
+    os.makedirs(RAL_DIR_IN_BRIDGE)
+    with cwd(RAL_DIR_IN_BRIDGE):
+        execute("ln -s {0}/{1}/ral ral".format(root, RAL_DIR_IN_TF))
+        execute("ln -s {0}/{1}/ral/{2} {2}".format(root, RAL_DIR_IN_TF, PROTO))
+
+
+def get_version_file():
+    root = get_source_root_dir()
+    return os.path.join(root, "VERSION")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--cxx11_abi",
+        required=False,
+        action="store_true",
+        help="Build with cxx11 abi or not",
+    )
+    parser.add_argument(
+        "--cpu_only",
+        required=False,
+        action="store_true",
+        help="Build tao with cpu support only",
+    )
+    args = parser.parse_args()
+    # backward compatibility
+    args.ral_cxx11_abi = args.cxx11_abi
+    update_cpu_specific_setting(args)
+
+    root = get_source_root_dir()
+    symlink_disc_files(False)
+
+    if args.enable_mkldnn:
+        config_mkldnn(root, args)
+        build_mkldnn(root)
 

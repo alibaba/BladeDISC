@@ -16,13 +16,17 @@
 import argparse
 import os
 import random
-import re
 import socket
-import subprocess
 import sys
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "scripts", "python"))
-
 from six.moves import cPickle as pickle
+from datetime import datetime
+
+sys.path.append(
+    os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), os.pardir, "scripts", "python"
+    )
+)
+
 
 from common_internal import (
     PY_VER,
@@ -30,17 +34,19 @@ from common_internal import (
     logger,
 )
 
-from datetime import datetime
-from tao_build import get_version_file
 from common_setup import (
     deduce_cuda_info,
     get_cudnn_version,
     get_tf_info,
-    cwd,
-    ensure_empty_dir,
+    get_version_file,
     execute,
     which,
     safe_run,
+    symlink_disc_files,
+    add_ral_link_if_not_exist,
+    symlink_dir,
+    get_source_root_dir,
+    internal_root_dir
 )
 from tao_common import (
     git_branch,
@@ -59,7 +65,7 @@ def save_build_config(args):
         pickle.dump(arg_dict, f)
 
 
-def restore_build_config(args):
+def restore_config(args):
     if not os.path.exists(BUILD_CONFIG):
         return
     with open(BUILD_CONFIG, 'rb') as f:
@@ -67,21 +73,6 @@ def restore_build_config(args):
     for k in args.__dict__:
         if k in saved_dict.keys():
             args.__dict__[k] = saved_dict[k]
-
-
-def get_test_tag_filters(args, tf_major=None):
-    if args.device == "cpu":
-        config = "--test_tag_filters=-gpu"
-    elif args.device == "gpu":
-        config = "--test_tag_filters=-cpu"
-
-    if tf_major is None and args.tf:
-        tf_major = args.tf.split('.')[0]
-    if tf_major == "2":
-        config += ",-tf1"  # skip tf1-only tests when it's tf2.
-    elif tf_major == "1":
-        config += ",-tf2"  # skip tf2-only tests when it's tf1.
-    return config
 
 
 def check_init_file_miss(path, ignore_root=False):
@@ -97,6 +88,7 @@ def check_init_file_miss(path, ignore_root=False):
         if (
             "/build" in dir
             or "/dist" in dir
+            or '.pytest_cache' in dir
             or name == 'lib'
             or name.endswith(".egg-info")
         ):
@@ -107,21 +99,29 @@ def check_init_file_miss(path, ignore_root=False):
 
 # No need to do cc check, since pre-commit do cc check with clang-format
 def check(args):
-    with cwd(ROOT):
-        # every folder under python should contain a __init__.py file
-        # check tests dir
-        check_init_file_miss("tests", ignore_root=True)
-        execute("black --check --diff tests")
-        execute("flake8 tests")
-        execute("mypy tests")
+    check_init_file_miss("tests", ignore_root=True)
+    execute("black --check --diff tests")
+    execute("flake8 tf_blade/ tests/")
+    execute("flake8 tests")
+    # TODO(xiafei.qiuxf) disable for a while
+    # execute("mypy tests")
+    execute("mypy tf_blade")
 
 
-def configure_with_bazel(args):
+def link_files(args):
+    symlink_disc_files(args.platform_alibaba)
+    add_ral_link_if_not_exist()
+    if args.platform_alibaba:
+        excludes = ['ci_build']
+        src_dir = os.path.join(internal_root_dir(), 'platform_alibaba', 'tensorflow_blade')
+        dst_dir = os.path.join(get_source_root_dir(), 'tensorflow_blade')
+        symlink_dir(src_dir, dst_dir, excludes=excludes)
+
+
+def configure(args):
+    link_files(args)
     save_build_config(args)
     with open(os.path.join(ROOT, ".bazelrc_gen"), "w") as f:
-
-        def _opt(opt, value, cmd="build"):
-            f.write(f"{cmd} --{opt}={value}\n")
 
         def _action_env(key, value, cmd="build"):
             f.write(f"{cmd} --action_env {key}={value}\n")
@@ -129,10 +129,11 @@ def configure_with_bazel(args):
         def _write(line, cmd="build"):
             f.write(f"{cmd} {line}\n")
 
+        def _config(cfg_name, cmd="build"):
+            f.write(f"{cmd} --config={cfg_name}\n")
+
         # Common
-        _opt("cxxopt", "-std=c++14")
-        _opt("host_cxxopt", "-std=c++14")
-        _opt("compilation_mode", "opt")
+        _config("debug" if args.debug_build else "release")
         _action_env("PYTHON_BIN_PATH", which("python3"))
         _action_env("GCC_HOST_COMPILER_PATH", which("gcc"))
         _action_env("CC", which("gcc"))
@@ -149,8 +150,7 @@ def configure_with_bazel(args):
             tf_pb_version,
         ) = get_tf_info(which("python3"))
         _action_env("BLADE_WITH_TF", "1")
-        _opt("cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
-        _opt("host_cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
+        _config("cxx11abi_" + tf_cxx11_abi)
         _action_env("IF_CXX11_ABI", int(tf_cxx11_abi))
         _action_env("TF_IS_PAI", int(is_pai))
         _action_env("TF_MAJOR_VERSION", tf_major)
@@ -162,28 +162,26 @@ def configure_with_bazel(args):
 
         # TF-Blade
         _action_env("BLADE_WITH_TF_BLADE", "1")
-        _action_env("BLADE_WITH_INTERNAL", "1" if args.internal else "0")
         if not args.skip_disc:
             # Build environments. They all starts with `DISC_BUILD_`.
             host = socket.gethostname()
             ip = socket.gethostbyname(host)
             _action_env("DISC_BUILD_VERSION", args.version)
-            _action_env("DISC_BUILD_GIT_BRANCH", git_branch().decode("utf-8").replace('/', '-'))
+            _action_env(
+                "DISC_BUILD_GIT_BRANCH", git_branch().decode("utf-8").replace('/', '-')
+            )
             _action_env("DISC_BUILD_GIT_HEAD", git_head().decode("utf-8"))
             _action_env("DISC_BUILD_HOST", host)
             _action_env("DISC_BUILD_IP", ip)
             _action_env("DISC_BUILD_TIME", datetime.today().strftime("%Y%m%d%H%M%S"))
             if args.platform_alibaba:
-                _opt("cxxopt", "-DPLATFORM_ALIBABA")
-                _opt("define", "is_platform_alibaba=true")
+                _config("platform_alibaba")
 
         # CUDA
         if args.device == "gpu":
+            _config("cuda")
             cuda_ver, cuda_home = deduce_cuda_info()
             cudnn_ver = get_cudnn_version(cuda_home)
-            # Following tf community's cuda related action envs
-            _action_env("TF_NEED_CUDA", "1")
-            _action_env("TF_CUDA_CLANG", "0")
             _action_env("TF_CUDA_VERSION", cuda_ver)
             _action_env("TF_CUDA_HOME", cuda_home)
             _action_env("TF_CUDNN_VERSION", cudnn_ver)
@@ -192,49 +190,42 @@ def configure_with_bazel(args):
             elif '10\.' in cuda_ver:
                 _action_env("TF_CUDA_COMPUTE_CAPABILITIES", "7.0,7.5")
             _action_env("NVCC", which("nvcc"))
-            _opt("define", "using_cuda=true")
-            _write("--@local_config_cuda//:enable_cuda")
-            _write("--crosstool_top=@local_config_cuda//crosstool:toolchain")
 
             if not args.skip_trt:
                 _action_env("BLADE_WITH_TENSORRT", "1")
-                trt_root = os.environ.get("TENSORRT_INSTALL_PATH", "/usr/local/TensorRT")
+                trt_root = os.environ.get(
+                    "TENSORRT_INSTALL_PATH", "/usr/local/TensorRT"
+                )
                 _action_env("TENSORRT_VERSION", get_trt_version(trt_root))
                 _action_env("TENSORRT_INSTALL_PATH", trt_root)
             else:
                 _action_env("BLADE_WITH_TENSORRT", "0")
 
-            _action_env("BLADE_WITH_HIE", "1" if args.internal and not args.skip_hie else "0")
+            if args.platform_alibaba and not args.skip_hie:
+                _config("hie")
 
-            _write("--//:device=gpu")
-            _action_env("BLADE_WITH_MKL", "0")
-        else:
-            _action_env("TF_NEED_CUDA", "0")
-            _action_env("BLADE_WITH_TENSORRT", "0")
-            _action_env("BLADE_WITH_HIE", "0")
-            _opt("define", "using_cuda=false")
-            _write("--//:device=cpu")
-            if args.device == 'cpu':
-                # TODO(lanbo.llb): unify mkl configure with tao_bridge
-                if args.internal:
-                    _action_env("BLADE_WITH_MKL", "1")
-                    mkl_root = os.environ.get("MKL_INSTALL_PATH", "/opt/intel/compilers_and_libraries_2020.1.217/linux")
-                    assert os.path.exists(mkl_root), f"MKL root path missing: {mkl_root}"
-                    _action_env("MKL_INSTALL_PATH", mkl_root)
-                if not args.skip_disc:
-                    if args.enable_mkldnn:
-                        _opt("define", "is_mkldnn=true")
-                        _action_env("BUILD_WITH_MKLDNN", "1")
-                    if args.aarch64:
-                        _opt("define", "disc_aarch64=true")
-                        _action_env("BUILD_WITH_AARCH64", "1")
-                    else:
-                        _opt("define", "disc_x86=true")
+            if not args.skip_disc:
+                _config("disc_cuda")
+        elif args.device == 'cpu':
+            _config("cpu")
 
-        _write(f"--//:framework=tf")
-        _write(
-            get_test_tag_filters(args, tf_major=tf_major), cmd="test",
-        )
+            # TODO(lanbo.llb): unify mkl configure with tao_bridge
+            if args.platform_alibaba:
+                _action_env("BLADE_WITH_MKL", "1")
+                mkl_root = os.environ.get(
+                    "MKL_ROOT",
+                    "/opt/intel/compilers_and_libraries_2020.1.217/linux",
+                )
+                assert os.path.exists(mkl_root), f"MKL root path missing: {mkl_root}"
+                _action_env("MKL_ROOT", mkl_root)
+            if not args.skip_disc:
+                if not args.disable_mkldnn:
+                    _config("disc_mkldnn")
+                if args.aarch64:
+                    _config("disc_aarch64")
+                else:
+                    _config("disc_x86")
+
         # Working around bazel #10327
         _action_env("BAZEL_LINKOPTS", os.environ.get("BAZEL_LINKOPTS", ""))
         _action_env("BAZEL_LINKLIBS", os.environ.get("BAZEL_LINKLIBS", "-lstdc++"))
@@ -242,46 +233,29 @@ def configure_with_bazel(args):
 
     # This is a hack when cmake generated pb.h & pb.cc files will affect bazel build
     # Since tf's ci for disc and tensorflow-blade share the same code dirs
-    execute("rm -f ../tao/tao_bridge/*.pb.* ../tao/tao_bridge/ral/tensorflow/compiler/mlir/xla/*.pb.*")
+    execute(
+        "rm -f ../tao/tao_bridge/*.pb.* ../tao/tao_bridge/ral/tensorflow/compiler/mlir/xla/*.pb.*"
+    )
 
 
-def build_with_bazel(args):
-    with cwd(ROOT):
-        bazel_config = ""
-        if not args.skip_disc:
-            bazel_config = "--config=disc"
-            if args.device == "gpu":
-                # TODO(lanbo.llb): support dcu with a more generate device name
-                bazel_config = "--config=disc_cuda"
-            elif args.device == "cpu":
-                if args.aarch64:
-                    bazel_config = "--config=disc_aarch64"
-                else:
-                    bazel_config = "--config=disc_x86"
-        execute(f"bazel build {bazel_config} //src:_tf_blade.so")
-
-def package_whl_with_bazel(args):
-    with cwd(ROOT):
-        if args.develop:
-            execute("bazel run //:develop_pip_package")
-        else:
-            execute("bazel run //:build_pip_package")
-            dist_dir = os.path.join(ROOT, 'dist')
-            build_dir = os.path.join(
-                ROOT,
-                'bazel-bin',
-                'build_pip_package.runfiles',
-                'org_tf_blade',
-                'dist',
-            )
-            ensure_empty_dir(dist_dir)
-            execute(f"mv {build_dir}/*.whl {dist_dir}")
+def build(args):
+    execute("python3 setup.py build")
 
 
-def test_with_bazel(args):
-    with cwd(ROOT):
-        execute("bazel test //tests/...")
-    logger.info("Stage [test] success.")
+def develop(args):
+    execute("python3 setup.py develop")
+
+
+def package(args):
+    execute("python3 setup.py bdist_wheel")
+
+
+def test(args):
+    execute("python3 setup.py cpp_test")
+    device_mark = "not gpu_only" if args.device != "gpu" else "not cpu_only"
+    tf_major, _, _, _, _, _, _, _ = get_tf_info(which("python3"))
+    tf_mark = "not tf1_only" if tf_major == "2" else "not tf2_only"
+    execute(f"pytest  tests/ -m '{device_mark} and {tf_mark}' -v --forked")
 
 
 def parse_args():
@@ -304,6 +278,7 @@ def parse_args():
             "check",
             "configure",
             "build",
+            "develop",
             "test",
             "package",
         ],
@@ -314,8 +289,9 @@ def parse_args():
     - check: Run format checkers and static linters.
     - configure: parent stage of the following:
     - build: build tf blade with regard to the configured part
+    - develop: run setuputil develop mode
     - test: test tf blade framework.
-    - package: make tf blade python packages."""
+    - package: make tf blade python packages.""",
     )
     parser.add_argument(
         "--device",
@@ -325,69 +301,53 @@ def parse_args():
         help='Build target device',
     )
     parser.add_argument(
-        "--tf", required=False, choices=["1.15", "2.4"], help="TensorFlow version.",
-    )
-    parser.add_argument(
         '--skip-trt',
         action="store_true",
         required=False,
         default=False,
-        help="If True, TensorRT will be skipped for gpu build",
+        help="Skip TensorRT support",
     )
     parser.add_argument(
         '--skip-hie',
         action="store_true",
         required=False,
-        default=True,
-        help="If True, hie will be skipped for internal build",
+        default=False,
+        help="Skip HIE support for internal build",
     )
     parser.add_argument(
         '--skip-disc',
         action="store_true",
         required=False,
         default=False,
-        help="If True, disc compiler will be skipped for build",
+        help="Skip BladeDISC compiler support.",
     )
     parser.add_argument(
-        '--enable-mkldnn',
+        '--disable-mkldnn',
         action="store_true",
         required=False,
         default=False,
-        help="If True, mkl will be enabled for disc compiler.",
+        help="Enable MKL for disc compiler.",
     )
     parser.add_argument(
         '--aarch64',
         action="store_true",
         required=False,
         default=False,
-        help="If True, we will only build tao bridge with aarch64 support.",
-    )
-    parser.add_argument(
-        '--internal',
-        action="store_true",
-        required=False,
-        default=False,
-        help="If True, internal objects will be built",
+        help="If specified, only build tao bridge with aarch64 support.",
     )
     parser.add_argument(
         '--platform-alibaba',
         action="store_true",
         required=False,
         default=False,
-        help="If True, objects inside macro PLATFORM_ALIBABA will be built",
+        help="Build with targets inside alibaba.",
     )
     parser.add_argument(
-        "--verbose",
-        required=False,
-        action="store_true",
-        help="Show more information in each stage",
-    )
-    parser.add_argument(
-        '--develop',
+        '--debug-build',
         action="store_true",
         required=False,
         default=False,
-        help="If True, python develop mode for TensorFlow-Blade will be set up for local development or debug.",
+        help='Build mode for C++ code.',
     )
 
     # flag validation
@@ -415,25 +375,18 @@ def setup_env():
 
 
 def main():
+    os.chdir(ROOT)
     args = parse_args()
     setup_env()
+    for cmd in [check, configure, restore_config, build, develop, test, package]:
+        if (
+            args.stage == "all"
+            or cmd.__name__ == args.stage
+            or cmd.__name__ == 'restore_config'
+        ):
+            cmd(args)
+            logger.info("Stage [{}] success.".format(cmd.__name__))
 
-    stage = args.stage
-    if stage in ["all", "check"]:
-        check(args)
-
-    if stage in ["all", "configure"]:
-        configure_with_bazel(args)
-
-    restore_build_config(args)
-    if stage in ["all", "build"]:
-        build_with_bazel(args)
-
-    if stage in ["all", "test"]:
-        test_with_bazel(args)
-
-    if stage in ["all", "package"]:
-        package_whl_with_bazel(args)
 
 if __name__ == "__main__":
     main()

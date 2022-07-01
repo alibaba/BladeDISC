@@ -159,6 +159,10 @@ class Config(ConfigContext):
         # Also, you can pass multiple dynamic input shapes if single configure does not give satisfied
         # performance, like config.dynamic_tuning_shapes = [configure1, configure2, ...].
         self._dynamic_tuning_shapes = {}
+        # For some torchscripts exported by torch.jit.script,the format of the input may be very complex,
+        # for example, Dict. In this case, it is not easy or even possible to set tuning shapes through
+        # List. So this config allows users to directly pass inputs corresponding to min/max/opts
+        self._dynamic_tuning_inputs = {}
         self._extra_dynamic_tuning_shapes = {}
         self._preserved_attributes = []
         self._customize_onnx_opset_version = None

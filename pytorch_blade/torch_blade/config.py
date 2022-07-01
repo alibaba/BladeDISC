@@ -364,8 +364,7 @@ class Config(ConfigContext):
             from torch.onnx._constants import onnx_main_opset as _onnx_master_opset
             from torch.onnx._constants import onnx_stable_opsets as _onnx_stable_opsets 
         else:
-            from torch.onnx.symbolic_helper import _onnx_main_opset
-            from torch.onnx.symbolic_helper import _default_onnx_opset_version
+            from torch.onnx.symbolic_helper import _onnx_main_opset, _onnx_stable_opsets, _default_onnx_opset_version
             _onnx_master_opset = _onnx_main_opset
 
         assert version == _default_onnx_opset_version or version in list(_onnx_stable_opsets) + [_onnx_master_opset]

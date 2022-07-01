@@ -164,9 +164,9 @@ class TestConfig(TestCase):
             self.assertEqual(now_cfg.dynamic_tuning_shapes[1]['opts'], shapes2['opts'])
 
     def test_dynamic_tuning_inputs(self):
-        min_inp = {1: torch.tensor(1)}
-        max_inp = {3: torch.tensor(3)}
-        opt_inp = {2: torch.tensor(1)}
+        min_inp = {1: torch.tensor(1, device=self.device)}
+        max_inp = {3: torch.tensor(3, device=self.device)}
+        opt_inp = {2: torch.tensor(1, device=self.device)}
         cfg = Config()
         cfg.dynamic_tuning_inputs = {
             "min": [min_inp],

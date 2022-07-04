@@ -475,3 +475,57 @@ func @main(%arg0 : i32, %arg1 : i32) -> i32 {
   %3 = arith.index_cast %2 : index to i32
   return %3 : i32
 }
+
+// -----
+
+// test: scalarize mhlo.reduce whenever possible
+
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: i32, %[[ARG1:.*]]: i32) -> i32
+func @main(%arg0 : i32, %arg1 : i32) -> i32 {
+  // CHECK-NOT: mhlo.reduce
+  // CHECK: %[[RET:.*]] = arith.muli %[[ARG0]], %[[ARG1]]
+  // CHECK: return %[[RET]] : i32
+  %0 = tensor.from_elements %arg0, %arg1 : tensor<2xi32>
+  %1 = "mhlo.reshape"(%0) : (tensor<2xi32>) -> tensor<2x1xi32>
+  %2 = "mhlo.constant"() {value = dense<1> : tensor<i32>} : () -> tensor<i32>
+  %3 = mhlo.reduce(%1 init: %2) applies mhlo.multiply across dimensions = [0] : (tensor<2x1xi32>, tensor<i32>) -> tensor<1xi32>
+  %c0 = arith.constant 0 : index
+  %4 = tensor.extract %3[%c0] : tensor<1xi32>
+  return %4 : i32
+}
+
+// -----
+
+// test: scalarize mhlo.gather whenever possible
+
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: i32, %[[ARG1:.*]]: i32) -> i32
+func @main(%arg0 : i32, %arg1 : i32) -> i32 {
+  // CHECK-NOT: mhlo.gather
+  // CHECK: return %[[ARG0]] : i32
+  %0 = tensor.from_elements %arg0, %arg1, %arg0 : tensor<3xi32>
+  %1 = "mhlo.constant"() {value = dense<[0, 2]> : tensor<2xi32>} : () -> tensor<2xi32>
+  %2 = "mhlo.gather"(%0, %1) {dimension_numbers = #mhlo.gather<collapsed_slice_dims = [0], start_index_map = [0], index_vector_dim = 1>, slice_sizes = dense<[1]> : tensor<1xi64>, indices_are_sorted = false} : (tensor<3xi32>, tensor<2xi32>) -> tensor<2xi32>
+  %c1 = arith.constant 1 : index
+  %3 = tensor.extract %2[%c1] : tensor<2xi32>
+  return %3 : i32
+}
+
+// -----
+
+// test: scalarize mhlo.dynamic_gather whenever possible
+
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: i32, %[[ARG1:.*]]: i32) -> i32
+func @main(%arg0 : i32, %arg1 : i32) -> i32 {
+  // CHECK-NOT: mhlo.gather
+  // CHECK: return %[[ARG0]] : i32
+  %0 = tensor.from_elements %arg0, %arg1, %arg0 : tensor<3xi32>
+  %1 = "mhlo.constant"() {value = dense<[0, 2]> : tensor<2xi32>} : () -> tensor<2xi32>
+  %2 = "mhlo.constant"() {value = dense<[1]> : tensor<1xi32>} : () -> tensor<1xi32>
+  %3 = "mhlo.dynamic_gather"(%0, %1, %2) {dimension_numbers = #mhlo.gather<collapsed_slice_dims = [0], start_index_map = [0], index_vector_dim = 1>, indices_are_sorted = false} : (tensor<3xi32>, tensor<2xi32>, tensor<1xi32>) -> tensor<2xi32>
+  %c1 = arith.constant 1 : index
+  %4 = tensor.extract %3[%c1] : tensor<2xi32>
+  return %4 : i32
+}

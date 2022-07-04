@@ -29,6 +29,7 @@ limitations under the License.
 #include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/MLIRContext.h"  // TF:llvm-project
+#include "mlir/IR/Matchers.h"
 #include "mlir/IR/OpDefinition.h"
 #include "mlir/Pass/Pass.h"  // TF:local_config_mlir
 #include "mlir/Pass/PassManager.h"
@@ -444,6 +445,152 @@ struct ExtractElementOfReshapeOpCanonicalizationPattern
 };
 
 // convert:
+//   %1 = mhlo.reduce(%0) applies mhlo.multiply across dimensions = [0]
+//        : (tensor<2x1xi32>, tensor<i32>) -> tensor<1xi32>
+//   %2 = tensor.extract %1[%c0] : ...
+//   use(%2)
+// to:
+//   %1 = tensor.extract %0[%c0, %c0] : ...
+//   %2 = tensor.extract %0[%c1, %c0] : ...
+//   %3 = arith.muli %1, %2
+//   use(%3)
+//
+// This pattern is usually genearted when lowering a TF pattern like:
+//   %1 = tf.Shape(%0) : tensor<3xi32>
+//   %2 = tf.Slice(%1, ...) : tensor<2xi32>
+//   %3 = tf.Reshape(%2) : tensor<2x1xi32>
+//   %4 = tf.Prod(%3) : tensor<1xi32>
+//   use(%4)
+struct ExtractElementOfReduceOpCanonicalizationPattern
+    : public OpRewritePattern<tensor::ExtractOp> {
+  using OpRewritePattern<tensor::ExtractOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::ExtractOp op,
+                                PatternRewriter& rewriter) const override {
+    auto tensorTy = op.tensor().getType().dyn_cast<RankedTensorType>();
+    if (!tensorTy || !tensorTy.hasStaticShape() ||
+        !tensorTy.getElementType().isIntOrIndex() ||
+        tensorTy.getNumElements() > 8 || tensorTy.getNumElements() == 0)
+      return failure();
+
+    auto reduceOp = op.tensor().getDefiningOp<mhlo::ReduceOp>();
+    if (!reduceOp || reduceOp->getNumResults() > 1) return failure();
+
+    // Only support reducing arcross a single dimension.
+    if (reduceOp.dimensions().getValues<int64_t>().size() != 1)
+      return failure();
+    int64_t reduceAxis = *reduceOp.dimensions().getValues<int64_t>().begin();
+
+    auto& block = reduceOp.body().front();
+    if (!hasSingleElement(block.without_terminator())) return failure();
+    if (!isa<mhlo::MulOp>(&(*block.begin()))) return failure();
+
+    Value dataTensor = reduceOp->getOperand(0);
+    Value initTensor = reduceOp->getOperand(1);
+    auto initTy = initTensor.getType().dyn_cast<RankedTensorType>();
+    auto dataTy = dataTensor.getType().dyn_cast<RankedTensorType>();
+    if (!initTy || initTy.getRank() > 1 || !dataTy ||
+        !dataTy.hasStaticShape() || dataTy.getNumElements() > 8)
+      return failure();
+
+    Value initValue;
+    Location loc = op.getLoc();
+    if (initTy.getRank() == 0) {
+      initValue = rewriter.create<tensor::ExtractOp>(loc, initTensor);
+    } else {
+      assert(initTy.getRank() == 1);
+      Value zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+      initValue = rewriter.create<tensor::ExtractOp>(loc, initTensor, zero);
+    }
+
+    int nextNonReduceIdx = 0;
+    SmallVector<Value> indices(dataTy.getRank());
+    for (int64_t i = 0; i < dataTy.getRank(); ++i) {
+      if (i == reduceAxis) continue;
+      indices[i] = op.indices()[nextNonReduceIdx++];
+    }
+
+    Value newResult = initValue;
+    for (int64_t i = 0; i < dataTy.getShape()[reduceAxis]; ++i) {
+      Value idx = rewriter.create<arith::ConstantIndexOp>(loc, i);
+      indices[reduceAxis] = idx;
+      Value data = rewriter.create<tensor::ExtractOp>(loc, dataTensor, indices);
+      newResult = rewriter.create<arith::MulIOp>(loc, newResult, data);
+    }
+    rewriter.replaceOp(op, {newResult});
+    return success();
+  }
+};
+
+// convert:
+//   // functionally like a slice op
+//   %1 = mhlo.gather(%0, ...) : (tensor<3xi32>) -> tensor<2xi32>
+//   %2 = tensor.extract %1[%c0] : ...
+//   use(%2)
+// to:
+//   %1 = tensor.extract %0[%c1] : ...
+//   use(%1)
+//
+// This pattern is usually genearted when lowering a TF pattern like:
+//   %1 = tf.Shape(%0) : tensor<3xi32>
+//   %2 = tf.Gather(%1, ...) : tensor<2xi32> // functionally like a slice op
+//   %3 = tf.Reshape(%2) : tensor<2x1xi32>
+//   %4 = tf.Prod(%3) : tensor<1xi32>
+//   use(%4)
+struct ExtractElementOfGatherOpCanonicalizationPattern
+    : public OpRewritePattern<tensor::ExtractOp> {
+  using OpRewritePattern<tensor::ExtractOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::ExtractOp op,
+                                PatternRewriter& rewriter) const override {
+    if (op.indices().size() != 1) return failure();
+    auto indexOp = dyn_cast_or_null<arith::ConstantOp>(
+        op.indices().front().getDefiningOp());
+    if (!indexOp) return failure();
+    int64_t index = indexOp.getValue().cast<IntegerAttr>().getInt();
+
+    auto gatherOp = op.tensor().getDefiningOp();
+    if (!gatherOp || !isa<mhlo::GatherOp, mhlo::DynamicGatherOp>(gatherOp))
+      return failure();
+
+    Value in = gatherOp->getOperand(0);
+    Value startIndices = gatherOp->getOperand(1);
+    Value out = gatherOp->getResult(0);
+    if (!isCandidateShapeTensorType(in.getType()) ||
+        !isCandidateShapeTensorType(startIndices.getType()) ||
+        !isCandidateShapeTensorType(out.getType()))
+      return failure();
+
+    auto dimensionNumbers =
+        gatherOp->getAttrOfType<mhlo::GatherDimensionNumbersAttr>(
+            "dimension_numbers");
+    auto collapsedSliceDims = dimensionNumbers.getCollapsedSliceDims();
+    auto indexVectorDim = dimensionNumbers.getIndexVectorDim();
+    auto startIndexMap = dimensionNumbers.getStartIndexMap();
+    auto offsetDims = dimensionNumbers.getOffsetDims();
+
+    // TODO(disc): support other cases.
+    if (collapsedSliceDims.size() != 1 || collapsedSliceDims[0] != 0 ||
+        indexVectorDim != 1 || startIndexMap.size() != 1 ||
+        startIndexMap[0] != 0 || offsetDims.size() != 0) {
+      return failure();
+    }
+
+    Location loc = op.getLoc();
+    Value offset = rewriter.create<arith::ConstantIndexOp>(loc, index);
+    Value newIndex =
+        rewriter.create<tensor::ExtractOp>(loc, startIndices, offset);
+    if (newIndex.getType() != rewriter.getIndexType())
+      newIndex = rewriter.create<arith::IndexCastOp>(
+          loc, rewriter.getIndexType(), newIndex);
+    Value newValue = rewriter.create<tensor::ExtractOp>(loc, in, newIndex);
+    rewriter.replaceOp(op, {newValue});
+
+    return success();
+  }
+};
+
+// convert:
 //   %1 = arith.index_cast(%0) : (tensor<2xi32>) -> tensor<2xindex>
 //   use(%1)
 // to:
@@ -487,6 +634,8 @@ void populateShapeOptimizationPatterns(MLIRContext* context,
   patterns->insert<
       DimOfTieShapeOpCanonicalizationPattern,
       ExtractElementOfConcatOpCanonicalizationPattern,
+      ExtractElementOfGatherOpCanonicalizationPattern,
+      ExtractElementOfReduceOpCanonicalizationPattern,
       ExtractElementOfReshapeOpCanonicalizationPattern,
       ExtractElementOfSliceOpCanonicalizationPattern,
       ExtractElementOfTieShapeOpCanonicalizationPattern,

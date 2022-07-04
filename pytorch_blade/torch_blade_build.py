@@ -65,6 +65,9 @@ class TorchBladeBuild:
         self.skip_disc_cmd_build = check_env_flag(
             "TORCH_BLADE_SKIP_DISC_CMD_BUILD", "OFF"
         )
+        self.build_hie = check_env_flag(
+            "TORCH_BLADE_BUILD_HIE", "OFF"
+        )
 
         self.tensorrt_dir = os.getenv("TENSORRT_INSTALL_PATH", "/usr/local/TensorRT/")
         self.version = self.get_version()

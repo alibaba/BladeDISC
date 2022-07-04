@@ -38,7 +38,6 @@
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/Passes.h"
 
-#include <iostream>
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;

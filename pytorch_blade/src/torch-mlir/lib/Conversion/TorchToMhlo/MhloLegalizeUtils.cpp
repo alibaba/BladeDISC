@@ -171,7 +171,6 @@ std::vector<Value> getDimSizesOfTensor(
   dimSizes.reserve(rank);
   auto loc = op->getLoc();
   for (auto d : dims) {
-    auto dSize = currentKnowledge.sizes[d];
     dimSizes.emplace_back(rewriter.create<arith::IndexCastOp>(
         loc,
         rewriter.getI32Type(),
@@ -198,7 +197,6 @@ std::vector<Value> getDimSizesOfTensor(
   dimSizes.reserve(rank);
   auto loc = op->getLoc();
   for (auto d = 0; d < rank; ++d) {
-    auto dSize = currentKnowledge.sizes[d];
     dimSizes.emplace_back(rewriter.create<arith::IndexCastOp>(
         loc,
         rewriter.getI32Type(),

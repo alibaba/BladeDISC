@@ -201,5 +201,16 @@ bool useShapeConstraintIR() {
   return enabled;
 }
 
+// Returns true if `DISC_ENABLE_HORIZONTAL_FUSION` is true
+bool useHorizontalFusion() {
+  static bool enabled = []() {
+    bool enabled = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_HORIZONTAL_FUSION", enabled,
+                                   &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
 }  // namespace disc_ral
 }  // namespace mlir

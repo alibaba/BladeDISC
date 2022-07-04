@@ -1,5 +1,6 @@
 // RUN: disc-opt -pass-pipeline='func.func(disc-fusion{gpu-enabled=true fusion-strategy=base})' -split-input-file %s -o - | FileCheck %s --check-prefix=BASE
 // RUN: disc-opt -pass-pipeline='func.func(disc-fusion{gpu-enabled=true fusion-strategy=stitch})' -split-input-file %s -o - | FileCheck %s --check-prefix=STITCH
+// RUN: DISC_ENABLE_SHAPE_CONSTRAINT_IR=1 DISC_ENABLE_HORIZONTAL_FUSION=1 disc-opt -pass-pipeline='func.func(disc-fusion{gpu-enabled=true fusion-strategy=stitch})' -split-input-file %s -o - | FileCheck %s --check-prefix=HORIZONTAL
 
 // BASE-LABEL: @simple_kloop_fusion
 // BASE-SAME: (%[[ARG0:.*]]: memref<?x?xf32, "gpu">, %[[ARG1:.*]]: memref<?x?xf32, "gpu">, %[[ARG2:.*]]: memref<?x?xf32, "gpu">, %[[ARG3:.*]]: memref<?x?xf32, "gpu">) -> memref<?x?xf32, "gpu">
@@ -388,4 +389,55 @@ func @kstitch_fusion_mean(%arg0: memref<?x?x?xf32, "gpu">) -> memref<?x?xf32, "g
   // STITCH-SAME: disc.fusion_type = "kStitch"
   // STITCH-NOT:  disc.fusion.name
   return %34 : memref<?x?xf32, "gpu">
+}
+
+// -----
+
+// HORIZONTAL-LABEL: @main
+// HORIZONTAL: "lmhlo.fusion"() ({
+// HORIZONTAL-NEXT: lmhlo.real_dynamic_slice
+// HORIZONTAL-NEXT: lmhlo.real_dynamic_slice
+// HORIZONTAL-NEXT: lmhlo.terminator
+// HORIZONTAL-NEXT: })
+// HORIZONTAL-SAME: disc.fusion_type = "kLoop"
+// HORIZONTAL-NOT: lmhlo.fusion
+module attributes {tf.versions = {bad_consumers = [], min_consumer = 0 : i32, producer = 0 : i32}} {
+  func @main(%arg0: memref<?x32xf32, "gpu">) -> (memref<?x32xf32, "gpu">, memref<?x32xf32, "gpu">) attributes {tf.entry_function = {input_placements = "gpu", inputs = "input0", output_placements = "gpu,gpu", outputs = "output0,output1"}} {
+    %c64 = arith.constant 64 : index
+    %c32 = arith.constant 32 : index
+    %c0 = arith.constant 0 : index
+    %c1 = arith.constant 1 : index
+    %0 = memref.alloc() : memref<2xindex, "cpu">
+    memref.store %c1, %0[%c0] : memref<2xindex, "cpu">
+    memref.store %c1, %0[%c1] : memref<2xindex, "cpu">
+    %1 = memref.alloc() : memref<2xindex, "cpu">
+    memref.store %c0, %1[%c0] : memref<2xindex, "cpu">
+    memref.store %c0, %1[%c1] : memref<2xindex, "cpu">
+    %2 = memref.alloc() : memref<2xindex, "cpu">
+    memref.store %c0, %2[%c0] : memref<2xindex, "cpu">
+    memref.store %c32, %2[%c1] : memref<2xindex, "cpu">
+    %3 = memref.alloc() : memref<32x64xf32, "gpu">
+    "lmhlo.constant"(%3) {value = opaque<"elided_large_const", "0xDEADBEEF"> : tensor<32x64xf32>} : (memref<32x64xf32, "gpu">) -> ()
+    %4 = memref.dim %arg0, %c0 : memref<?x32xf32, "gpu">
+    %5 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%4, 32], strides: [32, 1] {kDiscSymbolicDimAttr = [@S0, @C32]} : memref<?x32xf32, "gpu"> to memref<?x32xf32, "gpu">
+    %6 = memref.alloc(%4) {kDiscSymbolicDimAttr = [@S0, @C64]} : memref<?x64xf32, "gpu">
+    "lmhlo.dot_general"(%5, %3, %6) {disc.device = "gpu", dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>} : (memref<?x32xf32, "gpu">, memref<32x64xf32, "gpu">, memref<?x64xf32, "gpu">) -> ()
+    %7 = memref.alloc() {alignment = 128 : i64} : memref<2xindex, "cpu">
+    memref.store %4, %7[%c0] : memref<2xindex, "cpu">
+    memref.store %c32, %7[%c1] : memref<2xindex, "cpu">
+    %8 = memref.alloc(%4) {kDiscSymbolicDimAttr = [@S0, @C32]} : memref<?x32xf32, "gpu">
+    "lmhlo.real_dynamic_slice"(%6, %1, %7, %0, %8) {disc.device = "gpu"} : (memref<?x64xf32, "gpu">, memref<2xindex, "cpu">, memref<2xindex, "cpu">, memref<2xindex, "cpu">, memref<?x32xf32, "gpu">) -> ()
+    %9 = memref.alloc() {alignment = 128 : i64} : memref<2xindex, "cpu">
+    memref.store %4, %9[%c0] : memref<2xindex, "cpu">
+    memref.store %c64, %9[%c1] : memref<2xindex, "cpu">
+    %10 = memref.alloc(%4) {kDiscSymbolicDimAttr = [@S0, @C32]} : memref<?x32xf32, "gpu">
+    "lmhlo.real_dynamic_slice"(%6, %2, %9, %0, %10) {disc.device = "gpu"} : (memref<?x64xf32, "gpu">, memref<2xindex, "cpu">, memref<2xindex, "cpu">, memref<2xindex, "cpu">, memref<?x32xf32, "gpu">) -> ()
+    return %8, %10 : memref<?x32xf32, "gpu">, memref<?x32xf32, "gpu">
+  }
+  "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S0", value = -1 : i64} : () -> ()
+  "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = true, knownNonSizeZero = true, sym_name = "C32", value = 32 : i64} : () -> ()
+  "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = true, knownNonSizeZero = true, sym_name = "C64", value = 64 : i64} : () -> ()
+  func @shape_constraint_graph() {
+    return
+  }
 }

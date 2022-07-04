@@ -11,46 +11,43 @@
 
 #pragma once
 
-#include <torch/csrc/lazy/backend/backend_data.h>
 #include <torch/csrc/lazy/core/internal_ops/ltc_ops.h>
 #include <torch/csrc/lazy/ts_backend/ts_node.h>
 
 namespace torch {
 namespace lazy {
 
-class TORCH_API DeviceData : public TsNode {
+class TORCH_API DiagonalViewUpdate : public TsNode {
  public:
   static OpKind ClassOpKind() {
-    return ltc_device_data;
+    return ltc_diagonal_view_update;
   }
 
-  explicit DeviceData(std::shared_ptr<BackendData> data);
-
-  // A DeviceData node can be reused if the shape matches,
-  // but we will substitute the actual data_ pointer under
-  // the hood.
-  bool CanBeReused(std::shared_ptr<BackendData> data) const {
-    return data_->shape() == data->shape();
-  }
+  DiagonalViewUpdate(
+      const Value& target,
+      const Value& input,
+      int64_t offset,
+      int64_t dim1,
+      int64_t dim2);
 
   std::string ToString() const override;
 
-  const std::shared_ptr<BackendData>& data() const {
-    return data_;
+  int64_t offset() const {
+    return offset_;
   }
 
-  void SetData(std::shared_ptr<BackendData> data) {
-    data_ = data;
+  int64_t dim1() const {
+    return dim1_;
   }
 
-  static const DeviceData* Cast(const Node* node);
-
-  // To reuse IR nodes, use this method to create DeviceData nodes
-  // instead of calling the constructor directly.
-  static NodePtr Create(std::shared_ptr<BackendData> data);
+  int64_t dim2() const {
+    return dim2_;
+  }
 
  private:
-  std::shared_ptr<BackendData> data_;
+  int64_t offset_;
+  int64_t dim1_;
+  int64_t dim2_;
 };
 
 } // namespace lazy

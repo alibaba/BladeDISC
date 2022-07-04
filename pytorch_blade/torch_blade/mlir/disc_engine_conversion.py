@@ -84,7 +84,6 @@ def _compile_torchscript(graph):
                 stderr=devnull,
                 env=env,
             )
-
         assert os.path.exists(out_file_name)
         assert os.path.exists(out_file_pbtxt)
         with open(out_file_name, "rb") as f:

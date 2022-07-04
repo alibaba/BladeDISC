@@ -23,6 +23,10 @@ namespace lazy {
 // directly implementing the right to(device) behavior
 class ToCopy : public torch::lazy::TsNode {
  public:
+  static OpKind ClassOpKind() {
+    return OpKind(at::aten::_to_copy);
+  }
+
   ToCopy(
       const torch::lazy::Value& self,
       const c10::optional<at::ScalarType>& dtype,
@@ -33,7 +37,7 @@ class ToCopy : public torch::lazy::TsNode {
       const c10::optional<at::MemoryFormat>& memory_format,
       std::vector<torch::lazy::Shape>&& shapes)
       : torch::lazy::TsNode(
-            torch::lazy::OpKind(at::aten::_to_copy),
+            ClassOpKind(),
             {self},
             std::move(shapes),
             /* num_outputs */ 1,
@@ -113,5 +117,6 @@ class ToCopy : public torch::lazy::TsNode {
   bool non_blocking;
   c10::optional<at::MemoryFormat> memory_format;
 };
+
 } // namespace lazy
 } // namespace torch

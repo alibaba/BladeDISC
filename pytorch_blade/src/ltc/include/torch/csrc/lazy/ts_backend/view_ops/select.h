@@ -11,36 +11,50 @@
 
 #pragma once
 
-#include <c10/core/Scalar.h>
 #include <torch/csrc/lazy/ts_backend/ts_node.h>
 
 namespace torch {
 namespace lazy {
 
-// Differently from Constant, this is a scalar value broadcasted to a shape.
-// Even though a Constant could have been used, for simple scalars broadcasted
-// to big shapes, the Constant leads to big literals expanded within the
-// computation graph.
-class TORCH_API Scalar : public TsNode {
+class TORCH_API Select : public TsNode {
  public:
   static OpKind ClassOpKind() {
-    return OpKind(at::prim::Constant);
+    return OpKind(at::aten::select);
   }
 
-  Scalar(const at::Scalar& value, Shape shape);
-  Scalar(const at::Scalar& value, c10::ScalarType type);
+  Select(
+      const Value& input,
+      int64_t dim,
+      int64_t start,
+      int64_t end,
+      int64_t stride);
 
   std::string ToString() const override;
 
-  const at::Scalar& value() const {
-    return value_;
+  int64_t dim() const {
+    return dim_;
   }
 
- private:
-  at::Scalar value_;
-};
+  int64_t start() const {
+    return start_;
+  }
 
-TORCH_API hash_t ScalarHash(const at::Scalar& s);
+  int64_t end() const {
+    return end_;
+  }
+
+  int64_t stride() const {
+    return stride_;
+  }
+
+  static int64_t GetStride(int64_t start, int64_t end, int64_t stride);
+
+ private:
+  int64_t dim_;
+  int64_t start_;
+  int64_t end_;
+  int64_t stride_;
+};
 
 } // namespace lazy
 } // namespace torch

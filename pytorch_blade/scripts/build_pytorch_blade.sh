@@ -32,7 +32,7 @@ function pip_install_deps() {
     requirements=requirements-dev-${TORCH_BLADE_CI_BUILD_TORCH_VERSION}.txt
     python3 -m pip install --upgrade pip
     python3 -m pip install virtualenv
-    python3 -m pip install -r ${requirements} -f https://download.pytorch.org/whl/torch_stable.html
+    python3 -m pip install -r scripts/pip/${requirements} -f https://download.pytorch.org/whl/torch_stable.html
 }
 
 function ci_build() {
@@ -46,12 +46,14 @@ function ci_build() {
     else
       python3 ../scripts/python/common_setup.py --cpu_only
     fi
+    TORCH_LIB=$(python -c 'import torch; import os; print(os.path.dirname(os.path.abspath(torch.__file__)) + "/lib/")') \
+    export LD_LIBRARY_PATH=$TORCH_LIB:$LD_LIBRARY_PATH \
 
     export TORCH_BLADE_SKIP_DISC_CMD_BUILD=OFF
     rm -rf build && python3 setup.py develop;
     # The following are UNIT TESTS
     export TORCH_BLADE_DEBUG_LOG=ON
-    pytest tests tests -v -m "not ltc" 2>&1 | tee -a py_test.out
+    pytest tests -v 2>&1 | tee -a py_test.out
     TORCH_DISC_USE_TORCH_MLIR=true pytest tests/disc/ops/ -v -k \
              "TestDiscActivation or TestDiscUnaryOps or TestDiscBinaryOps or \
               TestDiscBroadcast or TestDiscReduction or TestDiscMatMul"

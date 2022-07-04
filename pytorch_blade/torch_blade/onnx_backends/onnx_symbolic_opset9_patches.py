@@ -10,7 +10,7 @@
 # limitations under the License.
 
 import torch
-from torch.onnx import symbolic_opset9
+from torch.onnx import symbolic_opset9, symbolic_helper
 from torch_blade import utils
 
 
@@ -54,7 +54,7 @@ if not hasattr(symbolic_opset9, "floordiv"):
 
 
 # The adapter make parameter allow_tf32 optional for backward compatiblity
-@symbolic_opset9.parse_args(
+@symbolic_helper.parse_args(
     "v", "v", "v", "is", "is", "is", "i", "is", "i", "i", "i", "i", "i"
 )
 def _convolution(

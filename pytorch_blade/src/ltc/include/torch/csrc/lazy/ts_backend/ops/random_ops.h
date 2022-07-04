@@ -18,6 +18,10 @@ namespace lazy {
 
 class Normal : public torch::lazy::TsNode {
  public:
+  static OpKind ClassOpKind() {
+    return OpKind::Get("aten::normal_");
+  }
+
   Normal(
       const torch::lazy::Value& self,
       const double& mean,

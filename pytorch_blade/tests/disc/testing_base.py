@@ -15,7 +15,7 @@ import unittest
 import copy
 
 from torch_blade import mlir
-from torch_blade import optimize
+from torch_blade import optimize, utils
 from torch_blade.mlir import is_available
 from torch_blade.config import Config
 from torch_blade.clustering import support_fusion_group
@@ -32,6 +32,23 @@ def isTorchMlirEnable():
 def skipIfEnableTorchMlir():
     return unittest.skipIf(isTorchMlirEnable(), "haven't supported")
 
+
+def skipTorchLE(version, msg=""):
+    return unittest.skipIf(
+        utils.torch_version_number() <= utils.parse_version(version),
+        "TODO: torch version compatible with early than {} {}".format(version, msg))
+
+
+def skipTorchLT(version, msg=""):
+    return unittest.skipIf(
+        utils.torch_version_number() < utils.parse_version(version),
+        "TODO: torch version compatible with early than {} {}".format(version, msg))
+
+def skipTorchGE(version, msg=""):
+    return unittest.skipIf(
+        utils.torch_version_number() >= utils.parse_version(version),
+        "TODO: torch version compatible with greater than {} {}".format(version, msg))
+
 @skipIfNoDISC()
 class DiscTestCase(TestCase):
 
@@ -39,6 +56,8 @@ class DiscTestCase(TestCase):
         if isinstance(nn_module, torch.jit.ScriptFunction):
             _compilation_unit = torch._C.CompilationUnit()
             c_module = torch._C.ScriptModule("gen_func", _compilation_unit, True)
+            print(type(c_module))
+            print(type(nn_module.graph))
             c_module.create_method_from_graph("forward", nn_module.graph)
             return torch.jit._recursive.wrap_cpp_module(c_module)
         else:

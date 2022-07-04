@@ -11,36 +11,46 @@
 
 #pragma once
 
-#include <c10/core/Scalar.h>
 #include <torch/csrc/lazy/ts_backend/ts_node.h>
+
+#include <torch/csrc/lazy/core/internal_ops/ltc_ops.h>
+#include <vector>
 
 namespace torch {
 namespace lazy {
 
-// Differently from Constant, this is a scalar value broadcasted to a shape.
-// Even though a Constant could have been used, for simple scalars broadcasted
-// to big shapes, the Constant leads to big literals expanded within the
-// computation graph.
-class TORCH_API Scalar : public TsNode {
+class TORCH_API AsStridedViewUpdate : public TsNode {
  public:
   static OpKind ClassOpKind() {
-    return OpKind(at::prim::Constant);
+    return ltc_as_strided_view_update;
   }
 
-  Scalar(const at::Scalar& value, Shape shape);
-  Scalar(const at::Scalar& value, c10::ScalarType type);
+  AsStridedViewUpdate(
+      const Value& target,
+      const Value& input,
+      std::vector<int64_t> size,
+      std::vector<int64_t> stride,
+      int64_t storage_offset);
 
   std::string ToString() const override;
 
-  const at::Scalar& value() const {
-    return value_;
+  const std::vector<int64_t>& size() const {
+    return size_;
+  }
+
+  const std::vector<int64_t>& stride() const {
+    return stride_;
+  }
+
+  int64_t storage_offset() const {
+    return storage_offset_;
   }
 
  private:
-  at::Scalar value_;
+  std::vector<int64_t> size_;
+  std::vector<int64_t> stride_;
+  int64_t storage_offset_;
 };
-
-TORCH_API hash_t ScalarHash(const at::Scalar& s);
 
 } // namespace lazy
 } // namespace torch

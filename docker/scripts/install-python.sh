@@ -11,9 +11,25 @@
 # limitations under the License.
 
 
-set -ex
-python3 -m pip install virtualenv numpy
+set -e
+PYTHON_VERSION=${PYTHON_VERSION:-PYTHON3.6}
 DISC_VENV=/opt/venv_disc
+
+function install_python() {
+  if [[ "$PYTHON_VERSION" == "PYTHON3.6" ]]; then
+    apt-get install -y python3.6 python3.6-dev python3-pip
+  elif [[ "$PYTHON_VERSION" == "PYTHON3.8" ]]; then
+    apt-get install -y python3.8 python3.8-dev python3-pip
+    rm -rf /usr/bin/python3
+    ln -s /usr/bin/python3.8 /usr/bin/python3
+  else
+    echo "PYTHON_VERSION should be in [PYTHON3.6, PYTHON3.8]"
+    exit 1
+  fi
+  ln -s /usr/bin/python3 /usr/bin/python
+  python3 -m pip install --upgrade pip
+  python3 -m pip install cpython virtualenv numpy
+}
 
 function install_venv() {
   python3 -m virtualenv ${DISC_VENV}
@@ -27,4 +43,5 @@ function install_venv() {
   deactivate
 }
 
+install_python
 install_venv

@@ -1,0 +1,11 @@
+cpython
+pyyaml
+typing_extensions
+numpy
+pytest
+networkx
+protobuf==3.20.1
+onnx>=1.6.0
+expecttest
+torch==1.12.0+cu113
+torchvision

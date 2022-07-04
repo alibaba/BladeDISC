@@ -4,12 +4,19 @@ FROM ${BASEIMAGE}
 ARG DISC_HOST_TF_VERSION=""
 ENV DISC_HOST_TF_VERSION="${DISC_HOST_TF_VERSION}"
 
+ARG PYTHON_VERSION=PYTHON3.6
+ENV PYTHON_VERSION=${PYTHON_VERSION}
+
+ENV DEBIAN_FRONTEND noninteractive
+
+ARG ENABLE_FIND_FASTEST_APT_SOURCE=ON
+ENV ENABLE_FIND_FASTEST_APT_SOURCE=${ENABLE_FIND_FASTEST_APT_SOURCE}
+
+
 COPY docker/scripts /install/scripts
 
 RUN bash /install/scripts/find-fastest-apt.sh && \
-    apt-get install -y python3 python3-pip git curl vim libssl-dev wget unzip openjdk-11-jdk && \
-    pip3 install --upgrade pip && \
-    ln -s /usr/bin/python3 /usr/bin/python && \
+    apt-get install -y git curl vim libssl-dev wget unzip openjdk-11-jdk && \
     bash /install/scripts/install-cmake.sh && \
     bash /install/scripts/install-bazel.sh && \
     bash /install/scripts/install-python.sh

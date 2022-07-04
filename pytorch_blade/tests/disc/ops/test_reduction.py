@@ -12,7 +12,7 @@
 import torch
 import unittest
 
-from tests.disc.testing_base import DiscTestCase
+from tests.disc.testing_base import DiscTestCase, skipTorchGE
 from torch_blade import utils
 
 
@@ -63,6 +63,7 @@ class TestDiscReduction(DiscTestCase):
 
         self._test_reduction(sum_func)
 
+    @skipTorchGE("1.12.0")
     def test_cvt_to_disc_sum_list_f32(self):
         @torch.jit.script
         def sum_func(x):

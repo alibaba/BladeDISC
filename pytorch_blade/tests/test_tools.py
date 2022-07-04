@@ -15,6 +15,7 @@ import torch
 from torch.testing import FileCheck
 from torch_blade import tools
 from torch_blade.testing.common_utils import Feedforward, TestCase
+from tests.disc.testing_base import skipTorchGE
 
 
 class TestTools(TestCase):
@@ -96,6 +97,7 @@ class TestTools(TestCase):
 
     @unittest.skipIf(platform.processor() == 'aarch64',
                      'Expected to find "%y.1 : Tensor = prim::GetAttr[name=\"_output\"](%2)" but did not find it')
+    @skipTorchGE("1.12.0")
     def test_freeze_module(self):
         class Sparse(torch.nn.Module):
 

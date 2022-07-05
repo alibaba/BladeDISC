@@ -39,12 +39,13 @@ class ApplyValueSemanticsPass
     MLIRContext* context = &getContext();
     auto func = getOperation();
 
+    SmallVector<Operation*> deadOps;
     // 1. Replace all return type from "!torch.tensor" to "!torch.vtensor"
     // 2. Erase all "torch.copy.to_tensor" and "torch.copy.to_vtensor"
     func.walk([&](mlir::Operation* op) {
       if (isa<CopyToNonValueTensorOp, CopyToValueTensorOp>(op)) {
         op->getResult(0).replaceAllUsesWith(op->getOpOperand(0).get());
-        op->erase();
+        deadOps.push_back(op);
         return;
       }
 
@@ -56,7 +57,22 @@ class ApplyValueSemanticsPass
         val.setType(tensor_type.getWithValueSemantics());
       }
     });
+    for (auto op : deadOps) {
+      op->erase();
+    }
+
     reduceTensorConversions(func);
+    deadOps.clear();
+    func.walk([&](mlir::Operation* op) {
+      if (isa<TensorStaticInfoCastOp>(op)) {
+        op->getResult(0).replaceAllUsesWith(op->getOpOperand(0).get());
+        deadOps.push_back(op);
+        return;
+      }
+    });
+    for (auto op : deadOps) {
+      op->erase();
+    }
 
     ConversionTarget target(*context);
     target.addLegalDialect<

@@ -171,7 +171,6 @@ std::vector<Value> getDimSizesOfTensor(
   dimSizes.reserve(rank);
   auto loc = op->getLoc();
   for (auto d : dims) {
-    auto d_size = currentKnowledge.sizes[d];
     dimSizes.emplace_back(rewriter.create<arith::IndexCastOp>(
         loc,
         rewriter.getI32Type(),
@@ -198,7 +197,6 @@ std::vector<Value> getDimSizesOfTensor(
   dimSizes.reserve(rank);
   auto loc = op->getLoc();
   for (auto d = 0; d < rank; ++d) {
-    auto d_size = currentKnowledge.sizes[d];
     dimSizes.emplace_back(rewriter.create<arith::IndexCastOp>(
         loc,
         rewriter.getI32Type(),
@@ -300,7 +298,6 @@ Value getNumelOfTensor(PatternRewriter& rewriter, Operation* op, Value value) {
   for (auto d : dimSizes) {
     numel = rewriter.create<arith::MulIOp>(loc, numel, d);
   }
-  numel = rewriter.create<tensor::FromElementsOp>(loc, ArrayRef<Value>{numel});
   return numel;
 }
 
@@ -655,5 +652,117 @@ Value getPermutedTensor(
       op->getLoc(), outTy, input, permuteAttr);
   return result.getResult();
 }
+
+Value getNormalizedDimSizeInternal(
+    PatternRewriter& rewriter,
+    Operation* op,
+    Value index,
+    Value dimSize) {
+  auto loc = op->getLoc();
+  Value zero = rewriter.create<arith::ConstantOp>(
+      loc, rewriter.getIntegerAttr(rewriter.getI64Type(), 0));
+  Value one = rewriter.create<arith::ConstantOp>(
+      loc, rewriter.getIntegerAttr(rewriter.getI64Type(), 1));
+
+  // To normalize index into range [-dimSize, dimSize]
+  // index = min(max(-dimSize, index), dimSize)
+  auto negDimSize = rewriter.create<arith::SubIOp>(loc, zero, dimSize);
+  index = rewriter.create<arith::MaxSIOp>(loc, negDimSize, index);
+  index = rewriter.create<arith::MinSIOp>(loc, dimSize, index);
+
+  auto dimSizePlusIndex = rewriter.create<arith::AddIOp>(loc, dimSize, index);
+  auto indexPositive = rewriter.create<arith::CmpIOp>(
+      loc, arith::CmpIPredicate::sge, index, zero);
+  // get positive index: (index >=0) ? index: index + dimSize
+  return rewriter.create<arith::SelectOp>(
+      loc, indexPositive, index, dimSizePlusIndex);
+}
+
+Value getDynamicSliceInternal(
+    PatternRewriter& rewriter,
+    Operation* op,
+    Value input,
+    Value startIndex,
+    Value endIndex,
+    Value step,
+    size_t dimIndex) {
+  auto loc = op->getLoc();
+  // startIndex & endIndex has been normailized into range [0, dSize]
+  Type i32Type = rewriter.getI32Type();
+  // cast i64 -> index
+  startIndex = rewriter.create<arith::TruncIOp>(loc, i32Type, startIndex);
+  endIndex = rewriter.create<arith::TruncIOp>(loc, i32Type, endIndex);
+  step = rewriter.create<arith::TruncIOp>(loc, i32Type, step);
+
+  Value zero = rewriter.create<arith::ConstantOp>(
+      loc, rewriter.getIntegerAttr(i32Type, 0));
+  Value one = rewriter.create<arith::ConstantOp>(
+      loc, rewriter.getIntegerAttr(i32Type, 1));
+
+  SmallVector<Value, 4> startIndices;
+  SmallVector<Value, 4> endIndices;
+  SmallVector<Value, 4> strides;
+
+  auto inputTy = input.getType().dyn_cast<RankedTensorType>();
+  auto rank = inputTy.getRank();
+  startIndices.reserve(rank);
+  endIndices.reserve(rank);
+  strides.reserve(rank);
+
+  auto dimSizes = getDimSizesOfTensor(rewriter, op, input);
+  for (size_t r = 0; r < rank; ++r) {
+    if (r == dimIndex) {
+      startIndices.push_back(startIndex);
+      endIndices.push_back(endIndex);
+      strides.push_back(step);
+    } else {
+      startIndices.push_back(zero);
+      endIndices.push_back(dimSizes[r]);
+      strides.push_back(one);
+    }
+  }
+
+  auto startTensor =
+      rewriter.create<tensor::FromElementsOp>(loc, startIndices).getResult();
+  auto endTensor =
+      rewriter.create<tensor::FromElementsOp>(loc, endIndices).getResult();
+  auto stridesTensor =
+      rewriter.create<tensor::FromElementsOp>(loc, strides).getResult();
+
+  auto inputShape = inputTy.getShape();
+  SmallVector<int64_t, 4> sliceShape(inputShape.begin(), inputShape.end());
+  sliceShape[dimIndex] = ShapedType::kDynamicSize;
+  auto sliceoutputTy =
+      RankedTensorType::get(sliceShape, inputTy.getElementType());
+  return rewriter.create<mhlo::RealDynamicSliceOp>(
+      loc, sliceoutputTy, input, startTensor, endTensor, stridesTensor);
+}
+
+Value getDynamicSlice(
+    PatternRewriter& rewriter,
+    Operation* op,
+    Value input,
+    Value startIndex,
+    Value endIndex,
+    Value step,
+    int64_t dim) {
+  auto loc = op->getLoc();
+  auto inputTy = input.getType().dyn_cast<RankedTensorType>();
+  auto rank = inputTy.getRank();
+
+  dim = (dim + rank) % rank;
+  auto dimSize = rewriter.create<arith::IndexCastOp>(
+      loc,
+      rewriter.getI64Type(),
+      rewriter.create<tensor::DimOp>(loc, input, dim));
+
+  auto normStartIndex =
+      getNormalizedDimSizeInternal(rewriter, op, startIndex, dimSize);
+  auto normEndIndex =
+      getNormalizedDimSizeInternal(rewriter, op, endIndex, dimSize);
+  return getDynamicSliceInternal(
+      rewriter, op, input, normStartIndex, normEndIndex, step, dim);
+}
+
 } // namespace mhlo
 } // namespace mlir

@@ -34,10 +34,10 @@
 #include "torch-mlir/Conversion/TorchToSCF/TorchToSCF.h"
 #include "torch-mlir/Conversion/TorchToStd/TorchToStd.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
+#include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/Passes.h"
 
-#include <iostream>
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
@@ -59,16 +59,19 @@ class VerifyMhloBackendContractPass
     // the convert_ty function will convert !torch.vtensor to builtin tensor
     auto convert_ty = [&](BlockArgument& arg) -> Type {
       Type type = arg.getType();
-      auto vtensorTy = type.dyn_cast_or_null<ValueTensorType>();
-      if (vtensorTy) {
-        type = vtensorTy.toBuiltinTensor();
+      if (type.isa<BaseTensorType>()) {
+        auto vtensorTy = type.dyn_cast_or_null<ValueTensorType>();
+        if (vtensorTy) {
+          type = vtensorTy.toBuiltinTensor();
+        } else {
+          auto tensorTy = type.dyn_cast<NonValueTensorType>();
+          type = tensorTy.getWithValueSemantics().toBuiltinTensor();
+        }
         arg.setType(type);
-      }
-      if (type.isa<Torch::FloatType>()) {
+      } else if (type.isa<Torch::FloatType>()) {
         type = Float64Type::get(context);
         arg.setType(type);
-      }
-      if (type.isa<Torch::IntType>()) {
+      } else if (type.isa<Torch::IntType>()) {
         type = IntegerType::get(context, 64);
         arg.setType(type);
       }
@@ -177,13 +180,14 @@ void TorchConversion::createTorchBackendToMhloBackendPipeline(
   ::mlir::torch::Torch::createTorchFunctionToTorchBackendPipeline(
       pm, funcOptions);
 
-  // add decompose passes
+  // Add decompose passes
   pm.addNestedPass<func::FuncOp>(createDiscDecomposeComplexOpsPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
   pm.addNestedPass<func::FuncOp>(Torch::createDecomposeComplexOpsPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 
-  pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
+  // Do mhlo lowering
   pm.addNestedPass<func::FuncOp>(createConvertTorchToMhloPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToSCFPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToStdPass());

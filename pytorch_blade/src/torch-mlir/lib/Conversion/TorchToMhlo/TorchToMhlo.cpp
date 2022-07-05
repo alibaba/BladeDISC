@@ -879,8 +879,8 @@ class ConvertAtenReductionOp : public OpConversionPattern<AtenOpT> {
     if (isMean || keepDims) {
       if (isMean) {
         auto numel = mhlo::getNumelOfTensor(rewriter, op, self);
-        numel = rewriter.create<mhlo::ConvertOp>(
-            loc, numel, outputTy.getElementType());
+        numel = scalarToMhloTensor(
+            rewriter, op, numel, outputTy.getElementType(), {});
         result = rewriter.create<chlo::BroadcastDivOp>(
             loc, outputTy, result, numel, nullptr);
       }
@@ -929,6 +929,14 @@ class ConvertAtenMultipleDimsReductionOp
       return rewriter.notifyMatchFailure(
           op, "non-const dim parameter unsupported");
 
+    auto self = adaptor.self();
+    auto selfTy = self.getType().template cast<RankedTensorType>();
+    auto rank = selfTy.getRank();
+    std::transform(
+        reduceDims.begin(),
+        reduceDims.end(),
+        reduceDims.begin(),
+        [rank](int64_t d) -> int64_t { return (d + rank) % rank; });
     std::sort(reduceDims.begin(), reduceDims.end());
     int64_t N = reduceDims.size();
     auto reduceDimsType = RankedTensorType::get({N}, rewriter.getI64Type());
@@ -964,6 +972,11 @@ class ConvertAtenOneDimReductionOp
     if (!matchPattern(op.dim(), m_TorchConstantInt(&reduceDim)))
       return rewriter.notifyMatchFailure(
           op, "non-const dim parameter unsupported");
+    auto self = adaptor.self();
+    auto selfTy = self.getType().template cast<RankedTensorType>();
+    auto rank = selfTy.getRank();
+    reduceDim = (reduceDim + rank) % rank;
+    reduceDims.push_back(reduceDim);
     auto reduceDimsType = RankedTensorType::get({1}, rewriter.getI64Type());
     reduceDimsAttr = DenseIntElementsAttr::get(
         reduceDimsType, llvm::makeArrayRef({reduceDim}));
@@ -1144,7 +1157,6 @@ class ConvertAtenMatmulBaseOp : public OpConversionPattern<AtenOpT> {
       OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override {
     Value lhs, rhs;
-
     if (failed(readMatMulInputs(op, adaptor, rewriter, lhs, rhs)))
       return op.emitError("Failed to read matmul inputs");
 
@@ -1292,6 +1304,7 @@ class ConvertAtenLinearOp : public ConvertAtenMatmulBaseOp<AtenOpT> {
     }
 
     Value matmulPlusBias = matmulOutput;
+
     if (!biasTy.template isa<Torch::NoneType>()) {
       // Bias addition broadcasts to the matmul output shape.
       matmulPlusBias = rewriter
@@ -1306,11 +1319,9 @@ class ConvertAtenLinearOp : public ConvertAtenMatmulBaseOp<AtenOpT> {
 
     rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
         op,
-        OpConversionPattern<AtenOpT>::getTypeConverter()
-            ->convertType(op.getType())
-            .template cast<RankedTensorType>(),
+        OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
+            op.getType()),
         matmulPlusBias);
-
     return success();
   }
 };
@@ -1484,7 +1495,6 @@ LogicalResult ConvertAtenOp<AtenLog2Op>::matchAndRewrite(
   auto logOp =
       rewriter.create<mhlo::LogOp>(op.getLoc(), outType, adaptor.self());
   rewriter.replaceOpWithNewOp<mhlo::MulOp>(op, outType, logOp, rcpOp);
-
   return success();
 }
 
@@ -1515,13 +1525,7 @@ LogicalResult ConvertAtenOp<AtenNumelOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   auto outType = op.getType().dyn_cast<TensorType>();
 
-  auto dimSizes = mhlo::getDimSizesOfTensor(rewriter, op, adaptor.self());
-  auto loc = op.getLoc();
-  Value numel =
-      rewriter.create<arith::ConstantOp>(loc, rewriter.getI32IntegerAttr(1));
-  for (auto& d : dimSizes) {
-    numel = rewriter.create<arith::MulIOp>(loc, numel, d);
-  }
+  Value numel = mhlo::getNumelOfTensor(rewriter, op, adaptor.self());
   rewriter.replaceOpWithNewOp<arith::ExtSIOp>(
       op, getTypeConverter()->convertType(op.getType()), numel);
   return success();
@@ -1557,6 +1561,18 @@ LogicalResult ConvertAtenOp<PrimNumToTensorScalarOp>::matchAndRewrite(
 }
 
 template <>
+LogicalResult ConvertAtenOp<AtenTensorIntOp>::matchAndRewrite(
+    AtenTensorIntOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  rewriter.replaceOpWithNewOp<tensor::FromElementsOp>(
+      op,
+      getTypeConverter()->convertType(op.getType()),
+      ArrayRef<Value>{adaptor.t()});
+  return success();
+}
+
+template <>
 LogicalResult ConvertAtenOp<AtenDropoutOp>::matchAndRewrite(
     AtenDropoutOp op,
     OpAdaptor adaptor,
@@ -1581,46 +1597,82 @@ LogicalResult ConvertAtenOp<AtenDropoutOp>::matchAndRewrite(
   return success();
 }
 
+// This defines a template to construct ops whose legalizations are
+// specialized.
+template <typename AtenOpT>
+class ConvertAtenViewOp : public OpConversionPattern<AtenOpT> {
+ public:
+  using OpConversionPattern<AtenOpT>::OpConversionPattern;
+  using OpAdaptor = typename AtenOpT::Adaptor;
+
+  LogicalResult matchAndRewrite(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
+    // Not a tensor type.
+    auto rankType =
+        adaptor.self().getType().template dyn_cast<RankedTensorType>();
+    if (!rankType)
+      return op.emitError("Only ranked tensor types are currently supported");
+
+    SmallVector<Value, 4> dimSizes;
+    if (!getAtenViewOpSizes(op, adaptor, rewriter, dimSizes)) {
+      return op.emitError("Dims size must be a list of Scalar");
+    }
+
+    auto loc = op.getLoc();
+    auto newRank = dimSizes.size();
+    if (newRank == 0) {
+      rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(
+          op,
+          OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
+              op.getType()),
+          adaptor.self());
+      return success();
+    }
+
+    std::for_each(dimSizes.begin(), dimSizes.end(), [&](Value& dSize) {
+      dSize = rewriter.create<ToI64Op>(loc, dSize).getResult();
+      // dimSize: cast i64 -> i32
+      dSize =
+          rewriter.create<arith::TruncIOp>(loc, rewriter.getI32Type(), dSize);
+      return dSize;
+    });
+
+    auto mhloShape = rewriter.create<tensor::FromElementsOp>(loc, dimSizes);
+    rewriter.replaceOpWithNewOp<chlo::DynamicReshapeOp>(
+        op,
+        OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
+            op.getType()),
+        adaptor.self(),
+        mhloShape);
+
+    return success();
+  }
+
+  bool getAtenViewOpSizes(
+      AtenOpT op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter,
+      SmallVector<Value, 4>& dimSizes) const;
+};
+
 template <>
-LogicalResult ConvertAtenOp<AtenViewOp>::matchAndRewrite(
+bool ConvertAtenViewOp<AtenViewOp>::getAtenViewOpSizes(
     AtenViewOp op,
     OpAdaptor adaptor,
-    ConversionPatternRewriter& rewriter) const {
-  // Not a tensor type.
-  auto selfType = adaptor.self().getType().dyn_cast<TensorType>();
-  if (!selfType)
-    return op.emitError("Only tensor types are currently supported");
+    ConversionPatternRewriter& rewriter,
+    SmallVector<Value, 4>& dimSizes) const {
+  return getListConstructElements(adaptor.size(), dimSizes);
+}
 
-  SmallVector<Value> dimsSize;
-  if (!getListConstructElements(adaptor.size(), dimsSize)) {
-    return op.emitError("Dims size must be a list of Scalar");
-  }
-
-  auto loc = op.getLoc();
-  auto rankType = selfType.dyn_cast<RankedTensorType>();
-  auto newRank = dimsSize.size();
-  for (size_t d = 0; d < newRank; ++d) {
-    auto dsize = dimsSize[d];
-    int64_t dval;
-    if (matchPattern(dsize, m_TorchConstantInt(&dval)) && dval == -1) {
-      return op.emitError("The size cannot be set to -1.");
-    } else {
-      dsize = rewriter.create<ToI64Op>(loc, dsize).getResult();
-      dsize = rewriter.create<mlir::arith::IndexCastOp>(
-          loc, rewriter.getIndexType(), dsize);
-    }
-    dsize = rewriter.create<mlir::arith::IndexCastOp>(
-        loc, rewriter.getI32Type(), dsize);
-    dimsSize[d] = dsize;
-  }
-
-  auto mhloShape = rewriter.create<mlir::tensor::FromElementsOp>(loc, dimsSize);
-  rewriter.replaceOpWithNewOp<mhlo::DynamicReshapeOp>(
-      op,
-      getTypeConverter()->convertType(op.getType()),
-      adaptor.self(),
-      mhloShape);
-  return success();
+template <>
+bool ConvertAtenViewOp<AtenReshapeOp>::getAtenViewOpSizes(
+    AtenReshapeOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter,
+    SmallVector<Value, 4>& dimSizes) const {
+  return getListConstructElements(adaptor.shape(), dimSizes);
 }
 
 // Ref: https://pytorch.org/docs/stable/generated/torch.Tensor.expand.html
@@ -2135,6 +2187,7 @@ class ConvertTorchToMhlo
     INSERT_UNARY_PATTERN(AtenRsqrtOp, mhlo::RsqrtOp)
     INSERT_UNARY_PATTERN(AtenBitwiseNotOp, mhlo::NotOp)
     INSERT_UNARY_PATTERN(AtenCeilOp, mhlo::CeilOp)
+    INSERT_UNARY_PATTERN(AtenItemOp, tensor::ExtractOp)
 
     // It's tricky that ConvertOp will use type from the return,
     // but not from the operand here.
@@ -2270,11 +2323,18 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenLog2Op);
     // INSERT_ATENOP_PATTERN(AtenUnsqueezeOp);
     INSERT_ATENOP_PATTERN(AtenDropoutOp);
-    INSERT_ATENOP_PATTERN(AtenViewOp);
     INSERT_ATENOP_PATTERN(AtenNumelOp);
     INSERT_ATENOP_PATTERN(PrimNumToTensorScalarOp);
+    INSERT_ATENOP_PATTERN(AtenTensorIntOp);
     // INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
 #undef INSERT_ATENOP_PATTERN
+
+#define INSERT_VIEW_OP_PATTERN(AtenOp) \
+  target.addIllegalOp<AtenOp>();       \
+  patterns.add<ConvertAtenViewOp<AtenOp>>(typeConverter, context);
+    INSERT_VIEW_OP_PATTERN(AtenViewOp);
+    INSERT_VIEW_OP_PATTERN(AtenReshapeOp);
+#undef INSERT_VIEW_OP_PATTERN
 
 #define INSERT_NDIMS_REDUCTION_OP_PATTERN(AtenOp, MhloOp)           \
   target.addIllegalOp<AtenOp>();                                    \

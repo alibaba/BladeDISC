@@ -89,7 +89,6 @@ class TestDiscShapes(DiscTestCase):
 
         self._test_reshape(dynamic_reshape)
 
-    @skipIfEnableTorchMlir()
     def test_unsqueeze(self):
 
         @torch.jit.script
@@ -110,7 +109,6 @@ class TestDiscShapes(DiscTestCase):
 
         self._test_reshape(unsqueeze_2)
 
-    @skipIfEnableTorchMlir()
     def test_squeeze(self):
         x = torch.zeros(2, 1, 2, 1, 2, device=self.device)
         annotation = ([2, 1, 2, 1, 2], torch.float)

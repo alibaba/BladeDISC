@@ -111,6 +111,9 @@ class BazelBuild(TorchBladeBuild):
         if self.cuda_available and float(self.cuda_version) >= 11.0 and self.blade_gemm:
             self.configs += ["--config=blade_gemm"]
 
+        if self.build_hie:
+            self.configs += ["--config=hie"]
+
         if running_on_ci():
             self.configs += ["--config=ci_build"]
 

@@ -27,8 +27,8 @@ cc_library(
         "//src/torch-mlir:TorchMLIRTorchToMhlo",
         "@local_org_torch//:libtorch",
         "@org_mhlo_builder//csrc:mhlo_library",
-	"@torch-mlir-importer//:jit_ir_importer",
-	"@llvm-project//mlir:CAPIIR",
+        "@torch-mlir-importer//:jit_ir_importer",
+        "@llvm-project//mlir:CAPIIR",
     ],
     alwayslink = True,
 )
@@ -52,5 +52,7 @@ cc_test(
         "@local_org_torch//:libtorch",
         "@org_mhlo_builder//csrc:mhlo_library",
         "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:ral_base_context_lib",
-    ],
+    ] + if_platform_alibaba([
+        "//src/platform_alibaba:runtime_deps",
+    ])
 )

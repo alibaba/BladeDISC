@@ -42,7 +42,7 @@ class ApplyValueSemanticsPass
     SmallVector<Operation*> deadOps;
     // 1. Replace all return type from "!torch.tensor" to "!torch.vtensor"
     // 2. Erase all "torch.copy.to_tensor" and "torch.copy.to_vtensor"
-    func.walk([&](mlir::Operation* op) {
+    func.walk([&](Operation* op) {
       if (isa<CopyToNonValueTensorOp, CopyToValueTensorOp>(op)) {
         op->getResult(0).replaceAllUsesWith(op->getOpOperand(0).get());
         deadOps.push_back(op);

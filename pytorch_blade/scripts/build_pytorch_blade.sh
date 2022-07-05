@@ -57,7 +57,7 @@ function ci_build() {
     TORCH_DISC_USE_TORCH_MLIR=true pytest tests/disc/ops/ -v -k \
              "TestDiscActivation or TestDiscUnaryOps or TestDiscBinaryOps or \
               TestDiscBroadcast or TestDiscReduction or TestDiscMatMul or \
-              TestDiscPermutation or TestDiscShapes"
+              TestDiscPermutation or TestDiscShapes or TestDiscSlices"
     # DEBUG=1 will trigger debug mode compilation
     DEBUG=1 python3 setup.py cpp_test 2>&1 | tee -a cpp_test.out;
     python3 setup.py bdist_wheel;

@@ -56,8 +56,6 @@ class DiscTestCase(TestCase):
         if isinstance(nn_module, torch.jit.ScriptFunction):
             _compilation_unit = torch._C.CompilationUnit()
             c_module = torch._C.ScriptModule("gen_func", _compilation_unit, True)
-            print(type(c_module))
-            print(type(nn_module.graph))
             c_module.create_method_from_graph("forward", nn_module.graph)
             return torch.jit._recursive.wrap_cpp_module(c_module)
         else:

@@ -199,7 +199,7 @@ bool ConvertAtenSqueeze(
   // NB: we would analyse rank information from the Tensor's shape,
   // so do shape analysis/inference and set the shape.
   // Otherwise, it's rank would be regarded as dynamic conservatively.
-  auto tensor_sizes = *(tensor_type->sizes().concrete_sizes());
+  auto tensor_sizes = tensor_type->sizes();
   SmallVec4<mlir_dim_t> sqz_dims;
   if (node.inputs().size() == 2) {
     auto jit_dim = node.input(1);
@@ -210,12 +210,16 @@ bool ConvertAtenSqueeze(
 
     mlir_dim_t dim = CastJitConstToInt64(*jit_dim);
     dim = NormalizeDimIndex(dim, rank);
-    if (tensor_sizes[dim] == 1) {
+    auto dsize = tensor_sizes[dim];
+    if (dsize && *dsize == 1) {
       sqz_dims.push_back(dim);
+    } else {
+      LOG(WARNING) << "the squeeze dimension size is not 1";
     }
   } else {
     for (int k = 0; k < rank; ++k) {
-      if (tensor_sizes[k] == 1) {
+      auto dsize = tensor_sizes[k];
+      if (dsize && *dsize == 1) {
         sqz_dims.push_back(k);
       }
     }
@@ -372,12 +376,13 @@ bool ConvertAtenUnbind(
   TORCH_CHECK(tensor_type != nullptr);
 
   // NB: we get number of outputs from the Tensor's shape.
-  auto tensor_sizes = *(tensor_type->sizes().concrete_sizes());
+  auto tensor_sizes = tensor_type->sizes();
   auto dim_size = tensor_sizes[dim];
+  TORCH_CHECK(dim_size, "aten::unbind dimension can't be unknown");
   auto self = ctx.GetMlirValue(jit_self);
   auto& builder = *ctx.builder;
   SmallVec4<mlir::Value> outputs;
-  for (int64_t d = 0; d < dim_size; ++d) {
+  for (int64_t d = 0; d < *dim_size; ++d) {
     // select(self, d, dim)
     auto std_index = BuildStdConstForI64(builder, loc, d);
     auto out = BuildSelect(builder, loc, self, std_index, dim);

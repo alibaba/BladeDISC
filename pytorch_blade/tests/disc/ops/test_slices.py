@@ -14,14 +14,19 @@ from typing import List
 import unittest
 
 from torch_blade import tools
-from tests.disc.testing_base import DiscTestCase
+from tests.disc.testing_base import DiscTestCase, skipIfEnableTorchMlir, isTorchMlirEnable
 
 
 class TestDiscSlices(DiscTestCase):
     def _test_slice(self, reshape_func, dtype=None, x=None):
+        dtype=torch.float if dtype is None else dtype
         x = torch.randn([2, 3, 224, 224], dtype=dtype, device=self.device) if x is None else x
         test_data = (x,)
-        self._test_cvt_to_disc(reshape_func, test_data)
+        if len(x.shape) > 0:
+            annotations = [([-1] * len(x.shape), dtype)]
+        else:
+            annotations = []
+        self._test_disc(reshape_func, annotations, test_data)
 
     def test_slices(self):
         @torch.jit.script
@@ -29,21 +34,25 @@ class TestDiscSlices(DiscTestCase):
             return x[-50:-1]
 
         self._test_slice(slice_func)
-        self._test_slice(slice_func, x=torch.randn([2, 0, 0, 224]))
+        if not isTorchMlirEnable():
+            self._test_slice(slice_func, x=torch.randn([2, 0, 0, 224]))
 
         @torch.jit.script
         def slice_func(x):
             return x[-50:-1, 50:, :-50]
 
-        self._test_slice(slice_func)
-        self._test_slice(slice_func, x=torch.randn([2, 0, 0, 224]))
+        # TorchMhlo(disc): expected result type with stride = 1 instead of 0 in dim = 0
+        if not isTorchMlirEnable():
+            self._test_slice(slice_func)
+            self._test_slice(slice_func, x=torch.randn([2, 0, 0, 224]))
 
         @torch.jit.script
         def slice_func(x):
             return x[-50:2008, :-2, 4:, :]
 
-        self._test_slice(slice_func)
-        self._test_slice(slice_func, x=torch.randn([2, 0, 0, 224]))
+        if not isTorchMlirEnable():
+            self._test_slice(slice_func)
+            self._test_slice(slice_func, x=torch.randn([2, 0, 0, 224]))
 
     def test_dyn_slices(self):
         @torch.jit.script
@@ -54,7 +63,9 @@ class TestDiscSlices(DiscTestCase):
         x = torch.randn([224, 224], device=self.device)
         y = torch.randn([6, 112], device=self.device)
         test_data = (x, y)
-        self._test_cvt_to_disc(dyn_slice_func, test_data)
+        dtype = torch.float
+        annotations = [([-1, -1], dtype), ([-1, -1], dtype)]
+        self._test_disc(dyn_slice_func, annotations, test_data)
 
     def test_select(self):
         @torch.jit.script
@@ -74,7 +85,8 @@ class TestDiscSlices(DiscTestCase):
             d = x.size(-2)
             return x.select(-2, d - 1)
 
-        self._test_slice(select_func)
+        if not isTorchMlirEnable():
+            self._test_slice(select_func)
 
     def test_cat_slice_select(self):
         x = torch.randn([4, 64, 256], device=self.device)
@@ -86,8 +98,11 @@ class TestDiscSlices(DiscTestCase):
             z = torch.cat([x, y], dim=1)
             return z[:, -1]
 
-        self._test_cvt_to_disc(func, test_data)
+        dtype = torch.float
+        annotations = [([4, -1, 256], dtype), ([4, -1, 256], dtype)]
+        self._test_cvt_to_disc(func, test_data, annotations)
 
+    @skipIfEnableTorchMlir()
     def test_unbind(self):
         x = torch.randn([4, 64, 256], device=self.device)
         y = torch.randn([1, 4, 256], device=self.device)
@@ -103,43 +118,13 @@ class TestDiscSlices(DiscTestCase):
             d = d0 / d1
             return a + b + c + d
 
+        dtype = torch.float
+        annotations = [([4, -1, -1], dtype), ([1, 4, -1], dtype)]
+
         with tools.trust_tracing_shape():
-            self._test_cvt_to_disc(func, test_data)
+            self._test_cvt_to_disc(func, test_data, annotations)
 
-    def test_roll(self):
-        x = torch.randn([4, 64, 256], device=self.device)
-        test_data = (x, )
-
-        @torch.jit.script
-        def func(x):
-            z = torch.roll(x, shifts=(3, -9), dims=(1, 0))
-            return z
-
-        self._test_cvt_to_disc(func, test_data)
-
-    def test_index_select(self):
-        x = torch.randn([3, 4], device=self.device)
-        test_data = (x, )
-
-        @torch.jit.script
-        def func(x):
-            indices = torch.tensor([0, 2], device=x.device)
-            y = torch.index_select(x, 0, indices)
-            return y
-
-        self._test_cvt_to_disc(func, test_data)
-
-    def test_flip(self):
-        x = torch.arange(8).view(2, 2, 2).to(self.device)
-        test_data = (x, )
-
-        @torch.jit.script
-        def func(x):
-            y = torch.flip(x, [0, 1])
-            return y
-
-        self._test_cvt_to_disc(func, test_data)
-
+    @skipIfEnableTorchMlir()
     def test_chunk(self):
 
         @torch.jit.script
@@ -147,13 +132,12 @@ class TestDiscSlices(DiscTestCase):
             z1, z2, z3, z4, z5, z6 = torch.chunk(x, 6, -1)
             return z1, z2, z3, z4, z5, z6
 
+        print(func.graph)
         x = torch.randn([4, 64, 11], device=self.device)
-        test_data = (x, )
-        self._test_cvt_to_disc(func, test_data)
+        self._test_slice(func, x=x)
 
         x = torch.randn([4, 64, 12], device=self.device)
-        test_data = (x, )
-        self._test_cvt_to_disc(func, test_data)
+        self._test_slice(func, x=x)
 
 if __name__ == "__main__":
     unittest.main()

@@ -333,13 +333,33 @@ class FusionPlanner {
         continue;
       }
 
+      FusionPattern& pattern_lhs = cluster_lhs->fused_pattern();
+      if (!pattern_lhs.isFusible()) continue;
+
       for (int32_t rhs : cycle_detector_->AllNodesInPostOrder()) {
         Cluster* cluster_rhs = GetClusterForCyclesGraphNode(rhs);
         if (!cluster_rhs || cluster_lhs == cluster_rhs) {
           continue;
         }
 
+        FusionPattern& pattern_rhs = cluster_rhs->fused_pattern();
+        if (!pattern_rhs.isFusible()) continue;
+
+        int idx_lhs = cluster_lhs->cycles_graph_node_id();
+        int idx_rhs = cluster_rhs->cycles_graph_node_id();
+        // Early returns if already having data dependency.
+        if (cycle_detector_->IsReachable(idx_lhs, idx_rhs) ||
+            cycle_detector_->IsReachable(idx_rhs, idx_lhs))
+          continue;
+
+        // insert a "virtual" edge between `idx_lhs` and `idx_rhs` in order to
+        // re-use data structure for normal fusion.
+        cycle_detector_->InsertEdge(idx_lhs, idx_rhs);
         bool contracted_edge = fn(cluster_lhs, cluster_rhs);
+        // Remove the "virtual" edge if failed to contract `idx_lhs` and
+        // `idx_rhs`, otherwise the virtual edge will be removed by design after
+        // merging `idx_lhs` and `idx_rhs`
+        if (!contracted_edge) cycle_detector_->RemoveEdge(idx_lhs, idx_rhs);
         changed |= contracted_edge;
       }
     }
@@ -396,6 +416,18 @@ class FusionPlanner {
     while (ForEachEdgeInPostOrder(
         std::bind(&FusionPlanner::TryToContractEdge, this, _1, _2), false)) {
       // empty statement by design
+    }
+
+    // Run another round of horizontal fusion if enabled.
+    // Note that we do not try to merge this loop with the above loop because we
+    // want to make sure the normal fusion pattern (fusion cross def-use) take
+    // first. Without this design, some horizontal fusion may break following
+    // normal fusion pattern.
+    if (useHorizontalFusion()) {
+      while (ForEachEdgeInPostOrder(
+          std::bind(&FusionPlanner::TryToContractEdge, this, _1, _2), true)) {
+        // empty statement by design
+      }
     }
     return changed;
   }

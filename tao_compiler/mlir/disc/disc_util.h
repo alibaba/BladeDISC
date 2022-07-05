@@ -93,6 +93,9 @@ SmallVector<Value, 4> GetAllPossibleUsedValues(Operation* op);
 // Returns true if the shape constraint IR is enabled.
 bool useShapeConstraintIR();
 
+// Returns true if `DISC_ENABLE_HORIZONTAL_FUSION` is true
+bool useHorizontalFusion();
+
 }  // namespace disc_ral
 }  // namespace mlir
 

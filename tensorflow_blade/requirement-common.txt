@@ -1,0 +1,20 @@
+# for testing
+pytest==6.2.5
+pytest-forked==1.4.0
+pytest-html==3.1.1
+parameterized==0.8.1
+
+# for packaging
+cython==0.29.23
+
+# for linting
+black==19.10b0
+flake8==3.9.2
+flake8-isort==4.0.0
+isort==5.8.0
+mypy==0.782
+
+# common deps
+py-cpuinfo==8.0.0
+six~=1.15.0
+tf2onnx==1.9.1

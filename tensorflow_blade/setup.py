@@ -160,7 +160,7 @@ class TfBladeExtension(Extension):
 
 ext_modules = [TfBladeExtension("tf_blade._tf_blade")]
 exclude_py_mods = []
-if 'develop' not in sys.argv:
+if 'develop' not in sys.argv and os.path.exists('tf_blade/internal'):
     cython_modules = cythonize(
             module_list=['tf_blade/internal/**/*.py'],
             compiler_directives={'language_level': 3},

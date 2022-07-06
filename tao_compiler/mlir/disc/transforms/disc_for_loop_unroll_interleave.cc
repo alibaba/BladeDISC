@@ -126,9 +126,7 @@ struct ForLoopUnrollInterleave
       // Currently, it only unrolls and interleaves loops for kStitch and
       // kLoop fusion on GPU.
       // TODO: support more types of fusions.
-      if (!isOnGpu(op)) {
-        return WalkResult::advance();
-      }
+      if (!isOnGpu(op)) return;
       if (isFusionType<FusionType::kStitch, FusionType::kLoop>(op)) {
         SmallVector<scf::ParallelOp, 2> innermostPloops;
         getInnermostParallelLoops(op, innermostPloops);

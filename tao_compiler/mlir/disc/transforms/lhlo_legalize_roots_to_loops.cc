@@ -1461,6 +1461,7 @@ LogicalResult emitSecondRoundShuffle(
     b.create<scf::YieldOp>(loc, ValueRange({}));
     b.setInsertionPointAfter(if_thread_id_is_zero);
   }
+  return success();
 }
 
 /* Row reduction with 2 round warp shuffle

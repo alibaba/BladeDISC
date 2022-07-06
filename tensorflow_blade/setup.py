@@ -13,10 +13,13 @@
 import glob
 import os
 import re
+import sys
 import subprocess
 import setuptools
-from setuptools import setup, Extension, Command
+from setuptools import Extension, Command
 from setuptools.command.build_ext import build_ext
+from setuptools.command.build_py import build_py
+from Cython.Build import cythonize
 
 from version import __version__
 
@@ -42,7 +45,6 @@ def _get_device():
 
 
 DEVICE = _get_device()
-
 
 def get_install_requires():
     install_requires = ['numpy', 'onnx>=1.6']
@@ -96,9 +98,11 @@ def _get_version():  # noqa: C901
 
 class CppBuild(build_ext):
     def run(self):
-        assert len(self.extensions) == 1, "We've just a single extension."
+        assert isinstance(self.extensions[0], TfBladeExtension)
         ext = self.extensions[0]
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
+
+        # bazel build tf_blade extension.
         subprocess.check_call(
             "bazel build //src:_tf_blade.so", shell=True, executable="/bin/bash"
         )
@@ -125,6 +129,10 @@ class CppBuild(build_ext):
                     os.symlink(fpath, link_name)
                     print(f"Link native lib: {fpath}")
 
+        # other extensions
+        self.extensions.pop(0)
+        super().run()
+
 
 class CppTestCommand(Command):
     user_options = []
@@ -142,13 +150,45 @@ class CppTestCommand(Command):
             shell=True,
             executable="/bin/bash",
         )
-        pass
 
 
 class TfBladeExtension(Extension):
     def __init__(self, name, sourcedir=""):
         Extension.__init__(self, name, sources=[])
         self.sourcedir = os.path.abspath(sourcedir)
+
+
+ext_modules = [TfBladeExtension("tf_blade._tf_blade")]
+exclude_py_mods = []
+if 'develop' not in sys.argv and os.path.exists('tf_blade/internal'):
+    cython_modules = cythonize(
+            module_list=['tf_blade/internal/**/*.py'],
+            compiler_directives={'language_level': 3},
+            build_dir="build",
+            nthreads=8
+            )
+    exclude_py_mods = [m.name for m in cython_modules]
+    ext_modules.extend(cython_modules)
+
+
+class PyBuild(build_py):
+    """ Just to exclude cythonized .py files."""
+
+    def find_modules(self):
+        modules = super().find_modules()
+        return [
+            (pkg, mod, file,)
+            for pkg, mod, file in modules
+            if pkg + '.' + mod not in exclude_py_mods
+        ]
+
+    def find_package_modules(self, package: str, package_dir: str):
+        modules = super().find_package_modules(package, package_dir)
+        return [
+            (pkg, mod, file,)
+            for pkg, mod, file in modules
+            if pkg + '.' + mod not in exclude_py_mods
+        ]
 
 
 setuptools.setup(
@@ -168,6 +208,6 @@ setuptools.setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
     ],
     python_requires='>=3.6',
-    ext_modules=[TfBladeExtension("tf_blade._tf_blade")],
-    cmdclass=dict(build_ext=CppBuild, cpp_test=CppTestCommand,),
+    ext_modules=ext_modules,
+    cmdclass=dict(build_ext=CppBuild, cpp_test=CppTestCommand, build_py=PyBuild),
 )

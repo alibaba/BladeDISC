@@ -72,6 +72,15 @@ def _validate_extra_dynamic_ranges(val):
     return val
 
 
+def _validate_dynamic_inputs(val):
+    if isinstance(val, dict):
+        val = [val]
+    assert isinstance(val, list), "dynamic inputs must be Dict or List of Dict"
+    for v in val:
+        assert "min" in v and "max" in v and "opts" in v, "min/max/opt should be set for dynamic inputs."
+    return val
+
+
 class ConfigContext(ContextDecorator):
     context = threading.local()
     context.dict = defaultdict(list)
@@ -151,6 +160,10 @@ class Config(ConfigContext):
         # Also, you can pass multiple dynamic input shapes if single configure does not give satisfied
         # performance, like config.dynamic_tuning_shapes = [configure1, configure2, ...].
         self._dynamic_tuning_shapes = {}
+        # For some torchscripts exported by torch.jit.script,the format of the input may be very complex,
+        # for example, Dict. In this case, it is not easy or even possible to set tuning shapes through
+        # List. So this config allows users to directly pass inputs corresponding to min/max/opts
+        self._dynamic_tuning_inputs = {}
         self._extra_dynamic_tuning_shapes = {}
         self._preserved_attributes = []
         self._customize_onnx_opset_version = None
@@ -305,6 +318,15 @@ class Config(ConfigContext):
     def dynamic_tuning_shapes(self, val):
         val = _validate_dynamic_ranges(val)
         self._dynamic_tuning_shapes = val
+
+    @property
+    def dynamic_tuning_inputs(self):
+        return self._dynamic_tuning_inputs
+
+    @dynamic_tuning_inputs.setter
+    def dynamic_tuning_inputs(self, val):
+        val = _validate_dynamic_inputs(val)
+        self._dynamic_tuning_inputs = val
 
     @property
     def extra_dynamic_tuning_shapes(self):

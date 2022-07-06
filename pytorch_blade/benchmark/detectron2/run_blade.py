@@ -271,7 +271,7 @@ class TestDetectron2:
     ):
         with torch.no_grad():
             config = torch_blade.config.Config()
-            config.dynamic_tuning_shapes = {
+            config.dynamic_tuning_inputs = {
                 "min": small_inputs,
                 "max": large_inputs,
                 "opts": [inputs],

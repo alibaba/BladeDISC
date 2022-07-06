@@ -34,7 +34,7 @@ _type_map = {
 }
 
 
-def get_shape_for_one_input(c_module, input_shapes, trt_unsupported):
+def get_shape_for_one_input(c_module, input_setting, trt_unsupported):
     # This should not change the topology and the order of the graph.
     # Also, since clustering is unstable, we do not execute clustering here.
     # Instead we use topology order to determing the unsupported nodes.
@@ -48,24 +48,24 @@ def get_shape_for_one_input(c_module, input_shapes, trt_unsupported):
             return False
         return all(isinstance(x, int) for x in shape)
 
-    all_shapes = all(_is_list_of_int(shape) for shape in input_shapes)
+    all_shapes = all(_is_list_of_int(shape) for shape in input_setting)
 
     if all_shapes:
         graph = c_module.forward.graph
         input_types = [_type_map[inp.type().scalarType()] for inp in graph.input_list()[1:]]
-        if len(input_types) != len(input_shapes):
+        if len(input_types) != len(input_setting):
             raise Exception(
                 "Input shapes number({}) not match with model input number({}), input shapes: {}".format(
-                    len(input_shapes), len(input_types), input_shapes
+                    len(input_setting), len(input_types), input_setting
                 )
             )
 
         inputs = [
             torch.ones(inp, device="cuda" if version.cuda_available else "cpu").to(typ)
-            for inp, typ in zip(input_shapes, input_types)
+            for inp, typ in zip(input_setting, input_types)
         ]
     else:
-        inputs = input_shapes
+        inputs = input_setting
     return _get_shape_for_one_input(c_module, inputs, trt_unsupported)
 
 def _get_shape_for_one_input(c_module, inputs, trt_unsupported):
@@ -158,22 +158,29 @@ def set_extra_inputs(c_module, extra_inputs, extra_dynamic_shapes):
 
 def _get_dynamic_settings(c_module, trt_unsupported):
     trt_dynamic_shapes = Config.get_current_context_or_new().dynamic_tuning_shapes
+    trt_dynamic_inputs = Config.get_current_context_or_new().dynamic_tuning_inputs
     all_shapes = []
-    if not trt_dynamic_shapes:
+    if (not trt_dynamic_shapes) and (not trt_dynamic_inputs):
         return all_shapes
+
+    if trt_dynamic_shapes and trt_dynamic_inputs:
+        logger.warn("dynamic_tuning_shapes and dynamic_tuning_inputs are set at the same time, "
+                    "torch-blade will only use dynamic_tuning_shapes")
+
+    trt_dynamic_settings = trt_dynamic_shapes if trt_dynamic_shapes else trt_dynamic_inputs
 
     trt_extra_dynamic_shapes = (
         Config.get_current_context_or_new().extra_dynamic_tuning_shapes
     )
 
-    if trt_extra_dynamic_shapes and len(trt_dynamic_shapes) != len(
+    if trt_extra_dynamic_shapes and len(trt_dynamic_settings) != len(
         trt_extra_dynamic_shapes
     ):
         raise Exception(
-            "If trt_extra_dynamic_shapes is used, it should have the same length as trt_dynamic_shapes"
+            "If trt_extra_dynamic_shapes is used, it should have the same length as trt_dynamic_settings"
         )
 
-    for idx, each_shape_configure in enumerate(trt_dynamic_shapes):
+    for idx, each_shape_setting in enumerate(trt_dynamic_settings):
         each_shape = []
         each_trt_extra_dynamic_shapes = (
             trt_extra_dynamic_shapes[idx] if trt_extra_dynamic_shapes else {}
@@ -181,18 +188,18 @@ def _get_dynamic_settings(c_module, trt_unsupported):
         extra_inputs = each_trt_extra_dynamic_shapes.get("extra_inputs", None)
 
         extra_min_shape = each_trt_extra_dynamic_shapes.get("min", None)
-        if "min" not in each_shape_configure:
+        if "min" not in each_shape_setting:
             raise Exception("The ranges of min/max/opts needs to be all set")
-        min_shape = each_shape_configure["min"]
+        min_setting = each_shape_setting["min"]
         with set_extra_inputs(c_module, extra_inputs, extra_min_shape):
             min_shape_for_subgraphs = get_shape_for_one_input(
-                c_module, min_shape, trt_unsupported
+                c_module, min_setting, trt_unsupported
             )
 
         extra_max_shape = each_trt_extra_dynamic_shapes.get("max", None)
-        if "max" not in each_shape_configure:
+        if "max" not in each_shape_setting:
             raise Exception("The ranges of min/max/opts needs to be all set")
-        max_shape = each_shape_configure["max"]
+        max_shape = each_shape_setting["max"]
         with set_extra_inputs(c_module, extra_inputs, extra_max_shape):
             max_shape_for_subgraphs = get_shape_for_one_input(
                 c_module, max_shape, trt_unsupported
@@ -200,9 +207,9 @@ def _get_dynamic_settings(c_module, trt_unsupported):
 
         check_two_shape(min_shape_for_subgraphs, max_shape_for_subgraphs)
 
-        if "opts" not in each_shape_configure:
+        if "opts" not in each_shape_setting:
             raise Exception("The ranges of min/max/opts needs to be all set")
-        opt_shapes = each_shape_configure["opts"]
+        opt_shapes = each_shape_setting["opts"]
         if extra_inputs is None:
             opt_shapes_for_subgraphs = [
                 get_shape_for_one_input(c_module, ops_shape, trt_unsupported)

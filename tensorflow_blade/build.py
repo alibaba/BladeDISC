@@ -14,9 +14,11 @@
 # type: ignore
 
 import argparse
+import glob
 import os
 import random
 import socket
+import shutil
 import sys
 from six.moves import cPickle as pickle
 from datetime import datetime
@@ -29,7 +31,6 @@ sys.path.append(
 
 
 from common_internal import (
-    PY_VER,
     get_trt_version,
     logger,
 )
@@ -247,6 +248,9 @@ def develop(args):
 
 
 def package(args):
+    to_clean = glob.glob('tensorflow_blade*egg-info') + ['dist', 'build']
+    for path in to_clean:
+        shutil.rmtree(path, ignore_errors=True)
     execute("python3 setup.py bdist_wheel")
 
 

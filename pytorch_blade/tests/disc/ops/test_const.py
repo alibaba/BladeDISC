@@ -9,7 +9,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import torch
 import unittest
 
@@ -17,6 +16,7 @@ from torch.testing import FileCheck
 from torch_blade import mlir
 
 from tests.disc.testing_base import DiscTestCase
+from torch_blade.tools import read_bool_from_env
 
 
 class TestConstOps(DiscTestCase):
@@ -51,7 +51,7 @@ class TestConstOps(DiscTestCase):
         graph = return_const.forward.graph
         graph.eraseInput(0)
         actual_str, _, _, _ = mlir.cvt_torchscript_to_mhlo(graph)
-        if os.environ["TORCH_DISC_USE_TORCH_MLIR"]:
+        if read_bool_from_env("TORCH_DISC_USE_TORCH_MLIR", False):
             # execute FileCheck in tests/mhlo/tensor.mlir
             return
         else:

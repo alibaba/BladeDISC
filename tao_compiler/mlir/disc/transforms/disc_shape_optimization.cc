@@ -691,6 +691,8 @@ class ShapeComputationIRAnalysis {
 
   SymbolicDimOp value2SymbolicDimOp(Value value);
 
+  llvm::Optional<SmallVector<SymbolicDimOp>> rankedTensor2SymDims(Value value);
+
  private:
   LogicalResult runOnRegion(Region* region);
   LogicalResult runOnBlock(Block* block);
@@ -1445,6 +1447,16 @@ SymbolicDimOp ShapeComputationIRAnalysis::value2SymbolicDimOp(Value value) {
   return mgr_.getRootSymbolicDim(it->second);
 }
 
+llvm::Optional<SmallVector<SymbolicDimOp>>
+ShapeComputationIRAnalysis::rankedTensor2SymDims(Value value) {
+  auto it = rankedTensor2SymDims_.find(value);
+  if (it == rankedTensor2SymDims_.end()) return llvm::None;
+  SmallVector<SymbolicDimOp> dims;
+  for (SymbolicDimOp dim : it->second)
+    dims.push_back(mgr_.getRootSymbolicDim(dim));
+  return dims;
+}
+
 DenseMap<Value, Value> buildSymbolDimInstancesDominantMap(
     DenseMap<SymbolicDimOp, SmallVector<Value>>& instanceMap,
     DominanceInfo& dominanceInfo) {
@@ -1603,6 +1615,126 @@ LogicalResult simplifyAccordingToShapeConstraintInfo(
   return success();
 }
 
+llvm::Optional<SmallVector<llvm::Optional<int64_t>>>
+getConstantElementsOfShapeTensor(Value v) {
+  SmallVector<llvm::Optional<int64_t>> results;
+
+  // skip TieShapeOp if necessary.
+  while (auto definingOp = v.getDefiningOp<disc_shape::TieShapeOp>()) {
+    v = definingOp->getOperand(0);
+  }
+
+  // in case the shape tensor is just a constant
+  DenseIntElementsAttr denseAttr;
+  if (matchPattern(v, m_Constant(&denseAttr))) {
+    for (const auto& elem : denseAttr.getValues<APInt>())
+      results.push_back(elem.getSExtValue());
+    return results;
+  }
+
+  // Not known source of shape tensor
+  Operation* definingOp = v.getDefiningOp<tensor::FromElementsOp>();
+  if (!definingOp) return llvm::None;
+
+  for (Value v : definingOp->getOperands()) {
+    auto indexOp = v.getDefiningOp<arith::ConstantOp>();
+    if (!indexOp) {
+      results.emplace_back(llvm::None);
+    } else {
+      results.emplace_back(indexOp.getValue().cast<IntegerAttr>().getInt());
+    }
+  }
+  return results;
+}
+
+LogicalResult injectStaticKnownInfo(ShapeComputationIRAnalysis& analysis,
+                                    bool& changed) {
+  SmallVector<mhlo::RealDynamicSliceOp> sliceOps;
+  SmallVector<mhlo::DynamicPadOp> padOps;
+  analysis.getFunc().walk([&](Operation* op) {
+    if (auto sliceOp = dyn_cast<mhlo::RealDynamicSliceOp>(op))
+      sliceOps.push_back(sliceOp);
+    if (auto padOp = dyn_cast<mhlo::DynamicPadOp>(op)) padOps.push_back(padOp);
+  });
+
+  auto tryUpdateStaticKnownInfo =
+      [&](Value v, std::function<LogicalResult(int, int64_t)> action) {
+        auto values = getConstantElementsOfShapeTensor(v);
+        if (!values) return success();
+        for (const auto& en : llvm::enumerate(*values)) {
+          if (!en.value()) continue;
+          if (failed(action(en.index(), *en.value()))) return failure();
+        }
+        return success();
+      };
+
+  for (mhlo::RealDynamicSliceOp op : sliceOps) {
+    SliceOpShapeHelper helper(op);
+    Value in = op->getOperand(0);
+    Value out = op->getResult(0);
+
+    // Check if some axes of the slice are acutally fully selected
+    auto inDims = analysis.rankedTensor2SymDims(in);
+    auto outDims = analysis.rankedTensor2SymDims(out);
+    if (inDims && outDims) {
+      for (const auto& en : llvm::enumerate(llvm::zip(*inDims, *outDims))) {
+        if (std::get<0>(en.value()) == std::get<1>(en.value()))
+          if (failed(helper.markAsFullySlicedAxis(en.index())))
+            return op->emitError() << "failed to mark axis" << en.index()
+                                   << " to be fully sliced\n";
+      }
+    }
+
+    // Check if some start/limit/strides are acutally constants
+    if (failed(tryUpdateStaticKnownInfo(
+            op->getOperand(1), [&](int axis, int64_t v) {
+              return helper.mergeStartIndex(axis, v);
+            })))
+      return op->emitError() << "failed to update start index of slice\n";
+
+    if (failed(tryUpdateStaticKnownInfo(
+            op->getOperand(2), [&](int axis, int64_t v) {
+              return helper.mergeLimitIndex(axis, v);
+            })))
+      return op->emitError() << "failed to update limit index of slice\n";
+
+    if (failed(tryUpdateStaticKnownInfo(
+            op->getOperand(3),
+            [&](int axis, int64_t v) { return helper.mergeStride(axis, v); })))
+      return op->emitError() << "failed to update stride of slice\n";
+
+    if (failed(helper.save()))
+      return op->emitError() << "failed to save update info for slice op\n";
+  }
+
+  for (mhlo::DynamicPadOp op : padOps) {
+    PadOpShapeHelper helper(op);
+    // Check if some low/high/interior are acutally constants
+    if (failed(tryUpdateStaticKnownInfo(
+            op->getOperand(2), [&](int axis, int64_t v) {
+              return helper.mergeEdgePaddingLow(axis, v);
+            })))
+      return op->emitError() << "failed to update low index of pad\n";
+
+    if (failed(tryUpdateStaticKnownInfo(
+            op->getOperand(3), [&](int axis, int64_t v) {
+              return helper.mergeEdgePaddingHigh(axis, v);
+            })))
+      return op->emitError() << "failed to update high index of pad\n";
+
+    if (failed(tryUpdateStaticKnownInfo(
+            op->getOperand(4), [&](int axis, int64_t v) {
+              return helper.mergeInteriorPadding(axis, v);
+            })))
+      return op->emitError() << "failed to update interior of op\n";
+
+    if (failed(helper.save()))
+      return op->emitError() << "failed to save update info for op op\n";
+  }
+
+  return success();
+}
+
 LogicalResult applyShapeComputationOptimization(
     ShapeComputationIRAnalysis& analysis, bool& changed) {
   // 1, using the same ssa value for all symbolic-equal dim instances.
@@ -1620,6 +1752,12 @@ LogicalResult applyShapeComputationOptimization(
   // %c-1` could be replaced with a const.
   if (failed(simplifyAccordingToShapeConstraintInfo(analysis, changed)))
     return analysis.getFunc()->emitError("fail to simplify\n");
+
+  // 4, inject some static known infos. For example,
+  // - some axes of a slice op is fully sliced;
+  // - some axes of a pad op are not padded;
+  if (failed(injectStaticKnownInfo(analysis, changed)))
+    return analysis.getFunc()->emitError("fail to injectStaticKnownInfo\n");
 
   return success();
 }

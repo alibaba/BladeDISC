@@ -87,6 +87,102 @@ inline bool operator!=(const SymbolicDimProduct& lhs,
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os,
                               const SymbolicDimProduct& product);
 
+struct SliceOpShapeHelper {
+  // A constructor
+  // `op` should be mhlo.real_dynamic_slice or lmhlo.real_dynamic_slice
+  explicit SliceOpShapeHelper(Operation* op);
+
+  // Returns  the attribute name used when saving.
+  // An exam ple is
+  //   "mhlo .real_dynamic_slice"(...) { kDiscSliceOpStaticKnownInfo = {...}}
+  static StringRef getAttrName() { return "kDiscSliceOpStaticKnownInfo"; }
+
+  // Saves the updates attribute to the `op` this helper holds.
+  LogicalResult save();
+
+  enum {
+    // which means we do not know the size at compile time.
+    kUnknown = -2,
+    // which means the limit is the dim size of the axis.
+    kLimitIsDimSize = -1
+  };
+
+  // Returns true if the `aixs` of a slice op is fully sliced.
+  // An example is:
+  //   a = ... : tensor<100x100xf32>
+  //   b = a[:][1:]
+  // The axis 0 is fully sliced while the axis 1 is not.
+  bool isFullySlicedAxis(int axis);
+
+  // Marks the `axis` to be fully sliced.
+  // Returns failure if conflicted with current state.
+  LogicalResult markAsFullySlicedAxis(int axis);
+
+  // Merges the previous value of the start index of the `axis` with the
+  // `value`. Returns failure if the `value` is conflicted with previous value.
+  LogicalResult mergeStartIndex(int axis, int64_t value);
+
+  // Merges the previous value of the limit index of the `axis` with the
+  // `value`. Returns failure if the `value` is conflicted with previous value.
+  LogicalResult mergeLimitIndex(int axis, int64_t value);
+
+  // Merges the previous value of the stride index of the `axis` with the
+  // `value`. Returns failure if the `value` is conflicted with previous value.
+  LogicalResult mergeStride(int axis, int64_t value);
+
+  Operation* op;
+  SmallVector<int64_t> startIndices;
+  SmallVector<int64_t> limitIndices;
+  SmallVector<int64_t> strides;
+};
+
+struct PadOpShapeHelper {
+  // A constructor
+  // `op` should be mhlo.dynamic_pad or lmhlo.dynamic_pad
+  explicit PadOpShapeHelper(Operation* op);
+
+  // Returns the attribute name used when saving.
+  // An example is
+  //   "mhlo.dynamic_pad"(...) { kDiscPadOpStaticKnownInfo = {...}}
+  static StringRef getAttrName() { return "kDiscPadOpStaticKnownInfo"; }
+
+  // Saves the updates attribute to the `op` this helper holds.
+  LogicalResult save();
+
+  enum {
+    // which means we do not know the size at compile time.
+    kUnknown = -2,
+  };
+
+  // Returns true if the `aixs` of a pad op is not padded actually.
+  // An exam ple is:
+  //   %a = ... : tensor<100x100xf32>
+  //   %b = mhlo.dynamic_padd(%a, ...) : tensor<100x102xf32>
+  // The axis 0 is not padded while the axis 1 is padded.
+  bool isNotPaddedAxis(int axis);
+
+  // Marks the `axis` to be not padded.
+  // Returns failure if conflicted with current state.
+  LogicalResult markAsNotPaddedAxis(int axis);
+
+  // Merges the previous value with the new `value`
+  // Returns failure if the `value` is conflicted with previous value.
+  LogicalResult mergeEdgePaddingLow(int axis, int64_t value);
+
+  // Merges the previous value with the new `value`
+  // Returns failure if the `value` is conflicted with previous value.
+  LogicalResult mergeEdgePaddingHigh(int axis, int64_t value);
+
+  // Merges the previous value with the new `value`
+  // Returns failure if the `value` is conflicted with previous value.
+  LogicalResult mergeInteriorPadding(int axis, int64_t value);
+
+  Operation* op;
+  SmallVector<int64_t> edgePaddingLows;
+  SmallVector<int64_t> edgePaddingHighs;
+  SmallVector<int64_t> interiorPaddings;
+};
+
 }  // namespace disc_ral
 }  // namespace mlir
 

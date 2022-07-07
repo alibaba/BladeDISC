@@ -32,7 +32,9 @@ limitations under the License.
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
+#include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
+#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 
 using mlir::memref::DimOp;
 using mlir::memref::LoadOp;
@@ -218,18 +220,42 @@ Value elementalLower<lmhlo::RealDynamicSliceOp>(OpBuilder* b, Location loc,
                                                 LowerConfig* lower_config) {
   Value start_indices_memref = op->getOperand(1);
   Value strides_memref = op->getOperand(3);
+  std::unique_ptr<SliceOpShapeHelper> helper;
+  if (useShapeConstraintIR()) {
+    helper.reset(new SliceOpShapeHelper(op));
+  }
   int rank = output_index.size();
   SmallVector<Value, 4> input_index;
   for (int dim = 0; dim < rank; ++dim) {
+    if (useShapeConstraintIR() && helper->isFullySlicedAxis(dim)) {
+      input_index.push_back(output_index[dim]);
+      continue;
+    }
+
     SmallVector<Value, 4> dim_index;
     dim_index.push_back(b->create<arith::ConstantIndexOp>(loc, dim));
-    auto start_index_load =
-        createMaySpecificLoad(*b, loc, op.getOperation(), start_indices_memref,
-                              ValueRange{dim_index}, lower_config);
+    Value start_index_load;
+    if (useShapeConstraintIR() &&
+        helper->startIndices[dim] != SliceOpShapeHelper::kUnknown) {
+      start_index_load =
+          b->create<arith::ConstantIndexOp>(loc, helper->startIndices[dim]);
+    } else {
+      start_index_load = createMaySpecificLoad(
+          *b, loc, op.getOperation(), start_indices_memref,
+          ValueRange{dim_index}, lower_config);
+    }
     auto start_index = mayConvertToIndexType(start_index_load, b, loc);
-    auto stride_load =
-        createMaySpecificLoad(*b, loc, op.getOperation(), strides_memref,
-                              ValueRange{dim_index}, lower_config);
+
+    Value stride_load;
+    if (useShapeConstraintIR() &&
+        helper->strides[dim] != SliceOpShapeHelper::kUnknown) {
+      stride_load =
+          b->create<arith::ConstantIndexOp>(loc, helper->strides[dim]);
+    } else {
+      stride_load =
+          createMaySpecificLoad(*b, loc, op.getOperation(), strides_memref,
+                                ValueRange{dim_index}, lower_config);
+    }
     auto stride = mayConvertToIndexType(stride_load, b, loc);
     // input_dim = out_dim * stride + start_index
     auto input_dim = b->create<arith::AddIOp>(
@@ -552,6 +578,10 @@ Value elementalLower<lmhlo::DynamicPadOp>(OpBuilder* b, Location loc,
   Value in_bound = b->create<arith::ConstantIntOp>(loc, 1, 1);
   Value one = b->create<arith::ConstantIndexOp>(loc, 1);
   Value zero = b->create<arith::ConstantIndexOp>(loc, 0);
+  std::unique_ptr<PadOpShapeHelper> helper;
+  if (useShapeConstraintIR()) {
+    helper.reset(new PadOpShapeHelper(op));
+  }
   // for each dim i:
   //   x = output_dim[i] - edge_padding_low[i]
   //   y = x % (interior_padding[i] + 1)
@@ -561,15 +591,35 @@ Value elementalLower<lmhlo::DynamicPadOp>(OpBuilder* b, Location loc,
   //      (y == 0) &&
   //      (z < input_shape[i])
   for (int dim = 0; dim < rank; ++dim) {
+    if (useShapeConstraintIR() && helper->isNotPaddedAxis(dim)) {
+      input_index.push_back(output_index[dim]);
+      continue;
+    }
+
     SmallVector<Value, 4> dim_const;
     dim_const.push_back(b->create<arith::ConstantIndexOp>(loc, dim));
-    Value edge_padding_low =
-        createMaySpecificLoad(*b, loc, op.getOperation(),
-                              edge_padding_low_memref, dim_const, lower_config);
+    Value edge_padding_low;
+    if (useShapeConstraintIR() &&
+        helper->edgePaddingLows[dim] != PadOpShapeHelper::kUnknown) {
+      edge_padding_low =
+          b->create<arith::ConstantIndexOp>(loc, helper->edgePaddingLows[dim]);
+    } else {
+      edge_padding_low = createMaySpecificLoad(*b, loc, op.getOperation(),
+                                               edge_padding_low_memref,
+                                               dim_const, lower_config);
+    }
     edge_padding_low = mayConvertToIndexType(edge_padding_low, b, loc);
-    Value interior_padding =
-        createMaySpecificLoad(*b, loc, op.getOperation(),
-                              interior_padding_memref, dim_const, lower_config);
+
+    Value interior_padding;
+    if (useShapeConstraintIR() &&
+        helper->interiorPaddings[dim] != PadOpShapeHelper::kUnknown) {
+      interior_padding =
+          b->create<arith::ConstantIndexOp>(loc, helper->interiorPaddings[dim]);
+    } else {
+      interior_padding = createMaySpecificLoad(*b, loc, op.getOperation(),
+                                               interior_padding_memref,
+                                               dim_const, lower_config);
+    }
     interior_padding = mayConvertToIndexType(interior_padding, b, loc);
     auto x = b->create<arith::SubIOp>(loc, output_index[dim], edge_padding_low);
     auto interior_padding_p1 =

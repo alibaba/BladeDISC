@@ -529,3 +529,44 @@ func @main(%arg0 : i32, %arg1 : i32) -> i32 {
   %4 = tensor.extract %3[%c1] : tensor<2xi32>
   return %4 : i32
 }
+
+// -----
+
+// test: inject static info for mhlo.real_dynamic_slice
+
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32, [@[[S0:.*]], @[[S1:.*]]]>, %[[ARG1:.*]]: index, %[[ARG2:.*]]: index) -> tensor<?x?xf32, [@[[S0]], @[[S2:.*]]]>
+func @main(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: index) -> tensor<?x?xf32> {
+  // CHECK: mhlo.real_dynamic_slice
+  // CHECK-SAME: limit_indices = dense<[-1, -2]> : tensor<2xi64>
+  // CHECK-SAME: start_indices = dense<[0, -2]> : tensor<2xi64>
+  // CHECK-SAME: strides = dense<1> : tensor<2xi64>
+  %0 = arith.constant 0 : index
+  %1 = tensor.from_elements %0, %arg1 : tensor<2xindex>
+  %2 = tensor.dim %arg0, %0 : tensor<?x?xf32>
+  %3 = tensor.from_elements %2, %arg2 : tensor<2xindex>
+  %4 = arith.constant 1 : index
+  %5 = tensor.from_elements %4, %4 : tensor<2xindex>
+  %6 = "mhlo.real_dynamic_slice"(%arg0, %1, %3, %5) : (tensor<?x?xf32>, tensor<2xindex>, tensor<2xindex>, tensor<2xindex>) -> tensor<?x?xf32>
+  return %6 : tensor<?x?xf32>
+}
+
+// -----
+
+// test: inject static info for mhlo.dynamic_pad
+
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32, [@[[S0:.*]], @[[S1:.*]]]>, %[[ARG1:.*]]: index, %[[ARG2:.*]]: index, %[[ARG3:.*]]: tensor<f32>) -> tensor<?x?xf32, [@[[S2:.*]], @[[S3:.*]]]>
+func @main(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: index, %arg3: tensor<f32>) -> tensor<?x?xf32> {
+  // CHECK: mhlo.dynamic_pad
+  // CHECK-SAME: edge_padding_high = dense<[-2, 0]>
+  // CHECK-SAME: edge_padding_low = dense<[0, -2]>
+  // CHECK-SAME: interior_padding = dense<0> : tensor<2xi64>
+  %0 = arith.constant 0 : index
+  %1 = tensor.from_elements %0, %arg1 : tensor<2xindex>
+  %2 = tensor.from_elements %arg2, %0 : tensor<2xindex>
+  %3 = tensor.from_elements %0, %0 : tensor<2xindex>
+  %4 = "mhlo.dynamic_pad"(%arg0, %arg3, %1, %2, %3) : (tensor<?x?xf32>, tensor<f32>, tensor<2xindex>, tensor<2xindex>, tensor<2xindex>) -> tensor<?x?xf32>
+  return %4 : tensor<?x?xf32>
+}
+

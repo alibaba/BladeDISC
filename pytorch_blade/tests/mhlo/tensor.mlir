@@ -10,8 +10,8 @@ func @torch.aten.tensor.int() -> !torch.tensor {
   return %0 : !torch.tensor
 }
 
-// CHECK: %cst = mhlo.constant dense<[1, 2, 3, 4]> : tensor<4xi64>
-// CHECK: return %cst
+// CHECK:     %0 = mhlo.constant dense<[1, 2, 3, 4]> : tensor<4xi64>
+// CHECK:     return %0
 func @main() -> !torch.tensor {
   %0 = torch.tensor.literal(dense<[1, 2, 3, 4]> : tensor<4xsi64>) : !torch.tensor<[4],si64>
   %1 = torch.tensor_static_info_cast %0 : !torch.tensor<[4],si64> to !torch.tensor

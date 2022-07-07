@@ -1519,11 +1519,18 @@ LogicalResult ConvertAtenOp<ValueTensorLiteralOp>::matchAndRewrite(
     ValueTensorLiteralOp op,
     OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
-  auto outputTy = getTypeConverter()
-                      ->convertType(op.getType())
-                      .template cast<RankedTensorType>();
-  rewriter.replaceOpWithNewOp<mhlo::ConstOp>(op, outputTy, adaptor.value());
-
+  MLIRContext* context = op->getContext();
+  if (auto elements = op.valueAttr().dyn_cast<DenseIntElementsAttr>()) {
+    Type elemTy = op.valueAttr().getElementType();
+    unsigned bitWidth = elemTy.getIntOrFloatBitWidth();
+    Type builtinTensorElemTy = IntegerType::get(context, bitWidth);
+    rewriter.replaceOpWithNewOp<mhlo::ConstOp>(
+        op, elements.mapValues(builtinTensorElemTy, [&](const APInt& v) {
+          return APInt(bitWidth, v.getSExtValue());
+        }));
+    return success();
+  }
+  rewriter.replaceOpWithNewOp<mhlo::ConstOp>(op, op.valueAttr());
   return success();
 }
 

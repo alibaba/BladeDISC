@@ -177,6 +177,7 @@ for PyTorch Users](./docs/quickstart.md#quickstart-for-pytorch-users).
 
 ## Presentations and Talks
 * [Performance optimization practice for dynamic shape AI workloads via a compiler-based approach](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/performance-optimization-practice.pdf)
+* [22/07/07 BladeDISC and Torch-MLIR Roadmap Talk on Torch-MLIR Community](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/BladeDISC-and-TorchMLIR-Roadmap-tts.pptx)
 
 ## How to Contribute
 

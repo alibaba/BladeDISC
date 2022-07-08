@@ -235,10 +235,9 @@ Value elementalLower<lmhlo::RealDynamicSliceOp>(OpBuilder* b, Location loc,
     SmallVector<Value, 4> dim_index;
     dim_index.push_back(b->create<arith::ConstantIndexOp>(loc, dim));
     Value start_index_load;
-    if (useShapeConstraintIR() &&
-        helper->startIndices[dim] != SliceOpShapeHelper::kUnknown) {
+    if (useShapeConstraintIR() && !helper->isStartIndexUnknown(dim)) {
       start_index_load =
-          b->create<arith::ConstantIndexOp>(loc, helper->startIndices[dim]);
+          b->create<arith::ConstantIndexOp>(loc, helper->getStartIndex(dim));
     } else {
       start_index_load = createMaySpecificLoad(
           *b, loc, op.getOperation(), start_indices_memref,
@@ -247,10 +246,9 @@ Value elementalLower<lmhlo::RealDynamicSliceOp>(OpBuilder* b, Location loc,
     auto start_index = mayConvertToIndexType(start_index_load, b, loc);
 
     Value stride_load;
-    if (useShapeConstraintIR() &&
-        helper->strides[dim] != SliceOpShapeHelper::kUnknown) {
+    if (useShapeConstraintIR() && !helper->isStrideUnknown(dim)) {
       stride_load =
-          b->create<arith::ConstantIndexOp>(loc, helper->strides[dim]);
+          b->create<arith::ConstantIndexOp>(loc, helper->getStride(dim));
     } else {
       stride_load =
           createMaySpecificLoad(*b, loc, op.getOperation(), strides_memref,
@@ -599,10 +597,9 @@ Value elementalLower<lmhlo::DynamicPadOp>(OpBuilder* b, Location loc,
     SmallVector<Value, 4> dim_const;
     dim_const.push_back(b->create<arith::ConstantIndexOp>(loc, dim));
     Value edge_padding_low;
-    if (useShapeConstraintIR() &&
-        helper->edgePaddingLows[dim] != PadOpShapeHelper::kUnknown) {
-      edge_padding_low =
-          b->create<arith::ConstantIndexOp>(loc, helper->edgePaddingLows[dim]);
+    if (useShapeConstraintIR() && !helper->isEdgePaddingLowUnknown(dim)) {
+      edge_padding_low = b->create<arith::ConstantIndexOp>(
+          loc, helper->getEdgePaddingLow(dim));
     } else {
       edge_padding_low = createMaySpecificLoad(*b, loc, op.getOperation(),
                                                edge_padding_low_memref,
@@ -611,10 +608,9 @@ Value elementalLower<lmhlo::DynamicPadOp>(OpBuilder* b, Location loc,
     edge_padding_low = mayConvertToIndexType(edge_padding_low, b, loc);
 
     Value interior_padding;
-    if (useShapeConstraintIR() &&
-        helper->interiorPaddings[dim] != PadOpShapeHelper::kUnknown) {
-      interior_padding =
-          b->create<arith::ConstantIndexOp>(loc, helper->interiorPaddings[dim]);
+    if (useShapeConstraintIR() && !helper->isInteriorPaddingUnknown(dim)) {
+      interior_padding = b->create<arith::ConstantIndexOp>(
+          loc, helper->getInteriorPadding(dim));
     } else {
       interior_padding = createMaySpecificLoad(*b, loc, op.getOperation(),
                                                interior_padding_memref,

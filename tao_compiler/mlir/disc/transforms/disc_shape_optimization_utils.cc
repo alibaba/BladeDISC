@@ -895,9 +895,9 @@ SliceOpShapeHelper::SliceOpShapeHelper(Operation* op) : op(op) {
   // operand.
   assert(op->getNumOperands() >= 4);
   auto ty = op->getOperand(0).getType().cast<ShapedType>();
-  startIndices = SmallVector<int64_t>(ty.getRank(), kUnknown);
-  limitIndices = SmallVector<int64_t>(ty.getRank(), kUnknown);
-  strides = SmallVector<int64_t>(ty.getRank(), kUnknown);
+  startIndices = SmallVector<int64_t>(ty.getRank(), ShapeValueState::kUnknown);
+  limitIndices = SmallVector<int64_t>(ty.getRank(), ShapeValueState::kUnknown);
+  strides = SmallVector<int64_t>(ty.getRank(), ShapeValueState::kUnknown);
 
   auto attr = op->getAttrOfType<DictionaryAttr>(getAttrName());
   if (!attr) return;
@@ -917,8 +917,8 @@ SliceOpShapeHelper::SliceOpShapeHelper(Operation* op) : op(op) {
 
 bool SliceOpShapeHelper::isFullySlicedAxis(int axis) {
   assert(axis < static_cast<int>(startIndices.size()));
-  return startIndices[axis] == 0 && limitIndices[axis] == 1 &&
-         limitIndices[axis] == kLimitIsDimSize;
+  return startIndices[axis] == 0 && strides[axis] == 1 &&
+         limitIndices[axis] == ShapeValueState::kLimitIsDimSize;
 }
 
 LogicalResult SliceOpShapeHelper::markAsFullySlicedAxis(int axis) {
@@ -928,7 +928,7 @@ LogicalResult SliceOpShapeHelper::markAsFullySlicedAxis(int axis) {
     return op->emitError() << "fail to update start index for axis " << axis
                            << "\n";
 
-  if (failed(mergeLimitIndex(axis, kLimitIsDimSize)))
+  if (failed(mergeLimitIndex(axis, ShapeValueState::kLimitIsDimSize)))
     return op->emitError() << "fail to update limit index for axis " << axis
                            << "\n";
 
@@ -942,37 +942,41 @@ LogicalResult SliceOpShapeHelper::markAsFullySlicedAxis(int axis) {
 LogicalResult SliceOpShapeHelper::mergeStartIndex(int axis, int64_t value) {
   assert(axis < static_cast<int>(startIndices.size()));
 
-  if (startIndices[axis] != value && value != kUnknown &&
-      startIndices[axis] != kUnknown)
+  if (startIndices[axis] != value && value != ShapeValueState::kUnknown &&
+      startIndices[axis] != ShapeValueState::kUnknown)
     return failure();
 
-  if (startIndices[axis] == kUnknown) startIndices[axis] = value;
+  if (startIndices[axis] == ShapeValueState::kUnknown)
+    startIndices[axis] = value;
   return success();
 }
 
 LogicalResult SliceOpShapeHelper::mergeLimitIndex(int axis, int64_t value) {
   assert(axis < static_cast<int>(limitIndices.size()));
 
-  if (limitIndices[axis] == kLimitIsDimSize || value == kLimitIsDimSize) {
-    limitIndices[axis] = kLimitIsDimSize;
+  if (limitIndices[axis] == ShapeValueState::kLimitIsDimSize ||
+      value == ShapeValueState::kLimitIsDimSize) {
+    limitIndices[axis] = ShapeValueState::kLimitIsDimSize;
     return success();
   }
 
-  if (limitIndices[axis] != value && value != kUnknown &&
-      limitIndices[axis] != kUnknown)
+  if (limitIndices[axis] != value && value != ShapeValueState::kUnknown &&
+      limitIndices[axis] != ShapeValueState::kUnknown)
     return failure();
 
-  if (limitIndices[axis] == kUnknown) limitIndices[axis] = value;
+  if (limitIndices[axis] == ShapeValueState::kUnknown)
+    limitIndices[axis] = value;
   return success();
 }
 
 LogicalResult SliceOpShapeHelper::mergeStride(int axis, int64_t value) {
   assert(axis < static_cast<int>(strides.size()));
 
-  if (strides[axis] != value && value != kUnknown && strides[axis] != kUnknown)
+  if (strides[axis] != value && value != ShapeValueState::kUnknown &&
+      strides[axis] != ShapeValueState::kUnknown)
     return failure();
 
-  if (strides[axis] == kUnknown) strides[axis] = value;
+  if (strides[axis] == ShapeValueState::kUnknown) strides[axis] = value;
   return success();
 }
 
@@ -996,9 +1000,12 @@ PadOpShapeHelper::PadOpShapeHelper(Operation* op) : op(op) {
   // lmhlo.dynamic_pad has six oeprands, the last one is the output operand.
   assert(op->getNumOperands() >= 5);
   auto ty = op->getOperand(0).getType().cast<ShapedType>();
-  edgePaddingLows = SmallVector<int64_t>(ty.getRank(), kUnknown);
-  edgePaddingHighs = SmallVector<int64_t>(ty.getRank(), kUnknown);
-  interiorPaddings = SmallVector<int64_t>(ty.getRank(), kUnknown);
+  edgePaddingLows =
+      SmallVector<int64_t>(ty.getRank(), ShapeValueState::kUnknown);
+  edgePaddingHighs =
+      SmallVector<int64_t>(ty.getRank(), ShapeValueState::kUnknown);
+  interiorPaddings =
+      SmallVector<int64_t>(ty.getRank(), ShapeValueState::kUnknown);
 
   auto attr = op->getAttrOfType<DictionaryAttr>(getAttrName());
   if (!attr) return;
@@ -1047,33 +1054,36 @@ LogicalResult PadOpShapeHelper::markAsNotPaddedAxis(int axis) {
 LogicalResult PadOpShapeHelper::mergeEdgePaddingLow(int axis, int64_t value) {
   assert(axis < static_cast<int>(edgePaddingLows.size()));
 
-  if (edgePaddingLows[axis] != value && value != kUnknown &&
-      edgePaddingLows[axis] != kUnknown)
+  if (edgePaddingLows[axis] != value && value != ShapeValueState::kUnknown &&
+      edgePaddingLows[axis] != ShapeValueState::kUnknown)
     return failure();
 
-  if (edgePaddingLows[axis] == kUnknown) edgePaddingLows[axis] = value;
+  if (edgePaddingLows[axis] == ShapeValueState::kUnknown)
+    edgePaddingLows[axis] = value;
   return success();
 }
 
 LogicalResult PadOpShapeHelper::mergeEdgePaddingHigh(int axis, int64_t value) {
   assert(axis < static_cast<int>(edgePaddingHighs.size()));
 
-  if (edgePaddingHighs[axis] != value && value != kUnknown &&
-      edgePaddingHighs[axis] != kUnknown)
+  if (edgePaddingHighs[axis] != value && value != ShapeValueState::kUnknown &&
+      edgePaddingHighs[axis] != ShapeValueState::kUnknown)
     return failure();
 
-  if (edgePaddingHighs[axis] == kUnknown) edgePaddingHighs[axis] = value;
+  if (edgePaddingHighs[axis] == ShapeValueState::kUnknown)
+    edgePaddingHighs[axis] = value;
   return success();
 }
 
 LogicalResult PadOpShapeHelper::mergeInteriorPadding(int axis, int64_t value) {
   assert(axis < static_cast<int>(interiorPaddings.size()));
 
-  if (interiorPaddings[axis] != value && value != kUnknown &&
-      interiorPaddings[axis] != kUnknown)
+  if (interiorPaddings[axis] != value && value != ShapeValueState::kUnknown &&
+      interiorPaddings[axis] != ShapeValueState::kUnknown)
     return failure();
 
-  if (interiorPaddings[axis] == kUnknown) interiorPaddings[axis] = value;
+  if (interiorPaddings[axis] == ShapeValueState::kUnknown)
+    interiorPaddings[axis] = value;
   return success();
 }
 

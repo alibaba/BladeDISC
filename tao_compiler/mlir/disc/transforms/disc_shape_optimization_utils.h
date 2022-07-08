@@ -92,15 +92,15 @@ struct SliceOpShapeHelper {
   // `op` should be mhlo.real_dynamic_slice or lmhlo.real_dynamic_slice
   explicit SliceOpShapeHelper(Operation* op);
 
-  // Returns  the attribute name used when saving.
-  // An exam ple is
-  //   "mhlo .real_dynamic_slice"(...) { kDiscSliceOpStaticKnownInfo = {...}}
+  // Returns the attribute name used when saving.
+  // An example is
+  //   "mhlo.real_dynamic_slice"(...) { kDiscSliceOpStaticKnownInfo = {...}}
   static StringRef getAttrName() { return "kDiscSliceOpStaticKnownInfo"; }
 
   // Saves the updates attribute to the `op` this helper holds.
   LogicalResult save();
 
-  enum {
+  enum ShapeValueState {
     // which means we do not know the size at compile time.
     kUnknown = -2,
     // which means the limit is the dim size of the axis.
@@ -130,6 +130,35 @@ struct SliceOpShapeHelper {
   // `value`. Returns failure if the `value` is conflicted with previous value.
   LogicalResult mergeStride(int axis, int64_t value);
 
+  // Returns true if the `startIndices` of the `axis` is unknown.
+  bool isStartIndexUnknown(int axis) const {
+    return startIndices[axis] == ShapeValueState::kUnknown;
+  }
+
+  // Returns the `StartIndex` for `axis`.
+  int64_t getStartIndex(int axis) const { return startIndices[axis]; }
+
+  // Returns true if the `LimitIndex` of the `axis` is unknown.
+  bool isLimitIndexUnknown(int axis) const {
+    return limitIndices[axis] == ShapeValueState::kUnknown;
+  }
+
+  // Returns true if the `LimitIndex` of the `axis` is the size of the axis.
+  bool limitIndexIsDimSize(int axis) const {
+    return limitIndices[axis] == ShapeValueState::kLimitIsDimSize;
+  }
+
+  // Returns the `LimitIndex` for `axis`.
+  int64_t getLimitIndex(int axis) const { return limitIndices[axis]; }
+
+  // Returns true if the `stride` of the `axis` is unknown.
+  bool isStrideUnknown(int axis) const {
+    return strides[axis] == ShapeValueState::kUnknown;
+  }
+
+  // Returns the `Stride` for `axis`.
+  int64_t getStride(int axis) const { return strides[axis]; }
+
   Operation* op;
   SmallVector<int64_t> startIndices;
   SmallVector<int64_t> limitIndices;
@@ -149,7 +178,7 @@ struct PadOpShapeHelper {
   // Saves the updates attribute to the `op` this helper holds.
   LogicalResult save();
 
-  enum {
+  enum ShapeValueState {
     // which means we do not know the size at compile time.
     kUnknown = -2,
   };
@@ -176,6 +205,30 @@ struct PadOpShapeHelper {
   // Merges the previous value with the new `value`
   // Returns failure if the `value` is conflicted with previous value.
   LogicalResult mergeInteriorPadding(int axis, int64_t value);
+
+  // Returns true if the `EdgePaddingLow` of the `axis` is unknown.
+  bool isEdgePaddingLowUnknown(int axis) const {
+    return edgePaddingLows[axis] == ShapeValueState::kUnknown;
+  }
+
+  // Returns the `edgePaddingLow` for `axis`.
+  int64_t getEdgePaddingLow(int axis) const { return edgePaddingLows[axis]; }
+
+  // Returns true if the `edgePaddingHigh` of the `axis` is unknown.
+  bool isEdgePaddingHighUnknown(int axis) const {
+    return edgePaddingHighs[axis] == ShapeValueState::kUnknown;
+  }
+
+  // Returns the `EdgePaddingHigh` for `axis`.
+  int64_t getEdgePaddingHigh(int axis) const { return edgePaddingHighs[axis]; }
+
+  // Returns true if the `interiorPadding` of the `axis` is unknown.
+  bool isInteriorPaddingUnknown(int axis) const {
+    return interiorPaddings[axis] == ShapeValueState::kUnknown;
+  }
+
+  // Returns the `InteriorPadding` for `axis`.
+  int64_t getInteriorPadding(int axis) const { return interiorPaddings[axis]; }
 
   Operation* op;
   SmallVector<int64_t> edgePaddingLows;

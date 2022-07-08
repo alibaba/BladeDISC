@@ -1523,11 +1523,20 @@ LogicalResult ConvertAtenOp<ValueTensorLiteralOp>::matchAndRewrite(
   if (auto elements = op.valueAttr().dyn_cast<DenseIntElementsAttr>()) {
     Type elemTy = op.valueAttr().getElementType();
     unsigned bitWidth = elemTy.getIntOrFloatBitWidth();
-    Type builtinTensorElemTy = IntegerType::get(context, bitWidth);
-    rewriter.replaceOpWithNewOp<mhlo::ConstOp>(
-        op, elements.mapValues(builtinTensorElemTy, [&](const APInt& v) {
-          return APInt(bitWidth, v.getSExtValue());
-        }));
+    if (elemTy.isUnsignedInteger()) {
+      Type builtinTensorElemTy = IntegerType::get(
+          context, bitWidth, IntegerType::SignednessSemantics::Unsigned);
+      rewriter.replaceOpWithNewOp<mhlo::ConstOp>(
+          op, elements.mapValues(builtinTensorElemTy, [&](const APInt& v) {
+            return APInt(bitWidth, v.getZExtValue());
+          }));
+    } else {
+      Type builtinTensorElemTy = IntegerType::get(context, bitWidth);
+      rewriter.replaceOpWithNewOp<mhlo::ConstOp>(
+          op, elements.mapValues(builtinTensorElemTy, [&](const APInt& v) {
+            return APInt(bitWidth, v.getSExtValue());
+          }));
+    }
     return success();
   }
   rewriter.replaceOpWithNewOp<mhlo::ConstOp>(op, op.valueAttr());

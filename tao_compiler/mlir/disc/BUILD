@@ -308,6 +308,8 @@ cc_library(
     hdrs = ["transforms/lhlo_elemental_utils.h"],
     deps = [
         ":codegen_utils",
+        ":disc_shape_optimization_utils",
+        ":disc_util",
         "//tensorflow/compiler/mlir/hlo:hlo",
         "//tensorflow/compiler/mlir/hlo:lhlo",
         "//tensorflow/compiler/mlir/hlo:map_lmhlo_to_scalar_op",

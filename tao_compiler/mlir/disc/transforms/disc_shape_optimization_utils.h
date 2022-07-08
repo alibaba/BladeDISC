@@ -87,6 +87,155 @@ inline bool operator!=(const SymbolicDimProduct& lhs,
 llvm::raw_ostream& operator<<(llvm::raw_ostream& os,
                               const SymbolicDimProduct& product);
 
+struct SliceOpShapeHelper {
+  // A constructor
+  // `op` should be mhlo.real_dynamic_slice or lmhlo.real_dynamic_slice
+  explicit SliceOpShapeHelper(Operation* op);
+
+  // Returns the attribute name used when saving.
+  // An example is
+  //   "mhlo.real_dynamic_slice"(...) { kDiscSliceOpStaticKnownInfo = {...}}
+  static StringRef getAttrName() { return "kDiscSliceOpStaticKnownInfo"; }
+
+  // Saves the updates attribute to the `op` this helper holds.
+  LogicalResult save();
+
+  enum ShapeValueState {
+    // which means we do not know the size at compile time.
+    kUnknown = -2,
+    // which means the limit is the dim size of the axis.
+    kLimitIsDimSize = -1
+  };
+
+  // Returns true if the `aixs` of a slice op is fully sliced.
+  // An example is:
+  //   a = ... : tensor<100x100xf32>
+  //   b = a[:][1:]
+  // The axis 0 is fully sliced while the axis 1 is not.
+  bool isFullySlicedAxis(int axis);
+
+  // Marks the `axis` to be fully sliced.
+  // Returns failure if conflicted with current state.
+  LogicalResult markAsFullySlicedAxis(int axis);
+
+  // Merges the previous value of the start index of the `axis` with the
+  // `value`. Returns failure if the `value` is conflicted with previous value.
+  LogicalResult mergeStartIndex(int axis, int64_t value);
+
+  // Merges the previous value of the limit index of the `axis` with the
+  // `value`. Returns failure if the `value` is conflicted with previous value.
+  LogicalResult mergeLimitIndex(int axis, int64_t value);
+
+  // Merges the previous value of the stride index of the `axis` with the
+  // `value`. Returns failure if the `value` is conflicted with previous value.
+  LogicalResult mergeStride(int axis, int64_t value);
+
+  // Returns true if the `startIndices` of the `axis` is unknown.
+  bool isStartIndexUnknown(int axis) const {
+    return startIndices[axis] == ShapeValueState::kUnknown;
+  }
+
+  // Returns the `StartIndex` for `axis`.
+  int64_t getStartIndex(int axis) const { return startIndices[axis]; }
+
+  // Returns true if the `LimitIndex` of the `axis` is unknown.
+  bool isLimitIndexUnknown(int axis) const {
+    return limitIndices[axis] == ShapeValueState::kUnknown;
+  }
+
+  // Returns true if the `LimitIndex` of the `axis` is the size of the axis.
+  bool limitIndexIsDimSize(int axis) const {
+    return limitIndices[axis] == ShapeValueState::kLimitIsDimSize;
+  }
+
+  // Returns the `LimitIndex` for `axis`.
+  int64_t getLimitIndex(int axis) const { return limitIndices[axis]; }
+
+  // Returns true if the `stride` of the `axis` is unknown.
+  bool isStrideUnknown(int axis) const {
+    return strides[axis] == ShapeValueState::kUnknown;
+  }
+
+  // Returns the `Stride` for `axis`.
+  int64_t getStride(int axis) const { return strides[axis]; }
+
+  Operation* op;
+  SmallVector<int64_t> startIndices;
+  SmallVector<int64_t> limitIndices;
+  SmallVector<int64_t> strides;
+};
+
+struct PadOpShapeHelper {
+  // A constructor
+  // `op` should be mhlo.dynamic_pad or lmhlo.dynamic_pad
+  explicit PadOpShapeHelper(Operation* op);
+
+  // Returns the attribute name used when saving.
+  // An example is
+  //   "mhlo.dynamic_pad"(...) { kDiscPadOpStaticKnownInfo = {...}}
+  static StringRef getAttrName() { return "kDiscPadOpStaticKnownInfo"; }
+
+  // Saves the updates attribute to the `op` this helper holds.
+  LogicalResult save();
+
+  enum ShapeValueState {
+    // which means we do not know the size at compile time.
+    kUnknown = -2,
+  };
+
+  // Returns true if the `aixs` of a pad op is not padded actually.
+  // An exam ple is:
+  //   %a = ... : tensor<100x100xf32>
+  //   %b = mhlo.dynamic_padd(%a, ...) : tensor<100x102xf32>
+  // The axis 0 is not padded while the axis 1 is padded.
+  bool isNotPaddedAxis(int axis);
+
+  // Marks the `axis` to be not padded.
+  // Returns failure if conflicted with current state.
+  LogicalResult markAsNotPaddedAxis(int axis);
+
+  // Merges the previous value with the new `value`
+  // Returns failure if the `value` is conflicted with previous value.
+  LogicalResult mergeEdgePaddingLow(int axis, int64_t value);
+
+  // Merges the previous value with the new `value`
+  // Returns failure if the `value` is conflicted with previous value.
+  LogicalResult mergeEdgePaddingHigh(int axis, int64_t value);
+
+  // Merges the previous value with the new `value`
+  // Returns failure if the `value` is conflicted with previous value.
+  LogicalResult mergeInteriorPadding(int axis, int64_t value);
+
+  // Returns true if the `EdgePaddingLow` of the `axis` is unknown.
+  bool isEdgePaddingLowUnknown(int axis) const {
+    return edgePaddingLows[axis] == ShapeValueState::kUnknown;
+  }
+
+  // Returns the `edgePaddingLow` for `axis`.
+  int64_t getEdgePaddingLow(int axis) const { return edgePaddingLows[axis]; }
+
+  // Returns true if the `edgePaddingHigh` of the `axis` is unknown.
+  bool isEdgePaddingHighUnknown(int axis) const {
+    return edgePaddingHighs[axis] == ShapeValueState::kUnknown;
+  }
+
+  // Returns the `EdgePaddingHigh` for `axis`.
+  int64_t getEdgePaddingHigh(int axis) const { return edgePaddingHighs[axis]; }
+
+  // Returns true if the `interiorPadding` of the `axis` is unknown.
+  bool isInteriorPaddingUnknown(int axis) const {
+    return interiorPaddings[axis] == ShapeValueState::kUnknown;
+  }
+
+  // Returns the `InteriorPadding` for `axis`.
+  int64_t getInteriorPadding(int axis) const { return interiorPaddings[axis]; }
+
+  Operation* op;
+  SmallVector<int64_t> edgePaddingLows;
+  SmallVector<int64_t> edgePaddingHighs;
+  SmallVector<int64_t> interiorPaddings;
+};
+
 }  // namespace disc_ral
 }  // namespace mlir
 

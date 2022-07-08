@@ -30,6 +30,7 @@ limitations under the License.
 #include "mlir/IR/SymbolTable.h"
 #include "mlir/Pass/Pass.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
+#include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 
 #define DEBUG_TYPE "disc-shape-optimization-utils"
@@ -886,6 +887,219 @@ template <typename Combiner>
   // TODO(disc): canonicalize the order of symbols of lhs and rhs first
   // TODO(disc): simplify expr of lhs and rhs first
   return lhs.symbols == rhs.symbols && lhs.expr == rhs.expr;
+}
+
+SliceOpShapeHelper::SliceOpShapeHelper(Operation* op) : op(op) {
+  // mhlo.real_dynamic_slice has four operands.
+  // lmhlo.real_dynamic_slice has five oeprands, the last one is the output
+  // operand.
+  assert(op->getNumOperands() >= 4);
+  auto ty = op->getOperand(0).getType().cast<ShapedType>();
+  startIndices = SmallVector<int64_t>(ty.getRank(), ShapeValueState::kUnknown);
+  limitIndices = SmallVector<int64_t>(ty.getRank(), ShapeValueState::kUnknown);
+  strides = SmallVector<int64_t>(ty.getRank(), ShapeValueState::kUnknown);
+
+  auto attr = op->getAttrOfType<DictionaryAttr>(getAttrName());
+  if (!attr) return;
+  auto startAttr = attr.getAs<DenseIntElementsAttr>("start_indices");
+  auto limitAttr = attr.getAs<DenseIntElementsAttr>("limit_indices");
+  auto strideAttr = attr.getAs<DenseIntElementsAttr>("strides");
+  assert(startAttr.getNumElements() == ty.getRank());
+  assert(limitAttr.getNumElements() == ty.getRank());
+  assert(strideAttr.getNumElements() == ty.getRank());
+
+  for (int i = 0; i < ty.getRank(); ++i) {
+    mergeStartIndex(i, startAttr.getValues<int64_t>()[i]);
+    mergeLimitIndex(i, limitAttr.getValues<int64_t>()[i]);
+    mergeStride(i, strideAttr.getValues<int64_t>()[i]);
+  }
+}
+
+bool SliceOpShapeHelper::isFullySlicedAxis(int axis) {
+  assert(axis < static_cast<int>(startIndices.size()));
+  return startIndices[axis] == 0 && strides[axis] == 1 &&
+         limitIndices[axis] == ShapeValueState::kLimitIsDimSize;
+}
+
+LogicalResult SliceOpShapeHelper::markAsFullySlicedAxis(int axis) {
+  assert(axis < static_cast<int>(startIndices.size()));
+
+  if (failed(mergeStartIndex(axis, 0)))
+    return op->emitError() << "fail to update start index for axis " << axis
+                           << "\n";
+
+  if (failed(mergeLimitIndex(axis, ShapeValueState::kLimitIsDimSize)))
+    return op->emitError() << "fail to update limit index for axis " << axis
+                           << "\n";
+
+  if (failed(mergeStride(axis, 1)))
+    return op->emitError() << "fail to update stride index for axis " << axis
+                           << "\n";
+
+  return success();
+}
+
+LogicalResult SliceOpShapeHelper::mergeStartIndex(int axis, int64_t value) {
+  assert(axis < static_cast<int>(startIndices.size()));
+
+  if (startIndices[axis] != value && value != ShapeValueState::kUnknown &&
+      startIndices[axis] != ShapeValueState::kUnknown)
+    return failure();
+
+  if (startIndices[axis] == ShapeValueState::kUnknown)
+    startIndices[axis] = value;
+  return success();
+}
+
+LogicalResult SliceOpShapeHelper::mergeLimitIndex(int axis, int64_t value) {
+  assert(axis < static_cast<int>(limitIndices.size()));
+
+  if (limitIndices[axis] == ShapeValueState::kLimitIsDimSize ||
+      value == ShapeValueState::kLimitIsDimSize) {
+    limitIndices[axis] = ShapeValueState::kLimitIsDimSize;
+    return success();
+  }
+
+  if (limitIndices[axis] != value && value != ShapeValueState::kUnknown &&
+      limitIndices[axis] != ShapeValueState::kUnknown)
+    return failure();
+
+  if (limitIndices[axis] == ShapeValueState::kUnknown)
+    limitIndices[axis] = value;
+  return success();
+}
+
+LogicalResult SliceOpShapeHelper::mergeStride(int axis, int64_t value) {
+  assert(axis < static_cast<int>(strides.size()));
+
+  if (strides[axis] != value && value != ShapeValueState::kUnknown &&
+      strides[axis] != ShapeValueState::kUnknown)
+    return failure();
+
+  if (strides[axis] == ShapeValueState::kUnknown) strides[axis] = value;
+  return success();
+}
+
+LogicalResult SliceOpShapeHelper::save() {
+  OpBuilder b(op);
+  auto startAttr = GetI64ElementsAttr(startIndices, &b);
+  auto limitAttr = GetI64ElementsAttr(limitIndices, &b);
+  auto strideAttr = GetI64ElementsAttr(strides, &b);
+
+  SmallVector<mlir::NamedAttribute, 4> elemAttrs;
+  elemAttrs.emplace_back(b.getNamedAttr("start_indices", startAttr));
+  elemAttrs.emplace_back(b.getNamedAttr("limit_indices", limitAttr));
+  elemAttrs.emplace_back(b.getNamedAttr("strides", strideAttr));
+
+  op->setAttr(getAttrName(), b.getDictionaryAttr(elemAttrs));
+  return success();
+}
+
+PadOpShapeHelper::PadOpShapeHelper(Operation* op) : op(op) {
+  // mhlo.dynamic_pad has five operands.
+  // lmhlo.dynamic_pad has six oeprands, the last one is the output operand.
+  assert(op->getNumOperands() >= 5);
+  auto ty = op->getOperand(0).getType().cast<ShapedType>();
+  edgePaddingLows =
+      SmallVector<int64_t>(ty.getRank(), ShapeValueState::kUnknown);
+  edgePaddingHighs =
+      SmallVector<int64_t>(ty.getRank(), ShapeValueState::kUnknown);
+  interiorPaddings =
+      SmallVector<int64_t>(ty.getRank(), ShapeValueState::kUnknown);
+
+  auto attr = op->getAttrOfType<DictionaryAttr>(getAttrName());
+  if (!attr) return;
+  auto lowAttr = attr.getAs<DenseIntElementsAttr>("edge_padding_low");
+  auto highAttr = attr.getAs<DenseIntElementsAttr>("edge_padding_high");
+  auto interiorAttr = attr.getAs<DenseIntElementsAttr>("interior_padding");
+  assert(lowAttr.getNumElements() == ty.getRank());
+  assert(highAttr.getNumElements() == ty.getRank());
+  assert(interiorAttr.getNumElements() == ty.getRank());
+
+  for (int i = 0; i < ty.getRank(); ++i) {
+    mergeEdgePaddingLow(i, lowAttr.getValues<int64_t>()[i]);
+    mergeEdgePaddingHigh(i, highAttr.getValues<int64_t>()[i]);
+    mergeInteriorPadding(i, interiorAttr.getValues<int64_t>()[i]);
+  }
+}
+
+bool PadOpShapeHelper::isNotPaddedAxis(int axis) {
+  assert(axis < static_cast<int>(edgePaddingLows.size()));
+  assert(axis < static_cast<int>(edgePaddingHighs.size()));
+  assert(axis < static_cast<int>(interiorPaddings.size()));
+  return edgePaddingLows[axis] == 0 && edgePaddingHighs[axis] == 0 &&
+         interiorPaddings[axis] == 0;
+}
+
+LogicalResult PadOpShapeHelper::markAsNotPaddedAxis(int axis) {
+  assert(axis < static_cast<int>(edgePaddingLows.size()));
+  assert(axis < static_cast<int>(edgePaddingHighs.size()));
+  assert(axis < static_cast<int>(interiorPaddings.size()));
+
+  if (failed(mergeEdgePaddingLow(axis, 0)))
+    return op->emitError() << "fail to update low index for axis " << axis
+                           << "\n";
+
+  if (failed(mergeEdgePaddingHigh(axis, 0)))
+    return op->emitError() << "fail to update high index for axis " << axis
+                           << "\n";
+
+  if (failed(mergeInteriorPadding(axis, 0)))
+    return op->emitError() << "fail to update interior index for axis " << axis
+                           << "\n";
+
+  return success();
+}
+
+LogicalResult PadOpShapeHelper::mergeEdgePaddingLow(int axis, int64_t value) {
+  assert(axis < static_cast<int>(edgePaddingLows.size()));
+
+  if (edgePaddingLows[axis] != value && value != ShapeValueState::kUnknown &&
+      edgePaddingLows[axis] != ShapeValueState::kUnknown)
+    return failure();
+
+  if (edgePaddingLows[axis] == ShapeValueState::kUnknown)
+    edgePaddingLows[axis] = value;
+  return success();
+}
+
+LogicalResult PadOpShapeHelper::mergeEdgePaddingHigh(int axis, int64_t value) {
+  assert(axis < static_cast<int>(edgePaddingHighs.size()));
+
+  if (edgePaddingHighs[axis] != value && value != ShapeValueState::kUnknown &&
+      edgePaddingHighs[axis] != ShapeValueState::kUnknown)
+    return failure();
+
+  if (edgePaddingHighs[axis] == ShapeValueState::kUnknown)
+    edgePaddingHighs[axis] = value;
+  return success();
+}
+
+LogicalResult PadOpShapeHelper::mergeInteriorPadding(int axis, int64_t value) {
+  assert(axis < static_cast<int>(interiorPaddings.size()));
+
+  if (interiorPaddings[axis] != value && value != ShapeValueState::kUnknown &&
+      interiorPaddings[axis] != ShapeValueState::kUnknown)
+    return failure();
+
+  if (interiorPaddings[axis] == ShapeValueState::kUnknown)
+    interiorPaddings[axis] = value;
+  return success();
+}
+
+LogicalResult PadOpShapeHelper::save() {
+  OpBuilder b(op);
+  auto lowAttr = GetI64ElementsAttr(edgePaddingLows, &b);
+  auto highAttr = GetI64ElementsAttr(edgePaddingHighs, &b);
+  auto interiorAttr = GetI64ElementsAttr(interiorPaddings, &b);
+
+  SmallVector<mlir::NamedAttribute, 4> elemAttrs;
+  elemAttrs.emplace_back(b.getNamedAttr("edge_padding_low", lowAttr));
+  elemAttrs.emplace_back(b.getNamedAttr("edge_padding_high", highAttr));
+  elemAttrs.emplace_back(b.getNamedAttr("interior_padding", interiorAttr));
+
+  op->setAttr(getAttrName(), b.getDictionaryAttr(elemAttrs));
+  return success();
 }
 
 }  // namespace disc_ral

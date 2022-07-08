@@ -13,10 +13,10 @@ import torch
 import unittest
 
 from torch.testing import FileCheck
+from tests.disc.testing_base import skipIfEnableTorchMlir
 from torch_blade import mlir
 
 from tests.disc.testing_base import DiscTestCase
-from torch_blade.tools import read_bool_from_env
 
 
 class TestConstOps(DiscTestCase):
@@ -42,6 +42,8 @@ class TestConstOps(DiscTestCase):
         """
         FileCheck().run(expect_str, actual_str)
 
+    # note: skip this unit test because se use tests/mhlo/tensor.mlir to execute FileCheck
+    @skipIfEnableTorchMlir()
     def test_const_scalar(self):
         @torch.jit.script
         def return_const_scalar():
@@ -51,21 +53,17 @@ class TestConstOps(DiscTestCase):
         graph = return_const.forward.graph
         graph.eraseInput(0)
         actual_str, _, _, _ = mlir.cvt_torchscript_to_mhlo(graph)
-        if read_bool_from_env("TORCH_DISC_USE_TORCH_MLIR", False):
-            # execute FileCheck in tests/mhlo/tensor.mlir
-            return
-        else:
-            expect_str = """
-                module {
-                  func @main() -> tensor<i64> attributes {tf.entry_function = {input_placements = "", inputs = "", output_placements = "gpu", outputs = "3"}} {
-                    # CHECK: constant 5 : i64
-                    %1 = "std.constant"() {value = 5 : i64} : () -> i64
-                    # CHECK: mhlo.constant dense<5> : tensor<i64>
-                    %2 = "xla_hlo.constant"() {value = dense<5> : tensor<i64>} : () -> tensor<i64>
-                    "std.return"(%2) : (tensor<i64>) -> () loc(unknown)
-                  } loc(unknown)
+        expect_str = """
+            module {
+                func @main() -> tensor<i64> attributes {tf.entry_function = {input_placements = "", inputs = "", output_placements = "gpu", outputs = "3"}} {
+                # CHECK: constant 5 : i64
+                %1 = "std.constant"() {value = 5 : i64} : () -> i64
+                # CHECK: mhlo.constant dense<5> : tensor<i64>
+                %2 = "xla_hlo.constant"() {value = dense<5> : tensor<i64>} : () -> tensor<i64>
+                "std.return"(%2) : (tensor<i64>) -> () loc(unknown)
                 } loc(unknown)
-            """
+            } loc(unknown)
+        """
         FileCheck().run(expect_str, actual_str)
 
 

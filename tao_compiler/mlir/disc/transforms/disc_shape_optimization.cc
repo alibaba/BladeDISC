@@ -1775,13 +1775,12 @@ LogicalResult optimizeShapeComputation(ModuleOp m, FuncOp main,
   bool changed;
   do {
     changed = false;
-    LLVM_DEBUG(std::chrono::steady_clock::time_point begin =
-                   std::chrono::steady_clock::now());
+    std::chrono::steady_clock::time_point begin, end;
+    LLVM_DEBUG(begin = std::chrono::steady_clock::now());
     if (failed(runCanonicalizer(m, runner))) {
       return failure();
     }
-    LLVM_DEBUG(std::chrono::steady_clock::time_point end =
-                   std::chrono::steady_clock::now());
+    LLVM_DEBUG(end = std::chrono::steady_clock::now());
     LLVM_DEBUG(llvm::dbgs()
                << "  runCanonicalizer takes: "
                << std::chrono::duration_cast<std::chrono::microseconds>(end -
@@ -1988,15 +1987,14 @@ void DiscShapeOptimizationPass::runOnOperation() {
     return;
   }
 
-  LLVM_DEBUG(std::chrono::steady_clock::time_point begin =
-                 std::chrono::steady_clock::now());
+  std::chrono::steady_clock::time_point begin, end;
+  LLVM_DEBUG(begin = std::chrono::steady_clock::now());
   // Stage #1: Explictily materialize shape computation IR on tensor level
   if (failed(materializeShapeComputation(m, main))) {
     signalPassFailure();
     return;
   }
-  LLVM_DEBUG(std::chrono::steady_clock::time_point end =
-                 std::chrono::steady_clock::now());
+  LLVM_DEBUG(end = std::chrono::steady_clock::now());
   LLVM_DEBUG(
       llvm::dbgs() << "materializeShapeComputation takes: "
                    << std::chrono::duration_cast<std::chrono::microseconds>(

@@ -34,3 +34,11 @@ func @torch.aten.literal.ui1() -> !torch.tensor {
   %1 = torch.tensor_static_info_cast %0 : !torch.tensor<[4], i1> to !torch.tensor
   return %1 : !torch.tensor
 }
+
+// CHECK:   %0 = mhlo.constant dense<[1.000000e+00, 2.000000e+00, 3.000000e+00, 4.000000e+00]> : tensor<4xf32>
+// CHECK:   return %0
+func @torch.aten.literal.f32() -> !torch.tensor {
+  %0 = torch.tensor.literal(dense<[1.0, 2.0, 3.0, 4.0]> : tensor<4xf32>) : !torch.tensor<[4], f32>
+  %1 = torch.tensor_static_info_cast %0 : !torch.tensor<[4], f32> to !torch.tensor
+  return %1 : !torch.tensor
+}

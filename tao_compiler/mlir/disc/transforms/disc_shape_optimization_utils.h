@@ -440,6 +440,12 @@ class SymbolicDimMgr {
   bool productEqualityMapUpdated_ = true;
 };
 
+// Return the symbolicDim ops if there is an attached disc
+// shape-constraint specific attribute filed. Return nullptr if there isn't an
+// attached symbolic dim ref attributes.
+llvm::Optional<SmallVector<SymbolicDimOp>> getMemRefValueSymbolicDims(
+    SymbolicDimMgr& mgr, Value value);
+
 }  // namespace disc_ral
 }  // namespace mlir
 

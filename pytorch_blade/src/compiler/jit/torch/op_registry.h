@@ -1,26 +1,26 @@
 /* From PyTorch:
- *
- * Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)
- * Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)
- * Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)
- * Copyright (c) 2012-2014 Deepmind Technologies    (Koray Kavukcuoglu)
- * Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)
- * Copyright (c) 2011-2013 NYU                      (Clement Farabet)
- * Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon
- * Bottou, Iain Melvin, Jason Weston) Copyright (c) 2006      Idiap Research
- * Institute (Samy Bengio) Copyright (c) 2001-2004 Idiap Research Institute
- * (Ronan Collobert, Samy Bengio, Johnny Mariethoz)
- */
+- *
+- * Copyright (c) 2016-     Facebook, Inc            (Adam Paszke)
+- * Copyright (c) 2014-     Facebook, Inc            (Soumith Chintala)
+- * Copyright (c) 2011-2014 Idiap Research Institute (Ronan Collobert)
+- * Copyright (c) 2012-2014 Deepmind Technologies    (Koray Kavukcuoglu)
+- * Copyright (c) 2011-2012 NEC Laboratories America (Koray Kavukcuoglu)
+- * Copyright (c) 2011-2013 NYU                      (Clement Farabet)
+- * Copyright (c) 2006-2010 NEC Laboratories America (Ronan Collobert, Leon
+- * Bottou, Iain Melvin, Jason Weston) Copyright (c) 2006      Idiap Research
+- * Institute (Samy Bengio) Copyright (c) 2001-2004 Idiap Research Institute
+- * (Ronan Collobert, Samy Bengio, Johnny Mariethoz)
+- */
 
 #pragma once
 
-#include <torch/csrc/Export.h>
 #include <torch/csrc/jit/ir/ir.h>
-
 #include <memory>
+#include "operator_set.h"
 
 namespace torch {
-namespace jit {
+namespace blade {
+
 // Moved from shape_analysis.cpp
 
 // Requirements:
@@ -42,5 +42,5 @@ std::shared_ptr<OperatorSet> nn_ops_first_input_preserving();
 //   tensor inputs  : 1
 //   tensor outputs : 1
 std::shared_ptr<OperatorSet> ops_one_tensor_in_shape_transform();
-}  // namespace jit
-}  // namespace torch
+} // namespace blade
+} // namespace torch

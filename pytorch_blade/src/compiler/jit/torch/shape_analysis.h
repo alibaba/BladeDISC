@@ -11,18 +11,24 @@
  * Institute (Samy Bengio) Copyright (c) 2001-2004 Idiap Research Institute
  * (Ronan Collobert, Samy Bengio, Johnny Mariethoz)
  */
+
 #pragma once
 
-#include <torch/csrc/Export.h>
-#include <torch/csrc/jit/ir/ir.h>
-
+#include <c10/util/ArrayRef.h>
 #include <memory>
 
 namespace torch {
 namespace jit {
-
 struct Graph;
+struct Block;
+struct Node;
+struct Value;
+} // namespace jit
+} // namespace torch
 
+namespace torch {
+namespace blade {
+using namespace torch::jit;
 struct propagation_error : std::exception {};
 
 class PropertyPropBase {
@@ -45,11 +51,13 @@ class PropertyPropBase {
   std::shared_ptr<Graph> graph_;
 };
 
-TORCH_API void EraseShapeInformation(const std::shared_ptr<Graph>& graph);
-TORCH_API void PropagateInputShapes(const std::shared_ptr<Graph>& graph);
+void EraseShapeInformation(const std::shared_ptr<Graph>& graph);
+void PropagateInputShapes(const std::shared_ptr<Graph>& graph);
 
-TORCH_API bool mergeTypes(ArrayRef<Value*> lhs, ArrayRef<Value*> rhs,
-                          ArrayRef<Value*> outputs);
+bool mergeTypes(
+    c10::ArrayRef<Value*> lhs,
+    c10::ArrayRef<Value*> rhs,
+    c10::ArrayRef<Value*> outputs);
 
-}  // namespace jit
-}  // namespace torch
+} // namespace blade
+} // namespace torch

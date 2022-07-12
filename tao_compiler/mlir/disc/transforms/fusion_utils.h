@@ -458,6 +458,11 @@ struct ParallelIndex {
   //    - dim 0, step 1
   //    - dim 2, step 4
   int64_t step = 1;
+
+  // The actual index value at compile time.
+  // unknown if it's ShapedType::kDynamicSize, otherwise it's a constant
+  // parallel index.
+  int64_t value = ShapedType::kDynamicSize;
 };
 
 // Represents the parallel info for a buffer.
@@ -529,6 +534,8 @@ class StitchCPUAnalysis {
                               Operation* op, bool& changed);
   bool doBcastOpTileAnalysis(DenseMap<Value, TileInfo>& tilePlan, Operation* op,
                              bool& changed);
+  bool doReshapeOpTileAnalysis(DenseMap<Value, TileInfo>& tilePlan,
+                               Operation* op, bool& changed);
 
   // Returns a unique id per instance.
   int newSymbolId() { return nextSymbolId_++; }
@@ -537,7 +544,8 @@ class StitchCPUAnalysis {
   // buffers.
   bool doParallelAnalysis();
   // Creates a new parallel index.
-  ParallelIndex& makeParallelIndex(int64_t step = 1);
+  ParallelIndex& makeParallelIndex(int64_t step = 1,
+                                   int64_t value = ShapedType::kDynamicSize);
   // Creates a new parallel info.
   ParallelInfo& makeParallelInfo(Value value, int producerId = 0,
                                  Operation* op = nullptr);
@@ -581,6 +589,8 @@ class StitchCPUAnalysis {
                                  ParallelInfo& to);
   bool emitBcastOpParallelIndex(OpBuilder& b, Location loc, ParallelInfo& from,
                                 ParallelInfo& to);
+  bool emitReshapeOpParallelIndex(OpBuilder& b, Location loc,
+                                  ParallelInfo& from, ParallelInfo& to);
   // used for emitting in/out subviews
   bool emitInOutTiles(OpBuilder& b, Location loc, ViewStore& viewStore);
   // used for emitting sub root tile buffers
@@ -611,6 +621,8 @@ class StitchCPUAnalysis {
   int nextSymbolId_ = 0;
   // map parallel index id -> parallel index instance
   DenseMap<int, ParallelIndex> parallelIndexStore_;
+  // map a constant value to the id of the corresponding const parallel index.
+  DenseMap<int64_t, int> constParallelIndexStore_;
   // map parallel info id -> parallel info instance
   DenseMap<int, ParallelInfo> parallelInfoStore_;
   // map buffer value to the ids of its parallel info instances.

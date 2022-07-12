@@ -707,6 +707,7 @@ cc_library(
     deps = [
         ":codegen_utils",
         ":disc_lhlo_elemental_utils",
+        ":disc_shape_optimization_utils",
         ":disc_supported_list",
         ":disc_util",
         ":lmhlo_disc",

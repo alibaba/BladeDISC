@@ -29,6 +29,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
+#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 
@@ -1124,7 +1125,7 @@ bool enableEagerTransposeFusion() {
 
 bool BaseCpuFusionStrategy::isFusible(Operation* op) {
   if (isa<lmhlo::ReshapeOp, lmhlo::DynamicReshapeOp>(op)) {
-    return false;
+    return useShapeConstraintIR();
   }
 
   if (!enableEagerTransposeFusion()) {
@@ -1196,6 +1197,48 @@ bool isLargeConcatOp(Operation* op) {
          op->getNumOperands() >= getLargeConcatNumOperandsLimit();
 }
 
+bool isExpandLikeReshape(ShapeAnalysis& shapeAnalysis, Operation* op) {
+  auto shapeIRAnalysis =
+      dynamic_cast<ShapeConstraintIRAnalysis*>(&shapeAnalysis);
+  if (!shapeIRAnalysis) return false;
+
+  Value in = op->getOperand(0);
+  Value out = cast<lmhlo::LmhloOp>(op).getResultBuffer();
+  auto inTy = in.getType().cast<MemRefType>();
+  auto outTy = out.getType().cast<MemRefType>();
+  if (inTy.hasStaticShape() && outTy.hasStaticShape()) {
+    for (int inIdx = 0, outIdx = 0; true; ++inIdx, ++outIdx) {
+      while (inIdx < inTy.getRank() && inTy.getShape()[inIdx] == 1) ++inIdx;
+      while (outIdx < outTy.getRank() && outTy.getShape()[outIdx] == 1)
+        ++outIdx;
+      if ((inIdx == inTy.getRank()) != (outIdx == outTy.getRank()))
+        return false;
+      if ((inIdx == inTy.getRank()) && (outIdx == outTy.getRank())) return true;
+      if (inTy.getShape()[inIdx] != outTy.getShape()[outIdx]) return false;
+    }
+  }
+
+  auto inSyms =
+      getMemRefValueSymbolicDims(shapeIRAnalysis->symbolicDimMgr(), in);
+  auto outSyms =
+      getMemRefValueSymbolicDims(shapeIRAnalysis->symbolicDimMgr(), out);
+  if (!inSyms || !outSyms) return false;
+
+  for (size_t inIdx = 0, outIdx = 0; true; ++inIdx, ++outIdx) {
+    while (inIdx < (*inSyms).size() && (*inSyms)[inIdx].getDimSize() == 1)
+      ++inIdx;
+    while (outIdx < (*outSyms).size() && (*outSyms)[outIdx].getDimSize() == 1)
+      ++outIdx;
+    if ((inIdx == (*inSyms).size()) != (outIdx == (*outSyms).size()))
+      return false;
+    if ((inIdx == (*inSyms).size()) && (outIdx == (*outSyms).size()))
+      return true;
+    if (inTy.getShape()[inIdx] != outTy.getShape()[outIdx]) return false;
+  }
+
+  return false;
+}
+
 bool BaseCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
                                     FusionPattern& lhs, FusionPattern& rhs,
                                     FusionPattern& target) {
@@ -1206,6 +1249,14 @@ bool BaseCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   auto& op_list = target.getOpList();
   auto& operands = target.getOperands();
   auto& results = target.getResults();
+
+  // Only support expand-like reshape a.t.m.
+  for (Operation* op : op_list) {
+    if (isa<lmhlo::ReshapeOp, lmhlo::DynamicReshapeOp>(op) &&
+        !isExpandLikeReshape(shapeAnalysis, op))
+      return false;
+  }
+
   bool has_reduce_root = llvm::any_of(target.getRootOps(), [](Operation* op) {
     return isa<lmhlo::ReduceOp>(op);
   });

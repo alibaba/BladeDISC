@@ -1102,5 +1102,18 @@ LogicalResult PadOpShapeHelper::save() {
   return success();
 }
 
+llvm::Optional<SmallVector<SymbolicDimOp>> getMemRefValueSymbolicDims(
+    SymbolicDimMgr& mgr, Value value) {
+  auto dimAttrs = getMemRefValueSymbolicDimRefs(value);
+  if (!dimAttrs) return llvm::None;
+
+  SmallVector<SymbolicDimOp> syms;
+  for (auto& attr : *dimAttrs) {
+    syms.push_back(mgr.getRootSymbolicDim(
+        mgr.symbolTable().lookup<SymbolicDimOp>(attr.getValue())));
+  }
+  return syms;
+}
+
 }  // namespace disc_ral
 }  // namespace mlir

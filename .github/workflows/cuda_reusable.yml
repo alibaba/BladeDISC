@@ -1,12 +1,9 @@
-name: Torch CUDA Reusable workflow
+name: CUDA Reusable workflow
 
 on:
   workflow_call:
     inputs:
       cuda_version:
-        required: true
-        type: string
-      torch_version:
         required: true
         type: string
       extra_build_args:
@@ -17,6 +14,9 @@ on:
         type: string
       exec_command:
         required: true
+        type: string
+      tf_blade_command:
+        required: false 
         type: string
       deploy_command:
         required: false
@@ -50,6 +50,11 @@ jobs:
     # Runs a single command using the runners shell
     - name: Checkout
       uses: actions/checkout@v2.4.0
+    - name: pre-commit
+      shell: bash
+      run: |
+        export PATH=$HOME/.local/bin:$PATH
+        pre-commit run -a --show-diff-on-failure
     - name: Build Dev Docker
       run: |
         set -e
@@ -61,6 +66,19 @@ jobs:
           ${{ inputs.extra_build_args }} \
           -f docker/dev/Dockerfile .
 
+    - name: Build And Test TF Blade
+      run: |
+        set -e
+        if [[ ! -z "${{ inputs.tf_blade_command }}" ]]; then
+          nvidia-docker run --rm -t --user $(id -u):$(id -g) \
+            -v $HOME/.cache:$HOME/.cache \
+            -v /etc/passwd:/etc/passwd:ro \
+            -v /etc/group:/etc/group:ro \
+            -v $PWD:/disc \
+            -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
+            -w /disc \
+            disc-dev-${{ inputs.cuda_version }} ${{ inputs.tf_blade_command }}
+        fi
     - name: Build And Test
       run: |
         set -e
@@ -70,8 +88,6 @@ jobs:
           -v /etc/group:/etc/group:ro \
           -v $PWD:/disc \
           -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
-          -e TORCH_BLADE_BUILD_TENSORRT_STATIC=ON \
-          -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=${{ inputs.torch_version }}+${{ inputs.cuda_version }} \
           ${{ inputs.extra_envs }} \
           -w /disc \
           disc-dev-${{ inputs.cuda_version }} ${{ inputs.exec_command }}
@@ -88,7 +104,6 @@ jobs:
         REMOTE_DEV_DOCKER: bladedisc:latest-devel-${{ inputs.cuda_version }}
         REMOTE_RUNTIME_DOCKER: ${{ inputs.remote_runtime_docker }}
         RUNTIME_BASEIMAGE: ${{ inputs.runtime_base_image }}
-        DOCKERFILE: docker/runtime/Dockerfile.pytorch
  
       run: |
         set -e

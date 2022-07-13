@@ -175,8 +175,10 @@ cc_library(
     deps = [
         ":cycle_detector",
         ":placement_utils",
+        "//tensorflow/compiler/mlir/hlo:lhlo",
         "//tensorflow/core:lib",
         "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Shape",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Pass",
     ],

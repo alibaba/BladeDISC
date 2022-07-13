@@ -51,4 +51,20 @@ TEST(ReshapeFusionCPUTest, kInputTest) {
   unsetenv("DISC_ENABLE_STITCH");
 }
 
+TEST(ReshapeFusionCPUTest, kStitchTest) {
+  setenv("DISC_ENABLE_STITCH", "true", 1);
+  setenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR", "true", 1);
+  setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "reshape_fusion_cpu_kstitch.mlir",
+      /*backend_types*/ kSupportedCPUBackendList,
+      /*num_inputs*/ 1,
+      /*num_outputs*/ 2,
+      /*input_descriptors*/ {"12x13xf32_X"},
+      /*output_descriptors*/ {"f32_X", "f32_X"}));
+  unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
+  unsetenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR");
+  unsetenv("DISC_ENABLE_STITCH");
+}
+
 }  // namespace mlir_test

@@ -14,6 +14,7 @@ RUN apt-get update -y \
     && apt-get install -y python3.6 python3-pip protobuf-compiler libprotobuf-dev cmake \
     && ln -s /usr/bin/python3.6 /usr/bin/python \
     && python3.6 -m pip install pip --upgrade \
+    && python3.6 -m pip install onnx==1.11.0 \
     && python3.6 -m pip install /install/python/torch_blade*.whl -f https://download.pytorch.org/whl/torch_stable.html
 
 ENV PATH /usr/bin:$PATH

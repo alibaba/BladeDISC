@@ -14,7 +14,10 @@ limitations under the License.
 ==============================================================================*/
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 
+#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
+#include "mlir/Dialect/Shape/IR/Shape.h"
+#include "mlir/Interfaces/ViewLikeInterface.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/core/util/env_var.h"
 
@@ -210,6 +213,47 @@ bool useHorizontalFusion() {
     return enabled;
   }();
   return enabled;
+}
+
+// Returns data users of the value and its aliases (e.g. memref.cast).
+// Here non-data users means DimOp, DeallocOp and ShapeOfOp.
+SmallVector<Operation*, 4> getValueUsers(Value v) {
+  Value root = v;
+  while (Operation* operandOp = root.getDefiningOp()) {
+    auto view = dyn_cast<ViewLikeOpInterface>(operandOp);
+    if (!view) break;
+    root = operandOp->getOperand(0);
+  }
+
+  SmallVector<Operation*, 4> users;
+  SmallVector<Value, 4> worklist;
+  worklist.push_back(root);
+  while (!worklist.empty()) {
+    Value curr = worklist.back();
+    worklist.pop_back();
+    for (Operation* user : curr.getUsers()) {
+      // Skip non-data users
+      if (isa<memref::DimOp, memref::DeallocOp, shape::ShapeOfOp>(user)) {
+        continue;
+      }
+      // alias value
+      if (auto view = dyn_cast<ViewLikeOpInterface>(user)) {
+        worklist.push_back(view->getResult(0));
+      } else {
+        users.push_back(user);
+      }
+    }
+  }
+  return users;
+}
+
+// Returns true if the underlying buffer of this memref is a const buffer.
+bool isConstantMemRef(Value value) {
+  Value root = getRootMemRef(value);
+  for (Operation* user : getValueUsers(root)) {
+    if (isa<lmhlo::ConstOp>(user)) return true;
+  }
+  return false;
 }
 
 }  // namespace disc_ral

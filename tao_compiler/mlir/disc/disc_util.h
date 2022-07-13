@@ -96,6 +96,13 @@ bool useShapeConstraintIR();
 // Returns true if `DISC_ENABLE_HORIZONTAL_FUSION` is true
 bool useHorizontalFusion();
 
+// Returns data users of the value and its aliases (e.g. memref.cast).
+// Here non-data users means DimOp, DeallocOp and ShapeOfOp.
+SmallVector<Operation*, 4> getValueUsers(Value v);
+
+// Returns true if the underlying buffer of this memref is a const buffer.
+bool isConstantMemRef(Value value);
+
 }  // namespace disc_ral
 }  // namespace mlir
 

@@ -67,6 +67,16 @@ struct DiscDuplicateComputationForFusionPass
                                           FusionStrategy& strategy);
 };
 
+// Returns true if the value produced by a cheap computation.
+// Here "cheap" means duplication of such computation would not hurt
+// performance.
+bool isCheapComputation(Value value) {
+  auto ty = value.getType().dyn_cast<MemRefType>();
+  if (!ty) return false;
+
+  return ty.getRank() == 0 || isConstantMemRef(value);
+}
+
 // Basic idea is shown as below:
 // convert pattern like:
 //   %0 = ... : memref<f32> // scalar buffer
@@ -131,7 +141,8 @@ LogicalResult DiscDuplicateComputationForFusionPass::duplicateBroadcastInDimOp(
     Value out = cast<lmhlo::LmhloOp>(op).getResultBuffer();
     auto operandTy = in.getType().dyn_cast<MemRefType>();
     Operation* allocOp = out.getDefiningOp<memref::AllocOp>();
-    if (!operandTy || operandTy.getRank() != 0 || !allocOp) continue;
+    if (!operandTy || !allocOp) continue;
+    if (!isCheapComputation(in)) continue;
     SmallVector<Operation*> fusibleUsers;
     for (Operation* user : out.getUsers()) {
       if (user == op) continue;

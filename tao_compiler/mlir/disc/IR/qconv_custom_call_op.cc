@@ -178,15 +178,6 @@ Value getRootMemRef(Value memref) {
   return rootMemRef;
 }
 
-// Returns true if the underlying buffer of this memref is a const buffer.
-bool isConstant(Value value) {
-  Value root = getRootMemRef(value);
-  for (Operation* user : disc_ral::getValueUsers(root)) {
-    if (isa<lmhlo::ConstOp>(user)) return true;
-  }
-  return false;
-}
-
 Value GetConvMetadata(Operation* op, PatternRewriter& rewriter, int rank) {
   // Metadata:
   //   - input layout: each field for one dimension. The order is:
@@ -239,7 +230,7 @@ Value GetConvMetadata(Operation* op, PatternRewriter& rewriter, int rank) {
   auto rhs_dilation_attr = config.getAs<DenseIntElementsAttr>("rhs_dilation");
   auto rhs_dilation = disc_ral::ConvertDenseIntAttr(rhs_dilation_attr);
   fields.insert(fields.end(), rhs_dilation.begin(), rhs_dilation.end());
-  fields.push_back(isConstant(op->getOperand(1)));
+  fields.push_back(disc_ral::isConstantMemRef(op->getOperand(1)));
 
   for (auto&& en : llvm::enumerate(fields)) {
     Value value =

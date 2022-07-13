@@ -11,6 +11,7 @@
 
 #include "ltc/disc_compiler/passes/register_disc_class.h"
 
+#include "common_utils/utils.h"
 #include "compiler/backends/engine_class.h"
 #include "compiler/mlir/converters/mhlo_conversion.h"
 #include "compiler/mlir/runtime/disc_engine.h"
@@ -135,7 +136,7 @@ std::vector<c10::IValue> RegisterDiscClass(
     auto state = std::make_shared<torch::blade::backends::EngineState>();
     std::vector<torch::blade::backends::EngineState::TensorType> inputs,
         outputs;
-
+    GRAPH_DUMP("Compile before mhlo conversion \n ", sub_graph);
     auto cvt_ret = MhloConversaion(sub_graph);
     auto ret = CallDiscCompiler(std::get<0>(cvt_ret) /*mlir file name*/);
     auto cmd = std::get<0>(ret);

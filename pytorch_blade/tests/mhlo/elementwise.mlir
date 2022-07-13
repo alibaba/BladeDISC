@@ -44,8 +44,8 @@ func @torch.aten.gelu(%arg0: !torch.vtensor<[?,?],f32>) -> !torch.vtensor<[?,?],
 
 // CHECK-LABEL:   func @torch.aten.sub.tensor(
 // CHECK-SAME:            %[[ARG0:.*]]: tensor<?x?x?x?xf32>, %[[ARG1:.*]]: tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32> {
-// CHECK:     %[[T0:.*]] = "chlo.constant_like"(%[[ARG1]]) {value = 1.000000e+00 : f32} : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
-// CHECK:     %[[T1:.*]] = mhlo.multiply %[[ARG1]], %[[T0]] : tensor<?x?x?x?xf32>
+// CHECK:     %[[T0:.*]] = mhlo.constant dense<1.000000e+00> : tensor<f32>
+// CHECK:     %[[T1:.*]] = chlo.broadcast_multiply %[[ARG1]], %[[T0]] : (tensor<?x?x?x?xf32>, tensor<f32>) -> tensor<?x?x?x?xf32>
 // CHECK:     %[[T2:.*]] = chlo.broadcast_subtract %[[ARG0]], %[[T1]] : (tensor<?x?x?x?xf32>, tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
 // CHECK:     return %[[T2]] : tensor<?x?x?x?xf32>
 func @torch.aten.sub.tensor(%arg0: !torch.vtensor<[?,?,?,?],f32>, %arg1: !torch.vtensor<[?,?,?,?],f32>) -> !torch.vtensor<[?,?,?,?],f32> {
@@ -54,13 +54,21 @@ func @torch.aten.sub.tensor(%arg0: !torch.vtensor<[?,?,?,?],f32>, %arg1: !torch.
   return %0 : !torch.vtensor<[?,?,?,?],f32>
 }
 
+func @torch.aten.sub.tensor(%arg0: !torch.vtensor<[?,?,?,?],f32>, %arg1: !torch.vtensor<[?,?,?,?],si32>) -> !torch.vtensor<[?,?,?,?],f32> {
+  %int1 = torch.constant.int 1
+  %0 = torch.aten.sub.Tensor %arg0, %arg1, %int1 : !torch.vtensor<[?,?,?,?],f32>, !torch.vtensor<[?,?,?,?],si32>, !torch.int -> !torch.vtensor<[?,?,?,?],f32>
+  return %0 : !torch.vtensor<[?,?,?,?],f32>
+}
+
 // CHECK-LABEL:   func @torch.aten.sub.scalar.int(
-// CHECK-SAME:            %[[ARG0:.*]]: tensor<?x?x?x4xf32>, %[[ARG1:.*]]: i64) -> tensor<?x?x?x4xf32> {
+// CHECK-SAME:           %[[ARG0:.*]]: tensor<?x?x?x4xf32>, %[[ARG1:.*]]: i64) -> tensor<?x?x?x4xf32> {
+// CHECK:     %[[CST0:.*]] = mhlo.constant dense<1.000000e+00> : tensor<f32>
 // CHECK:     %[[T0:.*]] = tensor.from_elements %[[ARG1]] : tensor<1xi64>
 // CHECK:     %[[T1:.*]] = mhlo.convert(%[[T0]]) : (tensor<1xi64>) -> tensor<1xf32>
 // CHECK:     %[[T2:.*]] = "mhlo.reshape"(%[[T1]]) : (tensor<1xf32>) -> tensor<f32>
-// CHECK:     %[[T3:.*]] = chlo.broadcast_subtract %[[ARG0]], %[[T2]] : (tensor<?x?x?x4xf32>, tensor<f32>) -> tensor<?x?x?x4xf32>
-// CHECK:     return %[[T3]] : tensor<?x?x?x4xf32>
+// CHECK:     %[[T3:.*]] = chlo.broadcast_multiply %3, %0 : (tensor<f32>, tensor<f32>) -> tensor<f32>
+// CHECK:     %[[T4:.*]] = chlo.broadcast_subtract %[[ARG0]], %[[T3]] : (tensor<?x?x?x4xf32>, tensor<f32>) -> tensor<?x?x?x4xf32>
+// CHECK:     return %[[T4]] : tensor<?x?x?x4xf32>
 func @torch.aten.sub.scalar.int(%arg0: !torch.vtensor<[?,?,?,4],f32>, %arg1: !torch.int) -> !torch.vtensor<[?,?,?,4],f32> {
   %int1 = torch.constant.int 1
   %0 = torch.aten.sub.Scalar %arg0, %arg1, %int1 : !torch.vtensor<[?,?,?,4],f32>, !torch.int, !torch.int -> !torch.vtensor<[?,?,?,4],f32>
@@ -68,12 +76,14 @@ func @torch.aten.sub.scalar.int(%arg0: !torch.vtensor<[?,?,?,4],f32>, %arg1: !to
 }
 
 // CHECK-LABEL:   func @torch.aten.add.scalar.float(
-// CHECK-SMAE:           %[[ARG0:.*]]: tensor<?x?x?x4xf32>, %[[ARG1:.*]]: f64) -> tensor<?x?x?x4xf32> {
+// CHECK-SAME:           %[[ARG0:.*]]: tensor<?x?x?x4xf32>, %[[ARG1:.*]]: f64) -> tensor<?x?x?x4xf32> {
+// CHECK:     %[[CST0:.*]] = mhlo.constant dense<1.000000e+00> : tensor<f32>
 // CHECK:     %[[T0:.*]] = tensor.from_elements %[[ARG1]] : tensor<1xf64>
 // CHECK:     %[[T1:.*]] = mhlo.convert(%[[T0]]) : (tensor<1xf64>) -> tensor<1xf32>
 // CHECK:     %[[T2:.*]] = "mhlo.reshape"(%[[T1]]) : (tensor<1xf32>) -> tensor<f32>
-// CHECK:     %[[T3:.*]] = chlo.broadcast_add %[[ARG0]], %[[T2]] : (tensor<?x?x?x4xf32>, tensor<f32>) -> tensor<?x?x?x4xf32>
-// CHECK:     return %[[T3]] : tensor<?x?x?x4xf32>
+// CHECK:     %[[T3:.*]] = chlo.broadcast_multiply %[[T2]], %[[CST0]] : (tensor<f32>, tensor<f32>) -> tensor<f32>
+// CHECK:     %[[T4:.*]] = chlo.broadcast_add %[[ARG0]], %[[T3]] : (tensor<?x?x?x4xf32>, tensor<f32>) -> tensor<?x?x?x4xf32>
+// CHECK:     return %[[T4]] : tensor<?x?x?x4xf32>
 func @torch.aten.add.scalar.float(%arg0: !torch.vtensor<[?,?,?,4],f32>, %arg1: !torch.float) -> !torch.vtensor<[?,?,?,4],f32> {
   %int1 = torch.constant.int 1
   %0 = torch.aten.add.Scalar %arg0, %arg1, %int1 : !torch.vtensor<[?,?,?,4],f32>, !torch.float, !torch.int -> !torch.vtensor<[?,?,?,4],f32>

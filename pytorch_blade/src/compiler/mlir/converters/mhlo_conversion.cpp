@@ -30,6 +30,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/Pass/PassManager.h"
+#include "torch-mlir/Conversion/MhloPasses.h"
 #include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
 #include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
 #include "torch-mlir/InitAll.h"
@@ -203,6 +204,9 @@ void RegisterDialects(mlir::DialectRegistry& registry) {
 
 bool IsMlirMhloSupported(const torch::jit::Node& node) {
   if (IsTorchMlirAvailable()) {
+    if (!node.kind().is_prim() && !AllTensorTypeAnalyzed(node)) {
+      return false;
+    }
     return IsTorchMlirSupported(node);
   }
   c10::optional<OpConverter> converter = GetMlirMhloConverter(node);
@@ -364,8 +368,7 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
         /*out*/ ::llvm::errs(),
         /*opPrintingFlags*/ print_flags);
   }
-  ::mlir::torch::TorchConversion::createTorchBackendToMhloBackendPipeline(
-      pm2, options);
+  ::mlir::torch::createTorchBackendToMhloBackendPipeline(pm2, options);
   if (mlir::failed(pm2.run(mlir_module))) {
     mlir_module.emitError() << "TorchBackendToMhloBackendPipeline failed";
     return std::make_tuple("", "", "", "");

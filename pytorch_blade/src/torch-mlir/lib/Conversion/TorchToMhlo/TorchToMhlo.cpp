@@ -416,6 +416,7 @@ class ConvertAtenAddSubOp : public OpConversionPattern<AtenOpT> {
     auto lhsType = lhs.getType().dyn_cast<TensorType>();
     Value rhs = adaptor.other();
     auto rhsType = rhs.getType().dyn_cast<TensorType>();
+    auto alphaScalar = op.other();
 
     if (!lhsType)
       return op.emitError("Only Tensor types supported in MHLO");
@@ -431,28 +432,22 @@ class ConvertAtenAddSubOp : public OpConversionPattern<AtenOpT> {
     }
     auto rhsTensor = rhsType ? rhs : rhsAsTensor;
     rhsType = rhsTensor.getType().dyn_cast<TensorType>();
+    auto alphaTensor =
+        scalarToMhloTensor(rewriter, op, adaptor.alpha(), outElemTy, {});
 
-    // Handle alpha.
-    Value alphaTensor;
-    if (failed(torchScalarToMhloTensorLike(
-            rewriter, op.getOperation(), op.alpha(), rhsTensor, alphaTensor))) {
-      return op.emitError(
-          "Currently only scalar constants are supported for "
-          "alpha in conversion to MHLO operation");
-    }
-    auto multTensor =
+    auto mulTensor =
         rewriter
-            .create<mhlo::MulOp>(op.getLoc(), rhsType, rhsTensor, alphaTensor)
+            .create<chlo::BroadcastMulOp>(
+                op.getLoc(), rhsType, rhsTensor, alphaTensor, nullptr)
             .getResult();
 
     if (lhsType.getElementType() != outElemTy)
       lhs = rewriter.create<mhlo::ConvertOp>(op.getLoc(), lhs, outElemTy);
     if (rhsType.getElementType() != outElemTy)
-      multTensor =
-          rewriter.create<mhlo::ConvertOp>(op.getLoc(), multTensor, outElemTy);
+      mulTensor =
+          rewriter.create<mhlo::ConvertOp>(op.getLoc(), mulTensor, outElemTy);
 
-    rewriter.replaceOpWithNewOp<MhloOpT>(op, outType, lhs, multTensor, nullptr);
-
+    rewriter.replaceOpWithNewOp<MhloOpT>(op, outType, lhs, mulTensor, nullptr);
     return success();
   }
 }; // namespace
@@ -1878,7 +1873,6 @@ class ConvertAtenViewOp : public OpConversionPattern<AtenOpT> {
             op.getType()),
         adaptor.self(),
         mhloShape);
-
     return success();
   }
 
@@ -2597,7 +2591,6 @@ class ConvertTorchToMhlo
     INSERT_ALLDIMS_REDUCTION_OP_PATTERN(AtenAnyOp, mhlo::OrOp)
     INSERT_ALLDIMS_REDUCTION_OP_PATTERN(AtenSumOp, mhlo::AddOp)
 #undef INSERT_ALLDIMS_REDUCTION_OP_PATTERN
-
     if (failed(applyPartialConversion(
             getOperation(), target, std::move(patterns))))
       return signalPassFailure();

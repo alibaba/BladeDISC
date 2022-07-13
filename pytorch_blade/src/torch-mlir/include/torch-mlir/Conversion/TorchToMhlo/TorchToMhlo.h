@@ -38,11 +38,6 @@ std::unique_ptr<OperationPass<func::FuncOp>> createConvertTorchToMhloPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createApplyValueSemanticsPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscDecomposeComplexOpsPass();
 std::unique_ptr<OperationPass<ModuleOp>> createVerifyMhloBackendContractPass();
-
-void createTorchBackendToMhloBackendPipeline(
-    OpPassManager& pm,
-    const torch::Torch::TorchLoweringPipelineOptions& options);
-
 } // namespace TorchConversion
 } // namespace torch
 } // namespace mlir

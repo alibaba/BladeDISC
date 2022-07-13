@@ -45,6 +45,16 @@ class ConvertAtenOp : public OpConversionPattern<AtenOpT> {
 };
 
 template <>
+LogicalResult ConvertAtenOp<AtenReshapeOp>::matchAndRewrite(
+    AtenReshapeOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Value input = op.self();
+  rewriter.replaceOpWithNewOp<AtenViewOp>(op, op.getType(), input, op.shape());
+  return success();
+};
+
+template <>
 LogicalResult ConvertAtenOp<AtenHardtanhOp>::matchAndRewrite(
     AtenHardtanhOp op,
     OpAdaptor adaptor,
@@ -93,6 +103,8 @@ class DiscDecomposeComplexOpsPass
     RewritePatternSet patterns(context);
     patterns.add<ConvertAtenOp<AtenHardtanhOp>>(context);
     target.addIllegalOp<AtenHardtanhOp>();
+    patterns.add<ConvertAtenOp<AtenReshapeOp>>(context);
+    target.addIllegalOp<AtenReshapeOp>();
 
     if (failed(applyPartialConversion(
             getOperation(), target, std::move(patterns)))) {

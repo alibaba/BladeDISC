@@ -203,6 +203,9 @@ void RegisterDialects(mlir::DialectRegistry& registry) {
 
 bool IsMlirMhloSupported(const torch::jit::Node& node) {
   if (IsTorchMlirAvailable()) {
+    if (!node.kind().is_prim() && !AllTensorTypeAnalyzed(node)) {
+      return false;
+    }
     return IsTorchMlirSupported(node);
   }
   c10::optional<OpConverter> converter = GetMlirMhloConverter(node);
@@ -350,10 +353,10 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
   mlir_module.push_back(unwrap(op));
 
   ::mlir::torch::Torch::TorchLoweringPipelineOptions options;
-  ::mlir::PassManager pm2(
+  ::mlir::PassManager pm(
       &mlir_context, ::mlir::OpPassManager::Nesting::Implicit);
   if (enable_printing) {
-    pm2.enableIRPrinting(
+    pm.enableIRPrinting(
         /*shouldPrintBeforePass*/ [](mlir::Pass*,
                                      mlir::Operation*) { return true; },
         /*shouldPrintAfterPasss*/
@@ -365,8 +368,8 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
         /*opPrintingFlags*/ print_flags);
   }
   ::mlir::torch::TorchConversion::createTorchBackendToMhloBackendPipeline(
-      pm2, options);
-  if (mlir::failed(pm2.run(mlir_module))) {
+      pm, options);
+  if (mlir::failed(pm.run(mlir_module))) {
     mlir_module.emitError() << "TorchBackendToMhloBackendPipeline failed";
     return std::make_tuple("", "", "", "");
   }

@@ -2,7 +2,11 @@ name: Cronjobs
 
 # Add cronjob later
 # Use workflow dispatch to manual trigger the job for now
-on: workflow_dispatch
+on:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    - cron:  '* * * * *' # every minutes
+  workflow_dispatch:
 
 jobs:
   DummyTestJob:

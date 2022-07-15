@@ -1,4 +1,4 @@
-name: Job workflow
+name: Job Reusable Workflow
 
 on:
   workflow_call:
@@ -44,7 +44,7 @@ jobs:
   Job:
     if: github.repository == 'alibaba/BladeDISC'
     # The type of runner that the job will run on
-    runs-on: [self-hosted, gpu-t4]
+    runs-on: [self-hosted, "${{ inputs.device }}" ]
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Runs a single command using the runners shell
@@ -57,8 +57,8 @@ jobs:
         git submodule update --depth=1 --init --recursive
         docker build -t disc-dev-${{ inputs.name }} \
           --build-arg BASEIMAGE=${{ inputs.base_image }} \
-          ${{ inputs.extra_build_args }}
-          ${{ inputs.extra_envs }}
+          ${{ inputs.extra_build_args }} \
+          ${{ inputs.extra_envs }} \
           -f ${{ inputs.dockerfile }} .
     - name: Run Job 
       run: |

@@ -46,14 +46,14 @@ void mlir::torch::createTorchBackendToMhloBackendPipeline(
   ::mlir::torch::createDiscTorchFunctionToTorchBackendPipeline(pm, funcOptions);
 
   // Add decompose passes
+  pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
   pm.addNestedPass<func::FuncOp>(createDiscDecomposeComplexOpsPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-  // pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
   pm.addNestedPass<func::FuncOp>(Torch::createDecomposeComplexOpsPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 
   // Do mhlo lowering
-  pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
+  // pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToMhloPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToSCFPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToStdPass());
@@ -71,36 +71,6 @@ void mlir::torch::createTorchBackendToMhloBackendPipeline(
   // expect. This fails compilation (signalPassFailure) if the IR is not in the
   // correct form.
   pm.addPass(createVerifyMhloBackendContractPass());
-}
-
-void mlir::torch::createDiscTorchScriptModuleToTorchBackendPipeline(
-    OpPassManager& pm,
-    const TorchLoweringPipelineOptions& options) {
-  // When we import TorchScript IR, we import their entire "compilation unit",
-  // which can contain numerous functions unrelated to the current program,
-  // which breaks torch-globalization-pipeline; for example, there can be
-  // random functions referencing types that haven't been imported
-  // as part of the root `torch.nn.Module` we imported. Those will
-  // be unreferenced private functions which symbol-dce will clean up nicely.
-  pm.addPass(createSymbolDCEPass());
-  // Globalize the program. The rest of the compiler assumes a globalized
-  // program, which makes all analyses and transforms significantly easier
-  // to write.
-  pm.addPass(createPrepareForGlobalizeObjectGraphPass());
-  pm.addPass(createGlobalizeObjectGraphPass());
-  // "lower" `torch.global_slot` ops by deleting them if unused, which we
-  // currently require because we don't have a lowering path for backends to
-  // handle them.
-  // Torch usually inserts a few unused global slots so this ends up hitting
-  // every single module even if it doesn't have any explicit slots.
-  // TODO: Support global slots in backends.
-  pm.addPass(createSymbolDCEPass());
-  // Currently, our shape inference is not powerful enough to deal with
-  // calls, so inline everything.
-  // TODO: Improve shape inference.
-  pm.addPass(createInlinerPass());
-
-  createDiscTorchFunctionToTorchBackendPipeline(pm, options);
 }
 
 void mlir::torch::createDiscTorchFunctionToTorchBackendPipeline(

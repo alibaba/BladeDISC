@@ -43,12 +43,6 @@ void createTorchBackendToMhloBackendPipeline(
     OpPassManager& pm,
     const torch::Torch::TorchLoweringPipelineOptions& options);
 
-// Creates a pipeline that lowers the object graph IR that is produced by
-// TorchScript import into the form expected by torch-verify-backend-contract,
-void createDiscTorchScriptModuleToTorchBackendPipeline(
-    OpPassManager& pm,
-    const ::mlir::torch::Torch::TorchLoweringPipelineOptions& options);
-
 // Creates a pipeline that lowers a flat list of funcs and global slots
 // with the torch and aten dialects and mutable arrays and converts it to
 // the form required by torch-verify-backend-contract.

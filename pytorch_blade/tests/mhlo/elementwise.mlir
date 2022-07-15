@@ -54,12 +54,6 @@ func @torch.aten.sub.tensor(%arg0: !torch.vtensor<[?,?,?,?],f32>, %arg1: !torch.
   return %0 : !torch.vtensor<[?,?,?,?],f32>
 }
 
-func @torch.aten.sub.tensor(%arg0: !torch.vtensor<[?,?,?,?],f32>, %arg1: !torch.vtensor<[?,?,?,?],si32>) -> !torch.vtensor<[?,?,?,?],f32> {
-  %int1 = torch.constant.int 1
-  %0 = torch.aten.sub.Tensor %arg0, %arg1, %int1 : !torch.vtensor<[?,?,?,?],f32>, !torch.vtensor<[?,?,?,?],si32>, !torch.int -> !torch.vtensor<[?,?,?,?],f32>
-  return %0 : !torch.vtensor<[?,?,?,?],f32>
-}
-
 // CHECK-LABEL:   func @torch.aten.sub.scalar.int(
 // CHECK-SAME:           %[[ARG0:.*]]: tensor<?x?x?x4xf32>, %[[ARG1:.*]]: i64) -> tensor<?x?x?x4xf32> {
 // CHECK:     %[[CST0:.*]] = mhlo.constant dense<1.000000e+00> : tensor<f32>

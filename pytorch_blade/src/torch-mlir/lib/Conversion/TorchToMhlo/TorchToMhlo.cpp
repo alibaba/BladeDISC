@@ -416,7 +416,6 @@ class ConvertAtenAddSubOp : public OpConversionPattern<AtenOpT> {
     auto lhsType = lhs.getType().dyn_cast<TensorType>();
     Value rhs = adaptor.other();
     auto rhsType = rhs.getType().dyn_cast<TensorType>();
-    auto alphaScalar = op.other();
 
     if (!lhsType)
       return op.emitError("Only Tensor types supported in MHLO");
@@ -431,21 +430,30 @@ class ConvertAtenAddSubOp : public OpConversionPattern<AtenOpT> {
           scalarToMhloTensor(rewriter, op, adaptor.other(), outElemTy, {});
     }
     auto rhsTensor = rhsType ? rhs : rhsAsTensor;
+
     rhsType = rhsTensor.getType().dyn_cast<TensorType>();
     auto alphaTensor =
         scalarToMhloTensor(rewriter, op, adaptor.alpha(), outElemTy, {});
 
-    auto mulTensor =
-        rewriter
-            .create<chlo::BroadcastMulOp>(
-                op.getLoc(), rhsType, rhsTensor, alphaTensor, nullptr)
-            .getResult();
+    auto alphaType = alphaTensor.getType().template cast<TensorType>();
+    if (alphaType.getElementType() != outElemTy)
+      alphaTensor =
+          rewriter.create<mhlo::ConvertOp>(op.getLoc(), alphaTensor, outElemTy);
+    if (rhsType.getElementType() != outElemTy)
+      rhsTensor =
+          rewriter.create<mhlo::ConvertOp>(op.getLoc(), rhsTensor, outElemTy);
+
+    auto mulTensor = rewriter
+                         .create<chlo::BroadcastMulOp>(
+                             op.getLoc(),
+                             rhsTensor.getType(),
+                             rhsTensor,
+                             alphaTensor,
+                             nullptr)
+                         .getResult();
 
     if (lhsType.getElementType() != outElemTy)
       lhs = rewriter.create<mhlo::ConvertOp>(op.getLoc(), lhs, outElemTy);
-    if (rhsType.getElementType() != outElemTy)
-      mulTensor =
-          rewriter.create<mhlo::ConvertOp>(op.getLoc(), mulTensor, outElemTy);
 
     rewriter.replaceOpWithNewOp<MhloOpT>(op, outType, lhs, mulTensor, nullptr);
     return success();

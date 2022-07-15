@@ -18,7 +18,7 @@ from torch_blade import utils
 from torch_blade import tools
 from torch_blade.config import Config, OptPipelines
 from torch_blade.python_ir_analysis import _jit_pass_clean_python_ir
-if utils.torch_version_number() < utils.parse_version("1.12.0"):
+if utils.torch_version_number() <= utils.parse_version("1.12.0"):
     from torch.onnx.symbolic_helper import _export_onnx_opset_version
 else:
     from torch.onnx._globals import GLOBALS

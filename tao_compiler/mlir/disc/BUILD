@@ -175,8 +175,10 @@ cc_library(
     deps = [
         ":cycle_detector",
         ":placement_utils",
+        "//tensorflow/compiler/mlir/hlo:lhlo",
         "//tensorflow/core:lib",
         "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Shape",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Pass",
     ],
@@ -707,6 +709,7 @@ cc_library(
     deps = [
         ":codegen_utils",
         ":disc_lhlo_elemental_utils",
+        ":disc_shape_optimization_utils",
         ":disc_supported_list",
         ":disc_util",
         ":lmhlo_disc",

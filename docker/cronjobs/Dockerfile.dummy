@@ -1,0 +1,4 @@
+ARG BASEIMAGE=nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
+FROM ${BASEIMAGE}
+
+ENV DEBIAN_FRONTEND noninteractive

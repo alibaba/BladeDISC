@@ -63,7 +63,7 @@ To make PyTorch users easier to use, BladeDISC provides simple
 Python API is as follows:
 
 ``` python
-import torch_addons
+import torch_blade
 
 with torch.no_grad():
     # blade_model is the optimized module by BladeDISC

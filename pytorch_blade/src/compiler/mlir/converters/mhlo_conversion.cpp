@@ -354,10 +354,10 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
   mlir_module.push_back(unwrap(op));
 
   ::mlir::torch::Torch::TorchLoweringPipelineOptions options;
-  ::mlir::PassManager pm2(
+  ::mlir::PassManager pm(
       &mlir_context, ::mlir::OpPassManager::Nesting::Implicit);
   if (enable_printing) {
-    pm2.enableIRPrinting(
+    pm.enableIRPrinting(
         /*shouldPrintBeforePass*/ [](mlir::Pass*,
                                      mlir::Operation*) { return true; },
         /*shouldPrintAfterPasss*/
@@ -369,7 +369,7 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
         /*opPrintingFlags*/ print_flags);
   }
   ::mlir::torch::createTorchBackendToMhloBackendPipeline(pm2, options);
-  if (mlir::failed(pm2.run(mlir_module))) {
+  if (mlir::failed(pm.run(mlir_module))) {
     mlir_module.emitError() << "TorchBackendToMhloBackendPipeline failed";
     return std::make_tuple("", "", "", "");
   }

@@ -29,6 +29,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
+#include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/lhlo_elemental_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 
@@ -416,38 +417,6 @@ int getNumResultOperands(Operation* op) {
   }
   return llvm::count_if(op->getOperands(),
                         [&](Value v) { return IsOpWriteValue(op, v); });
-}
-
-// Returns data users of the value and its aliases (e.g. memref.cast).
-// Here non-data users means DimOp, DeallocOp and ShapeOfOp.
-SmallVector<Operation*, 4> getValueUsers(Value v) {
-  Value root = v;
-  while (Operation* operandOp = root.getDefiningOp()) {
-    auto view = dyn_cast<ViewLikeOpInterface>(operandOp);
-    if (!view) break;
-    root = operandOp->getOperand(0);
-  }
-
-  SmallVector<Operation*, 4> users;
-  SmallVector<Value, 4> worklist;
-  worklist.push_back(root);
-  while (!worklist.empty()) {
-    Value curr = worklist.back();
-    worklist.pop_back();
-    for (Operation* user : curr.getUsers()) {
-      // Skip non-data users
-      if (isa<memref::DimOp, memref::DeallocOp, shape::ShapeOfOp>(user)) {
-        continue;
-      }
-      // alias value
-      if (auto view = dyn_cast<ViewLikeOpInterface>(user)) {
-        worklist.push_back(view->getResult(0));
-      } else {
-        users.push_back(user);
-      }
-    }
-  }
-  return users;
 }
 
 int64_t getFirstOperandIndex(Operation* op, Value value) {
@@ -1124,7 +1093,7 @@ bool enableEagerTransposeFusion() {
 
 bool BaseCpuFusionStrategy::isFusible(Operation* op) {
   if (isa<lmhlo::ReshapeOp, lmhlo::DynamicReshapeOp>(op)) {
-    return false;
+    return useShapeConstraintIR();
   }
 
   if (!enableEagerTransposeFusion()) {
@@ -1196,6 +1165,48 @@ bool isLargeConcatOp(Operation* op) {
          op->getNumOperands() >= getLargeConcatNumOperandsLimit();
 }
 
+bool isExpandLikeReshape(ShapeAnalysis& shapeAnalysis, Operation* op) {
+  auto shapeIRAnalysis =
+      dynamic_cast<ShapeConstraintIRAnalysis*>(&shapeAnalysis);
+  if (!shapeIRAnalysis) return false;
+
+  Value in = op->getOperand(0);
+  Value out = cast<lmhlo::LmhloOp>(op).getResultBuffer();
+  auto inTy = in.getType().cast<MemRefType>();
+  auto outTy = out.getType().cast<MemRefType>();
+  if (inTy.hasStaticShape() && outTy.hasStaticShape()) {
+    for (int inIdx = 0, outIdx = 0; true; ++inIdx, ++outIdx) {
+      while (inIdx < inTy.getRank() && inTy.getShape()[inIdx] == 1) ++inIdx;
+      while (outIdx < outTy.getRank() && outTy.getShape()[outIdx] == 1)
+        ++outIdx;
+      if ((inIdx == inTy.getRank()) != (outIdx == outTy.getRank()))
+        return false;
+      if ((inIdx == inTy.getRank()) && (outIdx == outTy.getRank())) return true;
+      if (inTy.getShape()[inIdx] != outTy.getShape()[outIdx]) return false;
+    }
+  }
+
+  auto inSyms =
+      getMemRefValueSymbolicDims(shapeIRAnalysis->symbolicDimMgr(), in);
+  auto outSyms =
+      getMemRefValueSymbolicDims(shapeIRAnalysis->symbolicDimMgr(), out);
+  if (!inSyms || !outSyms) return false;
+
+  for (size_t inIdx = 0, outIdx = 0; true; ++inIdx, ++outIdx) {
+    while (inIdx < (*inSyms).size() && (*inSyms)[inIdx].getDimSize() == 1)
+      ++inIdx;
+    while (outIdx < (*outSyms).size() && (*outSyms)[outIdx].getDimSize() == 1)
+      ++outIdx;
+    if ((inIdx == (*inSyms).size()) != (outIdx == (*outSyms).size()))
+      return false;
+    if ((inIdx == (*inSyms).size()) && (outIdx == (*outSyms).size()))
+      return true;
+    if (inTy.getShape()[inIdx] != outTy.getShape()[outIdx]) return false;
+  }
+
+  return false;
+}
+
 bool BaseCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
                                     FusionPattern& lhs, FusionPattern& rhs,
                                     FusionPattern& target) {
@@ -1206,6 +1217,14 @@ bool BaseCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   auto& op_list = target.getOpList();
   auto& operands = target.getOperands();
   auto& results = target.getResults();
+
+  // Only support expand-like reshape a.t.m.
+  for (Operation* op : op_list) {
+    if (isa<lmhlo::ReshapeOp, lmhlo::DynamicReshapeOp>(op) &&
+        !isExpandLikeReshape(shapeAnalysis, op))
+      return false;
+  }
+
   bool has_reduce_root = llvm::any_of(target.getRootOps(), [](Operation* op) {
     return isa<lmhlo::ReduceOp>(op);
   });
@@ -1287,6 +1306,12 @@ bool isStitchCpuSupported(Operation* op) {
   // TODO(kevin.zwy): support other reduction types.
   if (isa<lmhlo::ReduceOp>(op) && !isRowReduction(op)) {
     return false;
+  }
+
+  // Reshape-like ops
+  if (useShapeConstraintIR() &&
+      isa<lmhlo::ReshapeOp, lmhlo::DynamicReshapeOp>(op)) {
+    return true;
   }
 
   // clang-format off
@@ -1531,6 +1556,25 @@ bool StitchCPUAnalysis::fusibilityAnalysis() {
     return false;
   }
 
+  // Only support expand-like reshape a.t.m.
+  if (!llvm::all_of(target.getOpList(), [&](Operation* op) {
+        if (!isa<lmhlo::ReshapeOp, lmhlo::DynamicReshapeOp>(op)) return true;
+        auto inTy = op->getOperand(0).getType().cast<MemRefType>();
+        auto outTy = cast<lmhlo::LmhloOp>(op)
+                         .getResultBuffer()
+                         .getType()
+                         .cast<MemRefType>();
+        // TODO(disc): support rank 0 reshape.
+        if ((inTy.hasStaticShape() && inTy.getNumElements() == 1) ||
+            (outTy.hasStaticShape() && outTy.getNumElements() == 1))
+          return false;
+        // TODO(disc): support other kinds of reshapes.
+        return isExpandLikeReshape(shapeAnalysis_, op);
+      })) {
+    LLVM_DEBUG(llvm::dbgs() << "found unsupported op.\n");
+    return false;
+  }
+
   // 1, roots analysis
   if (!doRootsAnalysis()) {
     LLVM_DEBUG(llvm::dbgs() << "failed to do roots analysis\n");
@@ -1599,6 +1643,10 @@ bool StitchCPUAnalysis::buildDominantGraph(ValueGraph& dominantGraph) {
       Value a = cast<lmhlo::LmhloOp>(op).getResultBuffer();
       Value b = op->getOperand(0);
       dominantGraph[a][b] = true;
+    } else if (isa<lmhlo::ReshapeOp, lmhlo::DynamicReshapeOp>(op)) {
+      Value a = cast<lmhlo::LmhloOp>(op).getResultBuffer();
+      Value b = op->getOperand(0);
+      dominantGraph[a][b] = dominantGraph[b][a] = true;
     } else {
       // failure due to unknown ops
       return false;
@@ -1696,6 +1744,8 @@ bool StitchCPUAnalysis::doTileAnalysis() {
       } else if (isa<lmhlo::BroadcastInDimOp, lmhlo::BroadcastOp,
                      lmhlo::DynamicBroadcastInDimOp>(op)) {
         if (!doBcastOpTileAnalysis(tilePlan, op, changed)) return false;
+      } else if (isa<lmhlo::ReshapeOp, lmhlo::DynamicReshapeOp>(op)) {
+        if (!doReshapeOpTileAnalysis(tilePlan, op, changed)) return false;
       } else {
         // failure due to unknown ops
         return false;
@@ -1812,6 +1862,56 @@ bool StitchCPUAnalysis::doBcastOpTileAnalysis(
   return true;
 }
 
+SmallVector<int> getNonSizeOneDims(MemRefType ty) {
+  SmallVector<int> dims;
+  for (int i = 0; i < ty.getRank(); ++i)
+    if (ty.getShape()[i] != 1) dims.push_back(i);
+  return dims;
+}
+
+bool StitchCPUAnalysis::doReshapeOpTileAnalysis(
+    DenseMap<Value, TileInfo>& tilePlan, Operation* op, bool& changed) {
+  Value inValue = op->getOperand(0);
+  Value outValue = cast<lmhlo::LmhloOp>(op).getResultBuffer();
+  // target_shape should not do parallel computation.
+  if (isa<lmhlo::DynamicReshapeOp>(op)) {
+    auto& targetShape = tilePlan[op->getOperand(1)];
+    TileInfo mergedInfo = targetShape;
+    if (!mergedInfo.merge(0)) return false;
+    changed |= targetShape.updateIfNotEqual(mergedInfo);
+  }
+
+  auto propagateTileDims = [&](Value in, TileInfo& inInfo, Value out,
+                               TileInfo& outInfo) {
+    auto inTy = in.getType().cast<MemRefType>();
+    auto inNonSizeOneDims = getNonSizeOneDims(inTy);
+    auto outTy = out.getType().cast<MemRefType>();
+    auto outNonSizeOneDims = getNonSizeOneDims(outTy);
+
+    if (inNonSizeOneDims.size() != outNonSizeOneDims.size()) return false;
+    for (const auto& z : llvm::zip(inNonSizeOneDims, outNonSizeOneDims)) {
+      int inIdx, outIdx;
+      std::tie(inIdx, outIdx) = z;
+      auto outIt = outInfo.tileSizes.find(outIdx);
+      if (outIt != outInfo.tileSizes.end())
+        if (!inInfo.merge(inIdx, outIt->second)) return false;
+    }
+    return true;
+  };
+
+  TileInfo inMergedInfo = tilePlan[inValue];
+  TileInfo outMergedInfo = tilePlan[outValue];
+
+  if (!propagateTileDims(inValue, inMergedInfo, outValue, outMergedInfo) ||
+      !propagateTileDims(outValue, outMergedInfo, inValue, inMergedInfo)) {
+    return false;
+  }
+
+  changed |= tilePlan[inValue].updateIfNotEqual(inMergedInfo);
+  changed |= tilePlan[outValue].updateIfNotEqual(outMergedInfo);
+  return true;
+}
+
 // Analyzes parallel indices of dominant value to roots & all related producer
 // buffers.
 bool StitchCPUAnalysis::doParallelAnalysis() {
@@ -1842,28 +1942,49 @@ bool StitchCPUAnalysis::doParallelAnalysis() {
 }
 
 // Creates a new parallel index.
-ParallelIndex& StitchCPUAnalysis::makeParallelIndex(int64_t step) {
+ParallelIndex& StitchCPUAnalysis::makeParallelIndex(int64_t step,
+                                                    int64_t value) {
+  // Return early if a existing const parallel index.
+  if (value != ShapedType::kDynamicSize) {
+    auto it = constParallelIndexStore_.find(value);
+    if (it != constParallelIndexStore_.end())
+      return parallelIndexStore_[it->second];
+  }
+
   int id = newSymbolId();
-  return parallelIndexStore_[id] = ParallelIndex{id, step};
+  // Cache const parallel index
+  if (value != ShapedType::kDynamicSize) constParallelIndexStore_[value] = id;
+  return parallelIndexStore_[id] = ParallelIndex{id, step, value};
 }
 
 // Creates a new parallel info.
 ParallelInfo& StitchCPUAnalysis::makeParallelInfo(Value value, int producerId,
                                                   Operation* op) {
-  int rank = value.getType().cast<MemRefType>().getRank();
+  auto ty = value.getType().cast<MemRefType>();
+  int rank = ty.getRank();
   auto& tileInfo = tilePlan_[value];
   ParallelInfo parallelInfo;
   parallelInfo.value = value;
   parallelInfo.producerId = producerId;
   parallelInfo.op = op;
   for (int d = 0; d < rank; ++d) {
+    int64_t dimSize = ty.getShape()[d];
     auto it = tileInfo.tileSizes.find(d);
     if (it == tileInfo.tileSizes.end()) {
+      bool isAlwaysZeroIndex =
+          (dimSize != ShapedType::kDynamicSize && dimSize <= 1);
       // select the whole dimension
-      parallelInfo.indices[d] = makeParallelIndex(1).id;
+      parallelInfo.indices[d] =
+          makeParallelIndex(1, isAlwaysZeroIndex ? 0 : ShapedType::kDynamicSize)
+              .id;
     } else if (it->second != ShapedType::kDynamicSize) {
+      bool isAlwaysZeroIndex =
+          (dimSize != ShapedType::kDynamicSize && dimSize <= it->second);
       // partially select the dimension.
-      parallelInfo.indices[d] = makeParallelIndex(it->second).id;
+      parallelInfo.indices[d] =
+          makeParallelIndex(it->second,
+                            isAlwaysZeroIndex ? 0 : ShapedType::kDynamicSize)
+              .id;
     }
   }
   parallelInfo.inBound = newSymbolId();
@@ -1963,6 +2084,30 @@ bool StitchCPUAnalysis::propagateFromDominantToRoots() {
           ++inIdx;
         }
         updateToProcess(other, otherInfo.id);
+      } else if (isa<lmhlo::ReshapeOp, lmhlo::DynamicReshapeOp>(user)) {
+        Value inValue = user->getOperand(0);
+        Value outValue = cast<lmhlo::LmhloOp>(user).getResultBuffer();
+        // skip the second operand (target shape) of dynamic reshape op.
+        if (v != inValue && v != outValue) continue;
+        Value from = inValue;
+        Value to = outValue;
+        if (v == outValue) std::swap(from, to);
+        if (!processedSet.insert(to).second) continue;
+        auto& toInfo = makeParallelInfo(to, info.id, user);
+        toInfo.inBound = info.inBound;
+        toInfo.isOwner = info.isOwner;
+        auto fromTy = from.getType().cast<MemRefType>();
+        auto fromNonSizeOneDims = getNonSizeOneDims(fromTy);
+        auto toTy = to.getType().cast<MemRefType>();
+        auto toNonSizeOneDims = getNonSizeOneDims(toTy);
+        for (const auto& z : llvm::zip(fromNonSizeOneDims, toNonSizeOneDims)) {
+          int fromIdx, toIdx;
+          std::tie(fromIdx, toIdx) = z;
+          auto it = toInfo.indices.find(toIdx);
+          if (it == toInfo.indices.end()) continue;
+          toInfo.indices[toIdx] = info.indices[fromIdx];
+        }
+        updateToProcess(to, toInfo.id);
       } else {
         // failure due to unknown ops
         return false;
@@ -2141,6 +2286,41 @@ bool StitchCPUAnalysis::propagateFromRootsToProducers() {
       if (isTargetOp(lastWriter)) {
         toProcessIds.emplace_back(lastWriter, inId);
       }
+    } else if (isa<lmhlo::ReshapeOp, lmhlo::DynamicReshapeOp>(op)) {
+      Value in = op->getOperand(0);
+      if (isa<lmhlo::DynamicReshapeOp>(op)) {
+        Value shapeOperand = op->getOperand(1);
+        auto& shapeInfo = makeParallelInfo(shapeOperand, id, op);
+        auto& info = parallelInfoStore_[id];
+        shapeInfo.inBound = info.inBound;
+        parallelPlan_[shapeOperand].insert(shapeInfo.id);
+      }
+      int inId;
+      if (!isExistingInputId(in, inId)) {
+        auto& inInfo = makeParallelInfo(in, id, op);
+        auto& info = parallelInfoStore_[id];
+        inInfo.inBound = info.inBound;
+        inInfo.isOwner = info.isOwner;
+
+        auto inTy = in.getType().cast<MemRefType>();
+        auto inNonSizeOneDims = getNonSizeOneDims(inTy);
+        auto outTy = out.getType().cast<MemRefType>();
+        auto outNonSizeOneDims = getNonSizeOneDims(outTy);
+        for (const auto& z : llvm::zip(inNonSizeOneDims, outNonSizeOneDims)) {
+          int inIdx, outIdx;
+          std::tie(inIdx, outIdx) = z;
+          auto it = inInfo.indices.find(inIdx);
+          if (it == inInfo.indices.end()) continue;
+          inInfo.indices[inIdx] = info.indices[outIdx];
+        }
+
+        parallelPlan_[in].insert(inInfo.id);
+        inId = inInfo.id;
+      }
+      auto lastWriter = fusionPattern_.findLastWriter(in);
+      if (isTargetOp(lastWriter)) {
+        toProcessIds.emplace_back(lastWriter, inId);
+      }
     } else {
       // failure due to unknown ops
       return false;
@@ -2308,6 +2488,12 @@ bool StitchCPUAnalysis::emitParallelIndices(OpBuilder& b, Location loc,
           LLVM_DEBUG(llvm::dbgs() << "failed to emitBcastOpParallelIndex\n");
           return false;
         }
+      } else if (isa<lmhlo::ReshapeOp, lmhlo::DynamicReshapeOp>(op)) {
+        if (!emitReshapeOpParallelIndex(b, loc, from, to)) {
+          LLVM_DEBUG(llvm::dbgs() << "failed to emitBcastOpParallelIndex\n");
+          return false;
+        }
+
       } else {
         // failure due to unknown ops
         LLVM_DEBUG(llvm::dbgs() << "unknown op\n");
@@ -2434,6 +2620,55 @@ bool StitchCPUAnalysis::emitBcastOpParallelIndex(OpBuilder& b, Location loc,
 
   to.symbolInBound = from.symbolInBound;
   to.symbolIsOwner = isOwner;
+  return true;
+}
+
+bool StitchCPUAnalysis::emitReshapeOpParallelIndex(OpBuilder& b, Location loc,
+                                                   ParallelInfo& from,
+                                                   ParallelInfo& to) {
+  Operation* op = to.op;
+  assert(op);
+  Value in = op->getOperand(0);
+  Value out = cast<lmhlo::LmhloOp>(op).getResultBuffer();
+
+  if (from.value != in && from.value != out) {
+    LLVM_DEBUG(llvm::dbgs() << "from.value: " << from.value << "\n");
+    LLVM_DEBUG(
+        llvm::dbgs()
+        << "shape input of reshape op should not have parallel indices\n");
+    return false;
+  }
+
+  if (to.value != in && to.value != out) {
+    // to is the target shape operand
+    assert(to.indices.empty());
+    Value trueValue = b.create<arith::ConstantIntOp>(loc, 1, 1);
+    to.symbolInBound = trueValue;
+    to.symbolIsOwner = allIndicesZeros(b, loc, from.symbolIndices);
+    return true;
+  }
+
+  to.symbolInBound = from.symbolInBound;
+  to.symbolIsOwner = from.symbolIsOwner;
+
+  auto fromTy = from.value.getType().cast<MemRefType>();
+  SmallVector<Value> fromNonSizeOneIndices;
+  for (const auto& en : llvm::enumerate(from.indices)) {
+    if (fromTy.getShape()[en.value().first] == 1) continue;
+    fromNonSizeOneIndices.push_back(from.symbolIndices[en.index()]);
+  }
+
+  int numNonSizeOneDim = 0;
+  Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
+  auto toTy = to.value.getType().cast<MemRefType>();
+  for (const auto& en : llvm::enumerate(to.indices)) {
+    if (toTy.getShape()[en.value().first] == 1) {
+      to.symbolIndices.push_back(zero);
+    } else {
+      to.symbolIndices.push_back(fromNonSizeOneIndices[numNonSizeOneDim++]);
+    }
+  }
+
   return true;
 }
 

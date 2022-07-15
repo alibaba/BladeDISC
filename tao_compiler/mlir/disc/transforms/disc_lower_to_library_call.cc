@@ -97,15 +97,6 @@ void InsertSyncOnStream(Operation* op, Value ctx, Value stream_handle,
                               "sync_on_stream", false, "gpu");
 }
 
-// Returns true if the underlying buffer of this memref is a const buffer.
-bool isConstant(Value value) {
-  Value root = getRootMemRef(value);
-  for (Operation* user : getValueUsers(root)) {
-    if (isa<lmhlo::ConstOp>(user)) return true;
-  }
-  return false;
-}
-
 // Converting:
 //   %output = disc_ral.recv_input(ctx, input_idx)
 //     to
@@ -245,7 +236,7 @@ struct DotGeneralOpConvertor : public OpRewritePattern<DotGeneralOp> {
     newOperands.push_back(rewriter.create<arith::ConstantIntOp>(
         op.getLoc(), tp_rhs, /*bitWidth*/ 1));
     newOperands.push_back(rewriter.create<arith::ConstantIntOp>(
-        op.getLoc(), isConstant(op->getOperand(1)), /*bitWidth*/ 1));
+        op.getLoc(), isConstantMemRef(op->getOperand(1)), /*bitWidth*/ 1));
 
     bool on_gpu = placement_utils::isGpuMemRef(op->getOperand(2));
     rewriter.replaceOpWithNewOp<DispatchOp>(op, llvm::None, ctx, newOperands,
@@ -305,7 +296,7 @@ Value GetConvMetadata(OpTy op, PatternRewriter& rewriter) {
   // rhs_dilation
   auto rhs_dilation = disc_ral::ConvertDenseIntAttr(op.rhs_dilation());
   fields.insert(fields.end(), rhs_dilation.begin(), rhs_dilation.end());
-  fields.push_back(isConstant(op->getOperand(1)));
+  fields.push_back(isConstantMemRef(op->getOperand(1)));
 
   for (auto&& en : llvm::enumerate(fields)) {
     Value value =

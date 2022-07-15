@@ -11,10 +11,10 @@
 
 # !/bin/bash
 # install dependencies
-apt install -y git git-lfs libglib2.0-0 libsndfile1 && pip install librosa torchdynamo torchvision torchaudio torchtext --extra-index-url https://download.pytorch.org/whl/cu113
+apt install -y git git-lfs libglib2.0-0 libsndfile1 libgl1 && pip install librosa torchdynamo torchvision torchaudio torchtext --extra-index-url https://download.pytorch.org/whl/cu113
 
 script_dir=$(cd $(dirname "$0"); pwd)
-pushd $script_dir
+pushd $script_dir # pytorch_blade/benchmark/TorchBench
 # setup for torchbenchmark
 git clone https://github.com/jansel/benchmark.git --recursive torchbenchmark
 cd torchbenchmark && python install.py && cd ../

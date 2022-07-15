@@ -11,17 +11,18 @@
 
 # !/bin/bash
 # install dependencies
-apt install -y git git-lfs libglib2.0-0 libsndfile1 libgl1 && pip install librosa torchdynamo torchvision torchaudio torchtext --extra-index-url https://download.pytorch.org/whl/cu113
+apt install -y git git-lfs libglib2.0-0 libsndfile1 libgl1 && pip install librosa torchvision torchaudio torchtext --extra-index-url https://download.pytorch.org/whl/cu113
 
 script_dir=$(cd $(dirname "$0"); pwd)
 pushd $script_dir # pytorch_blade/benchmark/TorchBench
 # setup for torchbenchmark
-git clone https://github.com/jansel/benchmark.git --recursive torchbenchmark
+git clone https://github.com/pytorch/benchmark.git --recursive torchbenchmark
 cd torchbenchmark && python install.py && cd ../
-# modified torchdynamo backend
-cp backends.py /usr/local/lib/python3.8/dist-packages/torchdynamo/optimizations/
+
+# setup for torchdynamo
+git clone https://github.com/pytorch/torchdynamo.git dynamo && pip install dynamo/
 
 # dynamo frontend and disc backend
-python torchbench.py --speedup-blade-disc -d cuda --isolate --float32 --skip-accuracy-check 2>&1 | tee speedup_blade.log
+python blade_bench.py --backend blade_disc_compiler -d cuda --isolate --float32 --skip-accuracy-check 2>&1 | tee speedup_blade.log
 
 popd

@@ -57,8 +57,8 @@ jobs:
         git submodule update --depth=1 --init --recursive
         docker build -t disc-dev-${{ inputs.name }} \
           --build-arg BASEIMAGE=${{ inputs.base_image }} \
-          ${{ inputs.extra_build_args }}
-          ${{ inputs.extra_envs }}
+          ${{ inputs.extra_build_args }} \
+          ${{ inputs.extra_envs }} \
           -f ${{ inputs.dockerfile }} .
     - name: Run Job 
       run: |

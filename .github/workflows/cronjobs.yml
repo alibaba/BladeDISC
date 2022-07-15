@@ -1,17 +1,15 @@
 name: Cronjobs
 
-on:
-  schedule:
-    - cron: '30 23 * * *' # 11:30 pm
-    - cron: '0/2 * * * *' # every 2 minutes
+# Add cronjob later
+# Use workflow dispatch to manual trigger the job for now
+on: workflow_dispatch
 
 jobs:
   DummyTestJob:
-    if: github.event.schedule != '0/2 * * * *'
-    uses: ./.github/workflows/reusable_cronjob.yml
+    uses: ./.github/workflows/reusable.yml
     with:
       name: dummy_test_job
-      base_image: bladedisc:latest-runtime-torch1.12.0-cu113
+      base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cu113
       device: gpu-t4
       dockerfile: docker/cronjobs/Dockerfile.dummy
       exec_command: python3 -c 'import torch; print(torch.__config__.show())'

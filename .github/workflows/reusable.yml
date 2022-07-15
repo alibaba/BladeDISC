@@ -1,4 +1,4 @@
-name: CPU Reusable workflow
+name: Job workflow
 
 on:
   workflow_call:
@@ -41,15 +41,16 @@ on:
         required: false
 
 jobs:
-  CronJob:
+  Job:
+    if: github.repository == 'alibaba/BladeDISC'
     # The type of runner that the job will run on
-    runs-on: [self-hosted, ${{ inputs.device }}]
+    runs-on: [self-hosted, gpu-t4]
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Runs a single command using the runners shell
     - name: Checkout
       uses: actions/checkout@v2.4.0
-    - name: Build CronJob Docker
+    - name: Build Docker
       run: |
         set -e
         git submodule sync
@@ -59,7 +60,7 @@ jobs:
           ${{ inputs.extra_build_args }}
           ${{ inputs.extra_envs }}
           -f ${{ inputs.dockerfile }} .
-    - name: Run CronJob
+    - name: Run Job 
       run: |
         set -e
         docker run --rm -t --user $(id -u):$(id -g) \

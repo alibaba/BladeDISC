@@ -1,0 +1,24 @@
+name: disc-build-cuda10-tf115
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    - cron: '30 01 * * *' # 01:30 am
+
+jobs:
+  cuda10_0-tf1_15:
+    uses: ./.github/workflows/cuda_reusable.yml
+    with:
+      cuda_version: cu100
+      remote_runtime_docker: bladedisc:latest-runtime-tensorflow1.15
+      develop_base_image: nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04
+      runtime_base_image: tensorflow/tensorflow:1.15.5-gpu
+      extra_build_args: --build-arg DISC_HOST_TF_VERSION="tensorflow-gpu==1.15"
+      exec_command: bash ./scripts/ci/build_and_test.sh
+      deploy_command: bash ./scripts/ci/deploy_tf_wrapper.sh
+    secrets:
+      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}

@@ -1,4 +1,4 @@
-name: disc-build
+name: disc-build-tf1_15-gpu
 on:
   pull_request:
     branches: [ main ]
@@ -8,7 +8,7 @@ on:
 
 jobs:
   cuda10_0-tf1_15:
-    uses: ./.github/workflows/cuda_reusable.yml
+    uses: ./.github/reusable/cuda_reusable.yml
     with:
       cuda_version: cu100
       remote_runtime_docker: bladedisc:latest-runtime-tensorflow1.15

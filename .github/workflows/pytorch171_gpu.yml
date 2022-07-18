@@ -1,0 +1,25 @@
+name: disc-build-pytorch1_7_1-gpu
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    - cron: '30 01 * * *' # 01:30 am
+
+jobs:
+  cuda11_0-pytorch1_7_1:
+    uses: ./.github/reusable/cuda_reusable.yml
+    with:
+      cuda_version: cu110
+      remote_runtime_docker: bladedisc:latest-runtime-torch1.7.1-cu110
+      develop_base_image: nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
+      runtime_base_image: nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
+      extra_envs: -e TORCH_BLADE_BUILD_TENSORRT_STATIC=ON
+          -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.7.1+cu110
+      exec_command: bash ./scripts/ci/test_pytorch_blade.sh
+      deploy_command:  bash ./scripts/ci/deploy_pytorch_blade.sh
+    secrets:
+      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}

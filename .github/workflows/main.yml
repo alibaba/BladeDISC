@@ -56,7 +56,7 @@ jobs:
       extra_envs: -e TORCH_BLADE_BUILD_TENSORRT_STATIC=ON
           -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.7.1+cu110
       exec_command: bash ./scripts/ci/test_pytorch_blade.sh
-      deploy_command:  bash ./scripts/ci/deploy_pytorch_blade.sh
+      deploy_command: TORCH_VERSION=1.7.1+cu110 bash ./scripts/ci/deploy_pytorch_blade.sh
     secrets:
       ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
       ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
@@ -73,7 +73,7 @@ jobs:
       extra_envs: -e TORCH_BLADE_BUILD_TENSORRT_STATIC=ON
           -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cu102
       exec_command: bash ./scripts/ci/test_pytorch_blade.sh
-      deploy_command:  bash ./scripts/ci/deploy_pytorch_blade.sh
+      deploy_command: TORCH_VERSION=1.8.1+cu102 bash ./scripts/ci/deploy_pytorch_blade.sh
     secrets:
       ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
       ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
@@ -91,7 +91,7 @@ jobs:
       extra_envs: -e TORCH_BLADE_BUILD_TENSORRT_STATIC=ON
           -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.12.0+cu113
       exec_command: bash ./scripts/ci/test_pytorch_blade.sh
-      deploy_command:  bash ./scripts/ci/deploy_pytorch_blade.sh
+      deploy_command: TORCH_VERSION=1.12.0+cu113 bash ./scripts/ci/deploy_pytorch_blade.sh
     secrets:
       ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
       ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}

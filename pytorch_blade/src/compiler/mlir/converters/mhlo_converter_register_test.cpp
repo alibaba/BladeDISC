@@ -57,9 +57,10 @@ TEST(MhloConverter, Register) {
   std::string output_dev_str;
   std::tie(parsable_mlir, pretty_mlir, input_dev_str, output_dev_str) =
       ConvertTorchScriptToMhlo(graph);
+  std::cout << pretty_mlir << std::endl;
   const auto want_mlir = R"MLIR(
-    # CHECK: func @main(%arg0: tensor<?xf32>) -> tensor<?xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "x", output_placements = "cpu", outputs = "1"}} {
-    # CHECK:   return %arg0 : tensor<?xf32>
+    # CHECK: func @main(%arg0: tensor<?xf32> [unknown]) -> tensor<?xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "x", output_placements = "cpu", outputs = "1"}} {
+    # CHECK:   return %arg0 : tensor<?xf32> [unknown]
   )MLIR";
   CHECK_EQ(input_dev_str, "cpu");
   CHECK_EQ(output_dev_str, "cpu");

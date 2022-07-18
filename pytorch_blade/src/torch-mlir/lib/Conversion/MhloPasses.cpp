@@ -32,10 +32,10 @@ void ::mlir::torch::registerTorchToMhloPasses() {
       "torch-backend-to-mhlo-backend-pipeline",
       "Pipeline lowering torch backend contract to mhlo backend "
       "contract.",
-      mlir::torch::createTorchBackendToMhloBackendPipeline);
+      mlir::torch::createDiscTorchBackendToMhloBackendPipeline);
 }
 
-void mlir::torch::createTorchBackendToMhloBackendPipeline(
+void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
     OpPassManager& pm,
     const Torch::TorchLoweringPipelineOptions& options) {
   // Check some invariants to catch errors in a clear way.

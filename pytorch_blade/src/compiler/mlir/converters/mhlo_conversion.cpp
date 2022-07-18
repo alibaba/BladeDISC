@@ -368,7 +368,7 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
         /*out*/ ::llvm::errs(),
         /*opPrintingFlags*/ print_flags);
   }
-  ::mlir::torch::createTorchBackendToMhloBackendPipeline(pm, options);
+  ::mlir::torch::createDiscTorchBackendToMhloBackendPipeline(pm, options);
   if (mlir::failed(pm.run(mlir_module))) {
     mlir_module.emitError() << "TorchBackendToMhloBackendPipeline failed";
     return std::make_tuple("", "", "", "");

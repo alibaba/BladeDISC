@@ -39,7 +39,7 @@ namespace TorchConversion {
 /// Registers all TorchToMhlo conversion passes.
 void registerTorchToMhloPasses();
 
-void createTorchBackendToMhloBackendPipeline(
+void createDiscTorchBackendToMhloBackendPipeline(
     OpPassManager& pm,
     const torch::Torch::TorchLoweringPipelineOptions& options);
 

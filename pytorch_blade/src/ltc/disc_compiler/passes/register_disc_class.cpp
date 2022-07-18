@@ -11,7 +11,6 @@
 
 #include "ltc/disc_compiler/passes/register_disc_class.h"
 
-#include "common_utils/utils.h"
 #include "compiler/backends/engine_class.h"
 #include "compiler/mlir/converters/mhlo_conversion.h"
 #include "compiler/mlir/runtime/disc_engine.h"

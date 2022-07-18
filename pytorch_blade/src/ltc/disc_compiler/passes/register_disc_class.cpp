@@ -135,7 +135,7 @@ std::vector<c10::IValue> RegisterDiscClass(
     auto state = std::make_shared<torch::blade::backends::EngineState>();
     std::vector<torch::blade::backends::EngineState::TensorType> inputs,
         outputs;
-
+    GRAPH_DUMP("Compile before mhlo conversion \n ", sub_graph);
     auto cvt_ret = MhloConversaion(sub_graph);
     auto ret = CallDiscCompiler(std::get<0>(cvt_ret) /*mlir file name*/);
     auto cmd = std::get<0>(ret);

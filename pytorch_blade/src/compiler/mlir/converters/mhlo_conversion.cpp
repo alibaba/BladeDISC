@@ -30,6 +30,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/Pass/PassManager.h"
+#include "torch-mlir/Conversion/MhloPasses.h"
 #include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
 #include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
 #include "torch-mlir/InitAll.h"
@@ -367,8 +368,7 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
         /*out*/ ::llvm::errs(),
         /*opPrintingFlags*/ print_flags);
   }
-  ::mlir::torch::TorchConversion::createTorchBackendToMhloBackendPipeline(
-      pm, options);
+  ::mlir::torch::createDiscTorchBackendToMhloBackendPipeline(pm, options);
   if (mlir::failed(pm.run(mlir_module))) {
     mlir_module.emitError() << "TorchBackendToMhloBackendPipeline failed";
     return std::make_tuple("", "", "", "");

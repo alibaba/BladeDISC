@@ -47,6 +47,7 @@ class BazelBuild(TorchBladeBuild):
             "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:libral_base_context.so",
             "//src:libtorch_blade.so",
             "//src:_torch_blade.so",
+            "//tests/mhlo/torch-mlir-opt:torch-mlir-opt",
         ]
 
         torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]

@@ -25,6 +25,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
+#include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
 
 namespace mlir {
 class ModuleOp;
@@ -37,6 +38,17 @@ namespace TorchConversion {
 
 /// Registers all TorchToMhlo conversion passes.
 void registerTorchToMhloPasses();
+
+void createDiscTorchBackendToMhloBackendPipeline(
+    OpPassManager& pm,
+    const torch::Torch::TorchLoweringPipelineOptions& options);
+
+// Creates a pipeline that lowers a flat list of funcs and global slots
+// with the torch and aten dialects and mutable arrays and converts it to
+// the form required by torch-verify-backend-contract.
+void createDiscTorchFunctionToTorchBackendPipeline(
+    OpPassManager& pm,
+    const ::mlir::torch::Torch::TorchLoweringPipelineOptions& options);
 
 } // namespace torch
 } // end namespace mlir

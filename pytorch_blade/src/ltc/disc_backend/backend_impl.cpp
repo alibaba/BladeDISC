@@ -18,6 +18,7 @@
 #include <torch/csrc/lazy/core/config.h>
 #include <torch/csrc/lazy/core/ir_dump_util.h>
 #include <torch/csrc/lazy/core/lazy_graph_executor.h>
+#include <torch/csrc/lazy/ts_backend/ir_builder.h>
 #include <torch/csrc/lazy/ts_backend/ts_backend_impl.h>
 #include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
 #include "common_utils/logging.h"
@@ -40,6 +41,7 @@ torch::lazy::BackendImplInterface* GetTSBackendImpl();
 
 using BackendDeviceType = torch::lazy::BackendDeviceType;
 using TSData = torch::lazy::TSData;
+using IrBuilder = torch::lazy::IrBuilder;
 
 struct TSBackendDeviceType : public BackendDeviceType {
   TSBackendDeviceType() = delete;
@@ -76,6 +78,12 @@ class DISCBackendImpl : public torch::lazy::BackendImplInterface {
     cache_ = std::make_shared<DiscComputationCache>(
         FLAGS_torch_lazy_compilation_cache_size);
   }
+
+  const IrBuilder* GetIrBuilder() const override {
+    static const IrBuilder* builder = new torch::lazy::TorchScriptIrBuilder();
+    return builder;
+  }
+
   std::unique_ptr<torch::lazy::LoweringContext> CreateLoweringContext(
       const std::string& name,
       torch::lazy::BackendDevice device,
@@ -129,6 +137,15 @@ class DISCBackendImpl : public torch::lazy::BackendImplInterface {
       const at::Scalar& scalar,
       const torch::lazy::BackendDevice& device) const override {
     return std::make_shared<TSData>(scalar, device);
+  }
+
+  torch::lazy::BackendDataPtr GetComputationDataFromNode(
+      torch::lazy::Node* node) const {
+    auto* device_data_node = dynamic_cast<torch::lazy::DeviceData*>(node);
+    if (!device_data_node) {
+      return nullptr;
+    }
+    return device_data_node->data();
   }
 
   std::string GetComputationBackendText(

@@ -41,7 +41,7 @@ struct TaoBridgeOptions {
   bool verbose_compilation_log;
 
   // Compilation cache dump path.
-  std::string tao_cache_dump_path;
+  std::string disc_cache_dump_path;
   // Whether to enable mlir compilation.
   bool enable_mlir;
 

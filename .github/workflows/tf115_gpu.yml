@@ -8,7 +8,7 @@ on:
 
 jobs:
   cuda10_0-tf1_15:
-    uses: ./.github/reusable/cuda_reusable.yml
+    uses: ./.github/workflows/reusable/cuda_reusable.yml@${{ github.base_ref }}
     with:
       cuda_version: cu100
       remote_runtime_docker: bladedisc:latest-runtime-tensorflow1.15

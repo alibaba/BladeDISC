@@ -1,4 +1,9 @@
-# How To Add a New Torch Operator Converter
+# How To Add a New Torch Operator Converter(Deprecated soon)
+
+Note that BladeDISC is cooperating with the community to add a new MHLO
+conversion based on Torch-MLIR, see RFC:
+https://github.com/llvm/torch-mlir/issues/999. And this document will be
+deprecated and replaced with a new one once the new conversions pass is built.
 
 ## Get the Operator's Function Schema
 

@@ -14,6 +14,8 @@ limitations under the License.
 ==============================================================================*/
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 
+#include <numeric>
+
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
@@ -266,5 +268,35 @@ bool isConstantMemRef(Value value) {
   return false;
 }
 
+// Gets all float values from the given attribute and push them to `values`.
+DenseFPElementsAttr GetF32ElementsAttr(Attribute attr, Builder* builder) {
+  SmallVector<float, 4> values;
+  auto array_attr = attr.dyn_cast<ArrayAttr>();
+  CHECK(array_attr) << "Cannot cast arrar_attr to ArrayAttr!";
+  values.reserve(array_attr.getValue().size());
+  for (Attribute val : array_attr.getValue()) {
+    values.push_back(
+        static_cast<float>(val.cast<FloatAttr>().getValueAsDouble()));
+  }
+  RankedTensorType ty = RankedTensorType::get(
+      {static_cast<int64_t>(values.size())}, builder->getF32Type());
+  return DenseFPElementsAttr::get(ty, values);
+}
+
+// Returns a 1-d i64 elements attribute populated with numbers from start to
+// end, excluding.
+DenseIntElementsAttr GetI64ElementsAttrForSeq(int start, int end,
+                                              Builder* builder) {
+  int size = end - start;
+
+  SmallVector<int64_t, 4> vals;
+  vals.resize(size);
+  std::iota(vals.begin(), vals.end(), start);
+
+  TensorType ty = RankedTensorType::get({size}, builder->getIntegerType(64));
+  return DenseIntElementsAttr::get(ty, vals);
+}
+
+// Returns 1D 64-bit dense elements attribute with the given values.
 }  // namespace disc_ral
 }  // namespace mlir

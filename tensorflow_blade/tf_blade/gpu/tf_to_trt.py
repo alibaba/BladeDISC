@@ -105,6 +105,7 @@ class Tf2TrtOpt:
         new_input_names: List[str],
         subgraph_outputs: List[str],
         dynamic_shapes: List[Shape],
+        opset: int,
     ) -> onnx.ModelProto:
         for node in subgraph.node:
             if node.op == OpType.PLACEHOLDER.value:
@@ -124,6 +125,7 @@ class Tf2TrtOpt:
             subgraph,
             input_names=[name + ":0" for name in new_input_names],  # :0 is needed
             output_names=[name + ":0" for name in subgraph_outputs],
+            opset=opset,
         )
         if self._dump_dir:
             logging.info(f"Dumping subgraph model to {self._dump_dir}")
@@ -223,6 +225,7 @@ class Tf2TrtOpt:
         subgraph_outputs: List[str],
         main_graph: tf.GraphDef,
         disable_fp16: bool,
+        opset: int,
     ) -> None:
         (
             shapes_min,
@@ -235,7 +238,7 @@ class Tf2TrtOpt:
 
         # use opt_shapes[0] for onnx conversion
         model_proto = self._convert_subgraph_to_onnx(
-            i, subgraph, new_input_names, subgraph_outputs, dynamic_shapes
+            i, subgraph, new_input_names, subgraph_outputs, dynamic_shapes, opset,
         )
         engine_bytes = self._build_tensorrt_engine(
             model_proto,
@@ -260,6 +263,7 @@ class Tf2TrtOpt:
         model_outputs: List[str],
         test_data: List[Any],
         disable_fp16: bool,
+        opset: int = 11,
     ) -> tf.GraphDef:
         try:
             (
@@ -296,5 +300,6 @@ class Tf2TrtOpt:
                 subgraph_outputs[i],
                 main_graph,
                 disable_fp16,
+                opset,
             )
         return main_graph

@@ -8,7 +8,7 @@ on:
 
 jobs:
   cuda11_0-pytorch1_7_1:
-    uses: ./.github/workflows/reusable/cuda_build.yml@${{ github.base_ref }}
+    uses: ./.github/workflows/resuable_gpu_build.yml
     with:
       cuda_version: cu110
       remote_runtime_docker: bladedisc:latest-runtime-torch1.7.1-cu110

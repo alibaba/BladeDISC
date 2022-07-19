@@ -8,7 +8,7 @@ on:
 
 jobs:
   cuda10_0-tf2_4:
-    uses: ./.github/workflows/reusable/cuda_build.yml@${{ github.base_ref }}
+    uses: ./.github/workflows/resuable_gpu_build.yml
     with:
       cuda_version: cu110
       remote_runtime_docker: bladedisc:latest-runtime-tensorflow2.4

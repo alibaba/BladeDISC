@@ -8,7 +8,7 @@ on:
 
 jobs:
   pytorch1_8_1:
-    uses: ./.github/workflows/reusable/cpu_build.yml
+    uses: ./.github/workflows/resuable_cpu_build.yml
     with:
       extra_envs: -e TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
         -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cpu

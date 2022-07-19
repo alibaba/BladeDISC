@@ -9,7 +9,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"       // TF:llvm-project
+#include "mlir/Dialect/Func/IR/FuncOps.h"                // TF:llvm-project
 #include "mlir/Dialect/MemRef/IR/MemRef.h"               // TF:llvm-project
 #include "mlir/IR/Location.h"                            // TF:llvm-project
 #include "mlir/IR/MLIRContext.h"                         // TF:llvm-project

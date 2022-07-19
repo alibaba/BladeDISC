@@ -35,7 +35,7 @@ namespace disc_ral {
 
 namespace {
 
-using lmhlo::ConstOp;
+using lmhlo::ConstantOp;
 using StrT = SmallString<128>;
 
 constexpr static int kMd5DigestLength = 16;
@@ -93,15 +93,15 @@ class DiscConstToRALPass : public DiscConstToRALPassBase<DiscConstToRALPass> {
     ModuleOp m = getOperation();
 
     MetadataProto proto;
-    SmallVector<ConstOp, 4> worklist;
-    m.walk([&](ConstOp op) {
+    SmallVector<ConstantOp, 4> worklist;
+    m.walk([&](ConstantOp op) {
       if (op->getParentOfType<lmhlo::FusionOp>()) {
         return;
       }
       worklist.push_back(op);
     });
-    for (ConstOp op : worklist) {
-      if (failed(convertConstOp(op, &proto))) {
+    for (ConstantOp op : worklist) {
+      if (failed(convertConstantOp(op, &proto))) {
         m.emitError("convert lmhlo.const to RAL failed");
         signalPassFailure();
         return;
@@ -117,7 +117,7 @@ class DiscConstToRALPass : public DiscConstToRALPassBase<DiscConstToRALPass> {
   }
 
  private:
-  LogicalResult convertConstOp(ConstOp const_op, MetadataProto* proto);
+  LogicalResult convertConstantOp(ConstantOp const_op, MetadataProto* proto);
 
   int num_processing_const_ops_ = 0;
 };
@@ -125,11 +125,11 @@ class DiscConstToRALPass : public DiscConstToRALPassBase<DiscConstToRALPass> {
 // llvm.mlir.global internal constant @unique_name("unique_name\00")
 // %1 = call @ral_constant_cpu/gpu(%ctx, %stream, %unique_name) : () ->
 // memref<...>
-LogicalResult DiscConstToRALPass::convertConstOp(ConstOp const_op,
-                                                 MetadataProto* proto) {
+LogicalResult DiscConstToRALPass::convertConstantOp(ConstantOp const_op,
+                                                    MetadataProto* proto) {
   OpBuilder builder(const_op);
   Location loc = const_op.getLoc();
-  DenseElementsAttr valueAttr = const_op.value().cast<DenseElementsAttr>();
+  DenseElementsAttr valueAttr = const_op.getValue().cast<DenseElementsAttr>();
   Type elemType = getElementTypeOrSelf(valueAttr);
 
   // Convert i1 -> i8

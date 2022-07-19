@@ -238,7 +238,7 @@ se::blas::AlgorithmType tuningGemm(se::Stream* stream,
                                    MatrixDescriptor rhs_matrix,
                                    MatrixDescriptor output_matrix) {
   std::vector<se::blas::AlgorithmType> algorithms;
-  CHECK(stream->parent()->GetBlasGemmAlgorithms(&algorithms));
+  CHECK(stream->parent()->GetBlasGemmAlgorithms(stream, &algorithms));
   float best_time = std::numeric_limits<float>::infinity();
   se::blas::AlgorithmType best_algo = algorithms.front();
   for (se::blas::AlgorithmType algorithm : algorithms) {

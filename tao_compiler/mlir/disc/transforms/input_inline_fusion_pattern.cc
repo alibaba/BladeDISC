@@ -76,25 +76,25 @@ bool miscFuseHelper(PatternRewriter& rewriter, Operation* user,
 }
 
 template <>
-bool miscFuseHelper<ConstOp>(PatternRewriter& rewriter, Operation* user,
-                             Operation* producer, memref::LoadOp load_op,
-                             const SmallVector<memref::LoadOp>& load_ops,
-                             LowerConfig* lower_config) {
-  if (!isa<ConstOp>(producer)) return false;
-  auto constant = cast<lmhlo::ConstOp>(producer);
-  auto memref_type = constant.output().getType().cast<MemRefType>();
-  bool is_splat = constant.value().isSplat();
+bool miscFuseHelper<ConstantOp>(PatternRewriter& rewriter, Operation* user,
+                                Operation* producer, memref::LoadOp load_op,
+                                const SmallVector<memref::LoadOp>& load_ops,
+                                LowerConfig* lower_config) {
+  if (!isa<ConstantOp>(producer)) return false;
+  auto constant = cast<lmhlo::ConstantOp>(producer);
+  auto memref_type = constant.getOutput().getType().cast<MemRefType>();
+  bool is_splat = constant.getValue().isSplat();
   assert((memref_type.getRank() == 0 || is_splat) &&
-         "only scalar ConstOp can be fused");
+         "only scalar ConstantOp can be fused");
   auto loc = user->getLoc();
   rewriter.setInsertionPoint(load_op);
   auto elem_ty = memref_type.getElementType();
   bool need_cast = elem_ty.isUnsignedInteger() || elem_ty.isSignedInteger();
   Value inlined_result = nullptr;
   if (need_cast) {
-    int64_t val = is_splat
-                      ? constant.value().getSplatValue<APInt>().getSExtValue()
-                      : constant.value().getValues<APInt>()[{}].getSExtValue();
+    int64_t val =
+        is_splat ? constant.getValue().getSplatValue<APInt>().getSExtValue()
+                 : constant.getValue().getValues<APInt>()[{}].getSExtValue();
     Value const_val = rewriter.create<arith::ConstantOp>(
         loc,
         rewriter.getIntegerAttr(
@@ -107,8 +107,8 @@ bool miscFuseHelper<ConstOp>(PatternRewriter& rewriter, Operation* user,
             .getResults()
             .front();
   } else {
-    auto attr = is_splat ? constant.value().getSplatValue<Attribute>()
-                         : constant.value().getValues<Attribute>()[{}];
+    auto attr = is_splat ? constant.getValue().getSplatValue<Attribute>()
+                         : constant.getValue().getValues<Attribute>()[{}];
     inlined_result = rewriter.create<arith::ConstantOp>(loc, elem_ty, attr);
   }
   for (memref::LoadOp to_be_replaced : load_ops)
@@ -253,8 +253,8 @@ LogicalResult InputInlineFusionPattern::inlineFuseLhloOp(
                               lower_config) ||
       miscFuseHelper<ConcatenateOp>(b, user, producer, load_op, load_ops,
                                     lower_config) ||
-      miscFuseHelper<ConstOp>(b, user, producer, load_op, load_ops,
-                              lower_config) ||
+      miscFuseHelper<ConstantOp>(b, user, producer, load_op, load_ops,
+                                 lower_config) ||
       miscFuseHelper<CopyOp>(b, user, producer, load_op, load_ops,
                              lower_config) ||
       miscFuseHelper<DynamicBroadcastInDimOp>(b, user, producer, load_op,

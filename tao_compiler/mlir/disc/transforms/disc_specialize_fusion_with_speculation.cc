@@ -14,8 +14,9 @@
 
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/utils/codegen_utils.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/MLIRContext.h"  // TF:llvm-project
 #include "mlir/Pass/Pass.h"       // TF:local_config_mlir
@@ -73,7 +74,7 @@ bool IsCandidateBroadcastOp(Operation* op) {
 }
 
 bool HasCandidateBroadcastOp(FusionOp fusion_op) {
-  for (auto& block : fusion_op.region()) {
+  for (auto& block : fusion_op.getRegion()) {
     for (auto& op : block) {
       if (IsCandidateBroadcastOp(&op)) {
         return true;
@@ -109,7 +110,7 @@ FusionOp cloneFusion(OpBuilder& b, FusionOp op,
   SymbolTable& table = ctx->mgr->symbolTable();
   DenseSet<SymbolicDimOp> originalSymbols;
   // 1, create a local view of original (dynamic shape) buffers.
-  for (Operation& op : op.region().front()) {
+  for (Operation& op : op.getRegion().front()) {
     for (Value operand : op.getOperands()) {
       auto ty = operand.getType().dyn_cast<MemRefType>();
       // skip staitc shape buffers.
@@ -194,7 +195,7 @@ FusionOp cloneWithBroadcastSimplifying(
 }
 
 Operation* GetCandidateRowReduceOp(FusionOp fusion_op) {
-  for (Block& block : fusion_op.region().getBlocks()) {
+  for (Block& block : fusion_op.getRegion().getBlocks()) {
     for (Operation& op : block) {
       // All row reduce op should have the same shape, thus we can return any
       // of them.
@@ -207,7 +208,7 @@ Operation* GetCandidateRowReduceOp(FusionOp fusion_op) {
 }
 
 Operation* GetCandidateColReduceOp(FusionOp fusion_op) {
-  for (Block& block : fusion_op.region().getBlocks()) {
+  for (Block& block : fusion_op.getRegion().getBlocks()) {
     for (Operation& op : block) {
       // All col reduce op should have the same shape, thus we can return any
       // of them.
@@ -286,7 +287,7 @@ struct DiscSpecializeFusionWithSpeculationPass
       OpBuilder viewBuilder(cloned);
       // build symbolicDimOp to its corresponding SSA value map
       DenseMap<SymbolicDimOp, Value> symbolicDim2SSAValue;
-      for (Operation& op : cloned.region().front()) {
+      for (Operation& op : cloned.getRegion().front()) {
         for (Value operand : op.getOperands()) {
           auto it = ctx.value2Symbols.find(operand);
           if (it == ctx.value2Symbols.end()) continue;
@@ -305,7 +306,7 @@ struct DiscSpecializeFusionWithSpeculationPass
         }
       }
 
-      for (Operation& op : cloned.region().front()) {
+      for (Operation& op : cloned.getRegion().front()) {
         for (Value operand : op.getOperands()) {
           if (viewMap.find(operand) != viewMap.end()) continue;
           auto it = ctx.value2Symbols.find(operand);
@@ -336,7 +337,7 @@ struct DiscSpecializeFusionWithSpeculationPass
       }
     } else {
       SmallVector<Operation*, 4> op_list;
-      for (Operation& op : cloned.region().front()) op_list.push_back(&op);
+      for (Operation& op : cloned.getRegion().front()) op_list.push_back(&op);
       OpListShapeAnalysis op_list_shape_analysis(op_list);
       for (Operation* op : op_list) {
         for (Value operand : op->getOperands()) {

@@ -79,17 +79,17 @@ void InputInlineFusion::runOnOperation() {
   }
 
   // there should be no lmhlo ops after inline fusion,
-  // except for the ConstOp of ColReduction, which for now cannot be
+  // except for the ConstantOp of ColReduction, which for now cannot be
   // properly optimized by general DCE pass
   std::vector<Operation*> to_be_removed;
   func.walk([&](FusionOp fusion) {
     if (isStitchFusion(fusion.getOperation())) return;
-    fusion.region().walk([&](LmhloOp op) {
+    fusion.getRegion().walk([&](LmhloOp op) {
       if (isa<TerminatorOp>(op)) {
         return;
       }
-      if (isa<ConstOp>(op)) {
-        // TODO(disc): Check the ConstOp is from ReduceOp
+      if (isa<ConstantOp>(op)) {
+        // TODO(disc): Check the ConstantOp is from ReduceOp
         to_be_removed.push_back(op);
         return;
       }

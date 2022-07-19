@@ -19,6 +19,7 @@ limitations under the License.
 #include <iostream>
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/Attributes.h"                          // TF:llvm-project
 #include "mlir/IR/Location.h"                            // TF:llvm-project
 #include "mlir/IR/MLIRContext.h"                         // TF:llvm-project

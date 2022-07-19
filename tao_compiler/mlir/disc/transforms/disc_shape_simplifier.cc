@@ -174,7 +174,7 @@ class DynamicReshapeOpShapeInference
     DenseIntElementsAttr cst_attr;
     if (auto cst_shape = dyn_cast<arith::ConstantOp>(shape_def_op)) {
       cst_attr = cst_shape.getValue().dyn_cast_or_null<DenseIntElementsAttr>();
-    } else if (auto mhlo_cst_shape = dyn_cast<mhlo::ConstOp>(shape_def_op)) {
+    } else if (auto mhlo_cst_shape = dyn_cast<mhlo::ConstantOp>(shape_def_op)) {
       cst_attr =
           mhlo_cst_shape.value().dyn_cast_or_null<DenseIntElementsAttr>();
     }

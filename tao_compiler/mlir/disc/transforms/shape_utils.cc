@@ -21,6 +21,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
 #include "mlir/IR/Dominance.h"
@@ -1118,13 +1119,13 @@ LogicalResult ShapeAnalysisDeprecated::applyLmhloOpConstraint(Operation* op) {
     Value operand = op->getOperand(0);
     Value result = op->getOperand(1);
     for (auto& en :
-         llvm::enumerate(transpose.permutation().getValues<int64_t>())) {
+         llvm::enumerate(transpose.getPermutation().getValues<int64_t>())) {
       mapDimEqual(operand, en.value(), result, en.index());
     }
     mapValueEquivalent(operand, result, valueWithSameElements_);
   } else if (auto concat = dyn_cast<lmhlo::ConcatenateOp>(op)) {
     Value result = cast<lmhlo::LmhloOp>(op).getResultBuffer();
-    int64_t axis = concat.dimension();
+    int64_t axis = concat.getDimension();
     int64_t rank = result.getType().cast<MemRefType>().getRank();
     for (Value operand : op->getOperands().drop_back()) {
       for (int64_t i = 0; i < rank; ++i) {
@@ -1138,7 +1139,7 @@ LogicalResult ShapeAnalysisDeprecated::applyLmhloOpConstraint(Operation* op) {
     int64_t rank = operand.getType().cast<MemRefType>().getRank();
     int64_t resultDimIdx = 0;
     for (int64_t i = 0; i < rank; ++i) {
-      auto reduceDims = reduce.dimensions().getValues<int64_t>();
+      auto reduceDims = reduce.getDimensions().getValues<int64_t>();
       if (std::find(reduceDims.begin(), reduceDims.end(), i) !=
           reduceDims.end()) {
         continue;
@@ -1152,7 +1153,7 @@ LogicalResult ShapeAnalysisDeprecated::applyLmhloOpConstraint(Operation* op) {
     auto ty = operand.getType().dyn_cast<ShapedType>();
     assert(ty);
     for (auto& dim : llvm::enumerate(
-             broadcast_in_dim.broadcast_dimensions().getValues<int64_t>())) {
+             broadcast_in_dim.getBroadcastDimensions().getValues<int64_t>())) {
       // Deal with non-static & non-one dim.
       if (!ty.isDynamicDim(dim.index()) && ty.getDimSize(dim.index()) != 1) {
         mapDimEqual(operand, dim.index(), result, dim.value());
@@ -1164,7 +1165,7 @@ LogicalResult ShapeAnalysisDeprecated::applyLmhloOpConstraint(Operation* op) {
     // DotGeneralOp for lmhlo Dialect.
     Value lhs = op->getOperand(0);
     Value rhs = op->getOperand(1);
-    auto dim_numbers = dot_general.dot_dimension_numbers();
+    auto dim_numbers = dot_general.getDotDimensionNumbers();
     DenseSet<int64_t> lhs_contract_batch_dims;
     DenseSet<int64_t> rhs_contract_batch_dims;
     // Contracting dimensions.
@@ -1214,30 +1215,31 @@ LogicalResult ShapeAnalysisDeprecated::applyLmhloOpConstraint(Operation* op) {
                   i + lhs_batching_dims.size());
     }
   } else if (auto clamp = dyn_cast<lmhlo::ClampOp>(op)) {
-    int64_t min_rank = clamp.min().getType().cast<MemRefType>().getRank();
-    int64_t max_rank = clamp.max().getType().cast<MemRefType>().getRank();
+    int64_t min_rank = clamp.getMin().getType().cast<MemRefType>().getRank();
+    int64_t max_rank = clamp.getMax().getType().cast<MemRefType>().getRank();
     if (min_rank != 0) {
-      mapShapeEqual(clamp.operand(), clamp.min());
+      mapShapeEqual(clamp.getOperand(), clamp.getMin());
     }
     if (max_rank != 0) {
-      mapShapeEqual(clamp.operand(), clamp.max());
+      mapShapeEqual(clamp.getOperand(), clamp.getMax());
     }
     Value result = cast<lmhlo::LmhloOp>(op).getResultBuffer();
-    mapShapeEqual(clamp.operand(), result);
+    mapShapeEqual(clamp.getOperand(), result);
   } else if (auto select = dyn_cast<lmhlo::SelectOp>(op)) {
-    int64_t pred_rank = select.pred().getType().cast<MemRefType>().getRank();
-    int64_t true_rank = select.on_true().getType().cast<MemRefType>().getRank();
+    int64_t pred_rank = select.getPred().getType().cast<MemRefType>().getRank();
+    int64_t true_rank =
+        select.getOnTrue().getType().cast<MemRefType>().getRank();
     int64_t false_rank =
-        select.on_false().getType().cast<MemRefType>().getRank();
+        select.getOnFalse().getType().cast<MemRefType>().getRank();
     Value result = cast<lmhlo::LmhloOp>(op).getResultBuffer();
     if (pred_rank != 0) {
-      mapShapeEqual(select.pred(), result);
+      mapShapeEqual(select.getPred(), result);
     }
     if (true_rank != 0) {
-      mapShapeEqual(select.on_true(), result);
+      mapShapeEqual(select.getOnTrue(), result);
     }
     if (false_rank != 0) {
-      mapShapeEqual(select.on_false(), result);
+      mapShapeEqual(select.getOnFalse(), result);
     }
   } else if (isa<lmhlo::DynamicReshapeOp, lmhlo::ReshapeOp>(op)) {
     Value input = op->getOperand(0);

@@ -218,10 +218,10 @@ inline DenseIntElementsAttr ConvertIntVecToDenseIntElementsAttr(
       op_dimensions);
 }
 
-struct ConvToDynamicConvConvert : public OpRewritePattern<mhlo::ConvOp> {
-  using OpRewritePattern<mhlo::ConvOp>::OpRewritePattern;
+struct ConvToDynamicConvConvert : public OpRewritePattern<mhlo::ConvolutionOp> {
+  using OpRewritePattern<mhlo::ConvolutionOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(mhlo::ConvOp op,
+  LogicalResult matchAndRewrite(mhlo::ConvolutionOp op,
                                 PatternRewriter& rewriter) const override {
     Location loc = op.getLoc();
     Value input = op.lhs();
@@ -249,7 +249,7 @@ struct ConvToDynamicConvConvert : public OpRewritePattern<mhlo::ConvOp> {
 
     RankedTensorType ty = RankedTensorType::get({paddingValues.size()},
                                                 rewriter.getIntegerType(32));
-    Value paddingTensor = rewriter.create<mhlo::ConstOp>(
+    Value paddingTensor = rewriter.create<mhlo::ConstantOp>(
         loc, mlir::DenseIntElementsAttr::get(ty, paddingValues));
 
     SmallVector<Value, 4> newOperands = {input, filter, paddingTensor};

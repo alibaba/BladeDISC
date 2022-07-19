@@ -18,7 +18,7 @@ source ${SCRIPT_DIR}/deploy_docker.sh
 
 # build runtime Docker
 docker build -t ${REMOTE_RUNTIME_DOCKER} -f docker/runtime/Dockerfile.pytorch \
-  --build-arg BASEIMAGE=${RUNTIME_BASEIMAGE} .
+  --build-arg BASEIMAGE=${RUNTIME_BASEIMAGE} --build-arg TORCH_VERSION=${TORCH_VERSION} .
 
 
 # push TorchBlade runtime Docker images

@@ -41,7 +41,7 @@ limitations under the License.
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/Passes.h"
-#include "mlir/Dialect/GPU/Passes.h"
+#include "mlir/Dialect/GPU/Transforms/Passes.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
@@ -475,7 +475,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     // wrapper of the original ParallelLoopTilingPass
     pm.addNestedPass<FuncOp>(
         disc_ral::createParallelLoopTilingPass({256}, true));
-    pm.addNestedPass<FuncOp>(disc_ral::createMapParallelLoopsPass());
+    // pm.addNestedPass<FuncOp>(disc_ral::createMapParallelLoopsPass());
+    pm.addNestedPass<FuncOp>(mlir::createGpuMapParallelLoopsPass());
 
     pm.addNestedPass<FuncOp>(createParallelLoopToGpuPass());
     pm.addPass(createGpuLauchSinkIndexComputationsPass());

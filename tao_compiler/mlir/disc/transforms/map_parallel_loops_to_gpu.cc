@@ -13,32 +13,33 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/GPU/ParallelLoopMapper.h"  // from @llvm-project
-#include "mlir/Pass/Pass.h"
-#include "transforms/PassDetail.h"
-
-namespace mlir {
-namespace scf {
-class SCFDialect;
-}
-namespace memref {
-class MemRefDialect;
-}
-namespace disc_ral {
-namespace {
-
-struct MapParallelLoopsPass : MapParallelLoopsPassBase<MapParallelLoopsPass> {
-  void runOnOperation() override {
-    mlir::greedilyMapParallelSCFToGPU((getOperation()).getBody());
-  }
-};
-
-}  // namespace
-
-std::unique_ptr<OperationPass<func::FuncOp>> createMapParallelLoopsPass() {
-  return std::make_unique<MapParallelLoopsPass>();
-}
-
-}  // namespace disc_ral
-}  // namespace mlir
+// #include "mlir/Dialect/Func/IR/FuncOps.h"
+// #include "mlir/Dialect/GPU/IR/GPUDialect.h"  // from @llvm-project
+// #include "mlir/Pass/Pass.h"
+// #include "transforms/PassDetail.h"
+//
+// namespace mlir {
+// namespace scf {
+// class SCFDialect;
+// }
+// namespace memref {
+// class MemRefDialect;
+// }
+// namespace disc_ral {
+// namespace {
+//
+// struct MapParallelLoopsPass : MapParallelLoopsPassBase<MapParallelLoopsPass>
+// {
+//   void runOnOperation() override {
+//     mlir::greedilyMapParallelSCFToGPU((getOperation()).getBody());
+//   }
+// };
+//
+// }  // namespace
+//
+// std::unique_ptr<OperationPass<func::FuncOp>> createMapParallelLoopsPass() {
+//   return std::make_unique<MapParallelLoopsPass>();
+// }
+//
+// }  // namespace disc_ral
+// }  // namespace mlir

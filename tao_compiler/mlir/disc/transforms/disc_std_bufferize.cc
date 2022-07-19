@@ -34,7 +34,7 @@ limitations under the License.
 namespace mlir {
 namespace disc_ral {
 
-using mhlo::ConstOp;
+using mhlo::ConstantOp;
 
 namespace {
 

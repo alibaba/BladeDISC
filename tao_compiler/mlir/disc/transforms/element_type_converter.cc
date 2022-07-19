@@ -19,6 +19,7 @@ limitations under the License.
 // generally not the fastest approach, but it works.
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"                // from @llvm-project
 #include "mlir/IR/Attributes.h"                          // from @llvm-project
 #include "mlir/IR/Location.h"                            // from @llvm-project
 #include "mlir/IR/MLIRContext.h"                         // from @llvm-project
@@ -244,7 +245,7 @@ struct ElementTypeConverterPass
     patterns.insert<ConvertReduceOpWithSmallWidthIntType>(&ctx);
     if (enable_fp16_gemm_) {
       patterns.insert<ConvertDotGeneralOp, ConvertConvOp<mhlo::DynamicConvOp>,
-                      ConvertConvOp<mhlo::ConvOp>>(&ctx);
+                      ConvertConvOp<mhlo::ConvolutionOp>>(&ctx);
     }
 
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {

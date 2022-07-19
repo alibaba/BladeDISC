@@ -23,27 +23,6 @@ class TestDiscNNOps(DiscTestCase):
         self._test_cvt_to_disc(nn_ops_func, test_data)
 
     @skipTorchGE("1.12.0")
-    def test_layernorm_module(self):
-        layernorm = torch.nn.LayerNorm([224, 224], elementwise_affine=False)
-        self._test_nn_ops(layernorm)
-
-    @skipTorchGE("1.12.0")
-    def test_layernorm_func(self):
-        @torch.jit.script
-        def layernorm(x):
-            reduce_dim = [2, 3]
-            mean_x = x.mean(dim=reduce_dim, keepdim=True)
-            zero_x = x - mean_x
-            square_x = zero_x * zero_x
-            var_x = square_x.mean(dim=reduce_dim, keepdim=True)
-            var_bias = var_x + 1e-5
-            rsqrt_var = var_bias.rsqrt()
-            norm_x = zero_x * rsqrt_var
-            return norm_x
-
-        self._test_nn_ops(layernorm)
-
-    @skipTorchGE("1.12.0")
     def test_softmax(self):
         softmax = torch.nn.Softmax(dim=-1)
         self._test_nn_ops(softmax)

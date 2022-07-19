@@ -1503,17 +1503,19 @@ LogicalResult ConvertAtenOp<AtenRsubScalarOp>::matchAndRewrite(
           /*checkForUnity=*/true)))
     return failure();
 
-  auto multTensor = rewriter.create<mhlo::MulOp>(
+  auto multTensor = rewriter.create<chlo::BroadcastMulOp>(
       op->getLoc(),
       getTypeConverter()->convertType(op.getType()),
       self,
-      alphaTensor);
+      alphaTensor,
+      nullptr);
 
-  rewriter.replaceOpWithNewOp<mhlo::SubOp>(
+  rewriter.replaceOpWithNewOp<chlo::BroadcastSubOp>(
       op,
       getTypeConverter()->convertType(op.getType()),
       otherTensor,
-      multTensor);
+      multTensor,
+      nullptr);
 
   return success();
 }
@@ -1777,6 +1779,22 @@ LogicalResult ConvertAtenOp<AtenDropoutOp>::matchAndRewrite(
 
   rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
       op, getTypeConverter()->convertType(op.getType()), adaptor.input());
+
+  return success();
+}
+
+template <>
+LogicalResult ConvertAtenOp<TensorStaticInfoCastOp>::matchAndRewrite(
+    TensorStaticInfoCastOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  // Not a tensor type.
+  auto operandType = adaptor.operand().getType().dyn_cast<TensorType>();
+  if (!operandType)
+    return op.emitError("Only tensor types are currently supported");
+
+  rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
+      op, getTypeConverter()->convertType(op.getType()), adaptor.operand());
 
   return success();
 }
@@ -2568,6 +2586,7 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenFlipOp);
     INSERT_ATENOP_PATTERN(AtenIndexSelectOp);
     INSERT_ATENOP_PATTERN(AtenRollOp);
+    INSERT_ATENOP_PATTERN(TensorStaticInfoCastOp);
     // INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
 #undef INSERT_ATENOP_PATTERN
 

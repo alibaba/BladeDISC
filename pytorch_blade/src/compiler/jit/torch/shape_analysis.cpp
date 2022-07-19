@@ -20,6 +20,7 @@
 #include <torch/csrc/jit/ir/constants.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/ir/ir_views.h>
+#include <torch/csrc/jit/jit_log.h>
 #include <torch/csrc/jit/runtime/exception_message.h>
 #include <torch/csrc/jit/runtime/operator.h>
 
@@ -289,7 +290,8 @@ class ShapePropagator : public PropertyPropBase {
     static std::unordered_set<Symbol> resize_ops{
         aten::resize_,
         aten::resize_as_,
-        aten::copy_,
+        // inplaced copy would never changing the shape
+        // aten::copy_,
         aten::set_,
         aten::unsqueeze_,
         aten::t_,
@@ -746,7 +748,6 @@ class ShapePropagator : public PropertyPropBase {
     if (node->hasSideEffects()) {
       return;
     }
-
     if (node->matches("aten::cat(Tensor[] tensors, int dim) -> Tensor") ||
         node->kind() == prim::FusedConcat) {
       return PropagateCatShape(node);
@@ -905,6 +906,7 @@ class ShapePropagator : public PropertyPropBase {
             "aten::rsqrt(Tensor self) -> Tensor",
             "aten::selu(Tensor self) -> Tensor",
             "aten::gelu(Tensor self, *, str approximate='none') -> Tensor",
+            "aten::gelu_backward(Tensor grad_output, Tensor self, *, str approximate='none') -> Tensor",
             "aten::sigmoid(Tensor self) -> Tensor",
             "aten::sign(Tensor self) -> Tensor",
             "aten::sin(Tensor self) -> Tensor",
@@ -923,7 +925,8 @@ class ShapePropagator : public PropertyPropBase {
             "aten::narrow(Tensor self, int dim, int start, int length) -> Tensor",
             "aten::slice(Tensor self, int dim, int? start=None, int? end=None, int step=1) -> Tensor",
             "aten::alias(Tensor self) -> Tensor",
-            "aten::zero(Tensor self) -> Tensor",
+            "aten::zero_(Tensor self) -> Tensor",
+            //"aten::zero(Tensor self) -> Tensor",
         },
         [](Node* node) -> type_vec_t {
           auto input_type = node->input(0)->type()->cast<TensorType>();
@@ -1681,7 +1684,9 @@ class ShapePropagator : public PropertyPropBase {
       }
     } else if (
         node->matches(
-            "aten::native_layer_norm(Tensor input, int[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> (Tensor, Tensor, Tensor)")) {
+            "aten::native_layer_norm(Tensor input, int[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> (Tensor, Tensor, Tensor)") ||
+        node->matches(
+            "aten::native_layer_norm_backward(Tensor grad_out, Tensor input, int[] normalized_shape, Tensor mean, Tensor rstd, Tensor? weight, Tensor? bias, bool[3] output_mask) -> (Tensor, Tensor, Tensor)")) {
       if (auto type = input_type(0)) {
         node->outputs()[0]->setType(type);
         node->outputs()[1]->setType(type);
@@ -1789,6 +1794,20 @@ class ShapePropagator : public PropertyPropBase {
       auto indices_type = input_type(1);
       if (weight_type && indices_type && indices_type->dim()) {
         node->output()->setType(weight_type->withDim(*indices_type->dim() + 1));
+        return true;
+      }
+    } else if (
+        node->matches(
+            "aten::embedding_dense_backward(Tensor grad_output, Tensor indices, int num_weights, int padding_idx, bool scale_grad_by_freq) -> Tensor")) {
+      auto grad_output_type = input_type(0);
+      auto maybe_num_weights = node->get<int>(attr::num_weights);
+      if (grad_output_type && maybe_num_weights &&
+          grad_output_type->sizes().size()) {
+        auto idx = *grad_output_type->sizes().size() - 1;
+        // TODO(yancey.yx): sizes = {num_weights, grad_output.size(-1)}
+        // ref:
+        // aten/src/ATen/native/Embedding.cpp::embedding_dense_backward_cpu.
+        node->output()->setType(grad_output_type->withDim(2));
         return true;
       }
     } else if (

@@ -7,7 +7,7 @@ on:
     - cron: '30 01 * * *' # 01:30 am
 
 jobs:
-  pytorch1_8_1:
+  build:
     uses: ./.github/workflows/resuable_cpu_build.yml
     with:
       extra_envs: -e TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF

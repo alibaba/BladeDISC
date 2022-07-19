@@ -1,5 +1,7 @@
 # BladeDISC Introduction <!-- omit in toc -->
 
+[![disc-build-pytorch1_8_1-gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_gpu.yml/badge.svg?event=schedule)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_gpu.yml)
+
 - [Overview](#overview)
   - [Features and Roadmap](#features-and-roadmap)
     - [Frontend Framework Support Matrix](#frontend-framework-support-matrix)

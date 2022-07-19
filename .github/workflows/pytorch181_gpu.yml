@@ -1,4 +1,4 @@
-name: disc-build-pytorch1_8_1-gpu
+name: disc-build-pytorch1_8_1-cuda10_2
 on:
   pull_request:
     branches: [ main ]
@@ -7,7 +7,7 @@ on:
     - cron: '30 01 * * *' # 01:30 am
 
 jobs:
-  cuda10_2-pytorch1_8_1:
+  build:
     uses: ./.github/workflows/resuable_gpu_build.yml
     with:
       cuda_version: cu113

@@ -1,4 +1,4 @@
-name: disc-build-tf2_4-gpu
+name: disc-build-tf2_4-cuda10_0
 on:
   pull_request:
     branches: [ main ]
@@ -7,7 +7,7 @@ on:
     - cron: '30 01 * * *' # 01:30 am
 
 jobs:
-  cuda10_0-tf2_4:
+  build:
     uses: ./.github/workflows/resuable_gpu_build.yml
     with:
       cuda_version: cu110

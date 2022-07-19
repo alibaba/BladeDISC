@@ -7,7 +7,7 @@ on:
     - cron: '30 01 * * *' # 01:30 am
 
 jobs:
-  aarch64-pytorch1_10_0:
+  build:
     if: github.repository == 'alibaba/BladeDISC'
     # The type of runner that the job will run on
     runs-on: [self-hosted, aarch64]

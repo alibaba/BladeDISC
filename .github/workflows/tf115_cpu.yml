@@ -7,7 +7,7 @@ on:
     - cron: '30 01 * * *' # 01:30 am
 
 jobs:
-  tf1_15:
+  build:
     uses: ./.github/workflows/resuable_cpu_build.yml
     with:
       remote_runtime_docker: bladedisc:latest-runtime-tensorflow1.15-cpu

@@ -1158,54 +1158,31 @@ Status TaoCompilationCache::CompileImpl(
     entry->compiled = true;
     // Do the actual JIT compilation without holding the lock (it can take
     // a long time.)
+    entry->compilation_status =
+        PrepareCompilerInput(function, constant_args, fixed_shape_args,
+                             host_args, variable_args, ctx, &input, is_mlir);
+    TF_RETURN_IF_ERROR(entry->compilation_status);
+
     std::string output_file_name;
-    std::string blade_mode;
-    CHECK_OK(ReadStringFromEnvVar("BLADE_CPU_MODE", "", &blade_mode));
+    if (!tensorflow::Env::Default()->LocalTempFilename(&output_file_name)) {
+      return errors::Internal(
+          "couldn't get temp tao_compiler_result file name");
+    }
     auto output_cleaner =
-        tensorflow::gtl::MakeCleanup([&output_file_name, &blade_mode, this] {
-          // TODO: figure out why blade cpu does not need a cleaner.
-          if (blade_mode == "compile" || blade_mode == "serve") {
-            return;
-          }
+        tensorflow::gtl::MakeCleanup([&output_file_name, this] {
           if (remove_after_compile_) {
             tensorflow::Env::Default()->DeleteFile(output_file_name);
           } else {
             VLOG(0) << "tao_compiler_result file: " << output_file_name;
           }
         });
-
-    if (blade_mode == "compile" || blade_mode == "serve") {
-      std::string blade_files;
-      CHECK_OK(ReadStringFromEnvVar("BLADE_CPU_FILES", "/tmp", &blade_files));
-      if (blade_files == "/tmp") {
-        VLOG(2) << "Using /tmp as BLADE_CPU_FILES for BladeCpu "
-                   "compile/serve mode!";
-      }
-      output_file_name =
-          blade_files + "/out_proto_tvmcluster_" + std::to_string(hash_sig);
-    }
-
-    if (blade_mode != "serve") {
-      entry->compilation_status =
-          PrepareCompilerInput(function, constant_args, fixed_shape_args,
-                               host_args, variable_args, ctx, &input, is_mlir);
-      TF_RETURN_IF_ERROR(entry->compilation_status);
-
-      if (blade_mode != "compile") {
-        if (!tensorflow::Env::Default()->LocalTempFilename(&output_file_name)) {
-          return errors::Internal(
-              "couldn't get temp tao_compiler_result file name");
-        }
-        output_file_name += ".output";
-      }
-      entry->compilation_status = CompileFunctionImpl(
-          function.name(), tao_compiler_path_, output_file_name, input,
-          remove_after_compile_, nullptr);
-      TF_RETURN_IF_ERROR(entry->compilation_status);
+    entry->compilation_status = CompileFunctionImpl(
+        function.name(), tao_compiler_path_, output_file_name, input,
+        remove_after_compile_, nullptr);
+    TF_RETURN_IF_ERROR(entry->compilation_status);
 #ifdef BLAZE_OPT
-      cache_updated_ = true;
+    cache_updated_ = true;
 #endif
-    }
 
     if (!std::ifstream(output_file_name).good()) {
       return errors::Internal("couldn't get compiled output proto file name" +
@@ -1352,7 +1329,6 @@ Status TaoCompilationCache::CompileImplAsync(
             return errors::Internal(
                 "couldn't get temp tao_compiler_result file name");
           }
-          output_file_name += ".output";
           auto output_cleaner =
               tensorflow::gtl::MakeCleanup([&output_file_name, this] {
                 if (remove_after_compile_) {

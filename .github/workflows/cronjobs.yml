@@ -5,20 +5,21 @@ name: Cronjobs
 on:
   schedule:
     # * is a special character in YAML so you have to quote this string
-    - cron:  '* * * * *' # every minutes
+    - cron: '30 23 * * *' # 11:30 pm
   workflow_dispatch:
 
 jobs:
-  DummyTestJob:
+  NGC-TorchTRT-D2:
+    if: github.event.schedule != '30 23 * * *'
     uses: ./.github/workflows/reusable.yml
     with:
-      name: dummy_test_job
-      base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cu113
+      name: torch-trt-and-d2-benchmark
+      base_image: nvcr.io/nvidia/pytorch:22.06-py3
       device: gpu-t4
-      dockerfile: docker/cronjobs/Dockerfile.dummy
-      exec_command: python3 -c 'import torch; print(torch.__config__.show())'
+      dockerfile: docker/cronjobs/Dockerfile.torch.ngc
+      exec_command: cd pytorch_blade && bash ./benchmark/run_benchmark.sh
       push_command: source scripts/ci/deploy_docker.sh && push_images
-      remote_dev_docker: ""
+      remote_dev_docker: bladedisc:disc-dev-pt-ngc
     secrets:
       ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
       ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}

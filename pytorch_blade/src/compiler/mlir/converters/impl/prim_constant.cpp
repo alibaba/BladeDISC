@@ -141,11 +141,10 @@ mlir::Value BuildMlirConstFromTorchTensor(
   } else {
     ::llvm::ArrayRef<char> raw_buffer(
         (char*)raw_tensor.data_ptr(), raw_tensor.nbytes());
-    bool is_splat = raw_tensor.numel() == 1;
     attr = mlir::DenseElementsAttr::getFromRawBuffer(
-        ranked_tensor_type, raw_buffer, /*isSplatBuffer*/ is_splat);
+        ranked_tensor_type, raw_buffer);
   }
-  auto result = builder.create<mlir::mhlo::ConstOp>(loc, attr);
+  auto result = builder.create<mlir::mhlo::ConstantOp>(loc, attr);
   return result.getResult();
 }
 

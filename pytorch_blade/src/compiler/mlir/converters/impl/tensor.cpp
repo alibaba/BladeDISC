@@ -13,7 +13,9 @@
 #include <mlir/mhlo/builder/mlir_type_utils.h>
 #include <mlir/mhlo/builder/mlir_utils.h>
 #include <mlir/mhlo/builder/standard.h>
+#include <mlir/Dialect/Arithmetic/IR/Arithmetic.h>
 #include <mlir/Dialect/Tensor/IR/TensorOps.h.inc>
+#include <mlir/Dialect/Tensor/IR/Tensor.h>
 
 #include "common_utils/logging.h"
 #include "compiler/mlir/converters/impl/prim_constant.h"

@@ -54,7 +54,7 @@ MAP_CHLO_TO_HLO(BroadcastRemOp, RemOp);
 MAP_CHLO_TO_HLO(BroadcastShiftLeftOp, ShiftLeftOp);
 MAP_CHLO_TO_HLO(BroadcastShiftRightArithmeticOp, ShiftRightArithmeticOp);
 MAP_CHLO_TO_HLO(BroadcastShiftRightLogicalOp, ShiftRightLogicalOp);
-MAP_CHLO_TO_HLO(BroadcastSubOp, SubOp);
+MAP_CHLO_TO_HLO(BroadcastSubOp, SubtractOp);
 MAP_CHLO_TO_HLO(BroadcastXorOp, XorOp);
 
 #undef MAP_CHLO_TO_HLO

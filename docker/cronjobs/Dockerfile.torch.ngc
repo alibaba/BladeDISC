@@ -1,4 +1,4 @@
-ARG BASEIMAGE=nvcr.io/nvidia/pytorch:21.11-py3
+ARG BASEIMAGE=nvcr.io/nvidia/pytorch:22.06-py3
 FROM ${BASEIMAGE}
 
 COPY docker/scripts /install/scripts

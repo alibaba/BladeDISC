@@ -3,6 +3,8 @@ FROM ${BASEIMAGE}
 
 ENV DEBIAN_FRONTEND noninteractive
 ARG DEVICE=cu110
+ARG TORCH_VERSION=1.7.1+cu110
+
 ADD ./docker/scripts /install/scripts
 RUN bash /install/scripts/find-fastest-apt.sh && \
         apt-get install -y -qq wget curl unzip
@@ -17,7 +19,9 @@ RUN apt-get update -y \
 
 RUN python3 -m pip install pip --upgrade
 RUN python3 -m pip install onnx==1.11.0
-RUN python3 -m pip install /install/python/torch_blade*.whl -f https://download.pytorch.org/whl/torch_stable.html
+ADD ./pytorch_blade/scripts/pip/requirements-dev-${TORCH_VERSION}.txt /install/python/requirements.txt
+RUN python3 -m pip install -r /install/python/requirements.txt -f https://download.pytorch.org/whl/torch_stable.html
+RUN python3 -m pip install /install/python/torch_blade*.whl 
 
 ENV PATH /usr/bin:$PATH
 ENV LD_LIBRARY_PATH="/usr/local/TensorRT/lib/:${LD_LIBRARY_PATH}"

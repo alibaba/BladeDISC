@@ -17,6 +17,7 @@
 #include <mlir/Dialect/Func/IR/FuncOps.h>
 #include <mlir/Dialect/Tensor/IR/Tensor.h>
 
+#include "llvm/Support/SourceMgr.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 
 #include "common_utils/logging.h"
@@ -35,6 +36,7 @@
 #include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
 #include "torch-mlir/InitAll.h"
 
+#include <torch/csrc/jit/jit_log.h>
 #include <torch/script.h>
 
 namespace torch {
@@ -207,7 +209,16 @@ bool IsMlirMhloSupported(const torch::jit::Node& node) {
     if (!node.kind().is_prim() && !AllTensorTypeAnalyzed(node)) {
       return false;
     }
-    return IsTorchMlirSupported(node);
+    auto supported = IsTorchMlirSupported(node);
+    bool enable_printing =
+        env::ReadBoolFromEnvVar("TORCH_BLADE_MHLO_DEBUG_LOG", false);
+
+    if (enable_printing &&
+        !(supported || prim::FusionGroup == node.kind() ||
+          prim::Param == node.kind())) {
+      LOG(WARNING) << "Not in white list: " << node << std::endl;
+    }
+    return supported;
   }
   c10::optional<OpConverter> converter = GetMlirMhloConverter(node);
   try {
@@ -334,8 +345,10 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
   mlir::DialectRegistry registry;
   RegisterDialects(registry);
   ::mlir::torch::registerAllDialects(registry);
-  mlir::MLIRContext mlir_context(registry);
+  ::mlir::MLIRContext mlir_context(registry);
   mlir_context.loadAllAvailableDialects();
+  ::llvm::SourceMgr sourceMgr;
+  ::mlir::SourceMgrDiagnosticHandler sourceMgrHandler(sourceMgr, &mlir_context);
 
   mlir::OpPrintingFlags print_flags;
   print_flags.elideLargeElementsAttrs();
@@ -344,6 +357,7 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
       env::ReadBoolFromEnvVar("TORCH_BLADE_MHLO_DEBUG_LOG", false);
   if (enable_printing) {
     mlir_context.disableMultithreading();
+    mlir_context.printOpOnDiagnostic(true);
   }
   auto mlir_module =
       ::mlir::ModuleOp::create(::mlir::UnknownLoc::get(&mlir_context));
@@ -414,6 +428,7 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
 std::tuple<std::string, std::string, std::string, std::string>
 ConvertTorchScriptToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
   try {
+    GRAPH_DEBUG("TorchMhlo input graph:\n", *graph);
     if (IsTorchMlirAvailable()) {
       return ConvertTorchToMhlo(graph);
     } else {

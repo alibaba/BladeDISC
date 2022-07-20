@@ -860,7 +860,7 @@ class ConvertAtenReductionOp : public OpConversionPattern<AtenOpT> {
     }
 
     auto init_value =
-        rewriter.create<mhlo::ConstOp>(loc, type, const_attr).getResult();
+        rewriter.create<mhlo::ConstantOp>(loc, type, const_attr).getResult();
 
     auto reduction =
         rewriter.create<mhlo::ReduceOp>(loc, self, init_value, reduceDimsAttr);
@@ -1533,20 +1533,20 @@ LogicalResult ConvertAtenOp<ValueTensorLiteralOp>::matchAndRewrite(
     if (elemTy.isUnsignedInteger()) {
       Type builtinTensorElemTy = IntegerType::get(
           context, bitWidth, IntegerType::SignednessSemantics::Unsigned);
-      rewriter.replaceOpWithNewOp<mhlo::ConstOp>(
+      rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(
           op, elements.mapValues(builtinTensorElemTy, [&](const APInt& v) {
             return APInt(bitWidth, v.getZExtValue());
           }));
     } else {
       Type builtinTensorElemTy = IntegerType::get(context, bitWidth);
-      rewriter.replaceOpWithNewOp<mhlo::ConstOp>(
+      rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(
           op, elements.mapValues(builtinTensorElemTy, [&](const APInt& v) {
             return APInt(bitWidth, v.getSExtValue());
           }));
     }
     return success();
   }
-  rewriter.replaceOpWithNewOp<mhlo::ConstOp>(op, op.valueAttr());
+  rewriter.replaceOpWithNewOp<mhlo::ConstantOp>(op, op.valueAttr());
   return success();
 }
 
@@ -2499,8 +2499,8 @@ class ConvertTorchToMhlo
     // INSERT_BINARY_ADDSUB_PATTERN(AtenAddScalarOp, mhlo::AddOp)
     INSERT_BINARY_ADDSUB_PATTERN(AtenAddTensorOp, chlo::BroadcastAddOp)
     INSERT_BINARY_ADDSUB_PATTERN(AtenAddScalarOp, chlo::BroadcastAddOp)
-    // INSERT_BINARY_ADDSUB_PATTERN(AtenSubTensorOp, mhlo::SubOp)
-    // INSERT_BINARY_ADDSUB_PATTERN(AtenSubScalarOp, mhlo::SubOp)
+    // INSERT_BINARY_ADDSUB_PATTERN(AtenSubTensorOp, mhlo::SubtractOp)
+    // INSERT_BINARY_ADDSUB_PATTERN(AtenSubScalarOp, mhlo::SubtractOp)
     INSERT_BINARY_ADDSUB_PATTERN(AtenSubTensorOp, chlo::BroadcastSubOp)
     INSERT_BINARY_ADDSUB_PATTERN(AtenSubScalarOp, chlo::BroadcastSubOp)
 #undef INSERT_BINARY_ADDSUB_PATTERN

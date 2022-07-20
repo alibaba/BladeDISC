@@ -12,11 +12,12 @@
 #include "mlir/mhlo/builder/constant.h"
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 
 namespace mlir {
 namespace mhlo {
 bool IsHloConstant(const mlir::Value& value) {
-  auto def = llvm::dyn_cast_or_null<mlir::mhlo::ConstOp>(value.getDefiningOp());
+  auto def = llvm::dyn_cast_or_null<mlir::mhlo::ConstantOp>(value.getDefiningOp());
   return def != nullptr;
 }
 
@@ -28,7 +29,7 @@ bool IsStdConstant(const mlir::Value& value) {
 
 template <typename T>
 llvm::Optional<T> CastHloConstToElementsAttr(const mlir::Value& val) {
-  auto def = llvm::dyn_cast<mlir::mhlo::ConstOp>(val.getDefiningOp());
+  auto def = llvm::dyn_cast<mlir::mhlo::ConstantOp>(val.getDefiningOp());
   if (!def) {
     return llvm::None;
   }

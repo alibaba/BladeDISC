@@ -21,6 +21,7 @@
 #include <mlir-hlo/Dialect/mhlo/IR/chlo_ops.h> // from tf repo
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
 
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"

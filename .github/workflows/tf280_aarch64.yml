@@ -1,4 +1,4 @@
-name: disc-build-tf2_8-aarch64
+name: tf2_8-aarch64
 on:
   pull_request:
     branches: [ main ]

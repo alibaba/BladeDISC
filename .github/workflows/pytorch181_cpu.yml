@@ -1,4 +1,4 @@
-name: disc-build-pytorch1_8_1-cpu
+name: pytorch1_8_1-cpu
 on:
   pull_request:
     branches: [ main ]

@@ -1,4 +1,4 @@
-name: disc-build-pytorch1_10-aarch64
+name: pytorch1_10-aarch64
 on:
   pull_request:
     branches: [ main ]

@@ -1,4 +1,4 @@
-name: disc-build-pytorch1_7_1-cuda11_0
+name: pytorch1_7_1-cuda11_0
 on:
   pull_request:
     branches: [ main ]

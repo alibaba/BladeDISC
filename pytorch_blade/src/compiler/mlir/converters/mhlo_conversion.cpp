@@ -212,8 +212,9 @@ bool IsMlirMhloSupported(const torch::jit::Node& node) {
     auto supported = IsTorchMlirSupported(node);
     bool enable_printing =
         env::ReadBoolFromEnvVar("TORCH_BLADE_MHLO_DEBUG_LOG", false);
- 
-    if (enable_printing && !(supported || prim::FusionGroup == node.kind() ||
+
+    if (enable_printing &&
+        !(supported || prim::FusionGroup == node.kind() ||
           prim::Param == node.kind())) {
       LOG(WARNING) << "Not in white list: " << node << std::endl;
     }

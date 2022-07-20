@@ -418,3 +418,21 @@ def DiscDuplicateComputationForFusionPass : Pass<"disc-duplicate-computation-for
            /*default=*/"\"base\"", "Name of the fusion strategy.">,
   ];
 }
+
+def LLVMInsertExtractValueSimplifierPass :
+        Pass<"disc-llvm-insert-extract-value-simplifier", "LLVM::LLVMFuncOp"> {
+  let summary = "Eliminate unnecessary InsertValueOp and ExtractValueOp of LLVM dialect.";
+  let constructor = "createLLVMInsertExtractValueSimplifierPass()";
+  let dependentDialects = [
+      "LLVM::LLVMDialect",
+  ];
+}
+
+def FunctionDeadArgumentEliminationPass :
+        Pass<"disc-function-dead-argument-elimination", "gpu::GPUModuleOp"> {
+  let summary = "Eliminate dead arguments of GPU LLVM function.";
+  let constructor = "createFunctionDeadArgumentEliminationPass()";
+  let dependentDialects = [
+      "LLVM::LLVMDialect",
+  ];
+}

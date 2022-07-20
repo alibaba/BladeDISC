@@ -1,17 +1,15 @@
-/* Copyright 2021 The TensorFlow Authors. All Rights Reserved.
+// Copyright 2022 The BladeDISC Authors. All rights reserved.
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+// http://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-==============================================================================*/
+// This file implements the logic to convert disc ral ops to llvm dialect
 
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -34,13 +32,13 @@ limitations under the License.
 #include "mlir/Transforms/DialectConversion.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
+#include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_to_llvm_common.h"
 #include "tensorflow/compiler/mlir/disc/transforms/rewriters.h"
+#include "tensorflow/core/util/env_var.h"
 #include "transforms/codegen_utils.h"
 #include "transforms/placement_utils.h"
-
-// This file implements the logic to convert disc ral ops to llvm dialect
 
 namespace mlir {
 namespace disc_ral {
@@ -414,6 +412,41 @@ Value ConvertLaunchFuncOpToRalCallPattern::generateParamsArray(
   auto arguments = getTypeConverter()->promoteOperands(
       loc, launch_op.getOperands().take_back(num_kernel_operands),
       operands.take_back(num_kernel_operands), builder);
+  bool mem_intensive_opt_experimental = false;
+  tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", false,
+                                 &mem_intensive_opt_experimental);
+  if (mem_intensive_opt_experimental) {
+    // To eliminate arguments that are eliminated in the dead argument
+    // elimination pass according. Note that the original prototype are the same
+    // and thus the to-be-eliminated arguments should be the same.
+    auto kernel_module = SymbolTable::lookupNearestSymbolFrom<gpu::GPUModuleOp>(
+        launch_op, launch_op.getKernelModuleName());
+    Operation* kernel_func = nullptr;
+    if (kernel_module) {
+      kernel_func =
+          SymbolTable::lookupSymbolIn(kernel_module, launch_op.getKernelName());
+    }
+    if (!kernel_func) {
+      launch_op.emitOpError() << "cannot find corresponding LLVM function.";
+      return nullptr;
+    }
+    auto args_to_elim_attr =
+        kernel_func->getAttrOfType<ArrayAttr>(kFuncEliminatedDeadArgumentsAttr);
+    SmallVector<int64_t> args_to_elim;
+    if (args_to_elim_attr) {
+      for (Attribute val : args_to_elim_attr.getValue()) {
+        args_to_elim.push_back(
+            val.cast<IntegerAttr>().getValue().getSExtValue());
+      }
+    }
+    SmallVector<Value, 4> new_arguments;
+    for (auto en : llvm::enumerate(arguments)) {
+      if (!llvm::is_contained(args_to_elim, en.index())) {
+        new_arguments.push_back(en.value());
+      }
+    }
+    arguments = std::move(new_arguments);
+  }
   num_arguments = static_cast<int>(arguments.size());
   SmallVector<Type, 4> argument_types;
   argument_types.reserve(num_arguments);
@@ -543,6 +576,10 @@ LogicalResult ConvertLaunchFuncOpToRalCallPattern::matchAndRewrite(
       launch_op->getParentOfType<LLVM::LLVMFuncOp>().getArgument(0);
   auto kernel_params = generateParamsArray(launch_op, adaptor.getOperands(),
                                            rewriter, num_arguments);
+  if (!kernel_params) {
+    launch_op.emitOpError() << "cannot generate parameters.";
+    return failure();
+  }
 
   Value zero = rewriter.create<LLVM::ConstantOp>(loc, llvm_int32_type,
                                                  rewriter.getI32IntegerAttr(0));

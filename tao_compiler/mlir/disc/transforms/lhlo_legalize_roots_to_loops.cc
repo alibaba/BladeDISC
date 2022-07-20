@@ -3267,7 +3267,7 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
               thread_per_block, row_reduction_schedule, ilp_factor,
               shape_analysis, is_output, external_only))) {
         LLVM_DEBUG(llvm::dbgs() << "Failed to emit InBlockRowReduce for: "
-                                << *skeleton << "\n");
+                                << *skeletons[0] << "\n");
         return failure();
       }
       // TODO: check whether the xroots in this group are required by other

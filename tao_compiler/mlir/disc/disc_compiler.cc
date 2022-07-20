@@ -519,6 +519,16 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     kernelPm.addPass(disc_ral::createDiscLowerGpuOpsToNVVMOpsPass(
         /*kDeriveIndexBitwidthFromDataLayout*/ 32));
 #endif
+    if (mem_intensive_opt_experimental) {
+      // To eliminate dead argument of GPU LLVM functions. First, it has to
+      // simplify InsertValueOp and ExtractValueOp which has fake dependency
+      // on function parameters. Second, eliminate the dead arguments and append
+      // attributes telling the indices of the eliminated arguments, which will
+      // be used for generating ral kernel-launch logic of the gpu functions.
+      kernelPm.addNestedPass<LLVM::LLVMFuncOp>(
+          disc_ral::createLLVMInsertExtractValueSimplifierPass());
+      kernelPm.addPass(disc_ral::createFunctionDeadArgumentEliminationPass());
+    }
     auto& gpu_options = options.gpu_info;
     kernelPm.addPass(disc_ral::CreateDiscGpuKernelToBlobPass(
         gpu_options.cc_major, gpu_options.cc_minor,

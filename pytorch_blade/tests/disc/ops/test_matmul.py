@@ -13,6 +13,7 @@ import torch
 import unittest
 
 from tests.disc.testing_base import DiscTestCase, skipIfEnableTorchMlir
+from unittest import skipIf
 
 class MatMul(torch.nn.Module):
     def __init__(self, device=torch.device('cuda')):
@@ -25,10 +26,10 @@ class MatMul(torch.nn.Module):
 
 
 class Linear(torch.nn.Module):
-    def __init__(self, device=torch.device('cuda')):
+    def __init__(self, device=torch.device('cuda'), dtype=torch.float):
         super().__init__()
-        self.weight = torch.ones(256, 256, device=device)
-        self.bias = torch.ones(120, 256, device=device)
+        self.weight = torch.ones(256, 256, device=device, dtype=dtype)
+        self.bias = torch.ones(120, 256, device=device, dtype=dtype)
 
     def forward(self, x, y):
         out_y = torch.matmul(y, self.weight)
@@ -37,16 +38,23 @@ class Linear(torch.nn.Module):
 
 
 class TestDiscMatMul(DiscTestCase):
-    def test_linear(self):
-        x = torch.randn(4, 120, 256).to(self.device)
-        y = torch.randn(4, 120, 256).to(self.device)
+    def _test_linear(self, dtype):
+        x = torch.randn(4, 120, 256, dtype=dtype).to(self.device)
+        y = torch.randn(4, 120, 256, dtype=dtype).to(self.device)
         test_data = (x, y)
-        annotation = ([-1, -1, -1], torch.float)
-        linear = Linear(self.device).eval()
+        annotation = ([-1, -1, -1], dtype)
+        linear = Linear(self.device, dtype).eval()
         self._test_disc(linear, [annotation, annotation], test_data)
-        linear = torch.nn.Linear(256, 256).to(self.device)
-        annotation = ([-1, 120, 256], torch.float)
-        self._test_disc(linear, [annotation],  (x,))
+        linear = torch.nn.Linear(256, 256).to(self.device).to(dtype)
+        annotation = ([-1, 120, 256], dtype)
+        self._test_disc(linear, [annotation],  (x,), atol=1e-3, rtol=1e-3)
+
+    def test_linear(self):
+        self._test_linear(torch.float)
+
+    @skipIf(not torch.cuda.is_available(), "only test half on cuda")
+    def test_linear_half(self):
+        self._test_linear(torch.half)
 
     def test_matmul_module(self):
         y = torch.randn(4, 120, 256).to(self.device)

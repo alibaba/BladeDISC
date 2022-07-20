@@ -110,6 +110,8 @@ torch_upstream::ScalarType getScalarTypeForType(Type type) {
     return torch_upstream::ScalarType::Bool;
   if (type.isBF16())
     return torch_upstream::ScalarType::BFloat16;
+  if (type.isF16())
+    return torch_upstream::ScalarType::Half;
   if (type.isF64())
     return torch_upstream::ScalarType::Double;
 

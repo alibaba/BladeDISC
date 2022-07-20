@@ -31,7 +31,7 @@ graph(%p1 : Float(*, *, *, device=cuda:0),
 )IR";
   auto g = std::make_shared<torch::jit::Graph>();
   torch::jit::parseIR(graph_str, g.get());
-  PropagateInputShapes(g);
+  torch::blade::PropagateInputShapes(g);
   std::cout << g->toString() << std::endl;
   torch::jit::testing::FileCheck()
       .check(

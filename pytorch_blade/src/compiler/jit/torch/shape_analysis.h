@@ -28,7 +28,12 @@ struct Value;
 
 namespace torch {
 namespace blade {
-using namespace torch::jit;
+// using namespace torch::jit;
+using torch::jit::Block;
+using torch::jit::Graph;
+using torch::jit::Node;
+using torch::jit::Value;
+
 struct propagation_error : std::exception {};
 
 class PropertyPropBase {
@@ -38,21 +43,23 @@ class PropertyPropBase {
       : graph_(std::move(graph)) {}
   virtual ~PropertyPropBase() = default;
 
-  void propagateBlock(Block* block, bool insert_expands = true);
+  void propagateBlock(torch::jit::Block* block, bool insert_expands = true);
   // insert_expands is used for shape inference
 
-  void processIf(Node* node);
-  void processLoop(Node* node);
+  void processIf(torch::jit::Node* node);
+  void processLoop(torch::jit::Node* node);
 
  protected:
-  virtual void propagateNode(Node* node, bool insert_expands = true) = 0;
+  virtual void propagateNode(
+      torch::jit::Node* node,
+      bool insert_expands = true) = 0;
   void setUnshapedType(Value* o);
-  void setUnshapedType(Node* node);
-  std::shared_ptr<Graph> graph_;
+  void setUnshapedType(torch::jit::Node* node);
+  std::shared_ptr<torch::jit::Graph> graph_;
 };
 
-void EraseShapeInformation(const std::shared_ptr<Graph>& graph);
-void PropagateInputShapes(const std::shared_ptr<Graph>& graph);
+void EraseShapeInformation(const std::shared_ptr<torch::jit::Graph>& graph);
+void PropagateInputShapes(const std::shared_ptr<torch::jit::Graph>& graph);
 
 bool mergeTypes(
     c10::ArrayRef<Value*> lhs,

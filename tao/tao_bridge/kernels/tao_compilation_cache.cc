@@ -1249,10 +1249,13 @@ Status TaoCompilationCache::CompileImpl(
 
     entry->compiled = true;
 
+    bool hit_cache = false;
     std::string output_file_name;
-    auto& disc_cache = PersistentCompliationCache::Global();
-    bool hit_cache = disc_cache.find(input.options().device_type(), signature,
-                                     output_file_name);
+    if (!disc_cache_dump_path_.empty()) {
+      auto& disc_cache = PersistentCompliationCache::Global();
+      hit_cache = disc_cache.find(input.options().device_type(), signature,
+                                  output_file_name);
+    }
     auto output_cleaner =
         tensorflow::gtl::MakeCleanup([&output_file_name, &hit_cache, this]() {
           if (hit_cache) {
@@ -1296,7 +1299,8 @@ Status TaoCompilationCache::CompileImpl(
                               input.options().device_type());
     }
     entry->compilation_status = entry->executable->Init();
-    if (!hit_cache) {
+    if (!disc_cache_dump_path_.empty() && !hit_cache) {
+      auto& disc_cache = PersistentCompliationCache::Global();
       auto filename = disc_cache.getNextUniqueNameOfCompiledResultProto();
       // Create a new copy in case the compiled result is temporary file.
       entry->executable->DumpToFile(filename);

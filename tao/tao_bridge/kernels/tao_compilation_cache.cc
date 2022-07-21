@@ -408,7 +408,7 @@ class PersistentCompliationCache {
     do {
       path =
           absl::StrCat(cache_dump_path_, "/", "disc_cache_item_", nextIdx_++);
-    } while (tensorflow::Env::Default()->FileExists(path));
+    } while (tensorflow::Env::Default()->FileExists(path).ok());
     return path;
   }
 

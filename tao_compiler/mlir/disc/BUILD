@@ -1228,8 +1228,8 @@ cc_library(
 )
 
 cc_library(
-    name = "disc_llvm_insert_extract_value_simplifier",
-    srcs = ["transforms/disc_llvm_insert_extract_value_simplifier.cc"],
+    name = "disc_llvm_insert_value_simplifier",
+    srcs = ["transforms/disc_llvm_insert_value_simplifier.cc"],
     includes = [
         "tensorflow/compiler/mlir/hlo/include",
         "."
@@ -1789,7 +1789,7 @@ cc_library(
         ":disc_memref_load_store_simplifier",
         ":disc_lower_gpu_ops_to_nvvm_ops",
         ":disc_lower_gpu_ops_to_rocdl_ops",
-        ":disc_llvm_insert_extract_value_simplifier",
+        ":disc_llvm_insert_value_simplifier",
         ":disc_function_dead_argument_elimination",
         ":disc_unhandled_atomic_rmw_converter",
         "@llvm-project//mlir:Pass",

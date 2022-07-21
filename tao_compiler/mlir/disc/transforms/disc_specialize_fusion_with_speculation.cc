@@ -404,10 +404,7 @@ struct DiscSpecializeFusionWithSpeculationPass
 
     // TODO: this feature will be experimental in the first release, and will be
     // set as default in the near future after evaluated on benchmarks.
-    bool mem_intensive_opt_experimental = false;
-    tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", false,
-                                   &mem_intensive_opt_experimental);
-    if (mem_intensive_opt_experimental && core_count_ != -1 &&
+    if (isMemIntensiveOptExperimentalEnabled() && core_count_ != -1 &&
         max_threads_per_core_ != -1) {
       // When the number of rows is small or the number of cols is large, we
       // use one-block-one-row schedule. Specifically, we use one-block-one-row
@@ -546,15 +543,12 @@ struct DiscSpecializeFusionWithSpeculationPass
     // Already have a hint
     if (fusion_op->getAttrOfType<IntegerAttr>(kVectorizeOrTileHint)) return;
 
-    bool mem_intensive_opt_experimental = false;
-    tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", false,
-                                   &mem_intensive_opt_experimental);
     FusionType fusion_type = getFusionType(fusion_op.getOperation());
     if (fusion_type != FusionType::kLoop &&
         fusion_type != FusionType::kRowReduction &&
         (fusion_type != FusionType::kStitch ||
          (fusion_type == FusionType::kStitch &&
-          mem_intensive_opt_experimental))) {
+          isMemIntensiveOptExperimentalEnabled()))) {
       // TODO: support tile optimization for kStitch fusion when
       // `DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL` is `true`.
       return;
@@ -613,7 +607,7 @@ struct DiscSpecializeFusionWithSpeculationPass
       Operation* dominant_equivalent_op = fusion_pattern.getRootOps().back();
       Value out_element_number =
           emitNumElementsComputation(b, loc, dominant_equivalent_op);
-      if (mem_intensive_opt_experimental) {
+      if (isMemIntensiveOptExperimentalEnabled()) {
         // Maximize the vector-size according to data type of all outputs. The
         // maximum vector-size is 8 (128 / 16).
         auto& results = fusion_pattern.getResults();
@@ -635,7 +629,7 @@ struct DiscSpecializeFusionWithSpeculationPass
               loc, out_element_number,
               b.create<arith::ConstantIndexOp>(loc, vector_size)),
           b.create<arith::ConstantIndexOp>(loc, 0));
-      if (mem_intensive_opt_experimental) {
+      if (isMemIntensiveOptExperimentalEnabled()) {
         pred = divisible;
       } else {
         Value threshold =

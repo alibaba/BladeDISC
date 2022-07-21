@@ -419,10 +419,10 @@ def DiscDuplicateComputationForFusionPass : Pass<"disc-duplicate-computation-for
   ];
 }
 
-def LLVMInsertExtractValueSimplifierPass :
-        Pass<"disc-llvm-insert-extract-value-simplifier", "LLVM::LLVMFuncOp"> {
+def LLVMInsertValueSimplifierPass :
+        Pass<"disc-llvm-insert-value-simplifier", "LLVM::LLVMFuncOp"> {
   let summary = "Eliminate unnecessary InsertValueOp and ExtractValueOp of LLVM dialect.";
-  let constructor = "createLLVMInsertExtractValueSimplifierPass()";
+  let constructor = "createLLVMInsertValueSimplifierPass()";
   let dependentDialects = [
       "LLVM::LLVMDialect",
   ];

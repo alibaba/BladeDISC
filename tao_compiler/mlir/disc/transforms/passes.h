@@ -223,7 +223,7 @@ createDiscDuplicateComputationForFusionPass(
     bool gpu_enabled = true, const std::string& fusion_strategy = "base");
 
 std::unique_ptr<OperationPass<LLVM::LLVMFuncOp>>
-createLLVMInsertExtractValueSimplifierPass();
+createLLVMInsertValueSimplifierPass();
 
 std::unique_ptr<OperationPass<gpu::GPUModuleOp>>
 createFunctionDeadArgumentEliminationPass();

@@ -97,6 +97,9 @@ bool useShapeConstraintIR();
 // Returns true if `DISC_ENABLE_HORIZONTAL_FUSION` is true
 bool useHorizontalFusion();
 
+// Returns true if `DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL` is true
+bool isMemIntensiveOptExperimentalEnabled();
+
 // Returns data users of the value and its aliases (e.g. memref.cast).
 // Here non-data users means DimOp, DeallocOp and ShapeOfOp.
 SmallVector<Operation*, 4> getValueUsers(Value v);

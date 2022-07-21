@@ -54,8 +54,7 @@ struct LLVMInsertSimplifier : public OpRewritePattern<LLVM::InsertValueOp> {
     SmallVector<Value> forthInsertChain;
     forthInsertChain.push_back(op);
     while (!forthInsertChain.empty()) {
-      Value insertValueOp = forthInsertChain.back();
-      forthInsertChain.pop_back();
+      Value insertValueOp = forthInsertChain.pop_back_val();
       containers.insert(insertValueOp);
       for (auto user : insertValueOp.getUsers()) {
         if (auto insertOp = dyn_cast_or_null<LLVM::InsertValueOp>(user)) {
@@ -99,31 +98,14 @@ struct LLVMInsertSimplifier : public OpRewritePattern<LLVM::InsertValueOp> {
   }
 };
 
-// If the extractvalue op is not consumed by other ops, erase it. It has to do
-// DCE along with LLVMInsertSimplifier to enable more simplification
-// iteratively.
-struct LLVMExtractSimplifier : public OpRewritePattern<LLVM::ExtractValueOp> {
-  explicit LLVMExtractSimplifier(MLIRContext* context)
-      : OpRewritePattern(context) {}
-  LogicalResult matchAndRewrite(LLVM::ExtractValueOp op,
-                                PatternRewriter& rewriter) const override {
-    if (op.use_empty()) {
-      op.erase();
-      return success();
-    }
-    return failure();
-  }
-};
-
-struct LLVMInsertExtractValueSimplifierPass
-    : public LLVMInsertExtractValueSimplifierPassBase<
-          LLVMInsertExtractValueSimplifierPass> {
+struct LLVMInsertValueSimplifierPass
+    : public LLVMInsertValueSimplifierPassBase<LLVMInsertValueSimplifierPass> {
   void runOnOperation() override {
     LLVM::LLVMFuncOp func = getOperation();
 
     MLIRContext* ctx = func.getContext();
     RewritePatternSet patterns(ctx);
-    patterns.insert<LLVMInsertSimplifier, LLVMExtractSimplifier>(ctx);
+    patterns.insert<LLVMInsertSimplifier>(ctx);
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
       func.emitError("applyPatternsAndFoldGreedily does not converge");
       signalPassFailure();
@@ -134,8 +116,8 @@ struct LLVMInsertExtractValueSimplifierPass
 }  // namespace
 
 std::unique_ptr<OperationPass<LLVM::LLVMFuncOp>>
-createLLVMInsertExtractValueSimplifierPass() {
-  return std::make_unique<LLVMInsertExtractValueSimplifierPass>();
+createLLVMInsertValueSimplifierPass() {
+  return std::make_unique<LLVMInsertValueSimplifierPass>();
 }
 
 }  // namespace disc_ral

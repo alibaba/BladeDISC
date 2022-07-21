@@ -36,7 +36,6 @@
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_to_llvm_common.h"
 #include "tensorflow/compiler/mlir/disc/transforms/rewriters.h"
-#include "tensorflow/core/util/env_var.h"
 #include "transforms/codegen_utils.h"
 #include "transforms/placement_utils.h"
 
@@ -412,10 +411,7 @@ Value ConvertLaunchFuncOpToRalCallPattern::generateParamsArray(
   auto arguments = getTypeConverter()->promoteOperands(
       loc, launch_op.getOperands().take_back(num_kernel_operands),
       operands.take_back(num_kernel_operands), builder);
-  bool mem_intensive_opt_experimental = false;
-  tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", false,
-                                 &mem_intensive_opt_experimental);
-  if (mem_intensive_opt_experimental) {
+  if (isMemIntensiveOptExperimentalEnabled()) {
     // To eliminate arguments that are eliminated in the dead argument
     // elimination pass according. Note that the original prototype are the same
     // and thus the to-be-eliminated arguments should be the same.

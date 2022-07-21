@@ -471,11 +471,49 @@ struct AclConvLikeInfo {
   OpTy op;
 };
 
+template <typename OpTy>
+class AclConvLikeThreadSafeInfo {
+ public:
+  inline std::shared_ptr<AclConvLikeInfo<OpTy>> getOrCreate(
+      std::function<std::shared_ptr<AclConvLikeInfo<OpTy>>(
+          const arm_compute::ITensorPack*)>
+          creator) {
+    auto tid = std::this_thread::get_id();
+    {
+      std::lock_guard<std::mutex> l(mu);
+      if (!mainInfo_) {
+        auto it = infoMap_.insert(std::make_pair(tid, creator(nullptr))).first;
+        return mainInfo_ = it->second;
+      }
+      auto it = infoMap_.find(tid);
+      if (it != infoMap_.end()) return it->second;
+    }
+
+    // make a new thread local copy
+    auto info = creator(&mainInfo_->op.get_packed_weight());
+    std::lock_guard<std::mutex> l(mu);
+    infoMap_.insert(std::make_pair(tid, info));
+    return info;
+  }
+
+ private:
+  std::mutex mu;
+  // `mainInfo` is the one owns the pre-packed weights.
+  std::shared_ptr<AclConvLikeInfo<OpTy>> mainInfo_;
+  std::unordered_map<std::thread::id, std::shared_ptr<AclConvLikeInfo<OpTy>>>
+      infoMap_;
+};
+
 template <typename TKey, typename TValue>
 using AclConvLikeMap = std::unordered_map<TKey, TValue, ConvParamsKeyHasher>;
 template <typename OpTy>
 using AclConvLikeCache = ideep::utils::lru_cache<
     ConvParamsKey, std::shared_ptr<AclConvLikeInfo<OpTy>>, AclConvLikeMap>;
+template <typename OpTy>
+using AclConvLikeThreadSafeCache =
+    ideep::utils::lru_cache<ConvParamsKey,
+                            std::shared_ptr<AclConvLikeThreadSafeInfo<OpTy>>,
+                            AclConvLikeMap>;
 
 template <typename OpTy>
 struct AclConvLikeState : public Context::Resource {
@@ -494,12 +532,40 @@ struct AclConvLikeState : public Context::Resource {
   }
 };
 
+template <typename OpTy>
+struct AclConvLikeThreadSafeState : public Context::Resource {
+  std::mutex mu;
+  AclConvLikeThreadSafeCache<OpTy> cache{getWeightPrePackingCacheCapacity()};
+
+  inline std::shared_ptr<AclConvLikeInfo<OpTy>> getOrCreate(
+      const ConvParamsKey& key,
+      std::function<std::shared_ptr<AclConvLikeInfo<OpTy>>(
+          const arm_compute::ITensorPack*)>
+          creator) {
+    using ThreadSafeInfo = AclConvLikeThreadSafeInfo<OpTy>;
+    std::shared_ptr<ThreadSafeInfo> threadSafeInfo;
+    {
+      std::lock_guard<std::mutex> l(mu);
+      auto it = cache.find(key);
+      if (it == cache.end()) {
+        it = cache
+                 .insert(std::make_pair(
+                     key, std::shared_ptr<ThreadSafeInfo>(new ThreadSafeInfo)))
+                 .first;
+      }
+      threadSafeInfo = it->second;
+    }
+    return threadSafeInfo->getOrCreate(creator);
+  }
+};
+
 using AclDepthwiseConvInfo =
     AclConvLikeInfo<arm_compute::DISCNEDepthwiseConvolutionLayer>;
 using AclDepthwiseConvState =
     AclConvLikeState<arm_compute::DISCNEDepthwiseConvolutionLayer>;
 using AclConvInfo = AclConvLikeInfo<arm_compute::DISCNEConvolutionLayer>;
-using AclConvState = AclConvLikeState<arm_compute::DISCNEConvolutionLayer>;
+using AclConvState =
+    AclConvLikeThreadSafeState<arm_compute::DISCNEConvolutionLayer>;
 
 #endif  // TAO_AARCH64
 

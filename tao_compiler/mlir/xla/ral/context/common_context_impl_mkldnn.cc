@@ -337,27 +337,28 @@ void runAclConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
     TAO_VLOG(0) << "params.dilates[0] = " << params.dilates[0];
   }
 
-  arm_compute::DataType data_type = arm_compute::DataType::F32;
-  arm_compute::DataLayout data_layout = arm_compute::DataLayout::NHWC;
-  auto src_shape = arm_compute::TensorShape(Ci, Iw, Ih, N);
-  auto weights_shape = arm_compute::TensorShape(Ci, Kw, Kh, Co);
-  auto dst_shape = arm_compute::TensorShape(Co, Ow, Oh, N);
-
-  auto src_info = arm_compute::TensorInfo(src_shape, 1, data_type, data_layout);
-  auto weights_info =
-      arm_compute::TensorInfo(weights_shape, 1, data_type, data_layout);
-  auto dst_info = arm_compute::TensorInfo(dst_shape, 1, data_type, data_layout);
-
-  arm_compute::Tensor src, weights, dst;
-  src.allocator()->init(src_info);
-  weights.allocator()->init(weights_info);
-  dst.allocator()->init(dst_info);
-  src.allocator()->import_memory(input.data);
-  weights.allocator()->import_memory(kernel.data);
-  dst.allocator()->import_memory(output.data);
-
-  auto AclConvCreator = [&]() {
+  auto AclConvCreator = [&](const arm_compute::ITensorPack* pack) {
     std::shared_ptr<AclConvInfo> info(new AclConvInfo);
+
+    arm_compute::DataType data_type = arm_compute::DataType::F32;
+    arm_compute::DataLayout data_layout = arm_compute::DataLayout::NHWC;
+    auto src_shape = arm_compute::TensorShape(Ci, Iw, Ih, N);
+    auto weights_shape = arm_compute::TensorShape(Ci, Kw, Kh, Co);
+    auto dst_shape = arm_compute::TensorShape(Co, Ow, Oh, N);
+
+    auto src_info =
+        arm_compute::TensorInfo(src_shape, 1, data_type, data_layout);
+    auto weights_info =
+        arm_compute::TensorInfo(weights_shape, 1, data_type, data_layout);
+    auto dst_info =
+        arm_compute::TensorInfo(dst_shape, 1, data_type, data_layout);
+
+    info->src.allocator()->init(src_info);
+    info->weights.allocator()->init(weights_info);
+    info->dst.allocator()->init(dst_info);
+    info->src.allocator()->import_memory(input.data);
+    info->weights.allocator()->import_memory(kernel.data);
+    info->dst.allocator()->import_memory(output.data);
 
     if (!info->op.validate(
             &src_info, &weights_info, nullptr, &dst_info,
@@ -370,7 +371,7 @@ void runAclConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
       ctx->signalError(Context::FAILURE, "fail to validate acl depthwise conv");
     } else {
       info->op.configure(
-          &src, &weights, nullptr, &dst,
+          &info->src, &info->weights, nullptr, &info->dst,
           arm_compute::PadStrideInfo{params.strides[1], params.strides[0],
                                      params.padding_l[1], params.padding_r[1],
                                      params.padding_l[0], params.padding_r[0],
@@ -378,7 +379,8 @@ void runAclConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
           arm_compute::WeightsInfo{},
           arm_compute::Size2D{params.dilates[1], params.dilates[0]});
     }
-    info->op.prepare(&src, &weights, nullptr, &dst);
+    if (pack) info->op.reuse_packed_weight(*pack);
+    info->op.prepare(&info->src, &info->weights, nullptr, &info->dst);
 
     return info;
   };
@@ -392,10 +394,12 @@ void runAclConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
                                  kDiscCpuDefaultThreadId);
     info = state->getOrCreate(key, AclConvCreator);
   } else {
-    info = AclConvCreator();
+    info = AclConvCreator(nullptr);
   }
 
-  info->op.run(&src, &weights, nullptr, &dst);
+  info->src.allocator()->import_memory(input.data);
+  info->dst.allocator()->import_memory(output.data);
+  info->op.run(&info->src, &info->weights, nullptr, &info->dst);
 
   timer.Stop();
   if (isProfilingEnabled()) {

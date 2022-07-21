@@ -17,7 +17,7 @@ jobs:
       base_image: nvcr.io/nvidia/pytorch:22.06-py3
       device: gpu-t4
       dockerfile: docker/cronjobs/Dockerfile.torch.ngc
-      exec_command: cd pytorch_blade && bash ./benchmark/run_benchmark.sh
+      exec_command: bash -c "cd pytorch_blade && bash ./benchmark/run_benchmark.sh"
       push_command: source scripts/ci/deploy_docker.sh && push_images
       remote_dev_docker: bladedisc:disc-dev-pt-ngc
     secrets:

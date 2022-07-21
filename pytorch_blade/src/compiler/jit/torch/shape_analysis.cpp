@@ -65,7 +65,11 @@ bool mergeTypes(
   for (const auto i : c10::irange(lhs.size())) {
     auto old_output_type = outputs[i]->type();
     auto new_type =
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 7
         unifyTypes(lhs[i]->type(), rhs[i]->type(), /*default_to_union=*/true);
+#else
+        unifyTypes(lhs[i]->type(), rhs[i]->type());
+#endif
     AT_ASSERT(new_type);
     outputs[i]->setType(*new_type);
     if (*old_output_type != *outputs[i]->type())
@@ -476,7 +480,8 @@ class ShapePropagator : public PropertyPropBase {
     // is to uncover any mistakes we could make when editing this code,
     // and eventually it shouldn't matter, because this phase should be
     // preceded by schema checking.
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 10
+#if PYTORCH_MAJOR_VERSION == 1 && \
+    (PYTORCH_MINOR_VERSION >= 10 || PYTORCH_MINOR_VERSION == 6)
     op(stack);
 #else
     op(&stack);

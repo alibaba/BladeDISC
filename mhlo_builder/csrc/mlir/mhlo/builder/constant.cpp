@@ -17,7 +17,8 @@
 namespace mlir {
 namespace mhlo {
 bool IsHloConstant(const mlir::Value& value) {
-  auto def = llvm::dyn_cast_or_null<mlir::mhlo::ConstantOp>(value.getDefiningOp());
+  auto def =
+      llvm::dyn_cast_or_null<mlir::mhlo::ConstantOp>(value.getDefiningOp());
   return def != nullptr;
 }
 

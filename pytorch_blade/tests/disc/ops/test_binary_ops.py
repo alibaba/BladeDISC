@@ -11,8 +11,8 @@
 
 import torch
 import unittest
-import pytest
 
+from torch_blade import utils
 from tests.disc.testing_base import DiscTestCase, skipIfEnableTorchMlir, isTorchMlirEnable
 
 
@@ -147,7 +147,8 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_binary_type_promotion(torch.sub)
         self._test_binary_type_promotion(torch.add)
         self._test_binary_type_promotion(torch.mul)
-        self._test_binary_type_promotion(torch.true_divide)
+        if utils.torch_version_number() >= utils.parse_version("1.6.1"):
+            self._test_binary_type_promotion(torch.true_divide)
         self._test_binary_type_promotion(torch.floor_divide)
         if not isTorchMlirEnable():
             self._test_binary_type_promotion(torch.rsub)
@@ -159,7 +160,8 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_func(torch.add)
         self._test_func(torch.mul)
         # torch.aten.div between Tensor[int]s meet RefineType error in TorchMLIR
-        self._test_func(torch.true_divide, test_int=not isTorchMlirEnable())
+        if utils.torch_version_number() >= utils.parse_version("1.6.1"):
+            self._test_func(torch.true_divide, test_int=not isTorchMlirEnable())
         self._test_func(torch.floor_divide, test_int=not isTorchMlirEnable())
         if not isTorchMlirEnable():
             self._test_func(torch.rsub)
@@ -173,7 +175,7 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_func_has_alpha(torch.sub)
         self._test_func_has_alpha(torch.add)
         if not isTorchMlirEnable():
-          self._test_func_has_alpha(torch.rsub)
+            self._test_func_has_alpha(torch.rsub)
 
     def test_scalar_arithmetic_func(self):
         self._test_scalar_func(torch.sub)

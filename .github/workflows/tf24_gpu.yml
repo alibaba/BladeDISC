@@ -1,0 +1,25 @@
+name: tf2_4-cuda10_0
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    - cron: '30 01 * * *' # 01:30 am
+
+jobs:
+  build:
+    uses: ./.github/workflows/resuable_gpu_build.yml
+    with:
+      cuda_version: cu110
+      remote_runtime_docker: bladedisc:latest-runtime-tensorflow2.4
+      develop_base_image: nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
+      runtime_base_image: tensorflow/tensorflow:2.4.0-gpu
+      extra_build_args: --build-arg DISC_HOST_TF_VERSION="tensorflow-gpu==2.4"
+      exec_command: bash ./scripts/ci/build_and_test.sh
+      tf_blade_command: bash ./scripts/ci/test_tensorflow_blade.sh cu110 2.4
+      deploy_command: bash ./scripts/ci/deploy_tensorflow_blade.sh
+    secrets:
+      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}

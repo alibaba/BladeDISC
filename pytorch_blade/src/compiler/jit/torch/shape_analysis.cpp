@@ -857,7 +857,9 @@ class ShapePropagator : public PropertyPropBase {
             "aten::neg(Tensor self) -> Tensor",
             "aten::t(Tensor self) -> Tensor",
             "aten::sigmoid(Tensor self) -> Tensor",
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 6
             "aten::logit(Tensor self, float? eps=None) -> Tensor",
+#endif
             "aten::tanh(Tensor self) -> Tensor",
             "aten::relu(Tensor self) -> Tensor",
             "aten::asin(Tensor self) -> Tensor",
@@ -930,7 +932,11 @@ class ShapePropagator : public PropertyPropBase {
             "aten::trunc(Tensor self) -> Tensor",
             "aten::rot90(Tensor self, int k, int[] dims) -> Tensor",
             "aten::narrow(Tensor self, int dim, int start, int length) -> Tensor",
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
             "aten::slice(Tensor self, int dim, int? start=None, int? end=None, int step=1) -> Tensor",
+#else
+            "aten::slice(Tensor self, int dim, int start, int end, int step) -> Tensor",
+#endif
             "aten::alias(Tensor self) -> Tensor",
             "aten::zero_(Tensor self) -> Tensor",
         },
@@ -1213,7 +1219,9 @@ class ShapePropagator : public PropertyPropBase {
             "aten::max(Tensor self) -> Tensor",
             "aten::min(Tensor self) -> Tensor",
             "aten::median(Tensor self) -> Tensor",
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
             "aten::nanmedian(Tensor self) -> Tensor",
+#endif
             "aten::norm(Tensor self, Scalar p) -> Tensor",
             "aten::std(Tensor self, bool unbiased) -> Tensor",
             "aten::trace(Tensor self) -> Tensor",
@@ -1392,7 +1400,9 @@ class ShapePropagator : public PropertyPropBase {
             "aten::max(Tensor self, int dim, bool keepdim) -> (Tensor, Tensor)",
             "aten::min(Tensor self, int dim, bool keepdim) -> (Tensor, Tensor)",
             "aten::median(Tensor self, int dim, bool keepdim) -> (Tensor, Tensor)",
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
             "aten::nanmedian(Tensor self, int dim, bool keepdim) -> (Tensor, Tensor)",
+#endif
             "aten::mode(Tensor self, int dim, bool keepdim) -> (Tensor, Tensor)",
         },
         [](Node* node) -> type_vec_t {
@@ -1693,8 +1703,10 @@ class ShapePropagator : public PropertyPropBase {
         return true;
       }
     } else if (
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
         node->matches(
             "aten::native_layer_norm(Tensor input, int[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> (Tensor, Tensor, Tensor)") ||
+#endif
         node->matches(
             "aten::native_layer_norm_backward(Tensor grad_out, Tensor input, int[] normalized_shape, Tensor mean, Tensor rstd, Tensor? weight, Tensor? bias, bool[3] output_mask) -> (Tensor, Tensor, Tensor)")) {
       if (auto type = input_type(0)) {

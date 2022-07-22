@@ -19,23 +19,36 @@ namespace torch {
 namespace blade {
 
 TEST(PropagateInputShapesTest, SimpleUnary) {
+#if PYTORCH_MAJOR_VERSOIN == 1 && PYTORCH_MINOR_VERSION >= 8
   const std::string graph_str = R"IR(
-graph(%p1 : Float(*, *, *, device=cuda:0),
-      %p2 : Float(768, strides=[1], requires_grad=0, device=cuda:0),
-      %p3 : Float(768, strides=[1], requires_grad=0, device=cuda:0)):
-  %cst_list : int[] = prim::Constant[value=[768]]()
-  %cst_float : float = prim::Constant[value=9.9999999999999998e-13]()
-  %1 : Tensor, %2 : Tensor, %3 : Tensor = aten::native_layer_norm(%p1, %cst_list, %p2, %p3, %cst_float)
-  %4 : (Tensor, Tensor, Tensor) = prim::TupleConstruct(%1, %2, %3)
-  return (%4)
+graph(%p1 : Float(*, *, *, device=cuda:0)):
+  %1 : Tensor = aten::relu(%p1)
+  return (%1)
 )IR";
+#elif PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 6
+  const std::string graph_str = R"IR(
+graph(%p1 : Float(*, *, *, device=cuda:0)):
+  %1 : Tensor = aten::relu(%p1)
+  return (%1)
+)IR";
+#else
+  const std::string graph_str = R"IR(
+graph(%p1 : Float(*, *, *)):
+  %1 : Tensor = aten::relu(%p1)
+  return (%1)
+)IR";
+#endif
   auto g = std::make_shared<torch::jit::Graph>();
   torch::jit::parseIR(graph_str, g.get());
   torch::blade::PropagateInputShapes(g);
   std::cout << g->toString() << std::endl;
   torch::jit::testing::FileCheck()
       .check(
-          "%5 : Float(*, *, *, device=cuda:0), %6 : Float(*, *, *, device=cuda:0), %7 : Float(*, *, *, device=cuda:0) = aten::native_layer_norm(%p1, %3, %p2, %p3, %4)")
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION <= 6
+          "Float(*, *, *) = aten::relu(%p1)")
+#else
+          "Float(*, *, *, device=cuda:0) = aten::relu(%p1)")
+#endif
       ->run(*g);
 }
 } //  namespace blade

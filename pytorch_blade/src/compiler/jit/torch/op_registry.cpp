@@ -30,52 +30,61 @@ using namespace torch::jit;
 //     Knowing the type and device of weights or biases is usually enough to
 //     infer the output type.
 std::shared_ptr<OperatorSet> nn_ops_first_input_preserving() {
-  std::shared_ptr<OperatorSet> ops =
-      std::make_shared<OperatorSet>(
-          OperatorSet {
+  std::shared_ptr<OperatorSet>
+      ops =
+          std::
+              make_shared<OperatorSet>(
+                  OperatorSet {
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
-            "aten::_log_softmax_backward_data(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype) -> Tensor",
-                "aten::native_dropout_backward(Tensor grad_output, Tensor mask, float scale) -> Tensor",
+                    "aten::_log_softmax_backward_data(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype) -> Tensor",
+                        "aten::native_dropout_backward(Tensor grad_output, Tensor mask, float scale) -> Tensor",
 #endif
-                "aten::batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps, bool cudnn_enabled) -> Tensor",
-                "aten::layer_norm(Tensor input, int[] normalized_shape, Tensor? weight=None, Tensor? bias=None, float eps=1e-05, bool cudnn_enable=True) -> Tensor",
-                "aten::conv1d(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, int groups) -> Tensor",
-                "aten::conv2d(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, int groups) -> Tensor",
-                "aten::conv3d(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, int groups) -> Tensor",
-                "aten::conv_tbc(Tensor self, Tensor weight, Tensor bias, int pad) -> Tensor",
-                "aten::conv_transpose1d(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] output_padding, int groups, int[] dilation) -> Tensor",
-                "aten::conv_transpose2d(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] output_padding, int groups, int[] dilation) -> Tensor",
-                "aten::conv_transpose3d(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] output_padding, int groups, int[] dilation) -> Tensor",
-                "aten::convolution(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups) -> Tensor",
-                "aten::_convolution(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool benchmark, bool deterministic, bool cudnn_enabled) -> Tensor", // deprecated _convolution
-                "aten::_convolution(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool benchmark, bool deterministic, bool cudnn_enabled, bool allow_tf32) -> Tensor",
-                "aten::adaptive_avg_pool1d(Tensor self, int[] output_size) -> Tensor",
-                "aten::adaptive_avg_pool2d(Tensor self, int[] output_size) -> Tensor",
-                "aten::adaptive_avg_pool3d(Tensor self, int[] output_size) -> Tensor",
-                "aten::avg_pool1d(Tensor self, int[] kernel_size, int[] stride, int[] padding, bool ceil_mode, bool count_include_pad) -> Tensor",
-                "aten::avg_pool2d(Tensor self, int[] kernel_size, int[] stride, int[] padding, bool ceil_mode, bool count_include_pad, int? divisor_override) -> Tensor",
-                "aten::avg_pool3d(Tensor self, int[] kernel_size, int[] stride, int[] padding, bool ceil_mode, bool count_include_pad, int? divisor_override) -> Tensor",
-                "aten::max_pool1d(Tensor self, int[] kernel_size, int[] stride, int[] padding, int[] dilation, bool ceil_mode) -> Tensor",
-                "aten::max_pool2d(Tensor self, int[] kernel_size, int[] stride, int[] padding, int[] dilation, bool ceil_mode) -> Tensor",
-                "aten::max_pool3d(Tensor self, int[] kernel_size, int[] stride, int[] padding, int[] dilation, bool ceil_mode) -> Tensor",
-                "aten::max_unpool2d(Tensor self, Tensor indices, int[] output_size) -> Tensor",
-                "aten::max_unpool3d(Tensor self, Tensor indices, int[] output_size, int[] stride, int[] padding) -> Tensor",
-                "aten::nll_loss_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, int ignore_index, Tensor total_weight) -> Tensor",
-                "aten::reflection_pad1d(Tensor self, int[] padding) -> Tensor",
-                "aten::reflection_pad2d(Tensor self, int[] padding) -> Tensor",
+                        "aten::batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps, bool cudnn_enabled) -> Tensor",
+                        "aten::layer_norm(Tensor input, int[] normalized_shape, Tensor? weight=None, Tensor? bias=None, float eps=1e-05, bool cudnn_enable=True) -> Tensor",
+                        "aten::conv1d(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, int groups) -> Tensor",
+                        "aten::conv2d(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, int groups) -> Tensor",
+                        "aten::conv3d(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, int groups) -> Tensor",
+                        "aten::conv_tbc(Tensor self, Tensor weight, Tensor bias, int pad) -> Tensor",
+                        "aten::conv_transpose1d(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] output_padding, int groups, int[] dilation) -> Tensor",
+                        "aten::conv_transpose2d(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] output_padding, int groups, int[] dilation) -> Tensor",
+                        "aten::conv_transpose3d(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] output_padding, int groups, int[] dilation) -> Tensor",
+                        "aten::convolution(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups) -> Tensor",
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSOIN > 6
+                        "aten::_convolution(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool benchmark, bool deterministic, bool cudnn_enabled, bool allow_tf32) -> Tensor",
+#endif
+                        "aten::_convolution(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool benchmark, bool deterministic, bool cudnn_enabled) -> Tensor",
+                        "aten::adaptive_avg_pool1d(Tensor self, int[] output_size) -> Tensor",
+                        "aten::adaptive_avg_pool2d(Tensor self, int[] output_size) -> Tensor",
+                        "aten::adaptive_avg_pool3d(Tensor self, int[] output_size) -> Tensor",
+                        "aten::avg_pool1d(Tensor self, int[] kernel_size, int[] stride, int[] padding, bool ceil_mode, bool count_include_pad) -> Tensor",
+                        "aten::avg_pool2d(Tensor self, int[] kernel_size, int[] stride, int[] padding, bool ceil_mode, bool count_include_pad, int? divisor_override) -> Tensor",
+                        "aten::avg_pool3d(Tensor self, int[] kernel_size, int[] stride, int[] padding, bool ceil_mode, bool count_include_pad, int? divisor_override) -> Tensor",
+                        "aten::max_pool1d(Tensor self, int[] kernel_size, int[] stride, int[] padding, int[] dilation, bool ceil_mode) -> Tensor",
+                        "aten::max_pool2d(Tensor self, int[] kernel_size, int[] stride, int[] padding, int[] dilation, bool ceil_mode) -> Tensor",
+                        "aten::max_pool3d(Tensor self, int[] kernel_size, int[] stride, int[] padding, int[] dilation, bool ceil_mode) -> Tensor",
+                        "aten::max_unpool2d(Tensor self, Tensor indices, int[] output_size) -> Tensor",
+                        "aten::max_unpool3d(Tensor self, Tensor indices, int[] output_size, int[] stride, int[] padding) -> Tensor",
+                        "aten::nll_loss_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, int ignore_index, Tensor total_weight) -> Tensor",
+                        "aten::reflection_pad1d(Tensor self, int[] padding) -> Tensor",
+                        "aten::reflection_pad2d(Tensor self, int[] padding) -> Tensor",
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
-                "aten::reflection_pad3d(Tensor self, int[] padding) -> Tensor",
+                        "aten::reflection_pad3d(Tensor self, int[] padding) -> Tensor",
 #endif
-                "aten::replication_pad1d(Tensor self, int[] padding) -> Tensor",
-                "aten::replication_pad2d(Tensor self, int[] padding) -> Tensor", "aten::replication_pad3d(Tensor self, int[] padding) -> Tensor", "aten::tanh_backward(Tensor grad_output, Tensor output) -> Tensor", "aten::upsample_bilinear2d(Tensor self, int[] output_size, bool align_corners, float? scales_h, float? scales_w) -> Tensor", "aten::upsample_linear1d(Tensor self, int[] output_size, bool align_corners, float? scales) -> Tensor", "aten::upsample_nearest1d(Tensor self, int[] output_size, float? scales) -> Tensor", "aten::upsample_nearest2d(Tensor self, int[] output_size, float? scales_h, float? scales_w) -> Tensor", "aten::upsample_nearest3d(Tensor self, int[] output_size, float? scales_d, float? scales_h, float? scales_w) -> Tensor",
-                "aten::upsample_trilinear3d(Tensor self, int[] output_size, bool align_corners, float? scales_d, float? scales_h, float? scales_w) -> Tensor",
-                "aten::prelu(Tensor self, Tensor weight) -> Tensor",
+                        "aten::replication_pad1d(Tensor self, int[] padding) -> Tensor",
+                        "aten::replication_pad2d(Tensor self, int[] padding) -> Tensor",
+                        "aten::replication_pad3d(Tensor self, int[] padding) -> Tensor", "aten::tanh_backward(Tensor grad_output, Tensor output) -> Tensor", "aten::upsample_bilinear2d(Tensor self, int[] output_size, bool align_corners, float? scales_h, float? scales_w) -> Tensor",
+                        "aten::upsample_linear1d(Tensor self, int[] output_size, bool align_corners, float? scales) -> Tensor",
+                        "aten::upsample_nearest1d(Tensor self, int[] output_size, float? scales) -> Tensor",
+                        "aten::upsample_nearest2d(Tensor self, int[] output_size, float? scales_h, float? scales_w) -> Tensor",
+                        "aten::upsample_nearest3d(Tensor self, int[] output_size, float? scales_d, float? scales_h, float? scales_w) -> Tensor",
+                        "aten::upsample_trilinear3d(Tensor self, int[] output_size, bool align_corners, float? scales_d, float? scales_h, float? scales_w) -> Tensor",
+                        "aten::prelu(Tensor self, Tensor weight) -> Tensor",
 
-                // Added because Hardswish is really hard to convert to
-                // metatensors
-                "aten::hardswish(Tensor self) -> Tensor",
-                "aten::hardswish_(Tensor self) -> Tensor",
-          });
+                        // Added because Hardswish is really hard to convert to
+                        // metatensors
+                        "aten::hardswish(Tensor self) -> Tensor",
+                        "aten::hardswish_(Tensor self) -> Tensor",
+                  });
   return ops;
 };
 

@@ -79,7 +79,7 @@ TEST(CommonTest, TestGetTaoBridgeOptions) {
       {"TAO_BACE_REFORMAT_MIN_DIM_BAR", "666", ""},
       {"TAO_BACE_REFORMAT_SIZE_BAR", "999", ""},
       {"TAO_COMPILER_PATH", "tao_compiler_main", ""},
-      {"disc_cache_dump_path", "/tao_dump", ""},
+      {"DISC_COMPILATION_CACHE_DUMP_PATH", "/tao_dump", ""},
       {"TAO_PROFILING_GUIDED_COMPILATION_MODE", "1", ""},
       {"TAO_PROFILING_GUIDED_COMPILATION_LAZY_CALLS", "4", ""},
       {"TAO_PROFILING_GUIDED_COMPILATION_PROFILING_TIME_BY_MIN", "6", ""},

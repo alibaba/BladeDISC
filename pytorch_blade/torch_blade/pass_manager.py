@@ -14,6 +14,7 @@ from torch.onnx.symbolic_helper import _set_opset_version
 from torch.onnx import OperatorExportTypes
 
 import torch_blade
+import torch_blade._torch_blade._quantization as _quantization
 from torch_blade import utils
 from torch_blade import tools
 from torch_blade.config import Config, OptPipelines
@@ -301,7 +302,22 @@ def _jit_pass_clean_script(graph):
     torch._C._jit_pass_dce(graph)
 
 
+def _jit_pass_quantization_preprocess(c_module):
+    cfg = Config.get_current_context_or_new()
+    is_enabled_quantization = cfg.enable_int8
+    if is_enabled_quantization:
+        _quantization.add_placeholder_for_fake_quant(c_module)
+
+
+def _jit_pass_quantization_postprocess(c_module):
+    cfg = Config.get_current_context_or_new()
+    is_enabled_quantization = cfg.enable_int8
+    if is_enabled_quantization:
+        _quantization.remove_placeholder(c_module)
+
+
 def _optimize_common(c_module, static_shape=False):
+    _jit_pass_quantization_preprocess(c_module)
     is_training = c_module.hasattr("training") and c_module.training
     if not is_training:
         # optimization passes only work in eval mode
@@ -327,6 +343,7 @@ def _optimize_common(c_module, static_shape=False):
     # because it needs some preprocess jit pass before,
     # such as remove grads ir nodes, freeze rank, tuple lowering etc.
     _jit_pass_clean_python_ir(graph)
+    _jit_pass_quantization_postprocess(c_module)
     return c_module
 
 def _jit_pass_licm(graph):

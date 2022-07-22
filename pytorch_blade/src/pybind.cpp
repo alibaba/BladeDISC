@@ -34,7 +34,6 @@
 // structures like Dict
 #include "torch/csrc/jit/python/pybind_utils.h"
 
-
 namespace torch {
 namespace blade {
 
@@ -59,7 +58,7 @@ void initModules<false>(py::module& m) {
       "jit_pass_onnx_constant_f64_to_f32",
       &torch::blade::CastDownAllConstantDoubleToFloat);
 
-torch::blade::quantization::initQuantizationBindings(m);
+  torch::blade::quantization::initQuantizationBindings(m);
 
 #ifdef TORCH_BLADE_BUILD_TENSORRT
   torch::blade::tensorrt::initTensorRTBindings(m);

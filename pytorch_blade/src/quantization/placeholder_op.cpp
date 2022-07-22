@@ -18,7 +18,7 @@ namespace blade {
 namespace quantization {
 
 torch::Tensor placeholder(torch::Tensor& input) {
-    return input;
+  return input;
 }
 
 TORCH_LIBRARY(quantization, m) {

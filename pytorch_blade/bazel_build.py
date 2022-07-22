@@ -79,8 +79,6 @@ class BazelBuild(TorchBladeBuild):
             "--action_env TORCH_BLADE_TORCH_INSTALL_PATH={}".format(self.torch_dir),
         ]
 
-        if self.torch_major_version >= 1 and self.torch_minor_version >= 12:
-            self.torch_extra_opts.append("--config=torch_ltc_disc_backend") 
         if self.is_debug:
             self.torch_extra_opts.append("--config=torch_debug")
         else:

@@ -245,6 +245,7 @@ cc_library(
         ":disc_to_llvm_common",
         ":pass_details",
         ":placement_utils",
+        "//tensorflow/core:lib",
         "@llvm-project//llvm:Support",
         "@llvm-project//llvm:TransformUtils",
         "@llvm-project//mlir:Affine",
@@ -1227,6 +1228,42 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_llvm_insert_value_simplifier",
+    srcs = ["transforms/disc_llvm_insert_value_simplifier.cc"],
+    includes = [
+        "tensorflow/compiler/mlir/hlo/include",
+        "."
+    ],
+    deps = [
+        ":pass_details",
+        "@llvm-project//mlir:LLVMDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "disc_function_dead_argument_elimination",
+    srcs = ["transforms/disc_function_dead_argument_elimination.cc"],
+    includes = [
+        "tensorflow/compiler/mlir/hlo/include",
+        "."
+    ],
+    deps = [
+        ":pass_details",
+        "@llvm-project//mlir:LLVMDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_to_llvm_common",
     srcs = ["transforms/disc_to_llvm_common.cc"],
     includes = ["transforms/disc_to_llvm_common.h"],
@@ -1752,6 +1789,8 @@ cc_library(
         ":disc_memref_load_store_simplifier",
         ":disc_lower_gpu_ops_to_nvvm_ops",
         ":disc_lower_gpu_ops_to_rocdl_ops",
+        ":disc_llvm_insert_value_simplifier",
+        ":disc_function_dead_argument_elimination",
         ":disc_unhandled_atomic_rmw_converter",
         "@llvm-project//mlir:Pass",
     ],

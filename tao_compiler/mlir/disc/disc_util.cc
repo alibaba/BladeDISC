@@ -215,6 +215,16 @@ bool useHorizontalFusion() {
   return enabled;
 }
 
+bool isMemIntensiveOptExperimentalEnabled() {
+  static bool enabled = []() {
+    bool enabled = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL",
+                                   enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
 // Returns data users of the value and its aliases (e.g. memref.cast).
 // Here non-data users means DimOp, DeallocOp and ShapeOfOp.
 SmallVector<Operation*, 4> getValueUsers(Value v) {

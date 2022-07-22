@@ -430,10 +430,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(
       disc_ral::createDiscUnhandledAtomicRMWConverterPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscInputInlineFusionPass());
-  bool mem_intensive_opt_experimental = false;
-  tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", false,
-                                 &mem_intensive_opt_experimental);
-  if (gpu_enabled && mem_intensive_opt_experimental) {
+  if (gpu_enabled && isMemIntensiveOptExperimentalEnabled()) {
     // More benchmarks are on the way to evaluate the effectiveness of this
     // optimization. Then this pass will be enabled by default.
     pm.addNestedPass<FuncOp>(disc_ral::createForLoopUnrollInterleavePass());
@@ -498,7 +495,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
     // Device side codegen: gpu.module -> cubin
     auto& kernelPm = pm.nest<mlir::gpu::GPUModuleOp>();
-    if (mem_intensive_opt_experimental) {
+    if (isMemIntensiveOptExperimentalEnabled()) {
       // We do not enable the LICM pass by default because this function is not
       // widely used and we worry about the robustness. It is not guaranteed to
       // be bug-free. We will enable it by default after evaluation on more
@@ -519,6 +516,16 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     kernelPm.addPass(disc_ral::createDiscLowerGpuOpsToNVVMOpsPass(
         /*kDeriveIndexBitwidthFromDataLayout*/ 32));
 #endif
+    if (isMemIntensiveOptExperimentalEnabled()) {
+      // To eliminate dead argument of GPU LLVM functions. First, it has to
+      // simplify InsertValueOp and ExtractValueOp which has fake dependency
+      // on function parameters. Second, eliminate the dead arguments and append
+      // attributes telling the indices of the eliminated arguments, which will
+      // be used for generating ral kernel-launch logic of the gpu functions.
+      kernelPm.addNestedPass<LLVM::LLVMFuncOp>(
+          disc_ral::createLLVMInsertValueSimplifierPass());
+      kernelPm.addPass(disc_ral::createFunctionDeadArgumentEliminationPass());
+    }
     auto& gpu_options = options.gpu_info;
     kernelPm.addPass(disc_ral::CreateDiscGpuKernelToBlobPass(
         gpu_options.cc_major, gpu_options.cc_minor,

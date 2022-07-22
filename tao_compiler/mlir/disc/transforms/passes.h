@@ -222,6 +222,12 @@ std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscDuplicateComputationForFusionPass(
     bool gpu_enabled = true, const std::string& fusion_strategy = "base");
 
+std::unique_ptr<OperationPass<LLVM::LLVMFuncOp>>
+createLLVMInsertValueSimplifierPass();
+
+std::unique_ptr<OperationPass<gpu::GPUModuleOp>>
+createFunctionDeadArgumentEliminationPass();
+
 }  // namespace disc_ral
 }  // namespace mlir
 

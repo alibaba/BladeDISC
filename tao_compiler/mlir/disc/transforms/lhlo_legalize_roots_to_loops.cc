@@ -3267,7 +3267,7 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
               thread_per_block, row_reduction_schedule, ilp_factor,
               shape_analysis, is_output, external_only))) {
         LLVM_DEBUG(llvm::dbgs() << "Failed to emit InBlockRowReduce for: "
-                                << *skeleton << "\n");
+                                << *skeletons[0] << "\n");
         return failure();
       }
       // TODO: check whether the xroots in this group are required by other
@@ -3431,13 +3431,10 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
     cleanUnusedLhloOps(fused_block);
     return success();
   }
+
   // Make a loop to write the buffer into init value for each
   // ColReduction root. This will be further lowered to a init_kernel
   maybeEmitInitLoops(b, root_ops);
-
-  bool mem_intensive_opt_experimental = false;
-  tensorflow::ReadBoolFromEnvVar("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", false,
-                                 &mem_intensive_opt_experimental);
 
   // 1, If any reduce op among the 'root_ops', follow the schedule of it;
   //    or else, follow the schedule of kLoop.
@@ -3489,7 +3486,7 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
 
     case FusionType::kLoop: {
       const int vector_size = getVectorizeOrTileHint(dominant_op);
-      if (mem_intensive_opt_experimental) {
+      if (isMemIntensiveOptExperimentalEnabled()) {
         if (failed(lowerWithScheduleLoopV2(root_ops, dominant_op, fused_block,
                                            shape_analysis, vector_size))) {
           return dominant_op->emitError() << "failed to lower to loops";
@@ -3508,7 +3505,7 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
       const int tile_size = getVectorizeOrTileHint(dominant_op);
       const int row_reduction_schedule =
           getRowReductionScheduleHint(dominant_op);
-      if (mem_intensive_opt_experimental) {
+      if (isMemIntensiveOptExperimentalEnabled()) {
         if (failed(lowerWithScheduleStitchV2(
                 fusion_op, fusion_pattern, shape_analysis, tile_size,
                 lower_config, row_reduction_schedule))) {

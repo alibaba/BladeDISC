@@ -21,6 +21,9 @@
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
 
 #include <numeric>
+
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "torch-mlir/Conversion/TorchToMhlo/MhloLegalizeUtils.h"
 
 namespace mlir {
@@ -55,7 +58,7 @@ Value getMhloConstTensorSingleF32(
   auto constAttr = DenseElementsAttr::get(constType, val);
 
   auto const_op =
-      rewriter.create<mhlo::ConstOp>(op->getLoc(), constType, constAttr);
+      rewriter.create<mhlo::ConstantOp>(op->getLoc(), constType, constAttr);
   return const_op.getResult();
 }
 
@@ -83,7 +86,7 @@ llvm::Optional<Value> getConstTensor(
   auto constAttr = DenseElementsAttr::get(constType, vec);
 
   auto const_op =
-      rewriter.create<mhlo::ConstOp>(op->getLoc(), constType, constAttr);
+      rewriter.create<mhlo::ConstantOp>(op->getLoc(), constType, constAttr);
   return const_op.getResult();
 }
 
@@ -109,7 +112,7 @@ llvm::Optional<Value> getConstTensor<APInt>(
   auto constAttr = DenseElementsAttr::get(constType, vec);
 
   auto const_op =
-      rewriter.create<mhlo::ConstOp>(op->getLoc(), constType, constAttr);
+      rewriter.create<mhlo::ConstantOp>(op->getLoc(), constType, constAttr);
   return const_op.getResult();
 }
 
@@ -134,7 +137,7 @@ llvm::Optional<Value> getConstTensor<float>(
   auto constAttr = DenseElementsAttr::get(constType, vec);
 
   auto const_op =
-      rewriter.create<mhlo::ConstOp>(op->getLoc(), constType, constAttr);
+      rewriter.create<mhlo::ConstantOp>(op->getLoc(), constType, constAttr);
   return const_op.getResult();
 }
 

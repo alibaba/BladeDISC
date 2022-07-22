@@ -13,7 +13,7 @@
 #define DISC_TRANSFORMS_INPUT_INLINE_FUSION_PATTERN_H_
 
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
-#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/SCF/Utils/Utils.h"
 #include "mlir/IR/Dominance.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
@@ -86,7 +86,7 @@ class InputInlineFusionPattern : public RewritePattern {
     }
     // skip if not the most outter ParallelOp
     auto fusion = cast<lmhlo::FusionOp>(op);
-    auto& parent_block = fusion.region().front();
+    auto& parent_block = fusion.getRegion().front();
     DominanceInfo dominance_info(op);
 
     SmallVector<scf::ParallelOp, 2> innermostPloops;

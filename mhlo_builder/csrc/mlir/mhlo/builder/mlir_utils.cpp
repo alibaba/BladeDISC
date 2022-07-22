@@ -12,6 +12,7 @@
 #include "mlir/mhlo/builder/mlir_utils.h"
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/mhlo/builder/constant.h"
 #include "mlir/mhlo/builder/standard.h"
@@ -126,7 +127,7 @@ mlir::Value BuildHloMinValueForType(mlir::OpBuilder& builder,
   } else {
     MHLO_CHECK(false, toString(elem_type), " unsupported");
   }
-  return builder.create<mlir::mhlo::ConstOp>(loc, attr);
+  return builder.create<mlir::mhlo::ConstantOp>(loc, attr);
 }
 
 // Returns maximal value for the given int or float element type.
@@ -152,7 +153,7 @@ mlir::Value BuildHloMaxValueForType(mlir::OpBuilder& builder,
   } else {
     MHLO_CHECK(false, toString(elem_type), " unsupported");
   }
-  return builder.create<mlir::mhlo::ConstOp>(loc, attr);
+  return builder.create<mlir::mhlo::ConstantOp>(loc, attr);
 }
 
 // Returns int or float DenseElementsAttr of const 0
@@ -171,7 +172,7 @@ mlir::Value BuildHloConstOneForType(mlir::OpBuilder& builder,
     MHLO_CHECK(false, "only mlir::FloatType and mlir::IntType are supported");
   }
 
-  return builder.create<mlir::mhlo::ConstOp>(loc, const_attr);
+  return builder.create<mlir::mhlo::ConstantOp>(loc, const_attr);
 }
 
 // Returns int or float DenseElementsAttr of const 0
@@ -190,7 +191,7 @@ mlir::Value BuildHloConstZeroForType(mlir::OpBuilder& builder,
     MHLO_CHECK(false, "only mlir::FloatType and mlir::IntType are supported");
   }
 
-  return builder.create<mlir::mhlo::ConstOp>(loc, const_attr);
+  return builder.create<mlir::mhlo::ConstantOp>(loc, const_attr);
 }
 
 mlir::Value BuildExtractVectorElement(mlir::OpBuilder& builder,
@@ -218,7 +219,7 @@ mlir::Value BuildHloConstForFloatType(mlir::OpBuilder& builder,
   } else {
     MHLO_CHECK(false, "only mlir::FloatType is supported");
   }
-  return builder.create<mlir::mhlo::ConstOp>(loc, const_attr);
+  return builder.create<mlir::mhlo::ConstantOp>(loc, const_attr);
 }
 
 mlir::Value BuildResolveUnknownDimSizeI32(mlir::OpBuilder& builder,

@@ -41,7 +41,7 @@ class DiscFuseSplatConstPass
 
  private:
   void processSplatConst(
-      lmhlo::ConstOp constant,
+      lmhlo::ConstantOp constant,
       DenseMap<lmhlo::FusionOp, SmallVector<Operation*, 4>> users);
 };
 
@@ -52,15 +52,15 @@ void DiscFuseSplatConstPass::runOnOperation() {
   func::FuncOp func = getOperation();
   auto* context = &this->getContext();
 
-  SmallVector<lmhlo::ConstOp, 4> worklist;
-  func.walk([&](lmhlo::ConstOp constant) {
-    if (constant.value().isSplat() &&
+  SmallVector<lmhlo::ConstantOp, 4> worklist;
+  func.walk([&](lmhlo::ConstantOp constant) {
+    if (constant.getValue().isSplat() &&
         (constant->getParentOfType<lmhlo::FusionOp>() == nullptr)) {
       worklist.push_back(constant);
     }
   });
   for (auto constant : worklist) {
-    Value memref = constant.output();
+    Value memref = constant.getOutput();
     DenseMap<lmhlo::FusionOp, SmallVector<Operation*, 4>> users;
     // TODO: Support patterns like const -> memref.cast -> lmhlo.xxxop
     for (Operation* user : memref.getUsers()) {
@@ -79,25 +79,26 @@ void DiscFuseSplatConstPass::runOnOperation() {
 }
 
 void DiscFuseSplatConstPass::processSplatConst(
-    lmhlo::ConstOp constant,
+    lmhlo::ConstantOp constant,
     DenseMap<lmhlo::FusionOp, SmallVector<Operation*, 4>> users) {
   for (auto user_item : users) {
     auto orig_alloc =
-        dyn_cast<memref::AllocOp>(constant.output().getDefiningOp());
+        dyn_cast<memref::AllocOp>(constant.getOutput().getDefiningOp());
     if (orig_alloc == nullptr) continue;
     OpBuilder builder(orig_alloc);
     auto new_alloc = builder.clone(*orig_alloc.getOperation());
     Value memref = new_alloc->getResult(0);
-    builder.setInsertionPointToStart(&user_item.first.region().front());
-    builder.create<lmhlo::ConstOp>(constant.getLoc(), constant.value(), memref);
+    builder.setInsertionPointToStart(&user_item.first.getRegion().front());
+    builder.create<lmhlo::ConstantOp>(constant.getLoc(), constant.getValue(),
+                                      memref);
     for (Operation* user : user_item.second) {
-      user->replaceUsesOfWith(constant.output(), memref);
+      user->replaceUsesOfWith(constant.getOutput(), memref);
     }
   }
 
   // Erase the original lmhlo.ConstOp if it has no other users
   bool should_erase = true;
-  for (Operation* user : constant.output().getUsers()) {
+  for (Operation* user : constant.getOutput().getUsers()) {
     if (user == constant.getOperation()) continue;
     should_erase = false;
     break;

@@ -77,7 +77,7 @@ def LHLO_CustomCallOp : LHLODISC_Op<"custom_call", [AttrSizedOperandSegments]> {
     StrAttr:$call_target_name,
     DefaultValuedAttr<BoolAttr, "false">:$has_side_effect,
     DefaultValuedAttr<AnyAttr, "{}">:$backend_config,
-    OptionalAttr<CustomCallTargetArgMapping>:$target_arg_mapping
+    OptionalAttr<CustomCallTargetArgMappingAttr>:$target_arg_mapping
   );
   let hasVerifier = 1;
 }

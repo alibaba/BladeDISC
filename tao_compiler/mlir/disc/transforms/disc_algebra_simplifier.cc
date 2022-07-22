@@ -115,7 +115,7 @@ struct ExpandPowOp : public OpRewritePattern<mhlo::PowOp> {
     return success();
   }
 
-  LogicalResult extractMultiplerFromConst(mhlo::ConstOp constOp,
+  LogicalResult extractMultiplerFromConst(mhlo::ConstantOp constOp,
                                           int64_t& exponential) const {
     if (!constOp) return failure();
 
@@ -152,7 +152,7 @@ struct ExpandPowOp : public OpRewritePattern<mhlo::PowOp> {
     Operation* rhsDefiningOp = op.rhs().getDefiningOp();
     if (!rhsDefiningOp) return failure();
 
-    if (auto constOp = dyn_cast<mhlo::ConstOp>(rhsDefiningOp)) {
+    if (auto constOp = dyn_cast<mhlo::ConstantOp>(rhsDefiningOp)) {
       return extractMultiplerFromConst(constOp, exponential);
     }
 
@@ -161,7 +161,7 @@ struct ExpandPowOp : public OpRewritePattern<mhlo::PowOp> {
              mhlo::BroadcastOp>(rhsDefiningOp)) {
       return failure();
     }
-    auto constOp = dyn_cast_or_null<mhlo::ConstOp>(
+    auto constOp = dyn_cast_or_null<mhlo::ConstantOp>(
         rhsDefiningOp->getOperand(0).getDefiningOp());
     return extractMultiplerFromConst(constOp, exponential);
   }

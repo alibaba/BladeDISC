@@ -19,20 +19,20 @@ limitations under the License.
 // clang-format off
 
 // Unary Elementwise Ops
-lmhlo::AbsOp, lmhlo::CeilOp, lmhlo::FloorOp, lmhlo::ConvertOp, lmhlo::CosOp,
+lmhlo::AbsOp, lmhlo::CeilOp, lmhlo::FloorOp, lmhlo::ConvertOp, lmhlo::CosineOp,
 lmhlo::ExpOp, lmhlo::LogOp, lmhlo::NegOp, lmhlo::RsqrtOp, lmhlo::SqrtOp,
 lmhlo::SignOp, lmhlo::TanhOp, lmhlo::LogisticOp, lmhlo::Log1pOp,
 
 // Binary Elementwise Ops
 lmhlo::AddOp, lmhlo::DivOp, lmhlo::MaxOp, lmhlo::MinOp, lmhlo::MulOp,
-lmhlo::RemOp, lmhlo::SubOp, lmhlo::AndOp, lmhlo::OrOp, lmhlo::CompareOp,
+lmhlo::RemOp, lmhlo::SubtractOp, lmhlo::AndOp, lmhlo::OrOp, lmhlo::CompareOp,
 lmhlo::PowOp,
 
 // Ternary Elementwise Ops
 lmhlo::SelectOp,
 
 // Other Ops
-lmhlo::ConstOp,
+lmhlo::ConstantOp,
 lmhlo::RealDynamicSliceOp,
 lmhlo::DynamicBroadcastInDimOp,
 lmhlo::BroadcastInDimOp

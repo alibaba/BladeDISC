@@ -212,8 +212,8 @@ struct DiscAssignMemorySpacePass
 // some limitations. One major problem is that we suppose that large const will
 // not be shared by lmhlo consumers placed on different devices.
 LogicalResult DiscAssignMemorySpacePass::cloneSmallLmhloConstOps(ModuleOp m) {
-  SmallVector<lmhlo::ConstOp> constOps;
-  m.walk([&](lmhlo::ConstOp constOp) {
+  SmallVector<lmhlo::ConstantOp> constOps;
+  m.walk([&](lmhlo::ConstantOp constOp) {
     Value out = constOp->getOperand(0);
     if (constOp->getParentOfType<lmhlo::ReduceOp>() ||
         constOp->getParentOfType<lmhlo::FusionOp>()) {
@@ -224,7 +224,7 @@ LogicalResult DiscAssignMemorySpacePass::cloneSmallLmhloConstOps(ModuleOp m) {
     }
   });
 
-  for (lmhlo::ConstOp constOp : constOps) {
+  for (lmhlo::ConstantOp constOp : constOps) {
     // Use set vector to make sure having deterministic iteration order.
     SetVector<Operation*> lmhloUsers;
     Value out = constOp->getOperand(0);

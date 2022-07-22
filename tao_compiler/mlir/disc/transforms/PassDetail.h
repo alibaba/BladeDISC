@@ -16,7 +16,7 @@ limitations under the License.
 #ifndef DISC_TRANSFORMS_PASSDETAIL_H_
 #define DISC_TRANSFORMS_PASSDETAIL_H_
 
-#include "mlir/Dialect/GPU/Passes.h"
+#include "mlir/Dialect/GPU/Transforms/Passes.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Pass/Pass.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"

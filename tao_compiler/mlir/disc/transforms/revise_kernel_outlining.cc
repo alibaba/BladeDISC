@@ -23,8 +23,9 @@
 
 #include <map>
 
-#include "mlir/Dialect/GPU/GPUDialect.h"
-#include "mlir/Dialect/GPU/Utils.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
+#include "mlir/Dialect/GPU/Transforms/Utils.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/Builders.h"
@@ -297,7 +298,7 @@ gpu::LaunchFuncOp expandMemRef(gpu::LaunchFuncOp launch_func_op, Value memref,
 
   SmallVector<Type, 4> gpu_func_op_operand_types;
   auto memref_idx = getFirstOperandIndex(launch_func_op.getOperation(), memref);
-  memref_idx = memref_idx - gpu::LaunchFuncOp::kNumConfigOperands;
+  memref_idx = memref_idx - gpu::LaunchOp::kNumConfigOperands;
   SmallVector<Value, 4> new_operands;
   for (int i = 0; i < launch_func_op.getNumKernelOperands(); ++i) {
     if (i != memref_idx) {
@@ -393,11 +394,11 @@ class ReviseGpuKernelOutliningPass
       assert(gpu_func_op && "gpu_func_op is empty");
       for (auto memref : llvm::enumerate(launch_func_op.getOperands())) {
         // the associate arg in gpu.FuncOp
-        if (memref.index() < gpu::LaunchFuncOp::kNumConfigOperands) {
+        if (memref.index() < gpu::LaunchOp::kNumConfigOperands) {
           continue;
         }
         auto arg_memref = gpu_func_op.body().front().getArgument(
-            memref.index() - gpu::LaunchFuncOp::kNumConfigOperands);
+            memref.index() - gpu::LaunchOp::kNumConfigOperands);
         if (arg_memref.getType().isa<MemRefType>() &&
             (!placement_utils::isGpuMemRef(arg_memref))) {
           auto memref_type = memref.value().getType().cast<MemRefType>();

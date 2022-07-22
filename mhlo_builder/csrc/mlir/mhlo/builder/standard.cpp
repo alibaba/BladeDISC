@@ -12,6 +12,7 @@
 #include "mlir/mhlo/builder/standard.h"
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/mhlo/builder/mlir_shape_builder.h"
 #include "mlir/mhlo/builder/mlir_type_utils.h"
@@ -178,7 +179,7 @@ llvm::Optional<mlir::Value> BuildCastStdConstScalarToHloConstTensor(
   const mlir::Attribute& val_attr = def.getValue();
   auto scalar_ty = mlir::RankedTensorType::get({}, val_attr.getType());
   auto const_attr = mlir::DenseElementsAttr::get(scalar_ty, val_attr);
-  auto result = builder.create<mlir::mhlo::ConstOp>(loc, const_attr);
+  auto result = builder.create<mlir::mhlo::ConstantOp>(loc, const_attr);
   return result.getResult();
 }
 

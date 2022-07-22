@@ -20,6 +20,7 @@ limitations under the License.
 // input tensor such that we can pass it to cuDNN.
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
 #include "mlir/IR/Attributes.h"             // TF:llvm-project
 #include "mlir/IR/Builders.h"               // TF:llvm-project
@@ -154,7 +155,7 @@ struct DiscGpuConvPaddingLegalizationPass
     padded_input_shape[dimension_numbers.getInputFeatureDimension()] =
         input_tp.getShape()[dimension_numbers.getInputFeatureDimension()];
 
-    Value padding_value_tensor = b.create<mhlo::ConstOp>(
+    Value padding_value_tensor = b.create<mhlo::ConstantOp>(
         loc, disc_ral::GetScalarOfType(input_tp.getElementType(), 0));
     auto padded_input_tp =
         RankedTensorType::get(padded_input_shape, input_tp.getElementType());

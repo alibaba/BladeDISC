@@ -61,7 +61,7 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
     ShapeAnalysis& shapeAnalysis, DenseMap<Value, TileInfo>& tile_plan,
     Operation* op, SmallVector<std::pair<Value, TileInfo>, 4>& in_info,
     bool& cover) {
-  if (isa<lmhlo::ConstOp>(op)) {
+  if (isa<lmhlo::ConstantOp>(op)) {
     return true;
   }
   if (isElementWise(op) || isa<lmhlo::ConcatenateOp>(op)) {
@@ -228,8 +228,8 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
     }
   } else if (isa<lmhlo::TransposeOp>(op)) {
     auto transpose = cast<lmhlo::TransposeOp>(op);
-    auto permutation = transpose.permutation().getValues<int64_t>();
-    Value out_value = transpose.output();
+    auto permutation = transpose.getPermutation().getValues<int64_t>();
+    Value out_value = transpose.getOutput();
     auto tile_info = tile_plan[out_value];
     int64_t rank = out_value.getType().cast<MemRefType>().getRank();
     TileInfo in_tile;
@@ -238,7 +238,7 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
         in_tile.tileSizes[permutation[i]] = tile_info.tileSizes[i];
       }
     }
-    Value in_value = transpose.operand();
+    Value in_value = transpose.getOperand();
     in_info.emplace_back(in_value, in_tile);
   } else if (isa<lmhlo::DynamicGatherOp, lmhlo::GatherOp>(op)) {
     Value in_value = op->getOperand(0);
@@ -248,7 +248,7 @@ bool StitchGpuFusionStrategy::tileCoverInfoPropagateO2I(
     auto gather = dyn_cast<lmhlo::GatherOp>(op);
     auto d_gather = dyn_cast<lmhlo::DynamicGatherOp>(op);
     auto dimension_numbers =
-        gather ? gather.dimension_numbers() : d_gather.dimension_numbers();
+        gather ? gather.getDimensionNumbers() : d_gather.getDimensionNumbers();
 
     SmallVector<std::pair<SmallVector<int64_t>, SmallVector<int64_t>>> dim_eq;
     // Non-collapsed dims.
@@ -485,7 +485,7 @@ bool StitchGpuFusionStrategy::tileXroots(ShapeAnalysis& shapeAnalysis,
     // Tile input dimentions for input.
     auto& in = tile_plan[op->getOperand(0)];
     auto reduce = cast<lmhlo::ReduceOp>(op);
-    auto dimensions = reduce.dimensions().getValues<int64_t>();
+    auto dimensions = reduce.getDimensions().getValues<int64_t>();
     for (auto& en : llvm::enumerate(dimensions)) {
       in.tileSizes[en.value()] = ShapedType::kDynamicSize;
     }

@@ -3,8 +3,8 @@
 
 
 gpu.module @kernel_module {
-  // CHECK-LABEL: @simple_loop
-  gpu.func @simple_loop(%arg0 : index, %arg1 : index, %arg2 : index, %arg3 : memref<1xi32>) -> i32 {
+  // CHECK-LABEL: @load_in_loop
+  gpu.func @load_in_loop(%arg0 : index, %arg1 : index, %arg2 : index, %arg3 : memref<1xi32>) -> i32 {
     // CHECK: memref.load
     // CHECK: scf.for
     // CHECK-NOT: memref.load

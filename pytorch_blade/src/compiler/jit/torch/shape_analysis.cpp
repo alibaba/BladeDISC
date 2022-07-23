@@ -1482,6 +1482,27 @@ class ShapePropagator : public PropertyPropBase {
 
     // Requirements:
     //   dims           : preserved
+    //   scalar type    : half to float if specified, otherwise preserved
+    //   device         : preserved
+    //   tensor inputs  : 1
+    static const register_formula_for register__softmax_backward{
+        {"aten::_softmax_backward_data(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype) -> Tensor"},
+        [](Node* node) -> type_vec_t {
+          if (auto type = node->input(0)->type()->cast<TensorType>()) {
+            auto scalar_type = type->scalarType();
+            auto input_dtype = node->get(attr::input_dtype)->toScalarType();
+            auto half_to_float = scalar_type != input_dtype;
+            if (half_to_float && scalar_type == at::kFloat &&
+                input_dtype == at::kHalf) {
+              return {type->withScalarType(at::kHalf)};
+            }
+            return {type};
+          }
+          return {};
+        }};
+
+    // Requirements:
+    //   dims           : preserved
     //   scalar type    : dtype if specified, otherwise preserved
     //   device         : preserved
     //   tensor inputs  : 1
@@ -1825,7 +1846,6 @@ class ShapePropagator : public PropertyPropBase {
       auto maybe_num_weights = node->get<int>(attr::num_weights);
       if (grad_output_type && maybe_num_weights &&
           grad_output_type->sizes().size()) {
-        auto idx = *grad_output_type->sizes().size() - 1;
         // TODO(yancey.yx): sizes = {num_weights, grad_output.size(-1)}
         // ref:
         // aten/src/ATen/native/Embedding.cpp::embedding_dense_backward_cpu.

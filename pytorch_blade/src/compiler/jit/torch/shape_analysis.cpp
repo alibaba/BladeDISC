@@ -1485,6 +1485,7 @@ class ShapePropagator : public PropertyPropBase {
     //   scalar type    : half to float if specified, otherwise preserved
     //   device         : preserved
     //   tensor inputs  : 1
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
     static const register_formula_for register__softmax_backward{
         {"aten::_softmax_backward_data(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype) -> Tensor"},
         [](Node* node) -> type_vec_t {
@@ -1500,6 +1501,7 @@ class ShapePropagator : public PropertyPropBase {
           }
           return {};
         }};
+#endif
 
     // Requirements:
     //   dims           : preserved

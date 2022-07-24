@@ -47,8 +47,6 @@ void remove_placeholder(Module& model) {
   for (auto n : g->nodes()) {
     if (n->kind().toQualString() ==
         std::string(torch::blade::quantization::custom_placeholder_name)) {
-      std::cout << "remove placeholder node: " << n->kind().toQualString()
-                << std::endl;
       n->outputs()[0]->replaceAllUsesWith(n->inputs()[0]);
       n->removeAllInputs();
       place_holder_nodes.push_back(n);

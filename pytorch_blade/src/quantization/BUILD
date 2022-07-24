@@ -37,8 +37,3 @@ filegroup(
         "pybind_functions.h",
     ]
 )
-
-#exports_files([
-#    "pybind_functions.h",
-#    "pybind_functions.cpp",
-#])

@@ -3,20 +3,34 @@
 
 
 gpu.module @kernel_module {
-  // CHECK-LABEL: @load_in_loop
-  gpu.func @load_in_loop(%arg0 : index, %arg1 : index, %arg2 : index, %arg3 : memref<1xi32>) -> i32 {
+  // CHECK-LABEL: @independent_load_in_loop
+  gpu.func @independent_load_in_loop(%arg0 : index, %arg1 : index, %arg2 : index, %arg3 : memref<1xindex>) -> index {
     // CHECK: memref.load
     // CHECK: scf.for
     // CHECK-NOT: memref.load
 
-    %s0 = arith.constant 0 : i32
     %c0 = arith.constant 0 : index
-    %result = scf.for %i0 = %arg0 to %arg1 step %arg2 iter_args(%si = %s0) -> (i32) {
-      %sn = arith.addi %si, %si : i32
-      %ld = memref.load %arg3[%c0] : memref<1xi32>
-      %res = arith.addi %si, %ld : i32
-      scf.yield %res : i32
+    %result = scf.for %i0 = %arg0 to %arg1 step %arg2 iter_args(%si = %c0) -> (index) {
+      %sn = arith.addi %si, %si : index
+      %ld = memref.load %arg3[%c0] : memref<1xindex>
+      %res = arith.addi %si, %ld : index
+      scf.yield %res : index
     }
-    gpu.return %result : i32
+    gpu.return %result : index
+  }
+
+  // CHECK-LABEL: @dependent_load_in_loop
+  gpu.func @dependent_load_in_loop(%arg0 : index, %arg1 : index, %arg2 : index, %arg3 : memref<1xindex>) -> index {
+    // CHECK: scf.for
+    // CHECK: memref.load
+
+    %c0 = arith.constant 0 : index
+    %result = scf.for %i0 = %arg0 to %arg1 step %arg2 iter_args(%si = %c0) -> (index) {
+      %sn = arith.addi %si, %si : index
+      %ld = memref.load %arg3[%i0] : memref<1xindex>
+      %res = arith.addi %si, %ld : index
+      scf.yield %res : index
+    }
+    gpu.return %result : index
   }
 }

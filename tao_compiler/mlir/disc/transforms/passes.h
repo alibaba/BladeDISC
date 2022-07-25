@@ -222,11 +222,17 @@ std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscDuplicateComputationForFusionPass(
     bool gpu_enabled = true, const std::string& fusion_strategy = "base");
 
+// Eliminate unused InsertValueOp inside LLVMFuncOp.
 std::unique_ptr<OperationPass<LLVM::LLVMFuncOp>>
 createLLVMInsertValueSimplifierPass();
 
+// Eliminate dead arguments of GPU LLVM functions.
 std::unique_ptr<OperationPass<gpu::GPUModuleOp>>
 createFunctionDeadArgumentEliminationPass();
+
+// Apply loop invariant code motion on operators with side effect.
+std::unique_ptr<OperationPass<gpu::GPUFuncOp>>
+createSideEffectLoopInvariantCodeMotionPass();
 
 }  // namespace disc_ral
 }  // namespace mlir

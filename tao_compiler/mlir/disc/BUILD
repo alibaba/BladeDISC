@@ -1264,6 +1264,26 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_side_effect_loop_invariant_code_motion",
+    srcs = ["transforms/disc_side_effect_loop_invariant_code_motion.cc"],
+    includes = [
+        "tensorflow/compiler/mlir/hlo/include",
+        "."
+    ],
+    deps = [
+        ":lmhlo_disc",
+        ":pass_details",
+        "@llvm-project//mlir:GPUDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_to_llvm_common",
     srcs = ["transforms/disc_to_llvm_common.cc"],
     includes = ["transforms/disc_to_llvm_common.h"],
@@ -1791,6 +1811,7 @@ cc_library(
         ":disc_lower_gpu_ops_to_rocdl_ops",
         ":disc_llvm_insert_value_simplifier",
         ":disc_function_dead_argument_elimination",
+        ":disc_side_effect_loop_invariant_code_motion",
         ":disc_unhandled_atomic_rmw_converter",
         "@llvm-project//mlir:Pass",
     ],

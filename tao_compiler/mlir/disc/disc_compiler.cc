@@ -501,6 +501,11 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
       // be bug-free. We will enable it by default after evaluation on more
       // benchmarks.
       kernelPm.addPass(createLoopInvariantCodeMotionPass());
+      kernelPm.addNestedPass<gpu::GPUFuncOp>(
+          createSideEffectLoopInvariantCodeMotionPass());
+      // Do LICM again after the above side-affect-LICM to enable more
+      // optimizations.
+      kernelPm.addPass(createLoopInvariantCodeMotionPass());
       kernelPm.addPass(createCSEPass());
     }
     kernelPm.addPass(createConvertSCFToCFPass());

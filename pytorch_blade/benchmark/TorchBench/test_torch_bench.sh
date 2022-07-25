@@ -29,7 +29,7 @@ pushd $script_dir # pytorch_blade/benchmark/TorchBench
 ln -s $benchmark_repo_dir torchbenchmark
 
 # torchscript/torchdynamo frontend and disc backend
-TORCHBENCH_TOL=1e-2 python3 torchbenchmark/.github/scripts/run-config.py -c blade_bench.yaml -b ./torchbenchmark/ --output-dir .
+TORCHBENCH_ATOL=1e-2 TORCHBENCH_RTOL=1e-2 python3 torchbenchmark/.github/scripts/run-config.py -c blade_bench.yaml -b ./torchbenchmark/ --output-dir .
 # results
 cat eval-cuda-fp32/summary.csv
 popd

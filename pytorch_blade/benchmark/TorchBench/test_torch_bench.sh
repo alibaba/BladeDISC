@@ -12,9 +12,9 @@
 # !/bin/bash
 # install dependencies
 python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
-python3 -m pip install -q librosa torchvision torchaudio torchtext torchdynamo pycocotools==2.0.3 --extra-index-url  https://download.pytorch.org/whl/torch_stable.html
-
 script_dir=$(cd $(dirname "$0"); pwd)
+python3 -m pip install -q -r $script_dir/requirements.txt
+
 # setup for torchbenchmark
 benchmark_repo_dir=$HOME/.cache/torchbenchmark
 if [ -d $benchmark_repo_dir ]; then

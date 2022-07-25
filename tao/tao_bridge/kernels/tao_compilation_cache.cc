@@ -318,7 +318,7 @@ Status GetDeviceId(OpKernelContext* ctx, int* device_id) {
 
 using ItemSignature = TaoCompilationCache::Signature;
 
-// A class used to load/store compliatoin cache on disc.
+// A class used to load/store compliatoin cache on disk.
 // Note that:
 // 1, we suppose the clustering result is stable across different process.
 // The above assumption may not always hold. Thus be careful when using this
@@ -342,6 +342,9 @@ class PersistentCompliationCache {
     }
   }
 
+  PersistentCompliationCache(const PersistentCompliationCache&) = delete;
+  void operator=(const PersistentCompliationCache&) = delete;
+
   // Returns the name of file used to store `CompilationCacheResult`.
   static string getCacheTableFileName() { return "disc_cache"; }
 
@@ -353,7 +356,7 @@ class PersistentCompliationCache {
   // Returns the singleton
   static PersistentCompliationCache& Global() {
     static PersistentCompliationCache cache(
-        GetTaoBridgeOptions()->disc_cache_dump_path);
+        GetTaoBridgeOptions()->disc_cache_path);
     return cache;
   }
 
@@ -407,7 +410,7 @@ class PersistentCompliationCache {
     std::string path;
     do {
       path =
-          absl::StrCat(cache_dump_path_, "/", "disc_cache_item_", nextIdx_++);
+          absl::StrCat(cache_dump_path_, "/", "disc_cache_item_", next_idx_++);
     } while (tensorflow::Env::Default()->FileExists(path).ok());
     return path;
   }
@@ -423,7 +426,7 @@ class PersistentCompliationCache {
       std::unordered_map<ItemSignature, string, ItemSignature::Hash>;
   // target device str -> device level cache.
   std::unordered_map<std::string, DeviceLevelCache> cache_;
-  std::atomic<uint64_t> nextIdx_;
+  std::atomic<uint64_t> next_idx_;
   bool is_cache_dirty_ = false;
 };
 
@@ -555,7 +558,7 @@ TaoCompilationCache::TaoCompilationCache(bool async_compilation)
     : async_compilation_(async_compilation) {
   auto* opts = GetTaoBridgeOptions();
   tao_compiler_path_ = opts->tao_compiler_path;
-  disc_cache_dump_path_ = opts->disc_cache_dump_path;
+  disc_cache_path_ = opts->disc_cache_path;
   profile_guide_mode_ = opts->profiling_guided_compilation_mode;
   // Dumper Options
   auto* dumper_opts = GetTaoDumperOptions();
@@ -571,12 +574,12 @@ TaoCompilationCache::TaoCompilationCache(bool async_compilation)
 
   LOG(INFO) << "TaoCompilationCache initiate: ";
   LOG(INFO) << "    tao compiler path: " << tao_compiler_path_;
-  LOG(INFO) << "      cache dump path: " << disc_cache_dump_path_;
+  LOG(INFO) << "      disk cache path: " << disc_cache_path_;
   LOG(INFO) << "     remove tmp files: " << remove_after_compile_;
   LOG(INFO) << "    async compilation: " << async_compilation_;
   LOG(INFO) << "    profiling guide compilation: " << profile_guide_mode_;
 
-  if (!disc_cache_dump_path_.empty()) {
+  if (!disc_cache_path_.empty()) {
     if (async_compilation_) {
       auto status = errors::Internal(
           "dump compilation cache is not supported currently when async "
@@ -594,7 +597,7 @@ TaoCompilationCache::~TaoCompilationCache() {
     AsyncCompilationMgr::Global().NotifyAndWaitToStop();
   }
 
-  if (!disc_cache_dump_path_.empty()) {
+  if (!disc_cache_path_.empty()) {
     Status s = DumpToFile();
     if (!s.ok()) {
       LOG(ERROR) << "Error when dumping compilation: " << s.error_message();
@@ -1251,7 +1254,7 @@ Status TaoCompilationCache::CompileImpl(
 
     bool hit_cache = false;
     std::string output_file_name;
-    if (!disc_cache_dump_path_.empty()) {
+    if (!disc_cache_path_.empty()) {
       auto& disc_cache = PersistentCompliationCache::Global();
       hit_cache = disc_cache.find(input.options().device_type(), signature,
                                   output_file_name);
@@ -1299,7 +1302,7 @@ Status TaoCompilationCache::CompileImpl(
                               input.options().device_type());
     }
     entry->compilation_status = entry->executable->Init();
-    if (!disc_cache_dump_path_.empty() && !hit_cache) {
+    if (!disc_cache_path_.empty() && !hit_cache) {
       auto& disc_cache = PersistentCompliationCache::Global();
       auto filename = disc_cache.getNextUniqueNameOfCompiledResultProto();
       // Create a new copy in case the compiled result is temporary file.

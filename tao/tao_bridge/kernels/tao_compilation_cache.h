@@ -149,7 +149,7 @@ class TaoCompilationCache : public ResourceBase {
   // TODO: DEBUG ONLY
   bool remove_after_compile_ = false;
 
-  std::string disc_cache_dump_path_;
+  std::string disc_cache_path_;
 
   std::atomic<bool> stop_{false};
   TaoProfileStat tao_profile_stat_;

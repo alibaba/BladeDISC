@@ -17,7 +17,11 @@ namespace torch {
 namespace blade {
 namespace quantization {
 
-torch::Tensor placeholder(torch::Tensor& input) {
+// The type of input cannot be a reference. Because in lower
+// torch version, it will not automatically generate a function
+// whose input is a reference, which will lead to a "no match"
+// compilation error.
+torch::Tensor placeholder(torch::Tensor input) {
   return input;
 }
 

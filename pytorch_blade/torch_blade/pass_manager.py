@@ -306,6 +306,11 @@ def _jit_pass_quantization_preprocess(c_module):
     cfg = Config.get_current_context_or_new()
     is_enabled_quantization = cfg.enable_int8
     if is_enabled_quantization:
+        # Add placeholder for each fake quant of weight.
+        # Or it will be folded by _jit_pass_constant_propagation.
+        # TODO: remove this when fake_quant is added to the skip_list
+        # of _jit_pass_constant_propagation.
+        # https://github.com/pytorch/pytorch/issues/81460
         _quantization.add_placeholder_for_fake_quant(c_module)
 
 

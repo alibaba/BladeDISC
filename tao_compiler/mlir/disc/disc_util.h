@@ -107,6 +107,11 @@ SmallVector<Operation*, 4> getValueUsers(Value v);
 // Returns true if the underlying buffer of this memref is a const buffer.
 bool isConstantMemRef(Value value);
 
+DenseFPElementsAttr GetF32ElementsAttr(Attribute attr, Builder* builder);
+
+DenseIntElementsAttr GetI64ElementsAttrForSeq(int start, int end,
+                                              Builder* builder);
+
 }  // namespace disc_ral
 }  // namespace mlir
 

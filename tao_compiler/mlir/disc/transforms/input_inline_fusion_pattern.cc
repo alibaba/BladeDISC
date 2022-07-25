@@ -175,7 +175,7 @@ LogicalResult InputInlineFusionPattern::processParallelOp(
     // Clean all the ops that do not have LoadOps inside the nested
     // ParallelOps and is not the ancestor of any ops that have LoadOps
     // inside the nested ParallelOps.
-    cleanUnusedLhloOps(parent_block);
+    cleanUnusedLhloOps(parent_block, &rewriter);
     return success();
   }
   return failure();

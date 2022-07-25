@@ -62,7 +62,11 @@ namespace disc_ral {
 
 DenseSet<Operation*> NoLoaderUser(SmallVectorImpl<Operation*>& ops);
 
-void cleanUnusedLhloOps(Block* parent);
+// If `rewriter` is not null, try to erase the unused ops through it.
+// Otherwise remove the unused ops directly.
+// Note that if we are inside a rewriter pattern, we have to set the `rewriter`
+// in order to notify the listeners of the rewriter.
+void cleanUnusedLhloOps(Block* parent, PatternRewriter* rewriter = nullptr);
 
 // returns the users of the `memref`. The users should be in the same fusion
 // like `op`.

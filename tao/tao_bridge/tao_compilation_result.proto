@@ -586,7 +586,9 @@ message EntrySignature {
 
   repeated TypeShapePair arg_types = 3;
 
-  repeated bytes arg_values = 4;
+  repeated int32 host_args = 4;
+
+  repeated bytes arg_values = 5;
 }
 
 message CompilationCacheEntry {

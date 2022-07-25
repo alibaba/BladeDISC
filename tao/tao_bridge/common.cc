@@ -45,8 +45,8 @@ static void AllocateTaoBridgeFlags() {
                               &opts->verbose_compilation_err_log));
   CHECK_OK(ReadBoolFromEnvVar("TAO_ENFORCE_VERBOSE_COMPILATION_LOG", false,
                               &opts->verbose_compilation_log));
-  CHECK_OK(ReadStringFromEnvVar("TAO_CACHE_DUMP_PATH", "",
-                                &opts->tao_cache_dump_path));
+  CHECK_OK(ReadStringFromEnvVar("DISC_COMPILATION_CACHE_PATH", "",
+                                &opts->disc_cache_path));
   CHECK_OK(ReadBoolFromEnvVar("TAO_ENABLE_MLIR", false, &opts->enable_mlir));
 
   CHECK_OK(ReadBoolFromEnvVar("TAO_MLIR_BRANCH_ONLY", false,

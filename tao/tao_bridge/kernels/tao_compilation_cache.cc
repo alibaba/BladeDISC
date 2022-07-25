@@ -316,6 +316,224 @@ Status GetDeviceId(OpKernelContext* ctx, int* device_id) {
   return ok ? Status::OK() : errors::Internal("Could not parse device name.");
 }
 
+using ItemSignature = TaoCompilationCache::Signature;
+
+// A class used to load/store compliatoin cache on disk.
+// Note that:
+// 1, we suppose the clustering result is stable across different process.
+// The above assumption may not always hold. Thus be careful when using this
+// feature. 2, We may have multiple intances of TaoCompilationCache if we have
+// multiple sessions in the same process. However there should be only one
+// instance of PersistentCompliationCache in order to get stable result.
+class PersistentCompliationCache {
+ public:
+  // cache_dump_path: the path used to store the cache files.
+  explicit PersistentCompliationCache(const string& cache_dump_path)
+      : cache_dump_path_(cache_dump_path) {
+    auto status = LoadFromFile();
+    TF_CHECK_OK(status);
+  }
+
+  ~PersistentCompliationCache() {
+    auto status = DumpToFile();
+    if (!status.ok()) {
+      VLOG(0) << "[WARNING] fail to dump compilation cache: "
+              << status.error_message();
+    }
+  }
+
+  PersistentCompliationCache(const PersistentCompliationCache&) = delete;
+  void operator=(const PersistentCompliationCache&) = delete;
+
+  // Returns the name of file used to store `CompilationCacheResult`.
+  static string getCacheTableFileName() { return "disc_cache"; }
+
+  // Returns the path of file used to store `CompilationCacheResult`.
+  string getCacheTableFilePath() {
+    return absl::StrCat(cache_dump_path_, "/", getCacheTableFileName());
+  }
+
+  // Returns the singleton
+  static PersistentCompliationCache& Global() {
+    static PersistentCompliationCache cache(
+        GetTaoBridgeOptions()->disc_cache_path);
+    return cache;
+  }
+
+  // Saves cache table to file located at `getCacheTableFilePath`.
+  Status DumpToFile() {
+    mutex_lock lock(mu_);
+    return DumpToFileLocked();
+  }
+
+  // Loads cache table from file located at `getCacheTableFilePath`.
+  Status LoadFromFile();
+
+  // Returns true if found, otherwise return false.
+  // When found, `out_filename` will be filled with the filename of the
+  // compiled result proto corresponding to `sig`.
+  bool find(const std::string& target_device, const ItemSignature& sig,
+            std::string& out_filename) {
+    mutex_lock lock(mu_);
+    auto& device_level_cache = cache_[target_device];
+    auto it = device_level_cache.find(sig);
+    if (it != device_level_cache.end()) out_filename = it->second;
+    return it != device_level_cache.end();
+  }
+
+  // Update the value for key `sig` to `filename`. Override the value if
+  // `override` is ture. Returns true if updated.
+  bool update(const std::string& target_device, const ItemSignature& sig,
+              const std::string& filename, bool override = false,
+              bool write_through = true) {
+    mutex_lock lock(mu_);
+    auto& device_level_cache = cache_[target_device];
+    auto it = device_level_cache.emplace(sig, filename);
+    bool updated = it.second;
+    if (override && !updated) {
+      it.first->second = filename;
+      updated = true;
+    }
+    if (updated) {
+      is_cache_dirty_ = true;
+      if (write_through) {
+        TF_CHECK_OK(DumpToFileLocked());
+      }
+    }
+    return updated;
+  }
+
+  // Returns a (per-process-level) unique name used for saving compiled result
+  // proto on disc.
+  std::string getNextUniqueNameOfCompiledResultProto() {
+    mutex_lock lock(mu_);
+    std::string path;
+    do {
+      path =
+          absl::StrCat(cache_dump_path_, "/", "disc_cache_item_", next_idx_++);
+    } while (tensorflow::Env::Default()->FileExists(path).ok());
+    return path;
+  }
+
+ private:
+  // Saves cache table to file located at `getCacheTableFilePath`.
+  Status DumpToFileLocked();
+
+ private:
+  mutex mu_;
+  string cache_dump_path_;
+  using DeviceLevelCache =
+      std::unordered_map<ItemSignature, string, ItemSignature::Hash>;
+  // target device str -> device level cache.
+  std::unordered_map<std::string, DeviceLevelCache> cache_;
+  std::atomic<uint64_t> next_idx_;
+  bool is_cache_dirty_ = false;
+};
+
+Status PersistentCompliationCache::DumpToFileLocked() {
+  if (!is_cache_dirty_) return Status::OK();
+
+  VLOG(2) << "Dump compilation cache to: " << cache_dump_path_;
+  CompilationCacheResult result;
+  Status s = tensorflow::Env::Default()->RecursivelyCreateDir(cache_dump_path_);
+  if (!s.ok() && !errors::IsAlreadyExists(s)) {
+    errors::AppendToMessage(&s, "when creating directory ", cache_dump_path_);
+    return s;
+  }
+
+  for (auto& outter : cache_) {
+    auto& device = outter.first;
+    auto& device_level_cache = outter.second;
+    for (auto& inner : device_level_cache) {
+      auto& sig = inner.first;
+      auto entry = result.add_entries();
+      entry->set_filename(inner.second);
+      entry->set_target_device(device);
+      auto& sig_proto = *entry->mutable_sig();
+      *sig_proto.mutable_name() = sig.name;
+      for (size_t i = 0; i < sig.arg_ranks.size(); ++i) {
+        const auto& pair = sig.arg_ranks[i];
+        TypeRankPair* pair_proto = sig_proto.add_arg_ranks();
+        pair_proto->set_type(static_cast<int>(pair.first));
+        pair_proto->set_rank(pair.second);
+      }
+      for (size_t i = 0; i < sig.arg_types.size(); ++i) {
+        const auto& pair = sig.arg_types[i];
+        tensorflow::TensorShapeProto shape_proto;
+        pair.second.AsProto(&shape_proto);
+        TypeShapePair* pair_proto = sig_proto.add_arg_types();
+        pair_proto->set_type(static_cast<int>(pair.first));
+        shape_proto.AppendToString(pair_proto->mutable_shape());
+      }
+      for (size_t i = 0; i < sig.host_args.size(); ++i) {
+        sig_proto.add_host_args(sig.host_args[i]);
+      }
+      for (size_t i = 0; i < sig.arg_values.size(); ++i) {
+        tensorflow::TensorProto tensor_proto;
+        sig.arg_values[i].AsProtoTensorContent(&tensor_proto);
+        tensor_proto.AppendToString(sig_proto.add_arg_values());
+      }
+    }
+  }
+
+  TF_RETURN_IF_ERROR(WriteBinaryProto(tensorflow::Env::Default(),
+                                      getCacheTableFilePath(), result));
+  is_cache_dirty_ = false;
+  return Status::OK();
+}
+
+Status PersistentCompliationCache::LoadFromFile() {
+  CompilationCacheResult result;
+  // Early return if the cache file is not created before.
+  if (!tensorflow::Env::Default()->FileExists(getCacheTableFilePath()).ok()) {
+    VLOG(2) << "Skip load compilation cache due to no "
+            << getCacheTableFilePath();
+    return Status::OK();
+  }
+  if (!ReadBinaryProto(tensorflow::Env::Default(), getCacheTableFilePath(),
+                       &result)
+           .ok()) {
+    return errors::NotFound("disc compilation cache file is not found: " +
+                            getCacheTableFilePath());
+  }
+
+  for (int i = 0; i < result.entries_size(); ++i) {
+    auto& sig_proto = result.entries(i).sig();
+    ItemSignature sig;
+    sig.name = sig_proto.name();
+    for (int j = 0; j < sig_proto.arg_ranks_size(); ++j) {
+      const TypeRankPair& pair_proto = sig_proto.arg_ranks(j);
+      sig.arg_ranks.emplace_back(
+          static_cast<tensorflow::DataType>(pair_proto.type()),
+          pair_proto.rank());
+    }
+    for (int j = 0; j < sig_proto.arg_types_size(); ++j) {
+      const TypeShapePair& pair_proto = sig_proto.arg_types(j);
+      tensorflow::TensorShapeProto shape_proto;
+      shape_proto.ParseFromString(pair_proto.shape());
+      sig.arg_types.emplace_back(
+          static_cast<tensorflow::DataType>(pair_proto.type()),
+          tensorflow::TensorShape(shape_proto));
+    }
+    for (int j = 0; j < sig_proto.host_args_size(); ++j) {
+      sig.host_args.push_back(sig_proto.host_args(j));
+    }
+    for (int j = 0; j < sig_proto.arg_values_size(); ++j) {
+      tensorflow::TensorProto tensor_proto;
+      tensor_proto.ParseFromString(sig_proto.arg_values(j));
+      sig.arg_values.emplace_back();
+      TF_RET_CHECK(sig.arg_values.back().FromProto(tensor_proto));
+    }
+    VLOG(2) << "loading signature: "
+            << TaoCompilationCache::SignatureDebugString(sig);
+    cache_[result.entries(i).target_device()][sig] =
+        result.entries(i).filename();
+  }
+  LOG(INFO) << "Load compilation cache success from " << cache_dump_path_
+            << " with " << result.entries_size() << " entries.";
+  return Status::OK();
+}
+
 }  // namespace
 
 Tensor ToCpu(OpKernelContext* ctx, Tensor t, MemoryType mem_type) {
@@ -336,13 +554,11 @@ Tensor ToCpu(OpKernelContext* ctx, Tensor t, MemoryType mem_type) {
   return cpu_tensor;
 }
 
-mutex TaoCompilationCache::global_mu_;
-
 TaoCompilationCache::TaoCompilationCache(bool async_compilation)
     : async_compilation_(async_compilation) {
   auto* opts = GetTaoBridgeOptions();
   tao_compiler_path_ = opts->tao_compiler_path;
-  tao_cache_dump_path_ = opts->tao_cache_dump_path;
+  disc_cache_path_ = opts->disc_cache_path;
   profile_guide_mode_ = opts->profiling_guided_compilation_mode;
   // Dumper Options
   auto* dumper_opts = GetTaoDumperOptions();
@@ -358,20 +574,20 @@ TaoCompilationCache::TaoCompilationCache(bool async_compilation)
 
   LOG(INFO) << "TaoCompilationCache initiate: ";
   LOG(INFO) << "    tao compiler path: " << tao_compiler_path_;
-  LOG(INFO) << "      cache dump path: " << tao_cache_dump_path_;
+  LOG(INFO) << "      disk cache path: " << disc_cache_path_;
   LOG(INFO) << "     remove tmp files: " << remove_after_compile_;
   LOG(INFO) << "    async compilation: " << async_compilation_;
   LOG(INFO) << "    profiling guide compilation: " << profile_guide_mode_;
 
-#ifdef BLAZE_OPT
-  if (async_compilation_ && !tao_cache_dump_path_.empty()) {
-#else
-  if (!tao_cache_dump_path_.empty()) {
-#endif
-    Status s = LoadFromFile(tao_cache_dump_path_);
-    if (!s.ok()) {
-      LOG(ERROR) << "Error when loading compilation: " << s.error_message();
+  if (!disc_cache_path_.empty()) {
+    if (async_compilation_) {
+      auto status = errors::Internal(
+          "dump compilation cache is not supported currently when async "
+          "compilation is enabled");
+      TF_CHECK_OK(status);
     }
+    // The cache will be loaded when initializing the global instance.
+    (void)PersistentCompliationCache::Global();
   }
   cache_obj_idx_ = TaoCompInfoCollector::Get().GetOrCreateCacheIdx(this);
 }
@@ -381,12 +597,8 @@ TaoCompilationCache::~TaoCompilationCache() {
     AsyncCompilationMgr::Global().NotifyAndWaitToStop();
   }
 
-#ifdef BLAZE_OPT
-  if (async_compilation_ && !tao_cache_dump_path_.empty()) {
-#else
-  if (!tao_cache_dump_path_.empty()) {
-#endif
-    Status s = DumpToFile(tao_cache_dump_path_);
+  if (!disc_cache_path_.empty()) {
+    Status s = DumpToFile();
     if (!s.ok()) {
       LOG(ERROR) << "Error when dumping compilation: " << s.error_message();
     }
@@ -402,124 +614,30 @@ TaoCompilationCache::~TaoCompilationCache() {
   TaoCompInfoCollector::Get().DeregisterCache(this);
 }
 
-Status TaoCompilationCache::DumpToFile(const std::string& dirname) {
-  CompilationCacheResult result;
-  VLOG(2) << "Dump compilation cache to: " << dirname;
+Status TaoCompilationCache::DumpToFile() {
+  auto& disc_cache = PersistentCompliationCache::Global();
+
+  // save the updated compiled results.
   {
     mutex_lock lock(compile_cache_mu_);
-    Status s = tensorflow::Env::Default()->RecursivelyCreateDir(dirname);
-    if (!s.ok() && !errors::IsAlreadyExists(s)) {
-      errors::AppendToMessage(&s, "when creating directory ", dirname);
-      return s;
-    }
-    int idx = 0;
+    std::string out_filename;
     for (auto& pair : cache_) {
       if (!pair.second->compilation_status.ok() || !pair.second->compiled) {
         continue;
       }
-      auto entry = result.add_entries();
-      entry->set_filename(absl::StrCat("entry_", idx++));
-      entry->set_target_device(pair.second->executable->target_device());
-      auto& sig_proto = *entry->mutable_sig();
-      auto& sig = pair.first;
-      sig_proto.set_name(sig.name);
-      for (size_t i = 0; i < sig.arg_ranks.size(); ++i) {
-        const auto& pair = sig.arg_ranks[i];
-        TypeRankPair* pair_proto = sig_proto.add_arg_ranks();
-        pair_proto->set_type(static_cast<int>(pair.first));
-        pair_proto->set_rank(pair.second);
-      }
-      for (size_t i = 0; i < sig.arg_types.size(); ++i) {
-        const auto& pair = sig.arg_types[i];
-        tensorflow::TensorShapeProto shape_proto;
-        pair.second.AsProto(&shape_proto);
-        TypeShapePair* pair_proto = sig_proto.add_arg_types();
-        pair_proto->set_type(static_cast<int>(pair.first));
-        shape_proto.AppendToString(pair_proto->mutable_shape());
-      }
-      for (size_t i = 0; i < sig.arg_values.size(); ++i) {
-        tensorflow::TensorProto tensor_proto;
-        sig.arg_values[i].AsProtoTensorContent(&tensor_proto);
-        tensor_proto.AppendToString(sig_proto.add_arg_values());
-      }
-      std::string entry_full_path =
-          absl::StrCat(dirname, "/", entry->filename());
-      pair.second->executable->DumpToFile(entry_full_path);
-    }
-    VLOG(2) << "total dumped entries: " << idx;
-  }
-#ifdef BLAZE_OPT
-  TF_RETURN_IF_ERROR(WriteTextProto(
-#else
-  TF_RETURN_IF_ERROR(WriteBinaryProto(
-#endif
-      tensorflow::Env::Default(), absl::StrCat(dirname, "/tao_cache"), result));
-  return Status::OK();
-}
 
-Status TaoCompilationCache::LoadFromFile(const std::string& dirname) {
-  CompilationCacheResult result;
-#ifdef BLAZE_OPT
-  if (!ReadTextProto(tensorflow::Env::Default(),
-#else
-  if (!ReadBinaryProto(tensorflow::Env::Default(),
-#endif
-                     absl::StrCat(dirname, "/tao_cache"), &result)
-           .ok()) {
-#ifdef BLAZE_OPT
-    return errors::NotFound("Skip loading cache due not load file " + dirname +
-                            "/tao_cache failed");
-#else
-    // Ignore if read file failed.
-    LOG(WARNING) << "Skip loading cache due not load file "
-                 << absl::StrCat(dirname, "/tao_cache") << " failed";
-    return Status::OK();
-#endif
+      auto& sig = pair.first;
+      const auto& device = pair.second->executable->target_device();
+      if (!disc_cache.find(device, sig, out_filename)) {
+        out_filename = disc_cache.getNextUniqueNameOfCompiledResultProto();
+      }
+      // Always re-dump in case there are some runtime-caches (e.g. tuning
+      // cache)
+      pair.second->executable->DumpToFile(out_filename);
+    }
   }
-  mutex_lock lock(compile_cache_mu_);
-  for (int i = 0; i < result.entries_size(); ++i) {
-    auto& sig_proto = result.entries(i).sig();
-    Signature sig;
-    sig.name = sig_proto.name();
-    for (int j = 0; j < sig_proto.arg_ranks_size(); ++j) {
-      const TypeRankPair& pair_proto = sig_proto.arg_ranks(j);
-      sig.arg_ranks.emplace_back(
-          static_cast<tensorflow::DataType>(pair_proto.type()),
-          pair_proto.rank());
-    }
-    for (int j = 0; j < sig_proto.arg_types_size(); ++j) {
-      const TypeShapePair& pair_proto = sig_proto.arg_types(j);
-      tensorflow::TensorShapeProto shape_proto;
-      shape_proto.ParseFromString(pair_proto.shape());
-      sig.arg_types.emplace_back(
-          static_cast<tensorflow::DataType>(pair_proto.type()),
-          tensorflow::TensorShape(shape_proto));
-    }
-    for (int j = 0; j < sig_proto.arg_values_size(); ++j) {
-      tensorflow::TensorProto tensor_proto;
-      tensor_proto.ParseFromString(sig_proto.arg_values(j));
-      sig.arg_values.emplace_back();
-      TF_RET_CHECK(sig.arg_values.back().FromProto(tensor_proto));
-    }
-    std::unique_ptr<Entry>& e = cache_[sig];
-    TF_RET_CHECK(e == nullptr);
-    e.reset(new Entry);
-    auto entry = e.get();
-    std::string entry_full_path =
-        absl::StrCat(dirname, "/", result.entries(i).filename());
-    std::string target_device = result.entries(i).target_device();
-    entry->executable = ExecutableFactory::Global().NewExecutable(
-        target_device, entry_full_path);
-    if (!entry->executable) {
-      return errors::Internal("Executable Not registered for DEVICE " +
-                              target_device);
-    }
-    entry->compilation_status = entry->executable->Init();
-    entry->compiled = true;
-  }
-  LOG(INFO) << "Load compilation cache success from " << dirname << " with "
-            << result.entries_size() << " entries.";
-  return Status::OK();
+
+  return disc_cache.DumpToFile();
 }
 
 // Compute a string signature which encodes the shapes of the
@@ -979,32 +1097,9 @@ Status TaoCompilationCache::Compile(
                             fixed_shape_args, host_args, variable_args, ctx,
                             executable, is_mlir, call_info);
   } else {
-#ifdef BLAZE_OPT
-    mutex_lock global_lock(global_mu_);
-    Status status;
-    if (cache_.empty() && !tao_cache_dump_path_.empty()) {
-      status = LoadFromFile(tao_cache_dump_path_);
-    }
-    if (!status.ok()) {
-      LOG(WARNING) << status.error_message();
-      cache_.clear();
-    }
-    cache_updated_ = false;
-    status = CompileImpl(std::move(input), function, constant_args,
-                         fixed_shape_args, host_args, variable_args, ctx,
-                         executable, is_mlir, call_info);
-    if (status.ok() && cache_updated_ && !tao_cache_dump_path_.empty()) {
-      auto dump_status = DumpToFile(tao_cache_dump_path_);
-      if (!dump_status.ok()) {
-        LOG(ERROR) << dump_status.error_message();
-      }
-    }
-    return status;
-#else
     return CompileImpl(std::move(input), function, constant_args,
                        fixed_shape_args, host_args, variable_args, ctx,
                        executable, is_mlir, call_info);
-#endif
   }
 }
 
@@ -1156,33 +1251,44 @@ Status TaoCompilationCache::CompileImpl(
             << SignatureDebugString(signature);
 
     entry->compiled = true;
-    // Do the actual JIT compilation without holding the lock (it can take
-    // a long time.)
-    entry->compilation_status =
-        PrepareCompilerInput(function, constant_args, fixed_shape_args,
-                             host_args, variable_args, ctx, &input, is_mlir);
-    TF_RETURN_IF_ERROR(entry->compilation_status);
 
+    bool hit_cache = false;
     std::string output_file_name;
-    if (!tensorflow::Env::Default()->LocalTempFilename(&output_file_name)) {
-      return errors::Internal(
-          "couldn't get temp tao_compiler_result file name");
+    if (!disc_cache_path_.empty()) {
+      auto& disc_cache = PersistentCompliationCache::Global();
+      hit_cache = disc_cache.find(input.options().device_type(), signature,
+                                  output_file_name);
     }
     auto output_cleaner =
-        tensorflow::gtl::MakeCleanup([&output_file_name, this] {
+        tensorflow::gtl::MakeCleanup([&output_file_name, &hit_cache, this]() {
+          if (hit_cache) {
+            VLOG(2) << "tao_compiler_result load from file: "
+                    << output_file_name;
+            return;
+          }
           if (remove_after_compile_) {
             tensorflow::Env::Default()->DeleteFile(output_file_name);
           } else {
             VLOG(0) << "tao_compiler_result file: " << output_file_name;
           }
         });
-    entry->compilation_status = CompileFunctionImpl(
-        function.name(), tao_compiler_path_, output_file_name, input,
-        remove_after_compile_, nullptr);
-    TF_RETURN_IF_ERROR(entry->compilation_status);
-#ifdef BLAZE_OPT
-    cache_updated_ = true;
-#endif
+    if (!hit_cache) {
+      // Do the actual JIT compilation without holding the lock (it can take
+      // a long time.)
+      entry->compilation_status =
+          PrepareCompilerInput(function, constant_args, fixed_shape_args,
+                               host_args, variable_args, ctx, &input, is_mlir);
+      TF_RETURN_IF_ERROR(entry->compilation_status);
+
+      if (!tensorflow::Env::Default()->LocalTempFilename(&output_file_name)) {
+        return errors::Internal(
+            "couldn't get temp tao_compiler_result file name");
+      }
+      entry->compilation_status = CompileFunctionImpl(
+          function.name(), tao_compiler_path_, output_file_name, input,
+          remove_after_compile_, nullptr);
+      TF_RETURN_IF_ERROR(entry->compilation_status);
+    }
 
     if (!std::ifstream(output_file_name).good()) {
       return errors::Internal("couldn't get compiled output proto file name" +
@@ -1196,6 +1302,14 @@ Status TaoCompilationCache::CompileImpl(
                               input.options().device_type());
     }
     entry->compilation_status = entry->executable->Init();
+    if (!disc_cache_path_.empty() && !hit_cache) {
+      auto& disc_cache = PersistentCompliationCache::Global();
+      auto filename = disc_cache.getNextUniqueNameOfCompiledResultProto();
+      // Create a new copy in case the compiled result is temporary file.
+      entry->executable->DumpToFile(filename);
+      disc_cache.update(input.options().device_type(), signature, filename,
+                        /*override*/ false, /*write_through*/ true);
+    }
   }
 
   if (entry->compilation_status == Status::OK()) {

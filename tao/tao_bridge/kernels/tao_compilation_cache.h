@@ -63,29 +63,6 @@ class TaoCompilationCache : public ResourceBase {
       const std::map<int, OptionalTensor>& variable_args, OpKernelContext* ctx,
       bool is_mlir);
 
- private:
-  Status CompileImpl(std::unique_ptr<TaoCompilerInput> input,
-                     const NameAttrList& function,
-                     const std::map<int, Tensor>& constant_args,
-                     const std::set<int>& fixed_shape_args,
-                     const std::set<int>& host_args,
-                     const std::map<int, OptionalTensor>& variable_args,
-                     OpKernelContext* ctx, Executable** executable,
-                     bool is_mlir = false,
-                     TaoCompileFuncCallInfo* call_info = nullptr);
-  Status CompileImplAsync(std::unique_ptr<TaoCompilerInput> input,
-                          const NameAttrList& function,
-                          const std::map<int, Tensor>& constant_args,
-                          const std::set<int>& fixed_shape_args,
-                          const std::set<int>& host_args,
-                          const std::map<int, OptionalTensor>& variable_args,
-                          OpKernelContext* ctx, Executable** executable,
-                          bool is_mlir = false,
-                          TaoCompileFuncCallInfo* call_info = nullptr);
-
-  Status DumpToFile(const std::string& filename);
-  Status LoadFromFile(const std::string& filename);
-
   struct Signature {
     std::string name;
 
@@ -110,6 +87,28 @@ class TaoCompilationCache : public ResourceBase {
     };
   };
   static std::string SignatureDebugString(const Signature& sig);
+
+ private:
+  Status CompileImpl(std::unique_ptr<TaoCompilerInput> input,
+                     const NameAttrList& function,
+                     const std::map<int, Tensor>& constant_args,
+                     const std::set<int>& fixed_shape_args,
+                     const std::set<int>& host_args,
+                     const std::map<int, OptionalTensor>& variable_args,
+                     OpKernelContext* ctx, Executable** executable,
+                     bool is_mlir = false,
+                     TaoCompileFuncCallInfo* call_info = nullptr);
+  Status CompileImplAsync(std::unique_ptr<TaoCompilerInput> input,
+                          const NameAttrList& function,
+                          const std::map<int, Tensor>& constant_args,
+                          const std::set<int>& fixed_shape_args,
+                          const std::set<int>& host_args,
+                          const std::map<int, OptionalTensor>& variable_args,
+                          OpKernelContext* ctx, Executable** executable,
+                          bool is_mlir = false,
+                          TaoCompileFuncCallInfo* call_info = nullptr);
+
+  Status DumpToFile();
 
   // Builds the signature for a compilation.
   static Status BuildSignature(
@@ -139,10 +138,6 @@ class TaoCompilationCache : public ResourceBase {
   };
 
   mutex compile_cache_mu_;
-  static mutex global_mu_;
-#ifdef BLAZE_OPT
-  bool cache_updated_ = false;
-#endif
   std::unordered_map<Signature, std::unique_ptr<Entry>, Signature::Hash> cache_
       GUARDED_BY(compile_cache_mu_);
 
@@ -154,7 +149,7 @@ class TaoCompilationCache : public ResourceBase {
   // TODO: DEBUG ONLY
   bool remove_after_compile_ = false;
 
-  std::string tao_cache_dump_path_;
+  std::string disc_cache_path_;
 
   std::atomic<bool> stop_{false};
   TaoProfileStat tao_profile_stat_;

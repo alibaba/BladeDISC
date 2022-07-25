@@ -57,7 +57,7 @@ void DoAsserts(bool refresh) {
   EXPECT_EQ(opt->bace_reformat_min_dim_bar, 666);
   EXPECT_EQ(opt->bace_reformat_size_bar, 999);
   EXPECT_EQ(opt->tao_compiler_path, "tao_compiler_main");
-  EXPECT_EQ(opt->tao_cache_dump_path, "/tao_dump");
+  EXPECT_EQ(opt->disc_cache_path, "/tao_dump");
   EXPECT_EQ(opt->profiling_guided_compilation_mode, 1);
   EXPECT_EQ(opt->profiling_guided_compilation_lazy_calls, 4);
   EXPECT_EQ(opt->profiling_guided_compilation_profiling_time_by_min, 6);
@@ -79,7 +79,7 @@ TEST(CommonTest, TestGetTaoBridgeOptions) {
       {"TAO_BACE_REFORMAT_MIN_DIM_BAR", "666", ""},
       {"TAO_BACE_REFORMAT_SIZE_BAR", "999", ""},
       {"TAO_COMPILER_PATH", "tao_compiler_main", ""},
-      {"TAO_CACHE_DUMP_PATH", "/tao_dump", ""},
+      {"DISC_COMPILATION_CACHE_PATH", "/tao_dump", ""},
       {"TAO_PROFILING_GUIDED_COMPILATION_MODE", "1", ""},
       {"TAO_PROFILING_GUIDED_COMPILATION_LAZY_CALLS", "4", ""},
       {"TAO_PROFILING_GUIDED_COMPILATION_PROFILING_TIME_BY_MIN", "6", ""},

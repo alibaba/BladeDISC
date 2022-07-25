@@ -21,6 +21,7 @@
 #include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
 #include <torch/script.h>
 #include "common_utils/utils.h"
+#include "compiler/jit/torch/shape_analysis.h"
 #include "ltc/disc_compiler/passes/disc_fuser.h"
 #include "ltc/disc_compiler/passes/register_disc_class.h"
 
@@ -91,11 +92,12 @@ ExecutablePtr CompileToDiscExecutable(
     auto disc_inputs = std::vector<c10::IValue>{};
     return std::make_shared<Executable>(graph, disc_inputs);
   }
+  GRAPH_DEBUG("before PropagateInputShapes\n", *graph);
   EnhancementInputShape(graph, arguments);
   // Inference shape
-  torch::jit::PropagateInputShapes(graph);
+  torch::blade::PropagateInputShapes(graph);
   // cluster disc compitable nodes into a sub-graph
-  GRAPH_DEBUG("before DiscFusion\n ", *graph);
+  GRAPH_DEBUG("after PropagateInputShapes, before DiscFusion\n ", *graph);
   DiscFusion(graph);
   GRAPH_DEBUG("after DiscFusion, before EliminateDeadCode\n", *graph)
   torch::jit::EliminateDeadCode(graph);

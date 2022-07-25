@@ -20,6 +20,7 @@
 #include <torch/csrc/jit/ir/constants.h>
 #include <torch/csrc/jit/ir/ir.h>
 #include <torch/csrc/jit/ir/ir_views.h>
+#include <torch/csrc/jit/jit_log.h>
 #include <torch/csrc/jit/runtime/exception_message.h>
 #include <torch/csrc/jit/runtime/operator.h>
 
@@ -293,7 +294,8 @@ class ShapePropagator : public PropertyPropBase {
     static std::unordered_set<Symbol> resize_ops{
         aten::resize_,
         aten::resize_as_,
-        aten::copy_,
+        // inplaced copy would never changing the shape
+        // aten::copy_,
         aten::set_,
         aten::unsqueeze_,
         aten::t_,
@@ -751,7 +753,6 @@ class ShapePropagator : public PropertyPropBase {
     if (node->hasSideEffects()) {
       return;
     }
-
     if (node->matches("aten::cat(Tensor[] tensors, int dim) -> Tensor") ||
         node->kind() == prim::FusedConcat) {
       return PropagateCatShape(node);
@@ -856,7 +857,9 @@ class ShapePropagator : public PropertyPropBase {
             "aten::neg(Tensor self) -> Tensor",
             "aten::t(Tensor self) -> Tensor",
             "aten::sigmoid(Tensor self) -> Tensor",
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 6
             "aten::logit(Tensor self, float? eps=None) -> Tensor",
+#endif
             "aten::tanh(Tensor self) -> Tensor",
             "aten::relu(Tensor self) -> Tensor",
             "aten::asin(Tensor self) -> Tensor",
@@ -901,7 +904,11 @@ class ShapePropagator : public PropertyPropBase {
             "aten::normal(float mean, Tensor std, *, Generator? generator) -> Tensor",
             "aten::normal(Tensor mean, float std, *, Generator? generator) -> Tensor",
             "aten::permute(Tensor self, int[] dims) -> Tensor",
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
             "aten::pin_memory(Tensor(a) self, Device? device=None) -> Tensor(a)",
+            "aten::gelu(Tensor self, *, str approximate='none') -> Tensor",
+            "aten::gelu_backward(Tensor grad_output, Tensor self, *, str approximate='none') -> Tensor",
+#endif
             "aten::pinverse(Tensor self, float rcond) -> Tensor",
             "aten::reciprocal(Tensor self) -> Tensor",
             "aten::relu(Tensor self) -> Tensor",
@@ -909,7 +916,6 @@ class ShapePropagator : public PropertyPropBase {
             "aten::rrelu(Tensor self, Scalar lower, Scalar upper, bool training, Generator? generator) -> Tensor",
             "aten::rsqrt(Tensor self) -> Tensor",
             "aten::selu(Tensor self) -> Tensor",
-            "aten::gelu(Tensor self, *, str approximate='none') -> Tensor",
             "aten::sigmoid(Tensor self) -> Tensor",
             "aten::sign(Tensor self) -> Tensor",
             "aten::sin(Tensor self) -> Tensor",
@@ -926,9 +932,13 @@ class ShapePropagator : public PropertyPropBase {
             "aten::trunc(Tensor self) -> Tensor",
             "aten::rot90(Tensor self, int k, int[] dims) -> Tensor",
             "aten::narrow(Tensor self, int dim, int start, int length) -> Tensor",
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
             "aten::slice(Tensor self, int dim, int? start=None, int? end=None, int step=1) -> Tensor",
+#else
+            "aten::slice(Tensor self, int dim, int start, int end, int step) -> Tensor",
+#endif
             "aten::alias(Tensor self) -> Tensor",
-            "aten::zero(Tensor self) -> Tensor",
+            "aten::zero_(Tensor self) -> Tensor",
         },
         [](Node* node) -> type_vec_t {
           auto input_type = node->input(0)->type()->cast<TensorType>();
@@ -1209,7 +1219,9 @@ class ShapePropagator : public PropertyPropBase {
             "aten::max(Tensor self) -> Tensor",
             "aten::min(Tensor self) -> Tensor",
             "aten::median(Tensor self) -> Tensor",
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
             "aten::nanmedian(Tensor self) -> Tensor",
+#endif
             "aten::norm(Tensor self, Scalar p) -> Tensor",
             "aten::std(Tensor self, bool unbiased) -> Tensor",
             "aten::trace(Tensor self) -> Tensor",
@@ -1388,7 +1400,9 @@ class ShapePropagator : public PropertyPropBase {
             "aten::max(Tensor self, int dim, bool keepdim) -> (Tensor, Tensor)",
             "aten::min(Tensor self, int dim, bool keepdim) -> (Tensor, Tensor)",
             "aten::median(Tensor self, int dim, bool keepdim) -> (Tensor, Tensor)",
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
             "aten::nanmedian(Tensor self, int dim, bool keepdim) -> (Tensor, Tensor)",
+#endif
             "aten::mode(Tensor self, int dim, bool keepdim) -> (Tensor, Tensor)",
         },
         [](Node* node) -> type_vec_t {
@@ -1468,6 +1482,29 @@ class ShapePropagator : public PropertyPropBase {
 
     // Requirements:
     //   dims           : preserved
+    //   scalar type    : half to float if specified, otherwise preserved
+    //   device         : preserved
+    //   tensor inputs  : 1
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
+    static const register_formula_for register__softmax_backward{
+        {"aten::_softmax_backward_data(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype) -> Tensor"},
+        [](Node* node) -> type_vec_t {
+          if (auto type = node->input(0)->type()->cast<TensorType>()) {
+            auto scalar_type = type->scalarType();
+            auto input_dtype = node->get(attr::input_dtype)->toScalarType();
+            auto half_to_float = scalar_type != input_dtype;
+            if (half_to_float && scalar_type == at::kFloat &&
+                input_dtype == at::kHalf) {
+              return {type->withScalarType(at::kHalf)};
+            }
+            return {type};
+          }
+          return {};
+        }};
+#endif
+
+    // Requirements:
+    //   dims           : preserved
     //   scalar type    : dtype if specified, otherwise preserved
     //   device         : preserved
     //   tensor inputs  : 1
@@ -1543,15 +1580,19 @@ class ShapePropagator : public PropertyPropBase {
     // Additionally:
     //   - has ScalarType dtype, Layeout layout and Device device arguments
     static const register_formula_for like_factories_with_options{
-        {"aten::empty_like(Tensor self, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor",
-         "aten::full_like(Tensor self, Scalar fill_value, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor",
-         "aten::ones_like(Tensor self, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor",
-         "aten::rand_like(Tensor self, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor",
-         "aten::randint_like(Tensor self, int high, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor",
-         "aten::randint_like(Tensor self, int low, int high, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor",
-         "aten::randn_like(Tensor self, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor",
-         "aten::zeros_like(Tensor self, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor",
-         "aten::_to_copy(Tensor self, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, bool non_blocking=False, MemoryFormat? memory_format=None) -> Tensor"},
+        {
+            "aten::empty_like(Tensor self, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor",
+            "aten::full_like(Tensor self, Scalar fill_value, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor",
+            "aten::ones_like(Tensor self, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor",
+            "aten::rand_like(Tensor self, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor",
+            "aten::randint_like(Tensor self, int high, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor",
+            "aten::randint_like(Tensor self, int low, int high, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor",
+            "aten::randn_like(Tensor self, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor",
+            "aten::zeros_like(Tensor self, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, MemoryFormat? memory_format=None) -> Tensor",
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
+            "aten::_to_copy(Tensor self, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None, bool non_blocking=False, MemoryFormat? memory_format=None) -> Tensor",
+#endif
+        },
         [](Node* node) -> type_vec_t {
           if (auto type =
                   node->namedInput(attr::self)->type()->cast<TensorType>()) {
@@ -1685,8 +1726,12 @@ class ShapePropagator : public PropertyPropBase {
         return true;
       }
     } else if (
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
         node->matches(
-            "aten::native_layer_norm(Tensor input, int[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> (Tensor, Tensor, Tensor)")) {
+            "aten::native_layer_norm(Tensor input, int[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> (Tensor, Tensor, Tensor)") ||
+#endif
+        node->matches(
+            "aten::native_layer_norm_backward(Tensor grad_out, Tensor input, int[] normalized_shape, Tensor mean, Tensor rstd, Tensor? weight, Tensor? bias, bool[3] output_mask) -> (Tensor, Tensor, Tensor)")) {
       if (auto type = input_type(0)) {
         node->outputs()[0]->setType(type);
         node->outputs()[1]->setType(type);
@@ -1794,6 +1839,19 @@ class ShapePropagator : public PropertyPropBase {
       auto indices_type = input_type(1);
       if (weight_type && indices_type && indices_type->dim()) {
         node->output()->setType(weight_type->withDim(*indices_type->dim() + 1));
+        return true;
+      }
+    } else if (
+        node->matches(
+            "aten::embedding_dense_backward(Tensor grad_output, Tensor indices, int num_weights, int padding_idx, bool scale_grad_by_freq) -> Tensor")) {
+      auto grad_output_type = input_type(0);
+      auto maybe_num_weights = node->get<int>(attr::num_weights);
+      if (grad_output_type && maybe_num_weights &&
+          grad_output_type->sizes().size()) {
+        // TODO(yancey.yx): sizes = {num_weights, grad_output.size(-1)}
+        // ref:
+        // aten/src/ATen/native/Embedding.cpp::embedding_dense_backward_cpu.
+        node->output()->setType(grad_output_type->withDim(2));
         return true;
       }
     } else if (

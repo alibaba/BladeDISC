@@ -33,10 +33,13 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/rng_uniform_custom_call_op.h"
 #include "tensorflow/compiler/mlir/disc/IR/topk_custom_call_op.h"
+#include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/hlo/include/mlir-hlo/Dialect/mhlo/IR/chlo_ops.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_types.h"
 #include "tensorflow/compiler/mlir/tensorflow/utils/convert_tensor.h"
+#include "tensorflow/compiler/mlir/xla/transforms/utils.h"
 #include "tensorflow/core/framework/kernel_shape_util.h"
 #include "tensorflow/core/util/padding.h"
 #include "tensorflow/core/util/tensor_format.h"
@@ -69,6 +72,7 @@ struct PrepareTFPass : public DiscLowerTfPassBase<PrepareTFPass> {
   void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<mhlo::MhloDialect>();
     registry.insert<mhlo_disc::MhloDiscDialect>();
+    registry.insert<tensor::TensorDialect>();
   }
 
   void runOnOperation() override;
@@ -1080,6 +1084,122 @@ LogicalResult convertQuantizedConv2DWithBiasAndRequantizeOp(func::FuncOp func) {
   return success();
 }
 
+// op {
+//   name: "Bucketize"
+//   input_arg {
+//     name: "input"
+//     type_attr: "T"
+//   }
+//   output_arg {
+//     name: "output"
+//     type: DT_INT32
+//   }
+//   attr {
+//     name: "T"
+//     type: "type"
+//     allowed_values {
+//       list {
+//         type: DT_INT32
+//         type: DT_INT64
+//         type: DT_FLOAT
+//         type: DT_DOUBLE
+//       }
+//     }
+//   }
+//   attr {
+//     name: "boundaries"
+//     type: "list(float)"
+//   }
+// }
+class ConvertBucketizeOp : public OpRewritePattern<TF::BucketizeOp> {
+ public:
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::BucketizeOp op,
+                                PatternRewriter& rewriter) const override {
+    auto loc = op.getLoc();
+    Value input = op.input();
+    auto input_type = input.getType().dyn_cast<RankedTensorType>();
+    // attr: boundaries, type is float according op definition
+    auto boundaries =
+        rewriter
+            .create<mhlo::ConstOp>(
+                loc, GetF32ElementsAttr(op.boundaries(), &rewriter))
+            .getResult();
+    // the following behavior matches the behavior of the core
+    // Bucketize kernel. However, comparing an int32 or int64 against float may
+    // lead to inaccurate bucketing due to rounding.
+    if (input_type.isF64()) {
+      boundaries = rewriter.create<mhlo::ConvertOp>(loc, boundaries,
+                                                    rewriter.getF64Type());
+    } else {
+      input =
+          rewriter.create<mhlo::ConvertOp>(loc, input, rewriter.getF32Type());
+      input_type = input.getType().dyn_cast<RankedTensorType>();
+    }
+
+    int64_t input_rank = input_type.getRank();
+    SmallVector<Value, 4> broadcast_to_shape;
+    broadcast_to_shape.reserve(input_rank + 1);
+    SmallVector<int64_t, 4> broadcast_shape(input_rank + 1,
+                                            ShapedType::kDynamicSize);
+    for (int i = 0; i < input_rank; ++i) {
+      int64_t dim_size = input_type.getDimSize(i);
+      if (dim_size != ShapedType::kDynamicSize) {
+        broadcast_shape[i] = dim_size;
+      }
+      broadcast_to_shape.push_back(rewriter.create<arith::IndexCastOp>(
+          loc, rewriter.getI32Type(),
+          rewriter.create<tensor::DimOp>(loc, input, i)));
+    }
+    auto array_attr = op.boundaries().cast<ArrayAttr>();
+    broadcast_shape[input_rank] = array_attr.getValue().size();
+    broadcast_to_shape.push_back(rewriter.create<arith::ConstantOp>(
+        loc, rewriter.getIntegerAttr(rewriter.getI32Type(),
+                                     array_attr.getValue().size())));
+
+    RankedTensorType broadcast_type =
+        RankedTensorType::get(broadcast_shape, input_type.getElementType());
+
+    Value broadcast_to_shape_tensor = rewriter.create<tensor::FromElementsOp>(
+        loc,
+        RankedTensorType::get({static_cast<int64_t>(broadcast_to_shape.size())},
+                              rewriter.getI32Type()),
+        broadcast_to_shape);
+
+    auto broadcast_dims = GetI64ElementsAttrForSeq(0, input_rank, &rewriter);
+
+    // like [4] --> [2, 10, 4]
+    SmallVector<int64_t> boradcast_dim;
+    boradcast_dim.push_back(static_cast<int64_t>(input_rank));
+    boundaries = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+        loc, broadcast_type, boundaries, broadcast_to_shape_tensor,
+        getI64ElementsAttr(boradcast_dim, &rewriter));
+
+    input = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+        loc, broadcast_type, input, broadcast_to_shape_tensor, broadcast_dims);
+    auto comparison = rewriter.create<mhlo::CompareOp>(
+        loc, input, boundaries, mhlo::ComparisonDirection::GE);
+    // output should be int32 type
+    auto convert = rewriter.create<mhlo::ConvertOp>(
+        loc, comparison, rewriter.getIntegerType(32));
+
+    // reduce
+    Type element_type = getElementTypeOrSelf(convert.getType());
+    Value zero = mhlo::GetScalarConstOfType(element_type, loc, 0, &rewriter);
+    SmallVector<int64_t> reduce_dim;
+    reduce_dim.push_back(static_cast<int64_t>(input_rank));
+    auto buckets = rewriter.create<mhlo::ReduceOp>(
+        loc, convert.getResult(), zero,
+        getI64ElementsAttr(reduce_dim, &rewriter));
+    mhlo::BuildReduceBody<mhlo::AddOp>(element_type, &buckets.body(),
+                                       &rewriter);
+
+    rewriter.replaceOp(op, {buckets.getResult(0)});
+    return success();
+  }
+};
+
 #include "tensorflow/compiler/mlir/disc/transforms/lower_tf.inc"
 
 void PrepareTFPass::runOnOperation() {
@@ -1099,7 +1219,8 @@ void PrepareTFPass::runOnOperation() {
       ConvertQuantizeV2Op,
       ConvertSqueezeOpDynamic,
       ConvertTopKV2OpDynamic,
-      ConvertUniformOp
+      ConvertUniformOp,
+      ConvertBucketizeOp
   >(ctx);
   // clang-format on
   (void)applyPatternsAndFoldGreedily(func, std::move(patterns));

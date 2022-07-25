@@ -1182,6 +1182,7 @@ cc_library(
     ],
     deps = [
         ":disc_lower_tf_inc_gen",
+        ":disc_util",
         ":mhlo_disc",
         ":pass_details",
         ":rng_uniform_custom_call",
@@ -1190,6 +1191,7 @@ cc_library(
         "//tensorflow/compiler/mlir/hlo:hlo",
         "//tensorflow/compiler/mlir/tensorflow:tensorflow",
         "//tensorflow/compiler/mlir/tensorflow:convert_tensor",
+        "//tensorflow/compiler/mlir/xla:legalize_utils",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",

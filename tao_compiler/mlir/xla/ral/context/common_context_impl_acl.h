@@ -248,6 +248,9 @@ class DISCNEConvolutionLayer : public IFunction {
   void prepare(ITensor* input, const ITensor* weights, const ITensor* biases,
                ITensor* output);
 
+  const ITensorPack& get_packed_weight();
+  void reuse_packed_weight(const ITensorPack& pack);
+
  private:
   struct Impl;
   std::unique_ptr<Impl> _impl;

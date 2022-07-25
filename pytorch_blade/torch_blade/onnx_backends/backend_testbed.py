@@ -14,6 +14,7 @@ from collections import defaultdict
 
 import onnx
 import torch
+import torch_blade._torch_blade._quantization as _quantization
 from torch_blade import pass_manager, tools
 from torch_blade.config import Config
 from torch_blade.logging import logger
@@ -329,11 +330,14 @@ class OnnxBackendTestBed:
             inp_node_kind = inp.node().kind()
             is_const = inp_node_kind == "prim::Constant"
             is_listconstruct = inp_node_kind == "prim::ListConstruct"
+            is_fake_quant = inp_node_kind == _quantization.at_fake_quant_per_tensor_affine_name or \
+                            inp_node_kind == _quantization.at_fake_quant_per_channel_affine_name
 
-            if is_const or is_listconstruct:
+            if is_const or is_listconstruct or is_fake_quant:
                 # prim::Constant, prim::ListConstruct
                 self._appendNode(inp.node())
                 continue
+
 
             inp_ = self._current_segment.addInput()
             self._orig2segment_value_map[inp] = inp_

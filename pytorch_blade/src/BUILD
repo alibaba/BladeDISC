@@ -28,6 +28,7 @@ cc_library(
         "//src/compiler/backends:torch_blade_backends",
         "//src/compiler/jit:torch_blade_jit",
         "//src/compiler/mlir:torch_blade_mlir",
+        "//src/quantization:quantization_op",
         "@local_org_torch//:libtorch",
     ] + if_tensorrt_enabled([
         "//src/compiler/tensorrt:tensorrt_runtime_impl",
@@ -69,7 +70,9 @@ filegroup(
         "//src/compiler:torch_blade_py_srcs",
     ] + if_ltc_disc_backend([
          "//src/ltc:torch_blade_ltc_py_srcs",
-    ]),
+    ]) + [
+        "//src/quantization:torch_blade_quantization_py_srcs",
+    ],
 )
 
 filegroup(
@@ -80,7 +83,9 @@ filegroup(
         "//src/compiler:torch_blade_py_hdrs",
     ] + if_ltc_disc_backend([
          "//src/ltc:torch_blade_ltc_py_hdrs",
-    ]),
+    ]) + [
+        "//src/quantization:torch_blade_quantization_py_hdrs",
+    ],
 )
 
 pybind_library(

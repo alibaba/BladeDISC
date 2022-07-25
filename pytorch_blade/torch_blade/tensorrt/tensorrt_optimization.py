@@ -25,7 +25,10 @@ _TRT_GROUP_NAME = "trt_grp"
 def _try_build_trt_engine(dyn_proto, state, dynamic_settings, q_val, *args, **kwargs):
     # try to convert to tensorrt engine
     cfg = Config.get_current_context_or_new()
-    if cfg.enable_fp16:
+    if cfg.enable_int8:
+        with flags.builder_flags_context(1 << int(flags.BuilderFlag.INT8) | 1 << int(flags.BuilderFlag.FP16)):
+            return _trt.cvt_onnx_to_tensorrt(dyn_proto, state, dynamic_settings, q_val)
+    elif cfg.enable_fp16:
         with flags.builder_flags_context(1 << int(flags.BuilderFlag.FP16)):
             return _trt.cvt_onnx_to_tensorrt(dyn_proto, state, dynamic_settings, q_val)
     else:

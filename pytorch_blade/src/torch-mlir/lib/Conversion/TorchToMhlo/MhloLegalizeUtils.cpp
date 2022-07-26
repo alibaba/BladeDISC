@@ -130,7 +130,7 @@ llvm::Optional<Value> getConstTensor<float>(
     return llvm::None;
   }
 
-  auto constType = RankedTensorType::get(shape, rewriter.getF32Type());
+  auto constType = RankedTensorType::get(shape, rewriter.getF64Type());
   auto constAttr = DenseElementsAttr::get(constType, vec);
 
   auto const_op =

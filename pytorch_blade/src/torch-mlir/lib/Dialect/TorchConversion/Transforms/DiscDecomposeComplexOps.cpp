@@ -78,6 +78,45 @@ LogicalResult ConvertAtenOp<AtenHardtanhOp>::matchAndRewrite(
 
   return success();
 }
+
+template <>
+LogicalResult ConvertAtenOp<AtenNativeDropoutOp>::matchAndRewrite(
+    AtenNativeDropoutOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  Value input = op.input();
+  Value prob = op.p();
+  bool train = false;
+  if (!matchPattern(op.train(), m_TorchConstantBool(&train)))
+    return rewriter.notifyMatchFailure(op, "train must be a boolean constant");
+
+  BaseTensorType inputType = input.getType().cast<BaseTensorType>();
+  if (!train) {
+    // TODO(yancey.yx): supports train mode
+    return op.emitError(
+        "native_dropout does not support argument train is false");
+  }
+  if (!inputType.hasDtype() || !inputType.getDtype().isa<mlir::FloatType>())
+    return rewriter.notifyMatchFailure(
+        op, "only support floating type input for training mode");
+  Value noneVal = rewriter.create<ConstantNoneOp>(loc);
+  Value floatOne =
+      rewriter.create<ConstantFloatOp>(loc, rewriter.getF64FloatAttr(1.0));
+  Value oneMinusP = rewriter.create<AtenSubFloatOp>(loc, floatOne, prob);
+  Value boolMask = rewriter.create<ValsemVariantAtenBernoulliFloatOp>(
+      loc, inputType, input, oneMinusP, /*generator=*/noneVal);
+  Value maskedInput =
+      rewriter.create<AtenMulTensorOp>(loc, inputType, boolMask, input);
+  Value output =
+      rewriter.create<AtenMulScalarOp>(loc, inputType, maskedInput, oneMinusP);
+  Value one =
+      rewriter.create<Torch::ConstantIntOp>(loc, rewriter.getI64IntegerAttr(1));
+  boolMask = rewriter.create<AtenGeScalarOp>(
+      loc, op.getResult(1).getType(), boolMask, one);
+  rewriter.replaceOp(op, {output, boolMask});
+  return success();
+}
 } // namespace
 
 namespace {
@@ -93,6 +132,9 @@ class DiscDecomposeComplexOpsPass
     RewritePatternSet patterns(context);
     patterns.add<ConvertAtenOp<AtenHardtanhOp>>(context);
     target.addIllegalOp<AtenHardtanhOp>();
+
+    patterns.add<ConvertAtenOp<AtenNativeDropoutOp>>(context);
+    target.addIllegalOp<AtenNativeDropoutOp>();
 
     if (failed(applyPartialConversion(
             getOperation(), target, std::move(patterns)))) {

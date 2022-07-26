@@ -689,6 +689,32 @@ LogicalResult ConvertAtenOp<AtenRelu6Op>::matchAndRewrite(
   return success();
 }
 
+template <>
+LogicalResult ConvertAtenOp<AtenNativeDropoutOp>::matchAndRewrite(
+    AtenNativeDropoutOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  Value input = op.input();
+  Value prob = op.p();
+  bool train = false;
+  if (!matchPattern(op.train(), m_TorchConstantBool(&train)))
+    return rewriter.notifyMatchFailure(op, "train must be a boolean constant");
+
+  BaseTensorType inputType = input.getType().cast<BaseTensorType>();
+  if (!train) {
+    Value mask = chlo::getConstantLike(rewriter, loc, true, input);
+    llvm::dbgs() << mask << "\n";
+    rewriter.replaceOp(op, {input, mask});
+    return success();
+  }
+
+  if (!inputType.hasDtype() || !inputType.getDtype().isa<mlir::FloatType>())
+    return rewriter.notifyMatchFailure(
+        op, "only support floating type input for training mode");
+  return success();
+}
+
 // Convert a Aten::LeakyRelu to HLO
 // LeakyRelu(x) = max(0, x) + negative_slop * min(0, x)
 template <>
@@ -1729,8 +1755,13 @@ LogicalResult ConvertAtenOp<PrimNumToTensorScalarOp>::matchAndRewrite(
 
   Value constOp;
   double val;
-  if (!matchPattern(op.a(), m_TorchConstantFloat(&val)))
-    return op.emitError("input should be constant");
+  if (!matchPattern(op.a(), m_TorchConstantFloat(&val))) {
+    constOp = scalarToMhloTensor(
+        rewriter, op, adaptor.a(), outType.getElementType(), {});
+    rewriter.replaceOp(op, constOp);
+    return success();
+  }
+  // return op.emitError("input should be constant");
 
   if (failed(torchScalarToMhloTensor(
           rewriter,
@@ -1973,6 +2004,36 @@ LogicalResult ConvertAtenOp<AtenBroadcastToOp>::matchAndRewrite(
       adaptor.self(),
       mhloShape,
       broadcastDims);
+  return success();
+}
+
+template <>
+LogicalResult ConvertAtenOp<ValsemVariantAtenUniformOp>::matchAndRewrite(
+    ValsemVariantAtenUniformOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto inputTy = adaptor.self().getType().template cast<RankedTensorType>();
+  if (!inputTy) {
+    op.emitError("input should be ranked tensor type.");
+  }
+  auto dimConst = mhlo::getConstTensor<int64_t>(
+      rewriter, op, inputTy.getShape(), inputTy.getRank());
+  double fromDoubleValue, toDoubleValue;
+  if (!matchPattern(op.from(), m_TorchConstantFloat(&fromDoubleValue))) {
+    op.emitError("operand #1 should be scalar");
+  }
+  if (!matchPattern(op.to(), m_TorchConstantFloat(&toDoubleValue))) {
+    op.emitError("operand #2 should be scalar");
+  }
+  llvm::dbgs() << "from: " << fromDoubleValue << "\n";
+  llvm::dbgs() << "to: " << toDoubleValue << "\n";
+  Value fromTensor =
+      mhlo::getConstTensor<float>(rewriter, op, fromDoubleValue, {}).getValue();
+  Value toTensor =
+      mhlo::getConstTensor<float>(rewriter, op, toDoubleValue, {}).getValue();
+
+  rewriter.replaceOpWithNewOp<mhlo::RngUniformOp>(
+      op, inputTy, fromTensor, toTensor, dimConst.getValue());
   return success();
 }
 
@@ -2354,8 +2415,9 @@ class ConvertAtenFillScalarOp : public OpConversionPattern<AtenOpT> {
                        .template dyn_cast<TensorType>();
 
     if (!outType || !outType.hasStaticShape())
-      return op.emitError(
-          "Only Tensor types with static shapes are currently supported");
+      if (!outType)
+        return op.emitError(
+            "Only Tensor types with static shapes are currently supported");
 
     Type outElemTy = outType.getElementType();
     if (!outElemTy.isIntOrFloat()) {
@@ -2454,8 +2516,8 @@ class ConvertTorchToMhlo
         AtenGtScalarOp, mhlo::ComparisonDirection::GT);
     // INSERT_BINARY_COMPARE_PATTERN(AtenGeTensorOp,
     // mhlo::ComparisonDirection::GE);
-    // INSERT_BINARY_COMPARE_PATTERN(AtenGeScalarOp,
-    // mhlo::ComparisonDirection::GE);
+    INSERT_BINARY_COMPARE_PATTERN(
+        AtenGeScalarOp, mhlo::ComparisonDirection::GE);
     INSERT_BINARY_COMPARE_PATTERN(
         AtenEqTensorOp, mhlo::ComparisonDirection::EQ);
     INSERT_BINARY_COMPARE_PATTERN(
@@ -2568,6 +2630,7 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenFlipOp);
     INSERT_ATENOP_PATTERN(AtenIndexSelectOp);
     INSERT_ATENOP_PATTERN(AtenRollOp);
+    INSERT_ATENOP_PATTERN(ValsemVariantAtenUniformOp);
     // INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
 #undef INSERT_ATENOP_PATTERN
 

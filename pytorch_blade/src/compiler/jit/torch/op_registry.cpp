@@ -62,7 +62,6 @@ std::shared_ptr<OperatorSet> nn_ops_first_input_preserving() {
       "aten::max_pool3d(Tensor self, int[] kernel_size, int[] stride, int[] padding, int[] dilation, bool ceil_mode) -> Tensor",
       "aten::max_unpool2d(Tensor self, Tensor indices, int[] output_size) -> Tensor",
       "aten::max_unpool3d(Tensor self, Tensor indices, int[] output_size, int[] stride, int[] padding) -> Tensor",
-      "aten::nll_loss_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, int ignore_index, Tensor total_weight) -> Tensor",
       "aten::reflection_pad1d(Tensor self, int[] padding) -> Tensor",
       "aten::reflection_pad2d(Tensor self, int[] padding) -> Tensor",
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12

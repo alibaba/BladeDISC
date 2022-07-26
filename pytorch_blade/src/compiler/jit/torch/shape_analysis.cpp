@@ -1487,7 +1487,8 @@ class ShapePropagator : public PropertyPropBase {
     //   tensor inputs  : 1
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
     static const register_formula_for register__softmax_backward{
-        {"aten::_softmax_backward_data(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype) -> Tensor"},
+        {"aten::_softmax_backward_data(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype) -> Tensor",
+         "aten::_log_softmax_backward_data(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype) -> Tensor"},
         [](Node* node) -> type_vec_t {
           if (auto type = node->input(0)->type()->cast<TensorType>()) {
             auto scalar_type = type->scalarType();
@@ -1502,6 +1503,14 @@ class ShapePropagator : public PropertyPropBase {
           return {};
         }};
 #endif
+    static const register_formula_for register__nll_loss_backward{
+        {"aten::nll_loss_backward(Tensor grad_output, Tensor self, Tensor target, Tensor? weight, int reduction, int ignore_index, Tensor total_weight) -> (Tensor)"},
+        [](Node* node) -> type_vec_t {
+          if (auto type = node->input(1)->type()->cast<TensorType>()) {
+            return {type};
+          }
+          return {};
+        }};
 
     // Requirements:
     //   dims           : preserved
@@ -1726,19 +1735,56 @@ class ShapePropagator : public PropertyPropBase {
         return true;
       }
     } else if (
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
-        node->matches(
-            "aten::native_layer_norm(Tensor input, int[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> (Tensor, Tensor, Tensor)") ||
-#endif
         node->matches(
             "aten::native_layer_norm_backward(Tensor grad_out, Tensor input, int[] normalized_shape, Tensor mean, Tensor rstd, Tensor? weight, Tensor? bias, bool[3] output_mask) -> (Tensor, Tensor, Tensor)")) {
       if (auto type = input_type(0)) {
-        node->outputs()[0]->setType(type);
-        node->outputs()[1]->setType(type);
-        node->outputs()[2]->setType(type);
+        auto output_mask =
+            node->get<c10::List<bool>>(attr::output_mask).value();
+        if (output_mask[0]) {
+          node->outputs()[0]->setType(type);
+        }
+        if (output_mask[1]) {
+          if (auto weight_type = input_type(5))
+            node->outputs()[1]->setType(weight_type);
+        }
+        if (output_mask[2]) {
+          if (auto bias_type = input_type(6))
+            node->outputs()[2]->setType(bias_type);
+        }
         return true;
       }
-    } else if (
+    }
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
+    else if (
+        node->matches(
+            "aten::native_layer_norm(Tensor input, int[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> (Tensor, Tensor, Tensor)")) {
+      if (auto type = input_type(0)) {
+        std::cout << "before native_layer_norm" << std::endl;
+        node->outputs()[0]->setType(type);
+        std::cout << "begin get normalized_shape" << std::endl;
+        auto normalized_shape =
+            node->get<c10::List<int64_t>>(attr::normalized_shape).value();
+        std::cout << "begin axis" << std::endl;
+        const size_t axis = type->dim().value() - normalized_shape.size();
+        std::cout << "begin stat_shape, axis: " << axis << std::endl;
+        std::vector<int64_t> stat_shape;
+        for (const auto idx : c10::irange(axis)) {
+          std::cout << "emplace_back: " << *type->sizes()[idx] << std::endl;
+          stat_shape.emplace_back(*type->sizes()[idx]);
+        }
+        std::cout << "begin fill 1 into stat_shape" << std::endl;
+        for (const auto idx : c10::irange(axis, type->dim().value())) {
+          (void)idx; // Suppress unused variable warning
+          stat_shape.emplace_back(1);
+        }
+        node->outputs()[1]->setType(type->withSizes(stat_shape));
+        node->outputs()[2]->setType(type->withSizes(stat_shape));
+        std::cout << "end native_layer_norm" << std::endl;
+      }
+      return true;
+    }
+#endif
+    else if (
         node->matches(
             "aten::native_batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps) -> (Tensor, Tensor, Tensor)")) {
       if (auto type = input_type(0)) {

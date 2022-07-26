@@ -10,12 +10,13 @@ jobs:
   build:
     uses: ./.github/workflows/resuable_gpu_build.yml
     with:
-      cuda_version: cu110
-      remote_runtime_docker: bladedisc:latest-runtime-torch1.7.1-cu110
-      develop_base_image: nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
-      runtime_base_image: nvidia/cuda:11.0-cudnn8-devel-ubuntu18.04
+      cuda_version: cu113
+      remote_runtime_docker: bladedisc:latest-runtime-torch1.12.0-cu113
+      develop_base_image: nvidia/cuda:11.3.0-cudnn8-devel-ubuntu20.04
+      runtime_base_image: nvidia/cuda:11.3.0-cudnn8-devel-ubuntu20.04
+      extra_build_args: --build-arg PYTHON_VERSION=PYTHON3.8 --build-arg ENABLE_FIND_FASTEST_APT_SOURCE=OFF
       extra_envs: -e TORCH_BLADE_BUILD_TENSORRT_STATIC=ON
-          -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.7.1+cu110
+          -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.12.0+cu113
       exec_command: bash ./scripts/ci/test_pytorch_blade.sh
       deploy_command:  bash ./scripts/ci/deploy_pytorch_blade.sh
     secrets:

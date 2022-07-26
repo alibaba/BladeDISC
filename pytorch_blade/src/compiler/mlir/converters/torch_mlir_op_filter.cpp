@@ -66,6 +66,7 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "aten::mean",
       "aten::mm",
       "aten::mul",
+      "aten::native_layer_norm",
       "aten::ne",
       "aten::neg",
       "aten::neg",

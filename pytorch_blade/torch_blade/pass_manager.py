@@ -14,11 +14,14 @@ from torch.onnx.symbolic_helper import _set_opset_version
 from torch.onnx import OperatorExportTypes
 
 import torch_blade
-import torch_blade._torch_blade._quantization as _quantization
 from torch_blade import utils
 from torch_blade import tools
-from torch_blade.config import Config, OptPipelines
+from torch_blade.config import Config
 from torch_blade.python_ir_analysis import _jit_pass_clean_python_ir
+from torch_blade.quantization import (
+    _jit_pass_quantization_preprocess,
+    _jit_pass_quantization_postprocess,
+)
 if utils.torch_version_number() < utils.parse_version("1.12.0"):
     from torch.onnx.symbolic_helper import _export_onnx_opset_version
 else:
@@ -300,25 +303,6 @@ def _jit_pass_clean_script(graph):
 
     remove_raise_exception(graph)
     torch._C._jit_pass_dce(graph)
-
-
-def _jit_pass_quantization_preprocess(c_module):
-    cfg = Config.get_current_context_or_new()
-    is_enabled_quantization = cfg.enable_int8
-    if is_enabled_quantization:
-        # Add placeholder for each fake quant of weight.
-        # Or it will be folded by _jit_pass_constant_propagation.
-        # TODO: remove this when fake_quant is added to the skip_list
-        # of _jit_pass_constant_propagation.
-        # https://github.com/pytorch/pytorch/issues/81460
-        _quantization.add_placeholder_for_fake_quant(c_module)
-
-
-def _jit_pass_quantization_postprocess(c_module):
-    cfg = Config.get_current_context_or_new()
-    is_enabled_quantization = cfg.enable_int8
-    if is_enabled_quantization:
-        _quantization.remove_placeholder(c_module)
 
 
 def _optimize_common(c_module, static_shape=False):

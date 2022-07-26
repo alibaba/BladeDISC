@@ -16,7 +16,10 @@
 #include "compiler/backends/engine_interface.h"
 #include "compiler/jit/onnx_funcs.h"
 #include "compiler/jit/pybind_functions.h"
+
+#ifdef TORCH_BLADE_BUILD_QUANTIZATION
 #include "quantization/pybind_functions.h"
+#endif // TORCH_BLADE_BUILD_QUANTIZATION
 
 #ifdef TORCH_BLADE_BUILD_TENSORRT
 #include "compiler/tensorrt/pybind_functions.h"
@@ -58,7 +61,9 @@ void initModules<false>(py::module& m) {
       "jit_pass_onnx_constant_f64_to_f32",
       &torch::blade::CastDownAllConstantDoubleToFloat);
 
+#ifdef TORCH_BLADE_BUILD_QUANTIZATION
   torch::blade::quantization::initQuantizationBindings(m);
+#endif // TORCH_BLADE_BUILD_QUANTIZATION
 
 #ifdef TORCH_BLADE_BUILD_TENSORRT
   torch::blade::tensorrt::initTensorRTBindings(m);

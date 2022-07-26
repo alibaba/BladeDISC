@@ -68,7 +68,7 @@ struct DeadArgumentElimination : public OpRewritePattern<LLVM::LLVMFuncOp> {
         origFuncType.clone(newInputs, origFuncType.getReturnTypes());
     auto newFuncOp = rewriter.create<LLVM::LLVMFuncOp>(
         op.getLoc(), op.getName(), newType, op.getLinkage(),
-        op.getDsoLocal(), /* add me after rebase: op.getCConv() */
+        op.getDsoLocal(), op.getCConv(),
         op->getAttrs());
 
     // Move the body of original function into the new function.

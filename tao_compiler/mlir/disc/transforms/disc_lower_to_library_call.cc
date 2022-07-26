@@ -295,7 +295,7 @@ Value GetConvMetadata(OpTy op, PatternRewriter& rewriter) {
   auto window_strides = disc_ral::ConvertDenseIntAttr(op.getWindowStrides());
   fields.insert(fields.end(), window_strides.begin(), window_strides.end());
   // rhs_dilation
-  auto rhs_dilation = disc_ral::ConvertDenseIntAttr(op.getLhsDilation());
+  auto rhs_dilation = disc_ral::ConvertDenseIntAttr(op.getRhsDilation());
   fields.insert(fields.end(), rhs_dilation.begin(), rhs_dilation.end());
   fields.push_back(isConstantMemRef(op->getOperand(1)));
 

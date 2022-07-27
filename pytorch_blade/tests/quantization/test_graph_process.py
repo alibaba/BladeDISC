@@ -44,6 +44,11 @@ class TestGraphProcess(QuantizationTestCase):
         """
         FileCheck().run(graph_with_placeholder_str, graph)
 
+        # test fake_quant of weight will not be folded by
+        # constant propagation
+        torch._C._jit_pass_constant_propagation(graph)
+        FileCheck().run(graph_with_placeholder_str, graph)
+
         _jit_pass_remove_all_placeholder(c_module)
         graph_without_placeholder_str = """graph(%self : __torch__.tests.quantization.ModelWithFakeQuant,
                     %x : Tensor):

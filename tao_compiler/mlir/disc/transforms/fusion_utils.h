@@ -501,6 +501,14 @@ struct ParallelInfo {
 
   // whether this parallel info is needed by any root.
   bool consumedByRoots = false;
+
+  // Returns the sorted parallel axes.
+  SmallVector<int> getSortedParallelAxes() {
+    SmallVector<int> parallelAxes;
+    for (auto&& e : indices) parallelAxes.push_back(e.first);
+    llvm::sort(parallelAxes);
+    return parallelAxes;
+  }
 };
 
 class StitchCPUAnalysis {

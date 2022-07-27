@@ -2659,16 +2659,16 @@ bool StitchCPUAnalysis::emitReshapeOpParallelIndex(OpBuilder& b, Location loc,
 
   auto fromTy = from.value.getType().cast<MemRefType>();
   SmallVector<Value> fromNonSizeOneIndices;
-  for (const auto& en : llvm::enumerate(from.indices)) {
-    if (fromTy.getShape()[en.value().first] == 1) continue;
+  for (const auto& en : llvm::enumerate(from.getSortedParallelAxes())) {
+    if (fromTy.getShape()[en.value()] == 1) continue;
     fromNonSizeOneIndices.push_back(from.symbolIndices[en.index()]);
   }
 
   int numNonSizeOneDim = 0;
   Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
   auto toTy = to.value.getType().cast<MemRefType>();
-  for (const auto& en : llvm::enumerate(to.indices)) {
-    if (toTy.getShape()[en.value().first] == 1) {
+  for (const auto& en : llvm::enumerate(to.getSortedParallelAxes())) {
+    if (toTy.getShape()[en.value()] == 1) {
       to.symbolIndices.push_back(zero);
     } else {
       to.symbolIndices.push_back(fromNonSizeOneIndices[numNonSizeOneDim++]);

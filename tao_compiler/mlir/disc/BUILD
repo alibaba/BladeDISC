@@ -1941,6 +1941,7 @@ cc_library(
         "@llvm-project//mlir:IR",
     ],
     alwayslink = 1,
+    visibility = ["//visibility:public"],
 )
 
 cc_library(

@@ -39,6 +39,9 @@
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
+#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
+#include "tensorflow/compiler/mlir/disc/IR/rng_uniform_custom_call_op.h"
+
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
@@ -2007,17 +2010,42 @@ LogicalResult ConvertAtenOp<AtenBroadcastToOp>::matchAndRewrite(
   return success();
 }
 
+StringAttr PackRandomUniformBackendConfig(
+    IntegerAttr seed,
+    IntegerAttr seed2,
+    PatternRewriter* rewriter) {
+  mhlo_disc::RngUniformBackendConfig config(
+      seed.getValue().getSExtValue(), seed2.getValue().getSExtValue());
+  std::string str;
+  llvm::raw_string_ostream ostream(str);
+  ostream << ::llvm::json::toJSON(config);
+  return rewriter->getStringAttr(ostream.str());
+}
+
 template <>
 LogicalResult ConvertAtenOp<ValsemVariantAtenUniformOp>::matchAndRewrite(
     ValsemVariantAtenUniformOp op,
     OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   auto inputTy = adaptor.self().getType().template cast<RankedTensorType>();
+  auto loc = op.getLoc();
   if (!inputTy) {
     op.emitError("input should be ranked tensor type.");
   }
-  auto dimConst = mhlo::getConstTensor<int64_t>(
-      rewriter, op, inputTy.getShape(), inputTy.getRank());
+  auto definingOp = op.self().getDefiningOp();
+  auto shape = definingOp->getOperand(0);
+  SmallVector<Value, 4> dimSizes;
+  getListConstructElements(shape, dimSizes);
+  std::for_each(dimSizes.begin(), dimSizes.end(), [&](Value& dSize) {
+    dSize = rewriter.create<ToI64Op>(loc, dSize).getResult();
+    // dimSize: cast i64 -> i32
+    dSize = rewriter.create<arith::TruncIOp>(loc, rewriter.getI32Type(), dSize);
+    return dSize;
+  });
+
+  auto mhloShape =
+      rewriter.create<tensor::FromElementsOp>(op.getLoc(), dimSizes);
+
   double fromDoubleValue, toDoubleValue;
   if (!matchPattern(op.from(), m_TorchConstantFloat(&fromDoubleValue))) {
     op.emitError("operand #1 should be scalar");
@@ -2025,15 +2053,29 @@ LogicalResult ConvertAtenOp<ValsemVariantAtenUniformOp>::matchAndRewrite(
   if (!matchPattern(op.to(), m_TorchConstantFloat(&toDoubleValue))) {
     op.emitError("operand #2 should be scalar");
   }
-  llvm::dbgs() << "from: " << fromDoubleValue << "\n";
-  llvm::dbgs() << "to: " << toDoubleValue << "\n";
-  Value fromTensor =
-      mhlo::getConstTensor<float>(rewriter, op, fromDoubleValue, {}).getValue();
-  Value toTensor =
-      mhlo::getConstTensor<float>(rewriter, op, toDoubleValue, {}).getValue();
+  Value fromTensor = rewriter.create<mhlo::ConstOp>(
+      op.getLoc(),
+      rewriter.getFloatAttr(inputTy.getElementType(), fromDoubleValue));
+  Value toTensor = rewriter.create<mhlo::ConstOp>(
+      op.getLoc(),
+      rewriter.getFloatAttr(inputTy.getElementType(), toDoubleValue));
 
-  rewriter.replaceOpWithNewOp<mhlo::RngUniformOp>(
-      op, inputTy, fromTensor, toTensor, dimConst.getValue());
+  auto cfg = PackRandomUniformBackendConfig(
+      rewriter.getIntegerAttr(rewriter.getI32Type(), 1),
+      rewriter.getIntegerAttr(rewriter.getI32Type(), 2),
+      &rewriter);
+  auto outType = getTypeConverter()
+                     ->convertType(op.getType())
+                     .template dyn_cast<TensorType>();
+
+  auto custom_call_op = rewriter.create<mhlo_disc::CustomCallOp>(
+      op.getLoc(),
+      TypeRange{outType},
+      ValueRange{fromTensor, toTensor, mhloShape},
+      rewriter.getStringAttr("rng_uniform"),
+      rewriter.getBoolAttr(false),
+      cfg);
+  rewriter.replaceOp(op, {custom_call_op.getResult(0)});
   return success();
 }
 
@@ -2450,6 +2492,7 @@ class ConvertTorchToMhlo
     registry.insert<mhlo::MhloDialect>();
     registry.insert<tensor::TensorDialect>();
     registry.insert<arith::ArithmeticDialect>();
+    registry.insert<mhlo_disc::MhloDiscDialect>();
     TorchConversion::getBackendTypeConversionDependentDialects(registry);
   }
 
@@ -2459,6 +2502,7 @@ class ConvertTorchToMhlo
     target.addLegalDialect<
         chlo::ChloDialect,
         mhlo::MhloDialect,
+        mhlo_disc::MhloDiscDialect,
         tensor::TensorDialect,
         arith::ArithmeticDialect>();
 
@@ -2631,6 +2675,7 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenIndexSelectOp);
     INSERT_ATENOP_PATTERN(AtenRollOp);
     INSERT_ATENOP_PATTERN(ValsemVariantAtenUniformOp);
+    INSERT_ATENOP_PATTERN(AtenMaxDimOp);
     // INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
 #undef INSERT_ATENOP_PATTERN
 

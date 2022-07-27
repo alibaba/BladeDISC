@@ -1759,27 +1759,27 @@ class ShapePropagator : public PropertyPropBase {
         node->matches(
             "aten::native_layer_norm(Tensor input, int[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> (Tensor, Tensor, Tensor)")) {
       if (auto type = input_type(0)) {
-        std::cout << "before native_layer_norm" << std::endl;
         node->outputs()[0]->setType(type);
-        std::cout << "begin get normalized_shape" << std::endl;
         auto normalized_shape =
             node->get<c10::List<int64_t>>(attr::normalized_shape).value();
-        std::cout << "begin axis" << std::endl;
         const size_t axis = type->dim().value() - normalized_shape.size();
-        std::cout << "begin stat_shape, axis: " << axis << std::endl;
-        std::vector<int64_t> stat_shape;
+        std::vector<ShapeSymbol> stat_shape;
+        int64_t dims = axis + type->dim().value();
+
         for (const auto idx : c10::irange(axis)) {
-          std::cout << "emplace_back: " << *type->sizes()[idx] << std::endl;
-          stat_shape.emplace_back(*type->sizes()[idx]);
+          auto dim = type->symbolic_sizes()[idx];
+          if (dim.is_static())
+            stat_shape.emplace_back(ShapeSymbol::newSymbol());
+          else
+            stat_shape.emplace_back(ShapeSymbol::fromStaticSize(dim.value()));
         }
-        std::cout << "begin fill 1 into stat_shape" << std::endl;
         for (const auto idx : c10::irange(axis, type->dim().value())) {
           (void)idx; // Suppress unused variable warning
-          stat_shape.emplace_back(1);
+          stat_shape.emplace_back(ShapeSymbol::fromStaticSize(1));
         }
-        node->outputs()[1]->setType(type->withSizes(stat_shape));
-        node->outputs()[2]->setType(type->withSizes(stat_shape));
-        std::cout << "end native_layer_norm" << std::endl;
+        SymbolicShape shape(stat_shape);
+        node->outputs()[1]->setType(type->withSymbolicShapes(shape));
+        node->outputs()[2]->setType(type->withSymbolicShapes(shape));
       }
       return true;
     }

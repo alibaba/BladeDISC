@@ -93,7 +93,7 @@ LogicalResult ConvertAtenOp<AtenNativeDropoutOp>::matchAndRewrite(
 
   BaseTensorType inputType = input.getType().cast<BaseTensorType>();
   if (!train) {
-    // TODO(yancey.yx): supports train mode
+    // TODO(yancey.yx): supports inference mode
     return op.emitError(
         "native_dropout does not support argument train is false");
   }

@@ -59,10 +59,11 @@ cc_library(
         "@llvm-project//mlir:Dialect",
         "@torch-mlir//:TorchMLIRTorchBackendTypeConversion",
         "@torch-mlir//:TorchMLIRTorchConversionDialect",
-	"@torch-mlir//:TorchMLIRTorchConversionPasses",
-	"@torch-mlir//:TorchMLIRTorchConversionPassesIncGen",
+	    "@torch-mlir//:TorchMLIRTorchConversionPasses",
+	    "@torch-mlir//:TorchMLIRTorchConversionPassesIncGen",
         "@torch-mlir//:TorchMLIRConversionPassesIncGen",
-	"@org_tensorflow//tensorflow/compiler/mlir/hlo:hlo",
+	    "@org_tensorflow//tensorflow/compiler/mlir/hlo:hlo",
+        "@org_tensorflow//tensorflow/compiler/mlir/disc:rng_uniform_custom_call",
     ]
 )
 

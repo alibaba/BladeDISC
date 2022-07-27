@@ -36,7 +36,7 @@ def skipIfNoQuantization():
 class ModelWithFakeQuant(nn.Module):
     def __init__(self):
         super().__init__()
-        self.weight = nn.Parameter(torch.randn(3, 4))
+        self.weight = nn.Parameter(torch.randn(3, 4, 3, 3))
         self.weight_scale = nn.Parameter(torch.randn(3))
         self.weight_zero_point = nn.Parameter(torch.zeros(3))
 
@@ -47,7 +47,7 @@ class ModelWithFakeQuant(nn.Module):
             self.weight_zero_point.data.to(zero_point_dtype),
             axis=0, quant_min=-128, quant_max=127
         )
-        y = F.linear(x, weight, bias=None)
+        y = F.conv2d(x, weight, bias=None)
         return y
 
 

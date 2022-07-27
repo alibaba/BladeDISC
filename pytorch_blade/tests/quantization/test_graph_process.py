@@ -24,7 +24,7 @@ class TestGraphProcess(QuantizationTestCase):
     @skipIfNoQuantization()
     def test_insert_and_remove_fake_quant(self):
         model = ModelWithFakeQuant().to(self.device)
-        inp = torch.randn(1, 4, device=self.device)
+        inp = torch.randn(1, 4, 5, 5, device=self.device)
         traced_model = torch.jit.trace(model, inp)
         c_module = traced_model._c
         _jit_pass_add_placeholder_for_fake_quant(c_module)
@@ -37,8 +37,8 @@ class TestGraphProcess(QuantizationTestCase):
               Tensor = aten::fake_quantize_per_channel_affine
               # CHECK: quantization::placeholder
               Tensor = quantization::placeholder
-              # CHECK: aten::linear
-              Tensor = aten::linear
+              # CHECK: aten::_convolution
+              Tensor = aten::_convolution
               return
 
         """
@@ -57,9 +57,9 @@ class TestGraphProcess(QuantizationTestCase):
                       # CHECK: aten::fake_quantize_per_channel_affine
                       Tensor = aten::fake_quantize_per_channel_affine
                       # CHECK-NOT: quantization::placeholder
-                      Tensor = quantization::placeholder(%weight)
-                      # CHECK: aten::linear
-                      Tensor = aten::linear(%input, %26, %24)
+                      Tensor = quantization::placeholder
+                      # CHECK: aten::_convolution
+                      Tensor = aten::_convolution
                       return
 
                 """

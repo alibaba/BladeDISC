@@ -2612,7 +2612,6 @@ std::vector<string> GetDiscSupportedOps() {
     "Pad",
     "Pow",
     "Prod",
-    "RandomUniform",
     "Range",
     "RealDiv",
     "Reciprocal",
@@ -2680,6 +2679,12 @@ std::vector<string> GetDiscSupportedOps() {
   });
 #endif
 #endif
+#endif
+
+#if !defined(TAO_CPU_ONLY)
+  ops.insert(ops.end(), {
+    "RandomUniform"
+  });
 #endif
 
   // clang-format on

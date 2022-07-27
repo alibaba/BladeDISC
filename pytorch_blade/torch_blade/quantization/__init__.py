@@ -19,6 +19,18 @@ except ImportError as e:
     _is_available = False
 
 
+def is_available():
+    return _is_available
+
+
+def _jit_pass_add_placeholder_for_fake_quant(c_module):
+    _quantization.add_placeholder_for_fake_quant(c_module)
+
+
+def _jit_pass_remove_all_placeholder(c_module):
+    _quantization.remove_placeholder(c_module)
+
+
 def _jit_pass_quantization_preprocess(c_module):
     if not _is_available:
         return
@@ -31,7 +43,7 @@ def _jit_pass_quantization_preprocess(c_module):
         # TODO: remove this when fake_quant is added to the skip_list
         # of _jit_pass_constant_propagation.
         # https://github.com/pytorch/pytorch/issues/81460
-        _quantization.add_placeholder_for_fake_quant(c_module)
+        _jit_pass_add_placeholder_for_fake_quant(c_module)
 
 
 def _jit_pass_quantization_postprocess(c_module):
@@ -41,7 +53,7 @@ def _jit_pass_quantization_postprocess(c_module):
     cfg = Config.get_current_context_or_new()
     is_enabled_quantization = cfg.enable_int8
     if _is_available and is_enabled_quantization:
-        _quantization.remove_placeholder(c_module)
+        _jit_pass_remove_all_placeholder(c_module)
 
 
 def is_fake_quant_op(inp_node_kind):

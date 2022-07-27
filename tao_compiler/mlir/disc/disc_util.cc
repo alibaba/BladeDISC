@@ -197,7 +197,7 @@ SmallVector<Value, 4> GetAllPossibleUsedValues(Operation* op) {
 
 bool useShapeConstraintIR() {
   static bool enabled = []() {
-    bool enable_shape_constraint_ir = false;
+    bool enable_shape_constraint_ir = true;
     tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_SHAPE_CONSTRAINT_IR",
                                    enable_shape_constraint_ir,
                                    &enable_shape_constraint_ir);
@@ -209,7 +209,7 @@ bool useShapeConstraintIR() {
 // Returns true if `DISC_ENABLE_HORIZONTAL_FUSION` is true
 bool useHorizontalFusion() {
   static bool enabled = []() {
-    bool enabled = false;
+    bool enabled = true;
     tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_HORIZONTAL_FUSION", enabled,
                                    &enabled);
     return enabled;

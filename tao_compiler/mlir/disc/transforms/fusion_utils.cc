@@ -87,7 +87,7 @@ DenseSet<Operation*> NoLoaderUser(SmallVectorImpl<Operation*>& ops) {
   return no_loader_ops;
 }
 
-void cleanUnusedLhloOps(Block* parent) {
+void cleanUnusedLhloOps(Block* parent, PatternRewriter* rewriter) {
   SmallVector<Operation*, 4> lhlo_ops;
   for (Operation& op : parent->getOperations()) {
     if (op.getDialect() == op.getContext()->getLoadedDialect("lmhlo") &&
@@ -95,7 +95,13 @@ void cleanUnusedLhloOps(Block* parent) {
       lhlo_ops.push_back(&op);
   }
   const DenseSet<Operation*>& no_loader_user = NoLoaderUser(lhlo_ops);
-  for (auto* lhlo_op : no_loader_user) lhlo_op->erase();
+  for (auto* lhlo_op : no_loader_user) {
+    if (rewriter) {
+      rewriter->eraseOp(lhlo_op);
+    } else {
+      lhlo_op->erase();
+    }
+  }
 }
 
 // returns the users of the `memref`. The users should be in the same fusion
@@ -2653,16 +2659,16 @@ bool StitchCPUAnalysis::emitReshapeOpParallelIndex(OpBuilder& b, Location loc,
 
   auto fromTy = from.value.getType().cast<MemRefType>();
   SmallVector<Value> fromNonSizeOneIndices;
-  for (const auto& en : llvm::enumerate(from.indices)) {
-    if (fromTy.getShape()[en.value().first] == 1) continue;
+  for (const auto& en : llvm::enumerate(from.getSortedParallelAxes())) {
+    if (fromTy.getShape()[en.value()] == 1) continue;
     fromNonSizeOneIndices.push_back(from.symbolIndices[en.index()]);
   }
 
   int numNonSizeOneDim = 0;
   Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
   auto toTy = to.value.getType().cast<MemRefType>();
-  for (const auto& en : llvm::enumerate(to.indices)) {
-    if (toTy.getShape()[en.value().first] == 1) {
+  for (const auto& en : llvm::enumerate(to.getSortedParallelAxes())) {
+    if (toTy.getShape()[en.value()] == 1) {
       to.symbolIndices.push_back(zero);
     } else {
       to.symbolIndices.push_back(fromNonSizeOneIndices[numNonSizeOneDim++]);

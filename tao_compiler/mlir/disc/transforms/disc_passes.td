@@ -436,3 +436,12 @@ def FunctionDeadArgumentEliminationPass :
       "LLVM::LLVMDialect",
   ];
 }
+
+def SideEffectLoopInvariantCodeMotionPass :
+        Pass<"disc-side-effect-loop-invariant-code-motion", "gpu::GPUFuncOp"> {
+  let summary = "Apply loop invariant code motion on operators with side effect.";
+  let constructor = "createSideEffectLoopInvariantCodeMotionPass()";
+  let dependentDialects = [
+      "gpu::GPUDialect",
+  ];
+}

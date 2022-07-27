@@ -197,7 +197,6 @@ struct TieShapeOpConverter : public BaseOpConversion<TieShapeOp> {
     int64_t rank = operands.size() - 1;
     auto memrefTy = memref.getType().cast<MemRefType>();
     assert(memrefTy.getRank() == rank);
-    assert(memrefTy.getAffineMaps().empty());
 
     Value castedValue = disc_ral::CastMemRefTo(rewriter, loc, memref, memrefTy,
                                                operands.drop_front());

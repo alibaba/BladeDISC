@@ -1309,8 +1309,6 @@ void ral_conv(ExecutionContext* ctx, void* stream_handle,
     }
     print_memref(output, "output");
     print_memref(metadata, "metadata");
-    TAO_VLOG(0) << "metadata.size(): " << metadata.sizes[0];
-    TAO_VLOG(0) << "5 * N - 4: " << 5 * N - 4;
     for (int i = 0; i < 5 * N - 4; ++i) {
       TAO_VLOG(0) << "\t#" << i << ": " << metadata.data[i];
     }

@@ -2,7 +2,7 @@
 
 // CHECK-LABEL: @opt_in_the_same_block
 // CHECK-SAME: (%[[INPUT:.*]]: f32
-func @opt_in_the_same_block(%input: f32) -> f32 {
+func.func @opt_in_the_same_block(%input: f32) -> f32 {
   %c0 = arith.constant 0 : index
   %c2 = arith.constant 2 : index
   %memref = memref.alloc(%c2) : memref<?xf32, "cpu">
@@ -18,7 +18,7 @@ func @opt_in_the_same_block(%input: f32) -> f32 {
 
 // CHECK-LABEL: @opt_in_the_dominant_block
 // CHECK-SAME: (%[[INPUT:.*]]: f32
-func @opt_in_the_dominant_block(%input: f32, %pred: i1) -> f32 {
+func.func @opt_in_the_dominant_block(%input: f32, %pred: i1) -> f32 {
   %c0 = arith.constant 0 : index
   %c2 = arith.constant 2 : index
   %memref = memref.alloc(%c2) : memref<?xf32, "cpu">
@@ -39,7 +39,7 @@ func @opt_in_the_dominant_block(%input: f32, %pred: i1) -> f32 {
 // -----
 
 // CHECK-LABEL: @should_not_opt_diff_index
-func @should_not_opt_diff_index(%input: f32) -> f32 {
+func.func @should_not_opt_diff_index(%input: f32) -> f32 {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
@@ -55,7 +55,7 @@ func @should_not_opt_diff_index(%input: f32) -> f32 {
 // -----
 
 // CHECK-LABEL: @should_not_opt_diff_memref
-func @should_not_opt_diff_memref(%input: f32) -> f32 {
+func.func @should_not_opt_diff_memref(%input: f32) -> f32 {
   %c0 = arith.constant 0 : index
   %c2 = arith.constant 2 : index
   %memref = memref.alloc(%c2) : memref<?xf32, "cpu">
@@ -73,7 +73,7 @@ func @should_not_opt_diff_memref(%input: f32) -> f32 {
 
 // CHECK-LABEL: @should_not_opt_not_dominate
 // CHECK-SAME: (%[[INPUT:.*]]: f32
-func @should_not_opt_not_dominate(%input: f32, %pred: i1) -> f32 {
+func.func @should_not_opt_not_dominate(%input: f32, %pred: i1) -> f32 {
   %c0 = arith.constant 0 : index
   %c2 = arith.constant 2 : index
   %memref = memref.alloc(%c2) : memref<?xf32, "cpu">
@@ -91,7 +91,7 @@ func @should_not_opt_not_dominate(%input: f32, %pred: i1) -> f32 {
 // ----
 
 // CHECK-LABEL: @should_not_opt_on_gpu
-func @should_not_opt_on_gpu(%input: f32) -> f32 {
+func.func @should_not_opt_on_gpu(%input: f32) -> f32 {
   %c0 = arith.constant 0 : index
   %c2 = arith.constant 2 : index
   %memref = memref.alloc(%c2) : memref<?xf32, "gpu">
@@ -104,7 +104,7 @@ func @should_not_opt_on_gpu(%input: f32) -> f32 {
 }
 
 // CHECK-LABEL: @should_not_opt_multi_store
-func @should_not_opt_multi_store(%input: f32) -> f32 {
+func.func @should_not_opt_multi_store(%input: f32) -> f32 {
   %c0 = arith.constant 0 : index
   %c2 = arith.constant 2 : index
   %memref = memref.alloc(%c2) : memref<?xf32, "cpu">
@@ -119,7 +119,7 @@ func @should_not_opt_multi_store(%input: f32) -> f32 {
 }
 
 // CHECK-LABEL: @should_not_opt_cast
-func @should_not_opt_cast(%input: f32) -> (f32, memref<?xf32, "cpu">) {
+func.func @should_not_opt_cast(%input: f32) -> (f32, memref<?xf32, "cpu">) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
@@ -144,7 +144,7 @@ func @should_not_opt_cast(%input: f32) -> (f32, memref<?xf32, "cpu">) {
 
 // CHECK-LABEL: @opt_multi_store_diff_index
 // CHECK-SAME: (%[[INPUT:.*]]: f32
-func @opt_multi_store_diff_index(%input: f32, %pred: i1) -> f32 {
+func.func @opt_multi_store_diff_index(%input: f32, %pred: i1) -> f32 {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
@@ -160,7 +160,7 @@ func @opt_multi_store_diff_index(%input: f32, %pred: i1) -> f32 {
 }
 
 // CHECK-LABEL: @should_not_opt_multi_store_same_index
-func @should_not_opt_multi_store_same_index(%input: f32, %pred: i1) -> f32 {
+func.func @should_not_opt_multi_store_same_index(%input: f32, %pred: i1) -> f32 {
   %c0 = arith.constant 0 : index
   %c2 = arith.constant 2 : index
   %memref = memref.alloc(%c2) : memref<?xf32, "cpu">
@@ -178,7 +178,7 @@ func @should_not_opt_multi_store_same_index(%input: f32, %pred: i1) -> f32 {
 }
 
 // CHECK-LABEL: @should_not_opt_multi_store_unknown_index
-func @should_not_opt_multi_store_unknown_index(%input: f32, %pred: i1, %idx: index) -> f32 {
+func.func @should_not_opt_multi_store_unknown_index(%input: f32, %pred: i1, %idx: index) -> f32 {
   %c0 = arith.constant 0 : index
   %c2 = arith.constant 2 : index
   %memref = memref.alloc(%c2) : memref<?xf32, "cpu">

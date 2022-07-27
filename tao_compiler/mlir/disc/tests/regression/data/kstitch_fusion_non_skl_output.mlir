@@ -1,7 +1,7 @@
 // This UT is a complex fusion pattern. Meanwhile, one of the output is not a
 // skeleton op.
 module attributes {tf.versions = {bad_consumers = [], min_consumer = 0 : i32, producer = 0 : i32}} {
-  func @main(%arg0: tensor<?x768xf32>, %arg1: tensor<?x?x768xf32>, %arg2: tensor<768xf32>) -> (tensor<?x?xf32>, tensor<?x?x768xf32>) attributes {tf.entry_function = {inputs = "{{INPUTS}}", outputs = "{{OUTPUTS}}", input_placements="{{INPUT_PLACEMENTS}}", output_placements="{{OUTPUT_PLACEMENTS}}"}} {
+  func.func @main(%arg0: tensor<?x768xf32>, %arg1: tensor<?x?x768xf32>, %arg2: tensor<768xf32>) -> (tensor<?x?xf32>, tensor<?x?x768xf32>) attributes {tf.entry_function = {inputs = "{{INPUTS}}", outputs = "{{OUTPUTS}}", input_placements="{{INPUT_PLACEMENTS}}", output_placements="{{OUTPUT_PLACEMENTS}}"}} {
     %graph:2 = tf_executor.graph {
       %0:2 = tf_executor.island wraps "tf.Shape"(%arg1) {device = ""} : (tensor<?x?x768xf32>) -> (tensor<3xi32>)
       %1:2 = tf_executor.island wraps "tf.Reshape"(%arg0, %0) {T = f32, Tshape = i32, device = ""} : (tensor<?x768xf32>, tensor<3xi32>) -> tensor<?x?x768xf32>

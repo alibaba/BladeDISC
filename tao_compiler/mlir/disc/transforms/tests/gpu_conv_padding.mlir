@@ -1,7 +1,7 @@
 // RUN: disc-opt -disc-gpu-conv-padding-legalization %s | FileCheck %s
 
 module  {
-  func @main(%arg0: tensor<?x32x32x6xf32>, %arg1: tensor<3x3x3x16xf32>) -> tensor<?x8x7x16xf32> {
+  func.func @main(%arg0: tensor<?x32x32x6xf32>, %arg1: tensor<3x3x3x16xf32>) -> tensor<?x8x7x16xf32> {
     %c1 = arith.constant 1 : index
     %0 = tensor.dim %arg0, %c1 : tensor<?x32x32x6xf32>
     %1 = arith.index_cast %0 : index to i32

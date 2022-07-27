@@ -111,8 +111,7 @@ LogicalResult RewriteLLVMModule(llvm::Module* m) {
   auto real_ctx = b.CreateLoad(llvm::Type::getInt8Ty(ctx)->getPointerTo(),
                                typed_ctx_struct);
   auto untyped_real_func = b.CreateConstGEP1_32(
-      llvm::Type::getInt8Ty(ctx)->getPointerTo(),
-      typed_ctx_struct, 1);
+      llvm::Type::getInt8Ty(ctx)->getPointerTo(), typed_ctx_struct, 1);
   auto real_func = b.CreateLoad(
       func_type->getPointerTo(),
       b.CreateBitOrPointerCast(untyped_real_func,

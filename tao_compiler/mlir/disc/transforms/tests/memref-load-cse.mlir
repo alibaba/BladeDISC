@@ -1,7 +1,7 @@
 // RUN: disc-opt %s -disc-memref-cse | FileCheck %s
 
 // CHECK-LABEL: @cse_in_the_same_block
-func @cse_in_the_same_block() -> (f32, f32) {
+func.func @cse_in_the_same_block() -> (f32, f32) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
@@ -14,7 +14,7 @@ func @cse_in_the_same_block() -> (f32, f32) {
 }
 
 // CHECK-LABEL: @cse_in_the_dominant_block
-func @cse_in_the_dominant_block(%pred : i1) -> (f32, f32) {
+func.func @cse_in_the_dominant_block(%pred : i1) -> (f32, f32) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
@@ -34,7 +34,7 @@ func @cse_in_the_dominant_block(%pred : i1) -> (f32, f32) {
 }
 
 // CHECK-LABEL: @should_not_cse_0
-func @should_not_cse_0(%pred : i1) -> (f32, f32) {
+func.func @should_not_cse_0(%pred : i1) -> (f32, f32) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
@@ -54,7 +54,7 @@ func @should_not_cse_0(%pred : i1) -> (f32, f32) {
 }
 
 // CHECK-LABEL: @should_not_cse_1
-func @should_not_cse_1(%pred : i1) -> (f32, f32) {
+func.func @should_not_cse_1(%pred : i1) -> (f32, f32) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
@@ -75,7 +75,7 @@ func @should_not_cse_1(%pred : i1) -> (f32, f32) {
 }
 
 // CHECK-LABEL: @should_not_cse_2
-func @should_not_cse_2(%pred : i1) -> (f32, f32) {
+func.func @should_not_cse_2(%pred : i1) -> (f32, f32) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
@@ -95,7 +95,7 @@ func @should_not_cse_2(%pred : i1) -> (f32, f32) {
 }
 
 // CHECK-LABEL: @cse_iteratively
-func @cse_iteratively(%i : index, %j : index) -> (f32, f32) {
+func.func @cse_iteratively(%i : index, %j : index) -> (f32, f32) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index

@@ -83,14 +83,6 @@ def ElementTypeConverterPass : Pass<"disc-element-type-converter", "mlir::func::
   ];
 }
 
-// def MapParallelLoopsPass : Pass<"map-parallel-loops-to-gpu", "mlir::func::FuncOp"> {
-//   let summary = "Greedily maps loops to GPU hardware dimensions.";
-//   let constructor = "createMapParallelLoopsPass()";
-//   let description = [{
-//     Greedily maps loops to GPU hardware dimensions.
-//   }];
-// }
-
 def ParallelLoopCollapsing : Pass<"disc-parallel-loop-collapsing", "mlir::func::FuncOp"> {
   let summary = "Collapse parallel loops";
   let constructor = "createDiscParallelLoopCollapsingPass()";

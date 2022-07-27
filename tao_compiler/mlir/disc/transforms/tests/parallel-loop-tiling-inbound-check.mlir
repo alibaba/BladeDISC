@@ -1,6 +1,6 @@
 // RUN: disc-opt %s -pass-pipeline='func.func(disc-parallel-loop-tiling{parallel-loop-tile-sizes=1,4 with-inbound-check=true})' -split-input-file | FileCheck %s
 
-func @parallel_loop(%arg0 : index, %arg1 : index, %arg2 : index,
+func.func @parallel_loop(%arg0 : index, %arg1 : index, %arg2 : index,
                     %arg3 : index, %arg4 : index, %arg5 : index,
 		    %A: memref<?x?xf32>, %B: memref<?x?xf32>,
                     %C: memref<?x?xf32>, %result: memref<?x?xf32>) {
@@ -13,7 +13,7 @@ func @parallel_loop(%arg0 : index, %arg1 : index, %arg2 : index,
   return
 }
 
-// CHECK-LABEL:   func @parallel_loop(
+// CHECK-LABEL:   func.func @parallel_loop(
 // CHECK-SAME:                        [[ARG1:%.*]]: index, [[ARG2:%.*]]: index, [[ARG3:%.*]]: index, [[ARG4:%.*]]: index, [[ARG5:%.*]]: index, [[ARG6:%.*]]: index, [[ARG7:%.*]]: memref<?x?xf32>, [[ARG8:%.*]]: memref<?x?xf32>, [[ARG9:%.*]]: memref<?x?xf32>, [[ARG10:%.*]]: memref<?x?xf32>) {
 // CHECK:           [[C0:%.*]] = arith.constant 0 : index
 // CHECK:           [[C1:%.*]] = arith.constant 1 : index
@@ -45,7 +45,7 @@ func @parallel_loop(%arg0 : index, %arg1 : index, %arg2 : index,
 
 // -----
 
-func @static_loop_with_step() {
+func.func @static_loop_with_step() {
   %c0 = arith.constant 0 : index
   %c3 = arith.constant 3 : index
   %c22 = arith.constant 22 : index
@@ -55,7 +55,7 @@ func @static_loop_with_step() {
   return
 }
 
-// CHECK-LABEL:   func @static_loop_with_step() {
+// CHECK-LABEL:   func.func @static_loop_with_step() {
 // CHECK:           [[C0:%.*]] = arith.constant 0 : index
 // CHECK:           [[C3:%.*]] = arith.constant 3 : index
 // CHECK:           [[C22:%.*]] = arith.constant 22 : index
@@ -76,7 +76,7 @@ func @static_loop_with_step() {
 
 // -----
 
-func @tile_nested_innermost() {
+func.func @tile_nested_innermost() {
   %c2 = arith.constant 2 : index
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
@@ -89,7 +89,7 @@ func @tile_nested_innermost() {
   return
 }
 
-// CHECK-LABEL:   func @tile_nested_innermost() {
+// CHECK-LABEL:   func.func @tile_nested_innermost() {
 // CHECK:           [[C2:%.*]] = arith.constant 2 : index
 // CHECK:           [[C0:%.*]] = arith.constant 0 : index
 // CHECK:           [[C1:%.*]] = arith.constant 1 : index
@@ -124,7 +124,7 @@ func @tile_nested_innermost() {
 
 // -----
 
-func @tile_nested_in_non_ploop() {
+func.func @tile_nested_in_non_ploop() {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %c2 = arith.constant 2 : index
@@ -137,7 +137,7 @@ func @tile_nested_in_non_ploop() {
   return
 }
 
-// CHECK-LABEL: func @tile_nested_in_non_ploop
+// CHECK-LABEL: func.func @tile_nested_in_non_ploop
 // CHECK:         scf.for
 // CHECK:           scf.for
 // CHECK:             scf.parallel
@@ -148,7 +148,7 @@ func @tile_nested_in_non_ploop() {
 // CHECK:         }
 // CHECK:       }
 
-func @parallel_loop_with_hint(%pred : i1,
+func.func @parallel_loop_with_hint(%pred : i1,
                               %arg0 : index, %arg1 : index, %arg2 : index,
                               %arg3 : index, %arg4 : index, %arg5 : index,
 		                          %A: memref<?x?xf32>, %B: memref<?x?xf32>,
@@ -177,7 +177,7 @@ func @parallel_loop_with_hint(%pred : i1,
   return
 }
 
-// CHECK-LABEL:   func @parallel_loop_with_hint(
+// CHECK-LABEL:   func.func @parallel_loop_with_hint(
 // CHECK: scf.if
 // CHECK:   lmhlo.fusion
 // CHECK:     %c256 = arith.constant 256 : index

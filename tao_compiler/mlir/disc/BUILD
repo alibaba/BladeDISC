@@ -572,25 +572,6 @@ cc_library(
 )
 
 cc_library(
-    name = "disc_map_parallel_loops_to_gpu",
-    srcs = ["transforms/map_parallel_loops_to_gpu.cc"],
-    includes = [
-        "tensorflow/compiler/mlir/hlo/include",
-        "."
-    ],
-    deps = [
-        ":pass_details",
-        "@llvm-project//llvm:Support",
-        "@llvm-project//mlir:FuncDialect",
-        "@llvm-project//mlir:GPUTransforms",
-        "@llvm-project//mlir:IR",
-        "@llvm-project//mlir:Pass",
-        "@llvm-project//mlir:SCFDialect",
-    ],
-    alwayslink = 1,
-)
-
-cc_library(
     name = "disc_parallel_loop_collapsing",
     srcs = ["transforms/parallel_loop_collapsing.cc"],
     includes = [
@@ -1777,7 +1758,6 @@ cc_library(
         ":disc_lhlo_legalize_roots_to_loops",
         ":disc_lower_tf",
         ":disc_lower_to_library_call",
-        ":disc_map_parallel_loops_to_gpu",
         ":disc_math_approximation",
         ":disc_memref_canonicalizer",
         ":disc_gpu_kernel_to_blob",

@@ -4,7 +4,7 @@
 
 // CHECK-LABEL: main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<10xf32>) -> tensor<10xf32>
-func @main(%arg0 : tensor<?xf32>) -> tensor<10xf32> {
+func.func @main(%arg0 : tensor<?xf32>) -> tensor<10xf32> {
   // CHECK: return %[[ARG0]] : tensor<10xf32>
   %0 = tensor.cast %arg0 : tensor<?xf32> to tensor<10xf32>
   return %0 : tensor<10xf32>
@@ -16,7 +16,7 @@ func @main(%arg0 : tensor<?xf32>) -> tensor<10xf32> {
 
 // CHECK-LABEL: main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<10xf32>, %[[ARG1:.*]]: tensor<10xf32>) -> tensor<10xf32>
-func @main(%arg0 : tensor<?xf32>, %arg1 : tensor<10xf32>) -> tensor<?xf32> {
+func.func @main(%arg0 : tensor<?xf32>, %arg1 : tensor<10xf32>) -> tensor<?xf32> {
   %0 = tensor.cast %arg1 : tensor<10xf32> to tensor<?xf32>
   // CHECK: %[[T1:.*]] = mhlo.add %[[ARG0]], %[[ARG1]] : tensor<10xf32>
   %1 = "mhlo.add"(%arg0, %0) : (tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>
@@ -29,7 +29,7 @@ func @main(%arg0 : tensor<?xf32>, %arg1 : tensor<10xf32>) -> tensor<?xf32> {
 // Test mhlo.concat op
 // CHECK-LABEL: main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x10xf32, [@[[S0:.*]], @[[S1:.*]]]>, %[[ARG1:.*]]: tensor<?x10xf32, [@[[S0]], @[[S1]]]>) -> tensor<?x20xf32, [@[[S0]], @[[S2:.*]]]>
-func @main(%arg0 : tensor<?x10xf32>, %arg1 : tensor<?x10xf32>) -> tensor<?x?xf32> {
+func.func @main(%arg0 : tensor<?x10xf32>, %arg1 : tensor<?x10xf32>) -> tensor<?x?xf32> {
   // CHECK: %[[T0:.*]] = "mhlo.concatenate"(%[[ARG0]], %[[ARG1]])
   // CHECK: return %[[T0]] : tensor<?x20xf32, [@[[S0]], @[[S2]]]>
   %0 = "mhlo.concatenate"(%arg0, %arg1) { dimension = 1 : i64 } : (tensor<?x10xf32>, tensor<?x10xf32>) -> tensor<?x?xf32>
@@ -41,7 +41,7 @@ func @main(%arg0 : tensor<?x10xf32>, %arg1 : tensor<?x10xf32>) -> tensor<?x?xf32
 // Test mhlo.dot_general
 // CHECK-LABEL: main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?x?x?xf32, [@[[S0:.*]], @[[S1:.*]], @[[S2:.*]], @[[S3:.*]]]>, %[[ARG1:.*]]: tensor<?x?x?x?xf32, [@[[S0]], @[[S1]], @[[S3]], @[[S4:.*]]]>) -> tensor<?x?x?x?xf32, [@[[S0]], @[[S1]], @[[S2]], @[[S4]]]>
-func @main(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32> {
+func.func @main(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32> {
   // CHECK: %[[T0:.*]] = "mhlo.dot_general"(%[[ARG0]], %[[ARG1]])
   // CHECK: return %[[T0]] : tensor<?x?x?x?xf32, [@[[S0]], @[[S1]], @[[S2]], @[[S4]]]>
   %0 = "mhlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0, 1], rhs_batching_dimensions = [0, 1], lhs_contracting_dimensions = [3], rhs_contracting_dimensions = [2]>} : (tensor<?x?x?x?xf32>, tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
@@ -53,7 +53,7 @@ func @main(%arg0: tensor<?x?x?x?xf32>, %arg1: tensor<?x?x?x?xf32>) -> tensor<?x?
 // Test mhlo.dot
 // CHECK-LABEL: main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32, [@[[S0:.*]], @[[S1:.*]]]>, %[[ARG1:.*]]: tensor<?x?xf32, [@[[S1]], @[[S2:.*]]]>) -> tensor<?x?xf32, [@[[S0]], @[[S2]]]>
-func @main(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>) -> tensor<?x?xf32> {
+func.func @main(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>) -> tensor<?x?xf32> {
   // CHECK: %[[T0:.*]] = "mhlo.dot"(%[[ARG0]], %[[ARG1]])
   // CHECK: return %[[T0]] : tensor<?x?xf32, [@[[S0]], @[[S2]]]>
   %1 = "mhlo.dot"(%arg0, %arg1) : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
@@ -115,7 +115,7 @@ func.func @main(%arg0: tensor<?xi1>, %arg1: tensor<?xf32>, %arg2: tensor<?xf32>)
 // Test mhlo.einsum
 // CHECK-LABEL: main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?x?xf32, [@[[S0:.*]], @[[S1:.*]], @[[S2:.*]]]>, %[[ARG1:.*]]: tensor<?x?x?xf32, [@[[S0]], @[[S2]], @[[S3:.*]]]>) -> tensor<?x?x?xf32, [@[[S0]], @[[S1]], @[[S3]]]>
-func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>) -> tensor<?x?x?xf32> attributes {tf.entry_function = {input_placements = "cpu,cpu", inputs = "input0,input1", output_placements = "cpu", outputs = "output0"}} {
+func.func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>) -> tensor<?x?x?xf32> attributes {tf.entry_function = {input_placements = "cpu,cpu", inputs = "input0,input1", output_placements = "cpu", outputs = "output0"}} {
   // CHECK: %[[T0:.*]] = "mhlo.einsum"(%[[ARG0]], %[[ARG1]])
   // CHECK: return %[[T0]] : tensor<?x?x?xf32, [@[[S0]], @[[S1]], @[[S3]]]>
   %0 = "mhlo.einsum"(%arg0, %arg1) {einsum_config = "ijk,ikm->ijm"} : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
@@ -127,7 +127,7 @@ func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>) -> tensor<?x?x?xf
 // Test arith.cmpi
 // CHECK-LABEL: main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?x?xf32, [@[[S0:.*]], @[[S1:.*]], @[[S2:.*]]]>, %[[ARG1:.*]]: tensor<?x?xf32, [@[[S3:.*]], @[[S4:.*]]]>) -> tensor<?x?xf32, [@[[S3]], @[[S4]]]>
-func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?xf32>) -> tensor<?x?xf32> {
+func.func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?xf32>) -> tensor<?x?xf32> {
   %c-1 = arith.constant -1 : index
   %c2 = arith.constant 2 : index
   %c1 = arith.constant 1 : index
@@ -167,7 +167,7 @@ func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?xf32>) -> tensor<?x?xf32> 
 
 // Test arith.cmpi + arith::muli + arith::add
 // CHECK-LABEL: main
-func @main(%arg0: tensor<?x?x?xf32>) -> (index, index) {
+func.func @main(%arg0: tensor<?x?x?xf32>) -> (index, index) {
   // CHECK: %c0 = arith.constant 0 : index
   // CHECK: return %c0, %c0 : index
   %c-1 = arith.constant -1 : index
@@ -191,7 +191,7 @@ func @main(%arg0: tensor<?x?x?xf32>) -> (index, index) {
 
 // Test arith.cmpi + tie_shape
 // CHECK-LABEL: main
-func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<2xindex>) -> (tensor<?x?xf32>, index) {
+func.func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<2xindex>) -> (tensor<?x?xf32>, index) {
   // CHECK: %[[C0:.*]] = arith.constant 0 : index
   // CHECK: return %[[RET0:.*]], %[[C0]]
   %c-1 = arith.constant -1 : index
@@ -209,7 +209,7 @@ func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<2xindex>) -> (tensor<?x?xf32>
 // Test disc_shape.tie_product_equal op case 1
 // CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32, [@[[S0:.*]], @[[S1:.*]]]>, %[[ARG1:.*]]: tensor<1xindex>, %[[ARG2:.*]]: tensor<3xindex>) -> tensor<?x?x?xf32, [@[[S3:.*]], @[[S4:.*]], @[[S5:.*]]]>
-func @main(%arg0 : tensor<?x?xf32>, %arg1 : tensor<1xindex>, %arg2 : tensor<3xindex>) -> tensor<?x?x?xf32> {
+func.func @main(%arg0 : tensor<?x?xf32>, %arg1 : tensor<1xindex>, %arg2 : tensor<3xindex>) -> tensor<?x?x?xf32> {
    // CHECK-NEXT: %[[T0:.*]] = "mhlo.dynamic_reshape"(%[[ARG0]], %[[ARG1]])
    // CHECK-SAME: tensor<?xf32, [@[[S2:.*]]]>
    %0 = "mhlo.dynamic_reshape"(%arg0, %arg1) : (tensor<?x?xf32>, tensor<1xindex>) -> tensor<?xf32>
@@ -239,7 +239,7 @@ func @main(%arg0 : tensor<?x?xf32>, %arg1 : tensor<1xindex>, %arg2 : tensor<3xin
 
 // CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?x?xf32, [@[[S0:.*]], @[[S1:.*]], @[[S2:.*]]]>) -> tensor<?x?xf32, [@[[S1]], @[[S2]]]>
-func @main(%arg0: tensor<?x?x?xf32>) -> tensor<?x?xf32> {
+func.func @main(%arg0: tensor<?x?x?xf32>) -> tensor<?x?xf32> {
   %c2 = arith.constant 2 : index
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
@@ -271,7 +271,7 @@ func @main(%arg0: tensor<?x?x?xf32>) -> tensor<?x?xf32> {
 
 // CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: i32) -> (tensor<i32>, tensor<2x1xi32>
-func @main(%arg0 : i32) -> (tensor<i32>, tensor<2x1xi32>) {
+func.func @main(%arg0 : i32) -> (tensor<i32>, tensor<2x1xi32>) {
   // CHECK: %[[T0:.*]] = tensor.from_elements %[[ARG0]] : tensor<i32>
   // CHECK: %[[T1:.*]] = tensor.from_elements %[[ARG0]], %[[ARG0]] : tensor<2x1xi32>
   // CHECK: return %[[T0]], %[[T1]]
@@ -287,7 +287,7 @@ func @main(%arg0 : i32) -> (tensor<i32>, tensor<2x1xi32>) {
 
 module {
   // CHECK-LABEL: @main
-  func @main(%arg0: tensor<?x?xf32, [@S0, @S1]>, %arg1: tensor<?x?xf32, [@S0, @S1]>) -> tensor<?x?xf32, [@S0, @S1]> {
+  func.func @main(%arg0: tensor<?x?xf32, [@S0, @S1]>, %arg1: tensor<?x?xf32, [@S0, @S1]>) -> tensor<?x?xf32, [@S0, @S1]> {
     %0 = mhlo.add %arg0, %arg1 {kDiscSymbolicDimAttr = [@S2, @S3]} : tensor<?x?xf32, [@S0, @S1]>
     return %0 : tensor<?x?xf32, [@S0, @S1]>
   }
@@ -300,7 +300,7 @@ module {
   "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64} : () -> ()
   "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S2", value = -1 : i64} : () -> ()
   "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S3", value = -1 : i64} : () -> ()
-  func @shape_constraint_graph() {
+  func.func @shape_constraint_graph() {
     return
   }
 }
@@ -313,7 +313,7 @@ module {
 module {
   // CHECK-LABEL: @main
   // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32, [@[[S0:.*]], @[[S1:.*]]]>, %[[ARG1:.*]]: tensor<2xindex>) -> tensor<?x?xf32, [@[[S0]], @[[S1]]]>
-  func @main(%arg0: tensor<?x?xf32, [@S0, @S1]>, %arg1: tensor<2xindex>) -> tensor<?x?xf32, [@S0, @S1]> {
+  func.func @main(%arg0: tensor<?x?xf32, [@S0, @S1]>, %arg1: tensor<2xindex>) -> tensor<?x?xf32, [@S0, @S1]> {
     // CHECK:  "mhlo.dynamic_broadcast_in_dim"(%[[ARG0]], %[[ARG1]])
     // CHECK-SAME: kDiscSymbolicDimAttr = [@[[S0]], @[[S1]]]
     %0 = "mhlo.dynamic_broadcast_in_dim"(%arg0, %arg1) {kDiscSymbolicDimAttr = [@S2, @S3], broadcast_dimensions = dense<[0,1]> : tensor<2xi64>} : (tensor<?x?xf32, [@S0, @S1]>, tensor<2xindex>) -> tensor<?x?xf32, [@S2, @S3]>
@@ -328,7 +328,7 @@ module {
   "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64} : () -> ()
   "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S2", value = -1 : i64} : () -> ()
   "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S3", value = -1 : i64} : () -> ()
-  func @shape_constraint_graph() {
+  func.func @shape_constraint_graph() {
     return
   }
 }
@@ -339,7 +339,7 @@ module {
 
 // CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: i32, %[[ARG1:.*]]: i32, %[[ARG2:.*]]: i32) -> (i32, i32)
-func @main(%arg0 : i32, %arg1: i32, %arg2: i32) -> (i32, i32) {
+func.func @main(%arg0 : i32, %arg1: i32, %arg2: i32) -> (i32, i32) {
   // CHECK-NOT: mhlo.concatenate
   // CHECK: return %[[ARG1]], %[[ARG2]] : i32, i32
   %0 = tensor.from_elements %arg0 : tensor<1xi32>
@@ -360,7 +360,7 @@ func @main(%arg0 : i32, %arg1: i32, %arg2: i32) -> (i32, i32) {
 
 // CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: i32, %[[ARG1:.*]]: i32, %[[ARG2:.*]]: i32) -> i32
-func @main(%arg0 : i32, %arg1: i32, %arg2: i32) -> i32 {
+func.func @main(%arg0 : i32, %arg1: i32, %arg2: i32) -> i32 {
   // CHECK-NOT: mhlo.slice
   // CHECK: return %[[ARG2]] : i32
   %0 = tensor.from_elements %arg0, %arg1, %arg2 : tensor<3xi32>
@@ -381,7 +381,7 @@ func @main(%arg0 : i32, %arg1: i32, %arg2: i32) -> i32 {
 
 // CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: i32) -> i32
-func @main(%arg0 : i32) -> i32 {
+func.func @main(%arg0 : i32) -> i32 {
   // CHECK-NOT: "mhlo.reshape
   // CHECK: return %[[ARG0]] : i32
   %0 = tensor.from_elements %arg0 : tensor<i32>
@@ -398,7 +398,7 @@ func @main(%arg0 : i32) -> i32 {
 
 // CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: i32) -> i32
-func @main(%arg0 : i32) -> i32 {
+func.func @main(%arg0 : i32) -> i32 {
   // CHECK-NOT: "mhlo.reshape
   // CHECK: return %[[ARG0]] : i32
   %0 = tensor.from_elements %arg0 : tensor<1xi32>
@@ -414,7 +414,7 @@ func @main(%arg0 : i32) -> i32 {
 
 // CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: i32, %[[ARG1:.*]]: i32) -> i32
-func @main(%arg0 : i32, %arg1 : i32) -> i32 {
+func.func @main(%arg0 : i32, %arg1 : i32) -> i32 {
   // CHECK-NOT: "mhlo.reshape
   // CHECK: return %[[ARG1]] : i32
   %0 = tensor.from_elements %arg0, %arg1 : tensor<1x2xi32>
@@ -431,7 +431,7 @@ func @main(%arg0 : i32, %arg1 : i32) -> i32 {
 
 // CHECK-LABEL: @main
 // CHECK-SAME: () -> i32
-func @main() -> i32 {
+func.func @main() -> i32 {
   // CHECK-NOT: mhlo.reshape
   // CHECK: %[[T0:.*]] = arith.constant 2 : i32
   // CHECK: return %[[T0]]
@@ -447,7 +447,7 @@ func @main() -> i32 {
 
 // CHECK-LABEL: @main
 // CHECK-SAME: () -> i32
-func @main() -> i32 {
+func.func @main() -> i32 {
   // CHECK-NOT: mhlo.reshape
   // CHECK: %[[T0:.*]] = arith.constant 2 : i32
   // CHECK: return %[[T0]]
@@ -465,7 +465,7 @@ func @main() -> i32 {
 
 // CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: i32, %[[ARG1:.*]]: i32) -> i32
-func @main(%arg0 : i32, %arg1 : i32) -> i32 {
+func.func @main(%arg0 : i32, %arg1 : i32) -> i32 {
   // CHECK-NOT: arith.index_cast
   // CHECK: return %[[ARG1]] : i32
   %0 = tensor.from_elements %arg0, %arg1 : tensor<2xi32>
@@ -482,7 +482,7 @@ func @main(%arg0 : i32, %arg1 : i32) -> i32 {
 
 // CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: i32, %[[ARG1:.*]]: i32) -> i32
-func @main(%arg0 : i32, %arg1 : i32) -> i32 {
+func.func @main(%arg0 : i32, %arg1 : i32) -> i32 {
   // CHECK-NOT: mhlo.reduce
   // CHECK: %[[RET:.*]] = arith.muli %[[ARG0]], %[[ARG1]]
   // CHECK: return %[[RET]] : i32
@@ -501,7 +501,7 @@ func @main(%arg0 : i32, %arg1 : i32) -> i32 {
 
 // CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: i32, %[[ARG1:.*]]: i32) -> i32
-func @main(%arg0 : i32, %arg1 : i32) -> i32 {
+func.func @main(%arg0 : i32, %arg1 : i32) -> i32 {
   // CHECK-NOT: mhlo.gather
   // CHECK: return %[[ARG0]] : i32
   %0 = tensor.from_elements %arg0, %arg1, %arg0 : tensor<3xi32>
@@ -518,7 +518,7 @@ func @main(%arg0 : i32, %arg1 : i32) -> i32 {
 
 // CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: i32, %[[ARG1:.*]]: i32) -> i32
-func @main(%arg0 : i32, %arg1 : i32) -> i32 {
+func.func @main(%arg0 : i32, %arg1 : i32) -> i32 {
   // CHECK-NOT: mhlo.gather
   // CHECK: return %[[ARG0]] : i32
   %0 = tensor.from_elements %arg0, %arg1, %arg0 : tensor<3xi32>
@@ -536,7 +536,7 @@ func @main(%arg0 : i32, %arg1 : i32) -> i32 {
 
 // CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32, [@[[S0:.*]], @[[S1:.*]]]>, %[[ARG1:.*]]: index, %[[ARG2:.*]]: index) -> tensor<?x?xf32, [@[[S0]], @[[S2:.*]]]>
-func @main(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: index) -> tensor<?x?xf32> {
+func.func @main(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: index) -> tensor<?x?xf32> {
   // CHECK: mhlo.real_dynamic_slice
   // CHECK-SAME: limit_indices = dense<[-1, -2]> : tensor<2xi64>
   // CHECK-SAME: start_indices = dense<[0, -2]> : tensor<2xi64>
@@ -557,7 +557,7 @@ func @main(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: index) -> tensor<?x?xf32
 
 // CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32, [@[[S0:.*]], @[[S1:.*]]]>, %[[ARG1:.*]]: index, %[[ARG2:.*]]: index, %[[ARG3:.*]]: tensor<f32>) -> tensor<?x?xf32, [@[[S2:.*]], @[[S3:.*]]]>
-func @main(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: index, %arg3: tensor<f32>) -> tensor<?x?xf32> {
+func.func @main(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: index, %arg3: tensor<f32>) -> tensor<?x?xf32> {
   // CHECK: mhlo.dynamic_pad
   // CHECK-SAME: edge_padding_high = dense<[-2, 0]>
   // CHECK-SAME: edge_padding_low = dense<[0, -2]>

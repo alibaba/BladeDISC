@@ -2,7 +2,7 @@
 
 // CHECK-LABEL: main
 // CHECK-SAME: (%[[ARG0:.*]]: memref<?xf32, "cpu">) -> memref<?xf32, "cpu">
-func @main(%arg0 : memref<?xf32>) -> memref<?xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "cpu", outputs = "output0"}}  {
+func.func @main(%arg0 : memref<?xf32>) -> memref<?xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "cpu", outputs = "output0"}}  {
   // CHECK: %[[T0:.*]] = memref.dim %[[ARG0]], %c0 : memref<?xf32, "cpu">
   // CHECK: %[[T1:.*]] = memref.alloc(%[[T0]]) : memref<?xf32, "cpu">
   // CHECK:  return %[[T1]] : memref<?xf32, "cpu">
@@ -16,7 +16,7 @@ func @main(%arg0 : memref<?xf32>) -> memref<?xf32> attributes {tf.entry_function
 
 // CHECK-LABEL: main
 // CHECK-SAME: (%[[ARG0:.*]]: memref<?xf32, "cpu">) -> memref<?xf32, "gpu">
-func @main(%arg0 : memref<?xf32>) -> memref<?xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "gpu", outputs = "output0"}}  {
+func.func @main(%arg0 : memref<?xf32>) -> memref<?xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "gpu", outputs = "output0"}}  {
   // CHECK: %[[T0:.*]] = memref.dim %[[ARG0]], %c0 : memref<?xf32, "cpu">
   // CHECK: %[[T1:.*]] = memref.alloc(%[[T0]]) : memref<?xf32, "gpu">
   // CHECK:  return %[[T1]] : memref<?xf32, "gpu">
@@ -30,7 +30,7 @@ func @main(%arg0 : memref<?xf32>) -> memref<?xf32> attributes {tf.entry_function
 
 // CHECK-LABEL: main
 // CHECK-SAME: (%[[ARG0:.*]]: memref<?x8xf32, "cpu">) -> memref<?x24xf32, "cpu">
-func @main(%arg0: memref<?x8xf32>) -> memref<?x24xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "cpu", outputs = "output0"}} {
+func.func @main(%arg0: memref<?x8xf32>) -> memref<?x24xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "cpu", outputs = "output0"}} {
   %c3 = arith.constant 3 : index
   %c2 = arith.constant 2 : index
   %c1 = arith.constant 1 : index
@@ -93,7 +93,7 @@ func @main(%arg0: memref<?x8xf32>) -> memref<?x24xf32> attributes {tf.entry_func
 
 // CHECK-LABEL: main
 // CHECK-SAME: (%[[ARG0:.*]]: memref<10x10xi32, "cpu">, %[[ARG1:.*]]: memref<10x10xi32, "gpu">) -> (memref<10xi32, "cpu">, memref<10xi32, "gpu">)
-func @main(%arg0: memref<10x10xi32>, %arg1: memref<10x10xi32>) -> (memref<10xi32>, memref<10xi32>) attributes {tf.entry_function = {input_placements = "cpu,gpu", inputs = "input0,input1", output_placements = "cpu,gpu", outputs = "output0,output1"}} {
+func.func @main(%arg0: memref<10x10xi32>, %arg1: memref<10x10xi32>) -> (memref<10xi32>, memref<10xi32>) attributes {tf.entry_function = {input_placements = "cpu,gpu", inputs = "input0,input1", output_placements = "cpu,gpu", outputs = "output0,output1"}} {
   // CHECK: %[[T0:.*]] = memref.alloc({{.*}}) : memref<i32, "cpu">
   %0 = memref.alloc() : memref<i32>
   // CHECK: "lmhlo.constant"(%[[T0]]) {value = dense<1> : tensor<i32>} : (memref<i32, "cpu">) -> ()

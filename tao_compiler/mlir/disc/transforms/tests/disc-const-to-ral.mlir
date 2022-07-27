@@ -3,7 +3,7 @@
 // CHECK-DAG: llvm.mlir.global internal constant @__global_const_1
 // CHECK-DAG: llvm.mlir.global internal constant @__global_const_0
 // CHECK-LABEL: simple_test
-func @simple_test(%arg0: !disc_ral.context) {
+func.func @simple_test(%arg0: !disc_ral.context) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %0 = memref.alloc() : memref<100x100xf32, "gpu">

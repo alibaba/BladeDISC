@@ -2,7 +2,7 @@
 
 // CHECK-LABEL: splat_const_integer
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<10x11xf32>)
-func @splat_const_integer(%arg0 : tensor<10x11xf32>) -> tensor<10x11xf32> {
+func.func @splat_const_integer(%arg0 : tensor<10x11xf32>) -> tensor<10x11xf32> {
   // CHECK-NOT: mhlo.power
   // CHECK: %[[T0:.*]] = mhlo.multiply %[[ARG0]], %[[ARG0]]
   // CHECK: %[[T1:.*]] = mhlo.multiply %[[T0]], %[[ARG0]]
@@ -16,7 +16,7 @@ func @splat_const_integer(%arg0 : tensor<10x11xf32>) -> tensor<10x11xf32> {
 
 // CHECK-LABEL: splat_const_not_integer
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<10x11xf32>)
-func @splat_const_not_integer(%arg0 : tensor<10x11xf32>) -> tensor<10x11xf32> {
+func.func @splat_const_not_integer(%arg0 : tensor<10x11xf32>) -> tensor<10x11xf32> {
   // CHECK-NOT: mhlo.multiply
   // CHECK: %[[T0:.*]] = mhlo.power
   // CHECK: return %[[T0]]
@@ -29,7 +29,7 @@ func @splat_const_not_integer(%arg0 : tensor<10x11xf32>) -> tensor<10x11xf32> {
 
 // CHECK-LABEL: bcast_const_integer
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32>)
-func @bcast_const_integer(%arg0 : tensor<?x?xf32>) -> tensor<?x?xf32> {
+func.func @bcast_const_integer(%arg0 : tensor<?x?xf32>) -> tensor<?x?xf32> {
   // CHECK: %[[T0:.*]] = mhlo.multiply %[[ARG0]], %[[ARG0]]
   // CHECK: %[[T1:.*]] = mhlo.multiply %[[T0]], %[[ARG0]]
   // CHECK: return %[[T1]]
@@ -44,7 +44,7 @@ func @bcast_const_integer(%arg0 : tensor<?x?xf32>) -> tensor<?x?xf32> {
 
 // CHECK-LABEL: bcast_const_not_integer
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32>)
-func @bcast_const_not_integer(%arg0 : tensor<?x?xf32>) -> tensor<?x?xf32> {
+func.func @bcast_const_not_integer(%arg0 : tensor<?x?xf32>) -> tensor<?x?xf32> {
   // CHECK-NOT: mhlo.multiply
   // CHECK: %[[T0:.*]] = mhlo.power
   // CHECK: return %[[T0]]
@@ -59,7 +59,7 @@ func @bcast_const_not_integer(%arg0 : tensor<?x?xf32>) -> tensor<?x?xf32> {
 
 // CHECK-LABEL: @broadcast
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<10x11xf32>) -> tensor<10x11xf32>
-func @broadcast(%arg0 : tensor<10x11xf32>) -> tensor<10x11xf32> {
+func.func @broadcast(%arg0 : tensor<10x11xf32>) -> tensor<10x11xf32> {
   // CHECK-NOT: mhlo.broadcast
   // CHECK: return %[[ARG0]] : tensor<10x11xf32>
   %0 = "mhlo.broadcast"(%arg0) {broadcast_sizes = dense<[]> : tensor<0xi64>} : (tensor<10x11xf32>) -> tensor<10x11xf32>
@@ -70,7 +70,7 @@ func @broadcast(%arg0 : tensor<10x11xf32>) -> tensor<10x11xf32> {
 
 // CHECK-LABEL: @broadcast_in_dim
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<10x11xf32>) -> tensor<10x11xf32>
-func @broadcast_in_dim(%arg0 : tensor<10x11xf32>) -> tensor<10x11xf32> {
+func.func @broadcast_in_dim(%arg0 : tensor<10x11xf32>) -> tensor<10x11xf32> {
   // CHECK-NOT: mhlo.broadcast_in_dim
   // CHECK: return %[[ARG0]] : tensor<10x11xf32>
   %0 = "mhlo.broadcast_in_dim"(%arg0) {broadcast_dimensions = dense<[0, 1]> : tensor<2xi64>} : (tensor<10x11xf32>) -> tensor<10x11xf32>
@@ -81,7 +81,7 @@ func @broadcast_in_dim(%arg0 : tensor<10x11xf32>) -> tensor<10x11xf32> {
 
 // CHECK-LABEL: @dynamic_broadcast_in_dim
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32, [@S0, @S1]>, %[[ARG1:.*]]: tensor<2xindex>) -> tensor<?x?xf32, [@S0, @S1]>
-func @dynamic_broadcast_in_dim(%arg0 : tensor<?x?xf32, [@S0, @S1]>, %arg1: tensor<2xindex>) -> tensor<?x?xf32, [@S0, @S1]> {
+func.func @dynamic_broadcast_in_dim(%arg0 : tensor<?x?xf32, [@S0, @S1]>, %arg1: tensor<2xindex>) -> tensor<?x?xf32, [@S0, @S1]> {
   // CHECK-NOT: mhlo.dynamic_broadcast_in_dim
   %0 = "mhlo.dynamic_broadcast_in_dim"(%arg0, %arg1) {broadcast_dimensions = dense<[0, 1]> : tensor<2xi64>} : (tensor<?x?xf32, [@S0, @S1]>, tensor<2xindex>) -> tensor<?x?xf32, [@S0, @S1]>
   // CHECK return %[[ARG0]] : tensor<?x?xf32, [@S0, @S1]>
@@ -99,7 +99,7 @@ func @dynamic_broadcast_in_dim(%arg0 : tensor<?x?xf32, [@S0, @S1]>, %arg1: tenso
 
 // CHECK-LABEL: broadcast_in_dim_of_reshape
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<10x11xf32>, %[[ARG1:.*]]: tensor<10x11x12xf32>) -> tensor<10x11x12xf32>
-func @broadcast_in_dim_of_reshape(%arg0: tensor<10x11xf32>, %arg1: tensor<10x11x12xf32>) -> tensor<10x11x12xf32> {
+func.func @broadcast_in_dim_of_reshape(%arg0: tensor<10x11xf32>, %arg1: tensor<10x11x12xf32>) -> tensor<10x11x12xf32> {
   // CHECK-NOT: mhlo.reshape
   // CHECK: %[[T0:.*]] = "mhlo.broadcast_in_dim"(%[[ARG0]])
   // CHECK-SAME: broadcast_dimensions = dense<[0, 1]> : tensor<2xi64>
@@ -115,7 +115,7 @@ func @broadcast_in_dim_of_reshape(%arg0: tensor<10x11xf32>, %arg1: tensor<10x11x
 
 // CHECK-LABEL: dynamic_broadcast_in_dim_of_reshape
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32, [@S0, @S1]>, %[[ARG1:.*]]: tensor<?x?x?xf32, [@S0, @S1, @S2]>) -> tensor<?x?x?xf32, [@S0, @S1, @S2]>
-func @dynamic_broadcast_in_dim_of_reshape(%arg0: tensor<?x?xf32, [@S0, @S1]>, %arg1: tensor<?x?x?xf32, [@S0, @S1, @S2]>) -> tensor<?x?x?xf32, [@S0, @S1, @S2]> {
+func.func @dynamic_broadcast_in_dim_of_reshape(%arg0: tensor<?x?xf32, [@S0, @S1]>, %arg1: tensor<?x?x?xf32, [@S0, @S1, @S2]>) -> tensor<?x?x?xf32, [@S0, @S1, @S2]> {
   // CHECK-NOT: mhlo.dynamic_reshape
   // CHECK: %[[T0:.*]] = "mhlo.dynamic_broadcast_in_dim"(%[[ARG0]]
   // CHECK-SAME: broadcast_dimensions = dense<[0, 1]> : tensor<2xi64>
@@ -156,7 +156,7 @@ func @dynamic_broadcast_in_dim_of_reshape(%arg0: tensor<?x?xf32, [@S0, @S1]>, %a
 
 // CHECK-LABEL: @add_zero_tensor
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32>, %[[ARG1:.*]]: tensor<2xindex>) -> tensor<?x?xf32>
-func @add_zero_tensor(%arg0 : tensor<?x?xf32>, %arg1 : tensor<2xindex>) -> tensor<?x?xf32> {
+func.func @add_zero_tensor(%arg0 : tensor<?x?xf32>, %arg1 : tensor<2xindex>) -> tensor<?x?xf32> {
   // CHECK: return %[[ARG0]] : tensor<?x?xf32>
   %0 = mhlo.constant dense<0.0> : tensor<f32>
   %1 = "mhlo.dynamic_broadcast_in_dim"(%0, %arg1) {broadcast_dimensions = dense<[]> : tensor<0xi64>} : (tensor<f32>, tensor<2xindex>) -> tensor<?x?xf32>
@@ -169,7 +169,7 @@ func @add_zero_tensor(%arg0 : tensor<?x?xf32>, %arg1 : tensor<2xindex>) -> tenso
 
 // CHECK-LABEL: @mul_one_tensor
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32>, %[[ARG1:.*]]: tensor<2xindex>) -> tensor<?x?xf32>
-func @mul_one_tensor(%arg0 : tensor<?x?xf32>, %arg1 : tensor<2xindex>) -> tensor<?x?xf32> {
+func.func @mul_one_tensor(%arg0 : tensor<?x?xf32>, %arg1 : tensor<2xindex>) -> tensor<?x?xf32> {
   // CHECK: return %[[ARG0]] : tensor<?x?xf32>
   %0 = mhlo.constant dense<1.0> : tensor<f32>
   %1 = "mhlo.dynamic_broadcast_in_dim"(%0, %arg1) {broadcast_dimensions = dense<[]> : tensor<0xi64>} : (tensor<f32>, tensor<2xindex>) -> tensor<?x?xf32>

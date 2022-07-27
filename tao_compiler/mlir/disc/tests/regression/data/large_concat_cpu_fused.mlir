@@ -1,5 +1,5 @@
 module attributes {tf.versions = {bad_consumers = [], min_consumer = 0 : i32, producer = 0 : i32}} {
-  func @main(
+  func.func @main(
 	  %arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %arg2: tensor<?x?xf32>, %arg3: tensor<?x?xf32>,
 	  %arg4: tensor<?x?xf32>, %arg5: tensor<?x?xf32>, %arg6: tensor<?x?xf32>, %arg7: tensor<?x?xf32>,
 	  %arg8: tensor<?x?xf32>, %arg9: tensor<?x?xf32>, %arg10: tensor<?x?xf32>, %arg11: tensor<?x?xf32>,

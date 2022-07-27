@@ -1,9 +1,9 @@
 // RUN: disc-opt -disc-ral-inject-execution-context=entry-func-name=test \
 // RUN:  -canonicalize %s -o - | FileCheck %s
 
-// CHECK-LABEL: func @test
+// CHECK-LABEL: func.func @test
 // CHECK-SAME: (%[[CTX:.*]]: !disc_ral.context) {
-func @test(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>,
+func.func @test(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>,
            %arg2: memref<?x?xf32>, %arg3: memref<?x?xf32>) -> (memref<?x?xf32>, memref<?x?xf32>) {
   // %[[T0:.*]] = "disc_ral.recv_input"(%[[CTX]], %c0) : (!disc_ral.context, index) -> memref<?x?xf32>
   // %[[T1:.*]] = "disc_ral.recv_input"(%[[CTX]], %c1) : (!disc_ral.context, index) -> memref<?x?xf32>

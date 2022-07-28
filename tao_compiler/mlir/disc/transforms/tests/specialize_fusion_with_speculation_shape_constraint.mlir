@@ -3,7 +3,7 @@
 // RUN:   %s --split-input-file | FileCheck %s
 
 // CHECK-LABEL: simple_broadcast_specialization
-func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
+func.func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %0 = "disc_ral.recv_input"(%arg0, %c0) : (!disc_ral.context, index) -> memref<?x?xf32, "gpu">
@@ -73,6 +73,6 @@ func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
 "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S1", value = -1 : i64} : () -> ()
 "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S2", value = -1 : i64} : () -> ()
 "disc_shape.SymbolicDim"() {knownNegativeOne = false, knownNonNegative = true, knownNonSizeOne = false, knownNonSizeZero = false, sym_name = "S3", value = -1 : i64} : () -> ()
-func @shape_constraint_graph() {
+func.func @shape_constraint_graph() {
   return
 }

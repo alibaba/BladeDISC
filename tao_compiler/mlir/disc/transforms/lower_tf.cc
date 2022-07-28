@@ -1125,7 +1125,7 @@ class ConvertBucketizeOp : public OpRewritePattern<TF::BucketizeOp> {
     // attr: boundaries, type is float according op definition
     auto boundaries =
         rewriter
-            .create<mhlo::ConstOp>(
+            .create<mhlo::ConstantOp>(
                 loc, GetF32ElementsAttr(op.boundaries(), &rewriter))
             .getResult();
     // the following behavior matches the behavior of the core

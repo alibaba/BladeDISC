@@ -33,7 +33,7 @@ const std::string c_ft_path =
 //        /*input_descriptors*/ {"3x4xf32_X"},
 //        /*output_descriptors*/ {"f32_X", "f32_X"}));
 //  }
-//  
+//
 //// static shape test case with negative strides
 // TEST(TFStridedSliceOpTest, StaticShapeNegativeStrides2DF32) {
 //  EXPECT_TRUE(feature_test_main(

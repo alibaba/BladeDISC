@@ -10,7 +10,7 @@ Dynamic shape problem is ubiquitous when deploying AI workloads. Almost all our 
   - For CV detection model, the number of detected instants is dynamic
   - For recommendation model, shape is affected by the value of its inputs (e.g. `tf.UniqueOp`).
 
-To solve the above problem, BladeDISC, an e2e dynamic shape compiler, is proposed. We already have seen many advantages of using BladeDISC over the previous static-shape-based compiler (e.g. XLA) in many pratical scenarios. However, there are still many rooms to improvement, especially in terms of the performance. In dynamic shape semantics, the concrete shape is out of reach, making many optimization strategies used in static shape semantics invalid. According to our previous experience in optimizing dynamic shape AI workloads, we found that shape constraint, the relationship between different symbolic shape (or dimension size), is very helpful in terms of performance optimization. For example:
+To solve the above problem, BladeDISC, an e2e dynamic shape compiler, is proposed. We already have seen many advantages of using BladeDISC over the previous static-shape-based compiler (e.g. XLA) in many pratical scenarios. However, there are still many rooms for improvement, especially in terms of the performance. In dynamic shape semantics, the concrete shape is out of reach, making many optimization strategies used in static shape semantics invalid. According to our previous experience in optimizing dynamic shape AI workloads, we found that shape constraint, the relationship between different symbolic shape (or dimension size), is very helpful in terms of performance optimization. For example:
 
 - (partial) shape inference, propagating some known information to make best use of the existing information.
 e.g. `mhlo.add(tensor<?x10xf32>, tensor<10x?xf32>) -> tensor<?x?xf32>` can be simplifier to `mhlo.add(tensor<10x10xf32>, tensor<10x10xf32>) -> tensor<10x10xf32>`.
@@ -45,7 +45,7 @@ There are two kinds of shape constraint:
 
 ## Semantics of the definition of operation
 
-- The inputs and outputs of an element op of mhlo dialect should have same shape
+- The inputs and outputs of an elementwise op of mhlo dialect should have same shape
 - The input and output of a mhlo.dynamic_reshape op should have same number of elements
 - The inputs and output of a mhlo.concat op should have same dim size for each non-concat dim
 - and many others ...
@@ -71,7 +71,7 @@ class HLO_BinaryElementwiseOpNoAssembly<string mnemonic, list<Trait> traits> :
 
 ## Injected by frontend converter
 
-BladeDISC Frontend converter lowers a coarse grained op to a bunch of fine grained MHLO ops. Not only the data computation but also the shape constraint should be lowered during dialect conversions.
+BladeDISC frontend converter lowers a coarse grained op to a bunch of fine grained MHLO ops. Not only the data computation but also the shape constraint should be lowered during dialect conversions.
 For example, `tf.SplitOp` will be lowered into a series of `mho.RealDynamicSliceOp`. According to the definition of the `tf.SplitOp`, we can know that all the outputs of the split op should have same shape and `the split dimension of the input % (number of outputs) == 0`.
 
 ![tf_split_op_example](./images/split_op_example.png)

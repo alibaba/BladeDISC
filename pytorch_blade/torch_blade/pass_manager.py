@@ -64,7 +64,7 @@ def _set_opset_version_from_config():
     return _export_onnx_opset_version
 
 
-def _export_onnx(graph, dynamic_axes, fold_constants=False):
+def _export_onnx(graph, dynamic_axes, fold_constants=True):
     # Note: TRT7 support opset 11
     opset_version = _set_opset_version_from_config()
 

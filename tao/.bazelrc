@@ -5,8 +5,8 @@ build:release --spawn_strategy=local  # this is a workaround to include third pa
 # base
 build:release_base --config=release
 build:release_base --distinct_host_configuration=false
-build:release_base --cxxopt=-std=c++14
-build:release_base --host_cxxopt=-std=c++14
+build:release_base --cxxopt=-std=c++17
+build:release_base --host_cxxopt=-std=c++17
 build:release_base --compilation_mode=opt
 # cpu
 build:avx_linux --copt=-mavx

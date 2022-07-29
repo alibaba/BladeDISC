@@ -15,4 +15,4 @@ build:torch_static_tensorrt --define enable_static_trt=true --config=torch_tenso
 build:torch_cxx11abi_0 --config=cxx11abi_0 --action_env IF_CXX11_ABI=0
 build:torch_cxx11abi_1 --config=cxx11abi_1 --action_env IF_CXX11_ABI=1
 build:torch_ltc_disc_backend --define enable_ltc_disc_backend=true
-build:torch_enable_quantization --define enable_quantization=true
+build:torch_enable_quantization --define enable_quantization=true  --copt=-DTORCH_BLADE_BUILD_QUANTIZATION

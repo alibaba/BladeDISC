@@ -6,6 +6,7 @@ cc_library(
     hdrs = ["placeholder_op.h"],
     deps = [
         "@local_org_torch//:libtorch",
+        "//src/common_utils:torch_blade_common"
     ],
     alwayslink = 1,
 )

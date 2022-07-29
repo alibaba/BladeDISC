@@ -16,7 +16,6 @@ import copy
 import threading
 import torch
 import torch_blade._torch_blade._backends as _backends
-from torch_blade import utils
 
 class OptPipelines:
 
@@ -254,7 +253,7 @@ class Config(ConfigContext):
 
     @property
     def enable_int8(self):
-        """The flag to enable amp(aka fp16).
+        """The flag to enable quantization(aka int8).
 
         :type: bool
         :default: False
@@ -501,7 +500,7 @@ class Config(ConfigContext):
     def customize_jit_passes(self, val):
         assert isinstance(val, list), "customize_jit_passes should be list, got {}".format(type(val))
         self._customize_jit_passes = val
-    
+
     @property
     def annotate_args(self):
         return self._annotate_args

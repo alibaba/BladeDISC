@@ -10,8 +10,7 @@
 // limitations under the License.
 
 #pragma once
-
-#include <iostream>
+#include <string>
 
 namespace torch {
 namespace blade {

@@ -10,6 +10,7 @@
 // limitations under the License.
 
 #include "placeholder_op.h"
+#include "common_utils/logging.h"
 
 #include <torch/script.h>
 
@@ -22,6 +23,9 @@ namespace quantization {
 // whose input is a reference, which will lead to a "no match"
 // compilation error.
 torch::Tensor placeholder(torch::Tensor input) {
+  LOG(WARNING) << "Placeholder op is only used for prevent the fake_quant "
+               << "op being folded by the constant propagation pass. "
+               << "You should not inference the graph with this op.";
   return input;
 }
 

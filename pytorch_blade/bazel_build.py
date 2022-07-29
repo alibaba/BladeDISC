@@ -79,7 +79,7 @@ class BazelBuild(TorchBladeBuild):
         ]
 
         if self.torch_major_version >= 1 and self.torch_minor_version >= 12:
-            self.torch_extra_opts.append("--config=torch_ltc_disc_backend") 
+            self.torch_extra_opts.append("--config=torch_ltc_disc_backend")
         if self.is_debug:
             self.torch_extra_opts.append("--config=torch_debug")
         else:
@@ -126,10 +126,9 @@ class BazelBuild(TorchBladeBuild):
         # set to 1.8.0
         # note: If we use backend (such as trt) to do calibration and get the
         # quantization engine, this limitation should not be set.
-        is_enable_quantization = self.torch_major_version == 1 and \
-                                    8 <= self.torch_minor_version < 12
+        is_enable_quantization = \
+            self.torch_major_version == 1 and 8 <= self.torch_minor_version < 12
         if is_enable_quantization:
-            self.torch_extra_opts.append("--copt=-DTORCH_BLADE_BUILD_QUANTIZATION")
             self.torch_extra_opts.append("--config=torch_enable_quantization")
 
         self.shell_setting = "set -e; set -o pipefail; "

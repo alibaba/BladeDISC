@@ -17,8 +17,9 @@ from torch import nn
 from torch_blade.quantization import is_available as is_quantization_available
 from torch_blade.tensorrt import is_available as is_tensorrt_available
 from torch_blade.testing.common_utils import TestCase
+from torch_blade.utils import torch_version_number
 
-TORCH_VERSION = tuple(int(x) for x in torch.__version__.split(".")[:2])
+TORCH_VERSION = torch_version_number()
 
 if TORCH_VERSION >= (1, 10):
     zero_point_dtype = torch.int32

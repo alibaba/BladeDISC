@@ -1,10 +1,10 @@
 name: pytorch1_6_0-cpu
 on:
+  push:
+    branches: [ main ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-  schedule:
-    - cron: '30 01 * * *' # 01:30 am
 
 jobs:
   build:

@@ -821,6 +821,44 @@ LogicalResult ConvertAtenOp<AtenGeluOp>::matchAndRewrite(
   return success();
 }
 
+template <>
+LogicalResult ConvertAtenOp<AtenGeluBackwardOp>::matchAndRewrite(
+    AtenGeluBackwardOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  Value input = adaptor.self();
+  Value grad_output = adaptor.self();
+  Value half = chlo::getConstantLike(rewriter, loc, 0.5, input);
+  Value one = chlo::getConstantLike(rewriter, loc, 1.0, input);
+  Value m_2_sqrtpi = chlo::getConstantLike(
+      rewriter, loc, 1.12837916709551257389615890312154517, input);
+  Value m_sqrt1_2 = chlo::getConstantLike(
+      rewriter, loc, 0.707106781186547524400844362104849039, input);
+
+  Value alpha = rewriter.create<mhlo::MulOp>(loc, m_2_sqrtpi, m_sqrt1_2);
+  alpha = rewriter.create<mhlo::MulOp>(loc, alpha, half);
+  Value scratch = rewriter.create<chlo::ErfOp>(
+      loc, rewriter.create<mhlo::MulOp>(loc, input, m_sqrt1_2));
+
+  // dinput = exp(input * input * neg(half))
+  Value dinput = rewriter.create<mhlo::MulOp>(loc, input, input);
+  Value neg_half = rewriter.create<mhlo::NegOp>(loc, half);
+  dinput = rewriter.create<mhlo::MulOp>(loc, input, neg_half);
+
+  // result = grad_output * (half * (one + scratch) + input * dinput * alpha)
+  Value half_one = rewriter.create<mhlo::AddOp>(loc, one, scratch);
+  half_one = rewriter.create<mhlo::MulOp>(loc, half, half_one);
+
+  Value input_alpha = rewriter.create<mhlo::MulOp>(loc, input, dinput);
+  input_alpha = rewriter.create<mhlo::MulOp>(loc, input_alpha, alpha);
+
+  Value result = rewriter.create<mhlo::AddOp>(loc, half_one, input_alpha);
+  result = rewriter.create<mhlo::MulOp>(loc, grad_output, result);
+  rewriter.replaceOp(op, {result});
+  return success();
+}
+
 using ReductionConvFunc = llvm::Optional<Value> (*)(
     PatternRewriter&,
     Operation*,
@@ -2694,7 +2732,7 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenRollOp);
     INSERT_ATENOP_PATTERN(ValsemVariantAtenUniformOp);
     INSERT_ATENOP_PATTERN(TensorStaticInfoCastOp);
-    // INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
+    INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
 #undef INSERT_ATENOP_PATTERN
 
 #define INSERT_VIEW_OP_PATTERN(AtenOp) \

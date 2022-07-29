@@ -37,8 +37,9 @@ std::string DiscCMD(
     const std::string& out_fname) {
   std::stringstream ss;
   std::string logf = mlir_fname + ".log";
-  std::string binary_path = "TF_CPP_VMODULE=disc_compiler=1 " +
-      CurrentLibLocation() + "/disc_compiler_main";
+  std::string binary_path = CurrentLibLocation() + "/disc_compiler_main";
+  if (GRAPH_DEBUG_ENABLED)
+    binary_path = "TF_CPP_VMODULE=disc_compiler=1 " + binary_path;
   ss << binary_path << " " << mlir_fname << " " << out_fname << " > " << logf
      << " 2>&1 ";
   return ss.str();
@@ -68,8 +69,6 @@ std::tuple<std::string, std::string, int> CallDiscCompiler(
   std::string out_fname = mlir_fname + ".out";
   std::string cmd = DiscCMD(mlir_fname, out_fname);
   auto ret = std::system(cmd.c_str());
-  // TORCH_CHECK(
-  //    std::system(cmd.c_str()) == 0, "disc compile failed with cmd: " + cmd);
   return {cmd, out_fname, ret};
 }
 
@@ -133,7 +132,6 @@ std::vector<c10::IValue> RegisterDiscClass(
       [](torch::jit::Node* node) { return node->kind() == prim::FusionGroup; });
   for (size_t i = 0; i < disc_nodes.size(); ++i) {
     auto node = disc_nodes[i];
-    // if (i == 51) continue;
     auto sub_graph = node->g(attr::Subgraph);
     auto state = std::make_shared<torch::blade::backends::EngineState>();
     std::vector<torch::blade::backends::EngineState::TensorType> inputs,
@@ -144,7 +142,7 @@ std::vector<c10::IValue> RegisterDiscClass(
     auto ret_code = std::get<2>(ret);
     auto cmd = std::get<0>(ret);
     if (ret_code != 0) {
-      GRAPH_DEBUG("disc compilation fallback to torchscript, cmd: ", cmd);
+      GRAPH_DEBUG("disc compilation fallback to torchscript, cmd: " + cmd);
       continue;
     }
     auto output_fname = std::get<1>(ret);

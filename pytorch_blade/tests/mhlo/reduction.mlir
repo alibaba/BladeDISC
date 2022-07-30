@@ -2,11 +2,11 @@
 
 // CHECK-LABEL:  func @torch.aten.sum.div.Scalar(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x?x?xf32>) -> tensor<f32> {
-// CHECK:         %[[T0:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
-// CHECK:         %[[C0:.*]] = arith.constant 0 : index
-// CHECK:         %[[C1:.*]] = arith.constant 1 : index
-// CHECK:         %[[C2:.*]] = arith.constant 2 : index
 // CHECK:         %[[C3:.*]] = arith.constant 3 : index
+// CHECK:         %[[C2:.*]] = arith.constant 2 : index
+// CHECK:         %[[C1:.*]] = arith.constant 1 : index
+// CHECK:         %[[C0:.*]] = arith.constant 0 : index
+// CHECK:         %[[T0:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
 // CHECK:         %[[T1:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T0]]) applies mhlo.add across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xf32>, tensor<f32>) -> tensor<f32>
 // CHECK:         %[[T2:.*]] = tensor.dim %[[ARG0]], %[[C0]] : tensor<?x?x?x?xf32>
 // CHECK:         %[[T3:.*]] = arith.index_cast %[[T2]] : index to i32
@@ -35,11 +35,11 @@ func.func @torch.aten.sum.div.Scalar(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !t
 
 // CHECK-LABEL:  func @torch.aten.sum.div.Scalar.si32(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x?x?xi32>) -> tensor<f32> {
-// CHECK:         %[[T0:.*]] = mhlo.constant dense<0> : tensor<i32>
-// CHECK:         %[[C0:.*]] = arith.constant 0 : index
-// CHECK:         %[[C1:.*]] = arith.constant 1 : index
-// CHECK:         %[[C2:.*]] = arith.constant 2 : index
 // CHECK:         %[[C3:.*]] = arith.constant 3 : index
+// CHECK:         %[[C2:.*]] = arith.constant 2 : index
+// CHECK:         %[[C1:.*]] = arith.constant 1 : index
+// CHECK:         %[[C0:.*]] = arith.constant 0 : index
+// CHECK:         %[[T0:.*]] = mhlo.constant dense<0> : tensor<i32>
 // CHECK:         %[[T1:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T0]]) applies mhlo.add across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xi32>, tensor<i32>) -> tensor<i32>
 // CHECK:         %[[T2:.*]] = mhlo.convert(%[[T1]]) : (tensor<i32>) -> tensor<f32>
 // CHECK:         %[[T3:.*]] = tensor.dim %[[ARG0]], %[[C0]] : tensor<?x?x?x?xi32>

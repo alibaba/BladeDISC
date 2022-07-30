@@ -33,8 +33,8 @@ func.func @torch.aten.bmm.dyn(%arg0: !torch.vtensor<[4,?,256],f16>, %arg1: !torc
 // -----
 // CHECK-LABEL:  func @torch.aten.matmul.dyn(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<4x?x256xf16>, %[[ARG1:.*]]: tensor<256x?xf16>) -> tensor<4x?x?xf16> {
-// CHECK:         %[[C256_I32:.*]] = arith.constant 256 : i32
 // CHECK:         %[[C4_I32:.*]] = arith.constant 4 : i32
+// CHECK:         %[[C256_I32:.*]] = arith.constant 256 : i32
 // CHECK:         %[[C1:.*]] = arith.constant 1 : index
 // CHECK:         %[[T0:.*]] = tensor.dim %[[ARG0]], %[[C1]] : tensor<4x?x256xf16>
 // CHECK:         %[[T1:.*]] = arith.index_cast %[[T0]] : index to i32
@@ -69,10 +69,10 @@ func.func @torch.aten.matmul(%arg0: !torch.vtensor<[256,120],f16>, %arg1: !torch
 // -----
 // CHECK-LABEL:  func @torch.aten.matmul.3dx1d(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<1x?x256xf16>, %[[ARG1:.*]]: tensor<256xf16>) -> tensor<1x?xf16> {
-// CHECK:         %[[C256_I32:.*]] = arith.constant 256 : i32
-// CHECK:         %[[C0:.*]] = arith.constant 0 : index
-// CHECK:         %[[C1:.*]] = arith.constant 1 : index
 // CHECK:         %[[C1_I32:.*]] = arith.constant 1 : i32
+// CHECK:         %[[C256_I32:.*]] = arith.constant 256 : i32
+// CHECK:         %[[C1:.*]] = arith.constant 1 : index
+// CHECK:         %[[C0:.*]] = arith.constant 0 : index
 // CHECK:         %[[T0:.*]] = "mhlo.reshape"(%[[ARG1]]) : (tensor<256xf16>) -> tensor<256x1xf16>
 // CHECK:         %[[T1:.*]] = tensor.dim %[[ARG0]], %[[C1]] : tensor<1x?x256xf16>
 // CHECK:         %[[T2:.*]] = arith.index_cast %[[T1]] : index to i32
@@ -98,10 +98,10 @@ func.func @torch.aten.matmul.3dx1d(%arg0: !torch.vtensor<[1,?,256],f16>, %arg1: 
 // -----
 // CHECK-LABEL:  func @torch.aten.matmul.1dx3d(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<256xf16>, %[[ARG1:.*]]: tensor<?x256x?xf16>) -> tensor<?x?xf16> {
-// CHECK:         %[[C256_I32:.*]] = arith.constant 256 : i32
-// CHECK:         %[[C0:.*]] = arith.constant 0 : index
-// CHECK:         %[[C2:.*]] = arith.constant 2 : index
 // CHECK:         %[[C1_I32:.*]] = arith.constant 1 : i32
+// CHECK:         %[[C256_I32:.*]] = arith.constant 256 : i32
+// CHECK:         %[[C2:.*]] = arith.constant 2 : index
+// CHECK:         %[[C0:.*]] = arith.constant 0 : index
 // CHECK:         %[[T0:.*]] = "mhlo.reshape"(%[[ARG0]]) : (tensor<256xf16>) -> tensor<1x256xf16>
 // CHECK:         %[[T1:.*]] = tensor.dim %[[ARG1]], %[[C0]] : tensor<?x256x?xf16>
 // CHECK:         %[[T2:.*]] = arith.index_cast %[[T1]] : index to i32
@@ -172,10 +172,10 @@ func.func @torch.aten.matmul.1dx1d(%arg0: !torch.vtensor<[256],f16>, %arg1: !tor
 // -----
 // CHECK-LABEL:  func @torch.aten.matmul.proj(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x256xf16>) -> tensor<?x?x256xf16> {
-// CHECK:         %[[T0:.*]] = mhlo.constant dense<1.000000e+00> : tensor<256x256xf16>
+// CHECK:         %[[C256_I32:.*]] = arith.constant 256 : i32
 // CHECK:         %[[C1:.*]] = arith.constant 1 : index
 // CHECK:         %[[C0:.*]] = arith.constant 0 : index
-// CHECK:         %[[C256_I32:.*]] = arith.constant 256 : i32
+// CHECK:         %[[T0:.*]] = mhlo.constant dense<1.000000e+00> : tensor<256x256xf16>
 // CHECK:         %[[T1:.*]] = tensor.dim %[[ARG0]], %[[C0]] : tensor<?x?x256xf16>
 // CHECK:         %[[T2:.*]] = arith.index_cast %[[T1]] : index to i32
 // CHECK:         %[[T3:.*]] = tensor.dim %[[ARG0]], %[[C1]] : tensor<?x?x256xf16>

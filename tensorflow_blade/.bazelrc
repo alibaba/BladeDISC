@@ -26,7 +26,6 @@ build:avx_linux --copt=-mavx
 build:avx_linux --host_copt=-mavx
 build:release_cpu_linux --config=release_base
 build:release_cpu_linux --config=avx_linux
-build:release_cpu_linux --crosstool_top="@ubuntu18.04-gcc7_manylinux2010-cuda11.2-cudnn8.1-tensorrt7.2_config_cuda//crosstool:toolchain"
 
 # CUDA
 build:cuda --repo_env TF_NEED_CUDA=1

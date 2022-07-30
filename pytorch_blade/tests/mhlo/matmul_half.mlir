@@ -4,7 +4,7 @@
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<2x3xf16>, %[[ARG1:.*]]: tensor<3x3xf16>) -> tensor<2x3xf16> {
 // CHECK:         %[[T0:.*]] = "mhlo.dot_general"(%[[ARG0]], %[[ARG1]]) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>} : (tensor<2x3xf16>, tensor<3x3xf16>) -> tensor<2x3xf16>
 // CHECK:         return %[[T0]] : tensor<2x3xf16>
-func @torch.aten.mm(%arg0: !torch.vtensor<[2,3],f16>, %arg1: !torch.vtensor<[3,3],f16>) -> !torch.vtensor<[2,3],f16> {
+func.func @torch.aten.mm(%arg0: !torch.vtensor<[2,3],f16>, %arg1: !torch.vtensor<[3,3],f16>) -> !torch.vtensor<[2,3],f16> {
   %0 = torch.aten.mm %arg0, %arg1 : !torch.vtensor<[2,3],f16>, !torch.vtensor<[3,3],f16> -> !torch.vtensor<[2,3],f16>
   return %0 : !torch.vtensor<[2,3],f16>
 }
@@ -14,7 +14,7 @@ func @torch.aten.mm(%arg0: !torch.vtensor<[2,3],f16>, %arg1: !torch.vtensor<[3,3
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<10x3x4xf16>, %[[ARG1:.*]]: tensor<10x4x5xf16>) -> tensor<10x3x5xf16> {
 // CHECK:         %[[T0:.*]] = "mhlo.dot_general"(%[[ARG0]], %[[ARG1]]) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>} : (tensor<10x3x4xf16>, tensor<10x4x5xf16>) -> tensor<10x3x5xf16>
 // CHECK:         return %[[T0]] : tensor<10x3x5xf16>
-func @torch.aten.bmm(%arg0: !torch.vtensor<[10,3,4],f16>, %arg1: !torch.vtensor<[10,4,5],f16>) -> !torch.vtensor<[10,3,5],f16> {
+func.func @torch.aten.bmm(%arg0: !torch.vtensor<[10,3,4],f16>, %arg1: !torch.vtensor<[10,4,5],f16>) -> !torch.vtensor<[10,3,5],f16> {
   %0 = torch.aten.bmm %arg0, %arg1 : !torch.vtensor<[10,3,4],f16>, !torch.vtensor<[10,4,5],f16> -> !torch.vtensor<[10,3,5],f16>
   return %0 : !torch.vtensor<[10,3,5],f16>
 }
@@ -24,7 +24,7 @@ func @torch.aten.bmm(%arg0: !torch.vtensor<[10,3,4],f16>, %arg1: !torch.vtensor<
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<4x?x256xf16>, %[[ARG1:.*]]: tensor<4x256x?xf16>) -> tensor<4x?x?xf16> {
 // CHECK:         %[[T0:.*]] = "mhlo.dot_general"(%[[ARG0]], %[[ARG1]]) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>} : (tensor<4x?x256xf16>, tensor<4x256x?xf16>) -> tensor<4x?x?xf16>
 // CHECK:         return %[[T0]] : tensor<4x?x?xf16>
-func @torch.aten.bmm.dyn(%arg0: !torch.vtensor<[4,?,256],f16>, %arg1: !torch.vtensor<[4,256,?],f16>) -> !torch.vtensor<[4,?,?],f16> {
+func.func @torch.aten.bmm.dyn(%arg0: !torch.vtensor<[4,?,256],f16>, %arg1: !torch.vtensor<[4,256,?],f16>) -> !torch.vtensor<[4,?,?],f16> {
   %0 = torch.aten.bmm %arg0, %arg1 : !torch.vtensor<[4,?,256],f16>, !torch.vtensor<[4,256,?],f16> -> !torch.vtensor<[4,?,?],f16>
   return %0 : !torch.vtensor<[4,?,?],f16>
 }
@@ -48,7 +48,7 @@ func @torch.aten.bmm.dyn(%arg0: !torch.vtensor<[4,?,256],f16>, %arg1: !torch.vte
 // CHECK:         %[[T9:.*]] = "mhlo.dynamic_reshape"(%[[T5]], %[[T8]]) : (tensor<?x?xf16>, tensor<3xi32>) -> tensor<?x?x?xf16>
 // CHECK:         %[[T10:.*]] = mhlo.convert(%[[T9]]) : (tensor<?x?x?xf16>) -> tensor<4x?x?xf16>
 // CHECK:         return %[[T10]] : tensor<4x?x?xf16>
-func @torch.aten.matmul.dyn(%arg0: !torch.vtensor<[4,?,256],f16>, %arg1: !torch.vtensor<[256,?],f16>) -> !torch.vtensor<[4,?,?],f16> {
+func.func @torch.aten.matmul.dyn(%arg0: !torch.vtensor<[4,?,256],f16>, %arg1: !torch.vtensor<[256,?],f16>) -> !torch.vtensor<[4,?,?],f16> {
   %0 = torch.aten.matmul %arg0, %arg1 : !torch.vtensor<[4,?,256],f16>, !torch.vtensor<[256,?],f16> -> !torch.vtensor<[4,?,?],f16>
   return %0 : !torch.vtensor<[4,?,?],f16>
 }
@@ -60,7 +60,7 @@ func @torch.aten.matmul.dyn(%arg0: !torch.vtensor<[4,?,256],f16>, %arg1: !torch.
 // CHECK:         %[[T0:.*]] = "mhlo.broadcast_in_dim"(%[[ARG0]]) {broadcast_dimensions = dense<[1, 2]> : tensor<2xi64>} : (tensor<256x120xf16>) -> tensor<4x256x120xf16>
 // CHECK:         %[[T1:.*]] = "mhlo.dot_general"(%[[T0]], %[[ARG1]]) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>} : (tensor<4x256x120xf16>, tensor<4x120x256xf16>) -> tensor<4x256x256xf16>
 // CHECK:         return %[[T1]] : tensor<4x256x256xf16>
-func @torch.aten.matmul(%arg0: !torch.vtensor<[256,120],f16>, %arg1: !torch.vtensor<[4,120,256],f16>) -> !torch.vtensor<[4,256,256],f16> {
+func.func @torch.aten.matmul(%arg0: !torch.vtensor<[256,120],f16>, %arg1: !torch.vtensor<[4,120,256],f16>) -> !torch.vtensor<[4,256,256],f16> {
   %0 = torch.aten.matmul %arg0, %arg1 : !torch.vtensor<[256,120],f16>, !torch.vtensor<[4,120,256],f16> -> !torch.vtensor<[4,256,256],f16>
   return %0 : !torch.vtensor<[4,256,256],f16>
 }
@@ -89,7 +89,7 @@ func @torch.aten.matmul(%arg0: !torch.vtensor<[256,120],f16>, %arg1: !torch.vten
 // CHECK:         %[[T13:.*]] = "mhlo.dynamic_reshape"(%[[T5]], %[[T12]]) : (tensor<?x1xf16>, tensor<2xi32>) -> tensor<?x?xf16>
 // CHECK:         %[[T14:.*]] = mhlo.convert(%[[T13]]) : (tensor<?x?xf16>) -> tensor<1x?xf16>
 // CHECK:         return %[[T14]] : tensor<1x?xf16>
-func @torch.aten.matmul.3dx1d(%arg0: !torch.vtensor<[1,?,256],f16>, %arg1: !torch.vtensor<[256],f16>) -> !torch.vtensor<[1,?],f16> {
+func.func @torch.aten.matmul.3dx1d(%arg0: !torch.vtensor<[1,?,256],f16>, %arg1: !torch.vtensor<[256],f16>) -> !torch.vtensor<[1,?],f16> {
   %0 = torch.aten.matmul %arg0, %arg1 : !torch.vtensor<[1,?,256],f16>, !torch.vtensor<[256],f16> -> !torch.vtensor<[1,?],f16>
   return %0 : !torch.vtensor<[1,?],f16>
 }
@@ -115,7 +115,7 @@ func @torch.aten.matmul.3dx1d(%arg0: !torch.vtensor<[1,?,256],f16>, %arg1: !torc
 // CHECK:         %[[T10:.*]] = tensor.from_elements %[[T7]], %[[T9]] : tensor<2xi32>
 // CHECK:         %[[T11:.*]] = "mhlo.dynamic_reshape"(%[[T5]], %[[T10]]) : (tensor<?x1x?xf16>, tensor<2xi32>) -> tensor<?x?xf16>
 // CHECK:         return %[[T11]] : tensor<?x?xf16>
-func @torch.aten.matmul.1dx3d(%arg0: !torch.vtensor<[256],f16>, %arg1: !torch.vtensor<[?,256,?],f16>) -> !torch.vtensor<[?,?],f16> {
+func.func @torch.aten.matmul.1dx3d(%arg0: !torch.vtensor<[256],f16>, %arg1: !torch.vtensor<[?,256,?],f16>) -> !torch.vtensor<[?,?],f16> {
   %0 = torch.aten.matmul %arg0, %arg1 : !torch.vtensor<[256],f16>, !torch.vtensor<[?,256,?],f16> -> !torch.vtensor<[?,?],f16>
   return %0 : !torch.vtensor<[?,?],f16>
 }
@@ -132,7 +132,7 @@ func @torch.aten.matmul.1dx3d(%arg0: !torch.vtensor<[256],f16>, %arg1: !torch.vt
 // CHECK:         %[[T4:.*]] = tensor.from_elements %[[T3]] : tensor<1xi32>
 // CHECK:         %[[T5:.*]] = "mhlo.dynamic_reshape"(%[[T1]], %[[T4]]) : (tensor<?x1xf16>, tensor<1xi32>) -> tensor<?xf16>
 // CHECK:         return %[[T5]] : tensor<?xf16>
-func @torch.aten.matmul.2dx1d(%arg0: !torch.vtensor<[?,256],f16>, %arg1: !torch.vtensor<[256],f16>) -> !torch.vtensor<[?],f16> {
+func.func @torch.aten.matmul.2dx1d(%arg0: !torch.vtensor<[?,256],f16>, %arg1: !torch.vtensor<[256],f16>) -> !torch.vtensor<[?],f16> {
   %0 = torch.aten.matmul %arg0, %arg1 : !torch.vtensor<[?,256],f16>, !torch.vtensor<[256],f16> -> !torch.vtensor<[?],f16>
   return %0 : !torch.vtensor<[?],f16>
 }
@@ -149,7 +149,7 @@ func @torch.aten.matmul.2dx1d(%arg0: !torch.vtensor<[?,256],f16>, %arg1: !torch.
 // CHECK:         %[[T4:.*]] = tensor.from_elements %[[T3]] : tensor<1xi32>
 // CHECK:         %[[T5:.*]] = "mhlo.dynamic_reshape"(%[[T1]], %[[T4]]) : (tensor<1x?xf16>, tensor<1xi32>) -> tensor<?xf16>
 // CHECK:         return %[[T5]] : tensor<?xf16>
-func @torch.aten.matmul.1dx2d(%arg0: !torch.vtensor<[256],f16>, %arg1: !torch.vtensor<[256,?],f16>) -> !torch.vtensor<[?],f16> {
+func.func @torch.aten.matmul.1dx2d(%arg0: !torch.vtensor<[256],f16>, %arg1: !torch.vtensor<[256,?],f16>) -> !torch.vtensor<[?],f16> {
   %0 = torch.aten.matmul %arg0, %arg1 : !torch.vtensor<[256],f16>, !torch.vtensor<[256,?],f16> -> !torch.vtensor<[?],f16>
   return %0 : !torch.vtensor<[?],f16>
 }
@@ -163,7 +163,7 @@ func @torch.aten.matmul.1dx2d(%arg0: !torch.vtensor<[256],f16>, %arg1: !torch.vt
 // CHECK:         %[[T2:.*]] = "mhlo.dot_general"(%[[T0]], %[[T1]]) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>} : (tensor<1x256xf16>, tensor<256x1xf16>) -> tensor<1x1xf16>
 // CHECK:         %[[T3:.*]] = "mhlo.reshape"(%[[T2]]) : (tensor<1x1xf16>) -> tensor<f16>
 // CHECK:         return %[[T3]] : tensor<f16>
-func @torch.aten.matmul.1dx1d(%arg0: !torch.vtensor<[256],f16>, %arg1: !torch.vtensor<[256],f16>) -> !torch.vtensor<[],f16> {
+func.func @torch.aten.matmul.1dx1d(%arg0: !torch.vtensor<[256],f16>, %arg1: !torch.vtensor<[256],f16>) -> !torch.vtensor<[],f16> {
   %0 = torch.aten.matmul %arg0, %arg1 : !torch.vtensor<[256],f16>, !torch.vtensor<[256],f16> -> !torch.vtensor<[],f16>
   return %0 : !torch.vtensor<[],f16>
 }
@@ -187,7 +187,7 @@ func @torch.aten.matmul.1dx1d(%arg0: !torch.vtensor<[256],f16>, %arg1: !torch.vt
 // CHECK:         %[[T9:.*]] = tensor.from_elements %[[T2]], %[[T4]], %[[C256_I32]] : tensor<3xi32>
 // CHECK:         %[[T10:.*]] = "mhlo.dynamic_reshape"(%[[T8]], %[[T9]]) : (tensor<?x256xf16>, tensor<3xi32>) -> tensor<?x?x256xf16>
 // CHECK:         return %[[T10]] : tensor<?x?x256xf16>
-func @torch.aten.matmul.proj(%arg0: !torch.vtensor<[?,?,256],f16>) -> !torch.vtensor<[?,?,256],f16> {
+func.func @torch.aten.matmul.proj(%arg0: !torch.vtensor<[?,?,256],f16>) -> !torch.vtensor<[?,?,256],f16> {
   %0 = torch.vtensor.literal(dense<1.000000e+00> : tensor<256x256xf16>) : !torch.vtensor<[256,256],f16>
   %1 = torch.aten.matmul %arg0, %0 : !torch.vtensor<[?,?,256],f16>, !torch.vtensor<[256,256],f16> -> !torch.vtensor<[?,?,256],f16>
   return %1 : !torch.vtensor<[?,?,256],f16>
@@ -200,7 +200,7 @@ func @torch.aten.matmul.proj(%arg0: !torch.vtensor<[?,?,256],f16>) -> !torch.vte
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<1.000000e+00> : tensor<256x256xf16>
 // CHECK:         %[[T1:.*]] = "mhlo.dot_general"(%[[ARG0]], %[[T0]]) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>} : (tensor<?x256xf16>, tensor<256x256xf16>) -> tensor<?x256xf16>
 // CHECK:         return %[[T1]] : tensor<?x256xf16>
-func @torch.aten.mm.proj(%arg0: !torch.vtensor<[?,256],f16>) -> !torch.vtensor<[?,256],f16> {
+func.func @torch.aten.mm.proj(%arg0: !torch.vtensor<[?,256],f16>) -> !torch.vtensor<[?,256],f16> {
   %0 = torch.vtensor.literal(dense<1.000000e+00> : tensor<256x256xf16>) : !torch.vtensor<[256,256],f16>
   %1 = torch.aten.mm %arg0, %0 : !torch.vtensor<[?,256],f16>, !torch.vtensor<[256,256],f16> -> !torch.vtensor<[?,256],f16>
   return %1 : !torch.vtensor<[?,256],f16>

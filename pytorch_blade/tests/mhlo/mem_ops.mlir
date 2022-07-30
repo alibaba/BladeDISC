@@ -4,7 +4,7 @@
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x?xi64>) -> tensor<?x?x?xi64> {
 // CHECK:         %[[T0:.*]] = "mhlo.reverse"(%[[ARG0]]) {dimensions = dense<[0, 1]> : tensor<2xi64>} : (tensor<?x?x?xi64>) -> tensor<?x?x?xi64>
 // CHECK:         return %[[T0]] : tensor<?x?x?xi64>
-func @torch.aten.flip(%arg0: !torch.vtensor<[?,?,?],si64>) -> !torch.vtensor<[?,?,?],si64> {
+func.func @torch.aten.flip(%arg0: !torch.vtensor<[?,?,?],si64>) -> !torch.vtensor<[?,?,?],si64> {
   %int0 = torch.constant.int 0
   %int1 = torch.constant.int 1
   %0 = torch.prim.ListConstruct %int0, %int1 : (!torch.int, !torch.int) -> !torch.list<int>
@@ -19,7 +19,7 @@ func @torch.aten.flip(%arg0: !torch.vtensor<[?,?,?],si64>) -> !torch.vtensor<[?,
 // CHECK:         %[[CST:.*]] = arith.constant dense<[1, 4]> : tensor<2xi32>
 // CHECK:         %[[T0:.*]] = "mhlo.dynamic_gather"(%[[ARG0]], %[[ARG1]], %[[CST]]) {dimension_numbers = #mhlo.gather<offset_dims = [1], collapsed_slice_dims = [0], start_index_map = [0], index_vector_dim = 1>, indices_are_sorted = false} : (tensor<?x4xf32>, tensor<2xi64>, tensor<2xi32>) -> tensor<2x4xf32>
 // CHECK:         return %[[T0]] : tensor<2x4xf32>
-func @torch.aten.index_select(%arg0: !torch.vtensor<[?,4],f32>, %arg1: !torch.vtensor<[2],si64>) -> !torch.vtensor<[2,4],f32> {
+func.func @torch.aten.index_select(%arg0: !torch.vtensor<[?,4],f32>, %arg1: !torch.vtensor<[2],si64>) -> !torch.vtensor<[2,4],f32> {
   %int0 = torch.constant.int 0
   %0 = torch.aten.index_select %arg0, %int0, %arg1 : !torch.vtensor<[?,4],f32>, !torch.int, !torch.vtensor<[2],si64> -> !torch.vtensor<[2,4],f32>
   return %0 : !torch.vtensor<[2,4],f32>
@@ -65,7 +65,7 @@ func @torch.aten.index_select(%arg0: !torch.vtensor<[?,4],f32>, %arg1: !torch.vt
 // CHECK:         %[[T26:.*]] = "mhlo.real_dynamic_slice"(%[[T13]], %[[CST]], %[[T25]], %[[CST]]_0) : (tensor<?x?xf32>, tensor<2xi32>, tensor<2xi32>, tensor<2xi32>) -> tensor<?x?xf32>
 // CHECK:         %[[T27:.*]] = "mhlo.concatenate"(%[[T22]], %[[T26]]) {dimension = 0 : i64} : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
 // CHECK:         return %[[T27]] : tensor<?x?xf32>
-func @torch.aten.roll(%arg0: !torch.vtensor<[?,?],f32>) -> !torch.vtensor<[?,?],f32> {
+func.func @torch.aten.roll(%arg0: !torch.vtensor<[?,?],f32>) -> !torch.vtensor<[?,?],f32> {
   %int0 = torch.constant.int 0
   %int1 = torch.constant.int 1
   %int-9 = torch.constant.int -9

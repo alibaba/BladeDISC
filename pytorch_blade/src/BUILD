@@ -3,7 +3,13 @@ load(
     "if_cuda_is_configured",
 )
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_import", "cc_library")
-load("//bazel:build_defs.bzl", "if_platform_alibaba", "if_tensorrt_enabled", "if_ltc_disc_backend")
+load(
+    "//bazel:build_defs.bzl",
+    "if_platform_alibaba",
+    "if_tensorrt_enabled",
+    "if_ltc_disc_backend",
+    "if_quantization_enabled"
+)
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension", "pybind_library")
 
 package(default_visibility = ["//visibility:public"])
@@ -35,6 +41,8 @@ cc_library(
         "@local_config_cuda//cuda:cudart",
     ]) + if_platform_alibaba([
         "//src/platform_alibaba:torch_blade",
+    ]) + if_quantization_enabled([
+        "//src/quantization:quantization_op",
     ]),
 )
 
@@ -69,6 +77,8 @@ filegroup(
         "//src/compiler:torch_blade_py_srcs",
     ] + if_ltc_disc_backend([
          "//src/ltc:torch_blade_ltc_py_srcs",
+    ]) + if_quantization_enabled([
+        "//src/quantization:torch_blade_quantization_py_srcs",
     ]),
 )
 
@@ -80,6 +90,8 @@ filegroup(
         "//src/compiler:torch_blade_py_hdrs",
     ] + if_ltc_disc_backend([
          "//src/ltc:torch_blade_ltc_py_hdrs",
+    ]) + if_quantization_enabled([
+        "//src/quantization:torch_blade_quantization_py_hdrs",
     ]),
 )
 

@@ -47,7 +47,6 @@ class BazelBuild(TorchBladeBuild):
             "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:libral_base_context.so",
             "//src:libtorch_blade.so",
             "//src:_torch_blade.so",
-            "//tests/mhlo/torch-mlir-opt:torch-mlir-opt",
         ]
 
         torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]
@@ -80,7 +79,7 @@ class BazelBuild(TorchBladeBuild):
         ]
 
         if self.torch_major_version >= 1 and self.torch_minor_version >= 12:
-            self.torch_extra_opts.append("--config=torch_ltc_disc_backend") 
+            self.torch_extra_opts.append("--config=torch_ltc_disc_backend")
         if self.is_debug:
             self.torch_extra_opts.append("--config=torch_debug")
         else:
@@ -117,6 +116,20 @@ class BazelBuild(TorchBladeBuild):
 
         if running_on_ci():
             self.configs += ["--config=ci_build"]
+
+        # ----------------------------------------------------------------------- #
+        # --------------------   Settings for Quantization   -------------------- #
+        # ----------------------------------------------------------------------- #
+        # This is for quantization process starts from blade_compression.
+        # blade_compression uses fx graph to do quantization, which is
+        # introduced in torch 1.8.0. So the lower bound of torch version is
+        # set to 1.8.0
+        # note: If we use backend (such as trt) to do calibration and get the
+        # quantization engine, this limitation should not be set.
+        is_enable_quantization = \
+            self.torch_major_version == 1 and 8 <= self.torch_minor_version < 12
+        if is_enable_quantization:
+            self.torch_extra_opts.append("--config=torch_enable_quantization")
 
         self.shell_setting = "set -e; set -o pipefail; "
         # Workaround: this venv ensure that $(/usr/bin/env python) is evaluated to python3

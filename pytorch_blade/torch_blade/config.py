@@ -16,7 +16,6 @@ import copy
 import threading
 import torch
 import torch_blade._torch_blade._backends as _backends
-from torch_blade import utils
 
 class OptPipelines:
 
@@ -136,6 +135,8 @@ class Config(ConfigContext):
         self._fp16_fallback_op_ratio = 0.0
         # Allow BladeDISC to do some AMP optimization if set.
         self._enable_fp16 = False
+        # determine whether quantization is enabled
+        self._enable_int8 = False
         # Controls the extent that BladeDISC is allowed to use fast math for
         # acceleration. Higher number usually means faster speed while it may
         # lead to some accuracy loss in some cases.
@@ -236,7 +237,6 @@ class Config(ConfigContext):
         assert isinstance(val, bool), "enable_mlir_amp should be bool, got {}".format(type(val))
         self._enable_fp16 = val
 
-
     @property
     def enable_fp16(self):
         """The flag to enable amp(aka fp16).
@@ -250,6 +250,20 @@ class Config(ConfigContext):
     def enable_fp16(self, val):
         assert isinstance(val, bool), "enable_fp16 should be bool, got {}".format(type(val))
         self._enable_fp16 = val
+
+    @property
+    def enable_int8(self):
+        """The flag to enable quantization(aka int8).
+
+        :type: bool
+        :default: False
+        """
+        return self._enable_int8
+
+    @enable_int8.setter
+    def enable_int8(self, val):
+        assert isinstance(val, bool), "enable_int8 should be bool, got {}".format(type(val))
+        self._enable_int8 = val
 
     @property
     def disc_cpu_fast_math_level(self):
@@ -486,7 +500,7 @@ class Config(ConfigContext):
     def customize_jit_passes(self, val):
         assert isinstance(val, list), "customize_jit_passes should be list, got {}".format(type(val))
         self._customize_jit_passes = val
-    
+
     @property
     def annotate_args(self):
         return self._annotate_args

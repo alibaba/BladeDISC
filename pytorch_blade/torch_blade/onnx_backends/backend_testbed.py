@@ -14,9 +14,11 @@ from collections import defaultdict
 
 import onnx
 import torch
+
 from torch_blade import pass_manager, tools
 from torch_blade.config import Config
 from torch_blade.logging import logger
+from torch_blade.quantization import is_fake_quant_op
 from torch_blade.tools import onnx_lower_guard
 
 
@@ -332,6 +334,10 @@ class OnnxBackendTestBed:
 
             if is_const or is_listconstruct:
                 # prim::Constant, prim::ListConstruct
+                self._appendNode(inp.node())
+                continue
+
+            if is_fake_quant_op(inp_node_kind):
                 self._appendNode(inp.node())
                 continue
 

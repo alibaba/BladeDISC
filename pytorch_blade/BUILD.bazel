@@ -28,3 +28,8 @@ config_setting(
     name = "enable_ltc_disc_backend",
     values = {"define": "enable_ltc_disc_backend=true"}
 )
+
+config_setting(
+    name = "enable_quantization",
+    values = {"define": "enable_quantization=true"}
+)

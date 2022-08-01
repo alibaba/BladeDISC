@@ -692,32 +692,6 @@ LogicalResult ConvertAtenOp<AtenRelu6Op>::matchAndRewrite(
   return success();
 }
 
-template <>
-LogicalResult ConvertAtenOp<AtenNativeDropoutOp>::matchAndRewrite(
-    AtenNativeDropoutOp op,
-    OpAdaptor adaptor,
-    ConversionPatternRewriter& rewriter) const {
-  Location loc = op.getLoc();
-  Value input = op.input();
-  Value prob = op.p();
-  bool train = false;
-  if (!matchPattern(op.train(), m_TorchConstantBool(&train)))
-    return rewriter.notifyMatchFailure(op, "train must be a boolean constant");
-
-  BaseTensorType inputType = input.getType().cast<BaseTensorType>();
-  if (!train) {
-    Value mask = chlo::getConstantLike(rewriter, loc, true, input);
-    llvm::dbgs() << mask << "\n";
-    rewriter.replaceOp(op, {input, mask});
-    return success();
-  }
-
-  if (!inputType.hasDtype() || !inputType.getDtype().isa<mlir::FloatType>())
-    return rewriter.notifyMatchFailure(
-        op, "only support floating type input for training mode");
-  return success();
-}
-
 // Convert a Aten::LeakyRelu to HLO
 // LeakyRelu(x) = max(0, x) + negative_slop * min(0, x)
 template <>
@@ -855,6 +829,42 @@ LogicalResult ConvertAtenOp<AtenGeluBackwardOp>::matchAndRewrite(
 
   Value result = rewriter.create<mhlo::AddOp>(loc, half_one, input_alpha);
   result = rewriter.create<mhlo::MulOp>(loc, grad_output, result);
+  rewriter.replaceOp(op, {result});
+  return success();
+}
+
+// Convert AtenEmptyMemoryFormatOp to const ones Tensor
+// please note: The AtenEmptyMemoryFormatOp is not according to value sematic,
+// and AtenEmptyMemoryFormatOp is a side-effected, to elimiate this op after
+// Canonicalizer pass, we lower this op to a constant ones op, that is a tracy
+// way.
+template <>
+LogicalResult ConvertAtenOp<AtenEmptyMemoryFormatOp>::matchAndRewrite(
+    AtenEmptyMemoryFormatOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto outType = getTypeConverter()
+                     ->convertType(op.getType())
+                     .template dyn_cast<TensorType>();
+  auto loc = op.getLoc();
+  auto shape = adaptor.size();
+  SmallVector<Value, 4> dimSizes;
+  getListConstructElements(shape, dimSizes);
+  // BladeDISC use i32 as shape
+  std::for_each(dimSizes.begin(), dimSizes.end(), [&](Value& dSize) {
+    dSize = rewriter.create<ToI64Op>(loc, dSize).getResult();
+    // dimSize: cast i64 -> i32
+    dSize = rewriter.create<arith::TruncIOp>(loc, rewriter.getI32Type(), dSize);
+    return dSize;
+  });
+
+  auto mhloShape = rewriter.create<mlir::tensor::FromElementsOp>(loc, dimSizes);
+  auto constOp =
+      mhlo::getConstTensor<int32_t>(rewriter, op, {1.0}, {}).getValue();
+
+  auto result = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+      loc, outType, constOp, mhloShape, rewriter.getI64TensorAttr({}));
+
   rewriter.replaceOp(op, {result});
   return success();
 }
@@ -2733,6 +2743,7 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(ValsemVariantAtenUniformOp);
     INSERT_ATENOP_PATTERN(TensorStaticInfoCastOp);
     INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
+    INSERT_ATENOP_PATTERN(AtenEmptyMemoryFormatOp);
 #undef INSERT_ATENOP_PATTERN
 
 #define INSERT_VIEW_OP_PATTERN(AtenOp) \

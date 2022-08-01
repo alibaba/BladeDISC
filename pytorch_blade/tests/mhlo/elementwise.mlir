@@ -145,3 +145,11 @@ func @torch.aten.gelu_backward(%arg0: !torch.vtensor<[?,?],f32>, %arg1: !torch.v
   %0 = torch.aten.gelu_backward %arg0, %arg1, %str_none: !torch.vtensor<[?,?],f32>, !torch.vtensor<[?,?],f32>, !torch.str -> !torch.vtensor<[?,?],f32>
   return %0 : !torch.vtensor<[?,?],f32>
 }
+
+
+func @torch.aten.native_dropout(%arg0: !torch.vtensor<[?,?],f32>) -> (!torch.vtensor<[?,?],f32>, !torch.vtensor<[?,?],i1>) {
+  %float1 = torch.constant.float 1.000000e+00
+  %bool_true = torch.constant.bool true
+  %result0, %result1 = torch.aten.native_dropout %arg0, %float1, %bool_true: !torch.vtensor<[?,?],f32>, !torch.float, !torch.bool -> !torch.vtensor<[?,?],f32>, !torch.vtensor<[?,?],i1>
+  return %result0, %result1 : !torch.vtensor<[?,?],f32>, !torch.vtensor<[?,?],i1>
+}

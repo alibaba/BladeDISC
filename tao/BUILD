@@ -131,13 +131,13 @@ tf_cc_shared_object(
             "-Wl,--version-script",  #  This line must be directly followed by the version_script.lds file
             "$(location //:bridge_version_scripts.lds)",
         ],
-    }) + if_rocm([
-            "-lrocblas",
-    ]),
+    }),
     deps = [
         ":tao_bridge",
         "//:bridge_version_scripts.lds",
-    ],
+    ] + if_rocm([
+        "@local_config_rocm//rocm:rocblas",
+    ]),
 )
 
 tao_bridge_cc_test(

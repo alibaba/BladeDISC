@@ -836,7 +836,7 @@ LogicalResult ConvertAtenOp<AtenGeluBackwardOp>::matchAndRewrite(
 // Convert AtenEmptyMemoryFormatOp to const ones Tensor
 // please note: The AtenEmptyMemoryFormatOp is not according to value sematic,
 // and AtenEmptyMemoryFormatOp is a side-effected, to elimiate this op after
-// Canonicalizer pass, we lower this op to a constant ones op, that is a tracy
+// Canonicalizer pass, we lower this op to a constant ones op, this is a tracy
 // way.
 template <>
 LogicalResult ConvertAtenOp<AtenEmptyMemoryFormatOp>::matchAndRewrite(

@@ -1,10 +1,10 @@
 name: pytorch1_7_1-cuda11_0
 on:
+  push:
+    branches: [ main ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
-  schedule:
-    - cron: '30 01 * * *' # 01:30 am
 
 jobs:
   build:

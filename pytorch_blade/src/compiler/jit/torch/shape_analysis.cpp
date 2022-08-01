@@ -1754,7 +1754,7 @@ class ShapePropagator : public PropertyPropBase {
         return true;
       }
     }
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 8
     else if (
         node->matches(
             "aten::native_layer_norm(Tensor input, int[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> (Tensor, Tensor, Tensor)")) {
@@ -1767,19 +1767,20 @@ class ShapePropagator : public PropertyPropBase {
         int64_t dims = axis + type->dim().value();
 
         for (const auto idx : c10::irange(axis)) {
-          auto dim = type->symbolic_sizes()[idx];
-          if (dim.is_static())
-            stat_shape.emplace_back(ShapeSymbol::newSymbol());
+          auto dimSize = type->symbolic_sizes()[idx];
+          if (dimSize.is_static())
+            stat_shape.emplace_back(
+                ShapeSymbol::fromStaticSize(dimSize.value()));
           else
-            stat_shape.emplace_back(ShapeSymbol::fromStaticSize(dim.value()));
+            stat_shape.emplace_back(ShapeSymbol::newSymbol());
         }
         for (const auto idx : c10::irange(axis, type->dim().value())) {
           (void)idx; // Suppress unused variable warning
           stat_shape.emplace_back(ShapeSymbol::fromStaticSize(1));
         }
-        SymbolicShape shape(stat_shape);
-        node->outputs()[1]->setType(type->withSymbolicShapes(shape));
-        node->outputs()[2]->setType(type->withSymbolicShapes(shape));
+        SymbolicShape symblicShape(stat_shape);
+        node->outputs()[1]->setType(type->withSymbolicShapes(symblicShape));
+        node->outputs()[2]->setType(type->withSymbolicShapes(symblicShape));
       }
       return true;
     }

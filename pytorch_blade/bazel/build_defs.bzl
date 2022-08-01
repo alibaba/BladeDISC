@@ -22,3 +22,9 @@ def if_ltc_disc_backend(if_true, if_false=[]):
         "//:enable_ltc_disc_backend": if_true,
         "//conditions:default": if_false,
     })
+
+def if_quantization_enabled(if_true, if_false=[]):
+    return select({
+        "//:enable_quantization": if_true,
+        "//conditions:default": if_false,
+    })

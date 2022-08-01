@@ -1,4 +1,4 @@
-name: tf2_4-cuda10_0
+name: tf2_4-cuda11_0
 on:
   push:
     branches: [ main ]

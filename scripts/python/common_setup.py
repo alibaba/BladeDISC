@@ -288,7 +288,7 @@ def config_mkldnn(root, args):
               git clone --branch v22.02 --depth 1 $ACL_REPO $ACL_DIR
               cd $ACL_DIR
 
-              scons --silent $MAKE_NP Werror=0 debug=0 neon=1 opencl=0 embed_kernels=0 os=linux arch=arm64-v8a build=native extra_cxx_flags="-fPIC"
+              scons --silent $MAKE_NP Werror=0 debug=0 neon=1 opencl=0 openmp=1 embed_kernels=0 os=linux arch=arm64-v8a build=native extra_cxx_flags="-fPIC"
 
               exit $?
             '''.format(acl_dir)

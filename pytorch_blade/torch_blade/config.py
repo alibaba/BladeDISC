@@ -9,13 +9,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from contextlib import ContextDecorator
-from collections import defaultdict
-from typing import List, Optional, Tuple
 import copy
 import threading
+from collections import defaultdict
+from contextlib import ContextDecorator
+from typing import List, Optional, Tuple
+
 import torch
 import torch_blade._torch_blade._backends as _backends
+
 
 class OptPipelines:
 
@@ -166,6 +168,7 @@ class Config(ConfigContext):
         # List. So this config allows users to directly pass inputs corresponding to min/max/opts
         self._dynamic_tuning_inputs = {}
         self._extra_dynamic_tuning_shapes = {}
+        self._quantization_calibration_data = {}
         self._preserved_attributes = []
         self._customize_onnx_opset_version = None
         self._enable_force_to_cuda = False
@@ -343,6 +346,14 @@ class Config(ConfigContext):
         self._dynamic_tuning_inputs = val
 
     @property
+    def quantization_calibration_data(self):
+        return self._quantization_calibration_data
+
+    @quantization_calibration_data.setter
+    def quantization_calibration_data(self, val):
+        self._quantization_calibration_data = val
+
+    @property
     def extra_dynamic_tuning_shapes(self):
         return self._extra_dynamic_tuning_shapes
 
@@ -394,13 +405,21 @@ class Config(ConfigContext):
         import torch
         TORCH_VERSION = tuple(int(x) for x in torch.__version__.split(".")[:2])
         if TORCH_VERSION < (1, 8):
-            from torch.onnx.symbolic_helper import _default_onnx_opset_version, _onnx_stable_opsets, _onnx_master_opset
+            from torch.onnx.symbolic_helper import (
+                _default_onnx_opset_version,
+                _onnx_master_opset,
+                _onnx_stable_opsets
+            )
         elif TORCH_VERSION >= (1, 12):
             from torch.onnx._constants import onnx_default_opset as _default_onnx_opset_version
             from torch.onnx._constants import onnx_main_opset as _onnx_master_opset
             from torch.onnx._constants import onnx_stable_opsets as _onnx_stable_opsets 
         else:
-            from torch.onnx.symbolic_helper import _onnx_main_opset, _onnx_stable_opsets, _default_onnx_opset_version
+            from torch.onnx.symbolic_helper import (
+                _default_onnx_opset_version,
+                _onnx_main_opset,
+                _onnx_stable_opsets
+            )
             _onnx_master_opset = _onnx_main_opset
 
         assert version == _default_onnx_opset_version or version in list(_onnx_stable_opsets) + [_onnx_master_opset]

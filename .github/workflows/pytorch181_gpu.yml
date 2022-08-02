@@ -1,4 +1,4 @@
-name: pytorch1_12-cuda11_3
+name: pytorch1_8_1-cuda11_1
 on:
   push:
     branches: [ main ]
@@ -10,15 +10,14 @@ jobs:
   build:
     uses: ./.github/workflows/resuable_gpu_build.yml
     with:
-      cuda_version: cu113
-      remote_runtime_docker: bladedisc:latest-runtime-torch1.12.0-cu113
-      develop_base_image: nvidia/cuda:11.3.0-cudnn8-devel-ubuntu20.04
-      runtime_base_image: nvidia/cuda:11.3.0-cudnn8-devel-ubuntu20.04
-      extra_build_args: --build-arg PYTHON_VERSION=PYTHON3.8 --build-arg ENABLE_FIND_FASTEST_APT_SOURCE=OFF
+      cuda_version: cu111
+      remote_runtime_docker: bladedisc:latest-runtime-torch1.8.1-cu111
+      develop_base_image: nvidia/cuda:11.1.1-cudnn8-devel-ubuntu18.04
+      runtime_base_image: nvidia/cuda:11.1.1-cudnn8-devel-ubuntu18.04
       extra_envs: -e TORCH_BLADE_BUILD_TENSORRT_STATIC=ON
-          -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.12.0+cu113
+          -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.8.1+cu111
       exec_command: bash ./scripts/ci/test_pytorch_blade.sh
-      deploy_command: TORCH_VERSION=1.12.0+cu113 bash ./scripts/ci/deploy_pytorch_blade.sh
+      deploy_command: TORCH_VERSION=1.8.1+cu111 bash ./scripts/ci/deploy_pytorch_blade.sh
     secrets:
       ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
       ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}

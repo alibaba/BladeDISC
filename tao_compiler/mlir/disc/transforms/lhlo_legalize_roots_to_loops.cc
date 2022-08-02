@@ -20,9 +20,10 @@ limitations under the License.
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "mlir-hlo/utils/placement_utils.h"
-#include "mlir/Dialect/GPU/GPUDialect.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Vector/IR/VectorOps.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BlockAndValueMapping.h"
@@ -375,7 +376,7 @@ Operation* getMapOpInReduceRegion(Operation* op) {
   auto reduce_op = cast<lmhlo::ReduceOp>(op);
   Operation* map_op = nullptr;
   int num_lhlo_ops = 0;
-  reduce_op.body().walk([&](Operation* lhlo_op) {
+  reduce_op.getBody().walk([&](Operation* lhlo_op) {
     if (isa<lmhlo::TerminatorOp>(lhlo_op)) {
       return;
     }
@@ -492,7 +493,7 @@ void emitNotToVectorReduction(OpBuilder& b, Location loc, Operation* root_op,
                                           *root_op->getOperands().begin(),
                                           index, b.saveInsertionPoint());
   SmallVector<Value, 4> output_multidim_index;
-  auto dimensions = reduce_op.dimensions().getValues<int64_t>();
+  auto dimensions = reduce_op.getDimensions().getValues<int64_t>();
   for (auto idx : llvm::enumerate(index)) {
     if (std::find(dimensions.begin(), dimensions.end(), idx.index()) ==
         dimensions.end()) {
@@ -500,7 +501,7 @@ void emitNotToVectorReduction(OpBuilder& b, Location loc, Operation* root_op,
     }
   }
   b.create<memref::AtomicRMWOp>(loc, root_element_type,
-                                getAtomicRMWKind(reduce_op.body()), data,
+                                getAtomicRMWKind(reduce_op.getBody()), data,
                                 root_op->getOperand(2), output_multidim_index);
 }
 
@@ -594,7 +595,7 @@ LogicalResult lowerWithScheduleColReduction(
 
   // if_tile_inbound
   // Note that, without the consideration of backend device, we
-  // should emit h_tile_inbound in the begining of for_op_ho.body().
+  // should emit h_tile_inbound in the begining of for_op_ho.getBody().
   // But this breaks the logics in loopCoalescingPass, which can only
   // support "perfectNestedLoops".
   Value h_tile_inbound = b.create<arith::OrIOp>(
@@ -826,7 +827,7 @@ LogicalResult lowerWithScheduleColReduction(
         SmallVector<Value, 1> w_idx_vec = {w_idx};
         b.create<memref::AtomicRMWOp>(
             loc, element_type,
-            getAtomicRMWKind(cast<lmhlo::ReduceOp>(root_op).body()),
+            getAtomicRMWKind(cast<lmhlo::ReduceOp>(root_op).getBody()),
             *(if_tile_inbound_op.getResults().begin() +
               root_op_idx * c_tilesize_w + var_wi),
             root_op->getOperand(2), ValueRange(w_idx_vec));
@@ -864,7 +865,7 @@ void emitInitLoops(OpBuilder& b, ArrayRef<Operation*> col_reduction_ops) {
     Value result_memref = reduce->getOperand(reduce->getNumOperands() - 1);
     auto multidim_index = calcMultiDimIndex(&b, loc, var, result_memref);
     Value init_value = b.create<memref::LoadOp>(
-        loc, cast<lmhlo::ReduceOp>(reduce).init_values().front());
+        loc, cast<lmhlo::ReduceOp>(reduce).getInitValues().front());
     b.create<memref::StoreOp>(loc, init_value, result_memref, multidim_index);
   }
   return;
@@ -991,7 +992,7 @@ LogicalResult emitPerElementReductionImpl(
   auto data = createLoadOrUseCachedValue(loc, &b, op, op->getOperand(0),
                                          input_index, b.saveInsertionPoint());
   AccumulatorFactory accumFactory =
-      getFactory(b, op->getLoc(), reduce_op.body());
+      getFactory(b, op->getLoc(), reduce_op.getBody());
   auto acc = accumFactory(*acc_iter, data);
   yield_values_for_j.push_back(acc);
   return success();
@@ -1019,7 +1020,7 @@ LogicalResult emitInThreadReduction(
           b.saveInsertionPoint());
       b.create<memref::AtomicRMWOp>(
           loc, root_element_type,
-          getAtomicRMWKind(cast<lmhlo::ReduceOp>(root_op).body()), data,
+          getAtomicRMWKind(cast<lmhlo::ReduceOp>(root_op).getBody()), data,
           root_op->getOperand(2), ValueRange({col_reduction_index}));
     } else if (isa<lmhlo::ReduceOp>(root_op)) {
       auto dominant_shape = getShapeValues(&b, dominant_op->getOperand(0));
@@ -1146,7 +1147,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_WARP_WISE_ROW_REDUCE>(
       Operation* root_op = root_pair.value();
       int idx = root_pair.index();
       Value init_value = b.create<memref::LoadOp>(
-          loc, cast<lmhlo::ReduceOp>(root_op).init_values()[0]);
+          loc, cast<lmhlo::ReduceOp>(root_op).getInitValues()[0]);
       for (int i = 0; i < vector_size; i++) {
         init_values[i * row_reduction_roots.size() + idx] = init_value;
       }
@@ -1194,7 +1195,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_WARP_WISE_ROW_REDUCE>(
       shuffle_type[idx] = shuffle_elem_type;
 
       accum_factory[idx] = std::move(getFactory(
-          b, root_op->getLoc(), cast<lmhlo::ReduceOp>(root_op).body()));
+          b, root_op->getLoc(), cast<lmhlo::ReduceOp>(root_op).getBody()));
     }
 
     // for (offset = 1; offset < warpSize; offset *= 2) {
@@ -1322,8 +1323,8 @@ LogicalResult emitFirstRoundShuffle(
     if (failed(getShuffleElemType(b, elemType, &shuffleElemType))) {
       return failure();
     }
-    AccumulatorFactory accumFactory =
-        getFactory(b, root_op->getLoc(), cast<lmhlo::ReduceOp>(root_op).body());
+    AccumulatorFactory accumFactory = getFactory(
+        b, root_op->getLoc(), cast<lmhlo::ReduceOp>(root_op).getBody());
     for (int offset = 1; offset < kWarpSize; offset <<= 1) {
       Value offset_val =
           b.create<arith::ConstantIntOp>(loc, offset, b.getIntegerType(32));
@@ -1410,8 +1411,8 @@ LogicalResult emitSecondRoundShuffle(
     if (failed(getShuffleElemType(b, elemType, &shuffleElemType))) {
       return failure();
     }
-    AccumulatorFactory accumFactory =
-        getFactory(b, root_op->getLoc(), cast<lmhlo::ReduceOp>(root_op).body());
+    AccumulatorFactory accumFactory = getFactory(
+        b, root_op->getLoc(), cast<lmhlo::ReduceOp>(root_op).getBody());
     for (int offset = 1; offset < num_warps; offset <<= 1) {
       Value offset_val =
           b.create<arith::ConstantIntOp>(loc, offset, b.getIntegerType(32));
@@ -1554,7 +1555,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_BLOCK_WISE_ROW_REDUCE>(
     Operation* root_op = root_pair.value();
     int idx = root_pair.index();
     auto init_value = b.create<memref::LoadOp>(
-        loc, *(cast<lmhlo::ReduceOp>(root_op).init_values().begin()));
+        loc, *(cast<lmhlo::ReduceOp>(root_op).getInitValues().begin()));
     init_values_cache[root_op] = init_value;
     for (int i = 0; i < vector_size; i++) {
       init_values[i * row_reduction_ops.size() + idx] = init_value;
@@ -1777,10 +1778,10 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
     Operation* root_op = root_pair.value();
     int idx = root_pair.index();
     Value init_value = b.create<memref::LoadOp>(
-        loc, cast<lmhlo::ReduceOp>(root_op).init_values()[0]);
+        loc, cast<lmhlo::ReduceOp>(root_op).getInitValues()[0]);
     init_values[idx] = init_value;
     accum_factory[idx] = std::move(getFactory(
-        b, root_op->getLoc(), cast<lmhlo::ReduceOp>(root_op).body()));
+        b, root_op->getLoc(), cast<lmhlo::ReduceOp>(root_op).getBody()));
   }
   // local_row_index = n / var_tile_w;
   // local_col_index = n % var_tile_w;
@@ -1941,8 +1942,8 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
     auto root_element_type = getLhloOpsElementType(root_op);
     b.create<memref::AtomicRMWOp>(
         loc, root_element_type,
-        getAtomicRMWKind(cast<lmhlo::ReduceOp>(root_op).body()), partial_result,
-        root_op->getOperand(2), ValueRange({col_index}));
+        getAtomicRMWKind(cast<lmhlo::ReduceOp>(root_op).getBody()),
+        partial_result, root_op->getOperand(2), ValueRange({col_index}));
   }
   b.create<scf::YieldOp>(loc, ValueRange({}));
   b.setInsertionPointToEnd(parallel_op.getBody());
@@ -1983,7 +1984,7 @@ LogicalResult emitFirstRoundShuffleStitch(
     return failure();
   }
   AccumulatorFactory accumFactory =
-      getFactory(b, op->getLoc(), cast<lmhlo::ReduceOp>(op).body());
+      getFactory(b, op->getLoc(), cast<lmhlo::ReduceOp>(op).getBody());
   for (int offset = 1; offset < kWarpSize; offset <<= 1) {
     Value offset_val =
         b.create<arith::ConstantIntOp>(loc, offset, b.getIntegerType(32));
@@ -2138,7 +2139,7 @@ LogicalResult emitSecondRoundShuffleStitch(
     results[i] = if_lane_id_inbound.getResult(i);
   }
   AccumulatorFactory accumFactory =
-      getFactory(b, op->getLoc(), cast<lmhlo::ReduceOp>(op).body());
+      getFactory(b, op->getLoc(), cast<lmhlo::ReduceOp>(op).getBody());
   for (int offset = 1; offset < num_warps; offset <<= 1) {
     Value offset_val =
         b.create<arith::ConstantIntOp>(loc, offset, b.getIntegerType(32));
@@ -2222,7 +2223,7 @@ LogicalResult emitRowReduceThreadBlock(
       b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::eq, lane_id, zero);
   Value row_tile_val = b.create<arith::ConstantIndexOp>(loc, row_tile);
   auto init_value = b.create<memref::LoadOp>(
-      loc, *(cast<lmhlo::ReduceOp>(op).init_values().begin()));
+      loc, *(cast<lmhlo::ReduceOp>(op).getInitValues().begin()));
 
   int reduce_threads = (row_reduction_schedule == DISC_BLOCK_WISE_ROW_REDUCE)
                            ? block_size
@@ -2379,7 +2380,7 @@ LogicalResult initSkeletonGrpsAndCloneOps(
     return new_val;
   };
   DenseSet<Operation*> to_erase;
-  auto& fused_block = fusion_op.region().front();
+  auto& fused_block = fusion_op.getRegion().front();
   auto& terminator = *fused_block.rbegin();
   OpBuilder builder(&terminator);
   Operation* last_op = nullptr;
@@ -2461,7 +2462,7 @@ LogicalResult lowerWithScheduleStitch(lmhlo::FusionOp& fusion_op,
   for (auto value : fusion_pattern.getExternalOnlyResults()) {
     external_only_roots.insert(fusion_pattern.findLastWriter(value));
   }
-  auto parent = &(fusion_op.region().front());
+  auto parent = &(fusion_op.getRegion().front());
   auto dominant_op = fusion_pattern.getDominantOp();
   auto tile_plan = fusion_pattern.getTilePlan();
 
@@ -2932,11 +2933,11 @@ LogicalResult emitRowReduceThreadBlockV2(
     SmallVector<AccumulatorFactory> accumFactories;
     for (auto reduce_op : reduce_ops) {
       init_values.push_back(
-          b.create<memref::LoadOp>(loc, *(reduce_op.init_values().begin())));
+          b.create<memref::LoadOp>(loc, *(reduce_op.getInitValues().begin())));
     }
     for (int64_t i = 0; i < ops.size(); i++) {
       accumFactories.push_back(
-          getFactory(b, ops[i]->getLoc(), reduce_ops[i].body()));
+          getFactory(b, ops[i]->getLoc(), reduce_ops[i].getBody()));
     }
 
     // 1. Emit in-thread local reduction.
@@ -3132,7 +3133,7 @@ LogicalResult lowerWithScheduleStitchV2(lmhlo::FusionOp& fusion_op,
   for (auto value : fusion_pattern.getExternalOnlyResults()) {
     external_only_roots.insert(fusion_pattern.findLastWriter(value));
   }
-  auto parent = &(fusion_op.region().front());
+  auto parent = &(fusion_op.getRegion().front());
   auto dominant_op = fusion_pattern.getDominantOp();
   auto tile_plan = fusion_pattern.getTilePlan();
 
@@ -3422,7 +3423,7 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
   LLVM_DEBUG(createPrintFusionParams(fusion_op, fusion_pattern));
 
   auto root_ops = fusion_pattern.getRootOps();
-  auto fused_block = &(fusion_op.region().front());
+  auto fused_block = &(fusion_op.getRegion().front());
   SmallVector<Operation*, 4> op_list;
   for (Operation& op : *fused_block) op_list.push_back(&op);
 
@@ -3590,7 +3591,7 @@ LogicalResult emitSwitchOperandIdx(OpBuilder& b, Location loc,
     SmallVector<Value> steps(rank, one);
     (void)createParallelAndSetInsPt(b, loc, vars, starts, limits, steps, {});
     SmallVector<Value> resultVars = vars;
-    int64_t dimension = op.dimension();
+    int64_t dimension = op.getDimension();
     resultVars[dimension] =
         b.create<arith::AddIOp>(loc, vars[dimension], concatOffsets[median]);
     Value data = b.create<memref::LoadOp>(loc, operand, vars);
@@ -3637,7 +3638,7 @@ LogicalResult lowerWithScheduleLargeConcatCPU(
   SmallVector<Value> steps{one};
 
   (void)createParallelAndSetInsPt(b, loc, vars, starts, limits, steps, {});
-  int64_t dimension = concat.dimension();
+  int64_t dimension = concat.getDimension();
   SmallVector<Value> concatOffsets{zero};
   for (int i = 0; i < numOperands; ++i) {
     concatOffsets.push_back(b.create<arith::AddIOp>(
@@ -3792,7 +3793,7 @@ LogicalResult lowerWithSchedulekInputCPU(
   b.setInsertionPointAfter(forOp);
 
   // emit reduction loop
-  auto dimensions = reduce.dimensions().getValues<int64_t>();
+  auto dimensions = reduce.getDimensions().getValues<int64_t>();
   Value totalElemsToReduce = one;
   SmallVector<Value, 4> reduceDimSizeVec;
   for (auto dim : dimensions) {
@@ -3827,7 +3828,7 @@ LogicalResult lowerWithSchedulekInputCPU(
 
   auto lhs = b.create<memref::LoadOp>(loc, in, inVars);
   auto rhs = b.create<memref::LoadOp>(loc, out, outVars);
-  AccumulatorFactory accumFactory = getFactory(b, loc, reduce.body());
+  AccumulatorFactory accumFactory = getFactory(b, loc, reduce.getBody());
   auto acc = accumFactory(lhs, rhs);
   b.create<memref::StoreOp>(loc, acc, out, outVars);
   b.setInsertionPointAfter(reductionForOp);
@@ -3843,7 +3844,7 @@ LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion,
   assert(fusion_op);
   FusionPattern fusion_pattern(fusion_op, shape_analysis);
   auto root_ops = fusion_pattern.getRootOps();
-  auto fused_block = &(fusion_op.region().front());
+  auto fused_block = &(fusion_op.getRegion().front());
   LLVM_DEBUG(llvm::dbgs() << "# root ops = " << root_ops.size() << "\n");
   for (Operation* root : root_ops)
     LLVM_DEBUG(llvm::dbgs() << "  root: " << *root << "\n");
@@ -4041,11 +4042,11 @@ class DiscLhloLegalizeRootsToParallelLoops
         if (fusionType != FusionType::kStitch) {
           return;
         }
-        fusion.region().walk([&](lmhlo::LmhloOp op) {
+        fusion.getRegion().walk([&](lmhlo::LmhloOp op) {
           if (isa<lmhlo::TerminatorOp>(op)) {
             return;
           }
-          if (isa<lmhlo::ConstOp>(op)) {
+          if (isa<lmhlo::ConstantOp>(op)) {
             // TODO(disc): Check the ConstOp is from ReduceOp
             to_be_removed.push_back(op);
             return;

@@ -1,7 +1,7 @@
 // RUN: disc-opt %s -disc-for-loop-unroll-interleave -split-input-file | FileCheck %s
 
 // CHECK-LABEL: @mean_stitch_fusion
-func @mean_stitch_fusion(%arg0: !disc_ral.context) attributes {tf.entry_function = {input_placements = "gpu", inputs = "input0", output_placements = "gpu", outputs = "output0"}} {
+func.func @mean_stitch_fusion(%arg0: !disc_ral.context) attributes {tf.entry_function = {input_placements = "gpu", inputs = "input0", output_placements = "gpu", outputs = "output0"}} {
   %cst = arith.constant -0.000000e+00 : f32
   %c8 = arith.constant 8 : index
   %c16_i32 = arith.constant 16 : i32
@@ -117,7 +117,7 @@ func @mean_stitch_fusion(%arg0: !disc_ral.context) attributes {tf.entry_function
 }
 
 // CHECK-LABEL: @sigmoid_grad
-func @sigmoid_grad(%arg0: !disc_ral.context) attributes {tf.entry_function = {input_placements = "gpu,gpu", inputs = "input0,input1", output_placements = "gpu", outputs = "output0"}} {
+func.func @sigmoid_grad(%arg0: !disc_ral.context) attributes {tf.entry_function = {input_placements = "gpu,gpu", inputs = "input0,input1", output_placements = "gpu", outputs = "output0"}} {
   %cst = arith.constant 1.000000e+00 : f32
   %c4 = arith.constant 4 : index
   %c1 = arith.constant 1 : index

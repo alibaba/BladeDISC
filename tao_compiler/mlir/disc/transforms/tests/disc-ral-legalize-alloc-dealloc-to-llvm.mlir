@@ -2,7 +2,7 @@
 
 // CHECK-LABEL: test_ral_alloc_free
 module @main attributes {gpu.container_module}  {
-  func @test_ral_alloc_free(%arg0: !disc_ral.context) {
+  func.func @test_ral_alloc_free(%arg0: !disc_ral.context) {
     // CHECK: llvm.getelementptr {{.*}} : (!llvm.ptr<array<32 x i8>>, i64, i64) -> !llvm.ptr<i8>
     // CHECK: llvm.call @disc_ral_call({{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<ptr<i8>>) -> ()
     // CHECK: llvm.getelementptr {{.*}} : (!llvm.ptr<array<35 x i8>>, i64, i64) -> !llvm.ptr<i8>
@@ -22,7 +22,7 @@ module @main attributes {gpu.container_module}  {
 
 // CHECK-LABEL: test_llvm_alloc_free
 module @main attributes {gpu.container_module}  {
-  func @test_llvm_alloc_free(%arg0: !disc_ral.context) {
+  func.func @test_llvm_alloc_free(%arg0: !disc_ral.context) {
     // CHECK: llvm.getelementptr {{.*}} : (!llvm.ptr<array<32 x i8>>, i64, i64) -> !llvm.ptr<i8>
     // CHECK: llvm.call @disc_ral_call({{.*}}) : (!llvm.ptr<i8>, !llvm.ptr<i8>, !llvm.ptr<ptr<i8>>) -> ()
     // CHECK: llvm.getelementptr {{.*}} : (!llvm.ptr<array<35 x i8>>, i64, i64) -> !llvm.ptr<i8>

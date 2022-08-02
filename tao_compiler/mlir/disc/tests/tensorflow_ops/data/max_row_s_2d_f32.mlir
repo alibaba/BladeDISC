@@ -1,4 +1,4 @@
-func @main(%arg0: tensor<11000x123xf32>) -> tensor<11000xf32> attributes {tf.entry_function = {inputs = "{{INPUTS}}", outputs = "{{OUTPUTS}}", input_placements="{{INPUT_PLACEMENTS}}", output_placements="{{OUTPUT_PLACEMENTS}}"}} {
+func.func @main(%arg0: tensor<11000x123xf32>) -> tensor<11000xf32> attributes {tf.entry_function = {inputs = "{{INPUTS}}", outputs = "{{OUTPUTS}}", input_placements="{{INPUT_PLACEMENTS}}", output_placements="{{OUTPUT_PLACEMENTS}}"}} {
   %graph = tf_executor.graph {
     %1:2 = tf_executor.island wraps "tf.Const"() {value = dense<[1]> : tensor<1xi32>} : () -> tensor<1xi32>
     %2:2 = tf_executor.island wraps "tf.Max"(%arg0, %1) : (tensor<11000x123xf32>, tensor<1xi32>) -> tensor<11000xf32>

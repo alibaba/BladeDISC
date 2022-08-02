@@ -12,6 +12,7 @@
 #include "mlir/mhlo/builder/mlir_shape_builder.h"
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/mhlo/builder/constant.h"
 #include "mlir/mhlo/builder/mlir_attr_utils.h"

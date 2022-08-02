@@ -8,8 +8,8 @@ module @main attributes {gpu.container_module}  {
     }
   }
 
-  // CHECK: func @test_gpu_launch
-  func @test_gpu_launch(%arg0: !disc_ral.context, %arg1: memref<?x?xf32>) {
+  // CHECK: func.func @test_gpu_launch
+  func.func @test_gpu_launch(%arg0: !disc_ral.context, %arg1: memref<?x?xf32>) {
     %c1 = arith.constant 1 : index
     "lmhlo.fusion"() ({
       // CHECK: gpu.launch_func

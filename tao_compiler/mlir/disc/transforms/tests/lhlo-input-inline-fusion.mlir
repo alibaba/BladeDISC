@@ -2,7 +2,7 @@
 
 // CHECK-LABEL: @inline_fusion_fusion_order
 // CHECK-SAME: (%[[INPUT1:.*]]: memref<?xf32>, %[[INPUT2:.*]]: memref<3xi32>, %[[INPUT3:.*]]: memref<?x?x?xf32>, %[[INPUT4:.*]]: memref<?x?x?xf32>, %[[TMP_BUF1:.*]]: memref<?x?x?xf32>, %[[TMP_BUF2:.*]]: memref<?x?x?xf32>, %[[OUT:.*]]: memref<?x?x?xf32>) -> memref<?x?x?xf32>
-func @inline_fusion_fusion_order(%arg0: memref<?xf32>, %arg1: memref<3xi32>, %arg2: memref<?x?x?xf32>, %arg3: memref<?x?x?xf32>, %arg4: memref<?x?x?xf32>, %arg5: memref<?x?x?xf32>, %arg6: memref<?x?x?xf32>) -> memref<?x?x?xf32> {
+func.func @inline_fusion_fusion_order(%arg0: memref<?xf32>, %arg1: memref<3xi32>, %arg2: memref<?x?x?xf32>, %arg3: memref<?x?x?xf32>, %arg4: memref<?x?x?xf32>, %arg5: memref<?x?x?xf32>, %arg6: memref<?x?x?xf32>) -> memref<?x?x?xf32> {
   %c2 = arith.constant 2 : index
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index
@@ -42,7 +42,7 @@ func @inline_fusion_fusion_order(%arg0: memref<?xf32>, %arg1: memref<3xi32>, %ar
 
 // CHECK-LABEL: @multioutput_loop_fusion_with_dependency
 // CHECK-SAME: (%[[INPUT1:.*]]: memref<?xf32>, %[[INPUT2:.*]]: memref<3xi32>, %[[INPUT3:.*]]: memref<?x?x?xf32>, %[[TMP_BUF:.*]]: memref<?x?x?xf32>, %[[OUT1:.*]]: memref<?x?x?xf32>, %[[OUT2:.*]]: memref<?x?x?xf32>) -> (memref<?x?x?xf32>, memref<?x?x?xf32>)
-func @multioutput_loop_fusion_with_dependency(%arg0: memref<?xf32>, %arg1: memref<3xi32>, %arg2: memref<?x?x?xf32>, %arg3: memref<?x?x?xf32>, %arg4: memref<?x?x?xf32>, %arg5: memref<?x?x?xf32>) -> (memref<?x?x?xf32>, memref<?x?x?xf32>) {
+func.func @multioutput_loop_fusion_with_dependency(%arg0: memref<?xf32>, %arg1: memref<3xi32>, %arg2: memref<?x?x?xf32>, %arg3: memref<?x?x?xf32>, %arg4: memref<?x?x?xf32>, %arg5: memref<?x?x?xf32>) -> (memref<?x?x?xf32>, memref<?x?x?xf32>) {
   %c2 = arith.constant 2 : index
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index

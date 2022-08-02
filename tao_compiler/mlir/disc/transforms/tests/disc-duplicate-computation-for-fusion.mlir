@@ -1,7 +1,7 @@
 // RUN: disc-opt --disc-duplicate-computation-for-fusion -split-input-file %s | FileCheck %s
 
 // CHECK-LABEL: @main
-func @main(%arg0 : memref<?x?xf32, "gpu">, %arg1 : memref<f32, "gpu">, %arg2 : memref<2xi32, "cpu">) -> memref<?x?xf32, "gpu"> {
+func.func @main(%arg0 : memref<?x?xf32, "gpu">, %arg1 : memref<f32, "gpu">, %arg2 : memref<2xi32, "cpu">) -> memref<?x?xf32, "gpu"> {
   // make sure dynamic_broadcast_in_dim is duplicated
   // CHECK: lmhlo.dynamic_broadcast_in_dim
   // CHECK: lmhlo.dynamic_broadcast_in_dim
@@ -25,7 +25,7 @@ func @main(%arg0 : memref<?x?xf32, "gpu">, %arg1 : memref<f32, "gpu">, %arg2 : m
 // -----
 
 // CHECK-LABEL: @main
-func @main(%arg0 : memref<?x128xf32, "gpu">, %arg1 : memref<128xf32, "gpu">, %arg2 : memref<1xi32, "cpu">) -> memref<?x128xf32, "gpu"> {
+func.func @main(%arg0 : memref<?x128xf32, "gpu">, %arg1 : memref<128xf32, "gpu">, %arg2 : memref<1xi32, "cpu">) -> memref<?x128xf32, "gpu"> {
   // make sure dynamic_broadcast_in_dim is duplicated
   // CHECK: lmhlo.dynamic_broadcast_in_dim
   // CHECK: lmhlo.dynamic_broadcast_in_dim

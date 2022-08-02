@@ -1,6 +1,6 @@
 // RUN: disc-opt --disc-mhlo-mark-shape-calc -split-input-file %s | FileCheck %s
 
-func @main(%arg0: tensor<?x8xf32>) -> tensor<?x24xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "cpu", outputs = "output0"}} {
+func.func @main(%arg0: tensor<?x8xf32>) -> tensor<?x24xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "cpu", outputs = "output0"}} {
   // CHECK: mhlo.constant
   // CHECK: tensor.from_elements
   // CHECK-SAME: disc.shape_op = true
@@ -30,7 +30,7 @@ func @main(%arg0: tensor<?x8xf32>) -> tensor<?x24xf32> attributes {tf.entry_func
 
 // -----
 
-func @main(%arg0: tensor<?x?x?xi32>, %arg1: tensor<?x6x2xi64>) -> tensor<?x6x?xi32> attributes {tf.entry_function = {input_placements = "cpu,cpu", inputs = "input0, input1", output_placements = "cpu", outputs = "output0"}} {
+func.func @main(%arg0: tensor<?x?x?xi32>, %arg1: tensor<?x6x2xi64>) -> tensor<?x6x?xi32> attributes {tf.entry_function = {input_placements = "cpu,cpu", inputs = "input0, input1", output_placements = "cpu", outputs = "output0"}} {
   // CHECK: tensor.from_elements
   // CHECK-SAME: disc.shape_op = true
   // CHECK: mhlo.dynamic_gather

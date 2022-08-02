@@ -18,18 +18,15 @@
 from __future__ import print_function
 
 import argparse
-import glob
 import os
 import re
 import shutil
 import socket
 import tarfile
-import time
 import fnmatch
 from datetime import datetime
 
 from common_setup import (
-    StageTiming,
     stage_time,
     time_stage,
     build_mkldnn,
@@ -38,8 +35,6 @@ from common_setup import (
     symlink_disc_files,
     internal_root_dir,
     tao_bridge_dir,
-    tao_ral_dir,
-    link_dirs,
     get_version_file,
     ensure_empty_dir,
     cwd,

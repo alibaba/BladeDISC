@@ -10,13 +10,13 @@
 // Test with `enable_fp16_gemm=true`
 // FP16: mhlo.dot_general
 // FP16-SAME: f16
-func @dot_fp32(%arg0 : tensor<?x?xf32>, %arg1 : tensor<?x?xf32>) -> tensor<?x?xf32> {
+func.func @dot_fp32(%arg0 : tensor<?x?xf32>, %arg1 : tensor<?x?xf32>) -> tensor<?x?xf32> {
   %0 = "mhlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [], lhs_contracting_dimensions = [0], rhs_batching_dimensions = [], rhs_contracting_dimensions = [1]>} : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
   return %0 : tensor<?x?xf32>
 }
 
 // CHECK-LABEL: @rank2_colunm_reduction_i1
-func @rank2_colunm_reduction_i1(%arg0: tensor<?x?xi1>) -> tensor<?xi1> {
+func.func @rank2_colunm_reduction_i1(%arg0: tensor<?x?xi1>) -> tensor<?xi1> {
   %0 = mhlo.constant dense<false> : tensor<i1>
   %1 = "mhlo.reduce"(%arg0, %0) ( {
   ^bb0(%arg1: tensor<i1>, %arg2: tensor<i1>):
@@ -37,7 +37,7 @@ func @rank2_colunm_reduction_i1(%arg0: tensor<?x?xi1>) -> tensor<?xi1> {
 
 // FP16: mhlo.dynamic_conv
 // FP16-SAME: f16
-func @dynamic_conv_fp32(%arg0 : tensor<?x?x?x?xf32>, %arg1: tensor<64x3x7x7xf32>, %arg2: tensor<4xi32>) -> tensor<?x64x?x?xf32> {
+func.func @dynamic_conv_fp32(%arg0 : tensor<?x?x?x?xf32>, %arg1: tensor<64x3x7x7xf32>, %arg2: tensor<4xi32>) -> tensor<?x64x?x?xf32> {
   %1 = "mhlo.dynamic_conv"(%arg0, %arg1, %arg2) {batch_group_count = 1 : i64, dimension_numbers = #mhlo.conv<[b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1]>, disc.device = "gpu", feature_group_count = 1 : i64, rhs_dilation = dense<1> : tensor<2xi64>, window_strides = dense<2> : tensor<2xi64>} : (tensor<?x?x?x?xf32>, tensor<64x3x7x7xf32>, tensor<4xi32>) -> tensor<?x64x?x?xf32>
   return %1 : tensor<?x64x?x?xf32>
 }
@@ -49,7 +49,7 @@ func @dynamic_conv_fp32(%arg0 : tensor<?x?x?x?xf32>, %arg1: tensor<64x3x7x7xf32>
 
 // FP16: mhlo.convolution
 // FP16-SAME: f16
-func @conv_fp32(%arg0 : tensor<?x?x?x?xf32>, %arg1: tensor<64x3x7x7xf32>) -> tensor<?x64x?x?xf32> {
+func.func @conv_fp32(%arg0 : tensor<?x?x?x?xf32>, %arg1: tensor<64x3x7x7xf32>) -> tensor<?x64x?x?xf32> {
   %1 = "mhlo.convolution"(%arg0, %arg1) {batch_group_count = 1 : i64, dimension_numbers = #mhlo.conv<[b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1]>, disc.device = "gpu", feature_group_count = 1 : i64, padding = dense<[[3, 3], [3, 3]]> : tensor<2x2xi64>, rhs_dilation = dense<1> : tensor<2xi64>, window_strides = dense<2> : tensor<2xi64>} : (tensor<?x?x?x?xf32>, tensor<64x3x7x7xf32>) -> tensor<?x64x?x?xf32>
   return %1 : tensor<?x64x?x?xf32>
 }

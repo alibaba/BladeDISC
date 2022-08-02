@@ -1,7 +1,7 @@
 // RUN: disc-opt -disc-conv-rewriter -split-input-file %s | FileCheck %s
 
-// CHECK-LABEL: @dynamic_conv
-func @dynamic_conv(%arg0: tensor<?x32x32x6xf32>, %arg1: tensor<3x3x3x16xf32>) -> tensor<?x8x7x16xf32> {
+// CHECK-LABEL: @main
+func.func @main(%arg0: tensor<?x32x32x6xf32>, %arg1: tensor<3x3x3x16xf32>) -> tensor<?x8x7x16xf32> {
   %c1 = arith.constant 1 : index
   %0 = tensor.dim %arg0, %c1 : tensor<?x32x32x6xf32>
   %1 = arith.index_cast %0 : index to i32
@@ -82,7 +82,7 @@ func @dynamic_conv(%arg0: tensor<?x32x32x6xf32>, %arg1: tensor<3x3x3x16xf32>) ->
 // -----
 
 // CHECK-LABEL: @conv
-func @conv(%arg0: tensor<?x32x32x6xf32>, %arg1: tensor<3x3x3x16xf32>) -> tensor<?x8x7x16xf32> {
+func.func @conv(%arg0: tensor<?x32x32x6xf32>, %arg1: tensor<3x3x3x16xf32>) -> tensor<?x8x6x16xf32> {
   // CHECK: mhlo.transpose
   // CHECK-SAME: permutation = dense<[0, 3, 1, 2]>
   // CHECK: mhlo.transpose
@@ -104,6 +104,6 @@ func @conv(%arg0: tensor<?x32x32x6xf32>, %arg1: tensor<3x3x3x16xf32>) -> tensor<
     padding = dense<[[1, 2], [3, 1]]> : tensor<2x2xi64>,
     rhs_dilation = dense<[2, 3]> : tensor<2xi64>,
     window_strides = dense<[4, 5]> : tensor<2xi64>}
-    : (tensor<?x32x32x6xf32>, tensor<3x3x3x16xf32>) -> tensor<?x8x7x16xf32>
-  return %0 : tensor<?x8x7x16xf32>
+    : (tensor<?x32x32x6xf32>, tensor<3x3x3x16xf32>) -> tensor<?x8x6x16xf32>
+  return %0 : tensor<?x8x6x16xf32>
 }

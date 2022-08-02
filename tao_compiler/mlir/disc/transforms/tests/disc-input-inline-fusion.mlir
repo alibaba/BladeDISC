@@ -1,7 +1,7 @@
 // RUN: disc-opt %s -disc-input-inline-fusion | FileCheck %s
 
 // CHECK-LABEL: @should_not_reuse_val_cache
-func @should_not_reuse_val_cache(%arg0: memref<?xf32>, %arg1: memref<3xi32>, %arg2: memref<?x?x?xf32>, %arg3: memref<?x?x?xf32>, %arg4: memref<?x?x?xf32>, %arg5: memref<?x?x?xf32>, %arg6: memref<?x?x?xf32>, %arg7: memref<?x?x?xf32>) -> (memref<?x?x?xf32>, memref<?x?x?xf32>) {
+func.func @should_not_reuse_val_cache(%arg0: memref<?xf32>, %arg1: memref<3xi32>, %arg2: memref<?x?x?xf32>, %arg3: memref<?x?x?xf32>, %arg4: memref<?x?x?xf32>, %arg5: memref<?x?x?xf32>, %arg6: memref<?x?x?xf32>, %arg7: memref<?x?x?xf32>) -> (memref<?x?x?xf32>, memref<?x?x?xf32>) {
   %c2 = arith.constant 2 : index
   %c1 = arith.constant 1 : index
   %c0 = arith.constant 0 : index

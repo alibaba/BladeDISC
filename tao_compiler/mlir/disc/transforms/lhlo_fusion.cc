@@ -640,7 +640,7 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
 
       // Move ops inside fusion pattern to the region attached to the fusion op.
       FusionOp fusion = b.create<lmhlo::FusionOp>(fused_loc);
-      Region& region = fusion.region();
+      Region& region = fusion.getRegion();
       Block& block = region.front();
       for (Operation* op : llvm::reverse(op_list)) {
         op->moveBefore(&block, block.begin());

@@ -18,3 +18,6 @@ build:platform_alibaba --cxxopt=-DPLATFORM_ALIBABA
 
 build:cxx11abi_0 --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=0
 build:cxx11abi_1 --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=1
+
+# Disable NCCL since TF head may drop suuport for lower CUDA version. Also disable others not in need.
+build --config=nonccl --config=noaws --config=nogcp --config=nohdfs

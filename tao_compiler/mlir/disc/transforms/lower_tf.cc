@@ -19,11 +19,13 @@ limitations under the License.
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/IR/Attributes.h"    // from @llvm-project
-#include "mlir/IR/BuiltinOps.h"    // from @llvm-project
-#include "mlir/IR/BuiltinTypes.h"  // from @llvm-project
-#include "mlir/IR/MLIRContext.h"   // from @llvm-project
-#include "mlir/IR/Matchers.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"       // from @llvm-project
+#include "mlir/Dialect/Tensor/IR/Tensor.h"               // from @llvm-project
+#include "mlir/IR/Attributes.h"                          // from @llvm-project
+#include "mlir/IR/BuiltinOps.h"                          // from @llvm-project
+#include "mlir/IR/BuiltinTypes.h"                        // from @llvm-project
+#include "mlir/IR/MLIRContext.h"                         // from @llvm-project
+#include "mlir/IR/Matchers.h"                            // from @llvm-project
 #include "mlir/IR/Operation.h"                           // from @llvm-project
 #include "mlir/Pass/Pass.h"                              // from @llvm-project
 #include "mlir/Support/LLVM.h"                           // from @llvm-project
@@ -196,9 +198,9 @@ class ConvertUniformOp : public OpRewritePattern<TF::RandomUniformOp> {
   LogicalResult matchAndRewrite(TF::RandomUniformOp op,
                                 PatternRewriter& rewriter) const final {
     auto loc = op.getLoc();
-    Value zero = rewriter.create<mhlo::ConstOp>(
+    Value zero = rewriter.create<mhlo::ConstantOp>(
         loc, rewriter.getFloatAttr(op.dtype(), 0.0));
-    Value one = rewriter.create<mhlo::ConstOp>(
+    Value one = rewriter.create<mhlo::ConstantOp>(
         loc, rewriter.getFloatAttr(op.dtype(), 1.0));
     auto cfg = PackRandomUniformBackendConfig(
         rewriter.getIntegerAttr(op.dtype(), op.seed()),
@@ -1123,7 +1125,7 @@ class ConvertBucketizeOp : public OpRewritePattern<TF::BucketizeOp> {
     // attr: boundaries, type is float according op definition
     auto boundaries =
         rewriter
-            .create<mhlo::ConstOp>(
+            .create<mhlo::ConstantOp>(
                 loc, GetF32ElementsAttr(op.boundaries(), &rewriter))
             .getResult();
     // the following behavior matches the behavior of the core

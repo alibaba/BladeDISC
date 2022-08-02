@@ -1,7 +1,7 @@
 // RUN: disc-opt -disc-flatten-memref-access %s -o - | FileCheck %s
 
 // CHECK-LABEL: @load_not_convert
-func @load_not_convert(%arg0: memref<?x?xf32, "gpu">) -> f32 {
+func.func @load_not_convert(%arg0: memref<?x?xf32, "gpu">) -> f32 {
   // CHECK-NOT: disc_shape.linearize
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
@@ -11,7 +11,7 @@ func @load_not_convert(%arg0: memref<?x?xf32, "gpu">) -> f32 {
 
 // CHECK-LABEL: @load_convert
 // CHECK-SAME: (%[[ARG0:.*]]: memref<?x?xf32, "gpu">)
-func @load_convert(%arg0: memref<?x?xf32, "gpu">) {
+func.func @load_convert(%arg0: memref<?x?xf32, "gpu">) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   // CHECK scf.parallel
@@ -31,7 +31,7 @@ func @load_convert(%arg0: memref<?x?xf32, "gpu">) {
 }
 
 // CHECK-LABEL: @store_not_convert
-func @store_not_convert(%arg0: memref<?x?xf32, "gpu">, %arg1: f32) {
+func.func @store_not_convert(%arg0: memref<?x?xf32, "gpu">, %arg1: f32) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   memref.store %arg1,  %arg0[%c0, %c1] : memref<?x?xf32, "gpu">
@@ -40,7 +40,7 @@ func @store_not_convert(%arg0: memref<?x?xf32, "gpu">, %arg1: f32) {
 
 // CHECK-LABEL: @store_convert
 // CHECK-SAME: (%[[ARG0:.*]]: memref<?x?xf32, "gpu">, %[[ARG1:.*]]: f32)
-func @store_convert(%arg0: memref<?x?xf32, "gpu">, %arg1: f32) {
+func.func @store_convert(%arg0: memref<?x?xf32, "gpu">, %arg1: f32) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   // CHECK scf.parallel

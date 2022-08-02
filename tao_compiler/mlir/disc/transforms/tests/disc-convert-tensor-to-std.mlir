@@ -1,7 +1,7 @@
 // RUN: disc-opt --disc-convert-tensor-to-std -split-input-file %s | FileCheck %s
 
 // CHECK-LABEL: generate_op
-func @generate_op(%arg0: tensor<?x?xf32>) -> tensor<2xi32> attributes {tf.entry_function = {inputs = "input0", outputs = "output0"}} {
+func.func @generate_op(%arg0: tensor<?x?xf32>) -> tensor<2xi32> attributes {tf.entry_function = {inputs = "input0", outputs = "output0"}} {
   // CHECK: %[[T0:.*]] = shape.shape_of {{.*}} : tensor<?x?xf32> -> tensor<2xindex>
   // CHECK: %[[T1:.*]] = tensor.extract %[[T0]][%c0] : tensor<2xindex>
   // CHECK: %[[T2:.*]] = arith.index_cast %[[T1]] : index to i32

@@ -1,7 +1,7 @@
 // RUN: disc-opt -disc-fuse-splat-const %s | FileCheck %s
 
 // CHECK-LABEL: @fuse_without_erase
-func @fuse_without_erase(%arg0: memref<2x3xf32, "gpu">) -> memref<2x3xf32, "gpu"> {
+func.func @fuse_without_erase(%arg0: memref<2x3xf32, "gpu">) -> memref<2x3xf32, "gpu"> {
   // CHECK: memref.alloc
   // CHECK: memref.alloc
   // CHECK: memref.alloc
@@ -25,7 +25,7 @@ func @fuse_without_erase(%arg0: memref<2x3xf32, "gpu">) -> memref<2x3xf32, "gpu"
 }
 
 // CHECK-LABEL: @fuse_and_duplicate_with_erase
-func @fuse_and_duplicate_with_erase(%arg0: memref<2x3xf32, "gpu">) -> (memref<2x3xf32, "gpu">, memref<2x3xf32, "gpu">) {
+func.func @fuse_and_duplicate_with_erase(%arg0: memref<2x3xf32, "gpu">) -> (memref<2x3xf32, "gpu">, memref<2x3xf32, "gpu">) {
   // CHECK: memref.alloc
   // CHECK: memref.alloc
   // CHECK: memref.alloc

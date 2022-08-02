@@ -22,6 +22,8 @@
 
 #include <torch/script.h>
 #include "compiler/jit/shape_type_spec.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 
 namespace torch {
 namespace blade {

@@ -40,7 +40,7 @@ struct LhloFusionInlinerPass
 
  private:
   void InlineFusion(FusionOp fusion) {
-    Block& block = fusion.region().front();
+    Block& block = fusion.getRegion().front();
     assert(block.getNumArguments() == 0);
     for (Operation& op : llvm::make_early_inc_range(block.getOperations())) {
       if (!isa<lmhlo::TerminatorOp>(&op)) {

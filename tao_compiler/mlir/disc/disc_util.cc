@@ -21,6 +21,7 @@ limitations under the License.
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "tensorflow/compiler/mlir/hlo/include/mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "tensorflow/core/util/env_var.h"
 
 namespace mlir {
@@ -263,7 +264,7 @@ SmallVector<Operation*, 4> getValueUsers(Value v) {
 bool isConstantMemRef(Value value) {
   Value root = getRootMemRef(value);
   for (Operation* user : getValueUsers(root)) {
-    if (isa<lmhlo::ConstOp>(user)) return true;
+    if (isa<lmhlo::ConstantOp>(user)) return true;
   }
   return false;
 }

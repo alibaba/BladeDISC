@@ -2,7 +2,7 @@
 
 // CHECK-LABEL: test_printf
 module @main attributes {gpu.container_module}  {
-  func @test_printf(%arg0: !disc_ral.context) {
+  func.func @test_printf(%arg0: !disc_ral.context) {
     %c16 = arith.constant 16 : index
     %c17 = arith.constant 17 : index
     %c18 = arith.constant 18 : index

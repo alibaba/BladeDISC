@@ -75,7 +75,7 @@ std::unique_ptr<OperationPass<FuncOp>> createDiscElementTypeConverterPass(
 // Greedily maps loops to GPU hardware dimensions.
 // TODO: this pass is only a wrapper to mlir func, copied from
 // tools/kernel_gen/transforms Should consider of adding this pass to mlir repo.
-std::unique_ptr<OperationPass<FuncOp>> createMapParallelLoopsPass();
+// std::unique_ptr<OperationPass<FuncOp>> createMapParallelLoopsPass();
 
 // Collapses ParallelsOp into 1-D.
 std::unique_ptr<OperationPass<FuncOp>> createDiscParallelLoopCollapsingPass();

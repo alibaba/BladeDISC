@@ -178,7 +178,8 @@ for PyTorch Users](./docs/quickstart.md#quickstart-for-pytorch-users).
 
 ## Presentations and Talks
 * [Performance optimization practice for dynamic shape AI workloads via a compiler-based approach](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/performance-optimization-practice.pdf)
-* [22/07/07 BladeDISC and Torch-MLIR Roadmap Talk on Torch-MLIR Community](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/BladeDISC-and-TorchMLIR-Roadmap-tts.pptx)
+* [2022/07/31 BladeDISC: A Practice of Dynamic Shape Deep Learning Compiler(Chinese)](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/BladeDISC%EF%BC%9A%E5%8A%A8%E6%80%81Shape%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E7%BC%96%E8%AF%91%E5%99%A8%E5%AE%9E%E8%B7%B5%E7%9A%84.pdf)
+* [2022/07/07 BladeDISC and Torch-MLIR Roadmap Talk on Torch-MLIR Community](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/BladeDISC-and-TorchMLIR-Roadmap-tts.pptx)
 * [GTC22-S41073, Generalized and Transparent AI Optimization Solutions with AI Compilers from Cloud Service](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/GTC22%20S41073%2C%20Generalized%20and%20Transparent%20AI%20Optimization%20Solutions%20with%20AI%20Compilers%20from%20Cloud%20Service.pdf)
 * [GTC22-S41395, Easier-to-use and More Robust TensorRT via PAI-Blade](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/GTC22-S41395%2C%20Easier-to-use%20and%20More%20Robust%20TensorRT%20via%20PAI-Blade.pdf)
 
@@ -192,13 +193,11 @@ for PyTorch Users](./docs/quickstart.md#quickstart-for-pytorch-users).
 | -- | -- | -- |
 | PyTorch1.6.0 | CPU | [![pytorch160_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch160_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch160_cpu.yml) |
 | PyTorch1.8.1 | CPU | [![pytorch181_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_cpu.yml) |
-| PyTorch1.8.1 | GPU | [![pytorch181_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_gpu.yml) |
 | PyTorch1.7.1 | GPU |  [![pytorch171_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch171_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch171_gpu.yml) |
 | PyTorch1.12.0 | GPU | [![pytorch112_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch112_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch112_gpu.yml) |
 | PyTorch1.10.0 | AArch64 |  [![pytorch110_aarch64](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch110_aarch64.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch110_aarch64.yml) |
 | TensorFlow1.15 | CPU| [![tf115_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/tf115_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf115_cpu.yml) |
 | TensorFlow2.4 | GPU | [![tf24_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/tf24_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf24_gpu.yml) |
-| TensorFlow1.15 | GPU| [![tf115_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/tf115_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf115_gpu.yml) |
 | TensorFlow2.8 | AArch64 | [![tf280_aarch64](https://github.com/alibaba/BladeDISC/actions/workflows/tf280_aarch64.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf280_aarch64.yml) |
 
 ## FAQ

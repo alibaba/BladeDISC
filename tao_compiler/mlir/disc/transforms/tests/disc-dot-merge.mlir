@@ -1,7 +1,7 @@
 // RUN: disc-opt -disc-dot-merge -split-input-file %s -o - | FileCheck %s
 
-// CHECK-LABEL: func @dot_merging_dynamic
-func @dot_merging_dynamic(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %m: tensor<index>, %n: tensor<index>, %k: tensor<index>) -> tensor<?x?xf32> {
+// CHECK-LABEL: func.func @dot_merging_dynamic
+func.func @dot_merging_dynamic(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %m: tensor<index>, %n: tensor<index>, %k: tensor<index>) -> tensor<?x?xf32> {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %dim_m = tensor.extract %m[] : tensor<index>
@@ -23,8 +23,8 @@ func @dot_merging_dynamic(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %m: te
   return %5: tensor<?x?xf32>
 }
 
-// CHECK-LABEL: func @dot_merging_dynamic_batch
-func @dot_merging_dynamic_batch(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>, %m: tensor<index>, %n: tensor<index>, %k: tensor<index>, %b: tensor<index>) -> tensor<?x?x?xf32> {
+// CHECK-LABEL: func.func @dot_merging_dynamic_batch
+func.func @dot_merging_dynamic_batch(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>, %m: tensor<index>, %n: tensor<index>, %k: tensor<index>, %b: tensor<index>) -> tensor<?x?x?xf32> {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %dim_m = tensor.extract %m[] : tensor<index>
@@ -48,8 +48,8 @@ func @dot_merging_dynamic_batch(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf3
   return %5: tensor<?x?x?xf32>
 }
 
-// CHECK-LABEL: func @dot_merging_static
-func @dot_merging_static(%arg0: tensor<128x256xf32>, %arg1: tensor<256x512xf32>) -> tensor<128x512xf32> {
+// CHECK-LABEL: func.func @dot_merging_static
+func.func @dot_merging_static(%arg0: tensor<128x256xf32>, %arg1: tensor<256x512xf32>) -> tensor<128x512xf32> {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %0 = "mhlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>} : (tensor<128x256xf32>, tensor<256x512xf32>) -> tensor<128x512xf32>
@@ -67,8 +67,8 @@ func @dot_merging_static(%arg0: tensor<128x256xf32>, %arg1: tensor<256x512xf32>)
   return %4: tensor<128x512xf32>
 }
 
-// CHECK-LABEL: func @dot_merging_static_batch
-func @dot_merging_static_batch(%arg0: tensor<2x128x256xf32>, %arg1: tensor<2x256x512xf32>) -> tensor<2x128x512xf32> {
+// CHECK-LABEL: func.func @dot_merging_static_batch
+func.func @dot_merging_static_batch(%arg0: tensor<2x128x256xf32>, %arg1: tensor<2x256x512xf32>) -> tensor<2x128x512xf32> {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %0 = "mhlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0],lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>} : (tensor<2x128x256xf32>, tensor<2x256x512xf32>) -> tensor<2x128x512xf32>
@@ -86,8 +86,8 @@ func @dot_merging_static_batch(%arg0: tensor<2x128x256xf32>, %arg1: tensor<2x256
   return %4: tensor<2x128x512xf32>
 }
 
-// CHECK-LABEL: func @dot_not_merging_diff_batch
-func @dot_not_merging_diff_batch(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>, %m: tensor<index>, %n: tensor<index>, %k: tensor<index>, %b: tensor<index>) -> tensor<?x?x?xf32> {
+// CHECK-LABEL: func.func @dot_not_merging_diff_batch
+func.func @dot_not_merging_diff_batch(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>, %m: tensor<index>, %n: tensor<index>, %k: tensor<index>, %b: tensor<index>) -> tensor<?x?x?xf32> {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %dim_m = tensor.extract %m[] : tensor<index>
@@ -111,8 +111,8 @@ func @dot_not_merging_diff_batch(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf
   return %5: tensor<?x?x?xf32>
 }
 
-// CHECK-LABEL: func @dot_not_merging_cycle
-func @dot_not_merging_cycle(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %arg2: tensor<index>) -> tensor<?x?xf32> {
+// CHECK-LABEL: func.func @dot_not_merging_cycle
+func.func @dot_not_merging_cycle(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %arg2: tensor<index>) -> tensor<?x?xf32> {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %dim = tensor.extract %arg2[] : tensor<index>
@@ -132,11 +132,11 @@ func @dot_not_merging_cycle(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %arg
   return %5: tensor<?x?xf32>
 }
 
-// CHECK-LABEL: func @dot_batching
+// CHECK-LABEL: func.func @dot_batching
 // This UT builds the tensor shape explicitly because the current implement of
 // ShapeAnalysis relies on them to build DimValue. ShapeAnalysisV2, which is on
 // going for development, will solve this problem.
-func @dot_batching(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %m: tensor<index>, %n: tensor<index>, %k: tensor<index>) -> tensor<?x?xf32> {
+func.func @dot_batching(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %m: tensor<index>, %n: tensor<index>, %k: tensor<index>) -> tensor<?x?xf32> {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %dim_m= tensor.extract %m[] : tensor<index>
@@ -165,8 +165,8 @@ func @dot_batching(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %m: tensor<in
   return %5: tensor<?x?xf32>
 }
 
-// CHECK-LABEL: func @dot_batching_static
-func @dot_batching_static(%arg0: tensor<128x256xf32>, %arg1: tensor<256x512xf32>) -> tensor<128x512xf32> {
+// CHECK-LABEL: func.func @dot_batching_static
+func.func @dot_batching_static(%arg0: tensor<128x256xf32>, %arg1: tensor<256x512xf32>) -> tensor<128x512xf32> {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %0 = "mhlo.dot_general"(%arg0, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>} : (tensor<128x256xf32>, tensor<256x512xf32>) -> tensor<128x512xf32>
@@ -190,8 +190,8 @@ func @dot_batching_static(%arg0: tensor<128x256xf32>, %arg1: tensor<256x512xf32>
   return %4: tensor<128x512xf32>
 }
 
-// CHECK-LABEL: func @dot_not_batching_diff_dtype
-func @dot_not_batching_diff_dtype(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %m: tensor<index>, %n: tensor<index>, %k: tensor<index>) -> tensor<?x?xf32> {
+// CHECK-LABEL: func.func @dot_not_batching_diff_dtype
+func.func @dot_not_batching_diff_dtype(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %m: tensor<index>, %n: tensor<index>, %k: tensor<index>) -> tensor<?x?xf32> {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %dim_m = tensor.extract %m[] : tensor<index>
@@ -215,8 +215,8 @@ func @dot_not_batching_diff_dtype(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>
   return %7: tensor<?x?xf32>
 }
 
-// CHECK-LABEL: func @dot_not_batching_cycle
-func @dot_not_batching_cycle(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %arg2: tensor<index>) -> tensor<?x?xf32> {
+// CHECK-LABEL: func.func @dot_not_batching_cycle
+func.func @dot_not_batching_cycle(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>, %arg2: tensor<index>) -> tensor<?x?xf32> {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %dim = tensor.extract %arg2[] : tensor<index>

@@ -27,6 +27,7 @@ limitations under the License.
 
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Attributes.h"
@@ -53,7 +54,7 @@ namespace disc_ral {
 
 namespace {
 
-using lmhlo::ConvOp;
+using lmhlo::ConvolutionOp;
 using lmhlo::CopyOp;
 using lmhlo::DotGeneralOp;
 using lmhlo::DynamicConvOp;
@@ -194,7 +195,7 @@ struct DotGeneralOpConvertor : public OpRewritePattern<DotGeneralOp> {
       newOperands.push_back(operand);
     }
 
-    auto dot_dimension_attr = op.dot_dimension_numbers();
+    auto dot_dimension_attr = op.getDotDimensionNumbers();
     auto lhs_batching_dims = dot_dimension_attr.getLhsBatchingDimensions();
     auto rhs_batching_dims = dot_dimension_attr.getRhsBatchingDimensions();
 
@@ -261,7 +262,7 @@ Value GetConvMetadata(OpTy op, PatternRewriter& rewriter) {
   //   - weight_is_const : indicate whether the weight is const.
   Location loc = op.getLoc();
   Type field_type = rewriter.getI32Type();
-  int rank = op.output().getType().template dyn_cast<ShapedType>().getRank();
+  int rank = op.getOutput().getType().template dyn_cast<ShapedType>().getRank();
   int num_spatial_dims = rank - 2;
   int num_metadata_fields = rank * 3 + (rank - 2) * 2 + 1;
   Value metadata_value = rewriter.create<memref::AllocaOp>(
@@ -269,7 +270,7 @@ Value GetConvMetadata(OpTy op, PatternRewriter& rewriter) {
                {num_metadata_fields}, field_type, MemRefLayoutAttrInterface(),
                StringAttr::get(op->getContext(), placement_utils::kCpu)));
   std::vector<int64_t> fields;
-  auto dimension_numbers = op.dimension_numbers();
+  auto dimension_numbers = op.getDimensionNumbers();
   // input layout
   fields.push_back(dimension_numbers.getInputBatchDimension());
   fields.push_back(dimension_numbers.getInputFeatureDimension());
@@ -291,10 +292,10 @@ Value GetConvMetadata(OpTy op, PatternRewriter& rewriter) {
   fields.insert(fields.end(), output_spatial_dimensions.begin(),
                 output_spatial_dimensions.end());
   // strides
-  auto window_strides = disc_ral::ConvertDenseIntAttr(op.window_strides());
+  auto window_strides = disc_ral::ConvertDenseIntAttr(op.getWindowStrides());
   fields.insert(fields.end(), window_strides.begin(), window_strides.end());
   // rhs_dilation
-  auto rhs_dilation = disc_ral::ConvertDenseIntAttr(op.rhs_dilation());
+  auto rhs_dilation = disc_ral::ConvertDenseIntAttr(op.getRhsDilation());
   fields.insert(fields.end(), rhs_dilation.begin(), rhs_dilation.end());
   fields.push_back(isConstantMemRef(op->getOperand(1)));
 
@@ -309,20 +310,20 @@ Value GetConvMetadata(OpTy op, PatternRewriter& rewriter) {
   return metadata_value;
 }
 
-struct ConvConverter : public OpRewritePattern<ConvOp> {
-  using OpRewritePattern<ConvOp>::OpRewritePattern;
+struct ConvConverter : public OpRewritePattern<ConvolutionOp> {
+  using OpRewritePattern<ConvolutionOp>::OpRewritePattern;
 
-  Value GetPadding(ConvOp op, PatternRewriter& rewriter) const {
+  Value GetPadding(ConvolutionOp op, PatternRewriter& rewriter) const {
     Location loc = op.getLoc();
     Type field_type = rewriter.getI32Type();
-    int rank = op.output().getType().template cast<ShapedType>().getRank();
+    int rank = op.getOutput().getType().template cast<ShapedType>().getRank();
     int num_metadata_fields = (rank - 2) * 2;
     Value metadata_value = rewriter.create<memref::AllocaOp>(
         loc, MemRefType::get(
                  {num_metadata_fields}, field_type, MemRefLayoutAttrInterface(),
                  StringAttr::get(op->getContext(), placement_utils::kCpu)));
     // padding
-    auto padding = disc_ral::ConvertDenseIntAttr(op.padding());
+    auto padding = disc_ral::ConvertDenseIntAttr(op.getPadding());
     for (auto&& en : llvm::enumerate(padding)) {
       Value value =
           rewriter.create<arith::ConstantIntOp>(loc, en.value(), field_type);
@@ -333,7 +334,7 @@ struct ConvConverter : public OpRewritePattern<ConvOp> {
     return metadata_value;
   }
 
-  LogicalResult matchAndRewrite(ConvOp op,
+  LogicalResult matchAndRewrite(ConvolutionOp op,
                                 PatternRewriter& rewriter) const override {
     Location loc = op.getLoc();
     Value ctx = GetContextValueFromFunctionArguments(op);

@@ -17,7 +17,7 @@
 
 namespace mlir {
 namespace mhlo {
-// Return true if the mlir::Value it produced from a mlir::mhlo::ConstOp
+// Return true if the mlir::Value it produced from a mlir::mhlo::ConstantOp
 bool IsHloConstant(const mlir::Value&);
 bool IsStdConstant(const mlir::Value&);
 SmallVec4<int64_t> CastHloConstToListOfI64(const mlir::Value& value);

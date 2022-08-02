@@ -3,7 +3,7 @@
 // RUN:   %s --split-input-file | FileCheck %s
 
 // CHECK-LABEL: simple_broadcast_specialization
-func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
+func.func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
   %c0 = arith.constant 0 : index
   %0 = "disc_ral.recv_input"(%arg0, %c0) : (!disc_ral.context, index) -> memref<?x?xf32>
   %c0_0 = arith.constant 0 : index
@@ -65,7 +65,7 @@ func @simple_broadcast_specialization(%arg0: !disc_ral.context) {
 // -----
 
 // CHECK-LABEL: simple_row_reduction_vectorization_specialization
-func @simple_row_reduction_vectorization_specialization(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2: memref<?xf32>, %arg3: memref<f32>) -> (memref<?x?xf32>, memref<?xf32>) {
+func.func @simple_row_reduction_vectorization_specialization(%arg0: memref<?x?xf32>, %arg1: memref<?x?xf32>, %arg2: memref<?xf32>, %arg3: memref<f32>) -> (memref<?x?xf32>, memref<?xf32>) {
   // CHECK: %[[c1:.*]] = arith.constant 1 : index
   // CHECK: %[[T0:.*]] = memref.dim %arg1, %[[c1]] : memref<?x?xf32>
   // CHECK: %[[c512:.*]] = arith.constant 512 : index

@@ -1,6 +1,6 @@
 // RUN: disc-opt --mhlo-place-ops -split-input-file %s | FileCheck %s
 
-func @main(%arg : tensor<i64>) -> tensor<i64> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "cpu", outputs = "output0"}}  {
+func.func @main(%arg : tensor<i64>) -> tensor<i64> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "cpu", outputs = "output0"}}  {
   // CHECK: "mhlo.tuple"({{.*}}) {disc.device = ["cpu"]} : (tensor<i64>) -> tuple<tensor<i64>>
   // CHECK: "mhlo.get_tuple_element"({{.*}}) {disc.device = "cpu", index = 0 : i32} : (tuple<tensor<i64>>) -> tensor<i64>
   %tuple = "mhlo.tuple"(%arg) : (tensor<i64>) -> tuple<tensor<i64>>
@@ -10,7 +10,7 @@ func @main(%arg : tensor<i64>) -> tensor<i64> attributes {tf.entry_function = {i
 
 // -----
 
-func @main(%arg0: tensor<?x8xf32>) -> tensor<?x24xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "cpu", outputs = "output0"}} {
+func.func @main(%arg0: tensor<?x8xf32>) -> tensor<?x24xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "cpu", outputs = "output0"}} {
   // CHECK: mhlo.constant
   // CHECK: disc.device = "cpu"
   // CHECK: mhlo_disc.h2d
@@ -45,7 +45,7 @@ func @main(%arg0: tensor<?x8xf32>) -> tensor<?x24xf32> attributes {tf.entry_func
 
 // -----
 
-func @main(%arg0: tensor<?x?x?xi32>, %arg1: tensor<?x6x2xi64>) -> tensor<?x6x?xi32> attributes {tf.entry_function = {input_placements = "cpu,cpu", inputs = "input0, input1", output_placements = "cpu", outputs = "output0"}} {
+func.func @main(%arg0: tensor<?x?x?xi32>, %arg1: tensor<?x6x2xi64>) -> tensor<?x6x?xi32> attributes {tf.entry_function = {input_placements = "cpu,cpu", inputs = "input0, input1", output_placements = "cpu", outputs = "output0"}} {
   // CHECK: tensor.from_elements
   // CHECK-NOT: disc.device = "gpu"
   // CHECK: mhlo.dynamic_gather

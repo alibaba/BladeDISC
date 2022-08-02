@@ -1,6 +1,6 @@
 // RUN: disc-opt %s -disc-revise-gpu-kernel-outlining -split-input-file | FileCheck %s
 
-// func @need_revise(%input1: memref<?x?x?xf32, "gpu">, %input2: memref<3xi32>, %input3: memref<3xi32>, %input4: memref<3xi32>, %out: memref<?x?x?xf32, "gpu">) -> (memref<?x?x?xf32, "gpu">) {
+// func.func @need_revise(%input1: memref<?x?x?xf32, "gpu">, %input2: memref<3xi32>, %input3: memref<3xi32>, %input4: memref<3xi32>, %out: memref<?x?x?xf32, "gpu">) -> (memref<?x?x?xf32, "gpu">) {
 //   "lmhlo.fusion"() ({
 //     "lmhlo.real_dynamic_slice"(%input1, %input2, %input3, %input4, %out) : (memref<?x?x?xf32, "gpu">, memref<3xi32>, memref<3xi32>, memref<3xi32>, memref<?x?x?xf32, "gpu">) -> ()
 //     "lmhlo.terminator"() : () -> ()
@@ -12,7 +12,7 @@
 #map1 = affine_map<(d0)[s0, s1] -> (d0 * s0 + s1)>
 module attributes {gpu.container_module} {
   // CHECK-LABEL: @need_revision
-  func @need_revision(%arg0: memref<?x?x?xf32, "gpu">, %arg1: memref<3xi32>, %arg2: memref<3xi32>, %arg3: memref<3xi32>, %arg4: memref<?x?x?xf32, "gpu">) -> memref<?x?x?xf32, "gpu"> {
+  func.func @need_revision(%arg0: memref<?x?x?xf32, "gpu">, %arg1: memref<3xi32>, %arg2: memref<3xi32>, %arg3: memref<3xi32>, %arg4: memref<?x?x?xf32, "gpu">) -> memref<?x?x?xf32, "gpu"> {
     %c2 = arith.constant 2 : index
     %c1 = arith.constant 1 : index
     %c0 = arith.constant 0 : index

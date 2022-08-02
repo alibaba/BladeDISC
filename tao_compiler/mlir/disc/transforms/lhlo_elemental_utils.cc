@@ -23,9 +23,9 @@ limitations under the License.
 #include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "mlir-hlo/Dialect/mhlo/transforms/map_mhlo_to_scalar_op.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
-#include "mlir/Dialect/GPU/GPUDialect.h"
+#include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Location.h"
@@ -189,9 +189,9 @@ Value elementalLower<lmhlo::SliceOp>(OpBuilder* b, Location loc,
   for (int dim = 0; dim < rank; ++dim) {
     // for each dim, output[..a..] = input[..a * a_stride + a_start..]
     Value start_index = b->create<arith::ConstantIndexOp>(
-        loc, op.start_indices().getValues<int64_t>()[dim]);
+        loc, op.getStartIndices().getValues<int64_t>()[dim]);
     Value stride = b->create<arith::ConstantIndexOp>(
-        loc, op.strides().getValues<int64_t>()[dim]);
+        loc, op.getStrides().getValues<int64_t>()[dim]);
     auto input_dim = b->create<arith::AddIOp>(
         loc, b->create<arith::MulIOp>(loc, output_index[dim], stride),
         start_index);
@@ -286,7 +286,7 @@ Value elementalLowerImplForBroadcastInDimOps(OpBuilder* b, Location loc,
                                              bool check_cache,
                                              LowerConfig* lower_config) {
   auto broadcast_dimensions =
-      broadcast_in_dim.broadcast_dimensions().template getValues<int64_t>();
+      broadcast_in_dim.getBroadcastDimensions().template getValues<int64_t>();
   int out_rank = output_index.size();
   Value operand_memref = broadcast_in_dim->getOperand(0);
   Value result_memref =
@@ -495,7 +495,7 @@ Value elementalLower<lmhlo::TransposeOp>(OpBuilder* b, Location loc,
                                          bool check_cache,
                                          LowerConfig* lower_config) {
   Value operand_memref = op->getOperand(0);
-  SmallVector<int64_t> permutation(op.permutation().getValues<int64_t>());
+  SmallVector<int64_t> permutation(op.getPermutation().getValues<int64_t>());
   int rank = permutation.size();
 
   SmallVector<Value> operand_index(rank);
@@ -531,7 +531,7 @@ Value elementalLower<lmhlo::ReverseOp>(OpBuilder* b, Location loc,
   //   else:
   //     operand_index[dim] = output_index[dim]
   Value operand_memref = op->getOperand(0);
-  auto axis = op.dimensions().getValues<int64_t>();
+  auto axis = op.getDimensions().getValues<int64_t>();
   int rank = output_index.size();
   SmallVector<Value> operand_index(rank);
   Value one = b->create<arith::ConstantIndexOp>(loc, 1);
@@ -676,11 +676,11 @@ Value lowerGatherOpInternal(OpBuilder* b, Location loc, Operation* op,
   auto gather = dyn_cast<lmhlo::GatherOp>(op);
   auto d_gather = dyn_cast<lmhlo::DynamicGatherOp>(op);
   assert((gather || d_gather) && "unexpected opcode");
-  auto operand = gather ? gather.operand() : d_gather.operand();
+  auto operand = gather ? gather.getOperand() : d_gather.getOperand();
   auto start_indices =
-      gather ? gather.start_indices() : d_gather.start_indices();
+      gather ? gather.getStartIndices() : d_gather.getStartIndices();
   auto dimension_numbers =
-      gather ? gather.dimension_numbers() : d_gather.dimension_numbers();
+      gather ? gather.getDimensionNumbers() : d_gather.getDimensionNumbers();
   auto operand_ty = operand.getType().dyn_cast<MemRefType>();
   auto start_indices_ty = start_indices.getType().dyn_cast<MemRefType>();
   auto result = op->getOperand(op->getNumOperands() - 1);
@@ -821,7 +821,7 @@ Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder* b, Location loc,
                                            ValueRange output_index,
                                            bool check_cache,
                                            LowerConfig* lower_config) {
-  size_t axis = op.dimension();
+  size_t axis = op.getDimension();
   size_t rank = output_index.size();
 
   auto num_input_operands = op.getNumOperands() - 1;
@@ -982,10 +982,10 @@ Value elementalLowerIota(OpBuilder* b, const Location& loc, Operation* op,
   int64_t iota_dimension = 0;
   if (isa<lmhlo::DynamicIotaOp>(op)) {
     auto dynamic_iota = mlir::dyn_cast<lmhlo::DynamicIotaOp>(op);
-    iota_dimension = dynamic_iota.iota_dimension();
+    iota_dimension = dynamic_iota.getIotaDimension();
   } else if (isa<lmhlo::IotaOp>(op)) {
     auto iota = mlir::dyn_cast<lmhlo::IotaOp>(op);
-    iota_dimension = iota.iota_dimension();
+    iota_dimension = iota.getIotaDimension();
   }
   assert(iota_dimension < output_index.size() &&
          "iota_dimension exceeds rank of output_index");
@@ -1041,7 +1041,7 @@ Value elementalLower<lmhlo::ReduceOp>(OpBuilder* b, Location loc,
   auto operand_memref = *(op->getOperands().begin());
   auto init_value_memref = *(op->getOperands().begin() + 1);
   auto init_value = b->create<LoadOp>(loc, init_value_memref);
-  auto dimensions = op.dimensions().getValues<int64_t>();
+  auto dimensions = op.getDimensions().getValues<int64_t>();
   auto input_rank = operand_memref.getType().cast<MemRefType>().getRank();
   // total elems to reduce
   Value acc_mul = b->create<arith::ConstantIndexOp>(loc, 1);
@@ -1079,7 +1079,7 @@ Value elementalLower<lmhlo::ReduceOp>(OpBuilder* b, Location loc,
   auto data = createMaySpecificLoad(*b, loc, op.getOperation(), operand_memref,
                                     input_index, lower_config);
   AccumulatorFactory accumFactory =
-      getFactory(*b, loc, cast<lmhlo::ReduceOp>(op).body());
+      getFactory(*b, loc, cast<lmhlo::ReduceOp>(op).getBody());
   auto acc = accumFactory(*(forOp.getRegionIterArgs().begin()), data);
   SmallVector<Value, 4> yield_values;
   yield_values.push_back(acc);
@@ -1166,11 +1166,11 @@ Value elementalLower<lmhlo::ClampOp>(OpBuilder* b, Location loc,
   Value operand = maybe_load_from_memref(operand_memref, false);
 
   Value lb_clipped =
-      mhlo::impl::MapMhloOpToStdScalarOp<lmhlo::LhloToHloOp<lmhlo::MaxOp>>(
+      mhlo::impl::mapMhloOpToStdScalarOp<lmhlo::LhloToHloOp<lmhlo::MaxOp>>(
           loc, ArrayRef<Type>{elem_ty}, ArrayRef<Type>{elem_ty, elem_ty},
           ArrayRef<Value>{operand, min}, b);
   Value result =
-      mhlo::impl::MapMhloOpToStdScalarOp<lmhlo::LhloToHloOp<lmhlo::MinOp>>(
+      mhlo::impl::mapMhloOpToStdScalarOp<lmhlo::LhloToHloOp<lmhlo::MinOp>>(
           loc, ArrayRef<Type>{elem_ty}, ArrayRef<Type>{elem_ty, elem_ty},
           ArrayRef<Value>{lb_clipped, max}, b);
   mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
@@ -1341,7 +1341,7 @@ bool needUpgradingUnsignedInteger(Operation* op) {
   if (!llvm::any_of(op->getResults(), isUnsignedIntegerValue) &&
       !llvm::any_of(op->getOperands(), isUnsignedIntegerValue))
     return false;
-  return isa<lmhlo::AddOp, lmhlo::SubOp, lmhlo::MulOp, lmhlo::DivOp>(op);
+  return isa<lmhlo::AddOp, lmhlo::SubtractOp, lmhlo::MulOp, lmhlo::DivOp>(op);
 }
 
 }  // namespace disc_ral

@@ -41,6 +41,8 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 
+#define DEBUG_TYPE "disc-transpose-simplifier"
+
 namespace mlir {
 namespace disc_ral {
 namespace {
@@ -171,7 +173,7 @@ bool isConstOneBcast(Operation* op) {
            mhlo::DynamicBroadcastInDimOp>(op))
     return false;
   auto constOp =
-      dyn_cast_or_null<mhlo::ConstOp>(op->getOperand(0).getDefiningOp());
+      dyn_cast_or_null<mhlo::ConstantOp>(op->getOperand(0).getDefiningOp());
   if (!constOp) return false;
   auto attr = constOp.value().cast<DenseElementsAttr>();
   if (attr.getNumElements() != 1) return false;
@@ -426,7 +428,7 @@ bool TransposeSimpliferContext::dominates(
                  << "transpose dominant: block arg is not supported\n");
       return false;
     }
-    if (isa<mhlo::ConstOp>(definingOp)) continue;
+    if (isa<mhlo::ConstantOp>(definingOp)) continue;
 
     // producer should in the same block.
     if (!inTargetBlock(definingOp)) {
@@ -629,22 +631,22 @@ mhlo::TransposeOp findTransposeProducer(Value val, Operation* op) {
   } else if (definingOp->getNumOperands() == 2) {
     auto lhsDefiningOp = definingOp->getOperand(0).getDefiningOp();
     auto rhsDefiningOp = definingOp->getOperand(1).getDefiningOp();
-    if (dyn_cast_or_null<mhlo::ConstOp>(lhsDefiningOp))
+    if (dyn_cast_or_null<mhlo::ConstantOp>(lhsDefiningOp))
       return findTransposeProducer(definingOp->getOperand(1), definingOp);
-    if (dyn_cast_or_null<mhlo::ConstOp>(rhsDefiningOp))
+    if (dyn_cast_or_null<mhlo::ConstantOp>(rhsDefiningOp))
       return findTransposeProducer(definingOp->getOperand(0), definingOp);
     // lhs: bcast + const
     if (dyn_cast_or_null<mhlo::BroadcastInDimOp>(lhsDefiningOp) ||
         dyn_cast_or_null<mhlo::DynamicBroadcastInDimOp>(lhsDefiningOp)) {
       auto prevOp = lhsDefiningOp->getOperand(0).getDefiningOp();
-      if (dyn_cast_or_null<mhlo::ConstOp>(prevOp))
+      if (dyn_cast_or_null<mhlo::ConstantOp>(prevOp))
         return findTransposeProducer(definingOp->getOperand(1), definingOp);
     }
     // rhs: bcast + const
     if (dyn_cast_or_null<mhlo::BroadcastInDimOp>(rhsDefiningOp) ||
         dyn_cast_or_null<mhlo::DynamicBroadcastInDimOp>(rhsDefiningOp)) {
       auto prevOp = rhsDefiningOp->getOperand(0).getDefiningOp();
-      if (dyn_cast_or_null<mhlo::ConstOp>(prevOp))
+      if (dyn_cast_or_null<mhlo::ConstantOp>(prevOp))
         return findTransposeProducer(definingOp->getOperand(0), definingOp);
     }
     return nullptr;
@@ -778,7 +780,7 @@ LogicalResult reverseIfOperandsAndResultsAreConsistent(Operation* op,
   }
 
   bool input_is_const =
-      (dyn_cast_or_null<mhlo::ConstOp>(otherVal.getDefiningOp()) != nullptr);
+      (dyn_cast_or_null<mhlo::ConstantOp>(otherVal.getDefiningOp()) != nullptr);
   bool input_has_tranpose_consumer = false;
   bool output_has_tranpose_consumer = false;
   SmallVector<DenseMap<Operation*, SmallVector<int64_t>>> permMaps;

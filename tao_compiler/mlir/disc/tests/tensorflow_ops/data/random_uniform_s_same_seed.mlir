@@ -1,5 +1,5 @@
 module attributes {tf.versions = {bad_consumers = [], min_consumer = 0 : i32, producer = 0 : i32}} {
-  func @main(%arg0: tensor<2xi32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> (tensor<i1>, tensor<300x400xf32>) attributes {tf.entry_function = {inputs = "{{INPUTS}}", outputs = "{{OUTPUTS}}", input_placements="{{INPUT_PLACEMENTS}}", output_placements="{{OUTPUT_PLACEMENTS}}"}} {
+  func.func @main(%arg0: tensor<2xi32>, %arg1: tensor<f32>, %arg2: tensor<f32>) -> (tensor<i1>, tensor<300x400xf32>) attributes {tf.entry_function = {inputs = "{{INPUTS}}", outputs = "{{OUTPUTS}}", input_placements="{{INPUT_PLACEMENTS}}", output_placements="{{OUTPUT_PLACEMENTS}}"}} {
     %graph:2 = tf_executor.graph {
       %1:2 = tf_executor.island wraps "tf.RandomUniform"(%arg0) { seed = 2, seed2 = 3} : (tensor<2xi32>) -> tensor<300x400xf32>
       %2:2 = tf_executor.island wraps "tf.RandomUniform"(%arg0) { seed = 3, seed2 = 2} : (tensor<2xi32>) -> tensor<300x400xf32>

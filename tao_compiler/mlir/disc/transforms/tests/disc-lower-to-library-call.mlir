@@ -1,8 +1,8 @@
 // RUN: disc-opt -disc-lower-to-library-call %s -o - | FileCheck %s
 
-// CHECK-LABEL: func @test_recv_input_and_send_output
+// CHECK-LABEL: func.func @test_recv_input_and_send_output
 // CHECK-SAME: (%[[CTX:.*]]: !disc_ral.context) {
-func @test_recv_input_and_send_output(%arg0: !disc_ral.context) {
+func.func @test_recv_input_and_send_output(%arg0: !disc_ral.context) {
   // CHECK: %[[T0:.*]] = "disc_ral.dispatch"(%[[CTX]], %c0)
   // CHECK-SAME: {backend_config = "cpu", call_target_name = "ral_recv_input", has_side_effect = false} :
   // CHECK-SAME: (!disc_ral.context, index) -> memref<?x?xf32>
@@ -32,7 +32,7 @@ func @test_recv_input_and_send_output(%arg0: !disc_ral.context) {
 
 // CHECK-LABEL: h2d_dynamic_shape
 // CHECK-SAME: (%[[CTX:.*]]: !disc_ral.context)
-func @h2d_dynamic_shape(%arg0: !disc_ral.context) {
+func.func @h2d_dynamic_shape(%arg0: !disc_ral.context) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %0 = "disc_ral.recv_input"(%arg0, %c0) : (!disc_ral.context, index) -> memref<?x?xf32>
@@ -57,7 +57,7 @@ func @h2d_dynamic_shape(%arg0: !disc_ral.context) {
 
 // CHECK-LABEL: d2h_dynamic_shape
 // CHECK-SAME: (%[[CTX:.*]]: !disc_ral.context)
-func @d2h_dynamic_shape(%arg0: !disc_ral.context) {
+func.func @d2h_dynamic_shape(%arg0: !disc_ral.context) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %0 = "disc_ral.recv_input"(%arg0, %c0) : (!disc_ral.context, index) -> memref<?x?xf32>
@@ -82,7 +82,7 @@ func @d2h_dynamic_shape(%arg0: !disc_ral.context) {
 
 // CHECK-LABEL: h2d_static_shape
 // CHECK-SAME: (%[[CTX:.*]]: !disc_ral.context)
-func @h2d_static_shape(%arg0: !disc_ral.context) {
+func.func @h2d_static_shape(%arg0: !disc_ral.context) {
   %c0 = arith.constant 0 : index
   %0 = "disc_ral.recv_input"(%arg0, %c0) : (!disc_ral.context, index) -> memref<2x2xf32>
   %1 = memref.alloc() : memref<2x2xf32>
@@ -104,7 +104,7 @@ func @h2d_static_shape(%arg0: !disc_ral.context) {
 
 // CHECK-LABEL: d2h_static_shape
 // CHECK-SAME: (%[[CTX:.*]]: !disc_ral.context)
-func @d2h_static_shape(%arg0: !disc_ral.context) {
+func.func @d2h_static_shape(%arg0: !disc_ral.context) {
   %c0 = arith.constant 0 : index
   %0 = "disc_ral.recv_input"(%arg0, %c0) : (!disc_ral.context, index) -> memref<2x2xf32>
   %1 = memref.alloc() : memref<2x2xf32>
@@ -126,7 +126,7 @@ func @d2h_static_shape(%arg0: !disc_ral.context) {
 
 // CHECK-LABEL: removable_reshape
 // CHECK-SAME: (%[[CTX:.*]]: !disc_ral.context)
-func @removable_reshape(%arg0: !disc_ral.context) {
+func.func @removable_reshape(%arg0: !disc_ral.context) {
   %c0 = arith.constant 0 : index
   %0 = "disc_ral.recv_input"(%arg0, %c0) : (!disc_ral.context, index) -> memref<2x2xf32, "gpu">
   %1 = memref.alloc() : memref<4x1xf32, "gpu">
@@ -148,7 +148,7 @@ func @removable_reshape(%arg0: !disc_ral.context) {
 
 // CHECK-LABEL: removable_copy
 // CHECK-SAME: (%[[CTX:.*]]: !disc_ral.context)
-func @removable_copy(%arg0: !disc_ral.context) {
+func.func @removable_copy(%arg0: !disc_ral.context) {
   %c0 = arith.constant 0 : index
   %0 = "disc_ral.recv_input"(%arg0, %c0) : (!disc_ral.context, index) -> memref<2x2xf32, "gpu">
   %1 = memref.alloc() : memref<2x2xf32, "gpu">
@@ -170,7 +170,7 @@ func @removable_copy(%arg0: !disc_ral.context) {
 
 // CHECK-LABEL: removable_dynamic_reshape
 // CHECK-SAME: (%[[CTX:.*]]: !disc_ral.context)
-func @removable_dynamic_reshape(%arg0: !disc_ral.context) {
+func.func @removable_dynamic_reshape(%arg0: !disc_ral.context) {
   %c0 = arith.constant 0 : index
   %c1 = arith.constant 1 : index
   %0 = "disc_ral.recv_input"(%arg0, %c0) : (!disc_ral.context, index) -> memref<?xf32, "gpu">
@@ -197,7 +197,7 @@ func @removable_dynamic_reshape(%arg0: !disc_ral.context) {
 
 // CHECK-LABEL: removable_copy_with_safe_memref_cast
 // CHECK-SAME: (%[[CTX:.*]]: !disc_ral.context)
-func @removable_copy_with_safe_memref_cast(%arg0: !disc_ral.context) {
+func.func @removable_copy_with_safe_memref_cast(%arg0: !disc_ral.context) {
   %c0 = arith.constant 0 : index
   %0 = "disc_ral.recv_input"(%arg0, %c0) : (!disc_ral.context, index) -> memref<?x?xf32, "gpu">
   %1 = memref.alloc() : memref<2x2xf32, "gpu">
@@ -226,7 +226,7 @@ func @removable_copy_with_safe_memref_cast(%arg0: !disc_ral.context) {
 
 // CHECK-LABEL: removable_copy_with_unsafe_memref_cast
 // CHECK-SAME: (%[[CTX:.*]]: !disc_ral.context)
-func @removable_copy_with_unsafe_memref_cast(%arg0: !disc_ral.context) {
+func.func @removable_copy_with_unsafe_memref_cast(%arg0: !disc_ral.context) {
   %c0 = arith.constant 0 : index
   %0 = "disc_ral.recv_input"(%arg0, %c0) : (!disc_ral.context, index) -> memref<?x?xf32, "gpu">
   %1 = memref.alloc() : memref<2x2xf32, "gpu">
@@ -258,7 +258,7 @@ func @removable_copy_with_unsafe_memref_cast(%arg0: !disc_ral.context) {
 
 // CHECK-LABEL: topk_dynamic_shape
 // CHECK-SAME: (%[[CTX:.*]]: !disc_ral.context)
-func @topk_dynamic_shape(%arg0: !disc_ral.context) {
+func.func @topk_dynamic_shape(%arg0: !disc_ral.context) {
   %c0 = arith.constant 0 : index
   %0 = "disc_ral.recv_input"(%arg0, %c0) : (!disc_ral.context, index) -> memref<?x?xf32, "gpu">
   %c1 = arith.constant 1 : index
@@ -286,7 +286,7 @@ func @topk_dynamic_shape(%arg0: !disc_ral.context) {
 
 // CHECK-LABEL: topk_static_shape
 // CHECK-SAME: (%[[CTX:.*]]: !disc_ral.context)
-func @topk_static_shape(%arg0: !disc_ral.context) {
+func.func @topk_static_shape(%arg0: !disc_ral.context) {
   %c0 = arith.constant 0 : index
   %0 = "disc_ral.recv_input"(%arg0, %c0) : (!disc_ral.context, index) -> memref<2x16xf32, "gpu">
   %c1 = arith.constant 1 : index
@@ -312,7 +312,7 @@ func @topk_static_shape(%arg0: !disc_ral.context) {
 // -----
 
 // CHECK-LABEL: dynamic_conv
-func @dynamic_conv(%arg0: !disc_ral.context) {
+func.func @dynamic_conv(%arg0: !disc_ral.context) {
   %c0 = arith.constant 0 : index
   %0 = "disc_ral.recv_input"(%arg0, %c0) : (!disc_ral.context, index) -> memref<?x?x?x?xf32, "gpu">
   %c1 = arith.constant 1 : index

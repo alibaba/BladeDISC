@@ -20,7 +20,8 @@ limitations under the License.
 
 #include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "mlir-hlo/utils/placement_utils.h"
-#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"  // TF:llvm-project
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/MLIRContext.h"  // TF:llvm-project
@@ -148,7 +149,7 @@ bool isOnGpu(Operation* op) {
       result_memref.getType().cast<MemRefType>().getMemorySpace();
   return memory_space && memory_space.isa<StringAttr>() &&
          memory_space.cast<StringAttr>().getValue() ==
-             mhlo::placement_utils::c_gpu;
+             mhlo::placement_utils::cGpu;
 }
 
 StringRef fusionTypeToString(FusionType ft) {
@@ -289,7 +290,7 @@ bool isElementWiseUnary(Operation* op) {
     lmhlo::CeilOp,
     lmhlo::ConvertOp,
     lmhlo::CopyOp,
-    lmhlo::CosOp,
+    lmhlo::CosineOp,
     lmhlo::ExpOp,
     lmhlo::FloorOp,
     lmhlo::IsFiniteOp,
@@ -321,7 +322,7 @@ bool isElementWiseBinary(Operation* op) {
     lmhlo::OrOp,
     lmhlo::PowOp,
     lmhlo::RemOp,
-    lmhlo::SubOp
+    lmhlo::SubtractOp
   >(op);
   // clang-format on
 }
@@ -335,10 +336,11 @@ bool isElementWise(Operation* op) {
 // Returns true if this op is a rank-2 row reduction.
 bool isRank2RowReduction(Operation* op) {
   auto reduce_op = dyn_cast<lmhlo::ReduceOp>(op);
-  if (!reduce_op || reduce_op.dimensions().getNumElements() != 1) return false;
+  if (!reduce_op || reduce_op.getDimensions().getNumElements() != 1)
+    return false;
 
   int rank = op->getOperand(0).getType().cast<MemRefType>().getRank();
-  auto dimensions = reduce_op.dimensions().getValues<int64_t>();
+  auto dimensions = reduce_op.getDimensions().getValues<int64_t>();
   return ((*dimensions.begin() == 1) && (rank == 2));
 }
 
@@ -347,7 +349,7 @@ bool isRowReduction(Operation* op) {
   auto reduce_op = dyn_cast<lmhlo::ReduceOp>(op);
   if (!reduce_op) return false;
 
-  auto dimensions = reduce_op.dimensions().getValues<int64_t>();
+  auto dimensions = reduce_op.getDimensions().getValues<int64_t>();
   auto ty = op->getOperand(0).getType().dyn_cast<MemRefType>();
   if (!ty) return false;
   int expected = ty.getRank() - 1;
@@ -363,10 +365,11 @@ bool isRowReduction(Operation* op) {
 // Returns true if this op is a rank-2 column reduction.
 bool isRank2ColReduction(Operation* op) {
   auto reduce_op = dyn_cast<lmhlo::ReduceOp>(op);
-  if (!reduce_op || reduce_op.dimensions().getNumElements() != 1) return false;
+  if (!reduce_op || reduce_op.getDimensions().getNumElements() != 1)
+    return false;
 
   int rank = op->getOperand(0).getType().cast<MemRefType>().getRank();
-  auto dimensions = reduce_op.dimensions().getValues<int64_t>();
+  auto dimensions = reduce_op.getDimensions().getValues<int64_t>();
   return ((*dimensions.begin() == 0) && (rank == 2));
 }
 
@@ -374,10 +377,10 @@ bool isRank2ColReduction(Operation* op) {
 // engine.
 bool isFusible(Operation* op) {
   // Only scalar const are supported by the fusion codegen engine a.t.m.
-  if (isa<lmhlo::ConstOp>(op)) {
-    auto constant = cast<lmhlo::ConstOp>(op);
-    MemRefType type = constant.output().getType().cast<MemRefType>();
-    return (type.getRank() == 0 || constant.value().isSplat());
+  if (isa<lmhlo::ConstantOp>(op)) {
+    auto constant = cast<lmhlo::ConstantOp>(op);
+    MemRefType type = constant.getOutput().getType().cast<MemRefType>();
+    return (type.getRank() == 0 || constant.getValue().isSplat());
   }
 
   // All element ops are supported by the fusion codegen engine.
@@ -451,7 +454,7 @@ FusionPatternBase::FusionPatternBase(Operation* op) {
 
 // Create a new fusion pattern from the ops inside the lmhlo fusion op.
 FusionPatternBase::FusionPatternBase(lmhlo::FusionOp op) {
-  for (Operation& op : op.region().getBlocks().front()) {
+  for (Operation& op : op.getRegion().getBlocks().front()) {
     if (!isa<lmhlo::TerminatorOp>(op)) op_list_.push_back(&op);
   }
   calculateOperandsAndResults();
@@ -953,7 +956,7 @@ bool FusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
   // pattern.
   // TODO(disc): copy small const in case necessary.
   for (Operation* result_op : target.getRootOps()) {
-    if (isa<lmhlo::ConstOp>(result_op)) {
+    if (isa<lmhlo::ConstantOp>(result_op)) {
       return false;
     }
   }
@@ -1104,7 +1107,7 @@ bool BaseCpuFusionStrategy::isFusible(Operation* op) {
 
   if (!enableEagerTransposeFusion()) {
     if (auto transposeOp = dyn_cast<lmhlo::TransposeOp>(op)) {
-      auto permutation = transposeOp.permutation().getValues<int64_t>();
+      auto permutation = transposeOp.getPermutation().getValues<int64_t>();
       if (*--permutation.end() != permutation.size() - 1) return false;
     }
   }
@@ -1635,7 +1638,7 @@ bool StitchCPUAnalysis::buildDominantGraph(ValueGraph& dominantGraph) {
 
   // init edges
   for (Operation* op : fusionPattern_.getOpList()) {
-    if (isa<lmhlo::ConstOp>(op)) continue;
+    if (isa<lmhlo::ConstantOp>(op)) continue;
     if (isElementWise(op)) {
       // all operands are equal
       for (Value a : op->getOperands())
@@ -1742,7 +1745,7 @@ bool StitchCPUAnalysis::doTileAnalysis() {
   do {
     changed = false;
     for (Operation* op : fusionPattern_.getOpList()) {
-      if (isa<lmhlo::ConstOp>(op)) continue;
+      if (isa<lmhlo::ConstantOp>(op)) continue;
       if (isElementWise(op)) {
         if (!doElemOpTileAnalysis(tilePlan, op, changed)) return false;
       } else if (isa<lmhlo::ReduceOp>(op)) {
@@ -1778,7 +1781,7 @@ bool StitchCPUAnalysis::doElemOpTileAnalysis(
 bool StitchCPUAnalysis::doReduceOpTileAnalysis(
     DenseMap<Value, TileInfo>& tilePlan, Operation* op, bool& changed) {
   auto reduce = cast<lmhlo::ReduceOp>(op);
-  auto dimensions = reduce.dimensions().getValues<int64_t>();
+  auto dimensions = reduce.getDimensions().getValues<int64_t>();
   // init value should not do parallel computation.
   // Zero-rank init value does not need to assign a tile info, thus skip it.
   if (auto rank = op->getOperand(1).getType().cast<MemRefType>().getRank()) {
@@ -2035,7 +2038,7 @@ bool StitchCPUAnalysis::propagateFromDominantToRoots() {
     auto info = parallelInfoStore_[*plan.begin()];
     for (Operation* user : getValueUsers(v)) {
       if (!isTargetOp(user)) continue;
-      if (isa<lmhlo::ConstOp>(user)) continue;
+      if (isa<lmhlo::ConstantOp>(user)) continue;
       if (isElementWise(user)) {
         for (Value other : user->getOperands()) {
           if (v == other || !processedSet.insert(other).second) continue;
@@ -2053,7 +2056,7 @@ bool StitchCPUAnalysis::propagateFromDominantToRoots() {
         otherInfo.inBound = info.inBound;
         otherInfo.isOwner = info.isOwner;
         otherInfo.indices.clear();
-        auto dimensions = reduce.dimensions().getValues<int64_t>();
+        auto dimensions = reduce.getDimensions().getValues<int64_t>();
         int rank = v.getType().cast<MemRefType>().getRank();
         int outIdx = 0;
         for (int d = 0; d < rank; ++d) {
@@ -2179,7 +2182,7 @@ bool StitchCPUAnalysis::propagateFromRootsToProducers() {
                << "back-root-indices for #" << id << " of op: " << *op << "\n");
     parallelInfoStore_[id].consumedByRoots = true;
     // No need to do propagation for const ops
-    if (isa<lmhlo::ConstOp>(op)) continue;
+    if (isa<lmhlo::ConstantOp>(op)) continue;
     Value out = cast<lmhlo::LmhloOp>(op).getResultBuffer();
     auto isExistingInputId = [&](Value in, int& inId) {
       auto& info = parallelInfoStore_[id];
@@ -2236,7 +2239,7 @@ bool StitchCPUAnalysis::propagateFromRootsToProducers() {
         inInfo.inBound = info.inBound;
         inInfo.isOwner = info.isOwner;
         inInfo.indices.clear();
-        auto dimensions = reduce.dimensions().getValues<int64_t>();
+        auto dimensions = reduce.getDimensions().getValues<int64_t>();
         int rank = in.getType().cast<MemRefType>().getRank();
         int outIdx = 0;
         for (int d = 0; d < rank; ++d) {
@@ -2471,7 +2474,7 @@ bool StitchCPUAnalysis::emitParallelIndices(OpBuilder& b, Location loc,
       Operation* op = to.op;
       LLVM_DEBUG(llvm::dbgs() << "  to.op = " << *op << "\n");
       assert(op);
-      if (isa<lmhlo::ConstOp>(op)) {
+      if (isa<lmhlo::ConstantOp>(op)) {
         // Only scalar const is fusible, and it should have no parallel indices.
         assert(to.indices.empty());
         to.symbolInBound = trueValue;
@@ -3068,7 +3071,7 @@ bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder& b,
                  << "failed to do emitSubRootCalculation for " << *op << "\n");
       return false;
     }
-    Block& block = subFusionOp.region().front();
+    Block& block = subFusionOp.getRegion().front();
     block.clear();
     for (Operation* clonedOp : llvm::reverse(clonedLmhloOps)) {
       clonedOp->moveBefore(&block, block.begin());
@@ -3100,7 +3103,7 @@ bool StitchCPUAnalysis::emitAllSubRootsAndRootsCalculation(OpBuilder& b,
       return false;
     }
     Operation& tileResultOp =
-        *++llvm::reverse(clonedSubFusionOp.region().front()).begin();
+        *++llvm::reverse(clonedSubFusionOp.getRegion().front()).begin();
     innerBuilder.setInsertionPointAfter(&tileResultOp);
     innerBuilder.create<lmhlo::CopyOp>(loc, tileResultOp.getOperands().back(),
                                        it->second);
@@ -3179,7 +3182,7 @@ bool StitchCPUAnalysis::doCodeGeneration(OpBuilder& b, lmhlo::FusionOp fusion) {
   // 1, create parallel for loop according to dominant value parallel info.
   b.setInsertionPoint(fusion);
   auto cloned = cast<FusionOp>(b.clone(*fusion.getOperation()));
-  Block& block = cloned.region().front();
+  Block& block = cloned.getRegion().front();
   SmallVector<Operation*> toRemove;
   for (Operation& op : block) {
     if (!isa<lmhlo::TerminatorOp>(&op)) toRemove.push_back(&op);

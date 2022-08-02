@@ -2,7 +2,7 @@
 
 // CHECK-LABEL: basic_test
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32>) -> tensor<?x?xf32>
-func @basic_test(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
+func.func @basic_test(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
   // CHECK-NOT: mhlo.transpose
   // CHECK: %[[RET:.*]] = mhlo.abs %[[ARG0]]
   // CHECK-NOT: mhlo.transpose
@@ -17,7 +17,7 @@ func @basic_test(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
 
 // CHECK-LABEL: basic_test_2
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32>) -> tensor<?x?xf32>
-func @basic_test_2(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
+func.func @basic_test_2(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
   // CHECK-NOT: mhlo.transpose
   // CHECK: %[[T0:.*]] = mhlo.abs %[[ARG0]]
   // CHECK-NOT: mhlo.transpose
@@ -35,7 +35,7 @@ func @basic_test_2(%arg0: tensor<?x?xf32>) -> tensor<?x?xf32> {
 
 // CHECK-LABEL: static_shape_test
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<10x9xf32>) -> tensor<10x9xf32>
-func @static_shape_test(%arg0: tensor<10x9xf32>) -> tensor<10x9xf32> {
+func.func @static_shape_test(%arg0: tensor<10x9xf32>) -> tensor<10x9xf32> {
   // CHECK-NOT: mhlo.transpose
   // CHECK: %[[T0:.*]] = mhlo.abs %[[ARG0]] : tensor<10x9xf32>
   // CHECK-NOT: mhlo.transpose
@@ -53,7 +53,7 @@ func @static_shape_test(%arg0: tensor<10x9xf32>) -> tensor<10x9xf32> {
 
 // CHECK-LABEL: const_operand
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<10x9xf32>) -> tensor<10x9xf32>
-func @const_operand(%arg0: tensor<10x9xf32>) -> tensor<10x9xf32> {
+func.func @const_operand(%arg0: tensor<10x9xf32>) -> tensor<10x9xf32> {
   // CHECK: %[[CST:.*]] = mhlo.constant dense<1.000000e+00> : tensor<10x9xf32>
   // CHECK-NOT: mhlo.transpose
   // CHECK: %[[T0:.*]] = mhlo.abs %[[ARG0]] : tensor<10x9xf32>
@@ -73,7 +73,7 @@ func @const_operand(%arg0: tensor<10x9xf32>) -> tensor<10x9xf32> {
 
 // CHECK-LABEL: rand_3d_const_operand
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<11x10x9xf32>) -> tensor<11x10x9xf32>
-func @rand_3d_const_operand(%arg0: tensor<11x10x9xf32>) -> (tensor<11x10x9xf32>) {
+func.func @rand_3d_const_operand(%arg0: tensor<11x10x9xf32>) -> (tensor<11x10x9xf32>) {
   // CHECK: %[[CST:.*]] = mhlo.constant dense<1.000000e+00> : tensor<11x10x9xf32>
   // CHECK-NOT: mhlo.transpose
   // CHECK: %[[T0:.*]] = mhlo.abs %[[ARG0]] : tensor<11x10x9xf32>
@@ -93,7 +93,7 @@ func @rand_3d_const_operand(%arg0: tensor<11x10x9xf32>) -> (tensor<11x10x9xf32>)
 
 // CHECK-LABEL: should_not_convert_multi_output
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<10x9xf32>) -> (tensor<9x10xf32>, tensor<10x9xf32>)
-func @should_not_convert_multi_output(%arg0: tensor<10x9xf32>) -> (tensor<9x10xf32>, tensor<10x9xf32>) {
+func.func @should_not_convert_multi_output(%arg0: tensor<10x9xf32>) -> (tensor<9x10xf32>, tensor<10x9xf32>) {
   // CHECK: "mhlo.transpose"(%[[ARG0]]) {permutation = dense<[1, 0]> : tensor<2xi64>} : (tensor<10x9xf32>) -> tensor<9x10xf32>
   // CHECK: "mhlo.transpose"
   // CHECK-SAME: {permutation = dense<[1, 0]> : tensor<2xi64>} : (tensor<9x10xf32>) -> tensor<10x9xf32>
@@ -109,7 +109,7 @@ func @should_not_convert_multi_output(%arg0: tensor<10x9xf32>) -> (tensor<9x10xf
 
 // CHECK-LABEL: shape_only_consumer
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
-func @shape_only_consumer(%arg0: tensor<?x?x?xf32>) -> (tensor<?x?x?xf32>) {
+func.func @shape_only_consumer(%arg0: tensor<?x?x?xf32>) -> (tensor<?x?x?xf32>) {
   // CHECK: %[[CST:.*]] = mhlo.constant dense<1.000000e+00> : tensor<f32>
   // CHECK-NOT: mhlo.transpose
   // CHECK: %[[D0:.*]] = tensor.dim %[[ARG0]], %c0 : tensor<?x?x?xf32>
@@ -152,7 +152,7 @@ func @shape_only_consumer(%arg0: tensor<?x?x?xf32>) -> (tensor<?x?x?xf32>) {
 //                               -> transpose^{-1} ... -> zzz
 
 // CHECK-LABEL: reverse_transpose_test_0
-func @reverse_transpose_test_0(%arg0: tensor<?x?x?xf32>, %arg1: tensor<3xindex>, %arg2: tensor<?x?x?xf32>, %arg3: tensor<3xindex>, %arg4: tensor<3xindex>) -> (tensor<?x?x?xf32>, tensor<?x?x?xf32>, tensor<?x?x?xf32>) {
+func.func @reverse_transpose_test_0(%arg0: tensor<?x?x?xf32>, %arg1: tensor<3xindex>, %arg2: tensor<?x?x?xf32>, %arg3: tensor<3xindex>, %arg4: tensor<3xindex>) -> (tensor<?x?x?xf32>, tensor<?x?x?xf32>, tensor<?x?x?xf32>) {
   // CHECK: mhlo.transpose
   // CHECK: mhlo.transpose
   // CHECK-NOT: mhlo.transpose
@@ -172,7 +172,7 @@ func @reverse_transpose_test_0(%arg0: tensor<?x?x?xf32>, %arg1: tensor<3xindex>,
 // -----
 
 // CHECK-LABEL: reverse_transpose_test_1
-func @reverse_transpose_test_1(%arg0: tensor<?x?x?xf32>, %arg1: tensor<3xindex>, %arg2: tensor<?x?x?xf32>, %arg3: tensor<3xindex>, %arg4: tensor<3xindex>) -> (tensor<?x?x?xf32>, tensor<?x?x?xf32>, tensor<?x?x?xf32>) {
+func.func @reverse_transpose_test_1(%arg0: tensor<?x?x?xf32>, %arg1: tensor<3xindex>, %arg2: tensor<?x?x?xf32>, %arg3: tensor<3xindex>, %arg4: tensor<3xindex>) -> (tensor<?x?x?xf32>, tensor<?x?x?xf32>, tensor<?x?x?xf32>) {
   // CHECK: mhlo.transpose
   // CHECK: mhlo.transpose
   // CHECK-NOT: mhlo.transpose
@@ -207,7 +207,7 @@ func @reverse_transpose_test_1(%arg0: tensor<?x?x?xf32>, %arg1: tensor<3xindex>,
 //   y --> add -> transpose -> ...
 
 // CHECK-LABEL: reverse_transpose_test_2
-func @reverse_transpose_test_2(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>) -> tensor<?x?x?xf32> {
+func.func @reverse_transpose_test_2(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>) -> tensor<?x?x?xf32> {
   // CHECK-NOT: mhlo.transpose
   // CHECK: mhlo.add
   // CHECK: mhlo.transpose
@@ -236,7 +236,7 @@ func @reverse_transpose_test_2(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32
 //                               -> transpose^{-1} ... -> zzz
 
 // CHECK-LABEL: @reverse_transpose_test_3
-func @reverse_transpose_test_3(%arg0: tensor<?x?x?xf32>, %arg1: tensor<3xindex>, %arg2: tensor<?x?x?xf32>, %arg3: tensor<3xindex>, %arg4: tensor<3xindex>) -> (tensor<?x?x?xf32>, tensor<?x?x?xf32>) {
+func.func @reverse_transpose_test_3(%arg0: tensor<?x?x?xf32>, %arg1: tensor<3xindex>, %arg2: tensor<?x?x?xf32>, %arg3: tensor<3xindex>, %arg4: tensor<3xindex>) -> (tensor<?x?x?xf32>, tensor<?x?x?xf32>) {
   // CHECK: mhlo.transpose
   // CHECK-NOT: mhlo.transpose
   %0 = mhlo.constant dense<0.000000e+00> : tensor<f32>

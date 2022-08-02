@@ -5,6 +5,10 @@ build:release --spawn_strategy=local  # this is a workaround to include third pa
 # base
 build:release_base --config=release
 build:release_base --distinct_host_configuration=false
+# Note(xiafei.qiuxf): As shown below, c++14 is used to compile tao bridge, but this holds only up to TF 2.8! In higher
+# versions, TF is built with -std=C++17 by default which cause absl to alias absl::string_view to std::sting_view
+# instead of it's own implementation like absl::lts_xxxx::string_view. THIS CAUSE ABI COMPATIBILITY ISSUE. To build
+# with higher TF version, set it to c++17.
 build:release_base --cxxopt=-std=c++14
 build:release_base --host_cxxopt=-std=c++14
 build:release_base --compilation_mode=opt
@@ -13,7 +17,6 @@ build:avx_linux --copt=-mavx
 build:avx_linux --host_copt=-mavx
 
 build:release_cpu_linux --config=avx_linux
-build:release_cpu_linux --crosstool_top="@ubuntu18.04-gcc7_manylinux2010-cuda11.2-cudnn8.1-tensorrt7.2_config_cuda//crosstool:toolchain"
 # cuda
 build:cuda --repo_env TF_NEED_CUDA=1
 build:cuda --crosstool_top=@local_config_cuda//crosstool:toolchain

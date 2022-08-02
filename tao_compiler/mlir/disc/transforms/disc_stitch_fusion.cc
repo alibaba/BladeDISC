@@ -18,7 +18,7 @@ limitations under the License.
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
-#include "mlir/Dialect/SCF/SCF.h"
+#include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -69,7 +69,7 @@ LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion,
     return success();
   }
   auto rootOps = fusionPattern.getRootOps();
-  auto fusedBlock = &(fusionOp.region().front());
+  auto fusedBlock = &(fusionOp.getRegion().front());
 
   // No need to do codegen, return directly.
   if (rootOps.empty()) {

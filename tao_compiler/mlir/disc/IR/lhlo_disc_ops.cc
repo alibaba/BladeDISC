@@ -40,9 +40,9 @@ LmhloDiscDialect::LmhloDiscDialect(MLIRContext* context)
 LogicalResult CustomCallOp::verify() {
   CustomCallOp op = *this;
   if (op.target_arg_mapping()) {
-    lmhlo::CustomCallTargetArgMapping mapping = *op.target_arg_mapping();
+    lmhlo::CustomCallTargetArgMappingAttr mapping = *op.target_arg_mapping();
     auto verify_mapping = [&](int64_t target_num, size_t op_num,
-                              ArrayAttr mapping,
+                              ::llvm::ArrayRef<int64_t> mapping,
                               StringRef kind) -> LogicalResult {
       if (target_num < op_num)
         return op.emitOpError("number of target " + kind + " (")
@@ -58,8 +58,7 @@ LogicalResult CustomCallOp::verify() {
       std::unordered_set<int64_t> entries;
       // Each entry in the mapping should be < target_num and an entry cannot
       // appear more than once.
-      for (Attribute entry : mapping) {
-        int64_t int_entry = entry.cast<IntegerAttr>().getInt();
+      for (int64_t int_entry : mapping) {
         // ODS verification will ensure that these entries are integers.
         if (!entries.insert(int_entry).second)
           return op.emitOpError("entry ")
@@ -74,11 +73,10 @@ LogicalResult CustomCallOp::verify() {
       }
       return success();
     };
-    if (failed(verify_mapping(mapping.num_args().getInt(), op.args().size(),
-                              mapping.args_to_target_args(), "args")) ||
-        failed(verify_mapping(mapping.num_results().getInt(),
-                              op.output().size(),
-                              mapping.results_to_target_results(), "results")))
+    if (failed(verify_mapping(mapping.getNumArgs(), op.args().size(),
+                              mapping.getArgsToTargetArgs(), "args")) ||
+        failed(verify_mapping(mapping.getNumResults(), op.output().size(),
+                              mapping.getResultsToTargetResults(), "results")))
       return failure();
   }
   return success();

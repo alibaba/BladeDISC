@@ -48,7 +48,7 @@ jobs:
   CUDA:
     if: github.repository == 'alibaba/BladeDISC'
     # The type of runner that the job will run on
-    runs-on: [self-hosted, ${{inputs.runner_tag}} ]
+    runs-on: [self-hosted, ${{ inputs.runner_tag }} ]
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Runs a single command using the runners shell

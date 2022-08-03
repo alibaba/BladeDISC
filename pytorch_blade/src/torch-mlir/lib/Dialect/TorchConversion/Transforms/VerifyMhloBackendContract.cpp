@@ -30,6 +30,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/Passes.h"
 
+#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "torch-mlir/Conversion/MhloPasses.h"
 #include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
 #include "torch-mlir/Conversion/TorchToSCF/TorchToSCF.h"
@@ -150,6 +151,7 @@ class VerifyMhloBackendContractPass
         arith::ArithmeticDialect,
         chlo::ChloDialect,
         mhlo::MhloDialect,
+        mhlo_disc::MhloDiscDialect,
         tensor::TensorDialect>();
     RewritePatternSet patterns(context);
     populateReturnOpTypeConversionPattern(patterns, converter);

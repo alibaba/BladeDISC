@@ -2119,10 +2119,10 @@ LogicalResult ConvertAtenOp<ValsemVariantAtenUniformOp>::matchAndRewrite(
   if (!matchPattern(op.to(), m_TorchConstantFloat(&toDoubleValue))) {
     op.emitError("operand #2 should be scalar");
   }
-  Value fromTensor = rewriter.create<mhlo::ConstOp>(
+  Value fromTensor = rewriter.create<mhlo::ConstantOp>(
       op.getLoc(),
       rewriter.getFloatAttr(inputTy.getElementType(), fromDoubleValue));
-  Value toTensor = rewriter.create<mhlo::ConstOp>(
+  Value toTensor = rewriter.create<mhlo::ConstantOp>(
       op.getLoc(),
       rewriter.getFloatAttr(inputTy.getElementType(), toDoubleValue));
 

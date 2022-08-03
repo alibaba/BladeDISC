@@ -98,32 +98,39 @@ class DataPreparer:
             self.custom_module_owner._c._register_attribute(
                 group_name, fallback_module._type(), fallback_module
             )
+
+            # getattr node for the fusion group
             get_attr = self.graph.createGetAttr(self.custom_module_owner_inp, group_name)
             self.graph.appendNode(get_attr)
-            get_attr.output().setType(fallback_module._type())
             get_attr.moveAfter(g_node)
+            get_attr.output().setType(fallback_module._type())
             get_attr_nodes_for_fusion_group.append(get_attr)
 
+            # call the forward function of the fusion group
             call_method = self.graph.create("prim::CallMethod")
+            self.graph.appendNode(call_method)
+            call_method.moveAfter(get_attr)
+            # prim::CallMethod can not return multiple output, so we set
+            # the type of output to Tensor List
             call_method.output().setType(torch_blade.tools.get_list_tensor_type())
-
             call_method.s_("name", "forward")
             call_method.addInput(get_attr.output())
             for inp in g_node.input_list():
                 call_method.addInput(inp)
-            self.graph.appendNode(call_method)
-            call_method.moveAfter(get_attr)
 
+            # unpack the output of the forward method
             list_unpack = self.graph.create('prim::ListUnpack')
+            self.graph.appendNode(list_unpack)
+            list_unpack.moveAfter(call_method)
             list_unpack.addInput(call_method.output())
             list_unpack.eraseOutput(0)
             for out in g_node.output_list():
                 lu_out = list_unpack.addOutput()
                 lu_out.setType(out.type())
                 out.replaceAllUsesWith(lu_out)
-            self.graph.appendNode(list_unpack)
-            list_unpack.moveAfter(call_method)
+
             g_node.destroy()
+
         self.get_attr_nodes_for_fusion_group = get_attr_nodes_for_fusion_group
 
     def insert_observer(self):
@@ -152,6 +159,9 @@ class DataPreparer:
             if len(users) != 1:
                 raise RuntimeError("The output of prim::GetAttr of each executable should "
                                    "be used by only one .")
+
+            # Combine the inputs of the Fusion Group into a list
+            # and make the observer record the list
             forward_node = users[0]
             list_pack = self.graph.create('prim::ListConstruct')
             self.graph.appendNode(list_pack)
@@ -160,6 +170,10 @@ class DataPreparer:
                 list_pack.addInput(inp)
             list_pack.output().setType(torch_blade.tools.get_list_tensor_type())
 
+            # insert the observer, three steps:
+            #   1. register the observer
+            #   2. create getattr node for the observer
+            #   3. create call method node for the observer
             collect_observer = DataCollectObserver()
             collect_observer = torch.jit.script(collect_observer)
             observer_name = f"{self.collect_observer_prefix}_{idx}"
@@ -182,6 +196,7 @@ class DataPreparer:
             call_method.addInput(list_pack.output())
             call_method.moveAfter(get_attr)
 
+            # unpack the output of the forward method
             list_unpack = self.graph.create('prim::ListUnpack')
             self.graph.appendNode(list_unpack)
             list_unpack.moveAfter(call_method)

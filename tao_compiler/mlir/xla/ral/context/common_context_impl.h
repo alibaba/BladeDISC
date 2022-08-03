@@ -109,10 +109,14 @@ buffer_shape_t GetShapeFromConstUniqueName(ExecutionContext* ctx,
 
 std::vector<uint8_t> fromHex(const std::string& Input);
 
+// Returns ture if in debug mode.
 bool isDebugMode();
 
 // Returns true is profling mode is enabled.
 bool isProfilingEnabled();
+
+// Returns the maximum number of cpu cores DISC can uses.
+int getNumAvailableCores();
 
 // RAII object for timing measure
 struct CpuTimer {

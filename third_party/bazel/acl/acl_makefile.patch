@@ -5,7 +5,7 @@ index 000000000..3b9cbd810
 +++ b/Makefile
 @@ -0,0 +1,10 @@
 +all:
-+	scons --silent -j$(np) Werror=0 debug=0 neon=1 opencl=0 embed_kernels=0 os=$(os) arch=$(arch) build=native extra_cxx_flags="-fPIC"
++	scons --silent -j$(np) Werror=0 debug=0 neon=1 opencl=0 openmp=1 embed_kernels=0 os=$(os) arch=$(arch) build=native extra_cxx_flags="-fPIC"
 +	rm -f build/*.so
 +	mv build/libarm_compute-static.a build/libarm_compute.a
 +	mv build/libarm_compute_core-static.a build/libarm_compute_core.a

@@ -17,6 +17,10 @@
 #include "mkl.h"
 #endif
 
+#if defined(TAO_AARCH64)
+#include "arm_compute/runtime/Scheduler.h"
+#endif
+
 #include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_mkldnn.h"
 #include "tensorflow/compiler/mlir/xla/ral/context/mkldnn/ideep/ideep_pin_singletons.hpp"
 
@@ -87,6 +91,32 @@ int initWeightPrePackingCacheCapacity() {
   if (!env) return 1000;
   return std::atoi(env);
 }
+
+#if defined(TAO_AARCH64)
+bool applyACLThreadPoolConfigIfNotSet() {
+  static bool status = []() {
+    // make sure oneDNN ACL thread pool is configured first.
+    // It'll be initialized inside the constructor of the engine.
+    (void)ideep::engine::cpu_engine();
+    // override ACL thread pool config if necessary.
+    if (getNumAvailableCores() == 1) {
+      // using single thread scheduler
+      arm_compute::Scheduler::set(arm_compute::Scheduler::Type::ST);
+      TAO_VLOG(1)
+          << "Enforce to use single thread schedule due to `OMP_NUM_THREADS=1`";
+    } else if (const char* scheduler_type = getenv("DISC_ACL_SCHEDULER_TYPE")) {
+      if (std::strcmp(scheduler_type, "OMP") == 0) {
+        arm_compute::Scheduler::set(arm_compute::Scheduler::Type::OMP);
+        arm_compute::Scheduler::get().set_num_threads(getNumAvailableCores());
+        TAO_VLOG(1) << "Use OMP thread schedule with " << getNumAvailableCores()
+                    << " threads";
+      }
+    }
+    return true;
+  }();
+  return status;
+}
+#endif
 
 }  // namespace
 
@@ -429,6 +459,7 @@ void ral_conv(ExecutionContext* ctx, opaque_t stream_handle,
   }
 
 #if defined(TAO_AARCH64)
+  applyACLThreadPoolConfigIfNotSet();
   if (isAclSupportedDepthwiseConv(ctx, stream_handle, input, kernel, padding,
                                   output, metadata, params)) {
     return runAclDepthwiseKernel(ctx, stream_handle, input, kernel, padding,
@@ -745,6 +776,10 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle,
     return;
   }
 
+#if defined(TAO_AARCH64)
+  applyACLThreadPoolConfigIfNotSet();
+#endif
+
   int64_t m = tp_a ? A.sizes[1] : A.sizes[0];
   int64_t k = tp_a ? A.sizes[0] : A.sizes[1];
   if (k != (tp_b ? B.sizes[1] : B.sizes[0])) {
@@ -888,6 +923,10 @@ void ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
     ctx->signalError(Context::FAILURE, "ral_batch_gemm input error");
     return;
   }
+
+#if defined(TAO_AARCH64)
+  applyACLThreadPoolConfigIfNotSet();
+#endif
 
   int64_t batch_a = GetBatchSize(A);
   int64_t batch_b = GetBatchSize(B);

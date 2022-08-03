@@ -12,7 +12,7 @@
 import unittest
 
 import torch
-from tests.quantization import ModelWithFakeQuant, QuantizationTestCase, skipIfNoQuantization
+from tests.quantization import ModelWithFakeQuant, QuantizationTestCase
 from torch.testing import FileCheck
 from torch_blade.quantization import (
     _jit_pass_add_placeholder_for_fake_quant,
@@ -21,7 +21,6 @@ from torch_blade.quantization import (
 
 
 class TestGraphProcess(QuantizationTestCase):
-    @skipIfNoQuantization()
     def test_insert_and_remove_fake_quant(self):
         model = ModelWithFakeQuant().to(self.device)
         inp = torch.randn(1, 4, 5, 5, device=self.device)

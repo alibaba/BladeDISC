@@ -15,18 +15,18 @@ import torch
 from tests.quantization import QuantizationTestCase
 from torch import nn
 from torch.testing import FileCheck
+from torch_blade import tensorrt
 from torch_blade.clustering.support_fusion_group import supported_node_fusion
 from torch_blade.pass_manager import _optimize_common
 from torch_blade.quantization.prepare_data import (DataCollectObserver,
                                                    DataPreparer)
-from torch_blade.tensorrt.tensorrt_optimization import get_unsupported_nodes
 
 
 def prepare_for_data_collect(model):
     optimized_c_module = _optimize_common(model._c, static_shape=False)
     model._reconstruct(optimized_c_module)
     graph = model._c.forward.graph
-    unsupported = get_unsupported_nodes(graph, q_info=None)
+    unsupported = tensorrt.get_unsupported_nodes(graph, q_info=None)
     supported_node_fusion(graph, graph, unsupported, q_info=None)
     return model
 

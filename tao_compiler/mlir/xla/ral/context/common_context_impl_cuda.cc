@@ -153,7 +153,7 @@ template <typename T>
 MemRefType<T, 0> ral_base_cuda_const_cuda_0d(ExecutionContext* ctx,
                                              void* stream_handle,
                                              const char* unique_name) {
-  buffer_shape_t* shape;
+  buffer_shape_t* shape = nullptr;
   buffer_t ptr =
       ral_base_cuda_const_cuda_internal(ctx, stream_handle, unique_name, shape);
   if (!shape || shape->size() != 0) {

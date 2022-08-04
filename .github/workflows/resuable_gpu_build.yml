@@ -30,6 +30,10 @@ on:
       runtime_base_image:
         required: false
         type: string
+      runner_tag:
+        required: false
+        type: string
+        default: gpu-t4
     secrets:
       ALIYUN_DOCKER_USERNAME:
         required: false
@@ -44,7 +48,7 @@ jobs:
   CUDA:
     if: github.repository == 'alibaba/BladeDISC'
     # The type of runner that the job will run on
-    runs-on: [self-hosted, gpu-t4]
+    runs-on: ${{ inputs.runner_tag }}
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Runs a single command using the runners shell

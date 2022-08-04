@@ -27,13 +27,6 @@ else:
     zero_point_dtype = torch.long
 
 
-def skipIfNoQuantization():
-    # only trt backend is supported for quantization
-    return unittest.skipIf(
-        not is_quantization_available() or not is_tensorrt_available(),
-        "Quantization support was not built")
-
-
 class ModelWithFakeQuant(nn.Module):
     def __init__(self):
         super().__init__()
@@ -56,3 +49,6 @@ class QuantizationTestCase(TestCase):
     def setUp(self):
         super().setUp()
         self.is_quantization_available = is_quantization_available()
+        self.is_trt_available = is_tensorrt_available()
+        if not is_quantization_available() or not is_tensorrt_available():
+            self.skipTest("Quantization support was not built")

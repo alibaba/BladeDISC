@@ -19,7 +19,6 @@
 
 #include <iostream>
 #include <thread>
-#include <unordered_map>
 
 #include "tensorflow/compiler/mlir/xla/ral/ral_driver.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"

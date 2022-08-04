@@ -50,7 +50,7 @@ struct ConstStoreRegistrar {
 };
 
 struct RalGlobalConstantState : public tao::ral::Context::Resource {
-  std::recursive_mutex mu;
+  std::mutex mu;
   mlir::MetadataProto metadata_proto;
   // If not null, use the process level const store instead of this context
   // level store
@@ -59,8 +59,19 @@ struct RalGlobalConstantState : public tao::ral::Context::Resource {
   // in theory, there might be two constants with the same data value but
   // different shapes however for simplicity we just use the whole unique_name
   // as the key. This can be further optimized in case neccessary.
-  std::map<std::string, std::pair<buffer_t, buffer_shape_t>> device_constants;
-  std::map<std::string, std::pair<buffer_t, buffer_shape_t>> host_constants;
+  std::unordered_map<std::string, std::pair<buffer_t, buffer_shape_t>>
+      device_constants;
+  std::unordered_map<std::string, std::pair<buffer_t, buffer_shape_t>>
+      host_constants;
+
+  // fast path: using a const char * pointer to look up.
+  // Note that: any compiled-const should have a static global const string,
+  // thus it's safe to just use the pointer as key.
+  std::unordered_map<const char*, std::pair<buffer_t, buffer_shape_t>>
+      device_constants_by_cstr;
+  // fast path: using a const char * pointer to look up.
+  std::unordered_map<const char*, std::pair<buffer_t, buffer_shape_t>>
+      host_constants_by_cstr;
 
   void onContextFinish(Context* ctx) override;
 };

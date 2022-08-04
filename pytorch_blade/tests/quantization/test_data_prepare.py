@@ -38,7 +38,7 @@ class TestDataCollectorObserver(QuantizationTestCase):
         origin_data = [
             torch.randn(1, 2).to(self.device), torch.randn(3).to(self.device)
         ]
-        new_data = script_observer(origin_data)
+        new_data = script_observer.collect(origin_data)
         self.assertEqual(len(origin_data), len(new_data))
         for o, n in zip(origin_data, new_data):
             self.assertTrue(torch.equal(o, n))

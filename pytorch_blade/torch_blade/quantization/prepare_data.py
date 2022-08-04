@@ -19,6 +19,7 @@ from torch_blade import utils
 from torch_blade.clustering.support_group_conversion import group_nodes, replace_group_with_engine
 from torch_blade.config import Config
 from torch_blade.logging import logger
+from torch_blade.tools.shape_inference import jit_add_observer
 
 
 class DataCollectObserver(torch.nn.Module):
@@ -28,7 +29,8 @@ class DataCollectObserver(torch.nn.Module):
         to_make_data_init = [torch.randn(1), ]
         self.data: List[List[torch.Tensor]] = [to_make_data_init]
 
-    def forward(self, inputs: List[torch.Tensor]):
+    @torch.jit.export
+    def collect(self, inputs: List[torch.Tensor]):
         # move the tensor to cpu to avoid cuda oom
         inputs_cpu = [inp.cpu() for inp in inputs]
         self.data.append(inputs_cpu)
@@ -161,18 +163,13 @@ class DataPreparer:
                 collect_observer._c._type(),
                 collect_observer._c
             )
-            get_attr = self.graph.createGetAttr(self.custom_module_owner_inp, observer_name)
-            get_attr.output().setType(collect_observer._c._type())
-            self.graph.appendNode(get_attr)
-            get_attr.moveAfter(list_pack)
 
-            call_method = self.graph.create("prim::CallMethod")
-            self.graph.appendNode(call_method)
-            call_method.output().setType(torch_blade.tools.get_list_tensor_type())
-            call_method.s_("name", "forward")
-            call_method.addInput(get_attr.output())
-            call_method.addInput(list_pack.output())
-            call_method.moveAfter(get_attr)
+            get_attr, call_method = jit_add_observer(
+                self.graph,
+                (self.custom_module_owner_inp, observer_name, collect_observer._c._type()),
+                list_pack.output(),
+                method_name="collect",
+            )
 
             # unpack the output of the forward method
             list_unpack = self.graph.create('prim::ListUnpack')

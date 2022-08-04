@@ -42,7 +42,7 @@ class RecordingObserver(torch.nn.Module):
         return x
 
 
-def _jit_add_observer(graph, jit_obs, value):
+def jit_add_observer(graph, jit_obs, value, method_name='record'):
     obs_module, attr_name, obs_type = jit_obs
     get_attr = graph.createGetAttr(obs_module, attr_name)
     graph.appendNode(get_attr)
@@ -53,7 +53,7 @@ def _jit_add_observer(graph, jit_obs, value):
     #
     # TODO: support tensorrt dynamic shape,
     # which need min/max/opt profiler shape.
-    call_method.s_('name', 'record')
+    call_method.s_('name', method_name)
     value.replaceAllUsesWith(call_method.output())
     call_method.addInput(get_attr.output())
     call_method.addInput(value)
@@ -99,7 +99,7 @@ def _add_tensor_observers(graph):
         obs = torch.jit.script(RecordingObserver())
         observer_owner._c._register_attribute(attr_name, obs._c._type(), obs)
         obs_type = obs._c._type()
-        get_attr, call_method = _jit_add_observer(graph, (jit_obs_m, attr_name, obs_type), tensor)
+        get_attr, call_method = jit_add_observer(graph, (jit_obs_m, attr_name, obs_type), tensor)
         observers.append((attr_name, tensor, get_attr, call_method))
 
     return observer_owner, observers

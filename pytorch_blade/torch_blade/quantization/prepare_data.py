@@ -16,7 +16,7 @@ from typing import List
 import torch
 import torch_blade
 from torch_blade import utils
-from torch_blade.clustering.support_group_conversion import group_nodes
+from torch_blade.clustering.support_group_conversion import group_nodes, replace_group_with_engine
 from torch_blade.config import Config
 from torch_blade.logging import logger
 
@@ -98,38 +98,16 @@ class DataPreparer:
             self.custom_module_owner._c._register_attribute(
                 group_name, fallback_module._type(), fallback_module
             )
-
-            # getattr node for the fusion group
-            get_attr = self.graph.createGetAttr(self.custom_module_owner_inp, group_name)
-            self.graph.appendNode(get_attr)
-            get_attr.moveAfter(g_node)
-            get_attr.output().setType(fallback_module._type())
-            get_attr_nodes_for_fusion_group.append(get_attr)
-
-            # call the forward function of the fusion group
-            call_method = self.graph.create("prim::CallMethod")
-            self.graph.appendNode(call_method)
-            call_method.moveAfter(get_attr)
-            # prim::CallMethod can not return multiple output, so we set
-            # the type of output to Tensor List
-            call_method.output().setType(torch_blade.tools.get_list_tensor_type())
-            call_method.s_("name", "forward")
-            call_method.addInput(get_attr.output())
-            for inp in g_node.input_list():
-                call_method.addInput(inp)
-
-            # unpack the output of the forward method
-            list_unpack = self.graph.create('prim::ListUnpack')
-            self.graph.appendNode(list_unpack)
-            list_unpack.moveAfter(call_method)
-            list_unpack.addInput(call_method.output())
-            list_unpack.eraseOutput(0)
-            for out in g_node.output_list():
-                lu_out = list_unpack.addOutput()
-                lu_out.setType(out.type())
-                out.replaceAllUsesWith(lu_out)
-
-            g_node.destroy()
+            attr_node = replace_group_with_engine(
+                self.graph,
+                self.custom_module_owner_inp,
+                g_node,
+                group_name,
+                fallback_module._type(),
+                group_inputs=False,
+                engine_method_name="forward",
+            )
+            get_attr_nodes_for_fusion_group.append(attr_node)
 
         self.get_attr_nodes_for_fusion_group = get_attr_nodes_for_fusion_group
 

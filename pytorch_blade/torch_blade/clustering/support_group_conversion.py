@@ -11,12 +11,9 @@
 
 import torch
 import torch_blade
-
-from torch_blade import utils
-from torch_blade import tools
-from torch_blade import pass_manager
+from torch_blade import pass_manager, tools, utils
 from torch_blade.logging import logger
-# from torch_blade import tensorrt
+
 
 def _inline_node_with_subgraph(graph, old_node, subgraph):
     value_map = dict()
@@ -38,33 +35,45 @@ def _inline_node_with_subgraph(graph, old_node, subgraph):
     old_node.destroy()
     return outputs
 
-def _replace_group_with_engine(module, node, attr_name, eng_type):
-    graph = module.forward.graph
-    ginputs = [inp for inp in graph.inputs()]
-    m_self = ginputs[0]
 
+def replace_group_with_engine(
+        graph,
+        module_holder,
+        node,
+        attr_name,
+        eng_type,
+        group_inputs=True,
+        engine_method_name="execute",
+):
     attr = graph.create('prim::GetAttr')
-    attr.addInput(m_self)
+    attr.addInput(module_holder)
     attr.s_('name', attr_name)
     attr.output().setType(eng_type)
     graph.appendNode(attr)
     attr.moveBefore(node)
 
-    # create input_list of self.engine.execute, something like:
-    # %12 : Tensor[] = prim::ListConstruct(%10, %11)
-    list_constuct = graph.create('prim::ListConstruct')
-    for inp in node.inputs():
-        list_constuct.addInput(inp)
-    list_constuct.output().setType(torch_blade.tools.get_list_tensor_type())
-    graph.appendNode(list_constuct)
-    list_constuct.moveBefore(node)
+    if group_inputs:
+        # create input_list of self.engine.execute, something like:
+        # %12 : Tensor[] = prim::ListConstruct(%10, %11)
+        list_constuct = graph.create('prim::ListConstruct')
+        for inp in node.inputs():
+            list_constuct.addInput(inp)
+        list_constuct.output().setType(torch_blade.tools.get_list_tensor_type())
+        graph.appendNode(list_constuct)
+        list_constuct.moveBefore(node)
 
     # create prim::CallMethod, something like:
-    # %5 : Tensor[] = prim::CallMethod[name="execute"](%3, %input_list)
     call_method = graph.create('prim::CallMethod')
-    call_method.s_('name', 'execute')
+    call_method.s_('name', engine_method_name)
     call_method.addInput(attr.output())
-    call_method.addInput(list_constuct.output())
+    if group_inputs:
+        # %5 : Tensor[] = prim::CallMethod[name="execute"](%3, %input_list)
+        call_method.addInput(list_constuct.output())
+    else:
+        # %5 : Tensor[] = prim::CallMethod[name="execute"](%3, %input1, %input2, ...)
+        for inp in node.input_list():
+            call_method.addInput(inp)
+
     call_method.output().setType(torch_blade.tools.get_list_tensor_type())
     graph.appendNode(call_method)
     call_method.moveBefore(node)
@@ -84,6 +93,8 @@ def _replace_group_with_engine(module, node, attr_name, eng_type):
 
     # destory node
     node.destroy()
+    return attr
+
 
 def _adapt_input_value(graph, consumer_node, value):
     placeholder = graph.create('torch_blade::placeholder')
@@ -176,7 +187,10 @@ def group_node_to_engine(module, node, try_cvt_to_engine_func, q_info, adapt_num
         _adapt_node_number_outputs(module.forward.graph, node)
         _adapt_node_number_inputs(module.forward.graph, node)
 
-    _replace_group_with_engine(module, node, attr_name, eng_type)
+    graph = module.forward.graph
+    engine_holder = graph.input_list()[0]
+
+    replace_group_with_engine(graph, engine_holder, node, attr_name, eng_type)
 
 def group_nodes(block):
     grp_nodes = []

@@ -39,6 +39,9 @@
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
+#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
+#include "tensorflow/compiler/mlir/disc/IR/rng_uniform_custom_call_op.h"
+
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
@@ -789,6 +792,80 @@ LogicalResult ConvertAtenOp<AtenGeluOp>::matchAndRewrite(
   auto erf_add = rewriter.create<mhlo::AddOp>(loc, erf, one);
   auto half_mul = rewriter.create<mhlo::MulOp>(loc, erf_add, half);
   rewriter.replaceOpWithNewOp<mhlo::MulOp>(op, input, half_mul);
+  return success();
+}
+
+template <>
+LogicalResult ConvertAtenOp<AtenGeluBackwardOp>::matchAndRewrite(
+    AtenGeluBackwardOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  Value input = adaptor.self();
+  Value grad_output = adaptor.self();
+  Value half = chlo::getConstantLike(rewriter, loc, 0.5, input);
+  Value one = chlo::getConstantLike(rewriter, loc, 1.0, input);
+  Value m_2_sqrtpi = chlo::getConstantLike(
+      rewriter, loc, 1.12837916709551257389615890312154517, input);
+  Value m_sqrt1_2 = chlo::getConstantLike(
+      rewriter, loc, 0.707106781186547524400844362104849039, input);
+
+  Value alpha = rewriter.create<mhlo::MulOp>(loc, m_2_sqrtpi, m_sqrt1_2);
+  alpha = rewriter.create<mhlo::MulOp>(loc, alpha, half);
+  Value scratch = rewriter.create<chlo::ErfOp>(
+      loc, rewriter.create<mhlo::MulOp>(loc, input, m_sqrt1_2));
+
+  // dinput = exp(input * input * neg(half))
+  Value dinput = rewriter.create<mhlo::MulOp>(loc, input, input);
+  Value neg_half = rewriter.create<mhlo::NegOp>(loc, half);
+  dinput = rewriter.create<mhlo::MulOp>(loc, input, neg_half);
+
+  // result = grad_output * (half * (one + scratch) + input * dinput * alpha)
+  Value half_one = rewriter.create<mhlo::AddOp>(loc, one, scratch);
+  half_one = rewriter.create<mhlo::MulOp>(loc, half, half_one);
+
+  Value input_alpha = rewriter.create<mhlo::MulOp>(loc, input, dinput);
+  input_alpha = rewriter.create<mhlo::MulOp>(loc, input_alpha, alpha);
+
+  Value result = rewriter.create<mhlo::AddOp>(loc, half_one, input_alpha);
+  result = rewriter.create<mhlo::MulOp>(loc, grad_output, result);
+  rewriter.replaceOp(op, {result});
+  return success();
+}
+
+// Convert AtenEmptyMemoryFormatOp to const ones Tensor
+// please note: The AtenEmptyMemoryFormatOp is not according to value sematic,
+// and AtenEmptyMemoryFormatOp is a side-effected, to elimiate this op after
+// Canonicalizer pass, we lower this op to a constant ones op, this is a tracy
+// way.
+template <>
+LogicalResult ConvertAtenOp<AtenEmptyMemoryFormatOp>::matchAndRewrite(
+    AtenEmptyMemoryFormatOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto outType = getTypeConverter()
+                     ->convertType(op.getType())
+                     .template dyn_cast<TensorType>();
+  auto loc = op.getLoc();
+  auto shape = adaptor.size();
+  SmallVector<Value, 4> dimSizes;
+  getListConstructElements(shape, dimSizes);
+  // BladeDISC use i32 as shape
+  std::for_each(dimSizes.begin(), dimSizes.end(), [&](Value& dSize) {
+    dSize = rewriter.create<ToI64Op>(loc, dSize).getResult();
+    // dimSize: cast i64 -> i32
+    dSize = rewriter.create<arith::TruncIOp>(loc, rewriter.getI32Type(), dSize);
+    return dSize;
+  });
+
+  auto mhloShape = rewriter.create<mlir::tensor::FromElementsOp>(loc, dimSizes);
+  auto constOp =
+      mhlo::getConstTensor<int32_t>(rewriter, op, {1.0}, {}).getValue();
+
+  auto result = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+      loc, outType, constOp, mhloShape, rewriter.getI64TensorAttr({}));
+
+  rewriter.replaceOp(op, {result});
   return success();
 }
 
@@ -1731,8 +1808,13 @@ LogicalResult ConvertAtenOp<PrimNumToTensorScalarOp>::matchAndRewrite(
 
   Value constOp;
   double val;
-  if (!matchPattern(op.a(), m_TorchConstantFloat(&val)))
-    return op.emitError("input should be constant");
+  if (!matchPattern(op.a(), m_TorchConstantFloat(&val))) {
+    constOp = scalarToMhloTensor(
+        rewriter, op, adaptor.a(), outType.getElementType(), {});
+    rewriter.replaceOp(op, constOp);
+    return success();
+  }
+  // return op.emitError("input should be constant");
 
   if (failed(torchScalarToMhloTensor(
           rewriter,
@@ -1991,6 +2073,75 @@ LogicalResult ConvertAtenOp<AtenBroadcastToOp>::matchAndRewrite(
       adaptor.self(),
       mhloShape,
       broadcastDims);
+  return success();
+}
+
+StringAttr PackRandomUniformBackendConfig(
+    IntegerAttr seed,
+    IntegerAttr seed2,
+    PatternRewriter* rewriter) {
+  mhlo_disc::RngUniformBackendConfig config(
+      seed.getValue().getSExtValue(), seed2.getValue().getSExtValue());
+  std::string str;
+  llvm::raw_string_ostream ostream(str);
+  ostream << ::llvm::json::toJSON(config);
+  return rewriter->getStringAttr(ostream.str());
+}
+
+template <>
+LogicalResult ConvertAtenOp<ValsemVariantAtenUniformOp>::matchAndRewrite(
+    ValsemVariantAtenUniformOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto inputTy = adaptor.self().getType().template cast<RankedTensorType>();
+  auto loc = op.getLoc();
+  if (!inputTy) {
+    op.emitError("input should be ranked tensor type.");
+  }
+  auto definingOp = op.self().getDefiningOp();
+  auto shape = definingOp->getOperand(0);
+  SmallVector<Value, 4> dimSizes;
+  getListConstructElements(shape, dimSizes);
+  std::for_each(dimSizes.begin(), dimSizes.end(), [&](Value& dSize) {
+    dSize = rewriter.create<ToI64Op>(loc, dSize).getResult();
+    // dimSize: cast i64 -> i32
+    dSize = rewriter.create<arith::TruncIOp>(loc, rewriter.getI32Type(), dSize);
+    return dSize;
+  });
+
+  auto mhloShape =
+      rewriter.create<tensor::FromElementsOp>(op.getLoc(), dimSizes);
+
+  double fromDoubleValue, toDoubleValue;
+  if (!matchPattern(op.from(), m_TorchConstantFloat(&fromDoubleValue))) {
+    op.emitError("operand #1 should be scalar");
+  }
+  if (!matchPattern(op.to(), m_TorchConstantFloat(&toDoubleValue))) {
+    op.emitError("operand #2 should be scalar");
+  }
+  Value fromTensor = rewriter.create<mhlo::ConstantOp>(
+      op.getLoc(),
+      rewriter.getFloatAttr(inputTy.getElementType(), fromDoubleValue));
+  Value toTensor = rewriter.create<mhlo::ConstantOp>(
+      op.getLoc(),
+      rewriter.getFloatAttr(inputTy.getElementType(), toDoubleValue));
+
+  auto cfg = PackRandomUniformBackendConfig(
+      rewriter.getIntegerAttr(rewriter.getI32Type(), 1),
+      rewriter.getIntegerAttr(rewriter.getI32Type(), 2),
+      &rewriter);
+  auto outType = getTypeConverter()
+                     ->convertType(op.getType())
+                     .template dyn_cast<TensorType>();
+
+  auto custom_call_op = rewriter.create<mhlo_disc::CustomCallOp>(
+      op.getLoc(),
+      TypeRange{outType},
+      ValueRange{fromTensor, toTensor, mhloShape},
+      rewriter.getStringAttr("rng_uniform"),
+      rewriter.getBoolAttr(false),
+      cfg);
+  rewriter.replaceOp(op, {custom_call_op.getResult(0)});
   return success();
 }
 
@@ -2372,8 +2523,9 @@ class ConvertAtenFillScalarOp : public OpConversionPattern<AtenOpT> {
                        .template dyn_cast<TensorType>();
 
     if (!outType || !outType.hasStaticShape())
-      return op.emitError(
-          "Only Tensor types with static shapes are currently supported");
+      if (!outType)
+        return op.emitError(
+            "Only Tensor types with static shapes are currently supported");
 
     Type outElemTy = outType.getElementType();
     if (!outElemTy.isIntOrFloat()) {
@@ -2406,6 +2558,7 @@ class ConvertTorchToMhlo
     registry.insert<mhlo::MhloDialect>();
     registry.insert<tensor::TensorDialect>();
     registry.insert<arith::ArithmeticDialect>();
+    registry.insert<mhlo_disc::MhloDiscDialect>();
     TorchConversion::getBackendTypeConversionDependentDialects(registry);
   }
 
@@ -2415,6 +2568,7 @@ class ConvertTorchToMhlo
     target.addLegalDialect<
         chlo::ChloDialect,
         mhlo::MhloDialect,
+        mhlo_disc::MhloDiscDialect,
         tensor::TensorDialect,
         arith::ArithmeticDialect>();
 
@@ -2472,8 +2626,8 @@ class ConvertTorchToMhlo
         AtenGtScalarOp, mhlo::ComparisonDirection::GT);
     // INSERT_BINARY_COMPARE_PATTERN(AtenGeTensorOp,
     // mhlo::ComparisonDirection::GE);
-    // INSERT_BINARY_COMPARE_PATTERN(AtenGeScalarOp,
-    // mhlo::ComparisonDirection::GE);
+    INSERT_BINARY_COMPARE_PATTERN(
+        AtenGeScalarOp, mhlo::ComparisonDirection::GE);
     INSERT_BINARY_COMPARE_PATTERN(
         AtenEqTensorOp, mhlo::ComparisonDirection::EQ);
     INSERT_BINARY_COMPARE_PATTERN(
@@ -2586,8 +2740,10 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenFlipOp);
     INSERT_ATENOP_PATTERN(AtenIndexSelectOp);
     INSERT_ATENOP_PATTERN(AtenRollOp);
+    INSERT_ATENOP_PATTERN(ValsemVariantAtenUniformOp);
     INSERT_ATENOP_PATTERN(TensorStaticInfoCastOp);
-    // INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
+    INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
+    INSERT_ATENOP_PATTERN(AtenEmptyMemoryFormatOp);
 #undef INSERT_ATENOP_PATTERN
 
 #define INSERT_VIEW_OP_PATTERN(AtenOp) \

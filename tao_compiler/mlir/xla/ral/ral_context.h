@@ -24,6 +24,7 @@
 #include <mutex>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
 
 #include "tensorflow/compiler/mlir/xla/ral/ral_base.h"
@@ -163,8 +164,14 @@ class ExecutionContext {
   template <typename T>
   T* getOrCreateResource(const std::string& key,
                          std::function<Context::Resource*()> creator) {
-    return static_cast<T*>(
-        getContext()->getOrCreateResource(key, creator).get());
+    auto it = cachedResources_.find(key);
+    if (it == cachedResources_.end()) {
+      it = cachedResources_
+               .emplace(key,
+                        getContext()->getOrCreateResource(key, creator).get())
+               .first;
+    }
+    return static_cast<T*>(it->second);
   }
 
   template <typename T>
@@ -188,6 +195,7 @@ class ExecutionContext {
  private:
   struct Impl;
   std::unique_ptr<Impl> impl_;
+  std::unordered_map<std::string, Context::Resource*> cachedResources_;
 };
 
 template <typename T,

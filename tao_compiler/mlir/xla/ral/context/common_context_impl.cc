@@ -302,7 +302,7 @@ std::vector<uint8_t> fromHex(const std::string& Input) {
 
 inline buffer_t ral_base_cuda_const_host_internal(ExecutionContext* ctx,
                                                   const char* unique_name,
-                                                  buffer_shape_t& shape) {
+                                                  buffer_shape_t*& shape) {
   auto* state =
       ctx->getResource<RalGlobalConstantState>(kRalGlobalConstantState);
   // if process-level const store is enabled, use it instead of the context
@@ -313,9 +313,19 @@ inline buffer_t ral_base_cuda_const_host_internal(ExecutionContext* ctx,
     use_process_store = true;
   }
 
-  buffer_t ptr = nullptr;
   {
-    std::lock_guard<std::recursive_mutex> lock(state->mu);
+    std::lock_guard<std::mutex> lock(state->mu);
+    // Fast path: just using the raw pointer as key. Note that: any
+    // compiled-const should have a static global const string name, thus it's
+    // safe to just use the pointer as key.
+    {
+      auto it = state->host_constants_by_cstr.find(unique_name);
+      if (it != state->host_constants_by_cstr.end()) {
+        shape = &it->second.second;
+        return it->second.first;
+      }
+    }
+
     std::string key(unique_name);
     auto it = state->host_constants.find(key);
     if (it == state->host_constants.end()) {
@@ -355,35 +365,35 @@ inline buffer_t ral_base_cuda_const_host_internal(ExecutionContext* ctx,
       it = state->host_constants
                .insert(std::make_pair(key, std::make_pair(data_ptr, dim_sizes)))
                .first;
+      state->host_constants_by_cstr.emplace(
+          unique_name, std::make_pair(data_ptr, dim_sizes));
     }
-    ptr = it->second.first;
-    shape = it->second.second;
+    shape = &it->second.second;
+    return it->second.first;
   }
-
-  return ptr;
 }
 
 template <typename T, int N>
 MemRefType<T, N> ral_base_cuda_const_host(ExecutionContext* ctx,
                                           void* stream_handle,
                                           const char* unique_name) {
-  buffer_shape_t shape;
+  buffer_shape_t* shape = nullptr;
   buffer_t ptr = ral_base_cuda_const_host_internal(ctx, unique_name, shape);
-  if (shape.size() != N) {
+  if (!shape || shape->size() != N) {
     ctx->signalError(Context::FAILURE,
                      "Error: unexpected shape string in unique_name");
   }
 
-  return assignMemRef<T, N>(ptr, shape);
+  return assignMemRef<T, N>(ptr, *shape);
 }
 
 template <typename T>
 MemRefType<T, 0> ral_base_cuda_const_host_0d(ExecutionContext* ctx,
                                              void* stream_handle,
                                              const char* unique_name) {
-  buffer_shape_t shape;
+  buffer_shape_t* shape = nullptr;
   buffer_t ptr = ral_base_cuda_const_host_internal(ctx, unique_name, shape);
-  if (shape.size() != 0) {
+  if (!shape || shape->size() != 0) {
     ctx->signalError(Context::FAILURE,
                      "Error: unexpected shape string in unique_name");
   }

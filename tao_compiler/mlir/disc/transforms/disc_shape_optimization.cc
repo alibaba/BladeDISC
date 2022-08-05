@@ -1111,7 +1111,8 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloDotLikeOpConstraint(
     if (lhsTy.getRank() != lhsDims.size() || rhsTy.getRank() != rhsDims.size())
       return op->emitError("lhs or rhs mismatch rank\n");
 
-    if (failed(mgr_.mapSymbolicDimEqual(lhsDims[1], rhsDims[0])))
+    if (failed(
+            mgr_.mapSymbolicDimEqual(lhsDims[lhsTy.getRank() - 1], rhsDims[0])))
       return op->emitError() << "fail to merge dim\n";
   } else if (auto einsum = dyn_cast<mhlo::EinsumOp>(op)) {
     auto lhsTy = einsum.lhs().getType().dyn_cast<RankedTensorType>();

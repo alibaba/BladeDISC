@@ -59,10 +59,8 @@ class Int8EntropyCalibrator2 : public nvinfer1::IInt8EntropyCalibrator2 {
     return calib_impl.getBatchSize();
   }
 
-  bool bool getBatch(
-      void* bindings[],
-      const char* names[],
-      int nbBindings) noexcept override {
+  bool getBatch(void* bindings[], const char* names[], int nbBindings) noexcept
+      override {
     return calib_impl.getBatch(bindings, names, nbBindings);
   }
 
@@ -70,7 +68,7 @@ class Int8EntropyCalibrator2 : public nvinfer1::IInt8EntropyCalibrator2 {
     return calib_impl.readCalibrationCache(length);
   }
 
-  void void writeCalibrationCache(const void* cache, size_t length) noexcept
+  void writeCalibrationCache(const void* cache, size_t length) noexcept
       override {
     calib_impl.writeCalibrationCache(cache, length);
   }

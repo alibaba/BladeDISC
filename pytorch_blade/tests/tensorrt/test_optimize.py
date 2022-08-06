@@ -26,13 +26,40 @@ from torch.testing import FileCheck
 from tests.tensorrt import skipIfNoTensorRT
 
 
+class TestModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        # The channel should be a bit larger to make sure that
+        # the fp16 kernel is faster that fp32 and thus be chosen
+        # when building fp16 trt engine.
+        self.conv1 = nn.Conv2d(4, 64, 3, 1, 1, bias=False)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.conv2 = nn.Conv2d(64, 128, 3, 1, 1, bias=False)
+        self.bn2 = nn.BatchNorm2d(128)
+        self.conv3 = nn.Conv2d(128, 4, 3, 1, 1, bias=False)
+        self.bn3 = nn.BatchNorm2d(4)
+
+    def forward(self, x):
+        y = x
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = F.relu(x)
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = F.relu(x)
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = F.relu(x)
+        x = y + x
+        return x
+
+
 @skipIfNoTensorRT()
 class TestOptimize(TestCase):
     def setUp(self):
         super().setUp()
-
-        model = torchvision.models.resnet18().cuda().eval()
-        dummy_input = torch.randn(1, 3, 224, 224).cuda()
+        model = TestModel().cuda().eval()
+        dummy_input = torch.randn(1, 4, 64, 64).cuda()
         original_output = model(dummy_input)
         self.model = model
         self.dummy_input = dummy_input
@@ -45,6 +72,10 @@ class TestOptimize(TestCase):
     def _calculate_model_output(self, model, allow_tracing=None, model_inputs=None):
         new_cfg = Config.get_current_context_or_new()
         new_cfg.optimization_pipeline = "TensorRT"
+        if model_inputs is None:
+            # used for recording the shape, or the model will not be compiled
+            # by trt.
+            model_inputs = self.dummy_input
         with new_cfg:
             optimized_model = optimize(model, allow_tracing, model_inputs)
         return optimized_model(self.dummy_input)

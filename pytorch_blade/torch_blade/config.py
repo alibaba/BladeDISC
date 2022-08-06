@@ -168,7 +168,7 @@ class Config(ConfigContext):
         # List. So this config allows users to directly pass inputs corresponding to min/max/opts
         self._dynamic_tuning_inputs = {}
         self._extra_dynamic_tuning_shapes = {}
-        self._quantization_calibration_data = {}
+        self._quantization_calibration_data = None
         self._preserved_attributes = []
         self._customize_onnx_opset_version = None
         self._enable_force_to_cuda = False

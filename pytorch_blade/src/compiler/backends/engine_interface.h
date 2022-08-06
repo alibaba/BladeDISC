@@ -18,6 +18,10 @@
 namespace torch {
 namespace blade {
 namespace backends {
+
+typedef std::vector<at::Tensor> SingleCalibInputType;
+typedef std::vector<SingleCalibInputType> AllCalibDataType;
+
 struct EngineState {
   typedef c10::Dict<std::string, std::string> AttrType;
   typedef torch::blade::backends::TensorInfo TensorType;
@@ -28,6 +32,11 @@ struct EngineState {
   TORCH_BLADE_BACKENDS_DEFINE_FIELD(inputs, std::vector<TensorType>);
   TORCH_BLADE_BACKENDS_DEFINE_FIELD(outputs, std::vector<TensorType>);
   TORCH_BLADE_BACKENDS_DEFINE_FIELD(extra_attrs, AttrType);
+
+  // As a medium for passing values from python to c++ and
+  // will not be serialized
+
+  TORCH_BLADE_BACKENDS_DEFINE_FIELD(grp_calib_data, AllCalibDataType);
 
   using SerialType = std::tuple<
       std::string,

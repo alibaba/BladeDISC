@@ -10,20 +10,18 @@
 # limitations under the License.
 
 import os
-import unittest
 import tempfile
+import unittest
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision
-
-from torch_blade.config import Config
-from torch_blade import utils
-from torch_blade import optimization as opt
-from torch_blade import optimize
-from torch_blade.testing.common_utils import TestCase
-from torch.testing import FileCheck
 from tests.tensorrt import skipIfNoTensorRT
+from torch.testing import FileCheck
+from torch_blade import optimization as opt
+from torch_blade import optimize, utils
+from torch_blade.config import Config
+from torch_blade.testing.common_utils import TestCase
 
 
 class TestModel(nn.Module):
@@ -124,7 +122,9 @@ class TestOptimize(TestCase):
         new_cfg.enable_fp16 = True
         new_cfg.fp16_fallback_op_ratio = 0.5
         with new_cfg:
-            amp_fp16_output = self._calculate_model_output(self.model, model_inputs=self.dummy_input)
+            amp_fp16_output = self._calculate_model_output(
+                self.model, model_inputs=self.dummy_input
+            )
             self.assertEqual(self.original_output, amp_fp16_output, atol=1e-2, rtol=1e-2)
 
     def test_secondary_optimization(self):

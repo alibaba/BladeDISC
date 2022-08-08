@@ -104,7 +104,7 @@ void initModules<false>(py::module& m) {
       .def_readwrite("backend_name", &EngineState::backend_name)
       .def_readwrite("inputs", &EngineState::inputs)
       .def_readwrite("outputs", &EngineState::outputs)
-      .def_readwrite("grp_calib_data", &EngineState::grp_calib_data)
+      .def_readwrite("grp_calib_data", &EngineState::calib_data)
       .def_readwrite("extra_attrs", &EngineState::extra_attrs);
 
   backends.def("register_engine", register_engine);

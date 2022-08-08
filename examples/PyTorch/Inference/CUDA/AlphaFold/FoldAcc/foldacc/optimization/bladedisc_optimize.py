@@ -44,7 +44,7 @@ def bladedisc_optimize(model, inputs, optimize_config):
         
         save_path = f"{optimize_config.temp_dir}/save_model{other_tag}.pt"
         data_path = f"{optimize_config.temp_dir}/input_data{other_tag}.pth"
-        load_path = f"{optimize_config.temp_dir}/load_model{other_tag}.pth"
+        load_path = f"{optimize_config.temp_dir}/load_model{other_tag}.pt"
 
         torch.jit.save(model, save_path)
         torch.save(inputs, data_path)

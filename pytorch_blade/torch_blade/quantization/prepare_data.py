@@ -214,7 +214,7 @@ def get_calib_file_for_each_group(c_module):
         except Exception as e:
             logger.warning(f"Unable to get calib file for each graph group due to {e}.")
 
-    with tempfile.TemporaryDirectory(prefix="torch_blade") as tmp_dirname:
+    with tempfile.TemporaryDirectory(prefix=".torch_blade") as tmp_dirname:
         if calib_data_for_all_fusion_group is not None:
             calib_file_path = os.path.join(tmp_dirname, "calibration_data.pt")
             torch.save(calib_data_for_all_fusion_group, calib_file_path)

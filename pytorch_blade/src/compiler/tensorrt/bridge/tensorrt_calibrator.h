@@ -23,11 +23,11 @@ namespace torch {
 namespace blade {
 namespace tensorrt {
 
-using torch::blade::backends::AllCalibDataType;
+using torch::blade::backends::CalibDataType;
 
 class Int8EntropyCalibrator2Impl {
  public:
-  Int8EntropyCalibrator2Impl(const AllCalibDataType& grp_calib_data);
+  Int8EntropyCalibrator2Impl(const CalibDataType& calib_data);
 
   ~Int8EntropyCalibrator2Impl();
 
@@ -41,7 +41,7 @@ class Int8EntropyCalibrator2Impl {
   void writeCalibrationCache(const void* cache, size_t length) {}
 
  private:
-  AllCalibDataType grp_calib_data_;
+  CalibDataType calib_data_;
   int batch_num_ = 0;
   int input_num_ = 0;
   int batch_size_ = 0;
@@ -52,8 +52,8 @@ class Int8EntropyCalibrator2Impl {
 
 class Int8EntropyCalibrator2 : public nvinfer1::IInt8EntropyCalibrator2 {
  public:
-  Int8EntropyCalibrator2(const AllCalibDataType& grp_calib_data)
-      : calib_impl(grp_calib_data) {}
+  Int8EntropyCalibrator2(const CalibDataType& calib_data)
+      : calib_impl(calib_data) {}
 
   int getBatchSize() const noexcept override {
     return calib_impl.getBatchSize();

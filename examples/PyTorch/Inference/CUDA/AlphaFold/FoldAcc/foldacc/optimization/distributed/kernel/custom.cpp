@@ -27,10 +27,10 @@ struct PaiGather : torch::CustomClassHolder {
     std::vector<int64_t> shape = x.sizes().vec();
     shape[dim] = shape[dim] * size;
     auto options = torch::TensorOptions()
-                        .dtype(x.dtype())
-                        .device(x.device())
-                        .layout(torch::kStrided)
-                        .requires_grad(false);
+                       .dtype(x.dtype())
+                       .device(x.device())
+                       .layout(torch::kStrided)
+                       .requires_grad(false);
     return torch::randn(shape, options);
   }
 };
@@ -47,10 +47,10 @@ struct PaiScatter : torch::CustomClassHolder {
     std::vector<int64_t> shape = x.sizes().vec();
     shape[dim] = shape[dim] / size;
     auto options = torch::TensorOptions()
-                        .dtype(x.dtype())
-                        .device(x.device())
-                        .layout(torch::kStrided)
-                        .requires_grad(false);
+                       .dtype(x.dtype())
+                       .device(x.device())
+                       .layout(torch::kStrided)
+                       .requires_grad(false);
     return torch::randn(shape, options);
   }
 };
@@ -70,10 +70,10 @@ struct PaiAlltoAll : torch::CustomClassHolder {
     shape[in_dim] = shape[in_dim] / size;
     shape[out_dim] = shape[out_dim] * size;
     auto options = torch::TensorOptions()
-                        .dtype(x.dtype())
-                        .device(x.device())
-                        .layout(torch::kStrided)
-                        .requires_grad(false);
+                       .dtype(x.dtype())
+                       .device(x.device())
+                       .layout(torch::kStrided)
+                       .requires_grad(false);
     return torch::randn(shape, options);
   }
 };
@@ -98,7 +98,7 @@ TORCH_LIBRARY(paifold, m) {
       .def_pickle(
           [](const c10::intrusive_ptr<PaiScatter>& self)
               -> std::vector<int64_t> {
-              std::vector<int64_t> states({self->dim, self->size});
+            std::vector<int64_t> states({self->dim, self->size});
             return states;
           },
           [](std::vector<int64_t> state) -> c10::intrusive_ptr<PaiScatter> {

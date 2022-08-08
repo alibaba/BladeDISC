@@ -1,4 +1,4 @@
-# DISC optimization example for PyTorch AlphaFold model.
+# DISC Optimization Example for PyTorch AlphaFold Model.
 
 This repository provides a tool(FoldAcc) and scripts showing how to optimize a AlphaFold model for PyTorch with DISC/AMP(auto mix precision)/Tensor Parallel.
 The AlphaFold model is constructed with [Uni-Fold](https://github.com/dptech-corp/Uni-Fold).
@@ -29,7 +29,7 @@ cd FoldAcc && python3 setup.py install
 
 ## Inference
 
-### Accelerate Uni-Fold inference
+### Accelerate Uni-Fold Inference
 
 You can run the example with the following command, the detail arguments are same as Uni-Fold:
 

@@ -25,16 +25,16 @@ logger = logging.getLogger("foldacc")
 save_map = {
     "Gather": Gather_save,
     "Scatter": Scatter_save,
-    "All_to_All": AlltoAll_save
+    "AlltoAll": AlltoAll_save
 }
 
 load_map = {
     "Gather": Gather_load,
     "Scatter": Scatter_load,
-    "All_to_All": AlltoAll_load,
-    "PaiGather": Gather_load,
-    "PaiScatter": Scatter_load,
-    "PaiAlltoAll": AlltoAll_load
+    "AlltoAll": AlltoAll_load,
+    "FoldAccGather": Gather_load,
+    "FoldAccScatter": Scatter_load,
+    "FoldAccAlltoAll": AlltoAll_load
 }
 
 
@@ -137,7 +137,7 @@ def convert_save_model(model):
         for node in nodes:
             if node.kind() != "prim::PythonOp":
                 continue
-            if node.pyname() in ["Gather", "Scatter", "All_to_All"]:
+            if node.pyname() in ["Gather", "Scatter", "AlltoAll"]:
                 pynodes.append(node)
 
         for i, node in enumerate(pynodes):
@@ -150,7 +150,7 @@ def convert_save_model(model):
                 world_size = 1
             
             saved_module = torch.jit.script(save_map[node.pyname()](*scalar_args, world_size))
-            save_name = f"paifold_save_{node.pyname()}_{count}"
+            save_name = f"foldacc_save_{node.pyname()}_{count}"
             module._c._register_attribute(save_name, saved_module._c._type(), saved_module)
 
             _replace_pythonop(module.graph, node, saved_module, save_name)
@@ -175,7 +175,7 @@ def convert_load_model(model):
             if node in visited_nodes:
                 continue
             node_outputs = [o for o in node.outputs()]
-            if node.kind() == "prim::GetAttr" and "paifold_save" in node.s("name"):
+            if node.kind() == "prim::GetAttr" and "foldacc_save" in node.s("name"):
                 pair_node = [node]
 
                 is_inline = True
@@ -214,7 +214,7 @@ def convert_load_model(model):
                 visited_nodes.extend(pair_node)
 
             elif node.kind() == "prim::Constant" and len(node_outputs) == 1 and hasattr(node_outputs[0].type(), "name") and node_outputs[0].type().name() in [
-                'PaiGather', 'PaiScatter', 'PaiAlltoAll'
+                'FoldAccGather', 'FoldAccScatter', 'FoldAccAlltoAll'
             ]:
                 pair_node = [node]
                 outputs = [out for out in node.outputs()]
@@ -242,7 +242,7 @@ def convert_load_model(model):
             
             if save_attr.kind() == "prim::GetAttr":
                 save_name = save_attr.s('name')
-                op_name = "_".join(save_attr.s("name").replace("paifold_save_", "").split("_")[:-1])
+                op_name = "_".join(save_attr.s("name").replace("foldacc_save_", "").split("_")[:-1])
             else:
                 save_name = list(save_attr.output_list())[0].type().name() + "_" + list(save_attr.output_list())[0].debugName()
                 op_name = list(save_attr.output_list())[0].type().name()
@@ -279,7 +279,7 @@ def convert_load_model(model):
                 load_module = torch.jit.trace(load_map[op_name](in_dim, out_dim), (random_input,))
                 scalar_args = [in_dim, out_dim]
         
-            load_name = f"paifold_load_{op_name}_{count}"
+            load_name = f"foldacc_load_{op_name}_{count}"
             module._c._register_attribute(load_name, load_module._c._type(), load_module)
 
             _replace_saveop(module.graph, node, load_module, load_name)

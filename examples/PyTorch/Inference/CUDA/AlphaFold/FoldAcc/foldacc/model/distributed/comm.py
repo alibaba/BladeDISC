@@ -96,7 +96,7 @@ def col_to_row(input_: Tensor, dtype=torch.float) -> Tensor:
         return input_
     input_dtype = input_.dtype
     input_ = input_.to(dtype)
-    input_ = All_to_All.apply(input_, 0, 1)
+    input_ = AlltoAll.apply(input_, 0, 1)
     input_ = input_.to(input_dtype)
     return input_
 
@@ -105,7 +105,7 @@ def row_to_col(input_: Tensor, dtype=torch.float) -> Tensor:
         return input_
     input_dtype = input_.dtype
     input_ = input_.to(dtype)
-    input_ = All_to_All.apply(input_, 1, 0)
+    input_ = AlltoAll.apply(input_, 1, 0)
     input_ = input_.to(input_dtype)
     return input_
 
@@ -133,15 +133,15 @@ class Gather(torch.autograd.Function):
         dim, = ctx.saved_tensors
         return _split(grad_output, dim=int(dim)), None
 
-class All_to_All(torch.autograd.Function):
+class AlltoAll(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx: "All_to_All", input_: Tensor, in_dim: int = -1, out_dim: int = -1) -> Tensor:
+    def forward(ctx: "AlltoAll", input_: Tensor, in_dim: int = -1, out_dim: int = -1) -> Tensor:
         ctx.save_for_backward(torch.tensor([in_dim, out_dim]))
         return _all_to_all(input_, in_dim=in_dim, out_dim=out_dim)
 
     @staticmethod
-    def backward(ctx: "All_to_All", grad_output: Tensor) -> Tuple[Tensor]:
+    def backward(ctx: "AlltoAll", grad_output: Tensor) -> Tuple[Tensor]:
         saved_tensors = ctx.saved_tensors[0]
         return _all_to_all(grad_output, in_dim=int(saved_tensors[1]),
                            out_dim=int(saved_tensors[0])), None, None

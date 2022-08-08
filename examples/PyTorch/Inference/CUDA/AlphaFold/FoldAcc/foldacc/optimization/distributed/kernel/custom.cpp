@@ -15,10 +15,10 @@
 #include <string>
 #include <vector>
 
-struct PaiGather : torch::CustomClassHolder {
+struct FoldAccGather : torch::CustomClassHolder {
   int64_t dim;
   int64_t size;
-  PaiGather(int64_t init_dim, int64_t init_size) {
+  FoldAccGather(int64_t init_dim, int64_t init_size) {
     dim = init_dim;
     size = init_size;
   }
@@ -35,10 +35,10 @@ struct PaiGather : torch::CustomClassHolder {
   }
 };
 
-struct PaiScatter : torch::CustomClassHolder {
+struct FoldAccScatter : torch::CustomClassHolder {
   int64_t dim;
   int64_t size;
-  PaiScatter(int64_t init_dim, int64_t init_size) {
+  FoldAccScatter(int64_t init_dim, int64_t init_size) {
     dim = init_dim;
     size = init_size;
   }
@@ -55,11 +55,11 @@ struct PaiScatter : torch::CustomClassHolder {
   }
 };
 
-struct PaiAlltoAll : torch::CustomClassHolder {
+struct FoldAccAlltoAll : torch::CustomClassHolder {
   int64_t in_dim;
   int64_t out_dim;
   int64_t size;
-  PaiAlltoAll(int64_t init_in_dim, int64_t init_out_dim, int64_t init_size) {
+  FoldAccAlltoAll(int64_t init_in_dim, int64_t init_out_dim, int64_t init_size) {
     in_dim = init_in_dim;
     out_dim = init_out_dim;
     size = init_size;
@@ -78,45 +78,45 @@ struct PaiAlltoAll : torch::CustomClassHolder {
   }
 };
 
-TORCH_LIBRARY(paifold, m) {
-  m.class_<PaiGather>("PaiGather")
+TORCH_LIBRARY(foldacc, m) {
+  m.class_<FoldAccGather>("FoldAccGather")
       .def(torch::init<int64_t, int64_t>())
-      .def("forward", &PaiGather::forward)
+      .def("forward", &FoldAccGather::forward)
       .def_pickle(
-          [](const c10::intrusive_ptr<PaiGather>& self)
+          [](const c10::intrusive_ptr<FoldAccGather>& self)
               -> std::vector<int64_t> {
             std::vector<int64_t> states({self->dim, self->size});
             return states;
           },
-          [](std::vector<int64_t> state) -> c10::intrusive_ptr<PaiGather> {
-            return c10::make_intrusive<PaiGather>(state[0], state[1]);
+          [](std::vector<int64_t> state) -> c10::intrusive_ptr<FoldAccGather> {
+            return c10::make_intrusive<FoldAccGather>(state[0], state[1]);
           });
 
-  m.class_<PaiScatter>("PaiScatter")
+  m.class_<FoldAccScatter>("FoldAccScatter")
       .def(torch::init<int64_t, int64_t>())
-      .def("forward", &PaiScatter::forward)
+      .def("forward", &FoldAccScatter::forward)
       .def_pickle(
-          [](const c10::intrusive_ptr<PaiScatter>& self)
+          [](const c10::intrusive_ptr<FoldAccScatter>& self)
               -> std::vector<int64_t> {
             std::vector<int64_t> states({self->dim, self->size});
             return states;
           },
-          [](std::vector<int64_t> state) -> c10::intrusive_ptr<PaiScatter> {
-            return c10::make_intrusive<PaiScatter>(state[0], state[1]);
+          [](std::vector<int64_t> state) -> c10::intrusive_ptr<FoldAccScatter> {
+            return c10::make_intrusive<FoldAccScatter>(state[0], state[1]);
           });
 
-  m.class_<PaiAlltoAll>("PaiAlltoAll")
+  m.class_<FoldAccAlltoAll>("FoldAccAlltoAll")
       .def(torch::init<int64_t, int64_t, int64_t>())
-      .def("forward", &PaiAlltoAll::forward)
+      .def("forward", &FoldAccAlltoAll::forward)
       .def_pickle(
-          [](const c10::intrusive_ptr<PaiAlltoAll>& self)
+          [](const c10::intrusive_ptr<FoldAccAlltoAll>& self)
               -> std::vector<int64_t> {
             std::vector<int64_t> states(
                 {self->in_dim, self->out_dim, self->size});
             return states;
           },
-          [](std::vector<int64_t> state) -> c10::intrusive_ptr<PaiAlltoAll> {
-            return c10::make_intrusive<PaiAlltoAll>(state[0], state[1],
+          [](std::vector<int64_t> state) -> c10::intrusive_ptr<FoldAccAlltoAll> {
+            return c10::make_intrusive<FoldAccAlltoAll>(state[0], state[1],
                                                     state[2]);
           });
 }

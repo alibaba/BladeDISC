@@ -14,7 +14,7 @@ import os
 import torch
 import torch.nn as nn
 
-from foldacc.model.distributed.comm import Gather, Scatter, All_to_All
+from foldacc.model.distributed.comm import Gather, Scatter, AlltoAll
 
 torch.classes.load_library(f"{os.path.dirname(__file__)}/../../../foldacc_custom.so")
 
@@ -23,7 +23,7 @@ class Gather_save(nn.Module):
         super(Gather_save, self).__init__()
         self.dim = dim
         self.world_size = world_size
-        self.op = torch.classes.paifold.PaiGather(dim, world_size)
+        self.op = torch.classes.foldacc.FoldAccGather(dim, world_size)
     
     def forward(self, x):
         return self.op.forward(x)
@@ -33,7 +33,7 @@ class Scatter_save(nn.Module):
         super(Scatter_save, self).__init__()
         self.dim = dim
         self.world_size = world_size
-        self.op = torch.classes.paifold.PaiScatter(dim, world_size)
+        self.op = torch.classes.foldacc.FoldAccScatter(dim, world_size)
 
     def forward(self, x):
         return self.op.forward(x)
@@ -44,7 +44,7 @@ class AlltoAll_save(nn.Module):
         self.in_dim = in_dim
         self.out_dim = out_dim
         self.world_size = world_size
-        self.op = torch.classes.paifold.PaiAlltoAll(in_dim, out_dim, world_size)
+        self.op = torch.classes.foldacc.FoldAccAlltoAll(in_dim, out_dim, world_size)
 
     def forward(self, x):
         return self.op.forward(x)
@@ -72,4 +72,4 @@ class AlltoAll_load(nn.Module):
         self.out_dim = out_dim
     
     def forward(self, x):
-        return All_to_All.apply(x, self.in_dim, self.out_dim)
+        return AlltoAll.apply(x, self.in_dim, self.out_dim)

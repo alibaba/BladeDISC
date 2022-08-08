@@ -59,7 +59,8 @@ struct FoldAccAlltoAll : torch::CustomClassHolder {
   int64_t in_dim;
   int64_t out_dim;
   int64_t size;
-  FoldAccAlltoAll(int64_t init_in_dim, int64_t init_out_dim, int64_t init_size) {
+  FoldAccAlltoAll(int64_t init_in_dim, int64_t init_out_dim,
+                  int64_t init_size) {
     in_dim = init_in_dim;
     out_dim = init_out_dim;
     size = init_size;
@@ -115,8 +116,9 @@ TORCH_LIBRARY(foldacc, m) {
                 {self->in_dim, self->out_dim, self->size});
             return states;
           },
-          [](std::vector<int64_t> state) -> c10::intrusive_ptr<FoldAccAlltoAll> {
+          [](std::vector<int64_t> state)
+              -> c10::intrusive_ptr<FoldAccAlltoAll> {
             return c10::make_intrusive<FoldAccAlltoAll>(state[0], state[1],
-                                                    state[2]);
+                                                        state[2]);
           });
 }

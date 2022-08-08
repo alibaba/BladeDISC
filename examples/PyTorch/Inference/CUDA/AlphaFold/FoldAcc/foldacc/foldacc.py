@@ -71,7 +71,6 @@ class Config:
         self.chunking_modules[module_type] = (chunk_func_name, trace_func, script_func)
 
 def optimize(model, inputs, optimize_config):
-    input_model = model
     optim_model = copy.deepcopy(model)
     
     for optim in optimize_pipeline:

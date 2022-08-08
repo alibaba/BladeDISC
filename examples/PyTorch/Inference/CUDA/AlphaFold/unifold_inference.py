@@ -106,7 +106,7 @@ def main(args):
             enable_low_mem=False,
             dtype=torch.half, 
             device=local_rank, 
-            save_dir=None)
+            save_dir="tmp")
 
     # data path is based on target_name
     data_dir = os.path.join(args.data_dir, args.target_name)

@@ -32,7 +32,7 @@ def bladedisc_optimize(model, inputs, optimize_config):
     if not optimize_config.enable_bladedisc or not optimize_config.enable_trace:
         return model
 
-    if enable_disc and optimize_config.dtype != torch.bfloat16:
+    if enable_disc and optimize_config.precision != torch.bfloat16:
         # replace pythonop by customop to avoid optimize fail
         model = convert_save_model(model)
 

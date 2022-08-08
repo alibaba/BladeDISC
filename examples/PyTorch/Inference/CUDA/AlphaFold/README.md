@@ -81,3 +81,5 @@ FoldAcc refers to the following projects:
 - [Uni-Fold](https://github.com/dptech-corp/Uni-Fold)
 - [OpenFold](https://github.com/aqlaboratory/openfold)
 - [FastFold](https://github.com/hpcaitech/FastFold)
+
+Some codes are modified from above-referenced projects,  we add BladeDISC copyright header just for CI linter requirements.

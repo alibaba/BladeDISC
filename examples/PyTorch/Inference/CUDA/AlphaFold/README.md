@@ -3,13 +3,15 @@
 This repository provides a tool(FoldAcc) and scripts showing how to optimize a AlphaFold model for PyTorch with DISC/AMP(auto mix precision)/Tensor Parallel.
 The AlphaFold model is constructed with [Uni-Fold](https://github.com/dptech-corp/Uni-Fold).
 
+FoldAcc is an independent tool and maybe it will be moved out into a separate repository in the future.
+
 ## Prerequisite
 
 ### Installing BladeDISC
 
 To build and install `torch_blade` package, please refer to
-["Build BladeDISC from source"](../../../../docs/build_from_source.md) and
-["Install BladeDISC with Docker"](../../../../docs/install_with_docker.md).
+["Build BladeDISC from source"](https://github.com/alibaba/BladeDISC/blob/main/docs/build_from_source.md) and
+["Install BladeDISC with Docker"](https://github.com/alibaba/BladeDISC/blob/main/docs/install_with_docker.md).
 
 We recommend installing BladeDISC with Docker `bladedisc/bladedisc:latest-runtime-torch1.12.0-cu113`.
 

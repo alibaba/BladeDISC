@@ -358,7 +358,7 @@ def update_cpu_specific_setting(args):
     if not hasattr(args, 'cpu_only'):
         args.cpu_only = False
     if not hasattr(args, 'target_cpu_arch'):
-        args.target_arch = ""
+        args.target_cpu_arch = ""
 
     if args.cpu_only:
         auto_detect_host_cpu(args)

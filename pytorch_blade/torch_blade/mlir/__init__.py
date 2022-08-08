@@ -58,3 +58,10 @@ def num_engines(script_module):
     Return the number of engines of MLIR
     """
     return utils.num_engines(script_module, _DISC_GROUP_NAME)
+
+
+def num_compiled_nodes(script_module):
+    """
+    Return the number of nodes compiled by MLIR
+    """
+    return utils.num_compiled_nodes(script_module, _DISC_GROUP_NAME)

@@ -50,6 +50,13 @@ def num_engines(script_module):
     return utils.num_engines(script_module, _TRT_GROUP_NAME)
 
 
+def num_compiled_nodes(script_module):
+    """
+    Return the number of nodes compiled by TRT
+    """
+    return utils.num_compiled_nodes(script_module, _TRT_GROUP_NAME)
+
+
 def _fetch_trt_tensors(script_module):
     last_inputs = dict()
     last_outputs = dict()

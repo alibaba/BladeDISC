@@ -124,14 +124,14 @@ TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
     LOG(INFO) << "Creating TensorRT engine with BuilderFlags: "
               << GetBuilderFlags();
     config->setFlags(GetBuilderFlags());
-    auto grp_calib_data = state->get_grp_calib_data();
+    auto calib_data = state->get_calib_data();
     // calibrator life time needs to last until after the engine is built.
     std::unique_ptr<nvinfer1::IInt8Calibrator> calibrator;
-    if (!grp_calib_data.empty()) {
+    if (!calib_data.empty()) {
       LOG(INFO) << "Building INT8 TensorRT engine with calibration data";
       config->setFlag(nvinfer1::BuilderFlag::kINT8);
       config->setFlag(nvinfer1::BuilderFlag::kGPU_FALLBACK);
-      auto grp_calibrator = new Int8EntropyCalibrator2(grp_calib_data);
+      auto grp_calibrator = new Int8EntropyCalibrator2(calib_data);
       calibrator.reset(grp_calibrator);
       config->setInt8Calibrator(calibrator.get());
     }

@@ -122,7 +122,6 @@ class TestTensorRTEngine(TestCase):
             opt = optimize(model, allow_tracing=True, model_inputs=one)
         self.assertEqual(tensorrt.num_engines(opt), 1)
         self.assertEqual(tensorrt.num_engines(opt), len(tensorrt.num_compiled_nodes(opt)))
-        self.assertEqual(tensorrt.num_compiled_nodes(opt), [10])
 
         opt_out = opt(one)
         self.assertEqual(out, opt_out)

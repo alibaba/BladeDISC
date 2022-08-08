@@ -26,7 +26,6 @@ class TestDiscEngine(DiscTestCase):
 
         self.assertEqual(mlir.num_engines(triple), 1)
         self.assertEqual(len(mlir.num_compiled_nodes(triple)) , mlir.num_engines(triple))
-        self.assertEqual(mlir.num_compiled_nodes(triple), [8])
         
         one = torch.tensor([1], dtype=torch.float, device=self.device)
         two = torch.tensor([2], dtype=torch.float, device=self.device)

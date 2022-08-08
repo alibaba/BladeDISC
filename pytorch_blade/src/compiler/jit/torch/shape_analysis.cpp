@@ -1744,11 +1744,12 @@ class ShapePropagator : public PropertyPropBase {
           node->outputs()[0]->setType(type);
         }
         if (output_mask[1]) {
-          if (auto weight_type = input_type(5))
+          if (auto weight_type = node->input(5)->type()->cast<TensorType>()) {
             node->outputs()[1]->setType(weight_type);
+          }
         }
         if (output_mask[2]) {
-          if (auto bias_type = input_type(6))
+          if (auto bias_type = node->input(6)->type()->cast<TensorType>())
             node->outputs()[2]->setType(bias_type);
         }
         return true;

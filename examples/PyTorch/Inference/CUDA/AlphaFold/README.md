@@ -82,4 +82,4 @@ FoldAcc refers to the following projects:
 - [OpenFold](https://github.com/aqlaboratory/openfold)
 - [FastFold](https://github.com/hpcaitech/FastFold)
 
-Some codes are modified from above-referenced projects,  we add BladeDISC copyright header just for CI linter requirements.
+Some codes are modified from above-referenced projects, we add BladeDISC copyright header just for CI linter requirements.

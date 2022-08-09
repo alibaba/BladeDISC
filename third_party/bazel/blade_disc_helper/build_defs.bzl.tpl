@@ -31,6 +31,9 @@ def cuda_home():
 def cuda_version():
     return "%{CUDA_VERSION}"
 
+def disc_target_cpu_arch():
+    return "%{DISC_TARGET_CPU_ARCH}"
+
 def if_hie_enabled(if_true, if_false = []):
     if %{IF_HIE}:
         return if_true

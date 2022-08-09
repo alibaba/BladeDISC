@@ -1,0 +1,24 @@
+diff --git a/src/common/cpuinfo/CpuInfo.cpp b/src/common/cpuinfo/CpuInfo.cpp
+index 2b85375..3f0e757 100644
+--- a/src/common/cpuinfo/CpuInfo.cpp
++++ b/src/common/cpuinfo/CpuInfo.cpp
+@@ -298,10 +298,17 @@ CpuInfo::CpuInfo(CpuIsaInfo isa, std::vector<CpuModel> cpus)
+ CpuInfo CpuInfo::build()
+ {
+ #if !defined(BARE_METAL) && !defined(__APPLE__) && !defined(__OpenBSD__) && (defined(__arm__) || defined(__aarch64__))
+-    const uint32_t hwcaps   = getauxval(AT_HWCAP);
+-    const uint32_t hwcaps2  = getauxval(AT_HWCAP2);
++    uint32_t hwcaps   = getauxval(AT_HWCAP);
++    uint32_t hwcaps2  = getauxval(AT_HWCAP2);
+     const uint32_t max_cpus = get_max_cpus();
+
++    if (const char* str_hwcaps = getenv("DISC_ACL_HWCAP")) {
++      hwcaps = std::atoll(str_hwcaps);
++    }
++    if (const char* str_hwcaps2 = getenv("DISC_ACL_HWCAP2")) {
++      hwcaps2 = std::atoll(str_hwcaps2);
++    }
++
+     // Populate midr values
+     std::vector<uint32_t> cpus_midr;
+     if(hwcaps & ARM_COMPUTE_CPU_FEATURE_HWCAP_CPUID)

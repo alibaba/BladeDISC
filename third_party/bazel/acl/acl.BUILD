@@ -2,6 +2,10 @@ load("@rules_foreign_cc//foreign_cc:defs.bzl", "make")
 
 package(default_visibility = ["//visibility:public"])
 
+load("@local_config_blade_disc_helper//:build_defs.bzl",
+    "disc_target_cpu_arch",
+)
+
 filegroup(
     name = "all_source_files",
     srcs = glob(["**"]),
@@ -13,7 +17,7 @@ make(
     env = {
         "np": "24",
         "os": "linux",
-        "arch": "arm64-v8a",  # (TODO): Make this configurable
+        "arch": disc_target_cpu_arch(),
     },
     lib_source = ":all_source_files",
     out_lib_dir = "build",

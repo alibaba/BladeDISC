@@ -159,6 +159,8 @@ def configure_compiler(root, args):
             f.write("startup {}\n".format(bazel_startup_opts))
             if args.dcu or args.rocm:
                 _action_env("ROCM_PATH", get_rocm_path(args))
+            if args.cpu_only and args.aarch64:
+                _action_env("DISC_TARGET_CPU_ARCH", args.target_cpu_arch or "arm64-v8a")
 
     logger.info("Stage [configure compiler] success.")
 
@@ -332,6 +334,7 @@ def configure_bridge_bazel(root, args):
                 _action_env("BUILD_WITH_MKLDNN", "1")
             if args.aarch64:
                 _action_env("BUILD_WITH_AARCH64", "1")
+                _action_env("DISC_TARGET_CPU_ARCH", args.target_cpu_arch or "arm64-v8a")
         else:
             if args.platform_alibaba and args.blade_gemm:
                 _action_env("BLADE_GEMM_TVM", "ON")
@@ -421,7 +424,7 @@ def build_tao_compiler(root, args):
 
         bazel_build(TARGET_TAO_COMPILER_MAIN, flag=flag)
         bazel_build(TARGET_DISC_OPT, flag=flag)
-        # TODO:(fl237079) Support disc_replay for rocm version 
+        # TODO:(fl237079) Support disc_replay for rocm version
         if not args.rocm and not args.dcu:
             bazel_build(TARGET_DISC_REPLAY, flag=flag)
         execute(
@@ -1010,6 +1013,12 @@ def parse_args():
         required=False,
         default="/usr/local/cuda-11.6/bin/nvcc",
         help="Nvcc used for blade gemm kernel build.",
+    )
+    parser.add_argument(
+        "--target_cpu_arch",
+        required=False,
+        default="",
+        help="Specify the target architecture.",
     )
     # flag validation
     args = parser.parse_args()

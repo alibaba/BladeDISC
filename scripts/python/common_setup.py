@@ -279,6 +279,7 @@ def config_mkldnn(root, args):
 
     if args.aarch64:
         with cwd(acl_dir):
+            arch =  args.target_cpu_arch or "arm64-v8a"
             # downlaod and build acl for onednn
             cmd = '''
               readonly ACL_REPO="https://github.com/ARM-software/ComputeLibrary.git"
@@ -288,10 +289,10 @@ def config_mkldnn(root, args):
               git clone --branch v22.02 --depth 1 $ACL_REPO $ACL_DIR
               cd $ACL_DIR
 
-              scons --silent $MAKE_NP Werror=0 debug=0 neon=1 opencl=0 openmp=1 embed_kernels=0 os=linux arch=arm64-v8a build=native extra_cxx_flags="-fPIC"
+              scons --silent $MAKE_NP Werror=0 debug=0 neon=1 opencl=0 openmp=1 embed_kernels=0 os=linux arch={} build=native extra_cxx_flags="-fPIC"
 
               exit $?
-            '''.format(acl_dir)
+            '''.format(acl_dir, arch)
             execute(cmd)
             # a workaround for static linking
             execute('rm -f build/*.so')
@@ -356,6 +357,8 @@ def update_cpu_specific_setting(args):
         args.enable_mkldnn = False
     if not hasattr(args, 'cpu_only'):
         args.cpu_only = False
+    if not hasattr(args, 'target_cpu_arch'):
+        args.target_cpu_arch = ""
 
     if args.cpu_only:
         auto_detect_host_cpu(args)

@@ -29,7 +29,10 @@ def _blade_disc_dnn_repositories():
         sha256 = "11244b05259fb1c4af7384d0c3391aeaddec8aac144774207582db4842726540",
         strip_prefix = "ComputeLibrary-22.02",
         build_file = "@org_third_party//bazel/acl:acl.BUILD",
-        patch_file = ["@org_third_party//bazel/acl:acl_makefile.patch"],
+        patch_file = [
+            "@org_third_party//bazel/acl:acl_makefile.patch",
+            "@org_third_party//bazel/acl:acl_yitian.patch",
+        ],
         urls = tf_mirror_urls("https://github.com/ARM-software/ComputeLibrary/archive/v22.02.tar.gz"),
     )
 

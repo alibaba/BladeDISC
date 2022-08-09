@@ -1,0 +1,9 @@
+wget
+pytest==5.0.0
+networkx
+onnx>=1.6.0
+hypothesis
+aliyun-log-python-sdk==0.6.48.6
+cryptography
+torch==1.9.0+cu111
+torchvision==0.10.0+cu111

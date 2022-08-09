@@ -49,6 +49,8 @@ class StageTiming:
 
 stage_time = StageTiming()
 
+kAArch64DefaultTargetArch = "armv8.6-a-sve2"
+
 
 def time_stage(incl_args=[], incl_kwargs=[]):
     def time_stage_impl(entry):
@@ -279,7 +281,7 @@ def config_mkldnn(root, args):
 
     if args.aarch64:
         with cwd(acl_dir):
-            arch =  args.target_cpu_arch or "arm64-v8a"
+            arch =  args.target_cpu_arch or kAArch64DefaultTargetArch
             # downlaod and build acl for onednn
             cmd = '''
               readonly ACL_REPO="https://github.com/ARM-software/ComputeLibrary.git"

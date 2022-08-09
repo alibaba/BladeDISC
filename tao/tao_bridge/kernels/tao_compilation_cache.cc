@@ -947,6 +947,14 @@ Status CompileFunctionImpl(
         WriteTextProto(tensorflow::Env::Default(), dbg_input_file_name, input));
   }
 
+  if (VLOG_IS_ON(0)) {
+    std::string dbg_input_file_name = input_file_name + ".input_pb";
+    VLOG(0) << "Writing TaoCompilerInput Binary to " << dbg_input_file_name;
+    TF_RETURN_IF_ERROR(
+        WriteBinaryProto(tensorflow::Env::Default(), dbg_input_file_name, input));
+  }
+
+
   auto start = std::chrono::steady_clock::now();
   tensorflow::tao::SubProcess tao_compiler;
   VLOG(2) << "compiling function " << func_name << ", input file is "
@@ -1017,6 +1025,15 @@ Status CompileFunctionImpl(
       VLOG(1) << ss.str();
     }
   }
+  static int cnt = 0;
+  std::string debug_name = "cluster" + std::to_string(cnt) + ".log.txt";
+
+  std::ofstream debug(debug_name);
+  debug << ss.str();
+  debug.close();
+  VLOG(0) << "Write culster compiler log into " << debug_name;
+  cnt++;
+
 
   if (exit_status == 0) {
     return Status::OK();

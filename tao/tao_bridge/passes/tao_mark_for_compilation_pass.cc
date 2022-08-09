@@ -1503,10 +1503,11 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
           continue;
         }
       }
+    }
 
       bool to_continue = false;
       for (auto s : absl::StrSplit(
-               GetTaoBridgeOptions()->op_type_clustering_black_list, ',')) {
+               GetTaoBridgeOptions()->op_type_clustering_black_list, ',', absl::SkipEmpty())) {
         if (s == node->type_string()) {
           VLOG(2) << "Rejecting " << node->type_string()
                   << " as op type black list";
@@ -1516,8 +1517,9 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
       }
 
       for (auto s : absl::StrSplit(
-               GetTaoBridgeOptions()->op_name_clustering_black_list, ',')) {
-        if (s != "" && node->name().find(s.data()) != std::string::npos) {
+               GetTaoBridgeOptions()->op_name_clustering_black_list, ',', absl::SkipEmpty())) {
+        // if (s != "" && node->name().find(s.data()) != std::string::npos) {
+        if (absl::StrContains(node->name(), s)) {
           VLOG(2) << "Rejecting " << node->name() << " as op name black list";
           to_continue |= true;
           break;
@@ -1527,7 +1529,6 @@ Status MarkForCompilationPassImpl::FindCompilationCandidates() {
       if (to_continue) {
         continue;
       }
-    }
 
     // This is used to fix some corner cases of our clustering strategy.
     // We roughly divide the operands of an op into two categories: data operand

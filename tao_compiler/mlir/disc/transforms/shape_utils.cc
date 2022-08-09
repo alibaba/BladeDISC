@@ -91,7 +91,6 @@ LogicalResult ShapeAnalysisDeprecated::buildShapeMap() {
     }
   }
   postProcessingDimValues();
-
   return success();
 }
 
@@ -292,6 +291,7 @@ LogicalResult ShapeAnalysisDeprecated::buildRegionDimValueMap(Region* region) {
     return region->getParentOp()->emitError(
         "only single block region is supported");
   }
+
   for (Block& block : *region) {
     if (failed(buildBlockDimValueMap(&block))) return failure();
   }
@@ -466,6 +466,7 @@ LogicalResult ShapeAnalysisDeprecated::buildBlockDimValueMap(Block* block) {
         }
         in_non_mapped.insert(in_idx);
       }
+
       int64_t key;
       DenseSet<int64_t> vals;
       Value key_from;
@@ -520,6 +521,7 @@ LogicalResult ShapeAnalysisDeprecated::buildBlockDimValueMap(Block* block) {
       Value result = op->getResult(0);
       auto type = result.getType().cast<MemRefType>();
       assert(type);
+      // auto rank = ;
       for (int64_t i = 0; i < type.getRank(); i++) {
         DimValue dimVal;
         if (type.isDynamicDim(i)) {  // Only dynamic dims are operands.
@@ -624,7 +626,6 @@ LogicalResult ShapeAnalysisDeprecated::buildDimValueMap(Value operand,
   if (symbol == nullptr) {
     return failure();
   }
-
   auto rootDimVal = dimSymbol2DimValue_.find(symbol);
   if (rootDimVal != dimSymbol2DimValue_.end() &&
       rootDimVal->second != dimValue) {
@@ -643,6 +644,11 @@ SymbolShape* ShapeAnalysisDeprecated::getShape(Value value) {
 
   for (int64_t i = 0; i < it->second.rank(); ++i) {
     it->second.setSymbolDim(i, getDim(value, i));
+  }
+  auto rank = it->second.rank();
+
+  if (rank < 0 || rank > 1000) {
+    assert(false);
   }
   return &it->second;
 }
@@ -667,10 +673,8 @@ SymbolDim* ShapeAnalysisDeprecated::getDim(Value value, int64_t dim) {
   }
   SymbolDim* symbolDim = it->second.getSymbolDim(dim);
   assert(symbolDim != nullptr);
-
   symbolDim = getRootDim(symbolDim);
   it->second.setSymbolDim(dim, symbolDim);
-
   return symbolDim;
 }
 
@@ -691,7 +695,6 @@ DimValue ShapeAnalysisDeprecated::getDimValue(SymbolDim* symbolDim) {
   if (rootDimValue != it->second) {
     dimSymbol2DimValue_[symbolDim] = rootDimValue;
   }
-
   return rootDimValue;
 }
 
@@ -700,10 +703,8 @@ DimValue ShapeAnalysisDeprecated::getDimValue(Value operand, int64_t dim) {
   if (!ty.hasRank() || ty.getRank() <= 0 || dim >= ty.getRank() || dim < 0) {
     return DimValue(Value(nullptr));
   }
-
   auto symbolDim = getDim(operand, dim);
-  // Check static dim.
-  if (ty && !ty.isDynamicDim(dim)) {
+  if (ty  && !ty.isDynamicDim(dim)) {
     auto dimVal = DimValue(ty.getDimSize(dim));
     // Update symble2dimval mapping.
     if (symbolDim != nullptr) {
@@ -808,6 +809,7 @@ bool ShapeAnalysisDeprecated::isDimEqual(Value lhs, int64_t lhsDim, Value rhs,
   auto lhs_ty = lhs.getType().dyn_cast<ShapedType>();
   auto rhs_ty = rhs.getType().dyn_cast<ShapedType>();
   if (!lhs_ty.hasRank() || !rhs_ty.hasRank()) {
+
     return false;
   }
   if (lhsDim >= lhs_ty.getRank() || rhsDim >= rhs_ty.getRank()) {
@@ -819,7 +821,6 @@ bool ShapeAnalysisDeprecated::isDimEqual(Value lhs, int64_t lhsDim, Value rhs,
       !rhs_ty.isDynamicDim(rhsDim)) {
     return lhs_ty.getDimSize(lhsDim) == rhs_ty.getDimSize(rhsDim);
   }
-
   return (getDim(lhs, lhsDim) == getDim(rhs, rhsDim)) ||
          (getDimValue(lhs, lhsDim) == getDimValue(rhs, rhsDim));
 }

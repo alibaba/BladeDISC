@@ -489,7 +489,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     // TODO: adopt tileSize from attributes of speculation pass with a
     // wrapper of the original ParallelLoopTilingPass
     pm.addNestedPass<FuncOp>(
-        disc_ral::createParallelLoopTilingPass({256}, true));
+        disc_ral::createParallelLoopTilingPass({kThreadsRowReduction}, true));
     // pm.addNestedPass<FuncOp>(disc_ral::createMapParallelLoopsPass());
     pm.addNestedPass<FuncOp>(mlir::createGpuMapParallelLoopsPass());
 

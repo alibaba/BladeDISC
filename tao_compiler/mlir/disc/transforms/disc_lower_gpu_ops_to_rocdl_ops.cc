@@ -204,6 +204,17 @@ struct DiscLowerGpuOpsToROCDLOpsPass
   void runOnOperation() override {
     gpu::GPUModuleOp m = getOperation();
 
+#if TENSORFLOW_USE_ROCM
+    m.walk([&](mlir::gpu::GPUFuncOp gpu_kernel) {
+      if (gpu_kernel.isKernel()) {
+        gpu_kernel->setAttr(
+            "rocdl.max_flat_work_group_size",
+            mlir::IntegerAttr::get(
+                mlir::IntegerType::get(&getContext(), 32), 1024));
+      }
+    });
+#endif    
+
     /// Customize the bitwidth used for the device side index computations.
     LowerToLLVMOptions options(
         m.getContext(),

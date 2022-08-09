@@ -194,6 +194,16 @@ def num_engines(script_module, group_type):
     return len(collect_engines(script_module, group_type))
 
 
+def num_compiled_nodes(script_module, group_type):
+    """
+    Return the number of compiled nodes of the group_type
+    """
+    import re
+    # pattern like 'disc/trt_grp*_len*_*'
+    p = re.compile(r'(?<=len)\d+')
+    return [int(p.search(s).group(0)) for s, _ in collect_engines(script_module, group_type)]
+
+
 def parse_version(version: str) -> (int, int, int):
     """
     Parses a version string into (major, minor, patch) version numbers.

@@ -29,6 +29,7 @@ build:dcu --repo_env TF_NEED_ROCM=1 --repo_env TF_NEED_DCU=1
 build:rocm --crosstool_top=@local_config_rocm//crosstool:toolchain
 build:rocm --define=using_rocm=true --define=using_rocm_hipcc=true --define=using_dcu=false --cxxopt -D__HIPCC__
 build:rocm --repo_env TF_NEED_ROCM=1 --repo_env TF_NEED_DCU=0
+build:rocm --experimental_ui_max_stdouterr_bytes=-1
 
 # these comes from tao_compiler, unify these setting in the future
 build:disc --define framework_shared_object=false --experimental_multi_threaded_digest

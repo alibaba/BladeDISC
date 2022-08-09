@@ -644,6 +644,8 @@ SymbolShape* ShapeAnalysisDeprecated::getShape(Value value) {
   for (int64_t i = 0; i < it->second.rank(); ++i) {
     it->second.setSymbolDim(i, getDim(value, i));
   }
+  auto rank = it->second.rank();
+  assert(rank >= 0 && rank <= 1000);
   return &it->second;
 }
 

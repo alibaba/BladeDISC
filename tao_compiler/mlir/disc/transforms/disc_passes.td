@@ -38,6 +38,10 @@ def ReviseArgumentsForStaticRankPass : Pass<"disc-tf-revise-args-for-static-rank
 def DiscLhloLegalizeRootsToParallelLoopsPass : Pass<"disc-lhlo-legalize-roots-to-parallel-loops", "mlir::func::FuncOp"> {
   let summary = "Legalize the roots of lmhlo.fusion to parallel loops.";
   let constructor = "createDiscLhloLegalizeRootsToParallelLoopsPass()";
+  let options = [
+    Option<"core_count_", "core-count", "int",
+            /*default=*/"-1", "core count (e.g., SM count on NVIDIA GPU).">,
+  ];
   let dependentDialects = [
     "mlir::scf::SCFDialect",
     "mlir::memref::MemRefDialect",
@@ -81,6 +85,8 @@ def DiscSpecializeFusionWithSpeculationPass : Pass<"disc-specialize-fusion-with-
             /*default=*/"-1", "core count (e.g., SM count on NVIDIA GPU).">,
     Option<"max_threads_per_core_", "max-threads-per-core", "int",
             /*default=*/"-1", "max thread number that a core supports concurrently.">,
+    Option<"max_threads_per_block_", "max-threads-per-block", "int",
+            /*default=*/"-1", "max thread number per block.">,
   ];
 }
 

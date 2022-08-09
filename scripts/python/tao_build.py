@@ -49,6 +49,7 @@ from common_setup import (
     acl_root_dir,
     get_tf_info,
     deduce_cuda_info,
+    kAArch64DefaultTargetArch,
 )
 
 from tao_common import (
@@ -160,7 +161,7 @@ def configure_compiler(root, args):
             if args.dcu or args.rocm:
                 _action_env("ROCM_PATH", get_rocm_path(args))
             if args.cpu_only and args.aarch64:
-                _action_env("DISC_TARGET_CPU_ARCH", args.target_cpu_arch or "arm64-v8a")
+                _action_env("DISC_TARGET_CPU_ARCH", args.target_cpu_arch or kAArch64DefaultTargetArch)
 
     logger.info("Stage [configure compiler] success.")
 
@@ -334,7 +335,7 @@ def configure_bridge_bazel(root, args):
                 _action_env("BUILD_WITH_MKLDNN", "1")
             if args.aarch64:
                 _action_env("BUILD_WITH_AARCH64", "1")
-                _action_env("DISC_TARGET_CPU_ARCH", args.target_cpu_arch or "arm64-v8a")
+                _action_env("DISC_TARGET_CPU_ARCH", args.target_cpu_arch or kAArch64DefaultTargetArch)
         else:
             if args.platform_alibaba and args.blade_gemm:
                 _action_env("BLADE_GEMM_TVM", "ON")

@@ -21,11 +21,14 @@ from torch_blade.quantization import (
     _jit_pass_quantization_preprocess
 )
 
-if utils.torch_version_number() < utils.parse_version("1.12.0"):
-    from torch.onnx.symbolic_helper import _export_onnx_opset_version
-else:
-    from torch.onnx._globals import GLOBALS
-    _export_onnx_opset_version = GLOBALS.export_onnx_opset_version
+
+def _get_current_onnx_opset_version():
+    if utils.torch_version_number() < utils.parse_version("1.12.0"):
+        from torch.onnx.symbolic_helper import _export_onnx_opset_version
+    else:
+        from torch.onnx._globals import GLOBALS
+        _export_onnx_opset_version = GLOBALS.export_onnx_opset_version
+    return _export_onnx_opset_version
 
 
 # tools are some function borrowed from torch that is private,
@@ -63,7 +66,7 @@ def _set_opset_version_from_config():
         opset_version = cfg.customize_onnx_opset_version
         _set_opset_version(opset_version)
         return opset_version
-    return _export_onnx_opset_version
+    return get_current_onnx_opset_version()
 
 
 def _export_onnx(graph, dynamic_axes, fold_constants=True):
@@ -108,7 +111,7 @@ def _jit_pass_lower_to_onnx(graph):
     """ currently _jit_pass_lower_all_tuples will modified the graph output if it's tuple"""
     # NB(xiafei.qiuxf): Should set opset version here to be consistent with _export_onnx.
     _set_opset_version_from_config()
-
+    current_onnx_opset_version = get_current_onnx_opset_version()
     # onnx does not support tuples, so try to remove them
     # torch._C._jit_pass_lower_all_tuples(graph)
     # torch._C._jit_pass_peephole(graph, True)
@@ -151,12 +154,12 @@ def _jit_pass_lower_to_onnx(graph):
     torch._C._jit_pass_lint(onnx_graph)
 
     if utils.torch_version_number() >= utils.parse_version("1.9.0"):
-        torch._C._jit_pass_onnx_scalar_type_analysis(onnx_graph, True, _export_onnx_opset_version)
+        torch._C._jit_pass_onnx_scalar_type_analysis(onnx_graph, True, current_onnx_opset_version)
     else:
         torch._C._jit_pass_onnx_scalar_type_analysis(onnx_graph)
     torch._C._jit_pass_lint(onnx_graph)
 
-    torch._C._jit_pass_onnx_peephole(onnx_graph, _export_onnx_opset_version, False)
+    torch._C._jit_pass_onnx_peephole(onnx_graph, current_onnx_opset_version, False)
     torch._C._jit_pass_lint(onnx_graph)
 
     # graph is not a valid jit graph anymore because types have been replaced
@@ -173,9 +176,10 @@ def _jit_pass_lower_to_onnx(graph):
 
 
 def _jit_pass_onnx_constfold(graph, params_dict):
-    if _export_onnx_opset_version >= 9:
+    current_onnx_opset_version = get_current_onnx_opset_version()
+    if current_onnx_opset_version >= 9:
         params_dict = torch._C._jit_pass_onnx_constant_fold(
-            graph, params_dict, _export_onnx_opset_version
+            graph, params_dict, current_onnx_opset_version
         )
         torch._C._jit_pass_dce_allow_deleting_nodes_with_side_effects(graph)
     torch._C._jit_pass_lint(graph)

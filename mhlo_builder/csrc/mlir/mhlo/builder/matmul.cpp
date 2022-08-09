@@ -12,6 +12,7 @@
 #include "mlir/mhlo/builder/matmul.h"
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/mhlo/builder/broadcast.h"
 #include "mlir/mhlo/builder/mlir_attr_utils.h"
 #include "mlir/mhlo/builder/mlir_shape_builder.h"
@@ -20,9 +21,29 @@
 namespace mlir {
 namespace mhlo {
 
+Value BuildReshapedTensor(mlir::OpBuilder& builder, mlir::Location loc,
+                          Value tensor, ArrayRef<int64_t> shape,
+                          ArrayRef<Value> dimSizes) {
+  // create mhlo::DynamicReshapeOp
+  auto newRank = dimSizes.size();
+  assert(shape.size() == newRank);
+  auto tensorTy = tensor.getType().dyn_cast<RankedTensorType>();
+  auto outRankTy = RankedTensorType::get(shape, tensorTy.getElementType());
+  if (newRank == 0) {
+    return builder.create<mhlo::ReshapeOp>(loc, outRankTy, tensor);
+  }
+
+  Value mhloShape = builder.create<tensor::FromElementsOp>(loc, dimSizes);
+  return builder.create<mhlo::DynamicReshapeOp>(loc, outRankTy, tensor,
+                                                mhloShape);
+}
+
 mlir::Value BuildDotProduct(mlir::OpBuilder& builder, const mlir::Location& loc,
-                            const mlir::Value& lhs, const mlir::Value& rhs,
-                            mlir_dim_t rank) {
+                            const mlir::Value& old_lhs,
+                            const mlir::Value& old_rhs, mlir_dim_t rank) {
+  auto lhs = old_lhs;
+  auto rhs = old_rhs;
+
   MHLO_CHECK(rank >= 2, "The input of DotProduct must has rank >= 2");
   SmallVec4<mlir_dim_t> batch_dims;
   for (mlir_dim_t r = 0; r < rank - 2; ++r) {
@@ -30,13 +51,38 @@ mlir::Value BuildDotProduct(mlir::OpBuilder& builder, const mlir::Location& loc,
   }
   // lhs_shape[b, m, n], rhs_shape[b', n', k] -> result_shape[b, m, k],
   // assert b == b' and n == n', but we could only verify it at runtime
-  auto lhs_shape = GetMilrRankedTensorType(lhs).getShape();
-  auto rhs_shape = GetMilrRankedTensorType(rhs).getShape();
+  auto lhs_ty = GetMilrRankedTensorType(lhs);
+  auto rhs_ty = GetMilrRankedTensorType(rhs);
+  auto old_lhs_shape = lhs_ty.getShape();
+  auto old_rhs_shape = rhs_ty.getShape();
+  SmallVector<int64_t> lhs_shape;
+  SmallVector<int64_t> rhs_shape;
+  lhs_shape.append(old_lhs_shape.begin(), old_lhs_shape.end());
+  rhs_shape.append(old_rhs_shape.begin(), old_rhs_shape.end());
+
   SmallVec4<mlir_dim_t> result_shape(lhs_shape.begin(), lhs_shape.end());
   result_shape[rank - 1] = rhs_shape[rank - 1];
 
   auto elem_type = GetMlirTensorElemType(lhs);
   auto result_type = mlir::RankedTensorType::get(result_shape, elem_type);
+
+  auto lhs_contracing_dim_size = lhs_shape[rank - 1];
+  auto rhs_contracing_dim_size = rhs_shape[rank - 2];
+  if (lhs_contracing_dim_size != rhs_contracing_dim_size) {
+    if (lhs_contracing_dim_size == ShapedType::kDynamicSize &&
+        rhs_contracing_dim_size >= 0) {
+      lhs_shape[rank - 1] = rhs_contracing_dim_size;
+      lhs = BuildReshapedTensor(builder, loc, lhs, lhs_shape,
+                                BuildDimSizeListOfTensor(builder, loc, lhs));
+    } else if (rhs_contracing_dim_size == ShapedType::kDynamicSize &&
+               lhs_contracing_dim_size >= 0) {
+      rhs_shape[rank - 1] = lhs_contracing_dim_size;
+      rhs = BuildReshapedTensor(builder, loc, rhs, rhs_shape,
+                                BuildDimSizeListOfTensor(builder, loc, rhs));
+    } else {
+      MHLO_CHECK(false, "contracting dimension sizes must match for lhs/rhs");
+    }
+  }
 
   auto dot_dimension_attr = mlir::mhlo::DotDimensionNumbersAttr::get(
       builder.getContext(), batch_dims, batch_dims, {rank - 1}, {rank - 2});

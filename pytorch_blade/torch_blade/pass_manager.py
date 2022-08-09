@@ -337,6 +337,7 @@ def _optimize_common(c_module, static_shape=False):
     _jit_pass_quantization_postprocess(c_module)
     return c_module
 
+
 def _jit_pass_licm(graph):
     torch._C._jit_pass_remove_mutation(graph)
     tools.licm(graph)

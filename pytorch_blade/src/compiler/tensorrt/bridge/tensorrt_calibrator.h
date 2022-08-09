@@ -37,7 +37,9 @@ class Int8EntropyCalibrator2Impl {
 
   bool getBatch(void* bindings[], const char* names[], int nbBindings);
 
-  const void* readCalibrationCache(size_t& length) {}
+  const void* readCalibrationCache(size_t& length) {
+    return nullptr;
+  }
   void writeCalibrationCache(const void* cache, size_t length) {}
 
  private:

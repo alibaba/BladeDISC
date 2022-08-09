@@ -272,8 +272,8 @@ def config_mkldnn(root, args):
             # download mkl-lib/include
             download_cmd = """
               unset HTTPS_PROXY
-              curl -fsSL https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-static-2022.0.1-intel_117.tar.bz2  | tar xjv
-              curl -fsSL https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-include-2022.0.1-h8d4b97c_803.tar.bz2 | tar xjv
+              curl -fsSL https://pai-blade.oss-accelerate.aliyuncs.com/build_deps/mkl/mkl-static-2022.0.1-intel_117.tar.bz2 | tar xjv
+              curl -fsSL https://pai-blade.oss-accelerate.aliyuncs.com/build_deps/mkl/mkl-include-2022.0.1-h8d4b97c_803.tar.bz2 | tar xjv
             """
             execute(download_cmd)
 

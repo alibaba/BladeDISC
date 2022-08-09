@@ -11,5 +11,5 @@
 # limitations under the License.
 
 
-wget http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/bladedisc_notebook_binaries/models/disc_fastspeech2_example/saved_model.tar.gz
+wget -nv https://pai-blade.oss-accelerate.aliyuncs.com/bladedisc_notebook_binaries/models/disc_fastspeech2_example/saved_model.tar.gz
 tar -xzvf saved_model.tar.gz

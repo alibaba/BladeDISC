@@ -66,7 +66,7 @@ def _set_opset_version_from_config():
         opset_version = cfg.customize_onnx_opset_version
         _set_opset_version(opset_version)
         return opset_version
-    return get_current_onnx_opset_version()
+    return _get_current_onnx_opset_version()
 
 
 def _export_onnx(graph, dynamic_axes, fold_constants=True):
@@ -111,7 +111,7 @@ def _jit_pass_lower_to_onnx(graph):
     """ currently _jit_pass_lower_all_tuples will modified the graph output if it's tuple"""
     # NB(xiafei.qiuxf): Should set opset version here to be consistent with _export_onnx.
     _set_opset_version_from_config()
-    current_onnx_opset_version = get_current_onnx_opset_version()
+    current_onnx_opset_version = _get_current_onnx_opset_version()
     # onnx does not support tuples, so try to remove them
     # torch._C._jit_pass_lower_all_tuples(graph)
     # torch._C._jit_pass_peephole(graph, True)
@@ -176,7 +176,7 @@ def _jit_pass_lower_to_onnx(graph):
 
 
 def _jit_pass_onnx_constfold(graph, params_dict):
-    current_onnx_opset_version = get_current_onnx_opset_version()
+    current_onnx_opset_version = _get_current_onnx_opset_version()
     if current_onnx_opset_version >= 9:
         params_dict = torch._C._jit_pass_onnx_constant_fold(
             graph, params_dict, current_onnx_opset_version

@@ -14,12 +14,12 @@
 
 set -ex
 CUDA_RUN=/install/cuda_10.0.130_410.48_linux.run
-wget -nv "http://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/docker_deps/cuda_10.0.130_410.48_linux.run" -O ${CUDA_RUN}
+wget -nv "https://pai-blade.oss-accelerate.aliyuncs.com/build_deps/cuda/cuda_10.0.130_410.48_linux.run" -O ${CUDA_RUN}
 sudo sh ${CUDA_RUN} --silent --toolkit
 rm -f ${CUDA_RUN}
 
 CUDNN_TGZ=/install/cudnn-10.0-linux-x64-v7.6.4.38.tgz
-wget -nv "http://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/docker_deps/cudnn-10.0-linux-x64-v7.6.4.38.tgz" -O ${CUDNN_TGZ}
+wget -nv "https://pai-blade.oss-accelerate.aliyuncs.com/build_deps/cudnn/cudnn-10.0-linux-x64-v7.6.4.38.tgz" -O ${CUDNN_TGZ}
 tar -xzf ${CUDNN_TGZ} --skip-old-files -C /usr/local/
 rm -f ${CUDNN_TGZ}
 

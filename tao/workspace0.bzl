@@ -17,7 +17,7 @@ def _tao_bridge_repositories():
         name = "bazel_skylib",
         sha256 = "1c531376ac7e5a180e0237938a2536de0c54d93f5c278634818e0efc952dd56c",
         urls = [
-            "http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/build_deps/bazel-skylib-1.0.3.tar.gz",
+            "http://pai-blade.oss-accelerate.aliyuncs.com/build_deps/bazel-skylib-1.0.3.tar.gz",
             "https://storage.googleapis.com/mirror.tensorflow.org/github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
             "https://github.com/bazelbuild/bazel-skylib/releases/download/1.0.3/bazel-skylib-1.0.3.tar.gz",
         ],
@@ -29,7 +29,7 @@ def _tao_bridge_repositories():
         sha256 = "162514b3cc264ac89d91898b58450190b8192e2af1142cf8ccac2d59aa160dda",
         strip_prefix = "cub-1.9.9",
         urls = [
-            "http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/build_deps/cub_archive/1.9.9.zip",
+            "http://pai-blade.oss-accelerate.aliyuncs.com/build_deps/cub_archive/1.9.9.zip",
             "https://storage.googleapis.com/mirror.tensorflow.org/github.com/NVlabs/cub/archive/1.9.9.zip",
             "https://github.com/NVlabs/cub/archive/1.9.9.zip",
         ],
@@ -46,7 +46,7 @@ def _tao_bridge_repositories():
         name = "rules_java",
         sha256 = "f5a3e477e579231fca27bf202bb0e8fbe4fc6339d63b38ccb87c2760b533d1c3",
         strip_prefix = "rules_java-981f06c3d2bd10225e85209904090eb7b5fb26bd",
-        urls = ["http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/bazelbuild/rules_java/archive/981f06c3d2bd10225e85209904090eb7b5fb26bd.tar.gz"],
+        urls = ["http://pai-blade.oss-accelerate.aliyuncs.com/bazelbuild/rules_java/archive/981f06c3d2bd10225e85209904090eb7b5fb26bd.tar.gz"],
     )
 
     native.new_local_repository(

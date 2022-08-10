@@ -27,7 +27,7 @@ http_archive(
     sha256 = "a5666d950c3344a8b0d3892a88dc6b55c8e0c78764f9294e806d69213c03f19d",
     strip_prefix = "pybind11_bazel-26973c0ff320cb4b39e45bc3e4297b82bc3a6c09",
     urls = [
-        "http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/build_deps/pybind11_bazel/26973c0ff320cb4b39e45bc3e4297b82bc3a6c09.zip",
+        "http://pai-blade.oss-accelerate.aliyuncs.com/build_deps/pybind11_bazel/26973c0ff320cb4b39e45bc3e4297b82bc3a6c09.zip",
         "https://github.com/pybind/pybind11_bazel/archive/26973c0ff320cb4b39e45bc3e4297b82bc3a6c09.zip",
     ],
 )
@@ -37,7 +37,7 @@ http_archive(
     sha256 = "bc1cc26d1120f5a7e9eb450751c0b24160734e46a02823a573f3c6b6c0a574a7",
     strip_prefix = "googletest-e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b",
     urls = [
-        "http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/build_deps/googletest/e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b.zip",
+        "http://pai-blade.oss-accelerate.aliyuncs.com/build_deps/googletest/e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b.zip",
         "https://storage.googleapis.com/mirror.tensorflow.org/github.com/google/googletest/archive/e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b.zip",
         "https://github.com/google/googletest/archive/e2c06aa2497e330bab1c1a03d02f7c5096eb5b0b.zip",
     ],
@@ -48,7 +48,7 @@ http_archive(
     sha256 = "33a5690733c5cc2ede39cb62ebf89e751f2448e27f20c8b2fbbc7d136b166804",
     strip_prefix = "rules_foreign_cc-0.5.1",
     urls = [
-        "http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/build_deps/rules_foreign_cc/0.5.1.tar.gz",
+        "http://pai-blade.oss-accelerate.aliyuncs.com/build_deps/rules_foreign_cc/0.5.1.tar.gz",
         "https://github.com/bazelbuild/rules_foreign_cc/archive/0.5.1.tar.gz",
     ],
 )
@@ -66,7 +66,7 @@ http_archive(
     sha256 = "85ffff62a4c22a74dbd98d05da6cf40f497344b3dbf1e1ab0a37ab2a1a6ca014",
     strip_prefix = "rules_docker-0.23.0",
     urls = [
-        "https://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/build_deps/rules_docker/rules_docker-v0.23.0.tar.gz",
+        "https://pai-blade.oss-accelerate.aliyuncs.com/build_deps/rules_docker/rules_docker-v0.23.0.tar.gz",
         "https://github.com/bazelbuild/rules_docker/releases/download/v0.23.0/rules_docker-v0.23.0.tar.gz",
     ],
 )

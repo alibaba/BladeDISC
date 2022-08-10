@@ -57,7 +57,7 @@ def _build_onnx_engine(subgraph, engine_build_func, q_info=None,
     state.outputs = [_backends.TensorInfo(out) for out in graph.outputs()]
     if grp_calib_data is not None:
         # TODO (bohua): do some type check
-        state.grp_calib_data = grp_calib_data
+        state.calib_data = grp_calib_data
 
     # deduplicate only deduplicate outputs variable's
     # would not invalid value_map

@@ -1770,8 +1770,11 @@ class ShapePropagator : public PropertyPropBase {
         for (const auto idx : c10::irange(axis)) {
           auto dimSize = type->symbolic_sizes()[idx];
           if (dimSize.is_static())
+            // NB(xiafei.qiuxf): use static_size() rather than value() for
+            // backward compatability. static_size() CHECKs is_static(), it's
+            // safe here.
             stat_shape.emplace_back(
-                ShapeSymbol::fromStaticSize(dimSize.value()));
+                ShapeSymbol::fromStaticSize(dimSize.static_size()));
           else
             stat_shape.emplace_back(ShapeSymbol::newSymbol());
         }

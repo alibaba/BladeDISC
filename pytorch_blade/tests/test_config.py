@@ -13,6 +13,7 @@ import unittest
 
 import torch
 from torch_blade.config import Config
+from torch_blade.pass_manager import _get_current_onnx_opset_version, _set_opset_version_from_config
 from torch_blade.testing.common_utils import TestCase
 
 
@@ -185,6 +186,14 @@ class TestConfig(TestCase):
     def test_customize_onnx_version(self):
         self._test_numeric_config('customize_onnx_opset_version', 9, -1)
 
+        # test get_current_onnx_opset_version
+        new_cfg = Config()
+        new_cfg.customize_onnx_opset_version = 10
+        with new_cfg:
+            _set_opset_version_from_config()
+            current_onnx_opset_version = _get_current_onnx_opset_version()
+            self.assertEqual(current_onnx_opset_version, 10)
+
     def test_enable_force_to_cuda(self):
         self._test_numeric_config('enable_force_to_cuda', True, -1)
 
@@ -193,6 +202,7 @@ class TestConfig(TestCase):
 
     def test_customize_op_white_list(self):
         self._test_list_config('customize_op_white_list', ['aten::size', 'aten::view'])
+
 
 if __name__ == "__main__":
     unittest.main()

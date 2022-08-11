@@ -9,8 +9,8 @@ def _blade_disc_dnn_repositories():
         build_file = "@org_third_party//bazel/mkldnn:mkl_static.BUILD",
         sha256 = "b0f4f03c5a2090bc1194f348746396183cfb63a5a379d6e86f7fa89006abe28b",
         urls = [
-            "https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-static-2022.0.1-intel_117.tar.bz2",
             "https://pai-blade.oss-accelerate.aliyuncs.com/build_deps/mkl/mkl-static-2022.0.1-intel_117.tar.bz2",
+            "https://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/build_deps/mkl/mkl-static-2022.0.1-intel_117.tar.bz2",
         ],
     )
 
@@ -19,8 +19,8 @@ def _blade_disc_dnn_repositories():
         build_file = "@org_third_party//bazel/mkldnn:mkl_include.BUILD",
         sha256 = "3df729b9fa66f2e1e566c70baa6799b15c9d0e5d3890b9bd084e02299af25002",
         urls = [
-            "https://hlomodule.oss-cn-zhangjiakou.aliyuncs.com/mkl_package/mkl-include-2022.0.1-h8d4b97c_803.tar.bz2",
             "https://pai-blade.oss-accelerate.aliyuncs.com/build_deps/mkl/mkl-include-2022.0.1-h8d4b97c_803.tar.bz2",
+            "https://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/build_deps/mkl/mkl-include-2022.0.1-h8d4b97c_803.tar.bz2",
         ],
     )
 

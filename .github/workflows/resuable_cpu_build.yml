@@ -61,7 +61,7 @@ jobs:
           -w /disc \
           disc-dev-cpu ${{ inputs.exec_command }}
     - name: Deploy Docker Image
-      if: github.event.ref == 'refs/heads/main'
+      if: github.event.ref == 'refs/heads/main' && github.event_name == 'schedule'
       env:
         ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
         ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}

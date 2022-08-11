@@ -66,7 +66,7 @@ jobs:
     - name: Run Job 
       run: |
         set -e
-        docker run --gpus all --rm -t --user $(id -u):$(id -g) \
+        docker run --rm -t --user $(id -u):$(id -g) \
           {inputs.extra_run_command} \
           -v $HOME/.cache:$HOME/.cache \
           -v /etc/passwd:/etc/passwd:ro \

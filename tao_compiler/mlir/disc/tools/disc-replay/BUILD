@@ -24,7 +24,7 @@ disc_cc_library(
         "//tensorflow/compiler/mlir/disc:all_passes",
         "//tensorflow/compiler/decoupling:tao_compiler_input",
         "//tensorflow/compiler/decoupling:tao_compiler",
-        "//tensorflow/compiler/mlir/hlo:all_passes",
+        "//tensorflow/compiler/xla/mlir_hlo:all_passes",
         "//tensorflow/compiler/mlir/xla/ral:ral_base_context_lib",
         "//tensorflow/core:lib",
         "//tensorflow/core:framework",

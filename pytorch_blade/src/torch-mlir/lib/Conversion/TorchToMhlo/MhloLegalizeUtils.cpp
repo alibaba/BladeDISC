@@ -312,9 +312,14 @@ Value getReshapedTensor(
     ArrayRef<Value> dimSizes) {
   // create mhlo::DynamicReshapeOp
   auto loc = op->getLoc();
-  int newRank = dimSizes.size();
+  auto newRank = dimSizes.size();
+  assert(shape.size() == newRank);
   auto tensorTy = tensor.getType().dyn_cast<RankedTensorType>();
   auto outRankTy = RankedTensorType::get(shape, tensorTy.getElementType());
+  if (newRank == 0) {
+    return rewriter.create<mhlo::ReshapeOp>(loc, outRankTy, tensor);
+  }
+
   Value mhloShape = rewriter.create<tensor::FromElementsOp>(loc, dimSizes);
   return rewriter.create<mhlo::DynamicReshapeOp>(
       loc, outRankTy, tensor, mhloShape);
@@ -481,16 +486,47 @@ llvm::Optional<Value> getDotProduct(
   auto lhsTy = lhs.getType().dyn_cast<RankedTensorType>();
   auto rhsTy = rhs.getType().dyn_cast<RankedTensorType>();
 
-  auto lhsShape = lhsTy.getShape();
-  auto rhsShape = rhsTy.getShape();
-
+  auto oldLhsShape = lhsTy.getShape();
+  auto oldRhsShape = rhsTy.getShape();
+  SmallVector<int64_t> lhsShape;
+  SmallVector<int64_t> rhsShape;
+  lhsShape.append(oldLhsShape.begin(), oldLhsShape.end());
+  rhsShape.append(oldRhsShape.begin(), oldRhsShape.end());
   // lhsShape[b, m, n], rhsShape[b', n', k] -> resultShape[b, m, k],
   // assert b == b' and n == n', but we could only verify it at runtime
-  std::vector<int64_t> resultShape(lhsShape.begin(), lhsShape.end());
+  SmallVector<int64_t> resultShape(lhsShape.begin(), lhsShape.end());
+  auto lhsContractingDimSize = lhsShape[rank - 1];
+  auto rhsContractingDimSize = rhsShape[rank - 2];
   resultShape[rank - 1] = rhsShape[rank - 1];
 
   auto loc = op->getLoc();
   auto resultTy = RankedTensorType::get(resultShape, lhsTy.getElementType());
+
+  if (lhsContractingDimSize != rhsContractingDimSize) {
+    if (lhsContractingDimSize == ShapedType::kDynamicSize &&
+        rhsContractingDimSize >= 0) {
+      lhsShape[rank - 1] = rhsContractingDimSize;
+      lhs = getReshapedTensor(
+          rewriter,
+          op,
+          lhs,
+          lhsShape,
+          mhlo::getDimSizesOfTensor(rewriter, op, lhs));
+    } else if (
+        rhsContractingDimSize == ShapedType::kDynamicSize &&
+        lhsContractingDimSize >= 0) {
+      rhsShape[rank - 1] = lhsContractingDimSize;
+      rhs = getReshapedTensor(
+          rewriter,
+          op,
+          rhs,
+          rhsShape,
+          mhlo::getDimSizesOfTensor(rewriter, op, rhs));
+    } else {
+      op->emitOpError("contracting dimension sizes must match for lhs/rhs");
+      return llvm::None;
+    }
+  }
   auto dotDimAttr = mhlo::DotDimensionNumbersAttr::get(
       op->getContext(), batchDims, batchDims, {rank - 1}, {rank - 2});
   auto result = rewriter.create<mhlo::DotGeneralOp>(

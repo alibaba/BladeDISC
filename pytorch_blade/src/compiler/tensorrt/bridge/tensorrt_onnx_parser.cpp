@@ -124,6 +124,17 @@ TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
     LOG(INFO) << "Creating TensorRT engine with BuilderFlags: "
               << GetBuilderFlags();
     config->setFlags(GetBuilderFlags());
+    auto calib_data = state->get_calib_data();
+    // calibrator life time needs to last until after the engine is built.
+    std::unique_ptr<nvinfer1::IInt8Calibrator> calibrator;
+    if (!calib_data.empty()) {
+      LOG(INFO) << "Building INT8 TensorRT engine with calibration data";
+      config->setFlag(nvinfer1::BuilderFlag::kINT8);
+      config->setFlag(nvinfer1::BuilderFlag::kGPU_FALLBACK);
+      auto grp_calibrator = new Int8EntropyCalibrator2(calib_data);
+      calibrator.reset(grp_calibrator);
+      config->setInt8Calibrator(calibrator.get());
+    }
     if (!q_val.empty()) {
       LOG(INFO) << "Building INT8 TensorRT engine. ";
       config->setFlag(nvinfer1::BuilderFlag::kGPU_FALLBACK);
@@ -134,7 +145,6 @@ TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
     }
     auto trt_engine = TrtUniquePtr<nvinfer1::ICudaEngine>(
         context.builder->buildEngineWithConfig(*context.network, *config));
-
     bool debug_log_flag =
         env::ReadBoolFromEnvVar("TORCH_BLADE_DEBUG_LOG", false);
     if (trt_engine == nullptr && debug_log_flag) {

@@ -105,7 +105,9 @@ def _get_mlir_unsupported(graph):
     return unspt_nodes + extra_unspt_nodes
 
 def _disc_engine_conversion(module):
-    def try_cvt_to_disc_engine_func(c_module, subgraph, group_name, q_info=None):
+    def try_cvt_to_disc_engine_func(
+            c_module, subgraph, group_name, q_info=None, grp_calib_data=None
+    ):
         attr_name = f"{mlir._DISC_GROUP_NAME}{group_name}"
         try:
             so_bytes, pb_bytes, input_dev_str, output_dev_str = _compile_torchscript(subgraph)

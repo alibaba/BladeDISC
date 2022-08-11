@@ -117,6 +117,15 @@ class TestOptimize(TestCase):
             fp16_output = self._calculate_model_output(self.model)
             self.assertEqual(self.original_output, fp16_output, atol=2e-2, rtol=2e-2)
 
+    def test_int8_optimization(self):
+        new_cfg = Config.get_current_context_or_new().clone()
+        new_cfg.enable_int8 = True
+        new_cfg.quantization_calibration_data = [(self.dummy_input,), (self.dummy_input,)]
+        with new_cfg:
+            int8_output = self._calculate_model_output(self.model)
+            # if this test is unstable, you can release the atol and rtol
+            self.assertEqual(self.original_output, int8_output, atol=1e-1, rtol=1e-1)
+
     def test_fp16_amp_optimization(self):
         new_cfg = Config.get_current_context_or_new().clone()
         new_cfg.enable_fp16 = True

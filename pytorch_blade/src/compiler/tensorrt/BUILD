@@ -11,12 +11,14 @@ cc_library(
         "bridge/tensorrt_flags.cpp",
         "bridge/tensorrt_logger.cpp",
         "bridge/tensorrt_onnx_parser.cpp",
+        "bridge/tensorrt_calibrator.cpp",
     ],
     hdrs = [
         "bridge/tensorrt_common.h",
         "bridge/tensorrt_flags.h",
         "bridge/tensorrt_logger.h",
         "bridge/tensorrt_onnx_parser.h",
+        "bridge/tensorrt_calibrator.h",
     ],
     visibility = ["//visibility:private"],
     deps = [

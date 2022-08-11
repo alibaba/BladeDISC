@@ -146,7 +146,14 @@ def _adapt_node_number_outputs(graph, node):
     for idx, out in number_outs:
         _adapt_output_value(graph, node, out)
 
-def group_node_to_engine(module, node, try_cvt_to_engine_func, q_info, adapt_number_ios, idxes):
+def group_node_to_engine(
+        module, node,
+        try_cvt_to_engine_func,
+        q_info,
+        adapt_number_ios,
+        idxes,
+        grp_calib_data=None
+):
     if (node.kind() != 'prim::FusionGroup'):
         return
 
@@ -177,7 +184,7 @@ def group_node_to_engine(module, node, try_cvt_to_engine_func, q_info, adapt_num
         _adapt_node_number_inputs(subgraph, subgraph.return_node())
 
     # TODO(gty): refactor register engine attribute as a common process
-    ret_eng = try_cvt_to_engine_func(module, subgraph, group_name, grp_q_info)
+    ret_eng = try_cvt_to_engine_func(module, subgraph, group_name, grp_q_info, grp_calib_data)
     if (ret_eng is None):
         return
     attr_name, eng_type = ret_eng
@@ -201,7 +208,14 @@ def group_nodes(block):
             grp_nodes += group_nodes(blk)
     return grp_nodes
 
-def group_to_engine_conversion(module, try_cvt_to_engine_func, q_info=None, adapt_number_ios=False):
+
+def group_to_engine_conversion(
+        module,
+        try_cvt_to_engine_func,
+        q_info=None,
+        adapt_number_ios=False,
+        quantization_calib_file=None
+):
     if (isinstance(module, torch.jit.ScriptModule)):
         module = module._c
     assert(isinstance(module, torch._C.ScriptModule))
@@ -223,9 +237,28 @@ def group_to_engine_conversion(module, try_cvt_to_engine_func, q_info=None, adap
     else:
         start_id = 0
     success_grp_num = 0
+
+    fusion_group_nodes = group_nodes(graph)
+    all_calib_data = None
+    if quantization_calib_file is not None:
+        all_calib_data = torch.load(quantization_calib_file)
+        if len(all_calib_data) != len(fusion_group_nodes):
+            logger.warning("The number of quantization calibration data "
+                           "is not equal to the number of fusion group nodes")
+            all_calib_data = None
+
     for idx, node in enumerate(group_nodes(graph)):
         group_id = success_grp_num + start_id
-        group_node_to_engine(module, node, try_cvt_to_engine_func, q_info, adapt_number_ios, (group_id, idx))
+        grp_calib_data = all_calib_data[idx] if all_calib_data is not None else None
+        group_node_to_engine(
+            module,
+            node,
+            try_cvt_to_engine_func,
+            q_info,
+            adapt_number_ios,
+            (group_id, idx),
+            grp_calib_data
+        )
         success_grp_num += 1
 
     utils.block_topology_ajust(graph)

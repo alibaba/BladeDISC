@@ -11,6 +11,7 @@
 
 import os
 import tempfile
+from contextlib import contextmanager
 from typing import List
 
 import torch
@@ -195,28 +196,28 @@ class DataPreparer:
             all_data.append(data[1:])
         return all_data
 
-    def save_data(self, data):
-        tmp_dir = tempfile.mkdtemp(prefix="torch_blade")
-        file_path = os.path.join(tmp_dir, "calibration_data.pt")
-        torch.save(data, file_path)
-        return file_path
-
     def prepare(self):
         self.make_fusion_group_executable()
         self.insert_observer()
         all_data = self.get_calib_data_for_each_group()
-        file_path = self.save_data(all_data)
-        return file_path
+        return all_data
 
 
+@contextmanager
 def get_calib_file_for_each_group(c_module):
+    calib_data_for_all_fusion_group = None
     trt_calibration_data = Config.get_current_context_or_new().quantization_calibration_data
-    if not trt_calibration_data:
-        return None
-    try:
-        data_preparer = DataPreparer(c_module, trt_calibration_data)
-        file_path = data_preparer.prepare()
-        return file_path
-    except Exception as e:
-        logger.warning(f"Unable to get calib file for each graph group due to {e}.")
-        return None
+    if trt_calibration_data is not None:
+        try:
+            data_preparer = DataPreparer(c_module, trt_calibration_data)
+            calib_data_for_all_fusion_group = data_preparer.prepare()
+        except Exception as e:
+            logger.warning(f"Unable to get calib file for each graph group due to {e}.")
+
+    with tempfile.TemporaryDirectory(prefix=".torch_blade") as tmp_dirname:
+        if calib_data_for_all_fusion_group is not None:
+            calib_file_path = os.path.join(tmp_dirname, "calibration_data.pt")
+            torch.save(calib_data_for_all_fusion_group, calib_file_path)
+            yield calib_file_path
+        else:
+            yield None

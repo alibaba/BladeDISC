@@ -15,6 +15,7 @@
 #include "NvOnnxParser.h"
 
 #include "compiler/backends/engine_interface.h"
+#include "compiler/tensorrt/bridge/tensorrt_calibrator.h"
 #include "compiler/tensorrt/bridge/tensorrt_common.h"
 #include "compiler/tensorrt/bridge/tensorrt_logger.h"
 
@@ -22,6 +23,7 @@ namespace torch {
 namespace blade {
 
 using torch::blade::backends::DynamicRanges;
+using torch::blade::tensorrt::Int8EntropyCalibrator2;
 struct OnnxParserContext {
   TrtUniquePtr<nvinfer1::IBuilder> builder;
   TrtUniquePtr<nvinfer1::INetworkDefinition> network;

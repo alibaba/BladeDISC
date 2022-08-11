@@ -1,6 +1,22 @@
 ARG BASEIMAGE=bladedisc/bladedisc:latest-runtime-torch1.12.0-cu113
 FROM ${BASEIMAGE}
 
-RUN apt-get install -y git git-lfs libglib2.0-0 libsndfile1 libgl1
+RUN apt-get install -y git git-lfs libglib2.0-0 libsndfile1 libgl1 && \
+    rm -rf /var/lib/apt/lists/*
+# install nsys
+RUN apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        apt-transport-https \
+        ca-certificates \
+        gnupg \
+        wget && \
+    rm -rf /var/lib/apt/lists/*
+RUN wget -qO - https://developer.download.nvidia.com/devtools/repos/ubuntu2004/amd64/nvidia.pub | apt-key add - && \
+    echo "deb https://developer.download.nvidia.com/devtools/repos/ubuntu2004/amd64/ /" >> /etc/apt/sources.list.d/nsight.list && \
+    apt-get update -y && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        nsight-systems-2022.2.1 && \
+    rm -rf /var/lib/apt/lists/* 
+ENV PATH="/opt/nvidia/nsight-systems/2022.2.1/bin:${PATH}"
 
 RUN python3 -m pip install virtualenv

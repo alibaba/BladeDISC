@@ -24,6 +24,9 @@ on:
       extra_envs:
         required: false
         type: string
+      extra_run_command:
+        required: false
+        type: string
       push_command:
         required: true
         type: string
@@ -64,6 +67,7 @@ jobs:
       run: |
         set -e
         docker run --gpus all --rm -t --user $(id -u):$(id -g) \
+          {inputs.extra_run_command} \
           -v $HOME/.cache:$HOME/.cache \
           -v /etc/passwd:/etc/passwd:ro \
           -v /etc/group:/etc/group:ro \

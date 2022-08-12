@@ -17,19 +17,20 @@ python3 -m pip install -q -r $script_dir/requirements.txt
 
 # setup for torchbenchmark
 benchmark_repo_dir=$HOME/.cache/torchbenchmark
-if [ -d $benchmark_repo_dir ]; then
-    rm -rf $benchmark_repo_dir
+if [ ! -d $benchmark_repo_dir ]; then
+    git clone -q https://github.com/pai-disc/torchbenchmark.git --recursive $benchmark_repo_dir
 fi
-git clone -q https://github.com/pai-disc/torchbenchmark.git --recursive $benchmark_repo_dir
 # CI git-lfs permission problems
 cd $benchmark_repo_dir && export HOME=$(pwd) && git lfs install --force
 git pull && git submodule update --init --recursive --depth 1 && python3 install.py --continue_on_fail
+# fix pycocotools after install
+python3 -m pip install -U numpy
 pushd $script_dir # pytorch_blade/benchmark/TorchBench
-# setup for torchdynamo
 ln -s $benchmark_repo_dir torchbenchmark
 
-# torchscript/torchdynamo frontend and disc backend
+# benchmark 
 TORCHBENCH_ATOL=1e-2 TORCHBENCH_RTOL=1e-2 python3 torchbenchmark/.github/scripts/run-config.py -c blade_bench.yaml -b ./torchbenchmark/ --output-dir .
 # results
+cat eval-cuda-fp16/summary.csv
 cat eval-cuda-fp32/summary.csv
 popd

@@ -1684,7 +1684,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_BLOCK_WISE_ROW_REDUCE>(
   return success();
 }
 
-template <int TILE_W, int TILE_H, int LOOP=8>
+template <int TILE_W, int TILE_H, int LOOP = 8>
 LogicalResult lowerWithScheduleColReductionForRocm(
     ArrayRef<Operation*> root_ops, Operation* dominant_op, Block* parent,
     const ShapeAnalysis* shape_analysis = nullptr) {
@@ -1716,28 +1716,32 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   Value var_cols = b.create<memref::DimOp>(loc, lhs, one);
   Value var_loop_iter;
   Value var_tile_h = b.create<arith::ConstantIndexOp>(loc, kTileH);
-  Value var_tile_w = b.create<arith::ConstantIndexOp>(loc, kTileW);    
+  Value var_tile_w = b.create<arith::ConstantIndexOp>(loc, kTileW);
   // if (TILE_H == 32) {
-      // Value is_cols_gt512 = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ule,
-      //                                        var_cols, var512);
-      // SmallVector<Value, 4> yield_values_for_gt512;
-      // SmallVector<Type, 4> types_for_gt512;
-      // for (int i = 0; i < 2; i++) {
-      //   types_for_gt512.push_back(var_rows.getType());
-      // }
-      // scf::IfOp if_col_gt512 =
-      //     b.create<scf::IfOp>(loc, /* resultTypes */ types_for_gt512, is_cols_gt512,
-      //                     /*hasElseRegion*/ true);
-      // if_col_gt512.getThenRegion().front().clear();
-      // if_col_gt512.getElseRegion().front().clear();
-      // b.setInsertionPointToStart(&if_col_gt512.getThenRegion().front());
+  // Value is_cols_gt512 = b.create<arith::CmpIOp>(loc,
+  // arith::CmpIPredicate::ule,
+  //                                        var_cols, var512);
+  // SmallVector<Value, 4> yield_values_for_gt512;
+  // SmallVector<Type, 4> types_for_gt512;
+  // for (int i = 0; i < 2; i++) {
+  //   types_for_gt512.push_back(var_rows.getType());
+  // }
+  // scf::IfOp if_col_gt512 =
+  //     b.create<scf::IfOp>(loc, /* resultTypes */ types_for_gt512,
+  //     is_cols_gt512,
+  //                     /*hasElseRegion*/ true);
+  // if_col_gt512.getThenRegion().front().clear();
+  // if_col_gt512.getElseRegion().front().clear();
+  // b.setInsertionPointToStart(&if_col_gt512.getThenRegion().front());
   Value block_cols = b.create<arith::CeilDivSIOp>(loc, var_cols, var_tile_w);
-  Value block_rows_bound = b.create<arith::DivSIOp>(loc, block_limit, block_cols);
-  Value rows_no_loop = b.create<arith::MulIOp>(loc, var_tile_h, block_rows_bound);
+  Value block_rows_bound =
+      b.create<arith::DivSIOp>(loc, block_limit, block_cols);
+  Value rows_no_loop =
+      b.create<arith::MulIOp>(loc, var_tile_h, block_rows_bound);
   Value rows_loop = b.create<arith::CeilDivSIOp>(loc, var_rows, rows_no_loop);
-  
+
   Value is_loop_gt8 = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ugt,
-                                        rows_loop, loop_base_var);
+                                              rows_loop, loop_base_var);
   SmallVector<Value, 4> yield_values_for_gt8;
   SmallVector<Type, 4> types_for_gt8;
   for (int i = 0; i < 1; i++) {
@@ -1745,21 +1749,21 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   }
   scf::IfOp if_loop_gt8 =
       b.create<scf::IfOp>(loc, /* resultTypes */ types_for_gt8, is_loop_gt8,
-                      /*hasElseRegion*/ true);
+                          /*hasElseRegion*/ true);
   if_loop_gt8.getThenRegion().front().clear();
   if_loop_gt8.getElseRegion().front().clear();
   b.setInsertionPointToStart(&if_loop_gt8.getThenRegion().front());
   b.create<scf::YieldOp>(loc, loop_base_var);
   b.setInsertionPointToStart(&if_loop_gt8.getElseRegion().front());
   b.create<scf::YieldOp>(loc, rows_loop);
-  b.setInsertionPointAfter(if_loop_gt8);  
-  var_loop_iter = b.create<arith::MulIOp>(loc, *(if_loop_gt8.getResults().begin()), one);
+  b.setInsertionPointAfter(if_loop_gt8);
+  var_loop_iter =
+      b.create<arith::MulIOp>(loc, *(if_loop_gt8.getResults().begin()), one);
   // yield_values_for_gt512.push_back(eight);
-      // yield_values_for_gt512.push_back(*(if_col_gt8.getResults().begin()));
+  // yield_values_for_gt512.push_back(*(if_col_gt8.getResults().begin()));
   // } else {
   //     var_loop_iter = b.create<arith::ConstantIndexOp>(loc, kLoopIter);
   // }
-
 
   Value var_threads = b.create<arith::ConstantIndexOp>(loc, kThreads);
   // Start to emit.
@@ -1769,10 +1773,11 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   // num_block_col = ceil( var_cols() / var_tile_w );
   // num_block_row = ceil( var_rows() / var_tile_h);
 
-
   Value num_block_col = b.create<arith::CeilDivSIOp>(loc, var_cols, var_tile_w);
-  Value num_block_row_loop = b.create<arith::CeilDivSIOp>(loc, var_rows, var_tile_h);
-  Value num_block_row = b.create<arith::CeilDivSIOp>(loc, num_block_row_loop, var_loop_iter);
+  Value num_block_row_loop =
+      b.create<arith::CeilDivSIOp>(loc, var_rows, var_tile_h);
+  Value num_block_row =
+      b.create<arith::CeilDivSIOp>(loc, num_block_row_loop, var_loop_iter);
 
   Value var_blocks = b.create<arith::MulIOp>(loc, num_block_col, num_block_row);
 
@@ -1807,7 +1812,8 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   Value local_row_index = b.create<arith::DivUIOp>(loc, var_n, var_tile_w);
   Value local_col_index = b.create<arith::RemUIOp>(loc, var_n, var_tile_w);
   Value block_row_index = b.create<arith::DivUIOp>(loc, var_m, num_block_col);
-  // Value block_row_index =  b.create<arith::DivUIOp>(loc, block_row_index_loop, var_loop_iter);
+  // Value block_row_index =  b.create<arith::DivUIOp>(loc,
+  // block_row_index_loop, var_loop_iter);
   Value block_col_index = b.create<arith::RemUIOp>(loc, var_m, num_block_col);
 
   // row_index = block_row_index * var_tile_h + local_row_index;
@@ -1826,7 +1832,6 @@ LogicalResult lowerWithScheduleColReductionForRocm(
     shared_mem_map[root_op] = shared_mem;
   }
 
-
   Value is_lt_cols = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ult,
                                              col_index, var_cols);
 
@@ -1840,21 +1845,18 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   //    shm[n] = sum + global[row_index, col_index];
   // }
 
-
   Value var_l = nullptr;
-  scf::ForOp for_op_l =
-      createLoopAndSetInsPt(b, loc, var_l,
-                            /*lb*/ zero, /*ub*/ var_loop_iter,
-                            /*step*/ one, init_values);
+  scf::ForOp for_op_l = createLoopAndSetInsPt(b, loc, var_l,
+                                              /*lb*/ zero, /*ub*/ var_loop_iter,
+                                              /*step*/ one, init_values);
 
   Value row_index_loop = b.create<arith::AddIOp>(
-      loc, b.create<arith::MulIOp>(loc, block_row_index, var_loop_iter),
-      var_l);
+      loc, b.create<arith::MulIOp>(loc, block_row_index, var_loop_iter), var_l);
   Value row_index = b.create<arith::AddIOp>(
       loc, b.create<arith::MulIOp>(loc, row_index_loop, var_tile_h),
       local_row_index);
 
-    // is_valid = (row_index < var_rows()) && (col_index < var_cols());
+  // is_valid = (row_index < var_rows()) && (col_index < var_cols());
   Value is_lt_rows = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ult,
                                              row_index, var_rows);
 
@@ -1865,9 +1867,8 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   if_row_valid.getElseRegion().front().clear();
   // b.setInsertionPointToStart(&if_row_valid.getThenRegion().front());
 
-
   SmallVector<Value, 2> multidim_load_index({row_index, col_index});
-  ValueRange load_index(multidim_load_index);  
+  ValueRange load_index(multidim_load_index);
   int64_t row_reduction_idx = 0;
   // SmallVector<Value, 4> yield_values_for_l;
 
@@ -1876,17 +1877,18 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   for (auto root_op : root_ops) {
     if (isRank2ColReduction(root_op)) {
       b.setInsertionPointToEnd(&if_row_valid.getThenRegion().front());
-        auto reduce_op = dyn_cast_or_null<lmhlo::ReduceOp>(root_op);
-        auto data = createLoadOrUseCachedValue(loc, &b, root_op, root_op->getOperand(0),
-                                         load_index, b.saveInsertionPoint());
+      auto reduce_op = dyn_cast_or_null<lmhlo::ReduceOp>(root_op);
+      auto data =
+          createLoadOrUseCachedValue(loc, &b, root_op, root_op->getOperand(0),
+                                     load_index, b.saveInsertionPoint());
       AccumulatorFactory accumFactory =
           getFactory(b, root_op->getLoc(), reduce_op.body());
       auto acc = accumFactory(*(for_op_l.getRegionIterArgs().begin()), data);
       yield_values_for_if.push_back(acc);
-    }  else if (isRank2RowReduction(root_op)) {
+    } else if (isRank2RowReduction(root_op)) {
       assert(false && "unexpected row_reduction");
-      return failure();   
-    }  else if (isa<lmhlo::ReduceOp>(root_op)) {
+      return failure();
+    } else if (isa<lmhlo::ReduceOp>(root_op)) {
       // assert(false && "unexpected reduce_reduction");
       // return failure();
       auto dominant_shape = getShapeValues(&b, dominant_op->getOperand(0));
@@ -1896,8 +1898,7 @@ LogicalResult lowerWithScheduleColReductionForRocm(
       emitNotToVectorReduction(b, loc, root_op, mapped_index);
     } else {
       auto dominant_shape = getShapeValues(&b, dominant_op->getOperand(0));
-      Value linear_index =
-          calcLinearIndex(&b, loc, load_index, dominant_shape);
+      Value linear_index = calcLinearIndex(&b, loc, load_index, dominant_shape);
       if (!succeeded(
               lowerHelper(b, loc, root_op, linear_index, shape_analysis))) {
         return failure();
@@ -1915,16 +1916,13 @@ LogicalResult lowerWithScheduleColReductionForRocm(
 
   b.setInsertionPointAfter(for_op_l);
 
-
   for (auto root_pair : llvm::enumerate(col_reduction_roots)) {
-      Operation* root_op = root_pair.value();
-      int idx = root_pair.index();
-      b.create<memref::StoreOp>(loc,
-                                *(for_op_l.getResults().begin() + idx),
-                                shared_mem_map[root_op], var_n);
+    Operation* root_op = root_pair.value();
+    int idx = root_pair.index();
+    b.create<memref::StoreOp>(loc, *(for_op_l.getResults().begin() + idx),
+                              shared_mem_map[root_op], var_n);
   }
   // b.create<scf::YieldOp>(loc, ValueRange({}));
-
 
   // SmallVector<Value, 2> multidim_load_index({row_index, col_index});
   // ValueRange load_index(multidim_load_index);
@@ -1944,14 +1942,15 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   //     return failure();
   //   } else if (isa<lmhlo::ReduceOp>(root_op)) {
   //     auto dominant_shape = getShapeValues(&b, dominant_op->getOperand(0));
-  //     Value linear_index = calcLinearIndex(&b, loc, load_index, dominant_shape);
-  //     auto root_shape = getShapeValues(&b, root_op->getOperand(0));
-  //     auto mapped_index = calcMultiDimIndex(&b, loc, linear_index, root_shape);
-  //     emitNotToVectorReduction(b, loc, root_op, mapped_index);
+  //     Value linear_index = calcLinearIndex(&b, loc, load_index,
+  //     dominant_shape); auto root_shape = getShapeValues(&b,
+  //     root_op->getOperand(0)); auto mapped_index = calcMultiDimIndex(&b, loc,
+  //     linear_index, root_shape); emitNotToVectorReduction(b, loc, root_op,
+  //     mapped_index);
   //   } else {
   //     auto dominant_shape = getShapeValues(&b, dominant_op->getOperand(0));
-  //     Value linear_index = calcLinearIndex(&b, loc, load_index, dominant_shape);
-  //     if (!succeeded(
+  //     Value linear_index = calcLinearIndex(&b, loc, load_index,
+  //     dominant_shape); if (!succeeded(
   //             lowerHelper(b, loc, root_op, linear_index, shape_analysis))) {
   //       assert(false && "elementwise lowerHelper failure");
   //       return failure();
@@ -2006,14 +2005,14 @@ LogicalResult lowerWithScheduleColReductionForRocm(
       // data,
       root_op->getOperand(2), ValueRange({store_index}));
   }
-  
+
 #else
 
-  Value row_index_loop_shuffle = b.create<arith::MulIOp>(loc, block_row_index, var_loop_iter);
+  Value row_index_loop_shuffle =
+      b.create<arith::MulIOp>(loc, block_row_index, var_loop_iter);
   Value row_index_shuffle = b.create<arith::AddIOp>(
-        loc, b.create<arith::MulIOp>(loc, row_index_loop_shuffle, var_tile_h),
-        local_row_index);
-
+      loc, b.create<arith::MulIOp>(loc, row_index_loop_shuffle, var_tile_h),
+      local_row_index);
 
   // for (int stride = kTileH / 2; stride > 1; stride /= 2) {
   for (int stride = kTileH / 2; stride > 1; stride /= 2) {
@@ -2064,10 +2063,11 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   Value is_local_row_index_eq_zero = b.create<arith::CmpIOp>(
       loc, arith::CmpIPredicate::eq, local_row_index, zero);
 
-  Value is_valid =
-      b.create<arith::AndIOp>(loc, is_lt_cols, b.create<arith::CmpIOp>(
-        loc, arith::CmpIPredicate::ult, row_index_shuffle, var_rows));
-  
+  Value is_valid = b.create<arith::AndIOp>(
+      loc, is_lt_cols,
+      b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ult, row_index_shuffle,
+                              var_rows));
+
   Value is_atom_add =
       b.create<arith::AndIOp>(loc, is_local_row_index_eq_zero, is_valid);
   scf::IfOp if_is_atom_add =
@@ -2093,7 +2093,6 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   b.create<scf::YieldOp>(loc, ValueRange({}));
 #endif
 
-
   b.setInsertionPointToEnd(parallel_op.getBody());
   b.create<scf::YieldOp>(loc, ValueRange({}));  // parallel
 
@@ -2101,9 +2100,6 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   llvm::errs() << "Finish rol reduction rocm\n";
   return success();
 }
-
-
-
 
 /* BLOCK TILE IMPL: tile_w*tile_h threads load tile_w*tile_h elements
  * from gmem to SHM(tile_w vectorizes load), do reduction in SHM and
@@ -2255,7 +2251,7 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
       auto data = createLoadOrUseCachedValue(
           loc, &b, root_op, *root_op->getOperands().begin(), load_index,
           b.saveInsertionPoint());
-      llvm::errs()  << "Create root ops 0\n";
+      llvm::errs() << "Create root ops 0\n";
       b.create<memref::StoreOp>(loc,
                                 (accum_factory[col_red_root_op_idx])(
                                     data, init_values[col_red_root_op_idx]),
@@ -2265,14 +2261,14 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
       assert(false && "unexpected row_reduction");
       return failure();
     } else if (isa<lmhlo::ReduceOp>(root_op)) {
-       llvm::errs()  << "Create root ops 1\n";
+      llvm::errs() << "Create root ops 1\n";
       auto dominant_shape = getShapeValues(&b, dominant_op->getOperand(0));
       Value linear_index = calcLinearIndex(&b, loc, load_index, dominant_shape);
       auto root_shape = getShapeValues(&b, root_op->getOperand(0));
       auto mapped_index = calcMultiDimIndex(&b, loc, linear_index, root_shape);
       emitNotToVectorReduction(b, loc, root_op, mapped_index);
     } else {
-      llvm::errs()  << "Create root ops 2\n";
+      llvm::errs() << "Create root ops 2\n";
       auto dominant_shape = getShapeValues(&b, dominant_op->getOperand(0));
       Value linear_index = calcLinearIndex(&b, loc, load_index, dominant_shape);
       if (!succeeded(
@@ -3890,7 +3886,7 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
     case FusionType::kColReduction: {
       std::string k_target;
       static const char* env = getenv("KTARGET");
-      if (env != nullptr) { 
+      if (env != nullptr) {
         k_target = std::string(env);
       }
       std::string delimiter = ";";
@@ -3906,19 +3902,19 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
         loop = envloop[0] - '0';
       }
 
-
       while ((pos = s.find(delimiter)) != std::string::npos) {
-          token = s.substr(0, pos);
-          if (!token.empty() && kname.rfind(token, 0) == 0) {   
-            use_new = true;
-          }
-          s.erase(0, pos + delimiter.length());
-      }
-      if (!s.empty() && kname.rfind(s, 0) == 0) {   
+        token = s.substr(0, pos);
+        if (!token.empty() && kname.rfind(token, 0) == 0) {
           use_new = true;
+        }
+        s.erase(0, pos + delimiter.length());
+      }
+      if (!s.empty() && kname.rfind(s, 0) == 0) {
+        use_new = true;
       }
       llvm::errs() << "Fusion name " << kname << "\n";
-      // llvm::errs() << "KColReduction use new " << (use_new?1:0) << " " << k_target << " " << kname << "\n"; 
+      // llvm::errs() << "KColReduction use new " << (use_new?1:0) << " " <<
+      // k_target << " " << kname << "\n";
       const int col_reduction_schedule =
           getColReductionScheduleHint(dominant_op);
       LogicalResult r = success();
@@ -3926,19 +3922,19 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
         if (use_new) {
           llvm::errs() << "Use new col reduce for " << kname << "\n";
           r = lowerWithScheduleColReductionForRocm<16, 32>(
-            root_ops, dominant_op, fused_block);
+              root_ops, dominant_op, fused_block);
         } else {
           r = lowerWithScheduleColReductionBlockTileSchedule<8, 32>(
-              root_ops, dominant_op, fused_block); 
+              root_ops, dominant_op, fused_block);
         }
       } else if (col_reduction_schedule == DISC_TILE_W8_H16) {
         if (use_new) {
           llvm::errs() << "Use new col reduce for " << kname << "\n";
           r = lowerWithScheduleColReductionForRocm<16, 32>(
-            root_ops, dominant_op, fused_block);
+              root_ops, dominant_op, fused_block);
         } else {
           r = lowerWithScheduleColReductionBlockTileSchedule<8, 16>(
-            root_ops, dominant_op, fused_block);
+              root_ops, dominant_op, fused_block);
         }
       } else if (col_reduction_schedule == DISC_TILE_LOOP_W64_H8) {
         if (loop == 1)
@@ -3946,39 +3942,39 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
               root_ops, dominant_op, fused_block);
         if (loop == 2)
           r = lowerWithScheduleColReductionForRocm<64, 8, 2>(
-              root_ops, dominant_op, fused_block);  
+              root_ops, dominant_op, fused_block);
         if (loop == 4)
           r = lowerWithScheduleColReductionForRocm<64, 8, 4>(
-              root_ops, dominant_op, fused_block); 
+              root_ops, dominant_op, fused_block);
         if (loop == 8)
           r = lowerWithScheduleColReductionForRocm<64, 8, 8>(
-              root_ops, dominant_op, fused_block); 
+              root_ops, dominant_op, fused_block);
       } else if (col_reduction_schedule == DISC_TILE_LOOP_W16_H32) {
         if (loop == 1)
           r = lowerWithScheduleColReductionForRocm<16, 32, 1>(
               root_ops, dominant_op, fused_block);
         if (loop == 2)
           r = lowerWithScheduleColReductionForRocm<16, 32, 2>(
-              root_ops, dominant_op, fused_block);  
+              root_ops, dominant_op, fused_block);
         if (loop == 4)
           r = lowerWithScheduleColReductionForRocm<16, 32, 4>(
-              root_ops, dominant_op, fused_block); 
+              root_ops, dominant_op, fused_block);
         if (loop == 8)
           r = lowerWithScheduleColReductionForRocm<16, 32, 8>(
-              root_ops, dominant_op, fused_block); 
+              root_ops, dominant_op, fused_block);
       } else if (col_reduction_schedule == DISC_TILE_LOOP_W8_H8) {
         if (loop == 1)
           r = lowerWithScheduleColReductionForRocm<8, 8, 1>(
               root_ops, dominant_op, fused_block);
         if (loop == 2)
           r = lowerWithScheduleColReductionForRocm<8, 8, 2>(
-              root_ops, dominant_op, fused_block);  
+              root_ops, dominant_op, fused_block);
         if (loop == 4)
           r = lowerWithScheduleColReductionForRocm<8, 8, 4>(
-              root_ops, dominant_op, fused_block); 
+              root_ops, dominant_op, fused_block);
         if (loop == 8)
           r = lowerWithScheduleColReductionForRocm<8, 8, 8>(
-              root_ops, dominant_op, fused_block); 
+              root_ops, dominant_op, fused_block);
       } else {
         r = lowerWithScheduleColReductionBlockTileSchedule<8, 8>(
             root_ops, dominant_op, fused_block);

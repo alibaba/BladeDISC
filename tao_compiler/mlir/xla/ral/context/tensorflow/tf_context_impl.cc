@@ -29,7 +29,6 @@
 #include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
 #include "tensorflow/core/public/version.h"
 #include "tensorflow/stream_executor/device_description.h"
-#include "tensorflow/core/util/env_var.h"
 
 namespace se = stream_executor;
 
@@ -383,16 +382,11 @@ void ral_tf_gpu_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
                        intptr_t blockZ, int32_t smem, /* sharedMemBytes */
                        void* stream_handle,           /* stream */
                        int32_t num_args, void** params) /* kernel params */ {
-  bool args_dump = false;
-  tensorflow::ReadBoolFromEnvVar("DISC_ARGS", false,
-                                 &args_dump);
   auto* state = ctx->getResource<RalTFContextState>(kRalTFContextState);
   auto ral_tf_ctx = dynamic_cast<RalTfExecutionContext*>(ctx);
-  if (args_dump) {
-  TAO_VLOG(0) << "launch kernel: " << kernel_name << " with (" << gridX << ", "
+  TAO_VLOG(1) << "launch kernel: " << kernel_name << " with (" << gridX << ", "
               << gridY << ", " << gridZ << ") blocks, (" << blockX << ", "
               << blockY << ", " << blockZ << ") threads";
-  }
 
   // Skip if an empty launch
   if (!blockX || !blockY || !blockZ || !gridX || !gridY || !gridZ) {
@@ -465,20 +459,16 @@ void ral_tf_gpu_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
   }
 
   RalTfKernelArgsArrayBase kernel_args(params, num_args);
-
-//   if (namedeb == "main_kColReduction_dynamic_reshape_reduce__26_2_3___no_ibX8w32h_1_revised_revised_revised")  
-  if (args_dump)
-  {
-    VLOG(0) << "kernel is " << namedeb;
+  if (VLOG_IS_ON(2)) {
+    VLOG(2) << "kernel is " << namedeb;
     se::KernelArgIterator iter = kernel_args.arg_iterator();
     while (iter.has_next()) {
-    se::KernelArg arg = iter.next();
-    VLOG(0) << "*(arg.address):" << reinterpret_cast<uint64_t>(*static_cast<const uint64_t*>(arg.address));
+      se::KernelArg arg = iter.next();
+      VLOG(2) << "*(arg.address):"
+              << reinterpret_cast<uint64_t>(
+                     *static_cast<const uint64_t*>(arg.address));
     }
   }
-
-
-
 
   auto status = ral_to_bool(executor->Launch(
       stream, se::ThreadDim(blockX, blockY, blockZ),

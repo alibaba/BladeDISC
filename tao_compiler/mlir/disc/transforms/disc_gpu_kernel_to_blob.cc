@@ -157,8 +157,6 @@ class GpuKernelToBlobPass
   xla::StatusOr<std::vector<uint8_t>> GetGpuBinaryBlob(
       mlir::gpu::GPUModuleOp gpu_module, int cc_major, int cc_minor,
       bool virtual_compute_arch = false) {
-
-
     llvm::LLVMContext llvmContext;
     auto llvmModule = mlir::translateModuleToLLVMIR(gpu_module, llvmContext);
 
@@ -302,40 +300,31 @@ class GpuKernelToBlobPass
         config, libdevice_dir);
 
     bool dump_files;
-    tensorflow::ReadBoolFromEnvVar("DISC_ROCM_DUMP_FILES",
-                                     false, &dump_files);  
+    tensorflow::ReadBoolFromEnvVar("DISC_ROCM_DUMP_FILES", false, &dump_files);
 
-    if (hsaco_or.ok()) {
-      if (dump_files) {
-        std::error_code ec;
-        std::string ll_path = kname+"_debugllvm.ll";
-        std::unique_ptr<llvm::raw_fd_ostream> ll_fs(
+    if (hsaco_or.ok() && dump_files) {
+      std::error_code ec;
+      std::string ll_path = kname + "_debugllvm.ll";
+      std::unique_ptr<llvm::raw_fd_ostream> ll_fs(
           new llvm::raw_fd_ostream(ll_path, ec, llvm::sys::fs::OF_None));
-        llvmModule->print(*ll_fs, nullptr);
-        ll_fs->flush();
-        const auto& blob = hsaco_or.ValueOrDie();
-        std::string llvmpath = kname+"_debugllvm.hsaco";
-        auto myfile = std::fstream(llvmpath, std::ios::out | std::ios::binary);
-        myfile.write((char*)blob.data(), blob.size());
-        myfile.close();
-        VLOG(0) << "llvm hsaco to " << llvmpath;
-        hipModule_t hipmodule;
-        hipError_t res = tensorflow::wrap::hipModuleLoadData(&hipmodule, reinterpret_cast<const void*>(blob.data()));
-        if (res != hipSuccess) {
-          VLOG(0) << "error for hsoco build " << res << " " << kname;
-        } else {
-          VLOG(0) << "Finish for hsoco build " << res << " " << kname;
-        }
+      llvmModule->print(*ll_fs, nullptr);
+      ll_fs->flush();
+      const auto& blob = hsaco_or.ValueOrDie();
+      std::string llvmpath = kname + "_debugllvm.hsaco";
+      auto myfile = std::fstream(llvmpath, std::ios::out | std::ios::binary);
+      myfile.write((char*)blob.data(), blob.size());
+      myfile.close();
+      LOG(INFO) << "llvm hsaco to " << llvmpath;
+      hipModule_t hipmodule;
+      hipError_t res = tensorflow::wrap::hipModuleLoadData(
+          &hipmodule, reinterpret_cast<const void*>(blob.data()));
+      if (res != hipSuccess) {
+        LOG(WARNING) << "error for hsoco build " << res << " " << kname;
+      } else {
+        LOG(INFO) << "Finish for hsoco build " << res << " " << kname;
       }
     } else {
-	    VLOG(0) << "llvm compile hsaco fail";
-    }
-
-
-
-
-    if (!hsaco_or.ok()) {
-      VLOG(0) << "LLVM Backend compile HSACO fail.";
+      LOG(WARNING) << "LLVM Backend compile HSACO fail.";
     }
     return hsaco_or;
 

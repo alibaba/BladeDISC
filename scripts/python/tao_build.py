@@ -228,7 +228,7 @@ def configure_bridge_cmake(root, args):
     logger.info("Stage [configure bridge(cmake)] success.")
 
 def config_blade_gemm(root, args):
-    if not (args.blade_gemm):
+    if not (args.platform_alibaba and args.blade_gemm):
         return
     if args.cpu_only:
         return
@@ -246,7 +246,7 @@ def config_blade_gemm(root, args):
 
 @time_stage()
 def build_blade_gemm(root, args):
-    if not (args.blade_gemm):
+    if not (args.platform_alibaba and args.blade_gemm):
         return
     if args.cpu_only:
         return
@@ -317,7 +317,7 @@ def configure_bridge_bazel(root, args):
             logger.info(f"Builing with cuda-{cuda_ver}")
             if cuda_ver.startswith('11.'):
                 _action_env("TF_CUDA_COMPUTE_CAPABILITIES", "7.0,7.5,8.0")
-                if args.blade_gemm:
+                if args.platform_alibaba and args.blade_gemm:
                     if os.path.exists(args.blade_gemm_nvcc):
                         _action_env("BLADE_GEMM_NVCC", args.blade_gemm_nvcc)
                         _action_env("BLADE_GEMM_NVCC_ARCHS", "80")  # Currently only for Ampere, add a arg for this when support more archs
@@ -404,7 +404,7 @@ def build_tao_compiler(root, args):
             flag = "--config=rocm"
         else:
             flag = "--config=cuda"
-            if args.blade_gemm:
+            if args.platform_alibaba and args.blade_gemm:
                 flag += " --config=blade_gemm"
 
         if args.platform_alibaba:
@@ -423,9 +423,9 @@ def build_tao_compiler(root, args):
             flag += ' --config=disc_mkldnn'
 
         bazel_build(TARGET_TAO_COMPILER_MAIN, flag=flag)
-
-        if not args.dcu and not args.rocm:
-            bazel_build(TARGET_DISC_OPT, flag=flag)
+        bazel_build(TARGET_DISC_OPT, flag=flag)
+        # TODO:(fl237079) Support disc_replay for rocm version
+        if not args.rocm and not args.dcu:
             bazel_build(TARGET_DISC_REPLAY, flag=flag)
 
         execute(
@@ -446,7 +446,7 @@ def build_mlir_ral(root, args):
             configs.append("--config=disc_rocm")
         else:
             configs.append('--config=disc_cuda')
-            if args.blade_gemm:
+            if args.platform_alibaba and args.blade_gemm:
                 configs.append('--config=blade_gemm')
         if args.rocm_toolkit_codegen:
             configs.append('--cxxopt="-DTENSORFLOW_USE_ROCM_COMPILE_TOOLKIT=1"')
@@ -567,7 +567,7 @@ def test_tao_compiler(root, args):
                 flag = "--config=rocm"
             else:
                 flag = "--config=cuda"
-                if args.blade_gemm:
+                if args.platform_alibaba and args.blade_gemm:
                     flag += ' --config=blade_gemm'
             if args.platform_alibaba:
                 flag += " --config=platform_alibaba"
@@ -597,15 +597,15 @@ def tao_bridge_bazel_config(args):
             bazel_config += " --config=disc_mkldnn"
     elif args.rocm:
         bazel_config += " --config=disc_rocm"
-        if args.blade_gemm:
+        if args.platform_alibaba and args.blade_gemm:
             bazel_config += " --config=blade_gemm"
     elif args.dcu:
         bazel_config += " --config=disc_dcu"
-        if args.blade_gemm:
+        if args.platform_alibaba and args.blade_gemm:
             bazel_config += " --config=blade_gemm"
     else:
         bazel_config += " --config=disc_cuda"
-        if args.blade_gemm:
+        if args.platform_alibaba and args.blade_gemm:
             bazel_config += " --config=blade_gemm"
     if args.platform_alibaba:
         bazel_config += " --config=platform_alibaba"

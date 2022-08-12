@@ -23,7 +23,7 @@
 #include "tensorflow/compiler/mlir/xla/ral/ral_logging.h"
 #include "tensorflow/core/public/version.h"
 #include "tensorflow/core/util/env_var.h"
-#if defined(ENABLE_BLADE_GEMM)
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
 #include "bladnn/bladnn.h"
 #endif
 
@@ -146,7 +146,6 @@ inline bool TrySgemvInternal<float, float, float>(
     float alpha, const se::DeviceMemory<float>& a, int lda,
     const se::DeviceMemory<float>& x, int incx, float beta,
     se::DeviceMemory<float>* y, int incy) {
-
   return stream
       ->ThenBlasGemv(trans, m, n,
                      /*alpha=*/alpha, a,
@@ -183,11 +182,6 @@ static bool DoGemmWithAlgorithm(
         /*alpha=*/alpha, rhs_data,
         /*leading dim of RHS=*/rhs_matrix.num_cols, lhs_data,
         /*incx*/ 1, /*beta=*/beta, &output_data, /*incy*/ 1);
-    // return TrySgemvInternal<InT, OutT, AlphaBeta>(
-    //     stream, rhs_transpose, n, k,
-    //     /*alpha=*/alpha, rhs_data,
-    //     /*leading dim of RHS=*/rhs_matrix.num_cols, lhs_data,
-    //     /*incx*/ 1, /*beta=*/beta, &output_data, /*incy*/ 1);
   }
   if (algorithm) {
     // Autotuning is disabled for batch_size != 1.
@@ -280,7 +274,7 @@ struct RalGemmState : public Context::Resource {
   std::map<GemmTuningCacheKey, se::blas::AlgorithmType> gemm_tuning_cache;
 };
 
-#if defined(ENABLE_BLADE_GEMM)
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
 template <typename T>
 bladnn::Dtype toBlaDNNDtype() {
   if (std::is_same<T, Eigen::half>::value) {
@@ -305,7 +299,7 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
     return;
   }
 
-#if defined(ENABLE_BLADE_GEMM)
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
   {
     auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
     auto stream =
@@ -421,7 +415,7 @@ void ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
     return;
   }
 
-#if defined(ENABLE_BLADE_GEMM)
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
   {
     auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
     auto stream =

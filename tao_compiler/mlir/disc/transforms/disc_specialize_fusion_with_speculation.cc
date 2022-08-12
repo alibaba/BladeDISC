@@ -474,7 +474,8 @@ struct DiscSpecializeFusionWithSpeculationPass
     bool use_new = false;
     static const char* env = getenv("NEW_COL");
     if (env != nullptr) {
-      use_new = std::string(env) == "1" || std::string(env) == "2" || std::string(env) == "4" || std::string(env) == "8";
+      use_new = std::string(env) == "1" || std::string(env) == "2" ||
+                std::string(env) == "4" || std::string(env) == "8";
     }
 
     if (!placement_utils::isGpuMhlo(fusion_op)) {
@@ -485,7 +486,6 @@ struct DiscSpecializeFusionWithSpeculationPass
       // Do not know about device information.
       return;
     }
-
 
     // Already have a hint
     if (fusion_op->getAttrOfType<IntegerAttr>(kColReductionScheduleHint))
@@ -508,9 +508,9 @@ struct DiscSpecializeFusionWithSpeculationPass
     Value matrix_size = b.create<arith::MulIOp>(loc, row_size, col_size);
 
     if (use_new) {
-
       int thread_per_block = 512;
-      Value cur_threads = b.create<arith::ConstantIndexOp>(loc, thread_per_block);
+      Value cur_threads =
+          b.create<arith::ConstantIndexOp>(loc, thread_per_block);
       Value cur_blocks =
           b.create<arith::CeilDivSIOp>(loc, matrix_size, cur_threads);
       // int sm_num;
@@ -523,11 +523,13 @@ struct DiscSpecializeFusionWithSpeculationPass
       //   sm_num = 100;  // Default is the data of MI210.
       // }
 
-      Value ref_blocks = b.create<arith::ConstantIndexOp>(loc,  core_count_<=0?100: core_count_);
-      Value large_reduce_threshold = b.create<arith::ConstantIndexOp>(loc, 64*32);
+      Value ref_blocks = b.create<arith::ConstantIndexOp>(
+          loc, core_count_ <= 0 ? 100 : core_count_);
+      Value large_reduce_threshold =
+          b.create<arith::ConstantIndexOp>(loc, 64 * 32);
 
       Value pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge,
-                                          col_size, large_reduce_threshold);
+                                           col_size, large_reduce_threshold);
 
       auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
 
@@ -551,13 +553,14 @@ struct DiscSpecializeFusionWithSpeculationPass
       cloned.getOperation()->moveBefore(else_block, else_block->begin());
     } else {
       int thread_per_block = 256;
-      Value cur_threads = b.create<arith::ConstantIndexOp>(loc, thread_per_block);
+      Value cur_threads =
+          b.create<arith::ConstantIndexOp>(loc, thread_per_block);
       Value cur_blocks =
           b.create<arith::CeilDivSIOp>(loc, matrix_size, cur_threads);
       Value ref_blocks = b.create<arith::ConstantIndexOp>(loc, core_count_);
 
       Value pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt,
-                                          cur_blocks, ref_blocks);
+                                           cur_blocks, ref_blocks);
 
       auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
 

@@ -15,6 +15,7 @@
 namespace torch {
 namespace blade {
 namespace quantization {
+
 static const std::string at_fake_quant_per_tensor_affine_name =
     "aten::fake_quantize_per_tensor_affine";
 static const std::string at_fake_quant_per_channel_affine_name =

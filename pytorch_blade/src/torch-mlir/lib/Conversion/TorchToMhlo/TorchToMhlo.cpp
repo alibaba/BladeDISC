@@ -401,7 +401,11 @@ class ConvertAtenBinaryCompareOp : public OpConversionPattern<AtenOpT> {
             .create<chlo::BroadcastCompareOp>(
                 op.getLoc(), lhs, rhs, /*broadcast_attr*/ nullptr, DirectionT)
             .getResult();
-    rewriter.replaceOp(op, result);
+    rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
+        op,
+        OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
+            op.getType()),
+        result);
     return success();
   }
 };
@@ -638,8 +642,9 @@ LogicalResult ConvertAtenOp<AtenTanhOp>::matchAndRewrite(
   Value self = adaptor.self();
   auto selfTy = self.getType().cast<TensorType>();
   if (selfTy && selfTy.getElementType().isa<mlir::FloatType>()) {
-    rewriter.replaceOpWithNewOp<mhlo::TanhOp>(
-        op, getTypeConverter()->convertType(op.getType()), self);
+    auto output = rewriter.create<mhlo::TanhOp>(op.getLoc(), self);
+    rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
+        op, getTypeConverter()->convertType(op.getType()), output);
     return success();
   } else {
     // Sigmoid legalization in MHLO for quantized element-type uses
@@ -665,8 +670,10 @@ LogicalResult ConvertAtenOp<AtenReluOp>::matchAndRewrite(
   Value zero = chlo::getConstantLike(rewriter, loc, 0.0, input);
   Value compareGtZero = rewriter.create<mhlo::CompareOp>(
       loc, input, zero, mhlo::ComparisonDirection::GT);
-  rewriter.replaceOpWithNewOp<mhlo::SelectOp>(
-      op, inputTy, compareGtZero, input, zero);
+  Value output =
+      rewriter.create<mhlo::SelectOp>(loc, inputTy, compareGtZero, input, zero);
+  rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
+      op, getTypeConverter()->convertType(op.getType()), output);
   return success();
 }
 
@@ -687,8 +694,10 @@ LogicalResult ConvertAtenOp<AtenRelu6Op>::matchAndRewrite(
   Value six = chlo::getConstantLike(rewriter, loc, 6.0, input);
   Value compareLtSix = rewriter.create<mhlo::CompareOp>(
       loc, input, six, mhlo::ComparisonDirection::LT);
-  rewriter.replaceOpWithNewOp<mhlo::SelectOp>(
-      op, inputTy, compareLtSix, relu, six);
+  Value output =
+      rewriter.create<mhlo::SelectOp>(loc, inputTy, compareLtSix, relu, six);
+  rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
+      op, getTypeConverter()->convertType(op.getType()), output);
   return success();
 }
 
@@ -723,8 +732,10 @@ LogicalResult ConvertAtenOp<AtenLeakyReluOp>::matchAndRewrite(
   Value compareGtZero = rewriter.create<mhlo::CompareOp>(
       loc, input, zeroVal, mhlo::ComparisonDirection::GT);
 
-  rewriter.replaceOpWithNewOp<mhlo::SelectOp>(
-      op, inputTy, compareGtZero, input, leakyActivationVal);
+  Value output = rewriter.create<mhlo::SelectOp>(
+      loc, inputTy, compareGtZero, input, leakyActivationVal);
+  rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
+      op, getTypeConverter()->convertType(op.getType()), output);
   return success();
 }
 
@@ -746,7 +757,9 @@ LogicalResult ConvertAtenOp<AtenSigmoidOp>::matchAndRewrite(
   Value negVal = rewriter.create<mhlo::NegOp>(loc, input);
   Value expVal = rewriter.create<mhlo::ExpOp>(loc, negVal);
   Value addVal = rewriter.create<mhlo::AddOp>(loc, expVal, one);
-  rewriter.replaceOpWithNewOp<mhlo::DivOp>(op, one, addVal);
+  Value output = rewriter.create<mhlo::DivOp>(loc, one, addVal);
+  rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
+      op, getTypeConverter()->convertType(op.getType()), output);
   return success();
 }
 
@@ -791,7 +804,9 @@ LogicalResult ConvertAtenOp<AtenGeluOp>::matchAndRewrite(
   auto erf = rewriter.create<mlir::chlo::ErfOp>(loc, erf_element);
   auto erf_add = rewriter.create<mhlo::AddOp>(loc, erf, one);
   auto half_mul = rewriter.create<mhlo::MulOp>(loc, erf_add, half);
-  rewriter.replaceOpWithNewOp<mhlo::MulOp>(op, input, half_mul);
+  auto output = rewriter.create<mhlo::MulOp>(loc, input, half_mul);
+  rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
+      op, getTypeConverter()->convertType(op.getType()), output);
   return success();
 }
 
@@ -1757,7 +1772,8 @@ LogicalResult ConvertAtenOp<AtenUnsqueezeOp>::matchAndRewrite(
 
   auto unsqzTensor =
       mhlo::getUnsqueezedTensor(rewriter, op, adaptor.self(), {dim});
-  rewriter.replaceOp(op, *unsqzTensor);
+  rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
+      op, getTypeConverter()->convertType(op.getType()), *unsqzTensor);
   return success();
 }
 
@@ -1930,7 +1946,9 @@ LogicalResult ConvertAtenOp<AtenRollOp>::matchAndRewrite(
     roll =
         mhlo::getRollTensor(rewriter, op, roll, shiftListInt[d], dimListInt[d]);
   }
-  rewriter.replaceOp(op, roll);
+
+  rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
+      op, getTypeConverter()->convertType(op.getType()), roll);
   return success();
 }
 
@@ -2741,9 +2759,9 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenIndexSelectOp);
     INSERT_ATENOP_PATTERN(AtenRollOp);
     INSERT_ATENOP_PATTERN(ValsemVariantAtenUniformOp);
-    INSERT_ATENOP_PATTERN(TensorStaticInfoCastOp);
     INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
     INSERT_ATENOP_PATTERN(AtenEmptyMemoryFormatOp);
+    INSERT_ATENOP_PATTERN(TensorStaticInfoCastOp);
 #undef INSERT_ATENOP_PATTERN
 
 #define INSERT_VIEW_OP_PATTERN(AtenOp) \

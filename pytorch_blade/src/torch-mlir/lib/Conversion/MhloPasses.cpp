@@ -10,9 +10,9 @@
 // limitations under the License.
 
 #include "torch-mlir/Conversion/MhloPasses.h"
+#include "torch-mlir/Conversion/TorchToArith/TorchToArith.h"
 #include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
 #include "torch-mlir/Conversion/TorchToSCF/TorchToSCF.h"
-#include "torch-mlir/Conversion/TorchToStd/TorchToStd.h"
 #include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/Passes.h"
 
@@ -56,7 +56,7 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
   // pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToMhloPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToSCFPass());
-  pm.addNestedPass<func::FuncOp>(createConvertTorchToStdPass());
+  pm.addNestedPass<func::FuncOp>(createConvertTorchToArithPass());
 
   // Perform rank broadcasting so MhloToLinalg pass works
   // pm.addNestedPass<func::FuncOp>(createMhloMakeBroadcastablePass());

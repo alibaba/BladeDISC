@@ -1799,11 +1799,11 @@ LogicalResult lowerWithScheduleColReductionForRocm(
     Operation* root_op = root_pair.value();
     int idx = root_pair.index();
     Value init_value = b.create<memref::LoadOp>(
-        loc, cast<lmhlo::ReduceOp>(root_op).init_values()[0]);
+        loc, cast<lmhlo::ReduceOp>(root_op).getInitValues()[0]);
     init_values[idx] = init_value;
     init_values_types[idx] = init_value.getType();
     accum_factory[idx] = std::move(getFactory(
-        b, root_op->getLoc(), cast<lmhlo::ReduceOp>(root_op).body()));
+        b, root_op->getLoc(), cast<lmhlo::ReduceOp>(root_op).getBody()));
   }
   // local_row_index = n / var_tile_w;
   // local_col_index = n % var_tile_w;
@@ -1882,7 +1882,7 @@ LogicalResult lowerWithScheduleColReductionForRocm(
           createLoadOrUseCachedValue(loc, &b, root_op, root_op->getOperand(0),
                                      load_index, b.saveInsertionPoint());
       AccumulatorFactory accumFactory =
-          getFactory(b, root_op->getLoc(), reduce_op.body());
+          getFactory(b, root_op->getLoc(), reduce_op.getBody());
       auto acc = accumFactory(*(for_op_l.getRegionIterArgs().begin()), data);
       yield_values_for_if.push_back(acc);
     } else if (isRank2RowReduction(root_op)) {
@@ -2087,7 +2087,7 @@ LogicalResult lowerWithScheduleColReductionForRocm(
     auto root_element_type = getLhloOpsElementType(root_op);
     b.create<memref::AtomicRMWOp>(
         loc, root_element_type,
-        getAtomicRMWKind(cast<lmhlo::ReduceOp>(root_op).body()), partial_result,
+        getAtomicRMWKind(cast<lmhlo::ReduceOp>(root_op).getBody()), partial_result,
         root_op->getOperand(2), ValueRange({col_index}));
   }
   b.create<scf::YieldOp>(loc, ValueRange({}));

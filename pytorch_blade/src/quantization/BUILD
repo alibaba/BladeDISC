@@ -28,6 +28,7 @@ filegroup(
 filegroup(
     name = "torch_blade_quantization_py_srcs",
     srcs = [
+        ":torch_blade_quantization_hdrs",
         "pybind_functions.cpp",
     ]
 )

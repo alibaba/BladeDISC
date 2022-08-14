@@ -417,7 +417,7 @@ module attributes {tf.versions = {bad_consumers = [], min_consumer = 0 : i32, pr
     memref.store %c0, %2[%c0] : memref<2xindex, "cpu">
     memref.store %c32, %2[%c1] : memref<2xindex, "cpu">
     %3 = memref.alloc() : memref<32x64xf32, "gpu">
-    "lmhlo.constant"(%3) {value = opaque<"elided_large_const", "0xDEADBEEF"> : tensor<32x64xf32>} : (memref<32x64xf32, "gpu">) -> ()
+    "lmhlo.constant"(%3) {value = dense<0.0> : tensor<32x64xf32>} : (memref<32x64xf32, "gpu">) -> ()
     %4 = memref.dim %arg0, %c0 : memref<?x32xf32, "gpu">
     %5 = memref.reinterpret_cast %arg0 to offset: [0], sizes: [%4, 32], strides: [32, 1] {kDiscSymbolicDimAttr = [@S0, @C32]} : memref<?x32xf32, "gpu"> to memref<?x32xf32, "gpu">
     %6 = memref.alloc(%4) {kDiscSymbolicDimAttr = [@S0, @C64]} : memref<?x64xf32, "gpu">

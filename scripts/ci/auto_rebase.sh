@@ -11,14 +11,14 @@
 
 
 date_str=$(date '+%Y%m%d')
-rebase_branch=features/bot_aicompiler_rebase_${date_str}
-commit_msg="[BOT] aicompiler rebase ${date_str}"
+rebase_branch=features/bladedisc_rebase_${date_str}
+commit_msg="[BOT] bladedisc rebase ${date_str}"
 export tf_commit_body=""
 
 function rebase_tf() {
   set -ex
   base_branch=$(git rev-parse HEAD)
-  git config remote.upstream.url >&- || git remote add upstream git@github.com:tensorflow/tensorflow.git
+  git config remote.upstream.url >&- || git remote add upstream https://github.com/tensorflow/tensorflow.git
   git fetch upstream master
   export tf_commit_body="$(echo 'TensorFlow commits summary' && git log -n 30 --reverse --oneline ${base_branch}..upstream/master)"
   
@@ -33,10 +33,9 @@ function create_pr() {
   set -ex
   git checkout -B ${rebase_branch}
   git add tf_community && git commit tf_community -m "${commit_msg}"
-  remote_repo=https://bladedisc:${BOT_GITHUB_TOKEN}@github.com/alibaba/BladeDISC.git
+  remote_repo=https://alibaba:${GITHUB_TOKEN}@github.com/alibaba/BladeDISC.git
   git push -uf ${remote_repo} ${rebase_branch}
 
-  echo ${BOT_GITHUB_TOKEN} | gh auth login --with-token
   gh pr create -B main -R ${remote_repo} -H ${rebase_branch} \
      --reviewer "fortianyou,qiuxiafei,wyzero,Yancey1989" \
      --title "${commit_msg}" \

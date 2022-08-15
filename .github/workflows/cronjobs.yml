@@ -30,7 +30,7 @@ jobs:
       base_image: nvcr.io/nvidia/pytorch:22.01-py3
       device: gpu-t4
       dockerfile: docker/cronjobs/Dockerfile.torch.ngc
-      extra_build_args: --gpus all
+      extra_run_args: --gpus all
       exec_command: bash -c "cd pytorch_blade && bash ./benchmark/run_benchmark.sh"
       push_command: source scripts/ci/deploy_docker.sh && push_images
       remote_dev_docker: bladedisc:disc-dev-pt-ngc
@@ -47,7 +47,7 @@ jobs:
       base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cu113
       device: gpu-a10
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
-      extra_build_args: --cap-add=SYS_ADMIN --gpus all
+      extra_run_args: --cap-add=SYS_ADMIN --gpus all
       exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh
       push_command: ""
       remote_dev_docker: ""

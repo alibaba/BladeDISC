@@ -6,9 +6,22 @@ on:
   schedule:
     # * is a special character in YAML so you have to quote this string
     - cron: '30 23 * * *' # 11:30 pm
+    - cron: '00 00 * * *' # 12:00 pm
   workflow_dispatch:
 
 jobs:
+  AUTO-REBASE:
+    if: github.event.schedule != '00 00 * * *'
+    runs-on: [self-hosted]
+    steps:
+    # Runs a single command using the runners shell
+    - name: Checkout
+      uses: actions/checkout@v2.4.0
+    - name: AutoRebase
+      run: bash -c scripts/ci/auto_rebase.sh
+    secrets:
+      BOT_GITHUB_TOKEN: ${{ secrets.BOT_GITHUB_TOKEN }}
+
   NGC-TorchTRT-D2:
     if: github.event.schedule != '30 23 * * *'
     uses: ./.github/workflows/reusable.yml

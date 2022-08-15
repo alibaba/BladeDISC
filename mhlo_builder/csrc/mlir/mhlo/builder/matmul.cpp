@@ -76,7 +76,7 @@ mlir::Value BuildDotProduct(mlir::OpBuilder& builder, const mlir::Location& loc,
                                 BuildDimSizeListOfTensor(builder, loc, lhs));
     } else if (rhs_contracing_dim_size == ShapedType::kDynamicSize &&
                lhs_contracing_dim_size >= 0) {
-      rhs_shape[rank - 1] = lhs_contracing_dim_size;
+      rhs_shape[rank - 2] = lhs_contracing_dim_size;
       rhs = BuildReshapedTensor(builder, loc, rhs, rhs_shape,
                                 BuildDimSizeListOfTensor(builder, loc, rhs));
     } else {

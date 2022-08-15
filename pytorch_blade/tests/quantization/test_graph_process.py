@@ -34,8 +34,8 @@ class TestGraphProcess(QuantizationTestCase):
               Tensor = aten::fake_quantize_per_tensor_affine
               # CHECK: aten::fake_quantize_per_channel_affine
               Tensor = aten::fake_quantize_per_channel_affine
-              # CHECK: quantization::placeholder
-              Tensor = quantization::placeholder
+              # CHECK: torch_blade_quantization::placeholder
+              Tensor = torch_blade_quantization::placeholder
               # CHECK: aten::_convolution
               Tensor = aten::_convolution
               return
@@ -55,8 +55,8 @@ class TestGraphProcess(QuantizationTestCase):
                       Tensor = aten::fake_quantize_per_tensor_affine
                       # CHECK: aten::fake_quantize_per_channel_affine
                       Tensor = aten::fake_quantize_per_channel_affine
-                      # CHECK-NOT: quantization::placeholder
-                      Tensor = quantization::placeholder
+                      # CHECK-NOT: torch_blade_quantization::placeholder
+                      Tensor = torch_blade_quantization::placeholder
                       # CHECK: aten::_convolution
                       Tensor = aten::_convolution
                       return

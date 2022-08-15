@@ -29,7 +29,7 @@ torch::Tensor placeholder(torch::Tensor input) {
   return input;
 }
 
-TORCH_LIBRARY(quantization, m) {
+TORCH_LIBRARY(torch_blade_quantization, m) {
   m.def("placeholder", placeholder);
 }
 

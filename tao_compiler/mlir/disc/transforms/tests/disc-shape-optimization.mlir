@@ -67,7 +67,7 @@ func.func @main(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>) -> tensor<?x?xf3
 // CHECK-LABEL: main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?xf32, [@[[S0:.*]]]>, %[[ARG1:.*]]: tensor<f32>, %[[ARG2:.*]]: tensor<f32>) -> tensor<?xf32, [@[[S0]]]>
 func.func @main(%arg0 : tensor<?xf32>, %arg1 : tensor<f32>, %arg2 : tensor<f32>) -> tensor<?xf32> {
-  // CHECK: %[[T0:.*]] = "mhlo.clamp"(%[[ARG1]], %[[ARG0]], %[[ARG2]])
+  // CHECK: %[[T0:.*]] = mhlo.clamp %[[ARG1]], %[[ARG0]], %[[ARG2]]
   // CHECK: return %[[T0]] : tensor<?xf32, [@[[S0]]]>
   %0 = "mhlo.clamp"(%arg1, %arg0, %arg2) : (tensor<f32>, tensor<?xf32>, tensor<f32>) -> tensor<?xf32>
   func.return %0 : tensor<?xf32>
@@ -80,7 +80,7 @@ func.func @main(%arg0 : tensor<?xf32>, %arg1 : tensor<f32>, %arg2 : tensor<f32>)
 // CHECK-LABEL: main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?xf32, [@[[S0:.*]]]>, %[[ARG1:.*]]: tensor<?xf32, [@[[S0]]]>, %[[ARG2:.*]]: tensor<?xf32, [@[[S0]]]>) -> tensor<?xf32, [@[[S0]]]>
 func.func @main(%arg0 : tensor<?xf32>, %arg1 : tensor<?xf32>, %arg2 : tensor<?xf32>) -> tensor<?xf32> {
-  // CHECK: %[[T0:.*]] = "mhlo.clamp"(%[[ARG1]], %[[ARG0]], %[[ARG2]])
+  // CHECK: %[[T0:.*]] = mhlo.clamp %[[ARG1]], %[[ARG0]], %[[ARG2]]
   // CHECK: return %[[T0]] : tensor<?xf32, [@[[S0]]]>
   %0 = "mhlo.clamp"(%arg1, %arg0, %arg2) : (tensor<?xf32>, tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>
   func.return %0 : tensor<?xf32>
@@ -135,7 +135,7 @@ func.func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?xf32>) -> tensor<?x?x
   // CHECK: %[[T0:.*]] = tensor.dim %[[ARG1]], %c0
   // CHECK: %[[T1:.*]] = tensor.dim %[[ARG1]], %c1
   // CHECK: %[[T2:.*]] = tensor.from_elements %[[T0]], %[[T1]] : tensor<2xindex>
-  // CHECK: %[[T3:.*]] = "mhlo.dynamic_reshape"(%[[ARG0]], %[[T2]])
+  // CHECK: %[[T3:.*]] = mhlo.dynamic_reshape %[[ARG0]], %[[T2]]
   // CHECK: return %[[T3]] : tensor<?x?xf32, [@[[S3]], @[[S4]]]>
   %0 = tensor.dim %arg0, %c0 : tensor<?x?x?xf32>
   %1 = tensor.dim %arg0, %c1 : tensor<?x?x?xf32>
@@ -210,12 +210,12 @@ func.func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<2xindex>) -> (tensor<?x?
 // CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32, [@[[S0:.*]], @[[S1:.*]]]>, %[[ARG1:.*]]: tensor<1xindex>, %[[ARG2:.*]]: tensor<3xindex>) -> tensor<?x?x?xf32, [@[[S3:.*]], @[[S4:.*]], @[[S5:.*]]]>
 func.func @main(%arg0 : tensor<?x?xf32>, %arg1 : tensor<1xindex>, %arg2 : tensor<3xindex>) -> tensor<?x?x?xf32> {
-   // CHECK-NEXT: %[[T0:.*]] = "mhlo.dynamic_reshape"(%[[ARG0]], %[[ARG1]])
+   // CHECK-NEXT: %[[T0:.*]] = mhlo.dynamic_reshape %[[ARG0]], %[[ARG1]]
    // CHECK-SAME: tensor<?xf32, [@[[S2:.*]]]>
    %0 = "mhlo.dynamic_reshape"(%arg0, %arg1) : (tensor<?x?xf32>, tensor<1xindex>) -> tensor<?xf32>
    // CHECK-NEXT: %[[T1:.*]] = mhlo.abs %[[T0]] : tensor<?xf32, [@[[S2]]]>
    %1 = "mhlo.abs"(%0) : (tensor<?xf32>) -> tensor<?xf32>
-   // CHECK-NEXT: %[[T2:.*]] = "mhlo.dynamic_reshape"(%[[T1]], %[[ARG2]])
+   // CHECK-NEXT: %[[T2:.*]] = mhlo.dynamic_reshape %[[T1]], %[[ARG2]]
    // CHECK-SAME: tensor<?x?x?xf32, [@[[S3]], @[[S4]], @[[S5]]]>
    %2 = "mhlo.dynamic_reshape"(%1, %arg2) : (tensor<?xf32>, tensor<3xindex>) -> tensor<?x?x?xf32>
    // CHECK-NEXT: return %[[T2]] : tensor<?x?x?xf32, [@[[S3]], @[[S4]], @[[S5]]]>

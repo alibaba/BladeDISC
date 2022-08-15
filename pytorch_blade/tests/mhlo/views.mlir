@@ -14,6 +14,7 @@ func.func @torch.aten.view(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !torch.vtens
 }
 
 // -----
+
 // CHECK-LABEL:  func.func @torch.aten.reshape(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x?x?x?xf32>) -> tensor<?x120x4x64xf32> {
 // CHECK:         %[[CST:.*]] = arith.constant dense<[-1, 120, 4, 64]> : tensor<4xi32>
@@ -30,6 +31,7 @@ func.func @torch.aten.reshape(%arg0: !torch.vtensor<[?,?,?,?,?],f32>) -> !torch.
 }
 
 // -----
+
 // CHECK-LABEL:  func.func @torch.aten.flatten(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x?x?xf32>) -> tensor<?xf32> {
 // CHECK:         %[[CST:.*]] = arith.constant dense<-1> : tensor<1xi32>
@@ -43,6 +45,7 @@ func.func @torch.aten.flatten(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !torch.vt
 }
 
 // -----
+
 // CHECK-LABEL:  func.func @torch.aten.view.minus1(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<2x3x?x?xf32>) -> tensor<2x3x?xf32> {
 // CHECK:         %[[CST:.*]] = arith.constant dense<[2, 3, -1]> : tensor<3xi32>
@@ -60,7 +63,7 @@ func.func @torch.aten.view.minus1(%arg0: !torch.vtensor<[2,3,?,?],f32>) -> !torc
 }
 
 // -----
-// CHECK:         module {
+
 // CHECK-LABEL:  func.func @torch.aten.view.to_rank1(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<f32>) -> tensor<1xf32> {
 // CHECK:         %[[CST:.*]] = arith.constant dense<1> : tensor<1xi32>
@@ -74,9 +77,10 @@ func.func @torch.aten.view.to_rank1(%arg0: !torch.vtensor<[],f32>) -> !torch.vte
 }
 
 // -----
+
 // CHECK-LABEL:  func.func @torch.aten.view.to_rank0(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<1xf32>) -> tensor<f32> {
-// CHECK:         %[[T0:.*]] = "mhlo.reshape"(%[[ARG0]]) : (tensor<1xf32>) -> tensor<f32>
+// CHECK:         %[[T0:.*]] = mhlo.reshape %[[ARG0]] : (tensor<1xf32>) -> tensor<f32>
 // CHECK:         return %[[T0]] : tensor<f32>
 func.func @torch.aten.view.to_rank0(%arg0: !torch.vtensor<[1],f32>) -> !torch.vtensor<[],f32> {
   %0 = torch.prim.ListConstruct  : () -> !torch.list<int>

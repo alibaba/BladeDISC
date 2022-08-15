@@ -153,8 +153,8 @@ void populateGpuToROCDLConversionPatterns(LLVMTypeConverter& converter,
       converter, /*allocaAddrSpace=*/5,
       StringAttr::get(&converter.getContext(),
                       ROCDL::ROCDLDialect::getKernelFuncAttrName()));
-  patterns.add<OpToFuncCallLowering<math::AbsOp>>(converter, "__ocml_fabs_f32",
-                                                  "__ocml_fabs_f64");
+  patterns.add<OpToFuncCallLowering<math::AbsFOp>>(converter, "__ocml_fabs_f32",
+                                                   "__ocml_fabs_f64");
   patterns.add<OpToFuncCallLowering<math::AtanOp>>(converter, "__ocml_atan_f32",
                                                    "__ocml_atan_f64");
   patterns.add<OpToFuncCallLowering<math::Atan2Op>>(

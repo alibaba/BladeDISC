@@ -177,7 +177,7 @@ llvm::Optional<mlir::Value> BuildCastStdConstScalarToHloConstTensor(
     return llvm::None;
   }
   const mlir::Attribute& val_attr = def.getValue();
-  auto scalar_ty = mlir::RankedTensorType::get({}, val_attr.getType());
+  auto scalar_ty = mlir::RankedTensorType::get({}, std_scalar.getType());
   auto const_attr = mlir::DenseElementsAttr::get(scalar_ty, val_attr);
   auto result = builder.create<mlir::mhlo::ConstantOp>(loc, const_attr);
   return result.getResult();

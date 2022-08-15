@@ -1124,7 +1124,7 @@ Value elementalLower<lmhlo::IsFiniteOp>(OpBuilder* b, Location loc,
   };
 
   Value operand = maybe_load_from_cache(operand_memref);
-  auto abs_operand = b->create<math::AbsOp>(loc, operand);
+  auto abs_operand = b->create<math::AbsFOp>(loc, operand);
   auto float_elem_tp = elem_tp.cast<FloatType>();
   auto INF = b->create<arith::ConstantFloatOp>(
       loc, APFloat::getInf(float_elem_tp.getFloatSemantics()), float_elem_tp);

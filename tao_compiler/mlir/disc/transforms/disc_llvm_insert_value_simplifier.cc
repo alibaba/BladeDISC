@@ -63,14 +63,7 @@ struct LLVMInsertSimplifier : public OpRewritePattern<LLVM::InsertValueOp> {
       }
     }
 
-    auto extractPosition = [](ArrayAttr attr) {
-      SmallVector<unsigned, 4> position;
-      position.reserve(attr.size());
-      for (Attribute v : attr)
-        position.push_back(v.cast<IntegerAttr>().getValue().getZExtValue());
-      return position;
-    };
-    SmallVector<unsigned, 4> position = extractPosition(op.getPosition());
+    auto position = op.getPosition();
     // Check whether there are extractvalue operators on the same `position`.
     for (auto container : containers) {
       for (auto user : container.getUsers()) {
@@ -80,7 +73,7 @@ struct LLVMInsertSimplifier : public OpRewritePattern<LLVM::InsertValueOp> {
           return failure();
         }
         if (auto extract = dyn_cast_or_null<LLVM::ExtractValueOp>(user)) {
-          auto pos = extractPosition(extract.getPosition());
+          auto pos = extract.getPosition();
           // For simplification, only check the first position.
           if (position[0] == pos[0]) {
             // The same first position consumerd. Current InsertValueOp cannot

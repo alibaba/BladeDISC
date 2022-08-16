@@ -18,6 +18,8 @@ export tf_commit_body=""
 function rebase_tf() {
   set -ex
   base_branch=$(git rev-parse HEAD)
+  git status
+  git reset --hard HEAD
   git config remote.upstream.url >&- || git remote add upstream https://github.com/tensorflow/tensorflow.git
   git fetch upstream master
   export tf_commit_body="$(echo 'TensorFlow commits summary' && git log -n 30 --reverse --oneline ${base_branch}..upstream/master)"
@@ -31,6 +33,7 @@ function rebase_tf() {
 
 function create_pr() {
   set -ex
+  git status
   git checkout -B ${rebase_branch}
   git add tf_community && git commit tf_community -m "${commit_msg}"
   remote_repo=https://alibaba:${GITHUB_TOKEN}@github.com/alibaba/BladeDISC.git
@@ -42,5 +45,8 @@ function create_pr() {
      --body "${tf_commit_body}"
 }
 
+git config --global user.email "bladedisc-dev@list.alibaba-inc.com"
+git config --global user.name "bladedisc-dev"
+git submodule update --init --recursive
 cd tf_community && rebase_tf && cd ..
 create_pr

@@ -171,3 +171,30 @@ func.func @torch.aten.sum.dim_IntList.keepdim(%arg0: !torch.vtensor<[2,?,224,?],
   return %1 : !torch.vtensor<[2,1,224,1],f32>
 }
 
+// CHECK-LABEL: func.func @torch.aten.max.dim(
+// CHECK-SAME:                %[[ARG0:.*]]: tensor<2x3x224x224xf32>) -> (tensor<2x3x224x1xf32>, tensor<2x3x224x1xi32>) {
+// CHECK:         %[[T0:.*]] = mhlo.constant dense<0> : tensor<i32> 
+// CHECK:         %[[T1:.*]] = mhlo.constant dense<-3.40282347E+38> : tensor<f32>
+// CHECK:         %[[T2:.*]] = "mhlo.iota"() {iota_dimension = 0 : i64} : () -> tensor<224xi32>
+// CHECK:         %[[T3:.*]] = "mhlo.broadcast_in_dim"(%[[T2]]) {broadcast_dimensions = dense<3> : tensor<1xi64>} : (tensor<224xi32>) -> tensor<2x3x224x224xi32>
+// CHECK:         %[[T4:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T1]]) applies mhlo.maximum across dimensions = [3] : (tensor<2x3x224x224xf32>, tensor<f32>) -> tensor<2x3x224xf32>
+// CHECK:         %[[T5:.*]]:2 = mhlo.reduce(%[[ARG0]] init: %[[T1]]), (%[[T3]] init: %[[T0]]) across dimensions = [3] : (tensor<2x3x224x224xf32>, tensor<2x3x224x224xi32>, tensor<f32>, tensor<i32>) -> (tensor<2x3x224xf32>, tensor<2x3x224xi32>)
+// CHECK:           reducer(%[[ARG1:.*]]: tensor<f32>, %[[ARG3:.*]]: tensor<f32>) (%[[ARG2:.*]]: tensor<i32>, %[[ARG4:.*]]: tensor<i32>)  {
+// CHECK:             %[[T8:.*]] = "mhlo.compare"(%[[ARG1]], %[[ARG3]]) {compare_type = #mhlo<comparison_type FLOAT>, comparison_direction = #mhlo<comparison_direction GE>} : (tensor<f32>, tensor<f32>) -> tensor<i1>
+// CHECK:             %[[T9:.*]] = "mhlo.select"(%[[T8]], %[[ARG1]], %[[ARG3]]) : (tensor<i1>, tensor<f32>, tensor<f32>) -> tensor<f32>
+// CHECK:             %[[T10:.*]] = "mhlo.compare"(%[[ARG1]], %[[ARG3]]) {compare_type = #mhlo<comparison_type FLOAT>, comparison_direction = #mhlo<comparison_direction EQ>} : (tensor<f32>, tensor<f32>) -> tensor<i1>
+// CHECK:             %[[T11:.*]] = mhlo.minimum %[[ARG2]], %[[ARG4]] : tensor<i32>
+// CHECK:             %[[T12:.*]] = "mhlo.select"(%[[T8]], %[[ARG2]], %[[ARG4]]) : (tensor<i1>, tensor<i32>, tensor<i32>) -> tensor<i32>
+// CHECK:             %[[T13:.*]] = "mhlo.select"(%[[T10]], %[[T11]], %[[T12]]) : (tensor<i1>, tensor<i32>, tensor<i32>) -> tensor<i32>
+// CHECK:             "mhlo.return"(%[[T9]], %[[T13]]) : (tensor<f32>, tensor<i32>) -> ()
+// CHECK:           }
+// CHECK:         %[[T6:.*]] = "mhlo.reshape"(%4) : (tensor<2x3x224xf32>) -> tensor<2x3x224x1xf32>
+// CHECK:         %[[T7:.*]] = "mhlo.reshape"(%5#1) : (tensor<2x3x224xi32>) -> tensor<2x3x224x1xi32>
+// CHECK:         return %[[T6]], %[[T7]] : tensor<2x3x224x1xf32>, tensor<2x3x224x1xi32>
+func.func @torch.aten.max.dim(%arg0: !torch.vtensor<[2,3,224,224],f32>) -> (!torch.vtensor<[2,3,224,1],f32>, !torch.vtensor<[2,3,224,1],si32>){
+  %none = torch.constant.none
+  %int-1 = torch.constant.int -1
+  %true = torch.constant.bool true
+  %values, %indices = torch.aten.max.dim %arg0, %int-1, %true : !torch.vtensor<[2,3,224,224],f32>, !torch.int, !torch.bool -> !torch.vtensor<[2,3,224,1],f32>, !torch.vtensor<[2,3,224,1],si32>
+  return %values, %indices : !torch.vtensor<[2,3,224,1],f32>, !torch.vtensor<[2,3,224,1],si32>
+}

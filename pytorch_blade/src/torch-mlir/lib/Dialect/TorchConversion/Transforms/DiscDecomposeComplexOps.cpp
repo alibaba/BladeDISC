@@ -117,6 +117,7 @@ LogicalResult ConvertAtenOp<AtenNativeDropoutOp>::matchAndRewrite(
   rewriter.replaceOp(op, {output, boolMask});
   return success();
 }
+
 } // namespace
 
 namespace {

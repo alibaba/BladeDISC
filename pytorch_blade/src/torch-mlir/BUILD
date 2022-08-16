@@ -40,6 +40,7 @@ cc_library(
     name = "TorchMLIRTorchToMhlo",
     srcs = [
         "lib/Conversion/TorchToMhlo/TorchToMhlo.cpp",
+        "lib/Conversion/TorchToMhlo/Reduction.cpp",
         "lib/Conversion/MhloPasses.cpp",
         "lib/Conversion/TorchToMhlo/MhloLegalizeUtils.cpp",
         "lib/Dialect/TorchConversion/Transforms/VerifyMhloBackendContract.cpp",

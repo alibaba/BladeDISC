@@ -6,6 +6,9 @@ on:
       extra_envs:
         required: false
         type: string
+      extra_build_args:
+        required: false
+        type: string
       exec_command:
         required: true
         type: string
@@ -51,6 +54,7 @@ jobs:
           --build-arg BASEIMAGE=${{ inputs.develop_base_image }} \
           --build-arg DISC_HOST_TF_VERSION="tensorflow==1.15.5" \
           --build-arg DEVICE=cpu \
+          ${{ inputs.extra_build_args }} \
           -f docker/dev/Dockerfile .
     - name: Build And Test
       run: |

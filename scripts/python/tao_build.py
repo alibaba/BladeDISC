@@ -336,7 +336,7 @@ def configure_bridge_bazel(root, args):
                 _action_env("BUILD_WITH_AARCH64", "1")
                 _action_env("DISC_TARGET_CPU_ARCH", args.target_cpu_arch or "arm64-v8a")
         else:
-            if args.blade_gemm:
+            if args.platform_alibaba and args.blade_gemm:
                 _action_env("BLADE_GEMM_TVM", "ON")
                 _action_env("BLADE_GEMM_ROCM_PATH", get_rocm_path(args))
 
@@ -427,7 +427,6 @@ def build_tao_compiler(root, args):
         # TODO:(fl237079) Support disc_replay for rocm version
         if not args.rocm and not args.dcu:
             bazel_build(TARGET_DISC_REPLAY, flag=flag)
-
         execute(
             "cp -f -p {}/tao/third_party/ptxas/10.2/ptxas ./bazel-bin/tensorflow/compiler/decoupling/".format(
                 root

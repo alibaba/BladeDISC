@@ -2087,8 +2087,8 @@ LogicalResult lowerWithScheduleColReductionForRocm(
     auto root_element_type = getLhloOpsElementType(root_op);
     b.create<memref::AtomicRMWOp>(
         loc, root_element_type,
-        getAtomicRMWKind(cast<lmhlo::ReduceOp>(root_op).getBody()), partial_result,
-        root_op->getOperand(2), ValueRange({col_index}));
+        getAtomicRMWKind(cast<lmhlo::ReduceOp>(root_op).getBody()),
+        partial_result, root_op->getOperand(2), ValueRange({col_index}));
   }
   b.create<scf::YieldOp>(loc, ValueRange({}));
 #endif

@@ -59,11 +59,13 @@ training workloads.
 
 |            |   Status      |
 |----------- | ------------- |
-| Nvidia GPU |    Yes        |
+| Nvidia GPU |    Yes [1]    |
 | AMD GPU    |    Yes        |
 | Hygon DCU  |    Yes        |
 |  X86       |    Yes        |
 | AArch64    |    Yes        |
+
+[1] Support for CUDA below 11.0 have been deprecated officially since Aug, 2022.
 
 #### Deployment Solutions
 

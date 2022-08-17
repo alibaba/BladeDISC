@@ -170,7 +170,50 @@ FailureOr<SmallVector<Value, 4>> getDimSizesOfTensor2(
   return getDimSizesOfTensor2(rewriter, op, value, dims);
 }
 
-static llvm::Optional<ValueRange> getMaxInDim(
+static llvm::Optional<ValueRange> getMaxValueInDim(
+    ConversionPatternRewriter& rewriter,
+    Operation* op,
+    Value& input,
+    int64_t dim) {
+  auto inputTy = input.getType().template cast<RankedTensorType>();
+  if (!inputTy) {
+    return llvm::None;
+  }
+  if (!inputTy.getElementType().isIntOrFloat()) {
+    return llvm::None;
+  }
+  auto inputElemTy = inputTy.getElementType();
+
+  Value initValue = createInitialValueForReduceOp(op, inputElemTy, rewriter);
+  if (!initValue)
+    return llvm::None;
+
+  DenseIntElementsAttr dimensions = DenseIntElementsAttr::get(
+      RankedTensorType::get({}, rewriter.getI64Type()), dim);
+
+  // value reduction
+  auto valueReduceOp = rewriter.create<mhlo::ReduceOp>(
+      op->getLoc(), input, initValue, dimensions);
+  {
+    Block& block = valueReduceOp.body().emplaceBlock();
+    auto argumentType = RankedTensorType::get({}, inputTy.getElementType());
+    block.addArgument(argumentType, op->getLoc());
+    block.addArgument(argumentType, op->getLoc());
+    {
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(&block);
+      auto retValue =
+          rewriter
+              .create<mhlo::MaxOp>(
+                  op->getLoc(), block.getArgument(0), block.getArgument(1))
+              .getResult();
+      rewriter.create<mhlo::ReturnOp>(op->getLoc(), retValue);
+    }
+  }
+  return valueReduceOp.getResults();
+}
+
+static llvm::Optional<ValueRange> getMaxIndicesInDim(
     ConversionPatternRewriter& rewriter,
     Operation* op,
     Value& input,
@@ -189,12 +232,8 @@ static llvm::Optional<ValueRange> getMaxInDim(
   Value initValue = createInitialValueForReduceOp(op, inputElemTy, rewriter);
   if (!initValue)
     return llvm::None;
-  Value initIndex;
-  if (kMhloDimSizeBits == 32) {
-    initIndex = mhlo::getConstTensor<int32_t>(rewriter, op, {0}, {}).getValue();
-  } else {
-    initIndex = mhlo::getConstTensor<int64_t>(rewriter, op, {0}, {}).getValue();
-  }
+  auto initIndex =
+      mhlo::getConstTensor<int32_t>(rewriter, op, {0}, {}).getValue();
 
   DenseIntElementsAttr dimensions = DenseIntElementsAttr::get(
       RankedTensorType::get({}, rewriter.getI64Type()), dim);
@@ -208,28 +247,6 @@ static llvm::Optional<ValueRange> getMaxInDim(
           inputShape, rewriter.getIntegerType(kMhloDimSizeBits)),
       inputShapeTensor,
       rewriter.getI64IntegerAttr(dim));
-  // value reduction
-  auto valueReduceOp = rewriter.create<mhlo::ReduceOp>(
-      op->getLoc(), input, initValue, dimensions);
-
-  {
-    Block& block = valueReduceOp.body().emplaceBlock();
-    auto argumentType = RankedTensorType::get({}, inputTy.getElementType());
-    block.addArgument(argumentType, op->getLoc());
-    block.addArgument(argumentType, op->getLoc());
-    {
-      OpBuilder::InsertionGuard guard(rewriter);
-      rewriter.setInsertionPointToStart(&block);
-      auto retValue =
-          rewriter
-              .create<mhlo::MaxOp>(
-                  op->getLoc(), block.getArgument(0), block.getArgument(1))
-              .getResult();
-      rewriter.create<mhlo::ReturnOp>(op->getLoc(), retValue);
-    }
-  }
-
-  // indices reduction
   auto indicesReduceOp = rewriter.create<mhlo::ReduceOp>(
       op->getLoc(),
       ValueRange{input, indexTensor},
@@ -306,8 +323,7 @@ static llvm::Optional<ValueRange> getMaxInDim(
           op->getLoc(), mlir::ValueRange{retValResult, retIdxResult});
     }
   }
-  return mlir::ValueRange{
-      valueReduceOp.getResult(0), indicesReduceOp.getResult(1)};
+  return indicesReduceOp.getResults();
 }
 
 template <>
@@ -365,10 +381,9 @@ LogicalResult ConvertAtenOp<AtenMaxDimOp>::matchAndRewrite(
         op, "failed to get dimension sizes of the input");
   }
   auto inputShapeVec = *inputShapeInfo;
-  auto mhloReduceResults =
-      getMaxInDim(rewriter, op, input, inputShapeVec, dim).getValue();
-  auto valueResult = mhloReduceResults[0];
-  auto indicesResult = mhloReduceResults[1];
+  auto valueResult = getMaxValueInDim(rewriter, op, input, dim).getValue()[0];
+  auto indicesResult =
+      getMaxIndicesInDim(rewriter, op, input, inputShapeVec, dim).getValue()[1];
   if (keepDim) {
     auto outShapeVec = inputShapeVec;
     outShapeVec[dim] = rewriter.create<mlir::arith::ConstantOp>(
@@ -376,15 +391,14 @@ LogicalResult ConvertAtenOp<AtenMaxDimOp>::matchAndRewrite(
         rewriter.getIntegerAttr(rewriter.getIntegerType(kMhloDimSizeBits), 1));
     auto outShapeTensor = rewriter.create<mlir::tensor::FromElementsOp>(
         op->getLoc(), outShapeVec);
-
     auto mhloReduceValueResult = rewriter.create<mhlo::DynamicReshapeOp>(
         op->getLoc(), valResultType, valueResult, outShapeTensor);
     auto mhloReduceIndexResult = rewriter.create<mhlo::DynamicReshapeOp>(
         op->getLoc(), idxResultType, indicesResult, outShapeTensor);
     rewriter.replaceOp(op, {mhloReduceValueResult, mhloReduceIndexResult});
+    op->getParentOp()->dump();
     return success();
   }
-
   rewriter.replaceOp(op, {valueResult, indicesResult});
   return success();
 }

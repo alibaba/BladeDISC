@@ -2218,7 +2218,6 @@ LogicalResult ConvertAtenOp<AtenNllLossForwardOp>::matchAndRewrite(
     result = rewriter.create<mhlo::DivOp>(loc, result, totalWeight);
   }
   rewriter.replaceOp(op, {result, totalWeight});
-  op->getParentOp()->dump();
   return success();
 }
 

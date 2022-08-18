@@ -424,10 +424,10 @@ void ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
     bladnn::Context bladnn_ctx{s};
     bladnn::Dtype in_dtype = toBlaDNNDtype<InT>();
     bladnn::Dtype out_dtype = toBlaDNNDtype<OutT>();
-    bool ret =
-        bladnn::gemm(&bladnn_ctx, in_dtype, tp_a, A.data, A.sizes[0],
-                     A.sizes[1], in_dtype, tp_b, B.data, B.sizes[0], B.sizes[1],
-                     out_dtype, C.data, C.sizes[0], C.sizes[1], batch_a);
+    bool ret = bladnn::gemm(&bladnn_ctx, in_dtype, tp_a, A.data, A.sizes[N - 2],
+                            A.sizes[N - 1], in_dtype, tp_b, B.data,
+                            B.sizes[N - 2], B.sizes[N - 1], out_dtype, C.data,
+                            C.sizes[N - 2], C.sizes[N - 1], batch_a);
     if (ret) {
       return;
     }

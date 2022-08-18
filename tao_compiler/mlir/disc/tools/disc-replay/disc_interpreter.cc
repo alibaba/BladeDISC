@@ -33,7 +33,7 @@ tensorflow::Status DiscInterpreter::Compile(
   tensorflow::DeviceType device_type(input.options().device_type());
   auto* compiler_wrapper =
       tensorflow::tao::CompilerBase::GetCompilerForDevice(device_type)
-          .ConsumeValueOrDie();
+          .ValueOrDie();
   TF_RETURN_IF_ERROR(compiler_wrapper->Compile(input, tmp_file));
   result.output_fname = tmp_file + ".so";
   result.meta_fname = tmp_file + ".so.pbtxt";

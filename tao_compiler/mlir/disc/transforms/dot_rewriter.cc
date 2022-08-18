@@ -331,7 +331,6 @@ struct TransposeFoldingConvert : public OpRewritePattern<mhlo::DotGeneralOp> {
     if (!result_ty) {
       return failure();
     }
-
     Location loc = op.getLoc();
     Value old_lhs = op.lhs();
     Value old_rhs = op.rhs();
@@ -352,7 +351,6 @@ struct TransposeFoldingConvert : public OpRewritePattern<mhlo::DotGeneralOp> {
         std::unordered_set<int64_t>(lhs_batching_dims.begin(),
                                     lhs_batching_dims.end()));
     SmallVector<int64_t, 4> rhs_perm;
-
     auto rhs_batching_dims = dim_numbers.getRhsBatchingDimensions();
     bool tp_rhs = isNonBatchingTransposeTensorValue(
         old_rhs, rhs_perm,
@@ -362,7 +360,6 @@ struct TransposeFoldingConvert : public OpRewritePattern<mhlo::DotGeneralOp> {
     if (!tp_lhs && !tp_rhs) {
       return failure();
     }
-
     std::vector<int64_t> lhs_contracting_dims;
     if (tp_lhs) {
       for (auto& en :
@@ -387,7 +384,6 @@ struct TransposeFoldingConvert : public OpRewritePattern<mhlo::DotGeneralOp> {
         rewriter.getContext(), dim_numbers.getLhsBatchingDimensions(),
         dim_numbers.getRhsBatchingDimensions(), lhs_contracting_dims,
         rhs_contracting_dims);
-
     // Re-direct the lhs/rhs if needed.
     Value lhs = tp_lhs ? old_lhs.getDefiningOp()->getOperand(0) : old_lhs;
     Value rhs = tp_rhs ? old_rhs.getDefiningOp()->getOperand(0) : old_rhs;
@@ -395,15 +391,6 @@ struct TransposeFoldingConvert : public OpRewritePattern<mhlo::DotGeneralOp> {
     Value dot = rewriter.create<mhlo::DotGeneralOp>(
         loc, op.getType(), lhs, rhs, dot_dimension_attr, nullptr);
     rewriter.replaceOp(op, dot);
-
-    // Remove transpose op which outputs into dot.
-    if (tp_lhs) {
-      rewriter.eraseOp(old_lhs.getDefiningOp());
-    }
-    if (tp_rhs) {
-      rewriter.eraseOp(old_rhs.getDefiningOp());
-    }
-
     return success();
   }
 };

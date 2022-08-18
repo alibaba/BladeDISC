@@ -142,7 +142,7 @@ Status RealMain(int argc, char** argv) {
 
   DeviceType device_type(input.options().device_type());
   auto* compiler_wrapper =
-      CompilerBase::GetCompilerForDevice(device_type).ConsumeValueOrDie();
+      CompilerBase::GetCompilerForDevice(device_type).ValueOrDie();
   TF_RETURN_IF_ERROR(compiler_wrapper->Compile(input, output_fn));
   tao::TaoCompilerTrace::Instance()->Shutdown();
   return Status::OK();

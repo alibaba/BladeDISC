@@ -131,17 +131,17 @@ LogicalResult GenericAtomicRMWOpLoweringWithBitcast::matchAndRewrite(
     return failure();
   }
 
-  auto cmpxchg = rewriter.create<LLVM::AtomicCmpXchgOp>(
+  Value cmpxchg = rewriter.create<LLVM::AtomicCmpXchgOp>(
       loc, mayCastedPairType, mayCastedDataPtr, mayCastedLoopArgument,
       mayCastedResult, successOrdering, failureOrdering);
   // Extract the %new_loaded and %ok values from the pair.
-  Value newLoaded = rewriter.create<LLVM::ExtractValueOp>(
-      loc, mayCastedType, cmpxchg, rewriter.getI64ArrayAttr({0}));
+  Value newLoaded =
+      rewriter.create<LLVM::ExtractValueOp>(loc, cmpxchg, ArrayRef<int64_t>{0});
   if (valueType != mayCastedType) {
     newLoaded = rewriter.create<LLVM::BitcastOp>(loc, valueType, newLoaded);
   }
-  Value ok = rewriter.create<LLVM::ExtractValueOp>(
-      loc, boolType, cmpxchg, rewriter.getI64ArrayAttr({1}));
+  Value ok =
+      rewriter.create<LLVM::ExtractValueOp>(loc, cmpxchg, ArrayRef<int64_t>{1});
 
   // Conditionally branch to the end or back to the loop depending on %ok.
   rewriter.create<LLVM::CondBrOp>(loc, ok, endBlock, ArrayRef<Value>(),

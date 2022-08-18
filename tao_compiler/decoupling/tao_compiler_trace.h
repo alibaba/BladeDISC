@@ -17,9 +17,9 @@
 #include <string>
 #include <vector>
 
-#include "tensorflow/core/platform/default/integral_types.h"
 #include "tensorflow/core/platform/macros.h"
 #include "tensorflow/core/platform/thread_annotations.h"
+#include "tensorflow/tsl/platform/default/integral_types.h"
 
 namespace tensorflow {
 namespace tao {

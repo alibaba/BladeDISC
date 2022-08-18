@@ -12,4 +12,4 @@
 #pragma once
 
 #include "c10/util/Exception.h"
-#include "tensorflow/core/platform/default/logging.h"
+#include "tensorflow/tsl/platform/default/logging.h"

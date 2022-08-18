@@ -194,8 +194,9 @@ for PyTorch Users](./docs/quickstart.md#quickstart-for-pytorch-users).
 | Framework | Device| Status |
 | -- | -- | -- |
 | PyTorch1.6.0 | CPU | [![pytorch160_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch160_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch160_cpu.yml) |
-| PyTorch1.8.1 | CPU | [![pytorch181_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_cpu.yml) |
 | PyTorch1.7.1 | GPU |  [![pytorch171_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch171_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch171_gpu.yml) |
+| PyTorch1.8.1 | CPU | [![pytorch181_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_cpu.yml) |
+| PyTorch1.9.0 | GPU | [![pytorch1.9.0_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch190_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch190_gpu.yml) |
 | PyTorch1.12.0 | GPU | [![pytorch112_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch112_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch112_gpu.yml) |
 | PyTorch1.10.0 | AArch64 |  [![pytorch110_aarch64](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch110_aarch64.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch110_aarch64.yml) |
 | TensorFlow1.15 | CPU| [![tf115_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/tf115_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf115_cpu.yml) |

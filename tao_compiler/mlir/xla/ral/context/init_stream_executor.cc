@@ -16,9 +16,9 @@
 #include "tensorflow/stream_executor/gpu/gpu_executor.h"
 #include "tensorflow/stream_executor/stream.h"
 #if TENSORFLOW_USE_ROCM
-#include "tensorflow/stream_executor/rocm/rocm_platform.h"
+#include "tensorflow/compiler/xla/stream_executor/rocm/rocm_platform.h"
 #else
-#include "tensorflow/stream_executor/cuda/cuda_platform.h"
+#include "tensorflow/compiler/xla/stream_executor/cuda/cuda_platform.h"
 #endif
 
 namespace tao {

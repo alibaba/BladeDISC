@@ -34,8 +34,8 @@ TEST(ONEDNNTest, GEMM) {
       /*backend_types*/ {BackendType::kCuda},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
-      /*input_descriptors*/ {"50x199xf32_X", "199x50xf32_X"},
-      /*output_descriptors*/ {"f32_X"},
+      /*input_descriptors*/ {"50x199xf16_X", "199x50xf16_X"},
+      /*output_descriptors*/ {"f16_X"},
       /*input_vals*/ {}));
 }
 
@@ -45,8 +45,8 @@ TEST(ONEDNNTest, BatchGEMM) {
       /*backend_types*/ {BackendType::kCuda},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
-      /*input_descriptors*/ {"11x10x50x199xf32_X", "11x10x199x50xf32_X"},
-      /*output_descriptors*/ {"f32_X"},
+      /*input_descriptors*/ {"11x10x50x199xf16_X", "11x10x199x50xf16_X"},
+      /*output_descriptors*/ {"f16_X"},
       /*input_vals*/ {}));
 }
 

@@ -84,4 +84,58 @@ def HLODISC_CustomCallOp: HLODISC_ShapedInterfaceOp<"custom_call", []> {
   let results = (outs Variadic<HLO_TensorOrIndexTensor>);
 }
 
+def HLO_FakeQuantOp: HLODISC_Op<"fake_quant", [NoSideEffect]> {
+  let summary = "FakeQuant operator";
+  let description = [{
+    An fake quant op is logically equal to a quant op + a dequant op.
+  }];
+  let arguments = (ins
+    HLO_FpTensor:$input,
+    HLO_FpTensor:$scale,
+    HLO_FpTensor:$zero_point,
+    DefaultValuedAttr<BoolAttr, "true">:$use_signed,
+    DefaultValuedAttr<BoolAttr, "true">:$use_symmetric,
+    DefaultValuedAttr<I64ElementsAttr, "ArrayRef<int64_t>{}">:$axis,
+    DefaultValuedAttr<I64Attr, "8">:$num_bits,
+    DefaultValuedAttr<I64Attr, "-128">:$quant_min,
+    DefaultValuedAttr<I64Attr, "127">:$quant_max,
+    DefaultValuedAttr<BoolAttr, "false">:$use_dynamic
+  );
+  let results = (outs HLO_FpTensor:$result);
+}
+
+def HLO_QuantizeOp: HLODISC_Op<"quantize", [NoSideEffect]> {
+  let summary = "Quantize operator";
+  let description = [{
+    Quantize a float tensor to int tensor.
+  }];
+  let arguments = (ins
+    HLO_FpTensor:$input,
+    HLO_FpTensor:$scale,
+    HLO_FpTensor:$zero_point,
+    DefaultValuedAttr<BoolAttr, "true">:$use_symmetric,
+    DefaultValuedAttr<I64ElementsAttr, "ArrayRef<int64_t>{}">:$axis,
+    DefaultValuedAttr<I64Attr, "-128">:$quant_min,
+    DefaultValuedAttr<I64Attr, "127">:$quant_max,
+    DefaultValuedAttr<BoolAttr, "false">:$use_dynamic
+  );
+  let results = (outs HLO_IntTensor:$result);
+}
+
+def HLO_DequantizeOp: HLODISC_Op<"dequantize", [NoSideEffect]> {
+  let summary = "Dequantize operator";
+  let description = [{
+    Dequantize a int tensor to float tensor.
+  }];
+  let arguments = (ins
+    HLO_IntTensor:$input,
+    HLO_FpTensor:$scale,
+    HLO_FpTensor:$zero_point,
+    DefaultValuedAttr<BoolAttr, "true">:$use_symmetric,
+    DefaultValuedAttr<I64ElementsAttr, "ArrayRef<int64_t>{}">:$axis,
+    DefaultValuedAttr<BoolAttr, "false">:$use_dynamic
+  );
+  let results = (outs HLO_FpTensor:$result);
+}
+
 #endif // MHLO_DISC_OPS

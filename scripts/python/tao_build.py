@@ -518,6 +518,7 @@ def test_tao_compiler(root, args):
     else:
         BAZEL_TEST_CMD += " --jobs=30"
 
+    TARGET_DISC_IR_TEST = "//tensorflow/compiler/mlir/disc/IR/tests/..."
     TARGET_DISC_TRANSFORMS_TEST = "//tensorflow/compiler/mlir/disc/transforms/tests/..."
     TARGET_DISC_E2E_TEST = "//tensorflow/compiler/mlir/disc/tests/..."
 
@@ -552,6 +553,7 @@ def test_tao_compiler(root, args):
             if args.platform_alibaba:
                 flag += " --config=platform_alibaba"
             mlir_test_list = [
+                TARGET_DISC_IR_TEST,
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
             ]
@@ -571,6 +573,7 @@ def test_tao_compiler(root, args):
             if args.rocm_toolkit_codegen:
                 flag += ' --cxxopt="-DTENSORFLOW_USE_ROCM_COMPILE_TOOLKIT=1"'
             mlir_tests_list = [
+                TARGET_DISC_IR_TEST,
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
                 TARGET_DISC_REPLAY_TEST,

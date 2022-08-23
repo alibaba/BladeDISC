@@ -91,6 +91,44 @@ LogicalResult CustomCallOp::reifyReturnTypeShapes(
 
 LogicalResult CustomCallOp::verify() { return Verify(*this); }
 
+//===----------------------------------------------------------------------===//
+// FakeQuantOp
+//===----------------------------------------------------------------------===//
+
+template <typename T>
+LogicalResult QuantVerify(T* op) {
+  auto inputTy = op->input().getType().template dyn_cast<RankedTensorType>();
+  auto scaleTy = op->scale().getType().template dyn_cast<RankedTensorType>();
+  auto zeroPointTy =
+      op->zero_point().getType().template dyn_cast<RankedTensorType>();
+  auto resultTy = op->result().getType().template dyn_cast<RankedTensorType>();
+  if (!inputTy || !scaleTy || !zeroPointTy || !resultTy)
+    return op->emitOpError() << "only support ranked input.\n";
+  if (inputTy.getShape() != resultTy.getShape())
+    return op->emitOpError() << "input and result have mismatch shape.\n";
+  if (scaleTy.getRank() != zeroPointTy.getRank())
+    return op->emitOpError() << "scale and zero_point have mismatch rank.\n";
+  auto axis = op->axis().template getValues<int64_t>();
+  if (axis.size() != scaleTy.getRank())
+    return op->emitOpError() << "num of quantized axes (len(axis)) is not "
+                                "equal to the rank of scale tensor\n";
+  return success();
+}
+
+LogicalResult FakeQuantOp::verify() { return QuantVerify(this); }
+
+//===----------------------------------------------------------------------===//
+// QuantizeOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult QuantizeOp::verify() { return QuantVerify(this); }
+
+//===----------------------------------------------------------------------===//
+// DequantizeOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult DequantizeOp::verify() { return QuantVerify(this); }
+
 }  // namespace mhlo_disc
 }  // namespace mlir
 

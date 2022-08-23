@@ -32,6 +32,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 
 #include "torch-mlir/Conversion/MhloPasses.h"
+#include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/Utils/TorchUpstream.h"
 #include "torch-mlir/Dialect/Torch/Utils/Utils.h"
@@ -1030,7 +1031,11 @@ class ConvertAtenMultipleDimsReductionOp
           op, "non-const dim parameter unsupported");
 
     auto self = adaptor.self();
-    auto selfTy = self.getType().template cast<RankedTensorType>();
+    auto selfTy = self.getType().template dyn_cast<RankedTensorType>();
+    if (!selfTy)
+      return rewriter.notifyMatchFailure(
+          op, "input should be ranked tensor type.");
+
     auto rank = selfTy.getRank();
     std::transform(
         reduceDims.begin(),
@@ -2163,6 +2168,59 @@ LogicalResult ConvertAtenOp<ValsemVariantAtenUniformOp>::matchAndRewrite(
   return success();
 }
 
+template <>
+LogicalResult ConvertAtenOp<AtenNllLossForwardOp>::matchAndRewrite(
+    AtenNllLossForwardOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  Value input = adaptor.self();
+  Value target = adaptor.target();
+  Value weight = adaptor.weight();
+  auto inputTy = input.getType().cast<RankedTensorType>();
+
+  int64_t reduction;
+  if (!matchPattern(op.reduction(), m_TorchConstantInt(&reduction)))
+    return rewriter.notifyMatchFailure(op, "reduction model must be constant");
+
+  int64_t ignoreIndex;
+  if (!matchPattern(op.ignore_index(), m_TorchConstantInt(&ignoreIndex)))
+    return rewriter.notifyMatchFailure(
+        op, "Unimplemented, the ignore_index operand is not -100");
+  // TODO: Incorporate the weight argument.
+  if (!weight.getType().isa<Torch::NoneType>())
+    return rewriter.notifyMatchFailure(
+        op, "Unimplemented, the weight operand is not incorporated.");
+
+  Value totalWeight = rewriter.create<tensor::DimOp>(loc, input, 0);
+  Type intType = IntegerType::get(op.getContext(), 32);
+  totalWeight = rewriter.create<arith::IndexCastOp>(loc, intType, totalWeight);
+  totalWeight = scalarToMhloTensor(
+      rewriter, op, totalWeight, inputTy.getElementType(), {});
+
+  unsigned inputRank = input.getType().cast<RankedTensorType>().getRank();
+  unsigned targetRank = target.getType().cast<RankedTensorType>().getRank();
+  if (inputRank > 2)
+    return rewriter.notifyMatchFailure(
+        op, "Unimplemented, the rank of self operand should be <= 2.");
+  Value one =
+      rewriter.create<Torch::ConstantIntOp>(loc, rewriter.getI64IntegerAttr(1));
+  auto indexTensor = rewriter.create<AtenIndexSelectOp>(
+      loc, input.getType(), input, one, target);
+  Value constantNone = rewriter.create<ConstantNoneOp>(loc);
+  auto resultType = getTypeConverter()->convertType(
+      op->getResult(0).getType()); //.template cast<TensorType>();
+  auto result = rewriter
+                    .create<AtenSumOp>(
+                        loc, resultType, indexTensor.getResult(), constantNone)
+                    .getResult();
+  if (reduction == torch_upstream::Reduction::Mean) {
+    result = rewriter.create<mhlo::DivOp>(loc, result, totalWeight);
+  }
+  rewriter.replaceOp(op, {result, totalWeight});
+  return success();
+}
+
 template <typename AtenOpT, typename MhloOpT>
 class ConvertAtenPoolingBaseOp : public OpConversionPattern<AtenOpT> {
  public:
@@ -2588,13 +2646,16 @@ class ConvertTorchToMhlo
         mhlo::MhloDialect,
         mhlo_disc::MhloDiscDialect,
         tensor::TensorDialect,
-        arith::ArithmeticDialect>();
+        arith::ArithmeticDialect,
+        Torch::TorchDialect>();
 
     TypeConverter typeConverter;
     typeConverter.addConversion([](Type type) { return type; });
     TorchConversion::setupBackendTypeConversion(target, typeConverter);
 
     RewritePatternSet patterns(context);
+    TorchConversion::populateTorchMlirReductionPatternsAndLegality(
+        typeConverter, patterns, target);
 
 #define INSERT_UNARY_FPONLY_PATTERN(AtenOp, MhloOp)       \
   target.addIllegalOp<AtenOp>();                          \
@@ -2741,7 +2802,6 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenPowTensorScalarOp);
     INSERT_ATENOP_PATTERN(AtenRsubScalarOp);
     INSERT_ATENOP_PATTERN(ValueTensorLiteralOp);
-    // INSERT_ATENOP_PATTERN(AtenReshapeOp);
     // INSERT_ATENOP_PATTERN(AtenFlattenUsingIntsOp);
     INSERT_ATENOP_PATTERN(AtenPermuteOp);
     INSERT_ATENOP_PATTERN(AtenTOp);
@@ -2762,6 +2822,7 @@ class ConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenGeluBackwardOp);
     INSERT_ATENOP_PATTERN(AtenEmptyMemoryFormatOp);
     INSERT_ATENOP_PATTERN(TensorStaticInfoCastOp);
+    INSERT_ATENOP_PATTERN(AtenNllLossForwardOp);
 #undef INSERT_ATENOP_PATTERN
 
 #define INSERT_VIEW_OP_PATTERN(AtenOp) \

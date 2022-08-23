@@ -24,6 +24,7 @@
 #include <memory>
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
+#include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
 namespace mlir {
 class ModuleOp;
@@ -38,6 +39,10 @@ std::unique_ptr<OperationPass<func::FuncOp>> createConvertTorchToMhloPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createApplyValueSemanticsPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscDecomposeComplexOpsPass();
 std::unique_ptr<OperationPass<ModuleOp>> createVerifyMhloBackendContractPass();
+void populateTorchMlirReductionPatternsAndLegality(
+    TypeConverter& typeConverter,
+    RewritePatternSet& patterns,
+    ConversionTarget& target);
 } // namespace TorchConversion
 } // namespace torch
 } // namespace mlir

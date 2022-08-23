@@ -12,6 +12,7 @@
 import torch
 import unittest
 
+from torch_blade import utils
 from torch_blade.version import cuda_available
 from tests.disc.testing_base import DiscTestCase, skipTorchGE
 
@@ -22,10 +23,13 @@ class TestDiscNNOps(DiscTestCase):
             test_data = (test_data.to(self.device),)
         self._test_cvt_to_disc(nn_ops_func, test_data)
 
-    @skipTorchGE("1.12.0")
     def test_softmax(self):
         softmax = torch.nn.Softmax(dim=-1)
         self._test_nn_ops(softmax)
+
+        if utils.torch_version_number() >= utils.parse_version("1.12.0"):
+            #TODO(yancey.yx): support i32 input
+            return
 
         @torch.jit.script
         def softmax_func(x):

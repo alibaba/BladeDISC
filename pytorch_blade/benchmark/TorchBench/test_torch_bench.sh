@@ -10,18 +10,20 @@
 # limitations under the License.
 
 # !/bin/bash
-# install dependencies
-python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
 script_dir=$(cd $(dirname "$0"); pwd)
-python3 -m pip install -q -r $script_dir/requirements.txt
-
-# setup for torchbenchmark
 benchmark_repo_dir=$HOME/.cache/torchbenchmark
+# cache benchmark repo
 if [ ! -d $benchmark_repo_dir ]; then
     git clone -q https://github.com/pai-disc/torchbenchmark.git --recursive $benchmark_repo_dir
 fi
-# CI git-lfs permission problems
+
+# setup for torchbenchmark
+# for CI git-lfs permission problems
 cd $benchmark_repo_dir && export HOME=$(pwd) && git lfs install --force
+# cache venv in benchmark dir
+python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
+python3 -m pip install -q -r $script_dir/requirements.txt
+# install dependencies
 git pull && git submodule update --init --recursive --depth 1 && python3 install.py --continue_on_fail
 # fix pycocotools after install
 python3 -m pip install -U numpy
@@ -29,7 +31,12 @@ pushd $script_dir # pytorch_blade/benchmark/TorchBench
 ln -s $benchmark_repo_dir torchbenchmark
 
 # benchmark 
-TORCHBENCH_ATOL=1e-2 TORCHBENCH_RTOL=1e-2 python3 torchbenchmark/.github/scripts/run-config.py -c blade_bench.yaml -b ./torchbenchmark/ --output-dir .
+config_file=blade_bench.yaml
+if [ $1 ] && [ $1 == "full" ] ; then
+    config_file=blade_bench_full.yaml
+fi
+export DISC_ENABLE_STITCH=true DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE=true DISC_CPU_LARGE_CONCAT_NUM_OPERANDS=4 DISC_CPU_ENABLE_EAGER_TRANSPOSE_FUSION=1 OMP_NUM_THREADS=1
+TORCHBENCH_ATOL=1e-2 TORCHBENCH_RTOL=1e-2 python3 torchbenchmark/.github/scripts/run-config.py -c $config_file -b ./torchbenchmark/ --output-dir .
 # results
 cat eval-cuda-fp16/summary.csv
 cat eval-cuda-fp32/summary.csv

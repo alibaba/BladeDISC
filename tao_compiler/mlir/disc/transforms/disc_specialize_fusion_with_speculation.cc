@@ -533,6 +533,7 @@ struct DiscSpecializeFusionWithSpeculationPass
     Block* then_block = &if_op.getThenRegion().getBlocks().front();
     Block* else_block = &if_op.getElseRegion().getBlocks().front();
     fusion_op.getOperation()->moveBefore(then_block, then_block->begin());
+    cloned.getOperation()->moveBefore(else_block, else_block->begin());
   }
 
   void DoVectorizeOrTileSpeculation(FusionOp fusion_op) {

@@ -65,7 +65,8 @@ std::unique_ptr<OperationPass<FuncOp>> createDiscGpuConvPaddingLegalization();
 // A pass to specialize fusion op with some speculation.
 std::unique_ptr<OperationPass<FuncOp>>
 createDiscSpecializeFusionWithSpeculationPass(int sm_count = -1,
-                                              int max_threads_per_sm = -1);
+                                              int max_threads_per_sm = -1,
+                                              int max_threads_per_block = -1);
 
 // Eliminates certain element types as the input or output of ops by inserting
 // Convert ops.

@@ -224,9 +224,11 @@ struct DiscSpecializeFusionWithSpeculationPass
     : public DiscSpecializeFusionWithSpeculationPassBase<
           DiscSpecializeFusionWithSpeculationPass> {
   DiscSpecializeFusionWithSpeculationPass(int core_count,
-                                          int max_threads_per_core) {
+                                          int max_threads_per_core,
+                                          int max_threads_per_block) {
     core_count_ = core_count;
     max_threads_per_core_ = max_threads_per_core;
+    max_threads_per_block_ = max_threads_per_block;
   }
 
   void getDependentDialects(DialectRegistry& registry) const override {
@@ -471,18 +473,11 @@ struct DiscSpecializeFusionWithSpeculationPass
   // TODO(feiwen): add more kTileW=8/kTileH pairs by if/elseif/else
   void DoColReductionSpeculation(FusionOp fusion_op) {
     // We only do specialization fusion op on GPU a.t.m.
-    bool use_new = false;
-    static const char* env = getenv("NEW_COL");
-    if (env != nullptr) {
-      use_new = std::string(env) == "1" || std::string(env) == "2" ||
-                std::string(env) == "4" || std::string(env) == "8";
-    }
-
     if (!placement_utils::isGpuMhlo(fusion_op)) {
       return;
     }
 
-    if ((core_count_ == -1 || max_threads_per_core_ == -1) && (!use_new)) {
+    if (core_count_ == -1 || max_threads_per_core_ == -1) {
       // Do not know about device information.
       return;
     }
@@ -507,83 +502,37 @@ struct DiscSpecializeFusionWithSpeculationPass
     Value col_size = b.create<memref::DimOp>(loc, operand, 1);
     Value matrix_size = b.create<arith::MulIOp>(loc, row_size, col_size);
 
-    if (use_new) {
-      int thread_per_block = 512;
-      Value cur_threads =
-          b.create<arith::ConstantIndexOp>(loc, thread_per_block);
-      Value cur_blocks =
-          b.create<arith::CeilDivSIOp>(loc, matrix_size, cur_threads);
-      // int sm_num;
-      // auto thread_number_info =
-      //     ArchToGPUThreadNumber.find({cc_major_, cc_minor_});
-      // if (thread_number_info != ArchToGPUThreadNumber.end()) {
-      //   auto info = thread_number_info->second;
-      //   sm_num = info.first;
-      // } else {
-      //   sm_num = 100;  // Default is the data of MI210.
-      // }
+    Value cur_threads =
+        b.create<arith::ConstantIndexOp>(loc, max_threads_per_block_);
+    Value cur_blocks =
+        b.create<arith::CeilDivSIOp>(loc, matrix_size, cur_threads);
+    Value ref_blocks = b.create<arith::ConstantIndexOp>(loc, core_count_);
 
-      Value ref_blocks = b.create<arith::ConstantIndexOp>(
-          loc, core_count_ <= 0 ? 100 : core_count_);
-      Value large_reduce_threshold =
-          b.create<arith::ConstantIndexOp>(loc, 64 * 32);
+    Value pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt,
+                                         cur_blocks, ref_blocks);
 
-      Value pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sge,
-                                           col_size, large_reduce_threshold);
+    auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
 
-      auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
+    auto w8_h32_schedule =
+        b.getIntegerAttr(b.getIntegerType(32), DISC_TILE_W8_H32);
+    auto w8_h16_schedule =
+        b.getIntegerAttr(b.getIntegerType(32), DISC_TILE_W8_H16);
+    auto num_thread_full_attr =
+        b.getIntegerAttr(b.getIntegerType(32), max_threads_per_block_);
+    auto num_thread_half_attr =
+        b.getIntegerAttr(b.getIntegerType(32), max_threads_per_block_ / 2);
+    fusion_op->setAttr(kThreadPerBlockHint, num_thread_full_attr);
+    fusion_op->setAttr(kColReductionScheduleHint, w8_h32_schedule);
+    // use 8*32 tile if block# >= SM#
+    addFusionTag(b, fusion_op, "8w32h");
+    cloned->setAttr(kThreadPerBlockHint, num_thread_half_attr);
+    cloned->setAttr(kColReductionScheduleHint, w8_h16_schedule);
+    // one 8*16 tile if block# < SM#
+    addFusionTag(b, cloned, "8w16h");
 
-      auto w64_h8_schedule =
-          b.getIntegerAttr(b.getIntegerType(32), DISC_TILE_LOOP_W64_H8);
-      auto w16_h32_schedule =
-          b.getIntegerAttr(b.getIntegerType(32), DISC_TILE_LOOP_W16_H32);
-      auto num_thread_512_attr = b.getIntegerAttr(b.getIntegerType(32), 512);
-      fusion_op->setAttr(kThreadPerBlockHint, num_thread_512_attr);
-      fusion_op->setAttr(kColReductionScheduleHint, w64_h8_schedule);
-      // use 8*32 tile if block# >= SM#
-      addFusionTag(b, fusion_op, "loop64w8h");
-      cloned->setAttr(kThreadPerBlockHint, num_thread_512_attr);
-      cloned->setAttr(kColReductionScheduleHint, w16_h32_schedule);
-      // one 8*16 tile if block# < SM#
-      addFusionTag(b, cloned, "loop16w32h");
-
-      Block* then_block = &if_op.getThenRegion().getBlocks().front();
-      Block* else_block = &if_op.getElseRegion().getBlocks().front();
-      fusion_op.getOperation()->moveBefore(then_block, then_block->begin());
-      cloned.getOperation()->moveBefore(else_block, else_block->begin());
-    } else {
-      int thread_per_block = 256;
-      Value cur_threads =
-          b.create<arith::ConstantIndexOp>(loc, thread_per_block);
-      Value cur_blocks =
-          b.create<arith::CeilDivSIOp>(loc, matrix_size, cur_threads);
-      Value ref_blocks = b.create<arith::ConstantIndexOp>(loc, core_count_);
-
-      Value pred = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::sgt,
-                                           cur_blocks, ref_blocks);
-
-      auto if_op = b.create<scf::IfOp>(loc, llvm::None, pred, true);
-
-      auto w8_h32_schedule =
-          b.getIntegerAttr(b.getIntegerType(32), DISC_TILE_W8_H32);
-      auto w8_h16_schedule =
-          b.getIntegerAttr(b.getIntegerType(32), DISC_TILE_W8_H16);
-      auto num_thread_256_attr = b.getIntegerAttr(b.getIntegerType(32), 256);
-      auto num_thread_128_attr = b.getIntegerAttr(b.getIntegerType(32), 128);
-      fusion_op->setAttr(kThreadPerBlockHint, num_thread_256_attr);
-      fusion_op->setAttr(kColReductionScheduleHint, w8_h32_schedule);
-      // use 8*32 tile if block# >= SM#
-      addFusionTag(b, fusion_op, "8w32h");
-      cloned->setAttr(kThreadPerBlockHint, num_thread_128_attr);
-      cloned->setAttr(kColReductionScheduleHint, w8_h16_schedule);
-      // one 8*16 tile if block# < SM#
-      addFusionTag(b, cloned, "8w16h");
-
-      Block* then_block = &if_op.getThenRegion().getBlocks().front();
-      Block* else_block = &if_op.getElseRegion().getBlocks().front();
-      fusion_op.getOperation()->moveBefore(then_block, then_block->begin());
-      cloned.getOperation()->moveBefore(else_block, else_block->begin());
-    }
+    Block* then_block = &if_op.getThenRegion().getBlocks().front();
+    Block* else_block = &if_op.getElseRegion().getBlocks().front();
+    fusion_op.getOperation()->moveBefore(then_block, then_block->begin());
   }
 
   void DoVectorizeOrTileSpeculation(FusionOp fusion_op) {
@@ -800,9 +749,10 @@ struct DiscSpecializeFusionWithSpeculationPass
 
 std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscSpecializeFusionWithSpeculationPass(int core_count,
-                                              int max_threads_per_core) {
+                                              int max_threads_per_core,
+                                              int max_threads_per_block) {
   return std::make_unique<DiscSpecializeFusionWithSpeculationPass>(
-      core_count, max_threads_per_core);
+      core_count, max_threads_per_core, max_threads_per_block);
 }
 
 }  // namespace disc_ral

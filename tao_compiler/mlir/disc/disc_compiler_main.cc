@@ -132,9 +132,26 @@ void dumpGpuError(Error error) {
 
 int InitGPU(GpuDeviceInfo& ctx) {
   RETURN_ON_GPU_ERROR(hipInit(0), "hipInit");
-  // TODO: cc is not used for DCU for now
-  ctx.cc_major = 0;
-  ctx.cc_minor = 0;
+  RETURN_ON_GPU_ERROR(hipDeviceGet(&device, ctx.device_ordinal),
+                      "hipDeviceGet");
+  RETURN_ON_GPU_ERROR(hipCtxCreate(&context, 0, device), "hipCtxCreate");
+  RETURN_ON_GPU_ERROR(
+      hipDeviceComputeCapability(&ctx.cc_major, &ctx.cc_minor, device),
+      "hipDeviceComputeCapability");
+  RETURN_ON_GPU_ERROR(
+      hipDeviceGetAttribute(&ctx.sm_count,
+                            hipDeviceAttributeMultiprocessorCount, device),
+      "hipDeviceGetAttribute(hipDeviceAttributeMultiprocessorCount)");
+  RETURN_ON_GPU_ERROR(
+      hipDeviceGetAttribute(&ctx.max_threads_per_sm,
+                            hipDeviceAttributeMaxThreadsPerMultiProcessor,
+                            device),
+      "hipDeviceGetAttribute(hipDeviceAttributeMaxThreadsPerMultiProcessor)");
+  RETURN_ON_GPU_ERROR(
+      hipDeviceGetAttribute(&ctx.max_threads_per_block,
+                            hipDeviceAttributeMaxThreadsPerBlock, device),
+      "hipDeviceGetAttribute(hipDeviceAttributeMaxThreadsPerBlock)");
+
   return 0;
 }
 
@@ -159,6 +176,11 @@ int InitGPU(GpuDeviceInfo& ctx) {
                            CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_MULTIPROCESSOR,
                            device),
       "cuDeviceGetAttribute (MAX_THREADS_PER_MULTIPROCESSOR)");
+  RETURN_ON_GPU_ERROR(
+      cuDeviceGetAttribute(&ctx.max_threads_per_block,
+                           CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK, device),
+      "cuDeviceGetAttribute (MAX_THREADS_PER_BLOCK)");
+
   return 0;
 }
 

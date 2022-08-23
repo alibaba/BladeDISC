@@ -11,16 +11,15 @@
 
 #include "tensorflow/compiler/decoupling/mlir_compiler_impl_rocm.h"
 
-#define CUDA_SUCCESS hipSuccess
 #include "tensorflow/stream_executor/rocm/rocm_driver_wrapper.h"
 
 namespace tensorflow {
 namespace tao {
 
-#define RETURN_ON_CUDA_ERROR(expr, msg) \
+#define RETURN_ON_ROCM_ERROR(expr, msg) \
   {                                     \
-    auto _cuda_error = (expr);          \
-    if (_cuda_error != CUDA_SUCCESS) {  \
+    auto _rocm_error = (expr);          \
+    if (_rocm_error != hipSuccess) {    \
       return errors::Internal(msg);     \
     }                                   \
   }
@@ -40,14 +39,26 @@ Status CompilerMLIR_DCU::Init(const TaoCompilerInput& input,
   hipDevice_t device;
   hipCtx_t context;
   auto& ctx = impl_->device_context;
-  RETURN_ON_CUDA_ERROR(hipInit(0), "hipInit");
-  RETURN_ON_CUDA_ERROR(hipDeviceGet(&device, ctx.device_ordinal),
+  RETURN_ON_ROCM_ERROR(hipInit(0), "hipInit");
+  RETURN_ON_ROCM_ERROR(hipDeviceGet(&device, ctx.device_ordinal),
                        "hipDeviceGet");
-  RETURN_ON_CUDA_ERROR(hipCtxCreate(&context, 0, device), "hipCtxCreate");
-  RETURN_ON_CUDA_ERROR(
+  RETURN_ON_ROCM_ERROR(hipCtxCreate(&context, 0, device), "hipCtxCreate");
+  RETURN_ON_ROCM_ERROR(
       hipDeviceComputeCapability(&ctx.cc_major, &ctx.cc_minor, device),
       "hipDeviceComputeCapability");
-  VLOG(2) << "Finish rocm init";
+  RETURN_ON_ROCM_ERROR(
+      hipDeviceGetAttribute(&ctx.sm_count,
+                            hipDeviceAttributeMultiprocessorCount, device),
+      "hipDeviceGetAttribute(hipDeviceAttributeMultiprocessorCount)");
+  RETURN_ON_ROCM_ERROR(
+      hipDeviceGetAttribute(&ctx.max_threads_per_sm,
+                            hipDeviceAttributeMaxThreadsPerMultiProcessor,
+                            device),
+      "hipDeviceGetAttribute(hipDeviceAttributeMaxThreadsPerMultiProcessor)");
+  RETURN_ON_ROCM_ERROR(
+      hipDeviceGetAttribute(&ctx.max_threads_per_block,
+                            hipDeviceAttributeMaxThreadsPerBlock, device),
+      "hipDeviceGetAttribute(hipDeviceAttributeMaxThreadsPerBlock)");
   return Status::OK();
 }
 

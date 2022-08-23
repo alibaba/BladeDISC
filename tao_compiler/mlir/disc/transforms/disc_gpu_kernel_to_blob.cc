@@ -50,7 +50,6 @@ limitations under the License.
 #include "rocm/rocm_config.h"
 #include "tensorflow/core/platform/rocm_rocdl_path.h"
 #include "tensorflow/stream_executor/rocm/rocm_driver_wrapper.h"
-#define CUDA_SUCCESS hipSuccess
 #define ROCM_CALL(func)                                             \
   {                                                                 \
     hipError_t e = (func);                                          \
@@ -302,7 +301,9 @@ class GpuKernelToBlobPass
     bool dump_files;
     tensorflow::ReadBoolFromEnvVar("DISC_ROCM_DUMP_FILES", false, &dump_files);
 
-    if (hsaco_or.ok() && dump_files) {
+    if (!hsaco_or.ok()) { 
+      LOG(WARNING) << "LLVM Backend compile HSACO fail.";
+    } else if (dump_files) {
       std::error_code ec;
       std::string ll_path = kname + "_debugllvm.ll";
       std::unique_ptr<llvm::raw_fd_ostream> ll_fs(
@@ -323,8 +324,6 @@ class GpuKernelToBlobPass
       } else {
         LOG(INFO) << "Finish for hsoco build " << res << " " << kname;
       }
-    } else {
-      LOG(WARNING) << "LLVM Backend compile HSACO fail.";
     }
     return hsaco_or;
 

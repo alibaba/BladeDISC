@@ -70,6 +70,9 @@ def DiscSpecializeFusionWithSpeculationPass : Pass<"disc-specialize-fusion-with-
             /*default=*/"-1", "core count (e.g., SM count on NVIDIA GPU).">,
     Option<"max_threads_per_core_", "max-threads-per-core", "int",
             /*default=*/"-1", "max thread number that a core supports concurrently.">,
+    Option<"max_threads_per_block_", "max-threads-per-block", "int",
+            /*default=*/"-1", "max thread number per block.">,
+
   ];
 }
 

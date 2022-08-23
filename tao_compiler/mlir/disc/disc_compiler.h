@@ -36,6 +36,7 @@ struct GpuDeviceInfo {
   int cc_minor = -1;
   int sm_count = -1;
   int max_threads_per_sm = -1;
+  int max_threads_per_block = -1;
   int device_ordinal = 0;
 };
 

@@ -59,8 +59,13 @@ at::Tensor FakeQuant::forward(
     return at::fake_quantize_per_channel_affine(
         input, scale, zero_point, axis_[0], quant_min_, quant_max_);
   } else {
+    // use scalar version for backward compatibility.
     return at::fake_quantize_per_tensor_affine(
-        input, scale, zero_point, quant_min_, quant_max_);
+        input,
+        scale[0].item<double>(),
+        zero_point[0].item<int64_t>(),
+        quant_min_,
+        quant_max_);
   }
 }
 

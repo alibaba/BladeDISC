@@ -13,8 +13,13 @@ import unittest
 
 import torch
 import torch_blade
+from torch_blade import utils
 
 
+@unittest.skipIf(
+    utils.torch_version_number() < utils.parse_version("1.8.0"),
+    'Quant support since 1.8.0'
+)
 class TestTorchBladeFakeQuant(unittest.TestCase):
     def test_op_creation(self):
         qmin = -127

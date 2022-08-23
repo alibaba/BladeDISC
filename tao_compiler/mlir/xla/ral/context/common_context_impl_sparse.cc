@@ -85,7 +85,7 @@ bool generate_sparse_balance_weight(bool w_transpose, int w_dim0, int w_dim1,
         } else {
           a_index = r * col + c * decom_element_per_m + i;
         }
-        if (ptr_W[a_index] != 0) {
+        if (static_cast<float>(ptr_W[a_index]) != 0) {
           if (w_transpose) {
             ptr_compress_W[w_count * row + r] = ptr_W[a_index];
           } else {

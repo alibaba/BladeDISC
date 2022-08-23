@@ -31,18 +31,36 @@ class FakeQuant : public torch::CustomClassHolder {
   SerialType serialize() const;
   // scale & zero_point: scalar for per-tensor quant, vector for per-channel
   // quant.
-  at::Tensor forward(const at::Tensor& input, const at::Tensor& scale,
-                     const at::Tensor& zero_point);
+  at::Tensor forward(
+      const at::Tensor& input,
+      const at::Tensor& scale,
+      const at::Tensor& zero_point);
 
   // accessors
-  int64_t quant_min() const { return quant_min_; }
-  int64_t quant_max() const { return quant_max_; }
-  int64_t num_bits() const { return num_bits_; }
-  const AxisType& axis() const { return axis_; }
-  bool isSigned() const { return signed_; }
-  bool isSymmetric() const { return symmetric_; }
-  bool isDynamic() const { return dynamic_; }
-  bool isPerChannel() const { return per_channel_; }
+  int64_t quant_min() const {
+    return quant_min_;
+  }
+  int64_t quant_max() const {
+    return quant_max_;
+  }
+  int64_t num_bits() const {
+    return num_bits_;
+  }
+  const AxisType& axis() const {
+    return axis_;
+  }
+  bool isSigned() const {
+    return signed_;
+  }
+  bool isSymmetric() const {
+    return symmetric_;
+  }
+  bool isDynamic() const {
+    return dynamic_;
+  }
+  bool isPerChannel() const {
+    return per_channel_;
+  }
 
  private:
   // min value after quantization.
@@ -63,6 +81,6 @@ class FakeQuant : public torch::CustomClassHolder {
   bool per_channel_;
 };
 
-}  // namespace quantization
-}  // namespace blade
-}  // namespace torch
+} // namespace quantization
+} // namespace blade
+} // namespace torch

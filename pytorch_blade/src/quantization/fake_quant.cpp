@@ -21,28 +21,46 @@ namespace blade {
 namespace quantization {
 
 FakeQuant::FakeQuant(FakeQuant::SerialType serial) {
-  std::tie(quant_min_, quant_max_, num_bits_, axis_, signed_, symmetric_,
-           dynamic_, per_channel_) = serial;
-  if(per_channel_) {
-    TORCH_CHECK(axis_.size() > 0, "Per-channel quantization requires non-empty axis.");
+  std::tie(
+      quant_min_,
+      quant_max_,
+      num_bits_,
+      axis_,
+      signed_,
+      symmetric_,
+      dynamic_,
+      per_channel_) = serial;
+  if (per_channel_) {
+    TORCH_CHECK(
+        axis_.size() > 0, "Per-channel quantization requires non-empty axis.");
   } else {
-    TORCH_CHECK(axis_.size() == 0, "Per-tensor quantization requires empty axis.");
+    TORCH_CHECK(
+        axis_.size() == 0, "Per-tensor quantization requires empty axis.");
   }
 }
 
 FakeQuant::SerialType FakeQuant::serialize() const {
-  return std::make_tuple(quant_min_, quant_max_, num_bits_, axis_, signed_,
-                         symmetric_, dynamic_, per_channel_);
+  return std::make_tuple(
+      quant_min_,
+      quant_max_,
+      num_bits_,
+      axis_,
+      signed_,
+      symmetric_,
+      dynamic_,
+      per_channel_);
 }
 
-at::Tensor FakeQuant::forward(const at::Tensor& input, const at::Tensor& scale,
-                              const at::Tensor& zero_point) {
+at::Tensor FakeQuant::forward(
+    const at::Tensor& input,
+    const at::Tensor& scale,
+    const at::Tensor& zero_point) {
   if (per_channel_) {
-    return at::fake_quantize_per_channel_affine(input, scale, zero_point, axis_[0],
-                                                quant_min_, quant_max_);
+    return at::fake_quantize_per_channel_affine(
+        input, scale, zero_point, axis_[0], quant_min_, quant_max_);
   } else {
-    return at::fake_quantize_per_tensor_affine(input, scale, zero_point,
-                                               quant_min_, quant_max_);
+    return at::fake_quantize_per_tensor_affine(
+        input, scale, zero_point, quant_min_, quant_max_);
   }
 }
 
@@ -50,12 +68,14 @@ namespace {
 auto reg =
     torch::class_<FakeQuant>("torch_blade", "FakeQuant")
         .def(torch::init<FakeQuant::SerialType>())
-        .def("forward",
-             [](const c10::intrusive_ptr<FakeQuant>& self,
-                const at::Tensor& input, const at::Tensor& scale,
-                const at::Tensor& zero_point) {
-               return self->forward(input, scale, zero_point);
-             })
+        .def(
+            "forward",
+            [](const c10::intrusive_ptr<FakeQuant>& self,
+               const at::Tensor& input,
+               const at::Tensor& scale,
+               const at::Tensor& zero_point) {
+              return self->forward(input, scale, zero_point);
+            })
         .def("quant_min", &FakeQuant::quant_min)
         .def("quant_max", &FakeQuant::quant_max)
         .def("num_bits", &FakeQuant::num_bits)
@@ -70,8 +90,8 @@ auto reg =
             [](FakeQuant::SerialType serial) -> c10::intrusive_ptr<FakeQuant> {
               return c10::make_intrusive<FakeQuant>(serial);
             });
-}  // namespace
+} // namespace
 
-}  // namespace quantization
-}  // namespace blade
-}  // namespace torch
+} // namespace quantization
+} // namespace blade
+} // namespace torch

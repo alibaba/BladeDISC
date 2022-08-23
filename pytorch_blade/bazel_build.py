@@ -44,7 +44,7 @@ class BazelBuild(TorchBladeBuild):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.targets = [
-            "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:libral_base_context.so",
+            # "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:libral_base_context.so",
             "//src:libtorch_blade.so",
             "//src:_torch_blade.so",
             "//tests/mhlo/torch-mlir-opt:torch-mlir-opt",
@@ -128,7 +128,7 @@ class BazelBuild(TorchBladeBuild):
         # note: If we use backend (such as trt) to do calibration and get the
         # quantization engine, this limitation should not be set.
         is_enable_quantization = \
-            self.torch_major_version == 1 and 8 <= self.torch_minor_version < 12
+            self.torch_major_version == 1 and 8 <= self.torch_minor_version <= 12
         if is_enable_quantization:
             self.torch_extra_opts.append("--config=torch_enable_quantization")
 

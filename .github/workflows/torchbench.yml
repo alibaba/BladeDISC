@@ -12,21 +12,21 @@ on:
 jobs:
   TorchBenchPartial:
     if: github.event.schedule != '30 23 * * 5' # daily or dispatch
-      uses: ./.github/workflows/reusable.yml
-      with:
-        name: torch-offcial-benchmark
-        base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cu113
-        device: gpu-a10
-        dockerfile: docker/cronjobs/Dockerfile.torch.bench
-        extra_run_args: --cap-add=SYS_ADMIN --gpus all
-        exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh
-        push_command: ""
-        remote_dev_docker: ""
-      secrets:
-        ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
-        ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
-        DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-        DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+    uses: ./.github/workflows/reusable.yml
+    with:
+      name: torch-offcial-benchmark
+      base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cu113
+      device: gpu-a10
+      dockerfile: docker/cronjobs/Dockerfile.torch.bench
+      extra_run_args: --cap-add=SYS_ADMIN --gpus all
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh
+      push_command: ""
+      remote_dev_docker: ""
+    secrets:
+      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
+      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
   TorchBenchFull:
     if: github.event.schedule == '30 23 * * 5'

@@ -140,4 +140,61 @@ def HLO_DequantizeOp: HLODISC_Op<"dequantize", [NoSideEffect]> {
   let results = (outs HLO_FpTensor:$result);
 }
 
+def HLO_QuantizedDotGeneralOp: HLODISC_Op<"quantized_dot_general", [NoSideEffect]> {
+  let summary = "quantized version of dot gerneal operator";
+  let description = [{
+    Compute the dot product using result quantized inputs.
+  }];
+  let arguments = (ins
+    HLO_IntTensor:$input,
+    HLO_IntTensor:$weight,
+    HLO_FpTensor:$input_scale,
+    HLO_I32Tensor:$input_zero_point,
+    HLO_FpTensor:$weight_scale,
+    HLO_I32Tensor:$weight_zero_point,
+    HLO_FpTensor:$result_scale,
+    HLO_I32Tensor:$result_zero_point,
+    DotDimensionNumbers:$dot_dimension_numbers,
+    DefaultValuedAttr<BoolAttr, "true">:$use_symmetric,
+    DefaultValuedAttr<I64ElementsAttr, "ArrayRef<int64_t>{}">:$axis,
+    DefaultValuedAttr<BoolAttr, "false">:$use_dynamic
+  );
+  let results = (outs HLO_Tensor:$result);
+}
+
+def HLO_QuantizedDynamicConvOp: HLODISC_Op<"quantized_dynamic_conv", [NoSideEffect]> {
+  let summary = "quantized version of dynamic_conv operator";
+  let description = [{
+    Compute the convolution result using quantized inputs.
+  }];
+  let arguments = (ins
+    HLO_IntTensor:$input,
+    HLO_IntTensor:$weight,
+    HLO_IntTensor:$d_padding,
+    HLO_FpTensor:$input_scale,
+    HLO_I32Tensor:$input_zero_point,
+    HLO_FpTensor:$weight_scale,
+    HLO_I32Tensor:$weight_zero_point,
+    HLO_FpTensor:$result_scale,
+    HLO_I32Tensor:$result_zero_point,
+    // Default value: one for each of the spatial dimension.
+    OptionalAttr<I64ElementsAttr>:$window_strides,
+    // Default value: two zeros for each of the spatial dimension.
+    OptionalAttr<I64ElementsAttr>:$padding,
+    // Default value: one for each of the spatial dimension.
+    OptionalAttr<I64ElementsAttr>:$lhs_dilation,
+    // Default value: one for each of the spatial dimension.
+    OptionalAttr<I64ElementsAttr>:$rhs_dilation,
+    // Default value: false for each of the spatial dimension.
+    OptionalAttr<BoolElementsAttr>:$window_reversal,
+    ConvDimensionNumbers:$dimension_numbers,
+    I64Attr:$feature_group_count,
+    I64Attr:$batch_group_count,
+    DefaultValuedAttr<BoolAttr, "true">:$use_symmetric,
+    DefaultValuedAttr<I64ElementsAttr, "ArrayRef<int64_t>{}">:$axis,
+    DefaultValuedAttr<BoolAttr, "false">:$use_dynamic
+  );
+  let results = (outs HLO_Tensor:$result);
+}
+
 #endif // MHLO_DISC_OPS

@@ -301,7 +301,7 @@ class GpuKernelToBlobPass
     bool dump_files;
     tensorflow::ReadBoolFromEnvVar("DISC_ROCM_DUMP_FILES", false, &dump_files);
 
-    if (!hsaco_or.ok()) { 
+    if (!hsaco_or.ok()) {
       LOG(WARNING) << "LLVM Backend compile HSACO fail.";
     } else if (dump_files) {
       std::error_code ec;

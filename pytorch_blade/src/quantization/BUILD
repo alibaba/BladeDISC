@@ -2,8 +2,14 @@ package(default_visibility = ["//visibility:public"])
 
 cc_library(
     name = "quantization_op",
-    srcs = ["placeholder_op.cpp"],
-    hdrs = ["placeholder_op.h"],
+    srcs = [
+        "placeholder_op.cpp",
+        "fake_quant.cpp",
+    ],
+    hdrs = [
+        "placeholder_op.h",
+        "fake_quant.h",
+    ],
     deps = [
         "@local_org_torch//:libtorch",
         "//src/common_utils:torch_blade_common"

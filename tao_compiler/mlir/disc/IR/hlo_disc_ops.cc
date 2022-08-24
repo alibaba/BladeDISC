@@ -129,6 +129,71 @@ LogicalResult QuantizeOp::verify() { return QuantVerify(this); }
 
 LogicalResult DequantizeOp::verify() { return QuantVerify(this); }
 
+//===----------------------------------------------------------------------===//
+// QuantizedDotGeneralOp
+//===----------------------------------------------------------------------===//
+
+template <typename T>
+LogicalResult CommonVerifyForQuantizedComputeIntensiveOp(T* op) {
+  auto inputTy = op->input().getType().template dyn_cast<RankedTensorType>();
+  auto weightTy = op->weight().getType().template dyn_cast<RankedTensorType>();
+  auto resultTy = op->result().getType().template dyn_cast<RankedTensorType>();
+
+  if (!inputTy || !weightTy || !resultTy ||
+      inputTy.getRank() != weightTy.getRank() ||
+      inputTy.getRank() != resultTy.getRank()) {
+    return op->emitOpError()
+           << "input, weight and result should have the same rank.\n";
+  }
+
+  auto inputScaleTy =
+      op->input_scale().getType().template dyn_cast<RankedTensorType>();
+  auto inputZeroPointTy =
+      op->input_zero_point().getType().template dyn_cast<RankedTensorType>();
+  if (!inputScaleTy || !inputZeroPointTy || inputScaleTy.getRank() != 0 ||
+      inputZeroPointTy.getRank() != 0) {
+    return op->emitOpError() << "input_scale and input_zero_point only support "
+                                "per-tensor quantization\n";
+  }
+
+  auto resultScaleTy =
+      op->result_scale().getType().template dyn_cast<RankedTensorType>();
+  auto resultZeroPointTy =
+      op->result_zero_point().getType().template dyn_cast<RankedTensorType>();
+  if (!resultScaleTy || !resultZeroPointTy || resultScaleTy.getRank() != 0 ||
+      resultZeroPointTy.getRank() != 0) {
+    return op->emitOpError() << "result_scale and result_zero_point only "
+                                "support per-tensor quantization\n";
+  }
+
+  auto weightScaleTy =
+      op->weight_scale().getType().template dyn_cast<RankedTensorType>();
+  auto weightZeroPointTy =
+      op->weight_zero_point().getType().template dyn_cast<RankedTensorType>();
+  if (!weightScaleTy || !weightZeroPointTy ||
+      weightScaleTy.getShape() != weightZeroPointTy.getShape()) {
+    return op->emitOpError()
+           << "weight_scale and weight_zero_point have mismatch shape\n";
+  }
+  auto axis = op->axis().template getValues<int64_t>();
+  if (axis.size() != weightScaleTy.getRank())
+    return op->emitOpError() << "num of quantized axes (len(axis)) is not "
+                                "equal to the rank of weight_scale tensor\n";
+  return success();
+}
+
+LogicalResult QuantizedDotGeneralOp::verify() {
+  return CommonVerifyForQuantizedComputeIntensiveOp(this);
+}
+
+//===----------------------------------------------------------------------===//
+// QuantizedDynamicConvOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult QuantizedDynamicConvOp::verify() {
+  return CommonVerifyForQuantizedComputeIntensiveOp(this);
+}
+
 }  // namespace mhlo_disc
 }  // namespace mlir
 

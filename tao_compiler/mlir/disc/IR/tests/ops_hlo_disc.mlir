@@ -81,3 +81,119 @@ func.func @dequantize_per_channel(%input : tensor<?x?x?x?xi8>, %scale : tensor<?
   } : (tensor<?x?x?x?xi8>, tensor<?xf32>, tensor<?xi32>) -> tensor<?x?x?x?xf32>
   return %out : tensor<?x?x?x?xf32>
 }
+
+// -----
+
+// CHECK-LABEL: @per_tensor_quantized_dot_general
+func.func @per_tensor_quantized_dot_general(%input: tensor<?x?xi8>, %weight: tensor<?x?xi8>,
+                                            %input_scale: tensor<f32>, %input_zero_point: tensor<i32>,
+                                            %weight_scale: tensor<f32>, %weight_zero_point: tensor<i32>,
+                                            %result_scale: tensor<f32>, %result_zero_point: tensor<i32>) -> tensor<?x?xi8> {
+  %out = "mhlo_disc.quantized_dot_general"(%input, %weight,
+                                           %input_scale, %input_zero_point,
+                                           %weight_scale, %weight_zero_point,
+                                           %result_scale, %result_zero_point) {
+      use_symmetric = true,
+      axis = dense<[]> : tensor<0xi64>,
+      use_dynamic = false,
+      dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>
+  } : (tensor<?x?xi8>, tensor<?x?xi8>,
+       tensor<f32>, tensor<i32>,
+       tensor<f32>, tensor<i32>,
+       tensor<f32>, tensor<i32>) -> tensor<?x?xi8>
+  return %out : tensor<?x?xi8>
+}
+
+// -----
+
+// CHECK-LABEL: @per_channel_quantized_dot_general
+func.func @per_channel_quantized_dot_general(%input: tensor<?x?xi8>, %weight: tensor<?x?xi8>,
+                                             %input_scale: tensor<f32>, %input_zero_point: tensor<i32>,
+                                             %weight_scale: tensor<?xf32>, %weight_zero_point: tensor<?xi32>,
+                                             %result_scale: tensor<f32>, %result_zero_point: tensor<i32>) -> tensor<?x?xi8> {
+  %out = "mhlo_disc.quantized_dot_general"(%input, %weight,
+                                           %input_scale, %input_zero_point,
+                                           %weight_scale, %weight_zero_point,
+                                           %result_scale, %result_zero_point) {
+      use_symmetric = true,
+      axis = dense<[1]> : tensor<1xi64>,
+      use_dynamic = false,
+      dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>
+  } : (tensor<?x?xi8>, tensor<?x?xi8>,
+       tensor<f32>, tensor<i32>,
+       tensor<?xf32>, tensor<?xi32>,
+       tensor<f32>, tensor<i32>) -> tensor<?x?xi8>
+  return %out : tensor<?x?xi8>
+}
+
+// -----
+
+// CHECK-LABEL: @per_channel_quantized_dynamic_conv
+func.func @per_channel_quantized_dynamic_conv(%input: tensor<?x?x?x?xi8>, %weight: tensor<?x?x?x?xi8>, %padding : tensor<4xi32>,
+                                             %input_scale: tensor<f32>, %input_zero_point: tensor<i32>,
+                                             %weight_scale: tensor<?xf32>, %weight_zero_point: tensor<?xi32>,
+                                             %result_scale: tensor<f32>, %result_zero_point: tensor<i32>) -> tensor<?x?x?x?xi8> {
+  %out = "mhlo_disc.quantized_dynamic_conv"(%input, %weight, %padding,
+                                           %input_scale, %input_zero_point,
+                                           %weight_scale, %weight_zero_point,
+                                           %result_scale, %result_zero_point) {
+      use_symmetric = true,
+      axis = dense<[1]> : tensor<1xi64>,
+      use_dynamic = false,
+      dimension_numbers = #mhlo.conv<raw
+        input_batch_dimension = 0,
+        input_feature_dimension = 1,
+        input_spatial_dimensions = [2, 3],
+        kernel_input_feature_dimension = 1,
+        kernel_output_feature_dimension = 0,
+        kernel_spatial_dimensions = [2, 3],
+        output_batch_dimension = 0,
+        output_feature_dimension = 1,
+        output_spatial_dimensions = [2, 3]
+      >,
+      batch_group_count = 1 : i64,
+      feature_group_count = 1 : i64,
+      rhs_dilation = dense<1> : tensor<2xi64>,
+      window_strides = dense<3> : tensor<2xi64>
+  } : (tensor<?x?x?x?xi8>, tensor<?x?x?x?xi8>, tensor<4xi32>,
+       tensor<f32>, tensor<i32>,
+       tensor<?xf32>, tensor<?xi32>,
+       tensor<f32>, tensor<i32>) -> tensor<?x?x?x?xi8>
+  return %out : tensor<?x?x?x?xi8>
+}
+
+// -----
+
+// CHECK-LABEL: @per_tensor_quantized_dynamic_conv
+func.func @per_tensor_quantized_dynamic_conv(%input: tensor<?x?x?x?xi8>, %weight: tensor<?x?x?x?xi8>, %padding : tensor<4xi32>,
+                                             %input_scale: tensor<f32>, %input_zero_point: tensor<i32>,
+                                             %weight_scale: tensor<f32>, %weight_zero_point: tensor<i32>,
+                                             %result_scale: tensor<f32>, %result_zero_point: tensor<i32>) -> tensor<?x?x?x?xi8> {
+  %out = "mhlo_disc.quantized_dynamic_conv"(%input, %weight, %padding,
+                                           %input_scale, %input_zero_point,
+                                           %weight_scale, %weight_zero_point,
+                                           %result_scale, %result_zero_point) {
+      use_symmetric = true,
+      axis = dense<[]> : tensor<0xi64>,
+      use_dynamic = false,
+      dimension_numbers = #mhlo.conv<raw
+        input_batch_dimension = 0,
+        input_feature_dimension = 1,
+        input_spatial_dimensions = [2, 3],
+        kernel_input_feature_dimension = 1,
+        kernel_output_feature_dimension = 0,
+        kernel_spatial_dimensions = [2, 3],
+        output_batch_dimension = 0,
+        output_feature_dimension = 1,
+        output_spatial_dimensions = [2, 3]
+      >,
+      batch_group_count = 1 : i64,
+      feature_group_count = 1 : i64,
+      rhs_dilation = dense<1> : tensor<2xi64>,
+      window_strides = dense<3> : tensor<2xi64>
+  } : (tensor<?x?x?x?xi8>, tensor<?x?x?x?xi8>, tensor<4xi32>,
+       tensor<f32>, tensor<i32>,
+       tensor<f32>, tensor<i32>,
+       tensor<f32>, tensor<i32>) -> tensor<?x?x?x?xi8>
+  return %out : tensor<?x?x?x?xi8>
+}

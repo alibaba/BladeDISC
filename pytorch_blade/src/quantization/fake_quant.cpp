@@ -56,8 +56,15 @@ at::Tensor FakeQuant::forward(
     const at::Tensor& scale,
     const at::Tensor& zero_point) {
   if (per_channel_) {
+    // torch version 1.8.x and 1.9.x require Long type for zero_point, while
+    // higher versions require Int/Float/Double typle.
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION < 10
+    at::Tensor zero_point_new = zero_point.to(at::ScalarType::Long);
+#else
+    at::Tensor zero_point_new = zero_point.to(at::ScalarType::Int);
+#endif
     return at::fake_quantize_per_channel_affine(
-        input, scale, zero_point, axis_[0], quant_min_, quant_max_);
+        input, scale, zero_point_new, axis_[0], quant_min_, quant_max_);
   } else {
     // use scalar version for backward compatibility.
     return at::fake_quantize_per_tensor_affine(

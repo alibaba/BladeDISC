@@ -80,8 +80,15 @@ class TestTorchBladeFakeQuant(unittest.TestCase):
         ))
         input = torch.rand(2, 3, 4, 4)
         scale = torch.tensor([0.1, 0.2, 0.3])
+        # torch_blade's FakeQuant Op handles zero point of all dtypes.
         zero_point = torch.tensor([0, 0, 0], dtype=torch.int64)
         res1 = op.forward(input, scale, zero_point)
+
+        # But torch.fake_quantize_per_channel_affine requires zero_point of different types across versions.
+        if utils.torch_version_number() < utils.parse_version("1.10.0"):
+            zero_point = torch.tensor([0, 0, 0], dtype=torch.int64)
+        else:
+            zero_point = torch.tensor([0, 0, 0], dtype=torch.int32)
         res2 = torch.fake_quantize_per_channel_affine(input, scale, zero_point, axis[0], qmin, qmax)
         self.assertTrue(torch.allclose(res1, res2))
 

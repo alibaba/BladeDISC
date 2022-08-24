@@ -61,9 +61,9 @@ class TestTorchBladeFakeQuant(unittest.TestCase):
         ))
         input = torch.rand(2, 3, 4)
         scale = torch.tensor([0.1])
-        zero_point = torch.tensor([0], dtype=torch.int32)
+        zero_point = torch.tensor([0], dtype=torch.int64)
         res1 = op.forward(input, scale, zero_point)
-        res2 = torch.fake_quantize_per_tensor_affine(input, scale, zero_point, qmin, qmax)
+        res2 = torch.fake_quantize_per_tensor_affine(input, scale.item(), zero_point.item(), qmin, qmax)
         self.assertTrue(torch.allclose(res1, res2))
 
     def test_forward_per_channel(self):
@@ -80,7 +80,7 @@ class TestTorchBladeFakeQuant(unittest.TestCase):
         ))
         input = torch.rand(2, 3, 4, 4)
         scale = torch.tensor([0.1, 0.2, 0.3])
-        zero_point = torch.tensor([0, 0, 0], dtype=torch.int32)
+        zero_point = torch.tensor([0, 0, 0], dtype=torch.int64)
         res1 = op.forward(input, scale, zero_point)
         res2 = torch.fake_quantize_per_channel_affine(input, scale, zero_point, axis[0], qmin, qmax)
         self.assertTrue(torch.allclose(res1, res2))

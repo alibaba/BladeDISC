@@ -62,8 +62,8 @@ at::Tensor FakeQuant::forward(
     // use scalar version for backward compatibility.
     return at::fake_quantize_per_tensor_affine(
         input,
-        scale[0].item<double>(),
-        zero_point[0].item<int64_t>(),
+        scale.item<double>(),
+        zero_point.item<int64_t>(),
         quant_min_,
         quant_max_);
   }

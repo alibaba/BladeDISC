@@ -58,7 +58,8 @@ at::Tensor FakeQuant::forward(
   if (per_channel_) {
     // torch version 1.8.x and 1.9.x require Long type for zero_point, while
     // higher versions require Int/Float/Double typle.
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION < 10
+#if PYTORCH_MAJOR_VERSION == 0 || \
+    PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION < 10
     at::Tensor zero_point_new = zero_point.to(at::ScalarType::Long);
 #else
     at::Tensor zero_point_new = zero_point.to(at::ScalarType::Int);

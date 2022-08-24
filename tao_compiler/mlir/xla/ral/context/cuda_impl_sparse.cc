@@ -272,9 +272,7 @@ void ral_spgemm(ExecutionContext* ctx, void* stream_handle,
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
   {
     auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
-    auto stream =
-        static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
-    void* s = stream->implementation()->GpuStreamHack();
+    void* s = gpu_driver->asCUStream(ctx, stream_handle);
     bladnn::Context bladnn_ctx{s};
     bladnn::Dtype in_dtype = toBlaDNNDtype<InT>();
     bladnn::Dtype out_dtype = toBlaDNNDtype<OutT>();
@@ -290,7 +288,7 @@ void ral_spgemm(ExecutionContext* ctx, void* stream_handle,
       ctx->signalError(Context::FAILURE, "run sparse gemm failed.");
     }
   }
-#elif
+#else
   ctx->signalError(Context::FAILURE, "unsupport sparse gemm.");
 #endif
 }

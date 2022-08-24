@@ -1753,6 +1753,25 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_convert_fake_quant_op",
+    srcs = ["transforms/disc_convert_fake_quant_op.cc"],
+    deps = [
+        ":disc_shape_optimization_utils",
+        ":mhlo_disc",
+        ":pass_details",
+        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "all_passes",
     hdrs = [
         "transforms/register_passes.h",
@@ -1770,6 +1789,7 @@ cc_library(
         ":disc_canonicalizer",
         ":disc_dense_to_sparse",
         ":disc_convert_const_to_ral",
+        ":disc_convert_fake_quant_op",
         ":disc_cpu_map_parallel_loop",
         ":disc_duplicate_computation_for_fusion",
         ":disc_flatten_memref_access",

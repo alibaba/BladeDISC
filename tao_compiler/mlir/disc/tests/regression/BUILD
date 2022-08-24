@@ -26,5 +26,6 @@ package_group(
 glob_op_tests(
     data = [],
     driver = "@llvm-project//mlir:run_lit.sh",
-    test_file_exts = ["cc"],
+    # test_file_exts = ["cc"],
+    test_file_exts = ["xx"],
 )

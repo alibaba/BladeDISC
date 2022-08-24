@@ -291,8 +291,14 @@ bool feature_test_main(
     bool multi_cc_mode, bool multi_cc_mode_dbg_ptx_only) {
   bool pass = true;
   auto envSettings = getEnvironmentSettings();
-  for (const auto& setting : envSettings) {
-    EnvSettingContext ctx(setting);
+  // for (const auto& setting : envSettings) {
+    // EnvSettingContext ctx(setting);
+
+#if 1
+    setenv("DISC_ENABLE_STITCH", "true", 1);
+    setenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR", "true", 1);
+    setenv("DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", "true", 1);
+#endif
 
     for (auto backend_type : backend_types) {
       if (backend_type == BackendType::kCuda) {
@@ -327,7 +333,7 @@ bool feature_test_main(
         return false;
       }
     }
-  }
+  // }
   return pass;
 }
 }  //  namespace mlir_test

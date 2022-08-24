@@ -555,6 +555,17 @@ struct DiscSpecializeFusionWithSpeculationPass
       return;
     }
 
+    if (isMemIntensiveOptExperimentalEnabled()) {
+      // skip if the root is concatenate operator
+      // iterate on fusion_pattern.getRootOps() to check whether there are concatenate ops
+      FusionPatternBase fusion_pattern(fusion_op);
+      for (auto root_op : fusion_pattern.getRootOps()) {
+        if (isa<lmhlo::ConcatenateOp>(root_op)) {
+          return ;
+        }
+      }
+    }
+
     // TODO: aware of row-reduction hints.
 
     // Default vectorization/tiling policy:

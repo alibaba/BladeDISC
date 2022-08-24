@@ -9,7 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_sparse.h"
+#include "tensorflow/compiler/mlir/xla/ral/context/cuda_impl_sparse.h"
 
 #include <stdio.h>
 
@@ -236,9 +236,6 @@ void ral_spgemm(ExecutionContext* ctx, void* stream_handle,
   int64_t num_A_cols = A.sizes[1];
   int64_t num_B_rows = B.sizes[0];
   int64_t num_B_cols = B.sizes[1];
-  int64_t num_C_rows = C.sizes[0];
-  int64_t num_C_cols = C.sizes[1];
-  unsigned alignment = 16;
 
   bool tp_a = cd_a == 1 ? false : true;
   bool tp_b = cd_b == 0 ? false : true;

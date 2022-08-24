@@ -10,7 +10,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-// This file defines quantized conv related custom calls.
+// This file defines sparse gemm related custom calls.
 
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"

@@ -1,4 +1,5 @@
 // RUN: disc-opt -disc-dense-to-sparse -split-input-file %s -o - | FileCheck %s
+// RUN: disc-opt -disc-sparse-gemm-transpose-simplifier -split-input-file %s -o - | FileCheck %s
 
 // CHECK-LABEL: func.func @dense_to_sparse_gemm
 func.func @dense_to_sparse_gemm(%arg0: tensor<4x4xf16>) -> tensor<4x4xf16> {
@@ -16,6 +17,5 @@ func.func @sparse_gemm_transpose_simplifier(%arg0: tensor<4x4xf16>) -> tensor<4x
   %1 = "mhlo.transpose"(%arg0) {permutation = dense<[1, 0]> : tensor<2xi64>} : (tensor<4x4xf16>) -> tensor<4x4xf16>
   %2 = "mhlo_disc.custom_call"(%1, %0) {backend_config = {lhs_contracting_dimensions = 0 : i64, rhs_contracting_dimensions = 0 : i64}, call_target_name = "sparse_gemm", has_side_effect = false} : (tensor<4x4xf16>, tensor<4x4xf16>) -> tensor<4x4xf16>
   // CHECK-NOT: mhlo.transpose
-  // CHECK: lhs_contracting_dimensions = 1
   return %2: tensor<4x4xf16>
 }

@@ -102,6 +102,7 @@ struct ExpandDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
     auto outputTy = output.getType().dyn_cast<RankedTensorType>();
 
     if (!inputTy || !kernelTy || !outputTy) return success();
+    if (inputTy.getShape().size() != 2) return success();
 
     SmallVector<int64_t> transposeAttr = {1, 0};
 
@@ -109,16 +110,7 @@ struct ExpandDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
 
     // insert transpose before spgemm when sparse_weight_pos = 1
     if (sparse_weight_pos == 1) {
-      auto inputShape = inputTy.getShape();
-      SmallVector<int64_t, 4> inputTranShape;
-      for (int64_t val : transposeAttr) {
-        inputTranShape.push_back(inputShape[val]);
-      }
-      auto newInputTy =
-          RankedTensorType::get(inputTranShape, inputTy.getElementType());
-
       auto inputTranOp = InsertTranspose(op, input, transposeAttr, b);
-      inputTranOp->getResult(0).setType(newInputTy);
       newOperands.push_back(inputTranOp->getResult(0));
     } else {
       newOperands.push_back(input);
@@ -135,7 +127,7 @@ struct ExpandDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
       }
     } else {
       for (int64_t val : output_shape) {
-        spgemm_shape.push_back(output_shape[val]);
+        spgemm_shape.push_back(val);
       }
     }
 
@@ -201,7 +193,7 @@ struct ExpandDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
     int64_t col = is_transpose ? weight_shape[0] : weight_shape[1];
 
     // check sparse
-    if (col == 0 || col % 4 != 0) {
+    if (row == 0 || col == 0 || col % 4 != 0) {
       return failure();
     }
 
@@ -260,14 +252,14 @@ struct ExpandDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
 void populateDiscDenseToSparsePatterns(RewritePatternSet& patterns) {
   // clang-format off
   patterns.insert<ExpandDotGeneralOp>(patterns.getContext());
+  // clang-format on
 }
 
 struct DiscDenseToSparsePass
     : public DiscDenseToSparsePassBase<DiscDenseToSparsePass> {
   explicit DiscDenseToSparsePass()
       : DiscDenseToSparsePassBase<
-            DiscDenseToSparsePass>::DiscDenseToSparsePassBase() {
-  }
+            DiscDenseToSparsePass>::DiscDenseToSparsePassBase() {}
   void runOnOperation() override;
 };
 
@@ -293,7 +285,8 @@ void DiscDenseToSparsePass::runOnOperation() {
 struct ExpandSparseGemmOp : public OpRewritePattern<mhlo_disc::CustomCallOp> {
   using OpRewritePattern<mhlo_disc::CustomCallOp>::OpRewritePattern;
 
-  LogicalResult NewSparseOp(mhlo_disc::CustomCallOp op, PatternRewriter& rewriter) const {
+  LogicalResult NewSparseOp(mhlo_disc::CustomCallOp op,
+                            PatternRewriter& rewriter) const {
     OpBuilder b(op);
     Location loc = op.getLoc();
 
@@ -305,44 +298,48 @@ struct ExpandSparseGemmOp : public OpRewritePattern<mhlo_disc::CustomCallOp> {
     auto kernelTy = rhs.getType().dyn_cast<RankedTensorType>();
     auto outputTy = output.getType().dyn_cast<RankedTensorType>();
 
-    if(!inputTy || !kernelTy || !outputTy) return success();
+    if (!inputTy || !kernelTy || !outputTy) return success();
 
     auto config = op.backend_config().cast<DictionaryAttr>();
-    int64_t lhs_contracting_dimensions = config.getAs<IntegerAttr>("lhs_contracting_dimensions").getInt();
-    int64_t rhs_contracting_dimensions = config.getAs<IntegerAttr>("rhs_contracting_dimensions").getInt();
+    int64_t lhs_contracting_dimensions =
+        config.getAs<IntegerAttr>("lhs_contracting_dimensions").getInt();
+    int64_t rhs_contracting_dimensions =
+        config.getAs<IntegerAttr>("rhs_contracting_dimensions").getInt();
 
     SmallVector<Value> newOperands;
 
     // check lhs
     Operation* lhsDefiningOp = lhs.getDefiningOp();
     bool lhsTrans = false;
-    if (lhsDefiningOp && dyn_cast<mhlo::TransposeOp>(lhsDefiningOp)){
+    if (lhsDefiningOp && dyn_cast<mhlo::TransposeOp>(lhsDefiningOp)) {
       lhs_contracting_dimensions = 1 - lhs_contracting_dimensions;
-        newOperands.push_back(lhsDefiningOp->getOperand(0));
-    }else{
+      newOperands.push_back(lhsDefiningOp->getOperand(0));
+    } else {
       newOperands.push_back(lhs);
     }
 
     // check rhs
     Operation* rhsDefiningOp = rhs.getDefiningOp();
     bool rhsTrans = false;
-    if(rhsDefiningOp && dyn_cast<mhlo::TransposeOp>(rhsDefiningOp)){
-        rhs_contracting_dimensions = 1 - rhs_contracting_dimensions;
-        newOperands.push_back(rhsDefiningOp->getOperand(0));
-    }else{
+    if (rhsDefiningOp && dyn_cast<mhlo::TransposeOp>(rhsDefiningOp)) {
+      rhs_contracting_dimensions = 1 - rhs_contracting_dimensions;
+      newOperands.push_back(rhsDefiningOp->getOperand(0));
+    } else {
       newOperands.push_back(rhs);
     }
 
     auto lhsConDim =
-      b.getNamedAttr("lhs_contracting_dimensions", b.getI64IntegerAttr(lhs_contracting_dimensions));
+        b.getNamedAttr("lhs_contracting_dimensions",
+                       b.getI64IntegerAttr(lhs_contracting_dimensions));
     auto rhsConDim =
-      b.getNamedAttr("rhs_contracting_dimensions", b.getI64IntegerAttr(rhs_contracting_dimensions));
-    
+        b.getNamedAttr("rhs_contracting_dimensions",
+                       b.getI64IntegerAttr(rhs_contracting_dimensions));
+
     NamedAttribute attrs[] = {lhsConDim, rhsConDim};
     auto newConfig = b.getDictionaryAttr(attrs);
 
-    auto spgemm = b.create<mhlo_disc::CustomCallOp>(loc, outputTy, newOperands,
-      "sparse_gemm", false, newConfig);    
+    auto spgemm = b.create<mhlo_disc::CustomCallOp>(
+        loc, outputTy, newOperands, "sparse_gemm", false, newConfig);
     spgemm.getResult(0).setType(outputTy);
     rewriter.replaceOp(op, spgemm->getResult(0));
 
@@ -351,7 +348,7 @@ struct ExpandSparseGemmOp : public OpRewritePattern<mhlo_disc::CustomCallOp> {
 
   LogicalResult tryToFindSparseGemm(mhlo_disc::CustomCallOp op) const {
     auto call_target_name = op.call_target_name();
-    if (call_target_name == "sparse_gemm"){
+    if (call_target_name == "sparse_gemm") {
       Value lhs = op->getOperand(0);
       Value rhs = op->getOperand(1);
       Operation* lhsDefiningOp = lhs.getDefiningOp();
@@ -360,7 +357,7 @@ struct ExpandSparseGemmOp : public OpRewritePattern<mhlo_disc::CustomCallOp> {
       if (auto transOp = dyn_cast<mhlo::TransposeOp>(lhsDefiningOp)) {
         return success();
       }
-  
+
       Operation* rhsDefiningOp = rhs.getDefiningOp();
       if (!rhsDefiningOp) return failure();
 
@@ -369,7 +366,6 @@ struct ExpandSparseGemmOp : public OpRewritePattern<mhlo_disc::CustomCallOp> {
       }
     }
     return failure();
-
   }
 
   LogicalResult matchAndRewrite(mhlo_disc::CustomCallOp op,
@@ -380,19 +376,22 @@ struct ExpandSparseGemmOp : public OpRewritePattern<mhlo_disc::CustomCallOp> {
   }
 };
 
-void populateDiscSparseGemmTransposeSimplifierPatterns(RewritePatternSet& patterns) {
+void populateDiscSparseGemmTransposeSimplifierPatterns(
+    RewritePatternSet& patterns) {
   // clang-format off
   patterns.insert<
     ExpandSparseGemmOp
   >(patterns.getContext());
+  // clang-format on
 }
 
 struct DiscSparseGemmTransposeSimplifierPass
-    : public DiscSparseGemmTransposeSimplifierPassBase<DiscSparseGemmTransposeSimplifierPass> {
+    : public DiscSparseGemmTransposeSimplifierPassBase<
+          DiscSparseGemmTransposeSimplifierPass> {
   explicit DiscSparseGemmTransposeSimplifierPass()
       : DiscSparseGemmTransposeSimplifierPassBase<
-            DiscSparseGemmTransposeSimplifierPass>::DiscSparseGemmTransposeSimplifierPassBase() {
-  }
+            DiscSparseGemmTransposeSimplifierPass>::
+            DiscSparseGemmTransposeSimplifierPassBase() {}
   void runOnOperation() override;
 };
 
@@ -408,14 +407,14 @@ void DiscSparseGemmTransposeSimplifierPass::runOnOperation() {
   }
 }
 
-
 }  // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscDenseToSparsePass() {
   return std::make_unique<DiscDenseToSparsePass>();
 }
 
-std::unique_ptr<OperationPass<func::FuncOp>> createDiscSparseGemmTransposeSimplifierPass() {
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscSparseGemmTransposeSimplifierPass() {
   return std::make_unique<DiscSparseGemmTransposeSimplifierPass>();
 }
 

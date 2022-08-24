@@ -261,6 +261,7 @@ cc_library(
     ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
+    ]) + if_cuda([
         "context/cuda_impl_sparse.cc",
     ]) + if_patine([
         "context/common_context_impl_patine.cc",
@@ -272,9 +273,7 @@ cc_library(
     ]),
     hdrs = [
         "context/common_context_impl.h",
-    ] + if_cuda([
-        "context/cuda_impl_sparse.h",
-    ]) + if_cuda_or_rocm([
+    ] + if_cuda_or_rocm([
         "context/stream_executor_based_impl.h",
     ]) + if_mkldnn([
         "context/common_context_impl_mkldnn.h",
@@ -558,6 +557,7 @@ cc_library(
     ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
+    ]) + if_cuda([
         "context/cuda_impl_sparse.cc",
     ]) + if_patine([
         "context/common_context_impl_patine.cc",
@@ -570,9 +570,7 @@ cc_library(
     hdrs = [
         "context/common_context_impl.h",
         "context/stream_executor_based_impl.h",
-    ] + if_cuda([
-        "context/cuda_impl_sparse.h",
-    ]) + if_cuda_or_rocm([
+    ] + if_cuda_or_rocm([
     ])+ if_mkldnn([
         "context/common_context_impl_mkldnn.h",
     ]) + if_disc_aarch64([

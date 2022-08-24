@@ -9,8 +9,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/xla/ral/context/cuda_impl_sparse.h"
-
 #include <stdio.h>
 
 #include <iostream>
@@ -19,6 +17,7 @@
 
 #include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.h"
 #include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
+#include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
 #include "tensorflow/compiler/mlir/xla/ral/device/gpu/gpu_driver.h"
 
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
@@ -192,6 +191,8 @@ SparseCompressedWeight<WeightDtype, MetaDtype>::SparseCompressedWeight(
   driver_->h2d(ctx_, stream_, (void*)host_compressed_reorder_E.data(),
                static_cast<void*>(compressed_meta_),
                key.m * key.k / 16 * sizeof(MetaDtype));
+
+  driver_->syncOnStream(ctx_, stream_);
 }
 
 template <typename WeightDtype, typename MetaDtype>
@@ -285,10 +286,13 @@ void ral_spgemm(ExecutionContext* ctx, void* stream_handle,
 
     if (ret) {
       return;
+    } else {
+      ctx->signalError(Context::FAILURE, "run sparse gemm failed.");
     }
   }
-#endif
+#elif
   ctx->signalError(Context::FAILURE, "unsupport sparse gemm.");
+#endif
 }
 
 }  // namespace se_impl

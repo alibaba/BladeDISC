@@ -49,14 +49,10 @@ LogicalResult reifyReturnTypeShapesSparseGemmImpl(
 
   Value m = builder.create<tensor::DimOp>(
       loc, lhs, lhs_contracting_dimensions == 1 ? 0 : 1);
-  Value k = builder.create<tensor::DimOp>(
-      loc, lhs, lhs_contracting_dimensions == 1 ? 1 : 0);
   Value n = builder.create<tensor::DimOp>(
       loc, rhs, rhs_contracting_dimensions == 0 ? 1 : 0);
 
-  SmallVector<Value> shape_values(2);
-  shape_values[0] = n;
-  shape_values[1] = m;
+  SmallVector<Value> shape_values{n, m};
   Value output_shape =
       builder.create<tensor::FromElementsOp>(loc, shape_values);
   reifiedReturnShapes.push_back(output_shape);

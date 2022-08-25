@@ -241,6 +241,9 @@ std::unique_ptr<OperationPass<FuncOp>> createDiscDenseToSparsePass();
 std::unique_ptr<OperationPass<FuncOp>>
 createDiscSparseGemmTransposeSimplifierPass();
 
+// Converts fake_quant annotated graph to the real quantized version.
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvertFakeQuantOpPass();
+
 }  // namespace disc_ral
 }  // namespace mlir
 

@@ -184,10 +184,3 @@ tao_bridge_cc_test(
     ],
     tags = ["cpu"],
 )
-
-tao_bridge_cc_test(
-    name = "tao_fake_quant_op_test",
-    srcs = [
-        "tao_bridge/ops/fake_quant_op_test.cc"
-    ]
-)

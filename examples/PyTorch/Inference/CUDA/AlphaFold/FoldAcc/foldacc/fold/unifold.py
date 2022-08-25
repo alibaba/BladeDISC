@@ -11,10 +11,7 @@
 
 import torch
 
-from foldacc.model.optimize import (
-    generate_config,
-    optimize_module
-)
+from foldacc.model.optimize import optimize_module
 from foldacc.model.modules.evoformer import Evoformer, ExtraMSA
 from foldacc.model.modules.template import TemplatePairStack, TemplatePointwiseAttention
 from foldacc.model.modules.embedder import InputEmbedder, TemplatePairEmbedder
@@ -87,6 +84,8 @@ def optimize_unifold(
     dummy_seq_len = 128
     dummy_msa_size = 128
     dummy_chunk_size = 64
+
+    module_act = torch.nn.ReLU if model_config["globals"]["alphafold_original_mode"] else torch.nn.GELU
     
     # ---------------------------- optimize evoformer ------------------------------
     evoformer_config = model_config["model"]["evoformer_stack"]
@@ -109,14 +108,15 @@ def optimize_unifold(
         outer_product_mean_first = evoformer_config["outer_product_mean_first"],
         comm_dtype = dtype,
         mask_trans = False,
-        act = torch.nn.GELU,
+        act = module_act,
         low_mem = enable_low_mem,
         dtype = model.dtype
     )
 
-    for name, module in evoformer.named_modules():
-        if hasattr(module, "apply_unifold_original_mode"):
-            module.apply_unifold_original_mode()
+    if not model_config["globals"]["alphafold_original_mode"]:
+        for name, module in evoformer.named_modules():
+            if hasattr(module, "apply_unifold_original_mode"):
+                module.apply_unifold_original_mode()
 
     evoformer.eval()
     evoformer_params = model.evoformer.state_dict()
@@ -159,14 +159,15 @@ def optimize_unifold(
             outer_product_mean_first = extra_msa_config["outer_product_mean_first"],
             comm_dtype = dtype,
             mask_trans = False,
-            act = torch.nn.GELU,
+            act = module_act,
             low_mem = enable_low_mem,
             dtype = model.dtype
         )
 
-        for name, module in extra_msa.named_modules():
-            if hasattr(module, "apply_unifold_original_mode"):
-                module.apply_unifold_original_mode()
+        if not model_config["globals"]["alphafold_original_mode"]:
+            for name, module in extra_msa.named_modules():
+                if hasattr(module, "apply_unifold_original_mode"):
+                    module.apply_unifold_original_mode()
 
         extra_msa.eval()
         extra_params = model.extra_msa_stack.state_dict()
@@ -204,14 +205,15 @@ def optimize_unifold(
             tri_attn_first = template_ps_config["tri_attn_first"],
             comm_dtype = dtype,
             return_mean = not template_config["template_pointwise_attention"]["enabled"],
-            act = torch.nn.GELU,
+            act = module_act,
             low_mem = enable_low_mem,
             dtype = model.dtype
         )
 
-        for name, module in template_pair_stack.named_modules():
-            if hasattr(module, "apply_unifold_original_mode"):
-                module.apply_unifold_original_mode()
+        if not model_config["globals"]["alphafold_original_mode"]:
+            for name, module in template_pair_stack.named_modules():
+                if hasattr(module, "apply_unifold_original_mode"):
+                    module.apply_unifold_original_mode()
 
         template_pair_stack.eval()
         template_pair_stack_params = model.template_pair_stack.state_dict()

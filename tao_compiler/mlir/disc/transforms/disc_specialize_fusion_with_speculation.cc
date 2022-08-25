@@ -560,11 +560,11 @@ struct DiscSpecializeFusionWithSpeculationPass
       FusionPatternBase fusion_pattern(fusion_op);
       for (auto root_op : fusion_pattern.getRootOps()) {
         if (isa<lmhlo::ConcatenateOp>(root_op)) {
-          return ;
+          return;
         }
       }
     }
-    
+
     // TODO: aware of row-reduction hints.
 
     // Default vectorization/tiling policy:

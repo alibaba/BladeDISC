@@ -128,7 +128,8 @@ class BazelBuild(TorchBladeBuild):
         # note: If we use backend (such as trt) to do calibration and get the
         # quantization engine, this limitation should not be set.
         is_enable_quantization = \
-            self.torch_major_version == 1 and 8 <= self.torch_minor_version < 12
+            self.torch_major_version == 1 and self.torch_minor_version >= 8 \
+            or self.torch_major_version > 1
         if is_enable_quantization:
             self.torch_extra_opts.append("--config=torch_enable_quantization")
 

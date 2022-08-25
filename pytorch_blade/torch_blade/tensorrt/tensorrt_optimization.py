@@ -34,6 +34,9 @@ def _try_build_trt_engine(dyn_proto, state, dynamic_settings, q_val, *args, **kw
     elif cfg.enable_fp16:
         with flags.builder_flags_context(1 << int(flags.BuilderFlag.FP16)):
             return _trt.cvt_onnx_to_tensorrt(dyn_proto, state, dynamic_settings, q_val)
+    elif cfg.enable_tf32:
+        with flags.builder_flags_context(1 << int(flags.BuilderFlag.TF32)):
+            return _trt.cvt_onnx_to_tensorrt(dyn_proto, state, dynamic_settings, q_val)
     else:
         return _trt.cvt_onnx_to_tensorrt(dyn_proto, state, dynamic_settings, q_val)
 

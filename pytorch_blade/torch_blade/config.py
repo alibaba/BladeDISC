@@ -177,6 +177,7 @@ class Config(ConfigContext):
         self._customize_op_black_list = []
         self._customize_jit_passes = []
         self._opt_pipeline = 'DISC'
+        self._enable_tf32 = False
         # TODO(tanyo): merge dynamic_tuning_shapes and annotate_args
         self._annotate_args: List[Optional[ArgAnnotation]] = []
 
@@ -424,6 +425,20 @@ class Config(ConfigContext):
 
         assert version == _default_onnx_opset_version or version in list(_onnx_stable_opsets) + [_onnx_master_opset]
         self._customize_onnx_opset_version = version
+
+    @property
+    def enable_tf32(self):
+        """The flag to enable TF32.
+
+        :type: bool
+        :default: False
+        """
+        return self._enable_tf32
+
+    @enable_tf32.setter
+    def enable_tf32(self, val):
+        assert isinstance(val, bool), "enable_tf32 should be bool, got {}".format(type(val))
+        self._enable_tf32 = val
 
     @classmethod
     def get_current_context_or_new(cls):

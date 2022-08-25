@@ -351,8 +351,8 @@ struct TransposeFoldingConvert : public OpRewritePattern<mhlo::DotGeneralOp> {
         old_lhs, lhs_perm,
         std::unordered_set<int64_t>(lhs_batching_dims.begin(),
                                     lhs_batching_dims.end()));
-    SmallVector<int64_t, 4> rhs_perm;
 
+    SmallVector<int64_t, 4> rhs_perm;
     auto rhs_batching_dims = dim_numbers.getRhsBatchingDimensions();
     bool tp_rhs = isNonBatchingTransposeTensorValue(
         old_rhs, rhs_perm,
@@ -395,15 +395,6 @@ struct TransposeFoldingConvert : public OpRewritePattern<mhlo::DotGeneralOp> {
     Value dot = rewriter.create<mhlo::DotGeneralOp>(
         loc, op.getType(), lhs, rhs, dot_dimension_attr, nullptr);
     rewriter.replaceOp(op, dot);
-
-    // Remove transpose op which outputs into dot.
-    if (tp_lhs) {
-      rewriter.eraseOp(old_lhs.getDefiningOp());
-    }
-    if (tp_rhs) {
-      rewriter.eraseOp(old_rhs.getDefiningOp());
-    }
-
     return success();
   }
 };

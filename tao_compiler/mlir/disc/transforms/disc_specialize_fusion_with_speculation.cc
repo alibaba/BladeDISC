@@ -555,9 +555,9 @@ struct DiscSpecializeFusionWithSpeculationPass
       return;
     }
 
+    FusionPatternBase fusion_pattern(fusion_op);
     if (isMemIntensiveOptExperimentalEnabled()) {
       // skip if the root is concatenate operator
-      FusionPatternBase fusion_pattern(fusion_op);
       for (auto root_op : fusion_pattern.getRootOps()) {
         if (isa<lmhlo::ConcatenateOp>(root_op)) {
           return;
@@ -614,7 +614,6 @@ struct DiscSpecializeFusionWithSpeculationPass
           b.create<arith::ConstantIndexOp>(loc, 0));
       pred = b.create<arith::AndIOp>(loc, larger, divisible);
     } else if (fusion_type == FusionType::kLoop) {
-      FusionPatternBase fusion_pattern(fusion_op);
       Operation* dominant_equivalent_op = fusion_pattern.getRootOps().back();
       Value out_element_number =
           emitNumElementsComputation(b, loc, dominant_equivalent_op);

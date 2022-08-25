@@ -15,10 +15,30 @@
 
 namespace tensorflow {
 
-// DiscFakeQuantOp, implemented as Identity, is used to carry fake quant information.
+// DiscFakeQuantOp, implemented as Identity, is used to carry fake quant
+// information.
 class DiscFakeQuantOp : public OpKernel {
-public:
-  explicit DiscFakeQuantOp(OpKernelConstruction* context) : OpKernel(context) {}
+ public:
+  explicit DiscFakeQuantOp(OpKernelConstruction* context) : OpKernel(context) {
+    OP_REQUIRES_OK(context, context->GetAttr("quant_min", &quant_min_));
+    OP_REQUIRES_OK(context, context->GetAttr("quant_max", &quant_max_));
+    OP_REQUIRES_OK(context, context->GetAttr("num_bits", &num_bits_));
+    OP_REQUIRES_OK(context, context->GetAttr("axis", &axis_));
+    OP_REQUIRES_OK(context, context->GetAttr("signed", &signed_));
+    OP_REQUIRES_OK(context, context->GetAttr("symmetric", &symmetric_));
+    OP_REQUIRES_OK(context, context->GetAttr("dynamic", &dynamic_));
+    OP_REQUIRES_OK(context, context->GetAttr("per_channel", &per_channel_));
+
+    if (per_channel_) {
+      OP_REQUIRES(context, axis_.size() > 0,
+                  errors::InvalidArgument(
+                      "Per-channel quantization requires non-empty axis."));
+    } else {
+      OP_REQUIRES(context, axis_.size() == 0,
+                  errors::InvalidArgument(
+                      "Per-tensor quantization requires empty axis"));
+    }
+  }
 
   void Compute(OpKernelContext* context) override {
     if (IsRefType(context->input_dtype(0))) {
@@ -29,26 +49,39 @@ public:
   }
 
   bool IsExpensive() override { return false; }
+
+ private:
+  int64 quant_min_;
+  int64 quant_max_;
+  int64 num_bits_;
+  std::vector<int64> axis_;
+  bool signed_;
+  bool symmetric_;
+  bool dynamic_;
+  bool per_channel_;
 };
 
-
 REGISTER_OP("DiscFakeQuant")
-  .Input("input: float")
-  .Input("scale: float")
-  .Input("zero_point: int64")
-  .Attr("quant_min: int64")
-  .Attr("quant_max: int64")
-  .Attr("num_bits: int64")
-  .Attr("axis: list(int64)")
-  .Attr("signed: bool")
-  .Attr("symmetric: bool")
-  .Attr("dynamic: bool")
-  .Attr("per_channel: bool")
-  .Doc("FakeQuant op to carry quant information. Implemented as Identity.")
-  .SetShapeFn(shape_inference::UnchangedShape);
+    .Input("input: Tfloat")
+    .Input("scale: Tfloat")
+    .Input("zero_point: Tint")
+    .Output("output: Tfloat")
+    .Attr("quant_min: int")
+    .Attr("quant_max: int")
+    .Attr("num_bits: int")
+    .Attr("axis: list(int)")
+    .Attr("signed: bool")
+    .Attr("symmetric: bool")
+    .Attr("dynamic: bool")
+    .Attr("per_channel: bool")
+    .Attr("Tfloat: {float}")
+    .Attr("Tint: {int64}")
+    .Doc("FakeQuant op to carry quant information. Implemented as Identity.")
+    .SetShapeFn(shape_inference::UnchangedShape);
 
+REGISTER_KERNEL_BUILDER(Name("DiscFakeQuant").Device(DEVICE_CPU),
+                        DiscFakeQuantOp);
+REGISTER_KERNEL_BUILDER(Name("DiscFakeQuant").Device(DEVICE_GPU),
+                        DiscFakeQuantOp);
 
-REGISTER_KERNEL_BUILDER(Name("DiscFakeQuant").Device(DEVICE_CPU), DiscFakeQuantOp);
-REGISTER_KERNEL_BUILDER(Name("DiscFakeQuant").Device(DEVICE_GPU), DiscFakeQuantOp);
-
-} // namespace tensorflow
+}  // namespace tensorflow

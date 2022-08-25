@@ -339,7 +339,8 @@ LogicalResult backwardPermutation(Operation* op, int operandIdx,
 
   operandPerm.clear();
   Value operand = op->getOperand(operandIdx);
-  if (op->hasTrait<mlir::OpTrait::Elementwise>()) {
+  if (op->hasTrait<mlir::OpTrait::Elementwise>() ||
+      dyn_cast<mhlo::ClampOp>(op)) {
     auto type = operand.getType().dyn_cast<RankedTensorType>();
     if (!type) return failure();
     if (type.getRank() > 0) {
@@ -510,7 +511,8 @@ LogicalResult TransposeSimpliferContext::rewriteIntermediateOps(
       }
     };
 
-    if (op->hasTrait<mlir::OpTrait::Elementwise>()) {
+    if (op->hasTrait<mlir::OpTrait::Elementwise>() ||
+        dyn_cast<mhlo::ClampOp>(op)) {
       SmallVector<Value> newOperands;
       for (int i = 0; i < op->getNumOperands(); ++i)
         if (!pushRefinedOperand(i, newOperands)) return failure();

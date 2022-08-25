@@ -234,6 +234,13 @@ createFunctionDeadArgumentEliminationPass();
 std::unique_ptr<OperationPass<gpu::GPUFuncOp>>
 createSideEffectLoopInvariantCodeMotionPass();
 
+// Apply dense gemm/conv to sparse gemm/conv optimizations.
+std::unique_ptr<OperationPass<FuncOp>> createDiscDenseToSparsePass();
+
+// Remove some redundant transpose ops before sparse gemm/conv.
+std::unique_ptr<OperationPass<FuncOp>>
+createDiscSparseGemmTransposeSimplifierPass();
+
 }  // namespace disc_ral
 }  // namespace mlir
 

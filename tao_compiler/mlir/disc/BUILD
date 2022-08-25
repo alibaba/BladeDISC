@@ -780,6 +780,7 @@ cc_library(
         ":pass_details",
         ":rng_uniform_custom_call",
         ":qconv_custom_call",
+        ":sparse_custom_call",
         ":topk_custom_call",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:FuncDialect",
@@ -814,6 +815,7 @@ cc_library(
         ":rng_uniform_custom_call",
         ":topk_custom_call",
         ":qconv_custom_call",
+        ":sparse_custom_call",
         "//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//llvm:TransformUtils",
@@ -1169,6 +1171,7 @@ cc_library(
         ":rng_uniform_custom_call",
         ":topk_custom_call",
         ":qconv_custom_call",
+        ":sparse_custom_call",
         "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "//tensorflow/compiler/mlir/tensorflow:tensorflow",
         "//tensorflow/compiler/mlir/tensorflow:convert_tensor",
@@ -1638,6 +1641,25 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_dense_to_sparse",
+    srcs = ["transforms/disc_dense_to_sparse.cc"],
+    deps = [
+        ":disc_shape_optimization_utils",
+        ":mhlo_disc",
+        ":pass_details",
+        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_shape_optimization_utils",
     srcs = [
         "transforms/disc_shape_optimization_utils.cc"
@@ -1746,6 +1768,7 @@ cc_library(
         ":disc_assign_kernel_name",
         ":disc_assign_memory_space",
         ":disc_canonicalizer",
+        ":disc_dense_to_sparse",
         ":disc_convert_const_to_ral",
         ":disc_cpu_map_parallel_loop",
         ":disc_duplicate_computation_for_fusion",
@@ -1946,6 +1969,25 @@ cc_library(
 )
 
 cc_library(
+    name = "sparse_custom_call",
+    srcs = [
+        "IR/sparse_custom_call_op.cc",
+    ],
+    deps = [
+        ":custom_call_base",
+        ":disc_ral",
+        ":lmhlo_disc",
+        ":mhlo_disc",
+        ":placement_utils",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:MathDialect",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "mhlo_disc",
     srcs = [
         "IR/hlo_disc_ops.cc.inc",
@@ -2085,6 +2127,7 @@ tf_cc_shared_object(
         ":rng_uniform_custom_call",
         ":topk_custom_call",
         ":qconv_custom_call",
+        ":sparse_custom_call",
         "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
     ],
     data = [

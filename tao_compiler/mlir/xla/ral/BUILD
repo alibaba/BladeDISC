@@ -261,6 +261,8 @@ cc_library(
     ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
+    ]) + if_cuda([
+        "context/cuda_impl_sparse.cc",
     ]) + if_patine([
         "context/common_context_impl_patine.cc",
     ]) + if_mkldnn([
@@ -555,6 +557,8 @@ cc_library(
     ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
+    ]) + if_cuda([
+        "context/cuda_impl_sparse.cc",
     ]) + if_patine([
         "context/common_context_impl_patine.cc",
     ]) + if_mkldnn([

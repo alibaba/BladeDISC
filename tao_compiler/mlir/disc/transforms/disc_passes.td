@@ -437,3 +437,13 @@ def SideEffectLoopInvariantCodeMotionPass :
       "gpu::GPUDialect",
   ];
 }
+
+def DiscDenseToSparsePass : Pass<"disc-dense-to-sparse", "mlir::func::FuncOp"> {
+  let summary = "Convert dense gemm/conv to sparse gemm/conv";
+  let constructor = "createDiscDenseToSparsePass()";
+}
+
+def DiscSparseGemmTransposeSimplifierPass : Pass<"disc-sparse-gemm-transpose-simplifier", "mlir::func::FuncOp"> {
+  let summary = "Remove some redundant transpose ops before sparse gemm/conv";
+  let constructor = "createDiscSparseGemmTransposeSimplifierPass()";
+}

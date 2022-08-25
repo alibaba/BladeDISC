@@ -252,8 +252,15 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());
   }
 
-  // Either merge dots to batched dot or merge dots sharing the same operand.
-  pm.addNestedPass<FuncOp>(disc_ral::createDiscDotMergePass());
+  // When `DISC_ENABLE_SPARSE` is set, we will find dense weight and convert
+  // it to sparse if its meet condition.
+  bool enable_sparse = false;
+  tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_SPARSE", false, &enable_sparse);
+  if (!enable_sparse) {
+    // Either merge dots to batched dot or merge dots sharing the same operand.
+    pm.addNestedPass<FuncOp>(disc_ral::createDiscDotMergePass());
+  }
+
   if (enable_shape_constraint_ir) {
     // shape-related optimization
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());
@@ -291,6 +298,10 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());
   }
 
+  if (enable_sparse) {
+    pm.addNestedPass<FuncOp>(disc_ral::createDiscDenseToSparsePass());
+  }
+
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvRewriter());
   if (enable_shape_constraint_ir) {
     // shape-related optimization
@@ -301,6 +312,12 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(disc_ral::createTransposeSimplifierPass());
+
+  if (enable_sparse) {
+    pm.addNestedPass<FuncOp>(
+        disc_ral::createDiscSparseGemmTransposeSimplifierPass());
+  }
+
   if (gpu_enabled) {
     // Cudnn only supports using same padding value for both left side & right
     // side. This pass ensures this property.

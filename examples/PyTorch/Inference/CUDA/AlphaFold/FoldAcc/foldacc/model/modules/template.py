@@ -469,7 +469,7 @@ class TemplatePairStack(nn.Module):
         _mask_trans: bool = False,
         **kwargs,
     ):
-        if isinstance(t, Generator):
+        if type(t) in [Generator, list]:
             sum = 0.0
             count = 0
             new_single_templates = []

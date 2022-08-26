@@ -177,7 +177,6 @@ class Config(ConfigContext):
         self._customize_op_black_list = []
         self._customize_jit_passes = []
         self._opt_pipeline = 'DISC'
-        self._enable_tf32 = False
         # TODO(tanyo): merge dynamic_tuning_shapes and annotate_args
         self._annotate_args: List[Optional[ArgAnnotation]] = []
 

@@ -26,9 +26,11 @@ cc_library (
   name = "disc_compiler",
   srcs = [
     "disc_compiler.cpp",
+    "replay.cpp"
   ],
   hdrs = [
     "disc_compiler.h",
+    "replay.h"
   ],
   includes = ["../include"],
   deps = [

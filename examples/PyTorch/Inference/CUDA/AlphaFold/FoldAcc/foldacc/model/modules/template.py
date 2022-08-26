@@ -455,7 +455,7 @@ class TemplatePairStack(nn.Module):
                 low_mem=low_mem,
                 act=act,
                 dtype=dtype,
-                final_layer_norm=self.layer_norm
+                final_layer_norm=self.layer_norm if block_id == no_blocks - 1 else None
             )
             self.blocks.append(block)
 
@@ -494,7 +494,8 @@ class TemplatePairStack(nn.Module):
 
             if self.return_mean:
                 if count > 0:
-                    t = sum / count
+                    sum /= count
+                    t = sum
                 else:
                     t = None
             else:

@@ -218,9 +218,8 @@ def optimize_unifold(
         template_pair_stack.eval()
         template_pair_stack_params = model.template_pair_stack.state_dict()
         template_pair_stack_params = unifold2foldacc(template_pair_stack_params, template_pair_stack.state_dict())
-        for i in range(len(template_pair_stack.blocks)):
-            template_pair_stack_params[f"blocks.{i}.final_layer_norm.weight"] = template_pair_stack_params["layer_norm.weight"]
-            template_pair_stack_params[f"blocks.{i}.final_layer_norm.bias"] = template_pair_stack_params["layer_norm.bias"]
+        template_pair_stack_params[f"blocks.{len(template_pair_stack.blocks)-1}.final_layer_norm.weight"] = template_pair_stack_params["layer_norm.weight"]
+        template_pair_stack_params[f"blocks.{len(template_pair_stack.blocks)-1}.final_layer_norm.bias"] = template_pair_stack_params["layer_norm.bias"]
         template_pair_stack.load_state_dict(template_pair_stack_params)
         template_pair_stack = template_pair_stack.to(device=device, dtype=model.dtype)
 

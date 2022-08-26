@@ -447,3 +447,11 @@ def DiscSparseGemmTransposeSimplifierPass : Pass<"disc-sparse-gemm-transpose-sim
   let summary = "Remove some redundant transpose ops before sparse gemm/conv";
   let constructor = "createDiscSparseGemmTransposeSimplifierPass()";
 }
+
+def DiscConvertFakeQuantOpPass : Pass<"disc-convert-fake-quant-op", "mlir::func::FuncOp"> {
+  let summary = "Convert fake_quant annotated graph to the real quantized version.";
+  let constructor = "createDiscConvertFakeQuantOpPass()";
+  let dependentDialects = [
+      "disc_shape::DISCShapeDialect",
+  ];
+}

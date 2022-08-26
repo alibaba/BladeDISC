@@ -62,7 +62,6 @@ void initTensorRTBindings(py::module& m) {
       .value("GPU_FALLBACK", nvinfer1::BuilderFlag::kGPU_FALLBACK)
       .value("STRICT_TYPES", nvinfer1::BuilderFlag::kSTRICT_TYPES)
       .value("REFIT", nvinfer1::BuilderFlag::kREFIT)
-      .value("TF32", nvinfer1::BuilderFlag::kTF32)
       .export_values();
 
   trt.def(

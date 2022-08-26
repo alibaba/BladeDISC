@@ -124,6 +124,8 @@ TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
     LOG(INFO) << "Creating TensorRT engine with BuilderFlags: "
               << GetBuilderFlags();
     config->setFlags(GetBuilderFlags());
+    // enable tensorrt TF32 by default
+    config->setFlag(nvinfer1::BuilderFlag::kTF32);
     auto calib_data = state->get_calib_data();
     // calibrator life time needs to last until after the engine is built.
     std::unique_ptr<nvinfer1::IInt8Calibrator> calibrator;

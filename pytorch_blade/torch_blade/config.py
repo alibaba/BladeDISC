@@ -426,20 +426,6 @@ class Config(ConfigContext):
         assert version == _default_onnx_opset_version or version in list(_onnx_stable_opsets) + [_onnx_master_opset]
         self._customize_onnx_opset_version = version
 
-    @property
-    def enable_tf32(self):
-        """The flag to enable TF32.
-
-        :type: bool
-        :default: False
-        """
-        return self._enable_tf32
-
-    @enable_tf32.setter
-    def enable_tf32(self, val):
-        assert isinstance(val, bool), "enable_tf32 should be bool, got {}".format(type(val))
-        self._enable_tf32 = val
-
     @classmethod
     def get_current_context_or_new(cls):
         """Return the deepest context on the stack or create a new Config."""

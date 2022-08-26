@@ -8,7 +8,7 @@ cc_binary(
         "torch-mlir-opt.cpp"
     ],
     deps = [
-        "//src/torch-mlir:TorchMLIRTorchToMhlo",
+        "//src/torch-mlir:DiscTorchMLIRTorchToMhlo",
         "@torch-mlir//:TorchMLIRInitAll",
         "@torch-mlir//:TorchMLIRTorchDialect",
         "@torch-mlir//:TorchMLIRTorchPasses",

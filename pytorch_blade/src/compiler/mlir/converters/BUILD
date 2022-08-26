@@ -24,7 +24,7 @@ cc_library(
     deps = [
         "//src/common_utils:torch_blade_logging",
         "//src:torch_blade_include",
-        "//src/torch-mlir:TorchMLIRTorchToMhlo",
+        "//src/torch-mlir:DiscTorchMLIRTorchToMhlo",
         "@local_org_torch//:libtorch",
         "@org_mhlo_builder//csrc:mhlo_library",
         "@torch-mlir-importer//:jit_ir_importer",

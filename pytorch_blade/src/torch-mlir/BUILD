@@ -37,22 +37,17 @@ gentbl_cc_library(
 )
 
 cc_library(
-    name = "TorchMLIRTorchToMhlo",
+    name = "DiscTorchMLIRTorchToMhlo",
     srcs = [
-        "lib/Conversion/TorchToMhlo/TorchToMhlo.cpp",
-        "lib/Conversion/TorchToMhlo/Reduction.cpp",
         "lib/Conversion/MhloPasses.cpp",
-        "lib/Conversion/TorchToMhlo/MhloLegalizeUtils.cpp",
+        "lib/Conversion/TorchToMhlo/DiscTorchToMhlo.cpp",
         "lib/Dialect/TorchConversion/Transforms/VerifyMhloBackendContract.cpp",
         "lib/Dialect/TorchConversion/Transforms/ApplyValueSemantics.cpp",
         "lib/Dialect/TorchConversion/Transforms/ReduceTensorConversions.cpp",
         "lib/Dialect/TorchConversion/Transforms/DiscDecomposeComplexOps.cpp",
-    ] ,
+    ],
     hdrs = [
         "include/torch-mlir/Conversion/MhloPasses.h",
-	    "include/torch-mlir/Conversion/TorchToMhlo/ShapeUtils.h",
-        "include/torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h",
-        "include/torch-mlir/Conversion/TorchToMhlo/MhloLegalizeUtils.h"
     ],
     strip_include_prefix = "include",
     deps = [

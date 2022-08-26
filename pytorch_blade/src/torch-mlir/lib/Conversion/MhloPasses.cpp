@@ -49,11 +49,13 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
   pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
   pm.addNestedPass<func::FuncOp>(createDiscDecomposeComplexOpsPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-  pm.addNestedPass<func::FuncOp>(Torch::createDecomposeComplexOpsPass());
+  pm.addNestedPass<func::FuncOp>(
+      Torch::createDecomposeComplexOpsPass(/*legalOps*/ {}));
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 
   // Do mhlo lowering
   // pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
+  pm.addNestedPass<func::FuncOp>(createDiscConvertTorchToMhloPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToMhloPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToSCFPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToArithPass());
@@ -61,12 +63,11 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
   // Perform rank broadcasting so MhloToLinalg pass works
   // pm.addNestedPass<func::FuncOp>(createMhloMakeBroadcastablePass());
 
-  if (options.optimize) {
-    // Clean up any non-canonical code introduced above..
-    pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-    // The resolution of `dim` ops tends to create identical ops. CSE them.
-    pm.addNestedPass<func::FuncOp>(createCSEPass());
-  }
+  // Clean up any non-canonical code introduced above..
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  // The resolution of `dim` ops tends to create identical ops. CSE them.
+  pm.addNestedPass<func::FuncOp>(createCSEPass());
+
   // Verify that we have lowered to the form that MHLO backends
   // expect. This fails compilation (signalPassFailure) if the IR is not in the
   // correct form.
@@ -101,33 +102,12 @@ void mlir::torch::createDiscTorchFunctionToTorchBackendPipeline(
   // Incorporate user annotations and remove signature Python-isms.
   pm.addPass(createAdjustCallingConventionsPass());
 
-  if (options.optimize) {
-    // Eliminate the PrimTupleIndexOp generated from the
-    // adjustCallingConventions
-    pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-    // Inline global slots, which for most inference scenarios deletes them.
-    // This also exposes more information to intraprocedural transformations
-    // below like MaximizeValueSemantics and RefineTypes.
-    // OPT-ONLY: Don't rely on this pass to "lower" global slots by deleting.
-    // Also don't rely on this pass to expose constants into the program to
-    // simplify handling of "optional".
-    pm.addPass(createInlineGlobalSlotsPass());
-  }
+  // Eliminate the PrimTupleIndexOp generated from the
+  // adjustCallingConventions
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 
   // Reduce variants of ops to a smaller set of primitives.
   pm.addNestedPass<func::FuncOp>(createReduceOpVariantsPass());
-
-  if (options.optimize) {
-    // OPT-ONLY: Right now we rely on this to eliminate certain branches that
-    // guard unreachable code that backends can't handle yet, such as lists,
-    // RaiseException, unimplemented tensor ops, and only-used-in-training
-    // operations on `torch.global_slot`'s.
-    pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-    // OPT-ONLY: We may have deleted some `torch.global_slot.get` /
-    // `torch.global_slot.get` ops, which may have left more
-    // `torch.global_slot`'s unused.
-    pm.addPass(createSymbolDCEPass());
-  }
 
   //===--------------------------------------------------------------------===//
   // Lowering to ranked !torch.vtensors of known dtype.
@@ -148,20 +128,8 @@ void mlir::torch::createDiscTorchFunctionToTorchBackendPipeline(
   // the previous pass. Doing this is ABI-compatible for our backends.
   pm.addPass(Torch::createRefinePublicReturnPass());
 
-  if (options.optimize) {
-    // This can fold away some branches given the information got from
-    // RefineTypes before doing maximize value sematics which only works with
-    // basic blocks.
-    pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-  }
-
-  if (options.optimize) {
-    // All the type refinement we've done above has exposed new information
-    // that allows folding away more stuff.
-    // OPT-ONLY: Right now we rely on this to eliminate certain
-    // branches that guard unreachable code that backends can't handle yet, such
-    // as lists, RaiseException, unimplemented aten ops, and
-    // only-used-in-training operations on `torch.global_slot`'s.
-    pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-  }
+  // This can fold away some branches given the information got from
+  // RefineTypes before doing maximize value sematics which only works with
+  // basic blocks.
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 }

@@ -555,6 +555,9 @@ struct DiscSpecializeFusionWithSpeculationPass
       return;
     }
 
+    // When 'MemIntensiveOptExperimental' is enabled, the vecotrization of
+    // concatenate operator will peform a bad case on bert model.
+    // Skip optimization of concatenate operator here.
     FusionPatternBase fusion_pattern(fusion_op);
     if (isMemIntensiveOptExperimentalEnabled()) {
       // skip if the root is concatenate operator

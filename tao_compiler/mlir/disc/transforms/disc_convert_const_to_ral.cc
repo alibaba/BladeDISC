@@ -122,7 +122,7 @@ class DiscConstToRALPass : public DiscConstToRALPassBase<DiscConstToRALPass> {
   int num_processing_const_ops_ = 0;
   // Map each unique name of const to a unique index. Such indices are used to
   // reduce the overhead of const lookup at runtime.
-  std::unordered_map<std::string, int> name2Idx_;
+  std::unordered_map<std::string, int> name_idx_map_;
 };
 
 // llvm.mlir.global internal constant @unique_name("unique_name\00")
@@ -169,8 +169,9 @@ LogicalResult DiscConstToRALPass::convertConstantOp(ConstantOp const_op,
     next_const_idx = proto->device_global_constants_size();
     (*proto->mutable_device_global_constants())[name_str] = data_str;
   }
-  auto it = name2Idx_.find(name_str);
-  if (it == name2Idx_.end()) it = name2Idx_.emplace(name, next_const_idx).first;
+  auto it = name_idx_map_.find(name_str);
+  if (it == name_idx_map_.end())
+    it = name_idx_map_.emplace(name, next_const_idx).first;
 
   std::string symbol_name =
       ("__global_const_" + llvm::Twine(num_processing_const_ops_++)).str();

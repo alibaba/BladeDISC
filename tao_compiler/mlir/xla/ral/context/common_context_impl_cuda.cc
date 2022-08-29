@@ -123,7 +123,7 @@ static inline buffer_t ral_base_cuda_const_cuda_internal(
                    std::make_pair(key, std::make_pair(device_ptr, dim_sizes)))
                .first;
       state->setDeviceConstByIndex(unique_index_in_module,
-                                   std::make_pair(data_ptr, dim_sizes));
+                                   std::make_pair(device_ptr, dim_sizes));
     }
     shape = &it->second.second;
     return it->second.first;

@@ -253,7 +253,7 @@ std::vector<torch::lazy::BackendDataPtr> DISCBackendImpl::ExecuteComputation(
   if (!dump_path.empty()) {
     auto disc_hash_str = torch::lazy::HashToString(disc_hash);
     TORCH_CHECK(
-        !mkdir(dump_path.c_str(), 0755), "unable to create dir: " + path);
+        !mkdir(dump_path.c_str(), 0755), "unable to create dir: " + dump_path);
     std::string path = dump_path + "/" + disc_hash_str;
     VLOG(0) << "replay toolkit dump program on: " << path;
     ::torch_disc::compiler::DumpProgramAndData(graph, arguments, path);

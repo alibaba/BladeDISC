@@ -322,7 +322,8 @@ def _optimize_common(c_module, static_shape=False):
 
     graph = c_module.forward.graph
     torch._C._jit_pass_remove_mutation(graph)
-    torch._C._jit_pass_fold_frozen_conv_bn(graph)
+    if hasattr(torch._C, "_jit_pass_fold_frozen_conv_bn"):
+        torch._C._jit_pass_fold_frozen_conv_bn(graph)
 
     # TODO: if dynamic rank exists, this pass maybe leads to error
     if IGNORE_DYNAMIC_RANK:

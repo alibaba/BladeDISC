@@ -61,9 +61,8 @@ void CastBoundaryScalarToTensor(
   auto orig_input = disc_graph->inputs()[i + 1];
   auto item_node = disc_graph->create(aten::item, {new_input});
   item_node->output()->setType(getScalarTypePtr(typ));
-  disc_graph->appendNode(item_node);
+  disc_graph->prependNode(item_node);
   orig_input->replaceAllUsesWith(item_node->output());
-  item_node->moveBefore(item_node->output()->uses()[0].user);
   disc_graph->eraseInput(i + 1);
 }
 

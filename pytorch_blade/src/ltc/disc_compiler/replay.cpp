@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <torch/csrc/jit/api/function_impl.h>
 #include <torch/csrc/jit/passes/constant_propagation.h>
+#include <torch/csrc/jit/passes/dead_code_elimination.h>
 #include <torch/csrc/lazy/ts_backend/ts_backend_impl.h>
 #include <torch/script.h>
 #include <fstream>
@@ -85,6 +86,7 @@ void LoadAndReplay(const std::string& path, int iters, int warmup) {
   graph->eraseInput(0);
   torch::jit::ConstantPropagation(graph);
   FoldOutputs(graph);
+  torch::jit::EliminateDeadCode(graph);
   auto executable = CompileToDiscExecutable(graph, arguments);
   auto cuda_device =
       torch::lazy::getBackend()->GetBackendDevice(c10::Device(c10::kCUDA, 0));
@@ -92,11 +94,16 @@ void LoadAndReplay(const std::string& path, int iters, int warmup) {
     executable->Run(arguments, cuda_device, /*default device is cuda*/ true);
   {
     std::stringstream ss;
-    ss << "warmup: " << warmup << " iters: " << iters
-       << " every iteration cost: ";
+    ss << "warmup: " << warmup << " iters: " << iters << ", average cost: ";
     Timer time(ss.str(), iters);
     for (int i = 0; i < iters; ++i) {
-      executable->Run(arguments, cuda_device, /*default device is cuda*/ true);
+      {
+        std::stringstream ss2;
+        ss2 << "the [" << i << "] iteration cost: ";
+        Timer t2(ss2.str(), 1);
+        executable->Run(
+            arguments, cuda_device, /*default device is cuda*/ true);
+      }
     }
   }
 }

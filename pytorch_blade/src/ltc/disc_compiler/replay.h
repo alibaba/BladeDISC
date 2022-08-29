@@ -32,21 +32,21 @@ namespace compiler {
 
 class Timer {
  public:
-  Timer(const std::string& msg, int scalar)
-      : begin_(std::chrono::steady_clock::now()), msg_(msg), scalar_(scalar) {}
+  Timer(const std::string& msg, int scale)
+      : begin_(std::chrono::steady_clock::now()), msg_(msg), scale_(scale) {}
   ~Timer() {
     std::cerr << msg_ << ":"
               << std::chrono::duration_cast<std::chrono::microseconds>(
                      std::chrono::steady_clock::now() - begin_)
                      .count() /
-            1000.0 / scalar_
+            1000.0 / scale_
               << " ms" << std::endl;
   }
 
  private:
   std::chrono::steady_clock::time_point begin_;
   std::string msg_;
-  int scalar_;
+  int scale_;
 };
 
 void DumpProgramAndData(

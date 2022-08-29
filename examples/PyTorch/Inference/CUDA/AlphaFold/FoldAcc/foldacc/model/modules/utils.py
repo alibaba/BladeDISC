@@ -19,7 +19,10 @@ import torch.nn as nn
 
 @torch.jit.script
 def get_padding_size(length, dap_size):
-    return (int(length / dap_size) + torch.tensor(1, dtype=torch.int32)) * dap_size - length
+    if length % dap_size == 0:
+        return torch.tensor(0).to(device=length.device, dtype=length.dtype)
+    else:
+        return (int(length / dap_size) + torch.tensor(1, dtype=torch.int32)) * dap_size - length
 
 def permute_final_dims(tensor, inds):
     zero_index = -1 * len(inds)

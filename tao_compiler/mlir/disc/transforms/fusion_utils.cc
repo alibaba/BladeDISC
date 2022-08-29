@@ -327,10 +327,28 @@ bool isElementWiseBinary(Operation* op) {
   // clang-format on
 }
 
+// Returns true if the op is an elementwise ternary lmhlo op.
+bool isElementWiseTernary(Operation* op) {
+  // Some ternary lmhlo ops (e.g. select op) suppport a restricted implicit
+  // broadcast semantic, that is: if one input has rank zero, then it will be
+  // automatically broadcasted if necessary. Thus we can know that there is no
+  // broadcast if all operands have the same rank.
+  if (isa<lmhlo::SelectOp, lmhlo::ClampOp>(op)) {
+    auto ref = op->getOperand(0).getType().cast<MemRefType>();
+    for (Value v : op->getOperands().drop_front())
+      if (v.getType().cast<MemRefType>().getRank() != ref.getRank())
+        return false;
+    return true;
+  }
+
+  return false;
+}
+
 // Returns true if the op is an elementwise lmhlo op.
 // TODO(disc): use fusibility interface
 bool isElementWise(Operation* op) {
-  return isElementWiseUnary(op) || isElementWiseBinary(op);
+  return isElementWiseUnary(op) || isElementWiseBinary(op) ||
+         isElementWiseTernary(op);
 }
 
 // Returns true if this op is a rank-2 row reduction.

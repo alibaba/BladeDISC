@@ -176,6 +176,20 @@ struct MkldnnConvState : public Context::Resource {
 };
 
 #if defined(TAO_AARCH64)
+
+// Returns true is ACL AMP is enabled (`DISC_CPU_ACL_USE_AMP`)
+bool useAclAMP() {
+  static bool flag = []() {
+    const char* env = getenv("DISC_CPU_ACL_USE_AMP");
+    if (!env) return true;
+    std::string envStr = env;
+    std::transform(envStr.begin(), envStr.end(), envStr.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    return envStr == "true" || envStr == "1";
+  }();
+  return flag;
+}
+
 template <typename Tinput, int N, typename Tfilter = Tinput,
           typename Toutput = Tinput>
 bool isAclSupportedDepthwiseConv(
@@ -390,6 +404,18 @@ void runAclConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
     info->weights.allocator()->import_memory(kernel.data);
     info->dst.allocator()->import_memory(output.data);
 
+    bool use_fast_math =
+        useAclAMP() &&
+        info->op.validate(
+            &src_info, &weights_info, nullptr, &dst_info,
+            arm_compute::PadStrideInfo{
+                params.strides[1], params.strides[0], params.padding_l[1],
+                params.padding_r[1], params.padding_l[0], params.padding_r[0],
+                arm_compute::DimensionRoundingType::FLOOR},
+            arm_compute::WeightsInfo{},
+            arm_compute::Size2D{params.dilates[1], params.dilates[0]},
+            arm_compute::ActivationLayerInfo{}, /*enable_fast_math*/ true);
+
     if (!info->op.validate(
             &src_info, &weights_info, nullptr, &dst_info,
             arm_compute::PadStrideInfo{
@@ -397,7 +423,8 @@ void runAclConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
                 params.padding_r[1], params.padding_l[0], params.padding_r[0],
                 arm_compute::DimensionRoundingType::FLOOR},
             arm_compute::WeightsInfo{},
-            arm_compute::Size2D{params.dilates[1], params.dilates[0]})) {
+            arm_compute::Size2D{params.dilates[1], params.dilates[0]},
+            arm_compute::ActivationLayerInfo{}, use_fast_math)) {
       ctx->signalError(Context::FAILURE, "fail to validate acl depthwise conv");
     } else {
       info->op.configure(
@@ -407,7 +434,8 @@ void runAclConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
                                      params.padding_l[0], params.padding_r[0],
                                      arm_compute::DimensionRoundingType::FLOOR},
           arm_compute::WeightsInfo{},
-          arm_compute::Size2D{params.dilates[1], params.dilates[0]});
+          arm_compute::Size2D{params.dilates[1], params.dilates[0]},
+          arm_compute::ActivationLayerInfo{}, use_fast_math);
     }
     if (pack) info->op.reuse_packed_weight(*pack);
     info->op.prepare(&info->src, &info->weights, nullptr, &info->dst);

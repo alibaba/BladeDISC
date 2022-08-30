@@ -5,8 +5,8 @@ name: TorchBench
 on:
   schedule:
     # * is a special character in YAML so you have to quote this string
-    - cron: '30 15 * * *' # 11:30 pm UTC+8
-    - cron: '30 15 * * 5' # 11:30 pm UTC+8 every Friday
+    - cron: '30 15 * * *' # 11:30 pm UTC+8:00
+    - cron: '30 15 * * 5' # 11:30 pm UTC+8:00 every Friday
   workflow_dispatch:
 
 jobs:

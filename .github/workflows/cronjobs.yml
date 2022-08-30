@@ -5,7 +5,7 @@ name: Cronjobs
 on:
   schedule:
     # * is a special character in YAML so you have to quote this string
-    - cron: '30 15 * * *' # 11:30 pm UTC+8
+    - cron: '30 15 * * *' # 11:30 pm UTC+8:00
   workflow_dispatch:
 
 jobs:

@@ -555,6 +555,19 @@ struct DiscSpecializeFusionWithSpeculationPass
       return;
     }
 
+    // When 'MemIntensiveOptExperimental' is enabled, the vecotrization of
+    // concatenate operator will peform a bad case on bert model.
+    // Skip optimization of concatenate operator here.
+    FusionPatternBase fusion_pattern(fusion_op);
+    if (isMemIntensiveOptExperimentalEnabled()) {
+      // skip if the root is concatenate operator
+      for (auto root_op : fusion_pattern.getRootOps()) {
+        if (isa<lmhlo::ConcatenateOp>(root_op)) {
+          return;
+        }
+      }
+    }
+
     // TODO: aware of row-reduction hints.
 
     // Default vectorization/tiling policy:
@@ -604,7 +617,6 @@ struct DiscSpecializeFusionWithSpeculationPass
           b.create<arith::ConstantIndexOp>(loc, 0));
       pred = b.create<arith::AndIOp>(loc, larger, divisible);
     } else if (fusion_type == FusionType::kLoop) {
-      FusionPatternBase fusion_pattern(fusion_op);
       Operation* dominant_equivalent_op = fusion_pattern.getRootOps().back();
       Value out_element_number =
           emitNumElementsComputation(b, loc, dominant_equivalent_op);

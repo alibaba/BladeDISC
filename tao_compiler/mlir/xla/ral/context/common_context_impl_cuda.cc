@@ -58,7 +58,7 @@ void RalGlobalConstantState::onContextFinish(Context* ctx) /* override */ {
 
 static inline buffer_t ral_base_cuda_const_cuda_internal(
     ExecutionContext* ctx, void* stream_handle, const char* unique_name,
-    buffer_shape_t*& shape) {
+    int32_t unique_index_in_module, buffer_shape_t*& shape) {
   auto* state =
       ctx->getResource<RalGlobalConstantState>(kRalGlobalConstantState);
   // if process-level const store is enabled, use it instead of the context
@@ -69,20 +69,16 @@ static inline buffer_t ral_base_cuda_const_cuda_internal(
     use_process_store = true;
   }
 
+  // fast path: using a unique const index to do look up.
+  // Note that the const index is assigned to each const at compile time.
+  // The index is unique within the compiled module level.
+  if (auto item = state->getDeviceConstByIndex(unique_index_in_module)) {
+    shape = &item->second;
+    return item->first;
+  }
+
   {
     std::lock_guard<std::mutex> lock(state->mu);
-
-    // Fast path: just using the raw pointer as key. Note that: any
-    // compiled-const should have a static global const string name, thus it's
-    // safe to just use the pointer as key.
-    {
-      auto it = state->device_constants_by_cstr.find(unique_name);
-      if (it != state->device_constants_by_cstr.end()) {
-        shape = &it->second.second;
-        return it->second.first;
-      }
-    }
-
     std::string key(unique_name);
     TAO_VLOG(2) << "unique_name: " << key;
     auto it = state->device_constants.find(key);
@@ -126,8 +122,8 @@ static inline buffer_t ral_base_cuda_const_cuda_internal(
                .insert(
                    std::make_pair(key, std::make_pair(device_ptr, dim_sizes)))
                .first;
-      state->device_constants_by_cstr.emplace(
-          unique_name, std::make_pair(device_ptr, dim_sizes));
+      state->setDeviceConstByIndex(unique_index_in_module,
+                                   std::make_pair(device_ptr, dim_sizes));
     }
     shape = &it->second.second;
     return it->second.first;
@@ -137,10 +133,11 @@ static inline buffer_t ral_base_cuda_const_cuda_internal(
 template <typename T, int N>
 MemRefType<T, N> ral_base_cuda_const_cuda(ExecutionContext* ctx,
                                           void* stream_handle,
-                                          const char* unique_name) {
+                                          const char* unique_name,
+                                          int32_t unique_index_in_module) {
   buffer_shape_t* shape = nullptr;
-  buffer_t ptr =
-      ral_base_cuda_const_cuda_internal(ctx, stream_handle, unique_name, shape);
+  buffer_t ptr = ral_base_cuda_const_cuda_internal(
+      ctx, stream_handle, unique_name, unique_index_in_module, shape);
   if (!shape || shape->size() != N) {
     ctx->signalError(Context::FAILURE,
                      "unexpected shape string in unique_name");
@@ -152,10 +149,11 @@ MemRefType<T, N> ral_base_cuda_const_cuda(ExecutionContext* ctx,
 template <typename T>
 MemRefType<T, 0> ral_base_cuda_const_cuda_0d(ExecutionContext* ctx,
                                              void* stream_handle,
-                                             const char* unique_name) {
+                                             const char* unique_name,
+                                             int32_t unique_index_in_module) {
   buffer_shape_t* shape = nullptr;
-  buffer_t ptr =
-      ral_base_cuda_const_cuda_internal(ctx, stream_handle, unique_name, shape);
+  buffer_t ptr = ral_base_cuda_const_cuda_internal(
+      ctx, stream_handle, unique_name, unique_index_in_module, shape);
   if (!shape || shape->size() != 0) {
     ctx->signalError(Context::FAILURE,
                      "unexpected shape string in unique_name");
@@ -163,14 +161,16 @@ MemRefType<T, 0> ral_base_cuda_const_cuda_0d(ExecutionContext* ctx,
   return assignMemRef_0d<T>(ptr);
 }
 
-#define RAL_REGISTER_CONST_CUDA_FUNC(T, N)                                   \
-  template MemRefType<T, N> ral_base_cuda_const_cuda<T, N>(                  \
-      ExecutionContext * ctx, void* stream_handle, const char* unique_name); \
+#define RAL_REGISTER_CONST_CUDA_FUNC(T, N)                                  \
+  template MemRefType<T, N> ral_base_cuda_const_cuda<T, N>(                 \
+      ExecutionContext * ctx, void* stream_handle, const char* unique_name, \
+      int32_t unique_index_in_module);                                      \
   TAO_RAL_API(tao::ral::kRalCudaConst, "gpu", ral_base_cuda_const_cuda<T, N>);
 
-#define RAL_REGISTER_CONST_CUDA_FUNC_0D(T)                                   \
-  template MemRefType<T, 0> ral_base_cuda_const_cuda_0d<T>(                  \
-      ExecutionContext * ctx, void* stream_handle, const char* unique_name); \
+#define RAL_REGISTER_CONST_CUDA_FUNC_0D(T)                                  \
+  template MemRefType<T, 0> ral_base_cuda_const_cuda_0d<T>(                 \
+      ExecutionContext * ctx, void* stream_handle, const char* unique_name, \
+      int32_t unique_index_in_module);                                      \
   TAO_RAL_API(tao::ral::kRalCudaConst, "gpu", ral_base_cuda_const_cuda_0d<T>);
 
 RAL_REGISTER_CONST_CUDA_FUNC_0D(double);

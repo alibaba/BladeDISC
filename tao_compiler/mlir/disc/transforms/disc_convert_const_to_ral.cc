@@ -120,6 +120,9 @@ class DiscConstToRALPass : public DiscConstToRALPassBase<DiscConstToRALPass> {
   LogicalResult convertConstantOp(ConstantOp const_op, MetadataProto* proto);
 
   int num_processing_const_ops_ = 0;
+  // Map each unique name of const to a unique index. Such indices are used to
+  // reduce the overhead of const lookup at runtime.
+  std::unordered_map<std::string, int> name_idx_map_;
 };
 
 // llvm.mlir.global internal constant @unique_name("unique_name\00")
@@ -158,11 +161,17 @@ LogicalResult DiscConstToRALPass::convertConstantOp(ConstantOp const_op,
   std::string data_str = std::string(data);
 
   // save data
+  int next_const_idx;
   if (on_host) {
+    next_const_idx = proto->host_global_constants_size();
     (*proto->mutable_host_global_constants())[name_str] = data_str;
   } else {
+    next_const_idx = proto->device_global_constants_size();
     (*proto->mutable_device_global_constants())[name_str] = data_str;
   }
+  auto it = name_idx_map_.find(name_str);
+  if (it == name_idx_map_.end())
+    it = name_idx_map_.emplace(name, next_const_idx).first;
 
   std::string symbol_name =
       ("__global_const_" + llvm::Twine(num_processing_const_ops_++)).str();
@@ -176,8 +185,11 @@ LogicalResult DiscConstToRALPass::convertConstantOp(ConstantOp const_op,
                                                 builder.getI32IntegerAttr(0));
   Value stream_idx = builder.create<LLVM::IntToPtrOp>(loc, pointer_type, zero);
   Value ral_context = const_op->getParentOfType<func::FuncOp>().getArgument(0);
+  Value const_idx_value = builder.create<arith::ConstantIntOp>(
+      loc, it->second, builder.getI32Type());
 
-  SmallVector<Value, 12> newOperands{stream_idx, const_name_global};
+  SmallVector<Value, 12> newOperands{stream_idx, const_name_global,
+                                     const_idx_value};
   auto dispatch_op = builder.create<disc_ral::DispatchOp>(
       loc, memref, ral_context, newOperands, "ral_const", false,
       on_host ? "cpu" : "gpu");

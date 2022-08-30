@@ -16,6 +16,7 @@
 #define ALIGN_BYTES 128
 #endif
 
+#include <array>
 #include <chrono>
 
 #ifdef DISC_BUILD_FROM_TF_BRIDGE
@@ -50,6 +51,13 @@ struct ConstStoreRegistrar {
 };
 
 struct RalGlobalConstantState : public tao::ral::Context::Resource {
+  RalGlobalConstantState() {
+    for (int i = 0; i < host_constants_by_idx.size(); ++i) {
+      host_constants_by_idx[i] = nullptr;
+      device_constants_by_idx[i] = nullptr;
+    }
+  }
+
   std::mutex mu;
   mlir::MetadataProto metadata_proto;
   // If not null, use the process level const store instead of this context
@@ -59,19 +67,55 @@ struct RalGlobalConstantState : public tao::ral::Context::Resource {
   // in theory, there might be two constants with the same data value but
   // different shapes however for simplicity we just use the whole unique_name
   // as the key. This can be further optimized in case neccessary.
-  std::unordered_map<std::string, std::pair<buffer_t, buffer_shape_t>>
-      device_constants;
-  std::unordered_map<std::string, std::pair<buffer_t, buffer_shape_t>>
-      host_constants;
+  using Item = std::pair<buffer_t, buffer_shape_t>;
+  using ItemMap = std::unordered_map<std::string, Item>;
+  ItemMap device_constants;
+  ItemMap host_constants;
 
-  // fast path: using a const char * pointer to look up.
-  // Note that: any compiled-const should have a static global const string,
-  // thus it's safe to just use the pointer as key.
-  std::unordered_map<const char*, std::pair<buffer_t, buffer_shape_t>>
-      device_constants_by_cstr;
-  // fast path: using a const char * pointer to look up.
-  std::unordered_map<const char*, std::pair<buffer_t, buffer_shape_t>>
-      host_constants_by_cstr;
+  // fast path: using a unique const index to do look up.
+  // Note that the const index is assigned to each const at compile time.
+  // The index is unique within the compiled module level.
+  //
+  // The large index suppored to use the fast path.
+  static constexpr const int kMaxNumItemsForFastPath = 8196;
+  template <typename T>
+  using ItemArray = std::array<T, kMaxNumItemsForFastPath>;
+  using ItemLookupFastPathStorage = ItemArray<Item>;
+  using ItemLookupFastPathTable = ItemArray<std::atomic<Item*>>;
+
+  // for host const
+  ItemLookupFastPathStorage host_constants_storage;
+  ItemLookupFastPathTable host_constants_by_idx;
+  // for device const
+  ItemLookupFastPathStorage device_constants_storage;
+  ItemLookupFastPathTable device_constants_by_idx;
+
+  // Returns nullptr if not found or supported.
+  Item* getHostConstByIndex(int unique_index_in_module) {
+    if (unique_index_in_module >= host_constants_by_idx.size()) return nullptr;
+    return host_constants_by_idx[unique_index_in_module];
+  }
+  // update the item according to `unique_index_in_module`
+  void setHostConstByIndex(int unique_index_in_module, Item item) {
+    if (unique_index_in_module >= host_constants_by_idx.size()) return;
+    host_constants_storage[unique_index_in_module] = std::move(item);
+    host_constants_by_idx[unique_index_in_module] =
+        &host_constants_storage[unique_index_in_module];
+  }
+
+  // Returns nullptr if not found or supported.
+  Item* getDeviceConstByIndex(int unique_index_in_module) {
+    if (unique_index_in_module >= device_constants_by_idx.size())
+      return nullptr;
+    return device_constants_by_idx[unique_index_in_module];
+  }
+  // update the item according to `unique_index_in_module`
+  void setDeviceConstByIndex(int unique_index_in_module, Item item) {
+    if (unique_index_in_module >= device_constants_by_idx.size()) return;
+    device_constants_storage[unique_index_in_module] = std::move(item);
+    device_constants_by_idx[unique_index_in_module] =
+        &device_constants_storage[unique_index_in_module];
+  }
 
   void onContextFinish(Context* ctx) override;
 };
@@ -90,22 +134,26 @@ int parseMetadataPb(const std::string& pb_file_path,
 template <typename T, int N>
 MemRefType<T, N> ral_base_cuda_const_cuda(ExecutionContext* ctx,
                                           void* stream_handle,
-                                          const char* unique_name);
+                                          const char* unique_name,
+                                          int32_t unique_index_in_module);
 
 template <typename T>
 MemRefType<T, 0> ral_base_cuda_const_cuda_0d(ExecutionContext* ctx,
                                              void* stream_handle,
-                                             const char* unique_name);
+                                             const char* unique_name,
+                                             int32_t unique_index_in_module);
 
 template <typename T, int N>
 MemRefType<T, N> ral_base_cuda_const_host(ExecutionContext* ctx,
                                           void* stream_handle,
-                                          const char* unique_name);
+                                          const char* unique_name,
+                                          int32_t unique_index_in_module);
 
 template <typename T>
 MemRefType<T, 0> ral_base_cuda_const_host_0d(ExecutionContext* ctx,
                                              void* stream_handle,
-                                             const char* unique_name);
+                                             const char* unique_name,
+                                             int32_t unique_index_in_module);
 
 static inline void* aligned_malloc(int64_t size) {
   int align = ALIGN_BYTES;

@@ -300,9 +300,9 @@ std::vector<uint8_t> fromHex(const std::string& Input) {
   return ret;
 }
 
-inline buffer_t ral_base_cuda_const_host_internal(ExecutionContext* ctx,
-                                                  const char* unique_name,
-                                                  buffer_shape_t*& shape) {
+inline buffer_t ral_base_cuda_const_host_internal(
+    ExecutionContext* ctx, const char* unique_name,
+    int32_t unique_index_in_module, buffer_shape_t*& shape) {
   auto* state =
       ctx->getResource<RalGlobalConstantState>(kRalGlobalConstantState);
   // if process-level const store is enabled, use it instead of the context
@@ -313,19 +313,16 @@ inline buffer_t ral_base_cuda_const_host_internal(ExecutionContext* ctx,
     use_process_store = true;
   }
 
+  // fast path: using a unique const index to do look up.
+  // Note that the const index is assigned to each const at compile time.
+  // The index is unique within the compiled module level.
+  if (auto item = state->getHostConstByIndex(unique_index_in_module)) {
+    shape = &item->second;
+    return item->first;
+  }
+
   {
     std::lock_guard<std::mutex> lock(state->mu);
-    // Fast path: just using the raw pointer as key. Note that: any
-    // compiled-const should have a static global const string name, thus it's
-    // safe to just use the pointer as key.
-    {
-      auto it = state->host_constants_by_cstr.find(unique_name);
-      if (it != state->host_constants_by_cstr.end()) {
-        shape = &it->second.second;
-        return it->second.first;
-      }
-    }
-
     std::string key(unique_name);
     auto it = state->host_constants.find(key);
     if (it == state->host_constants.end()) {
@@ -365,8 +362,8 @@ inline buffer_t ral_base_cuda_const_host_internal(ExecutionContext* ctx,
       it = state->host_constants
                .insert(std::make_pair(key, std::make_pair(data_ptr, dim_sizes)))
                .first;
-      state->host_constants_by_cstr.emplace(
-          unique_name, std::make_pair(data_ptr, dim_sizes));
+      state->setHostConstByIndex(unique_index_in_module,
+                                 std::make_pair(data_ptr, dim_sizes));
     }
     shape = &it->second.second;
     return it->second.first;
@@ -376,9 +373,11 @@ inline buffer_t ral_base_cuda_const_host_internal(ExecutionContext* ctx,
 template <typename T, int N>
 MemRefType<T, N> ral_base_cuda_const_host(ExecutionContext* ctx,
                                           void* stream_handle,
-                                          const char* unique_name) {
+                                          const char* unique_name,
+                                          int32_t unique_index_in_module) {
   buffer_shape_t* shape = nullptr;
-  buffer_t ptr = ral_base_cuda_const_host_internal(ctx, unique_name, shape);
+  buffer_t ptr = ral_base_cuda_const_host_internal(
+      ctx, unique_name, unique_index_in_module, shape);
   if (!shape || shape->size() != N) {
     ctx->signalError(Context::FAILURE,
                      "Error: unexpected shape string in unique_name");
@@ -390,9 +389,11 @@ MemRefType<T, N> ral_base_cuda_const_host(ExecutionContext* ctx,
 template <typename T>
 MemRefType<T, 0> ral_base_cuda_const_host_0d(ExecutionContext* ctx,
                                              void* stream_handle,
-                                             const char* unique_name) {
+                                             const char* unique_name,
+                                             int32_t unique_index_in_module) {
   buffer_shape_t* shape = nullptr;
-  buffer_t ptr = ral_base_cuda_const_host_internal(ctx, unique_name, shape);
+  buffer_t ptr = ral_base_cuda_const_host_internal(
+      ctx, unique_name, unique_index_in_module, shape);
   if (!shape || shape->size() != 0) {
     ctx->signalError(Context::FAILURE,
                      "Error: unexpected shape string in unique_name");
@@ -401,14 +402,16 @@ MemRefType<T, 0> ral_base_cuda_const_host_0d(ExecutionContext* ctx,
   return assignMemRef_0d<T>(ptr);
 }
 
-#define RAL_REGISTER_CONST_HOST_FUNC(T, N)                     \
-  template MemRefType<T, N> ral_base_cuda_const_host<T, N>(    \
-      ExecutionContext * ctx, void*, const char* unique_name); \
+#define RAL_REGISTER_CONST_HOST_FUNC(T, N)                    \
+  template MemRefType<T, N> ral_base_cuda_const_host<T, N>(   \
+      ExecutionContext * ctx, void*, const char* unique_name, \
+      int32_t unique_index_in_module);                        \
   TAO_RAL_API(tao::ral::kRalHostConst, "cpu", ral_base_cuda_const_host<T, N>);
 
-#define RAL_REGISTER_CONST_HOST_FUNC_0D(T)                     \
-  template MemRefType<T, 0> ral_base_cuda_const_host_0d<T>(    \
-      ExecutionContext * ctx, void*, const char* unique_name); \
+#define RAL_REGISTER_CONST_HOST_FUNC_0D(T)                    \
+  template MemRefType<T, 0> ral_base_cuda_const_host_0d<T>(   \
+      ExecutionContext * ctx, void*, const char* unique_name, \
+      int32_t unique_index_in_module);                        \
   TAO_RAL_API(tao::ral::kRalHostConst, "cpu", ral_base_cuda_const_host_0d<T>);
 
 RAL_REGISTER_CONST_HOST_FUNC_0D(double);

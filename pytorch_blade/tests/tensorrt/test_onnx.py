@@ -85,7 +85,6 @@ graph(%self.1 : __torch__.___torch_mangle_0.Net,
         script_module = exporter.export(script_module, model_inputs=(inputs,))
         script_module = pass_manager._optimize_common(script_module._c)
         onnx_graph, _ = pass_manager._jit_pass_lower_to_onnx(script_module.forward.graph)
-        print(onnx_graph)
         expect_gstr = """
 graph(%self.1 : __torch__.tests.tensorrt.test_onnx.___torch_mangle_2.Net,
   %x.1 : Float(1, 3, 20, 20, strides=[1200, 400, 20, 1], requires_grad=0, device=cpu)):

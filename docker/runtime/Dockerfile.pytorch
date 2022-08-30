@@ -24,4 +24,4 @@ RUN python3 -m pip install -r /install/python/requirements.txt -f https://downlo
 RUN python3 -m pip install /install/python/torch_blade*.whl 
 
 ENV PATH /usr/bin:$PATH
-ENV LD_LIBRARY_PATH="/usr/local/TensorRT/lib/:${LD_LIBRARY_PATH}"
+ENV LD_LIBRARY_PATH="/usr/local/TensorRT/lib/:/usr/local/cuda/lib64/:${LD_LIBRARY_PATH}"

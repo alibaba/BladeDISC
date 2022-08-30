@@ -1684,9 +1684,10 @@ LogicalResult lowerWithScheduleRowReduction<DISC_BLOCK_WISE_ROW_REDUCE>(
   return success();
 }
 
-template <int TILE_W, int TILE_H, int LOOP = 8>
+template <int TILE_W, int TILE_H>
 LogicalResult lowerWithScheduleColReductionForRocm(
     ArrayRef<Operation*> root_ops, Operation* dominant_op, Block* parent,
+    const int LOOP, const int core_count,
     const ShapeAnalysis* shape_analysis = nullptr) {
   if (!isRank2ColReduction(dominant_op)) {
     return failure();
@@ -1711,7 +1712,7 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   Value loop_base_var = b.create<arith::ConstantIndexOp>(loc, kLoopIter);
   Value var512 = b.create<arith::ConstantIndexOp>(loc, 512);
   Value var32 = b.create<arith::ConstantIndexOp>(loc, 32);
-  Value block_limit = b.create<arith::ConstantIndexOp>(loc, 100);
+  Value block_limit = b.create<arith::ConstantIndexOp>(loc, core_count);
   Value var_rows = b.create<memref::DimOp>(loc, lhs, zero);
   Value var_cols = b.create<memref::DimOp>(loc, lhs, one);
   Value var_loop_iter;
@@ -1734,8 +1735,24 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   // if_col_gt512.getElseRegion().front().clear();
   // b.setInsertionPointToStart(&if_col_gt512.getThenRegion().front());
   Value block_cols = b.create<arith::CeilDivSIOp>(loc, var_cols, var_tile_w);
-  Value block_rows_bound =
+  Value block_rows_bound_tmp =
       b.create<arith::DivSIOp>(loc, block_limit, block_cols);
+
+  Value is_lt_one = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ult,
+                                            block_rows_bound_tmp, one);
+  scf::IfOp if_lt_one =
+      b.create<scf::IfOp>(loc, /* resultTypes */ llvm::None, is_lt_one,
+                          /*hasElseRegion*/ true);
+  if_lt_one.getThenRegion().front().clear();
+  if_lt_one.getElseRegion().front().clear();
+  b.setInsertionPointToStart(&if_lt_one.getThenRegion().front());
+  b.create<scf::YieldOp>(loc, one);
+  b.setInsertionPointToStart(&if_lt_one.getElseRegion().front());
+  b.create<scf::YieldOp>(loc, block_rows_bound_tmp);
+  b.setInsertionPointAfter(if_lt_one);
+  Value block_rows_bound =
+      b.create<arith::MulIOp>(loc, *(if_lt_one.getResults().begin()), one);
+
   Value rows_no_loop =
       b.create<arith::MulIOp>(loc, var_tile_h, block_rows_bound);
   Value rows_loop = b.create<arith::CeilDivSIOp>(loc, var_rows, rows_no_loop);
@@ -1772,6 +1789,9 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   // var_tile_h = 32
   // num_block_col = ceil( var_cols() / var_tile_w );
   // num_block_row = ceil( var_rows() / var_tile_h);
+
+  // num_block_row_loop = ceil(var_rows() / var_tile_h);
+  // num_block_row = ceil(num_block_row_loop / var_loop_iter);
 
   Value num_block_col = b.create<arith::CeilDivSIOp>(loc, var_cols, var_tile_w);
   Value num_block_row_loop =
@@ -3823,7 +3843,7 @@ static void createPrintFusionParams(lmhlo::FusionOp fusion,
 
 LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
                                 ShapeAnalysis* shape_analysis,
-                                LowerConfig& lower_config) {
+                                LowerConfig& lower_config, int core_count) {
   auto fusion_op = cast<lmhlo::FusionOp>(fusion);
   assert(fusion_op);
   FusionPattern fusion_pattern(fusion_op, shape_analysis);
@@ -3884,35 +3904,36 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
       }
     } break;
     case FusionType::kColReduction: {
-      std::string k_target;
-      static const char* env = getenv("KTARGET");
-      if (env != nullptr) {
-        k_target = std::string(env);
-      }
-      std::string delimiter = ";";
-      size_t pos = 0;
-      std::string token;
-      auto s = k_target;
-      auto kname = getFusionFullName(fusion_op);
+      // std::string k_target;
+      // static const char* env = getenv("KTARGET");
+      // if (env != nullptr) {
+      //   k_target = std::string(env);
+      // }
+      // std::string delimiter = ";";
+      // size_t pos = 0;
+      // std::string token;
+      // auto s = k_target;
+      // auto kname = getFusionFullName(fusion_op);
       bool use_new = false;
 
       int loop = 8;
       static const char* envloop = getenv("NEW_COL");
       if (envloop != nullptr) {
         loop = envloop[0] - '0';
-      }
-
-      while ((pos = s.find(delimiter)) != std::string::npos) {
-        token = s.substr(0, pos);
-        if (!token.empty() && kname.rfind(token, 0) == 0) {
-          use_new = true;
-        }
-        s.erase(0, pos + delimiter.length());
-      }
-      if (!s.empty() && kname.rfind(s, 0) == 0) {
         use_new = true;
       }
-      llvm::errs() << "Fusion name " << kname << "\n";
+
+      // while ((pos = s.find(delimiter)) != std::string::npos) {
+      //   token = s.substr(0, pos);
+      //   if (!token.empty() && kname.rfind(token, 0) == 0) {
+      //     use_new = true;
+      //   }
+      //   s.erase(0, pos + delimiter.length());
+      // }
+      // if (!s.empty() && kname.rfind(s, 0) == 0) {
+      //   use_new = true;
+      // }
+      // llvm::errs() << "Fusion name " << kname << "\n";
       // llvm::errs() << "KColReduction use new " << (use_new?1:0) << " " <<
       // k_target << " " << kname << "\n";
       const int col_reduction_schedule =
@@ -3920,61 +3941,31 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
       LogicalResult r = success();
       if (col_reduction_schedule == DISC_TILE_W8_H32) {
         if (use_new) {
-          llvm::errs() << "Use new col reduce for " << kname << "\n";
+          // llvm::errs() << "Use new col reduce for " << kname << "\n";
           r = lowerWithScheduleColReductionForRocm<16, 32>(
-              root_ops, dominant_op, fused_block);
+              root_ops, dominant_op, fused_block, loop, core_count);
         } else {
           r = lowerWithScheduleColReductionBlockTileSchedule<8, 32>(
               root_ops, dominant_op, fused_block);
         }
       } else if (col_reduction_schedule == DISC_TILE_W8_H16) {
         if (use_new) {
-          llvm::errs() << "Use new col reduce for " << kname << "\n";
+          // llvm::errs() << "Use new col reduce for " << kname << "\n";
           r = lowerWithScheduleColReductionForRocm<16, 32>(
-              root_ops, dominant_op, fused_block);
+              root_ops, dominant_op, fused_block, loop, core_count);
         } else {
           r = lowerWithScheduleColReductionBlockTileSchedule<8, 16>(
               root_ops, dominant_op, fused_block);
         }
       } else if (col_reduction_schedule == DISC_TILE_LOOP_W64_H8) {
-        if (loop == 1)
-          r = lowerWithScheduleColReductionForRocm<64, 8, 1>(
-              root_ops, dominant_op, fused_block);
-        if (loop == 2)
-          r = lowerWithScheduleColReductionForRocm<64, 8, 2>(
-              root_ops, dominant_op, fused_block);
-        if (loop == 4)
-          r = lowerWithScheduleColReductionForRocm<64, 8, 4>(
-              root_ops, dominant_op, fused_block);
-        if (loop == 8)
-          r = lowerWithScheduleColReductionForRocm<64, 8, 8>(
-              root_ops, dominant_op, fused_block);
+        r = lowerWithScheduleColReductionForRocm<64, 8>(
+            root_ops, dominant_op, fused_block, loop, core_count);
       } else if (col_reduction_schedule == DISC_TILE_LOOP_W16_H32) {
-        if (loop == 1)
-          r = lowerWithScheduleColReductionForRocm<16, 32, 1>(
-              root_ops, dominant_op, fused_block);
-        if (loop == 2)
-          r = lowerWithScheduleColReductionForRocm<16, 32, 2>(
-              root_ops, dominant_op, fused_block);
-        if (loop == 4)
-          r = lowerWithScheduleColReductionForRocm<16, 32, 4>(
-              root_ops, dominant_op, fused_block);
-        if (loop == 8)
-          r = lowerWithScheduleColReductionForRocm<16, 32, 8>(
-              root_ops, dominant_op, fused_block);
+        r = lowerWithScheduleColReductionForRocm<16, 32>(
+            root_ops, dominant_op, fused_block, loop, core_count);
       } else if (col_reduction_schedule == DISC_TILE_LOOP_W8_H8) {
-        if (loop == 1)
-          r = lowerWithScheduleColReductionForRocm<8, 8, 1>(
-              root_ops, dominant_op, fused_block);
-        if (loop == 2)
-          r = lowerWithScheduleColReductionForRocm<8, 8, 2>(
-              root_ops, dominant_op, fused_block);
-        if (loop == 4)
-          r = lowerWithScheduleColReductionForRocm<8, 8, 4>(
-              root_ops, dominant_op, fused_block);
-        if (loop == 8)
-          r = lowerWithScheduleColReductionForRocm<8, 8, 8>(
-              root_ops, dominant_op, fused_block);
+        r = lowerWithScheduleColReductionForRocm<8, 8>(
+            root_ops, dominant_op, fused_block, loop, core_count);
       } else {
         r = lowerWithScheduleColReductionBlockTileSchedule<8, 8>(
             root_ops, dominant_op, fused_block);
@@ -4408,9 +4399,13 @@ LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion,
 // calculation lowering for mhlo.FusionOp. Reconsider the fusion representation
 // after these are done, a lmhlo.FusionOp with mhlo inside would be more
 // friendly to the legacy FusedIrEmitter.
-class DiscLhloLegalizeRootsToParallelLoops
+struct DiscLhloLegalizeRootsToParallelLoops
     : public DiscLhloLegalizeRootsToParallelLoopsPassBase<
           DiscLhloLegalizeRootsToParallelLoops> {
+  DiscLhloLegalizeRootsToParallelLoops(int core_count) {
+    core_count_ = core_count;
+  }
+
   void runOnOperation() override {
     func::FuncOp func = getOperation();
 
@@ -4495,7 +4490,8 @@ class DiscLhloLegalizeRootsToParallelLoops
     LowerConfig lower_config;
     for (Operation* fusion : gpu_fusion_worklist) {
       // Error message should be emitted inside the function.
-      if (failed(HandleGpuFusionOp(b, fusion, &shape_analysis, lower_config))) {
+      if (failed(HandleGpuFusionOp(b, fusion, &shape_analysis, lower_config,
+                                   core_count_))) {
         signalPassFailure();
         return;
       }
@@ -4569,8 +4565,8 @@ class DiscLhloLegalizeRootsToParallelLoops
 };
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-createDiscLhloLegalizeRootsToParallelLoopsPass() {
-  return std::make_unique<DiscLhloLegalizeRootsToParallelLoops>();
+createDiscLhloLegalizeRootsToParallelLoopsPass(int core_count) {
+  return std::make_unique<DiscLhloLegalizeRootsToParallelLoops>(core_count);
 }
 
 }  // namespace disc_ral

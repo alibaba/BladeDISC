@@ -50,7 +50,7 @@ std::unique_ptr<OperationPass<ModuleOp>> createReviseArgsForStaticRankPass();
 
 // Lowers the roots of lmhlo.fusion to parallel loops
 std::unique_ptr<OperationPass<FuncOp>>
-createDiscLhloLegalizeRootsToParallelLoopsPass();
+createDiscLhloLegalizeRootsToParallelLoopsPass(int sm_count = -1);
 
 // Canonicalize conv ops to be suitable for lowering to cudnn lib calls.
 std::unique_ptr<OperationPass<FuncOp>> createDiscConvRewriter();

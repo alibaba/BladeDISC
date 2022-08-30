@@ -19,7 +19,7 @@ namespace tensorflow {
 namespace tao {
 namespace cuda_utils {
 
-#if defined TAO_CPU_ONLY || defined TENSORFLOW_USE_ROCM
+#if defined(TAO_CPU_ONLY) || defined(TENSORFLOW_USE_ROCM)
 
 std::string GetGpuDeviceUUID(const std::string bus_id) { return ""; }
 

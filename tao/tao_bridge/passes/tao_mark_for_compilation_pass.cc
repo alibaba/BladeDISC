@@ -13,8 +13,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#include "tao_bridge/passes/tao_mark_for_compilation_pass.h"
-
 #include <algorithm>
 #include <atomic>
 #include <deque>
@@ -32,6 +30,7 @@ limitations under the License.
 #include "tao_bridge/kernels/tao_compilation_info_collector.h"
 #include "tao_bridge/passes/defunctionalize_control_flow.h"
 #include "tao_bridge/passes/tao_defuse_pass.h"
+#include "tao_bridge/passes/tao_mark_for_compilation_pass.h"
 #include "tao_bridge/tf/compilability_check_util.h"
 #include "tao_bridge/tf/const_analysis.h"
 #include "tao_bridge/tf/deadness_analysis.h"
@@ -2576,6 +2575,7 @@ std::vector<string> GetDiscSupportedOps() {
     "Conv2D",
     "DepthwiseConv2dNative",
     "DynamicStitch",
+    "DiscFakeQuant",
     "Equal",
     "Erf",
     "Exp",

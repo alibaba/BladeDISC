@@ -197,4 +197,21 @@ def HLO_QuantizedDynamicConvOp: HLODISC_Op<"quantized_dynamic_conv", [NoSideEffe
   let results = (outs HLO_Tensor:$result);
 }
 
+def HLO_SparseReshapeOp : HLODISC_ShapedInterfaceOp<"sparse_reshape", [NoSideEffect]> {
+  let summary = "One-to-one mapping of TF_SparseReshapeOp";
+  let description = [{
+    See tf's sparse_reshape operator.
+  }];
+  let arguments = (ins
+    TensorOf<[I64]>:$input_indices,
+    TensorOf<[I64]>:$input_shape,
+    TensorOf<[I64]>:$new_shape
+  );
+
+  let results = (outs
+    TensorOf<[I64]>:$output_indices,
+    TensorOf<[I64]>:$output_shape
+  );
+}
+
 #endif // MHLO_DISC_OPS

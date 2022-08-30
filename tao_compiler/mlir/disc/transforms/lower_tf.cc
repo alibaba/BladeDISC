@@ -1202,6 +1202,21 @@ class ConvertBucketizeOp : public OpRewritePattern<TF::BucketizeOp> {
   }
 };
 
+class ConvertSparseReshapeOp : public OpRewritePattern<TF::SparseReshapeOp> {
+ public:
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::SparseReshapeOp op,
+                                PatternRewriter& rewriter) const override {
+    auto loc = op.getLoc();
+    auto hlo_sparse_reshape = rewriter.create<mhlo_disc::SparseReshapeOp>(
+        loc, op.output_indices().getType(), op.output_shape().getType(),
+        op.input_indices(), op.input_shape(), op.new_shape());
+    rewriter.replaceOp(op, hlo_sparse_reshape.getResults());
+    return success();
+  }
+};
+
 #include "tensorflow/compiler/mlir/disc/transforms/lower_tf.inc"
 
 void PrepareTFPass::runOnOperation() {
@@ -1222,7 +1237,8 @@ void PrepareTFPass::runOnOperation() {
       ConvertSqueezeOpDynamic,
       ConvertTopKV2OpDynamic,
       ConvertUniformOp,
-      ConvertBucketizeOp
+      ConvertBucketizeOp,
+      ConvertSparseReshapeOp
   >(ctx);
   // clang-format on
   (void)applyPatternsAndFoldGreedily(func, std::move(patterns));

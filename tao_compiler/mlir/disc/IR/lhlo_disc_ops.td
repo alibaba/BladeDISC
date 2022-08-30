@@ -92,4 +92,19 @@ def LHLODISC_PrintfOp: LHLODISC_Op<"printf", []> {
                        Arg<LHLO_DimensionValue, "", [MemWrite]>:$output,
                        StrAttr:$format);
 }
+
+def LHLODISC_SparseReshapeOp : LHLODISC_Op<"sparse_reshape", []> {
+  let summary = "One-to-one mapping of TF_SparseReshapeOp";
+  let description = [{
+    See tf's sparse_reshape operator.
+  }];
+  let arguments = (ins
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$input_indices,
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$input_shape,
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$new_shape,
+    Arg<LHLO_IntBuffer, "", [MemWrite]>:$output_indices,
+    Arg<LHLO_IntBuffer, "", [MemWrite]>:$output_shape
+  );
+}
+
 #endif // LMHLO_DISC_OPS

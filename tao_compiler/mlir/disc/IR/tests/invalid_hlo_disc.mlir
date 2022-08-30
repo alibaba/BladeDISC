@@ -297,3 +297,21 @@ func.func @quantize_per_channel_result_quantized_dynamic_conv(%input: tensor<?x?
        tensor<?xf32>, tensor<?xi32>) -> tensor<?x?x?x?xi8>
   return %out : tensor<?x?x?x?xi8>
 }
+
+// -----
+
+// CHECK-LABEL: func.func @sparse_reshape_rank1_input
+func.func @sparse_reshape_rank1_input(%input_indices : tensor<?xi64>, %input_shape: tensor<?xi64>, %new_shape: tensor<?xi64>) -> (tensor<?x?xi64>, tensor<?xi64>) {
+  // expected-error@+1 {{Input/Output indices must be a matrix.}}
+  %output_indices, %output_shape = "mhlo_disc.sparse_reshape"(%input_indices, %input_shape, %new_shape) {} : (tensor<?xi64>, tensor<?xi64>, tensor<?xi64>) -> (tensor<?x?xi64>, tensor<?xi64>)
+  return %output_indices, %output_shape: tensor<?x?xi64>, tensor<?xi64>
+}
+
+// -----
+
+// CHECK-LABEL: func.func @sparse_reshape_non_vector_shape
+func.func @sparse_reshape_non_vector_shape(%input_indices : tensor<?x?xi64>, %input_shape: tensor<?x?xi64>, %new_shape: tensor<?xi64>) -> (tensor<?x?xi64>, tensor<?xi64>) {
+  // expected-error@+1 {{Input/Output shape and new shape must be a vector.}}
+  %output_indices, %output_shape = "mhlo_disc.sparse_reshape"(%input_indices, %input_shape, %new_shape) {} : (tensor<?x?xi64>, tensor<?x?xi64>, tensor<?xi64>) -> (tensor<?x?xi64>, tensor<?xi64>)
+  return %output_indices, %output_shape: tensor<?x?xi64>, tensor<?xi64>
+}

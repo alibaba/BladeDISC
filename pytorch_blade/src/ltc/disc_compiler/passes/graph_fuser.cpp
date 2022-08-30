@@ -480,10 +480,6 @@ struct GraphFuser {
     // created in FusionGroup
 
     auto producer_outputs = producer->node()->outputs();
-    // DISC: just copy constant node into subgraph, scalar output would be core
-    // dump in this pass, we can remove the no-consumer constant node in EDC
-    // pass
-    /**
     for (const auto i : c10::irange(producer_outputs.size())) {
       if (producer_outputs[i]->uses().size() != 0) {
         getSubgraph(group).registerOutput(merged->outputs()[i]);
@@ -493,14 +489,7 @@ struct GraphFuser {
         producer_outputs[i]->replaceAllUsesWith(new_producer);
       }
     }
-    **/
-    bool destroy_producer = true;
-    for (const auto i : c10::irange(producer_outputs.size())) {
-      if (producer_outputs[i]->uses().size() != 0)
-        destroy_producer = false;
-    }
-    if (destroy_producer)
-      producer->node()->destroy();
+    producer->node()->destroy();
     return group;
   }
 

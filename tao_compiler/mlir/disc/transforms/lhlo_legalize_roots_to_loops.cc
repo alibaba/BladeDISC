@@ -1684,6 +1684,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_BLOCK_WISE_ROW_REDUCE>(
   return success();
 }
 
+// TODO: rocm function is temporarily disabled, buggy and need fix
 template <int TILE_W, int TILE_H>
 LogicalResult lowerWithScheduleColReductionForRocm(
     ArrayRef<Operation*> root_ops, Operation* dominant_op, Block* parent,
@@ -1735,23 +1736,24 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   // if_col_gt512.getElseRegion().front().clear();
   // b.setInsertionPointToStart(&if_col_gt512.getThenRegion().front());
   Value block_cols = b.create<arith::CeilDivSIOp>(loc, var_cols, var_tile_w);
-  Value block_rows_bound_tmp =
+  Value block_rows_bound =
       b.create<arith::DivSIOp>(loc, block_limit, block_cols);
 
-  Value is_lt_one = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ult,
-                                            block_rows_bound_tmp, one);
-  scf::IfOp if_lt_one =
-      b.create<scf::IfOp>(loc, /* resultTypes */ llvm::None, is_lt_one,
-                          /*hasElseRegion*/ true);
-  if_lt_one.getThenRegion().front().clear();
-  if_lt_one.getElseRegion().front().clear();
-  b.setInsertionPointToStart(&if_lt_one.getThenRegion().front());
-  b.create<scf::YieldOp>(loc, one);
-  b.setInsertionPointToStart(&if_lt_one.getElseRegion().front());
-  b.create<scf::YieldOp>(loc, block_rows_bound_tmp);
-  b.setInsertionPointAfter(if_lt_one);
-  Value block_rows_bound =
-      b.create<arith::MulIOp>(loc, *(if_lt_one.getResults().begin()), one);
+  // Value is_lt_one = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ult,
+  //                                           block_rows_bound_tmp, one);
+  // SmallVector<Type, 4> types_for_lt1{block_limit.getType()};
+  // scf::IfOp if_lt_one =
+  //     b.create<scf::IfOp>(loc, /* resultTypes */ types_for_lt1, is_lt_one,
+  //                         /*hasElseRegion*/ true);
+  // if_lt_one.getThenRegion().front().clear();
+  // if_lt_one.getElseRegion().front().clear();
+  // b.setInsertionPointToStart(&if_lt_one.getThenRegion().front());
+  // b.create<scf::YieldOp>(loc, one);
+  // b.setInsertionPointToStart(&if_lt_one.getElseRegion().front());
+  // b.create<scf::YieldOp>(loc, block_rows_bound_tmp);
+  // b.setInsertionPointAfter(if_lt_one);
+  // Value block_rows_bound =
+  //     b.create<arith::MulIOp>(loc, *(if_lt_one.getResults().begin()), one);
 
   Value rows_no_loop =
       b.create<arith::MulIOp>(loc, var_tile_h, block_rows_bound);
@@ -3904,68 +3906,44 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
       }
     } break;
     case FusionType::kColReduction: {
-      // std::string k_target;
-      // static const char* env = getenv("KTARGET");
-      // if (env != nullptr) {
-      //   k_target = std::string(env);
-      // }
-      // std::string delimiter = ";";
-      // size_t pos = 0;
-      // std::string token;
-      // auto s = k_target;
-      // auto kname = getFusionFullName(fusion_op);
-      bool use_new = false;
-
-      int loop = 8;
-      static const char* envloop = getenv("NEW_COL");
-      if (envloop != nullptr) {
-        loop = envloop[0] - '0';
-        use_new = true;
-      }
-
-      // while ((pos = s.find(delimiter)) != std::string::npos) {
-      //   token = s.substr(0, pos);
-      //   if (!token.empty() && kname.rfind(token, 0) == 0) {
-      //     use_new = true;
-      //   }
-      //   s.erase(0, pos + delimiter.length());
-      // }
-      // if (!s.empty() && kname.rfind(s, 0) == 0) {
+      // bool use_new = false;
+      // int loop = 8;
+      // static const char* envloop = getenv("NEW_COL");
+      // if (envloop != nullptr) {
+      //   loop = envloop[0] - '0';
       //   use_new = true;
       // }
-      // llvm::errs() << "Fusion name " << kname << "\n";
-      // llvm::errs() << "KColReduction use new " << (use_new?1:0) << " " <<
-      // k_target << " " << kname << "\n";
+      // auto kname = getFusionFullName(fusion_op);
+      // llvm::errs() << "KColReduction <" << kname << ">, use_new: " << use_new
+      //              << " schedule_hint: " << col_reduction_schedule;
       const int col_reduction_schedule =
           getColReductionScheduleHint(dominant_op);
       LogicalResult r = success();
       if (col_reduction_schedule == DISC_TILE_W8_H32) {
-        if (use_new) {
-          // llvm::errs() << "Use new col reduce for " << kname << "\n";
-          r = lowerWithScheduleColReductionForRocm<16, 32>(
-              root_ops, dominant_op, fused_block, loop, core_count);
-        } else {
-          r = lowerWithScheduleColReductionBlockTileSchedule<8, 32>(
-              root_ops, dominant_op, fused_block);
-        }
+        // if (use_new) {
+        //   r = lowerWithScheduleColReductionForRocm<16, 32>(
+        //       root_ops, dominant_op, fused_block, loop, core_count);
+        // } else {
+        r = lowerWithScheduleColReductionBlockTileSchedule<8, 32>(
+            root_ops, dominant_op, fused_block);
+        // }
       } else if (col_reduction_schedule == DISC_TILE_W8_H16) {
-        if (use_new) {
-          // llvm::errs() << "Use new col reduce for " << kname << "\n";
-          r = lowerWithScheduleColReductionForRocm<16, 32>(
-              root_ops, dominant_op, fused_block, loop, core_count);
-        } else {
-          r = lowerWithScheduleColReductionBlockTileSchedule<8, 16>(
-              root_ops, dominant_op, fused_block);
-        }
-      } else if (col_reduction_schedule == DISC_TILE_LOOP_W64_H8) {
-        r = lowerWithScheduleColReductionForRocm<64, 8>(
-            root_ops, dominant_op, fused_block, loop, core_count);
-      } else if (col_reduction_schedule == DISC_TILE_LOOP_W16_H32) {
-        r = lowerWithScheduleColReductionForRocm<16, 32>(
-            root_ops, dominant_op, fused_block, loop, core_count);
-      } else if (col_reduction_schedule == DISC_TILE_LOOP_W8_H8) {
-        r = lowerWithScheduleColReductionForRocm<8, 8>(
-            root_ops, dominant_op, fused_block, loop, core_count);
+        // if (use_new) {
+        //   r = lowerWithScheduleColReductionForRocm<16, 32>(
+        //       root_ops, dominant_op, fused_block, loop, core_count);
+        // } else {
+        r = lowerWithScheduleColReductionBlockTileSchedule<8, 16>(
+            root_ops, dominant_op, fused_block);
+        // }
+        // } else if (col_reduction_schedule == DISC_TILE_LOOP_W64_H8) {
+        //   r = lowerWithScheduleColReductionForRocm<64, 8>(
+        //       root_ops, dominant_op, fused_block, loop, core_count);
+        // } else if (col_reduction_schedule == DISC_TILE_LOOP_W16_H32) {
+        //   r = lowerWithScheduleColReductionForRocm<16, 32>(
+        //       root_ops, dominant_op, fused_block, loop, core_count);
+        // } else if (col_reduction_schedule == DISC_TILE_LOOP_W8_H8) {
+        //   r = lowerWithScheduleColReductionForRocm<8, 8>(
+        //       root_ops, dominant_op, fused_block, loop, core_count);
       } else {
         r = lowerWithScheduleColReductionBlockTileSchedule<8, 8>(
             root_ops, dominant_op, fused_block);

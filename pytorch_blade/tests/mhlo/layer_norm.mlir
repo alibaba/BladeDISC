@@ -370,9 +370,9 @@ func.func @torch.aten.native_layer_norm.dynamic_shape.partial(%arg0: !torch.vten
 // CHECK:         %[[T3:.*]] = chlo.broadcast_multiply %[[ARG0]], %[[ARG4]] : (tensor<?x?x?xf32>, tensor<768xf32>) -> tensor<?x?x?xf32>
 // CHECK:         %[[T4:.*]] = chlo.broadcast_multiply %[[ARG0]], %[[T2]] : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
 // CHECK:         %[[T5:.*]] = mhlo.reduce(%[[T4]] init: %[[T0]]) applies mhlo.add across dimensions = [0, 1] : (tensor<?x?x?xf32>, tensor<f32>) -> tensor<?xf32>
-// CHECK:         %[[T6:.*]] = mhlo.convert(%[[T5]]) : (tensor<?xf32>) -> tensor<768xf32>
+// CHECK:         %[[T6:.*]] = tensor.cast %[[T5]] : tensor<?xf32> to tensor<768xf32>
 // CHECK:         %[[T7:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T0]]) applies mhlo.add across dimensions = [0, 1] : (tensor<?x?x?xf32>, tensor<f32>) -> tensor<?xf32>
-// CHECK:         %[[T8:.*]] = mhlo.convert(%[[T7]]) : (tensor<?xf32>) -> tensor<768xf32>
+// CHECK:         %[[T8:.*]] = tensor.cast %[[T7]] : tensor<?xf32> to tensor<768xf32>
 // CHECK:         %[[T9:.*]] = mhlo.reduce(%[[T3]] init: %[[T0]]) applies mhlo.add across dimensions = [2] : (tensor<?x?x?xf32>, tensor<f32>) -> tensor<?x?xf32>
 // CHECK:         %[[T10:.*]] = tensor.dim %[[T3]], %[[C0]] : tensor<?x?x?xf32>
 // CHECK:         %[[T11:.*]] = arith.index_cast %[[T10]] : index to i32

@@ -153,9 +153,8 @@ LogicalResult ConvertAtenOp<AtenRelu6Op>::matchAndRewrite(
   Value zero = chlo::getConstantLike(rewriter, loc, 0.0, input);
   Value six = chlo::getConstantLike(rewriter, loc, 6.0, input);
   Value relu = rewriter.create<mhlo::MaxOp>(loc, inputTy, input, zero);
-  Value output = rewriter.create<mhlo::MinOp>(loc, inputTy, relu, six);
-  rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
-      op, getTypeConverter()->convertType(op.getType()), output);
+  rewriter.replaceOpWithNewOp<mhlo::MinOp>(
+      op, getTypeConverter()->convertType(op.getType()), relu, six);
   return success();
 }
 
@@ -240,9 +239,8 @@ LogicalResult ConvertAtenOp<AtenSigmoidOp>::matchAndRewrite(
   Value negVal = rewriter.create<mhlo::NegOp>(loc, input);
   Value expVal = rewriter.create<mhlo::ExpOp>(loc, negVal);
   Value addVal = rewriter.create<mhlo::AddOp>(loc, expVal, one);
-  Value output = rewriter.create<mhlo::DivOp>(loc, one, addVal);
-  rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
-      op, getTypeConverter()->convertType(op.getType()), output);
+  rewriter.replaceOpWithNewOp<mhlo::DivOp>(
+      op, getTypeConverter()->convertType(op.getType()), one, addVal);
   return success();
 }
 
@@ -317,9 +315,8 @@ LogicalResult ConvertAtenOp<AtenGeluBackwardOp>::matchAndRewrite(
   input_alpha = rewriter.create<mhlo::MulOp>(loc, input_alpha, alpha);
 
   Value result = rewriter.create<mhlo::AddOp>(loc, half_one, input_alpha);
-  result = rewriter.create<mhlo::MulOp>(loc, grad_output, result);
-  rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
-      op, getTypeConverter()->convertType(op.getType()), result);
+  rewriter.replaceOpWithNewOp<mhlo::MulOp>(
+      op, getTypeConverter()->convertType(op.getType()), grad_output, result);
   return success();
 }
 
@@ -466,10 +463,12 @@ LogicalResult ConvertAtenOp<AtenLeakyReluOp>::matchAndRewrite(
   Value compareGtZero = rewriter.create<mhlo::CompareOp>(
       loc, input, zeroVal, mhlo::ComparisonDirection::GT);
 
-  Value output = rewriter.create<mhlo::SelectOp>(
-      loc, inputTy, compareGtZero, input, leakyActivationVal);
-  rewriter.replaceOpWithNewOp<mhlo::ConvertOp>(
-      op, getTypeConverter()->convertType(op.getType()), output);
+  rewriter.replaceOpWithNewOp<mhlo::SelectOp>(
+      op,
+      getTypeConverter()->convertType(op.getType()),
+      compareGtZero,
+      input,
+      leakyActivationVal);
   return success();
 }
 } // namespace

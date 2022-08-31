@@ -26,4 +26,4 @@ RUN bash /install/scripts/install-tensorrt.sh
 RUN bash /install/scripts/install-cudnn.sh
 
 ENV PATH="/opt/cmake/bin:${PATH}"
-ENV LD_LIBRARY_PATH="/usr/local/TensorRT/lib/:${LD_LIBRARY_PATH}"
+ENV LD_LIBRARY_PATH="/usr/local/TensorRT/lib/:/usr/local/cuda/lib64/:${LD_LIBRARY_PATH}"

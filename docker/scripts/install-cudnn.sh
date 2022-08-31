@@ -27,3 +27,6 @@ fi
 
 tar -xzf ${local_tgz} --skip-old-files -C /usr/local/
 rm -f ${local_tgz}
+
+# delete potential old version.
+find /usr/lib/ -name libcudnn* -delete

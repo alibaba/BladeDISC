@@ -5,7 +5,7 @@ name: Cronjobs
 on:
   schedule:
     # * is a special character in YAML so you have to quote this string
-    - cron: '30 23 * * *' # 11:30 pm
+    - cron: '30 15 * * *' # 11:30 pm UTC+8:00
   workflow_dispatch:
 
 jobs:
@@ -24,7 +24,7 @@ jobs:
       run: bash scripts/ci/auto_rebase.sh
 
   NGC-TorchTRT-D2:
-    if: github.event.schedule != '30 23 * * *'
+    if: github.event.schedule != '30 15 * * *'
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-trt-and-d2-benchmark

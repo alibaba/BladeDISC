@@ -5,13 +5,13 @@ name: TorchBench
 on:
   schedule:
     # * is a special character in YAML so you have to quote this string
-    - cron: '30 23 * * *' # 11:30 pm
-    - cron: '30 23 * * 5' # 11:30 pm every Friday
+    - cron: '30 15 * * *' # 11:30 pm UTC+8:00
+    - cron: '30 15 * * 5' # 11:30 pm UTC+8:00 every Friday
   workflow_dispatch:
 
 jobs:
   TorchBenchPartial:
-    if: github.event.schedule != '30 23 * * 5' # daily or dispatch
+    if: github.event.schedule != '30 15 * * 5' # daily or dispatch
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
@@ -29,7 +29,7 @@ jobs:
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
   TorchBenchFull:
-    if: github.event.schedule == '30 23 * * 5'
+    if: github.event.schedule == '30 15 * * 5'
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark

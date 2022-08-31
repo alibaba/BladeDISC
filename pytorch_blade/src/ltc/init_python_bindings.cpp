@@ -12,12 +12,15 @@
 #include "ltc/init_python_bindings.h"
 
 #include "ltc/disc_backend/backend_impl.h"
+#include "ltc/disc_compiler/replay.h"
 
 namespace torch_disc {
 namespace py = pybind11;
 void InitLtcModuleBindings(py::module m) {
   py::module ltc = m.def_submodule(
       "_ltc", "torch_blade python bindings to PyTorch LazyTensor Core");
+
   ltc.def("_init_disc_backend", &compiler::InitTorchScriptBackend);
+  ltc.def("load_and_replay", &compiler::LoadAndReplay);
 }
 } //  namespace torch_disc

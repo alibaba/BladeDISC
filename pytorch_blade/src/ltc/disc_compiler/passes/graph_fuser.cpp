@@ -473,12 +473,12 @@ struct GraphFuser {
       mergeFusionGroups(group, producer->node());
       return group;
     }
-
     Node* merged = mergeNodeIntoGroup(group, producer->node());
     // remaining uses of this producer can occur because we allow
     // fusion in cases where uses remain after the consumer
     // if these exist, re-route them to the version of producer
     // created in FusionGroup
+
     auto producer_outputs = producer->node()->outputs();
     for (const auto i : c10::irange(producer_outputs.size())) {
       if (producer_outputs[i]->uses().size() != 0) {

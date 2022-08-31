@@ -8,23 +8,31 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-import unittest
-import torch
+import os
 import tempfile
-import onnx
+import unittest
 
-from torch_blade import tools
-from torch_blade import tensorrt
+import onnx
+import torch
+from tests.tensorrt import skipIfNoTensorRT
+from torch import nn
+from torch.nn import functional as F
+from torch_blade import tensorrt, tools
+from torch_blade.clustering.support_fusion_group import supported_node_fusion
 from torch_blade.config import Config
 from torch_blade.optimization import optimize
-from torch_blade.clustering.support_fusion_group import supported_node_fusion
 from torch_blade.testing.common_utils import Feedforward, TestCase
-from tests.tensorrt import skipIfNoTensorRT
 
 
 @skipIfNoTensorRT()
 class TestHolderSerialize(TestCase):
+    def setUp(self):
+        super().setUp()
+        self.tmp_dir = tempfile.TemporaryDirectory()
+
+    def tearDown(self) -> None:
+        self.tmp_dir.cleanup()
+
     def test_holder_serialize(self):
         input = torch.ones([10, 10]).cuda()
         net = Feedforward(10, 10)
@@ -36,7 +44,6 @@ class TestHolderSerialize(TestCase):
         supported_node_fusion(graph, graph, unspt_nodes)
         fusion_group = [n for n in graph.nodes() if n.kind() == "prim::FusionGroup"]
         self.assertEqual(len(fusion_group), 1)
-        subgraph = fusion_group[0].g("Subgraph")
         tensorrt.trt_engine_conversion(module)
         engines = tensorrt.collect_engines(module)
         self.assertGreaterEqual(len(engines), 1)
@@ -164,6 +171,35 @@ class TestHolderSerialize(TestCase):
         }
         shapes = [shapes1, shapes2]
         self._test_dynamic_shape_engines(MyModule1(), shapes)
+
+    def test_trt_ptq_engine(self):
+        class Model(nn.Module):
+            def __init__(self):
+                super(Model, self).__init__()
+                self.conv1 = nn.Conv2d(1, 256, (3, 3), padding=1, bias=False)
+                self.conv2 = nn.Conv2d(256, 512, (3, 3), padding=1, bias=False)
+
+            def forward(self, x):
+                x = self.conv1(x)
+                x = F.relu(x)
+                x = self.conv2(x)
+                x = F.relu(x)
+                return x
+
+        model = Model().cuda().eval()
+        calib_data = [(torch.randn(1, 1, 20, 20).cuda(), ), ]
+        cfg = Config()
+        cfg.optimization_pipeline = "TensorRT"
+        cfg.quantization_calibration_data = calib_data
+        cfg.enable_int8 = True
+        with cfg:
+            opt_model = optimize(model, True, calib_data[0])
+        opt_output = opt_model(*calib_data[0])
+        model_path = os.path.join(self.tmp_dir.name, "int8_ptq.pt")
+        torch.jit.save(opt_model, model_path)
+        opt_model = torch.jit.load(model_path)
+        now_opt_output = opt_model(*calib_data[0])
+        self.assertTrue(torch.equal(opt_output, now_opt_output))
 
 
 if __name__ == "__main__":

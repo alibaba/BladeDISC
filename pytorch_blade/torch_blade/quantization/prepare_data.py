@@ -186,14 +186,19 @@ class DataPreparer:
 
     def get_calib_data_for_each_group(self):
         all_data = []
-        self.c_module.create_method_from_graph("inference", self.graph)
+        self.c_module.create_method_from_graph("_inference", self.graph)
         for data in self.calibration_data:
-            self.c_module.inference(*data, self.custom_module_owner)
+            self.c_module._inference(*data, self.custom_module_owner)
 
         for observer_name in self.all_collect_observer_name:
             data = self.custom_module_owner.__getattr__(observer_name).data
             # the first one is dummy data
             all_data.append(data[1:])
+
+        # Must remove the created method or there will be a core dump
+        # when use torch.jit.save to serialize the optimized model.
+        self.c_module.unsafe_remove_method("_inference")
+
         return all_data
 
     def prepare(self):

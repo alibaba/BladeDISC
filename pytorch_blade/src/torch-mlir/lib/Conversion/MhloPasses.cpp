@@ -38,9 +38,6 @@ void ::mlir::torch::registerTorchToMhloPasses() {
 void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
     OpPassManager& pm,
     const Torch::TorchLoweringPipelineOptions& options) {
-  // Check some invariants to catch errors in a clear way.
-  pm.addPass(createVerifyInvariantsBeforeBackendLoweringPass());
-
   ::mlir::torch::Torch::TorchLoweringPipelineOptions funcOptions;
   funcOptions.decompose = false;
   ::mlir::torch::createDiscTorchFunctionToTorchBackendPipeline(pm, funcOptions);

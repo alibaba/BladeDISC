@@ -20,8 +20,8 @@
 
 #include "torch-mlir/Conversion/MhloPasses.h"
 
-#include <mlir-hlo/Dialect/mhlo/IR/chlo_ops.h> // from tf repo
-#include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
+#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "mlir-hlo/utils/hlo_utils.h"
 
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -30,6 +30,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 
 #include "lib/Conversion/TorchToMhlo/MhloLegalizeUtils.h"
+#include "stablehlo/dialect/ChloOps.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/Utils/TorchUpstream.h"

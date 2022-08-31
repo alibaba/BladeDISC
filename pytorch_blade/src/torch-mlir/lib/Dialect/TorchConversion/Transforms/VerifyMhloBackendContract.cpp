@@ -18,7 +18,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <mlir-hlo/Dialect/mhlo/IR/chlo_ops.h> // from tf repo
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
 
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
@@ -30,6 +29,7 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/Passes.h"
 
+#include "stablehlo/dialect/ChloOps.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "torch-mlir/Conversion/MhloPasses.h"
 #include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"

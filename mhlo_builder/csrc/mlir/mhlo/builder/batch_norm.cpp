@@ -11,9 +11,9 @@
 
 #include "mlir/mhlo/builder/batch_norm.h"
 
-#include "mlir-hlo/Dialect/mhlo/IR/chlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/mhlo/builder/mlir_attr_utils.h"
+#include "stablehlo/dialect/ChloOps.h"
 
 namespace mlir {
 namespace mhlo {

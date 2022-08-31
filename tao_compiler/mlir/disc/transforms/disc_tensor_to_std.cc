@@ -64,7 +64,7 @@ LogicalResult GenerateOpConverter::matchAndRewrite(
   }
 
   // for now, only single block region is supported.
-  if (op.body().getBlocks().size() != 1) {
+  if (op.getBody().getBlocks().size() != 1) {
     op.emitError("only single block region inside generate op is supported");
     return failure();
   }
@@ -72,7 +72,7 @@ LogicalResult GenerateOpConverter::matchAndRewrite(
   Location loc = op.getLoc();
   ImplicitLocOpBuilder lb(loc, rewriter);
 
-  Block& block = op.body().front();
+  Block& block = op.getBody().front();
   int64_t numElems = resultTy.getDimSize(0);
   SmallVector<Value, 4> extentValues;
   for (int64_t i = 0; i < numElems; ++i) {

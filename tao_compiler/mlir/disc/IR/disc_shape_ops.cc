@@ -236,12 +236,12 @@ struct IdentityTieShapeOp : public OpRewritePattern<TieShapeOp> {
       if (staticDim != ShapedType::kDynamicSize) continue;
 
       auto dimOp = dyn_cast_or_null<tensor::DimOp>(dynamicDim.getDefiningOp());
-      if (!dimOp || dimOp.source() != operand) {
+      if (!dimOp || dimOp.getSource() != operand) {
         allDimMatch = false;
         break;
       }
       auto indexOp = dyn_cast_or_null<arith::ConstantIndexOp>(
-          dimOp.index().getDefiningOp());
+          dimOp.getIndex().getDefiningOp());
       if (!indexOp || indexOp.getValue().cast<IntegerAttr>().getInt() != idx) {
         allDimMatch = false;
         break;

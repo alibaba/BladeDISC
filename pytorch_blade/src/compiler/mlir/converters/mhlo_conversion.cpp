@@ -11,7 +11,6 @@
 
 #include "compiler/mlir/converters/mhlo_conversion.h"
 
-#include <mlir-hlo/Dialect/mhlo/IR/chlo_ops.h>
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h>
 #include <mlir/CAPI/IR.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
@@ -32,6 +31,7 @@
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/IR/BlockAndValueMapping.h"
 #include "mlir/Pass/PassManager.h"
+#include "stablehlo/dialect/ChloOps.h"
 #include "torch-mlir/Conversion/MhloPasses.h"
 #include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
 #include "torch-mlir/Dialect/Torch/Transforms/Passes.h"

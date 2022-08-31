@@ -20,8 +20,8 @@ limitations under the License.
 
 #include <type_traits>
 
-#include "mlir-hlo/Dialect/mhlo/IR/chlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
+#include "stablehlo/dialect/ChloOps.h"
 
 namespace mlir {
 namespace mhlo_disc {

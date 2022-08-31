@@ -21,7 +21,7 @@ limitations under the License.
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
-include "mlir-hlo/Dialect/mhlo/IR/hlo_ops_base.td"
+include "mlir-hlo/Dialect/mhlo/IR/hlo_ops_common.td"
 include "mlir-hlo/Dialect/mhlo/IR/hlo_utils.td"
 
 def HLODISC_Dialect : Dialect {

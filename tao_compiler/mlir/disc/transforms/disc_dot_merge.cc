@@ -367,8 +367,8 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
       dim_numbers.getRhsContractingDimensions());
 
   // Build result DotGeneralOp
-  auto lhs = (share_type == LEFT) ? non_concat_op : concat_op;
-  auto rhs = (share_type == LEFT) ? concat_op : non_concat_op;
+  auto lhs = (share_type == LEFT) ? non_concat_op : concat_op.getResult();
+  auto rhs = (share_type == LEFT) ? concat_op.getResult() : non_concat_op;
   Value merged_dot = builder.create<mhlo::DotGeneralOp>(
       loc, result_type, lhs, rhs, dot_dimension_attr, nullptr);
 

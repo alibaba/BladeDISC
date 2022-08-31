@@ -199,7 +199,7 @@ static bool DoGemmWithAlgorithm(
             /*leading dim of LHS=*/lhs_matrix.num_cols,
             /*beta=*/static_cast<OutT>(beta), &output_data,
             /*leading dim of output=*/n, computation_type, *algorithm,
-            output_profile_result)
+            se::blas::kDefaultComputePrecision, output_profile_result)
         .ok();
   }
 
@@ -215,7 +215,8 @@ static bool DoGemmWithAlgorithm(
             /*leading dim of RHS=*/rhs_matrix.num_cols, rhs_stride, lhs_data,
             /*leading dim of LHS=*/lhs_matrix.num_cols, lhs_stride,
             /*beta=*/static_cast<AlphaBeta>(beta), &output_data,
-            /*leading dim of output=*/n, output_stride, batch_size)
+            /*leading dim of output=*/n, output_stride, batch_size,
+            se::blas::kDefaultComputePrecision)
         .ok();
   }
 

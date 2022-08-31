@@ -32,7 +32,6 @@ limitations under the License.
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/lhlo/transforms/register_passes.h"
 #include "mlir-hlo/Dialect/lhlo_gpu/IR/lhlo_gpu_ops.h"
-#include "mlir-hlo/Dialect/mhlo/IR/chlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/transforms/register_passes.h"
 #include "mlir/ExecutionEngine/OptUtils.h"  // from @llvm-project
@@ -47,6 +46,7 @@ limitations under the License.
 #include "mlir/Target/LLVMIR/Dialect/NVVM/NVVMToLLVMIRTranslation.h"  // from @llvm-project
 #include "mlir/Target/LLVMIR/Export.h"  // from @llvm-project
 #include "mlir/Tools/mlir-opt/MlirOptMain.h"
+#include "stablehlo/dialect/ChloOps.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"

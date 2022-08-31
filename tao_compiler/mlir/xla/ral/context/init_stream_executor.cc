@@ -12,9 +12,9 @@
 #include "tensorflow/compiler/mlir/xla/ral/context/init_stream_executor.h"
 
 #include "tensorflow/compiler/mlir/xla/ral/context/base/cuda/cuda_stream.h"
+#include "tensorflow/compiler/xla/stream_executor/gpu/gpu_executor.h"
+#include "tensorflow/compiler/xla/stream_executor/stream.h"
 #include "tensorflow/core/util/env_var.h"
-#include "tensorflow/stream_executor/gpu/gpu_executor.h"
-#include "tensorflow/stream_executor/stream.h"
 #if TENSORFLOW_USE_ROCM
 #include "tensorflow/compiler/xla/stream_executor/rocm/rocm_platform.h"
 #else

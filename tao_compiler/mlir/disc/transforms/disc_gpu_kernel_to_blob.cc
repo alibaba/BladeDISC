@@ -43,13 +43,13 @@ limitations under the License.
 #include "transforms/codegen_utils.h"
 
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
-#include "tensorflow/stream_executor/gpu/asm_compiler.h"
+#include "tensorflow/compiler/xla/stream_executor/gpu/asm_compiler.h"
 #endif
 
 #if TENSORFLOW_USE_ROCM
 #include "rocm/rocm_config.h"
+#include "tensorflow/compiler/xla/stream_executor/rocm/rocm_driver_wrapper.h"
 #include "tensorflow/core/platform/rocm_rocdl_path.h"
-#include "tensorflow/stream_executor/rocm/rocm_driver_wrapper.h"
 #define CUDA_SUCCESS hipSuccess
 #define ROCM_CALL(func)                                             \
   {                                                                 \

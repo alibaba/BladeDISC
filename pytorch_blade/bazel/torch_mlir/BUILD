@@ -40,8 +40,8 @@ cc_library (
     "python/torch_mlir/dialects/torch/importer/jit_ir/csrc/ivalue_importer.h",
     "python/torch_mlir/dialects/torch/importer/jit_ir/csrc/function_importer.h",
     "python/torch_mlir/dialects/torch/importer/jit_ir/csrc/node_importer.h",
-    "python/torch_mlir/dialects/torch/importer/jit_ir/csrc/torch_to_mlir_utils.h",
     "python/torch_mlir/dialects/torch/importer/jit_ir/csrc/import_options.h",
+    "python/torch_mlir/dialects/torch/importer/jit_ir/csrc/torch_to_mlir_utils.h",
   ],
   deps = [
     ":TorchMLIRCAPI",

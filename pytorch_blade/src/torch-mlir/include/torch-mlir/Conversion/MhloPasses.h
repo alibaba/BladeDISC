@@ -18,8 +18,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TORCHMLIR_CONVERSION_MHLO_PASSES_H
-#define TORCHMLIR_CONVERSION_MHLO_PASSES_H
+#ifndef TORCHMLIR_CONVERSION_DISC_MHLO_PASSES_H
+#define TORCHMLIR_CONVERSION_DISC_MHLO_PASSES_H
 
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Pass/Pass.h"
@@ -53,4 +53,21 @@ void createDiscTorchFunctionToTorchBackendPipeline(
 } // namespace torch
 } // end namespace mlir
 
-#endif // TORCHMLIR_CONVERSION_MHLO_PASSES_H
+namespace mlir {
+class ModuleOp;
+namespace torch {
+namespace Torch {
+class TorchLoweringPipelineOptions;
+LogicalResult reduceTensorConversions(func::FuncOp& func);
+} // namespace Torch
+
+namespace TorchConversion {
+std::unique_ptr<OperationPass<func::FuncOp>> createApplyValueSemanticsPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvertTorchToMhloPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscDecomposeComplexOpsPass();
+std::unique_ptr<OperationPass<ModuleOp>> createVerifyMhloBackendContractPass();
+} // namespace TorchConversion
+} // namespace torch
+} // namespace mlir
+
+#endif // TORCHMLIR_CONVERSION_DISC_MHLO_PASSES_H

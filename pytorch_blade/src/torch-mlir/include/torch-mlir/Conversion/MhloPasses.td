@@ -7,19 +7,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef TORCHMLIR_CONVERSION_MHLO_PASSES
-#define TORCHMLIR_CONVERSION_MHLO_PASSES
+#ifndef TORCHMLIR_CONVERSION_DISC_MHLO_PASSES
+#define TORCHMLIR_CONVERSION_DISC_MHLO_PASSES
 
 include "mlir/Pass/PassBase.td"
 
 
-def ConvertTorchToMhlo: Pass<"convert-torch-to-mhlo", "func::FuncOp"> {
-  let summary = "Convert Torch ops to MHLO ops";
+def DiscConvertTorchToMhlo: Pass<"convert-disc-torch-to-mhlo", "func::FuncOp"> {
+  let summary = "Convert Torch ops to MHLO ops(Using by DISC)";
   let description = [{
     This pass assumes that MHLO ops are responsible for emitting error
     guards in case of shape mismatches.
   }];
-  let constructor = "mlir::torch::TorchConversion::createConvertTorchToMhloPass()";
+  let constructor = "mlir::torch::TorchConversion::createDiscConvertTorchToMhloPass()";
 }
 
 def ApplyValueSemantics : Pass<"torch-apply-value-semantics", "func::FuncOp"> {
@@ -42,7 +42,6 @@ def ApplyValueSemantics : Pass<"torch-apply-value-semantics", "func::FuncOp"> {
   let constructor = "mlir::torch::TorchConversion::createApplyValueSemanticsPass()";
 }
 
-
 def VerifyMhloBackendContract : Pass<"torch-verify-mhlo-backend-contract", "ModuleOp"> {
   let summary = "Verifies conformity to the mhlo backend contract";
   let constructor = "mlir::torch::TorchConversion::createVerifyMhloBackendContractPass()";
@@ -64,4 +63,4 @@ def DiscDecomposeComplexOps : Pass<"torch-disc-decompose-complex-ops", "func::Fu
   let constructor = "mlir::torch::TorchConversion::createDiscDecomposeComplexOpsPass()";
 }
 
-#endif // TORCHMLIR_CONVERSION_MHLO_PASSES
+#endif // TORCHMLIR_CONVERSION_DISC_MHLO_PASSES

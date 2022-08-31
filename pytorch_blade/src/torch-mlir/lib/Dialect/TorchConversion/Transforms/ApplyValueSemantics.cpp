@@ -74,6 +74,19 @@ class ApplyValueSemanticsPass
       op->erase();
     }
 
+    func.walk([&](Operation* op) {
+      for (auto val : op->getResults()) {
+        auto valTy = val.getType().dyn_cast_or_null<ValueTensorType>();
+        if (!valTy) {
+          continue;
+        }
+        if (!valTy.hasDtype() || !valTy.hasSizes()) {
+          op->emitError("output has incomplete tensor type and sizes");
+          signalPassFailure();
+        }
+      }
+    });
+
     ConversionTarget target(*context);
     target.addLegalDialect<
         Torch::TorchDialect,

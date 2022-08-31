@@ -16,6 +16,7 @@
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
+#include "torch-mlir/Dialect/Torch/Utils/TorchUpstream.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
@@ -120,6 +121,62 @@ LogicalResult ConvertAtenOp<AtenNativeDropoutOp>::matchAndRewrite(
 } // namespace
 
 namespace {
+template <>
+LogicalResult ConvertAtenOp<AtenNllLossForwardOp>::matchAndRewrite(
+    AtenNllLossForwardOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  Value self = op.self();
+  Value target = op.target();
+  Value weight = op.weight();
+  int64_t reduction;
+  if (!matchPattern(op.reduction(), m_TorchConstantInt(&reduction)))
+    return rewriter.notifyMatchFailure(op, "reduction must be a constant");
+
+  int64_t ignoreIndex;
+  if (!matchPattern(op.ignore_index(), m_TorchConstantInt(&ignoreIndex)))
+    return rewriter.notifyMatchFailure(
+        op, "unimplemented, the ignore_index operand is not -100");
+
+  Value constantNone = rewriter.create<ConstantNoneOp>(loc);
+  Value zero =
+      rewriter.create<Torch::ConstantIntOp>(loc, rewriter.getI64IntegerAttr(0));
+  Value one =
+      rewriter.create<Torch::ConstantIntOp>(loc, rewriter.getI64IntegerAttr(1));
+  Value batch = rewriter.create<AtenSizeIntOp>(loc, self, zero);
+
+  Value totalWeight;
+  // TODO: Incorporate the weight argument.
+  if (weight.getType().isa<Torch::NoneType>()) {
+    totalWeight = rewriter.create<AtenFloatScalarOp>(loc, batch);
+    totalWeight = rewriter.create<PrimNumToTensorScalarOp>(
+        loc, op->getResult(1).getType(), totalWeight);
+  } else {
+    return rewriter.notifyMatchFailure(
+        op, "unimplemented, the weight operand is not incorporated.");
+  }
+
+  Value result = rewriter.create<AtenIndexSelectOp>(
+      loc, self.getType(), self, one, target);
+  if (reduction == torch_upstream::Reduction::None) {
+    rewriter.replaceOp(op, {result, totalWeight});
+    return success();
+  }
+
+  auto resultType = op->getResult(0).getType();
+  result = rewriter.create<AtenSumOp>(loc, resultType, result, constantNone)
+               .getResult();
+  if (reduction == torch_upstream::Reduction::Mean) {
+    result = rewriter.create<AtenDivTensorOp>(
+        loc, result.getType(), result, totalWeight);
+  }
+  rewriter.replaceOp(op, {result, totalWeight});
+  return success();
+}
+} // namespace
+
+namespace {
 
 class DiscDecomposeComplexOpsPass
     : public DiscDecomposeComplexOpsBase<DiscDecomposeComplexOpsPass> {
@@ -135,6 +192,9 @@ class DiscDecomposeComplexOpsPass
 
     patterns.add<ConvertAtenOp<AtenNativeDropoutOp>>(context);
     target.addIllegalOp<AtenNativeDropoutOp>();
+
+    patterns.add<ConvertAtenOp<AtenNllLossForwardOp>>(context);
+    target.addIllegalOp<AtenNllLossForwardOp>();
 
     if (failed(applyPartialConversion(
             getOperation(), target, std::move(patterns)))) {

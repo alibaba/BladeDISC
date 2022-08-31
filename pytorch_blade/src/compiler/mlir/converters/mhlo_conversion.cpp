@@ -23,6 +23,7 @@
 #include "common_utils/logging.h"
 #include "common_utils/utils.h"
 #include "compiler/jit/tool_funcs.h"
+#include "compiler/jit/torch/shape_analysis.h"
 #include "compiler/mlir/converters/mhlo_converter_register.h"
 #include "compiler/mlir/converters/mlir_type_utils.h"
 #include "compiler/mlir/converters/torch_mlir_op_filter.h"
@@ -341,6 +342,7 @@ class ConvertToMhloImpl {
 
 std::tuple<std::string, std::string, std::string, std::string>
 ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
+  torch::blade::PropagateInputShapes(graph);
   std::shared_ptr<const torch::jit::Graph> const_graph = graph;
   mlir::DialectRegistry registry;
   RegisterDialects(registry);

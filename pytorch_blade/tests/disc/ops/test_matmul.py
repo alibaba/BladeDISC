@@ -44,10 +44,10 @@ class TestDiscMatMul(DiscTestCase):
         test_data = (x, y)
         annotation = ([-1, -1, -1], dtype)
         linear = Linear(self.device, dtype).eval()
-        self._test_disc(linear, [annotation, annotation], test_data)
+        self._test_disc(linear, [annotation, annotation], test_data, atol=5e-2, rtol=1e-3)
         linear = torch.nn.Linear(256, 256).to(self.device).to(dtype)
         annotation = ([-1, 120, 256], dtype)
-        self._test_disc(linear, [annotation],  (x,), atol=1e-3, rtol=1e-3)
+        self._test_disc(linear, [annotation],  (x,), atol=5e-2, rtol=1e-3)
 
     def test_linear(self):
         self._test_linear(torch.float)
@@ -98,6 +98,11 @@ class TestDiscMatMul(DiscTestCase):
         x = torch.randn(256).to(self.device)
         y = torch.randn(256).to(self.device)
         self._test_cvt_to_disc(matmul, (x, y))
+
+        x = torch.randn(256).to(self.device)
+        y = torch.randn(256, 1).to(self.device)
+        self._test_cvt_to_disc(matmul, (x, y))
+
 
     def test_bmm(self):
         @torch.jit.script

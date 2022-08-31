@@ -73,6 +73,41 @@ with torch.no_grad():
 
 ```
 
+## Performance results.
+
+We evaluated the Uni-Fold optimized by FoldAcc on multimers.
+
+<figure align="center">
+<img src="./pics/unifold_foldacc.png" style="width:70%">
+<figcaption align = "center">
+<b>
+Fig.1 Uni-Fold optimized by FoldAcc performs better on multimers than the original Uni-Fold.
+</b>
+</figcaption>
+</figure>
+
+
+
+The detailed configuration is as follows:
+
+|      Device      | enable_disc | enable_amp |  enable_trace  |  enable_low_mem  |      dtype      |
+|------------------|-------------|------------|----------------|------------------|-----------------|
+|  V100 (seq < 2k) |    True     |    True    |      True      |      False       |  torch.half     |
+|  V100 (seq > 2k) |    False    |    False   |      False     |      True        |  torch.bfloat16 |
+|  A100 (seq < 5k) |    False    |    False   |      True      |      False       |  torch.bfloat16 |
+|  A100 (seq > 5k) |    False    |    False   |      False     |      True        |  torch.bfloat16 |
+
+We also evaluated the fastest inference speed of each framework by searching best chunk_size.
+
+<figure align="center">
+<img src="./pics/foldacc_speed.png" style="width:70%">
+<figcaption align = "center">
+<b>
+Fig.2 The fastest inference speed of different frameworks.
+</b>
+</figcaption>
+</figure>
+
 ## Acknowledgement
 
 FoldAcc refers to the following projects:

@@ -1217,6 +1217,118 @@ class ConvertSparseReshapeOp : public OpRewritePattern<TF::SparseReshapeOp> {
   }
 };
 
+// op {
+//   name: "SparseFillEmptyRows"
+//   input_arg {
+//     name: "indices"
+//     type: DT_INT64
+//   }
+//   input_arg {
+//     name: "values"
+//     type_attr: "T"
+//   }
+//   input_arg {
+//     name: "dense_shape"
+//     type: DT_INT64
+//   }
+//   input_arg {
+//     name: "default_value"
+//     type_attr: "T"
+//   }
+//   output_arg {
+//     name: "output_indices"
+//     type: DT_INT64
+//   }
+//   output_arg {
+//     name: "output_values"
+//     type_attr: "T"
+//   }
+//   output_arg {
+//     name: "empty_row_indicator"
+//     type: DT_BOOL
+//   }
+//   output_arg {
+//     name: "reverse_index_map"
+//     type: DT_INT64
+//   }
+//   attr {
+//     name: "T"
+//     type: "type"
+//   }
+// }
+class ConvertSparseFillEmptyRowsOp
+    : public OpRewritePattern<TF::SparseFillEmptyRowsOp> {
+ public:
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::SparseFillEmptyRowsOp op,
+                                PatternRewriter& rewriter) const override {
+    auto loc = op.getLoc();
+    auto sparse_fill_empty_rows_op =
+        rewriter.create<mhlo_disc::SparseFillEmptyRowsOp>(
+            loc, op.output_indices().getType(), op.output_values().getType(),
+            op.empty_row_indicator().getType(),
+            op.reverse_index_map().getType(),
+            RankedTensorType::get({-1}, rewriter.getI64Type()), op.indices(),
+            op.values(), op.dense_shape(), op.default_value());
+    // N_full is in output 4
+    auto N_full_vec = sparse_fill_empty_rows_op.getResult(4);
+    Value idx_zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
+    Value idx_one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
+    Value N_full = rewriter.create<arith::IndexCastOp>(
+        loc, rewriter.getIndexType(),
+        rewriter.create<tensor::ExtractOp>(loc, N_full_vec, idx_zero));
+    Value rank = rewriter.create<tensor::DimOp>(
+        loc, sparse_fill_empty_rows_op.getResult(0), 1);
+    SmallVector<int64_t, 2> output_indices_slice_shape_values,
+        output_values_slice_shape_values;
+    output_indices_slice_shape_values.push_back(-1);
+    output_indices_slice_shape_values.push_back(-1);
+    output_values_slice_shape_values.push_back(-1);
+
+    auto create_slice_op = [&](int slice_rank, int result_index,
+                               SmallVector<int64_t, 2> slice_shape) {
+      SmallVector<Value, 2> start_values(slice_rank, idx_zero);
+      SmallVector<Value, 2> limit_values(slice_rank, rank);
+      limit_values[0] = N_full;
+      SmallVector<Value, 2> strides_values(slice_rank, idx_one);
+      auto index_ty = rewriter.getIndexType();
+      auto start_indices = rewriter.create<tensor::FromElementsOp>(
+          loc,
+          RankedTensorType::get({static_cast<int64_t>(start_values.size())},
+                                index_ty),
+          start_values);
+      auto limit_indices = rewriter.create<tensor::FromElementsOp>(
+          loc,
+          RankedTensorType::get({static_cast<int64_t>(limit_values.size())},
+                                index_ty),
+          limit_values);
+      auto strides_indices = rewriter.create<tensor::FromElementsOp>(
+          loc,
+          RankedTensorType::get({static_cast<int64_t>(strides_values.size())},
+                                index_ty),
+          strides_values);
+      auto slice_op = rewriter.create<mhlo::RealDynamicSliceOp>(
+          loc, RankedTensorType::get(slice_shape, rewriter.getI64Type()),
+          sparse_fill_empty_rows_op.getResult(result_index), start_indices,
+          limit_indices, strides_indices);
+      return slice_op;
+    };
+
+    auto output_indices_slice_op =
+        create_slice_op(2, 0, output_indices_slice_shape_values);
+    auto output_values_slice_op =
+        create_slice_op(1, 1, output_values_slice_shape_values);
+    rewriter.replaceOp(op, {
+                               output_indices_slice_op.getResult(),
+                               output_values_slice_op.getResult(),
+                               sparse_fill_empty_rows_op.getResult(2),
+                               sparse_fill_empty_rows_op.getResult(3),
+                           });
+    return success();
+  }
+};
+
 #include "tensorflow/compiler/mlir/disc/transforms/lower_tf.inc"
 
 void PrepareTFPass::runOnOperation() {
@@ -1238,7 +1350,8 @@ void PrepareTFPass::runOnOperation() {
       ConvertTopKV2OpDynamic,
       ConvertUniformOp,
       ConvertBucketizeOp,
-      ConvertSparseReshapeOp
+      ConvertSparseReshapeOp,
+      ConvertSparseFillEmptyRowsOp
   >(ctx);
   // clang-format on
   (void)applyPatternsAndFoldGreedily(func, std::move(patterns));

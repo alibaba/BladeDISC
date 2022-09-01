@@ -3844,6 +3844,263 @@ LogicalResult lowerWithScheduleSparseReshapeOpCPU(
   return success();
 }
 
+LogicalResult lowerWithScheduleSparseFillEmptyRowsOpCPU(
+    ArrayRef<Operation*> root_ops, Operation* dominant_op,
+    Block* parent = nullptr, bool non_fusion = false,
+    const ShapeAnalysis* shape_analysis = nullptr) {
+  if (!(root_ops.size() == 1 &&
+        isa<lmhlo_disc::SparseFillEmptyRowsOp>(root_ops[0]))) {
+    return dominant_op->emitError()
+           << "root_ops[0] is not a lmhlo_disc::SparseFillEmptyRowsOp";
+  }
+  auto sparse_fill_empty_rows_op =
+      cast<lmhlo_disc::SparseFillEmptyRowsOp>(root_ops[0]);
+  if (!sparse_fill_empty_rows_op) {
+    return dominant_op->emitError()
+           << "can not cast root_ops[0] to lmhlo_disc::SparseFillEmptyRowsOp";
+  }
+
+  auto loc = sparse_fill_empty_rows_op.getLoc();
+  OpBuilder b(root_ops.back());
+
+  b.setInsertionPoint(sparse_fill_empty_rows_op.getOperation());
+
+  Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
+  Value one = b.create<arith::ConstantIndexOp>(loc, 1);
+  Value false_value =
+      b.create<arith::ConstantOp>(loc, b.getIntegerAttr(b.getI1Type(), false));
+  Value true_value =
+      b.create<arith::ConstantOp>(loc, b.getIntegerAttr(b.getI1Type(), true));
+  Value zero_int = b.create<arith::ConstantOp>(
+      loc, b.getIntegerAttr(b.getIntegerType(64), 0));
+  Value one_int = b.create<arith::ConstantOp>(
+      loc, b.getIntegerAttr(b.getIntegerType(64), 1));
+
+  // input
+  Value indices = sparse_fill_empty_rows_op.indices();
+  Value values = sparse_fill_empty_rows_op.values();
+  Value dense_shape = sparse_fill_empty_rows_op.dense_shape();
+  // output
+  Value output_indices = sparse_fill_empty_rows_op.output_indices();
+  Value output_values = sparse_fill_empty_rows_op.output_values();
+  Value empty_row_indicator = sparse_fill_empty_rows_op.empty_row_indicator();
+  Value reverse_index_map = sparse_fill_empty_rows_op.reverse_index_map();
+
+  Value num_rows = b.create<arith::IndexCastOp>(
+      loc, b.getIndexType(), b.create<memref::LoadOp>(loc, dense_shape, zero));
+  // Init all to true
+  {
+    auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
+                                       /* upperBound */ num_rows,
+                                       /* step */ one);
+    for_op.getBody()->clear();
+    b.setInsertionPointToStart(for_op.getBody());
+
+    Value i = for_op.getInductionVar();
+    b.create<memref::StoreOp>(loc, true_value, empty_row_indicator, i);
+    b.create<scf::YieldOp>(loc, ValueRange({}));
+
+    b.setInsertionPointAfter(for_op);
+  }
+  // Init all to 0
+  Value row_count_memref;
+  {
+    auto alloc = b.create<memref::AllocOp>(
+        loc, MemRefType::get({-1}, b.getIntegerType(64)), num_rows);
+    row_count_memref = alloc.getResult();
+    // b.s:setInsertionPointAfter(sparse_fill_empty_rows_op.getOperation());
+
+    auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
+                                       /* upperBound */ num_rows,
+                                       /* step */ one);
+    for_op.getBody()->clear();
+    b.setInsertionPointToStart(for_op.getBody());
+
+    Value i = for_op.getInductionVar();
+    b.create<memref::StoreOp>(loc, zero_int, row_count_memref, i);
+    b.create<scf::YieldOp>(loc, ValueRange({}));
+
+    b.setInsertionPointAfter(for_op);
+  }
+
+  Value N_full;
+  // num_non_empty_row = 0
+  // for (i = 0; i < indices.shape(0); ++i) {
+  //   row_idx = indices[i, 0]
+  //   if (empty_row_indicator[row_idx] == true) {
+  //     empty_row_indicator[row_idx] = false
+  //     num_non_empty_row++
+  //   }
+  //   offset = row_idx + 1 - num_non_empty_row
+  //   reverse_index_map[i] = i + offset
+  // }
+  // num_empty_row = num_rows - num_non_empty_row
+  // N_full = num_indices + num_empty_row
+  {
+    Value num_indices = b.create<memref::DimOp>(loc, indices, 0);
+    auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
+                                       /* upperBound */ num_indices,
+                                       /* step */ one,
+                                       /* iterArgs */ ValueRange{zero_int});
+    for_op.getBody()->clear();
+    b.setInsertionPointToStart(for_op.getBody());
+
+    Value i = for_op.getInductionVar();
+    SmallVector<Value, 2> index{i, zero};
+    Value row_idx_int = b.create<memref::LoadOp>(loc, indices, index);
+    Value row_idx =
+        b.create<arith::IndexCastOp>(loc, b.getIndexType(), row_idx_int);
+    // ********************start if-else**********************
+    Value is_not_empty_row =
+        b.create<memref::LoadOp>(loc, empty_row_indicator, row_idx);
+    auto if_op = b.create<scf::IfOp>(
+        loc, /* resultTypes */ b.getIntegerType(64),
+        /* cond */ is_not_empty_row, /*withElseRegion*/ true);
+    if_op.getThenRegion().front().clear();
+    if_op.getElseRegion().front().clear();
+
+    // if then
+    b.setInsertionPointToStart(&if_op.getThenRegion().front());
+    b.create<memref::StoreOp>(loc, false_value, empty_row_indicator, row_idx);
+    b.create<scf::YieldOp>(loc, one_int);
+
+    // else
+    b.setInsertionPointToStart(&if_op.getElseRegion().front());
+    b.create<scf::YieldOp>(loc, zero_int);
+    b.setInsertionPointToEnd(for_op.getBody());
+
+    Value num_non_empty_row = *(for_op.getRegionIterArgs().begin());
+    Value yield_value =
+        b.create<arith::AddIOp>(loc, num_non_empty_row, if_op.getResult(0));
+    // ********************end if-else************************
+
+    Value i_casted = b.create<arith::IndexCastOp>(loc, b.getIntegerType(64), i);
+    Value i_offset = b.create<arith::SubIOp>(
+        loc, b.create<arith::AddIOp>(loc, row_idx_int, one_int), yield_value);
+    b.create<memref::StoreOp>(loc,
+                              b.create<arith::AddIOp>(loc, i_casted, i_offset),
+                              reverse_index_map, i);
+    // row_count[i] += 1
+    b.create<memref::StoreOp>(
+        loc,
+        b.create<arith::AddIOp>(
+            loc, b.create<memref::LoadOp>(loc, row_count_memref, row_idx),
+            one_int),
+        row_count_memref, row_idx);
+    b.create<scf::YieldOp>(loc, yield_value);
+    b.setInsertionPointAfter(for_op);
+    // after loop
+    Value num_rows = b.create<memref::LoadOp>(loc, dense_shape, zero);
+    Value num_empty_row =
+        b.create<arith::SubIOp>(loc, num_rows, for_op.getResult(0));
+    N_full = b.create<arith::AddIOp>(
+        loc, num_indices,
+        b.create<arith::IndexCastOp>(loc, b.getIndexType(), num_empty_row));
+  }
+  // store N_full
+  b.create<memref::StoreOp>(
+      loc, b.create<arith::IndexCastOp>(loc, b.getIntegerType(64), N_full),
+      sparse_fill_empty_rows_op.output_elements(), zero);
+
+  // row_start_idx = 0
+  // for (i = 0; i < num_rows; ++i) {
+  //   if (empty_row_indicator[i] == true) {
+  //     output_indices[row_start_idx, 0] = i
+  //     output_indices[row_start_idx, 1] = 0
+  //     output_values[row_start_idx] = default_value
+  //     row_start_idx += 1
+  //   } else {
+  //     row_start_idx += row_count[i]
+  //   }
+  // }
+  // fill empty rows
+  {
+    Value num_rows = b.create<arith::IndexCastOp>(
+        loc, b.getIndexType(),
+        b.create<memref::LoadOp>(loc, dense_shape, zero));
+    auto for_op = b.create<scf::ForOp>(
+        loc, /* lowerBound */ zero, /* upperBound */ num_rows,
+        /* step */ one, /* iterArgs */ ValueRange{zero});
+    for_op.getBody()->clear();
+    b.setInsertionPointToStart(for_op.getBody());
+    Value i = for_op.getInductionVar();
+    // iterArgs[0] --> row_start_idx
+    Value row_start_idx = *(for_op.getRegionIterArgs().begin());
+    Value if_empty_row = b.create<memref::LoadOp>(loc, empty_row_indicator, i);
+    auto if_op = b.create<scf::IfOp>(
+        loc,
+        /* resultTypes */ ArrayRef<Type>({b.getIndexType()}),
+        /* cond */ if_empty_row, /*withElseRegion*/ true);
+
+    if_op.getThenRegion().front().clear();
+    if_op.getElseRegion().front().clear();
+    b.setInsertionPointToStart(&if_op.getThenRegion().front());
+
+    // output_indices
+    SmallVector<Value, 2> store_index{row_start_idx, zero};
+    b.create<memref::StoreOp>(
+        loc, b.create<arith::IndexCastOp>(loc, b.getIntegerType(64), i),
+        output_indices, store_index);
+    store_index[1] = one;
+    b.create<memref::StoreOp>(loc, zero_int, output_indices, store_index);
+    // output_values
+    auto default_value = b.create<memref::LoadOp>(
+        loc, sparse_fill_empty_rows_op.default_value());
+    b.create<memref::StoreOp>(loc, default_value, output_values, row_start_idx);
+    b.create<scf::YieldOp>(loc, one);
+
+    b.setInsertionPointToStart(&if_op.getElseRegion().front());
+    Value row_count = b.create<arith::IndexCastOp>(
+        loc, b.getIndexType(),
+        b.create<memref::LoadOp>(loc, row_count_memref, i));
+    b.create<scf::YieldOp>(loc, row_count);
+
+    b.setInsertionPointToEnd(for_op.getBody());
+    Value yield_value =
+        b.create<arith::AddIOp>(loc, row_start_idx, if_op.getResult(0));
+    b.create<scf::YieldOp>(loc, yield_value);
+    b.setInsertionPointAfter(for_op);
+  }
+
+  // for (i = 0; i < indices.shape(0); ++i) {
+  //   output_idx = reverse_index_map[i]
+  //   output_indices[output_idx, 0] = indices[i, 0]
+  //   output_indices[output_idx, 1] = indices[i, 1]
+  //   output_values[output_idx] = values[i]
+  // }
+  // fill non-empty rows
+  {
+    Value num_indices = b.create<memref::DimOp>(loc, indices, 0);
+    auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
+                                       /* upperBound */ num_indices,
+                                       /* step */ one);
+    for_op.getBody()->clear();
+    b.setInsertionPointToStart(for_op.getBody());
+    Value i = for_op.getInductionVar();
+    Value output_idx = b.create<arith::IndexCastOp>(
+        loc, b.getIndexType(),
+        b.create<memref::LoadOp>(loc, reverse_index_map, i));
+    SmallVector<Value, 2> store_index{output_idx, zero};
+    SmallVector<Value, 2> load_index{i, zero};
+    b.create<memref::StoreOp>(
+        loc, b.create<memref::LoadOp>(loc, indices, load_index), output_indices,
+        store_index);
+    store_index[1] = one;
+    load_index[1] = one;
+    b.create<memref::StoreOp>(
+        loc, b.create<memref::LoadOp>(loc, indices, load_index), output_indices,
+        store_index);
+    b.create<memref::StoreOp>(loc, b.create<memref::LoadOp>(loc, values, i),
+                              output_values, output_idx);
+    b.create<scf::YieldOp>(loc, ValueRange{});
+    b.setInsertionPoint(sparse_fill_empty_rows_op.getOperation());
+  }
+
+  // TODO: Support fusion
+  for (Operation* root_op : root_ops) root_op->erase();
+  return success();
+}
+
 // we don't do inbound check for kLoop Schedule
 // LoopSplit pass will do this.
 //
@@ -3876,6 +4133,11 @@ LogicalResult lowerWithScheduleLoopCPU(
   if (non_fusion && isa<lmhlo_disc::SparseReshapeOp>(dominant_op)) {
     return lowerWithScheduleSparseReshapeOpCPU(root_ops, dominant_op, parent,
                                                non_fusion, shape_analysis);
+  }
+
+  if (non_fusion && isa<lmhlo_disc::SparseFillEmptyRowsOp>(dominant_op)) {
+    return lowerWithScheduleSparseFillEmptyRowsOpCPU(
+        root_ops, dominant_op, parent, non_fusion, shape_analysis);
   }
 
   const auto loc = dominant_op->getLoc();

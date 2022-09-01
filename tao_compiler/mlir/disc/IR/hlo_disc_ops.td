@@ -214,4 +214,28 @@ def HLO_SparseReshapeOp : HLODISC_ShapedInterfaceOp<"sparse_reshape", [NoSideEff
   );
 }
 
+// possible types for SparseFillEmptyRows:
+// Supported integral types: int64/int32/uint16/int16/uint8/int8
+// Supported float types: half/bfloat16/float/double
+def HLO_SparseFillEmptyRowsOp : HLODISC_ShapedInterfaceOp<"sparse_fill_empty_rows", [NoSideEffect]> {
+  let summary = "One-to-one mapping of TF_SparseFillEmptyRowsOp";
+  let description = [{
+    See tf's sparse_fill_empty_rows operator.
+  }];
+  let arguments = (ins
+    TensorOf<[I64]>:$indices,
+    HLO_Tensor:$values,
+    TensorOf<[I64]>:$dense_shape,
+    HLO_Tensor:$default_value
+  );
+
+  let results = (outs
+    TensorOf<[I64]>:$output_indices,
+    HLO_Tensor:$output_values,
+    TensorOf<[I1]>:$empty_row_indicator,
+    TensorOf<[I64]>:$reverse_index_map,
+    HLO_Tensor:$output_elements
+  );
+}
+
 #endif // MHLO_DISC_OPS

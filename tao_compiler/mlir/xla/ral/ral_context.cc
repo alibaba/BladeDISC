@@ -17,6 +17,8 @@
 
 #include "tensorflow/compiler/mlir/xla/ral/ral_context.h"
 
+#include <array>
+#include <atomic>
 #include <iostream>
 #include <thread>
 
@@ -27,11 +29,22 @@
 namespace tao {
 namespace ral {
 
+namespace {
+
+std::atomic<int> nextThreadIdx{0};
+
+}
+
 const char* kRalRecvInput = "ral_recv_input";
 const char* kRalSendOutput = "ral_send_output";
 const char* kRalCudaConst = "ral_const";
 const char* kRalHostConst = "ral_const";
 const char* kRalBitcast = "inc_ref";
+
+int ThreadLocalIndex::Get() {
+  static thread_local int index = nextThreadIdx++;
+  return index;
+}
 
 struct Context::Impl {
   struct Status {
@@ -67,7 +80,14 @@ struct Context::Impl {
   std::mutex api_func_cache_mu;
   std::unordered_map<std::thread::id, ApiFuncCache> api_func_cache_map;
 
+  static constexpr const int kMaxNumThreadsAllowed = 1024;
+  std::array<ApiFuncCache, kMaxNumThreadsAllowed> fast_api_func_cache_map;
+
   ApiFuncCache* GetCache() {
+    auto tid = ThreadLocalIndex::Get();
+    if (tid < kMaxNumThreadsAllowed) {
+      return &fast_api_func_cache_map[tid];
+    }
     std::lock_guard<std::mutex> l(api_func_cache_mu);
     return &api_func_cache_map[std::this_thread::get_id()];
   }

@@ -41,6 +41,11 @@ extern const char* kRalBitcast;
 // Abstraction of a core device driver api set
 class Driver;
 
+struct ThreadLocalIndex {
+  // Returns a unique index for each thread.
+  static int Get();
+};
+
 // Context wrapper for a single execution
 class ExecutionContext;
 

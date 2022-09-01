@@ -53,7 +53,8 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
   // Do mhlo lowering
   // pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
   pm.addNestedPass<func::FuncOp>(createDiscConvertTorchToMhloPass());
-  pm.addNestedPass<func::FuncOp>(createConvertTorchToMhloPass());
+  pm.addNestedPass<func::FuncOp>(createConvertTorchToMhloPass(
+      /*enableStaticShape*/ false, /*enableI32Index*/ true));
   pm.addNestedPass<func::FuncOp>(createConvertTorchToSCFPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToArithPass());
 

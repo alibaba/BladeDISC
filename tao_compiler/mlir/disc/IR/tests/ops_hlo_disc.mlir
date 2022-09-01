@@ -197,3 +197,11 @@ func.func @per_tensor_quantized_dynamic_conv(%input: tensor<?x?x?x?xi8>, %weight
        tensor<f32>, tensor<i32>) -> tensor<?x?x?x?xi8>
   return %out : tensor<?x?x?x?xi8>
 }
+
+// -----
+
+// CHECK-LABEL: func.func @sparse_reshape_basic
+func.func @sparse_reshape_basic(%input_indices : tensor<?x?xi64>, %input_shape: tensor<?xi64>, %new_shape: tensor<?xi64>) -> (tensor<?x?xi64>, tensor<?xi64>) {
+  %output_indices, %output_shape = "mhlo_disc.sparse_reshape"(%input_indices, %input_shape, %new_shape) {} : (tensor<?x?xi64>, tensor<?xi64>, tensor<?xi64>) -> (tensor<?x?xi64>, tensor<?xi64>)
+  return %output_indices, %output_shape: tensor<?x?xi64>, tensor<?xi64>
+}

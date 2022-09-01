@@ -3660,6 +3660,190 @@ LogicalResult lowerWithScheduleLargeConcatCPU(
   return success();
 }
 
+// SparseReshape implementation:
+//
+// Loop over input
+// for (i = 0; i < input_indices.shape(0), ++i) {
+//   // multidim index to linear index
+//   linear_index = ...;
+//
+//   // linear index to multidim index with new shape
+//   multidim_index = ...;
+// }
+// TODO(lanbo.llb): Support SparseReshapeOp on GPU
+LogicalResult lowerWithScheduleSparseReshapeOpCPU(
+    ArrayRef<Operation*> root_ops, Operation* dominant_op,
+    Block* parent = nullptr, bool non_fusion = false,
+    const ShapeAnalysis* shape_analysis = nullptr) {
+  if (!(root_ops.size() == 1 &&
+        isa<lmhlo_disc::SparseReshapeOp>(root_ops[0]))) {
+    return dominant_op->emitError()
+           << "root_ops[0] is not a lmhlo_disc::SparseReshapeOp";
+  }
+  auto sparse_reshape_op = cast<lmhlo_disc::SparseReshapeOp>(root_ops[0]);
+  if (!sparse_reshape_op) {
+    return dominant_op->emitError()
+           << "can not cast root_ops[0] to lmhlo_disc::SparseReshapeOp";
+  }
+
+  auto loc = sparse_reshape_op.getLoc();
+  OpBuilder b(root_ops.back());
+
+  b.setInsertionPoint(sparse_reshape_op.getOperation());
+
+  Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
+  Value one = b.create<arith::ConstantIndexOp>(loc, 1);
+  Value num_values =
+      b.create<memref::DimOp>(loc, sparse_reshape_op.input_indices(), 0);
+  Value origin_rank =
+      b.create<memref::DimOp>(loc, sparse_reshape_op.input_shape(), 0);
+  Value new_rank =
+      b.create<memref::DimOp>(loc, sparse_reshape_op.new_shape(), 0);
+
+  Value shape_accum;
+  // TODO: How to emit a reverse loop?
+  // shape_accum[new_rank];
+  // accum = new_shape[new_rank-1];
+  // reverse_end = new_rank - 1;
+  // for (i = 1, i < new_rank; ++i) {
+  //   shape_accum[reverse_end - i] = accum;
+  //   accum *= new_shape[reverse_end - i];
+  // }
+  {
+    auto alloc = b.create<memref::AllocOp>(
+        loc, MemRefType::get({-1}, b.getIntegerType(64)), new_rank);
+    shape_accum = alloc.getResult();
+
+    Value reverse_end = b.create<arith::SubIOp>(loc, new_rank, one);
+    Value init_value = b.create<memref::LoadOp>(
+        loc, sparse_reshape_op.new_shape(), reverse_end);
+    SmallVector<Value, 1> init_values({init_value});
+    auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ one,
+                                       /* upperBound */ new_rank,
+                                       /* step */ one, init_values);
+    for_op.getBody()->clear();
+    b.setInsertionPointToStart(for_op.getBody());
+
+    Value i = for_op.getInductionVar();
+    Value i_reverse = b.create<arith::SubIOp>(loc, reverse_end, i);
+    Value acc_init = *(for_op.getRegionIterArgs().begin());
+
+    b.create<memref::StoreOp>(loc, acc_init, shape_accum, i_reverse);
+    Value yield_value = b.create<arith::MulIOp>(
+        loc, acc_init,
+        b.create<memref::LoadOp>(loc, sparse_reshape_op.new_shape(),
+                                 i_reverse));
+    b.create<scf::YieldOp>(loc, ValueRange({yield_value}));
+
+    b.setInsertionPointAfter(sparse_reshape_op.getOperation());
+  }
+
+  // for (i = 0; i < input_indices.shape(0), ++i) {
+  auto for_op_n = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
+                                       /* upperBound */ num_values,
+                                       /* step */ one);
+  for_op_n.getBody()->clear();
+  b.setInsertionPointToStart(for_op_n.getBody());
+
+  // i for the outter loop
+  Value n = for_op_n.getInductionVar();
+
+  Value linear_index;
+  // linear_index = multidim_index[0];
+  // for (i = 1, i < origin_rank; ++i) {
+  //   linear_index = (linear_index * input_shape[i]) + multidim_index[i]
+  // }
+  {
+    // Sparse input op's input_indices must be a matrix according to tf's
+    // SparseReshapeOp
+    SmallVector<Value, 2> load_index({n, zero});
+    Value init_value = b.create<memref::LoadOp>(
+        loc, sparse_reshape_op.input_indices(), load_index);
+
+    auto for_op =
+        b.create<scf::ForOp>(loc, /* lowerBound */ one,
+                             /* upperBound */ origin_rank,
+                             /* step */ one, ValueRange({init_value}));
+    for_op.getBody()->clear();
+    b.setInsertionPointToStart(for_op.getBody());
+
+    Value i = for_op.getInductionVar();
+    Value carry_value = *(for_op.getRegionIterArgs().begin());
+
+    // multidim_index[n][i]
+    load_index[1] = i;
+    Value index_i = b.create<memref::LoadOp>(
+        loc, sparse_reshape_op.input_indices(), load_index);
+    Value shape_i =
+        b.create<memref::LoadOp>(loc, sparse_reshape_op.input_shape(), i);
+
+    Value yield_value = b.create<arith::AddIOp>(
+        loc, b.create<arith::MulIOp>(loc, carry_value, shape_i), index_i);
+    SmallVector<Value, 1> yield_values({yield_value});
+    b.create<scf::YieldOp>(loc, yield_values);
+
+    b.setInsertionPointToEnd(for_op_n.getBody());
+    linear_index = for_op.getResult(0);
+  }
+
+  // for (i = 0; i < new_rank-1; ++i) {
+  //   multidim_index[i] = linear_index / shape_accum[i]
+  //   linear_index = linear_index % shape_accum[i]
+  // }
+  // multidim_index[new_rank-1] = linear_index
+  {
+    Value reverse_end = b.create<arith::SubIOp>(loc, new_rank, one);
+    auto for_op =
+        b.create<scf::ForOp>(loc, /* lowerBound */ zero,
+                             /* upperBound */ reverse_end,
+                             /* step */ one, ValueRange({linear_index}));
+    for_op.getBody()->clear();
+    b.setInsertionPointToStart(for_op.getBody());
+
+    Value i = for_op.getInductionVar();
+    Value divisor = b.create<memref::LoadOp>(loc, shape_accum, i);
+    Value carry_value = *(for_op.getRegionIterArgs().begin());
+    Value multidim_index = b.create<arith::DivUIOp>(loc, carry_value, divisor);
+    Value yield_value = b.create<arith::RemUIOp>(loc, carry_value, divisor);
+
+    b.create<memref::StoreOp>(loc, multidim_index,
+                              sparse_reshape_op.output_indices(),
+                              ValueRange({n, i}));
+    b.create<scf::YieldOp>(loc, yield_value);
+    b.setInsertionPointToEnd(for_op_n.getBody());
+
+    b.create<memref::StoreOp>(loc, for_op.getResult(0),
+                              sparse_reshape_op.output_indices(),
+                              ValueRange({n, reverse_end}));
+  }
+
+  // Yield for outter loop
+  b.create<scf::YieldOp>(loc, ValueRange({}));
+  b.setInsertionPointAfter(sparse_reshape_op.getOperation());
+
+  // read new_shape to make output_shape
+  // TODO(lanbo.llb): Handle possible -1 in new_shape
+  {
+    auto for_op_out_shape = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
+                                                 /* upperBound */ new_rank,
+                                                 /* step */ one);
+    for_op_out_shape.getBody()->clear();
+    b.setInsertionPointToStart(for_op_out_shape.getBody());
+
+    Value i = for_op_out_shape.getInductionVar();
+    auto shape_val =
+        b.create<memref::LoadOp>(loc, sparse_reshape_op.new_shape(), i);
+    b.create<memref::StoreOp>(loc, shape_val, sparse_reshape_op.output_shape(),
+                              ValueRange({i}));
+    b.create<scf::YieldOp>(loc, ValueRange({}));
+    b.setInsertionPointAfter(for_op_n.getOperation());
+  }
+
+  // TODO: Support fusion for sparse reshape
+  for (Operation* root_op : root_ops) root_op->erase();
+  return success();
+}
+
 // we don't do inbound check for kLoop Schedule
 // LoopSplit pass will do this.
 //
@@ -3679,7 +3863,6 @@ LogicalResult lowerWithScheduleLoopCPU(
     const ShapeAnalysis* shape_analysis = nullptr) {
   Value result = cast<lmhlo::LmhloOp>(dominant_op).getResultBuffer();
   int64_t rank = result.getType().cast<MemRefType>().getRank();
-
   if (!multi_dim_loop || !rank || !parallel_loop) {
     return lowerWithScheduleLoop(root_ops, dominant_op, parent, non_fusion,
                                  parallel_loop, shape_analysis);
@@ -3690,8 +3873,14 @@ LogicalResult lowerWithScheduleLoopCPU(
                                            non_fusion, shape_analysis);
   }
 
+  if (non_fusion && isa<lmhlo_disc::SparseReshapeOp>(dominant_op)) {
+    return lowerWithScheduleSparseReshapeOpCPU(root_ops, dominant_op, parent,
+                                               non_fusion, shape_analysis);
+  }
+
   const auto loc = dominant_op->getLoc();
   OpBuilder b(root_ops.back());
+
   Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
   Value one = b.create<arith::ConstantIndexOp>(loc, 1);
   SmallVector<Value> vars;

@@ -194,6 +194,81 @@ LogicalResult QuantizedDynamicConvOp::verify() {
   return CommonVerifyForQuantizedComputeIntensiveOp(this);
 }
 
+//===----------------------------------------------------------------------===//
+// SparseReshapeOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult SparseReshapeOp::reifyReturnTypeShapes(
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
+  SparseReshapeOp::Adaptor adaptor(operands);
+  auto input_indices_type =
+      adaptor.input_indices().getType().dyn_cast<ShapedType>();
+  auto input_shape_type =
+      adaptor.input_shape().getType().dyn_cast<ShapedType>();
+  auto new_shape_type = adaptor.new_shape().getType().dyn_cast<ShapedType>();
+  if (!input_indices_type || !input_shape_type || !new_shape_type) {
+    return failure();
+  }
+
+  if (input_indices_type.getRank() != 2 || input_shape_type.getRank() != 1) {
+    return failure();
+  }
+  Location loc = this->getLoc();
+
+  Value num_values = builder.create<tensor::DimOp>(loc, operands[0], 0);
+  Value new_rank = builder.create<tensor::DimOp>(loc, operands[2], 0);
+  // output indices
+  SmallVector<Value, 2> output_indices_shape_values;
+  output_indices_shape_values.push_back(num_values);
+  output_indices_shape_values.push_back(new_rank);
+  Value output_indices_shape =
+      builder.create<tensor::FromElementsOp>(loc, output_indices_shape_values);
+  reifiedReturnShapes.push_back(output_indices_shape);
+
+  // output shape
+  SmallVector<Value, 1> output_shape_shape_values;
+  Value output_rank =
+      builder.create<tensor::DimOp>(loc, operands[operands.size() - 1], 0);
+  output_shape_shape_values.push_back(output_rank);
+  Value output_shape_shape =
+      builder.create<tensor::FromElementsOp>(loc, output_shape_shape_values);
+  reifiedReturnShapes.push_back(output_shape_shape);
+  return success();
+}
+
+LogicalResult SparseReshapeOp::verify() {
+  auto input_indices_type =
+      this->input_indices().getType().template dyn_cast<RankedTensorType>();
+  auto input_shape_type =
+      this->input_shape().getType().template dyn_cast<RankedTensorType>();
+  auto new_shape_type =
+      this->new_shape().getType().template dyn_cast<RankedTensorType>();
+  auto output_indices_type =
+      this->output_indices().getType().template dyn_cast<RankedTensorType>();
+  auto output_shape_type =
+      this->output_shape().getType().template dyn_cast<RankedTensorType>();
+
+  if (!input_indices_type || !input_shape_type || !new_shape_type) {
+    return this->emitOpError() << "only support ranked input.\n";
+  }
+  if (!input_indices_type.getElementType().isInteger(64) ||
+      !input_shape_type.getElementType().isInteger(64) ||
+      !new_shape_type.getElementType().isInteger(64)) {
+    return this->emitOpError() << "only support int64 input.\n";
+  }
+  if (input_indices_type.getRank() != 2 || output_indices_type.getRank() != 2) {
+    return this->emitOpError() << "Input/Output indices must be a matrix.\n";
+  }
+  if (input_shape_type.getRank() != 1 || new_shape_type.getRank() != 1 ||
+      output_shape_type.getRank() != 1) {
+    return this->emitOpError()
+           << "Input/Output shape and new shape must be a vector.\n";
+  }
+
+  return success();
+}
+
 }  // namespace mhlo_disc
 }  // namespace mlir
 

@@ -66,8 +66,7 @@ bool platformHasFastInt8() {
 TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
     const std::string& proto_bytes,
     const std::shared_ptr<backends::EngineState>& state,
-    const std::vector<DynamicRanges> dynamic_ranges,
-    const QValType& q_val) {
+    const std::vector<DynamicRanges> dynamic_ranges) {
   // Get supported node list
   OnnxParserContext context;
   bool supported =
@@ -137,16 +136,10 @@ TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
       calibrator.reset(grp_calibrator);
       config->setInt8Calibrator(calibrator.get());
     }
-    if (!q_val.empty()) {
-      LOG(INFO) << "Building INT8 TensorRT engine. ";
-      config->setFlag(nvinfer1::BuilderFlag::kGPU_FALLBACK);
-      config->setFlag(nvinfer1::BuilderFlag::kINT8);
-      if (!setDynamicRange(context.network, q_val)) {
-        LOG(WARNING) << "Unable to set per tensor dynamic range";
-      }
-    }
+
     auto trt_engine = TrtUniquePtr<nvinfer1::ICudaEngine>(
         context.builder->buildEngineWithConfig(*context.network, *config));
+
     bool debug_log_flag =
         env::ReadBoolFromEnvVar("TORCH_BLADE_DEBUG_LOG", false);
     if (trt_engine == nullptr && debug_log_flag) {
@@ -183,74 +176,5 @@ bool TensorrtOnnxParser::IsSupportedModel(const std::string& proto_bytes) {
   return GetSegmentList(proto_bytes, nodes_segment_list);
 }
 
-bool TensorrtOnnxParser::setDynamicRange(
-    TrtUniquePtr<nvinfer1::INetworkDefinition>& network,
-    const QValType& q_val) {
-  auto setTensorRange = [&](nvinfer1::ITensor* t, nvinfer1::ILayer* lyr) {
-    const std::string tName = t->getName();
-    auto layer_type = lyr->getType();
-    auto ret = q_val.find(tName);
-    if (ret != q_val.end()) {
-      auto target_val = ret->second;
-      return t->setDynamicRange(target_val.first, target_val.second);
-    } else if (layer_type == nvinfer1::LayerType::kCONSTANT) {
-      nvinfer1::IConstantLayer* cLyr =
-          static_cast<nvinfer1::IConstantLayer*>(lyr);
-      LOG(WARNING) << "Computing missing dynamic range for tensor " << tName
-                   << " from weights.";
-      auto wts = cLyr->getWeights();
-      double max = std::numeric_limits<double>::min();
-      for (size_t wb = 0, we = wts.count; wb < we; ++wb) {
-        double val = 0;
-        switch (wts.type) {
-          case nvinfer1::DataType::kFLOAT:
-            val = static_cast<const float*>(wts.values)[wb];
-            break;
-          case nvinfer1::DataType::kBOOL:
-            val = static_cast<const bool*>(wts.values)[wb];
-            break;
-          case nvinfer1::DataType::kINT8:
-            val = static_cast<const int8_t*>(wts.values)[wb];
-            break;
-          case nvinfer1::DataType::kINT32:
-            val = static_cast<const int32_t*>(wts.values)[wb];
-            break;
-        }
-        max = std::max(max, std::abs(val));
-      }
-      return t->setDynamicRange(-max, max);
-    } else {
-      LOG(WARNING) << "Missing dynamic range for tensor: " << tName;
-    }
-    return true;
-  };
-
-  for (int i = 0; i < network->getNbLayers(); ++i) {
-    auto lyr = network->getLayer(i);
-    for (int j = 0, e = lyr->getNbOutputs(); j < e; ++j) {
-      auto output_tensor = lyr->getOutput(j);
-      if (!setTensorRange(output_tensor, lyr)) {
-        return false;
-      }
-    }
-
-    auto type = lyr->getType();
-    int num_input = lyr->getNbInputs();
-    // getNbInputs will return 3 for some ISliceLayers but actually they only
-    // have 1 input. In such case, it will raise runtime crash when look up the
-    // second or later input. So here we only look up the first input for all
-    // ISliceLayers. todo: find out this bug is caused by onnx or trt.
-    if (type == nvinfer1::LayerType::kSLICE) {
-      num_input = 1;
-    }
-    for (int j = 0; j < num_input; ++j) {
-      auto input_tensor = lyr->getInput(j);
-      if (!setTensorRange(input_tensor, lyr)) {
-        return false;
-      }
-    }
-  }
-  return true;
-}
 } // namespace blade
 } // namespace torch

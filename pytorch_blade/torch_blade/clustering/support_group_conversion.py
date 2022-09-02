@@ -11,7 +11,7 @@
 
 import torch
 import torch_blade
-from torch_blade import pass_manager, tools, utils
+from torch_blade import pass_manager, tensorrt, tools, utils
 from torch_blade.logging import logger
 
 
@@ -114,6 +114,7 @@ def _adapt_input_value(graph, consumer_node, value):
     subgraph = torch._C.parse_ir(gstr)
     _inline_node_with_subgraph(graph, placeholder, subgraph)
 
+
 def _adapt_output_value(graph, producer_node, value):
     placeholder = graph.create('torch_blade::placeholder')
     value.replaceAllUsesWith(placeholder.output())
@@ -133,23 +134,26 @@ def _adapt_output_value(graph, producer_node, value):
     subgraph = torch._C.parse_ir(gstr)
     _inline_node_with_subgraph(graph, placeholder, subgraph)
 
+
 def _is_number(val):
     return val.type().isSubtypeOf(torch._C.NumberType.get())
+
 
 def _adapt_node_number_inputs(graph, node):
     number_inps = [(idx, inp) for idx, inp in enumerate(node.inputs()) if _is_number(inp)]
     for idx, inp in number_inps:
         _adapt_input_value(graph, node, inp)
 
+
 def _adapt_node_number_outputs(graph, node):
     number_outs = [(idx, out) for idx, out in enumerate(node.outputs()) if _is_number(out)]
     for idx, out in number_outs:
         _adapt_output_value(graph, node, out)
 
+
 def group_node_to_engine(
         module, node,
         try_cvt_to_engine_func,
-        q_info,
         adapt_number_ios,
         idxes,
         grp_calib_data=None
@@ -165,14 +169,6 @@ def group_node_to_engine(
     fallback_subgraph = node.g('Subgraph')
     subgraph = fallback_subgraph.copy()
 
-    # sample q_info for subgraph
-    if q_info is not None:
-        grp_q_info = q_info.sample_for_group(node)
-        grp_q_info.check_for_graph(fallback_subgraph)
-        grp_q_info = grp_q_info.generate_for_graph_copy(fallback_subgraph, subgraph)
-    else:
-        grp_q_info = None
-
     group_idx = idxes[0]
     subgraph_idx = idxes[1]
     num_nodes = len(subgraph.node_list())
@@ -184,7 +180,7 @@ def group_node_to_engine(
         _adapt_node_number_inputs(subgraph, subgraph.return_node())
 
     # TODO(gty): refactor register engine attribute as a common process
-    ret_eng = try_cvt_to_engine_func(module, subgraph, group_name, grp_q_info, grp_calib_data)
+    ret_eng = try_cvt_to_engine_func(module, subgraph, group_name, grp_calib_data)
     if (ret_eng is None):
         return
     attr_name, eng_type = ret_eng
@@ -199,6 +195,7 @@ def group_node_to_engine(
 
     replace_group_with_engine(graph, engine_holder, node, attr_name, eng_type)
 
+
 def group_nodes(block):
     grp_nodes = []
     for node in block.node_list():
@@ -212,7 +209,6 @@ def group_nodes(block):
 def group_to_engine_conversion(
         module,
         try_cvt_to_engine_func,
-        q_info=None,
         adapt_number_ios=False,
         quantization_calib_file=None
 ):
@@ -254,7 +250,6 @@ def group_to_engine_conversion(
             module,
             node,
             try_cvt_to_engine_func,
-            q_info,
             adapt_number_ios,
             (group_id, idx),
             grp_calib_data
@@ -276,6 +271,8 @@ def group_to_engine_conversion(
     pass_manager._jit_pass_dce_during_lower_to_trt(module.forward.graph)
     pass_manager._jit_pass_lint(module.forward.graph)
 
-    # TODO: Force Method GraphExecutor update by copy the torch._C.ScriptModule, and return a the new module.
-    # The Method maintains a GraphExecutor which is used to actually execute the Graph that defines the method.
-    # Currently the GraphExecutor is created and optimized at first time the method is called. After that the graph should not change.
+    # TODO: Force Method GraphExecutor update by copy the torch._C.ScriptModule, and
+    # return a the new module. The Method maintains a GraphExecutor which is used to
+    # actually execute the Graph that defines the method. Currently the GraphExecutor
+    # is created and optimized at first time the method is called. After that the graph
+    # should not change.

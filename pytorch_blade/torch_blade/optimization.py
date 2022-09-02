@@ -17,7 +17,7 @@ from torch_blade.pass_manager import _optimize_common
 __all__ = ['optimize']
 
 
-def _recursive_optimize(model, static_shape, q_info=None):
+def _recursive_optimize(model, static_shape):
     cfg = Config.get_current_context_or_new()
     if isinstance(model, torch.jit.ScriptModule):
         optimized_c_module = _optimize_common(model._c, static_shape)
@@ -38,10 +38,8 @@ def _optimize(model, allow_tracing, model_inputs, static_shape):
     assert isinstance(optimized_model, torch.nn.Module),\
         'Currently, input module of optimization process must be in type of torch.nn.Module.'
 
-    # q_info = prepare_q_info(optimized_model, model_inputs)
-    q_info = None
     # todo(bohua.cbh): Support more kinds of optimization algorithms.
-    _recursive_optimize(optimized_model, static_shape, q_info)
+    _recursive_optimize(optimized_model, static_shape)
 
     return optimized_model
 

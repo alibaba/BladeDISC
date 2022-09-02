@@ -23,35 +23,33 @@ from torch_blade.tensorrt.dynamic_shapes import get_dynamic_settings
 _TRT_GROUP_NAME = "trt_grp"
 
 
-def _try_build_trt_engine(dyn_proto, state, dynamic_settings, q_val, *args, **kwargs):
+def _try_build_trt_engine(dyn_proto, state, dynamic_settings, *args, **kwargs):
     # try to convert to tensorrt engine
     cfg = Config.get_current_context_or_new()
     if cfg.enable_int8:
         with flags.builder_flags_context(
                 1 << int(flags.BuilderFlag.INT8) | 1 << int(flags.BuilderFlag.FP16)
         ):
-            return _trt.cvt_onnx_to_tensorrt(dyn_proto, state, dynamic_settings, q_val)
+            return _trt.cvt_onnx_to_tensorrt(dyn_proto, state, dynamic_settings)
     elif cfg.enable_fp16:
         with flags.builder_flags_context(1 << int(flags.BuilderFlag.FP16)):
-            return _trt.cvt_onnx_to_tensorrt(dyn_proto, state, dynamic_settings, q_val)
+            return _trt.cvt_onnx_to_tensorrt(dyn_proto, state, dynamic_settings)
     else:
-        return _trt.cvt_onnx_to_tensorrt(dyn_proto, state, dynamic_settings, q_val)
+        return _trt.cvt_onnx_to_tensorrt(dyn_proto, state, dynamic_settings)
 
 
-def get_unsupported_nodes(graph, ignore_device=False, q_info=None):
+def get_unsupported_nodes(graph, ignore_device=False):
     trt_unsupported = backend_testbed.get_unsupported_nodes(
         graph,
         _trt.is_onnx2trt_supported,
         _trt.backend_name(),
         ignore_device=ignore_device,
-        q_info=q_info,
     )
     return trt_unsupported
 
 
 def trt_engine_conversion(
         c_module,
-        q_info=None,
         disable_fallback=False,
         dynamic_settings=None,
         quantization_calib_file=None
@@ -60,7 +58,6 @@ def trt_engine_conversion(
         c_module,
         _TRT_GROUP_NAME,
         _try_build_trt_engine,
-        q_info,
         disable_fallback,
         dynamic_settings,
         cast_int_to_i32=True,
@@ -68,13 +65,12 @@ def trt_engine_conversion(
     )
 
 
-def optimize_trt(script_module, q_info=None, disable_fallback=False):
+def optimize_trt(script_module, disable_fallback=False):
     """
     Given a ScriptModule, do TensorRT optimization on it.
 
     Args:
         script_module(torch.jit.ScriptModule): PyTorch ScriptModule to be optimized by trt.
-        q_info (QuantizationInfo): Quantization information.
     """
     assert isinstance(
         script_module, torch.jit.ScriptModule
@@ -84,11 +80,11 @@ def optimize_trt(script_module, q_info=None, disable_fallback=False):
     # do tensorrt optimization
     c_module = script_module._c
     graph = c_module.forward.graph
-    trt_unsupported = get_unsupported_nodes(graph, q_info=q_info)
+    trt_unsupported = get_unsupported_nodes(graph)
     dynamic_settings = get_dynamic_settings(c_module, trt_unsupported)
     top_level_block = graph
-    supported_node_fusion(graph, top_level_block, trt_unsupported, q_info)
+    supported_node_fusion(graph, top_level_block, trt_unsupported)
     with get_calib_file_for_each_group(c_module) as quantization_calib_file:
         trt_engine_conversion(
-            c_module, q_info, disable_fallback, dynamic_settings, quantization_calib_file
+            c_module, disable_fallback, dynamic_settings, quantization_calib_file
         )

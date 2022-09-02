@@ -117,9 +117,9 @@ LogicalResult eliminateIdentityTranspse(mhlo::TransposeOp op,
 LogicalResult propagateDimOfTranspse(tensor::DimOp op,
                                      PatternRewriter& rewriter) {
   auto indexOp =
-      dyn_cast_or_null<arith::ConstantIndexOp>(op.index().getDefiningOp());
+      dyn_cast_or_null<arith::ConstantIndexOp>(op.getIndex().getDefiningOp());
   auto transposeOp =
-      dyn_cast_or_null<mhlo::TransposeOp>(op.source().getDefiningOp());
+      dyn_cast_or_null<mhlo::TransposeOp>(op.getSource().getDefiningOp());
   if (!indexOp || !transposeOp) return failure();
 
   auto perm = transposeOp.permutation().getValues<int64_t>();

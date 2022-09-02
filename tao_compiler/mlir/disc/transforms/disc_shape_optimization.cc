@@ -176,7 +176,7 @@ struct DimOfShapedTypeOpInterface : public OpRewritePattern<OpTy> {
 
   LogicalResult matchAndRewrite(OpTy dimOp,
                                 PatternRewriter& rewriter) const override {
-    OpResult dimValue = dimOp.source().template dyn_cast<OpResult>();
+    OpResult dimValue = dimOp.getSource().template dyn_cast<OpResult>();
     if (!dimValue) return failure();
     auto shapedTypeOp =
         dyn_cast<InferShapedTypeOpInterface>(dimValue.getOwner());
@@ -288,7 +288,7 @@ struct DimOfTieShapeOpCanonicalizationPattern
 
   LogicalResult matchAndRewrite(tensor::DimOp op,
                                 PatternRewriter& rewriter) const override {
-    auto tieShapeOp = op.source().getDefiningOp<disc_shape::TieShapeOp>();
+    auto tieShapeOp = op.getSource().getDefiningOp<disc_shape::TieShapeOp>();
     if (!tieShapeOp) return failure();
     Optional<int64_t> dimIndex = op.getConstantIndex();
     if (!dimIndex) return failure();
@@ -309,10 +309,10 @@ struct ExtractElementOfTieShapeOpCanonicalizationPattern
 
   LogicalResult matchAndRewrite(tensor::ExtractOp op,
                                 PatternRewriter& rewriter) const override {
-    auto tieShapeOp = op.tensor().getDefiningOp<disc_shape::TieShapeOp>();
+    auto tieShapeOp = op.getTensor().getDefiningOp<disc_shape::TieShapeOp>();
     if (!tieShapeOp) return failure();
     rewriter.replaceOpWithNewOp<tensor::ExtractOp>(
-        op, tieShapeOp->getOperand(0), op.indices());
+        op, tieShapeOp->getOperand(0), op.getIndices());
     return success();
   }
 };
@@ -329,15 +329,15 @@ struct ExtractElementOfConcatOpCanonicalizationPattern
 
   LogicalResult matchAndRewrite(tensor::ExtractOp op,
                                 PatternRewriter& rewriter) const override {
-    if (op.indices().size() != 1) return failure();
+    if (op.getIndices().size() != 1) return failure();
     auto indexOp = dyn_cast_or_null<arith::ConstantOp>(
-        op.indices().front().getDefiningOp());
+        op.getIndices().front().getDefiningOp());
     if (!indexOp) return failure();
     int64_t index = indexOp.getValue().cast<IntegerAttr>().getInt();
 
-    auto concatOp = op.tensor().getDefiningOp<mhlo::ConcatenateOp>();
+    auto concatOp = op.getTensor().getDefiningOp<mhlo::ConcatenateOp>();
     if (!concatOp) return failure();
-    if (!isCandidateShapeTensorType(op.tensor().getType())) return failure();
+    if (!isCandidateShapeTensorType(op.getTensor().getType())) return failure();
 
     for (Value operand : concatOp->getOperands()) {
       if (!isCandidateShapeTensorType(operand.getType())) return failure();
@@ -370,15 +370,15 @@ struct ExtractElementOfSliceOpCanonicalizationPattern
 
   LogicalResult matchAndRewrite(tensor::ExtractOp op,
                                 PatternRewriter& rewriter) const override {
-    if (op.indices().size() != 1) return failure();
+    if (op.getIndices().size() != 1) return failure();
     auto indexOp = dyn_cast_or_null<arith::ConstantOp>(
-        op.indices().front().getDefiningOp());
+        op.getIndices().front().getDefiningOp());
     if (!indexOp) return failure();
     int64_t index = indexOp.getValue().cast<IntegerAttr>().getInt();
 
-    auto sliceOp = op.tensor().getDefiningOp<mhlo::SliceOp>();
+    auto sliceOp = op.getTensor().getDefiningOp<mhlo::SliceOp>();
     if (!sliceOp) return failure();
-    if (!isCandidateShapeTensorType(op.tensor().getType())) return failure();
+    if (!isCandidateShapeTensorType(op.getTensor().getType())) return failure();
 
     int64_t start = sliceOp.start_indices().getValues<int64_t>()[0];
     int64_t stride = sliceOp.strides().getValues<int64_t>()[0];
@@ -404,17 +404,17 @@ struct ExtractElementOfReshapeOpCanonicalizationPattern
 
   LogicalResult matchAndRewrite(tensor::ExtractOp op,
                                 PatternRewriter& rewriter) const override {
-    auto tensorTy = op.tensor().getType().dyn_cast<RankedTensorType>();
+    auto tensorTy = op.getTensor().getType().dyn_cast<RankedTensorType>();
     if (!tensorTy || !tensorTy.hasStaticShape() ||
         !tensorTy.getElementType().isIntOrIndex() ||
         tensorTy.getNumElements() > 8 || tensorTy.getNumElements() == 0)
       return failure();
 
-    auto reshapeOp = op.tensor().getDefiningOp<mhlo::ReshapeOp>();
+    auto reshapeOp = op.getTensor().getDefiningOp<mhlo::ReshapeOp>();
     if (!reshapeOp) return failure();
 
     SmallVector<int64_t> indices;
-    for (Value indexValue : op.indices()) {
+    for (Value indexValue : op.getIndices()) {
       auto indexOp = indexValue.getDefiningOp<arith::ConstantOp>();
       if (!indexOp) return failure();
       indices.push_back(indexOp.getValue().cast<IntegerAttr>().getInt());
@@ -467,13 +467,13 @@ struct ExtractElementOfReduceOpCanonicalizationPattern
 
   LogicalResult matchAndRewrite(tensor::ExtractOp op,
                                 PatternRewriter& rewriter) const override {
-    auto tensorTy = op.tensor().getType().dyn_cast<RankedTensorType>();
+    auto tensorTy = op.getTensor().getType().dyn_cast<RankedTensorType>();
     if (!tensorTy || !tensorTy.hasStaticShape() ||
         !tensorTy.getElementType().isIntOrIndex() ||
         tensorTy.getNumElements() > 8 || tensorTy.getNumElements() == 0)
       return failure();
 
-    auto reduceOp = op.tensor().getDefiningOp<mhlo::ReduceOp>();
+    auto reduceOp = op.getTensor().getDefiningOp<mhlo::ReduceOp>();
     if (!reduceOp || reduceOp->getNumResults() > 1) return failure();
 
     // Only support reducing arcross a single dimension.
@@ -507,7 +507,7 @@ struct ExtractElementOfReduceOpCanonicalizationPattern
     SmallVector<Value> indices(dataTy.getRank());
     for (int64_t i = 0; i < dataTy.getRank(); ++i) {
       if (i == reduceAxis) continue;
-      indices[i] = op.indices()[nextNonReduceIdx++];
+      indices[i] = op.getIndices()[nextNonReduceIdx++];
     }
 
     Value newResult = initValue;
@@ -543,13 +543,13 @@ struct ExtractElementOfGatherOpCanonicalizationPattern
 
   LogicalResult matchAndRewrite(tensor::ExtractOp op,
                                 PatternRewriter& rewriter) const override {
-    if (op.indices().size() != 1) return failure();
+    if (op.getIndices().size() != 1) return failure();
     auto indexOp = dyn_cast_or_null<arith::ConstantOp>(
-        op.indices().front().getDefiningOp());
+        op.getIndices().front().getDefiningOp());
     if (!indexOp) return failure();
     int64_t index = indexOp.getValue().cast<IntegerAttr>().getInt();
 
-    auto gatherOp = op.tensor().getDefiningOp();
+    auto gatherOp = op.getTensor().getDefiningOp();
     if (!gatherOp || !isa<mhlo::GatherOp, mhlo::DynamicGatherOp>(gatherOp))
       return failure();
 
@@ -871,7 +871,7 @@ LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
     value2SymDim_[op->getResult(0)].setKnownNonNegative(true);
     if (failed(mgr_.mapSymbolicDimEqual(
             value2SymDim_[op->getResult(0)],
-            rankedTensor2SymDims_[dimOp.source()][*dimIndex])))
+            rankedTensor2SymDims_[dimOp.getSource()][*dimIndex])))
       return op->emitError() << "fail to merge dim\n";
   } else if (isa<arith::ConstantIndexOp, arith::ConstantIntOp>(op)) {
     int64_t val = op->getAttrOfType<IntegerAttr>("value").getInt();
@@ -883,13 +883,13 @@ LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
       return op->emitError() << "fail to merge dim\n";
     value2DefiningExpr_[out] = SymbolicDimExpr(val, out.getContext());
   } else if (auto extractOp = dyn_cast<tensor::ExtractOp>(op)) {
-    if (!isCandidateShapeTensorType(extractOp.tensor().getType()))
+    if (!isCandidateShapeTensorType(extractOp.getTensor().getType()))
       return success();
     auto indexOp = dyn_cast_or_null<arith::ConstantIndexOp>(
         op->getOperand(1).getDefiningOp());
     if (!indexOp) return success();
     int64_t index = indexOp.getValue().cast<IntegerAttr>().getInt();
-    auto& shapeTensorDims = shapeTensor2SymDims_[extractOp.tensor()];
+    auto& shapeTensorDims = shapeTensor2SymDims_[extractOp.getTensor()];
     if (index >= shapeTensorDims.size())
       return op->emitError() << "miss match shape tensor size\n";
     if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[op->getResult(0)],

@@ -274,7 +274,7 @@ func.func @topk_dynamic_shape(%arg0: !disc_ral.context) {
   // CHECK: %[[STREAM:.*]] = llvm.inttoptr %[[T0:.*]] : i32 to !llvm.ptr<i8>
   // CHECK: "disc_ral.dispatch"(%[[CTX]], %[[STREAM]]
   // CHECK-SAME: {backend_config = "gpu", call_target_name = "ral_dsort", has_side_effect = false}
-  "lmhlo_disc.custom_call"(%0, %1, %2, %6, %7) {backend_config = "{\22dimension\22:1}", call_target_name = "topk", disc.device = "gpu", has_side_effect = false, operand_segment_sizes = dense<[3, 2]> : vector<2xi32>} : (memref<?x?xf32, "gpu">, memref<?x?xi32, "gpu">, memref<i32, "cpu">, memref<?x?xf32, "gpu">, memref<?x?xi32, "gpu">) -> ()
+  "lmhlo_disc.custom_call"(%0, %1, %2, %6, %7) {backend_config = "{\22dimension\22:1}", call_target_name = "topk", disc.device = "gpu", has_side_effect = false, operand_segment_sizes = array<i32: 3, 2>} : (memref<?x?xf32, "gpu">, memref<?x?xi32, "gpu">, memref<i32, "cpu">, memref<?x?xf32, "gpu">, memref<?x?xi32, "gpu">) -> ()
   %c0_0 = arith.constant 0 : index
   "disc_ral.send_output"(%arg0, %c0_0, %6) : (!disc_ral.context, index, memref<?x?xf32, "gpu">) -> ()
   %c1_1 = arith.constant 1 : index
@@ -301,7 +301,7 @@ func.func @topk_static_shape(%arg0: !disc_ral.context) {
   // CHECK: %[[STREAM:.*]] = llvm.inttoptr %[[T0:.*]] : i32 to !llvm.ptr<i8>
   // CHECK: "disc_ral.dispatch"(%[[CTX]], %[[STREAM]]
   // CHECK-SAME: {backend_config = "gpu", call_target_name = "ral_dsort", has_side_effect = false}
-  "lmhlo_disc.custom_call"(%0, %1, %2, %5, %6) {backend_config = "{\22dimension\22:1}", call_target_name = "topk", disc.device = "gpu", has_side_effect = false, operand_segment_sizes = dense<[3, 2]> : vector<2xi32>} : (memref<2x16xf32, "gpu">, memref<2x16xi32, "gpu">, memref<i32, "cpu">, memref<2x?xf32, "gpu">, memref<2x?xi32, "gpu">) -> ()
+  "lmhlo_disc.custom_call"(%0, %1, %2, %5, %6) {backend_config = "{\22dimension\22:1}", call_target_name = "topk", disc.device = "gpu", has_side_effect = false, operand_segment_sizes = array<i32: 3, 2>} : (memref<2x16xf32, "gpu">, memref<2x16xi32, "gpu">, memref<i32, "cpu">, memref<2x?xf32, "gpu">, memref<2x?xi32, "gpu">) -> ()
   %c0_0 = arith.constant 0 : index
   "disc_ral.send_output"(%arg0, %c0_0, %5) : (!disc_ral.context, index, memref<2x?xf32, "gpu">) -> ()
   %c1_1 = arith.constant 1 : index

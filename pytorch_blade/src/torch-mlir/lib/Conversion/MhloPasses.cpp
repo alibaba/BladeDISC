@@ -38,9 +38,6 @@ void ::mlir::torch::registerTorchToMhloPasses() {
 void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
     OpPassManager& pm,
     const Torch::TorchLoweringPipelineOptions& options) {
-  // Check some invariants to catch errors in a clear way.
-  pm.addPass(createVerifyInvariantsBeforeBackendLoweringPass());
-
   ::mlir::torch::Torch::TorchLoweringPipelineOptions funcOptions;
   funcOptions.decompose = false;
   ::mlir::torch::createDiscTorchFunctionToTorchBackendPipeline(pm, funcOptions);
@@ -56,7 +53,8 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
   // Do mhlo lowering
   // pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
   pm.addNestedPass<func::FuncOp>(createDiscConvertTorchToMhloPass());
-  pm.addNestedPass<func::FuncOp>(createConvertTorchToMhloPass());
+  pm.addNestedPass<func::FuncOp>(createConvertTorchToMhloPass(
+      /*enableStaticShape*/ false, /*enableI32Index*/ true));
   pm.addNestedPass<func::FuncOp>(createConvertTorchToSCFPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToArithPass());
 

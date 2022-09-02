@@ -162,7 +162,7 @@ func.func @shape_constraint_graph() {
   %2 = "disc_shape.dim"() {name = @S2} : () -> index
   %3 = "disc_shape.dim"() {name = @S3} : () -> index
   %4 = "disc_shape.dim"() {name = @S4} : () -> index
-  "disc_shape.tie_product_equal"(%0, %1, %2, %3, %4) {operand_segment_sizes = dense<[2, 3]> : vector<2xi32>} : (index, index, index, index, index) -> ()
+  "disc_shape.tie_product_equal"(%0, %1, %2, %3, %4) {operand_segment_sizes = array<i32: 2, 3>} : (index, index, index, index, index) -> ()
   return
 }
 
@@ -542,7 +542,7 @@ func.func @shape_constraint_graph() {
   %1 = "disc_shape.dim"() {name = @S1} : () -> index
   %2 = "disc_shape.dim"() {name = @S2} : () -> index
   %3 = "disc_shape.dim"() {name = @S3} : () -> index
-  "disc_shape.tie_product_equal"(%3, %0, %1) {operand_segment_sizes = dense<[1, 2]> : vector<2xi32>} : (index, index, index) -> ()
+  "disc_shape.tie_product_equal"(%3, %0, %1) {operand_segment_sizes = array<i32: 1, 2>} : (index, index, index) -> ()
   return
 }
 

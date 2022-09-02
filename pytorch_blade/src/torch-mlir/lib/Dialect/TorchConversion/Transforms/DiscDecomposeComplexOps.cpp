@@ -9,8 +9,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <mlir-hlo/Dialect/mhlo/IR/chlo_ops.h> // from tf repo
-
 #include "torch-mlir/Conversion/MhloPasses.h"
 #include "torch-mlir/Conversion/TorchToMhlo/TorchToMhlo.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
@@ -27,6 +25,7 @@
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "stablehlo/dialect/ChloOps.h"
 
 using namespace mlir;
 using namespace mlir::torch;

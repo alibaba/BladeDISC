@@ -52,8 +52,8 @@ MhloDiscDialect::MhloDiscDialect(MLIRContext* context)
 LogicalResult H2DOp::reifyReturnTypeShapes(
     OpBuilder& builder, ValueRange operands,
     SmallVectorImpl<Value>& reifiedReturnShapes) {
-  return mhlo::deriveShapeFromOperand(&builder, getOperation(), operands[0],
-                                      &reifiedReturnShapes);
+  return mlir::hlo::deriveShapeFromOperand(&builder, getOperation(),
+                                           operands[0], &reifiedReturnShapes);
 }
 
 LogicalResult H2DOp::verify() { return Verify(*this); }
@@ -65,8 +65,8 @@ LogicalResult H2DOp::verify() { return Verify(*this); }
 LogicalResult D2HOp::reifyReturnTypeShapes(
     OpBuilder& builder, ValueRange operands,
     SmallVectorImpl<Value>& reifiedReturnShapes) {
-  return mhlo::deriveShapeFromOperand(&builder, getOperation(), operands[0],
-                                      &reifiedReturnShapes);
+  return mlir::hlo::deriveShapeFromOperand(&builder, getOperation(),
+                                           operands[0], &reifiedReturnShapes);
 }
 
 LogicalResult D2HOp::verify() { return Verify(*this); }

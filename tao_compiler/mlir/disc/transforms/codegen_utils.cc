@@ -633,10 +633,11 @@ LogicalResult loopUnrollByFactorAndTryInterleave(
     }
 
     // Create constant for 'stepUnrolled'.
-    stepUnrolled = stepCst == stepUnrolledCst
-                       ? step
-                       : boundsBuilder.create<arith::ConstantIndexOp>(
-                             loc, stepUnrolledCst);
+    stepUnrolled =
+        stepCst == stepUnrolledCst
+            ? step
+            : boundsBuilder.create<arith::ConstantIndexOp>(loc, stepUnrolledCst)
+                  .getResult();
   } else {
     // Dynamic loop bounds computation.
     // TODO: Add dynamic asserts for negative lb/ub/step, or

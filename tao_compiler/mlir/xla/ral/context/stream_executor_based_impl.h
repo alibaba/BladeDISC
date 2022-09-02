@@ -16,12 +16,19 @@
 
 #ifdef TAO_RAL_USE_STREAM_EXECUTOR
 
-#include "tensorflow/core/framework/op.h"
-#include "tensorflow/core/framework/op_kernel.h"
-#include "tensorflow/core/platform/stream_executor.h"
-#include "tensorflow/core/platform/stream_executor_no_cuda.h"
+#ifdef DISC_BUILD_FROM_TF_BRIDGE
 #include "tensorflow/stream_executor/device_memory.h"
 #include "tensorflow/stream_executor/multi_platform_manager.h"
+#include "tensorflow/stream_executor/stream_executor.h"
+#else  // DISC_BUILD_FROM_TF_BRIDGE
+#include "tensorflow/compiler/xla/stream_executor/device_memory.h"
+#include "tensorflow/compiler/xla/stream_executor/multi_platform_manager.h"
+#include "tensorflow/compiler/xla/stream_executor/stream_executor.h"
+#endif  // DISC_BUILD_FROM_TF_BRIDGE
+
+#include "tensorflow/core/framework/op.h"
+#include "tensorflow/core/framework/op_kernel.h"
+#include "tensorflow/core/platform/stream_executor_no_cuda.h"
 
 namespace tao {
 namespace ral {

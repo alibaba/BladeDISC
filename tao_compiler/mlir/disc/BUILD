@@ -913,12 +913,12 @@ disc_cc_library(
         "//tensorflow/compiler/xla:debug_options_flags",
         "//tensorflow/compiler/xla:status",
         "//tensorflow/compiler/xla:statusor",
+        "//tensorflow/compiler/xla/stream_executor/gpu:asm_compiler",
         "//tensorflow/core/platform:cuda_libdevice_path",
         "//tensorflow/core:lib",
     ] + if_cuda_is_configured([
-        "//tensorflow/stream_executor/cuda:cuda_asm_compiler",
+        "//tensorflow/compiler/xla/stream_executor/cuda:cuda_asm_compiler",
     ]) + if_rocm_is_configured([
-        "//tensorflow/stream_executor/gpu:asm_compiler",
         "//tensorflow/core/platform:rocm_rocdl_path",
     ]),
 )
@@ -2110,8 +2110,8 @@ tf_cc_binary(
         "//tensorflow/compiler/mlir/tensorflow",
         "//tensorflow/compiler/xla:util",
         "//tensorflow/compiler/xla/service/gpu/llvm_gpu_backend",
+        "//tensorflow/compiler/xla/stream_executor/lib",
         "//tensorflow/core:lib",
-        "//tensorflow/stream_executor/lib",
         "@com_google_absl//absl/strings",
         "@llvm-project//llvm:Analysis",
         "@llvm-project//llvm:ARMCodeGen",  # fixdeps: keep

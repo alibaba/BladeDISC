@@ -21,7 +21,7 @@
 #include "tensorflow/core/public/session.h"
 
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
-#include "tensorflow/stream_executor/gpu/gpu_types.h"
+#include "tensorflow/compiler/xla/stream_executor/gpu/gpu_types.h"
 #endif
 
 #if TENSORFLOW_USE_ROCM

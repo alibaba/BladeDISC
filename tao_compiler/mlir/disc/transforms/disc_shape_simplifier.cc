@@ -87,9 +87,9 @@ struct ExtractFromExtentTensorCanonicalizationPattern
 
   LogicalResult matchAndRewrite(tensor::ExtractOp op,
                                 PatternRewriter& rewriter) const override {
-    auto shape_of_op = op.tensor().getDefiningOp<shape::ShapeOfOp>();
+    auto shape_of_op = op.getTensor().getDefiningOp<shape::ShapeOfOp>();
     if (!shape_of_op) return failure();
-    Value index = op.indices().front();
+    Value index = op.getIndices().front();
     rewriter.replaceOpWithNewOp<tensor::DimOp>(op, shape_of_op.getArg(), index);
     return success();
   }
@@ -122,7 +122,7 @@ struct DynamicReshapeOpPartialShapeInference
     auto result_type = op.getResult().getType().cast<RankedTensorType>();
     SmallVector<int64_t, 4> result_dims(result_type.getRank());
     bool has_uninfered_static_dim = false;
-    for (auto element : llvm::enumerate(output_shape.elements())) {
+    for (auto element : llvm::enumerate(output_shape.getElements())) {
       int64_t new_value = -1;
       if (result_type.isDynamicDim(element.index())) {
         if (arith::ConstantIntOp constant_op =
@@ -302,7 +302,7 @@ class DynamicBroadcastInDimOpSimplifier
           dynVal = indexCastOp->getOperand(0);
         }
         auto dimOp = dyn_cast_or_null<tensor::DimOp>(dynVal.getDefiningOp());
-        if (!dimOp || dimOp.source() != input) {
+        if (!dimOp || dimOp.getSource() != input) {
           return failure();
         }
         DimValue dimVal;
@@ -329,7 +329,7 @@ class DynamicBroadcastInDimOpSimplifier
             // source of dim-op is the input of reshape.
             auto dimOp = reshapeDimValues[reshapeDimIdx].dynDimOp;
             auto indexOp = dyn_cast_or_null<arith::ConstantIndexOp>(
-                dimOp.index().getDefiningOp());
+                dimOp.getIndex().getDefiningOp());
             if (!indexOp ||
                 indexOp.getValue().cast<IntegerAttr>().getInt() != i) {
               return failure();

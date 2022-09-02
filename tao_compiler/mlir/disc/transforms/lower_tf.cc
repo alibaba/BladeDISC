@@ -18,7 +18,6 @@ limitations under the License.
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
-#include "mlir-hlo/Dialect/mhlo/IR/chlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"       // from @llvm-project
 #include "mlir/Dialect/Tensor/IR/Tensor.h"               // from @llvm-project
@@ -33,6 +32,7 @@ limitations under the License.
 #include "mlir/Support/LogicalResult.h"                  // from @llvm-project
 #include "mlir/Transforms/DialectConversion.h"           // from @llvm-project
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // from @llvm-project
+#include "stablehlo/dialect/ChloOps.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/rng_uniform_custom_call_op.h"
 #include "tensorflow/compiler/mlir/disc/IR/topk_custom_call_op.h"

@@ -28,8 +28,27 @@ static constexpr const char kCompare_GT[] = "GT";
 static constexpr const char kCompare_LE[] = "LE";
 static constexpr const char kCompare_LT[] = "LT";
 
-mhlo::ComparisonDirection inline getComparisonDirectionFromString(
-    std::string cmp) {
+chlo::ComparisonDirection inline getChloComparisonDirectionFromString(
+    const std::string& cmp) {
+  if (cmp == kCompare_EQ) {
+    return chlo::ComparisonDirection::EQ;
+  } else if (cmp == kCompare_NE) {
+    return chlo::ComparisonDirection::NE;
+  } else if (cmp == kCompare_GE) {
+    return chlo::ComparisonDirection::GE;
+  } else if (cmp == kCompare_GT) {
+    return chlo::ComparisonDirection::GT;
+  } else if (cmp == kCompare_LE) {
+    return chlo::ComparisonDirection::LE;
+  } else if (cmp == kCompare_LT) {
+    return chlo::ComparisonDirection::LT;
+  } else {
+    MHLO_CHECK(false, "Unhandled comparison direction.");
+  }
+}
+
+mhlo::ComparisonDirection inline getMhloComparisonDirectionFromString(
+    const std::string& cmp) {
   if (cmp == kCompare_EQ) {
     return mhlo::ComparisonDirection::EQ;
   } else if (cmp == kCompare_NE) {
@@ -43,7 +62,7 @@ mhlo::ComparisonDirection inline getComparisonDirectionFromString(
   } else if (cmp == kCompare_LT) {
     return mhlo::ComparisonDirection::LT;
   } else {
-    assert(false && "Unhandled comparison direction.");
+    MHLO_CHECK(false, "Unhandled comparison direction.");
   }
 }
 
@@ -57,7 +76,7 @@ struct ChloBinaryOpBuilder {
                           const mlir::Value& input_rhs,
                           mlir::DenseIntElementsAttr broadcast_attr) {
     auto compare_direction =
-        getComparisonDirectionFromString(std::string(DIRECTION));
+        getChloComparisonDirectionFromString(std::string(DIRECTION));
     return builder.create<MLIR_BINARY_OP>(loc, input_lhs, input_rhs,
                                           /*broadcast_dims=*/broadcast_attr,
                                           compare_direction);
@@ -81,7 +100,7 @@ struct HloBinaryOpBuilder {
                           const mlir::Value& input_lhs,
                           const mlir::Value& input_rhs) {
     auto compare_direction =
-        getComparisonDirectionFromString(std::string(DIRECTION));
+        getMhloComparisonDirectionFromString(std::string(DIRECTION));
     return builder.create<MLIR_BINARY_OP>(loc, input_lhs, input_rhs,
                                           compare_direction);
   }

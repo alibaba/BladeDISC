@@ -126,7 +126,7 @@ new_local_repository(
 new_local_repository(
   name = "mlir-hlo",
   build_file = "third_party/torch-mlir/externals/mlir-hlo/BUILD",
-  path = "../tf_community/tensorflow/compiler/xla/mlir_hlo"
+  path = "third_party/torch-mlir/externals/mlir-hlo"
 )
 
 new_local_repository(

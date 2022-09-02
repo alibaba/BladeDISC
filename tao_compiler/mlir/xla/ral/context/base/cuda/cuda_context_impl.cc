@@ -33,7 +33,7 @@
 #include "tensorflow/compiler/mlir/xla/ral/ral_driver.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_logging.h"
-#include "tensorflow/stream_executor/gpu/gpu_types.h"
+#include "tensorflow/compiler/xla/stream_executor/gpu/gpu_types.h"
 
 #if TENSORFLOW_USE_ROCM
 #include "tensorflow/stream_executor/rocm/rocm_driver_wrapper.h"

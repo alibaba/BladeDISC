@@ -9,7 +9,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <mlir-hlo/Dialect/mhlo/IR/chlo_ops.h> // from tf repo
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
 #include <mlir/mhlo/builder/element_wise_binary.h>
 #include <mlir/mhlo/builder/matmul.h>
@@ -19,6 +18,7 @@
 #include "compiler/mlir/converters/impl/prim_constant.h"
 #include "compiler/mlir/converters/mhlo_converter_register.h"
 #include "compiler/mlir/converters/mlir_type_utils.h"
+#include "stablehlo/dialect/ChloOps.h"
 
 #include <torch/script.h>
 

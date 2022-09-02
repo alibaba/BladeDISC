@@ -1327,9 +1327,7 @@ void ral_conv(ExecutionContext* ctx, void* stream_handle,
     }
   }
 
-  std::cout << "00" << std::endl;
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
-  std::cout << "0" << std::endl;
   // nchw=0123 iohw=0123
   // const std::vector<int32_t> nchw_oihw_layout = {0, 1, 2, 3, 1, 0,
   //                                                2, 3, 0, 1, 2, 3};
@@ -1338,7 +1336,6 @@ void ral_conv(ExecutionContext* ctx, void* stream_handle,
   const std::vector<int32_t> nhwc_ohwi_layout = {0, 3, 1, 2, 3, 0,
                                                  1, 2, 0, 3, 1, 2};
   if (layout_match(nhwc_ohwi_layout, metadata)) {
-    std::cout << "1" << std::endl;
     auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
     auto stream =
         static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
@@ -1390,13 +1387,11 @@ void ral_conv(ExecutionContext* ctx, void* stream_handle,
     const float beta = 0.0f;
     bladnn::Dtype dtype = toBlaDNNDtype<T>();
     bool ret = false;
-    std::cout << "2" << std::endl;
     ret = bladnn::conv2d(s, dtype, dtype, conv_kind, data_layout, kernel_layout,
                          n, ih, iw, ic, ko, kh, kw, oh, ow, pad_h, pad_w,
                          stride_h, stride_w, dilation_h, dilation_w, groups,
                          &alpha, a_data, b_data, &beta, c_data, c_data);
     if (ret) {
-      std::cout << "3" << std::endl;
       return;
     }
   }

@@ -2119,7 +2119,7 @@ LogicalResult lowerWithScheduleColReductionForRocm(
   b.create<scf::YieldOp>(loc, ValueRange({}));  // parallel
 
   cleanUnusedLhloOps(parent);
-  llvm::errs() << "Finish rol reduction rocm\n";
+  // llvm::errs() << "Finish rol reduction rocm\n";
   return success();
 }
 
@@ -2273,7 +2273,7 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
       auto data = createLoadOrUseCachedValue(
           loc, &b, root_op, *root_op->getOperands().begin(), load_index,
           b.saveInsertionPoint());
-      llvm::errs() << "Create root ops 0\n";
+      // llvm::errs() << "Create root ops 0\n";
       b.create<memref::StoreOp>(loc,
                                 (accum_factory[col_red_root_op_idx])(
                                     data, init_values[col_red_root_op_idx]),
@@ -2283,14 +2283,14 @@ LogicalResult lowerWithScheduleColReductionBlockTileSchedule(
       assert(false && "unexpected row_reduction");
       return failure();
     } else if (isa<lmhlo::ReduceOp>(root_op)) {
-      llvm::errs() << "Create root ops 1\n";
+      // llvm::errs() << "Create root ops 1\n";
       auto dominant_shape = getShapeValues(&b, dominant_op->getOperand(0));
       Value linear_index = calcLinearIndex(&b, loc, load_index, dominant_shape);
       auto root_shape = getShapeValues(&b, root_op->getOperand(0));
       auto mapped_index = calcMultiDimIndex(&b, loc, linear_index, root_shape);
       emitNotToVectorReduction(b, loc, root_op, mapped_index);
     } else {
-      llvm::errs() << "Create root ops 2\n";
+      // llvm::errs() << "Create root ops 2\n";
       auto dominant_shape = getShapeValues(&b, dominant_op->getOperand(0));
       Value linear_index = calcLinearIndex(&b, loc, load_index, dominant_shape);
       if (!succeeded(

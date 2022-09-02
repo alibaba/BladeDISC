@@ -176,8 +176,8 @@ struct HloToLhloCustomCallOpConverter : public BaseOpConversion<CustomCallOp> {
     // for args and outputs.
     const int32_t segments[2] = {static_cast<int32_t>(operands.size()),
                                  static_cast<int32_t>(op->getNumResults())};
-    lhloOp->setAttr(lhloOp.getOperandSegmentSizeAttr(),
-                    rewriter.getI32VectorAttr(segments));
+    auto attrValue = mlir::DenseI32ArrayAttr::get(op->getContext(), segments);
+    lhloOp->setAttr(lhloOp.getOperandSegmentSizeAttr(), attrValue);
 
     rewriter.replaceOp(op, ArrayRef<Value>(buffer_args).slice(operands.size()));
     return success();

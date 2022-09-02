@@ -45,7 +45,7 @@ func.func @mean_stitch_fusion(%arg0: !disc_ral.context) attributes {tf.entry_fun
 // CHECK-COUNT-4: memref.load
 // CHECK-COUNT-4: arith.addf
       %35 = scf.for %arg3 = %arg2 to %2 step %c256 iter_args(%arg4 = %cst) -> (f32) {
-        %44 = "disc_shape.linearize"(%arg1, %arg3, %13, %2) {operand_segment_sizes = dense<2> : vector<2xi32>} : (index, index, index, index) -> index
+        %44 = "disc_shape.linearize"(%arg1, %arg3, %13, %2) {operand_segment_sizes = array<i32: 2, 2>} : (index, index, index, index) -> index
         %45:3 = "disc_shape.delinearize"(%44, %3, %4, %2) : (index, index, index, index) -> (index, index, index)
         %46 = memref.load %7[%45#0, %45#1, %45#2] : memref<?x?x?xf32, "gpu">
         %47 = arith.addf %arg4, %46 : f32

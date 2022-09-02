@@ -29,7 +29,7 @@ static constexpr const char kCompare_LE[] = "LE";
 static constexpr const char kCompare_LT[] = "LT";
 
 chlo::ComparisonDirection inline getChloComparisonDirectionFromString(
-    std::string cmp) {
+    const std::string& cmp) {
   if (cmp == kCompare_EQ) {
     return chlo::ComparisonDirection::EQ;
   } else if (cmp == kCompare_NE) {
@@ -43,12 +43,12 @@ chlo::ComparisonDirection inline getChloComparisonDirectionFromString(
   } else if (cmp == kCompare_LT) {
     return chlo::ComparisonDirection::LT;
   } else {
-    assert(false && "Unhandled comparison direction.");
+    MHLO_CHECK(false, "Unhandled comparison direction.");
   }
 }
 
 mhlo::ComparisonDirection inline getMhloComparisonDirectionFromString(
-    std::string cmp) {
+    const std::string& cmp) {
   if (cmp == kCompare_EQ) {
     return mhlo::ComparisonDirection::EQ;
   } else if (cmp == kCompare_NE) {
@@ -62,7 +62,7 @@ mhlo::ComparisonDirection inline getMhloComparisonDirectionFromString(
   } else if (cmp == kCompare_LT) {
     return mhlo::ComparisonDirection::LT;
   } else {
-    assert(false && "Unhandled comparison direction.");
+    MHLO_CHECK(false, "Unhandled comparison direction.");
   }
 }
 

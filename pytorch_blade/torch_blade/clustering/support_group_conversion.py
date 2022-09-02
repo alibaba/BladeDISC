@@ -11,7 +11,7 @@
 
 import torch
 import torch_blade
-from torch_blade import pass_manager, tensorrt, tools, utils
+from torch_blade import pass_manager, tools, utils
 from torch_blade.logging import logger
 
 

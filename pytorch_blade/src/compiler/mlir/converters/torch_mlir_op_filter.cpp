@@ -98,6 +98,8 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "prim::Constant",
       "prim::ListConstruct",
       "prim::ListUnpack"};
+  static std::unordered_set<std::string> white_list2{"prim::Constant", "aten::slice"};
+
 
   static std::once_flag flag;
   std::call_once(flag, []() {
@@ -107,13 +109,13 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       std::istringstream f(custom_ops);
       std::string s;
       while (getline(f, s, ';')) {
-          white_list.insert(s);
+          white_list2.insert(s);
           ostr << s << ", ";
       }
       ostr << "]";
       LOG(INFO) << ostr.str();
   });
-  return white_list;
+  return white_list2;
 }
 // clang-format off
 

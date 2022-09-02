@@ -396,7 +396,6 @@ LogicalResult ConvertAtenOp<AtenMaxDimOp>::matchAndRewrite(
     auto mhloReduceIndexResult = rewriter.create<mhlo::DynamicReshapeOp>(
         op->getLoc(), idxResultType, indicesResult, outShapeTensor);
     rewriter.replaceOp(op, {mhloReduceValueResult, mhloReduceIndexResult});
-    op->getParentOp()->dump();
     return success();
   }
   rewriter.replaceOp(op, {valueResult, indicesResult});

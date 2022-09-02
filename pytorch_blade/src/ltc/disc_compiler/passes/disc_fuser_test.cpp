@@ -16,6 +16,7 @@
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/custom_class.h>
 #include <torch/script.h>
+
 #include "ltc/disc_compiler/passes/disc_fuser.h"
 #include "ltc/disc_compiler/passes/graph_fuser.h"
 
@@ -111,6 +112,25 @@ graph(%p1 : Float(2, 2, strides=[2, 1], requires_grad=0, device=cuda:0),
       ->check("prim::Constant")
       ->check("aten::add")
       ->run(*g);
+}
+
+TEST(TestDiscFusion, ConstFolding) {
+  setenv("TORCH_DISC_USE_TORCH_MLIR", "1", true);
+  setenv("TORCH_BLADE_MHLO_DEBUG_LOG", "true", true);
+  auto graph_string = R"IR(
+graph(%p1 : Float(1, 512, strides=[512, 1], requires_grad=0, device=cuda:0)):
+  %cst_0 : int = prim::Constant[value=0]()
+  %cst_1 : int = prim::Constant[value=1]()
+  %cst_128 : int = prim::Constant[value=128]()
+  %t0 : Float(*, *, *, device=cuda:0) = aten::slice(%p1, %cst_0, %cst_0, %cst_1, %cst_1)
+  %t1 : Float(*, *, *, device=cuda:0) = aten::slice(%t0, %cst_1, %cst_1, %cst_128, %cst_1)
+  return (%t1, %cst_1)
+)IR";
+  auto g = std::make_shared<torch::jit::Graph>();
+  torch::jit::parseIR(graph_string, g.get());
+  DiscFusion(g);
+  torch::jit::EliminateDeadCode(g);
+  std::cout << g->toString() << std::endl;
 }
 
 } //  namespace compiler

@@ -11,10 +11,11 @@
 
 #include "engine_class.h"
 
+#include <torch/script.h>
 #include "common_utils/logging.h"
 #include "common_utils/utils.h"
-
-#include <torch/script.h>
+#include "ltc/disc_compiler/replay.h"
+#include "sys/stat.h"
 
 namespace torch {
 namespace blade {
@@ -52,11 +53,49 @@ at::List<at::Tensor> EngineClass::Execute(const at::List<at::Tensor>& inputs) {
     // to use at real runtime. Also, we won't support multi-threads.
     last_inputs_ = inputs;
   }
+
+  if (torch_disc::compiler::IsEnableClusterReplayRecord()) {
+    const auto& dump_path = "/tmp/replay_cluster_" + attr_debug_name_;
+    TORCH_CHECK(
+        !mkdir(dump_path.c_str(), 0755), "unable to create dir: " + dump_path);
+
+    std::vector<c10::IValue> ivalues;
+    for (auto input : inputs)
+      ivalues.emplace_back(input);
+
+    torch_disc::compiler::DumpIValues(ivalues, dump_path);
+
+    auto graph_fname = dump_path + "/graph.pt";
+    auto module = GetFallback();
+    const auto method_name =
+        torch::QualifiedName(*module.type()->name(), "forward");
+    auto func =
+        GetFallback()._ivalue()->compilation_unit()->find_function(method_name);
+    auto graph = torch::jit::tryToGraphFunction(*func)->graph();
+
+    VLOG(0) << "replay toolkit dump cluster on: " << dump_path
+            << " , the sub-graph: \n"
+            << graph->toString();
+    GetFallback().save(graph_fname);
+  }
+
   auto record_inputs = std::vector<torch::IValue>{inputs.begin(), inputs.end()};
   TORCH_BLADE_RECORD_FUNCTION(attr_debug_name_, record_inputs);
 
   at::List<at::Tensor> outputs;
+  {
+    auto module = GetFallback();
+    const auto method_name =
+        torch::QualifiedName(*module.type()->name(), "forward");
+    auto func =
+        GetFallback()._ivalue()->compilation_unit()->find_function(method_name);
+    auto graph = torch::jit::tryToGraphFunction(*func)->graph();
+    torch_disc::compiler::FoldOutputs(graph);
+    VLOG(0) << "fallback graph: " << graph->toString();
+  }
+  outputs = Fallback(inputs);
   // do inference
+  /**
   if (engine_->ShouldFallback(inputs)) {
     outputs = Fallback(inputs);
   } else {
@@ -72,6 +111,7 @@ at::List<at::Tensor> EngineClass::Execute(const at::List<at::Tensor>& inputs) {
       }
     }
   }
+  **/
 
   if (GetRecordClusterIOFlag()) {
     // Note:

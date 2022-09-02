@@ -19,6 +19,7 @@
 #include <torch/script.h>
 #include <fstream>
 
+#include "common_utils/logging.h"
 #include "compiler/jit/tool_funcs.h"
 #include "ltc/disc_compiler/disc_compiler.h"
 
@@ -78,7 +79,11 @@ std::vector<torch::lazy::BackendDataPtr> loadArguments(
   return stack;
 }
 
-void LoadAndReplay(const std::string& path, int iters, int warmup) {
+void LoadAndReplay(
+    const std::string& path,
+    int iters,
+    int warmup,
+    bool whole_graph) {
   std::string module_path = path + "/graph.pt";
   auto module = torch::jit::load(module_path);
   auto arguments = loadArguments(path);
@@ -87,6 +92,7 @@ void LoadAndReplay(const std::string& path, int iters, int warmup) {
   torch::jit::ConstantPropagation(graph);
   FoldOutputs(graph);
   torch::jit::EliminateDeadCode(graph);
+
   auto executable = CompileToDiscExecutable(graph, arguments);
   auto cuda_device =
       torch::lazy::getBackend()->GetBackendDevice(c10::Device(c10::kCUDA, 0));
@@ -127,7 +133,6 @@ void DumpProgramAndData(
   auto graph = orig_graph->copy();
 
   auto module_path = path + "/graph.pt";
-  TORCH_CHECK(!mkdir(path.c_str(), 0755), "unable to create dir: " + path);
   torch::jit::Module module("__torch__.PlaceholderModule");
   module.register_attribute("training", torch::jit::BoolType::get(), true);
   // module.save requires one output
@@ -145,14 +150,53 @@ void DumpProgramAndData(
       stack.emplace_back(ts_data->data());
     }
   }
+  DumpIValues(stack, path);
+}
 
-  for (size_t k = 0; k < stack.size(); ++k) {
-    auto fname = path + "/" + std::to_string(k) + ".pt";
-    auto chars = torch::jit::pickle_save(stack[k]);
-    std::ofstream ofstream(fname, std::ios::out | std::ios::binary);
-    ofstream.write(chars.data(), chars.size());
-    ofstream.close();
+torch::jit::Module ConvertGraphToModule(
+    const std::shared_ptr<torch::jit::Graph>& graph) {
+  torch::jit::Module module("__torch__.PlaceholderModule");
+  module.register_attribute("training", torch::jit::BoolType::get(), true);
+  FusionOutputs(graph);
+  for (auto& value : graph->inputs()) {
+    value->setDebugName("arg_" + value->debugName());
   }
+  torch::blade::create_method_from_graph(module, "forward", graph);
+  return module;
+}
+
+void DumpIValue(const at::IValue& ivalue, const std::string& fname) {
+  auto chars = torch::jit::pickle_save(ivalue);
+  std::ofstream ofstream(fname, std::ios::out | std::ios::binary);
+  ofstream.write(chars.data(), chars.size());
+  ofstream.close();
+}
+
+void DumpIValues(
+    const std::vector<c10::IValue>& inputs,
+    const std::string& path) {
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    auto fname = path + "/" + std::to_string(i) + ".pt";
+    DumpIValue(inputs[i], fname);
+  }
+}
+
+bool IsEnableReplayToolkit() {
+  return torch::blade::env::ReadBoolFromEnvVar(
+      "TORCH_DISC_ENABLE_REPLAY", false);
+}
+
+bool IsEnableClusterReplayRecord() {
+  return torch::blade::env::ReadBoolFromEnvVar(
+      "TORCH_DISC_ENABLE_REPLAY_ON_CLUSTER", false);
+}
+
+void BeginClusterReplayRecord() {
+  setenv("TORCH_DISC_ENABLE_REPLAY_ON_CLUSTER", "true", true);
+}
+
+void EndClusterReplayRecord() {
+  unsetenv("TORCH_DISC_ENABLE_REPLAY_ON_CLUSTER");
 }
 
 } //  namespace compiler

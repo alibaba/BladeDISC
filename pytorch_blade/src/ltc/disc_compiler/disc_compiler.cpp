@@ -17,6 +17,7 @@
 #include <torch/csrc/jit/passes/shape_analysis.h>
 #include <torch/csrc/lazy/backend/backend_data.h>
 #include <torch/csrc/lazy/backend/backend_device.h>
+#include <torch/csrc/lazy/core/hash.h>
 #include <torch/csrc/lazy/ts_backend/ts_backend_impl.h>
 #include <torch/csrc/lazy/ts_backend/ts_lowering_context.h>
 #include <torch/script.h>
@@ -24,6 +25,7 @@
 #include "compiler/jit/torch/shape_analysis.h"
 #include "ltc/disc_compiler/passes/disc_fuser.h"
 #include "ltc/disc_compiler/passes/register_disc_class.h"
+#include "ltc/disc_compiler/replay.h"
 
 namespace torch_disc {
 namespace compiler {
@@ -40,6 +42,9 @@ std::vector<torch::lazy::BackendDataPtr> Executable::Run(
     c10::ArrayRef<torch::lazy::BackendDataPtr> arguments,
     const torch::lazy::BackendDevice& device,
     bool default_device_is_cuda) {
+  if (is_first_run_ && IsEnableReplayToolkit()) {
+    BeginClusterReplayRecord();
+  }
   std::vector<c10::IValue> stack;
   for (auto argument : arguments) {
     const auto ts_data = std::static_pointer_cast<TSData>(argument);
@@ -66,6 +71,10 @@ std::vector<torch::lazy::BackendDataPtr> Executable::Run(
         std::vector<int64_t>(result_sizes.begin(), result_sizes.end()));
     results.push_back(std::make_shared<TSData>(result, shape, device));
   }
+  if (is_first_run_) {
+    EndClusterReplayRecord();
+    is_first_run_ = false;
+  }
   return results;
 }
 
@@ -75,12 +84,25 @@ void EnhancementInputShape(
   for (size_t i = 0; i < arguments.size(); ++i) {
     auto argument = arguments[i];
     auto input = graph->inputs()[i];
-    const auto ts_data = std::static_pointer_cast<TSData>(argument);
-
+    const auto ts_data =
+        std::static_pointer_cast<torch::lazy::TSData>(argument);
     if (ts_data->HasValue()) {
       input->setType(c10::TensorType::create(ts_data->data()));
     }
   }
+}
+
+void RecordReplay(
+    const std::shared_ptr<torch::jit::Graph>& graph,
+    c10::ArrayRef<torch::lazy::BackendDataPtr> arguments) {
+  auto disc_hash = torch::lazy::DataHash(graph.get(), sizeof(*graph.get()));
+  auto disc_hash_str = torch::lazy::HashToString(disc_hash);
+  std::string dump_path = "/tmp/replay_lazy_ts_" + disc_hash_str;
+  TORCH_CHECK(
+      !mkdir(dump_path.c_str(), 0755), "unable to create dir: " + dump_path);
+  VLOG(0) << "replay toolkit dump ts program and data on: " << dump_path;
+  ::torch_disc::compiler::DumpProgramAndData(
+      graph->copy(), arguments, dump_path);
 }
 
 ExecutablePtr CompileToDiscExecutable(
@@ -92,6 +114,10 @@ ExecutablePtr CompileToDiscExecutable(
     auto disc_inputs = std::vector<c10::IValue>{};
     return std::make_shared<Executable>(graph, disc_inputs);
   }
+  // record program and data for replay toolkit
+  if (IsEnableReplayToolkit())
+    RecordReplay(graph, arguments);
+
   GRAPH_DEBUG("before PropagateInputShapes\n", *graph);
   EnhancementInputShape(graph, arguments);
   // Inference shape

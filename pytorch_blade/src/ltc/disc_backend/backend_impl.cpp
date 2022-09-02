@@ -248,21 +248,10 @@ std::vector<torch::lazy::BackendDataPtr> DISCBackendImpl::ExecuteComputation(
         arguments, device, default_device_is_cuda);
   }
 
-  auto dump_path =
-      torch::blade::env::ReadStringFromEnvVar("TORCH_DISC_REPLAY_PATH", "");
-  if (!dump_path.empty()) {
-    auto disc_hash_str = torch::lazy::HashToString(disc_hash);
-    TORCH_CHECK(
-        !mkdir(dump_path.c_str(), 0755), "unable to create dir: " + dump_path);
-    std::string path = dump_path + "/" + disc_hash_str;
-    VLOG(0) << "replay toolkit dump program on: " << path;
-    ::torch_disc::compiler::DumpProgramAndData(
-        ts_computation.graph()->copy(), arguments, path);
-  }
-
   ExecutablePtr executable =
       CompileToDiscExecutable(ts_computation.graph()->copy(), arguments);
   auto result = executable->Run(arguments, device, default_device_is_cuda);
+
   auto cachedExecutable =
       std::make_shared<CachedExecutable>(std::move(executable));
   cache_->Add(disc_hash, cachedExecutable);

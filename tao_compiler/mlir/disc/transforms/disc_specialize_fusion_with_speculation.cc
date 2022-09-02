@@ -502,9 +502,8 @@ struct DiscSpecializeFusionWithSpeculationPass
     Value col_size = b.create<memref::DimOp>(loc, operand, 1);
     Value matrix_size = b.create<arith::MulIOp>(loc, row_size, col_size);
     int thread_per_block = 256;
-    Value cur_threads =
-        b.create<arith::ConstantIndexOp>(loc, thread_per_block);
-        // b.create<arith::ConstantIndexOp>(loc, max_threads_per_block_);
+    Value cur_threads = b.create<arith::ConstantIndexOp>(loc, thread_per_block);
+    // b.create<arith::ConstantIndexOp>(loc, max_threads_per_block_);
     Value cur_blocks =
         b.create<arith::CeilDivSIOp>(loc, matrix_size, cur_threads);
     Value ref_blocks = b.create<arith::ConstantIndexOp>(loc, core_count_);
@@ -518,12 +517,10 @@ struct DiscSpecializeFusionWithSpeculationPass
         b.getIntegerAttr(b.getIntegerType(32), DISC_TILE_W8_H32);
     auto w8_h16_schedule =
         b.getIntegerAttr(b.getIntegerType(32), DISC_TILE_W8_H16);
-    auto num_thread_full_attr =
-        b.getIntegerAttr(b.getIntegerType(32), 256);
-        // b.getIntegerAttr(b.getIntegerType(32), max_threads_per_block_);
-    auto num_thread_half_attr =
-        b.getIntegerAttr(b.getIntegerType(32), 128);
-        // b.getIntegerAttr(b.getIntegerType(32), max_threads_per_block_ / 2);
+    auto num_thread_full_attr = b.getIntegerAttr(b.getIntegerType(32), 256);
+    // b.getIntegerAttr(b.getIntegerType(32), max_threads_per_block_);
+    auto num_thread_half_attr = b.getIntegerAttr(b.getIntegerType(32), 128);
+    // b.getIntegerAttr(b.getIntegerType(32), max_threads_per_block_ / 2);
     fusion_op->setAttr(kThreadPerBlockHint, num_thread_full_attr);
     fusion_op->setAttr(kColReductionScheduleHint, w8_h32_schedule);
     // use 8*32 tile if block# >= SM#

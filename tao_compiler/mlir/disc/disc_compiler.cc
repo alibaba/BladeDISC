@@ -492,7 +492,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     // wrapper of the original ParallelLoopTilingPass
     pm.addNestedPass<FuncOp>(
         disc_ral::createParallelLoopTilingPass({256}, true));
-        // disc_ral::createParallelLoopTilingPass({kThreadsRowReduction}, true));
+    // disc_ral::createParallelLoopTilingPass({kThreadsRowReduction}, true));
     // pm.addNestedPass<FuncOp>(disc_ral::createMapParallelLoopsPass());
     pm.addNestedPass<FuncOp>(mlir::createGpuMapParallelLoopsPass());
 

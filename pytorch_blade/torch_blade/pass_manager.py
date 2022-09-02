@@ -319,6 +319,8 @@ def _optimize_common(c_module, static_shape=False):
         graph = c_module.forward.graph
         _jit_pass_remove_nograd(graph)
         _jit_pass_freeze_requires_grad(graph)
+        if hasattr(torch._C, "_jit_pass_fold_frozen_conv_bn"):
+            torch._C._jit_pass_fold_frozen_conv_bn(graph)
 
     graph = c_module.forward.graph
     torch._C._jit_pass_remove_mutation(graph)

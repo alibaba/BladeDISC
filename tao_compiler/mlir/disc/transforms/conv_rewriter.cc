@@ -152,7 +152,7 @@ bool isDepthwiseConv(ConvParams& params) {
   return filterTy.getShape()[params.filterLayout[0]] == 1;
 }
 
-LogicalResult inferExpectedLayout(ConvParams& params) {
+LogicalResult inferExpectedLayout(ConvParams& params, int cc_major) {
   bool onGpu = placement_utils::isGpuMhlo(params.conv);
   auto inputTy = params.input.getType().dyn_cast<RankedTensorType>();
   auto filterTy = params.filter.getType().dyn_cast<RankedTensorType>();
@@ -168,7 +168,8 @@ LogicalResult inferExpectedLayout(ConvParams& params) {
   outputLayout.resize(rank);
 
   if (onGpu) {
-    if (inputTy.getElementType().isF16() && filterTy.getElementType().isF16()) {
+    if (cc_major >= 8 ||
+        inputTy.getElementType().isF16() && filterTy.getElementType().isF16()) {
       // TensorCore prefers NHWC layouts
       fillNHWC(inputLayout, num_spatial_dims);
       fillNHWC(outputLayout, num_spatial_dims);
@@ -267,8 +268,10 @@ struct ConvToDynamicConvConvert : public OpRewritePattern<mhlo::ConvolutionOp> {
 // having expected format.
 struct DiscConvRewriterPass
     : public ConvRewriterPassBase<DiscConvRewriterPass> {
-  explicit DiscConvRewriterPass()
-      : ConvRewriterPassBase<DiscConvRewriterPass>::ConvRewriterPassBase() {}
+  explicit DiscConvRewriterPass(int cc_major)
+      : ConvRewriterPassBase<DiscConvRewriterPass>::ConvRewriterPassBase() {
+    cc_major_ = cc_major;
+  }
 
   RankedTensorType GetTransposeOutputType(
       Value value, const SmallVectorImpl<int64_t>& transpose_permutation,
@@ -384,7 +387,7 @@ struct DiscConvRewriterPass
       return failure();
     }
 
-    if (failed(inferExpectedLayout(params))) {
+    if (failed(inferExpectedLayout(params, cc_major_))) {
       return failure();
     }
 
@@ -427,12 +430,16 @@ struct DiscConvRewriterPass
       }
     }
   }
+
+ private:
+  int cc_major_;
 };
 
 }  // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvRewriter() {
-  return std::make_unique<DiscConvRewriterPass>();
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvRewriter(
+    int cc_major) {
+  return std::make_unique<DiscConvRewriterPass>(cc_major);
 }
 
 }  // namespace disc_ral

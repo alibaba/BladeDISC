@@ -302,7 +302,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     pm.addNestedPass<FuncOp>(disc_ral::createDiscDenseToSparsePass());
   }
 
-  pm.addNestedPass<FuncOp>(disc_ral::createDiscConvRewriter());
+  auto& gpu_options = options.gpu_info;
+  pm.addNestedPass<FuncOp>(
+      disc_ral::createDiscConvRewriter(gpu_options.cc_major));
   if (enable_shape_constraint_ir) {
     // shape-related optimization
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());

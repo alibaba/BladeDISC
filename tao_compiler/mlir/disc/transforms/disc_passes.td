@@ -50,6 +50,10 @@ def DiscLhloLegalizeRootsToParallelLoopsPass : Pass<"disc-lhlo-legalize-roots-to
 def ConvRewriterPass : Pass<"disc-conv-rewriter", "mlir::func::FuncOp"> {
   let summary = "Canonicalize conv ops to be suitable for lowering to cudnn lib calls.";
   let constructor = "createDiscConvRewriter()";
+  let options = [
+    Option<"cc_major_", "gpu-sm-cc-major", "int",
+            /*default=*/"8", "gpu sm cc_major.">,
+  ];
 }
 
 def DotRewriterPass : Pass<"disc-dot-rewriter", "mlir::func::FuncOp"> {

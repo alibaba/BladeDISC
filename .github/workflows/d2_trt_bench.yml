@@ -1,4 +1,4 @@
-name: Cronjobs
+name: D2-TensorRT-bench
 
 # Add cronjob later
 # Use workflow dispatch to manual trigger the job for now
@@ -9,20 +9,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  AUTO-REBASE:
-    runs-on: ubuntu-latest
-    steps:
-    # Runs a single command using the runners shell
-    - name: Checkout
-      uses: actions/checkout@v2.4.0
-    - name: AutoRebase
-      env:
-        # GITHUB_TOKEN is used for this repo
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        # BOT_GITHUB_TOKEN is used for other BladeDISC repo
-        BOT_GITHUB_TOKEN: ${{ secrets.BOT_GITHUB_TOKEN }}
-      run: bash scripts/ci/auto_rebase.sh
-
   NGC-TorchTRT-D2:
     if: github.event.schedule != '30 15 * * *'
     uses: ./.github/workflows/reusable.yml

@@ -455,3 +455,13 @@ def DiscConvertFakeQuantOpPass : Pass<"disc-convert-fake-quant-op", "mlir::func:
       "disc_shape::DISCShapeDialect",
   ];
 }
+
+def DiscLowerQuantizeAndDequantizePass : Pass<"disc-lower-quantize-and-dequantize", "mlir::func::FuncOp"> {
+  let summary = "Lower quantize and dequantize op to a bound of basic elementwise ops.";
+  let constructor = "createDiscLowerQuantizeAndDequantizePass()";
+  let dependentDialects = [
+      "disc_shape::DISCShapeDialect",
+      "shape::ShapeDialect",
+      "mhlo::MhloDialect",
+  ];
+}

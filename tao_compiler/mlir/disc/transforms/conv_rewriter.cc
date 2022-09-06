@@ -26,6 +26,7 @@ limitations under the License.
 #include "mlir/Transforms/Passes.h"                      // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "tensorflow/core/util/env_var.h"
 #include "transforms/PassDetail.h"
 
 #define DEBUG_TYPE "conv-rewriter"
@@ -168,7 +169,13 @@ LogicalResult inferExpectedLayout(ConvParams& params, int cc_major) {
   outputLayout.resize(rank);
 
   if (onGpu) {
-    if (cc_major >= 8 ||
+    bool is_fp32 =
+        inputTy.getElementType().isF32() && filterTy.getElementType().isF32();
+    bool use_tf32 = true;
+    TF_CHECK_OK(tensorflow::ReadBoolFromEnvVar("NVIDIA_TF32_OVERRIDE",
+                                               /*default_val=*/use_tf32,
+                                               &use_tf32));
+    if (cc_major >= 8 && (!is_fp32 || use_tf32) ||
         inputTy.getElementType().isF16() && filterTy.getElementType().isF16()) {
       // TensorCore prefers NHWC layouts
       fillNHWC(inputLayout, num_spatial_dims);

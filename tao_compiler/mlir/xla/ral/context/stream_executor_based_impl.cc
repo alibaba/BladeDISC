@@ -1289,7 +1289,7 @@ bool PickBestAlgorithm(CudnnConvParams& params,
 }  // namespace gpu_conv_impl
 
 static bool layout_match(const std::vector<int32_t>& ref,
-                         MemRefType<int32_t, 1> metadata) {
+                         const MemRefType<int32_t, 1>& metadata) {
   if (ref.size() > metadata.sizes[0]) {
     return false;
   }

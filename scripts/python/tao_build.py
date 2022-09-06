@@ -237,7 +237,7 @@ def config_blade_gemm(root, args):
     with cwd(blade_gemm_build_dir), gcc_env(args.bridge_gcc):
         cc = which("gcc")
         cxx = which("g++")
-        cmake_cmd = "CC={} CXX={} CUDA_CXX={} cmake .. -DBLADE_GEMM_NVCC_ARCHS='80' -DBLADE_GEMM_LIBRARY_KERNELS=s1688tf32gemm,f16_s1688gemm_f16,f16_s16816gemm_f16,s16816tf32gemm".format(cc, cxx, args.blade_gemm_nvcc)
+        cmake_cmd = "CC={} CXX={} CUDA_CXX={} cmake ..".format(cc, cxx, args.blade_gemm_nvcc)
         if args.dcu or args.rocm:
             cmake_cmd = "CC={} CXX={} cmake .. -DUSE_TVM=ON -DROCM_PATH={}".format(cc, cxx, get_rocm_path(args))
         logger.info("configuring blade_gemm ......")
@@ -320,8 +320,6 @@ def configure_bridge_bazel(root, args):
                 if args.platform_alibaba and args.blade_gemm:
                     if os.path.exists(args.blade_gemm_nvcc):
                         _action_env("BLADE_GEMM_NVCC", args.blade_gemm_nvcc)
-                        _action_env("BLADE_GEMM_NVCC_ARCHS", "80")  # Currently only for Ampere, add a arg for this when support more archs
-                        _action_env("BLADE_GEMM_LIBRARY_KERNELS", "s1688tf32gemm,f16_s1688gemm_f16,f16_s16816gemm_f16,s16816tf32gemm")
                     else:
                         raise Exception(f"blade_gemm_gcc in args {args.blade_gemm_nvcc} not exists")
             elif cuda_ver.startswith('10.'):

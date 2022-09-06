@@ -406,6 +406,7 @@ cc_library(
         "."
     ],
     deps = [
+        "@com_google_absl//absl/strings",
         ":pass_details",
         ":placement_utils",
         "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
@@ -413,6 +414,7 @@ cc_library(
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:Transforms",
+        "//tensorflow/core:lib",
     ],
     alwayslink = 1,
 )

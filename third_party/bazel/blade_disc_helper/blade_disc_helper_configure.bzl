@@ -39,8 +39,6 @@ def _blade_disc_helper_impl(repository_ctx):
         "%{DISC_BUILD_IP}": get_host_environ(repository_ctx, _DISC_BUILD_IP, ""),
         "%{DISC_BUILD_TIME}": get_host_environ(repository_ctx, _DISC_BUILD_TIME, ""),
         "%{BLADE_GEMM_NVCC}": get_host_environ(repository_ctx, _BLADE_GEMM_NVCC, ""),
-        "%{BLADE_GEMM_NVCC_ARCHS}": get_host_environ(repository_ctx, _BLADE_GEMM_NVCC_ARCHS, ""),
-        "%{BLADE_GEMM_LIBRARY_KERNELS}": get_host_environ(repository_ctx, _BLADE_GEMM_LIBRARY_KERNELS, ""),
         "%{BLADE_GEMM_TVM}": get_host_environ(repository_ctx, _BLADE_GEMM_TVM, ""),
         "%{BLADE_GEMM_ROCM_PATH}": get_host_environ(repository_ctx, _BLADE_GEMM_ROCM_PATH, ""),
         "%{DISC_TARGET_CPU_ARCH}": get_host_environ(repository_ctx, _DISC_TARGET_CPU_ARCH, ""),

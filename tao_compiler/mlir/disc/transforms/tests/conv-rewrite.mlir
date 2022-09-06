@@ -1,4 +1,4 @@
-// RUN: disc-opt -disc-conv-rewriter -split-input-file %s | FileCheck %s
+// RUN: disc-opt -pass-pipeline='func.func(disc-conv-rewriter{gpu-sm-cc-major=8})' -split-input-file %s | FileCheck %s
 
 // CHECK-LABEL: @main
 func.func @main(%arg0: tensor<?x32x32x6xf32>, %arg1: tensor<3x3x3x16xf32>) -> tensor<?x8x7x16xf32> {
@@ -53,17 +53,13 @@ func.func @main(%arg0: tensor<?x32x32x6xf32>, %arg1: tensor<3x3x3x16xf32>) -> te
   %34 = arith.divui %33, %c2_i32_4 : i32
   %35 = arith.subi %33, %34 : i32
   // CHECK: mhlo.transpose
-  // CHECK-SAME: permutation = dense<[0, 3, 1, 2]>
-  // CHECK: mhlo.transpose
-  // CHECK-SAME: permutation = dense<[3, 2, 0, 1]>
+  // CHECK-SAME: permutation = dense<[3, 0, 1, 2]>
   // CHECK: mhlo.dynamic_conv
   // CHECK-SAME: batch_group_count = 1
-  // CHECK-SAME: dimension_numbers = #mhlo.conv<[b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1]>
+  // CHECK-SAME: dimension_numbers = #mhlo.conv<[b, 0, 1, f]x[o, 0, 1, i]->[b, 0, 1, f]>
   // CHECK-SAME: feature_group_count = 2
   // CHECK-SAME: rhs_dilation = dense<[2, 3]>
   // CHECK-SAME: window_strides = dense<[4, 5]>
-  // CHECK: mhlo.transpose
-  // CHECK-SAME: permutation = dense<[0, 2, 3, 1]>
   %36 = tensor.from_elements %16, %17, %34, %35 : tensor<4xi32>
   %37 = "mhlo.dynamic_conv"(%arg0, %arg1, %36) {batch_group_count = 1 : i64,
     dimension_numbers = #mhlo.conv<raw
@@ -84,12 +80,8 @@ func.func @main(%arg0: tensor<?x32x32x6xf32>, %arg1: tensor<3x3x3x16xf32>) -> te
 // CHECK-LABEL: @conv
 func.func @conv(%arg0: tensor<?x32x32x6xf32>, %arg1: tensor<3x3x3x16xf32>) -> tensor<?x8x6x16xf32> {
   // CHECK: mhlo.transpose
-  // CHECK-SAME: permutation = dense<[0, 3, 1, 2]>
-  // CHECK: mhlo.transpose
-  // CHECK-SAME: ermutation = dense<[3, 2, 0, 1]>
+  // CHECK-SAME: ermutation = dense<[3, 0, 1, 2]>
   // CHECK: mhlo.dynamic_conv
-  // CHECK: mhlo.transpose
-  // CHECK-SAME: permutation = dense<[0, 2, 3, 1]>
   %0 = "mhlo.convolution"(%arg0, %arg1) {batch_group_count = 1 : i64,
     dimension_numbers = #mhlo.conv<raw
     input_batch_dimension = 0,

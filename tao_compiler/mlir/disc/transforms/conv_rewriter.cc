@@ -26,6 +26,7 @@ limitations under the License.
 #include "mlir/Transforms/Passes.h"                      // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
+#include "tensorflow/core/util/env_var.h"
 #include "transforms/PassDetail.h"
 
 #define DEBUG_TYPE "conv-rewriter"
@@ -152,7 +153,7 @@ bool isDepthwiseConv(ConvParams& params) {
   return filterTy.getShape()[params.filterLayout[0]] == 1;
 }
 
-LogicalResult inferExpectedLayout(ConvParams& params) {
+LogicalResult inferExpectedLayout(ConvParams& params, int cc_major) {
   bool onGpu = placement_utils::isGpuMhlo(params.conv);
   auto inputTy = params.input.getType().dyn_cast<RankedTensorType>();
   auto filterTy = params.filter.getType().dyn_cast<RankedTensorType>();
@@ -168,7 +169,14 @@ LogicalResult inferExpectedLayout(ConvParams& params) {
   outputLayout.resize(rank);
 
   if (onGpu) {
-    if (inputTy.getElementType().isF16() && filterTy.getElementType().isF16()) {
+    bool is_fp32 =
+        inputTy.getElementType().isF32() && filterTy.getElementType().isF32();
+    bool use_tf32 = true;
+    TF_CHECK_OK(tensorflow::ReadBoolFromEnvVar("NVIDIA_TF32_OVERRIDE",
+                                               /*default_val=*/use_tf32,
+                                               &use_tf32));
+    if (cc_major >= 8 && (!is_fp32 || use_tf32) ||
+        inputTy.getElementType().isF16() && filterTy.getElementType().isF16()) {
       // TensorCore prefers NHWC layouts
       fillNHWC(inputLayout, num_spatial_dims);
       fillNHWC(outputLayout, num_spatial_dims);
@@ -267,8 +275,11 @@ struct ConvToDynamicConvConvert : public OpRewritePattern<mhlo::ConvolutionOp> {
 // having expected format.
 struct DiscConvRewriterPass
     : public ConvRewriterPassBase<DiscConvRewriterPass> {
-  explicit DiscConvRewriterPass()
-      : ConvRewriterPassBase<DiscConvRewriterPass>::ConvRewriterPassBase() {}
+  explicit DiscConvRewriterPass(int cc_major, int cc_minor)
+      : ConvRewriterPassBase<DiscConvRewriterPass>::ConvRewriterPassBase() {
+    cc_major_ = cc_major;
+    cc_minor_ = cc_minor;
+  }
 
   RankedTensorType GetTransposeOutputType(
       Value value, const SmallVectorImpl<int64_t>& transpose_permutation,
@@ -384,7 +395,7 @@ struct DiscConvRewriterPass
       return failure();
     }
 
-    if (failed(inferExpectedLayout(params))) {
+    if (failed(inferExpectedLayout(params, cc_major_))) {
       return failure();
     }
 
@@ -427,12 +438,17 @@ struct DiscConvRewriterPass
       }
     }
   }
+
+ private:
+  int cc_major_;
+  int cc_minor_;
 };
 
 }  // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvRewriter() {
-  return std::make_unique<DiscConvRewriterPass>();
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvRewriter(
+    int cc_major, int cc_minor) {
+  return std::make_unique<DiscConvRewriterPass>(cc_major, cc_minor);
 }
 
 }  // namespace disc_ral

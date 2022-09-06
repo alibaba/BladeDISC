@@ -53,7 +53,8 @@ std::unique_ptr<OperationPass<FuncOp>>
 createDiscLhloLegalizeRootsToParallelLoopsPass();
 
 // Canonicalize conv ops to be suitable for lowering to cudnn lib calls.
-std::unique_ptr<OperationPass<FuncOp>> createDiscConvRewriter();
+std::unique_ptr<OperationPass<FuncOp>> createDiscConvRewriter(int cc_major = 8,
+                                                              int cc_minor = 0);
 
 // Rewrite dot to fold transpose.
 std::unique_ptr<OperationPass<FuncOp>> createDiscDotRewriterPass();

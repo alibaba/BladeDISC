@@ -19,6 +19,8 @@
 #include <torch/script.h>
 #include <fstream>
 
+#include <cuda_profiler_api.h>
+
 #include "common_utils/logging.h"
 #include "compiler/jit/tool_funcs.h"
 #include "ltc/disc_compiler/disc_compiler.h"
@@ -33,6 +35,19 @@ void FoldOutputs(std::shared_ptr<torch::jit::Graph> graph) {
   for (auto input : tuple->inputs()) {
     return_node->addInput(input);
   }
+}
+
+void FusionOutputs(std::shared_ptr<torch::jit::Graph> graph) {
+  auto return_node = graph->return_node();
+
+  auto list_construct = graph->insertNode(graph->createList(
+      torch::jit::OptionalType::ofTensor(), return_node->inputs()));
+  auto tensor_type = at::TensorType::get();
+  auto list_type = at::ListType::create(tensor_type);
+  list_construct->output()->setType(list_type);
+  list_construct->moveBefore(return_node);
+  return_node->removeAllInputs();
+  return_node->addInput(list_construct->output());
 }
 
 std::shared_ptr<torch::jit::Graph> loadGraph(torch::jit::Module& module) {
@@ -112,18 +127,14 @@ void LoadAndReplay(
       }
     }
   }
-}
-
-void FusionOutputs(std::shared_ptr<torch::jit::Graph> graph) {
-  auto return_node = graph->return_node();
-  if (return_node->inputs().size() <= 1) {
-    return;
+  {
+    cudaProfilerStart();
+    std::stringstream ss;
+    ss << "spent with profiler: ";
+    Timer time(ss.str(), 1);
+    executable->Run(arguments, cuda_device, /*default device is cuda*/ true);
+    cudaProfilerStop();
   }
-  auto tuple_construct =
-      graph->insertNode(graph->createTuple(return_node->inputs()));
-  tuple_construct->moveBefore(return_node);
-  return_node->removeAllInputs();
-  return_node->addInput(tuple_construct->output());
 }
 
 void DumpProgramAndData(
@@ -162,6 +173,7 @@ torch::jit::Module ConvertGraphToModule(
     value->setDebugName("arg_" + value->debugName());
   }
   torch::blade::create_method_from_graph(module, "forward", graph);
+  VLOG(0) << "ConvertGraphToModule, graph: " << graph->toString();
   return module;
 }
 
@@ -197,6 +209,11 @@ void BeginClusterReplayRecord() {
 
 void EndClusterReplayRecord() {
   unsetenv("TORCH_DISC_ENABLE_REPLAY_ON_CLUSTER");
+}
+
+bool IsForceFallback() {
+  return torch::blade::env::ReadBoolFromEnvVar(
+      "TORCH_DISC_FORCE_FALLBACK", false);
 }
 
 } //  namespace compiler

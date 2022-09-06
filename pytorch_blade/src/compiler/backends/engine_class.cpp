@@ -40,6 +40,7 @@ at::List<at::Tensor> EngineClass::Fallback(const at::List<at::Tensor>& inputs) {
   std::vector<IValue> f_inputs(inputs.begin(), inputs.end());
 
   auto ret = fallback.forward(f_inputs);
+
   TORCH_CHECK(
       ret.isTensorList(),
       "Only List[Tensor] is supported for outputs, please report a bug");
@@ -83,19 +84,8 @@ at::List<at::Tensor> EngineClass::Execute(const at::List<at::Tensor>& inputs) {
   TORCH_BLADE_RECORD_FUNCTION(attr_debug_name_, record_inputs);
 
   at::List<at::Tensor> outputs;
-  {
-    auto module = GetFallback();
-    const auto method_name =
-        torch::QualifiedName(*module.type()->name(), "forward");
-    auto func =
-        GetFallback()._ivalue()->compilation_unit()->find_function(method_name);
-    auto graph = torch::jit::tryToGraphFunction(*func)->graph();
-    torch_disc::compiler::FoldOutputs(graph);
-    VLOG(0) << "fallback graph: " << graph->toString();
-  }
-  outputs = Fallback(inputs);
   // do inference
-  /**
+
   if (engine_->ShouldFallback(inputs)) {
     outputs = Fallback(inputs);
   } else {
@@ -111,7 +101,6 @@ at::List<at::Tensor> EngineClass::Execute(const at::List<at::Tensor>& inputs) {
       }
     }
   }
-  **/
 
   if (GetRecordClusterIOFlag()) {
     // Note:

@@ -11,8 +11,6 @@
 
 #include "ltc/disc_compiler/passes/graph_fuser.h"
 
-#include "common_utils/logging.h"
-
 #include <c10/util/Exception.h>
 #include <c10/util/irange.h>
 //#include <torch/csrc/jit/codegen/fuser/interface.h>

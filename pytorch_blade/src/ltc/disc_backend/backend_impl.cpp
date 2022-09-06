@@ -251,7 +251,6 @@ std::vector<torch::lazy::BackendDataPtr> DISCBackendImpl::ExecuteComputation(
   ExecutablePtr executable =
       CompileToDiscExecutable(ts_computation.graph()->copy(), arguments);
   auto result = executable->Run(arguments, device, default_device_is_cuda);
-
   auto cachedExecutable =
       std::make_shared<CachedExecutable>(std::move(executable));
   cache_->Add(disc_hash, cachedExecutable);

@@ -41,7 +41,6 @@
 #include <utility>
 #include <vector>
 
-#include "common_utils/logging.h"
 #include "op_registry.h"
 
 namespace c10 {

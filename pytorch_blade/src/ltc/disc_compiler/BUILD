@@ -48,13 +48,13 @@ cc_test(
   srcs = []
   + if_ltc_disc_backend([
     "disc_compiler_test.cpp",
-    "passes/disc_fuser_test.cpp",
+    #"passes/disc_fuser_test.cpp",
   ]),
   deps = [
     "@local_org_torch//:libtorch",
     "@googltest//:gtest_main",
   ] + if_ltc_disc_backend([
     #TODO(yancey.yx): fix core dump while linking :torch_blade_mlir
-    ":disc_passes",
+    #":disc_passes",
   ])
 )

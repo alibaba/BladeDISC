@@ -11,7 +11,6 @@ TorchDisc replay toolkit usage:
 
     this will dump the graph and input data on `replay_dump/<grpah-hash>` director.
 
-
 2. load and replay the graph
 
     It's easy to replay the graph with Python program:
@@ -31,3 +30,8 @@ TorchDisc replay toolkit usage:
     ....
     warmup: 10 iters: 10 every iteration cost: :452.878 ms
     ```
+
+3. load and replay the cluster
+
+    TorchDisc accelerates a couple of clusters in a whole graph, users can also replay a
+    single cluster as the follows:

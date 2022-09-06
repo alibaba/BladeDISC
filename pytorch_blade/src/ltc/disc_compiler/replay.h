@@ -76,6 +76,8 @@ bool IsEnableReplayToolkit();
 // return true if enable replaying a cluster
 bool IsEnableClusterReplayRecord();
 
+bool IsForceFallback();
+
 void BeginClusterReplayRecord();
 
 void EndClusterReplayRecord();

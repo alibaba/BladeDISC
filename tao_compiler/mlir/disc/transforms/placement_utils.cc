@@ -13,7 +13,9 @@
 
 #include "llvm/ADT/StringMap.h"
 #include "mlir-hlo/Dialect/lhlo/transforms/map_hlo_to_lhlo_op.h"
+#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
+#include "tensorflow/compiler/mlir/disc/transforms/disc_map_hlo_to_lhlo_op.h"
 
 namespace mlir {
 namespace placement_utils {
@@ -47,8 +49,18 @@ void appendShapeOperandListForHloOp(ShapeOperandListMap& m,
   m[TypeID::get<LhloTy>()] = list;
 }
 
+template <typename HloDiscTy>
+void appendShapeOperandListForHloDiscOp(ShapeOperandListMap& m,
+                                        ShapeOperandList list) {
+  m[TypeID::get<HloDiscTy>()] = list;
+  using LhloDiscTy = typename mhlo_disc::HloToLhloOp<HloDiscTy>;
+  m[TypeID::get<LhloDiscTy>()] = list;
+}
+
 ShapeOperandListMap initShapeCalcOperandMap() {
   ShapeOperandListMap m;
+
+  // mhlo dialect ops.
   appendShapeOperandListForHloOp<mhlo::RealDynamicSliceOp>(
       m, {/*start_indices*/ 1, /*limit_indices*/ 2, /*strides*/ 3});
   appendShapeOperandListForHloOp<mhlo::DynamicPadOp>(
@@ -61,6 +73,10 @@ ShapeOperandListMap initShapeCalcOperandMap() {
   appendShapeOperandListForHloOp<mhlo::DynamicGatherOp>(m, {/*slice_sizes*/ 2});
   appendShapeOperandListForHloOp<mhlo::DynamicConvOp>(m, {/*paddings*/ 2});
   appendShapeOperandListForHloOp<mhlo::IfOp>(m, {/*pred*/ 0});
+
+  // mhlo_disc dialect ops.
+  appendShapeOperandListForHloDiscOp<mhlo_disc::QuantizedDynamicConvOp>(
+      m, {/*paddings*/ 2});
 
   return m;
 }

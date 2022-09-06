@@ -219,12 +219,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   // TODO(disc): Lower HLO shape constraints instead of eliding them here.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscRemoveShapeConstraintsPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
-
-  // TODO: pay attention if this pass brings side-effects on performance
-  // TODO(disc): this pass introduces `tensor.cast(int32_tensor) ->
-  // index_tensor`, which is illegal ir. Temporarily disable this pass.
-  // TODO(disc): implement another implicit broadcast simplifier pass.
-  // pm.addNestedPass<FuncOp>(mhlo::createBroadcastPropagationPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 

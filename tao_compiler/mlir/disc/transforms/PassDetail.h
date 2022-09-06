@@ -46,6 +46,10 @@ namespace shape {
 class ShapeDialect;
 }
 
+namespace mhlo {
+class MhloDialect;
+}
+
 namespace disc_ral {
 
 #define GEN_PASS_CLASSES

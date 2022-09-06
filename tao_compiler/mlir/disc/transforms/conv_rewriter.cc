@@ -275,9 +275,10 @@ struct ConvToDynamicConvConvert : public OpRewritePattern<mhlo::ConvolutionOp> {
 // having expected format.
 struct DiscConvRewriterPass
     : public ConvRewriterPassBase<DiscConvRewriterPass> {
-  explicit DiscConvRewriterPass(int cc_major)
+  explicit DiscConvRewriterPass(int cc_major, int cc_minor)
       : ConvRewriterPassBase<DiscConvRewriterPass>::ConvRewriterPassBase() {
     cc_major_ = cc_major;
+    cc_minor_ = cc_minor;
   }
 
   RankedTensorType GetTransposeOutputType(
@@ -440,13 +441,14 @@ struct DiscConvRewriterPass
 
  private:
   int cc_major_;
+  int cc_minor_;
 };
 
 }  // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvRewriter(
-    int cc_major) {
-  return std::make_unique<DiscConvRewriterPass>(cc_major);
+    int cc_major, int cc_minor) {
+  return std::make_unique<DiscConvRewriterPass>(cc_major, cc_minor);
 }
 
 }  // namespace disc_ral

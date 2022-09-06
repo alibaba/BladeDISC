@@ -53,6 +53,8 @@ def ConvRewriterPass : Pass<"disc-conv-rewriter", "mlir::func::FuncOp"> {
   let options = [
     Option<"cc_major_", "gpu-sm-cc-major", "int",
             /*default=*/"8", "gpu sm cc_major.">,
+    Option<"cc_minor_", "gpu-sm-cc-minor", "int",
+            /*default=*/"0", "gpu sm cc_minor.">,
   ];
 }
 

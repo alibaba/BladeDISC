@@ -33,6 +33,7 @@ limitations under the License.
 #include "mlir/Transforms/DialectConversion.h"           // from @llvm-project
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // from @llvm-project
 #include "stablehlo/dialect/ChloOps.h"
+#include "tensorflow/compiler/mlir/disc/IR/disc_tf_additional_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/rng_uniform_custom_call_op.h"
 #include "tensorflow/compiler/mlir/disc/IR/topk_custom_call_op.h"
@@ -51,6 +52,13 @@ limitations under the License.
 namespace mlir {
 namespace disc_ral {
 namespace {
+
+mlir::DenseIntElementsAttr getI64ElementsAttr(ArrayRef<int64_t> values,
+                                              Builder* builder) {
+  RankedTensorType ty = RankedTensorType::get(
+      {static_cast<int64_t>(values.size())}, builder->getIntegerType(64));
+  return mlir::DenseIntElementsAttr::get(ty, values);
+}
 
 ValueRange PackRandomUniformInputs(Value lb, Value ub, Value shape) {
   return {lb, ub, shape};
@@ -643,6 +651,30 @@ LogicalResult ConvertDequantizeOp::dequantize(TF::DequantizeOp op,
                          << "\n";
 }
 
+struct ConvertFakeQuantOp : public OpRewritePattern<TF::DiscFakeQuantOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::DiscFakeQuantOp op,
+                                PatternRewriter& rewriter) const final {
+    auto loc = op.getLoc();
+    auto input = op.input();
+    auto scale = op.scale();
+    auto zero_point = op.zero_point();
+    SmallVector<int64_t> axis;
+    for (auto& v : op.axis()) {
+      axis.push_back(v.cast<IntegerAttr>().getInt());
+    }
+    Value new_op = rewriter.create<mhlo_disc::FakeQuantOp>(
+        loc, input.getType(), input, scale, zero_point, op.use_signedAttr(),
+        op.use_symmetricAttr(), getI64ElementsAttr(axis, &rewriter),
+        op.num_bitsAttr(), op.quant_minAttr(), op.quant_maxAttr(),
+        op.use_dynamicAttr());
+    new_op.setType(op.output().getType());
+    rewriter.replaceOp(op, {new_op});
+    return success();
+  }
+};
+
 Type ToLegalElementType(Type type) {
   return llvm::TypeSwitch<Type, Type>(type)
       .Case<mlir::TF::Qint8Type>([&type](Type) {
@@ -800,13 +832,6 @@ int64_t getDimSize(Type ty, int64_t index) {
   if (!ranked_ty) return -1;
 
   return ranked_ty.getDimSize(index);
-}
-
-mlir::DenseIntElementsAttr getI64ElementsAttr(ArrayRef<int64_t> values,
-                                              Builder* builder) {
-  RankedTensorType ty = RankedTensorType::get(
-      {static_cast<int64_t>(values.size())}, builder->getIntegerType(64));
-  return mlir::DenseIntElementsAttr::get(ty, values);
 }
 
 NamedAttribute getConvDimensionNumbersAttr(
@@ -1322,6 +1347,7 @@ void PrepareTFPass::runOnOperation() {
   patterns.insert<
       ConvertDequantizeOp,
       ConvertQuantizeV2Op,
+      ConvertFakeQuantOp,
       ConvertSqueezeOpDynamic,
       ConvertTopKV2OpDynamic,
       ConvertUniformOp,

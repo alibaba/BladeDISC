@@ -72,6 +72,15 @@ tf_cc_test(
 )
 
 cc_library(
+    name = "disc_custom_ops",
+    srcs = ["fake_quant_op.cc"],
+    deps = [
+        "//tensorflow/core:framework"
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "compiler_base",
     srcs = ["compiler_base.cc"],
     hdrs = ["compiler_base.h"],
@@ -106,8 +115,9 @@ cc_library(
     ]),
     visibility = ["//visibility:public"],
     deps = [
-        "compiler_base",
-        "tao_compiler_trace",
+        ":compiler_base",
+        ":disc_custom_ops",
+        ":tao_compiler_trace",
         "//tensorflow/cc:cc_ops",
         "//tensorflow/cc:ops",
         "//tensorflow/cc:resource_variable_ops",

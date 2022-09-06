@@ -1248,6 +1248,8 @@ REGISTER_XLA_OP_FOR_TAO(Name("QuantizedConv2DWithBiasAndRequantize"));
 #endif
 #endif
 
+REGISTER_XLA_OP_FOR_TAO(Name("DiscFakeQuant"));
+
 // clang-format on
 
 }  // namespace tao

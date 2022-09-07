@@ -8,7 +8,6 @@ on:
     - cron: '30 15 * * *' # 11:30 pm UTC+8:00
     - cron: '30 15 * * 5' # 11:30 pm UTC+8:00 every Friday
   workflow_dispatch:
-  push:
 
 jobs:
   TorchBenchTiny:
@@ -20,18 +19,10 @@ jobs:
       device: gpu-a10
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
-      extra_envs: -e OSS_ENDPOINT=${{ secrets.OSS_ENDPOINT }} -e OSS_AK=${{ secrets.OSS_AK }} -e OSS_SK=${{ secrets.OSS_SK }}
       exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh tiny
       push_command: ""
       remote_dev_docker: ""
-    secrets:
-      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
-      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
-      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
-      OSS_AK: ${{ secrets.OSS_AK }}
-      OSS_SK: ${{ secrets.OSS_SK }}
+    secrets: inherit
 
   TorchBenchPartial:
     if: github.event.schedule == '30 15 * * *'
@@ -42,18 +33,10 @@ jobs:
       device: gpu-a10
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
-      extra_envs: -e OSS_ENDPOINT=${{ secrets.OSS_ENDPOINT }} -e OSS_AK=${{ secrets.OSS_AK }} -e OSS_SK=${{ secrets.OSS_SK }}
       exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh
       push_command: ""
       remote_dev_docker: ""
-    secrets:
-      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
-      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
-      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
-      OSS_AK: ${{ secrets.OSS_AK }}
-      OSS_SK: ${{ secrets.OSS_SK }}
+    secrets: inherit
 
   TorchBenchFull:
     if: github.event.schedule == '30 15 * * 5'
@@ -64,16 +47,7 @@ jobs:
       device: gpu-a10
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
-      extra_envs: -e OSS_ENDPOINT=${{ secrets.OSS_ENDPOINT }} -e OSS_AK=${{ secrets.OSS_AK }} -e OSS_SK=${{ secrets.OSS_SK }}
       exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh full
       push_command: ""
       remote_dev_docker: ""
-    secrets:
-      ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
-      ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}
-      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
-      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-      OSS_ENDPOINT: ${{ secrets.OSS_ENDPOINT }}
-      OSS_AK: ${{ secrets.OSS_AK }}
-      OSS_SK: ${{ secrets.OSS_SK }}
-
+    secrets: inherit

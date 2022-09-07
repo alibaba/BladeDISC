@@ -162,7 +162,7 @@ def HLO_QuantizedDotGeneralOp: HLODISC_Op<"quantized_dot_general", [NoSideEffect
   let results = (outs HLO_Tensor:$result);
 }
 
-def HLO_QuantizedDynamicConvOp: HLODISC_Op<"quantized_dynamic_conv", [NoSideEffect]> {
+def HLO_QuantizedDynamicConvOp: HLODISC_ShapedInterfaceOp<"quantized_dynamic_conv", [NoSideEffect]> {
   let summary = "quantized version of dynamic_conv operator";
   let description = [{
     Compute the convolution result using quantized inputs.

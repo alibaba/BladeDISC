@@ -237,7 +237,7 @@ struct DiscHloLegalizeToLhlo
 
   void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<lmhlo_disc::LmhloDiscDialect, memref::MemRefDialect,
-                    shape::ShapeDialect>();
+                    shape::ShapeDialect, bufferization::BufferizationDialect>();
   }
 
  public:
@@ -271,6 +271,7 @@ void populateDiscHLOToLHLOConversionPattern(
   patterns->insert<
       HloToLhloOpConverter<mhlo_disc::H2DOp>,
       HloToLhloOpConverter<mhlo_disc::D2HOp>,
+      HloToLhloOpConverter<mhlo_disc::QuantizedDynamicConvOp>,
       HloToLhloCustomCallOpConverter,
       TieShapeOpConverter,
       SparseReshapeOpConverter

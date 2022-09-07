@@ -177,20 +177,21 @@ func.func @torch.aten.sum.dim_IntList.keepdim(%arg0: !torch.vtensor<[2,?,224,?],
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<2x3x224x224xf32>) -> (tensor<2x3x224x1xf32>, tensor<2x3x224x1xi32>) {
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<0> : tensor<i32>
 // CHECK:         %[[T1:.*]] = mhlo.constant dense<-3.40282347E+38> : tensor<f32>
-// CHECK:         %[[T2:.*]] = "mhlo.iota"() {iota_dimension = 0 : i64} : () -> tensor<224xi32>
-// CHECK:         %[[T3:.*]] = "mhlo.broadcast_in_dim"(%[[T2]]) {broadcast_dimensions = dense<3> : tensor<1xi64>} : (tensor<224xi32>) -> tensor<2x3x224x224xi32>
-// CHECK:         %[[T4:.*]]:2 = mhlo.reduce(%[[ARG0]] init: %[[T1]]), (%[[T3]] init: %[[T0]]) across dimensions = [3] : (tensor<2x3x224x224xf32>, tensor<2x3x224x224xi32>, tensor<f32>, tensor<i32>) -> (tensor<2x3x224xf32>, tensor<2x3x224xi32>)
+// CHECK:         %[[T2:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T1]]) applies mhlo.maximum across dimensions = [3] : (tensor<2x3x224x224xf32>, tensor<f32>) -> tensor<2x3x224xf32>
+// CHECK:         %[[T3:.*]] = "mhlo.iota"() {iota_dimension = 0 : i64} : () -> tensor<224xi32>
+// CHECK:         %[[T4:.*]] = "mhlo.broadcast_in_dim"(%[[T3]]) {broadcast_dimensions = dense<3> : tensor<1xi64>} : (tensor<224xi32>) -> tensor<2x3x224x224xi32>
+// CHECK:         %[[T5:.*]]:2 = mhlo.reduce(%[[ARG0]] init: %[[T1]]), (%[[T4]] init: %[[T0]]) across dimensions = [3] : (tensor<2x3x224x224xf32>, tensor<2x3x224x224xi32>, tensor<f32>, tensor<i32>) -> (tensor<2x3x224xf32>, tensor<2x3x224xi32>)
 // CHECK:         reducer(%[[ARG1:.*]]: tensor<f32>, %[[ARG3:.*]]: tensor<f32>) (%[[ARG2:.*]]: tensor<i32>, %[[ARG4:.*]]: tensor<i32>)  {
-// CHECK:         %[[T7:.*]] = mhlo.compare  GE, %[[ARG1]], %[[ARG3]],  FLOAT : (tensor<f32>, tensor<f32>) -> tensor<i1>
-// CHECK:         %[[T8:.*]] = "mhlo.select"(%[[T7]], %[[ARG1]], %[[ARG3]]) : (tensor<i1>, tensor<f32>, tensor<f32>) -> tensor<f32>
-// CHECK:         %[[T9:.*]] = mhlo.compare  EQ, %[[ARG1]], %[[ARG3]],  FLOAT : (tensor<f32>, tensor<f32>) -> tensor<i1>
-// CHECK:         %[[T10:.*]] = mhlo.minimum %[[ARG2]], %[[ARG4]] : tensor<i32>
-// CHECK:         %[[T11:.*]] = "mhlo.select"(%[[T7]], %[[ARG2]], %[[ARG4]]) : (tensor<i1>, tensor<i32>, tensor<i32>) -> tensor<i32>
-// CHECK:         %[[T12:.*]] = "mhlo.select"(%[[T9]], %[[T10]], %[[T11]]) : (tensor<i1>, tensor<i32>, tensor<i32>) -> tensor<i32>
-// CHECK:         mhlo.return %[[T8]], %[[T12]] : tensor<f32>, tensor<i32>
-// CHECK:         %[[T5:.*]] = mhlo.reshape %[[T4]]#0 : (tensor<2x3x224xf32>) -> tensor<2x3x224x1xf32>
-// CHECK:         %[[T6:.*]] = mhlo.reshape %[[T4]]#1 : (tensor<2x3x224xi32>) -> tensor<2x3x224x1xi32>
-// CHECK:         return %[[T5]], %[[T6]] : tensor<2x3x224x1xf32>, tensor<2x3x224x1xi32>
+// CHECK:         %[[T8:.*]] = mhlo.compare  GE, %[[ARG1]], %[[ARG3]],  FLOAT : (tensor<f32>, tensor<f32>) -> tensor<i1>
+// CHECK:         %[[T9:.*]] = "mhlo.select"(%[[T8]], %[[ARG1]], %[[ARG3]]) : (tensor<i1>, tensor<f32>, tensor<f32>) -> tensor<f32>
+// CHECK:         %[[T10:.*]] = mhlo.compare  EQ, %[[ARG1]], %[[ARG3]],  FLOAT : (tensor<f32>, tensor<f32>) -> tensor<i1>
+// CHECK:         %[[T11:.*]] = mhlo.minimum %[[ARG2]], %[[ARG4]] : tensor<i32>
+// CHECK:         %[[T12:.*]] = "mhlo.select"(%[[T8]], %[[ARG2]], %[[ARG4]]) : (tensor<i1>, tensor<i32>, tensor<i32>) -> tensor<i32>
+// CHECK:         %[[T13:.*]] = "mhlo.select"(%[[T10]], %[[T11]], %[[T12]]) : (tensor<i1>, tensor<i32>, tensor<i32>) -> tensor<i32>
+// CHECK:         mhlo.return %[[T9]], %[[T13]] : tensor<f32>, tensor<i32>
+// CHECK:         %[[T6:.*]] = mhlo.reshape %[[T2]] : (tensor<2x3x224xf32>) -> tensor<2x3x224x1xf32>
+// CHECK:         %[[T7:.*]] = mhlo.reshape %[[T5]]#1 : (tensor<2x3x224xi32>) -> tensor<2x3x224x1xi32>
+// CHECK:         return %[[T6]], %[[T7]] : tensor<2x3x224x1xf32>, tensor<2x3x224x1xi32>
 func.func @torch.aten.max.dim(%arg0: !torch.vtensor<[2,3,224,224],f32>) -> (!torch.vtensor<[2,3,224,1],f32>, !torch.vtensor<[2,3,224,1],si32>){
   %none = torch.constant.none
   %int-1 = torch.constant.int -1

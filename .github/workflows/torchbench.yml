@@ -19,6 +19,7 @@ jobs:
       device: gpu-a10
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
+      extra_envs: -e OSS_ENDPOINT=${{ secrets.DOCKER_PASSWORD }} -e OSS_AK=${{ secrets.OSS_AK }} -e OSS_SK=${{ secrets.OSS_SK }}
       exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh tiny
       push_command: ""
       remote_dev_docker: ""
@@ -29,7 +30,7 @@ jobs:
       DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 
   TorchBenchPartial:
-    if: github.event.schedule != '30 15 * * 5' # daily or dispatch
+    if: github.event.schedule == '30 15 * * *'
     uses: ./.github/workflows/reusable.yml
     with:
       name: torch-offcial-benchmark
@@ -37,6 +38,7 @@ jobs:
       device: gpu-a10
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
+      extra_envs: -e OSS_ENDPOINT=${{ secrets.DOCKER_PASSWORD }} -e OSS_AK=${{ secrets.OSS_AK }} -e OSS_SK=${{ secrets.OSS_SK }}
       exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh
       push_command: ""
       remote_dev_docker: ""
@@ -55,6 +57,7 @@ jobs:
       device: gpu-a10
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
+      extra_envs: -e OSS_ENDPOINT=${{ secrets.DOCKER_PASSWORD }} -e OSS_AK=${{ secrets.OSS_AK }} -e OSS_SK=${{ secrets.OSS_SK }}
       exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh full
       push_command: ""
       remote_dev_docker: ""

@@ -42,7 +42,13 @@ on:
         required: false
       DOCKER_PASSWORD:
         required: false
- 
+      OSS_ENDPOINT:
+        required: false
+      OSS_AK:
+        required: false
+      OSS_SK:
+        required: false
+
 jobs:
   Job:
     if: github.repository == 'alibaba/BladeDISC'

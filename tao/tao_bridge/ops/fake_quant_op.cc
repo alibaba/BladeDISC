@@ -24,9 +24,9 @@ class DiscFakeQuantOp : public OpKernel {
     OP_REQUIRES_OK(context, context->GetAttr("quant_max", &quant_max_));
     OP_REQUIRES_OK(context, context->GetAttr("num_bits", &num_bits_));
     OP_REQUIRES_OK(context, context->GetAttr("axis", &axis_));
-    OP_REQUIRES_OK(context, context->GetAttr("use_signed", &signed_));
-    OP_REQUIRES_OK(context, context->GetAttr("use_symmetric", &symmetric_));
-    OP_REQUIRES_OK(context, context->GetAttr("use_dynamic", &dynamic_));
+    OP_REQUIRES_OK(context, context->GetAttr("use_signed", &use_signed_));
+    OP_REQUIRES_OK(context, context->GetAttr("use_symmetric", &use_symmetric_));
+    OP_REQUIRES_OK(context, context->GetAttr("use_dynamic", &use_dynamic_));
   }
 
   void Compute(OpKernelContext* context) override {
@@ -44,9 +44,9 @@ class DiscFakeQuantOp : public OpKernel {
   int64 quant_max_;
   int64 num_bits_;
   std::vector<int64> axis_;
-  bool signed_;
-  bool symmetric_;
-  bool dynamic_;
+  bool use_signed_;
+  bool use_symmetric_;
+  bool use_dynamic_;
 };
 
 REGISTER_OP("DiscFakeQuant")

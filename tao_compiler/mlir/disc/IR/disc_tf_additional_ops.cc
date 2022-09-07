@@ -37,9 +37,6 @@ LogicalResult DiscFakeQuantOp::verify() {
            << expect_max << " under " << num_bits()
            << " bits and signed=" << use_signed() << ", but got: " << q_max;
   }
-  if (use_dynamic()) {
-    return emitOpError("dynamic quantization is not supported yet");
-  }
   if (axis().size() > 1) {
     return emitOpError(
                "axis must be empty (per-tensor) or a single element array "

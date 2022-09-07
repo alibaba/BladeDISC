@@ -53,13 +53,6 @@ namespace mlir {
 namespace disc_ral {
 namespace {
 
-mlir::DenseIntElementsAttr getI64ElementsAttr(ArrayRef<int64_t> values,
-                                              Builder* builder) {
-  RankedTensorType ty = RankedTensorType::get(
-      {static_cast<int64_t>(values.size())}, builder->getIntegerType(64));
-  return mlir::DenseIntElementsAttr::get(ty, values);
-}
-
 ValueRange PackRandomUniformInputs(Value lb, Value ub, Value shape) {
   return {lb, ub, shape};
 }
@@ -656,6 +649,9 @@ struct ConvertFakeQuantOp : public OpRewritePattern<TF::DiscFakeQuantOp> {
 
   LogicalResult matchAndRewrite(TF::DiscFakeQuantOp op,
                                 PatternRewriter& rewriter) const final {
+    if (op.ues_dynamic) {
+      return op->emitError("dynamic quantization is not supported yet");
+    }
     auto loc = op.getLoc();
     auto input = op.input();
     auto scale = op.scale();
@@ -665,11 +661,10 @@ struct ConvertFakeQuantOp : public OpRewritePattern<TF::DiscFakeQuantOp> {
       axis.push_back(v.cast<IntegerAttr>().getInt());
     }
     Value new_op = rewriter.create<mhlo_disc::FakeQuantOp>(
-        loc, input.getType(), input, scale, zero_point, op.use_signedAttr(),
-        op.use_symmetricAttr(), getI64ElementsAttr(axis, &rewriter),
+        loc, op.getType(), input, scale, zero_point, op.use_signedAttr(),
+        op.use_symmetricAttr(), GetI64ElementsAttr(axis, &rewriter),
         op.num_bitsAttr(), op.quant_minAttr(), op.quant_maxAttr(),
         op.use_dynamicAttr());
-    new_op.setType(op.output().getType());
     rewriter.replaceOp(op, {new_op});
     return success();
   }
@@ -938,10 +933,10 @@ LogicalResult parseConvParams(ConvParams& params, OpBuilder& b, Location& loc) {
   }
 
   auto rhs_dilations_attr =
-      b.getNamedAttr("rhs_dilation", getI64ElementsAttr(rhs_dilations, &b));
+      b.getNamedAttr("rhs_dilation", GetI64ElementsAttr(rhs_dilations, &b));
 
   auto window_strides_attr =
-      b.getNamedAttr("window_strides", getI64ElementsAttr(window_strides, &b));
+      b.getNamedAttr("window_strides", GetI64ElementsAttr(window_strides, &b));
 
   auto dimension_numbers_attr = getConvDimensionNumbersAttr(
       spatial_dim_indices, data_format, &b, tensorflow::FORMAT_OHWI);
@@ -1201,7 +1196,7 @@ class ConvertBucketizeOp : public OpRewritePattern<TF::BucketizeOp> {
     boradcast_dim.push_back(static_cast<int64_t>(input_rank));
     boundaries = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
         loc, broadcast_type, boundaries, broadcast_to_shape_tensor,
-        getI64ElementsAttr(boradcast_dim, &rewriter));
+        GetI64ElementsAttr(boradcast_dim, &rewriter));
 
     input = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
         loc, broadcast_type, input, broadcast_to_shape_tensor, broadcast_dims);
@@ -1218,7 +1213,7 @@ class ConvertBucketizeOp : public OpRewritePattern<TF::BucketizeOp> {
     reduce_dim.push_back(static_cast<int64_t>(input_rank));
     auto buckets = rewriter.create<mhlo::ReduceOp>(
         loc, convert.getResult(), zero,
-        getI64ElementsAttr(reduce_dim, &rewriter));
+        GetI64ElementsAttr(reduce_dim, &rewriter));
     mhlo::BuildReduceBody<mhlo::AddOp>(element_type, &buckets.body(),
                                        &rewriter);
 

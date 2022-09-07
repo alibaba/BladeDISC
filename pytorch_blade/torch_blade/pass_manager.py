@@ -8,8 +8,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import os.path
 
 import torch
+import tempfile
+import onnx
 import torch_blade
 from torch.onnx import OperatorExportTypes
 from torch.onnx.symbolic_helper import _set_opset_version
@@ -69,7 +72,7 @@ def _set_opset_version_from_config():
     return _get_current_onnx_opset_version()
 
 
-def _export_onnx(graph, dynamic_axes, fold_constants=True):
+def _export_onnx(graph, dynamic_axes, fold_constants=True, file_path=None):
     # Note: TRT7 support opset 11
     opset_version = _set_opset_version_from_config()
 
@@ -85,18 +88,46 @@ def _export_onnx(graph, dynamic_axes, fold_constants=True):
     val_keep_init_as_ip = False
     custom_opsets = {}
     val_add_node_names = True
-    proto = graph._export_onnx(
-        params_dict,
-        opset_version,
-        dynamic_axes,
-        defer_weight_export,
-        operator_export_type,
-        strip_doc_string,
-        val_keep_init_as_ip,
-        custom_opsets,
-        val_add_node_names,
-    )[0]
-    return proto
+    if file_path is None:
+        proto = graph._export_onnx(
+            params_dict,
+            opset_version,
+            dynamic_axes,
+            defer_weight_export,
+            operator_export_type,
+            strip_doc_string,
+            val_keep_init_as_ip,
+            custom_opsets,
+            val_add_node_names,
+        )[0]
+        return proto
+    else:
+        # tmp_dirname = tempfile.TemporaryDirectory(prefix=".torch_blade_onnx")
+        # file_name = os.path.join(tmp_dirname.name, "tmp.onnx")
+        file_name = "/workspace/codes/BladeDISC/models/tmp_onnx/tmp.onnx"
+        file_name2 = "/workspace/codes/BladeDISC/models/tmp_onnx/tmp2.onnx"
+        proto = graph._export_onnx(
+            params_dict,
+            opset_version,
+            dynamic_axes,
+            defer_weight_export,
+            operator_export_type,
+            strip_doc_string,
+            val_keep_init_as_ip,
+            custom_opsets,
+            val_add_node_names,
+            file_name
+        )[0]
+        onnx.save(proto, file_name)
+        onnx_model = onnx.load_model(file_name, load_external_data=True)
+        # one_file_name = os.path.join(tmp_dirname.name, "data")
+        one_file_name = "/workspace/codes/BladeDISC/models/tmp_onnx/data"
+        # import pdb;pdb.set_trace()
+        onnx.save(onnx_model, file_name2, save_as_external_data=True, all_tensors_to_one_file=True, location="data", size_threshold=0, convert_attribute=True)
+        onnx_model = onnx.load_model(file_name2, load_external_data=False)
+        proto = onnx_model.SerializeToString()
+        # onnx.load_external_data_for_model(proto, tmp_dirname)
+        return proto, one_file_name
 
 
 def _jit_pass_dce_during_lower_to_trt(graph):

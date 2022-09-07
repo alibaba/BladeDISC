@@ -342,6 +342,12 @@ class ConvertToMhloImpl {
 
 std::tuple<std::string, std::string, std::string, std::string>
 ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
+  for (auto val: graph->inputs()) {
+     auto tensor_type = val->type()->cast<c10::TensorType>();
+     if (tensor_type) {
+       val->setType(tensor_type->dimensionedOnly());
+     }
+  }
   torch::blade::PropagateInputShapes(graph);
   std::shared_ptr<const torch::jit::Graph> const_graph = graph;
   mlir::DialectRegistry registry;
@@ -354,6 +360,7 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
 
   mlir::OpPrintingFlags print_flags;
   print_flags.elideLargeElementsAttrs();
+  print_flags.enableDebugInfo(/*prettyForm*/ true);
 
   bool enable_printing =
       env::ReadBoolFromEnvVar("TORCH_BLADE_MHLO_DEBUG_LOG", false);
@@ -379,8 +386,8 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
         /*shouldPrintAfterPasss*/
         [](mlir::Pass*, mlir::Operation*) { return true; },
         /*printModuleScope*/ false,
-        /*printAfterOnlyOnChange*/ true,
-        /*printAfterOnlyOnFailure*/ false,
+        /*printAfterOnlyOnChange*/ false,
+        /*printAfterOnlyOnFailure*/ true,
         /*out*/ ::llvm::errs(),
         /*opPrintingFlags*/ print_flags);
   }

@@ -198,7 +198,7 @@ int RealMain() {
 
   if (VLOG_IS_ON(0)) {
     llvm::dbgs() << "======== BEGIN Original Module =========\n";
-    module.dump();
+    // module.dump();
     llvm::dbgs() << "\n======= END Original Module ==========\n";
   }
 
@@ -210,7 +210,7 @@ int RealMain() {
 
   if (VLOG_IS_ON(0)) {
     llvm::dbgs() << "======== BEGIN After TF2HLO =========\n";
-    module.dump();
+    // module.dump();
     llvm::dbgs() << "\n======= END After TF2HLO ==========\n";
   }
 

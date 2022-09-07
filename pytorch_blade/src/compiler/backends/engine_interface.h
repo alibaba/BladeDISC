@@ -37,6 +37,8 @@ struct EngineState {
   // will not be serialized
 
   TORCH_BLADE_BACKENDS_DEFINE_FIELD(calib_data, CalibDataType);
+  TORCH_BLADE_BACKENDS_DEFINE_FIELD(extra_data_path, std::string);
+
 
   using SerialType = std::tuple<
       std::string,

@@ -70,15 +70,25 @@ TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
     const QValType& q_val) {
   // Get supported node list
   OnnxParserContext context;
-  bool supported =
-      context.parser->parse(proto_bytes.data(), proto_bytes.size());
+  auto extra_data_path = state->get_extra_data_path();
+  bool supported;
+  if (extra_data_path.length() == 0) {
+    supported =
+          context.parser->parse(proto_bytes.data(), proto_bytes.size());
+  }
+  else {
+      std::cout << "loading extra data\n";
+      supported =
+          context.parser->parse(proto_bytes.data(), proto_bytes.size(), (char*)extra_data_path.c_str());
+  }
+
 
   if (supported) {
     CHECK_EQ(context.parser->getNbErrors(), 0);
 
     auto config = TrtUniquePtr<nvinfer1::IBuilderConfig>(
         context.builder->createBuilderConfig());
-    config->setMaxWorkspaceSize(max_workspace_size_);
+    config->setMaxWorkspaceSize(1 << 36);
     if (dynamic_ranges.size() > 0) {
       auto changeDims = [](nvinfer1::Dims dims,
                            const std::vector<int64_t> shape) {
@@ -125,7 +135,7 @@ TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
               << GetBuilderFlags();
     config->setFlags(GetBuilderFlags());
     // enable tensorrt TF32 by default
-    config->setFlag(nvinfer1::BuilderFlag::kTF32);
+//    config->setFlag(nvinfer1::BuilderFlag::kTF32);
     auto calib_data = state->get_calib_data();
     // calibrator life time needs to last until after the engine is built.
     std::unique_ptr<nvinfer1::IInt8Calibrator> calibrator;

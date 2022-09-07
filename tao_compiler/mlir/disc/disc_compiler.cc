@@ -854,7 +854,8 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
 
   pm.getContext()->disableMultithreading();
   auto printingFlags = mlir::OpPrintingFlags();
-  printingFlags.elideLargeElementsAttrs(16);
+  // printingFlags.elideLargeElementsAttrs(16);
+  printingFlags.elideLargeElementsAttrs();
   pm.enableIRPrinting(
       /*shouldPrintBeforePass=*/nullptr,
       /*shouldPrintAfterPass=*/

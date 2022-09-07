@@ -70,7 +70,7 @@ class ConvertAtenBinaryBroadcastOp : public OpConversionPattern<AtenOpT> {
     Value lhs = adaptor.self();
     auto lhsTy = lhs.getType().cast<TensorType>();
     Value rhs = adaptor.other();
-    auto rhsTy = rhs.getType().cast<TensorType>();
+    auto rhsTy = rhs.getType().cast<RankedTensorType>();
 
     if (!lhsTy || !rhsTy)
       return op.emitError("only Tensor types supported in MHLO");
@@ -78,9 +78,25 @@ class ConvertAtenBinaryBroadcastOp : public OpConversionPattern<AtenOpT> {
     auto lhsElemTy = lhsTy.getElementType();
     auto rhsElemTy = rhsTy.getElementType();
 
-    if (lhsElemTy != rhsElemTy)
-      return op.emitError("input data types mismatched");
+    auto outTy = OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
+            op.getType()).template dyn_cast<RankedTensorType>();
+ 
+    if (outTy.getElementType() != rhsElemTy) {
+      auto rhsOutTy = RankedTensorType::get(rhsTy.getShape(), outTy.getElementType());
+      rhs = rewriter.create<mhlo::ConvertOp>(op.getLoc(), rhsOutTy, rhs);
+    }
+ 
+    if (outTy.getElementType() != lhsElemTy) {
+      auto lhsOutTy = RankedTensorType::get(lhsTy.getShape(), outTy.getElementType());
+      lhs = rewriter.create<mhlo::ConvertOp>(op.getLoc(), lhsOutTy, lhs);
+    }
 
+    if (rhsTy.getRank() == 0) {
+      auto unsqzVal = mhlo::unsqueezeTensor(rewriter, op, rhs, 
+		      ::llvm::to_vector<4>(::llvm::seq<int64_t>(0, lhsTy.getRank())), 32);
+      if (failed(unsqzVal)) return failure();
+      rhs = *unsqzVal;
+    }
     rewriter.replaceOpWithNewOp<ChloOpT>(
         op,
         OpConversionPattern<AtenOpT>::getTypeConverter()->convertType(
@@ -251,11 +267,22 @@ LogicalResult ConvertAtenOp<AtenSizeIntOp>::matchAndRewrite(
     OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   // Not a tensor type.
-  auto selfType = adaptor.self().getType().dyn_cast<TensorType>();
+  auto selfType = adaptor.self().getType().dyn_cast<RankedTensorType>();
   if (!selfType)
     return op.emitError("Only tensor types are currently supported");
-  auto dim = rewriter.create<arith::IndexCastOp>(
+
+  int64_t cstDim = -1;
+  Value dim;
+  if (matchPattern(op.dim(), m_TorchConstantInt(&cstDim))) {
+    cstDim = (cstDim + selfType.getRank()) % selfType.getRank();
+    Value dimVal = rewriter.create<arith::ConstantOp>(
+		    op.getLoc(), rewriter.getIntegerAttr(rewriter.getI32Type(), cstDim));
+    dim = rewriter.create<arith::IndexCastOp>(
+      op.getLoc(), rewriter.getIndexType(), dimVal);
+  } else {
+  dim = rewriter.create<arith::IndexCastOp>(
       op.getLoc(), rewriter.getIndexType(), adaptor.dim());
+  }
   auto dimSize = rewriter.create<tensor::DimOp>(
       op.getLoc(), rewriter.getIndexType(), adaptor.self(), dim);
 
@@ -474,6 +501,363 @@ LogicalResult ConvertAtenOp<AtenLeakyReluOp>::matchAndRewrite(
 }
 } // namespace
 
+namespace {
+static Value createInitialValueForReduceOp(
+    Operation* op,
+    Type elementTy,
+    PatternRewriter& rewriter) {
+  auto constType = RankedTensorType::get({}, elementTy);
+  if (isa<AtenSumOp, AtenSumDimIntListOp>(op)) {
+    if (elementTy.isa<mlir::FloatType>()) {
+      auto constAttr = DenseElementsAttr::get(
+          constType,
+          {APFloat::getZero(
+              elementTy.cast<mlir::FloatType>().getFloatSemantics(),
+              /*negative=*/false)});
+      return rewriter.create<mhlo::ConstantOp>(
+          op->getLoc(), constType, constAttr);
+    } else if (
+        elementTy.isa<mlir::IntegerType>() &&
+        elementTy.getIntOrFloatBitWidth() != 8) {
+      auto constAttr = DenseElementsAttr::get(
+          constType, {APInt::getZero(elementTy.getIntOrFloatBitWidth())});
+      return rewriter.create<mhlo::ConstantOp>(
+          op->getLoc(), constType, constAttr);
+    }
+  }
+
+  if (isa<AtenMaxOp, AtenMaxDimOp, AtenArgmaxOp>(op)) {
+    if (elementTy.isa<mlir::FloatType>()) {
+      auto constAttr = DenseElementsAttr::get(
+          constType,
+          {APFloat::getLargest(
+              elementTy.cast<mlir::FloatType>().getFloatSemantics(),
+              /*negative=*/true)});
+      return rewriter.create<mhlo::ConstantOp>(
+          op->getLoc(), constType, constAttr);
+    } else if (
+        elementTy.isa<mlir::IntegerType>() &&
+        elementTy.getIntOrFloatBitWidth() != 8) {
+      auto constAttr = DenseElementsAttr::get(
+          constType,
+          {APInt::getSignedMinValue(elementTy.getIntOrFloatBitWidth())});
+      return rewriter.create<mhlo::ConstantOp>(
+          op->getLoc(), constType, constAttr);
+    }
+  }
+
+  op->emitError(
+      "unimplemented lowering in "
+      "createInitialValueForReduceOp");
+  return nullptr;
+}
+
+static llvm::Optional<ValueRange> getMaxValueInDim(
+    ConversionPatternRewriter& rewriter,
+    Operation* op,
+    Value& input,
+    int64_t dim) {
+  auto inputTy = input.getType().template cast<RankedTensorType>();
+  if (!inputTy) {
+    return llvm::None;
+  }
+  if (!inputTy.getElementType().isIntOrFloat()) {
+    return llvm::None;
+  }
+  auto inputElemTy = inputTy.getElementType();
+
+  Value initValue = createInitialValueForReduceOp(op, inputElemTy, rewriter);
+  if (!initValue)
+    return llvm::None;
+
+  DenseIntElementsAttr dimensions = DenseIntElementsAttr::get(
+      RankedTensorType::get({}, rewriter.getI64Type()), dim);
+
+  // value reduction
+  auto valueReduceOp = rewriter.create<mhlo::ReduceOp>(
+      op->getLoc(), input, initValue, dimensions);
+  {
+    Block& block = valueReduceOp.body().emplaceBlock();
+    auto argumentType = RankedTensorType::get({}, inputTy.getElementType());
+    block.addArgument(argumentType, op->getLoc());
+    block.addArgument(argumentType, op->getLoc());
+    {
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(&block);
+      auto retValue =
+          rewriter
+              .create<mhlo::MaxOp>(
+                  op->getLoc(), block.getArgument(0), block.getArgument(1))
+              .getResult();
+      rewriter.create<mhlo::ReturnOp>(op->getLoc(), retValue);
+    }
+  }
+  return valueReduceOp.getResults();
+}
+
+static llvm::Optional<ValueRange> getMaxIndicesInDim(
+    ConversionPatternRewriter& rewriter,
+    Operation* op,
+    Value& input,
+    ArrayRef<Value> inputShapeVec,
+    int64_t dim) {
+  auto inputTy = input.getType().template cast<RankedTensorType>();
+  if (!inputTy) {
+    return llvm::None;
+  }
+  if (!inputTy.getElementType().isIntOrFloat()) {
+    return llvm::None;
+  }
+  auto inputShape = inputTy.getShape();
+  auto inputElemTy = inputTy.getElementType();
+
+  Value initValue = createInitialValueForReduceOp(op, inputElemTy, rewriter);
+  if (!initValue)
+    return llvm::None;
+  auto initIndex =
+      mhlo::getConstTensor<int32_t>(rewriter, op, {0}, {}).getValue();
+
+  DenseIntElementsAttr dimensions = DenseIntElementsAttr::get(
+      RankedTensorType::get({}, rewriter.getI64Type()), dim);
+
+  auto inputShapeTensor = rewriter.create<mlir::tensor::FromElementsOp>(
+      op->getLoc(), inputShapeVec);
+
+  auto indexTensor = rewriter.create<mhlo::DynamicIotaOp>(
+      op->getLoc(),
+      RankedTensorType::get(
+          inputShape, rewriter.getIntegerType(32)),
+      inputShapeTensor,
+      rewriter.getI64IntegerAttr(dim));
+  auto indicesReduceOp = rewriter.create<mhlo::ReduceOp>(
+      op->getLoc(),
+      ValueRange{input, indexTensor},
+      ValueRange{
+          initValue,
+          initIndex,
+      },
+      dimensions);
+  {
+    Block& block = indicesReduceOp.body().emplaceBlock();
+
+    // Add block arguments
+    auto blockValArgumentType =
+        RankedTensorType::get({}, inputTy.getElementType());
+    auto blockIdxArgumentType =
+        RankedTensorType::get({}, rewriter.getIntegerType(32));
+    auto compareResultType = RankedTensorType::get({}, rewriter.getI1Type());
+    block.addArgument(blockValArgumentType, op->getLoc());
+    block.addArgument(blockIdxArgumentType, op->getLoc());
+
+    block.addArgument(blockValArgumentType, op->getLoc());
+    block.addArgument(blockIdxArgumentType, op->getLoc());
+
+    auto* firstValArg = block.args_begin();
+    auto* firstIdxArg = std::next(firstValArg);
+    auto* secondValArg = std::next(firstIdxArg);
+    auto* secondIdxArg = std::next(secondValArg);
+
+    mhlo::ComparisonTypeAttr compareTypeAttr;
+    if (inputTy.getElementType().isa<mlir::FloatType>()) {
+      compareTypeAttr = mhlo::ComparisonTypeAttr::get(
+          rewriter.getContext(), mhlo::ComparisonType::FLOAT);
+    } else if (inputTy.getElementType().isa<mlir::IntegerType>()) {
+      compareTypeAttr = mhlo::ComparisonTypeAttr::get(
+          rewriter.getContext(), mhlo::ComparisonType::SIGNED);
+    }
+    mhlo::ComparisonDirectionAttr compareGeDirectionAttr =
+        mhlo::ComparisonDirectionAttr::get(
+            rewriter.getContext(), mhlo::ComparisonDirection::GE);
+    mhlo::ComparisonDirectionAttr compareEqDirectionAttr =
+        mhlo::ComparisonDirectionAttr::get(
+            rewriter.getContext(), mhlo::ComparisonDirection::EQ);
+
+    {
+      OpBuilder::InsertionGuard guard(rewriter);
+      rewriter.setInsertionPointToStart(&block);
+
+      Value compareGeResult = rewriter.create<mhlo::CompareOp>(
+          op->getLoc(),
+          compareResultType,
+          *firstValArg,
+          *secondValArg,
+          compareGeDirectionAttr,
+          compareTypeAttr);
+      Value retValResult = rewriter.create<mhlo::SelectOp>(
+          op->getLoc(), compareGeResult, *firstValArg, *secondValArg);
+
+      // get smaller index value if compared nums are equal.
+      Value compareEqResult = rewriter.create<mhlo::CompareOp>(
+          op->getLoc(),
+          compareResultType,
+          *firstValArg,
+          *secondValArg,
+          compareEqDirectionAttr,
+          compareTypeAttr);
+      Value minIdx = rewriter.create<mhlo::MinOp>(
+          op->getLoc(), *firstIdxArg, *secondIdxArg);
+      Value idxWithGeVal = rewriter.create<mhlo::SelectOp>(
+          op->getLoc(), compareGeResult, *firstIdxArg, *secondIdxArg);
+      Value retIdxResult = rewriter.create<mhlo::SelectOp>(
+          op->getLoc(), compareEqResult, minIdx, idxWithGeVal);
+
+      rewriter.create<mhlo::ReturnOp>(
+          op->getLoc(), mlir::ValueRange{retValResult, retIdxResult});
+    }
+  }
+  return indicesReduceOp.getResults();
+}
+
+template <>
+LogicalResult ConvertAtenOp<AtenMaxDimOp>::matchAndRewrite(
+    AtenMaxDimOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Value input = adaptor.self();
+  auto inputTy = input.getType().template dyn_cast<RankedTensorType>();
+  if (!inputTy) {
+    return rewriter.notifyMatchFailure(
+        op, "only Tensor types supported in MHLO");
+  }
+  auto inputElemTy = inputTy.getElementType();
+  if (!inputElemTy.isIntOrFloat()) {
+    return op.emitError(
+        "Only floating-point or integer datatype legalization supported");
+  }
+  // Currently, (u)int8 dtype is not supported
+  if (inputElemTy.isa<mlir::IntegerType>() &&
+      inputElemTy.getIntOrFloatBitWidth() == 8) {
+    return rewriter.notifyMatchFailure(
+        op,
+        "IntegerType with bitwidth 8 unsupported in convertion from "
+        "AtenMaxDimOp to MHLO");
+  }
+
+  RankedTensorType valResultType = getTypeConverter()
+                                       ->convertType(op.getResult(0).getType())
+                                       .template cast<RankedTensorType>();
+  RankedTensorType idxResultType = getTypeConverter()
+                                       ->convertType(op.getResult(1).getType())
+                                       .template cast<RankedTensorType>();
+  Type idxElementType = idxResultType.getElementType();
+  if (!idxElementType.isa<mlir::IntegerType>()) {
+    return op.emitError("Aten.max.dim needs integer-like result");
+  }
+
+  int64_t dim;
+  if (!matchPattern(op.dim(), m_TorchConstantInt(&dim))) {
+    return rewriter.notifyMatchFailure(op, "non-int dim unsupported");
+  }
+  dim = toPositiveDim(dim, inputTy.getRank());
+  if (!isValidDim(dim, inputTy.getRank())) {
+    return rewriter.notifyMatchFailure(op, "dim is not a valid dim");
+  }
+  bool keepDim = false;
+  if (!matchPattern(op.keepdim(), m_TorchConstantBool(&keepDim))) {
+    return rewriter.notifyMatchFailure(op, "non-bool keepdim unsupported");
+  }
+
+  auto inputShapeInfo = mlir::mhlo::getDimSizesOfTensor(rewriter, op, input, 32);
+  if (failed(inputShapeInfo)) {
+    return rewriter.notifyMatchFailure(
+        op, "failed to get dimension sizes of the input");
+  }
+  auto inputShapeVec = *inputShapeInfo;
+  auto valueResult = getMaxValueInDim(rewriter, op, input, dim).getValue()[0];
+  auto indicesResult =
+      getMaxIndicesInDim(rewriter, op, input, inputShapeVec, dim).getValue()[1];
+  if (keepDim) {
+    auto outShapeVec = inputShapeVec;
+    outShapeVec[dim] = rewriter.create<mlir::arith::ConstantOp>(
+        op->getLoc(),
+        rewriter.getIntegerAttr(rewriter.getIntegerType(32), 1));
+    auto outShapeTensor = rewriter.create<mlir::tensor::FromElementsOp>(
+        op->getLoc(), outShapeVec);
+    auto mhloReduceValueResult = rewriter.create<mhlo::DynamicReshapeOp>(
+        op->getLoc(), valResultType, valueResult, outShapeTensor);
+    auto mhloReduceIndexResult = rewriter.create<mhlo::DynamicReshapeOp>(
+        op->getLoc(), idxResultType, indicesResult, outShapeTensor);
+    rewriter.replaceOp(op, {mhloReduceValueResult, mhloReduceIndexResult});
+    return success();
+  }
+  rewriter.replaceOp(op, {valueResult, indicesResult});
+  return success();
+}
+
+Value gatherTensorAlongSingleAxis(
+    PatternRewriter& rewriter,
+    Operation* op,
+    Value input,
+    Value indices,
+    int64_t axis) {
+  auto loc = op->getLoc();
+  Type intType = rewriter.getIntegerType(32);
+  Value one = rewriter.create<arith::ConstantOp>(
+      loc, rewriter.getIntegerAttr(intType, 1));
+
+  // sliceSizes
+  auto inputRankTy = input.getType().dyn_cast<RankedTensorType>();
+  auto inputRank = inputRankTy.getRank();
+  SmallVector<Value, 4> sliceSizes;
+  sliceSizes.reserve(inputRank);
+  for (int64_t r = 0; r < inputRank; ++r) {
+    if (r == axis) {
+      sliceSizes.push_back(one);
+    } else {
+      sliceSizes.push_back(rewriter.create<arith::IndexCastOp>(
+          loc, intType, rewriter.create<tensor::DimOp>(loc, input, r)));
+    }
+  }
+  auto sliceSizesTensor =
+      rewriter.create<tensor::FromElementsOp>(loc, sliceSizes);
+
+  // offsetDims
+  SmallVector<int64_t, 4> offsetDims;
+  offsetDims.reserve(inputRank);
+  for (int64_t r = 0; r < axis; ++r) {
+    offsetDims.push_back(r);
+  }
+  auto indicesRankTy = indices.getType().dyn_cast<RankedTensorType>();
+  auto indicesRank = indicesRankTy.getRank();
+  for (int64_t r = axis + 1; r < inputRank; ++r) {
+    offsetDims.push_back(r + indicesRank - 1);
+  }
+
+  // collapsedSliceDims
+  SmallVector<int64_t, 4> collapsedSliceDims(1, axis);
+  // startIndexMap
+  SmallVector<int64_t, 4> startIndexMap(1, axis);
+  // indexVecDim
+  int64_t indexVecDim = indicesRank;
+  auto dimsAttr = mhlo::GatherDimensionNumbersAttr::get(
+      rewriter.getContext(),
+      /*offsetDims=*/offsetDims,
+      /*collapsedSliceDims=*/collapsedSliceDims,
+      /*startIndexMap=*/startIndexMap,
+      /*indexVecDim=*/indexVecDim);
+
+  // outputShape = input.shape[:axis] + indices.shape +
+  //                input.shape[axis + 1:]
+  auto inputShape = inputRankTy.getShape();
+  auto indicesShape = indicesRankTy.getShape();
+  SmallVector<int64_t, 4> outputShape(
+      inputShape.begin(), inputShape.begin() + axis);
+  outputShape.insert(
+      outputShape.end(), indicesShape.begin(), indicesShape.end());
+  outputShape.insert(
+      outputShape.end(), inputShape.begin() + axis + 1, inputShape.end());
+
+  // create output tensor type
+  auto outputTy =
+      RankedTensorType::get(outputShape, inputRankTy.getElementType());
+  return rewriter
+      .create<mhlo::DynamicGatherOp>(
+          loc, outputTy, input, indices, sliceSizesTensor, dimsAttr)
+      .getResult();
+}
+
+
+} // namespace
 // -----------------------------------------------------------------------------
 // TorchToMhlo Pass
 // -----------------------------------------------------------------------------
@@ -541,6 +925,7 @@ class DiscConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(ValsemVariantAtenUniformOp);
     INSERT_ATENOP_PATTERN(AtenTensorIntOp);
     INSERT_ATENOP_PATTERN(AtenFloatScalarOp);
+    INSERT_ATENOP_PATTERN(AtenMaxDimOp);
 #undef INSERT_ATENOP_PATTERN
 
 #define INSERT_BINARY_BROADCAST_PATTERN(AtenOp, MhloOp)       \
@@ -548,6 +933,7 @@ class DiscConvertTorchToMhlo
   patterns.add<ConvertAtenBinaryBroadcastOp<AtenOp, MhloOp>>( \
       typeConverter, context)
     INSERT_BINARY_BROADCAST_PATTERN(AtenMaximumOp, chlo::BroadcastMaxOp);
+    INSERT_BINARY_BROADCAST_PATTERN(AtenMaxOtherOp, chlo::BroadcastMaxOp);
     INSERT_BINARY_BROADCAST_PATTERN(AtenMinimumOp, chlo::BroadcastMinOp);
     INSERT_BINARY_BROADCAST_PATTERN(Aten__And__TensorOp, chlo::BroadcastAndOp);
 #undef INSERT_BINARY_BROADCAST_PATTERN

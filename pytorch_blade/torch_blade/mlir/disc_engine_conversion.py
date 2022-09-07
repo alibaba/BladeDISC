@@ -108,7 +108,13 @@ def _disc_engine_conversion(module):
     def try_cvt_to_disc_engine_func(
             c_module, subgraph, group_name, q_info=None, grp_calib_data=None
     ):
+        for inp in subgraph.inputs():
+            is_tensor = inp.type().isSubtypeOf(torch._C.TensorType.get())
+            if not is_tensor:
+                return None
+
         attr_name = f"{mlir._DISC_GROUP_NAME}{group_name}"
+        print(f"Try converting {attr_name}")
         try:
             so_bytes, pb_bytes, input_dev_str, output_dev_str = _compile_torchscript(subgraph)
             subg_str = str(subgraph)
@@ -132,6 +138,7 @@ def _disc_engine_conversion(module):
                 str(subgraph),
             )
 
+            print(f"Success converting {attr_name}")
             return attr_name, eng_type
         except Exception as error:
             logger.warning(error)
@@ -157,7 +164,7 @@ def _optimize_mlir(script_module):
     # do tensorrt optimization
     c_module = script_module._c
     graph = c_module.forward.graph
-
+    print("Starting disc optimization")
     # NOTE: this is NOT SAFE, since it assumes that the LHS is not aliased by
     # another value. This is only to avoid breaking ONNX export; when alias
     # analysis is done we can emit a warning if someone tries to export.
@@ -166,7 +173,7 @@ def _optimize_mlir(script_module):
     # only when it's safe. Otherwise label the inplace ops as unsupported.
     # Then move the pass as a common step to _optimize_common.
     torch._C._jit_pass_remove_inplace_ops(graph)
-
+    with open('graph.txt', 'w') as f: f.write(str(graph))
     def fusion_block(block):
         for n in block.nodes():
             for blk in n.blocks():
@@ -178,4 +185,6 @@ def _optimize_mlir(script_module):
 
     with tools.trust_tracing_shape():
         fusion_block(graph)
+        with open('graph.txt', 'w') as f: f.write(str(graph))
+        with open('model.code.py', 'w') as f: f.write(c_module.forward.code)
         _disc_engine_conversion(c_module)

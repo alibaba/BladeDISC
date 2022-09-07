@@ -16,7 +16,7 @@ from torch_blade import pass_manager
 from torch_blade.clustering.support_fusion_algorithm import group_supported_clusters
 from torch_blade.logging import logger
 
-_MIN_GROUP_NODES = 3
+_MIN_GROUP_NODES = 10
 
 @contextlib.contextmanager
 def min_group_nodes(min_num_nodes):

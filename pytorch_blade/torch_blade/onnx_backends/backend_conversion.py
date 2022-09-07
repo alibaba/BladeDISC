@@ -81,8 +81,14 @@ def _build_onnx_engine(subgraph, engine_build_func, q_info=None,
             f"opt_shapes: {str(opt_shapes)}, "
             f"dynamic_axes: {str(dynamic_axes)}."
         )
-
-    dyn_proto = pass_manager._export_onnx(graph, dynamic_axes)
+    data = pass_manager._export_onnx(graph, dynamic_axes, file_path=None)
+    if isinstance(data, tuple):
+        dyn_proto = data[0]
+        data_path = data[1]
+    else:
+        dyn_proto = data
+        data_path = ""
+    state.extra_data_path = data_path
     onnx_model = onnx.load_from_string(dyn_proto)
     if len(onnx_model.graph.node) == 0:
         # input a graph with empty nodes to onnx builder would cause segfault

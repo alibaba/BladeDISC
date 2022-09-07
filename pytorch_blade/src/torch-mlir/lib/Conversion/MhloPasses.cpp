@@ -61,6 +61,7 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
   // Perform rank broadcasting so MhloToLinalg pass works
   // pm.addNestedPass<func::FuncOp>(createMhloMakeBroadcastablePass());
 
+  pm.addNestedPass<func::FuncOp>(createCSEPass());
   // Clean up any non-canonical code introduced above..
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
   // The resolution of `dim` ops tends to create identical ops. CSE them.

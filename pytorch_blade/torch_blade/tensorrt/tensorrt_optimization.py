@@ -84,7 +84,33 @@ def optimize_trt(script_module, q_info=None, disable_fallback=False):
     # do tensorrt optimization
     c_module = script_module._c
     graph = c_module.forward.graph
-    trt_unsupported = get_unsupported_nodes(graph, q_info=q_info)
+    # trt_unsupported = get_unsupported_nodes(graph, q_info=q_info)
+    # cache_unsupported = []
+    # for node in trt_unsupported:
+    #     cache_unsupported.append(node.output_list()[0].debugName())
+    # torch.save(cache_unsupported, "cache_unsupported_125m.pt")
+    # exit()
+    trt_unsupported = []
+    supported_op_type = [
+        'aten::linear', 'aten::mul', 'aten::add', 'aten::view', 'aten::transpose', 'aten::contiguous',
+        'aten::bmm','aten::softmax', 'aten::layer_norm','aten::reshape', 'aten::relu', 'aten::cat',
+        'prim::Constant', 'aten::slice', 'aten::size'
+    ]
+    cache_unsupported = torch.load("cache_unsupported_125m.pt")
+    embedding_output = ['125', 'pos_embeds.1', ]
+    linear_output = ['1447',]
+    cache_unsupported.extend(embedding_output)
+    cache_unsupported.extend(linear_output)
+    for node in graph.node_list():
+        # if node.output_list()[0].debugName() in cache_unsupported:
+        #     trt_unsupported.append(node)
+        if node.kind() not in supported_op_type:
+            trt_unsupported.append(node)
+
+    # trt_unsupported = set(trt_unsupported)
+    print(f"unsupported nodes num {len(trt_unsupported)}")
+
+    # trt_unsupported = set()
     dynamic_settings = get_dynamic_settings(c_module, trt_unsupported)
     top_level_block = graph
     supported_node_fusion(graph, top_level_block, trt_unsupported, q_info)

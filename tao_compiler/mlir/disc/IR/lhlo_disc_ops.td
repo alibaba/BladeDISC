@@ -30,6 +30,8 @@ def LHLODISC_Dialect : Dialect {
   let cppNamespace = "::mlir::lmhlo_disc";
 }
 
+def LHLO_I32Tensor : MemRefOf<[SignlessIntOfWidths<[32]>]>;
+
 class LHLODISC_Op<string mnemonic, list<Trait> traits> :
   Op<LHLODISC_Dialect, mnemonic,
     !listconcat([MemoryEffects<[MemRead, MemWrite]>,
@@ -91,6 +93,63 @@ def LHLODISC_PrintfOp: LHLODISC_Op<"printf", []> {
   let arguments = (ins Arg<Variadic<LHLO_DimensionValue>, "", [MemRead]>:$args,
                        Arg<LHLO_DimensionValue, "", [MemWrite]>:$output,
                        StrAttr:$format);
+}
+
+def LHLODISC_QuantizedDotGeneralOp: LHLODISC_Op<"quantized_dot_general", []> {
+  let summary = "quantized version of dot gerneal operator";
+  let description = [{
+    Compute the dot product using result quantized inputs.
+  }];
+  let arguments = (ins
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$input,
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$weight,
+    Arg<LHLO_FpBuffer, "", [MemRead]>:$input_scale,
+    Arg<LHLO_I32Tensor, "", [MemRead]>:$input_zero_point,
+    Arg<LHLO_FpBuffer, "", [MemRead]>:$weight_scale,
+    Arg<LHLO_I32Tensor, "", [MemRead]>:$weight_zero_point,
+    Arg<LHLO_FpBuffer, "", [MemRead]>:$result_scale,
+    Arg<LHLO_I32Tensor, "", [MemRead]>:$result_zero_point,
+    Arg<LHLO_IntBuffer, "", [MemWrite]>:$result,
+    DotDimensionNumbers:$dot_dimension_numbers,
+    DefaultValuedAttr<BoolAttr, "true">:$use_symmetric,
+    DefaultValuedAttr<I64ElementsAttr, "ArrayRef<int64_t>{}">:$axis,
+    DefaultValuedAttr<BoolAttr, "false">:$use_dynamic
+  );
+}
+
+def LHLODISC_QuantizedDynamicConvOp: LHLODISC_Op<"quantized_dynamic_conv", []> {
+  let summary = "quantized version of dynamic_conv operator";
+  let description = [{
+    Compute the convolution result using quantized inputs.
+  }];
+  let arguments = (ins
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$input,
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$weight,
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$d_padding,
+    Arg<LHLO_FpBuffer, "", [MemRead]>:$input_scale,
+    Arg<LHLO_I32Tensor, "", [MemRead]>:$input_zero_point,
+    Arg<LHLO_FpBuffer, "", [MemRead]>:$weight_scale,
+    Arg<LHLO_I32Tensor, "", [MemRead]>:$weight_zero_point,
+    Arg<LHLO_FpBuffer, "", [MemRead]>:$result_scale,
+    Arg<LHLO_I32Tensor, "", [MemRead]>:$result_zero_point,
+    Arg<LHLO_IntBuffer, "", [MemWrite]>:$result,
+    // Default value: one for each of the spatial dimension.
+    OptionalAttr<I64ElementsAttr>:$window_strides,
+    // Default value: two zeros for each of the spatial dimension.
+    OptionalAttr<I64ElementsAttr>:$padding,
+    // Default value: one for each of the spatial dimension.
+    OptionalAttr<I64ElementsAttr>:$lhs_dilation,
+    // Default value: one for each of the spatial dimension.
+    OptionalAttr<I64ElementsAttr>:$rhs_dilation,
+    // Default value: false for each of the spatial dimension.
+    OptionalAttr<BoolElementsAttr>:$window_reversal,
+    ConvDimensionNumbers:$dimension_numbers,
+    I64Attr:$feature_group_count,
+    I64Attr:$batch_group_count,
+    DefaultValuedAttr<BoolAttr, "true">:$use_symmetric,
+    DefaultValuedAttr<I64ElementsAttr, "ArrayRef<int64_t>{}">:$axis,
+    DefaultValuedAttr<BoolAttr, "false">:$use_dynamic
+  );
 }
 
 def LHLODISC_SparseReshapeOp : LHLODISC_Op<"sparse_reshape", []> {

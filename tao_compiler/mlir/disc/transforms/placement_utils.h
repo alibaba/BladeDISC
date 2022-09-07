@@ -70,11 +70,11 @@ bool isGpuMhlo(Operation* op);
 bool isGpuMemRef(Value memref);
 
 // Check Op if it is a mhlo Op.
-// TODO: remove mhlo_disc.custom_call after it is merged into mhlo dialect
 inline bool isMhloDialect(Operation* op) {
   return (op->getDialect() ==
               op->getContext()->getLoadedDialect<mhlo::MhloDialect>() ||
-          isa<mhlo_disc::CustomCallOp>(op));
+          op->getDialect() ==
+              op->getContext()->getLoadedDialect<mhlo_disc::MhloDiscDialect>());
 }
 
 inline bool isStdOnTensor(Operation* op) {

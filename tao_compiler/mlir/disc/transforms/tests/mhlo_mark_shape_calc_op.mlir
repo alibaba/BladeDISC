@@ -1,5 +1,6 @@
 // RUN: disc-opt --disc-mhlo-mark-shape-calc -split-input-file %s | FileCheck %s
 
+// CHECK-LABEL: @main
 func.func @main(%arg0: tensor<?x8xf32>) -> tensor<?x24xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "cpu", outputs = "output0"}} {
   // CHECK: mhlo.constant
   // CHECK: tensor.from_elements
@@ -30,6 +31,7 @@ func.func @main(%arg0: tensor<?x8xf32>) -> tensor<?x24xf32> attributes {tf.entry
 
 // -----
 
+// CHECK-LABEL: @main
 func.func @main(%arg0: tensor<?x?x?xi32>, %arg1: tensor<?x6x2xi64>) -> tensor<?x6x?xi32> attributes {tf.entry_function = {input_placements = "cpu,cpu", inputs = "input0, input1", output_placements = "cpu", outputs = "output0"}} {
   // CHECK: tensor.from_elements
   // CHECK-SAME: disc.shape_op = true
@@ -44,4 +46,53 @@ func.func @main(%arg0: tensor<?x?x?xi32>, %arg1: tensor<?x6x2xi64>) -> tensor<?x
   %2 = tensor.from_elements %c1_i64, %c1_i64_0, %1 : tensor<3xi64>
   %3 = "mhlo.dynamic_gather"(%arg0, %arg1, %2) {dimension_numbers = #mhlo.gather<collapsed_slice_dims = [0, 1], index_vector_dim = 2, offset_dims = [2], start_index_map = [0, 1]>, indices_are_sorted = false} : (tensor<?x?x?xi32>, tensor<?x6x2xi64>, tensor<3xi64>) -> tensor<?x6x?xi32>
   return %3 : tensor<?x6x?xi32>
+}
+
+// -----
+
+// Test for per_tensor_quantized_dynamic_conv
+
+// CHECK-LABEL: @main
+// CHECK-SAME: %[[INPUT:.*]]: tensor<?x?x?x?xi8>, %[[WEIGHT:.*]]: tensor<?x?x?x?xi8>,
+// CHECK-SAME: %[[PADDING:.*]]: tensor<4xf32>,
+func.func @main(%input: tensor<?x?x?x?xi8>, %weight: tensor<?x?x?x?xi8>, %padding : tensor<4xf32>,
+                %input_scale: tensor<f32>, %input_zero_point: tensor<i32>,
+                %weight_scale: tensor<f32>, %weight_zero_point: tensor<i32>,
+                %result_scale: tensor<f32>, %result_zero_point: tensor<i32>) -> tensor<?x?x?x?xi8>
+                    attributes {tf.entry_function = {
+                                  input_placements = "cpu,cpu,gpu,cpu,cpu,cpu,cpu,cpu,cpu",
+                                  inputs = "input0,input1,input2,input3,input4,input5,input6,input7,input8",
+                                  output_placements = "cpu", outputs = "output0"}} {
+  // CHECK: %[[RefinedPadding:.*]] = mhlo.convert(%[[PADDING]])
+  // CHECK-SAME: disc.shape_op = true
+  // CHECK: %[[OUT:.*]] = "mhlo_disc.quantized_dynamic_conv"
+  // CHECK-SAME: %[[INPUT]], %[[WEIGHT]], %[[RefinedPadding]]
+  %refined_padding = mhlo.convert(%padding) : (tensor<4xf32>) -> tensor<4xi32>
+  %out = "mhlo_disc.quantized_dynamic_conv"(%input, %weight, %refined_padding,
+                                           %input_scale, %input_zero_point,
+                                           %weight_scale, %weight_zero_point,
+                                           %result_scale, %result_zero_point) {
+      use_symmetric = true,
+      axis = dense<[]> : tensor<0xi64>,
+      use_dynamic = false,
+      dimension_numbers = #mhlo.conv<raw
+        input_batch_dimension = 0,
+        input_feature_dimension = 1,
+        input_spatial_dimensions = [2, 3],
+        kernel_input_feature_dimension = 1,
+        kernel_output_feature_dimension = 0,
+        kernel_spatial_dimensions = [2, 3],
+        output_batch_dimension = 0,
+        output_feature_dimension = 1,
+        output_spatial_dimensions = [2, 3]
+      >,
+      batch_group_count = 1 : i64,
+      feature_group_count = 1 : i64,
+      rhs_dilation = dense<1> : tensor<2xi64>,
+      window_strides = dense<3> : tensor<2xi64>
+  } : (tensor<?x?x?x?xi8>, tensor<?x?x?x?xi8>, tensor<4xi32>,
+       tensor<f32>, tensor<i32>,
+       tensor<f32>, tensor<i32>,
+       tensor<f32>, tensor<i32>) -> tensor<?x?x?x?xi8>
+  return %out : tensor<?x?x?x?xi8>
 }

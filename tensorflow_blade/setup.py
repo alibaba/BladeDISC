@@ -1,7 +1,6 @@
 # Copyright 2022 The BladeDISC Authors. All rights reserved.
 # Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# you may not use this file except in compliance with the License. You may obtain a copy of the License at
 # http://www.apache.org/licenses/LICENSE-2.0
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -128,6 +127,18 @@ class CppBuild(build_ext):
                         os.remove(link_name)
                     os.symlink(fpath, link_name)
                     print(f"Link native lib: {fpath}")
+
+        # link internal disc.
+        import tensorflow as tf
+        compiler_fname = 'tao_compiler_main'
+        compiler_bin = os.path.join(
+            os.path.dirname(tf.__file__), os.path.pardir, 'aicompiler', compiler_fname)
+        compiler_bin = os.path.abspath(compiler_bin)
+        if os.path.exists(compiler_bin):
+            link_name = os.path.join(extdir, compiler_fname)
+            if os.path.exists(link_name):
+                os.remove(link_name)
+            os.symlink(compiler_fname, link_name)
 
         # other extensions
         self.extensions.pop(0)

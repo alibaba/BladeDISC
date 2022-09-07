@@ -1264,6 +1264,7 @@ class ConvertSparseFillEmptyRowsOp
   LogicalResult matchAndRewrite(TF::SparseFillEmptyRowsOp op,
                                 PatternRewriter& rewriter) const override {
     auto loc = op.getLoc();
+    auto element_type = op.values().getType().dyn_cast<RankedTensorType>().getElementType();
     auto sparse_fill_empty_rows_op =
         rewriter.create<mhlo_disc::SparseFillEmptyRowsOp>(
             loc, op.output_indices().getType(), op.output_values().getType(),
@@ -1287,7 +1288,8 @@ class ConvertSparseFillEmptyRowsOp
     output_values_slice_shape_values.push_back(-1);
 
     auto create_slice_op = [&](int slice_rank, int result_index,
-                               SmallVector<int64_t, 2> slice_shape) {
+                               SmallVector<int64_t, 2> slice_shape,
+                               Type slice_element_type) {
       SmallVector<Value, 2> start_values(slice_rank, idx_zero);
       SmallVector<Value, 2> limit_values(slice_rank, rank);
       limit_values[0] = N_full;
@@ -1309,16 +1311,16 @@ class ConvertSparseFillEmptyRowsOp
                                 index_ty),
           strides_values);
       auto slice_op = rewriter.create<mhlo::RealDynamicSliceOp>(
-          loc, RankedTensorType::get(slice_shape, rewriter.getI64Type()),
+          loc, RankedTensorType::get(slice_shape, slice_element_type),
           sparse_fill_empty_rows_op.getResult(result_index), start_indices,
           limit_indices, strides_indices);
       return slice_op;
     };
 
     auto output_indices_slice_op =
-        create_slice_op(2, 0, output_indices_slice_shape_values);
+        create_slice_op(2, 0, output_indices_slice_shape_values, rewriter.getI64Type());
     auto output_values_slice_op =
-        create_slice_op(1, 1, output_values_slice_shape_values);
+        create_slice_op(1, 1, output_values_slice_shape_values, element_type);
     rewriter.replaceOp(op, {
                                output_indices_slice_op.getResult(),
                                output_values_slice_op.getResult(),

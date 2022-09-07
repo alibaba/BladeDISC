@@ -80,6 +80,9 @@ jobs:
           -v $PWD:/disc \
           -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
           ${{ inputs.extra_envs }} \
+          -e OSS_ENDPOINT=${{ secrets.OSS_ENDPOINT }} \
+          -e OSS_AK=${{ secrets.OSS_AK }} \
+          -e OSS_SK=${{ secrets.OSS_SK }} \
           -w /disc \
           disc-dev-${{ inputs.name }} ${{ inputs.exec_command }}
     - name: Push Docker Image

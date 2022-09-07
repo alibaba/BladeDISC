@@ -67,3 +67,48 @@ func.func @test_topk_custom_call(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xi64>,
   %1, %2 = "mhlo_disc.custom_call"(%arg0, %arg1, %arg2) { backend_config = "{\"dimension\": 5}", call_target_name = "topk" } : (tensor<?x?xf32>, tensor<?x?xi64>, tensor<index>) -> (tensor<?x?xf32>, tensor<?x?xi64>)
   return %1, %2 : tensor<?x?xf32>, tensor<?x?xi64>
 }
+
+// -----
+
+// CHECK-LABEL: @per_tensor_quantized_dynamic_conv
+// CHECK-SAME: %[[INPUT:.*]]: memref<?x?x?x?xi8>, %[[WEIGHT:.*]]: memref<?x?x?x?xi8>,
+// CHECK-SAME: %[[PADDING:.*]]: memref<4xi32>,
+func.func @per_tensor_quantized_dynamic_conv(
+              %input: tensor<?x?x?x?xi8>, %weight: tensor<?x?x?x?xi8>, %padding : tensor<4xi32>,
+              %input_scale: tensor<f32>, %input_zero_point: tensor<i32>,
+              %weight_scale: tensor<f32>, %weight_zero_point: tensor<i32>,
+              %result_scale: tensor<f32>, %result_zero_point: tensor<i32>) -> tensor<?x?x?x?xi8> {
+  // CHECK: %[[OUT:.*]] = memref.alloc({{.*}})
+  // CHECK-SAME: memref<?x?x?x?xi8>
+  // CHECK: "lmhlo_disc.quantized_dynamic_conv"
+  // CHECK-SAME: %[[INPUT]], %[[WEIGHT]], %[[PADDING]]
+  // CHECK-SAME: %[[OUT]]
+  %out = "mhlo_disc.quantized_dynamic_conv"(%input, %weight, %padding,
+                                           %input_scale, %input_zero_point,
+                                           %weight_scale, %weight_zero_point,
+                                           %result_scale, %result_zero_point) {
+      use_symmetric = true,
+      axis = dense<[]> : tensor<0xi64>,
+      use_dynamic = false,
+      dimension_numbers = #mhlo.conv<raw
+        input_batch_dimension = 0,
+        input_feature_dimension = 1,
+        input_spatial_dimensions = [2, 3],
+        kernel_input_feature_dimension = 1,
+        kernel_output_feature_dimension = 0,
+        kernel_spatial_dimensions = [2, 3],
+        output_batch_dimension = 0,
+        output_feature_dimension = 1,
+        output_spatial_dimensions = [2, 3]
+      >,
+      batch_group_count = 1 : i64,
+      feature_group_count = 1 : i64,
+      rhs_dilation = dense<1> : tensor<2xi64>,
+      window_strides = dense<3> : tensor<2xi64>
+  } : (tensor<?x?x?x?xi8>, tensor<?x?x?x?xi8>, tensor<4xi32>,
+       tensor<f32>, tensor<i32>,
+       tensor<f32>, tensor<i32>,
+       tensor<f32>, tensor<i32>) -> tensor<?x?x?x?xi8>
+  // CHECK: return %[[OUT]] : memref<?x?x?x?xi8>
+  return %out : tensor<?x?x?x?xi8>
+}

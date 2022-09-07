@@ -334,7 +334,7 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
   SmallVector<int64_t, 4> concat_op_shapes(rank, ShapedType::kDynamicSize);
   for (int64_t i = 0; i < rank; i++) {
     if (i != concat_dim) {
-      concat_op_shapes[i] = orig_rhs_type.getDimSize(i);
+      concat_op_shapes[i] = orig_concat_op_type.getDimSize(i);
     } else if (!is_dynamic_shape) {
       concat_op_shapes[i] = concat_dim_sum;
     }

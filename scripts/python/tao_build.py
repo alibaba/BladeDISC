@@ -342,6 +342,8 @@ def configure_bridge_bazel(root, args):
         _write("--host_jvm_args=-Djdk.http.auth.tunneling.disabledSchemes=", cmd = "startup")
         logger.info("configuring tao_bridge with bazel ......")
 
+    with cwd(root):
+        execute('rm -f tao_compiler/decoupling/version.h')
     with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
         # make sure version.h is generated
         execute(f"bazel build --config=release //:version_header_genrule")

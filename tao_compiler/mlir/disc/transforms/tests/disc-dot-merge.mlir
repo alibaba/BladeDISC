@@ -236,3 +236,40 @@ func.func @dot_not_batching_cycle(%arg0: tensor<?x?xf32>, %arg1: tensor<?x?xf32>
   // CHECK-NOT: rhs_batching_dimensions = [0]
   return %5: tensor<?x?xf32>
 }
+
+
+// CHECK-LABEL: func.func @dot_merging_shared_rhs
+func.func @dot_merging_shared_rhs(%arg0: tensor<?x64xf32>, %arg1: tensor<?x64xf32>, %cst: tensor<64x8xf32>) -> (tensor<?x8xf32>, tensor<?x8xf32>) {
+  // CHECK: mhlo.concatenate
+  // CHECK-SAME: -> tensor<?x64xf32>
+  // CHECK: mhlo.dot_general
+  // CHECK-SAME: lhs_contracting_dimensions = [1]
+  // CHECK-SAME: rhs_contracting_dimensions = [0]
+  %a = "mhlo.dot_general"(%arg0, %cst) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>} : (tensor<?x64xf32>, tensor<64x8xf32>) -> tensor<?x8xf32>
+  %b = "mhlo.dot_general"(%arg1, %cst) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [1], rhs_contracting_dimensions = [0]>} : (tensor<?x64xf32>, tensor<64x8xf32>) -> tensor<?x8xf32>
+  // CHECK: mhlo.real_dynamic_slice
+  // CHECK: mhlo.real_dynamic_slice
+  // CHECK: return
+  // CHECK-SAME: tensor<?x8xf32>, tensor<?x8xf32>
+  return %a, %b : tensor<?x8xf32>, tensor<?x8xf32>
+}
+
+
+// CHECK-LABEL: func.func @dot_merging_shared_lhs
+func.func @dot_merging_shared_lhs(%arg0: tensor<?x64xf32>, %arg1: tensor<?x64xf32>, %cst: tensor<64x8xf32>) -> (tensor<?x8xf32>, tensor<?x8xf32>) {
+  // CHECK: mhlo.concatenate
+  // CHECK-SAME: -> tensor<?x64xf32>
+  // CHECK: mhlo.dot_general
+  // CHECK-SAME: lhs_contracting_dimensions = [0]
+  // CHECK-SAME: rhs_contracting_dimensions = [1]
+  %a = "mhlo.dot_general"(%cst, %arg0) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [0], rhs_contracting_dimensions = [1]>} : (tensor<64x8xf32>, tensor<?x64xf32>) -> tensor<?x8xf32>
+  %b = "mhlo.dot_general"(%cst, %arg1) {dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [0], rhs_contracting_dimensions = [1]>} : (tensor<64x8xf32>, tensor<?x64xf32>) -> tensor<?x8xf32>
+  // CHECK: mhlo.real_dynamic_slice
+  // CHECK: mhlo.real_dynamic_slice
+  // CHECK: return
+  // CHECK-SAME: tensor<?x8xf32>, tensor<?x8xf32>
+  return %a, %b : tensor<?x8xf32>, tensor<?x8xf32>
+}
+
+
+

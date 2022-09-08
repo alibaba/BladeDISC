@@ -46,7 +46,6 @@ class TensorrtOnnxParser {
   void SetMaxWorkspaceSize(const size_t workspace_size) {
     max_workspace_size_ = workspace_size;
   }
-  bool setDynamicRange(TrtUniquePtr<nvinfer1::INetworkDefinition>& network);
 
  private:
   size_t max_workspace_size_ = 1 << 30; // 1GiB

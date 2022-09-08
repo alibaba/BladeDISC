@@ -61,6 +61,10 @@ def HLO_TensorOrIndexTensor : AnyTypeOf<[HLO_Tensor, IndexTensor]>;
 
 def HLO_I32Tensor : TensorOf<[SignlessIntOfWidths<[32]>]>;
 
+def HLO_I64Tensor : TensorOf<[SignlessIntOfWidths<[64]>]>;
+
+def HLO_IndexTensor : AnyTypeOf<[HLO_I32Tensor, HLO_I64Tensor]>;
+
 // TODO(zk): How does 'has_side_effect' actully work?
 def HLODISC_CustomCallOp: HLODISC_ShapedInterfaceOp<"custom_call", []> {
   let summary = "CustomCall operator";
@@ -235,6 +239,79 @@ def HLO_SparseFillEmptyRowsOp : HLODISC_ShapedInterfaceOp<"sparse_fill_empty_row
     TensorOf<[I1]>:$empty_row_indicator,
     TensorOf<[I64]>:$reverse_index_map,
     HLO_Tensor:$output_elements
+  );
+}
+
+// op {
+//   name: "SparseSegmentMean"
+//   input_arg {
+//     name: "data"
+//     type_attr: "T"
+//   }
+//   input_arg {
+//     name: "indices"
+//     type_attr: "Tidx"
+//   }
+//   input_arg {
+//     name: "segment_ids"
+//     type_attr: "Tsegmentids"
+//   }
+//   output_arg {
+//     name: "output"
+//     type_attr: "T"
+//   }
+//   attr {
+//     name: "T"
+//     type: "type"
+//     allowed_values {
+//       list {
+//         type: DT_BFLOAT16
+//         type: DT_HALF
+//         type: DT_FLOAT
+//         type: DT_DOUBLE
+//       }
+//     }
+//   }
+//   attr {
+//     name: "Tidx"
+//     type: "type"
+//     default_value {
+//       type: DT_INT32
+//     }
+//     allowed_values {
+//       list {
+//         type: DT_INT32
+//         type: DT_INT64
+//       }
+//     }
+//   }
+//   attr {
+//     name: "Tsegmentids"
+//     type: "type"
+//     default_value {
+//       type: DT_INT32
+//     }
+//     allowed_values {
+//       list {
+//         type: DT_INT32
+//         type: DT_INT64
+//       }
+//     }
+//   }
+// }
+def HLO_SparseSegmentMeanOp : HLODISC_ShapedInterfaceOp<"sparse_segment_mean", [NoSideEffect]> {
+  let summary = "One-to-one mapping of TF_SparseSegmentMeanOp";
+  let description = [{
+    See tf's sparse_segment_mean operator.
+  }];
+  let arguments = (ins
+    HLO_FpTensor:$data,
+    HLO_IndexTensor:$indices,
+    HLO_IndexTensor:$segment_ids
+  );
+
+  let results = (outs
+    HLO_FpTensor:$output
   );
 }
 

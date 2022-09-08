@@ -42,6 +42,7 @@ MAP_HLO_TO_LHLO(D2HOp);
 MAP_HLO_TO_LHLO(QuantizedDynamicConvOp);
 MAP_HLO_TO_LHLO(SparseReshapeOp);
 MAP_HLO_TO_LHLO(SparseFillEmptyRowsOp);
+MAP_HLO_TO_LHLO(SparseSegmentMeanOp);
 
 #undef MAP_HLO_TO_LHLO
 

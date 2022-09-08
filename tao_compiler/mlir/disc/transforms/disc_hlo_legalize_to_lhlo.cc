@@ -253,6 +253,7 @@ void populateDiscHLOToLHLOConversionPattern(
       HloToLhloOpConverter<mhlo_disc::QuantizedDynamicConvOp>,
       HloToLhloOpConverter<mhlo_disc::SparseReshapeOp>,
       HloToLhloOpConverter<mhlo_disc::SparseFillEmptyRowsOp>,
+      HloToLhloOpConverter<mhlo_disc::SparseSegmentMeanOp>,
       HloToLhloCustomCallOpConverter,
       TieShapeOpConverter
   >(*converter, context);

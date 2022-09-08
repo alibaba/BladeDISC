@@ -185,4 +185,17 @@ def LHLO_SparseFillEmptyRowsOp : LHLODISC_Op<"sparse_fill_empty_rows", []> {
   );
 }
 
+def LHLO_SparseSegmentMeanOp : LHLODISC_Op<"sparse_segment_mean", []> {
+  let summary = "One-to-one mapping of TF_SparseSegmentMeanOp";
+  let description = [{
+    See tf's sparse_segment_mean operator.
+  }];
+  let arguments = (ins
+    Arg<LHLO_FpBuffer, "", [MemRead]>:$data,
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$indices,
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$segment_ids,
+    Arg<LHLO_FpBuffer, "", [MemWrite]>:$output
+  );
+}
+
 #endif // LMHLO_DISC_OPS

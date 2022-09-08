@@ -16,6 +16,7 @@
 // ============================================================================
 #include "tensorflow/compiler/mlir/xla/ral/context/base/cpu/cpu_context_impl.h"
 
+#include <cassert>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>

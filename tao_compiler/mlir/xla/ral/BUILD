@@ -38,15 +38,6 @@ package(
     licenses = ["notice"],  # Apache 2.0
 )
 
-cc_proto_library(
-    name = "compile_metadata",
-    srcs = ["compile_metadata.proto"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//tensorflow/core:protos_all_cc",
-    ],
-)
-
 cc_library(
     name = "ral_logging",
     srcs = [
@@ -142,6 +133,28 @@ cc_library(
         ":ral_logging"
     ],
     alwayslink = 1,
+)
+
+cc_library(
+    name = "ral_metadata",
+    srcs = ["ral_metadata.cc"],
+    hdrs = ["ral_metadata.h"],
+    deps = [],
+    alwayslink = 1,
+)
+
+tf_cc_test(
+    name = "ral_metadata_test",
+    size = "small",
+    srcs = [
+        "ral_metadata_test.cc",
+    ],
+    deps = [
+        ":ral_metadata",
+        "//tensorflow/core:test_main",
+        "//tensorflow/core:test",
+        "//tensorflow/core:testlib",
+    ],
 )
 
 cc_library(
@@ -292,8 +305,8 @@ cc_library(
         ":ral_context",
         ":ral_cpu_driver",
         ":ral_logging",
+        ":ral_metadata",
         ":context_util",
-        ":compile_metadata",
         "@com_google_absl//absl/strings"
     ] + if_cuda_is_configured([
         "//tensorflow/stream_executor:cuda_platform",
@@ -480,7 +493,6 @@ disc_cc_library(
         ":ral_library",
         ":ral_logging",
         ":random",
-        ":compile_metadata",
         "//tensorflow/core:lib",
         "@com_google_absl//absl/strings",
         "@curl",
@@ -553,7 +565,6 @@ cc_library(
     name = "common_context_bridge",
     srcs = [
         "context/common_context_impl.cc",
-        "//tensorflow/compiler/mlir/xla:compile_metadata_bridge_genproto",
     ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
@@ -596,6 +607,7 @@ cc_library(
         ":ral_cpu_driver",
         ":ral_gpu_driver",
         ":ral_logging",
+        ":ral_metadata",
         ":context_util",
         "@local_config_tf//:libtensorflow_framework",
         "@local_config_tf//:tf_header_lib",

@@ -40,13 +40,13 @@ BaseContext::BaseContext(BaseContextOption& opt) {
     }
 
     // The metadata file is loaded once. The data will
-    // be erased from metadata_proto once memcpy is done;
-    if (0 == tao::ral::parseMetadataPb(opt.metadata_file_path,
-                                       &(state->metadata_proto))) {
+    // be erased from metadata file once memcpy is done;
+    if ((state->metadata =
+             MetadataFile::loadFromFile(opt.metadata_file_path))) {
       return state;
     } else {
       delete state;
-      return (tao::ral::RalGlobalConstantState*)nullptr;
+      return (RalGlobalConstantState*)nullptr;
     }
   });
 }

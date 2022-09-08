@@ -27,7 +27,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
-#include "tensorflow/compiler/mlir/xla/ral/compile_metadata.pb.h"
+#include "tensorflow/compiler/mlir/xla/ral/ral_metadata.h"
 #include "tensorflow/core/platform/env.h"
 
 namespace mlir {
@@ -37,6 +37,7 @@ namespace {
 
 using lmhlo::ConstantOp;
 using StrT = SmallString<128>;
+using tao::ral::MetadataFileEmitter;
 
 constexpr static int kMd5DigestLength = 16;
 
@@ -92,7 +93,14 @@ class DiscConstToRALPass : public DiscConstToRALPassBase<DiscConstToRALPass> {
   void runOnOperation() override {
     ModuleOp m = getOperation();
 
-    MetadataProto proto;
+    MetadataFileEmitter emitter(metadata_file_path_);
+    if (!emitter.emitHeader()) {
+      m.emitError("failed to emit header of metadata file: " +
+                  metadata_file_path_);
+      signalPassFailure();
+      return;
+    }
+
     SmallVector<ConstantOp, 4> worklist;
     m.walk([&](ConstantOp op) {
       if (op->getParentOfType<lmhlo::FusionOp>()) {
@@ -101,35 +109,37 @@ class DiscConstToRALPass : public DiscConstToRALPassBase<DiscConstToRALPass> {
       worklist.push_back(op);
     });
     for (ConstantOp op : worklist) {
-      if (failed(convertConstantOp(op, &proto))) {
+      if (failed(convertConstantOp(op, emitter))) {
         m.emitError("convert lmhlo.const to RAL failed");
         signalPassFailure();
         return;
       }
     }
-    auto s = tensorflow::WriteTextProto(tensorflow::Env::Default(),
-                                        metadata_file_path_, proto);
-    if (!s.ok()) {
-      m.emitError("failed to store const file: " + s.error_message());
+
+    if (!emitter.emitTailer()) {
+      m.emitError("failed to emit tailer of metadata file: " +
+                  metadata_file_path_);
       signalPassFailure();
       return;
     }
   }
 
  private:
-  LogicalResult convertConstantOp(ConstantOp const_op, MetadataProto* proto);
+  LogicalResult convertConstantOp(ConstantOp const_op,
+                                  MetadataFileEmitter& emitter);
 
   int num_processing_const_ops_ = 0;
   // Map each unique name of const to a unique index. Such indices are used to
   // reduce the overhead of const lookup at runtime.
-  std::unordered_map<std::string, int> name_idx_map_;
+  std::unordered_map<std::string, int> host_name_idx_map_;
+  std::unordered_map<std::string, int> device_name_idx_map_;
 };
 
 // llvm.mlir.global internal constant @unique_name("unique_name\00")
 // %1 = call @ral_constant_cpu/gpu(%ctx, %stream, %unique_name) : () ->
 // memref<...>
-LogicalResult DiscConstToRALPass::convertConstantOp(ConstantOp const_op,
-                                                    MetadataProto* proto) {
+LogicalResult DiscConstToRALPass::convertConstantOp(
+    ConstantOp const_op, MetadataFileEmitter& emitter) {
   OpBuilder builder(const_op);
   Location loc = const_op.getLoc();
   DenseElementsAttr valueAttr = const_op.getValue().cast<DenseElementsAttr>();
@@ -161,17 +171,19 @@ LogicalResult DiscConstToRALPass::convertConstantOp(ConstantOp const_op,
   std::string data_str = std::string(data);
 
   // save data
-  int next_const_idx;
-  if (on_host) {
-    next_const_idx = proto->host_global_constants_size();
-    (*proto->mutable_host_global_constants())[name_str] = data_str;
-  } else {
-    next_const_idx = proto->device_global_constants_size();
-    (*proto->mutable_device_global_constants())[name_str] = data_str;
+  auto name_idx_map = on_host ? &host_name_idx_map_ : &device_name_idx_map_;
+  auto it = name_idx_map->find(name_str);
+  if (it == name_idx_map->end()) {
+    int next_const_idx;
+    if (on_host) {
+      next_const_idx = emitter.getNumHostConstantEmitted();
+      if (!emitter.emitHostConstant(name_str, data_str)) return failure();
+    } else {
+      next_const_idx = emitter.getNumDeviceConstantEmitted();
+      if (!emitter.emitDeviceConstant(name_str, data_str)) return failure();
+    }
+    it = name_idx_map->emplace(std::move(name_str), next_const_idx).first;
   }
-  auto it = name_idx_map_.find(name_str);
-  if (it == name_idx_map_.end())
-    it = name_idx_map_.emplace(name, next_const_idx).first;
 
   std::string symbol_name =
       ("__global_const_" + llvm::Twine(num_processing_const_ops_++)).str();

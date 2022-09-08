@@ -18,19 +18,12 @@
 
 #include <array>
 #include <chrono>
+#include <map>
 
-#ifdef DISC_BUILD_FROM_TF_BRIDGE
-#include "tensorflow/compiler/mlir/xla/compile_metadata.pb.h"
-#else
-#include "tensorflow/compiler/mlir/xla/ral/compile_metadata.pb.h"
-#endif
 #include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_context.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
-
-namespace mlir {
-class MetadataProto;
-}
+#include "tensorflow/compiler/mlir/xla/ral/ral_metadata.h"
 
 namespace tao {
 namespace ral {
@@ -59,7 +52,7 @@ struct RalGlobalConstantState : public tao::ral::Context::Resource {
   }
 
   std::mutex mu;
-  mlir::MetadataProto metadata_proto;
+  std::unique_ptr<MetadataFile> metadata;
   // If not null, use the process level const store instead of this context
   // level store
   ProcessLevelConstStore* process_level_store = nullptr;
@@ -127,9 +120,6 @@ struct ProcessLevelConstStore {
 
 // Enables process level const store if true.
 bool discEnableGlobalConstantStore();
-
-int parseMetadataPb(const std::string& pb_file_path,
-                    mlir::MetadataProto* proto);
 
 template <typename T, int N>
 MemRefType<T, N> ral_base_cuda_const_cuda(ExecutionContext* ctx,

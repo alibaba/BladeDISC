@@ -531,14 +531,6 @@ LogicalResult SparseFillEmptyRowsOp::verify() {
     return failure();
   }
 
-  if (!dense_shape_type.hasStaticShape()) {
-    return this->emitOpError() << "DISC only support static-rank optimization, "
-                                  "thus dense_shape should has static shape";
-  }
-
-  if (dense_shape_type.getRank() != 1) {
-    return this->emitOpError() << "dense_shape must be a vector";
-  }
   if (indices_type.getRank() != 2) {
     return this->emitOpError() << "indices must be a matrix";
   }
@@ -547,6 +539,14 @@ LogicalResult SparseFillEmptyRowsOp::verify() {
   }
   if (default_value_type.getRank() != 0) {
     return this->emitOpError() << "default_value must be a scalar";
+  }
+  if (!dense_shape_type.hasStaticShape()) {
+    return this->emitOpError() << "DISC only support static-rank optimization, "
+                                  "thus dense_shape should has static shape";
+  }
+
+  if (dense_shape_type.getRank() != 1) {
+    return this->emitOpError() << "dense_shape must be a vector";
   }
 
   auto output_indices_type =

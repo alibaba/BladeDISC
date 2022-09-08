@@ -315,3 +315,12 @@ func.func @sparse_reshape_non_vector_shape(%input_indices : tensor<?x?xi64>, %in
   %output_indices, %output_shape = "mhlo_disc.sparse_reshape"(%input_indices, %input_shape, %new_shape) {} : (tensor<?x?xi64>, tensor<?x?xi64>, tensor<?xi64>) -> (tensor<?x?xi64>, tensor<?xi64>)
   return %output_indices, %output_shape: tensor<?x?xi64>, tensor<?xi64>
 }
+
+// -----
+
+// CHECK-LABEL: func.func @sparse_reshape_non_matrix_indices
+func.func @sparse_fill_empty_rows_basic(%indices: tensor<?xi64>, %values: tensor<?xi64>, %dense_shape: tensor<?xi64>, %default_value: tensor<i64>) -> (tensor<?xi64>, tensor<?xi64>, tensor<?xi1>, tensor<?xi64>, tensor<?xi64>) {
+  // expected-error@+1 {{indices must be a matrix}}
+  %output_indices, %output_values, %empty_row_indicator, %reverse_index_map, %output_elements = "mhlo_disc.sparse_fill_empty_rows"(%indices, %values, %dense_shape, %default_value) {} : (tensor<?xi64>, tensor<?xi64>, tensor<?xi64>, tensor<i64>) -> (tensor<?xi64>, tensor<?xi64>, tensor<?xi1>, tensor<?xi64>, tensor<?xi64>)
+  return %output_indices, %output_values, %empty_row_indicator, %reverse_index_map, %output_elements: tensor<?xi64>, tensor<?xi64>, tensor<?xi1>, tensor<?xi64>, tensor<?xi64>
+}

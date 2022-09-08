@@ -19,6 +19,28 @@ func.func @sparse_fill_empty_rows(
     memref<?xi64, "cpu">,
     memref<?xi64, "cpu">
   ) {
+  // CHECK-NOT lmhlo
+  // CHECK:  %[[V4:.*]] = scf.for %[[ARG9:.*]] = %{{.*}} to %{{.*}} step %{{.*}} iter_args(%[[ARG10:.*]] = %{{.*}}) -> (i64) {
+  // CHECK:    %[[V14:.*]] = memref.load %{{.*}}[%[[ARG9]], %{{.*}}] : memref<?x?xi64, "cpu">
+  // CHECK:    %[[V15:.*]] = arith.index_cast %[[V14]] : i64 to index
+  // CHECK:    %[[V16:.*]] = memref.load %{{.*}}[%[[V15]]] : memref<?xi1, "cpu">
+  // CHECK:    %[[V17:.*]] = scf.if %[[V16]] -> (i64) {
+  // CHECK:      memref.store %{{.*}}, %{{.*}}[%[[V15]]] : memref<?xi1, "cpu">
+  // CHECK:      scf.yield %{{.*}} : i64
+  // CHECK:    } else {
+  // CHECK:      scf.yield %{{.*}} : i64
+  // CHECK:    }
+  // CHECK:    %[[V18:.*]] = arith.addi %{{.*}}, %[[V17]] : i64
+  // CHECK:    %[[V19:.*]] = arith.index_cast %{{.*}} : index to i64
+  // CHECK:    %[[V20:.*]] = arith.addi %[[V14]], %{{.*}} : i64
+  // CHECK:    %[[V21:.*]] = arith.subi %[[V20]], %[[V18]] : i64
+  // CHECK:    %[[V22:.*]] = arith.addi %[[V19]], %[[V21]] : i64
+  // CHECK:    memref.store %[[V22]], %{{.*}}[%{{.*}}] : memref<?xi64, "cpu">
+  // CHECK:    %[[V23:.*]] = memref.load %{{.*}}[%[[V15]]] : memref<?xi64>
+  // CHECK:    %[[V24:.*]] = arith.addi %[[V23]], %{{.*}} : i64
+  // CHECK:    memref.store %[[V24]], %{{.*}}[%[[V15]]] : memref<?xi64>
+  // CHECK:    scf.yield %[[V18]] : i64
+  // CHECK:  }
   "lmhlo_disc.sparse_fill_empty_rows"(%input1, %input2, %input3, %input4, %out1, %out2, %out3, %out4, %out5) : (memref<?x?xi64, "cpu">, memref<?xi64, "cpu">, memref<?xi64, "cpu">, memref<i64, "cpu">, memref<?x?xi64, "cpu">, memref<?xi64, "cpu">, memref<?xi1, "cpu">, memref<?xi64, "cpu">, memref<?xi64, "cpu">) -> ()
   // CHECK: return %[[OUT1]], %[[OUT2]], %[[OUT3]], %[[OUT4]], %[[OUT5]] : memref<?x?xi64, "cpu">, memref<?xi64, "cpu">, memref<?xi1, "cpu">, memref<?xi64, "cpu">, memref<?xi64, "cpu">
   return %out1, %out2, %out3, %out4, %out5 : memref<?x?xi64, "cpu">, memref<?xi64, "cpu">, memref<?xi1, "cpu">, memref<?xi64, "cpu">, memref<?xi64, "cpu">

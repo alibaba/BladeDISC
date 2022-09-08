@@ -1264,7 +1264,8 @@ class ConvertSparseFillEmptyRowsOp
   LogicalResult matchAndRewrite(TF::SparseFillEmptyRowsOp op,
                                 PatternRewriter& rewriter) const override {
     auto loc = op.getLoc();
-    auto element_type = op.values().getType().dyn_cast<RankedTensorType>().getElementType();
+    auto element_type =
+        op.values().getType().dyn_cast<RankedTensorType>().getElementType();
     auto sparse_fill_empty_rows_op =
         rewriter.create<mhlo_disc::SparseFillEmptyRowsOp>(
             loc, op.output_indices().getType(), op.output_values().getType(),
@@ -1317,8 +1318,8 @@ class ConvertSparseFillEmptyRowsOp
       return slice_op;
     };
 
-    auto output_indices_slice_op =
-        create_slice_op(2, 0, output_indices_slice_shape_values, rewriter.getI64Type());
+    auto output_indices_slice_op = create_slice_op(
+        2, 0, output_indices_slice_shape_values, rewriter.getI64Type());
     auto output_values_slice_op =
         create_slice_op(1, 1, output_values_slice_shape_values, element_type);
     rewriter.replaceOp(op, {

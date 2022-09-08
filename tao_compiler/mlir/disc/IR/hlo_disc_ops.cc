@@ -459,23 +459,6 @@ LogicalResult SparseFillEmptyRowsOp::reifyReturnTypeShapes(
   // index 3
   auto default_value_type =
       adaptor.default_value().getType().dyn_cast<ShapedType>();
-  if (!indices_type || !values_type || !dense_shape_type ||
-      !default_value_type) {
-    return failure();
-  }
-
-  if (dense_shape_type.getRank() != 1) {
-    return this->emitOpError() << "dense_shape must be a vector";
-  }
-  if (indices_type.getRank() != 2) {
-    return this->emitOpError() << "indices must be a matrix";
-  }
-  if (values_type.getRank() != 1) {
-    return this->emitOpError() << "values must be a vector";
-  }
-  if (default_value_type.getRank() != 0) {
-    return this->emitOpError() << "default_value must be a scalar";
-  }
 
   Location loc = this->getLoc();
 
@@ -538,7 +521,37 @@ LogicalResult SparseFillEmptyRowsOp::reifyReturnTypeShapes(
   return success();
 }
 
-LogicalResult SparseFillEmptyRowsOp::verify() { return success(); }
+LogicalResult SparseFillEmptyRowsOp::verify() {
+  // index 0
+  auto indices_type = this->indices().getType().dyn_cast<ShapedType>();
+  // index 1
+  auto values_type = this->values().getType().dyn_cast<ShapedType>();
+  // index 2
+  auto dense_shape_type = this->dense_shape().getType().dyn_cast<ShapedType>();
+  // index 3
+  auto default_value_type =
+      this->default_value().getType().dyn_cast<ShapedType>();
+
+  if (!indices_type || !values_type || !dense_shape_type ||
+      !default_value_type) {
+    return failure();
+  }
+
+  if (dense_shape_type.getRank() != 1) {
+    return this->emitOpError() << "dense_shape must be a vector";
+  }
+  if (indices_type.getRank() != 2) {
+    return this->emitOpError() << "indices must be a matrix";
+  }
+  if (values_type.getRank() != 1) {
+    return this->emitOpError() << "values must be a vector";
+  }
+  if (default_value_type.getRank() != 0) {
+    return this->emitOpError() << "default_value must be a scalar";
+  }
+
+  return success();
+}
 
 }  // namespace mhlo_disc
 }  // namespace mlir

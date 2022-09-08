@@ -41,7 +41,11 @@ TEST(TFSparseFillEmptyRowsOpTest, DynamicShapeF32) {
       /*num_outputs*/ 4,
       /*input_Xescriptors*/ {"6x2xi64_X", "6xf32_X", "2xi64_X", "f32_X"},
       /*output_Xescriptors*/ {"i64_X", "f32_X", "i1_X", "i64_X"},
-      /*input_vals*/ {{0, 0, 1, 0, 1, 3, 1, 4, 3, 2, 3, 3}, {0.0, 10.0, 13.0, 14.0, 32.0, 33.0}, {5, 6}, {-1.0}}));
+      /*input_vals*/
+      {{0, 0, 1, 0, 1, 3, 1, 4, 3, 2, 3, 3},
+       {0.0, 10.0, 13.0, 14.0, 32.0, 33.0},
+       {5, 6},
+       {-1.0}}));
 }
 
 }  // namespace mlir_test

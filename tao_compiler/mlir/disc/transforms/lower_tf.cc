@@ -1285,7 +1285,10 @@ class ConvertSparseFillEmptyRowsOp
     SmallVector<int64_t, 2> output_indices_slice_shape_values,
         output_values_slice_shape_values;
     output_indices_slice_shape_values.push_back(-1);
-    output_indices_slice_shape_values.push_back(-1);
+    // dense_shape should has static shape, we can get it's dim here
+    auto output_rank =
+        op.dense_shape().getType().dyn_cast<RankedTensorType>().getDimSize(0);
+    output_indices_slice_shape_values.push_back(output_rank);
     output_values_slice_shape_values.push_back(-1);
 
     auto create_slice_op = [&](int slice_rank, int result_index,

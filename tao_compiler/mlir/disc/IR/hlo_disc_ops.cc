@@ -450,15 +450,14 @@ LogicalResult SparseFillEmptyRowsOp::reifyReturnTypeShapes(
     SmallVectorImpl<Value>& reifiedReturnShapes) {
   SparseFillEmptyRowsOp::Adaptor adaptor(operands);
   // index 0
-  auto indices_type = adaptor.indices().getType().dyn_cast<ShapedType>();
+  auto indices_type = adaptor.indices().getType().cast<ShapedType>();
   // index 1
-  auto values_type = adaptor.values().getType().dyn_cast<ShapedType>();
+  auto values_type = adaptor.values().getType().cast<ShapedType>();
   // index 2
-  auto dense_shape_type =
-      adaptor.dense_shape().getType().dyn_cast<ShapedType>();
+  auto dense_shape_type = adaptor.dense_shape().getType().cast<ShapedType>();
   // index 3
   auto default_value_type =
-      adaptor.default_value().getType().dyn_cast<ShapedType>();
+      adaptor.default_value().getType().cast<ShapedType>();
 
   Location loc = this->getLoc();
 
@@ -522,19 +521,19 @@ LogicalResult SparseFillEmptyRowsOp::reifyReturnTypeShapes(
 }
 
 LogicalResult SparseFillEmptyRowsOp::verify() {
-  // index 0
   auto indices_type = this->indices().getType().dyn_cast<ShapedType>();
-  // index 1
   auto values_type = this->values().getType().dyn_cast<ShapedType>();
-  // index 2
   auto dense_shape_type = this->dense_shape().getType().dyn_cast<ShapedType>();
-  // index 3
   auto default_value_type =
       this->default_value().getType().dyn_cast<ShapedType>();
 
-  if (!indices_type || !values_type || !dense_shape_type ||
-      !default_value_type) {
+  if (!indices_type || !values_type || !default_value_type) {
     return failure();
+  }
+
+  if (!dense_shape_type.hasStaticShape()) {
+    return this->emitOpError() << "DISC only support static-rank optimization, "
+                                  "thus dense_shape should has static shape";
   }
 
   if (dense_shape_type.getRank() != 1) {
@@ -548,6 +547,35 @@ LogicalResult SparseFillEmptyRowsOp::verify() {
   }
   if (default_value_type.getRank() != 0) {
     return this->emitOpError() << "default_value must be a scalar";
+  }
+
+  auto output_indices_type =
+      this->output_indices().getType().dyn_cast<ShapedType>();
+  auto output_values_type =
+      this->output_values().getType().dyn_cast<ShapedType>();
+  auto empty_row_indicator_type =
+      this->empty_row_indicator().getType().dyn_cast<ShapedType>();
+  auto reverse_index_map_type =
+      this->reverse_index_map().getType().dyn_cast<ShapedType>();
+  auto output_elements_type =
+      this->output_elements().getType().dyn_cast<ShapedType>();
+  if (!output_indices_type || !output_values_type ||
+      !empty_row_indicator_type || !reverse_index_map_type ||
+      !output_elements_type) {
+    return failure();
+  }
+
+  if (output_indices_type.getRank() != 2) {
+    return this->emitOpError() << "output_indices must be a matrix";
+  }
+
+  if (output_values_type.getRank() != 1 ||
+      empty_row_indicator_type.getRank() != 1 ||
+      reverse_index_map_type.getRank() != 1 ||
+      output_elements_type.getRank() != 1) {
+    return this->emitOpError()
+           << "outputs 1-4 for mhlo_disc::sparse_fill_empty_rows must be a "
+              "vector";
   }
 
   return success();

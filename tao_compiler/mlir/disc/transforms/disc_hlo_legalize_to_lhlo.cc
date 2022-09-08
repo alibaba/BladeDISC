@@ -209,47 +209,6 @@ struct TieShapeOpConverter : public BaseOpConversion<TieShapeOp> {
   }
 };
 
-// TODO(lanbo.llb): Support there is one -1 in new_shape
-struct SparseReshapeOpConverter
-    : public BaseOpConversion<mhlo_disc::SparseReshapeOp> {
- public:
-  using BaseOpConversion<mhlo_disc::SparseReshapeOp>::BaseOpConversion;
-
-  LogicalResult matchAndRewrite(
-      mhlo_disc::SparseReshapeOp op, OpAdaptor adaptor,
-      ConversionPatternRewriter& rewriter) const override {
-    auto loc = op.getLoc();
-    auto operands = adaptor.getOperands();
-
-    SmallVector<Value, 2> buffer_args(operands.begin(), operands.end());
-    if (failed(ConvertResults(op, buffer_args, rewriter))) return failure();
-    auto sparse_reshape_op = rewriter.create<lmhlo_disc::SparseReshapeOp>(
-        loc, llvm::None, buffer_args);
-    rewriter.replaceOp(op, ArrayRef<Value>(buffer_args).slice(operands.size()));
-    return success();
-  }
-};
-
-struct SparseFillEmptyRowsOpConverter
-    : public BaseOpConversion<mhlo_disc::SparseFillEmptyRowsOp> {
- public:
-  using BaseOpConversion<mhlo_disc::SparseFillEmptyRowsOp>::BaseOpConversion;
-
-  LogicalResult matchAndRewrite(
-      mhlo_disc::SparseFillEmptyRowsOp op, OpAdaptor adaptor,
-      ConversionPatternRewriter& rewriter) const override {
-    auto loc = op.getLoc();
-    auto operands = adaptor.getOperands();
-
-    SmallVector<Value, 4> buffer_args(operands.begin(), operands.end());
-    if (failed(ConvertResults(op, buffer_args, rewriter))) return failure();
-    auto sparse_reshape_op = rewriter.create<lmhlo_disc::SparseFillEmptyRowsOp>(
-        loc, llvm::None, buffer_args);
-    rewriter.replaceOp(op, ArrayRef<Value>(buffer_args).slice(operands.size()));
-    return success();
-  }
-};
-
 struct DiscHloLegalizeToLhlo
     : public DiscHloLegalizeToLhloPassBase<DiscHloLegalizeToLhlo> {
   using DiscHloLegalizeToLhloPassBase<
@@ -292,10 +251,10 @@ void populateDiscHLOToLHLOConversionPattern(
       HloToLhloOpConverter<mhlo_disc::H2DOp>,
       HloToLhloOpConverter<mhlo_disc::D2HOp>,
       HloToLhloOpConverter<mhlo_disc::QuantizedDynamicConvOp>,
+      HloToLhloOpConverter<mhlo_disc::SparseReshapeOp>,
+      HloToLhloOpConverter<mhlo_disc::SparseFillEmptyRowsOp>,
       HloToLhloCustomCallOpConverter,
-      TieShapeOpConverter,
-      SparseReshapeOpConverter,
-      SparseFillEmptyRowsOpConverter
+      TieShapeOpConverter
   >(*converter, context);
   // clang-format on
 }

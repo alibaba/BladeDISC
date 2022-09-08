@@ -128,6 +128,15 @@ TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
     auto calib_data = state->get_calib_data();
     // calibrator life time needs to last until after the engine is built.
     std::unique_ptr<nvinfer1::IInt8Calibrator> calibrator;
+    // There exists two ways to build int8 trt engine:
+    // 1. An ONNX model with calibration data. In this way, the trt will
+    // do calibration with the provided data and build the int8 engine.
+    // 2. An ONNX model with Quantize/DeQuantize ops on it. In this way,
+    // the quantization info is stored on the graph and the trt directly
+    // uses this data to transforms the onnx model to int8 engine. No
+    // extra calibration process will be executed by the trt.
+    // This kind of onnx model comes from compression tools like
+    // Blade Compression.
     if (!calib_data.empty()) {
       LOG(INFO) << "Building INT8 TensorRT engine with calibration data";
       config->setFlag(nvinfer1::BuilderFlag::kINT8);

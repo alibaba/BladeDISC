@@ -12,6 +12,10 @@ on:
       device:
         required: true
         type: string
+      timeout_minutes:
+        required: false
+        type: number
+        default: 360
       dockerfile:
         required: true
         type: string
@@ -54,6 +58,7 @@ jobs:
     if: github.repository == 'alibaba/BladeDISC'
     # The type of runner that the job will run on
     runs-on: [self-hosted, "${{ inputs.device }}" ]
+    timeout-minutes: ${{inputs.timeout_minutes}}
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Runs a single command using the runners shell

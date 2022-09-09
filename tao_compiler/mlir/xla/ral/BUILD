@@ -300,7 +300,7 @@ cc_library(
     linkopts = [
         "-fopenmp",
         "-ldl",
-        "-lm",
+        "-lm"
     ],
     deps = [
         ":ral_context",
@@ -600,8 +600,8 @@ cc_library(
     linkopts = [
         "-fopenmp",
         "-ldl",
-        "-lm",
-    ]),
+        "-lm"
+    ],
     deps = [
         ":ral_context",
         ":ral_cpu_driver",

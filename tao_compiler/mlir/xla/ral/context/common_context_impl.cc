@@ -175,7 +175,7 @@ ProcessLevelConstStore* ConstStoreRegistrar::getConstStore(
     const_store->pb_file_path = pb_file_path;
     const_store->state.metadata = MetadataFile::loadFromFile(pb_file_path);
     if (!const_store->state.metadata) {
-      TAO_VLOG(0) << "failed to load metadata file from: " << pb_file_path;
+      TAO_LOG(ERROR) << "failed to load metadata file from: " << pb_file_path;
       return nullptr;
     }
     it =
@@ -306,13 +306,13 @@ inline buffer_t ral_base_cuda_const_host_internal(
       buffer_shape_t dim_sizes =
           GetShapeFromConstUniqueName(ctx, unique_name, &width_in_bytes);
       // alloc, get value from metadata file
-      std::string hex_str;
-      if (!state->metadata->getHostConstant(key, hex_str)) {
+      const std::string* hex_str_ptr;
+      if (!state->metadata->getHostConstant(key, hex_str_ptr)) {
         std::string msg =
             "const unique_name " + key + "not found in metadata file";
         ctx->signalError(Context::FAILURE, msg);
       }
-      auto data = fromHex(hex_str);
+      auto data = fromHex(*hex_str_ptr);
       auto bytes = data.size();
       int64_t num_elements = std::accumulate(dim_sizes.begin(), dim_sizes.end(),
                                              1, std::multiplies<int64_t>());

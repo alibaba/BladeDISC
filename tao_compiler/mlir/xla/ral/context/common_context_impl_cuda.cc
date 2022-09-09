@@ -87,13 +87,13 @@ static inline buffer_t ral_base_cuda_const_cuda_internal(
       buffer_shape_t dim_sizes =
           GetShapeFromConstUniqueName(ctx, unique_name, &width_in_bytes);
       // alloc, get value from metadata file, and then memcpy
-      std::string hex_str;
-      if (!state->metadata->getDeviceConstant(key, hex_str)) {
+      const std::string* hex_str_ptr;
+      if (!state->metadata->getDeviceConstant(key, hex_str_ptr)) {
         std::string msg =
             "const unique_name " + key + "not found in metadata file";
         ctx->signalError(Context::FAILURE, msg);
       }
-      auto data = fromHex(hex_str);
+      auto data = fromHex(*hex_str_ptr);
       auto bytes = data.size();
       int64_t num_elements = std::accumulate(dim_sizes.begin(), dim_sizes.end(),
                                              1, std::multiplies<int64_t>());

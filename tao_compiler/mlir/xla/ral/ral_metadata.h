@@ -40,7 +40,7 @@ class MetadataFile {
 
   // Returns true if there is a host const named `name` and `data` is set to the
   // corresponding value. Otherwise return false and `data` is leaved untouched.
-  bool getHostConstant(const std::string& name, std::string& data);
+  bool getHostConstant(const std::string& name, const std::string*& data);
 
   // Returns true if there is a host constant named `name` and frees the memory
   // of such constant. Following `getHostConstant` with same key will return
@@ -50,7 +50,7 @@ class MetadataFile {
   // Returns true if there is a device const named `name` and `data` is set to
   // the corresponding value. Otherwise return false and `data` is leaved
   // untouched.
-  bool getDeviceConstant(const std::string& name, std::string& data);
+  bool getDeviceConstant(const std::string& name, const std::string*& data);
 
   // Returns true if there is a device constant named `name` and frees the
   // memory of such constant. Following `getDeviceConstant` with same key will
@@ -60,6 +60,10 @@ class MetadataFile {
  private:
   // Disallows new a MetadataFile directly.
   explicit MetadataFile() = default;
+
+  // Disables copy and assignment methods.
+  MetadataFile(const MetadataFile& other) = delete;
+  MetadataFile& operator=(const MetadataFile& other) = delete;
 
   std::unordered_map<std::string, std::string> hostConstMap_;
   std::unordered_map<std::string, std::string> deviceConstMap_;

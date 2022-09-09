@@ -32,17 +32,17 @@ TEST(MetadataFileAndEmitterTest, BasicTest) {
   auto metadata = MetadataFile::loadFromFile("test.bin");
   ASSERT_TRUE(metadata != nullptr);
 
-  std::string hstr, dstr;
+  const std::string *hstr, *dstr;
   ASSERT_TRUE(metadata->getHostConstant("h0", hstr));
-  ASSERT_TRUE(hstr == "0000");
+  ASSERT_TRUE(*hstr == "0000");
   ASSERT_TRUE(metadata->getHostConstant("h1", hstr));
-  ASSERT_TRUE(hstr == "0001");
+  ASSERT_TRUE(*hstr == "0001");
   ASSERT_TRUE(metadata->releaseHostConstant("h0"));
   // not exist after removing
   ASSERT_FALSE(metadata->releaseHostConstant("h0"));
   ASSERT_FALSE(metadata->getHostConstant("h0", hstr));
   ASSERT_TRUE(metadata->getDeviceConstant("d0", dstr));
-  ASSERT_TRUE(dstr == "0000");
+  ASSERT_TRUE(*dstr == "0000");
   ASSERT_TRUE(metadata->releaseDeviceConstant("d0"));
   // not exist after removing
   ASSERT_FALSE(metadata->getDeviceConstant("d0", dstr));

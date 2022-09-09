@@ -58,16 +58,23 @@ bool writeToBinaryStream(std::ofstream& out, const std::string& t) {
   return static_cast<bool>(out);
 }
 
+constexpr const uint64_t kMetadataFileMagicNumber = 0x1234567890ABCDEF;
+
 }  // namespace
 
 /* static */ std::unique_ptr<MetadataFile> MetadataFile::loadFromFile(
     const std::string& filename) {
   std::unique_ptr<MetadataFile> file(new MetadataFile);
   std::ifstream fin(filename, std::ios::in | std::ios::binary);
+  uint64_t magicNumber = 0ull;
+  if (!readFromBinaryStream(fin, magicNumber) ||
+      magicNumber != kMetadataFileMagicNumber) {
+    return nullptr;
+  }
   fin.seekg(-static_cast<int64_t>(sizeof(size_t)), std::ios::end);
   size_t numConsts;
   if (!readFromBinaryStream(fin, numConsts)) return nullptr;
-  fin.seekg(0);
+  fin.seekg(sizeof(kMetadataFileMagicNumber));
   for (size_t i = 0; i < numConsts; ++i) {
     bool isHost;
     std::string key, value;
@@ -83,10 +90,11 @@ bool writeToBinaryStream(std::ofstream& out, const std::string& t) {
   return file;
 }
 
-bool MetadataFile::getHostConstant(const std::string& name, std::string& data) {
+bool MetadataFile::getHostConstant(const std::string& name,
+                                   const std::string*& data) {
   auto it = hostConstMap_.find(name);
   if (it == hostConstMap_.end()) return false;
-  data = it->second;
+  data = &it->second;
   return true;
 }
 
@@ -98,10 +106,10 @@ bool MetadataFile::releaseHostConstant(const std::string& name) {
 }
 
 bool MetadataFile::getDeviceConstant(const std::string& name,
-                                     std::string& data) {
+                                     const std::string*& data) {
   auto it = deviceConstMap_.find(name);
   if (it == deviceConstMap_.end()) return false;
-  data = it->second;
+  data = &it->second;
   return true;
 }
 
@@ -117,6 +125,8 @@ MetadataFileEmitter::MetadataFileEmitter(const std::string& filename)
 
 bool MetadataFileEmitter::emitHeader() {
   out_.open(filename_, std::ios::out | std::ios::binary);
+  if (!writeToBinaryStream(out_, kMetadataFileMagicNumber)) return false;
+  nextOffset_ += sizeof(kMetadataFileMagicNumber);
   return static_cast<bool>(out_);
 }
 

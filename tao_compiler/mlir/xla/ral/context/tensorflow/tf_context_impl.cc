@@ -128,7 +128,8 @@ RalTfContext::RalTfContext(const RalTfContextOptions& options) {
 
       // The metadata file is loaded once. The data will
       // be erased from metadata file once memcpy is done;
-      if ((state->metadata = tao::ral::MetadataFile::loadFromFile(options.metadata_file_path)) {
+      if ((state->metadata = tao::ral::MetadataFile::loadFromFile(
+               options.metadata_file_path))) {
         return state;
       } else {
         delete state;

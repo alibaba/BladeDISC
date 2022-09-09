@@ -299,7 +299,8 @@ cc_library(
     ] + if_cuda_or_rocm(["-DTAO_RAL_USE_STREAM_EXECUTOR"]),
     linkopts = [
         "-fopenmp",
-        "-ldl"
+        "-ldl",
+        "-lm",
     ],
     deps = [
         ":ral_context",
@@ -599,7 +600,6 @@ cc_library(
     linkopts = [
         "-fopenmp",
         "-ldl",
-    ] + if_blade_gemm([
         "-lm",
     ]),
     deps = [

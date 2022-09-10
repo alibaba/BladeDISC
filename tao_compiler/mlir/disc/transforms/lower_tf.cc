@@ -1217,45 +1217,6 @@ class ConvertSparseReshapeOp : public OpRewritePattern<TF::SparseReshapeOp> {
   }
 };
 
-// op {
-//   name: "SparseFillEmptyRows"
-//   input_arg {
-//     name: "indices"
-//     type: DT_INT64
-//   }
-//   input_arg {
-//     name: "values"
-//     type_attr: "T"
-//   }
-//   input_arg {
-//     name: "dense_shape"
-//     type: DT_INT64
-//   }
-//   input_arg {
-//     name: "default_value"
-//     type_attr: "T"
-//   }
-//   output_arg {
-//     name: "output_indices"
-//     type: DT_INT64
-//   }
-//   output_arg {
-//     name: "output_values"
-//     type_attr: "T"
-//   }
-//   output_arg {
-//     name: "empty_row_indicator"
-//     type: DT_BOOL
-//   }
-//   output_arg {
-//     name: "reverse_index_map"
-//     type: DT_INT64
-//   }
-//   attr {
-//     name: "T"
-//     type: "type"
-//   }
-// }
 class ConvertSparseFillEmptyRowsOp
     : public OpRewritePattern<TF::SparseFillEmptyRowsOp> {
  public:
@@ -1264,17 +1225,26 @@ class ConvertSparseFillEmptyRowsOp
   LogicalResult matchAndRewrite(TF::SparseFillEmptyRowsOp op,
                                 PatternRewriter& rewriter) const override {
     auto loc = op.getLoc();
-    auto element_type =
-        op.values().getType().dyn_cast<RankedTensorType>().getElementType();
+    auto indices_type = op.indices().getType().dyn_cast<RankedTensorType>();
+    auto values_type = op.values().getType().dyn_cast<RankedTensorType>();
+    auto dense_shape_type =
+        op.dense_shape().getType().dyn_cast<RankedTensorType>();
+    auto default_value_type =
+        op.default_value().getType().dyn_cast<RankedTensorType>();
+    if (!indices_type || !values_type || !dense_shape_type ||
+        !default_value_type) {
+      return failure();
+    }
+    auto element_type = values_type.getElementType();
     auto sparse_fill_empty_rows_op =
         rewriter.create<mhlo_disc::SparseFillEmptyRowsOp>(
             loc, op.output_indices().getType(), op.output_values().getType(),
             op.empty_row_indicator().getType(),
             op.reverse_index_map().getType(),
-            RankedTensorType::get({-1}, rewriter.getI64Type()), op.indices(),
+            RankedTensorType::get({1}, rewriter.getI64Type()), op.indices(),
             op.values(), op.dense_shape(), op.default_value());
     // N_full is in output 4
-    auto N_full_vec = sparse_fill_empty_rows_op.getResult(4);
+    Value N_full_vec = sparse_fill_empty_rows_op.getResult(4);
     Value idx_zero = rewriter.create<arith::ConstantIndexOp>(loc, 0);
     Value idx_one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
     Value N_full = rewriter.create<arith::IndexCastOp>(

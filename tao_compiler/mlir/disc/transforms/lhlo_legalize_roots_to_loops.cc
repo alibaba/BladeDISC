@@ -3854,7 +3854,7 @@ LogicalResult lowerWithScheduleSparseFillEmptyRowsOpCPU(
            << "root_ops[0] is not a lmhlo_disc::SparseFillEmptyRowsOp";
   }
   auto sparse_fill_empty_rows_op =
-      cast<lmhlo_disc::SparseFillEmptyRowsOp>(root_ops[0]);
+      dyn_cast<lmhlo_disc::SparseFillEmptyRowsOp>(root_ops[0]);
   if (!sparse_fill_empty_rows_op) {
     return dominant_op->emitError()
            << "can not cast root_ops[0] to lmhlo_disc::SparseFillEmptyRowsOp";
@@ -3888,8 +3888,8 @@ LogicalResult lowerWithScheduleSparseFillEmptyRowsOpCPU(
 
   Value num_rows = b.create<arith::IndexCastOp>(
       loc, b.getIndexType(), b.create<memref::LoadOp>(loc, dense_shape, zero));
-  // Init all to true
-  {
+
+  auto create_init_for_loop = [&](Value init_value, Value target_memref) {
     auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
                                        /* upperBound */ num_rows,
                                        /* step */ one);
@@ -3897,30 +3897,27 @@ LogicalResult lowerWithScheduleSparseFillEmptyRowsOpCPU(
     b.setInsertionPointToStart(for_op.getBody());
 
     Value i = for_op.getInductionVar();
-    b.create<memref::StoreOp>(loc, true_value, empty_row_indicator, i);
+    b.create<memref::StoreOp>(loc, init_value, target_memref, i);
     b.create<scf::YieldOp>(loc, ValueRange({}));
 
     b.setInsertionPointAfter(for_op);
-  }
-  // Init all to 0
+  };
+
+  // Init empty_row_indicator to true
+  create_init_for_loop(true_value, empty_row_indicator);
+
   Value row_count_memref;
   {
     auto alloc = b.create<memref::AllocOp>(
-        loc, MemRefType::get({-1}, b.getIntegerType(64)), num_rows);
+        loc,
+        MemRefType::get({-1}, b.getIntegerType(64), MemRefLayoutAttrInterface(),
+                        StringAttr::get(sparse_fill_empty_rows_op->getContext(),
+                                        placement_utils::kCpu)),
+        num_rows);
     row_count_memref = alloc.getResult();
-    // b.s:setInsertionPointAfter(sparse_fill_empty_rows_op.getOperation());
 
-    auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
-                                       /* upperBound */ num_rows,
-                                       /* step */ one);
-    for_op.getBody()->clear();
-    b.setInsertionPointToStart(for_op.getBody());
-
-    Value i = for_op.getInductionVar();
-    b.create<memref::StoreOp>(loc, zero_int, row_count_memref, i);
-    b.create<scf::YieldOp>(loc, ValueRange({}));
-
-    b.setInsertionPointAfter(for_op);
+    // Init all to 0
+    create_init_for_loop(zero_int, row_count_memref);
   }
 
   Value N_full;

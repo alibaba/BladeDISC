@@ -36,9 +36,9 @@ func.func @sparse_fill_empty_rows(
   // CHECK:    %[[V21:.*]] = arith.subi %[[V20]], %[[V18]] : i64
   // CHECK:    %[[V22:.*]] = arith.addi %[[V19]], %[[V21]] : i64
   // CHECK:    memref.store %[[V22]], %{{.*}}[%{{.*}}] : memref<?xi64, "cpu">
-  // CHECK:    %[[V23:.*]] = memref.load %{{.*}}[%[[V15]]] : memref<?xi64>
+  // CHECK:    %[[V23:.*]] = memref.load %{{.*}}[%[[V15]]] : memref<?xi64, "cpu">
   // CHECK:    %[[V24:.*]] = arith.addi %[[V23]], %{{.*}} : i64
-  // CHECK:    memref.store %[[V24]], %{{.*}}[%[[V15]]] : memref<?xi64>
+  // CHECK:    memref.store %[[V24]], %{{.*}}[%[[V15]]] : memref<?xi64, "cpu">
   // CHECK:    scf.yield %[[V18]] : i64
   // CHECK:  }
   "lmhlo_disc.sparse_fill_empty_rows"(%input1, %input2, %input3, %input4, %out1, %out2, %out3, %out4, %out5) : (memref<?x?xi64, "cpu">, memref<?xi64, "cpu">, memref<?xi64, "cpu">, memref<i64, "cpu">, memref<?x?xi64, "cpu">, memref<?xi64, "cpu">, memref<?xi1, "cpu">, memref<?xi64, "cpu">, memref<?xi64, "cpu">) -> ()

@@ -375,10 +375,11 @@ LogicalResult SparseReshapeOp::reifyReturnTypeShapes(
     SmallVectorImpl<Value>& reifiedReturnShapes) {
   SparseReshapeOp::Adaptor adaptor(operands);
   auto input_indices_type =
-      adaptor.input_indices().getType().dyn_cast<ShapedType>();
+      adaptor.input_indices().getType().dyn_cast<RankedTensorType>();
   auto input_shape_type =
-      adaptor.input_shape().getType().dyn_cast<ShapedType>();
-  auto new_shape_type = adaptor.new_shape().getType().dyn_cast<ShapedType>();
+      adaptor.input_shape().getType().dyn_cast<RankedTensorType>();
+  auto new_shape_type =
+      adaptor.new_shape().getType().dyn_cast<RankedTensorType>();
   if (!input_indices_type || !input_shape_type || !new_shape_type) {
     return failure();
   }
@@ -450,18 +451,19 @@ LogicalResult SparseFillEmptyRowsOp::reifyReturnTypeShapes(
     SmallVectorImpl<Value>& reifiedReturnShapes) {
   SparseFillEmptyRowsOp::Adaptor adaptor(operands);
   // index 0
-  auto indices_type = adaptor.indices().getType().cast<ShapedType>();
+  auto indices_type = adaptor.indices().getType().cast<RankedTensorType>();
   // index 1
-  auto values_type = adaptor.values().getType().cast<ShapedType>();
+  auto values_type = adaptor.values().getType().cast<RankedTensorType>();
   // index 2
-  auto dense_shape_type = adaptor.dense_shape().getType().cast<ShapedType>();
+  auto dense_shape_type =
+      adaptor.dense_shape().getType().cast<RankedTensorType>();
   // index 3
   auto default_value_type =
-      adaptor.default_value().getType().cast<ShapedType>();
+      adaptor.default_value().getType().cast<RankedTensorType>();
 
   Location loc = this->getLoc();
 
-  Value N = builder.create<tensor::DimOp>(loc, operands[0], 0);
+  Value num_indices = builder.create<tensor::DimOp>(loc, operands[0], 0);
   Value rank = builder.create<tensor::DimOp>(loc, operands[0], 1);
   Value idx_zero = builder.create<arith::ConstantIndexOp>(loc, 0);
   // TODO(lanbo.llb): Handle corner case when dense_rows == 0
@@ -478,7 +480,7 @@ LogicalResult SparseFillEmptyRowsOp::reifyReturnTypeShapes(
   // However N_full can only be determined by the values from indices
   // so we allocate a output_indices/output_values to max possible size, which
   // is `N + dense_rows`
-  Value N_full = builder.create<arith::AddIOp>(loc, N, dense_rows);
+  Value N_full = builder.create<arith::AddIOp>(loc, num_indices, dense_rows);
 
   // output indices: {N + dense_rows, rank}
   SmallVector<Value, 2> output_indices_shape_values;
@@ -504,7 +506,7 @@ LogicalResult SparseFillEmptyRowsOp::reifyReturnTypeShapes(
 
   // reverse index map: {N}
   SmallVector<Value, 1> reverse_index_map_shape_values;
-  reverse_index_map_shape_values.push_back(N);
+  reverse_index_map_shape_values.push_back(num_indices);
   Value reverse_index_map_shape = builder.create<tensor::FromElementsOp>(
       loc, reverse_index_map_shape_values);
   reifiedReturnShapes.push_back(reverse_index_map_shape);
@@ -521,11 +523,12 @@ LogicalResult SparseFillEmptyRowsOp::reifyReturnTypeShapes(
 }
 
 LogicalResult SparseFillEmptyRowsOp::verify() {
-  auto indices_type = this->indices().getType().dyn_cast<ShapedType>();
-  auto values_type = this->values().getType().dyn_cast<ShapedType>();
-  auto dense_shape_type = this->dense_shape().getType().dyn_cast<ShapedType>();
+  auto indices_type = this->indices().getType().dyn_cast<RankedTensorType>();
+  auto values_type = this->values().getType().dyn_cast<RankedTensorType>();
+  auto dense_shape_type =
+      this->dense_shape().getType().dyn_cast<RankedTensorType>();
   auto default_value_type =
-      this->default_value().getType().dyn_cast<ShapedType>();
+      this->default_value().getType().dyn_cast<RankedTensorType>();
 
   if (!indices_type || !values_type || !default_value_type) {
     return failure();
@@ -550,15 +553,15 @@ LogicalResult SparseFillEmptyRowsOp::verify() {
   }
 
   auto output_indices_type =
-      this->output_indices().getType().dyn_cast<ShapedType>();
+      this->output_indices().getType().dyn_cast<RankedTensorType>();
   auto output_values_type =
-      this->output_values().getType().dyn_cast<ShapedType>();
+      this->output_values().getType().dyn_cast<RankedTensorType>();
   auto empty_row_indicator_type =
-      this->empty_row_indicator().getType().dyn_cast<ShapedType>();
+      this->empty_row_indicator().getType().dyn_cast<RankedTensorType>();
   auto reverse_index_map_type =
-      this->reverse_index_map().getType().dyn_cast<ShapedType>();
+      this->reverse_index_map().getType().dyn_cast<RankedTensorType>();
   auto output_elements_type =
-      this->output_elements().getType().dyn_cast<ShapedType>();
+      this->output_elements().getType().dyn_cast<RankedTensorType>();
   if (!output_indices_type || !output_values_type ||
       !empty_row_indicator_type || !reverse_index_map_type ||
       !output_elements_type) {

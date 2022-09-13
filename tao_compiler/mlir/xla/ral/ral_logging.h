@@ -19,6 +19,7 @@
 #define RAL_RAL_LOGGING_H_
 
 #include <atomic>
+#include <cassert>
 #include <limits>
 #include <memory>
 #include <sstream>

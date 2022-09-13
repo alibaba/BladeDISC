@@ -87,14 +87,13 @@ static inline buffer_t ral_base_cuda_const_cuda_internal(
       buffer_shape_t dim_sizes =
           GetShapeFromConstUniqueName(ctx, unique_name, &width_in_bytes);
       // alloc, get value from metadata file, and then memcpy
-      const auto& constants = state->metadata_proto.device_global_constants();
-      if (constants.find(key) == constants.end()) {
+      const std::string* hex_str_ptr;
+      if (!state->metadata->getDeviceConstant(key, hex_str_ptr)) {
         std::string msg =
             "const unique_name " + key + "not found in metadata file";
         ctx->signalError(Context::FAILURE, msg);
       }
-      std::string hex_str = constants.at(key);
-      auto data = fromHex(hex_str);
+      auto data = fromHex(*hex_str_ptr);
       auto bytes = data.size();
       int64_t num_elements = std::accumulate(dim_sizes.begin(), dim_sizes.end(),
                                              1, std::multiplies<int64_t>());
@@ -113,7 +112,7 @@ static inline buffer_t ral_base_cuda_const_cuda_internal(
       buffer_t device_ptr =
           use_process_store ? gpu_driver->raw_alloc(ctx->getContext(), bytes)
                             : gpu_driver->alloc_persistent(ctx, bytes);
-      state->metadata_proto.mutable_device_global_constants()->erase(key);
+      state->metadata->releaseDeviceConstant(key);
 
       gpu_driver->h2d(ctx, stream_handle, data.data(), device_ptr, bytes);
       // Insert a sync to make sure copy is done before host buffer is freed.

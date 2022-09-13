@@ -593,14 +593,12 @@ def symlink_disc_files(is_platform_alibaba):
 def add_ral_link_if_not_exist():
     root = get_source_root_dir()
     RAL_DIR_IN_TF = "tao_compiler/mlir/xla"
-    PROTO = "compile_metadata.proto"
     RAL_DIR_IN_BRIDGE = os.path.join(tao_ral_dir(), "tensorflow/compiler/mlir/xla")
     if os.path.exists(RAL_DIR_IN_BRIDGE):
         shutil.rmtree(RAL_DIR_IN_BRIDGE)
     os.makedirs(RAL_DIR_IN_BRIDGE)
     with cwd(RAL_DIR_IN_BRIDGE):
         execute("ln -s {0}/{1}/ral ral".format(root, RAL_DIR_IN_TF))
-        execute("ln -s {0}/{1}/ral/{2} {2}".format(root, RAL_DIR_IN_TF, PROTO))
 
 
 def get_version_file():

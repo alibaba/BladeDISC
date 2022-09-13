@@ -519,6 +519,9 @@ def test_tao_compiler(root, args):
     TARGET_DISC_IR_TEST = "//tensorflow/compiler/mlir/disc/IR/tests/..."
     TARGET_DISC_TRANSFORMS_TEST = "//tensorflow/compiler/mlir/disc/transforms/tests/..."
     TARGET_DISC_E2E_TEST = "//tensorflow/compiler/mlir/disc/tests/..."
+    TARGET_DISC_RAL_TESTS = [
+        "//tensorflow/compiler/mlir/xla/ral:ral_metadata_test"
+    ]
 
     TARGET_DISC_REPLAY_TEST = "//tensorflow/compiler/mlir/disc/tools/disc-replay:disc-replay-test"
 
@@ -554,7 +557,7 @@ def test_tao_compiler(root, args):
                 TARGET_DISC_IR_TEST,
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
-            ]
+            ] + TARGET_DISC_RAL_TESTS
             MLIR_TESTS = " ".join(mlir_test_list)
             bazel_test(MLIR_TESTS, flag=flag)
         else:
@@ -575,7 +578,7 @@ def test_tao_compiler(root, args):
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
                 TARGET_DISC_REPLAY_TEST,
-            ]
+            ] + TARGET_DISC_RAL_TESTS
             MLIR_TESTS = " ".join(mlir_tests_list)
             bazel_test(MLIR_TESTS, flag=flag)
             flag += " --action_env=BRIDGE_ENABLE_TAO=true "

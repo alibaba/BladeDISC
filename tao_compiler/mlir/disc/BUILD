@@ -744,7 +744,7 @@ cc_library(
         ":disc_ral",
         ":pass_details",
         ":placement_utils",
-        "//tensorflow/compiler/mlir/xla/ral:compile_metadata",
+        "//tensorflow/compiler/mlir/xla/ral:ral_metadata",
         "//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "//tensorflow/core/platform:env",
         "@llvm-project//llvm:Core",

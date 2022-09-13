@@ -166,4 +166,22 @@ def LHLODISC_SparseReshapeOp : LHLODISC_Op<"sparse_reshape", []> {
   );
 }
 
+def LHLO_SparseFillEmptyRowsOp : LHLODISC_Op<"sparse_fill_empty_rows", []> {
+  let summary = "One-to-one mapping of TF_SparseFillEmptyRowsOp";
+  let description = [{
+    See tf's sparse_fill_empty_rows operator.
+  }];
+  let arguments = (ins
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$indices,
+    Arg<LHLO_Buffer, "", [MemRead]>:$values,
+    Arg<LHLO_IntBuffer, "", [MemRead]>:$dense_shape,
+    Arg<LHLO_Buffer, "", [MemRead]>:$default_value,
+    Arg<LHLO_IntBuffer, "", [MemWrite]>:$output_indices,
+    Arg<LHLO_Buffer, "", [MemWrite]>:$output_values,
+    Arg<LHLO_PredBuffer, "", [MemWrite]>:$empty_row_indicator,
+    Arg<LHLO_IntBuffer, "", [MemWrite]>:$reverse_index_map,
+    Arg<LHLO_IntBuffer, "", [MemWrite]>:$output_elements
+  );
+}
+
 #endif // LMHLO_DISC_OPS

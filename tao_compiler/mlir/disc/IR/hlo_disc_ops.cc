@@ -375,10 +375,11 @@ LogicalResult SparseReshapeOp::reifyReturnTypeShapes(
     SmallVectorImpl<Value>& reifiedReturnShapes) {
   SparseReshapeOp::Adaptor adaptor(operands);
   auto input_indices_type =
-      adaptor.input_indices().getType().dyn_cast<ShapedType>();
+      adaptor.input_indices().getType().dyn_cast<RankedTensorType>();
   auto input_shape_type =
-      adaptor.input_shape().getType().dyn_cast<ShapedType>();
-  auto new_shape_type = adaptor.new_shape().getType().dyn_cast<ShapedType>();
+      adaptor.input_shape().getType().dyn_cast<RankedTensorType>();
+  auto new_shape_type =
+      adaptor.new_shape().getType().dyn_cast<RankedTensorType>();
   if (!input_indices_type || !input_shape_type || !new_shape_type) {
     return failure();
   }
@@ -436,6 +437,148 @@ LogicalResult SparseReshapeOp::verify() {
       output_shape_type.getRank() != 1) {
     return this->emitOpError()
            << "Input/Output shape and new shape must be a vector.\n";
+  }
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// SparseFillEmptyRowsOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult SparseFillEmptyRowsOp::reifyReturnTypeShapes(
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
+  SparseFillEmptyRowsOp::Adaptor adaptor(operands);
+  // index 0
+  auto indices_type = adaptor.indices().getType().cast<RankedTensorType>();
+  // index 1
+  auto values_type = adaptor.values().getType().cast<RankedTensorType>();
+  // index 2
+  auto dense_shape_type =
+      adaptor.dense_shape().getType().cast<RankedTensorType>();
+  // index 3
+  auto default_value_type =
+      adaptor.default_value().getType().cast<RankedTensorType>();
+
+  Location loc = this->getLoc();
+
+  Value num_indices = builder.create<tensor::DimOp>(loc, operands[0], 0);
+  Value rank = builder.create<tensor::DimOp>(loc, operands[0], 1);
+  Value idx_zero = builder.create<arith::ConstantIndexOp>(loc, 0);
+  // TODO(lanbo.llb): Handle corner case when dense_rows == 0
+  Value dense_rows = builder.create<arith::IndexCastOp>(
+      loc, builder.getIndexType(),
+      builder.create<tensor::ExtractOp>(loc, operands[2], idx_zero));
+  // outputs:
+  // 0: output_indices
+  // 1: output_values
+  // 2: empty_row_indicator
+  // 3: reverse_index_map
+  // 4: output_elements(scalar)
+
+  // However N_full can only be determined by the values from indices
+  // so we allocate a output_indices/output_values to max possible size, which
+  // is `N + dense_rows`
+  Value N_full = builder.create<arith::AddIOp>(loc, num_indices, dense_rows);
+
+  // output indices: {N + dense_rows, rank}
+  SmallVector<Value, 2> output_indices_shape_values;
+  output_indices_shape_values.push_back(N_full);
+  output_indices_shape_values.push_back(rank);
+  Value output_indices_shape =
+      builder.create<tensor::FromElementsOp>(loc, output_indices_shape_values);
+  reifiedReturnShapes.push_back(output_indices_shape);
+
+  // output values: {N + dense_rows}
+  SmallVector<Value, 2> output_values_shape_values;
+  output_values_shape_values.push_back(N_full);
+  Value output_values_shape =
+      builder.create<tensor::FromElementsOp>(loc, output_values_shape_values);
+  reifiedReturnShapes.push_back(output_values_shape);
+
+  // empty indicator: {dense_rows}
+  SmallVector<Value, 1> empty_row_indicator_shape_values;
+  empty_row_indicator_shape_values.push_back(dense_rows);
+  Value empty_row_indicator_shape = builder.create<tensor::FromElementsOp>(
+      loc, empty_row_indicator_shape_values);
+  reifiedReturnShapes.push_back(empty_row_indicator_shape);
+
+  // reverse index map: {N}
+  SmallVector<Value, 1> reverse_index_map_shape_values;
+  reverse_index_map_shape_values.push_back(num_indices);
+  Value reverse_index_map_shape = builder.create<tensor::FromElementsOp>(
+      loc, reverse_index_map_shape_values);
+  reifiedReturnShapes.push_back(reverse_index_map_shape);
+
+  // output_elements
+  Value idx_one = builder.create<arith::ConstantIndexOp>(loc, 1);
+  SmallVector<Value, 1> output_elements_shape_values;
+  output_elements_shape_values.push_back(idx_one);
+  Value output_elements_shape =
+      builder.create<tensor::FromElementsOp>(loc, output_elements_shape_values);
+  reifiedReturnShapes.push_back(output_elements_shape);
+
+  return success();
+}
+
+LogicalResult SparseFillEmptyRowsOp::verify() {
+  auto indices_type = this->indices().getType().dyn_cast<RankedTensorType>();
+  auto values_type = this->values().getType().dyn_cast<RankedTensorType>();
+  auto dense_shape_type =
+      this->dense_shape().getType().dyn_cast<RankedTensorType>();
+  auto default_value_type =
+      this->default_value().getType().dyn_cast<RankedTensorType>();
+
+  if (!indices_type || !values_type || !default_value_type) {
+    return failure();
+  }
+
+  if (indices_type.getRank() != 2) {
+    return this->emitOpError() << "indices must be a matrix";
+  }
+  if (values_type.getRank() != 1) {
+    return this->emitOpError() << "values must be a vector";
+  }
+  if (default_value_type.getRank() != 0) {
+    return this->emitOpError() << "default_value must be a scalar";
+  }
+  if (!dense_shape_type.hasStaticShape()) {
+    return this->emitOpError() << "DISC only support static-rank optimization, "
+                                  "thus dense_shape should has static shape";
+  }
+
+  if (dense_shape_type.getRank() != 1) {
+    return this->emitOpError() << "dense_shape must be a vector";
+  }
+
+  auto output_indices_type =
+      this->output_indices().getType().dyn_cast<RankedTensorType>();
+  auto output_values_type =
+      this->output_values().getType().dyn_cast<RankedTensorType>();
+  auto empty_row_indicator_type =
+      this->empty_row_indicator().getType().dyn_cast<RankedTensorType>();
+  auto reverse_index_map_type =
+      this->reverse_index_map().getType().dyn_cast<RankedTensorType>();
+  auto output_elements_type =
+      this->output_elements().getType().dyn_cast<RankedTensorType>();
+  if (!output_indices_type || !output_values_type ||
+      !empty_row_indicator_type || !reverse_index_map_type ||
+      !output_elements_type) {
+    return failure();
+  }
+
+  if (output_indices_type.getRank() != 2) {
+    return this->emitOpError() << "output_indices must be a matrix";
+  }
+
+  if (output_values_type.getRank() != 1 ||
+      empty_row_indicator_type.getRank() != 1 ||
+      reverse_index_map_type.getRank() != 1 ||
+      output_elements_type.getRank() != 1) {
+    return this->emitOpError()
+           << "outputs 1-4 for mhlo_disc::sparse_fill_empty_rows must be a "
+              "vector";
   }
 
   return success();

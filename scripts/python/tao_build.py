@@ -342,8 +342,6 @@ def configure_bridge_bazel(root, args):
         _write("--host_jvm_args=-Djdk.http.auth.tunneling.disabledSchemes=", cmd = "startup")
         logger.info("configuring tao_bridge with bazel ......")
 
-    with cwd(root):
-        execute('rm -f tao_compiler/decoupling/version.h')
     with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
         # make sure version.h is generated
         execute(f"bazel build --config=release //:version_header_genrule")
@@ -353,7 +351,7 @@ def configure_bridge_bazel(root, args):
         # NOTE(lanbo.llb): This is no longer needed when tao_compiler is build
         # in workspace `org_tao_compiler` instead of `org_tensorflow`
         execute(
-            f"cp {tao_bazel_root}/bazel-bin/tao_bridge/version.h tao_compiler/decoupling/version.h"
+            f"cp -f {tao_bazel_root}/bazel-bin/tao_bridge/version.h tao_compiler/decoupling/version.h"
         )
     logger.info("Stage [configure bridge(bazel)] success.")
 

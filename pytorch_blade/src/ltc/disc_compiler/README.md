@@ -1,19 +1,36 @@
 # TorchDisc Replay Toolkit
 
-TorchDisc replay toolkit usage:
+To make profiling easier and faster, TorchDISC provides a replay toolkit to replay
+a TorchScript program.  With this replay toolkit, developers do not need to re-run a whole
+training or inference program to checking the effect, instead of a running a disc sub-graph.
 
-1. dump TorchScript grpah
+It's easy to use the replay toolkit with the 2 steps:
+
+1. enable replay toolkit with setting the environment variable `TORCH_DISC_ENABLE_REPLAY `
 
     ``` bash
-    export TORCH_DISC_REPLAY_PATH=replay_dump
+    export TORCH_DISC_ENABLE_REPLAY=true
     python train.py
     ```
 
-    this will dump the graph and input data on `replay_dump/<grpah-hash>` director.
+    the replay toolkit will dump TorchScript graph and input data into a path as these log pattern:
 
-2. load and replay the graph
+    1. the graph after lazy TSBackend lowering:
 
-    It's easy to replay the graph with Python program:
+        ``` text
+        ...
+        replay toolkit dump TorchScript program and data on: /tmp/xxxxx
+        ```
+
+    1. the sub-graph that Disc to be compiled:
+
+        ``` text
+        replay toolkit dump cluster on: /tmp/xxxxx
+        ```
+
+    Just pick one of these replay record path and load them with the replay program.
+
+2. write a replay program to replay a TorchScript graph:
 
     ``` python
     import torch_blade
@@ -30,8 +47,3 @@ TorchDisc replay toolkit usage:
     ....
     warmup: 10 iters: 10 every iteration cost: :452.878 ms
     ```
-
-3. load and replay the cluster
-
-    TorchDisc accelerates a couple of clusters in a whole graph, users can also replay a
-    single cluster as the follows:

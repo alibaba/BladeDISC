@@ -11,6 +11,7 @@
 
 #include "common_utils/utils.h"
 
+#include <torch/csrc/jit/serialization/pickle.h>
 #include <algorithm>
 #include <cstdlib>
 #include <string>
@@ -51,6 +52,22 @@ std::string AsciiStrToLower(const char* cstr) {
 
 TorchBladeDefNewFlag(bool, TrustTracingShape);
 TorchBladeDefNewFlag(bool, RecordClusterIOFlag);
+
+void DumpIValue(const at::IValue& ivalue, const std::string& fname) {
+  auto chars = torch::jit::pickle_save(ivalue);
+  std::ofstream ofstream(fname, std::ios::out | std::ios::binary);
+  ofstream.write(chars.data(), chars.size());
+  ofstream.close();
+}
+
+void DumpIValues(
+    const std::vector<c10::IValue>& inputs,
+    const std::string& path) {
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    auto fname = path + "/" + std::to_string(i) + ".pt";
+    DumpIValue(inputs[i], fname);
+  }
+}
 
 namespace env {
 bool ReadBoolFromEnvVar(const char* env_var_name, bool default_val) {

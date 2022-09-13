@@ -100,7 +100,8 @@ void RecordReplay(
   std::string dump_path = "/tmp/replay_lazy_ts_" + disc_hash_str;
   TORCH_CHECK(
       !mkdir(dump_path.c_str(), 0755), "unable to create dir: " + dump_path);
-  VLOG(0) << "replay toolkit dump ts program and data on: " << dump_path;
+  VLOG(0) << "replay toolkit dump TorchScript program and data on: "
+          << dump_path;
   ::torch_disc::compiler::DumpProgramAndData(
       graph->copy(), arguments, dump_path);
 }

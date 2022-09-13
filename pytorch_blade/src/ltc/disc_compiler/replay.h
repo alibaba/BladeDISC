@@ -64,10 +64,6 @@ void LoadAndReplay(
 torch::jit::Module ConvertGraphToModule(
     const std::shared_ptr<torch::jit::Graph>& graph);
 
-void DumpIValues(
-    const std::vector<c10::IValue>& inputs,
-    const std::string& path);
-
 void FoldOutputs(std::shared_ptr<torch::jit::Graph> graph);
 
 // return true is enable replay toolkit

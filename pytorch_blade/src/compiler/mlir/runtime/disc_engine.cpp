@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <sstream>
 #include "common_utils/logging.h"
+#include "common_utils/utils.h"
 #include "compiler/backends/engine_interface.h"
 #include "compiler/mlir/runtime/ral_context.h"
 
@@ -40,6 +41,11 @@ class DiscEngine : public torch::blade::backends::EngineInterface {
     return "DISC";
   }
   static std::shared_ptr<DiscEngine> Create(const State& engine_state);
+
+  bool ShouldFallback(const at::List<at::Tensor>& inputs) {
+    return torch::blade::env::ReadBoolFromEnvVar(
+        "TORCH_DISC_FORCE_FALLBACK", false);
+  }
 
  private:
   std::shared_ptr<RalContext> FetchRalContext();

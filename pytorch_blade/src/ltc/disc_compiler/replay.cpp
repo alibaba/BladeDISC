@@ -22,6 +22,7 @@
 #include <cuda_profiler_api.h>
 
 #include "common_utils/logging.h"
+#include "common_utils/utils.h"
 #include "compiler/jit/tool_funcs.h"
 #include "ltc/disc_compiler/disc_compiler.h"
 
@@ -161,7 +162,7 @@ void DumpProgramAndData(
       stack.emplace_back(ts_data->data());
     }
   }
-  DumpIValues(stack, path);
+  torch::blade::DumpIValues(stack, path);
 }
 
 torch::jit::Module ConvertGraphToModule(
@@ -173,24 +174,7 @@ torch::jit::Module ConvertGraphToModule(
     value->setDebugName("arg_" + value->debugName());
   }
   torch::blade::create_method_from_graph(module, "forward", graph);
-  VLOG(0) << "ConvertGraphToModule, graph: " << graph->toString();
   return module;
-}
-
-void DumpIValue(const at::IValue& ivalue, const std::string& fname) {
-  auto chars = torch::jit::pickle_save(ivalue);
-  std::ofstream ofstream(fname, std::ios::out | std::ios::binary);
-  ofstream.write(chars.data(), chars.size());
-  ofstream.close();
-}
-
-void DumpIValues(
-    const std::vector<c10::IValue>& inputs,
-    const std::string& path) {
-  for (size_t i = 0; i < inputs.size(); ++i) {
-    auto fname = path + "/" + std::to_string(i) + ".pt";
-    DumpIValue(inputs[i], fname);
-  }
 }
 
 bool IsEnableReplayToolkit() {

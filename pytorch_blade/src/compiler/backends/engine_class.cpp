@@ -55,7 +55,8 @@ at::List<at::Tensor> EngineClass::Execute(const at::List<at::Tensor>& inputs) {
     last_inputs_ = inputs;
   }
 
-  if (torch_disc::compiler::IsEnableClusterReplayRecord()) {
+  if (torch::blade::env::ReadBoolFromEnvVar(
+          "TORCH_DISC_ENABLE_REPLAY_ON_CLUSTER", false)) {
     const auto& dump_path = "/tmp/replay_cluster_" + attr_debug_name_;
     TORCH_CHECK(
         !mkdir(dump_path.c_str(), 0755), "unable to create dir: " + dump_path);
@@ -64,7 +65,7 @@ at::List<at::Tensor> EngineClass::Execute(const at::List<at::Tensor>& inputs) {
     for (auto input : inputs)
       ivalues.emplace_back(input);
 
-    torch_disc::compiler::DumpIValues(ivalues, dump_path);
+    torch::blade::DumpIValues(ivalues, dump_path);
 
     auto graph_fname = dump_path + "/graph.pt";
     auto module = GetFallback();

@@ -53,14 +53,18 @@ cc_library(
 )
 
 cc_test(
-    name = "torch_blade_tmpfs_test",
-    srcs = ["tempfs_test.cpp"],
+    name = "torch_blade_common_utils_test",
+    srcs = [
+        "tempfs_test.cpp",
+        "utils_test.cpp"
+    ],
     linkopts = [
         "-ldl",
     ],
     linkstatic = True,
     deps = [
         ":torch_blade_tmpfs",
+        ":torch_blade_utils",
         "@googltest//:gtest_main",
     ],
 )

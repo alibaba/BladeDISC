@@ -117,10 +117,6 @@ class ConstShapeOpConverter : public OpConversionPattern<ConstShapeOp> {
 LogicalResult ConstShapeOpConverter::matchAndRewrite(
     ConstShapeOp op, OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
-  // For now, this lowering supports only extent tensors, not `shape.shape`
-  // types.
-  if (op.getType().isa<ShapeType>()) return failure();
-
   auto loc = op.getLoc();
   SmallVector<Value, 4> extentOperands;
   for (auto extent : op.getShape()) {

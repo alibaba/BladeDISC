@@ -3694,11 +3694,11 @@ LogicalResult lowerWithScheduleSparseReshapeOpCPU(
   Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
   Value one = b.create<arith::ConstantIndexOp>(loc, 1);
   Value num_values =
-      b.create<memref::DimOp>(loc, sparse_reshape_op.input_indices(), 0);
+      b.create<memref::DimOp>(loc, sparse_reshape_op.getInputIndices(), 0);
   Value origin_rank =
-      b.create<memref::DimOp>(loc, sparse_reshape_op.input_shape(), 0);
+      b.create<memref::DimOp>(loc, sparse_reshape_op.getInputShape(), 0);
   Value new_rank =
-      b.create<memref::DimOp>(loc, sparse_reshape_op.new_shape(), 0);
+      b.create<memref::DimOp>(loc, sparse_reshape_op.getNewShape(), 0);
 
   Value shape_accum;
   // TODO: How to emit a reverse loop?
@@ -3716,7 +3716,7 @@ LogicalResult lowerWithScheduleSparseReshapeOpCPU(
 
     Value reverse_end = b.create<arith::SubIOp>(loc, new_rank, one);
     Value init_value = b.create<memref::LoadOp>(
-        loc, sparse_reshape_op.new_shape(), reverse_end);
+        loc, sparse_reshape_op.getNewShape(), reverse_end);
     SmallVector<Value, 1> init_values({init_value});
     auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ one,
                                        /* upperBound */ new_rank,
@@ -3731,7 +3731,7 @@ LogicalResult lowerWithScheduleSparseReshapeOpCPU(
     b.create<memref::StoreOp>(loc, acc_init, shape_accum, i_reverse);
     Value yield_value = b.create<arith::MulIOp>(
         loc, acc_init,
-        b.create<memref::LoadOp>(loc, sparse_reshape_op.new_shape(),
+        b.create<memref::LoadOp>(loc, sparse_reshape_op.getNewShape(),
                                  i_reverse));
     b.create<scf::YieldOp>(loc, ValueRange({yield_value}));
 
@@ -3758,7 +3758,7 @@ LogicalResult lowerWithScheduleSparseReshapeOpCPU(
     // SparseReshapeOp
     SmallVector<Value, 2> load_index({n, zero});
     Value init_value = b.create<memref::LoadOp>(
-        loc, sparse_reshape_op.input_indices(), load_index);
+        loc, sparse_reshape_op.getInputIndices(), load_index);
 
     auto for_op =
         b.create<scf::ForOp>(loc, /* lowerBound */ one,
@@ -3773,9 +3773,9 @@ LogicalResult lowerWithScheduleSparseReshapeOpCPU(
     // multidim_index[n][i]
     load_index[1] = i;
     Value index_i = b.create<memref::LoadOp>(
-        loc, sparse_reshape_op.input_indices(), load_index);
+        loc, sparse_reshape_op.getInputIndices(), load_index);
     Value shape_i =
-        b.create<memref::LoadOp>(loc, sparse_reshape_op.input_shape(), i);
+        b.create<memref::LoadOp>(loc, sparse_reshape_op.getInputShape(), i);
 
     Value yield_value = b.create<arith::AddIOp>(
         loc, b.create<arith::MulIOp>(loc, carry_value, shape_i), index_i);
@@ -3807,13 +3807,13 @@ LogicalResult lowerWithScheduleSparseReshapeOpCPU(
     Value yield_value = b.create<arith::RemUIOp>(loc, carry_value, divisor);
 
     b.create<memref::StoreOp>(loc, multidim_index,
-                              sparse_reshape_op.output_indices(),
+                              sparse_reshape_op.getOutputIndices(),
                               ValueRange({n, i}));
     b.create<scf::YieldOp>(loc, yield_value);
     b.setInsertionPointToEnd(for_op_n.getBody());
 
     b.create<memref::StoreOp>(loc, for_op.getResult(0),
-                              sparse_reshape_op.output_indices(),
+                              sparse_reshape_op.getOutputIndices(),
                               ValueRange({n, reverse_end}));
   }
 
@@ -3832,9 +3832,9 @@ LogicalResult lowerWithScheduleSparseReshapeOpCPU(
 
     Value i = for_op_out_shape.getInductionVar();
     auto shape_val =
-        b.create<memref::LoadOp>(loc, sparse_reshape_op.new_shape(), i);
-    b.create<memref::StoreOp>(loc, shape_val, sparse_reshape_op.output_shape(),
-                              ValueRange({i}));
+        b.create<memref::LoadOp>(loc, sparse_reshape_op.getNewShape(), i);
+    b.create<memref::StoreOp>(
+        loc, shape_val, sparse_reshape_op.getOutputShape(), ValueRange({i}));
     b.create<scf::YieldOp>(loc, ValueRange({}));
     b.setInsertionPointAfter(for_op_n.getOperation());
   }
@@ -3877,14 +3877,14 @@ LogicalResult lowerWithScheduleSparseFillEmptyRowsOpCPU(
       loc, b.getIntegerAttr(b.getIntegerType(64), 1));
 
   // input
-  Value indices = sparse_fill_empty_rows_op.indices();
-  Value values = sparse_fill_empty_rows_op.values();
-  Value dense_shape = sparse_fill_empty_rows_op.dense_shape();
+  Value indices = sparse_fill_empty_rows_op.getIndices();
+  Value values = sparse_fill_empty_rows_op.getValues();
+  Value dense_shape = sparse_fill_empty_rows_op.getDenseShape();
   // output
-  Value output_indices = sparse_fill_empty_rows_op.output_indices();
-  Value output_values = sparse_fill_empty_rows_op.output_values();
-  Value empty_row_indicator = sparse_fill_empty_rows_op.empty_row_indicator();
-  Value reverse_index_map = sparse_fill_empty_rows_op.reverse_index_map();
+  Value output_indices = sparse_fill_empty_rows_op.getOutputIndices();
+  Value output_values = sparse_fill_empty_rows_op.getOutputValues();
+  Value empty_row_indicator = sparse_fill_empty_rows_op.getEmptyRowIndicator();
+  Value reverse_index_map = sparse_fill_empty_rows_op.getReverseIndexMap();
 
   Value num_rows = b.create<arith::IndexCastOp>(
       loc, b.getIndexType(), b.create<memref::LoadOp>(loc, dense_shape, zero));
@@ -3997,7 +3997,7 @@ LogicalResult lowerWithScheduleSparseFillEmptyRowsOpCPU(
   // store N_full
   b.create<memref::StoreOp>(
       loc, b.create<arith::IndexCastOp>(loc, b.getIntegerType(64), N_full),
-      sparse_fill_empty_rows_op.output_elements(), zero);
+      sparse_fill_empty_rows_op.getOutputElements(), zero);
 
   // row_start_idx = 0
   // for (i = 0; i < num_rows; ++i) {
@@ -4042,7 +4042,7 @@ LogicalResult lowerWithScheduleSparseFillEmptyRowsOpCPU(
     b.create<memref::StoreOp>(loc, zero_int, output_indices, store_index);
     // output_values
     auto default_value = b.create<memref::LoadOp>(
-        loc, sparse_fill_empty_rows_op.default_value());
+        loc, sparse_fill_empty_rows_op.getDefaultValue());
     b.create<memref::StoreOp>(loc, default_value, output_values, row_start_idx);
     b.create<scf::YieldOp>(loc, one);
 

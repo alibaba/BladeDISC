@@ -134,7 +134,7 @@ LogicalResult lowerToLibraryCallImpl<TopKBackendConfig>(
   // dimension
   llvm::Expected<TopKBackendConfig> backend_config =
       llvm::json::parse<TopKBackendConfig>(
-          op.backend_config().cast<StringAttr>());
+          op.getBackendConfig().cast<StringAttr>());
   if (auto e = backend_config.takeError()) {
     return op.emitOpError() << "Problem with parsing topk backend_config: "
                             << llvm::toString(std::move(e));

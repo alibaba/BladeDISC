@@ -39,8 +39,8 @@ LmhloDiscDialect::LmhloDiscDialect(MLIRContext* context)
 
 LogicalResult CustomCallOp::verify() {
   CustomCallOp op = *this;
-  if (op.target_arg_mapping()) {
-    lmhlo::CustomCallTargetArgMappingAttr mapping = *op.target_arg_mapping();
+  if (op.getTargetArgMapping()) {
+    lmhlo::CustomCallTargetArgMappingAttr mapping = *op.getTargetArgMapping();
     auto verify_mapping = [&](int64_t target_num, size_t op_num,
                               ::llvm::ArrayRef<int64_t> mapping,
                               StringRef kind) -> LogicalResult {
@@ -73,9 +73,9 @@ LogicalResult CustomCallOp::verify() {
       }
       return success();
     };
-    if (failed(verify_mapping(mapping.getNumArgs(), op.args().size(),
+    if (failed(verify_mapping(mapping.getNumArgs(), op.getArgs().size(),
                               mapping.getArgsToTargetArgs(), "args")) ||
-        failed(verify_mapping(mapping.getNumResults(), op.output().size(),
+        failed(verify_mapping(mapping.getNumResults(), op.getOutput().size(),
                               mapping.getResultsToTargetResults(), "results")))
       return failure();
   }

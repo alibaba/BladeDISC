@@ -76,7 +76,7 @@ LogicalResult lowerToLibraryCallSpargeGemmImpl(CustomCallOp op,
   newOperands.push_back(op.getOperand(2));
 
   Location loc = op.getLoc();
-  auto config = op.backend_config().cast<DictionaryAttr>();
+  auto config = op.getBackendConfig().cast<DictionaryAttr>();
   int64_t lhs_contracting_dimensions =
       config.getAs<IntegerAttr>("lhs_contracting_dimensions").getInt();
   int64_t rhs_contracting_dimensions =

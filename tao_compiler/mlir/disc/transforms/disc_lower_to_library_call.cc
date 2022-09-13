@@ -65,6 +65,7 @@ using lmhlo::ReshapeOp;
 using lmhlo_disc::CustomCallOp;
 using lmhlo_disc::D2HOp;
 using lmhlo_disc::H2DOp;
+using lmhlo_disc::QuantizedDynamicConvOp;
 
 // Suppose that the first argument of the function is the ctx value
 Value GetContextValueFromFunctionArguments(Operation* op) {
@@ -262,7 +263,11 @@ Value GetConvMetadata(OpTy op, PatternRewriter& rewriter) {
   //   - weight_is_const : indicate whether the weight is const.
   Location loc = op.getLoc();
   Type field_type = rewriter.getI32Type();
-  int rank = op.getOutput().getType().template dyn_cast<ShapedType>().getRank();
+  int numOperands = op->getNumOperands();
+  int rank = op->getOperand(numOperands - 1)
+                 .getType()
+                 .template dyn_cast<ShapedType>()
+                 .getRank();
   int num_spatial_dims = rank - 2;
   int num_metadata_fields = rank * 3 + (rank - 2) * 2 + 1;
   Value metadata_value = rewriter.create<memref::AllocaOp>(
@@ -364,15 +369,19 @@ struct ConvConverter : public OpRewritePattern<ConvolutionOp> {
   }
 };
 
-struct DynamicConvConverter : public OpRewritePattern<DynamicConvOp> {
-  using OpRewritePattern<DynamicConvOp>::OpRewritePattern;
+template <typename OpTy>
+struct DynamicConvLikeConverter : public OpRewritePattern<OpTy> {
+  DynamicConvLikeConverter(MLIRContext* context, StringRef target)
+      : OpRewritePattern<OpTy>::OpRewritePattern(context) {
+    this->target_ = target;
+  }
 
-  LogicalResult matchAndRewrite(DynamicConvOp op,
+  LogicalResult matchAndRewrite(OpTy op,
                                 PatternRewriter& rewriter) const override {
     Value ctx = GetContextValueFromFunctionArguments(op);
     if (!ctx) {
-      op->emitOpError()
-          << "the first argument of the function is not ral context type.";
+      return op->emitOpError()
+             << "the first argument of the function is not ral context type.";
     }
     Value stream_handle = GetDefaultStreamHandle(op, rewriter);
     SmallVector<Value, 4> newOperands{stream_handle};
@@ -384,12 +393,15 @@ struct DynamicConvConverter : public OpRewritePattern<DynamicConvOp> {
     // input & kernel & output layouts, strides and dilation
     newOperands.push_back(GetConvMetadata(op, rewriter));
 
-    bool on_gpu = placement_utils::isGpuMemRef(op->getOperand(3));
+    bool on_gpu = placement_utils::isGpuMemRef(op->getOperand(0));
     rewriter.replaceOpWithNewOp<DispatchOp>(op, llvm::None, ctx, newOperands,
-                                            "ral_conv", false,
+                                            target_, false,
                                             on_gpu ? "gpu" : "cpu");
     return success();
   }
+
+ private:
+  StringRef target_;
 };
 
 // Return null is not a copy-removable copy-like ops, otherwise return
@@ -575,7 +587,7 @@ struct CustomCallOpConvertor : public OpRewritePattern<CustomCallOp> {
     }
     Value stream_handle = GetDefaultStreamHandle(op, rewriter);
 
-    StringRef target_name = op.call_target_name();
+    StringRef target_name = op.getCallTargetName();
     auto lower_func =
         mhlo_disc::CustomCallRegistry::Global().FindLowerToLibraryCallFunc(
             target_name.str());
@@ -610,7 +622,6 @@ struct DiscLowerToLibraryCallPass
       DotGeneralOpConvertor,
       RecvInputOpConvertor,
       ConvConverter,
-      DynamicConvConverter,
       SendOutputOpConvertor
     >(context);
     // clang-format on
@@ -618,6 +629,10 @@ struct DiscLowerToLibraryCallPass
     // GPU copy related ops
     patterns.insert<GpuCopyOpConvertor<H2DOp>>(context, "h2d");
     patterns.insert<GpuCopyOpConvertor<D2HOp>>(context, "d2h");
+    patterns.insert<DynamicConvLikeConverter<DynamicConvOp>>(context,
+                                                             "ral_conv");
+    patterns.insert<DynamicConvLikeConverter<QuantizedDynamicConvOp>>(
+        context, "ral_qconv");
 
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
       func.emitError("applyPatternsAndFoldGreedily does not converge");

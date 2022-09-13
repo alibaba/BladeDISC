@@ -1133,9 +1133,9 @@ LogicalResult PrintfToLLVMPattern::matchAndRewrite(
 
   // Get a symbol reference to the printf function, inserting it if necessary.
   auto printfRef = getOrInsertPrintf(rewriter, parentModule);
-  std::string key = llvm::Twine("DiscPrintf", op.format()).str();
+  std::string key = llvm::Twine("DiscPrintf", op.getFormat()).str();
   Value formatSpecCst =
-      getOrCreateGlobalString(loc, rewriter, key, op.format(), parentModule);
+      getOrCreateGlobalString(loc, rewriter, key, op.getFormat(), parentModule);
   SmallVector<Value, 4> val_to_print{formatSpecCst};
   for (Value operand : adaptor.getOperands()) {
     val_to_print.push_back(operand);

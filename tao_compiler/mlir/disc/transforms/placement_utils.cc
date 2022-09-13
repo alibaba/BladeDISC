@@ -109,7 +109,7 @@ ShapeOperandList getShapeCalcOperandList(Operation* op) {
       target_name = custom_call.call_target_name().str();
     } else {
       auto custom_call = cast<lmhlo_disc::CustomCallOp>(op);
-      target_name = custom_call.call_target_name().str();
+      target_name = custom_call.getCallTargetName().str();
     }
     auto iter = kCustomCallShapeOperandListMap.find(target_name);
     if (iter != kCustomCallShapeOperandListMap.end()) {

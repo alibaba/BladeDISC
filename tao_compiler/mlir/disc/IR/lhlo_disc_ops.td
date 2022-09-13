@@ -28,6 +28,7 @@ include "mlir-hlo/Dialect/lhlo/IR/lhlo_structured_interface.td"
 def LHLODISC_Dialect : Dialect {
   let name = "lmhlo_disc";
   let cppNamespace = "::mlir::lmhlo_disc";
+  let emitAccessorPrefix = kEmitAccessorPrefix_Prefixed;
 }
 
 def LHLO_I32Tensor : MemRefOf<[SignlessIntOfWidths<[32]>]>;

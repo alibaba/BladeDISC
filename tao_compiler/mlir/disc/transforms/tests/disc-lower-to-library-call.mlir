@@ -444,3 +444,45 @@ func.func @dynamic_conv(%arg0: !disc_ral.context) {
   "disc_ral.send_output"(%arg0, %c0_2, %69) : (!disc_ral.context, index, memref<?x?x?x?xf32, "gpu">) -> ()
   return
 }
+
+// -----
+
+// CHECK-LABEL: quantized_dynamic_conv
+func.func @quantized_dynamic_conv(%arg0: !disc_ral.context) {
+  %c0 = arith.constant 0 : index
+  %0 = "disc_ral.recv_input"(%arg0, %c0) : (!disc_ral.context, index) -> memref<?x?x?x?xi8, "gpu">
+  %c1 = arith.constant 1 : index
+  %1 = "disc_ral.recv_input"(%arg0, %c1) : (!disc_ral.context, index) -> memref<?x?x?x?xi8, "gpu">
+  %c2 = arith.constant 2 : index
+  %2 = "disc_ral.recv_input"(%arg0, %c2) : (!disc_ral.context, index) -> memref<4xi32, "cpu">
+  %c3 = arith.constant 3 : index
+  %3 = "disc_ral.recv_input"(%arg0, %c3) : (!disc_ral.context, index) -> memref<f32, "gpu">
+  %c4 = arith.constant 4 : index
+  %4 = "disc_ral.recv_input"(%arg0, %c4) : (!disc_ral.context, index) -> memref<i32, "gpu">
+  %c5 = arith.constant 5 : index
+  %5 = "disc_ral.recv_input"(%arg0, %c5) : (!disc_ral.context, index) -> memref<f32, "gpu">
+  %c6 = arith.constant 6 : index
+  %6 = "disc_ral.recv_input"(%arg0, %c6) : (!disc_ral.context, index) -> memref<i32, "gpu">
+  %c7 = arith.constant 7 : index
+  %7 = "disc_ral.recv_input"(%arg0, %c7) : (!disc_ral.context, index) -> memref<f32, "gpu">
+  %c8 = arith.constant 8 : index
+  %8 = "disc_ral.recv_input"(%arg0, %c8) : (!disc_ral.context, index) -> memref<i32, "gpu">
+  %c9 = arith.constant 9 : index
+  %9 = "disc_ral.recv_input"(%arg0, %c9) : (!disc_ral.context, index) -> memref<?x?x?x?xi8, "gpu">
+  // CHECK: memref.store {{.*}}, %[[PADDING:.*]][%c16] : memref<17xi32, "cpu">
+  // CHECK: disc_ral.dispatch
+  // CHECK-SAME: backend_config = "gpu"
+  // CHECK-SAME: call_target_name = "ral_qconv"
+  // CHECK-NOT: lmhlo_disc.quantized_dynamic_conv
+  "lmhlo_disc.quantized_dynamic_conv"(%0, %1, %2, %3, %4, %5, %6, %7, %8, %9) {
+    axis = dense<> : tensor<0xi64>,
+    batch_group_count = 1 : i64,
+    dimension_numbers = #mhlo.conv<[b, f, 0, 1]x[o, i, 0, 1]->[b, f, 0, 1]>,
+    feature_group_count = 1 : i64,
+    rhs_dilation = dense<1> : tensor<2xi64>,
+    use_dynamic = false,
+    use_symmetric = true,
+    window_strides = dense<3> : tensor<2xi64>
+  } : (memref<?x?x?x?xi8, "gpu">, memref<?x?x?x?xi8, "gpu">, memref<4xi32, "cpu">, memref<f32, "gpu">, memref<i32, "gpu">, memref<f32, "gpu">, memref<i32, "gpu">, memref<f32, "gpu">, memref<i32, "gpu">, memref<?x?x?x?xi8, "gpu">) -> ()
+  return
+}

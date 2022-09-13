@@ -351,7 +351,7 @@ def configure_bridge_bazel(root, args):
         # NOTE(lanbo.llb): This is no longer needed when tao_compiler is build
         # in workspace `org_tao_compiler` instead of `org_tensorflow`
         execute(
-            f"cp {tao_bazel_root}/bazel-bin/tao_bridge/version.h tao_compiler/decoupling/version.h"
+            f"cp -f {tao_bazel_root}/bazel-bin/tao_bridge/version.h tao_compiler/decoupling/version.h"
         )
     logger.info("Stage [configure bridge(bazel)] success.")
 

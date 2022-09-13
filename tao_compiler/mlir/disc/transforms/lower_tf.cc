@@ -649,7 +649,7 @@ struct ConvertFakeQuantOp : public OpRewritePattern<TF::DiscFakeQuantOp> {
 
   LogicalResult matchAndRewrite(TF::DiscFakeQuantOp op,
                                 PatternRewriter& rewriter) const final {
-    if (op.ues_dynamic) {
+    if (op.use_dynamic()) {
       return op->emitError("dynamic quantization is not supported yet");
     }
     auto loc = op.getLoc();

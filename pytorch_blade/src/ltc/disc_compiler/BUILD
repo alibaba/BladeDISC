@@ -26,12 +26,14 @@ cc_library (
   name = "disc_compiler",
   srcs = [
     "disc_compiler.cpp",
+  ] + if_ltc_disc_backend([
     "replay.cpp"
-  ],
+  ]),
   hdrs = [
     "disc_compiler.h",
+  ] + if_ltc_disc_backend([
     "replay.h"
-  ],
+  ]),
   includes = ["../include"],
   deps = [
     ":disc_passes",

@@ -11,6 +11,7 @@
 
 #include "ltc/disc_compiler/passes/disc_fuser.h"
 
+#include <c10/cuda/CUDAFunctions.h>
 #include <torch/csrc/jit/passes/dead_code_elimination.h>
 #include <torch/script.h>
 
@@ -54,12 +55,12 @@ c10::TypePtr getScalarTypePtr(at::ScalarType& typ) {
 void CastBoundaryScalarToTensor(
     Graph* disc_graph,
     size_t i,
-    at::ScalarType& typ) {
+    at::ScalarType& typ,
+    at::Device device) {
   auto new_input = disc_graph->insertInput(
       i, c10::string(disc_graph->inputs()[i]->debugName() + ".1"));
   // TODO(yancey.yx): support other device
-  new_input->setType(
-      TensorType::create(typ, at::Device(at::kCUDA, 0), 0, false));
+  new_input->setType(TensorType::create(typ, device, 0, false));
   auto orig_input = disc_graph->inputs()[i + 1];
   auto item_node = disc_graph->create(aten::item, {new_input});
   item_node->output()->setType(getScalarTypePtr(typ));
@@ -101,12 +102,22 @@ void DiscFusion(const std::shared_ptr<Graph>& graph) {
   CastingScalarInputToTensor(graph);
 }
 
+torch::Device getInputDevice(torch::jit::Node* node) {
+  for (auto input : node->inputs()) {
+    if (input->type()->cast<c10::TensorType>() != nullptr) {
+      return input->type()->cast<c10::TensorType>()->device().value();
+    }
+  }
+  return torch::Device(torch::kCUDA, c10::cuda::current_device());
+}
+
 void CastingScalarInputToTensor(
     const std::shared_ptr<torch::jit::Graph>& graph) {
   for (auto node : graph->nodes()) {
     if (node->kind() == torch::prim::FusionGroup) {
       auto sub_graph = node->g(attr::Subgraph);
       auto inputs = node->inputs();
+      auto device = getInputDevice(node);
       for (const auto i : c10::irange(inputs.size())) {
         auto input = inputs[i];
         if (input->type()->cast<c10::TensorType>() == nullptr) {
@@ -119,7 +130,7 @@ void CastingScalarInputToTensor(
           }
 
           auto scalar_type = c10::scalarTypeFromJitType(*input->type());
-          CastBoundaryScalarToTensor(sub_graph.get(), i, scalar_type);
+          CastBoundaryScalarToTensor(sub_graph.get(), i, scalar_type, device);
         }
       }
     }

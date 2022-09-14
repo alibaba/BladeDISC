@@ -19,7 +19,9 @@
 #include <torch/script.h>
 #include <fstream>
 
+#ifdef TORCH_BLADE_BUILD_WITH_CUDA
 #include <cuda_profiler_api.h>
+#endif
 
 #include "common_utils/logging.h"
 #include "common_utils/utils.h"

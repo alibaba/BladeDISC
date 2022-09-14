@@ -14,7 +14,6 @@
 #include <torch/script.h>
 #include "common_utils/logging.h"
 #include "common_utils/utils.h"
-#include "ltc/disc_compiler/replay.h"
 #include "sys/stat.h"
 
 namespace torch {

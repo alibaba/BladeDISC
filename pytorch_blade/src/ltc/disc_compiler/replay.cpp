@@ -131,12 +131,14 @@ void LoadAndReplay(
     }
   }
   {
+#ifdef TORCH_BLADE_BUILD_WITH_CUDA
     cudaProfilerStart();
     std::stringstream ss;
     ss << "spent with profiler: ";
     Timer time(ss.str(), 1);
     executable->Run(arguments, cuda_device, /*default device is cuda*/ true);
     cudaProfilerStop();
+#endif
   }
 }
 

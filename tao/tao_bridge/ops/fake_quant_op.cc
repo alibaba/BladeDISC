@@ -24,20 +24,9 @@ class DiscFakeQuantOp : public OpKernel {
     OP_REQUIRES_OK(context, context->GetAttr("quant_max", &quant_max_));
     OP_REQUIRES_OK(context, context->GetAttr("num_bits", &num_bits_));
     OP_REQUIRES_OK(context, context->GetAttr("axis", &axis_));
-    OP_REQUIRES_OK(context, context->GetAttr("signed", &signed_));
-    OP_REQUIRES_OK(context, context->GetAttr("symmetric", &symmetric_));
-    OP_REQUIRES_OK(context, context->GetAttr("dynamic", &dynamic_));
-    OP_REQUIRES_OK(context, context->GetAttr("per_channel", &per_channel_));
-
-    if (per_channel_) {
-      OP_REQUIRES(context, axis_.size() > 0,
-                  errors::InvalidArgument(
-                      "Per-channel quantization requires non-empty axis."));
-    } else {
-      OP_REQUIRES(context, axis_.size() == 0,
-                  errors::InvalidArgument(
-                      "Per-tensor quantization requires empty axis"));
-    }
+    OP_REQUIRES_OK(context, context->GetAttr("use_signed", &use_signed_));
+    OP_REQUIRES_OK(context, context->GetAttr("use_symmetric", &use_symmetric_));
+    OP_REQUIRES_OK(context, context->GetAttr("use_dynamic", &use_dynamic_));
   }
 
   void Compute(OpKernelContext* context) override {
@@ -55,10 +44,9 @@ class DiscFakeQuantOp : public OpKernel {
   int64 quant_max_;
   int64 num_bits_;
   std::vector<int64> axis_;
-  bool signed_;
-  bool symmetric_;
-  bool dynamic_;
-  bool per_channel_;
+  bool use_signed_;
+  bool use_symmetric_;
+  bool use_dynamic_;
 };
 
 REGISTER_OP("DiscFakeQuant")
@@ -70,12 +58,11 @@ REGISTER_OP("DiscFakeQuant")
     .Attr("quant_max: int")
     .Attr("num_bits: int")
     .Attr("axis: list(int)")
-    .Attr("signed: bool")
-    .Attr("symmetric: bool")
-    .Attr("dynamic: bool")
-    .Attr("per_channel: bool")
+    .Attr("use_signed: bool")
+    .Attr("use_symmetric: bool")
+    .Attr("use_dynamic: bool")
     .Attr("Tfloat: {float}")
-    .Attr("Tint: {int64}")
+    .Attr("Tint: {int32}")
     .Doc("FakeQuant op to carry quant information. Implemented as Identity.")
     .SetShapeFn(shape_inference::UnchangedShape);
 

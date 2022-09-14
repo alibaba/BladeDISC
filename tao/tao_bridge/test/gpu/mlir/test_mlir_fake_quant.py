@@ -28,10 +28,10 @@ class TestDiscFakeQuant(unittest.TestCase):
     def setUp(self):
         TaoTestCase._locate_lib_tao_ops()
 
-    def _run_fake_quant(self, axis, per_channel):
+    def _run_fake_quant(self, axis):
         input = np.random.rand(2,3).astype(np.float32)
         scale = np.array([0.1], dtype=np.float32)
-        zero_point = np.array([0], dtype=np.int64)
+        zero_point = np.array([0], dtype=np.int32)
         with tf.Session() as sess:
             output = TaoTestCase.LIB_TAO_OPS.disc_fake_quant(
                 tf.constant(input),
@@ -41,24 +41,17 @@ class TestDiscFakeQuant(unittest.TestCase):
                 quant_max=127,
                 num_bits=8,
                 axis=axis,
-                signed=True,
-                symmetric=True,
-                per_channel=per_channel,
-                dynamic=True)
+                use_signed=True,
+                use_symmetric=True,
+                use_dynamic=True)
             output = sess.run(output)
             self.assertTrue(np.allclose(output, input))
 
     def test_per_tensor(self):
-        self._run_fake_quant(axis=[], per_channel=False)
+        self._run_fake_quant(axis=[])
 
     def test_per_channel(self):
-        self._run_fake_quant(axis=[1], per_channel=True)
-
-    def test_invalid_per_tensor(self):
-        self.assertRaises(InvalidArgumentError, self._run_fake_quant, axis=[0], per_channel=False)
-
-    def test_invalid_per_channel(self):
-        self.assertRaises(InvalidArgumentError, self._run_fake_quant, axis=[], per_channel=True)
+        self._run_fake_quant(axis=[1])
 
 
 if __name__ == "__main__":

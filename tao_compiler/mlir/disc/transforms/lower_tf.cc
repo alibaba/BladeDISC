@@ -33,6 +33,7 @@ limitations under the License.
 #include "mlir/Transforms/DialectConversion.h"           // from @llvm-project
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // from @llvm-project
 #include "stablehlo/dialect/ChloOps.h"
+#include "tensorflow/compiler/mlir/disc/IR/disc_tf_additional_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/rng_uniform_custom_call_op.h"
 #include "tensorflow/compiler/mlir/disc/IR/topk_custom_call_op.h"
@@ -643,6 +644,32 @@ LogicalResult ConvertDequantizeOp::dequantize(TF::DequantizeOp op,
                          << "\n";
 }
 
+struct ConvertFakeQuantOp : public OpRewritePattern<TF::DiscFakeQuantOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::DiscFakeQuantOp op,
+                                PatternRewriter& rewriter) const final {
+    if (op.use_dynamic()) {
+      return op->emitError("dynamic quantization is not supported yet");
+    }
+    auto loc = op.getLoc();
+    auto input = op.input();
+    auto scale = op.scale();
+    auto zero_point = op.zero_point();
+    SmallVector<int64_t> axis;
+    for (auto& v : op.axis()) {
+      axis.push_back(v.cast<IntegerAttr>().getInt());
+    }
+    Value new_op = rewriter.create<mhlo_disc::FakeQuantOp>(
+        loc, op.getType(), input, scale, zero_point, op.use_signedAttr(),
+        op.use_symmetricAttr(), GetI64ElementsAttr(axis, &rewriter),
+        op.num_bitsAttr(), op.quant_minAttr(), op.quant_maxAttr(),
+        op.use_dynamicAttr());
+    rewriter.replaceOp(op, {new_op});
+    return success();
+  }
+};
+
 Type ToLegalElementType(Type type) {
   return llvm::TypeSwitch<Type, Type>(type)
       .Case<mlir::TF::Qint8Type>([&type](Type) {
@@ -802,13 +829,6 @@ int64_t getDimSize(Type ty, int64_t index) {
   return ranked_ty.getDimSize(index);
 }
 
-mlir::DenseIntElementsAttr getI64ElementsAttr(ArrayRef<int64_t> values,
-                                              Builder* builder) {
-  RankedTensorType ty = RankedTensorType::get(
-      {static_cast<int64_t>(values.size())}, builder->getIntegerType(64));
-  return mlir::DenseIntElementsAttr::get(ty, values);
-}
-
 NamedAttribute getConvDimensionNumbersAttr(
     ArrayRef<int64_t> spatial_dims, tensorflow::TensorFormat format,
     Builder* builder,
@@ -913,10 +933,10 @@ LogicalResult parseConvParams(ConvParams& params, OpBuilder& b, Location& loc) {
   }
 
   auto rhs_dilations_attr =
-      b.getNamedAttr("rhs_dilation", getI64ElementsAttr(rhs_dilations, &b));
+      b.getNamedAttr("rhs_dilation", GetI64ElementsAttr(rhs_dilations, &b));
 
   auto window_strides_attr =
-      b.getNamedAttr("window_strides", getI64ElementsAttr(window_strides, &b));
+      b.getNamedAttr("window_strides", GetI64ElementsAttr(window_strides, &b));
 
   auto dimension_numbers_attr = getConvDimensionNumbersAttr(
       spatial_dim_indices, data_format, &b, tensorflow::FORMAT_OHWI);
@@ -1176,7 +1196,7 @@ class ConvertBucketizeOp : public OpRewritePattern<TF::BucketizeOp> {
     boradcast_dim.push_back(static_cast<int64_t>(input_rank));
     boundaries = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
         loc, broadcast_type, boundaries, broadcast_to_shape_tensor,
-        getI64ElementsAttr(boradcast_dim, &rewriter));
+        GetI64ElementsAttr(boradcast_dim, &rewriter));
 
     input = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
         loc, broadcast_type, input, broadcast_to_shape_tensor, broadcast_dims);
@@ -1193,7 +1213,7 @@ class ConvertBucketizeOp : public OpRewritePattern<TF::BucketizeOp> {
     reduce_dim.push_back(static_cast<int64_t>(input_rank));
     auto buckets = rewriter.create<mhlo::ReduceOp>(
         loc, convert.getResult(), zero,
-        getI64ElementsAttr(reduce_dim, &rewriter));
+        GetI64ElementsAttr(reduce_dim, &rewriter));
     mhlo::BuildReduceBody<mhlo::AddOp>(element_type, &buckets.body(),
                                        &rewriter);
 
@@ -1322,6 +1342,7 @@ void PrepareTFPass::runOnOperation() {
   patterns.insert<
       ConvertDequantizeOp,
       ConvertQuantizeV2Op,
+      ConvertFakeQuantOp,
       ConvertSqueezeOpDynamic,
       ConvertTopKV2OpDynamic,
       ConvertUniformOp,

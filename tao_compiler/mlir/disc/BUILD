@@ -1168,6 +1168,7 @@ cc_library(
     ],
     deps = [
         ":disc_lower_tf_inc_gen",
+        ":disc_tf_additional_ops",
         ":disc_util",
         ":mhlo_disc",
         ":pass_details",
@@ -2331,6 +2332,46 @@ cc_library(
         "@llvm-project//mlir:TensorDialect",
         "@llvm-project//mlir:TransformUtils",
         "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+gentbl_cc_library(
+    name = "disc_tf_additional_ops_gen",
+    compatible_with = get_compatible_with_cloud(),
+    strip_include_prefix = "",
+    tbl_outs = [
+        (
+            ["-gen-op-decls"],
+            "IR/disc_tf_additional_ops.h.inc",
+        ),
+        (
+            ["-gen-op-defs"],
+            "IR/disc_tf_additional_ops.cc.inc",
+        ),
+    ],
+    tblgen = "@llvm-project//mlir:mlir-tblgen",
+    td_file = "IR/disc_tf_additional_ops.td",
+    td_srcs = [
+        "//tensorflow/compiler/mlir/tensorflow:ir/tf_op_base.td",
+        "//tensorflow/compiler/mlir/tensorflow:ir/tf_op_interfaces.td",
+    ],
+    deps = [
+        "@llvm-project//mlir:OpBaseTdFiles",
+    ],
+)
+
+cc_library(
+    name = "disc_tf_additional_ops",
+    hdrs = [
+        "IR/disc_tf_additional_ops.h",
+    ],
+    srcs = [
+        "IR/disc_tf_additional_ops.cc",
+    ],
+    deps = [
+        ":disc_tf_additional_ops_gen",
+        "//tensorflow/compiler/mlir/tensorflow",
     ],
     alwayslink = 1,
 )

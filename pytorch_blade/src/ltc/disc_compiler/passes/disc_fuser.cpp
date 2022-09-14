@@ -108,7 +108,11 @@ torch::Device getInputDevice(torch::jit::Node* node) {
       return input->type()->cast<c10::TensorType>()->device().value();
     }
   }
+#ifdef TORCH_BLADE_BUILD_WITH_CUDA
   return torch::Device(torch::kCUDA, c10::cuda::current_device());
+#else
+  return torch::Device(torch::kCPU);
+#endif // TORCH_BLADE_BUILD_WITH_CUDA
 }
 
 void CastingScalarInputToTensor(

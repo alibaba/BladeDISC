@@ -75,7 +75,7 @@ at::List<at::Tensor> EngineClass::Execute(const at::List<at::Tensor>& inputs) {
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 11
     auto graph = torch::jit::tryToGraphFunction(*func)->graph();
 #else
-    auto graph = *func.graph();
+    auto graph = func->graph();
 #endif
 
     VLOG(0) << "replay toolkit dump cluster on: " << dump_path

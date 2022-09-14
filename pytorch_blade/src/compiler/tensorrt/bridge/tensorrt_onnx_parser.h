@@ -33,8 +33,6 @@ struct OnnxParserContext {
 
 class TensorrtOnnxParser {
  public:
-  using QValType = std::unordered_map<std::string, std::pair<float, float>>;
-
   TensorrtOnnxParser() {
     InitializeTrtPlugins(&GetTensorrtLogger());
   }
@@ -43,15 +41,11 @@ class TensorrtOnnxParser {
   TrtUniquePtr<nvinfer1::ICudaEngine> BuildEngine(
       const std::string&,
       const std::shared_ptr<backends::EngineState>&,
-      const std::vector<DynamicRanges>,
-      const QValType&);
+      const std::vector<DynamicRanges>);
 
   void SetMaxWorkspaceSize(const size_t workspace_size) {
     max_workspace_size_ = workspace_size;
   }
-  bool setDynamicRange(
-      TrtUniquePtr<nvinfer1::INetworkDefinition>& network,
-      const QValType& q_val);
 
  private:
   size_t max_workspace_size_ = 1 << 30; // 1GiB

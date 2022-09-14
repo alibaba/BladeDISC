@@ -28,11 +28,9 @@ bool is_onnx2trt_supported(const std::string& proto_bytes) {
 std::shared_ptr<backends::EngineState> cvt_onnx_to_tensorrt(
     const std::string& dyn_proto_bytes,
     const std::shared_ptr<backends::EngineState>& state,
-    const std::vector<DynamicRanges> dynamic_ranges,
-    const TensorrtOnnxParser::QValType& q_val) {
+    const std::vector<DynamicRanges> dynamic_ranges) {
   TensorrtOnnxParser parser;
-  auto engine =
-      parser.BuildEngine(dyn_proto_bytes, state, dynamic_ranges, q_val);
+  auto engine = parser.BuildEngine(dyn_proto_bytes, state, dynamic_ranges);
   if (engine != nullptr) {
     auto out = engine->serialize();
     if (out != nullptr) {

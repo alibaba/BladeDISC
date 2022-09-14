@@ -71,7 +71,7 @@ class TestTrtExtension(TestCase):
         ]
 
         # try to convert onnx to tensorrt engine
-        state = tensorrt.cvt_onnx_to_tensorrt(onnx_proto, state, [], dict())
+        state = tensorrt.cvt_onnx_to_tensorrt(onnx_proto, state, [])
         self.assertEqual(state.backend_name, "TensorRT")
 
         engine = Model(state)

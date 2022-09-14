@@ -44,7 +44,7 @@ def _try_cast_graph_integer_inputs_to_i32(graph):
             tools.cast_to_i32_tensor_type(val)
 
 
-def _build_onnx_engine(subgraph, engine_build_func, q_info=None,
+def _build_onnx_engine(subgraph, engine_build_func,
                        dynamic_settings=None, cast_int_to_i32=False, grp_calib_data=None):
     if cast_int_to_i32:
         _try_cast_graph_integer_inputs_to_i32(subgraph)
@@ -62,10 +62,6 @@ def _build_onnx_engine(subgraph, engine_build_func, q_info=None,
     # deduplicate only deduplicate outputs variable's
     # would not invalid value_map
     _deduplicate_onnx_graph_outputs(graph)
-
-    # update q_val for `torchscript -> onnx` if needed
-    if q_info is not None:
-        q_info = q_info.generate_through_mapping(value_map)
 
     dynamic_shapes, dynamic_axes = [], None
     if dynamic_settings is not None:
@@ -87,10 +83,9 @@ def _build_onnx_engine(subgraph, engine_build_func, q_info=None,
     if len(onnx_model.graph.node) == 0:
         # input a graph with empty nodes to onnx builder would cause segfault
         return None
-    q_val = q_info.q_val if q_info is not None else {}
 
     state.model_proto = dyn_proto
-    return engine_build_func(dyn_proto, state, dynamic_shapes, q_val)
+    return engine_build_func(dyn_proto, state, dynamic_shapes)
 
 
 def _subgraph_to_bytes(subgraph, group_name):
@@ -123,15 +118,12 @@ def build_onnx_engine(
     module,
     group_id,
     _try_build_onnx_engine,
-    q_info=None,
     disable_fallback=False,
     dynamic_settings=None,
     cast_int_to_i32=False,
     quantization_calib_file=None,
 ):
-    # q_info passed to this function and `try_cvt_to_onnx_func`
-    # only contains quantization information for each `prim::FusionGroup`
-    def try_cvt_to_onnx_func(c_module, subgraph, group_name, q_info=None, grp_calib_data=None):
+    def try_cvt_to_onnx_func(c_module, subgraph, group_name, grp_calib_data=None):
         # NB: clear all cached memory for onnx tuning
         torch.cuda.empty_cache()
         # NB: some onnx lowering pass would modify the subgraph
@@ -145,7 +137,6 @@ def build_onnx_engine(
             engine_data = _build_onnx_engine(
                 subgraph,
                 _try_build_onnx_engine,
-                q_info,
                 grp_dynamic_settings,
                 cast_int_to_i32,
                 grp_calib_data
@@ -170,6 +161,5 @@ def build_onnx_engine(
     group_to_engine_conversion(
         module,
         try_cvt_to_onnx_func,
-        q_info,
         quantization_calib_file=quantization_calib_file
     )

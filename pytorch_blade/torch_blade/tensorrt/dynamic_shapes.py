@@ -83,7 +83,7 @@ def _get_shape_for_one_input(c_module, inputs, trt_unsupported):
     # TODO: Since clustering is unstable and time-consuming, it is better
     # to execute clustering only once. So we do not execute new clustering
     # process during getting dynamic settings.
-    supported_node_fusion(graph, graph, new_trt_unsupported, q_info=None)
+    supported_node_fusion(graph, graph, new_trt_unsupported)
     all_subgraph_inputs = []
     for node in group_nodes(graph):
         subgraph = node.g("Subgraph")

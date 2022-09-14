@@ -10,26 +10,26 @@
 # limitations under the License.
 
 import os
-import subprocess
 import shutil
+import subprocess
 import tempfile
 from datetime import datetime
 
 import torch
 import torch_blade
-
-from torch_blade import mlir
-from torch_blade import tools
+from torch_blade import mlir, tools
 from torch_blade._torch_blade import _backends
-from torch_blade.config import Config
 from torch_blade.clustering import support_fusion_group, support_group_conversion
+from torch_blade.config import Config
 from torch_blade.logging import logger
+
 
 def _dump_to_tempfile(tmp_dir, dump_bytes):
     inp_file = tempfile.NamedTemporaryFile(dir=tmp_dir, delete=False)
     inp_file.write(bytes(dump_bytes, "utf-8"))
     inp_file.close()
     return inp_file
+
 
 def _compile_torchscript(graph):
     # NB: Some MLIR debug information would be dump to mlir_dump_dir,
@@ -98,22 +98,21 @@ def _compile_torchscript(graph):
 
         return so_bytes, pb_bytes, input_dev_str, output_dev_str
 
+
 def _get_mlir_unsupported(graph):
     cfg = Config.get_current_context_or_new()
     extra_unspt_nodes = [n for n in graph.nodes() if n.kind() in cfg.customize_op_black_list]
     unspt_nodes = [n for n in graph.nodes() if not mlir.is_mlir_mhlo_supported(n)]
     return unspt_nodes + extra_unspt_nodes
 
+
 def _disc_engine_conversion(module):
     def try_cvt_to_disc_engine_func(
-            c_module, subgraph, group_name, q_info=None, grp_calib_data=None
+            c_module, subgraph, group_name, grp_calib_data=None
     ):
         attr_name = f"{mlir._DISC_GROUP_NAME}{group_name}"
         try:
             so_bytes, pb_bytes, input_dev_str, output_dev_str = _compile_torchscript(subgraph)
-            subg_str = str(subgraph)
-            inputs = subgraph.input_list()
-            outputs = subgraph.output_list()
 
             state = _backends.EngineState()
             state.inputs = [_backends.TensorInfo(inp) for inp in subgraph.inputs()]
@@ -174,7 +173,9 @@ def _optimize_mlir(script_module):
 
         unsupported_nodes = _get_mlir_unsupported(block)
 
-        _ = support_fusion_group.supported_node_fusion(graph, block, unsupported_nodes, support_number_ios=True)
+        _ = support_fusion_group.supported_node_fusion(
+            graph, block, unsupported_nodes, support_number_ios=True
+        )
 
     with tools.trust_tracing_shape():
         fusion_block(graph)

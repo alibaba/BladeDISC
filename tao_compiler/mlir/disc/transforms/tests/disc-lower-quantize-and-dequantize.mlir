@@ -193,3 +193,135 @@ func.func @quantize_unsigned_per_channel(
   } : (tensor<?x32x32x6xf32>, tensor<?xf32>, tensor<?xi32>) -> tensor<?x32x32x6xui8>
   return %quantized_input : tensor<?x32x32x6xui8>
 }
+
+// -----
+
+// CHECK-LABEL: @dequantize_signed_per_tensor
+// CHECK-SAME: %[[INPUT:.*]]: tensor<?x32x32x6xi8>
+// CHECK-SAME: %[[INPUT_SCALE:.*]]: tensor<f32>
+// CHECK-SAME: %[[INPUT_ZERO_POINT:.*]]: tensor<i32>
+func.func @dequantize_signed_per_tensor(
+    %input: tensor<?x32x32x6xi8>,
+    %input_scale : tensor<f32>,
+    %input_zero_point : tensor<i32>) -> tensor<?x32x32x6xf32> {
+  // CHECK: %[[SHAPE:.*]] = shape.shape_of %[[INPUT]]
+
+  // CHECK: %[[BCAST_SCALE:.*]] = "mhlo.dynamic_broadcast_in_dim"
+  // CHECK-SAME: %[[INPUT_SCALE]], %[[SHAPE]]
+  // CHECK-SAME: broadcast_dimensions = dense<> : tensor<0xi64>
+
+  // CHECK: %[[BCAST_ZERO_POINT:.*]] = "mhlo.dynamic_broadcast_in_dim"
+  // CHECK-SAME: %[[INPUT_ZERO_POINT]], %[[SHAPE]]
+  // CHECK-SAME: broadcast_dimensions = dense<> : tensor<0xi64>
+
+  // CHECK: %[[CASTED_INPUT:.*]] = mhlo.convert(%[[INPUT]]) : (tensor<?x32x32x6xi8>) -> tensor<?x32x32x6xi32>
+  // CHECK: %[[T0:.*]] = mhlo.subtract %[[CASTED_INPUT]], %[[BCAST_ZERO_POINT]] : tensor<?x32x32x6xi32>
+  // CHECK: %[[T1:.*]] = mhlo.convert(%[[T0]]) : (tensor<?x32x32x6xi32>) -> tensor<?x32x32x6xf32>
+  // CHECK: %[[T2:.*]] = mhlo.multiply %[[T1]], %[[BCAST_SCALE]] : tensor<?x32x32x6xf32>
+  // CHECK: return %[[T2]]
+  %quantized_input = "mhlo_disc.dequantize"(%input, %input_scale, %input_zero_point) {
+      use_symmetric = true,
+      axis = dense<[]> : tensor<0xi64>,
+      use_dynamic = false
+  } : (tensor<?x32x32x6xi8>, tensor<f32>, tensor<i32>) -> tensor<?x32x32x6xf32>
+  return %quantized_input : tensor<?x32x32x6xf32>
+}
+
+// -----
+
+// CHECK-LABEL: @dequantize_unsigned_per_tensor
+// CHECK-SAME: %[[INPUT:.*]]: tensor<?x32x32x6xui8>
+// CHECK-SAME: %[[INPUT_SCALE:.*]]: tensor<f32>
+// CHECK-SAME: %[[INPUT_ZERO_POINT:.*]]: tensor<i32>
+func.func @dequantize_unsigned_per_tensor(
+    %input: tensor<?x32x32x6xui8>,
+    %input_scale : tensor<f32>,
+    %input_zero_point : tensor<i32>) -> tensor<?x32x32x6xf32> {
+  // CHECK: %[[SHAPE:.*]] = shape.shape_of %[[INPUT]]
+
+  // CHECK: %[[BCAST_SCALE:.*]] = "mhlo.dynamic_broadcast_in_dim"
+  // CHECK-SAME: %[[INPUT_SCALE]], %[[SHAPE]]
+  // CHECK-SAME: broadcast_dimensions = dense<> : tensor<0xi64>
+
+  // CHECK: %[[BCAST_ZERO_POINT:.*]] = "mhlo.dynamic_broadcast_in_dim"
+  // CHECK-SAME: %[[INPUT_ZERO_POINT]], %[[SHAPE]]
+  // CHECK-SAME: broadcast_dimensions = dense<> : tensor<0xi64>
+
+  // CHECK: %[[CASTED_INPUT:.*]] = mhlo.convert(%[[INPUT]]) : (tensor<?x32x32x6xui8>) -> tensor<?x32x32x6xi32>
+  // CHECK: %[[T0:.*]] = mhlo.subtract %[[CASTED_INPUT]], %[[BCAST_ZERO_POINT]] : tensor<?x32x32x6xi32>
+  // CHECK: %[[T1:.*]] = mhlo.convert(%[[T0]]) : (tensor<?x32x32x6xi32>) -> tensor<?x32x32x6xf32>
+  // CHECK: %[[T2:.*]] = mhlo.multiply %[[T1]], %[[BCAST_SCALE]] : tensor<?x32x32x6xf32>
+  // CHECK: return %[[T2]]
+  %quantized_input = "mhlo_disc.dequantize"(%input, %input_scale, %input_zero_point) {
+      use_symmetric = true,
+      axis = dense<[]> : tensor<0xi64>,
+      use_dynamic = false
+  } : (tensor<?x32x32x6xui8>, tensor<f32>, tensor<i32>) -> tensor<?x32x32x6xf32>
+  return %quantized_input : tensor<?x32x32x6xf32>
+}
+
+// -----
+
+// CHECK-LABEL: @dequantize_signed_per_channel
+// CHECK-SAME: %[[INPUT:.*]]: tensor<?x32x32x6xi8>
+// CHECK-SAME: %[[INPUT_SCALE:.*]]: tensor<?xf32>
+// CHECK-SAME: %[[INPUT_ZERO_POINT:.*]]: tensor<?xi32>
+func.func @dequantize_signed_per_channel(
+    %input: tensor<?x32x32x6xi8>,
+    %input_scale : tensor<?xf32>,
+    %input_zero_point : tensor<?xi32>) -> tensor<?x32x32x6xf32> {
+  // CHECK: %[[SHAPE:.*]] = shape.shape_of %[[INPUT]]
+
+  // CHECK: %[[BCAST_SCALE:.*]] = "mhlo.dynamic_broadcast_in_dim"
+  // CHECK-SAME: %[[INPUT_SCALE]], %[[SHAPE]]
+  // CHECK-SAME: broadcast_dimensions = dense<3> : tensor<1xi64>
+
+  // CHECK: %[[BCAST_ZERO_POINT:.*]] = "mhlo.dynamic_broadcast_in_dim"
+  // CHECK-SAME: %[[INPUT_ZERO_POINT]], %[[SHAPE]]
+  // CHECK-SAME: broadcast_dimensions = dense<3> : tensor<1xi64>
+
+  // CHECK: %[[CASTED_INPUT:.*]] = mhlo.convert(%[[INPUT]]) : (tensor<?x32x32x6xi8>) -> tensor<?x32x32x6xi32>
+  // CHECK: %[[T0:.*]] = mhlo.subtract %[[CASTED_INPUT]], %[[BCAST_ZERO_POINT]] : tensor<?x32x32x6xi32>
+  // CHECK: %[[T1:.*]] = mhlo.convert(%[[T0]]) : (tensor<?x32x32x6xi32>) -> tensor<?x32x32x6xf32>
+  // CHECK: %[[T2:.*]] = mhlo.multiply %[[T1]], %[[BCAST_SCALE]] : tensor<?x32x32x6xf32>
+  // CHECK: return %[[T2]]
+  %quantized_input = "mhlo_disc.dequantize"(%input, %input_scale, %input_zero_point) {
+      use_symmetric = true,
+      axis = dense<[3]> : tensor<1xi64>,
+      use_dynamic = false
+  } : (tensor<?x32x32x6xi8>, tensor<?xf32>, tensor<?xi32>) -> tensor<?x32x32x6xf32>
+  return %quantized_input : tensor<?x32x32x6xf32>
+}
+
+// -----
+
+// CHECK-LABEL: @dequantize_unsigned_per_channel
+// CHECK-SAME: %[[INPUT:.*]]: tensor<?x32x32x6xui8>
+// CHECK-SAME: %[[INPUT_SCALE:.*]]: tensor<?xf32>
+// CHECK-SAME: %[[INPUT_ZERO_POINT:.*]]: tensor<?xi32>
+func.func @dequantize_unsigned_per_channel(
+    %input: tensor<?x32x32x6xui8>,
+    %input_scale : tensor<?xf32>,
+    %input_zero_point : tensor<?xi32>) -> tensor<?x32x32x6xf32> {
+  // CHECK: %[[SHAPE:.*]] = shape.shape_of %[[INPUT]]
+
+  // CHECK: %[[BCAST_SCALE:.*]] = "mhlo.dynamic_broadcast_in_dim"
+  // CHECK-SAME: %[[INPUT_SCALE]], %[[SHAPE]]
+  // CHECK-SAME: broadcast_dimensions = dense<3> : tensor<1xi64>
+
+  // CHECK: %[[BCAST_ZERO_POINT:.*]] = "mhlo.dynamic_broadcast_in_dim"
+  // CHECK-SAME: %[[INPUT_ZERO_POINT]], %[[SHAPE]]
+  // CHECK-SAME: broadcast_dimensions = dense<3> : tensor<1xi64>
+
+  // CHECK: %[[CASTED_INPUT:.*]] = mhlo.convert(%[[INPUT]]) : (tensor<?x32x32x6xui8>) -> tensor<?x32x32x6xi32>
+  // CHECK: %[[T0:.*]] = mhlo.subtract %[[CASTED_INPUT]], %[[BCAST_ZERO_POINT]] : tensor<?x32x32x6xi32>
+  // CHECK: %[[T1:.*]] = mhlo.convert(%[[T0]]) : (tensor<?x32x32x6xi32>) -> tensor<?x32x32x6xf32>
+  // CHECK: %[[T2:.*]] = mhlo.multiply %[[T1]], %[[BCAST_SCALE]] : tensor<?x32x32x6xf32>
+  // CHECK: return %[[T2]]
+  %quantized_input = "mhlo_disc.dequantize"(%input, %input_scale, %input_zero_point) {
+      use_symmetric = true,
+      axis = dense<[3]> : tensor<1xi64>,
+      use_dynamic = false
+  } : (tensor<?x32x32x6xui8>, tensor<?xf32>, tensor<?xi32>) -> tensor<?x32x32x6xf32>
+  return %quantized_input : tensor<?x32x32x6xf32>
+}

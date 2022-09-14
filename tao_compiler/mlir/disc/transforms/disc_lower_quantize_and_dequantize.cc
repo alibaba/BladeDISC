@@ -86,9 +86,51 @@ struct QuantizeOpConverter : public OpRewritePattern<mhlo_disc::QuantizeOp> {
   }
 };
 
+struct DequantizeOpConverter
+    : public OpRewritePattern<mhlo_disc::DequantizeOp> {
+  using OpRewritePattern<mhlo_disc::DequantizeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mhlo_disc::DequantizeOp op,
+                                PatternRewriter& rewriter) const override {
+    if (op.use_dynamic())
+      return rewriter.notifyMatchFailure(
+          op, "Not support dynamic dequantize a.t.m.");
+
+    auto outTy = op.getType().cast<RankedTensorType>();
+    auto scaleTy = op.scale().getType().cast<RankedTensorType>();
+    if (outTy.getElementType() != scaleTy.getElementType() ||
+        !outTy.getElementType().isF32())
+      return rewriter.notifyMatchFailure(
+          op, "Only support dequantize to f32 a.t.m.");
+
+    Location loc = op.getLoc();
+    auto inputTy = op.input().getType().cast<RankedTensorType>();
+    Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, op.input());
+    Value bcastedScale = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+        loc, outTy, op.scale(), inputShape, op.axis());
+    auto zeroPointTy = op.zero_point().getType().cast<RankedTensorType>();
+    auto bcastedInputOrZeroPointTy =
+        RankedTensorType::get(inputTy.getShape(), zeroPointTy.getElementType(),
+                              zeroPointTy.getEncoding());
+    Value bcastedZeroPoint = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+        loc, bcastedInputOrZeroPointTy, op.zero_point(), inputShape, op.axis());
+    Value castedInput = rewriter.create<mhlo::ConvertOp>(
+        loc, bcastedInputOrZeroPointTy, op.input());
+
+    // output = (input - zero\_point) \times scale
+    Value t0 =
+        rewriter.create<mhlo::SubtractOp>(loc, castedInput, bcastedZeroPoint);
+    Value t1 = rewriter.create<mhlo::ConvertOp>(loc, outTy, t0);
+    Value t2 = rewriter.create<mhlo::MulOp>(loc, t1, bcastedScale);
+    rewriter.replaceOp(op, t2);
+    return success();
+  }
+};
+
 void populateQuantizeAndDequantizePatterns(RewritePatternSet& patterns) {
   // clang-format off
   patterns.insert<
+    DequantizeOpConverter,
     QuantizeOpConverter
   >(patterns.getContext());
   // clang-format on

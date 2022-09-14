@@ -301,6 +301,7 @@ bool isElementWiseUnary(Operation* op) {
     lmhlo::NotOp,
     lmhlo::RsqrtOp,
     lmhlo::SignOp,
+    lmhlo::SineOp,
     lmhlo::SqrtOp,
     lmhlo::TanhOp
   >(op);

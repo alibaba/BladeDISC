@@ -4120,11 +4120,11 @@ LogicalResult lowerWithScheduleSparseSegmentMeanOpCPU(
   b.setInsertionPoint(sparse_segment_mean.getOperation());
 
   // input
-  Value input = sparse_segment_mean.data();
-  Value indices = sparse_segment_mean.indices();
-  Value segment_ids = sparse_segment_mean.segment_ids();
+  Value input = sparse_segment_mean.getData();
+  Value indices = sparse_segment_mean.getIndices();
+  Value segment_ids = sparse_segment_mean.getSegmentIds();
   // output
-  Value output = sparse_segment_mean.output();
+  Value output = sparse_segment_mean.getOutput();
   MemRefType output_type = output.getType().template cast<MemRefType>();
 
   Value zero = b.create<arith::ConstantIndexOp>(loc, 0);

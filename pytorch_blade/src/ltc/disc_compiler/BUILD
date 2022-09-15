@@ -34,6 +34,9 @@ cc_library (
   ] + if_ltc_disc_backend([
     "replay.h"
   ]),
+  copts = select({
+       "//:enable_cuda": ["-DTORCH_BLADE_BUILD_WITH_CUDA"],
+       "//conditions:default": []}),
   includes = ["../include"],
   deps = [
     ":disc_passes",

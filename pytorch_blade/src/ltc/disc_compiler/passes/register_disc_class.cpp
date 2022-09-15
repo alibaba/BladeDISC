@@ -170,7 +170,7 @@ std::vector<c10::IValue> RegisterDiscClass(
     auto disc_hash =
         torch::lazy::DataHash(sub_graph.get(), sub_graph->toString().size());
     auto disc_hash_str = torch::lazy::HashToString(disc_hash);
-    VLOG(0) << "registry disc engine with debug attr: " << disc_hash_str;
+    GRAPH_DEBUG("registry disc engine with debug attr: ", disc_hash_str);
     auto fallback_module = ConvertGraphToModule(sub_graph->copy());
     std::ostringstream buf;
     fallback_module.save(buf);

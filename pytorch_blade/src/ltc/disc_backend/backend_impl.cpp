@@ -24,7 +24,6 @@
 #include "common_utils/logging.h"
 #include "common_utils/utils.h"
 #include "ltc/disc_compiler/disc_compiler.h"
-#include "ltc/disc_compiler/replay.h"
 
 namespace torch_disc {
 namespace compiler {

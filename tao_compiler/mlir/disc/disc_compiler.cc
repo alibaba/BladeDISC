@@ -222,6 +222,11 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
+  // quantization related passes.
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertFakeQuantOpPass());
+  pm.addNestedPass<FuncOp>(
+      disc_ral::createDiscLowerQuantizeAndDequantizePass());
+
   bool enable_shape_constraint_ir = useShapeConstraintIR();
   if (!enable_shape_constraint_ir) {
     // propagate some known shape information.

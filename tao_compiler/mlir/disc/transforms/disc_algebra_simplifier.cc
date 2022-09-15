@@ -345,6 +345,31 @@ struct BroadCastInDimOfReshapeOpCanonicalizationPattern
   }
 };
 
+template <typename OpTy>
+struct SimplifierFromElementsPattern : public OpRewritePattern<OpTy> {
+  using OpRewritePattern<OpTy>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(OpTy op,
+                                PatternRewriter& rewriter) const override {
+    auto loc = op->getLoc();
+    Value input = op->getOperand(0);
+    Value result = op->getResult(0);
+    auto extractOp = input.getDefiningOp();
+    if (!isa<tensor::ExtractOp>(extractOp)) {
+      return failure();
+    }
+    auto rankTy = op.getType().template dyn_cast<RankedTensorType>();
+    auto extractInput = extractOp->getOperand(0);
+    auto outTy = RankedTensorType::get({1}, rankTy.getElementType());
+    auto newResult =
+        rewriter.create<mhlo::ReshapeOp>(loc, outTy, extractInput).getResult();
+    for (auto user : result.getUsers()) {
+      user->replaceUsesOfWith(result, newResult);
+    }
+    return success();
+  }
+};
+
 void populateDiscAlgebraSimplifierPatterns(RewritePatternSet& patterns) {
   // clang-format off
   patterns.insert<
@@ -353,7 +378,8 @@ void populateDiscAlgebraSimplifierPatterns(RewritePatternSet& patterns) {
     ExpandPowOp,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastInDimOp>,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastOp>,
-    IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::DynamicBroadcastInDimOp>
+    IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::DynamicBroadcastInDimOp>,
+    SimplifierFromElementsPattern<tensor::FromElementsOp>
   >(patterns.getContext());
 
   // zero tensor related patterns
@@ -366,6 +392,9 @@ void populateDiscAlgebraSimplifierPatterns(RewritePatternSet& patterns) {
 
 struct DiscAlgebraSimplifierPass
     : public DiscAlgebraSimplifierPassBase<DiscAlgebraSimplifierPass> {
+  void getDependentDialects(DialectRegistry& registry) const override {
+    registry.insert<mhlo::MhloDialect>();
+  }
   void runOnOperation() override;
 };
 

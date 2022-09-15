@@ -42,19 +42,51 @@ namespace mlir {
 namespace disc_ral {
 namespace {
 
-struct QuantizedDynamicConvOpConverter
+template <typename OpTy>
+struct ConvLikeOpPadding {
+  static Value get(OpTy convOp, OpBuilder& builder) { return nullptr; }
+};
+
+template <>
+struct ConvLikeOpPadding<mhlo::DynamicConvOp> {
+  static Value get(mhlo::DynamicConvOp convOp, OpBuilder& builder) {
+    if (!convOp) return nullptr;
+    return convOp.d_padding();
+  }
+};
+
+template <>
+struct ConvLikeOpPadding<mhlo::ConvolutionOp> {
+  static Value get(mhlo::ConvolutionOp convOp, OpBuilder& builder) {
+    if (!convOp) return nullptr;
+    SmallVector<int32_t> paddingValues;
+    for (const auto& val : (*convOp.padding()).getValues<int64_t>()) {
+      paddingValues.push_back(static_cast<int32_t>(val));
+    }
+    RankedTensorType ty = RankedTensorType::get({paddingValues.size()},
+                                                builder.getIntegerType(32));
+    return builder.create<mhlo::ConstantOp>(
+        convOp.getLoc(), DenseIntElementsAttr::get(ty, paddingValues));
+  }
+};
+
+template <typename OpTy>
+struct QuantizedConvLikeOpConverter
     : public OpRewritePattern<mhlo_disc::FakeQuantOp> {
   using OpRewritePattern<mhlo_disc::FakeQuantOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(mhlo_disc::FakeQuantOp op,
                                 PatternRewriter& rewriter) const override {
-    auto convOp = op.input().getDefiningOp<mhlo::DynamicConvOp>();
+    auto convOp = op.input().template getDefiningOp<OpTy>();
     if (!convOp) return failure();
 
+    Value padding = ConvLikeOpPadding<OpTy>::get(convOp, rewriter);
+    if (!padding) return failure();
+
     auto inputFakeQuantOp =
-        convOp.lhs().getDefiningOp<mhlo_disc::FakeQuantOp>();
+        convOp.lhs().template getDefiningOp<mhlo_disc::FakeQuantOp>();
     auto weightFakeQuantOp =
-        convOp.rhs().getDefiningOp<mhlo_disc::FakeQuantOp>();
+        convOp.rhs().template getDefiningOp<mhlo_disc::FakeQuantOp>();
     if (!inputFakeQuantOp || !weightFakeQuantOp) return failure();
     if (inputFakeQuantOp.use_signed() != weightFakeQuantOp.use_signed() ||
         inputFakeQuantOp.num_bits() != weightFakeQuantOp.num_bits()) {
@@ -94,14 +126,13 @@ struct QuantizedDynamicConvOpConverter
     Value quantizedWeight = buildQuantizedOpFromFakeQuantOp(weightFakeQuantOp);
     Value quantizedConv = rewriter.create<mhlo_disc::QuantizedDynamicConvOp>(
         loc, buildQuantizedTensorType(op), quantizedInput, quantizedWeight,
-        convOp.d_padding(), inputFakeQuantOp.scale(),
-        inputFakeQuantOp.zero_point(), weightFakeQuantOp.scale(),
-        weightFakeQuantOp.zero_point(), op.scale(), op.zero_point(),
-        *convOp.window_strides(), *convOp.padding(), *convOp.lhs_dilation(),
-        *convOp.rhs_dilation(), *convOp.window_reversal(),
-        convOp.dimension_numbers(), convOp.feature_group_count(),
-        convOp.batch_group_count(), op.use_symmetric(),
-        weightFakeQuantOp.axis(), op.use_dynamic());
+        padding, inputFakeQuantOp.scale(), inputFakeQuantOp.zero_point(),
+        weightFakeQuantOp.scale(), weightFakeQuantOp.zero_point(), op.scale(),
+        op.zero_point(), *convOp.window_strides(), *convOp.padding(),
+        *convOp.lhs_dilation(), *convOp.rhs_dilation(),
+        *convOp.window_reversal(), convOp.dimension_numbers(),
+        convOp.feature_group_count(), convOp.batch_group_count(),
+        op.use_symmetric(), weightFakeQuantOp.axis(), op.use_dynamic());
 
     Value dequantizedOut = rewriter.create<mhlo_disc::DequantizeOp>(
         loc, op.getType(), quantizedConv, op.scale(), op.zero_point(),
@@ -115,7 +146,8 @@ struct QuantizedDynamicConvOpConverter
 void populateQuantizedPatterns(RewritePatternSet& patterns) {
   // clang-format off
   patterns.insert<
-    QuantizedDynamicConvOpConverter
+    QuantizedConvLikeOpConverter<mhlo::ConvolutionOp>,
+    QuantizedConvLikeOpConverter<mhlo::DynamicConvOp>
   >(patterns.getContext());
   // clang-format on
 }

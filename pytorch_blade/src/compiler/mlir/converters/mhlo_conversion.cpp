@@ -343,6 +343,7 @@ class ConvertToMhloImpl {
 std::tuple<std::string, std::string, std::string, std::string>
 ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
   torch::blade::PropagateInputShapes(graph);
+  GRAPH_DEBUG("TorchMhlo input graph:\n", *graph);
   std::shared_ptr<const torch::jit::Graph> const_graph = graph;
   mlir::DialectRegistry registry;
   RegisterDialects(registry);
@@ -430,7 +431,6 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
 std::tuple<std::string, std::string, std::string, std::string>
 ConvertTorchScriptToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
   try {
-    GRAPH_DEBUG("TorchMhlo input graph:\n", *graph);
     if (IsTorchMlirAvailable()) {
       return ConvertTorchToMhlo(graph);
     } else {

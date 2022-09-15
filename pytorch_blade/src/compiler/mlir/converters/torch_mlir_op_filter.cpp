@@ -18,7 +18,6 @@
 #include "compiler/mlir/converters/mhlo_conversion_context.h"
 
 #include <torch/script.h>
-#include "absl/strings/str_split.h"
 
 namespace torch {
 namespace blade {
@@ -109,7 +108,7 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       ostr << "User defined white list: [";
       std::istringstream f(custom_ops);
       std::string s;
-      for (auto s : absl::StrSplit(custom_ops, ';')) {
+      for (auto s : StrSplit(custom_ops, ';')) {
         white_list.insert(std::string(s));
         ostr << s << ", ";
       }

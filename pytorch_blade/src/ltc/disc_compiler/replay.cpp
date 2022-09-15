@@ -130,16 +130,17 @@ void LoadAndReplay(
       }
     }
   }
-  {
 #ifdef TORCH_BLADE_BUILD_WITH_CUDA
+  if (torch::blade::env::ReadBoolFromEnvVar(
+          "TORCH_DISC_REPLAY_ENABLE_NVPROF", true)) {
     cudaProfilerStart();
     std::stringstream ss;
     ss << "spent with profiler: ";
     Timer time(ss.str(), 1);
     executable->Run(arguments, cuda_device, /*default device is cuda*/ true);
     cudaProfilerStop();
-#endif
   }
+#endif
 }
 
 void DumpProgramAndData(

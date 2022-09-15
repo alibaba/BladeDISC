@@ -27,7 +27,6 @@ TEST(DumpIValues, TestDumpIValues) {
   inputs.emplace_back(torch::randint(0, 9, {10, 20}));
   inputs.emplace_back(torch::randint(0, 9, {5, 5}));
   torch::blade::DumpIValues(inputs, tmp_dir);
-  std::cout << inputs[0].isTensor() << std::endl;
 
   std::ifstream input_stream(
       tmp_dir + "/0.pt", std::ios::in | std::ios::binary);

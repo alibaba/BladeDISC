@@ -31,6 +31,8 @@ void DumpIValues(
     const std::vector<c10::IValue>& inputs,
     const std::string& path);
 
+std::vector<std::string> StrSplit(const std::string& str, char delim);
+
 namespace env {
 bool ReadBoolFromEnvVar(const char* env_var_name, bool default_val);
 std::string ReadStringFromEnvVar(

@@ -69,6 +69,20 @@ void DumpIValues(
   }
 }
 
+std::vector<std::string> StrSplit(const std::string& str, char delim) {
+  if (str.empty())
+    return {};
+  std::vector<std::string> ret;
+  size_t first = 0;
+  size_t next = str.find(delim);
+  for (; next != std::string::npos;
+       first = next + 1, next = str.find(delim, first)) {
+    ret.push_back(str.substr(first, next - first));
+  }
+  ret.push_back(str.substr(first));
+  return ret;
+}
+
 namespace env {
 bool ReadBoolFromEnvVar(const char* env_var_name, bool default_val) {
   const char* env_var_val = std::getenv(env_var_name);

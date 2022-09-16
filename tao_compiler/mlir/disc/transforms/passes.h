@@ -56,6 +56,9 @@ createDiscLhloLegalizeRootsToParallelLoopsPass();
 std::unique_ptr<OperationPass<FuncOp>> createDiscConvRewriter(int cc_major = 8,
                                                               int cc_minor = 0);
 
+// Rewrite rng op to custom call
+std::unique_ptr<OperationPass<FuncOp>> createDiscRngRewriterPass();
+
 // Rewrite dot to fold transpose.
 std::unique_ptr<OperationPass<FuncOp>> createDiscDotRewriterPass();
 

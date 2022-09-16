@@ -421,6 +421,27 @@ cc_library(
 )
 
 cc_library(
+    name = "rng_rewriter",
+    srcs = ["transforms/rng_rewriter.cc"],
+    hdrs = ["transforms/passes.h"],
+    includes = [
+        "tensorflow/compiler/xla/mlir_hlo/include",
+        "."
+    ],
+    deps = [
+        ":disc_util",
+        ":pass_details",
+        "//tensorflow/compiler/mlir/disc:rng_uniform_custom_call",
+        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "dot_rewriter",
     srcs = ["transforms/dot_rewriter.cc"],
     hdrs = ["transforms/passes.h"],
@@ -1854,6 +1875,7 @@ cc_library(
         ":ral_inject_execution_context",
         ":revise_args_for_static_rank",
         ":revise_gpu_kernel_outlining",
+        ":rng_rewriter",
         ":split_large_ops",
         ":disc_memref_cse",
         ":disc_memref_load_store_simplifier",

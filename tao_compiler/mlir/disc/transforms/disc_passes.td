@@ -58,6 +58,11 @@ def ConvRewriterPass : Pass<"disc-conv-rewriter", "mlir::func::FuncOp"> {
   ];
 }
 
+def RngRewriterPass : Pass<"disc-rng-rewriter", "mlir::func::FuncOp"> {
+  let summary = "Rewrite rng to custom call op.";
+  let constructor = "createDiscRngRewriterPass()";
+}
+
 def DotRewriterPass : Pass<"disc-dot-rewriter", "mlir::func::FuncOp"> {
   let summary = "Rewrite dot to fold transpose.";
   let constructor = "createDiscDotRewriterPass()";

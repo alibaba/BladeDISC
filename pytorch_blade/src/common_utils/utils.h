@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <ATen/core/ivalue.h>
 #include <string>
 #include <vector>
 
@@ -25,11 +26,19 @@ TorchBladeDeclNewFlag(bool, RecordClusterIOFlag);
 
 std::string AsciiStrToLower(const char* cstr);
 
+// Dump IValues to file
+void DumpIValues(
+    const std::vector<c10::IValue>& inputs,
+    const std::string& path);
+
+std::vector<std::string> StrSplit(const std::string& str, char delim);
+
 namespace env {
 bool ReadBoolFromEnvVar(const char* env_var_name, bool default_val);
 std::string ReadStringFromEnvVar(
     const char* env_var_name,
     std::string default_val);
+
 } // namespace env
 } // namespace blade
 } // namespace torch

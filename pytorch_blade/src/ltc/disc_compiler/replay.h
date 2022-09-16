@@ -15,6 +15,7 @@
 #include <memory>
 #include <string>
 
+#include "common_utils/utils.h"
 #include "ltc/disc_compiler/disc_compiler.h"
 
 namespace c10 {
@@ -53,9 +54,29 @@ void DumpProgramAndData(
     const std::shared_ptr<torch::jit::Graph> graph,
     c10::ArrayRef<std::shared_ptr<torch::lazy::BackendData>> arguments,
     const std::string& path);
-void LoadAndReplay(const std::string& path, int iters, int warmup = 10);
-ExecutablePtr TestPyBind(const std::string& path);
-// void Run();
+
+void LoadAndReplay(
+    const std::string& path,
+    int iters,
+    int warmup = 10,
+    bool whole_graph = false);
+
+torch::jit::Module ConvertGraphToModule(
+    const std::shared_ptr<torch::jit::Graph>& graph);
+
+void FoldOutputs(std::shared_ptr<torch::jit::Graph> graph);
+
+// return true is enable replay toolkit
+bool IsEnableReplayToolkit();
+
+// return true if enable replaying a cluster
+bool IsEnableClusterReplayRecord();
+
+bool IsForceFallback();
+
+void BeginClusterReplayRecord();
+
+void EndClusterReplayRecord();
 
 } //  namespace compiler
 } //  namespace torch_disc

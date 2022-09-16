@@ -26,12 +26,17 @@ cc_library (
   name = "disc_compiler",
   srcs = [
     "disc_compiler.cpp",
+  ] + if_ltc_disc_backend([
     "replay.cpp"
-  ],
+  ]),
   hdrs = [
     "disc_compiler.h",
+  ] + if_ltc_disc_backend([
     "replay.h"
-  ],
+  ]),
+  copts = select({
+       "//:enable_cuda": ["-DTORCH_BLADE_BUILD_WITH_CUDA"],
+       "//conditions:default": []}),
   includes = ["../include"],
   deps = [
     ":disc_passes",

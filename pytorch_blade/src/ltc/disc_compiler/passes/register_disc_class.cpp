@@ -11,12 +11,15 @@
 
 #include "ltc/disc_compiler/passes/register_disc_class.h"
 
+#include "common_utils/logging.h"
 #include "compiler/backends/engine_class.h"
 #include "compiler/mlir/converters/mhlo_conversion.h"
 #include "compiler/mlir/runtime/disc_engine.h"
 #include "ltc/disc_compiler/passes/io.h"
+#include "ltc/disc_compiler/replay.h"
 
 #include <torch/csrc/jit/jit_log.h>
+#include <torch/csrc/lazy/core/hash.h>
 #include <torch/script.h>
 
 #define _GNU_SOURCE
@@ -163,9 +166,18 @@ std::vector<c10::IValue> RegisterDiscClass(
     state->set_inputs(inputs);
     state->set_outputs(outputs);
     state->set_backend_name(torch::blade::disc::GetBackendName());
+    // using hash string as debug attr
+    auto disc_hash =
+        torch::lazy::DataHash(sub_graph.get(), sub_graph->toString().size());
+    auto disc_hash_str = torch::lazy::HashToString(disc_hash);
+    GRAPH_DEBUG("registry disc engine with debug attr: ", disc_hash_str);
+    auto fallback_module = ConvertGraphToModule(sub_graph->copy());
+    std::ostringstream buf;
+    fallback_module.save(buf);
+
     // add DiscClass object as graph input
-    auto disc_class =
-        torch::blade::backends::create_engine(*state, "attr_name", "", "");
+    auto disc_class = torch::blade::backends::create_engine(
+        *state, disc_hash_str, buf.str(), "");
     auto input_name = c10::str("disc_class_p", disc_inputs.size());
     disc_inputs.push_back(disc_class);
 

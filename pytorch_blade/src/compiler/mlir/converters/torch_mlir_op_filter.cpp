@@ -18,6 +18,7 @@
 #include "compiler/mlir/converters/mhlo_conversion_context.h"
 
 #include <torch/script.h>
+
 namespace torch {
 namespace blade {
 const std::unordered_set<std::string>& GetTorchMlirWhiteList();
@@ -103,16 +104,17 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "prim::ListConstruct",
       "prim::ListUnpack"};
 
-  static std::once_flag flag;
-  std::call_once(flag, []() {
+
+  static std::once_flag white;
+  std::call_once(white, []() {
       auto custom_ops = env::ReadStringFromEnvVar("TORCH_MHLO_OP_WHITE_LIST", "");
       std::ostringstream ostr;
       ostr << "User defined white list: [";
       std::istringstream f(custom_ops);
       std::string s;
-      while (getline(f, s, ';')) {
-          white_list.insert(s);
-          ostr << s << ", ";
+      for (auto s : StrSplit(custom_ops, ';')) {
+        white_list.insert(std::string(s));
+        ostr << s << ", ";
       }
       ostr << "]";
       LOG(INFO) << ostr.str();

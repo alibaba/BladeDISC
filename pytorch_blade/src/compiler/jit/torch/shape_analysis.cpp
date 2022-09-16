@@ -2455,6 +2455,14 @@ class ShapePropagator : public PropertyPropBase {
     } else if (node->kind() == ::c10::onnx::Reshape) {
       setUnshapedType(node);
       return true;
+    } else if (node->matches("aten::item(Tensor self) -> Scalar")) {
+      auto scalar_type = tryScalarTypeFromJitType(*node->inputs()[0]->type());
+      if (isFloatingType(*scalar_type)) {
+        node->output()->setType(FloatType::get());
+      } else {
+        node->output()->setType(IntType::get());
+      }
+      return true;
     }
     setUnshapedType(node);
     return false;

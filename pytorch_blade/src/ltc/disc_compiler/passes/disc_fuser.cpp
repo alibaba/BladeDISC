@@ -18,6 +18,10 @@
 #include "compiler/mlir/converters/mhlo_conversion.h"
 #include "ltc/disc_compiler/passes/graph_fuser.h"
 
+#ifdef TORCH_BLADE_BUILD_WITH_CUDA
+#include <c10/cuda/CUDAFunctions.h>
+#endif
+
 namespace torch_disc {
 namespace compiler {
 using namespace ::torch::jit;
@@ -57,7 +61,9 @@ void CastBoundaryScalarToTensor(
     at::ScalarType& typ) {
   auto new_input = disc_graph->insertInput(
       i, c10::string(disc_graph->inputs()[i]->debugName() + ".1"));
-  new_input->setType(TensorType::create(typ, c10::nullopt, 0, false));
+  // scalar device should be on CPU
+  new_input->setType(
+      TensorType::create(typ, torch::Device(torch::kCPU), 0, false));
   auto orig_input = disc_graph->inputs()[i + 1];
   auto item_node = disc_graph->create(aten::item, {new_input});
   item_node->output()->setType(getScalarTypePtr(typ));
@@ -108,9 +114,13 @@ void CastingScalarInputToTensor(
       for (const auto i : c10::irange(inputs.size())) {
         auto input = inputs[i];
         if (input->type()->cast<c10::TensorType>() == nullptr) {
-          auto num2tensor = graph->createNumToTensor(input);
-          num2tensor->insertAfter(input->node());
-          node->replaceInput(i, num2tensor->output());
+          if (input->node()->matches("aten::item(Tensor self) -> Scalar")) {
+            node->replaceInput(i, input->node()->input());
+          } else {
+            auto num2tensor = graph->createNumToTensor(input);
+            num2tensor->insertAfter(input->node());
+            node->replaceInput(i, num2tensor->output());
+          }
 
           auto scalar_type = c10::scalarTypeFromJitType(*input->type());
           CastBoundaryScalarToTensor(sub_graph.get(), i, scalar_type);

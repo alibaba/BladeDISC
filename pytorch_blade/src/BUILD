@@ -143,7 +143,7 @@ pybind_extension(
 test_suite(
     name = "torch_blade_test_suite",
     tests = [
-        "//src/common_utils:torch_blade_tmpfs_test",
+        "//src/common_utils:torch_blade_common_utils_test",
         "//src/compiler/jit:jit_test",
         "//src/compiler/mlir/converters:mhlo_converter_register_test",
         "//src/ltc/disc_compiler:ltc_disc_test",

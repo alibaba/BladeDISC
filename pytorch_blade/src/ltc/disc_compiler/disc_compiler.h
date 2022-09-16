@@ -49,6 +49,7 @@ class Executable {
   std::shared_ptr<torch::jit::Graph> graph_;
   std::shared_ptr<torch::jit::GraphExecutor> graph_executor_;
   std::vector<c10::IValue> disc_inputs_;
+  bool is_first_run_ = true;
 };
 
 using ExecutablePtr = std::shared_ptr<Executable>;

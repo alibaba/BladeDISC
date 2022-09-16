@@ -22,6 +22,39 @@ namespace mlir_test {
 const std::string c_ft_path =
     "tensorflow/compiler/mlir/disc/tests/tensorflow_ops/data/";
 
+TEST(TFSparseSegmentMeanOpTest, DynamicShapeF32Dim3Input) {
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "sparse_segment_mean_d_f32_3d.mlir",
+      /*backend_types*/ {BackendType::kX86},
+      /*num_inputs*/ 3,
+      /*num_outputs*/ 1,
+      /*input_Xescriptors*/ {"4x4x4xf32_X", "6xi32_X", "6xi32_X"},
+      /*output_Xescriptors*/ {"f32_X"},
+      /*input_vals*/ {{}, {0, 1, 2, 0, 1, 3}, {0, 0, 1, 2, 2, 2}}));
+}
+
+TEST(TFSparseSegmentMeanOpTest, DynamicShapeF32Dim4Input) {
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "sparse_segment_mean_d_f32_4d.mlir",
+      /*backend_types*/ {BackendType::kX86},
+      /*num_inputs*/ 3,
+      /*num_outputs*/ 1,
+      /*input_Xescriptors*/ {"10x3x4x4xf32_X", "6xi32_X", "6xi32_X"},
+      /*output_Xescriptors*/ {"f32_X"},
+      /*input_vals*/ {{}, {0, 1, 3, 8, 9, 4}, {0, 0, 1, 1, 2, 2}}));
+}
+
+TEST(TFSparseSegmentMeanOpTest, DynamicShapeF32Dim5Input) {
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "sparse_segment_mean_d_f32_5d.mlir",
+      /*backend_types*/ {BackendType::kX86},
+      /*num_inputs*/ 3,
+      /*num_outputs*/ 1,
+      /*input_Xescriptors*/ {"100x5x4x4x4xf32_X", "6xi32_X", "6xi32_X"},
+      /*output_Xescriptors*/ {"f32_X"},
+      /*input_vals*/ {{}, {22, 3, 88, 77, 16, 31}, {0, 1, 10, 11, 12, 30}}));
+}
+
 TEST(TFSparseSegmentMeanOpTest, DynamicShapeF32Dim1Input) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "sparse_segment_mean_d_f32_1d.mlir",

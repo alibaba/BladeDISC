@@ -4211,7 +4211,7 @@ LogicalResult lowerWithScheduleSparseSegmentMeanOpCPU(
     b.setInsertionPointAfter(for_ops_output_init[0]);
   }
 
-  // for (i = 0; i < output.shape(0), ++i) {
+  // for (i = 0; i < indices.shape(0), ++i) {
   //   row_idx = indices[i]
   //   segment_idx = segment_ids[i]
   //   for (j = 0; j < output.shape(1); ++j) {

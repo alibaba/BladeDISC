@@ -25,7 +25,7 @@ const std::string c_ft_path =
 TEST(TFSparseSegmentMeanOpTest, DynamicShapeF32Dim3Input) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "sparse_segment_mean_d_f32_3d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ {kSupportedCPUBackendList},
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_Xescriptors*/ {"4x4x4xf32_X", "6xi32_X", "6xi32_X"},
@@ -36,7 +36,7 @@ TEST(TFSparseSegmentMeanOpTest, DynamicShapeF32Dim3Input) {
 TEST(TFSparseSegmentMeanOpTest, DynamicShapeF32Dim4Input) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "sparse_segment_mean_d_f32_4d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ {kSupportedCPUBackendList},
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_Xescriptors*/ {"10x3x4x4xf32_X", "6xi32_X", "6xi32_X"},
@@ -47,7 +47,7 @@ TEST(TFSparseSegmentMeanOpTest, DynamicShapeF32Dim4Input) {
 TEST(TFSparseSegmentMeanOpTest, DynamicShapeF32Dim5Input) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "sparse_segment_mean_d_f32_5d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ {kSupportedCPUBackendList},
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_Xescriptors*/ {"100x5x4x4x4xf32_X", "6xi32_X", "6xi32_X"},
@@ -58,7 +58,7 @@ TEST(TFSparseSegmentMeanOpTest, DynamicShapeF32Dim5Input) {
 TEST(TFSparseSegmentMeanOpTest, DynamicShapeF32Dim1Input) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "sparse_segment_mean_d_f32_1d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ {kSupportedCPUBackendList},
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_Xescriptors*/ {"4xf32_X", "6xi32_X", "6xi32_X"},
@@ -69,7 +69,7 @@ TEST(TFSparseSegmentMeanOpTest, DynamicShapeF32Dim1Input) {
 TEST(TFSparseSegmentMeanOpTest, PartialDynamicShapeF32Dim1Input) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "sparse_segment_mean_p_f32_1d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ {kSupportedCPUBackendList},
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_Xescriptors*/ {"4xf32_X", "6xi32_X", "6xi32_X"},
@@ -80,7 +80,7 @@ TEST(TFSparseSegmentMeanOpTest, PartialDynamicShapeF32Dim1Input) {
 TEST(TFSparseSegmentMeanOpTest, StaticShapeF32Dim1Input) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "sparse_segment_mean_s_f32_1d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ {kSupportedCPUBackendList},
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_Xescriptors*/ {"4xf32_X", "6xi32_X", "6xi32_X"},
@@ -91,7 +91,7 @@ TEST(TFSparseSegmentMeanOpTest, StaticShapeF32Dim1Input) {
 TEST(TFSparseSegmentMeanOpTest, DynamicShapeF32Dim2Input) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "sparse_segment_mean_d_f32_2d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ {kSupportedCPUBackendList},
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_Xescriptors*/ {"4x4xf32_X", "6xi32_X", "6xi32_X"},
@@ -103,7 +103,7 @@ TEST(TFSparseSegmentMeanOpTest, DynamicShapeF32Dim2InputIndexI64) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path +
           "sparse_segment_mean_d_f32_2d_index_i64.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ {kSupportedCPUBackendList},
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_Xescriptors*/ {"4x4xf32_X", "6xi64_X", "6xi64_X"},
@@ -114,7 +114,7 @@ TEST(TFSparseSegmentMeanOpTest, DynamicShapeF32Dim2InputIndexI64) {
 TEST(TFSparseSegmentMeanOpTest, PartialDynamicShapeF64Dim2Input) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "sparse_segment_mean_p_f64_2d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ {kSupportedCPUBackendList},
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_Xescriptors*/ {"4x4xf64_X", "6xi32_X", "6xi32_X"},
@@ -125,7 +125,7 @@ TEST(TFSparseSegmentMeanOpTest, PartialDynamicShapeF64Dim2Input) {
 TEST(TFSparseSegmentMeanOpTest, StaticShapeF32Dim2Input) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "sparse_segment_mean_s_f32_2d.mlir",
-      /*backend_types*/ {BackendType::kX86},
+      /*backend_types*/ {kSupportedCPUBackendList},
       /*num_inputs*/ 3,
       /*num_outputs*/ 1,
       /*input_Xescriptors*/ {"4x4xf32_X", "6xi32_X", "6xi32_X"},

@@ -32,4 +32,16 @@ TEST(KCornerCaseTest, CornerCaseErrorBeforePTXASX11100) {
 }
 #endif
 
+TEST(KCornerCaseTest, FusionOrderMismatch) {
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "corner_case_fusion_order_mismatch.mlir",
+      /*backend_types*/ {BackendType::kAArch64},
+      /*num_inputs*/ 5,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/
+      {"i32_X", "1xi32_X", "f32_X", "280xf32_X", "1x66x560xf32_X"},
+      /*output_descriptors*/ {"i32_X"},
+      /*input_vals*/ {{0}, {66}, {17.8885441}, {}, {}}));
+}
+
 }  // namespace mlir_test

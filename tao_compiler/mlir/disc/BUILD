@@ -717,6 +717,7 @@ cc_library(
         ":disc_shape_optimization_utils",
         ":disc_util",
         ":fusion_utils",
+        ":lmhlo_disc",
         ":pass_details",
         ":placement_utils",
         ":cycle_detector",

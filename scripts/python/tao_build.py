@@ -517,6 +517,8 @@ def test_tao_compiler(root, args):
         BAZEL_TEST_CMD += " --jobs=10"
     else:
         BAZEL_TEST_CMD += " --jobs=30"
+        BAZEL_TEST_CMD += " --java_runtime_version=remotejdk_11"
+        BAZEL_BUILD_CMD += " --java_runtime_version=remotejdk_11"
 
     TARGET_DISC_IR_TEST = "//tensorflow/compiler/mlir/disc/IR/tests/..."
     TARGET_DISC_TRANSFORMS_TEST = "//tensorflow/compiler/mlir/disc/transforms/tests/..."

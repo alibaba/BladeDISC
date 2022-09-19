@@ -38,6 +38,7 @@ bool IsTorchMlirSupported(const torch::jit::Node& node) {
 // clang-format off
 const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
   static std::unordered_set<std::string> white_list{
+      "aten::_autocast_to_reduced_precision",
       "aten::__and__",
       "aten::add",
       "aten::addmm",

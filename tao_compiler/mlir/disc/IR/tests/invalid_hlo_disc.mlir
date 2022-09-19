@@ -324,3 +324,30 @@ func.func @sparse_fill_empty_rows_basic(%indices: tensor<?xi64>, %values: tensor
   %output_indices, %output_values, %empty_row_indicator, %reverse_index_map, %output_elements = "mhlo_disc.sparse_fill_empty_rows"(%indices, %values, %dense_shape, %default_value) {} : (tensor<?xi64>, tensor<?xi64>, tensor<?xi64>, tensor<i64>) -> (tensor<?xi64>, tensor<?xi64>, tensor<?xi1>, tensor<?xi64>, tensor<?xi64>)
   return %output_indices, %output_values, %empty_row_indicator, %reverse_index_map, %output_elements: tensor<?xi64>, tensor<?xi64>, tensor<?xi1>, tensor<?xi64>, tensor<?xi64>
 }
+
+// -----
+
+// CHECK-LABEL: func.func @sparse_segment_mean_matrix_indices
+func.func @sparse_segment_mean_matrix_indices(%data: tensor<?x?xf32>, %indices: tensor<?x?xi32>, %segment_ids: tensor<?xi32>) -> (tensor<?x?xf32>) {
+  // expected-error@+1 {{indices should be a vector}}
+  %output = "mhlo_disc.sparse_segment_mean"(%data, %indices, %segment_ids) {} : (tensor<?x?xf32>, tensor<?x?xi32>, tensor<?xi32>) -> (tensor<?x?xf32>)
+  return %output : tensor<?x?xf32>
+}
+
+// -----
+
+// CHECK-LABEL: func.func @sparse_segment_mean_matrix_segment_ids
+func.func @sparse_segment_mean_matrix_segment_ids(%data: tensor<?x?xf32>, %indices: tensor<?xi32>, %segment_ids: tensor<?x?xi32>) -> (tensor<?x?xf32>) {
+  // expected-error@+1 {{segment_ids should be a vector}}
+  %output = "mhlo_disc.sparse_segment_mean"(%data, %indices, %segment_ids) {} : (tensor<?x?xf32>, tensor<?xi32>, tensor<?x?xi32>) -> (tensor<?x?xf32>)
+  return %output : tensor<?x?xf32>
+}
+
+// -----
+
+// CHECK-LABEL: func.func @sparse_segment_mean_no_match_indices_segment_ids
+func.func @sparse_segment_mean_no_match_indices_segment_ids(%data: tensor<?x?xf32>, %indices: tensor<6xi32>, %segment_ids: tensor<4xi32>) -> (tensor<?x?xf32>) {
+  // expected-error@+1 {{segment_ids and indices should have same size}}
+  %output = "mhlo_disc.sparse_segment_mean"(%data, %indices, %segment_ids) {} : (tensor<?x?xf32>, tensor<6xi32>, tensor<4xi32>) -> (tensor<?x?xf32>)
+  return %output : tensor<?x?xf32>
+}

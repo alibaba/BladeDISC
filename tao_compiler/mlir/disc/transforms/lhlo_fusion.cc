@@ -18,6 +18,7 @@ limitations under the License.
 #include "mlir/IR/Matchers.h"
 #include "mlir/Pass/Pass.h"               // TF:local_config_mlir
 #include "mlir/Transforms/RegionUtils.h"  // TF:llvm-project
+#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
@@ -284,13 +285,29 @@ class FusionPlanner {
       // Thus these operands are supposed to be updated.
       // Suppose that an op (or its nested ops) can only write the buffers
       // explicit passed in as operands of this op.
-      int num_input_operand = op->getNumOperands() - getNumResultOperands(op);
-      for (Value v : op->getOperands().drop_front(num_input_operand)) {
-        auto it = last_writer_.try_emplace(v, op);
-        (void)it;
-        // Currently, a buffer is only supposed to be written once (as the
-        // output operand of one lmhlo op).
-        assert(it.second);
+      if (op->getDialect()->getTypeID() != TypeID::get<lmhlo::LmhloDialect>() &&
+          op->getDialect()->getTypeID() !=
+              TypeID::get<lmhlo_disc::LmhloDiscDialect>()) {
+        // If an op is not in lmhlo or lmhlo_disc dialect, it may be written
+        // multiple times (e.g. multiple memref.store ops for the same
+        // underlying buffer).
+        for (Value v : op->getOperands()) {
+          if (!IsOpWriteValue(op, v)) continue;
+          last_writer_[v] = op;
+        }
+      } else {
+        // If an op is in lmhlo or lmhlo_disc dialect, output operands can only
+        // be in the end of operands sequence. Note that we also check that a
+        // buffer can only be written once if it's the output operand of one
+        // lmhlo op.
+        int num_input_operand = op->getNumOperands() - getNumResultOperands(op);
+        for (Value v : op->getOperands().drop_front(num_input_operand)) {
+          auto it = last_writer_.try_emplace(v, op);
+          (void)it;
+          // Currently, a buffer is only supposed to be written once (as the
+          // output operand of one lmhlo op).
+          assert(it.second);
+        }
       }
     }
   }

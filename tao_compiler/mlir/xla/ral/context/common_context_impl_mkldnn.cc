@@ -948,7 +948,7 @@ void ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
   static_assert(N > 2, "batch gemm requires operands with rank higher than 2");
   CpuTimer timer("ral_cpu_batch_gemm");
   if (isEmptyMemref(A) || isEmptyMemref(B) || isEmptyMemref(C)) {
-    ctx->signalError(Context::FAILURE, "ral_batch_gemm input error");
+    TAO_VLOG(1) << "ral_cpu_batch_gemm: early return for empty tensor";
     return;
   }
 

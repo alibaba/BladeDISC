@@ -1,4 +1,4 @@
-// RUN: disc-opt -disc-lower-to-library-call %s -o - | FileCheck %s
+// RUN: disc-opt -disc-lower-to-library-call --split-input-file %s -o - | FileCheck %s
 
 // CHECK-LABEL: func.func @test_recv_input_and_send_output
 // CHECK-SAME: (%[[CTX:.*]]: !disc_ral.context) {
@@ -484,5 +484,45 @@ func.func @quantized_dynamic_conv(%arg0: !disc_ral.context) {
     use_symmetric = true,
     window_strides = dense<3> : tensor<2xi64>
   } : (memref<?x?x?x?xi8, "gpu">, memref<?x?x?x?xi8, "gpu">, memref<4xi32, "cpu">, memref<f32, "gpu">, memref<i32, "gpu">, memref<f32, "gpu">, memref<i32, "gpu">, memref<f32, "gpu">, memref<i32, "gpu">, memref<?x?x?x?xi8, "gpu">) -> ()
+  return
+}
+
+// -----
+
+// CHECK-LABEL: quantized_dot_general
+func.func @quantized_dot_general(%arg0: !disc_ral.context) {
+  %c0 = arith.constant 0 : index
+  %0 = "disc_ral.recv_input"(%arg0, %c0) : (!disc_ral.context, index) -> memref<?x?x?x?xi8, "gpu">
+  %c1 = arith.constant 1 : index
+  %1 = "disc_ral.recv_input"(%arg0, %c1) : (!disc_ral.context, index) -> memref<?x?x?x?xi8, "gpu">
+  %c2 = arith.constant 2 : index
+  %2 = "disc_ral.recv_input"(%arg0, %c2) : (!disc_ral.context, index) -> memref<f32, "gpu">
+  %c3 = arith.constant 3 : index
+  %3 = "disc_ral.recv_input"(%arg0, %c3) : (!disc_ral.context, index) -> memref<i32, "gpu">
+  %c4 = arith.constant 4 : index
+  %4 = "disc_ral.recv_input"(%arg0, %c4) : (!disc_ral.context, index) -> memref<f32, "gpu">
+  %c5 = arith.constant 5 : index
+  %5 = "disc_ral.recv_input"(%arg0, %c5) : (!disc_ral.context, index) -> memref<i32, "gpu">
+  %c6 = arith.constant 6 : index
+  %6 = "disc_ral.recv_input"(%arg0, %c6) : (!disc_ral.context, index) -> memref<f32, "gpu">
+  %c7 = arith.constant 7 : index
+  %7 = "disc_ral.recv_input"(%arg0, %c7) : (!disc_ral.context, index) -> memref<i32, "gpu">
+  %c8 = arith.constant 8 : index
+  %8 = "disc_ral.recv_input"(%arg0, %c8) : (!disc_ral.context, index) -> memref<?x?x?x?xi8, "gpu">
+  // CHECK: %[[DEFAULT_STREAM:.*]] = llvm.inttoptr {{.*}} : i32 to !llvm.ptr<i8>
+  // CHECK: disc_ral.dispatch
+  // CHECK-SAME: backend_config = "gpu"
+  // CHECK-SAME: call_target_name = "ral_qgemm"
+  "lmhlo_disc.quantized_dot_general"(%0, %1, %2, %3, %4, %5, %6, %7, %8) {
+    axis = dense<> : tensor<0xi64>,
+    use_dynamic = false,
+    use_symmetric = true,
+    dot_dimension_numbers = #mhlo.dot<
+      lhs_batching_dimensions = [0, 1],
+      rhs_batching_dimensions = [0, 1],
+      lhs_contracting_dimensions = [3],
+      rhs_contracting_dimensions = [3]
+    >
+  } : (memref<?x?x?x?xi8, "gpu">, memref<?x?x?x?xi8, "gpu">, memref<f32, "gpu">, memref<i32, "gpu">, memref<f32, "gpu">, memref<i32, "gpu">, memref<f32, "gpu">, memref<i32, "gpu">, memref<?x?x?x?xi8, "gpu">) -> ()
   return
 }

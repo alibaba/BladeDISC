@@ -187,6 +187,42 @@ LogicalResult QuantizedDotGeneralOp::verify() {
   return CommonVerifyForQuantizedComputeIntensiveOp(this);
 }
 
+LogicalResult QuantizedDotGeneralOp::reifyReturnTypeShapes(
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
+  auto lhsType = input().getType().dyn_cast<ShapedType>();
+  auto rhsType = weight().getType().dyn_cast<ShapedType>();
+  if (!lhsType || !rhsType) {
+    return failure();
+  }
+
+  Adaptor adaptor(operands);
+  auto dimNumbers = dot_dimension_numbers();
+  SmallVector<Value> dimensions;
+  for (const int64_t lhsDim : dimNumbers.getLhsBatchingDimensions()) {
+    dimensions.push_back(
+        builder.create<tensor::DimOp>(getLoc(), adaptor.input(), lhsDim));
+  }
+
+  for (int64_t i = 0; i < lhsType.getRank(); i++) {
+    if (!llvm::is_contained(dimNumbers.getLhsContractingDimensions(), i) &&
+        !llvm::is_contained(dimNumbers.getLhsBatchingDimensions(), i)) {
+      dimensions.push_back(
+          builder.create<tensor::DimOp>(getLoc(), adaptor.input(), i));
+    }
+  }
+  for (int64_t i = 0; i < rhsType.getRank(); i++) {
+    if (!llvm::is_contained(dimNumbers.getRhsContractingDimensions(), i) &&
+        !llvm::is_contained(dimNumbers.getRhsBatchingDimensions(), i)) {
+      dimensions.push_back(
+          builder.create<tensor::DimOp>(getLoc(), adaptor.weight(), i));
+    }
+  }
+  reifiedReturnShapes.push_back(
+      builder.create<tensor::FromElementsOp>(getLoc(), dimensions));
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // QuantizedDynamicConvOp
 //===----------------------------------------------------------------------===//

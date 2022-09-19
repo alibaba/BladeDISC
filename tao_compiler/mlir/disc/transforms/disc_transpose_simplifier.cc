@@ -687,15 +687,15 @@ LogicalResult reverseIfOperandsAreConsistentTransposeOps(Operation* op,
 
   OpBuilder b(op);
   SmallVector<Value> newOperands;
-  newOperands.push_back(insertTranspose(op, lhs, permLHS, b)->getResult(0));
-  newOperands.push_back(insertTranspose(op, rhs, permLHS, b)->getResult(0));
+  SmallVector<int64_t> reversePerm = getReversePermutation(permLHS);
+  newOperands.push_back(insertTranspose(op, lhs, reversePerm, b)->getResult(0));
+  newOperands.push_back(insertTranspose(op, rhs, reversePerm, b)->getResult(0));
   Operation* clonedOp = b.clone(*op);
   clonedOp->setOperands(newOperands);
-  Type newType = getTransposeOutputType(op->getResult(0), permLHS, b);
+  Type newType = getTransposeOutputType(op->getResult(0), reversePerm, b);
   clonedOp->getResult(0).setType(newType);
-  SmallVector<int64_t> reversePerm = getReversePermutation(permLHS);
   Value newResult =
-      insertTranspose(op, clonedOp->getResult(0), reversePerm, b)->getResult(0);
+      insertTranspose(op, clonedOp->getResult(0), permLHS, b)->getResult(0);
   op->getResult(0).replaceAllUsesWith(newResult);
 
   changed = true;

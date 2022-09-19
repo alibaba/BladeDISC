@@ -39,6 +39,7 @@ using HloToLhloOp = typename HloToLhloOpImpl<HloOpTy>::Type;
 
 MAP_HLO_TO_LHLO(H2DOp);
 MAP_HLO_TO_LHLO(D2HOp);
+MAP_HLO_TO_LHLO(QuantizedDotGeneralOp);
 MAP_HLO_TO_LHLO(QuantizedDynamicConvOp);
 MAP_HLO_TO_LHLO(SparseReshapeOp);
 MAP_HLO_TO_LHLO(SparseFillEmptyRowsOp);

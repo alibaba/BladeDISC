@@ -250,6 +250,7 @@ void populateDiscHLOToLHLOConversionPattern(
   patterns->insert<
       HloToLhloOpConverter<mhlo_disc::H2DOp>,
       HloToLhloOpConverter<mhlo_disc::D2HOp>,
+      HloToLhloOpConverter<mhlo_disc::QuantizedDotGeneralOp>,
       HloToLhloOpConverter<mhlo_disc::QuantizedDynamicConvOp>,
       HloToLhloOpConverter<mhlo_disc::SparseReshapeOp>,
       HloToLhloOpConverter<mhlo_disc::SparseFillEmptyRowsOp>,

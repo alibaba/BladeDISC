@@ -144,7 +144,7 @@ def HLO_DequantizeOp: HLODISC_Op<"dequantize", [NoSideEffect]> {
   let results = (outs HLO_FpTensor:$result);
 }
 
-def HLO_QuantizedDotGeneralOp: HLODISC_Op<"quantized_dot_general", [NoSideEffect]> {
+def HLO_QuantizedDotGeneralOp: HLODISC_ShapedInterfaceOp<"quantized_dot_general", [NoSideEffect]> {
   let summary = "quantized version of dot gerneal operator";
   let description = [{
     Compute the dot product using result quantized inputs.

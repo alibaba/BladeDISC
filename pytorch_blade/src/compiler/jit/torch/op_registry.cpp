@@ -34,6 +34,7 @@ std::shared_ptr<OperatorSet> nn_ops_first_input_preserving() {
   std::shared_ptr<OperatorSet> ops = std::make_shared<OperatorSet>(
     OperatorSet {
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
+      "aten::_autocast_to_reduced_precision(Tensor(a) self, bool cuda_enabled, bool cpu_enabled, ScalarType cuda_dtype, ScalarType cpu_dtype) -> Tensor(a)",
       "aten::_log_softmax_backward_data(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype) -> Tensor",
       "aten::native_dropout_backward(Tensor grad_output, Tensor mask, float scale) -> Tensor",
 #endif

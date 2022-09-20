@@ -447,6 +447,10 @@ def SideEffectLoopInvariantCodeMotionPass :
 def DiscDenseToSparsePass : Pass<"disc-dense-to-sparse", "mlir::func::FuncOp"> {
   let summary = "Convert dense gemm/conv to sparse gemm/conv";
   let constructor = "createDiscDenseToSparsePass()";
+  let options = [
+    Option<"enable_sparse_convert_", "enable-sparse-convert", "bool",
+           /*default=*/"false", "Wether convert weight to sparse format.">,
+  ];
 }
 
 def DiscSparseGemmTransposeSimplifierPass : Pass<"disc-sparse-gemm-transpose-simplifier", "mlir::func::FuncOp"> {

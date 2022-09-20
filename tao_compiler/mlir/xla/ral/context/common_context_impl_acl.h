@@ -578,6 +578,101 @@ class DISCNEDepthwiseConvolutionLayer : public IFunction {
   std::unique_ptr<Impl> _impl;
 };
 
+class DISCNEGEMMLowpMatrixMultiplyCore : public IFunction {
+ public:
+  /** Constructor */
+  DISCNEGEMMLowpMatrixMultiplyCore(
+      std::shared_ptr<IMemoryManager> memory_manager = nullptr,
+      IWeightsManager* weights_manager = nullptr);
+  /** Prevent instances of this class from being copied (As this class contains
+   * pointers) */
+  DISCNEGEMMLowpMatrixMultiplyCore(const DISCNEGEMMLowpMatrixMultiplyCore&) =
+      delete;
+  /** Default move constructor */
+  DISCNEGEMMLowpMatrixMultiplyCore(DISCNEGEMMLowpMatrixMultiplyCore&&) =
+      default;
+  /** Prevent instances of this class from being copied (As this class contains
+   * pointers) */
+  DISCNEGEMMLowpMatrixMultiplyCore& operator=(
+      const DISCNEGEMMLowpMatrixMultiplyCore&) = delete;
+  /** Default move assignment operator */
+  DISCNEGEMMLowpMatrixMultiplyCore& operator=(
+      DISCNEGEMMLowpMatrixMultiplyCore&&) = default;
+  /** Default destructor */
+  ~DISCNEGEMMLowpMatrixMultiplyCore();
+  /** Initialise the kernel's inputs, output
+   *
+   * Valid data layouts:
+   * - NHWC
+   * - NCHW
+   *
+   * Valid data type configurations:
+   * |src0           |src1               |src2     |dst            |
+   * |:--------------|:------------------|:--------|:--------------|
+   * |QASYMM8        |QASYMM8            |S32      |QASYMM8        |
+   * |QASYMM8        |QSYMM8_PER_CHANNEL |S32      |QASYMM8        |
+   * |QASYMM8        |QSYMM8             |S32      |QASYMM8        |
+   * |QASYMM8        |QASYMM8            |S32      |S32            |
+   * |QASYMM8        |QSYMM8_PER_CHANNEL |S32      |S32            |
+   * |QASYMM8        |QSYMM8             |S32      |S32            |
+   * |QASYMM8_SIGNED |QASYMM8_SIGNED     |S32      |QASYMM8_SIGNED |
+   * |QASYMM8_SIGNED |QSYMM8_PER_CHANNEL |S32      |QASYMM8_SIGNED |
+   * |QASYMM8_SIGNED |QSYMM8             |S32      |QASYMM8_SIGNED |
+   * |QASYMM8_SIGNED |QASYMM8_SIGNED     |S32      |S32            |
+   * |QASYMM8_SIGNED |QSYMM8_PER_CHANNEL |S32      |S32            |
+   * |QASYMM8_SIGNED |QSYMM8             |S32      |S32            |
+   *
+   * @note GEMM_LOWP:  low precision GEMM kernel
+   *  This kernel performs the following computations:
+   *
+   *  -# Convert a values from QASYMM8 to int32 and add a_offset to each of
+   * them.
+   *  -# Convert b values from QASYMM8 to int32 add b_offset to each of them.
+   *  -# Compute the matrix product of the resulting a * b in int32.
+   *
+   * @note The @p output type is S32 if @p gemm_info.type ==
+   * GEMMLowpOutputStageType::NONE. It is QASYMM8/QASYMM8_SIGNED otherwise
+   *
+   * @param[in]  a         First input tensor  (Matrix A). Data type supported:
+   * QASYMM8/QASYMM8_SIGNED.
+   * @param[in]  b         Second input tensor (Matrix B). Data type supported:
+   * QASYMM8/QASYMM8_SIGNED/QSYMM8/QSYMM8_PER_CHANNEL.
+   * @param[in]  c         Third input tensor  (Matrix C). It can be a nullptr.
+   * Data type supported: S32
+   * @param[out] output    Output tensor. Data type supported: Data type
+   * supported: S32/QASYMM8/QASYMM8_SIGNED
+   * @param[in]  gemm_info (Optional) Specifies if the matrix A and/or matrix B
+   * have been reshaped and if the reshape of matrix B should be executed only
+   * for the first run
+   */
+  void configure(const ITensor* a, const ITensor* b, const ITensor* c,
+                 ITensor* output, const GEMMInfo& gemm_info = GEMMInfo());
+  /** Static function to check if given info will lead to a valid configuration
+   * of @ref NEGEMMLowpMatrixMultiplyCore
+   *
+   * Similar to @ref NEGEMMLowpMatrixMultiplyCore::configure()
+   *
+   * @return a status
+   */
+  static Status validate(const ITensorInfo* a, const ITensorInfo* b,
+                         const ITensorInfo* c, const ITensorInfo* output,
+                         const GEMMInfo& gemm_info = GEMMInfo());
+
+  // Inherited methods overridden
+  void run() override;
+  void prepare() override;
+
+  void run(ITensor* a, const ITensor* b, const ITensor* c, ITensor* output);
+  void prepare(ITensor* a, const ITensor* b, const ITensor* c, ITensor* output);
+
+  const ITensorPack& get_packed_weight();
+  void reuse_packed_weight(const ITensorPack& pack);
+
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> _impl;
+};
+
 }  // namespace arm_compute
 
 #endif  // defined(TAO_CPU_ONLY) && defined(TAO_AARCH64)

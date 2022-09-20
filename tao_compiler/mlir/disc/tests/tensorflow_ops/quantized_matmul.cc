@@ -22,35 +22,33 @@ namespace mlir_test {
 const std::string c_ft_path =
     "tensorflow/compiler/mlir/disc/tests/tensorflow_ops/data/";
 
-TEST(TFQuantziedConv2d, STATIC_SHAPE_NHWC_I8_PER_CHANNEL) {
-  std::vector<float> inputs(1 * 2 * 2 * 25, -0.6);
-  tensorflow::Tensor output(tensorflow::DataType::DT_FLOAT, {1, 2, 2, 8});
+TEST(TFQuantziedMatMul, STATIC_SHAPE_I8_PER_CHANNEL) {
+  std::vector<float> inputs(4 * 25, -0.6);
+  tensorflow::Tensor output(tensorflow::DataType::DT_FLOAT, {4, 71});
   auto datas = output.flat<float>();
   for (int i = 0; i < output.NumElements(); ++i) datas(i) = 12.0;
   EXPECT_TRUE(feature_test_main(
-      /*mlir_file_path*/ c_ft_path +
-          "quantized_conv2d_s_nhwc_i8_per_channel.mlir",
+      /*mlir_file_path*/ c_ft_path + "quantized_matmul_s_i8_per_channel.mlir",
       /*backend_types*/ {BackendType::kAArch64},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
-      /*input_descriptors*/ {"1x2x2x25xf32_X"},
+      /*input_descriptors*/ {"4x25xf32_X"},
       /*output_descriptors*/ {"f32_X"},
       /*input_vals*/ {inputs},
       /*expect_output_vals*/ {output}));
 }
 
-TEST(TFQuantziedConv2d, PARTIAL_DYNAMIC_SHAPE_NHWC_I8_PER_CHANNEL) {
-  std::vector<float> inputs(1 * 2 * 2 * 25, -0.6);
-  tensorflow::Tensor output(tensorflow::DataType::DT_FLOAT, {1, 2, 2, 8});
+TEST(TFQuantziedMatMul, PARTIAL_DYNAMIC_SHAPE_NHWC_I8_PER_CHANNEL) {
+  std::vector<float> inputs(4 * 25, -0.6);
+  tensorflow::Tensor output(tensorflow::DataType::DT_FLOAT, {4, 71});
   auto datas = output.flat<float>();
   for (int i = 0; i < output.NumElements(); ++i) datas(i) = 12.0;
   EXPECT_TRUE(feature_test_main(
-      /*mlir_file_path*/ c_ft_path +
-          "quantized_conv2d_p_nhwc_i8_per_channel.mlir",
+      /*mlir_file_path*/ c_ft_path + "quantized_matmul_p_i8_per_channel.mlir",
       /*backend_types*/ {BackendType::kAArch64},
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,
-      /*input_descriptors*/ {"1x2x2x25xf32_X"},
+      /*input_descriptors*/ {"4x25xf32_X"},
       /*output_descriptors*/ {"f32_X"},
       /*input_vals*/ {inputs},
       /*expect_output_vals*/ {output}));

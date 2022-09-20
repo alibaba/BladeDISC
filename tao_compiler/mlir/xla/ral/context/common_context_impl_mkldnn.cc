@@ -92,6 +92,8 @@ int initWeightPrePackingCacheCapacity() {
   return std::atoi(env);
 }
 
+}  // namespace
+
 #if defined(TAO_AARCH64)
 bool applyACLThreadPoolConfigIfNotSet() {
   static bool status = []() {
@@ -117,8 +119,6 @@ bool applyACLThreadPoolConfigIfNotSet() {
   return status;
 }
 #endif
-
-}  // namespace
 
 const std::thread::id kDiscCpuDefaultThreadId{};
 
@@ -559,46 +559,13 @@ TAO_RAL_API("ral_conv", "cpu", ral_conv<float, 3>);
 TAO_RAL_API("ral_conv", "cpu", ral_conv<float, 4>);
 TAO_RAL_API("ral_conv", "cpu", ral_conv<float, 5>);
 
-struct CpuGemmKey {
-  int m = -1;
-  int n = -1;
-  int k = -1;
-  int batch = 1;
-  bool transpose_a = false;
-  bool transpose_b = false;
-  opaque_t const_weight_ptr = nullptr;
-  // We need this since the matmul primitive is not thead safe.
-  // To enable large parallelism, we cache the primitive per-thread.
-  std::thread::id tid;
-
-  bool operator==(const CpuGemmKey& rhs) const {
-    return m == rhs.m && n == rhs.n && k == rhs.k && batch == rhs.batch &&
-           transpose_a == rhs.transpose_a && transpose_b == rhs.transpose_b &&
-           const_weight_ptr == rhs.const_weight_ptr && tid == rhs.tid;
-  }
-};
-
-struct CpuGemmKeyHasher {
-  std::size_t operator()(const CpuGemmKey& key) const {
-    std::size_t seed = std::hash<int>()(key.m);
-    hash_combine(seed, key.n);
-    hash_combine(seed, key.k);
-    hash_combine(seed, key.batch);
-    hash_combine(seed, key.transpose_a);
-    hash_combine(seed, key.transpose_b);
-    hash_combine(seed, key.const_weight_ptr);
-    hash_combine(seed, key.tid);
-    return seed;
-  }
-};
-
 template <typename TKey, typename TValue>
-using CpuGemmKeyMap = std::unordered_map<TKey, TValue, CpuGemmKeyHasher>;
+using CpuGemmKeyMap = std::unordered_map<TKey, TValue, typename TKey::Hasher>;
 
 #if defined(TAO_X86)
 class MklPackedWeight {
  public:
-  MklPackedWeight(ExecutionContext* ctx, const CpuGemmKey& key);
+  MklPackedWeight(ExecutionContext* ctx, const GEMMParamsKey& key);
   ~MklPackedWeight();
 
   opaque_t packed_weight() const { return packed_weight_; }
@@ -609,7 +576,8 @@ class MklPackedWeight {
   opaque_t packed_weight_ = nullptr;
 };
 
-MklPackedWeight::MklPackedWeight(ExecutionContext* ctx, const CpuGemmKey& key)
+MklPackedWeight::MklPackedWeight(ExecutionContext* ctx,
+                                 const GEMMParamsKey& key)
     : ctx_(ctx->getContext()),
       driver_(ctx->getDriver<cpu::CPUDriver>(cpu::CPUDriver::name())) {
   size_t packed_weight_size =
@@ -627,7 +595,7 @@ MklPackedWeight::~MklPackedWeight() {
 }
 
 using MklGemmCache =
-    ideep::utils::lru_cache<CpuGemmKey, std::shared_ptr<MklPackedWeight>,
+    ideep::utils::lru_cache<GEMMParamsKey, std::shared_ptr<MklPackedWeight>,
                             CpuGemmKeyMap>;
 
 struct MklGemmState : public Context::Resource {
@@ -665,7 +633,7 @@ void mkl_ral_gemm(ExecutionContext* ctx, void* stream_handle,
       unique_name, []() { return new MklGemmState; });
   opaque_t packed_weight;
   {
-    CpuGemmKey key{m, n, k, 1, tp_a, tp_b, B.data, kDiscCpuDefaultThreadId};
+    GEMMParamsKey key{m, n, k, 1, tp_a, tp_b, B.data, kDiscCpuDefaultThreadId};
     std::lock_guard<std::mutex> l(state->mu);
     auto& cache = state->cache;
     auto it = cache.find(key);
@@ -691,7 +659,7 @@ struct OnednnGemmState : public Context::Resource {
 
 using MatmulPrimitive = ideep::matmul_forward::super;
 using OnednnAclGemmCache =
-    ideep::utils::lru_cache<CpuGemmKey, std::shared_ptr<MatmulPrimitive>,
+    ideep::utils::lru_cache<GEMMParamsKey, std::shared_ptr<MatmulPrimitive>,
                             CpuGemmKeyMap>;
 
 struct OnednnAclGemmState : public Context::Resource {
@@ -700,7 +668,7 @@ struct OnednnAclGemmState : public Context::Resource {
 };
 
 std::shared_ptr<MatmulPrimitive> getOrCreateMatmulPrimitive(
-    OnednnAclGemmCache& cached_primitive, const CpuGemmKey& key,
+    OnednnAclGemmCache& cached_primitive, const GEMMParamsKey& key,
     const tensor& src, const tensor& weight, tensor& output) {
   auto it = cached_primitive.find(key);
   if (it == cached_primitive.end()) {
@@ -755,7 +723,8 @@ void onednn_ral_gemm(ExecutionContext* ctx, void* stream_handle,
       unique_name, []() { return new OnednnAclGemmState; });
   std::shared_ptr<MatmulPrimitive> primitive;
   {
-    CpuGemmKey key{m, n, k, 1, tp_a, tp_b, B.data, std::this_thread::get_id()};
+    GEMMParamsKey key{m,    n,    k,      1,
+                      tp_a, tp_b, B.data, std::this_thread::get_id()};
     std::lock_guard<std::mutex> l(state->mu);
     primitive = getOrCreateMatmulPrimitive(state->cached_primitive, key, src,
                                            weight, output);
@@ -929,7 +898,8 @@ void onednn_ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
   std::shared_ptr<MatmulPrimitive> primitive;
   {
     std::lock_guard<std::mutex> l(state->mu);
-    CpuGemmKey key{m, n, k, b, tp_a, tp_b, B.data, std::this_thread::get_id()};
+    GEMMParamsKey key{m,    n,    k,      b,
+                      tp_a, tp_b, B.data, std::this_thread::get_id()};
     primitive = getOrCreateMatmulPrimitive(state->cached_primitive, key, src,
                                            weight, output);
   }

@@ -143,11 +143,122 @@ struct QuantizedConvLikeOpConverter
   }
 };
 
+Value buildQuantizedDotGeneralOp(mhlo::DotOp dotOp, PatternRewriter& rewriter,
+                                 Location loc, Type outTy, Value input,
+                                 Value weight,
+                                 mhlo_disc::FakeQuantOp inputFakeQuantOp,
+                                 mhlo_disc::FakeQuantOp weightFakeQuantOp,
+                                 mhlo_disc::FakeQuantOp resultFakeQuantOp) {
+  SmallVector<int64_t> lhsContractingDims{1};
+  SmallVector<int64_t> rhsContractingDims{0};
+  auto dotDimensionAttr = mhlo::DotDimensionNumbersAttr::get(
+      rewriter.getContext(), {}, {}, lhsContractingDims, rhsContractingDims);
+  return rewriter.create<mhlo_disc::QuantizedDotGeneralOp>(
+      loc, outTy, input, weight, inputFakeQuantOp.scale(),
+      inputFakeQuantOp.zero_point(), weightFakeQuantOp.scale(),
+      weightFakeQuantOp.zero_point(), resultFakeQuantOp.scale(),
+      resultFakeQuantOp.zero_point(), dotDimensionAttr,
+      resultFakeQuantOp.use_symmetric(), weightFakeQuantOp.axis(),
+      resultFakeQuantOp.use_dynamic());
+}
+
+Value buildQuantizedDotGeneralOp(mhlo::DotGeneralOp dotOp,
+                                 PatternRewriter& rewriter, Location loc,
+                                 Type outTy, Value input, Value weight,
+                                 mhlo_disc::FakeQuantOp inputFakeQuantOp,
+                                 mhlo_disc::FakeQuantOp weightFakeQuantOp,
+                                 mhlo_disc::FakeQuantOp resultFakeQuantOp) {
+  return rewriter.create<mhlo_disc::QuantizedDotGeneralOp>(
+      loc, outTy, input, weight, inputFakeQuantOp.scale(),
+      inputFakeQuantOp.zero_point(), weightFakeQuantOp.scale(),
+      weightFakeQuantOp.zero_point(), resultFakeQuantOp.scale(),
+      resultFakeQuantOp.zero_point(), dotOp.dot_dimension_numbers(),
+      resultFakeQuantOp.use_symmetric(), weightFakeQuantOp.axis(),
+      resultFakeQuantOp.use_dynamic());
+}
+
+template <typename OpTy>
+struct QuantizedDotLikeOpConverter
+    : public OpRewritePattern<mhlo_disc::FakeQuantOp> {
+  using OpRewritePattern<mhlo_disc::FakeQuantOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mhlo_disc::FakeQuantOp op,
+                                PatternRewriter& rewriter) const override {
+    auto dotOp = op.input().template getDefiningOp<OpTy>();
+    if (!dotOp) return failure();
+
+    if (isa<mhlo::DotOp>(dotOp.getOperation())) {
+      auto inputTy =
+          dotOp.lhs().getType().template dyn_cast<RankedTensorType>();
+      auto weightTy =
+          dotOp.rhs().getType().template dyn_cast<RankedTensorType>();
+      if (!inputTy || !weightTy || inputTy.getRank() != weightTy.getRank() ||
+          inputTy.getRank() != 2) {
+        return rewriter.notifyMatchFailure(
+            op, "not supported quantized gemv a.t.m.");
+      }
+    }
+
+    auto inputFakeQuantOp =
+        dotOp.lhs().template getDefiningOp<mhlo_disc::FakeQuantOp>();
+    auto weightFakeQuantOp =
+        dotOp.rhs().template getDefiningOp<mhlo_disc::FakeQuantOp>();
+    if (!inputFakeQuantOp || !weightFakeQuantOp) return failure();
+    if (inputFakeQuantOp.use_signed() != weightFakeQuantOp.use_signed() ||
+        inputFakeQuantOp.num_bits() != weightFakeQuantOp.num_bits()) {
+      return failure();
+    }
+    if (inputFakeQuantOp.use_dynamic() != op.use_dynamic() ||
+        weightFakeQuantOp.use_dynamic() != op.use_dynamic())
+      return failure();
+
+    Location loc = op.getLoc();
+    auto buildQuantizedTensorType = [&](mhlo_disc::FakeQuantOp fakeQuantOp) {
+      Type quantizedElemType =
+          fakeQuantOp.use_signed()
+              ? IntegerType::get(rewriter.getContext(), fakeQuantOp.num_bits())
+              : IntegerType::get(
+                    rewriter.getContext(), fakeQuantOp.num_bits(),
+                    mlir::IntegerType::SignednessSemantics::Unsigned);
+      auto inputTy = fakeQuantOp.input().getType().cast<RankedTensorType>();
+      return RankedTensorType::get(inputTy.getShape(), quantizedElemType,
+                                   inputTy.getEncoding());
+    };
+
+    // Builds a real quantized op by extracting metadata info from the
+    // fake_quant_op
+    auto buildQuantizedOpFromFakeQuantOp =
+        [&](mhlo_disc::FakeQuantOp fakeQuantOp) {
+          auto outTy = buildQuantizedTensorType(fakeQuantOp);
+          Value quantizedInput = rewriter.create<mhlo_disc::QuantizeOp>(
+              loc, outTy, fakeQuantOp.input(), fakeQuantOp.scale(),
+              fakeQuantOp.zero_point(), fakeQuantOp.use_symmetric(),
+              fakeQuantOp.axis(), fakeQuantOp.quant_min(),
+              fakeQuantOp.quant_max(), fakeQuantOp.use_dynamic());
+          return quantizedInput;
+        };
+
+    Value quantizedInput = buildQuantizedOpFromFakeQuantOp(inputFakeQuantOp);
+    Value quantizedWeight = buildQuantizedOpFromFakeQuantOp(weightFakeQuantOp);
+    Value quantizedDot = buildQuantizedDotGeneralOp(
+        dotOp, rewriter, loc, buildQuantizedTensorType(op), quantizedInput,
+        quantizedWeight, inputFakeQuantOp, weightFakeQuantOp, op);
+    Value dequantizedOut = rewriter.create<mhlo_disc::DequantizeOp>(
+        loc, op.getType(), quantizedDot, op.scale(), op.zero_point(),
+        op.use_symmetric(), op.axis(), op.use_dynamic());
+
+    rewriter.replaceOp(op, dequantizedOut);
+    return success();
+  }
+};
+
 void populateQuantizedPatterns(RewritePatternSet& patterns) {
   // clang-format off
   patterns.insert<
     QuantizedConvLikeOpConverter<mhlo::ConvolutionOp>,
-    QuantizedConvLikeOpConverter<mhlo::DynamicConvOp>
+    QuantizedConvLikeOpConverter<mhlo::DynamicConvOp>,
+    QuantizedDotLikeOpConverter<mhlo::DotOp>,
+    QuantizedDotLikeOpConverter<mhlo::DotGeneralOp>
   >(patterns.getContext());
   // clang-format on
 }

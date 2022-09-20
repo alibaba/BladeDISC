@@ -129,6 +129,18 @@ class CppBuild(build_ext):
                     os.symlink(fpath, link_name)
                     print(f"Link native lib: {fpath}")
 
+        # link internal disc.
+        import tensorflow as tf
+        compiler_fname = 'tao_compiler_main'
+        compiler_bin = os.path.join(
+            os.path.dirname(tf.__file__), os.path.pardir, 'aicompiler', compiler_fname)
+        compiler_bin = os.path.abspath(compiler_bin)
+        if os.path.exists(compiler_bin):
+            link_name = os.path.join(extdir, compiler_fname)
+            if os.path.exists(link_name):
+                os.remove(link_name)
+            os.symlink(compiler_bin, link_name)
+
         # other extensions
         self.extensions.pop(0)
         super().run()

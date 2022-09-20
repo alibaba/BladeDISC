@@ -293,11 +293,64 @@ void ral_spgemm(ExecutionContext* ctx, void* stream_handle,
 #endif
 }
 
+template <typename InT, typename OutT, typename MetaT>
+void ral_spgemm_balance(ExecutionContext* ctx, void* stream_handle,
+                        MemRefType<InT, 2> A, MemRefType<InT, 2> B_data,
+                        MemRefType<MetaT, 1> B_indices, MemRefType<OutT, 2> C,
+                        int cd_a, int cd_b) {
+  InT* dA = A.data;
+  InT* dB_data = B_data.data;
+  MetaT* dB_indices = B_indices.data;
+  OutT* dC = C.data;
+
+  int64_t num_A_rows = A.sizes[0];
+  int64_t num_A_cols = A.sizes[1];
+  int64_t num_B_rows = B_data.sizes[0];
+  int64_t num_B_cols = B_data.sizes[1];
+
+  bool tp_a = cd_a == 1 ? false : true;
+  bool tp_b = cd_b == 0 ? false : true;
+
+  int64_t m = tp_b ? num_B_rows : num_B_cols;
+  int64_t n = tp_a ? num_A_cols : num_A_rows;
+  int64_t k = tp_a ? num_A_rows : num_A_cols;
+
+  float alpha = 1.0f;
+  float beta = 0.0f;
+
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
+  {
+    auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
+    void* s = gpu_driver->asCUStream(ctx, stream_handle);
+    bladnn::Context bladnn_ctx{s};
+    bladnn::Dtype in_dtype = toBlaDNNDtype<InT>();
+    bladnn::Dtype out_dtype = toBlaDNNDtype<OutT>();
+    bladnn::Dtype meta_dtype = toBlaDNNDtype<MetaT>();
+    bool ret = bladnn::spgemm(&bladnn_ctx, in_dtype, !tp_b, dB_data,
+                              tp_b ? m : k / 2, tp_b ? k / 2 : m, in_dtype,
+                              !tp_a, dA, tp_a ? k : n, tp_a ? n : k, out_dtype,
+                              dC, m, n, meta_dtype, dB_indices, k / 32, m * 2);
+
+    if (ret) {
+      return;
+    } else {
+      ctx->signalError(Context::FAILURE, "run sparse gemm failed.");
+    }
+  }
+#else
+  ctx->signalError(Context::FAILURE, "unsupport sparse gemm.");
+#endif
+}
+
 }  // namespace se_impl
 }  // namespace gpu
 
 TAO_RAL_API("sparse_gemm", "gpu",
             gpu::se_impl::ral_spgemm<Eigen::half, Eigen::half, uint16_t>);
+
+TAO_RAL_API(
+    "sparse_gemm", "gpu",
+    gpu::se_impl::ral_spgemm_balance<Eigen::half, Eigen::half, uint16_t>);
 
 }  // namespace ral
 }  // namespace tao

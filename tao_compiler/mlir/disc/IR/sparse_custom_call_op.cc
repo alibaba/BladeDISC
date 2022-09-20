@@ -11,7 +11,7 @@ limitations under the License.
 ==============================================================================*/
 
 // This file defines sparse gemm related custom calls.
-
+#include "iostream"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
@@ -30,7 +30,7 @@ namespace mhlo_disc {
 LogicalResult reifyReturnTypeShapesSparseGemmImpl(
     CustomCallOp op, OpBuilder& builder, ValueRange operands,
     SmallVectorImpl<Value>& reifiedReturnShapes) {
-  if (op->getNumOperands() != 2 || op->getNumResults() != 1)
+  if (op->getNumOperands() < 2 || op->getNumResults() != 1)
     return op->emitError() << "mismatch #operands or #results\n";
 
   Value lhs = op->getOperand(0);
@@ -65,15 +65,13 @@ namespace lmhlo_disc {
 LogicalResult lowerToLibraryCallSpargeGemmImpl(CustomCallOp op,
                                                PatternRewriter& rewriter,
                                                Value ctx, Value stream_handle) {
-  if (op->getNumOperands() != 3 || op->getNumResults() != 0)
+  if (op->getNumOperands() < 3 || op->getNumResults() != 0)
     return op->emitError() << "mismatch #operands or #results\n";
-  SmallVector<Value, 2> newOperands{stream_handle};
-  // input
-  newOperands.push_back(op.getOperand(0));
-  // kernel
-  newOperands.push_back(op.getOperand(1));
-  // output
-  newOperands.push_back(op.getOperand(2));
+  SmallVector<Value> newOperands{stream_handle};
+
+  for (int i = 0; i < op->getNumOperands(); ++i) {
+    newOperands.push_back(op.getOperand(i));
+  }
 
   Location loc = op.getLoc();
   auto config = op.getBackendConfig().cast<DictionaryAttr>();

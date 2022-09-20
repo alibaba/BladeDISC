@@ -37,6 +37,81 @@ namespace mlir {
 namespace disc_ral {
 namespace {
 
+template <typename MetaDtype>
+bool generate_sparse_balance_weight(bool w_transpose, int64_t w_dim0,
+                                    int64_t w_dim1,
+                                    detail::ElementsAttrIterator<APFloat> ptr_W,
+                                    APFloat* ptr_compress_W, MetaDtype* ptr_M,
+                                    MetaDtype* ptr_M_buf) {
+  // float16
+  int step = 4;
+  int m = 2;
+  int n = 4;
+  int dtype_size = 2;
+
+  int sparse_element = 2;
+  int element_per_m = 16 / std::log2(n);
+  int decom_element_per_m = 32 / dtype_size;
+  int row = w_dim0;
+  int col = w_dim1;
+
+  for (int r = 0; r < row; ++r) {
+    int w_count = 0;
+    for (int c = 0; c < (col / decom_element_per_m); ++c) {
+      std::vector<int> unremove_indices;
+      for (int i = 0; i < decom_element_per_m; i++) {
+        long long int a_index = 0;
+        if (w_transpose) {
+          a_index = (c * decom_element_per_m + i) * row + r;
+        } else {
+          a_index = r * col + c * decom_element_per_m + i;
+        }
+        if ((*(ptr_W + a_index)).convertToFloat() != 0) {
+          if (w_transpose) {
+            ptr_compress_W[w_count * row + r] = *(ptr_W + a_index);
+          } else {
+            ptr_compress_W[r * col / sparse_element + w_count] =
+                *(ptr_W + a_index);
+          }
+          unremove_indices.push_back(i % n);
+          w_count++;
+        }
+      }
+      int e_indices = r * col / decom_element_per_m + c;
+      ptr_M_buf[e_indices] = 0;
+      for (int i = 0; i < unremove_indices.size(); ++i) {
+        ptr_M_buf[e_indices] |= (unremove_indices[i] << (2 * i));
+      }
+    }
+  }
+
+  for (int i = 0; i < row; i++) {
+    for (int j = 0; j < col / sparse_element / element_per_m; j++) {
+      int group = (sizeof(MetaDtype) == 2) ? 32 : 16;
+      int interweave = (sizeof(MetaDtype) == 2) ? 4 : 2;
+
+      int dest_row = i / group * group + (i % 8) * interweave + (i % group) / 8;
+      int dest_col = j;
+
+      if (((dest_row % 2) == 0) && ((dest_col % 2) == 1)) {
+        ++dest_row;
+        --dest_col;
+      } else if (((dest_row % 2) == 1) && ((dest_col % 2) == 0)) {
+        --dest_row;
+        ++dest_col;
+      }
+
+      int dest_col_major = dest_col / 2;
+      int dest_col_minor = dest_col % 2;
+
+      ptr_M[dest_col_major * row * 2 + dest_row * 2 + dest_col_minor] =
+          ptr_M_buf[i * col / sparse_element / element_per_m + j];
+    }
+  }
+
+  return true;
+}
+
 RankedTensorType GetTransposeOutputType(
     Value value, const SmallVectorImpl<int64_t>& transpose_permutation,
     OpBuilder& b) {
@@ -76,11 +151,25 @@ Operation* InsertTranspose(
 // convert:
 //   mhlo.dense_gemm(x, w)
 // to:
+// enable_sparse_convert = False
 //   mhlo.transpose(x, [1, 0])
 //   mhlo.sparse_gemm(x, w)
 //   mhlo.transpose(y, [1, 0])
+// enable_sparse_convert = True
+//   mhlo.transpose(x, [1, 0])
+//   mhlo.sparse_gemm(x, sp_w_data, sp_w_indices)
+//   mhlo.transpose(y, [1, 0])
 struct ExpandDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
   using OpRewritePattern<mhlo::DotGeneralOp>::OpRewritePattern;
+
+  bool enable_sparse_convert_ = false;
+
+  ExpandDotGeneralOp(MLIRContext* context, bool enable_sparse_convert,
+                     PatternBenefit benefit = 1,
+                     ArrayRef<StringRef> generatedNames = {})
+      : OpRewritePattern<mhlo::DotGeneralOp>(context, benefit, generatedNames) {
+    enable_sparse_convert_ = enable_sparse_convert;
+  }
 
   LogicalResult SparseOp(mhlo::DotGeneralOp op, PatternRewriter& rewriter,
                          int sparse_weight_pos) const {
@@ -116,7 +205,61 @@ struct ExpandDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
       newOperands.push_back(input);
     }
 
-    newOperands.push_back(kernel);
+    // convert dense weight to sparse weight
+    if (enable_sparse_convert_) {
+      Operation* weightOp;
+      if (sparse_weight_pos == 0) {
+        weightOp = op.lhs().getDefiningOp();
+      } else {
+        weightOp = op.rhs().getDefiningOp();
+      }
+      auto weightConstOp = dyn_cast<mhlo::ConstantOp>(weightOp);
+      ArrayRef<int64_t> weightShape =
+          weightConstOp.getType().cast<ShapedType>().getShape();
+
+      auto weights_value = weightConstOp.value().getValues<APFloat>().begin();
+      SmallVector<APFloat> compressed_weight(
+          weightShape[0] * weightShape[1] / 2, APFloat(0.f));
+      std::vector<uint16_t> compressed_index(
+          weightShape[0] * weightShape[1] / 16, 0);
+      std::vector<uint16_t> compressed_reorder_index(
+          weightShape[0] * weightShape[1] / 16, 0);
+      int weight_row = sparse_weight_pos == 0 ? weightShape[0] : weightShape[1];
+      int weight_col = sparse_weight_pos == 0 ? weightShape[1] : weightShape[0];
+      generate_sparse_balance_weight<uint16_t>(
+          sparse_weight_pos == 1, weight_row, weight_col, weights_value,
+          compressed_weight.data(), compressed_reorder_index.data(),
+          compressed_index.data());
+
+      SmallVector<int64_t> spWeightShape;
+      if (sparse_weight_pos == 0) {
+        spWeightShape.push_back(weightShape[0]);
+        spWeightShape.push_back(weightShape[1] / 2);
+      } else {
+        spWeightShape.push_back(weightShape[0] / 2);
+        spWeightShape.push_back(weightShape[1]);
+      }
+
+      auto spWeightDataDtype =
+          RankedTensorType::get(spWeightShape, kernelTy.getElementType());
+      auto spWeightIndexDtype = RankedTensorType::get(
+          {weightShape[0] * weightShape[1] / 16}, b.getIntegerType(16, false));
+
+      auto spWeightDataOp = b.create<mhlo::ConstantOp>(
+          op->getLoc(), spWeightDataDtype,
+          DenseElementsAttr::get(spWeightDataDtype,
+                                 llvm::makeArrayRef(compressed_weight)));
+
+      auto spWeightIndexOp = b.create<mhlo::ConstantOp>(
+          op->getLoc(), spWeightIndexDtype,
+          DenseElementsAttr::get(spWeightIndexDtype,
+                                 llvm::makeArrayRef(compressed_reorder_index)));
+
+      newOperands.push_back(spWeightDataOp->getResult(0));
+      newOperands.push_back(spWeightIndexOp->getResult(0));
+    } else {
+      newOperands.push_back(kernel);
+    }
 
     // compute spgemm output shape
     auto output_shape = outputTy.getShape();
@@ -249,17 +392,20 @@ struct ExpandDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
   }
 };
 
-void populateDiscDenseToSparsePatterns(RewritePatternSet& patterns) {
+void populateDiscDenseToSparsePatterns(RewritePatternSet& patterns,
+                                       bool enable_sparse_convert) {
   // clang-format off
-  patterns.insert<ExpandDotGeneralOp>(patterns.getContext());
+  patterns.insert<ExpandDotGeneralOp>(patterns.getContext(), enable_sparse_convert);
   // clang-format on
 }
 
 struct DiscDenseToSparsePass
     : public DiscDenseToSparsePassBase<DiscDenseToSparsePass> {
-  explicit DiscDenseToSparsePass()
+  explicit DiscDenseToSparsePass(bool enable_sparse_convert)
       : DiscDenseToSparsePassBase<
-            DiscDenseToSparsePass>::DiscDenseToSparsePassBase() {}
+            DiscDenseToSparsePass>::DiscDenseToSparsePassBase() {
+    this->enable_sparse_convert_ = enable_sparse_convert;
+  }
   void runOnOperation() override;
 };
 
@@ -267,7 +413,7 @@ void DiscDenseToSparsePass::runOnOperation() {
   // Setup rewriter patterns.
   MLIRContext& ctx = getContext();
   RewritePatternSet patterns(&ctx);
-  populateDiscDenseToSparsePatterns(patterns);
+  populateDiscDenseToSparsePatterns(patterns, enable_sparse_convert_);
   if (failed(
           applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
     signalPassFailure();
@@ -290,15 +436,14 @@ struct ExpandSparseGemmOp : public OpRewritePattern<mhlo_disc::CustomCallOp> {
     OpBuilder b(op);
     Location loc = op.getLoc();
 
+    // first input of sparse_gemm definitely is input_data
     Value lhs = op->getOperand(0);
-    Value rhs = op->getOperand(1);
     Value output = op->getResult(0);
 
     auto inputTy = lhs.getType().dyn_cast<RankedTensorType>();
-    auto kernelTy = rhs.getType().dyn_cast<RankedTensorType>();
     auto outputTy = output.getType().dyn_cast<RankedTensorType>();
 
-    if (!inputTy || !kernelTy || !outputTy) return success();
+    if (!inputTy || !outputTy) return success();
 
     auto config = op.backend_config().cast<DictionaryAttr>();
     int64_t lhs_contracting_dimensions =
@@ -318,14 +463,8 @@ struct ExpandSparseGemmOp : public OpRewritePattern<mhlo_disc::CustomCallOp> {
       newOperands.push_back(lhs);
     }
 
-    // check rhs
-    Operation* rhsDefiningOp = rhs.getDefiningOp();
-    bool rhsTrans = false;
-    if (rhsDefiningOp && dyn_cast<mhlo::TransposeOp>(rhsDefiningOp)) {
-      rhs_contracting_dimensions = 1 - rhs_contracting_dimensions;
-      newOperands.push_back(rhsDefiningOp->getOperand(0));
-    } else {
-      newOperands.push_back(rhs);
+    for (int i = 1; i < op->getNumOperands(); ++i) {
+      newOperands.push_back(op->getOperand(i));
     }
 
     auto lhsConDim =
@@ -409,8 +548,9 @@ void DiscSparseGemmTransposeSimplifierPass::runOnOperation() {
 
 }  // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>> createDiscDenseToSparsePass() {
-  return std::make_unique<DiscDenseToSparsePass>();
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscDenseToSparsePass(
+    bool enable_sparse_convert) {
+  return std::make_unique<DiscDenseToSparsePass>(enable_sparse_convert);
 }
 
 std::unique_ptr<OperationPass<func::FuncOp>>

@@ -87,7 +87,14 @@ void EnhancementInputShape(
     const auto ts_data =
         std::static_pointer_cast<torch::lazy::TSData>(argument);
     if (ts_data->HasValue()) {
-      input->setType(c10::TensorType::create(ts_data->data()));
+      auto t = ts_data->data();
+      size_t rank = t.sizes().size();
+      input->setType(c10::TensorType::create(
+          t.scalar_type(),
+          t.device(),
+          c10::SymbolicShape(c10::optional<size_t>(rank)),
+          c10::VaryingShape<c10::Stride>(rank),
+          t.requires_grad()));
     }
   }
 }

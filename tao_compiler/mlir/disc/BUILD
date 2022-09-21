@@ -421,8 +421,8 @@ cc_library(
 )
 
 cc_library(
-    name = "rng_rewriter",
-    srcs = ["transforms/rng_rewriter.cc"],
+    name = "mhlo_rewriters",
+    srcs = ["transforms/mhlo_rewriters.cc"],
     hdrs = ["transforms/passes.h"],
     includes = [
         "tensorflow/compiler/xla/mlir_hlo/include",
@@ -1872,10 +1872,10 @@ cc_library(
         ":lhlo_fusion_inliner",
         ":mhlo_mark_shape_calc",
         ":mhlo_placer",
+        ":mhlo_rewriters",
         ":ral_inject_execution_context",
         ":revise_args_for_static_rank",
         ":revise_gpu_kernel_outlining",
-        ":rng_rewriter",
         ":split_large_ops",
         ":disc_memref_cse",
         ":disc_memref_load_store_simplifier",

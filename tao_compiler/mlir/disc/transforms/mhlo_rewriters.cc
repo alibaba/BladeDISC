@@ -72,12 +72,9 @@ struct RngConvert : public OpRewritePattern<mhlo::RngOp> {
   }
 };
 
-struct RngRewriterPass : public RngRewriterPassBase<RngRewriterPass> {
+struct MhloRewriter : public MhloRewriterBase<MhloRewriter> {
   void runOnOperation() override {
     func::FuncOp func = getOperation();
-    // TODO: if needs to do const reformat, we need the xla_hlo.dot with its
-    // inputs
-
     MLIRContext* ctx = func.getContext();
     RewritePatternSet patterns(ctx);
     patterns.insert<RngConvert>(ctx);
@@ -90,8 +87,8 @@ struct RngRewriterPass : public RngRewriterPassBase<RngRewriterPass> {
 
 }  // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>> createDiscRngRewriterPass() {
-  return std::make_unique<RngRewriterPass>();
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscMhloRewriterPass() {
+  return std::make_unique<MhloRewriter>();
 }
 
 }  // namespace disc_ral

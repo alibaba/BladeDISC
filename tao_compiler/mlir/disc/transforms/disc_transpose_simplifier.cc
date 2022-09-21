@@ -485,7 +485,7 @@ LogicalResult TransposeSimpliferContext::rewriteIntermediateOps(
         newOperands.push_back(operand);
       } else {
         newOperands.push_back(
-            insertTranspose(op, operand, perm, b)->getResult(0));
+            insertTranspose(op, operand, operandPerm, b)->getResult(0));
       }
       return true;
     };

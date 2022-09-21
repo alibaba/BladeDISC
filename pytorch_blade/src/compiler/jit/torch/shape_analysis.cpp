@@ -61,6 +61,17 @@ namespace torch {
 namespace blade {
 using namespace torch::jit;
 using namespace c10;
+ShapeSymbol getSymDimSize(TensorTypePtr type, int64_t dim) {
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 8
+  auto dimSize = type->symbolic_sizes()[dim];
+  if (dimSize.is_static())
+    return ShapeSymbol::fromStaticSize(dimSize.static_size());
+  else
+    return ShapeSymbol::newSymbol();
+#else
+  return ShapeSymbol::newSymbol();
+#endif
+}
 
 bool mergeTypes(
     at::ArrayRef<Value*> lhs,
@@ -2081,23 +2092,32 @@ class ShapePropagator : public PropertyPropBase {
               "aten::diagonal(Tensor self, int offset, int dim1, int dim2) -> Tensor")) {
         auto& t = tensor_types.at(0);
         return t->dim() && *t->dim() > 0 ? t->withDim(*t->dim() - 1) : nullptr;
+      } else if (
+          node->matches(
+              "aten::linear(Tensor input, Tensor weight, Tensor? bias=None) -> Tensor")) {
+        if (!tensor_types.at(0)->dim() || !tensor_types.at(1)->dim()) {
+          return nullptr;
+        }
+        auto inpTy0 = tensor_types.at(0);
+        auto inpTy1 = tensor_types.at(1);
+        int dim1 = *inpTy0->dim();
+        int dim2 = *inpTy1->dim();
+        if (dim2 != 2 || dim1 == 0) {
+          return nullptr;
+        }
+
+        std::vector<ShapeSymbol> stat_shape;
+        for (auto d = 0; d < dim1; ++d) {
+          stat_shape.push_back(getSymDimSize(inpTy0, d));
+        }
+        stat_shape[dim1 - 1] = getSymDimSize(inpTy1, 0);
+        SymbolicShape symblicShape(stat_shape);
+        return inpTy0->withSymbolicShapes(symblicShape);
       } else if (node->matches(
                      "aten::matmul(Tensor self, Tensor other) -> Tensor")) {
         if (!tensor_types.at(0)->dim() || !tensor_types.at(1)->dim()) {
           return nullptr;
         }
-
-        auto getSymDimSize = [&](TensorTypePtr type, int64_t dim) {
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 8
-          auto dimSize = type->symbolic_sizes()[dim];
-          if (dimSize.is_static())
-            return ShapeSymbol::fromStaticSize(dimSize.static_size());
-          else
-            return ShapeSymbol::newSymbol();
-#else
-          return ShapeSymbol::newSymbol();
-#endif
-        };
 
         std::vector<ShapeSymbol> stat_shape;
         auto inpTy0 = tensor_types.at(0);

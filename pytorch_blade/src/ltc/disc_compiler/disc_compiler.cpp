@@ -87,7 +87,8 @@ void EnhancementInputShape(
     const auto ts_data =
         std::static_pointer_cast<torch::lazy::TSData>(argument);
     if (ts_data->HasValue()) {
-      size_t rank = ts_data->data().sizes().size();
+      auto t = ts_data->data();
+      size_t rank = t.sizes().size();
       input->setType(c10::TensorType::create(
           t.scalar_type(),
           t.device(),

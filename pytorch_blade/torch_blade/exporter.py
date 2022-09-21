@@ -46,6 +46,10 @@ def _set_annotate_args(s_module, annotations):
         input_dims, _ = annotations[idx-1]
         set_tensor_shape(input, input_dims)
 
+    from torch_blade import jit_pass_propagate_input_shapes
+    
+    jit_pass_propagate_input_shapes(graph)
+
 def _script_module_preprocess(s_module, inputs, input_dims=[]):
     graph = s_module._c.forward.graph
     torch._C._jit_pass_inline(graph)

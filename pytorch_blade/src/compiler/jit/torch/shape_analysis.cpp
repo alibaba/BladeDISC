@@ -947,6 +947,7 @@ class ShapePropagator : public PropertyPropBase {
             "aten::pinverse(Tensor self, float rcond) -> Tensor",
             "aten::reciprocal(Tensor self) -> Tensor",
             "aten::relu(Tensor self) -> Tensor",
+            "aten::relu_(Tensor self) -> Tensor",
             "aten::round(Tensor self) -> Tensor",
             "aten::rrelu(Tensor self, Scalar lower, Scalar upper, bool training, Generator? generator) -> Tensor",
             "aten::rsqrt(Tensor self) -> Tensor",
@@ -1103,6 +1104,7 @@ class ShapePropagator : public PropertyPropBase {
         {
             // Tensor-Scalar operators
             "aten::add(Tensor self, Scalar other, Scalar alpha) -> Tensor",
+            "aten::add_(Tensor self, Scalar other, Scalar alpha) -> Tensor",
             "aten::sub(Tensor self, Scalar other, Scalar alpha) -> Tensor",
             "aten::mul(Tensor self, Scalar other) -> Tensor",
             "aten::div(Tensor self, Scalar other) -> Tensor",
@@ -2209,6 +2211,8 @@ class ShapePropagator : public PropertyPropBase {
     // to get a quick and dirty propagation.
     if (node->matches(
             "aten::add(Tensor self, Tensor other, *, Scalar alpha) -> Tensor") ||
+        node->matches(
+            "aten::add_(Tensor self, Tensor other, *, Scalar alpha) -> Tensor") ||
         node->matches(
             "aten::sub(Tensor self, Tensor other, *, Scalar alpha) -> Tensor") ||
         node->matches("aten::mul(Tensor self, Tensor other) -> Tensor")) {

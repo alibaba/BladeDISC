@@ -568,9 +568,6 @@ def symlink_disc_files(is_platform_alibaba):
             os.path.join(dir_platform_alibaba, 'third_party', 'blade_service_common'))
 
     logger.info("cleanup tao_compiler with XLA always...")
-    src = os.path.join(dir_platform_alibaba, "tao_compiler", "xla")
-    dst = os.path.join(get_source_root_dir(), "tf_community/tensorflow/compiler/decoupling_xla")
-    link_dirs(dst, src)
 
     # def link_internal_tao_bridge(is_platform_alibaba):
     # softlink ["tao_launch_op", "gpu"] dirs, "tvm" and "transform" dirs are not needed for now.

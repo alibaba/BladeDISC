@@ -421,6 +421,26 @@ cc_library(
 )
 
 cc_library(
+    name = "mhlo_rewriters",
+    srcs = ["transforms/mhlo_rewriters.cc"],
+    hdrs = ["transforms/passes.h"],
+    includes = [
+        "tensorflow/compiler/xla/mlir_hlo/include",
+        "."
+    ],
+    deps = [
+        ":disc_util",
+        ":pass_details",
+        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "dot_rewriter",
     srcs = ["transforms/dot_rewriter.cc"],
     hdrs = ["transforms/passes.h"],
@@ -1851,6 +1871,7 @@ cc_library(
         ":lhlo_fusion_inliner",
         ":mhlo_mark_shape_calc",
         ":mhlo_placer",
+        ":mhlo_rewriters",
         ":ral_inject_execution_context",
         ":revise_args_for_static_rank",
         ":revise_gpu_kernel_outlining",

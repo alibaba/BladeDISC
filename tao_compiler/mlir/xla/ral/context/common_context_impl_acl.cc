@@ -25,6 +25,7 @@
 #include "src/common/utils/Log.h"
 #include "src/cpu/operators/CpuConv2d.h"
 #include "src/cpu/operators/CpuDepthwiseConv2d.h"
+#include "src/cpu/operators/CpuGemmLowpMatrixMultiplyCore.h"
 
 namespace arm_compute {
 using namespace arm_compute::experimental;
@@ -626,6 +627,122 @@ void DISCNEDepthwiseConvolutionLayer::prepare(ITensor* input,
     default:
       ARM_COMPUTE_ERROR("DepthwiseConvolutionFunction not properly configured");
   }
+}
+
+//////////////////// NEGEMMLowpMatrixMultiplyCore /////////////////
+
+struct DISCNEGEMMLowpMatrixMultiplyCore::Impl {
+  const ITensor* b{nullptr};
+  std::unique_ptr<cpu::CpuGemmLowpMatrixMultiplyCore> op{nullptr};
+  // persistent tensors are usually those buffers that are used to store packed
+  // weights.
+  ITensorPack persistent_pack{};
+  MemoryRequirements aux_mem_req{};
+  WorkspaceData<Tensor> workspace{};
+  bool is_prepared{false};
+};
+
+DISCNEGEMMLowpMatrixMultiplyCore::DISCNEGEMMLowpMatrixMultiplyCore(
+    std::shared_ptr<IMemoryManager> memory_manager,
+    IWeightsManager* weights_manager)
+    : _impl(std::make_unique<Impl>()) {}
+DISCNEGEMMLowpMatrixMultiplyCore::~DISCNEGEMMLowpMatrixMultiplyCore() = default;
+
+void DISCNEGEMMLowpMatrixMultiplyCore::configure(const ITensor* a,
+                                                 const ITensor* b,
+                                                 const ITensor* c,
+                                                 ITensor* output,
+                                                 const GEMMInfo& gemm_info) {
+  ARM_COMPUTE_ERROR_ON_NULLPTR(a, b, output);
+  _impl->b = b;
+  _impl->op = std::make_unique<cpu::CpuGemmLowpMatrixMultiplyCore>();
+  _impl->op->configure(a->info(), b->info(),
+                       (c != nullptr ? c->info() : nullptr), output->info(),
+                       gemm_info);
+  _impl->aux_mem_req = _impl->op->workspace();
+}
+
+Status DISCNEGEMMLowpMatrixMultiplyCore::validate(const ITensorInfo* a,
+                                                  const ITensorInfo* b,
+                                                  const ITensorInfo* c,
+                                                  const ITensorInfo* output,
+                                                  const GEMMInfo& gemm_info) {
+  return cpu::CpuGemmLowpMatrixMultiplyCore::validate(a, b, c, output,
+                                                      gemm_info);
+}
+
+void DISCNEGEMMLowpMatrixMultiplyCore::run() {
+  ARM_COMPUTE_ERROR("Not supported.");
+}
+
+void DISCNEGEMMLowpMatrixMultiplyCore::prepare() {
+  ARM_COMPUTE_ERROR("Not supported.");
+}
+
+void DISCNEGEMMLowpMatrixMultiplyCore::run(ITensor* a, const ITensor* b,
+                                           const ITensor* c, ITensor* output) {
+  prepare(a, b, c, output);
+
+  ITensorPack run_pack = {{TensorType::ACL_SRC_0, a},
+                          {TensorType::ACL_SRC_1, b},
+                          {TensorType::ACL_SRC_2, c},
+                          {TensorType::ACL_DST, output}};
+  DISCAllocator allocator;
+  DISCBuffers buffers;
+  auto workspace = manage_runtime_workspace<Tensor>(
+      _impl->aux_mem_req, run_pack, _impl->persistent_pack, allocator, buffers);
+  _impl->op->run(run_pack);
+}
+
+void DISCNEGEMMLowpMatrixMultiplyCore::prepare(ITensor* a, const ITensor* b,
+                                               const ITensor* c,
+                                               ITensor* output) {
+  if (!_impl->is_prepared) {
+    ITensorPack prep_pack = {{TensorType::ACL_SRC_0, a},
+                             {TensorType::ACL_SRC_1, b},
+                             {TensorType::ACL_SRC_2, c},
+                             {TensorType::ACL_DST, output}};
+
+    std::vector<Tensor*> temporary_tensors;
+    for (const auto& req : _impl->aux_mem_req) {
+      if (req.size == 0) continue;
+      // re-use from exsiting buffer whenever possible.
+      if (auto aux_tensor = _impl->persistent_pack.get_tensor(req.slot)) {
+        prep_pack.add_tensor(req.slot, aux_tensor);
+        continue;
+      }
+
+      const auto aux_info = TensorInfo{TensorShape(req.size), 1, DataType::U8};
+      _impl->workspace.emplace_back(WorkspaceDataElement<Tensor>{
+          req.slot, req.lifetime, std::make_unique<Tensor>()});
+      auto aux_tensor = _impl->workspace.back().tensor.get();
+      ARM_COMPUTE_ERROR_ON_NULLPTR(aux_tensor);
+      aux_tensor->allocator()->init(aux_info, req.alignment);
+      aux_tensor->allocator()->allocate();
+      prep_pack.add_tensor(req.slot, aux_tensor);
+      if (req.lifetime == experimental::MemoryLifetime::Persistent) {
+        _impl->persistent_pack.add_tensor(req.slot, aux_tensor);
+      } else {
+        temporary_tensors.push_back(aux_tensor);
+      }
+    }
+
+    _impl->op->prepare(prep_pack);
+
+    for (auto aux_tensor : temporary_tensors) {
+      aux_tensor->allocator()->free();
+    }
+    _impl->is_prepared = true;
+  }
+}
+
+const ITensorPack& DISCNEGEMMLowpMatrixMultiplyCore::get_packed_weight() {
+  return _impl->persistent_pack;
+}
+
+void DISCNEGEMMLowpMatrixMultiplyCore::reuse_packed_weight(
+    const ITensorPack& pack) {
+  _impl->persistent_pack = pack;
 }
 
 }  // namespace arm_compute

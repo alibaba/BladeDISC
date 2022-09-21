@@ -11,7 +11,6 @@ limitations under the License.
 ==============================================================================*/
 
 // This file defines sparse gemm related custom calls.
-#include "iostream"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"

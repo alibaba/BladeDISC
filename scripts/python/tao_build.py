@@ -237,7 +237,7 @@ def config_blade_gemm(root, args):
     with cwd(blade_gemm_build_dir), gcc_env(args.bridge_gcc):
         cc = which("gcc")
         cxx = which("g++")
-        cmake_cmd = "CC={} CXX={} CUDA_CXX={} cmake ..".format(cc, cxx, args.blade_gemm_nvcc)
+        cmake_cmd = "CC={} CXX={} CUDACXX={} cmake ..".format(cc, cxx, args.blade_gemm_nvcc)
         if args.dcu or args.rocm:
             cmake_cmd = "CC={} CXX={} cmake .. -DUSE_TVM=ON -DROCM_PATH={}".format(cc, cxx, get_rocm_path(args))
         logger.info("configuring blade_gemm ......")

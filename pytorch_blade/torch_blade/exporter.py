@@ -45,7 +45,8 @@ def _set_annotate_args(s_module, annotations):
             continue
         input_dims, _ = annotations[idx-1]
         set_tensor_shape(input, input_dims)
-
+    # change input shape shape would not affect clusters input shape
+    # so propagate input shapes after setting annotations
     from torch_blade import jit_pass_propagate_input_shapes
     
     jit_pass_propagate_input_shapes(graph)

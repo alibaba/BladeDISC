@@ -590,7 +590,7 @@ class ShapePropagator : public PropertyPropBase {
   c10::optional<c10::ScalarType> tryScalarTypeFromJitType(
       const c10::Type& type) {
     if (type == *FloatType::get()) {
-      return caffe2::get_default_dtype_as_scalartype();
+      return at::typeMetaToScalarType(c10::get_default_dtype());
     } else if (type == *IntType::get()) {
       return at::ScalarType::Long;
     } else if (type == *BoolType::get()) {
@@ -1040,7 +1040,7 @@ class ShapePropagator : public PropertyPropBase {
             if ((node->kind() == aten::div || node->kind() == aten::div_) &&
                 dtype.has_value() &&
                 c10::isIntegralType(dtype.value(), false)) {
-              dtype = caffe2::get_default_dtype_as_scalartype();
+              dtype = at::typeMetaToScalarType(c10::get_default_dtype());
             }
             return {broadcast(*maybe_tensor_types, dtype)};
           }
@@ -1137,7 +1137,8 @@ class ShapePropagator : public PropertyPropBase {
                 (isIntegralType(*first_scalar_type, false) &&
                  isIntegralType(*second_scalar_type, false) &&
                  (node->kind() == aten::div || node->kind() == aten::div_))) {
-              auto default_dtype = caffe2::get_default_dtype_as_scalartype();
+              auto default_dtype =
+                  at::typeMetaToScalarType(c10::get_default_dtype());
               return {broadcast(*maybe_tensor_types, default_dtype)};
             }
             if (c10::ScalarType::Bool == *first_scalar_type &&
@@ -2284,7 +2285,7 @@ class ShapePropagator : public PropertyPropBase {
       }
       if (isIntegralType(*first_scalar_type, false) &&
           isFloatingType(*second_scalar_type)) {
-        auto default_dtype = caffe2::get_default_dtype_as_scalartype();
+        auto default_dtype = at::typeMetaToScalarType(c10::get_default_dtype());
         auto type = tensor_types[0]->withScalarType(default_dtype);
         node->output()->setType(type);
         return true;

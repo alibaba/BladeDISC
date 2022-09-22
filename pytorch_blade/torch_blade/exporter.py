@@ -19,6 +19,7 @@ import torch
 import torch.nn as nn
 
 import torch_blade.pass_manager as pm
+from torch_blade import jit_pass_propagate_input_shapes
 from torch_blade.config import Config
 from torch_blade.logging import logger
 from torch_blade.tools import set_tensor_shape
@@ -47,8 +48,6 @@ def _set_annotate_args(s_module, annotations):
         set_tensor_shape(input, input_dims)
     # change input shape shape would not affect clusters input shape
     # so propagate input shapes after setting annotations
-    from torch_blade import jit_pass_propagate_input_shapes
-    
     jit_pass_propagate_input_shapes(graph)
 
 def _script_module_preprocess(s_module, inputs, input_dims=[]):

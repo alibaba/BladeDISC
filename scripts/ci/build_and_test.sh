@@ -15,11 +15,11 @@ set -ex
 
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-source ${SCRIPT_DIR}/parse_args.sh "$@"
-
 ENTRY=scripts/python/tao_build.py
 VENV_PATH=/opt/venv_disc
 BLADE_DISC_DIR=tao/python/blade_disc_tf
+
+source ${SCRIPT_DIR}/parse_args.sh "$@"
 
 if [[ -f ~/.cache/proxy_config ]]; then
     source ~/.cache/proxy_config
@@ -31,12 +31,15 @@ fi
   && cd tao && bazel clean --expunge && cd .. \
   && cd tf_community && bazel clean --expunge)
 
-python ${ENTRY} ${VENV_PATH} -s configure --bridge-gcc default --compiler-gcc default ${CPU_ONLY}
-python ${ENTRY} ${VENV_PATH} -s build_tao_bridge ${CPU_ONLY}
-python ${ENTRY} ${VENV_PATH} -s build_tao_compiler ${CPU_ONLY}
-python ${ENTRY} ${VENV_PATH} -s test_tao_bridge_cpp ${CPU_ONLY}
-python ${ENTRY} ${VENV_PATH} -s test_tao_bridge_py ${CPU_ONLY}
-python ${ENTRY} ${VENV_PATH} -s test_tao_compiler ${CPU_ONLY}
+python ${ENTRY} ${VENV_PATH} -s configure --bridge-gcc default --compiler-gcc default ${CPU_ONLY} ${ROCM} ${DCU} ${ROCM_PATH}
+python ${ENTRY} ${VENV_PATH} -s build_tao_bridge ${CPU_ONLY} ${CPU_ONLY} ${ROCM} ${DCU} ${ROCM_PATH}
+python ${ENTRY} ${VENV_PATH} -s build_tao_compiler ${CPU_ONLY} ${CPU_ONLY} ${ROCM} ${DCU} ${ROCM_PATH}
+if [[ -z "$ROCM" ]] && [[ -z "$DCU" ]]; then
+  python ${ENTRY} ${VENV_PATH} -s build_mlir_ral ${CPU_ONLY} ${CPU_ONLY} ${ROCM} ${DCU} ${ROCM_PATH}
+  python ${ENTRY} ${VENV_PATH} -s test_tao_bridge_cpp ${CPU_ONLY} ${CPU_ONLY} ${ROCM} ${DCU} ${ROCM_PATH}
+  python ${ENTRY} ${VENV_PATH} -s test_tao_bridge_py ${CPU_ONLY} ${CPU_ONLY} ${ROCM} ${DCU} ${ROCM_PATH}
+  python ${ENTRY} ${VENV_PATH} -s test_tao_compiler ${CPU_ONLY} ${CPU_ONLY} ${ROCM} ${DCU} ${ROCM_PATH}
+fi
 
 # copy libtao_ops.so and tao_compiler_main to blade-disc-tf
 cp tao/bazel-bin/libtao_ops.so ${BLADE_DISC_DIR}
@@ -52,6 +55,6 @@ cp tao/dist/blade_disc*.whl ./build
 cp tf_community/bazel-bin/tensorflow/compiler/mlir/disc/tools/disc-replay/disc-replay-main ./build/
 
 # test example models
-if [[ -z "$BLADE_DISC_RUNNING_AMD" ]]; then
+if [[ -z "$ROCM" ]] && [[ -z "$DCU" ]]; then
   source ${SCRIPT_DIR}/test_cpu_examples.sh
 fi

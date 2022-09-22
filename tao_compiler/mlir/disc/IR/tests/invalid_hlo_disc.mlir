@@ -351,3 +351,12 @@ func.func @sparse_segment_mean_no_match_indices_segment_ids(%data: tensor<?x?xf3
   %output = "mhlo_disc.sparse_segment_mean"(%data, %indices, %segment_ids) {} : (tensor<?x?xf32>, tensor<6xi32>, tensor<4xi32>) -> (tensor<?x?xf32>)
   return %output : tensor<?x?xf32>
 }
+
+// -----
+
+// CHECK-LABEL: func.func @where_invalid_output
+func.func @where_invalid_output(%input: tensor<?x?xf32>) -> (tensor<?xi64>, tensor<1xi64>) {
+  // expected-error@+1 {{output must be a matrix}}
+  %index, %num_output_elements = "mhlo_disc.where"(%input) {} : (tensor<?x?xf32>) -> (tensor<?xi64>, tensor<1xi64>)
+  return %index, %num_output_elements: tensor<?xi64>, tensor<1xi64>
+}

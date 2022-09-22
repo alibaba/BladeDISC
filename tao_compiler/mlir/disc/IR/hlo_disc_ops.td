@@ -289,4 +289,19 @@ def HLO_SparseSegmentMeanOp : HLODISC_ShapedInterfaceOp<"sparse_segment_mean", [
   );
 }
 
+def HLO_WhereOp : HLODISC_ShapedInterfaceOp<"where", [NoSideEffect]> {
+  let summary = "One-to-one mapping of TF_WhereOp";
+  let description = [{
+    See tf's where operator.
+  }];
+  let arguments = (ins
+    HLO_Tensor:$input
+  );
+
+  let results = (outs
+    HLO_I64Tensor:$index,
+    HLO_I64Tensor:$num_output_elements
+  );
+}
+
 #endif // MHLO_DISC_OPS

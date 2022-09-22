@@ -16,6 +16,7 @@
 #include "compiler/backends/engine_interface.h"
 #include "compiler/jit/onnx_funcs.h"
 #include "compiler/jit/pybind_functions.h"
+#include "compiler/jit/torch/shape_analysis.h"
 
 #ifdef TORCH_BLADE_BUILD_QUANTIZATION
 #include "quantization/pybind_functions.h"
@@ -58,8 +59,11 @@ template <>
 void initModules<false>(py::module& m) {
   torch::blade::initToolsBindings(m);
   m.def(
-      "jit_pass_onnx_constant_f64_to_f32",
-      &torch::blade::CastDownAllConstantDoubleToFloat);
+       "jit_pass_onnx_constant_f64_to_f32",
+       &torch::blade::CastDownAllConstantDoubleToFloat)
+      .def(
+          "jit_pass_propagate_input_shapes",
+          &torch::blade::PropagateInputShapes);
 
 #ifdef TORCH_BLADE_BUILD_QUANTIZATION
   torch::blade::quantization::initQuantizationBindings(m);

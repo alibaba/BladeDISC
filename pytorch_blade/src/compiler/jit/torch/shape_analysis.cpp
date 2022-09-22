@@ -870,7 +870,9 @@ class ShapePropagator : public PropertyPropBase {
     static const register_formula_for first_input_type_formula{
         {
             "aten::erf(Tensor self) -> Tensor",
+            "aten::erf_(Tensor self) -> Tensor",
             "aten::relu(Tensor self) -> Tensor",
+            "aten::relu_(Tensor self) -> Tensor",
         },
         [](Node* node) -> type_vec_t {
           if (auto type = node->input(0)->type()->cast<TensorType>()) {
@@ -934,6 +936,7 @@ class ShapePropagator : public PropertyPropBase {
             "aten::glu(Tensor self, int dim) -> Tensor",
             "aten::inverse(Tensor self) -> Tensor",
             "aten::leaky_relu(Tensor self, Scalar negative_slope) -> Tensor",
+            "aten::leaky_relu_(Tensor self, Scalar negative_slope) -> Tensor",
             "aten::lgamma(Tensor self) -> Tensor",
             "aten::mvlgamma(Tensor self, int p) -> Tensor",
             "aten::normal(float mean, Tensor std, *, Generator? generator) -> Tensor",
@@ -947,6 +950,7 @@ class ShapePropagator : public PropertyPropBase {
             "aten::pinverse(Tensor self, float rcond) -> Tensor",
             "aten::reciprocal(Tensor self) -> Tensor",
             "aten::relu(Tensor self) -> Tensor",
+            "aten::relu_(Tensor self) -> Tensor",
             "aten::round(Tensor self) -> Tensor",
             "aten::rrelu(Tensor self, Scalar lower, Scalar upper, bool training, Generator? generator) -> Tensor",
             "aten::rsqrt(Tensor self) -> Tensor",
@@ -1021,14 +1025,23 @@ class ShapePropagator : public PropertyPropBase {
         {
             // Tensor-Tensor operators
             "aten::add(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
+            "aten::add_(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
             "aten::sub(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
+            "aten::sub_(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
             "aten::mul(Tensor self, Tensor other) -> Tensor",
+            "aten::mul_(Tensor self, Tensor other) -> Tensor",
             "aten::div(Tensor self, Tensor other) -> Tensor",
+            "aten::div_(Tensor self, Tensor other) -> Tensor",
         },
         [](Node* node) -> type_vec_t {
           if (auto maybe_tensor_types = gatherTensorTypes(node)) {
             AT_ASSERT(maybe_tensor_types->size() >= 2);
             auto dtype = getPromotedTypeForArithmeticOp(node);
+            if ((node->kind() == aten::div || node->kind() == aten::div_) &&
+                dtype.has_value() &&
+                c10::isIntegralType(dtype.value(), false)) {
+              dtype = at::typeMetaToScalarType(c10::get_default_dtype());
+            }
             return {broadcast(*maybe_tensor_types, dtype)};
           }
           return {};
@@ -1103,9 +1116,13 @@ class ShapePropagator : public PropertyPropBase {
         {
             // Tensor-Scalar operators
             "aten::add(Tensor self, Scalar other, Scalar alpha) -> Tensor",
+            "aten::add_(Tensor self, Scalar other, Scalar alpha) -> Tensor",
             "aten::sub(Tensor self, Scalar other, Scalar alpha) -> Tensor",
+            "aten::sub_(Tensor self, Scalar other, Scalar alpha) -> Tensor",
             "aten::mul(Tensor self, Scalar other) -> Tensor",
+            "aten::mul_(Tensor self, Scalar other) -> Tensor",
             "aten::div(Tensor self, Scalar other) -> Tensor",
+            "aten::div_(Tensor self, Scalar other) -> Tensor",
         },
         [this](Node* node) -> type_vec_t {
           if (auto maybe_tensor_types = gatherTensorTypes(node)) {
@@ -1115,10 +1132,13 @@ class ShapePropagator : public PropertyPropBase {
             if (!first_scalar_type || !second_scalar_type) {
               return {};
             }
-            if (isIntegralType(*first_scalar_type, false) &&
-                isFloatingType(*second_scalar_type)) {
+            if ((isIntegralType(*first_scalar_type, false) &&
+                 isFloatingType(*second_scalar_type)) ||
+                (isIntegralType(*first_scalar_type, false) &&
+                 isIntegralType(*second_scalar_type, false) &&
+                 (node->kind() == aten::div || node->kind() == aten::div_))) {
               auto default_dtype =
-                  at::typeMetaToScalarType(caffe2::get_default_dtype());
+                  at::typeMetaToScalarType(c10::get_default_dtype());
               return {broadcast(*maybe_tensor_types, default_dtype)};
             }
             if (c10::ScalarType::Bool == *first_scalar_type &&
@@ -2210,13 +2230,19 @@ class ShapePropagator : public PropertyPropBase {
     if (node->matches(
             "aten::add(Tensor self, Tensor other, *, Scalar alpha) -> Tensor") ||
         node->matches(
+            "aten::add_(Tensor self, Tensor other, *, Scalar alpha) -> Tensor") ||
+        node->matches(
             "aten::sub(Tensor self, Tensor other, *, Scalar alpha) -> Tensor") ||
-        node->matches("aten::mul(Tensor self, Tensor other) -> Tensor")) {
+        node->matches(
+            "aten::sub_(Tensor self, Tensor other, *, Scalar alpha) -> Tensor") ||
+        node->matches("aten::mul(Tensor self, Tensor other) -> Tensor") ||
+        node->matches("aten::mul_(Tensor self, Tensor other) -> Tensor")) {
       // These nodes handle tensors of different shapes internally, so there's
       // no need to insert explicit expand nodes.
       return PropagateShapeOnNodeByRunningIt(node);
-    } else if (node->matches(
-                   "aten::div(Tensor self, Tensor other) -> Tensor")) {
+    } else if (
+        node->matches("aten::div(Tensor self, Tensor other) -> Tensor") ||
+        node->matches("aten::div_(Tensor self, Tensor other) -> Tensor")) {
       // "div" handle tensors of different shapes internally, so there's no need
       // to insert explicit expand nodes.
       // Note that this function could be merged to the one above , but "div" is
@@ -2225,7 +2251,15 @@ class ShapePropagator : public PropertyPropBase {
       auto op = getOperatorForLiteral(
                     "aten::mul(Tensor self, Tensor other) -> Tensor")
                     ->getOperation();
-      return PropagateShapeOnNodeByRunningIt(node, op);
+      auto success = PropagateShapeOnNodeByRunningIt(node, op);
+      if (success) {
+        if (node->output()->type() &&
+            node->output()->type()->cast<TensorType>()->isSubtypeOf(
+                IntType::get())) {
+          node->output()->setType(FloatType::get());
+        }
+      }
+      return success;
     } else if (node->matches(
                    "aten::pow(Tensor self, Scalar exponent) -> Tensor")) {
       node->output()->setType(tensor_types.at(0));
@@ -2234,9 +2268,15 @@ class ShapePropagator : public PropertyPropBase {
         node->matches(
             "aten::add(Tensor self, Scalar other, Scalar alpha) -> Tensor") ||
         node->matches(
+            "aten::add_(Tensor self, Scalar other, Scalar alpha) -> Tensor") ||
+        node->matches(
             "aten::sub(Tensor self, Scalar other, Scalar alpha) -> Tensor") ||
+        node->matches(
+            "aten::sub_(Tensor self, Scalar other, Scalar alpha) -> Tensor") ||
         node->matches("aten::div(Tensor self, Scalar other) -> Tensor") ||
-        node->matches("aten::mul(Tensor self, Scalar other) -> Tensor")) {
+        node->matches("aten::div_(Tensor self, Scalar other) -> Tensor") ||
+        node->matches("aten::mul(Tensor self, Scalar other) -> Tensor") ||
+        node->matches("aten::mul_(Tensor self, Scalar other) -> Tensor")) {
       auto first_scalar_type = (tensor_types)[0]->scalarType();
       auto second_scalar_type =
           tryScalarTypeFromJitType(*node->inputs()[1]->type());
@@ -2245,8 +2285,7 @@ class ShapePropagator : public PropertyPropBase {
       }
       if (isIntegralType(*first_scalar_type, false) &&
           isFloatingType(*second_scalar_type)) {
-        auto default_dtype =
-            at::typeMetaToScalarType(caffe2::get_default_dtype());
+        auto default_dtype = at::typeMetaToScalarType(c10::get_default_dtype());
         auto type = tensor_types[0]->withScalarType(default_dtype);
         node->output()->setType(type);
         return true;

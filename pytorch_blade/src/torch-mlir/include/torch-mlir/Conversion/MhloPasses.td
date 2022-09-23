@@ -63,4 +63,13 @@ def DiscDecomposeComplexOps : Pass<"torch-disc-decompose-complex-ops", "func::Fu
   let constructor = "mlir::torch::TorchConversion::createDiscDecomposeComplexOpsPass()";
 }
 
+def DiscLowerOperatorOp : Pass<"torch-disc-lower-operator-op", "func::FuncOp"> {
+  let summary = "Lower custom ops in torch.operator known by BladeDisc into mhlo and mhlo_disc.";
+  let description = [{
+    Lower custom ops in torch.operator known by BladeDisc. As an example, this
+    pass transform torch.operator "torch_blade.fake_quant" to mhlo_disc::fake_quant
+  }];
+  let constructor = "mlir::torch::TorchConversion::createDiscLowerOperatorOpPass()";
+}
+
 #endif // TORCHMLIR_CONVERSION_DISC_MHLO_PASSES

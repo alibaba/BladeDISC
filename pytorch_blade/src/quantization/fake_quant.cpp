@@ -10,52 +10,40 @@
 // limitations under the License.
 
 #include <ATen/Functions.h>
+#include <torch/script.h>
 
+#include <cstdint>
 #include <mutex>
 
 #include "common_utils/logging.h"
-#include "quantization/fake_quant.h"
+//#include "quantization/fake_quant.h"
 
 namespace torch {
 namespace blade {
 namespace quantization {
 
-FakeQuant::FakeQuant(FakeQuant::SerialType serial) {
-  std::tie(
-      quant_min_,
-      quant_max_,
-      num_bits_,
-      axis_,
-      signed_,
-      symmetric_,
-      dynamic_,
-      per_channel_) = serial;
-  if (per_channel_) {
-    TORCH_CHECK(
-        axis_.size() > 0, "Per-channel quantization requires non-empty axis.");
-  } else {
-    TORCH_CHECK(
-        axis_.size() == 0, "Per-tensor quantization requires empty axis.");
-  }
-}
-
-FakeQuant::SerialType FakeQuant::serialize() const {
-  return std::make_tuple(
-      quant_min_,
-      quant_max_,
-      num_bits_,
-      axis_,
-      signed_,
-      symmetric_,
-      dynamic_,
-      per_channel_);
-}
-
-at::Tensor FakeQuant::forward(
-    const at::Tensor& input,
-    const at::Tensor& scale,
-    const at::Tensor& zero_point) {
-  if (per_channel_) {
+// A custom torch op used to carry fake quanto info downt to DISC compiler.
+torch::Tensor torch_blade_fake_quant(
+    torch::Tensor input,
+    torch::Tensor scale,
+    torch::Tensor zero_point,
+    int64_t quant_min,
+    int64_t quant_max,
+    int64_t num_bits,
+    std::vector<int64_t> axis,
+    bool use_signed,
+    bool use_symmetric,
+    bool use_dynamic,
+    bool use_per_channel) {
+    if (use_per_channel) {
+        TORCH_CHECK(
+            axis.size() > 0, "Per-channel quantization requires non-empty axis.");
+    } else {
+         TORCH_CHECK(
+            axis.size() == 0, "Per-tensor quantization requires empty axis.");
+    }
+ 
+    if (use_per_channel) {
     // torch version 1.8.x and 1.9.x require Long type for zero_point, while
     // higher versions require Int/Float/Double typle.
 #if PYTORCH_MAJOR_VERSION == 0 || \
@@ -65,45 +53,21 @@ at::Tensor FakeQuant::forward(
     at::Tensor zero_point_new = zero_point.to(at::ScalarType::Int);
 #endif
     return at::fake_quantize_per_channel_affine(
-        input, scale, zero_point_new, axis_[0], quant_min_, quant_max_);
+        input, scale, zero_point_new, axis[0], quant_min, quant_max);
   } else {
     // use scalar version for backward compatibility.
     return at::fake_quantize_per_tensor_affine(
         input,
         scale.item<double>(),
         zero_point.item<int64_t>(),
-        quant_min_,
-        quant_max_);
-  }
+        quant_min,
+        quant_max);
+  } 
 }
 
-namespace {
-auto reg =
-    torch::class_<FakeQuant>("torch_blade", "FakeQuant")
-        .def(torch::init<FakeQuant::SerialType>())
-        .def(
-            "forward",
-            [](const c10::intrusive_ptr<FakeQuant>& self,
-               const at::Tensor& input,
-               const at::Tensor& scale,
-               const at::Tensor& zero_point) {
-              return self->forward(input, scale, zero_point);
-            })
-        .def("quant_min", &FakeQuant::quant_min)
-        .def("quant_max", &FakeQuant::quant_max)
-        .def("num_bits", &FakeQuant::num_bits)
-        .def("axis", &FakeQuant::axis)
-        .def("is_signed", &FakeQuant::isSigned)
-        .def("is_symmetric", &FakeQuant::isSymmetric)
-        .def("is_dynamic", &FakeQuant::isDynamic)
-        .def("is_per_channel", &FakeQuant::isPerChannel)
-        .def_pickle(
-            [](const c10::intrusive_ptr<FakeQuant>& self)
-                -> FakeQuant::SerialType { return self->serialize(); },
-            [](FakeQuant::SerialType serial) -> c10::intrusive_ptr<FakeQuant> {
-              return c10::make_intrusive<FakeQuant>(serial);
-            });
-} // namespace
+TORCH_LIBRARY(torch_blade, m) {
+  m.def("fake_quant", torch_blade_fake_quant);
+}
 
 } // namespace quantization
 } // namespace blade

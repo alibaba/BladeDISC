@@ -8,7 +8,6 @@ cc_library(
     ],
     hdrs = [
         "placeholder_op.h",
-        "fake_quant.h",
     ],
     deps = [
         "@local_org_torch//:libtorch",

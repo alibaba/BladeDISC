@@ -55,6 +55,7 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
   pm.addNestedPass<func::FuncOp>(createDiscConvertTorchToMhloPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToMhloPass(
       /*enableStaticShape*/ false, /*enableI32Index*/ true));
+  pm.addNestedPass<func::FuncOp>(createDiscLowerOperatorOpPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToSCFPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToArithPass());
 

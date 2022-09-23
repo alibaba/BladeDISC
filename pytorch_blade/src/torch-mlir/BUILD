@@ -45,6 +45,7 @@ cc_library(
         "lib/Dialect/TorchConversion/Transforms/ApplyValueSemantics.cpp",
         "lib/Dialect/TorchConversion/Transforms/ReduceTensorConversions.cpp",
         "lib/Dialect/TorchConversion/Transforms/DiscDecomposeComplexOps.cpp",
+        "lib/Dialect/TorchConversion/Transforms/DiscLowerOperatorOp.cpp",
     ],
     hdrs = [
         "include/torch-mlir/Conversion/MhloPasses.h",

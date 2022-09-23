@@ -63,7 +63,8 @@ function ci_build() {
              "TestDiscActivation or TestDiscUnaryOps or TestDiscBinaryOps or \
               TestDiscBroadcast or TestDiscReduction or TestDiscMatMul or \
               TestDiscPermutation or TestDiscShapes or TestDiscSlices or \
-              TestDiscMemOps or TestConstOps or TestDiscLayerNorm"
+              TestDiscMemOps or TestConstOps or TestDiscLayerNorm or \
+              TestCustomFakeQuant"
     python3 setup.py bdist_wheel;
 }
 

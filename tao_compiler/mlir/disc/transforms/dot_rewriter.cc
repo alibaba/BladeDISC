@@ -118,21 +118,6 @@ struct DotToDotGeneralConvert : public OpRewritePattern<mhlo::DotOp> {
 struct DotGeneralConvert : public OpRewritePattern<mhlo::DotGeneralOp> {
   explicit DotGeneralConvert(MLIRContext* context)
       : OpRewritePattern(context) {}
-
-  SmallVector<Value, 4> getDimSizesOfTensor(PatternRewriter& rewriter,
-                                            Operation* op, Value value) const {
-    auto value_ty = value.getType().dyn_cast<RankedTensorType>();
-
-    auto loc = op->getLoc();
-    auto rank = value_ty.getRank();
-    // Get int vector [0, 1, ..., rank-1]
-    SmallVector<Value, 4> dim_sizes;
-    for (size_t d = 0; d < rank; ++d) {
-      dim_sizes.emplace_back(rewriter.create<tensor::DimOp>(loc, value, d));
-    }
-    return dim_sizes;
-  }
-
   Value unsqueezeTensorDim(PatternRewriter& rewriter, Operation* op,
                            Value tensor, int64_t dim) const {
     // Returns a new tensor with dims of size 1 inserted at the specified

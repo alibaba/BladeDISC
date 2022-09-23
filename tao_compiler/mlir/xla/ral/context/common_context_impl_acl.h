@@ -250,6 +250,7 @@ class DISCNEConvolutionLayer : public IFunction {
 
   const ITensorPack& get_packed_weight();
   void reuse_packed_weight(const ITensorPack& pack);
+  std::string get_md5_for_packed_weight();
 
  private:
   struct Impl;
@@ -667,6 +668,7 @@ class DISCNEGEMMLowpMatrixMultiplyCore : public IFunction {
 
   const ITensorPack& get_packed_weight();
   void reuse_packed_weight(const ITensorPack& pack);
+  std::string get_md5_for_packed_weight();
 
  private:
   struct Impl;

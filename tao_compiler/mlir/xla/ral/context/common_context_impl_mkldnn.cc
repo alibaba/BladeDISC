@@ -444,13 +444,17 @@ void runAclConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
   };
 
   std::shared_ptr<AclConvInfo> info;
+  std::shared_ptr<AclConvThreadSafeInfo> thread_safe_info;
   if (isWeightPrePackingEnabled() && params.weight_is_const) {
     std::string unique_name = "tao_ral.cpu.acl_conv";
     auto state = ctx->getOrCreateResource<AclConvState>(
         unique_name, []() { return new AclConvState; });
     auto key = makeConvParamsKey(input, kernel, padding, output, metadata,
                                  kDiscCpuDefaultThreadId);
-    info = state->getOrCreate(key, AclConvCreator);
+    auto dynamicKey = makeDynamicShapeConvParamsKey(
+        input, kernel, padding, output, metadata, kDiscCpuDefaultThreadId);
+    thread_safe_info = state->getOrCreate(dynamicKey);
+    info = thread_safe_info->getOrCreate(key, AclConvCreator);
   } else {
     info = AclConvCreator(nullptr);
   }

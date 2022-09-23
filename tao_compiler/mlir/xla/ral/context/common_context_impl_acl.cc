@@ -26,6 +26,7 @@
 #include "src/cpu/operators/CpuConv2d.h"
 #include "src/cpu/operators/CpuDepthwiseConv2d.h"
 #include "src/cpu/operators/CpuGemmLowpMatrixMultiplyCore.h"
+#include "tensorflow/compiler/mlir/xla/ral/ral_md5.h"
 
 namespace arm_compute {
 using namespace arm_compute::experimental;
@@ -119,6 +120,22 @@ std::unique_ptr<IMemoryRegion> DISCAllocator::make_region(size_t size,
 }
 
 using DISCBuffers = std::vector<std::unique_ptr<IMemoryRegion>>;
+
+std::string calculate_md5(WorkspaceData<Tensor>& workspace) {
+  tao::ral::MD5 md5;
+  int num_packed_weights = 0;
+  for (auto& item : workspace) {
+    if (item.lifetime != experimental::MemoryLifetime::Persistent) continue;
+    md5.update((const char*)(&item.slot), sizeof(item.slot));
+    auto& tensor = *item.tensor;
+    auto buffer =
+        tensor.buffer() + tensor.info()->offset_first_element_in_bytes();
+    md5.update(buffer, tensor.info()->total_size());
+    ++num_packed_weights;
+  }
+  md5.update((const char*)(&num_packed_weights), sizeof(num_packed_weights));
+  return md5.finalize().hexdigest();
+}
 
 template <typename TensorType>
 WorkspaceData<TensorType> manage_runtime_workspace(
@@ -343,6 +360,10 @@ const ITensorPack& DISCNEConvolutionLayer::get_packed_weight() {
 
 void DISCNEConvolutionLayer::reuse_packed_weight(const ITensorPack& pack) {
   _impl->persistent_pack = pack;
+}
+
+std::string DISCNEConvolutionLayer::get_md5_for_packed_weight() {
+  return calculate_md5(_impl->workspace);
 }
 
 DISCNEDepthwiseConvolutionLayer::~DISCNEDepthwiseConvolutionLayer() = default;
@@ -743,6 +764,10 @@ const ITensorPack& DISCNEGEMMLowpMatrixMultiplyCore::get_packed_weight() {
 void DISCNEGEMMLowpMatrixMultiplyCore::reuse_packed_weight(
     const ITensorPack& pack) {
   _impl->persistent_pack = pack;
+}
+
+std::string DISCNEGEMMLowpMatrixMultiplyCore::get_md5_for_packed_weight() {
+  return calculate_md5(_impl->workspace);
 }
 
 }  // namespace arm_compute

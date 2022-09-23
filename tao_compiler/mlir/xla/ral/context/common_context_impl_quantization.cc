@@ -136,13 +136,17 @@ void ral_qconv_s8_s8_s8(
   };
 
   std::shared_ptr<AclConvInfo> info;
+  std::shared_ptr<AclConvThreadSafeInfo> thread_safe_info;
   if (isWeightPrePackingEnabled() && params.weight_is_const) {
     std::string unique_name = "tao_ral.cpu.acl_qconv_s8s8s8";
     auto state = ctx->getOrCreateResource<AclConvState>(
         unique_name, []() { return new AclConvState; });
     auto key = makeConvParamsKey(input, kernel, padding, output, metadata,
                                  kDiscCpuDefaultThreadId);
-    info = state->getOrCreate(key, AclQconvCreator);
+    auto dynamicKey = makeDynamicShapeConvParamsKey(
+        input, kernel, padding, output, metadata, kDiscCpuDefaultThreadId);
+    thread_safe_info = state->getOrCreate(dynamicKey);
+    info = thread_safe_info->getOrCreate(key, AclQconvCreator);
   } else {
     info = AclQconvCreator(nullptr);
   }
@@ -301,13 +305,17 @@ void ral_qconv_acl_s8_s8_s8_per_channel(
   };
 
   std::shared_ptr<AclConvInfo> info;
+  std::shared_ptr<AclConvThreadSafeInfo> thread_safe_info;
   if (isWeightPrePackingEnabled() && params.weight_is_const) {
     std::string unique_name = "disc.ral_qconv_acl_s8_s8_s8_per_channel";
     auto state = ctx->getOrCreateResource<AclConvState>(
         unique_name, []() { return new AclConvState; });
     auto key = makeConvParamsKey(input, weight, padding, result, metadata,
                                  kDiscCpuDefaultThreadId);
-    info = state->getOrCreate(key, AclQconvCreator);
+    auto dynamicKey = makeDynamicShapeConvParamsKey(
+        input, weight, padding, result, metadata, kDiscCpuDefaultThreadId);
+    thread_safe_info = state->getOrCreate(dynamicKey);
+    info = thread_safe_info->getOrCreate(key, AclQconvCreator);
   } else {
     info = AclQconvCreator(nullptr);
   }
@@ -423,13 +431,18 @@ void ral_qgemm_acl_s8_s8_s8_per_channel(
   };
 
   std::shared_ptr<AclQGemmInfo> info;
+  std::shared_ptr<AclQGemmThreadSafeInfo> thread_safe_info;
   if (isWeightPrePackingEnabled() && weight_is_const) {
     std::string unique_name = "disc.ral_qgemm_acl_s8_s8_s8_per_channel";
     auto state = ctx->getOrCreateResource<AclQGemmState>(
         unique_name, []() { return new AclQGemmState; });
     auto key = makeGEMMParamsKey(input, weight, result, tp_a, tp_b,
                                  weight_is_const, kDiscCpuDefaultThreadId);
-    info = state->getOrCreate(key, AclQGemmCreator);
+    auto dynamicKey =
+        makeDynamicShapeGEMMParamsKey(input, weight, result, tp_a, tp_b,
+                                      weight_is_const, kDiscCpuDefaultThreadId);
+    thread_safe_info = state->getOrCreate(dynamicKey);
+    info = thread_safe_info->getOrCreate(key, AclQGemmCreator);
   } else {
     info = AclQGemmCreator(nullptr);
   }

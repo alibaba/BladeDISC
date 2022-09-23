@@ -1,4 +1,4 @@
-// RUN: disc-opt -disc-dense-to-sparse -split-input-file %s -o - | FileCheck %s --check-prefix=DenseToSparse
+// RUN: disc-opt -disc-dense-to-sparse=enable-sparse-convert=false -split-input-file %s -o - | FileCheck %s --check-prefix=DenseToSparse
 // RUN: disc-opt -disc-sparse-gemm-transpose-simplifier -split-input-file %s -o - | FileCheck %s --check-prefix=SparseGemmTransSim
 
 // DenseToSparse-LABEL: func.func @dense_to_sparse_gemm

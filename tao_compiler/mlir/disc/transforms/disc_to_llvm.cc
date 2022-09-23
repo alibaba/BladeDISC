@@ -67,7 +67,11 @@ LogicalResult getTypeEncoding(MLIRContext* ctx, Type t, StrT& out) {
         Twine("m").concat(Twine(memref_type.getRank()).concat("d")).str());
     return getTypeEncoding(ctx, memref_type.getElementType(), out);
   } else if (auto int_type = t.dyn_cast<IntegerType>()) {
-    out.append(Twine("i").concat(Twine(int_type.getWidth())).str());
+    if (int_type.isUnsigned()) {
+      out.append(Twine("ui").concat(Twine(int_type.getWidth())).str());
+    } else {
+      out.append(Twine("i").concat(Twine(int_type.getWidth())).str());
+    }
   } else if (auto fp_type = t.dyn_cast<FloatType>()) {
     out.append(Twine("f").concat(Twine(fp_type.getWidth())).str());
   } else if (auto ctx_type = t.dyn_cast<RalExecutionContextType>() ||

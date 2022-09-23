@@ -236,7 +236,8 @@ std::unique_ptr<OperationPass<gpu::GPUFuncOp>>
 createSideEffectLoopInvariantCodeMotionPass();
 
 // Apply dense gemm/conv to sparse gemm/conv optimizations.
-std::unique_ptr<OperationPass<FuncOp>> createDiscDenseToSparsePass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscDenseToSparsePass(
+    bool enable_sparse_convert = false);
 
 // Remove some redundant transpose ops before sparse gemm/conv.
 std::unique_ptr<OperationPass<FuncOp>>

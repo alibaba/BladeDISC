@@ -45,6 +45,7 @@ using namespace mlir::torch::Torch;
 using namespace mlir::torch::TorchConversion;
 
 namespace {
+static constexpr size_t kMhloDimSizeBits = 32;
 template <typename AtenOpT>
 class ConvertAtenOp : public OpConversionPattern<AtenOpT> {
  public:
@@ -392,20 +393,20 @@ LogicalResult ConvertAtenOp<ValsemVariantAtenUniformOp>::matchAndRewrite(
   if (!inputTy) {
     op.emitError("input should be ranked tensor type.");
   }
-  auto definingOp = op.self().getDefiningOp();
-  auto shape = definingOp->getOperand(0);
-  SmallVector<Value, 4> dimSizes;
-  getListConstructElements(shape, dimSizes);
-  std::for_each(dimSizes.begin(), dimSizes.end(), [&](Value& dSize) {
-    dSize = rewriter.create<ToI64Op>(loc, dSize).getResult();
-    // dimSize: cast i64 -> i32
-    dSize = rewriter.create<arith::TruncIOp>(loc, rewriter.getI32Type(), dSize);
-    return dSize;
-  });
 
+  auto inputShapeInfo =
+      mhlo::getDimSizesOfTensor(rewriter, op, adaptor.self(), kMhloDimSizeBits);
+  if (failed(inputShapeInfo)) {
+    return rewriter.notifyMatchFailure(
+        op, "failed to get dimension sizes of the input");
+  }
+
+  SmallVector<Value, 4> dimSizes = *inputShapeInfo;
+  if (dimSizes.size() == 0) {
+    return op.emitError("the input rank is 0");
+  }
   auto mhloShape =
       rewriter.create<tensor::FromElementsOp>(op.getLoc(), dimSizes);
-
   double fromDoubleValue, toDoubleValue;
   if (!matchPattern(op.from(), m_TorchConstantFloat(&fromDoubleValue))) {
     op.emitError("operand #1 should be scalar");
@@ -475,7 +476,6 @@ LogicalResult ConvertAtenOp<AtenLeakyReluOp>::matchAndRewrite(
 } // namespace
 
 namespace {
-static constexpr size_t kMhloDimSizeBits = 32;
 static Value createInitialValueForReduceOp(
     Operation* op,
     Type elementTy,

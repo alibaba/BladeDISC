@@ -13,13 +13,19 @@
 // CHECK:         %[[T6:.*]] = arith.trunci %[[T3]] : i64 to i32
 // CHECK:         %[[T7:.*]] = arith.trunci %[[T5]] : i64 to i32
 // CHECK:         %[[T8:.*]] = tensor.from_elements %[[T6]], %[[T7]] : tensor<2xi32>
-// CHECK:         %[[T9:.*]] = "mhlo.rng"(%[[T1]], %[[T0]], %[[T8]]) {rng_distribution = #mhlo.rng_distribution<UNIFORM>} : (tensor<f32>, tensor<f32>, tensor<2xi32>) -> tensor<?x?xf32>
-// CHECK:         %[[T10:.*]] = chlo.broadcast_compare %[[T9]], %[[T1]] {compare_type = #chlo<comparison_type FLOAT>, comparison_direction = #chlo<comparison_direction LT>} : (tensor<?x?xf32>, tensor<f32>) -> tensor<?x?xi1>
-// CHECK:         %[[T11:.*]] = mhlo.convert(%[[T10]]) : (tensor<?x?xi1>) -> tensor<?x?xf32>
-// CHECK:         %[[T12:.*]] = chlo.broadcast_multiply %[[T11]], %[[ARG0]] : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
-// CHECK:         %[[T13:.*]] = chlo.broadcast_multiply %[[T12]], %[[T1]] : (tensor<?x?xf32>, tensor<f32>) -> tensor<?x?xf32>
-// CHECK:         %[[T14:.*]] = chlo.broadcast_compare %[[T11]], %[[T0]] {compare_type = #chlo<comparison_type FLOAT>, comparison_direction = #chlo<comparison_direction GE>} : (tensor<?x?xf32>, tensor<f32>) -> tensor<?x?xi1>
-// CHECK:         return %[[T13]], %[[T14]] : tensor<?x?xf32>, tensor<?x?xi1>
+// CHECK:         %[[T9:.*]] = "mhlo.dynamic_broadcast_in_dim"(%[[T1]], %[[T8]]) {broadcast_dimensions = dense<> : tensor<0xi64>} : (tensor<f32>, tensor<2xi32>) -> tensor<?x?xf32>
+// CHECK:         %[[T10:.*]] = tensor.dim %[[T9]], %[[C0]] : tensor<?x?xf32>
+// CHECK:         %[[T11:.*]] = arith.index_cast %[[T10]] : index to i32
+// CHECK:         %[[T12:.*]] = tensor.dim %[[T9]], %[[C1]] : tensor<?x?xf32>
+// CHECK:         %[[T13:.*]] = arith.index_cast %[[T12]] : index to i32
+// CHECK:         %[[T14:.*]] = tensor.from_elements %[[T11]], %[[T13]] : tensor<2xi32>
+// CHECK:         %[[T15:.*]] = "mhlo.rng"(%[[T1]], %[[T0]], %[[T1]]4) {rng_distribution = #mhlo.rng_distribution<UNIFORM>} : (tensor<f32>, tensor<f32>, tensor<2xi32>) -> tensor<?x?xf32>
+// CHECK:         %[[T16:.*]] = chlo.broadcast_compare %[[T15]], %[[T1]] {compare_type = #chlo<comparison_type FLOAT>, comparison_direction = #chlo<comparison_direction LT>} : (tensor<?x?xf32>, tensor<f32>) -> tensor<?x?xi1>
+// CHECK:         %[[T17:.*]] = mhlo.convert(%[[T16]]) : (tensor<?x?xi1>) -> tensor<?x?xf32>
+// CHECK:         %[[T18:.*]] = chlo.broadcast_multiply %[[T17]], %[[ARG0]] : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+// CHECK:         %[[T19:.*]] = chlo.broadcast_multiply %[[T18]], %[[T1]] : (tensor<?x?xf32>, tensor<f32>) -> tensor<?x?xf32>
+// CHECK:         %[[T20:.*]] = chlo.broadcast_compare %[[T17]], %[[T0]] {compare_type = #chlo<comparison_type FLOAT>, comparison_direction = #chlo<comparison_direction GE>} : (tensor<?x?xf32>, tensor<f32>) -> tensor<?x?xi1>
+// CHECK:         return %[[T19]], %[[T20]] : tensor<?x?xf32>, tensor<?x?xi1>
 func.func @torch.aten.native_dropout.train(%arg0: !torch.vtensor<[?,?],f32>) -> (!torch.vtensor<[?,?],f32>, !torch.vtensor<[?,?],i1>) {
   %float1 = torch.constant.float 1.000000e+00
   %bool_true = torch.constant.bool true

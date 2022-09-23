@@ -169,7 +169,7 @@ func.func @torch.aten.mm.proj(%arg0: !torch.vtensor<[?,256],f32>) -> !torch.vten
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<1.000000e+00> : tensor<2x256x256xf32>
 // CHECK:         %[[T1:.*]] = tensor.cast %[[ARG0]] : tensor<2x?x?xf32> to tensor<2x?x256xf32>
 // CHECK:         %[[T2:.*]] = "mhlo.dot_general"(%[[T1]], %[[T0]]) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>} : (tensor<2x?x256xf32>, tensor<2x256x256xf32>) -> tensor<2x?x256xf32>
-// CHECK:         %[[T3:.*]] = mhlo.convert(%[[T2]]) : (tensor<2x?x256xf32>) -> tensor<2x256x256xf32>
+// CHECK:         %[[T3:.*]] = tensor.cast %[[T2]] : tensor<2x?x256xf32> to tensor<2x256x256xf32>
 // CHECK:         return %[[T3]] : tensor<2x256x256xf32>
 func.func @torch.aten.matmul.dynamic_shape_cast(%arg0: !torch.vtensor<[2,?,?],f32>) -> !torch.vtensor<[2,256,256],f32> {
   %0 = torch.vtensor.literal(dense<1.000000e+00> : tensor<256x256xf32>) : !torch.vtensor<[256,256],f32>
@@ -183,7 +183,7 @@ func.func @torch.aten.matmul.dynamic_shape_cast(%arg0: !torch.vtensor<[2,?,?],f3
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x256xf32>) -> tensor<2x256xf32> {
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<1.000000e+00> : tensor<256x256xf32>
 // CHECK:         %[[T1:.*]] = "mhlo.dot"(%[[ARG0]], %[[T0]]) : (tensor<?x256xf32>, tensor<256x256xf32>) -> tensor<?x256xf32>
-// CHECK:         %[[T2:.*]] = mhlo.convert(%[[T1]]) : (tensor<?x256xf32>) -> tensor<2x256xf32>
+// CHECK:         %[[T2:.*]] = tensor.cast %[[T1]] : tensor<?x256xf32> to tensor<2x256xf32>
 // CHECK:         return %[[T2]] : tensor<2x256xf32>
 func.func @torch.aten.mm.dynamic_shape_cast(%arg0: !torch.vtensor<[?,256],f32>) -> !torch.vtensor<[2,256],f32> {
   %0 = torch.vtensor.literal(dense<1.000000e+00> : tensor<256x256xf32>) : !torch.vtensor<[256,256],f32>
@@ -196,7 +196,7 @@ func.func @torch.aten.mm.dynamic_shape_cast(%arg0: !torch.vtensor<[?,256],f32>) 
 // CHECK-LABEL:  func.func @torch.aten.matmul.1dx2d.dynamic_shape_cast(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?xf32>, %[[ARG1:.*]]: tensor<256x?xf32>) -> tensor<1xf32> {
 // CHECK:         %[[T0:.*]] = "mhlo.dot"(%[[ARG0]], %[[ARG1]]) : (tensor<?xf32>, tensor<256x?xf32>) -> tensor<?xf32>
-// CHECK:         %[[T1:.*]] = mhlo.convert(%[[T0]]) : (tensor<?xf32>) -> tensor<1xf32>
+// CHECK:         %[[T1:.*]] = tensor.cast %[[T0]] : tensor<?xf32> to tensor<1xf32>
 // CHECK:         return %[[T1]] : tensor<1xf32>
 func.func @torch.aten.matmul.1dx2d.dynamic_shape_cast(%arg0: !torch.vtensor<[?],f32>, %arg1: !torch.vtensor<[256,?],f32>) -> !torch.vtensor<[1],f32> {
   %0 = torch.aten.matmul %arg0, %arg1 : !torch.vtensor<[?],f32>, !torch.vtensor<[256,?],f32> -> !torch.vtensor<[1],f32>

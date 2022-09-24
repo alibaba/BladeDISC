@@ -37,7 +37,8 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
   using OpConversionPattern<OperatorOp>::OpConversionPattern;
   using OpAdaptor = typename OperatorOp::Adaptor;
   LogicalResult matchAndRewrite(
-      OperatorOp op, OpAdaptor adaptor,
+      OperatorOp op,
+      OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override {
     Location loc = op.getLoc();
     auto name = op.name();
@@ -103,8 +104,17 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
       auto useSymmetricAttr = rewriter.getBoolAttr(useSymmetric);
       auto useDynamicAttr = rewriter.getBoolAttr(useDynamic);
       Value newOp = rewriter.create<mhlo_disc::FakeQuantOp>(
-          loc, castedResultTy, input, scale, castedZeroPoint, useSignedAttr,
-          useSymmetricAttr, axisAttr, numBitsAttr, qminAttr, qmaxAttr,
+          loc,
+          castedResultTy,
+          input,
+          scale,
+          castedZeroPoint,
+          useSignedAttr,
+          useSymmetricAttr,
+          axisAttr,
+          numBitsAttr,
+          qminAttr,
+          qmaxAttr,
           useDynamicAttr);
       rewriter.replaceOp(op, {newOp});
 
@@ -121,9 +131,12 @@ class DiscLowerOperatorOp
     MLIRContext* context = &getContext();
 
     ConversionTarget target(*context);
-    target.addLegalDialect<arith::ArithmeticDialect, chlo::ChloDialect,
-                           mhlo::MhloDialect, mhlo_disc::MhloDiscDialect,
-                           tensor::TensorDialect>();
+    target.addLegalDialect<
+        arith::ArithmeticDialect,
+        chlo::ChloDialect,
+        mhlo::MhloDialect,
+        mhlo_disc::MhloDiscDialect,
+        tensor::TensorDialect>();
 
     TypeConverter typeConverter;
     typeConverter.addConversion([](Type type) { return type; });
@@ -133,16 +146,16 @@ class DiscLowerOperatorOp
     patterns.add<ConvertOperatorOp>(typeConverter, context);
     target.addIllegalOp<OperatorOp>();
 
-    if (failed(applyPartialConversion(getOperation(), target,
-                                      std::move(patterns)))) {
+    if (failed(applyPartialConversion(
+            getOperation(), target, std::move(patterns)))) {
       return signalPassFailure();
     }
   }
 };
 
-}  //  namespace
+} //  namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>>
-mlir::torch::TorchConversion::createDiscLowerOperatorOpPass() {
+std::unique_ptr<OperationPass<func::FuncOp>> mlir::torch::TorchConversion::
+    createDiscLowerOperatorOpPass() {
   return std::make_unique<DiscLowerOperatorOp>();
 }

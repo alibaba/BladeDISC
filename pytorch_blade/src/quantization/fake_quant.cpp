@@ -35,15 +35,15 @@ torch::Tensor torch_blade_fake_quant(
     bool use_symmetric,
     bool use_dynamic,
     bool use_per_channel) {
-    if (use_per_channel) {
-        TORCH_CHECK(
-            axis.size() > 0, "Per-channel quantization requires non-empty axis.");
-    } else {
-         TORCH_CHECK(
-            axis.size() == 0, "Per-tensor quantization requires empty axis.");
-    }
- 
-    if (use_per_channel) {
+  if (use_per_channel) {
+    TORCH_CHECK(
+        axis.size() > 0, "Per-channel quantization requires non-empty axis.");
+  } else {
+    TORCH_CHECK(
+        axis.size() == 0, "Per-tensor quantization requires empty axis.");
+  }
+
+  if (use_per_channel) {
     // torch version 1.8.x and 1.9.x require Long type for zero_point, while
     // higher versions require Int/Float/Double typle.
 #if PYTORCH_MAJOR_VERSION == 0 || \
@@ -62,7 +62,7 @@ torch::Tensor torch_blade_fake_quant(
         zero_point.item<int64_t>(),
         quant_min,
         quant_max);
-  } 
+  }
 }
 
 TORCH_LIBRARY(torch_blade, m) {

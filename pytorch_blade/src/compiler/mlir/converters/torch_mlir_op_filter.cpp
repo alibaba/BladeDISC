@@ -28,7 +28,7 @@ bool IsTorchMlirSupported(const torch::jit::Node& node) {
   auto schema = node.maybeSchema();
   if (schema) {
     return GetTorchMlirWhiteList().find(schema->operator_name().name) !=
-           GetTorchMlirWhiteList().end();
+        GetTorchMlirWhiteList().end();
   } else if (node.kind().is_prim()) {
     auto name = c10::OperatorName(node.kind().toQualString(), "").name;
     return GetTorchMlirWhiteList().find(name) != GetTorchMlirWhiteList().end();

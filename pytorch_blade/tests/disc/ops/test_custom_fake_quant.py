@@ -33,7 +33,7 @@ class Dummy(torch.nn.Module):
                 input, scale, zero_point, qmin, qmax, num_bits, axis, signed, symatric, dynamic, per_channel)
 
 @unittest.skipIf(
-    utils.torch_version_number() < utils.parse_version("1.8.0"),
+    utils.torch_version_number() < utils.parse_version("1.8.0") and torch.cuda.is_available(),
     'Quant support since 1.8.0'
 )
 class TestCustomFakeQuant(DiscTestCase):

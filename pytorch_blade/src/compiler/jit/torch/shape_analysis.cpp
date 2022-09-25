@@ -873,6 +873,10 @@ class ShapePropagator : public PropertyPropBase {
             "aten::erf_(Tensor self) -> Tensor",
             "aten::relu(Tensor self) -> Tensor",
             "aten::relu_(Tensor self) -> Tensor",
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 9
+            "aten::relu6(Tensor self) -> Tensor",
+            "aten::relu6_(Tensor self) -> Tensor",
+#endif
         },
         [](Node* node) -> type_vec_t {
           if (auto type = node->input(0)->type()->cast<TensorType>()) {
@@ -951,6 +955,10 @@ class ShapePropagator : public PropertyPropBase {
             "aten::reciprocal(Tensor self) -> Tensor",
             "aten::relu(Tensor self) -> Tensor",
             "aten::relu_(Tensor self) -> Tensor",
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 9
+            "aten::relu6(Tensor self) -> Tensor",
+            "aten::relu6_(Tensor self) -> Tensor",
+#endif
             "aten::round(Tensor self) -> Tensor",
             "aten::rrelu(Tensor self, Scalar lower, Scalar upper, bool training, Generator? generator) -> Tensor",
             "aten::rsqrt(Tensor self) -> Tensor",

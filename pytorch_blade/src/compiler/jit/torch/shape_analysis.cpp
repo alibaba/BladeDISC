@@ -94,10 +94,7 @@ void applyTypes(at::ArrayRef<Value*> src, at::ArrayRef<Value*> dst) {
 void PropertyPropBase::propagateBlock(Block* block, bool insert_expands) {
   for (Node* node : block->nodes()) {
     try {
-      node->dump();
       propagateNode(node, insert_expands);
-      node->dump();
-      std::cout << "------" << std::endl;
     } catch (propagation_error& e) {
       setUnshapedType(node);
     } catch (std::exception& e) {
@@ -450,17 +447,15 @@ class ShapePropagator : public PropertyPropBase {
         node->inputs().begin(),
         node->inputs().end(),
         isValidArgumentForRunning);
-    if (!valid_args) {
+    if (!valid_args)
       return false;
-    }
 
     bool valid_returns = std::all_of(
         node->outputs().begin(),
         node->outputs().end(),
         isValidReturnForRunning);
-    if (!valid_returns) {
+    if (!valid_returns)
       return false;
-    }
 
     return true;
   }
@@ -478,9 +473,8 @@ class ShapePropagator : public PropertyPropBase {
   }
 
   bool PropagateShapeOnNodeByRunningIt(Node* node, Operation op = nullptr) {
-    if (!canPropagateShapeByRunningIt(node)) {
+    if (!canPropagateShapeByRunningIt(node))
       return false;
-    }
 
     if (!op)
       op = node->getOperation();
@@ -965,10 +959,6 @@ class ShapePropagator : public PropertyPropBase {
             "aten::trunc(Tensor self) -> Tensor",
             "aten::rot90(Tensor self, int k, int[] dims) -> Tensor",
             "aten::narrow(Tensor self, int dim, int start, int length) -> Tensor",
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
-#else
-            "aten::slice(Tensor self, int dim, int start, int end, int step) -> Tensor",
-#endif
             "aten::alias(Tensor self) -> Tensor",
             "aten::zero_(Tensor self) -> Tensor",
         },
@@ -1976,7 +1966,12 @@ class ShapePropagator : public PropertyPropBase {
       }
     } else if (
         node->matches(
-            "aten::slice(Tensor self, int dim, int? start=None, int? end=None, int step=1) -> Tensor")) {
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
+            "aten::slice(Tensor self, int dim, int? start=None, int? end=None, int step=1) -> Tensor"
+#else
+            "aten::slice(Tensor self, int dim, int start, int end, int step) -> Tensor"
+#endif
+            )) {
       if (auto type = input_type(0)) {
         SymbolicShape new_sizes(type->symbolic_sizes());
         int64_t dim = node->get<int64_t>(attr::dim).value();
@@ -1996,7 +1991,6 @@ class ShapePropagator : public PropertyPropBase {
       auto weight_type = input_type(0);
       auto indices_type = input_type(1);
       if (weight_type && indices_type && indices_type->dim()) {
-        std::cout << "processing ... " << std::endl;
         std::vector<ShapeSymbol> new_sizes =
             indices_type->symbolic_sizes().sizes().value();
         new_sizes.push_back(weight_type->symbolic_sizes()[1]);
@@ -2248,7 +2242,7 @@ class ShapePropagator : public PropertyPropBase {
         auto dims = node->get<c10::List<int64_t>>(attr::dims).value();
         std::vector<ShapeSymbol> newSizes(dims.size());
         for (const auto i : c10::irange(dims.size())) {
-          auto dimSize = type->symbolic_sizes()[dims[i]];
+          auto dimSize = type->symbolic_sizes().sizes().value()[dims[i]];
           if (dimSize.is_static()) {
             newSizes[i] = ShapeSymbol::fromStaticSize(dimSize.static_size());
           } else {
@@ -2262,7 +2256,6 @@ class ShapePropagator : public PropertyPropBase {
         node->matches(
             "aten::slice(Tensor self, int dim, int? start=None, int? end=None, int step=1) -> Tensor")) {
       if (auto type = tensor_types.at(0)) {
-        node->dump();
         std::vector<ShapeSymbol> new_sizes =
             type->symbolic_sizes().sizes().value();
         int64_t dim = node->get<int64_t>(attr::dim).value();
@@ -2276,7 +2269,6 @@ class ShapePropagator : public PropertyPropBase {
           new_sizes[dim] = ShapeSymbol::fromStaticSize((len + step - 1) / step);
         }
         node->output()->setType(type->withSymbolicShapes(new_sizes));
-        node->dump();
         return true;
       }
     } else if (
@@ -2284,9 +2276,7 @@ class ShapePropagator : public PropertyPropBase {
             "aten::embedding(Tensor weight, Tensor indices, int padding_idx, bool scale_grad_by_freq, bool sparse) -> Tensor")) {
       auto weight_type = tensor_types.at(0);
       auto indices_type = tensor_types.at(1);
-      std::cout << "match aten::embedding" << std::endl;
       if (weight_type && indices_type && indices_type->dim()) {
-        std::cout << "processing ... " << std::endl;
         if (weight_type->symbolic_sizes().isComplete() &&
             indices_type->symbolic_sizes().isComplete()) {
           std::vector<int64_t> new_sizes =
@@ -2296,7 +2286,7 @@ class ShapePropagator : public PropertyPropBase {
         } else {
           std::vector<ShapeSymbol> new_sizes =
               indices_type->symbolic_sizes().sizes().value();
-          new_sizes.push_back(weight_type->symbolic_sizes()[1]);
+          new_sizes.push_back(weight_type->symbolic_sizes().sizes().value()[1]);
           node->output()->setType(weight_type->withSymbolicShapes(new_sizes));
         }
       }

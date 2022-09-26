@@ -2012,7 +2012,8 @@ class ShapePropagator : public PropertyPropBase {
 #endif
             )) {
       if (auto type = input_type(0)) {
-        SymbolicShape new_sizes(type->symbolic_sizes());
+        std::vector<ShapeSymbol> new_sizes =
+            type->symbolic_sizes().sizes().value();
         int64_t dim = node->get<int64_t>(attr::dim).value();
         int64_t start = node->get<int64_t>(attr::start).value();
         int64_t end = node->get<int64_t>(attr::end).value();
@@ -2032,7 +2033,7 @@ class ShapePropagator : public PropertyPropBase {
       if (weight_type && indices_type && indices_type->dim()) {
         std::vector<ShapeSymbol> new_sizes =
             indices_type->symbolic_sizes().sizes().value();
-        new_sizes.push_back(weight_type->symbolic_sizes()[1]);
+        new_sizes.push_back(weight_type->symbolic_sizes().sizes().value()[1]);
         node->output()->setType(weight_type->withSymbolicShapes(new_sizes));
       }
       return true;
@@ -2108,7 +2109,8 @@ class ShapePropagator : public PropertyPropBase {
       } else if (
           node->matches(
               "aten::reshape(Tensor(a) self, int[] shape) -> Tensor(a)")) {
-        if (auto type = tensor_types.at(0)) {
+        auto type = tensor_types.at(0);
+        if (type && type->symbolic_sizes().isComplete()) {
           auto shape = node->get<c10::List<int64_t>>(attr::shape).value();
           std::vector<int64_t> new_sizes(shape.begin(), shape.end());
           return type->withSizes(new_sizes);

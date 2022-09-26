@@ -87,7 +87,6 @@ void EnhancementInputShape(
     const auto ts_data =
         std::static_pointer_cast<torch::lazy::TSData>(argument);
     if (ts_data->HasValue()) {
-      input->setType(c10::TensorType::create(ts_data->data()));
       if (torch::blade::env::ReadBoolFromEnvVar(
               "TORCH_DISC_DYNAMIC_SHAPE_COMPILE", false)) {
         auto t = ts_data->data();

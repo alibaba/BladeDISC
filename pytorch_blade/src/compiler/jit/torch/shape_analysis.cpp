@@ -94,7 +94,10 @@ void applyTypes(at::ArrayRef<Value*> src, at::ArrayRef<Value*> dst) {
 void PropertyPropBase::propagateBlock(Block* block, bool insert_expands) {
   for (Node* node : block->nodes()) {
     try {
+      node->dump();
       propagateNode(node, insert_expands);
+      node->dump();
+      std::cout << "------" << std::endl;
     } catch (propagation_error& e) {
       setUnshapedType(node);
     } catch (std::exception& e) {
@@ -1987,6 +1990,19 @@ class ShapePropagator : public PropertyPropBase {
         node->outputs()[0]->setType(type->withSymbolicShapes(new_sizes));
       }
       return true;
+    } else if (
+        node->matches(
+            "aten::embedding(Tensor weight, Tensor indices, int padding_idx, bool scale_grad_by_freq, bool sparse) -> Tensor")) {
+      auto weight_type = input_type(0);
+      auto indices_type = input_type(1);
+      if (weight_type && indices_type && indices_type->dim()) {
+        std::cout << "processing ... " << std::endl;
+        std::vector<ShapeSymbol> new_sizes =
+            indices_type->symbolic_sizes().sizes().value();
+        new_sizes.push_back(weight_type->symbolic_sizes()[1]);
+        node->output()->setType(weight_type->withSymbolicShapes(new_sizes));
+      }
+      return true;
     }
 
     // The code below implements formulas that need type information for all
@@ -2268,7 +2284,9 @@ class ShapePropagator : public PropertyPropBase {
             "aten::embedding(Tensor weight, Tensor indices, int padding_idx, bool scale_grad_by_freq, bool sparse) -> Tensor")) {
       auto weight_type = tensor_types.at(0);
       auto indices_type = tensor_types.at(1);
+      std::cout << "match aten::embedding" << std::endl;
       if (weight_type && indices_type && indices_type->dim()) {
+        std::cout << "processing ... " << std::endl;
         if (weight_type->symbolic_sizes().isComplete() &&
             indices_type->symbolic_sizes().isComplete()) {
           std::vector<int64_t> new_sizes =
@@ -2282,7 +2300,6 @@ class ShapePropagator : public PropertyPropBase {
           node->output()->setType(weight_type->withSymbolicShapes(new_sizes));
         }
       }
-      node->dump();
       return true;
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 8
     } else if (

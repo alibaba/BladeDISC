@@ -240,7 +240,7 @@ static bool DoGemmWithAlgorithm(
                      /*leading dim of LHS=*/lhs_matrix.num_cols,
                      /*beta=*/static_cast<AlphaBeta>(beta), &output_data,
 #if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
-                     /*leading dim of output=*/n, call_context)
+                     /*leading dim of output=*/n, se::blas::CallContext::kNone)
 #else
                      /*leading dim of output=*/n)
 #endif
@@ -610,9 +610,9 @@ std::vector<ProfileResult> GetMIOpenAlgorithms(
           operand_buffers[1], params.output_descriptor, result_buffer,
           params.convolution_descriptor, scratch_allocator,
 #if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8)
-	        se::dnn::CallContext::kNone, &algorithms)) {
+          se::dnn::CallContext::kNone, &algorithms)) {
 #else
-	        &algorithms)) {
+          &algorithms)) {
 #endif
     ctx->signalError(Context::FAILURE, "GetMIOpenAlgorithms failed.");
   }

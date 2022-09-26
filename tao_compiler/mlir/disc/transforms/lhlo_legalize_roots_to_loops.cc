@@ -1684,114 +1684,10 @@ LogicalResult lowerWithScheduleRowReduction<DISC_BLOCK_WISE_ROW_REDUCE>(
   return success();
 }
 
-/* BLOCK TILE LOOP NAIVE IMPL: tile_w * tile_h threads load tile_w * (tile_h * LOOP)
- *  elements from gmem to SHM(tile_w vectorizes load), do reduction in SHM and
- *  atomic to gmem
- * 
-
- // threads_per_warp = 64;
- // threads_per_block = 512;
- // warp_count = 8;
- 
- // warp_loop = 4;
- 
- // rows_per_block = warp_loop * warp_count;
- // cols_per_block = threads_per_warp;
- 
- // n_block_cols = ceil(n_cols / cols_per_block)
- // n_block_rows = ceil(n_rows / rows_per_block)
- // n_blocks = n_block_cols * n_block_rows
- 
- // for (m = 0; m < n_blocks; ++m) {
- //   for (n = 0; n < threads_per_block; ++n) {
- //     block_row_idx = m / n_block_cols
- //     block_col_idx = m % n_block_cols
- //     warp_idx = n / threads_per_warp
- //     lane_idx = n % threads_per_warp
- // 
- //     // local reduction in register of $warp_loop elems
- //     row_base = block_row_idx * rows_per_block
- //     col_idx = block_col_idx * cols_per_block + lane_idx
- //     for (k = warp_idx; k < rows_per_block; k += warp_loop) {
- //       row_idx = row_base + k
- //       if (row_idx < n_rows && col_idx < n_cols) {
- //         shm[n] += gmem[row_idx][col_idx]
- //       }
- //     }   
- // 
- //     // warp reduction in shared mem for $warp_size partial results
- //     for (int stride = warp_size / 2; stride > 1; stride >> 1) {
- //       __syncthreads();
- //       if (warp_idx < stride && (row_base + warp_idx + stride) < n_rows) {
- //         shm[n] += shm[n + stride * threads_per_warp]; 
- //       } 
- //     }
- //     __syncthreads();
- //     // block reduction in global mem for $n_block_rows partial results
- //     if (warp_idx == 0 && row_base < n_rows && col_idx < n_cols) {
- //       partial_res = shm[n] + shm[n + warp_size]
- //       globalRMW(&global[col_idx], partial_res)
- //     }   
- //   }
- // }
-
-// var_threads = 512;
-// block_limit = 104; // SM_COUNT
-// var_threads = var_tile_h * var_tile_w;
-
-// num_block_cols = ceil(var_cols / var_tile_w);
-// num_sw_block_rows = ceil(var_rows / var_tile_h);
-// num_hw_block_rows = ceil(block_limit / num_block_cols);
-// var_loop_iter = ceil(num_sw_block_rows / num_hw_block_rows);
-
-// for (m = 0; m < num_block_cols * num_hw_block_rows; ++m) {
-//   for (n = 0; n < var_threads; ++n) {
-//     local_row_index = n / var_tile_w;
-//     local_col_index = n % var_tile_w;
-//     hw_block_row_index = m / num_block_cols;
-//     block_col_index = m % num_block_cols;
-//     col_index = block_col_index * var_tile_w + local_col_index;
-//     sw_block_row_index_base = hw_block_row_index * var_loop_iter;
-//     is_col_valid = col_index < var_cols;
-//     if (is_col_valid) {
-//       loop_acc = init_value;
-//       for (l = 0; l < var_loop_iter; ++l) {
-//         sw_block_row_index = sw_block_row_index_base + l;
-//         row_index = sw_block_row_index * var_tile_h + local_row_index;
-//         is_row_valid = row_index < var_rows;
-//         if (is_row_valid) {
-//           loop_acc = loop_acc + global[row_index, col_index]
-//         } else {
-//           loop_acc = loop_acc;
-//         }
-//       }
-//       shm[n] = loop_acc;
-//     } else {
-//       shm[n] = init_value;
-//     }
-//     row_index_shuffle = sw_block_row_index_base * var_tile_h + local_row_index
-//     for (int stride = var_tile_h / 2; stride > 1; stride /= 2) {
-//       __syncthreads();
-//       if (local_row_index < stride && (row_index_shuffle + stride) < var_rows) {
-//         shm[n] += shm[stride * var_tile_w + n];
-//       }
-//     }
-//     __syncthreads();
-//     if (local_row_index == 0) {
-//       if (is_valid) {
-//         partial_result = shm[n] + shm[var_tile_w + n];
-//         atomicAdd(&global[col_index], partial_result);
-//       }
-//     }
-//   }
-// }
-*/
-
-
 /* BLOCK TILE LOOP IMPL: tile_w * tile_h threads load tile_w * (tile_h * LOOP)
 //  elements from gmem to SHM(tile_w vectorizes load), do reduction in SHM and
 //  atomic to gmem
-// 
+//
 // var_tile_h = 16;
 // var_tile_w = 32;
 // var_threads = 512;
@@ -1827,10 +1723,12 @@ LogicalResult lowerWithScheduleRowReduction<DISC_BLOCK_WISE_ROW_REDUCE>(
 //       shm[n] = loop_acc;
 //     } else {
 //     }
-//     row_index_shuffle = sw_block_row_index_base * var_tile_h + local_row_index
+//     row_index_shuffle = sw_block_row_index_base * var_tile_h +
+local_row_index
 //     for (int stride = var_tile_h / 2; stride > 1; stride /= 2) {
 //       __syncthreads();
-//       if (local_row_index < stride && (row_index_shuffle + stride) < var_rows) {
+//       if (local_row_index < stride && (row_index_shuffle + stride) <
+var_rows) {
 //         shm[n] += shm[stride * var_tile_w + n];
 //       }
 //     }

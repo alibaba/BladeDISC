@@ -217,10 +217,16 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addPass(mlir::createInlinerPass());
 
   // TODO(disc): Lower HLO shape constraints instead of eliding them here.
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscMhloDecompositionRewriterPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscRemoveShapeConstraintsPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+
+  // quantization related passes.
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertFakeQuantOpPass());
+  pm.addNestedPass<FuncOp>(
+      disc_ral::createDiscLowerQuantizeAndDequantizePass());
 
   bool enable_shape_constraint_ir = useShapeConstraintIR();
   if (!enable_shape_constraint_ir) {
@@ -293,7 +299,13 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   }
 
   if (enable_sparse) {
-    pm.addNestedPass<FuncOp>(disc_ral::createDiscDenseToSparsePass());
+    // When `DISC_ENABLE_SPARSE_CONVERT` is set, we will convert dense weight to
+    // sparse format
+    bool enable_sparse_convert = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_SPARSE_CONVERT", false,
+                                   &enable_sparse_convert);
+    pm.addNestedPass<FuncOp>(
+        disc_ral::createDiscDenseToSparsePass(enable_sparse_convert));
   }
 
   auto& gpu_options = options.gpu_info;

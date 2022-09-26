@@ -33,6 +33,7 @@ using namespace mlir::torch::Torch;
 using namespace mlir::torch::TorchConversion;
 
 namespace {
+
 template <typename AtenOpT>
 class ConvertAtenOp : public OpConversionPattern<AtenOpT> {
  public:
@@ -43,6 +44,21 @@ class ConvertAtenOp : public OpConversionPattern<AtenOpT> {
       OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override;
 };
+
+template <>
+LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
+    OperatorOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  auto name = op.name();
+  if ("aten._autocast_to_reduced_precision" == name) {
+    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(
+        op, op.getResult(0).getType(), op.getOperand(0));
+    return success();
+  }
+  return failure();
+}
 
 template <>
 LogicalResult ConvertAtenOp<AtenHardtanhOp>::matchAndRewrite(
@@ -186,6 +202,9 @@ class DiscDecomposeComplexOpsPass
     target.addLegalDialect<Torch::TorchDialect>();
 
     RewritePatternSet patterns(context);
+    patterns.add<ConvertAtenOp<OperatorOp>>(context);
+    target.addIllegalOp<OperatorOp>();
+
     patterns.add<ConvertAtenOp<AtenHardtanhOp>>(context);
     target.addIllegalOp<AtenHardtanhOp>();
 

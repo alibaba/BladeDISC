@@ -217,6 +217,29 @@ func.func @reverse_transpose_test_2(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x
   return %2 : tensor<?x?x?xf32>
 }
 
+// Check:
+//  convert:
+//   x -> transpose ---
+//                      \
+//                       v
+//   y -> transpose --> add --> ...
+//  to:
+//   x ---
+//        \
+//         v
+//   y --> add -> transpose -> ...
+
+// CHECK-LABEL: reverse_transpose_test_3
+func.func @reverse_transpose_test_3(%arg0: tensor<?x?x?xf32>, %arg1: tensor<?x?x?xf32>) -> tensor<?x?x?xf32> {
+  // CHECK-NOT: mhlo.transpose
+  // CHECK: mhlo.add
+  // CHECK: mhlo.transpose
+  %0 = "mhlo.transpose"(%arg0) {permutation = dense<[1, 2, 0]> : tensor<3xi64>} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
+  %1 = "mhlo.transpose"(%arg1) {permutation = dense<[1, 2, 0]> : tensor<3xi64>} : (tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
+  %2 = "mhlo.add"(%0, %1) : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
+  return %2 : tensor<?x?x?xf32>
+}
+
 // -----
 
 // Check:

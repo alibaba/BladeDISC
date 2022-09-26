@@ -167,9 +167,7 @@ tf_cc_binary(
         "tao_compiler",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span"
-    ] + if_platform_alibaba([
-        "//tensorflow/compiler/decoupling_xla:tao_compiler_xla",
-    ])
+    ],
 )
 
 tf_cc_binary(

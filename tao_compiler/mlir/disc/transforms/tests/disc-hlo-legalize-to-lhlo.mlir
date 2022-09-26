@@ -112,3 +112,71 @@ func.func @per_tensor_quantized_dynamic_conv(
   // CHECK: return %[[OUT]] : memref<?x?x?x?xi8>
   return %out : tensor<?x?x?x?xi8>
 }
+
+// -----
+
+// CHECK-LABEL: @per_tensor_quantized_dot_general
+// CHECK-SAME: %[[INPUT:.*]]: memref<?x?xi8>, %[[WEIGHT:.*]]: memref<?x?xi8>
+func.func @per_tensor_quantized_dot_general(%input: tensor<?x?xi8>, %weight: tensor<?x?xi8>,
+                                            %input_scale: tensor<f32>, %input_zero_point: tensor<i32>,
+                                            %weight_scale: tensor<f32>, %weight_zero_point: tensor<i32>,
+                                            %result_scale: tensor<f32>, %result_zero_point: tensor<i32>) -> tensor<?x?xi8> {
+  // CHECK: %[[C1:.*]] = arith.constant 1 : index
+  // CHECK: %[[M:.*]] = memref.dim %[[INPUT]], %[[C1]] : memref<?x?xi8>
+  // CHECK: %[[N:.*]] = memref.dim %[[WEIGHT]], %[[C1]] : memref<?x?xi8>
+  // CHECK: %[[RESULT:.*]] = memref.alloc(%[[M]], %[[N]]) :  memref<?x?xi8>
+  // CHECK: lmhlo_disc.quantized_dot_general
+  // CHECK-SAME: %[[INPUT]], %[[WEIGHT]]
+  // CHECK-SAME: %[[RESULT]]
+  %out = "mhlo_disc.quantized_dot_general"(%input, %weight,
+                                           %input_scale, %input_zero_point,
+                                           %weight_scale, %weight_zero_point,
+                                           %result_scale, %result_zero_point) {
+      use_symmetric = true,
+      axis = dense<[]> : tensor<0xi64>,
+      use_dynamic = false,
+      dot_dimension_numbers = #mhlo.dot<lhs_contracting_dimensions = [0], rhs_contracting_dimensions = [0]>
+  } : (tensor<?x?xi8>, tensor<?x?xi8>,
+       tensor<f32>, tensor<i32>,
+       tensor<f32>, tensor<i32>,
+       tensor<f32>, tensor<i32>) -> tensor<?x?xi8>
+  return %out : tensor<?x?xi8>
+}
+
+// -----
+
+// CHECK-LABEL: @per_channel_quantized_dot_general
+// CHECK-SAME: %[[INPUT:.*]]: memref<?x?x?x?xi8>, %[[WEIGHT:.*]]: memref<?x?x?x?xi8>
+func.func @per_channel_quantized_dot_general(%input: tensor<?x?x?x?xi8>, %weight: tensor<?x?x?x?xi8>,
+                                             %input_scale: tensor<f32>, %input_zero_point: tensor<i32>,
+                                             %weight_scale: tensor<?xf32>, %weight_zero_point: tensor<?xi32>,
+                                             %result_scale: tensor<f32>, %result_zero_point: tensor<i32>) -> tensor<?x?x?x?xi8> {
+  // CHECK-DAG: %[[C3:.*]] = arith.constant 3 : index
+  // CHECK-DAG: %[[C2:.*]] = arith.constant 2 : index
+  // CHECK-DAG: %[[C1:.*]] = arith.constant 1 : index
+  // CHECK-DAG: %[[C0:.*]] = arith.constant 0 : index
+
+  // CHECK: %[[T0:.*]] = memref.dim %[[INPUT]], %[[C0]] : memref<?x?x?x?xi8>
+  // CHECK: %[[T1:.*]] = memref.dim %[[INPUT]], %[[C1]] : memref<?x?x?x?xi8>
+  // CHECK: %[[T2:.*]] = memref.dim %[[INPUT]], %[[C2]] : memref<?x?x?x?xi8>
+  // CHECK: %[[T3:.*]] = memref.dim %[[WEIGHT]], %[[C3]] : memref<?x?x?x?xi8>
+
+  // CHECK: %[[RESULT:.*]] = memref.alloc(%[[T0]], %[[T1]], %[[T2]], %[[T3]]) : memref<?x?x?x?xi8>
+  // CHECK: lmhlo_disc.quantized_dot_general
+  // CHECK-SAME: %[[INPUT]], %[[WEIGHT]]
+  // CHECK-SAME: %[[RESULT]]
+  %out = "mhlo_disc.quantized_dot_general"(%input, %weight,
+                                           %input_scale, %input_zero_point,
+                                           %weight_scale, %weight_zero_point,
+                                           %result_scale, %result_zero_point) {
+      use_symmetric = true,
+      axis = dense<[3]> : tensor<1xi64>,
+      use_dynamic = false,
+      dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0, 1], rhs_batching_dimensions = [0, 1],
+                                        lhs_contracting_dimensions = [3], rhs_contracting_dimensions = [2]>
+  } : (tensor<?x?x?x?xi8>, tensor<?x?x?x?xi8>,
+       tensor<f32>, tensor<i32>,
+       tensor<?xf32>, tensor<?xi32>,
+       tensor<f32>, tensor<i32>) -> tensor<?x?x?x?xi8>
+  return %out : tensor<?x?x?x?xi8>
+}

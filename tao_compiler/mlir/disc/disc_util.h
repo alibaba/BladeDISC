@@ -17,7 +17,8 @@ limitations under the License.
 #define DISC_DISC_UTIL_H_
 #include <vector>
 
-#include "llvm/ADT/StringRef.h"         // TF:llvm-project
+#include "llvm/ADT/StringRef.h"  // TF:llvm-project
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Attributes.h"         // TF:llvm-project
 #include "mlir/IR/Builders.h"           // from @llvm-project
 #include "mlir/IR/BuiltinAttributes.h"  // from @llvm-project
@@ -30,6 +31,20 @@ namespace disc_ral {
 constexpr llvm::StringRef kDhloInputShapeAttr = "disc.input_shape";
 constexpr llvm::StringRef kDhloInputValueAttr = "disc.input_value";
 constexpr llvm::StringRef kFuncEliminatedDeadArgumentsAttr = "disc.elimargs";
+
+inline SmallVector<Value, 4> getDimSizesOfTensor(PatternRewriter& rewriter,
+                                                 Operation* op, Value value) {
+  auto value_ty = value.getType().dyn_cast<RankedTensorType>();
+
+  auto loc = op->getLoc();
+  auto rank = value_ty.getRank();
+  // Get int vector [0, 1, ..., rank-1]
+  SmallVector<Value, 4> dim_sizes;
+  for (size_t d = 0; d < rank; ++d) {
+    dim_sizes.emplace_back(rewriter.create<tensor::DimOp>(loc, value, d));
+  }
+  return dim_sizes;
+}
 
 inline mlir::DenseIntElementsAttr GetI64ElementsAttr(ArrayRef<int64_t> values,
                                                      Builder* builder) {

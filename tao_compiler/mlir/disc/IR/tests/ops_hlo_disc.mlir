@@ -213,3 +213,11 @@ func.func @sparse_fill_empty_rows_basic(%indices: tensor<?x?xi64>, %values: tens
   %output_indices, %output_values, %empty_row_indicator, %reverse_index_map, %output_elements = "mhlo_disc.sparse_fill_empty_rows"(%indices, %values, %dense_shape, %default_value) {} : (tensor<?x?xi64>, tensor<?xi64>, tensor<2xi64>, tensor<i64>) -> (tensor<?x?xi64>, tensor<?xi64>, tensor<?xi1>, tensor<?xi64>, tensor<?xi64>)
   return %output_indices, %output_values, %empty_row_indicator, %reverse_index_map, %output_elements: tensor<?x?xi64>, tensor<?xi64>, tensor<?xi1>, tensor<?xi64>, tensor<?xi64>
 }
+
+// -----
+
+// CHECK-LABEL: func.func @sparse_segment_mean_basic
+func.func @sparse_segment_mean_basic(%data: tensor<?x?xf32>, %indices: tensor<?xi32>, %segment_ids: tensor<?xi32>) -> (tensor<?x?xf32>) {
+  %output = "mhlo_disc.sparse_segment_mean"(%data, %indices, %segment_ids) {} : (tensor<?x?xf32>, tensor<?xi32>, tensor<?xi32>) -> (tensor<?x?xf32>)
+  return %output : tensor<?x?xf32>
+}

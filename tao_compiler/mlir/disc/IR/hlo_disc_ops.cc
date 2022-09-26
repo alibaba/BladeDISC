@@ -187,6 +187,42 @@ LogicalResult QuantizedDotGeneralOp::verify() {
   return CommonVerifyForQuantizedComputeIntensiveOp(this);
 }
 
+LogicalResult QuantizedDotGeneralOp::reifyReturnTypeShapes(
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
+  auto lhsType = input().getType().dyn_cast<ShapedType>();
+  auto rhsType = weight().getType().dyn_cast<ShapedType>();
+  if (!lhsType || !rhsType) {
+    return failure();
+  }
+
+  Adaptor adaptor(operands);
+  auto dimNumbers = dot_dimension_numbers();
+  SmallVector<Value> dimensions;
+  for (const int64_t lhsDim : dimNumbers.getLhsBatchingDimensions()) {
+    dimensions.push_back(
+        builder.create<tensor::DimOp>(getLoc(), adaptor.input(), lhsDim));
+  }
+
+  for (int64_t i = 0; i < lhsType.getRank(); i++) {
+    if (!llvm::is_contained(dimNumbers.getLhsContractingDimensions(), i) &&
+        !llvm::is_contained(dimNumbers.getLhsBatchingDimensions(), i)) {
+      dimensions.push_back(
+          builder.create<tensor::DimOp>(getLoc(), adaptor.input(), i));
+    }
+  }
+  for (int64_t i = 0; i < rhsType.getRank(); i++) {
+    if (!llvm::is_contained(dimNumbers.getRhsContractingDimensions(), i) &&
+        !llvm::is_contained(dimNumbers.getRhsBatchingDimensions(), i)) {
+      dimensions.push_back(
+          builder.create<tensor::DimOp>(getLoc(), adaptor.weight(), i));
+    }
+  }
+  reifiedReturnShapes.push_back(
+      builder.create<tensor::FromElementsOp>(getLoc(), dimensions));
+  return success();
+}
+
 //===----------------------------------------------------------------------===//
 // QuantizedDynamicConvOp
 //===----------------------------------------------------------------------===//
@@ -579,6 +615,85 @@ LogicalResult SparseFillEmptyRowsOp::verify() {
     return this->emitOpError()
            << "outputs 1-4 for mhlo_disc::sparse_fill_empty_rows must be a "
               "vector";
+  }
+
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// SparseSegmentMeanOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult SparseSegmentMeanOp::reifyReturnTypeShapes(
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
+  SparseSegmentMeanOp::Adaptor adaptor(operands);
+  Location loc = this->getLoc();
+  auto data_type = adaptor.data().getType().cast<RankedTensorType>();
+  auto indices_type = adaptor.indices().getType().cast<RankedTensorType>();
+  auto segment_ids_type =
+      adaptor.segment_ids().getType().cast<RankedTensorType>();
+  auto input_rank = data_type.getRank();
+  SmallVector<Value, 2> output_shape_values;
+  Value segment_size = builder.create<tensor::DimOp>(loc, operands[2], 0);
+  Value one = builder.create<arith::ConstantIndexOp>(loc, 1);
+  Value last_segment_index =
+      builder.create<arith::SubIOp>(loc, segment_size, one);
+  Value last_segment_id_plus_one = builder.create<arith::AddIOp>(
+      loc,
+      builder.create<arith::IndexCastOp>(
+          loc, builder.getIndexType(),
+          builder.create<tensor::ExtractOp>(loc, operands[2],
+                                            last_segment_index)),
+      one);
+  output_shape_values.push_back(last_segment_id_plus_one);
+  for (auto i = 1; i < input_rank; i++) {
+    output_shape_values.push_back(
+        builder.create<tensor::DimOp>(loc, operands[0], i));
+  }
+  Value output_shape =
+      builder.create<tensor::FromElementsOp>(loc, output_shape_values);
+  reifiedReturnShapes.push_back(output_shape);
+  return success();
+}
+
+LogicalResult SparseSegmentMeanOp::verify() {
+  auto data_type = this->data().getType().dyn_cast<RankedTensorType>();
+  auto indices_type = this->indices().getType().dyn_cast<RankedTensorType>();
+  auto segment_ids_type =
+      this->segment_ids().getType().dyn_cast<RankedTensorType>();
+
+  if (!data_type || !indices_type || !segment_ids_type) {
+    return failure();
+  }
+
+  if (indices_type.getRank() != 1) {
+    return this->emitOpError() << "indices should be a vector";
+  }
+  if (segment_ids_type.getRank() != 1) {
+    return this->emitOpError() << "segment_ids should be a vector";
+  }
+  // only check when has static shape
+  if (indices_type.hasStaticShape() && segment_ids_type.hasStaticShape()) {
+    auto num_indices = indices_type.getDimSize(0);
+    auto num_segment_ids = segment_ids_type.getDimSize(0);
+    if (num_indices != num_segment_ids) {
+      return this->emitOpError()
+             << "segment_ids and indices should have same size";
+    }
+  }
+
+  if (data_type.getRank() < 1) {
+    return this->emitOpError() << "input must be at least rank 1";
+  }
+
+  auto output_type = this->output().getType().dyn_cast<RankedTensorType>();
+  if (!output_type) {
+    return failure();
+  }
+
+  if (output_type.getRank() != data_type.getRank()) {
+    return this->emitOpError() << "output must have the same rank as input";
   }
 
   return success();

@@ -1325,6 +1325,23 @@ class ConvertSparseFillEmptyRowsOp
   }
 };
 
+class ConvertSparseSegmentMeanOp
+    : public OpRewritePattern<TF::SparseSegmentMeanOp> {
+ public:
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::SparseSegmentMeanOp op,
+                                PatternRewriter& rewriter) const override {
+    auto loc = op.getLoc();
+    auto hlo_sparse_segment_mean =
+        rewriter.create<mhlo_disc::SparseSegmentMeanOp>(
+            loc, op.output().getType(), op.data(), op.indices(),
+            op.segment_ids());
+    rewriter.replaceOp(op, hlo_sparse_segment_mean.getResult());
+    return success();
+  }
+};
+
 #include "tensorflow/compiler/mlir/disc/transforms/lower_tf.inc"
 
 void PrepareTFPass::runOnOperation() {
@@ -1348,7 +1365,8 @@ void PrepareTFPass::runOnOperation() {
       ConvertUniformOp,
       ConvertBucketizeOp,
       ConvertSparseReshapeOp,
-      ConvertSparseFillEmptyRowsOp
+      ConvertSparseFillEmptyRowsOp,
+      ConvertSparseSegmentMeanOp
   >(ctx);
   // clang-format on
   (void)applyPatternsAndFoldGreedily(func, std::move(patterns));

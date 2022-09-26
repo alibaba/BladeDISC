@@ -65,6 +65,7 @@ using lmhlo::ReshapeOp;
 using lmhlo_disc::CustomCallOp;
 using lmhlo_disc::D2HOp;
 using lmhlo_disc::H2DOp;
+using lmhlo_disc::QuantizedDotGeneralOp;
 using lmhlo_disc::QuantizedDynamicConvOp;
 
 // Suppose that the first argument of the function is the ctx value
@@ -179,10 +180,14 @@ struct GpuCopyOpConvertor : public OpRewritePattern<OpTy> {
   StringRef target_;
 };
 
-struct DotGeneralOpConvertor : public OpRewritePattern<DotGeneralOp> {
-  using OpRewritePattern<DotGeneralOp>::OpRewritePattern;
+template <typename OpTy>
+struct DotGeneralLikeConverter : public OpRewritePattern<OpTy> {
+  DotGeneralLikeConverter(MLIRContext* context, StringRef target)
+      : OpRewritePattern<OpTy>::OpRewritePattern(context) {
+    this->target_ = target;
+  }
 
-  LogicalResult matchAndRewrite(DotGeneralOp op,
+  LogicalResult matchAndRewrite(OpTy op,
                                 PatternRewriter& rewriter) const override {
     Value ctx = GetContextValueFromFunctionArguments(op);
     if (!ctx) {
@@ -204,7 +209,7 @@ struct DotGeneralOpConvertor : public OpRewritePattern<DotGeneralOp> {
       return op.emitOpError() << "unmatched batch dims size.";
     }
 
-    int rank = op.getOperand(0).getType().cast<MemRefType>().getRank();
+    int rank = op.getOperand(0).getType().template cast<MemRefType>().getRank();
     for (auto&& z : llvm::zip(lhs_batching_dims, rhs_batching_dims)) {
       if ((std::get<0>(z) >= rank - 2) || (std::get<1>(z) >= rank - 2)) {
         return op.emitOpError() << "unsupported batch dims.";
@@ -242,11 +247,14 @@ struct DotGeneralOpConvertor : public OpRewritePattern<DotGeneralOp> {
 
     bool on_gpu = placement_utils::isGpuMemRef(op->getOperand(2));
     rewriter.replaceOpWithNewOp<DispatchOp>(op, llvm::None, ctx, newOperands,
-                                            "ral_gemm", false,
+                                            target_, false,
                                             on_gpu ? "gpu" : "cpu");
 
     return success();
   }
+
+ private:
+  StringRef target_;
 };
 
 template <typename OpTy>
@@ -619,7 +627,6 @@ struct DiscLowerToLibraryCallPass
       CopyLikeOpConvertor<DynamicReshapeOp>,
       CopyLikeOpConvertor<ReshapeOp>,
       CustomCallOpConvertor,
-      DotGeneralOpConvertor,
       RecvInputOpConvertor,
       ConvConverter,
       SendOutputOpConvertor
@@ -633,6 +640,9 @@ struct DiscLowerToLibraryCallPass
                                                              "ral_conv");
     patterns.insert<DynamicConvLikeConverter<QuantizedDynamicConvOp>>(
         context, "ral_qconv");
+    patterns.insert<DotGeneralLikeConverter<DotGeneralOp>>(context, "ral_gemm");
+    patterns.insert<DotGeneralLikeConverter<QuantizedDotGeneralOp>>(
+        context, "ral_qgemm");
 
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
       func.emitError("applyPatternsAndFoldGreedily does not converge");

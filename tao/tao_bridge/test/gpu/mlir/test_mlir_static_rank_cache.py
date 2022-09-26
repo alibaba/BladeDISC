@@ -105,8 +105,8 @@ class TestTaoMlirStaticRank0(MlirTestCase):
 
             disc_op = self.get_node(graph_def, "DiscLaunch")
 
-            self.assertEqual(disc_op.attr["mlir_function"].func.attr["_TaoXlaNumConstantArgs"].i, 2)
-            self.assertEqual(disc_op.attr["mlir_function"].func.attr["_TaoMlirNumFixedShapeArgs"].i, 0)
+            self.assertEqual(disc_op.attr["mlir_function"].func.attr["_TaoXlaNumConstantArgs"].i, 0)
+            self.assertEqual(disc_op.attr["mlir_function"].func.attr["_TaoMlirNumFixedShapeArgs"].i, 2)
 
     # test for must_be_fixed_shape inputs for mlir
     def test_compile_time_fixed_shape(self):

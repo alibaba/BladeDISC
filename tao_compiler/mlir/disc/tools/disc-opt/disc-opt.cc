@@ -27,10 +27,13 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/register_passes.h"
+// #include "tensorflow/compiler/mlir/tensorflow/transforms/passes.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
+// #include "tensorflow/compiler/mlir/tensorflow/dialect_registration.h"
 
 int main(int argc, char** argv) {
   mlir::registerAllPasses();
+  // mlir::registerTensorFlowPasses();
   mlir::mhlo::registerAllMhloPasses();
   mlir::lmhlo::registerAllLmhloPasses();
   mlir::disc_ral::registerAllDiscPasses();
@@ -38,6 +41,9 @@ int main(int argc, char** argv) {
 
   mlir::DialectRegistry registry;
   mlir::registerAllDialects(registry);
+  // mlir::RegisterAllTensorFlowDialects(registry);
+  // mlir::registerLLVMDialectTranslation(registry);
+  // mlir::registerNVVMDialectTranslation(registry);
   registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::mhlo_disc::MhloDiscDialect>();
   registry.insert<mlir::chlo::ChloDialect>();

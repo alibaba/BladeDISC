@@ -89,7 +89,7 @@ def LHLODISC_PrintfOp: LHLODISC_Op<"printf", []> {
     Printf Index, Pred and Int. lower to printf function.
   }];
   let arguments = (ins Arg<Variadic<LHLO_DimensionValue>, "", [MemRead]>:$args,
-                       Arg<LHLO_DimensionValue, "", [MemWrite]>:$output,
+                       // Arg<LHLO_DimensionValue, "", [MemWrite]>:$output,
                        StrAttr:$format);
 }
 #endif // LMHLO_DISC_OPS

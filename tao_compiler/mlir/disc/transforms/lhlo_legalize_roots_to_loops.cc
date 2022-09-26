@@ -1849,7 +1849,7 @@ LogicalResult lowerWithScheduleRowReduction<DISC_BLOCK_WISE_ROW_REDUCE>(
 template <int TILE_W, int TILE_H>
 LogicalResult lowerWithScheduleColReductionForRocm(
     ArrayRef<Operation*> root_ops, Operation* dominant_op, Block* parent,
-    const int LOOP, const int core_count,
+    const int LOOP, const int core_count, const std::string& fusion_name,
     const ShapeAnalysis* shape_analysis = nullptr) {
   if (!isRank2ColReduction(dominant_op)) {
     return failure();
@@ -1899,6 +1899,11 @@ LogicalResult lowerWithScheduleColReductionForRocm(
       b.create<arith::CeilDivUIOp>(loc, block_limit, num_block_cols);
   Value var_loop_iter =
       b.create<arith::CeilDivUIOp>(loc, num_sw_block_rows, num_hw_block_rows);
+
+  // SmallVector<Value, 1> printf_args{var_loop_iter};
+  // std::string formStr = fusion_name + " var_loop_iter value: %d\n";
+  // auto lhloOp = b.create<lmhlo_disc::PrintfOp>(loc, llvm::None, printf_args);
+  // lhloOp->setAttr("format", b.getStringAttr(formStr));
 
   // for (m = 0; m < num_block_cols * num_hw_block_rows; ++m) {
   //   for (n = 0; n < var_threads; ++n) {
@@ -3894,6 +3899,7 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
     analysis_deprecated->buildEqualShapesInFusion(fusion, values_in_fusion);
   }
   LLVM_DEBUG(createPrintFusionParams(fusion_op, fusion_pattern));
+  // createPrintFusionParams(fusion_op, fusion_pattern);
 
   auto root_ops = fusion_pattern.getRootOps();
   auto fused_block = &(fusion_op.getRegion().front());
@@ -3919,6 +3925,8 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
   // TODO(disc): the support of row reduction and 'pure atomic' reduction
   auto fusion_type = fusion_pattern.getFusionType();
   auto dominant_op = fusion_pattern.getDominantOp();
+  auto fusion_name = getFusionName(fusion_op).str();
+
   switch (fusion_type) {
     case FusionType::kRowReduction: {
       const int row_reduction_schedule =
@@ -3953,16 +3961,18 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
       LogicalResult r = success();
       if (col_reduction_schedule == DISC_TILE_W8_H32) {
         if (use_new) {
-          r = lowerWithScheduleColReductionForRocm<16, 32>(
-              root_ops, dominant_op, fused_block, loop, core_count);
+          // r = lowerWithScheduleColReductionForRocm<16, 32>(
+          r = lowerWithScheduleColReductionForRocm<32, 16>(
+              root_ops, dominant_op, fused_block, loop, core_count, fusion_name);
         } else {
           r = lowerWithScheduleColReductionBlockTileSchedule<8, 32>(
               root_ops, dominant_op, fused_block);
         }
       } else if (col_reduction_schedule == DISC_TILE_W8_H16) {
         if (use_new) {
-          r = lowerWithScheduleColReductionForRocm<16, 32>(
-              root_ops, dominant_op, fused_block, loop, core_count);
+          // r = lowerWithScheduleColReductionForRocm<16, 32>(
+          r = lowerWithScheduleColReductionForRocm<32, 16>(
+              root_ops, dominant_op, fused_block, loop, core_count, fusion_name);
         } else {
           r = lowerWithScheduleColReductionBlockTileSchedule<8, 16>(
               root_ops, dominant_op, fused_block);

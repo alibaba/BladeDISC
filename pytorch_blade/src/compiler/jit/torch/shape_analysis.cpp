@@ -2011,14 +2011,21 @@ class ShapePropagator : public PropertyPropBase {
             "aten::slice(Tensor self, int dim, int start, int end, int step) -> Tensor"
 #endif
             )) {
+
       if (auto type = input_type(0)) {
         std::vector<ShapeSymbol> new_sizes =
             type->symbolic_sizes().sizes().value();
         int64_t dim = node->get<int64_t>(attr::dim).value();
-        int64_t start = node->get<int64_t>(attr::start).value();
-        int64_t end = node->get<int64_t>(attr::end).value();
+        int64_t start = node->get<IValue>(attr::start).value() != c10::nullopt
+            ? node->get<int>(attr::start).value()
+            : 0;
+        int64_t end = node->get<IValue>(attr::end).value() != c10::nullopt
+            ? node->get<int>(attr::end).value()
+            : INT64_MAX;
         int64_t step = node->get<int64_t>(attr::step).value();
         if (new_sizes[dim].is_static()) {
+          if (end >= new_sizes[dim].static_size())
+            end = new_sizes[dim].static_size();
           int64_t len = end - start;
           new_sizes[dim] = ShapeSymbol::fromStaticSize((len + step - 1) / step);
         }
@@ -2318,16 +2325,27 @@ class ShapePropagator : public PropertyPropBase {
       return true;
     } else if (
         node->matches(
-            "aten::slice(Tensor self, int dim, int? start=None, int? end=None, int step=1) -> Tensor")) {
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
+            "aten::slice(Tensor self, int dim, int? start=None, int? end=None, int step=1) -> Tensor"
+#else
+            "aten::slice(Tensor self, int dim, int start, int end, int step) -> Tensor"
+#endif
+            )) {
       if (auto type = tensor_types.at(0)) {
         std::vector<ShapeSymbol> new_sizes =
             type->symbolic_sizes().sizes().value();
         int64_t dim = node->get<int64_t>(attr::dim).value();
-        int64_t start = node->get<int64_t>(attr::start).value();
-        int64_t end = node->get<int64_t>(attr::end).value();
+        int64_t start = node->get<IValue>(attr::start).value() != c10::nullopt
+            ? node->get<int>(attr::start).value()
+            : 0;
+        int64_t end = node->get<IValue>(attr::end).value() != c10::nullopt
+            ? node->get<int>(attr::end).value()
+            : INT64_MAX;
         int64_t step = node->get<int64_t>(attr::step).value();
         int64_t len = end - start;
         if (new_sizes[dim].is_static()) {
+          if (end >= new_sizes[dim].static_size())
+            end = new_sizes[dim].static_size();
           int64_t len = end - start;
           int64_t val = (len + step - 1) / step;
           new_sizes[dim] = ShapeSymbol::fromStaticSize((len + step - 1) / step);

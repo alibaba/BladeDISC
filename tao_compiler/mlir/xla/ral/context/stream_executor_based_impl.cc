@@ -1354,7 +1354,8 @@ void ral_conv(ExecutionContext* ctx, void* stream_handle,
     }
   }
 
-#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM) and \
+    !(TENSORFLOW_USE_ROCM)
   // nchw=0123 iohw=0123
   // const std::vector<int32_t> nchw_oihw_layout = {0, 1, 2, 3, 1, 0,
   //                                                2, 3, 0, 1, 2, 3};

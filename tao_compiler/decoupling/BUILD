@@ -146,6 +146,8 @@ cc_library(
         "@com_google_absl//absl/strings",
     ] + if_cuda_or_rocm([
         "//tensorflow/compiler/xla/service/gpu:gpu_transfer_manager",
+    ]) + if_rocm_is_configured([
+        "//tensorflow/stream_executor/rocm:rocm_driver",
     ]) + [
         "@llvm-project//mlir:IR",
         "@llvm-project//llvm:Support",

@@ -28,40 +28,17 @@ class TestTaoMlir(MlirTestCase):
     def setUp(self):
         MlirTestCase.setUpWithMLIR(self._testMethodName)
 
-    def _check_disc(self, fn):
+    def _check_launch_op(self, fn, launch_op_name):
         with open(fn) as f:
             graph_def = tf.GraphDef()
             text_format.Merge(f.read(), graph_def)
 
-            disc_op = self.get_node(graph_def, "DiscLaunch")
-
+            disc_op = self.get_node(graph_def, launch_op_name)
             mlir_func_name = disc_op.attr["mlir_function"].func.name
             self.assertNotEqual(mlir_func_name, "")
 
             mlir_func = self.get_func(graph_def, mlir_func_name)
             self.get_node(mlir_func, "MatMul")
-
-    def _check_tao(self, fn):
-        with open(fn) as f:
-            graph_def = tf.GraphDef()
-            text_format.Merge(f.read(), graph_def)
-
-            tao_op = self.get_node(graph_def, "TaoLaunch")
-
-            self.assertNotEqual(tao_op.attr["function"].func.name, "")
-            mlir_func_name = tao_op.attr["mlir_function"].func.name
-            self.assertEqual(mlir_func_name,
-                tao_op.attr["function"].func.name + "_mlir")
-
-            mlir_func = self.get_func(graph_def, mlir_func_name)
-            tao_op_inner = self.get_node(mlir_func, "TaoMlirLaunch")
-            self.assertEqual(
-                tao_op_inner.attr["function"].func.name, "")
-            inner_mlir_func_name = tao_op_inner.attr["mlir_function"].func.name
-            self.assertNotEqual(inner_mlir_func_name, "")
-
-            inner_mlir_func = self.get_func(graph_def, inner_mlir_func_name)
-            self.get_node(inner_mlir_func, "MatMul")
 
     def test_with_mlir(self):
         np_dtype = np.float32
@@ -98,9 +75,9 @@ class TestTaoMlir(MlirTestCase):
 
         fn = super(TestTaoMlir, self).dumped_file('after_tao_pass.pbtxt')
         if self.is_platform_alibaba():
-            self._check_tao(fn)
+            self._check_launch_op(fn, "TaoMlirLaunch")
         else:
-            self._check_disc(fn)
+            self._check_launch_op(fn, "DiscLaunch")
 
 
 if __name__ == "__main__":

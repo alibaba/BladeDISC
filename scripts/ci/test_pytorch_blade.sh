@@ -25,6 +25,18 @@ export LIBRARY_PATH=${CUDA_HOME}/lib64:$LIBRARY_PATH
 export TF_REMOTE_CACHE=${TF_REMOTE_CACHE}
 export TORCH_BLADE_BUILD_TENSORRT_STATIC=${TORCH_BLADE_BUILD_TENSORRT_STATIC:-OFF}
 
+function delete_disk_caches() {
+   # https://bazel.build/remote/caching#delete-remote-cache
+   ndays=10
+   echo "Before old disk caches deleting"
+   du cas/ ac/ --max-depth=0 -h
+   find cas -type f -mtime +${ndays} -delete
+   find ac -type f -mtime +${ndays} -delete
+   echo "After old disk caches deleting"
+   du cas/ ac/ --max-depth=0 -h
+}
+(cd ~/.cache/ && delete_disk_caches)
+
 if [[ -f ~/.cache/proxy_config ]]; then
   source ~/.cache/proxy_config
 fi

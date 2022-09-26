@@ -609,7 +609,7 @@ std::vector<ProfileResult> GetMIOpenAlgorithms(
           params.input_descriptor, operand_buffers[0], params.filter_descriptor,
           operand_buffers[1], params.output_descriptor, result_buffer,
           params.convolution_descriptor, scratch_allocator,
-#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8)
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
           se::dnn::CallContext::kNone, &algorithms)) {
 #else
           &algorithms)) {
@@ -1218,12 +1218,18 @@ Status RunCudnnConvolution(CudnnConvParams& params,
   switch (kind) {
     case ConvolutionKind::FORWARD:
 #if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
-      // TF2.7 and later
+      // TF2.9 and ROCM
       call_context = se::dnn::CallContext::kForward;
       status = stream->ConvolveWithAlgorithm(
           kind, input_descriptor, input_buf, filter_descriptor, filter_buf,
           output_descriptor, output_buf, convolution_descriptor,
           scratch_allocator, algorithm, call_context, profile_result);
+#elif (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 6)
+      // TF2.7 and later
+      status = stream->ConvolveWithAlgorithm(
+          kind, input_descriptor, input_buf, filter_descriptor, filter_buf,
+          output_descriptor, output_buf, convolution_descriptor,
+          scratch_allocator, algorithm, profile_result);
 #elif TF_MAJOR_VERSION > 1
       // TF2.4
       status = stream->ConvolveWithAlgorithm(

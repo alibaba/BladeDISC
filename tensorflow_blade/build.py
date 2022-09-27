@@ -43,7 +43,7 @@ from common_setup import (
     execute,
     which,
     safe_run,
-    symlink_disc_files,
+    symlink_disc_files_deprecated,
     add_ral_link_if_not_exist,
     symlink_dir,
     get_source_root_dir,
@@ -110,7 +110,7 @@ def check(args):
 
 
 def link_files(args):
-    symlink_disc_files(args.platform_alibaba)
+    symlink_disc_files_deprecated(args.platform_alibaba)
     add_ral_link_if_not_exist()
     if args.platform_alibaba:
         excludes = ['ci_build']

@@ -2016,14 +2016,14 @@ class ShapePropagator : public PropertyPropBase {
         std::vector<ShapeSymbol> new_sizes =
             type->symbolic_sizes().sizes().value();
         int64_t dim = node->get<int64_t>(attr::dim).value();
-        int64_t start = node->get<IValue>(attr::start).value() != c10::nullopt
-            ? node->get<int>(attr::start).value()
-            : 0;
-        int64_t end = node->get<IValue>(attr::end).value() != c10::nullopt
-            ? node->get<int>(attr::end).value()
-            : INT64_MAX;
-        int64_t step = node->get<int64_t>(attr::step).value();
         if (new_sizes[dim].is_static()) {
+          int64_t start = node->get<IValue>(attr::start).value() != c10::nullopt
+              ? node->get<int>(attr::start).value()
+              : 0;
+          int64_t end = node->get<IValue>(attr::end).value() != c10::nullopt
+              ? node->get<int>(attr::end).value()
+              : INT64_MAX;
+          int64_t step = node->get<int64_t>(attr::step).value();
           if (end >= new_sizes[dim].static_size())
             end = new_sizes[dim].static_size();
           int64_t len = end - start;

@@ -174,7 +174,8 @@ bool isValidArgumentForRunning(Value* v) {
     }
     return !at::isIntegralType(*tt->scalarType(), /*includeBool=*/false);
   }
-  return v->type()->isSubtypeOf(FloatType::get());
+  return v->type()->isSubtypeOf(FloatType::get()) ||
+      v->type()->isSubtypeOf(NumberType::get());
 }
 
 bool isValidReturnForRunning(Value* v) {
@@ -367,6 +368,8 @@ class ShapePropagator : public PropertyPropBase {
       // fallthrough
     } else if (type_->isSubtypeOf(FloatType::get())) {
       return 0.f;
+    } else if (type_->isSubtypeOf(IntType::get())) {
+      return 0;
     }
     // we should not get here because isValidArgumentForRunning should have
     // prevented it
@@ -979,11 +982,6 @@ class ShapePropagator : public PropertyPropBase {
             "aten::trunc(Tensor self) -> Tensor",
             "aten::rot90(Tensor self, int k, int[] dims) -> Tensor",
             "aten::narrow(Tensor self, int dim, int start, int length) -> Tensor",
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
-            "aten::slice(Tensor self, int dim, int? start=None, int? end=None, int step=1) -> Tensor",
-#else
-            "aten::slice(Tensor self, int dim, int start, int end, int step) -> Tensor",
-#endif
             "aten::alias(Tensor self) -> Tensor",
             "aten::zero_(Tensor self) -> Tensor",
         },
@@ -1857,7 +1855,6 @@ class ShapePropagator : public PropertyPropBase {
         const size_t axis = type->dim().value() - normalized_shape.size();
         std::vector<ShapeSymbol> stat_shape;
         int64_t dims = axis + type->dim().value();
-
         for (const auto idx : c10::irange(axis)) {
           auto dimSize = type->symbolic_sizes()[idx];
           if (dimSize.is_static())
@@ -1977,15 +1974,6 @@ class ShapePropagator : public PropertyPropBase {
       }
     } else if (
         node->matches(
-            "aten::embedding(Tensor weight, Tensor indices, int padding_idx, bool scale_grad_by_freq, bool sparse) -> Tensor")) {
-      auto weight_type = input_type(0);
-      auto indices_type = input_type(1);
-      if (weight_type && indices_type && indices_type->dim()) {
-        node->output()->setType(weight_type->withDim(*indices_type->dim() + 1));
-        return true;
-      }
-    } else if (
-        node->matches(
             "aten::embedding_dense_backward(Tensor grad_output, Tensor indices, int num_weights, int padding_idx, bool scale_grad_by_freq) -> Tensor")) {
       auto grad_output_type = input_type(0);
       auto maybe_num_weights = node->get<int>(attr::num_weights);
@@ -2015,6 +2003,47 @@ class ShapePropagator : public PropertyPropBase {
         node->output()->setType(type->withDim(0));
         return true;
       }
+    } else if (
+        node->matches(
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
+            "aten::slice(Tensor self, int dim, int? start=None, int? end=None, int step=1) -> Tensor"
+#else
+            "aten::slice(Tensor self, int dim, int start, int end, int step) -> Tensor"
+#endif
+            )) {
+
+      if (auto type = input_type(0)) {
+        std::vector<ShapeSymbol> new_sizes =
+            type->symbolic_sizes().sizes().value();
+        int64_t dim = node->get<int64_t>(attr::dim).value();
+        if (new_sizes[dim].is_static()) {
+          int64_t start = node->get<IValue>(attr::start).value() != c10::nullopt
+              ? node->get<int>(attr::start).value()
+              : 0;
+          int64_t end = node->get<IValue>(attr::end).value() != c10::nullopt
+              ? node->get<int>(attr::end).value()
+              : INT64_MAX;
+          int64_t step = node->get<int64_t>(attr::step).value();
+          if (end >= new_sizes[dim].static_size())
+            end = new_sizes[dim].static_size();
+          int64_t len = end - start;
+          new_sizes[dim] = ShapeSymbol::fromStaticSize((len + step - 1) / step);
+        }
+        node->outputs()[0]->setType(type->withSymbolicShapes(new_sizes));
+      }
+      return true;
+    } else if (
+        node->matches(
+            "aten::embedding(Tensor weight, Tensor indices, int padding_idx, bool scale_grad_by_freq, bool sparse) -> Tensor")) {
+      auto weight_type = input_type(0);
+      auto indices_type = input_type(1);
+      if (weight_type && indices_type && indices_type->dim()) {
+        std::vector<ShapeSymbol> new_sizes =
+            indices_type->symbolic_sizes().sizes().value();
+        new_sizes.push_back(weight_type->symbolic_sizes().sizes().value()[1]);
+        node->output()->setType(weight_type->withSymbolicShapes(new_sizes));
+      }
+      return true;
     }
 
     // The code below implements formulas that need type information for all
@@ -2087,6 +2116,12 @@ class ShapePropagator : public PropertyPropBase {
       } else if (
           node->matches(
               "aten::reshape(Tensor(a) self, int[] shape) -> Tensor(a)")) {
+        auto type = tensor_types.at(0);
+        if (type && type->symbolic_sizes().isComplete()) {
+          auto shape = node->get<c10::List<int64_t>>(attr::shape).value();
+          std::vector<int64_t> new_sizes(shape.begin(), shape.end());
+          return type->withSizes(new_sizes);
+        }
         return reshape_prop(node, attr::shape, tensor_types);
       } else if (node->matches(
                      "aten::repeat(Tensor self, int[] repeats) -> Tensor")) {
@@ -2272,6 +2307,114 @@ class ShapePropagator : public PropertyPropBase {
                    "aten::pow(Tensor self, Scalar exponent) -> Tensor")) {
       node->output()->setType(tensor_types.at(0));
       return true;
+    } else if (node->matches(
+                   "aten::permute(Tensor self, int[] dims) -> Tensor")) {
+      if (auto type = tensor_types.at(0)) {
+        auto dims = node->get<c10::List<int64_t>>(attr::dims).value();
+        std::vector<ShapeSymbol> newSizes(dims.size());
+        for (const auto i : c10::irange(dims.size())) {
+          auto dimSize = type->symbolic_sizes().sizes().value()[dims[i]];
+          if (dimSize.is_static()) {
+            newSizes[i] = ShapeSymbol::fromStaticSize(dimSize.static_size());
+          } else {
+            newSizes[i] = ShapeSymbol::newSymbol();
+          }
+        }
+        node->output()->setType(type->withSymbolicShapes(newSizes));
+      }
+      return true;
+    } else if (
+        node->matches(
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 7
+            "aten::slice(Tensor self, int dim, int? start=None, int? end=None, int step=1) -> Tensor"
+#else
+            "aten::slice(Tensor self, int dim, int start, int end, int step) -> Tensor"
+#endif
+            )) {
+      if (auto type = tensor_types.at(0)) {
+        std::vector<ShapeSymbol> new_sizes =
+            type->symbolic_sizes().sizes().value();
+        int64_t dim = node->get<int64_t>(attr::dim).value();
+        int64_t start = node->get<IValue>(attr::start).value() != c10::nullopt
+            ? node->get<int>(attr::start).value()
+            : 0;
+        int64_t end = node->get<IValue>(attr::end).value() != c10::nullopt
+            ? node->get<int>(attr::end).value()
+            : INT64_MAX;
+        int64_t step = node->get<int64_t>(attr::step).value();
+        int64_t len = end - start;
+        if (new_sizes[dim].is_static()) {
+          if (end >= new_sizes[dim].static_size())
+            end = new_sizes[dim].static_size();
+          int64_t len = end - start;
+          int64_t val = (len + step - 1) / step;
+          new_sizes[dim] = ShapeSymbol::fromStaticSize((len + step - 1) / step);
+        }
+        node->output()->setType(type->withSymbolicShapes(new_sizes));
+        return true;
+      }
+    } else if (
+        node->matches(
+            "aten::embedding(Tensor weight, Tensor indices, int padding_idx, bool scale_grad_by_freq, bool sparse) -> Tensor")) {
+      auto weight_type = tensor_types.at(0);
+      auto indices_type = tensor_types.at(1);
+      if (weight_type && indices_type && indices_type->dim()) {
+        if (weight_type->symbolic_sizes().isComplete() &&
+            indices_type->symbolic_sizes().isComplete()) {
+          std::vector<int64_t> new_sizes =
+              indices_type->sizes().concrete_sizes().value();
+          new_sizes.push_back(weight_type->sizes().concrete_sizes().value()[1]);
+          node->output()->setType(weight_type->withSizes(new_sizes));
+        } else {
+          std::vector<ShapeSymbol> new_sizes =
+              indices_type->symbolic_sizes().sizes().value();
+          new_sizes.push_back(weight_type->symbolic_sizes().sizes().value()[1]);
+          node->output()->setType(weight_type->withSymbolicShapes(new_sizes));
+        }
+      }
+      return true;
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 8
+    } else if (
+        node->matches(
+            "aten::native_layer_norm(Tensor input, int[] normalized_shape, Tensor? weight, Tensor? bias, float eps) -> (Tensor, Tensor, Tensor)")) {
+      if (auto type = tensor_types.at(0)) {
+        node->outputs()[0]->setType(type);
+        auto normalized_shape =
+            node->get<c10::List<int64_t>>(attr::normalized_shape).value();
+        const size_t axis = type->dim().value() - normalized_shape.size();
+        std::vector<ShapeSymbol> stat_shape;
+        int64_t dims = axis + type->dim().value();
+        for (const auto idx : c10::irange(axis)) {
+          auto dimSize = type->symbolic_sizes()[idx];
+          if (dimSize.is_static())
+            // NB(xiafei.qiuxf): use static_size() rather than value() for
+            // backward compatability. static_size() CHECKs is_static(), it's
+            // safe here.
+            stat_shape.emplace_back(
+                ShapeSymbol::fromStaticSize(dimSize.static_size()));
+          else
+            stat_shape.emplace_back(ShapeSymbol::newSymbol());
+        }
+        for (const auto idx : c10::irange(axis, type->dim().value())) {
+          (void)idx; // Suppress unused variable warning
+          stat_shape.emplace_back(ShapeSymbol::fromStaticSize(1));
+        }
+        SymbolicShape symblicShape(stat_shape);
+        node->outputs()[1]->setType(type->withSymbolicShapes(symblicShape));
+        node->outputs()[2]->setType(type->withSymbolicShapes(symblicShape));
+      }
+      return true;
+#endif
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 10
+    } else if (
+        node->matches(
+            "aten::native_dropout(Tensor input, float p, bool? train) -> (Tensor, Tensor)")) {
+      if (auto type = tensor_types.at(0)) {
+        node->outputs()[0]->setType(type);
+        node->outputs()[1]->setType(type->withScalarType(at::kBool));
+        return true;
+      }
+#endif
     } else if (
         node->matches(
             "aten::add(Tensor self, Scalar other, Scalar alpha) -> Tensor") ||
@@ -2347,6 +2490,16 @@ class ShapePropagator : public PropertyPropBase {
           *lhs_type->scalarType(),
           *lhs_type->device(),
           at::IntArrayRef{lhs_sizes[0], rhs_sizes[1]}));
+      return true;
+    } else if (
+        node->matches(
+            "aten::addmm(Tensor self, Tensor mat1, Tensor mat2, *, Scalar beta, Scalar alpha) -> Tensor")) {
+      auto lhs_type = tensor_types.at(1);
+      auto rhs_type = tensor_types.at(2);
+      auto lhs_sizes = lhs_type->sizes().concrete_sizes().value();
+      auto rhs_sizes = rhs_type->sizes().concrete_sizes().value();
+      node->output()->setType(
+          lhs_type->withSizes(at::IntArrayRef{lhs_sizes[0], rhs_sizes[1]}));
       return true;
     } else if (node->matches("aten::t(Tensor self) -> Tensor")) {
       auto tp = tensor_types.at(0);

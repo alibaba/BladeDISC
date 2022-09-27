@@ -33,28 +33,10 @@ class TestTaoMlirStaticRank0(MlirTestCase):
             graph_def = tf.GraphDef()
             text_format.Merge(f.read(), graph_def)
 
-            tao_op = self.get_node(graph_def, "TaoLaunch")
+            disc_op = self.get_node(graph_def, "TaoMlirLaunch")
 
-            self.assertNotEqual(tao_op.attr["function"].func.name, "")
-            mlir_func_name = tao_op.attr["mlir_function"].func.name
-            self.assertEqual(mlir_func_name,
-                tao_op.attr["function"].func.name + "_mlir")
-
-            mlir_func = self.get_func(graph_def, mlir_func_name)
-            tao_op_inner = self.get_node(mlir_func, "TaoMlirLaunch")
-            self.assertEqual(
-                tao_op_inner.attr["function"].func.name, "")
-            inner_mlir_func_name = tao_op_inner.attr["mlir_function"].func.name
-            self.assertNotEqual(inner_mlir_func_name, "")
-
-            self.assertEqual(
-                tao_op_inner.attr["mlir_function"].func.attr["_TaoXlaNumConstantArgs"].i, 1)
-            self.assertEqual(
-                tao_op_inner.attr["mlir_function"].func.attr["_TaoMlirNumFixedShapeArgs"].i, 0)
-            self.assertEqual(
-                tao_op.attr["function"].func.attr["_TaoXlaNumConstantArgs"].i, 1)
-            self.assertEqual(
-                tao_op.attr["function"].func.attr["_TaoMlirNumFixedShapeArgs"].i, 0)
+            self.assertEqual(disc_op.attr["mlir_function"].func.attr["_TaoXlaNumConstantArgs"].i, 1)
+            self.assertEqual(disc_op.attr["mlir_function"].func.attr["_TaoMlirNumFixedShapeArgs"].i, 0)
 
     def _check_disc_time_const(self, fn):
         with open(fn) as f:
@@ -111,29 +93,10 @@ class TestTaoMlirStaticRank0(MlirTestCase):
         with open(fn) as f:
             graph_def = tf.GraphDef()
             text_format.Merge(f.read(), graph_def)
+            disc_op = self.get_node(graph_def, "TaoMlirLaunch")
 
-            tao_op = self.get_node(graph_def, "TaoLaunch")
-
-            self.assertNotEqual(tao_op.attr["function"].func.name, "")
-            mlir_func_name = tao_op.attr["mlir_function"].func.name
-            self.assertEqual(mlir_func_name,
-                tao_op.attr["function"].func.name + "_mlir")
-
-            mlir_func = self.get_func(graph_def, mlir_func_name)
-            tao_op_inner = self.get_node(mlir_func, "TaoMlirLaunch")
-            self.assertEqual(
-                tao_op_inner.attr["function"].func.name, "")
-            inner_mlir_func_name = tao_op_inner.attr["mlir_function"].func.name
-            self.assertNotEqual(inner_mlir_func_name, "")
-
-            self.assertEqual(
-                tao_op_inner.attr["mlir_function"].func.attr["_TaoXlaNumConstantArgs"].i, 0)
-            self.assertEqual(
-                tao_op_inner.attr["mlir_function"].func.attr["_TaoMlirNumFixedShapeArgs"].i, 2)
-            self.assertEqual(
-                tao_op.attr["function"].func.attr["_TaoXlaNumConstantArgs"].i, 2)
-            self.assertEqual(
-                tao_op.attr["function"].func.attr["_TaoMlirNumFixedShapeArgs"].i, 0)
+            self.assertEqual(disc_op.attr["mlir_function"].func.attr["_TaoXlaNumConstantArgs"].i, 0)
+            self.assertEqual(disc_op.attr["mlir_function"].func.attr["_TaoMlirNumFixedShapeArgs"].i, 2)
 
     def _check_disc_fixed_shape(self, fn):
         with open(fn) as f:
@@ -142,8 +105,8 @@ class TestTaoMlirStaticRank0(MlirTestCase):
 
             disc_op = self.get_node(graph_def, "DiscLaunch")
 
-            self.assertEqual(disc_op.attr["mlir_function"].func.attr["_TaoXlaNumConstantArgs"].i, 2)
-            self.assertEqual(disc_op.attr["mlir_function"].func.attr["_TaoMlirNumFixedShapeArgs"].i, 0)
+            self.assertEqual(disc_op.attr["mlir_function"].func.attr["_TaoXlaNumConstantArgs"].i, 0)
+            self.assertEqual(disc_op.attr["mlir_function"].func.attr["_TaoMlirNumFixedShapeArgs"].i, 2)
 
     # test for must_be_fixed_shape inputs for mlir
     def test_compile_time_fixed_shape(self):

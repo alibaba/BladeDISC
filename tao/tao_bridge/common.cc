@@ -49,7 +49,7 @@ static void AllocateTaoBridgeFlags() {
                                 &opts->disc_cache_path));
   CHECK_OK(ReadBoolFromEnvVar("TAO_ENABLE_MLIR", false, &opts->enable_mlir));
 
-  CHECK_OK(ReadBoolFromEnvVar("TAO_MLIR_BRANCH_ONLY", false,
+  CHECK_OK(ReadBoolFromEnvVar("TAO_MLIR_BRANCH_ONLY", true,
                               &opts->tao_mlir_branch_only));
 
   CHECK_OK(ReadBoolFromEnvVar("TAO_DUMP_PASS_OUTPUT", false,
@@ -102,9 +102,8 @@ static void AllocateTaoBridgeFlags() {
   CHECK_OK(ReadBoolFromEnvVar("TAO_WHALE_SEPERATE_MICRO_BATCH", false,
                               &opts->seperate_whale_micro_batch));
 
-  // Experimental features
   CHECK_OK(ReadBoolFromEnvVar(
-      "TAO_EXPERIMENTAL_ENABLE_MLIR_WHOLE_GRAPH_COMPILATION", false,
+      "TAO_EXPERIMENTAL_ENABLE_MLIR_WHOLE_GRAPH_COMPILATION", true,
       &opts->experimental_enable_mlir_whole_graph_compilation));
 
   CHECK_OK(ReadBoolFromEnvVar("TAO_SKIP_TRAINING_GRAPH", false,

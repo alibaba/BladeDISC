@@ -34,7 +34,6 @@ fi
 python ${ENTRY} ${VENV_PATH} -s configure --bridge-gcc default --compiler-gcc default ${CPU_ONLY}
 python ${ENTRY} ${VENV_PATH} -s build_tao_bridge ${CPU_ONLY}
 python ${ENTRY} ${VENV_PATH} -s build_tao_compiler ${CPU_ONLY}
-python ${ENTRY} ${VENV_PATH} -s build_mlir_ral ${CPU_ONLY}
 python ${ENTRY} ${VENV_PATH} -s test_tao_bridge_cpp ${CPU_ONLY}
 python ${ENTRY} ${VENV_PATH} -s test_tao_bridge_py ${CPU_ONLY}
 python ${ENTRY} ${VENV_PATH} -s test_tao_compiler ${CPU_ONLY}

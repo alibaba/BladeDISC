@@ -301,7 +301,7 @@ def configure_bridge(root, args):
 
 @time_stage()
 def configure(root, args):
-    symlink_disc_files(args.platform_alibaba)
+    symlink_disc_files(args)
     configure_bridge(root, args)
     configure_compiler(root, args)
 

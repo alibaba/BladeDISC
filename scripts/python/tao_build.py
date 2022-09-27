@@ -165,13 +165,6 @@ def configure_compiler(root, args):
     logger.info("Stage [configure compiler] success.")
 
 @time_stage()
-def configure_pytorch(root, args):
-    save_gcc_conf(args)
-    logger.info("configuring aicompiler for pytorch ......")
-    config_blade_gemm(root, args)
-    configure_compiler(root, args)
-
-@time_stage()
 def configure_bridge_cmake(root, args):
     save_gcc_conf(args)
     add_ral_link_if_not_exist(root)
@@ -434,77 +427,6 @@ def build_tao_compiler(root, args):
 
 
 @time_stage()
-def build_mlir_ral(root, args):
-    configs = ['--config=cxx11abi_{}'.format(int(args.ral_cxx11_abi))]
-    if not args.cpu_only:
-        if args.dcu:
-            configs.append('--config=disc_dcu')
-        elif args.rocm:
-            configs.append("--config=disc_rocm")
-        else:
-            configs.append('--config=disc_cuda')
-            if args.platform_alibaba and args.blade_gemm:
-                configs.append('--config=blade_gemm')
-        if args.rocm_toolkit_codegen:
-            configs.append('--cxxopt="-DTENSORFLOW_USE_ROCM_COMPILE_TOOLKIT=1"')
-    else:
-        if args.aarch64:
-            configs.append('--config=disc_aarch64')
-        else:
-            configs.append('--config=disc_x86')
-
-    if args.platform_alibaba:
-        configs.append(" --config=platform_alibaba")
-
-
-
-    if args.enable_blaze_opt:
-        configs.append('--config=disc_blaze')
-
-    if args.enable_mkldnn:
-        configs.append('--config=disc_mkldnn')
-
-    if running_on_ci():
-        configs.append('--config=ci_build')
-
-    BAZEL_BUILD_CMD = "bazel build --config=disc "
-    BAZEL_BUILD_CMD = BAZEL_BUILD_CMD + " ".join(configs)
-
-    TARGET_RAL_STANDALONE_LIB = "//tensorflow/compiler/mlir/xla/ral:libral_base_context.so"
-    TARGET_DHLO_COMPILER_MAIN = "//tensorflow/compiler/mlir/disc:disc_compiler_main"
-    TARGET_MLIR_DISC_BUILDER = "//tensorflow/compiler/mlir/disc:mlir_disc_builder.so"
-    TARGET_MLIR_DISC_BUILDER_HEADER = "//tensorflow/compiler/mlir/disc:install_mlir_disc_headers"
-
-    def bazel_build(target, flag=""):
-        logger.info("Building bazel target: " + target)
-        execute(" ".join([BAZEL_BUILD_CMD, flag, target]))
-
-    flag = ""
-    with cwd(tf_root_dir(root)), gcc_env(args.bridge_gcc):
-        bazel_build(TARGET_RAL_STANDALONE_LIB, flag=flag)
-        bazel_build(TARGET_MLIR_DISC_BUILDER, flag=flag)
-        bazel_build(TARGET_MLIR_DISC_BUILDER_HEADER, flag=flag)
-
-    with cwd(tf_root_dir(root)), gcc_env(args.compiler_gcc):
-        if not args.cpu_only:
-            # A workaround for a bug of gcc<=7.3 since devtoolset-7 supports up to 7.3.1
-            # and cuda-10 runtime cannot support devtools-8 for now.
-            # Revisit this if upgrade to devtools-8.
-            # Refer to: https://github.com/tensorflow/tensorflow/issues/25323
-            execute("sed -i \
-                's/values\[i\] = coeff(index+i);/Self::CoeffReturnType t = coeff(index+i);values\[i\] = t;/g' \
-                'bazel-tf_community/external/eigen_archive/unsupported/Eigen/CXX11/src/Tensor/TensorImagePatch.h'")
-            execute("sed -i \
-                '/values\[i\] = internal::InnerMostDimReducer<Self, Op>::reduce(\*this, firstIndex + i \* num_values_to_reduce,$/{n;d}' \
-                'bazel-tf_community/external/eigen_archive/unsupported/Eigen/CXX11/src/Tensor/TensorReduction.h'")
-            execute("sed -i \
-                's/values\[i\] = internal::InnerMostDimReducer<Self, Op>::reduce(\*this, firstIndex + i \* num_values_to_reduce,$/CoeffReturnType t = internal::InnerMostDimReducer<Self, Op>::reduce(\*this, firstIndex + i \* num_values_to_reduce, num_values_to_reduce, reducer)\;values\[i\] = t\;/g' \
-                'bazel-tf_community/external/eigen_archive/unsupported/Eigen/CXX11/src/Tensor/TensorReduction.h'")
-        bazel_build(TARGET_DHLO_COMPILER_MAIN, flag=flag)
-
-    logger.info("Stage [build_mlir_ral] success.")
-
-@time_stage()
 def test_tao_compiler(root, args):
     BAZEL_BUILD_CMD = "bazel build --experimental_multi_threaded_digest --define framework_shared_object=false --test_timeout=600 --javabase=@bazel_tools//tools/jdk:remote_jdk11"
     BAZEL_TEST_CMD = "bazel test --experimental_multi_threaded_digest --define framework_shared_object=false --test_timeout=600 --javabase=@bazel_tools//tools/jdk:remote_jdk11"
@@ -624,20 +546,6 @@ def build_tao_bridge(root, args):
 
     logger.info("Stage [build_tao_bridge] success.")
 
-
-@time_stage()
-def build_dsw(root, args):
-    dsw_build_dir = os.path.join(root, "platform_alibaba", "tools", "tao")
-    # copy VERSION file
-    overwrite_file(get_version_file(), os.path.join(dsw_build_dir, "tao", "VERSION"))
-
-    with cwd(dsw_build_dir), gcc_env(args.bridge_gcc):
-        # remove previous build results
-        for tmpdir in ["build", "dist", "tao.egg-info"]:
-            if os.path.exists(tmpdir):
-                shutil.rmtree(tmpdir)
-        execute("{}/bin/python setup.py bdist_wheel --universal".format(args.venv_dir))
-    logger.info("Stage [build_dsw] success.")
 
 def py_test_reader(root, includes):
     includes = r'|'.join([fnmatch.translate(x) for x in includes])
@@ -903,19 +811,15 @@ def parse_args():
         choices=[
             "all",
             "configure",
-            "configure_pytorch",
             "lint",
             "build",
             "build_tao_compiler",
             "build_tao_bridge",
-            "build_dsw",
-            "build_mlir_ral",
             "test",
             "test_tao_bridge_cpp",
             "test_tao_bridge_py",
             "test_tao_compiler",
             "package",
-            "package_ral",
         ],
         default="all",
         metavar="stage",
@@ -926,7 +830,6 @@ def parse_args():
     - build: parent stage of the following:
         - build_tao_compiler: build tao_compiler only.
         - build_tao_bridge: build tao_bridge only.
-        - build_dsw: build dsw .whl only.
     - test: test tao_compiler (not ready for now) and tao_bridge.
         - test_tao_bridge_cpp: run cpp unit tests for tao_bridge.
         - test_tao_bridge_py: run python unit tests for tao_bridge.
@@ -1035,8 +938,6 @@ def parse_args():
     if args.stage in ["all", "configure"]:
         assert args.bridge_gcc, "--bridge-gcc is required."
         assert args.compiler_gcc, "--compiler-gcc is required."
-    elif args.stage in ["configure_pytorch"]:
-        assert args.bridge_gcc, "--bridge-gcc is required."
     else:
         assert (
             args.bridge_gcc is None
@@ -1080,12 +981,10 @@ def main():
         logger.info(os.environ["TF_BUILD_OPTS"])
         logger.info(os.environ["TF_TEST_OPTS"])
 
-    if stage in ["all", "configure", "configure_pytorch"]:
+    if stage in ["all", "configure"]:
         if args.enable_mkldnn:
             with gcc_env(args.bridge_gcc):
                 config_mkldnn(root, args)
-        if stage == "configure_pytorch":
-            configure_pytorch(root, args)
         else:
             configure(root, args)
 
@@ -1097,7 +996,7 @@ def main():
     is_test = stage in ["test", "test_tao_bridge_cpp", "test_tao_bridge_py"]
 
     if (
-        stage in ["all", "build", "build_tao_compiler", "build_mlir_ral"]
+        stage in ["all", "build", "build_tao_compiler"]
         or is_test
         and not args.no_build_for_test
     ):
@@ -1105,10 +1004,7 @@ def main():
             with gcc_env(args.bridge_gcc):
                 build_mkldnn(root)
         build_blade_gemm(root, args)
-        if stage == "build_mlir_ral":
-            build_mlir_ral(root, args)
-        else:
-            build_tao_compiler(root, args)
+        build_tao_compiler(root, args)
 
     if (
         stage in ["all", "build", "build_tao_bridge"]

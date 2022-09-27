@@ -33,7 +33,6 @@ using namespace mlir::torch::Torch;
 using namespace mlir::torch::TorchConversion;
 
 namespace {
-
 template <typename AtenOpT>
 class ConvertAtenOp : public OpConversionPattern<AtenOpT> {
  public:
@@ -58,6 +57,26 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     return success();
   }
   return failure();
+}
+
+template <>
+LogicalResult ConvertAtenOp<AtenMaskedFillScalarOp>::matchAndRewrite(
+    AtenMaskedFillScalarOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  rewriter.replaceOpWithNewOp<AtenWhereScalarOtherOp>(
+      op, op.getType(), op.mask(), op.self(), op.value());
+  return success();
+}
+
+template <>
+LogicalResult ConvertAtenOp<AtenMaskedFillTensorOp>::matchAndRewrite(
+    AtenMaskedFillTensorOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  rewriter.replaceOpWithNewOp<AtenWhereSelfOp>(
+      op, op.getType(), op.mask(), op.self(), op.value());
+  return success();
 }
 
 template <>
@@ -205,6 +224,7 @@ class DiscDecomposeComplexOpsPass
     patterns.add<ConvertAtenOp<OperatorOp>>(context);
     // Won't mark OperatorOp as illegal, some custom operator may remain
     // unconverted.
+    target.addLegalOp<OperatorOp>();
 
     patterns.add<ConvertAtenOp<AtenHardtanhOp>>(context);
     target.addIllegalOp<AtenHardtanhOp>();
@@ -215,7 +235,11 @@ class DiscDecomposeComplexOpsPass
     patterns.add<ConvertAtenOp<AtenNllLossForwardOp>>(context);
     target.addIllegalOp<AtenNllLossForwardOp>();
 
-    target.addLegalOp<OperatorOp>();
+    patterns.add<ConvertAtenOp<AtenMaskedFillScalarOp>>(context);
+    target.addIllegalOp<AtenMaskedFillScalarOp>();
+
+    patterns.add<ConvertAtenOp<AtenMaskedFillTensorOp>>(context);
+    target.addIllegalOp<AtenMaskedFillTensorOp>();
 
     if (failed(applyPartialConversion(
             getOperation(), target, std::move(patterns)))) {

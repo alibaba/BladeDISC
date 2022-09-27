@@ -1009,7 +1009,8 @@ LogicalResult emitInThreadReduction(
   for (auto root_op : root_ops) {
     if (isRank2RowReduction(root_op)) {
       if (failed(emitPerElementReductionImpl(
-              b, loc, root_op, acc_iter, input_index, yield_values_for_j))) {
+              b, loc, root_op, acc_iter + row_reduction_idx, input_index,
+              yield_values_for_j))) {
         return failure();
       }
       row_reduction_idx++;

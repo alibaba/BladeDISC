@@ -43,7 +43,6 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
   ::mlir::torch::createDiscTorchFunctionToTorchBackendPipeline(pm, funcOptions);
 
   // Add decompose passes
-  pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
   pm.addNestedPass<func::FuncOp>(createDiscDecomposeComplexOpsPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(
@@ -51,7 +50,6 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 
   // Do mhlo lowering
-  // pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
   pm.addNestedPass<func::FuncOp>(createDiscConvertTorchToMhloPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToMhloPass(
       /*enableStaticShape*/ false, /*enableI32Index*/ true));
@@ -98,12 +96,12 @@ void mlir::torch::createDiscTorchFunctionToTorchBackendPipeline(
   // Please try to keep this list somewhat up to date when adding
   // "optimize hard enough that it works" transformations.
 
-  // Incorporate user annotations and remove signature Python-isms.
-  pm.addPass(createAdjustCallingConventionsPass());
+  // // Incorporate user annotations and remove signature Python-isms.
+  // pm.addPass(createAdjustCallingConventionsPass());
 
-  // Eliminate the PrimTupleIndexOp generated from the
-  // adjustCallingConventions
-  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  // // Eliminate the PrimTupleIndexOp generated from the
+  // // adjustCallingConventions
+  // pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 
   // Reduce variants of ops to a smaller set of primitives.
   pm.addNestedPass<func::FuncOp>(createReduceOpVariantsPass());
@@ -113,7 +111,8 @@ void mlir::torch::createDiscTorchFunctionToTorchBackendPipeline(
   //===--------------------------------------------------------------------===//
 
   // Convert the bulk of non-ABI-visible !torch.tensor's to !torch.vtensor's.
-  pm.addNestedPass<func::FuncOp>(Torch::createMaximizeValueSemanticsPass());
+  // pm.addNestedPass<func::FuncOp>(Torch::createMaximizeValueSemanticsPass());
+  pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
 
   // Do shape refinement.
   // This must be run before RefineTypes (which primarily does dtype inference),

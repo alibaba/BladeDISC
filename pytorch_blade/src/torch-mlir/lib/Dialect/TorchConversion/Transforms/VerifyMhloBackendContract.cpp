@@ -21,6 +21,7 @@
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
 
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -115,7 +116,9 @@ class VerifyMhloBackendContractPass
         if (isa<ToI64Op, FromI64Op, ToF64Op, FromF64Op>(op)) {
           op->getResult(0).replaceAllUsesWith(op->getOpOperand(0).get());
           op->erase();
-          return;
+        }
+        if (isa<cf::AssertOp>(op)) {
+          op->erase();
         }
       });
     });

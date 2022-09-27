@@ -985,8 +985,7 @@ def main():
         if args.enable_mkldnn:
             with gcc_env(args.bridge_gcc):
                 config_mkldnn(root, args)
-        else:
-            configure(root, args)
+        configure(root, args)
 
     restore_gcc_conf(args)
     assert args.compiler_gcc in ["7.3", "7.5", "default"], "compiler_gcc {} not supported".format(

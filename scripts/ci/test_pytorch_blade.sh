@@ -26,15 +26,18 @@ export TF_REMOTE_CACHE=${TF_REMOTE_CACHE}
 export TORCH_BLADE_BUILD_TENSORRT_STATIC=${TORCH_BLADE_BUILD_TENSORRT_STATIC:-OFF}
 
 function delete_disk_caches() {
-   # https://bazel.build/remote/caching#delete-remote-cache
-   ndays=10
-   echo "Before old disk caches deleting"
-   du cas/ ac/ --max-depth=0 -h
-   find cas -type f -mtime +${ndays} -delete
-   find ac -type f -mtime +${ndays} -delete
-   echo "After old disk caches deleting"
-   du cas/ ac/ --max-depth=0 -h
+  # https://bazel.build/remote/caching#delete-remote-cache
+  ndays=10
+  if [ -d "cas" ] && [ -d "ac" ]; then
+    echo "Before old disk caches deleting"
+    du cas/ ac/ --max-depth=0 -h
+    find cas -type f -mtime +${ndays} -delete
+    find ac -type f -mtime +${ndays} -delete
+    echo "After old disk caches deleting"
+    du cas/ ac/ --max-depth=0 -h
+  fi
 }
+
 (cd ~/.cache/ && delete_disk_caches)
 
 if [[ -f ~/.cache/proxy_config ]]; then

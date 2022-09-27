@@ -49,6 +49,11 @@ from common_setup import (
     acl_root_dir,
     get_tf_info,
     deduce_cuda_info,
+    add_arguments_platform_alibaba,
+    configure_bridge_platform_alibaba,
+    configure_compiler_platform_alibaba,
+    build_tao_compiler_add_flags_platform_alibaba,
+    test_tao_compiler_add_flags_platform_alibaba,
 )
 
 from tao_common import (
@@ -127,7 +132,6 @@ def restore_gcc_conf(args):
 
 
 def configure_compiler(root, args):
-    symlink_disc_files(args.platform_alibaba)
     config_blade_gemm(root, args)
 
     def _action_env(key, value, cmd="build"):
@@ -162,63 +166,8 @@ def configure_compiler(root, args):
             if args.cpu_only and args.aarch64:
                 _action_env("DISC_TARGET_CPU_ARCH", args.target_cpu_arch or "arm64-v8a")
 
+    configure_compiler_platform_alibaba(root, args)
     logger.info("Stage [configure compiler] success.")
-
-@time_stage()
-def configure_bridge_cmake(root, args):
-    save_gcc_conf(args)
-    add_ral_link_if_not_exist(root)
-    tao_bridge_build_dir = tao_build_dir(root)
-    ensure_empty_dir(tao_bridge_build_dir, clear_hidden=False)
-    with cwd(tao_bridge_build_dir), gcc_env(args.bridge_gcc):
-        cc = which("gcc")
-        cxx = which("g++")
-        envs = " CC={} CXX={} ".format(cc, cxx)
-        if args.build_in_tf_addon:
-            # called from tensorflow_addons
-            flags = "-DTAO_ENABLE_WARMUP_XFLOW=OFF"
-        else:
-            # default flags
-            flags = "-DTAO_ENABLE_CXX_TESTING=ON"
-        flags += " -DTAO_DISABLE_LINK_TF_FRAMEWORK={} ".format(
-            "ON" if args.disable_link_tf_framework else "OFF"
-        )
-        if args.enable_blaze_opt:
-            flags += " -DBLAZE_OPT=true"
-        flags += " -DTAO_CPU_ONLY={}".format(args.cpu_only)
-        flags += " -DTAO_DCU={}".format(args.dcu)
-        flags += " -DTAO_ROCM={}".format(args.rocm)
-        flags += " -DROCM_PATH={}".format(get_rocm_path(args))
-        is_cuda = not (args.cpu_only or args.dcu or args.rocm)
-        flags += " -DTAO_CUDA={}".format(is_cuda)
-        flags += " -DTAO_ENABLE_MKLDNN={} ".format(
-            "ON" if args.enable_mkldnn else "OFF"
-        )
-        if args.enable_mkldnn:
-            flags +=" -DMKL_ROOT={} ".format(mkl_install_dir(root))
-        flags += " -DTAO_X86={}".format(args.x86)
-        flags += " -DTAO_AARCH64={}".format(args.aarch64)
-        if args.aarch64:
-            acl_root = acl_root_dir(root)
-            envs += " ACL_ROOT_DIR={} ".format(acl_root)
-            flags += " -DDNNL_AARCH64_USE_ACL=ON "
-
-        cmake_cmd = (
-            "{} cmake .. -DPYTHON={}/bin/{} {}".format(
-                envs, args.venv_dir, PYTHON_BIN_NAME, flags
-            )
-        )
-        logger.info("configuring tao_bridge ......")
-        execute(cmake_cmd)
-
-    with cwd(root):
-        # copy version.h from tao_bridge
-        execute(
-            "cp {}/tao_bridge/version.h tao_compiler/decoupling/version.h".format(
-                tao_bridge_build_dir
-            )
-        )
-    logger.info("Stage [configure bridge(cmake)] success.")
 
 def config_blade_gemm(root, args):
     if not (args.platform_alibaba and args.blade_gemm):
@@ -250,7 +199,7 @@ def build_blade_gemm(root, args):
 
 
 @time_stage()
-def configure_bridge_bazel(root, args):
+def configure_bridge(root, args):
     save_gcc_conf(args)
     # TODO(lanbo.llb): support tf_addons build with bazel
     # TODO(lanbo.llb): support TAO_DISABLE_LINK_TF_FRAMEWORK in bazel??
@@ -346,15 +295,14 @@ def configure_bridge_bazel(root, args):
         execute(
             f"cp -f {tao_bazel_root}/bazel-bin/tao_bridge/version.h tao_compiler/decoupling/version.h"
         )
+    configure_bridge_platform_alibaba(root, args)
     logger.info("Stage [configure bridge(bazel)] success.")
 
 
 @time_stage()
 def configure(root, args):
-    if args.cmake:
-        configure_bridge_cmake(root, args)
-    else:
-        configure_bridge_bazel(root, args)
+    symlink_disc_files(args.platform_alibaba)
+    configure_bridge(root, args)
     configure_compiler(root, args)
 
 
@@ -412,6 +360,8 @@ def build_tao_compiler(root, args):
 
         if args.enable_mkldnn:
             flag += ' --config=disc_mkldnn'
+
+        flag = build_tao_compiler_add_flags_platform_alibaba(root, args, flag)
 
         bazel_build(TARGET_TAO_COMPILER_MAIN, flag=flag)
         bazel_build(TARGET_DISC_OPT, flag=flag)
@@ -495,6 +445,9 @@ def test_tao_compiler(root, args):
                 flag += " --config=platform_alibaba"
             if args.rocm_toolkit_codegen:
                 flag += ' --cxxopt="-DTENSORFLOW_USE_ROCM_COMPILE_TOOLKIT=1"'
+
+            flag = test_tao_compiler_add_flags_platform_alibaba(root, args, flag)
+
             mlir_tests_list = [
                 TARGET_DISC_IR_TEST,
                 TARGET_DISC_TRANSFORMS_TEST,
@@ -535,14 +488,9 @@ def tao_bridge_bazel_config(args):
 
 @time_stage()
 def build_tao_bridge(root, args):
-    if args.cmake:
-        tao_bridge_build_dir = tao_build_dir(root)
-        with cwd(tao_bridge_build_dir), gcc_env(args.bridge_gcc):
-            execute("make -j")
-    else:
-        tao_bazel_root = tao_bazel_dir(root)
-        with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
-            execute(f"bazel build {tao_bridge_bazel_config(args)} //:libtao_ops.so")
+    tao_bazel_root = tao_bazel_dir(root)
+    with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
+        execute(f"bazel build {tao_bridge_bazel_config(args)} //:libtao_ops.so")
 
     logger.info("Stage [build_tao_bridge] success.")
 
@@ -582,50 +530,33 @@ def run_py_test(py_bin, test_root, output_file, includes, envs=[]):
 
 @time_stage()
 def test_tao_bridge(root, args, cpp=True, python=True):
-    if args.cmake:
-        tao_bridge_build_dir = tao_build_dir(root)
-        # Perform test within tao bridge GCC environment.
-        with cwd(tao_bridge_build_dir), gcc_env(args.bridge_gcc):
-            if cpp:
-                output_file = os.path.join(tao_bridge_build_dir, "cpp_test.out")
-                execute("make test ARGS='-V' | tee {}".format(output_file))
-                logger.info("Stage [test_tao_bridge_cpp] success, output: " + output_file)
-            if python:
-                output_file = os.path.join(tao_bridge_build_dir, "py_test.out")
-                py_bin = os.path.join(args.venv_dir, "bin", PYTHON_BIN_NAME)
-                test_root_disc = "{}/tao/tao_bridge/test/gpu".format(root)
+    tao_bazel_root = tao_bazel_dir(root)
+    with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
+        if cpp:
+            output_file = os.path.join(tao_bazel_root, "cpp_test.out")
+            execute(f"bazel test {tao_bridge_bazel_config(args)} //...")
+            logger.info("Stage [test_tao_bridge_cpp] with bazel success, output: " + output_file)
+        if python:
+            output_file = os.path.join(tao_bazel_root, "py_test.out")
+            py_bin = os.path.join(args.venv_dir, "bin", PYTHON_BIN_NAME)
+            test_root_disc = "{}/tao/tao_bridge/test/gpu".format(root)
+            test_root_cpu = "{}/platform_alibaba/tao_bridge/test/cpu".format(internal_root_dir())
+            test_root_gpu = "{}/platform_alibaba/tao_bridge/test/gpu".format(internal_root_dir())
+
+            if args.platform_alibaba:
+                if args.cpu_only:
+                    run_py_test(py_bin, test_root_cpu, output_file, ["test_*.py"],
+                        ["PLATFORM_ALIBABA=ON"])
+                else:
+                    run_py_test(py_bin, test_root_gpu, output_file, ["test_*.py"],
+                        ["PLATFORM_ALIBABA=ON"])
+                    run_py_test(py_bin, test_root_disc, output_file, ["test_mlir*.py"],
+                        ["PLATFORM_ALIBABA=ON"])
+            else:
                 if not args.cpu_only:
                     run_py_test(py_bin, test_root_disc, output_file, ["test_mlir*.py"])
 
-                logger.info("Stage [test_tao_bridge_py] success, output: " + output_file)
-    else:
-        tao_bazel_root = tao_bazel_dir(root)
-        with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
-            if cpp:
-                output_file = os.path.join(tao_bazel_root, "cpp_test.out")
-                execute(f"bazel test {tao_bridge_bazel_config(args)} //...")
-                logger.info("Stage [test_tao_bridge_cpp] with bazel success, output: " + output_file)
-            if python:
-                output_file = os.path.join(tao_bazel_root, "py_test.out")
-                py_bin = os.path.join(args.venv_dir, "bin", PYTHON_BIN_NAME)
-                test_root_disc = "{}/tao/tao_bridge/test/gpu".format(root)
-                test_root_cpu = "{}/platform_alibaba/tao_bridge/test/cpu".format(internal_root_dir())
-                test_root_gpu = "{}/platform_alibaba/tao_bridge/test/gpu".format(internal_root_dir())
-
-                if args.platform_alibaba:
-                    if args.cpu_only:
-                        run_py_test(py_bin, test_root_cpu, output_file, ["test_*.py"],
-                            ["PLATFORM_ALIBABA=ON"])
-                    else:
-                        run_py_test(py_bin, test_root_gpu, output_file, ["test_*.py"],
-                            ["PLATFORM_ALIBABA=ON"])
-                        run_py_test(py_bin, test_root_disc, output_file, ["test_mlir*.py"],
-                            ["PLATFORM_ALIBABA=ON"])
-                else:
-                    if not args.cpu_only:
-                        run_py_test(py_bin, test_root_disc, output_file, ["test_mlir*.py"])
-
-                logger.info("Stage [test_tao_bridge_py] success, output: " + output_file)
+            logger.info("Stage [test_tao_bridge_py] success, output: " + output_file)
 
 
 def prepare_env(args):
@@ -901,12 +832,6 @@ def parse_args():
         help="bazel build/test targets for tao compiler",
     )
     parser.add_argument(
-        "--cmake",
-        required=False,
-        action="store_true",
-        help="cmake build/test targets for tao bridge",
-    )
-    parser.add_argument(
         "--build_dbg_symbol", action="store_true", help="Add -g to build options"
     )
     parser.add_argument(
@@ -927,6 +852,7 @@ def parse_args():
         default="",
         help="Specify the target architecture.",
     )
+    add_arguments_platform_alibaba(parser)
     # flag validation
     args = parser.parse_args()
     assert args.venv_dir, "virtualenv directory should not be empty."

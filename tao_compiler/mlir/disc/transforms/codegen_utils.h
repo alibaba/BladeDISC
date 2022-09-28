@@ -32,7 +32,7 @@ namespace mlir {
 namespace disc_ral {
 
 #if TENSORFLOW_USE_ROCM
-constexpr int kWarpSize = 32;
+constexpr int kWarpSize = 64;
 #else
 constexpr int kWarpSize = 32;
 #endif
@@ -80,6 +80,9 @@ using DiscColReductionScheduleType = enum : int {
   DISC_TILE_W8_H32 = 1,
   DISC_TILE_W8_H16 = 2,
   DISC_TILE_W8_H8 = 3,
+  DISC_TILE_LOOP_W64_H8 = 4,
+  DISC_TILE_LOOP_W16_H32 = 5,
+  DISC_TILE_LOOP_W8_H8 = 6,
 };
 
 // number of therads per block when doing codegen on GPU.
@@ -90,7 +93,7 @@ constexpr const int kRowReductionScheduleTurningSize = 512;
 
 // default num of threads per block used when doing codegen
 #if TENSORFLOW_USE_ROCM
-constexpr const int kThreadsRowReduction = 256;
+constexpr const int kThreadsRowReduction = 512;
 #else
 constexpr const int kThreadsRowReduction = 256;
 #endif

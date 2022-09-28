@@ -445,7 +445,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   // CodeGen passes: lhlo -> gpu.launch_func
   // TODO: move to aicompiler repo and add more schedules/op coverage
   pm.addNestedPass<FuncOp>(
-      disc_ral::createDiscLhloLegalizeRootsToParallelLoopsPass());
+      disc_ral::createDiscLhloLegalizeRootsToParallelLoopsPass(
+          options.gpu_info.sm_count));
   // Converts `atomic_rmw` to `generic_atomic_rmw` when necessary to use CAS.
   pm.addNestedPass<FuncOp>(memref::createExpandOpsPass());
   // Converts `atomic_rmw` to `generic_atomic_rmw` that is unhandled in
@@ -497,7 +498,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     // TODO: adopt tileSize from attributes of speculation pass with a
     // wrapper of the original ParallelLoopTilingPass
     pm.addNestedPass<FuncOp>(
-        disc_ral::createParallelLoopTilingPass({256}, true));
+        disc_ral::createParallelLoopTilingPass({kThreadsRowReduction}, true));
     // pm.addNestedPass<FuncOp>(disc_ral::createMapParallelLoopsPass());
     pm.addNestedPass<FuncOp>(mlir::createGpuMapParallelLoopsPass());
 

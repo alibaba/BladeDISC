@@ -398,6 +398,7 @@ void ral_tf_gpu_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
   se::Stream* stream = nullptr;
   se::StreamExecutor* executor = nullptr;
   se::KernelBase* kernel_ptr = nullptr;
+  std::string namedeb;
   {
     std::lock_guard<std::mutex> lock(state->mu);
     stream = ral_tf_ctx->getOpContext()->op_device_context()->stream();
@@ -441,6 +442,7 @@ void ral_tf_gpu_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
 
     auto key = std::make_pair(blob, std::string(kernel_name));
     auto it = state->kernels.find(key);
+    namedeb = key.second;
     if (it == state->kernels.end()) {
       se::MultiKernelLoaderSpec spec(num_args);
       spec.AddCudaCubinInMemory((char*)blob, (char*)kernel_name);
@@ -457,6 +459,17 @@ void ral_tf_gpu_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
   }
 
   RalTfKernelArgsArrayBase kernel_args(params, num_args);
+  if (VLOG_IS_ON(2)) {
+    VLOG(2) << "kernel is " << namedeb;
+    se::KernelArgIterator iter = kernel_args.arg_iterator();
+    while (iter.has_next()) {
+      se::KernelArg arg = iter.next();
+      VLOG(2) << "*(arg.address):"
+              << reinterpret_cast<uint64_t>(
+                     *static_cast<const uint64_t*>(arg.address));
+    }
+  }
+
   auto status = ral_to_bool(executor->Launch(
       stream, se::ThreadDim(blockX, blockY, blockZ),
       se::BlockDim(gridX, gridY, gridZ), *kernel_ptr, kernel_args));

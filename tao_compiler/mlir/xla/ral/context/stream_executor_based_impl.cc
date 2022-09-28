@@ -199,10 +199,13 @@ static bool DoGemmWithAlgorithm(
             /*leading dim of LHS=*/lhs_matrix.num_cols,
             /*beta=*/static_cast<OutT>(beta), &output_data,
             /*leading dim of output=*/n, computation_type, *algorithm,
-#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION >= 11)
-            se::blas::kDefaultComputePrecision,
-#endif
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
+            output_profile_result, se::blas::CallContext::kNone)
+#elif (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION >= 11)
+            se::blas::kDefaultComputePrecision, output_profile_result)
+#else
             output_profile_result)
+#endif
         .ok();
   }
 
@@ -218,12 +221,14 @@ static bool DoGemmWithAlgorithm(
             /*leading dim of RHS=*/rhs_matrix.num_cols, rhs_stride, lhs_data,
             /*leading dim of LHS=*/lhs_matrix.num_cols, lhs_stride,
             /*beta=*/static_cast<AlphaBeta>(beta), &output_data,
-            /*leading dim of output=*/n, output_stride, batch_size
-#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION >= 11)
-            ,
-            se::blas::kDefaultComputePrecision
-#endif
+            /*leading dim of output=*/n, output_stride, batch_size,
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
+            se::blas::CallContext::kNone)
+#elif (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION >= 11)
+            se::blas::kDefaultComputePrecision)
+#else
             )
+#endif
         .ok();
   }
 
@@ -234,7 +239,11 @@ static bool DoGemmWithAlgorithm(
                      /*leading dim of RHS=*/rhs_matrix.num_cols, lhs_data,
                      /*leading dim of LHS=*/lhs_matrix.num_cols,
                      /*beta=*/static_cast<AlphaBeta>(beta), &output_data,
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
+                     /*leading dim of output=*/n, se::blas::CallContext::kNone)
+#else
                      /*leading dim of output=*/n)
+#endif
       .ok();
 }
 
@@ -599,7 +608,12 @@ std::vector<ProfileResult> GetMIOpenAlgorithms(
           params.kind, se::dnn::ToDataType<T>::value, stream,
           params.input_descriptor, operand_buffers[0], params.filter_descriptor,
           operand_buffers[1], params.output_descriptor, result_buffer,
-          params.convolution_descriptor, scratch_allocator, &algorithms)) {
+          params.convolution_descriptor, scratch_allocator,
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
+          se::dnn::CallContext::kNone, &algorithms)) {
+#else
+          &algorithms)) {
+#endif
     ctx->signalError(Context::FAILURE, "GetMIOpenAlgorithms failed.");
   }
   return algorithms;
@@ -1197,9 +1211,20 @@ Status RunCudnnConvolution(CudnnConvParams& params,
   }
 
   Status status = Status::OK();
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
+  se::dnn::CallContext call_context = se::dnn::CallContext::kNone;
+#endif
+
   switch (kind) {
     case ConvolutionKind::FORWARD:
-#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 6) || TF_MAJOR_VERSION > 2
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
+      // TF2.9 and ROCM
+      call_context = se::dnn::CallContext::kForward;
+      status = stream->ConvolveWithAlgorithm(
+          kind, input_descriptor, input_buf, filter_descriptor, filter_buf,
+          output_descriptor, output_buf, convolution_descriptor,
+          scratch_allocator, algorithm, call_context, profile_result);
+#elif (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 6)
       // TF2.7 and later
       status = stream->ConvolveWithAlgorithm(
           kind, input_descriptor, input_buf, filter_descriptor, filter_buf,
@@ -1335,7 +1360,8 @@ void ral_conv(ExecutionContext* ctx, void* stream_handle,
     }
   }
 
-#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM) and \
+    !(TENSORFLOW_USE_ROCM)
   // nchw=0123 iohw=0123
   // const std::vector<int32_t> nchw_oihw_layout = {0, 1, 2, 3, 1, 0,
   //                                                2, 3, 0, 1, 2, 3};

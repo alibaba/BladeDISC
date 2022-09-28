@@ -212,7 +212,7 @@ class TaoRalApiRegistry {
 
  private:
   TaoRalApiRegistry();
-  class Impl;
+  struct Impl;
   std::unique_ptr<Impl> impl_;
 };
 

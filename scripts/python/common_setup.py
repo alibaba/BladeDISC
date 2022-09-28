@@ -528,7 +528,56 @@ def internal_tao_bridge_dir():
 def link_dirs(dst_dir, src_dir):
     execute("rm -rf {0} && ln -s {1} {0}".format(dst_dir, src_dir))
 
-def symlink_disc_files(is_platform_alibaba):
+def try_import_from_platform_alibaba(module_name):
+    build_scripts_dir = os.path.join(internal_root_dir(), "platform_alibaba", "scripts", "python")
+    sys.path.insert(0, build_scripts_dir)
+    m = None
+    try:
+        import importlib
+        m = importlib.import_module(module_name)
+    except Exception as e:
+        pass
+    finally:
+        sys.path.pop(0)
+    return m
+
+
+def add_arguments_platform_alibaba(parser):
+    m = try_import_from_platform_alibaba("common_setup_internal")
+    if not m: return
+    m.add_arguments(parser)
+
+
+def symlink_disc_files_platform_alibaba(args):
+    m = try_import_from_platform_alibaba("common_setup_internal")
+    if not m: return
+    m.symlink_disc_files(args)
+
+
+def configure_bridge_platform_alibaba(root, args):
+    m = try_import_from_platform_alibaba("common_setup_internal")
+    if not m: return
+    m.configure_bridge(root, args)
+
+
+def configure_compiler_platform_alibaba(root, args):
+    m = try_import_from_platform_alibaba("common_setup_internal")
+    if not m: return
+    m.configure_compiler(root, args)
+
+def build_tao_compiler_add_flags_platform_alibaba(root, args, flag):
+    m = try_import_from_platform_alibaba("common_setup_internal")
+    if not m: return flag
+    return m.build_tao_compiler_add_flags(root, args, flag)
+
+
+def test_tao_compiler_add_flags_platform_alibaba(root, args, flag):
+    m = try_import_from_platform_alibaba("common_setup_internal")
+    if not m: return flag
+    return m.test_tao_compiler_add_flags(root, args, flag)
+
+
+def symlink_disc_files(args):
     dir_tf_community = os.path.join(get_source_root_dir(), "tf_community")
     dir_platform_alibaba = os.path.join(internal_root_dir(), "platform_alibaba")
 
@@ -574,11 +623,11 @@ def symlink_disc_files(is_platform_alibaba):
     for dir_name in ["tao_launch_op", "gpu"]:
         src_file = os.path.join(internal_tao_bridge_dir(), dir_name)
         link_in_bridge = os.path.join(tao_bridge_dir(), dir_name)
-        if is_platform_alibaba:
+        if args.platform_alibaba:
             link_dirs(link_in_bridge, src_file)
         else:
             execute("rm -rf {0}".format(link_in_bridge))
-    if is_platform_alibaba:
+    if args.platform_alibaba:
         logger.info("linking blade_service_common bazel files")
         src_dir = os.path.join(internal_root_dir(), "platform_alibaba", "bazel", "blade_service_common")
         dst_dir = os.path.join(get_source_root_dir(), "third_party", "bazel", "blade_service_common")
@@ -586,6 +635,13 @@ def symlink_disc_files(is_platform_alibaba):
         for f in files:
             link_dirs(os.path.join(dst_dir, f), os.path.join(src_dir, f))
 
+    symlink_disc_files_platform_alibaba(args)
+
+
+def symlink_disc_files_deprecated(is_platform_alibaba):
+    args = argparse.Namespace()
+    setattr(args, "platform_alibaba", is_platform_alibaba)
+    symlink_disc_files(args)
 
 def add_ral_link_if_not_exist():
     root = get_source_root_dir()
@@ -622,7 +678,7 @@ if __name__ == "__main__":
     update_cpu_specific_setting(args)
 
     root = get_source_root_dir()
-    symlink_disc_files(False)
+    symlink_disc_files_deprecated(False)
 
     if args.enable_mkldnn:
         config_mkldnn(root, args)

@@ -5,6 +5,7 @@ try-import ../tf_community/.bazelrc.user
 
 build --disk_cache=~/.cache
 build --define is_torch_disc=true
+build --experimental_ui_max_stdouterr_bytes=-1
 build:torch_debug --copt=-O0 --compilation_mode=dbg --strip=never
 build:torch_cuda --config=cuda --config=disc_cuda --define enable_cuda=true
 build:torch_x86 --config=disc_x86 --config=disc_mkldnn --action_env BUILD_WITH_MKLDNN=1

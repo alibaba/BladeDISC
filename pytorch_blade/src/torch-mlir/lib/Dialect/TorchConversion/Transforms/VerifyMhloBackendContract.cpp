@@ -149,6 +149,7 @@ class VerifyMhloBackendContractPass
         arith::ArithmeticDialect,
         chlo::ChloDialect,
         mhlo::MhloDialect,
+        mhlo_disc::MhloDiscDialect,
         tensor::TensorDialect>();
     RewritePatternSet patterns(context);
     populateReturnOpTypeConversionPattern(patterns, converter);

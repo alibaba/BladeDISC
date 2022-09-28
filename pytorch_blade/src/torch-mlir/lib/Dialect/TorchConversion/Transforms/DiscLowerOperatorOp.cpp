@@ -75,15 +75,14 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
       BOOL_VAR_FROM_CONST_OPERAND(usePerChannel, 10);
 #undef BOOL_VAR_FROM_CONST_OPERAND
 
-      auto result = op.getResult(0);
-      auto resultTy = result.getType().cast<RankedTensorType>();
+      auto resultTy = input.getType().dyn_cast<RankedTensorType>();
       if (!resultTy) {
-        return op.emitError("failed to get result tensor type");
+        return op.emitError("failed to get type of input");
       }
       auto castedResultTy =
           RankedTensorType::get(resultTy.getShape(), rewriter.getF32Type());
 
-      auto zeroPointTy = zeroPoint.getType().cast<RankedTensorType>();
+      auto zeroPointTy = zeroPoint.getType().dyn_cast<RankedTensorType>();
       if (!zeroPointTy) {
         return op.emitError("zero point is not a RankedTensorType");
       }

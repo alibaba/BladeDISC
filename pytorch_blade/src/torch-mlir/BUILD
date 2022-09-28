@@ -53,7 +53,8 @@ cc_library(
     strip_include_prefix = "include",
     deps = [
         ":TorchMLIRConversionMhloPassesIncGen",
-	"@mlir-hlo//:mlir_hlo",
+        "@mlir-hlo//:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/mlir/disc:mhlo_disc",
         "@llvm-project//mlir:Dialect",
         "@torch-mlir//:TorchMLIRTorchBackendTypeConversion",
         "@torch-mlir//:TorchMLIRTorchConversionDialect",

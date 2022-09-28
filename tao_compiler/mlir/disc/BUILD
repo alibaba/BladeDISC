@@ -22,6 +22,7 @@ load("//tensorflow/compiler/mlir/disc:disc.bzl",
      "disc_cc_library",
      "if_cuda_or_rocm",
 )
+load("//tensorflow/compiler/mlir/disc:disc.bzl", "if_torch_disc")
 
 config_setting(
     name = "is_platform_alibaba",
@@ -122,6 +123,18 @@ gentbl_cc_library(
     deps = [
         "@llvm-project//mlir:PassBaseTdFiles",
     ],
+)
+
+# When compiled into torch-blade, use mhlo from @mlir-hlo, otherwise use that inside TF.
+cc_library(
+    name = "mlir_hlo_delegate",
+    visibility = [
+        "//visibility:private"
+    ],
+    deps = if_torch_disc(
+        ["@mlir-hlo//:mlir_hlo"],
+        ["//tensorflow/compiler/xla/mlir_hlo:mlir_hlo"]
+    )
 )
 
 cc_library(
@@ -1949,7 +1962,10 @@ gentbl_cc_library(
     ],
     tblgen = "@llvm-project//mlir:mlir-tblgen",
     td_file = "IR/hlo_disc_ops.td",
-    deps = ["//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files"],
+    deps = if_torch_disc(
+        ["@mlir-hlo//:hlo_ops_td_files"],
+        ["//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files"]
+    )
 )
 
 cc_library(
@@ -2065,9 +2081,9 @@ cc_library(
     ],
     includes = ["include"],
     deps = [
-        ":mhlo_disc_ops_inc_gen",
         ":custom_call_base",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        ":mhlo_disc_ops_inc_gen",
+        ":mlir_hlo_delegate",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:Analysis",
         "@llvm-project//mlir:ControlFlowInterfaces",
@@ -2190,11 +2206,11 @@ tf_cc_shared_object(
     }),
     deps = [
         ":mhlo_disc",
+        ":mlir_hlo_delegate",
         ":rng_uniform_custom_call",
         ":topk_custom_call",
         ":qconv_custom_call",
         ":sparse_custom_call",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
     ],
     data = [
         ":mhlo_disc_builder.lds"
@@ -2206,7 +2222,7 @@ cc_library(
     name = "disc_map_chlo_to_hlo_op",
     hdrs = ["transforms/disc_map_chlo_to_hlo_op.h"],
     deps = [
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        ":mlir_hlo_delegate",
     ],
     visibility = ["//visibility:public"],
 )

@@ -9,8 +9,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <torch/script.h>
-
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -19,6 +17,8 @@
 #include "common_utils/utils.h"
 #include "compiler/mlir/converters/mhlo_conversion_context.h"
 #include "compiler/mlir/converters/torch_mlir_op_filter.h"
+
+#include <torch/script.h>
 
 namespace torch {
 namespace blade {

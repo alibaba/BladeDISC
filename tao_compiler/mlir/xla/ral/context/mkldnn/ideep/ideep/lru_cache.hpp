@@ -35,7 +35,7 @@ class lru_cache {
 
   lru_cache(size_type capacity) : capacity_(capacity) {}
 
-  size_type size() const { map_.size(); }
+  size_type size() const { return map_.size(); }
 
   size_type max_size() const { return capacity_; }
 

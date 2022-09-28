@@ -52,6 +52,19 @@ cc_library(
 )
 
 cc_library(
+    name = "ral_md5",
+    srcs = [
+        "ral_md5.cc",
+    ],
+    hdrs = [
+        "ral_md5.h",
+    ],
+    deps = [
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "ral_context",
     srcs = [
         "ral_context.cc",
@@ -328,6 +341,7 @@ cc_library(
         ":disc_blade_gemm_deps",
     ]) + if_mkldnn([
         ":disc_mkl_cmake",
+        ":ral_md5",
     ]),
     alwayslink = 1,
 )
@@ -620,6 +634,7 @@ cc_library(
         "@blade_gemm//:blade_gemm",
     ]) + if_mkldnn([
         ":disc_mkl_bazel",
+        ":ral_md5",
     ]),
     alwayslink = 1,
 )

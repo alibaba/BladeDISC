@@ -1,0 +1,14 @@
+diff --git a/src/core/NEON/kernels/arm_gemm/gemm_hybrid_indirect.hpp b/src/core/NEON/kernels/arm_gemm/gemm_hybrid_indirect.hpp
+index 79fc65e..6e82ae1 100644
+--- a/src/core/NEON/kernels/arm_gemm/gemm_hybrid_indirect.hpp
++++ b/src/core/NEON/kernels/arm_gemm/gemm_hybrid_indirect.hpp
+@@ -515,9 +515,6 @@ public:
+         // Start with actual pretransposed buffer...
+         size_t size = roundup(_args._Nsize, strategy::out_width()) * _Ktotal * _args._nmulti * sizeof(Troi);
+
+-        // Space for result row pointers (not strictly needed any more but retained for indirect output testing)
+-        size += _args._Msize * _args._nbatches * _args._nmulti * sizeof(const Tr *);
+-
+         if (std::is_same<OutputStage, Requantize32>::value) {
+             size += get_col_sum_size();
+         }

@@ -14,6 +14,7 @@
 
 #if defined(TAO_CPU_ONLY) && defined(TAO_ENABLE_MKLDNN)
 
+#include <array>
 #include <thread>
 
 #include "dnnl_threadpool_iface.hpp"
@@ -123,19 +124,40 @@ struct GEMMParamsKeyHasher {
 
 template <typename Tinput, int NDims, typename Tfilter = Tinput,
           typename Toutput = Tinput>
-inline GEMMParamsKey makeGEMMParamsKey(MemRefType<Tinput, NDims> input,
-                                       MemRefType<Tfilter, NDims> weight,
-                                       MemRefType<Toutput, NDims> result,
+inline GEMMParamsKey makeGEMMParamsKey(const MemRefType<Tinput, NDims>& input,
+                                       const MemRefType<Tfilter, NDims>& weight,
+                                       const MemRefType<Toutput, NDims>& result,
                                        bool tp_a, bool tp_b,
                                        bool weight_is_const,
                                        const std::thread::id& tid) {
   GEMMParamsKey key;
   key.tid = tid;
   key.const_weight_ptr = weight_is_const ? weight.data : nullptr;
-  for (int i = 0; i < NDims; ++i) {
+  for (int i = 0; i < NDims - 2; ++i) {
     key.batch *= input.sizes[i];
   }
   key.m = tp_a ? input.sizes[NDims - 1] : input.sizes[NDims - 2];
+  key.n = tp_b ? weight.sizes[NDims - 2] : weight.sizes[NDims - 1];
+  key.k = tp_a ? input.sizes[NDims - 2] : input.sizes[NDims - 1];
+  key.transpose_a = tp_a;
+  key.transpose_b = tp_b;
+
+  return key;
+}
+
+template <typename Tinput, int NDims, typename Tfilter = Tinput,
+          typename Toutput = Tinput>
+inline GEMMParamsKey makeDynamicShapeGEMMParamsKey(
+    const MemRefType<Tinput, NDims>& input,
+    const MemRefType<Tfilter, NDims>& weight,
+    const MemRefType<Toutput, NDims>& result, bool tp_a, bool tp_b,
+    bool weight_is_const, const std::thread::id& tid) {
+  GEMMParamsKey key;
+  key.tid = tid;
+  key.const_weight_ptr = weight_is_const ? weight.data : nullptr;
+  for (int i = 0; i < NDims - 2; ++i) {
+    key.batch *= weight.sizes[i];
+  }
   key.n = tp_b ? weight.sizes[NDims - 2] : weight.sizes[NDims - 1];
   key.k = tp_a ? input.sizes[NDims - 2] : input.sizes[NDims - 1];
   key.transpose_a = tp_a;
@@ -170,7 +192,7 @@ struct ConvParamsKey {
   std::vector<int64_t> dst_dims;
   // padding & stride & dilation & groups & weight_is_const ...
   std::vector<int32_t> metadata;
-  opaque_t weight_ptr = nullptr;
+  const_buffer_t weight_ptr = nullptr;
   // We need this in case the cased kernel is not thead safe.
   // To enable large parallelism, we cache the primitive per-thread.
   std::thread::id tid;
@@ -210,11 +232,11 @@ struct ConvParamsKeyHasher {
 
 template <typename Tinput, int NDims, typename Tfilter = Tinput,
           typename Toutput = Tinput>
-inline ConvParamsKey makeConvParamsKey(MemRefType<Tinput, NDims> input,
-                                       MemRefType<Tfilter, NDims> kernel,
-                                       MemRefType<int32_t, 1> padding,
-                                       MemRefType<Toutput, NDims> output,
-                                       MemRefType<int32_t, 1> metadata,
+inline ConvParamsKey makeConvParamsKey(const MemRefType<Tinput, NDims>& input,
+                                       const MemRefType<Tfilter, NDims>& kernel,
+                                       const MemRefType<int32_t, 1>& padding,
+                                       const MemRefType<Toutput, NDims>& output,
+                                       const MemRefType<int32_t, 1>& metadata,
                                        const std::thread::id& tid) {
   ConvParamsKey key;
   key.src_dims.reserve(NDims);
@@ -231,6 +253,28 @@ inline ConvParamsKey makeConvParamsKey(MemRefType<Tinput, NDims> input,
   }
   for (int i = 0; i < padding.sizes[0]; ++i) {
     key.metadata.push_back(padding.data[i]);
+  }
+  key.weight_ptr = kernel.data;
+  key.tid = tid;
+  return key;
+}
+
+template <typename Tinput, int NDims, typename Tfilter = Tinput,
+          typename Toutput = Tinput>
+inline ConvParamsKey makeDynamicShapeConvParamsKey(
+    const MemRefType<Tinput, NDims>& input,
+    const MemRefType<Tfilter, NDims>& kernel,
+    const MemRefType<int32_t, 1>& padding,
+    const MemRefType<Toutput, NDims>& output,
+    const MemRefType<int32_t, 1>& metadata, const std::thread::id& tid) {
+  ConvParamsKey key;
+  key.weight_dims.reserve(NDims);
+  key.metadata.reserve(metadata.sizes[0]);
+  for (int i = 0; i < NDims; ++i) {
+    key.weight_dims.push_back(kernel.sizes[i]);
+  }
+  for (int i = 0; i < metadata.sizes[0]; ++i) {
+    key.metadata.push_back(metadata.data[i]);
   }
   key.weight_ptr = kernel.data;
   key.tid = tid;
@@ -539,48 +583,84 @@ struct AclOpInfo {
   OpTy op;
 };
 
-template <typename OpTy>
+template <typename TKey, typename TValue>
+using AclOpMap = std::unordered_map<TKey, TValue, typename TKey::Hasher>;
+
+template <typename TKey, typename OpTy>
 class AclOpThreadSafeInfo {
  public:
   inline std::shared_ptr<AclOpInfo<OpTy>> getOrCreate(
-      std::function<
-          std::shared_ptr<AclOpInfo<OpTy>>(const arm_compute::ITensorPack*)>
-          creator) {
-    auto tid = std::this_thread::get_id();
-    {
-      std::lock_guard<std::mutex> l(mu);
-      if (!mainInfo_) {
-        auto it = infoMap_.insert(std::make_pair(tid, creator(nullptr))).first;
-        return mainInfo_ = it->second;
-      }
-      auto it = infoMap_.find(tid);
-      if (it != infoMap_.end()) return it->second;
+      const TKey& key, std::function<std::shared_ptr<AclOpInfo<OpTy>>(
+                           const arm_compute::ITensorPack*)>
+                           creator) {
+    int tid = ThreadLocalIndex::Get();
+    if (tid < kMaxAllowedThread) {
+      auto it = threadLocalStateFastPath_[tid].infoMap.find(key);
+      if (it != threadLocalStateFastPath_[tid].infoMap.end()) return it->second;
     }
 
-    // make a new thread local copy
-    auto info = creator(&mainInfo_->op.get_packed_weight());
+    std::shared_ptr<AclOpInfo<OpTy>> mainInfo;
+    {
+      std::lock_guard<std::mutex> l(mu);
+      if (tid >= kMaxAllowedThread) {
+        auto& state = threadLocalStateSlowPath_[tid];
+        auto it = state.infoMap.find(key);
+        if (it != state.infoMap.end()) return it->second;
+      }
+      auto mainInfoIt = mainInfoMap_.find(key);
+      if (mainInfoIt != mainInfoMap_.end()) {
+        mainInfo = mainInfoIt->second;
+      }
+    }
+
+    if (!mainInfo) {
+      mainInfo = creator(nullptr);
+      std::string md5 = mainInfo->op.get_md5_for_packed_weight();
+      std::lock_guard<std::mutex> l(mu);
+      auto r = md5MainInfoMap_.emplace(md5, mainInfo);
+      if (!r.second) {
+        // re-use packed weight from other shape configuration.
+        mainInfo = r.first->second;
+        mainInfoMap_.emplace(key, mainInfo);
+      } else {
+        // early-return if it's the first one that has md5 as `md5`
+        mainInfoMap_.emplace(key, mainInfo);
+        auto& threadLocalState = (tid < kMaxAllowedThread)
+                                     ? threadLocalStateFastPath_[tid]
+                                     : threadLocalStateSlowPath_[tid];
+        threadLocalState.infoMap.emplace(key, mainInfo);
+        return mainInfo;
+      }
+    }
+
+    auto info = creator(&mainInfo->op.get_packed_weight());
     std::lock_guard<std::mutex> l(mu);
-    infoMap_.insert(std::make_pair(tid, info));
+    auto& threadLocalState = (tid < kMaxAllowedThread)
+                                 ? threadLocalStateFastPath_[tid]
+                                 : threadLocalStateSlowPath_[tid];
+    threadLocalState.infoMap.emplace(key, info);
     return info;
   }
 
  private:
   std::mutex mu;
-  // `mainInfo` is the one owns the pre-packed weights.
-  std::shared_ptr<AclOpInfo<OpTy>> mainInfo_;
-  std::unordered_map<std::thread::id, std::shared_ptr<AclOpInfo<OpTy>>>
-      infoMap_;
+  struct ThreadLocalItem {
+    AclOpMap<TKey, std::shared_ptr<AclOpInfo<OpTy>>> infoMap;
+  };
+  static constexpr const int kMaxAllowedThread = 4096;
+  std::array<ThreadLocalItem, kMaxAllowedThread> threadLocalStateFastPath_;
+  std::unordered_map<int, ThreadLocalItem> threadLocalStateSlowPath_;
+  std::unordered_map<std::string, std::shared_ptr<AclOpInfo<OpTy>>>
+      md5MainInfoMap_;
+  AclOpMap<TKey, std::shared_ptr<AclOpInfo<OpTy>>> mainInfoMap_;
 };
 
-template <typename TKey, typename TValue>
-using AclOpMap = std::unordered_map<TKey, TValue, typename TKey::Hasher>;
 template <typename TKey, typename OpTy>
 using AclOpCache =
     ideep::utils::lru_cache<TKey, std::shared_ptr<AclOpInfo<OpTy>>, AclOpMap>;
 template <typename TKey, typename OpTy>
-using AclOpThreadSafeCache =
-    ideep::utils::lru_cache<TKey, std::shared_ptr<AclOpThreadSafeInfo<OpTy>>,
-                            AclOpMap>;
+using AclOpThreadSafeCache = ideep::utils::lru_cache<
+    TKey, std::shared_ptr<AclOpThreadSafeInfo<TKey, OpTy>>, AclOpMap>;
 
 template <typename TKey, typename OpTy>
 struct AclOpState : public Context::Resource {
@@ -604,24 +684,19 @@ struct AclOpThreadSafeState : public Context::Resource {
   std::mutex mu;
   AclOpThreadSafeCache<TKey, OpTy> cache{getWeightPrePackingCacheCapacity()};
 
-  inline std::shared_ptr<AclOpInfo<OpTy>> getOrCreate(
-      const TKey& key, std::function<std::shared_ptr<AclOpInfo<OpTy>>(
-                           const arm_compute::ITensorPack*)>
-                           creator) {
-    using ThreadSafeInfo = AclOpThreadSafeInfo<OpTy>;
-    std::shared_ptr<ThreadSafeInfo> threadSafeInfo;
-    {
-      std::lock_guard<std::mutex> l(mu);
-      auto it = cache.find(key);
-      if (it == cache.end()) {
-        it = cache
-                 .insert(std::make_pair(
-                     key, std::shared_ptr<ThreadSafeInfo>(new ThreadSafeInfo)))
-                 .first;
-      }
-      threadSafeInfo = it->second;
+  using ThreadSafeInfo = AclOpThreadSafeInfo<TKey, OpTy>;
+  using ThreadSafeInfoPtr = std::shared_ptr<ThreadSafeInfo>;
+
+  inline ThreadSafeInfoPtr getOrCreate(const TKey& key) {
+    std::lock_guard<std::mutex> l(mu);
+    auto it = cache.find(key);
+    if (it == cache.end()) {
+      it = cache
+               .insert(
+                   std::make_pair(key, ThreadSafeInfoPtr(new ThreadSafeInfo)))
+               .first;
     }
-    return threadSafeInfo->getOrCreate(creator);
+    return it->second;
   }
 };
 
@@ -630,10 +705,15 @@ using AclDepthwiseConvInfo =
 using AclDepthwiseConvState =
     AclOpState<ConvParamsKey, arm_compute::DISCNEDepthwiseConvolutionLayer>;
 using AclConvInfo = AclOpInfo<arm_compute::DISCNEConvolutionLayer>;
+using AclConvThreadSafeInfo =
+    AclOpThreadSafeInfo<ConvParamsKey, arm_compute::DISCNEConvolutionLayer>;
 using AclConvState =
     AclOpThreadSafeState<ConvParamsKey, arm_compute::DISCNEConvolutionLayer>;
 
 using AclQGemmInfo = AclOpInfo<arm_compute::DISCNEGEMMLowpMatrixMultiplyCore>;
+using AclQGemmThreadSafeInfo =
+    AclOpThreadSafeInfo<GEMMParamsKey,
+                        arm_compute::DISCNEGEMMLowpMatrixMultiplyCore>;
 using AclQGemmState =
     AclOpThreadSafeState<GEMMParamsKey,
                          arm_compute::DISCNEGEMMLowpMatrixMultiplyCore>;

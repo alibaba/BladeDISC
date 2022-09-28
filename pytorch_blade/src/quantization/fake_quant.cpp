@@ -9,20 +9,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <ATen/Functions.h>
-#include <torch/script.h>
-
 #include <cstdint>
 #include <mutex>
 
+#include <ATen/Functions.h>
 #include "common_utils/logging.h"
-//#include "quantization/fake_quant.h"
+
+#include <torch/script.h>
 
 namespace torch {
 namespace blade {
 namespace quantization {
 
-// A custom torch op used to carry fake quanto info downt to DISC compiler.
+// A custom torch op used to carry fake quant info downt to DISC compiler.
 torch::Tensor torch_blade_fake_quant(
     torch::Tensor input,
     torch::Tensor scale,

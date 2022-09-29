@@ -30,10 +30,10 @@ func.func @torch.aten.index_select(%arg0: !torch.vtensor<[?,4],f32>, %arg1: !tor
 // CHECK-LABEL:  func.func @torch.aten.roll(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?xf32>) -> tensor<?x?xf32> {
 // CHECK:         %[[CST:.*]] = arith.constant dense<1> : tensor<2xi32>
-// CHECK:         %[[C0:.*]] = arith.constant 0 : index
-// CHECK:         %[[C1:.*]] = arith.constant 1 : index
 // CHECK:         %[[C0_I64:.*]] = arith.constant 0 : i64
 // CHECK:         %[[C0_I32:.*]] = arith.constant 0 : i32
+// CHECK:         %[[C0:.*]] = arith.constant 0 : index
+// CHECK:         %[[C1:.*]] = arith.constant 1 : index
 // CHECK:         %[[C3_I64:.*]] = arith.constant 3 : i64
 // CHECK:         %[[C:.*]]-9_i64 = arith.constant -9 : i64
 // CHECK:         %[[T0:.*]] = tensor.dim %[[ARG0]], %[[C1]] : tensor<?x?xf32>

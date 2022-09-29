@@ -33,6 +33,7 @@ limitations under the License.
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Support/LogicalResult.h"
+#include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
@@ -942,17 +943,15 @@ Value emitWidthAdaptShuffle(OpBuilder& b, Location loc, Value value,
     return b.create<gpu::ShuffleOp>(loc, type, value, offset, width, strAttr)
         .getResult(0);
   } else {
-    // int bit_width = bit_width(val);
-    // int segments = ceil(bit_width, 32);
-    // auto val = bitcast(val, vec(segments, i32));
+    // The following codes used to imitate shuffle of integers has bits larger
+    // than 32 int bit_width = bit_width(val); int segments =
+    // ceil(bit_width/32); auto val_vec_i32 = bitcast(val, vec(segments, i32));
     // for (int i = 0; i < segments; ++i) {
-    //   auto insert_elem = extract_element(x, i);
+    //   auto insert_elem = extract_element(val_vec_i32, i);
     //   insert_elem = __xhfl_xor(insert_elem, offset);
-    //   val = insert_element(insert_elem, i);
-    //   elem_val = element_extractor(elem, i);
-    //   sum += __xhfl_xor(elem, offset);
+    //   insert_element(val_vec_i32, insert_elem, i);
     // }
-    // sum += bitcast(val, integer(bit_width)))
+    // val = bitcast(val_vec_i32, integer(bit_width)))
     SmallVector<Type, 2> type = {b.getIntegerType(32), b.getI1Type()};
     int segments = llvm::divideCeil(bit_width, 32);
     auto vec_ty = VectorType::get(segments, b.getIntegerType(32));
@@ -5007,6 +5006,12 @@ struct DiscLhloLegalizeRootsToParallelLoops
           DiscLhloLegalizeRootsToParallelLoops> {
   DiscLhloLegalizeRootsToParallelLoops(int core_count) {
     core_count_ = core_count;
+  }
+
+  void getDependentDialects(DialectRegistry& registry) const override {
+    registry.insert<LLVM::LLVMDialect>();
+    registry.insert<memref::MemRefDialect>();
+    registry.insert<gpu::GPUDialect>();
   }
 
   void runOnOperation() override {

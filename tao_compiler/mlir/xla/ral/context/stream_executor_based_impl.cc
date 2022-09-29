@@ -221,13 +221,13 @@ static bool DoGemmWithAlgorithm(
             /*leading dim of RHS=*/rhs_matrix.num_cols, rhs_stride, lhs_data,
             /*leading dim of LHS=*/lhs_matrix.num_cols, lhs_stride,
             /*beta=*/static_cast<AlphaBeta>(beta), &output_data,
-            /*leading dim of output=*/n, output_stride, batch_size,
+            /*leading dim of output=*/n, output_stride,
 #if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
-            se::blas::CallContext::kNone)
+             batch_size, se::blas::CallContext::kNone)
 #elif (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION >= 11)
-            se::blas::kDefaultComputePrecision)
+             batch_size, se::blas::kDefaultComputePrecision)
 #else
-            )
+             batch_size)
 #endif
         .ok();
   }

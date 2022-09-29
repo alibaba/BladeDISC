@@ -239,7 +239,7 @@ graph(%self.1 : __torch__.___torch_mangle_0.Net,
   # CHECK-NOT: aten::size
   # CHECK-NOT: aten::view
   # CHECK-NOT: aten::mul
-  %65 : __torch__.torch.classes.torch_blade.InitEngine = prim::GetAttr[name="trt_grp0_len26_0"](%self.1)
+  %65 : __torch__.torch.classes.torch_blade.Engine = prim::GetAttr[name="trt_grp0_len26_0"](%self.1)
   %66 : Tensor[] = prim::ListConstruct(%x.1)
   # CHECK: Tensor[] = prim::CallMethod[name="execute"]
   %67 : Tensor[] = prim::CallMethod[name="execute"](%65, %66)

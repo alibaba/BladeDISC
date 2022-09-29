@@ -37,8 +37,7 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
   using OpConversionPattern<OperatorOp>::OpConversionPattern;
   using OpAdaptor = typename OperatorOp::Adaptor;
   LogicalResult matchAndRewrite(
-      OperatorOp op,
-      OpAdaptor adaptor,
+      OperatorOp op, OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override {
     Location loc = op.getLoc();
     auto name = op.name();
@@ -51,7 +50,7 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
 #define I64_VAR_FROM_CONST_OPERAND(var, idx)                         \
   int64_t var;                                                       \
   if (!matchPattern(op.operands()[idx], m_TorchConstantInt(&var))) { \
-    return op.emitError(#var " must be a Scalar constant int");      \
+    return op.emitError(#var " must be a scalar constant int");      \
   }
       I64_VAR_FROM_CONST_OPERAND(qmin, 3);
       I64_VAR_FROM_CONST_OPERAND(qmax, 4);
@@ -60,13 +59,13 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
 
       SmallVector<int64_t, 4> axis;
       if (!matchPattern(op.operands()[6], m_TorchConstantIntList(axis))) {
-        return op.emitError("Only constant dims are currently supported");
+        return op.emitError("only constant dims are supported a.t.m");
       }
 
 #define BOOL_VAR_FROM_CONST_OPERAND(var, idx)                         \
   bool var;                                                           \
   if (!matchPattern(op.operands()[idx], m_TorchConstantBool(&var))) { \
-    return op.emitError(#var " must be a Scalar constant boolean");   \
+    return op.emitError(#var " must be a scalar constant boolean");   \
   }
 
       BOOL_VAR_FROM_CONST_OPERAND(useSigned, 7);
@@ -79,8 +78,10 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
       if (!resultTy) {
         return op.emitError("failed to get type of input");
       }
-      auto castedResultTy =
-          RankedTensorType::get(resultTy.getShape(), rewriter.getF32Type());
+      if (!resultTy.getElementType().isF32()) {
+        return op.emitError(
+            "torch_blade.fake_quant should have float32 as input type.");
+      }
 
       auto zeroPointTy = zeroPoint.getType().dyn_cast<RankedTensorType>();
       if (!zeroPointTy) {
@@ -103,17 +104,8 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
       auto useSymmetricAttr = rewriter.getBoolAttr(useSymmetric);
       auto useDynamicAttr = rewriter.getBoolAttr(useDynamic);
       Value newOp = rewriter.create<mhlo_disc::FakeQuantOp>(
-          loc,
-          castedResultTy,
-          input,
-          scale,
-          castedZeroPoint,
-          useSignedAttr,
-          useSymmetricAttr,
-          axisAttr,
-          numBitsAttr,
-          qminAttr,
-          qmaxAttr,
+          loc, resultTy, input, scale, castedZeroPoint, useSignedAttr,
+          useSymmetricAttr, axisAttr, numBitsAttr, qminAttr, qmaxAttr,
           useDynamicAttr);
       rewriter.replaceOp(op, {newOp});
 
@@ -130,12 +122,9 @@ class DiscLowerOperatorOp
     MLIRContext* context = &getContext();
 
     ConversionTarget target(*context);
-    target.addLegalDialect<
-        arith::ArithmeticDialect,
-        chlo::ChloDialect,
-        mhlo::MhloDialect,
-        mhlo_disc::MhloDiscDialect,
-        tensor::TensorDialect>();
+    target.addLegalDialect<arith::ArithmeticDialect, chlo::ChloDialect,
+                           mhlo::MhloDialect, mhlo_disc::MhloDiscDialect,
+                           tensor::TensorDialect>();
 
     TypeConverter typeConverter;
     typeConverter.addConversion([](Type type) { return type; });
@@ -145,16 +134,16 @@ class DiscLowerOperatorOp
     patterns.add<ConvertOperatorOp>(typeConverter, context);
     target.addIllegalOp<OperatorOp>();
 
-    if (failed(applyPartialConversion(
-            getOperation(), target, std::move(patterns)))) {
+    if (failed(applyPartialConversion(getOperation(), target,
+                                      std::move(patterns)))) {
       return signalPassFailure();
     }
   }
 };
 
-} //  namespace
+}  //  namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>> mlir::torch::TorchConversion::
-    createDiscLowerOperatorOpPass() {
+std::unique_ptr<OperationPass<func::FuncOp>>
+mlir::torch::TorchConversion::createDiscLowerOperatorOpPass() {
   return std::make_unique<DiscLowerOperatorOp>();
 }

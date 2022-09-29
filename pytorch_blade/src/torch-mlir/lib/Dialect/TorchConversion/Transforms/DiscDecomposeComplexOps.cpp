@@ -203,7 +203,8 @@ class DiscDecomposeComplexOpsPass
 
     RewritePatternSet patterns(context);
     patterns.add<ConvertAtenOp<OperatorOp>>(context);
-    target.addIllegalOp<OperatorOp>();
+    // Won't mark OperatorOp as illegal, some custom operator may remain
+    // unconverted.
 
     patterns.add<ConvertAtenOp<AtenHardtanhOp>>(context);
     target.addIllegalOp<AtenHardtanhOp>();

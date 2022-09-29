@@ -126,8 +126,8 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
   }
 };
 
-class DiscLowerOperatorOp
-    : public DiscLowerOperatorOpBase<DiscLowerOperatorOp> {
+class DiscConvertTorchToDiscMhlo
+    : public DiscConvertTorchToDiscMhloBase<DiscConvertTorchToDiscMhlo> {
   void runOnOperation() override {
     MLIRContext* context = &getContext();
 
@@ -157,6 +157,6 @@ class DiscLowerOperatorOp
 } //  namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>> mlir::torch::TorchConversion::
-    createDiscLowerOperatorOpPass() {
-  return std::make_unique<DiscLowerOperatorOp>();
+    createDiscConvertTorchToDiscMhlo() {
+  return std::make_unique<DiscConvertTorchToDiscMhlo>();
 }

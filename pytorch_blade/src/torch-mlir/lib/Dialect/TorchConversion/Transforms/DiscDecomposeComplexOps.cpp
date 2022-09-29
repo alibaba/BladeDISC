@@ -215,7 +215,7 @@ class DiscDecomposeComplexOpsPass
     patterns.add<ConvertAtenOp<AtenNllLossForwardOp>>(context);
     target.addIllegalOp<AtenNllLossForwardOp>();
 
-    target.addLegalOp(OperationName("torch.operator", context));
+    target.addLegalOp<OperatorOp>();
 
     if (failed(applyPartialConversion(
             getOperation(), target, std::move(patterns)))) {

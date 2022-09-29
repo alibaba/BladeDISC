@@ -66,7 +66,7 @@ namespace TorchConversion {
 std::unique_ptr<OperationPass<func::FuncOp>> createApplyValueSemanticsPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvertTorchToMhloPass();
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscDecomposeComplexOpsPass();
-std::unique_ptr<OperationPass<func::FuncOp>> createDiscLowerOperatorOpPass();
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvertTorchToDiscMhlo();
 std::unique_ptr<OperationPass<ModuleOp>> createVerifyMhloBackendContractPass();
 } // namespace TorchConversion
 } // namespace torch

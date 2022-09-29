@@ -260,6 +260,9 @@ std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvertFakeQuantOpPass();
 std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscLowerQuantizeAndDequantizePass();
 
+// Convert mhlo.dynamic_slice to mhlo.real_dynamic_slice
+std::unique_ptr<OperationPass<FuncOp>> createDiscDynamicSliceConverterPass();
+
 }  // namespace disc_ral
 }  // namespace mlir
 

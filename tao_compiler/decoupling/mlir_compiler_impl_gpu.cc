@@ -56,7 +56,8 @@ Status CompilerMLIR_GPU::Init(const TaoCompilerInput& input,
       "cuDeviceGetAttribute (MAX_THREADS_PER_MULTIPROCESSOR)");
   // RETURN_ON_CUDA_ERROR(
   //     cuDeviceGetAttribute(&ctx.max_threads_per_block,
-  //                          CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK, device),
+  //                          CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK,
+  //                          device),
   //     "cuDeviceGetAttribute (MAX_THREADS_PER_BLOCK)");
   return Status::OK();
 }

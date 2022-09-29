@@ -223,11 +223,11 @@ static bool DoGemmWithAlgorithm(
             /*beta=*/static_cast<AlphaBeta>(beta), &output_data,
             /*leading dim of output=*/n, output_stride,
 #if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
-             batch_size, se::blas::CallContext::kNone)
+            batch_size, se::blas::CallContext::kNone)
 #elif (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION >= 11)
-             batch_size, se::blas::kDefaultComputePrecision)
+            batch_size, se::blas::kDefaultComputePrecision)
 #else
-             batch_size)
+            batch_size)
 #endif
         .ok();
   }

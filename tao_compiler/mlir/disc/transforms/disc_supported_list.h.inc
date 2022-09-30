@@ -22,7 +22,7 @@ limitations under the License.
 lmhlo::AbsOp, lmhlo::CeilOp, lmhlo::FloorOp, lmhlo::ConvertOp, lmhlo::CosineOp,
 lmhlo::ExpOp, lmhlo::LogOp, lmhlo::NegOp, lmhlo::RsqrtOp, lmhlo::SqrtOp,
 lmhlo::SignOp, lmhlo::TanhOp, lmhlo::LogisticOp, lmhlo::Log1pOp,
-lmhlo::SineOp,
+lmhlo::SineOp, lmhlo::RoundNearestEvenOp,
 
 // Binary Elementwise Ops
 lmhlo::AddOp, lmhlo::DivOp, lmhlo::MaxOp, lmhlo::MinOp, lmhlo::MulOp,

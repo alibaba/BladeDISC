@@ -660,11 +660,16 @@ struct ConvertFakeQuantOp : public OpRewritePattern<TF::DiscFakeQuantOp> {
     for (auto& v : op.axis()) {
       axis.push_back(v.cast<IntegerAttr>().getInt());
     }
+    // Default mode of round in tf is RoundHalfAwayFromZero
+    // todo(disc): should read it from TF::DiscFakeQuantOp
+    auto round_mode_attr = mlir::mhlo_disc::RoundModeEnumAttr::get(
+        rewriter.getContext(),
+        mlir::mhlo_disc::RoundModeEnum::RoundHalfAwayFromZero);
     Value new_op = rewriter.create<mhlo_disc::FakeQuantOp>(
         loc, op.getType(), input, scale, zero_point, op.use_signedAttr(),
         op.use_symmetricAttr(), GetI64ElementsAttr(axis, &rewriter),
         op.num_bitsAttr(), op.quant_minAttr(), op.quant_maxAttr(),
-        op.use_dynamicAttr());
+        op.use_dynamicAttr(), round_mode_attr);
     rewriter.replaceOp(op, {new_op});
     return success();
   }

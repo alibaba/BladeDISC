@@ -18,6 +18,7 @@ limitations under the License.
 #ifndef MHLO_DISC_OPS
 #define MHLO_DISC_OPS
 
+include "hlo_disc_enums.td"
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
@@ -105,7 +106,8 @@ def HLO_FakeQuantOp: HLODISC_Op<"fake_quant", [NoSideEffect]> {
     DefaultValuedAttr<I64Attr, "8">:$num_bits,
     DefaultValuedAttr<I64Attr, "-128">:$quant_min,
     DefaultValuedAttr<I64Attr, "127">:$quant_max,
-    DefaultValuedAttr<BoolAttr, "false">:$use_dynamic
+    DefaultValuedAttr<BoolAttr, "false">:$use_dynamic,
+    DefaultValuedAttr<HLO_RoundModeEnum, "RoundModeEnum::RoundHalfAwayFromZero">:$round_mode
   );
   let results = (outs HLO_FpTensor:$result);
 }
@@ -123,7 +125,8 @@ def HLO_QuantizeOp: HLODISC_Op<"quantize", [NoSideEffect]> {
     DefaultValuedAttr<I64ElementsAttr, "ArrayRef<int64_t>{}">:$axis,
     DefaultValuedAttr<I64Attr, "-128">:$quant_min,
     DefaultValuedAttr<I64Attr, "127">:$quant_max,
-    DefaultValuedAttr<BoolAttr, "false">:$use_dynamic
+    DefaultValuedAttr<BoolAttr, "false">:$use_dynamic,
+    DefaultValuedAttr<HLO_RoundModeEnum, "RoundModeEnum::RoundHalfAwayFromZero">:$round_mode
   );
   let results = (outs HLO_IntTensor:$result);
 }
@@ -139,7 +142,8 @@ def HLO_DequantizeOp: HLODISC_Op<"dequantize", [NoSideEffect]> {
     HLO_I32Tensor:$zero_point,
     DefaultValuedAttr<BoolAttr, "true">:$use_symmetric,
     DefaultValuedAttr<I64ElementsAttr, "ArrayRef<int64_t>{}">:$axis,
-    DefaultValuedAttr<BoolAttr, "false">:$use_dynamic
+    DefaultValuedAttr<BoolAttr, "false">:$use_dynamic,
+    DefaultValuedAttr<HLO_RoundModeEnum, "RoundModeEnum::RoundHalfAwayFromZero">:$round_mode
   );
   let results = (outs HLO_FpTensor:$result);
 }

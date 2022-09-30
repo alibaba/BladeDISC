@@ -303,7 +303,8 @@ bool isElementWiseUnary(Operation* op) {
     lmhlo::SignOp,
     lmhlo::SineOp,
     lmhlo::SqrtOp,
-    lmhlo::TanhOp
+    lmhlo::TanhOp,
+    lmhlo::RoundNearestEvenOp
   >(op);
   // clang-format on
 }

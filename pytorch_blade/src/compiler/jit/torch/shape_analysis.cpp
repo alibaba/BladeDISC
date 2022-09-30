@@ -2303,8 +2303,20 @@ class ShapePropagator : public PropertyPropBase {
         }
       }
       return success;
-    } else if (node->matches(
-                   "aten::pow(Tensor self, Scalar exponent) -> Tensor")) {
+    } else if (node->matches("aten::bmm(Tensor self, Tensor mat2) -> Tensor")) {
+      auto t1 = tensor_types.at(0);
+      auto t2 = tensor_types.at(1);
+      if (t1 && t2) {
+        std::vector<ShapeSymbol> new_sizes =
+            t1->symbolic_sizes().sizes().value();
+        new_sizes[2] = t2->symbolic_sizes().sizes().value()[2];
+        node->output()->setType(t1->withSymbolicShapes(new_sizes));
+      }
+      return true;
+    } else if (
+        node->matches("aten::pow(Tensor self, Scalar exponent) -> Tensor") ||
+        node->matches(
+            "aten::gelu(Tensor self, *, str approximate='none') -> Tensor")) {
       node->output()->setType(tensor_types.at(0));
       return true;
     } else if (node->matches(

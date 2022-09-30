@@ -23,12 +23,14 @@ jobs:
     - name: Build And Test
       run: |
         set -e
-        docker run --rm -t --user $(id -u):$(id -g) \
+        docker run --rm -t \
           --device=/dev/kfd --device=/dev/dri \
-          -v /apsara/github-ci/.cache:$HOME/.cache \
+          -v /apsara/github-ci/.cache:/home/$USER/.cache \
           -v /etc/passwd:/etc/passwd:ro \
           -v /etc/group:/etc/group:ro \
           -v $PWD:/disc \
           -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
+          -e HOME=/home/$USER \
           -w /disc \
+          -u $(id -u ${USER}):$(id -g ${USER}) \
           disc-dev-rocm bash -c "bash ./scripts/ci/build_and_test.sh --rocm_path /opt/rocm-5.2.0 --rocm"

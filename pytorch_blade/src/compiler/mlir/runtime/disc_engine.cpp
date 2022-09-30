@@ -99,16 +99,15 @@ const char* GetBackendName() {
   return DiscEngine::GetBackendName();
 }
 
+namespace {
 bool InitBladeDiscEngine() {
-  static std::once_flag flag;
-  std::call_once(flag, [&]() {
-    auto torch_blade_engine_creator =
-        torch::blade::backends::EngineCreatorRegister().RegisterBackend(
-            DiscEngine::GetBackendName(), &DiscEngine::Create);
-  });
+  torch::blade::backends::EngineCreatorRegister().RegisterBackend(
+      DiscEngine::GetBackendName(), &DiscEngine::Create);
   return true;
 }
 static bool init_dummy = InitBladeDiscEngine();
+} // namespace
+
 } // namespace disc
 } // namespace blade
 } // namespace torch

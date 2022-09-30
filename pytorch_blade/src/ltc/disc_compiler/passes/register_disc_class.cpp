@@ -125,7 +125,6 @@ void ReplaceDiscClass(
 std::vector<c10::IValue> RegisterDiscClass(
     const std::shared_ptr<Graph>& graph) {
   torch::blade::backends::InitTorchBladeEngine();
-  torch::blade::disc::InitBladeDiscEngine();
   std::vector<c10::IValue> disc_inputs;
   std::vector<torch::jit::Node*> disc_nodes;
   std::copy_if(

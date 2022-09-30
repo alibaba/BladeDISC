@@ -18,12 +18,12 @@ limitations under the License.
 #ifndef MHLO_DISC_OPS
 #define MHLO_DISC_OPS
 
-include "hlo_disc_enums.td"
 include "mlir/IR/OpBase.td"
 include "mlir/Interfaces/InferTypeOpInterface.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
 include "mlir-hlo/Dialect/mhlo/IR/hlo_ops_common.td"
 include "mlir-hlo/Dialect/mhlo/IR/hlo_utils.td"
+include "tensorflow/compiler/mlir/disc/IR/hlo_disc_enums.td"
 
 def HLODISC_Dialect : Dialect {
   let name = "mhlo_disc";

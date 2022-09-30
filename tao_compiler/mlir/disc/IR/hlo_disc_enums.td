@@ -22,9 +22,9 @@ include "mlir/IR/EnumAttr.td"
 
 
 // The round mode enum for HLO_FakeQuantOp, HLO_QuantizeOp and HLO_DequantizeOp
-def HLO_RoundHalfAwayFromZero: I32EnumAttrCase<"RoundHalfAwayFromZero", 0>; // tf default mode
-def HLO_RoundHalfToEven: I32EnumAttrCase<"RoundHalfToEven", 1>; // PyTorch default mode
-def HLO_RoundModeEnum: I32EnumAttr<"RoundModeEnum",
+def HLO_RoundHalfAwayFromZero: I64EnumAttrCase<"RoundHalfAwayFromZero", 0>; // tf default mode
+def HLO_RoundHalfToEven: I64EnumAttrCase<"RoundHalfToEven", 1>; // PyTorch default mode
+def HLO_RoundModeEnum: I64EnumAttr<"RoundModeEnum",
     "Round mode in quantization related op",
     [
         HLO_RoundHalfAwayFromZero,

@@ -33,8 +33,9 @@ func.func @quantize_signed_per_tensor(
 
   // CHECK: %[[T0:.*]] = mhlo.divide %[[INPUT]], %[[BCAST_SCALE]]
   // CHECK: %[[T1:.*]] = mhlo.add %[[T0]], %[[BCAST_ZERO_POINT]]
-  // CHECK: %[[T2:.*]] = mhlo.clamp %[[T1]], %[[BCAST_MIN]], %[[BCAST_MAX]]
-  // CHECK: %[[OUT:.*]] = mhlo.convert(%[[T2]]) : (tensor<?x32x32x6xf32>) -> tensor<?x32x32x6xi8>
+  // CHECK: %[[T2:.*]] = mhlo.round_nearest_afz %[[T1]]
+  // CHECK: %[[T3:.*]] = mhlo.clamp %[[T2]], %[[BCAST_MIN]], %[[BCAST_MAX]]
+  // CHECK: %[[OUT:.*]] = mhlo.convert(%[[T3]]) : (tensor<?x32x32x6xf32>) -> tensor<?x32x32x6xi8>
   // CHECK: return %[[OUT]]
 
   %quantized_input = "mhlo_disc.quantize"(%input, %input_scale, %input_zero_point) {
@@ -82,8 +83,9 @@ func.func @quantize_unsigned_per_tensor(
 
   // CHECK: %[[T0:.*]] = mhlo.divide %[[INPUT]], %[[BCAST_SCALE]]
   // CHECK: %[[T1:.*]] = mhlo.add %[[T0]], %[[BCAST_ZERO_POINT]]
-  // CHECK: %[[T2:.*]] = mhlo.clamp %[[T1]], %[[BCAST_MIN]], %[[BCAST_MAX]]
-  // CHECK: %[[OUT:.*]] = mhlo.convert(%[[T2]]) : (tensor<?x32x32x6xf32>) -> tensor<?x32x32x6xui8>
+  // CHECK: %[[T2:.*]] = mhlo.round_nearest_afz %[[T1]]
+  // CHECK: %[[T3:.*]] = mhlo.clamp %[[T2]], %[[BCAST_MIN]], %[[BCAST_MAX]]
+  // CHECK: %[[OUT:.*]] = mhlo.convert(%[[T3]]) : (tensor<?x32x32x6xf32>) -> tensor<?x32x32x6xui8>
   // CHECK: return %[[OUT]]
 
   %quantized_input = "mhlo_disc.quantize"(%input, %input_scale, %input_zero_point) {
@@ -131,8 +133,9 @@ func.func @quantize_signed_per_channel(
 
   // CHECK: %[[T0:.*]] = mhlo.divide %[[INPUT]], %[[BCAST_SCALE]]
   // CHECK: %[[T1:.*]] = mhlo.add %[[T0]], %[[BCAST_ZERO_POINT]]
-  // CHECK: %[[T2:.*]] = mhlo.clamp %[[T1]], %[[BCAST_MIN]], %[[BCAST_MAX]]
-  // CHECK: %[[OUT:.*]] = mhlo.convert(%[[T2]]) : (tensor<?x32x32x6xf32>) -> tensor<?x32x32x6xi8>
+  // CHECK: %[[T2:.*]] = mhlo.round_nearest_afz %[[T1]]
+  // CHECK: %[[T3:.*]] = mhlo.clamp %[[T2]], %[[BCAST_MIN]], %[[BCAST_MAX]]
+  // CHECK: %[[OUT:.*]] = mhlo.convert(%[[T3]]) : (tensor<?x32x32x6xf32>) -> tensor<?x32x32x6xi8>
   // CHECK: return %[[OUT]]
 
   %quantized_input = "mhlo_disc.quantize"(%input, %input_scale, %input_zero_point) {
@@ -180,8 +183,9 @@ func.func @quantize_unsigned_per_channel(
 
   // CHECK: %[[T0:.*]] = mhlo.divide %[[INPUT]], %[[BCAST_SCALE]]
   // CHECK: %[[T1:.*]] = mhlo.add %[[T0]], %[[BCAST_ZERO_POINT]]
-  // CHECK: %[[T2:.*]] = mhlo.clamp %[[T1]], %[[BCAST_MIN]], %[[BCAST_MAX]]
-  // CHECK: %[[OUT:.*]] = mhlo.convert(%[[T2]]) : (tensor<?x32x32x6xf32>) -> tensor<?x32x32x6xui8>
+  // CHECK: %[[T2:.*]] = mhlo.round_nearest_afz %[[T1]]
+  // CHECK: %[[T3:.*]] = mhlo.clamp %[[T2]], %[[BCAST_MIN]], %[[BCAST_MAX]]
+  // CHECK: %[[OUT:.*]] = mhlo.convert(%[[T3]]) : (tensor<?x32x32x6xf32>) -> tensor<?x32x32x6xui8>
   // CHECK: return %[[OUT]]
 
   %quantized_input = "mhlo_disc.quantize"(%input, %input_scale, %input_zero_point) {

@@ -107,8 +107,8 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
       // default round mode in torch is round-to-even.
       // TODO: should read it from the custom fake quant op.
       auto roundModeAttr = mlir::mhlo_disc::RoundModeEnumAttr::get(
-        rewriter.getContext(), mlir::mhlo_disc::RoundModeEnum::RoundHalfToEven
-      );
+          rewriter.getContext(),
+          mlir::mhlo_disc::RoundModeEnum::RoundHalfToEven);
       Value newOp = rewriter.create<mhlo_disc::FakeQuantOp>(
           loc,
           resultTy,

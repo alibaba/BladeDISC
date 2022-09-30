@@ -94,13 +94,15 @@ class BazelBuild(TorchBladeBuild):
             )
             self.torch_extra_opts += [
                 "--action_env TENSORRT_INSTALL_PATH={}".format(self.tensorrt_dir),
-                "--action_env NVCC={}".format(which("nvcc"))
+                "--action_env NVCC={}".format(which("nvcc")),
             ]
 
         # ----------------------------------------------------------------------- #
         # ---------------    Configurations Settings: configs    ---------------- #
         # ----------------------------------------------------------------------- #
-        self.configs = ["--config=torch_cxx11abi_{}".format(int(self.GLIBCXX_USE_CXX11_ABI))]
+        self.configs = [
+            "--config=torch_cxx11abi_{}".format(int(self.GLIBCXX_USE_CXX11_ABI))
+        ]
         if self.cuda_available:
             self.configs.append("--config=torch_cuda")
         else:
@@ -127,9 +129,11 @@ class BazelBuild(TorchBladeBuild):
         # set to 1.8.0
         # note: If we use backend (such as trt) to do calibration and get the
         # quantization engine, this limitation should not be set.
-        is_enable_quantization = \
-            self.torch_major_version == 1 and self.torch_minor_version >= 8 \
+        is_enable_quantization = (
+            self.torch_major_version == 1
+            and self.torch_minor_version >= 8
             or self.torch_major_version > 1
+        )
         if is_enable_quantization:
             self.torch_extra_opts.append("--config=torch_enable_quantization")
 
@@ -156,16 +160,24 @@ class BazelBuild(TorchBladeBuild):
         if not self.skip_disc_cmd_build:
             bazel_disc_build_cmd = " ".join(
                 [self.shell_setting, self.build_cmd]
-                + self.disc_base_opts + self.configs
-                + ["--compilation_mode=opt",
-                   "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_compiler_main"]
+                + self.disc_base_opts
+                + self.configs
+                + [
+                    "--compilation_mode=opt",
+                    "--define is_torch_disc=false",  # still use mhlo within TF to build compiler main
+                    "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_compiler_main",
+                ]
             )
-            subprocess.check_call(bazel_disc_build_cmd, shell=True, env=env, executable="/bin/bash")
+            subprocess.check_call(
+                bazel_disc_build_cmd, shell=True, env=env, executable="/bin/bash"
+            )
 
         # 2. build other targets, support both debug mode & opt mode compilation
         bazel_cmd = " ".join(
             [self.shell_setting, self.build_cmd]
-            + self.disc_base_opts + self.torch_extra_opts + self.configs
+            + self.disc_base_opts
+            + self.torch_extra_opts
+            + self.configs
         )
         with open("debug_bazel.sh", "w") as f:
             f.write("#!/bin/bash\n")
@@ -206,8 +218,10 @@ class BazelBuild(TorchBladeBuild):
 
         test_cmd = " ".join(
             [self.shell_setting, self.test_cmd]
-            + self.disc_base_opts + self.torch_extra_opts
-            + self.configs + self.test_suites
+            + self.disc_base_opts
+            + self.torch_extra_opts
+            + self.configs
+            + self.test_suites
         )
         subprocess.check_call(test_cmd, shell=True, env=env, executable="/bin/bash")
 

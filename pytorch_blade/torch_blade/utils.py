@@ -204,7 +204,7 @@ def num_compiled_nodes(script_module, group_type):
     return [int(p.search(s).group(0)) for s, _ in collect_engines(script_module, group_type)]
 
 
-def parse_version(version: str) -> (int, int, int):
+def parse_version(version: str):
     """
     Parses a version string into (major, minor, patch) version numbers.
 

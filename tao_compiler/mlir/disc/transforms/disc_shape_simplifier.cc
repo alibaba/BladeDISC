@@ -245,7 +245,7 @@ class DynamicBroadcastInDimOpSimplifier
     Value reshapeResult = dynReshapeOp != nullptr ? dynReshapeOp.getResult()
                                                   : staticReshapeOp.getResult();
     auto reshapeTy = reshapeResult.getType().dyn_cast<RankedTensorType>();
-    Value input = dynReshapeOp != nullptr ? dynReshapeOp.getOperand(0)
+    Value input = dynReshapeOp != nullptr ? dynReshapeOp->getOperand(0)
                                           : staticReshapeOp.getOperand();
     auto inputTy = input.getType().dyn_cast<RankedTensorType>();
     if (!bcastTy || !reshapeTy || !inputTy) {

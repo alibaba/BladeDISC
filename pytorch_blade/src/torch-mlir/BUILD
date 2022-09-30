@@ -45,6 +45,7 @@ cc_library(
         "lib/Dialect/TorchConversion/Transforms/ApplyValueSemantics.cpp",
         "lib/Dialect/TorchConversion/Transforms/ReduceTensorConversions.cpp",
         "lib/Dialect/TorchConversion/Transforms/DiscDecomposeComplexOps.cpp",
+        "lib/Dialect/TorchConversion/Transforms/DiscConvertTorchToDiscMhlo.cpp",
     ],
     hdrs = [
         "include/torch-mlir/Conversion/MhloPasses.h",
@@ -52,7 +53,8 @@ cc_library(
     strip_include_prefix = "include",
     deps = [
         ":TorchMLIRConversionMhloPassesIncGen",
-	"@mlir-hlo//:mlir_hlo",
+        "@mlir-hlo//:mlir_hlo",
+        "@org_tensorflow//tensorflow/compiler/mlir/disc:mhlo_disc",
         "@llvm-project//mlir:Dialect",
         "@torch-mlir//:TorchMLIRTorchBackendTypeConversion",
         "@torch-mlir//:TorchMLIRTorchConversionDialect",

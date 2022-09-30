@@ -10,6 +10,7 @@
 // limitations under the License.
 
 #include "compiler/mlir/converters/torch_mlir_op_filter.h"
+
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -107,7 +108,10 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "aten::view_as",
       "prim::Constant",
       "prim::ListConstruct",
-      "prim::ListUnpack"};
+      "prim::ListUnpack",
+      // Torch Blade custom ops follows:
+      "torch_blade::fake_quant"
+    };
 
 
   static std::once_flag white;

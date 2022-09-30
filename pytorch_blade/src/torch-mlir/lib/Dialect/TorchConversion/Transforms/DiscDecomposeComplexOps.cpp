@@ -203,7 +203,8 @@ class DiscDecomposeComplexOpsPass
 
     RewritePatternSet patterns(context);
     patterns.add<ConvertAtenOp<OperatorOp>>(context);
-    target.addIllegalOp<OperatorOp>();
+    // Won't mark OperatorOp as illegal, some custom operator may remain
+    // unconverted.
 
     patterns.add<ConvertAtenOp<AtenHardtanhOp>>(context);
     target.addIllegalOp<AtenHardtanhOp>();
@@ -213,6 +214,8 @@ class DiscDecomposeComplexOpsPass
 
     patterns.add<ConvertAtenOp<AtenNllLossForwardOp>>(context);
     target.addIllegalOp<AtenNllLossForwardOp>();
+
+    target.addLegalOp<OperatorOp>();
 
     if (failed(applyPartialConversion(
             getOperation(), target, std::move(patterns)))) {

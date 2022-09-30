@@ -345,27 +345,34 @@ struct BroadCastInDimOfReshapeOpCanonicalizationPattern
   }
 };
 
-template <typename OpTy>
-struct SimplifierFromElementsPattern : public OpRewritePattern<OpTy> {
-  using OpRewritePattern<OpTy>::OpRewritePattern;
+// Simplifier extract and from-element op pattern, an example as following:
+//  %0 = tensor.extract %arg0[] : tensor<f32>
+//  %1 = tensor.from_elements %0 : tensor<1xf32>
+//
+// this pattern will be converted to:
+//  %0 = mhlo.reshape %arg0 : (tensor<f32>) -> tensor<1xf32>
+struct SimplifierFromElementsPattern
+    : public OpRewritePattern<tensor::FromElementsOp> {
+  using OpRewritePattern<tensor::FromElementsOp>::OpRewritePattern;
 
-  LogicalResult matchAndRewrite(OpTy op,
+  LogicalResult matchAndRewrite(tensor::FromElementsOp op,
                                 PatternRewriter& rewriter) const override {
     auto loc = op->getLoc();
     Value input = op->getOperand(0);
     Value result = op->getResult(0);
     auto extractOp = input.getDefiningOp();
-    if (!isa<tensor::ExtractOp>(extractOp)) {
-      return failure();
-    }
-    auto rankTy = op.getType().template dyn_cast<RankedTensorType>();
+    if (!isa<tensor::ExtractOp>(extractOp)) return failure();
+
     auto extractInput = extractOp->getOperand(0);
-    auto outTy = RankedTensorType::get({1}, rankTy.getElementType());
-    auto newResult =
-        rewriter.create<mhlo::ReshapeOp>(loc, outTy, extractInput).getResult();
-    for (auto user : result.getUsers()) {
-      user->replaceUsesOfWith(result, newResult);
-    }
+    auto extractRankTy =
+        extractInput.getType().template dyn_cast<RankedTensorType>();
+    if (extractRankTy.getRank() != 0)
+      // input of extract op should be scalar tensor
+      return failure();
+
+    auto outTy = RankedTensorType::get(
+        {1}, op.getType().cast<RankedTensorType>().getElementType());
+    rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(op, outTy, extractInput);
     return success();
   }
 };
@@ -379,7 +386,7 @@ void populateDiscAlgebraSimplifierPatterns(RewritePatternSet& patterns) {
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastInDimOp>,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastOp>,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::DynamicBroadcastInDimOp>,
-    SimplifierFromElementsPattern<tensor::FromElementsOp>
+    SimplifierFromElementsPattern
   >(patterns.getContext());
 
   // zero tensor related patterns

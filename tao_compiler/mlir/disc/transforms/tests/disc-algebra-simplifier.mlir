@@ -177,6 +177,7 @@ func.func @mul_one_tensor(%arg0 : tensor<?x?xf32>, %arg1 : tensor<2xindex>) -> t
   return %2 : tensor<?x?xf32>
 }
 
+// -----
 // CHECK-LABEL: @from_elements
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<f32>) -> tensor<1xf32>
 // CHECK: %[[T1:.*]] = mhlo.reshape %[[ARG0]] : (tensor<f32>) -> tensor<1xf32>

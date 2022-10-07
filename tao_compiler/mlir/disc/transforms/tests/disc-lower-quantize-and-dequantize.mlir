@@ -33,7 +33,7 @@ func.func @quantize_signed_per_tensor(
 
   // CHECK: %[[T0:.*]] = mhlo.divide %[[INPUT]], %[[BCAST_SCALE]]
   // CHECK: %[[T1:.*]] = mhlo.add %[[T0]], %[[BCAST_ZERO_POINT]]
-  // CHECK: %[[T2:.*]] = mhlo.round_nearest_afz %[[T1]]
+  // CHECK: %[[T2:.*]] = mhlo.round_nearest_even %[[T1]]
   // CHECK: %[[T3:.*]] = mhlo.clamp %[[T2]], %[[BCAST_MIN]], %[[BCAST_MAX]]
   // CHECK: %[[OUT:.*]] = mhlo.convert(%[[T3]]) : (tensor<?x32x32x6xf32>) -> tensor<?x32x32x6xi8>
   // CHECK: return %[[OUT]]
@@ -43,7 +43,8 @@ func.func @quantize_signed_per_tensor(
       axis = dense<[]> : tensor<0xi64>,
       quant_min = -128,
       quant_max = 127,
-      use_dynamic = false
+      use_dynamic = false,
+      round_mode = 1
   } : (tensor<?x32x32x6xf32>, tensor<f32>, tensor<i32>) -> tensor<?x32x32x6xi8>
   return %quantized_input : tensor<?x32x32x6xi8>
 }
@@ -183,7 +184,7 @@ func.func @quantize_unsigned_per_channel(
 
   // CHECK: %[[T0:.*]] = mhlo.divide %[[INPUT]], %[[BCAST_SCALE]]
   // CHECK: %[[T1:.*]] = mhlo.add %[[T0]], %[[BCAST_ZERO_POINT]]
-  // CHECK: %[[T2:.*]] = mhlo.round_nearest_afz %[[T1]]
+  // CHECK: %[[T2:.*]] = mhlo.round_nearest_even %[[T1]]
   // CHECK: %[[T3:.*]] = mhlo.clamp %[[T2]], %[[BCAST_MIN]], %[[BCAST_MAX]]
   // CHECK: %[[OUT:.*]] = mhlo.convert(%[[T3]]) : (tensor<?x32x32x6xf32>) -> tensor<?x32x32x6xui8>
   // CHECK: return %[[OUT]]
@@ -193,7 +194,8 @@ func.func @quantize_unsigned_per_channel(
       axis = dense<[3]> : tensor<1xi64>,
       quant_min = 0,
       quant_max = 255,
-      use_dynamic = false
+      use_dynamic = false,
+      round_mode = 1
   } : (tensor<?x32x32x6xf32>, tensor<?xf32>, tensor<?xi32>) -> tensor<?x32x32x6xui8>
   return %quantized_input : tensor<?x32x32x6xui8>
 }

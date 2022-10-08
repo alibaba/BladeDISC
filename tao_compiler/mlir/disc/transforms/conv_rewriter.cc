@@ -107,6 +107,72 @@ LogicalResult extractConvParams(mhlo::DynamicConvOp op, ConvParams& params) {
   return success();
 }
 
+struct QuantizedConvParams {
+  int num_spatial_dims;
+  Value input;
+  Value filter;
+  Value output;
+  SmallVector<int64_t> inputLayout;
+  SmallVector<int64_t> filterLayout;
+  SmallVector<int64_t> outputLayout;
+  SmallVector<int64_t> expectedInputLayout;
+  SmallVector<int64_t> expectedFilterLayout;
+  SmallVector<int64_t> expectedOutputLayout;
+  mlir::mhlo_disc::QuantizedDynamicConvOp conv;
+};
+
+LogicalResult extractQuantizedConvParams(
+    mlir::mhlo_disc::QuantizedDynamicConvOp op, QuantizedConvParams& params) {
+  params.conv = op;
+  params.input = op.input();
+  params.filter = op.weight();
+  params.output = op.getResult();
+
+  auto inputTy = params.input.getType().dyn_cast<RankedTensorType>();
+  auto filterTy = params.filter.getType().dyn_cast<RankedTensorType>();
+  auto paddingTy = op.d_padding().getType().dyn_cast<RankedTensorType>();
+  auto outputTy = params.output.getType().dyn_cast<RankedTensorType>();
+
+  if (!inputTy || !filterTy || !paddingTy || !outputTy) {
+    return op.emitOpError() << "operands must be ranked type";
+  }
+
+  int rank = filterTy.getRank();
+  params.num_spatial_dims = rank - 2;
+
+  if (params.num_spatial_dims < 1) {
+    return op.emitOpError() << "conv op's input rank is less than 3";
+  }
+
+  auto dimension_numbers = op.dimension_numbers();
+  params.inputLayout.push_back(dimension_numbers.getInputBatchDimension());
+  params.inputLayout.push_back(dimension_numbers.getInputFeatureDimension());
+  auto input_spatial_dimensions = dimension_numbers.getInputSpatialDimensions();
+  for (int i = 0; i < params.num_spatial_dims; ++i) {
+    params.inputLayout.push_back(input_spatial_dimensions[i]);
+  }
+
+  params.filterLayout.push_back(
+      dimension_numbers.getKernelInputFeatureDimension());
+  params.filterLayout.push_back(
+      dimension_numbers.getKernelOutputFeatureDimension());
+  auto filter_spatial_dimensions =
+      dimension_numbers.getKernelSpatialDimensions();
+  for (int i = 0; i < params.num_spatial_dims; ++i) {
+    params.filterLayout.push_back(filter_spatial_dimensions[i]);
+  }
+
+  params.outputLayout.push_back(dimension_numbers.getOutputBatchDimension());
+  params.outputLayout.push_back(dimension_numbers.getOutputFeatureDimension());
+  auto output_spatial_dimensions =
+      dimension_numbers.getOutputSpatialDimensions();
+  for (int i = 0; i < params.num_spatial_dims; ++i) {
+    params.outputLayout.push_back(output_spatial_dimensions[i]);
+  }
+
+  return success();
+}
+
 void fillNCHW(SmallVector<int64_t>& layout, int num_spatial_dims) {
   layout[0] = 0;
   layout[1] = 1;
@@ -444,11 +510,237 @@ struct DiscConvRewriterPass
   int cc_minor_;
 };
 
+// The basic logic of this pass is to insert transpose op to ensure the conv op
+// having expected format.
+struct DiscQuantizedConvRewriterPass
+    : public QuantizedConvRewriterPassBase<DiscQuantizedConvRewriterPass> {
+  explicit DiscQuantizedConvRewriterPass(int cc_major, int cc_minor)
+      : QuantizedConvRewriterPassBase<
+            DiscQuantizedConvRewriterPass>::QuantizedConvRewriterPassBase() {
+    cc_major_ = cc_major;
+    cc_minor_ = cc_minor;
+  }
+
+  // Returns true if the conv is depthwise.
+  bool isDepthwiseConv(QuantizedConvParams& params) {
+    auto filterTy = params.filter.getType().cast<RankedTensorType>();
+    return filterTy.getShape()[params.filterLayout[0]] == 1;
+  }
+
+  LogicalResult inferExpectedLayout(QuantizedConvParams& params, int cc_major) {
+    bool onGpu = placement_utils::isGpuMhlo(params.conv);
+    auto inputTy = params.input.getType().dyn_cast<RankedTensorType>();
+    auto filterTy = params.filter.getType().dyn_cast<RankedTensorType>();
+    auto outputTy = params.output.getType().dyn_cast<RankedTensorType>();
+    int rank = inputTy.getRank();
+    int num_spatial_dims = params.num_spatial_dims;
+
+    auto& inputLayout = params.expectedInputLayout;
+    auto& filterLayout = params.expectedFilterLayout;
+    auto& outputLayout = params.expectedOutputLayout;
+    inputLayout.resize(rank);
+    filterLayout.resize(rank);
+    outputLayout.resize(rank);
+
+    if (onGpu) {
+      bool is_fp32 =
+          inputTy.getElementType().isF32() && filterTy.getElementType().isF32();
+      bool use_tf32 = true;
+      TF_CHECK_OK(tensorflow::ReadBoolFromEnvVar("NVIDIA_TF32_OVERRIDE",
+                                                 /*default_val=*/use_tf32,
+                                                 &use_tf32));
+      if (cc_major >= 8 && (!is_fp32 || use_tf32) ||
+          inputTy.getElementType().isF16() &&
+              filterTy.getElementType().isF16()) {
+        // TensorCore prefers NHWC layouts
+        fillNHWC(inputLayout, num_spatial_dims);
+        fillNHWC(outputLayout, num_spatial_dims);
+        fillOHWI(filterLayout, num_spatial_dims);
+      } else {
+        // Default is NCHW & OIHW
+        fillNCHW(inputLayout, num_spatial_dims);
+        fillNCHW(outputLayout, num_spatial_dims);
+        fillOIHW(filterLayout, num_spatial_dims);
+      }
+    } else {
+#if defined(TAO_AARCH64)
+      if (isDepthwiseConv(params)) {
+        fillNHWC(inputLayout, num_spatial_dims);
+        fillNHWC(outputLayout, num_spatial_dims);
+        fillHWIO(filterLayout, num_spatial_dims);
+      } else {
+        fillNHWC(inputLayout, num_spatial_dims);
+        fillNHWC(outputLayout, num_spatial_dims);
+        fillOHWI(filterLayout, num_spatial_dims);
+      }
+#else
+      // CPU conv, default layout:
+      fillNHWC(inputLayout, num_spatial_dims);
+      fillNHWC(outputLayout, num_spatial_dims);
+      fillHWIO(filterLayout, num_spatial_dims);
+#endif
+    }
+
+    return success();
+  }
+
+  RankedTensorType GetTransposeOutputType(
+      Value value, const SmallVectorImpl<int64_t>& transpose_permutation,
+      OpBuilder& b) {
+    // Compute the resulting shape.
+    llvm::SmallVector<int64_t, 4> transposed_shape;
+    ShapedType input_type = value.getType().cast<ShapedType>();
+    auto input_shape = input_type.getShape();
+    for (int64_t val : transpose_permutation) {
+      transposed_shape.push_back(input_shape[val]);
+    }
+    return RankedTensorType::get(transposed_shape, input_type.getElementType());
+  }
+
+  Operation* InsertTranspose(
+      mlir::mhlo_disc::QuantizedDynamicConvOp op, Value value,
+      const SmallVectorImpl<int64_t>& transpose_permutation, OpBuilder& b) {
+    auto transpose_permutation_attr =
+        GetI64ElementsAttr(transpose_permutation, &b);
+
+    // Compute the resulting shape.
+    llvm::SmallVector<int64_t, 4> transposed_shape;
+    ShapedType input_type = value.getType().cast<ShapedType>();
+    auto input_shape = input_type.getShape();
+    for (auto val : transpose_permutation) {
+      transposed_shape.push_back(input_shape[val]);
+    }
+    auto transpose_type =
+        GetTransposeOutputType(value, transpose_permutation, b);
+    auto transpose_op = b.create<mhlo::TransposeOp>(
+        op.getLoc(), transpose_type, value, transpose_permutation_attr);
+
+    if (auto attr = op->getAttr(placement_utils::kDiscPlaceAssignment))
+      transpose_op->setAttr(placement_utils::kDiscPlaceAssignment, attr);
+
+    return transpose_op;
+  }
+
+  void MaybeRewriteInputFormat(QuantizedConvParams& params) {
+    if (params.inputLayout == params.expectedInputLayout) return;
+
+    auto transposeAttr =
+        inferTransposeAttr(params.inputLayout, params.expectedInputLayout);
+
+    OpBuilder b(params.conv);
+    auto transpose_op =
+        InsertTranspose(params.conv, params.input, transposeAttr, b);
+    params.conv.getOperation()->setOperand(0, transpose_op->getResult(0));
+  }
+
+  void MaybeRewriteFilterFormat(QuantizedConvParams& params) {
+    if (params.filterLayout == params.expectedFilterLayout) return;
+
+    auto transposeAttr =
+        inferTransposeAttr(params.filterLayout, params.expectedFilterLayout);
+
+    OpBuilder b(params.conv);
+    auto transpose_op =
+        InsertTranspose(params.conv, params.filter, transposeAttr, b);
+    params.conv.getOperation()->setOperand(1, transpose_op->getResult(0));
+  }
+
+  void MaybeRewriteOutputFormat(QuantizedConvParams& params) {
+    if (params.outputLayout == params.expectedOutputLayout) return;
+
+    auto in2OutAttr =
+        inferTransposeAttr(params.outputLayout, params.expectedOutputLayout);
+    auto out2InAttr =
+        inferTransposeAttr(params.expectedOutputLayout, params.outputLayout);
+
+    OpBuilder b(params.conv);
+    b.setInsertionPointAfter(params.conv);
+    auto new_tp = GetTransposeOutputType(params.output, in2OutAttr, b);
+    auto originalOutputTy = params.output.getType();
+    params.output.setType(new_tp);
+
+    auto transpose_op =
+        InsertTranspose(params.conv, params.output, out2InAttr, b);
+    transpose_op->getResult(0).setType(originalOutputTy);
+    params.output.replaceAllUsesWith(transpose_op->getResult(0));
+    transpose_op->setOperand(0, params.output);
+  }
+
+  void UpdateAttributes(QuantizedConvParams& params) {
+    OpBuilder b(params.conv);
+    SmallVector<int64_t, 2> inputSpatialDims;
+    SmallVector<int64_t, 2> filterSpatialDims;
+    SmallVector<int64_t, 2> outputSpatialDims;
+    for (int i = 0; i < params.num_spatial_dims; ++i) {
+      inputSpatialDims.push_back(params.expectedInputLayout[i + 2]);
+      filterSpatialDims.push_back(params.expectedFilterLayout[i + 2]);
+      outputSpatialDims.push_back(params.expectedOutputLayout[i + 2]);
+    }
+
+    params.conv.getOperation()->setAttr(
+        "dimension_numbers",
+        mlir::mhlo::ConvDimensionNumbersAttr::get(
+            b.getContext(),
+            /*inputBatchDimension*/ params.expectedInputLayout[0],
+            /*inputFeatureDimension*/ params.expectedInputLayout[1],
+            /*inputSpatialDimensions*/ inputSpatialDims,
+            /*kernelInputFeatureDimension*/ params.expectedFilterLayout[0],
+            /*kernelOutputFeatureDimension*/ params.expectedFilterLayout[1],
+            /*kernelSpatialDimensions*/ filterSpatialDims,
+            /*outputBatchDimension*/ params.expectedOutputLayout[0],
+            /*outputFeatureDimension*/ params.expectedOutputLayout[1],
+            /*outputSpatialDimensions*/ outputSpatialDims));
+  }
+
+  LogicalResult RewriteOp(mlir::mhlo_disc::QuantizedDynamicConvOp op) {
+    QuantizedConvParams params;
+    if (failed(extractQuantizedConvParams(op, params))) {
+      return failure();
+    }
+
+    if (failed(inferExpectedLayout(params, cc_major_))) {
+      return failure();
+    }
+
+    MaybeRewriteInputFormat(params);
+    MaybeRewriteFilterFormat(params);
+    MaybeRewriteOutputFormat(params);
+    UpdateAttributes(params);
+
+    return success();
+  }
+
+  void runOnOperation() override {
+    SmallVector<mlir::mhlo_disc::QuantizedDynamicConvOp, 4> ops;
+    getOperation().walk(
+        [&](mlir::mhlo_disc::QuantizedDynamicConvOp op) { ops.push_back(op); });
+
+    // TODO(disc): We rewrite each conv op seperately, thus may lead to
+    // unnecessary transpose ops. We may implement another layout optimize pass
+    // in case necessary.
+    for (auto& op : ops) {
+      if (failed(RewriteOp(op))) {
+        signalPassFailure();
+        return;
+      }
+    }
+  }
+
+ private:
+  int cc_major_;
+  int cc_minor_;
+};
+
 }  // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvRewriter(
     int cc_major, int cc_minor) {
   return std::make_unique<DiscConvRewriterPass>(cc_major, cc_minor);
+}
+
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscQuantizedConvRewriter(
+    int cc_major, int cc_minor) {
+  return std::make_unique<DiscQuantizedConvRewriterPass>(cc_major, cc_minor);
 }
 
 }  // namespace disc_ral

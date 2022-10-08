@@ -311,6 +311,11 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   auto& gpu_options = options.gpu_info;
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvRewriter(
       gpu_options.cc_major, gpu_options.cc_minor));
+
+  // quantize-related optimization
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscQuantizedConvRewriter(
+      gpu_options.cc_major, gpu_options.cc_minor));
+
   if (enable_shape_constraint_ir) {
     // shape-related optimization
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());

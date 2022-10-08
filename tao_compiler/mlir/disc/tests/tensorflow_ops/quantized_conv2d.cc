@@ -56,4 +56,21 @@ TEST(TFQuantziedConv2d, PARTIAL_DYNAMIC_SHAPE_NHWC_I8_PER_CHANNEL) {
       /*expect_output_vals*/ {output}));
 }
 
+TEST(TFQuantziedConv2d, PARTIAL_DYNAMIC_SHAPE_NHWC_I8_PER_TENSOR) {
+  std::vector<float> inputs(1 * 56 * 56 * 16, 1);
+  tensorflow::Tensor output(tensorflow::DataType::DT_FLOAT, {1, 56, 56, 16});
+  auto datas = output.flat<float>();
+  for (int i = 0; i < output.NumElements(); ++i) datas(i) = 16;
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path +
+          "quantized_conv2d_p_nhwc_i8_per_tensor.mlir",
+      /*backend_types*/ {BackendType::kCuda},
+      /*num_inputs*/ 1,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"1x56x56x16xf32_X"},
+      /*output_descriptors*/ {"f32_X"},
+      /*input_vals*/ {inputs},
+      /*expect_output_vals*/ {output}));
+}
+
 }  // namespace mlir_test

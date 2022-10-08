@@ -360,19 +360,29 @@ struct SimplifierFromElementsPattern
     auto loc = op->getLoc();
     Value input = op->getOperand(0);
     Value result = op->getResult(0);
-    auto extractOp = input.getDefiningOp();
-    if (!isa<tensor::ExtractOp>(extractOp)) return failure();
+    auto extractOp = input.getDefiningOp<tensor::ExtractOp>();
+    if (!extractOp) return failure();
 
     auto extractInput = extractOp->getOperand(0);
     auto extractRankTy =
         extractInput.getType().template dyn_cast<RankedTensorType>();
-    if (extractRankTy.getRank() != 0)
-      // input of extract op should be scalar tensor
-      return failure();
+    if (!extractRankTy) return failure();
 
-    auto outTy = RankedTensorType::get(
-        {1}, op.getType().cast<RankedTensorType>().getElementType());
-    rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(op, outTy, extractInput);
+    auto rank = extractRankTy.getRank();
+    // if (rank > 1)
+    // input of extract op should be scalar tensor
+    //  return failure();
+    if (rank == 0) {
+      // deal with scalar tensor
+      auto outTy = RankedTensorType::get(
+          {1}, op.getType().cast<RankedTensorType>().getElementType());
+      rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(op, outTy, extractInput);
+    } else if (rank == 1 && extractRankTy.getShape()[0] == 1) {
+      // deal with rank 1 with 1 elements
+      op.replaceAllUsesWith(extractInput);
+    } else {
+      return failure();
+    }
     return success();
   }
 };

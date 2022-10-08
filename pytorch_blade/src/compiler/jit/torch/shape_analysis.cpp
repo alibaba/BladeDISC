@@ -876,6 +876,10 @@ class ShapePropagator : public PropertyPropBase {
             "aten::erf_(Tensor self) -> Tensor",
             "aten::relu(Tensor self) -> Tensor",
             "aten::relu_(Tensor self) -> Tensor",
+            "aten::pow(Tensor self, Scalar exponent) -> Tensor",
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
+            "aten::gelu(Tensor self, *, str approximate='none') -> Tensor",
+#endif
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 9
             "aten::relu6(Tensor self) -> Tensor",
             "aten::relu6_(Tensor self) -> Tensor",
@@ -2303,10 +2307,18 @@ class ShapePropagator : public PropertyPropBase {
         }
       }
       return success;
-    } else if (node->matches(
-                   "aten::pow(Tensor self, Scalar exponent) -> Tensor")) {
-      node->output()->setType(tensor_types.at(0));
-      return true;
+    } else if (node->matches("aten::bmm(Tensor self, Tensor mat2) -> Tensor")) {
+      auto t1 = tensor_types.at(0);
+      auto t2 = tensor_types.at(1);
+      if (t1 && t2 && t1->dim().value() == t2->dim().value() &&
+          t1->dim().value() == 3) {
+        std::vector<ShapeSymbol> new_sizes =
+            t1->symbolic_sizes().sizes().value();
+        new_sizes[2] = t2->symbolic_sizes().sizes().value()[2];
+        node->output()->setType(t1->withSymbolicShapes(new_sizes));
+        return true;
+      }
+      return false;
     } else if (node->matches(
                    "aten::permute(Tensor self, int[] dims) -> Tensor")) {
       if (auto type = tensor_types.at(0)) {

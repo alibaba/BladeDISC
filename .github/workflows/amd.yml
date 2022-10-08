@@ -23,7 +23,7 @@ jobs:
     - name: Build And Test
       run: |
         set -e
-        docker run --rm -t \
+        docker run --rm \
           --device=/dev/kfd --device=/dev/dri \
           -v /apsara/github-ci/.cache:/home/$USER/.cache \
           -v /etc/passwd:/etc/passwd:ro \

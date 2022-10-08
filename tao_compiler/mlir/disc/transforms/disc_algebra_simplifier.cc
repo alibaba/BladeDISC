@@ -345,6 +345,48 @@ struct BroadCastInDimOfReshapeOpCanonicalizationPattern
   }
 };
 
+// Simplifier extract and from-element op pattern, an example as following:
+//  %0 = tensor.extract %arg0[] : tensor<f32>
+//  %1 = tensor.from_elements %0 : tensor<1xf32>
+//
+// this pattern will be converted to:
+//  %0 = mhlo.reshape %arg0 : (tensor<f32>) -> tensor<1xf32>
+struct SimplifierFromElementsPattern
+    : public OpRewritePattern<tensor::FromElementsOp> {
+  using OpRewritePattern<tensor::FromElementsOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::FromElementsOp op,
+                                PatternRewriter& rewriter) const override {
+    auto loc = op->getLoc();
+    Value input = op->getOperand(0);
+    Value result = op->getResult(0);
+    auto extractOp = input.getDefiningOp<tensor::ExtractOp>();
+    if (!extractOp) return failure();
+
+    auto extractInput = extractOp->getOperand(0);
+    auto extractRankTy =
+        extractInput.getType().template dyn_cast<RankedTensorType>();
+    if (!extractRankTy) return failure();
+
+    auto rank = extractRankTy.getRank();
+    // if (rank > 1)
+    // input of extract op should be scalar tensor
+    //  return failure();
+    if (rank == 0) {
+      // deal with scalar tensor
+      auto outTy = RankedTensorType::get(
+          {1}, op.getType().cast<RankedTensorType>().getElementType());
+      rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(op, outTy, extractInput);
+    } else if (rank == 1 && extractRankTy.getShape()[0] == 1) {
+      // deal with rank 1 with 1 elements
+      op.replaceAllUsesWith(extractInput);
+    } else {
+      return failure();
+    }
+    return success();
+  }
+};
+
 void populateDiscAlgebraSimplifierPatterns(RewritePatternSet& patterns) {
   // clang-format off
   patterns.insert<
@@ -353,7 +395,8 @@ void populateDiscAlgebraSimplifierPatterns(RewritePatternSet& patterns) {
     ExpandPowOp,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastInDimOp>,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastOp>,
-    IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::DynamicBroadcastInDimOp>
+    IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::DynamicBroadcastInDimOp>,
+    SimplifierFromElementsPattern
   >(patterns.getContext());
 
   // zero tensor related patterns
@@ -366,6 +409,9 @@ void populateDiscAlgebraSimplifierPatterns(RewritePatternSet& patterns) {
 
 struct DiscAlgebraSimplifierPass
     : public DiscAlgebraSimplifierPassBase<DiscAlgebraSimplifierPass> {
+  void getDependentDialects(DialectRegistry& registry) const override {
+    registry.insert<mhlo::MhloDialect>();
+  }
   void runOnOperation() override;
 };
 

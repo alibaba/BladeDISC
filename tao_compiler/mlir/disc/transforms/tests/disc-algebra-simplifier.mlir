@@ -177,3 +177,24 @@ func.func @mul_one_tensor(%arg0 : tensor<?x?xf32>, %arg1 : tensor<2xindex>) -> t
   return %2 : tensor<?x?xf32>
 }
 
+// -----
+// CHECK-LABEL: @from_elements
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<f32>) -> tensor<1xf32>
+// CHECK: %[[T1:.*]] = mhlo.reshape %[[ARG0]] : (tensor<f32>) -> tensor<1xf32>
+// CHECK: return %[[T1]]
+func.func @from_elements(%arg0 : tensor<f32>) -> tensor<1xf32> {
+  %0 = tensor.extract %arg0[] : tensor<f32>
+  %1 = tensor.from_elements %0 : tensor<1xf32>
+  return %1 : tensor<1xf32>
+}
+
+// -----
+// CHECK-LABEL: @from_elements_1_elems
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<1xf32>) -> tensor<1xf32>
+// CHECK: return %[[ARG0]]
+func.func @from_elements_1_elems(%arg0 : tensor<1xf32>) -> tensor<1xf32> {
+  %c0 = arith.constant 0 : index
+  %0 = tensor.extract %arg0[%c0] : tensor<1xf32>
+  %1 = tensor.from_elements %0 : tensor<1xf32>
+  return %1 : tensor<1xf32>
+}

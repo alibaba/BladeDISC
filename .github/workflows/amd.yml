@@ -25,7 +25,7 @@ jobs:
         set -e
         docker run --rm \
           --device=/dev/kfd --device=/dev/dri \
-          -v /apsara/github-ci/.cache:/home/$USER/.cache \
+          -v /apsara/github-ci/:/home/$USER/ \
           -v /etc/passwd:/etc/passwd:ro \
           -v /etc/group:/etc/group:ro \
           -v $PWD:/disc \

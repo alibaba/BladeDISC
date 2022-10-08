@@ -14,7 +14,7 @@ ENV ROCM_TF_CFG="--config=opt --config=rocm --verbose_failures"
 
 ADD ./docker/dev/ROCM-HOST-TF2.9-PATCH.patch /tmp/
 
-RUN pip install virtualenv && virtualenv $PYTHON_ENV && source $PYTHON_ENV/bin/activate && \
+RUN python3 -m pip install virtualenv numpy && python -m virtualenv $PYTHON_ENV && source $PYTHON_ENV/bin/activate && \
     pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
     pip install numpy keras-preprocessing packaging && \
     cd /root/tensorflow && git apply /tmp/ROCM-HOST-TF2.9-PATCH.patch && ./configure && \

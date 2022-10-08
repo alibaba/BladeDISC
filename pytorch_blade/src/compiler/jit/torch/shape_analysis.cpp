@@ -2308,8 +2308,8 @@ class ShapePropagator : public PropertyPropBase {
     } else if (node->matches("aten::bmm(Tensor self, Tensor mat2) -> Tensor")) {
       auto t1 = tensor_types.at(0);
       auto t2 = tensor_types.at(1);
-      if (t1 && t2 && t1->sizes().size() == t2->sizes().size() &&
-          t1->sizes().size() == 3) {
+      if (t1 && t2 && t1->dim().value() == t2->dim().value() &&
+          t1->dim().value() == 3) {
         std::vector<ShapeSymbol> new_sizes =
             t1->symbolic_sizes().sizes().value();
         new_sizes[2] = t2->symbolic_sizes().sizes().value()[2];

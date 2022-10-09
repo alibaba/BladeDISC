@@ -30,6 +30,23 @@ using namespace mlir::torch::Torch;
 using namespace mlir::torch::TorchConversion;
 
 namespace {
+static Type getContainerOrTensorTypeWithValueSemantics(Type type) {
+  if (auto optionalType = type.dyn_cast<OptionalType>()) {
+    Type newContainedType = getContainerOrTensorTypeWithValueSemantics(
+        optionalType.getContainedType());
+    if (newContainedType)
+      return OptionalType::get(newContainedType);
+  } else if (auto listType = type.dyn_cast<ListType>()) {
+    Type newContainedType =
+        getContainerOrTensorTypeWithValueSemantics(listType.getContainedType());
+    if (newContainedType)
+      return ListType::get(newContainedType);
+  } else if (auto tensorType = type.dyn_cast<NonValueTensorType>()) {
+    return tensorType.getWithValueSemantics();
+  }
+  return nullptr;
+}
+
 //  Greedily apply value-semantic tensors where possible to make the program
 //  more easier to convert by later passes (also, backends prefer value
 //  semantics as well).
@@ -50,11 +67,9 @@ class ApplyValueSemanticsPass
       }
 
       for (auto val : op->getResults()) {
-        auto tensor_type = val.getType().dyn_cast_or_null<NonValueTensorType>();
-        if (!tensor_type) {
-          continue;
-        }
-        val.setType(tensor_type.getWithValueSemantics());
+        if (auto newType =
+                getContainerOrTensorTypeWithValueSemantics(val.getType()))
+          val.setType(newType);
       }
     });
     for (auto op : deadOps) {

@@ -35,6 +35,7 @@ limitations under the License.
 #include "mlir/Support/LogicalResult.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
@@ -944,14 +945,18 @@ Value emitWidthAdaptShuffle(OpBuilder& b, Location loc, Value value,
         .getResult(0);
   } else {
     // The following codes used to imitate shuffle of integers has bits larger
-    // than 32 int bit_width = bit_width(val); int segments =
-    // ceil(bit_width/32); auto val_vec_i32 = bitcast(val, vec(segments, i32));
+    // than 32.
+    // ```
+    // int bit_width = bit_width(val);
+    // int segments = ceil(bit_width/32);
+    // auto val_vec_i32 = bitcast(val, vec(segments, i32));
     // for (int i = 0; i < segments; ++i) {
     //   auto insert_elem = extract_element(val_vec_i32, i);
     //   insert_elem = __xhfl_xor(insert_elem, offset);
     //   insert_element(val_vec_i32, insert_elem, i);
     // }
     // val = bitcast(val_vec_i32, integer(bit_width)))
+    // ```
     SmallVector<Type, 2> type = {b.getIntegerType(32), b.getI1Type()};
     int segments = llvm::divideCeil(bit_width, 32);
     auto vec_ty = VectorType::get(segments, b.getIntegerType(32));
@@ -5009,9 +5014,9 @@ struct DiscLhloLegalizeRootsToParallelLoops
   }
 
   void getDependentDialects(DialectRegistry& registry) const override {
+    DiscLhloLegalizeRootsToParallelLoopsPassBase<
+        DiscLhloLegalizeRootsToParallelLoops>::getDependentDialects(registry);
     registry.insert<LLVM::LLVMDialect>();
-    registry.insert<memref::MemRefDialect>();
-    registry.insert<gpu::GPUDialect>();
   }
 
   void runOnOperation() override {

@@ -874,6 +874,10 @@ class ShapePropagator : public PropertyPropBase {
         {
             "aten::erf(Tensor self) -> Tensor",
             "aten::erf_(Tensor self) -> Tensor",
+            "aten::masked_fill.Scalar(Tensor self, Tensor mask, Scalar value) -> Tensor",
+            "aten::masked_fill.Tensor(Tensor self, Tensor mask, Tensor value) -> Tensor",
+            "aten::masked_fill_.Scalar(Tensor(a!) self, Tensor mask, Scalar value) -> Tensor(a!)",
+            "aten::masked_fill_.Tensor(Tensor(a!) self, Tensor mask, Tensor value) -> Tensor(a!)",
             "aten::relu(Tensor self) -> Tensor",
             "aten::relu_(Tensor self) -> Tensor",
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 9

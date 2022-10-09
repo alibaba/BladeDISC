@@ -64,8 +64,8 @@ LogicalResult ConvertAtenOp<AtenMaskedFillScalarOp>::matchAndRewrite(
     AtenMaskedFillScalarOp op,
     OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
-  rewriter.replaceOpWithNewOp<AtenWhereScalarOtherOp>(
-      op, op.getType(), op.mask(), op.self(), op.value());
+  rewriter.replaceOpWithNewOp<AtenWhereScalarSelfOp>(
+      op, op.getType(), op.mask(), op.value(), op.self());
   return success();
 }
 
@@ -75,7 +75,7 @@ LogicalResult ConvertAtenOp<AtenMaskedFillTensorOp>::matchAndRewrite(
     OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   rewriter.replaceOpWithNewOp<AtenWhereSelfOp>(
-      op, op.getType(), op.mask(), op.self(), op.value());
+      op, op.getType(), op.mask(), op.value(), op.self());
   return success();
 }
 

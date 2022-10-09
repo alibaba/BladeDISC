@@ -35,7 +35,6 @@ python ${ENTRY} ${VENV_PATH} -s configure --bridge-gcc default --compiler-gcc de
 python ${ENTRY} ${VENV_PATH} -s build_tao_bridge ${CPU_ONLY} ${ROCM} ${DCU} ${ROCM_PATH}
 python ${ENTRY} ${VENV_PATH} -s build_tao_compiler ${CPU_ONLY} ${ROCM} ${DCU} ${ROCM_PATH}
 if [[ -z "$ROCM" ]] && [[ -z "$DCU" ]]; then
-  python ${ENTRY} ${VENV_PATH} -s build_mlir_ral ${CPU_ONLY} ${ROCM} ${DCU} ${ROCM_PATH}
   python ${ENTRY} ${VENV_PATH} -s test_tao_bridge_cpp ${CPU_ONLY} ${ROCM} ${DCU} ${ROCM_PATH}
   python ${ENTRY} ${VENV_PATH} -s test_tao_bridge_py ${CPU_ONLY} ${ROCM} ${DCU} ${ROCM_PATH}
   python ${ENTRY} ${VENV_PATH} -s test_tao_compiler ${CPU_ONLY} ${ROCM} ${DCU} ${ROCM_PATH}

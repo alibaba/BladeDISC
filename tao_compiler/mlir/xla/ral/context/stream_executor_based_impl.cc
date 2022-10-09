@@ -1187,7 +1187,6 @@ Status RunCudnnConvolution(CudnnConvParams& params,
     algorithm.set_scratch_size(params.best_result_bytes_used);
   }
 #endif
-
   if (TAO_VLOG_IS_ON(2)) {
     TAO_VLOG(0) << "input ptr: " << input_buf.opaque() << "@"
                 << input_buf.size();
@@ -1208,9 +1207,20 @@ Status RunCudnnConvolution(CudnnConvParams& params,
   }
 
   Status status = Status::OK();
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
+  se::dnn::CallContext call_context = se::dnn::CallContext::kNone;
+#endif
+
   switch (kind) {
     case ConvolutionKind::FORWARD:
-#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 6) || TF_MAJOR_VERSION > 2
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
+      // TF2.9 and ROCM
+      call_context = se::dnn::CallContext::kForward;
+      status = stream->ConvolveWithAlgorithm(
+          kind, input_descriptor, input_buf, filter_descriptor, filter_buf,
+          output_descriptor, output_buf, convolution_descriptor,
+          scratch_allocator, algorithm, call_context, profile_result);
+#elif (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 6)
       // TF2.7 and later
       status = stream->ConvolveWithAlgorithm(
           kind, input_descriptor, input_buf, filter_descriptor, filter_buf,
@@ -1235,7 +1245,6 @@ Status RunCudnnConvolution(CudnnConvParams& params,
     default:
       return errors::Internal("Not known CudnnConvKind");
   }
-
   if (!status.ok()) return status;
   if (!stream->ok()) {
     return errors::Internal("Unable to launch convolution");

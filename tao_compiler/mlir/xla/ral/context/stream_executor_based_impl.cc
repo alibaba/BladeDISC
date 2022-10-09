@@ -1252,13 +1252,13 @@ Status RunCudnnConvolution(CudnnConvParams& params,
   return Status::OK();
 }
 
-// instantiate for int8 kernel
-Status RunCudnnConvolution(CudnnConvParams& params,
-                           std::vector<se::DeviceMemoryBase>& operand_buffers,
-                           se::DeviceMemoryBase& result_buffer,
-                           se::ScratchAllocator* scratch_allocator,
-                           se::Stream* stream,
-                           se::dnn::ProfileResult* profile_result) {
+// partial specialization for int8 kernel
+template <>
+Status RunCudnnConvolution<int8_t>(
+    CudnnConvParams& params, std::vector<se::DeviceMemoryBase>& operand_buffers,
+    se::DeviceMemoryBase& result_buffer,
+    se::ScratchAllocator* scratch_allocator, se::Stream* stream,
+    se::dnn::ProfileResult* profile_result) {
   ConvolutionKind kind = params.kind;
   DeviceMemory<int8_t> input_buf(operand_buffers[0]);
   DeviceMemory<int8_t> filter_buf(operand_buffers[1]);

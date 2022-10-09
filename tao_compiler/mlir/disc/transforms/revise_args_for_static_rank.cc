@@ -18,8 +18,8 @@
 #include "mlir/Support/LogicalResult.h"  // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
-#include "transforms/placement_utils.h"
 
 namespace mlir {
 

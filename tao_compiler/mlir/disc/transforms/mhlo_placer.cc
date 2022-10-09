@@ -19,7 +19,7 @@
 #include "mlir/Transforms/Passes.h"         // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
-#include "transforms/placement_utils.h"
+#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 
 namespace mlir {
 

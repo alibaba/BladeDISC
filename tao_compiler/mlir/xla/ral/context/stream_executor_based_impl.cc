@@ -610,7 +610,12 @@ std::vector<ProfileResult> GetMIOpenAlgorithms(
           params.kind, se::dnn::ToDataType<T>::value, stream,
           params.input_descriptor, operand_buffers[0], params.filter_descriptor,
           operand_buffers[1], params.output_descriptor, result_buffer,
-          params.convolution_descriptor, scratch_allocator, &algorithms)) {
+          params.convolution_descriptor, scratch_allocator,
+#if (TF_MAJOR_VERSION == 2 && TF_MINOR_VERSION > 8) && TENSORFLOW_USE_ROCM
+          se::dnn::CallContext::kNone, &algorithms)) {
+#else
+          &algorithms)) {
+#endif
     ctx->signalError(Context::FAILURE, "GetMIOpenAlgorithms failed.");
   }
   return algorithms;
@@ -1187,6 +1192,7 @@ Status RunCudnnConvolution(CudnnConvParams& params,
     algorithm.set_scratch_size(params.best_result_bytes_used);
   }
 #endif
+
   if (TAO_VLOG_IS_ON(2)) {
     TAO_VLOG(0) << "input ptr: " << input_buf.opaque() << "@"
                 << input_buf.size();
@@ -1245,6 +1251,7 @@ Status RunCudnnConvolution(CudnnConvParams& params,
     default:
       return errors::Internal("Not known CudnnConvKind");
   }
+
   if (!status.ok()) return status;
   if (!stream->ok()) {
     return errors::Internal("Unable to launch convolution");

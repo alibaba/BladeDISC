@@ -25,6 +25,7 @@ limitations under the License.
 #include "mlir/Target/LLVMIR/Export.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/xla/debug_options_flags.h"
 #include "tensorflow/compiler/xla/service/gpu/gpu_asm_opts_util.h"
 #include "tensorflow/compiler/xla/service/gpu/llvm_gpu_backend/gpu_backend_lib.h"
@@ -40,7 +41,6 @@ limitations under the License.
 #include "tensorflow/core/platform/path.h"
 #include "tensorflow/core/platform/random.h"
 #include "tensorflow/core/util/env_var.h"
-#include "transforms/codegen_utils.h"
 
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
 #include "tensorflow/compiler/xla/stream_executor/gpu/asm_compiler.h"

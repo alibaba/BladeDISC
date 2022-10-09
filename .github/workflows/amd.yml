@@ -18,21 +18,19 @@ jobs:
         source $HOME/.cache/proxy_config
         git submodule sync
         git submodule update --depth=1 --init --recursive
-        docker build -t disc-dev-cpu \
-          --build-arg BASEIMAGE=nvidia/cuda:10.0-cudnn7-devel-ubuntu18.04 \
-          --build-arg DISC_HOST_TF_VERSION="tensorflow==1.15.5" \
-          --build-arg DEVICE=cpu \
-          --build-arg HTTPS_PROXY=${HTTPS_PROXY} \
-          -f docker/dev/Dockerfile .
+        docker build -t disc-dev-rocm \
+          -f docker/dev/Dockerfile.rocm5.2 .
     - name: Build And Test
       run: |
         set -e
-        docker run --rm -t --user $(id -u):$(id -g) \
-          -v /apsara/github-ci/.cache:$HOME/.cache \
+        docker run --rm \
+          --device=/dev/kfd --device=/dev/dri \
+          -v /apsara/github-ci/:/home/$USER/ \
           -v /etc/passwd:/etc/passwd:ro \
           -v /etc/group:/etc/group:ro \
           -v $PWD:/disc \
           -e GITHUB_WORKFLOW=$GITHUB_WORKFLOW \
-          -e BLADE_DISC_RUNNING_AMD=ON \
+          -e HOME=/home/$USER \
           -w /disc \
-          disc-dev-cpu bash -c "bash ./scripts/ci/build_and_test.sh --cpu-only" 
+          -u $(id -u ${USER}):$(id -g ${USER}) \
+          disc-dev-rocm bash -c "bash ./scripts/ci/build_and_test.sh --rocm_path /opt/rocm-5.2.0 --rocm"

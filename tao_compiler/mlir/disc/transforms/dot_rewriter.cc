@@ -30,7 +30,7 @@
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // from @llvm-project
 #include "mlir/Transforms/Passes.h"                      // from @llvm-project
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
-#include "transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 
 using llvm::StringRef;
 using std::string;

@@ -34,10 +34,10 @@
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_to_llvm_common.h"
+#include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/compiler/mlir/disc/transforms/rewriters.h"
-#include "transforms/codegen_utils.h"
-#include "transforms/placement_utils.h"
 
 namespace mlir {
 namespace disc_ral {

@@ -1,0 +1,52 @@
+FROM rocm/tensorflow:rocm5.2.0-tf2.9-dev
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+ENV ROCM_PATH=/opt/rocm-5.2.0
+
+ENV TF_NEED_ROCM=1
+
+ENV PYTHON_ENV=/opt/venv_disc
+
+ENV PYTHON_BIN_PATH=$PYTHON_ENV/bin/python
+
+ENV ROCM_TF_CFG="--config=opt --config=rocm --verbose_failures"
+
+ADD ./docker/dev/ROCM-HOST-TF2.9-PATCH.patch /tmp/
+
+RUN python3 -m pip install virtualenv numpy && python -m virtualenv $PYTHON_ENV && source $PYTHON_ENV/bin/activate && \
+    pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
+    pip install numpy keras-preprocessing packaging && \
+    cd /root/tensorflow && git apply /tmp/ROCM-HOST-TF2.9-PATCH.patch && ./configure && \
+    bazel build $ROCM_TF_CFG //tensorflow/tools/pip_package:build_pip_package && \
+    bazel build $ROCM_TF_CFG //tensorflow:libtensorflow_cc.so && \
+    bazel-bin/tensorflow/tools/pip_package/build_pip_package --rocm --nightly_flag /tmp/tf_pkg
+
+FROM rocm/tensorflow:rocm5.2.0-tf2.9-dev
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+ENV PYTHON_ENV=/opt/venv_disc
+
+ENV PYTHON_BIN_PATH=$PYTHON_ENV/bin/python
+
+ENV PYTHON_TF_PATH=$PYTHON_ENV/lib/python3.9/site-packages/tensorflow
+
+COPY --from=0 /tmp/tf_pkg/tf_nightly_rocm*.whl /tmp/tf_pkg/
+
+RUN pip install virtualenv && virtualenv $PYTHON_ENV && source $PYTHON_ENV/bin/activate && \
+    pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
+    pip install /tmp/tf_pkg/tf_nightly_rocm*.whl pytest pytest-forked
+
+COPY --from=0 /root/tensorflow/bazel-bin/tensorflow/libtensorflow_cc.so.2 $PYTHON_TF_PATH/
+
+RUN cd $PYTHON_TF_PATH && \
+    ln -sf libtensorflow_cc.so.2 libtensorflow_cc.so && \
+    ln -sf libtensorflow_framework.so.2 libtensorflow_framework.so && \
+    echo "source $PYTHON_ENV/bin/activate" >> ~/.bashrc
+
+RUN wget -q https://151941-3rdparty.oss-cn-hangzhou.aliyuncs.com/bazel/bazelisk-1.11.0-linux-amd64 -O /usr/bin/bazel && \
+    chmod a+x /usr/bin/bazel && \
+    cd /root/.bazel/bin &&  \
+    curl -fLO https://releases.bazel.build/5.3.0/release/bazel-5.3.0-linux-x86_64 && chmod +x bazel-5.3.0-linux-x86_64 && \
+    curl -fLO https://releases.bazel.build/5.1.1/release/bazel-5.1.1-linux-x86_64 && chmod +x bazel-5.1.1-linux-x86_64

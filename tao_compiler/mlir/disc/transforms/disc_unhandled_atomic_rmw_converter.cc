@@ -19,7 +19,7 @@
 #include "mlir/Transforms/DialectConversion.h"           // TF:llvm-project
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // TF:llvm-project
 #include "mlir/Transforms/Passes.h"                      // TF:llvm-project
-#include "transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 
 namespace mlir {
 namespace disc_ral {

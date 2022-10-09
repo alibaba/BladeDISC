@@ -121,6 +121,8 @@ void replace_aten_fake_quant_with_custom_version(Module& model) {
           std::string(torch::blade::quantization::
                           at_fake_quant_per_channel_affine_name)) {
         Value* axis = n->inputs()[3];
+        // Just construct a prim::ListConstruct which return an empty
+        // vector when the quantization scheme is per-tensor.
         list_axis_node = g->insertNode(g->create(prim::ListConstruct));
         list_axis_node->addInput(axis);
         list_axis_node->moveAfter(axis->node());
@@ -129,6 +131,11 @@ void replace_aten_fake_quant_with_custom_version(Module& model) {
         quant_max = n->inputs()[5];
         use_per_channel = insert_prim_constant<bool>(g, n, false, true);
       } else {
+        // According to:
+        // https://github.com/pytorch/pytorch/blob/7134b9bc7b1d25b453ec5c53b1ec70cb206228a1/torch/csrc/jit/ir/constants.cpp#L211
+        // Can not directly construct a prim::Constant using constant literal of
+        // type List[int]. So use prim::ListConstruct the obtain the axis in the
+        // required format.
         list_axis_node = g->insertNode(g->create(prim::ListConstruct));
         list_axis_node->moveBefore(n);
         list_axis_node->output()->setType(c10::ListType::ofInts());

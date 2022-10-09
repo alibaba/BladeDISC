@@ -45,7 +45,7 @@ fi
 cp tao/bazel-bin/libtao_ops.so ${BLADE_DISC_DIR}
 cp tf_community/bazel-bin/tensorflow/compiler/decoupling/tao_compiler_main ${BLADE_DISC_DIR}
 
-if [[ -n "$ROCM" ]] && [[ -n "$DCU" ]]; then
+if [[ -n "$ROCM" ]] || [[ -n "$DCU" ]]; then
   # TODO: skip the following stages if rocm build
   exit 0
 fi

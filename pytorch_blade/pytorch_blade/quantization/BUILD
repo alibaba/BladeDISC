@@ -3,11 +3,10 @@ package(default_visibility = ["//visibility:public"])
 cc_library(
     name = "quantization_op",
     srcs = [
-        "placeholder_op.cpp",
-        "fake_quant.cpp",
+        "custom_op.cpp",
     ],
     hdrs = [
-        "placeholder_op.h",
+        "alias.h",
     ],
     deps = [
         "@local_org_torch//:libtorch",
@@ -19,14 +18,14 @@ cc_library(
 filegroup(
     name = "torch_blade_quantization_srcs",
     srcs = [
-        "placeholder_op.cpp",
+        "custom_op.cpp",
     ]
 )
 
 filegroup(
     name = "torch_blade_quantization_hdrs",
     srcs = [
-        "placeholder_op.h",
+        "alias.h",
     ]
 )
 

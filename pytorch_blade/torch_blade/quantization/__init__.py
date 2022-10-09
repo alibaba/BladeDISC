@@ -15,7 +15,7 @@ try:
     import torch_blade._torch_blade._quantization as _quantization
     _is_available = True
 
-except ImportError as e:
+except ImportError:
     _is_available = False
 
 
@@ -31,6 +31,34 @@ def _jit_pass_remove_all_placeholder(c_module):
     _quantization.remove_placeholder(c_module)
 
 
+def _jit_replace_aten_fake_quant_with_custom_version(c_module):
+    _quantization.replace_aten_fake_quant_with_custom_version(c_module)
+
+
+def _process_aten_fake_quant(c_module):
+    # This function will processes aten::fake_quant to avoid it being folded by
+    # constant-folding pass. The process is different under different backend settings.
+    # For TensorRT backend, we want to reuse the onnx converter for aten::fake_quant,
+    # so a placeholder custom op is added after each aten::fake_quant of the weight.
+    # And the placeholder op will be removed after the whole torchscript preprocess passes
+    # are done.
+    # For DISC backend, aten::fake_quant will be replaced with our custom fake_quant op.
+    # And all quantization info needed by DISC will be stored in it.
+    cfg = Config.get_current_context_or_new()
+    backend = cfg.optimization_pipeline
+    if backend == 'TensorRT':
+        # Add placeholder for each fake quant of weight.
+        # Or it will be folded by _jit_pass_constant_propagation.
+        # TODO: remove this when fake_quant is added to the skip_list
+        # of _jit_pass_constant_propagation.
+        # https://github.com/pytorch/pytorch/issues/81460
+        _jit_pass_add_placeholder_for_fake_quant(c_module)
+    elif backend == "DISC":
+        _jit_replace_aten_fake_quant_with_custom_version(c_module)
+    else:
+        raise RuntimeError("Unsupported backend for torchscript with fake quant")
+
+
 def _jit_pass_quantization_preprocess(c_module):
     if not _is_available:
         return
@@ -38,12 +66,7 @@ def _jit_pass_quantization_preprocess(c_module):
     cfg = Config.get_current_context_or_new()
     is_enabled_quantization = cfg.enable_int8
     if is_enabled_quantization:
-        # Add placeholder for each fake quant of weight.
-        # Or it will be folded by _jit_pass_constant_propagation.
-        # TODO: remove this when fake_quant is added to the skip_list
-        # of _jit_pass_constant_propagation.
-        # https://github.com/pytorch/pytorch/issues/81460
-        _jit_pass_add_placeholder_for_fake_quant(c_module)
+        _process_aten_fake_quant(c_module)
 
 
 def _jit_pass_quantization_postprocess(c_module):

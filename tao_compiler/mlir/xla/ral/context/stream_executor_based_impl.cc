@@ -1623,7 +1623,6 @@ void ral_qconv(ExecutionContext* ctx, void* stream_handle,
   se::DeviceMemoryBase result_buffer = GetDeviceAddress(output);
 
   {
-    TAO_VLOG(0) << "begin to test";
     std::lock_guard<std::mutex> l(state.mu);
     auto& cache = state.cache_table[unique_name];
     auto it = cache.find(key);
@@ -1633,20 +1632,14 @@ void ral_qconv(ExecutionContext* ctx, void* stream_handle,
       float inputscale = inputScales.data[0];
       float weightscale = weightScales.data[0];
       float resultscale = resultScales.data[0];
-      // TAO_VLOG(0) << "inputscale: " << inputscale;
-      // TAO_VLOG(0) << "weightscale: " << weightscale;
-      // TAO_VLOG(0) << "resultscale: " << resultscale;
       params.scale = kernel_scale;
-      TAO_VLOG(0) << "bias_desc begin to init";
       BatchDescriptor bias_desc;
       bias_desc.set_count(1)
           .set_height(1)
           .set_width(1)
           .set_feature_map_count(params.output_descriptor.feature_map_count())
           .set_layout(params.output_dl);
-      TAO_VLOG(0) << "bias_desc init successfully";
       params.bias_descriptor.CloneFrom(bias_desc);
-      TAO_VLOG(0) << "bias_desc clone successfully";
       if (!params_ptr) {
         print_memref(metadata, "metadata");
         for (int i = 0; i < 5 * N - 4; ++i) {
@@ -1656,15 +1649,11 @@ void ral_qconv(ExecutionContext* ctx, void* stream_handle,
         return;
       }
 
-      TAO_VLOG(0) << "begin to pick best algorithm";
-
       if (!PickBestAlgorithm<T>(*params_ptr, operand_se_buffers, result_buffer,
                                 stream, ctx, gpu_driver)) {
         ctx->signalError(Context::FAILURE, "fail to tune conv op");
         return;
       }
-
-      TAO_VLOG(0) << "after pick best algorithm";
 
       it = cache.emplace(key, std::move(*params_ptr)).first;
     }

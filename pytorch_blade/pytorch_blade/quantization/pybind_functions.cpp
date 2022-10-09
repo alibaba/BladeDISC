@@ -14,6 +14,7 @@
 #include "pytorch_blade/compiler/jit/tool_funcs.h"
 
 #include <c10/util/ArrayRef.h>
+#include <torch/csrc/jit/passes/dead_code_elimination.h>
 #include <torch/csrc/jit/passes/inliner.h>
 #include <torch/script.h>
 #include <iostream>
@@ -179,6 +180,9 @@ void replace_aten_fake_quant_with_custom_version(Module& model) {
   for (auto n : aten_fake_quant_node) {
     n->destroy();
   }
+
+  // some jit passes to clean the graph
+  EliminateDeadCode(g->block());
 }
 
 void initQuantizationBindings(py::module& m) {

@@ -36,7 +36,7 @@ COPY --from=0 /tmp/tf_pkg/tf_nightly_rocm*.whl /tmp/tf_pkg/
 
 RUN pip install virtualenv && virtualenv $PYTHON_ENV && source $PYTHON_ENV/bin/activate && \
     pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/ && \
-    pip install /tmp/tf_pkg/tf_nightly_rocm*.whl
+    pip install /tmp/tf_pkg/tf_nightly_rocm*.whl pytest pytest-forked
 
 COPY --from=0 /root/tensorflow/bazel-bin/tensorflow/libtensorflow_cc.so.2 $PYTHON_TF_PATH/
 

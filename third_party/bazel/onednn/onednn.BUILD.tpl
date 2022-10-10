@@ -3,6 +3,7 @@ load("@local_config_blade_disc_helper//:build_defs.bzl",
     "cc_bin_path",
     "cxx_bin_path",
     "if_disc_aarch64",
+    "foreign_make_args",
 )
 load("@local_config_onednn//:onednn.bzl", "filter_static_lib")
 
@@ -32,7 +33,7 @@ cmake(
         "CXX": cxx_bin_path(),
     },
     generate_crosstool_file=False, ## This makes sure we use cxx by cache_entries settings
-    build_args = ["-j"],
+    build_args = foreign_make_args(),
     lib_source = ":all_source_files",
     out_lib_dir = "lib64", # default out_lib_dir value is lib
     out_static_libs = [

@@ -104,6 +104,11 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
       auto useSignedAttr = rewriter.getBoolAttr(useSigned);
       auto useSymmetricAttr = rewriter.getBoolAttr(useSymmetric);
       auto useDynamicAttr = rewriter.getBoolAttr(useDynamic);
+      // default round mode in torch is round-to-even.
+      // TODO: should read it from the custom fake quant op.
+      auto roundModeAttr = mlir::mhlo_disc::RoundModeEnumAttr::get(
+          rewriter.getContext(),
+          mlir::mhlo_disc::RoundModeEnum::RoundHalfToEven);
       Value newOp = rewriter.create<mhlo_disc::FakeQuantOp>(
           loc,
           resultTy,
@@ -116,7 +121,8 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
           numBitsAttr,
           qminAttr,
           qmaxAttr,
-          useDynamicAttr);
+          useDynamicAttr,
+          roundModeAttr);
       rewriter.replaceOp(op, {newOp});
 
       return success();

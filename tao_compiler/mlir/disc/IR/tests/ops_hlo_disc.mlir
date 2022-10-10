@@ -9,7 +9,8 @@ func.func @fake_quant_per_tensor(%input : tensor<?x?x?x?xf32>, %scale : tensor<f
       num_bits = 8,
       quant_min = -111,
       quant_max = 111,
-      use_dynamic = false
+      use_dynamic = false,
+      round_mode = 1
   } : (tensor<?x?x?x?xf32>, tensor<f32>, tensor<i32>) -> tensor<?x?x?x?xf32>
   return %out : tensor<?x?x?x?xf32>
 }
@@ -25,7 +26,8 @@ func.func @fake_quant_per_channel(%input : tensor<?x?x?x?xf32>, %scale : tensor<
       num_bits = 8,
       quant_min = -111,
       quant_max = 111,
-      use_dynamic = false
+      use_dynamic = false,
+      round_mode = 0
   } : (tensor<?x?x?x?xf32>, tensor<?xf32>, tensor<?xi32>) -> tensor<?x?x?x?xf32>
   return %out : tensor<?x?x?x?xf32>
 }
@@ -39,7 +41,8 @@ func.func @quantize_per_tensor(%input : tensor<?x?x?x?xf32>, %scale : tensor<f32
       axis = dense<[]> : tensor<0xi64>,
       quant_min = -111,
       quant_max = 111,
-      use_dynamic = false
+      use_dynamic = false,
+      round_mode = 1
   } : (tensor<?x?x?x?xf32>, tensor<f32>, tensor<i32>) -> tensor<?x?x?x?xi8>
   return %out : tensor<?x?x?x?xi8>
 }
@@ -53,7 +56,8 @@ func.func @quantize_per_channel(%input : tensor<?x?x?x?xf32>, %scale : tensor<?x
       axis = dense<[1]> : tensor<1xi64>,
       quant_min = -111,
       quant_max = 111,
-      use_dynamic = false
+      use_dynamic = false,
+      round_mode = 0
   } : (tensor<?x?x?x?xf32>, tensor<?xf32>, tensor<?xi32>) -> tensor<?x?x?x?xi8>
   return %out : tensor<?x?x?x?xi8>
 }
@@ -65,7 +69,8 @@ func.func @dequantize_per_tensor(%input : tensor<?x?x?x?xi8>, %scale : tensor<f3
   %out = "mhlo_disc.dequantize"(%input, %scale, %zero_point) {
       use_symmetric = true,
       axis = dense<[]> : tensor<0xi64>,
-      use_dynamic = false
+      use_dynamic = false,
+      round_mode = 1
   } : (tensor<?x?x?x?xi8>, tensor<f32>, tensor<i32>) -> tensor<?x?x?x?xf32>
   return %out : tensor<?x?x?x?xf32>
 }
@@ -77,7 +82,8 @@ func.func @dequantize_per_channel(%input : tensor<?x?x?x?xi8>, %scale : tensor<?
   %out = "mhlo_disc.dequantize"(%input, %scale, %zero_point) {
       use_symmetric = true,
       axis = dense<[1]> : tensor<1xi64>,
-      use_dynamic = false
+      use_dynamic = false,
+      round_mode = 0
   } : (tensor<?x?x?x?xi8>, tensor<?xf32>, tensor<?xi32>) -> tensor<?x?x?x?xf32>
   return %out : tensor<?x?x?x?xf32>
 }

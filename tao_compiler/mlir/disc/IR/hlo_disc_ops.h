@@ -30,6 +30,7 @@ limitations under the License.
 #include "mlir/IR/Types.h"
 #include "mlir/Interfaces/InferTypeOpInterface.h"
 #include "mlir/Interfaces/SideEffectInterfaces.h"
+#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_enums.h.inc"
 
 namespace mlir {
 class OpBuilder;

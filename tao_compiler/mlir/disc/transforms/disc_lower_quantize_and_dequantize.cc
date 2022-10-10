@@ -78,9 +78,19 @@ struct QuantizeOpConverter : public OpRewritePattern<mhlo_disc::QuantizeOp> {
     // quant\_max)
     Value t0 = rewriter.create<mhlo::DivOp>(loc, op.input(), bcastedScale);
     Value t1 = rewriter.create<mhlo::AddOp>(loc, t0, bcastedZeroPoint);
-    Value t2 = rewriter.create<mhlo::ClampOp>(loc, t1, bcastedQuantMin,
+    Value t2;
+    if (op.round_mode() == mlir::mhlo_disc::RoundModeEnum::RoundHalfToEven) {
+      t2 = rewriter.create<mhlo::RoundNearestEvenOp>(loc, t1);
+    } else if (op.round_mode() ==
+               mlir::mhlo_disc::RoundModeEnum::RoundHalfAwayFromZero) {
+      t2 = rewriter.create<mhlo::RoundOp>(loc, t1);
+    } else {
+      return rewriter.notifyMatchFailure(op, "Round mode is not supported");
+    }
+
+    Value t3 = rewriter.create<mhlo::ClampOp>(loc, t2, bcastedQuantMin,
                                               bcastedQuantMax);
-    Value out = rewriter.create<mhlo::ConvertOp>(loc, op.getType(), t2);
+    Value out = rewriter.create<mhlo::ConvertOp>(loc, op.getType(), t3);
     rewriter.replaceOp(op, out);
     return success();
   }

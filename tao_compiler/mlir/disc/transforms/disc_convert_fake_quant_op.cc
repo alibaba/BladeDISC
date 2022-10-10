@@ -234,7 +234,8 @@ struct QuantizedDotLikeOpConverter
               loc, outTy, fakeQuantOp.input(), fakeQuantOp.scale(),
               fakeQuantOp.zero_point(), fakeQuantOp.use_symmetric(),
               fakeQuantOp.axis(), fakeQuantOp.quant_min(),
-              fakeQuantOp.quant_max(), fakeQuantOp.use_dynamic());
+              fakeQuantOp.quant_max(), fakeQuantOp.use_dynamic(),
+              fakeQuantOp.round_mode());
           return quantizedInput;
         };
 
@@ -245,7 +246,7 @@ struct QuantizedDotLikeOpConverter
         quantizedWeight, inputFakeQuantOp, weightFakeQuantOp, op);
     Value dequantizedOut = rewriter.create<mhlo_disc::DequantizeOp>(
         loc, op.getType(), quantizedDot, op.scale(), op.zero_point(),
-        op.use_symmetric(), op.axis(), op.use_dynamic());
+        op.use_symmetric(), op.axis(), op.use_dynamic(), op.round_mode());
 
     rewriter.replaceOp(op, dequantizedOut);
     return success();

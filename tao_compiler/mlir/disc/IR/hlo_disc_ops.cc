@@ -21,6 +21,7 @@ limitations under the License.
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "tensorflow/compiler/mlir/disc/IR/custom_call_base.h"
+#include "tensorflow/compiler/mlir/disc/IR/hlo_disc_enums.cc.inc"
 
 namespace mlir {
 namespace mhlo_disc {

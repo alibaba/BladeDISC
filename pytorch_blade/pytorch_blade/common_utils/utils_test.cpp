@@ -11,9 +11,9 @@
 
 #include <gtest/gtest.h>
 
-#include "pytorch_blade/common_utils/utils.h"
 #include <torch/script.h>
 #include <fstream>
+#include "pytorch_blade/common_utils/utils.h"
 
 TEST(DumpIValues, TestDumpIValues) {
   struct stat f_stat;

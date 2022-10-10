@@ -22,9 +22,9 @@
 #include "stablehlo/dialect/ChloOps.h"
 
 #include <torch/script.h>
-#include "pytorch_blade/compiler/jit/shape_type_spec.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "pytorch_blade/compiler/jit/shape_type_spec.h"
 
 namespace torch {
 namespace blade {

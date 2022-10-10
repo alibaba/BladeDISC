@@ -16,10 +16,10 @@
 #include <mlir/mhlo/builder/mlir_utils.h>
 #include <mlir/mhlo/builder/standard.h>
 
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 #include "pytorch_blade/compiler/mlir/converters/mhlo_conversion_context.h"
 #include "pytorch_blade/compiler/mlir/converters/mhlo_converter_register.h"
 #include "pytorch_blade/compiler/mlir/converters/mlir_type_utils.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
 
 // was included last because of llvm headers conflicts
 #include <torch/script.h>

@@ -23,7 +23,6 @@ cc_library(
     ],
     deps = [
         "//pytorch_blade/common_utils:torch_blade_logging",
-        "//pytorch_blade:torch_blade_include",
         "//pytorch_blade/torch-mlir:DiscTorchMLIRTorchToMhlo",
         "@local_org_torch//:libtorch",
         "@org_mhlo_builder//csrc:mhlo_library",
@@ -45,7 +44,6 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
-        "//pytorch_blade:torch_blade_include",
         "//pytorch_blade:torch_blade_shared",
         "@zlib",
         "@googltest//:gtest_main",

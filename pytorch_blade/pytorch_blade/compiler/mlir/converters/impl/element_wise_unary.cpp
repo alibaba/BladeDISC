@@ -9,9 +9,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "pytorch_blade/compiler/mlir/converters/mhlo_converter_register.h"
 #include "pytorch_blade/compiler/mlir/converters/mlir_type_utils.h"
-#include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "stablehlo/dialect/ChloOps.h"
 
 #include <torch/script.h>

@@ -19,14 +19,6 @@ exports_files([
 ])
 
 cc_library(
-    name = "torch_blade_include",
-    includes = ["."],
-    visibility = [
-        "//visibility:public",
-    ],
-)
-
-cc_library(
     name = "torch_blade",
     linkopts = ["-Wl,-rpath,$$ORIGIN"],
     deps = [

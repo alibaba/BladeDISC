@@ -16,14 +16,14 @@
 #include <mlir/mhlo/builder/slice.h>
 #include <mlir/mhlo/builder/standard.h>
 
+#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "pytorch_blade/common_utils/logging.h"
 #include "pytorch_blade/common_utils/utils.h"
 #include "pytorch_blade/compiler/mlir/converters/impl/prim_constant.h"
 #include "pytorch_blade/compiler/mlir/converters/impl/utils.h"
 #include "pytorch_blade/compiler/mlir/converters/mhlo_converter_register.h"
 #include "pytorch_blade/compiler/mlir/converters/mlir_type_utils.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
-#include "mlir/Dialect/Tensor/IR/Tensor.h"
 
 #include <torch/script.h>
 

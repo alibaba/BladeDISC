@@ -161,7 +161,6 @@ class TestDiscShapes(DiscTestCase):
         x = torch.randn([], device=self.device)
         self._test_reshape(test_rank_0_input, x=x)
 
-    @skipIfEnableTorchMlir()
     def test_size(self):
         @torch.jit.script
         def size_func(x):

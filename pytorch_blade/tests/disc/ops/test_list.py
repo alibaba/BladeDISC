@@ -31,14 +31,10 @@ class TestDiscList(DiscTestCase):
         disc_bytes, _, _, _ = mlir.cvt_torchscript_to_mhlo(graph)
         expect_str = """
           module  {
+            # CHECK: main() -> tensor<4xi64>
             func @main() -> tensor<4xi64> attributes {tf.entry_function = {input_placements = "", inputs = "", output_placements = "cpu", outputs = "7"}} {
-              %false = constant false loc(#loc0)
-              %c1_i64 = constant 1 : i64 loc(#loc1)
-              %c2_i64 = constant 2 : i64 loc(#loc2)
-              %c3_i64 = constant 3 : i64 loc(#loc3)
-              %c4_i64 = constant 4 : i64 loc(#loc4)
-              # CHECK: tensor.from_elements
-              %0 = tensor.from_elements %c1_i64, %c2_i64, %c3_i64, %c4_i64 : tensor<4xi64> loc(#loc5)
+              # CHECK: %cst = arith.constant dense<[1, 2, 3, 4]> : tensor<4xi64>
+              %cst = arith.constant dense<[1, 2, 3, 4]> : tensor<4xi64>
               return %0 : tensor<4xi64> loc(#loc0)
             } loc(#loc0)
           } loc(#loc0)
@@ -48,30 +44,22 @@ class TestDiscList(DiscTestCase):
     def test_list_bool(self):
         gstr = """graph():
                     %0 : None = prim::Constant()
-                    %1 : int = prim::Constant[value=0]()
-                    %2 : int = prim::Constant[value=1]()
-                    %3 : bool = prim::Constant[value=0]()
-                    %4 : bool = prim::Constant[value=1]()
-                    %list : bool[] = prim::ListConstruct(%3, %4)
-                    %w : bool = aten::__getitem__(%list, %1)
-                    %z : bool = aten::__getitem__(%list, %2)
-                    %r : Tensor = aten::tensor(%1, %0, %0, %3)
+                    %1 : int = prim::Constant[value=1]()
+                    %2 : bool = prim::Constant[value=0]()
+                    %3 : bool = prim::Constant[value=1]()
+                    %list : bool[] = prim::ListConstruct(%2, %3)
+                    %z : bool = aten::__getitem__(%list, %1)
+                    %r : Tensor = aten::tensor(%z, %0, %0, %2)
                     return (%r)"""
         graph = torch._C.parse_ir(gstr)
         disc_bytes, _, _, _ = mlir.cvt_torchscript_to_mhlo(graph)
         expect_str = """
           module  {
-            func @main() -> tensor<i64> attributes {tf.entry_function = {input_placements = "", inputs = "", output_placements = "cpu", outputs = "8"}} {
-              # CHECK: constant 0
-              %c0_i64 = constant 0 : i64 loc(#loc)
-              # CHECK: constant 1
-              %c1_i64 = constant 1 : i64 loc(#loc)
-              # CHECK: constant false
-              %false = constant false loc(#loc)
-              # CHECK: constant true 
-              %true = constant true loc(#loc)
-              %0 = mhlo.constant dense<0> : tensor<i64> loc(#loc)
-              return %0 : tensor<i64> loc(#loc)
+            # CHECK: main() -> tensor<i1>
+            func @main() -> tensor<i1> attributes {tf.entry_function = {input_placements = "", inputs = "", output_placements = "cpu", outputs = "8"}} {
+              # CHECK: %cst = arith.constant dense<true> : tensor<i1>
+              %cst = arith.constant dense<true> : tensor<i1>
+              return %0 : tensor<i1> loc(#loc)
             } loc(#loc)
           } loc(#loc)
         """
@@ -80,30 +68,23 @@ class TestDiscList(DiscTestCase):
     def test_list_float(self):
         gstr = """graph():
                     %0 : None = prim::Constant()
-                    %1 : int = prim::Constant[value=0]()
-                    %2 : int = prim::Constant[value=1]()
+                    %1 : int = prim::Constant[value=1]()
                     %3 : float = prim::Constant[value=3.]()
                     %4 : float = prim::Constant[value=4.]()
                     %5 : bool = prim::Constant[value=0]()
                     %list : float[] = prim::ListConstruct(%3, %4)
                     %w : float = aten::__getitem__(%list, %1)
-                    %z : float = aten::__getitem__(%list, %2)
-                    %r : Tensor = aten::tensor(%1, %0, %0, %5)
+                    %r : Tensor = aten::tensor(%w, %0, %0, %5)
                     return (%r)"""
         graph = torch._C.parse_ir(gstr)
         disc_bytes, _, _, _ = mlir.cvt_torchscript_to_mhlo(graph)
         expect_str = """
           module  {
-            func @main() -> tensor<i64> attributes {tf.entry_function = {input_placements = "", inputs = "", output_placements = "cpu", outputs = "9"}} {
-              %c0_i64 = constant 0 : i64 loc(#loc)
-              %c1_i64 = constant 1 : i64 loc(#loc)
-              # CHECK: constant 3.000000e+00 : f64
-              %cst = constant 3.000000e+00 : f64 loc(#loc)
-              # CHECK: constant 4.000000e+00 : f64
-              %cst_0 = constant 4.000000e+00 : f64 loc(#loc)
-              %false = constant false loc(#loc)
-              %0 = mhlo.constant dense<0> : tensor<i64> loc(#loc)
-              return %0 : tensor<i64> loc(#loc)
+            # CHECK: main() -> tensor<f32>
+            func @main() -> tensor<f32> attributes {tf.entry_function = {input_placements = "", inputs = "", output_placements = "cpu", outputs = "9"}} {
+              # CHECK: arith.constant dense<4.000000e+00> : tensor<f32>
+              %0 = arith.constant dense<4.000000e+00> : tensor<f32>
+              return %0 : tensor<f32> loc(#loc)
             } loc(#loc)
           } loc(#loc)
           #loc = loc(unknown)

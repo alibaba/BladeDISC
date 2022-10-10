@@ -376,10 +376,12 @@ struct SimplifierFromElementsPattern
       // deal with scalar tensor
       auto outTy = RankedTensorType::get(
           {1}, op.getType().cast<RankedTensorType>().getElementType());
-      rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(op, outTy, extractInput);
+      rewriter.replaceOpWithNewOp<mhlo::ReshapeOp>(op, op.getType(),
+                                                   extractInput);
     } else if (rank == 1 && extractRankTy.getShape()[0] == 1) {
       // deal with rank 1 with 1 elements
-      op.replaceAllUsesWith(extractInput);
+      rewriter.replaceOpWithNewOp<tensor::CastOp>(op, op.getType(),
+                                                  extractInput);
     } else {
       return failure();
     }

@@ -60,6 +60,42 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
 }
 
 template <>
+LogicalResult ConvertAtenOp<AtenBatchNormOp>::matchAndRewrite(
+    AtenBatchNormOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  MLIRContext* context = op.getContext();
+  Value input = op.input();
+  Value weight = op.weight();
+  Value bias = op.bias();
+  Value runningMean = op.running_mean();
+  Value runningVar = op.running_var();
+  Value training = op.training();
+  Value momentum = op.momentum();
+  Value eps = op.eps();
+
+  auto outTy = op.getType().dyn_cast<BaseTensorType>();
+  auto meanVarTy =
+      outTy.getWithSizesAndDtype({outTy.getSizes()[1]}, outTy.getDtype());
+  auto nativeBatchNorm = rewriter.create<AtenNativeBatchNormOp>(
+      op.getLoc(),
+      outTy,
+      meanVarTy,
+      meanVarTy,
+      input,
+      weight,
+      bias,
+      runningMean,
+      runningVar,
+      training,
+      momentum,
+      eps);
+  rewriter.replaceOp(op, nativeBatchNorm.getResult(0));
+  return success();
+}
+
+template <>
 LogicalResult ConvertAtenOp<AtenMaskedFillScalarOp>::matchAndRewrite(
     AtenMaskedFillScalarOp op,
     OpAdaptor adaptor,
@@ -240,6 +276,9 @@ class DiscDecomposeComplexOpsPass
 
     patterns.add<ConvertAtenOp<AtenMaskedFillTensorOp>>(context);
     target.addIllegalOp<AtenMaskedFillTensorOp>();
+
+    patterns.add<ConvertAtenOp<AtenBatchNormOp>>(context);
+    target.addIllegalOp<AtenBatchNormOp>();
 
     if (failed(applyPartialConversion(
             getOperation(), target, std::move(patterns)))) {

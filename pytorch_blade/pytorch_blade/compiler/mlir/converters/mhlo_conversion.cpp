@@ -449,7 +449,7 @@ ConvertTorchScriptToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
 }
 
 bool IsTorchMlirAvailable() {
-  return env::ReadBoolFromEnvVar("TORCH_DISC_USE_TORCH_MLIR", false);
+  return env::ReadBoolFromEnvVar("TORCH_DISC_USE_TORCH_MLIR", true);
 }
 
 } // namespace blade

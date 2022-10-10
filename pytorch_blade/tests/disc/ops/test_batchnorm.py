@@ -26,27 +26,27 @@ class TestDiscBatchNorm(DiscTestCase):
         self._test_cvt_to_disc(batchnorm_func, test_data)
 
     def test_batchnorm1d(self):
-        batchnorm = torch.nn.BatchNorm1d(16)
+        batchnorm = torch.nn.BatchNorm1d(16).eval()
         self._test_batchnorm(batchnorm, torch.randn([20, 16, 60], device=self.device))
-        batchnorm = torch.nn.BatchNorm1d(16, affine=False)
+        batchnorm = torch.nn.BatchNorm1d(16, affine=False).eval()
         self._test_batchnorm(batchnorm, torch.randn([20, 16, 60], device=self.device))
 
     def test_batchnorm2d(self):
-        batchnorm = torch.nn.BatchNorm2d(16)
+        batchnorm = torch.nn.BatchNorm2d(16).eval()
         self._test_batchnorm(batchnorm)
-        batchnorm = torch.nn.BatchNorm2d(16, affine=False)
+        batchnorm = torch.nn.BatchNorm2d(16, affine=False).eval()
         self._test_batchnorm(batchnorm)
 
     def test_batchnorm3d(self):
-        batchnorm = torch.nn.BatchNorm3d(16)
+        batchnorm = torch.nn.BatchNorm3d(16).eval()
         self._test_batchnorm(batchnorm, torch.randn([20, 16, 60, 50, 100], device=self.device))
-        batchnorm = torch.nn.BatchNorm3d(16, affine=False)
+        batchnorm = torch.nn.BatchNorm3d(16, affine=False).eval()
         self._test_batchnorm(batchnorm, torch.randn([20, 16, 60, 50, 100], device=self.device))
 
     def test_functional_batchnorm(self):
         @torch.jit.script
         def batchnorm_func(x, running_mean, running_var, weight, bias):
-            out_y = torch.nn.functional.batch_norm(x, running_mean, running_var, weight, bias)
+            out_y = torch.nn.functional.batch_norm(x, running_mean, running_var, weight, bias, training=False)
             return out_y
 
         channel = 16
@@ -55,7 +55,8 @@ class TestDiscBatchNorm(DiscTestCase):
         running_var = torch.randn(channel, device=self.device)
         weight = torch.randn(channel, device=self.device)
         bias = torch.randn(channel, device=self.device)
-        self._test_batchnorm(batchnorm_func, (x, running_mean, running_var, weight, bias))
+        with torch.no_grad():
+            self._test_batchnorm(batchnorm_func, (x, running_mean, running_var, weight, bias))
 
 if __name__ == "__main__":
     unittest.main()

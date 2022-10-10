@@ -225,10 +225,10 @@ class TestDiscBinaryOps(DiscTestCase):
         if not isTorchMlirEnable():
             self._test_logic_func(logical_or)
 
-    @skipIfEnableTorchMlir()
     def test_pow(self):
         self._test_func(torch.pow)
-        self._test_scalar_func(torch.pow)
+        if not isTorchMlirEnable():
+            self._test_scalar_func(torch.pow)
 
     def _test_cmp_func(self, torch_func):
         @torch.jit.script
@@ -236,7 +236,6 @@ class TestDiscBinaryOps(DiscTestCase):
             return torch_func(x, 2.0), torch_func(y, 2.0)
         self._test_func(func)
 
-    @skipIfEnableTorchMlir()
     def test_gt(self):
         self._test_func(torch.gt)
         self._test_binary_type_promotion(torch.gt)
@@ -269,7 +268,6 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_binary_type_promotion(torch.lt)
         self._test_cmp_func(torch.lt)
 
-    @skipIfEnableTorchMlir()
     def test_arange(self):
         # Given int dtype.
         @torch.jit.script

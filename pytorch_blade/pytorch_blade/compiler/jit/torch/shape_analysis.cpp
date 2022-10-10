@@ -61,6 +61,8 @@ namespace torch {
 namespace blade {
 using namespace torch::jit;
 using namespace c10;
+bool PropagateTensorShapeOnNode(Node* node, bool insert_expands);
+
 ShapeSymbol getSymDimSize(TensorTypePtr type, int64_t dim) {
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 8
   auto dimSize = type->symbolic_sizes()[dim];
@@ -249,6 +251,24 @@ c10::ScalarType unionScalarTypes(
   } else {
     return c10::promoteTypes(original, next);
   }
+}
+
+TypePtr getDType(const Type& type) {
+  auto tensorTy = type.expect<TensorType>();
+  if (!tensorTy)
+    return nullptr;
+  auto inputDtype = tensorTy->scalarType();
+  if (!inputDtype)
+    return nullptr;
+
+  if (isFloatingType(*inputDtype)) {
+    return FloatType::get();
+  } else if (isIntegralType(*inputDtype, /*includeBool*/ false)) {
+    return IntType::get();
+  } else if (isIntegralType(*inputDtype, /*includeBool*/ true)) {
+    return BoolType::get();
+  }
+  return nullptr;
 }
 
 // Promotes result types for arithmetic operations on Tensor operands using
@@ -670,10 +690,15 @@ class ShapePropagator : public PropertyPropBase {
       case aten::Bool:
       case aten::Int:
       case aten::Float:
-      case aten::ScalarImplicit:
       case aten::FloatImplicit:
       case aten::IntImplicit:
         return; // correct num type is already set
+      case aten::ScalarImplicit: {
+        if (auto dtype = getDType(*node->input()->type())) {
+          node->output()->setType(dtype);
+        }
+        return;
+      }
       case prim::NumToTensor: {
         TypePtr typ = node->input()->type();
         if (typ->isSubtypeOf(IntType::get()) ||
@@ -687,6 +712,12 @@ class ShapePropagator : public PropertyPropBase {
         return;
       }
       case aten::tensor:
+        if (node->matches(
+                "aten::tensor(t[] data, *, int? dtype=None, Device? device=None, bool requires_grad=False) -> (Tensor)")) {
+          propagateTorchTensorShape(node);
+          PropagateTensorShapeOnNode(node, insert_expands);
+          return;
+        }
       case aten::as_tensor: {
         // as_tensor has an overloaded schema and can either have a tensor or
         // a list as the first input, if the input is a tensor, we delegate
@@ -878,6 +909,8 @@ class ShapePropagator : public PropertyPropBase {
             "aten::masked_fill.Tensor(Tensor self, Tensor mask, Tensor value) -> Tensor",
             "aten::masked_fill_.Scalar(Tensor(a!) self, Tensor mask, Scalar value) -> Tensor(a!)",
             "aten::masked_fill_.Tensor(Tensor(a!) self, Tensor mask, Tensor value) -> Tensor(a!)",
+            "aten::floor_divide.Scalar(Tensor self, Scalar other) -> Tensor",
+            "aten::floor_divide_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)",
             "aten::relu(Tensor self) -> Tensor",
             "aten::relu_(Tensor self) -> Tensor",
             "aten::pow(Tensor self, Scalar exponent) -> Tensor",
@@ -1046,6 +1079,8 @@ class ShapePropagator : public PropertyPropBase {
             "aten::mul_(Tensor self, Tensor other) -> Tensor",
             "aten::div(Tensor self, Tensor other) -> Tensor",
             "aten::div_(Tensor self, Tensor other) -> Tensor",
+            "aten::floor_divide(Tensor self, Tensor other) -> Tensor",
+            "aten::floor_divide_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)",
         },
         [](Node* node) -> type_vec_t {
           if (auto maybe_tensor_types = gatherTensorTypes(node)) {
@@ -1738,6 +1773,43 @@ class ShapePropagator : public PropertyPropBase {
           return {};
         }};
 
+    // Requirements:
+    //   dims           : has rank 1
+    //   scalar type    : equal to value of dtype
+    //   device         : equal to value of device
+    //   tensor outputs : 1
+    // Additionally:
+    //   - has ScalarType dtype, Layout layout and Device device
+    //   arguments
+    static const register_formula_for rank1_factories_with_options{
+        {
+            "aten::arange(Scalar end, *, int? dtype=None, int? layout=None, Device? device=None, bool? pin_memory=None) -> (Tensor)",
+        },
+        [&](Node* node) -> type_vec_t {
+          at::ScalarType dtype =
+              *tryScalarTypeFromJitType(*node->input(0)->type());
+          at::optional<IValue> maybe_layout_option = node->get(attr::layout);
+          if (!maybe_layout_option)
+            return {};
+
+          at::optional<IValue> maybe_device_option = node->get(attr::device);
+          if (!maybe_device_option)
+            return {};
+          auto device =
+              (maybe_device_option->isNone() ? at::kCPU
+                                             : maybe_device_option->toDevice());
+
+          at::optional<IValue> maybe_dtype_option = node->get(attr::dtype);
+          if (!maybe_dtype_option)
+            return {};
+          if (!maybe_dtype_option->isNone()) {
+            dtype = maybe_dtype_option->toScalarType();
+          }
+
+          return {TensorType::create(
+              dtype, device, /*dim=*/1, /*requires_grad=*/c10::nullopt)};
+        }};
+
     static const auto get_cast_scalar_type = [](Node* node) -> at::ScalarType {
       switch (node->kind()) {
         case aten::_cast_Byte:
@@ -1810,12 +1882,36 @@ class ShapePropagator : public PropertyPropBase {
       }
       return result;
     };
+
     if (node->matches(
             "aten::masked_select(Tensor self, Tensor mask) -> Tensor")) {
       if (auto type = input_type(0)) {
         node->output()->setType(type->withDim(1));
         return true;
       }
+    } else if (
+        node->matches(
+            "aten::tensor(t[] data, *, int? dtype=None, Device? device=None, bool requires_grad=False) -> (Tensor)")) {
+      auto list_node = node->input(0)->node();
+      if (list_node->kind() != prim::ListConstruct)
+        return false;
+      auto tensors = list_node->inputs();
+      auto outTy = node->output()->type()->cast<TensorType>();
+      if (!outTy)
+        return false;
+      node->output()->setType(outTy->withSizes({tensors.size()}));
+      return true;
+    } else if (node->matches(
+                   "aten::__getitem__.t(t[](a) list, int idx) -> (t(*))")) {
+      auto list_node = node->input(0)->node();
+      if (list_node->kind() != prim::ListConstruct)
+        return false;
+      auto tensors = list_node->inputs();
+      auto idx = node->get<int>(attr::idx).value();
+      if (tensors.size() <= idx)
+        return false;
+      node->output()->setType(tensors[idx]->type());
+      return true;
     } else if (node->matches("aten::detach(Tensor(a) self) -> Tensor(a)")) {
       if (auto type = input_type(0)) {
         node->output()->setType(type->withRequiresGrad(false));

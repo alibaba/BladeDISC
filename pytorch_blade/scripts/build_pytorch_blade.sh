@@ -58,12 +58,7 @@ function ci_build() {
     export TORCH_BLADE_DEBUG_LOG=ON
     # disable tf32 on A100
     export NVIDIA_TF32_OVERRIDE=0
-    pytest tests -v 2>&1 | tee -a py_test.out
-    TORCH_DISC_USE_TORCH_MLIR=true pytest tests/disc/ops/ -v -k \
-             "TestDiscActivation or TestDiscUnaryOps or TestDiscBinaryOps or \
-              TestDiscBroadcast or TestDiscReduction or TestDiscMatMul or \
-              TestDiscPermutation or TestDiscShapes or TestDiscSlices or \
-              TestDiscMemOps or TestConstOps or TestDiscLayerNorm or TestDiscNNOps"
+    TORCH_DISC_USE_TORCH_MLIR=true pytest tests -v 2>&1 | tee -a py_test.out
     python3 setup.py bdist_wheel;
 }
 

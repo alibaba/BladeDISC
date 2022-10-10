@@ -34,28 +34,3 @@ cc_library(
     ],
     alwayslink = True,
 )
-
-cc_test(
-    name = "mhlo_converter_register_test",
-    srcs = [
-        "mhlo_converter_register_test.cpp",
-        ":torch_blade_mhlo_converter_hdrs",
-    ],
-    linkopts = [
-        "-lpthread",
-        "-lm",
-        "-ldl",
-    ],
-    linkstatic = True,
-    deps = [
-        "//pytorch_blade/common_utils:torch_blade_macros",
-        "//pytorch_blade:torch_blade_shared",
-        "@zlib",
-        "@googltest//:gtest_main",
-        "@local_org_torch//:libtorch",
-        "@org_mhlo_builder//csrc:mhlo_library",
-        "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:ral_base_context_lib",
-    ] + if_platform_alibaba([
-        "//pytorch_blade/platform_alibaba:runtime_deps",
-    ])
-)

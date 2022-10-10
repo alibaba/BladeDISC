@@ -13,7 +13,7 @@ import torch
 import unittest
 from unittest import skipIf
 
-from tests.disc.testing_base import DiscTestCase, skipIfEnableTorchMlir
+from tests.disc.testing_base import DiscTestCase
 
 class TestDiscUnaryOps(DiscTestCase):
     def _test_unary_ops(self, unary_ops_func, test_data=None):

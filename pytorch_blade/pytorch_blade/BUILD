@@ -137,7 +137,6 @@ test_suite(
     tests = [
         "//pytorch_blade/common_utils:torch_blade_common_utils_test",
         "//pytorch_blade/compiler/jit:jit_test",
-        "//pytorch_blade/compiler/mlir/converters:mhlo_converter_register_test",
         "//pytorch_blade/ltc/disc_compiler:ltc_disc_test",
     ],
 )

@@ -37,8 +37,8 @@ bool IsTorchMlirSupported(const torch::jit::Node& node) {
 }
 
 // clang-format off
-const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
-  static std::unordered_set<std::string> white_list{
+std::unordered_set<std::string> CreateTorchMlirWhiteList() {
+  std::unordered_set<std::string> white_list{
       "aten::_autocast_to_reduced_precision",
       "aten::__and__",
       "aten::add",
@@ -118,24 +118,26 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "torch_blade::fake_quant"
     };
 
+  auto custom_ops = env::ReadStringFromEnvVar("TORCH_MHLO_OP_WHITE_LIST", "");
+  std::ostringstream ostr;
+  ostr << "User defined white list: [";
+  std::istringstream f(custom_ops);
+  std::string s;
+  for (auto s : StrSplit(custom_ops, ';')) {
+    white_list.insert(std::string(s));
+    ostr << s << ", ";
+  }
+  ostr << "]";
+  LOG(INFO) << ostr.str();
 
-  static std::once_flag white;
-  std::call_once(white, []() {
-      auto custom_ops = env::ReadStringFromEnvVar("TORCH_MHLO_OP_WHITE_LIST", "");
-      std::ostringstream ostr;
-      ostr << "User defined white list: [";
-      std::istringstream f(custom_ops);
-      std::string s;
-      for (auto s : StrSplit(custom_ops, ';')) {
-        white_list.insert(std::string(s));
-        ostr << s << ", ";
-      }
-      ostr << "]";
-      LOG(INFO) << ostr.str();
-  });
   return white_list;
 }
 // clang-format off
+
+const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
+  static std::unordered_set<std::string> white_list = CreateTorchMlirWhiteList();
+  return white_list;
+}
 
 } //  namespace blade
 } //  namespace torch

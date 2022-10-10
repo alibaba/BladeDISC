@@ -45,7 +45,39 @@ using namespace mlir::torch::Torch;
 using namespace mlir::torch::TorchConversion;
 
 namespace {
+
 static constexpr size_t kMhloDimSizeBits = 32;
+LogicalResult BroadcastTensorRanks(
+    PatternRewriter& rewriter,
+    Operation* op,
+    mlir::Value& self,
+    mlir::Value& other) {
+  auto selfTy = self.getType().template dyn_cast<RankedTensorType>();
+  auto otherTy = other.getType().template dyn_cast<RankedTensorType>();
+  auto selfRank = selfTy.getRank();
+  auto otherRank = otherTy.getRank();
+  if (selfRank == 0 || otherRank == 0)
+    return success();
+  if (selfRank > otherRank) {
+    auto inputUnsqzDims =
+        llvm::to_vector<4>(llvm::seq<int64_t>(0, selfRank - otherRank));
+    auto unsqzInfo = mhlo::unsqueezeTensor(
+        rewriter, op, other, inputUnsqzDims, kMhloDimSizeBits);
+    if (failed(unsqzInfo))
+      return failure();
+    other = *unsqzInfo;
+  } else if (otherRank > selfRank) {
+    auto inputUnsqzDims =
+        llvm::to_vector<4>(llvm::seq<int64_t>(0, otherRank - selfRank));
+    auto unsqzInfo = mhlo::unsqueezeTensor(
+        rewriter, op, self, inputUnsqzDims, kMhloDimSizeBits);
+    if (failed(unsqzInfo))
+      return failure();
+    self = *unsqzInfo;
+  }
+  return success();
+}
+
 template <typename AtenOpT>
 class ConvertAtenOp : public OpConversionPattern<AtenOpT> {
  public:
@@ -161,6 +193,28 @@ LogicalResult ConvertAtenOp<AtenRelu6Op>::matchAndRewrite(
 }
 
 template <>
+LogicalResult ConvertAtenOp<AtenWhereSelfOp>::matchAndRewrite(
+    AtenWhereSelfOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Value self = adaptor.self();
+  Value cond = adaptor.condition();
+  Value other = adaptor.other();
+
+  if (failed(BroadcastTensorRanks(rewriter, op, self, cond)))
+    return op.emitError("failed broadcast self and condition ranks");
+
+  if (failed(BroadcastTensorRanks(rewriter, op, other, cond)))
+    return op.emitError("failed broadcast other and condition ranks");
+
+  rewriter.replaceOpWithNewOp<chlo::BroadcastSelectOp>(
+      op,
+      getTypeConverter()->convertType(op.getType()),
+      ArrayRef<Value>{cond, self, other});
+  return success();
+}
+
+template <>
 LogicalResult ConvertAtenOp<AtenTensorIntOp>::matchAndRewrite(
     AtenTensorIntOp op,
     OpAdaptor adaptor,
@@ -255,8 +309,17 @@ LogicalResult ConvertAtenOp<AtenSizeIntOp>::matchAndRewrite(
   auto selfType = adaptor.self().getType().dyn_cast<TensorType>();
   if (!selfType)
     return op.emitError("Only tensor types are currently supported");
-  auto dim = rewriter.create<arith::IndexCastOp>(
-      op.getLoc(), rewriter.getIndexType(), adaptor.dim());
+
+  Value dim;
+  int64_t dimInt;
+  if (matchPattern(op.dim(), m_TorchConstantInt(&dimInt))) {
+    dimInt = toPositiveDim(dimInt, selfType.getRank());
+    dim = rewriter.create<arith::ConstantIndexOp>(op.getLoc(), dimInt);
+  } else {
+    dim = rewriter.create<arith::IndexCastOp>(
+        op.getLoc(), rewriter.getIndexType(), adaptor.dim());
+  }
+
   auto dimSize = rewriter.create<tensor::DimOp>(
       op.getLoc(), rewriter.getIndexType(), adaptor.self(), dim);
 
@@ -753,7 +816,6 @@ LogicalResult ConvertAtenOp<AtenMaxDimOp>::matchAndRewrite(
     auto mhloReduceIndexResult = rewriter.create<mhlo::DynamicReshapeOp>(
         op->getLoc(), idxResultType, indicesResult, outShapeTensor);
     rewriter.replaceOp(op, {mhloReduceValueResult, mhloReduceIndexResult});
-    op->getParentOp()->dump();
     return success();
   }
   rewriter.replaceOp(op, {valueResult, indicesResult});
@@ -950,6 +1012,7 @@ class DiscConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenTensorIntOp);
     INSERT_ATENOP_PATTERN(AtenFloatScalarOp);
     INSERT_ATENOP_PATTERN(AtenMaxDimOp);
+    INSERT_ATENOP_PATTERN(AtenWhereSelfOp);
 #undef INSERT_ATENOP_PATTERN
 
 #define INSERT_BINARY_BROADCAST_PATTERN(AtenOp, MhloOp)       \

@@ -43,7 +43,6 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
   ::mlir::torch::createDiscTorchFunctionToTorchBackendPipeline(pm, funcOptions);
 
   // Add decompose passes
-  pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
   pm.addNestedPass<func::FuncOp>(createDiscDecomposeComplexOpsPass());
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<func::FuncOp>(
@@ -51,16 +50,12 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 
   // Do mhlo lowering
-  // pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
   pm.addNestedPass<func::FuncOp>(createDiscConvertTorchToMhloPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToMhloPass(
       /*enableStaticShape*/ false, /*enableI32Index*/ true));
   pm.addNestedPass<func::FuncOp>(createDiscConvertTorchToDiscMhlo());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToSCFPass());
   pm.addNestedPass<func::FuncOp>(createConvertTorchToArithPass());
-
-  // Perform rank broadcasting so MhloToLinalg pass works
-  // pm.addNestedPass<func::FuncOp>(createMhloMakeBroadcastablePass());
 
   // Clean up any non-canonical code introduced above..
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
@@ -76,35 +71,6 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
 void mlir::torch::createDiscTorchFunctionToTorchBackendPipeline(
     OpPassManager& pm,
     const TorchLoweringPipelineOptions& options) {
-  // General considerations: As a matter of bring-up, we are simultaneously
-  // building out the frontend pipeline and also co-developing the backend
-  // support story as well. This means that sometimes the most expedient way to
-  // support a given program is to "optimize hard enough" that the parts of the
-  // program that touch unimplemented backend support go away (constant folded,
-  // dead-code-eliminated, etc.). In the fullness of time, most of that
-  // optimization should not be necessary, and we should have an "O0" pipeline
-  // that runs practically no optimizations.
-  // However, as a matter of expediency, at the moment we do run those
-  // optimizations. We guard those passes under the `options.optimize` option
-  // (which default to true, currently). We leave notes with the `OPT-ONLY` tag
-  // why we currently need that pass for correctness.
-  // We should eventually remove those passes from the default pipeline once
-  // backends have enough support.
-  // In particular the following features are needed in some form from backends:
-  // - Error handling (RaiseException + error string formatting)
-  // - First-class list type
-  // - torch.global_slot lowering
-  // - ...
-  // Please try to keep this list somewhat up to date when adding
-  // "optimize hard enough that it works" transformations.
-
-  // Incorporate user annotations and remove signature Python-isms.
-  pm.addPass(createAdjustCallingConventionsPass());
-
-  // Eliminate the PrimTupleIndexOp generated from the
-  // adjustCallingConventions
-  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
-
   // Reduce variants of ops to a smaller set of primitives.
   pm.addNestedPass<func::FuncOp>(createReduceOpVariantsPass());
 
@@ -113,7 +79,7 @@ void mlir::torch::createDiscTorchFunctionToTorchBackendPipeline(
   //===--------------------------------------------------------------------===//
 
   // Convert the bulk of non-ABI-visible !torch.tensor's to !torch.vtensor's.
-  pm.addNestedPass<func::FuncOp>(Torch::createMaximizeValueSemanticsPass());
+  pm.addNestedPass<func::FuncOp>(createApplyValueSemanticsPass());
 
   // Do shape refinement.
   // This must be run before RefineTypes (which primarily does dtype inference),

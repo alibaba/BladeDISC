@@ -2,9 +2,9 @@
 
 // CHECK-LABEL:  func.func @torch.aten._softmax_backward_data(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?xf32>, %[[ARG1:.*]]: tensor<?x?xf32>) -> tensor<?x?xf32> {
+// CHECK:         %[[C1_I32:.*]] = arith.constant 1 : i32
 // CHECK:         %[[C1:.*]] = arith.constant 1 : index
 // CHECK:         %[[C0:.*]] = arith.constant 0 : index
-// CHECK:         %[[C1_I32:.*]] = arith.constant 1 : i32
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
 // CHECK:         %[[T1:.*]] = chlo.broadcast_multiply %[[ARG0]], %[[ARG1]] : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
 // CHECK:         %[[T2:.*]] = mhlo.reduce(%[[T1]] init: %[[T0]]) applies mhlo.add across dimensions = [1] : (tensor<?x?xf32>, tensor<f32>) -> tensor<?xf32>

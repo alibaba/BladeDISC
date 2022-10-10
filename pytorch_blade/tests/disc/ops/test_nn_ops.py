@@ -14,7 +14,7 @@ import unittest
 
 from torch_blade import utils
 from torch_blade.version import cuda_available
-from tests.disc.testing_base import DiscTestCase, skipTorchGE
+from tests.disc.testing_base import DiscTestCase, skipTorchGE, isTorchMlirEnable
 
 class TestDiscNNOps(DiscTestCase):
     def _test_nn_ops(self, nn_ops_func, x=None):
@@ -27,7 +27,7 @@ class TestDiscNNOps(DiscTestCase):
         softmax = torch.nn.Softmax(dim=-1)
         self._test_nn_ops(softmax)
 
-        if utils.torch_version_number() >= utils.parse_version("1.12.0"):
+        if isTorchMlirEnable() or utils.torch_version_number() >= utils.parse_version("1.12.0"):
             #TODO(yancey.yx): support i32 input
             return
 
@@ -39,10 +39,13 @@ class TestDiscNNOps(DiscTestCase):
             softmax_func, x=torch.randint(-3, 3, [2, 3, 10, 4], dtype=torch.int32)
         )
 
-    @skipTorchGE("1.12.0")
     def test_log_softmax(self):
         log_softmax = torch.nn.LogSoftmax(dim=-1)
         self._test_nn_ops(log_softmax)
+
+        if isTorchMlirEnable() or utils.torch_version_number() >= utils.parse_version("1.12.0"):
+            #TODO(tanyo): support i32 input
+            return
 
         @torch.jit.script
         def log_softmax_func(x):

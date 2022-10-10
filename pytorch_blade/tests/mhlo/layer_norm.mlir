@@ -69,12 +69,12 @@ func.func @torch.aten.layer_norm.affine(%arg0: !torch.vtensor<[2,3,224,224],f32>
 
 // CHECK-LABEL:  func.func @torch.aten.layer_norm.dynamic_shape.full(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32> {
+// CHECK:         %[[T0:.*]] = mhlo.constant dense<9.99999974E-6> : tensor<f32>
+// CHECK:         %[[C1_I32:.*]] = arith.constant 1 : i32
 // CHECK:         %[[C3:.*]] = arith.constant 3 : index
 // CHECK:         %[[C2:.*]] = arith.constant 2 : index
 // CHECK:         %[[C1:.*]] = arith.constant 1 : index
 // CHECK:         %[[C0:.*]] = arith.constant 0 : index
-// CHECK:         %[[T0:.*]] = mhlo.constant dense<9.99999974E-6> : tensor<f32>
-// CHECK:         %[[C1_I32:.*]] = arith.constant 1 : i32
 // CHECK:         %[[T1:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
 // CHECK:         %[[T2:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T1]]) applies mhlo.add across dimensions = [2, 3] : (tensor<?x?x?x?xf32>, tensor<f32>) -> tensor<?x?xf32>
 // CHECK:         %[[T3:.*]] = tensor.dim %[[ARG0]], %[[C0]] : tensor<?x?x?x?xf32>
@@ -138,11 +138,11 @@ func.func @torch.aten.layer_norm.dynamic_shape.full(%arg0: !torch.vtensor<[?,?,?
 // CHECK-LABEL:  func.func @torch.aten.layer_norm.dynamic_shape.partial(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x224x224xf32>) -> tensor<?x?x224x224xf32> {
 // CHECK:         %[[C224_I32:.*]] = arith.constant 224 : i32
-// CHECK:         %[[C1:.*]] = arith.constant 1 : index
-// CHECK:         %[[C0:.*]] = arith.constant 0 : index
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<9.99999974E-6> : tensor<f32>
 // CHECK:         %[[T1:.*]] = mhlo.constant dense<5.017600e+04> : tensor<f32>
 // CHECK:         %[[C1_I32:.*]] = arith.constant 1 : i32
+// CHECK:         %[[C1:.*]] = arith.constant 1 : index
+// CHECK:         %[[C0:.*]] = arith.constant 0 : index
 // CHECK:         %[[T2:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
 // CHECK:         %[[T3:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T2]]) applies mhlo.add across dimensions = [2, 3] : (tensor<?x?x224x224xf32>, tensor<f32>) -> tensor<?x?xf32>
 // CHECK:         %[[T4:.*]] = tensor.dim %[[ARG0]], %[[C0]] : tensor<?x?x224x224xf32>
@@ -252,11 +252,11 @@ func.func @torch.aten.native_layer_norm.affine(%arg0: !torch.vtensor<[2,3,224,22
 
 // CHECK-LABEL:  func.func @torch.aten.native_layer_norm.dynamic_shape.full(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x?x?xf32>) -> (tensor<2x3x224x224xf32>, tensor<2x3x1x1xf32>, tensor<2x3x1x1xf32>) {
+// CHECK:         %[[T0:.*]] = mhlo.constant dense<9.99999974E-6> : tensor<f32>
 // CHECK:         %[[C3:.*]] = arith.constant 3 : index
 // CHECK:         %[[C2:.*]] = arith.constant 2 : index
 // CHECK:         %[[C1:.*]] = arith.constant 1 : index
 // CHECK:         %[[C0:.*]] = arith.constant 0 : index
-// CHECK:         %[[T0:.*]] = mhlo.constant dense<9.99999974E-6> : tensor<f32>
 // CHECK:         %[[T1:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
 // CHECK:         %[[T2:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T1]]) applies mhlo.add across dimensions = [2, 3] : (tensor<?x?x?x?xf32>, tensor<f32>) -> tensor<?x?xf32>
 // CHECK:         %[[T3:.*]] = mhlo.reshape %[[T2]] : (tensor<?x?xf32>) -> tensor<2x3x1x1xf32>
@@ -312,11 +312,11 @@ func.func @torch.aten.native_layer_norm.dynamic_shape.full(%arg0: !torch.vtensor
 // CHECK-LABEL:  func.func @torch.aten.native_layer_norm.dynamic_shape.partial(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x224x224xf32>) -> (tensor<?x?x224x224xf32>, tensor<?x?x1x1xf32>, tensor<?x?x1x1xf32>) {
 // CHECK:         %[[C224_I32:.*]] = arith.constant 224 : i32
-// CHECK:         %[[C1:.*]] = arith.constant 1 : index
-// CHECK:         %[[C0:.*]] = arith.constant 0 : index
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<9.99999974E-6> : tensor<f32>
 // CHECK:         %[[T1:.*]] = mhlo.constant dense<5.017600e+04> : tensor<f32>
 // CHECK:         %[[C1_I32:.*]] = arith.constant 1 : i32
+// CHECK:         %[[C1:.*]] = arith.constant 1 : index
+// CHECK:         %[[C0:.*]] = arith.constant 0 : index
 // CHECK:         %[[T2:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
 // CHECK:         %[[T3:.*]] = mhlo.reduce(%[[ARG0]] init: %[[T2]]) applies mhlo.add across dimensions = [2, 3] : (tensor<?x?x224x224xf32>, tensor<f32>) -> tensor<?x?xf32>
 // CHECK:         %[[T4:.*]] = tensor.dim %[[ARG0]], %[[C0]] : tensor<?x?x224x224xf32>
@@ -360,8 +360,8 @@ func.func @torch.aten.native_layer_norm.dynamic_shape.partial(%arg0: !torch.vten
 
 // CHECK-LABEL:  func.func @torch.aten.native_layer_norm_backward.dynamic_shape.partial(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x?xf32>, %[[ARG1:.*]]: tensor<?x?x?xf32>, %[[ARG2:.*]]: tensor<?x?x1xf32>, %[[ARG3:.*]]: tensor<?x?x1xf32>, %[[ARG4:.*]]: tensor<768xf32>, %[[ARG5:.*]]: tensor<768xf32>) -> (tensor<?x?x?xf32>, tensor<768xf32>, tensor<768xf32>) {
-// CHECK:         %[[C2:.*]] = arith.constant 2 : index
 // CHECK:         %[[C1_I32:.*]] = arith.constant 1 : i32
+// CHECK:         %[[C2:.*]] = arith.constant 2 : index
 // CHECK:         %[[C1:.*]] = arith.constant 1 : index
 // CHECK:         %[[C0:.*]] = arith.constant 0 : index
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f32>

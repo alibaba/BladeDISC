@@ -21,6 +21,7 @@
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
 
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -94,10 +95,11 @@ class VerifyMhloBackendContractPass
   void runOnOperation() override {
     MLIRContext* context = &getContext();
     auto module = getOperation();
+    SmallVector<mlir::Operation*> toDestroy;
     module.walk([&](func::FuncOp func) {
       reduceTensorConversions(func);
       // After the refinement all used arguments are changed to builtin tensor.
-      // But there exists some arguments have no users, and should be update.
+      // There exists some arguments have no users, but should be update.
       // Such as the following `%arg1`:
       // ```
       //   func @main(%arg0: tensor<2x3x224x224xf32>, %arg1:
@@ -114,11 +116,16 @@ class VerifyMhloBackendContractPass
       func.walk([&](mlir::Operation* op) {
         if (isa<ToI64Op, FromI64Op, ToF64Op, FromF64Op>(op)) {
           op->getResult(0).replaceAllUsesWith(op->getOpOperand(0).get());
-          op->erase();
-          return;
+          toDestroy.push_back(op);
+        }
+        if (isa<cf::AssertOp>(op)) {
+          toDestroy.push_back(op);
         }
       });
     });
+    for (auto op : toDestroy) {
+      op->erase();
+    }
 
     ::mlir::PassManager pm(context, ::mlir::OpPassManager::Nesting::Implicit);
     // Clean up any non-canonical code introduced above..

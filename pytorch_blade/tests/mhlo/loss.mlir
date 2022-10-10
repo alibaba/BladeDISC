@@ -2,9 +2,9 @@
 
 // CHECK-LABEL:  func.func @torch.aten.nll_loss_forward(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?xf32>, %[[ARG1:.*]]: tensor<?xi32>) -> (tensor<f32>, tensor<f32>) {
-// CHECK:         %[[C0:.*]] = arith.constant 0 : index
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
 // CHECK:         %[[C1_I32:.*]] = arith.constant 1 : i32
+// CHECK:         %[[C0:.*]] = arith.constant 0 : index
 // CHECK:         %[[T1:.*]] = tensor.dim %[[ARG0]], %[[C0]] : tensor<?x?xf32>
 // CHECK:         %[[T2:.*]] = arith.index_cast %[[T1]] : index to i64
 // CHECK:         %[[T3:.*]] = arith.sitofp %[[T2]] : i64 to f64

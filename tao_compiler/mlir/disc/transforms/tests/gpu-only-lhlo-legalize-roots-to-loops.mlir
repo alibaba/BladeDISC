@@ -138,6 +138,33 @@ func.func @naive_reduce(%operand: memref<?x?x?xf32>, %init_value: memref<f32>, %
   return %output : memref<?x?xf32>
 }
 
+// CHECK-LABEL: @multi_row_reduce
+// CHECK:    "lmhlo.fusion"() ({
+// CHECK-NOT "lmhlo.reduce"
+// CHECK:      scf.parallel (%arg6, %arg7) = (%c0, %c0) to (%c2048, %c256) step (%c1, %c1)
+// CHECK:        %8:2 = scf.for %arg8 = %arg7 to %c768 step %c256 iter_args(%arg9 = %4, %arg10 = %6) -> (f32, f64) {
+// CHECK:          %75 = memref.load %arg0[%arg6, %arg8] : memref<2048x768xf32>
+// CHECK:          %76 = arith.addf %arg9, %75 : f32
+// CHECK:          %77 = memref.load %arg3[%arg6, %arg8] : memref<2048x768xf64>
+// CHECK:          %78 = arith.addf %arg10, %77 : f64
+// CHECK:          scf.yield %76, %78 : f32, f64
+func.func @multi_row_reduce(%arg_f32: memref<2048x768xf32>, %init_f32: memref<f32>, %out_f32: memref<2048xf32>, %arg_f64: memref<2048x768xf64>, %init_f64: memref<f64>, %out_f64: memref<2048xf64>) -> (memref<2048xf32>, memref<2048xf64>) {
+  "lmhlo.fusion"() ({
+    "lmhlo.reduce"(%arg_f32, %init_f32, %out_f32) ({
+    ^bb0(%arg4: memref<f32>, %arg5: memref<f32>, %arg6: memref<f32>):
+      "lmhlo.add"(%arg4, %arg5, %arg6) {disc.device = "gpu"} : (memref<f32>, memref<f32>, memref<f32>) -> ()
+      "lmhlo.terminator"() : () -> ()
+    }) {dimensions = dense<1> : tensor<1xi64>} : (memref<2048x768xf32>, memref<f32>, memref<2048xf32>) -> ()
+    "lmhlo.reduce"(%arg_f64, %init_f64, %out_f64) ({
+    ^bb0(%arg4: memref<f64>, %arg5: memref<f64>, %arg6: memref<f64>):
+      "lmhlo.add"(%arg4, %arg5, %arg6) {disc.device = "gpu"} : (memref<f64>, memref<f64>, memref<f64>) -> ()
+      "lmhlo.terminator"() : () -> ()
+    }) {dimensions = dense<1> : tensor<1xi64>} : (memref<2048x768xf64>, memref<f64>, memref<2048xf64>) -> ()
+    "lmhlo.terminator"() : () -> ()
+  }) {disc.fusion.name = "main_kRowReduction_reduce_reduce", disc.device = "gpu", disc.fusion.tag = "1b1r", disc.fusion_type = "kRowReduction", disc_row_reduction_schedule_hint = 1 : i32, disc_thread_per_block_hint = 256 : i32} : () -> ()
+  return %out_f32, %out_f64: memref<2048xf32>, memref<2048xf64>
+}
+
 // CHECK-LABEL: @dynamic_iota
 func.func @dynamic_iota(%size: memref<2xi32>, %output: memref<?x?xi32>) -> memref<?x?xi32> {
   // CHECK-NOT lmhlo

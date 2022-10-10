@@ -874,6 +874,10 @@ class ShapePropagator : public PropertyPropBase {
         {
             "aten::erf(Tensor self) -> Tensor",
             "aten::erf_(Tensor self) -> Tensor",
+            "aten::masked_fill.Scalar(Tensor self, Tensor mask, Scalar value) -> Tensor",
+            "aten::masked_fill.Tensor(Tensor self, Tensor mask, Tensor value) -> Tensor",
+            "aten::masked_fill_.Scalar(Tensor(a!) self, Tensor mask, Scalar value) -> Tensor(a!)",
+            "aten::masked_fill_.Tensor(Tensor(a!) self, Tensor mask, Tensor value) -> Tensor(a!)",
             "aten::relu(Tensor self) -> Tensor",
             "aten::relu_(Tensor self) -> Tensor",
             "aten::pow(Tensor self, Scalar exponent) -> Tensor",
@@ -1402,7 +1406,7 @@ class ShapePropagator : public PropertyPropBase {
           type = type->withScalarType(at::kLong);
         }
         // NOLINTNEXTLINE(clang-diagnostic-sign-compare)
-        if (*type->dim() >= num_reduced_dim && num_reduced_dim > 0) {
+        if (*type->dim() >= num_reduced_dim && num_reduced_dim >= 0) {
           return {type->withDim(*type->dim() - num_reduced_dim)};
         } else {
           return {type};
@@ -1435,22 +1439,23 @@ class ShapePropagator : public PropertyPropBase {
     // Additionally:
     //   - First input should be the only tensor input
     //   - Has a bool keepdim argument
-    static const register_formula_for
-        multidim_reduce_ops_with_integer_upcast_and_dtype{
-            {"aten::sum(Tensor self, int[] dim, bool keepdim, *, int? dtype) -> Tensor"},
-            [](Node* node) -> type_vec_t {
-              auto num_reduced_dim =
-                  determineListSize(node->namedInput(attr::dim));
-              if (!num_reduced_dim) {
-                return {};
-              }
-              at::optional<IValue> opt_dtype = node->get(attr::dtype);
-              return multidim_reduce_with_keepdim(
-                  node,
-                  /*num_reduced_dim=*/*num_reduced_dim,
-                  /*upcast_integer=*/true,
-                  opt_dtype);
-            }};
+    static const register_formula_for multidim_reduce_ops_with_integer_upcast_and_dtype{
+        {
+            "aten::sum(Tensor self, int[] dim, bool keepdim, *, int? dtype) -> Tensor",
+            "aten::mean(Tensor self, int[] dim, bool keepdim, *, int? dtype) -> Tensor",
+        },
+        [](Node* node) -> type_vec_t {
+          auto num_reduced_dim = determineListSize(node->namedInput(attr::dim));
+          if (!num_reduced_dim) {
+            return {};
+          }
+          at::optional<IValue> opt_dtype = node->get(attr::dtype);
+          return multidim_reduce_with_keepdim(
+              node,
+              /*num_reduced_dim=*/*num_reduced_dim,
+              /*upcast_integer=*/true,
+              opt_dtype);
+        }};
 
     // Requirements:
     //   dims           : 0 if dim is None, otherwise preserved if keepdim ==

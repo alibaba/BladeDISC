@@ -192,10 +192,20 @@ class ConvertAtenExtractOp : public OpConversionPattern<AtenOpT> {
       auto output =
           rewriter.create<tensor::ExtractOp>(op.getLoc(), elemTy, input);
 
+      bool toWider =
+          outTy.getIntOrFloatBitWidth() > elemTy.getIntOrFloatBitWidth();
       if (elemTy.isIntOrIndex()) {
-        rewriter.replaceOpWithNewOp<arith::ExtSIOp>(op, outTy, output);
+        if (toWider) {
+          rewriter.replaceOpWithNewOp<arith::ExtSIOp>(op, outTy, output);
+        } else {
+          rewriter.replaceOpWithNewOp<arith::TruncIOp>(op, outTy, output);
+        }
       } else {
-        rewriter.replaceOpWithNewOp<arith::ExtFOp>(op, outTy, output);
+        if (toWider) {
+          rewriter.replaceOpWithNewOp<arith::ExtFOp>(op, outTy, output);
+        } else {
+          rewriter.replaceOpWithNewOp<arith::TruncFOp>(op, outTy, output);
+        }
       }
     } else {
       rewriter.replaceOpWithNewOp<tensor::ExtractOp>(op, outTy, input);

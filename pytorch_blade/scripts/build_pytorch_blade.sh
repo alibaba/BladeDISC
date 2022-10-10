@@ -37,7 +37,7 @@ function pip_install_deps() {
 
 function ci_build() {
     echo "DO TORCH_BLADE CI_BUILD"
-    # pip_install_deps
+    pip_install_deps
 
     if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" = "ON"  ]; then
       export TORCH_BLADE_BUILD_TENSORRT=ON

@@ -45,8 +45,8 @@ class BazelBuild(TorchBladeBuild):
         super().__init__(*args, **kwargs)
         self.targets = [
             "@org_tensorflow//tensorflow/compiler/mlir/xla/ral:libral_base_context.so",
-            "//src:libtorch_blade.so",
-            "//src:_torch_blade.so",
+            "//pytorch_blade:libtorch_blade.so",
+            "//pytorch_blade:_torch_blade.so",
             "//tests/mhlo/torch-mlir-opt:torch-mlir-opt",
         ]
 
@@ -214,7 +214,7 @@ class BazelBuild(TorchBladeBuild):
         env["LD_LIBRARY_PATH"] = ld_library_path
         env["GCC_HOST_COMPILER_PATH"] = env.get("GCC_HOST_COMPILER_PATH", which("gcc"))
 
-        self.test_suites = ["//tests/mhlo/...", "//src:torch_blade_test_suite"]
+        self.test_suites = ["//tests/mhlo/...", "//pytorch_blade:torch_blade_test_suite"]
 
         test_cmd = " ".join(
             [self.shell_setting, self.test_cmd]

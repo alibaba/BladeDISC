@@ -8,7 +8,7 @@ cc_binary(
         "torch-mlir-opt.cpp"
     ],
     deps = [
-        "//src/torch-mlir:DiscTorchMLIRTorchToMhlo",
+        "//pytorch_blade/torch-mlir:DiscTorchMLIRTorchToMhlo",
         "@torch-mlir//:TorchMLIRInitAll",
         "@torch-mlir//:TorchMLIRTorchDialect",
         "@torch-mlir//:TorchMLIRTorchPasses",

@@ -10,6 +10,7 @@ filegroup(
             "**/torch/onnx.cpp",
             "**/*test.cpp",
             "**/pybind*.cpp",
+            "**/tool_funcs.cpp",
         ],
     ),
 )
@@ -18,7 +19,10 @@ filegroup(
     name = "torch_blade_jit_hdrs",
     srcs = glob(
         ["**/*.h"],
-        exclude = ["**/pybind*.h"],
+        exclude = [
+            "**/pybind*.h",
+            "**/tool_funcs.h",
+        ],
     ),
 )
 
@@ -32,6 +36,7 @@ cc_library(
         "//visibility:public",
     ],
     deps = [
+        ":tool_funcs",
         "//pytorch_blade/common_utils:torch_blade_common",
         "@local_org_torch//:libtorch",
     ],

@@ -23,6 +23,9 @@ cc_library(
     ],
     deps = [
         "//pytorch_blade/common_utils:torch_blade_logging",
+        "//pytorch_blade/common_utils:torch_blade_utils",
+        "//pytorch_blade/compiler/jit:tool_funcs",
+        "//pytorch_blade/compiler/jit:torch_blade_jit",
         "//pytorch_blade/torch-mlir:DiscTorchMLIRTorchToMhlo",
         "@local_org_torch//:libtorch",
         "@org_mhlo_builder//csrc:mhlo_library",
@@ -36,6 +39,7 @@ cc_test(
     name = "mhlo_converter_register_test",
     srcs = [
         "mhlo_converter_register_test.cpp",
+        ":torch_blade_mhlo_converter_hdrs",
     ],
     linkopts = [
         "-lpthread",
@@ -44,6 +48,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
+        "//pytorch_blade/common_utils:torch_blade_macros",
         "//pytorch_blade:torch_blade_shared",
         "@zlib",
         "@googltest//:gtest_main",

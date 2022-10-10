@@ -9,8 +9,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "compiler/mlir/converters/mhlo_conversion.h"
-
+#include "pytorch_blade/compiler/mlir/converters/mhlo_conversion.h"
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h>
 #include <mlir/CAPI/IR.h>
 #include <mlir/Dialect/Func/IR/FuncOps.h>
@@ -19,13 +18,13 @@
 #include "llvm/Support/SourceMgr.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 
-#include "common_utils/logging.h"
-#include "common_utils/utils.h"
-#include "compiler/jit/tool_funcs.h"
-#include "compiler/jit/torch/shape_analysis.h"
-#include "compiler/mlir/converters/mhlo_converter_register.h"
-#include "compiler/mlir/converters/mlir_type_utils.h"
-#include "compiler/mlir/converters/torch_mlir_op_filter.h"
+#include "pytorch_blade/common_utils/logging.h"
+#include "pytorch_blade/common_utils/utils.h"
+#include "pytorch_blade/compiler/jit/tool_funcs.h"
+#include "pytorch_blade/compiler/jit/torch/shape_analysis.h"
+#include "pytorch_blade/compiler/mlir/converters/mhlo_converter_register.h"
+#include "pytorch_blade/compiler/mlir/converters/mlir_type_utils.h"
+#include "pytorch_blade/compiler/mlir/converters/torch_mlir_op_filter.h"
 
 #include "function_importer.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"

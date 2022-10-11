@@ -702,8 +702,13 @@ struct AclOpThreadSafeState : public Context::Resource {
 
 using AclDepthwiseConvInfo =
     AclOpInfo<arm_compute::DISCNEDepthwiseConvolutionLayer>;
+using AclDepthwiseConvThreadSafeInfo =
+    AclOpThreadSafeInfo<ConvParamsKey,
+                        arm_compute::DISCNEDepthwiseConvolutionLayer>;
 using AclDepthwiseConvState =
-    AclOpState<ConvParamsKey, arm_compute::DISCNEDepthwiseConvolutionLayer>;
+    AclOpThreadSafeState<ConvParamsKey,
+                         arm_compute::DISCNEDepthwiseConvolutionLayer>;
+
 using AclConvInfo = AclOpInfo<arm_compute::DISCNEConvolutionLayer>;
 using AclConvThreadSafeInfo =
     AclOpThreadSafeInfo<ConvParamsKey, arm_compute::DISCNEConvolutionLayer>;

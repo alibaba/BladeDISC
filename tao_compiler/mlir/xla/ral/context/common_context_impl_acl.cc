@@ -370,11 +370,13 @@ DISCNEDepthwiseConvolutionLayer::~DISCNEDepthwiseConvolutionLayer() = default;
 
 struct DISCNEDepthwiseConvolutionLayer::
     NEDepthwiseConvolutionLayerOptimizedInternal::Impl {
-  Tensor packed_weights{};  // INT_4
   std::shared_ptr<cpu::CpuDepthwiseConv2d> op{nullptr};
   std::shared_ptr<cpu::CpuDepthwiseConv2dAssemblyDispatch> dwc_optimized_func{
       nullptr};
   bool is_prepared{false};
+  experimental::MemoryRequirements aux_mem_req{};
+  WorkspaceData<Tensor> workspace{};
+  ITensorPack persistent_pack{};
 };
 
 DISCNEDepthwiseConvolutionLayer::NEDepthwiseConvolutionLayerOptimizedInternal::
@@ -416,13 +418,7 @@ void DISCNEDepthwiseConvolutionLayer::
       biases == nullptr ? nullptr : biases->info(), output->info(), info);
 
   // Allocate memory based on the internal memory requirements
-  experimental::MemoryRequirements mem_req =
-      _impl->dwc_optimized_func->workspace();
-  _impl->packed_weights.allocator()->init(
-      TensorInfo(TensorShape{mem_req[1].size + mem_req[1].alignment}, 1,
-                 DataType::S8),
-      mem_req[1].alignment);
-  _impl->packed_weights.allocator()->allocate();
+  _impl->aux_mem_req = _impl->dwc_optimized_func->workspace();
 }
 
 Status DISCNEDepthwiseConvolutionLayer::
@@ -474,7 +470,8 @@ void DISCNEDepthwiseConvolutionLayer::
   pack.add_tensor(TensorType::ACL_SRC_1, weights);
   pack.add_tensor(TensorType::ACL_SRC_2, biases);
   pack.add_tensor(TensorType::ACL_INT_3, &workspace);
-  pack.add_tensor(TensorType::ACL_INT_4, &_impl->packed_weights);
+  pack.add_tensor(TensorType::ACL_INT_4,
+                  _impl->persistent_pack.get_tensor(TensorType::ACL_INT_4));
   pack.add_tensor(TensorType::ACL_DST_0, output);
   _impl->op->run(pack);
 }
@@ -484,18 +481,52 @@ void DISCNEDepthwiseConvolutionLayer::
         ITensor* input, const ITensor* weights, const ITensor* biases,
         ITensor* output) {
   if (!_impl->is_prepared) {
-    // init run to save packed weights
-    ITensorPack run_pack = {{TensorType::ACL_SRC_1, weights},
-                            {TensorType::ACL_SRC_2, biases},
-                            {TensorType::ACL_INT_4, &_impl->packed_weights}};
-    _impl->op->prepare(run_pack);
+    ITensorPack prep_pack = {{ACL_SRC_0, input},
+                             {ACL_SRC_1, weights},
+                             {ACL_SRC_2, biases},
+                             {ACL_DST, output}};
+
+    if (auto packed_tensor =
+            _impl->persistent_pack.get_tensor(TensorType::ACL_INT_4)) {
+      prep_pack.add_tensor(TensorType::ACL_INT_4, packed_tensor);
+    } else {
+      auto& req = _impl->aux_mem_req[1];
+      _impl->workspace.emplace_back(WorkspaceDataElement<Tensor>{
+          req.slot, req.lifetime, std::make_unique<Tensor>()});
+      auto aux_tensor = _impl->workspace.back().tensor.get();
+      ARM_COMPUTE_ERROR_ON_NULLPTR(aux_tensor);
+      const auto aux_info = TensorInfo{TensorShape(req.size), 1, DataType::U8};
+      aux_tensor->allocator()->init(aux_info, req.alignment);
+      aux_tensor->allocator()->allocate();
+      _impl->persistent_pack.add_tensor(TensorType::ACL_INT_4, aux_tensor);
+      prep_pack.add_tensor(TensorType::ACL_INT_4, aux_tensor);
+    }
+    _impl->op->prepare(prep_pack);
     _impl->is_prepared = true;
   }
+}
+
+const ITensorPack& DISCNEDepthwiseConvolutionLayer::
+    NEDepthwiseConvolutionLayerOptimizedInternal::get_packed_weight() {
+  return _impl->persistent_pack;
+}
+
+void DISCNEDepthwiseConvolutionLayer::
+    NEDepthwiseConvolutionLayerOptimizedInternal::reuse_packed_weight(
+        const ITensorPack& pack) {
+  _impl->persistent_pack = pack;
+}
+
+std::string DISCNEDepthwiseConvolutionLayer::
+    NEDepthwiseConvolutionLayerOptimizedInternal::get_md5_for_packed_weight() {
+  return calculate_md5(_impl->workspace);
 }
 
 struct DISCNEDepthwiseConvolutionLayer::NEDepthwiseConvolutionLayerGeneric::
     Impl {
   std::shared_ptr<cpu::CpuDepthwiseConv2d> op{nullptr};
+  WorkspaceData<Tensor> workspace{};
+  ITensorPack persistent_pack{};
 };
 
 DISCNEDepthwiseConvolutionLayer::NEDepthwiseConvolutionLayerGeneric::
@@ -557,6 +588,22 @@ void DISCNEDepthwiseConvolutionLayer::NEDepthwiseConvolutionLayerGeneric::run(
   pack.add_tensor(TensorType::ACL_DST_0, output);
 
   _impl->op->run(pack);
+}
+
+const ITensorPack& DISCNEDepthwiseConvolutionLayer::
+    NEDepthwiseConvolutionLayerGeneric::get_packed_weight() {
+  return _impl->persistent_pack;
+}
+
+void DISCNEDepthwiseConvolutionLayer::NEDepthwiseConvolutionLayerGeneric::
+    reuse_packed_weight(const ITensorPack& pack) {
+  // no packed weight for this kernel, just skip.
+  return;
+}
+
+std::string DISCNEDepthwiseConvolutionLayer::
+    NEDepthwiseConvolutionLayerGeneric::get_md5_for_packed_weight() {
+  return calculate_md5(_impl->workspace);
 }
 
 DISCNEDepthwiseConvolutionLayer::DISCNEDepthwiseConvolutionLayer(
@@ -647,6 +694,37 @@ void DISCNEDepthwiseConvolutionLayer::prepare(ITensor* input,
       break;
     default:
       ARM_COMPUTE_ERROR("DepthwiseConvolutionFunction not properly configured");
+  }
+}
+
+const ITensorPack& DISCNEDepthwiseConvolutionLayer::get_packed_weight() {
+  if (_impl->depth_conv_func == DepthwiseConvolutionFunction::OPTIMIZED) {
+    return _impl->func_optimized.get_packed_weight();
+  } else if (_impl->depth_conv_func == DepthwiseConvolutionFunction::GENERIC) {
+    return _impl->func_generic.get_packed_weight();
+  } else {
+    ARM_COMPUTE_ERROR("DepthwiseConvolutionFunction not properly configured");
+  }
+}
+
+void DISCNEDepthwiseConvolutionLayer::reuse_packed_weight(
+    const ITensorPack& pack) {
+  if (_impl->depth_conv_func == DepthwiseConvolutionFunction::OPTIMIZED) {
+    return _impl->func_optimized.reuse_packed_weight(pack);
+  } else if (_impl->depth_conv_func == DepthwiseConvolutionFunction::GENERIC) {
+    return _impl->func_generic.reuse_packed_weight(pack);
+  } else {
+    ARM_COMPUTE_ERROR("DepthwiseConvolutionFunction not properly configured");
+  }
+}
+
+std::string DISCNEDepthwiseConvolutionLayer::get_md5_for_packed_weight() {
+  if (_impl->depth_conv_func == DepthwiseConvolutionFunction::OPTIMIZED) {
+    return _impl->func_optimized.get_md5_for_packed_weight();
+  } else if (_impl->depth_conv_func == DepthwiseConvolutionFunction::GENERIC) {
+    return _impl->func_generic.get_md5_for_packed_weight();
+  } else {
+    ARM_COMPUTE_ERROR("DepthwiseConvolutionFunction not properly configured");
   }
 }
 

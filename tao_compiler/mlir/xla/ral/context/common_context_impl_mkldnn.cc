@@ -267,7 +267,7 @@ void runAclDepthwiseKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
   weights.allocator()->import_memory(kernel.data);
   dst.allocator()->import_memory(output.data);
 
-  auto AclDepthwiseConvCreator = [&]() {
+  auto AclDepthwiseConvCreator = [&](const arm_compute::ITensorPack* pack) {
     std::shared_ptr<AclDepthwiseConvInfo> info(new AclDepthwiseConvInfo);
     if (!info->op.validate(
             &src_info, &weights_info, nullptr, &dst_info,
@@ -288,21 +288,26 @@ void runAclDepthwiseKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
           /* multiplier */ Co / Ci, arm_compute::ActivationLayerInfo{},
           arm_compute::Size2D{params.dilates[1], params.dilates[0]});
     }
+    if (pack) info->op.reuse_packed_weight(*pack);
     info->op.prepare(&src, &weights, nullptr, &dst);
 
     return info;
   };
 
   std::shared_ptr<AclDepthwiseConvInfo> info;
+  std::shared_ptr<AclDepthwiseConvThreadSafeInfo> thread_safe_info;
   if (isWeightPrePackingEnabled() && params.weight_is_const) {
     std::string unique_name = "disc.ral.cpu.acl_depthwise_conv";
     auto state = ctx->getOrCreateResource<AclDepthwiseConvState>(
         unique_name, []() { return new AclDepthwiseConvState; });
     auto key = makeConvParamsKey(input, kernel, padding, output, metadata,
                                  kDiscCpuDefaultThreadId);
-    info = state->getOrCreate(key, AclDepthwiseConvCreator);
+    auto dynamicKey = makeDynamicShapeConvParamsKey(
+        input, kernel, padding, output, metadata, kDiscCpuDefaultThreadId);
+    thread_safe_info = state->getOrCreate(dynamicKey);
+    info = thread_safe_info->getOrCreate(key, AclDepthwiseConvCreator);
   } else {
-    info = AclDepthwiseConvCreator();
+    info = AclDepthwiseConvCreator(nullptr);
   }
 
   info->op.run(&src, &weights, nullptr, &dst);

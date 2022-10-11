@@ -23,8 +23,10 @@ TORCH_VERSION = torch_version_number()
 
 if TORCH_VERSION >= (1, 10):
     zero_point_dtype = torch.int32
+    zero_point_type_str = "IntType"
 else:
     zero_point_dtype = torch.long
+    zero_point_type_str = "LongType"
 
 
 class ModelWithFakeQuant(nn.Module):
@@ -33,16 +35,58 @@ class ModelWithFakeQuant(nn.Module):
         self.weight = nn.Parameter(torch.randn(3, 4, 3, 3))
         self.weight_scale = nn.Parameter(torch.randn(3))
         self.weight_zero_point = nn.Parameter(torch.zeros(3))
+        self.weight_quant_min = -128
+        self.weight_quant_max = 127
+        self.weight_axis = 0
+        self.input_scale = 1.0
+        self.input_zero_point = 25
+        self.input_quant_min = 0
+        self.input_quant_max = 255
 
     def forward(self, x):
-        x = torch.fake_quantize_per_tensor_affine(x, scale=1.0, zero_point=0, quant_min=-128, quant_max=127)
+        x = torch.fake_quantize_per_tensor_affine(
+            x, scale=self.input_scale, zero_point=self.input_zero_point,
+            quant_min=self.input_quant_min, quant_max=self.input_quant_max)
         weight = torch.fake_quantize_per_channel_affine(
             self.weight.data, self.weight_scale.data,
             self.weight_zero_point.data.to(zero_point_dtype),
-            axis=0, quant_min=-128, quant_max=127
+            axis=self.weight_axis, quant_min=self.weight_quant_min, quant_max=self.weight_quant_max
         )
         y = F.conv2d(x, weight, bias=None)
         return y
+
+
+class PerTensorFakeQuant(nn.Module):
+    def __init__(self, scale, zero_point, quant_min, quant_max):
+        super().__init__()
+        self.scale = scale
+        self.zero_point = zero_point
+        self.quant_min = quant_min
+        self.quant_max = quant_max
+
+    def forward(self, x):
+        x = torch.fake_quantize_per_tensor_affine(
+            x, self.scale, self.zero_point,
+            self.quant_min, self.quant_max
+        )
+        return x
+
+
+class PerChannelFakeQuant(nn.Module):
+    def __init__(self, scale, zero_point, quant_min, quant_max, axis):
+        super().__init__()
+        self.register_buffer("scale", scale)
+        self.register_buffer("zero_point", zero_point)
+        self.axis = axis
+        self.quant_min = quant_min
+        self.quant_max = quant_max
+
+    def forward(self, x):
+        x = torch.fake_quantize_per_channel_affine(
+            x, self.scale, self.zero_point,
+            axis=self.axis, quant_min=self.quant_min, quant_max=self.quant_max
+        )
+        return x
 
 
 class QuantizationTestCase(TestCase):
@@ -50,5 +94,5 @@ class QuantizationTestCase(TestCase):
         super().setUp()
         self.is_quantization_available = is_quantization_available()
         self.is_trt_available = is_tensorrt_available()
-        if not is_quantization_available() or not is_tensorrt_available():
+        if not is_quantization_available():
             self.skipTest("Quantization support was not built")

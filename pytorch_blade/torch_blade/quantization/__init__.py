@@ -10,6 +10,8 @@
 # limitations under the License.
 
 from torch_blade.config import Config
+from torch_blade.mlir import _DISC_NAME
+from torch_blade.tensorrt import _TRT_NAME
 
 try:
     import torch_blade._torch_blade._quantization as _quantization
@@ -46,15 +48,17 @@ def _process_aten_fake_quant(c_module):
     # And all quantization info needed by DISC will be stored in it.
     cfg = Config.get_current_context_or_new()
     backend = cfg.optimization_pipeline
-    if backend == 'TensorRT':
-        # Add placeholder for each fake quant of weight.
+    if backend == _TRT_NAME:
+        # Add placeholder for each aten fake quant node of weight.
         # Or it will be folded by _jit_pass_constant_propagation.
         # TODO: remove this when fake_quant is added to the skip_list
         # of _jit_pass_constant_propagation.
         # https://github.com/pytorch/pytorch/issues/81460
         _jit_pass_add_placeholder_for_fake_quant(c_module)
-    elif backend == "DISC":
+    elif backend == _DISC_NAME:
         _jit_replace_aten_fake_quant_with_custom_version(c_module)
+        # to avoid torch_blade::fake_quant be folded
+        _jit_pass_add_placeholder_for_fake_quant(c_module)
     else:
         raise RuntimeError("Unsupported backend for torchscript with fake quant")
 

@@ -35,8 +35,10 @@ void add_placeholder_for_fake_quant(Module& model) {
   // folded by the ConstantPropagation pass.
   for (auto n : g->nodes()) {
     if (n->kind().toQualString() ==
-        std::string(torch::blade::quantization::
-                        at_fake_quant_per_channel_affine_name)) {
+            std::string(torch::blade::quantization::
+                            at_fake_quant_per_channel_affine_name) ||
+        n->kind().toQualString() ==
+            std::string(torch::blade::quantization::custom_fake_quant_name)) {
       auto place_holder = g->appendNode(g->create(sym));
       place_holder->moveAfter(n);
       n->outputs()[0]->replaceAllUsesWith(place_holder->outputs()[0]);
@@ -198,6 +200,8 @@ void initQuantizationBindings(py::module& m) {
       torch::blade::quantization::at_fake_quant_per_tensor_affine_name;
   quantization.attr("at_fake_quant_per_channel_affine_name") =
       torch::blade::quantization::at_fake_quant_per_channel_affine_name;
+  quantization.attr("torch_blade_fake_quant_name") =
+      torch::blade::quantization::custom_fake_quant_name;
 }
 
 } // namespace quantization

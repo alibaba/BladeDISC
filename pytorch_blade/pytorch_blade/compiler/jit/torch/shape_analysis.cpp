@@ -807,7 +807,6 @@ class ShapePropagator : public PropertyPropBase {
       default:
         break; // fall-through
     }
-
     if (node->hasSideEffects()) {
       return;
     }
@@ -2795,6 +2794,12 @@ class ShapePropagator : public PropertyPropBase {
       } else {
         node->output()->setType(IntType::get());
       }
+      return true;
+    } else if (
+        node->matches(
+            "torch_blade::fake_quant(Tensor _0, Tensor _1, Tensor _2, int _3, int _4, int _5, int[] _6, bool _7, bool _8, bool _9, bool _10) -> Tensor")) {
+      // torch_blade::fake_quant will not change the shape of the input.
+      node->output()->setType(tensor_types.at(0));
       return true;
     }
     setUnshapedType(node);

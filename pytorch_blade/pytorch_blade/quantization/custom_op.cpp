@@ -74,15 +74,16 @@ torch::Tensor torch_blade_fake_quant(
 
 TORCH_LIBRARY(torch_blade, m) {
   m.def("placeholder", placeholder);
-  // By default, the output and the first input of fake_quant will be treated as alias-pair
-  // that shares the same memory space. This will make some jit passes invalid for fake_quant
-  // For example, given a graph like:
-  // graph(%self, %x):
+  // By default, the output and the first input of fake_quant will be treated as
+  // alias-pair that shares the same memory space. This will make some jit
+  // passes invalid for fake_quant For example, given a graph like: graph(%self,
+  // %x):
   //   %1 : Tensor = prim::GetAttr[name="scale"](%self)
   //   %2 : Tensor = torch_blade::fake_quant(%x, %1, ...)
   // The prim::GetAttr will not be optimized by ConstantPropagation
   // which should have been converted to prim::Constant
-  m.def("fake_quant(Tensor _0, Tensor _1, Tensor _2, int _3, int _4, int _5, int[] _6, bool _7, bool _8, bool _9, bool _10) -> Tensor");
+  m.def(
+      "fake_quant(Tensor _0, Tensor _1, Tensor _2, int _3, int _4, int _5, int[] _6, bool _7, bool _8, bool _9, bool _10) -> Tensor");
   m.impl("fake_quant", torch_blade_fake_quant);
 }
 

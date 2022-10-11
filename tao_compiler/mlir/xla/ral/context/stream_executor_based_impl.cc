@@ -1419,34 +1419,12 @@ static bool layout_match(const std::vector<int32_t>& ref,
   return true;
 }
 
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
 template <typename T, int N>
-void ral_conv(ExecutionContext* ctx, void* stream_handle,
-              MemRefType<T, N> input, MemRefType<T, N> kernel,
-              MemRefType<int32_t, 1> padding, MemRefType<T, N> output,
-              MemRefType<int32_t, 1> metadata) {
-  static_assert(N > 2, "dimension should be larger than 2");
-  if (isEmptyMemref(input) || isEmptyMemref(kernel) || isEmptyMemref(output)) {
-    TAO_VLOG(1) << "ral_conv: early return for empty tensor";
-    return;
-  }
-
-  if (TAO_VLOG_IS_ON(2)) {
-    print_memref(input, "input");
-    print_memref(kernel, "kernel");
-    print_memref(padding, "padding");
-    for (int i = 0; i < N - 2; ++i) {
-      TAO_VLOG(0) << "\tpadding for dim #" << i << ": (" << padding.data[2 * i]
-                  << ", " << padding.data[2 * i + 1] << ")";
-    }
-    print_memref(output, "output");
-    print_memref(metadata, "metadata");
-    for (int i = 0; i < 5 * N - 4; ++i) {
-      TAO_VLOG(0) << "\t#" << i << ": " << metadata.data[i];
-    }
-  }
-
-#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM) and \
-    !(TENSORFLOW_USE_ROCM)
+void ral_conv_bladnn(ExecutionContext* ctx, void* stream_handle,
+                     MemRefType<T, N> input, MemRefType<T, N> kernel,
+                     MemRefType<int32_t, 1> padding, MemRefType<T, N> output,
+                     MemRefType<int32_t, 1> metadata, float alpha = 1.0) {
   // nchw=0123 iohw=0123
   // const std::vector<int32_t> nchw_oihw_layout = {0, 1, 2, 3, 1, 0,
   //                                                2, 3, 0, 1, 2, 3};
@@ -1502,7 +1480,6 @@ void ral_conv(ExecutionContext* ctx, void* stream_handle,
     auto conv_kind = bladnn::ConvKind::kFprop;
     auto data_layout = bladnn::Layout::kNHWC;
     auto kernel_layout = bladnn::Layout::kNHWC;
-    const float alpha = 1.0f;
     const float beta = 0.0f;
     bladnn::Dtype dtype = toBlaDNNDtype<T>();
     bool ret = false;
@@ -1510,9 +1487,43 @@ void ral_conv(ExecutionContext* ctx, void* stream_handle,
                          n, ih, iw, ic, ko, kh, kw, oh, ow, pad_h, pad_w,
                          stride_h, stride_w, dilation_h, dilation_w, groups,
                          &alpha, a_data, b_data, &beta, c_data, c_data);
-    if (ret) {
-      return;
+    return ret;
+  }
+  return false;
+}
+#endif
+
+template <typename T, int N>
+void ral_conv(ExecutionContext* ctx, void* stream_handle,
+              MemRefType<T, N> input, MemRefType<T, N> kernel,
+              MemRefType<int32_t, 1> padding, MemRefType<T, N> output,
+              MemRefType<int32_t, 1> metadata) {
+  static_assert(N > 2, "dimension should be larger than 2");
+  if (isEmptyMemref(input) || isEmptyMemref(kernel) || isEmptyMemref(output)) {
+    TAO_VLOG(1) << "ral_conv: early return for empty tensor";
+    return;
+  }
+
+  if (TAO_VLOG_IS_ON(2)) {
+    print_memref(input, "input");
+    print_memref(kernel, "kernel");
+    print_memref(padding, "padding");
+    for (int i = 0; i < N - 2; ++i) {
+      TAO_VLOG(0) << "\tpadding for dim #" << i << ": (" << padding.data[2 * i]
+                  << ", " << padding.data[2 * i + 1] << ")";
     }
+    print_memref(output, "output");
+    print_memref(metadata, "metadata");
+    for (int i = 0; i < 5 * N - 4; ++i) {
+      TAO_VLOG(0) << "\t#" << i << ": " << metadata.data[i];
+    }
+  }
+
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM) and \
+    !(TENSORFLOW_USE_ROCM)
+  if (ral_conv_bladnn<T, N>(ctx, stream_handle, input, kernel, padding, output,
+                            metadata)) {
+    return;
   }
 #endif
 
@@ -1609,78 +1620,21 @@ void ral_qconv(ExecutionContext* ctx, void* stream_handle,
                   sizeof(float));
   gpu_driver->d2h(ctx, stream_handle, &resultScales.data[0], &result_scale,
                   sizeof(float));
+  auto stream =
+      static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
+  auto stream_exec = stream->parent();
+  if (!stream_exec->SynchronizeAllActivity()) {
+    ctx->signalError(Context::FAILURE, "Failed to synchronize GPU.");
+    return;
+  }
 
   float kernel_scale = input_scale * weight_scale / result_scale;
 
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM) and \
     !(TENSORFLOW_USE_ROCM)
-  // nchw=0123 iohw=0123
-  // const std::vector<int32_t> nchw_oihw_layout = {0, 1, 2, 3, 1, 0,
-  //                                                2, 3, 0, 1, 2, 3};
-  // const std::vector<int32_t> nhwc_hwio_layout = {0, 3, 1, 2, 2, 3,
-  //                                                0, 1, 0, 3, 1, 2};
-  const std::vector<int32_t> nhwc_ohwi_layout = {0, 3, 1, 2, 3, 0,
-                                                 1, 2, 0, 3, 1, 2};
-  if (layout_match(nhwc_ohwi_layout, metadata)) {
-    gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
-    auto stream =
-        static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
-    void* s = stream->implementation()->GpuStreamHack();
-    int32_t n = input.sizes[0];
-    assert(n == output.sizes[0]);
-    T* a_data = input.data;
-    T* b_data = kernel.data;
-    T* c_data = output.data;
-    int32_t ic = 0;
-    int32_t oc = 0;
-    int32_t ih = 0;
-    int32_t iw = 0;
-    int32_t oh = 0;
-    int32_t ow = 0;
-    int32_t kh = 0;
-    int32_t kw = 0;
-    int32_t ki = 0;
-    int32_t ko = 0;
-    ih = input.sizes[1];
-    iw = input.sizes[2];
-    ic = input.sizes[3];
-    ko = kernel.sizes[0];
-    kh = kernel.sizes[1];
-    kw = kernel.sizes[2];
-    ki = kernel.sizes[3];
-    oh = output.sizes[1];
-    ow = output.sizes[2];
-    oc == output.sizes[3];
-    assert(ko == oc);
-    int pad_h = padding.data[0];
-    int pad_w = padding.data[2];
-    size_t offset = N * 3;
-    int stride_h = metadata.data[offset++];
-    int stride_w = metadata.data[offset++];
-    int dilation_h = metadata.data[offset++];
-    int dilation_w = metadata.data[offset++];
-    bool is_depthwise = false;
-    int32_t groups = 1;
-    if (ic != ki) {
-      assert(ki == 1);
-      is_depthwise = true;
-      groups = ic;
-    }
-    auto conv_kind = bladnn::ConvKind::kFprop;
-    auto data_layout = bladnn::Layout::kNHWC;
-    auto kernel_layout = bladnn::Layout::kNHWC;
-    // alpha is scale for quantization: q3 = ((s1 * s2) / s3) * (q1 * q2)
-    float alpha = kernel_scale;
-    float beta = 0.0f;
-    bladnn::Dtype dtype = toBlaDNNDtype<T>();
-    bool ret = false;
-    ret = bladnn::conv2d(s, dtype, dtype, conv_kind, data_layout, kernel_layout,
-                         n, ih, iw, ic, ko, kh, kw, oh, ow, pad_h, pad_w,
-                         stride_h, stride_w, dilation_h, dilation_w, groups,
-                         &alpha, a_data, b_data, &beta, c_data, c_data);
-    if (ret) {
-      return;
-    }
+  if (ral_conv_bladnn<T, N>(ctx, stream_handle, input, kernel, padding, output,
+                            metadata, kernel_scale)) {
+    return;
   }
 #endif
 
@@ -1690,8 +1644,6 @@ void ral_qconv(ExecutionContext* ctx, void* stream_handle,
       "tao_ral.gpu.qconv_" + tao::ral::TaoTypeNameHelper<T>::Invoke();
   auto& state = RalConvState::Get();
   gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
-  auto stream =
-      static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
 
   std::vector<se::DeviceMemoryBase> operand_se_buffers;
   operand_se_buffers.emplace_back(GetDeviceAddress(input));

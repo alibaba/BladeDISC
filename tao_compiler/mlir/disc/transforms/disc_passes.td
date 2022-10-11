@@ -62,17 +62,6 @@ def ConvRewriterPass : Pass<"disc-conv-rewriter", "mlir::func::FuncOp"> {
   ];
 }
 
-def QuantizedConvRewriterPass : Pass<"disc-quant-conv-rewriter", "mlir::func::FuncOp"> {
-  let summary = "Canonicalize conv ops to be suitable for lowering to cudnn lib calls.";
-  let constructor = "createDiscQuantizedConvRewriter()";
-  let options = [
-    Option<"cc_major_", "gpu-sm-cc-major", "int",
-            /*default=*/"8", "gpu sm cc_major.">,
-    Option<"cc_minor_", "gpu-sm-cc-minor", "int",
-            /*default=*/"0", "gpu sm cc_minor.">,
-  ];
-}
-
 def MhloDecompositionRewriterPass : Pass<"disc-mhlo-decomp-rewriter", "mlir::func::FuncOp"> {
   let summary = "Rewrite and decompose mhlo ops.";
   let constructor = "createDiscMhloDecompositionRewriterPass()";

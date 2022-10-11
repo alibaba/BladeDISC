@@ -1620,13 +1620,8 @@ void ral_qconv(ExecutionContext* ctx, void* stream_handle,
                   sizeof(float));
   gpu_driver->d2h(ctx, stream_handle, &resultScales.data[0], &result_scale,
                   sizeof(float));
-  auto stream =
-      static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
-  auto stream_exec = stream->parent();
-  if (!stream_exec->SynchronizeAllActivity()) {
-    ctx->signalError(Context::FAILURE, "Failed to synchronize GPU.");
-    return;
-  }
+
+  gpu_driver->syncOnStream(ctx, stream_handle);
 
   float kernel_scale = input_scale * weight_scale / result_scale;
 
@@ -1643,7 +1638,8 @@ void ral_qconv(ExecutionContext* ctx, void* stream_handle,
   std::string unique_name =
       "tao_ral.gpu.qconv_" + tao::ral::TaoTypeNameHelper<T>::Invoke();
   auto& state = RalConvState::Get();
-  gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
+  auto stream =
+      static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
 
   std::vector<se::DeviceMemoryBase> operand_se_buffers;
   operand_se_buffers.emplace_back(GetDeviceAddress(input));

@@ -57,13 +57,8 @@ struct ConvParams {
   T conv;
 };
 
-LogicalResult extractConvParams(mhlo::DynamicConvOp op,
-                                ConvParams<mhlo::DynamicConvOp>& params) {
-  params.conv = op;
-  params.input = op.lhs();
-  params.filter = op.rhs();
-  params.output = op.getResult();
-
+template <typename T>
+LogicalResult fillConvParams(T op, ConvParams<T>& params) {
   auto inputTy = params.input.getType().template dyn_cast<RankedTensorType>();
   auto filterTy = params.filter.getType().template dyn_cast<RankedTensorType>();
   auto paddingTy =
@@ -106,8 +101,17 @@ LogicalResult extractConvParams(mhlo::DynamicConvOp op,
   for (int i = 0; i < params.num_spatial_dims; ++i) {
     params.outputLayout.push_back(output_spatial_dimensions[i]);
   }
-
   return success();
+}
+
+LogicalResult extractConvParams(mhlo::DynamicConvOp op,
+                                ConvParams<mhlo::DynamicConvOp>& params) {
+  params.conv = op;
+  params.input = op.lhs();
+  params.filter = op.rhs();
+  params.output = op.getResult();
+
+  return fillConvParams<mhlo::DynamicConvOp>(op, params);
 }
 
 LogicalResult extractConvParams(
@@ -118,50 +122,7 @@ LogicalResult extractConvParams(
   params.filter = op.weight();
   params.output = op.getResult();
 
-  auto inputTy = params.input.getType().template dyn_cast<RankedTensorType>();
-  auto filterTy = params.filter.getType().template dyn_cast<RankedTensorType>();
-  auto paddingTy =
-      op.d_padding().getType().template dyn_cast<RankedTensorType>();
-  auto outputTy = params.output.getType().template dyn_cast<RankedTensorType>();
-
-  if (!inputTy || !filterTy || !paddingTy || !outputTy) {
-    return op.emitOpError() << "operands must be ranked type";
-  }
-
-  int rank = filterTy.getRank();
-  params.num_spatial_dims = rank - 2;
-
-  if (params.num_spatial_dims < 1) {
-    return op.emitOpError() << "conv op's input rank is less than 3";
-  }
-
-  auto dimension_numbers = op.dimension_numbers();
-  params.inputLayout.push_back(dimension_numbers.getInputBatchDimension());
-  params.inputLayout.push_back(dimension_numbers.getInputFeatureDimension());
-  auto input_spatial_dimensions = dimension_numbers.getInputSpatialDimensions();
-  for (int i = 0; i < params.num_spatial_dims; ++i) {
-    params.inputLayout.push_back(input_spatial_dimensions[i]);
-  }
-
-  params.filterLayout.push_back(
-      dimension_numbers.getKernelInputFeatureDimension());
-  params.filterLayout.push_back(
-      dimension_numbers.getKernelOutputFeatureDimension());
-  auto filter_spatial_dimensions =
-      dimension_numbers.getKernelSpatialDimensions();
-  for (int i = 0; i < params.num_spatial_dims; ++i) {
-    params.filterLayout.push_back(filter_spatial_dimensions[i]);
-  }
-
-  params.outputLayout.push_back(dimension_numbers.getOutputBatchDimension());
-  params.outputLayout.push_back(dimension_numbers.getOutputFeatureDimension());
-  auto output_spatial_dimensions =
-      dimension_numbers.getOutputSpatialDimensions();
-  for (int i = 0; i < params.num_spatial_dims; ++i) {
-    params.outputLayout.push_back(output_spatial_dimensions[i]);
-  }
-
-  return success();
+  return fillConvParams<mlir::mhlo_disc::QuantizedDynamicConvOp>(op, params);
 }
 
 void fillNCHW(SmallVector<int64_t>& layout, int num_spatial_dims) {
@@ -481,7 +442,7 @@ struct DiscConvRewriterPass
   }
 
   void runOnOperation() override {
-    if (typeid(T) == typeid(mhlo::DynamicConvOp)) {
+    if (std::is_same<T, mhlo::DynamicConvOp>::value) {
       if (failed(convToDynamicConv())) {
         this->signalPassFailure();
         return;

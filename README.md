@@ -214,6 +214,15 @@ general purpose passes have been upstreamed to mlir-hlo repository. We'll
 continue to work in a close cooperative relationship with mlir-hlo project in
 the longer term.
 
+### Roadmap with Torch-MLIR Project
+
+BladeDISC now maps PyTorch workload to MHLO based on [Torch-MLIR](https://github.com/llvm/torch-mlir/).
+Then compile the MHLO modules into executables via BladeDISC compiler.
+The BladeDISC Dev Team is cooperating with the community to add fully
+dynamic shape and production-ready support for Torch-To-Mhlo conversion
+to Torch-MLIR; see RFC: https://github.com/llvm/torch-mlir/issues/999.
+We appeal to the community developers interested in joining.
+
 ## Contact Us
 
 * Mailgroup: bladedisc-dev@list.alibaba-inc.com

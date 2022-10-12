@@ -56,6 +56,10 @@ createDiscLhloLegalizeRootsToParallelLoopsPass(int sm_count = -1);
 std::unique_ptr<OperationPass<FuncOp>> createDiscConvRewriter(int cc_major = 8,
                                                               int cc_minor = 0);
 
+// Canonicalize qconv ops to be suitable for lowering to cudnn lib calls.
+std::unique_ptr<OperationPass<FuncOp>> createDiscQuantizedConvRewriter(
+    int cc_major = 8, int cc_minor = 0);
+
 // Rewrite and decompose mhlo ops
 std::unique_ptr<OperationPass<FuncOp>>
 createDiscMhloDecompositionRewriterPass();

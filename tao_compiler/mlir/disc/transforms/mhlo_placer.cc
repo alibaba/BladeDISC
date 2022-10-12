@@ -94,7 +94,8 @@ struct OpsPlacer : public PlaceOpsPassBase<OpsPlacer> {
   // is up to the placement of the dominant operand
   const DenseMap<TypeID, /*dominant operand index*/ int> kPlaceRuleMap = {
       {TypeID::get<mhlo::DynamicGatherOp>(), /*operand*/ 0},
-      {TypeID::get<mhlo::GatherOp>(), /*operand*/ 0}};
+      {TypeID::get<mhlo::GatherOp>(), /*operand*/ 0},
+      {TypeID::get<mlir::mhlo_disc::QuantizedDynamicConvOp>(), /*operand*/ 0}};
 
   // Place I64 scalar output
   void placeI64ReturnedCpuScalarOps();

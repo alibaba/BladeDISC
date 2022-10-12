@@ -49,6 +49,9 @@ bool promoteConv1DToConv2D();
 // Returns true if weight prepacking is enabled.
 bool isWeightPrePackingEnabled();
 
+// Returns true if weight prepacking for matmul is enabled.
+bool isWeightPrePackingForMatMulEnabled();
+
 // Returns the maximum number of copied we can cache.
 int getWeightPrePackingCacheCapacity();
 

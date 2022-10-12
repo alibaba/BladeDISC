@@ -22,10 +22,8 @@ TORCH_VERSION = torch_version_number()
 
 if TORCH_VERSION >= (1, 10):
     zero_point_dtype = torch.int32
-    zero_point_type_str = "IntType"
 else:
     zero_point_dtype = torch.long
-    zero_point_type_str = "LongType"
 
 
 class ModelWithFakeQuant(nn.Module):

@@ -22,8 +22,6 @@
 #include "pytorch_blade/common_utils/utils.h"
 #include "pytorch_blade/compiler/jit/tool_funcs.h"
 #include "pytorch_blade/compiler/jit/torch/shape_analysis.h"
-#include "pytorch_blade/compiler/mlir/converters/mhlo_converter_register.h"
-#include "pytorch_blade/compiler/mlir/converters/mlir_type_utils.h"
 #include "pytorch_blade/compiler/mlir/converters/torch_mlir_op_filter.h"
 
 #include "function_importer.h"
@@ -117,59 +115,6 @@ mlir::NamedAttribute GetFunctionAttrs(
            output_placements_attr}));
 }
 
-std::tuple<mlir::func::FuncOp, std::string, std::string> CreateMlirFunction(
-    MhloConversionContext& ctx,
-    const std::string& function_name,
-    at::ArrayRef<const torch::jit::Value*> inputs,
-    at::ArrayRef<const torch::jit::Value*> outputs) {
-  SmallVec4<mlir::Type> args;
-  SmallVec4<mlir::Type> rets;
-
-  auto& builder = *ctx.builder;
-  for (auto& input : inputs) {
-    auto mlir_tensor_type = BuildMlirRankedTensorType(builder, *input);
-    args.emplace_back(mlir_tensor_type);
-  }
-
-  for (auto& output : outputs) {
-    // The output type would be reset during the function building being
-    // finalized. Currently it's set to placeholder unranked tensor type.
-    auto unk_default_type = mlir::UnrankedTensorType::get(builder.getF32Type());
-    rets.emplace_back(unk_default_type);
-  }
-
-  auto mlir_context = ctx.mlir_module->getContext();
-  auto mlir_func_type = mlir::FunctionType::get(mlir_context, args, rets);
-  auto entry_attr = GetFunctionAttrs(builder, inputs, outputs);
-  auto func = builder.create<mlir::func::FuncOp>(
-      ctx.mlir_module->getLoc(),
-      function_name,
-      mlir_func_type,
-      ::llvm::ArrayRef<::mlir::NamedAttribute>{entry_attr});
-
-  auto entry_block = func.addEntryBlock();
-  builder.setInsertionPointToStart(entry_block);
-
-  size_t idx = 0;
-  for (auto& input : inputs) {
-    ctx.value_map[input] = func.getArgument(idx++);
-  }
-
-  return std::make_tuple(
-      func,
-      GetAttrString(GetDeviceStrs(inputs)),
-      GetAttrString(GetDeviceStrs(outputs)));
-}
-
-// TODO(wenyi): Using registration system instead of using explicit listing.
-bool SafeToCallConverter(const torch::jit::Node& node) {
-  auto schema = node.maybeSchema();
-  if (!schema)
-    return false;
-  auto& name = schema->operator_name().name;
-  return name == "aten::_convolution";
-}
-
 inline bool IsNonTensorOrTypeAnalyzed(const c10::TypePtr type) {
   TORCH_CHECK(type != nullptr);
   auto tensor_type = type->cast<c10::TensorType>();
@@ -205,139 +150,20 @@ void RegisterDialects(mlir::DialectRegistry& registry) {
 }
 
 bool IsMlirMhloSupported(const torch::jit::Node& node) {
-  if (IsTorchMlirAvailable()) {
-    if (!node.kind().is_prim() && !AllTensorTypeAnalyzed(node)) {
-      return false;
-    }
-    auto supported = IsTorchMlirSupported(node);
-    bool enable_printing =
-        env::ReadBoolFromEnvVar("TORCH_BLADE_MHLO_DEBUG_LOG", false);
-
-    if (enable_printing &&
-        !(supported || prim::FusionGroup == node.kind() ||
-          prim::Param == node.kind())) {
-      LOG(WARNING) << "Not in white list: " << node << std::endl;
-    }
-    return supported;
-  }
-  c10::optional<OpConverter> converter = GetMlirMhloConverter(node);
-  try {
-    if (converter) {
-      mlir::DialectRegistry registry;
-      RegisterDialects(registry);
-      mlir::MLIRContext mlir_context(registry);
-      mlir_context.loadAllAvailableDialects();
-      MhloConversionContext empty_ctx(
-          mlir_context, nullptr, /*is_support_testing*/ true);
-      if (!node.kind().is_prim()) {
-        if (!AllTensorTypeAnalyzed(node)) {
-          return false;
-        }
-        // TODO: node that are not prim nodes, may require a subgraph
-        //  as context to figure out whether it's supported
-        if (SafeToCallConverter(node)) {
-          return (*converter)(empty_ctx, node);
-        }
-        return true;
-      } else {
-        return (*converter)(empty_ctx, node);
-      }
-    }
-  } catch (std::exception& err) {
-    LOG(ERROR) << err.what();
+  if (!node.kind().is_prim() && !AllTensorTypeAnalyzed(node)) {
     return false;
   }
-  return false;
+  auto supported = IsTorchMlirSupported(node);
+  bool enable_printing =
+      env::ReadBoolFromEnvVar("TORCH_BLADE_MHLO_DEBUG_LOG", false);
+
+  if (enable_printing &&
+      !(supported || prim::FusionGroup == node.kind() ||
+        prim::Param == node.kind())) {
+    LOG(WARNING) << "Not in white list: " << node << std::endl;
+  }
+  return supported;
 }
-
-class ConvertToMhloImpl {
- public:
-  ConvertToMhloImpl(
-      std::shared_ptr<torch::jit::Graph> graph,
-      mlir::MLIRContext& mlir_context)
-      : cvt_context_(mlir_context, graph, /*is_support_testing*/ false) {}
-
-  std::tuple<std::string, std::string, std::string, std::string> Run() {
-    // make this function call only once.
-    TORCH_CHECK(
-        !converted_.test_and_set(std::memory_order_acquire),
-        "the conversion is called multiple times");
-
-    BuildMainFunc();
-    RunImpl(cvt_context_.torch_graph->block());
-    FinalizeMainFunc();
-
-    std::string parsable_str =
-        GenerateMlirModuleString(false, *cvt_context_.mlir_module);
-    std::string pretty_str =
-        GenerateMlirModuleString(true, *cvt_context_.mlir_module);
-    return std::make_tuple(
-        std::move(parsable_str),
-        std::move(pretty_str),
-        input_dev_str_,
-        output_dev_str_);
-  }
-
- private:
-  void BuildMainFunc() {
-    std::tie(mlir_main_func_, input_dev_str_, output_dev_str_) =
-        CreateMlirFunction(
-            cvt_context_,
-            "main",
-            cvt_context_.torch_graph->inputs(),
-            cvt_context_.torch_graph->outputs());
-    cvt_context_.mlir_module->push_back(mlir_main_func_);
-  }
-
-  void FinalizeMainFunc() {
-    auto loc = cvt_context_.mlir_module->getLoc();
-    SmallVec4<mlir::Value> return_values;
-    auto& value_map = cvt_context_.value_map;
-    for (auto output : cvt_context_.torch_graph->outputs()) {
-      auto out_iter = value_map.find(output);
-      TORCH_CHECK(
-          out_iter != value_map.end(),
-          "The mlir module output value was not found for %",
-          output->debugName(),
-          ". Please find the bug in the converter function for ",
-          *output->node());
-      return_values.push_back(out_iter->second);
-    }
-    cvt_context_.builder->create<mlir::func::ReturnOp>(loc, return_values);
-    auto main_func_type = mlir_main_func_.getFunctionType();
-    SmallVec4<mlir::Type> rets;
-    for (auto& output : return_values) {
-      rets.emplace_back(output.getType());
-    }
-
-    auto mlir_context = cvt_context_.mlir_module->getContext();
-    auto new_mlir_func_type =
-        mlir::FunctionType::get(mlir_context, main_func_type.getInputs(), rets);
-    mlir_main_func_.setType(new_mlir_func_type);
-  }
-
-  void RunImpl(const torch::jit::Block* block) {
-    for (auto node : block->nodes()) {
-      for (auto inner_block : node->blocks()) {
-        RunImpl(inner_block);
-      }
-      c10::optional<OpConverter> op_converter = GetMlirMhloConverter(*node);
-      TORCH_CHECK(
-          op_converter, *node, " hasn't been supported, please report a bug");
-      // do conversion
-      if (!((*op_converter)(cvt_context_, *node))) {
-        cvt_context_.mlir_module->dump();
-        TORCH_CHECK(false, "meet error during converting ", *node);
-      }
-    }
-  }
-
-  std::string input_dev_str_;
-  std::string output_dev_str_;
-  mlir::func::FuncOp mlir_main_func_;
-  MhloConversionContext cvt_context_;
-  std::atomic_flag converted_ = ATOMIC_FLAG_INIT;
-};
 
 std::tuple<std::string, std::string, std::string, std::string>
 ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
@@ -430,27 +256,11 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
 std::tuple<std::string, std::string, std::string, std::string>
 ConvertTorchScriptToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
   try {
-    if (IsTorchMlirAvailable()) {
-      return ConvertTorchToMhlo(graph);
-    } else {
-      mlir::DialectRegistry registry;
-      RegisterDialects(registry);
-      mlir::MLIRContext mlir_context(registry);
-      mlir_context.loadAllAvailableDialects();
-
-      // will be deprecated soon.
-      ConvertToMhloImpl impl(graph, mlir_context);
-      return impl.Run();
-    }
+    return ConvertTorchToMhlo(graph);
   } catch (std::exception& err) {
     LOG(ERROR) << err.what();
     return std::make_tuple("", "", "", "");
   }
 }
-
-bool IsTorchMlirAvailable() {
-  return env::ReadBoolFromEnvVar("TORCH_DISC_USE_TORCH_MLIR", true);
-}
-
 } // namespace blade
 } // namespace torch

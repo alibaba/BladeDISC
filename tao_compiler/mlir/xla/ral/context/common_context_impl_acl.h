@@ -363,6 +363,10 @@ class DISCNEDepthwiseConvolutionLayer : public IFunction {
   void prepare(ITensor* input, const ITensor* weights, const ITensor* biases,
                ITensor* output);
 
+  const ITensorPack& get_packed_weight();
+  void reuse_packed_weight(const ITensorPack& pack);
+  std::string get_md5_for_packed_weight();
+
  private:
   /** Basic function to execute optimized depthwise convolution routines. This
    * function calls the following kernels:
@@ -468,6 +472,10 @@ class DISCNEDepthwiseConvolutionLayer : public IFunction {
     void prepare(ITensor* input, const ITensor* weights, const ITensor* biases,
                  ITensor* output);
 
+    const ITensorPack& get_packed_weight();
+    void reuse_packed_weight(const ITensorPack& pack);
+    std::string get_md5_for_packed_weight();
+
    private:
     MemoryGroup _memory_group;
     struct Impl;
@@ -569,6 +577,10 @@ class DISCNEDepthwiseConvolutionLayer : public IFunction {
              ITensor* output);
     void prepare(ITensor* input, const ITensor* weights, const ITensor* biases,
                  ITensor* output);
+
+    const ITensorPack& get_packed_weight();
+    void reuse_packed_weight(const ITensorPack& pack);
+    std::string get_md5_for_packed_weight();
 
    private:
     struct Impl;

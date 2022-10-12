@@ -73,6 +73,7 @@ void replace_aten_fake_quant_with_custom_version(Module& model) {
 
   for (auto n : g->nodes()) {
     std::string node_kind_str = n->kind().toQualString();
+
     if (node_kind_str ==
             std::string(torch::blade::quantization::
                             at_fake_quant_per_channel_affine_name) ||
@@ -81,6 +82,10 @@ void replace_aten_fake_quant_with_custom_version(Module& model) {
                             at_fake_quant_per_tensor_affine_name)) {
       // aten::fake_quant will be destroyed later, collect it here
       aten_fake_quant_node.push_back(n);
+
+      auto input_type = n->inputs()[0]->type()->cast<c10::TensorType>();
+      TORCH_CHECK(input_type, "Unexpected input type of aten::fake_quant.")
+      auto device = input_type->device();
 
       // create torch_blade_fake_quant custom op
       Node* fake_quant_node = g->insertNode(g->create(sym));
@@ -95,12 +100,13 @@ void replace_aten_fake_quant_with_custom_version(Module& model) {
       // our schema.
       Value* scales = n->inputs()[1];
       if (!scales->type()->isSubtypeOf(at::TensorType::get())) {
-        // create a
         TORCH_CHECK(
             scales->type()->isSubtypeOf(c10::NumberType::get()),
             "Unexpected scalar type for scales.");
         float scale_num = scales->node()->f(attr::value);
-        Tensor scale_tensor = torch::tensor(scale_num, torch::kFloat);
+        auto tensor_option =
+            torch::TensorOptions().dtype(torch::kFloat).device(device);
+        Tensor scale_tensor = torch::tensor(scale_num, tensor_option);
         scales = insert_prim_constant<torch::Tensor>(
             g, scales->node(), true, scale_tensor);
       }
@@ -111,7 +117,9 @@ void replace_aten_fake_quant_with_custom_version(Module& model) {
             zero_points->type()->isSubtypeOf(c10::NumberType::get()),
             "Unexpected scalar type for zero point");
         int zp_num = zero_points->node()->i(attr::value);
-        Tensor zp_tensor = torch::tensor(zp_num, torch::kInt);
+        auto tensor_option =
+            torch::TensorOptions().dtype(torch::kInt).device(device);
+        Tensor zp_tensor = torch::tensor(zp_num, tensor_option);
         zero_points = insert_prim_constant<torch::Tensor>(
             g, zero_points->node(), true, zp_tensor);
       }

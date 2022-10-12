@@ -92,12 +92,22 @@ def is_fake_quant_op(inp_node_kind):
         # other situation.
         fake_quant_name = [
             "aten::fake_quantize_per_tensor_affine",
-            "aten::fake_quantize_per_channel_affine"
+            "aten::fake_quantize_per_channel_affine",
+            "torch_blade::fake_quant"
         ]
     else:
         fake_quant_name = [
             _quantization.at_fake_quant_per_tensor_affine_name,
-            _quantization.at_fake_quant_per_channel_affine_name
+            _quantization.at_fake_quant_per_channel_affine_name,
+            _quantization.torch_blade_fake_quant_name
         ]
 
     return inp_node_kind in fake_quant_name
+
+
+def get_fake_quant_node(graph):
+    fake_quant_nodes = []
+    for n in graph.nodes():
+        if is_fake_quant_op(n.kind()):
+            fake_quant_nodes.append(n)
+    return fake_quant_nodes

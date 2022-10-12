@@ -19,6 +19,7 @@ from torch_blade import tensorrt
 from torch_blade.clustering.support_fusion_group import supported_node_fusion
 from torch_blade.pass_manager import _optimize_common
 from torch_blade.quantization.prepare_data import DataCollectObserver, DataPreparer
+from torch_blade.tensorrt import is_available as is_tensorrt_available
 
 
 def prepare_for_data_collect(model):
@@ -49,6 +50,7 @@ class TestDataCollectorObserver(QuantizationTestCase):
 
 
 class TestDataPreparer(QuantizationTestCase):
+    @unittest.skipIf(not is_tensorrt_available(), "TensorRT is not available")
     def test_naive_model(self):
         class MyModel(nn.Module):
             def __init__(self):
@@ -133,6 +135,7 @@ class TestDataPreparer(QuantizationTestCase):
         all_data = data_preparer.get_calib_data_for_each_group()
         record_data = all_data[0][0][0]
         self.assertTrue(torch.equal(dummy.cpu(), record_data))
+
 
 if __name__ == "__main__":
     unittest.main()

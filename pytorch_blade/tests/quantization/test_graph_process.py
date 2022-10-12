@@ -25,16 +25,8 @@ from torch_blade.quantization import (
     _jit_pass_add_placeholder_for_fake_quant,
     _jit_pass_remove_all_placeholder,
     _jit_replace_aten_fake_quant_with_custom_version,
-    _quantization
+    get_fake_quant_node
 )
-
-
-def _get_fake_quant_node(graph):
-    fake_quant_nodes = []
-    for n in graph.nodes():
-        if n.kind() == _quantization.torch_blade_fake_quant_name:
-            fake_quant_nodes.append(n)
-    return fake_quant_nodes
 
 
 class TestGraphProcess(QuantizationTestCase):
@@ -125,7 +117,7 @@ class TestGraphProcess(QuantizationTestCase):
         # to make it easy to get each quantization value
         c_module = tools.freeze_module(c_module, [], disableShapePeephole=False)
         graph = c_module.forward.graph
-        fake_quant_nodes = _get_fake_quant_node(graph)
+        fake_quant_nodes = get_fake_quant_node(graph)
         self.assertEqual(len(fake_quant_nodes), len(all_target_val))
         for n, node_target_val in zip(fake_quant_nodes, all_target_val):
             self._test_fake_quant_params(n, node_target_val)

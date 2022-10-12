@@ -920,6 +920,9 @@ class ShapePropagator : public PropertyPropBase {
             "aten::relu6(Tensor self) -> Tensor",
             "aten::relu6_(Tensor self) -> Tensor",
 #endif
+#ifdef TORCH_BLADE_BUILD_QUANTIZATION
+            "torch_blade::fake_quant(Tensor _0, Tensor _1, Tensor _2, int _3, int _4, int _5, int[] _6, bool _7, bool _8, bool _9, bool _10) -> Tensor",
+#endif
         },
         [](Node* node) -> type_vec_t {
           if (auto type = node->input(0)->type()->cast<TensorType>()) {
@@ -2794,12 +2797,6 @@ class ShapePropagator : public PropertyPropBase {
       } else {
         node->output()->setType(IntType::get());
       }
-      return true;
-    } else if (
-        node->matches(
-            "torch_blade::fake_quant(Tensor _0, Tensor _1, Tensor _2, int _3, int _4, int _5, int[] _6, bool _7, bool _8, bool _9, bool _10) -> Tensor")) {
-      // torch_blade::fake_quant will not change the shape of the input.
-      node->output()->setType(tensor_types.at(0));
       return true;
     }
     setUnshapedType(node);

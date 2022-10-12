@@ -10,9 +10,11 @@
 // limitations under the License.
 
 #pragma once
-#include "pytorch_blade/compiler/mlir/converters/mhlo_conversion_context.h"
 
 namespace torch {
+namespace jit {
+class Node;
+}
 namespace blade {
 
 // TODO(Yancey1989): should dry run torchToMhlo pass to

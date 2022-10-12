@@ -98,11 +98,6 @@ torch_pybind11_configure(
 )
 
 local_repository(
-    name = "org_mhlo_builder",
-    path = "../mhlo_builder",
-)
-
-local_repository(
     name = "org_tensorflow",
     path = "../tf_community",
 )

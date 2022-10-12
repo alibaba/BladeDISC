@@ -1,5 +1,4 @@
 load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
-load("//bazel:build_defs.bzl", "if_platform_alibaba")
 
 filegroup(
     name = "torch_blade_mhlo_converter_srcs",
@@ -28,7 +27,6 @@ cc_library(
         "//pytorch_blade/compiler/jit:torch_blade_jit",
         "//pytorch_blade/torch-mlir:DiscTorchMLIRTorchToMhlo",
         "@local_org_torch//:libtorch",
-        "@org_mhlo_builder//csrc:mhlo_library",
         "@torch-mlir-importer//:jit_ir_importer",
         "@llvm-project//mlir:CAPIIR",
     ],

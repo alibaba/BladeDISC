@@ -27,7 +27,7 @@ def skipIfNoDISC():
     return unittest.skipIf(not is_available(), "DISC support was not built")
 
 def isTorchMlirEnable():
-    return read_bool_from_env("TORCH_DISC_USE_TORCH_MLIR", False)
+    return True
 
 def skipIfEnableTorchMlir():
     return unittest.skipIf(isTorchMlirEnable(), "haven't supported")

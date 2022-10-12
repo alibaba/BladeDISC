@@ -137,6 +137,18 @@ bool isWeightPrePackingEnabled() {
   return enabled;
 }
 
+bool isWeightPrePackingForMatMulEnabled() {
+  static bool enabled = []() {
+    const char* env = getenv("DISC_CPU_ENABLE_WEIGHT_PRE_PACKING_FOR_MATMUL");
+    if (!env) return true;
+    std::string envStr = env;
+    std::transform(envStr.begin(), envStr.end(), envStr.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    return envStr == "true" || envStr == "1";
+  }();
+  return isWeightPrePackingEnabled() && enabled;
+}
+
 int getWeightPrePackingCacheCapacity() {
   static int capacity = initWeightPrePackingCacheCapacity();
   return capacity;
@@ -627,7 +639,7 @@ void mkl_ral_gemm(ExecutionContext* ctx, void* stream_handle,
   int k = tp_a ? A.sizes[0] : A.sizes[1];
   int n = tp_b ? B.sizes[0] : B.sizes[1];
 
-  if (!isWeightPrePackingEnabled() || !weight_is_const) {
+  if (!isWeightPrePackingForMatMulEnabled() || !weight_is_const) {
     cblas_sgemm(CblasRowMajor, tp_a ? CblasTrans : CblasNoTrans,
                 tp_b ? CblasTrans : CblasNoTrans, m, n, k, 1.0,
                 reinterpret_cast<Tinput*>(A.data), A.strides[0],
@@ -701,7 +713,7 @@ void onednn_ral_gemm(ExecutionContext* ctx, void* stream_handle,
   int n = tp_b ? B.sizes[0] : B.sizes[1];
 
 #if defined(TAO_X86)
-  if (!isWeightPrePackingEnabled() || !weight_is_const) {
+  if (!isWeightPrePackingForMatMulEnabled() || !weight_is_const) {
     dnnl::sgemm(tp_a ? 'T' : 'N', tp_b ? 'T' : 'N', m, n, k, 1.0,
                 reinterpret_cast<const float*>(A.data), A.strides[0],
                 reinterpret_cast<const float*>(B.data), B.strides[0], 0.0,
@@ -721,7 +733,7 @@ void onednn_ral_gemm(ExecutionContext* ctx, void* stream_handle,
 
 #if defined(TAO_AARCH64)
   // not using pre-packing path
-  if (!isWeightPrePackingEnabled() || !weight_is_const) {
+  if (!isWeightPrePackingForMatMulEnabled() || !weight_is_const) {
     ideep::matmul_forward::compute<true>(src, weight, output);
     return;
   }
@@ -895,7 +907,7 @@ void onednn_ral_batch_gemm(ExecutionContext* ctx, void* stream_handle,
   ideep::matmul_forward::compute<true>(src, weight, output);
 #elif defined(TAO_AARCH64)
   // not using pre-packing path
-  if (!isWeightPrePackingEnabled() || !weight_is_const) {
+  if (!isWeightPrePackingForMatMulEnabled() || !weight_is_const) {
     ideep::matmul_forward::compute<true>(src, weight, output);
     return;
   }

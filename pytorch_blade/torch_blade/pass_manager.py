@@ -314,7 +314,8 @@ def _optimize_common(c_module, static_shape=False):
     cfg = Config.get_current_context_or_new()
     if is_training and cfg.enable_int8:
         logger.error("If do quantization, the model must in eval mode ")
-    _jit_pass_quantization_preprocess(c_module)
+    if cfg.enable_int8:
+        _jit_pass_quantization_preprocess(c_module)
 
     if not is_training:
         # optimization passes only work in eval mode
@@ -341,7 +342,9 @@ def _optimize_common(c_module, static_shape=False):
     # because it needs some preprocess jit pass before,
     # such as remove grads ir nodes, freeze rank, tuple lowering etc.
     _jit_pass_clean_python_ir(graph)
-    _jit_pass_quantization_postprocess(c_module)
+
+    if cfg.enable_int8:
+        _jit_pass_quantization_postprocess(c_module)
     return c_module
 
 

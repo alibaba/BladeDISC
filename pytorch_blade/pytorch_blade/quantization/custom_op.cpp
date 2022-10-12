@@ -9,8 +9,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "alias.h"
-#include "common_utils/logging.h"
+#include "pytorch_blade/common_utils/logging.h"
+#include "pytorch_blade/quantization/alias.h"
 
 #include <torch/script.h>
 

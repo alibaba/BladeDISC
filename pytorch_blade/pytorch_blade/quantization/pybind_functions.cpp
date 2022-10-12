@@ -10,8 +10,8 @@
 // limitations under the License.
 
 #include "pytorch_blade/quantization/pybind_functions.h"
-#include "alias.h"
 #include "pytorch_blade/compiler/jit/tool_funcs.h"
+#include "pytorch_blade/quantization/alias.h"
 
 #include <c10/util/ArrayRef.h>
 #include <torch/csrc/jit/passes/dead_code_elimination.h>

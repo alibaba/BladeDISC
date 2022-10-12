@@ -659,11 +659,54 @@ class AclOpThreadSafeInfo {
 };
 
 template <typename TKey, typename OpTy>
+class AclOpThreadSafeInfoV2 {
+ public:
+  inline std::shared_ptr<AclOpInfo<OpTy>> getOrCreate(
+      const TKey& key, std::function<std::shared_ptr<AclOpInfo<OpTy>>(
+                           const arm_compute::ITensorPack*)>
+                           creator) {
+    {
+      std::lock_guard<std::mutex> l(mu);
+      auto mainInfoIt = mainInfoMap_.find(key);
+      if (mainInfoIt != mainInfoMap_.end()) return mainInfoIt->second;
+    }
+
+    std::shared_ptr<AclOpInfo<OpTy>> mainInfo = creator(nullptr);
+    std::string md5 = mainInfo->op.get_md5_for_packed_weight();
+
+    {
+      std::lock_guard<std::mutex> l(mu);
+      // double-check in case other threads have inserted the items.
+      auto mainInfoIt = mainInfoMap_.find(key);
+      if (mainInfoIt != mainInfoMap_.end()) return mainInfoIt->second;
+
+      auto r = md5MainInfoMap_.emplace(md5, mainInfo);
+      if (!r.second) {
+        // re-use packed weight from other shape configuration.
+        mainInfo = r.first->second;
+      } else {
+        // early-return if it's the first one that has md5 as `md5`
+        mainInfoMap_.emplace(key, mainInfo);
+        return mainInfo;
+      }
+    }
+
+    auto info = creator(&mainInfo->op.get_packed_weight());
+    std::lock_guard<std::mutex> l(mu);
+    auto it = mainInfoMap_.emplace(key, info);
+    return it.first->second;
+  }
+
+ private:
+  std::mutex mu;
+  std::unordered_map<std::string, std::shared_ptr<AclOpInfo<OpTy>>>
+      md5MainInfoMap_;
+  AclOpMap<TKey, std::shared_ptr<AclOpInfo<OpTy>>> mainInfoMap_;
+};
+
+template <typename TKey, typename OpTy>
 using AclOpCache =
     ideep::utils::lru_cache<TKey, std::shared_ptr<AclOpInfo<OpTy>>, AclOpMap>;
-template <typename TKey, typename OpTy>
-using AclOpThreadSafeCache = ideep::utils::lru_cache<
-    TKey, std::shared_ptr<AclOpThreadSafeInfo<TKey, OpTy>>, AclOpMap>;
 
 template <typename TKey, typename OpTy>
 struct AclOpState : public Context::Resource {
@@ -682,13 +725,16 @@ struct AclOpState : public Context::Resource {
   }
 };
 
-template <typename TKey, typename OpTy>
+template <typename TKey, typename OpTy,
+          typename ThreadSafeInfo = AclOpThreadSafeInfo<TKey, OpTy>>
 struct AclOpThreadSafeState : public Context::Resource {
-  std::mutex mu;
-  AclOpThreadSafeCache<TKey, OpTy> cache{getWeightPrePackingCacheCapacity()};
-
-  using ThreadSafeInfo = AclOpThreadSafeInfo<TKey, OpTy>;
+  // some helper type aliases
   using ThreadSafeInfoPtr = std::shared_ptr<ThreadSafeInfo>;
+  using AclOpThreadSafeCache =
+      ideep::utils::lru_cache<TKey, ThreadSafeInfoPtr, AclOpMap>;
+
+  std::mutex mu;
+  AclOpThreadSafeCache cache{getWeightPrePackingCacheCapacity()};
 
   inline ThreadSafeInfoPtr getOrCreate(const TKey& key) {
     std::lock_guard<std::mutex> l(mu);
@@ -706,11 +752,12 @@ struct AclOpThreadSafeState : public Context::Resource {
 using AclDepthwiseConvInfo =
     AclOpInfo<arm_compute::DISCNEDepthwiseConvolutionLayer>;
 using AclDepthwiseConvThreadSafeInfo =
-    AclOpThreadSafeInfo<ConvParamsKey,
-                        arm_compute::DISCNEDepthwiseConvolutionLayer>;
-using AclDepthwiseConvState =
-    AclOpThreadSafeState<ConvParamsKey,
-                         arm_compute::DISCNEDepthwiseConvolutionLayer>;
+    AclOpThreadSafeInfoV2<ConvParamsKey,
+                          arm_compute::DISCNEDepthwiseConvolutionLayer>;
+using AclDepthwiseConvState = AclOpThreadSafeState<
+    ConvParamsKey, arm_compute::DISCNEDepthwiseConvolutionLayer,
+    AclOpThreadSafeInfoV2<ConvParamsKey,
+                          arm_compute::DISCNEDepthwiseConvolutionLayer>>;
 
 using AclConvInfo = AclOpInfo<arm_compute::DISCNEConvolutionLayer>;
 using AclConvThreadSafeInfo =

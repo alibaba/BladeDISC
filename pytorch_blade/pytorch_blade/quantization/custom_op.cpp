@@ -31,9 +31,9 @@ torch::Tensor placeholder(torch::Tensor input) {
 
 // A custom torch op used to carry fake quant info downt to DISC compiler.
 torch::Tensor torch_blade_fake_quant(
-    const torch::Tensor& input,
-    const torch::Tensor& scale,
-    const torch::Tensor& zero_point,
+    const torch::Tensor input,
+    const torch::Tensor scale,
+    const torch::Tensor zero_point,
     int64_t quant_min,
     int64_t quant_max,
     int64_t num_bits,

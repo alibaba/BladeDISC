@@ -294,6 +294,9 @@ struct RalGemmState : public Context::Resource {
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
 template <typename T>
 bladnn::Dtype toBlaDNNDtype() {
+  if (std::is_same<T, int8_t>::value) {
+    return bladnn::Dtype::kS8;
+  }
   if (std::is_same<T, Eigen::half>::value) {
     return bladnn::Dtype::kF16;
   }
@@ -399,6 +402,64 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
     TAO_VLOG(0) << "gemm fails to launch";
     ctx->signalError(Context::FAILURE, "fail to launch gemm");
   }
+}
+
+void ral_qgemm(
+    ExecutionContext* ctx, void* stream_handle, MemRefType<int8_t, 2> input,
+    MemRefType<int8_t, 2> weight, MemRefType<float, 0> inputScales,
+    MemRefType<int32_t, 0> inputZeroPoints, MemRefType<float, 1> weightScales,
+    MemRefType<int32_t, 1> weightZeroPoints, MemRefType<float, 0> resultScales,
+    MemRefType<int32_t, 0> resultZeroPoints, MemRefType<int8_t, 2> result,
+    bool tp_a, bool tp_b, bool weight_is_const) {
+  if (isEmptyMemref(input) || isEmptyMemref(weight) || isEmptyMemref(result)) {
+    TAO_VLOG(1) << "ral_qgemm: early return for empty tensor";
+    return;
+  }
+  TAO_VLOG(0) << "tp_a: " << tp_a << " tp_b: " << tp_b;
+  TAO_VLOG(0) << "tp_a: " << tp_a << " tp_b: " << tp_b;
+  TAO_VLOG(0) << "input.sizes[0]: " << input.sizes[0]
+              << " input.sizes[1]: " << input.sizes[1];
+  TAO_VLOG(0) << "weight.sizes[0]: " << weight.sizes[0]
+              << " weight.sizes[1]: " << weight.sizes[1];
+  TAO_VLOG(0) << "result.sizes[0]: " << result.sizes[0]
+              << " result.sizes[1]: " << result.sizes[1];
+
+  auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
+  float input_scale, weight_scale, result_scale;
+  gpu_driver->d2h(ctx, stream_handle, &inputScales.data[0], &input_scale,
+                  sizeof(float));
+  gpu_driver->d2h(ctx, stream_handle, &weightScales.data[0], &weight_scale,
+                  sizeof(float));
+  gpu_driver->d2h(ctx, stream_handle, &resultScales.data[0], &result_scale,
+                  sizeof(float));
+
+  gpu_driver->syncOnStream(ctx, stream_handle);
+
+  float kernel_scale = input_scale * weight_scale / result_scale;
+  float beta = 0.0f;
+
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
+  {
+    auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
+    auto stream =
+        static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
+    void* s = stream->implementation()->GpuStreamHack();
+    bladnn::Context bladnn_ctx{s};
+    bladnn::Dtype in_dtype = toBlaDNNDtype<int8_t>();
+    bladnn::Dtype out_dtype = toBlaDNNDtype<int8_t>();
+    bool ret =
+        bladnn::gemm(&bladnn_ctx, in_dtype, tp_a, input.data, input.sizes[0],
+                     input.sizes[1], in_dtype, 1, weight.data, weight.sizes[0],
+                     weight.sizes[1], out_dtype, result.data, result.sizes[0],
+                     result.sizes[1], 1, false, false, &kernel_scale, &beta);
+    if (ret) {
+      return;
+    } else {
+      ctx->signalError(Context::FAILURE, "Bladnn gemm run fail.");
+    }
+  }
+#endif
+  ctx->signalError(Context::FAILURE, "Should turn on bladnn first.");
 }
 
 template <typename T, int N>
@@ -1421,7 +1482,7 @@ static bool layout_match(const std::vector<int32_t>& ref,
 
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
 template <typename T, int N>
-void ral_conv_bladnn(ExecutionContext* ctx, void* stream_handle,
+bool ral_conv_bladnn(ExecutionContext* ctx, void* stream_handle,
                      MemRefType<T, N> input, MemRefType<T, N> kernel,
                      MemRefType<int32_t, 1> padding, MemRefType<T, N> output,
                      MemRefType<int32_t, 1> metadata, float alpha = 1.0) {
@@ -1716,6 +1777,7 @@ TAO_RAL_API("ral_gemm", "gpu", gpu::se_impl::ral_gemm<float, float>);
 TAO_RAL_API("ral_gemm", "gpu", gpu::se_impl::ral_gemm<double, double, double>);
 TAO_RAL_API("ral_gemm", "gpu",
             gpu::se_impl::ral_gemm<Eigen::half, Eigen::half>);
+TAO_RAL_API("ral_qgemm", "gpu", gpu::se_impl::ral_qgemm);
 TAO_RAL_API("ral_gemm", "gpu", gpu::se_impl::ral_batch_gemm<float, float, 3>);
 TAO_RAL_API("ral_gemm", "gpu", gpu::se_impl::ral_batch_gemm<float, float, 4>);
 TAO_RAL_API("ral_gemm", "gpu",

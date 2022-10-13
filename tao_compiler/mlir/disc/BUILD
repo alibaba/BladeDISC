@@ -434,6 +434,28 @@ cc_library(
 )
 
 cc_library(
+    name = "quantized_dot_rewriter",
+    srcs = ["transforms/quantized_dot_rewriter.cc"],
+    hdrs = ["transforms/passes.h"],
+    includes = [
+        "tensorflow/compiler/xla/mlir_hlo/include",
+        "."
+    ],
+    deps = [
+        "@com_google_absl//absl/strings",
+        ":pass_details",
+        ":placement_utils",
+        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Transforms",
+        "//tensorflow/core:lib",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "mhlo_decomp_rewriters",
     srcs = ["transforms/mhlo_decomp_rewriters.cc"],
     hdrs = ["transforms/passes.h"],
@@ -1839,6 +1861,7 @@ cc_library(
     deps = [
         ":MhloDiscPassIncGen",
         ":conv_rewriter",
+        ":quantized_dot_rewriter",
         ":disc_dot_merge",
         ":disc_algebra_simplifier",
         ":disc_assign_kernel_name",

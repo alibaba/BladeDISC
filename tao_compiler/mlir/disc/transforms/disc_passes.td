@@ -72,6 +72,11 @@ def DotRewriterPass : Pass<"disc-dot-rewriter", "mlir::func::FuncOp"> {
   let constructor = "createDiscDotRewriterPass()";
 }
 
+def QuantizedDotRewriterPass : Pass<"quantized-disc-dot-rewriter", "mlir::func::FuncOp"> {
+  let summary = "Rewrite quantized dot to transpose weight(row2col).";
+  let constructor = "createDiscQuantizedDotRewriter()";
+}
+
 def GpuConvPaddingLegalizationPass : Pass<"disc-gpu-conv-padding-legalization", "mlir::func::FuncOp"> {
   let summary = "Convert conv ops' padding value to be suitable for lowering to cudnn lib calls.";
   let constructor = "createDiscGpuConvPaddingLegalization()";

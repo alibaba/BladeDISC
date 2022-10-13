@@ -17,9 +17,9 @@ limitations under the License.
 // format of CUDNN library call.
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/Attributes.h"                          // TF:llvm-project
-#include "mlir/IR/Operation.h"                           // TF:llvm-project
-#include "mlir/Transforms/Passes.h"                      // TF:llvm-project
+#include "mlir/IR/Attributes.h"      // TF:llvm-project
+#include "mlir/IR/Operation.h"       // TF:llvm-project
+#include "mlir/Transforms/Passes.h"  // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
@@ -34,8 +34,8 @@ namespace {
 struct DiscQuantizedDotRewriterPass
     : public QuantizedDotRewriterPassBase<DiscQuantizedDotRewriterPass> {
   explicit DiscQuantizedDotRewriterPass()
-      : QuantizedDotRewriterPassBase<DiscQuantizedDotRewriterPass>::QuantizedDotRewriterPassBase() {
-  }
+      : QuantizedDotRewriterPassBase<
+            DiscQuantizedDotRewriterPass>::QuantizedDotRewriterPassBase() {}
 
   RankedTensorType GetTransposeOutputType(
       Value value, const SmallVectorImpl<int64_t>& transpose_permutation,
@@ -51,8 +51,8 @@ struct DiscQuantizedDotRewriterPass
   }
 
   Operation* InsertTranspose(
-      mlir::mhlo_disc::QuantizedDotGeneralOp op, Value value, const SmallVectorImpl<int64_t>& transpose_permutation,
-      OpBuilder& b) {
+      mlir::mhlo_disc::QuantizedDotGeneralOp op, Value value,
+      const SmallVectorImpl<int64_t>& transpose_permutation, OpBuilder& b) {
     auto transpose_permutation_attr =
         GetI64ElementsAttr(transpose_permutation, &b);
 
@@ -70,15 +70,14 @@ struct DiscQuantizedDotRewriterPass
   LogicalResult RewriteOp(mhlo_disc::QuantizedDotGeneralOp op) {
     bool onGpu = placement_utils::isGpuMhlo(op);
     // Only need to transpose weight on gpu currently
-    if(onGpu == false){
-        return success();
+    if (onGpu == false) {
+      return success();
     }
 
     SmallVector<int64_t> transposeAttr = {1, 0};
 
     OpBuilder b(op);
-    auto transpose_op =
-        InsertTranspose(op, op.weight(), transposeAttr, b);
+    auto transpose_op = InsertTranspose(op, op.weight(), transposeAttr, b);
     op.getOperation()->setOperand(1, transpose_op->getResult(0));
 
     return success();
@@ -86,7 +85,8 @@ struct DiscQuantizedDotRewriterPass
 
   void runOnOperation() override {
     SmallVector<mhlo_disc::QuantizedDotGeneralOp, 2> ops;
-    this->getOperation().walk([&](mhlo_disc::QuantizedDotGeneralOp op) { ops.push_back(op); });
+    this->getOperation().walk(
+        [&](mhlo_disc::QuantizedDotGeneralOp op) { ops.push_back(op); });
 
     for (auto& op : ops) {
       if (failed(RewriteOp(op))) {

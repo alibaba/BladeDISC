@@ -13,6 +13,7 @@
 #include "pytorch_blade/quantization/alias.h"
 
 #include <torch/script.h>
+#include <cstdint>
 
 namespace torch {
 namespace blade {

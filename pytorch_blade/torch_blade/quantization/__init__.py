@@ -106,8 +106,4 @@ def is_fake_quant_op(inp_node_kind):
 
 
 def get_fake_quant_node(graph):
-    fake_quant_nodes = []
-    for n in graph.nodes():
-        if is_fake_quant_op(n.kind()):
-            fake_quant_nodes.append(n)
-    return fake_quant_nodes
+    return [n for n in graph.nodes() if is_fake_quant_op(n.kind())]

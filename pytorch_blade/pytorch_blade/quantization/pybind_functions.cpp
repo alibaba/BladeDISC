@@ -70,7 +70,7 @@ void replace_aten_fake_quant_with_custom_version(Module& model) {
       torch::blade::quantization::custom_fake_quant_name);
   std::vector<Node*> aten_fake_quant_node;
 
-  for (auto n : g->nodes()) {
+  for (auto&& n : g->nodes()) {
     std::string node_kind_str = n->kind().toQualString();
 
     if (node_kind_str ==
@@ -106,8 +106,7 @@ void replace_aten_fake_quant_with_custom_version(Module& model) {
         auto tensor_option =
             torch::TensorOptions().dtype(torch::kFloat).device(device);
         Tensor scale_tensor = torch::tensor(scale_num, tensor_option);
-        scales = insert_prim_constant<torch::Tensor>(
-            g, scales->node(), true, scale_tensor);
+        scales = insert_prim_constant(g, scales->node(), true, scale_tensor);
       }
 
       Value* zero_points = n->inputs()[2];

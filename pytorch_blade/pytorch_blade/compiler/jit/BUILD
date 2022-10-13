@@ -1,6 +1,10 @@
 package(default_visibility = ["//visibility:public"])
 
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
+load(
+    "//bazel:build_defs.bzl",
+    "if_quantization_enabled"
+)
 
 filegroup(
     name = "torch_blade_jit_srcs",
@@ -87,5 +91,7 @@ cc_test(
         "//pytorch_blade/common_utils:torch_blade_common",
         "@googltest//:gtest_main",
         "@local_org_torch//:libtorch",
-    ],
+    ] + if_quantization_enabled([
+        "//pytorch_blade/quantization:quantization_op",
+    ]),
 )

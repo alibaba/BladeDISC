@@ -9,23 +9,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <cstdint>
-#include <mutex>
-
-#include <ATen/Functions.h>
 #include "pytorch_blade/common_utils/logging.h"
+#include "pytorch_blade/quantization/alias.h"
 
 #include <torch/script.h>
+#include <cstdint>
 
 namespace torch {
 namespace blade {
 namespace quantization {
 
+// The type of input cannot be a reference. Because in lower
+// torch version, it will not automatically generate a function
+// whose input is a reference, which will lead to a "no match"
+// compilation error.
+torch::Tensor placeholder(torch::Tensor input) {
+  LOG(WARNING) << "Placeholder op is only used for prevent the fake_quant "
+               << "op being folded by the constant propagation pass. "
+               << "You should not inference the graph with this op.";
+  return input;
+}
+
 // A custom torch op used to carry fake quant info downt to DISC compiler.
 torch::Tensor torch_blade_fake_quant(
-    torch::Tensor input,
-    torch::Tensor scale,
-    torch::Tensor zero_point,
+    const torch::Tensor input,
+    const torch::Tensor scale,
+    const torch::Tensor zero_point,
     int64_t quant_min,
     int64_t quant_max,
     int64_t num_bits,
@@ -65,7 +74,18 @@ torch::Tensor torch_blade_fake_quant(
 }
 
 TORCH_LIBRARY(torch_blade, m) {
-  m.def("fake_quant", torch_blade_fake_quant);
+  m.def("placeholder", placeholder);
+  // By default, the output and the first input of fake_quant will be treated as
+  // alias-pair that shares the same memory space. This will make some jit
+  // passes invalid for fake_quant For example, given a graph like: graph(%self,
+  // %x):
+  //   %1 : Tensor = prim::GetAttr[name="scale"](%self)
+  //   %2 : Tensor = torch_blade::fake_quant(%x, %1, ...)
+  // The prim::GetAttr will not be optimized by ConstantPropagation
+  // which should have been converted to prim::Constant
+  m.def(
+      "fake_quant(Tensor _0, Tensor _1, Tensor _2, int _3, int _4, int _5, int[] _6, bool _7, bool _8, bool _9, bool _10) -> Tensor");
+  m.impl("fake_quant", torch_blade_fake_quant);
 }
 
 } // namespace quantization

@@ -15,6 +15,7 @@ from torch.onnx import OperatorExportTypes
 from torch.onnx.symbolic_helper import _set_opset_version
 from torch_blade import tools, utils
 from torch_blade.config import Config
+from torch_blade.logging import logger
 from torch_blade.python_ir_analysis import _jit_pass_clean_python_ir
 from torch_blade.quantization import (
     _jit_pass_quantization_postprocess,
@@ -308,11 +309,16 @@ def _jit_pass_clean_script(graph):
 
 
 def _optimize_common(c_module, static_shape=False):
-    _jit_pass_quantization_preprocess(c_module)
+
     is_training = c_module.hasattr("training") and c_module.training
+    cfg = Config.get_current_context_or_new()
+    if is_training and cfg.enable_int8:
+        logger.error("If do quantization, the model must in eval mode ")
+    if cfg.enable_int8:
+        _jit_pass_quantization_preprocess(c_module)
+
     if not is_training:
         # optimization passes only work in eval mode
-        cfg = Config.get_current_context_or_new()
         presv_attrs = cfg.preserved_attributes
         c_module = tools.freeze_module(c_module, presv_attrs, disableShapePeephole=not static_shape)
         torch._C._jit_pass_remove_dropout(c_module)
@@ -336,7 +342,9 @@ def _optimize_common(c_module, static_shape=False):
     # because it needs some preprocess jit pass before,
     # such as remove grads ir nodes, freeze rank, tuple lowering etc.
     _jit_pass_clean_python_ir(graph)
-    _jit_pass_quantization_postprocess(c_module)
+
+    if cfg.enable_int8:
+        _jit_pass_quantization_postprocess(c_module)
     return c_module
 
 

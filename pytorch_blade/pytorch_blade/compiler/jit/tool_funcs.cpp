@@ -157,5 +157,33 @@ bool cast_to_tensor_type(torch::jit::Value& value) {
     return false;
   }
 }
+
+torch::jit::Node* create_prim_constant_with_val(
+    std::shared_ptr<torch::jit::Graph> g,
+    const torch::Tensor& val) {
+  torch::jit::Node* constant_node = g->insertNode(g->create(prim::Constant));
+  constant_node->t_(attr::value, val);
+  constant_node->output()->inferTypeFrom(val);
+  return constant_node;
+}
+
+torch::jit::Node* create_prim_constant_with_val(
+    std::shared_ptr<torch::jit::Graph> g,
+    const int& val) {
+  torch::jit::Node* constant_node = g->insertNode(g->create(prim::Constant));
+  constant_node->i_(attr::value, val);
+  constant_node->output()->setType(c10::IntType::get());
+  return constant_node;
+}
+
+torch::jit::Node* create_prim_constant_with_val(
+    std::shared_ptr<torch::jit::Graph> g,
+    const bool& val) {
+  torch::jit::Node* constant_node = g->insertNode(g->create(prim::Constant));
+  constant_node->i_(attr::value, val);
+  constant_node->output()->setType(c10::BoolType::get());
+  return constant_node;
+}
+
 } // namespace blade
 } // namespace torch

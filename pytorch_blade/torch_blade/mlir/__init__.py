@@ -10,12 +10,10 @@
 # limitations under the License.
 
 try:
-    from .._torch_blade._mlir import *
     from torch_blade.config import OptPipelines
-    from torch_blade.mlir.disc_engine_conversion import (
-        _optimize_mlir,
-        _compile_torchscript,
-    )
+    from torch_blade.mlir.disc_engine_conversion import _compile_torchscript, _optimize_mlir
+
+    from .._torch_blade._mlir import *
 
     _DISC_NAME = backend_name()
     _is_available = True
@@ -27,8 +25,10 @@ except ImportError as e:
     # MLIR support is disable
     _is_available = False
     _DISC_GROUP_NAME = None
+    _DISC_NAME = "DISC"
 
 import contextlib
+
 from torch_blade import utils
 
 _DISC_TESTING_CONTEXT = False

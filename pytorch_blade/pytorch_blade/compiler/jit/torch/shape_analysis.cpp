@@ -807,7 +807,6 @@ class ShapePropagator : public PropertyPropBase {
       default:
         break; // fall-through
     }
-
     if (node->hasSideEffects()) {
       return;
     }
@@ -920,6 +919,9 @@ class ShapePropagator : public PropertyPropBase {
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 9
             "aten::relu6(Tensor self) -> Tensor",
             "aten::relu6_(Tensor self) -> Tensor",
+#endif
+#ifdef TORCH_BLADE_BUILD_QUANTIZATION
+            "torch_blade::fake_quant(Tensor _0, Tensor _1, Tensor _2, int _3, int _4, int _5, int[] _6, bool _7, bool _8, bool _9, bool _10) -> Tensor",
 #endif
         },
         [](Node* node) -> type_vec_t {

@@ -15,11 +15,14 @@ limitations under the License.
 
 // This file canonicalize conv ops in hlo dialect to match the
 // format of CUDNN library call.
+#include <unordered_set>
+
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/IR/Attributes.h"      // TF:llvm-project
-#include "mlir/IR/Operation.h"       // TF:llvm-project
-#include "mlir/Transforms/Passes.h"  // TF:llvm-project
+#include "mlir/IR/Attributes.h"                          // TF:llvm-project
+#include "mlir/IR/Operation.h"                           // TF:llvm-project
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"  // from @llvm-project
+#include "mlir/Transforms/Passes.h"                      // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
@@ -29,70 +32,176 @@ namespace disc_ral {
 
 namespace {
 
-// The basic logic of this pass is to insert transpose op to ensure the conv op
-// having expected format.
-struct DiscQuantizedDotRewriterPass
-    : public QuantizedDotRewriterPassBase<DiscQuantizedDotRewriterPass> {
-  explicit DiscQuantizedDotRewriterPass()
-      : QuantizedDotRewriterPassBase<
-            DiscQuantizedDotRewriterPass>::QuantizedDotRewriterPassBase() {}
-
-  RankedTensorType GetTransposeOutputType(
-      Value value, const SmallVectorImpl<int64_t>& transpose_permutation,
-      OpBuilder& b) {
-    // Compute the resulting shape.
-    llvm::SmallVector<int64_t, 4> transposed_shape;
-    ShapedType input_type = value.getType().cast<ShapedType>();
-    auto input_shape = input_type.getShape();
-    for (int64_t val : transpose_permutation) {
-      transposed_shape.push_back(input_shape[val]);
+// It does not support transpose of batching dimension and other dimensions
+// together now.
+// TODO: it may support the transpose between batching dimensions only, or
+// transpose of all batching dimensions together with the minor dimension.
+static inline bool isNonBatchingTransposeTensorValue(
+    Value val, SmallVector<int64_t, 4>& permutation,
+    std::unordered_set<int64_t> batching_dims) {
+  if (not val.getDefiningOp()) {
+    return false;
+  }
+  permutation.clear();
+  if (auto transpose = dyn_cast<mhlo::TransposeOp>(val.getDefiningOp())) {
+    for (auto& en :
+         llvm::enumerate(transpose.permutation().getValues<int64_t>())) {
+      if (en.index() != en.value()) {
+        if (batching_dims.find(en.index()) != batching_dims.end()) {
+          return false;
+        }
+      }
+      permutation.push_back(en.value());
     }
-    return RankedTensorType::get(transposed_shape, input_type.getElementType());
   }
+  return !permutation.empty();
+}
 
-  Operation* InsertTranspose(
-      mlir::mhlo_disc::QuantizedDotGeneralOp op, Value value,
-      const SmallVectorImpl<int64_t>& transpose_permutation, OpBuilder& b) {
-    auto transpose_permutation_attr =
-        GetI64ElementsAttr(transpose_permutation, &b);
-
-    auto transpose_type =
-        GetTransposeOutputType(value, transpose_permutation, b);
-    auto transpose_op = b.create<mhlo::TransposeOp>(
-        op.getLoc(), transpose_type, value, transpose_permutation_attr);
-
-    if (auto attr = op->getAttr(placement_utils::kDiscPlaceAssignment))
-      transpose_op->setAttr(placement_utils::kDiscPlaceAssignment, attr);
-
-    return transpose_op;
+RankedTensorType GetTransposeOutputType(
+    Value value, const SmallVectorImpl<int64_t>& transpose_permutation,
+    OpBuilder& b) {
+  // Compute the resulting shape.
+  llvm::SmallVector<int64_t, 4> transposed_shape;
+  ShapedType input_type = value.getType().cast<ShapedType>();
+  auto input_shape = input_type.getShape();
+  for (int64_t val : transpose_permutation) {
+    transposed_shape.push_back(input_shape[val]);
   }
+  return RankedTensorType::get(transposed_shape, input_type.getElementType());
+}
 
-  LogicalResult RewriteOp(mhlo_disc::QuantizedDotGeneralOp op) {
+Operation* InsertTranspose(
+    mlir::mhlo_disc::QuantizedDotGeneralOp op, Value value,
+    const SmallVectorImpl<int64_t>& transpose_permutation, OpBuilder& b) {
+  auto transpose_permutation_attr =
+      GetI64ElementsAttr(transpose_permutation, &b);
+
+  auto transpose_type = GetTransposeOutputType(value, transpose_permutation, b);
+  auto transpose_op = b.create<mhlo::TransposeOp>(
+      op.getLoc(), transpose_type, value, transpose_permutation_attr);
+
+  if (auto attr = op->getAttr(placement_utils::kDiscPlaceAssignment))
+    transpose_op->setAttr(placement_utils::kDiscPlaceAssignment, attr);
+
+  return transpose_op;
+}
+
+// The basic logic of this pass is to insert transpose op to ensure the qgemm op
+// having expected format.
+struct QuantDotTransposeConvert
+    : public OpRewritePattern<mlir::mhlo_disc::QuantizedDotGeneralOp> {
+  explicit QuantDotTransposeConvert(MLIRContext* context)
+      : OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(mlir::mhlo_disc::QuantizedDotGeneralOp op,
+                                PatternRewriter& rewriter) const override {
     bool onGpu = placement_utils::isGpuMhlo(op);
     // Only need to transpose weight on gpu currently
     if (onGpu == false) {
-      return success();
+      return failure();
+    }
+
+    if (op.weight().getDefiningOp<mhlo::TransposeOp>()) {
+      return failure();
+    }
+
+    auto weightTy = op.weight().getType().dyn_cast<RankedTensorType>();
+    int rank = weightTy.getRank();
+
+    // This transpose pass can only support dot with rank equal to 2
+    if (rank != 2) {
+      return failure();
     }
 
     SmallVector<int64_t> transposeAttr = {1, 0};
 
     OpBuilder b(op);
     auto transpose_op = InsertTranspose(op, op.weight(), transposeAttr, b);
-    op.getOperation()->setOperand(1, transpose_op->getResult(0));
 
+    Location loc = op.getLoc();
+    Value old_lhs = op.input();
+    Value old_rhs = transpose_op->getResult(0);
+
+    RankedTensorType old_l_type =
+        old_lhs.getType().dyn_cast<RankedTensorType>();
+    RankedTensorType old_r_type =
+        old_rhs.getType().dyn_cast<RankedTensorType>();
+    if ((!old_l_type || !old_r_type)) {
+      return failure();
+    }
+
+    auto dim_numbers = op.dot_dimension_numbers();
+    auto lhs_batching_dims = dim_numbers.getLhsBatchingDimensions();
+    SmallVector<int64_t, 4> lhs_perm;
+    bool tp_lhs = isNonBatchingTransposeTensorValue(
+        old_lhs, lhs_perm,
+        std::unordered_set<int64_t>(lhs_batching_dims.begin(),
+                                    lhs_batching_dims.end()));
+
+    SmallVector<int64_t, 4> rhs_perm;
+    auto rhs_batching_dims = dim_numbers.getRhsBatchingDimensions();
+    bool tp_rhs = isNonBatchingTransposeTensorValue(
+        old_rhs, rhs_perm,
+        std::unordered_set<int64_t>(rhs_batching_dims.begin(),
+                                    rhs_batching_dims.end()));
+
+    if (!tp_rhs) {
+      return failure();
+    }
+
+    std::vector<int64_t> lhs_contracting_dims;
+    if (tp_lhs) {
+      for (auto& en :
+           llvm::enumerate(dim_numbers.getLhsContractingDimensions())) {
+        lhs_contracting_dims.push_back(lhs_perm[en.value()]);
+      }
+    } else {
+      lhs_contracting_dims = dim_numbers.getLhsContractingDimensions();
+    }
+
+    std::vector<int64_t> rhs_contracting_dims;
+    if (tp_rhs) {
+      for (auto& en :
+           llvm::enumerate(dim_numbers.getRhsContractingDimensions())) {
+        rhs_contracting_dims.push_back(rhs_perm[en.value()]);
+      }
+    } else {
+      rhs_contracting_dims = dim_numbers.getRhsContractingDimensions();
+    }
+
+    auto dot_dimension_attr = mhlo::DotDimensionNumbersAttr::get(
+        rewriter.getContext(), dim_numbers.getLhsBatchingDimensions(),
+        dim_numbers.getRhsBatchingDimensions(), lhs_contracting_dims,
+        rhs_contracting_dims);
+
+    Value newQuantizedDot =
+        rewriter.create<mlir::mhlo_disc::QuantizedDotGeneralOp>(
+            loc, op.getType(), op.input(), transpose_op->getResult(0),
+            op.input_scale(), op.input_zero_point(), op.weight_scale(),
+            op.weight_zero_point(), op.result_scale(), op.result_zero_point(),
+            dot_dimension_attr, op.use_symmetric(), op.axis(),
+            op.use_dynamic());
+
+    rewriter.replaceOp(op, newQuantizedDot);
     return success();
   }
+};
+
+struct DiscQuantizedDotRewriterPass
+    : public QuantizedDotRewriterPassBase<DiscQuantizedDotRewriterPass> {
+  explicit DiscQuantizedDotRewriterPass()
+      : QuantizedDotRewriterPassBase<
+            DiscQuantizedDotRewriterPass>::QuantizedDotRewriterPassBase() {}
 
   void runOnOperation() override {
-    SmallVector<mhlo_disc::QuantizedDotGeneralOp, 2> ops;
-    this->getOperation().walk(
-        [&](mhlo_disc::QuantizedDotGeneralOp op) { ops.push_back(op); });
+    func::FuncOp func = getOperation();
 
-    for (auto& op : ops) {
-      if (failed(RewriteOp(op))) {
-        this->signalPassFailure();
-        return;
-      }
+    MLIRContext* ctx = func.getContext();
+    RewritePatternSet patterns(ctx);
+    patterns.insert<QuantDotTransposeConvert>(ctx);
+    if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
+      func.emitError("applyPatternsAndFoldGreedily does not converge");
+      signalPassFailure();
     }
   }
 };

@@ -447,11 +447,11 @@ void ral_qgemm(
     bladnn::Context bladnn_ctx{s};
     bladnn::Dtype in_dtype = toBlaDNNDtype<int8_t>();
     bladnn::Dtype out_dtype = toBlaDNNDtype<int8_t>();
-    bool ret =
-        bladnn::gemm(&bladnn_ctx, in_dtype, tp_a, input.data, input.sizes[0],
-                     input.sizes[1], in_dtype, 1, weight.data, weight.sizes[0],
-                     weight.sizes[1], out_dtype, result.data, result.sizes[0],
-                     result.sizes[1], 1, false, false, &kernel_scale, &beta);
+    bool ret = bladnn::gemm(
+        &bladnn_ctx, in_dtype, tp_a, input.data, input.sizes[0], input.sizes[1],
+        in_dtype, tp_b, weight.data, weight.sizes[0], weight.sizes[1],
+        out_dtype, result.data, result.sizes[0], result.sizes[1], 1, false,
+        false, &kernel_scale, &beta);
     if (ret) {
       return;
     } else {

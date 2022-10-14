@@ -447,7 +447,7 @@ void ral_qgemm_acl_s8_s8_s8_per_channel(
 
   std::shared_ptr<AclQGemmInfo> info;
   std::shared_ptr<AclQGemmThreadSafeInfo> thread_safe_info;
-  if (isWeightPrePackingEnabled() && weight_is_const) {
+  if (isWeightPrePackingForMatMulEnabled() && weight_is_const) {
     std::string unique_name = "disc.ral_qgemm_acl_s8_s8_s8_per_channel";
     auto state = ctx->getOrCreateResource<AclQGemmState>(
         unique_name, []() { return new AclQGemmState; });

@@ -1,0 +1,260 @@
+diff --git a/src/cpu/operators/internal/CpuGemmAssemblyDispatch.cpp b/src/cpu/operators/internal/CpuGemmAssemblyDispatch.cpp
+index 23095d8..e186798 100644
+--- a/src/cpu/operators/internal/CpuGemmAssemblyDispatch.cpp
++++ b/src/cpu/operators/internal/CpuGemmAssemblyDispatch.cpp
+@@ -169,6 +169,13 @@ private:
+         Count
+     };
+ 
++    struct ThreadSafeParams {
++        std::shared_ptr<arm_gemm::GemmCommon<TypeInput, TypeOutput>> _gemm_kernel_asm{ nullptr };
++        std::unique_ptr<INEKernel> _optimised_kernel{ nullptr };
++        std::unique_ptr<const TypeInput *const *, free_delete> _indirect_arg{};
++        std::unique_ptr<const TypeInput *, free_delete>        _indirect_buf{};
++    };
++
+     /** Configure the indirect buffer
+      *
+      * @param[in]  a    Input tensor containing the Matrix A.
+@@ -209,6 +216,10 @@ private:
+     bool                             _B_pretranspose_required{ false };
+     bool                             _is_b_constant{ true };
+     bool                             _is_c_constant{ true };
++
++    std::unique_ptr<arm_gemm::GemmArgs> _args;
++    OutputStage _os;
++    arm_gemm::GemmConfig _gemm_cfg;
+ };
+ 
+ template <typename TypeInput, typename TypeOutput, class OutputStage>
+@@ -355,13 +366,14 @@ void Fallback<TypeInput, TypeOutput, OutputStage>::configure(const ITensorInfo *
+     _is_b_constant = b->are_values_constant();
+     _is_c_constant = c ? c->are_values_constant() : true;
+ 
+-    arm_gemm::GemmConfig gemm_cfg;
+     _kernel_info = arm_gemm::get_gemm_method<TypeInput, TypeOutput, OutputStage>(args, os);
+     if(_kernel_info.method != arm_gemm::GemmMethod::GEMV_BATCHED)
+     {
+-        gemm_cfg.filter = _kernel_info.name;
+-        args._cfg       = &gemm_cfg;
++        _gemm_cfg.filter = _kernel_info.name;
++        args._cfg       = &_gemm_cfg;
+     }
++    _os = os;
++    _args.reset(new arm_gemm::GemmArgs(args));
+     _gemm_kernel_asm = arm_gemm::gemm<TypeInput, TypeOutput, OutputStage>(args, os);
+     if(_gemm_kernel_asm == nullptr)
+     {
+@@ -372,7 +384,7 @@ void Fallback<TypeInput, TypeOutput, OutputStage>::configure(const ITensorInfo *
+     // arm_compute wrapper for the Gemm object (see above)
+     auto acl_gemm_wrapper = std::make_unique<kernel::CpuGemmAssemblyWrapperKernel<TypeInput, TypeOutput>>();
+     ARM_COMPUTE_ERROR_ON(acl_gemm_wrapper == nullptr);
+-    acl_gemm_wrapper->configure(_gemm_kernel_asm.get(), gemm_cfg.filter);
++    acl_gemm_wrapper->configure(_gemm_kernel_asm.get(), _gemm_cfg.filter);
+     const size_t       workspace_size = _gemm_kernel_asm->get_working_size();
+     const unsigned int alignment      = 4096;
+     _workspace_info                   = TensorInfo(TensorShape(workspace_size), 1, DataType::U8);
+@@ -485,8 +497,68 @@ void Fallback<TypeInput, TypeOutput, OutputStage>::run(ITensorPack &tensors)
+     const TypeInput *in1_ptr = nullptr;
+     auto             out_ptr = reinterpret_cast<TypeOutput *>(d->buffer() + d->info()->offset_first_element_in_bytes());
+ 
++    ThreadSafeParams params;
++    {
++        // init thread local params
++        params._gemm_kernel_asm = arm_gemm::gemm<TypeInput, TypeOutput, OutputStage>(*_args, _os);
++        ARM_COMPUTE_ERROR_ON(params._gemm_kernel_asm.get() == nullptr);
++        auto acl_gemm_wrapper = std::make_unique<kernel::CpuGemmAssemblyWrapperKernel<TypeInput, TypeOutput>>();
++        ARM_COMPUTE_ERROR_ON(acl_gemm_wrapper == nullptr);
++        acl_gemm_wrapper->configure(params._gemm_kernel_asm.get(), _gemm_cfg.filter);
++        params._optimised_kernel = std::move(acl_gemm_wrapper);
++
++        //if we disable this code below in brackets then ConvLayer deadlocks when threads > 1 and
++        //the shapes are In=1x1x1024 Weights=1x1x1024x1001 Biases=1001 Out=1x1x1001
++        {
++            const unsigned int window_size = params._gemm_kernel_asm->get_window_size().total_size();
++            if(window_size < static_cast<unsigned int>(_args->_maxthreads))
++            {
++                params._gemm_kernel_asm->set_nthreads(window_size);
++            }
++        }
++
++        // Handle indirect GEMM convolution
++        if (_gemm_info.method == AsmConvMethod::Conv)
++        {
++            params._gemm_kernel_asm->set_convolution_parameters(_cp);
++        }
++
++        if (_gemm_info.method == AsmConvMethod::Indirect)
++        {
++            const unsigned int multis    = 1;
++            const unsigned int batches   = a->info()->tensor_shape().total_size_upper(3);
++            const unsigned int kernel_hw = _cp.kernel_width * _cp.kernel_height;
++            const unsigned int output_hw = _cp.output_width * _cp.output_height;
++
++            using TypeInputPtr        = TypeInput *;
++            const int    batch_size   = kernel_hw * output_hw * sizeof(TypeInputPtr);
++            const size_t batch_stride = batch_size / sizeof(TypeInputPtr);
++            const int    multi_size   = batch_size * batches;
++            const size_t multi_stride = multi_size / sizeof(TypeInputPtr);
++
++            params._indirect_buf = std::unique_ptr<const TypeInput *, free_delete>(reinterpret_cast<const TypeInput **>(malloc(multi_size * multis)));
++            params._indirect_arg = std::unique_ptr<const TypeInput *const *, free_delete>(reinterpret_cast<const TypeInput *const **>(malloc(sizeof(TypeInput **) * kernel_hw * multis * batches)));
++
++            // Set indirect argument
++            int64_t pos = 0;
++            for(int64_t m = 0; m < multis; m++)
++            {
++                for(int64_t b = 0; b < batches; b++)
++                {
++                    for(int64_t kernel_xy = 0; kernel_xy < kernel_hw; kernel_xy++)
++                    {
++                        (params._indirect_arg.get())[pos++] = params._indirect_buf.get() + m * multi_stride + b * batch_stride + kernel_xy * output_hw;
++                    }
++                }
++            }
++
++            params._gemm_kernel_asm->set_indirect_parameters(a->info()->tensor_shape()[0], params._indirect_arg.get());
++        }
++
++    }
++
+     // Check if B is pre-tranposed and de-reference if not
+-    if(!_gemm_kernel_asm->B_is_pretransposed())
++    if(!params._gemm_kernel_asm->B_is_pretransposed())
+     {
+         ldb            = b->info()->strides_in_bytes().y() / sizeof(TypeInput);
+         multi_stride_b = b->info()->strides_in_bytes().z() / sizeof(TypeInput);
+@@ -498,7 +570,7 @@ void Fallback<TypeInput, TypeOutput, OutputStage>::run(ITensorPack &tensors)
+     {
+         if(c && c->info()->data_type() == DataType::S32)
+         {
+-            _gemm_kernel_asm->set_quantized_bias(reinterpret_cast<const int32_t *>(c->buffer() + c->info()->offset_first_element_in_bytes()), 0);
++            params._gemm_kernel_asm->set_quantized_bias(reinterpret_cast<const int32_t *>(c->buffer() + c->info()->offset_first_element_in_bytes()), 0);
+         }
+ 
+         // Pretranspose B if required
+@@ -513,11 +585,11 @@ void Fallback<TypeInput, TypeOutput, OutputStage>::run(ITensorPack &tensors)
+ 
+             if(_is_b_constant)
+             {
+-                _gemm_kernel_asm->requantize_bias(pretranspose.get()->buffer(), b_ptr, ldb, multi_stride_b);
++                params._gemm_kernel_asm->requantize_bias(pretranspose.get()->buffer(), b_ptr, ldb, multi_stride_b);
+             }
+             else
+             {
+-                _gemm_kernel_asm->pretranspose_B_array(pretranspose.get()->buffer(), b_ptr, ldb, multi_stride_b);
++                params._gemm_kernel_asm->pretranspose_B_array(pretranspose.get()->buffer(), b_ptr, ldb, multi_stride_b);
+             }
+         }
+     }
+@@ -528,9 +600,9 @@ void Fallback<TypeInput, TypeOutput, OutputStage>::run(ITensorPack &tensors)
+     CpuAuxTensorHandler workspace(offset_int_vec(AsmGemmWorkspace), _workspace_info, tensors, false);
+     if(workspace.get()->buffer() != nullptr)
+     {
+-        _gemm_kernel_asm->set_working_space(reinterpret_cast<void *>(workspace.get()->buffer()));
++        params._gemm_kernel_asm->set_working_space(reinterpret_cast<void *>(workspace.get()->buffer()));
+         const unsigned int split_dim   = scheduling_hint.split_dimension();
+-        const unsigned int window_size = _gemm_kernel_asm->get_window_size().total_size();
++        const unsigned int window_size = params._gemm_kernel_asm->get_window_size().total_size();
+         unsigned int       num_threads = NEScheduler::get().num_threads();
+         if(window_size < num_threads)
+         {
+@@ -539,15 +611,81 @@ void Fallback<TypeInput, TypeOutput, OutputStage>::run(ITensorPack &tensors)
+         if(split_dim != IScheduler::split_dimensions_all)
+         {
+             // Make sure the kernel does not expect more threads than we can actually spawn
+-            const unsigned int num_iterations = _optimised_kernel.get()->window().num_iterations(split_dim);
++            const unsigned int num_iterations = params._optimised_kernel.get()->window().num_iterations(split_dim);
+             num_threads                       = std::min(num_iterations, num_threads);
+         }
+-        _gemm_kernel_asm->set_nthreads(num_threads);
++        params._gemm_kernel_asm->set_nthreads(num_threads);
+     }
+ 
+     // Prepare assembly kernel
+     prepare(tensors);
+ 
++    {
++        // prepare for local params
++        // Setup up matrix bias in the assembly kernel, it's just a pointer to matrix C.
++        if(c && c->info()->data_type() == DataType::S32)
++        {
++            params._gemm_kernel_asm->set_quantized_bias(reinterpret_cast<const int32_t *>(c->buffer() + c->info()->offset_first_element_in_bytes()), 0);
++        }
++
++        if(params._gemm_kernel_asm->B_pretranspose_required()) {
++            auto pretranspose = tensors.get_tensor(offset_int_vec(Pretranspose));
++            ARM_COMPUTE_ERROR_ON(pretranspose == nullptr);
++            params._gemm_kernel_asm->set_pretransposed_B_data(pretranspose->buffer());
++        }
++
++        if(_gemm_info.method == AsmConvMethod::Indirect) {
++            const TypeInput *A_ptr          = reinterpret_cast<TypeInput *>(a->buffer());
++            const int        multis         = 1;
++            const int        batches        = a->info()->tensor_shape().total_size_upper(3);
++            const size_t     stride_A       = a->info()->strides_in_bytes().y() / sizeof(TypeInput);
++            const size_t     batch_stride_A = a->info()->strides_in_bytes()[3] / sizeof(TypeInput);
++            const size_t     multi_stride_A = a->info()->strides_in_bytes()[4] / sizeof(TypeInput);
++
++            const size_t output_hw    = _cp.output_height * _cp.output_width;
++            const int    batch_size   = _cp.kernel_height * _cp.kernel_width * output_hw * sizeof(TypeInput);
++            const size_t batch_stride = batch_size / sizeof(TypeInput);
++            const int    multi_size   = batch_size * batches;
++            const size_t multi_stride = multi_size / sizeof(TypeInput);
++
++            for(int64_t m = 0; m < multis; m++)
++            {
++                for(int64_t b = 0; b < batches; b++)
++                {
++                    for(int64_t output_y = 0; output_y < _cp.output_height; output_y++)
++                    {
++                        for(int64_t output_x = 0; output_x < _cp.output_width; output_x++)
++                        {
++                            int64_t output_xy = (output_y * _cp.output_width) + output_x;
++
++                            for(int64_t kernel_y = 0; kernel_y < _cp.kernel_height; kernel_y++)
++                            {
++                                for(int64_t kernel_x = 0; kernel_x < _cp.kernel_width; kernel_x++)
++                                {
++                                    int64_t input_x   = (output_x * _cp.output_stride_w) + kernel_x - _cp.padding_left;
++                                    int64_t input_y   = (output_y * _cp.output_stride_h) + kernel_y - _cp.padding_top;
++                                    int64_t kernel_xy = (kernel_y * _cp.kernel_width) + kernel_x;
++                                    int64_t input_xy  = (input_y * _cp.input_width) + input_x;
++
++                                    if(input_x < 0 || input_x >= _cp.input_width || input_y < 0 || input_y >= _cp.input_height)
++                                    {
++                                        params._indirect_buf.get()[m * multi_stride + b * batch_stride + kernel_xy * output_hw + output_xy] = _indirect_pad.data();
++                                    }
++                                    else
++                                    {
++                                        params._indirect_buf.get()[m * multi_stride + b * batch_stride + kernel_xy * output_hw + output_xy] =
++                                            A_ptr + (m * multi_stride_A + b * batch_stride_A + input_xy * stride_A);
++                                    }
++                                }
++                            }
++                        }
++                    }
++                }
++            }
++        }
++
++    }
++
+     // Setup up matrix bias in the assembly kernel, it's just a pointer to matrix C.
+     TypeOutput *bias = nullptr;
+     if(c && c->info()->data_type() != DataType::S32)
+@@ -564,12 +702,12 @@ void Fallback<TypeInput, TypeOutput, OutputStage>::run(ITensorPack &tensors)
+     }
+ 
+     // Set gemm parameters
+-    _gemm_kernel_asm->set_arrays(in0_ptr, lda, batch_stride_a, multi_stride_a,
++    params._gemm_kernel_asm->set_arrays(in0_ptr, lda, batch_stride_a, multi_stride_a,
+                                  in1_ptr, ldb, multi_stride_b,
+                                  out_ptr, ldd, batch_stride_d, multi_stride_d,
+                                  bias, 0);
+     // Schedule
+-    NEScheduler::get().schedule(_optimised_kernel.get(), scheduling_hint);
++    NEScheduler::get().schedule(params._optimised_kernel.get(), scheduling_hint);
+ }
+ 
+ template <typename TypeInput, typename TypeOutput>

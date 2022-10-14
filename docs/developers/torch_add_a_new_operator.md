@@ -1,12 +1,13 @@
-# How To Support a New Torch Operator
+# How To Add a New Torch Operator
 
 ![Torch-MLIR Architecture](./pics/Torch-MLIR-MHLO.png)
 
-TorchBlade now maps PyTorch workload to MHLO based on [Torch-MLIR](https://github.com/llvm/torch-mlir/).
-Then compile the MHLO modules into executables via BladeDISC compiler.
-The BladeDISC Dev Team is cooperating with the community to add fully
-dynamic shape and production-ready support for Torch-To-Mhlo conversion
-to Torch-MLIR; see RFC: https://github.com/llvm/torch-mlir/issues/999.
+TorchBlade converts PyTorch workloads to MHLO based on [Torch-MLIR](https://github.com/llvm/torch-mlir/).
+Then compile the MHLO modules via BladeDISC compiler.
+
+The BladeDISC Dev Team is cooperating with the community to add Torch-To-Mhlo
+conversion to Torch-MLIR, especially fully dynamic shape features.
+See RFC: https://github.com/llvm/torch-mlir/issues/999.
 We appeal to the community developers interested in joining.
 
 ## To the Developers of Torch-MLIR
@@ -76,7 +77,7 @@ Please add type and shape analsyses when it's missing, see [`shape_analysis.cpp`
 
 ### Step 3: Update Torch-MLIR ODS
 
-It meant the Torch operator is missing from Torch-Dialect of Torch-MLIR.
+It means that the Torch operator is missing from Torch-Dialect of Torch-MLIR.
 if you found an exception raised because of "failed to legalize operation `torch.operator`".
 
 You must add the new operator to Torch-Dialect, see [Torch-MLIR Update ODS](https://github.com/llvm/torch-mlir/wiki/Torch-ops-E2E-implementation#step-2-update-ods).
@@ -92,11 +93,18 @@ There are 2 ways to add lowering:
   + [`TorchToMhlo`](https://github.com/llvm/torch-mlir/tree/708fa346a6cffb9f1548730d77a19cc1c3d1991a/lib/Conversion/TorchToMhlo)
   + [`DiscTorchToMhlo`](https://github.com/alibaba/BladeDISC/blob/main/pytorch_blade/pytorch_blade/torch-mlir/lib/Conversion/TorchToMhlo/DiscTorchToMhlo.cpp)
 
+You can add BladeDISC special Torch operator lowerings to `DiscDecomposeComplexOps` and `DiscTorchToMhlo`.
+In general, it's encouraged to try to add lowerings to the passes in Torch-MLIR.
+
 Please reference to [Torch-MLIR Torch Ops Lowering](https://github.com/llvm/torch-mlir/wiki/Torch-ops-E2E-implementation#step-5-torch-ops-lowering) as well.
 
 ### Step 5: BladeDISC Codegen
 
+In rare cases, BladeDISC will fail to generate high-performant executables for the input MHLO modules.
+To fix them, You can deep dive into the BladeDISC code generation pass pipeline.
 See [A Walkthough of the BladeDISC Pass Pipeline](https://github.com/alibaba/BladeDISC/blob/main/docs/developers/pass_pipeline.md)
+
+Feel free to fire an issue to BladeDISC Dev Team if something blocks you: https://github.com/alibaba/BladeDISC/issues.
 
 ### Step 6: Add a Unit Test
 

@@ -94,15 +94,24 @@ struct QuantDotTransposeConvert
       return failure();
     }
 
-    if (op.weight().getDefiningOp<mhlo::TransposeOp>()) {
+    auto inputTy = op.input().getType().dyn_cast<RankedTensorType>();
+    auto weightTy = op.weight().getType().dyn_cast<RankedTensorType>();
+
+    // This transpose pass can only support dot with rank equal to 2
+    if (inputTy.getRank() != 2 || weightTy.getRank() != 2) {
       return failure();
     }
 
-    auto weightTy = op.weight().getType().dyn_cast<RankedTensorType>();
-    int rank = weightTy.getRank();
+    auto dim_numbers = op.dot_dimension_numbers();
+    SmallVector<int64_t, 4> rhs_perm_check;
+    auto rhs_batching_dims_check = dim_numbers.getRhsBatchingDimensions();
+    bool tp_rhs_check = isNonBatchingTransposeTensorValue(
+        op.weight(), rhs_perm_check,
+        std::unordered_set<int64_t>(rhs_batching_dims_check.begin(),
+                                    rhs_batching_dims_check.end()));
 
-    // This transpose pass can only support dot with rank equal to 2
-    if (rank != 2) {
+    // Match fail if weight is nxk
+    if (tp_rhs_check) {
       return failure();
     }
 
@@ -123,9 +132,8 @@ struct QuantDotTransposeConvert
       return failure();
     }
 
-    auto dim_numbers = op.dot_dimension_numbers();
-    auto lhs_batching_dims = dim_numbers.getLhsBatchingDimensions();
     SmallVector<int64_t, 4> lhs_perm;
+    auto lhs_batching_dims = dim_numbers.getLhsBatchingDimensions();
     bool tp_lhs = isNonBatchingTransposeTensorValue(
         old_lhs, lhs_perm,
         std::unordered_set<int64_t>(lhs_batching_dims.begin(),
@@ -137,10 +145,6 @@ struct QuantDotTransposeConvert
         old_rhs, rhs_perm,
         std::unordered_set<int64_t>(rhs_batching_dims.begin(),
                                     rhs_batching_dims.end()));
-
-    if (!tp_rhs) {
-      return failure();
-    }
 
     std::vector<int64_t> lhs_contracting_dims;
     if (tp_lhs) {

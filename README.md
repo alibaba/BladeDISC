@@ -176,7 +176,7 @@ for PyTorch Users](./docs/quickstart.md#quickstart-for-pytorch-users).
 * [Tutorial: A Walkthough of the BladeDISC Pass Pipeline](./docs/developers/pass_pipeline.md)
 * [Introduction on Runtime Abstraction Layer](./docs/developers/runtime_abstraction_layer.md)
 * [TorchBlade Overview](./docs/developers/bladedisc_torch_overview.md)
-* [Tutorial: How to Add a New Torch Operator Converter](./docs/developers/torch_add_a_new_converter.md)
+* [Tutorial: How to Add a New Torch Operator](./docs/developers/torch_add_a_new_operator.md)
 
 ## Presentations and Talks
 * [Performance optimization practice for dynamic shape AI workloads via a compiler-based approach](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/performance-optimization-practice.pdf)
@@ -213,6 +213,14 @@ blocks, including the MHLO Op definitions, TF to MHLO conversions, and some
 general purpose passes have been upstreamed to mlir-hlo repository. We'll
 continue to work in a close cooperative relationship with mlir-hlo project in
 the longer term.
+
+### Roadmap with Torch-MLIR Project
+
+BladeDISC compiles PyTorch workloads based on [Torch-MLIR](https://github.com/llvm/torch-mlir/).
+The BladeDISC Dev Team is cooperating with the community to add Torch-To-Mhlo conversion
+to Torch-MLIR, especially fully dynamic shape features.
+See RFC: https://github.com/llvm/torch-mlir/issues/999.
+We appeal to the community developers interested in joining.
 
 ## Contact Us
 

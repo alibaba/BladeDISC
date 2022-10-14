@@ -86,32 +86,34 @@ void ral_qconv_s8_s8_s8(
     TAO_VLOG(0) << "params.dilates[0] = " << params.dilates[0];
   }
 
+  auto src_shape = TensorShape(Ci, Iw, Ih, N);
+  auto weights_shape = TensorShape(Ci, Kw, Kh, Co);
+  auto dst_shape = TensorShape(Co, Ow, Oh, N);
+
+  DataLayout data_layout = DataLayout::NHWC;
+  DataType data_type = DataType::QASYMM8_SIGNED;
+  TensorInfo src_info = TensorInfo(src_shape, 1, data_type, data_layout);
+  TensorInfo weights_info =
+      TensorInfo(weights_shape, 1, DataType::QSYMM8_PER_CHANNEL, data_layout);
+  TensorInfo dst_info = TensorInfo(dst_shape, 1, data_type, data_layout);
+
+  const QuantizationInfo src_qinfo = QuantizationInfo();
+  src_info.set_quantization_info(QuantizationInfo(*inputScales.data, 0));
+  std::vector<float> scales(filterScales.data,
+                            filterScales.data + filterScales.sizes[0]);
+  weights_info.set_quantization_info(QuantizationInfo(std::move(scales)));
+  dst_info.set_quantization_info(QuantizationInfo(*outputScales.data, 0));
+
+  arm_compute::Tensor src, weights, dst;
+  src.allocator()->init(src_info);
+  weights.allocator()->init(weights_info);
+  dst.allocator()->init(dst_info);
+  src.allocator()->import_memory(input.data);
+  weights.allocator()->import_memory(kernel.data);
+  dst.allocator()->import_memory(output.data);
+
   auto AclQconvCreator = [&](const arm_compute::ITensorPack* pack) {
     std::shared_ptr<AclConvInfo> info(new AclConvInfo);
-    auto src_shape = TensorShape(Ci, Iw, Ih, N);
-    auto weights_shape = TensorShape(Ci, Kw, Kh, Co);
-    auto dst_shape = TensorShape(Co, Ow, Oh, N);
-
-    DataLayout data_layout = DataLayout::NHWC;
-    DataType data_type = DataType::QASYMM8_SIGNED;
-    TensorInfo src_info = TensorInfo(src_shape, 1, data_type, data_layout);
-    TensorInfo weights_info =
-        TensorInfo(weights_shape, 1, DataType::QSYMM8_PER_CHANNEL, data_layout);
-    TensorInfo dst_info = TensorInfo(dst_shape, 1, data_type, data_layout);
-
-    const QuantizationInfo src_qinfo = QuantizationInfo();
-    src_info.set_quantization_info(QuantizationInfo(*inputScales.data, 0));
-    std::vector<float> scales(filterScales.data,
-                              filterScales.data + filterScales.sizes[0]);
-    weights_info.set_quantization_info(QuantizationInfo(std::move(scales)));
-    dst_info.set_quantization_info(QuantizationInfo(*outputScales.data, 0));
-
-    info->src.allocator()->init(src_info);
-    info->weights.allocator()->init(weights_info);
-    info->dst.allocator()->init(dst_info);
-    info->src.allocator()->import_memory(input.data);
-    info->weights.allocator()->import_memory(kernel.data);
-    info->dst.allocator()->import_memory(output.data);
 
     if (!info->op.validate(
             &src_info, &weights_info, nullptr, &dst_info,
@@ -122,7 +124,7 @@ void ral_qconv_s8_s8_s8(
             WeightsInfo{}, Size2D{params.dilates[1], params.dilates[0]})) {
       ctx->signalError(Context::FAILURE, "fail to validate acl depthwise conv");
     } else {
-      info->op.configure(&info->src, &info->weights, nullptr, &info->dst,
+      info->op.configure(&src, &weights, nullptr, &dst,
                          PadStrideInfo{params.strides[1], params.strides[0],
                                        params.padding_l[1], params.padding_r[1],
                                        params.padding_l[0], params.padding_r[0],
@@ -131,16 +133,16 @@ void ral_qconv_s8_s8_s8(
                          Size2D{params.dilates[1], params.dilates[0]});
     }
     if (pack) info->op.reuse_packed_weight(*pack);
-    info->op.prepare(&info->src, &info->weights, nullptr, &info->dst);
+    info->op.prepare(&src, &weights, nullptr, &dst);
     return info;
   };
 
   std::shared_ptr<AclConvInfo> info;
-  std::shared_ptr<AclConvThreadSafeInfo> thread_safe_info;
+  std::shared_ptr<AclConvThreadSafeInfoV2> thread_safe_info;
   if (isWeightPrePackingEnabled() && params.weight_is_const) {
     std::string unique_name = "tao_ral.cpu.acl_qconv_s8s8s8";
-    auto state = ctx->getOrCreateResource<AclConvState>(
-        unique_name, []() { return new AclConvState; });
+    auto state = ctx->getOrCreateResource<AclConvStateV2>(
+        unique_name, []() { return new AclConvStateV2; });
     auto key = makeConvParamsKey(input, kernel, padding, output, metadata,
                                  kDiscCpuDefaultThreadId);
     auto dynamicKey = makeDynamicShapeConvParamsKey(
@@ -151,11 +153,7 @@ void ral_qconv_s8_s8_s8(
     info = AclQconvCreator(nullptr);
   }
 
-  // TOOD(disc): re-import quantization info when online-quantization is
-  // supported.
-  info->src.allocator()->import_memory(input.data);
-  info->dst.allocator()->import_memory(output.data);
-  info->op.run(&info->src, &info->weights, nullptr, &info->dst);
+  info->op.run(&src, &weights, nullptr, &dst);
 
   timer.Stop();
   if (isProfilingEnabled()) {

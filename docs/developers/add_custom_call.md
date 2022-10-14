@@ -11,9 +11,9 @@ provides an interface to call these customized functions, which is called
 To make it easier for developers to understand, this section uses `TransposeOp`
 as an example to introduce how to add a custom call operator step by step.
 
-### Step1: Registry Operator in RAL
+### Step1: Register Operator in RAL
 
-BladeDISC provides a macro `TAO_RAL_API` to register a custom call operator, to
+BladeDISC provides a macro `TAO_RAL_API` to register a custom call operator. To
 make the code structure clearly, please create a new `transpose_impl.cc` file
 under the directory: `tao_compiler/mlir/xla/ral/context/`:
 
@@ -33,15 +33,15 @@ For the argument list, the first and second ones must be `ExecutionContext` and
 `gpu_stream_handle`, which are used to get the GPU runtime context, the following arguments are
 user-defined.
 
-Please note, `ral_gpu_transpose_2d` function would be called at runtime, so we
-can launch the GPU kernel in the function `LaunchTranspose2DKernel`, usually you
-can add the kernel implementation under the directory
+Please note that `ral_gpu_transpose_2d` function will be called at runtime, so we
+can launch the GPU kernel in the function `LaunchTranspose2DKernel`, Usually you
+should add the kernel implementation to the directory
 `tao_compiler/mlir/xla/ral/context/custom_library/` .
 
 ### Step2: Translate LMHLO Operator to Custom Call Operator
 
-In the BladeDISC pass pipeline, we can convert a lmhlo operator to a custom call
-op via `DispatchOp` in `DiscLowerToLibraryCallPass`, a simple code snippet is as
+In the BladeDISC pass pipeline, it converts a lmhlo operator to a custom call
+op via `DispatchOp` in `DiscLowerToLibraryCallPass`. A simple code snippet is as
 the following:
 
 ``` c++
@@ -59,7 +59,7 @@ rewriter.replaceOpWithNewOp<DispatchOp>(op,
   );
 ```
 
-`ral_gpu_transpose_2d` is the target name that registry in step1.
+`ral_gpu_transpose_2d` is the target name registered in step1.
 
 ### Step3: Add a Unit Test
 

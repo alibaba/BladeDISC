@@ -407,8 +407,8 @@ void ral_gemm(ExecutionContext* ctx, void* stream_handle, MemRefType<InT, 2> A,
 void ral_qgemm(
     ExecutionContext* ctx, void* stream_handle, MemRefType<int8_t, 2> input,
     MemRefType<int8_t, 2> weight, MemRefType<float, 0> inputScales,
-    MemRefType<int32_t, 0> inputZeroPoints, MemRefType<float, 1> weightScales,
-    MemRefType<int32_t, 1> weightZeroPoints, MemRefType<float, 0> resultScales,
+    MemRefType<int32_t, 0> inputZeroPoints, MemRefType<float, 0> weightScales,
+    MemRefType<int32_t, 0> weightZeroPoints, MemRefType<float, 0> resultScales,
     MemRefType<int32_t, 0> resultZeroPoints, MemRefType<int8_t, 2> result,
     bool tp_a, bool tp_b, bool weight_is_const) {
   if (isEmptyMemref(input) || isEmptyMemref(weight) || isEmptyMemref(result)) {

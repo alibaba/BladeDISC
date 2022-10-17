@@ -10,6 +10,7 @@
 # limitations under the License.
 
 import torch
+import copy
 import logging
 import os
 from shutil import copyfile
@@ -139,9 +140,11 @@ def optimize_module(
                     is_load = True
             
             if not is_load:
-                optimized_block = optimize(block, dummy_inputs, optimize_config)
+                optimize_inputs = copy.deepcopy(dummy_inputs)
+                optimized_block = optimize(block, optimize_inputs, optimize_config)
 
-            block_output = optimized_block(*dummy_inputs)
+            optimize_inputs = copy.deepcopy(dummy_inputs)
+            block_output = optimized_block(*optimize_inputs)
             if isinstance(block_output, torch.Tensor):
                 dummy_inputs = tuple([block_output] + list(dummy_inputs[1:]))
             else:

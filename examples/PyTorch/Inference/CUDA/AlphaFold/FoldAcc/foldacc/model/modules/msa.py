@@ -67,7 +67,7 @@ class MSAAttention(nn.Module):
             )
         
         self.mha = Attention(
-            self.c_in, self.c_in, self.c_in, self.c_hidden, self.no_heads
+            self.c_in, self.c_in, self.c_in, self.c_hidden, self.no_heads, inf=inf
         )
 
     def _chunk(self, 
@@ -99,7 +99,7 @@ class MSAAttention(nn.Module):
                 m.shape[:-3] + (n_seq, n_res),
             ).to(device=m.device, dtype=m.dtype)
 
-        mask_bias = (self.inf * (mask - 1))[..., :, None, None, :]
+        mask_bias = (self.mha.inf * (mask - 1))[..., :, None, None, :]
 
         if (self.pair_bias and
             z is not None and

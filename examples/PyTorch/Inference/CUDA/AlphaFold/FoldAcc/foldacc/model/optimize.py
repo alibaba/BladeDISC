@@ -104,7 +104,8 @@ def optimize_module(
     enable_disc=True, 
     enable_amp=True,
     enable_trace=True,
-    dtype=torch.float, 
+    dtype=torch.float,
+    trace_check_tolerance=1e-5,
     save_dir="tmp",
     load_dir="tmp",
     name="evoformer",
@@ -114,6 +115,7 @@ def optimize_module(
         if optimize_config is None:
             optimize_config = generate_config(enable_disc=enable_disc, enable_amp=enable_amp, 
                 enable_trace=enable_trace, dtype=dtype, device=device)
+        optimize_config.trace_check_tolerance = trace_check_tolerance
 
         if hasattr(model, "blocks"):
             org_blocks = model.blocks

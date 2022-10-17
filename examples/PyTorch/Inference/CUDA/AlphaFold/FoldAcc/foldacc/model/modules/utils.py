@@ -19,10 +19,29 @@ import torch.nn as nn
 
 @torch.jit.script
 def get_padding_size(length, dap_size):
-    if length % dap_size == 0:
-        return torch.tensor(0).to(device=length.device, dtype=length.dtype)
+    return (int(length / dap_size) + int((length % dap_size)!=0)) * dap_size - length
+
+@torch.jit.script
+def padding_feat(feat:torch.Tensor, ps1:torch.Tensor, ps2:torch.Tensor, is_mask:bool=False):
+    if ps1 == 0 and ps2 == 0:
+        return feat
     else:
-        return (int(length / dap_size) + torch.tensor(1, dtype=torch.int32)) * dap_size - length
+        if is_mask:
+            feat = torch.nn.functional.pad(feat, (0, int(ps1), 0, int(ps2)))
+        else:
+            feat = torch.nn.functional.pad(feat, (0, 0, 0, int(ps1), 0, int(ps2)))
+        return feat
+
+@torch.jit.script
+def split_feat(feat, ps1, ps2, has_batch=False):
+    if ps1 == 0 and ps2 == 0:
+        return feat
+    else:
+        if has_batch:
+            feat = feat[:, :-ps1, :-ps2]
+        else:
+            feat = feat[:-ps1, :-ps2]
+        return feat
 
 def permute_final_dims(tensor, inds):
     zero_index = -1 * len(inds)

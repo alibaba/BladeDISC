@@ -11,6 +11,7 @@
 
 import logging
 import types
+import copy
 import torch
 
 from foldacc.optimization.utils import (
@@ -18,7 +19,8 @@ from foldacc.optimization.utils import (
     convert_dummy_inputs,
     wrap_model_inputs,
     patch_model_forward,
-    print_logger
+    print_logger,
+    check_tensor
 )
 
 logger = logging.getLogger("foldacc")
@@ -89,7 +91,7 @@ def convert_chunk_layer(module, inputs, config, device):
     trace_varnames = trace_func.__code__.co_varnames[:trace_func.__code__.co_argcount]
     traced_inputs = find_trace_inputs(trace_varnames, trace_input_names, func_inputs)
     traced_inputs = convert_dummy_inputs(list(traced_inputs), device)
-    traced_module = torch.jit.trace(module, traced_inputs)
+    traced_module = torch.jit.trace(module, traced_inputs, check_trace=False)
 
     # script while loop func
     script_module = script_class(traced_module)
@@ -110,6 +112,8 @@ def torchscript_optimize(model, inputs, optimize_config):
     if not optimize_config.enable_trace:
         return model
 
+    org_model = copy.deepcopy(model)
+
     chunking_modules = optimize_config.chunking_modules
 
     module_inputs = {}
@@ -128,7 +132,8 @@ def torchscript_optimize(model, inputs, optimize_config):
             module_old_forward[name] = old_forward
     
     # forward model to obtain inputs of convert modules
-    _ = model(*inputs)
+    inputs_clone = copy.deepcopy(inputs)
+    org_output = model(*inputs_clone)
 
     # convert module has chunk layer to torchscript
     for name, module, config in convert_modules:
@@ -145,9 +150,17 @@ def torchscript_optimize(model, inputs, optimize_config):
     # convert model to torchscript
     inputs = convert_dummy_inputs(list(inputs), optimize_config.device)
 
-    model = torch.jit.trace(model, inputs)
+    inputs_clone = copy.deepcopy(inputs)
+    traced_model = torch.jit.trace(model, inputs_clone, check_trace=False)
+
+    inputs_clone = copy.deepcopy(inputs)
+    traced_output = traced_model(*inputs_clone)
+
+    if not check_tensor(traced_output, org_output, optimize_config.trace_check_tolerance):
+        print_logger(logger.info, f"torchscript results check failed")
+        return org_model
 
     # convert input to torch.tensor
-    model = wrap_model_inputs(model)
+    model = wrap_model_inputs(traced_model)
 
     return model

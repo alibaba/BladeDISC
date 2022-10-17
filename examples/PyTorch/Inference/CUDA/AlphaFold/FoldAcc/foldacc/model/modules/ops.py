@@ -300,6 +300,7 @@ class Attention(nn.Module):
         no_heads: int,
         gating: bool = True,
         o_bias: bool = True,
+        inf: float = 1e9,
     ):
         super(Attention, self).__init__()
 
@@ -310,6 +311,7 @@ class Attention(nn.Module):
         self.no_heads = no_heads
         self.gating = gating
         self.o_bias = o_bias
+        self.inf = inf
 
         self.linear_q = Linear(self.c_q, self.c_hidden * self.no_heads, bias=False, init="glorot")
         self.linear_k = Linear(self.c_k, self.c_hidden * self.no_heads, bias=False, init="glorot")

@@ -19,6 +19,8 @@ import torch
 from foldacc.optimization.utils import convert_dummy_inputs, wrap_model_inputs
 from foldacc.optimization.distributed.convert import convert_save_model, convert_load_model
 
+logger = logging.getLogger("foldacc")
+
 try:
     import torch_blade
     enable_disc = True
@@ -26,10 +28,11 @@ except:
     logger.debug("Import BladeDisc Failed!")
     enable_disc = False
 
-logger = logging.getLogger("foldacc")
-
 def bladedisc_optimize(model, inputs, optimize_config):
     if not optimize_config.enable_bladedisc or not optimize_config.enable_trace:
+        return model
+
+    if not isinstance(model, torch.jit.ScriptModule):
         return model
 
     if enable_disc and optimize_config.precision != torch.bfloat16:

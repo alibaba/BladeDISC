@@ -1,7 +1,7 @@
 # DISC Optimization Example for PyTorch AlphaFold Model.
 
 This repository provides a tool(FoldAcc) and scripts showing how to optimize a AlphaFold model for PyTorch with DISC/AMP(auto mix precision)/Tensor Parallel.
-The AlphaFold model is constructed with [Uni-Fold](https://github.com/dptech-corp/Uni-Fold).
+The AlphaFold model is constructed with [Uni-Fold](https://github.com/dptech-corp/Uni-Fold) or [OpenFold](https://github.com/aqlaboratory/openfold).
 
 FoldAcc is an independent tool and maybe it will be moved out into a separate repository in the future.
 
@@ -15,9 +15,11 @@ To build and install `torch_blade` package, please refer to
 
 We recommend installing BladeDISC with Docker `bladedisc/bladedisc:latest-runtime-torch1.12.0-cu113`.
 
-### Installing Uni-Fold
+### Installing Uni-Fold/OpenFold
 
 Please refer to [Uni-Fold](https://github.com/dptech-corp/Uni-Fold) to install UniFold.
+
+Please refer to [OpenFold](https://github.com/aqlaboratory/openfold) to install OpenFold.
 
 ### Installing FoldAcc
 
@@ -35,6 +37,14 @@ You can run the example with the following command, the detail arguments are sam
 
 ```bash
 torchrun --nproc_per_node=2 unifold_inference.py ...
+```
+
+### Accelerate OpenFold Inference
+
+You can run the example with the following command, the detail arguments are same as OpenFold:
+
+```bash
+torchrun --nproc_per_node=2 openfold_inference.py ...
 ```
 
 ## Quickstart

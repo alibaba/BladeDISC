@@ -24,7 +24,7 @@ from foldacc.model.modules.msa import (
     EvoformerBlockCore
 )
 from foldacc.model.modules.ops import DropoutRowwise, Linear
-from foldacc.model.modules.utils import get_padding_size, chunk_layer
+from foldacc.model.modules.utils import get_padding_size, chunk_layer, padding_feat, split_feat
 
 class EvoformerBlock(nn.Module):
     def __init__(self,
@@ -122,27 +122,23 @@ class EvoformerBlock(nn.Module):
         else:
             dap_size = 1
 
-        seq_length = pair_mask.shape[-1]
-        padding_size = get_padding_size(torch.tensor(seq_length), torch.tensor(dap_size))
-
         msa_length = msa_mask.shape[-2]
-        msa_padding_size = get_padding_size(torch.tensor(msa_length), torch.tensor(dap_size))
+        msa_padding_size = get_padding_size(msa_length, dap_size)
+
+        seq_length = pair_mask.shape[-1]
+        padding_size = get_padding_size(seq_length, dap_size)
 
         if self.scatter_input:
             if dap_size != 1:
-                if padding_size != 0 or msa_padding_size != 0:
-                    m = torch.nn.functional.pad(m, (0, 0, 0, padding_size, 0, msa_padding_size))
-                if padding_size != 0:
-                    z = torch.nn.functional.pad(z, (0, 0, 0, padding_size, 0, padding_size))
+                m = padding_feat(m, padding_size, msa_padding_size)
+                z = padding_feat(z, padding_size, padding_size)
 
                 m = scatter(m, dim=0)
                 z = scatter(z, dim=0)
 
         if dap_size != 1:
-            if padding_size != 0 or msa_padding_size != 0:
-                msa_mask = torch.nn.functional.pad(msa_mask, (0, padding_size, 0, msa_padding_size))
-            if padding_size != 0:
-                pair_mask = torch.nn.functional.pad(pair_mask, (0, padding_size, 0, padding_size))
+            msa_mask = padding_feat(msa_mask, padding_size, msa_padding_size, is_mask=True)
+            pair_mask = padding_feat(pair_mask, padding_size, padding_size, is_mask=True)
 
         msa_mask_row = scatter(msa_mask, dim=0)
 
@@ -177,12 +173,9 @@ class EvoformerBlock(nn.Module):
             if dap_size != 1:
                 m = gather(m, dim=0, dtype=self.comm_dtype)
                 z = gather(z, dim=0, dtype=self.comm_dtype)
-                
-                if padding_size != 0:
-                    m = m[:, :-padding_size]
-                    z = z[:-padding_size, :-padding_size]
-                if msa_padding_size != 0:
-                    m = m[:-msa_padding_size]
+
+                m = split_feat(m, msa_padding_size, padding_size)
+                z = split_feat(z, padding_size, padding_size)
 
         return m, z
 

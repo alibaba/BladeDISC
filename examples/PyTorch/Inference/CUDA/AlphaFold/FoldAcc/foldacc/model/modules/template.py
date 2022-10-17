@@ -24,7 +24,7 @@ from foldacc.model.modules.ops import (
     DropoutColumnwise,
     Transition
 )
-from foldacc.model.modules.utils import permute_final_dims, get_padding_size, chunk_layer
+from foldacc.model.modules.utils import permute_final_dims, get_padding_size, chunk_layer, padding_feat, split_feat
 from foldacc.model.modules.triangle import (
     TriangleMultiplicationOutgoing,
     TriangleMultiplicationIncoming,
@@ -70,7 +70,8 @@ class TemplatePointwiseAttention(nn.Module):
             self.c_hidden,
             self.no_heads,
             gating=False,
-            o_bias=attn_o_bias
+            o_bias=attn_o_bias,
+            inf=inf
         )
 
     def _chunk(self,
@@ -111,12 +112,11 @@ class TemplatePointwiseAttention(nn.Module):
             dap_size = 1
 
         seq_length = z.shape[-3]
-        padding_size = get_padding_size(torch.tensor(seq_length), torch.tensor(dap_size))
+        padding_size = get_padding_size(seq_length, dap_size)
 
         if dap_size != 1:
-            if padding_size != 0:
-                t = torch.nn.functional.pad(t, (0, 0, 0, padding_size, 0, padding_size))
-                z = torch.nn.functional.pad(z, (0, 0, 0, padding_size, 0, padding_size))
+            t = padding_feat(t, padding_size, padding_size)
+            z = padding_feat(z, padding_size, padding_size)
 
             if self.scatter_input:
                 t = scatter(t, dim=1)
@@ -125,7 +125,7 @@ class TemplatePointwiseAttention(nn.Module):
         if template_mask is None:
             template_mask = t.ones(t.shape[:-3]).to(t.dtype).cuda()
 
-        bias = self.inf * (template_mask[..., None, None, None, None, :] - 1)
+        bias = self.mha.inf * (template_mask[..., None, None, None, None, :] - 1)
 
         # [*, N_res, N_res, 1, C_z]
         z = z.unsqueeze(-2)
@@ -151,9 +151,8 @@ class TemplatePointwiseAttention(nn.Module):
         if dap_size != 1:
             if self.gather_output:
                 o = gather(o, dim=0, dtype=self.comm_dtype)
-                
-                if padding_size != 0:
-                    o = o[:-padding_size, :-padding_size]
+
+                o = split_feat(o, padding_size, padding_size)
 
         if has_batch_dim:
             o = o.unsqueeze(0)
@@ -275,16 +274,14 @@ class TemplatePairStackBlock(nn.Module):
             dap_size = 1
 
         seq_length = mask.shape[-1]
-        padding_size = get_padding_size(torch.tensor(seq_length), torch.tensor(dap_size))
+        padding_size = get_padding_size(seq_length, dap_size)
 
         if not self.low_mem:
             if dap_size != 1:
-                if padding_size != 0:
-                    mask = torch.nn.functional.pad(mask, (0, padding_size, 0, padding_size))
+                mask = padding_feat(mask, padding_size, padding_size, is_mask=True)
 
                 if self.scatter_input:
-                    if padding_size != 0:
-                        z = torch.nn.functional.pad(z, (0, 0, 0, padding_size, 0, padding_size))
+                    z = padding_feat(z, padding_size, padding_size)
                     z = scatter(z, dim=1)
         
         z = self.forward_loop(z, mask, chunk_size)
@@ -293,9 +290,8 @@ class TemplatePairStackBlock(nn.Module):
             if dap_size != 1:
                 if self.gather_output:
                     z = gather(z, dim=1, dtype=self.comm_dtype)
-            
-                    if padding_size != 0:
-                        z = z[:, :-padding_size, :-padding_size]
+
+                    z = split_feat(z, padding_size, padding_size, has_batch=True)
 
         return z
     
@@ -312,11 +308,10 @@ class TemplatePairStackBlock(nn.Module):
             if dap_size != 1:
                 seq_length = single_mask.shape[-1]
                 padding_size = get_padding_size(torch.tensor(seq_length), torch.tensor(dap_size))
-                if padding_size != 0:
-                    single_mask = torch.nn.functional.pad(single_mask, (0, padding_size, 0, padding_size))
+                single_mask = padding_feat(single_mask, padding_size, padding_size, is_mask=True)
 
                 if self.scatter_input:
-                    single = torch.nn.functional.pad(single, (0, 0, 0, padding_size, 0, padding_size))
+                    single = padding_feat(single, padding_size, padding_size)
                     single = scatter(single, dim=0)
 
             single_mask_row = scatter(single_mask, dim=0)
@@ -404,8 +399,7 @@ class TemplatePairStackBlock(nn.Module):
             if dap_size != 1:
                 if self.gather_output:
                     single = gather(single, dim=0, dtype=self.comm_dtype)
-                    if padding_size != 0:
-                        single = single[:-padding_size, :-padding_size]
+                    single = split_feat(single, padding_size, padding_size)
 
         return single
 

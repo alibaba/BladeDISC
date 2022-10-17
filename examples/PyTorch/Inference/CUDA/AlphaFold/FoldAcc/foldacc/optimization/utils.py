@@ -54,7 +54,7 @@ def register_forward_hook(model, forward_hook):
 
 def check_tensor(outputs, target, tolerance=1e-3):
     if isinstance(outputs, torch.Tensor):
-        diff = torch.mean(1.0*((outputs - target) < tolerance))
+        diff = torch.mean(1.0*(torch.abs(outputs - target) < tolerance))
         if diff < 1.0:
             return False
         return True

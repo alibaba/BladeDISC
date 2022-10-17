@@ -74,6 +74,7 @@ def optimize_unifold(
     enable_amp=True,
     enable_trace=True,
     dtype=torch.half,
+    trace_check_tolerance=1e-5,
     save_dir=None,
     load_dir=None,
     device="0"
@@ -134,7 +135,8 @@ def optimize_unifold(
 
     evoformer = optimize_module(evoformer, dummy_inputs=dummy_inputs, 
         enable_disc=enable_disc, enable_amp=enable_amp, enable_trace=enable_trace, 
-        dtype=dtype, save_dir=save_dir, load_dir=load_dir, name="evoformer", device=device)
+        dtype=dtype, trace_check_tolerance=trace_check_tolerance,
+        save_dir=save_dir, load_dir=load_dir, name="evoformer", device=device)
 
     model.evoformer = evoformer
 
@@ -185,7 +187,8 @@ def optimize_unifold(
 
         extra_msa = optimize_module(extra_msa, dummy_inputs=dummy_inputs, 
             enable_disc=enable_disc, enable_amp=enable_amp, enable_trace=enable_trace, 
-            dtype=dtype, save_dir=save_dir, load_dir=load_dir, name="extra_msa", device=device)
+            dtype=dtype, trace_check_tolerance=trace_check_tolerance,
+            save_dir=save_dir, load_dir=load_dir, name="extra_msa", device=device)
 
         model.extra_msa_stack = extra_msa
 
@@ -231,7 +234,8 @@ def optimize_unifold(
 
         template_pair_stack = optimize_module(template_pair_stack, dummy_inputs=dummy_inputs,
             enable_disc=enable_disc, enable_amp=enable_amp, enable_trace=enable_trace, 
-            dtype=dtype, save_dir=save_dir, load_dir=load_dir,name="template_pair_stack", device=device)
+            dtype=dtype, trace_check_tolerance=trace_check_tolerance,
+            save_dir=save_dir, load_dir=load_dir,name="template_pair_stack", device=device)
 
         model.template_pair_stack = template_pair_stack
 
@@ -263,7 +267,8 @@ def optimize_unifold(
 
             template_pointwise_att = optimize_module(template_pointwise_att, dummy_inputs=dummy_inputs, 
                 enable_disc=enable_disc, enable_amp=enable_amp, enable_trace=enable_trace, 
-                dtype=dtype, save_dir=save_dir, load_dir=load_dir, name="template_pointwise_att", device=device)
+                dtype=dtype, trace_check_tolerance=trace_check_tolerance,
+                save_dir=save_dir, load_dir=load_dir, name="template_pointwise_att", device=device)
 
             model.template_pointwise_att = template_pointwise_att
     

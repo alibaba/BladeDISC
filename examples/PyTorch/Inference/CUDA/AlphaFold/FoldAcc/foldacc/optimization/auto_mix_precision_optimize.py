@@ -10,7 +10,7 @@
 # limitations under the License.
 
 import logging
-
+import copy
 import torch
 
 from foldacc.optimization.utils import (
@@ -74,7 +74,8 @@ def auto_mix_precision_optimize(model, inputs, optimize_config):
                 register_forward_hook(module, forward_hook)
                 low_precision_modules.extend([m for n, m in module.named_modules()])
 
-        org_outputs = model(*inputs)
+        dummy_input = copy.deepcopy(inputs)
+        org_outputs = model(*dummy_input)
 
         for name, module in use_module.items():
             old_forward = module.forward
@@ -88,7 +89,8 @@ def auto_mix_precision_optimize(model, inputs, optimize_config):
                 module.eps = 1e-4
             print_logger(logger.debug, f"cast {name} to {precision}")
 
-            outputs = model(*inputs)
+            dummy_input = copy.deepcopy(inputs)
+            outputs = model(*dummy_input)
             
             if not check_tensor(outputs, org_outputs, optimize_config.check_tolerance):
                 # fallback to float32

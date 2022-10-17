@@ -193,7 +193,7 @@ class TriangleAttention(nn.Module):
         self.linear = Linear(c_in, self.no_heads, bias=False, init="normal")
 
         self.mha = Attention(
-            self.c_in, self.c_in, self.c_in, self.c_hidden, self.no_heads
+            self.c_in, self.c_in, self.c_in, self.c_hidden, self.no_heads, inf=inf
         )
 
     def _chunk(self,
@@ -230,7 +230,7 @@ class TriangleAttention(nn.Module):
         x = self.layer_norm(x)
 
         # [*, I, 1, 1, J]
-        mask_bias = (self.inf * (mask - 1))[..., :, None, None, :]
+        mask_bias = (self.mha.inf * (mask - 1))[..., :, None, None, :]
 
         # [*, H, I, J]
         triangle_bias = self.linear(x)

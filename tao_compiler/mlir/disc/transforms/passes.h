@@ -60,6 +60,8 @@ std::unique_ptr<OperationPass<FuncOp>> createDiscConvRewriter(int cc_major = 8,
 std::unique_ptr<OperationPass<FuncOp>> createDiscQuantizedConvRewriter(
     int cc_major = 8, int cc_minor = 0);
 
+std::unique_ptr<OperationPass<FuncOp>> createDiscQuantizedDotRewriter();
+
 // Rewrite and decompose mhlo ops
 std::unique_ptr<OperationPass<FuncOp>>
 createDiscMhloDecompositionRewriterPass();

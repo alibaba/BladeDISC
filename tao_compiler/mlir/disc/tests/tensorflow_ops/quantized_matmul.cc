@@ -54,4 +54,23 @@ TEST(TFQuantziedMatMul, PARTIAL_DYNAMIC_SHAPE_NHWC_I8_PER_CHANNEL) {
       /*expect_output_vals*/ {output}));
 }
 
+// Comment qgemm int8 GPU test since it only works when blade_gemm
+// is on
+
+// TEST(TFQuantziedMatMul, PARTIAL_DYNAMIC_SHAPE_NHWC_I8_PER_CHANNEL) {
+//   std::vector<float> inputs(32 * 64, 2.0);
+//   tensorflow::Tensor output(tensorflow::DataType::DT_FLOAT, {32, 128});
+//   auto datas = output.flat<float>();
+//   for (int i = 0; i < output.NumElements(); ++i) datas(i) = 128.0;
+//   EXPECT_TRUE(feature_test_main(
+//       /*mlir_file_path*/ c_ft_path + "quantized_matmul_p_i8_per_tensor.mlir",
+//       /*backend_types*/ {BackendType::kCuda},
+//       /*num_inputs*/ 1,
+//       /*num_outputs*/ 1,
+//       /*input_descriptors*/ {"32x64xf32_X"},
+//       /*output_descriptors*/ {"f32_X"},
+//       /*input_vals*/ {inputs},
+//       /*expect_output_vals*/ {output}));
+// }
+
 }  // namespace mlir_test

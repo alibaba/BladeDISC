@@ -38,9 +38,15 @@ def split_feat(feat, ps1, ps2, has_batch=False):
         return feat
     else:
         if has_batch:
-            feat = feat[:, :-ps1, :-ps2]
+            if ps1 != 0:
+                feat = feat[:, :-ps1]
+            if ps2 != 0:
+                feat = feat[:, :, :-ps2]
         else:
-            feat = feat[:-ps1, :-ps2]
+            if ps1 != 0:
+                feat = feat[:-ps1]
+            if ps2 != 0:
+                feat = feat[:, :-ps2]
         return feat
 
 def permute_final_dims(tensor, inds):

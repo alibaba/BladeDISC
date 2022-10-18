@@ -54,6 +54,7 @@ jobs:
         PATTERNS: |
           *
           **/*
+          .github/**/*
           !*.md
           !**/*.md
     - name: Build Dev Docker
@@ -83,7 +84,7 @@ jobs:
           -w /disc \
           disc-dev-cpu ${{ inputs.exec_command }}
     - name: Deploy Docker Image
-      if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+      if: (env.GIT_DIFF || github.event_name != 'pull_request') && ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
       env:
         ALIYUN_DOCKER_USERNAME: ${{ secrets.ALIYUN_DOCKER_USERNAME }}
         ALIYUN_DOCKER_PASSWORD: ${{ secrets.ALIYUN_DOCKER_PASSWORD }}

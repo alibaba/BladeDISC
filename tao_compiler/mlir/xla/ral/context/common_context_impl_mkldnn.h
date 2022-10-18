@@ -765,6 +765,12 @@ using AclConvThreadSafeInfo =
 using AclConvState =
     AclOpThreadSafeState<ConvParamsKey, arm_compute::DISCNEConvolutionLayer>;
 
+using AclConvThreadSafeInfoV2 =
+    AclOpThreadSafeInfoV2<ConvParamsKey, arm_compute::DISCNEConvolutionLayer>;
+using AclConvStateV2 =
+    AclOpThreadSafeState<ConvParamsKey, arm_compute::DISCNEConvolutionLayer,
+                         AclConvThreadSafeInfoV2>;
+
 using AclQGemmInfo = AclOpInfo<arm_compute::DISCNEGEMMLowpMatrixMultiplyCore>;
 using AclQGemmThreadSafeInfo =
     AclOpThreadSafeInfo<GEMMParamsKey,

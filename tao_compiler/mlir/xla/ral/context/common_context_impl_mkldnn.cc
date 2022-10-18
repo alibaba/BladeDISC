@@ -398,28 +398,27 @@ void runAclConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
     TAO_VLOG(0) << "params.dilates[0] = " << params.dilates[0];
   }
 
+  arm_compute::DataType data_type = arm_compute::DataType::F32;
+  arm_compute::DataLayout data_layout = arm_compute::DataLayout::NHWC;
+  auto src_shape = arm_compute::TensorShape(Ci, Iw, Ih, N);
+  auto weights_shape = arm_compute::TensorShape(Ci, Kw, Kh, Co);
+  auto dst_shape = arm_compute::TensorShape(Co, Ow, Oh, N);
+
+  auto src_info = arm_compute::TensorInfo(src_shape, 1, data_type, data_layout);
+  auto weights_info =
+      arm_compute::TensorInfo(weights_shape, 1, data_type, data_layout);
+  auto dst_info = arm_compute::TensorInfo(dst_shape, 1, data_type, data_layout);
+
+  arm_compute::Tensor src, weights, dst;
+  src.allocator()->init(src_info);
+  weights.allocator()->init(weights_info);
+  dst.allocator()->init(dst_info);
+  src.allocator()->import_memory(input.data);
+  weights.allocator()->import_memory(kernel.data);
+  dst.allocator()->import_memory(output.data);
+
   auto AclConvCreator = [&](const arm_compute::ITensorPack* pack) {
     std::shared_ptr<AclConvInfo> info(new AclConvInfo);
-
-    arm_compute::DataType data_type = arm_compute::DataType::F32;
-    arm_compute::DataLayout data_layout = arm_compute::DataLayout::NHWC;
-    auto src_shape = arm_compute::TensorShape(Ci, Iw, Ih, N);
-    auto weights_shape = arm_compute::TensorShape(Ci, Kw, Kh, Co);
-    auto dst_shape = arm_compute::TensorShape(Co, Ow, Oh, N);
-
-    auto src_info =
-        arm_compute::TensorInfo(src_shape, 1, data_type, data_layout);
-    auto weights_info =
-        arm_compute::TensorInfo(weights_shape, 1, data_type, data_layout);
-    auto dst_info =
-        arm_compute::TensorInfo(dst_shape, 1, data_type, data_layout);
-
-    info->src.allocator()->init(src_info);
-    info->weights.allocator()->init(weights_info);
-    info->dst.allocator()->init(dst_info);
-    info->src.allocator()->import_memory(input.data);
-    info->weights.allocator()->import_memory(kernel.data);
-    info->dst.allocator()->import_memory(output.data);
 
     bool use_fast_math =
         useAclAMP() &&
@@ -445,7 +444,7 @@ void runAclConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
       ctx->signalError(Context::FAILURE, "fail to validate acl depthwise conv");
     } else {
       info->op.configure(
-          &info->src, &info->weights, nullptr, &info->dst,
+          &src, &weights, nullptr, &dst,
           arm_compute::PadStrideInfo{params.strides[1], params.strides[0],
                                      params.padding_l[1], params.padding_r[1],
                                      params.padding_l[0], params.padding_r[0],
@@ -455,17 +454,17 @@ void runAclConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
           arm_compute::ActivationLayerInfo{}, use_fast_math);
     }
     if (pack) info->op.reuse_packed_weight(*pack);
-    info->op.prepare(&info->src, &info->weights, nullptr, &info->dst);
+    info->op.prepare(&src, &weights, nullptr, &dst);
 
     return info;
   };
 
   std::shared_ptr<AclConvInfo> info;
-  std::shared_ptr<AclConvThreadSafeInfo> thread_safe_info;
+  std::shared_ptr<AclConvThreadSafeInfoV2> thread_safe_info;
   if (isWeightPrePackingEnabled() && params.weight_is_const) {
     std::string unique_name = "tao_ral.cpu.acl_conv";
-    auto state = ctx->getOrCreateResource<AclConvState>(
-        unique_name, []() { return new AclConvState; });
+    auto state = ctx->getOrCreateResource<AclConvStateV2>(
+        unique_name, []() { return new AclConvStateV2; });
     auto key = makeConvParamsKey(input, kernel, padding, output, metadata,
                                  kDiscCpuDefaultThreadId);
     auto dynamicKey = makeDynamicShapeConvParamsKey(
@@ -476,9 +475,7 @@ void runAclConvKernel(ExecutionContext* ctx, opaque_t /*stream_handle*/,
     info = AclConvCreator(nullptr);
   }
 
-  info->src.allocator()->import_memory(input.data);
-  info->dst.allocator()->import_memory(output.data);
-  info->op.run(&info->src, &info->weights, nullptr, &info->dst);
+  info->op.run(&src, &weights, nullptr, &dst);
 
   timer.Stop();
   if (isProfilingEnabled()) {

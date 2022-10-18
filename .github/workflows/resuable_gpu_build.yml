@@ -54,12 +54,20 @@ jobs:
     # Runs a single command using the runners shell
     - name: Checkout
       uses: actions/checkout@v2.4.0
+    - uses: technote-space/get-diff-action@v6
+      with:
+        PATTERNS: |
+          *
+          **/*
+          !*.md
+          !**/*.md
     - name: pre-commit
       shell: bash
       run: |
         export PATH=$HOME/.local/bin:$PATH
         pre-commit run -a --show-diff-on-failure
     - name: Build Dev Docker
+      if: env.GIT_DIFF || github.event_name != 'pull_request'
       run: |
         set -e
         git submodule sync
@@ -71,6 +79,7 @@ jobs:
           -f docker/dev/Dockerfile .
 
     - name: Build And Test
+      if: env.GIT_DIFF || github.event_name != 'pull_request'
       run: |
         set -e
         nvidia-docker run --rm -t --user $(id -u):$(id -g) \
@@ -84,7 +93,7 @@ jobs:
           disc-dev-${{ inputs.cuda_version }} ${{ inputs.exec_command }}
  
     - name: Build And Test TF Blade
-      if: ${{ inputs.tf_blade_command }}
+      if: (env.GIT_DIFF || github.event_name != 'pull_request') && ${{ inputs.tf_blade_command }} 
       run: |
         set -e
         nvidia-docker run --rm -t --user $(id -u):$(id -g) \

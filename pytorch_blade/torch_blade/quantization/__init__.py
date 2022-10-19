@@ -10,8 +10,6 @@
 # limitations under the License.
 
 from torch_blade.config import Config
-from torch_blade.mlir import _DISC_NAME
-from torch_blade.tensorrt import _TRT_NAME
 
 try:
     import torch_blade._torch_blade._quantization as _quantization
@@ -46,6 +44,10 @@ def _process_aten_fake_quant(c_module):
     # are done.
     # For DISC backend, aten::fake_quant will be replaced with our custom fake_quant op.
     # And all quantization info needed by DISC will be stored in it.
+
+    # avoid circular import
+    from torch_blade.mlir import _DISC_NAME
+    from torch_blade.tensorrt import _TRT_NAME
     cfg = Config.get_current_context_or_new()
     backend = cfg.optimization_pipeline
     if backend == _TRT_NAME:

@@ -12,8 +12,8 @@
 import torch
 import torch_blade._torch_blade._tensorrt as _trt
 import torch_blade.onnx_backends.onnx_symbolic_opset9_patches  # noqa
-from torch_blade import Config
 from torch_blade.clustering.support_fusion_group import supported_node_fusion
+from torch_blade.config import Config
 from torch_blade.onnx_backends import backend_testbed
 from torch_blade.onnx_backends.backend_conversion import build_onnx_engine
 from torch_blade.quantization.prepare_data import get_calib_file_for_each_group

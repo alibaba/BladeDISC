@@ -40,7 +40,7 @@ should add the kernel implementation to the directory
 
 ### Step2: Translate LMHLO Operator to Custom Call Operator
 
-In the BladeDISC pass pipeline, it converts a lmhlo operator to a custom call
+In the BladeDISC pass pipeline, a lmhlo operator is converted to a custom call
 op via `DispatchOp` in `DiscLowerToLibraryCallPass`. A simple code snippet is as
 the following:
 

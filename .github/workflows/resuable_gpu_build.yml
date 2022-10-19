@@ -94,7 +94,7 @@ jobs:
           disc-dev-${{ inputs.cuda_version }} ${{ inputs.exec_command }}
  
     - name: Build And Test TF Blade
-      if: (env.GIT_DIFF || github.event_name != 'pull_request') && ${{ inputs.tf_blade_command }} 
+      if: (env.GIT_DIFF || github.event_name != 'pull_request') && ${{ inputs.tf_blade_command }} != ''
       run: |
         set -e
         nvidia-docker run --rm -t --user $(id -u):$(id -g) \

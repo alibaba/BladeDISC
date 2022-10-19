@@ -10,7 +10,6 @@
 # limitations under the License.
 
 import unittest
-# from torch_blade.tensorrt import is_available
 try:
     import torch_blade._torch_blade._tensorrt
     trt_compiled = True

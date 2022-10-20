@@ -51,6 +51,23 @@ void dumpFusionPattern(FusionPattern& pattern) {
   }
 }
 
+bool envValueIsTrue(const std::string& envName) {
+  static const char* env = getenv(envName.c_str());
+  if (!env) return false;
+  std::string envStr = env;
+  std::transform(envStr.begin(), envStr.end(), envStr.begin(),
+                 [](unsigned char c) { return std::tolower(c); });
+  return envStr == "true" || envStr == "1" || envStr == "on";
+}
+
+bool enableEagerTransposeFusion() {
+  return envValueIsTrue("DISC_CPU_ENABLE_EAGER_TRANSPOSE_FUSION");
+}
+
+bool enableTransposeLibraryCall() {
+  return envValueIsTrue("DISC_GPU_ENABLE_TRANSPOSE_LIBRARY_CALL");
+}
+
 DenseSet<Operation*> NoLoaderUser(SmallVectorImpl<Operation*>& ops) {
   SmallVector<Operation*, 4> worklist;
   DenseSet<Operation*> has_loader_ops;
@@ -392,6 +409,15 @@ bool isRank2ColReduction(Operation* op) {
   int rank = op->getOperand(0).getType().cast<MemRefType>().getRank();
   auto dimensions = reduce_op.getDimensions().getValues<int64_t>();
   return ((*dimensions.begin() == 0) && (rank == 2));
+}
+
+// Return true if this op is a rank-2 transpose
+bool isRank2Transpose(Operation* op) {
+  auto transpose_op = dyn_cast<lmhlo::TransposeOp>(op);
+  if (!transpose_op) return false;
+
+  int rank = op->getOperand(0).getType().cast<MemRefType>().getRank();
+  return rank == 2;
 }
 
 // Returns true if the op is supported by the downstreaming fusion codegen
@@ -1112,15 +1138,6 @@ class BaseCpuFusionStrategy : public BaseFusionStrategy {
   virtual StringRef getName() override { return "BaseCpuFusionStrategy"; }
 };
 
-bool enableEagerTransposeFusion() {
-  static const char* env = getenv("DISC_CPU_ENABLE_EAGER_TRANSPOSE_FUSION");
-  if (!env) return false;
-  std::string envStr = env;
-  std::transform(envStr.begin(), envStr.end(), envStr.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
-  return envStr == "true" || envStr == "1";
-}
-
 bool BaseCpuFusionStrategy::isFusible(Operation* op) {
   if (isa<lmhlo::ReshapeOp, lmhlo::DynamicReshapeOp>(op)) {
     return useShapeConstraintIR();
@@ -1308,6 +1325,9 @@ bool BaseGpuFusionStrategy::isFusible(Operation* op) {
   if (isa<lmhlo::ReduceOp>(op) &&
       (!isRank2RowReduction(op) && !isRank2ColReduction(op)))
     return false;
+
+  if (isa<lmhlo::TransposeOp>(op) && isRank2Transpose(op)) return false;
+
   return BaseFusionStrategy::isFusible(op);
 }
 

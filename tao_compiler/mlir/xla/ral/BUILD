@@ -430,6 +430,62 @@ cc_library(
     alwayslink = 1,
 )
 
+tf_gpu_kernel_library(
+    name = "transpose_gpu_lib",
+    srcs = [
+        "context/custom_library/transpose_gpu.cu.cc",
+        "context/custom_library/tf_transpose.cu.h",
+    ],
+    hdrs = [
+        "context/custom_library/transpose.h",
+        "context/custom_library/dimensions.h",
+        "context/custom_library/gpu_helper.h"
+    ],
+    includes = [
+        "",
+    ],
+    copts = if_cuda_is_configured([
+        "-DGOOGLE_CUDA=1"
+    ]),
+    deps = if_cuda_is_configured([
+        "@cub_archive//:cub",
+        "@local_config_cuda//cuda:cuda_headers",
+    ]) + if_rocm_is_configured([
+        "@local_config_rocm//rocm:rocm_headers",
+    ]),
+    #alwayslink = 1,
+)
+
+cc_library(
+    name = "transpose",
+    srcs = [
+        "context/transpose_impl.cc",
+    ],
+    deps = [
+        ":ral_context",
+        ":ral_gpu_driver",
+        ":ral_cpu_driver",
+        ":ral_logging",
+        ":context_util",
+        ":transpose_gpu_lib",
+        "//tensorflow/core:lib",
+        "//tensorflow/core:stream_executor_headers_lib",
+        "@com_google_absl//absl/strings",
+    ] + if_cuda_is_configured([
+        "//tensorflow/stream_executor:cuda_platform",
+        "@local_config_cuda//cuda:cuda_driver",
+        "@local_config_cuda//cuda:cuda_headers",
+    ]) + if_rocm_is_configured([
+        "//tensorflow/stream_executor:rocm_platform",
+        "//tensorflow/stream_executor/rocm:rocm_driver",
+        "@local_config_rocm//rocm:rocm_headers",
+    ]),
+    copts = if_cuda_is_configured([
+        "-DGOOGLE_CUDA=1"
+    ]),
+    alwayslink = 1,
+)
+
 cc_library(
     name = "init_stream_executor",
     srcs = [
@@ -508,6 +564,7 @@ disc_cc_library(
         ":ral_library",
         ":ral_logging",
         ":random",
+        ":transpose",
         "//tensorflow/core:lib",
         "@com_google_absl//absl/strings",
         "@curl",
@@ -558,6 +615,7 @@ tf_gpu_kernel_library(
     ],
     hdrs = [
         "context/custom_library/dynamic_sort.h",
+        "context/custom_library/gpu_helper.h"
     ],
     copts = if_rocm_is_configured([
         "-DTENSORFLOW_USE_ROCM=1",
@@ -676,6 +734,7 @@ cuda_library(
     ],
     hdrs = [
         "context/custom_library/dynamic_sort.h",
+        "context/custom_library/gpu_helper.h"
     ],
     copts = [
         "-DDISC_BUILD_FROM_TF_BRIDGE"
@@ -766,6 +825,59 @@ cc_library(
     alwayslink = 1,
 )
 
+cuda_library(
+    name = "transpose_gpu_lib_bridge",
+    srcs = [
+        "context/custom_library/transpose_gpu.cu.cc",
+        "context/custom_library/tf_transpose.cu.h",
+    ],
+    hdrs = [
+        "context/custom_library/transpose.h",
+        "context/custom_library/dimensions.h",
+        "context/custom_library/gpu_helper.h"
+    ],
+    copts = if_rocm_is_configured([
+        "-DTENSORFLOW_USE_ROCM=1",
+        "-x rocm",
+    ]) + cuda_default_copts(),
+    deps = [
+        "@local_config_tf//:libtensorflow_framework",
+        "@local_config_tf//:tf_header_lib",
+    ] + if_cuda_is_configured([
+        "@cub_archive//:cub",
+        "@local_config_cuda//cuda:cuda_headers",
+    ]) + if_rocm_is_configured([
+        "@local_config_rocm//rocm:rocm_headers",
+    ]),
+)
+
+cc_library(
+    name = "transpose_bridge",
+    srcs = [
+        "context/transpose_impl.cc",
+    ],
+    copts = if_rocm_is_configured([
+        "-DTENSORFLOW_USE_ROCM=1",
+        "-x rocm",
+    ]) + cuda_default_copts(),
+    deps = [
+        ":ral_context",
+        ":ral_gpu_driver",
+        ":ral_cpu_driver",
+        ":ral_logging",
+        ":context_util",
+        ":transpose_gpu_lib_bridge",
+        "@local_config_tf//:libtensorflow_framework",
+        "@local_config_tf//:tf_header_lib",
+    ] + if_cuda_is_configured([
+        "@local_config_cuda//cuda:cuda_driver",
+        "@local_config_cuda//cuda:cuda_headers",
+    ]) + if_rocm_is_configured([
+        "@local_config_rocm//rocm:rocm_headers",
+    ]),
+    alwayslink = 1,
+)
+
 cc_library(
     name = "ral_bridge",
     deps = [
@@ -774,6 +886,7 @@ cc_library(
     ] + if_cuda_or_rocm([
         ":dynamic_sort_bridge",
         ":random_bridge",
+        ":transpose_bridge",
     ]),
     alwayslink = 1,
 )

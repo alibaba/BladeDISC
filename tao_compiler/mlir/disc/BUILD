@@ -432,6 +432,47 @@ cc_library(
     ],
     alwayslink = 1,
 )
+cc_library(
+    name = "rng_rewriter",
+    srcs = ["transforms/rng_rewriter.cc"],
+    hdrs = ["transforms/passes.h"],
+    includes = [
+        "tensorflow/compiler/xla/mlir_hlo/include",
+        "."
+    ],
+    deps = [
+        ":disc_util",
+        ":pass_details",
+        "//tensorflow/compiler/mlir/disc:rng_uniform_custom_call",
+        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+cc_library(
+    name = "quantized_dot_rewriter",
+    srcs = ["transforms/quantized_dot_rewriter.cc"],
+    hdrs = ["transforms/passes.h"],
+    includes = [
+        "tensorflow/compiler/xla/mlir_hlo/include",
+        "."
+    ],
+    deps = [
+        "@com_google_absl//absl/strings",
+        ":pass_details",
+        ":placement_utils",
+        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Transforms",
+        "//tensorflow/core:lib",
+    ],
+    alwayslink = 1,
+)
 
 cc_library(
     name = "quantized_dot_rewriter",
@@ -486,6 +527,7 @@ cc_library(
     deps = [
         ":disc_util",
         ":pass_details",
+        ":rng_rewriter",
         "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",

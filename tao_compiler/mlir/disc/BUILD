@@ -452,27 +452,6 @@ cc_library(
     ],
     alwayslink = 1,
 )
-cc_library(
-    name = "quantized_dot_rewriter",
-    srcs = ["transforms/quantized_dot_rewriter.cc"],
-    hdrs = ["transforms/passes.h"],
-    includes = [
-        "tensorflow/compiler/xla/mlir_hlo/include",
-        "."
-    ],
-    deps = [
-        "@com_google_absl//absl/strings",
-        ":pass_details",
-        ":placement_utils",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
-        "@llvm-project//mlir:FuncDialect",
-        "@llvm-project//mlir:IR",
-        "@llvm-project//mlir:Pass",
-        "@llvm-project//mlir:Transforms",
-        "//tensorflow/core:lib",
-    ],
-    alwayslink = 1,
-)
 
 cc_library(
     name = "quantized_dot_rewriter",

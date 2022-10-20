@@ -17,10 +17,10 @@ from torch_blade.pass_manager import _optimize_common
 __all__ = ['optimize']
 
 
-def _recursive_optimize(model, static_shape):
+def _recursive_optimize(model):
     cfg = Config.get_current_context_or_new()
     if isinstance(model, torch.jit.ScriptModule):
-        optimized_c_module = _optimize_common(model._c, static_shape)
+        optimized_c_module = _optimize_common(model._c)
         model._reconstruct(optimized_c_module)
         optimizaiton_func = OptPipelines.pipelines[cfg.optimization_pipeline]
         optimizaiton_func(model)
@@ -29,17 +29,17 @@ def _recursive_optimize(model, static_shape):
             "TensorRT Dynamic shape is currently not supported for models" \
             "that can not been exported to one torchscript."
         for _, m in model.named_children():
-            _recursive_optimize(m, static_shape)
+            _recursive_optimize(m)
 
 @torch.no_grad()
-def _optimize(model, allow_tracing, model_inputs, static_shape):
+def _optimize(model, allow_tracing, model_inputs):
     optimized_model = export(model, allow_tracing, model_inputs)
 
     assert isinstance(optimized_model, torch.nn.Module),\
         'Currently, input module of optimization process must be in type of torch.nn.Module.'
 
     # todo(bohua.cbh): Support more kinds of optimization algorithms.
-    _recursive_optimize(optimized_model, static_shape)
+    _recursive_optimize(optimized_model)
 
     return optimized_model
 
@@ -78,7 +78,10 @@ def _static_optimize(model, allow_tracing=None, model_inputs=None):
 
     """
     assert model_inputs is not None, "Static shape specific optimization need model inputs"
-    return _optimize(model, allow_tracing, model_inputs, static_shape=True)
+    cfg = Config.get_current_context_or_new().clone()
+    cfg.enable_static_shape = True
+    with cfg:
+        return _optimize(model, allow_tracing, model_inputs)
 
 
 @torch.no_grad()
@@ -105,4 +108,4 @@ def optimize(model, allow_tracing=None, model_inputs=None):
     return:
         optimized_model(torch.nn.Module): Optimized PyTorch model.
     """
-    return _optimize(model, allow_tracing, model_inputs, static_shape=False)
+    return _optimize(model, allow_tracing, model_inputs)

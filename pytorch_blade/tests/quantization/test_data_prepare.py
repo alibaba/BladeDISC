@@ -23,7 +23,7 @@ from torch_blade.tensorrt import is_available as is_tensorrt_available
 
 
 def prepare_for_data_collect(model):
-    optimized_c_module = _optimize_common(model._c, static_shape=False)
+    optimized_c_module = _optimize_common(model._c)
     model._reconstruct(optimized_c_module)
     graph = model._c.forward.graph
     unsupported = tensorrt.get_unsupported_nodes(graph)

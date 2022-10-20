@@ -308,10 +308,10 @@ def _jit_pass_clean_script(graph):
     torch._C._jit_pass_dce(graph)
 
 
-def _optimize_common(c_module, static_shape=False):
-
+def _optimize_common(c_module):
     is_training = c_module.hasattr("training") and c_module.training
     cfg = Config.get_current_context_or_new()
+    static_shape = cfg.enable_static_shape
     if is_training and cfg.enable_int8:
         logger.error("If do quantization, the model must in eval mode ")
     if cfg.enable_int8:

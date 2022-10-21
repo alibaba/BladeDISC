@@ -112,6 +112,7 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "aten::sum",
       "aten::ScalarImplicit",
       "aten::t",
+      "aten::tanh",
       "aten::tensor",
       "aten::to",
       "aten::to.dtype",

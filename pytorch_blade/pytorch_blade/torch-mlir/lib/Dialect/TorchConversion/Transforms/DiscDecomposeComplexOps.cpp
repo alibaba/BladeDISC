@@ -15,6 +15,7 @@
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
 #include "torch-mlir/Dialect/Torch/Utils/TorchUpstream.h"
+#include "torch-mlir/Dialect/Torch/Utils/Utils.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
@@ -33,6 +34,43 @@ using namespace mlir::torch::Torch;
 using namespace mlir::torch::TorchConversion;
 
 namespace {
+// Helper to create a tensor filled with the given scalar. Scalar would be
+// converted the to the element type of the given tensor type.
+static Value createInitTensor(
+    PatternRewriter& rewriter,
+    Location loc,
+    Type resultType,
+    Value scalar,
+    Value sizeList) {
+  Value noneVal = rewriter.create<ConstantNoneOp>(loc);
+  return rewriter.create<AtenFullOp>(
+      loc,
+      resultType,
+      sizeList,
+      scalar,
+      /*dtype=*/noneVal,
+      /*layout=*/noneVal,
+      /*device=*/noneVal,
+      /*memory_format=*/noneVal);
+}
+
+// Helper to create a rank 0 tensor filled with the given `scalar`. `scalar`
+// would be converted to the element type of the given `inputType`.
+static Value createRank0Tensor(
+    PatternRewriter& rewriter,
+    Location loc,
+    BaseTensorType inputType,
+    Value scalar) {
+  SmallVector<int64_t> sizes;
+  Type rank0TensorTy = inputType.getWithSizesAndDtype(
+      makeArrayRef(sizes), inputType.getOptionalDtype());
+  Value dimList = rewriter.create<PrimListConstructOp>(
+      loc,
+      Torch::ListType::get(Torch::IntType::get(inputType.getContext())),
+      ValueRange{});
+  return createInitTensor(rewriter, loc, rank0TensorTy, scalar, dimList);
+}
+
 template <typename AtenOpT>
 class ConvertAtenOp : public OpConversionPattern<AtenOpT> {
  public:
@@ -51,9 +89,26 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   auto name = op.name();
-  if ("aten._autocast_to_reduced_precision" == name) {
-    rewriter.replaceOpWithNewOp<TensorStaticInfoCastOp>(
-        op, op.getResult(0).getType(), op.getOperand(0));
+  if (std::string("aten._autocast_to_reduced_precision") == name) {
+    auto outTy = op.getResult(0).getType();
+    BaseTensorType tensorType = outTy.template dyn_cast<BaseTensorType>();
+    auto dtype = getDtypeIntValueForType(rewriter, loc, tensorType.getDtype());
+    bool cudaEnable = false;
+    if (matchPattern(op.getOperand(1), m_TorchConstantBool(&cudaEnable)))
+      dtype = op.getOperand(3); // if cuda_enable, dtype = op.cuda_dtype()
+    bool cpuEnable = false;
+    if (matchPattern(op.getOperand(2), m_TorchConstantBool(&cpuEnable)))
+      dtype = op.getOperand(4); // if cpu_enable , dtype = op.cpu_dtype()
+    Value constantNone = rewriter.create<ConstantNoneOp>(loc);
+    Value constantTrue = rewriter.create<ConstantBoolOp>(loc, true);
+    rewriter.replaceOpWithNewOp<AtenToDtypeOp>(
+        op,
+        outTy,
+        op.getOperand(0),
+        dtype,
+        /*non-blocking*/ constantTrue,
+        /*copy*/ constantTrue,
+        /*memomry format*/ constantNone);
     return success();
   }
   return failure();
@@ -112,6 +167,20 @@ LogicalResult ConvertAtenOp<AtenMaskedFillTensorOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   rewriter.replaceOpWithNewOp<AtenWhereSelfOp>(
       op, op.getType(), op.mask(), op.value(), op.self());
+  return success();
+}
+
+template <>
+LogicalResult ConvertAtenOp<AtenPowTensorScalarOp>::matchAndRewrite(
+    AtenPowTensorScalarOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  auto resType = op.getType().cast<BaseTensorType>();
+  Value expTensor = createRank0Tensor(rewriter, loc, resType, op.exponent());
+
+  rewriter.replaceOpWithNewOp<AtenPowTensorTensorOp>(
+      op, op.getType(), op.self(), expTensor);
   return success();
 }
 
@@ -257,28 +326,31 @@ class DiscDecomposeComplexOpsPass
     target.addLegalDialect<Torch::TorchDialect>();
 
     RewritePatternSet patterns(context);
-    patterns.add<ConvertAtenOp<OperatorOp>>(context);
+    auto opIsDynamicallyLegal = [&](OperatorOp op) {
+      if (std::string("aten._autocast_to_reduced_precision") == op.name()) {
+        return false;
+      }
+      return true;
+    };
+
     // Won't mark OperatorOp as illegal, some custom operator may remain
     // unconverted.
-    target.addLegalOp<OperatorOp>();
+    target.addDynamicallyLegalOp<OperatorOp>(opIsDynamicallyLegal);
+    patterns.add<ConvertAtenOp<OperatorOp>>(context);
 
-    patterns.add<ConvertAtenOp<AtenHardtanhOp>>(context);
-    target.addIllegalOp<AtenHardtanhOp>();
+#define INSERT_ATENOP_PATTERN(AtenOp) \
+  target.addIllegalOp<AtenOp>();      \
+  patterns.add<ConvertAtenOp<AtenOp>>(context)
 
-    patterns.add<ConvertAtenOp<AtenNativeDropoutOp>>(context);
-    target.addIllegalOp<AtenNativeDropoutOp>();
+    INSERT_ATENOP_PATTERN(AtenBatchNormOp);
+    INSERT_ATENOP_PATTERN(AtenHardtanhOp);
+    INSERT_ATENOP_PATTERN(AtenMaskedFillScalarOp);
+    INSERT_ATENOP_PATTERN(AtenMaskedFillTensorOp);
+    INSERT_ATENOP_PATTERN(AtenNativeDropoutOp);
+    INSERT_ATENOP_PATTERN(AtenNllLossForwardOp);
+    INSERT_ATENOP_PATTERN(AtenPowTensorScalarOp);
 
-    patterns.add<ConvertAtenOp<AtenNllLossForwardOp>>(context);
-    target.addIllegalOp<AtenNllLossForwardOp>();
-
-    patterns.add<ConvertAtenOp<AtenMaskedFillScalarOp>>(context);
-    target.addIllegalOp<AtenMaskedFillScalarOp>();
-
-    patterns.add<ConvertAtenOp<AtenMaskedFillTensorOp>>(context);
-    target.addIllegalOp<AtenMaskedFillTensorOp>();
-
-    patterns.add<ConvertAtenOp<AtenBatchNormOp>>(context);
-    target.addIllegalOp<AtenBatchNormOp>();
+#undef INSERT_ATENOP_PATTERN
 
     if (failed(applyPartialConversion(
             getOperation(), target, std::move(patterns)))) {

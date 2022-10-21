@@ -67,7 +67,7 @@ class TestDiscUnaryOps(DiscTestCase):
     def test_tanh(self):
         @torch.jit.script
         def tanh_func(x):
-            return -x
+            return torch.tanh(x)
 
         self._test_unary_ops(tanh_func)
 

@@ -14,6 +14,7 @@ import os
 import errno
 import subprocess
 import sys
+import torch
 import venv
 
 from common_setup import running_on_ci, remote_cache_token, which
@@ -41,6 +42,16 @@ def _symlink_force(target, link_name):
 
 
 class BazelBuild(TorchBladeBuild):
+
+    def pybind11_cflags(self):
+        # see https://github.com/pytorch/pytorch/blob/fe87ae692f813934d1a74d000fd1e3b546c27ae2/torch/utils/cpp_extension.py#L515
+        common_cflags = []
+        for pname in ["COMPILER_TYPE", "STDLIB", "BUILD_ABI"]:
+            pval = getattr(torch._C, f"_PYBIND11_{pname}")
+            if pval is not None:
+                common_cflags.append(f'-DPYBIND11_{pname}=\\"{pval}\\"')
+        return common_cflags
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.targets = [
@@ -64,6 +75,7 @@ class BazelBuild(TorchBladeBuild):
             "--action_env CC={}".format(which("gcc")),
             "--action_env CXX={}".format(which("g++")),
         ]
+
         remote_cache = remote_cache_token()
         if remote_cache:
             self.disc_base_opts += ["--remote_cache={}".format(remote_cache)]
@@ -77,7 +89,7 @@ class BazelBuild(TorchBladeBuild):
             "--copt=-DPYTORCH_MINOR_VERSION={}".format(torch_minor_version),
             "--copt=-DTORCH_BLADE_CUDA_VERSION={}".format(self.cuda_version),
             "--action_env TORCH_BLADE_TORCH_INSTALL_PATH={}".format(self.torch_dir),
-        ]
+        ] + ['--copt={}'.format(cflag) for cflag in self.pybind11_cflags()]
 
         if self.torch_major_version >= 1 and self.torch_minor_version >= 12:
             self.torch_extra_opts.append("--config=torch_ltc_disc_backend")

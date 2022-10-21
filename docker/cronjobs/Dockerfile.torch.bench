@@ -11,12 +11,12 @@ RUN apt-get update -y && \
         gnupg \
         wget && \
     rm -rf /var/lib/apt/lists/*
-RUN wget -qO - https://developer.download.nvidia.com/devtools/repos/ubuntu2004/amd64/nvidia.pub | apt-key add - && \
-    echo "deb https://developer.download.nvidia.com/devtools/repos/ubuntu2004/amd64/ /" >> /etc/apt/sources.list.d/nsight.list && \
-    apt-get update -y && \
+RUN apt-get update -y && \
+    wget -q https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/nsys/nsight-systems-2022.4.1_2022.4.1.21-1_amd64.deb \
+        -O /tmp/nsight-systems-2022.4.1_2022.4.1.21-1_amd64.deb && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        nsight-systems-2022.2.1 && \
-    rm -rf /var/lib/apt/lists/* 
-ENV PATH="/opt/nvidia/nsight-systems/2022.2.1/bin:${PATH}"
+        /tmp/nsight-systems-2022.4.1_2022.4.1.21-1_amd64.deb && \
+    rm -rf /var/lib/apt/lists/* /tmp/nsight-systems-2022.4.1_2022.4.1.21-1_amd64.deb
+ENV PATH="/opt/nvidia/nsight-systems/2022.4.1/bin:${PATH}"
 
 RUN python3 -m pip install virtualenv

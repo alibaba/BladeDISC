@@ -11,7 +11,8 @@ RUN apt-get update -y && \
         gnupg \
         wget && \
     rm -rf /var/lib/apt/lists/*
-RUN wget https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/nsys/nsight-systems-2022.4.1_2022.4.1.21-1_amd64.deb && \
+RUN apt-get update -y && \
+    wget -q https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com/download/nsys/nsight-systems-2022.4.1_2022.4.1.21-1_amd64.deb && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
         ./nsight-systems-2022.4.1_2022.4.1.21-1_amd64.deb && \
     rm -rf /var/lib/apt/lists/* 

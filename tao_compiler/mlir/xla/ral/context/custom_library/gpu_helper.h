@@ -15,6 +15,16 @@
 #include "absl/container/inlined_vector.h"
 #include "absl/types/variant.h"
 
+#if GOOGLE_CUDA
+#include <cuda_runtime.h>
+using gpuStream_t = cudaStream_t;
+#elif TENSORFLOW_USE_ROCM
+#include <hip/hip_runtime.h>
+using cudaError = int;
+using gpuStream_t = hipStream_t;
+#define cudaGetLastError hipGetLastError
+#endif
+
 namespace tao {
 namespace ral {
 

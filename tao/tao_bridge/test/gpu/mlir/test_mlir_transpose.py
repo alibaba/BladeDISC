@@ -55,7 +55,6 @@ class TestTranspose(MlirTestCase):
             self._check_launch_op(fn, "TaoMlirLaunch")
         else:
             self._check_launch_op(fn, "DiscLaunch")
-        self.assertTrue(False)
 
 
 if __name__ == "__main__":

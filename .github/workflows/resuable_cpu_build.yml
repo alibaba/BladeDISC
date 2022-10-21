@@ -49,7 +49,16 @@ jobs:
     # Runs a single command using the runners shell
     - name: Checkout
       uses: actions/checkout@v2.4.0
+    - uses: technote-space/get-diff-action@v6
+      with:
+        PATTERNS: |
+          *
+          **/*
+          .github/**/*
+          !*.md
+          !**/*.md
     - name: Build Dev Docker
+      if: env.GIT_DIFF || github.event_name != 'pull_request'
       run: |
         set -e
         git submodule sync
@@ -62,6 +71,7 @@ jobs:
           ${{ inputs.extra_build_args }} \
           -f docker/dev/Dockerfile .
     - name: Build And Test
+      if: env.GIT_DIFF || github.event_name != 'pull_request'
       run: |
         set -e
         docker run --rm -t --user $(id -u):$(id -g) \

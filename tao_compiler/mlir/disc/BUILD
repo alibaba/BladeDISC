@@ -487,7 +487,6 @@ cc_library(
     deps = [
         ":disc_util",
         ":pass_details",
-        ":rng_rewriter",
         "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//mlir:FuncDialect",
         "@llvm-project//mlir:IR",

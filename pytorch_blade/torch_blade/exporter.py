@@ -45,7 +45,7 @@ def _erase_input_concrete_types(graph):
         inp_typ = input.type()
         dim = inp_typ.dim()
         if isinstance(dim, int):
-            input.setType(inp_typ.with_sizes([-1]*dim))
+            set_tensor_shape(input, [-1] * dim)
 
 def _set_annotate_args(s_module, annotations):
     graph = s_module._c.forward.graph
@@ -70,6 +70,11 @@ def _script_module_preprocess(s_module, inputs, input_dims=[]):
     # by tracing with auxiliary inputs.
     _record_shape_information(s_module, inputs)
     if cfg.enable_static_shape:
+        return
+
+    from torch_blade.mlir import _DISC_NAME
+    # shape annotations for DISC
+    if cfg.optimization_pipeline != _DISC_NAME:
         return
     if cfg.annotate_args:
         _set_annotate_args(s_module, cfg.annotate_args)

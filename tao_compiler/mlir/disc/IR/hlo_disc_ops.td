@@ -91,6 +91,33 @@ def HLODISC_CustomCallOp: HLODISC_ShapedInterfaceOp<"custom_call", []> {
   let results = (outs Variadic<HLO_TensorOrIndexTensor>);
 }
 
+// Models the behavior of the second version BladeDISC custom call.
+// TODO(disc): Merge with the old version once the refactor is done.
+def HLODISC_CustomCallV2Op: HLODISC_Op<"custom_call_v2", []> {
+  let summary = "CustomCallV2 operator";
+  let description = [{
+    A custom call invokes code external to BladeDISC. The `args` are passed to the
+    external code, and the external code is expected to produce a result of the
+    given type. The exact mechanism is backend-specific. For example, in the CPU
+    backend, a call instruction is emitted which targets a symbol with the name
+    `call_target_name`.
+  }];
+  let arguments = (ins
+    Variadic<HLO_TensorOrIndexTensor>:$args,
+    StrAttr:$call_target_name,
+    DictionaryAttr:$custom_attrs,
+    DefaultValuedAttr<BoolAttr, "false">:$has_side_effect,
+    DefaultValuedAttr<StrAttr, "">:$device,
+    DefaultValuedAttr<StrAttr, "">:$input_placements,
+    DefaultValuedAttr<StrAttr, "">:$output_placements,
+    DefaultValuedAttr<StrAttr, "">:$input_layouts,
+    DefaultValuedAttr<StrAttr, "">:$output_layouts,
+    DefaultValuedAttr<StrAttr, "">:$expected_input_layouts,
+    DefaultValuedAttr<StrAttr, "">:$expected_output_layouts
+  );
+  let results = (outs Variadic<HLO_TensorOrIndexTensor>);
+}
+
 def HLO_FakeQuantOp: HLODISC_Op<"fake_quant", [NoSideEffect]> {
   let summary = "FakeQuant operator";
   let description = [{

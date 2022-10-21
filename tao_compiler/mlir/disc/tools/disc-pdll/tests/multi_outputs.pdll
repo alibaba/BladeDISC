@@ -1,0 +1,46 @@
+
+/// Pre-defined custom call prototypes 
+///
+/// const std::string kDefaultHelperFunctionDeclarations = R"pdll(
+///   Rewrite PackValue_1(tag : Attr, v0 : Value) -> ValueRange;
+///   Rewrite PackValue_2(tag : Attr, v0 : Value, v1 : Value) -> ValueRange;
+///   Rewrite UnpackValue_1(v : ValueRange) -> (Value);
+///   Rewrite UnpackValue_2(v : ValueRange) -> (Value, Value);
+///   Rewrite CreateCustomCall(tag : Attr, inputs : ValueRange, outputs : ValueRange) -> (op: Op, new_outputs : ValueRange);
+///   Rewrite SetAttr(op : Op, key : Attr, value : Attr);
+///   Rewrite SetCustomAttr(op : Op, key : Attr, value : Attr);
+/// )pdll";
+
+// A new Pattern
+Pattern TFFusedConvRelu {
+  /// match phase: define the pattern
+  let data_format_attr : Attr;
+  let dilations_attr : Attr;
+  let padding_attr : Attr;
+  let strides_attr : Attr;
+  let conv = op<tf.Conv2D>(input : Value, weights : Value) { data_format = data_format_attr, dilations = dilations_attr, padding = padding_attr, strides = strides_attr };
+  let relu = op<tf.Relu>(conv.0);
+
+  /// rewrite phase
+  rewrite relu with {
+    /// 1. create custom call op
+    let inputs = PackValue_2(attr<"\"in\"">, input, weights);
+    let outputs = PackValue_2(attr<"\"out\"">, conv.0, relu.0);
+    let infos = CreateCustomCall(attr<"\"op\"">, inputs, outputs);
+
+    /// 2. set attrs that are used by bladedisc.
+    SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"disc.custom_call.fused_conv_relu\"">);
+    SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"cpu,cpu\"">);
+    SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"cpu\"">);
+
+    /// 3. set attrs that are directly passed to the custom call kernel.
+    SetCustomAttr(infos.op, attr<"\"data_format\"">, data_format_attr);
+    SetCustomAttr(infos.op, attr<"\"dilation\"">, dilations_attr);
+    SetCustomAttr(infos.op, attr<"\"padding\"">, padding_attr);
+    SetCustomAttr(infos.op, attr<"\"strides\"">, strides_attr);
+
+    let rs = UnpackValue_2(infos.new_outputs);
+    replace conv with rs.0;
+    replace relu with rs.1;
+  };
+}

@@ -25,6 +25,7 @@ limitations under the License.
 //   of one op for different devices and different element types. For example,
 //   we may have GEMM ops with different element types.
 
+#include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
@@ -36,7 +37,9 @@ limitations under the License.
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Location.h"
 #include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/Matchers.h"
 #include "mlir/IR/Operation.h"
+#include "mlir/IR/PatternMatch.h"
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "tensorflow/compiler/mlir/disc/IR/custom_call_base.h"
@@ -463,6 +466,60 @@ Value getRootMemRefIfSafe(Value memref) {
   return rootMemRef;
 }
 
+struct TransposeConverter : public OpRewritePattern<lmhlo::TransposeOp> {
+  using OpRewritePattern<lmhlo::TransposeOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(lmhlo::TransposeOp op,
+                                PatternRewriter& rewriter) const override {
+    auto permutation = op.getPermutation().getValues<int64_t>();
+    int rank = permutation.size();
+    if (rank != 2 && rank != 3) return failure();
+    // only rewriter custom library when switch 1 and 2 dimensions of
+    // a 3d tensor, that means permute = [0, 2, 1]
+    if (rank == 3 && permutation[1] != 2 && permutation[2] != 1)
+      return failure();
+    bool on_gpu = placement_utils::isGpuMemRef(op->getOperand(0));
+    // TODO: support other device
+    if (!on_gpu) return failure();
+    Location loc = op.getLoc();
+
+    Value ctx = GetContextValueFromFunctionArguments(op);
+    if (!ctx) {
+      return op->emitOpError()
+             << "the first argument of the function is not ral context type.";
+    }
+    Value stream_handle = GetDefaultStreamHandle(op, rewriter);
+
+    SmallVector<Value, 5> newOperands{stream_handle};
+
+    // input
+    newOperands.push_back(op->getOperand(0));
+
+    // permute value
+    Type permute_type = rewriter.getI32Type();
+    Value permute_value = rewriter.create<memref::AllocOp>(
+        loc, MemRefType::get(
+                 {rank}, rewriter.getI32Type(), MemRefLayoutAttrInterface(),
+                 StringAttr::get(op->getContext(), placement_utils::kCpu)));
+
+    for (auto&& en : llvm::enumerate(permutation)) {
+      Value value =
+          rewriter.create<arith::ConstantIntOp>(loc, en.value(), permute_type);
+      Value offset = rewriter.create<arith::ConstantIndexOp>(loc, en.index());
+      SmallVector<Value, 1> ivs(1, offset);
+      rewriter.create<memref::StoreOp>(loc, value, permute_value, ivs);
+    }
+    newOperands.push_back(permute_value);
+
+    // output
+    newOperands.push_back(op->getOperand(1));
+
+    rewriter.replaceOpWithNewOp<DispatchOp>(op, llvm::None, ctx, newOperands,
+                                            "ral_transpose", false, "gpu");
+    return success();
+  }
+};
+
 // Converting:
 //  lmhlo.xxxOp(%from, %to)
 //    to
@@ -632,6 +689,8 @@ struct DiscLowerToLibraryCallPass
       SendOutputOpConvertor
     >(context);
     // clang-format on
+    if (enableTransposeLibraryCall())
+      patterns.insert<TransposeConverter>(context);
 
     // GPU copy related ops
     patterns.insert<GpuCopyOpConvertor<H2DOp>>(context, "h2d");

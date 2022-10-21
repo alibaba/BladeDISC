@@ -433,6 +433,7 @@ cc_library(
     alwayslink = 1,
 )
 
+
 cc_library(
     name = "quantized_dot_rewriter",
     srcs = ["transforms/quantized_dot_rewriter.cc"],

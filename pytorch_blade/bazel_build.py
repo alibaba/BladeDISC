@@ -46,6 +46,8 @@ class BazelBuild(TorchBladeBuild):
     def pybind11_cflags(self):
         # see https://github.com/pytorch/pytorch/blob/fe87ae692f813934d1a74d000fd1e3b546c27ae2/torch/utils/cpp_extension.py#L515
         common_cflags = []
+        if self.torch_major_version == 1 and self.torch_minor_version <= 6:
+            return common_cflags
         for pname in ["COMPILER_TYPE", "STDLIB", "BUILD_ABI"]:
             pval = getattr(torch._C, f"_PYBIND11_{pname}")
             if pval is not None:

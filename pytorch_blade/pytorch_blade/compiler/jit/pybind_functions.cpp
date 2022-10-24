@@ -25,7 +25,6 @@
 #include "compiler/jit/torch/onnx.h"
 
 #include "compiler/jit/fusion.h"
-#include "compiler/jit/licm.h"
 #include "compiler/jit/shape_type_spec.h"
 #include "compiler/jit/tool_funcs.h"
 
@@ -98,7 +97,6 @@ void initToolsBindings(py::module& m) {
       py::arg("preserveParameters") = false,
       py::arg("disableShapePeephole") = true);
 
-  tools.def("licm", &torch::blade::licm);
   tools.def("_jit_pass_onnx", torch::blade::ToONNX);
   tools.def(
       "subgraph_input_name_mangle", &torch::blade::subgraph_input_name_mangle);

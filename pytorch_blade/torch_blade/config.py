@@ -173,6 +173,7 @@ class Config(ConfigContext):
         self._customize_onnx_opset_version = None
         self._enable_force_to_cuda = False
         self._enable_onnx_shape_white_list = True
+        self._enable_static_shape = False
         self._customize_op_white_list = []
         self._customize_op_black_list = []
         self._customize_jit_passes = []
@@ -224,6 +225,20 @@ class Config(ConfigContext):
     def fp16_fallback_op_ratio(self, val):
         assert 0 <= val <= 1.0, "fp16_fallback_op_ratio should be in range [0, 1], got {}".format(val)
         self._fp16_fallback_op_ratio = val
+
+    @property
+    def enable_static_shape(self):
+        """The flag to enable static_shape
+
+        :type: bool
+        :default: False
+        """
+        return self._enable_static_shape
+
+    @enable_static_shape.setter
+    def enable_static_shape(self, val):
+        assert isinstance(val, bool), "enable_static_shape should be bool, got {}".format(type(val))
+        self._enable_static_shape = val
 
     @property
     def enable_mlir_amp(self):

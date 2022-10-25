@@ -300,7 +300,9 @@ struct DotGeneralConvert : public OpRewritePattern<mhlo::DotGeneralOp> {
     } else {
       return failure();
     }
-    rewriter.replaceOp(op, dot_general);
+
+    // should return the original output type
+    rewriter.replaceOpWithNewOp<tensor::CastOp>(op, op.getType(), dot_general);
     return success();
   }
 };

@@ -37,6 +37,15 @@ def _record_shape_information(s_module, inputs):
     # such as inputs device mismatch
     record_shape_by_tracing(s_module._c, inputs)
 
+def _erase_input_concrete_types(graph):
+    for idx, input in enumerate(graph.inputs()):
+        # skip the 1th self input value
+        is_tensor = input.type().isSubtypeOf(torch._C.TensorType.get())
+        if not is_tensor: continue
+        inp_typ = input.type()
+        dim = inp_typ.dim()
+        if isinstance(dim, int):
+            set_tensor_shape(input, [-1] * dim)
 
 def _set_annotate_args(s_module, annotations):
     graph = s_module._c.forward.graph
@@ -46,9 +55,6 @@ def _set_annotate_args(s_module, annotations):
             continue
         input_dims, _ = annotations[idx-1]
         set_tensor_shape(input, input_dims)
-    # change input shape shape would not affect clusters input shape
-    # so propagate input shapes after setting annotations
-    jit_pass_propagate_input_shapes(graph)
 
 def _script_module_preprocess(s_module, inputs, input_dims=[]):
     graph = s_module._c.forward.graph
@@ -63,8 +69,17 @@ def _script_module_preprocess(s_module, inputs, input_dims=[]):
     # and devices, that are useful for analysis and optimizations
     # by tracing with auxiliary inputs.
     _record_shape_information(s_module, inputs)
+    if cfg.enable_static_shape:
+        return
+
+    from torch_blade.mlir import _DISC_NAME
+    # shape annotations for DISC
+    if cfg.optimization_pipeline != _DISC_NAME:
+        return
     if cfg.annotate_args:
         _set_annotate_args(s_module, cfg.annotate_args)
+    else:
+        _erase_input_concrete_types(s_module.graph)
 
 
 def _deep_copy_script_module(model):

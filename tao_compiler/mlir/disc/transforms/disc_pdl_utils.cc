@@ -15,6 +15,7 @@ limitations under the License.
 
 #include "tensorflow/compiler/mlir/disc/transforms/disc_pdl_utils.h"
 
+#include <cstring>
 #include <unordered_map>
 
 #include "llvm/Support/SourceMgr.h"
@@ -87,16 +88,12 @@ std::unique_ptr<llvm::MemoryBuffer> addPredefinedPrototypes(StringRef data) {
   size_t bytes = kDefaultHelperFunctionDeclarations.size() + data.size() + 1;
   auto combinedBuffer =
       llvm::WritableMemoryBuffer::getNewUninitMemBuffer(bytes);
-  for (size_t i = 0; i < bytes; ++i) {
-    auto& c = combinedBuffer->getBufferStart()[i];
-    if (i < kDefaultHelperFunctionDeclarations.size()) {
-      c = kDefaultHelperFunctionDeclarations[i];
-    } else if (i + 1 < bytes) {
-      c = data[i - kDefaultHelperFunctionDeclarations.size()];
-    } else {
-      c = static_cast<char>(0);
-    }
-  }
+  char* dst = combinedBuffer->getBufferStart();
+  const char* src0 = kDefaultHelperFunctionDeclarations.data();
+  size_t src0Size = kDefaultHelperFunctionDeclarations.size();
+  std::memcpy(dst, src0, src0Size);
+  std::memcpy(dst + src0Size, data.data(), data.size());
+  dst[bytes - 1] = '\0';
   return combinedBuffer;
 }
 

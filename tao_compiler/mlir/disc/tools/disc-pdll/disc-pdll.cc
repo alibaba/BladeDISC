@@ -17,10 +17,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <cstring>
-#include <set>
 #include <string>
-#include <unordered_map>
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InitLLVM.h"

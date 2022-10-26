@@ -61,6 +61,7 @@ class BazelBuild(TorchBladeBuild):
             "//pytorch_blade:libtorch_blade.so",
             "//pytorch_blade:_torch_blade.so",
             "//tests/mhlo/torch-mlir-opt:torch-mlir-opt",
+            "//tests/torch-disc-pdll:torch-disc-pdll",
         ]
 
         torch_major_version, torch_minor_version = self.torch_version.split(".")[:2]
@@ -228,7 +229,11 @@ class BazelBuild(TorchBladeBuild):
         env["LD_LIBRARY_PATH"] = ld_library_path
         env["GCC_HOST_COMPILER_PATH"] = env.get("GCC_HOST_COMPILER_PATH", which("gcc"))
 
-        self.test_suites = ["//tests/mhlo/...", "//pytorch_blade:torch_blade_test_suite"]
+        self.test_suites = [
+            "//tests/mhlo/...",
+            "//pytorch_blade:torch_blade_test_suite",
+            "//tests/torch-disc-pdll/...",
+        ]
 
         test_cmd = " ".join(
             [self.shell_setting, self.test_cmd]

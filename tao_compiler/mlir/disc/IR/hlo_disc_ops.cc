@@ -700,6 +700,12 @@ LogicalResult SparseSegmentMeanOp::verify() {
   return success();
 }
 
+//===----------------------------------------------------------------------===//
+// CustomCallV2Op
+//===----------------------------------------------------------------------===//
+
+LogicalResult CustomCallV2Op::verify() { return Verify(*this); }
+
 }  // namespace mhlo_disc
 }  // namespace mlir
 

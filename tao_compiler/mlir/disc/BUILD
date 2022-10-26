@@ -1852,6 +1852,27 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_pdl_utils",
+    srcs = ["transforms/disc_pdl_utils.cc"],
+    hdrs = ["transforms/disc_pdl_utils.h"],
+    deps = [
+        ":mhlo_disc",
+        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:PDLLAST",
+        "@llvm-project//mlir:PDLLCodeGen",
+        "@llvm-project//mlir:PDLLODS",
+        "@llvm-project//mlir:PDLLParser",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "all_passes",
     hdrs = [
         "transforms/register_passes.h",
@@ -1945,6 +1966,25 @@ tf_cc_binary(
         "@llvm-project//mlir:AllPassesAndDialects",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:MlirOptLib",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+    ],
+)
+
+tf_cc_binary(
+    name = "disc-pdll",
+    srcs = [
+        "tools/disc-pdll/disc-pdll.cc",
+    ],
+    deps = [
+        ":disc_pdl_utils",
+        ":mhlo_disc",
+        "//tensorflow/compiler/mlir/tensorflow:tensorflow",
+        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "//tensorflow/core:lib",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:AllPassesAndDialects",
+        "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:Support",
     ],

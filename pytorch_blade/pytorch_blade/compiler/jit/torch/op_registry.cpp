@@ -35,8 +35,6 @@ std::shared_ptr<OperatorSet> nn_ops_first_input_preserving() {
     OperatorSet {
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
       "aten::_autocast_to_reduced_precision(Tensor(a) self, bool cuda_enabled, bool cpu_enabled, ScalarType cuda_dtype, ScalarType cpu_dtype) -> Tensor(a)",
-      "aten::_log_softmax_backward_data(Tensor grad_output, Tensor output, int dim, ScalarType input_dtype) -> Tensor",
-      "aten::native_dropout_backward(Tensor grad_output, Tensor mask, float scale) -> Tensor",
 #endif
       "aten::batch_norm(Tensor input, Tensor? weight, Tensor? bias, Tensor? running_mean, Tensor? running_var, bool training, float momentum, float eps, bool cudnn_enabled) -> Tensor",
       "aten::layer_norm(Tensor input, int[] normalized_shape, Tensor? weight=None, Tensor? bias=None, float eps=1e-05, bool cudnn_enable=True) -> Tensor",
@@ -70,7 +68,8 @@ std::shared_ptr<OperatorSet> nn_ops_first_input_preserving() {
 #endif
       "aten::replication_pad1d(Tensor self, int[] padding) -> Tensor",
       "aten::replication_pad2d(Tensor self, int[] padding) -> Tensor",
-      "aten::replication_pad3d(Tensor self, int[] padding) -> Tensor", "aten::tanh_backward(Tensor grad_output, Tensor output) -> Tensor", "aten::upsample_bilinear2d(Tensor self, int[] output_size, bool align_corners, float? scales_h, float? scales_w) -> Tensor",
+      "aten::replication_pad3d(Tensor self, int[] padding) -> Tensor",
+      "aten::upsample_bilinear2d(Tensor self, int[] output_size, bool align_corners, float? scales_h, float? scales_w) -> Tensor",
       "aten::upsample_linear1d(Tensor self, int[] output_size, bool align_corners, float? scales) -> Tensor",
       "aten::upsample_nearest1d(Tensor self, int[] output_size, float? scales) -> Tensor",
       "aten::upsample_nearest2d(Tensor self, int[] output_size, float? scales_h, float? scales_w) -> Tensor",

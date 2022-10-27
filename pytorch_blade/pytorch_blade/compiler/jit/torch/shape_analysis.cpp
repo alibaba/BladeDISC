@@ -205,7 +205,6 @@ c10::optional<std::vector<TensorTypePtr>> gatherTensorTypes(
     Node* node,
     bool complete = false) {
   std::vector<TensorTypePtr> tensor_types;
-
   auto schema_opt = node->maybeSchema();
   if (!schema_opt) {
     return c10::nullopt;
@@ -442,7 +441,15 @@ class ShapePropagator : public PropertyPropBase {
       return dependsOnMutationMemo_[node];
     }
 
-    if (aliasDb_.hasWriters(node)) {
+    // it's safe to run isolate if the inputs are all complete.
+    bool inputs_are_complete = true;
+    for (auto input : node->inputs()) {
+      if (auto type = input->type()->cast<TensorType>()) {
+        inputs_are_complete &= type->isComplete();
+      }
+    }
+
+    if (aliasDb_.hasWriters(node) && !inputs_are_complete) {
       // If something could have written to a value used by this node, we can't
       // guarantee the result is the same when running it in isolation.
       dependsOnMutationMemo_[node] = true;
@@ -814,7 +821,6 @@ class ShapePropagator : public PropertyPropBase {
         node->kind() == prim::FusedConcat) {
       return PropagateCatShape(node);
     }
-
     if (auto maybe_complete_types =
             gatherTensorTypes(node, /*complete=*/true)) {
       if (PropagateCompleteShapeOnNode(
@@ -1027,11 +1033,17 @@ class ShapePropagator : public PropertyPropBase {
             "aten::narrow(Tensor self, int dim, int start, int length) -> Tensor",
             "aten::alias(Tensor self) -> Tensor",
             "aten::zero_(Tensor self) -> Tensor",
+            "aten::native_dropout_backward(Tensor grad_output, Tensor mask, float scale) -> Tensor",
+            "aten::tanh_backward(Tensor grad_output, Tensor output) -> Tensor",
         },
         [](Node* node) -> type_vec_t {
-          auto input_type = node->input(0)->type()->cast<TensorType>();
-          return input_type ? type_vec_t{input_type->dimensionedOnly()}
-                            : type_vec_t{};
+          if (auto input_type = node->input(0)->type()->cast<TensorType>()) {
+            if (input_type->isComplete())
+              return type_vec_t{input_type};
+            else
+              return type_vec_t{input_type->dimensionedOnly()};
+          }
+          return type_vec_t{};
         }};
 
     // Requirements:
@@ -1742,7 +1754,12 @@ class ShapePropagator : public PropertyPropBase {
           if (auto type =
                   node->namedInput(attr::self)->type()->cast<TensorType>()) {
             if (type->dim()) {
-              return factory_like_with_ndim(node, (int)*type->dim());
+              auto type_v = factory_like_with_ndim(node, (int)*type->dim());
+              if (type->isComplete()) {
+                type_v[0] = type_v[0]->withSizes(
+                    type->sizes().concrete_sizes().value());
+              }
+              return type_v;
             }
           }
           return {};
@@ -1935,7 +1952,7 @@ class ShapePropagator : public PropertyPropBase {
     } else if (
         node->matches(
             "aten::native_layer_norm_backward(Tensor grad_out, Tensor input, int[] normalized_shape, Tensor mean, Tensor rstd, Tensor? weight, Tensor? bias, bool[3] output_mask) -> (Tensor, Tensor, Tensor)")) {
-      if (auto type = input_type(0)) {
+      if (auto type = node->input(0)->type()->cast<TensorType>()) {
         auto output_mask =
             node->get<c10::List<bool>>(attr::output_mask).value();
         if (output_mask[0]) {
@@ -2082,14 +2099,18 @@ class ShapePropagator : public PropertyPropBase {
     } else if (
         node->matches(
             "aten::embedding_dense_backward(Tensor grad_output, Tensor indices, int num_weights, int padding_idx, bool scale_grad_by_freq) -> Tensor")) {
-      auto grad_output_type = input_type(0);
-      auto maybe_num_weights = node->get<int>(attr::num_weights);
-      if (grad_output_type && maybe_num_weights &&
-          grad_output_type->sizes().size()) {
-        // TODO(yancey.yx): sizes = {num_weights, grad_output.size(-1)}
-        // ref:
-        // aten/src/ATen/native/Embedding.cpp::embedding_dense_backward_cpu.
-        node->output()->setType(grad_output_type->withDim(2));
+      if (auto type = node->input(0)->type()->cast<TensorType>()) {
+        auto numWeightsOptional = node->get<int64_t>(attr::num_weights);
+        if (type->isComplete()) {
+          std::vector<int64_t> newSizes = {numWeightsOptional.value()};
+          newSizes.push_back(type->sizes().concrete_sizes().value().back());
+          node->output()->setType(type->withSizes(newSizes));
+        } else {
+          std::vector<ShapeSymbol> newSizes{
+              ShapeSymbol::fromStaticSize(numWeightsOptional.value()),
+              type->symbolic_sizes().sizes().value().back()};
+          node->output()->setType(type->withSymbolicShapes(newSizes));
+        }
         return true;
       }
     } else if (
@@ -2118,7 +2139,8 @@ class ShapePropagator : public PropertyPropBase {
             "aten::slice(Tensor self, int dim, int start, int end, int step) -> Tensor"
 #endif
             )) {
-      if (auto type = input_type(0)) {
+      // if (auto type = input_type(0)) {
+      if (auto type = node->input(0)->type()->cast<TensorType>()) {
         auto sizesOptional = type->symbolic_sizes().sizes();
         auto dimOptional = node->get<int64_t>(attr::dim);
         if (!(sizesOptional && dimOptional))

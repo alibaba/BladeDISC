@@ -415,21 +415,19 @@ class ConvertAtenExtractOp : public OpConversionPattern<AtenOpT> {
 
     if (arith::FPToSIOp::areCastCompatible(elemTy, outTy)) {
       auto zero = rewriter.create<arith::ConstantOp>(
-          loc, rewriter.getFloatAttr(elemTy, 0.0f));
+          loc, rewriter.getF32FloatAttr(0.0f));
       auto half = rewriter.create<arith::ConstantOp>(
-          loc, rewriter.getFloatAttr(elemTy, 0.5f));
+          loc, rewriter.getF32FloatAttr(0.5f));
 
       auto intMin = rewriter.create<arith::ConstantOp>(
           loc,
-          rewriter.getFloatAttr(
-              elemTy,
+          rewriter.getF32FloatAttr(
               APInt::getSignedMinValue(outTy.getIntOrFloatBitWidth())
                   .getSExtValue()));
 
       auto intMax = rewriter.create<arith::ConstantOp>(
           loc,
-          rewriter.getFloatAttr(
-              elemTy,
+          rewriter.getF32FloatAttr(
               APInt::getSignedMaxValue(outTy.getIntOrFloatBitWidth())
                   .getSExtValue()));
 
@@ -1544,7 +1542,7 @@ class DiscConvertTorchToMhlo
     INSERT_ARITH_PATTERN(AtenAddIntOp, arith::AddIOp)
     INSERT_ARITH_PATTERN(AtenSubIntOp, arith::SubIOp)
     INSERT_ARITH_PATTERN(AtenFloordivIntOp, arith::DivSIOp)
-#undef INSERT_UNARY_PATTERN
+#undef INSERT_ARITH_PATTERN
 
 #define INSERT_EXTRACT_PATTERN(AtenOp) \
   target.addIllegalOp<AtenOp>();       \

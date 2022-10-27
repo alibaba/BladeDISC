@@ -39,6 +39,12 @@ using namespace mlir::pdll;
 
 namespace disc_ral {
 
+SmallVector<Value>& getThreadLocalValueRangeStorage(StringRef tag) {
+  thread_local static auto valueRangeMap =
+      new std::unordered_map<std::string, SmallVector<Value>>{};
+  return (*valueRangeMap)[tag.str()];
+}
+
 namespace {
 
 static const std::string kDefaultHelperFunctionDeclarations = R"pdll(
@@ -84,13 +90,16 @@ static const std::string kDefaultHelperFunctionDeclarations = R"pdll(
 
 // Combines the `chunkBuffer` with some pre-defined helper function prototypes.
 // The result is written to a newly allocated buffer which will be returned.
-std::unique_ptr<llvm::MemoryBuffer> addPredefinedPrototypes(StringRef data) {
-  size_t bytes = kDefaultHelperFunctionDeclarations.size() + data.size() + 1;
+std::unique_ptr<llvm::MemoryBuffer> addPredefinedPrototypes(
+    StringRef data, const std::string& customPredefinedFunctionPrototypes) {
+  std::string prefix =
+      kDefaultHelperFunctionDeclarations + customPredefinedFunctionPrototypes;
+  size_t bytes = prefix.size() + data.size() + 1;
   auto combinedBuffer =
       llvm::WritableMemoryBuffer::getNewUninitMemBuffer(bytes);
   char* dst = combinedBuffer->getBufferStart();
-  const char* src0 = kDefaultHelperFunctionDeclarations.data();
-  size_t src0Size = kDefaultHelperFunctionDeclarations.size();
+  const char* src0 = prefix.data();
+  size_t src0Size = prefix.size();
   std::memcpy(dst, src0, src0Size);
   std::memcpy(dst + src0Size, data.data(), data.size());
   dst[bytes - 1] = '\0';
@@ -98,12 +107,15 @@ std::unique_ptr<llvm::MemoryBuffer> addPredefinedPrototypes(StringRef data) {
 }
 
 // Compiles a pdll module into a pdl pattern module.
-OwningOpRef<ModuleOp> compilePDLL(MLIRContext& mlirContext,
-                                  StringRef chunkBuffer,
-                                  const std::vector<std::string>& includeDirs) {
+OwningOpRef<ModuleOp> compilePDLL(
+    MLIRContext& mlirContext, StringRef chunkBuffer,
+    const std::vector<std::string>& includeDirs,
+    const std::string& customPredefinedFunctionPrototypes) {
   llvm::SourceMgr sourceMgr;
   sourceMgr.setIncludeDirs(includeDirs);
-  sourceMgr.AddNewSourceBuffer(addPredefinedPrototypes(chunkBuffer), SMLoc());
+  sourceMgr.AddNewSourceBuffer(
+      addPredefinedPrototypes(chunkBuffer, customPredefinedFunctionPrototypes),
+      SMLoc());
 
   ods::Context odsContext;
   ast::Context astContext(odsContext);
@@ -127,12 +139,6 @@ OwningOpRef<ModuleOp> compilePDLL(MLIRContext& mlirContext,
   }
   llvm::errs() << "/////// Parsed PDL module: \n" << pdlModule.get() << "\n\n";
   return pdlModule;
-}
-
-SmallVector<Value>& getThreadLocalValueRangeStorage(StringRef tag) {
-  thread_local static auto valueRangeMap =
-      new std::unordered_map<std::string, SmallVector<Value>>{};
-  return (*valueRangeMap)[tag.str()];
 }
 
 template <int ExpectedNum>
@@ -202,7 +208,8 @@ static void createCustomCall(PatternRewriter& rewriter, PDLResultList& results,
   results.push_back(ValueRange(vs));
 }
 
-void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns) {
+void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns,
+                                       RegisterPDLFunctionsCallback callback) {
   pdlPatterns.registerRewriteFunction(
       "SetAttr", [](PatternRewriter& rewriter, Operation* op, Attribute keyAttr,
                     Attribute valueAttr) {
@@ -252,6 +259,8 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns) {
   REGISTER_PACK_AND_UNPACK(16);
 
 #undef REGISTER_PACK_AND_UNPACK
+
+  if (callback) callback(pdlPatterns);
 }
 
 }  // namespace
@@ -264,9 +273,11 @@ void getDependentDialects(DialectRegistry& registry) {
 // Parses pdll patterns from string, compile them and then add to `patterns`.
 LogicalResult populateDiscPdlPatternsFromString(
     RewritePatternSet* patterns, StringRef pdllModule,
-    const std::vector<std::string>& includeDirs) {
-  auto pdlModule =
-      compilePDLL(*patterns->getContext(), pdllModule, includeDirs);
+    const std::vector<std::string>& includeDirs,
+    const std::string& customPredefinedFunctionPrototypes,
+    RegisterPDLFunctionsCallback callback) {
+  auto pdlModule = compilePDLL(*patterns->getContext(), pdllModule, includeDirs,
+                               customPredefinedFunctionPrototypes);
   if (!pdlModule) {
     llvm::errs() << "failed to compile pdll patern from string:\n"
                  << pdllModule << "\n\n";
@@ -274,7 +285,7 @@ LogicalResult populateDiscPdlPatternsFromString(
   }
 
   PDLPatternModule pdlPatterns(std::move(pdlModule));
-  registerPredefinedHelperFunctions(pdlPatterns);
+  registerPredefinedHelperFunctions(pdlPatterns, callback);
   patterns->add(std::move(pdlPatterns));
   return success();
 }
@@ -282,7 +293,9 @@ LogicalResult populateDiscPdlPatternsFromString(
 // Adds customized pdl patterns
 LogicalResult populateDiscPdlPatternsFromFiles(
     RewritePatternSet* patterns, const std::vector<std::string>& pdlFiles,
-    const std::vector<std::string>& includeDirs) {
+    const std::vector<std::string>& includeDirs,
+    const std::string& customPredefinedFunctionPrototypes,
+    RegisterPDLFunctionsCallback callback) {
   std::string errorMessage;
   for (auto& file : pdlFiles) {
     std::unique_ptr<llvm::MemoryBuffer> pdllFile =
@@ -293,8 +306,9 @@ LogicalResult populateDiscPdlPatternsFromFiles(
       return failure();
     }
 
-    auto pdlModule = compilePDLL(*patterns->getContext(), pdllFile->getBuffer(),
-                                 includeDirs);
+    auto pdlModule =
+        compilePDLL(*patterns->getContext(), pdllFile->getBuffer(), includeDirs,
+                    customPredefinedFunctionPrototypes);
     if (!pdlModule) {
       llvm::errs() << "failed to compile pdll patern from file@" << file
                    << ":\n"
@@ -303,7 +317,7 @@ LogicalResult populateDiscPdlPatternsFromFiles(
     }
 
     PDLPatternModule pdlPatterns(std::move(pdlModule));
-    registerPredefinedHelperFunctions(pdlPatterns);
+    registerPredefinedHelperFunctions(pdlPatterns, callback);
     patterns->add(std::move(pdlPatterns));
   }
   return success();

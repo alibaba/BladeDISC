@@ -1857,7 +1857,6 @@ cc_library(
     hdrs = ["transforms/disc_pdl_utils.h"],
     deps = [
         ":mhlo_disc",
-        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:PDLLAST",
@@ -1868,6 +1867,9 @@ cc_library(
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TensorDialect",
         "@llvm-project//mlir:Transforms",
+    ],
+    visibility = [
+        "//visibility:public",
     ],
     alwayslink = 1,
 )

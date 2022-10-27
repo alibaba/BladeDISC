@@ -16,14 +16,17 @@ limitations under the License.
 #ifndef TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_TRANSFORMS_DISC_PDL_UTILS_H_
 #define TENSORFLOW_COMPILER_MLIR_HLO_INCLUDE_MLIR_HLO_DIALECT_MHLO_TRANSFORMS_DISC_PDL_UTILS_H_
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "mlir/IR/Operation.h"
 #include "mlir/Support/LogicalResult.h"
 
 #define DEBUG_TYPE "disc-pdl-utils"
@@ -36,21 +39,31 @@ namespace mlir {
 // forward declaration
 class DialectRegistry;
 class RewritePatternSet;
+class PDLPatternModule;
 
 namespace disc_ral {
+
+// Returns a unique `SmallVector<Value>` instance per thread per tag.
+llvm::SmallVector<Value>& getThreadLocalValueRangeStorage(llvm::StringRef tag);
 
 // Adds related depedent dialects (e.g. PDL dialect).
 void getDependentDialects(DialectRegistry& registry);
 
+using RegisterPDLFunctionsCallback = std::function<void(PDLPatternModule&)>;
+
 // Parses pdll patterns from string, compile them and then add to `patterns`.
 LogicalResult populateDiscPdlPatternsFromString(
     RewritePatternSet* patterns, llvm::StringRef pdlPatterns,
-    const std::vector<std::string>& includeDirs = {});
+    const std::vector<std::string>& includeDirs = {},
+    const std::string& customPredefinedFunctionPrototypes = {},
+    RegisterPDLFunctionsCallback callback = {});
 
 // Parse pdll patterns from files, compile them and then add to `patterns`.
 LogicalResult populateDiscPdlPatternsFromFiles(
     RewritePatternSet* patterns, const std::vector<std::string>& pdlFiles,
-    const std::vector<std::string>& includeDirs = {});
+    const std::vector<std::string>& includeDirs = {},
+    const std::string& customPredefinedFunctionPrototypes = {},
+    RegisterPDLFunctionsCallback callback = {});
 
 }  // namespace disc_ral
 }  // namespace mlir

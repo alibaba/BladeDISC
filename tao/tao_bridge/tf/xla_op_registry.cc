@@ -1244,9 +1244,13 @@ REGISTER_XLA_OP_FOR_TAO(Name("Dequantize"));
 #if defined(TAO_AARCH64)
 // TODO(disc): support `QuantizedConv2DWithBiasAndRequantize` on other platforms
 REGISTER_XLA_OP_FOR_TAO(Name("QuantizedConv2DWithBiasAndRequantize"));
-#endif
-#endif
-#endif
+#endif // TAO_AARCH64
+REGISTER_XLA_OP_FOR_TAO(Name("SparseReshape"));
+REGISTER_XLA_OP_FOR_TAO(Name("SparseFillEmptyRows"));
+REGISTER_XLA_OP_FOR_TAO(Name("SparseSegmentMean"));
+REGISTER_XLA_OP_FOR_TAO(Name("Where"));
+#endif // TF_VERSION
+#endif // TAO_CPU_ONLY
 
 REGISTER_XLA_OP_FOR_TAO(Name("DiscFakeQuant"));
 

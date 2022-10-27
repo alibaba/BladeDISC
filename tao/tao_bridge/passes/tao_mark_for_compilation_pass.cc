@@ -2678,6 +2678,14 @@ std::vector<string> GetDiscSupportedOps() {
     "Dequantize",
     "QuantizeV2"
   });
+  if (GetTaoBridgeOptions()->experimental_enable_cpu_sparse_ops_compilation) {
+    ops.insert(ops.end(), {
+      "SparseReshape",
+      "SparseFillEmptyRows",
+      "SparseSegmentMean",
+      "Where",
+    });
+  }
 #if defined(TAO_AARCH64)
   // TODO(disc): support `QuantizedConv2DWithBiasAndRequantize` on other platforms
   ops.insert(ops.end(), {

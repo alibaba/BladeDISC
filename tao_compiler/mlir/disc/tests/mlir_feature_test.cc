@@ -135,6 +135,9 @@ bool feature_test_main(
 
   // Read tf code.
   std::string tf_code;
+  char* buff;//automatically cleaned when it exits scope
+  LOG(INFO) << "cwd path: " << std::string(getcwd(buff,255));
+
   auto tf_code_status =
       ReadFileToString(Env::Default(), mlir_file_path, &tf_code);
   if (!tf_code_status.ok()) {

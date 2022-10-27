@@ -423,7 +423,8 @@ void OpsPlacer::placeI32Ops() {
     // For these ops, currently we only have limited support.
     if (auto custom_call_op = dyn_cast<mhlo_disc::CustomCallOp>(op)) {
       if (custom_call_op.call_target_name() == "topk" ||
-          custom_call_op.call_target_name() == "rng_uniform") {
+          custom_call_op.call_target_name() == "rng_uniform" ||
+          custom_call_op.call_target_name() == "ral_conv_biasadd_relu") {
         is_shape_calc_op = false;
       }
       // TopK op only have gpu kernel implementation a.t.m. Thus we put its

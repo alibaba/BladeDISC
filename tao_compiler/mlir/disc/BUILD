@@ -838,6 +838,7 @@ cc_library(
         ":disc_map_hlo_to_lhlo_op",
         ":pass_details",
         ":rng_uniform_custom_call",
+        ":conv_biasadd_relu_custom_call",
         ":qconv_custom_call",
         ":sparse_custom_call",
         ":topk_custom_call",
@@ -874,6 +875,7 @@ cc_library(
         ":rng_uniform_custom_call",
         ":topk_custom_call",
         ":qconv_custom_call",
+        ":conv_biasadd_relu_custom_call",
         ":sparse_custom_call",
         "//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",
@@ -1231,6 +1233,7 @@ cc_library(
         ":rng_uniform_custom_call",
         ":topk_custom_call",
         ":qconv_custom_call",
+        ":conv_biasadd_relu_custom_call",
         ":sparse_custom_call",
         "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
         "//tensorflow/compiler/mlir/tensorflow:tensorflow",
@@ -2256,6 +2259,7 @@ tf_cc_shared_object(
         ":rng_uniform_custom_call",
         ":topk_custom_call",
         ":qconv_custom_call",
+        ":conv_biasadd_relu_custom_call",
         ":sparse_custom_call",
     ],
     data = [
@@ -2333,6 +2337,29 @@ gentbl_cc_library(
     deps = [
         "//tensorflow/compiler/xla/mlir_hlo:hlo_ops_td_files",
     ],
+)
+
+cc_library(
+    name = "conv_biasadd_relu_custom_call",
+    srcs = [
+        "IR/conv_biasadd_relu_custom_call_op.cc",
+    ],
+    deps = [
+        ":codegen_utils",
+        ":custom_call_base",
+        ":disc_ral",
+        ":disc_util",
+        ":fusion_utils",
+        ":lmhlo_disc",
+        ":mhlo_disc",
+        ":placement_utils",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:MathDialect",
+        "@llvm-project//mlir:VectorDialect",
+    ],
+    alwayslink = 1,
 )
 
 cc_library(

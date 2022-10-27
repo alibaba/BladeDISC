@@ -974,6 +974,102 @@ LogicalResult parseConvParams(ConvParams& params, OpBuilder& b, Location& loc) {
   return success();
 }
 
+LogicalResult parseConvBiasaddReluParams(ConvParams& params, OpBuilder& b, Location& loc) {
+  Operation* op = params.op;
+  auto input_ty = params.input.getType().dyn_cast<RankedTensorType>();
+  auto filter_ty = params.filter.getType().dyn_cast<RankedTensorType>();
+  int num_dims = input_ty.getRank();
+  int64_t num_spatial_dims = num_dims - 2;
+  Type shape_scalar_type = b.getIntegerType(32);
+
+  tensorflow::TensorFormat data_format = tensorflow::TensorFormat::FORMAT_NHWC;
+  tensorflow::Padding padding;
+  auto paddingStr = op->getAttrOfType<StringAttr>("padding").str();
+  if (!tensorflow::GetPaddingFromString(paddingStr, &padding).ok())
+    return op->emitError() << "fail to parse padding attributes\n";
+
+  ArrayRef<Attribute> dilations =
+      op->getAttrOfType<ArrayAttr>("dilations").getValue();
+  ArrayRef<Attribute> strides =
+      op->getAttrOfType<ArrayAttr>("strides").getValue();
+  ArrayRef<Attribute> explicit_paddings;
+  if (padding == tensorflow::Padding::EXPLICIT) {
+    // EXPLICIT padding mode and the associated attribute is attached to
+    // Conv2D.
+    explicit_paddings = op->getAttrOfType<ArrayAttr>("padding_list").getValue();
+  }
+
+  SmallVector<int64_t> spatial_dim_indices;
+  SmallVector<int64_t> rhs_dilations;
+  SmallVector<int64_t> window_strides;
+  SmallVector<Value> paddings;
+  auto get_int = [](Attribute attr) {
+    return attr.cast<IntegerAttr>().getInt();
+  };
+  auto get_const = [&](int64_t val) {
+    return b.create<mlir::arith::ConstantIntOp>(loc, val, shape_scalar_type);
+  };
+  auto get_dim_value = [&](Value val, int64_t dim) {
+    Value dim_value = b.create<tensor::DimOp>(loc, val, dim);
+    return b.create<arith::IndexCastOp>(loc, shape_scalar_type, dim_value);
+  };
+
+  for (auto i : llvm::seq<int>(0, num_spatial_dims)) {
+    const int64_t dim =
+        tensorflow::GetTensorSpatialDimIndex(num_dims, data_format, i);
+    spatial_dim_indices.push_back(dim);
+
+    const int64_t dilation = get_int(dilations[dim]);
+    rhs_dilations.push_back(dilation);
+    const int64_t stride = get_int(strides[dim]);
+    window_strides.push_back(stride);
+
+    Value pad_low, pad_high;
+    if (padding == tensorflow::Padding::EXPLICIT) {
+      pad_low = get_const(get_int(explicit_paddings[2 * dim]));
+      pad_high = get_const(get_int(explicit_paddings[2 * dim + 1]));
+    } else {
+      auto input_size = get_dim_value(params.input, dim);
+      // filter layout OHWI
+      auto filter_size = get_dim_value(params.filter, i + 1);
+      if (failed(getPaddingValues(op, b, input_size, filter_size, dilation,
+                                  stride, padding, shape_scalar_type, &pad_low,
+                                  &pad_high))) {
+        return failure();
+      }
+    }
+    paddings.push_back(pad_low);
+    paddings.push_back(pad_high);
+  }
+
+  auto rhs_dilations_attr =
+      b.getNamedAttr("rhs_dilation", GetI64ElementsAttr(rhs_dilations, &b));
+
+  auto window_strides_attr =
+      b.getNamedAttr("window_strides", GetI64ElementsAttr(window_strides, &b));
+
+  auto dimension_numbers_attr = getConvDimensionNumbersAttr(
+      spatial_dim_indices, data_format, &b, tensorflow::FORMAT_OHWI);
+
+  const int64_t feature_group_count = 1;
+  auto feature_group_count_attr = b.getNamedAttr(
+      "feature_group_count", b.getI64IntegerAttr(feature_group_count));
+
+  auto batch_group_count_attr =
+      b.getNamedAttr("batch_group_count", b.getI64IntegerAttr(1));
+
+  params.padding = b.create<tensor::FromElementsOp>(
+      loc, RankedTensorType::get(2 * num_spatial_dims, b.getI32Type()),
+      paddings);
+
+  NamedAttribute attrs[] = {rhs_dilations_attr, window_strides_attr,
+                            dimension_numbers_attr, feature_group_count_attr,
+                            batch_group_count_attr};
+  params.config = b.getDictionaryAttr(attrs);
+
+  return success();
+}
+
 LogicalResult matchAndRwriterQuantizedConv2DWithBiasAndRequantizeOp(
     Operation* op) {
   if (op->getNumOperands() != 9 || op->getNumResults() != 3)
@@ -1227,6 +1323,86 @@ class ConvertBucketizeOp : public OpRewritePattern<TF::BucketizeOp> {
   }
 };
 
+// Converts tf.conv2d+tf.biasadd+relu to custom_call
+class ConvertTopConvBiasaddRelu : public OpRewritePattern<TF::ReluOp> {
+ public:
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::ReluOp relu_op,
+                                PatternRewriter &rewriter) const final {
+    auto bias_add = relu_op.features().getDefiningOp<TF::BiasAddOp>();
+    if (!bias_add) return failure();
+
+    RankedTensorType value_ty = bias_add.value().getType().dyn_cast<RankedTensorType>();
+    RankedTensorType bias_ty = bias_add.bias().getType().dyn_cast<RankedTensorType>();
+    if (!bias_ty || !value_ty) return success();
+
+    Value bias_val = bias_add.bias();
+
+    auto convOp = bias_add.value().getDefiningOp<TF::Conv2DOp>();
+    if (!convOp) return failure();
+
+    auto op = convOp;
+
+    if (op->getNumOperands() != 2 || op->getNumResults() != 1)
+      return op->emitError() << "mismatch # operands or # results\n";
+
+    Value input = op->getOperand(0);
+    Value filter = op->getOperand(1);
+    Value output = op->getResult(0);
+
+    auto inputTy = input.getType().dyn_cast<RankedTensorType>();
+    auto filterTy = filter.getType().dyn_cast<RankedTensorType>();
+    auto outputTy = output.getType().dyn_cast<RankedTensorType>();
+
+    // only try to match the op has static rank.
+    if (!inputTy || !filterTy || !outputTy)
+      return success();
+
+    OpBuilder b(op);
+    Location loc = op->getLoc();
+
+    ConvParams params;
+    params.op = op;
+    params.input = b.create<TF::CastOp>(loc, inputTy, input);
+    params.filter = b.create<TF::CastOp>(loc, filterTy, filter);
+    // filter layout conversion: HWIO -> OHWI
+    int rank = filterTy.getRank();
+    SmallVector<int> permutation(rank);
+    SmallVector<int64_t> newFilterShape(rank);
+    permutation[0] = rank - 1;
+    newFilterShape[0] = filterTy.getShape()[rank - 1];
+    permutation[rank - 1] = rank - 2;
+    newFilterShape[rank - 1] = filterTy.getShape()[rank - 2];
+    for (int i = 1; i < rank - 1; ++i) {
+      permutation[i] = i - 1;
+      newFilterShape[i] = filterTy.getShape()[i - 1];
+    }
+    auto permTensorTy =
+        RankedTensorType::get({permutation.size()}, b.getIntegerType(32));
+    Value permutationValue = b.create<TF::ConstOp>(
+        loc, DenseFPElementsAttr::get(permTensorTy, permutation));
+    auto newFilterTy =
+        RankedTensorType::get(newFilterShape, filterTy.getElementType());
+    params.filter = b.create<TF::TransposeOp>(loc, newFilterTy, params.filter,
+                                              permutationValue);
+
+    if (failed(parseConvBiasaddReluParams(params, b, loc))) return failure();
+
+    SmallVector<Value> newOperands{params.input, params.filter, params.padding, bias_val};
+
+    auto customOp = b.create<mhlo_disc::CustomCallOp>(
+        loc, outputTy, newOperands,
+        /*call_target_name*/ "ral_conv_biasadd_relu",
+        /*has_side_effect*/ false,
+        /*backend_config*/ params.config);
+
+    rewriter.replaceOp(relu_op, customOp->getResult(0));
+
+    return success();
+  }
+};
+
 class ConvertSparseReshapeOp : public OpRewritePattern<TF::SparseReshapeOp> {
  public:
   using OpRewritePattern::OpRewritePattern;
@@ -1371,7 +1547,8 @@ void PrepareTFPass::runOnOperation() {
       ConvertBucketizeOp,
       ConvertSparseReshapeOp,
       ConvertSparseFillEmptyRowsOp,
-      ConvertSparseSegmentMeanOp
+      ConvertSparseSegmentMeanOp,
+      ConvertTopConvBiasaddRelu
   >(ctx);
   // clang-format on
   (void)applyPatternsAndFoldGreedily(func, std::move(patterns));

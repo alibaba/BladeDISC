@@ -4744,6 +4744,116 @@ LogicalResult lowerWithScheduleSparseSegmentMeanOpCPU(
   return success();
 }
 
+LogicalResult lowerWithScheduleWhereOpCPU(
+    ArrayRef<Operation*> root_ops, Operation* dominant_op,
+    Block* parent = nullptr, bool non_fusion = false,
+    const ShapeAnalysis* shape_analysis = nullptr) {
+  if (!(root_ops.size() == 1 && isa<lmhlo_disc::WhereOp>(root_ops[0]))) {
+    return dominant_op->emitError()
+           << "root_ops[0] is not a lmhlo_disc::WhereOp";
+  }
+  auto where = dyn_cast<lmhlo_disc::WhereOp>(root_ops[0]);
+  if (!where) {
+    return dominant_op->emitError()
+           << "can not cast root_ops[0] to lmhlo_disc::WhereOp";
+  }
+
+  auto loc = where.getLoc();
+  OpBuilder b(root_ops.back());
+
+  b.setInsertionPoint(where.getOperation());
+
+  Value input = where.getInput();
+  Value index = where.getIndex();
+  Value num_output_elements = where.getNumOutputElements();
+
+  auto input_type = input.getType().cast<MemRefType>();
+  auto input_rank = input_type.getRank();
+  auto input_elem_type = input_type.getElementType();
+  auto output_elem_type = index.getType().cast<MemRefType>().getElementType();
+
+  Value zero =
+      b.create<arith::ConstantOp>(loc, b.getIntegerAttr(b.getIndexType(), 0));
+  Value one =
+      b.create<arith::ConstantOp>(loc, b.getIntegerAttr(b.getIndexType(), 1));
+  Value one_for_acc = b.create<arith::ConstantOp>(
+      loc, b.getIntegerAttr(b.getIntegerType(64), 1));
+  SmallVector<Value, 1> num_output_load_index = {
+      b.create<arith::ConstantIndexOp>(loc, 0)};
+  // memset num_output_elements to 0
+  b.create<memref::StoreOp>(loc,
+                            b.create<arith::ConstantOp>(
+                                loc, b.getIntegerAttr(b.getIntegerType(64), 0)),
+                            num_output_elements, num_output_load_index);
+
+  // for (i = 0; i < num_element; ++i)
+  llvm::SmallVector<scf::ForOp, 4> for_ops;
+  llvm::SmallVector<Value, 4> multidim_index;
+  llvm::SmallVector<Value, 4> multidim_index_casted;
+  for (int i = 0; i < input_rank; ++i) {
+    Value dim = b.create<memref::DimOp>(loc, input, i);
+    auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
+                                       /* upperBound */ dim, /* step */ one);
+    for_ops.push_back(for_op);
+    for_op.getBody()->clear();
+    b.setInsertionPointToStart(for_op.getBody());
+    Value loop_index = for_op.getInductionVar();
+    multidim_index.push_back(loop_index);
+    multidim_index_casted.push_back(
+        b.create<arith::IndexCastOp>(loc, output_elem_type, loop_index));
+  }
+  Value input_elem = b.create<memref::LoadOp>(loc, input, multidim_index);
+  // if (input[i] != 0)
+  Value is_zero;
+  // NOTE: make sure cmp value is the same type as input
+  // otherwise the generated IR will seems ok, however will get segfault
+  // in llvm::CmpInst::CmpInst
+  if (input_elem_type.isa<IntegerType>()) {
+    Value zero_for_cmp =
+        b.create<arith::ConstantOp>(loc, b.getIntegerAttr(input_elem_type, 0));
+    is_zero = b.create<arith::CmpIOp>(loc, arith::CmpIPredicate::ne, input_elem,
+                                      zero_for_cmp);
+  } else if (input_elem_type.isa<FloatType>()) {
+    Value zero_for_cmp =
+        b.create<arith::ConstantOp>(loc, b.getFloatAttr(input_elem_type, 0));
+    is_zero = b.create<arith::CmpFOp>(loc, arith::CmpFPredicate::ONE,
+                                      input_elem, zero_for_cmp);
+  } else {
+    return dominant_op->emitError() << "type other than float or int for "
+                                       "lmhlo_disc::where is not supported yet";
+  }
+  auto if_is_zero = b.create<scf::IfOp>(loc, /*resultTypes*/ llvm::None,
+                                        /* condition */ is_zero,
+                                        /*hasElseRegion*/ false);
+  if_is_zero.getThenRegion().front().clear();
+  b.setInsertionPointToStart(&if_is_zero.getThenRegion().front());
+  Value output_index_count =
+      b.create<memref::LoadOp>(loc, num_output_elements, num_output_load_index);
+  Value output_index_casted =
+      b.create<arith::IndexCastOp>(loc, b.getIndexType(), output_index_count);
+  for (int i = 0; i < input_rank; ++i) {
+    llvm::SmallVector<Value, 2> store_index = {
+        output_index_casted, b.create<arith::ConstantIndexOp>(loc, i)};
+    b.create<memref::StoreOp>(loc, multidim_index_casted[i], index,
+                              store_index);
+  }
+  ArrayRef<Value> num_output_store_index = num_output_load_index;
+  output_index_count =
+      b.create<arith::AddIOp>(loc, output_index_count, one_for_acc);
+  b.create<memref::StoreOp>(loc, output_index_count, num_output_elements,
+                            num_output_store_index);
+  b.create<scf::YieldOp>(loc, ValueRange({}));  // if (input[i] != 0)
+  for (int i = input_rank - 1; i >= 0; --i) {
+    b.setInsertionPointToEnd(for_ops[i].getBody());
+    b.create<scf::YieldOp>(loc, ValueRange({}));
+  }  // for (i = 0; i < num_element; ++i)
+  b.setInsertionPoint(where.getOperation());
+
+  // TODO: Support fusion
+  for (Operation* root_op : root_ops) root_op->erase();
+  return success();
+}
+
 // we don't do inbound check for kLoop Schedule
 // LoopSplit pass will do this.
 //
@@ -4786,6 +4896,11 @@ LogicalResult lowerWithScheduleLoopCPU(
   if (non_fusion && isa<lmhlo_disc::SparseSegmentMeanOp>(dominant_op)) {
     return lowerWithScheduleSparseSegmentMeanOpCPU(
         root_ops, dominant_op, parent, non_fusion, shape_analysis);
+  }
+
+  if (non_fusion && isa<lmhlo_disc::WhereOp>(dominant_op)) {
+    return lowerWithScheduleWhereOpCPU(root_ops, dominant_op, parent,
+                                       non_fusion, shape_analysis);
   }
 
   const auto loc = dominant_op->getLoc();

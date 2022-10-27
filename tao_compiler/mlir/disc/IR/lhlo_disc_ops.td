@@ -198,4 +198,16 @@ def LHLO_SparseSegmentMeanOp : LHLODISC_Op<"sparse_segment_mean", []> {
   );
 }
 
+def LHLO_WhereOp : LHLODISC_Op<"where", []> {
+  let summary = "One-to-one mapping of TF_WhereOp";
+  let description = [{
+    See tf's where operator.
+  }];
+  let arguments = (ins
+    Arg<LHLO_Buffer, "", [MemRead]>:$input,
+    Arg<LHLO_IntBuffer, "", [MemWrite]>:$index,
+    Arg<LHLO_IntBuffer, "", [MemWrite]>:$num_output_elements
+  );
+}
+
 #endif // LMHLO_DISC_OPS

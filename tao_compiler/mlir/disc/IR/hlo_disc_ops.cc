@@ -700,11 +700,65 @@ LogicalResult SparseSegmentMeanOp::verify() {
   return success();
 }
 
-//===----------------------------------------------------------------------===//
 // CustomCallV2Op
 //===----------------------------------------------------------------------===//
 
 LogicalResult CustomCallV2Op::verify() { return Verify(*this); }
+
+// WhereOp
+//===----------------------------------------------------------------------===//
+
+LogicalResult WhereOp::reifyReturnTypeShapes(
+    OpBuilder& builder, ValueRange operands,
+    SmallVectorImpl<Value>& reifiedReturnShapes) {
+  WhereOp::Adaptor adaptor(operands);
+  Location loc = this->getLoc();
+  auto input_type = adaptor.input().getType().cast<RankedTensorType>();
+
+  SmallVector<Value, 2> index_shape_values, num_output_elements_shape_values;
+
+  Value idx_one = builder.create<arith::ConstantIndexOp>(loc, 1);
+  auto input_rank = input_type.getRank();
+  Value num_input_elements = idx_one;
+  for (int i = 0; i < input_rank; i++) {
+    Value dim_i = builder.create<tensor::DimOp>(loc, operands[0], i);
+    num_input_elements =
+        builder.create<arith::MulIOp>(loc, num_input_elements, dim_i);
+  }
+  Value input_rank_value =
+      builder.create<arith::ConstantIndexOp>(loc, input_type.getRank());
+  index_shape_values.push_back(num_input_elements);
+  index_shape_values.push_back(input_rank_value);
+  Value index_shape =
+      builder.create<tensor::FromElementsOp>(loc, index_shape_values);
+  reifiedReturnShapes.push_back(index_shape);
+
+  num_output_elements_shape_values.push_back(idx_one);
+  Value num_output_elements_shape = builder.create<tensor::FromElementsOp>(
+      loc, num_output_elements_shape_values);
+  reifiedReturnShapes.push_back(num_output_elements_shape);
+
+  return success();
+}
+
+LogicalResult WhereOp::verify() {
+  auto input_type = this->input().getType().dyn_cast<RankedTensorType>();
+
+  if (!input_type) {
+    return failure();
+  }
+
+  auto index_type = this->index().getType().dyn_cast<RankedTensorType>();
+  if (!index_type) {
+    return failure();
+  }
+
+  if (index_type.getRank() != 2) {
+    return this->emitOpError() << "output must be a matrix";
+  }
+
+  return success();
+}
 
 }  // namespace mhlo_disc
 }  // namespace mlir

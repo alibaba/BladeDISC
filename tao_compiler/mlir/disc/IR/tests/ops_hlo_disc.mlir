@@ -227,3 +227,11 @@ func.func @sparse_segment_mean_basic(%data: tensor<?x?xf32>, %indices: tensor<?x
   %output = "mhlo_disc.sparse_segment_mean"(%data, %indices, %segment_ids) {} : (tensor<?x?xf32>, tensor<?xi32>, tensor<?xi32>) -> (tensor<?x?xf32>)
   return %output : tensor<?x?xf32>
 }
+
+// -----
+
+// CHECK-LABEL: func.func @where
+func.func @where(%input: tensor<?x?xf32>) -> (tensor<?x?xi64>, tensor<1xi64>) {
+  %index, %num_output_elements = "mhlo_disc.where"(%input) {} : (tensor<?x?xf32>) -> (tensor<?x?xi64>, tensor<1xi64>)
+  return %index, %num_output_elements: tensor<?x?xi64>, tensor<1xi64>
+}

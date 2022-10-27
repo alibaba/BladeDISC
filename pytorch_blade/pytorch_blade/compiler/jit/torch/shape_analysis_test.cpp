@@ -65,6 +65,53 @@ void autoInputDevice(const std::shared_ptr<torch::jit::Graph>& graph) {
   torch::blade::PropagateInputShapes(g);                      \
   torch::jit::testing::FileCheck().check(dy_pattern)->run(*g);
 
+TEST(PropagateInputShapesTest, ConvOp) {
+  const std::string graph_str = R"IR(
+graph(%p1 : Float(3, 4, 5, 5, strides=[100, 25, 5, 1]),
+  %p2 : Float(8, 4, 3, 3, strides=[108, 9, 3, 1]),
+  %p3 : Float(8, strides=[1])
+):
+  %3 : int[] = prim::Constant[value=[1, 1]]()
+  %4 : bool = prim::Constant[value=0]()
+  %5 : int[] = prim::Constant[value=[0, 0]]()
+  %6 : int = prim::Constant[value=1]()
+  %7 : Tensor = aten::_convolution(%p1, %p2, %p3, %3, %3, %3, %4, %5, %6, %4, %4, %4, %4)
+  return (%7)
+)IR";
+
+#if TORCH_BLADE_BUILD_WITH_CUDA
+  const std::string s_pattern =
+      "%7 : Float(3, 8, 5, 5, strides=[200, 25, 5, 1], device=cuda:0) = aten::_convolution(%p1, %p2, %p3, %3, %3, %3, %4, %5, %6, %4, %4, %4, %4)";
+  const std::string d_pattern =
+      "%7 : Float(*, *, *, *, device=cuda:0) = aten::_convolution(%p1, %p2, %p3, %3, %3, %3, %4, %5, %6, %4, %4, %4, %4)";
+#else
+  const std::string s_pattern =
+      "%7 : Float(3, 8, 5, 5, strides=[200, 25, 5, 1], device=cpu) = aten::_convolution(%p1, %p2, %p3, %3, %3, %3, %4, %5, %6, %4, %4, %4, %4)";
+  const std::string d_pattern =
+      "%7 : Float(*, *, *, *, device=cpu) = aten::_convolution(%p1, %p2, %p3, %3, %3, %3, %4, %5, %6, %4, %4, %4, %4)";
+#endif
+  FILE_CHECK(graph_str, s_pattern, d_pattern);
+}
+
+#if TORCH_BLADE_BUILD_WITH_CUDA
+TEST(PropagateInputShapesTest, ToDeviceOp) {
+  const std::string graph_str = R"IR(
+graph(%p1 : Float(3, 4, 5, strides=[20, 5, 1], device=cpu)):
+  %1 : Device = prim::Constant[value="cuda:0"]()
+  %2 : int = prim::Constant[value=5]()
+  %3 : bool = prim::Constant[value=0]()
+  %4 : NoneType = prim::Constant()
+  %3 : Tensor = aten::to(%p1, %1, %2, %3, %3, %4)
+  return (%3)
+)IR";
+  const std::string s_pattern =
+      "Float(3, 4, 5, strides=[20, 5, 1], device=cuda:0) = aten::to(%p1, %1, %2, %3, %3, %4)";
+  const std::string d_pattern =
+      "Float(*, *, *, device=cuda:0) = aten::to(%p1, %1, %2, %3, %3, %4)";
+  FILE_CHECK(graph_str, s_pattern, d_pattern);
+}
+#endif // TORCH_BLADE_BUILD_WITH_CUDA
+
 #if PYTORCH_VERSION_GE(1, 8)
 TEST(PropagateInputShapesTest, SimpleUnary) {
   const std::string graph_str = R"IR(

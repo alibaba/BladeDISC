@@ -295,28 +295,6 @@ MemRefType<int8_t, N> ral_pdll_qgemm_per_channel(
       static_cast<int8_t*>(gpu_driver->alloc(ctx, m * n * sizeof(int8_t)));
   auto result = assignMemRef<int8_t, N>(data, resultSizes);
 
-#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
-  {
-    float alpha = 1.0f;
-    beta = 0.0f;
-    void* s = gpu_driver->asCUStream(ctx, stream_handle);
-    bladnn::Context bladnn_ctx{s};
-    bladnn::Dtype in_dtype = bladnn::Dtype::kS8;
-    bladnn::Dtype out_dtype = bladnn::Dtype::kS8;
-
-    bool ret =
-        bladnn::gemm(&bladnn_ctx, in_dtype, 0, input.data, m, k, in_dtype, 1,
-                     weight.data, n, k, out_dtype, result.data, m, n, 1, false,
-                     false, &alpha, &beta, kernel_scale, kernel_bias);
-
-    if (ret) {
-      return result;
-    } else {
-      ctx->signalError(Context::FAILURE,
-                       "Error to execute bladnn per-channel kernel.");
-    }
-  }
-#endif
   ctx->signalError(Context::FAILURE, "Not open bladnn.");
 }
 
@@ -395,24 +373,6 @@ MemRefType<int8_t, N> ral_pdll_qgemm(
       static_cast<int8_t*>(gpu_driver->alloc(ctx, m * n * sizeof(int8_t)));
   auto result = assignMemRef<int8_t, N>(data, resultSizes);
 
-#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
-  {
-    beta = 1.0f;
-    void* s = gpu_driver->asCUStream(ctx, stream_handle);
-    bladnn::Context bladnn_ctx{s};
-    bladnn::Dtype in_dtype = bladnn::Dtype::kS8;
-    bladnn::Dtype out_dtype = bladnn::Dtype::kS8;
-    bool ret = false;
-    if (bias_fp32 == false) {
-      ret = bladnn::gemm(&bladnn_ctx, in_dtype, 0, input.data, m, k, in_dtype,
-                         1, weight.data, n, k, out_dtype, result.data, m, n, 1,
-                         false, false, &kernel_scale, &beta, bias.data);
-    }
-    if (ret) {
-      return result;
-    }
-  }
-#endif
   beta = 0.0f;
 
   runCublasLtBiasForward(ctx, transb, transa, n, m, k, weight.data, k,

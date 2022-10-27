@@ -50,7 +50,8 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "aten::bitwise_not",
       "aten::bmm",
       "aten::cat",
-      "aten::chunk",
+      "aten::cos",
+      // "aten::chunk",
       "aten::contiguous",
       "aten::_convolution",
       "aten::convolution",
@@ -74,6 +75,8 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "aten::gelu",
       "aten::gelu_backward",
       "aten::glu",
+      // disable for performance problem
+      // "aten::group_norm",
       "aten::hardsigmoid",
       "aten::hardswish",
       "aten::hardtanh",
@@ -107,6 +110,7 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "aten::select",
       "aten::sigmoid",
       "aten::silu",
+      "aten::sin",
       "aten::size",
       "aten::slice",
       "aten::softmax",
@@ -119,6 +123,7 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "aten::tanh",
       "aten::tensor",
       "aten::to",
+      "aten::to.device",
       "aten::to.dtype",
       "aten::transpose",
       "aten::type_as",
@@ -128,6 +133,7 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "prim::Constant",
       "prim::ListConstruct",
       "prim::ListUnpack",
+      "prim::NumToTensor",
       // Torch Blade custom ops follows:
       "aten::add_inplace", // use aten namespace to work with PyTorch mutation pass
       "aten::sub_inplace", // use aten namespace to work with PyTorch mutation pass

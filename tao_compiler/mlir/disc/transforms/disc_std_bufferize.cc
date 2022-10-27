@@ -53,7 +53,7 @@ LogicalResult ConstantOpConverter::matchAndRewrite(
   auto resultType = op.getType().dyn_cast<RankedTensorType>();
   if (!resultType) return failure();
 
-  if (resultType.getRank() != 1) return failure();
+  if (resultType.getRank() > 1) return failure();
 
   auto elemType = resultType.getElementType();
   if (!elemType.isIndex() && !elemType.isa<IntegerType>()) return failure();
@@ -63,12 +63,16 @@ LogicalResult ConstantOpConverter::matchAndRewrite(
   MemRefType bufferType = MemRefType::get({resultType.getShape()}, elemType);
   Value result = rewriter.create<memref::AllocOp>(loc, bufferType);
   for (auto&& en : llvm::enumerate(attr.getValues<llvm::APInt>())) {
-    Value idx = rewriter.create<arith::ConstantIndexOp>(loc, en.index());
     Value val =
         rewriter.create<arith::ConstantIndexOp>(loc, en.value().getSExtValue());
     if (!elemType.isIndex())
       val = rewriter.create<arith::IndexCastOp>(loc, elemType, val);
-    rewriter.create<memref::StoreOp>(loc, val, result, idx);
+    if (resultType.getRank() == 0) {
+      rewriter.create<memref::StoreOp>(loc, val, result);
+    } else {
+      Value idx = rewriter.create<arith::ConstantIndexOp>(loc, en.index());
+      rewriter.create<memref::StoreOp>(loc, val, result, idx);
+    }
   }
 
   rewriter.replaceOp(op, {result});

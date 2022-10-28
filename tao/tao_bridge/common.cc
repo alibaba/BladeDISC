@@ -124,6 +124,9 @@ static void AllocateTaoBridgeFlags() {
                                &opts->train_task_max_cluster_size));
   CHECK_OK(ReadInt64FromEnvVar("TAO_TRAIN_TASK_MIN_CLUSTER_SIZE", -1,
                                &opts->train_task_min_cluster_size));
+  CHECK_OK(ReadBoolFromEnvVar(
+      "TAO_EXPERIMENTAL_ENABLE_CPU_SPARSE_OPS_COMPILATION", false,
+      &opts->experimental_enable_cpu_sparse_ops_compilation));
 }
 
 }  // namespace

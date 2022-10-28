@@ -35,6 +35,7 @@ void eraseInputShape(const std::shared_ptr<torch::jit::Graph>& graph) {
 }
 
 void autoInputDevice(const std::shared_ptr<torch::jit::Graph>& graph) {
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
   for (auto input : graph->inputs()) {
     if (auto type = input->type()->cast<c10::TensorType>()) {
       if (type->device())
@@ -46,6 +47,7 @@ void autoInputDevice(const std::shared_ptr<torch::jit::Graph>& graph) {
       }
     }
   }
+#endif
 }
 
 // FILE_CHECK parses the input graph string and fill the current
@@ -56,13 +58,10 @@ void autoInputDevice(const std::shared_ptr<torch::jit::Graph>& graph) {
   auto g = std::make_shared<torch::jit::Graph>();             \
   torch::jit::parseIR(graph_str, g.get());                    \
   autoInputDevice(g);                                         \
-  std::cout << g->toString() << std::endl;                    \
   torch::blade::PropagateInputShapes(g);                      \
-  std::cout << g->toString() << std::endl;                    \
   torch::jit::testing::FileCheck().check(s_pattern)->run(*g); \
   eraseInputShape(g);                                         \
   torch::blade::PropagateInputShapes(g);                      \
-  std::cout << g->toString() << std::endl;                    \
   torch::jit::testing::FileCheck().check(dy_pattern)->run(*g);
 
 TEST(PropagateInputShapesTest, SimpleUnary) {

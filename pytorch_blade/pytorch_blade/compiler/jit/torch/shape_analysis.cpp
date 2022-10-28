@@ -12,6 +12,7 @@
  * (Ronan Collobert, Samy Bengio, Johnny Mariethoz)
  */
 #include "pytorch_blade/compiler/jit/torch/shape_analysis.h"
+#include "pytorch_blade/common_utils/macros.h"
 
 #include <c10/util/Exception.h>
 #include <torch/csrc/autograd/variable.h>
@@ -998,16 +999,17 @@ class ShapePropagator : public PropertyPropBase {
             "aten::normal(float mean, Tensor std, *, Generator? generator) -> Tensor",
             "aten::normal(Tensor mean, float std, *, Generator? generator) -> Tensor",
             "aten::permute(Tensor self, int[] dims) -> Tensor",
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
+#if PYTORCH_VERSION_GE(1, 12)
             "aten::pin_memory(Tensor(a) self, Device? device=None) -> Tensor(a)",
             "aten::gelu(Tensor self, *, str approximate='none') -> Tensor",
             "aten::gelu_backward(Tensor grad_output, Tensor self, *, str approximate='none') -> Tensor",
+            "aten::native_dropout_backward(Tensor grad_output, Tensor mask, float scale) -> Tensor",
 #endif
             "aten::pinverse(Tensor self, float rcond) -> Tensor",
             "aten::reciprocal(Tensor self) -> Tensor",
             "aten::relu(Tensor self) -> Tensor",
             "aten::relu_(Tensor self) -> Tensor",
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 9
+#if PYTORCH_VERSION_GE(1, 9)
             "aten::relu6(Tensor self) -> Tensor",
             "aten::relu6_(Tensor self) -> Tensor",
 #endif
@@ -1033,7 +1035,6 @@ class ShapePropagator : public PropertyPropBase {
             "aten::narrow(Tensor self, int dim, int start, int length) -> Tensor",
             "aten::alias(Tensor self) -> Tensor",
             "aten::zero_(Tensor self) -> Tensor",
-            "aten::native_dropout_backward(Tensor grad_output, Tensor mask, float scale) -> Tensor",
             "aten::tanh_backward(Tensor grad_output, Tensor output) -> Tensor",
         },
         [](Node* node) -> type_vec_t {
@@ -1061,7 +1062,7 @@ class ShapePropagator : public PropertyPropBase {
         [](Node* node) -> type_vec_t {
           auto input_type = node->input(0)->type()->cast<TensorType>();
 
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
+#if PYTORCH_VERSION_GE(1, 12)
           // Maps complex -> float
           if (input_type->scalarType()) {
             const auto scalar_type = *(input_type->scalarType());

@@ -241,7 +241,6 @@ class BazelBuild(TorchBladeBuild):
             + self.torch_extra_opts
             + self.configs
             + self.test_suites
-            + ["--test_output=errors"]
         )
         subprocess.check_call(test_cmd, shell=True, env=env, executable="/bin/bash")
 

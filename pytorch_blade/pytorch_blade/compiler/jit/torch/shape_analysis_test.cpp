@@ -13,6 +13,7 @@
 #include <torch/csrc/jit/ir/irparser.h>
 #include <torch/csrc/jit/testing/file_check.h>
 #include <torch/script.h>
+#include "pytorch_blade/common_utils/macros.h"
 #include "pytorch_blade/compiler/jit/torch/shape_analysis.h"
 
 namespace torch {
@@ -35,7 +36,7 @@ void eraseInputShape(const std::shared_ptr<torch::jit::Graph>& graph) {
 }
 
 void autoInputDevice(const std::shared_ptr<torch::jit::Graph>& graph) {
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
+#if PYTORCH_VERSION_GE(1, 12)
   for (auto input : graph->inputs()) {
     if (auto type = input->type()->cast<c10::TensorType>()) {
       if (type->device())
@@ -64,33 +65,22 @@ void autoInputDevice(const std::shared_ptr<torch::jit::Graph>& graph) {
   torch::blade::PropagateInputShapes(g);                      \
   torch::jit::testing::FileCheck().check(dy_pattern)->run(*g);
 
+#if PYTORCH_VERSION_GE(1, 8)
 TEST(PropagateInputShapesTest, SimpleUnary) {
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 8
   const std::string graph_str = R"IR(
-graph(%p1 : Float(*, *, *, device=cuda:0)):
+graph(%p1 : Float(3, 4, 5, strides=[20, 5, 1], device=cuda:0)):
   %1 : Tensor = aten::relu(%p1)
   return (%1)
 )IR";
-  const std::string pattern = "Float(*, *, *, device=cuda:0) = aten::relu(%p1)";
-#elif PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 6
-  const std::string graph_str = R"IR(
-graph(%p1 : Float(*, *, *, device=cuda:0)):
-  %1 : Tensor = aten::relu(%p1)
-  return (%1)
-)IR";
-  const std::string pattern = "Float(*, *, *, device=cuda:0) = aten::relu(%p1)";
-#else
-  const std::string graph_str = R"IR(
-graph(%p1 : Float(*, *, *, device=cuda:0)):
-  %1 : Tensor = aten::relu(%p1)
-  return (%1)
-)IR";
-  const std::string pattern = "Float(*, *, *, device=cuda:0) = aten::relu(%p1)";
-#endif
-  FILE_CHECK(graph_str, pattern, pattern);
+  const std::string s_pattern =
+      "Float(3, 4, 5, strides=[20, 5, 1], device=cuda:0) = aten::relu(%p1)";
+  const std::string d_pattern =
+      "Float(*, *, *, device=cuda:0) = aten::relu(%p1)";
+  FILE_CHECK(graph_str, s_pattern, d_pattern);
 }
+#endif
 
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
+#if PYTORCH_VERSION_GE(1, 12)
 TEST(PropagateInputShapesTest, SliceOp) {
   const std::string graph_str = R"IR(
 graph(%p1 : Float(1, 512, strides=[512, 1], device=cpu)):

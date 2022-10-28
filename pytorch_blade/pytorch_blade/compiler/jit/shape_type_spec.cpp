@@ -97,11 +97,11 @@ ShapeType ShapeType::Deserialize(const std::string& serial_str) {
         // string like: 1:1 (min:max)
         CHECK(!s.empty());
         std::vector<std::string> dim_range = split(s, ":");
-        CHECK_EQ(dim_range.size(), 2);
+        CHECK(dim_range.size() == 2);
         int64_t dim_min = c10::stoll(dim_range[0]);
         int64_t dim_max = c10::stoll(dim_range[1]);
         // TODO: to support a [min, max] range, where min!=max
-        CHECK_EQ(dim_min, dim_max);
+        CHECK(dim_min == dim_max);
         return dim_min;
       });
   return shape_type;

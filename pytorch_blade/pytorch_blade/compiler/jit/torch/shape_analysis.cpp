@@ -909,6 +909,7 @@ class ShapePropagator : public PropertyPropBase {
 
     static const register_formula_for first_input_type_formula{
         {
+            "aten::alias(Tensor self) -> Tensor",
             "aten::erf(Tensor self) -> Tensor",
             "aten::erf_(Tensor self) -> Tensor",
             "aten::masked_fill.Scalar(Tensor self, Tensor mask, Scalar value) -> Tensor",
@@ -1491,8 +1492,8 @@ class ShapePropagator : public PropertyPropBase {
     //   - Has a bool keepdim argument
     static const register_formula_for multidim_reduce_ops_with_integer_upcast_and_dtype{
         {
-            "aten::sum(Tensor self, int[] dim, bool keepdim, *, int? dtype) -> Tensor",
-            "aten::mean(Tensor self, int[] dim, bool keepdim, *, int? dtype) -> Tensor",
+            "aten::sum.dim_IntList(Tensor self, int[]? dim, bool keepdim, *, int? dtype) -> Tensor",
+            "aten::mean.dim(Tensor self, int[]? dim, bool keepdim, *, int? dtype) -> Tensor",
         },
         [](Node* node) -> type_vec_t {
           auto num_reduced_dim = determineListSize(node->namedInput(attr::dim));
@@ -2641,7 +2642,7 @@ class ShapePropagator : public PropertyPropBase {
       return true;
     } else if (
         node->matches(
-            "aten::sum(Tensor self, int[] dim, bool keepdim, *, int? dtype) -> Tensor",
+            "aten::sum.dim_IntList(Tensor self, int[]? dim, bool keepdim, *, int? dtype) -> Tensor",
             /*const_inputs=*/{attr::dim, attr::keepdim})) {
       auto& tp = tensor_types.at(0);
       auto sizes = tp->sizes().concrete_sizes().value();

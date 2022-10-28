@@ -73,7 +73,7 @@ TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
       context.parser->parse(proto_bytes.data(), proto_bytes.size());
 
   if (supported) {
-    CHECK_EQ(context.parser->getNbErrors(), 0);
+    CHECK(context.parser->getNbErrors() == 0);
 
     auto config = TrtUniquePtr<nvinfer1::IBuilderConfig>(
         context.builder->createBuilderConfig());

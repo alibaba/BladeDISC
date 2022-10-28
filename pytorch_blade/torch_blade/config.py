@@ -95,6 +95,9 @@ class ConfigContext(ContextDecorator):
 
     @classmethod
     def get_contexts(cls):
+        if not hasattr(cls.context, 'dict'):
+            cls.context.dict = defaultdict(list)
+
         # no race-condition here, cls.context is a thread-local object
         # be sure not to override contexts in a subclass however!
         return cls.context.dict[cls.__name__]

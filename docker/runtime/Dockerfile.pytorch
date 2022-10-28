@@ -5,6 +5,9 @@ ENV DEBIAN_FRONTEND noninteractive
 ARG DEVICE=cu110
 ARG TORCH_VERSION=1.7.1+cu110
 
+ARG ENABLE_FIND_FASTEST_APT_SOURCE=OFF
+ENV ENABLE_FIND_FASTEST_APT_SOURCE=${ENABLE_FIND_FASTEST_APT_SOURCE}
+
 ADD ./docker/scripts /install/scripts
 RUN bash /install/scripts/find-fastest-apt.sh && \
         apt-get install -y -qq wget curl unzip

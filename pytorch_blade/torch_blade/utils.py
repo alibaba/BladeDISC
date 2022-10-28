@@ -222,7 +222,7 @@ def parse_version(version: str):
             version_number_str = version[:i]
             break
 
-    return tuple([int(n) for n in version_number_str.split(".")])
+    return tuple([int(n) for n in version_number_str.split(".")[:3]])
 
 def torch_version_number():
     return parse_version(torch.__version__)

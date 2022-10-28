@@ -18,6 +18,14 @@
 namespace torch {
 namespace blade {
 
+bool cudaAvailable() {
+#if TORCH_BLADE_BUILD_WITH_CUDA
+  return true;
+#else
+  return false;
+#endif
+}
+
 void eraseInputShape(const std::shared_ptr<torch::jit::Graph>& graph) {
   for (auto input : graph->inputs()) {
     if (auto type = input->type()->cast<c10::TensorType>()) {
@@ -26,9 +34,28 @@ void eraseInputShape(const std::shared_ptr<torch::jit::Graph>& graph) {
   }
 }
 
+void autoInputDevice(const std::shared_ptr<torch::jit::Graph>& graph) {
+  for (auto input : graph->inputs()) {
+    if (auto type = input->type()->cast<c10::TensorType>()) {
+      if (type->device())
+        continue;
+      if (cudaAvailable()) {
+        input->setType(type->withDevice(c10::Device(c10::kCUDA, 0)));
+      } else {
+        input->setType(type->withDevice(c10::Device(c10::kCPU)));
+      }
+    }
+  }
+}
+
+// FILE_CHECK parses the input graph string and fill the current
+// device to inputs if no default device, check the static
+// shape pattern(s_pattern) and dynamic shape pattern (dy_patter)
+// with Pytorch FileCheck API
 #define FILE_CHECK(graph_str, s_pattern, dy_pattern)          \
   auto g = std::make_shared<torch::jit::Graph>();             \
   torch::jit::parseIR(graph_str, g.get());                    \
+  autoInputDevice(g);                                         \
   std::cout << g->toString() << std::endl;                    \
   torch::blade::PropagateInputShapes(g);                      \
   std::cout << g->toString() << std::endl;                    \
@@ -39,13 +66,13 @@ void eraseInputShape(const std::shared_ptr<torch::jit::Graph>& graph) {
   torch::jit::testing::FileCheck().check(dy_pattern)->run(*g);
 
 TEST(PropagateInputShapesTest, SimpleUnary) {
-#if PYTORCH_MAJOR_VERSOIN == 1 && PYTORCH_MINOR_VERSION >= 8
+#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 8
   const std::string graph_str = R"IR(
 graph(%p1 : Float(*, *, *, device=cuda:0)):
   %1 : Tensor = aten::relu(%p1)
   return (%1)
 )IR";
-  const std::string pattern = "Float(*, *, *) = aten::relu(%p1)";
+  const std::string pattern = "Float(*, *, *, device=cuda:0) = aten::relu(%p1)";
 #elif PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 6
   const std::string graph_str = R"IR(
 graph(%p1 : Float(*, *, *, device=cuda:0)):
@@ -55,11 +82,11 @@ graph(%p1 : Float(*, *, *, device=cuda:0)):
   const std::string pattern = "Float(*, *, *, device=cuda:0) = aten::relu(%p1)";
 #else
   const std::string graph_str = R"IR(
-graph(%p1 : Float(*, *, *)):
+graph(%p1 : Float(*, *, *, device=cuda:0)):
   %1 : Tensor = aten::relu(%p1)
   return (%1)
 )IR";
-  const std::string pattern = "Float(*, *, *) = aten::relu(%p1)";
+  const std::string pattern = "Float(*, *, *, device=cuda:0) = aten::relu(%p1)";
 #endif
   FILE_CHECK(graph_str, pattern, pattern);
 }
@@ -67,32 +94,39 @@ graph(%p1 : Float(*, *, *)):
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
 TEST(PropagateInputShapesTest, SliceOp) {
   const std::string graph_str = R"IR(
-graph(%p1 : Float(1, 512, strides=[512, 1])):
+graph(%p1 : Float(1, 512, strides=[512, 1], device=cpu)):
   %1 : int = prim::Constant[value=0]()
   %2 : int = prim::Constant[value=1]()
   %3 : Tensor = aten::slice(%p1, %1, %1, %2, %2)
   return (%3)
 )IR";
   const std::string s_pattern =
-      "%3 : Float(1, 512, strides=[512, 1]) = aten::slice(%p1, %1, %1, %2, %2)";
+      "%3 : Float(1, 512, strides=[512, 1], device=cpu) = aten::slice(%p1, %1, %1, %2, %2)";
   const std::string d_pattern =
-      "%3 : Float(*, *) = aten::slice(%p1, %1, %1, %2, %2)";
+      "%3 : Float(*, *, device=cpu) = aten::slice(%p1, %1, %1, %2, %2)";
   FILE_CHECK(graph_str, s_pattern, d_pattern);
 }
 
 TEST(PropagateInputShapesTest, AddOp) {
   const std::string graph_str = R"IR(
-graph(%p1 : Float(48, 128, 768, strides=[98304, 768, 1], requires_grad=0, device=cuda:0),
-      %p2 : Float(1, 128, 768, strides=[98304, 768, 1], requires_grad=0, device=cuda:0),
+graph(%p1 : Float(48, 128, 768, strides=[98304, 768, 1], requires_grad=0),
+      %p2 : Float(1, 128, 768, strides=[98304, 768, 1], requires_grad=0),
       %p3 : int):
   %1 : Tensor = aten::add(%p1, %p2, %p3)
   return (%1)
 )IR";
+
+#if TORCH_BLADE_BUILD_WITH_CUDA
   const std::string s_pattern =
       "%3 : Float(48, 128, 768, strides=[98304, 768, 1], device=cuda:0) = aten::add(%p1, %p2, %p3)";
   const std::string d_pattern =
       "%3 : Float(*, *, *, device=cuda:0) = aten::add(%p1, %p2, %p3)";
-
+#else
+  const std::string s_pattern =
+      "%3 : Float(48, 128, 768, strides=[98304, 768, 1], device=cpu) = aten::add(%p1, %p2, %p3)";
+  const std::string d_pattern =
+      "%3 : Float(*, *, *, device=cpu) = aten::add(%p1, %p2, %p3)";
+#endif
   FILE_CHECK(graph_str, s_pattern, d_pattern);
 }
 

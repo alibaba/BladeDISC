@@ -122,7 +122,6 @@ class TestDiscList(DiscTestCase):
 
             return x + y * z - w
 
-        print(list_unpack.graph)
         self._test_cvt_to_disc(list_unpack, (torch.ones([1, 2, 3, 4]),))
 
 

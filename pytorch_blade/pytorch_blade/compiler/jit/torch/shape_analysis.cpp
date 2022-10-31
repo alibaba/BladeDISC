@@ -112,9 +112,15 @@ void PropertyPropBase::propagateBlock(Block* block, bool insert_expands) {
     } catch (propagation_error& e) {
       setUnshapedType(node);
     } catch (std::exception& e) {
-      throw ErrorReport(node->sourceRange())
-          << ExceptionMessage(e) << "\nThe above operation: \n\"" << *node
-          << "\", failed shape propagation in this context";
+      ErrorReport errMsg(node->sourceRange());
+      errMsg << ExceptionMessage(e)
+             << "failed shape propagation in this context. "
+             << "The above operation: \n"
+             << *node << "The inputs are:\n";
+      for (auto inp : node->inputs()) {
+        errMsg << *inp->type() << " from " << *(inp->node());
+      }
+      throw errMsg;
     }
   }
 }
@@ -617,7 +623,7 @@ class ShapePropagator : public PropertyPropBase {
     setUnshapedType(cat_node);
   }
 
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION <= 10
+#if PYTORCH_VERSION_LE(1, 10)
   c10::optional<c10::ScalarType> tryScalarTypeFromJitType(
       const c10::Type& type) {
     if (type == *FloatType::get()) {
@@ -1483,7 +1489,7 @@ class ShapePropagator : public PropertyPropBase {
 
     // Requirements:
     //   dims           : 0 if keepdim, otherwise n(dims) smaller
-    //   scalar type    : preserved
+    //   scalar type    : dtype if given
     //   device         : preserved
     //   tensor inputs  : 1
     //   tensor outputs : 1
@@ -1492,8 +1498,13 @@ class ShapePropagator : public PropertyPropBase {
     //   - Has a bool keepdim argument
     static const register_formula_for multidim_reduce_ops_with_integer_upcast_and_dtype{
         {
+#if PYTORCH_VERSION_GE(1, 14)
             "aten::sum.dim_IntList(Tensor self, int[]? dim, bool keepdim, *, int? dtype) -> Tensor",
             "aten::mean.dim(Tensor self, int[]? dim, bool keepdim, *, int? dtype) -> Tensor",
+#else
+            "aten::sum(Tensor self, int[] dim, bool keepdim, *, int? dtype) -> Tensor",
+            "aten::mean(Tensor self, int[] dim, bool keepdim, *, int? dtype) -> Tensor",
+#endif
         },
         [](Node* node) -> type_vec_t {
           auto num_reduced_dim = determineListSize(node->namedInput(attr::dim));
@@ -2640,25 +2651,6 @@ class ShapePropagator : public PropertyPropBase {
                    "aten::sum(Tensor self, *, int? dtype) -> Tensor")) {
       node->output()->setType(tensor_types.at(0)->withSizes({}));
       return true;
-    } else if (
-        node->matches(
-            "aten::sum.dim_IntList(Tensor self, int[]? dim, bool keepdim, *, int? dtype) -> Tensor",
-            /*const_inputs=*/{attr::dim, attr::keepdim})) {
-      auto& tp = tensor_types.at(0);
-      auto sizes = tp->sizes().concrete_sizes().value();
-      auto dims = node->get<c10::List<int64_t>>(attr::dim).value();
-      bool keepdim = node->get<bool>(attr::keepdim).value();
-      std::reverse(dims.begin(), dims.end());
-      for (int64_t dim : dims) {
-        SHAPE_ASSERT(dim >= 0 && static_cast<size_t>(dim) < sizes.size());
-        if (keepdim) {
-          sizes.at(dim) = 1;
-        } else {
-          sizes.erase(sizes.begin() + dim);
-        }
-      }
-      node->output()->setType(tp->withSizes(sizes));
-      return true;
     } else if (node->matches(
                    "aten::squeeze(Tensor self, int dim) -> Tensor",
                    /*const_inputs=*/attr::dim)) {
@@ -2789,13 +2781,11 @@ class ShapePropagator : public PropertyPropBase {
       setUnshapedType(node);
       return true;
     } else if (node->matches("aten::item(Tensor self) -> Scalar")) {
-      auto scalar_type = tryScalarTypeFromJitType(*node->inputs()[0]->type());
-      if (isFloatingType(*scalar_type)) {
-        node->output()->setType(FloatType::get());
-      } else {
-        node->output()->setType(IntType::get());
+      if (auto dtype = getDType(*node->input()->type())) {
+        node->output()->setType(dtype);
+        return true;
       }
-      return true;
+      return false;
     }
     setUnshapedType(node);
     return false;

@@ -428,17 +428,22 @@ class Config(ConfigContext):
                 _onnx_master_opset,
                 _onnx_stable_opsets
             )
-        elif TORCH_VERSION >= (1, 12):
-            from torch.onnx._constants import onnx_default_opset as _default_onnx_opset_version
-            from torch.onnx._constants import onnx_main_opset as _onnx_master_opset
-            from torch.onnx._constants import onnx_stable_opsets as _onnx_stable_opsets 
-        else:
+        elif TORCH_VERSION < (1, 12):
             from torch.onnx.symbolic_helper import (
                 _default_onnx_opset_version,
                 _onnx_main_opset,
                 _onnx_stable_opsets
             )
             _onnx_master_opset = _onnx_main_opset
+        elif TORCH_VERSION < (1, 14):
+            from torch.onnx._constants import onnx_default_opset as _default_onnx_opset_version
+            from torch.onnx._constants import onnx_main_opset as _onnx_master_opset
+            from torch.onnx._constants import onnx_stable_opsets as _onnx_stable_opsets
+        else:
+            from torch.onnx._constants import ONNX_MIN_OPSET, ONNX_MAX_OPSET, ONNX_DEFAULT_OPSET
+            _default_onnx_opset_version = ONNX_DEFAULT_OPSET
+            _onnx_stable_opsets = range(ONNX_MIN_OPSET, ONNX_MAX_OPSET)
+            _onnx_master_opset = ONNX_MAX_OPSET
 
         assert version == _default_onnx_opset_version or version in list(_onnx_stable_opsets) + [_onnx_master_opset]
         self._customize_onnx_opset_version = version

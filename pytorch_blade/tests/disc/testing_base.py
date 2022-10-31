@@ -39,6 +39,11 @@ def skipTorchLE(version, msg=""):
         "TODO: torch version compatible with early than {} {}".format(version, msg))
 
 
+def skipTorchNE(version, msg=""):
+    return unittest.skipIf(
+        utils.torch_version_number() != utils.parse_version(version),
+        "TODO: torch version compatible with early than {} {}".format(version, msg))
+
 def skipTorchLT(version, msg=""):
     return unittest.skipIf(
         utils.torch_version_number() < utils.parse_version(version),

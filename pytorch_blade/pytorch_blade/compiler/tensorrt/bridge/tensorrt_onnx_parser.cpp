@@ -81,7 +81,7 @@ TrtUniquePtr<nvinfer1::ICudaEngine> TensorrtOnnxParser::BuildEngine(
     if (dynamic_ranges.size() > 0) {
       auto changeDims = [](nvinfer1::Dims dims,
                            const std::vector<int64_t> shape) {
-        CHECK_EQ(dims.nbDims, shape.size());
+        CHECK(dims.nbDims == shape.size());
         // We traverse and modify the original dim instead of creating a new
         // dim. Because trt only has Dims2, Dims3 and Dims4
         for (int j = 0; j < dims.nbDims; j++) {

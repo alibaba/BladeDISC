@@ -41,16 +41,14 @@ func.func @torch.aten.bmm.dyn(%arg0: !torch.vtensor<[4,?,256],f16>, %arg1: !torc
 // -----
 
 // CHECK-LABEL:  func.func @torch.aten.matmul.dyn(
-// CHECK-SAME:         %[[ARG0:.*]]: tensor<4x?x256xf16>, %[[ARG1:.*]]: tensor<256x?xf16>) -> tensor<4x?x?xf16> {
-// CHECK:         %[[C256_I32:.*]] = arith.constant 256 : i32
-// CHECK:         %[[C4_I32:.*]] = arith.constant 4 : i32
-// CHECK:         %[[C1:.*]] = arith.constant 1 : index
-// CHECK:         %[[T0:.*]] = tensor.dim %[[ARG1]], %[[C1]] : tensor<256x?xf16>
-// CHECK:         %[[T1:.*]] = arith.index_cast %[[T0]] : index to i32
-// CHECK:         %[[T2:.*]] = tensor.from_elements %[[C4_I32]], %[[C256_I32]], %[[T1]] : tensor<3xi32>
-// CHECK:         %[[T3:.*]] = "mhlo.dynamic_broadcast_in_dim"(%[[ARG1]], %[[T2]]) {broadcast_dimensions = dense<[1, 2]> : tensor<2xi64>} : (tensor<256x?xf16>, tensor<3xi32>) -> tensor<4x256x?xf16>
-// CHECK:         %[[T4:.*]] = "mhlo.dot_general"(%[[ARG0]], %[[T3]]) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>} : (tensor<4x?x256xf16>, tensor<4x256x?xf16>) -> tensor<4x?x?xf16>
-// CHECK:         return %[[T4]] : tensor<4x?x?xf16>
+// CHECK:         arith.index_cast
+// CHECK:         tensor.from_elements
+// CHECK:         mhlo.dynamic_reshape
+// CHECK:         mhlo.dot
+// CHECK:         mhlo.dynamic_reshape
+// CHECK-NOT:     mhlo.dynamic_broadcast_in_dim
+// CHECK-NOT:     mhlo.broadcast_in_dim
+// CHECK-NOT:     mhlo.dot_general
 func.func @torch.aten.matmul.dyn(%arg0: !torch.vtensor<[4,?,256],f16>, %arg1: !torch.vtensor<[256,?],f16>) -> !torch.vtensor<[4,?,?],f16> {
   %0 = torch.aten.matmul %arg0, %arg1 : !torch.vtensor<[4,?,256],f16>, !torch.vtensor<[256,?],f16> -> !torch.vtensor<[4,?,?],f16>
   return %0 : !torch.vtensor<[4,?,?],f16>
@@ -133,16 +131,14 @@ func.func @torch.aten.matmul.1dx1d(%arg0: !torch.vtensor<[256],f16>, %arg1: !tor
 // -----
 
 // CHECK-LABEL:  func.func @torch.aten.matmul.proj(
-// CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x256xf16>) -> tensor<?x?x256xf16> {
-// CHECK:         %[[C256_I32:.*]] = arith.constant 256 : i32
-// CHECK:         %[[C0:.*]] = arith.constant 0 : index
-// CHECK:         %[[T0:.*]] = mhlo.constant dense<1.000000e+00> : tensor<256x256xf16>
-// CHECK:         %[[T1:.*]] = tensor.dim %[[ARG0]], %[[C0]] : tensor<?x?x256xf16>
-// CHECK:         %[[T2:.*]] = arith.index_cast %[[T1]] : index to i32
-// CHECK:         %[[T3:.*]] = tensor.from_elements %[[T2]], %[[C256_I32]], %[[C256_I32]] : tensor<3xi32>
-// CHECK:         %[[T4:.*]] = "mhlo.dynamic_broadcast_in_dim"(%[[T0]], %[[T3]]) {broadcast_dimensions = dense<[1, 2]> : tensor<2xi64>} : (tensor<256x256xf16>, tensor<3xi32>) -> tensor<?x256x256xf16>
-// CHECK:         %[[T5:.*]] = "mhlo.dot_general"(%[[ARG0]], %[[T4]]) {dot_dimension_numbers = #mhlo.dot<lhs_batching_dimensions = [0], rhs_batching_dimensions = [0], lhs_contracting_dimensions = [2], rhs_contracting_dimensions = [1]>} : (tensor<?x?x256xf16>, tensor<?x256x256xf16>) -> tensor<?x?x256xf16>
-// CHECK:         return %[[T5]] : tensor<?x?x256xf16>
+// CHECK:         arith.index_cast
+// CHECK:         tensor.from_elements
+// CHECK:         mhlo.dynamic_reshape
+// CHECK:         mhlo.dot
+// CHECK:         mhlo.dynamic_reshape
+// CHECK-NOT:     mhlo.dynamic_broadcast_in_dim
+// CHECK-NOT:     mhlo.broadcast_in_dim
+// CHECK-NOT:     mhlo.dot_general
 func.func @torch.aten.matmul.proj(%arg0: !torch.vtensor<[?,?,256],f16>) -> !torch.vtensor<[?,?,256],f16> {
   %0 = torch.vtensor.literal(dense<1.000000e+00> : tensor<256x256xf16>) : !torch.vtensor<[256,256],f16>
   %1 = torch.aten.matmul %arg0, %0 : !torch.vtensor<[?,?,256],f16>, !torch.vtensor<[256,256],f16> -> !torch.vtensor<[?,?,256],f16>

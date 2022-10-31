@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  TorchBenchTiny:
+  TorchBenchCudaTiny:
     if: github.event.schedule != '30 15 * * 5' # daily or dispatch
     uses: ./.github/workflows/reusable.yml
     with:
@@ -19,12 +19,12 @@ jobs:
       device: gpu-a10
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh tiny
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cuda tiny
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit
 
-  TorchBenchPartial:
+  TorchBenchCudaPartial:
     if: github.event.schedule == '30 15 * * *'
     uses: ./.github/workflows/reusable.yml
     with:
@@ -33,12 +33,12 @@ jobs:
       device: gpu-a10
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cuda partial
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit
 
-  TorchBenchFull:
+  TorchBenchCudaFull:
     if: github.event.schedule == '30 15 * * 5'
     uses: ./.github/workflows/reusable.yml
     with:
@@ -48,7 +48,49 @@ jobs:
       timeout_minutes: 4320 # 72h
       dockerfile: docker/cronjobs/Dockerfile.torch.bench
       extra_run_args: --cap-add=SYS_ADMIN --gpus all
-      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh full
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cuda full
+      push_command: ""
+      remote_dev_docker: ""
+    secrets: inherit
+
+  TorchBenchCpuTiny:
+    if: github.event.schedule != '30 15 * * 5' # daily or dispatch
+    uses: ./.github/workflows/reusable.yml
+    with:
+      name: torch-offcial-benchmark
+      base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cpu
+      device: cpu_benchmark
+      dockerfile: docker/cronjobs/Dockerfile.torch.bench
+      extra_run_args: ""
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cpu tiny 
+      push_command: ""
+      remote_dev_docker: ""
+    secrets: inherit
+
+  TorchBenchCpuPartial:
+    if: github.event.schedule == '30 15 * * *'
+    uses: ./.github/workflows/reusable.yml
+    with:
+      name: torch-offcial-benchmark
+      base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cpu
+      device: cpu_benchmark
+      dockerfile: docker/cronjobs/Dockerfile.torch.bench
+      extra_run_args: ""
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cpu partial 
+      push_command: ""
+      remote_dev_docker: ""
+    secrets: inherit
+
+  TorchBenchCpuFull:
+    if: github.event.schedule == '30 15 * * 5'
+    uses: ./.github/workflows/reusable.yml
+    with:
+      name: torch-offcial-benchmark
+      base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cpu
+      device: cpu_benchmark
+      dockerfile: docker/cronjobs/Dockerfile.torch.bench
+      extra_run_args: ""
+      exec_command: bash ./pytorch_blade/benchmark/TorchBench/test_torch_bench.sh cpu full
       push_command: ""
       remote_dev_docker: ""
     secrets: inherit

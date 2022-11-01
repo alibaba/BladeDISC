@@ -1826,7 +1826,7 @@ void ral_conv_biasadd_relu(
     auto data_layout = bladnn::Layout::kNHWC;
     auto kernel_layout = bladnn::Layout::kNHWC;
     const float alpha = 1.0f;
-    const float beta = 0.0f;
+    const float beta = 1.0f;
     bladnn::Dtype dtype = toBlaDNNDtype<T>();
     bool ret = false;
 

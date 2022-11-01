@@ -10,6 +10,7 @@
 # limitations under the License.
 
 from io import BytesIO
+import os
 
 import onnx
 import torch
@@ -44,7 +45,7 @@ def _try_cast_graph_integer_inputs_to_i32(graph):
             tools.cast_to_i32_tensor_type(val)
 
 
-def _build_onnx_engine(subgraph, engine_build_func,
+def _build_onnx_engine(subgraph, engine_build_func, group_name,
                        dynamic_settings=None, cast_int_to_i32=False, grp_calib_data=None):
     if cast_int_to_i32:
         _try_cast_graph_integer_inputs_to_i32(subgraph)
@@ -80,8 +81,18 @@ def _build_onnx_engine(subgraph, engine_build_func,
 
     dyn_proto = pass_manager._export_onnx(graph, dynamic_axes)
     onnx_model = onnx.load_from_string(dyn_proto)
+
+    if tools.read_bool_from_env('TORCH_BLADE_DEBUG_LOG', False):
+        mlir_dump_dir = "dump_dir"
+        if not os.path.exists(mlir_dump_dir):
+            os.makedirs(mlir_dump_dir)
+        onnx_fname = os.path.join(mlir_dump_dir, group_name + ".onnx")
+        with open(onnx_fname, 'wb') as f:
+            f.write(dyn_proto)
+
     if len(onnx_model.graph.node) == 0:
         # input a graph with empty nodes to onnx builder would cause segfault
+        logger.debug("Skip build engion for onnx model without node.")
         return None
 
     state.model_proto = dyn_proto
@@ -137,15 +148,17 @@ def build_onnx_engine(
             engine_data = _build_onnx_engine(
                 subgraph,
                 _try_build_onnx_engine,
+                group_name,
                 grp_dynamic_settings,
                 cast_int_to_i32,
                 grp_calib_data
             )
         except Exception as error:
-            logger.warning(error)
+            logger.warning(f"Building engine exception: {error}")
             return None
 
         if engine_data is None:
+            logger.warning(f"Building  engine failed with empty engine binary.")
             return None
 
         group_name = f"{group_id}{group_name}"

@@ -281,6 +281,10 @@ def group_supported_clusters(block, trt_unsupported, support_number_inpts_outs=F
     supported_groups = _cluster_by_union_find(
         graph_builder, group_support_info)
 
+    logger.debug("Summary of supported groups:")
+    for idx, grp in enumerate(supported_groups):
+        logger.debug(f"    cluster {idx}, num nodes: {len(grp)}.")
+
     fusion_groups = []
     for grp in supported_groups:
         nodes_to_fuse = []

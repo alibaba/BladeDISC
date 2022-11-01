@@ -92,7 +92,7 @@ def _build_onnx_engine(subgraph, engine_build_func, group_name,
 
     if len(onnx_model.graph.node) == 0:
         # input a graph with empty nodes to onnx builder would cause segfault
-        logger.debug("Skip build engion for onnx model without node.")
+        logger.debug("Skip build engin for onnx model without node.")
         return None
 
     state.model_proto = dyn_proto
@@ -158,7 +158,7 @@ def build_onnx_engine(
             return None
 
         if engine_data is None:
-            logger.warning(f"Building  engine failed with empty engine binary.")
+            logger.warning(f"Building engine failed with empty engine binary.")
             return None
 
         group_name = f"{group_id}{group_name}"

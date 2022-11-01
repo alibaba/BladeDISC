@@ -102,6 +102,9 @@ def ElementTypeConverterPass : Pass<"disc-element-type-converter", "mlir::func::
   let options = [
     Option<"enable_fp16_gemm_", "enable-fp16-gemm", "bool",
            /*default=*/"false", "Enable fp16 for GEMM or not.">,
+    Option<"enable_fp16_conv_", "enable-fp16-conv", "bool",
+           /*default=*/"false", "Enable fp16 for CONV or not.">,
+
   ];
 }
 

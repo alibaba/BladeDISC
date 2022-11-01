@@ -81,7 +81,7 @@ createDiscSpecializeFusionWithSpeculationPass(int sm_count = -1,
 // Eliminates certain element types as the input or output of ops by inserting
 // Convert ops.
 std::unique_ptr<OperationPass<FuncOp>> createDiscElementTypeConverterPass(
-    bool enable_fp16_gemm = false);
+    bool enable_fp16_gemm = false, bool enable_fp16_conv = false);
 
 // Greedily maps loops to GPU hardware dimensions.
 // TODO: this pass is only a wrapper to mlir func, copied from

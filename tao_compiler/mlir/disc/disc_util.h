@@ -109,11 +109,17 @@ SmallVector<Value, 4> GetAllPossibleUsedValues(Operation* op);
 // Returns true if the shape constraint IR is enabled.
 bool useShapeConstraintIR();
 
-// Returns true if `DISC_ENABLE_HORIZONTAL_FUSION` is true
+// Returns true if `DISC_ENABLE_HORIZONTAL_FUSION` is true.
 bool useHorizontalFusion();
 
-// Returns true if `DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL` is true
+// Returns true if `DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL` is true.
 bool isMemIntensiveOptExperimentalEnabled();
+
+// Returns true if `DISC_ENABLE_STITCH` is true.
+bool isStitchEnabled();
+
+// Returns true if `DISC_ENABLE_COMPUTE_INTENSIVE_FUSE` is true.
+bool isCompIntensFusionEnabled();
 
 // Returns data users of the value and its aliases (e.g. memref.cast).
 // Here non-data users means DimOp, DeallocOp and ShapeOfOp.

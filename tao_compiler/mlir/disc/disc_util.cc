@@ -228,6 +228,25 @@ bool isMemIntensiveOptExperimentalEnabled() {
   return enabled;
 }
 
+bool isStitchEnabled() {
+  static bool enabled = []() {
+    bool enabled = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_STITCH", enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
+bool isCompIntensFusionEnabled() {
+  static bool enabled = []() {
+    bool enabled = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE",
+                                   enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
 // Returns data users of the value and its aliases (e.g. memref.cast).
 // Here non-data users means DimOp, DeallocOp and ShapeOfOp.
 SmallVector<Operation*, 4> getValueUsers(Value v) {

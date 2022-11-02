@@ -756,7 +756,9 @@ cc_library(
     name = "fusion_utils",
     srcs = [
         "transforms/fusion_utils.cc",
-        "transforms/fusion_utils_stitch_gpu.cc"],
+        "transforms/fusion_utils_stitch_gpu.cc",
+        "transforms/fusion_utils_dot_gpu.cc",
+    ],
     hdrs = ["transforms/fusion_utils.h"],
     deps = [
         ":codegen_utils",

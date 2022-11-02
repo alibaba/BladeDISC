@@ -1403,6 +1403,186 @@ class ConvertTopConvBiasaddRelu : public OpRewritePattern<TF::ReluOp> {
   }
 };
 
+// Converts tf.conv2d+tf.biasadd+add+relu to custom_call
+class ConvertTopConvBiasaddAddRelu : public OpRewritePattern<TF::ReluOp> {
+ public:
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::ReluOp relu_op,
+                                PatternRewriter &rewriter) const final {
+    auto addv2_op = relu_op.features().getDefiningOp<TF::AddV2Op>();
+    if (!addv2_op) return failure();
+
+    RankedTensorType x_ty = addv2_op.x().getType().dyn_cast<RankedTensorType>();
+    RankedTensorType y_ty = addv2_op.y().getType().dyn_cast<RankedTensorType>();
+    if (!x_ty || !y_ty) return success();
+
+    auto bias_add = addv2_op.y().getDefiningOp<TF::BiasAddOp>();
+    if (!bias_add) return failure();
+
+    Value residual_val = addv2_op.x();
+    if (!residual_val) return failure();
+
+    RankedTensorType value_ty = bias_add.value().getType().dyn_cast<RankedTensorType>();
+    RankedTensorType bias_ty = bias_add.bias().getType().dyn_cast<RankedTensorType>();
+    if (!bias_ty || !value_ty) return success();
+
+    Value bias_val = bias_add.bias();
+
+    auto convOp = bias_add.value().getDefiningOp<TF::Conv2DOp>();
+    if (!convOp) return failure();
+
+    auto op = convOp;
+
+    if (op->getNumOperands() != 2 || op->getNumResults() != 1)
+      return op->emitError() << "mismatch # operands or # results\n";
+
+    Value input = op->getOperand(0);
+    Value filter = op->getOperand(1);
+    Value output = op->getResult(0);
+
+    auto inputTy = input.getType().dyn_cast<RankedTensorType>();
+    auto filterTy = filter.getType().dyn_cast<RankedTensorType>();
+    auto outputTy = output.getType().dyn_cast<RankedTensorType>();
+
+    // only try to match the op has static rank.
+    if (!inputTy || !filterTy || !outputTy)
+      return success();
+
+    OpBuilder b(op);
+    Location loc = op->getLoc();
+
+    ConvParams params;
+    params.op = op;
+    params.input = b.create<TF::CastOp>(loc, inputTy, input);
+    params.filter = b.create<TF::CastOp>(loc, filterTy, filter);
+    // filter layout conversion: HWIO -> OHWI
+    int rank = filterTy.getRank();
+    SmallVector<int> permutation(rank);
+    SmallVector<int64_t> newFilterShape(rank);
+    permutation[0] = rank - 1;
+    newFilterShape[0] = filterTy.getShape()[rank - 1];
+    permutation[rank - 1] = rank - 2;
+    newFilterShape[rank - 1] = filterTy.getShape()[rank - 2];
+    for (int i = 1; i < rank - 1; ++i) {
+      permutation[i] = i - 1;
+      newFilterShape[i] = filterTy.getShape()[i - 1];
+    }
+    auto permTensorTy =
+        RankedTensorType::get({permutation.size()}, b.getIntegerType(32));
+    Value permutationValue = b.create<TF::ConstOp>(
+        loc, DenseFPElementsAttr::get(permTensorTy, permutation));
+    auto newFilterTy =
+        RankedTensorType::get(newFilterShape, filterTy.getElementType());
+    params.filter = b.create<TF::TransposeOp>(loc, newFilterTy, params.filter,
+                                              permutationValue);
+
+    if (failed(parseConvBiasaddReluParams(params, b, loc))) return failure();
+
+    SmallVector<Value> newOperands{params.input, params.filter, params.padding, bias_val, residual_val};
+
+    auto customOp = b.create<mhlo_disc::CustomCallOp>(
+        loc, outputTy, newOperands,
+        /*call_target_name*/ "ral_conv_biasadd_add_relu",
+        /*has_side_effect*/ false,
+        /*backend_config*/ params.config);
+
+    rewriter.replaceOp(relu_op, customOp->getResult(0));
+
+    return success();
+  }
+};
+
+// Converts tf.conv2d+tf.biasadd+add+relu to custom_call
+class ConvertTopConvBiasaddAddv1Relu : public OpRewritePattern<TF::ReluOp> {
+ public:
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::ReluOp relu_op,
+                                PatternRewriter &rewriter) const final {
+    auto addv2_op = relu_op.features().getDefiningOp<TF::AddOp>();
+    if (!addv2_op) return failure();
+
+    RankedTensorType x_ty = addv2_op.x().getType().dyn_cast<RankedTensorType>();
+    RankedTensorType y_ty = addv2_op.y().getType().dyn_cast<RankedTensorType>();
+    if (!x_ty || !y_ty) return success();
+
+    auto bias_add = addv2_op.y().getDefiningOp<TF::BiasAddOp>();
+    if (!bias_add) return failure();
+
+    Value residual_val = addv2_op.x();
+    if (!residual_val) return failure();
+
+    RankedTensorType value_ty = bias_add.value().getType().dyn_cast<RankedTensorType>();
+    RankedTensorType bias_ty = bias_add.bias().getType().dyn_cast<RankedTensorType>();
+    if (!bias_ty || !value_ty) return success();
+
+    Value bias_val = bias_add.bias();
+
+    auto convOp = bias_add.value().getDefiningOp<TF::Conv2DOp>();
+    if (!convOp) return failure();
+
+    auto op = convOp;
+
+    if (op->getNumOperands() != 2 || op->getNumResults() != 1)
+      return op->emitError() << "mismatch # operands or # results\n";
+
+    Value input = op->getOperand(0);
+    Value filter = op->getOperand(1);
+    Value output = op->getResult(0);
+
+    auto inputTy = input.getType().dyn_cast<RankedTensorType>();
+    auto filterTy = filter.getType().dyn_cast<RankedTensorType>();
+    auto outputTy = output.getType().dyn_cast<RankedTensorType>();
+
+    // only try to match the op has static rank.
+    if (!inputTy || !filterTy || !outputTy)
+      return success();
+
+    OpBuilder b(op);
+    Location loc = op->getLoc();
+
+    ConvParams params;
+    params.op = op;
+    params.input = b.create<TF::CastOp>(loc, inputTy, input);
+    params.filter = b.create<TF::CastOp>(loc, filterTy, filter);
+    // filter layout conversion: HWIO -> OHWI
+    int rank = filterTy.getRank();
+    SmallVector<int> permutation(rank);
+    SmallVector<int64_t> newFilterShape(rank);
+    permutation[0] = rank - 1;
+    newFilterShape[0] = filterTy.getShape()[rank - 1];
+    permutation[rank - 1] = rank - 2;
+    newFilterShape[rank - 1] = filterTy.getShape()[rank - 2];
+    for (int i = 1; i < rank - 1; ++i) {
+      permutation[i] = i - 1;
+      newFilterShape[i] = filterTy.getShape()[i - 1];
+    }
+    auto permTensorTy =
+        RankedTensorType::get({permutation.size()}, b.getIntegerType(32));
+    Value permutationValue = b.create<TF::ConstOp>(
+        loc, DenseFPElementsAttr::get(permTensorTy, permutation));
+    auto newFilterTy =
+        RankedTensorType::get(newFilterShape, filterTy.getElementType());
+    params.filter = b.create<TF::TransposeOp>(loc, newFilterTy, params.filter,
+                                              permutationValue);
+
+    if (failed(parseConvBiasaddReluParams(params, b, loc))) return failure();
+
+    SmallVector<Value> newOperands{params.input, params.filter, params.padding, bias_val, residual_val};
+
+    auto customOp = b.create<mhlo_disc::CustomCallOp>(
+        loc, outputTy, newOperands,
+        /*call_target_name*/ "ral_conv_biasadd_add_relu",
+        /*has_side_effect*/ false,
+        /*backend_config*/ params.config);
+
+    rewriter.replaceOp(relu_op, customOp->getResult(0));
+
+    return success();
+  }
+};
+
 class ConvertSparseReshapeOp : public OpRewritePattern<TF::SparseReshapeOp> {
  public:
   using OpRewritePattern::OpRewritePattern;
@@ -1548,7 +1728,9 @@ void PrepareTFPass::runOnOperation() {
       ConvertSparseReshapeOp,
       ConvertSparseFillEmptyRowsOp,
       ConvertSparseSegmentMeanOp,
-      ConvertTopConvBiasaddRelu
+      ConvertTopConvBiasaddRelu,
+      ConvertTopConvBiasaddAddRelu,
+      ConvertTopConvBiasaddAddv1Relu
   >(ctx);
   // clang-format on
   (void)applyPatternsAndFoldGreedily(func, std::move(patterns));

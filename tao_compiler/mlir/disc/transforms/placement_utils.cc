@@ -88,6 +88,7 @@ CustomCallShapeOperandListMap initCustomCallShapeCalcOperandMap() {
   m["topk"] = {/*k*/ 2};
   m["rng_uniform"] = {/*start*/ 0, /*limit*/ 1, /*shape*/ 2};
   m["ral_conv_biasadd_relu"] = {/*padding*/ 2};
+  m["ral_conv_biasadd_add_relu"] = {/*padding*/ 2};
   return m;
 }
 

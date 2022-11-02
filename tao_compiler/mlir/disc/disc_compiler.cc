@@ -385,10 +385,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   pm.addPass(disc_ral::createDiscAssignMemorySpacePass("main", gpu_enabled));
 
-  // Enable stitch by default on CPU.
-  bool enable_stitch = !gpu_enabled;
-  tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_STITCH", !gpu_enabled,
-                                 &enable_stitch);
+  // Enable stitch by default.
+  bool enable_stitch = true;
+  tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_STITCH", true, &enable_stitch);
   if (enable_shape_constraint_ir) {
     pm.addNestedPass<FuncOp>(
         disc_ral::createDiscDuplicateComputationForFusionPass(

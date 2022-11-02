@@ -46,6 +46,7 @@ limitations under the License.
 #include "tensorflow/core/framework/kernel_shape_util.h"
 #include "tensorflow/core/util/padding.h"
 #include "tensorflow/core/util/tensor_format.h"
+#include "tensorflow/core/util/env_var.h"
 
 #define DEBUG_TYPE "disc-lower-tf"
 
@@ -1344,6 +1345,9 @@ class ConvertTopConvBiasaddRelu : public OpRewritePattern<TF::ReluOp> {
 
     auto op = convOp;
 
+    auto data_formatStr = op->getAttrOfType<StringAttr>("data_format").str();
+    if(data_formatStr != "NHWC") return failure();
+
     if (op->getNumOperands() != 2 || op->getNumResults() != 1)
       return op->emitError() << "mismatch # operands or # results\n";
 
@@ -1434,6 +1438,9 @@ class ConvertTopConvBiasaddAddRelu : public OpRewritePattern<TF::ReluOp> {
 
     auto op = convOp;
 
+    auto data_formatStr = op->getAttrOfType<StringAttr>("data_format").str();
+    if(data_formatStr != "NHWC") return failure();
+
     if (op->getNumOperands() != 2 || op->getNumResults() != 1)
       return op->emitError() << "mismatch # operands or # results\n";
 
@@ -1523,6 +1530,9 @@ class ConvertTopConvBiasaddAddv1Relu : public OpRewritePattern<TF::ReluOp> {
     if (!convOp) return failure();
 
     auto op = convOp;
+
+    auto data_formatStr = op->getAttrOfType<StringAttr>("data_format").str();
+    if(data_formatStr != "NHWC") return failure();
 
     if (op->getNumOperands() != 2 || op->getNumResults() != 1)
       return op->emitError() << "mismatch # operands or # results\n";
@@ -1716,22 +1726,40 @@ void PrepareTFPass::runOnOperation() {
   }
 
   populateWithGenerated(patterns);
+  bool enable_conv_centric_fusion = false;
+  tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_CONV_CENTRIC_FUSION", false, &enable_conv_centric_fusion);
   // clang-format off
-  patterns.insert<
-      ConvertDequantizeOp,
-      ConvertQuantizeV2Op,
-      ConvertFakeQuantOp,
-      ConvertSqueezeOpDynamic,
-      ConvertTopKV2OpDynamic,
-      ConvertUniformOp,
-      ConvertBucketizeOp,
-      ConvertSparseReshapeOp,
-      ConvertSparseFillEmptyRowsOp,
-      ConvertSparseSegmentMeanOp,
-      ConvertTopConvBiasaddRelu,
-      ConvertTopConvBiasaddAddRelu,
-      ConvertTopConvBiasaddAddv1Relu
-  >(ctx);
+  if(enable_conv_centric_fusion){
+    patterns.insert<
+          ConvertDequantizeOp,
+          ConvertQuantizeV2Op,
+          ConvertFakeQuantOp,
+          ConvertSqueezeOpDynamic,
+          ConvertTopKV2OpDynamic,
+          ConvertUniformOp,
+          ConvertBucketizeOp,
+          ConvertSparseReshapeOp,
+          ConvertSparseFillEmptyRowsOp,
+          ConvertSparseSegmentMeanOp,
+          ConvertTopConvBiasaddRelu,
+          ConvertTopConvBiasaddAddRelu,
+          ConvertTopConvBiasaddAddv1Relu
+      >(ctx);
+  }else{
+    patterns.insert<
+          ConvertDequantizeOp,
+          ConvertQuantizeV2Op,
+          ConvertFakeQuantOp,
+          ConvertSqueezeOpDynamic,
+          ConvertTopKV2OpDynamic,
+          ConvertUniformOp,
+          ConvertBucketizeOp,
+          ConvertSparseReshapeOp,
+          ConvertSparseFillEmptyRowsOp,
+          ConvertSparseSegmentMeanOp
+      >(ctx);
+  }
+  
   // clang-format on
   (void)applyPatternsAndFoldGreedily(func, std::move(patterns));
 }

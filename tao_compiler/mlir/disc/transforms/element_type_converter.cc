@@ -232,7 +232,8 @@ struct ConvertDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
 
 struct ElementTypeConverterPass
     : public ElementTypeConverterPassBase<ElementTypeConverterPass> {
-  explicit ElementTypeConverterPass(bool enable_fp16_gemm, bool enable_fp16_conv)
+  explicit ElementTypeConverterPass(bool enable_fp16_gemm,
+                                    bool enable_fp16_conv)
       : ElementTypeConverterPassBase<
             ElementTypeConverterPass>::ElementTypeConverterPassBase() {
     this->enable_fp16_gemm_ = enable_fp16_gemm;
@@ -250,7 +251,6 @@ struct ElementTypeConverterPass
     if (enable_fp16_conv_) {
       patterns.insert<ConvertConvOp<mhlo::DynamicConvOp>,
                       ConvertConvOp<mhlo::ConvolutionOp>>(&ctx);
-
     }
 
     if (failed(applyPatternsAndFoldGreedily(func, std::move(patterns)))) {
@@ -264,7 +264,8 @@ struct ElementTypeConverterPass
 
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscElementTypeConverterPass(
     bool enable_fp16_gemm, bool enable_fp16_conv) {
-  return std::make_unique<ElementTypeConverterPass>(enable_fp16_gemm, enable_fp16_conv);
+  return std::make_unique<ElementTypeConverterPass>(enable_fp16_gemm,
+                                                    enable_fp16_conv);
 }
 
 }  // namespace disc_ral

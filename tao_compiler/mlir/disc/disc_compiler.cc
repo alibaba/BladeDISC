@@ -294,10 +294,12 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   bool enable_fp16_gemm = false;
   bool enable_fp16_conv = false;
   tensorflow::ReadBoolFromEnvVar("TAO_MLIR_ENABLE_AMP", false, &enable_fp16);
-  tensorflow::ReadBoolFromEnvVar("TAO_MLIR_ENABLE_AMP_GEMM", enable_fp16, &enable_fp16_gemm);
-  tensorflow::ReadBoolFromEnvVar("TAO_MLIR_ENABLE_AMP_CONV", enable_fp16, &enable_fp16_conv);
-  pm.addNestedPass<FuncOp>(
-      disc_ral::createDiscElementTypeConverterPass(enable_fp16_gemm, enable_fp16_conv));
+  tensorflow::ReadBoolFromEnvVar("TAO_MLIR_ENABLE_AMP_GEMM", enable_fp16,
+                                 &enable_fp16_gemm);
+  tensorflow::ReadBoolFromEnvVar("TAO_MLIR_ENABLE_AMP_CONV", enable_fp16,
+                                 &enable_fp16_conv);
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscElementTypeConverterPass(
+      enable_fp16_gemm, enable_fp16_conv));
   if (enable_shape_constraint_ir) {
     // shape-related optimization
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());

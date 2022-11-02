@@ -13,7 +13,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
@@ -240,8 +240,8 @@ bool DotShareOperandMergeConverter::buildShareOperandMap(
   block->walk([&](mhlo::DotGeneralOp op) {
     // get one-side operand shareinfo according to the share_type
     DotShareInfo share_info;
-    share_info.share_operand = (share_type == LEFT) ? op.lhs() : op.rhs();
-    share_info.dimension_numbers = op.dot_dimension_numbers();
+    share_info.share_operand = (share_type == LEFT) ? op.getLhs() : op.getRhs();
+    share_info.dimension_numbers = op.getDotDimensionNumbers();
     auto& shared_op_list = share_operand_map[std::move(share_info)];
     shared_op_list.push_back(op);
   });
@@ -274,11 +274,11 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
 
   OpBuilder builder(foremost_dot);
   auto non_concat_op =
-      (share_type == LEFT) ? foremost_dot.lhs() : foremost_dot.rhs();
+      (share_type == LEFT) ? foremost_dot.getLhs() : foremost_dot.getRhs();
   auto orig_lhs_type =
-      foremost_dot.lhs().getType().dyn_cast<RankedTensorType>();
+      foremost_dot.getLhs().getType().dyn_cast<RankedTensorType>();
   auto orig_rhs_type =
-      foremost_dot.rhs().getType().dyn_cast<RankedTensorType>();
+      foremost_dot.getRhs().getType().dyn_cast<RankedTensorType>();
   auto orig_concat_op_type =
       (share_type == LEFT) ? orig_rhs_type : orig_lhs_type;
   auto orig_non_concat_op_type =
@@ -292,7 +292,7 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
   // Find concat dim.
   int64_t concat_dim = -1;
   DenseSet<int64_t> non_concat_dims;
-  auto dim_numbers = foremost_dot.dot_dimension_numbers();
+  auto dim_numbers = foremost_dot.getDotDimensionNumbers();
   // Batching and contracting dims of the to-concat operands.
   const auto& batch_dims = (share_type == LEFT)
                                ? dim_numbers.getRhsBatchingDimensions()
@@ -318,7 +318,7 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
   int64_t concat_dim_sum = 0;
   for (auto op : ops) {
     mhlo::DotGeneralOp dot = dyn_cast<mhlo::DotGeneralOp>(op);
-    auto to_concat = (share_type == LEFT) ? dot.rhs() : dot.lhs();
+    auto to_concat = (share_type == LEFT) ? dot.getRhs() : dot.getLhs();
     auto concat_op_type = to_concat.getType().dyn_cast<RankedTensorType>();
     auto concat_dim_size = concat_op_type.getDimSize(concat_dim);
     if (concat_dim_size == ShapedType::kDynamicSize) {
@@ -411,8 +411,9 @@ bool DotShareOperandMergeConverter::applyMerging(DotCluster& cluster,
       // Note that we do not use op but op's rhs and lhs to build DimOp.
       // Because op will be replaced and if use op to build DimOp, it will
       // form circles.
-      auto concatenate_op = (share_type == LEFT) ? op.rhs() : op.lhs();
-      auto non_concatenate_op = (share_type == LEFT) ? op.lhs() : op.rhs();
+      auto concatenate_op = (share_type == LEFT) ? op.getRhs() : op.getLhs();
+      auto non_concatenate_op =
+          (share_type == LEFT) ? op.getLhs() : op.getRhs();
       auto orig_dot_type = op.getType().dyn_cast<RankedTensorType>();
 
       SmallVector<Value, 4> start_values(rank, zero);
@@ -581,10 +582,10 @@ bool DotBatchMergeConverter::buildMergingShapeMap(
     MergingShapeEqualMap& equal_merge_shape_map) {
   block->walk([&](mhlo::DotGeneralOp op) {
     MergingShape dot_shape;
-    Value lhs = op.lhs();
-    Value rhs = op.rhs();
+    Value lhs = op.getLhs();
+    Value rhs = op.getRhs();
     // Initialize `dimension_numbers`.
-    dot_shape.dimension_numbers = op.dot_dimension_numbers();
+    dot_shape.dimension_numbers = op.getDotDimensionNumbers();
     auto lhs_batch_dims =
         dot_shape.dimension_numbers.getLhsBatchingDimensions();
     auto rhs_batch_dims =
@@ -663,15 +664,15 @@ bool DotBatchMergeConverter::applyMerging(DotCluster& cluster) {
   // We use the foremost dot to create the builder. Thus we only need to reorder
   // the operands of some newly created ops, rather users of them.
   OpBuilder builder(last_dot);
-  auto orig_lhs_type = last_dot.lhs().getType().dyn_cast<RankedTensorType>();
-  auto orig_rhs_type = last_dot.rhs().getType().dyn_cast<RankedTensorType>();
+  auto orig_lhs_type = last_dot.getLhs().getType().dyn_cast<RankedTensorType>();
+  auto orig_rhs_type = last_dot.getRhs().getType().dyn_cast<RankedTensorType>();
   auto orig_dot_type = last_dot.getType().dyn_cast<RankedTensorType>();
   SmallVector<Value, 4> lhs_operands;
   SmallVector<Value, 4> rhs_operands;
   for (auto op : ops) {
     mhlo::DotGeneralOp dot = dyn_cast<mhlo::DotGeneralOp>(op);
-    auto lhs_expand = expandDim0(builder, loc, dot.lhs());
-    auto rhs_expand = expandDim0(builder, loc, dot.rhs());
+    auto lhs_expand = expandDim0(builder, loc, dot.getLhs());
+    auto rhs_expand = expandDim0(builder, loc, dot.getRhs());
     if (!lhs_expand || !rhs_expand) {
       LLVM_DEBUG(llvm::dbgs() << "Failed to expand dim for dot merge.\n");
       return false;
@@ -712,7 +713,7 @@ bool DotBatchMergeConverter::applyMerging(DotCluster& cluster) {
   auto result_type =
       RankedTensorType::get(result_shapes, orig_dot_type.getElementType());
   // Build dot dimension numbers.
-  auto dim_numbers = last_dot.dot_dimension_numbers();
+  auto dim_numbers = last_dot.getDotDimensionNumbers();
 
   SmallVector<int64_t> lhs_batching_dims;
   auto lhs_batch = dim_numbers.getLhsBatchingDimensions();

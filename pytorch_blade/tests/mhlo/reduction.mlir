@@ -21,9 +21,9 @@
 // CHECK:         %[[T12:.*]] = arith.muli %[[T9]], %[[T11]] : i32
 // CHECK:         %[[T13:.*]] = arith.extsi %[[T12]] : i32 to i64
 // CHECK:         %[[T14:.*]] = tensor.from_elements %[[T13]] : tensor<1xi64>
-// CHECK:         %[[T15:.*]] = mhlo.convert(%[[T14]]) : (tensor<1xi64>) -> tensor<1xf32>
+// CHECK:         %[[T15:.*]] = mhlo.convert %[[T14]] : (tensor<1xi64>) -> tensor<1xf32>
 // CHECK:         %[[T16:.*]] = mhlo.reshape %[[T15]] : (tensor<1xf32>) -> tensor<f32>
-// CHECK:         %[[T17:.*]] = chlo.broadcast_divide %[[T1]], %[[T1]]6 : (tensor<f32>, tensor<f32>) -> tensor<f32>
+// CHECK:         %[[T17:.*]] = chlo.broadcast_divide %[[T1]], %[[T16]] : (tensor<f32>, tensor<f32>) -> tensor<f32>
 // CHECK:         return %[[T17]] : tensor<f32>
 func.func @torch.aten.sum.div.Scalar(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !torch.vtensor<[],f32> {
   %int6 = torch.constant.int 6
@@ -42,7 +42,7 @@ func.func @torch.aten.sum.div.Scalar(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !t
 // CHECK:         %[[C1:.*]] = arith.constant 1 : index
 // CHECK:         %[[C0:.*]] = arith.constant 0 : index
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f32>
-// CHECK:         %[[T1:.*]] = mhlo.convert(%[[ARG0]]) : (tensor<?x?x?x?xi32>) -> tensor<?x?x?x?xf32>
+// CHECK:         %[[T1:.*]] = mhlo.convert %[[ARG0]] : (tensor<?x?x?x?xi32>) -> tensor<?x?x?x?xf32>
 // CHECK:         %[[T2:.*]] = mhlo.reduce(%[[T1]] init: %[[T0]]) applies mhlo.add across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xf32>, tensor<f32>) -> tensor<f32>
 // CHECK:         %[[T3:.*]] = tensor.dim %[[ARG0]], %[[C0]] : tensor<?x?x?x?xi32>
 // CHECK:         %[[T4:.*]] = arith.index_cast %[[T3]] : index to i32
@@ -57,7 +57,7 @@ func.func @torch.aten.sum.div.Scalar(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !t
 // CHECK:         %[[T13:.*]] = arith.muli %[[T10]], %[[T12]] : i32
 // CHECK:         %[[T14:.*]] = arith.extsi %[[T13]] : i32 to i64
 // CHECK:         %[[T15:.*]] = tensor.from_elements %[[T14]] : tensor<1xi64>
-// CHECK:         %[[T16:.*]] = mhlo.convert(%[[T15]]) : (tensor<1xi64>) -> tensor<1xf32>
+// CHECK:         %[[T16:.*]] = mhlo.convert %[[T15]] : (tensor<1xi64>) -> tensor<1xf32>
 // CHECK:         %[[T17:.*]] = mhlo.reshape %[[T16]] : (tensor<1xf32>) -> tensor<f32>
 // CHECK:         %[[T18:.*]] = chlo.broadcast_divide %[[T2]], %[[T17]] : (tensor<f32>, tensor<f32>) -> tensor<f32>
 // CHECK:         return %[[T18]] : tensor<f32>
@@ -87,7 +87,7 @@ func.func @torch.aten.sum.outf32(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !torch
 // CHECK-LABEL:  func.func @torch.aten.sum.outf64(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?x?x?xf32>) -> tensor<f64> {
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<0.000000e+00> : tensor<f64>
-// CHECK:         %[[T1:.*]] = mhlo.convert(%[[ARG0]]) : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf64>
+// CHECK:         %[[T1:.*]] = mhlo.convert %[[ARG0]] : (tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf64>
 // CHECK:         %[[T2:.*]] = mhlo.reduce(%[[T1]] init: %[[T0]]) applies mhlo.add across dimensions = [0, 1, 2, 3] : (tensor<?x?x?x?xf64>, tensor<f64>) -> tensor<f64>
 // CHECK:         return %[[T2]] : tensor<f64>
 func.func @torch.aten.sum.outf64(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !torch.vtensor<[],f64> {
@@ -183,11 +183,11 @@ func.func @torch.aten.sum.dim_IntList.keepdim(%arg0: !torch.vtensor<[2,?,224,?],
 // CHECK:         %[[T5:.*]]:2 = mhlo.reduce(%[[ARG0]] init: %[[T1]]), (%[[T4]] init: %[[T0]]) across dimensions = [3] : (tensor<2x3x224x224xf32>, tensor<2x3x224x224xi32>, tensor<f32>, tensor<i32>) -> (tensor<2x3x224xf32>, tensor<2x3x224xi32>)
 // CHECK:         reducer(%[[ARG1:.*]]: tensor<f32>, %[[ARG3:.*]]: tensor<f32>) (%[[ARG2:.*]]: tensor<i32>, %[[ARG4:.*]]: tensor<i32>)  {
 // CHECK:         %[[T8:.*]] = mhlo.compare  GE, %[[ARG1]], %[[ARG3]],  FLOAT : (tensor<f32>, tensor<f32>) -> tensor<i1>
-// CHECK:         %[[T9:.*]] = "mhlo.select"(%[[T8]], %[[ARG1]], %[[ARG3]]) : (tensor<i1>, tensor<f32>, tensor<f32>) -> tensor<f32>
+// CHECK:         %[[T9:.*]] = mhlo.select %[[T8]], %[[ARG1]], %[[ARG3]] : tensor<i1>, tensor<f32>
 // CHECK:         %[[T10:.*]] = mhlo.compare  EQ, %[[ARG1]], %[[ARG3]],  FLOAT : (tensor<f32>, tensor<f32>) -> tensor<i1>
 // CHECK:         %[[T11:.*]] = mhlo.minimum %[[ARG2]], %[[ARG4]] : tensor<i32>
-// CHECK:         %[[T12:.*]] = "mhlo.select"(%[[T8]], %[[ARG2]], %[[ARG4]]) : (tensor<i1>, tensor<i32>, tensor<i32>) -> tensor<i32>
-// CHECK:         %[[T13:.*]] = "mhlo.select"(%[[T10]], %[[T11]], %[[T12]]) : (tensor<i1>, tensor<i32>, tensor<i32>) -> tensor<i32>
+// CHECK:         %[[T12:.*]] = mhlo.select %[[T8]], %[[ARG2]], %[[ARG4]] : tensor<i1>, tensor<i32>
+// CHECK:         %[[T13:.*]] = mhlo.select %[[T10]], %[[T11]], %[[T12]] : tensor<i1>, tensor<i32>
 // CHECK:         mhlo.return %[[T9]], %[[T13]] : tensor<f32>, tensor<i32>
 // CHECK:         %[[T6:.*]] = mhlo.reshape %[[T2]] : (tensor<2x3x224xf32>) -> tensor<2x3x224x1xf32>
 // CHECK:         %[[T7:.*]] = mhlo.reshape %[[T5]]#1 : (tensor<2x3x224xi32>) -> tensor<2x3x224x1xi32>

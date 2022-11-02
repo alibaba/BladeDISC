@@ -106,7 +106,7 @@ ShapeOperandList getShapeCalcOperandList(Operation* op) {
     std::string target_name;
     if (isa<mhlo_disc::CustomCallOp>(op)) {
       auto custom_call = cast<mhlo_disc::CustomCallOp>(op);
-      target_name = custom_call.call_target_name().str();
+      target_name = custom_call.getCallTargetName().str();
     } else {
       auto custom_call = cast<lmhlo_disc::CustomCallOp>(op);
       target_name = custom_call.getCallTargetName().str();

@@ -38,7 +38,7 @@ static inline bool isNonBatchingTransposeTensorValue(
   permutation.clear();
   if (auto transpose = dyn_cast<mhlo::TransposeOp>(val.getDefiningOp())) {
     for (auto& en :
-         llvm::enumerate(transpose.permutation().getValues<int64_t>())) {
+         llvm::enumerate(transpose.getPermutation().getValues<int64_t>())) {
       if (en.index() != en.value()) {
         if (batching_dims.find(en.index()) != batching_dims.end()) {
           return false;
@@ -94,19 +94,19 @@ struct QuantDotTransposeConvert
       return failure();
     }
 
-    auto inputTy = op.input().getType().dyn_cast<RankedTensorType>();
-    auto weightTy = op.weight().getType().dyn_cast<RankedTensorType>();
+    auto inputTy = op.getInput().getType().dyn_cast<RankedTensorType>();
+    auto weightTy = op.getWeight().getType().dyn_cast<RankedTensorType>();
 
     // This transpose pass can only support dot with rank equal to 2
     if (inputTy.getRank() != 2 || weightTy.getRank() != 2) {
       return failure();
     }
 
-    auto dim_numbers = op.dot_dimension_numbers();
+    auto dim_numbers = op.getDotDimensionNumbers();
     SmallVector<int64_t, 4> rhs_perm_check;
     auto rhs_batching_dims_check = dim_numbers.getRhsBatchingDimensions();
     bool tp_rhs_check = isNonBatchingTransposeTensorValue(
-        op.weight(), rhs_perm_check,
+        op.getWeight(), rhs_perm_check,
         std::unordered_set<int64_t>(rhs_batching_dims_check.begin(),
                                     rhs_batching_dims_check.end()));
 
@@ -118,10 +118,10 @@ struct QuantDotTransposeConvert
     SmallVector<int64_t> transposeAttr = {1, 0};
 
     OpBuilder b(op);
-    auto transpose_op = InsertTranspose(op, op.weight(), transposeAttr, b);
+    auto transpose_op = InsertTranspose(op, op.getWeight(), transposeAttr, b);
 
     Location loc = op.getLoc();
-    Value old_lhs = op.input();
+    Value old_lhs = op.getInput();
     Value old_rhs = transpose_op->getResult(0);
 
     RankedTensorType old_l_type =
@@ -173,11 +173,11 @@ struct QuantDotTransposeConvert
 
     Value newQuantizedDot =
         rewriter.create<mlir::mhlo_disc::QuantizedDotGeneralOp>(
-            loc, op.getType(), op.input(), transpose_op->getResult(0),
-            op.input_scale(), op.input_zero_point(), op.weight_scale(),
-            op.weight_zero_point(), op.result_scale(), op.result_zero_point(),
-            dot_dimension_attr, op.use_symmetric(), op.axis(),
-            op.use_dynamic());
+            loc, op.getType(), op.getInput(), transpose_op->getResult(0),
+            op.getInputScale(), op.getInputZeroPoint(), op.getWeightScale(),
+            op.getWeightZeroPoint(), op.getResultScale(),
+            op.getResultZeroPoint(), dot_dimension_attr, op.getUseSymmetric(),
+            op.getAxis(), op.getUseDynamic());
 
     rewriter.replaceOp(op, newQuantizedDot);
     return success();

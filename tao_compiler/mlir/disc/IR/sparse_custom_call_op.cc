@@ -13,7 +13,7 @@ limitations under the License.
 // This file defines sparse gemm related custom calls.
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"
@@ -40,7 +40,7 @@ LogicalResult reifyReturnTypeShapesSparseGemmImpl(
   if (!lhsTy || !rhsTy) return op->emitError() << "not support unranked type\n";
 
   Location loc = op.getLoc();
-  auto config = op.backend_config().cast<DictionaryAttr>();
+  auto config = op.getBackendConfig().cast<DictionaryAttr>();
   int64_t lhs_contracting_dimensions =
       config.getAs<IntegerAttr>("lhs_contracting_dimensions").getInt();
   int64_t rhs_contracting_dimensions =

@@ -37,7 +37,7 @@ limitations under the License.
 #include "mlir/Conversion/SCFToControlFlow/SCFToControlFlow.h"
 #include "mlir/Conversion/SCFToGPU/SCFToGPUPass.h"
 #include "mlir/Conversion/ShapeToStandard/ShapeToStandard.h"  // from @llvm-project
-#include "mlir/Dialect/Arithmetic/Transforms/Passes.h"
+#include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/Bufferization/Transforms/Passes.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/Passes.h"
@@ -382,7 +382,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   // bufferize constant ops & index_cast that have tensor types.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscStdBufferizePass());
-  pm.addPass(arith::createArithmeticBufferizePass());
+  pm.addPass(arith::createArithBufferizePass());
   pm.addNestedPass<FuncOp>(createTensorBufferizePass());
   pm.addNestedPass<FuncOp>(bufferization::createFinalizingBufferizePass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
@@ -472,7 +472,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     // optimization. Then this pass will be enabled by default.
     pm.addNestedPass<FuncOp>(disc_ral::createForLoopUnrollInterleavePass());
   }
-  pm.addNestedPass<FuncOp>(arith::createArithmeticExpandOpsPass());
+  pm.addNestedPass<FuncOp>(arith::createArithExpandOpsPass());
   pm.addNestedPass<FuncOp>(mlir::memref::createFoldMemRefAliasOpsPass());
 
   // Flatten multi dim memref accesses to its 1D format to enable more
@@ -687,7 +687,8 @@ LogicalResult ApplyCpuOptionsBeforeTranslatingToLLVM(
           llvm::errs() << "[[DISC WARNING]] unknown fast_math_level value\n";
           break;
       }
-      op->setAttr("fastmathFlags", LLVM::FMFAttr::get(op->getContext(), fmf));
+      op->setAttr("fastmathFlags",
+                  LLVM::FastmathFlagsAttr::get(op->getContext(), fmf));
     });
     if (VLOG_IS_ON(1)) {
       llvm::dbgs() << "[[DISC DEBUG]] fastmath dump begin: \n"

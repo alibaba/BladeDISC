@@ -85,10 +85,10 @@ LogicalResult AssignKernelNamePass::processLaunchFuncOp(LaunchFuncOp op,
   auto func = m.lookupSymbol<GPUFuncOp>(op.getKernelName());
   func.setName(name);
   OpBuilder b(op);
-  auto newOp =
-      b.create<LaunchFuncOp>(op.getLoc(), func, op.getGridSizeOperandValues(),
-                             op.getBlockSizeOperandValues(),
-                             op.dynamicSharedMemorySize(), op.operands());
+  auto newOp = b.create<LaunchFuncOp>(
+      op.getLoc(), func, op.getGridSizeOperandValues(),
+      op.getBlockSizeOperandValues(), op.getDynamicSharedMemorySize(),
+      op.getKernelOperands());
   op.erase();
   return success();
 }

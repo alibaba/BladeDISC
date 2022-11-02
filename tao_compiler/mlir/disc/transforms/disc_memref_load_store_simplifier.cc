@@ -13,7 +13,7 @@
 // eliminate unnecessary load/stores.
 
 #include "llvm/Support/Debug.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/Location.h"
@@ -133,7 +133,7 @@ LogicalResult LoadScalarSimplifier::matchAndRewrite(
     }
   }
   if (store_op != nullptr) {
-    rewriter.replaceOp(op, store_op.value());
+    rewriter.replaceOp(op, store_op.getValue());
     return success();
   }
   return failure();

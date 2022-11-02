@@ -57,7 +57,7 @@ limitations under the License.
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
@@ -115,7 +115,7 @@ struct DynamicReshapeOpPartialShapeInference
                                 PatternRewriter& rewriter) const override {
     auto loc = op.getLoc();
     auto output_shape =
-        op.output_shape().getDefiningOp<tensor::FromElementsOp>();
+        op.getOutputShape().getDefiningOp<tensor::FromElementsOp>();
     if (!output_shape) {
       return failure();
     }
@@ -147,7 +147,7 @@ struct DynamicReshapeOpPartialShapeInference
     }
     auto new_type = result_type.clone(result_dims);
     auto new_op = rewriter.create<mhlo::DynamicReshapeOp>(
-        loc, new_type, op.operand(), output_shape);
+        loc, new_type, op.getOperand(), output_shape);
     rewriter.replaceOpWithNewOp<tensor::CastOp>(op, op.getType(), new_op);
     return success();
   }
@@ -169,14 +169,14 @@ class DynamicReshapeOpShapeInference
 
   LogicalResult matchAndRewrite(mhlo::DynamicReshapeOp op,
                                 PatternRewriter& rewriter) const override {
-    Operation* shape_def_op = op.output_shape().getDefiningOp();
+    Operation* shape_def_op = op.getOutputShape().getDefiningOp();
     if (!shape_def_op) return failure();
     DenseIntElementsAttr cst_attr;
     if (auto cst_shape = dyn_cast<arith::ConstantOp>(shape_def_op)) {
       cst_attr = cst_shape.getValue().dyn_cast_or_null<DenseIntElementsAttr>();
     } else if (auto mhlo_cst_shape = dyn_cast<mhlo::ConstantOp>(shape_def_op)) {
       cst_attr =
-          mhlo_cst_shape.value().dyn_cast_or_null<DenseIntElementsAttr>();
+          mhlo_cst_shape.getValue().dyn_cast_or_null<DenseIntElementsAttr>();
     }
     if (!cst_attr) return failure();
     auto elem_ty = cst_attr.getType().cast<ShapedType>().getElementType();
@@ -196,7 +196,7 @@ class DynamicReshapeOpShapeInference
         RankedTensorType::get(dims, result_ty.getElementType());
     if (new_ty == result_ty) return failure();
     auto new_reshape = rewriter.create<mhlo::DynamicReshapeOp>(
-        op.getLoc(), new_ty, op.operand(), op.output_shape());
+        op.getLoc(), new_ty, op.getOperand(), op.getOutputShape());
     rewriter.replaceOpWithNewOp<tensor::CastOp>(op, op.getType(), new_reshape);
     return success();
   }

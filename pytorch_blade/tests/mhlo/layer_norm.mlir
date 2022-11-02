@@ -89,7 +89,7 @@ func.func @torch.aten.layer_norm.affine(%arg0: !torch.vtensor<[2,3,224,224],f32>
 // CHECK:         %[[T12:.*]] = arith.index_cast %[[T11]] : index to i64
 // CHECK:         %[[T13:.*]] = arith.muli %[[T10]], %[[T12]] : i64
 // CHECK:         %[[T14:.*]] = tensor.from_elements %[[T13]] : tensor<1xi64>
-// CHECK:         %[[T15:.*]] = mhlo.convert(%[[T14]]) : (tensor<1xi64>) -> tensor<1xf32>
+// CHECK:         %[[T15:.*]] = mhlo.convert %[[T14]] : (tensor<1xi64>) -> tensor<1xf32>
 // CHECK:         %[[T16:.*]] = mhlo.reshape %[[T15]] : (tensor<1xf32>) -> tensor<f32>
 // CHECK:         %[[T17:.*]] = chlo.broadcast_divide %[[T8]], %[[T16]] : (tensor<?x?x1x1xf32>, tensor<f32>) -> tensor<?x?x1x1xf32>
 // CHECK:         %[[T18:.*]] = arith.index_cast %[[T3]] : index to i64
@@ -115,7 +115,7 @@ func.func @torch.aten.layer_norm.affine(%arg0: !torch.vtensor<[2,3,224,224],f32>
 // CHECK:         %[[T38:.*]] = arith.index_cast %[[T37]] : index to i64
 // CHECK:         %[[T39:.*]] = arith.muli %[[T36]], %[[T38]] : i64
 // CHECK:         %[[T40:.*]] = tensor.from_elements %[[T39]] : tensor<1xi64>
-// CHECK:         %[[T41:.*]] = mhlo.convert(%[[T40]]) : (tensor<1xi64>) -> tensor<1xf32>
+// CHECK:         %[[T41:.*]] = mhlo.convert %[[T40]] : (tensor<1xi64>) -> tensor<1xf32>
 // CHECK:         %[[T42:.*]] = mhlo.reshape %[[T41]] : (tensor<1xf32>) -> tensor<f32>
 // CHECK:         %[[T43:.*]] = chlo.broadcast_divide %[[T34]], %[[T42]] : (tensor<?x?x1x1xf32>, tensor<f32>) -> tensor<?x?x1x1xf32>
 // CHECK:         %[[T44:.*]] = chlo.broadcast_add %[[T43]], %[[T0]] : (tensor<?x?x1x1xf32>, tensor<f32>) -> tensor<?x?x1x1xf32>
@@ -266,7 +266,7 @@ func.func @torch.aten.native_layer_norm.affine(%arg0: !torch.vtensor<[2,3,224,22
 // CHECK:         %[[T7:.*]] = arith.index_cast %[[T6]] : index to i64
 // CHECK:         %[[T8:.*]] = arith.muli %[[T5]], %[[T7]] : i64
 // CHECK:         %[[T9:.*]] = tensor.from_elements %[[T8]] : tensor<1xi64>
-// CHECK:         %[[T10:.*]] = mhlo.convert(%[[T9]]) : (tensor<1xi64>) -> tensor<1xf32>
+// CHECK:         %[[T10:.*]] = mhlo.convert %[[T9]] : (tensor<1xi64>) -> tensor<1xf32>
 // CHECK:         %[[T11:.*]] = mhlo.reshape %[[T10]] : (tensor<1xf32>) -> tensor<f32>
 // CHECK:         %[[T12:.*]] = chlo.broadcast_divide %[[T3]], %[[T11]] : (tensor<2x3x1x1xf32>, tensor<f32>) -> tensor<2x3x1x1xf32>
 // CHECK:         %[[T13:.*]] = tensor.dim %[[ARG0]], %[[C0]] : tensor<?x?x?x?xf32>
@@ -289,14 +289,14 @@ func.func @torch.aten.native_layer_norm.affine(%arg0: !torch.vtensor<[2,3,224,22
 // CHECK:         %[[T30:.*]] = arith.index_cast %[[T29]] : index to i64
 // CHECK:         %[[T31:.*]] = arith.muli %[[T28]], %[[T30]] : i64
 // CHECK:         %[[T32:.*]] = tensor.from_elements %[[T31]] : tensor<1xi64>
-// CHECK:         %[[T33:.*]] = mhlo.convert(%[[T32]]) : (tensor<1xi64>) -> tensor<1xf32>
+// CHECK:         %[[T33:.*]] = mhlo.convert %[[T32]] : (tensor<1xi64>) -> tensor<1xf32>
 // CHECK:         %[[T34:.*]] = mhlo.reshape %[[T33]] : (tensor<1xf32>) -> tensor<f32>
 // CHECK:         %[[T35:.*]] = chlo.broadcast_divide %[[T26]], %[[T34]] : (tensor<2x3x1x1xf32>, tensor<f32>) -> tensor<2x3x1x1xf32>
 // CHECK:         %[[T36:.*]] = chlo.broadcast_add %[[T35]], %[[T0]] : (tensor<2x3x1x1xf32>, tensor<f32>) -> tensor<2x3x1x1xf32>
 // CHECK:         %[[T37:.*]] = mhlo.rsqrt %[[T36]] : tensor<2x3x1x1xf32>
 // CHECK:         %[[T38:.*]] = "mhlo.dynamic_broadcast_in_dim"(%[[T37]], %[[T21]]) {broadcast_dimensions = dense<[0, 1, 2, 3]> : tensor<4xi64>} : (tensor<2x3x1x1xf32>, tensor<4xi32>) -> tensor<?x?x?x?xf32>
 // CHECK:         %[[T39:.*]] = chlo.broadcast_multiply %[[T23]], %[[T38]] : (tensor<?x?x?x?xf32>, tensor<?x?x?x?xf32>) -> tensor<?x?x?x?xf32>
-// CHECK:         %[[T40:.*]] = mhlo.convert(%[[T39]]) : (tensor<?x?x?x?xf32>) -> tensor<2x3x224x224xf32>
+// CHECK:         %[[T40:.*]] = mhlo.convert %[[T39]] : (tensor<?x?x?x?xf32>) -> tensor<2x3x224x224xf32>
 // CHECK:         return %[[T40]], %[[T12]], %[[T37]] : tensor<2x3x224x224xf32>, tensor<2x3x1x1xf32>, tensor<2x3x1x1xf32>
 func.func @torch.aten.native_layer_norm.dynamic_shape.full(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> (!torch.vtensor<[2,3,224,224],f32>, !torch.vtensor<[2,3,1,1],f32>, !torch.vtensor<[2,3,1,1],f32>) {
   %int224 = torch.constant.int 224
@@ -383,7 +383,7 @@ func.func @torch.aten.native_layer_norm.dynamic_shape.partial(%arg0: !torch.vten
 // CHECK:         %[[T16:.*]] = tensor.dim %[[T3]], %[[C2]] : tensor<?x?x?xf32>
 // CHECK:         %[[T17:.*]] = arith.index_cast %[[T16]] : index to i64
 // CHECK:         %[[T18:.*]] = tensor.from_elements %[[T17]] : tensor<1xi64>
-// CHECK:         %[[T19:.*]] = mhlo.convert(%[[T18]]) : (tensor<1xi64>) -> tensor<1xf32>
+// CHECK:         %[[T19:.*]] = mhlo.convert %[[T18]] : (tensor<1xi64>) -> tensor<1xf32>
 // CHECK:         %[[T20:.*]] = mhlo.reshape %[[T19]] : (tensor<1xf32>) -> tensor<f32>
 // CHECK:         %[[T21:.*]] = chlo.broadcast_divide %[[T15]], %[[T20]] : (tensor<?x?x1xf32>, tensor<f32>) -> tensor<?x?x1xf32>
 // CHECK:         %[[T22:.*]] = chlo.broadcast_multiply %[[T3]], %[[T2]] : (tensor<?x?x?xf32>, tensor<?x?x?xf32>) -> tensor<?x?x?xf32>
@@ -397,7 +397,7 @@ func.func @torch.aten.native_layer_norm.dynamic_shape.partial(%arg0: !torch.vten
 // CHECK:         %[[T30:.*]] = tensor.dim %[[T22]], %[[C2]] : tensor<?x?x?xf32>
 // CHECK:         %[[T31:.*]] = arith.index_cast %[[T30]] : index to i64
 // CHECK:         %[[T32:.*]] = tensor.from_elements %[[T31]] : tensor<1xi64>
-// CHECK:         %[[T33:.*]] = mhlo.convert(%[[T32]]) : (tensor<1xi64>) -> tensor<1xf32>
+// CHECK:         %[[T33:.*]] = mhlo.convert %[[T32]] : (tensor<1xi64>) -> tensor<1xf32>
 // CHECK:         %[[T34:.*]] = mhlo.reshape %[[T33]] : (tensor<1xf32>) -> tensor<f32>
 // CHECK:         %[[T35:.*]] = chlo.broadcast_divide %[[T29]], %[[T34]] : (tensor<?x?x1xf32>, tensor<f32>) -> tensor<?x?x1xf32>
 // CHECK:         %[[T36:.*]] = chlo.broadcast_multiply %[[T2]], %[[T35]] : (tensor<?x?x?xf32>, tensor<?x?x1xf32>) -> tensor<?x?x?xf32>

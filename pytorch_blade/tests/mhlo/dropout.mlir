@@ -19,9 +19,9 @@
 // CHECK:         %[[T12:.*]] = tensor.dim %[[T9]], %[[C1]] : tensor<?x?xf32>
 // CHECK:         %[[T13:.*]] = arith.index_cast %[[T12]] : index to i32
 // CHECK:         %[[T14:.*]] = tensor.from_elements %[[T11]], %[[T13]] : tensor<2xi32>
-// CHECK:         %[[T15:.*]] = "mhlo.rng"(%[[T1]], %[[T0]], %[[T1]]4) {rng_distribution = #mhlo.rng_distribution<UNIFORM>} : (tensor<f32>, tensor<f32>, tensor<2xi32>) -> tensor<?x?xf32>
+// CHECK:         %[[T15:.*]] = "mhlo.rng"(%[[T1]], %[[T0]], %[[T14]]) {rng_distribution = #mhlo.rng_distribution<UNIFORM>} : (tensor<f32>, tensor<f32>, tensor<2xi32>) -> tensor<?x?xf32>
 // CHECK:         %[[T16:.*]] = chlo.broadcast_compare %[[T15]], %[[T1]] {compare_type = #chlo<comparison_type FLOAT>, comparison_direction = #chlo<comparison_direction LT>} : (tensor<?x?xf32>, tensor<f32>) -> tensor<?x?xi1>
-// CHECK:         %[[T17:.*]] = mhlo.convert(%[[T16]]) : (tensor<?x?xi1>) -> tensor<?x?xf32>
+// CHECK:         %[[T17:.*]] = mhlo.convert %[[T16]] : (tensor<?x?xi1>) -> tensor<?x?xf32>
 // CHECK:         %[[T18:.*]] = chlo.broadcast_multiply %[[T17]], %[[ARG0]] : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
 // CHECK:         %[[T19:.*]] = chlo.broadcast_multiply %[[T18]], %[[T1]] : (tensor<?x?xf32>, tensor<f32>) -> tensor<?x?xf32>
 // CHECK:         %[[T20:.*]] = chlo.broadcast_compare %[[T17]], %[[T0]] {compare_type = #chlo<comparison_type FLOAT>, comparison_direction = #chlo<comparison_direction GE>} : (tensor<?x?xf32>, tensor<f32>) -> tensor<?x?xi1>
@@ -38,7 +38,7 @@ func.func @torch.aten.native_dropout.train(%arg0: !torch.vtensor<[?,?],f32>) -> 
 // CHECK-LABEL:  func.func @torch.aten.native_dropout_backward(
 // CHECK-SAME:         %[[ARG0:.*]]: tensor<?x?xf32>, %[[ARG1:.*]]: tensor<?x?xi1>) -> tensor<?x?xf32> {
 // CHECK:         %[[T0:.*]] = mhlo.constant dense<1.000000e+00> : tensor<f32>
-// CHECK:         %[[T1:.*]] = mhlo.convert(%[[ARG1]]) : (tensor<?x?xi1>) -> tensor<?x?xf32>
+// CHECK:         %[[T1:.*]] = mhlo.convert %[[ARG1]] : (tensor<?x?xi1>) -> tensor<?x?xf32>
 // CHECK:         %[[T2:.*]] = chlo.broadcast_multiply %[[ARG0]], %[[T1]] : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
 // CHECK:         %[[T3:.*]] = chlo.broadcast_multiply %[[T2]], %[[T0]] : (tensor<?x?xf32>, tensor<f32>) -> tensor<?x?xf32>
 // CHECK:         return %[[T3]] : tensor<?x?xf32>

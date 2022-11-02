@@ -19,7 +19,7 @@ limitations under the License.
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"       // from @llvm-project
+#include "mlir/Dialect/Arith/IR/Arith.h"                 // from @llvm-project
 #include "mlir/Dialect/Tensor/IR/Tensor.h"               // from @llvm-project
 #include "mlir/IR/Attributes.h"                          // from @llvm-project
 #include "mlir/IR/BuiltinOps.h"                          // from @llvm-project
@@ -1219,7 +1219,7 @@ class ConvertBucketizeOp : public OpRewritePattern<TF::BucketizeOp> {
     auto buckets = rewriter.create<mhlo::ReduceOp>(
         loc, convert.getResult(), zero,
         GetI64ElementsAttr(reduce_dim, &rewriter));
-    mhlo::BuildReduceBody<mhlo::AddOp>(element_type, &buckets.body(),
+    mhlo::BuildReduceBody<mhlo::AddOp>(element_type, &buckets.getBody(),
                                        &rewriter);
 
     rewriter.replaceOp(op, {buckets.getResult(0)});

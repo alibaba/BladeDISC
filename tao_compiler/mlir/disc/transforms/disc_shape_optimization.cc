@@ -23,7 +23,7 @@ limitations under the License.
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
@@ -380,13 +380,13 @@ struct ExtractElementOfSliceOpCanonicalizationPattern
     if (!sliceOp) return failure();
     if (!isCandidateShapeTensorType(op.getTensor().getType())) return failure();
 
-    int64_t start = sliceOp.start_indices().getValues<int64_t>()[0];
-    int64_t stride = sliceOp.strides().getValues<int64_t>()[0];
+    int64_t start = sliceOp.getStartIndices().getValues<int64_t>()[0];
+    int64_t stride = sliceOp.getStrides().getValues<int64_t>()[0];
     int64_t inputIndex = (start + index * stride);
     Value newIndex =
         rewriter.create<arith::ConstantIndexOp>(op.getLoc(), inputIndex);
     Value newValue = rewriter.create<tensor::ExtractOp>(
-        op.getLoc(), sliceOp.operand(), newIndex);
+        op.getLoc(), sliceOp.getOperand(), newIndex);
 
     rewriter.replaceOp(op, {newValue});
     return success();
@@ -426,7 +426,8 @@ struct ExtractElementOfReshapeOpCanonicalizationPattern
     }
 
     SmallVector<int64_t> inputIndices;
-    auto inputTy = reshapeOp.operand().getType().dyn_cast<RankedTensorType>();
+    auto inputTy =
+        reshapeOp.getOperand().getType().dyn_cast<RankedTensorType>();
     if (!inputTy || !inputTy.hasStaticShape()) return failure();
     for (int i = inputTy.getRank() - 1; i >= 0; --i) {
       inputIndices.push_back(linearIndex % inputTy.getShape()[i]);
@@ -438,7 +439,7 @@ struct ExtractElementOfReshapeOpCanonicalizationPattern
           op.getLoc(), inputIndices[i]));
     }
     Value newValue = rewriter.create<tensor::ExtractOp>(
-        op.getLoc(), reshapeOp.operand(), newIndices);
+        op.getLoc(), reshapeOp.getOperand(), newIndices);
     rewriter.replaceOp(op, {newValue});
     return success();
   }
@@ -477,11 +478,11 @@ struct ExtractElementOfReduceOpCanonicalizationPattern
     if (!reduceOp || reduceOp->getNumResults() > 1) return failure();
 
     // Only support reducing arcross a single dimension.
-    if (reduceOp.dimensions().getValues<int64_t>().size() != 1)
+    if (reduceOp.getDimensions().getValues<int64_t>().size() != 1)
       return failure();
-    int64_t reduceAxis = *reduceOp.dimensions().getValues<int64_t>().begin();
+    int64_t reduceAxis = *reduceOp.getDimensions().getValues<int64_t>().begin();
 
-    auto& block = reduceOp.body().front();
+    auto& block = reduceOp.getBody().front();
     if (!hasSingleElement(block.without_terminator())) return failure();
     if (!isa<mhlo::MulOp>(&(*block.begin()))) return failure();
 
@@ -868,7 +869,7 @@ LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
   } else if (auto dimOp = dyn_cast<tensor::DimOp>(op)) {
     Optional<int64_t> dimIndex = dimOp.getConstantIndex();
     if (!dimIndex) return success();
-    value2SymDim_[op->getResult(0)].setKnownNonNegative(true);
+    value2SymDim_[op->getResult(0)].updateKnownNonNegative(true);
     if (failed(mgr_.mapSymbolicDimEqual(
             value2SymDim_[op->getResult(0)],
             rankedTensor2SymDims_[dimOp.getSource()][*dimIndex])))
@@ -904,15 +905,15 @@ LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
     auto lhsSym = mgr_.getRootSymbolicDim(value2SymDim_[lhs]);
     auto rhsSym = mgr_.getRootSymbolicDim(value2SymDim_[rhs]);
     auto outSym = mgr_.getRootSymbolicDim(value2SymDim_[out]);
-    if (lhsSym.knownNonNegative() && rhsSym.knownNonNegative()) {
-      outSym.setKnownNonNegative(true);
+    if (lhsSym.getKnownNonNegative() && rhsSym.getKnownNonNegative()) {
+      outSym.updateKnownNonNegative(true);
     }
-    if (lhsSym.knownNonNegative() && rhsSym.knownNonSizeOne() ||
-        rhsSym.knownNonNegative() && lhsSym.knownNonSizeOne()) {
-      outSym.setKnownNonSizeOne(true);
+    if (lhsSym.getKnownNonNegative() && rhsSym.getKnownNonSizeOne() ||
+        rhsSym.getKnownNonNegative() && lhsSym.getKnownNonSizeOne()) {
+      outSym.updateKnownNonSizeOne(true);
     }
-    if (lhsSym.knownNonSizeZero() && rhsSym.knownNonSizeZero()) {
-      outSym.setKnownNonSizeZero(true);
+    if (lhsSym.getKnownNonSizeZero() && rhsSym.getKnownNonSizeZero()) {
+      outSym.updateKnownNonSizeZero(true);
     }
     // TODO(disc): propagate other attributes/shape ranges??
   } else if (auto addOp = dyn_cast<arith::AddIOp>(op)) {
@@ -923,10 +924,10 @@ LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
     auto lhsSym = mgr_.getRootSymbolicDim(value2SymDim_[lhs]);
     auto rhsSym = mgr_.getRootSymbolicDim(value2SymDim_[rhs]);
     auto outSym = mgr_.getRootSymbolicDim(value2SymDim_[out]);
-    if (lhsSym.knownNonNegative() && rhsSym.knownNonNegative()) {
-      outSym.setKnownNonNegative(true);
-      if (lhsSym.knownNonSizeZero() || rhsSym.knownNonSizeZero())
-        outSym.setKnownNonSizeZero(true);
+    if (lhsSym.getKnownNonNegative() && rhsSym.getKnownNonNegative()) {
+      outSym.updateKnownNonNegative(true);
+      if (lhsSym.getKnownNonSizeZero() || rhsSym.getKnownNonSizeZero())
+        outSym.updateKnownNonSizeZero(true);
     }
     // TODO(disc): propagate other constraint attributes/shape ranges??
   }
@@ -1019,45 +1020,46 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloElemOpConstraint(
         return op->emitError()
                << "fail to merge symbolic dim between operands of element op\n";
   } else if (auto clamp = dyn_cast<mhlo::ClampOp>(op)) {
-    auto operandTy = clamp.operand().getType().dyn_cast<RankedTensorType>();
-    auto minTy = clamp.min().getType().dyn_cast<RankedTensorType>();
-    auto maxTy = clamp.max().getType().dyn_cast<RankedTensorType>();
+    auto operandTy = clamp.getOperand().getType().dyn_cast<RankedTensorType>();
+    auto minTy = clamp.getMin().getType().dyn_cast<RankedTensorType>();
+    auto maxTy = clamp.getMax().getType().dyn_cast<RankedTensorType>();
     if (!operandTy || !minTy || !maxTy) return success();
 
     if (minTy.getRank() != 0) {
-      if (failed(mapRankedValueShapeEqual(clamp.operand(), clamp.min())))
+      if (failed(mapRankedValueShapeEqual(clamp.getOperand(), clamp.getMin())))
         return op->emitError()
                << "fail to merge the symbolic dim of operand and "
                   "min of mhlo::ClampOp\n";
     }
     if (maxTy.getRank() != 0) {
-      if (failed(mapRankedValueShapeEqual(clamp.operand(), clamp.max())))
+      if (failed(mapRankedValueShapeEqual(clamp.getOperand(), clamp.getMax())))
         return op->emitError()
                << "fail to merge the symbolic dim of operand and "
                   "max of mhlo::ClampOp\n";
     }
   } else if (auto select = dyn_cast<mhlo::SelectOp>(op)) {
-    auto predTy = select.pred().getType().dyn_cast<RankedTensorType>();
-    auto trueTy = select.on_true().getType().dyn_cast<RankedTensorType>();
-    auto falseTy = select.on_false().getType().dyn_cast<RankedTensorType>();
+    auto predTy = select.getPred().getType().dyn_cast<RankedTensorType>();
+    auto trueTy = select.getOnTrue().getType().dyn_cast<RankedTensorType>();
+    auto falseTy = select.getOnFalse().getType().dyn_cast<RankedTensorType>();
     auto resultTy = select.getResult().getType().dyn_cast<RankedTensorType>();
     if (!predTy || !trueTy || !falseTy || !resultTy) return success();
 
     if (predTy.getRank() != 0) {
-      if (failed(mapRankedValueShapeEqual(select.pred(), select.getResult())))
+      if (failed(
+              mapRankedValueShapeEqual(select.getPred(), select.getResult())))
         return op->emitError() << "fail to merge the symbolic dim of pred and "
                                   "result of mhlo::SelectOp\n";
     }
     if (trueTy.getRank() != 0) {
       if (failed(
-              mapRankedValueShapeEqual(select.on_true(), select.getResult())))
+              mapRankedValueShapeEqual(select.getOnTrue(), select.getResult())))
         return op->emitError()
                << "fail to merge the symbolic dim of on_true and "
                   "result of mhlo::SelectOp\n";
     }
     if (falseTy.getRank() != 0) {
-      if (failed(
-              mapRankedValueShapeEqual(select.on_false(), select.getResult())))
+      if (failed(mapRankedValueShapeEqual(select.getOnFalse(),
+                                          select.getResult())))
         return op->emitError()
                << "fail to merge the symbolic dim of on_false and "
                   "result of mhlo::SelectOp\n";
@@ -1079,7 +1081,7 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloDotLikeOpConstraint(
     auto& rhsDims = rankedTensor2SymDims_[rhs];
     if (lhsTy.getRank() != lhsDims.size() || rhsTy.getRank() != rhsDims.size())
       return op->emitError("lhs or rhs mismatch rank\n");
-    auto dim_numbers = dot_general.dot_dimension_numbers();
+    auto dim_numbers = dot_general.getDotDimensionNumbers();
     // Contracting dimensions.
     auto lhs_contracting_dims = dim_numbers.getLhsContractingDimensions();
     auto rhs_contracting_dims = dim_numbers.getRhsContractingDimensions();
@@ -1115,16 +1117,16 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloDotLikeOpConstraint(
             mgr_.mapSymbolicDimEqual(lhsDims[lhsTy.getRank() - 1], rhsDims[0])))
       return op->emitError() << "fail to merge dim\n";
   } else if (auto einsum = dyn_cast<mhlo::EinsumOp>(op)) {
-    auto lhsTy = einsum.lhs().getType().dyn_cast<RankedTensorType>();
-    auto rhsTy = einsum.rhs().getType().dyn_cast<RankedTensorType>();
+    auto lhsTy = einsum.getLhs().getType().dyn_cast<RankedTensorType>();
+    auto rhsTy = einsum.getRhs().getType().dyn_cast<RankedTensorType>();
     auto outTy = einsum.getResult().getType().dyn_cast<RankedTensorType>();
     if (!lhsTy || !rhsTy || !outTy) return success();
 
-    auto& lhsDims = rankedTensor2SymDims_[einsum.lhs()];
-    auto& rhsDims = rankedTensor2SymDims_[einsum.rhs()];
+    auto& lhsDims = rankedTensor2SymDims_[einsum.getLhs()];
+    auto& rhsDims = rankedTensor2SymDims_[einsum.getRhs()];
     auto& outDims = rankedTensor2SymDims_[einsum.getResult()];
 
-    StringRef equation = einsum.einsum_config();
+    StringRef equation = einsum.getEinsumConfig();
     llvm::SmallDenseMap<char, llvm::SmallDenseMap<EquationVariable, size_t>>
         all_tokens;
     if (!parseEinsumEquation(equation, all_tokens, nullptr, nullptr, nullptr)) {
@@ -1194,7 +1196,7 @@ LogicalResult ShapeComputationIRAnalysis::applyMhloConcatOpConstraint(
     Operation* op) {
   if (auto concat = dyn_cast<mhlo::ConcatenateOp>(op)) {
     Value out = op->getResult(0);
-    int64_t axis = concat.dimension();
+    int64_t axis = concat.getDimension();
     auto ty = out.getType().dyn_cast<RankedTensorType>();
     if (!ty) return success();
     auto& outDims = rankedTensor2SymDims_[out];
@@ -1355,7 +1357,8 @@ LogicalResult ShapeComputationIRAnalysis::applyTieShapeOpConstraint(
       if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[en.value()],
                                           resultDims[en.index()])))
         return op->emitError() << "fail to merge symbolic dim\n";
-      mgr_.getRootSymbolicDim(resultDims[en.index()]).setKnownNonNegative(true);
+      mgr_.getRootSymbolicDim(resultDims[en.index()])
+          .updateKnownNonNegative(true);
     }
 
     if (isCandidateShapeTensorType(op->getResult(0).getType())) {
@@ -1575,26 +1578,26 @@ LogicalResult tryToSimplifyCompareOp(ShapeComputationIRAnalysis& analysis,
     if (op.getPredicate() == arith::CmpIPredicate::eq) {
       if (lhsSym == rhsSym) {
         pred = truePred;
-      } else if (lhsSym.knownNonNegative() && rhsSym.knownNegativeOne()) {
+      } else if (lhsSym.getKnownNonNegative() && rhsSym.getKnownNegativeOne()) {
         pred = falsePred;
-      } else if (rhsSym.knownNonNegative() && lhsSym.knownNegativeOne()) {
+      } else if (rhsSym.getKnownNonNegative() && lhsSym.getKnownNegativeOne()) {
         pred = falsePred;
-      } else if (lhsSym.knownNonSizeZero() && rhsSym.getDimSize() == 0) {
+      } else if (lhsSym.getKnownNonSizeZero() && rhsSym.getDimSize() == 0) {
         pred = falsePred;
-      } else if (rhsSym.knownNonSizeZero() && lhsSym.getDimSize() == 0) {
+      } else if (rhsSym.getKnownNonSizeZero() && lhsSym.getDimSize() == 0) {
         pred = falsePred;
       }
       // TODO(disc): support other cases
     } else if (op.getPredicate() == arith::CmpIPredicate::ne) {
       if (lhsSym == rhsSym) {
         pred = falsePred;
-      } else if (lhsSym.knownNonNegative() && rhsSym.knownNegativeOne()) {
+      } else if (lhsSym.getKnownNonNegative() && rhsSym.getKnownNegativeOne()) {
         pred = truePred;
-      } else if (rhsSym.knownNonNegative() && lhsSym.knownNegativeOne()) {
+      } else if (rhsSym.getKnownNonNegative() && lhsSym.getKnownNegativeOne()) {
         pred = truePred;
-      } else if (lhsSym.knownNonSizeZero() && rhsSym.getDimSize() == 0) {
+      } else if (lhsSym.getKnownNonSizeZero() && rhsSym.getDimSize() == 0) {
         pred = truePred;
-      } else if (rhsSym.knownNonSizeZero() && lhsSym.getDimSize() == 0) {
+      } else if (rhsSym.getKnownNonSizeZero() && lhsSym.getDimSize() == 0) {
         pred = truePred;
       }
       // TODO(disc): support other cases

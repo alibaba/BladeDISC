@@ -23,7 +23,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/FormatVariadic.h"
-#include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
+#include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
 #include "mlir/Conversion/GPUToROCDL/GPUToROCDLPass.h"
@@ -46,7 +46,6 @@
 #include "mlir/lib/Conversion/GPUCommon/GPUOpsLowering.h"
 #include "mlir/lib/Conversion/GPUCommon/IndexIntrinsicsOpLowering.h"
 #include "mlir/lib/Conversion/GPUCommon/OpToFuncCallLowering.h"
-#include "mlir/lib/Conversion/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_lower_gpu_ops_common.h"
 
@@ -74,7 +73,7 @@ struct GPUShuffleOpLowering : public ConvertOpToLLVMPattern<gpu::ShuffleOp> {
       gpu::ShuffleOp op, OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override {
     Location loc = op->getLoc();
-    auto valueTy = adaptor.value().getType();
+    auto valueTy = adaptor.getValue().getType();
     auto int32Type = IntegerType::get(rewriter.getContext(), 32);
     auto predTy = IntegerType::get(rewriter.getContext(), 1);
     Value yes = rewriter.create<LLVM::ConstantOp>(
@@ -84,14 +83,14 @@ struct GPUShuffleOpLowering : public ConvertOpToLLVMPattern<gpu::ShuffleOp> {
     // Bit mask of active lanes: `(1 << activeWidth) - 1`.
     Value activeMask = rewriter.create<LLVM::SubOp>(
         loc, int32Type,
-        rewriter.create<LLVM::ShlOp>(loc, int32Type, one, adaptor.width()),
+        rewriter.create<LLVM::ShlOp>(loc, int32Type, one, adaptor.getWidth()),
         one);
     // Clamp lane: `activeWidth - 1`
     Value maskAndClamp =
-        rewriter.create<LLVM::SubOp>(loc, int32Type, adaptor.width(), one);
+        rewriter.create<LLVM::SubOp>(loc, int32Type, adaptor.getWidth(), one);
 
     Value shfl = rewriter.create<ROCDL::ShflBflyOp>(
-        loc, valueTy, activeMask, adaptor.value(), adaptor.offset(),
+        loc, valueTy, activeMask, adaptor.getValue(), adaptor.getOffset(),
         maskAndClamp);
 
     rewriter.replaceOp(op, {shfl, yes});
@@ -232,8 +231,7 @@ struct DiscLowerGpuOpsToROCDLOpsPass
     llvmPatterns.add<GenericAtomicRMWOpLoweringWithBitcast>(
         converter, /* PatternBenefit */ 3);
     llvmPatterns.add<RemoveUselessUnrealizedConversionCastOp>(converter);
-    mlir::arith::populateArithmeticToLLVMConversionPatterns(converter,
-                                                            llvmPatterns);
+    mlir::arith::populateArithToLLVMConversionPatterns(converter, llvmPatterns);
     populateVectorToLLVMConversionPatterns(converter, llvmPatterns);
     // Remove the following since it disappears from LLVM.
     // populateVectorToROCDLConversionPatterns(converter, llvmPatterns);

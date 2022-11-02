@@ -19,7 +19,7 @@ limitations under the License.
 #include <algorithm>
 #include <utility>
 
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Bufferization/Transforms/Bufferize.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
@@ -226,10 +226,10 @@ struct DiscHloLegalizeToLhlo
     auto& context = getContext();
     RewritePatternSet patterns(&context);
     ConversionTarget target(context);
-    target.addLegalDialect<
-        arith::ArithmeticDialect, lmhlo_disc::LmhloDiscDialect,
-        bufferization::BufferizationDialect, memref::MemRefDialect,
-        shape::ShapeDialect, tensor::TensorDialect>();
+    target.addLegalDialect<arith::ArithDialect, lmhlo_disc::LmhloDiscDialect,
+                           bufferization::BufferizationDialect,
+                           memref::MemRefDialect, shape::ShapeDialect,
+                           tensor::TensorDialect>();
     target.addIllegalDialect<mhlo_disc::MhloDiscDialect>();
     target.addIllegalOp<disc_shape::TieShapeOp>();
 

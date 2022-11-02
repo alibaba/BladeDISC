@@ -62,7 +62,7 @@ LogicalResult fillConvParams(T op, ConvParams<T>& params) {
   auto inputTy = params.input.getType().template dyn_cast<RankedTensorType>();
   auto filterTy = params.filter.getType().template dyn_cast<RankedTensorType>();
   auto paddingTy =
-      op.d_padding().getType().template dyn_cast<RankedTensorType>();
+      op.getDPadding().getType().template dyn_cast<RankedTensorType>();
   auto outputTy = params.output.getType().template dyn_cast<RankedTensorType>();
 
   if (!inputTy || !filterTy || !paddingTy || !outputTy) {
@@ -76,7 +76,7 @@ LogicalResult fillConvParams(T op, ConvParams<T>& params) {
     return op.emitOpError() << "conv op's input rank is less than 3";
   }
 
-  auto dimension_numbers = op.dimension_numbers();
+  auto dimension_numbers = op.getDimensionNumbers();
   params.inputLayout.push_back(dimension_numbers.getInputBatchDimension());
   params.inputLayout.push_back(dimension_numbers.getInputFeatureDimension());
   auto input_spatial_dimensions = dimension_numbers.getInputSpatialDimensions();
@@ -107,8 +107,8 @@ LogicalResult fillConvParams(T op, ConvParams<T>& params) {
 LogicalResult extractConvParams(mhlo::DynamicConvOp op,
                                 ConvParams<mhlo::DynamicConvOp>& params) {
   params.conv = op;
-  params.input = op.lhs();
-  params.filter = op.rhs();
+  params.input = op.getLhs();
+  params.filter = op.getRhs();
   params.output = op.getResult();
 
   return fillConvParams<mhlo::DynamicConvOp>(op, params);
@@ -118,8 +118,8 @@ LogicalResult extractConvParams(
     mlir::mhlo_disc::QuantizedDynamicConvOp op,
     ConvParams<mlir::mhlo_disc::QuantizedDynamicConvOp>& params) {
   params.conv = op;
-  params.input = op.input();
-  params.filter = op.weight();
+  params.input = op.getInput();
+  params.filter = op.getWeight();
   params.output = op.getResult();
 
   return fillConvParams<mlir::mhlo_disc::QuantizedDynamicConvOp>(op, params);
@@ -188,8 +188,8 @@ struct ConvToDynamicConvConvert : public OpRewritePattern<mhlo::ConvolutionOp> {
   LogicalResult matchAndRewrite(mhlo::ConvolutionOp op,
                                 PatternRewriter& rewriter) const override {
     Location loc = op.getLoc();
-    Value input = op.lhs();
-    Value filter = op.rhs();
+    Value input = op.getLhs();
+    Value filter = op.getRhs();
 
     auto input_tp = input.getType().dyn_cast<RankedTensorType>();
     auto filter_tp = filter.getType().dyn_cast<RankedTensorType>();
@@ -205,7 +205,7 @@ struct ConvToDynamicConvConvert : public OpRewritePattern<mhlo::ConvolutionOp> {
       return failure();
     }
 
-    auto i64Vec = ConvertDenseIntAttr(op.padding());
+    auto i64Vec = ConvertDenseIntAttr(op.getPadding());
     std::vector<int32_t> paddingValues(i64Vec.size());
     std::transform(
         i64Vec.begin(), i64Vec.end(), paddingValues.begin(),

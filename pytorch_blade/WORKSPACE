@@ -2,6 +2,7 @@ workspace(name = "org_torch_blade")
 
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+load("//bazel/torch_mlir:repo.bzl", "blade_http_archive")
 
 http_archive(
     name = "com_github_bazelbuild_buildtools",
@@ -9,6 +10,15 @@ http_archive(
     strip_prefix = "buildtools-4.2.2",
     urls = [
         "https://github.com/bazelbuild/buildtools/archive/refs/tags/4.2.2.tar.gz",
+    ],
+)
+
+http_archive(
+    name = "bazel_skylib",
+    sha256 = "74d544d96f4a5bb630d465ca8bbcfe231e3594e5aae57e1edbf17a6eb3ca2506",
+    urls = [
+        "https://storage.googleapis.com/mirror.tensorflow.org/github.com/bazelbuild/bazel-skylib/releases/download/1.3.0/bazel-skylib-1.3.0.tar.gz",
+        "https://github.com/bazelbuild/bazel-skylib/releases/download/1.3.0/bazel-skylib-1.3.0.tar.gz",
     ],
 )
 
@@ -118,10 +128,16 @@ new_local_repository(
     path = "../../platform_alibaba/blade_gemm"
 )
 
-new_local_repository(
+blade_http_archive(
   name = "mlir-hlo",
-  build_file = "third_party/torch-mlir/externals/mlir-hlo/BUILD",
-  path = "third_party/torch-mlir/externals/mlir-hlo"
+  sha256 = "c7d9b8667bdcc2865701571e7cdef2ba21762b619bb5505cdec3af6f8b36fbb6",
+  strip_prefix = "mlir-hlo-36238f16441cd1a884af988d4400d2ebb0c75bbc",
+  urls = [
+    "https://github.com/tensorflow/mlir-hlo/archive/36238f16441cd1a884af988d4400d2ebb0c75bbc.zip",
+  ],
+  patch_file = [
+    "//bazel/torch_mlir:disable-simplify-dynamic-gather-to-gather.patch",
+  ]
 )
 
 new_local_repository(

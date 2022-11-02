@@ -62,24 +62,30 @@ se::Stream* GetOrCreateDefaultCudaStreamExecutorStream(int device_ordinal,
   auto it = table.find(key);
   if (it == table.end()) {
 #if TENSORFLOW_USE_ROCM
-    auto platform =
-        se::MultiPlatformManager::PlatformWithName("ROCM").ValueOrDie();
+    auto status_or = se::MultiPlatformManager::PlatformWithName("ROCM");
+    assert(status_or.ok());
+    auto platform = status_or.value();
     auto gpu_platform = static_cast<se::gpu::ROCmPlatform*>(platform);
 #else
-    auto platform =
-        se::MultiPlatformManager::PlatformWithName("CUDA").ValueOrDie();
+    auto status_or = se::MultiPlatformManager::PlatformWithName("CUDA");
+    assert(status_or.ok());
+    auto platform = status_or.value();
     auto gpu_platform = static_cast<se::gpu::CudaPlatform*>(platform);
 #endif
     TableEntry e;
     bool use_multi_cuda_se = true;
-    tensorflow::ReadBoolFromEnvVar("TAO_ENABLE_MULTIPLE_CUDA_STREAM_EXECUTOR",
-                                   true, &use_multi_cuda_se);
+    tsl::ReadBoolFromEnvVar("TAO_ENABLE_MULTIPLE_CUDA_STREAM_EXECUTOR", true,
+                            &use_multi_cuda_se);
     se::StreamExecutor* executor = nullptr;
     if (use_multi_cuda_se) {
-      executor = gpu_platform->ExecutorForDevice(device_ordinal, (void*)stream)
-                     .ValueOrDie();
+      auto status_or =
+          gpu_platform->ExecutorForDevice(device_ordinal, (void*)stream);
+      assert(status_or.ok());
+      executor = status_or.value();
     } else {
-      executor = gpu_platform->ExecutorForDevice(device_ordinal).ValueOrDie();
+      auto status_or = gpu_platform->ExecutorForDevice(device_ordinal);
+      assert(status_or.ok());
+      executor = status_or.value();
     }
     auto cuda_executor = se::gpu::ExtractGpuExecutor(executor);
     // Not wrapper with a unique_ptr to avoid stream is destroyed after executor

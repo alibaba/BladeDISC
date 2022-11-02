@@ -23,7 +23,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/FormatVariadic.h"
-#include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
+#include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
 #include "mlir/Conversion/GPUToNVVM/GPUToNVVMPass.h"
@@ -32,7 +32,7 @@
 #include "mlir/Conversion/LLVMCommon/TypeConverter.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/GPU/Transforms/Passes.h"
@@ -46,7 +46,6 @@
 #include "mlir/lib/Conversion/GPUCommon/GPUOpsLowering.h"
 #include "mlir/lib/Conversion/GPUCommon/IndexIntrinsicsOpLowering.h"
 #include "mlir/lib/Conversion/GPUCommon/OpToFuncCallLowering.h"
-#include "mlir/lib/Conversion/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_lower_gpu_ops_common.h"
 
@@ -168,8 +167,7 @@ struct DiscLowerGpuOpsToNVVMOpsPass
     llvmPatterns.add<GenericAtomicRMWOpLoweringWithBitcast>(
         converter, /* PatternBenefit */ 3);
     llvmPatterns.add<RemoveUselessUnrealizedConversionCastOp>(converter);
-    mlir::arith::populateArithmeticToLLVMConversionPatterns(converter,
-                                                            llvmPatterns);
+    mlir::arith::populateArithToLLVMConversionPatterns(converter, llvmPatterns);
     populateMathToLLVMConversionPatterns(converter, patterns);
     populateMemRefToLLVMConversionPatterns(converter, llvmPatterns);
     populateFuncToLLVMConversionPatterns(converter, patterns);
@@ -181,7 +179,7 @@ struct DiscLowerGpuOpsToNVVMOpsPass
     LLVMConversionTarget target(getContext());
     configureGpuToNVVMConversionLegality(target);
     target.addLegalDialect<LLVM::LLVMDialect>();
-    target.addIllegalDialect<arith::ArithmeticDialect, math::MathDialect,
+    target.addIllegalDialect<arith::ArithDialect, math::MathDialect,
                              cf::ControlFlowDialect>();
     target.addIllegalOp<UnrealizedConversionCastOp>();
     if (failed(applyPartialConversion(m, target, llvmFrozenPatterns)))

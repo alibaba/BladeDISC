@@ -14,7 +14,7 @@ limitations under the License.
 ==============================================================================*/
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/Transforms/Bufferize.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -129,7 +129,7 @@ void StdBufferizePass::runOnOperation() {
 
   target.addLegalDialect<memref::MemRefDialect>();
   target.addLegalOp<func::FuncOp, ModuleOp>();
-  target.addDynamicallyLegalDialect<arith::ArithmeticDialect>(
+  target.addDynamicallyLegalDialect<arith::ArithDialect>(
       [&](Operation* op) { return typeConverter.isLegal(op); });
 
   // Setup conversion patterns.

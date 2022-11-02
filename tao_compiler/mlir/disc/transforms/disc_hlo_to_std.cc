@@ -14,7 +14,7 @@ limitations under the License.
 ==============================================================================*/
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Attributes.h"
@@ -134,7 +134,7 @@ void ConvertHloToStandardPass::runOnOperation() {
   // Setup target legality.
   MLIRContext& ctx = getContext();
   ConversionTarget target(ctx);
-  target.addLegalDialect<tensor::TensorDialect, arith::ArithmeticDialect>();
+  target.addLegalDialect<tensor::TensorDialect, arith::ArithDialect>();
   target.addIllegalOp<ComputeReshapeShapeOp>();
 
   // Setup conversion patterns.

@@ -21,7 +21,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
 #include "mlir/IR/Dominance.h"
@@ -317,7 +317,7 @@ LogicalResult ShapeAnalysisDeprecated::buildBlockDimValueMap(Block* block) {
         int64_t index_val;
         if (getConstIntValue(indices[0].getDefiningOp(), index_val) &&
             index_val == index) {
-          dimValue = DimValue(store.value());
+          dimValue = DimValue(store.getValue());
           return true;
         }
       }
@@ -580,9 +580,9 @@ LogicalResult ShapeAnalysisDeprecated::buildBlockDimValueMap(Block* block) {
         mayCreateOrMapConstInt(dimVal);
       }
     } else if (auto dynSlice = dyn_cast<mhlo::RealDynamicSliceOp>(*op)) {
-      auto starts = getTensorDimValues(dynSlice.start_indices());
-      auto limits = getTensorDimValues(dynSlice.limit_indices());
-      auto strides = getTensorDimValues(dynSlice.strides());
+      auto starts = getTensorDimValues(dynSlice.getStartIndices());
+      auto limits = getTensorDimValues(dynSlice.getLimitIndices());
+      auto strides = getTensorDimValues(dynSlice.getStrides());
       Value result = op->getResult(0);
       auto out_ty = result.getType().dyn_cast_or_null<RankedTensorType>();
       if (!starts.hasValue() || !limits.hasValue() || !strides.hasValue() ||
@@ -901,12 +901,12 @@ LogicalResult ShapeAnalysisDeprecated::applyMhloOpConstraint(Operation* op) {
     Value operand = op->getOperand(0);
     Value result = op->getResult(0);
     for (auto& en :
-         llvm::enumerate(transpose.permutation().getValues<int64_t>())) {
+         llvm::enumerate(transpose.getPermutation().getValues<int64_t>())) {
       mapDimEqual(operand, en.value(), result, en.index());
     }
   } else if (auto concat = dyn_cast<mhlo::ConcatenateOp>(op)) {
     Value result = op->getResult(0);
-    int64_t axis = concat.dimension();
+    int64_t axis = concat.getDimension();
     int64_t rank = result.getType().cast<RankedTensorType>().getRank();
     for (Value operand : op->getOperands()) {
       for (int64_t i = 0; i < rank; ++i) {
@@ -920,7 +920,7 @@ LogicalResult ShapeAnalysisDeprecated::applyMhloOpConstraint(Operation* op) {
     int64_t rank = operand.getType().cast<RankedTensorType>().getRank();
     int64_t resultDimIdx = 0;
     for (int64_t i = 0; i < rank; ++i) {
-      auto reduceDims = reduce.dimensions().getValues<int64_t>();
+      auto reduceDims = reduce.getDimensions().getValues<int64_t>();
       if (std::find(reduceDims.begin(), reduceDims.end(), i) !=
           reduceDims.end()) {
         continue;
@@ -934,7 +934,7 @@ LogicalResult ShapeAnalysisDeprecated::applyMhloOpConstraint(Operation* op) {
     auto ty = operand.getType().dyn_cast<ShapedType>();
     assert(ty);
     for (auto& dim : llvm::enumerate(
-             broadcast_in_dim.broadcast_dimensions().getValues<int64_t>())) {
+             broadcast_in_dim.getBroadcastDimensions().getValues<int64_t>())) {
       // Deal with non-static & non-one dim.
       if (!ty.isDynamicDim(dim.index()) && ty.getDimSize(dim.index()) != 1) {
         mapDimEqual(operand, dim.index(), result, dim.value());
@@ -961,7 +961,7 @@ LogicalResult ShapeAnalysisDeprecated::applyMhloOpConstraint(Operation* op) {
   } else if (auto dot_general = dyn_cast<mhlo::DotGeneralOp>(op)) {
     Value lhs = op->getOperand(0);
     Value rhs = op->getOperand(1);
-    auto dim_numbers = dot_general.dot_dimension_numbers();
+    auto dim_numbers = dot_general.getDotDimensionNumbers();
     DenseSet<int64_t> lhs_contract_batch_dims;
     DenseSet<int64_t> rhs_contract_batch_dims;
     // Contracting dimensions.
@@ -1012,7 +1012,7 @@ LogicalResult ShapeAnalysisDeprecated::applyMhloOpConstraint(Operation* op) {
                   i + lhs_batching_dims.size());
     }
   } else if (auto einsum = dyn_cast<mhlo::EinsumOp>(op)) {
-    StringRef equation = einsum.einsum_config();
+    StringRef equation = einsum.getEinsumConfig();
     llvm::SmallDenseMap<char, llvm::SmallDenseMap<EquationVariable, size_t>>
         all_tokens;
     if (!parseEinsumEquation(equation, all_tokens, nullptr, nullptr, nullptr)) {
@@ -1022,9 +1022,9 @@ LogicalResult ShapeAnalysisDeprecated::applyMhloOpConstraint(Operation* op) {
       SmallVector<std::pair<Value, int64_t>> equalValues;
       for (auto item : token.second) {
         if (item.first == kIsLhs) {
-          equalValues.push_back(std::make_pair(einsum.lhs(), item.second));
+          equalValues.push_back(std::make_pair(einsum.getLhs(), item.second));
         } else if (item.first == kIsRhs) {
-          equalValues.push_back(std::make_pair(einsum.rhs(), item.second));
+          equalValues.push_back(std::make_pair(einsum.getRhs(), item.second));
         } else {
           // kIsResult
           equalValues.push_back(
@@ -1041,36 +1041,38 @@ LogicalResult ShapeAnalysisDeprecated::applyMhloOpConstraint(Operation* op) {
       }
     }
   } else if (auto clamp = dyn_cast<mhlo::ClampOp>(op)) {
-    int64_t min_rank = clamp.min().getType().cast<RankedTensorType>().getRank();
-    int64_t max_rank = clamp.max().getType().cast<RankedTensorType>().getRank();
+    int64_t min_rank =
+        clamp.getMin().getType().cast<RankedTensorType>().getRank();
+    int64_t max_rank =
+        clamp.getMax().getType().cast<RankedTensorType>().getRank();
     if (min_rank != 0) {
-      mapShapeEqual(clamp.operand(), clamp.min());
+      mapShapeEqual(clamp.getOperand(), clamp.getMin());
     }
     if (max_rank != 0) {
-      mapShapeEqual(clamp.operand(), clamp.max());
+      mapShapeEqual(clamp.getOperand(), clamp.getMax());
     }
-    mapShapeEqual(clamp.operand(), op->getResult(0));
+    mapShapeEqual(clamp.getOperand(), op->getResult(0));
   } else if (auto select = dyn_cast<mhlo::SelectOp>(op)) {
     int64_t pred_rank =
-        select.pred().getType().cast<RankedTensorType>().getRank();
+        select.getPred().getType().cast<RankedTensorType>().getRank();
     int64_t true_rank =
-        select.on_true().getType().cast<RankedTensorType>().getRank();
+        select.getOnTrue().getType().cast<RankedTensorType>().getRank();
     int64_t false_rank =
-        select.on_false().getType().cast<RankedTensorType>().getRank();
+        select.getOnFalse().getType().cast<RankedTensorType>().getRank();
     if (pred_rank != 0) {
-      mapShapeEqual(select.pred(), select.getResult());
+      mapShapeEqual(select.getPred(), select.getResult());
     }
     if (true_rank != 0) {
-      mapShapeEqual(select.on_true(), select.getResult());
+      mapShapeEqual(select.getOnTrue(), select.getResult());
     }
     if (false_rank != 0) {
-      mapShapeEqual(select.on_false(), select.getResult());
+      mapShapeEqual(select.getOnFalse(), select.getResult());
     }
   } else if (isa<mhlo::GatherOp, mhlo::DynamicGatherOp>(op)) {
     auto gather = dyn_cast<mhlo::GatherOp>(op);
     auto d_gather = dyn_cast<mhlo::DynamicGatherOp>(op);
     auto dimension_numbers =
-        gather ? gather.dimension_numbers() : d_gather.dimension_numbers();
+        gather ? gather.getDimensionNumbers() : d_gather.getDimensionNumbers();
     Value in = op->getOperand(0);
     Value result = op->getResult(0);
     auto in_ty = in.getType().dyn_cast<RankedTensorType>();

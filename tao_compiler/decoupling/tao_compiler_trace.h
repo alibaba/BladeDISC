@@ -37,7 +37,7 @@ class TaoCompilerTrace {
 
  private:
   struct Event {
-    tensorflow::uint64 timestamp_us;
+    uint64_t timestamp_us;
     std::string key;
     std::string value;
   };

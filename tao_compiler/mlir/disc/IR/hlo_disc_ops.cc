@@ -18,7 +18,7 @@ limitations under the License.
 #include <unordered_map>
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "tensorflow/compiler/mlir/disc/IR/custom_call_base.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_enums.cc.inc"
@@ -81,8 +81,8 @@ LogicalResult CustomCallOp::reifyReturnTypeShapes(
     OpBuilder& builder, ValueRange operands,
     SmallVectorImpl<Value>& reifiedReturnShapes) {
   CustomCallOp::Adaptor adaptor(operands);
-  ValueRange args = adaptor.args();
-  StringRef target = call_target_name();
+  ValueRange args = adaptor.getArgs();
+  StringRef target = getCallTargetName();
   auto reify_shapes_func =
       CustomCallRegistry::Global().FindReifyShapesFunc(target.str());
   if (!reify_shapes_func) {
@@ -99,18 +99,19 @@ LogicalResult CustomCallOp::verify() { return Verify(*this); }
 
 template <typename T>
 LogicalResult QuantVerify(T* op) {
-  auto inputTy = op->input().getType().template dyn_cast<RankedTensorType>();
-  auto scaleTy = op->scale().getType().template dyn_cast<RankedTensorType>();
+  auto inputTy = op->getInput().getType().template dyn_cast<RankedTensorType>();
+  auto scaleTy = op->getScale().getType().template dyn_cast<RankedTensorType>();
   auto zeroPointTy =
-      op->zero_point().getType().template dyn_cast<RankedTensorType>();
-  auto resultTy = op->result().getType().template dyn_cast<RankedTensorType>();
+      op->getZeroPoint().getType().template dyn_cast<RankedTensorType>();
+  auto resultTy =
+      op->getResult().getType().template dyn_cast<RankedTensorType>();
   if (!inputTy || !scaleTy || !zeroPointTy || !resultTy)
     return op->emitOpError() << "only support ranked input.\n";
   if (inputTy.getShape() != resultTy.getShape())
     return op->emitOpError() << "input and result have mismatch shape.\n";
   if (scaleTy.getRank() != zeroPointTy.getRank())
     return op->emitOpError() << "scale and zero_point have mismatch rank.\n";
-  auto axis = op->axis().template getValues<int64_t>();
+  auto axis = op->getAxis().template getValues<int64_t>();
   if (axis.size() != scaleTy.getRank())
     return op->emitOpError() << "num of quantized axes (len(axis)) is not "
                                 "equal to the rank of scale tensor\n";
@@ -137,9 +138,11 @@ LogicalResult DequantizeOp::verify() { return QuantVerify(this); }
 
 template <typename T>
 LogicalResult CommonVerifyForQuantizedComputeIntensiveOp(T* op) {
-  auto inputTy = op->input().getType().template dyn_cast<RankedTensorType>();
-  auto weightTy = op->weight().getType().template dyn_cast<RankedTensorType>();
-  auto resultTy = op->result().getType().template dyn_cast<RankedTensorType>();
+  auto inputTy = op->getInput().getType().template dyn_cast<RankedTensorType>();
+  auto weightTy =
+      op->getWeight().getType().template dyn_cast<RankedTensorType>();
+  auto resultTy =
+      op->getResult().getType().template dyn_cast<RankedTensorType>();
 
   if (!inputTy || !weightTy || !resultTy ||
       inputTy.getRank() != weightTy.getRank() ||
@@ -149,9 +152,9 @@ LogicalResult CommonVerifyForQuantizedComputeIntensiveOp(T* op) {
   }
 
   auto inputScaleTy =
-      op->input_scale().getType().template dyn_cast<RankedTensorType>();
+      op->getInputScale().getType().template dyn_cast<RankedTensorType>();
   auto inputZeroPointTy =
-      op->input_zero_point().getType().template dyn_cast<RankedTensorType>();
+      op->getInputZeroPoint().getType().template dyn_cast<RankedTensorType>();
   if (!inputScaleTy || !inputZeroPointTy || inputScaleTy.getRank() != 0 ||
       inputZeroPointTy.getRank() != 0) {
     return op->emitOpError() << "input_scale and input_zero_point only support "
@@ -159,9 +162,9 @@ LogicalResult CommonVerifyForQuantizedComputeIntensiveOp(T* op) {
   }
 
   auto resultScaleTy =
-      op->result_scale().getType().template dyn_cast<RankedTensorType>();
+      op->getResultScale().getType().template dyn_cast<RankedTensorType>();
   auto resultZeroPointTy =
-      op->result_zero_point().getType().template dyn_cast<RankedTensorType>();
+      op->getResultZeroPoint().getType().template dyn_cast<RankedTensorType>();
   if (!resultScaleTy || !resultZeroPointTy || resultScaleTy.getRank() != 0 ||
       resultZeroPointTy.getRank() != 0) {
     return op->emitOpError() << "result_scale and result_zero_point only "
@@ -169,15 +172,15 @@ LogicalResult CommonVerifyForQuantizedComputeIntensiveOp(T* op) {
   }
 
   auto weightScaleTy =
-      op->weight_scale().getType().template dyn_cast<RankedTensorType>();
+      op->getWeightScale().getType().template dyn_cast<RankedTensorType>();
   auto weightZeroPointTy =
-      op->weight_zero_point().getType().template dyn_cast<RankedTensorType>();
+      op->getWeightZeroPoint().getType().template dyn_cast<RankedTensorType>();
   if (!weightScaleTy || !weightZeroPointTy ||
       weightScaleTy.getShape() != weightZeroPointTy.getShape()) {
     return op->emitOpError()
            << "weight_scale and weight_zero_point have mismatch shape\n";
   }
-  auto axis = op->axis().template getValues<int64_t>();
+  auto axis = op->getAxis().template getValues<int64_t>();
   if (axis.size() != weightScaleTy.getRank())
     return op->emitOpError() << "num of quantized axes (len(axis)) is not "
                                 "equal to the rank of weight_scale tensor\n";
@@ -191,32 +194,32 @@ LogicalResult QuantizedDotGeneralOp::verify() {
 LogicalResult QuantizedDotGeneralOp::reifyReturnTypeShapes(
     OpBuilder& builder, ValueRange operands,
     SmallVectorImpl<Value>& reifiedReturnShapes) {
-  auto lhsType = input().getType().dyn_cast<ShapedType>();
-  auto rhsType = weight().getType().dyn_cast<ShapedType>();
+  auto lhsType = getInput().getType().dyn_cast<ShapedType>();
+  auto rhsType = getWeight().getType().dyn_cast<ShapedType>();
   if (!lhsType || !rhsType) {
     return failure();
   }
 
   Adaptor adaptor(operands);
-  auto dimNumbers = dot_dimension_numbers();
+  auto dimNumbers = getDotDimensionNumbers();
   SmallVector<Value> dimensions;
   for (const int64_t lhsDim : dimNumbers.getLhsBatchingDimensions()) {
     dimensions.push_back(
-        builder.create<tensor::DimOp>(getLoc(), adaptor.input(), lhsDim));
+        builder.create<tensor::DimOp>(getLoc(), adaptor.getInput(), lhsDim));
   }
 
   for (int64_t i = 0; i < lhsType.getRank(); i++) {
     if (!llvm::is_contained(dimNumbers.getLhsContractingDimensions(), i) &&
         !llvm::is_contained(dimNumbers.getLhsBatchingDimensions(), i)) {
       dimensions.push_back(
-          builder.create<tensor::DimOp>(getLoc(), adaptor.input(), i));
+          builder.create<tensor::DimOp>(getLoc(), adaptor.getInput(), i));
     }
   }
   for (int64_t i = 0; i < rhsType.getRank(); i++) {
     if (!llvm::is_contained(dimNumbers.getRhsContractingDimensions(), i) &&
         !llvm::is_contained(dimNumbers.getRhsBatchingDimensions(), i)) {
       dimensions.push_back(
-          builder.create<tensor::DimOp>(getLoc(), adaptor.weight(), i));
+          builder.create<tensor::DimOp>(getLoc(), adaptor.getWeight(), i));
     }
   }
   reifiedReturnShapes.push_back(
@@ -254,8 +257,8 @@ LogicalResult ConvReifyReturnTypeImpl(
     SmallVectorImpl<Value>& reifiedReturnShapes,
     const SmallVector<Value>& spatial_padding_values, Type shape_scalar_type) {
   typename Op::Adaptor adaptor(operands);
-  Value lhs = adaptor.input();
-  Value rhs = adaptor.weight();
+  Value lhs = adaptor.getInput();
+  Value rhs = adaptor.getWeight();
 
   RankedTensorType lhs_type = lhs.getType().dyn_cast<RankedTensorType>();
   RankedTensorType rhs_type = rhs.getType().dyn_cast<RankedTensorType>();
@@ -268,7 +271,7 @@ LogicalResult ConvReifyReturnTypeImpl(
     return maybeCastTo(builder, loc, v, shape_scalar_type);
   };
 
-  auto dimension_numbers = op->dimension_numbers();
+  auto dimension_numbers = op->getDimensionNumbers();
   int64_t input_batch_dimension = dimension_numbers.getInputBatchDimension();
   int64_t kernel_output_feature_dimension =
       dimension_numbers.getKernelOutputFeatureDimension();
@@ -285,7 +288,7 @@ LogicalResult ConvReifyReturnTypeImpl(
   Value lhs_batch_dim = to_shape_scalar_type(
       builder.create<tensor::DimOp>(loc, lhs, input_batch_dimension));
   Value batch_group_count = to_shape_scalar_type(
-      builder.create<arith::ConstantIndexOp>(loc, op->batch_group_count()));
+      builder.create<arith::ConstantIndexOp>(loc, op->getBatchGroupCount()));
   Value batch_dim = to_shape_scalar_type(
       builder.create<arith::DivSIOp>(loc, lhs_batch_dim, batch_group_count));
   int64_t output_batch_dimension = dimension_numbers.getOutputBatchDimension();
@@ -298,9 +301,9 @@ LogicalResult ConvReifyReturnTypeImpl(
       dimension_numbers.getOutputFeatureDimension();
   shape_values[output_feature_dimension] = feature_dim;
 
-  Optional<DenseIntElementsAttr> window_strides_attr = op->window_strides();
-  Optional<DenseIntElementsAttr> lhs_dilation_attr = op->lhs_dilation();
-  Optional<DenseIntElementsAttr> rhs_dilation_attr = op->rhs_dilation();
+  Optional<DenseIntElementsAttr> window_strides_attr = op->getWindowStrides();
+  Optional<DenseIntElementsAttr> lhs_dilation_attr = op->getLhsDilation();
+  Optional<DenseIntElementsAttr> rhs_dilation_attr = op->getRhsDilation();
 
   Value one =
       to_shape_scalar_type(builder.create<arith::ConstantIndexOp>(loc, 1));
@@ -374,7 +377,7 @@ LogicalResult QuantizedDynamicConvOp::reifyReturnTypeShapes(
     OpBuilder& builder, ValueRange operands,
     SmallVectorImpl<Value>& reifiedReturnShapes) {
   QuantizedDynamicConvOp::Adaptor adaptor(operands);
-  Value d_padding = adaptor.d_padding();
+  Value d_padding = adaptor.getDPadding();
 
   RankedTensorType padding_type =
       d_padding.getType().dyn_cast<RankedTensorType>();
@@ -388,7 +391,7 @@ LogicalResult QuantizedDynamicConvOp::reifyReturnTypeShapes(
   };
 
   SmallVector<Value> spatial_padding_values;
-  auto dimension_numbers = this->dimension_numbers();
+  auto dimension_numbers = this->getDimensionNumbers();
   auto input_spatial_dimensions_attr =
       dimension_numbers.getInputSpatialDimensions();
   int64_t padding_num = input_spatial_dimensions_attr.size() * 2;
@@ -412,11 +415,11 @@ LogicalResult SparseReshapeOp::reifyReturnTypeShapes(
     SmallVectorImpl<Value>& reifiedReturnShapes) {
   SparseReshapeOp::Adaptor adaptor(operands);
   auto input_indices_type =
-      adaptor.input_indices().getType().dyn_cast<RankedTensorType>();
+      adaptor.getInputIndices().getType().dyn_cast<RankedTensorType>();
   auto input_shape_type =
-      adaptor.input_shape().getType().dyn_cast<RankedTensorType>();
+      adaptor.getInputShape().getType().dyn_cast<RankedTensorType>();
   auto new_shape_type =
-      adaptor.new_shape().getType().dyn_cast<RankedTensorType>();
+      adaptor.getNewShape().getType().dyn_cast<RankedTensorType>();
   if (!input_indices_type || !input_shape_type || !new_shape_type) {
     return failure();
   }
@@ -449,15 +452,15 @@ LogicalResult SparseReshapeOp::reifyReturnTypeShapes(
 
 LogicalResult SparseReshapeOp::verify() {
   auto input_indices_type =
-      this->input_indices().getType().template dyn_cast<RankedTensorType>();
+      this->getInputIndices().getType().template dyn_cast<RankedTensorType>();
   auto input_shape_type =
-      this->input_shape().getType().template dyn_cast<RankedTensorType>();
+      this->getInputShape().getType().template dyn_cast<RankedTensorType>();
   auto new_shape_type =
-      this->new_shape().getType().template dyn_cast<RankedTensorType>();
+      this->getNewShape().getType().template dyn_cast<RankedTensorType>();
   auto output_indices_type =
-      this->output_indices().getType().template dyn_cast<RankedTensorType>();
+      this->getOutputIndices().getType().template dyn_cast<RankedTensorType>();
   auto output_shape_type =
-      this->output_shape().getType().template dyn_cast<RankedTensorType>();
+      this->getOutputShape().getType().template dyn_cast<RankedTensorType>();
 
   if (!input_indices_type || !input_shape_type || !new_shape_type) {
     return this->emitOpError() << "only support ranked input.\n";
@@ -488,15 +491,15 @@ LogicalResult SparseFillEmptyRowsOp::reifyReturnTypeShapes(
     SmallVectorImpl<Value>& reifiedReturnShapes) {
   SparseFillEmptyRowsOp::Adaptor adaptor(operands);
   // index 0
-  auto indices_type = adaptor.indices().getType().cast<RankedTensorType>();
+  auto indices_type = adaptor.getIndices().getType().cast<RankedTensorType>();
   // index 1
-  auto values_type = adaptor.values().getType().cast<RankedTensorType>();
+  auto values_type = adaptor.getValues().getType().cast<RankedTensorType>();
   // index 2
   auto dense_shape_type =
-      adaptor.dense_shape().getType().cast<RankedTensorType>();
+      adaptor.getDenseShape().getType().cast<RankedTensorType>();
   // index 3
   auto default_value_type =
-      adaptor.default_value().getType().cast<RankedTensorType>();
+      adaptor.getDefaultValue().getType().cast<RankedTensorType>();
 
   Location loc = this->getLoc();
 
@@ -560,12 +563,12 @@ LogicalResult SparseFillEmptyRowsOp::reifyReturnTypeShapes(
 }
 
 LogicalResult SparseFillEmptyRowsOp::verify() {
-  auto indices_type = this->indices().getType().dyn_cast<RankedTensorType>();
-  auto values_type = this->values().getType().dyn_cast<RankedTensorType>();
+  auto indices_type = this->getIndices().getType().dyn_cast<RankedTensorType>();
+  auto values_type = this->getValues().getType().dyn_cast<RankedTensorType>();
   auto dense_shape_type =
-      this->dense_shape().getType().dyn_cast<RankedTensorType>();
+      this->getDenseShape().getType().dyn_cast<RankedTensorType>();
   auto default_value_type =
-      this->default_value().getType().dyn_cast<RankedTensorType>();
+      this->getDefaultValue().getType().dyn_cast<RankedTensorType>();
 
   if (!indices_type || !values_type || !default_value_type) {
     return failure();
@@ -590,15 +593,15 @@ LogicalResult SparseFillEmptyRowsOp::verify() {
   }
 
   auto output_indices_type =
-      this->output_indices().getType().dyn_cast<RankedTensorType>();
+      this->getOutputIndices().getType().dyn_cast<RankedTensorType>();
   auto output_values_type =
-      this->output_values().getType().dyn_cast<RankedTensorType>();
+      this->getOutputValues().getType().dyn_cast<RankedTensorType>();
   auto empty_row_indicator_type =
-      this->empty_row_indicator().getType().dyn_cast<RankedTensorType>();
+      this->getEmptyRowIndicator().getType().dyn_cast<RankedTensorType>();
   auto reverse_index_map_type =
-      this->reverse_index_map().getType().dyn_cast<RankedTensorType>();
+      this->getReverseIndexMap().getType().dyn_cast<RankedTensorType>();
   auto output_elements_type =
-      this->output_elements().getType().dyn_cast<RankedTensorType>();
+      this->getOutputElements().getType().dyn_cast<RankedTensorType>();
   if (!output_indices_type || !output_values_type ||
       !empty_row_indicator_type || !reverse_index_map_type ||
       !output_elements_type) {
@@ -630,10 +633,10 @@ LogicalResult SparseSegmentMeanOp::reifyReturnTypeShapes(
     SmallVectorImpl<Value>& reifiedReturnShapes) {
   SparseSegmentMeanOp::Adaptor adaptor(operands);
   Location loc = this->getLoc();
-  auto data_type = adaptor.data().getType().cast<RankedTensorType>();
-  auto indices_type = adaptor.indices().getType().cast<RankedTensorType>();
+  auto data_type = adaptor.getData().getType().cast<RankedTensorType>();
+  auto indices_type = adaptor.getIndices().getType().cast<RankedTensorType>();
   auto segment_ids_type =
-      adaptor.segment_ids().getType().cast<RankedTensorType>();
+      adaptor.getSegmentIds().getType().cast<RankedTensorType>();
   auto input_rank = data_type.getRank();
   SmallVector<Value, 2> output_shape_values;
   Value segment_size = builder.create<tensor::DimOp>(loc, operands[2], 0);
@@ -659,10 +662,10 @@ LogicalResult SparseSegmentMeanOp::reifyReturnTypeShapes(
 }
 
 LogicalResult SparseSegmentMeanOp::verify() {
-  auto data_type = this->data().getType().dyn_cast<RankedTensorType>();
-  auto indices_type = this->indices().getType().dyn_cast<RankedTensorType>();
+  auto data_type = this->getData().getType().dyn_cast<RankedTensorType>();
+  auto indices_type = this->getIndices().getType().dyn_cast<RankedTensorType>();
   auto segment_ids_type =
-      this->segment_ids().getType().dyn_cast<RankedTensorType>();
+      this->getSegmentIds().getType().dyn_cast<RankedTensorType>();
 
   if (!data_type || !indices_type || !segment_ids_type) {
     return failure();
@@ -688,7 +691,7 @@ LogicalResult SparseSegmentMeanOp::verify() {
     return this->emitOpError() << "input must be at least rank 1";
   }
 
-  auto output_type = this->output().getType().dyn_cast<RankedTensorType>();
+  auto output_type = this->getOutput().getType().dyn_cast<RankedTensorType>();
   if (!output_type) {
     return failure();
   }
@@ -713,7 +716,7 @@ LogicalResult WhereOp::reifyReturnTypeShapes(
     SmallVectorImpl<Value>& reifiedReturnShapes) {
   WhereOp::Adaptor adaptor(operands);
   Location loc = this->getLoc();
-  auto input_type = adaptor.input().getType().cast<RankedTensorType>();
+  auto input_type = adaptor.getInput().getType().cast<RankedTensorType>();
 
   SmallVector<Value, 2> index_shape_values, num_output_elements_shape_values;
 
@@ -742,13 +745,13 @@ LogicalResult WhereOp::reifyReturnTypeShapes(
 }
 
 LogicalResult WhereOp::verify() {
-  auto input_type = this->input().getType().dyn_cast<RankedTensorType>();
+  auto input_type = this->getInput().getType().dyn_cast<RankedTensorType>();
 
   if (!input_type) {
     return failure();
   }
 
-  auto index_type = this->index().getType().dyn_cast<RankedTensorType>();
+  auto index_type = this->getIndex().getType().dyn_cast<RankedTensorType>();
   if (!index_type) {
     return failure();
   }

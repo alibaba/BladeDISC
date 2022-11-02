@@ -46,7 +46,7 @@ tutorials in this document. Please refer to
 [build_from_source.md](../build_from_source.md)
 to build the binaries if you are in other CUDA environments.
 
-![passpipeline](./pics/pass_pipeline.png) 
+![passpipeline](./pics/pass_pipeline.png)
 <center>PassPipeline of DISC</center>
 
 Before we start, let's recap the major problems we need to solve for the
@@ -64,7 +64,7 @@ shape in some cases. As a solution, we extend HLO with a set of IR
 supplementation. In general, these extended operations are prefixed with
 "Dynamic" (one exception is mhlo.RealDynamicSliceOp since there is already one
 named with DynamicSliceOp). These extended part has already been upstreamed into
-[Mlir-HLO](https://github.com/tensorflow/mlir-hlo). 
+[Mlir-HLO](https://github.com/tensorflow/mlir-hlo).
 
 
 Here we demo the difference in op definition with SliceOp as an example:
@@ -74,7 +74,7 @@ mhlo.SliceOp:
 ```
 def HLO_SliceOp: HLO_Op<
       "slice",
-      [NoSideEffect, SameOperandsAndResultElementType,
+      [Pure, SameOperandsAndResultElementType,
        AllTypesMatch<["start_indices", "limit_indices", "strides"]>,
        DeclareOpInterfaceMethods<InferTypeOpInterface>]> {
   let arguments = (ins
@@ -96,7 +96,7 @@ mhlo.RealDynamicSliceOp:
 ```
 def HLO_RealDynamicSliceOp: HLO_ShapedInterfaceOp<
       "real_dynamic_slice",
-      [NoSideEffect, AllElementTypesMatch<["operand", "result"]>,
+      [Pure, AllElementTypesMatch<["operand", "result"]>,
        AllTypesMatch<["start_indices", "limit_indices", "strides"]>]> {
   let summary = "Real Dynamic Slice operator";
   let description = [{
@@ -134,7 +134,7 @@ calculated shapes of each buffer will guide the buffer allocation and launch
 dimension at runtime. BladeDISC does bufferization during the conversion from
 mhlo to lmhlo. Rather than using an interpreter or virtual machine, BladeDISC
 compiles and generates the code of computations on both host and device side,
-and also the runtime flows (buffer management, kernel launch, et.al.). 
+and also the runtime flows (buffer management, kernel launch, et.al.).
 
 Runtime Abstraction Layer (RAL) is used to isolate the complexity between the
 compiler and different runtime environments, so that the compiler does not see
@@ -187,9 +187,9 @@ tutorial:
 !wget http://pai-blade.cn-hangzhou.oss.aliyun-inc.com/bladedisc_notebook_binaries/disc_compiler_main -O disc_compiler_main
 
 !wget http://pai-blade.cn-hangzhou.oss.aliyun-inc.com/bladedisc_notebook_binaries/tf-opt -O tf-opt
-    
+
 !wget http://pai-blade.cn-hangzhou.oss.aliyun-inc.com/bladedisc_notebook_binaries/disc-opt -O disc-opt
-    
+
 !wget http://pai-blade.cn-hangzhou.oss.aliyun-inc.com/bladedisc_notebook_binaries/tutorial.mlir -O tutorial.mlir
 
 !chmod +x disc_compiler_main
@@ -200,7 +200,7 @@ tutorial:
 ```
 
 We choose an input subgraph that contains as mush essential elements as
-possible to demo the pass pipeline. 
+possible to demo the pass pipeline.
 
 
 ```python
@@ -271,7 +271,7 @@ is responsible to apply the logged attributes onto the IR.
 
 After this pass, we should get the IR mainly made of Mhlo Dialect and Standard
 Dialect, in which the Standard Dialect ops are for shape calculations. This is
-part of the shape calculation and more will be lowered in the following phases. 
+part of the shape calculation and more will be lowered in the following phases.
 
 
 ```python
@@ -617,7 +617,7 @@ RAL uses the `DispatchOp` in `disc_ral` dialect to model external Library call
 ops (e.g. gemm/conv) to `disc_ral.dispatch` ops.  At the end of the pass
 pipeline, the `disc_ral.dispatch` ops will be eventually lowered into  a
 uniformed type-erased style to make the compiled binary having stable and clean
-ABI. 
+ABI.
 
 2. Lower const ops. Similar to other stateful operations, we use a library call
    to hide the const initialization process and use the RAL context object to
@@ -839,7 +839,7 @@ Host side compilation can be roughly divided into two parts.
   multi-threading execution. Readers may refer to `disc-outline-cpu-kernel` and
   `disc-cpu-map-parallel-loop` for more information. We won't expand the detail
   in this doc.
- 
+
 *  Scheduling logic codegen. The scheduling logic includes kernel launching
    setting, data movement, synchronization, and buffer management. The
    scheduling logic will be lowered to LLVM IR and then be compiled into binary
@@ -919,5 +919,5 @@ form. The basic idea is:
 
 After this phase, the LLVM Dialect will then be converted to LLVM IR, and sent
 to LLVM backend. By this step, we've got a binary, which is executable and will
-link different runtime libraries for different scenarios. 
+link different runtime libraries for different scenarios.
 

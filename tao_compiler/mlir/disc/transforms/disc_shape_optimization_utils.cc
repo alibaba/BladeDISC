@@ -23,7 +23,7 @@ limitations under the License.
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/IR/Dominance.h"
 #include "mlir/IR/MLIRContext.h"
@@ -214,7 +214,7 @@ SymbolicDimMgr::simplifySymbolicDimProductPair(const SymbolicDimProduct& x,
 
   for (SymbolicDimOp op : lhs.symbols) {
     auto it = rhsSymbolMap.find(op);
-    if (it != rhsSymbolMap.end() && op.knownNonSizeZero()) {
+    if (it != rhsSymbolMap.end() && op.getKnownNonSizeZero()) {
       if (--it->second == 0) rhsSymbolMap.erase(it);
       continue;
     }
@@ -223,7 +223,7 @@ SymbolicDimMgr::simplifySymbolicDimProductPair(const SymbolicDimProduct& x,
 
   for (SymbolicDimOp op : rhs.symbols) {
     auto it = lhsSymbolMap.find(op);
-    if (it != lhsSymbolMap.end() && op.knownNonSizeZero()) {
+    if (it != lhsSymbolMap.end() && op.getKnownNonSizeZero()) {
       if (--it->second == 0) lhsSymbolMap.erase(it);
       continue;
     }
@@ -617,7 +617,7 @@ LogicalResult SymbolicDimMgr::loadShapeConstraintGraph() {
         product.factor *= constOp->getAttrOfType<IntegerAttr>("value").getInt();
         continue;
       } else if (auto dimOp = dyn_cast_or_null<disc_shape::DimOp>(definingOp)) {
-        auto sym = symbolTable_.lookup<SymbolicDimOp>(dimOp.name());
+        auto sym = symbolTable_.lookup<SymbolicDimOp>(dimOp.getName());
         if (!sym) return dimOp->emitError() << "fail to find symbolic dim op\n";
         product.symbols.push_back(sym);
         continue;
@@ -628,8 +628,8 @@ LogicalResult SymbolicDimMgr::loadShapeConstraintGraph() {
   };
   if (func.walk([&](disc_shape::TieProductEqualOp op) {
             SymbolicDimProduct lhs, rhs;
-            if (failed(build_sym_product(op.lhs(), lhs)) ||
-                failed(build_sym_product(op.rhs(), rhs)) ||
+            if (failed(build_sym_product(op.getLhs(), lhs)) ||
+                failed(build_sym_product(op.getRhs(), rhs)) ||
                 failed(mapSymbolicDimProductEqual(lhs, rhs)))
               return WalkResult::interrupt();
             return WalkResult::advance();

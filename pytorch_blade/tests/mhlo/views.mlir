@@ -19,7 +19,7 @@
 // CHECK:         %[[T9:.*]] = arith.index_cast %[[T8]] : index to i32
 // CHECK:         %[[T10:.*]] = arith.muli %[[T7]], %[[T9]] : i32
 // CHECK:         %[[T11:.*]] = arith.index_cast %[[T10]] : i32 to index
-// CHECK:         %[[T12:.*]] = mhlo.compute_reshape_shape %[[T11]], %[[CST]] : index, tensor<2xi32> -> tensor<2xi32>
+// CHECK:         %[[T12:.*]] = mhlo.compute_reshape_shape %[[T11]], %[[CST]] : (index, tensor<2xi32>) -> tensor<2xi32>
 // CHECK:         %[[T13:.*]] = mhlo.dynamic_reshape %[[ARG0]], %[[T12]] : (tensor<?x?x?x?xf32>, tensor<2xi32>) -> tensor<?x224xf32>
 // CHECK:         return %[[T13]] : tensor<?x224xf32>
 func.func @torch.aten.view(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !torch.vtensor<[?,224],f32> {
@@ -55,7 +55,7 @@ func.func @torch.aten.view(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !torch.vtens
 // CHECK:         %[[T12:.*]] = arith.index_cast %[[T11]] : index to i32
 // CHECK:         %[[T13:.*]] = arith.muli %[[T10]], %[[T12]] : i32
 // CHECK:         %[[T14:.*]] = arith.index_cast %[[T13]] : i32 to index
-// CHECK:         %[[T15:.*]] = mhlo.compute_reshape_shape %[[T14]], %[[CST]] : index, tensor<4xi32> -> tensor<4xi32>
+// CHECK:         %[[T15:.*]] = mhlo.compute_reshape_shape %[[T14]], %[[CST]] : (index, tensor<4xi32>) -> tensor<4xi32>
 // CHECK:         %[[T16:.*]] = mhlo.dynamic_reshape %[[ARG0]], %[[T15]] : (tensor<?x?x?x?x?xf32>, tensor<4xi32>) -> tensor<?x120x4x64xf32>
 // CHECK:         return %[[T16]] : tensor<?x120x4x64xf32>
 func.func @torch.aten.reshape(%arg0: !torch.vtensor<[?,?,?,?,?],f32>) -> !torch.vtensor<[?,120,4,64],f32> {
@@ -89,7 +89,7 @@ func.func @torch.aten.reshape(%arg0: !torch.vtensor<[?,?,?,?,?],f32>) -> !torch.
 // CHECK:         %[[T9:.*]] = arith.index_cast %[[T8]] : index to i32
 // CHECK:         %[[T10:.*]] = arith.muli %[[T7]], %[[T9]] : i32
 // CHECK:         %[[T11:.*]] = arith.index_cast %[[T10]] : i32 to index
-// CHECK:         %[[T12:.*]] = mhlo.compute_reshape_shape %[[T11]], %[[CST]] : index, tensor<1xi32> -> tensor<1xi32>
+// CHECK:         %[[T12:.*]] = mhlo.compute_reshape_shape %[[T11]], %[[CST]] : (index, tensor<1xi32>) -> tensor<1xi32>
 // CHECK:         %[[T13:.*]] = mhlo.dynamic_reshape %[[ARG0]], %[[T12]] : (tensor<?x?x?x?xf32>, tensor<1xi32>) -> tensor<?xf32>
 // CHECK:         return %[[T13]] : tensor<?xf32>
 func.func @torch.aten.flatten(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !torch.vtensor<[?],f32> {
@@ -114,7 +114,7 @@ func.func @torch.aten.flatten(%arg0: !torch.vtensor<[?,?,?,?],f32>) -> !torch.vt
 // CHECK:         %[[T4:.*]] = arith.index_cast %[[T3]] : index to i32
 // CHECK:         %[[T5:.*]] = arith.muli %[[T2]], %[[T4]] : i32
 // CHECK:         %[[T6:.*]] = arith.index_cast %[[T5]] : i32 to index
-// CHECK:         %[[T7:.*]] = mhlo.compute_reshape_shape %[[T6]], %[[CST]] : index, tensor<3xi32> -> tensor<3xi32>
+// CHECK:         %[[T7:.*]] = mhlo.compute_reshape_shape %[[T6]], %[[CST]] : (index, tensor<3xi32>) -> tensor<3xi32>
 // CHECK:         %[[T8:.*]] = mhlo.dynamic_reshape %[[ARG0]], %[[T7]] : (tensor<2x3x?x?xf32>, tensor<3xi32>) -> tensor<2x3x?xf32>
 // CHECK:         return %[[T8]] : tensor<2x3x?xf32>
 func.func @torch.aten.view.minus1(%arg0: !torch.vtensor<[2,3,?,?],f32>) -> !torch.vtensor<[2,3,?],f32> {

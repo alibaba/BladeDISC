@@ -63,11 +63,11 @@ func.func @main(%input: tensor<?x?x?x?xi8>, %weight: tensor<?x?x?x?xi8>, %paddin
                                   input_placements = "cpu,cpu,gpu,cpu,cpu,cpu,cpu,cpu,cpu",
                                   inputs = "input0,input1,input2,input3,input4,input5,input6,input7,input8",
                                   output_placements = "cpu", outputs = "output0"}} {
-  // CHECK: %[[RefinedPadding:.*]] = mhlo.convert(%[[PADDING]])
+  // CHECK: %[[RefinedPadding:.*]] = mhlo.convert %[[PADDING]]
   // CHECK-SAME: disc.shape_op = true
   // CHECK: %[[OUT:.*]] = "mhlo_disc.quantized_dynamic_conv"
   // CHECK-SAME: %[[INPUT]], %[[WEIGHT]], %[[RefinedPadding]]
-  %refined_padding = mhlo.convert(%padding) : (tensor<4xf32>) -> tensor<4xi32>
+  %refined_padding = mhlo.convert %padding : (tensor<4xf32>) -> tensor<4xi32>
   %out = "mhlo_disc.quantized_dynamic_conv"(%input, %weight, %refined_padding,
                                            %input_scale, %input_zero_point,
                                            %weight_scale, %weight_zero_point,

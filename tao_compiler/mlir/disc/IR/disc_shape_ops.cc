@@ -15,7 +15,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 
 #include "llvm/Support/Debug.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/PatternMatch.h"
 
@@ -49,28 +49,28 @@ struct LinearizeOfDelinearizeOp : public OpRewritePattern<LinearizeOp> {
 
   LogicalResult matchAndRewrite(LinearizeOp op,
                                 PatternRewriter& rewriter) const override {
-    if (!op.multiDimIndexes().size()) {
+    if (!op.getMultiDimIndexes().size()) {
       return failure();
     }
 
     auto delinearizeOp = dyn_cast_or_null<DelinearizeOp>(
-        op.multiDimIndexes().front().getDefiningOp());
+        op.getMultiDimIndexes().front().getDefiningOp());
     if (!delinearizeOp) return failure();
 
-    if (op.multiDimIndexes().size() != delinearizeOp->getResults().size())
+    if (op.getMultiDimIndexes().size() != delinearizeOp->getResults().size())
       return failure();
 
     for (auto&& z :
-         llvm::zip(op.multiDimIndexes(), delinearizeOp->getResults())) {
+         llvm::zip(op.getMultiDimIndexes(), delinearizeOp->getResults())) {
       if (std::get<0>(z) != std::get<1>(z)) return failure();
     }
 
-    for (auto&& z :
-         llvm::zip(delinearizeOp.shapeDimIndexes(), op.shapeDimIndexes())) {
+    for (auto&& z : llvm::zip(delinearizeOp.getShapeDimIndexes(),
+                              op.getShapeDimIndexes())) {
       if (std::get<0>(z) != std::get<1>(z)) return failure();
     }
 
-    rewriter.replaceOp(op, {delinearizeOp.linearIndex()});
+    rewriter.replaceOp(op, {delinearizeOp.getLinearIndex()});
     return success();
   }
 };
@@ -105,13 +105,14 @@ struct RemoveSizeOneDimOfLinearizeOp : public OpRewritePattern<LinearizeOp> {
 
   LogicalResult matchAndRewrite(LinearizeOp op,
                                 PatternRewriter& rewriter) const override {
-    if (!op.multiDimIndexes().size()) {
+    if (!op.getMultiDimIndexes().size()) {
       return failure();
     }
 
     SmallVector<Value> newMultiDimIndexes;
     SmallVector<Value> newShapeDimIndexes;
-    for (auto&& z : llvm::zip(op.multiDimIndexes(), op.shapeDimIndexes())) {
+    for (auto&& z :
+         llvm::zip(op.getMultiDimIndexes(), op.getShapeDimIndexes())) {
       Value idx = std::get<0>(z);
       Value dimSize = std::get<1>(z);
       auto constOp =
@@ -122,7 +123,7 @@ struct RemoveSizeOneDimOfLinearizeOp : public OpRewritePattern<LinearizeOp> {
       newShapeDimIndexes.push_back(dimSize);
     }
 
-    if (newMultiDimIndexes.size() == op.multiDimIndexes().size()) {
+    if (newMultiDimIndexes.size() == op.getMultiDimIndexes().size()) {
       return failure();
     }
 
@@ -137,23 +138,24 @@ struct DelinearizeOfLinearizeOp : public OpRewritePattern<DelinearizeOp> {
 
   LogicalResult matchAndRewrite(DelinearizeOp op,
                                 PatternRewriter& rewriter) const override {
-    if (!op.shapeDimIndexes().size()) {
+    if (!op.getShapeDimIndexes().size()) {
       return failure();
     }
 
     auto linearizeOp =
-        dyn_cast_or_null<LinearizeOp>(op.linearIndex().getDefiningOp());
+        dyn_cast_or_null<LinearizeOp>(op.getLinearIndex().getDefiningOp());
     if (!linearizeOp) return failure();
 
-    if (linearizeOp.shapeDimIndexes().size() != op.shapeDimIndexes().size())
+    if (linearizeOp.getShapeDimIndexes().size() !=
+        op.getShapeDimIndexes().size())
       return failure();
 
     for (auto&& z :
-         llvm::zip(linearizeOp.shapeDimIndexes(), op.shapeDimIndexes())) {
+         llvm::zip(linearizeOp.getShapeDimIndexes(), op.getShapeDimIndexes())) {
       if (std::get<0>(z) != std::get<1>(z)) return failure();
     }
 
-    rewriter.replaceOp(op, linearizeOp.multiDimIndexes());
+    rewriter.replaceOp(op, linearizeOp.getMultiDimIndexes());
     return success();
   }
 };
@@ -170,14 +172,14 @@ struct RemoveSizeOneDimOfDelinearizeOp
 
   LogicalResult matchAndRewrite(DelinearizeOp op,
                                 PatternRewriter& rewriter) const override {
-    if (!op.shapeDimIndexes().size()) {
+    if (!op.getShapeDimIndexes().size()) {
       return failure();
     }
 
     SmallVector<bool> sizeOneDimVec;
     SmallVector<Value> newShapeDimIndexes;
     SmallVector<Type> newResultTypes;
-    for (Value dimSize : op.shapeDimIndexes()) {
+    for (Value dimSize : op.getShapeDimIndexes()) {
       auto constOp =
           dyn_cast_or_null<arith::ConstantIndexOp>(dimSize.getDefiningOp());
       bool isSizeOne =
@@ -189,12 +191,12 @@ struct RemoveSizeOneDimOfDelinearizeOp
       }
     }
 
-    if (newShapeDimIndexes.size() == op.shapeDimIndexes().size()) {
+    if (newShapeDimIndexes.size() == op.getShapeDimIndexes().size()) {
       return failure();
     }
 
     auto newOp = rewriter.create<DelinearizeOp>(
-        op.getLoc(), newResultTypes, op.linearIndex(), newShapeDimIndexes);
+        op.getLoc(), newResultTypes, op.getLinearIndex(), newShapeDimIndexes);
     Value zero = rewriter.create<arith::ConstantIndexOp>(op.getLoc(), 0);
 
     int nonSizeOneDimIdx = 0;
@@ -219,7 +221,7 @@ struct IdentityTieShapeOp : public OpRewritePattern<TieShapeOp> {
                                 PatternRewriter& rewriter) const override {
     // Do not touch tie_shape op with symbolic dim ref attrs.
     if (op->hasAttr(SymbolicDimOp::getSymbolicDimAttrName())) return success();
-    Value operand = op.value();
+    Value operand = op.getValue();
     auto operandTy = operand.getType().dyn_cast<RankedTensorType>();
     if (!operandTy) return failure();
 
@@ -228,7 +230,7 @@ struct IdentityTieShapeOp : public OpRewritePattern<TieShapeOp> {
     //   %d1 = tensor.dim %0, %c1, or %d1 is a constant
     bool allDimMatch = true;
     for (auto& en : llvm::enumerate(
-             llvm::zip(operandTy.getShape(), op.shapeDimIndexes()))) {
+             llvm::zip(operandTy.getShape(), op.getShapeDimIndexes()))) {
       int64_t idx = en.index();
       int64_t staticDim = std::get<0>(en.value());
       Value dynamicDim = std::get<1>(en.value());
@@ -318,11 +320,11 @@ void SymbolicDimOp::setDimSize(int64_t val) {
   OpBuilder b(*this);
   (*this)->setAttr("value", b.getI64IntegerAttr(val));
   if (val == -1) {
-    setKnownNegativeOne(true);
+    updateKnownNegativeOne(true);
   } else if (val >= 0) {
-    setKnownNonNegative(true);
-    if (val != 0) setKnownNonSizeZero(true);
-    if (val != 1) setKnownNonSizeOne(true);
+    updateKnownNonNegative(true);
+    if (val != 0) updateKnownNonSizeZero(true);
+    if (val != 1) updateKnownNonSizeOne(true);
   }
 }
 
@@ -330,26 +332,26 @@ bool SymbolicDimOp::isDynamic() {
   return getDimSize() == ShapedType::kDynamicSize;
 }
 
-void SymbolicDimOp::setKnownNonNegative(bool flag) {
+void SymbolicDimOp::updateKnownNonNegative(bool flag) {
   OpBuilder b(*this);
   (*this)->setAttr("knownNonNegative", b.getBoolAttr(flag));
 }
 
-void SymbolicDimOp::setKnownNegativeOne(bool flag) {
+void SymbolicDimOp::updateKnownNegativeOne(bool flag) {
   OpBuilder b(*this);
   (*this)->setAttr("knownNegativeOne", b.getBoolAttr(flag));
   if (flag) {
-    setKnownNonSizeOne(true);
-    setKnownNonSizeZero(true);
+    updateKnownNonSizeOne(true);
+    updateKnownNonSizeZero(true);
   }
 }
 
-void SymbolicDimOp::setKnownNonSizeOne(bool flag) {
+void SymbolicDimOp::updateKnownNonSizeOne(bool flag) {
   OpBuilder b(*this);
   (*this)->setAttr("knownNonSizeOne", b.getBoolAttr(flag));
 }
 
-void SymbolicDimOp::setKnownNonSizeZero(bool flag) {
+void SymbolicDimOp::updateKnownNonSizeZero(bool flag) {
   OpBuilder b(*this);
   (*this)->setAttr("knownNonSizeZero", b.getBoolAttr(flag));
 }
@@ -359,19 +361,22 @@ LogicalResult SymbolicDimOp::Merge(SymbolicDimOp other) {
     return failure();
   if (isDynamic() && !other.isDynamic()) setDimSize(other.getDimSize());
 
-  bool knownNonNegativeFlag = knownNonNegative() || other.knownNonNegative();
-  bool knownNegativeOneFlag = knownNegativeOne() || other.knownNegativeOne();
-  bool knownNonSizeOneFlag =
-      knownNonSizeOne() || other.knownNonSizeOne() || knownNegativeOneFlag;
-  bool knownNonSizeZeroFlag =
-      knownNonSizeZero() || other.knownNonSizeZero() || knownNegativeOneFlag;
+  bool knownNonNegativeFlag =
+      getKnownNonNegative() || other.getKnownNonNegative();
+  bool knownNegativeOneFlag =
+      getKnownNegativeOne() || other.getKnownNegativeOne();
+  bool knownNonSizeOneFlag = getKnownNonSizeOne() ||
+                             other.getKnownNonSizeOne() || knownNegativeOneFlag;
+  bool knownNonSizeZeroFlag = getKnownNonSizeZero() ||
+                              other.getKnownNonSizeZero() ||
+                              knownNegativeOneFlag;
 
   if (knownNonNegativeFlag && knownNegativeOneFlag) return failure();
 
-  setKnownNonSizeZero(knownNonSizeZeroFlag);
-  setKnownNonSizeOne(knownNonSizeOneFlag);
-  setKnownNegativeOne(knownNegativeOneFlag);
-  setKnownNonNegative(knownNonNegativeFlag);
+  updateKnownNonSizeZero(knownNonSizeZeroFlag);
+  updateKnownNonSizeOne(knownNonSizeOneFlag);
+  updateKnownNegativeOne(knownNegativeOneFlag);
+  updateKnownNonNegative(knownNonNegativeFlag);
 
   return success();
 }

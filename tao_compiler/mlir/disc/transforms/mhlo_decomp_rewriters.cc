@@ -15,7 +15,7 @@
 #include <vector>
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Attributes.h"
@@ -62,23 +62,24 @@ struct BatchNormInferenceOpConvert
 LogicalResult BatchNormInferenceOpConvert::matchAndRewrite(
     mhlo::BatchNormInferenceOp op, PatternRewriter& rewriter) const {
   auto loc = op.getLoc();
-  Value var = op.variance();
-  Value eps = getConstantLike(rewriter, op, op.epsilonAttr(), var);
+  Value var = op.getVariance();
+  Value eps = getConstantLike(rewriter, op, op.getEpsilonAttr(), var);
   var = rewriter.create<mhlo::AddOp>(loc, var, eps);
 
   Value rsqrt = rewriter.create<mhlo::RsqrtOp>(loc, var);
-  Value multiplier = rewriter.create<mhlo::MulOp>(loc, rsqrt, op.scale());
+  Value multiplier = rewriter.create<mhlo::MulOp>(loc, rsqrt, op.getScale());
   DenseIntElementsAttr broadcastDimensions =
-      rewriter.getI64TensorAttr(ArrayRef<int64_t>{op.feature_index()});
+      rewriter.getI64TensorAttr(ArrayRef<int64_t>{op.getFeatureIndex()});
   auto outType = op.getType();
-  Value scale =
-      broadcastAs(rewriter, op, multiplier, op.operand(), broadcastDimensions);
-  Value mean =
-      broadcastAs(rewriter, op, op.mean(), op.operand(), broadcastDimensions);
-  Value offset =
-      broadcastAs(rewriter, op, op.offset(), op.operand(), broadcastDimensions);
+  Value scale = broadcastAs(rewriter, op, multiplier, op.getOperand(),
+                            broadcastDimensions);
+  Value mean = broadcastAs(rewriter, op, op.getMean(), op.getOperand(),
+                           broadcastDimensions);
+  Value offset = broadcastAs(rewriter, op, op.getOffset(), op.getOperand(),
+                             broadcastDimensions);
 
-  Value xSubMean = rewriter.create<mhlo::SubtractOp>(loc, op.operand(), mean);
+  Value xSubMean =
+      rewriter.create<mhlo::SubtractOp>(loc, op.getOperand(), mean);
   Value comp1 = rewriter.create<mhlo::MulOp>(loc, xSubMean, scale);
   rewriter.replaceOpWithNewOp<mhlo::AddOp>(op, op.getType(), comp1, offset);
   return success();

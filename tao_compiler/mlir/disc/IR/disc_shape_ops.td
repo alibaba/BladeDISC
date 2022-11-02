@@ -32,7 +32,7 @@ class DISCShape_Op<string mnemonic, list<Trait> traits> :
   let hasVerifier = 1;
 }
 
-def DISCShape_LinearizeOp: DISCShape_Op<"linearize", [NoSideEffect, AttrSizedOperandSegments]> {
+def DISCShape_LinearizeOp: DISCShape_Op<"linearize", [Pure, AttrSizedOperandSegments]> {
   let summary = "calculate the linear index from multidim index";
   let description = [{
     Calculate the linear index using provided multidim indexes and shape.
@@ -46,7 +46,7 @@ def DISCShape_LinearizeOp: DISCShape_Op<"linearize", [NoSideEffect, AttrSizedOpe
   let hasCanonicalizer = 1;
 }
 
-def DISCShape_DelinearizeOp: DISCShape_Op<"delinearize", [NoSideEffect]> {
+def DISCShape_DelinearizeOp: DISCShape_Op<"delinearize", [Pure]> {
   let summary = "calculate the multidim index from linear index";
   let description = [{
     Calculate the multidim index using provided linear index and shape.
@@ -60,7 +60,7 @@ def DISCShape_DelinearizeOp: DISCShape_Op<"delinearize", [NoSideEffect]> {
   let hasCanonicalizer = 1;
 }
 
-def DISCShape_TieShapeOp: DISCShape_Op<"tie_shape", [NoSideEffect]> {
+def DISCShape_TieShapeOp: DISCShape_Op<"tie_shape", [Pure]> {
   let summary = "binding a set of multidim index with a tensor value";
   let description = [{
     Binding a set of multidim index with a tensor value.
@@ -104,16 +104,16 @@ def DISCShape_SymbolicDimOp:
     bool knownSizeOne() { return getDimSize() == 1; }
 
     // Sets `knownNonNegative` to the value of `flag`
-    void setKnownNonNegative(bool flag);
+    void updateKnownNonNegative(bool flag);
 
     // Sets `knownNegativeOne` to the value of `flag`
-    void setKnownNegativeOne(bool flag);
+    void updateKnownNegativeOne(bool flag);
 
     // Sets `knownNonSizeOne` to the value of `flag`
-    void setKnownNonSizeOne(bool flag);
+    void updateKnownNonSizeOne(bool flag);
 
     // Sets `knownNonSizeZero` to the value of `flag`
-    void setKnownNonSizeZero(bool flag);
+    void updateKnownNonSizeZero(bool flag);
 
     // Try to merge two SymbolicDim ops.
     // Returns failure if fail to merge.
@@ -127,7 +127,7 @@ def DISCShape_SymbolicDimOp:
 }
 
 def DISCShape_DimOp:
-      DISCShape_Op<"dim", [NoSideEffect]> {
+      DISCShape_Op<"dim", [Pure]> {
   let summary = "binding to a symbolic dimension size";
   let description = [{
     Binding to a symbolic dimension size.

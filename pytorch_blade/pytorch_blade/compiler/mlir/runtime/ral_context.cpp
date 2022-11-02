@@ -145,7 +145,7 @@ RalContext::RalContext(std::shared_ptr<backends::EngineState> state)
   using func_t = void (*)(void**);
   entry_func_ = (func_t)func_handle;
 
-  CHECK_NOTNULL(entry_func_);
+  CHECK(entry_func_ != nullptr);
 }
 
 at::List<at::Tensor> RalContext::PreProcessInputs(

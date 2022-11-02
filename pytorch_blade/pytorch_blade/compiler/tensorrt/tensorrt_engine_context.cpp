@@ -207,7 +207,7 @@ at::List<at::Tensor> TRTContext::CreateAndBindingOutputs(
     const auto& found = dedup_tensors.find(name);
     auto bind_index = output_bind_indices_[optimization_profile_][k];
     if (found != dedup_tensors.end()) {
-      CHECK_EQ(found->second.data_ptr(), binding_buffers[bind_index]);
+      CHECK(found->second.data_ptr() == binding_buffers[bind_index]);
       outputs.push_back(found->second);
       continue;
     }

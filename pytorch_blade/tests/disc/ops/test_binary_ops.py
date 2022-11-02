@@ -149,7 +149,8 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_binary_type_promotion(torch.mul)
         if utils.torch_version_number() >= utils.parse_version("1.6.1"):
             self._test_binary_type_promotion(torch.true_divide)
-        self._test_binary_type_promotion(torch.floor_divide)
+        if utils.torch_version_number() < utils.parse_version("1.14.0"):
+            self._test_binary_type_promotion(torch.floor_divide)
         if not isTorchMlirEnable():
             self._test_binary_type_promotion(torch.rsub)
             self._test_func(torch.logical_and)
@@ -161,8 +162,9 @@ class TestDiscBinaryOps(DiscTestCase):
         self._test_func(torch.mul)
         # torch.aten.div between Tensor[int]s meet RefineType error in TorchMLIR
         if utils.torch_version_number() >= utils.parse_version("1.6.1"):
-            self._test_func(torch.true_divide, test_int=not isTorchMlirEnable())
-        self._test_func(torch.floor_divide, test_int=not isTorchMlirEnable())
+            self._test_func(torch.true_divide, test_int=True)
+        if utils.torch_version_number() < utils.parse_version("1.14.0"):
+            self._test_func(torch.floor_divide, test_int=True)
         if not isTorchMlirEnable():
             self._test_func(torch.rsub)
             self._test_func(torch.logical_and)

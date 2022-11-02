@@ -14,6 +14,7 @@ import platform
 import torch
 from torch.testing import FileCheck
 from torch_blade import tools
+from torch_blade import utils
 from torch_blade.testing.common_utils import Feedforward, TestCase
 from tests.disc.testing_base import skipTorchGE
 
@@ -74,8 +75,13 @@ class TestTools(TestCase):
         FileCheck().run(expect_gstr, shape.graph)
         schemas = [tools.node_schema_str(n) for n in shape.graph.nodes()]
         self.assertEqual(schemas[0], "")
-        self.assertEqual(schemas[1], "aten::size(Tensor self) -> (int[])")
-        self.assertEqual(schemas[2], "aten::__getitem__.t(t[](a) list, int idx) -> (t(*))")
+
+        if utils.torch_version_number() < utils.parse_version("1.14.0"):
+            self.assertEqual(schemas[1], "aten::size(Tensor self) -> (int[])")
+            self.assertEqual(schemas[2], "aten::__getitem__.t(t[](a) list, int idx) -> (t(*))")
+        else:
+            self.assertEqual(schemas[1], "aten::size(Tensor self) -> int[]")
+            self.assertEqual(schemas[2], "aten::__getitem__.t(t[](a) list, int idx) -> t(*)")
 
     def test_from_number_type(self):
 

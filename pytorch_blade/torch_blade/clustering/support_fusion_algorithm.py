@@ -263,6 +263,11 @@ def _broadcast_unsupported_set(block, trt_unsupported, support_number_inpts_outs
 
 
 def group_supported_clusters(block, trt_unsupported, support_number_inpts_outs=False):
+    for out in block.outputs():
+        if _is_tensor_or_const(out, support_number_inpts_outs):
+            continue
+        trt_unsupported.append(out.node())
+
     trt_unsupported = _broadcast_unsupported_set(block, set(trt_unsupported), support_number_inpts_outs)
     topo_nodes = block.node_list()
     non_const_topolist = [
@@ -295,5 +300,5 @@ def group_supported_clusters(block, trt_unsupported, support_number_inpts_outs=F
 
             nodes_to_fuse.append(node)
         fusion_groups.append(nodes_to_fuse)
-    logger.info("Pass clustering with tensorrt support information")
+    logger.info("Pass clustering with support information")
     return fusion_groups

@@ -61,7 +61,8 @@ EOM
 
     # The default Ubuntu version is 18.04, code named bionic.
     local codename
-    codename=${ubuntu_codename-"bionic"}
+    source /etc/os-release
+    codename=${UBUNTU_CODENAME-"bionic"}
 
     # Write APT source lists.
     cat <<EOF

@@ -127,6 +127,11 @@ DenseFPElementsAttr GetF32ElementsAttr(Attribute attr, Builder* builder);
 DenseIntElementsAttr GetI64ElementsAttrForSeq(int start, int end,
                                               Builder* builder);
 
+// Returns the number of operands that are supposed to be written.
+// For some ops (e.g. lmhlo ops), some operands are the output memrefs
+// Thus these operands are supposed to be updated.
+int getNumResultOperands(Operation* op);
+
 }  // namespace disc_ral
 }  // namespace mlir
 

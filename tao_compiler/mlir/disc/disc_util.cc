@@ -298,11 +298,8 @@ DenseIntElementsAttr GetI64ElementsAttrForSeq(int start, int end,
   return DenseIntElementsAttr::get(ty, vals);
 }
 
-// Returns the number of operands that are supposed to be written.
-// For some ops (e.g. lmhlo ops), some operands are the output memrefs
-// Thus these operands are supposed to be updated.
 int getNumResultOperands(Operation* op) {
-  if (auto customOp = dyn_cast_or_null<lmhlo_disc::CustomCallOp>(op)) {
+  if (isa<lmhlo_disc::CustomCallOp>(op)) {
     // TODO(disc): add a registration base mechanism to support custom call op
     // with more than one results.
     return 1;

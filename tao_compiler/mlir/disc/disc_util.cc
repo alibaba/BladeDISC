@@ -344,6 +344,24 @@ int getNumResultOperands(Operation* op) {
                         [&](Value v) { return IsOpWriteValue(op, v); });
 }
 
+int64_t stringReplaceInplace(std::string& subject, const std::string& oldsub,
+                             const std::string& newsub, bool replace_all) {
+  if (oldsub.empty()) {
+    return 0;
+  }
+  int64_t count = 0;
+  size_t pos = 0;
+  while ((pos = subject.find(oldsub, pos)) != std::string::npos) {
+    subject.replace(pos, oldsub.size(), newsub);
+    count++;
+    pos += newsub.size();
+    if (!replace_all) {
+      break;
+    }
+  }
+  return count;
+}
+
 // Returns 1D 64-bit dense elements attribute with the given values.
 }  // namespace disc_ral
 }  // namespace mlir

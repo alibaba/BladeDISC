@@ -31,6 +31,8 @@ namespace disc_ral {
 constexpr llvm::StringRef kDhloInputShapeAttr = "disc.input_shape";
 constexpr llvm::StringRef kDhloInputValueAttr = "disc.input_value";
 constexpr llvm::StringRef kFuncEliminatedDeadArgumentsAttr = "disc.elimargs";
+constexpr llvm::StringRef kFuncCompIntensFusionAttr = "disc.comp_intens_fusion";
+constexpr llvm::StringRef kDynLibPathAttr = "disc.dyn_lib_path";
 
 inline SmallVector<Value, 4> getDimSizesOfTensor(PatternRewriter& rewriter,
                                                  Operation* op, Value value) {
@@ -140,6 +142,9 @@ DenseIntElementsAttr GetI64ElementsAttrForSeq(int start, int end,
 // For some ops (e.g. lmhlo ops), some operands are the output memrefs
 // Thus these operands are supposed to be updated.
 int getNumResultOperands(Operation* op);
+
+int64_t stringReplaceInplace(std::string& subject, const std::string& oldsub,
+                             const std::string& newsub, bool replace_all);
 
 }  // namespace disc_ral
 }  // namespace mlir

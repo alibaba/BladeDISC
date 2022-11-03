@@ -25,6 +25,7 @@ limitations under the License.
 #include "mlir/IR/TypeUtilities.h"
 #include "mlir/Pass/Pass.h"  // TF:llvm-project
 #include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
+#include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_metadata.h"
@@ -105,6 +106,11 @@ class DiscConstToRALPass : public DiscConstToRALPassBase<DiscConstToRALPass> {
     m.walk([&](ConstantOp op) {
       if (op->getParentOfType<lmhlo::FusionOp>()) {
         return;
+      }
+      if (auto func = op->getParentOfType<func::FuncOp>()) {
+        if (func->getAttrOfType<StringAttr>(kFuncCompIntensFusionAttr)) {
+          return;
+        }
       }
       worklist.push_back(op);
     });

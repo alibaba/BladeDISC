@@ -11,6 +11,8 @@
 
 #include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
 
+#include <dlfcn.h>
+
 #include <functional>
 #include <iostream>
 
@@ -460,6 +462,52 @@ void ral_qgemm(
   }
 #endif
   ctx->signalError(Context::FAILURE, "Should turn on bladnn first.");
+}
+
+void ral_comp_intens_fusion(
+    ExecutionContext* ctx,
+    const char* kernel_name,  /* function name to call on host side */
+    const char* dyn_lib_path, /* lib path containing the function */
+    void* stream_handle,      /* stream */
+    void** params /* kernel params */) {
+  void* func_handle = dlopen(dyn_lib_path, RTLD_NOW);
+  if (!func_handle) {
+    std::string msg =
+        std::string("Fail to open compiled .so file with error: ") + dlerror() +
+        ". Fail to launch compute-intensive fusion kernel " + kernel_name;
+    TAO_VLOG(0) << msg;
+    ctx->signalError(Context::FAILURE, msg);
+    return;
+  }
+
+  void* fusion_func_ptr = dlsym(func_handle, kernel_name);
+  if (!fusion_func_ptr) {
+    std::string msg =
+        std::string("Fail to find fusion func: ") + kernel_name + ".";
+    TAO_VLOG(0) << msg;
+    ctx->signalError(Context::FAILURE, msg);
+    return;
+  }
+
+  using func_t = bool (*)(void*, void**);
+  auto fusion_func = (func_t)fusion_func_ptr;
+  // auto fusion_func =
+  // reinterpret_cast<std::function<bool(void**)>>(fusion_func_ptr);
+
+  auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
+  auto stream =
+      static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
+  void* s = stream->implementation()->GpuStreamHack();
+
+  // TODO: deal with context.
+  bool result = fusion_func(s, params);
+
+  if (!result) {
+    std::string msg =
+        std::string("Error to execute fusion func: ") + kernel_name + ".";
+    TAO_VLOG(0) << msg;
+    ctx->signalError(Context::FAILURE, msg);
+  }
 }
 
 template <typename T, int N>
@@ -1804,6 +1852,10 @@ TAO_RAL_API("ral_conv", "gpu",
             gpu::se_impl::gpu_conv_impl::ral_conv<Eigen::half, 3>);
 TAO_RAL_API("ral_qconv", "gpu",
             gpu::se_impl::gpu_conv_impl::ral_qconv<int8_t, 4>);
+
+// compute-intensive fusion
+TAO_RAL_API("ral_comp_intens_fusion", "gpu",
+            gpu::se_impl::ral_comp_intens_fusion);
 
 }  // namespace ral
 }  // namespace tao

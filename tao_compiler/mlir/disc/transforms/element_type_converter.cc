@@ -232,10 +232,12 @@ struct ConvertDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
 
 struct ElementTypeConverterPass
     : public ElementTypeConverterPassBase<ElementTypeConverterPass> {
-  explicit ElementTypeConverterPass(bool enable_fp16_gemm)
+  explicit ElementTypeConverterPass(bool enable_fp16_gemm,
+                                    bool enable_fp16_conv)
       : ElementTypeConverterPassBase<
             ElementTypeConverterPass>::ElementTypeConverterPassBase() {
     this->enable_fp16_gemm_ = enable_fp16_gemm;
+    this->enable_fp16_conv_ = enable_fp16_conv;
   }
 
   void runOnOperation() override {
@@ -244,7 +246,10 @@ struct ElementTypeConverterPass
     RewritePatternSet patterns(&ctx);
     patterns.insert<ConvertReduceOpWithSmallWidthIntType>(&ctx);
     if (enable_fp16_gemm_) {
-      patterns.insert<ConvertDotGeneralOp, ConvertConvOp<mhlo::DynamicConvOp>,
+      patterns.insert<ConvertDotGeneralOp>(&ctx);
+    }
+    if (enable_fp16_conv_) {
+      patterns.insert<ConvertConvOp<mhlo::DynamicConvOp>,
                       ConvertConvOp<mhlo::ConvolutionOp>>(&ctx);
     }
 
@@ -258,8 +263,9 @@ struct ElementTypeConverterPass
 }  // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscElementTypeConverterPass(
-    bool enable_fp16_gemm) {
-  return std::make_unique<ElementTypeConverterPass>(enable_fp16_gemm);
+    bool enable_fp16_gemm, bool enable_fp16_conv) {
+  return std::make_unique<ElementTypeConverterPass>(enable_fp16_gemm,
+                                                    enable_fp16_conv);
 }
 
 }  // namespace disc_ral

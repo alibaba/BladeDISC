@@ -283,16 +283,23 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
   // We currently do not support AMP in AICompiler side. If
-  // `TAO_MLIR_ENABLE_AMP` is set, we simply convert all gemm ops to fp16.
+  // `TAO_MLIR_ENABLE_AMP` is set, we simply convert all gemm and conv ops
+  // to fp16.
   //
   // This is a workaround for PyTorch. Some previous Torch version does
   // not support AMP on torch script level. Therefore the exported IR is in
   // the data type of FP32 instead, which makes DISC less likely to benefit
   // in performance if the user's baseline is in FP16 mode.
   bool enable_fp16 = false;
+  bool enable_fp16_gemm = false;
+  bool enable_fp16_conv = false;
   tensorflow::ReadBoolFromEnvVar("TAO_MLIR_ENABLE_AMP", false, &enable_fp16);
-  pm.addNestedPass<FuncOp>(
-      disc_ral::createDiscElementTypeConverterPass(enable_fp16));
+  tensorflow::ReadBoolFromEnvVar("TAO_MLIR_ENABLE_AMP_GEMM", enable_fp16,
+                                 &enable_fp16_gemm);
+  tensorflow::ReadBoolFromEnvVar("TAO_MLIR_ENABLE_AMP_CONV", enable_fp16,
+                                 &enable_fp16_conv);
+  pm.addNestedPass<FuncOp>(disc_ral::createDiscElementTypeConverterPass(
+      enable_fp16_gemm, enable_fp16_conv));
   if (enable_shape_constraint_ir) {
     // shape-related optimization
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());

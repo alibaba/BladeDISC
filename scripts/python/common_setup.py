@@ -272,8 +272,12 @@ def config_mkldnn(root, args):
             # download mkl-lib/include
             download_cmd = """
               unset HTTPS_PROXY
-              curl -fsSL https://pai-blade.oss-accelerate.aliyuncs.com/build_deps/mkl/mkl-static-2022.0.1-intel_117.tar.bz2 | tar xjv
-              curl -fsSL https://pai-blade.oss-accelerate.aliyuncs.com/build_deps/mkl/mkl-include-2022.0.1-h8d4b97c_803.tar.bz2 | tar xjv
+              wget -nv https://pai-blade.oss-accelerate.aliyuncs.com/build_deps/mkl/mkl-static-2022.0.1-intel_117.tar.bz2 -O mkl-static-2022.0.1-intel_117.tar.bz2
+              tar xjvf mkl-static-2022.0.1-intel_117.tar.bz2
+	      rm -rf mkl-static-2022.0.1-intel_117.tar.bz2
+              wget -nv https://pai-blade.oss-accelerate.aliyuncs.com/build_deps/mkl/mkl-include-2022.0.1-h8d4b97c_803.tar.bz2 -O mkl-include-2022.0.1-h8d4b97c_803.tar.bz2
+              tar xjvf mkl-include-2022.0.1-h8d4b97c_803.tar.bz2
+	      rm -rf mkl-include-2022.0.1-h8d4b97c_803.tar.bz2
             """
             execute(download_cmd)
 

@@ -201,9 +201,13 @@ def configure_bridge(root, args):
             tf_lib_name,
             tf_cxx11_abi,
             tf_pb_version,
+            is_deeprec
         ) = get_tf_info(python_bin)
         _opt("cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
         _opt("host_cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
+        # quick solution, a little hacky
+        _opt("cxxopt", f"-DTF_IS_DEEPREC={is_deeprec}")
+        _opt("host_cxxopt", f"-DTF_IS_DEEPREC={is_deeprec}")
         _action_env("BLADE_WITH_TF", "1")
         _action_env("IF_CXX11_ABI", int(tf_cxx11_abi))
         _action_env("TF_IS_PAI", int(is_pai))

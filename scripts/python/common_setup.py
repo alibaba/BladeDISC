@@ -374,7 +374,7 @@ def update_cpu_specific_setting(args):
 
 def get_tf_info(python_executable):
     output = subprocess.check_output(
-        '{} -c "import tensorflow as tf; print(tf.__version__); print(\'\\n\'.join(tf.sysconfig.get_compile_flags())); print(\'\\n\'.join(tf.sysconfig.get_link_flags()))"'.format(
+        '{} -c "import tensorflow as tf; print(tf.__version__); print(tf.__git_version__); print(\'\\n\'.join(tf.sysconfig.get_compile_flags())); print(\'\\n\'.join(tf.sysconfig.get_link_flags()))"'.format(
             python_executable
         ),
         shell=True,
@@ -382,6 +382,7 @@ def get_tf_info(python_executable):
     lines = output.split("\n")
     major, minor, _ = lines[0].split(".")  # lines[0] is version like 1.15.0
     is_pai = "PAI" in lines[0]
+    is_deeprec = 'deeprec' in lines[1]
     header_dir, lib_dir, lib_name, cxx11_abi = '', '', '', ''
     for line in lines[1:]:
         if line.startswith("-I"):
@@ -410,7 +411,7 @@ def get_tf_info(python_executable):
             raise Exception("Can not find tensorflow's built-in pb version!")
     else:
         raise Exception("Can not find {PB_HEADER_FILE} in tf's include dir!")
-    return major, minor, is_pai, header_dir, lib_dir, lib_name, cxx11_abi, tf_pb_version
+    return major, minor, is_pai, header_dir, lib_dir, lib_name, cxx11_abi, tf_pb_version, is_deeprec
 
 def deduce_cuda_info():
     """Deduce cuda major and minor version and cuda directory."""

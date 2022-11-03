@@ -39,7 +39,7 @@ export DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE=true \
     OMP_NUM_THREADS=1 TORCHBENCH_ATOL=1e-2 TORCHBENCH_RTOL=1e-2
 if [ $2 == "cpu" ];then
     # 4 cores
-    export GOMP_CPU_AFFINITY="1-4"
+    export GOMP_CPU_AFFINITY="2-5"
 fi
 python3 torchbenchmark/.github/scripts/run-config.py -c $config_file -b ./torchbenchmark/ --output-dir .
 # results

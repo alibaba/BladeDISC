@@ -19,10 +19,10 @@ fi
 
 # setup for torchbenchmark
 # for CI git-lfs permission problems
-pushd $benchmark_repo_dir && export HOME=$(pwd) && git lfs install --force
+pushd $benchmark_repo_dir
 # cache venv in benchmark dir
 python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
-python3 -m pip install -q -r $script_dir/requirements.txt
+python3 -m pip install -q -r $script_dir/requirements_$1.txt
 # install dependencies
 git pull && git submodule update --init --recursive --depth 1 && python3 install.py --continue_on_fail
 # fix pycocotools after install
@@ -31,23 +31,32 @@ pushd $script_dir # pytorch_blade/benchmark/TorchBench
 ln -s $benchmark_repo_dir torchbenchmark
 
 # benchmark 
-config_file=blade_bench.yaml
-bench_target=partial
-if [ $1 ]; then
-    config_file=blade_bench_$1.yaml
-    bench_target=$1
-fi
+config_file=blade_$1_$2.yaml
+bench_target=$2
 # setup benchmark env
-export DISC_ENABLE_STITCH=true DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE=true \
+export DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE=true \
     DISC_CPU_LARGE_CONCAT_NUM_OPERANDS=4 DISC_CPU_ENABLE_EAGER_TRANSPOSE_FUSION=1 \
-    OMP_NUM_THREADS=1 TORCHBENCH_ATOL=1e-2 TORCHBENCH_RTOL=1e-2 TORCH_DISC_USE_TORCH_MLIR=true
+    OMP_NUM_THREADS=1 TORCHBENCH_ATOL=1e-2 TORCHBENCH_RTOL=1e-2
+if [ $2 == "cpu" ];then
+    # 4 cores
+    export GOMP_CPU_AFFINITY="2-5"
+fi
 python3 torchbenchmark/.github/scripts/run-config.py -c $config_file -b ./torchbenchmark/ --output-dir .
 # results
-cat eval-cuda-fp16/summary.csv
-cat eval-cuda-fp32/summary.csv
-popd # $benchmark_repo_dir
-popd # BladeDISC/
+
+
 
 date_str=$(date '+%Y%m%d-%H')
-./scripts/ci/ossutil cp -r ${script_dir}/eval-cuda-fp16 oss://bladedisc-ci/TorchBench/${bench_target}/${date_str}/eval-cuda-fp16
-./scripts/ci/ossutil cp -r ${script_dir}/eval-cuda-fp32 oss://bladedisc-ci/TorchBench/${bench_target}/${date_str}/eval-cuda-fp32
+if [ $2 == "cuda" ]
+then
+    cat eval-cuda-fp16/summary.csv
+    cat eval-cuda-fp32/summary.csv
+    /disc/scripts/ci/ossutil cp -r ${script_dir}/eval-cuda-fp16 oss://bladedisc-ci/TorchBench/${bench_target}/${date_str}/eval-cuda-fp16
+    /disc/scripts/ci/ossutil cp -r ${script_dir}/eval-cuda-fp32 oss://bladedisc-ci/TorchBench/${bench_target}/${date_str}/eval-cuda-fp32
+else
+    cat eval-cpu-fp32/summary.csv
+    /disc/scripts/ci/ossutil cp -r ${script_dir}/eval-cpu-fp32 oss://bladedisc-ci/TorchBench/${bench_target}/${date_str}/eval-cpu-fp32
+fi
+
+popd # $benchmark_repo_dir
+popd # BladeDISC/

@@ -47,7 +47,7 @@ python3 torchbenchmark/.github/scripts/run-config.py -c $config_file -b ./torchb
 
 
 date_str=$(date '+%Y%m%d-%H')
-if [ $2 == "cuda" ]
+if [ $1 == "cuda" ]
 then
     cat eval-cuda-fp16/summary.csv
     cat eval-cuda-fp32/summary.csv

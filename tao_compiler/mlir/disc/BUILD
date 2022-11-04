@@ -1999,6 +1999,19 @@ tf_cc_binary(
     ],
 )
 
+tf_cc_binary(
+    name = "disc-source-emitter",
+    srcs = [
+        "tools/disc-source-emitter/disc-cuda-emitter.cc",
+    ],
+    deps = [
+        ":source_emitter",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:AllPassesAndDialects",
+        "@llvm-project//mlir:IR",
+    ],
+)
+
 gentbl_cc_library(
     name = "MhloDiscPassIncGen",
     compatible_with = get_compatible_with_cloud(),

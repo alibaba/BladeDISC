@@ -70,7 +70,8 @@ tool_dirs = config.mlir_tf_tools_dirs + [
     config.mlir_tools_dir, config.llvm_tools_dir
 ]
 tool_names = [
-    'disc-opt', 'disc-pdll', 'mlir-opt', 'mlir-hlo-opt', 'mlir-translate', 'tf-opt', 'tf_tfl_translate',
+    'disc-opt', 'disc-pdll', 'disc-source-emitter', 'mlir-opt', 'mlir-hlo-opt',
+    'mlir-translate', 'tf-opt', 'tf_tfl_translate',
     'tf_tfjs_translate', 'flatbuffer_to_string', 'flatbuffer_translate',
     'tf-mlir-translate', 'mlir-tflite-runner', 'tfcompile',
     'json_to_flatbuffer', 'xla-gpu-opt', 'xla-mlir-gpu-opt', 'xla-opt',

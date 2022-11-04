@@ -158,6 +158,8 @@ class BazelBuild(TorchBladeBuild):
         venv.create(".bazel_pyenv", clear=True)
         self.build_cmd = "source .bazel_pyenv/bin/activate; bazel build"
         self.test_cmd = "source .bazel_pyenv/bin/activate; bazel test"
+        if running_on_ci():
+            self.test_cmd += " --test_output=errors"
 
     def run(self, extdir=None, srcdir=None, build_temp=None):
         srcdir = get_fullpath_or_create(

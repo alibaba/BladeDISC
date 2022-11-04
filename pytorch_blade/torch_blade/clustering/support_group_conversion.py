@@ -173,6 +173,7 @@ def group_node_to_engine(
     subgraph_idx = idxes[1]
     num_nodes = len(subgraph.node_list())
     group_name = "%s_len%s_%s" % (group_idx, num_nodes, subgraph_idx)
+    logger.debug(f"Converting group {group_idx}, index: {subgraph_idx}, group name: {group_name}, num nodes: {num_nodes}")
 
     if adapt_number_ios:
         # NB: Would modify the subgraph
@@ -244,6 +245,7 @@ def group_to_engine_conversion(
             all_calib_data = None
 
     for idx, node in enumerate(group_nodes(graph)):
+        logger.debug(f"Converting fusion group {idx} ...")
         group_id = success_grp_num + start_id
         grp_calib_data = all_calib_data[idx] if all_calib_data is not None else None
         group_node_to_engine(

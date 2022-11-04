@@ -84,8 +84,9 @@ def supported_node_fusion(graph, block, unsupported_nodes, support_number_ios=Fa
     fusion_groups = group_supported_clusters(block, unsupported_nodes, support_number_ios)
 
     # 2. filter with threshold & or some rules, and construct prim::FusionGroup
-    for grp_to_fuse in fusion_groups:
+    for idx, grp_to_fuse in enumerate(fusion_groups):
         if (len(grp_to_fuse) < _MIN_GROUP_NODES):
+            logger.debug(f"Skip fusing small-sized cluster {idx}")
             continue
         _fuse_supported_subgraph(graph, grp_to_fuse)
 

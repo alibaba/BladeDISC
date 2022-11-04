@@ -39,6 +39,8 @@ def _compile_torchscript(graph):
     pkg_path = os.path.dirname(os.path.abspath(torch_blade.__file__))
     mhlo_bytes, pretty_bytes, input_dev_str, output_dev_str = mlir.cvt_torchscript_to_mhlo(graph)
     mhlo_compile_cmd = os.path.join(pkg_path, "disc_compiler_main")
+    debug_log_enabled = tools.read_bool_from_env('TORCH_BLADE_DEBUG_LOG', False)
+
     with tempfile.TemporaryDirectory() as tmp_dir:
         time_str = datetime.now().strftime('%Y_%m_%d-%H_%M_%S.%f')
         # dump the parsable/compilable mlir bytes into file
@@ -46,7 +48,7 @@ def _compile_torchscript(graph):
         # dump the pretty mlir bytes(for debug) into file
         mlir_pretty_file = _dump_to_tempfile(tmp_dir, pretty_bytes)
 
-        if not tools.read_bool_from_env('TORCH_BLADE_DEBUG_LOG', False):
+        if not debug_log_enabled:
             mlir_dump_dir = os.path.join(tmp_dir, mlir_dump_dir)
 
         # copy mlir files to mlir_dump_dir
@@ -64,7 +66,7 @@ def _compile_torchscript(graph):
         out_file_pbtxt = out_file_name + ".pbtxt"
         compile_log = os.devnull
         env = os.environ.copy()
-        if tools.read_bool_from_env('TORCH_BLADE_DEBUG_LOG', False):
+        if debug_log_enabled:
             env['TF_CPP_VMODULE'] = "disc_compiler=1"
             compile_log = os.path.join(mlir_dump_dir, "mhlo_compile." + time_str + ".log")
             shutil.copy(inp_mlir_file.name, os.path.join(mlir_dump_dir, f"dump.{time_str}.mlir"))
@@ -91,7 +93,7 @@ def _compile_torchscript(graph):
         with open(out_file_pbtxt, "rb") as f_pbtxt:
             pb_bytes = f_pbtxt.read()
 
-        if tools.read_bool_from_env('TORCH_BLADE_DEBUG_LOG', False):
+        if debug_log_enabled:
             # copy result to mlir_dump_dir
             shutil.move(out_file_name, os.path.join(mlir_dump_dir, f"out.{time_str}.so"))
             shutil.move(out_file_pbtxt, os.path.join(mlir_dump_dir, f"out.{time_str}.so.pbtxt"))

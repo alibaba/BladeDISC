@@ -16,16 +16,7 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v2.4.0
-    - uses: technote-space/get-diff-action@v6
-      with:
-        PATTERNS: |
-          *
-          **/*
-          .github/**/*
-          !*.md
-          !**/*.md
     - name: Build Dev Docker
-      if: env.GIT_DIFF || github.event_name != 'pull_request'
       run: |
         set -e
         git submodule sync
@@ -36,7 +27,6 @@ jobs:
           --build-arg DISC_HOST_TF_VERSION="tensorflow-aarch64==2.8" \
           -f docker/dev/Dockerfile.aarch64 .
     - name: Build And Test DISC
-      if: env.GIT_DIFF || github.event_name != 'pull_request'
       run: |
         set -e
         docker run --rm -t --user $(id -u):$(id -g) \

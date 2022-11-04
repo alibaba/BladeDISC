@@ -266,7 +266,7 @@ def group_supported_clusters(block, trt_unsupported, support_number_inpts_outs=F
     for out in block.outputs():
         if _is_tensor_or_const(out, support_number_inpts_outs):
             continue
-        trt_unsupported.append(out.node())
+        trt_unsupported.add(out.node())
 
     trt_unsupported = _broadcast_unsupported_set(block, set(trt_unsupported), support_number_inpts_outs)
     topo_nodes = block.node_list()

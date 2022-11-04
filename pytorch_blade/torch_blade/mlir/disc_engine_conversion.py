@@ -105,7 +105,7 @@ def _get_mlir_unsupported(graph):
     cfg = Config.get_current_context_or_new()
     extra_unspt_nodes = [n for n in graph.nodes() if n.kind() in cfg.customize_op_black_list]
     unspt_nodes = [n for n in graph.nodes() if not mlir.is_mlir_mhlo_supported(n)]
-    return unspt_nodes + extra_unspt_nodes
+    return set(unspt_nodes + extra_unspt_nodes)
 
 
 def _disc_engine_conversion(module):

@@ -191,6 +191,24 @@ func.func @main(%arg0: tensor<?x?x?xf32>) -> (index, index) {
 
 // -----
 
+// Test arith.cmpi + arith::trunci
+// CHECK-LABEL: main
+func.func @main(%arg0: tensor<?x?x?xf32>) -> (index) {
+  // CHECK: %c0 = arith.constant 0 : index
+  // CHECK: return %c0 : index
+  %c-1 = arith.constant -1 : i32
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %0 = tensor.dim %arg0, %c0 : tensor<?x?x?xf32>
+  %1 = arith.index_cast %0 : index to i64
+  %2 = arith.trunci %1 : i64 to i32
+  %3 = arith.cmpi eq, %2, %c-1 : i32
+  %4 = arith.select %3, %c1, %c0 : index
+  return %4 : index
+}
+
+// -----
+
 // Test arith.cmpi + tie_shape
 // CHECK-LABEL: main
 func.func @main(%arg0: tensor<?x?x?xf32>, %arg1: tensor<2xindex>) -> (tensor<?x?xf32>, index) {
@@ -570,5 +588,21 @@ func.func @main(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: index, %arg3: tenso
   %3 = tensor.from_elements %0, %0 : tensor<2xindex>
   %4 = "mhlo.dynamic_pad"(%arg0, %arg3, %1, %2, %3) : (tensor<?x?xf32>, tensor<f32>, tensor<2xindex>, tensor<2xindex>, tensor<2xindex>) -> tensor<?x?xf32>
   return %4 : tensor<?x?xf32>
+}
+
+// -----
+
+// test pattern:
+// convert:
+//   dyn_reshape(tensor<8xf32>) -> tensor<1x?xf32>
+// to:
+//   dyn_reshape(tensor<8xf32>) -> tensor<1x8xf32>
+
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<8xf32>, %[[ARG1:.*]]: tensor<2xindex>) -> tensor<1x8xf32>
+func.func @main(%arg0: tensor<8xf32>, %arg1: tensor<2xindex>) -> (tensor<1x?xf32>) {
+  // CHECK: mhlo.reshape
+  %0 = "mhlo.dynamic_reshape"(%arg0, %arg1) : (tensor<8xf32>, tensor<2xindex>) -> tensor<1x?xf32>
+  return %0 : tensor<1x?xf32>
 }
 

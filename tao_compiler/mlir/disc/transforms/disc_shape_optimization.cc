@@ -860,7 +860,7 @@ LogicalResult ShapeComputationIRAnalysis::applyIndexOpConstraint(
   Type ty = op->getResult(0).getType();
   if (!ty.isIntOrIndex()) return success();
 
-  if (isa<arith::IndexCastOp>(op)) {
+  if (isa<arith::IndexCastOp, arith::TruncIOp>(op)) {
     Value in = op->getOperand(0);
     Value out = op->getResult(0);
     if (failed(mgr_.mapSymbolicDimEqual(value2SymDim_[in], value2SymDim_[out])))

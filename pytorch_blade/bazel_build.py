@@ -17,8 +17,7 @@ import sys
 import torch
 import venv
 
-from common_setup import running_on_ci, remote_cache_token, which
-from common_setup import is_aarch64
+from common_setup import running_on_ci, remote_cache_token, which, num_make_jobs, is_aarch64
 from torch_blade_build import TorchBladeBuild, get_fullpath_or_create
 
 cwd = os.path.dirname(os.path.abspath(__file__))
@@ -77,6 +76,7 @@ class BazelBuild(TorchBladeBuild):
             "--action_env BAZEL_LINKLIBS=-lstdc++",
             "--action_env CC={}".format(which("gcc")),
             "--action_env CXX={}".format(which("g++")),
+            "--action_env DISC_FOREIGN_MAKE_JOBS={}".format(num_make_jobs())
         ]
 
         remote_cache = remote_cache_token()

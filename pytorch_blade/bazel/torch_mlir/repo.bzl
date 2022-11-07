@@ -52,7 +52,6 @@ _blade_http_archive = repository_rule(
         "link_files": attr.string_dict(),
         "system_link_files": attr.string_dict(),
     },
-    environ = ["TF_SYSTEM_LIBS"],
 )
 
 def blade_http_archive(name, sha256, urls, **kwargs):

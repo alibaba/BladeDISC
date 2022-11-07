@@ -13,7 +13,7 @@
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/MLIRContext.h"
@@ -48,12 +48,12 @@ struct ConvertDynamicSliceOp : public OpRewritePattern<mhlo::DynamicSliceOp> {
   LogicalResult matchAndRewrite(mhlo::DynamicSliceOp op,
                                 PatternRewriter& rewriter) const override {
     Location loc = op.getLoc();
-    Value input = op.operand();
+    Value input = op.getOperand();
     auto input_type = input.getType().dyn_cast<RankedTensorType>();
     if (!input_type || input_type.hasStaticShape()) return failure();
 
     // slice_sizes: i64 attr
-    auto slice_sizes = op.slice_sizes().getValues<int64_t>();
+    auto slice_sizes = op.getSliceSizes().getValues<int64_t>();
     SmallVector<int64_t, 4> slice_size;
     for (const auto& size : slice_sizes) {
       slice_size.push_back(size);
@@ -65,7 +65,7 @@ struct ConvertDynamicSliceOp : public OpRewritePattern<mhlo::DynamicSliceOp> {
     Value one =
         rewriter.create<arith::ConstantOp>(loc, rewriter.getI64IntegerAttr(1));
     // start_indices is variadic
-    for (const auto& [index, value] : llvm::enumerate(op.start_indices())) {
+    for (const auto& [index, value] : llvm::enumerate(op.getStartIndices())) {
       APInt val;
       // if constant value, make a arith.constant
       bool if_const_val = matchPattern(value, m_ConstantInt(&val));

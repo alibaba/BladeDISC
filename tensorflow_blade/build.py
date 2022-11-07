@@ -47,7 +47,7 @@ from common_setup import (
     add_ral_link_if_not_exist,
     symlink_dir,
     get_source_root_dir,
-    internal_root_dir
+    internal_root_dir,
     num_make_jobs,
 )
 from tao_common import (

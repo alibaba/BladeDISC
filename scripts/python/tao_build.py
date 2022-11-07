@@ -384,7 +384,7 @@ def test_tao_compiler(root, args):
     BAZEL_BUILD_CMD += ci_build_flag()
     if running_on_ci():
         # NOTE: using the lower parallel jobs on CI host to avoid OOM
-        BAZEL_TEST_CMD += " --jobs=10"
+        BAZEL_TEST_CMD += " --jobs=10 --test_output=errors"
     else:
         BAZEL_TEST_CMD += " --jobs=30"
         BAZEL_TEST_CMD += " --java_runtime_version=remotejdk_11"

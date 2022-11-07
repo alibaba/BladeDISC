@@ -962,6 +962,10 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
       /*allow_partial_conversion=*/false, /*legalize_chlo=*/true,
       /*tf2xla_fallback_device_type=*/device_type, prefer_tf2xla));
 
+  // convert mhlo.dynamic_slice to mhlo.real_dynamic_slice after tf2mhlo passes
+  pm.addNestedPass<mlir::func::FuncOp>(
+      mlir::disc_ral::createDiscDynamicSliceConverterPass());
+
   // In order to export to XLA, we must sink constants to control flow regions,
   // since XLA uses functional control flow.
   pm.addNestedPass<mlir::func::FuncOp>(

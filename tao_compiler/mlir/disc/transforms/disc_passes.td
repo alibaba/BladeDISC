@@ -400,6 +400,11 @@ def DiscAlgebraSimplifierPass : Pass<"disc-algebra-simplifier", "mlir::func::Fun
   let constructor = "createDiscAlgebraSimplifierPass()";
 }
 
+def DiscDynamicSliceConverterPass : Pass<"disc-dynamic-slice-converter", "mlir::func::FuncOp"> {
+  let summary = "Convert mhlo.dynamic_slice with dynamic input to mhlo.real_dynamic_slice.";
+  let constructor = "createDiscDynamicSliceConverterPass()";
+}
+
 def DiscShapeOptimizationPass : Pass<"disc-shape-optimization", "ModuleOp"> {
   let summary = "apply some shape-related optimizations.";
   let constructor = "createDiscShapeOptimizationPass()";

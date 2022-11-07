@@ -1,0 +1,52 @@
+module attributes {tf.versions = {bad_consumers = [], min_consumer = 0 : i32, producer = 561 : i32}} {
+  func.func @main(%arg0: tensor<?x?x?xi64>) -> tensor<*xf32> attributes {tf.entry_function = {inputs = "{{INPUTS}}", outputs = "{{OUTPUTS}}", input_placements="{{INPUT_PLACEMENTS}}", output_placements="{{OUTPUT_PLACEMENTS}}"}} {
+    %0 = tf_executor.graph {
+      %outputs, %control = tf_executor.island wraps "tf.Const"() {device = "", value = dense<2> : tensor<i32>} : () -> tensor<i32>
+      %outputs_0, %control_1 = tf_executor.island wraps "tf.Const"() {device = "", value = dense<0> : tensor<i64>} : () -> tensor<i64>
+      %outputs_2, %control_3 = tf_executor.island wraps "tf.Const"() {device = "", value = dense<-1> : tensor<1xi32>} : () -> tensor<1xi32>
+      %outputs_4, %control_5 = tf_executor.island wraps "tf.Const"() {device = "", value = dense<[-1, 1]> : tensor<2xi32>} : () -> tensor<2xi32>
+      %outputs_6, %control_7 = tf_executor.island wraps "tf.Const"() {device = "", value = dense<0> : tensor<1xi32>} : () -> tensor<1xi32>
+      %outputs_8, %control_9 = tf_executor.island wraps "tf.Const"() {device = "", value = dense<2> : tensor<1xi32>} : () -> tensor<1xi32>
+      %outputs_10, %control_11 = tf_executor.island wraps "tf.Const"() {device = "", value = dense<0> : tensor<i32>} : () -> tensor<i32>
+      %outputs_12, %control_13 = tf_executor.island wraps "tf.Const"() {device = "", value = dense<0> : tensor<2xi32>} : () -> tensor<2xi32>
+      %outputs_14, %control_15 = tf_executor.island wraps "tf.Const"() {device = "", value = dense<[0, 1]> : tensor<2xi32>} : () -> tensor<2xi32>
+      %outputs_16, %control_17 = tf_executor.island wraps "tf.Const"() {device = "", value = dense<1> : tensor<2xi32>} : () -> tensor<2xi32>
+      %outputs_18, %control_19 = tf_executor.island wraps "tf.Const"() {device = "", value = dense<1> : tensor<i32>} : () -> tensor<i32>
+      %outputs_20, %control_21 = tf_executor.island wraps "tf.Const"() {device = "", value = dense<1> : tensor<1xi32>} : () -> tensor<1xi32>
+      %outputs_22, %control_23 = tf_executor.island wraps "tf.Const"() {device = "", value = dense<"0x3120F5BD05D561BEAEC992BFE8F128BF7FD1B63F1E5CE23F8C57F53EB359A33DB2A8E7BE9C4C0ABF57CA85BF067EFBBCA44DF7BD1EBC2E3FAF8B6ABF7E7F16BF19AAB3BFCB767D3F0B24F2BFB7AE513FC477334077DC8E3E5AAADABF184124BFF1649FBD36E9113F866E3ABF7E06033ECA6331BF3DAA62BF0A77A63F958272BF4B7DA23E678B22BFCD80C8BF0A10E5BEE3B24C3F82E410BED8B956BF98F7CDBF9D8E25BFD74288BDFA67263EE983213D1042773FFDD4C13FD8FCADBFDA7F57BEE3B7D13F81C4013FE846AA3F7574923F6DB9ED3EAA8AB0BE62526A3F2325013F73DDC9BF80EC3ABF7D0DAE3D7015E5BCBA7C183FE3B9F3BE2963313EC8E892BE5B21F53EA811273FD87218BFB2299A3E72E355BDA948983F934ACE3FC0992ABF6740B3BE99A5BD3E87E6143F6833C4BFFF0D373E8EE646BEA5810BBF5CEF85BDE8AFF93E97D49D3E28B0C2BC8E8DD73E578964BF4B3ABEBF9C2087BD871914BB4A9E83BFAAEC863CF513C9BF156732C05303ED3DD4E4AABE6A57403F48C8CB3F0F998F3F9120A1BF209D0A3F21C7603E691EDABFA7C906BE35DAC0BB0348023F50689CBE70EE3FBFBAB2D5BF769A86BE051251BF4C4101BD28E883BF5AA9983EDEF6633E784F10BFF8FE7EBE264726BF418BCC3E5EBF0ABF410DDB3ECD7288BFBB86663F3C628ABF10F835BE1D56F93EC91B833F7EE51E3FE37DCDBD6FD8A0BE7C48E03F968B94BFF1222B3F20B9493FF63E89BF7E25ADBDDC464F3F49882DBF3023B5BFDD89A33F1BCA883FD58A873F8738CCBF2DAB4EBF7000143E8EFFBF3F6E92A2BFBA3A5C3E1143164007D9803E00D8EABEFFC5DFBD4296883FB767053F357DA5BE5EF2863F5BF0F6BF6787A1BF7728EE3F2B1D0E40156213BF62719A3E53F7A2BFB81888BE880FED3F4407A93ED9BC663FAB60C83E1D5B9B3EBB67A33DC800843F9D4047BDF2D6ABBF50E329BE3854B8BF613E8BBF82D6E9BF4BDEA23FD16A993F89C69CBFF1083A3FE76B3ABFAEF9FFBE40EAEA3F7884513DFF4619BF930CD7BE708AC13F1D06EF3E98A59CBF3DE13EBFF817A13EF8FE1C3F32ADD3BF32742C3FC06CA4BF8881843F439FDE3E754FBABEF88C69BF362231BF83129ABECEFC93BF516F90BEBFA0483F1EE9C03DE2143ABF530ACABE324D14C053E9C73F7C271DBE272A93BF0E7D3A3F3893743E2BA894BFD816A4BE390F82BFD280A9BDBCBD4C3F304F933FE5478ABFD590433F24289ABC64AC713ED3736EBEFEA3F53F338E96BF4E9E0C3F759DC93FE3B2D93C3684823F098040BFCD8C043EF60B3FBF8369FF3F73033B3F53331E3E8B76B1BF2B45AA3F76337C3F429C40BF7F98383FCB4BDA3F145DA33ECC0ECF3DD6AFF5BF8B3DC13FB86E47BF4D543A3E9F4EFF3E775EBEBF128A36BE9408ADBDE0DCF1BE752415BF5F0B8ABF5D7A15BF6A3B56BF33E19F3D0C65E93E3B27973F921262BF23ADDEBE7DECD6BF2560A0BFDF861C3FA4D9473F6C921F3F9BB1A4BF7563403F0ECF073E83E7173F1C9F114013CD88BE84C36D3EB92E12BF824086BFCACB1EBF6D616ABED087353F046A0CBFFF135D3E9CB84ABFAB4E13408A24743E7168BEBFF1A690BF192293BE5BA607BF06FE1BBFFBDA113F7A44873E05A684BC3B7B35BCDBAB70BF26B5173E40CFD1BE1062D7BF8EE31DC0AFBC9C3F775410BE11B4903F092C6C3DC66384BF0B311E3E5172FA3EEDBB203FD1B3FBBE208128BF50CC7B3F8FAB4A3F1B5D0340112518BF76817A3F34F7FE3E00A753BF3ED5533F797E4EBFB52FE7BD5BE3643F58AB8B3EAB5E913F"> : tensor<10x32xf32>} : () -> tensor<10x32xf32>
+      %outputs_24, %control_25 = tf_executor.island wraps "tf.Shape"(%arg0) {device = ""} : (tensor<?x?x?xi64>) -> tensor<*xi64>
+      %outputs_26, %control_27 = tf_executor.island wraps "tf.Cast"(%outputs_24) {Truncate = false, device = ""} : (tensor<*xi64>) -> tensor<*xi32>
+      %outputs_28, %control_29 = tf_executor.island wraps "tf.Slice"(%outputs_26, %outputs_6, %outputs_8) {device = ""} : (tensor<*xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<*xi32>
+      %outputs_30, %control_31 = tf_executor.island wraps "tf.GatherV2"(%outputs_24, %outputs, %outputs_10) {batch_dims = 0 : i64, device = ""} : (tensor<*xi64>, tensor<i32>, tensor<i32>) -> tensor<*xi64>
+      %outputs_32, %control_33 = tf_executor.island wraps "tf.Slice"(%outputs_24, %outputs_6, %outputs_8) {device = ""} : (tensor<*xi64>, tensor<1xi32>, tensor<1xi32>) -> tensor<*xi64>
+      %outputs_34, %control_35 = tf_executor.island wraps "tf.Prod"(%outputs_32, %outputs_6) {device = "", keep_dims = false} : (tensor<*xi64>, tensor<1xi32>) -> tensor<*xi64>
+      %outputs_36, %control_37 = tf_executor.island wraps "tf.Pack"(%outputs_34, %outputs_30) {axis = 0 : i64, device = ""} : (tensor<*xi64>, tensor<*xi64>) -> tensor<*xi64>
+      %outputs_38, %control_39 = tf_executor.island wraps "tf.ZerosLike"(%arg0) {device = ""} : (tensor<?x?x?xi64>) -> tensor<*xi64>
+      %outputs_40, %control_41 = tf_executor.island wraps "tf.NotEqual"(%outputs_38, %arg0) {device = "", incompatible_shape_error = true} : (tensor<*xi64>, tensor<?x?x?xi64>) -> tensor<*xi1>
+      %outputs_42, %control_43 = tf_executor.island wraps "tf.Where"(%outputs_40) {device = ""} : (tensor<*xi1>) -> tensor<*xi64>
+      %outputs_44, %control_45 = tf_executor.island wraps "tf.GatherNd"(%arg0, %outputs_42) {device = ""} : (tensor<?x?x?xi64>, tensor<*xi64>) -> tensor<*xi64>
+      %outputs_46, %control_47 = tf_executor.island wraps "tf.GreaterEqual"(%outputs_44, %outputs_0) {device = ""} : (tensor<*xi64>, tensor<i64>) -> tensor<*xi1>
+      %outputs_48, %control_49 = tf_executor.island wraps "tf.Where"(%outputs_46) {device = ""} : (tensor<*xi1>) -> tensor<*xi64>
+      %outputs_50, %control_51 = tf_executor.island wraps "tf.Reshape"(%outputs_48, %outputs_2) {device = ""} : (tensor<*xi64>, tensor<1xi32>) -> tensor<*xi64>
+      %outputs_52, %control_53 = tf_executor.island wraps "tf.GatherV2"(%outputs_44, %outputs_50, %outputs_10) {batch_dims = 0 : i64, device = ""} : (tensor<*xi64>, tensor<*xi64>, tensor<i32>) -> tensor<*xi64>
+      %outputs_54:2, %control_55 = tf_executor.island wraps "tf.SparseReshape"(%outputs_42, %outputs_24, %outputs_36) {device = ""} : (tensor<*xi64>, tensor<*xi64>, tensor<*xi64>) -> (tensor<*xi64>, tensor<*xi64>)
+      %outputs_56, %control_57 = tf_executor.island wraps "tf.GatherV2"(%outputs_54#0, %outputs_50, %outputs_10) {batch_dims = 0 : i64, device = ""} : (tensor<*xi64>, tensor<*xi64>, tensor<i32>) -> tensor<*xi64>
+      %outputs_58:4, %control_59 = tf_executor.island wraps "tf.SparseFillEmptyRows"(%outputs_56, %outputs_52, %outputs_54#1, %outputs_0) {device = ""} : (tensor<*xi64>, tensor<*xi64>, tensor<*xi64>, tensor<i64>) -> (tensor<*xi64>, tensor<*xi64>, tensor<*xi1>, tensor<*xi64>)
+      %outputs_60, %control_61 = tf_executor.island wraps "tf.Reshape"(%outputs_58#2, %outputs_4) {device = ""} : (tensor<*xi1>, tensor<2xi32>) -> tensor<*xi1>
+      %outputs_62, %control_63 = tf_executor.island wraps "tf.StridedSlice"(%outputs_58#0, %outputs_12, %outputs_14, %outputs_16) {begin_mask = 1 : i64, device = "", ellipsis_mask = 0 : i64, end_mask = 1 : i64, new_axis_mask = 0 : i64, shrink_axis_mask = 2 : i64} : (tensor<*xi64>, tensor<2xi32>, tensor<2xi32>, tensor<2xi32>) -> tensor<*xi64>
+      %outputs_64, %control_65 = tf_executor.island wraps "tf.SparseSegmentMean"(%outputs_22, %outputs_58#1, %outputs_62) {device = ""} : (tensor<10x32xf32>, tensor<*xi64>, tensor<*xi64>) -> tensor<*xf32>
+      %outputs_66, %control_67 = tf_executor.island wraps "tf.Shape"(%outputs_64) {device = ""} : (tensor<*xf32>) -> tensor<*xi32>
+      %outputs_68, %control_69 = tf_executor.island wraps "tf.StridedSlice"(%outputs_66, %outputs_20, %outputs_8, %outputs_20) {begin_mask = 0 : i64, device = "", ellipsis_mask = 0 : i64, end_mask = 0 : i64, new_axis_mask = 0 : i64, shrink_axis_mask = 1 : i64} : (tensor<*xi32>, tensor<1xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<*xi32>
+      %outputs_70, %control_71 = tf_executor.island wraps "tf.Pack"(%outputs_18, %outputs_68) {axis = 0 : i64, device = ""} : (tensor<i32>, tensor<*xi32>) -> tensor<*xi32>
+      %outputs_72, %control_73 = tf_executor.island wraps "tf.Tile"(%outputs_60, %outputs_70) {device = ""} : (tensor<*xi1>, tensor<*xi32>) -> tensor<*xi1>
+      %outputs_74, %control_75 = tf_executor.island wraps "tf.ZerosLike"(%outputs_64) {device = ""} : (tensor<*xf32>) -> tensor<*xf32>
+      %outputs_76, %control_77 = tf_executor.island wraps "tf.Select"(%outputs_72, %outputs_74, %outputs_64) {device = ""} : (tensor<*xi1>, tensor<*xf32>, tensor<*xf32>) -> tensor<*xf32>
+      %outputs_78, %control_79 = tf_executor.island wraps "tf.Shape"(%outputs_76) {device = ""} : (tensor<*xf32>) -> tensor<*xi32>
+      %outputs_80, %control_81 = tf_executor.island wraps "tf.Slice"(%outputs_78, %outputs_20, %outputs_2) {device = ""} : (tensor<*xi32>, tensor<1xi32>, tensor<1xi32>) -> tensor<*xi32>
+      %outputs_82, %control_83 = tf_executor.island wraps "tf.ConcatV2"(%outputs_28, %outputs_80, %outputs_10) {device = ""} : (tensor<*xi32>, tensor<*xi32>, tensor<i32>) -> tensor<*xi32>
+      %outputs_84, %control_85 = tf_executor.island wraps "tf.Reshape"(%outputs_76, %outputs_82) {device = ""} : (tensor<*xf32>, tensor<*xi32>) -> tensor<*xf32>
+      tf_executor.fetch %outputs_84 : tensor<*xf32>
+    }
+    return %0 : tensor<*xf32>
+  }
+}

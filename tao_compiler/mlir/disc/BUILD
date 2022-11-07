@@ -1704,6 +1704,28 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_dynamic_slice_converter",
+    srcs = ["transforms/disc_dynamic_slice_converter.cc"],
+    deps = [
+        ":disc_shape_optimization_utils",
+        ":mhlo_disc",
+        ":pass_details",
+        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ArithmeticDialect",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+
+
+cc_library(
     name = "disc_dense_to_sparse",
     srcs = ["transforms/disc_dense_to_sparse.cc"],
     deps = [
@@ -1890,6 +1912,7 @@ cc_library(
         ":quantized_dot_rewriter",
         ":disc_dot_merge",
         ":disc_algebra_simplifier",
+        ":disc_dynamic_slice_converter",
         ":disc_assign_kernel_name",
         ":disc_assign_memory_space",
         ":disc_canonicalizer",

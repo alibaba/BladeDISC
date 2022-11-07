@@ -31,9 +31,10 @@ tensorflow::Status DiscInterpreter::Compile(
 
   // compile input proto to executable file
   tensorflow::DeviceType device_type(input.options().device_type());
-  auto* compiler_wrapper =
-      tensorflow::tao::CompilerBase::GetCompilerForDevice(device_type)
-          .ValueOrDie();
+  auto status_or =
+      tensorflow::tao::CompilerBase::GetCompilerForDevice(device_type);
+  if (!status_or.ok()) return status_or.status();
+  auto* compiler_wrapper = status_or.value();
   TF_RETURN_IF_ERROR(compiler_wrapper->Compile(input, tmp_file));
   result.output_fname = tmp_file + ".so";
   result.meta_fname = tmp_file + ".so.pbtxt";

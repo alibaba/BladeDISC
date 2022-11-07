@@ -14,7 +14,7 @@ limitations under the License.
 
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/IR/PatternMatch.h"
@@ -65,7 +65,7 @@ LogicalResult reifyReturnTypeShapesDconvI8I8I8Impl(
   };
 
   SmallVector<Value> spatial_padding_values;
-  auto config = op.backend_config().cast<DictionaryAttr>();
+  auto config = op.getBackendConfig().cast<DictionaryAttr>();
   auto dimension_numbers =
       config.getAs<mhlo::ConvDimensionNumbersAttr>("dimension_numbers");
   auto input_spatial_dimensions_attr =

@@ -53,7 +53,7 @@ LogicalResult reifyReturnTypeShapesImpl<TopKBackendConfig>(
     SmallVectorImpl<Value>& reifiedReturnShapes) {
   llvm::Expected<TopKBackendConfig> backend_config =
       llvm::json::parse<TopKBackendConfig>(
-          op.backend_config().cast<StringAttr>());
+          op.getBackendConfig().cast<StringAttr>());
   int64_t dimension = backend_config->dimension;
 
   Value keys_operand = operands[0];

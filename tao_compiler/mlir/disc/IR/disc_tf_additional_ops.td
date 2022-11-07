@@ -27,7 +27,7 @@ include "mlir/IR/SymbolInterfaces.td"
 
 
 
-def TF_DiscFakeQuantOp : TF_Op<"DiscFakeQuant", [NoSideEffect, TF_NoConstantFold]> {
+def TF_DiscFakeQuantOp : TF_Op<"DiscFakeQuant", [Pure, TF_NoConstantFold]> {
 
   let summary = "FakeQuantOp defined by DISC to carry quantization info.";
 

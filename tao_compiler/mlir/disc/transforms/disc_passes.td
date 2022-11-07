@@ -234,6 +234,9 @@ def RemoveShapeConstraintsPass : Pass<"disc-remove-shape-constraint", "mlir::fun
 def ConvertHloToStandardPass : Pass<"disc-convert-hlo-to-std", "mlir::func::FuncOp"> {
   let summary = "Pass to convert some hlo ops to std dialect";
   let constructor = "createDiscConvertHloToStandardPass()";
+  let dependentDialects = [
+    "arith::ArithDialect"
+  ];
 }
 
 def StdBufferizePass : Pass<"disc-std-bufferize", "mlir::func::FuncOp"> {

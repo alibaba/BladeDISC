@@ -60,10 +60,10 @@ struct AddZeroTensorOp : public OpRewritePattern<mhlo::AddOp> {
 
   LogicalResult matchAndRewrite(mhlo::AddOp op,
                                 PatternRewriter& rewriter) const override {
-    if (allElementsAreSameValue(op.lhs(), 0)) {
-      rewriter.replaceOp(op, op.rhs());
-    } else if (allElementsAreSameValue(op.rhs(), 0)) {
-      rewriter.replaceOp(op, op.lhs());
+    if (allElementsAreSameValue(op.getLhs(), 0)) {
+      rewriter.replaceOp(op, op.getRhs());
+    } else if (allElementsAreSameValue(op.getRhs(), 0)) {
+      rewriter.replaceOp(op, op.getLhs());
     } else {
       return failure();
     }
@@ -77,10 +77,10 @@ struct MulOneTensorOp : public OpRewritePattern<mhlo::MulOp> {
 
   LogicalResult matchAndRewrite(mhlo::MulOp op,
                                 PatternRewriter& rewriter) const override {
-    if (allElementsAreSameValue(op.lhs(), 1)) {
-      rewriter.replaceOp(op, op.rhs());
-    } else if (allElementsAreSameValue(op.rhs(), 1)) {
-      rewriter.replaceOp(op, op.lhs());
+    if (allElementsAreSameValue(op.getLhs(), 1)) {
+      rewriter.replaceOp(op, op.getRhs());
+    } else if (allElementsAreSameValue(op.getRhs(), 1)) {
+      rewriter.replaceOp(op, op.getLhs());
     } else {
       return failure();
     }
@@ -122,20 +122,20 @@ struct ExpandPowOp : public OpRewritePattern<mhlo::PowOp> {
     auto constTy = constOp.getResult().getType().dyn_cast<RankedTensorType>();
     if (!constTy || !constTy.hasStaticShape()) return failure();
 
-    if (!constOp.value().isSplat() && constTy.getNumElements() != 1)
+    if (!constOp.getValue().isSplat() && constTy.getNumElements() != 1)
       return failure();
 
     if (constTy.getElementType().isIntOrIndex()) {
       exponential =
-          (*constOp.value().getValues<APInt>().begin()).getSExtValue();
+          (*constOp.getValue().getValues<APInt>().begin()).getSExtValue();
       return success();
     }
 
     double fpExponential;
     if (constTy.getElementType().isF32()) {
-      fpExponential = *constOp.value().getValues<float>().begin();
+      fpExponential = *constOp.getValue().getValues<float>().begin();
     } else if (constTy.getElementType().isF64()) {
-      fpExponential = *constOp.value().getValues<double>().begin();
+      fpExponential = *constOp.getValue().getValues<double>().begin();
     } else {
       // unsupported float types.
       return failure();
@@ -149,7 +149,7 @@ struct ExpandPowOp : public OpRewritePattern<mhlo::PowOp> {
 
   LogicalResult tryToExtractMultipler(mhlo::PowOp op,
                                       int64_t& exponential) const {
-    Operation* rhsDefiningOp = op.rhs().getDefiningOp();
+    Operation* rhsDefiningOp = op.getRhs().getDefiningOp();
     if (!rhsDefiningOp) return failure();
 
     if (auto constOp = dyn_cast<mhlo::ConstantOp>(rhsDefiningOp)) {
@@ -328,7 +328,8 @@ struct BroadCastInDimOfReshapeOpCanonicalizationPattern
     if (!matched) return failure();
 
     SmallVector<int64_t> newBcastDims;
-    auto oldBcastDims = op.broadcast_dimensions().template getValues<int64_t>();
+    auto oldBcastDims =
+        op.getBroadcastDimensions().template getValues<int64_t>();
     for (size_t d = 0, rank = dimMap.size(); d < rank; ++d)
       newBcastDims.push_back(oldBcastDims[dimMap[d]]);
 

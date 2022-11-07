@@ -91,7 +91,7 @@ LogicalResult DiscFlattenMemrefAccessPass::processStoreOp(memref::StoreOp op) {
   SmallVector<Value> dimSizes = disc_ral::getShapeValues(&b, memref);
   Value linear = b.create<disc_shape::LinearizeOp>(loc, b.getIndexType(),
                                                    op.getIndices(), dimSizes);
-  disc_ral::createOffsetStore(b, loc, op.value(), memref, linear);
+  disc_ral::createOffsetStore(b, loc, op.getValue(), memref, linear);
   op->erase();
   return success();
 }

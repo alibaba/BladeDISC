@@ -58,7 +58,7 @@ mhlo::ReduceOp CloneAndReplaceElementType(mhlo::ReduceOp op,
                                           ArrayRef<Value> operands) {
   int num_non_return_hlo_ops = 0;
   Operation* map_op = nullptr;
-  op.body().walk([&](Operation* hlo_op) {
+  op.getBody().walk([&](Operation* hlo_op) {
     if (isa<mhlo::ReturnOp>(hlo_op)) return;
     ++num_non_return_hlo_ops;
     map_op = hlo_op;
@@ -69,24 +69,24 @@ mhlo::ReduceOp CloneAndReplaceElementType(mhlo::ReduceOp op,
 
   Location loc = op.getLoc();
   mhlo::ReduceOp new_op = rewriter.create<mhlo::ReduceOp>(
-      loc, operands[0], operands[1], op.dimensions());
+      loc, operands[0], operands[1], op.getDimensions());
 
   if (isa<mhlo::AddOp>(map_op)) {
-    BuildReduceBody<mhlo::AddOp>(elem_type, &new_op.body(), &rewriter);
+    BuildReduceBody<mhlo::AddOp>(elem_type, &new_op.getBody(), &rewriter);
   } else if (isa<mhlo::MulOp>(map_op)) {
-    BuildReduceBody<mhlo::MulOp>(elem_type, &new_op.body(), &rewriter);
+    BuildReduceBody<mhlo::MulOp>(elem_type, &new_op.getBody(), &rewriter);
   } else if (isa<mhlo::MaxOp>(map_op)) {
-    BuildReduceBody<mhlo::MaxOp>(elem_type, &new_op.body(), &rewriter);
+    BuildReduceBody<mhlo::MaxOp>(elem_type, &new_op.getBody(), &rewriter);
   } else if (isa<mhlo::MinOp>(map_op)) {
-    BuildReduceBody<mhlo::MinOp>(elem_type, &new_op.body(), &rewriter);
+    BuildReduceBody<mhlo::MinOp>(elem_type, &new_op.getBody(), &rewriter);
   } else if (isa<mhlo::AndOp>(map_op)) {
     // We use MinOp to replace AndOp since std AndOp requires operands have i1
     // type.
-    BuildReduceBody<mhlo::MinOp>(elem_type, &new_op.body(), &rewriter);
+    BuildReduceBody<mhlo::MinOp>(elem_type, &new_op.getBody(), &rewriter);
   } else if (isa<mhlo::OrOp>(map_op)) {
     // We use MaxOp to replace OrOp since std AndOp requires operands have i1
     // type.
-    BuildReduceBody<mhlo::MaxOp>(elem_type, &new_op.body(), &rewriter);
+    BuildReduceBody<mhlo::MaxOp>(elem_type, &new_op.getBody(), &rewriter);
   } else {
     assert(false && "not supported reduce type");
   }
@@ -106,7 +106,7 @@ struct ConvertReduceOpWithSmallWidthIntType
     }
 
     SmallVector<int64_t, 4> dims_to_reduce;
-    for (auto v : op.dimensions().getValues<APInt>()) {
+    for (auto v : op.getDimensions().getValues<APInt>()) {
       dims_to_reduce.push_back(v.getSExtValue());
     }
     RankedTensorType ty =
@@ -202,8 +202,8 @@ struct ConvertDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
   LogicalResult matchAndRewrite(mhlo::DotGeneralOp op,
                                 PatternRewriter& rewriter) const override {
     Location loc = op.getLoc();
-    Value lhs = op.lhs();
-    Value rhs = op.rhs();
+    Value lhs = op.getLhs();
+    Value rhs = op.getRhs();
     FloatType f16_ty = rewriter.getF16Type();
     FloatType f32_ty = rewriter.getF32Type();
     RankedTensorType lhs_ty = lhs.getType().dyn_cast<RankedTensorType>();
@@ -221,7 +221,7 @@ struct ConvertDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
         RankedTensorType::getChecked(loc, result_ty.getShape(), f16_ty);
     // tensor dot general
     Value dot = rewriter.create<mhlo::DotGeneralOp>(
-        loc, f16_tensor_ty, lhs_f16, rhs_f16, op.dot_dimension_numbers(),
+        loc, f16_tensor_ty, lhs_f16, rhs_f16, op.getDotDimensionNumbers(),
         nullptr);
     Value fp32_dot = rewriter.create<mhlo::ConvertOp>(loc, dot, f32_ty);
     fp32_dot.setType(op.getResult().getType());

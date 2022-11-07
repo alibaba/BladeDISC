@@ -208,15 +208,16 @@ struct ExpandDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
     if (enable_sparse_convert_) {
       Operation* weightOp;
       if (sparse_weight_pos == 0) {
-        weightOp = op.lhs().getDefiningOp();
+        weightOp = op.getLhs().getDefiningOp();
       } else {
-        weightOp = op.rhs().getDefiningOp();
+        weightOp = op.getRhs().getDefiningOp();
       }
       auto weightConstOp = dyn_cast<mhlo::ConstantOp>(weightOp);
       ArrayRef<int64_t> weightShape =
           weightConstOp.getType().cast<ShapedType>().getShape();
 
-      auto weights_value = weightConstOp.value().getValues<APFloat>().begin();
+      auto weights_value =
+          weightConstOp.getValue().getValues<APFloat>().begin();
       SmallVector<APFloat> compressed_weight(
           weightShape[0] * weightShape[1] / 2, APFloat(0.f));
       std::vector<uint16_t> compressed_index(
@@ -277,7 +278,7 @@ struct ExpandDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
         RankedTensorType::get(spgemm_shape, outputTy.getElementType());
 
     // insert spgemm op
-    auto dot_dimension_numbers = op.dot_dimension_numbers();
+    auto dot_dimension_numbers = op.getDotDimensionNumbers();
     auto lhs_contracting_dimensions =
         dot_dimension_numbers.getLhsContractingDimensions();
     auto rhs_contracting_dimensions =
@@ -329,7 +330,7 @@ struct ExpandDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
 
     if (weight_shape.size() != 2) return failure();
 
-    auto weight_value = constOp.value().getValues<APFloat>().begin();
+    auto weight_value = constOp.getValue().getValues<APFloat>().begin();
 
     int64_t row = is_transpose ? weight_shape[1] : weight_shape[0];
     int64_t col = is_transpose ? weight_shape[0] : weight_shape[1];
@@ -361,7 +362,7 @@ struct ExpandDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
   }
 
   int tryToFindSparseWeight(mhlo::DotGeneralOp op) const {
-    Operation* rhsDefiningOp = op.rhs().getDefiningOp();
+    Operation* rhsDefiningOp = op.getRhs().getDefiningOp();
     if (!rhsDefiningOp) return -1;
 
     if (auto constOp = dyn_cast<mhlo::ConstantOp>(rhsDefiningOp)) {
@@ -370,7 +371,7 @@ struct ExpandDotGeneralOp : public OpRewritePattern<mhlo::DotGeneralOp> {
       }
     }
 
-    Operation* lhsDefiningOp = op.lhs().getDefiningOp();
+    Operation* lhsDefiningOp = op.getLhs().getDefiningOp();
     if (!lhsDefiningOp) return -1;
 
     if (auto constOp = dyn_cast<mhlo::ConstantOp>(lhsDefiningOp)) {
@@ -444,7 +445,7 @@ struct ExpandSparseGemmOp : public OpRewritePattern<mhlo_disc::CustomCallOp> {
 
     if (!inputTy || !outputTy) return success();
 
-    auto config = op.backend_config().cast<DictionaryAttr>();
+    auto config = op.getBackendConfig().cast<DictionaryAttr>();
     int64_t lhs_contracting_dimensions =
         config.getAs<IntegerAttr>("lhs_contracting_dimensions").getInt();
     int64_t rhs_contracting_dimensions =
@@ -485,7 +486,7 @@ struct ExpandSparseGemmOp : public OpRewritePattern<mhlo_disc::CustomCallOp> {
   }
 
   LogicalResult tryToFindSparseGemm(mhlo_disc::CustomCallOp op) const {
-    auto call_target_name = op.call_target_name();
+    auto call_target_name = op.getCallTargetName();
     if (call_target_name == "sparse_gemm") {
       Value lhs = op->getOperand(0);
       Value rhs = op->getOperand(1);

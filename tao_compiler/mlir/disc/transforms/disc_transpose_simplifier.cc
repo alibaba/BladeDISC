@@ -26,7 +26,7 @@ limitations under the License.
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
@@ -103,7 +103,7 @@ bool isIdentityPermutation(T&& permutation) {
 //   use(%0)
 LogicalResult eliminateIdentityTranspse(mhlo::TransposeOp op,
                                         PatternRewriter& rewriter) {
-  if (!isIdentityPermutation(op.permutation().getValues<int64_t>()))
+  if (!isIdentityPermutation(op.getPermutation().getValues<int64_t>()))
     return failure();
   rewriter.replaceOp(op, op->getOperands());
   return success();
@@ -122,7 +122,7 @@ LogicalResult propagateDimOfTranspse(tensor::DimOp op,
       dyn_cast_or_null<mhlo::TransposeOp>(op.getSource().getDefiningOp());
   if (!indexOp || !transposeOp) return failure();
 
-  auto perm = transposeOp.permutation().getValues<int64_t>();
+  auto perm = transposeOp.getPermutation().getValues<int64_t>();
   Value sourceIndex = rewriter.create<arith::ConstantIndexOp>(
       op.getLoc(), perm[indexOp.getValue().cast<IntegerAttr>().getInt()]);
   rewriter.replaceOpWithNewOp<tensor::DimOp>(op, transposeOp->getOperand(0),
@@ -175,7 +175,7 @@ bool isConstOneBcast(Operation* op) {
   auto constOp =
       dyn_cast_or_null<mhlo::ConstantOp>(op->getOperand(0).getDefiningOp());
   if (!constOp) return false;
-  auto attr = constOp.value().cast<DenseElementsAttr>();
+  auto attr = constOp.getValue().cast<DenseElementsAttr>();
   if (attr.getNumElements() != 1) return false;
   if (getElementTypeOrSelf(attr.getType()).isa<FloatType>())
     return (*(attr.getValues<APFloat>().begin())).convertToDouble() == 1.0;
@@ -225,9 +225,9 @@ bool isMirroredTranspose(Operation* x, Operation* y) {
   auto transposeY = dyn_cast_or_null<mhlo::TransposeOp>(y);
   if (!transposeX || !transposeY) return false;
 
-  auto permXAttr = transposeX.permutation().getValues<int64_t>();
+  auto permXAttr = transposeX.getPermutation().getValues<int64_t>();
   SmallVector<int64_t> permX{permXAttr.begin(), permXAttr.end()};
-  auto permYAttr = transposeY.permutation().getValues<int64_t>();
+  auto permYAttr = transposeY.getPermutation().getValues<int64_t>();
   SmallVector<int64_t> permY{permYAttr.begin(), permYAttr.end()};
 
   if (permX.size() != permY.size()) return false;
@@ -581,7 +581,7 @@ LogicalResult pairMirroredTransposeOps(Block* block, bool& changed) {
       Value from = x->getResult(0);
       Value to = y->getOperand(0);
       auto permAttr =
-          cast<mhlo::TransposeOp>(y).permutation().getValues<int64_t>();
+          cast<mhlo::TransposeOp>(y).getPermutation().getValues<int64_t>();
       SmallVector<int64_t> perm{permAttr.begin(), permAttr.end()};
       DenseMap<Operation*, SmallVector<int64_t>> intermedateOpsPermutationMap;
       if (!ctx.dominates(from, to, perm, intermedateOpsPermutationMap))
@@ -677,8 +677,10 @@ LogicalResult reverseIfOperandsAreConsistentTransposeOps(Operation* op,
   if (!transposeLHS || !transposeRHS || transposeLHS == transposeRHS)
     return success();
 
-  SmallVector<int64_t> permLHS{transposeLHS.permutation().getValues<int64_t>()};
-  SmallVector<int64_t> permRHS{transposeRHS.permutation().getValues<int64_t>()};
+  SmallVector<int64_t> permLHS{
+      transposeLHS.getPermutation().getValues<int64_t>()};
+  SmallVector<int64_t> permRHS{
+      transposeRHS.getPermutation().getValues<int64_t>()};
   if (permLHS.size() != permRHS.size()) return success();
 
   for (const auto& en : llvm::zip(permLHS, permRHS)) {
@@ -769,14 +771,14 @@ LogicalResult reverseIfOperandsAndResultsAreConsistent(Operation* op,
 
   Block* block = op->getBlock();
   SmallVector<int64_t> reversePerm{
-      transposeOp.permutation().getValues<int64_t>()};
+      transposeOp.getPermutation().getValues<int64_t>()};
   auto perm = getReversePermutation(reversePerm);
   SmallVector<Operation*> transposeOps;
   for (Operation& candidate : *block) {
     auto transposeCandidate = dyn_cast<mhlo::TransposeOp>(&candidate);
     if (!transposeCandidate || &candidate == transposeOp) continue;
     SmallVector<int64_t> candidatePerm{
-        transposeCandidate.permutation().getValues<int64_t>()};
+        transposeCandidate.getPermutation().getValues<int64_t>()};
     if (perm != candidatePerm) continue;
     transposeOps.push_back(&candidate);
   }

@@ -9,7 +9,7 @@
 // CHECK:         %[[T2:.*]] = arith.index_cast %[[T1]] : index to i64
 // CHECK:         %[[T3:.*]] = arith.sitofp %[[T2]] : i64 to f64
 // CHECK:         %[[T4:.*]] = tensor.from_elements %[[T3]] : tensor<1xf64>
-// CHECK:         %[[T5:.*]] = mhlo.convert(%[[T4]]) : (tensor<1xf64>) -> tensor<1xf32>
+// CHECK:         %[[T5:.*]] = mhlo.convert %[[T4]] : (tensor<1xf64>) -> tensor<1xf32>
 // CHECK:         %[[T6:.*]] = mhlo.reshape %[[T5]] : (tensor<1xf32>) -> tensor<f32>
 // CHECK:         %[[T7:.*]] = arith.index_cast %[[T1]] : index to i32
 // CHECK:         %[[T8:.*]] = tensor.from_elements %[[T7]], %[[C1_I32]] : tensor<2xi32>

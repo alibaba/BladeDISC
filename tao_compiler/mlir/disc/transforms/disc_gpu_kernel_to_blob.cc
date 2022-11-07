@@ -36,11 +36,11 @@ limitations under the License.
 #include "tensorflow/compiler/xla/service/llvm_ir/llvm_type_conversion_util.h"
 #include "tensorflow/compiler/xla/status.h"
 #include "tensorflow/compiler/xla/statusor.h"
-#include "tensorflow/core/platform/cuda_libdevice_path.h"
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/core/platform/path.h"
 #include "tensorflow/core/platform/random.h"
 #include "tensorflow/core/util/env_var.h"
+#include "tensorflow/tsl/platform/cuda_libdevice_path.h"
 
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
 #include "tensorflow/compiler/xla/stream_executor/gpu/asm_compiler.h"
@@ -122,7 +122,7 @@ class GpuKernelToBlobPass
           gpu_module.emitError(blob_or.status().error_message());
           return signalPassFailure();
         }
-        const auto& blob = blob_or.ValueOrDie();
+        const auto& blob = blob_or.value();
         std::string blob_string(blob.begin(), blob.end());
         std::string attr_str = std::string(kGpuBinaryAttrName) + "_" + name;
         gpu_module->setAttr(attr_str,
@@ -135,7 +135,7 @@ class GpuKernelToBlobPass
         gpu_module.emitError(blob_or.status().error_message());
         return signalPassFailure();
       }
-      const auto& blob = blob_or.ValueOrDie();
+      const auto& blob = blob_or.value();
       std::string blob_string(blob.begin(), blob.end());
       gpu_module->setAttr(blob_annotation_,
                           mlir::StringAttr::get(&getContext(), blob_string));
@@ -435,12 +435,12 @@ class GpuKernelToBlobPass
  private:
   xla::StatusOr<std::string> GetLibdeviceDir(
       const xla::HloModuleConfig& hlo_module_config) {
-    for (const std::string& cuda_root : tensorflow::CandidateCudaRoots(
+    for (const std::string& cuda_root : tsl::CandidateCudaRoots(
              hlo_module_config.debug_options().xla_gpu_cuda_data_dir())) {
       std::string libdevice_dir =
           tensorflow::io::JoinPath(cuda_root, "nvvm", "libdevice");
       VLOG(2) << "Looking for libdevice at " << libdevice_dir;
-      if (tensorflow::Env::Default()->IsDirectory(libdevice_dir).ok()) {
+      if (tsl::Env::Default()->IsDirectory(libdevice_dir).ok()) {
         VLOG(2) << "Found libdevice dir " << libdevice_dir;
         return libdevice_dir;
       }

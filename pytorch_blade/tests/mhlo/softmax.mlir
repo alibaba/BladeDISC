@@ -20,7 +20,7 @@
 // CHECK:         %[[T12:.*]] = tensor.from_elements %[[T10]], %[[T11]] : tensor<2xi32>
 // CHECK:         %[[T13:.*]] = "mhlo.dynamic_broadcast_in_dim"(%[[T6]], %[[T12]]) {broadcast_dimensions = dense<[0, 1]> : tensor<2xi64>} : (tensor<?x1xf32>, tensor<2xi32>) -> tensor<?x?xf32>
 // CHECK:         %[[T14:.*]] = chlo.broadcast_multiply %[[ARG1]], %[[T13]] : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
-// CHECK:         %[[T15:.*]] = chlo.broadcast_subtract %[[T1]], %[[T1]]4 : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
+// CHECK:         %[[T15:.*]] = chlo.broadcast_subtract %[[T1]], %[[T14]] : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
 // CHECK:         return %[[T15]] : tensor<?x?xf32>
 func.func @torch.aten._softmax_backward_data(%arg0 : !torch.vtensor<[?,?],f32>, %arg1 : !torch.vtensor<[?,?],f32>) -> !torch.vtensor<[?,?],f32>{
   %int_1 = torch.constant.int 1

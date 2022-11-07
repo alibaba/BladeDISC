@@ -23,7 +23,7 @@
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir-hlo/utils/hlo_utils.h"
 
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Traits.h"
 #include "mlir/IR/Matchers.h"
@@ -555,10 +555,10 @@ LogicalResult ConvertAtenOp<AtenFlipOp>::matchAndRewrite(
   return success();
 }
 
-// ValsemVariantAtenUniformOp
+// AtenUniformOp
 template <>
-LogicalResult ConvertAtenOp<ValsemVariantAtenUniformOp>::matchAndRewrite(
-    ValsemVariantAtenUniformOp op,
+LogicalResult ConvertAtenOp<AtenUniformOp>::matchAndRewrite(
+    AtenUniformOp op,
     OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
   auto inputTy = adaptor.self().getType().template cast<RankedTensorType>();
@@ -724,7 +724,7 @@ static llvm::Optional<ValueRange> getMaxValueInDim(
   auto valueReduceOp = rewriter.create<mhlo::ReduceOp>(
       op->getLoc(), input, initValue, dimensions);
   {
-    Block& block = valueReduceOp.body().emplaceBlock();
+    Block& block = valueReduceOp.getBody().emplaceBlock();
     auto argumentType = RankedTensorType::get({}, inputTy.getElementType());
     block.addArgument(argumentType, op->getLoc());
     block.addArgument(argumentType, op->getLoc());
@@ -785,7 +785,7 @@ static llvm::Optional<ValueRange> getMaxIndicesInDim(
       },
       dimensions);
   {
-    Block& block = indicesReduceOp.body().emplaceBlock();
+    Block& block = indicesReduceOp.getBody().emplaceBlock();
 
     // Add block arguments
     auto blockValArgumentType =
@@ -1067,7 +1067,7 @@ class DiscConvertTorchToMhlo
     registry.insert<chlo::ChloDialect>();
     registry.insert<mhlo::MhloDialect>();
     registry.insert<tensor::TensorDialect>();
-    registry.insert<arith::ArithmeticDialect>();
+    registry.insert<arith::ArithDialect>();
     registry.insert<Torch::TorchDialect>();
     torch::TorchConversion::getBackendTypeConversionDependentDialects(registry);
   }
@@ -1079,7 +1079,7 @@ class DiscConvertTorchToMhlo
         chlo::ChloDialect,
         mhlo::MhloDialect,
         tensor::TensorDialect,
-        arith::ArithmeticDialect,
+        arith::ArithDialect,
         Torch::TorchDialect>();
 
     TypeConverter typeConverter;
@@ -1125,7 +1125,7 @@ class DiscConvertTorchToMhlo
     INSERT_ATENOP_PATTERN(AtenDropoutOp);
     INSERT_ATENOP_PATTERN(TensorStaticInfoCastOp);
     INSERT_ATENOP_PATTERN(AtenFlipOp);
-    INSERT_ATENOP_PATTERN(ValsemVariantAtenUniformOp);
+    INSERT_ATENOP_PATTERN(AtenUniformOp);
     INSERT_ATENOP_PATTERN(AtenTensorOp);
     INSERT_ATENOP_PATTERN(AtenTensorBoolOp);
     INSERT_ATENOP_PATTERN(AtenTensorFloatOp);

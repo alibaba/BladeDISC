@@ -20,7 +20,7 @@
 
 #include <mlir-hlo/Dialect/mhlo/IR/hlo_ops.h> // from tf repo
 
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Func/Transforms/FuncConversions.h"
@@ -153,7 +153,7 @@ class VerifyMhloBackendContractPass
     target.addDynamicallyLegalOp<ModuleOp, func::FuncOp, func::ReturnOp>(
         opHasLegalTypes);
     target.addLegalDialect<
-        arith::ArithmeticDialect,
+        arith::ArithDialect,
         chlo::ChloDialect,
         mhlo::MhloDialect,
         mhlo_disc::MhloDiscDialect,

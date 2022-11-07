@@ -2,8 +2,8 @@
 
 // CHECK-LABEL: @main
 func.func @main(%arg : tensor<i64>) -> tensor<i64> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "cpu", outputs = "output0"}}  {
-  // CHECK: "mhlo.tuple"({{.*}}) {disc.device = ["cpu"]} : (tensor<i64>) -> tuple<tensor<i64>>
-  // CHECK: "mhlo.get_tuple_element"({{.*}}) {disc.device = "cpu", index = 0 : i32} : (tuple<tensor<i64>>) -> tensor<i64>
+  // CHECK: mhlo.tuple {{.*}} {disc.device = ["cpu"]}
+  // CHECK: mhlo.get_tuple_element {{.*}} {disc.device = "cpu"} : (tuple<tensor<i64>>) -> tensor<i64>
   %tuple = "mhlo.tuple"(%arg) : (tensor<i64>) -> tuple<tensor<i64>>
   %element = "mhlo.get_tuple_element"(%tuple) {index = 0 : i32} : (tuple<tensor<i64>>) -> tensor<i64>
   return %element : tensor<i64>
@@ -80,11 +80,11 @@ func.func @main(%input: tensor<?x?x?x?xi8>, %weight: tensor<?x?x?x?xi8>, %paddin
                                   inputs = "input0,input1,input2,input3,input4,input5,input6,input7,input8",
                                   output_placements = "cpu", outputs = "output0"}} {
   // CHECK: %[[HOST_PADDING:.*]] = "mhlo_disc.d2h"(%[[PADDING]])
-  // CHECK: %[[RefinedPadding:.*]] = mhlo.convert(%[[HOST_PADDING]])
+  // CHECK: %[[RefinedPadding:.*]] = mhlo.convert %[[HOST_PADDING]]
   // CHECK-SAME: disc.shape_op = true
   // CHECK: %[[OUT:.*]] = "mhlo_disc.quantized_dynamic_conv"
   // CHECK-SAME: %[[RefinedPadding]]
-  %refined_padding = mhlo.convert(%padding) {disc.shape_op = true} : (tensor<4xf32>) -> tensor<4xi32>
+  %refined_padding = mhlo.convert %padding {disc.shape_op = true} : (tensor<4xf32>) -> tensor<4xi32>
   %out = "mhlo_disc.quantized_dynamic_conv"(%input, %weight, %refined_padding,
                                            %input_scale, %input_zero_point,
                                            %weight_scale, %weight_zero_point,

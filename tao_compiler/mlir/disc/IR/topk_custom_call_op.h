@@ -31,7 +31,7 @@ using llvm::json::ObjectMapper;
 class CustomCallOp;
 
 // Methods to do deserialization:
-// llvm::json::parse<TopKBackendConfig>(custom_call_op.backend_config());
+// llvm::json::parse<TopKBackendConfig>(custom_call_op.getBackendConfig());
 //
 // Methods to do serialization:
 // raw_ostream << toJSON(topk_backend_config);

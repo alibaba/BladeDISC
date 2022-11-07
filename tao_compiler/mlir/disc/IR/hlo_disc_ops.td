@@ -40,7 +40,7 @@ class HLODISC_ShapedInterfaceOp<string mnemonic, list<Trait> traits> :
     ["reifyReturnTypeShapes"]>]> {
 }
 
-def HLODISC_H2DOp: HLODISC_ShapedInterfaceOp<"h2d", [NoSideEffect, SameOperandsAndResultType]> {
+def HLODISC_H2DOp: HLODISC_ShapedInterfaceOp<"h2d", [Pure, SameOperandsAndResultType]> {
   let summary = "H2D operator";
   let description = [{
     Copy `operand` from host to device.
@@ -49,7 +49,7 @@ def HLODISC_H2DOp: HLODISC_ShapedInterfaceOp<"h2d", [NoSideEffect, SameOperandsA
   let results = (outs HLO_Tensor);
 }
 
-def HLODISC_D2HOp: HLODISC_ShapedInterfaceOp<"d2h", [NoSideEffect, SameOperandsAndResultType]> {
+def HLODISC_D2HOp: HLODISC_ShapedInterfaceOp<"d2h", [Pure, SameOperandsAndResultType]> {
   let summary = "D2H operator";
   let description = [{
     Copy `operand` from device to host.
@@ -118,7 +118,7 @@ def HLODISC_CustomCallV2Op: HLODISC_Op<"custom_call_v2", []> {
   let results = (outs Variadic<HLO_TensorOrIndexTensor>);
 }
 
-def HLO_FakeQuantOp: HLODISC_Op<"fake_quant", [NoSideEffect]> {
+def HLO_FakeQuantOp: HLODISC_Op<"fake_quant", [Pure]> {
   let summary = "FakeQuant operator";
   let description = [{
     An fake quant op is logically equal to a quant op + a dequant op.
@@ -139,7 +139,7 @@ def HLO_FakeQuantOp: HLODISC_Op<"fake_quant", [NoSideEffect]> {
   let results = (outs HLO_FpTensor:$result);
 }
 
-def HLO_QuantizeOp: HLODISC_Op<"quantize", [NoSideEffect]> {
+def HLO_QuantizeOp: HLODISC_Op<"quantize", [Pure]> {
   let summary = "Quantize operator";
   let description = [{
     Quantize a float tensor to int tensor.
@@ -158,7 +158,7 @@ def HLO_QuantizeOp: HLODISC_Op<"quantize", [NoSideEffect]> {
   let results = (outs HLO_IntTensor:$result);
 }
 
-def HLO_DequantizeOp: HLODISC_Op<"dequantize", [NoSideEffect]> {
+def HLO_DequantizeOp: HLODISC_Op<"dequantize", [Pure]> {
   let summary = "Dequantize operator";
   let description = [{
     Dequantize a int tensor to float tensor.
@@ -175,7 +175,7 @@ def HLO_DequantizeOp: HLODISC_Op<"dequantize", [NoSideEffect]> {
   let results = (outs HLO_FpTensor:$result);
 }
 
-def HLO_QuantizedDotGeneralOp: HLODISC_ShapedInterfaceOp<"quantized_dot_general", [NoSideEffect]> {
+def HLO_QuantizedDotGeneralOp: HLODISC_ShapedInterfaceOp<"quantized_dot_general", [Pure]> {
   let summary = "quantized version of dot gerneal operator";
   let description = [{
     Compute the dot product using result quantized inputs.
@@ -197,7 +197,7 @@ def HLO_QuantizedDotGeneralOp: HLODISC_ShapedInterfaceOp<"quantized_dot_general"
   let results = (outs HLO_Tensor:$result);
 }
 
-def HLO_QuantizedDynamicConvOp: HLODISC_ShapedInterfaceOp<"quantized_dynamic_conv", [NoSideEffect]> {
+def HLO_QuantizedDynamicConvOp: HLODISC_ShapedInterfaceOp<"quantized_dynamic_conv", [Pure]> {
   let summary = "quantized version of dynamic_conv operator";
   let description = [{
     Compute the convolution result using quantized inputs.
@@ -232,7 +232,7 @@ def HLO_QuantizedDynamicConvOp: HLODISC_ShapedInterfaceOp<"quantized_dynamic_con
   let results = (outs HLO_Tensor:$result);
 }
 
-def HLO_SparseReshapeOp : HLODISC_ShapedInterfaceOp<"sparse_reshape", [NoSideEffect]> {
+def HLO_SparseReshapeOp : HLODISC_ShapedInterfaceOp<"sparse_reshape", [Pure]> {
   let summary = "One-to-one mapping of TF_SparseReshapeOp";
   let description = [{
     See tf's sparse_reshape operator.
@@ -252,7 +252,7 @@ def HLO_SparseReshapeOp : HLODISC_ShapedInterfaceOp<"sparse_reshape", [NoSideEff
 // possible types for SparseFillEmptyRows:
 // Supported integral types: int64/int32/uint16/int16/uint8/int8
 // Supported float types: half/bfloat16/float/double
-def HLO_SparseFillEmptyRowsOp : HLODISC_ShapedInterfaceOp<"sparse_fill_empty_rows", [NoSideEffect]> {
+def HLO_SparseFillEmptyRowsOp : HLODISC_ShapedInterfaceOp<"sparse_fill_empty_rows", [Pure]> {
   let summary = "One-to-one mapping of TF_SparseFillEmptyRowsOp";
   let description = [{
     See tf's sparse_fill_empty_rows operator.
@@ -273,7 +273,7 @@ def HLO_SparseFillEmptyRowsOp : HLODISC_ShapedInterfaceOp<"sparse_fill_empty_row
   );
 }
 
-def HLO_SparseSegmentMeanOp : HLODISC_ShapedInterfaceOp<"sparse_segment_mean", [NoSideEffect]> {
+def HLO_SparseSegmentMeanOp : HLODISC_ShapedInterfaceOp<"sparse_segment_mean", [Pure]> {
   let summary = "One-to-one mapping of TF_SparseSegmentMeanOp";
   let description = [{
     See tf's sparse_segment_mean operator.
@@ -289,7 +289,7 @@ def HLO_SparseSegmentMeanOp : HLODISC_ShapedInterfaceOp<"sparse_segment_mean", [
   );
 }
 
-def HLO_WhereOp : HLODISC_ShapedInterfaceOp<"where", [NoSideEffect]> {
+def HLO_WhereOp : HLODISC_ShapedInterfaceOp<"where", [Pure]> {
   let summary = "One-to-one mapping of TF_WhereOp";
   let description = [{
     See tf's where operator.

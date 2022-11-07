@@ -1,0 +1,13 @@
+diff --git a/lib/Dialect/mhlo/IR/hlo_ops.cc b/lib/Dialect/mhlo/IR/hlo_ops.cc
+index feb575f0..923b53e1 100644
+--- a/lib/Dialect/mhlo/IR/hlo_ops.cc
++++ b/lib/Dialect/mhlo/IR/hlo_ops.cc
+@@ -1784,7 +1784,7 @@ LogicalResult simplifyDynamicGatherToGather(DynamicGatherOp op,
+ 
+ void DynamicGatherOp::getCanonicalizationPatterns(RewritePatternSet& result,
+                                                   MLIRContext* context) {
+-  result.add(simplifyDynamicGatherToGather);
++  // result.add(simplifyDynamicGatherToGather);
+ }
+ 
+ LogicalResult DynamicGatherOp::reifyReturnTypeShapes(

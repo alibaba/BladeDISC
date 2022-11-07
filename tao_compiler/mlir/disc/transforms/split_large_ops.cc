@@ -69,20 +69,20 @@ struct ConvertConcatOp : public OpRewritePattern<mhlo::ConcatenateOp> {
     auto rank = result_tp.getRank();
     SmallVector<int64_t, 4> sub_result_shape(rank, ShapedType::kDynamicSize);
     for (int64_t i = 0; i < rank; i++) {
-      if (i != op.dimension()) {
+      if (i != op.getDimension()) {
         sub_result_shape[i] = result_tp.getDimSize(i);
       }
     }
     auto sub_result_tp =
         RankedTensorType::get(sub_result_shape, result_tp.getElementType());
     Value lhs = rewriter.create<mhlo::ConcatenateOp>(
-        loc, sub_result_tp, lhs_operands, op.dimension());
+        loc, sub_result_tp, lhs_operands, op.getDimension());
     Value rhs = rewriter.create<mhlo::ConcatenateOp>(
-        loc, sub_result_tp, rhs_operands, op.dimension());
+        loc, sub_result_tp, rhs_operands, op.getDimension());
 
     SmallVector<Value, 2> fused_operands{lhs, rhs};
     auto fused_op = rewriter.create<mhlo::ConcatenateOp>(
-        loc, result_tp, fused_operands, op.dimension());
+        loc, result_tp, fused_operands, op.getDimension());
 
     rewriter.replaceOp(op, fused_op.getOperation()->getResults());
     return success();

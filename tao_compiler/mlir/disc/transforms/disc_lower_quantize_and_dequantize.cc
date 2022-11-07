@@ -38,36 +38,36 @@ struct QuantizeOpConverter : public OpRewritePattern<mhlo_disc::QuantizeOp> {
 
   LogicalResult matchAndRewrite(mhlo_disc::QuantizeOp op,
                                 PatternRewriter& rewriter) const override {
-    if (op.use_dynamic())
+    if (op.getUseDynamic())
       return rewriter.notifyMatchFailure(op,
                                          "Not support dynamic quantize a.t.m.");
 
-    auto inputTy = op.input().getType().cast<RankedTensorType>();
+    auto inputTy = op.getInput().getType().cast<RankedTensorType>();
     if (!inputTy.getElementType().isF32())
       return rewriter.notifyMatchFailure(
           op, "Only support quantize f32 input a.t.m.");
 
     Location loc = op.getLoc();
-    Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, op.input());
+    Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, op.getInput());
     Value bcastedScale = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
-        loc, inputTy, op.scale(), inputShape, op.axis());
-    auto zeroPointTy = op.zero_point().getType().cast<RankedTensorType>();
+        loc, inputTy, op.getScale(), inputShape, op.getAxis());
+    auto zeroPointTy = op.getZeroPoint().getType().cast<RankedTensorType>();
     auto castedZeroPointTy =
         RankedTensorType::get(zeroPointTy.getShape(), inputTy.getElementType(),
                               zeroPointTy.getEncoding());
     Value castedZeroPoint = rewriter.create<mhlo::ConvertOp>(
-        loc, castedZeroPointTy, op.zero_point());
+        loc, castedZeroPointTy, op.getZeroPoint());
     Value bcastedZeroPoint = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
-        loc, inputTy, castedZeroPoint, inputShape, op.axis());
+        loc, inputTy, castedZeroPoint, inputShape, op.getAxis());
     auto quantMinMaxTy = RankedTensorType::get({}, inputTy.getElementType());
     Value quantMin = rewriter.create<mhlo::ConstantOp>(
         loc, DenseElementsAttr::get(
                  quantMinMaxTy,
-                 static_cast<float>(static_cast<int64_t>(op.quant_min()))));
+                 static_cast<float>(static_cast<int64_t>(op.getQuantMin()))));
     Value quantMax = rewriter.create<mhlo::ConstantOp>(
         loc, DenseElementsAttr::get(
                  quantMinMaxTy,
-                 static_cast<float>(static_cast<int64_t>(op.quant_max()))));
+                 static_cast<float>(static_cast<int64_t>(op.getQuantMax()))));
     // quantMin/Max should always be scalar.
     Value bcastedQuantMin = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
         loc, inputTy, quantMin, inputShape, rewriter.getI64TensorAttr({}));
@@ -76,12 +76,12 @@ struct QuantizeOpConverter : public OpRewritePattern<mhlo_disc::QuantizeOp> {
 
     // output = clip(round(\frac{input}{scale} + zero\_point), quant\_min,
     // quant\_max)
-    Value t0 = rewriter.create<mhlo::DivOp>(loc, op.input(), bcastedScale);
+    Value t0 = rewriter.create<mhlo::DivOp>(loc, op.getInput(), bcastedScale);
     Value t1 = rewriter.create<mhlo::AddOp>(loc, t0, bcastedZeroPoint);
     Value t2;
-    if (op.round_mode() == mlir::mhlo_disc::RoundModeEnum::RoundHalfToEven) {
+    if (op.getRoundMode() == mlir::mhlo_disc::RoundModeEnum::RoundHalfToEven) {
       t2 = rewriter.create<mhlo::RoundNearestEvenOp>(loc, t1);
-    } else if (op.round_mode() ==
+    } else if (op.getRoundMode() ==
                mlir::mhlo_disc::RoundModeEnum::RoundHalfAwayFromZero) {
       t2 = rewriter.create<mhlo::RoundOp>(loc, t1);
     } else {
@@ -102,30 +102,31 @@ struct DequantizeOpConverter
 
   LogicalResult matchAndRewrite(mhlo_disc::DequantizeOp op,
                                 PatternRewriter& rewriter) const override {
-    if (op.use_dynamic())
+    if (op.getUseDynamic())
       return rewriter.notifyMatchFailure(
           op, "Not support dynamic dequantize a.t.m.");
 
     auto outTy = op.getType().cast<RankedTensorType>();
-    auto scaleTy = op.scale().getType().cast<RankedTensorType>();
+    auto scaleTy = op.getScale().getType().cast<RankedTensorType>();
     if (outTy.getElementType() != scaleTy.getElementType() ||
         !outTy.getElementType().isF32())
       return rewriter.notifyMatchFailure(
           op, "Only support dequantize to f32 a.t.m.");
 
     Location loc = op.getLoc();
-    auto inputTy = op.input().getType().cast<RankedTensorType>();
-    Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, op.input());
+    auto inputTy = op.getInput().getType().cast<RankedTensorType>();
+    Value inputShape = rewriter.create<shape::ShapeOfOp>(loc, op.getInput());
     Value bcastedScale = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
-        loc, outTy, op.scale(), inputShape, op.axis());
-    auto zeroPointTy = op.zero_point().getType().cast<RankedTensorType>();
+        loc, outTy, op.getScale(), inputShape, op.getAxis());
+    auto zeroPointTy = op.getZeroPoint().getType().cast<RankedTensorType>();
     auto bcastedInputOrZeroPointTy =
         RankedTensorType::get(inputTy.getShape(), zeroPointTy.getElementType(),
                               zeroPointTy.getEncoding());
     Value bcastedZeroPoint = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
-        loc, bcastedInputOrZeroPointTy, op.zero_point(), inputShape, op.axis());
+        loc, bcastedInputOrZeroPointTy, op.getZeroPoint(), inputShape,
+        op.getAxis());
     Value castedInput = rewriter.create<mhlo::ConvertOp>(
-        loc, bcastedInputOrZeroPointTy, op.input());
+        loc, bcastedInputOrZeroPointTy, op.getInput());
 
     // output = (input - zero\_point) \times scale
     Value t0 =

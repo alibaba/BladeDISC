@@ -20,7 +20,7 @@ limitations under the License.
 // input tensor such that we can pass it to cuDNN.
 
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"  // TF:llvm-project
 #include "mlir/IR/Attributes.h"             // TF:llvm-project
 #include "mlir/IR/Builders.h"               // TF:llvm-project
@@ -133,7 +133,7 @@ struct DiscGpuConvPaddingLegalizationPass
     SmallVector<Value, 4> padding_low(rank, zero);
     SmallVector<Value, 4> padding_high(rank, zero);
     SmallVector<Value, 4> padding_interior(rank, zero);
-    auto dimension_numbers = op.dimension_numbers();
+    auto dimension_numbers = op.getDimensionNumbers();
     for (const auto& en :
          llvm::enumerate(dimension_numbers.getInputSpatialDimensions())) {
       padding_low[en.value()] = other_padding_low[en.index()];
@@ -167,9 +167,9 @@ struct DiscGpuConvPaddingLegalizationPass
   }
 
   void RewriteOp(mhlo::DynamicConvOp op) {
-    input = op.lhs();
-    filter = op.rhs();
-    padding = op.d_padding();
+    input = op.getLhs();
+    filter = op.getRhs();
+    padding = op.getDPadding();
     output = op.getResult();
 
     input_tp = input.getType().dyn_cast<RankedTensorType>();

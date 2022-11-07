@@ -142,12 +142,12 @@ func.func @naive_reduce(%operand: memref<?x?x?xf32>, %init_value: memref<f32>, %
 // CHECK:    "lmhlo.fusion"() ({
 // CHECK-NOT "lmhlo.reduce"
 // CHECK:      scf.parallel (%arg6, %arg7) = (%c0, %c0) to (%c2048, %c256) step (%c1, %c1)
-// CHECK:        %8:2 = scf.for %arg8 = %arg7 to %c768 step %c256 iter_args(%arg9 = %4, %arg10 = %6) -> (f32, f64) {
-// CHECK:          %75 = memref.load %arg0[%arg6, %arg8] : memref<2048x768xf32>
-// CHECK:          %76 = arith.addf %arg9, %75 : f32
-// CHECK:          %77 = memref.load %arg3[%arg6, %arg8] : memref<2048x768xf64>
-// CHECK:          %78 = arith.addf %arg10, %77 : f64
-// CHECK:          scf.yield %76, %78 : f32, f64
+// CHECK:        %[[T0:.*]]:2 = scf.for %arg8 = %arg7 to %c768 step %c256 iter_args(%arg9 = %4, %arg10 = %5) -> (f32, f64) {
+// CHECK:          %[[T1:.*]] = memref.load %arg0[%arg6, %arg8] : memref<2048x768xf32>
+// CHECK:          %[[T2:.*]] = arith.addf %arg9, %[[T1]] : f32
+// CHECK:          %[[T3:.*]] = memref.load %arg3[%arg6, %arg8] : memref<2048x768xf64>
+// CHECK:          %[[T4:.*]] = arith.addf %arg10, %[[T3]] : f64
+// CHECK:          scf.yield %[[T2]], %[[T4]] : f32, f64
 func.func @multi_row_reduce(%arg_f32: memref<2048x768xf32>, %init_f32: memref<f32>, %out_f32: memref<2048xf32>, %arg_f64: memref<2048x768xf64>, %init_f64: memref<f64>, %out_f64: memref<2048xf64>) -> (memref<2048xf32>, memref<2048xf64>) {
   "lmhlo.fusion"() ({
     "lmhlo.reduce"(%arg_f32, %init_f32, %out_f32) ({

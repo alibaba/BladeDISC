@@ -23,7 +23,7 @@
 
 #include <map>
 
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/GPU/Transforms/Utils.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
@@ -322,10 +322,10 @@ gpu::LaunchFuncOp expandMemRef(gpu::LaunchFuncOp launch_func_op, Value memref,
 
   // clone the Ops in the body of the gpu.FuncOp
   BlockAndValueMapping map;
-  Region& new_gpu_func_body = new_gpu_func_op.body();
+  Region& new_gpu_func_body = new_gpu_func_op.getBody();
   Block& new_gpu_func_entry_block = new_gpu_func_body.front();
   for (auto operand :
-       llvm::enumerate(gpu_func_op.body().front().getArguments())) {
+       llvm::enumerate(gpu_func_op.getBody().front().getArguments())) {
     if (operand.index() == memref_idx) {
       continue;
     } else if (operand.index() < memref_idx) {
@@ -337,17 +337,17 @@ gpu::LaunchFuncOp expandMemRef(gpu::LaunchFuncOp launch_func_op, Value memref,
     }
   }
   // memref of the entry block
-  auto memref_arg = gpu_func_op.body().front().getArgument(memref_idx);
-  Block& new_entry_block = new_gpu_func_op.body().front();
-  cloneRegionAndRemapLoad(&gpu_func_op.body(), &new_gpu_func_op.body(), map,
-                          memref_idx, memref_arg, new_entry_block, true);
+  auto memref_arg = gpu_func_op.getBody().front().getArgument(memref_idx);
+  Block& new_entry_block = new_gpu_func_op.getBody().front();
+  cloneRegionAndRemapLoad(&gpu_func_op.getBody(), &new_gpu_func_op.getBody(),
+                          map, memref_idx, memref_arg, new_entry_block, true);
 
   // update the FunctionType of the gpu.Launchfunc inside the module
   b.setInsertionPoint(launch_func_op);
   auto new_launch_func_op = b.create<gpu::LaunchFuncOp>(
       loc, new_gpu_func_op, launch_func_op.getGridSizeOperandValues(),
       launch_func_op.getBlockSizeOperandValues(),
-      launch_func_op.dynamicSharedMemorySize(), new_operands);
+      launch_func_op.getDynamicSharedMemorySize(), new_operands);
 
   launch_func_op.erase();
   gpu_func_op.erase();
@@ -397,7 +397,7 @@ class ReviseGpuKernelOutliningPass
         if (memref.index() < gpu::LaunchOp::kNumConfigOperands) {
           continue;
         }
-        auto arg_memref = gpu_func_op.body().front().getArgument(
+        auto arg_memref = gpu_func_op.getBody().front().getArgument(
             memref.index() - gpu::LaunchOp::kNumConfigOperands);
         if (arg_memref.getType().isa<MemRefType>() &&
             (!placement_utils::isGpuMemRef(arg_memref))) {

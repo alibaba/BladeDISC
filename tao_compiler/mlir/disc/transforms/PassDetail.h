@@ -50,6 +50,10 @@ namespace mhlo {
 class MhloDialect;
 }
 
+namespace arith {
+class ArithDialect;
+}
+
 namespace disc_ral {
 
 #define GEN_PASS_CLASSES

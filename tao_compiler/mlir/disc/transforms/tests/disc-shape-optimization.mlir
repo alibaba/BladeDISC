@@ -92,7 +92,8 @@ func.func @main(%arg0 : tensor<?xf32>, %arg1 : tensor<?xf32>, %arg2 : tensor<?xf
 // CHECK-LABEL: main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<i1>, %[[ARG1:.*]]: tensor<?xf32, [@[[S0:.*]]]>, %[[ARG2:.*]]: tensor<?xf32, [@[[S0]]]>) -> tensor<?xf32, [@[[S0]]]>
 func.func @main(%arg0: tensor<i1>, %arg1: tensor<?xf32>, %arg2: tensor<?xf32>) -> tensor<?xf32> {
-  // CHECK: %[[T0:.*]] = "mhlo.select"(%[[ARG0]], %[[ARG1]], %[[ARG2]])
+  // CHECK: %[[T0:.*]] = mhlo.select
+  // CHECK-SAME: %[[ARG0]], %[[ARG1]], %[[ARG2]]
   // CHECK: return %[[T0]] : tensor<?xf32, [@[[S0]]]>
   %0 = "mhlo.select"(%arg0, %arg1, %arg2)  : (tensor<i1>, tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>
   func.return %0 : tensor<?xf32>
@@ -104,7 +105,8 @@ func.func @main(%arg0: tensor<i1>, %arg1: tensor<?xf32>, %arg2: tensor<?xf32>) -
 // CHECK-LABEL: main
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<?xi1, [@[[S0:.*]]]>, %[[ARG1:.*]]: tensor<?xf32, [@[[S0]]]>, %[[ARG2:.*]]: tensor<?xf32, [@[[S0]]]>) -> tensor<?xf32, [@[[S0]]]>
 func.func @main(%arg0: tensor<?xi1>, %arg1: tensor<?xf32>, %arg2: tensor<?xf32>) -> tensor<?xf32> {
-  // CHECK: %[[T0:.*]] = "mhlo.select"(%[[ARG0]], %[[ARG1]], %[[ARG2]])
+  // CHECK: %[[T0:.*]] = mhlo.select
+  // CHECK-SAME: %[[ARG0]], %[[ARG1]], %[[ARG2]]
   // CHECK: return %[[T0]] : tensor<?xf32, [@[[S0]]]>
   %0 = "mhlo.select"(%arg0, %arg1, %arg2)  : (tensor<?xi1>, tensor<?xf32>, tensor<?xf32>) -> tensor<?xf32>
   func.return %0 : tensor<?xf32>

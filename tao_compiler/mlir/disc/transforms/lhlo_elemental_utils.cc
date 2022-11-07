@@ -22,7 +22,7 @@ limitations under the License.
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "mlir-hlo/Dialect/mhlo/transforms/map_mhlo_to_scalar_op.h"
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
@@ -1168,11 +1168,15 @@ Value elementalLower<lmhlo::ClampOp>(OpBuilder* b, Location loc,
   Value lb_clipped =
       mhlo::impl::mapMhloOpToStdScalarOp<lmhlo::LhloToHloOp<lmhlo::MaxOp>>(
           loc, ArrayRef<Type>{elem_ty}, ArrayRef<Type>{elem_ty, elem_ty},
-          ArrayRef<Value>{operand, min}, b);
+          mhlo::MaxOp::Adaptor(ArrayRef<Value>{operand, min},
+                               op->getAttrDictionary()),
+          b);
   Value result =
       mhlo::impl::mapMhloOpToStdScalarOp<lmhlo::LhloToHloOp<lmhlo::MinOp>>(
           loc, ArrayRef<Type>{elem_ty}, ArrayRef<Type>{elem_ty, elem_ty},
-          ArrayRef<Value>{lb_clipped, max}, b);
+          mhlo::MinOp::Adaptor(ArrayRef<Value>{lb_clipped, max},
+                               op->getAttrDictionary()),
+          b);
   mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
   return result;
 }
@@ -1226,7 +1230,7 @@ memref::ReinterpretCastOp createMemRef1DReinterpretCast(OpBuilder& b,
     }
   }
   if (alignment) {
-    b.create<memref::AssumeAlignmentOp>(loc, cast, alignment.alignment());
+    b.create<memref::AssumeAlignmentOp>(loc, cast, alignment.getAlignment());
   }
 
   return cast;

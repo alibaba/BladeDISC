@@ -44,7 +44,8 @@ struct ReinterpretCastOpConverter : public OpRewritePattern<ReinterpretCastOp> {
 LogicalResult ReinterpretCastOpConverter::matchAndRewrite(
     ReinterpretCastOp op, PatternRewriter& rewriter) const {
   Location loc = op.getLoc();
-  auto alloc = dyn_cast_or_null<memref::AllocOp>(op.source().getDefiningOp());
+  auto alloc =
+      dyn_cast_or_null<memref::AllocOp>(op.getSource().getDefiningOp());
   if (!alloc) return failure();
 
   auto allocTy = alloc.getResult().getType().cast<MemRefType>();

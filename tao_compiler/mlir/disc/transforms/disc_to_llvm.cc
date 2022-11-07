@@ -13,14 +13,14 @@
 
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FormatVariadic.h"
-#include "mlir/Conversion/ArithmeticToLLVM/ArithmeticToLLVM.h"
+#include "mlir/Conversion/ArithToLLVM/ArithToLLVM.h"
 #include "mlir/Conversion/ControlFlowToLLVM/ControlFlowToLLVM.h"
 #include "mlir/Conversion/FuncToLLVM/ConvertFuncToLLVM.h"
 #include "mlir/Conversion/GPUCommon/GPUCommonPass.h"
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
-#include "mlir/Dialect/Arithmetic/Transforms/Passes.h"
+#include "mlir/Dialect/Arith/Transforms/Passes.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
@@ -484,7 +484,7 @@ Value ConvertLaunchFuncOpToRalCallPattern::generateParamsArray(
 LogicalResult ConvertLaunchFuncOpToRalCallPattern::matchAndRewrite(
     gpu::LaunchFuncOp launch_op, OpAdaptor adaptor,
     ConversionPatternRewriter& rewriter) const {
-  if (!launch_op.asyncDependencies().empty() || launch_op.asyncToken()) {
+  if (!launch_op.getAsyncDependencies().empty() || launch_op.getAsyncToken()) {
     return rewriter.notifyMatchFailure(
         launch_op, "Cannot convert with async dependency or result.");
   }
@@ -594,8 +594,8 @@ LogicalResult ConvertLaunchFuncOpToRalCallPattern::matchAndRewrite(
       module_blobs_array_ptr, /* fatbin strings */
       num_blobs, /* number of fatbin strings */
       kernel_name_global, /* name of the kernel to launch */
-      adaptor.gridSizeX(), adaptor.gridSizeY(), adaptor.gridSizeZ(),
-      adaptor.blockSizeX(), adaptor.blockSizeY(), adaptor.blockSizeZ(),
+      adaptor.getGridSizeX(), adaptor.getGridSizeY(), adaptor.getGridSizeZ(),
+      adaptor.getBlockSizeX(), adaptor.getBlockSizeY(), adaptor.getBlockSizeZ(),
       zero, /* sharedMemBytes */
       stream_idx, /* gpu stream index */
       num_arg_value, /* num_args */
@@ -737,7 +737,7 @@ LogicalResult ConvertMemRefDeallocOpToDispatchOpPattern::matchAndRewrite(
   Location loc = op->getLoc();
 
   StringRef device =
-      (placement_utils::isGpuMemRef(dealloc_op.memref())) ? "gpu" : "cpu";
+      (placement_utils::isGpuMemRef(dealloc_op.getMemref())) ? "gpu" : "cpu";
 
   // get ral context
   LLVMFuncOp parent_func = dealloc_op->getParentOfType<LLVMFuncOp>();
@@ -745,7 +745,7 @@ LogicalResult ConvertMemRefDeallocOpToDispatchOpPattern::matchAndRewrite(
   Value context_arg = parent_func.getArgument(0);
 
   // create dispatch op
-  MemRefDescriptor memref(adaptor.memref());
+  MemRefDescriptor memref(adaptor.getMemref());
   Value allocated_bytes_ptr = rewriter.create<LLVM::BitcastOp>(
       loc, getVoidPtrType(), memref.allocatedPtr(rewriter, loc));
 
@@ -1026,9 +1026,9 @@ class DiscToLLVMPass : public DiscToLLVMPassBase<DiscToLLVMPass> {
 
     // Populate patterns.
     RewritePatternSet patterns(&getContext());
-    mlir::arith::populateArithmeticToLLVMConversionPatterns(type_converter,
-                                                            patterns);
-    arith::populateArithmeticExpandOpsPatterns(patterns);
+    mlir::arith::populateArithToLLVMConversionPatterns(type_converter,
+                                                       patterns);
+    arith::populateArithExpandOpsPatterns(patterns);
     populateMemRefToLLVMConversionPatterns(type_converter, patterns);
     populateMathToLLVMConversionPatterns(type_converter, patterns);
     populateFuncToLLVMConversionPatterns(type_converter, patterns);
@@ -1039,7 +1039,7 @@ class DiscToLLVMPass : public DiscToLLVMPassBase<DiscToLLVMPass> {
     // Set target.
     ConversionTarget target(*ctx);
     target.addLegalDialect<LLVM::LLVMDialect>();
-    target.addIllegalDialect<arith::ArithmeticDialect, gpu::GPUDialect,
+    target.addIllegalDialect<arith::ArithDialect, gpu::GPUDialect,
                              disc_ral::RalDialect, math::MathDialect>();
     // Mark modules as legal.
     target.addLegalOp<ModuleOp, gpu::GPUModuleOp>();

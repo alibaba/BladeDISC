@@ -16,7 +16,7 @@
 #include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 
-#include "mlir/Dialect/Arithmetic/IR/Arithmetic.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/Math/IR/Math.h"
@@ -106,7 +106,7 @@ class ApplyValueSemanticsPass
     target.addLegalDialect<
         Torch::TorchDialect,
         func::FuncDialect,
-        arith::ArithmeticDialect,
+        arith::ArithDialect,
         tensor::TensorDialect,
         cf::ControlFlowDialect,
         math::MathDialect>();

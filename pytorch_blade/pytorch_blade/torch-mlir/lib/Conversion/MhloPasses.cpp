@@ -16,10 +16,10 @@
 #include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/Passes.h"
 
-namespace {
+namespace impl {
 #define GEN_PASS_REGISTRATION
 #include "torch-mlir/Conversion/MhloPasses.h.inc"
-} // end namespace
+} // end namespace impl
 
 using namespace mlir;
 using namespace mlir::torch;
@@ -27,7 +27,7 @@ using namespace mlir::torch::Torch;
 using namespace mlir::torch::TorchConversion;
 
 void ::mlir::torch::registerTorchToMhloPasses() {
-  ::registerPasses();
+  ::impl::registerPasses();
   ::mlir::PassPipelineRegistration<Torch::TorchLoweringPipelineOptions>(
       "torch-backend-to-mhlo-backend-pipeline",
       "Pipeline lowering torch backend contract to mhlo backend "

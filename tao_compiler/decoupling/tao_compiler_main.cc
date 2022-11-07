@@ -138,8 +138,9 @@ Status RealMain(int argc, char** argv) {
   }
 
   DeviceType device_type(input.options().device_type());
-  auto* compiler_wrapper =
-      CompilerBase::GetCompilerForDevice(device_type).ValueOrDie();
+  auto status_or = CompilerBase::GetCompilerForDevice(device_type);
+  if (!status_or.ok()) return status_or.status();
+  auto* compiler_wrapper = status_or.value();
   TF_RETURN_IF_ERROR(compiler_wrapper->Compile(input, output_fn));
   tao::TaoCompilerTrace::Instance()->Shutdown();
   return Status::OK();
@@ -148,10 +149,10 @@ Status RealMain(int argc, char** argv) {
 }  // namespace tensorflow
 
 int main(int argc, char** argv) {
-  std::vector<tensorflow::Flag> flag_list;
+  std::vector<tsl::Flag> flag_list;
   xla::AppendDebugOptionsFlags(&flag_list);
-  std::string usage = tensorflow::Flags::Usage(argv[0], flag_list);
-  if (!tensorflow::Flags::Parse(&argc, argv, flag_list)) {
+  std::string usage = tsl::Flags::Usage(argv[0], flag_list);
+  if (!tsl::Flags::Parse(&argc, argv, flag_list)) {
     LOG(ERROR) << "\n" << usage;
     return -1;
   }

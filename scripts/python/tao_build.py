@@ -399,6 +399,9 @@ def test_tao_compiler(root, args):
     TARGET_DISC_PDLL_TESTS = [
         "//tensorflow/compiler/mlir/disc/tools/disc-pdll/tests/..."
     ]
+    TARGET_DISC_PDLL_TESTS = [
+        "//tensorflow/compiler/mlir/disc/tools/disc-source-emitter/tests/..."
+    ]
 
     TARGET_DISC_REPLAY_TEST = "//tensorflow/compiler/mlir/disc/tools/disc-replay:disc-replay-test"
 

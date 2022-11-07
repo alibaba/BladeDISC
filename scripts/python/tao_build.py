@@ -399,7 +399,7 @@ def test_tao_compiler(root, args):
     TARGET_DISC_PDLL_TESTS = [
         "//tensorflow/compiler/mlir/disc/tools/disc-pdll/tests/..."
     ]
-    TARGET_DISC_PDLL_TESTS = [
+    TARGET_DISC_CUDA_SOURCE_TESTS = [
         "//tensorflow/compiler/mlir/disc/tools/disc-source-emitter/tests/..."
     ]
 
@@ -438,7 +438,8 @@ def test_tao_compiler(root, args):
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
             ] + TARGET_DISC_RAL_TESTS \
-              + TARGET_DISC_PDLL_TESTS
+              + TARGET_DISC_PDLL_TESTS \
+              + TARGET_DISC_CUDA_SOURCE_TESTS
             MLIR_TESTS = " ".join(mlir_test_list)
             bazel_test(MLIR_TESTS, flag=flag)
         else:
@@ -463,7 +464,8 @@ def test_tao_compiler(root, args):
                 TARGET_DISC_E2E_TEST,
                 TARGET_DISC_REPLAY_TEST,
             ] + TARGET_DISC_RAL_TESTS \
-              + TARGET_DISC_PDLL_TESTS
+              + TARGET_DISC_PDLL_TESTS \
+              + TARGET_DISC_CUDA_SOURCE_TESTS
             MLIR_TESTS = " ".join(mlir_tests_list)
             bazel_test(MLIR_TESTS, flag=flag)
             flag += " --action_env=BRIDGE_ENABLE_TAO=true "

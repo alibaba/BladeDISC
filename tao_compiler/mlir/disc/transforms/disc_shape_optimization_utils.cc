@@ -325,6 +325,14 @@ LogicalResult SymbolicDimMgr::mapSymbolicDimProductEqual(
   if (newLhs.factor == newRhs.factor && newLhs.symbols.size() == 1 &&
       newRhs.symbols.size() == 1) {
     return mapSymbolicDimEqual(newLhs.symbols[0], newRhs.symbols[0]);
+  } else if (newLhs.symbols.size() == 0 && newRhs.symbols.size() == 1 &&
+             newRhs.factor == 1) {
+    return mapSymbolicDimEqual(newConstantSymbolicDim(newLhs.factor),
+                               newRhs.symbols[0]);
+  } else if (newRhs.symbols.size() == 0 && newLhs.symbols.size() == 1 &&
+             newLhs.factor == 1) {
+    return mapSymbolicDimEqual(newConstantSymbolicDim(newRhs.factor),
+                               newLhs.symbols[0]);
   }
 
   productEqualityMap_[newLhs][newRhs] = productEqualityMap_[newRhs][newLhs] =

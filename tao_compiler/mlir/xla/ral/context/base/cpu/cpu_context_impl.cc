@@ -161,6 +161,14 @@ void ral_base_cpu_dealloc(ExecutionContext* ctx, buffer_t buffer) {
   auto exec_ctx = dynamic_cast<BaseCpuExecutionContext*>(ctx);
 
   std::lock_guard<std::mutex> lock(state->mu);
+
+  // ignore persistent buffer.
+  if (state->host_persistent_buffers.count(buffer)) {
+    TAO_VLOG(1) << "ral_base_cpu_dealloc: ignore persistent buffer = "
+                << buffer;
+    return;
+  }
+
   TAO_VLOG(1) << "before ral_base_cpu_dealloc with ptr = " << buffer;
   auto it = exec_ctx->host_ptr_map.find(buffer);
   if (it != exec_ctx->host_ptr_map.end() && --it->second == 0) {

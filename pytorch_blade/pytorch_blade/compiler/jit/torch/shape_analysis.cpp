@@ -927,6 +927,7 @@ class ShapePropagator : public PropertyPropBase {
             "aten::relu(Tensor self) -> Tensor",
             "aten::relu_(Tensor self) -> Tensor",
             "aten::pow(Tensor self, Scalar exponent) -> Tensor",
+            "aten::zero(Tensor self) -> Tensor",
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
             "aten::gelu(Tensor self, *, str approximate='none') -> Tensor",
 #endif

@@ -180,6 +180,7 @@ ConvertTorchToMhlo(std::shared_ptr<torch::jit::Graph> graph) {
 
   mlir::OpPrintingFlags print_flags;
   print_flags.elideLargeElementsAttrs();
+  print_flags.enableDebugInfo();
 
   bool enable_printing =
       env::ReadBoolFromEnvVar("TORCH_BLADE_MHLO_DEBUG_LOG", false);

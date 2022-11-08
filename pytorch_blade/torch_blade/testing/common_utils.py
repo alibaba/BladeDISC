@@ -73,6 +73,10 @@ class TestCase(TorchTestCase):
 
     def tearDown(self):
         super().tearDown()
+        # needs to be cleared because python might be unloaded before
+        # the callback gets destroyed
+        # see:
+        # https://github.com/pytorch/pytorch/blob/eb49dde9cfb058bf2cd036f20f56f680145f3003/torch/testing/_internal/jit_utils.py#L151
         clear_class_registry()
 
     @staticmethod

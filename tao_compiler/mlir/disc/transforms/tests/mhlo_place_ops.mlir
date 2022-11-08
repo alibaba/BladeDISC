@@ -114,3 +114,73 @@ func.func @main(%input: tensor<?x?x?x?xi8>, %weight: tensor<?x?x?x?xi8>, %paddin
   return %out : tensor<?x?x?x?xi8>
 }
 
+// -----
+
+// Test 0 for mhlo_disc.custom_call_v2
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32>, %[[ARG1:.*]]: tensor<2xi32>)
+func.func @main(%arg0: tensor<?x?xf32>, %arg1: tensor<2xi32>) -> tensor<?x?xf32> attributes {tf.entry_function = {
+                                  input_placements = "cpu,gpu",
+                                  inputs = "input0,input1",
+                                  output_placements = "cpu", outputs = "output0"}} {
+  // CHECK: %[[T0:.*]] = "mhlo_disc.d2h"
+  // CHECK-SAME: %[[ARG1]]
+  // CHECK: %[[T1:.*]] = "mhlo_disc.d2h"
+  // CHECK-SAME: %[[ARG1]]
+  // CHECK: %[[T2:.*]] = mhlo.add
+  // CHECK-SAME: %[[T0]], %[[T1]]
+  // CHECK: %[[T3:.*]] = "mhlo_disc.h2d"(%[[ARG0]])
+  // CHECK: %[[T4:.*]] = "mhlo_disc.custom_call_v2"(%[[T3]], %[[T2]])
+  // CHECK-SAME: disc.device = "cpu"
+  // CHECK-NEXT: return
+  %0 = mhlo.add %arg1, %arg1 : tensor<2xi32>
+  %1 = "mhlo_disc.custom_call_v2"(%arg0, %0) {
+    call_target_name = "foo",
+    custom_attrs = {},
+    has_side_effect = false,
+    device = "h",
+    input_placements = "d,h",
+    output_placements = "h",
+    expected_input_layouts = "",
+    expected_output_layouts = "",
+    input_layouts = "",
+    output_layouts = ""
+  } : (tensor<?x?xf32>, tensor<2xi32>) -> tensor<?x?xf32>
+  return %1 : tensor<?x?xf32>
+}
+
+// -----
+
+// Test 1 for mhlo_disc.custom_call_v2
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: tensor<?x?xf32>, %[[ARG1:.*]]: tensor<2xi32>)
+func.func @main(%arg0: tensor<?x?xf32>, %arg1: tensor<2xi32>) -> tensor<?x?xf32> attributes {tf.entry_function = {
+                                  input_placements = "gpu,gpu",
+                                  inputs = "input0,input1",
+                                  output_placements = "gpu", outputs = "output0"}} {
+  // CHECK: %[[T0:.*]] = "mhlo_disc.d2h"
+  // CHECK-SAME: %[[ARG1]]
+  // CHECK: %[[T1:.*]] = "mhlo_disc.d2h"
+  // CHECK-SAME: %[[ARG1]]
+  // CHECK: %[[T2:.*]] = mhlo.add
+  // CHECK-SAME: %[[T0]], %[[T1]]
+  // CHECK: %[[T3:.*]] = "mhlo_disc.custom_call_v2"(%[[ARG0]], %[[T2]])
+  // CHECK-SAME: disc.device = "gpu"
+  // CHECK-NEXT: %[[T4:.*]] = "mhlo_disc.h2d"(%[[T3]])
+  // CHECK-NEXT: return %[[T4]]
+  %0 = mhlo.add %arg1, %arg1 : tensor<2xi32>
+  %1 = "mhlo_disc.custom_call_v2"(%arg0, %0) {
+    call_target_name = "foo",
+    custom_attrs = {},
+    has_side_effect = false,
+    device = "d",
+    input_placements = "d,h",
+    output_placements = "h",
+    expected_input_layouts = "",
+    expected_output_layouts = "",
+    input_layouts = "",
+    output_layouts = ""
+  } : (tensor<?x?xf32>, tensor<2xi32>) -> tensor<?x?xf32>
+  return %1 : tensor<?x?xf32>
+}
+

@@ -12,6 +12,7 @@
 #include "placement_utils.h"
 
 #include "llvm/ADT/StringMap.h"
+#include "llvm/Support/Debug.h"
 #include "mlir-hlo/Dialect/lhlo/transforms/map_hlo_to_lhlo_op.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
@@ -116,6 +117,17 @@ ShapeOperandList getShapeCalcOperandList(Operation* op) {
       return iter->second;
     }
     return {};
+  } else if (auto customCall = dyn_cast<mhlo_disc::CustomCallV2Op>(op)) {
+    ShapeOperandList results;
+    SmallVector<StringRef, 4> parsedItems;
+    customCall.getInputPlacements().split(parsedItems, ',', /*MaxSplit=*/-1,
+                                          /*KeepEmpty=*/false);
+    assert(parsedItems.empty() || parsedItems.size() == op->getNumOperands());
+    for (int i = 0; i < op->getNumOperands(); ++i) {
+      // "s" for "shape operand"
+      if (parsedItems[i] == "s") results.push_back(i);
+    }
+    return results;
   }
   return getShapeCalcOperandList(op->getRegisteredInfo()->getTypeID());
 }

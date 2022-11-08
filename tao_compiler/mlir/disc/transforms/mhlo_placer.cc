@@ -35,6 +35,17 @@ using placement_utils::PlacementType;
 namespace disc_ral {
 namespace {
 
+PlacementType toPlacementType(StringRef s, bool default_is_gpu = false) {
+  // h -> host (CPU)
+  // d -> device (e.g. GPU)
+  // x -> xpu (same as the default device. x will be CPU is default is CPU,
+  // otherwise is GPU) s -> shape operand, usually placed on CPU as well.
+  if (s == "h" || s == "s") return PlacementType::CPU;
+  if (s == "d") return PlacementType::GPU;
+  assert(s == "x");
+  return default_is_gpu ? PlacementType::GPU : PlacementType::CPU;
+};
+
 // This pass explicitly place hlo_ops on cpu side by adding an Attr. Nested
 // FuncOps should be taken into consideration. 1, Normally, the type of
 // kDiscPlaceAssignment is StringAttr; 2, In case the result type of an hlo op
@@ -73,6 +84,12 @@ struct OpsPlacer : public PlaceOpsPassBase<OpsPlacer> {
       return;
     }
 
+    // Place custom call op
+    if (failed(placeCustomCallV2Ops())) {
+      signalPassFailure();
+      return;
+    }
+
     // Place I64 scalar output
     placeI64ReturnedCpuScalarOps();
 
@@ -98,6 +115,8 @@ struct OpsPlacer : public PlaceOpsPassBase<OpsPlacer> {
       {TypeID::get<mlir::mhlo_disc::QuantizedDynamicConvOp>(), /*operand*/ 0},
       {TypeID::get<mlir::mhlo_disc::QuantizedDotGeneralOp>(), /*operand*/ 0}};
 
+  // Place custom call op
+  LogicalResult placeCustomCallV2Ops();
   // Place I64 scalar output
   void placeI64ReturnedCpuScalarOps();
   // Place any mhlo ops that calculates I32 on CPU
@@ -121,8 +140,11 @@ struct OpsPlacer : public PlaceOpsPassBase<OpsPlacer> {
   // kCpu.
   PlacementType getOpPlacement(Operation* op);
 
-  // Get tensor's placement. If on_gpu is false, always return kCpu.
-  PlacementType getTensorPlacement(Operation* dst, size_t operand_idx);
+  // Get the placement of `input` having index `operand_idx`.
+  PlacementType getInputTensorPlacement(Operation* dst, size_t operand_idx);
+
+  // Get the placement of `output` having index `result_idx`.
+  PlacementType getOutputTensorPlacement(Operation* dst, size_t result_idx);
 
   // Get input argument's placment. If on_gpu is false, always return kCpu.
   PlacementType getArgumentPlacement(Value arg);
@@ -155,6 +177,20 @@ struct OpsPlacer : public PlaceOpsPassBase<OpsPlacer> {
   mlir::func::FuncOp main_func_;
 };
 
+LogicalResult OpsPlacer::placeCustomCallV2Ops() {
+  getOperation().walk([&](mhlo_disc::CustomCallV2Op op) {
+    OpBuilder b(op);
+    auto placement = toPlacementType(op.getDevice(), on_gpu_);
+    if (placement == PlacementType::CPU) {
+      op->setAttr(kDiscPlaceAssignment, b.getStringAttr(kCpu));
+    } else {
+      assert(placement == PlacementType::GPU);
+      op->setAttr(kDiscPlaceAssignment, b.getStringAttr(kGpu));
+    }
+  });
+  return success();
+}
+
 // Mark i64 Scalar output
 void OpsPlacer::markI64ReturnedCpuScalarOps(
     llvm::DenseSet<Operation*>& marked_ops) {
@@ -163,7 +199,6 @@ void OpsPlacer::markI64ReturnedCpuScalarOps(
   auto return_op = main_func_.front().getTerminator();
   if (!isa<mlir::func::ReturnOp>(return_op)) return;
 
-  auto result_attrs = main_func_.getAllResultAttrs();
   const auto& output_placements = getOutputPlacements();
   auto returned_ops = return_op->getOperands();
   assert(returned_ops.size() == output_placements.size());
@@ -173,6 +208,9 @@ void OpsPlacer::markI64ReturnedCpuScalarOps(
     if (!op) continue;
 
     if (!placement_utils::isMhloOrStdOnTensor(op)) continue;
+    // Custom call v2 op has an explicit attribute for output placements.
+    // We should respect that configuration.
+    if (isa<mhlo_disc::CustomCallV2Op>(op)) continue;
 
     if (auto type = op->getResult(0).getType().dyn_cast<RankedTensorType>()) {
       if ((output_placements[idx] == PlacementType::CPU) &&
@@ -255,10 +293,13 @@ void OpsPlacer::enforceOutputPlacement(
     Value operand = dst->getOperand(i);
     auto operand_op = operand.getDefiningOp();
     while (operand_op && isa<tensor::CastOp>(operand_op)) {
-      operand_op = operand_op->getOperand(0).getDefiningOp();
+      operand = operand_op->getOperand(0);
+      operand_op = operand.getDefiningOp();
     }
     auto src_placement =
-        operand_op ? getOpPlacement(operand_op) : getArgumentPlacement(operand);
+        operand_op ? getOutputTensorPlacement(
+                         operand_op, operand.cast<OpResult>().getResultNumber())
+                   : getArgumentPlacement(operand);
     PlacementType dst_placement = output_placements[i];
 
     if (dst_placement == PlacementType::CPU &&
@@ -307,9 +348,9 @@ void OpsPlacer::insertMemcpyNodes() {
       return;
 
     for (auto indexed_operand : llvm::enumerate(dst->getOperands())) {
-      auto index = indexed_operand.index();
-      auto operand = indexed_operand.value();
-      auto operand_op = operand.getDefiningOp();
+      int index = indexed_operand.index();
+      Value operand = indexed_operand.value();
+      Operation* operand_op = operand.getDefiningOp();
       // If operand is a Block Argument and the parent is not the main func,
       // insert the potential memcpy outside the parent Op.
       if (!operand_op) {
@@ -322,11 +363,15 @@ void OpsPlacer::insertMemcpyNodes() {
 
       // placement of `tensor::CastOp` is equal to its operand's placement
       while (operand_op && isa<tensor::CastOp>(operand_op)) {
-        operand_op = operand_op->getOperand(0).getDefiningOp();
+        operand = operand_op->getOperand(0);
+        operand_op = operand.getDefiningOp();
       }
-      auto dst_placement = getTensorPlacement(dst, index);
-      auto src_placement = operand_op ? getOpPlacement(operand_op)
-                                      : getArgumentPlacement(operand);
+      auto dst_placement = getInputTensorPlacement(dst, index);
+      auto src_placement =
+          operand_op
+              ? getOutputTensorPlacement(
+                    operand_op, operand.cast<OpResult>().getResultNumber())
+              : getArgumentPlacement(operand);
       if (dst_placement == PlacementType::CPU &&
           src_placement == PlacementType::GPU) {
         d2h_worklist.push_back(std::make_pair(dst, index));
@@ -368,6 +413,9 @@ void OpsPlacer::placeI32Ops() {
 
   module.walk([&](Operation* op) {
     if (!placement_utils::isMhloOrStdOnTensor(op)) return;
+    // Custom call v2 op has an explicit attribute for output placements.
+    // We should respect that configuration.
+    if (isa<mhlo_disc::CustomCallV2Op>(op)) return;
 
     if (isa<mhlo::TupleOp, mhlo::GetTupleElementOp, mhlo::WhileOp, mhlo::IfOp,
             mhlo::ReturnOp>(op)) {
@@ -540,8 +588,8 @@ PlacementType OpsPlacer::getOpPlacement(Operation* op) {
   return PlacementType::GPU;
 }
 
-PlacementType OpsPlacer::getTensorPlacement(Operation* dst,
-                                            size_t operand_idx) {
+PlacementType OpsPlacer::getInputTensorPlacement(Operation* dst,
+                                                 size_t operand_idx) {
   if (!this->on_gpu_) return PlacementType::CPU;
   // special case when dst is TupleOp
   if (isa<mhlo::TupleOp>(dst)) {
@@ -552,6 +600,13 @@ PlacementType OpsPlacer::getTensorPlacement(Operation* dst,
     } else {
       return PlacementType::GPU;
     }
+  } else if (auto custom_op = dyn_cast<mhlo_disc::CustomCallV2Op>(dst)) {
+    SmallVector<StringRef, 4> input_items;
+    custom_op.getInputPlacements().split(input_items, ',', /*MaxSplit=*/-1,
+                                         /*KeepEmpty=*/false);
+    if (operand_idx < input_items.size()) {
+      return toPlacementType(input_items[operand_idx], on_gpu_);
+    }
   }
 
   // when dst op placed on CPU
@@ -561,13 +616,36 @@ PlacementType OpsPlacer::getTensorPlacement(Operation* dst,
   const auto& shape_operand_indices =
       placement_utils::getShapeCalcOperandList(dst);
 
-  if (shape_operand_indices.size() == 0) return PlacementType::GPU;
-
   if (std::find(shape_operand_indices.begin(), shape_operand_indices.end(),
                 operand_idx) != shape_operand_indices.end())
     return PlacementType::CPU;
 
   return PlacementType::GPU;
+}
+
+PlacementType OpsPlacer::getOutputTensorPlacement(Operation* dst,
+                                                  size_t result_idx) {
+  if (!this->on_gpu_) return PlacementType::CPU;
+  // special case when dst is TupleOp
+  if (isa<mhlo::TupleOp>(dst)) {
+    auto array_attr = dst->getAttrOfType<ArrayAttr>(kDiscPlaceAssignment);
+    assert(array_attr && "kDiscPlaceAssignment on Tuple not found");
+    if (array_attr[result_idx].cast<StringAttr>().getValue() == kCpu) {
+      return PlacementType::CPU;
+    } else {
+      return PlacementType::GPU;
+    }
+  } else if (auto custom_op = dyn_cast<mhlo_disc::CustomCallV2Op>(dst)) {
+    SmallVector<StringRef, 4> output_items;
+    custom_op.getOutputPlacements().split(output_items, ',', /*MaxSplit=*/-1,
+                                          /*KeepEmpty=*/false);
+    if (result_idx < output_items.size()) {
+      return toPlacementType(output_items[result_idx], on_gpu_);
+    }
+  }
+
+  // default case: output should have the same placement type as the op.
+  return getOpPlacement(dst);
 }
 
 void OpsPlacer::insertMemcpy(Operation* dst, size_t operand_index,

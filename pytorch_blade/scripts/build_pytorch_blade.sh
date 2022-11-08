@@ -68,9 +68,9 @@ function test_example() {
     # There is a but that causing OOM on LTC, so BladeDISC only check minor iterations,
     # issue: https://github.com/pytorch/pytorch/issues/80942
     (
-      cd examples && \
+      cd ../examples/PyTorch/Training && \
       python -m pip install -r requirements.txt && \
-      python check_bert_loss.py --batch-size 8 --acc-backend ltc-disc --num-samples 152 --epochs 1 2>&1
+      python bert_train_ltc.py --batch-size 8 --acc-backend ltc-disc --num-samples 152 --epochs 1 2>&1
     )
   fi
 }

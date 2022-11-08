@@ -214,7 +214,7 @@ class DataPreparer:
         return all_data
 
     def clear_attribute(self):
-        for name in itertools.chain(self.all_group_name, self.custom_module_owner):
+        for name in itertools.chain(self.all_group_name, self.all_collect_observer_name):
             self.custom_module_owner._c.unsafe_remove_type_attribute(name)
 
 

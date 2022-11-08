@@ -16,6 +16,7 @@ import unittest
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from tests.quantization import QuantizationTestCase
 from tests.tensorrt import skipIfNoTensorRT
 from torch.testing import FileCheck
 from torch_blade import optimization as opt
@@ -251,7 +252,7 @@ graph(%self.1 : __torch__.___torch_mangle_0.Net,
 
 
 @skipIfNoTensorRT()
-class TestInt8CalibrationInputTypes(TestCase):
+class TestInt8CalibrationInputTypes(QuantizationTestCase):
     def _do_int8_calibration_optimzie(self, model, calib_data):
         cfg = Config.get_current_context_or_new()
         cfg.optimization_pipeline = "TensorRT"
@@ -260,11 +261,6 @@ class TestInt8CalibrationInputTypes(TestCase):
         with cfg:
             optimize(model, True, calib_data[0])
 
-    def tearDown(self) -> None:
-        torch._C._jit_clear_class_registry()
-        torch.jit._recursive.concrete_type_store = \
-            torch.jit._recursive.ConcreteTypeStore()
-        torch.jit._state._clear_class_state()
 
     def test_float(self):
         class Model(nn.Module):

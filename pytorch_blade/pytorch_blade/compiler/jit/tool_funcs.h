@@ -17,7 +17,9 @@ namespace torch {
 namespace blade {
 void RegisterShapeRecordOp();
 void unsafe_remove_method(torch::jit::Module& self, const std::string& name);
-void unsafe_remove_type_attribute(torch::jit::Module& self, const std::string& name);
+void unsafe_remove_type_attribute(
+    torch::jit::Module& self,
+    const std::string& name);
 
 torch::jit::Module clone_cpp_module(torch::jit::Module& self);
 

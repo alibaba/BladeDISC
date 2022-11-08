@@ -9,22 +9,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
+import functools
 import re
 import time
-import torch
-import functools
+import unittest
 from collections import namedtuple
 from numbers import Number
+
+import torch
 from torch._six import string_classes
 from torch.testing import assert_allclose
-from torch.testing._internal.common_utils import (
-    is_iterable,
-    TestCase as TorchTestCase,
-)
+from torch.testing._internal.common_utils import TestCase as TorchTestCase
+from torch.testing._internal.common_utils import is_iterable
 from torch_blade import version
 
 __all__ = ['benchmark', 'assert_almost_equal', 'TestCase']
+
 
 class Perceptron(torch.nn.Module):
     def __init__(self):
@@ -56,10 +56,24 @@ class Feedforward(torch.nn.Module):
         return output
 
 
+def clear_class_registry():
+    torch._C._jit_clear_class_registry()
+    torch.jit._recursive.concrete_type_store = torch.jit._recursive.ConcreteTypeStore()
+    # Not available in early versions of torch
+    try:
+        torch.jit._state._clear_class_state()
+    except Exception:
+        pass
+
+
 class TestCase(TorchTestCase):
 
     def setUp(self):
         self.device = torch.device('cuda') if version.cuda_available else torch.device('cpu')
+
+    def tearDown(self):
+        super().tearDown()
+        clear_class_registry()
 
     @staticmethod
     def _iter_but_no_len(o):

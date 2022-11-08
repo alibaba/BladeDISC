@@ -62,6 +62,7 @@ warnings.filterwarnings("ignore")
 
 utils.add_method(torch._C.ScriptModule)(tools.create_method_from_graph)
 utils.add_method(torch._C.ScriptModule)(tools.unsafe_remove_method)
+utils.add_method(torch._C.ScriptModule)(tools.unsafe_remove_type_attribute)
 utils.add_method(torch._C.ScriptModule, "register_attribute")(tools.register_attr)
 utils.add_method(torch._C.Graph, "createGetAttr")(tools.graph_create_get_attr)
 torch._C.Graph.node_list = utils.listify(torch._C.Graph.nodes)

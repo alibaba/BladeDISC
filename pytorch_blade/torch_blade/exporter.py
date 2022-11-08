@@ -66,7 +66,7 @@ def _script_module_preprocess(s_module, inputs, input_dims=[]):
         jit_pass(graph)
 
     cfg = Config.get_current_context_or_new()
-    if not cfg.disable_optimize_for_inference:
+    if not cfg.disable_optimization_for_inference:
         # TODO(tanyo):
         # It will record tensor information, such as ranks, data types,
         # and devices, that are useful for analysis and optimizations

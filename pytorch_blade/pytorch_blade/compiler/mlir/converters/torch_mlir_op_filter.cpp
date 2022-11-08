@@ -92,7 +92,8 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "aten::ne",
       "aten::neg",
       "aten::neg",
-      "aten::native_dropout",
+      // TODO(disc): need to lower mhlo::RngOp to mhlo_disc::UniformOp
+      //"aten::native_dropout",
       "aten::permute",
       "aten::pow",
       "aten::relu",

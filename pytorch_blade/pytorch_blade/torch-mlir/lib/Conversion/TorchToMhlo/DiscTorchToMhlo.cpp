@@ -1102,7 +1102,6 @@ class DiscConvertTorchToMhlo
     INSERT_UNARY_PATTERN(AtenNegOp, mhlo::NegOp)
     INSERT_UNARY_PATTERN(AtenFloorOp, mhlo::FloorOp)
     INSERT_UNARY_PATTERN(AtenCeilOp, mhlo::CeilOp)
-    INSERT_UNARY_PATTERN(AtenItemOp, tensor::ExtractOp)
 #undef INSERT_UNARY_PATTERN
 
 #define INSERT_EXTRACT_PATTERN(AtenOp) \
@@ -1110,6 +1109,7 @@ class DiscConvertTorchToMhlo
   patterns.add<ConvertAtenExtractOp<AtenOp>>(typeConverter, context);
     INSERT_EXTRACT_PATTERN(AtenScalarImplicitOp)
     INSERT_EXTRACT_PATTERN(AtenIntTensorOp)
+    INSERT_EXTRACT_PATTERN(AtenItemOp)
 #undef INSERT_EXTRACT_PATTERN
 
 #define INSERT_ATENOP_PATTERN(AtenOp) \

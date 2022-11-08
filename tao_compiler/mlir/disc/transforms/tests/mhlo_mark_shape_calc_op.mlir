@@ -96,3 +96,46 @@ func.func @main(%input: tensor<?x?x?x?xi8>, %weight: tensor<?x?x?x?xi8>, %paddin
        tensor<f32>, tensor<i32>) -> tensor<?x?x?x?xi8>
   return %out : tensor<?x?x?x?xi8>
 }
+
+// -----
+
+// CHECK-LABEL: @main
+func.func @main(%arg0: tensor<?x?xf32>, %arg1: tensor<2xi32>) -> tensor<?x?xf32> {
+  // CHECK: mhlo.add
+  // CHECK-SAME: disc.shape_op = true
+  %0 = mhlo.add %arg1, %arg1 : tensor<2xi32>
+  %1 = "mhlo_disc.custom_call_v2"(%arg0, %0) {
+    call_target_name = "foo",
+    custom_attrs = {},
+    has_side_effect = false,
+    device = "d",
+    input_placements = "d,s",
+    output_placements = "d",
+    expected_input_layouts = "",
+    expected_output_layouts = "",
+    input_layouts = "",
+    output_layouts = ""
+  } : (tensor<?x?xf32>, tensor<2xi32>) -> tensor<?x?xf32>
+  return %1 : tensor<?x?xf32>
+}
+
+// -----
+
+// CHECK-LABEL: @main
+func.func @main(%arg0: tensor<?x?xf32>, %arg1: tensor<2xi32>) -> tensor<?x?xf32> {
+  // CHECK-NOT: disc.shape_op = true
+  %0 = mhlo.add %arg1, %arg1 : tensor<2xi32>
+  %1 = "mhlo_disc.custom_call_v2"(%arg0, %0) {
+    call_target_name = "foo",
+    custom_attrs = {},
+    has_side_effect = false,
+    device = "d",
+    input_placements = "d,h",
+    output_placements = "d",
+    expected_input_layouts = "",
+    expected_output_layouts = "",
+    input_layouts = "",
+    output_layouts = ""
+  } : (tensor<?x?xf32>, tensor<2xi32>) -> tensor<?x?xf32>
+  return %1 : tensor<?x?xf32>
+}

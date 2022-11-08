@@ -81,12 +81,6 @@ def optimize_trt(script_module, disable_fallback=False):
     c_module = script_module._c
     graph = c_module.forward.graph
     trt_unsupported = get_unsupported_nodes(graph)
-    # unsupported_nodes = []
-    # for un in trt_unsupported:
-    #     unsupported_nodes.append(un.output_list()[0].debugName())
-    # torch.save(unsupported_nodes, "unsupported_nodes.pt")
-    # exit()
-
     dynamic_settings = get_dynamic_settings(c_module, trt_unsupported)
     top_level_block = graph
     supported_node_fusion(graph, top_level_block, trt_unsupported)

@@ -29,35 +29,12 @@ from transformers import AutoTokenizer
 import torch_blade
 import torch_blade.utils as utils
 import ctypes
+import torch._lazy as ltc
+import torch._lazy.metrics as ltc_metrics
 utils.disable_pytorch_jit()
+torch_blade.init_ltc_disc_backend()
 torch.manual_seed(2)
-_cudart = ctypes.CDLL('libcudart.so')
 
-LTC_DISC = "ltc-disc"
-
-def is_ltc_available():
-    return os.getenv("ENABLE_LTC") is not None
-
-
-if is_ltc_available():
-    import torch._lazy as ltc
-    import torch._lazy.metrics as ltc_metrics
-    utils.disable_pytorch_jit()
-    torch_blade.init_ltc_disc_backend()
-    torch._C._jit_set_nvfuser_enabled(False)
-
-def cu_prof_start():
-    ret = _cudart.cudaProfilerStart()
-    #print("cu_prof_start")
-    if ret != 0:
-        raise Exception('cudaProfilerStart() returned %d' % ret)
-
-
-def cu_prof_stop():
-    ret = _cudart.cudaProfilerStop()
-    #print("cu_prof_stop")
-    if ret != 0:
-        raise Exception('cudaProfilerStop() returned %d' % ret)
 
 torch.backends.cuda.matmul.allow_tf32 = True
 

@@ -261,7 +261,6 @@ class TestInt8CalibrationInputTypes(QuantizationTestCase):
         with cfg:
             optimize(model, True, calib_data[0])
 
-
     def test_float(self):
         class Model(nn.Module):
             def __init__(self):
@@ -296,6 +295,23 @@ class TestInt8CalibrationInputTypes(QuantizationTestCase):
                 return x
         model = Model().eval().to(self.device)
         calib_data = [(torch.ones(1, 256, dtype=torch.long).to(self.device), ), ]
+        self._do_int8_calibration_optimzie(model, calib_data)
+
+    def test_non_contiguous_data(self):
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+
+            def forward(self, x, y):
+                return x + y + x + y
+
+        model = Model().eval().to(self.device)
+        contiguous_t = torch.randn(10, 10).to(self.device)
+        non_contiguous_t = torch.randn(20, 20).to(self.device)[::2, ::2]
+        calib_data = [
+            (non_contiguous_t, non_contiguous_t),
+            (contiguous_t, contiguous_t)
+        ]
         self._do_int8_calibration_optimzie(model, calib_data)
 
 

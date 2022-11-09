@@ -149,6 +149,14 @@ cc_library(
 )
 
 cc_library(
+    name = "pdll_util",
+    srcs = ["context/pdll_util.cc"],
+    hdrs = ["context/pdll_util.h"],
+    deps = [":ral_logging"],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "ral_metadata",
     srcs = ["ral_metadata.cc"],
     hdrs = ["ral_metadata.h"],
@@ -284,6 +292,7 @@ cc_library(
     name = "common_context",
     srcs = [
         "context/common_context_impl.cc",
+        "context/common_context_impl_pdll.cc",
     ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
@@ -316,6 +325,7 @@ cc_library(
         "-lm"
     ],
     deps = [
+        ":pdll_util",
         ":ral_context",
         ":ral_cpu_driver",
         ":ral_logging",
@@ -638,6 +648,7 @@ cc_library(
     name = "common_context_bridge",
     srcs = [
         "context/common_context_impl.cc",
+        "context/common_context_impl_pdll.cc",
     ] + if_cuda_or_rocm([
         "context/common_context_impl_cuda.cc",
         "context/stream_executor_based_impl.cc",
@@ -675,6 +686,7 @@ cc_library(
         "-lm"
     ],
     deps = [
+        ":pdll_util",
         ":ral_context",
         ":ral_cpu_driver",
         ":ral_gpu_driver",

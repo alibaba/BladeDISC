@@ -518,14 +518,29 @@ Operation* replaceResultType(Operation* op,
                              DenseMap<Value, StringRef>& assignment) {
   OpBuilder b(op);
   Location loc = op->getLoc();
-  Value oldValue = op->getResult(0);
-  Type oldType = oldValue.getType();
-  StringRef placement = assignment[oldValue];
-  Type newType = maybeConvert(op->getContext(), oldType, placement);
-  auto newOp = b.create<OpTy>(loc, newType, op->getOperands(), op->getAttrs());
-  oldValue.replaceAllUsesWith(newOp.getResult());
-  assignment[newOp.getResult()] = placement;
-  assignment.erase(oldValue);
+  SmallVector<Type> newResultTypes;
+  for (Value oldValue : op->getResults()) {
+    Type oldType = oldValue.getType();
+    auto it = assignment.find(oldValue);
+    if (it != assignment.end()) {
+      newResultTypes.push_back(
+          maybeConvert(op->getContext(), oldType, it->second));
+    } else {
+      newResultTypes.push_back(oldType);
+    }
+  }
+  auto newOp =
+      b.create<OpTy>(loc, newResultTypes, op->getOperands(), op->getAttrs());
+  for (const auto& z : llvm::zip(op->getResults(), newOp->getResults())) {
+    Value oldValue = std::get<0>(z);
+    Value newValue = std::get<1>(z);
+    oldValue.replaceAllUsesWith(newValue);
+    auto it = assignment.find(oldValue);
+    if (it != assignment.end()) {
+      assignment[newValue] = it->second;
+      assignment.erase(it);
+    }
+  }
   op->erase();
   return newOp;
 }
@@ -553,10 +568,10 @@ LogicalResult DiscAssignMemorySpacePass::applyOperationAssignment(
   }
 
   // clang-format: off
-  Operation* newOp =
-      tryReplaceResultType<memref::AllocOp, memref::AllocaOp, memref::SubViewOp,
-                           memref::ViewOp, memref::CastOp,
-                           memref::ReinterpretCastOp>(op, assignment);
+  Operation* newOp = tryReplaceResultType<
+      memref::AllocOp, memref::AllocaOp, memref::SubViewOp, memref::ViewOp,
+      memref::CastOp, memref::ReinterpretCastOp, lmhlo_disc::CustomCallV2Op>(
+      op, assignment);
   // clang-format: on
 
   if (newOp) {

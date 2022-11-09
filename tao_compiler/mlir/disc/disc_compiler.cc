@@ -446,7 +446,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(bufferization::createBufferDeallocationPass());
 
   pm.addPass(disc_ral::createRalInjectExecutionContextPass());
-  pm.addNestedPass<FuncOp>(disc_ral::createDiscLowerToLibraryCallPass());
+  pm.addNestedPass<FuncOp>(
+      disc_ral::createDiscLowerToLibraryCallPass(gpu_enabled));
   pm.addPass(disc_ral::createDiscConstToRALPass(options.metadata_file_path));
 
   if (enable_stitch && gpu_enabled) {
@@ -874,8 +875,15 @@ LogicalResult LowerHLOToSharedLibrary(ModuleOp m,
 namespace tensorflow {
 
 Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
-  mlir::PassManager pm(module_op.getContext());
+  mlir::DefaultTimingManager tm;
+  mlir::applyDefaultTimingManagerCLOptions(tm);
+  // Records elapsed time for each pass in the passpipe
+  tm.setEnabled(true);
+  mlir::TimingScope timing = tm.getRootScope();
 
+  mlir::PassManager pm(module_op.getContext());
+  mlir::applyPassManagerCLOptions(pm);
+  pm.enableTiming(timing);
   pm.getContext()->disableMultithreading();
   auto printingFlags = mlir::OpPrintingFlags();
   printingFlags.elideLargeElementsAttrs(16);
@@ -936,7 +944,14 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
   pm.addPass(mlir::mhlo::createLegalizeTFControlFlowPass());
 
   // customized tf2mhlo converters of DISC
-  pm.addNestedPass<mlir::func::FuncOp>(mlir::disc_ral::createDiscLowerTfPass());
+  std::string disc_tf_pdll_files;
+  std::string disc_tf_pdll_include_dirs;
+  tensorflow::ReadStringFromEnvVar("DISC_TF_PDLL_FILES", "",
+                                   &disc_tf_pdll_files);
+  tensorflow::ReadStringFromEnvVar("DISC_TF_PDLL_INCLUDE_DIRS", "",
+                                   &disc_tf_pdll_include_dirs);
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::disc_ral::createDiscLowerTfPass(
+      disc_tf_pdll_files, disc_tf_pdll_include_dirs));
 
   pm.addNestedPass<mlir::func::FuncOp>(mlir::TF::CreateLowerQuantizedPass());
   pm.addPass(mlir::mhlo::CreateLegalizeTfTypesPass());
@@ -945,7 +960,9 @@ Status ConvertTF2MlirHlo(mlir::ModuleOp module_op) {
       /*tf2xla_fallback_device_type=*/device_type, prefer_tf2xla));
 
   // customized tf2mhlo converters of DISC
-  pm.addNestedPass<mlir::func::FuncOp>(mlir::disc_ral::createDiscLowerTfPass());
+  pm.addNestedPass<mlir::func::FuncOp>(mlir::disc_ral::createDiscLowerTfPass(
+      disc_tf_pdll_files, disc_tf_pdll_include_dirs));
+
   pm.addNestedPass<mlir::func::FuncOp>(mlir::mhlo::CreateAdjustLayoutPass());
   pm.addPass(mlir::mhlo::CreateLegalizeTFCommunicationPass());
   pm.addPass(mlir::mhlo::CreateLegalizeTFCollectivePass());

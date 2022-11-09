@@ -180,3 +180,34 @@ func.func @per_channel_quantized_dot_general(%input: tensor<?x?x?x?xi8>, %weight
        tensor<f32>, tensor<i32>) -> tensor<?x?x?x?xi8>
   return %out : tensor<?x?x?x?xi8>
 }
+
+// -----
+
+// CHECK-LABEL: @custom_call_v2_op
+// CHECK-SAME: %[[ARG0:.*]]: memref<?x?xf32>, %[[ARG1:.*]]: memref<2xi32>
+func.func @custom_call_v2_op(
+    %arg0: tensor<?x?xf32>, %arg1: tensor<2xi32>) -> tensor<?x?xf32>
+        attributes {
+            tf.entry_function = {
+                input_placements = "cpu,cpu",
+                inputs = "input0,input1",
+                output_placements = "cpu", outputs = "output0"}} {
+  // CHECK: %[[T0:.*]] = "lmhlo_disc.custom_call_v2"(%[[ARG0]], %[[ARG1]])
+  // CHECK: %[[T1:.*]] = memref.alloc({{.*}})
+  // CHECK: "lmhlo.copy"(%[[T0]], %[[T1]])
+  // CHECK: memref.dealloc %[[T0]]
+  // return %[[T1]]
+  %1 = "mhlo_disc.custom_call_v2"(%arg0, %arg1) {
+    call_target_name = "foo",
+    custom_attrs = {},
+    has_side_effect = false,
+    device = "h",
+    input_placements = "h,h",
+    output_placements = "h",
+    expected_input_layouts = "",
+    expected_output_layouts = "",
+    input_layouts = "",
+    output_layouts = ""
+  } : (tensor<?x?xf32>, tensor<2xi32>) -> tensor<?x?xf32>
+  return %1 : tensor<?x?xf32>
+}

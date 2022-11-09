@@ -44,9 +44,8 @@ inline void print_memref_0d(tao::ral::MemRefType<T, 0> memref,
               << "\tdata: " << pmemref->data << "\toffset: " << pmemref->offset;
 }
 
-template <typename T, int N>
-tao::ral::MemRefType<T, N> assignMemRef(void* ptr,
-                                        const buffer_shape_t& shape) {
+template <typename T, int N, typename ShapeTy>
+tao::ral::MemRefType<T, N> assignMemRef(void* ptr, const ShapeTy& shape) {
   tao::ral::MemRefType<T, N> memref;
   memref.basePtr = reinterpret_cast<T*>(ptr);
   memref.data = reinterpret_cast<T*>(ptr);

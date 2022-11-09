@@ -118,7 +118,8 @@ std::unique_ptr<OperationPass<ModuleOp>> createPlacerPass(bool on_gpu = true);
 std::unique_ptr<OperationPass<ModuleOp>> createReviseGpuKernelOutliningPass();
 
 // Lower some specific ops to library calls (modeled by `disc_ral.launch` op).
-std::unique_ptr<OperationPass<FuncOp>> createDiscLowerToLibraryCallPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscLowerToLibraryCallPass(
+    bool gpu_enabled = true);
 
 // Assign memory space tag for each memref type.
 std::unique_ptr<OperationPass<ModuleOp>> createDiscAssignMemorySpacePass(
@@ -156,7 +157,9 @@ std::unique_ptr<OperationPass<FuncOp>>
 createDiscMemRefLoadStoreSimplifierPass();
 
 // Lowering some tensorflow ops.
-std::unique_ptr<OperationPass<FuncOp>> createDiscLowerTfPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscLowerTfPass(
+    const std::string& pdll_files = "",
+    const std::string& pdll_include_dirs = "");
 
 // A pass to remove buffers that are not accessed by others
 std::unique_ptr<OperationPass<FuncOp>> createDiscRemoveDeadBufferPass();

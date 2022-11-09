@@ -115,7 +115,7 @@ LogicalResult getDispatchOpSignatureEncoding(DispatchOp dispatch_op,
   out.append(separator);
 
   // encode backend (device) info
-  out.append(dispatch_op.backend_config());
+  out.append(dispatch_op.device());
   out.append(separator);
 
   // encode input types
@@ -124,6 +124,11 @@ LogicalResult getDispatchOpSignatureEncoding(DispatchOp dispatch_op,
     if (en.index() != 0) out.append("_");
     if (failed(getTypeEncoding(op->getContext(), en.value(), out)))
       return failure();
+  }
+  if (!dispatch_op.backend_config().empty()) {
+    // `const char*` for the serialized custom attrs
+    if (op->getOperandTypes().size() > 0) out.append("_");
+    out.append("pvoid");
   }
   out.append(separator);
 
@@ -286,6 +291,15 @@ Value DispatchOpToLLVMPattern::rewriteInsOutsOfDispatchOp(
 
   SmallVector<Value, 4> arguments = getTypeConverter()->promoteOperands(
       loc, dispatch_op.getOperands(), operands, rewriter);
+  if (!dispatch_op.backend_config().empty()) {
+    StrT name, value;
+    getDispatchOpSignatureEncoding(dispatch_op, name);
+    name.append("__attrs");
+    value.append(dispatch_op.backend_config());
+    value.push_back('\0');
+    arguments.push_back(loadOrCreateGlobalString(
+        rewriter, symbol_table_, dispatch_op, name.str(), value.str()));
+  }
   SmallVector<Type, 4> argument_types;
   for (auto argument : arguments) argument_types.push_back(argument.getType());
   for (auto resultType : dispatch_op.getResultTypes())
@@ -615,7 +629,7 @@ LogicalResult ConvertLaunchFuncOpToRalCallPattern::matchAndRewrite(
 // Converting:
 //   %output = memref.alloc(%0, %1) : memref<?x?xf32, "gpu">
 //     to
-//   "disc_ral.dispatch"(%ctx, %3) {backend_config = "gpu", call_target_name =
+//   "disc_ral.dispatch"(%ctx, %3) {device = "gpu", call_target_name =
 //   "alloc", has_side_effect = false} : (!llvm.ptr<i8>, !llvm.ptr<i8>) -> ()
 // then convert to llvm
 class ConvertMemRefAllocOpToDispatchOpPattern
@@ -711,7 +725,7 @@ LogicalResult ConvertMemRefAllocOpToDispatchOpPattern::matchAndRewrite(
 // Converting:
 //   memref.dealloc %0 : memref<?x?xf32, "gpu">
 //     to
-//   "disc_ral.dispatch"(%ctx, %1) {backend_config = "gpu", call_target_name
+//   "disc_ral.dispatch"(%ctx, %1) {device = "gpu", call_target_name
 //   = "free", has_side_effect = false} : (!llvm.ptr<i8>, !llvm.ptr<i8>) -> ()
 // then convert to llvm
 class ConvertMemRefDeallocOpToDispatchOpPattern

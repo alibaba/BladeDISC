@@ -175,6 +175,10 @@ def ReviseGpuKernelOutliningPass : Pass<"disc-revise-gpu-kernel-outlining", "Mod
 def DiscLowerToLibraryCallPass : Pass<"disc-lower-to-library-call", "mlir::func::FuncOp"> {
   let summary = "Lower some specific ops to library calls (modeled by `disc_ral.launch` op).";
   let constructor = "createDiscLowerToLibraryCallPass()";
+  let options = [
+    Option<"gpu_enabled_", "gpu-enabled", "bool",
+           /*default=*/"true", "whether gpu is available.">,
+  ];
 }
 
 def DiscAssignMemorySpacePass : Pass<"disc-assign-memory-space", "ModuleOp"> {
@@ -257,6 +261,12 @@ def DiscMemRefLoadStoreSimplifierPass : Pass<"disc-memref-load-store-simplifier"
 def DiscLowerTfPass : Pass<"disc-lower-tf", "mlir::func::FuncOp"> {
   let summary = "Lowering some tensorflow ops";
   let constructor = "createDiscLowerTfPass()";
+  let options = [
+    Option<"pdll_files_", "pdll-files", "std::string",
+           /*default=*/"\"\"", "comma seperated pathes to user defined pdll files">,
+    Option<"pdll_include_dirs_", "pdll-include-dirs", "std::string",
+           /*default=*/"\"\"", "comma seperated pathes to pdll include dirs">,
+  ];
 }
 
 def RemoveDeadBufferPass : Pass<"disc-remove-dead-buffer", "mlir::func::FuncOp"> {

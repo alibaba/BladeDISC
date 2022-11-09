@@ -42,7 +42,7 @@ static void loadDependentDialects(mlir::MLIRContext& context) {
   mlir::registerAllDialects(registry);
   registry.insert<mlir::mhlo::MhloDialect>();
   registry.insert<mlir::TF::TensorFlowDialect>();
-  mlir::disc_ral::getDependentDialects(registry);
+  mlir::disc_ral::getPDLDependentDialects(registry);
 
   context.appendDialectRegistry(registry);
   for (llvm::StringRef name : registry.getDialectNames())

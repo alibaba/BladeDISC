@@ -103,9 +103,21 @@ struct TaoVariadicTypeNameHelper<T, Remaining...> {
   }
 };
 
+template <typename T>
+struct TaoVariadicTypeNameHelper<T> {
+  static inline std::string Invoke() { return TaoTypeNameHelper<T>::Invoke(); }
+};
+
 template <>
 struct TaoVariadicTypeNameHelper<> {
   static inline std::string Invoke() { return ""; }
+};
+
+template <typename... Ts>
+struct TaoTypeNameHelper<std::tuple<Ts...>> {
+  static inline std::string Invoke() {
+    return TaoVariadicTypeNameHelper<Ts...>::Invoke();
+  }
 };
 
 template <typename F>
@@ -115,7 +127,7 @@ template <typename Return, typename... Args>
 struct TaoRalApiFuncNameHelper<Return (*)(Args...)> {
   static inline std::string Invoke(const std::string& prefix) {
     return prefix + "___" + TaoVariadicTypeNameHelper<Args...>::Invoke() +
-           "__" + TaoTypeNameHelper<Return>::Invoke();
+           "___" + TaoTypeNameHelper<Return>::Invoke();
   }
 };
 
@@ -123,7 +135,7 @@ template <typename Return, typename... Args>
 struct TaoRalApiFuncNameHelper<std::function<Return(Args...)>> {
   static inline std::string Invoke(const std::string& prefix) {
     return prefix + "___" + TaoVariadicTypeNameHelper<Args...>::Invoke() +
-           "__" + TaoTypeNameHelper<Return>::Invoke();
+           "___" + TaoTypeNameHelper<Return>::Invoke();
   }
 };
 
@@ -180,6 +192,34 @@ struct TaoRalApiFuncInvokerImpl<R, F> {
   template <typename... ParsedArgs>
   static inline void Invoke(F f, void** args, ParsedArgs&&... parsed_args) {
     *(R*)*args = std::move(f(std::forward<ParsedArgs>(parsed_args)...));
+  }
+};
+
+template <int N>
+struct TupleAssign {
+  template <typename... Rs>
+  static inline void Invoke(const std::tuple<Rs...>& rs, void** args) {
+    constexpr const int n = sizeof...(Rs) - N;
+    using T0 = decltype(std::get<n>(rs));
+    using T1 = typename std::remove_reference<T0>::type;
+    using T2 = typename std::remove_const<T1>::type;
+    *(T2*)(*args++) = std::get<n>(rs);
+    TupleAssign<N - 1>::Invoke(rs, args);
+  }
+};
+
+template <>
+struct TupleAssign<0> {
+  template <typename... Rs>
+  static inline void Invoke(const std::tuple<Rs...>& rs, void** args) {}
+};
+
+template <typename... Rs, typename F>
+struct TaoRalApiFuncInvokerImpl<std::tuple<Rs...>, F> {
+  template <typename... ParsedArgs>
+  static inline void Invoke(F f, void** args, ParsedArgs&&... parsed_args) {
+    TupleAssign<sizeof...(Rs)>::Invoke(
+        f(std::forward<ParsedArgs>(parsed_args)...), args);
   }
 };
 

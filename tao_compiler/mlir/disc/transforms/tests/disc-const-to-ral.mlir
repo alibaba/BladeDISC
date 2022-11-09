@@ -9,9 +9,9 @@ func.func @simple_test(%arg0: !disc_ral.context) {
   %0 = memref.alloc() : memref<100x100xf32, "gpu">
   %1 = memref.alloc() : memref<100x100xf32, "cpu">
   // CHECK: %[[C0_CPU:.*]] = arith.constant 0 : i32
-  // CHECK: %[[N0:.*]] = "disc_ral.dispatch"(%[[CTX:.*]], %[[T0:.*]], %[[T1:.*]], %[[C0_CPU]]) {backend_config = "gpu", call_target_name = "ral_const", has_side_effect = false}
+  // CHECK: %[[N0:.*]] = "disc_ral.dispatch"(%[[CTX:.*]], %[[T0:.*]], %[[T1:.*]], %[[C0_CPU]]) {backend_config = "", call_target_name = "ral_const", device = "gpu", has_side_effect = false}
   // CHECK: %[[C0_GPU:.*]] = arith.constant 0 : i32
-  // CHECK: %[[N1:.*]] = "disc_ral.dispatch"(%[[CTX]], %[[T0:.*]], %[[T1:.*]], %[[C0_GPU]]) {backend_config = "cpu", call_target_name = "ral_const", has_side_effect = false}
+  // CHECK: %[[N1:.*]] = "disc_ral.dispatch"(%[[CTX]], %[[T0:.*]], %[[T1:.*]], %[[C0_GPU]]) {backend_config = "", call_target_name = "ral_const", device = "cpu", has_side_effect = false}
   // CHECK: "disc_ral.send_output"(%[[CTX]], %c0, %[[N0]])
   // CHECK: "disc_ral.send_output"(%[[CTX]], %c1, %[[N1]])
   "lmhlo.constant"(%0) {disc.device = "gpu", value = dense<1.000000e+00> : tensor<100x100xf32>} : (memref<100x100xf32, "gpu">) -> ()

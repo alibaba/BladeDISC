@@ -178,6 +178,18 @@ tf_cc_test(
 )
 
 cc_library(
+    name = "source_emitter",
+    srcs = ["utils/source_emitter.cc"],
+    hdrs = ["utils/source_emitter.h"],
+    includes = ["include"],
+    deps = [
+        ":disc_util",
+        ":lmhlo_disc",
+        "@llvm-project//mlir:IR",
+    ],
+)
+
+cc_library(
     name = "disc_util",
     srcs = [
         "disc_util.cc",
@@ -268,11 +280,9 @@ cc_library(
         "@llvm-project//mlir:GPUDialect",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:LLVMDialect",
-        # "@llvm-project//mlir:LLVMTransforms",
         "@llvm-project//mlir:MathDialect",
         "@llvm-project//mlir:MemRefDialect",
         "@llvm-project//mlir:Pass",
-        #"@llvm-project//mlir:StandardOpsTransforms",
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:ToLLVMIRTranslation",
         "@llvm-project//mlir:Transforms",
@@ -573,6 +583,7 @@ cc_library(
     deps = [
         ":disc_shape",
         ":disc_util",
+        ":source_emitter",
         "//tensorflow/compiler/xla/mlir_hlo:lhlo",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:AffineDialect",
@@ -849,7 +860,6 @@ cc_library(
         "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:ShapeDialect",
         "@llvm-project//mlir:ShapeTransforms",
-        #"@llvm-project//mlir:StandardOpsTransforms",
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TensorDialect",
         "@llvm-project//mlir:Transforms",
@@ -954,7 +964,6 @@ disc_cc_library(
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:LLVMDialect",
         "@llvm-project//mlir:LLVMToLLVMIRTranslation",
-        #"@llvm-project//mlir:LLVMTransforms",
         "@llvm-project//mlir:LinalgDialect",
         "@llvm-project//mlir:LinalgTransforms",
         "@llvm-project//mlir:MathDialect",
@@ -1211,7 +1220,6 @@ gentbl_cc_library(
     td_file = "transforms/lower_tf.td",
     td_srcs = [
         ":disc_lower_tf_ops_td_files",
-        #"@llvm-project//mlir:StdOpsTdFiles",
         "//tensorflow/compiler/mlir/tensorflow:tensorflow_ops_td_files",
         "//tensorflow/compiler/mlir/tensorflow:tensorflow_optimize_td_files",
     ],
@@ -1695,7 +1703,6 @@ cc_library(
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:ShapeDialect",
-        #"@llvm-project//mlir:StandardDialect",
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TensorDialect",
         "@llvm-project//mlir:Transforms",
@@ -2014,6 +2021,19 @@ tf_cc_binary(
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
         "@llvm-project//mlir:Support",
+    ],
+)
+
+tf_cc_binary(
+    name = "disc-source-emitter",
+    srcs = [
+        "tools/disc-source-emitter/disc-cuda-emitter.cc",
+    ],
+    deps = [
+        ":source_emitter",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:AllPassesAndDialects",
+        "@llvm-project//mlir:IR",
     ],
 )
 

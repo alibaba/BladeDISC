@@ -456,25 +456,6 @@ bool isFusible(Operation* op) {
   // clang-format on
 }
 
-// Returns the number of operands that are supposed to be written.
-// For some ops (e.g. lmhlo ops), some operands are the output memrefs
-// Thus these operands are supposed to be updated.
-int getNumResultOperands(Operation* op) {
-  if (auto customOp = dyn_cast_or_null<lmhlo_disc::CustomCallOp>(op)) {
-    // TODO(disc): add a registration base mechanism to support custom call op
-    // with more than one results.
-    return 1;
-  }
-
-  if (op->getDialect()->getTypeID() != TypeID::get<lmhlo::LmhloDialect>() &&
-      op->getDialect()->getTypeID() !=
-          TypeID::get<lmhlo_disc::LmhloDiscDialect>()) {
-    return 0;
-  }
-  return llvm::count_if(op->getOperands(),
-                        [&](Value v) { return IsOpWriteValue(op, v); });
-}
-
 int64_t getFirstOperandIndex(Operation* op, Value value) {
   for (int64_t i = 0; i < op->getNumOperands(); ++i) {
     auto operand = op->getOperand(i);

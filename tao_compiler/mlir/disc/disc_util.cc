@@ -20,6 +20,7 @@ limitations under the License.
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/Shape/IR/Shape.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
+#include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/transforms/placement_utils.h"
 #include "tensorflow/core/util/env_var.h"
 
@@ -295,6 +296,22 @@ DenseIntElementsAttr GetI64ElementsAttrForSeq(int start, int end,
 
   TensorType ty = RankedTensorType::get({size}, builder->getIntegerType(64));
   return DenseIntElementsAttr::get(ty, vals);
+}
+
+int getNumResultOperands(Operation* op) {
+  if (isa<lmhlo_disc::CustomCallOp>(op)) {
+    // TODO(disc): add a registration base mechanism to support custom call op
+    // with more than one results.
+    return 1;
+  }
+
+  if (op->getDialect()->getTypeID() != TypeID::get<lmhlo::LmhloDialect>() &&
+      op->getDialect()->getTypeID() !=
+          TypeID::get<lmhlo_disc::LmhloDiscDialect>()) {
+    return 0;
+  }
+  return llvm::count_if(op->getOperands(),
+                        [&](Value v) { return IsOpWriteValue(op, v); });
 }
 
 // Returns 1D 64-bit dense elements attribute with the given values.

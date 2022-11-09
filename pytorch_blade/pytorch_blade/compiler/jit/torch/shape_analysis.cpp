@@ -2112,7 +2112,8 @@ class ShapePropagator : public PropertyPropBase {
     } else if (
         node->matches(
             "aten::embedding_dense_backward(Tensor grad_output, Tensor indices, int num_weights, int padding_idx, bool scale_grad_by_freq) -> Tensor")) {
-      if (auto type = node->input(0)->type()->cast<TensorType>()) {
+      auto type = node->input(0)->type()->cast<TensorType>();
+      if (type && type->dim()) {
         auto numWeightsOptional = node->get<int64_t>(attr::num_weights);
         if (type->isComplete()) {
           std::vector<int64_t> newSizes = {numWeightsOptional.value()};

@@ -70,7 +70,7 @@ function test_example() {
     (
       cd ../examples/PyTorch/Training && \
       python -m pip install -r requirements.txt && \
-      python bert_train_ltc.py --batch-size 8 --acc-backend ltc-disc --num-samples 152 --epochs 1 2>&1
+      LTC_DISC_CUDA=1 python bert_train_ltc.py --batch-size 8 --acc-backend ltc-disc --num-samples 152 --epochs 1 2>&1
     )
   fi
 }

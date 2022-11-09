@@ -23,6 +23,7 @@ namespace blade {
 namespace tensorrt {
 
 using torch::blade::backends::CalibDataType;
+using torch::blade::backends::PerInputCalibDataType;
 
 class Int8EntropyCalibrator2Impl {
  public:
@@ -41,6 +42,7 @@ class Int8EntropyCalibrator2Impl {
 
  private:
   CalibDataType calib_data_;
+  PerInputCalibDataType batch_data_;
   int batch_num_ = 0;
   int input_num_ = 0;
   int batch_size_ = 0;

@@ -23,6 +23,7 @@ Int8EntropyCalibrator2Impl::Int8EntropyCalibrator2Impl(
   input_num_ = calib_data_[0].size();
   // TODO: support batch data with different size
   batch_size_ = calib_data_[0][0].sizes()[0];
+  batch_data_.resize(input_num_);
 }
 
 bool Int8EntropyCalibrator2Impl::getBatch(
@@ -36,6 +37,9 @@ bool Int8EntropyCalibrator2Impl::getBatch(
     // To save cuda memory, we lazily move calibration data
     // to gpu here.
     auto input = calib_data_[cur_batch_][i].cuda().contiguous();
+    // Hold it so that the input tensor will not be destroyed
+    // during calibration.
+    batch_data_[i] = input;
     bindings[i] = input.data_ptr();
   }
   cur_batch_++;

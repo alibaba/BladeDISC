@@ -33,6 +33,8 @@ bool Int8EntropyCalibrator2Impl::getBatch(
     return false;
   }
   for (int i = 0; i < input_num_; i++) {
+    // To save cuda memory, we lazily move calibration data
+    // to gpu here.
     auto input = calib_data_[cur_batch_][i].cuda().contiguous();
     bindings[i] = input.data_ptr();
   }

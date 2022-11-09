@@ -29,8 +29,6 @@ class Int8EntropyCalibrator2Impl {
  public:
   Int8EntropyCalibrator2Impl(const CalibDataType& calib_data);
 
-  ~Int8EntropyCalibrator2Impl();
-
   int getBatchSize() const {
     return batch_size_;
   }
@@ -48,8 +46,6 @@ class Int8EntropyCalibrator2Impl {
   int input_num_ = 0;
   int batch_size_ = 0;
   int cur_batch_ = 0;
-  std::vector<size_t> input_count_;
-  std::vector<void*> device_inputs_;
 };
 
 class Int8EntropyCalibrator2 : public nvinfer1::IInt8EntropyCalibrator2 {

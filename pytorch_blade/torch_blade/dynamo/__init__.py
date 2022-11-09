@@ -9,8 +9,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from torchdynamo.optimizations.training import AotAutogradStrategy
-from torchdynamo.optimizations.backends import BACKENDS
+from torch._dynamo.optimizations.training import AotAutogradStrategy
+from torch._dynamo.optimizations.backends import BACKENDS
 from functorch._src import compilers
 
 import torch

@@ -27,10 +27,10 @@ from torch.utils.data import DataLoader
 from transformers import AutoModelForSequenceClassification
 from transformers import AutoTokenizer
 
+import torch._dynamo as torchdynamo
 import torch_blade.utils as utils
 import torch_blade.clustering.support_fusion_group as fusion
 import torch_blade.dynamo
-import torchdynamo
 import ctypes
 
 _cudart = ctypes.CDLL('libcudart.so')

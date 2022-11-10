@@ -69,13 +69,6 @@ bool DotGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
     return false;
   }
 
-  // All ops are supported by CUDA source emitter.
-  for (auto op : mem_intensive_ops) {
-    if (!SourceEmitterCUDA::isSupportedOp(op)) {
-      return false;
-    }
-  }
-
   // All the effective-operand of non-dot ops are not the operand of the fusion.
   DenseSet<Value> operand_set(operands.begin(), operands.end());
   for (auto op : mem_intensive_ops) {
@@ -96,7 +89,6 @@ bool DotGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
 bool DotGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
                                    FusionPattern& lhs, FusionPattern& rhs,
                                    FusionPattern& target) {
-  auto& op_list = target.getOpList();
   auto& operands = target.getOperands();
   auto& results = target.getResults();
 

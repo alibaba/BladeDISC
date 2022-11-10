@@ -174,6 +174,7 @@ class Config(ConfigContext):
         self._quantization_calibration_data = None
         self._preserved_attributes = []
         self._customize_onnx_opset_version = None
+        self._disable_optimization_for_inference = False
         self._enable_force_to_cuda = False
         self._enable_onnx_shape_white_list = True
         self._enable_static_shape = False
@@ -192,6 +193,20 @@ class Config(ConfigContext):
         :default: 'DISC'
         """
         return self._opt_pipeline
+
+    @property
+    def disable_optimization_for_inference(self):
+        """The flag to disable optimization for inference.
+
+        :type: bool
+        :default: False
+        """
+        return self._disable_optimization_for_inference
+
+    @disable_optimization_for_inference.setter
+    def disable_optimization_for_inference(self, val):
+        assert isinstance(val, bool), "disable_optimization_for_inference should be bool, got {}".format(type(val))
+        self._disable_optimization_for_inference = val
 
     @optimization_pipeline.setter
     def optimization_pipeline(self, val):

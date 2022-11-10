@@ -32,7 +32,7 @@ def _record_shape_information(s_module, inputs):
         return
     if isinstance(inputs, torch.Tensor):
         inputs = (inputs, )
-    # TODO: 
+    # TODO:
     # handle the exception raised by record_shape_by_tracing,
     # such as inputs device mismatch
     record_shape_by_tracing(s_module._c, inputs)
@@ -65,22 +65,39 @@ def _script_module_preprocess(s_module, inputs, input_dims=[]):
     for jit_pass in cfg.customize_jit_passes:
         jit_pass(graph)
 
-    # It will record tensor information, such as ranks, data types,
-    # and devices, that are useful for analysis and optimizations
-    # by tracing with auxiliary inputs.
-    _record_shape_information(s_module, inputs)
-    if cfg.enable_static_shape:
+    cfg = Config.get_current_context_or_new()
+    if not cfg.disable_optimization_for_inference:
+        # TODO(tanyo):
+        # It will record tensor information, such as ranks, data types,
+        # and devices, that are useful for analysis and optimizations
+        # by tracing with auxiliary inputs.
+        # Should be deprecated once shape analysis is complete and robust
+        _record_shape_information(s_module, inputs)
+        if cfg.enable_static_shape:
+            return
+
+        from torch_blade.mlir import _DISC_NAME
+        # shape annotations for DISC
+        if cfg.optimization_pipeline != _DISC_NAME:
+            return
+        if cfg.annotate_args:
+            _set_annotate_args(s_module, cfg.annotate_args)
+        else:
+            _erase_input_concrete_types(s_module.graph)
         return
 
-    from torch_blade.mlir import _DISC_NAME
-    # shape annotations for DISC
-    if cfg.optimization_pipeline != _DISC_NAME:
-        return
-    if cfg.annotate_args:
-        _set_annotate_args(s_module, cfg.annotate_args)
-    else:
-        _erase_input_concrete_types(s_module.graph)
-
+    for idx, input in enumerate(graph.inputs()):
+        # skip the 1th self input value
+        is_tensor = input.type().isSubtypeOf(torch._C.TensorType.get())
+        if not is_tensor: continue
+        inp = inputs[idx-1]
+        dim = len(inp.size())
+        if isinstance(dim, int):
+            set_tensor_shape(input, list(inp.size()))
+        inp_typ = input.type()
+        inp_typ = inp_typ.with_dtype(inp.dtype)
+        input.setType(inp_typ.with_device(inp.device))
+    jit_pass_propagate_input_shapes(graph)
 
 def _deep_copy_script_module(model):
 

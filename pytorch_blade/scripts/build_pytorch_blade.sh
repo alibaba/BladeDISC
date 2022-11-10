@@ -68,9 +68,16 @@ function test_example() {
     # There is a but that causing OOM on LTC, so BladeDISC only check minor iterations,
     # issue: https://github.com/pytorch/pytorch/issues/80942
     (
-      cd ../examples/PyTorch/Training && \
-      python -m pip install -r requirements.txt && \
+      cd ../examples/PyTorch/Train/Lazy/Bert && \
+      python3 -m pip install -r requirements.txt && \
       LTC_DISC_CUDA=1 python bert_train_ltc.py --batch-size 8 --acc-backend ltc-disc --num-samples 152 --epochs 1 2>&1
+    )
+  fi
+  if [ "$TORCH_BLADE_CI_BUILD_TORCH_VERSION" == "pre+cu117" ]; then
+    (
+      cd ../examples/PyTorch/Train/Dynamo/Bert && \
+      python3 -m pip install -r requirements.txt && \
+      bash ./test.sh
     )
   fi
 }

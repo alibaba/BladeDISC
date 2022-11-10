@@ -309,9 +309,10 @@ def _jit_pass_clean_script(graph):
 
 
 def _optimize_common(c_module):
-    is_training = c_module.hasattr("training") and c_module.training
     cfg = Config.get_current_context_or_new()
     static_shape = cfg.enable_static_shape
+
+    is_training = c_module.hasattr("training") and c_module.training or cfg.disable_optimization_for_inference
     if is_training and cfg.enable_int8:
         logger.error("If do quantization, the model must in eval mode ")
     if cfg.enable_int8:

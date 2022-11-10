@@ -64,6 +64,9 @@ void initToolsBindings(py::module& m) {
   tools.def(
       "create_method_from_graph", &torch::blade::create_method_from_graph);
   tools.def("unsafe_remove_method", &torch::blade::unsafe_remove_method);
+  tools.def(
+      "unsafe_remove_type_attribute",
+      &torch::blade::unsafe_remove_type_attribute);
   tools.def("get_list_tensor_type", &torch::blade::get_list_tensor_type);
   tools.def("set_tensor_shape", &torch::blade::set_tensor_shape);
   tools.def(

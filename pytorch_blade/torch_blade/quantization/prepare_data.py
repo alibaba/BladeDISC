@@ -9,6 +9,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import itertools
 import os
 import tempfile
 from contextlib import contextmanager
@@ -17,7 +18,8 @@ from typing import List
 import torch
 import torch_blade
 from torch_blade import utils
-from torch_blade.clustering.support_group_conversion import group_nodes, replace_group_with_engine
+from torch_blade.clustering.support_group_conversion import (
+    group_nodes, replace_group_with_engine)
 from torch_blade.config import Config
 from torch_blade.logging import logger
 from torch_blade.tools.shape_inference import jit_add_observer
@@ -66,6 +68,7 @@ class DataPreparer:
 
         self.get_attr_nodes_for_fusion_group = []
         self.all_collect_observer_name = []
+        self.all_group_name = []
 
     def make_fusion_group_executable(self):
         """
@@ -97,7 +100,9 @@ class DataPreparer:
         for idx, g_node in enumerate(group_nodes(self.graph)):
             subgraph = g_node.g("Subgraph").copy()
             group_name = f"{self.executable_fusion_prefix}_{idx}"
+            self.all_group_name.append(group_name)
             fallback_module = utils.subgraph_to_module(subgraph, group_name)
+
             self.custom_module_owner._c._register_attribute(
                 group_name, fallback_module._type(), fallback_module
             )
@@ -205,7 +210,12 @@ class DataPreparer:
         self.make_fusion_group_executable()
         self.insert_observer()
         all_data = self.get_calib_data_for_each_group()
+        self.clear_attribute()
         return all_data
+
+    def clear_attribute(self):
+        for name in itertools.chain(self.all_group_name, self.all_collect_observer_name):
+            self.custom_module_owner._c.unsafe_remove_type_attribute(name)
 
 
 @contextmanager

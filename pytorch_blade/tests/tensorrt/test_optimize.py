@@ -16,6 +16,7 @@ import unittest
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from tests.quantization import QuantizationTestCase
 from tests.tensorrt import skipIfNoTensorRT
 from torch.testing import FileCheck
 from torch_blade import optimization as opt
@@ -67,7 +68,9 @@ class TestOptimize(TestCase):
     def tearDown(self) -> None:
         self.tmp_dir.cleanup()
 
-    def _calculate_model_output(self, model, allow_tracing=None, model_inputs=None):
+    def _calculate_model_output(
+            self, model, allow_tracing=None, model_inputs=None
+    ):
         new_cfg = Config.get_current_context_or_new()
         new_cfg.optimization_pipeline = "TensorRT"
         if model_inputs is None:
@@ -246,6 +249,70 @@ graph(%self.1 : __torch__.___torch_mangle_0.Net,
   %69 : Float(1:1200, 3:400, 20:20, 20:1) = prim::ListUnpack(%67)
   return (%69)"""
         FileCheck().run(expect_gstr, opt_module.graph)
+
+
+@skipIfNoTensorRT()
+class TestInt8CalibrationInputTypes(QuantizationTestCase):
+    def _do_int8_calibration_optimzie(self, model, calib_data):
+        cfg = Config.get_current_context_or_new()
+        cfg.optimization_pipeline = "TensorRT"
+        cfg.enable_int8 = True
+        cfg.quantization_calibration_data = calib_data
+        with cfg:
+            optimize(model, True, calib_data[0])
+
+    def test_float(self):
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.conv1 = nn.Conv2d(256, 256, 3, 1, bias=False)
+                self.conv2 = nn.Conv2d(256, 256, 3, 1, bias=False)
+                self.conv3 = nn.Conv2d(256, 256, 3, 1, bias=False)
+
+            def forward(self, x):
+                x = self.conv1(x)
+                x = self.conv2(x)
+                x = self.conv3(x)
+                return x
+
+        model = Model().eval().to(self.device)
+        calib_data = [(torch.randn(1, 256, 128, 128).to(self.device), ), ]
+        self._do_int8_calibration_optimzie(model, calib_data)
+
+    def test_long(self):
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear1 = nn.Linear(256, 256, bias=False)
+                self.linear2 = nn.Linear(256, 256, bias=False)
+                self.linear3 = nn.Linear(256, 256, bias=False)
+
+            def forward(self, x):
+                x = 1.0 * x
+                x = self.linear1(x)
+                x = self.linear2(x)
+                x = self.linear3(x)
+                return x
+        model = Model().eval().to(self.device)
+        calib_data = [(torch.ones(1, 256, dtype=torch.long).to(self.device), ), ]
+        self._do_int8_calibration_optimzie(model, calib_data)
+
+    def test_non_contiguous_data(self):
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+
+            def forward(self, x, y):
+                return x + y + x + y
+
+        model = Model().eval().to(self.device)
+        contiguous_t = torch.randn(10, 10).to(self.device)
+        non_contiguous_t = torch.randn(20, 20).to(self.device)[::2, ::2]
+        calib_data = [
+            (non_contiguous_t, non_contiguous_t),
+            (contiguous_t, contiguous_t)
+        ]
+        self._do_int8_calibration_optimzie(model, calib_data)
 
 
 if __name__ == "__main__":

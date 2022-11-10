@@ -34,6 +34,14 @@ void unsafe_remove_method(torch::jit::Module& self, const std::string& name) {
   self._ivalue()->compilation_unit()->unsafeRemoveMethod(method_name);
 }
 
+void unsafe_remove_type_attribute(
+    torch::jit::Module& self,
+    const std::string& name) {
+  // This is used for removing the registered attribute
+  // after the calibration data is collected.
+  self.type()->unsafeRemoveAttribute(name);
+}
+
 torch::jit::Module clone_cpp_module(torch::jit::Module& self) {
   return torch::jit::Module(self.clone(false));
 }

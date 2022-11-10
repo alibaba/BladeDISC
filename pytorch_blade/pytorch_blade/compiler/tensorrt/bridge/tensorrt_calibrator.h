@@ -11,7 +11,6 @@
 
 #pragma once
 
-#include <cuda_runtime_api.h>
 #include <torch/torch.h>
 #include <string>
 #include <vector>
@@ -24,12 +23,11 @@ namespace blade {
 namespace tensorrt {
 
 using torch::blade::backends::CalibDataType;
+using torch::blade::backends::PerInputCalibDataType;
 
 class Int8EntropyCalibrator2Impl {
  public:
   Int8EntropyCalibrator2Impl(const CalibDataType& calib_data);
-
-  ~Int8EntropyCalibrator2Impl();
 
   int getBatchSize() const {
     return batch_size_;
@@ -44,12 +42,11 @@ class Int8EntropyCalibrator2Impl {
 
  private:
   CalibDataType calib_data_;
+  PerInputCalibDataType batch_data_;
   int batch_num_ = 0;
   int input_num_ = 0;
   int batch_size_ = 0;
   int cur_batch_ = 0;
-  std::vector<size_t> input_count_;
-  std::vector<void*> device_inputs_;
 };
 
 class Int8EntropyCalibrator2 : public nvinfer1::IInt8EntropyCalibrator2 {

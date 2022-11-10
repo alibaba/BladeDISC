@@ -12,8 +12,6 @@
 #include "pytorch_blade/compiler/tensorrt/bridge/tensorrt_calibrator.h"
 #include "compiler/tensorrt/bridge/tensorrt_logger.h"
 
-#include <iostream>
-
 namespace torch {
 namespace blade {
 namespace tensorrt {
@@ -23,18 +21,9 @@ Int8EntropyCalibrator2Impl::Int8EntropyCalibrator2Impl(
   calib_data_ = calib_data;
   batch_num_ = calib_data_.size();
   input_num_ = calib_data_[0].size();
-  batch_size_ = calib_data_[0][0].sizes()[0];
   // TODO: support batch data with different size
-  auto first_inp = calib_data_[0];
-  for (int i = 0; i < input_num_; i++) {
-    input_count_.push_back(first_inp[i].numel());
-    device_inputs_.push_back(nullptr);
-    cudaError_t err =
-        cudaMalloc(&device_inputs_[i], input_count_[i] * sizeof(float));
-    if (err != cudaSuccess) {
-      LOG(ERROR) << "cudaMalloc failed: " << cudaGetErrorString(err);
-    }
-  }
+  batch_size_ = calib_data_[0][0].sizes()[0];
+  batch_data_.resize(input_num_);
 }
 
 bool Int8EntropyCalibrator2Impl::getBatch(
@@ -45,30 +34,16 @@ bool Int8EntropyCalibrator2Impl::getBatch(
     return false;
   }
   for (int i = 0; i < input_num_; i++) {
-    auto input = calib_data_[cur_batch_][i];
-    auto input_data = input.data_ptr<float>();
-    cudaError_t err = cudaMemcpy(
-        device_inputs_[i],
-        input_data,
-        input_count_[i] * sizeof(float),
-        cudaMemcpyHostToDevice);
-    if (err != cudaSuccess) {
-      LOG(ERROR) << "cudaMemcpy failed: " << cudaGetErrorString(err);
-      return false;
-    }
-    bindings[i] = device_inputs_[i];
+    // To save cuda memory, we lazily move calibration data
+    // to gpu here.
+    auto input = calib_data_[cur_batch_][i].cuda().contiguous();
+    // Hold it so that the input tensor will not be destroyed
+    // during calibration.
+    batch_data_[i] = input;
+    bindings[i] = input.data_ptr();
   }
   cur_batch_++;
   return true;
-}
-
-Int8EntropyCalibrator2Impl::~Int8EntropyCalibrator2Impl() {
-  for (int i = 0; i < input_num_; i++) {
-    cudaError_t err = cudaFree(device_inputs_[i]);
-    if (err != cudaSuccess) {
-      LOG(ERROR) << "cudaFree failed: " << cudaGetErrorString(err);
-    }
-  }
 }
 
 } // namespace tensorrt

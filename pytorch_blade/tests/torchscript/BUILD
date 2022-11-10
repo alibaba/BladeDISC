@@ -8,6 +8,9 @@ cc_binary(
     srcs = [
         "shape_analysis_tool.cpp"
     ],
+    linkopts = [
+        "-lm",
+    ],
     deps = [
 	"//pytorch_blade/compiler/jit/torch:shape_analysis",
     ]

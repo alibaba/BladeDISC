@@ -15,6 +15,7 @@ filegroup(
     name = "torch_blade_jit_py_hdrs",
     srcs = [
         "//pytorch_blade/compiler/jit/torch:onnx.h",
+	"//pytorch_blade/compiler/jit/torch:pybind_utils.cpp",
     ] + glob(["**/pybind*.h"]),
 )
 

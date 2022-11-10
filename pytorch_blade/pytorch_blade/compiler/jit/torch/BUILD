@@ -16,6 +16,7 @@ cc_library(
 	    "op_registry.h",
     ],
     deps = [
+	"//pytorch_blade/common_utils:torch_blade_macros",
         "@local_org_torch//:libtorch",
     ] + if_quantization_enabled([
         "//pytorch_blade/quantization:quantization_op",
@@ -63,4 +64,5 @@ cc_test(
 exports_files([
     "onnx.h",
     "onnx.cpp",
+    "pybind_utils.cpp",
 ])

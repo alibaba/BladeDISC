@@ -5168,7 +5168,9 @@ struct DiscLhloLegalizeRootsToParallelLoops
       if (parent && !isa<lmhlo::FusionOp>(op)) {
         return;
       }
-      if (isStitchFusion(op) && !disc_ral::isOnGpu(op)) return;
+      if (isFusionType<FusionType::kStitch>(op) && !disc_ral::isOnGpu(op)) {
+        return;
+      }
       if (isa<lmhlo::FusionOp>(op)) {
         if (disc_ral::isOnGpu(op))
           gpu_fusion_worklist.push_back(op);

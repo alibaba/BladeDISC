@@ -545,6 +545,13 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
         pipeline.emplace_back(
             makeNewPlacementAwareFusionStrategy(gpu_enabled_, "base"));
       }
+    } else if (gpu_enabled_ && fusion_strategy_ == "dot") {
+      pipeline.emplace_back(
+          makeNewPlacementAwareFusionStrategy(gpu_enabled_, "dot"));
+      pipeline.emplace_back(
+          makeNewPlacementAwareFusionStrategy(gpu_enabled_, "base"));
+      pipeline.emplace_back(
+          makeNewPlacementAwareFusionStrategy(gpu_enabled_, "stitch"));
     }
     return pipeline;
   }

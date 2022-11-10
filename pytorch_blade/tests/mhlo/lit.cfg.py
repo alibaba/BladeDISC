@@ -65,7 +65,7 @@ llvm_config.with_environment('PATH', config.llvm_tools_dir, append_path=True)
 tool_dirs = config.mlir_tf_tools_dirs + [
     config.mlir_tools_dir, config.llvm_tools_dir
 ]
-tool_names = ['torch-mlir-opt']
+tool_names = config.tool_names
 tools = [ToolSubst(s, unresolved='ignore') for s in tool_names]
 llvm_config.add_tool_substitutions(tools, tool_dirs)
 # pylint: enable=undefined-variable

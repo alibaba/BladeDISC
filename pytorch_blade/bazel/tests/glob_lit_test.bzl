@@ -26,8 +26,8 @@ _ALWAYS_EXCLUDE = [
     "**/* */**",
 ]
 
-def _run_lit_test(name, data, size, tags, driver, features, exec_properties):
-    """Runs lit on all tests it can find in `data` under tensorflow/compiler/mlir.
+def _run_lit_test(name, data, size, tags, driver, features, tests_dir, exec_properties):
+    """Runs lit on all tests it can find in `data` under tests dir
 
     Note that, due to Bazel's hermetic builds, lit only sees the tests that
     are included in the `data` parameter, regardless of what other tests might
@@ -47,21 +47,21 @@ def _run_lit_test(name, data, size, tags, driver, features, exec_properties):
     # Remove the default_driver from the data: it does not exist as a file and is
     # just a placeholder from the copybara rewrite.
     data = [d for d in data if d != _default_driver]
-
     if name.startswith('gpu-only'):
         tags.append('gpu')
-    print(data)
+    if name.startswith('cpu-only'):
+        # Since tf's test_tag_filters will filt `no_gpu` for gpu config
+        tags.append('no_gpu')
+
     # Disable tests on windows for now, to enable testing rest of all xla and mlir.
     native.py_test(
         name = name,
         srcs = ["@llvm-project//llvm:lit"],
         tags = tags + ["no_pip", "no_windows"],
         args = [
-            "tests/mhlo/" + paths.basename(data[-1]), "-v",
+            tests_dir + "/" + paths.basename(data[-1]), "-v",
         ] + features,
         data = data + [
-            #"//tests/mhlo:lit.cfg.py",
-            #"//tests/mhlo:lit.site.cfg.py",
             "@llvm-project//llvm:FileCheck",
             "@llvm-project//llvm:count",
             "@llvm-project//llvm:not",
@@ -75,6 +75,7 @@ def glob_lit_tests(
         exclude = [],
         test_file_exts = _default_test_file_exts,
         default_size = _default_size,
+	tests_dir = "",
         size_override = {},
         data = [],
         per_test_extra_data = {},
@@ -108,7 +109,6 @@ def glob_lit_tests(
         ["*." + ext for ext in test_file_exts],
         exclude = exclude,
     )
-
     # Run tests individually such that errors can be attributed to a specific
     # failure.
     for i in range(len(tests)):
@@ -122,6 +122,7 @@ def glob_lit_tests(
             tags = default_tags + tags_override.get(curr_test, []),
             driver = driver,
             features = features,
+	    tests_dir = tests_dir,
             exec_properties = exec_properties,
         )
 
@@ -132,6 +133,7 @@ def lit_test(
         tags = _default_tags,
         driver = _default_driver,
         features = [],
+	tests_dir = "",
         exec_properties = {}):
     """Runs test files under lit.
 
@@ -145,4 +147,4 @@ def lit_test(
               and specifying a default driver will abort the tests.
       features: [str], list of extra features to enable.
     """
-    _run_lit_test(name + ".test", data + [name], size, tags, driver, features, exec_properties)
+    _run_lit_test(name + ".test", data + [name], size, tags, driver, features, tests_dir, exec_properties)

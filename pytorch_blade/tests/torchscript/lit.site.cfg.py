@@ -18,17 +18,11 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-import platform
 import lit.llvm
 
 # Handle the test srcdir for platforms. On windows, things are weird with bazel.
-if platform.system() == 'Windows':
-  srcdir = os.environ['TEST_SRCDIR']
-  real_test_srcdir = srcdir[:srcdir.find('tests/mhlo')]
-  external_srcdir = os.path.join(real_test_srcdir, 'external')
-else:
-  real_test_srcdir = os.environ['TEST_SRCDIR']
-  external_srcdir = real_test_srcdir
+real_test_srcdir = os.environ['TEST_SRCDIR']
+external_srcdir = real_test_srcdir
 
 # Lint for undefined variables is disabled as config is not defined inside this
 # file, instead config is injected by lit.py. The structure is common for lit
@@ -37,12 +31,12 @@ else:
 config.llvm_tools_dir = os.path.join(external_srcdir, 'llvm-project', 'llvm')
 config.mlir_obj_root = os.path.join(real_test_srcdir)
 config.mlir_tools_dir = os.path.join(external_srcdir, 'llvm-project', 'mlir')
-config.tool_names = ['torch-mlir-opt']
+config.tool_names = ['shape_analysis_tool']
 # TODO(jpienaar): Replace with suffices in build rule.
-config.suffixes = ['.td', '.mlir', '.pbtxt']
+config.suffixes = ['.graph',]
 
 mlir_tf_tools_dirs = [
-    'tests/mhlo/torch-mlir-opt',
+    'tests/torchscript/',
 ]
 config.mlir_tf_tools_dirs = [
     os.path.join(real_test_srcdir, os.environ['TEST_WORKSPACE'], s)
@@ -52,10 +46,6 @@ test_dir = os.environ['TEST_TARGET']
 test_dir = test_dir.strip('/').rsplit(':', 1)[0]
 config.mlir_test_dir = os.path.join(real_test_srcdir,
                                     os.environ['TEST_WORKSPACE'], test_dir)
-
-if platform.system() == 'Windows':
-  # Configure this to work with msys2, TF's preferred windows bash.
-  config.lit_tools_dir = '/usr/bin'
 
 lit.llvm.initialize(lit_config, config)
 

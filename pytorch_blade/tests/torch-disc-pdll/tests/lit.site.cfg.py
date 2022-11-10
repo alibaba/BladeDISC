@@ -24,7 +24,7 @@ import lit.llvm
 # Handle the test srcdir for platforms. On windows, things are weird with bazel.
 if platform.system() == 'Windows':
   srcdir = os.environ['TEST_SRCDIR']
-  real_test_srcdir = srcdir[:srcdir.find('tests/torch-disc-pdll')]
+  real_test_srcdir = srcdir[:srcdir.find('tests/torch-disc-pdll/tests')]
   external_srcdir = os.path.join(real_test_srcdir, 'external')
 else:
   real_test_srcdir = os.environ['TEST_SRCDIR']
@@ -39,7 +39,7 @@ config.mlir_obj_root = os.path.join(real_test_srcdir)
 config.mlir_tools_dir = os.path.join(external_srcdir, 'llvm-project', 'mlir')
 # TODO(jpienaar): Replace with suffices in build rule.
 config.suffixes = ['.td', '.mlir', '.pbtxt']
-
+config.tool_names = ['torch-disc-pdll']
 mlir_tf_tools_dirs = [
     'tests/torch-disc-pdll',
 ]
@@ -63,5 +63,5 @@ lit_config.load_config(
     config,
     os.path.join(
         os.path.join(real_test_srcdir, os.environ['TEST_WORKSPACE'],
-                     'tests/torch-disc-pdll/runlit.cfg.py')))
+                     'bazel/tests/lit.cfg.py')))
 # pylint: enable=undefined-variable

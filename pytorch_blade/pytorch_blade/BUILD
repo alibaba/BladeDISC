@@ -112,6 +112,7 @@ pybind_library(
     ],
     deps = [
         ":torch_blade_shared",
+        "//pytorch_blade/compiler/jit:onnx_funcs",
         "@local_org_torch//:torch_python",
     ] + if_tensorrt_enabled([
         "@tensorrt//:nvinfer_headers",

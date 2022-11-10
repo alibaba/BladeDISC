@@ -1104,6 +1104,7 @@ class DiscConvertTorchToMhlo
     INSERT_UNARY_PATTERN(AtenCeilOp, mhlo::CeilOp)
     INSERT_UNARY_PATTERN(AtenCopyOp, mhlo::CopyOp)
     INSERT_UNARY_PATTERN(AtenItemOp, tensor::ExtractOp)
+    INSERT_UNARY_PATTERN(AtenCopyOp, mhlo::CopyOp)
 #undef INSERT_UNARY_PATTERN
 
 #define INSERT_EXTRACT_PATTERN(AtenOp) \

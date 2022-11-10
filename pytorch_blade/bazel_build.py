@@ -249,7 +249,8 @@ class BazelBuild(TorchBladeBuild):
         self.test_suites = [
             "//tests/mhlo/...",
             "//pytorch_blade:torch_blade_test_suite",
-            "//tests/torch-disc-pdll/...",
+            "//tests/torchscript/...",
+            "//tests/torch-disc-pdll/tests/...",
         ]
 
         test_cmd = " ".join(

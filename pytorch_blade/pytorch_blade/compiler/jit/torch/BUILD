@@ -1,9 +1,5 @@
 package(default_visibility = ["//visibility:public"])
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
-load(
-    "//bazel:build_defs.bzl",
-    "if_quantization_enabled"
-)
 
 cc_library(
     name = "shape_analysis",
@@ -18,9 +14,7 @@ cc_library(
     deps = [
 	"//pytorch_blade/common_utils:torch_blade_macros",
         "@local_org_torch//:libtorch",
-    ] + if_quantization_enabled([
-        "//pytorch_blade/quantization:quantization_op",
-    ]),
+    ]
 )
 
 cc_library(

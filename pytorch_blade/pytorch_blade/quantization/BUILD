@@ -12,6 +12,7 @@ cc_library(
         "@local_org_torch//:libtorch",
         "//pytorch_blade/common_utils:torch_blade_common"
     ],
+    alwayslink = True,
 )
 
 filegroup(

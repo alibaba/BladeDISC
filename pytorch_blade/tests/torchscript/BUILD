@@ -1,5 +1,9 @@
 load("//bazel/tests:glob_lit_test.bzl", "glob_lit_tests")
 load("@rules_cc//cc:defs.bzl", "cc_binary")
+load(
+    "//bazel:build_defs.bzl",
+    "if_quantization_enabled"
+)
 
 package(licenses = ["notice"])
 
@@ -13,7 +17,9 @@ cc_binary(
     ],
     deps = [
 	"//pytorch_blade/compiler/jit/torch:shape_analysis",
-    ]
+    ] + if_quantization_enabled([
+        "//pytorch_blade/quantization:quantization_op",
+    ]),
 )
 
 glob_lit_tests(

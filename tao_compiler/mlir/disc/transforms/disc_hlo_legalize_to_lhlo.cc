@@ -19,6 +19,8 @@ limitations under the License.
 #include <algorithm>
 #include <utility>
 
+#include "llvm/Support/Debug.h"
+#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
 #include "mlir/Dialect/Bufferization/Transforms/Bufferize.h"
@@ -184,6 +186,52 @@ struct HloToLhloCustomCallOpConverter : public BaseOpConversion<CustomCallOp> {
   }
 };
 
+struct HloToLhloCustomCallOpV2Converter
+    : public BaseOpConversion<CustomCallV2Op> {
+ public:
+  using BaseOpConversion<CustomCallV2Op>::BaseOpConversion;
+
+  LogicalResult matchAndRewrite(
+      CustomCallV2Op hloOp, OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
+    Location loc = hloOp->getLoc();
+    SmallVector<Type> resultTypes;
+    for (Value v : hloOp->getResults()) {
+      auto ty = v.getType().cast<RankedTensorType>();
+      resultTypes.push_back(
+          MemRefType::get(ty.getShape(), ty.getElementType()));
+    }
+    auto lhloOp = rewriter.create<lmhlo_disc::CustomCallV2Op>(
+        loc, resultTypes, adaptor.getOperands(), hloOp->getAttrs());
+
+    // Those buffers that are returned by the custom call op should be
+    // deallocated manually. Currently we rely on buffer deallocation pass to
+    // automatically insert dealloc op for each alloc-like op. However the pass
+    // does not support multi-results alloc-like op.
+    //
+    // To solve the above problem, we simply add a copy op for each result
+    // buffer and insert a dealloc op explicitly for the old result buffer when
+    // bufferizing.
+    // TODO(wyzero): these copy ops may inroduce luanch overhead. Add a pass to
+    // remove these copy ops after the normal buffer deallocaiotn pass.
+    SmallVector<Value> newResults;
+    for (Value result : lhloOp->getResults()) {
+      auto ty = result.getType().cast<MemRefType>();
+      SmallVector<Value> dynSizes;
+      for (int d = 0; d < ty.getRank(); ++d) {
+        if (ty.getShape()[d] != ShapedType::kDynamicSize) continue;
+        dynSizes.push_back(rewriter.create<memref::DimOp>(loc, result, d));
+      }
+      newResults.push_back(rewriter.create<memref::AllocOp>(loc, ty, dynSizes));
+      rewriter.create<lmhlo::CopyOp>(loc, result, newResults.back());
+      rewriter.create<memref::DeallocOp>(loc, result);
+    }
+
+    rewriter.replaceOp(hloOp, newResults);
+    return success();
+  }
+};
+
 struct TieShapeOpConverter : public BaseOpConversion<TieShapeOp> {
  public:
   using BaseOpConversion<TieShapeOp>::BaseOpConversion;
@@ -216,7 +264,8 @@ struct DiscHloLegalizeToLhlo
 
   void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<lmhlo_disc::LmhloDiscDialect, memref::MemRefDialect,
-                    shape::ShapeDialect, bufferization::BufferizationDialect>();
+                    shape::ShapeDialect, bufferization::BufferizationDialect,
+                    lmhlo::LmhloDialect>();
   }
 
  public:
@@ -229,7 +278,7 @@ struct DiscHloLegalizeToLhlo
     target.addLegalDialect<arith::ArithDialect, lmhlo_disc::LmhloDiscDialect,
                            bufferization::BufferizationDialect,
                            memref::MemRefDialect, shape::ShapeDialect,
-                           tensor::TensorDialect>();
+                           tensor::TensorDialect, lmhlo::LmhloDialect>();
     target.addIllegalDialect<mhlo_disc::MhloDiscDialect>();
     target.addIllegalOp<disc_shape::TieShapeOp>();
 
@@ -257,6 +306,7 @@ void populateDiscHLOToLHLOConversionPattern(
       HloToLhloOpConverter<mhlo_disc::SparseSegmentMeanOp>,
       HloToLhloOpConverter<mhlo_disc::WhereOp>,
       HloToLhloCustomCallOpConverter,
+      HloToLhloCustomCallOpV2Converter,
       TieShapeOpConverter
   >(*converter, context);
   // clang-format on

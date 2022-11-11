@@ -39,6 +39,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/IR/topk_custom_call_op.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
+#include "tensorflow/compiler/mlir/disc/transforms/disc_pdl_utils.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_types.h"
 #include "tensorflow/compiler/mlir/tensorflow/utils/convert_tensor.h"
@@ -69,13 +70,19 @@ StringAttr PackRandomUniformBackendConfig(IntegerAttr seed, IntegerAttr seed2,
 
 // Prepare TF operations in functions for subsequent legalization.
 struct PrepareTFPass : public DiscLowerTfPassBase<PrepareTFPass> {
-  using DiscLowerTfPassBase<PrepareTFPass>::DiscLowerTfPassBase;
+  PrepareTFPass(const std::string& pdll_files,
+                const std::string& pdll_include_dirs)
+      : DiscLowerTfPassBase<PrepareTFPass>::DiscLowerTfPassBase() {
+    this->pdll_files_ = pdll_files;
+    this->pdll_include_dirs_ = pdll_include_dirs;
+  }
 
   // TODO: move to td file
   void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<mhlo::MhloDialect>();
     registry.insert<mhlo_disc::MhloDiscDialect>();
     registry.insert<tensor::TensorDialect>();
+    getPDLDependentDialects(registry);
   }
 
   void runOnOperation() override;
@@ -1404,6 +1411,55 @@ class ConvertWhereOp : public OpRewritePattern<TF::WhereOp> {
 
 #include "tensorflow/compiler/mlir/disc/transforms/lower_tf.inc"
 
+// add pre-defined pdll patterns here.
+std::string getPredefinedPDLPatterns() {
+  std::string preDefinedPatterns;
+
+  /// Examples: FusedConvRelu
+  ///
+  /// static const char* fused_conv_relu = R"pdll(
+  ///   Pattern TFFusedConvRelu {
+  ///
+  ///     /// match phase: define the pattern
+  ///     let data_format_attr : Attr;
+  ///     let dilations_attr : Attr;
+  ///     let padding_attr : Attr;
+  ///     let strides_attr : Attr;
+  ///     let conv = op<tf.Conv2D>(input : Value, weights : Value) { data_format
+  ///     = data_format_attr, dilations = dilations_attr, padding =
+  ///     padding_attr, strides = strides_attr }; let relu =
+  ///     op<tf.Relu>(conv.0);
+  ///
+  ///     /// rewrite phase
+  ///     rewrite relu with {
+  ///       /// 1. create custom call op
+  ///       let inputs = PackValue_2(attr<"\"in\"">, input, weights);
+  ///       let outputs = PackValue_2(attr<"\"out\"">, conv.0, relu.0);
+  ///       let infos = CreateCustomCall(attr<"\"op\"">, inputs, outputs);
+  ///
+  ///       /// 2. set attrs that are used by bladedisc.
+  ///       SetAttr(infos.op, attr<"\"call_target_name\"">,
+  ///       attr<"\"disc.custom_call.fused_conv_relu\"">); SetAttr(infos.op,
+  ///       attr<"\"input_placements\"">, attr<"\"h,h\"">); SetAttr(infos.op,
+  ///       attr<"\"output_placements\"">, attr<"\"h\"">);
+  ///
+  ///       /// 3. set attrs that are directly passed to the custom call kernel.
+  ///       SetCustomAttr(infos.op, attr<"\"data_format\"">, data_format_attr);
+  ///       SetCustomAttr(infos.op, attr<"\"dilation\"">, dilations_attr);
+  ///       SetCustomAttr(infos.op, attr<"\"padding\"">, padding_attr);
+  ///       SetCustomAttr(infos.op, attr<"\"strides\"">, strides_attr);
+  ///
+  ///       let rs = UnpackValue_2(infos.new_outputs);
+  ///       replace conv with rs.0;
+  ///       replace relu with rs.1;
+  ///     };
+  ///   }
+  /// )pdll";
+  /// preDefinedPatterns += fused_conv_relu + "\n";
+
+  return preDefinedPatterns;
+}
+
 void PrepareTFPass::runOnOperation() {
   MLIRContext* ctx = &getContext();
   RewritePatternSet patterns(ctx);
@@ -1413,6 +1469,23 @@ void PrepareTFPass::runOnOperation() {
     signalPassFailure();
     return;
   }
+
+  // add pre-defined pdl patterns
+  populateDiscPdlPatternsFromString(&patterns, getPredefinedPDLPatterns());
+  auto parser = [&](const std::string& str) {
+    std::vector<std::string> parsedStrs;
+    if (str.empty()) return parsedStrs;
+    SmallVector<StringRef> items;
+    StringRef(str.data(), str.size())
+        .split(items, ',', /*MaxSplit=*/-1,
+               /*KeepEmpty=*/false);
+    for (const auto& item : items) {
+      parsedStrs.push_back(item.str());
+    }
+    return parsedStrs;
+  };
+  populateDiscPdlPatternsFromFiles(&patterns, parser(pdll_files_),
+                                   parser(pdll_include_dirs_));
 
   populateWithGenerated(patterns);
   // clang-format off
@@ -1436,8 +1509,9 @@ void PrepareTFPass::runOnOperation() {
 }  // namespace
 
 // Lower some tf ops before tf2mhlo lowering.
-std::unique_ptr<OperationPass<func::FuncOp>> createDiscLowerTfPass() {
-  return std::make_unique<PrepareTFPass>();
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscLowerTfPass(
+    const std::string& pdll_files, const std::string& pdll_include_dirs) {
+  return std::make_unique<PrepareTFPass>(pdll_files, pdll_include_dirs);
 }
 
 }  // namespace disc_ral

@@ -33,6 +33,8 @@ limitations under the License.
 #include "mlir/Tools/PDLL/Parser/Parser.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 
+#define DEBUG_TYPE "disc-pdl-utils"
+
 namespace mlir {
 
 using namespace mlir::pdll;
@@ -266,7 +268,7 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns,
 }  // namespace
 
 // Adds related depedent dialects (e.g. PDL dialect).
-void getDependentDialects(DialectRegistry& registry) {
+void getPDLDependentDialects(DialectRegistry& registry) {
   registry.insert<mhlo_disc::MhloDiscDialect, pdl::PDLDialect>();
 }
 
@@ -276,6 +278,7 @@ LogicalResult populateDiscPdlPatternsFromString(
     const std::vector<std::string>& includeDirs,
     const std::string& customPredefinedFunctionPrototypes,
     RegisterPDLFunctionsCallback callback) {
+  if (pdllModule.empty()) return success();
   auto pdlModule = compilePDLL(*patterns->getContext(), pdllModule, includeDirs,
                                customPredefinedFunctionPrototypes);
   if (!pdlModule) {

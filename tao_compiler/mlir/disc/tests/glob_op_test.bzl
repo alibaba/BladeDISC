@@ -53,6 +53,7 @@ def _run_lit_test(name, test_file, data, size, tags, driver, features, exec_prop
         name = local_test_files,
         srcs = native.glob([
             "data/" + name_without_suffix + "*.mlir",
+            "data/" + name_without_suffix + "*.pdll",
         ]),
     )
 

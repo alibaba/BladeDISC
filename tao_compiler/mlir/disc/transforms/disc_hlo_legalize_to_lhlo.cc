@@ -212,7 +212,7 @@ struct HloToLhloCustomCallOpV2Converter
     // To solve the above problem, we simply add a copy op for each result
     // buffer and insert a dealloc op explicitly for the old result buffer when
     // bufferizing.
-    // TODO(disc): these copy ops may inroduce luanch overhead. Add a pass to
+    // TODO(wyzero): these copy ops may inroduce luanch overhead. Add a pass to
     // remove these copy ops after the normal buffer deallocaiotn pass.
     SmallVector<Value> newResults;
     for (Value result : lhloOp->getResults()) {

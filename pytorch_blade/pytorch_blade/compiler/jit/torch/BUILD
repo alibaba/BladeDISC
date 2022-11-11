@@ -21,7 +21,6 @@ cc_library(
     ] + if_quantization_enabled([
         "//pytorch_blade/quantization:quantization_op",
     ]),
-    alwayslink = True,
 )
 
 cc_library(
@@ -40,7 +39,6 @@ cc_library(
     deps = [
         "@local_org_torch//:libtorch",
     ],
-    alwayslink = True,
 )
 
 cc_test(

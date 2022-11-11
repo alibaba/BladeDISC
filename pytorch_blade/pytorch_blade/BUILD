@@ -33,8 +33,6 @@ cc_library(
         "@local_config_cuda//cuda:cudart",
     ]) + if_platform_alibaba([
         "//pytorch_blade/platform_alibaba:torch_blade",
-    ]) + if_quantization_enabled([
-        "//pytorch_blade/quantization:quantization_op",
     ]),
 )
 

@@ -139,3 +139,29 @@ func.func @main(%arg0: tensor<?x?xf32>, %arg1: tensor<2xi32>) -> tensor<?x?xf32>
   } : (tensor<?x?xf32>, tensor<2xi32>) -> tensor<?x?xf32>
   return %1 : tensor<?x?xf32>
 }
+
+// -----
+
+// CHECK-LABEL: @main
+func.func @main(%arg0: tensor<?x?x?xi64>) -> tensor<?x3xi64> {
+  // CHECK: %[[V1:.*]], %[[V1:.*]] = "mhlo_disc.where"(%{{.*}}) : (tensor<?x?x?xi1>) -> (tensor<?x3xi64>, tensor<1xi64>)
+  %c0 = arith.constant 0 : index
+  %c1 = arith.constant 1 : index
+  %c2 = arith.constant 2 : index
+  %c3 = arith.constant 3 : index
+  %0 = mhlo.constant dense<0> : tensor<i64>
+  %cst = arith.constant dense<1> : tensor<2xindex>
+  %cst_0 = arith.constant dense<0> : tensor<2xindex>
+  %dim = tensor.dim %arg0, %c0 : tensor<?x?x?xi64>
+  %dim_1 = tensor.dim %arg0, %c1 : tensor<?x?x?xi64>
+  %dim_2 = tensor.dim %arg0, %c2 : tensor<?x?x?xi64>
+  %from_elements = tensor.from_elements %dim, %dim_1, %dim_2 : tensor<3xindex>
+  %1 = "mhlo.dynamic_broadcast_in_dim"(%0, %from_elements) {broadcast_dimensions = dense<> : tensor<0xi64>} : (tensor<i64>, tensor<3xindex>) -> tensor<?x?x?xi64>
+  %2 = mhlo.compare  NE, %arg0, %1 : (tensor<?x?x?xi64>, tensor<?x?x?xi64>) -> tensor<?x?x?xi1>
+  %index, %num_output_elements = "mhlo_disc.where"(%2) : (tensor<?x?x?xi1>) -> (tensor<?x3xi64>, tensor<1xi64>)
+  %extracted = tensor.extract %num_output_elements[%c0] : tensor<1xi64>
+  %3 = arith.index_cast %extracted : i64 to index
+  %from_elements_3 = tensor.from_elements %3, %c3 : tensor<2xindex>
+  %4 = mhlo.real_dynamic_slice %index, %cst_0, %from_elements_3, %cst : (tensor<?x3xi64>, tensor<2xindex>, tensor<2xindex>, tensor<2xindex>) -> tensor<?x3xi64>
+  return %4 : tensor<?x3xi64>
+}

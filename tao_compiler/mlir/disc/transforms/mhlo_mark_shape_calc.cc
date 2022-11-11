@@ -90,6 +90,19 @@ void DiscMarkShapeCalc::MarkShapeCalcOps() {
   }
 }
 
+// NOTE(lanbo.llb): mhlo.disc op will produce 2 outputs, the 2nd output is i64 tensor with single element
+// represent number of valid elements in the 1st output, this will be used to calc the final output
+// shape. It is indeed a shape calc, but where op should not be considered as shape calc op.
+// By marking it as shape calc op will cause mhlo_disc.where impossible to fuse in later fusion pass.
+bool with_input_from_where_op(Operation* op) {
+  for (Value operand : op->getOperands()) {
+    if (isa<mhlo_disc::WhereOp>(operand.getDefiningOp())) {
+      return true;
+    }
+  }
+  return false;
+}
+
 void DiscMarkShapeCalc::markShapeCalculationOps(
     func::FuncOp func, llvm::DenseSet<Operation*>& marked_ops) {
   auto& block = func.getBlocks().front();
@@ -100,7 +113,7 @@ void DiscMarkShapeCalc::markShapeCalculationOps(
     if (!marked_ops.contains(&op)) {
       // Mark following Ops into shape calculation set
       if (isa<mhlo::GetDimensionSizeOp, tensor::FromElementsOp,
-              tensor::ExtractOp>(&op)) {
+              tensor::ExtractOp>(&op) && !with_input_from_where_op(&op)) {
         marked_ops.insert(&op);
         continue;
       }

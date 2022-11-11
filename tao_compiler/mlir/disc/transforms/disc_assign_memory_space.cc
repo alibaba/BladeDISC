@@ -394,6 +394,9 @@ LogicalResult DiscAssignMemorySpacePass::processLmhloOperation(
     }
   }
 
+  // CustomCallV2Op supports mix placements for not-shape-operands.
+  if (isa<lmhlo_disc::CustomCallV2Op>(op)) return success();
+
   // non-shape operands
   SmallVector<Value, 4> non_shape_operands;
   for (int i = 0, e = op->getNumOperands(); i < e; ++i) {
@@ -538,7 +541,7 @@ Operation* replaceResultType(Operation* op,
     auto it = assignment.find(oldValue);
     if (it != assignment.end()) {
       assignment[newValue] = it->second;
-      assignment.erase(it);
+      assignment.erase(oldValue);
     }
   }
   op->erase();

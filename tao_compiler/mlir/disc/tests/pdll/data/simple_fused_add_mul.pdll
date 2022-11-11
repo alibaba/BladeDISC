@@ -12,6 +12,7 @@ Pattern TFFusedAddMul {
 
     /// 2. set attrs that are used by bladedisc.
     SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"disc.custom_call.test.tf_fused_add_mul\"">);
+    SetAttr(infos.op, attr<"\"device\"">, attr<"\"h\"">);
     SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"h,h\"">);
     SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"h\"">);
 

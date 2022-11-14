@@ -512,3 +512,8 @@ def DiscLowerQuantizeAndDequantizePass : Pass<"disc-lower-quantize-and-dequantiz
       "mhlo::MhloDialect",
   ];
 }
+
+def DiscBufferDeallocationPass : Pass<"disc-buffer-deallocation", "mlir::func::FuncOp"> {
+  let summary = "Insert dealloc op for some disc specific ops (e.g. custom_call_v2 op).";
+  let constructor = "createDiscBufferDeallocationPass()";
+}

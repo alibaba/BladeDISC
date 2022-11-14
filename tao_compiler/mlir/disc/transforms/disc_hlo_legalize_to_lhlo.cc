@@ -201,33 +201,8 @@ struct HloToLhloCustomCallOpV2Converter
       resultTypes.push_back(
           MemRefType::get(ty.getShape(), ty.getElementType()));
     }
-    auto lhloOp = rewriter.create<lmhlo_disc::CustomCallV2Op>(
-        loc, resultTypes, adaptor.getOperands(), hloOp->getAttrs());
-
-    // Those buffers that are returned by the custom call op should be
-    // deallocated manually. Currently we rely on buffer deallocation pass to
-    // automatically insert dealloc op for each alloc-like op. However the pass
-    // does not support multi-results alloc-like op.
-    //
-    // To solve the above problem, we simply add a copy op for each result
-    // buffer and insert a dealloc op explicitly for the old result buffer when
-    // bufferizing.
-    // TODO(wyzero): these copy ops may inroduce luanch overhead. Add a pass to
-    // remove these copy ops after the normal buffer deallocaiotn pass.
-    SmallVector<Value> newResults;
-    for (Value result : lhloOp->getResults()) {
-      auto ty = result.getType().cast<MemRefType>();
-      SmallVector<Value> dynSizes;
-      for (int d = 0; d < ty.getRank(); ++d) {
-        if (ty.getShape()[d] != ShapedType::kDynamicSize) continue;
-        dynSizes.push_back(rewriter.create<memref::DimOp>(loc, result, d));
-      }
-      newResults.push_back(rewriter.create<memref::AllocOp>(loc, ty, dynSizes));
-      rewriter.create<lmhlo::CopyOp>(loc, result, newResults.back());
-      rewriter.create<memref::DeallocOp>(loc, result);
-    }
-
-    rewriter.replaceOp(hloOp, newResults);
+    rewriter.replaceOpWithNewOp<lmhlo_disc::CustomCallV2Op>(
+        hloOp, resultTypes, adaptor.getOperands(), hloOp->getAttrs());
     return success();
   }
 };

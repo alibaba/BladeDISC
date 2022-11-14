@@ -266,6 +266,9 @@ createDiscLowerQuantizeAndDequantizePass();
 // Convert mhlo.dynamic_slice to mhlo.real_dynamic_slice
 std::unique_ptr<OperationPass<FuncOp>> createDiscDynamicSliceConverterPass();
 
+// Inserts dealloc ops for some disc specific ops (e.g. custom_call_v2 op).
+std::unique_ptr<OperationPass<FuncOp>> createDiscBufferDeallocationPass();
+
 }  // namespace disc_ral
 }  // namespace mlir
 

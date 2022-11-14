@@ -193,10 +193,7 @@ func.func @custom_call_v2_op(
                 inputs = "input0,input1",
                 output_placements = "cpu", outputs = "output0"}} {
   // CHECK: %[[T0:.*]] = "lmhlo_disc.custom_call_v2"(%[[ARG0]], %[[ARG1]])
-  // CHECK: %[[T1:.*]] = memref.alloc({{.*}})
-  // CHECK: "lmhlo.copy"(%[[T0]], %[[T1]])
-  // CHECK: memref.dealloc %[[T0]]
-  // return %[[T1]]
+  // return %[[T0]]
   %1 = "mhlo_disc.custom_call_v2"(%arg0, %arg1) {
     call_target_name = "foo",
     custom_attrs = {},

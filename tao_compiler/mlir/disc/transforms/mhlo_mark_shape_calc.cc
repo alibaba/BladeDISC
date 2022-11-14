@@ -170,7 +170,9 @@ void DiscMarkShapeCalc::inferOperands(func::FuncOp func,
         if (ty && ty.hasStaticShape() && ty.getNumElements() > 64) {
           continue;
         }
-        marked_ops.insert(operand);
+        if (!withInputFromWhereOp(&op)) {
+          marked_ops.insert(operand);
+        }
       }
     }
   };

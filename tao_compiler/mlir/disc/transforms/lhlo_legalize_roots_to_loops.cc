@@ -4761,8 +4761,6 @@ LogicalResult lowerWithScheduleWhereOpCPU(
   auto loc = where.getLoc();
   OpBuilder b(root_ops.back());
 
-  b.setInsertionPoint(where.getOperation());
-
   Value input = where.getInput();
   Value index = where.getIndex();
   Value num_output_elements = where.getNumOutputElements();
@@ -4778,26 +4776,35 @@ LogicalResult lowerWithScheduleWhereOpCPU(
       b.create<arith::ConstantOp>(loc, b.getIntegerAttr(b.getIndexType(), 1));
   Value one_for_acc = b.create<arith::ConstantOp>(
       loc, b.getIntegerAttr(b.getIntegerType(64), 1));
-  SmallVector<Value, 1> num_output_load_index = {
+  SmallVector<Value, 1> zero_load_index = {
       b.create<arith::ConstantIndexOp>(loc, 0)};
-  // memset num_output_elements to 0
+  // stack temp buffer for num_output_elements to 0
+  auto alloc = b.create<memref::AllocaOp>(
+      loc, MemRefType::get(
+               {}, b.getIntegerType(64), MemRefLayoutAttrInterface(),
+               StringAttr::get(where->getContext(), placement_utils::kCpu)));
+  auto temp_count = alloc.getResult();
   b.create<memref::StoreOp>(loc,
                             b.create<arith::ConstantOp>(
                                 loc, b.getIntegerAttr(b.getIntegerType(64), 0)),
-                            num_output_elements, num_output_load_index);
+                            temp_count);
 
   // for (i = 0; i < num_element; ++i)
-  llvm::SmallVector<scf::ForOp, 4> for_ops;
+  llvm::SmallVector<Value, 2> lower, upper, step;
   llvm::SmallVector<Value, 4> multidim_index;
   llvm::SmallVector<Value, 4> multidim_index_casted;
   for (int i = 0; i < input_rank; ++i) {
-    Value dim = b.create<memref::DimOp>(loc, input, i);
-    auto for_op = b.create<scf::ForOp>(loc, /* lowerBound */ zero,
-                                       /* upperBound */ dim, /* step */ one);
-    for_ops.push_back(for_op);
-    for_op.getBody()->clear();
-    b.setInsertionPointToStart(for_op.getBody());
-    Value loop_index = for_op.getInductionVar();
+    lower.push_back(zero);
+    upper.push_back(b.create<memref::DimOp>(loc, input, i));
+    step.push_back(one);
+  }
+  auto for_op =
+      b.create<scf::ParallelOp>(loc, /* lowerBound */ lower,
+                                /* upperBound */ upper, /* step */ step);
+  Value output_index_count;
+  b.setInsertionPointToStart(for_op.getBody());
+  for (int i = 0; i < input_rank; ++i) {
+    Value loop_index = for_op.getInductionVars()[i];
     multidim_index.push_back(loop_index);
     multidim_index_casted.push_back(
         b.create<arith::IndexCastOp>(loc, output_elem_type, loop_index));
@@ -4827,8 +4834,7 @@ LogicalResult lowerWithScheduleWhereOpCPU(
                                         /*hasElseRegion*/ false);
   if_is_zero.getThenRegion().front().clear();
   b.setInsertionPointToStart(&if_is_zero.getThenRegion().front());
-  Value output_index_count =
-      b.create<memref::LoadOp>(loc, num_output_elements, num_output_load_index);
+  output_index_count = b.create<memref::LoadOp>(loc, temp_count);
   Value output_index_casted =
       b.create<arith::IndexCastOp>(loc, b.getIndexType(), output_index_count);
   for (int i = 0; i < input_rank; ++i) {
@@ -4837,20 +4843,23 @@ LogicalResult lowerWithScheduleWhereOpCPU(
     b.create<memref::StoreOp>(loc, multidim_index_casted[i], index,
                               store_index);
   }
-  ArrayRef<Value> num_output_store_index = num_output_load_index;
   output_index_count =
       b.create<arith::AddIOp>(loc, output_index_count, one_for_acc);
-  b.create<memref::StoreOp>(loc, output_index_count, num_output_elements,
-                            num_output_store_index);
-  b.create<scf::YieldOp>(loc, ValueRange({}));  // if (input[i] != 0)
-  for (int i = input_rank - 1; i >= 0; --i) {
-    b.setInsertionPointToEnd(for_ops[i].getBody());
-    b.create<scf::YieldOp>(loc, ValueRange({}));
-  }  // for (i = 0; i < num_element; ++i)
-  b.setInsertionPoint(where.getOperation());
+  b.create<memref::StoreOp>(loc, output_index_count, temp_count);
 
-  // TODO: Support fusion
-  for (Operation* root_op : root_ops) root_op->erase();
+  b.create<scf::YieldOp>(loc, ValueRange({}));  // if (input[i] != 0)
+  b.setInsertionPoint(
+      where.getOperation());  // for (i = 0; i < num_element; ++i)
+
+  b.create<memref::StoreOp>(loc, b.create<memref::LoadOp>(loc, temp_count),
+                            num_output_elements, zero_load_index);
+
+  if (non_fusion) {
+    for (Operation* root_op : root_ops) root_op->erase();
+  } else {
+    assert(parent != nullptr && "Parent must be provided for fusion lowering");
+    cleanUnusedLhloOps(parent);
+  }
   return success();
 }
 
@@ -5100,6 +5109,12 @@ LogicalResult HandleCpuFusionOp(OpBuilder& b, Operation* fusion,
     case FusionType::kLargeConcat:
       if (failed(lowerWithScheduleLargeConcatCPU(
               root_ops, dominant_op, fused_block, /*non_fusion*/ false))) {
+        return dominant_op->emitError() << "failed to lower to loops";
+      }
+      break;
+    case FusionType::kWhere:
+      if (failed(lowerWithScheduleWhereOpCPU(root_ops, dominant_op, fused_block,
+                                             /*non_fusion*/ false))) {
         return dominant_op->emitError() << "failed to lower to loops";
       }
       break;

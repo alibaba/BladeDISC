@@ -98,7 +98,8 @@ void DiscMarkShapeCalc::MarkShapeCalcOps() {
 // later fusion pass.
 bool withInputFromWhereOp(Operation* op) {
   for (Value operand : op->getOperands()) {
-    if (isa<mhlo_disc::WhereOp>(operand.getDefiningOp())) {
+    auto op = operand.getDefiningOp();
+    if (op != nullptr && isa<mhlo_disc::WhereOp>(op)) {
       return true;
     }
   }

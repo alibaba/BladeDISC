@@ -25,25 +25,39 @@ Pattern TorchFakeQuantOp {
     symmetric: Value,
     dynamic: Value,
     per_channel: Value
-  ) -> (result: TypeRange);
-
-  CheckTorchOperator(fake_quant_op, attr<"\"torch_blade.fake_quant\"">);
+  ){ name = attr<"\"torch_blade.fake_quant\"">} -> (old_type: Type);
 
   /// rewrite phase
   rewrite fake_quant_op with {
+    let new_type = ConvertTorchTensorElemType(old_type, attr<"\"i8\"">);
+    let quantize_op = op<torch.operator>(
+      input,
+      scale,
+      zero_point,
+      quant_min,
+      quant_max,
+      num_bits,
+      axis,
+      signed,
+      symmetric,
+      dynamic,
+      per_channel
+    ){ name = attr<"\"torch_blade.quantize\"">} -> (new_type);
 
-    let inputs_quantize = PackValue_11(attr<"\"in\"">, input, scale, zero_point, quant_min, quant_max, num_bits, axis, signed, symmetric, dynamic, per_channel);
-    let outputs_quantize = PackValue_1(attr<"\"out\"">, fake_quant_op.0);
-    let quantize_op = CreateTorchQuantDequantOp(attr<"\"op\"">, inputs_quantize, outputs_quantize, attr<"\"torch_blade.quantize\"">);
+    let dequantize_op = op<torch.operator>(
+      quantize_op.0,
+      scale,
+      zero_point,
+      quant_min,
+      quant_max,
+      num_bits,
+      axis,
+      signed,
+      symmetric,
+      dynamic,
+      per_channel
+    ){ name = attr<"\"torch_blade.dequantize\"">} -> (old_type);
 
-    let quantize_rs = UnpackValue_1(quantize_op.new_outputs);
-
-    let inputs_dequantize = PackValue_11(attr<"\"in\"">, quantize_rs, scale, zero_point, quant_min, quant_max, num_bits, axis, signed, symmetric, dynamic, per_channel);
-    let outputs_dequantize = PackValue_1(attr<"\"out\"">, fake_quant_op.0);
-    let dequantize_op = CreateTorchQuantDequantOp(attr<"\"op\"">, inputs_dequantize, outputs_quantize, attr<"\"torch_blade.dequantize\"">);
-
-    let dequantize_rs = UnpackValue_1(dequantize_op.new_outputs);
-
-    replace fake_quant_op with dequantize_rs;
+    replace fake_quant_op with dequantize_op.0;
   };
 }

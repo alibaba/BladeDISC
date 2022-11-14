@@ -9,6 +9,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <unordered_map>
+
 #include "tests/torch-disc-pdll/utils.h"
 
 #include "mlir/Dialect/PDL/IR/PDL.h"
@@ -28,12 +30,11 @@ const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Constraint CheckTorchConstantStr(v : Value);
   Constraint CheckTorchConstantBool(v : Value);
   Constraint CheckTorchConstantIntList(v : Value);
-  Constraint CheckTorchOperator(op: Op, key: Attr);
 
-  Rewrite CreateTorchQuantDequantOp(tag : Attr, inputs : ValueRange, outputs : ValueRange, funcName : Attr) -> (op: Op, new_outputs : ValueRange);
   Rewrite CreateTorchCustomCall(tag : Attr, inputs : ValueRange, outputs : ValueRange) -> (op: Op, new_outputs : ValueRange);
   Rewrite ConvertTorchConstantIntListToI64DenseElemsAttr(cst: Value) -> Attr;
   Rewrite ConvertTorchConstantIntToI64Attr(cst: Value) -> Attr;
+  Rewrite ConvertTorchTensorElemType(old_type: TypeRange, type_str: Attr) -> TypeRange;
 )pdll";
 
 static LogicalResult checkTorchNone(
@@ -106,17 +107,6 @@ static LogicalResult checkTorchConstantIntList(
   return success();
 }
 
-static LogicalResult checkTorchOperator(
-    PatternRewriter& rewriter,
-    Operation* op,
-    Attribute keyAttr) {
-  StringRef name_str = op->getAttrOfType<StringAttr>("name").getValue();
-  StringRef name_str_ref = keyAttr.cast<StringAttr>().getValue();
-  if (name_str != name_str_ref)
-    return failure();
-  return success();
-}
-
 static void createTorchCustomCall(
     PatternRewriter& rewriter,
     PDLResultList& results,
@@ -135,52 +125,6 @@ static void createTorchCustomCall(
   assert(outputTypes.size() > 0);
   auto ctx = (*outputs.begin()).getContext();
   auto nameAttr = StringAttr::get(ctx, "torch_blade.custom_call");
-  Operation* op = rewriter.create<Torch::OperatorOp>(
-      (*outputs.begin()).getLoc(), outputTypes, nameAttr, inputs);
-
-  for (Value out : op->getResults())
-    vs.push_back(out);
-
-  results.push_back(op);
-  results.push_back(ValueRange(vs));
-}
-
-static void createTorchQuantDequantOp(
-    PatternRewriter& rewriter,
-    PDLResultList& results,
-    ArrayRef<PDLValue> values) {
-  assert(values.size() == 4);
-
-  auto tag = values[0].cast<Attribute>().cast<StringAttr>().getValue();
-  auto name = values[3].cast<Attribute>().cast<StringAttr>().getValue();
-
-  assert(
-      name.str() == "torch_blade.quantize" ||
-      name.str() == "torch_blade.dequantize");
-
-  auto& vs = disc_ral::getThreadLocalValueRangeStorage(tag);
-  vs.clear();
-  auto inputs = values[1].cast<ValueRange>();
-  auto outputs = values[2].cast<ValueRange>();
-
-  SmallVector<Type> outputTypes;
-  for (Value v : outputs) {
-    if (name.str() == "torch_blade.quantize") {
-      auto outputType = v.getType().cast<Torch::NonValueTensorType>();
-      Type quantizedElemType =
-          IntegerType::get(rewriter.getContext(), 8, IntegerType::Signed);
-      auto outTy = Torch::NonValueTensorType::get(
-          rewriter.getContext(),
-          outputType.getOptionalSizes(),
-          quantizedElemType);
-      outputTypes.push_back(outTy);
-    } else {
-      outputTypes.push_back(v.getType());
-    }
-  }
-  assert(outputTypes.size() > 0);
-  auto ctx = (*outputs.begin()).getContext();
-  auto nameAttr = StringAttr::get(ctx, name);
   Operation* op = rewriter.create<Torch::OperatorOp>(
       (*outputs.begin()).getLoc(), outputTypes, nameAttr, inputs);
 
@@ -219,20 +163,43 @@ static void convertTorchConstantIntToI64Attr(
   results.push_back(rewriter.getIntegerAttr(rewriter.getIntegerType(64), elem));
 }
 
+static void convertTorchTensorElemType(
+    PatternRewriter& rewriter,
+    PDLResultList& results,
+    ArrayRef<PDLValue> values) {
+  auto old_type = values[0].cast<Type>().cast<Torch::ValueTensorType>();
+  auto type_str =
+      values[1].cast<Attribute>().cast<StringAttr>().getValue().str();
+
+  std::unordered_map<std::string, Type> typeconvert_dict = {
+      {"i1", rewriter.getI1Type()},
+      {"i8", IntegerType::get(rewriter.getContext(), 8, IntegerType::Signed)},
+      {"i32", IntegerType::get(rewriter.getContext(), 32, IntegerType::Signed)},
+      {"i64", IntegerType::get(rewriter.getContext(), 64, IntegerType::Signed)},
+      {"f16", rewriter.getF16Type()},
+      {"bf16", rewriter.getBF16Type()},
+      {"f32", rewriter.getF32Type()}};
+
+  auto new_type = Torch::ValueTensorType::get(
+      old_type.getContext(),
+      old_type.getOptionalSizes(),
+      typeconvert_dict[type_str]);
+
+  results.push_back(TypeRange(new_type));
+}
+
 // Register some pre-defined helper functions for torch pdl patterns.
 void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns) {
   pdlPatterns.registerRewriteFunction(
       "CreateTorchCustomCall", createTorchCustomCall);
   pdlPatterns.registerRewriteFunction(
-      "CreateTorchQuantDequantOp", createTorchQuantDequantOp);
-  pdlPatterns.registerRewriteFunction(
       "ConvertTorchConstantIntListToI64DenseElemsAttr",
       convertTorchConstantIntListToI64DenseElemsAttr);
   pdlPatterns.registerRewriteFunction(
+      "ConvertTorchTensorElemType", convertTorchTensorElemType);
+  pdlPatterns.registerRewriteFunction(
       "ConvertTorchConstantIntToI64Attr", convertTorchConstantIntToI64Attr);
 
-  pdlPatterns.registerConstraintFunction(
-      "CheckTorchOperator", checkTorchOperator);
   pdlPatterns.registerConstraintFunction("CheckTorchNone", checkTorchNone);
   pdlPatterns.registerConstraintFunction(
       "CheckNotTorchNone", checkNotTorchNone);

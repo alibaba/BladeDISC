@@ -112,6 +112,9 @@ bool useShapeConstraintIR();
 // Returns true if `DISC_ENABLE_HORIZONTAL_FUSION` is true.
 bool useHorizontalFusion();
 
+// Returns true if `DISC_FAKE_QUANT_TO_QUANT_AND_DEQUANT` is true
+bool lowerFakeQuantToQuantAndDequant();
+
 // Returns true if `DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL` is true.
 bool isMemIntensiveOptExperimentalEnabled();
 

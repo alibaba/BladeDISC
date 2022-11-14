@@ -651,6 +651,8 @@ LogicalResult ConvertDequantizeOp::dequantize(TF::DequantizeOp op,
                          << "\n";
 }
 
+// TODO(wyzero): Deprecated. It'll be removed after we change the behavior
+// of the fake_quant op.
 struct ConvertFakeQuantOp : public OpRewritePattern<TF::DiscFakeQuantOp> {
   using OpRewritePattern::OpRewritePattern;
 
@@ -678,6 +680,52 @@ struct ConvertFakeQuantOp : public OpRewritePattern<TF::DiscFakeQuantOp> {
         op.num_bitsAttr(), op.quant_minAttr(), op.quant_maxAttr(),
         op.use_dynamicAttr(), round_mode_attr);
     rewriter.replaceOp(op, {new_op});
+    return success();
+  }
+};
+
+// Directly lower TF::FakeQuantOp to mhlo_disc::Quant + mhlo_disc::Dequant.
+struct ConvertFakeQuantV2Op : public OpRewritePattern<TF::DiscFakeQuantOp> {
+  using OpRewritePattern::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(TF::DiscFakeQuantOp op,
+                                PatternRewriter& rewriter) const final {
+    Location loc = op.getLoc();
+    auto inputTy = op.input().getType().dyn_cast<RankedTensorType>();
+    if (!inputTy)
+      return op->emitError("Only support input with ranked tensor type");
+
+    SmallVector<int64_t> axis;
+    for (auto& v : op.axis()) {
+      axis.push_back(v.cast<IntegerAttr>().getInt());
+    }
+
+    int64_t numBits = op.num_bitsAttr().getInt();
+    auto quantizedElemTy =
+        op.use_signedAttr().getValue()
+            ? IntegerType::get(rewriter.getContext(), numBits)
+            : IntegerType::get(
+                  rewriter.getContext(), numBits,
+                  mlir::IntegerType::SignednessSemantics::Unsigned);
+    auto quantizedTy = RankedTensorType::get(
+        inputTy.getShape(), quantizedElemTy, inputTy.getEncoding());
+
+    // Default mode of round in tf is RoundHalfAwayFromZero
+    // todo(disc): should read it from TF::DiscFakeQuantOp
+    auto round_mode_attr = mlir::mhlo_disc::RoundModeEnumAttr::get(
+        rewriter.getContext(),
+        mlir::mhlo_disc::RoundModeEnum::RoundHalfAwayFromZero);
+
+    Value quantizedValue = rewriter.create<mhlo_disc::QuantizeOp>(
+        loc, quantizedTy, op.input(), op.scale(), op.zero_point(),
+        op.use_symmetricAttr(), GetI64ElementsAttr(axis, &rewriter),
+        op.quant_minAttr(), op.quant_maxAttr(), op.use_dynamicAttr(),
+        round_mode_attr);
+    Value dequantizedValue = rewriter.create<mhlo_disc::DequantizeOp>(
+        loc, op.getType(), quantizedValue, op.scale(), op.zero_point(),
+        op.use_symmetricAttr(), GetI64ElementsAttr(axis, &rewriter),
+        op.use_dynamicAttr(), round_mode_attr);
+    rewriter.replaceOp(op, {dequantizedValue});
     return success();
   }
 };
@@ -1492,7 +1540,6 @@ void PrepareTFPass::runOnOperation() {
   patterns.insert<
       ConvertDequantizeOp,
       ConvertQuantizeV2Op,
-      ConvertFakeQuantOp,
       ConvertSqueezeOpDynamic,
       ConvertTopKV2OpDynamic,
       ConvertUniformOp,
@@ -1502,6 +1549,13 @@ void PrepareTFPass::runOnOperation() {
       ConvertSparseSegmentMeanOp,
       ConvertWhereOp
   >(ctx);
+
+  if (lowerFakeQuantToQuantAndDequant()) {
+    patterns.insert<ConvertFakeQuantV2Op>(ctx);
+  } else {
+    patterns.insert<ConvertFakeQuantOp>(ctx);
+  }
+
   // clang-format on
   (void)applyPatternsAndFoldGreedily(func, std::move(patterns));
 }

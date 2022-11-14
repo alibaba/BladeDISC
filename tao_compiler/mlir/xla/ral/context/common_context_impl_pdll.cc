@@ -9,7 +9,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.h"
 #include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
 #include "tensorflow/compiler/mlir/xla/ral/context/pdll_util.h"
 #include "tensorflow/compiler/mlir/xla/ral/device/cpu/cpu_driver.h"
@@ -25,51 +24,88 @@ namespace ral {
 
 namespace {
 
-template <typename T>
-struct CustomAttrState : public Context::Resource {
-  std::mutex mu;
-  std::unordered_map<opaque_t, std::unique_ptr<T>> customAttrMap;
-};
-
-template <typename T>
-T* getOrParseCustomAttr(ExecutionContext* ctx, opaque_t attrPtr,
-                        const std::string& name,
-                        std::function<std::unique_ptr<T>()> creator) {
-  using StateTy = CustomAttrState<T>;
-  auto state =
-      ctx->getOrCreateResource<StateTy>(name, [&]() { return new StateTy; });
-  std::lock_guard<std::mutex> l(state->mu);
-  auto it = state->customAttrMap.find(attrPtr);
-  if (it == state->customAttrMap.end()) {
-    auto value = creator();
-    if (!value) return nullptr;
-    it = state->customAttrMap.emplace(attrPtr, std::move(value)).first;
-  }
-  return it->second.get();
-}
-
 template <typename T, int N>
 MemRefType<T, N> simple_test_fused_add_mul_kernel(ExecutionContext* ctx,
                                                   void* /* streamHandle */,
                                                   MemRefType<T, N> A,
                                                   MemRefType<T, N> B,
                                                   void* customAttrs) {
-  auto creator = [&]() {
-    uint8_t* buffer = (uint8_t*)customAttrs;
-    return parsePDLAttr(buffer);
-  };
-  auto attr = getOrParseCustomAttr<PDLAttr>(
-      ctx, customAttrs, "simple_test_fused_add_mul_kernel", creator);
+  auto attr =
+      getOrParsePDLAttr(ctx, customAttrs, "simple_test_fused_add_mul_kernel");
   if (!attr) {
     ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
   }
 
-  TAO_VLOG(0) << "custom_attr { name = \""
-              << attr->template as<DictPDLAttr>()
-                     .get("name")
-                     .template as<StrPDLAttr>()
-                     .getValue()
-              << "\" }";
+  auto& dictAttr = attr->as<DictPDLAttr>();
+  std::string name = dictAttr.get("name").template as<StrPDLAttr>().getValue();
+  TAO_CHECK(name == "disc.custom_call.test.tf_fused_add_mul");
+  bool trueBoolAttr =
+      dictAttr.get("trueBoolAttr").template as<BoolPDLAttr>().getValue();
+  TAO_CHECK(trueBoolAttr);
+  bool falseBoolAttr =
+      dictAttr.get("falseBoolAttr").template as<BoolPDLAttr>().getValue();
+  TAO_CHECK(!falseBoolAttr);
+  int64_t int127 = dictAttr.get("int127").template as<IntPDLAttr>().getValue();
+  TAO_CHECK(int127 == 127);
+  int64_t intNegative123456 =
+      dictAttr.get("intNegative123456").template as<IntPDLAttr>().getValue();
+  TAO_CHECK(intNegative123456 == -123456);
+  double float0_001 =
+      dictAttr.get("float0_001").template as<FloatPDLAttr>().getValue();
+  // Note that `0.001` is safe to check exact match even for float type.
+  TAO_CHECK(float0_001 == 0.001);
+
+  auto& rank0I64DenseAttr =
+      dictAttr.get("rank0I64DenseAttr").template as<DenseElementsPDLAttr>();
+  TAO_CHECK(rank0I64DenseAttr.getElementType() == "int");
+  TAO_CHECK(rank0I64DenseAttr.getNumBits() == 64);
+  TAO_CHECK(rank0I64DenseAttr.getShape().size() == 0);
+  TAO_CHECK(rank0I64DenseAttr.getNumElements() == 1);
+  TAO_CHECK(*rank0I64DenseAttr.getValue<int64_t>() == 1);
+
+  auto& rank1UI8DenseAttr =
+      dictAttr.get("rank1UI8DenseAttr").template as<DenseElementsPDLAttr>();
+  TAO_CHECK(rank1UI8DenseAttr.getElementType() == "uint");
+  TAO_CHECK(rank1UI8DenseAttr.getNumBits() == 8);
+  TAO_CHECK(rank1UI8DenseAttr.getShape().size() == 1);
+  TAO_CHECK(rank1UI8DenseAttr.getShape()[0] == 1);
+  TAO_CHECK(rank1UI8DenseAttr.getNumElements() == 1);
+  TAO_CHECK(*rank1UI8DenseAttr.getValue<uint8_t>() == 1);
+
+  auto& rank2Shape2x3SplatBoolDenseAttr =
+      dictAttr.get("rank2Shape2x3SplatBoolDenseAttr")
+          .template as<DenseElementsPDLAttr>();
+  TAO_CHECK(rank2Shape2x3SplatBoolDenseAttr.getElementType() == "int");
+  TAO_CHECK(rank2Shape2x3SplatBoolDenseAttr.getNumBits() == 8);
+  TAO_CHECK(rank2Shape2x3SplatBoolDenseAttr.getShape().size() == 2);
+  TAO_CHECK(rank2Shape2x3SplatBoolDenseAttr.getShape()[0] == 2);
+  TAO_CHECK(rank2Shape2x3SplatBoolDenseAttr.getShape()[1] == 3);
+  TAO_CHECK(rank2Shape2x3SplatBoolDenseAttr.getNumElements() == 6);
+  for (int i = 0; i < rank2Shape2x3SplatBoolDenseAttr.getNumElements(); ++i) {
+    TAO_CHECK(rank2Shape2x3SplatBoolDenseAttr.getValue<int8_t>()[i] == 1);
+  }
+
+  auto& rank2Shape2x3SplatFloatDenseAttr =
+      dictAttr.get("rank2Shape2x3SplatFloatDenseAttr")
+          .template as<DenseElementsPDLAttr>();
+  TAO_CHECK(rank2Shape2x3SplatFloatDenseAttr.getElementType() == "float");
+  TAO_CHECK(rank2Shape2x3SplatFloatDenseAttr.getNumBits() == 32);
+  TAO_CHECK(rank2Shape2x3SplatFloatDenseAttr.getShape().size() == 2);
+  TAO_CHECK(rank2Shape2x3SplatFloatDenseAttr.getShape()[0] == 2);
+  TAO_CHECK(rank2Shape2x3SplatFloatDenseAttr.getShape()[1] == 3);
+  TAO_CHECK(rank2Shape2x3SplatFloatDenseAttr.getNumElements() == 6);
+  for (int i = 0; i < rank2Shape2x3SplatFloatDenseAttr.getNumElements(); ++i) {
+    TAO_CHECK(rank2Shape2x3SplatFloatDenseAttr.getValue<float>()[i] == -0.01f);
+  }
+
+  TAO_VLOG(0) << "custom_attr {\n"
+              << "\tname = " << name << "\n"
+              << "\ttrueBoolAttr = " << trueBoolAttr << "\n"
+              << "\tfalseBoolAttr = " << falseBoolAttr << "\n"
+              << "\tint127 = " << int127 << "\n"
+              << "\tintNegative123456 = " << intNegative123456 << "\n"
+              << "\tfloat0_001 = " << float0_001 << "\n"
+              << "}\n";
 
   size_t nElems = Size(A);
   auto driver = ctx->getDriver<cpu::CPUDriver>(cpu::CPUDriver::name());

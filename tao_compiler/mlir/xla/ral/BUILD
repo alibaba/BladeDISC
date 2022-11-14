@@ -152,7 +152,10 @@ cc_library(
     name = "pdll_util",
     srcs = ["context/pdll_util.cc"],
     hdrs = ["context/pdll_util.h"],
-    deps = [":ral_logging"],
+    deps = [
+        ":ral_context",
+        ":ral_logging",
+    ],
     alwayslink = 1,
 )
 

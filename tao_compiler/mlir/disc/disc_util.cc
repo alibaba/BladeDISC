@@ -218,6 +218,16 @@ bool useHorizontalFusion() {
   return enabled;
 }
 
+bool lowerFakeQuantToQuantAndDequant() {
+  static bool enabled = []() {
+    bool enabled = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_FAKE_QUANT_TO_QUANT_AND_DEQUANT",
+                                   enabled, &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
 bool isMemIntensiveOptExperimentalEnabled() {
   static bool enabled = []() {
     bool enabled = false;

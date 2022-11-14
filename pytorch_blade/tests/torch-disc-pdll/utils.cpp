@@ -180,6 +180,8 @@ static void convertTorchTensorElemType(
       {"bf16", rewriter.getBF16Type()},
       {"f32", rewriter.getF32Type()}};
 
+  assert(typeconvert_dict.find(type_str) != typeconvert_dict.end());
+
   auto new_type = Torch::ValueTensorType::get(
       old_type.getContext(),
       old_type.getOptionalSizes(),

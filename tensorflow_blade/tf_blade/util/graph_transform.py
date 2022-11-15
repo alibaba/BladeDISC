@@ -19,7 +19,9 @@ else:
     from tensorflow.core.framework import graph_pb2
     try:
         # lower than 2.5.0
-        from tensorflow.python._pywrap_transform_graph import TransformGraphWithStringInputs
+        from tensorflow.python._pywrap_transform_graph import (
+            TransformGraphWithStringInputs,
+        )
     except ImportError:
         # start's from 2.5.0
         from tensorflow.python.util._pywrap_transform_graph import TransformGraphWithStringInputs

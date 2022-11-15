@@ -1929,6 +1929,24 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_custom_call_rewriter",
+    srcs = ["transforms/disc_custom_call_rewriter.cc"],
+    deps = [
+        ":mhlo_disc",
+        ":disc_util",
+        ":pass_details",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "all_passes",
     hdrs = [
         "transforms/register_passes.h",
@@ -1949,6 +1967,7 @@ cc_library(
         ":disc_dense_to_sparse",
         ":disc_convert_const_to_ral",
         ":disc_convert_fake_quant_op",
+        ":disc_custom_call_rewriter",
         ":disc_cpu_map_parallel_loop",
         ":disc_duplicate_computation_for_fusion",
         ":disc_dynamic_slice_converter",

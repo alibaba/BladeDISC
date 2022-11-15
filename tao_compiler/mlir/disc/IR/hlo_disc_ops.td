@@ -116,6 +116,35 @@ def HLODISC_CustomCallV2Op: HLODISC_Op<"custom_call_v2", []> {
     DefaultValuedAttr<StrAttr, "">:$expected_output_layouts
   );
   let results = (outs Variadic<HLO_TensorOrIndexTensor>);
+  let extraClassDeclaration = [{
+    SmallVector<StringRef> parseInputLayouts() {
+      SmallVector<StringRef> inputLayouts;
+      this->getInputLayouts().split(inputLayouts, ',', /*MaxSplit=*/-1,
+                                    /*KeepEmpty=*/false);
+      return inputLayouts;
+    }
+
+    SmallVector<StringRef> parseExpectedInputLayouts() {
+      SmallVector<StringRef> expectedInputLayouts;
+      this->getExpectedInputLayouts().split(expectedInputLayouts, ',', /*MaxSplit=*/-1,
+                                            /*KeepEmpty=*/false);
+      return expectedInputLayouts;
+    }
+
+    SmallVector<StringRef> parseOutputLayouts() {
+      SmallVector<StringRef> outputLayouts;
+      this->getOutputLayouts().split(outputLayouts, ',', /*MaxSplit=*/-1,
+                                    /*KeepEmpty=*/false);
+      return outputLayouts;
+    }
+
+    SmallVector<StringRef> parseExpectedOutputLayouts() {
+      SmallVector<StringRef> expectedOutputLayouts;
+      this->getExpectedOutputLayouts().split(expectedOutputLayouts, ',', /*MaxSplit=*/-1,
+                                            /*KeepEmpty=*/false);
+      return expectedOutputLayouts;
+    }
+  }];
 }
 
 def HLO_FakeQuantOp: HLODISC_Op<"fake_quant", [Pure]> {

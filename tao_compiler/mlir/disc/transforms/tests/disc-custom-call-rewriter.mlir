@@ -40,6 +40,7 @@ func.func @conv(%input: tensor<?x?x?x?xf32>, %weight : tensor<?x?x?x?xf32>) -> t
   // CHECK: %[[T2:.*]] = "mhlo_disc.custom_call_v2"(%[[T0]], %[[T1]])
   // CHECK: %[[T3:.*]] = "mhlo.transpose"
   // CHECK-SAME: %[[T2]]
+  // CHECK-SAME: permutation = dense<[0, 3, 1, 2]>
   // CHECK: return %[[T3]]
   %output = "mhlo_disc.custom_call_v2"(%input, %weight) {
       call_target_name = "test",

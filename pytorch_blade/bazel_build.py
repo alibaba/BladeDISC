@@ -144,9 +144,10 @@ class BazelBuild(TorchBladeBuild):
         if running_on_ci():
             self.configs += ["--config=ci_build"]
 
+        root_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir)
         self.configs += [
-            build_tao_compiler_add_flags_platform_alibaba_cached(""),
-            test_tao_compiler_add_flags_platform_alibaba_cached("")
+            build_tao_compiler_add_flags_platform_alibaba_cached(root_dir, ""),
+            test_tao_compiler_add_flags_platform_alibaba_cached(root_dir, "")
         ]
 
         # ----------------------------------------------------------------------- #

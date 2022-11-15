@@ -708,20 +708,18 @@ def add_arguments_common(parser):
     )
     add_arguments_platform_alibaba(parser)
 
-def disc_conf_file():
-    root = get_source_root_dir()
+def disc_conf_file(root):
     return os.path.join(root, "scripts", "ci", ".disc_conf")
 
-def save_args_to_cache(args):
+def save_args_to_cache(root, args):
     """Save confs to `disc_conf_file()`"""
-    with open(disc_conf_file(), "w") as f:
-        for k, v in args.__disc__.items():
+    with open(disc_conf_file(root), "w") as f:
+        for k, v in args.__dict__.items():
             f.write(f"{k}={v}\n")
-        f.write(f"source_root_dir={get_source_root_dir()}")
 
-def restore_args_from_cache(args):
+def restore_args_from_cache(root, args):
     """Restore confs from `disc_conf_file()`"""
-    with open(disc_conf_file(), "r") as f:
+    with open(disc_conf_file(root), "r") as f:
         for line in f.readlines():
             k, v = line.rstrip().split("=")
             k = k.strip()
@@ -745,16 +743,16 @@ def parse_args():
     return args
 
 
-def build_tao_compiler_add_flags_platform_alibaba_cached(flag):
-    args = parse_args()
-    restore_args_from_cache(args)
-    return build_tao_compiler_add_flags_platform_alibaba(args.source_root_dir, args, flag)
+def build_tao_compiler_add_flags_platform_alibaba_cached(root, flag):
+    args = argparse.Namespace()
+    restore_args_from_cache(root, args)
+    return build_tao_compiler_add_flags_platform_alibaba(root, args, flag)
 
 
-def test_tao_compiler_add_flags_platform_alibaba_cached(flag):
-    args = parse_args()
-    restore_args_from_cache(args)
-    return test_tao_compiler_add_flags_platform_alibaba(args.source_root_dir, args, flag)
+def test_tao_compiler_add_flags_platform_alibaba_cached(root, flag):
+    args = argparse.Namespace()
+    restore_args_from_cache(root, args)
+    return test_tao_compiler_add_flags_platform_alibaba(root, args, flag)
 
 if __name__ == "__main__":
     args = parse_args()
@@ -766,4 +764,4 @@ if __name__ == "__main__":
         config_mkldnn(root, args)
         build_mkldnn(root)
 
-    save_args_to_cache(args)
+    save_args_to_cache(root, args)

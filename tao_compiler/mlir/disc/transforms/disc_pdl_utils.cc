@@ -23,6 +23,7 @@ limitations under the License.
 #include "mlir/Dialect/PDL/IR/PDL.h"
 #include "mlir/Dialect/PDL/IR/PDLOps.h"
 #include "mlir/IR/DialectRegistry.h"
+#include "mlir/IR/Matchers.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Support/ToolUtilities.h"
@@ -88,6 +89,9 @@ static const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Rewrite CreateCustomCall(tag : Attr, inputs : ValueRange, outputs : ValueRange) -> (op: Op, new_outputs : ValueRange);
   Rewrite SetAttr(op : Op, key : Attr, value : Attr);
   Rewrite SetCustomAttr(op : Op, key : Attr, value : Attr);
+
+  Constraint CheckConstantTensor(v : Value);
+  Rewrite IsConstantTensor(v : Value) -> Attr;
 )pdll";
 
 // Combines the `chunkBuffer` with some pre-defined helper function prototypes.
@@ -210,6 +214,25 @@ static void createCustomCall(PatternRewriter& rewriter, PDLResultList& results,
   results.push_back(ValueRange(vs));
 }
 
+static LogicalResult checkConstantTensor(PatternRewriter& rewriter,
+                                         ArrayRef<PDLValue> values) {
+  assert(values.size() == 1);
+  auto v = values[0].cast<Value>();
+  DenseElementsAttr denseAttr;
+  return matchPattern(v, m_Constant(&denseAttr)) ? success() : failure();
+}
+
+static void isConstantTensor(PatternRewriter& rewriter, PDLResultList& results,
+                             ArrayRef<PDLValue> values) {
+  assert(values.size() == 1);
+
+  auto v = values[0].cast<Value>();
+  DenseElementsAttr denseAttr;
+  results.push_back(matchPattern(v, m_Constant(&denseAttr))
+                        ? BoolAttr::get(v.getContext(), true)
+                        : BoolAttr::get(v.getContext(), false));
+}
+
 void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns,
                                        RegisterPDLFunctionsCallback callback) {
   pdlPatterns.registerRewriteFunction(
@@ -238,6 +261,7 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns,
       });
   pdlPatterns.registerRewriteFunction("CreateCustomCall", createCustomCall);
   pdlPatterns.registerRewriteFunction("PackValue_0", packValues<0>);
+  pdlPatterns.registerRewriteFunction("IsConstantTensor", isConstantTensor);
 
 #define REGISTER_PACK_AND_UNPACK(N)                                    \
   pdlPatterns.registerRewriteFunction("PackValue_" #N, packValues<N>); \
@@ -261,6 +285,9 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns,
   REGISTER_PACK_AND_UNPACK(16);
 
 #undef REGISTER_PACK_AND_UNPACK
+
+  pdlPatterns.registerConstraintFunction("CheckConstantTensor",
+                                         checkConstantTensor);
 
   if (callback) callback(pdlPatterns);
 }

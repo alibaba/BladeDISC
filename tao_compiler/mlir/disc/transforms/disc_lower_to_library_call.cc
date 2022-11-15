@@ -714,11 +714,86 @@ LogicalResult emitStrAttr(StringAttr str, StrT& out) {
   return emitString(str.getValue(), out);
 }
 
+LogicalResult emitBoolAttr(BoolAttr flag, StrT& out) {
+  // 1, firstly emit the type string
+  if (failed(emitString("bool", out))) return failure();
+
+  // 2, emit the value.
+  return emitPOD(flag.getValue(), out);
+}
+
+LogicalResult emitIntegerAttr(IntegerAttr val, StrT& out) {
+  // 1, firstly emit the type string
+  if (failed(emitString("int", out))) return failure();
+
+  // 2, emit the value.
+  return emitPOD(val.getInt(), out);
+}
+
+LogicalResult emitFloatAttr(FloatAttr val, StrT& out) {
+  // 1, firstly emit the type string
+  if (failed(emitString("float", out))) return failure();
+
+  // 2, emit the value.
+  return emitPOD(val.getValueAsDouble(), out);
+}
+
+LogicalResult emitDenseElementsAttr(DenseElementsAttr val, StrT& out) {
+  // 1, firstly emit the type string
+  if (failed(emitString("denseElementsAttr", out))) return failure();
+
+  // Convert i1 -> i8
+  auto ty = val.getType();
+  auto elemTy = ty.getElementType();
+  if (!elemTy.isIntOrIndexOrFloat()) return failure();
+  if (elemTy.getIntOrFloatBitWidth() == 1) {
+    using FuncType = mlir::APInt(const llvm::APInt&);
+    val = val.mapValues(
+        IntegerType::get(val.getContext(), 8),
+        llvm::function_ref<FuncType>([](const llvm::APInt& intVal) {
+          return llvm::APInt(8, intVal.getZExtValue());
+        }));
+    ty = val.getType();
+    elemTy = ty.getElementType();
+  }
+
+  // 2.1, emit element type
+  // Early returns for unsupported type.
+  if (elemTy.isIntOrIndex()) {
+    if (failed(emitString(elemTy.isUnsignedInteger() ? "uint" : "int", out)))
+      return failure();
+  } else {
+    if (failed(emitString("float", out))) return failure();
+  }
+  if (failed(emitPOD<unsigned>(elemTy.getIntOrFloatBitWidth(), out)))
+    return failure();
+  // 2.2, emit rank
+  if (failed(emitPOD<int64_t>(ty.getRank(), out))) return failure();
+  // 2.3, emit shape
+  for (int64_t v : ty.getShape())
+    if (failed(emitPOD<int64_t>(v, out))) return failure();
+
+  // 3, emit isSplat?
+  if (failed(emitPOD<bool>(val.isSplat(), out))) return failure();
+
+  // 4, emit raw data
+  StringRef rawData(val.getRawData().data(), val.getRawData().size());
+  return emitString(rawData, out);
+}
+
 LogicalResult emitAttr(Attribute attr, StrT& out) {
   if (auto dictAttr = dyn_cast<DictionaryAttr>(attr)) {
     return emitDictAttr(dictAttr, out);
   } else if (auto strAttr = dyn_cast<StringAttr>(attr)) {
     return emitStrAttr(strAttr, out);
+  } else if (auto boolAttr = dyn_cast<BoolAttr>(attr)) {
+    return emitBoolAttr(boolAttr, out);
+  } else if (auto intAttr = dyn_cast<IntegerAttr>(attr)) {
+    return emitIntegerAttr(intAttr, out);
+  } else if (auto floatAttr = dyn_cast<FloatAttr>(attr)) {
+    return emitFloatAttr(floatAttr, out);
+  } else if (auto denseAttr = dyn_cast<DenseElementsAttr>(attr)) {
+    return emitDenseElementsAttr(denseAttr, out);
   }
   return failure();
 }

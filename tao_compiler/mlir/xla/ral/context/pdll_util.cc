@@ -55,6 +55,68 @@ std::unique_ptr<PDLAttr> parseStrAttr(uint8_t*& buffer) {
   return std::make_unique<StrPDLAttr>(type, data);
 }
 
+std::unique_ptr<PDLAttr> parseBoolAttr(uint8_t*& buffer) {
+  std::string type = parseStr(buffer);
+  assert(type == "bool");
+  bool val = parsePOD<bool>(buffer);
+  TAO_VLOG(1) << "parseBoolAttr parsed val = " << val;
+  return std::make_unique<BoolPDLAttr>(type, val);
+}
+
+std::unique_ptr<PDLAttr> parseIntAttr(uint8_t*& buffer) {
+  std::string type = parseStr(buffer);
+  assert(type == "int");
+  int64_t val = parsePOD<int64_t>(buffer);
+  TAO_VLOG(1) << "parseIntAttr parsed value = " << val;
+  return std::make_unique<IntPDLAttr>(type, val);
+}
+
+std::unique_ptr<PDLAttr> parseFloatAttr(uint8_t*& buffer) {
+  std::string type = parseStr(buffer);
+  assert(type == "float");
+  double val = parsePOD<double>(buffer);
+  TAO_VLOG(1) << "parseFloatAttr parsed value = " << val;
+  return std::make_unique<FloatPDLAttr>(type, val);
+}
+
+std::unique_ptr<PDLAttr> parseDenseElementsAttr(uint8_t*& buffer) {
+  std::string type = parseStr(buffer);
+  assert(type == "denseElementsAttr");
+
+  // parse element type
+  std::string elemTy = parseStr(buffer);
+  // parse num bits of element type
+  unsigned numBits = parsePOD<unsigned>(buffer);
+  // parse the rank of the DenseElementsAttr
+  int64_t rank = parsePOD<int64_t>(buffer);
+  // parse the shape of the DenseElementsAttr
+  std::vector<int64_t> shape;
+  shape.reserve(rank);
+  int64_t numElems = 1;
+  for (int i = 0; i < rank; ++i) {
+    shape.push_back(parsePOD<int64_t>(buffer));
+    numElems *= shape.back();
+  }
+  bool isSplat = parsePOD<bool>(buffer);
+  std::string data = parseStr(buffer);
+  uint8_t* dataPtr = (uint8_t*)(data.data());
+  std::vector<uint8_t> rawData(dataPtr, dataPtr + data.size());
+  if (isSplat) {
+    TAO_CHECK(rawData.size() == (numBits / 8));
+    std::vector<uint8_t> newRawData(numElems * numBits / 8);
+    for (size_t i = 0; i < newRawData.size(); ++i) {
+      newRawData[i] = rawData[i % rawData.size()];
+    }
+    rawData = std::move(newRawData);
+  }
+  TAO_VLOG(1) << "parseDenseElementsAttr type@" << elemTy << numBits
+              << ", shape = [";
+  for (int64_t v : shape) TAO_VLOG(1) << "\t" << v;
+  TAO_VLOG(1) << "]";
+  return std::make_unique<DenseElementsPDLAttr>(
+      type, elemTy, numBits, std::move(shape), std::move(rawData));
+}
+
 std::unique_ptr<PDLAttr> parsePDLAttr(uint8_t*& buffer) {
   uint8_t* tryBuffer = buffer;
   std::string type = parseStr(tryBuffer);
@@ -63,6 +125,14 @@ std::unique_ptr<PDLAttr> parsePDLAttr(uint8_t*& buffer) {
     return parseDictAttr(buffer);
   } else if (type == "str") {
     return parseStrAttr(buffer);
+  } else if (type == "bool") {
+    return parseBoolAttr(buffer);
+  } else if (type == "int") {
+    return parseIntAttr(buffer);
+  } else if (type == "float") {
+    return parseFloatAttr(buffer);
+  } else if (type == "denseElementsAttr") {
+    return parseDenseElementsAttr(buffer);
   }
   return nullptr;
 }

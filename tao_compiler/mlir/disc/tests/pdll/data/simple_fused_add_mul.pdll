@@ -18,6 +18,15 @@ Pattern TFFusedAddMul {
 
     /// 3. set attrs that are directly passed to the custom call kernel.
     SetCustomAttr(infos.op, attr<"\"name\"">, attr<"\"disc.custom_call.test.tf_fused_add_mul\"">);
+    SetCustomAttr(infos.op, attr<"\"trueBoolAttr\"">, attr<"true">);
+    SetCustomAttr(infos.op, attr<"\"falseBoolAttr\"">, attr<"false">);
+    SetCustomAttr(infos.op, attr<"\"int127\"">, attr<"127">);
+    SetCustomAttr(infos.op, attr<"\"intNegative123456\"">, attr<"-123456">);
+    SetCustomAttr(infos.op, attr<"\"float0_001\"">, attr<"0.001">);
+    SetCustomAttr(infos.op, attr<"\"rank0I64DenseAttr\"">, attr<"dense<1> : tensor<i64>">);
+    SetCustomAttr(infos.op, attr<"\"rank1UI8DenseAttr\"">, attr<"dense<[1]> : tensor<1xui8>">);
+    SetCustomAttr(infos.op, attr<"\"rank2Shape2x3SplatBoolDenseAttr\"">, attr<"dense<1> : tensor<2x3xi1>">);
+    SetCustomAttr(infos.op, attr<"\"rank2Shape2x3SplatFloatDenseAttr\"">, attr<"dense<-0.01> : tensor<2x3xf32>">);
 
     let rs = UnpackValue_1(infos.new_outputs);
     replace mul with rs;

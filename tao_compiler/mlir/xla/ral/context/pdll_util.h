@@ -13,10 +13,13 @@
 #define TENSORFLOW_COMPILER_MLIR_XLA_RAL_CONTEXT_PDLL_UTIL_H_
 
 #include <cassert>
+#include <functional>
 #include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
+
+#include "tensorflow/compiler/mlir/xla/ral/ral_context.h"
 
 namespace tao {
 namespace ral {
@@ -46,11 +49,71 @@ class StrPDLAttr : public PDLAttr {
   explicit StrPDLAttr(const std::string& type, const std::string& str)
       : PDLAttr(type), str_(str) {}
 
-  // Returns the type of the attr
+  // Returns the value of the attr
   std::string& getValue() { return str_; }
 
  private:
   std::string str_;
+};
+
+template <typename T>
+class PodPDLAttr : public PDLAttr {
+ public:
+  explicit PodPDLAttr(const std::string& type, T val)
+      : PDLAttr(type), val_(val) {}
+
+  // Returns the value of the attr
+  T getValue() { return val_; }
+
+ private:
+  T val_;
+};
+
+using BoolPDLAttr = PodPDLAttr<bool>;
+using IntPDLAttr = PodPDLAttr<int64_t>;
+using FloatPDLAttr = PodPDLAttr<double>;
+
+class DenseElementsPDLAttr : public PDLAttr {
+ public:
+  explicit DenseElementsPDLAttr(const std::string& type,
+                                const std::string& elemTy, unsigned numBits,
+                                std::vector<int64_t> shape,
+                                std::vector<uint8_t> rawData)
+      : PDLAttr(type),
+        elemTy_(elemTy),
+        numBits_(numBits),
+        shape_(std::move(shape)),
+        rawData_(std::move(rawData)) {}
+
+  // Returns raw data of the attr
+  std::vector<uint8_t>& getRawData() { return rawData_; }
+
+  template <typename T>
+  T* getValue() {
+    return (T*)rawData_.data();
+  }
+
+  // Returns the shape of the denseElementsAttr
+  std::vector<int64_t> getShape() { return shape_; }
+
+  // Returns the element type of the denseElementsAttr.
+  const std::string& getElementType() { return elemTy_; }
+
+  // Returns the num of bits of the element type of the dense attr.
+  unsigned getNumBits() { return numBits_; }
+
+  // Returns the total number of elements of the denseElementsAttr.
+  int64_t getNumElements() {
+    int numElems = 1;
+    for (int64_t d : shape_) numElems *= d;
+    return numElems;
+  }
+
+ private:
+  std::string elemTy_;
+  unsigned numBits_;
+  std::vector<int64_t> shape_;
+  std::vector<uint8_t> rawData_;
 };
 
 class DictPDLAttr : public PDLAttr {
@@ -85,6 +148,38 @@ class DictPDLAttr : public PDLAttr {
 
 // Parse the serialized attr from buffer. Returns nullptr if failed.
 std::unique_ptr<PDLAttr> parsePDLAttr(uint8_t*& buffer);
+
+template <typename T>
+struct CustomAttrState : public Context::Resource {
+  std::mutex mu;
+  std::unordered_map<void*, std::unique_ptr<T>> customAttrMap;
+};
+
+template <typename T>
+inline T* getOrParseCustomAttr(ExecutionContext* ctx, void* attrPtr,
+                               const std::string& name,
+                               std::function<std::unique_ptr<T>()> creator) {
+  using StateTy = CustomAttrState<T>;
+  auto state =
+      ctx->getOrCreateResource<StateTy>(name, [&]() { return new StateTy; });
+  std::lock_guard<std::mutex> l(state->mu);
+  auto it = state->customAttrMap.find(attrPtr);
+  if (it == state->customAttrMap.end()) {
+    auto value = creator();
+    if (!value) return nullptr;
+    it = state->customAttrMap.emplace(attrPtr, std::move(value)).first;
+  }
+  return it->second.get();
+}
+
+inline PDLAttr* getOrParsePDLAttr(ExecutionContext* ctx, void* attrPtr,
+                                  const std::string& name) {
+  auto creator = [&]() {
+    auto ptr = (uint8_t*)(attrPtr);
+    return parsePDLAttr(ptr);
+  };
+  return getOrParseCustomAttr<PDLAttr>(ctx, attrPtr, name, creator);
+}
 
 }  // namespace ral
 }  // namespace tao

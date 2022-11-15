@@ -87,7 +87,7 @@ def LHLO_CustomCallOp : LHLODISC_Op<"custom_call", [AttrSizedOperandSegments]> {
 
 // Models the behavior of the second version BladeDISC custom call.
 // TODO(wyzero): Merge with the old version once the refactor is done.
-def LHLODISC_CustomCallV2Op: LHLODISC_Op<"custom_call_v2", []> {
+def LHLODISC_CustomCallV2Op: Op<LHLODISC_Dialect, "custom_call_v2", [MemoryEffects<[MemRead, MemWrite]>]> {
   let summary = "CustomCallV2 operator";
   let description = [{
     A custom call invokes code external to BladeDISC. The `args` are passed to the

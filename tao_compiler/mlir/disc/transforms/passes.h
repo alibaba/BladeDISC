@@ -269,6 +269,9 @@ std::unique_ptr<OperationPass<FuncOp>> createDiscDynamicSliceConverterPass();
 // Inserts dealloc ops for some disc specific ops (e.g. custom_call_v2 op).
 std::unique_ptr<OperationPass<FuncOp>> createDiscBufferDeallocationPass();
 
+// Rewrites custom call ops according to its layout attribute.
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscCustomCallRewriterPass();
+
 }  // namespace disc_ral
 }  // namespace mlir
 

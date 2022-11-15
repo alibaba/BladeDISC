@@ -517,3 +517,11 @@ def DiscBufferDeallocationPass : Pass<"disc-buffer-deallocation", "mlir::func::F
   let summary = "Insert dealloc op for some disc specific ops (e.g. custom_call_v2 op).";
   let constructor = "createDiscBufferDeallocationPass()";
 }
+
+def DiscCustomCallRewriterPass : Pass<"disc-custom-call-rewriter", "mlir::func::FuncOp"> {
+  let summary = "Rewrite custom call ops according to its layout attribute.";
+  let constructor = "createDiscCustomCallRewriterPass()";
+  let dependentDialects = [
+      "mhlo::MhloDialect",
+  ];
+}

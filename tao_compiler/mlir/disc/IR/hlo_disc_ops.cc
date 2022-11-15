@@ -706,7 +706,47 @@ LogicalResult SparseSegmentMeanOp::verify() {
 // CustomCallV2Op
 //===----------------------------------------------------------------------===//
 
-LogicalResult CustomCallV2Op::verify() { return Verify(*this); }
+LogicalResult CustomCallV2Op::verify() {
+  SmallVector<StringRef> inputLayouts = parseInputLayouts();
+  SmallVector<StringRef> expectedInputLayouts = parseExpectedInputLayouts();
+  if (inputLayouts.size() != expectedInputLayouts.size())
+    return this->emitOpError() << "mismatch number of layouts for "
+                                  "input_layouts and expected_input_layouts\n";
+  if (inputLayouts.size() != 0 && inputLayouts.size() != this->getNumOperands())
+    return this->emitOpError()
+           << "mismatch number of input layouts and number of inputs\n";
+
+  SmallVector<StringRef> outputLayouts = parseOutputLayouts();
+  SmallVector<StringRef> expectedOutputLayouts = parseExpectedOutputLayouts();
+  if (outputLayouts.size() != expectedOutputLayouts.size())
+    return this->emitOpError()
+           << "mismatch number of layouts for output_layouts and "
+              "expected_output_layouts\n";
+  if (outputLayouts.size() != 0 &&
+      outputLayouts.size() != this->getNumResults())
+    return this->emitOpError()
+           << "mismatch number of output layouts and number of outputs\n";
+
+  auto checkLayouts = [&](SmallVector<StringRef>& lhs,
+                          SmallVector<StringRef>& rhs, TypeRange typeRange) {
+    for (const auto& z : llvm::zip(lhs, rhs, typeRange)) {
+      if (std::get<0>(z).size() != std::get<1>(z).size()) return failure();
+      auto ty = std::get<2>(z).dyn_cast<RankedTensorType>();
+      if (ty && ty.getRank() != std::get<0>(z).size()) return failure();
+    }
+    return success();
+  };
+  if (failed(checkLayouts(inputLayouts, expectedInputLayouts,
+                          this->getOperandTypes())))
+    return this->emitOpError()
+           << "mismatch input layout or expected input layout setting";
+  if (failed(checkLayouts(outputLayouts, expectedOutputLayouts,
+                          this->getResultTypes())))
+    return this->emitOpError()
+           << "mismatch output layout or expected output layout setting";
+
+  return success();
+}
 
 // WhereOp
 //===----------------------------------------------------------------------===//

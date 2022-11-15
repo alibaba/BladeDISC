@@ -9,6 +9,7 @@ func.func @gemm(%input: tensor<?x?xf32>, %weight : tensor<?x?xf32>) -> tensor<?x
   // CHECK: %[[T1:.*]] = "mhlo_disc.custom_call_v2"(%[[INPUT]], %[[T0]])
   // CHECK: %[[T2:.*]] = "mhlo.transpose"
   // CHECK-SAME: %[[T1]]
+  // CHECK-SAME: permutation = dense<[1, 0]>
   // CHECK: return %[[T2]]
   %output = "mhlo_disc.custom_call_v2"(%input, %weight) {
       call_target_name = "test",

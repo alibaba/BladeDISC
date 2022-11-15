@@ -666,7 +666,70 @@ def get_version_file():
     root = get_source_root_dir()
     return os.path.join(root, "VERSION")
 
-if __name__ == "__main__":
+def add_arguments_common(parser):
+    parser.add_argument(
+        "--cpu_only",
+        required=False,
+        action="store_true",
+        help="Build tao with cpu support only",
+    )
+    parser.add_argument(
+        "--aarch64",
+        required=False,
+        action="store_true",
+        help="Build tao with aarch64 support only",
+    )
+    parser.add_argument(
+        "--dcu",
+        required=False,
+        action="store_true",
+        help="Build tao with dcu support only",
+    )
+    parser.add_argument(
+        "--rocm",
+        required=False,
+        action="store_true",
+        help="Build tao with rocm support only",
+    )
+    parser.add_argument(
+        "--rocm_path",
+        required=False,
+        default=None,
+        help="Build tao where rocm locates",
+    )
+    parser.add_argument(
+        "--platform_alibaba", action="store_true", help="build with is_platform_alibaba=True"
+    )
+    parser.add_argument(
+        "--target_cpu_arch",
+        required=False,
+        default="",
+        help="Specify the target architecture.",
+    )
+    add_arguments_platform_alibaba(parser)
+
+def disc_conf_file():
+    root = get_source_root_dir()
+    return os.path.join(root, "scripts", "ci", ".disc_conf")
+
+def save_args_to_cache(args):
+    """Save confs to `disc_conf_file()`"""
+    with open(disc_conf_file(), "w") as f:
+        for k, v in args.__disc__.items():
+            f.write(f"{k}={v}\n")
+        f.write(f"source_root_dir={get_source_root_dir()}")
+
+def restore_args_from_cache(args):
+    """Restore confs from `disc_conf_file()`"""
+    with open(disc_conf_file(), "r") as f:
+        for line in f.readlines():
+            k, v = line.rstrip().split("=")
+            k = k.strip()
+            v = v.strip()
+            setattr(args, k, v)
+
+
+def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--cxx11_abi",
@@ -674,21 +737,33 @@ if __name__ == "__main__":
         action="store_true",
         help="Build with cxx11 abi or not",
     )
-    parser.add_argument(
-        "--cpu_only",
-        required=False,
-        action="store_true",
-        help="Build tao with cpu support only",
-    )
+    add_arguments_common(parser)
     args = parser.parse_args()
     # backward compatibility
     args.ral_cxx11_abi = args.cxx11_abi
     update_cpu_specific_setting(args)
+    return args
+
+
+def build_tao_compiler_add_flags_platform_alibaba_cached(flag):
+    args = parse_args()
+    restore_args_from_cache(args)
+    return build_tao_compiler_add_flags_platform_alibaba(args.source_root_dir, args, flag)
+
+
+def test_tao_compiler_add_flags_platform_alibaba_cached(flag):
+    args = parse_args()
+    restore_args_from_cache(args)
+    return test_tao_compiler_add_flags_platform_alibaba(args.source_root_dir, args, flag)
+
+if __name__ == "__main__":
+    args = parse_args()
 
     root = get_source_root_dir()
-    symlink_disc_files_deprecated(False)
+    symlink_disc_files(args)
 
     if args.enable_mkldnn:
         config_mkldnn(root, args)
         build_mkldnn(root)
 
+    save_args_to_cache(args)

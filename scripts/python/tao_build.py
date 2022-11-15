@@ -54,6 +54,7 @@ from common_setup import (
     configure_compiler_platform_alibaba,
     build_tao_compiler_add_flags_platform_alibaba,
     test_tao_compiler_add_flags_platform_alibaba,
+    add_arguments_common,
 )
 
 from tao_common import (
@@ -785,36 +786,6 @@ def parse_args():
         help="Skip linking tf framework",
     )
     parser.add_argument(
-        "--cpu_only",
-        required=False,
-        action="store_true",
-        help="Build tao with cpu support only",
-    )
-    parser.add_argument(
-        "--aarch64",
-        required=False,
-        action="store_true",
-        help="Build tao with aarch64 support only",
-    )
-    parser.add_argument(
-        "--dcu",
-        required=False,
-        action="store_true",
-        help="Build tao with dcu support only",
-    )
-    parser.add_argument(
-        "--rocm",
-        required=False,
-        action="store_true",
-        help="Build tao with rocm support only",
-    )
-    parser.add_argument(
-        "--rocm_path",
-        required=False,
-        default=None,
-        help="Build tao where rocm locates",
-    )
-    parser.add_argument(
         "--build_in_aone",
         required=False,
         action="store_true",
@@ -846,9 +817,6 @@ def parse_args():
         "--build_dbg_symbol", action="store_true", help="Add -g to build options"
     )
     parser.add_argument(
-        "--platform_alibaba", action="store_true", help="build with is_platform_alibaba=True"
-    )
-    parser.add_argument(
         "--blade_gemm", action="store_true", help="build with is_blade_gemm=True"
     )
     parser.add_argument(
@@ -857,13 +825,8 @@ def parse_args():
         default="/usr/local/cuda-11.6/bin/nvcc",
         help="Nvcc used for blade gemm kernel build.",
     )
-    parser.add_argument(
-        "--target_cpu_arch",
-        required=False,
-        default="",
-        help="Specify the target architecture.",
-    )
-    add_arguments_platform_alibaba(parser)
+    add_arguments_common(parser)
+
     # flag validation
     args = parser.parse_args()
     assert args.venv_dir, "virtualenv directory should not be empty."

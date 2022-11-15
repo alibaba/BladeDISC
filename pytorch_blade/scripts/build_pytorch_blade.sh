@@ -39,12 +39,17 @@ function ci_build() {
     echo "DO TORCH_BLADE CI_BUILD"
     pip_install_deps
 
+    COMMON_SETUP_ARGS=""
+    if [ "$TORCH_BLADE_USE_PLATFORM_ALIBABA" = "ON"  ]; then
+      COMMON_SETUP_ARGS="--platform_alibaba"
+    fi
+
     if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" = "ON"  ]; then
       export TORCH_BLADE_BUILD_TENSORRT=ON
       export TORCH_BLADE_BUILD_TENSORRT_STATIC=${TORCH_BLADE_BUILD_TENSORRT_STATIC:-OFF}
-      python3 ../scripts/python/common_setup.py
+      python3 ../scripts/python/common_setup.py $COMMON_SETUP_ARGS
     else
-      python3 ../scripts/python/common_setup.py --cpu_only
+      python3 ../scripts/python/common_setup.py --cpu_only $COMMON_SETUP_ARGS
     fi
     TORCH_LIB=$(python -c 'import torch; import os; print(os.path.dirname(os.path.abspath(torch.__file__)) + "/lib/")') \
     export LD_LIBRARY_PATH=$TORCH_LIB:$LD_LIBRARY_PATH \

@@ -416,8 +416,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     pm.addNestedPass<FuncOp>(
         disc_ral::createDiscMemRefLoadStoreSimplifierPass());
   }
-  std::string fusion_strategy =
-      isCompIntensFusionEnabled() ? "Dot" : (enable_stitch ? "stitch" : "base");
+  // Use stitch centric fusion pipeline when enabled.
+  std::string fusion_strategy = enable_stitch ? "stitch" : "base";
   pm.addNestedPass<FuncOp>(
       disc_ral::createDiscFusionPass(gpu_enabled, fusion_strategy));
   if (gpu_enabled) {

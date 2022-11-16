@@ -46,6 +46,7 @@ using placement_utils::kDiscPlaceAssignment;
 using placement_utils::kDiscShapeCalcAttr;
 
 void dumpFusionPattern(FusionPattern& pattern) {
+  llvm::dbgs() << "FusionType: " << pattern.getFusionTypeStr() << "\n";
   for (Operation* subOp : pattern.getOpList()) {
     llvm::dbgs() << "  " << *subOp << "\n";
   }
@@ -108,7 +109,8 @@ DenseSet<Operation*> NoLoaderUser(SmallVectorImpl<Operation*>& ops) {
 void cleanUnusedLhloOps(Block* parent, PatternRewriter* rewriter) {
   SmallVector<Operation*, 4> lhlo_ops;
   for (Operation& op : parent->getOperations()) {
-    if (op.getDialect() == op.getContext()->getLoadedDialect("lmhlo") &&
+    if ((op.getDialect() == op.getContext()->getLoadedDialect("lmhlo") ||
+         op.getDialect() == op.getContext()->getLoadedDialect("lmhlo_disc")) &&
         (!isa<lmhlo::TerminatorOp>(op)))
       lhlo_ops.push_back(&op);
   }
@@ -187,6 +189,8 @@ StringRef fusionTypeToString(FusionType ft) {
       return "kLargeConcat";
     case FusionType::kDot:
       return "kDot";
+    case FusionType::kWhere:
+      return "kWhere";
     default:
       assert(false && "unknown fusion type");
       return "";
@@ -211,7 +215,10 @@ FusionType fusionTypeFromString(StringRef ft) {
     return FusionType::kLargeConcat;
   } else if (ft == "kDot") {
     return FusionType::kDot;
+  } else if (ft == "kWhere") {
+    return FusionType::kWhere;
   }
+
   assert(false && "unknown fusion type");
   return FusionType::kNone;
 }
@@ -437,6 +444,10 @@ bool isFusible(Operation* op) {
   // All element ops are supported by the fusion codegen engine.
   if (isElementWise(op)) return true;
 
+  // lmhlo_disc.where is supported for fusion, fuse input element-wise ops like
+  // kInput fusion.
+  if (isa<lmhlo_disc::WhereOp>(op)) return true;
+
   // clang-format off
   return isa<
     lmhlo::BroadcastInDimOp,
@@ -624,7 +635,10 @@ void FusionPatternBase::calculateOperandsAndResults() {
 
       if (has_external_user) {
         results_.push_back(v);
-        root_ops_.push_back(op);
+        // For op with multi-output
+        if (!alreadyInRootOps(op)) {
+          root_ops_.push_back(op);
+        }
         if (!has_internal_user) {
           external_only_results_.push_back(v);
         }
@@ -1004,6 +1018,7 @@ bool FusionStrategy::tryFuseInplace(ShapeAnalysis& shapeAnalysis,
     return false;
   }
   lhs = result;
+
   return true;
 }
 
@@ -1074,6 +1089,9 @@ bool BaseFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   // Here `compatible` means:
   // - if `to` and `from` are both kInput fusion, all output should have same
   // shape.
+  // - if `to` or `from` is kWhere fusion, there should be no constrains for
+  // output shape, since lmhlo_disc.where's output shape is determined by values
+  // from its input, which cannot be decided at compile-time.
   // - otherwise, all output should have same number of elements.
 
   // No outside users, these ops may be eliminated. We fused it here and let
@@ -1082,14 +1100,26 @@ bool BaseFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
     return true;
   }
 
-  Value ref_shape = getEffectiveShape(target, results[0]);
-  if (!llvm::all_of(results, [&](Value result) {
-        Value shape = getEffectiveShape(target, result);
-        return checkSameShape(lhs, rhs, target)
-                   ? shapeAnalysis.isShapeEqual(ref_shape, shape)
-                   : shapeAnalysis.isSameNumElements(ref_shape, shape);
-      })) {
-    return false;
+  if (rhs.getFusionType() != FusionType::kWhere &&
+      lhs.getFusionType() != FusionType::kWhere) {
+    Value ref_shape = getEffectiveShape(target, results[0]);
+    if (!llvm::all_of(results, [&](Value result) {
+          Value shape = getEffectiveShape(target, result);
+          return checkSameShape(lhs, rhs, target)
+                     ? shapeAnalysis.isShapeEqual(ref_shape, shape)
+                     : shapeAnalysis.isSameNumElements(ref_shape, shape);
+        })) {
+      return false;
+    }
+  } else {
+    // TODO(lanbo.llb): make a more general rule for kWhere fusion
+    if ((target.getRootOps().size() != 1) ||
+        (target.getRootOps().size() == 1 &&
+         !isa<lmhlo_disc::WhereOp>(target.getRootOps()[0]))) {
+      // Currently we only support input-fusion like kWhere fusion
+      // with one root op, which should be mhlo_disc.where
+      return false;
+    }
   }
   LLVM_DEBUG(llvm::dbgs() << "BaseFusionStrategy::tryFuse success()\n");
   return true;
@@ -1152,11 +1182,17 @@ bool BaseCpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
       // the fusion type to kLoop and dominant op to current op. This supposes
       // that the last op inside the block is a valid candidate dominant op if
       // the fusion pattern is a kLoop.
-      if (inferredFusionType == FusionType::kNone ||
-          inferredFusionType == FusionType::kLoop) {
-        inferredFusionType = FusionType::kLoop;
+      if (!isa<lmhlo_disc::WhereOp>(op)) {
+        if (inferredFusionType == FusionType::kNone ||
+            inferredFusionType == FusionType::kLoop) {
+          inferredFusionType = FusionType::kLoop;
+          inferredDominantOp = op;
+        }
+      } else {
+        inferredFusionType = FusionType::kWhere;
         inferredDominantOp = op;
       }
+
     } else if (!isa<lmhlo::TerminatorOp>(op)) {
       // Not a supported fusionOp, early stop.
       inferredFusionType = FusionType::kNone;

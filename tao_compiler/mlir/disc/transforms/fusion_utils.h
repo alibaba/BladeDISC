@@ -115,7 +115,9 @@ enum FusionType {
   // A schedule for concat op having many operands.
   kLargeConcat,
   // Dot fusion.
-  kDot
+  kDot,
+  // Where op fusion, maybe need a more general name?
+  kWhere,
 };
 
 FusionType getFusionType(Operation* op);
@@ -237,6 +239,15 @@ class FusionPatternBase {
 
   void updateLastWriter(Value value, Operation* op) {
     last_writer_[value] = op;
+  }
+
+  bool alreadyInRootOps(Operation* new_op) {
+    for (Operation* op : root_ops_) {
+      if (new_op == op) {
+        return true;
+      }
+    }
+    return false;
   }
 
  protected:

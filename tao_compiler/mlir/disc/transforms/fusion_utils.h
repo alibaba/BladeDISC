@@ -118,6 +118,8 @@ enum FusionType {
   kDot,
   // Where op fusion, maybe need a more general name?
   kWhere,
+  // transform dialect based codegen fusion pattern
+  kTransform,
 };
 
 FusionType getFusionType(Operation* op);
@@ -326,6 +328,11 @@ class FusionPattern : public FusionPatternBase {
 
   // Returns true if the fusion type is stitch fusion.
   bool isStitchFusion() { return getFusionType() == FusionType::kStitch; }
+
+  // Returns true if the fusion type is transform-based fusion.
+  bool isTransformBasedFusion() {
+    return getFusionType() == FusionType::kTransform;
+  }
 
   // Merges two fusion patterns and returns the merged pattern. The original
   // pattern remains unmodified. The new merged pattern is uninitialized.
@@ -749,6 +756,22 @@ class DotGpuFusionStrategy : public FusionStrategy {
 
  private:
   SmallVector<Value> getEffectiveOperands(Operation* op);
+};
+
+class TransformBasedCpuFusionStrategy : public FusionStrategy {
+ public:
+  TransformBasedCpuFusionStrategy(const FusionOptions& options)
+      : FusionStrategy(options) {}
+
+  virtual bool isFusible(Operation* op) override;
+  virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
+                                 FusionPattern& fused_pattern) override;
+  virtual bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
+                       FusionPattern& rhs, FusionPattern& target) override;
+
+  virtual StringRef getName() override {
+    return "TransformBasedCpuFusionStrategy";
+  }
 };
 
 }  // namespace disc_ral

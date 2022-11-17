@@ -138,6 +138,9 @@ class FusionPlanner {
     // a same fusion pattern are grouped into a cluster.
     for (auto& strategy : fusionPipeline_) {
       currentFusionStrategy_ = strategy.get();
+      // Re-init non-fusible fusion pattern using the given fusion strategy
+      // since different fusion strategy may support different set of ops.
+      initFusionPatterns();
       RunEdgeContractionLoop();
       LLVM_DEBUG(dumpCluster());
     }
@@ -153,7 +156,9 @@ class FusionPlanner {
       FusionPattern& fusion_pattern = cluster->fused_pattern();
       // Make sure the ops in a fusion pattern are in topological ordering.
       fusion_pattern.sortFusionOpListBy(op_to_node_id_);
-      if (!fusion_pattern.isFusible() || fusion_pattern.effectiveSize() <= 1) {
+      if (!fusion_pattern.isFusible() ||
+          !fusion_pattern.isTransformBasedFusion() &&
+              fusion_pattern.effectiveSize() <= 1) {
         continue;
       }
       plan.emplace_back(fusion_pattern);
@@ -203,11 +208,20 @@ class FusionPlanner {
   // Returns a new cluster with specified `cycles_graph_node_id`
   Cluster* MakeCluster(int cycles_graph_node_id) {
     cluster_storage_.emplace_back(new Cluster(cycles_graph_node_id, this));
-    bool status = getFusionStrategy().initFusionPattern(
+    getFusionStrategy().initFusionPattern(
         *shape_analysis_, cluster_storage_.back()->fused_pattern());
-    assert(status);
-    (void)(status);
     return cluster_storage_.back().get();
+  }
+
+  // init non-fusible fusion pattern with only one op using the given fusion
+  // strategy since different fusion strategy may support different set of ops.
+  void initFusionPatterns() {
+    for (int32_t node : cycle_detector_->AllNodesInPostOrder()) {
+      Cluster* cluster = GetClusterForCyclesGraphNode(node);
+      FusionPattern& pattern = cluster->fused_pattern();
+      if (pattern.isFusible()) continue;
+      getFusionStrategy().initFusionPattern(*shape_analysis_, pattern);
+    }
   }
 
   // Metadata ops (e.g. shapeOf, dimOp) don't change data thus we move forward
@@ -541,6 +555,10 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
         pipeline.emplace_back(
             makeNewPlacementAwareFusionStrategy(gpu_enabled_, "stitch"));
       } else {
+        if (isCompIntensFusionEnabled()) {
+          pipeline.emplace_back(makeNewPlacementAwareFusionStrategy(
+              gpu_enabled_, "transform_based"));
+        }
         // Do some basic fusion first.
         pipeline.emplace_back(
             makeNewPlacementAwareFusionStrategy(gpu_enabled_, "stitch_base"));

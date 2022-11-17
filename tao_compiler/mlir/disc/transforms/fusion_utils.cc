@@ -191,6 +191,8 @@ StringRef fusionTypeToString(FusionType ft) {
       return "kDot";
     case FusionType::kWhere:
       return "kWhere";
+    case FusionType::kTransform:
+      return "kTransform";
     default:
       assert(false && "unknown fusion type");
       return "";
@@ -217,6 +219,8 @@ FusionType fusionTypeFromString(StringRef ft) {
     return FusionType::kDot;
   } else if (ft == "kWhere") {
     return FusionType::kWhere;
+  } else if (ft == "kTransform") {
+    return FusionType::kTransform;
   }
 
   assert(false && "unknown fusion type");
@@ -689,6 +693,8 @@ FusionPattern::FusionPattern(lmhlo::FusionOp op, ShapeAnalysis* shape_analysis)
     strategyStr = "stitch";
   } else if (fusionType == FusionType::kDot) {
     strategyStr = "dot";
+  } else if (fusionType == FusionType::kTransform) {
+    strategyStr = "transform_based";
   }
   FusionStrategy& strategy =
       getFusionStrategy(deviceAttr.getValue(), strategyStr);
@@ -1430,6 +1436,8 @@ std::unique_ptr<FusionStrategy> makeNewDeviceStrategy(StringRef device,
     return std::make_unique<BaseGpuFusionStrategy>(options);
   } else if (device == placement_utils::kCpu && strategy == "stitch") {
     return std::make_unique<StitchCpuFusionStrategy>(options);
+  } else if (device == placement_utils::kCpu && strategy == "transform_based") {
+    return std::make_unique<TransformBasedCpuFusionStrategy>(options);
   } else if (device == placement_utils::kGpu && strategy == "stitch") {
     return std::make_unique<StitchGpuFusionStrategy>(options);
   } else if (device == placement_utils::kCpu && strategy == "stitch_base") {

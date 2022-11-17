@@ -88,6 +88,7 @@ jobs:
           -e OSS_ENDPOINT=${{ secrets.OSS_ENDPOINT }} \
           -e OSS_AK=${{ secrets.OSS_AK }} \
           -e OSS_SK=${{ secrets.OSS_SK }} \
+          -e GH_TOKEN=${{ secrets.BENCHMARK_GH_TOKEN}} \
           -w /disc \
           disc-dev-${{ inputs.name }} ${{ inputs.exec_command }}
     - name: Push Docker Image

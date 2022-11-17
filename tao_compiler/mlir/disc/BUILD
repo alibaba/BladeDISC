@@ -2019,6 +2019,7 @@ cc_library(
         ":disc_function_dead_argument_elimination",
         ":disc_side_effect_loop_invariant_code_motion",
         ":disc_unhandled_atomic_rmw_converter",
+        "//tensorflow/compiler/mlir/disc/tools/disc-transform:all_passes",
         "@llvm-project//mlir:Pass",
     ],
     alwayslink = 1,

@@ -393,7 +393,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   pm.addPass(disc_ral::createDiscAssignMemorySpacePass("main", gpu_enabled));
 
-  // Enable stitch by default.
   bool enable_stitch = isStitchEnabled();
   if (enable_shape_constraint_ir) {
     pm.addNestedPass<FuncOp>(

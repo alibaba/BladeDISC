@@ -165,20 +165,20 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
       OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const {
     auto ctx = rewriter.getContext();
-    SmallVector<Value> newOperands;
     Location loc = op.getLoc();
     auto operands = adaptor.operands();
-    Value input = operands[0];
-    Value weight = operands[1];
-    Value bias = operands[2];
-    newOperands.push_back(input);
-    newOperands.push_back(weight);
-    newOperands.push_back(bias);
-    auto torchMlirResultTy =
-        op.getResult(0).getType().dyn_cast<ValueTensorType>();
-    auto resultTy = getTypeConverter()
-                        ->convertType(torchMlirResultTy)
-                        .dyn_cast<RankedTensorType>();
+    SmallVector<Type> resultTypes;
+    for (const auto& result : op.getResults()) {
+      auto torchMlirResultTy = result.getType().dyn_cast<ValueTensorType>();
+      auto resultTy = getTypeConverter()
+                          ->convertType(torchMlirResultTy)
+                          .dyn_cast<RankedTensorType>();
+      if (!resultTy) {
+        return op.emitError("failed to get type of output.");
+      }
+      resultTypes.push_back(resultTy);
+    }
+
     const std::vector<std::string> requiredAttrName{
         "call_target_name",
         "device",
@@ -198,30 +198,29 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
     }
 
     StringAttr callTarget =
-        op->getAttr("call_target_name").dyn_cast_or_null<StringAttr>();
-    StringAttr device = op->getAttr("device").dyn_cast_or_null<StringAttr>();
+        op->getAttr("call_target_name").dyn_cast<StringAttr>();
+    StringAttr device = op->getAttr("device").dyn_cast<StringAttr>();
     StringAttr inputPlacements =
-        op->getAttr("input_placements").dyn_cast_or_null<StringAttr>();
+        op->getAttr("input_placements").dyn_cast<StringAttr>();
     StringAttr outputPlacements =
-        op->getAttr("output_placements").dyn_cast_or_null<StringAttr>();
+        op->getAttr("output_placements").dyn_cast<StringAttr>();
     StringAttr inputLayouts =
-        op->getAttr("input_layouts").dyn_cast_or_null<StringAttr>();
+        op->getAttr("input_layouts").dyn_cast<StringAttr>();
     StringAttr outputLayouts =
-        op->getAttr("output_layouts").dyn_cast_or_null<StringAttr>();
+        op->getAttr("output_layouts").dyn_cast<StringAttr>();
     StringAttr expectedInputLayouts =
-        op->getAttr("expected_input_layouts").dyn_cast_or_null<StringAttr>();
+        op->getAttr("expected_input_layouts").dyn_cast<StringAttr>();
     StringAttr expectedOutputLayouts =
-        op->getAttr("expected_output_layouts").dyn_cast_or_null<StringAttr>();
+        op->getAttr("expected_output_layouts").dyn_cast<StringAttr>();
 
     DictionaryAttr customAttrs = DictionaryAttr::get(ctx, {});
     if (op->hasAttr("custom_attrs")) {
-      customAttrs =
-          op->getAttr("custom_attrs").dyn_cast_or_null<DictionaryAttr>();
+      customAttrs = op->getAttr("custom_attrs").dyn_cast<DictionaryAttr>();
     }
     Operation* newOutput = rewriter.create<mhlo_disc::CustomCallV2Op>(
         loc,
-        resultTy,
-        newOperands,
+        TypeRange(resultTypes),
+        operands,
         callTarget,
         customAttrs,
         false, // has_side_effect

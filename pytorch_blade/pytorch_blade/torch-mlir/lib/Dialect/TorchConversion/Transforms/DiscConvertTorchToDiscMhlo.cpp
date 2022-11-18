@@ -154,8 +154,7 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
           useDynamicAttr,
           roundModeAttr);
     } else {
-      return op.emitError(
-          "Currently, only the following types of OperatorOp are supported:");
+      return op.emitError("Unsupported kind of torch.operator.");
     }
     rewriter.replaceOp(op, newOutput->getResult(0));
     return success();

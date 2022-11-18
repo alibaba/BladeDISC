@@ -26,6 +26,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/register_passes.h"
 #include "tensorflow/compiler/mlir/disc/transforms/register_passes.h"
 #include "tensorflow/compiler/mlir/tensorflow/ir/tf_ops.h"
 
@@ -34,6 +35,7 @@ int main(int argc, char** argv) {
   mlir::mhlo::registerAllMhloPasses();
   mlir::lmhlo::registerAllLmhloPasses();
   mlir::disc_ral::registerAllDiscPasses();
+  mlir::disc_ral::registerAllDiscTransformPasses();
   mlir::mhlo_disc::registerAllMhloDiscPasses();
 
   mlir::DialectRegistry registry;

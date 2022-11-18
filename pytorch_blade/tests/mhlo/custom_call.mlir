@@ -18,11 +18,11 @@ func.func @torch_blade_custom_call_ral_qgemm_bias_s8s8s8_perchannel(%arg0: !torc
   // CHECK-SAME: custom_attrs = {}
   // CHECK-SAME: device = "h"
   // CHECK-SAME: expected_input_layouts = "ABC,AB,A,,,A,A,,"
-  // CHECK-SAME: expected_output_layouts = "ABC",
-  // CHECK-SAME: has_side_effect = false,
-  // CHECK-SAME: input_layouts = "ABC,AB,A,,,A,A,,",
-  // CHECK-SAME: input_placements = "h,h,h,h,h,h,h,h,h",
-  // CHECK-SAME: output_layouts = "ABC",
+  // CHECK-SAME: expected_output_layouts = "ABC"
+  // CHECK-SAME: has_side_effect = false
+  // CHECK-SAME: input_layouts = "ABC,AB,A,,,A,A,,"
+  // CHECK-SAME: input_placements = "h,h,h,h,h,h,h,h,h"
+  // CHECK-SAME: output_layouts = "ABC"
   // CHECK-SAME: output_placements = "h"
   %6 = torch.operator "torch_blade.custom_call"(%arg0, %weight, %bias, %input_scale, %input_zero_point, %weight_scale, %weight_zero_point, %output_scale, %output_zero_point) {
         call_target_name = "disc.custom_call.ral_qgemm",

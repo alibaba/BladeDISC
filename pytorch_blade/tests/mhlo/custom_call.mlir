@@ -16,7 +16,16 @@ func.func @torch_blade_custom_call_ral_qgemm_bias_s8s8s8_perchannel(%arg0: !torc
   // CHECK: mhlo_disc.custom_call_v2
   // CHECK-SAME: call_target_name = "disc.custom_call.ral_qgemm"
   // CHECK-SAME: has_side_effect = false
-  %6 = torch.operator "torch_blade.custom_call"(%arg0, %weight, %bias, %0, %1, %2, %3, %4, %5) {call_target_name = "disc.custom_call.ral_qgemm", device = "cpu", expected_input_layouts = "AB", expected_output_layouts = "AB", input_layouts = "AB", input_placements = "cpu,cpu", output_layouts = "AB", output_placements = "cpu"} : (!torch.vtensor<[?,?,?],si8>, !torch.vtensor<[128,128],si8>, !torch.vtensor<[128],f32>, !torch.vtensor<[],f32>, !torch.vtensor<[],si32>, !torch.vtensor<[128],f32>, !torch.vtensor<[128],si32>, !torch.vtensor<[],f32>, !torch.vtensor<[],si32>) -> !torch.vtensor<[?,?,128],si8>
+  %6 = torch.operator "torch_blade.custom_call"(%arg0, %weight, %bias, %0, %1, %2, %3, %4, %5) {
+        call_target_name = "disc.custom_call.ral_qgemm",
+        device = "h",
+        expected_input_layouts = "ABC,AB,A",
+        expected_output_layouts = "ABC",
+        input_layouts = "ABC,AB,A",
+        input_placements = "h,h,h",
+        output_layouts = "ABC",
+        output_placements = "h"
+  } : (!torch.vtensor<[?,?,?],si8>, !torch.vtensor<[128,128],si8>, !torch.vtensor<[128],f32>, !torch.vtensor<[],f32>, !torch.vtensor<[],si32>, !torch.vtensor<[128],f32>, !torch.vtensor<[128],si32>, !torch.vtensor<[],f32>, !torch.vtensor<[],si32>) -> !torch.vtensor<[?,?,128],si8>
   // CHECK: return
   return %6 : !torch.vtensor<[?,?,128],si8>
 }

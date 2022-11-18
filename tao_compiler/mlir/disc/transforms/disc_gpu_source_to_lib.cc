@@ -11,16 +11,21 @@
 
 #include <cstdio>
 #include <fstream>
+#include <unordered_map>
 
 #include "absl/strings/ascii.h"
+#include "absl/strings/str_replace.h"
 #include "llvm/Support/Program.h"
 #include "mlir/Pass/Pass.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/core/lib/strings/str_util.h"
+#include "tensorflow/core/platform/path.h"
 #include "tensorflow/core/platform/random.h"
 #include "tensorflow/core/util/env_var.h"
+#include "tensorflow/tsl/platform/cuda_libdevice_path.h"
+#include "tensorflow/tsl/platform/env.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -115,6 +120,10 @@ class DiscGPUSourceToLibPass
       source_code_ops.push_back(source_code_op);
     });
 
+    if (source_code_ops.empty()) {
+      return;
+    }
+
     for (auto source_code_op : source_code_ops) {
       auto code = source_code_op.getCode().str();
       if (code.empty()) {
@@ -122,15 +131,7 @@ class DiscGPUSourceToLibPass
         return;
       }
       cuda_code += code;
-      // if (auto attr = source_code_op.getCode()) {
-      // cuda_code += attr.getValue();
-      // } else {
-      // signalPassFailure();
-      // return;
-      // }
     }
-
-    llvm::errs() << "[ZZ] cuda code to compile:\n" << cuda_code << "\n";
 
     // Compile CUDA code.
     std::string bin_path;
@@ -154,6 +155,7 @@ class DiscGPUSourceToLibPass
   bool executeCommand(const std::string& cmd, std::string* output);
   LogicalResult compilePreprocessedCUDASourceToLib(const std::string& source,
                                                    std::string& bin_path);
+  std::string findCUDAHome();
 };
 
 bool DiscGPUSourceToLibPass::executeCommand(const std::string& cmd,
@@ -174,6 +176,8 @@ bool DiscGPUSourceToLibPass::executeCommand(const std::string& cmd,
 
 LogicalResult DiscGPUSourceToLibPass::compilePreprocessedCUDASourceToLib(
     const std::string& source, std::string& bin_path) {
+#if defined(GOOGLE_CUDA)
+
   std::string random_number = std::to_string(tensorflow::random::New64());
   std::string tmp_path = "/tmp/";
   bin_path = tmp_path + random_number + ".so";
@@ -187,33 +191,31 @@ LogicalResult DiscGPUSourceToLibPass::compilePreprocessedCUDASourceToLib(
   ;
   // clang-format on
 
-  std::ofstream cufile_cpp1;
-  std::string source_path_cpp1 = tmp_path + random_number + ".cpp1.ii";
-  cufile_cpp1.open(source_path_cpp1);
-  cufile_cpp1 << headers_cpp1;
-  cufile_cpp1 << source;
-  cufile_cpp1.close();
+  auto synthesizeCodeAndWriteFile = [&](std::string path, std::string header,
+                                        std::string body) {
+    std::ofstream file;
+    file.open(path);
+    file << header;
+    file << body;
+    file.close();
+  };
 
-  std::ofstream cufile_cpp4;
-  std::string source_path_cpp4 = tmp_path + random_number + ".cpp4.ii";
-  cufile_cpp4.open(source_path_cpp4);
-  cufile_cpp4 << headers_cpp4;
-  cufile_cpp4 << source;
-  cufile_cpp4.close();
+  synthesizeCodeAndWriteFile(tmp_path + random_number + ".cpp1.ii",
+                             headers_cpp1, source);
+  synthesizeCodeAndWriteFile(tmp_path + random_number + ".cpp4.ii",
+                             headers_cpp4, source);
 
   std::vector<std::string> compile_trajectory = compile_trajectory_template;
   std::string cuda_arch = std::to_string(cc_major_ * 100 + cc_minor_ * 10);
   std::string sm = std::to_string(cc_major_ * 10 + cc_minor_);
-  std::string cuda_home;
-  if (!executeCommand("dirname $(which nvcc)", &cuda_home) ||
-      cuda_home.empty()) {
+  std::string cuda_home = findCUDAHome();
+  if (cuda_home.empty()) {
     return failure();
   }
-  absl::StripLeadingAsciiWhitespace(&cuda_home);
-  absl::StripTrailingAsciiWhitespace(&cuda_home);
-  cuda_home += "/..";
   std::string cuda_version;
-  if (!executeCommand("nvcc --version | grep -o 'V[0-9]*\\.[0-9]*\\.[0-9]*'",
+  std::string nvcc_path = tensorflow::io::JoinPath(cuda_home, "bin", "nvcc");
+  if (!executeCommand(nvcc_path + " --version | grep -o "
+                                  "'V[0-9]*\\.[0-9]*\\.[0-9]*'",
                       &cuda_version) ||
       cuda_version.empty()) {
     return failure();
@@ -235,15 +237,14 @@ LogicalResult DiscGPUSourceToLibPass::compilePreprocessedCUDASourceToLib(
   absl::StripLeadingAsciiWhitespace(&gnu_version);
   absl::StripTrailingAsciiWhitespace(&gnu_version);
 
+  std::unordered_map<std::string, std::string> argToReplace = {
+      {"DISC_CUDA_ARCH", cuda_arch},   {"DISC_SM", sm},
+      {"DISC_CUDA_MAJOR", cuda_major}, {"DISC_CUDA_MINOR", cuda_minor},
+      {"DISC_CUDA_HOME", cuda_home},   {"DISC_GNU_VERSION", gnu_version},
+      {"DISC_DIR", tmp_path},          {"DISC_FILE_NAME", random_number}};
+
   for (auto& command : compile_trajectory) {
-    stringReplaceInplace(command, "DISC_CUDA_ARCH", cuda_arch, true);
-    stringReplaceInplace(command, "DISC_SM", sm, true);
-    stringReplaceInplace(command, "DISC_CUDA_MAJOR", cuda_major, true);
-    stringReplaceInplace(command, "DISC_CUDA_MINOR", cuda_minor, true);
-    stringReplaceInplace(command, "DISC_CUDA_HOME", cuda_home, true);
-    stringReplaceInplace(command, "DISC_GNU_VERSION", gnu_version, true);
-    stringReplaceInplace(command, "DISC_DIR", tmp_path, true);
-    stringReplaceInplace(command, "DISC_FILE_NAME", random_number, true);
+    command = absl::StrReplaceAll(command, argToReplace);
   }
 
   for (auto& command : compile_trajectory) {
@@ -253,6 +254,24 @@ LogicalResult DiscGPUSourceToLibPass::compilePreprocessedCUDASourceToLib(
   }
 
   return success();
+
+#else
+
+  return failure();
+
+#endif
+}
+
+std::string DiscGPUSourceToLibPass::findCUDAHome() {
+  for (const std::string& cuda_root : tsl::CandidateCudaRoots()) {
+    std::string path = tensorflow::io::JoinPath(cuda_root, "bin", "nvcc");
+    VLOG(2) << "Looking for nvcc at " << path;
+    if (tsl::Env::Default()->FileExists(path).ok()) {
+      VLOG(2) << "Found nvcc in cuda home " << cuda_root;
+      return cuda_root;
+    }
+  }
+  return "";
 }
 
 }  // namespace

@@ -293,6 +293,12 @@ struct RalGemmState : public Context::Resource {
   std::map<GemmTuningCacheKey, se::blas::AlgorithmType> gemm_tuning_cache;
 };
 
+struct RalComputeIntensiveFusionState : public Context::Resource {
+  std::mutex mu;
+  void* shared_library_handle = nullptr;
+  std::unordered_map<std::string, void*> fusion_func_map;
+};
+
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
 template <typename T>
 bladnn::Dtype toBlaDNNDtype() {
@@ -470,29 +476,40 @@ void ral_comp_intens_fusion(
     const char* dyn_lib_path, /* lib path containing the function */
     void* stream_handle,      /* stream */
     void** params /* kernel params */) {
-  void* func_handle = dlopen(dyn_lib_path, RTLD_NOW);
-  if (!func_handle) {
-    std::string msg =
-        std::string("Fail to open compiled .so file with error: ") + dlerror() +
-        ". Fail to launch compute-intensive fusion kernel " + kernel_name;
-    TAO_VLOG(0) << msg;
-    ctx->signalError(Context::FAILURE, msg);
-    return;
-  }
-
-  void* fusion_func_ptr = dlsym(func_handle, kernel_name);
-  if (!fusion_func_ptr) {
-    std::string msg =
-        std::string("Fail to find fusion func: ") + kernel_name + ".";
-    TAO_VLOG(0) << msg;
-    ctx->signalError(Context::FAILURE, msg);
-    return;
-  }
-
   using func_t = bool (*)(void*, void**);
-  auto fusion_func = (func_t)fusion_func_ptr;
-  // auto fusion_func =
-  // reinterpret_cast<std::function<bool(void**)>>(fusion_func_ptr);
+  func_t fusion_func;
+  std::string resource_name = "tao_ral.gpu.comp_intens_fuse";
+  auto state = ctx->getOrCreateResource<RalComputeIntensiveFusionState>(
+      resource_name, []() { return new RalComputeIntensiveFusionState; });
+  {
+    std::lock_guard<std::mutex> l(state->mu);
+    void*& handle = state->shared_library_handle;
+    if (!handle) {
+      handle = dlopen(dyn_lib_path, RTLD_LAZY);
+      if (!handle) {
+        std::string msg =
+            std::string("Fail to open compiled .so file with error: ") +
+            dlerror() + ". Fail to launch compute-intensive fusion kernel " +
+            kernel_name;
+        TAO_VLOG(0) << msg;
+        ctx->signalError(Context::FAILURE, msg);
+        return;
+      }
+    }
+    void*& fusion_func_ptr = state->fusion_func_map[kernel_name];
+    if (!fusion_func_ptr) {
+      fusion_func_ptr = dlsym(handle, kernel_name);
+    }
+    if (!fusion_func_ptr) {
+      std::string msg =
+          std::string("Fail to find fusion func: ") + kernel_name + ".";
+      TAO_VLOG(0) << msg;
+      ctx->signalError(Context::FAILURE, msg);
+      return;
+    }
+
+    fusion_func = (func_t)fusion_func_ptr;
+  }
 
   auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
   auto stream =

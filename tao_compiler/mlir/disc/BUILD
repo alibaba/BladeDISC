@@ -1994,7 +1994,7 @@ genrule(
         """
 )
 
-cc_library(
+disc_cc_library(
     name = "disc_gpu_source_to_lib",
     srcs = [
         "transforms/disc_gpu_source_to_lib.cc",
@@ -2042,6 +2042,8 @@ cc_library(
         ":disc_for_loop_unroll_interleave",
         ":disc_fuse_splat_const",
         ":disc_fusion",
+        ":disc_gpu_kernel_to_blob",
+        ":disc_gpu_source_to_lib",
         ":disc_hlo_legalize_to_lhlo",
         ":disc_hlo_to_std",
         ":disc_lhlo_legalize_roots_to_loops",
@@ -2050,7 +2052,6 @@ cc_library(
         ":disc_lower_to_library_call",
         ":disc_math_approximation",
         ":disc_memref_canonicalizer",
-        ":disc_gpu_kernel_to_blob",
         ":disc_outline_cpu_kernel",
         ":disc_parallel_loop_collapsing",
         ":disc_parallel_loop_tiling",
@@ -2088,9 +2089,7 @@ cc_library(
         ":disc_unhandled_atomic_rmw_converter",
         "//tensorflow/compiler/mlir/disc/tools/disc-transform:all_passes",
         "@llvm-project//mlir:Pass",
-    ] + if_cuda_is_configured([
-        ":disc_gpu_source_to_lib",
-    ]),
+    ],
     alwayslink = 1,
 )
 

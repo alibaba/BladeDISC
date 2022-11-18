@@ -9,6 +9,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <unordered_map>
+
+#include "absl/strings/str_replace.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/mhlo/IR/hlo_ops.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -22,58 +25,39 @@ namespace mlir {
 namespace disc_ral {
 namespace {
 
-constexpr const char* kSpecializedClassName = "SpecializedGemmFusion";
-constexpr const char* kSpecializedEpilogue = "SpecializedEpilogue";
-constexpr const char* kEpilogueIsHeavy = "EpilogueIsHeavy";
+constexpr const char* kSpecializedClassName = "__SpecializedGemmFusion__";
+constexpr const char* kSpecializedEpilogue = "__SpecializedEpilogue__";
+constexpr const char* kEpilogueIsHeavy = "__EpilogueIsHeavy__";
 
-constexpr const char* kGRank = "GRank";
-constexpr const char* kElementAType = "ElementAType";
-constexpr const char* kElementALayout = "ElementALayout";
-constexpr const char* kElementBType = "ElementBType";
-constexpr const char* kElementBLayout = "ElementBLayout";
-constexpr const char* kElementOutputType = "ElementOutputType";
-constexpr const char* kElementOutputLayout = "ElementOutputLayout";
-constexpr const char* kElementAccumulatorType = "ElementAccumulatorType";
-constexpr const char* kOperatorClassType = "OperatorClassType";
-constexpr const char* kSMArch = "SMArch";
+constexpr const char* kGRank = "__GRank__";
+constexpr const char* kElementAType = "__ElementAType__";
+constexpr const char* kElementALayout = "__ElementALayout__";
+constexpr const char* kElementBType = "__ElementBType__";
+constexpr const char* kElementBLayout = "__ElementBLayout__";
+constexpr const char* kElementOutputType = "__ElementOutputType__";
+constexpr const char* kElementOutputLayout = "__ElementOutputLayout__";
+constexpr const char* kElementAccumulatorType = "__ElementAccumulatorType__";
+constexpr const char* kOperatorClassType = "__OperatorClassType__";
+constexpr const char* kSMArch = "__SMArch__";
 
-constexpr const char* kScaleKind = "EpilogueScaleKind";
-constexpr const char* kCountVectorized = "EpilogueCountVectorized";
-constexpr const char* kEpilogueType = "EpilogueElementType";
+constexpr const char* kScaleKind = "__EpilogueScaleKind__";
+constexpr const char* kCountVectorized = "__EpilogueCountVectorized__";
+constexpr const char* kEpilogueType = "__EpilogueElementType__";
 
-constexpr const char* kGatherA = "IsGatherA";
-constexpr const char* kGatherB = "IsGatherB";
-constexpr const char* kScatterD = "IsScatterD";
-constexpr const char* kPermuteDLayout = "EpiloguePermuteDLayout";
+constexpr const char* kGatherA = "__IsGatherA__";
+constexpr const char* kGatherB = "__IsGatherB__";
+constexpr const char* kScatterD = "__IsScatterD__";
+constexpr const char* kPermuteDLayout = "__EpiloguePermuteDLayout__";
 
-constexpr const char* kParameterPermute = "ParameterPermute";
+constexpr const char* kParameterPermute = "__ParameterPermute__";
 
-constexpr const char* kGemmFusionFuncName = "gemmFusionFunc";
-
-int64_t stringReplaceInplace(std::string& subject, const std::string& oldsub,
-                             const std::string& newsub, bool replace_all) {
-  if (oldsub.empty()) {
-    return 0;
-  }
-  int64_t count = 0;
-  size_t pos = 0;
-  while ((pos = subject.find(oldsub, pos)) != std::string::npos) {
-    subject.replace(pos, oldsub.size(), newsub);
-    count++;
-    pos += newsub.size();
-    if (!replace_all) {
-      break;
-    }
-  }
-  return count;
-}
+constexpr const char* kGemmFusionFuncName = "__gemmFusionFunc__";
 
 struct DiscCompIntensFusionToCUDASourcePass
     : public DiscCompIntensFusionToCUDASourcePassBase<
           DiscCompIntensFusionToCUDASourcePass> {
  public:
-  DiscCompIntensFusionToCUDASourcePass() = delete;
-  explicit DiscCompIntensFusionToCUDASourcePass(int cc_major, int cc_minor) {
+  DiscCompIntensFusionToCUDASourcePass(int cc_major, int cc_minor) {
     cc_major_ = cc_major;
     cc_minor_ = cc_minor;
   }
@@ -228,7 +212,7 @@ bool DiscCompIntensFusionToCUDASourcePass::getSMArchString(
 bool DiscCompIntensFusionToCUDASourcePass::getScaleKindString(
     std::string& scale_kind) {
   // TODO: update according to the problem.
-  // scale_kind = "cutlass::epilogue::thread::ScaleType::NoBetaScaling";
+  // Or "cutlass::epilogue::thread::ScaleType::NoBetaScaling";
   scale_kind = "cutlass::epilogue::thread::ScaleType::Nothing";
   return true;
 }
@@ -456,6 +440,9 @@ bool DiscCompIntensFusionToCUDASourcePass::
   scatter_d = isScatterD(func) ? "true" : "false";
 
   std::string intent = "    ";
+  auto appendLineToEpilogue = [&](const std::string& instruction) {
+    specialized_epilogue += intent + instruction + ";\n";
+  };
   SourceEmitterCUDA source_emitter;
   SourceEmitterCUDA::ValueNameBinding binding;
   for (auto& op : func.getRegion().getOps()) {
@@ -473,7 +460,7 @@ bool DiscCompIntensFusionToCUDASourcePass::
                                     SmallVector<std::string>({new_name}),
                                     binding);
       for (auto& instruction : convert_instructions) {
-        specialized_epilogue += intent + instruction + ";\n";
+        appendLineToEpilogue(instruction);
       }
     } else if (!isa<func::ReturnOp>(&op)) {
       assert(source_emitter.isSupportedOp(&op) && "Encounter unsupported op.");
@@ -481,7 +468,7 @@ bool DiscCompIntensFusionToCUDASourcePass::
       if (!instruction.hasValue()) {
         return false;
       } else {
-        specialized_epilogue += intent + instruction.value() + ";\n";
+        appendLineToEpilogue(instruction.value());
       }
     }
   }
@@ -502,9 +489,9 @@ bool DiscCompIntensFusionToCUDASourcePass::
     return false;
   }
   for (auto& instruction : convert_result_instructions) {
-    specialized_epilogue += intent + instruction + ";\n";
+    appendLineToEpilogue(instruction);
   }
-  specialized_epilogue += intent + "return " + new_name + ";";
+  appendLineToEpilogue("return " + new_name);
 
   // Create source code op containing the source code string.
   SmallVector<Value> operands;
@@ -525,35 +512,30 @@ bool DiscCompIntensFusionToCUDASourcePass::
                                   ", " + std::to_string(param_permute[2]) + "}";
 
   // Replace newly generated code in the template.
-  stringReplaceInplace(cuda_code, kSpecializedClassName, specialized_class_name,
-                       true);
-  stringReplaceInplace(cuda_code, kSpecializedEpilogue, specialized_epilogue,
-                       true);
-  stringReplaceInplace(cuda_code, kEpilogueIsHeavy, epilogue_is_heavy, true);
-  stringReplaceInplace(cuda_code, kGRank, gemm_rank, true);
-  stringReplaceInplace(cuda_code, kElementAType, element_a_type, true);
-  stringReplaceInplace(cuda_code, kElementALayout, element_a_layout, true);
-  stringReplaceInplace(cuda_code, kElementBType, element_b_type, true);
-  stringReplaceInplace(cuda_code, kElementBLayout, element_b_layout, true);
-  stringReplaceInplace(cuda_code, kElementOutputType, element_output_type,
-                       true);
-  stringReplaceInplace(cuda_code, kElementOutputLayout, element_output_layout,
-                       true);
-  stringReplaceInplace(cuda_code, kElementAccumulatorType,
-                       element_accumulator_type, true);
-  stringReplaceInplace(cuda_code, kOperatorClassType, operator_class_type,
-                       true);
-  stringReplaceInplace(cuda_code, kSMArch, sm_arch, true);
-  stringReplaceInplace(cuda_code, kScaleKind, scale_kind, true);
-  stringReplaceInplace(cuda_code, kCountVectorized, count_vectorized, true);
-  stringReplaceInplace(cuda_code, kEpilogueType, epilogue_type, true);
-  stringReplaceInplace(cuda_code, kGatherA, gather_a, true);
-  stringReplaceInplace(cuda_code, kGatherB, gather_b, true);
-  stringReplaceInplace(cuda_code, kScatterD, scatter_d, true);
-  stringReplaceInplace(cuda_code, kPermuteDLayout, permute_d_layout, true);
-  stringReplaceInplace(cuda_code, kParameterPermute, parameter_permute, true);
-  stringReplaceInplace(cuda_code, kGemmFusionFuncName, gemm_fusion_func_name,
-                       true);
+  std::unordered_map<std::string, std::string> codeToReplace = {
+      {kSpecializedClassName, specialized_class_name},
+      {kSpecializedEpilogue, specialized_epilogue},
+      {kEpilogueIsHeavy, epilogue_is_heavy},
+      {kGRank, gemm_rank},
+      {kElementAType, element_a_type},
+      {kElementALayout, element_a_layout},
+      {kElementBType, element_b_type},
+      {kElementBLayout, element_b_layout},
+      {kElementOutputType, element_output_type},
+      {kElementOutputLayout, element_output_layout},
+      {kElementAccumulatorType, element_accumulator_type},
+      {kOperatorClassType, operator_class_type},
+      {kSMArch, sm_arch},
+      {kScaleKind, scale_kind},
+      {kCountVectorized, count_vectorized},
+      {kEpilogueType, epilogue_type},
+      {kGatherA, gather_a},
+      {kGatherB, gather_b},
+      {kScatterD, scatter_d},
+      {kPermuteDLayout, permute_d_layout},
+      {kParameterPermute, parameter_permute},
+      {kGemmFusionFuncName, gemm_fusion_func_name}};
+  cuda_code = absl::StrReplaceAll(cuda_code, codeToReplace);
 
   OpBuilder builder(func);
   Location loc = func->getLoc();

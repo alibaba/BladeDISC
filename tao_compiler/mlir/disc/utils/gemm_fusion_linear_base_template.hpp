@@ -1,6 +1,6 @@
 R"bladedisc_rstr(
 
-class SpecializedGemmFusion {
+class __SpecializedGemmFusion__ {
  public:
   template <typename T>
   struct ElementwiseUnaryOp {
@@ -12,7 +12,7 @@ class SpecializedGemmFusion {
 
   template <typename T>
   struct EpilogueFunctor {
-    static const bool kIsHeavy = EpilogueIsHeavy;
+    static const bool kIsHeavy = __EpilogueIsHeavy__;
 
     __inline__ __attribute__((always_inline)) __attribute__((device))
     T operator()(T const& scalar) const {
@@ -32,7 +32,7 @@ class SpecializedGemmFusion {
 
   template <typename T, int N>
   struct EpilogueFunctor<cutlass::Array<T, N>> {
-    static const bool kIsHeavy = EpilogueIsHeavy;
+    static const bool kIsHeavy = __EpilogueIsHeavy__;
 
     __inline__ __attribute__((always_inline)) __attribute__((device))
     cutlass::Array<T, N> operator()(cutlass::Array<T, N>
@@ -59,7 +59,7 @@ class SpecializedGemmFusion {
   };
 
  public:
-  SpecializedGemmFusion(void* stream, int64_t batch_size, int64_t m,
+  __SpecializedGemmFusion__(void* stream, int64_t batch_size, int64_t m,
                         int64_t n, int64_t k, const void* A,
                         const void* B, void* D)
       : stream_(stream),
@@ -84,21 +84,21 @@ class SpecializedGemmFusion {
 };
 
 template <>
-struct SpecializedGemmFusion::ElementwiseUnaryOp<EpilogueElementType> {
+struct __SpecializedGemmFusion__::ElementwiseUnaryOp<__EpilogueElementType__> {
   __inline__ __attribute__((always_inline)) __attribute__((device))
-  EpilogueElementType operator()(
-      EpilogueElementType const& input) const {
-SpecializedEpilogue
+  __EpilogueElementType__ operator()(
+      __EpilogueElementType__ const& input) const {
+__SpecializedEpilogue__
   }
 };
 
-bool SpecializedGemmFusion::run() {
-  bool debug_input = true;
+bool __SpecializedGemmFusion__::run() {
+  bool debug_input = false;
   if (debug_input) {
-    ElementAType* A_host = (ElementAType*)malloc(sizeof(ElementAType) * batch_size_ * m_ * k_);
-    ElementAType* B_host = (ElementBType*)malloc(sizeof(ElementBType) * batch_size_ * k_ * n_);
-    cudaMemcpy(A_host, A_, sizeof(ElementAType) * batch_size_ * m_ * k_, cudaMemcpyDefault);
-    cudaMemcpy(B_host, B_, sizeof(ElementBType) * batch_size_ * k_ * n_, cudaMemcpyDefault);
+    __ElementAType__* A_host = (__ElementAType__*)malloc(sizeof(__ElementAType__) * batch_size_ * m_ * k_);
+    __ElementAType__* B_host = (__ElementBType__*)malloc(sizeof(__ElementBType__) * batch_size_ * k_ * n_);
+    cudaMemcpy(A_host, A_, sizeof(__ElementAType__) * batch_size_ * m_ * k_, cudaMemcpyDefault);
+    cudaMemcpy(B_host, B_, sizeof(__ElementBType__) * batch_size_ * k_ * n_, cudaMemcpyDefault);
     for (int b = 0; b < 2; b++) {
       for (int m = 0; m < 4; m++) {
         for (int k = 0; k < 4; k++) {
@@ -124,30 +124,30 @@ bool SpecializedGemmFusion::run() {
   constexpr cutlass::ComplexTransform TransformB =
       cutlass::ComplexTransform::kNone;
 
-  using ElementA = ElementAType;
-  using LayoutA = ElementALayout;
-  using ElementB = ElementBType;
-  using LayoutB = ElementBLayout;
-  using ElementOutput = ElementOutputType;
-  using LayoutOutput = ElementOutputLayout;
-  using ElementAccumulator = ElementAccumulatorType;
-  using OperatorClass = OperatorClassType;
-  using ArchTag = SMArch;
+  using ElementA = __ElementAType__;
+  using LayoutA = __ElementALayout__;
+  using ElementB = __ElementBType__;
+  using LayoutB = __ElementBLayout__;
+  using ElementOutput = __ElementOutputType__;
+  using LayoutOutput = __ElementOutputLayout__;
+  using ElementAccumulator = __ElementAccumulatorType__;
+  using OperatorClass = __OperatorClassType__;
+  using ArchTag = __SMArch__;
 
   constexpr cutlass::epilogue::thread::ScaleType::Kind Scale =
-      EpilogueScaleKind;
-  constexpr bool IsHeavy = EpilogueIsHeavy;
-  constexpr int Count = EpilogueCountVectorized;
-  using ElementComputeEpilogue = EpilogueElementType;
+      __EpilogueScaleKind__;
+  constexpr bool IsHeavy = __EpilogueIsHeavy__;
+  constexpr int Count = __EpilogueCountVectorized__;
+  using ElementComputeEpilogue = __EpilogueElementType__;
   using EpilogueOutputOp =
       cutlass::epilogue::thread::LinearCombinationGeneric<
           EpilogueFunctor, ElementOutput, Count, ElementAccumulator,
           ElementComputeEpilogue, Scale, Round, IsHeavy>;
 
-  constexpr bool GatherA = IsGatherA;
-  constexpr bool GatherB = IsGatherB;
-  constexpr bool ScatterD = IsScatterD;
-  using PermuteDLayout = EpiloguePermuteDLayout;
+  constexpr bool GatherA = __IsGatherA__;
+  constexpr bool GatherB = __IsGatherB__;
+  constexpr bool ScatterD = __IsScatterD__;
+  using PermuteDLayout = __EpiloguePermuteDLayout__;
 
   cutlass::gemm::GemmUniversalMode mode;
   if (batch_size_ > 1) {
@@ -319,49 +319,33 @@ bool SpecializedGemmFusion::run() {
 }
 
 extern "C"
-bool gemmFusionFunc(void* stream, void** params) {
+bool __gemmFusionFunc__(void* stream, void** params) {
 
-  int64_t size_struct = 3 + GRank * 2;
+  int64_t size_struct = 3 + __GRank__ * 2;
   int64_t batch_size = 1;
-  for (int64_t i = 0; i < GRank - 2; ++i) {
+  for (int64_t i = 0; i < __GRank__ - 2; ++i) {
     int64_t* a_size = reinterpret_cast<int64_t*>(params[3 + i]);
     batch_size *= *a_size;
   }
 
-  int param_permute[] = ParameterPermute;
-  if (true) {
-    std::cout << "[ZZ] param permute:" << param_permute[0] << ", "
-              << param_permute[1] << ", " << param_permute[2] << std::endl;
-    std::cout << "[ZZ] batch_size: " << batch_size << std::endl;
-    std::cout << "[ZZ] A sizes.\n";
-    for (int i = 0; i < GRank; i++) {
-      int64_t* a_size = reinterpret_cast<int64_t*>(params[3 + i + param_permute[0] * size_struct]);
-      std::cout << i << ":" << *a_size << "\n";
-    }
-    std::cout << "[ZZ] B sizes.\n";
-    for (int i = 0; i < GRank; i++) {
-      int64_t* b_size = reinterpret_cast<int64_t*>(params[3 + i + param_permute[1] * size_struct]);
-      std::cout << i << ":" << *b_size << "\n";
-    }
-    std::cout << std::flush;
-  }
+  int param_permute[] = __ParameterPermute__;
 
-  int64_t m = std::is_same<ElementALayout, cutlass::layout::ColumnMajor>::value ?
-      *reinterpret_cast<int64_t*>(params[3 + GRank - 1]) :
-      *reinterpret_cast<int64_t*>(params[3 + GRank - 2]);
-  int64_t k = std::is_same<ElementALayout, cutlass::layout::ColumnMajor>::value ?
-      *reinterpret_cast<int64_t*>(params[3 + GRank - 2]) :
-      *reinterpret_cast<int64_t*>(params[3 + GRank - 1]);
-  int64_t n = std::is_same<ElementBLayout, cutlass::layout::ColumnMajor>::value ?
-      *reinterpret_cast<int64_t*>(params[3 + size_struct + GRank - 2]) :
-      *reinterpret_cast<int64_t*>(params[3 + size_struct + GRank - 1]);
+  int64_t m = std::is_same<__ElementALayout__, cutlass::layout::ColumnMajor>::value ?
+      *reinterpret_cast<int64_t*>(params[3 + __GRank__ - 1]) :
+      *reinterpret_cast<int64_t*>(params[3 + __GRank__ - 2]);
+  int64_t k = std::is_same<__ElementALayout__, cutlass::layout::ColumnMajor>::value ?
+      *reinterpret_cast<int64_t*>(params[3 + __GRank__ - 2]) :
+      *reinterpret_cast<int64_t*>(params[3 + __GRank__ - 1]);
+  int64_t n = std::is_same<__ElementBLayout__, cutlass::layout::ColumnMajor>::value ?
+      *reinterpret_cast<int64_t*>(params[3 + size_struct + __GRank__ - 2]) :
+      *reinterpret_cast<int64_t*>(params[3 + size_struct + __GRank__ - 1]);
 
-  ElementAType* a = *reinterpret_cast<ElementAType**>(params[1 + param_permute[0] * size_struct]);
-  ElementBType* b = *reinterpret_cast<ElementBType**>(params[1 + param_permute[1] * size_struct]);
-  ElementOutputType* d =
-      *reinterpret_cast<ElementOutputType**>(params[1 + param_permute[2] * size_struct]);
+  __ElementAType__* a = *reinterpret_cast<__ElementAType__**>(params[1 + param_permute[0] * size_struct]);
+  __ElementBType__* b = *reinterpret_cast<__ElementBType__**>(params[1 + param_permute[1] * size_struct]);
+  __ElementOutputType__* d =
+      *reinterpret_cast<__ElementOutputType__**>(params[1 + param_permute[2] * size_struct]);
 
-  SpecializedGemmFusion specialization(stream, batch_size, m, n, k, a, b, d);
+  __SpecializedGemmFusion__ specialization(stream, batch_size, m, n, k, a, b, d);
   return specialization.run();
 };
 

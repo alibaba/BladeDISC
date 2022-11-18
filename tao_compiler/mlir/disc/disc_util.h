@@ -143,9 +143,6 @@ DenseIntElementsAttr GetI64ElementsAttrForSeq(int start, int end,
 // Thus these operands are supposed to be updated.
 int getNumResultOperands(Operation* op);
 
-int64_t stringReplaceInplace(std::string& subject, const std::string& oldsub,
-                             const std::string& newsub, bool replace_all);
-
 }  // namespace disc_ral
 }  // namespace mlir
 

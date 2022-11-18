@@ -120,28 +120,28 @@ def HLODISC_CustomCallV2Op: HLODISC_Op<"custom_call_v2", []> {
     SmallVector<StringRef> parseInputLayouts() {
       SmallVector<StringRef> inputLayouts;
       this->getInputLayouts().split(inputLayouts, ',', /*MaxSplit=*/-1,
-                                    true);
+                                    /*KeepEmpty=*/true);
       return inputLayouts;
     }
 
     SmallVector<StringRef> parseExpectedInputLayouts() {
       SmallVector<StringRef> expectedInputLayouts;
       this->getExpectedInputLayouts().split(expectedInputLayouts, ',', /*MaxSplit=*/-1,
-                                            true);
+                                            /*KeepEmpty=*/true);
       return expectedInputLayouts;
     }
 
     SmallVector<StringRef> parseOutputLayouts() {
       SmallVector<StringRef> outputLayouts;
       this->getOutputLayouts().split(outputLayouts, ',', /*MaxSplit=*/-1,
-                                    true);
+                                    /*KeepEmpty=*/true);
       return outputLayouts;
     }
 
     SmallVector<StringRef> parseExpectedOutputLayouts() {
       SmallVector<StringRef> expectedOutputLayouts;
       this->getExpectedOutputLayouts().split(expectedOutputLayouts, ',', /*MaxSplit=*/-1,
-                                            true);
+                                            /*KeepEmpty=*/true);
       return expectedOutputLayouts;
     }
   }];

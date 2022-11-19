@@ -240,7 +240,8 @@ bool isMemIntensiveOptExperimentalEnabled() {
 
 bool isStitchEnabled() {
   static bool enabled = []() {
-    bool enabled = false;
+    // Enable stitch by default.
+    bool enabled = true;
     tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_STITCH", enabled, &enabled);
     return enabled;
   }();

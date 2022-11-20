@@ -472,7 +472,17 @@ class FusionPlanner {
     // want to make sure the normal fusion pattern (fusion cross def-use) take
     // first. Without this design, some horizontal fusion may break following
     // normal fusion pattern.
-    if (useHorizontalFusion()) {
+    bool enable_horizontal_fusion = useHorizontalFusion();
+    PlacementAwareFusionStrategy* placement_aware_strategy =
+        reinterpret_cast<PlacementAwareFusionStrategy*>(&getFusionStrategy());
+    auto strategies = placement_aware_strategy->getStrategyMap();
+    if (strategies.size() == 1 &&
+        strategies.find(placement_utils::kGpu) != strategies.end()) {
+      enable_horizontal_fusion &=
+          typeid(*strategies[placement_utils::kGpu]) !=
+          typeid(DotGpuFusionStrategy);
+    }
+    if (enable_horizontal_fusion) {
       while (ForEachEdgeInPostOrder(
           std::bind(&FusionPlanner::TryToContractEdge, this, _1, _2), true)) {
         // empty statement by design

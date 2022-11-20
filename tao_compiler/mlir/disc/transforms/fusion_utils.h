@@ -455,6 +455,9 @@ class FusionStrategy {
   virtual bool isFusible(FusionPattern& fused_pattern);
   virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                  FusionPattern& fused_pattern) = 0;
+  virtual bool finalizeFusionPattern(ShapeAnalysis& shapeAnalysis,
+                                     FusionPattern& fused_pattern,
+                                     SmallVectorImpl<Operation*>& excluded_ops);
   virtual bool tryFuseInplace(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
                               FusionPattern& rhs);
   virtual bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
@@ -463,6 +466,45 @@ class FusionStrategy {
 
  protected:
   FusionOptions options_;
+};
+
+using DeviceStrategyMap = DenseMap<StringRef, FusionStrategy*>;
+
+class PlacementAwareFusionStrategy : public FusionStrategy {
+ public:
+  PlacementAwareFusionStrategy(const FusionOptions& options,
+                               StringRef defaultDevice,
+                               DeviceStrategyMap deviceStrategyMap)
+      : FusionStrategy(options),
+        deviceStrategyMap_(std::move(deviceStrategyMap)),
+        defaultDevice_(defaultDevice) {}
+
+  bool isFusible(Operation* op) override;
+  bool isFusible(FusionPattern& fusion_pattern) override;
+  bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
+               FusionPattern& rhs, FusionPattern& target) override;
+  bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
+                         FusionPattern& fusion_pattern) override;
+  virtual StringRef getName() override {
+    return "PlacementAwareFusionStrategy";
+  }
+  DeviceStrategyMap getStrategyMap() { return deviceStrategyMap_; }
+
+ private:
+  StringRef getPlacement(Operation* op);
+  StringRef getPlacement(FusionPattern& fusion_pattern) {
+    return getPlacement(fusion_pattern.getDominantOp());
+  }
+  FusionStrategy* getStrategy(StringRef placement);
+  FusionStrategy* getStrategy(Operation* op) {
+    return getStrategy(getPlacement(op));
+  }
+  FusionStrategy* getStrategy(FusionPattern& fusion_pattern) {
+    return getStrategy(getPlacement(fusion_pattern));
+  }
+
+  StringRef defaultDevice_;
+  DeviceStrategyMap deviceStrategyMap_;
 };
 
 // Creates and returns a new placement-aware fusion strategy.
@@ -745,9 +787,11 @@ class DotGpuFusionStrategy : public FusionStrategy {
       : FusionStrategy(options) {}
 
   virtual bool isFusible(Operation* op) override;
-  // virtual bool isFusible(FusionPattern& fused_pattern) override;
   virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                  FusionPattern& fused_pattern) override;
+  virtual bool finalizeFusionPattern(
+      ShapeAnalysis& shapeAnalysis, FusionPattern& fused_pattern,
+      SmallVectorImpl<Operation*>& excluded_ops) override;
 
   virtual bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
                        FusionPattern& rhs, FusionPattern& target) override;

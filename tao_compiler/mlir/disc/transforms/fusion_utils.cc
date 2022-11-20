@@ -1010,6 +1010,12 @@ bool FusionStrategy::isFusible(FusionPattern& fusion_pattern) {
   return true;
 }
 
+bool FusionStrategy::finalizeFusionPattern(
+    ShapeAnalysis& shapeAnalysis, FusionPattern& fused_pattern,
+    SmallVectorImpl<Operation*>& excluded_ops) {
+  return true;
+}
+
 bool FusionStrategy::tryFuseInplace(ShapeAnalysis& shapeAnalysis,
                                     FusionPattern& lhs, FusionPattern& rhs) {
   // both lhs & rhs should be fusible
@@ -1468,44 +1474,6 @@ FusionStrategy& getFusionStrategy(StringRef device, StringRef strategy) {
   }
   return *it->second;
 }
-
-using DeviceStrategyMap = DenseMap<StringRef, FusionStrategy*>;
-
-class PlacementAwareFusionStrategy : public FusionStrategy {
- public:
-  PlacementAwareFusionStrategy(const FusionOptions& options,
-                               StringRef defaultDevice,
-                               DeviceStrategyMap deviceStrategyMap)
-      : FusionStrategy(options),
-        deviceStrategyMap_(std::move(deviceStrategyMap)),
-        defaultDevice_(defaultDevice) {}
-
-  bool isFusible(Operation* op) override;
-  bool isFusible(FusionPattern& fusion_pattern) override;
-  bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
-               FusionPattern& rhs, FusionPattern& target) override;
-  bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
-                         FusionPattern& fusion_pattern) override;
-  virtual StringRef getName() override {
-    return "PlacementAwareFusionStrategy";
-  }
-
- private:
-  StringRef getPlacement(Operation* op);
-  StringRef getPlacement(FusionPattern& fusion_pattern) {
-    return getPlacement(fusion_pattern.getDominantOp());
-  }
-  FusionStrategy* getStrategy(StringRef placement);
-  FusionStrategy* getStrategy(Operation* op) {
-    return getStrategy(getPlacement(op));
-  }
-  FusionStrategy* getStrategy(FusionPattern& fusion_pattern) {
-    return getStrategy(getPlacement(fusion_pattern));
-  }
-
-  StringRef defaultDevice_;
-  DeviceStrategyMap deviceStrategyMap_;
-};
 
 StringRef PlacementAwareFusionStrategy::getPlacement(Operation* op) {
   if (!op) return "";

@@ -85,6 +85,12 @@ bool DotGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
   return true;
 }
 
+bool DotGpuFusionStrategy::finalizeFusionPattern(
+    ShapeAnalysis& shapeAnalysis, FusionPattern& fused_pattern,
+    SmallVectorImpl<Operation*>& excluded_ops) {
+  return true;
+}
+
 bool DotGpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
                                    FusionPattern& lhs, FusionPattern& rhs,
                                    FusionPattern& target) {

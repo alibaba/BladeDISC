@@ -61,6 +61,10 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
   pm.addNestedPass<func::FuncOp>(
       Torch::createDecomposeComplexOpsPass(/*legalOps*/ {}));
   pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
+  // TorchMLIR DecomposeComplexOpsPass might generate new operators
+  // that need to be decomposed further before DISC passes
+  pm.addNestedPass<func::FuncOp>(createDiscDecomposeComplexOpsPass());
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 
   // Do mhlo lowering
   pm.addNestedPass<func::FuncOp>(createDiscConvertTorchToMhloPass());

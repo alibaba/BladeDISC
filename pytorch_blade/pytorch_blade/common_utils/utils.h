@@ -35,10 +35,10 @@ std::vector<std::string> StrSplit(const std::string& str, char delim);
 
 namespace env {
 bool ReadBoolFromEnvVar(const char* env_var_name, bool default_val);
+double ReadDoubleFromEnvVar(const char* env_var_name, double default_val);
 std::string ReadStringFromEnvVar(
     const char* env_var_name,
     std::string default_val);
-
 } // namespace env
 } // namespace blade
 } // namespace torch

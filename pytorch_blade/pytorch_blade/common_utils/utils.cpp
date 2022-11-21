@@ -102,6 +102,21 @@ bool ReadBoolFromEnvVar(const char* env_var_name, bool default_val) {
   return default_val;
 }
 
+double ReadDoubleFromEnvVar(const char* env_var_name, double default_val) {
+  double value = default_val;
+  const char* env_var_val = std::getenv(env_var_name);
+  if (env_var_val == nullptr) {
+    return value;
+  }
+  if (std::stod(env_var_val, &value)) {
+    return value;
+  }
+  LOG(ERROR) << "Failed to parse the env-var ${" << env_var_name
+             << "} into double: " << env_var_val << ". Use the default value: ",
+      default_val;
+  return default_val;
+}
+
 std::string ReadStringFromEnvVar(
     const char* env_var_name,
     std::string default_val) {

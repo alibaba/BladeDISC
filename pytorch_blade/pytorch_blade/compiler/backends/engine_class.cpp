@@ -20,6 +20,28 @@ namespace torch {
 namespace blade {
 namespace backends {
 
+namespace {
+using namespace at;
+
+bool allClose(
+    const at::Tensor& t1,
+    const at::Tensor& t2,
+    double rtol,
+    double atol) {
+  if (!t1.is_same_size(t2)) {
+    LOG(WARNING) << "Difference in tensor shapes: " << t1.sizes() << " v.s. "
+                 << t2.sizes();
+    return false;
+  }
+  bool equal = t1.allclose(t2, rtol, atol);
+  if (!equal) {
+    LOG(WARNING) << "Difference in tensor value with rtol=" << rtol
+                 << ", atol=" << atol;
+  }
+  return equal;
+}
+} // namespace
+
 const char* kDebugName = "attr_debug_name";
 const char* kOrigSubG = "module_graph";
 const char* kFallbackModule = "fallback_module";
@@ -89,12 +111,53 @@ at::List<at::Tensor> EngineClass::Execute(const at::List<at::Tensor>& inputs) {
 
   at::List<at::Tensor> outputs;
   // do inference
+  const auto& enable_error_fallback =
+      env::ReadBoolFromEnvVar("TORCH_BLADE_DEBUG_ENABLE_ERROR_FALLBACK", false);
 
   if (engine_->ShouldFallback(inputs)) {
     outputs = Fallback(inputs);
   } else {
     try {
-      outputs = engine_->Execute(inputs);
+      // the engine is not in regular state once its results is detected
+      // different from the original module's.
+      bool in_regular_state =
+          !(enable_error_fallback && should_error_fallback_);
+      if (in_regular_state) {
+        outputs = engine_->Execute(inputs);
+      }
+      if (enable_error_fallback) {
+        // DEBUG MODE!!!
+        // get the original module's reference outputs
+        auto ref_outputs = Fallback(inputs);
+        if (!should_error_fallback_) {
+          // try to detect the result differences
+          outputs = ref_outputs;
+
+          CHECK(outputs.size() == ref_outputs.size());
+          const double& accuracy_rtol = env::ReadDoubleFromEnvVar(
+              "TORCH_BLADE_DEBUG_ACCURACY_CHECK_RTOL", 1e-3);
+          const double& accuracy_atol = env::ReadDoubleFromEnvVar(
+              "TORCH_BLADE_DEBUG_ACCURACY_CHECK_ATOL", 1e-3);
+
+          bool all_close = true;
+          for (size_t k = 0; k < outputs.size(); ++k) {
+            all_close =
+                all_close &&
+                allClose(
+                    outputs[k], ref_outputs[k], accuracy_rtol, accuracy_atol);
+            if (not all_close) {
+              // if results is different then should do error fallback
+              LOG(WARNING) << "The " << k
+                           << "-th output tensor failed accuracy check";
+              should_error_fallback_ = true;
+              break;
+            }
+          }
+        }
+        if (should_error_fallback_) {
+          outputs = ref_outputs;
+        }
+      }
     } catch (const std::runtime_error& error) {
       const auto& enable_fallback =
           env::ReadBoolFromEnvVar("TORCH_BLADE_ENABLE_RUNTIME_FALLBACK", true);

@@ -80,6 +80,7 @@ class EngineClass : public torch::CustomClassHolder {
   std::shared_ptr<EngineInterface> engine_;
   at::List<at::Tensor> last_inputs_;
   at::List<at::Tensor> last_outputs_;
+  bool should_error_fallback_ = false;
 };
 
 c10::TypePtr register_engine(

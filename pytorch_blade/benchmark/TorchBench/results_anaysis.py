@@ -19,7 +19,6 @@ COMPARE_FIELDS = [
     "dynamo-blade (latency)",
     "dynamo-disc (latency)",
 ]
-RELATED_DIFF_PERCENT = 3
 GITHUB_ISSUE_TEMPLATE = """
 TorchBench CI has detected a performance signal.
 
@@ -40,7 +39,7 @@ def try_cast_to_float(to_cast: str):
         return to_cast
 
 
-def analyze_target(target):
+def analyze_target(target, diff_percent):
     result = []
     baseline_file = f"{target}.csv"
     current_run_file = os.path.join(target, "summary.csv")
@@ -75,7 +74,7 @@ def analyze_target(target):
                 )
             else:
                 diff = round((baseline - current_run) / baseline * 100, 4)
-                if abs(diff) > RELATED_DIFF_PERCENT:
+                if abs(diff) > diff_percent:
                     sign = "+" if diff > 0 else ""
                     result.append(
                         f"\t- {model_name}[{field}] {baseline}->{current_run}, {sign}{diff}%"
@@ -88,13 +87,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "-t", "--targets", nargs="+", default=[], help="Specify analysis target size"
     )
+    parser.add_argument(
+        "-p", "--percent", type=int, help="performance relative diff percent"
+    )
     parser.add_argument("-i", "--info", help="produce run info")
     args = parser.parse_args()
 
     need_issue = False
     results = ""
     for target in args.targets:
-        result = analyze_target(target)
+        result = analyze_target(target, args.percent)
         if result:
             need_issue = True
             results += f"- {target}:\n"

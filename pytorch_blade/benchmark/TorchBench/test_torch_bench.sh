@@ -61,7 +61,8 @@ do
     /disc/scripts/ci/ossutil cp -r ${script_dir}/${result} ${oss_dir}/${result}
 done
 
-python3 results_anaysis.py -t ${results} -i ${oss_dir}
+# performance anaysis
+python3 results_anaysis.py -t ${results} -i ${oss_dir} -p ${RELATED_DIFF_PERCENT}
 if [ -f "ISSUE.md" ]; then
     wget ${oss_link}/download/github/gh && chmod +x ./gh && \
     ./gh issue create -F ISSUE.md \

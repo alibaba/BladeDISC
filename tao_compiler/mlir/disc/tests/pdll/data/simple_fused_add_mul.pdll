@@ -15,6 +15,10 @@ Pattern TFFusedAddMul {
     SetAttr(infos.op, attr<"\"device\"">, attr<"\"h\"">);
     SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"h,h\"">);
     SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"h\"">);
+    SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*\"">);
+    SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+    SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*\"">);
+    SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
 
     /// 3. set attrs that are directly passed to the custom call kernel.
     SetCustomAttr(infos.op, attr<"\"name\"">, attr<"\"disc.custom_call.test.tf_fused_add_mul\"">);

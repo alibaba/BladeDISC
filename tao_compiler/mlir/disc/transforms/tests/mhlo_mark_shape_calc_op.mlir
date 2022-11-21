@@ -111,10 +111,10 @@ func.func @main(%arg0: tensor<?x?xf32>, %arg1: tensor<2xi32>) -> tensor<?x?xf32>
     device = "d",
     input_placements = "d,s",
     output_placements = "d",
-    expected_input_layouts = "",
-    expected_output_layouts = "",
-    input_layouts = "",
-    output_layouts = ""
+    expected_input_layouts = "*,*",
+    expected_output_layouts = "*",
+    input_layouts = "*,*",
+    output_layouts = "*"
   } : (tensor<?x?xf32>, tensor<2xi32>) -> tensor<?x?xf32>
   return %1 : tensor<?x?xf32>
 }
@@ -132,10 +132,10 @@ func.func @main(%arg0: tensor<?x?xf32>, %arg1: tensor<2xi32>) -> tensor<?x?xf32>
     device = "d",
     input_placements = "d,h",
     output_placements = "d",
-    expected_input_layouts = "",
-    expected_output_layouts = "",
-    input_layouts = "",
-    output_layouts = ""
+    expected_input_layouts = "*,*",
+    expected_output_layouts = "*",
+    input_layouts = "*,*",
+    output_layouts = "*"
   } : (tensor<?x?xf32>, tensor<2xi32>) -> tensor<?x?xf32>
   return %1 : tensor<?x?xf32>
 }

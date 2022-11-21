@@ -707,17 +707,18 @@ LogicalResult SparseSegmentMeanOp::verify() {
 //===----------------------------------------------------------------------===//
 
 LogicalResult CustomCallV2Op::verify() {
-  SmallVector<StringRef> inputLayouts = parseInputLayouts();
-  SmallVector<StringRef> expectedInputLayouts = parseExpectedInputLayouts();
+  SmallVector<std::string> inputLayouts = parseInputLayouts();
+  SmallVector<std::string> expectedInputLayouts = parseExpectedInputLayouts();
   if (inputLayouts.size() != expectedInputLayouts.size())
     return this->emitOpError() << "mismatch number of layouts for "
                                   "input_layouts and expected_input_layouts\n";
+
   if (inputLayouts.size() != 0 && inputLayouts.size() != this->getNumOperands())
     return this->emitOpError()
            << "mismatch number of input layouts and number of inputs\n";
 
-  SmallVector<StringRef> outputLayouts = parseOutputLayouts();
-  SmallVector<StringRef> expectedOutputLayouts = parseExpectedOutputLayouts();
+  SmallVector<std::string> outputLayouts = parseOutputLayouts();
+  SmallVector<std::string> expectedOutputLayouts = parseExpectedOutputLayouts();
   if (outputLayouts.size() != expectedOutputLayouts.size())
     return this->emitOpError()
            << "mismatch number of layouts for output_layouts and "
@@ -727,10 +728,11 @@ LogicalResult CustomCallV2Op::verify() {
     return this->emitOpError()
            << "mismatch number of output layouts and number of outputs\n";
 
-  auto checkLayouts = [&](SmallVector<StringRef>& lhs,
-                          SmallVector<StringRef>& rhs, TypeRange typeRange) {
+  auto checkLayouts = [&](SmallVector<std::string>& lhs,
+                          SmallVector<std::string>& rhs, TypeRange typeRange) {
     for (const auto& z : llvm::zip(lhs, rhs, typeRange)) {
       if (std::get<0>(z).size() != std::get<1>(z).size()) return failure();
+
       auto ty = std::get<2>(z).dyn_cast<RankedTensorType>();
       if (ty && ty.getRank() != std::get<0>(z).size()) return failure();
     }

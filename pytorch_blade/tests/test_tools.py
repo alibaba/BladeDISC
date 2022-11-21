@@ -17,13 +17,25 @@ from torch_blade import tools
 from torch_blade import utils
 from torch_blade.testing.common_utils import Feedforward, TestCase
 from tests.disc.testing_base import skipTorchGE
-
+from torch_blade.tools import read_bool_from_env
+from torch_blade.tools import read_double_from_env
 
 class TestTools(TestCase):
 
     def setUp(self):
         ff_net = Feedforward(64, 10)
         self.ff_net = torch.jit.script(ff_net)
+
+    def test_env(self):
+        import os
+        os.environ["TORCH_BLADE_TEST_BOOL"] = "false"
+        self.assertFalse(read_bool_from_env("TORCH_BLADE_TEST_BOOL", True))
+        os.environ["TORCH_BLADE_TEST_BOOL"] = "True"
+        self.assertTrue(read_bool_from_env("TORCH_BLADE_TEST_BOOL", False))
+        os.environ["TORCH_BLADE_TEST_DOUBLE"] = "1.0"
+        self.assertGreater(read_double_from_env("TORCH_BLADE_TEST_DOUBLE", 0.0), 0.0)
+        os.environ["TORCH_BLADE_TEST_DOUBLE"] = "x1.0"
+        self.assertEqual(read_double_from_env("TORCH_BLADE_TEST_DOUBLE", 0.0), 0.0)
 
     def test_add_method(self):
         self.ff_net._c.create_method_from_graph('inference', self.ff_net.graph)

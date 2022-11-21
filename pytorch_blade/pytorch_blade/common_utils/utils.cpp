@@ -108,12 +108,15 @@ double ReadDoubleFromEnvVar(const char* env_var_name, double default_val) {
   if (env_var_val == nullptr) {
     return value;
   }
-  if (std::stod(env_var_val, &value)) {
+  try {
+    value = std::strtod(env_var_val, nullptr);
     return value;
+  } catch (std::runtime_error& error) {
+    LOG(ERROR) << "Failed to parse the env-var ${" << env_var_name
+               << "} into double: " << env_var_val
+               << ". Use the default value: ",
+        default_val;
   }
-  LOG(ERROR) << "Failed to parse the env-var ${" << env_var_name
-             << "} into double: " << env_var_val << ". Use the default value: ",
-      default_val;
   return default_val;
 }
 

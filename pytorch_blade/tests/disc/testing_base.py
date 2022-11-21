@@ -20,7 +20,6 @@ from torch_blade.mlir import is_available
 from torch_blade.config import Config
 from torch_blade.clustering import support_fusion_group
 from torch_blade.testing.common_utils import TestCase
-from torch_blade.tools import read_bool_from_env
 
 
 def skipIfNoDISC():

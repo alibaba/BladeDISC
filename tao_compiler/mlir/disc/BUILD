@@ -1965,7 +1965,8 @@ cc_library(
     name = "disc_comp_intens_fusion_to_cuda_source",
     srcs = [
         "transforms/disc_comp_intens_fusion_to_cuda_source.cc",
-        "utils/gemm_fusion_linear_base_template.hpp"],
+        "utils/gemm_fusion_linear_base_template_sm75.hpp",
+        "utils/gemm_fusion_linear_base_template_sm80.hpp"],
     deps = [
         ":disc_util",
         ":pass_details",

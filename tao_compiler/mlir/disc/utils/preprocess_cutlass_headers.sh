@@ -17,7 +17,25 @@ PREPROCESS_FILE=$2
 OUTPUT_FILE1=$3
 OUTPUT_FILE4=$4
 
-CUDA_ARCH=$(nvidia-smi --query-gpu=compute_cap --format=csv -i 0 | sed -n '2p' | sed -e 's/\([0-9]\)\.\([0-9]\)/\1\20/g')
+getCudaArch() {
+  gpu_name=$(nvidia-smi --query-gpu=name --format=csv -i 0)
+  if [[ "${gpu_name}" == *"H100"* ]]; then
+    echo "900"
+  elif [[ "${gpu_name}" == *"A2"* ]] || [[ "${gpu_name}" == *"A10"* ]] || [[ "${gpu_name}" == *"A16"* ]] || [[ "${gpu_name}" == *"A40"* ]]; then
+    echo "860"
+  elif [[ "${gpu_name}" == *"A100"* ]] || [[ "${gpu_name}" == *"A30"* ]]; then
+    echo "800"
+  elif [[ "${gpu_name}" == *"T4"* ]]; then
+    echo "750"
+  elif [[ "${gpu_name}" == *"V100"* ]]; then
+    echo "700"
+  elif [[ "${gpu_name}" == *"P4"* ]] || [[ "${gpu_name}" == *"P6"* ]] || [[ "${gpu_name}" == *"P40"* ]]; then
+    echo "610"
+  elif [[ "${gpu_name}" == *"P100"* ]]; then
+    echo "600"
+  fi
+}
+CUDA_ARCH="$(getCudaArch)"
 CUDA_MAJOR=$(nvcc --version | grep -o 'V[0-9]*\.[0-9]*\.[0-9]*' | sed -e 's/V\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\)/\1/g')
 CUDA_MINOR=$(nvcc --version | grep -o 'V[0-9]*\.[0-9]*\.[0-9]*' | sed -e 's/V\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\)/\2/g')
 CUDA_BUILD=$(nvcc --version | grep -o 'V[0-9]*\.[0-9]*\.[0-9]*' | sed -e 's/V\([0-9]*\)\.\([0-9]*\)\.\([0-9]*\)/\3/g')

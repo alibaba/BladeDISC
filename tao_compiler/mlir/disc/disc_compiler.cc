@@ -587,7 +587,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
         options.gpu_options.multi_cc_support,
         options.gpu_options.multi_cc_support_dbg_ptx_only));
 
-    pm.addPass(disc_ral::createDiscGPUSourceToLibPass());
+    pm.addPass(disc_ral::createDiscGPUSourceToLibPass(gpu_options.cc_major,
+                                                      gpu_options.cc_minor));
   } else {
     if (options.cpu_options.fast_math_level > 0) {
       // Approximate Tanh using standard operations.

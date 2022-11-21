@@ -137,12 +137,7 @@ bool __SpecializedGemmFusion__::run() {
   constexpr cutlass::epilogue::thread::ScaleType::Kind Scale =
       __EpilogueScaleKind__;
   constexpr bool IsHeavy = __EpilogueIsHeavy__;
-  constexpr int Count = __EpilogueCountVectorized__;
   using ElementComputeEpilogue = __EpilogueElementType__;
-  using EpilogueOutputOp =
-      cutlass::epilogue::thread::LinearCombinationGeneric<
-          EpilogueFunctor, ElementOutput, Count, ElementAccumulator,
-          ElementComputeEpilogue, Scale, Round, IsHeavy>;
 
   constexpr bool GatherA = __IsGatherA__;
   constexpr bool GatherB = __IsGatherB__;
@@ -159,9 +154,6 @@ bool __SpecializedGemmFusion__::run() {
   }
 
   cutlass::gemm::GemmCoord problem_size(m_, n_, k_);
-
-  typename EpilogueOutputOp::Params epilogue(
-      ElementComputeEpilogue(1), ElementComputeEpilogue(0));
 
   long long int batch_stride_A =
       static_cast<long long int>(m_) * static_cast<long long int>(k_);
@@ -186,16 +178,24 @@ bool __SpecializedGemmFusion__::run() {
   if (std::is_same<ElementA, cutlass::half_t>::value &&
       std::is_same<ElementB, cutlass::half_t>::value &&
       std::is_same<ElementOutput, cutlass::half_t>::value) {
+    constexpr int Count = __EpilogueCountVectorized__;
+    using EpilogueOutputOp =
+        cutlass::epilogue::thread::LinearCombinationGeneric<
+            EpilogueFunctor, cutlass::half_t, Count, ElementAccumulator,
+            ElementComputeEpilogue, Scale, Round, IsHeavy>;
+    typename EpilogueOutputOp::Params epilogue(
+        ElementComputeEpilogue(1), ElementComputeEpilogue(0));
+
     using ThreadblockShape = cutlass::gemm::GemmShape<128, 128, 32>;
     using WarpShape = cutlass::gemm::GemmShape<64, 64, 32>;
-    using InstructionShape = cutlass::gemm::GemmShape<16, 8, 16>;
+    using InstructionShape = cutlass::gemm::GemmShape<16, 8, 8>;
     using ThreadblockSwizzle =
         cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<8>;
-    constexpr int Stages = 3;
+    constexpr int Stages = 2;
 
     using GemmConfiguration =
         cutlass::gemm::device::DefaultGemmConfiguration<
-            OperatorClass, ArchTag, cutlass::half_t, cutlass::half_t, cutlass::half_t,
+            cutlass::arch::OpClassTensorOp, ArchTag, cutlass::half_t, cutlass::half_t, cutlass::half_t,
             ElementAccumulator>;
     constexpr int AlignmentA = GemmConfiguration::kAlignmentA;
     constexpr int AlignmentB = GemmConfiguration::kAlignmentB;
@@ -203,7 +203,7 @@ bool __SpecializedGemmFusion__::run() {
 
     using Gemm = cutlass::gemm::device::GemmUniversal<
         cutlass::half_t, LayoutA, cutlass::half_t, LayoutB, cutlass::half_t,
-        LayoutOutput, ElementAccumulator, OperatorClass, ArchTag,
+        LayoutOutput, ElementAccumulator, cutlass::arch::OpClassTensorOp, ArchTag,
         ThreadblockShape, WarpShape, InstructionShape,
         EpilogueOutputOp, ThreadblockSwizzle, Stages, AlignmentA,
         AlignmentB, Operator, TransformA, TransformB, GatherA, GatherB,
@@ -250,16 +250,23 @@ bool __SpecializedGemmFusion__::run() {
   } else if (std::is_same<ElementA, float>::value &&
       std::is_same<ElementB, float>::value &&
       std::is_same<ElementOutput, float>::value) {
-    using ThreadblockShape = cutlass::gemm::GemmShape<128, 128, 16>;
-    using WarpShape = cutlass::gemm::GemmShape<64, 64, 16>;
-    using InstructionShape = cutlass::gemm::GemmShape<16, 8, 8>;
+    constexpr int Count = 1;
+    using EpilogueOutputOp =
+        cutlass::epilogue::thread::LinearCombinationGeneric<
+            EpilogueFunctor, float, Count, float,
+            float, Scale, Round, IsHeavy>;
+    typename EpilogueOutputOp::Params epilogue(float(1), float(0));
+
+    using ThreadblockShape = cutlass::gemm::GemmShape<64, 128, 8>;
+    using WarpShape = cutlass::gemm::GemmShape<64, 64, 8>;
+    using InstructionShape = cutlass::gemm::GemmShape<1, 1, 1>;
     using ThreadblockSwizzle =
         cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<8>;
-    constexpr int Stages = 3;
+    constexpr int Stages = 2;
 
     using GemmConfiguration =
         cutlass::gemm::device::DefaultGemmConfiguration<
-            OperatorClass, ArchTag, float, float, float,
+            cutlass::arch::OpClassSimt, ArchTag, float, float, float,
             ElementAccumulator>;
     constexpr int AlignmentA = GemmConfiguration::kAlignmentA;
     constexpr int AlignmentB = GemmConfiguration::kAlignmentB;
@@ -267,7 +274,7 @@ bool __SpecializedGemmFusion__::run() {
 
     using Gemm = cutlass::gemm::device::GemmUniversal<
         float, LayoutA, float, LayoutB, float,
-        LayoutOutput, ElementAccumulator, OperatorClass, ArchTag,
+        LayoutOutput, ElementAccumulator, cutlass::arch::OpClassSimt, ArchTag,
         ThreadblockShape, WarpShape, InstructionShape,
         EpilogueOutputOp, ThreadblockSwizzle, Stages, AlignmentA,
         AlignmentB, Operator, TransformA, TransformB, GatherA, GatherB,

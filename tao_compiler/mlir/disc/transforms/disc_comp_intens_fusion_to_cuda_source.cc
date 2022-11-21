@@ -71,15 +71,16 @@ struct DiscCompIntensFusionToCUDASourcePass
   bool generateCUDASourceForCompIntensFusionFunc(func::FuncOp func);
 
   bool isHeavyEpilogue(func::FuncOp func);
-  bool getCUDATypeString(Type type, std::string& type_str);
+  bool getCUDATypeString(const Type& type, std::string& type_str);
   bool getLayoutStrings(const mhlo::DotDimensionNumbersAttr& dimension_numbers,
                         SmallVector<std::string>& layout);
-  bool getAccumulatorTypeString(Type output_type,
+  bool getAccumulatorTypeString(const Type& output_type,
                                 std::string& accumulator_type_str);
-  bool getOperatorClassTypeString(std::string& operator_class_type);
+  bool getOperatorClassTypeString(const Type& type,
+                                  std::string& operator_class_type);
   bool getSMArchString(std::string& sm_arch);
   bool getScaleKindString(std::string& scale_kind);
-  bool getCountVectorizedString(const std::string& element_output_type,
+  bool getCountVectorizedString(const Type& type,
                                 std::string& count_vectorized);
   bool isGatherA(func::FuncOp func);
   bool isGatherB(func::FuncOp func);
@@ -107,7 +108,7 @@ bool DiscCompIntensFusionToCUDASourcePass::isHeavyEpilogue(func::FuncOp func) {
 }
 
 bool DiscCompIntensFusionToCUDASourcePass::getCUDATypeString(
-    Type type, std::string& type_str) {
+    const Type& type, std::string& type_str) {
   if (type.isInteger(1)) {
     type_str = "cutlass::uint1b_t";
   } else if (type.isSignedInteger(8)) {
@@ -171,7 +172,7 @@ bool DiscCompIntensFusionToCUDASourcePass::getLayoutStrings(
 }
 
 bool DiscCompIntensFusionToCUDASourcePass::getAccumulatorTypeString(
-    Type type, std::string& accumulator_type_str) {
+    const Type& type, std::string& accumulator_type_str) {
   if (type.isSignedInteger() && type.getIntOrFloatBitWidth() <= 32) {
     accumulator_type_str = "cutlass::int32b_t";
   } else if (type.isUnsignedInteger() && type.getIntOrFloatBitWidth() <= 32) {
@@ -187,9 +188,18 @@ bool DiscCompIntensFusionToCUDASourcePass::getAccumulatorTypeString(
 }
 
 bool DiscCompIntensFusionToCUDASourcePass::getOperatorClassTypeString(
-    std::string& operator_class_type) {
-  // Currently we only support tensor op.
-  operator_class_type = "cutlass::arch::OpClassTensorOp";
+    const Type& type, std::string& operator_class_type) {
+  if (cc_major_ < 8) {
+    if (type.isBF16() || type.isF16() || type.isSignedInteger(8)) {
+      operator_class_type = "cutlass::arch::OpClassTensorOp";
+    } else if (type.isF32() || type.isF64()) {
+      operator_class_type = "cutlass::arch::OpClassSimt";
+    } else {
+      return false;
+    }
+  } else {
+    operator_class_type = "cutlass::arch::OpClassTensorOp";
+  }
   return true;
 }
 
@@ -218,9 +228,20 @@ bool DiscCompIntensFusionToCUDASourcePass::getScaleKindString(
 }
 
 bool DiscCompIntensFusionToCUDASourcePass::getCountVectorizedString(
-    const std::string& element_output_type, std::string& count_vectorized) {
-  count_vectorized =
-      "128 / cutlass::sizeof_bits<" + element_output_type + ">::value";
+    const Type& type, std::string& count_vectorized) {
+  std::string element_output_type;
+  if (!getCUDATypeString(type, element_output_type)) {
+    return false;
+  }
+  if (type.isBF16() || type.isF16() || type.isSignedInteger(8)) {
+    count_vectorized =
+        "128 / cutlass::sizeof_bits<" + element_output_type + ">::value";
+  } else if (type.isF32() || type.isF64()) {
+    if (cc_major_ < 8) {
+      count_vectorized = "1";
+    }
+  }
+
   return true;
 }
 
@@ -363,9 +384,16 @@ bool DiscCompIntensFusionToCUDASourcePass::mayConvertCUDATypeToCutlassType(
 
 bool DiscCompIntensFusionToCUDASourcePass::
     generateCUDASourceForCompIntensFusionFunc(func::FuncOp func) {
-  std::string cuda_code =
-#include "tensorflow/compiler/mlir/disc/utils/gemm_fusion_linear_base_template.hpp"
-      ;
+  std::string cuda_code;
+  if (cc_major_ < 8) {
+    cuda_code =
+#include "tensorflow/compiler/mlir/disc/utils/gemm_fusion_linear_base_template_sm75.hpp"
+        ;
+  } else {
+    cuda_code =
+#include "tensorflow/compiler/mlir/disc/utils/gemm_fusion_linear_base_template_sm80.hpp"
+        ;
+  }
 
   // Values to obtain according to func.
   std::string specialized_class_name;
@@ -426,9 +454,10 @@ bool DiscCompIntensFusionToCUDASourcePass::
 
   if (!getAccumulatorTypeString(d_type.getElementType(),
                                 element_accumulator_type) ||
-      !getOperatorClassTypeString(operator_class_type) ||
+      !getOperatorClassTypeString(d_type.getElementType(),
+                                  operator_class_type) ||
       !getSMArchString(sm_arch) || !getScaleKindString(scale_kind) ||
-      !getCountVectorizedString(element_output_type, count_vectorized) ||
+      !getCountVectorizedString(d_type.getElementType(), count_vectorized) ||
       !getPermuteDLayoutString(func, permute_d_layout)) {
     return false;
   }

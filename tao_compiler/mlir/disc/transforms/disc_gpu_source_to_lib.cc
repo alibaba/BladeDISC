@@ -36,9 +36,10 @@ namespace {
 // https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#cuda-compilation-trajectory
 std::vector<std::string> compile_trajectory_template = {
     R"(DISC_CUDA_HOME/nvvm/bin/cicc --c++11 --gnu_version=DISC_GNU_VERSION \
-    --allow_managed -arch compute_DISC_SM -m64 --no-version-ident -ftz=1 \
+    --allow_managed -arch compute_DISC_SM -m64 -ftz=1 \
     -prec_div=0 -prec_sqrt=0 -fmad=1 -fast-math --gen_div_approx_ftz \
     --include_file_name "DISC_DIR/DISC_FILE_NAME.fatbin.c" -tused \
+    -nvvmir-library "/usr/local/cuda/bin/../nvvm/libdevice/libdevice.10.bc" \
     --gen_module_id_file \
     --module_id_file_name "DISC_DIR/DISC_FILE_NAME.module_id" \
     --gen_c_file_name "DISC_DIR/DISC_FILE_NAME.cudafe1.c" \

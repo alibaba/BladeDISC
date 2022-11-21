@@ -492,9 +492,7 @@ class PlacementAwareFusionStrategy : public FusionStrategy {
 
  private:
   StringRef getPlacement(Operation* op);
-  StringRef getPlacement(FusionPattern& fusion_pattern) {
-    return getPlacement(fusion_pattern.getDominantOp());
-  }
+  StringRef getPlacement(FusionPattern& fusion_pattern);
   FusionStrategy* getStrategy(StringRef placement);
   FusionStrategy* getStrategy(Operation* op) {
     return getStrategy(getPlacement(op));
@@ -781,12 +779,23 @@ class StitchGpuFusionStrategy : public FusionStrategy {
                              FusionPattern& fusion_pattern, Value value);
 };
 
+class PreDotGpuFusionStrategy : public BaseFusionStrategy {
+ public:
+  using BaseFusionStrategy::BaseFusionStrategy;
+
+  virtual bool isFusible(Operation* op) override;
+  Value getEffectiveShape(FusionPattern& target, Value v) override;
+
+  virtual StringRef getName() override { return "PreDotGpuFusionStrategy"; }
+};
+
 class DotGpuFusionStrategy : public FusionStrategy {
  public:
   DotGpuFusionStrategy(const FusionOptions& options)
       : FusionStrategy(options) {}
 
   virtual bool isFusible(Operation* op) override;
+  virtual bool isFusible(FusionPattern& fusion_pattern) override;
   virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                  FusionPattern& fused_pattern) override;
   virtual bool finalizeFusionPattern(

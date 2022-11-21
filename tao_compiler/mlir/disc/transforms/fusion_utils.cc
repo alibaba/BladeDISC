@@ -1018,6 +1018,14 @@ bool FusionStrategy::finalizeFusionPattern(
 
 bool FusionStrategy::tryFuseInplace(ShapeAnalysis& shapeAnalysis,
                                     FusionPattern& lhs, FusionPattern& rhs) {
+#if 0
+  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ <<"\n";
+  llvm::errs() << "[ZZ] try fuse lhs:\n";
+  dumpFusionPattern(lhs);
+  llvm::errs() << "[ZZ] try fuse rhs:\n";
+  dumpFusionPattern(rhs);
+  llvm::errs() << "\n\n";
+#endif
   // both lhs & rhs should be fusible
   if (!isFusible(lhs) || !isFusible(rhs)) {
     return false;
@@ -1448,6 +1456,8 @@ std::unique_ptr<FusionStrategy> makeNewDeviceStrategy(StringRef device,
     return std::make_unique<StitchGpuFusionStrategy>(options);
   } else if (device == placement_utils::kCpu && strategy == "stitch_base") {
     return std::make_unique<StitchBaseCpuFusionStrategy>(options);
+  } else if (device == placement_utils::kGpu && strategy == "pre_dot") {
+    return std::make_unique<PreDotGpuFusionStrategy>(options);
   } else if (device == placement_utils::kGpu && strategy == "dot") {
     return std::make_unique<DotGpuFusionStrategy>(options);
   } else {
@@ -1487,6 +1497,14 @@ StringRef PlacementAwareFusionStrategy::getPlacement(Operation* op) {
       return strAttr.getValue();
   }
   return defaultDevice_;
+}
+
+StringRef PlacementAwareFusionStrategy::getPlacement(
+    FusionPattern& fusion_pattern) {
+  auto op = !fusion_pattern.getRootOps().empty()
+                ? fusion_pattern.getRootOps()[0]
+                : nullptr;
+  return getPlacement(op);
 }
 
 FusionStrategy* PlacementAwareFusionStrategy::getStrategy(StringRef placement) {

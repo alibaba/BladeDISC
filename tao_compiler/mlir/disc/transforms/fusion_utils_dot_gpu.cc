@@ -19,7 +19,7 @@ namespace disc_ral {
 ////////////////////// Dot GPU FusionStrategy Implemenation ////////////
 ////////////////////////////////////////////////////////////////////////
 
-bool DotGpuFusionStrategy::isFusible(Operation* op) {
+bool isOpFusible(Operation* op) {
   // Only scalar const are supported by the fusion codegen engine a.t.m.
   if (isa<lmhlo::ConstantOp>(op)) {
     auto constant = cast<lmhlo::ConstantOp>(op);
@@ -27,11 +27,37 @@ bool DotGpuFusionStrategy::isFusible(Operation* op) {
     return (type.getRank() == 0 || constant.getValue().isSplat());
   }
 
-  return isa<lmhlo::DotGeneralOp>(op) || SourceEmitterCUDA::isSupportedOp(op);
+  return SourceEmitterCUDA::isSupportedOp(op);
+}
+
+bool PreDotGpuFusionStrategy::isFusible(Operation* op) {
+  return isOpFusible(op);
+}
+
+Value PreDotGpuFusionStrategy::getEffectiveShape(FusionPattern& target,
+                                                 Value v) {
+  return v;
+}
+
+bool DotGpuFusionStrategy::isFusible(Operation* op) {
+  return isa<lmhlo::DotGeneralOp>(op) || isOpFusible(op);
+}
+
+bool DotGpuFusionStrategy::isFusible(FusionPattern& fusion_pattern) {
+  for (Operation* op : fusion_pattern.getOpList()) {
+    if (!isFusible(op)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 bool DotGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                              FusionPattern& fusion_pattern) {
+#if 0
+  llvm::errs() << "[ZZ] the fusion pattern is:\n";
+  dumpFusionPattern(fusion_pattern);
+#endif
   /*
    * 1. Only one dot is supported per fusion, currently.
    * 2. Dot is the first op;
@@ -54,13 +80,6 @@ bool DotGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
     } else {
       mem_intensive_ops.push_back(op);
     }
-  }
-
-  // If it is a single supported elementwise op, it may be fused with dot later.
-  // Do not do multi-op fusion for pure element-wise ops to prevent breaking
-  // possible dot fusion.
-  if (dot_ops.size() == 0 && mem_intensive_ops.size() == 1) {
-    return initFusionPatternBase(shapeAnalysis, fusion_pattern);
   }
 
   // Only one dot.

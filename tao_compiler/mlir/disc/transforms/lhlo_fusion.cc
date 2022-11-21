@@ -136,12 +136,19 @@ class FusionPlanner {
   llvm::Optional<FusionPlan> Run() {
     // Greedily search connected fusible pattern, and ops belonging to
     // a same fusion pattern are grouped into a cluster.
+#if 1
+    int stage = 0;
+#endif
     for (auto& strategy : fusionPipeline_) {
+#if 1
+      llvm::errs() << "[ZZ] stage " << stage++ << "\n";
+#endif
       currentFusionStrategy_ = strategy.get();
       // Re-init non-fusible fusion pattern using the given fusion strategy
       // since different fusion strategy may support different set of ops.
       initFusionPatterns();
       RunEdgeContractionLoop();
+      RunFusionPatternFinalization();
       LLVM_DEBUG(dumpCluster());
     }
 
@@ -441,11 +448,22 @@ class FusionPlanner {
       return false;
     }
 
+#if 0
+    llvm::errs() << "[ZZ] before try fuse inplace\n";
+    llvm::errs() << "[ZZ] lhs: \n";
+    dumpFusionPattern(cluster_from->fused_pattern());
+    llvm::errs() << "[ZZ] rhs: \n";
+    dumpFusionPattern(cluster_to->fused_pattern());
+    llvm::errs() << "\n\n";
+#endif
     if (!getFusionStrategy().tryFuseInplace(*shape_analysis_,
                                             cluster_from->fused_pattern(),
                                             cluster_to->fused_pattern())) {
       return false;
     }
+#if 0
+    llvm::errs() << "[ZZ] after try fuse inplace\n";
+#endif
     auto optional_merged_node = cycle_detector_->ContractEdge(from, to);
     assert(optional_merged_node.hasValue());
     cluster_from->set_cycles_graph_node_id(*optional_merged_node);
@@ -478,9 +496,8 @@ class FusionPlanner {
     auto strategies = placement_aware_strategy->getStrategyMap();
     if (strategies.size() == 1 &&
         strategies.find(placement_utils::kGpu) != strategies.end()) {
-      enable_horizontal_fusion &=
-          typeid(*strategies[placement_utils::kGpu]) !=
-          typeid(DotGpuFusionStrategy);
+      enable_horizontal_fusion &= typeid(*strategies[placement_utils::kGpu]) !=
+                                  typeid(DotGpuFusionStrategy);
     }
     if (enable_horizontal_fusion) {
       while (ForEachEdgeInPostOrder(
@@ -488,6 +505,16 @@ class FusionPlanner {
         // empty statement by design
       }
     }
+    return changed;
+  }
+
+  bool RunFusionPatternFinalization() {
+    bool changed = false;
+
+    // Call finalize of each fusion pattern.
+
+    // If there are excluded ops, rewrite the connected graph of patterns.
+
     return changed;
   }
 
@@ -576,12 +603,14 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
       if (gpu_enabled_) {
         if (isCompIntensFusionEnabled()) {
           pipeline.emplace_back(
+              makeNewPlacementAwareFusionStrategy(gpu_enabled_, "pre_dot"));
+          pipeline.emplace_back(
               makeNewPlacementAwareFusionStrategy(gpu_enabled_, "dot"));
         }
-        pipeline.emplace_back(
-            makeNewPlacementAwareFusionStrategy(gpu_enabled_, "base"));
-        pipeline.emplace_back(
-            makeNewPlacementAwareFusionStrategy(gpu_enabled_, "stitch"));
+        // pipeline.emplace_back(
+        //     makeNewPlacementAwareFusionStrategy(gpu_enabled_, "base"));
+        // pipeline.emplace_back(
+        //     makeNewPlacementAwareFusionStrategy(gpu_enabled_, "stitch"));
       } else {
         if (useTransformSchedule()) {
           pipeline.emplace_back(makeNewPlacementAwareFusionStrategy(

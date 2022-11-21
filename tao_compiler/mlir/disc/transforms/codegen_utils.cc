@@ -412,6 +412,7 @@ int getReductionTileSizeOnCPU() {
 
 // Get ops that depends on the given op in the same block. It assumes the ops in
 // the block do not have regions.
+// TODO: test this function.
 void getDependentOps(Operation* op, DenseSet<Operation*>& dependences) {
   SmallVector<Value> affectedValues;
   // TODO: deal with AssumeAlignmentOp.
@@ -426,10 +427,11 @@ void getDependentOps(Operation* op, DenseSet<Operation*>& dependences) {
 
   for (auto value : affectedValues) {
     for (auto user : value.getUsers()) {
-      if (!user->isBeforeInBlock(op)) {
+      if (user == op || user->isBeforeInBlock(op)) {
         continue;
       }
       DenseSet<Operation*> deps;
+      deps.insert(user);
       getDependentOps(user, deps);
       dependences.insert(deps.begin(), deps.end());
     }

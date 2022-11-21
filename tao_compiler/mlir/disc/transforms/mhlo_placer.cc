@@ -56,7 +56,7 @@ PlacementType toPlacementType(StringRef s, bool default_is_gpu = false) {
 //  - i64 Scalar output
 //  - Shape Op's operands
 //  - TODO(disc): PrintOp
-//  - ConstOp, SelectOp, IotaOp, DynamicIotaOp if type is i32
+//  - ConstOp(rank<=1), SelectOp, IotaOp, DynamicIotaOp if type is i32
 //  - mhlo.dynamic_gather and mhlo.gather if operand_0's type is i32
 //  - Date operands but type is i32 according to kShapeCalcOperandMap
 struct OpsPlacer : public PlaceOpsPassBase<OpsPlacer> {
@@ -431,6 +431,10 @@ void OpsPlacer::placeI32Ops() {
       auto result_ty = op->getResult(0).getType().dyn_cast<RankedTensorType>();
       assert(result_ty && "unexpected non ranked type for ConstOp");
       auto elem_type = result_ty.getElementType();
+      if (isa<mhlo::ConstantOp>(op) && result_ty.getRank() > 1) {
+        return;
+      }
+
       if (elem_type.isInteger(32)) {
         op->setAttr(kDiscPlaceAssignment, builder.getStringAttr(kCpu));
       }
@@ -461,7 +465,7 @@ void OpsPlacer::placeI32Ops() {
             op->getOperand(i).getType().dyn_cast<RankedTensorType>();
         if (!operand_ty) continue;
         auto elem_type = operand_ty.getElementType();
-        if (elem_type.isInteger(32)) {
+        if (elem_type.isInteger(32) && operand_ty.getRank() <= 1) {
           is_shape_calc_op = true;
           break;
         }

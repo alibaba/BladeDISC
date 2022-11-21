@@ -14,7 +14,8 @@ cc_library(
     deps = [
 	"//pytorch_blade/common_utils:torch_blade_macros",
         "@local_org_torch//:libtorch",
-    ]
+    ],
+    alwayslink = True,
 )
 
 cc_library(
@@ -33,6 +34,7 @@ cc_library(
     deps = [
         "@local_org_torch//:libtorch",
     ],
+    alwayslink = True,
 )
 
 cc_test(

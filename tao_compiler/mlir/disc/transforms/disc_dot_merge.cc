@@ -718,14 +718,15 @@ bool DotBatchMergeConverter::applyMerging(DotCluster& cluster) {
   SmallVector<int64_t> lhs_batching_dims;
   auto lhs_batch = dim_numbers.getLhsBatchingDimensions();
   lhs_batching_dims.push_back(0);
-  lhs_batching_dims.insert(lhs_batching_dims.end(), lhs_batch.begin(),
-                           lhs_batch.end());
-
+  for (auto& val : lhs_batch) {
+    lhs_batching_dims.push_back(val + 1);
+  }
   SmallVector<int64_t> rhs_batching_dims;
   auto rhs_batch = dim_numbers.getRhsBatchingDimensions();
   rhs_batching_dims.push_back(0);
-  rhs_batching_dims.insert(rhs_batching_dims.end(), rhs_batch.begin(),
-                           rhs_batch.end());
+  for (auto& val : rhs_batch) {
+    rhs_batching_dims.push_back(val + 1);
+  }
 
   SmallVector<int64_t> lhs_contracting_dims;
   auto lhs_contract = dim_numbers.getLhsContractingDimensions();

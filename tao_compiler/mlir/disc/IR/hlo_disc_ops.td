@@ -124,7 +124,7 @@ def HLODISC_CustomCallV2Op: HLODISC_Op<"custom_call_v2", []> {
       // 2. replace * with default layouts according to the corresponding rank.
       // Strings except * (such as **) will not be processed, and the string
       // corresponding to the invalid operand will not be processed
-      const std::string defaultLayouts = "ABCDEFGHIJKLMN";
+      const std::string defaultLayouts = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
       SmallVector<std::string> parsedStrings;
       SmallVector<StringRef> parsedStringRefs;
       layouts.split(parsedStringRefs, ',', /*MaxSplit=*/-1, /*KeepEmpty=*/true);
@@ -133,11 +133,11 @@ def HLODISC_CustomCallV2Op: HLODISC_Op<"custom_call_v2", []> {
         std::string layoutString = parsedStringRefs[i].str();
         if (layoutString == std::string("*") && i < num_operands) {
           int64_t rank = ranks[i];
-          std::string defaultLayout = defaultLayouts.substr(0, rank);
-          parsedStrings.push_back(defaultLayout);
-        } else {
-          parsedStrings.push_back(layoutString);
+          if (rank <= defaultLayouts.length()) {
+            layoutString = defaultLayouts.substr(0, rank);
+          }
         }
+        parsedStrings.push_back(layoutString);
       }
       return parsedStrings;
     }

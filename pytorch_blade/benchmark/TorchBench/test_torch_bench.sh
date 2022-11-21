@@ -30,32 +30,44 @@ python3 -m pip install -U numpy
 pushd $script_dir # pytorch_blade/benchmark/TorchBench
 ln -s $benchmark_repo_dir torchbenchmark
 
-# benchmark 
-config_file=blade_$1_$2.yaml
-bench_target=$2
+# benchmark
 # setup benchmark env
 export DISC_EXPERIMENTAL_SPECULATION_TLP_ENHANCE=true \
     DISC_CPU_LARGE_CONCAT_NUM_OPERANDS=4 DISC_CPU_ENABLE_EAGER_TRANSPOSE_FUSION=1 \
     OMP_NUM_THREADS=1 TORCHBENCH_ATOL=1e-2 TORCHBENCH_RTOL=1e-2
-if [ $2 == "cpu" ];then
+
+config_file=blade_$1_$2.yaml
+bench_target=$2
+
+if [ $1 == "cpu" ]
+then
     # 4 cores
     export GOMP_CPU_AFFINITY="2-5"
+    results=(eval-cpu-fp32)
+else
+    results=(eval-cuda-fp32 eval-cuda-fp16)
 fi
 python3 torchbenchmark/.github/scripts/run-config.py -c $config_file -b ./torchbenchmark/ --output-dir .
+
 # results
-
-
-
 date_str=$(date '+%Y%m%d-%H')
-if [ $1 == "cuda" ]
-then
-    cat eval-cuda-fp16/summary.csv
-    cat eval-cuda-fp32/summary.csv
-    /disc/scripts/ci/ossutil cp -r ${script_dir}/eval-cuda-fp16 oss://bladedisc-ci/TorchBench/${bench_target}/${date_str}/eval-cuda-fp16
-    /disc/scripts/ci/ossutil cp -r ${script_dir}/eval-cuda-fp32 oss://bladedisc-ci/TorchBench/${bench_target}/${date_str}/eval-cuda-fp32
-else
-    cat eval-cpu-fp32/summary.csv
-    /disc/scripts/ci/ossutil cp -r ${script_dir}/eval-cpu-fp32 oss://bladedisc-ci/TorchBench/${bench_target}/${date_str}/eval-cpu-fp32
+oss_link=https://bladedisc-ci.oss-cn-hongkong.aliyuncs.com
+oss_dir=oss://bladedisc-ci/TorchBench/${bench_target}/${date_str}
+
+for result in ${results[@]}
+do
+    cat ${result}/summary.csv
+    curl ${oss_link}/TorchBench/baseline/${result}_${bench_target}.csv -o $result.csv
+    /disc/scripts/ci/ossutil cp -r ${script_dir}/${result} ${oss_dir}/${result}
+done
+
+# performance anaysis
+python3 results_anaysis.py -t ${results} -i ${oss_dir} -p ${RELATED_DIFF_PERCENT}
+if [ -f "ISSUE.md" ]; then
+    wget ${oss_link}/download/github/gh && chmod +x ./gh && \
+    ./gh issue create -F ISSUE.md \
+    -t "[TorchBench] Performance Signal Detected" \
+    -l Benchmark
 fi
 
 popd # $benchmark_repo_dir

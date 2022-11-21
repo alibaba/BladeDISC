@@ -1,4 +1,5 @@
 -f https://download.pytorch.org/whl/torch_stable.html
+pandas
 librosa
 torchvision==0.13.0+cpu
 torchaudio==0.12.0+cpu

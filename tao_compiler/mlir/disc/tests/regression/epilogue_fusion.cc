@@ -32,7 +32,7 @@ TEST(EpilogueTest, EpilogueGELUF16) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "epilogue_fusion_gemm_gelu_f16.mlir",
       /*backend_types*/
-      kSupportedBackendList,
+      {BackendType::kCuda},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x16x128x768xf16_X", "1x16x768x768xf16_X"},
@@ -50,7 +50,7 @@ TEST(EpilogueTest, EpilogueGELUF32) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "epilogue_fusion_gemm_gelu_f32.mlir",
       /*backend_types*/
-      kSupportedBackendList,
+      {BackendType::kCuda},
       /*num_inputs*/ 2,
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x16x128x768xf32_X", "1x16x768x768xf32_X"},

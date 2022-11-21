@@ -1,5 +1,5 @@
 load("@com_google_protobuf//:protobuf.bzl", "cc_proto_library")
-load("@local_config_tf//:build_defs.bzl", "tf_copts")
+load("@local_config_tf//:build_defs.bzl", "tf_copts", "tf_major_version")
 load("@local_config_cuda//cuda:build_defs.bzl", "cuda_library", "if_cuda")
 load("//:tao_bridge.bzl", "tao_bridge_cc_test")
 load("@local_config_blade_disc_helper//:build_defs.bzl",
@@ -138,6 +138,18 @@ tf_cc_shared_object(
     ] + if_rocm([
         "@local_config_rocm//rocm:rocblas",
     ]),
+)
+
+genrule(
+    name = "lib_tao_serving_genrule",
+    srcs = [
+        ":libtao_ops.so"
+    ],
+    outs = ["serving/libtao_ops.so"],
+    cmd = """
+        cp $(location :libtao_ops.so) $@;
+        patchelf --remove-needed libtensorflow_framework.so.%s $@
+    """ % tf_major_version(),
 )
 
 tao_bridge_cc_test(

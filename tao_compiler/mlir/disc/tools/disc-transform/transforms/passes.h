@@ -17,6 +17,7 @@ limitations under the License.
 #define DISC_TOOLS_DISC_TRANSFORM_TRANSFORMS_PASSES_H_
 
 #include <memory>
+#include <string>
 
 namespace mlir {
 
@@ -35,6 +36,11 @@ namespace disc_ral {
 // equivalent.
 std::unique_ptr<OperationPass<ModuleOp>>
 createDiscLegalizeLmhloFusionToLinalgPass();
+
+// Applys transform dialect ops for codegen.
+std::unique_ptr<OperationPass<ModuleOp>>
+createDiscTransformDialectInterpreterPass(const std::string& fileName = "",
+                                          bool enableExpensiveChecks = false);
 
 }  // namespace disc_ral
 }  // namespace mlir

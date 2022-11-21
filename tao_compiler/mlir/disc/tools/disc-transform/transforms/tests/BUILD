@@ -13,6 +13,9 @@ glob_lit_tests(
 filegroup(
     name = "test_utilities",
     testonly = True,
+    srcs = glob([
+        "metadata-only*.mlir",
+    ]),
     data = [
         "//tensorflow/compiler/mlir/disc:disc-opt",
         "@llvm-project//llvm:FileCheck",

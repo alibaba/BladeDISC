@@ -19,3 +19,14 @@ def DiscLegalizeLmhloFusionToLinalgPass : Pass<"disc-legalize-lmhlo-fusion-to-li
   let summary = "Pass to convert a lmhlo fusion op to linalg on tensor.";
   let constructor = "createDiscLegalizeLmhloFusionToLinalgPass()";
 }
+
+def DiscTransformDialectInterpreterPass : Pass<"disc-transform-dialect-interpreter", "ModuleOp"> {
+  let summary = "Pass to apply transform dialect operations one by one.";
+  let constructor = "createDiscTransformDialectInterpreterPass()";
+  let options = [
+    Option<"transformFileName_", "transform-file-name", "std::string",
+           /*default=*/"\"\"", "Filename of the transform schedule.">,
+    Option<"enableExpensiveChecks_", "enable-expensive-checks", "bool",
+           /*default=*/"false", "perform expensive checks to better report errors in the transform IR.">,
+  ];
+}

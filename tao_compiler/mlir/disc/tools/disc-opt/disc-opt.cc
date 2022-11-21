@@ -13,6 +13,11 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
+#include "iree-dialects/Dialect/Input/InputDialect.h"
+#include "iree-dialects/Dialect/LinalgExt/IR/LinalgExtDialect.h"
+#include "iree-dialects/Dialect/LinalgExt/Passes/Passes.h"
+#include "iree-dialects/Dialect/LinalgTransform/LinalgTransformOps.h"
+#include "iree-dialects/Dialect/LinalgTransform/Passes.h"
 #include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
 #include "mlir-hlo/Dialect/lhlo/transforms/passes.h"
 #include "mlir-hlo/Dialect/lhlo_gpu/IR/lhlo_gpu_ops.h"
@@ -49,6 +54,9 @@ int main(int argc, char** argv) {
   registry.insert<mlir::disc_ral::RalDialect>();
   registry.insert<mlir::TF::TensorFlowDialect>();
   registry.insert<mlir::disc_shape::DISCShapeDialect>();
+  registry.insert<mlir::iree_compiler::IREE::LinalgExt::IREELinalgExtDialect,
+                  mlir::linalg::transform::LinalgTransformDialect,
+                  mlir::iree_compiler::IREE::Input::IREEInputDialect>();
 
   return failed(mlir::MlirOptMain(argc, argv, "MLIR HLO pass driver\n",
                                   registry,

@@ -74,6 +74,35 @@ cc_library(
 )
 
 cc_library(
+    name = "transform_dialect_interpreter",
+    srcs = ["transforms/transform_dialect_interpreter.cc"],
+    deps = [
+        ":pass_details",
+        "@iree-dialects//:IREELinalgExtDialect",
+        "@iree-dialects//:IREELinalgExtTransformOps",
+        "@iree-dialects//:IREELinalgTransformDialect",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:ArithDialect",
+        "@llvm-project//mlir:BufferizationDialect",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:LLVMDialect",
+        "@llvm-project//mlir:LinalgDialect",
+        "@llvm-project//mlir:LinalgTransformOps",
+        "@llvm-project//mlir:PDLDialect",
+        "@llvm-project//mlir:PDLInterpDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:TransformDialect",
+        "@llvm-project//mlir:Transforms",
+        "@llvm-project//mlir:VectorDialect",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "all_passes",
     hdrs = [
         "transforms/passes.h",
@@ -84,6 +113,7 @@ cc_library(
     ],
     deps = [
         ":legalize_lmhlo_fusion_to_linalg",
+        ":transform_dialect_interpreter",
         "@llvm-project//mlir:Pass",
     ],
     alwayslink = 1,

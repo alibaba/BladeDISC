@@ -192,6 +192,9 @@ class FusionPatternBase {
   // Create a new fusion pattern from the ops inside the lmhlo fusion op.
   explicit FusionPatternBase(lmhlo::FusionOp op);
 
+  // Create a new fusion pattern with the ops inside the list.
+  explicit FusionPatternBase(SmallVectorImpl<Operation*>& op_list);
+
   // Returns the op list this fusion pattern represents.
   FusionOpList& getOpList() { return op_list_; }
 
@@ -253,7 +256,6 @@ class FusionPatternBase {
   }
 
  protected:
-  FusionPatternBase(SmallVectorImpl<Operation*>& op_list);
 
   // Calculates the inputs and outputs of the fusion pattern.
   void calculateOperandsAndResults();
@@ -292,6 +294,9 @@ class FusionPattern : public FusionPatternBase {
 
   // Create a new fusion pattern from the ops inside the lmhlo fusion op.
   explicit FusionPattern(lmhlo::FusionOp op, ShapeAnalysis* shape_analysis);
+
+  // Create a new fusion pattern with the ops inside the list.
+  explicit FusionPattern(SmallVectorImpl<Operation*>& op_list);
 
   // Do not allow to build a fusion pattern with only FusionOp.
   explicit FusionPattern(lmhlo::FusionOp op) = delete;
@@ -365,8 +370,6 @@ class FusionPattern : public FusionPatternBase {
   DenseSet<Operation*>& getIrregularXroots() { return irregular_xroots_; }
 
  private:
-  // Deprecated. Remove in the future.
-  FusionPattern(SmallVectorImpl<Operation*>& op_list);
 
   Operation* dominant_op_ = nullptr;
   FusionType fusion_type_ = FusionType::kNone;
@@ -383,7 +386,7 @@ void dumpFusionPattern(FusionPattern& pattern);
 
 // The basic approch to init fusion pattern.
 bool initFusionPatternBase(ShapeAnalysis& shapeAnalysis,
-                           FusionPattern& fused_pattern);
+                           FusionPattern& fusion_pattern);
 
 // Get skeleton-groups in which the op orders are the same with op list in the
 // given fusion pattern.
@@ -452,11 +455,11 @@ class FusionStrategy {
   FusionStrategy(const FusionOptions& options) : options_(options) {}
 
   virtual bool isFusible(Operation* op);
-  virtual bool isFusible(FusionPattern& fused_pattern);
+  virtual bool isFusible(FusionPattern& fusion_pattern);
   virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
-                                 FusionPattern& fused_pattern) = 0;
+                                 FusionPattern& fusion_pattern) = 0;
   virtual bool finalizeFusionPattern(ShapeAnalysis& shapeAnalysis,
-                                     FusionPattern& fused_pattern,
+                                     FusionPattern& fusion_pattern,
                                      SmallVectorImpl<Operation*>& excluded_ops);
   virtual bool tryFuseInplace(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
                               FusionPattern& rhs);
@@ -485,6 +488,9 @@ class PlacementAwareFusionStrategy : public FusionStrategy {
                FusionPattern& rhs, FusionPattern& target) override;
   bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
                          FusionPattern& fusion_pattern) override;
+  virtual bool finalizeFusionPattern(
+      ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern,
+      SmallVectorImpl<Operation*>& excluded_ops) override;
   virtual StringRef getName() override {
     return "PlacementAwareFusionStrategy";
   }
@@ -762,7 +768,7 @@ class StitchGpuFusionStrategy : public FusionStrategy {
       : FusionStrategy(options) {}
 
   virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
-                                 FusionPattern& fused_pattern) override;
+                                 FusionPattern& fusion_pattern) override;
   virtual StringRef getName() override { return "StitchGpuFusionStrategy"; }
 
  private:
@@ -773,7 +779,7 @@ class StitchGpuFusionStrategy : public FusionStrategy {
       Operation* op, SmallVector<std::pair<Value, TileInfo>, 4>& in_info,
       bool& cover);
   bool findFusionPatternTypeAndSubroot(ShapeAnalysis& shapeAnalysis,
-                                       FusionPattern& fused_pattern);
+                                       FusionPattern& fusion_pattern);
   bool tileXroots(ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern);
   bool backtraceTileAndCover(ShapeAnalysis& shapeAnalysis,
                              FusionPattern& fusion_pattern, Value value);
@@ -797,9 +803,9 @@ class DotGpuFusionStrategy : public FusionStrategy {
   virtual bool isFusible(Operation* op) override;
   virtual bool isFusible(FusionPattern& fusion_pattern) override;
   virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
-                                 FusionPattern& fused_pattern) override;
+                                 FusionPattern& fusion_pattern) override;
   virtual bool finalizeFusionPattern(
-      ShapeAnalysis& shapeAnalysis, FusionPattern& fused_pattern,
+      ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern,
       SmallVectorImpl<Operation*>& excluded_ops) override;
 
   virtual bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,

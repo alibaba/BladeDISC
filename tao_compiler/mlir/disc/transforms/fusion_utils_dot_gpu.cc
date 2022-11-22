@@ -13,6 +13,34 @@
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
 #include "tensorflow/compiler/mlir/disc/utils/source_emitter.h"
 
+namespace llvm {
+template <>
+struct DenseMapInfo<SmallVector<mlir::Operation*>> {
+  static SmallVector<mlir::Operation*> getEmptyKey() {
+    return SmallVector<mlir::Operation*>{DenseMapInfo<mlir::Operation*>::getEmptyKey()};
+  }
+
+  static SmallVector<mlir::Operation*> getTombstoneKey() {
+    return SmallVector<mlir::Operation*>{
+        DenseMapInfo<mlir::Operation*>::getTombstoneKey()};
+  }
+
+  static unsigned getHashValue(const SmallVector<mlir::Operation*>& vs) {
+    unsigned hash = hash_value(vs.size());
+    for (auto v : vs) {
+      hash = llvm::hash_combine(hash, v);
+    }
+    return hash;
+  }
+
+  static bool isEqual(const SmallVector<mlir::Operation*>& lhs,
+                      const SmallVector<mlir::Operation*>& rhs) {
+    return lhs == rhs;
+  }
+};
+
+}  // namespace llvm
+
 namespace mlir {
 namespace disc_ral {
 
@@ -104,96 +132,151 @@ bool DotGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
   return true;
 }
 
-{
-  void getDirectDependentOps(Operation * op,
-                             DenseSet<Operation*> & dependences) {
-    dependences.clear();
-    SmallVector<Value> affectedValues;
-    for (auto result : op->getResults()) {
-      affectedValues.push_back(result);
-    }
-    for (auto operand : op->getOperands()) {
-      if (IsOpWriteValue(op, operand)) {
-        affectedValues.push_back(operand);
-      }
-    }
+namespace {
 
-    for (auto value : affectedValues) {
-      for (auto user : value.getUsers()) {
-        if (user == op) {
-          continue;
-        }
-        dependencies.insert(user);
-      }
+void getDirectConsumerOps(Operation* op,
+                          DenseSet<Operation*> & consumers) {
+  consumers.clear();
+  if (op == nullptr) {
+    return;
+  }
+  SmallVector<Value> affectedValues;
+  for (auto result : op->getResults()) {
+    affectedValues.push_back(result);
+  }
+  for (auto operand : op->getOperands()) {
+    if (IsOpWriteValue(op, operand)) {
+      affectedValues.push_back(operand);
     }
   }
 
-  void identifyJointPaths(const SmallVector<SmallVector<Operation*>>& paths_a,
-                          const SmallVector<SmallVector<Operation*>>& paths_b,
-                          DenseSet<SmallVector<Operation*>>& joint_paths) {
-    joint_paths.clear();
-    for (const auto& path_a : paths_a) {
-      for (const auto& path_b : paths_b) {
-        SmallVector<Operation*> joint;
-        for (int64_t i = 0; i < std::min(path_a.size(), path_b.size()); i++) {
-          if (path_a[i] == path_b[i]) {
-            joint.push_back[path_a[i]];
-          } else {
-            if (!joint.empty()) {
-              joint_paths.insert(joint);
-            }
-            continue;
+  for (auto value : affectedValues) {
+    for (auto user : value.getUsers()) {
+      if (user == op) {
+        continue;
+      }
+      consumers.insert(user);
+    }
+  }
+}
+
+void getDirectProducerOpsInFusionPattern(
+    Operation* op, FusionPattern fusion_pattern,
+    DenseSet<Operation*>& producers) {
+  producers.clear();
+
+  auto& op_list = fusion_pattern.getOpList();
+  DenseSet<Operation*> op_set(op_list.begin(), op_list.end());
+
+  int64_t num_input_operand = op->getNumOperands() - getNumResultOperands(op);
+  for (Value value : op->getOperands().take_front(num_input_operand)) {
+    auto producer = fusion_pattern.findLastWriter(value);
+    if (op_set.contains(producer)) {
+      producers.insert(producer);
+    }
+  }
+}
+
+void identifyJointPaths(const SmallVector<SmallVector<Operation*>>& paths_a,
+                        const SmallVector<SmallVector<Operation*>>& paths_b,
+                        DenseSet<SmallVector<Operation*>>& joint_paths) {
+  joint_paths.clear();
+  for (const auto& path_a : paths_a) {
+    for (const auto& path_b : paths_b) {
+      if (&path_a == &path_b) {
+        continue;
+      }
+      SmallVector<Operation*> joint;
+      for (int64_t i = 0; i < std::min(path_a.size(), path_b.size()); i++) {
+        if (path_a[i] == path_b[i]) {
+          joint.push_back(path_a[i]);
+        } else {
+          if (!joint.empty()) {
+            joint_paths.insert(joint);
           }
+          continue;
         }
       }
     }
   }
 }
 
-bool DotGpuFusionStrategy::finalizeFusionPattern(
-    ShapeAnalysis& shapeAnalysis, FusionPattern& fused_pattern,
-    SmallVectorImpl<Operation*>& excluded_ops) {
-  auto& roots = fusion_pattern.getRootOps();
+}
 
-  // Currently, kDot fusion only support one root op.
+bool DotGpuFusionStrategy::finalizeFusionPattern(
+    ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern,
+    SmallVectorImpl<Operation*>& excluded_ops) {
+  // Currently, kDot fusion only support one root op. If there are many roots,
+  // find the joint paths between roots, and remain the shortest. This is to
+  // guarantee that there is only one output of the fusion. We will support
+  // multi-output fusion in the future.
+
+  auto roots = fusion_pattern.getRootOps();
   if (roots.size() == 1) {
     return true;
   }
 
-  auto& op_list = fusion_pattern.getOpList();
+  auto op_list = fusion_pattern.getOpList();
   DenseSet<Operation*> op_set(op_list.begin(), op_list.end());
 
-  // Find path from ops in the fusion pattern to dominant.
+  SmallVector<Operation*> dots;
+  for (auto op : op_list) {
+    if (isa<lmhlo::DotGeneralOp>(op)) {
+      dots.push_back(op);
+    }
+  }
+  if (dots.empty()) {
+    // Not kDot fusion. Do not deal with it.
+    return true;
+  }
+
+  // Find path from dominant to other ops in the fusion pattern.
 
   // {op, [paths from dom to op]}
-  DenseMap<Operation*, SmallVector<SmallVector<Operation*>>> path_dom_to_op;
-  path_dom_to_ops.emplace(dom, {dom});
+  DenseMap<Operation*, SmallVector<SmallVector<Operation*>>> path_dom_to_ops;
+  Operation* dom = fusion_pattern.getDominantOp();
+  SmallVector<SmallVector<Operation*>> path_to_dom{SmallVector<Operation*>{dom}};
+  path_dom_to_ops.try_emplace(dom, std::move(path_to_dom));
 
   SmallVector<Operation*> worklist;
-  Operation* dom = fusion_pattern.getDominantOp();
   worklist.push_back(dom);
   while (!worklist.empty()) {
     auto curr = worklist.back();
     worklist.pop_back();
-    const auto& path_curr = path_dom_to_roots[curr];
-    DenseSet<Operation*> dependencies;
-    getDirectDependentOps(curr, dependencies);
-    for (auto dep : dependencies) {
-      if (!op_set.contains(dep)) {
+    const auto& path_curr = path_dom_to_ops[curr];
+    DenseSet<Operation*> consumers;
+    getDirectConsumerOps(curr, consumers);
+    for (auto consumer : consumers) {
+      if (!op_set.contains(consumer)) {
         continue;
       }
-      auto& path_dep = path_dom_to_op[dep];
+      auto& path_consumer = path_dom_to_ops[consumer];
       for (const auto& path : path_curr) {
         SmallVector<Operation*> new_path = path;
-        new_path.push_back(dep);
-        path_dep.emplace_back(std::move(new_path));
+        new_path.push_back(consumer);
+        path_consumer.emplace_back(std::move(new_path));
       }
-      worklist.push_back(dep);
+      worklist.push_back(consumer);
     }
   }
+#if 0
+  llvm::errs() << "[ZZ] path to roots:\n";
+  for (auto root : roots) {
+    auto paths = path_dom_to_ops[root];
+    llvm::errs() << "[ZZ] path for " << *root << "\n";
+    for (auto path : paths) {
+      llvm::errs() << "[ZZ] list path:\n";
+      for (auto op : path) {
+        llvm::errs() << "\t[ZZ] " << *op << "\n";
+      }
+      llvm::errs() << "\n";
+    }
+  }
+#endif
 
-  // If paths are disjoint, remain the longest path. Otherwise, remain the
-  // shortest joint part.
+  // Find shortest joint path:
+  //  1. find joint paths between the paths of different roots;
+  //  2. join again identify the shortest joint path.
 
   DenseSet<SmallVector<Operation*>> joint_paths_of_roots;
   for (auto root_a : roots) {
@@ -204,24 +287,74 @@ bool DotGpuFusionStrategy::finalizeFusionPattern(
       }
       auto& paths_b = path_dom_to_ops[root_b];
 
-      DenseSet<SmallVector<Operation*>>& curr_joint_paths;
+      DenseSet<SmallVector<Operation*>> curr_joint_paths;
       identifyJointPaths(paths_a, paths_b, curr_joint_paths);
       joint_paths_of_roots.insert(curr_joint_paths.begin(),
-                                  curr_joint_paths.end);
+                                  curr_joint_paths.end());
     }
   }
-
-  // TODO: joint again. a function named remain joint.
-
-  SmallVector<Operation*> final_path;
-  if (joint_paths_of_roots.size() == 1 &&
-      joint_paths_of_roots.begin()->size() == 1) {
-    final_path = TODO;  // the longest path among all existing paths.
-  } else {
-    final_path = TODO:  // the shortest path among all joint paths.
+#if 0
+  for (auto path : joint_paths_of_roots) {
+    llvm::errs() << "[ZZ] path:\n";
+    for (auto op : path) {
+      llvm::errs() << "\t[ZZ] " << *op << "\n";
+    }
+    llvm::errs() << "\n";
   }
+#endif
 
-  // Finally, remove the ops whose path to dominant contains external ops.
+  SmallVector<Operation*> shortest_path;
+  for (int64_t i = 0; ; i++) {
+    bool stop = false;
+    Operation* candidate = nullptr;
+    for (const auto& path : joint_paths_of_roots) {
+      if (path.size() == i) {
+        stop = true;
+        break;
+      }
+      if (candidate == nullptr) {
+        candidate = path[i];
+      } else if (path[i] != candidate) {
+        stop = true;
+        break;
+      }
+    }
+    if (stop) {
+      break;
+    } else {
+      shortest_path.push_back(candidate);
+    }
+  }
+  DenseSet<Operation*> shortest_path_set;
+  shortest_path_set.insert(shortest_path.begin(), shortest_path.end());
+
+  // Form the new fusion pattern.
+  auto new_root = shortest_path.back();
+  worklist.clear();
+  worklist.push_back(new_root);
+  DenseSet<Operation*> effective_ops_set;
+  effective_ops_set.insert(new_root);
+  while (!worklist.empty()) {
+    auto curr = worklist.back();
+    worklist.pop_back();
+    DenseSet<Operation*> direct_producers;
+    getDirectProducerOpsInFusionPattern(curr, fusion_pattern, direct_producers);
+    worklist.insert(worklist.end(), direct_producers.begin(), direct_producers.end());
+    effective_ops_set.insert(direct_producers.begin(), direct_producers.end());
+  }
+  SmallVector<Operation*> effective_ops(effective_ops_set.begin(),
+                                        effective_ops_set.end());
+  FusionPattern new_fusion_pattern(effective_ops);
+  initFusionPattern(shapeAnalysis, new_fusion_pattern);
+  fusion_pattern = std::move(new_fusion_pattern);
+
+  // Finally, identify the ops not consumed by the new root op.
+  excluded_ops.clear();
+  for (auto op : op_list) {
+    if (!effective_ops_set.contains(op)) {
+      excluded_ops.push_back(op);
+    }
+  }
 
   return true;
 }

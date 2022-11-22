@@ -509,13 +509,27 @@ class FusionPlanner {
   }
 
   bool RunFusionPatternFinalization() {
-    bool changed = false;
+    auto original_nodes = cycle_detector_->AllNodesInPostOrder();
+    for (int32_t node : original_nodes) {
+      Cluster* cluster = GetClusterForCyclesGraphNode(node);
+      auto& fusion_pattern = cluster->fused_pattern();
+      SmallVector<Operation*> excluded_ops;
+      if (!getFusionStrategy().finalizeFusionPattern(*shape_analysis_,
+                                                     fusion_pattern,
+                                                     excluded_ops)) {
+        return false;
+      }
+#if 1
+      llvm::errs() << "[ZZ] excluded ops number: " << excluded_ops.size() << "\n";
+      for (auto op : excluded_ops) {
+        llvm::errs() << "\t[ZZ] " << *op << "\n";
+      }
+#endif
+    }
 
-    // Call finalize of each fusion pattern.
+    // TODO: If there are excluded ops, rewrite the connected graph of patterns.
 
-    // If there are excluded ops, rewrite the connected graph of patterns.
-
-    return changed;
+    return true;
   }
 
   // Here `value` is supported to be a pointer to buffer.

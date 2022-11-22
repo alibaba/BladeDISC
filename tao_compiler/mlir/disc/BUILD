@@ -1989,9 +1989,9 @@ genrule(
         UTILS_DIR=$$(dirname $(location utils/cutlass_required_headers.cu));
         bash $${UTILS_DIR}/preprocess_cutlass_headers.sh $(SRCS) $(OUTS);
         sed -i '1s/^/R\"bladedisc_rstr(\\n/' $(location utils/cutlass_header_preprocess.cpp1.ii.h);
-        sed -i.bck '$$s/$$/\\n)bladedisc_rstr\"/' $(location utils/cutlass_header_preprocess.cpp1.ii.h);
+        sed -i '$$s/$$/\\n)bladedisc_rstr\"/' $(location utils/cutlass_header_preprocess.cpp1.ii.h);
         sed -i '1s/^/R\"bladedisc_rstr(\\n/' $(location utils/cutlass_header_preprocess.cpp4.ii.h);
-        sed -i.bck '$$s/$$/\\n)bladedisc_rstr\"/' $(location utils/cutlass_header_preprocess.cpp4.ii.h)
+        sed -i '$$s/$$/\\n)bladedisc_rstr\"/' $(location utils/cutlass_header_preprocess.cpp4.ii.h)
         """
 )
 

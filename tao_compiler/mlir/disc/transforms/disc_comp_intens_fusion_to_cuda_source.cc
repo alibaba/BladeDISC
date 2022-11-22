@@ -239,7 +239,12 @@ bool DiscCompIntensFusionToCUDASourcePass::getCountVectorizedString(
   } else if (type.isF32() || type.isF64()) {
     if (cc_major_ < 8) {
       count_vectorized = "1";
+    } else {
+      count_vectorized =
+          "128 / cutlass::sizeof_bits<" + element_output_type + ">::value";
     }
+  } else {
+    return false;
   }
 
   return true;

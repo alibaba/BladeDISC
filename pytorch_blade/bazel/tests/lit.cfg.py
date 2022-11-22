@@ -30,20 +30,19 @@ from lit.llvm.subst import ToolSubst
 # common for lit tests and intended to only persist temporarily (b/136126535).
 # pylint: disable=undefined-variable
 # Configuration file for the 'lit' test runner.
-
 # name: The name of this test suite.
 config.name = 'MLIR ' + os.path.basename(config.mlir_test_dir)
 
 config.test_format = lit.formats.ShTest(not llvm_config.use_lit_shell)
 
 # suffixes: A list of file extensions to treat as test files.
-config.suffixes = ['.cc', '.hlo', '.hlotxt', '.json', '.mlir', '.pbtxt', '.py']
+config.suffixes = config.suffixes + ['.cc', '.hlo', '.hlotxt', '.json', '.mlir', '.pbtxt', '.py']
 
 # test_source_root: The root path where tests are located.
 config.test_source_root = config.mlir_test_dir
 
 # test_exec_root: The root path where tests should be run.
-config.test_exec_root = os.environ['RUNFILES_DIR']
+# config.test_exec_root = os.environ['RUNFILES_DIR']
 
 if platform.system() == 'Windows':
   tool_patterns = [
@@ -60,18 +59,13 @@ if platform.system() == 'Windows':
 else:
   llvm_config.use_default_substitutions()
 
-llvm_config.config.substitutions.append(
-    ('%tfrt_bindir', 'tensorflow/compiler/aot'))
-
 # Tweak the PATH to include the tools dir.
 llvm_config.with_environment('PATH', config.llvm_tools_dir, append_path=True)
 
 tool_dirs = config.mlir_tf_tools_dirs + [
     config.mlir_tools_dir, config.llvm_tools_dir
 ]
-tool_names = [
-    'torch-disc-pdll'
-]
+tool_names = config.tool_names
 tools = [ToolSubst(s, unresolved='ignore') for s in tool_names]
 llvm_config.add_tool_substitutions(tools, tool_dirs)
 # pylint: enable=undefined-variable

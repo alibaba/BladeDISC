@@ -1,63 +1,33 @@
 package(default_visibility = ["//visibility:public"])
 
 load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
-load(
-    "//bazel:build_defs.bzl",
-    "if_quantization_enabled"
-)
-
-filegroup(
-    name = "torch_blade_jit_srcs",
-    srcs = glob(
-        ["**/*.cpp"],
-        exclude = [
-            "**/torch/onnx.cpp",
-            "**/*test.cpp",
-            "**/pybind*.cpp",
-            "**/tool_funcs.cpp",
-        ],
-    ),
-)
-
-filegroup(
-    name = "torch_blade_jit_hdrs",
-    srcs = glob(
-        ["**/*.h"],
-        exclude = [
-            "**/pybind*.h",
-            "**/tool_funcs.h",
-        ],
-    ),
-)
-
-cc_library(
-    name = "torch_blade_jit",
-    srcs = [":torch_blade_jit_srcs"],
-    hdrs = [
-        ":torch_blade_jit_hdrs",
-    ],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        ":tool_funcs",
-        "//pytorch_blade/common_utils:torch_blade_common",
-        "@local_org_torch//:libtorch",
-    ],
-    alwayslink = True,
-)
 
 filegroup(
     name = "torch_blade_jit_py_srcs",
-    srcs = glob([
-        "**/torch/onnx.cpp",
+    srcs = [
+        "//pytorch_blade/compiler/jit/torch:onnx.cpp",
+	"//pytorch_blade/compiler/jit/torch:pybind_utils.cpp",
+    ] + glob([
         "**/pybind*.cpp",
     ]),
 )
 
 filegroup(
     name = "torch_blade_jit_py_hdrs",
-    srcs = glob(["**/pybind*.h"]),
+    srcs = [
+        "//pytorch_blade/compiler/jit/torch:onnx.h",
+    ] + glob(["**/pybind*.h"]),
+)
+
+cc_library(
+    name = "onnx_funcs",
+    srcs = ["onnx_funcs.cpp"],
+    hdrs = ["onnx_funcs.h"],
+    deps = [
+        "//pytorch_blade/common_utils:torch_blade_common",
+        "@local_org_torch//:libtorch",
+    ],
+    alwayslink = True,
 )
 
 cc_library(
@@ -69,9 +39,25 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "torch_blade_jit",
+    srcs = ["fusion.cpp", "shape_type_spec.cpp"],
+    hdrs = [
+        "fusion.h", "shape_type_spec.h"
+    ],
+    deps = [
+        ":tool_funcs",
+        "//pytorch_blade/compiler/jit/torch:shape_analysis",
+        "//pytorch_blade/compiler/jit/torch:freeze_module",
+        "//pytorch_blade/common_utils:torch_blade_common",
+        "@local_org_torch//:libtorch",
+    ],
+    alwayslink = True,
+)
+
 filegroup(
     name = "torch_blade_jit_test_srcs",
-    srcs = glob(["**/*_test.cpp"]),
+    srcs = glob(["*_test.cpp"]),
 )
 
 cc_test(
@@ -91,7 +77,5 @@ cc_test(
         "//pytorch_blade/common_utils:torch_blade_common",
         "@googltest//:gtest_main",
         "@local_org_torch//:libtorch",
-    ] + if_quantization_enabled([
-        "//pytorch_blade/quantization:quantization_op",
-    ]),
+    ]
 )

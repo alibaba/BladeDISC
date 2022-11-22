@@ -201,10 +201,10 @@ func.func @custom_call_v2_op(
     device = "h",
     input_placements = "h,h",
     output_placements = "h",
-    expected_input_layouts = "",
-    expected_output_layouts = "",
-    input_layouts = "",
-    output_layouts = ""
+    expected_input_layouts = "AB,A",
+    expected_output_layouts = "AB",
+    input_layouts = "AB,A",
+    output_layouts = "AB"
   } : (tensor<?x?xf32>, tensor<2xi32>) -> tensor<?x?xf32>
   return %1 : tensor<?x?xf32>
 }

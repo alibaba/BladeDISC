@@ -24,7 +24,6 @@
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
-
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
@@ -32,36 +31,42 @@ using namespace mlir::torch::TorchConversion;
 
 namespace {
 
+static std::vector<std::string> quantizationOpList{
+    "torch_blade.fake_quant",
+    "torch_blade.quantize",
+    "torch_blade.dequantize"};
+static std::string customCallName = "torch_blade.custom_call";
+
 class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
  public:
   using OpConversionPattern<OperatorOp>::OpConversionPattern;
   using OpAdaptor = typename OperatorOp::Adaptor;
-  LogicalResult matchAndRewrite(
+
+  LogicalResult convertQuantizationRelatedOp(
       OperatorOp op,
       OpAdaptor adaptor,
-      ConversionPatternRewriter& rewriter) const override {
+      ConversionPatternRewriter& rewriter) const {
     Location loc = op.getLoc();
     auto name = op.name();
-    if ("torch_blade.fake_quant" == name) {
-      auto operands = adaptor.operands();
-      auto input = operands[0];
-      auto scale = operands[1];
-      auto zeroPoint = operands[2];
+    auto operands = adaptor.operands();
+    auto input = operands[0];
+    auto scale = operands[1];
+    auto zeroPoint = operands[2];
 
 #define I64_VAR_FROM_CONST_OPERAND(var, idx)                         \
   int64_t var;                                                       \
   if (!matchPattern(op.operands()[idx], m_TorchConstantInt(&var))) { \
     return op.emitError(#var " must be a scalar constant int");      \
   }
-      I64_VAR_FROM_CONST_OPERAND(qmin, 3);
-      I64_VAR_FROM_CONST_OPERAND(qmax, 4);
-      I64_VAR_FROM_CONST_OPERAND(numBits, 5);
+    I64_VAR_FROM_CONST_OPERAND(qmin, 3);
+    I64_VAR_FROM_CONST_OPERAND(qmax, 4);
+    I64_VAR_FROM_CONST_OPERAND(numBits, 5);
 #undef I64_VAR_FROM_CONST_OPERAND
 
-      SmallVector<int64_t, 4> axis;
-      if (!matchPattern(op.operands()[6], m_TorchConstantIntList(axis))) {
-        return op.emitError("only constant dims are supported a.t.m");
-      }
+    SmallVector<int64_t, 4> axis;
+    if (!matchPattern(op.operands()[6], m_TorchConstantIntList(axis))) {
+      return op.emitError("only constant dims are supported a.t.m");
+    }
 
 #define BOOL_VAR_FROM_CONST_OPERAND(var, idx)                         \
   bool var;                                                           \
@@ -69,47 +74,48 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
     return op.emitError(#var " must be a scalar constant boolean");   \
   }
 
-      BOOL_VAR_FROM_CONST_OPERAND(useSigned, 7);
-      BOOL_VAR_FROM_CONST_OPERAND(useSymmetric, 8);
-      BOOL_VAR_FROM_CONST_OPERAND(useDynamic, 9);
-      BOOL_VAR_FROM_CONST_OPERAND(usePerChannel, 10);
+    BOOL_VAR_FROM_CONST_OPERAND(useSigned, 7);
+    BOOL_VAR_FROM_CONST_OPERAND(useSymmetric, 8);
+    BOOL_VAR_FROM_CONST_OPERAND(useDynamic, 9);
+    BOOL_VAR_FROM_CONST_OPERAND(usePerChannel, 10);
 #undef BOOL_VAR_FROM_CONST_OPERAND
 
-      auto resultTy = input.getType().dyn_cast<RankedTensorType>();
-      if (!resultTy) {
-        return op.emitError("failed to get type of input");
-      }
-      if (!resultTy.getElementType().isF32()) {
-        return op.emitError(
-            "torch_blade.fake_quant should have float32 as input type.");
-      }
+    auto torchMlirResultTy =
+        op.getResult(0).getType().dyn_cast<ValueTensorType>();
+    auto resultTy = getTypeConverter()
+                        ->convertType(torchMlirResultTy)
+                        .dyn_cast<RankedTensorType>();
+    if (!resultTy) {
+      return op.emitError("failed to get type of output");
+    }
 
-      auto zeroPointTy = zeroPoint.getType().dyn_cast<RankedTensorType>();
-      if (!zeroPointTy) {
-        return op.emitError("zero point is not a RankedTensorType");
-      }
-      auto i32Ty = rewriter.getIntegerType(32);
-      auto i64Ty = rewriter.getIntegerType(64);
-      auto castedZeroPointTy =
-          RankedTensorType::get(zeroPointTy.getShape(), i32Ty);
-      Value castedZeroPoint =
-          rewriter.create<mhlo::ConvertOp>(loc, castedZeroPointTy, zeroPoint);
-      // Attributes ...
-      auto axisAttr = DenseIntElementsAttr::get(
-          RankedTensorType::get({axis.size()}, rewriter.getIntegerType(64)),
-          axis);
-      auto numBitsAttr = rewriter.getIntegerAttr(i64Ty, numBits);
-      auto qminAttr = rewriter.getIntegerAttr(i64Ty, qmin);
-      auto qmaxAttr = rewriter.getIntegerAttr(i64Ty, qmax);
-      auto useSignedAttr = rewriter.getBoolAttr(useSigned);
-      auto useSymmetricAttr = rewriter.getBoolAttr(useSymmetric);
-      auto useDynamicAttr = rewriter.getBoolAttr(useDynamic);
-      // default round mode in torch is round-to-even.
-      // TODO: should read it from the custom fake quant op.
-      auto roundModeAttr = mlir::mhlo_disc::RoundModeEnumAttr::get(
-          rewriter.getContext(),
-          mlir::mhlo_disc::RoundModeEnum::RoundHalfToEven);
-      Value newOp = rewriter.create<mhlo_disc::FakeQuantOp>(
+    auto zeroPointTy = zeroPoint.getType().dyn_cast<RankedTensorType>();
+    if (!zeroPointTy) {
+      return op.emitError("zero point is not a RankedTensorType");
+    }
+    auto i32Ty = rewriter.getIntegerType(32);
+    auto i64Ty = rewriter.getIntegerType(64);
+    auto castedZeroPointTy =
+        RankedTensorType::get(zeroPointTy.getShape(), i32Ty);
+    Value castedZeroPoint =
+        rewriter.create<mhlo::ConvertOp>(loc, castedZeroPointTy, zeroPoint);
+    // Attributes ...
+    auto axisAttr = DenseIntElementsAttr::get(
+        RankedTensorType::get({axis.size()}, rewriter.getIntegerType(64)),
+        axis);
+    auto numBitsAttr = rewriter.getIntegerAttr(i64Ty, numBits);
+    auto qminAttr = rewriter.getIntegerAttr(i64Ty, qmin);
+    auto qmaxAttr = rewriter.getIntegerAttr(i64Ty, qmax);
+    auto useSignedAttr = rewriter.getBoolAttr(useSigned);
+    auto useSymmetricAttr = rewriter.getBoolAttr(useSymmetric);
+    auto useDynamicAttr = rewriter.getBoolAttr(useDynamic);
+    // default round mode in torch is round-to-even.
+    // TODO: should read it from the custom fake quant op.
+    auto roundModeAttr = mlir::mhlo_disc::RoundModeEnumAttr::get(
+        rewriter.getContext(), mlir::mhlo_disc::RoundModeEnum::RoundHalfToEven);
+    Operation* newOutput;
+    if (name == "torch_blade.fake_quant") {
+      newOutput = rewriter.create<mhlo_disc::FakeQuantOp>(
           loc,
           resultTy,
           input,
@@ -123,12 +129,141 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
           qmaxAttr,
           useDynamicAttr,
           roundModeAttr);
-      rewriter.replaceOp(op, {newOp});
-
-      return success();
+    } else if (name == "torch_blade.quantize") {
+      newOutput = rewriter.create<mhlo_disc::QuantizeOp>(
+          loc,
+          resultTy,
+          input,
+          scale,
+          castedZeroPoint,
+          useSymmetricAttr,
+          axisAttr,
+          qminAttr,
+          qmaxAttr,
+          useDynamicAttr,
+          roundModeAttr);
+    } else if (name == "torch_blade.dequantize") {
+      newOutput = rewriter.create<mhlo_disc::DequantizeOp>(
+          loc,
+          resultTy,
+          input,
+          scale,
+          castedZeroPoint,
+          useSymmetricAttr,
+          axisAttr,
+          useDynamicAttr,
+          roundModeAttr);
+    } else {
+      return op.emitError("Unsupported kind of torch.operator.");
     }
-    return op.emitError(
-        "operators other than fake_quant are not supported a.t.m");
+    rewriter.replaceOp(op, newOutput->getResult(0));
+    return success();
+  }
+
+  LogicalResult convertCustomCallOp(
+      OperatorOp op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const {
+    auto ctx = rewriter.getContext();
+    Location loc = op.getLoc();
+    auto operands = adaptor.operands();
+    SmallVector<Type> resultTypes;
+    for (const auto& result : op.getResults()) {
+      auto torchMlirResultTy = result.getType().dyn_cast<ValueTensorType>();
+      if (!torchMlirResultTy) {
+        return op.emitError(
+            "On torch-mlir, the type returned by custom call needs to be ValueTensor.");
+      }
+      auto resultTy = getTypeConverter()
+                          ->convertType(torchMlirResultTy)
+                          .dyn_cast<RankedTensorType>();
+      if (!resultTy) {
+        return op.emitError("failed to get type of output.");
+      }
+      resultTypes.push_back(resultTy);
+    }
+
+    const std::vector<std::string> requiredAttrName{
+        "call_target_name",
+        "device",
+        "input_placements",
+        "output_placements",
+        "input_layouts",
+        "output_layouts",
+        "expected_input_layouts",
+        "expected_output_layouts"};
+
+    for (const auto& n : requiredAttrName) {
+      if (!op->hasAttr(n)) {
+        return op.emitError()
+            << n
+            << " attribute should be provided for torch_blade.custom_call.";
+      }
+    }
+
+    StringAttr callTarget =
+        op->getAttr("call_target_name").dyn_cast<StringAttr>();
+    StringAttr device = op->getAttr("device").dyn_cast<StringAttr>();
+    StringAttr inputPlacements =
+        op->getAttr("input_placements").dyn_cast<StringAttr>();
+    StringAttr outputPlacements =
+        op->getAttr("output_placements").dyn_cast<StringAttr>();
+    StringAttr inputLayouts =
+        op->getAttr("input_layouts").dyn_cast<StringAttr>();
+    StringAttr outputLayouts =
+        op->getAttr("output_layouts").dyn_cast<StringAttr>();
+    StringAttr expectedInputLayouts =
+        op->getAttr("expected_input_layouts").dyn_cast<StringAttr>();
+    StringAttr expectedOutputLayouts =
+        op->getAttr("expected_output_layouts").dyn_cast<StringAttr>();
+
+    DictionaryAttr customAttrs = DictionaryAttr::get(ctx, {});
+    if (op->hasAttr("custom_attrs")) {
+      customAttrs = op->getAttr("custom_attrs").dyn_cast<DictionaryAttr>();
+    }
+    Operation* newOutput = rewriter.create<mhlo_disc::CustomCallV2Op>(
+        loc,
+        TypeRange(resultTypes),
+        operands,
+        callTarget,
+        customAttrs,
+        false, // has_side_effect
+        device,
+        inputPlacements,
+        outputPlacements,
+        inputLayouts,
+        outputLayouts,
+        expectedInputLayouts,
+        expectedOutputLayouts);
+    rewriter.replaceOp(op, newOutput->getResults());
+    return success();
+  }
+
+  LogicalResult matchAndRewrite(
+      OperatorOp op,
+      OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override {
+    Location loc = op.getLoc();
+    auto name = op.name();
+    if (std::find(
+            std::begin(quantizationOpList),
+            std::end(quantizationOpList),
+            name) != std::end(quantizationOpList)) {
+      return convertQuantizationRelatedOp(op, adaptor, rewriter);
+    } else if (name == customCallName) {
+      return convertCustomCallOp(op, adaptor, rewriter);
+    } else {
+      auto emitter = op.emitError();
+      emitter.append(
+          "Currently, only the following types of OperatorOp are supported: ");
+      for (const auto& s : quantizationOpList) {
+        emitter.append(s).append(" ");
+      }
+      emitter.append(customCallName).append("\n");
+      emitter.append("However, got: ");
+      emitter.append(name);
+      return emitter;
+    }
   }
 };
 

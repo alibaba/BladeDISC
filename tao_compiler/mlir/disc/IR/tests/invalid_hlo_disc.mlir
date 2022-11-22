@@ -431,7 +431,7 @@ func.func @custom_call_v2(%input: tensor<?x?xf32>, %weight : tensor<?x?xf32>) ->
       output_placements = "h",
       input_layouts = "AB,AB",
       expected_input_layouts = "AB,AB",
-      output_layouts = "",
+      output_layouts = ",",
       expected_output_layouts = "AB"
   } : (tensor<?x?xf32>, tensor<?x?xf32>) -> tensor<?x?xf32>
   return %output : tensor<?x?xf32>

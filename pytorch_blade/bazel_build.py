@@ -102,7 +102,7 @@ class BazelBuild(TorchBladeBuild):
             "--action_env TORCH_BLADE_TORCH_INSTALL_PATH={}".format(self.torch_dir),
         ] + ['--copt={}'.format(cflag) for cflag in self.pybind11_cflags()]
 
-        if self.torch_major_version >= 1 and self.torch_minor_version == 12:
+        if (self.torch_major_version, self.torch_minor_version) == (1, 12):
             # LTC features only tested on torch==1.12.0+cu113 for now
             self.torch_extra_opts.append("--config=torch_ltc_disc_backend")
         if self.is_debug:
@@ -249,9 +249,12 @@ class BazelBuild(TorchBladeBuild):
         self.test_suites = [
             "//tests/mhlo/...",
             "//pytorch_blade:torch_blade_test_suite",
-            "//tests/torchscript/...",
             "//tests/torch-disc-pdll/tests/...",
         ]
+        if (self.torch_major_version, self.torch_minor_version) > (1,6):
+            # torchscript graph ir parser changed after torch 1.6.
+            # We will not test torchscript graph ir before torch 1.6
+            self.test_suites.append("//tests/torchscript/...")
 
         test_cmd = " ".join(
             [self.shell_setting, self.test_cmd]

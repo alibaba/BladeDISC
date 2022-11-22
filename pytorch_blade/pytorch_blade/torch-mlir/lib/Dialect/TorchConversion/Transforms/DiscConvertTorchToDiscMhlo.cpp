@@ -170,6 +170,10 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
     SmallVector<Type> resultTypes;
     for (const auto& result : op.getResults()) {
       auto torchMlirResultTy = result.getType().dyn_cast<ValueTensorType>();
+      if (!torchMlirResultTy) {
+        return op.emitError(
+            "On torch-mlir, the type returned by custom call needs to be ValueTensor.");
+      }
       auto resultTy = getTypeConverter()
                           ->convertType(torchMlirResultTy)
                           .dyn_cast<RankedTensorType>();
@@ -231,7 +235,7 @@ class ConvertOperatorOp : public OpConversionPattern<OperatorOp> {
         outputLayouts,
         expectedInputLayouts,
         expectedOutputLayouts);
-    rewriter.replaceOp(op, newOutput->getResult(0));
+    rewriter.replaceOp(op, newOutput->getResults());
     return success();
   }
 

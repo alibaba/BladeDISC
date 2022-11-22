@@ -272,6 +272,18 @@ std::unique_ptr<OperationPass<FuncOp>> createDiscBufferDeallocationPass();
 // Rewrites custom call ops according to its layout attribute.
 std::unique_ptr<OperationPass<func::FuncOp>> createDiscCustomCallRewriterPass();
 
+// Convert compute-intensive fusion to the call of FuncOp.
+std::unique_ptr<OperationPass<ModuleOp>> createDiscCompIntensFusionToFuncPass();
+
+// Convert the functions representing compute-intensive fusion into CUDA source
+// code.
+std::unique_ptr<OperationPass<ModuleOp>>
+createDiscCompIntensFusionToCUDASourcePass(int cc_major = 8, int cc_minor = 0);
+
+// Compile GPU source code to library, possibly with host side logic.
+std::unique_ptr<OperationPass<ModuleOp>> createDiscGPUSourceToLibPass(
+    int cc_major = 8, int cc_minor = 0);
+
 }  // namespace disc_ral
 }  // namespace mlir
 

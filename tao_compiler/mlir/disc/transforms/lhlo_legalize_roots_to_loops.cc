@@ -5152,6 +5152,11 @@ struct DiscLhloLegalizeRootsToParallelLoops
   void runOnOperation() override {
     func::FuncOp func = getOperation();
 
+    // skip kdot fusion func.
+    if (func->getAttrOfType<StringAttr>(kFuncCompIntensFusionAttr)) {
+      return;
+    }
+
     // skip shape constraint graph
     if (func.getName() == SymbolicDimMgr::getShapeConstraintGraphFunctionName())
       return;

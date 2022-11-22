@@ -55,6 +55,7 @@ constexpr const char* kRalGpuLaunch = "ral_kernel_launch";
 constexpr const char* kRalCpuLaunch = "ral_kernel_launch";
 constexpr const char* kMalloc = "alloc";
 constexpr const char* kFree = "dealloc";
+constexpr const char* kRalCompIntensFusion = "ral_comp_intens_fusion";
 
 // Encodes a mlir type and appends the encoding to the string buffer `out`.
 LogicalResult getTypeEncoding(MLIRContext* ctx, Type t, StrT& out) {
@@ -603,7 +604,8 @@ LogicalResult ConvertLaunchFuncOpToRalCallPattern::matchAndRewrite(
       LLVM::LLVMPointerType::get(IntegerType::get(rewriter.getContext(), 8));
   Value stream_idx = rewriter.create<LLVM::IntToPtrOp>(loc, pointer_type, zero);
   // clang-format off
-  // TODO(disc): we use the default stream a.t.m. Implement a stream assignment algo in case necessary.
+  // TODO(disc): we use the default stream a.t.m. Implement a stream assignment
+  // algo in case necessary.
   SmallVector<Value, 12> newOperands{
       module_blobs_array_ptr, /* fatbin strings */
       num_blobs, /* number of fatbin strings */
@@ -1021,6 +1023,137 @@ LogicalResult ConvertCpuLaunchOpToDispatchOpPattern::matchAndRewrite(
   return success();
 }
 
+class ConvertSourceCodeOpToDispatchOpPattern
+    : public ConvertOpToLLVMPattern<lmhlo_disc::SourceCodeOp> {
+ public:
+  ConvertSourceCodeOpToDispatchOpPattern(LLVMTypeConverter& type_converter,
+                                         SymbolTable& symbol_table)
+      : ConvertOpToLLVMPattern<lmhlo_disc::SourceCodeOp>(type_converter),
+        symbol_table_(symbol_table) {}
+
+ private:
+  LogicalResult matchAndRewrite(
+      lmhlo_disc::SourceCodeOp source_code_op, OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override;
+  Value generateParamsArray(lmhlo_disc::SourceCodeOp source_code_op,
+                            ValueRange operands, OpBuilder& builder,
+                            int& num_arguments) const;
+  SymbolTable& symbol_table_;
+};
+
+Value ConvertSourceCodeOpToDispatchOpPattern::generateParamsArray(
+    lmhlo_disc::SourceCodeOp source_code_op, ValueRange operands,
+    OpBuilder& builder, int& num_arguments) const {
+  MLIRContext* ctx = builder.getContext();
+
+  Type llvm_pointer_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
+  Type llvm_pointer_pointer_type =
+      LLVM::LLVMPointerType::get(llvm_pointer_type);
+  Type llvm_int32_type = IntegerType::get(ctx, 32);
+
+  Location loc = source_code_op.getLoc();
+  auto arguments = getTypeConverter()->promoteOperands(
+      loc, source_code_op.getOperands(), operands, builder);
+
+  num_arguments = static_cast<int>(arguments.size());
+  SmallVector<Type, 4> argument_types;
+  argument_types.reserve(num_arguments);
+  for (auto argument : arguments) {
+    argument_types.push_back(argument.getType());
+  }
+  auto struct_type =
+      LLVM::LLVMStructType::getNewIdentified(ctx, StringRef(), argument_types);
+  Value one = builder.create<LLVM::ConstantOp>(loc, llvm_int32_type,
+                                               builder.getI32IntegerAttr(1));
+  Value struct_ptr = builder.create<LLVM::AllocaOp>(
+      loc, LLVM::LLVMPointerType::get(struct_type), one, /*alignment=*/0);
+  Value array_size = builder.create<LLVM::ConstantOp>(
+      loc, llvm_int32_type, builder.getI32IntegerAttr(num_arguments));
+  Value array_ptr = builder.create<LLVM::AllocaOp>(
+      loc, llvm_pointer_pointer_type, array_size, /*alignment=*/0);
+  Value zero = builder.create<LLVM::ConstantOp>(loc, llvm_int32_type,
+                                                builder.getI32IntegerAttr(0));
+  for (auto en : llvm::enumerate(arguments)) {
+    Value index = builder.create<LLVM::ConstantOp>(
+        loc, llvm_int32_type, builder.getI32IntegerAttr(en.index()));
+    Value field_ptr = builder.create<LLVM::GEPOp>(
+        loc, LLVM::LLVMPointerType::get(argument_types[en.index()]), struct_ptr,
+        ArrayRef<Value>{zero, index});
+    builder.create<LLVM::StoreOp>(loc, en.value(), field_ptr);
+    Value element_ptr = builder.create<LLVM::GEPOp>(
+        loc, llvm_pointer_pointer_type, array_ptr, index);
+    Value casted =
+        builder.create<LLVM::BitcastOp>(loc, llvm_pointer_type, field_ptr);
+    builder.create<LLVM::StoreOp>(loc, casted, element_ptr);
+  }
+  return array_ptr;
+}
+
+LogicalResult ConvertSourceCodeOpToDispatchOpPattern::matchAndRewrite(
+    lmhlo_disc::SourceCodeOp source_code_op, OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  // Create a global for the kernel name. Make sure the trailing zero is
+  // included in the constant.
+  auto kernel_name = source_code_op.getCallTargetName().str();
+  if (kernel_name.empty()) {
+    return failure();
+  }
+  SmallString<128> kernel_name_buffer(kernel_name);
+  kernel_name_buffer.push_back('\0');
+  Value kernel_name_global =
+      loadOrCreateGlobalString(rewriter, symbol_table_, source_code_op,
+                               kernel_name, kernel_name_buffer.str());
+
+  // Create a global for dyn lib path.
+  auto dyn_lib_path_attr =
+      source_code_op->getAttrOfType<StringAttr>(kDynLibPathAttr);
+  if (!dyn_lib_path_attr) {
+    return failure();
+  }
+  auto dyn_lib_path = dyn_lib_path_attr.getValue();
+  SmallString<128> dyn_lib_path_buffer(dyn_lib_path);
+  dyn_lib_path_buffer.push_back('\0');
+  Value dyn_lib_path_global =
+      loadOrCreateGlobalString(rewriter, symbol_table_, source_code_op,
+                               kDynLibPathAttr, dyn_lib_path_buffer.str());
+
+  // Prepare kernel parameter array.
+  int num_arguments;
+  auto kernel_params = generateParamsArray(
+      source_code_op, adaptor.getOperands(), rewriter, num_arguments);
+  if (!kernel_params) {
+    source_code_op.emitOpError() << "cannot generate parameters.";
+    return failure();
+  }
+
+  // TODO(disc): we use the default stream a.t.m. Implement a stream assignment
+  // algo in case necessary.
+  Location loc = source_code_op.getLoc();
+  auto ctx = rewriter.getContext();
+  Type llvm_int32_type = IntegerType::get(ctx, 32);
+  Type pointer_type = LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
+  Value zero = rewriter.create<LLVM::ConstantOp>(loc, llvm_int32_type,
+                                                 rewriter.getI32IntegerAttr(0));
+  Value stream_idx = rewriter.create<LLVM::IntToPtrOp>(loc, pointer_type, zero);
+
+  SmallVector<Value, 4> newOperands{
+      kernel_name_global,  /* name of the kernel to launch */
+      dyn_lib_path_global, /* path of the dynamic library containing the func*/
+      stream_idx,          /* gpu stream index */
+      kernel_params        /* params for the kernel to launch */
+  };
+
+  // The Ral Context is the first argument of the surrounding LLVMFunc.
+  Value context_arg =
+      source_code_op->getParentOfType<LLVM::LLVMFuncOp>().getArgument(0);
+
+  rewriter.replaceOpWithNewOp<disc_ral::DispatchOp>(
+      source_code_op, llvm::None, context_arg, newOperands,
+      kRalCompIntensFusion, false, "gpu");
+
+  return success();
+}
+
 class DiscToLLVMPass : public DiscToLLVMPassBase<DiscToLLVMPass> {
   void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<LLVM::LLVMDialect>();
@@ -1175,6 +1308,7 @@ void populateDiscToLLVMConversionPatterns(LLVMTypeConverter* converter,
       ConvertLaunchFuncOpToRalCallPattern,
       ConvertMemRefAllocOpToDispatchOpPattern,
       ConvertMemRefDeallocOpToDispatchOpPattern,
+      ConvertSourceCodeOpToDispatchOpPattern,
       DispatchOpToLLVMPattern,
       PrintfToLLVMPattern
     >(*converter, *symbol_table);

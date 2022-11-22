@@ -31,6 +31,8 @@ namespace disc_ral {
 constexpr llvm::StringRef kDhloInputShapeAttr = "disc.input_shape";
 constexpr llvm::StringRef kDhloInputValueAttr = "disc.input_value";
 constexpr llvm::StringRef kFuncEliminatedDeadArgumentsAttr = "disc.elimargs";
+constexpr llvm::StringRef kFuncCompIntensFusionAttr = "disc.comp_intens_fusion";
+constexpr llvm::StringRef kDynLibPathAttr = "disc.dyn_lib_path";
 
 inline SmallVector<Value, 4> getDimSizesOfTensor(PatternRewriter& rewriter,
                                                  Operation* op, Value value) {

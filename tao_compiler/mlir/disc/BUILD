@@ -813,6 +813,7 @@ cc_library(
     hdrs = ["transforms/passes.h"],
     deps = [
         ":disc_ral",
+        ":disc_util",
         ":pass_details",
         ":placement_utils",
         "//tensorflow/compiler/mlir/xla/ral:ral_metadata",
@@ -1948,6 +1949,70 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_comp_intens_fusion_to_func",
+    srcs = ["transforms/disc_comp_intens_fusion_to_func.cc"],
+    deps = [
+        ":fusion_utils",
+        ":pass_details",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "disc_comp_intens_fusion_to_cuda_source",
+    srcs = [
+        "transforms/disc_comp_intens_fusion_to_cuda_source.cc",
+        "utils/gemm_fusion_linear_base_template_sm75.hpp",
+        "utils/gemm_fusion_linear_base_template_sm80.hpp"],
+    deps = [
+        ":disc_util",
+        ":pass_details",
+        ":source_emitter",
+        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+    ],
+    alwayslink = 1,
+)
+
+genrule(
+  name = "cutlass_header_preprocess",
+  srcs = ["cutlass", "utils/cutlass_required_headers.cu"],
+  outs = [
+      "utils/cutlass_header_preprocess.cpp1.ii.h",
+      "utils/cutlass_header_preprocess.cpp4.ii.h"],
+  cmd = """
+        UTILS_DIR=$$(dirname $(location utils/cutlass_required_headers.cu));
+        bash $${UTILS_DIR}/preprocess_cutlass_headers.sh $(SRCS) $(OUTS);
+        sed -i '1s/^/R\"bladedisc_rstr(\\n/' $(location utils/cutlass_header_preprocess.cpp1.ii.h);
+        sed -i '$$s/$$/\\n)bladedisc_rstr\"/' $(location utils/cutlass_header_preprocess.cpp1.ii.h);
+        sed -i '1s/^/R\"bladedisc_rstr(\\n/' $(location utils/cutlass_header_preprocess.cpp4.ii.h);
+        sed -i '$$s/$$/\\n)bladedisc_rstr\"/' $(location utils/cutlass_header_preprocess.cpp4.ii.h)
+        """
+)
+
+disc_cc_library(
+    name = "disc_gpu_source_to_lib",
+    srcs = [
+        "transforms/disc_gpu_source_to_lib.cc",
+    ] + if_cuda_is_configured([
+        ":cutlass_header_preprocess",
+    ]),
+    deps = [
+        ":disc_util",
+        ":lmhlo_disc",
+        ":pass_details",
+        "@llvm-project//mlir:Pass",
+        "//tensorflow/core:lib",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "all_passes",
     hdrs = [
         "transforms/register_passes.h",
@@ -1965,6 +2030,8 @@ cc_library(
         ":disc_assign_memory_space",
         ":disc_buffer_deallocation",
         ":disc_canonicalizer",
+        ":disc_comp_intens_fusion_to_cuda_source",
+        ":disc_comp_intens_fusion_to_func",
         ":disc_dense_to_sparse",
         ":disc_convert_const_to_ral",
         ":disc_convert_fake_quant_op",
@@ -1976,6 +2043,8 @@ cc_library(
         ":disc_for_loop_unroll_interleave",
         ":disc_fuse_splat_const",
         ":disc_fusion",
+        ":disc_gpu_kernel_to_blob",
+        ":disc_gpu_source_to_lib",
         ":disc_hlo_legalize_to_lhlo",
         ":disc_hlo_to_std",
         ":disc_lhlo_legalize_roots_to_loops",
@@ -1984,7 +2053,6 @@ cc_library(
         ":disc_lower_to_library_call",
         ":disc_math_approximation",
         ":disc_memref_canonicalizer",
-        ":disc_gpu_kernel_to_blob",
         ":disc_outline_cpu_kernel",
         ":disc_parallel_loop_collapsing",
         ":disc_parallel_loop_tiling",

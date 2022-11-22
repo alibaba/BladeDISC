@@ -393,7 +393,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   pm.addPass(disc_ral::createDiscAssignMemorySpacePass("main", gpu_enabled));
 
-  bool enable_stitch = isStitchEnabled();
+  bool enable_stitch =
+      isStitchEnabled() || (gpu_enabled && isCompIntensFusionEnabled());
   if (enable_shape_constraint_ir) {
     pm.addNestedPass<FuncOp>(
         disc_ral::createDiscDuplicateComputationForFusionPass(
@@ -419,6 +420,10 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   std::string fusion_strategy = enable_stitch ? "stitch" : "base";
   pm.addNestedPass<FuncOp>(
       disc_ral::createDiscFusionPass(gpu_enabled, fusion_strategy));
+  if (isCompIntensFusionEnabled() && gpu_enabled) {
+    // TODO: move out constant result of kDot fusion.
+    pm.addPass(disc_ral::createDiscCompIntensFusionToFuncPass());
+  }
   if (gpu_enabled) {
     // TODO: Support cpu stitch with splat const
     pm.addNestedPass<FuncOp>(disc_ral::createDiscFuseSplatConstPass());
@@ -532,6 +537,10 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(disc_ral::createLhloFusionInlinerPass());
 
   if (gpu_enabled) {
+    // Lower dot fusion to CUDA.
+    pm.addPass(disc_ral::createDiscCompIntensFusionToCUDASourcePass(
+        gpu_options.cc_major, gpu_options.cc_minor));
+
     pm.addPass(disc_ral::createReviseGpuKernelOutliningPass());
 
     // Device side codegen: gpu.module -> cubin
@@ -577,6 +586,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
         gpu_options.cc_major, gpu_options.cc_minor,
         options.gpu_options.multi_cc_support,
         options.gpu_options.multi_cc_support_dbg_ptx_only));
+
+    pm.addPass(disc_ral::createDiscGPUSourceToLibPass(gpu_options.cc_major,
+                                                      gpu_options.cc_minor));
   } else {
     if (options.cpu_options.fast_math_level > 0) {
       // Approximate Tanh using standard operations.

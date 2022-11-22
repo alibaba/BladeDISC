@@ -184,6 +184,27 @@ cc_library(
 )
 
 cc_library(
+    name = "rewrite-payload-ir-for-ral",
+    srcs = ["transforms/rewrite_payload_ir_for_ral.cc"],
+    deps = [
+        ":pass_details",
+        "//tensorflow/compiler/mlir/disc:placement_utils",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:ArithDialect",
+        "@llvm-project//mlir:LinalgDialect",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "all_passes",
     hdrs = [
         "transforms/passes.h",
@@ -194,6 +215,7 @@ cc_library(
     ],
     deps = [
         ":legalize_lmhlo_fusion_to_linalg",
+        ":rewrite-payload-ir-for-ral",
         ":transform_dialect_interpreter",
         "@llvm-project//mlir:Pass",
     ],

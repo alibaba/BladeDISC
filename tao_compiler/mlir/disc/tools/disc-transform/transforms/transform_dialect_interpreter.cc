@@ -40,6 +40,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Transforms/Passes.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/PassDetail.h"
 
 #define DEBUG_TYPE "disc-transform-dialect-interpreter"
@@ -117,6 +118,7 @@ struct DiscTransformDialectInterpreterPass
         mlir::iree_compiler::IREE::LinalgExt::LinalgExtTransformOpsExtension,
         transform_ext::StructuredTransformOpsExtension>();
     linalg::registerTransformDialectExtension(registry);
+    registerTransformDialectCommonExtension(registry);
   }
 
   void runOnOperation() override;

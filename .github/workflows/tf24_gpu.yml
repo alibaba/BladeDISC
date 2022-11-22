@@ -16,7 +16,6 @@ jobs:
       runner_tag: gpu-a10
       remote_runtime_docker: bladedisc:latest-runtime-tensorflow2.7
       develop_base_image: nvidia/cuda:11.3.0-cudnn8-devel-ubuntu20.04
-      runtime_base_image: nvidia/cuda:11.3.0-cudnn8-devel-ubuntu20.04
       runtime_base_image: tensorflow/tensorflow:2.7.0-gpu
       extra_build_args: --build-arg DISC_HOST_TF_VERSION="tensorflow-gpu==2.7"
       exec_command: bash ./scripts/ci/build_and_test.sh

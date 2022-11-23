@@ -562,7 +562,7 @@ def add_unpack(
 
 
 def make_const_node(
-    graph_def: tf.GraphDef, name: str, data_type: int, data: np.array,
+    graph_def: tf.GraphDef, name: str, data_type: int, data: np.ndarray,
 ) -> None:
     dtype = tf.DType(data_type)
     data = np.asarray(data, dtype=dtype.as_numpy_dtype)

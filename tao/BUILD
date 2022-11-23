@@ -148,6 +148,8 @@ genrule(
     outs = ["serving/libtao_ops.so"],
     cmd = """
         cp $(location :libtao_ops.so) $@;
+        ls -alF $@;
+        ldd $@;
         patchelf --remove-needed libtensorflow_framework.so.%s $@
     """ % tf_major_version(),
 )

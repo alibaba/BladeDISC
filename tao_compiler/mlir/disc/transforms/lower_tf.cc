@@ -1520,20 +1520,9 @@ void PrepareTFPass::runOnOperation() {
 
   // add pre-defined pdl patterns
   populateDiscPdlPatternsFromString(&patterns, getPredefinedPDLPatterns());
-  auto parser = [&](const std::string& str) {
-    std::vector<std::string> parsedStrs;
-    if (str.empty()) return parsedStrs;
-    SmallVector<StringRef> items;
-    StringRef(str.data(), str.size())
-        .split(items, ',', /*MaxSplit=*/-1,
-               /*KeepEmpty=*/false);
-    for (const auto& item : items) {
-      parsedStrs.push_back(item.str());
-    }
-    return parsedStrs;
-  };
-  populateDiscPdlPatternsFromFiles(&patterns, parser(pdll_files_),
-                                   parser(pdll_include_dirs_));
+
+  populateDiscPdlPatternsFromFiles(&patterns, ParseFileString(pdll_files_),
+                                   ParseFileString(pdll_include_dirs_));
 
   populateWithGenerated(patterns);
   // clang-format off

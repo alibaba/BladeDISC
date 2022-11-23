@@ -37,6 +37,16 @@ gentbl_cc_library(
 )
 
 cc_library(
+    name = "DiscTorchMLIRUtils",
+    srcs = ["lib/utils/env.cpp"],
+    hdrs = ["include/utils/env.h"],
+    strip_include_prefix = "include",
+    deps = [
+        "@llvm-project//llvm:Support",
+    ]
+)
+
+cc_library(
     name = "DiscTorchMLIRTorchToMhlo",
     srcs = [
         "lib/Conversion/MhloPasses.cpp",
@@ -46,21 +56,25 @@ cc_library(
         "lib/Dialect/TorchConversion/Transforms/ReduceTensorConversions.cpp",
         "lib/Dialect/TorchConversion/Transforms/DiscDecomposeComplexOps.cpp",
         "lib/Dialect/TorchConversion/Transforms/DiscConvertTorchToDiscMhlo.cpp",
+        "lib/Dialect/TorchConversion/Transforms/ApplyDiscPdlPatterns.cpp",
     ],
     hdrs = [
         "include/torch-mlir/Conversion/MhloPasses.h",
     ],
     strip_include_prefix = "include",
     deps = [
+        ":DiscTorchMLIRUtils",
         ":TorchMLIRConversionMhloPassesIncGen",
         "@mlir-hlo//:mlir_hlo",
         "@org_tensorflow//tensorflow/compiler/mlir/disc:mhlo_disc",
+        "@org_tensorflow//tensorflow/compiler/mlir/disc:disc_pdl_utils",
         "@llvm-project//mlir:Dialect",
         "@torch-mlir//:TorchMLIRTorchBackendTypeConversion",
         "@torch-mlir//:TorchMLIRTorchConversionDialect",
         "@torch-mlir//:TorchMLIRTorchConversionPasses",
         "@torch-mlir//:TorchMLIRTorchConversionPassesIncGen",
         "@torch-mlir//:TorchMLIRConversionPassesIncGen",
+        "//tests/torch-disc-pdll:utils",
     ]
 )
 

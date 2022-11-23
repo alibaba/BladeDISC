@@ -31,6 +31,7 @@
 
 #include "lib/Conversion/TorchToMhlo/MhloLegalizeUtils.h"
 #include "stablehlo/dialect/ChloOps.h"
+#include "torch-mlir/Conversion/Utils/Utils.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
 #include "torch-mlir/Dialect/Torch/Utils/TorchUpstream.h"
@@ -88,6 +89,63 @@ class ConvertAtenOp : public OpConversionPattern<AtenOpT> {
       OpAdaptor adaptor,
       ConversionPatternRewriter& rewriter) const override;
 };
+} // namespace
+
+namespace {
+template <>
+LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
+    OperatorOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  Location loc = op.getLoc();
+  auto name = op.name();
+  if (std::string("aten.einsum") == name) {
+    auto outTy = getTypeConverter()
+                     ->convertType(op.getResult(0).getType())
+                     .dyn_cast<mlir::RankedTensorType>();
+    SmallVector<Value> torchTensors;
+    if (!getListConstructElements(op.getOperand(1), torchTensors))
+      return rewriter.notifyMatchFailure(
+          op, "tensors should come from a PrimListConstructOp");
+
+    if (torchTensors.size() > 2)
+      return rewriter.notifyMatchFailure(
+          op, "aten::einsum with more than 2 inputs are not supported yet");
+
+    SmallVector<Value> builtinTensors = Torch::getTypeConvertedValues(
+        rewriter, op->getLoc(), getTypeConverter(), torchTensors);
+
+    std::string equation;
+    if (!matchPattern(op.getOperand(0), m_TorchConstantStr(equation)))
+      return rewriter.notifyMatchFailure(op, "unknown equation");
+    // TODO: an equation with "..." may require for implicit broadcast
+    // and is not supported a.t.m.
+    if (equation.find("...") != std::string::npos)
+      return rewriter.notifyMatchFailure(
+          op, "unsupported equation for aten::einsum");
+
+    Value lhs = builtinTensors[0];
+    Value rhs = builtinTensors[1];
+    auto lhsTy = lhs.getType().dyn_cast<mlir::RankedTensorType>();
+    auto rhsTy = rhs.getType().dyn_cast<mlir::RankedTensorType>();
+    if (lhsTy.getElementType() != outTy.getElementType()) {
+      lhs = rewriter.create<mlir::mhlo::ConvertOp>(
+          loc, lhs, outTy.getElementType());
+    }
+    if (rhsTy.getElementType() != outTy.getElementType()) {
+      rhs = rewriter.create<mlir::mhlo::ConvertOp>(
+          loc, rhs, outTy.getElementType());
+    }
+    rewriter.replaceOpWithNewOp<mhlo::EinsumOp>(
+        op,
+        outTy,
+        lhs,
+        rhs,
+        mlir::StringAttr::get(rewriter.getContext(), equation));
+    return success();
+  }
+  return failure();
+}
 } // namespace
 
 namespace {
@@ -1087,11 +1145,24 @@ class DiscConvertTorchToMhlo
     TorchConversion::setupBackendTypeConversion(target, typeConverter);
 
     RewritePatternSet patterns(context);
+    auto opIsDynamicallyLegal = [&](OperatorOp op) {
+      if ("aten.einsum" == op.name()) {
+        return false;
+      }
+      return true;
+    };
+
+    // Won't mark OperatorOp as illegal, some custom operator may remain
+    // unconverted.
+    target.addDynamicallyLegalOp<OperatorOp>(opIsDynamicallyLegal);
+    patterns.add<ConvertAtenOp<OperatorOp>>(typeConverter, context);
+
 #define INSERT_UNARY_CONVERT_PATTERN(AtenOp) \
   target.addIllegalOp<AtenOp>();             \
   patterns.add<ConvertAtenUnaryConvertOp<AtenOp>>(typeConverter, context);
     INSERT_UNARY_CONVERT_PATTERN(AtenContiguousOp);
     INSERT_UNARY_CONVERT_PATTERN(AtenToDtypeOp);
+    INSERT_UNARY_CONVERT_PATTERN(AtenToDtypeLayoutOp);
     INSERT_UNARY_CONVERT_PATTERN(AtenTypeAsOp);
 #undef INSERT_UNARY_CONVERT_PATTERN
 

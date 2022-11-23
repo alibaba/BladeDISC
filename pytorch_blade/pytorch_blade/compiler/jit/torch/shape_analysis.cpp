@@ -1101,6 +1101,10 @@ class ShapePropagator : public PropertyPropBase {
             "aten::mul_(Tensor self, Tensor other) -> Tensor",
             "aten::div(Tensor self, Tensor other) -> Tensor",
             "aten::div_(Tensor self, Tensor other) -> Tensor",
+#if PYTORCH_VERSION_GE(1, 9)
+            "aten::div.Tensor_mode(Tensor self, Tensor other, *, str? rounding_mode) -> Tensor",
+            "aten::div_.Tensor_mode(Tensor self, Tensor other, *, str? rounding_mode) -> Tensor",
+#endif // PYTORCH_VERSION_GE(1, 9)
             "aten::floor_divide(Tensor self, Tensor other) -> Tensor",
             "aten::floor_divide_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)",
         },
@@ -1921,6 +1925,29 @@ class ShapePropagator : public PropertyPropBase {
         node->output()->setType(type->withDim(1));
         return true;
       }
+#if PYTORCH_VERSION_LE(1, 12)
+    } else if (node->matches(
+                   "aten::einsum(str equation, Tensor[] tensors) -> Tensor")) {
+#else
+    } else if (
+        node->matches(
+            "aten::einsum(str equation, Tensor[] tensors, *, int[]? path=None) -> Tensor")) {
+#endif // PYTORCH_VERSION_LE(1, 12)
+      auto equation = node->get<std::string>(attr::equation).value();
+      auto found = equation.find("->");
+      if (found == std::string::npos)
+        return false;
+      size_t rank = 0;
+      while (found < equation.length()) {
+        char ch = equation[found++];
+        if ((ch <= 'z' && ch >= 'a') || (ch <= 'Z' && ch >= 'A'))
+          rank++;
+      }
+      if (auto type = input_type(0)) {
+        node->output()->setType(type->withDim(rank));
+        return true;
+      }
+      return false;
     } else if (
         node->matches(
             "aten::tensor(t[] data, *, int? dtype=None, Device? device=None, bool requires_grad=False) -> (Tensor)")) {

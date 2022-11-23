@@ -34,7 +34,9 @@
   RECORD_FUNCTION(func_name, inputs)
 
 #define PYTORCH_VERSION_GE(major, minor) \
-  (PYTORCH_MAJOR_VERSION == major && PYTORCH_MINOR_VERSION >= minor)
+  (PYTORCH_MAJOR_VERSION > major ||      \
+   PYTORCH_MAJOR_VERSION == major && PYTORCH_MINOR_VERSION >= minor)
 
 #define PYTORCH_VERSION_LE(major, minor) \
-  (PYTORCH_MAJOR_VERSION == major && PYTORCH_MINOR_VERSION <= minor)
+  (PYTORCH_MAJOR_VERSION < major ||      \
+   PYTORCH_MAJOR_VERSION == major && PYTORCH_MINOR_VERSION <= minor)

@@ -611,7 +611,7 @@ def get_unique_name(unique_name: str, graph_def: tf.GraphDef) -> str:
 def get_const_value(node: tf.NodeDef) -> np.ndarray:
     # Alternatively
     # tf.contrib.util.constant_value(tensor) will get a tensor"s constant value
-    return tensor_util.MakeNdarray(node.attr["value"].tensor)
+    return np.array(tensor_util.MakeNdarray(node.attr["value"].tensor))
 
 
 def get_const_value_by_name(

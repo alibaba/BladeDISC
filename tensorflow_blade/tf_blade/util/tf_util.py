@@ -104,7 +104,7 @@ def get_output_shape(
 
 
 def get_value_from_const(node: tf.NodeDef) -> np.ndarray:
-    return tf.make_ndarray(node.attr["value"].tensor)
+    return np.array(tf.make_ndarray(node.attr["value"].tensor))
 
 
 def make_const_node(

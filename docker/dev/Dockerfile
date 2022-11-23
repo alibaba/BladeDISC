@@ -16,7 +16,7 @@ ENV ENABLE_FIND_FASTEST_APT_SOURCE=${ENABLE_FIND_FASTEST_APT_SOURCE}
 COPY docker/scripts /install/scripts
 
 RUN bash /install/scripts/find-fastest-apt.sh
-RUN apt-get install -y git curl vim libssl-dev wget unzip openjdk-11-jdk
+RUN apt-get update -y && apt-get install -y git curl vim libssl-dev wget unzip openjdk-11-jdk patchelf
 RUN bash /install/scripts/install-cmake.sh
 RUN bash /install/scripts/install-bazel.sh
 RUN bash /install/scripts/install-python.sh

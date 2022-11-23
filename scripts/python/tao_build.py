@@ -691,19 +691,18 @@ def make_package(root, args):
         logger.info("sdk package created : " + dsw_tgz)
 
         # pkg for tf serving
-        if args.platform_alibaba:
-            serving_tgz = "{}/tao/tao_serving_sdk_{}.tgz".format(root, args.version)
-            tao_bazel_root = tao_bazel_dir(root)
-            with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
-                execute(f"bazel build {tao_bridge_bazel_config(args)} //:lib_tao_serving_genrule")
-            F_TAO_OPS_SERVING_SO = "./tao/bazel-bin/serving/libtao_ops.so"
-            with tarfile.open(serving_tgz, "w:gz") as tar:
-                add_to_tar(tar, F_TAO_COMPILER_MAIN)
-                add_to_tar(tar, F_TAO_OPS_SERVING_SO)
-                add_to_tar(tar, build_info_file)
-                if libstdcxx_path:
-                    add_to_tar(tar, libstdcxx_path, name_in_tar=libstdcxx_name)
-            logger.info(f"sdk package for serving created : {serving_tgz}")
+        serving_tgz = "{}/tao/tao_serving_sdk_{}.tgz".format(root, args.version)
+        tao_bazel_root = tao_bazel_dir(root)
+        with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
+            execute(f"bazel build {tao_bridge_bazel_config(args)} //:lib_tao_serving_genrule")
+        F_TAO_OPS_SERVING_SO = "./tao/bazel-bin/serving/libtao_ops.so"
+        with tarfile.open(serving_tgz, "w:gz") as tar:
+            add_to_tar(tar, F_TAO_COMPILER_MAIN)
+            add_to_tar(tar, F_TAO_OPS_SERVING_SO)
+            add_to_tar(tar, build_info_file)
+            if libstdcxx_path:
+                add_to_tar(tar, libstdcxx_path, name_in_tar=libstdcxx_name)
+        logger.info(f"sdk package for serving created : {serving_tgz}")
 
         logger.info("Stage [make_package] success.")
 

@@ -83,8 +83,7 @@ static bool wouldOpBeTriviallyDeadImplDisc(Operation* rootOp) {
   }
 
   // Modification 2:
-  // If we get here, none of the operations had effects that prevented marking
-  // 'op' as dead.
+  // If we get here, we mark the op as "dead".
   return true;
 }
 
@@ -124,42 +123,16 @@ struct PdlDeadCodeElimination : public RewritePattern {
       : RewritePattern(MatchAnyOpTypeTag(), 1, context) {}
 
   bool isInplaceSafe(Value& input) const {
-    if (input.getType().isa<mlir::torch::Torch::ValueTensorType>()) {
-      return true;
+    if (input.getType().isa<mlir::torch::Torch::NonValueTensorType>()) {
+      return false;
     }
-    int64_t int_val;
-    if (matchPattern(input, mlir::torch::Torch::m_TorchConstantInt(&int_val))) {
-      return true;
-    }
-    double double_val;
-    if (matchPattern(
-            input, mlir::torch::Torch::m_TorchConstantFloat(&double_val))) {
-      return true;
-    }
-    std::string string_val;
-    if (matchPattern(
-            input, mlir::torch::Torch::m_TorchConstantStr(string_val))) {
-      return true;
-    }
-
-    bool bool_val;
-    if (matchPattern(
-            input, mlir::torch::Torch::m_TorchConstantBool(&bool_val))) {
-      return true;
-    }
-
-    SmallVector<int64_t> int_list_val;
-    if (matchPattern(
-            input, mlir::torch::Torch::m_TorchConstantIntList(int_list_val))) {
-      return true;
-    }
-    return false;
+    return true;
   }
 
   LogicalResult matchAndRewrite(Operation* op, PatternRewriter& rewriter)
       const override {
     for (Value operand : op->getOperands()) {
-      // All inputs must be ValueTensorType or constant.
+      // All inputs must not be NonValueTensorType.
       if (!isInplaceSafe(operand)) {
         return failure();
       }

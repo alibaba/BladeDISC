@@ -3796,7 +3796,16 @@ LogicalResult HandleGpuFusionOp(OpBuilder& b, Operation* fusion,
     values_in_fusion.insert(results.begin(), results.end());
     analysis_deprecated->buildEqualShapesInFusion(fusion, values_in_fusion);
   }
-  LLVM_DEBUG(createPrintFusionParams(fusion_op, fusion_pattern));
+
+  // Debug tool to print fusion kernel parameters in the following format:
+  //   func_name operand m dims: x, y
+  //   func_name result n dims: p, q
+  bool print_params_enabled = false;
+  tensorflow::ReadBoolFromEnvVar("DISC_DEBUG_PRINT_FUSION_PARAMS",
+                                 print_params_enabled, &print_params_enabled);
+  if (print_params_enabled) {
+    createPrintFusionParams(fusion_op, fusion_pattern);
+  }
 
   auto root_ops = fusion_pattern.getRootOps();
   auto fused_block = &(fusion_op.getRegion().front());

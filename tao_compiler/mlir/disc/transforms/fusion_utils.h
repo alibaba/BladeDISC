@@ -218,6 +218,9 @@ class FusionPatternBase {
   // are only consumed by the lmhlo ops outside the fused pattern.
   FusionValueList& getExternalOnlyResults() { return external_only_results_; }
 
+  // Return last writer map of ops in the fusion pattern.
+  DenseMap<Value, Operation*>& getLastWriter() { return last_writer_; }
+
   // Returns the size of the ops this fusion pattern contains.
   int size() { return op_list_.size(); }
 

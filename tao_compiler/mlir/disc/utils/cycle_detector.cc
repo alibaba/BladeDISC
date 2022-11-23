@@ -338,4 +338,10 @@ std::vector<int32_t> GraphCycles::AllNodesInPostOrder() const {
   return all_nodes;
 }
 
+bool GraphCycles::IsActivateNode(int32_t node) const {
+  llvm::DenseSet<int32_t> free_nodes_set(rep_->free_nodes.begin(),
+                                         rep_->free_nodes.end());
+  return !free_nodes_set.contains(node);
+}
+
 }  // namespace mlir

@@ -146,16 +146,6 @@ std::string CUDAMathFuncName<lmhlo::Log1pOp>(Type type) {
 }
 
 template <>
-std::string CUDAMathFuncName<lmhlo::NegOp>(Type type) {
-  return "(-)";
-}
-
-template <>
-std::string CUDAMathFuncName<lmhlo::NotOp>(Type type) {
-  return "(!)";
-}
-
-template <>
 std::string CUDAMathFuncName<lmhlo::RsqrtOp>(Type type) {
   if (type.isBF16() || type.isF16()) {
     return "hrsqrt";
@@ -289,12 +279,10 @@ llvm::Optional<std::string> SourceEmitterCUDA::EmitElemWiseUnaryOp(
         CUDAMathFuncName<lmhlo::Log1pOp>(result_type) + "(" + input_str + ")";
   } else if (isa<lmhlo::NegOp>(op)) {
     result_name = EmitUniqueName("neg");
-    expression =
-        CUDAMathFuncName<lmhlo::NegOp>(result_type) + "(" + input_str + ")";
+    expression = "(-(" + input_str + "))";
   } else if (isa<lmhlo::NotOp>(op)) {
     result_name = EmitUniqueName("not");
-    expression =
-        CUDAMathFuncName<lmhlo::NotOp>(result_type) + "(" + input_str + ")";
+    expression = "(!(" + input_str + "))";
   } else if (isa<lmhlo::RsqrtOp>(op)) {
     result_name = EmitUniqueName("rsqrt");
     expression =

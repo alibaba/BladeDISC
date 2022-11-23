@@ -160,9 +160,9 @@ void getDirectConsumerOps(Operation* op,
   }
 }
 
-void getDirectProducerOpsInFusionPattern(
-    Operation* op, FusionPattern fusion_pattern,
-    DenseSet<Operation*>& producers) {
+void getDirectProducerOpsInFusionPattern(Operation* op,
+                                         FusionPattern& fusion_pattern,
+                                         DenseSet<Operation*>& producers) {
   producers.clear();
 
   auto& op_list = fusion_pattern.getOpList();

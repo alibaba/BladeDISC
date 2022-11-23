@@ -151,6 +151,9 @@ class GraphCycles {
   // returned vector.
   std::vector<int32_t> AllNodesInPostOrder() const;
 
+  // Return whether git given node is activate in the cycle graph.
+  bool IsActivateNode(int32_t node) const;
+
   // ----------------------------------------------------
   struct Rep;
 

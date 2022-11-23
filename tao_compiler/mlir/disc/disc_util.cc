@@ -218,6 +218,17 @@ bool useHorizontalFusion() {
   return enabled;
 }
 
+// Returns true if `DISC_ENABLE_TRANSFORM_SCHEDULE` is true
+bool useTransformSchedule() {
+  static bool enabled = []() {
+    bool enabled = false;
+    tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_TRANSFORM_SCHEDULE", enabled,
+                                   &enabled);
+    return enabled;
+  }();
+  return enabled;
+}
+
 bool lowerFakeQuantToQuantAndDequant() {
   static bool enabled = []() {
     bool enabled = false;

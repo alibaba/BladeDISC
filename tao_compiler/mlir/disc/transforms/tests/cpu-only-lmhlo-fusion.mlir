@@ -1,5 +1,5 @@
 // RUN: disc-opt -pass-pipeline='func.func(disc-fusion{gpu-enabled=false fusion-strategy=base})' -split-input-file %s -o - | FileCheck %s --check-prefix=BASE
-// RUN: DISC_ENABLE_COMPUTE_INTENSIVE_FUSE=1 disc-opt -pass-pipeline='func.func(disc-fusion{gpu-enabled=false fusion-strategy=stitch})' -split-input-file %s -o - | FileCheck %s --check-prefix=TRANSFORM
+// RUN: DISC_ENABLE_TRANSFORM_SCHEDULE=1 disc-opt -pass-pipeline='func.func(disc-fusion{gpu-enabled=false fusion-strategy=stitch})' -split-input-file %s -o - | FileCheck %s --check-prefix=TRANSFORM
 
 // BASE-LABEL: @custom_call_op
 // BASE-SAME: (%[[ARG0:.*]]: memref<?x?xf32, "cpu">, %[[ARG1:.*]]: memref<?x?xf32, "cpu">, %[[ARG2:.*]]: memref<?x?xf32, "cpu">, %[[ARG3:.*]]: memref<?x?xf32, "cpu">) -> memref<?x?xf32, "cpu">

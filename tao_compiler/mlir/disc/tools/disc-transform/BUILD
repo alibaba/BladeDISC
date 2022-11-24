@@ -21,6 +21,86 @@ package_group(
 )
 
 gentbl_cc_library(
+    name = "transform_ops_inc_gen",
+    compatible_with = get_compatible_with_cloud(),
+    strip_include_prefix = "",
+    tbl_outs = [
+        (
+            ["-gen-op-decls"],
+            "TransformOps/TransformOpsExt.h.inc",
+        ),
+        (
+            ["-gen-op-defs"],
+            "TransformOps/TransformOpsExt.cc.inc",
+        ),
+    ],
+    tblgen = "@llvm-project//mlir:mlir-tblgen",
+    td_file = "TransformOps/TransformOpsExt.td",
+    deps = [
+        "@llvm-project//mlir:BuiltinDialectTdFiles",
+        "@llvm-project//mlir:ControlFlowInterfacesTdFiles",
+        "@llvm-project//mlir:CopyOpInterfaceTdFiles",
+        "@llvm-project//mlir:LoopLikeInterfaceTdFiles",
+        "@llvm-project//mlir:OpBaseTdFiles",
+        "@llvm-project//mlir:SideEffectInterfacesTdFiles",
+        "@llvm-project//mlir:TransformDialectTdFiles",
+        "@llvm-project//mlir:PDLDialectTdFiles",
+    ],
+)
+
+cc_library(
+    name = "disc_transform_ops",
+    srcs = [
+        "TransformOps/TransformOpsExt.cc",
+        "TransformOps/TransformOpsExt.cc.inc",
+        "TransformOps/TransformOpsExt.h.inc",
+    ],
+    hdrs = [
+        "TransformOps/TransformOpsExt.h",
+    ],
+    deps = [
+        ":transform_ops_inc_gen",
+        "@iree-dialects//:IREELinalgExtDialect",
+        "@iree-dialects//:IREELinalgExtTransformOps",
+        "@iree-dialects//:IREELinalgTransformDialect",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:AffineDialect",
+        "@llvm-project//mlir:Analysis",
+        "@llvm-project//mlir:ArithDialect",
+        "@llvm-project//mlir:ArithUtils",
+        "@llvm-project//mlir:BufferizationDialect",
+        "@llvm-project//mlir:BufferizationTransforms",
+        "@llvm-project//mlir:ControlFlowDialect",
+        "@llvm-project//mlir:DestinationStyleOpInterface",
+        "@llvm-project//mlir:DialectUtils",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:FuncTransforms",
+        "@llvm-project//mlir:GPUDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:InferTypeOpInterface",
+        "@llvm-project//mlir:LinalgDialect",
+        "@llvm-project//mlir:LinalgTransformOps",
+        "@llvm-project//mlir:LinalgUtils",
+        "@llvm-project//mlir:MathDialect",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:PDLDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:ShapeTransforms",
+        "@llvm-project//mlir:SideEffectInterfaces",
+        "@llvm-project//mlir:SparseTensorDialect",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:TensorUtils",
+        "@llvm-project//mlir:TransformDialect",
+        "@llvm-project//mlir:TransformUtils",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+gentbl_cc_library(
     name = "TransformPassIncGen",
     compatible_with = get_compatible_with_cloud(),
     strip_include_prefix = "",
@@ -77,6 +157,7 @@ cc_library(
     name = "transform_dialect_interpreter",
     srcs = ["transforms/transform_dialect_interpreter.cc"],
     deps = [
+        ":disc_transform_ops",
         ":pass_details",
         "@iree-dialects//:IREELinalgExtDialect",
         "@iree-dialects//:IREELinalgExtTransformOps",

@@ -131,10 +131,11 @@ class DiscPdlCase(TestCase):
         super().setUp()
         p = os.path.dirname(__file__)
         if self.device == torch.device('cuda'):
-            self.pdll_dir = os.path.join(p, "pdl/pdll_files/gpu")
+            self.device_pdll_dir = os.path.join(p, "pdl/pdll_files/gpu")
         else:
             # todo: A further distinction between x86 and aarch64 may be required
-            self.pdll_dir = os.path.join(p, "pdl/pdll_files/cpu")
+            self.device_pdll_dir = os.path.join(p, "pdl/pdll_files/cpu")
+        self.common_pdll_dir = os.path.join(p, "pdl/pdll_files/common")
 
     def _test_torchscipte_to_mhlo(self, module, expected_str, pdll_files=None, pdll_dirs=None, enable_int8=False):
         env_var = {}

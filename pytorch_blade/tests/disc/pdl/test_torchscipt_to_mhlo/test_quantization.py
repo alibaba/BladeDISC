@@ -60,8 +60,8 @@ class TestLinear(DiscPdlCase):
         inp = torch.randn(1, 2, 128).to(self.device)
         traced_model = torch.jit.trace(model, inp)
         pdll_files = [
-            os.path.join(self.pdll_dir, "fake_quant.pdll"),
-            os.path.join(self.pdll_dir, "dequant_gemm_quant.pdll")
+            os.path.join(self.common_pdll_dir, "fake_quant.pdll"),
+            os.path.join(self.device_pdll_dir, "dequant_gemm_quant.pdll")
         ]
         pdll_files = ",".join(pdll_files)
         expect_str = """

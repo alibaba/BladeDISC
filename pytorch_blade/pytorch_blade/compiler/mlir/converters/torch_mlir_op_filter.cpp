@@ -56,6 +56,7 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "aten::conv1d",
       "aten::conv2d",
       "aten::div",
+      "aten::einsum",
       "aten::embedding",
       "aten::eq",
       "aten::gt",

@@ -135,7 +135,6 @@ class TestDiscMatMul(DiscTestCase):
 
         self._test_cvt_to_disc(addmm, (M, mat1, mat2))
 
-    @skipIfEnableTorchMlir()
     def test_einsum(self):
         @torch.jit.script
         def einsum_0(x, y):

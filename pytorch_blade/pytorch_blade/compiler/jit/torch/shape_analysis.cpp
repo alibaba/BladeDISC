@@ -2188,8 +2188,7 @@ class ShapePropagator : public PropertyPropBase {
           return false;
         std::vector<ShapeSymbol> new_sizes = sizesOptional.value();
         int64_t dim = dimOptional.value();
-        // set default to dynamic
-        new_sizes[dim] = ShapeSymbol::newSymbol();
+
         auto startOptional = node->get<IValue>(attr::start);
         auto endOptional = node->get<IValue>(attr::end);
         if (new_sizes[dim].is_static() && startOptional && endOptional) {
@@ -2204,6 +2203,9 @@ class ShapePropagator : public PropertyPropBase {
             end = new_sizes[dim].static_size();
           int64_t len = end - start;
           new_sizes[dim] = ShapeSymbol::fromStaticSize((len + step - 1) / step);
+        } else {
+          // set default to dynamic
+          new_sizes[dim] = ShapeSymbol::newSymbol();
         }
         node->outputs()[0]->setType(type->withSymbolicShapes(new_sizes));
       }

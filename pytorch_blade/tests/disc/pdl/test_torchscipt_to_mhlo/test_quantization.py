@@ -30,14 +30,14 @@ class TestLinear(DiscPdlCase):
                 self.input_zero_point = 0
                 self.output_scale = 0.2
                 self.output_zero_point = 0
-                self.weight_scale = torch.randn(128)
-                self.weight_zero_point = torch.zeros(128).to(zero_point_dtype)
+                self.register_buffer("weight_scale", torch.randn(128))
+                self.register_buffer("weight_zero_point", torch.zeros(128).to(zero_point_dtype))
                 self.weight_quant_min = -128
                 self.weight_quant_max = 127
                 self.activation_quant_min = -128
                 self.activation_quant_max = 127
-                self.weight = torch.randn(128, 128)
-                self.bias = torch.randn(128)
+                self.register_buffer("weight", torch.randn(128, 128))
+                self.register_buffer("bias", torch.randn(128))
                 self.ch_axis = 0
 
             def forward(self, x):

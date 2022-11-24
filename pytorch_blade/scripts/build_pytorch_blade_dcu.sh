@@ -1,0 +1,71 @@
+# Copyright 2021 The BladeDISC Authors. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# !/bin/bash
+set -o pipefail
+set -e
+export ROCM_HOME=${ROCM_HOME:-/opt/dtk-22.04.2}
+export TF_ROCM_HOME=${ROCM_HOME}
+export ROCMCXX=${ROCMCXX:-"${ROCM_HOME}/bin/hipcc"}
+export PATH=${ROCM_HOME}/bin/:$PATH
+# Build TorchBlade with DEBUG
+# export DEBUG=1
+export TORCH_BLADE_USE_ROCM=${TORCH_BLADE_USE_ROCM:-ON}
+export TORCH_BLADE_BUILD_MLIR_SUPPORT=${TORCH_BLADE_BUILD_MLIR_SUPPORT:-ON}
+export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=${TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT:-OFF}
+export TORCH_BLADE_BUILD_WITH_ROCM_SUPPORT=${TORCH_BLADE_BUILD_WITH_ROCM_SUPPORT:-ON}
+export TORCH_BLADE_DISABLE_PATCHELF_CUDA_SONAMES=${TORCH_BLADE_DISABLE_PATCHELF_CUDA_SONAMES:-OFF} 
+#function pip_install_deps() {
+    # set TORCH_BLADE_CI_BUILD_TORCH_VERSION default to 1.7.1+cu110
+    #TORCH_BLADE_CI_BUILD_TORCH_VERSION=${TORCH_BLADE_CI_BUILD_TORCH_VERSION:-1.7.1+cu110}
+    #requirements=requirements-dev-${TORCH_BLADE_CI_BUILD_TORCH_VERSION}.txt
+    #python3 -m pip install --upgrade pip
+    #python3 -m pip install virtualenv
+    #python3 -m pip install -r scripts/pip/${requirements} -f https://download.pytorch.org/whl/torch_stable.html
+#}
+ 
+function ci_build() {
+    echo "DO TORCH_BLADE CI_BUILD"
+   # pip_install_deps
+ 
+    if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" = "ON"  ]; then
+      export TORCH_BLADE_BUILD_TENSORRT=ON
+      export TORCH_BLADE_BUILD_TENSORRT_STATIC=${TORCH_BLADE_BUILD_TENSORRT_STATIC:-OFF}
+      python3 ../scripts/python/common_setup.py
+    elif [ "$TORCH_BLADE_BUILD_WITH_ROCM_SUPPORT" = "ON"  ]; then
+    export TORCH_BLADE_BUILD_TENSORRT=OFF
+    export TORCH_BLADE_BUILD_TENSORRT_STATIC=${TORCH_BLADE_BUILD_TENSORRT_STATIC:-OFF}
+    python3 ../scripts/python/common_setup.py --dcu --rocm_path=/opt/dtk-22.04.2
+    else
+      python3 ../scripts/python/common_setup.py --cpu_only
+    fi
+    TORCH_LIB=$(python -c 'import torch; import os; print(os.path.dirname(os.path.abspath(torch.__file__)) + "/lib/")') \
+    export LD_LIBRARY_PATH=$TORCH_LIB:$LD_LIBRARY_PATH \
+ 
+    export TORCH_BLADE_SKIP_DISC_CMD_BUILD=OFF
+    rm -rf build && python3 setup.py develop;
+    # The following are UNIT TESTS
+    export TORCH_BLADE_DEBUG_LOG=ON
+    # disable tf32 on A100
+#    export NVIDIA_TF32_OVERRIDE=0
+    #pytest tests -v 2>&1 | tee -a py_test.out
+    #TORCH_DISC_USE_TORCH_MLIR=true pytest tests/disc/ops/ -v -k \
+    #         "TestDiscActivation or TestDiscUnaryOps or TestDiscBinaryOps or \
+    #          TestDiscBroadcast or TestDiscReduction or TestDiscMatMul or \
+    #          TestDiscPermutation or TestDiscShapes or TestDiscSlices or \
+    #          TestDiscMemOps or TestConstOps or TestDiscLayerNorm"
+    # DEBUG=1 will trigger debug mode compilation
+    #DEBUG=1 python3 setup.py cpp_test 2>&1 | tee -a cpp_test.out;
+    python3 setup.py bdist_wheel;
+}
+ 
+# Build
+ci_build

@@ -44,13 +44,7 @@ namespace disc_ral {
 
 namespace {
 
-// Returns a new memref type with provided memory space
-MemRefType copyWithMemorySpace(MLIRContext* ctx, MemRefType type,
-                               StringRef memory_space) {
-  Attribute memSpace = StringAttr::get(ctx, memory_space);
-  return MemRefType::get(type.getShape(), type.getElementType(),
-                         type.getLayout(), memSpace);
-}
+using placement_utils::copyWithMemorySpace;
 
 // return a new memref type with provided memory space if the input type if a
 // memref type otherwise return the original type.

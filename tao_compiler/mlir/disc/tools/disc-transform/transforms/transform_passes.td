@@ -30,3 +30,12 @@ def DiscTransformDialectInterpreterPass : Pass<"disc-transform-dialect-interpret
            /*default=*/"false", "perform expensive checks to better report errors in the transform IR.">,
   ];
 }
+
+def DiscRewritePayloadIRForRALPass : Pass<"disc-rewrite-payload-ir-for-ral", "ModuleOp"> {
+  let summary = "Pass to rewrite the payload IR transformed by transform IR to be suitable for RAL.";
+  let constructor = "createDiscRewritePayloadIRForRALPass()";
+  let options = [
+    Option<"gpuEnabled_", "gpu-enabled", "bool",
+            /*default=*/"false", "whether gpu is available.">,
+  ];
+}

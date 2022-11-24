@@ -42,6 +42,10 @@ std::unique_ptr<OperationPass<ModuleOp>>
 createDiscTransformDialectInterpreterPass(const std::string& fileName = "",
                                           bool enableExpensiveChecks = false);
 
+// Converts the transformed payload IR to be suitable for RAL.
+std::unique_ptr<OperationPass<ModuleOp>> createDiscRewritePayloadIRForRALPass(
+    bool gpuEnabled = false);
+
 }  // namespace disc_ral
 }  // namespace mlir
 

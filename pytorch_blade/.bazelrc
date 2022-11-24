@@ -3,11 +3,14 @@ startup --host_jvm_args=-Djdk.http.auth.tunneling.disabledSchemes=
 try-import ../tf_community/.bazelrc
 try-import ../tf_community/.bazelrc.user
 
-build --disk_cache=~/.cache
+build --disk_cache=~/.cache #--experimental_repository_cache=/public/home/zhangqha/alibaba/v1
 build --define is_torch_disc=true
 build --experimental_ui_max_stdouterr_bytes=-1
 build:torch_debug --copt=-O0 --compilation_mode=dbg --strip=never
 build:torch_cuda --config=cuda --config=disc_cuda --define enable_cuda=true
+## add support to dcu
+build:torch_rocm --config=dcu --config=disc_dcu --define enable_rocm=true --action_env TORCH_BLADE_DISABLE_PATCHELF_CUDA_SONAMES=0 
+## end support to dcu
 build:torch_x86 --config=disc_x86 --config=disc_mkldnn --action_env BUILD_WITH_MKLDNN=1
 build:torch_aarch64 --config=disc_aarch64 --config=disc_mkldnn --action_env BUILD_WITH_MKLDNN=1 --action_env BUILD_WITH_AARCH64=1
 

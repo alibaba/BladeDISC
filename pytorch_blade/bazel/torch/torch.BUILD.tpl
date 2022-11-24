@@ -22,6 +22,7 @@ cc_library(
     includes = [
         "include",
         "include/torch/csrc/api/include/",
+        "include/torch/csrc/api/include/torch",
     ],
     deps = [
         ":ATen",
@@ -41,7 +42,7 @@ cc_library(
     ] + if_cuda_is_configured(
       ["@local_config_cuda//cuda:cuda_headers",
       "@local_config_cuda//cuda:cudart"]
-    ),
+    ) + ["@local_config_rocm//rocm:rocm_headers",],
 )
 
 

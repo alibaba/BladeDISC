@@ -54,6 +54,7 @@ from common_setup import (
     configure_compiler_platform_alibaba,
     build_tao_compiler_add_flags_platform_alibaba,
     test_tao_compiler_add_flags_platform_alibaba,
+    add_arguments_common,
 )
 
 from tao_common import (
@@ -402,6 +403,9 @@ def test_tao_compiler(root, args):
     TARGET_DISC_CUDA_SOURCE_TESTS = [
         "//tensorflow/compiler/mlir/disc/tools/disc-source-emitter/tests/..."
     ]
+    TARGET_DISC_TRANSFORM_DIALECT_TESTS = [
+        "//tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/tests/..."
+    ]
 
     TARGET_DISC_REPLAY_TEST = "//tensorflow/compiler/mlir/disc/tools/disc-replay:disc-replay-test"
 
@@ -438,7 +442,8 @@ def test_tao_compiler(root, args):
                 TARGET_DISC_TRANSFORMS_TEST,
                 TARGET_DISC_E2E_TEST,
             ] + TARGET_DISC_RAL_TESTS \
-              + TARGET_DISC_PDLL_TESTS
+              + TARGET_DISC_PDLL_TESTS \
+              + TARGET_DISC_TRANSFORM_DIALECT_TESTS
             MLIR_TESTS = " ".join(mlir_test_list)
             bazel_test(MLIR_TESTS, flag=flag)
         else:
@@ -464,7 +469,8 @@ def test_tao_compiler(root, args):
                 TARGET_DISC_REPLAY_TEST,
             ] + TARGET_DISC_RAL_TESTS \
               + TARGET_DISC_PDLL_TESTS \
-              + TARGET_DISC_CUDA_SOURCE_TESTS
+              + TARGET_DISC_CUDA_SOURCE_TESTS \
+              + TARGET_DISC_TRANSFORM_DIALECT_TESTS
             MLIR_TESTS = " ".join(mlir_tests_list)
             bazel_test(MLIR_TESTS, flag=flag)
             flag += " --action_env=BRIDGE_ENABLE_TAO=true "
@@ -682,7 +688,21 @@ def make_package(root, args):
             add_to_tar(tar, build_info_file)
             if libstdcxx_path:
                 add_to_tar(tar, libstdcxx_path, name_in_tar=libstdcxx_name)
-        logger.info("sdk package created   : " + dsw_tgz)
+        logger.info("sdk package created : " + dsw_tgz)
+
+        # pkg for tf serving
+        serving_tgz = "{}/tao/tao_serving_sdk_{}.tgz".format(root, args.version)
+        tao_bazel_root = tao_bazel_dir(root)
+        with cwd(tao_bazel_root), gcc_env(args.bridge_gcc):
+            execute(f"bazel build {tao_bridge_bazel_config(args)} //:lib_tao_serving_genrule")
+        F_TAO_OPS_SERVING_SO = "./tao/bazel-bin/serving/libtao_ops.so"
+        with tarfile.open(serving_tgz, "w:gz") as tar:
+            add_to_tar(tar, F_TAO_COMPILER_MAIN)
+            add_to_tar(tar, F_TAO_OPS_SERVING_SO)
+            add_to_tar(tar, build_info_file)
+            if libstdcxx_path:
+                add_to_tar(tar, libstdcxx_path, name_in_tar=libstdcxx_name)
+        logger.info(f"sdk package for serving created : {serving_tgz}")
 
         logger.info("Stage [make_package] success.")
 
@@ -785,36 +805,6 @@ def parse_args():
         help="Skip linking tf framework",
     )
     parser.add_argument(
-        "--cpu_only",
-        required=False,
-        action="store_true",
-        help="Build tao with cpu support only",
-    )
-    parser.add_argument(
-        "--aarch64",
-        required=False,
-        action="store_true",
-        help="Build tao with aarch64 support only",
-    )
-    parser.add_argument(
-        "--dcu",
-        required=False,
-        action="store_true",
-        help="Build tao with dcu support only",
-    )
-    parser.add_argument(
-        "--rocm",
-        required=False,
-        action="store_true",
-        help="Build tao with rocm support only",
-    )
-    parser.add_argument(
-        "--rocm_path",
-        required=False,
-        default=None,
-        help="Build tao where rocm locates",
-    )
-    parser.add_argument(
         "--build_in_aone",
         required=False,
         action="store_true",
@@ -846,9 +836,6 @@ def parse_args():
         "--build_dbg_symbol", action="store_true", help="Add -g to build options"
     )
     parser.add_argument(
-        "--platform_alibaba", action="store_true", help="build with is_platform_alibaba=True"
-    )
-    parser.add_argument(
         "--blade_gemm", action="store_true", help="build with is_blade_gemm=True"
     )
     parser.add_argument(
@@ -857,13 +844,8 @@ def parse_args():
         default="/usr/local/cuda-11.6/bin/nvcc",
         help="Nvcc used for blade gemm kernel build.",
     )
-    parser.add_argument(
-        "--target_cpu_arch",
-        required=False,
-        default="",
-        help="Specify the target architecture.",
-    )
-    add_arguments_platform_alibaba(parser)
+    add_arguments_common(parser)
+
     # flag validation
     args = parser.parse_args()
     assert args.venv_dir, "virtualenv directory should not be empty."

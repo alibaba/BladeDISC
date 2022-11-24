@@ -67,7 +67,7 @@ function ci_build() {
     python3 setup.py bdist_wheel;
 }
 
-function test_example() {
+function test_training_examples() {
   if [ "$TORCH_BLADE_CI_BUILD_TORCH_VERSION" == "1.12.0+cu113" ]; then
     # note: BladeDISC only tested LTC-DISC backend on PyTorch 1.12
     # There is a but that causing OOM on LTC, so BladeDISC only check minor iterations,
@@ -87,7 +87,26 @@ function test_example() {
   fi
 }
 
+function test_cpu_infer_examples() {
+  pushd ../examples/PyTorch/Inference/CPU
+  bash albert/test.sh
+  popd
+}
+
+function test_cuda_infer_examples() {
+  pushd ../examples/PyTorch/Inference/CUDA
+  bash BERT/test.sh
+  bash ResNet/test.sh
+  bash S2T/test.sh
+  bash T5/test.sh
+  popd
+}
+
 # Build
 ci_build
-
-test_example
+if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" == "ON" ]; then
+  test_cuda_infer_examples
+  test_training_examples
+else
+  test_cpu_infer_examples
+fi

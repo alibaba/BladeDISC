@@ -447,7 +447,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   if (useTransformSchedule()) {
     std::string transform_schedule;
-    tensorflow::ReadStringFromEnvVar("DISC_TRANSFORM_SCHEDULE", "",
+    tensorflow::ReadStringFromEnvVar("DISC_TRANSFORM_SCHEDULE_FILE", "",
                                      &transform_schedule);
     pm.addNestedPass<FuncOp>(disc_ral::createDiscTransformLegalizeToLoopPass(
         gpu_enabled, transform_schedule));

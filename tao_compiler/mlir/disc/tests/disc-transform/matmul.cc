@@ -23,7 +23,7 @@ const std::string c_ft_path =
     "tensorflow/compiler/mlir/disc/tests/disc-transform/data/";
 
 TEST(SimpleTest, MatMulF32_11x13x12) {
-  EnvSetting setting = {{"DISC_TRANSFORM_SCHEDULE",
+  EnvSetting setting = {{"DISC_TRANSFORM_SCHEDULE_FILE",
                          {c_ft_path + "matmul_nn_d_f32_schedule.mlir", false}},
                         {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}}};
   EnvSettingContext ctx(setting);
@@ -37,7 +37,7 @@ TEST(SimpleTest, MatMulF32_11x13x12) {
 }
 
 TEST(SimpleTest, MatMulF32_111x131x121) {
-  EnvSetting setting = {{"DISC_TRANSFORM_SCHEDULE",
+  EnvSetting setting = {{"DISC_TRANSFORM_SCHEDULE_FILE",
                          {c_ft_path + "matmul_nn_d_f32_schedule.mlir", false}},
                         {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}}};
   EnvSettingContext ctx(setting);

@@ -72,7 +72,7 @@ class TestLinear(DiscPdlCase):
         pdll_files = ",".join(pdll_files)
         expect_str = """
 module {
-  func.func @main(%arg1: tensor<1x2x128xf32>) -> tensor<1x2x128xf32> attributes {tf.entry_function = {input_placements = "cpu,cpu", inputs = "self,x.1", output_placements = "cpu", outputs = "40"}} {
+  func.func @main(%arg1: tensor<1x2x128xf32>) -> tensor<1x2x128xf32> attributes {tf.entry_function = {inputs = "x.1", output_placements = "cpu", outputs = "40"}} {
     %0 = mhlo.constant dense_resource<__elided__> : tensor<128xf32>
     %1 = mhlo.constant dense<2.000000e-01> : tensor<f32>
     %2 = mhlo.constant dense<0> : tensor<128xi32>
@@ -106,6 +106,197 @@ module {
 }
         """
         self._test_torchscipte_to_mhlo(traced_model._c, expect_str, pdll_files, enable_int8=True)
+
+
+class TestFakeQuant(DiscPdlCase):
+    def setUp(self):
+        super().setUp()
+        pdll_files = [
+            os.path.join(self.common_pdll_dir, "fake_quant.pdll"),
+        ]
+        self.pdll_files = ",".join(pdll_files)
+
+    def test_per_tensor_symmetric(self):
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.scale = 0.1
+                self.zero_point = 0
+                self.quant_min = -128
+                self.quant_max = 127
+
+            def forward(self, x):
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.scale, self.zero_point,
+                    self.quant_min, self.quant_max
+                )
+                return x
+
+        model = Model().eval().to(self.device)
+        inp = torch.randn(2, 3).to(self.device)
+        traced_model = torch.jit.trace(model, inp)
+        expect_str = """
+module {
+  func.func @main(%arg1: tensor<2x3xf32> [unknown]) -> tensor<2x3xf32> attributes {tf.entry_function = {inputs = "x", output_placements = "cpu", outputs = "12"}} {
+    %0 = mhlo.constant dense<0> : tensor<i32>
+    %1 = mhlo.constant dense<1.000000e-01> : tensor<f32>
+    # CHECK: mhlo_disc.quantize
+    # CHECK-SAME: axis = dense<>
+    # CHECK-SAME: quant_max = 127
+    # CHECK-SAME: quant_min = -128
+    # CHECK-SAME: round_mode = 1
+    # CHECK-SAME: use_dynamic = false
+    # CHECK-SAME: use_symmetric = true
+    %2 = "mhlo_disc.quantize"(%arg1, %1, %0) {axis = dense<> : tensor<0xi64>, quant_max = 127 : i64, quant_min = -128 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<2x3xf32>, tensor<f32>, tensor<i32>) -> tensor<2x3xi8>
+    # CHECK: mhlo_disc.dequantize
+    # CHECK-SAME: axis = dense<>
+    # CHECK-SAME: round_mode = 1
+    # CHECK-SAME: use_dynamic = false
+    # CHECK-SAME: use_symmetric = true
+    %3 = "mhlo_disc.dequantize"(%2, %1, %0) {axis = dense<> : tensor<0xi64>, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<2x3xi8>, tensor<f32>, tensor<i32>) -> tensor<2x3xf32>
+    return %3 : tensor<2x3xf32>
+  }
+}
+
+        """
+        self._test_torchscipte_to_mhlo(traced_model._c, expect_str, self.pdll_files, enable_int8=True)
+
+    def test_per_tensor_affine(self):
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.scale = 0.1
+                self.zero_point = 33
+                self.quant_min = 0
+                self.quant_max = 255
+
+            def forward(self, x):
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.scale, self.zero_point,
+                    self.quant_min, self.quant_max
+                )
+                return x
+
+        model = Model().eval().to(self.device)
+        inp = torch.randn(2, 3).to(self.device)
+        traced_model = torch.jit.trace(model, inp)
+        expect_str = """
+module {
+  func.func @main(%arg1: tensor<2x3xf32> [unknown]) -> tensor<2x3xf32> attributes {tf.entry_function = {inputs = "x", output_placements = "cpu", outputs = "12"}} {
+    %0 = mhlo.constant dense<33> : tensor<i32>
+    %1 = mhlo.constant dense<1.000000e-01> : tensor<f32>
+    # CHECK: mhlo_disc.quantize
+    # CHECK-SAME: axis = dense<>
+    # CHECK-SAME: quant_max = 255
+    # CHECK-SAME: quant_min = 0
+    # CHECK-SAME: round_mode = 1
+    # CHECK-SAME: use_dynamic = false
+    # CHECK-SAME: use_symmetric = false
+    %2 = "mhlo_disc.quantize"(%arg1, %1, %0) {axis = dense<> : tensor<0xi64>, quant_max = 255 : i64, quant_min = 0 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = false} : (tensor<2x3xf32>, tensor<f32>, tensor<i32>) -> tensor<2x3xi8> [unknown]
+    # CHECK: mhlo_disc.dequantize
+    # CHECK-SAME: axis = dense<>
+    # CHECK-SAME: round_mode = 1
+    # CHECK-SAME: use_dynamic = false
+    # CHECK-SAME: use_symmetric = false
+    %3 = "mhlo_disc.dequantize"(%2, %1, %0) {axis = dense<> : tensor<0xi64>, round_mode = 1 : i64, use_dynamic = false, use_symmetric = false} : (tensor<2x3xi8>, tensor<f32>, tensor<i32>) -> tensor<2x3xf32> [unknown]
+    return %3 : tensor<2x3xf32>
+  }
+}
+
+        """
+        self._test_torchscipte_to_mhlo(traced_model._c, expect_str, self.pdll_files, enable_int8=True)
+
+    def test_per_channel_symmetric(self):
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.register_buffer("scale", torch.ones(3))
+                self.register_buffer("zero_point", torch.zeros(3).to(zero_point_dtype))
+                self.quant_min = -128
+                self.quant_max = 127
+                self.ch_axis = 1
+
+            def forward(self, x):
+                x = torch.fake_quantize_per_channel_affine(
+                    x, self.scale, self.zero_point, self.ch_axis,
+                    self.quant_min, self.quant_max
+                )
+                return x
+
+        model = Model().eval().to(self.device)
+        inp = torch.randn(2, 3).to(self.device)
+        traced_model = torch.jit.trace(model, inp)
+        expect_str = """
+module {
+  func.func @main(%arg1: tensor<2x3xf32> [unknown]) -> tensor<2x3xf32> attributes {tf.entry_function = {inputs = "x", output_placements = "cpu", outputs = "12"}} {
+    %0 = mhlo.constant dense<1.000000e+00> : tensor<3xf32>
+    %1 = mhlo.constant dense<0> : tensor<3xi32>
+    # CHECK: mhlo_disc.quantize
+    # CHECK-SAME: axis = dense<1>
+    # CHECK-SAME: quant_max = 127
+    # CHECK-SAME: quant_min = -128
+    # CHECK-SAME: round_mode = 1
+    # CHECK-SAME: use_dynamic = false
+    # CHECK-SAME: use_symmetric = true
+    %2 = "mhlo_disc.quantize"(%arg1, %0, %1) {axis = dense<1> : tensor<1xi64>, quant_max = 127 : i64, quant_min = -128 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<2x3xf32>, tensor<3xf32>, tensor<3xi32>) -> tensor<2x3xi8>
+    # CHECK: mhlo_disc.dequantize
+    # CHECK-SAME: axis = dense<1>
+    # CHECK-SAME: round_mode = 1
+    # CHECK-SAME: use_dynamic = false
+    # CHECK-SAME: use_symmetric = true
+    %3 = "mhlo_disc.dequantize"(%2, %0, %1) {axis = dense<1> : tensor<1xi64>, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<2x3xi8>, tensor<3xf32>, tensor<3xi32>) -> tensor<2x3xf32>
+    return %3 : tensor<2x3xf32>
+  }
+}
+
+        """
+        self._test_torchscipte_to_mhlo(traced_model._c, expect_str, self.pdll_files, enable_int8=True)
+
+    def test_per_channel_affine(self):
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.register_buffer("scale", torch.ones(3))
+                self.register_buffer("zero_point", (33 * torch.ones(3)).to(zero_point_dtype))
+                self.quant_min = -128
+                self.quant_max = 127
+                self.ch_axis = 1
+
+            def forward(self, x):
+                x = torch.fake_quantize_per_channel_affine(
+                    x, self.scale, self.zero_point, self.ch_axis,
+                    self.quant_min, self.quant_max
+                )
+                return x
+
+        model = Model().eval().to(self.device)
+        inp = torch.randn(2, 3).to(self.device)
+        traced_model = torch.jit.trace(model, inp)
+        expect_str = """
+module {
+  func.func @main(%arg1: tensor<2x3xf32> [unknown]) -> tensor<2x3xf32> attributes {tf.entry_function = {inputs = "x", output_placements = "cpu", outputs = "12"}} {
+    %0 = mhlo.constant dense<1.000000e+00> : tensor<3xf32>
+    %1 = mhlo.constant dense<0> : tensor<3xi32>
+    # CHECK: mhlo_disc.quantize
+    # CHECK-SAME: axis = dense<1>
+    # CHECK-SAME: quant_max = 127
+    # CHECK-SAME: quant_min = -128
+    # CHECK-SAME: round_mode = 1
+    # CHECK-SAME: use_dynamic = false
+    # CHECK-SAME: use_symmetric = true
+    %2 = "mhlo_disc.quantize"(%arg1, %0, %1) {axis = dense<1> : tensor<1xi64>, quant_max = 127 : i64, quant_min = -128 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<2x3xf32>, tensor<3xf32>, tensor<3xi32>) -> tensor<2x3xi8>
+    # CHECK: mhlo_disc.dequantize
+    # CHECK-SAME: axis = dense<1>
+    # CHECK-SAME: round_mode = 1
+    # CHECK-SAME: use_dynamic = false
+    # CHECK-SAME: use_symmetric = true
+    %3 = "mhlo_disc.dequantize"(%2, %0, %1) {axis = dense<1> : tensor<1xi64>, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<2x3xi8>, tensor<3xf32>, tensor<3xi32>) -> tensor<2x3xf32>
+    return %3 : tensor<2x3xf32>
+  }
+}
+
+        """
+        self._test_torchscipte_to_mhlo(traced_model._c, expect_str, self.pdll_files, enable_int8=True)
 
 
 if __name__ == "__main__":

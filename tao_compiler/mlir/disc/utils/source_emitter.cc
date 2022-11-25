@@ -313,7 +313,7 @@ llvm::Optional<std::string> SourceEmitterCUDA::EmitElemWiseUnaryOp(
     expression =
         CUDAMathFuncName<lmhlo::TanhOp>(result_type) + "(" + input_str + ")";
     if (result_type.isF16()) {
-      expression= "(half(" + expression + "))";
+      expression = "(half(" + expression + "))";
     }
   }
 
@@ -531,8 +531,7 @@ SourceEmitterCUDA::EmitBroadcastOfScalarOrSplatConstantOp(
   return type_str + " " + result_name + " = " + expression;
 }
 
-llvm::Optional<std::string>
-SourceEmitterCUDA::EmitDynamicReshapeOp(
+llvm::Optional<std::string> SourceEmitterCUDA::EmitDynamicReshapeOp(
     Operation* op, ValueNameBinding& binding) {
   lmhlo::DynamicReshapeOp reshape =
       dyn_cast_or_null<lmhlo::DynamicReshapeOp>(op);

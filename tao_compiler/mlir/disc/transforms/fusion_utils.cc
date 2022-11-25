@@ -1538,9 +1538,14 @@ bool PlacementAwareFusionStrategy::initFusionPattern(
 bool PlacementAwareFusionStrategy::finalizeFusionPattern(
     ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern,
     SmallVectorImpl<Operation*>& excluded_ops) {
-  if (fusion_pattern.getOpList().empty()) return true;
+  if (fusion_pattern.getOpList().empty() ||
+      fusion_pattern.getFusionType() == FusionType::kNone) {
+    // Do not deal with invalid fusion pattern.
+    return true;
+  }
   FusionStrategy* strategy = getStrategy(fusion_pattern.getOpList()[0]);
-  return strategy && strategy->finalizeFusionPattern(shapeAnalysis, fusion_pattern, excluded_ops);
+  return strategy && strategy->finalizeFusionPattern(
+                         shapeAnalysis, fusion_pattern, excluded_ops);
 }
 
 std::unique_ptr<FusionStrategy> makeNewPlacementAwareFusionStrategy(

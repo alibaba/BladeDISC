@@ -349,22 +349,22 @@ bool __gemmFusionFunc__(void* stream, void** params) {
   int param_permute[] = __ParameterPermute__;
   bool debug = false;
   if (debug) {
-    std::cout << "[ZZ] param permute:" << param_permute[0] << ", "
+    std::cout << "param permute:" << param_permute[0] << ", "
               << param_permute[1] << ", " << param_permute[2] << std::endl;
-    std::cout << "[ZZ] batch_size: " << batch_size << std::endl;
-    std::cout << "[ZZ] A sizes." << std::endl;
+    std::cout << "batch_size: " << batch_size << std::endl;
+    std::cout << "A sizes." << std::endl;
     for (int i = 0; i < __GRank__; i++) {
       int64_t* a_size = reinterpret_cast<int64_t*>(
           params[3 + i + param_permute[0] * size_struct]);
       std::cout << i << ":" << *a_size << std::endl;
     }
-    std::cout << "[ZZ] B sizes." << std::endl;
+    std::cout << "B sizes." << std::endl;
     for (int i = 0; i < __GRank__; i++) {
       int64_t* b_size = reinterpret_cast<int64_t*>(
           params[3 + i + param_permute[1] * size_struct]);
       std::cout << i << ":" << *b_size << std::endl;
     }
-    std::cout << "[ZZ] D sizes." << std::endl;
+    std::cout << "D sizes." << std::endl;
     for (int i = 0; i < __GRank__; i++) {
       int64_t* d_size = reinterpret_cast<int64_t*>(
           params[3 + i + param_permute[2] * size_struct]);

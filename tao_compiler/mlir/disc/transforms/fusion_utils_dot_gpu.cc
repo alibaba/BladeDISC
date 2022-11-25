@@ -17,7 +17,8 @@ namespace llvm {
 template <>
 struct DenseMapInfo<SmallVector<mlir::Operation*>> {
   static SmallVector<mlir::Operation*> getEmptyKey() {
-    return SmallVector<mlir::Operation*>{DenseMapInfo<mlir::Operation*>::getEmptyKey()};
+    return SmallVector<mlir::Operation*>{
+        DenseMapInfo<mlir::Operation*>::getEmptyKey()};
   }
 
   static SmallVector<mlir::Operation*> getTombstoneKey() {
@@ -130,8 +131,7 @@ bool DotGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
 
 namespace {
 
-void getDirectConsumerOps(Operation* op,
-                          DenseSet<Operation*> & consumers) {
+void getDirectConsumerOps(Operation* op, DenseSet<Operation*>& consumers) {
   consumers.clear();
   if (op == nullptr) {
     return;
@@ -197,11 +197,16 @@ void identifyJointPaths(const SmallVector<SmallVector<Operation*>>& paths_a,
   }
 }
 
-}
+}  // namespace
 
 bool DotGpuFusionStrategy::finalizeFusionPattern(
     ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern,
     SmallVectorImpl<Operation*>& excluded_ops) {
+  if (fusion_pattern.getFusionType() != FusionType::kDot) {
+    // None of my business.
+    return true;
+  }
+
   // Currently, kDot fusion only support one root op. If there are many roots,
   // find the joint paths between roots, and remain the shortest. This is to
   // guarantee that there is only one output of the fusion. We will support
@@ -231,7 +236,8 @@ bool DotGpuFusionStrategy::finalizeFusionPattern(
   // {op, [paths from dom to op]}
   DenseMap<Operation*, SmallVector<SmallVector<Operation*>>> path_dom_to_ops;
   Operation* dom = fusion_pattern.getDominantOp();
-  SmallVector<SmallVector<Operation*>> path_to_dom{SmallVector<Operation*>{dom}};
+  SmallVector<SmallVector<Operation*>> path_to_dom{
+      SmallVector<Operation*>{dom}};
   path_dom_to_ops.try_emplace(dom, std::move(path_to_dom));
 
   SmallVector<Operation*> worklist;
@@ -277,7 +283,7 @@ bool DotGpuFusionStrategy::finalizeFusionPattern(
   }
 
   SmallVector<Operation*> shortest_path;
-  for (int64_t i = 0; ; i++) {
+  for (int64_t i = 0;; i++) {
     bool stop = false;
     Operation* candidate = nullptr;
     for (const auto& path : joint_paths_of_roots) {
@@ -312,7 +318,8 @@ bool DotGpuFusionStrategy::finalizeFusionPattern(
     worklist.pop_back();
     DenseSet<Operation*> direct_producers;
     getDirectProducerOpsInFusionPattern(curr, fusion_pattern, direct_producers);
-    worklist.insert(worklist.end(), direct_producers.begin(), direct_producers.end());
+    worklist.insert(worklist.end(), direct_producers.begin(),
+                    direct_producers.end());
     effective_ops_set.insert(direct_producers.begin(), direct_producers.end());
   }
   SmallVector<Operation*> effective_ops(effective_ops_set.begin(),

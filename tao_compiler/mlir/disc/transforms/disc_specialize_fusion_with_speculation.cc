@@ -554,12 +554,14 @@ struct DiscSpecializeFusionWithSpeculationPass
     // Already have a hint
     if (fusion_op->getAttrOfType<IntegerAttr>(kVectorizeOrTileHint)) return;
 
+    bool enable_mem_intensive_opt_expreimental =
+        isMemIntensiveOptExperimentalEnabled();
     FusionType fusion_type = getFusionType(fusion_op.getOperation());
     if (fusion_type != FusionType::kLoop &&
         fusion_type != FusionType::kRowReduction &&
         (fusion_type != FusionType::kStitch ||
          (fusion_type == FusionType::kStitch &&
-          isMemIntensiveOptExperimentalEnabled()))) {
+          enable_mem_intensive_opt_expreimental))) {
       // TODO: support tile optimization for kStitch fusion when
       // `DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL` is `true`.
       return;
@@ -569,14 +571,16 @@ struct DiscSpecializeFusionWithSpeculationPass
     // concatenate operator will peform a bad case on bert model.
     // Skip optimization of concatenate operator here.
     FusionPatternBase fusion_pattern(fusion_op);
-    if (isMemIntensiveOptExperimentalEnabled()) {
-      // skip if the root is concatenate operator
-      for (auto root_op : fusion_pattern.getRootOps()) {
-        if (isa<lmhlo::ConcatenateOp>(root_op)) {
-          return;
-        }
+    bool contain_concatenate = false;
+    // Currently, skip `enable_mem_intensive_opt_expreimental` if the fusion
+    // contains concatenate operator.
+    for (auto op : fusion_pattern.getOpList()) {
+      if (isa<lmhlo::ConcatenateOp>(op)) {
+        contain_concatenate = true;
+        break;
       }
     }
+    enable_mem_intensive_opt_expreimental &= !contain_concatenate;
 
     // TODO: aware of row-reduction hints.
 
@@ -630,7 +634,7 @@ struct DiscSpecializeFusionWithSpeculationPass
       Operation* dominant_equivalent_op = fusion_pattern.getRootOps().back();
       Value out_element_number =
           emitNumElementsComputation(b, loc, dominant_equivalent_op);
-      if (isMemIntensiveOptExperimentalEnabled()) {
+      if (enable_mem_intensive_opt_expreimental) {
         // Maximize the vector-size according to data type of all outputs. The
         // maximum vector-size is 8 (128 / 16).
         auto& results = fusion_pattern.getResults();
@@ -652,7 +656,7 @@ struct DiscSpecializeFusionWithSpeculationPass
               loc, out_element_number,
               b.create<arith::ConstantIndexOp>(loc, vector_size)),
           b.create<arith::ConstantIndexOp>(loc, 0));
-      if (isMemIntensiveOptExperimentalEnabled()) {
+      if (enable_mem_intensive_opt_expreimental) {
         pred = divisible;
       } else {
         Value threshold =

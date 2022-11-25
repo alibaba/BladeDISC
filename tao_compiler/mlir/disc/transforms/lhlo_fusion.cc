@@ -357,6 +357,8 @@ class FusionPlanner {
 
     if (!enable_cross_fusion) return changed;
 
+    bool mem_intensive_opt_experiment = isMemIntensiveOptExperimentalEnabled();
+
     // To enable even more fusion opportunities (e.g. horizontal fusion)
     for (int32_t lhs : cycle_detector_->AllNodesInPostOrder()) {
       Cluster* cluster_lhs = GetClusterForCyclesGraphNode(lhs);
@@ -365,6 +367,14 @@ class FusionPlanner {
       }
 
       FusionPattern& pattern_lhs = cluster_lhs->fused_pattern();
+      if (mem_intensive_opt_experiment) {
+        auto& lhs_ops = pattern_lhs.getOpList();
+        if (lhs_ops.size() == 1 &&
+            isa<lmhlo::DynamicReshapeOp, lmhlo::ReshapeOp>(lhs_ops[0])) {
+          continue;
+        }
+      }
+
       if (!pattern_lhs.isFusible()) continue;
 
       for (int32_t rhs : cycle_detector_->AllNodesInPostOrder()) {
@@ -374,6 +384,14 @@ class FusionPlanner {
         }
 
         FusionPattern& pattern_rhs = cluster_rhs->fused_pattern();
+        if (mem_intensive_opt_experiment) {
+          auto& rhs_ops = pattern_rhs.getOpList();
+          if (rhs_ops.size() == 1 &&
+              isa<lmhlo::DynamicReshapeOp, lmhlo::ReshapeOp>(rhs_ops[0])) {
+            continue;
+          }
+        }
+
         if (!pattern_rhs.isFusible()) continue;
 
         int idx_lhs = cluster_lhs->cycles_graph_node_id();

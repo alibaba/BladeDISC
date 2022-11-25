@@ -412,7 +412,6 @@ int getReductionTileSizeOnCPU() {
 
 // Get ops that depends on the given op in the same block. It assumes the ops in
 // the block do not have regions.
-// TODO: test this function.
 void getDependentOps(Operation* op, DenseSet<Operation*>& dependences) {
   SmallVector<Value> affectedValues;
   // TODO: deal with AssumeAlignmentOp.

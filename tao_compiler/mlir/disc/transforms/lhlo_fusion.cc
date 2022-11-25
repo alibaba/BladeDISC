@@ -137,13 +137,7 @@ class FusionPlanner {
   llvm::Optional<FusionPlan> Run() {
     // Greedily search connected fusible pattern, and ops belonging to
     // a same fusion pattern are grouped into a cluster.
-#if 1
-    int stage = 0;
-#endif
     for (auto& strategy : fusionPipeline_) {
-#if 1
-      llvm::errs() << "[ZZ] stage " << stage++ << "\n";
-#endif
       currentFusionStrategy_ = strategy.get();
       // Re-init non-fusible fusion pattern using the given fusion strategy
       // since different fusion strategy may support different set of ops.
@@ -467,22 +461,11 @@ class FusionPlanner {
       return false;
     }
 
-#if 0
-    llvm::errs() << "[ZZ] before try fuse inplace\n";
-    llvm::errs() << "[ZZ] lhs: \n";
-    dumpFusionPattern(cluster_from->fused_pattern());
-    llvm::errs() << "[ZZ] rhs: \n";
-    dumpFusionPattern(cluster_to->fused_pattern());
-    llvm::errs() << "\n\n";
-#endif
     if (!getFusionStrategy().tryFuseInplace(*shape_analysis_,
                                             cluster_from->fused_pattern(),
                                             cluster_to->fused_pattern())) {
       return false;
     }
-#if 0
-    llvm::errs() << "[ZZ] after try fuse inplace\n";
-#endif
     auto optional_merged_node = cycle_detector_->ContractEdge(from, to);
     assert(optional_merged_node.hasValue());
     cluster_from->set_cycles_graph_node_id(*optional_merged_node);
@@ -609,12 +592,6 @@ class FusionPlanner {
               *shape_analysis_, fusion_pattern, curr_excluded_ops)) {
         return false;
       }
-#if 0
-      if (!curr_excluded_ops.empty()) {
-        llvm::errs() << "[ZZ] pattern after exclude ops:\n";
-        dumpFusionPattern(fusion_pattern);
-      }
-#endif
       fusion_patterns.emplace_back(std::move(fusion_pattern));
       excluded_ops.insert(excluded_ops.end(), curr_excluded_ops.begin(),
                           curr_excluded_ops.end());
@@ -623,13 +600,6 @@ class FusionPlanner {
     if (excluded_ops.empty()) {
       return true;
     }
-
-#if 1
-    llvm::errs() << "[ZZ] excluded ops number: " << excluded_ops.size() << "\n";
-    for (auto op : excluded_ops) {
-      llvm::errs() << "\t[ZZ] " << *op << "\n";
-    }
-#endif
 
     // The ops inside `excluded_ops` are moved out from existing fusion pattern.
     // It requires to rebuild cycle_detector_, `cluster_storage_` and
@@ -680,21 +650,6 @@ class FusionPlanner {
     cycle_detector_ = std::move(new_cycle_detector);
     cluster_storage_ = std::move(new_cluster_storage);
     leader_for_node_ = std::move(new_leader_for_node);
-
-#if 0
-    auto new_nodes = cycle_detector_->AllNodesInPostOrder();
-    llvm::errs() << "[ZZ] the new patterns:\n";
-    for (int32_t node : new_nodes) {
-      llvm::errs() << "[ZZ] new-node: " << node << "\n";
-      llvm::errs() << "[ZZ] reach: " << __FILE__ << ":" << __LINE__ << "\n";
-      Cluster* cluster = GetClusterForCyclesGraphNode(node);
-      llvm::errs() << "[ZZ] reach: " << __FILE__ << ":" << __LINE__ << "\n";
-      FusionPattern fusion_pattern = cluster->fused_pattern();
-      llvm::errs() << "[ZZ] pattern:\n";
-      dumpFusionPattern(fusion_pattern);
-      llvm::errs() << "[ZZ] reach: " << __FILE__ << ":" << __LINE__ << "\n";
-    }
-#endif
 
     return true;
   }

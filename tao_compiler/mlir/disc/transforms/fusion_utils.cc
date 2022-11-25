@@ -1018,14 +1018,6 @@ bool FusionStrategy::finalizeFusionPattern(
 
 bool FusionStrategy::tryFuseInplace(ShapeAnalysis& shapeAnalysis,
                                     FusionPattern& lhs, FusionPattern& rhs) {
-#if 0
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ <<"\n";
-  llvm::errs() << "[ZZ] try fuse lhs:\n";
-  dumpFusionPattern(lhs);
-  llvm::errs() << "[ZZ] try fuse rhs:\n";
-  dumpFusionPattern(rhs);
-  llvm::errs() << "\n\n";
-#endif
   // both lhs & rhs should be fusible
   if (!isFusible(lhs) || !isFusible(rhs)) {
     return false;

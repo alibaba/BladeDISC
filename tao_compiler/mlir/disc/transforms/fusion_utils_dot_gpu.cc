@@ -82,10 +82,6 @@ bool DotGpuFusionStrategy::isFusible(FusionPattern& fusion_pattern) {
 
 bool DotGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                              FusionPattern& fusion_pattern) {
-#if 0
-  llvm::errs() << "[ZZ] the fusion pattern is:\n";
-  dumpFusionPattern(fusion_pattern);
-#endif
   /*
    * 1. Only one dot is supported per fusion, currently.
    * 2. Dot is the first op;
@@ -259,20 +255,6 @@ bool DotGpuFusionStrategy::finalizeFusionPattern(
       worklist.push_back(consumer);
     }
   }
-#if 0
-  llvm::errs() << "[ZZ] path to roots:\n";
-  for (auto root : roots) {
-    auto paths = path_dom_to_ops[root];
-    llvm::errs() << "[ZZ] path for " << *root << "\n";
-    for (auto path : paths) {
-      llvm::errs() << "[ZZ] list path:\n";
-      for (auto op : path) {
-        llvm::errs() << "\t[ZZ] " << *op << "\n";
-      }
-      llvm::errs() << "\n";
-    }
-  }
-#endif
 
   // Find shortest joint path:
   //  1. find joint paths between the paths of different roots;
@@ -293,15 +275,6 @@ bool DotGpuFusionStrategy::finalizeFusionPattern(
                                   curr_joint_paths.end());
     }
   }
-#if 0
-  for (auto path : joint_paths_of_roots) {
-    llvm::errs() << "[ZZ] path:\n";
-    for (auto op : path) {
-      llvm::errs() << "\t[ZZ] " << *op << "\n";
-    }
-    llvm::errs() << "\n";
-  }
-#endif
 
   SmallVector<Operation*> shortest_path;
   for (int64_t i = 0; ; i++) {

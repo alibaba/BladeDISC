@@ -24,11 +24,6 @@ TEST(EpilogueTest, EpilogueGELUF16) {
   setenv("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE", "true", 1);
   // compute-intensive fusion should be used along with stitch fusion.
   setenv("DISC_ENABLE_STITCH", "true", 1);
-  // TODO: this test fails when there is extra tail dynamic_broadcast_in_dim.
-  // The shape constraint IR optimization helps to eliminate the bcasts. Thus
-  // the environment of shape constraint IR is enabled currently. The bug will
-  // be fixed in another PR.
-  setenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR", "true", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "epilogue_fusion_gemm_gelu_f16.mlir",
       /*backend_types*/
@@ -37,7 +32,6 @@ TEST(EpilogueTest, EpilogueGELUF16) {
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x16x128x768xf16_X", "1x16x768x768xf16_X"},
       /*output_descriptors*/ {"f16_X"}));
-  unsetenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR");
   unsetenv("DISC_ENABLE_STITCH");
   unsetenv("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE");
 }
@@ -46,7 +40,6 @@ TEST(EpilogueTest, EpilogueGELUF16) {
 TEST(EpilogueTest, EpilogueGELUF32) {
   setenv("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE", "true", 1);
   setenv("DISC_ENABLE_STITCH", "true", 1);
-  setenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR", "true", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "epilogue_fusion_gemm_gelu_f32.mlir",
       /*backend_types*/
@@ -55,7 +48,50 @@ TEST(EpilogueTest, EpilogueGELUF32) {
       /*num_outputs*/ 1,
       /*input_descriptors*/ {"1x16x128x768xf32_X", "1x16x768x768xf32_X"},
       /*output_descriptors*/ {"f32_X"}));
-  unsetenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR");
+  unsetenv("DISC_ENABLE_STITCH");
+  unsetenv("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE");
+}
+
+// The GEMM has multiple indirect consumers.
+TEST(EpilogueTest, EpilogueMultiConsumers) {
+  setenv("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE", "true", 1);
+  // compute-intensive fusion should be used along with stitch fusion.
+  setenv("DISC_ENABLE_STITCH", "true", 1);
+
+  setenv("DISC_EXPECTED_KERNELS_IN_UT", "2", 1);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path +
+          "epilogue_fusion_gemm_multi_consumers.mlir",
+      /*backend_types*/
+      kSupportedBackendList,
+      /*num_inputs*/ 2,
+      /*num_outputs*/ 2,
+      /*input_descriptors*/ {"1x16x128x768xf16_X", "1x16x768x768xf16_X"},
+      /*output_descriptors*/ {"f16_X", "f16_X"}));
+  unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
+
+  unsetenv("DISC_ENABLE_STITCH");
+  unsetenv("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE");
+}
+
+// Multiple GEMM fusions in the graph.
+TEST(EpilogueTest, EpilogueMultiFusions) {
+  setenv("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE", "true", 1);
+  // compute-intensive fusion should be used along with stitch fusion.
+  setenv("DISC_ENABLE_STITCH", "true", 1);
+
+  setenv("DISC_EXPECTED_KERNELS_IN_UT", "3", 1);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "epilogue_fusion_gemm_multi_fusion.mlir",
+      /*backend_types*/
+      kSupportedBackendList,
+      /*num_inputs*/ 3,
+      /*num_outputs*/ 2,
+      /*input_descriptors*/
+      {"1x16x128x768xf16_X", "1x16x768x768xf16_X", "1x16x768x768xf16_X"},
+      /*output_descriptors*/ {"f16_X", "f16_X"}));
+  unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
+
   unsetenv("DISC_ENABLE_STITCH");
   unsetenv("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE");
 }

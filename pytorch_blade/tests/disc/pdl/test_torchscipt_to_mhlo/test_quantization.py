@@ -17,8 +17,14 @@ from tests.disc.testing_base import DiscPdlCase
 from tests.quantization import zero_point_dtype
 from torch import nn
 from torch.nn import functional as F
+from torch_blade.utils import torch_version_number
+
+TORCH_VERSION = torch_version_number()
 
 
+@unittest.skipIf(TORCH_VERSION < (1, 9),
+                 "The patterns corresponding to pytorch before version "
+                 "1.9.0 has not yet been implemented ")
 class TestLinear(DiscPdlCase):
     #  weight -> fake-quant  \
     #  input  -> fake-quant -> linear -> fake-quant -> output

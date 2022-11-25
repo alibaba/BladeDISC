@@ -93,13 +93,14 @@ __SpecializedEpilogue__
 };
 
 bool __SpecializedGemmFusion__::run() {
-  bool debug_input = false;
-  if (debug_input) {
+  bool debug = false;
+  if (debug) {
     __ElementAType__* A_host = (__ElementAType__*)malloc(sizeof(__ElementAType__) * batch_size_ * m_ * k_);
     __ElementAType__* B_host = (__ElementBType__*)malloc(sizeof(__ElementBType__) * batch_size_ * k_ * n_);
     cudaMemcpy(A_host, A_, sizeof(__ElementAType__) * batch_size_ * m_ * k_, cudaMemcpyDefault);
     cudaMemcpy(B_host, B_, sizeof(__ElementBType__) * batch_size_ * k_ * n_, cudaMemcpyDefault);
-    for (int b = 0; b < 2; b++) {
+    std::cout << "Some A value:" << std::endl;
+    for (int b = 0; b < 1; b++) {
       for (int m = 0; m < 4; m++) {
         for (int k = 0; k < 4; k++) {
           std::cout << "A val at " << b << "," << m << "," << k << ": "
@@ -107,7 +108,8 @@ bool __SpecializedGemmFusion__::run() {
         }
       }
     }
-    for (int b = 0; b < 2; b++) {
+    std::cout << "Some B value:" << std::endl;
+    for (int b = 0; b < 1; b++) {
       for (int k = 0; k < 4; k++) {
         for (int n = 0; n < 4; n++) {
           std::cout << "B val at " << b << "," << k << "," << n <<": "
@@ -315,6 +317,22 @@ bool __SpecializedGemmFusion__::run() {
     return false;
   }
 
+  if (debug) {
+    cudaDeviceSynchronize();
+    __ElementOutputType__* D_host = (__ElementOutputType__*)malloc(
+        sizeof(__ElementOutputType__) * batch_size_ * m_ * n_);
+    cudaMemcpy(D_host, D_, sizeof(__ElementOutputType__) * batch_size_ * m_ * n_, cudaMemcpyDefault);
+    std::cout << "Some D value:" << std::endl;
+    for (int b = 0; b < 1; b++) {
+      for (int m = 0; m < 4; m++) {
+        for (int n = 0; n < 4; n++) {
+          std::cout << "D val at " << b << "," << m << "," << n << ": "
+                    << D_host[b * m_ * n_ + m * n_ + n] << std::endl;
+        }
+      }
+    }
+  }
+
   return true;
 }
 
@@ -329,6 +347,30 @@ bool __gemmFusionFunc__(void* stream, void** params) {
   }
 
   int param_permute[] = __ParameterPermute__;
+  bool debug = false;
+  if (debug) {
+    std::cout << "[ZZ] param permute:" << param_permute[0] << ", "
+              << param_permute[1] << ", " << param_permute[2] << std::endl;
+    std::cout << "[ZZ] batch_size: " << batch_size << std::endl;
+    std::cout << "[ZZ] A sizes." << std::endl;
+    for (int i = 0; i < __GRank__; i++) {
+      int64_t* a_size = reinterpret_cast<int64_t*>(
+          params[3 + i + param_permute[0] * size_struct]);
+      std::cout << i << ":" << *a_size << std::endl;
+    }
+    std::cout << "[ZZ] B sizes." << std::endl;
+    for (int i = 0; i < __GRank__; i++) {
+      int64_t* b_size = reinterpret_cast<int64_t*>(
+          params[3 + i + param_permute[1] * size_struct]);
+      std::cout << i << ":" << *b_size << std::endl;
+    }
+    std::cout << "[ZZ] D sizes." << std::endl;
+    for (int i = 0; i < __GRank__; i++) {
+      int64_t* d_size = reinterpret_cast<int64_t*>(
+          params[3 + i + param_permute[2] * size_struct]);
+      std::cout << i << ":" << *d_size << std::endl;
+    }
+  }
 
   int64_t m = std::is_same<__ElementALayout__, cutlass::layout::ColumnMajor>::value ?
       *reinterpret_cast<int64_t*>(params[3 + __GRank__ - 1]) :

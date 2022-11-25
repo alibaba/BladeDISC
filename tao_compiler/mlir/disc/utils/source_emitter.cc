@@ -35,6 +35,7 @@ std::string to_string(const Type& data) {
 template <typename OPType>
 std::string CUDAMathFuncName(Type type) {
   assert(false & "unsupported op");
+  return "";
 }
 
 template <>
@@ -47,6 +48,7 @@ std::string CUDAMathFuncName<lmhlo::AbsOp>(Type type) {
   } else {
     assert(false & "unsupported type for abs op.");
   }
+  return "";
 }
 
 template <>
@@ -58,6 +60,7 @@ std::string CUDAMathFuncName<lmhlo::CeilOp>(Type type) {
   } else {
     assert(false & "unsupported type for ceil op.");
   }
+  return "";
 }
 
 template <>
@@ -81,6 +84,7 @@ std::string CUDAMathFuncName<lmhlo::ConvertOp>(Type type) {
   } else {
     assert(false & "unsupported type for convert op.");
   }
+  return "";
 }
 
 template <>
@@ -92,6 +96,7 @@ std::string CUDAMathFuncName<lmhlo::CosineOp>(Type type) {
   } else {
     assert(false & "unsupported type for cosine op.");
   }
+  return "";
 }
 
 template <>
@@ -103,6 +108,7 @@ std::string CUDAMathFuncName<lmhlo::ExpOp>(Type type) {
   } else {
     assert(false & "unsupported type for exp op.");
   }
+  return "";
 }
 
 template <>
@@ -114,6 +120,7 @@ std::string CUDAMathFuncName<lmhlo::FloorOp>(Type type) {
   } else {
     assert(false & "unsupported type for floor op.");
   }
+  return "";
 }
 
 template <>
@@ -123,6 +130,7 @@ std::string CUDAMathFuncName<lmhlo::IsFiniteOp>(Type type) {
   } else {
     assert(false & "unsupported type for isfinite op.");
   }
+  return "";
 }
 
 template <>
@@ -134,6 +142,7 @@ std::string CUDAMathFuncName<lmhlo::LogOp>(Type type) {
   } else {
     assert(false & "unsupported type for log op.");
   }
+  return "";
 }
 
 template <>
@@ -143,6 +152,7 @@ std::string CUDAMathFuncName<lmhlo::Log1pOp>(Type type) {
   } else {
     assert(false & "unsupported type for abs op.");
   }
+  return "";
 }
 
 template <>
@@ -154,6 +164,7 @@ std::string CUDAMathFuncName<lmhlo::RsqrtOp>(Type type) {
   } else {
     assert(false & "unsupported type for rsqrt op.");
   }
+  return "";
 }
 
 template <>
@@ -165,6 +176,7 @@ std::string CUDAMathFuncName<lmhlo::SqrtOp>(Type type) {
   } else {
     assert(false & "unsupported type for sqrt op.");
   }
+  return "";
 }
 
 template <>
@@ -174,6 +186,7 @@ std::string CUDAMathFuncName<lmhlo::TanhOp>(Type type) {
   } else {
     assert(false & "unsupported type for tanh op.");
   }
+  return "";
 }
 
 std::string MLIRType2CUDATypeStr(Type type) {
@@ -200,6 +213,7 @@ std::string MLIRType2CUDATypeStr(Type type) {
   } else {
     assert(false & "unsupported type for convert op.");
   }
+  return "";
 }
 
 llvm::Optional<Operation*> findLastWriterInBlock(Value value, Block* block) {
@@ -231,7 +245,7 @@ llvm::Optional<std::string> SourceEmitterCUDA::EmitElemWiseUnaryOp(
     Operation* op, ValueNameBinding& binding) {
   auto input = op->getOperand(0);
   if (binding.count(input) == 0) {
-    llvm::None;
+    return llvm::None;
   }
   std::string input_str = binding[input];
 
@@ -293,8 +307,14 @@ llvm::Optional<std::string> SourceEmitterCUDA::EmitElemWiseUnaryOp(
         CUDAMathFuncName<lmhlo::SqrtOp>(result_type) + "(" + input_str + ")";
   } else if (isa<lmhlo::TanhOp>(op)) {
     result_name = EmitUniqueName("tanh");
+    if (result_type.isF16()) {
+      input_str = "(float(" + input_str + "))";
+    }
     expression =
         CUDAMathFuncName<lmhlo::TanhOp>(result_type) + "(" + input_str + ")";
+    if (result_type.isF16()) {
+      expression= "(half(" + expression + "))";
+    }
   }
 
   assert(binding.count(op->getOperand(1)) == 0);
@@ -308,7 +328,7 @@ llvm::Optional<std::string> SourceEmitterCUDA::EmitElemWiseBinaryOp(
   auto lhs = op->getOperand(0);
   auto rhs = op->getOperand(1);
   if (binding.count(lhs) == 0 || binding.count(rhs) == 0) {
-    llvm::None;
+    return llvm::None;
   }
   std::string lhs_str = binding[lhs];
   std::string rhs_str = binding[rhs];
@@ -388,7 +408,7 @@ llvm::Optional<std::string> SourceEmitterCUDA::EmitElemWiseTernaryOp(
   auto input2 = op->getOperand(2);
   if (binding.count(input0) == 0 || binding.count(input1) == 0 ||
       binding.count(input2) == 0) {
-    llvm::None;
+    return llvm::None;
   }
   std::string input0_str = binding[input0];
   std::string input1_str = binding[input1];
@@ -494,7 +514,7 @@ SourceEmitterCUDA::EmitBroadcastOfScalarOrSplatConstantOp(
   }
 
   if (binding.count(input_value) == 0) {
-    llvm::None;
+    return llvm::None;
   }
   std::string expression = binding[input_value];
 
@@ -504,6 +524,34 @@ SourceEmitterCUDA::EmitBroadcastOfScalarOrSplatConstantOp(
   std::string type_str = MLIRType2CUDATypeStr(result_type);
 
   std::string result_name = EmitUniqueName("dyn_bcast_indim");
+
+  assert(binding.count(result) == 0);
+  binding[result] = result_name;
+
+  return type_str + " " + result_name + " = " + expression;
+}
+
+llvm::Optional<std::string>
+SourceEmitterCUDA::EmitDynamicReshapeOp(
+    Operation* op, ValueNameBinding& binding) {
+  lmhlo::DynamicReshapeOp reshape =
+      dyn_cast_or_null<lmhlo::DynamicReshapeOp>(op);
+  if (!reshape) {
+    return llvm::None;
+  }
+
+  Value input_value = op->getOperand(0);
+  if (binding.count(input_value) == 0) {
+    return llvm::None;
+  }
+  std::string expression = binding[input_value];
+
+  Value result = op->getOperand(2);
+  MemRefType memref_type = result.getType().cast<MemRefType>();
+  Type result_type = memref_type.getElementType();
+  std::string type_str = MLIRType2CUDATypeStr(result_type);
+
+  std::string result_name = EmitUniqueName("dyn_reshape");
 
   assert(binding.count(result) == 0);
   binding[result] = result_name;
@@ -528,6 +576,8 @@ llvm::Optional<std::string> SourceEmitterCUDA::EmitOp(
     return EmitScalarOrSplatConstantOp(op, binding);
   } else if (isa<lmhlo::DynamicBroadcastInDimOp>(op)) {
     return EmitBroadcastOfScalarOrSplatConstantOp(op, binding);
+  } else if (isa<lmhlo::DynamicReshapeOp>(op)) {
+    return EmitDynamicReshapeOp(op, binding);
   } else {
     return llvm::None;
   }
@@ -561,7 +611,8 @@ bool SourceEmitterCUDA::isSupportedOp(Operation* op) {
       isa<lmhlo::AddOp, lmhlo::SubtractOp, lmhlo::MulOp, lmhlo::DivOp,
           lmhlo::MaxOp, lmhlo::MinOp, lmhlo::CompareOp, lmhlo::AndOp,
           lmhlo::OrOp, lmhlo::RemOp, lmhlo::PowOp>(op) ||
-      isa<lmhlo::SelectOp, lmhlo::ClampOp>(op)) {
+      isa<lmhlo::SelectOp, lmhlo::ClampOp>(op) ||
+      isa<lmhlo::DynamicReshapeOp>(op)) {
     return true;
   } else if (isa<lmhlo::ConstantOp>(op)) {
     lmhlo::ConstantOp constant = dyn_cast<lmhlo::ConstantOp>(op);

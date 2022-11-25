@@ -837,8 +837,8 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
     }
 
     // process each block and do fusion within a block.
-    tensorflow::ReadInt64FromEnvVar("disc_debug_max_fusion_numbers_", INT_MIN,
-                                    &disc_debug_max_fusion_numbers_);
+    tensorflow::ReadInt64FromEnvVar("DISC_DEBUG_MAX_FUSION_NUMBER", INT_MIN,
+                                    &disc_debug_max_fusion_number_);
     FusionPipeline pipeline = makeFusionPipeline();
     int64_t fusion_pattern_number = 0;
     for (Block* block : blocks) {
@@ -903,8 +903,8 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
 
   bool ApplyFusionPlan(FusionPlan& plan) {
     for (FusionPattern& pattern : plan) {
-      if (disc_debug_max_fusion_numbers_ != INT_MIN) {
-        if (applied_fusion_numbers_ + 1 > disc_debug_max_fusion_numbers_) {
+      if (disc_debug_max_fusion_number_ != INT_MIN) {
+        if (applied_fusion_numbers_ + 1 > disc_debug_max_fusion_number_) {
           llvm::errs() << "[Debug] Skip fusion " << applied_fusion_numbers_
                        << "\n";
           continue;
@@ -948,7 +948,7 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
         }
       }
       // Dump fusion op for debugging.
-      if (disc_debug_max_fusion_numbers_ != INT_MIN) {
+      if (disc_debug_max_fusion_number_ != INT_MIN) {
         llvm::errs() << "[Debug] Fusion " << applied_fusion_numbers_ << ":\n";
         fusion->dump();
       }
@@ -967,7 +967,7 @@ struct DiscFusionPass : public DiscFusionPassBase<DiscFusionPass> {
 
  private:
   int64_t applied_fusion_numbers_ = 0;
-  int64_t disc_debug_max_fusion_numbers_;
+  int64_t disc_debug_max_fusion_number_;
 };
 
 }  // namespace

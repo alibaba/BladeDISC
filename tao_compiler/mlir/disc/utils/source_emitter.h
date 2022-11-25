@@ -45,6 +45,9 @@ class SourceEmitterCUDA {
   llvm::Optional<std::string> EmitBroadcastOfScalarOrSplatConstantOp(
       Operation* op, ValueNameBinding& binding);
 
+  llvm::Optional<std::string> EmitDynamicReshapeOp(
+      Operation* op, ValueNameBinding& binding);
+
   void bindValueNames(const SmallVectorImpl<Value>& inputs,
                       const SmallVectorImpl<std::string>& names,
                       ValueNameBinding& binding);

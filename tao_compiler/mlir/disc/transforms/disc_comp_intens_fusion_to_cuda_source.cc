@@ -317,7 +317,7 @@ void DiscCompIntensFusionToCUDASourcePass::getEffectiveOperands(
       // The broadcast-in-dim reads constant op, which should be check in the
       // fusion pass.
       int num_input_operand =
-          isa<lmhlo::DynamicBroadcastInDimOp>(op)
+          isa<lmhlo::DynamicBroadcastInDimOp, lmhlo::DynamicReshapeOp>(op)
               ? 1
               : op->getNumOperands() - getNumResultOperands(op);
       for (Value v : op->getOperands().take_front(num_input_operand)) {

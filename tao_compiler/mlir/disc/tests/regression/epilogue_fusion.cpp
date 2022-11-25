@@ -59,22 +59,51 @@ const std::string c_ft_path =
 //   unsetenv("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE");
 // }
 
-TEST(EpilogueTest, EpilogueMultiConsumers) {
+// TEST(EpilogueTest, EpilogueMultiConsumers) {
+//   setenv("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE", "true", 1);
+//   // compute-intensive fusion should be used along with stitch fusion.
+//   setenv("DISC_ENABLE_STITCH", "true", 1);
+//   setenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR", "true", 1);
+
+//   setenv("DISC_EXPECTED_KERNELS_IN_UT", "2", 1);
+//   EXPECT_TRUE(feature_test_main(
+//       /*mlir_file_path*/ c_ft_path + "epilogue_fusion_gemm_multi_consumers.mlir",
+//       /*backend_types*/
+//       kSupportedBackendList,
+//       /*num_inputs*/ 2,
+//       /*num_outputs*/ 2,
+//       /*input_descriptors*/ {"1x16x128x768xf16_X", "1x16x768x768xf16_X"},
+//       /*output_descriptors*/ {"f16_X", "f16_X"}));
+//   unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
+
+//   unsetenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR");
+//   unsetenv("DISC_ENABLE_STITCH");
+//   unsetenv("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE");
+// }
+
+
+TEST(EpilogueTest, EpilogueMultiFusions) {
   setenv("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE", "true", 1);
   // compute-intensive fusion should be used along with stitch fusion.
   setenv("DISC_ENABLE_STITCH", "true", 1);
   setenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR", "true", 1);
+
+  setenv("DISC_EXPECTED_KERNELS_IN_UT", "3", 1);
   EXPECT_TRUE(feature_test_main(
-      /*mlir_file_path*/ c_ft_path + "epilogue_fusion_gemm_multi_consumers.mlir",
+      /*mlir_file_path*/ c_ft_path + "epilogue_fusion_gemm_multi_fusion.mlir",
       /*backend_types*/
       kSupportedBackendList,
-      /*num_inputs*/ 2,
+      /*num_inputs*/ 3,
       /*num_outputs*/ 2,
-      /*input_descriptors*/ {"1x16x128x768xf16_X", "1x16x768x768xf16_X"},
+      /*input_descriptors*/ {"1x16x128x768xf16_X", "1x16x768x768xf16_X",
+                             "1x16x768x768xf16_X"},
       /*output_descriptors*/ {"f16_X", "f16_X"}));
+  unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
+
   unsetenv("DISC_ENABLE_SHAPE_CONSTRAINT_IR");
   unsetenv("DISC_ENABLE_STITCH");
   unsetenv("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE");
 }
+
 
 }  // namespace mlir_test

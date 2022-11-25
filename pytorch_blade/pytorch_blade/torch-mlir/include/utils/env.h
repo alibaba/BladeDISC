@@ -17,6 +17,9 @@ namespace mlir {
 namespace torch {
 namespace utils {
 namespace env {
+// These functions are copied from pytorch_blade/common_utils/,
+// whose logger is replaced by the llvm's in order to
+// resolve the the dependency problem.
 std::string AsciiStrToLower(const char* cstr);
 bool ReadBoolFromEnvVar(const char* env_var_name, bool default_val);
 std::string ReadStringFromEnvVar(

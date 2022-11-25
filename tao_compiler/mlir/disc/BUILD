@@ -2013,6 +2013,36 @@ disc_cc_library(
 )
 
 cc_library(
+    name = "disc_transform_legalize_to_loop",
+    srcs = ["transforms/disc_transform_legalize_to_loop.cc"],
+    deps = [
+        ":codegen_utils",
+        ":disc_lhlo_elemental_utils",
+        ":disc_util",
+        ":fusion_utils",
+        ":pass_details",
+        ":placement_utils",
+        "//tensorflow/compiler/xla/mlir_hlo:lmhlo_pass_inc_gen",
+        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "//tensorflow/compiler/mlir/disc/tools/disc-transform:all_passes",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:AffineDialect",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:LinalgDialect",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+        "@llvm-project//mlir:VectorDialect",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "all_passes",
     hdrs = [
         "transforms/register_passes.h",
@@ -2067,6 +2097,7 @@ cc_library(
         ":disc_strip_shape_constraint_ops",
         ":disc_tensor_to_std",
         ":disc_to_llvm",
+        ":disc_transform_legalize_to_loop",
         ":disc_transpose_simplifier",
         ":dot_rewriter",
         ":element_type_converter",

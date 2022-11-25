@@ -284,6 +284,12 @@ createDiscCompIntensFusionToCUDASourcePass(int cc_major = 8, int cc_minor = 0);
 std::unique_ptr<OperationPass<ModuleOp>> createDiscGPUSourceToLibPass(
     int cc_major = 8, int cc_minor = 0);
 
+// Legalizes transform-based fusion pattern to loop.
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscTransformLegalizeToLoopPass(bool gpuEnabled = false,
+                                      const std::string& filename = "",
+                                      bool expensiveCheck = false);
+
 }  // namespace disc_ral
 }  // namespace mlir
 

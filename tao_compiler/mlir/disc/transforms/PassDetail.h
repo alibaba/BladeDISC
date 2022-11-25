@@ -54,6 +54,18 @@ namespace arith {
 class ArithDialect;
 }
 
+namespace linalg {
+class LinalgDialect;
+}
+
+namespace vector {
+class VectorDialect;
+}
+
+namespace tensor {
+class TensorDialect;
+}
+
 namespace disc_ral {
 
 #define GEN_PASS_CLASSES

@@ -43,6 +43,7 @@ limitations under the License.
 #include "mlir/Dialect/Func/Transforms/Passes.h"
 #include "mlir/Dialect/GPU/Transforms/Passes.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+#include "mlir/Dialect/Linalg/Passes.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/Shape/Transforms/Passes.h"
@@ -444,6 +445,14 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     pm.addNestedPass<FuncOp>(disc_ral::createDiscStitchFusionPass());
   }
 
+  if (useTransformSchedule()) {
+    std::string transform_schedule;
+    tensorflow::ReadStringFromEnvVar("DISC_TRANSFORM_SCHEDULE_FILE", "",
+                                     &transform_schedule);
+    pm.addNestedPass<FuncOp>(disc_ral::createDiscTransformLegalizeToLoopPass(
+        gpu_enabled, transform_schedule));
+  }
+
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
@@ -604,6 +613,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
 
   pm.addNestedPass<FuncOp>(disc_ral::createDiscRemoveDeadBufferPass());
 
+  pm.addNestedPass<FuncOp>(::mlir::createConvertLinalgToLoopsPass());
   pm.addPass(createConvertSCFToCFPass());
   pm.addPass(createLowerAffinePass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());

@@ -60,12 +60,13 @@ LogicalResult parseEntryFunctionOutputPlacements(
     func::FuncOp main, bool default_on_gpu,
     SmallVectorImpl<PlacementType>& out);
 
-// If Op is placed on GPU
-bool OnGpu(Operation* op);
-
 // Return true if the Operation is placed on GPU
 // The typical usage is for mhlo ops on tensor layer
 bool isGpuMhlo(Operation* op);
+
+// Return true if the Operation is placed on GPU
+// The typical usage is for lmhlo ops.
+bool isGpuLmhlo(Operation* op);
 
 // Return true if the MemRef is placed on GPU
 bool isGpuMemRef(Value memref);

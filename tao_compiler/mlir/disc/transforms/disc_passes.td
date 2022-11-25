@@ -553,3 +553,25 @@ def DiscGPUSourceToLibPass : Pass<"disc-gpu-source-to-lib", "ModuleOp"> {
             /*default=*/"0", "gpu sm cc_minor.">,
   ];
 }
+
+def DiscTransformLegalizeToLoopPass : Pass<"disc-transform-legalize-to-loop", "mlir::func::FuncOp"> {
+  let summary = "Legalize transfrom fusion pattern to loop.";
+  let constructor = "createDiscTransformLegalizeToLoopPass()";
+  let options = [
+    Option<"gpuEnabled_", "gpu-enabled", "bool",
+            /*default=*/"false", "whether gpu is available.">,
+    Option<"transformFileName_", "transform-file-name", "std::string",
+           /*default=*/"\"\"", "Filename of the transform schedule.">,
+    Option<"enableExpensiveChecks_", "enable-expensive-checks", "bool",
+           /*default=*/"false", "perform expensive checks to better report errors in the transform IR.">,
+  ];
+  let dependentDialects = [
+      "AffineDialect",
+      "LLVM::LLVMDialect",
+      "arith::ArithDialect",
+      "linalg::LinalgDialect",
+      "scf::SCFDialect",
+      "tensor::TensorDialect",
+      "vector::VectorDialect",
+  ];
+}

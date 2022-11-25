@@ -216,7 +216,7 @@ std::shared_ptr<Context::Resource> Context::getOrCreateResource(
   if (it == impl_->resources.end()) {
     Resource* r = creator();
     if (!r) {
-      signalErrorLocked(FAILURE, "resource creation failed");
+      signalErrorLocked(FAILURE, "resource creation failed: " + key);
       return nullptr;
     }
     it = impl_->resources

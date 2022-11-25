@@ -425,13 +425,13 @@ void getDependentOps(Operation* op, DenseSet<Operation*>& dependences) {
     }
   }
 
+  // TODO: Looks buggy here. To test.
   for (auto value : affectedValues) {
     for (auto user : value.getUsers()) {
-      if (user == op || user->isBeforeInBlock(op)) {
+      if (!user->isBeforeInBlock(op)) {
         continue;
       }
       DenseSet<Operation*> deps;
-      deps.insert(user);
       getDependentOps(user, deps);
       dependences.insert(deps.begin(), deps.end());
     }

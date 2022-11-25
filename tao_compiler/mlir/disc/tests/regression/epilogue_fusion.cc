@@ -63,7 +63,7 @@ TEST(EpilogueTest, EpilogueMultiConsumers) {
       /*mlir_file_path*/ c_ft_path +
           "epilogue_fusion_gemm_multi_consumers.mlir",
       /*backend_types*/
-      kSupportedBackendList,
+      {BackendType::kCuda},
       /*num_inputs*/ 2,
       /*num_outputs*/ 2,
       /*input_descriptors*/ {"1x16x128x768xf16_X", "1x16x768x768xf16_X"},
@@ -84,7 +84,7 @@ TEST(EpilogueTest, EpilogueMultiFusions) {
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "epilogue_fusion_gemm_multi_fusion.mlir",
       /*backend_types*/
-      kSupportedBackendList,
+      {BackendType::kCuda},
       /*num_inputs*/ 3,
       /*num_outputs*/ 2,
       /*input_descriptors*/

@@ -119,11 +119,12 @@ struct DequantizeOpConverter
     Value bcastedScale = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
         loc, outTy, op.getScale(), inputShape, op.getAxis());
     auto zeroPointTy = op.getZeroPoint().getType().cast<RankedTensorType>();
-    auto bcastedInputOrZeroPointTy =
-        RankedTensorType::get(inputTy.getShape(), zeroPointTy.getElementType(),
-                              zeroPointTy.getEncoding());
+    auto bcastedInputOrZeroPointTy = RankedTensorType::get(
+        inputTy.getShape(), scaleTy.getElementType(), scaleTy.getEncoding());
+    Value castedZeroPoint =
+        rewriter.create<mhlo::ConvertOp>(loc, scaleTy, op.getZeroPoint());
     Value bcastedZeroPoint = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
-        loc, bcastedInputOrZeroPointTy, op.getZeroPoint(), inputShape,
+        loc, bcastedInputOrZeroPointTy, castedZeroPoint, inputShape,
         op.getAxis());
     Value castedInput = rewriter.create<mhlo::ConvertOp>(
         loc, bcastedInputOrZeroPointTy, op.getInput());

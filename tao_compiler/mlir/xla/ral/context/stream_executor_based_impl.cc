@@ -1587,7 +1587,7 @@ bool ral_conv_bladnn(ExecutionContext* ctx, void* stream_handle,
     ki = kernel.sizes[3];
     oh = output.sizes[1];
     ow = output.sizes[2];
-    oc == output.sizes[3];
+    oc = output.sizes[3];
     assert(ko == oc);
     int pad_h = padding.data[0];
     int pad_w = padding.data[2];

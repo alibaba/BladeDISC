@@ -409,12 +409,11 @@ LogicalResult DiscAssignMemorySpacePass::processLmhloOperation(
 
   for (Value non_shape_operand : non_shape_operands) {
     auto it = assignment.find(non_shape_operand);
-    if (it == assignment.end()) {
-      continue;
-    }
+    if (it == assignment.end()) continue;
     if (!placement.empty() && it->second != placement) {
-      op->emitError("non shape operands not have same placements");
-      return failure();
+      return op->emitError()
+             << "non shape operands not have same placements " << placement
+             << " vs " << it->second << " (expected vs actual)\n";
     }
     placement = it->second;
   }

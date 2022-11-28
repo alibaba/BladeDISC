@@ -59,6 +59,14 @@ bool isOpFusible(Operation* op) {
   return SourceEmitterCUDA::isSupportedOp(op);
 }
 
+void getValueWritter(Value value, SmallVectorImpl<Operation*>& writter) {
+  for (auto user : value.getUsers()) {
+    if (IsOpWriteValue(user, value)) {
+      writter.push_back(user);
+    }
+  }
+}
+
 bool PreDotGpuFusionStrategy::isFusible(Operation* op) {
   return isOpFusible(op);
 }
@@ -111,6 +119,13 @@ bool DotGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
   if (dot_ops.size() != 1) {
     return false;
   }
+#if 1
+  bool to_dump = true;
+  to_dump &= op_list.size() > 30;
+  if (to_dump) {
+    llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+  }
+#endif
 
   // All the effective-operand of non-dot ops are not the operand of the fusion.
   DenseSet<Value> operand_set(operands.begin(), operands.end());
@@ -133,18 +148,19 @@ bool DotGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
     for (auto in : effective_operands) {
       if (operand_set.contains(in)) {
 #if 1
-        llvm::errs() << "\t\t[ZZ] effective operand of " << *op << "\n";
-        llvm::errs() << "\t\t[ZZ] " << in << "\n";
+        if (to_dump) {
+          llvm::errs() << "\t\t[ZZ] effective operand of " << *op << "\n";
+          llvm::errs() << "\t\t[ZZ] " << in << "\n";
+        }
 #endif
         return false;
       }
     }
-#if 1
-    llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
   }
 #if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+  if (to_dump) {
+    llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
+  }
 #endif
 
   fusion_pattern.setFusionType(FusionType::kDot);
@@ -226,16 +242,10 @@ void identifyJointPaths(const DenseSet<SmallVector<Operation*>>& paths_a,
 bool DotGpuFusionStrategy::finalizeFusionPattern(
     ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern,
     SmallVectorImpl<Operation*>& excluded_ops) {
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
   if (fusion_pattern.getFusionType() != FusionType::kDot) {
     // None of my business.
     return true;
   }
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   // Currently, kDot fusion only support one root op. If there are many roots,
   // find the joint paths between roots, and remain the shortest. This is to
@@ -246,9 +256,6 @@ bool DotGpuFusionStrategy::finalizeFusionPattern(
   if (roots.size() == 1) {
     return true;
   }
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   auto op_list = fusion_pattern.getOpList();
   DenseSet<Operation*> op_set(op_list.begin(), op_list.end());
@@ -263,9 +270,6 @@ bool DotGpuFusionStrategy::finalizeFusionPattern(
     // Not kDot fusion. Do not deal with it.
     return true;
   }
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   // Find path from dominant to other ops in the fusion pattern.
 
@@ -302,9 +306,6 @@ bool DotGpuFusionStrategy::finalizeFusionPattern(
       worklist.push_back(consumer);
     }
   }
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   // Find the shortest joint path to all roots.
   SmallVector<Operation*> shortest_path;
@@ -334,78 +335,6 @@ bool DotGpuFusionStrategy::finalizeFusionPattern(
       shortest_path.push_back(op_at_this_length);
     }
   }
-
-  //   bool stop = false;
-  //   Operation* candidate = nullptr;
-  //   for (const auto& path : joint_paths_of_roots) {
-  //     if (path.size() == i) {
-  //       stop = true;
-  //       break;
-  //     }
-  //     if (candidate == nullptr) {
-  //       candidate = path[i];
-  //     } else if (path[i] != candidate) {
-  //       stop = true;
-  //       break;
-  //     }
-  //   }
-  //   if (stop) {
-  //     break;
-  //   } else {
-  //     shortest_path.push_back(candidate);
-  //   }
-  // }
-
-  // Find shortest joint path:
-  //  1. find joint paths between the paths of different roots;
-  //  2. join again and identify the shortest joint path.
-
-//   DenseSet<SmallVector<Operation*>> joint_paths_of_roots;
-//   for (auto root_a : roots) {
-//     auto& paths_a = path_dom_to_ops[root_a];
-//     for (auto root_b : roots) {
-//       if (root_a == root_b) {
-//         continue;
-//       }
-//       auto& paths_b = path_dom_to_ops[root_b];
-
-//       DenseSet<SmallVector<Operation*>> curr_joint_paths;
-//       identifyJointPaths(paths_a, paths_b, curr_joint_paths);
-//       joint_paths_of_roots.insert(curr_joint_paths.begin(),
-//                                   curr_joint_paths.end());
-//     }
-//   }
-// #if 1
-//   llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-// #endif
-
-//   SmallVector<Operation*> shortest_path;
-//   for (int64_t i = 0;; i++) {
-//     bool stop = false;
-//     Operation* candidate = nullptr;
-//     for (const auto& path : joint_paths_of_roots) {
-//       if (path.size() == i) {
-//         stop = true;
-//         break;
-//       }
-//       if (candidate == nullptr) {
-//         candidate = path[i];
-//       } else if (path[i] != candidate) {
-//         stop = true;
-//         break;
-//       }
-//     }
-//     if (stop) {
-//       break;
-//     } else {
-//       shortest_path.push_back(candidate);
-//     }
-//   }
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
-  // DenseSet<Operation*> shortest_path_set;
-  // shortest_path_set.insert(shortest_path.begin(), shortest_path.end());
 
   // Form the new fusion pattern.
   auto new_root = shortest_path.back();

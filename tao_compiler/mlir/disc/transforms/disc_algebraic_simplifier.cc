@@ -23,7 +23,7 @@
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 
-#define DEBUG_TYPE "disc-algebra-simplifier"
+#define DEBUG_TYPE "disc-algebraic-simplifier"
 
 // This file implements some basic optimizations to do algebra simplification.
 
@@ -441,15 +441,19 @@ struct FoldBcastOfComputationOnConstantPattern
               rewriter.restoreInsertionPoint(ip);
               return success();
             } else if (isa<mlir::FloatType>(elem_ty)) {
-              double val = (*op.getValue().getValues<APFloat>().begin())
-                               .convertToDouble();
-              val = std::sqrt(val);
+              APFloat val = *op.getValue().getValues<APFloat>().begin();
+              double double_val = val.convertToDouble();
+              double_val = std::sqrt(double_val);
               if (is_rsqrt) {
-                val = 1 / val;
+                double_val = 1 / double_val;
               }
+              APFloat new_val(double_val);
+              bool ignored;
+              new_val.convert(val.getSemantics(),
+                              llvm::APFloat::rmNearestTiesToEven, &ignored);
               rewriter.setInsertionPointAfter(bcast_user);
               Value new_const = rewriter.create<mhlo::ConstantOp>(
-                  loc, DenseElementsAttr::get(type, val));
+                  loc, DenseElementsAttr::get(type, new_val));
               Value new_bcast = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
                   loc, bcast_type, new_const, bcast.getOutputDimensions(),
                   bcast.getBroadcastDimensions());
@@ -471,7 +475,7 @@ struct FoldBcastOfComputationOnConstantPattern
   }
 };
 
-void populateDiscAlgebraSimplifierPatterns(RewritePatternSet& patterns) {
+void populateDiscAlgebraicSimplifierPatterns(RewritePatternSet& patterns) {
   // clang-format off
   patterns.insert<
     BroadCastInDimOfReshapeOpCanonicalizationPattern<mhlo::BroadcastInDimOp>,
@@ -492,19 +496,19 @@ void populateDiscAlgebraSimplifierPatterns(RewritePatternSet& patterns) {
   // clang-format on
 }
 
-struct DiscAlgebraSimplifierPass
-    : public DiscAlgebraSimplifierPassBase<DiscAlgebraSimplifierPass> {
+struct DiscAlgebraicSimplifierPass
+    : public DiscAlgebraicSimplifierPassBase<DiscAlgebraicSimplifierPass> {
   void getDependentDialects(DialectRegistry& registry) const override {
     registry.insert<mhlo::MhloDialect>();
   }
   void runOnOperation() override;
 };
 
-void DiscAlgebraSimplifierPass::runOnOperation() {
+void DiscAlgebraicSimplifierPass::runOnOperation() {
   // Setup rewriter patterns.
   MLIRContext& ctx = getContext();
   RewritePatternSet patterns(&ctx);
-  populateDiscAlgebraSimplifierPatterns(patterns);
+  populateDiscAlgebraicSimplifierPatterns(patterns);
 
   if (failed(
           applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
@@ -515,8 +519,9 @@ void DiscAlgebraSimplifierPass::runOnOperation() {
 
 }  // namespace
 
-std::unique_ptr<OperationPass<func::FuncOp>> createDiscAlgebraSimplifierPass() {
-  return std::make_unique<DiscAlgebraSimplifierPass>();
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscAlgebraicSimplifierPass() {
+  return std::make_unique<DiscAlgebraicSimplifierPass>();
 }
 
 }  // namespace disc_ral

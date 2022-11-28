@@ -1712,8 +1712,8 @@ cc_library(
 )
 
 cc_library(
-    name = "disc_algebra_simplifier",
-    srcs = ["transforms/disc_algebra_simplifier.cc"],
+    name = "disc_algebraic_simplifier",
+    srcs = ["transforms/disc_algebraic_simplifier.cc"],
     deps = [
         ":disc_shape_optimization_utils",
         ":mhlo_disc",
@@ -2081,7 +2081,7 @@ cc_library(
         ":conv_rewriter",
         ":quantized_dot_rewriter",
         ":disc_dot_merge",
-        ":disc_algebra_simplifier",
+        ":disc_algebraic_simplifier",
         ":disc_assign_kernel_name",
         ":disc_assign_memory_space",
         ":disc_buffer_deallocation",

@@ -15,9 +15,11 @@ limitations under the License.
 
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/Pass/Pass.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/fusion_utils.h"
+#include "tensorflow/compiler/mlir/disc/utils/source_emitter.h"
 
 // This file implements the logic to duplicate some lmhlo operations in order
 // to enable more opportunities for fusion and reduce memory footprint.
@@ -29,6 +31,132 @@ using func::FuncOp;
 using namespace lmhlo;
 
 namespace {
+
+// Duplicate the use of scalar and splat constant for several bcasts. It helps
+// to reduce the memory traffic of fusions.
+struct DuplicateConstant : public OpRewritePattern<lmhlo::ConstantOp> {
+ public:
+  DuplicateConstant(MLIRContext* context)
+      : OpRewritePattern<lmhlo::ConstantOp>::OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(lmhlo::ConstantOp op,
+                                PatternRewriter& rewriter) const override;
+};
+
+LogicalResult DuplicateConstant::matchAndRewrite(
+    lmhlo::ConstantOp op, PatternRewriter& rewriter) const {
+  if (!SourceEmitterCUDA::isBroadcastOnScalarOrSplatConstant(op)) {
+    return failure();
+  }
+
+  Location loc = op.getLoc();
+  auto value = op.getValue();
+  Value output = op.getOutput();
+
+  SmallVector<Operation*> bcast_ops;
+  for (auto user : output.getUsers()) {
+    // Simplifies the dominance checking by only identify the order in the same
+    // block.
+    if (op->isBeforeInBlock(user) &&
+        isa<lmhlo::DynamicBroadcastInDimOp>(user)) {
+      bcast_ops.push_back(user);
+    }
+  }
+
+  bool matched = false;
+  // for (auto bcast : bcast_ops.drop_front(1))
+  for (std::size_t i = 1; i < bcast_ops.size(); i++) {
+    auto bcast = bcast_ops[i];
+    // Clone the constant.
+    OpBuilder builder(op);
+    auto orig_alloc = dyn_cast<memref::AllocOp>(output.getDefiningOp());
+    if (orig_alloc == nullptr) {
+      continue;
+    }
+    auto new_alloc = builder.clone(*orig_alloc.getOperation());
+    Value memref = new_alloc->getResult(0);
+    builder.create<lmhlo::ConstantOp>(loc, value, memref);
+
+    bcast->replaceUsesOfWith(output, memref);
+    matched = true;
+  }
+
+  return matched ? success() : failure();
+}
+
+// Duplicate the use of scalar and splat constant followed with bcasts to
+// several users. It helps to reduce the memory traffic of fusions.
+struct DuplicateConstantWithBcast : public OpRewritePattern<lmhlo::ConstantOp> {
+ public:
+  DuplicateConstantWithBcast(MLIRContext* context)
+      : OpRewritePattern<lmhlo::ConstantOp>::OpRewritePattern(context) {}
+
+  LogicalResult matchAndRewrite(lmhlo::ConstantOp op,
+                                PatternRewriter& rewriter) const override;
+};
+
+LogicalResult DuplicateConstantWithBcast::matchAndRewrite(
+    lmhlo::ConstantOp op, PatternRewriter& rewriter) const {
+  if (!SourceEmitterCUDA::isBroadcastOnScalarOrSplatConstant(op)) {
+    return failure();
+  }
+
+  Location loc = op.getLoc();
+  auto value = op.getValue();
+  Value output = op.getOutput();
+
+  SmallVector<Operation*> bcast_ops;
+  for (auto user : output.getUsers()) {
+    // Simplifies the dominance checking by only identify the order in the same
+    // block.
+    if (op->isBeforeInBlock(user) &&
+        isa<lmhlo::DynamicBroadcastInDimOp>(user)) {
+      bcast_ops.push_back(user);
+    }
+  }
+
+  bool matched = false;
+  for (auto bcast_op : bcast_ops) {
+    auto bcast = dyn_cast<lmhlo::DynamicBroadcastInDimOp>(bcast_op);
+    Value bcast_output = bcast.getOutput();
+    SmallVector<Operation*> bcast_users;
+    for (auto user : bcast_output.getUsers()) {
+      if (bcast->isBeforeInBlock(user)) {
+        bcast_users.push_back(user);
+      }
+    }
+    // for (auto user : bcast_users.drop_front(1))
+    for (std::size_t i = 1; i < bcast_users.size(); i++) {
+      auto user = bcast_users[i];
+      OpBuilder builder(bcast);
+      // Clone the constant.
+      auto orig_const_alloc = dyn_cast<memref::AllocOp>(output.getDefiningOp());
+      if (orig_const_alloc == nullptr) {
+        continue;
+      }
+      auto new_const_alloc = builder.clone(*orig_const_alloc.getOperation());
+      Value new_const_memref = new_const_alloc->getResult(0);
+      builder.create<lmhlo::ConstantOp>(loc, value, new_const_memref);
+      // Clone the bcast.
+      auto orig_bcast_alloc =
+          dyn_cast<memref::AllocOp>(bcast_output.getDefiningOp());
+      if (orig_bcast_alloc == nullptr) {
+        continue;
+      }
+      auto new_bcast_alloc = builder.clone(*orig_bcast_alloc.getOperation());
+      Value new_bcast_memref = new_bcast_alloc->getResult(0);
+      builder.create<lmhlo::DynamicBroadcastInDimOp>(
+          loc, new_bcast_memref.getType(), new_const_memref,
+          bcast.getOutputDimensions(), new_bcast_memref,
+          bcast.getBroadcastDimensions());
+
+      user->replaceUsesOfWith(bcast_output, new_bcast_memref);
+      matched = true;
+    }
+  }
+
+  return matched ? success() : failure();
+}
 
 struct DiscDuplicateComputationForFusionPass
     : public DiscDuplicateComputationForFusionPassBase<
@@ -60,6 +188,14 @@ struct DiscDuplicateComputationForFusionPass
     if (failed(duplicateBroadcastInDimOp(func, *strategy))) {
       signalPassFailure();
       return;
+    }
+
+    if (isMemIntensiveOptExperimentalEnabled()) {
+      // Populate patterns.
+      MLIRContext* ctx = func.getContext();
+      RewritePatternSet patterns(ctx);
+      patterns.insert<DuplicateConstant, DuplicateConstantWithBcast>(ctx);
+      (void)applyPatternsAndFoldGreedily(func, std::move(patterns));
     }
   }
 

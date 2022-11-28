@@ -1,4 +1,4 @@
-// RUN: disc-opt -disc-algebra-simplifier -canonicalize -split-input-file %s -o - | FileCheck %s
+// RUN: disc-opt -disc-algebraic-simplifier -canonicalize -split-input-file %s -o - | FileCheck %s
 
 // CHECK-LABEL: splat_const_integer
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<10x11xf32>)

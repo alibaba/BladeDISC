@@ -22,9 +22,9 @@ namespace mlir_test {
 const std::string c_ft_path =
     "tensorflow/compiler/mlir/disc/tests/regression/data/";
 
-TEST(AlgebraSimplifier, PowF32DynamicTest) {
+TEST(AlgebraicSimplifier, PowF32DynamicTest) {
   EXPECT_TRUE(feature_test_main(
-      /*mlir_file_path*/ c_ft_path + "algebra_simplifier_pow_d_f32.mlir",
+      /*mlir_file_path*/ c_ft_path + "algebraic_simplifier_pow_d_f32.mlir",
       /*backend_types*/ kSupportedBackendList,
       /*num_inputs*/ 1,
       /*num_outputs*/ 1,

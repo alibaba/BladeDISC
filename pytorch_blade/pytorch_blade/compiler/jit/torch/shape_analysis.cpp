@@ -927,10 +927,12 @@ class ShapePropagator : public PropertyPropBase {
             "aten::relu(Tensor self) -> Tensor",
             "aten::relu_(Tensor self) -> Tensor",
             "aten::pow(Tensor self, Scalar exponent) -> Tensor",
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
+#if PYTORCH_VERSION_GE(1, 12)
             "aten::gelu(Tensor self, *, str approximate='none') -> Tensor",
+#else
+            "aten::gelu(Tensor self) -> Tensor",
 #endif
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 9
+#if PYTORCH_VERSION_GE(1, 9)
             "aten::relu6(Tensor self) -> Tensor",
             "aten::relu6_(Tensor self) -> Tensor",
 #endif
@@ -1008,7 +1010,6 @@ class ShapePropagator : public PropertyPropBase {
             "aten::permute(Tensor self, int[] dims) -> Tensor",
 #if PYTORCH_VERSION_GE(1, 12)
             "aten::pin_memory(Tensor(a) self, Device? device=None) -> Tensor(a)",
-            "aten::gelu(Tensor self, *, str approximate='none') -> Tensor",
             "aten::gelu_backward(Tensor grad_output, Tensor self, *, str approximate='none') -> Tensor",
             "aten::native_dropout_backward(Tensor grad_output, Tensor mask, float scale) -> Tensor",
 #endif

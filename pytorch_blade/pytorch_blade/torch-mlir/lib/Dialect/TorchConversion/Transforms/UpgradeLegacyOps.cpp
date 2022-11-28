@@ -12,21 +12,11 @@
 #include "torch-mlir/Conversion/MhloPasses.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchDialect.h"
 #include "torch-mlir/Dialect/Torch/IR/TorchOps.h"
-#include "torch-mlir/Dialect/Torch/IR/TorchTypes.h"
-#include "torch-mlir/Dialect/Torch/Utils/TorchUpstream.h"
-#include "torch-mlir/Dialect/Torch/Utils/Utils.h"
-#include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 
-#include <iostream>
-#include "mlir/Dialect/Arith/IR/Arith.h"
-#include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
-#include "mlir/Dialect/Func/IR/FuncOps.h"
-#include "mlir/Dialect/Math/IR/Math.h"
-#include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Verifier.h"
 #include "mlir/Transforms/DialectConversion.h"
-#include "stablehlo/dialect/ChloOps.h"
+
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
@@ -40,9 +30,22 @@ class UpgradeAtenOp : public OpRewritePattern<AtenOpT> {
   LogicalResult matchAndRewrite(AtenOpT op, PatternRewriter& rewriter)
       const override;
 };
+
+template <typename AtenOpT>
+bool isLegalAtenOp(AtenOpT op) {
+  return true;
+}
 } // namespace
 
+// Upgrade AtenGeluOp
 namespace {
+template <>
+bool isLegalAtenOp<AtenGeluOp>(AtenGeluOp op) {
+  // before 1.12: gelu(Tensor self) -> Tensor
+  // since  1.12: gelu(Tensor self, *, str approximate='none') -> Tensor
+  return op.getNumOperands() == 2;
+}
+
 template <>
 LogicalResult UpgradeAtenOp<AtenGeluOp>::matchAndRewrite(
     AtenGeluOp op,
@@ -69,12 +72,9 @@ class DiscUpgradeLegacyOpsPass
     target.addLegalDialect<Torch::TorchDialect>();
 
     RewritePatternSet patterns(context);
-    auto opIsDynamicallyLegal = [&](Operation* op) {
-      return not failed(mlir::verify(op));
-    };
 
-#define UPGRADE_ATENOP_PATTERN(AtenOp)                        \
-  target.addDynamicallyLegalOp<AtenOp>(opIsDynamicallyLegal); \
+#define UPGRADE_ATENOP_PATTERN(AtenOp)                          \
+  target.addDynamicallyLegalOp<AtenOp>(&isLegalAtenOp<AtenOp>); \
   patterns.add<UpgradeAtenOp<AtenOp>>(context)
     UPGRADE_ATENOP_PATTERN(AtenGeluOp);
 #undef UPGRADE_ATENOP_PATTERN
@@ -92,3 +92,5 @@ std::unique_ptr<OperationPass<func::FuncOp>> mlir::torch::TorchConversion::
     createDiscUpgradeLegacyOpsPass() {
   return std::make_unique<DiscUpgradeLegacyOpsPass>();
 }
+
+#undef TORCH_VERSION_LT

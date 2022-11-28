@@ -178,6 +178,7 @@ bool DiscGPUSourceToLibPass::executeCommand(const std::string& cmd,
 LogicalResult DiscGPUSourceToLibPass::compilePreprocessedCUDASourceToLib(
     const std::string& source, std::string& bin_path) {
 #if defined(GOOGLE_CUDA)
+#ifndef SKIP_COMPUTE_INTENSIVE_FUSION
 
   std::string random_number = std::to_string(tensorflow::random::New64());
   std::string tmp_path = "/tmp/";
@@ -229,7 +230,7 @@ LogicalResult DiscGPUSourceToLibPass::compilePreprocessedCUDASourceToLib(
   std::string cuda_minor = cuda_version_num_str[1];
   std::string gnu_version;
   std::string gnu_ver_cmd =
-      R"(gcc -dumpfullversion -dumpversion | 
+      R"(gcc -dumpfullversion -dumpversion |
           sed -e 's/\.\([0-9][0-9]\)/\1/g' -e 's/\.\([0-9]\)/0\1/g' \
               -e 's/^[0-9]\{3,4\}$/&00/')";
   if (!executeCommand(gnu_ver_cmd, &gnu_version) || gnu_version.empty()) {
@@ -255,12 +256,17 @@ LogicalResult DiscGPUSourceToLibPass::compilePreprocessedCUDASourceToLib(
   }
 
   return success();
+#else
+
+  return failure();
+
+#endif  // SKIP_COMPUTE_INTENSIVE_FUSION
 
 #else
 
   return failure();
 
-#endif
+#endif  // GOOGLE_CUDA
 }
 
 std::string DiscGPUSourceToLibPass::findCUDAHome() {

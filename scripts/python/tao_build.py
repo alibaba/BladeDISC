@@ -133,8 +133,6 @@ def restore_gcc_conf(args):
 
 
 def configure_compiler(root, args):
-    config_blade_gemm(root, args)
-
     def _action_env(key, value, cmd="build"):
         f.write(f"{cmd} --action_env {key}={value}\n")
     # configure tensorflow
@@ -169,35 +167,6 @@ def configure_compiler(root, args):
 
     configure_compiler_platform_alibaba(root, args)
     logger.info("Stage [configure compiler] success.")
-
-def config_blade_gemm(root, args):
-    if not (args.platform_alibaba and args.blade_gemm):
-        return
-    if args.cpu_only:
-        return
-    blade_gemm_build_dir = blade_gemm_dir(root)
-    ensure_empty_dir(blade_gemm_build_dir, clear_hidden=False)
-    with cwd(blade_gemm_build_dir), gcc_env(args.bridge_gcc):
-        cc = which("gcc")
-        cxx = which("g++")
-        cmake_cmd = "CC={} CXX={} CUDACXX={} cmake ..".format(cc, cxx, args.blade_gemm_nvcc)
-        if args.dcu or args.rocm:
-            cmake_cmd = "CC={} CXX={} cmake .. -DUSE_TVM=ON -DROCM_PATH={}".format(cc, cxx, get_rocm_path(args))
-        logger.info("configuring blade_gemm ......")
-        execute(cmake_cmd)
-        logger.info("blade_gemm configure success.")
-
-@time_stage()
-def build_blade_gemm(root, args):
-    if not (args.platform_alibaba and args.blade_gemm):
-        return
-    if args.cpu_only:
-        return
-    blade_gemm_build_dir = blade_gemm_dir(root)
-    with cwd(blade_gemm_build_dir), gcc_env(args.bridge_gcc):
-        execute("make -j")
-    logger.info("Stage [build_blade_gemm] success.")
-
 
 @time_stage()
 def configure_bridge(root, args):
@@ -344,8 +313,6 @@ def build_tao_compiler(root, args):
             flag = "--config=rocm"
         else:
             flag = "--config=cuda"
-            if args.platform_alibaba and args.blade_gemm:
-                flag += " --config=blade_gemm"
 
         if args.platform_alibaba:
             flag += " --config=platform_alibaba"
@@ -361,6 +328,9 @@ def build_tao_compiler(root, args):
 
         if args.enable_mkldnn:
             flag += ' --config=disc_mkldnn'
+
+        if args.skip_compute_intensive_fusion:
+            flag += ' --config=skip_compute_intensive_fusion'
 
         flag = build_tao_compiler_add_flags_platform_alibaba(root, args, flag)
 
@@ -421,7 +391,6 @@ def test_tao_compiler(root, args):
         execute(" ".join([BAZEL_BUILD_CMD, flag, target]))
         execute(" ".join([BAZEL_TEST_CMD, flag + ' --test_env=TF_CPP_VMODULE=disc_compiler=1 --test_env=TF_ENABLE_ONEDNN_OPTS=0' , target]))
 
-    build_blade_gemm(root, args)
     with cwd(tf_root_dir(root)), gcc_env(args.compiler_gcc):
         execute(
             "cp -f -p {}/tao*.proto tensorflow/compiler/decoupling/".format(
@@ -453,8 +422,6 @@ def test_tao_compiler(root, args):
                 flag = "--config=rocm"
             else:
                 flag = "--config=cuda"
-                if args.platform_alibaba and args.blade_gemm:
-                    flag += ' --config=blade_gemm'
             if args.platform_alibaba:
                 flag += " --config=platform_alibaba"
             if args.rocm_toolkit_codegen:
@@ -844,6 +811,9 @@ def parse_args():
         default="/usr/local/cuda-11.6/bin/nvcc",
         help="Nvcc used for blade gemm kernel build.",
     )
+    parser.add_argument(
+        "--skip_compute_intensive_fusion", action="store_true", help="build compiler with --config=skip_compute_intensive_fusion"
+    )
     add_arguments_common(parser)
 
     # flag validation
@@ -921,7 +891,6 @@ def main():
         if args.enable_mkldnn:
             with gcc_env(args.bridge_gcc):
                 build_mkldnn(root)
-        build_blade_gemm(root, args)
         build_tao_compiler(root, args)
 
     if (

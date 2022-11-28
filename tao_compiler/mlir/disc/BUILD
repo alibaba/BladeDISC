@@ -21,6 +21,7 @@ load("@local_config_rocm//rocm:build_defs.bzl", "if_rocm_is_configured")
 load("//tensorflow/compiler/mlir/disc:disc.bzl",
      "disc_cc_library",
      "if_cuda_or_rocm",
+     "if_skip_compute_intensive_fusion",
 )
 load("//tensorflow/compiler/mlir/disc:disc.bzl", "if_torch_disc")
 
@@ -57,6 +58,11 @@ config_setting(
 config_setting(
     name = "is_torch_disc",
     define_values = {"is_torch_disc": "true"},
+)
+
+config_setting(
+    name = "skip_compute_intensive_fusion",
+    define_values = {"skip_compute_intensive_fusion": "true"},
 )
 
 package(
@@ -1995,20 +2001,31 @@ genrule(
         """
 )
 
+cc_library(
+    name = "compute_intensive_fusion_deps",
+    srcs = if_skip_compute_intensive_fusion(
+        [],
+        [
+            ":cutlass_header_preprocess",
+        ],
+    ),
+    alwayslink = 1,
+)
+
 disc_cc_library(
     name = "disc_gpu_source_to_lib",
     srcs = [
         "transforms/disc_gpu_source_to_lib.cc",
-    ] + if_cuda_is_configured([
-        ":cutlass_header_preprocess",
-    ]),
+    ],
     deps = [
         ":disc_util",
         ":lmhlo_disc",
         ":pass_details",
         "@llvm-project//mlir:Pass",
         "//tensorflow/core:lib",
-    ],
+    ] + if_cuda_is_configured([
+        ":compute_intensive_fusion_deps",
+    ]),
     alwayslink = 1,
 )
 

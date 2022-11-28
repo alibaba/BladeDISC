@@ -63,7 +63,7 @@ def analyze_target(target, diff_percent):
 
     for index in range(len(baseline_csv)):
         for field in COMPARE_FIELDS + NOTICE_FILEDS:
-            diff_percent = 0 if field in NOTICE_FILEDS else diff_percent
+            allow_diff = 0 if field in NOTICE_FILEDS else diff_percent
             model_name = model_list[index]
             baseline, current_run = (
                 baseline_csv.iloc[index][field],
@@ -81,7 +81,7 @@ def analyze_target(target, diff_percent):
                 )
             else:
                 diff = round((baseline - current_run) / baseline * 100, 4)
-                if abs(diff) > diff_percent:
+                if abs(diff) > allow_diff:
                     sign = "+" if diff > 0 else ""
                     result.append(
                         f"\t- {model_name}[{field}] {baseline}->{current_run}, {sign}{diff}%"

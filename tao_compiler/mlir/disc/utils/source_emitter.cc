@@ -635,5 +635,20 @@ bool SourceEmitterCUDA::isSupportedOp(Operation* op) {
   }
 }
 
+// Return true if the last rewriter in the same block is scalar or splat
+// constant op.
+bool SourceEmitterCUDA::isBroadcastOnScalarOrSplatConstant(Operation* op) {
+  auto input_op = findLastWriterInBlock(op->getOperand(0), op->getBlock());
+  if (!input_op.hasValue()) {
+    return false;
+  }
+  lmhlo::ConstantOp constant = dyn_cast<lmhlo::ConstantOp>(input_op.value());
+  if (!constant) {
+    return false;
+  }
+  MemRefType memref_type = constant.getOutput().getType().cast<MemRefType>();
+  return memref_type.getRank() == 0 || constant.getValue().isSplat();
+}
+
 }  // namespace disc_ral
 }  // namespace mlir

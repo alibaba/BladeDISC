@@ -390,6 +390,87 @@ struct SimplifierFromElementsPattern
   }
 };
 
+// Consant folding the broadcasted constant, for patterns like:
+//   %0 = mhlo.constant // Scalar or splat constant
+//   %1 = mhlo.dynamic_broadcast_in_dim(%0, ...)
+//   %2 = mhlo.rsqrt(%1, ...)
+// Convert:
+//   %0_clone = mhlo.constant // the value of rsqrt is calculated and folded.
+//   %1_clone = mhlo.dynamic_broadcast_in_dim(%0_clone, ...)
+struct FoldBcastOfComputationOnConstantPattern
+    : public OpRewritePattern<mhlo::ConstantOp> {
+  using OpRewritePattern<mhlo::ConstantOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(mhlo::ConstantOp op,
+                                PatternRewriter& rewriter) const override {
+    Value result = op.getResult();
+    auto type = result.getType().dyn_cast<RankedTensorType>();
+    if (!type || !type.hasStaticShape()) {
+      return failure();
+    }
+    if (!op.getValue().isSplat() && type.getNumElements() != 1) {
+      return failure();
+    }
+
+    auto loc = op->getLoc();
+    auto block = op->getBlock();
+    auto elem_ty = type.getElementType();
+
+    OpBuilder::InsertPoint ip = rewriter.saveInsertionPoint();
+    for (Operation* user : result.getUsers()) {
+      if (auto bcast = dyn_cast_or_null<mhlo::DynamicBroadcastInDimOp>(user)) {
+        auto bcast_result = bcast.getResult();
+        auto bcast_type = bcast_result.getType().dyn_cast<RankedTensorType>();
+        for (Operation* bcast_user : bcast_result.getUsers()) {
+          if (isa<mhlo::RsqrtOp, mhlo::SqrtOp>(bcast_user)) {
+            bool is_rsqrt = isa<mhlo::RsqrtOp>(bcast_user);
+            if (elem_ty.isIntOrIndex()) {
+              int64_t val =
+                  (*op.getValue().getValues<APInt>().begin()).getSExtValue();
+              val = std::sqrt(val);
+              if (is_rsqrt) {
+                val = 1 / val;
+              }
+              rewriter.setInsertionPointAfter(bcast_user);
+              Value new_const = rewriter.create<mhlo::ConstantOp>(
+                  loc, DenseElementsAttr::get(type, val));
+              Value new_bcast = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+                  loc, bcast_type, new_const, bcast.getOutputDimensions(),
+                  bcast.getBroadcastDimensions());
+              rewriter.replaceOp(bcast_user, new_bcast);
+              rewriter.restoreInsertionPoint(ip);
+              return success();
+            } else if (isa<mlir::FloatType>(elem_ty)) {
+              double val = (*op.getValue().getValues<APFloat>().begin())
+                               .convertToDouble();
+              val = std::sqrt(val);
+              if (is_rsqrt) {
+                val = 1 / val;
+              }
+              rewriter.setInsertionPointAfter(bcast_user);
+              Value new_const = rewriter.create<mhlo::ConstantOp>(
+                  loc, DenseElementsAttr::get(type, val));
+              Value new_bcast = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
+                  loc, bcast_type, new_const, bcast.getOutputDimensions(),
+                  bcast.getBroadcastDimensions());
+              rewriter.replaceOp(bcast_user, new_bcast);
+              rewriter.restoreInsertionPoint(ip);
+              return success();
+            } else {
+              continue;
+            }
+          } else {
+            // TODO: support more algebraic patterns.
+            return failure();
+          }
+        }
+      }
+    }
+
+    return failure();
+  }
+};
+
 void populateDiscAlgebraSimplifierPatterns(RewritePatternSet& patterns) {
   // clang-format off
   patterns.insert<
@@ -399,7 +480,8 @@ void populateDiscAlgebraSimplifierPatterns(RewritePatternSet& patterns) {
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastInDimOp>,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastOp>,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::DynamicBroadcastInDimOp>,
-    SimplifierFromElementsPattern
+    SimplifierFromElementsPattern,
+    FoldBcastOfComputationOnConstantPattern
   >(patterns.getContext());
 
   // zero tensor related patterns

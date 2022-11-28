@@ -486,6 +486,8 @@ def tao_bridge_bazel_config(args):
             bazel_config += " --config=blade_gemm"
     if args.platform_alibaba:
         bazel_config += " --config=platform_alibaba"
+    # bazel_config += " --compilation_mode=dbg --cxxopt=-DNDEBUG"
+    # bazel_config += " --copt -g"
     return bazel_config
 
 @time_stage()

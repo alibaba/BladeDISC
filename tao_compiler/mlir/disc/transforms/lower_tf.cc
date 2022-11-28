@@ -1015,7 +1015,7 @@ LogicalResult matchAndRwriterQuantizedConv2DWithBiasAndRequantizeOp(
 
   // Currently only support const zero bias (a.k.a no bias at all)
   // TODO(disc): support non-zero bias.
-  if (!isConstantZeroTensor(bias)) return success();
+  // if (!isConstantZeroTensor(bias)) return success();
 
   // Currently only support s8s8s8 config.
   // TODO(disc): support other configs.

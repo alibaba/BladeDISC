@@ -51,12 +51,13 @@ cc_library(
     srcs = [
         "lib/Conversion/MhloPasses.cpp",
         "lib/Conversion/TorchToMhlo/DiscTorchToMhlo.cpp",
-        "lib/Dialect/TorchConversion/Transforms/VerifyMhloBackendContract.cpp",
+        "lib/Dialect/TorchConversion/Transforms/ApplyDiscPdlPatterns.cpp",
         "lib/Dialect/TorchConversion/Transforms/ApplyValueSemantics.cpp",
         "lib/Dialect/TorchConversion/Transforms/ReduceTensorConversions.cpp",
         "lib/Dialect/TorchConversion/Transforms/DiscDecomposeComplexOps.cpp",
         "lib/Dialect/TorchConversion/Transforms/DiscConvertTorchToDiscMhlo.cpp",
-        "lib/Dialect/TorchConversion/Transforms/ApplyDiscPdlPatterns.cpp",
+        "lib/Dialect/TorchConversion/Transforms/UpgradeLegacyOps.cpp",
+        "lib/Dialect/TorchConversion/Transforms/VerifyMhloBackendContract.cpp",
     ],
     hdrs = [
         "include/torch-mlir/Conversion/MhloPasses.h",

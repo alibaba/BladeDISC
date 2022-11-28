@@ -58,6 +58,17 @@ def VerifyMhloBackendContract : Pass<"torch-verify-mhlo-backend-contract", "Modu
   let constructor = "mlir::torch::TorchConversion::createVerifyMhloBackendContractPass()";
 }
 
+def DiscUpgradeLegacyOps : Pass<"torch-disc-upgrade-legacy-ops", "func::FuncOp"> {
+  let summary = "Upgrade Torch legacy operators";
+  let description = [{
+    Upgrade outdated torch operations to latest compatiable versions.
+
+    An example of the transformations done in this pass is:
+    - convert aten.gelu(x) to aten.gelu(x, None)
+  }];
+  let constructor = "mlir::torch::TorchConversion::createDiscUpgradeLegacyOpsPass()";
+}
+
 def DiscDecomposeComplexOps : Pass<"torch-disc-decompose-complex-ops", "func::FuncOp"> {
   let summary = "Decompose Torch complex operators";
   let description = [{

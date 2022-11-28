@@ -39,6 +39,7 @@ void ::mlir::torch::registerTorchToMhloPasses() {
 void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
     OpPassManager& pm,
     const Torch::TorchLoweringPipelineOptions& options) {
+  pm.addNestedPass<func::FuncOp>(createDiscUpgradeLegacyOpsPass());
   ::mlir::torch::Torch::TorchLoweringPipelineOptions funcOptions;
   funcOptions.decompose = false;
   ::mlir::torch::createDiscTorchFunctionToTorchBackendPipeline(pm, funcOptions);

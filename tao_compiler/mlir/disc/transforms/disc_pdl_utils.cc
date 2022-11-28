@@ -294,6 +294,19 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns,
 
 }  // namespace
 
+std::vector<std::string> ParseFileString(const std::string& str) {
+  std::vector<std::string> parsedStrs;
+  if (str.empty()) return parsedStrs;
+  SmallVector<StringRef> items;
+  StringRef(str.data(), str.size())
+      .split(items, ',', /*MaxSplit=*/-1,
+             /*KeepEmpty=*/false);
+  for (const auto& item : items) {
+    parsedStrs.push_back(item.str());
+  }
+  return parsedStrs;
+}
+
 // Adds related depedent dialects (e.g. PDL dialect).
 void getPDLDependentDialects(DialectRegistry& registry) {
   registry.insert<mhlo_disc::MhloDiscDialect, pdl::PDLDialect>();

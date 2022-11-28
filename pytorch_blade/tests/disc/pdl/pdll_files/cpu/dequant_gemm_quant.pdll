@@ -10,8 +10,9 @@
 ///   Rewrite SetCustomAttr(op : Op, key : Attr, value : Attr);
 /// )pdll";
 
-// Dequant + gemm + quant -> qgemm
-Pattern TorchDequantGemmQuantOp {
+// capable with torch >= 1.9.0
+// dequant + aten.linear + quant -> qgemm
+Pattern TorchDequantLinearQuantOp {
   /// match phase: define the pattern
   let input_dequantize_op = op<torch.operator>(
     input: Value,

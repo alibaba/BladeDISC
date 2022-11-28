@@ -9,24 +9,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
+import os
 import random
-import torch
 import unittest
-import copy
 
-from torch_blade import mlir
-from torch_blade import optimize, utils
-from torch_blade.mlir import is_available
-from torch_blade.config import Config
+import torch
+from torch.testing import FileCheck
+from torch_blade import mlir, optimize, utils
 from torch_blade.clustering import support_fusion_group
+from torch_blade.config import Config
+from torch_blade.mlir import is_available
+from torch_blade.pass_manager import _optimize_common
 from torch_blade.testing.common_utils import TestCase
 
 
 def skipIfNoDISC():
     return unittest.skipIf(not is_available(), "DISC support was not built")
 
+
 def isTorchMlirEnable():
     return True
+
 
 def skipIfEnableTorchMlir():
     return unittest.skipIf(isTorchMlirEnable(), "haven't supported")
@@ -43,15 +47,18 @@ def skipTorchNE(version, msg=""):
         utils.torch_version_number() != utils.parse_version(version),
         "TODO: torch version compatible with early than {} {}".format(version, msg))
 
+
 def skipTorchLT(version, msg=""):
     return unittest.skipIf(
         utils.torch_version_number() < utils.parse_version(version),
         "TODO: torch version compatible with early than {} {}".format(version, msg))
 
+
 def skipTorchGE(version, msg=""):
     return unittest.skipIf(
         utils.torch_version_number() >= utils.parse_version(version),
         "TODO: torch version compatible with greater than {} {}".format(version, msg))
+
 
 @skipIfNoDISC()
 class DiscTestCase(TestCase):
@@ -105,3 +112,43 @@ class DiscTestCase(TestCase):
     def _test_disc(self, nn_module, annotation, test_data=None, rtol=1e-6, atol=1e-3, random_seed=10):
         test_data = test_data if test_data else self._gen_test_data(annotation, random_seed)
         return self._test_cvt_to_disc(nn_module, test_data, annotation, rtol=rtol, atol=atol)
+
+
+@contextlib.contextmanager
+def set_env(**environ):
+    old_environ = dict(os.environ)
+    os.environ.update(environ)
+    try:
+        yield
+    finally:
+        os.environ.clear()
+        os.environ.update(old_environ)
+
+
+@skipIfNoDISC()
+class DiscPdlCase(TestCase):
+    def setUp(self):
+        super().setUp()
+        p = os.path.dirname(__file__)
+        if self.device == torch.device('cuda'):
+            self.device_pdll_dir = os.path.join(p, "pdl/pdll_files/gpu")
+        else:
+            # todo: A further distinction between x86 and aarch64 may be required
+            self.device_pdll_dir = os.path.join(p, "pdl/pdll_files/cpu")
+        self.common_pdll_dir = os.path.join(p, "pdl/pdll_files/common")
+
+    def _test_torchscipte_to_mhlo(self, module, expected_str, pdll_files=None, pdll_dirs=None, enable_int8=False):
+        env_var = {}
+        if pdll_files is not None:
+            env_var["DISC_TORCH_PDL_FILES"] = pdll_files
+        if pdll_dirs is not None:
+            env_var["DISC_TORCH_PDLL_INCLUDE_DIRS"] = pdll_dirs
+
+        cfg = Config.get_current_context_or_new()
+        cfg.optimization_pipeline = mlir.backend_name()
+        cfg.enable_int8 = enable_int8
+        with set_env(**env_var), cfg:
+            optimized_script_module = _optimize_common(module)
+            graph = optimized_script_module.forward.graph
+            _, mhlo_graph_str, _, _ = mlir.cvt_torchscript_to_mhlo(graph)
+        FileCheck().run(expected_str, mhlo_graph_str)

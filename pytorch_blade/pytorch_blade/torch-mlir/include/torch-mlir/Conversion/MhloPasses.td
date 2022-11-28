@@ -42,6 +42,17 @@ def ApplyValueSemantics : Pass<"torch-apply-value-semantics", "func::FuncOp"> {
   let constructor = "mlir::torch::TorchConversion::createApplyValueSemanticsPass()";
 }
 
+def ApplyDiscPdlPatterns : Pass<"torch-apply-disc-pdl-patterns", "func::FuncOp"> {
+  let summary = "Pattern match based on pdl patterns.";
+  let constructor = "mlir::torch::TorchConversion::createApplyDiscPdlPatternsPass()";
+  let options = [
+    Option<"pdll_files_", "pdll-files", "std::string",
+           /*default=*/"\"\"", "comma seperated pathes to user defined pdll files">,
+    Option<"pdll_include_dirs_", "pdll-include-dirs", "std::string",
+           /*default=*/"\"\"", "comma seperated pathes to pdll include dirs">,
+  ];
+}
+
 def VerifyMhloBackendContract : Pass<"torch-verify-mhlo-backend-contract", "ModuleOp"> {
   let summary = "Verifies conformity to the mhlo backend contract";
   let constructor = "mlir::torch::TorchConversion::createVerifyMhloBackendContractPass()";

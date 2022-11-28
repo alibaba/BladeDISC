@@ -15,6 +15,7 @@
 #include "torch-mlir/Conversion/TorchToSCF/TorchToSCF.h"
 #include "torch-mlir/Dialect/Torch/Transforms/Passes.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/Passes.h"
+#include "utils/env.h"
 
 namespace impl {
 #define GEN_PASS_REGISTRATION
@@ -41,6 +42,17 @@ void mlir::torch::createDiscTorchBackendToMhloBackendPipeline(
   ::mlir::torch::Torch::TorchLoweringPipelineOptions funcOptions;
   funcOptions.decompose = false;
   ::mlir::torch::createDiscTorchFunctionToTorchBackendPipeline(pm, funcOptions);
+
+  // Apply pdl pattern match
+  std::string disc_torch_pdl_files;
+  std::string disc_torch_pdll_include_dirs;
+  disc_torch_pdl_files =
+      mlir::torch::utils::env::ReadStringFromEnvVar("DISC_TORCH_PDL_FILES", "");
+  disc_torch_pdll_include_dirs = mlir::torch::utils::env::ReadStringFromEnvVar(
+      "DISC_TORCH_PDLL_INCLUDE_DIRS", "");
+  pm.addNestedPass<func::FuncOp>(createApplyDiscPdlPatternsPass(
+      disc_torch_pdl_files, disc_torch_pdll_include_dirs));
+  pm.addNestedPass<func::FuncOp>(createCanonicalizerPass());
 
   // Add decompose passes
   pm.addNestedPass<func::FuncOp>(createDiscDecomposeComplexOpsPass());

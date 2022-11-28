@@ -29,7 +29,10 @@ const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Constraint CheckTorchConstantFloat(v : Value);
   Constraint CheckTorchConstantStr(v : Value);
   Constraint CheckTorchConstantBool(v : Value);
+  Constraint CheckTorchConstantBoolTrue(v : Value);
+  Constraint CheckTorchConstantBoolFalse(v : Value);
   Constraint CheckTorchConstantIntList(v : Value);
+  Constraint CheckTorchValueTensorLiteral(v : Value);
 
   Rewrite CreateTorchCustomCall(tag : Attr, inputs : ValueRange, outputs : ValueRange) -> (op: Op, new_outputs : ValueRange);
   Rewrite ConvertTorchConstantIntListToI64DenseElemsAttr(cst: Value) -> Attr;
@@ -96,6 +99,30 @@ static LogicalResult checkTorchConstantBool(
   return success();
 }
 
+static LogicalResult checkTorchConstantBoolTrue(
+    PatternRewriter& rewriter,
+    ArrayRef<PDLValue> values) {
+  assert(values.size() == 1);
+  bool elem;
+  if (!matchPattern(values[0].cast<Value>(), Torch::m_TorchConstantBool(&elem)))
+    return failure();
+  if (!elem)
+    return failure();
+  return success();
+}
+
+static LogicalResult checkTorchConstantBoolFalse(
+    PatternRewriter& rewriter,
+    ArrayRef<PDLValue> values) {
+  assert(values.size() == 1);
+  bool elem;
+  if (!matchPattern(values[0].cast<Value>(), Torch::m_TorchConstantBool(&elem)))
+    return failure();
+  if (elem)
+    return failure();
+  return success();
+}
+
 static LogicalResult checkTorchConstantIntList(
     PatternRewriter& rewriter,
     ArrayRef<PDLValue> values) {
@@ -104,6 +131,19 @@ static LogicalResult checkTorchConstantIntList(
   if (!matchPattern(
           values[0].cast<Value>(), Torch::m_TorchConstantIntList(elems)))
     return failure();
+  return success();
+}
+
+static LogicalResult checkTorchValueTensorLiteral(
+    PatternRewriter& rewriter,
+    ArrayRef<PDLValue> values) {
+  assert(values.size() == 1);
+  auto op = values[0]
+                .cast<Value>()
+                .template getDefiningOp<Torch::ValueTensorLiteralOp>();
+  if (!op) {
+    return failure();
+  }
   return success();
 }
 
@@ -220,7 +260,13 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns) {
   pdlPatterns.registerConstraintFunction(
       "CheckTorchConstantBool", checkTorchConstantBool);
   pdlPatterns.registerConstraintFunction(
+      "CheckTorchConstantBoolTrue", checkTorchConstantBoolTrue);
+  pdlPatterns.registerConstraintFunction(
+      "CheckTorchConstantBoolFalse", checkTorchConstantBoolFalse);
+  pdlPatterns.registerConstraintFunction(
       "CheckTorchConstantIntList", checkTorchConstantIntList);
+  pdlPatterns.registerConstraintFunction(
+      "CheckTorchValueTensorLiteral", checkTorchValueTensorLiteral);
 }
 
 } // namespace torch

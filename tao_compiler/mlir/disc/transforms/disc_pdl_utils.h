@@ -47,6 +47,8 @@ llvm::SmallVector<Value>& getThreadLocalValueRangeStorage(llvm::StringRef tag);
 // Adds related depedent dialects (e.g. PDL dialect).
 void getPDLDependentDialects(DialectRegistry& registry);
 
+std::vector<std::string> ParseFileString(const std::string& str);
+
 using RegisterPDLFunctionsCallback = std::function<void(PDLPatternModule&)>;
 
 // Parses pdll patterns from string, compile them and then add to `patterns`.

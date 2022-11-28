@@ -461,32 +461,11 @@ class FusionPlanner {
       return false;
     }
 
-#if 1
-    bool to_dump = true;
-    to_dump &= cluster_from->fused_pattern().getOpList().size() +
-                   cluster_to->fused_pattern().getOpList().size() >
-               30;
-    to_dump &= cluster_to->fused_pattern().getFusionType() == FusionType::kLoop;
-    if (to_dump)
-      if (cluster_from->fused_pattern().getFusionType() == FusionType::kDot) {
-        llvm::errs() << "[ZZ] try to fuse patterns:\n";
-        llvm::errs() << "[ZZ] pattern 1:\n";
-        dumpFusionPattern(cluster_from->fused_pattern());
-        llvm::errs() << "[ZZ] pattern 2:\n";
-        dumpFusionPattern(cluster_to->fused_pattern());
-      }
-#endif
     if (!getFusionStrategy().tryFuseInplace(*shape_analysis_,
                                             cluster_from->fused_pattern(),
                                             cluster_to->fused_pattern())) {
       return false;
     }
-#if 1
-    if (to_dump)
-      if (cluster_from->fused_pattern().getFusionType() == FusionType::kDot) {
-        llvm::errs() << "[ZZ] haha fused\n";
-      }
-#endif
     auto optional_merged_node = cycle_detector_->ContractEdge(from, to);
     assert(optional_merged_node.hasValue());
     cluster_from->set_cycles_graph_node_id(*optional_merged_node);

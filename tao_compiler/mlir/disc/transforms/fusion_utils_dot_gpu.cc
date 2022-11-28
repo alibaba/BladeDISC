@@ -119,49 +119,17 @@ bool DotGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
   if (dot_ops.size() != 1) {
     return false;
   }
-#if 1
-  bool to_dump = true;
-  to_dump &= op_list.size() > 30;
-  if (to_dump) {
-    llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-  }
-#endif
 
   // All the effective-operand of non-dot ops are not the operand of the fusion.
   DenseSet<Value> operand_set(operands.begin(), operands.end());
-#if 0
-  llvm::errs() << "[ZZ] operands of fusion pattern:\n";
-  for (auto operand : operands) {
-    llvm::errs() << "\t[ZZ] " << operand << "\n";
-  }
-#endif
   for (auto op : mem_intensive_ops) {
     SmallVector<Value> effective_operands = getEffectiveOperands(op);
-#if 0
-    llvm::errs() << "[ZZ] all the effective operands:\n";
-    for (auto operand : effective_operands) {
-      llvm::errs() << "\t[ZZ] " << operand << "\n";
-    }
-    llvm::errs() << "[ZZ] effective operands size: "
-                 << effective_operands.size() << "\n";
-#endif
     for (auto in : effective_operands) {
       if (operand_set.contains(in)) {
-#if 1
-        if (to_dump) {
-          llvm::errs() << "\t\t[ZZ] effective operand of " << *op << "\n";
-          llvm::errs() << "\t\t[ZZ] " << in << "\n";
-        }
-#endif
         return false;
       }
     }
   }
-#if 1
-  if (to_dump) {
-    llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-  }
-#endif
 
   fusion_pattern.setFusionType(FusionType::kDot);
   fusion_pattern.setDominantOp(dot_ops[0]);
@@ -278,12 +246,6 @@ bool DotGpuFusionStrategy::finalizeFusionPattern(
   Operation* dom = fusion_pattern.getDominantOp();
   DenseSet<SmallVector<Operation*>> path_to_dom{SmallVector<Operation*>{dom}};
   path_dom_to_ops.try_emplace(dom, std::move(path_to_dom));
-#if 1
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-  llvm::errs() << "[ZZ] pattern:\n";
-  dumpFusionPattern(fusion_pattern);
-  llvm::errs() << "[ZZ] reach " << __FILE__ << ":" << __LINE__ << "\n";
-#endif
 
   SmallVector<Operation*> worklist;
   worklist.push_back(dom);

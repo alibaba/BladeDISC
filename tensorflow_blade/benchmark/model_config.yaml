@@ -1,0 +1,28 @@
+ALBERT_base:
+  url: https://tfhub.dev/google/albert_base/2
+  shape: 
+    input_mask: [1, 128]
+    segment_ids: [1, 128]
+    mlm_positions: [1, 128]
+    input_ids: [1, 128]
+      
+BERT-base:
+  url: https://tfhub.dev/google/bert_uncased_L-12_H-768_A-12/1
+  shape:
+    input_ids: [1, 128]
+    input_mask: [1, 128]
+    segment_ids: [1, 128]
+    mlm_positions: [1, 128]
+
+BERT-large:
+  url: https://tfhub.dev/google/bert_uncased_L-24_H-1024_A-16/1
+  shape:
+    input_ids: [1, 128]
+    input_mask: [1, 128]
+    mlm_positions: [1, 128]
+    segment_ids: [1, 128]
+
+Resnet50:
+  url: https://hub.tensorflow.google.cn/tensorflow/resnet_50/classification/1
+  shape: 
+    serving_default_input_1: [32, 224, 224, 3]

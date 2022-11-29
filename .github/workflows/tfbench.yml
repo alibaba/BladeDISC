@@ -1,0 +1,22 @@
+name: TFBench
+
+# Add cronjob later
+# Use workflow dispatch to manual trigger the job for now
+on:
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    - cron: '30 15 * * *' # 11:30 pm UTC+8:00
+  workflow_dispatch:
+
+jobs:
+  TFBench:
+    uses: ./.github/workflows/reusable_bench.yml
+    with:
+      name: tensorflow-benchmark
+      base_image: bladedisc/bladedisc:latest-runtime-tensorflow2.4
+      device: gpu-t4
+      dockerfile: docker/cronjobs/Dockerfile.tf.bench
+      extra_run_args: --cap-add=SYS_ADMIN --gpus all
+      exec_command: bash ./tensorflow_blade/benchmark/test_tf_bench.sh
+      remote_dev_docker: ""
+    secrets: inherit

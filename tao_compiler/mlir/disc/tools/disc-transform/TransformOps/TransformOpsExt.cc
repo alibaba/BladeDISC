@@ -23,6 +23,8 @@
 #include "mlir/Dialect/Bufferization/Transforms/AllocTensorElimination.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotAnalysis.h"
 #include "mlir/Dialect/Bufferization/Transforms/OneShotModuleBufferize.h"
+#include "mlir/Dialect/Bufferization/Transforms/Passes.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
@@ -53,6 +55,19 @@ using bufferization::OneShotBufferizationOptions;
 
 namespace {
 
+bool betterToUseAlloca(ShapedType type) {
+  constexpr unsigned kMaximumSizeInBytes = 64 * 1024;  // 64kB
+  constexpr unsigned kBitwidthOfIndexType = 64;
+
+  if (!type || !type.hasStaticShape()) return false;
+
+  // For index types, use the provided size, as the type does not know.
+  unsigned int bitwidth = type.getElementType().isIndex()
+                              ? kBitwidthOfIndexType
+                              : type.getElementTypeBitWidth();
+  return type.getNumElements() * bitwidth <= kMaximumSizeInBytes * 8;
+}
+
 // Allocation callbacks to use with upstream comprehensive bufferization
 static FailureOr<Value> comprehenciveBufferizeAllocationFn(
     OpBuilder& builder, Location loc, MemRefType memRefType,
@@ -66,7 +81,6 @@ static FailureOr<Value> comprehenciveBufferizeAllocationFn(
 LogicalResult comprehensiveBufferizeDeallocationFn(OpBuilder& builder,
                                                    Location loc,
                                                    Value allocation) {
-  builder.create<memref::DeallocOp>(loc, allocation);
   return success();
 }
 
@@ -111,6 +125,8 @@ OneShotBufferizationOptions getBufferizationOptions() {
   options.allocationFn = comprehenciveBufferizeAllocationFn;
   options.deallocationFn = comprehensiveBufferizeDeallocationFn;
   options.memCpyFn = comprehensiveBufferizeCopyFn;
+  options.bufferAlignment = 64;
+  options.createDeallocs = false;
   options.bufferizeFunctionBoundaries = true;
   options.allowReturnAllocs = true;
   options.functionBoundaryTypeConversion =
@@ -190,6 +206,16 @@ DiagnosedSilenceableFailure DISCBufferizeOp::apply(
   if (failed(bufferization::runOneShotModuleBufferize(moduleOp, options)))
     return mlir::emitDefiniteFailure(state.getTopLevel(),
                                      "bufferization failed.");
+
+  PassManager pm(getContext());
+  pm.addNestedPass<func::FuncOp>(
+      bufferization::createPromoteBuffersToStackPass([](Value alloc) {
+        return betterToUseAlloca(alloc.getType().cast<ShapedType>());
+      }));
+  pm.addNestedPass<func::FuncOp>(bufferization::createBufferDeallocationPass());
+
+  if (failed(pm.run(state.getTopLevel())))
+    return DiagnosedSilenceableFailure::definiteFailure();
 
   return DiagnosedSilenceableFailure::success();
 }

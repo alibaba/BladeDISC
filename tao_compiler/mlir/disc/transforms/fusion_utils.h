@@ -259,7 +259,6 @@ class FusionPatternBase {
   }
 
  protected:
-
   // Calculates the inputs and outputs of the fusion pattern.
   void calculateOperandsAndResults();
 
@@ -373,7 +372,6 @@ class FusionPattern : public FusionPatternBase {
   DenseSet<Operation*>& getIrregularXroots() { return irregular_xroots_; }
 
  private:
-
   Operation* dominant_op_ = nullptr;
   FusionType fusion_type_ = FusionType::kNone;
   SmallVector<Operation*, 4> sub_root_ops_;

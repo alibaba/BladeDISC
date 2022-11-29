@@ -73,6 +73,11 @@ class TestCPULiner(CPUDiscPdlQuantizationE2ETestCase):
                     self.ch_axis, self.weight_quant_min, self.weight_quant_max
                 )
                 if not torch.jit.is_tracing():
+                    # Limited by the current architecture, it is not easy to
+                    # add a fake-quant to bias in blade_compression. In order
+                    # to test the accuracy of the quantized disc model, we simulated
+                    # the quantization of the bias during the forward inference
+                    # process of nn.Module.
                     bias_scale = self.input_scale * self.weight_scale
                     quant_bias = torch.fake_quantize_per_channel_affine(
                         self.bias, bias_scale, self.bias_zero_point,

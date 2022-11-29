@@ -25,6 +25,7 @@ export LIBRARY_PATH=${TENSORRT_INSTALL_PATH}/lib/:${TENSORRT_INSTALL_PATH}/lib64
 # export DEBUG=1
 export TORCH_BLADE_BUILD_MLIR_SUPPORT=${TORCH_BLADE_BUILD_MLIR_SUPPORT:-ON}
 export TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=${TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT:-ON}
+export TORCH_BLADE_RUN_EXAMPLES=${TORCH_BLADE_RUN_EXAMPLES:-OFF}
 
 function pip_install_deps() {
     # set TORCH_BLADE_CI_BUILD_TORCH_VERSION default to 1.7.1+cu110
@@ -104,9 +105,11 @@ function test_cuda_infer_examples() {
 
 # Build
 ci_build
-if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" == "ON" ]; then
-  test_cuda_infer_examples
-  test_training_examples
-else
-  test_cpu_infer_examples
+if [ "TORCH_BLADE_RUN_EXAMPLES" == "ON" ]; then
+  if [ "$TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT" == "ON" ]; then
+    test_cuda_infer_examples
+    test_training_examples
+  else
+    test_cpu_infer_examples
+  fi
 fi

@@ -21,6 +21,7 @@ from torch_blade.clustering import support_fusion_group
 from torch_blade.config import Config
 from torch_blade.mlir import is_available
 from torch_blade.pass_manager import _optimize_common
+from torch_blade.quantization import is_available as is_quantization_available
 from torch_blade.testing.common_utils import TestCase
 
 
@@ -126,18 +127,22 @@ def set_env(**environ):
 
 
 @skipIfNoDISC()
-class DiscPdlCase(TestCase):
+class DiscPdlTestCase(TestCase):
     def setUp(self):
         super().setUp()
         p = os.path.dirname(__file__)
         if self.device == torch.device('cuda'):
             self.device_pdll_dir = os.path.join(p, "pdl/pdll_files/gpu")
         else:
-            # todo: A further distinction between x86 and aarch64 may be required
+            # todo: A further distinction between x86 and aarch64 may be
+            # required
             self.device_pdll_dir = os.path.join(p, "pdl/pdll_files/cpu")
         self.common_pdll_dir = os.path.join(p, "pdl/pdll_files/common")
 
-    def _test_torchscipte_to_mhlo(self, module, expected_str, pdll_files=None, pdll_dirs=None, enable_int8=False):
+    def _test_torchscipte_to_mhlo(
+            self, module, expected_str, pdll_files=None,
+            pdll_dirs=None, enable_int8=False
+    ):
         env_var = {}
         if pdll_files is not None:
             env_var["DISC_TORCH_PDL_FILES"] = pdll_files
@@ -152,3 +157,58 @@ class DiscPdlCase(TestCase):
             graph = optimized_script_module.forward.graph
             _, mhlo_graph_str, _, _ = mlir.cvt_torchscript_to_mhlo(graph)
         FileCheck().run(expected_str, mhlo_graph_str)
+
+    def _test_e2e(
+            self, model, inp, pdll_files=None,
+            pdll_dirs=None, enable_int8=False
+    ):
+        origin_output = model(inp)
+        cfg = Config.get_current_context_or_new()
+        cfg.optimization_pipeline = mlir.backend_name()
+        cfg.enable_int8 = enable_int8
+        env_var = {}
+        if pdll_files is not None:
+            env_var["DISC_TORCH_PDL_FILES"] = pdll_files
+        if pdll_dirs is not None:
+            env_var["DISC_TORCH_PDLL_INCLUDE_DIRS"] = pdll_dirs
+        with set_env(**env_var), cfg:
+            opt_model = optimize(model, True, inp)
+        now_output = opt_model(inp)
+        print(torch.max(torch.abs(now_output - origin_output)))
+        self.assertTrue(torch.equal(origin_output, now_output))
+
+
+class DiscPdlQuantizationTestCase(DiscPdlTestCase):
+    def setUp(self):
+        super().setUp()
+        self.is_quantization_available = is_quantization_available()
+        if not is_quantization_available():
+            self.skipTest("Quantization support was not built")
+
+
+class CPUDiscPdlCase(DiscPdlTestCase):
+    def setUp(self):
+        super().setUp()
+        if self.device != torch.device('cpu'):
+            self.skipTest("Quantization test case only supports cpu platform")
+
+
+class GPUDiscPdlCase(DiscPdlTestCase):
+    def setUp(self):
+        super().setUp()
+        if self.device != torch.device('cuda'):
+            self.skipTest("Quantization test case only supports gpu platform")
+
+
+class CPUDiscPdlQuantizationTestCase(DiscPdlQuantizationTestCase):
+    def setUp(self):
+        super().setUp()
+        if self.device != torch.device('cpu'):
+            self.skipTest("Quantization test case only supports cpu platform")
+
+
+class GPUDiscPdlQuantizationTestCase(DiscPdlQuantizationTestCase):
+    def setUp(self):
+        super().setUp()
+        if self.device != torch.device('cpu'):
+            self.skipTest("Quantization test case only supports cpu platform")

@@ -13,11 +13,10 @@ import os
 import unittest
 
 import torch
-from tests.disc.testing_base import DiscPdlCase
+from tests.disc.testing_base import DiscPdlQuantizationTestCase
 from tests.quantization import zero_point_dtype
 from torch import nn
 from torch.nn import functional as F
-from torch_blade.quantization import is_available as is_quantization_available
 from torch_blade.utils import torch_version_number
 
 TORCH_VERSION = torch_version_number()
@@ -26,8 +25,7 @@ TORCH_VERSION = torch_version_number()
 @unittest.skipIf(TORCH_VERSION < (1, 9),
                  "The patterns corresponding to pytorch before version "
                  "1.9.0 has not yet been implemented ")
-@unittest.skipIf(not is_quantization_available(), "Quantization is not available")
-class TestLinear(DiscPdlCase):
+class TestLinear(DiscPdlQuantizationTestCase):
     #  weight -> fake-quant  \
     #  input  -> fake-quant -> linear -> fake-quant -> output
     def test_s8s8s8_per_channel(self):
@@ -96,9 +94,9 @@ module {
     %8 = "mhlo_disc.quantize"(%4, %3, %2) {axis = dense<0> : tensor<1xi64>, quant_max = 127 : i64, quant_min = -128 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<128x128xf32>, tensor<128xf32>, tensor<128xi32>) -> tensor<128x128xi8>
     # CHECK-NOT: mhlo_disc.dequantize
     # CHECK: mhlo_disc.custom_call_v2
-    # CHECK-SAME: call_target_name = "disc.custom_call.ral_qgemm"
-    # CHECK-SAME: custom_attrs = {}
-    %9 = "mhlo_disc.custom_call_v2"(%7, %8, %0, %6, %5, %3, %2, %1, %5) {call_target_name = "disc.custom_call.ral_qgemm", custom_attrs = {}, device = "h", expected_input_layouts = "*,*,*,*,*,*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,*,*,*,*,*,*,*,*", input_placements = "h,h", output_layouts = "*", output_placements = "h"} : (tensor<1x2x128xi8>, tensor<128x128xi8>, tensor<128xf32>, tensor<f32>, tensor<i32>, tensor<128xf32>, tensor<128xi32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>
+    # CHECK-SAME: call_target_name = "ral_pdll_qgemm"
+    # CHECK-SAME: custom_attrs = {transpose_a = false, transpose_b = false}
+    %9 = "mhlo_disc.custom_call_v2"(%7, %8, %0, %6, %5, %3, %2, %1, %5) {call_target_name = "ral_pdll_qgemm", custom_attrs = {transpose_a = false, transpose_b = false}, device = "h", expected_input_layouts = "*,*,*,*,*,*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,*,*,*,*,*,*,*,*", input_placements = "h,h", output_layouts = "*", output_placements = "h"} : (tensor<1x2x128xi8>, tensor<128x128xi8>, tensor<128xf32>, tensor<f32>, tensor<i32>, tensor<128xf32>, tensor<128xi32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>
     # CHECK-NOT: mhlo_disc.quantize
     # CHECK: mhlo_disc.dequantize
     # CHECK-SAME: use_symmetric = true
@@ -110,8 +108,7 @@ module {
         self._test_torchscipte_to_mhlo(traced_model._c, expect_str, pdll_files, enable_int8=True)
 
 
-@unittest.skipIf(not is_quantization_available(), "Quantization is not available")
-class TestFakeQuant(DiscPdlCase):
+class TestFakeQuant(DiscPdlQuantizationTestCase):
     def setUp(self):
         super().setUp()
         pdll_files = [

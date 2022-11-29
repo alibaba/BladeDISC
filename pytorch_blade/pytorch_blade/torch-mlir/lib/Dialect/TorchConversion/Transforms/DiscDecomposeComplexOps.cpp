@@ -343,7 +343,8 @@ class DiscDecomposeComplexOpsPass
 
     RewritePatternSet patterns(context);
     auto opIsDynamicallyLegal = [&](OperatorOp op) {
-      if (std::string("aten._autocast_to_reduced_precision") == op.name()) {
+      if (std::string("aten._autocast_to_reduced_precision") == op.name() ||
+          std::string("aten._autocast_to_full_precision") == op.name()) {
         return false;
       }
       return true;

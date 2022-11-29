@@ -342,7 +342,7 @@ def is_aarch64():
 
 def num_make_jobs():
     cpu_cnt = os.cpu_count() or 1
-    return max(1, cpu_cnt - 1)
+    return min(max(1, cpu_cnt - 1), 32)
 
 def auto_detect_host_cpu(args):
     if not hasattr(args, 'x86') or not args.x86:

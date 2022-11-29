@@ -57,8 +57,8 @@ class TestCPULiner(CPUDiscPdlQuantizationE2ETestCase):
                 self.weight_quant_max = 127
                 self.activation_quant_min = -128
                 self.activation_quant_max = 127
-                self.bias_quant_min = 2**31 - 1
-                self.bias_quant_max = -2**32
+                self.bias_quant_min = -2**31
+                self.bias_quant_max = 2**31 - 1
                 self.register_buffer("weight", torch.randn(64, 64))
                 self.register_buffer("bias", torch.randn(64))
                 self.ch_axis = 0

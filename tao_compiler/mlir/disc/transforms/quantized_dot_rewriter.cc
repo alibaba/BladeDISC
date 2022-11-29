@@ -106,6 +106,11 @@ struct QuantDotTransposeConvert
     std::vector<int64_t> rhs_contracting_dims_check;
     auto dim_numbers = op.getDotDimensionNumbers();
     rhs_contracting_dims_check = dim_numbers.getRhsContractingDimensions();
+    // Only match matrix whose contracting_dims.size() is 1
+    if (rhs_contracting_dims_check.size() != 1) {
+      return failure();
+    }
+
     if (rhs_contracting_dims_check[0] == 1) {
       return failure();
     }

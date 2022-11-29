@@ -121,6 +121,8 @@ struct DequantizeOpConverter
     auto zeroPointTy = op.getZeroPoint().getType().cast<RankedTensorType>();
     auto bcastedInputOrZeroPointTy = RankedTensorType::get(
         inputTy.getShape(), scaleTy.getElementType(), scaleTy.getEncoding());
+    // Cast zeropoint from int32 to float32 first since int32 value would be
+    // placed in host which will introduce many extra h2d and d2h overhead.
     Value castedZeroPoint =
         rewriter.create<mhlo::ConvertOp>(loc, scaleTy, op.getZeroPoint());
     Value bcastedZeroPoint = rewriter.create<mhlo::DynamicBroadcastInDimOp>(

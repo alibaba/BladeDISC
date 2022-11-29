@@ -174,7 +174,6 @@ class DiscPdlTestCase(TestCase):
         with set_env(**env_var), cfg:
             opt_model = optimize(model, True, inp)
         now_output = opt_model(inp)
-        print(torch.max(torch.abs(now_output - origin_output)))
         self.assertTrue(torch.equal(origin_output, now_output))
 
 
@@ -190,25 +189,25 @@ class CPUDiscPdlCase(DiscPdlTestCase):
     def setUp(self):
         super().setUp()
         if self.device != torch.device('cpu'):
-            self.skipTest("Quantization test case only supports cpu platform")
+            self.skipTest("Pdl test case only supports cpu platform")
 
 
 class GPUDiscPdlCase(DiscPdlTestCase):
     def setUp(self):
         super().setUp()
         if self.device != torch.device('cuda'):
-            self.skipTest("Quantization test case only supports gpu platform")
+            self.skipTest("pdl test case only supports gpu platform")
 
 
 class CPUDiscPdlQuantizationTestCase(DiscPdlQuantizationTestCase):
     def setUp(self):
         super().setUp()
         if self.device != torch.device('cpu'):
-            self.skipTest("Quantization test case only supports cpu platform")
+            self.skipTest("Quantization pdl test case only supports cpu platform")
 
 
 class GPUDiscPdlQuantizationTestCase(DiscPdlQuantizationTestCase):
     def setUp(self):
         super().setUp()
-        if self.device != torch.device('cpu'):
-            self.skipTest("Quantization test case only supports cpu platform")
+        if self.device != torch.device('cuda'):
+            self.skipTest("Quantization pdl test case only supports gpu platform")

@@ -1889,6 +1889,25 @@ cc_library(
 )
 
 cc_library(
+    name = "disc_lower_gpu_quantize_and_dequantize",
+    srcs = ["transforms/disc_lower_gpu_quantize_and_dequantize.cc"],
+    deps = [
+        ":disc_shape_optimization_utils",
+        ":mhlo_disc",
+        ":pass_details",
+        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_pdl_utils",
     srcs = ["transforms/disc_pdl_utils.cc"],
     hdrs = ["transforms/disc_pdl_utils.h"],
@@ -2080,6 +2099,7 @@ cc_library(
         ":disc_lhlo_legalize_roots_to_loops",
         ":disc_lower_tf",
         ":disc_lower_quantize_and_dequantize",
+        ":disc_lower_gpu_quantize_and_dequantize",
         ":disc_lower_to_library_call",
         ":disc_math_approximation",
         ":disc_memref_canonicalizer",

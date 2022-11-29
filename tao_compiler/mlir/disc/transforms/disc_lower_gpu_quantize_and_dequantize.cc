@@ -33,7 +33,7 @@ namespace mlir {
 namespace disc_ral {
 namespace {
 
-struct QuantizeOpConverter : public OpRewritePattern<mhlo_disc::QuantizeOp> {
+struct GpuQuantizeOpConverter : public OpRewritePattern<mhlo_disc::QuantizeOp> {
   using OpRewritePattern<mhlo_disc::QuantizeOp>::OpRewritePattern;
 
   LogicalResult matchAndRewrite(mhlo_disc::QuantizeOp op,
@@ -96,7 +96,7 @@ struct QuantizeOpConverter : public OpRewritePattern<mhlo_disc::QuantizeOp> {
   }
 };
 
-struct DequantizeOpConverter
+struct GpuDequantizeOpConverter
     : public OpRewritePattern<mhlo_disc::DequantizeOp> {
   using OpRewritePattern<mhlo_disc::DequantizeOp>::OpRewritePattern;
 
@@ -119,11 +119,14 @@ struct DequantizeOpConverter
     Value bcastedScale = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
         loc, outTy, op.getScale(), inputShape, op.getAxis());
     auto zeroPointTy = op.getZeroPoint().getType().cast<RankedTensorType>();
-    auto bcastedInputOrZeroPointTy =
-        RankedTensorType::get(inputTy.getShape(), zeroPointTy.getElementType(),
-                              zeroPointTy.getEncoding());
+    auto bcastedInputOrZeroPointTy = RankedTensorType::get(
+        inputTy.getShape(), scaleTy.getElementType(), scaleTy.getEncoding());
+    // Cast zeropoint from int32 to float32 first since int32 value would be
+    // placed in host which will introduce many extra h2d and d2h overhead.
+    Value castedZeroPoint =
+        rewriter.create<mhlo::ConvertOp>(loc, scaleTy, op.getZeroPoint());
     Value bcastedZeroPoint = rewriter.create<mhlo::DynamicBroadcastInDimOp>(
-        loc, bcastedInputOrZeroPointTy, op.getZeroPoint(), inputShape,
+        loc, bcastedInputOrZeroPointTy, castedZeroPoint, inputShape,
         op.getAxis());
     Value castedInput = rewriter.create<mhlo::ConvertOp>(
         loc, bcastedInputOrZeroPointTy, op.getInput());
@@ -138,26 +141,26 @@ struct DequantizeOpConverter
   }
 };
 
-void populateQuantizeAndDequantizePatterns(RewritePatternSet& patterns) {
+void populateGpuQuantizeAndDequantizePatterns(RewritePatternSet& patterns) {
   // clang-format off
   patterns.insert<
-    DequantizeOpConverter,
-    QuantizeOpConverter
+    GpuDequantizeOpConverter,
+    GpuQuantizeOpConverter
   >(patterns.getContext());
   // clang-format on
 }
 
-struct DiscLowerQuantizeAndDequantizePass
-    : public DiscLowerQuantizeAndDequantizePassBase<
-          DiscLowerQuantizeAndDequantizePass> {
+struct DiscLowerGpuQuantizeAndDequantizePass
+    : public DiscLowerGpuQuantizeAndDequantizePassBase<
+          DiscLowerGpuQuantizeAndDequantizePass> {
   void runOnOperation() override;
 };
 
-void DiscLowerQuantizeAndDequantizePass::runOnOperation() {
+void DiscLowerGpuQuantizeAndDequantizePass::runOnOperation() {
   // Setup rewriter patterns.
   MLIRContext& ctx = getContext();
   RewritePatternSet patterns(&ctx);
-  populateQuantizeAndDequantizePatterns(patterns);
+  populateGpuQuantizeAndDequantizePatterns(patterns);
 
   if (failed(
           applyPatternsAndFoldGreedily(getOperation(), std::move(patterns)))) {
@@ -169,8 +172,8 @@ void DiscLowerQuantizeAndDequantizePass::runOnOperation() {
 }  // namespace
 
 std::unique_ptr<OperationPass<func::FuncOp>>
-createDiscLowerQuantizeAndDequantizePass() {
-  return std::make_unique<DiscLowerQuantizeAndDequantizePass>();
+createDiscLowerGpuQuantizeAndDequantizePass() {
+  return std::make_unique<DiscLowerGpuQuantizeAndDequantizePass>();
 }
 
 }  // namespace disc_ral

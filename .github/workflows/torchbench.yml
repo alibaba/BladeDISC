@@ -12,7 +12,7 @@ on:
 jobs:
   TorchBenchCudaTiny:
     if: github.event.schedule != '30 15 * * 5' # daily or dispatch
-    uses: ./.github/workflows/reusable.yml
+    uses: ./.github/workflows/reusable_bench.yml
     with:
       name: torch-offcial-benchmark
       base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cu113
@@ -27,7 +27,7 @@ jobs:
 
   TorchBenchCudaPartial:
     if: github.event.schedule == '30 15 * * *'
-    uses: ./.github/workflows/reusable.yml
+    uses: ./.github/workflows/reusable_bench.yml
     with:
       name: torch-offcial-benchmark
       base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cu113
@@ -42,7 +42,7 @@ jobs:
 
   TorchBenchCudaFull:
     if: github.event.schedule == '30 15 * * 5'
-    uses: ./.github/workflows/reusable.yml
+    uses: ./.github/workflows/reusable_bench.yml
     with:
       name: torch-offcial-benchmark
       base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cu113
@@ -58,7 +58,7 @@ jobs:
 
   TorchBenchCpuTiny:
     if: github.event.schedule != '30 15 * * 5' # daily or dispatch
-    uses: ./.github/workflows/reusable.yml
+    uses: ./.github/workflows/reusable_bench.yml
     with:
       name: torch-offcial-benchmark
       base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cpu
@@ -72,7 +72,7 @@ jobs:
 
   TorchBenchCpuPartial:
     if: github.event.schedule == '30 15 * * *'
-    uses: ./.github/workflows/reusable.yml
+    uses: ./.github/workflows/reusable_bench.yml
     with:
       name: torch-offcial-benchmark
       base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cpu
@@ -86,7 +86,7 @@ jobs:
 
   TorchBenchCpuFull:
     if: github.event.schedule == '30 15 * * 5'
-    uses: ./.github/workflows/reusable.yml
+    uses: ./.github/workflows/reusable_bench.yml
     with:
       name: torch-offcial-benchmark
       base_image: bladedisc/bladedisc:latest-runtime-torch1.12.0-cpu

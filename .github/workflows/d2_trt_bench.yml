@@ -11,7 +11,7 @@ on:
 jobs:
   NGC-TorchTRT-D2:
     if: github.event.schedule != '30 15 * * *'
-    uses: ./.github/workflows/reusable.yml
+    uses: ./.github/workflows/reusable_bench.yml
     with:
       name: torch-trt-and-d2-benchmark
       base_image: nvcr.io/nvidia/pytorch:22.01-py3

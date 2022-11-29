@@ -9,9 +9,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  TorchBenchCudaTiny:
-    if: github.event.schedule != '30 15 * * 5' # daily or dispatch
-    uses: ./.github/workflows/reusable.yml
+  TFBench:
+    uses: ./.github/workflows/reusable_bench.yml
     with:
       name: tensorflow-benchmark
       base_image: bladedisc/bladedisc:latest-runtime-tensorflow2.4

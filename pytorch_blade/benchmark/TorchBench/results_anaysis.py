@@ -19,6 +19,12 @@ COMPARE_FIELDS = [
     "dynamo-blade (latency)",
     "dynamo-disc (latency)",
 ]
+NOTICE_FILEDS = [
+    "disc (compiled)",
+    "disc (clusters)",
+    "dynamo-disc (clusters)",
+    "dynamo-disc (compiled)",
+]
 GITHUB_ISSUE_TEMPLATE = """
 TorchBench CI has detected a performance signal.
 
@@ -47,16 +53,16 @@ def analyze_target(target, diff_percent):
     baseline_csv, current_run_csv = pd.read_csv(baseline_file), pd.read_csv(
         current_run_file
     )
-    model_list = baseline_csv["Model(eval-cuda)"]
+    model_list = baseline_csv["Model"]
     # if model list changes
-    if len(model_list) != len(current_run_csv["Model(eval-cuda)"]) or any(
-        model_list != current_run_csv["Model(eval-cuda)"]
+    if len(model_list) != len(current_run_csv["Model"]) or any(
+        model_list != current_run_csv["Model"]
     ):
         result.append("model list changes, please update baseline files")
         return result
 
     for index in range(len(baseline_csv)):
-        for field in COMPARE_FIELDS:
+        for field in COMPARE_FIELDS + NOTICE_FILEDS:
             model_name = model_list[index]
             baseline, current_run = (
                 baseline_csv.iloc[index][field],
@@ -70,15 +76,22 @@ def analyze_target(target, diff_percent):
                 continue
             elif isinstance(baseline, str) or isinstance(current_run, str):
                 result.append(
-                    f"\t- {model_name}[{field}] status changed, latency: {baseline}->{current_run}"
+                    f"\t- {model_name}[{field}] status changed, {baseline} -> {current_run}"
                 )
             else:
-                diff = round((baseline - current_run) / baseline * 100, 4)
-                if abs(diff) > diff_percent:
-                    sign = "+" if diff > 0 else ""
-                    result.append(
-                        f"\t- {model_name}[{field}] {baseline}->{current_run}, {sign}{diff}%"
-                    )
+                if field in NOTICE_FILEDS:
+                    baseline, current_run = int(baseline), int(current_run)
+                    if baseline != current_run:
+                        result.append(
+                            f"\t- {model_name}[{field}] {baseline} -> {current_run}"
+                        )
+                else:
+                    diff = round((baseline - current_run) / baseline * 100, 4)
+                    if abs(diff) > diff_percent:
+                        sign = "+" if diff > 0 else ""
+                        result.append(
+                            f"\t- {model_name}[{field}] {baseline} -> {current_run}, {sign}{diff}%"
+                        )
     return result
 
 
@@ -99,7 +112,7 @@ if __name__ == "__main__":
         result = analyze_target(target, args.percent)
         if result:
             need_issue = True
-            results += f"- {target}:\n"
+            results += f"\n- {target}:\n"
             results += "\n".join(result)
     print(need_issue)
     if need_issue:

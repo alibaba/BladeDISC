@@ -29,6 +29,10 @@ on:
         required: false
         type: string
         default: tensorflow==1.15.5
+      runner_tag:
+        required: false
+        type: string
+        default: [self-hosted, cpu]
     secrets:
       ALIYUN_DOCKER_USERNAME:
         required: false
@@ -43,7 +47,7 @@ jobs:
   CPU:
     if: github.repository == 'alibaba/BladeDISC'
     # The type of runner that the job will run on
-    runs-on: [self-hosted, cpu]
+    runs-on: ${{ inputs.runner_tag }}
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
     # Runs a single command using the runners shell

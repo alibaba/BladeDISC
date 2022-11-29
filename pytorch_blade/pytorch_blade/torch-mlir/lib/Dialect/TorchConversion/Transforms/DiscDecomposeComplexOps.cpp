@@ -110,7 +110,7 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
         /*copy*/ constantTrue,
         /*memomry format*/ constantNone);
     return success();
-  } else if (std::string("aten_autocast_to_reduce_precision") == name) {
+  } else if (std::string("aten._autocast_to_full_precision") == name) {
     auto outTy = op.getResult(0).getType();
     BaseTensorType tensorType = outTy.template dyn_cast<BaseTensorType>();
     auto dtype = getDtypeIntValueForType(rewriter, loc, tensorType.getDtype());

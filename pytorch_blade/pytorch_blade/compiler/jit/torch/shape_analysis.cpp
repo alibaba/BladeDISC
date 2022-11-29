@@ -2906,7 +2906,6 @@ class ShapePropagator : public PropertyPropBase {
             "aten::_autocast_to_full_precision(Tensor self, bool cuda_enabled, bool cpu_enabled) -> Tensor",
             /*const_inputs=*/{attr::cuda_enabled, attr::cpu_enabled})) {
       auto type = node->input(0)->type()->cast<TensorType>();
-      bool cuda_enabled = node->get<bool>(attr::cuda_enabled).value();
       node->output()->setType(type->withScalarType(at::kFloat));
       return true;
     }

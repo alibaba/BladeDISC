@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    uses: ./.github/workflows/resuable_gpu_build.yml
+    uses: ./.github/workflows/reusable_gpu_build.yml
     with:
       cuda_version: cu113
       runner_tag: gpu-a10

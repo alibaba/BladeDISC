@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    uses: ./.github/workflows/resuable_cpu_build.yml
+    uses: ./.github/workflows/reusable_cpu_build.yml
     with:
       extra_envs: -e TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT=OFF
         -e TORCH_BLADE_CI_BUILD_TORCH_VERSION=1.6.0+cpu

@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    uses: ./.github/workflows/resuable_cpu_build.yml
+    uses: ./.github/workflows/reusable_cpu_build.yml
     with:
       remote_runtime_docker: bladedisc:latest-runtime-tensorflow1.15-cpu
       runtime_base_image: tensorflow/tensorflow:1.15.5

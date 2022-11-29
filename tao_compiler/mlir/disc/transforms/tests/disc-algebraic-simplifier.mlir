@@ -1,4 +1,5 @@
 // RUN: disc-opt -disc-algebraic-simplifier -canonicalize -split-input-file %s -o - | FileCheck %s
+// RUN: DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL=1 disc-opt -disc-algebraic-simplifier -canonicalize -split-input-file %s -o - | FileCheck %s --check-prefix=MEM_OPT_EXPERIMENTAL
 
 // CHECK-LABEL: splat_const_integer
 // CHECK-SAME: (%[[ARG0:.*]]: tensor<10x11xf32>)
@@ -197,4 +198,18 @@ func.func @from_elements_1_elems(%arg0 : tensor<1xf32>) -> tensor<1xf32> {
   %0 = tensor.extract %arg0[%c0] : tensor<1xf32>
   %1 = tensor.from_elements %0 : tensor<1xf32>
   return %1 : tensor<1xf32>
+}
+
+// ----
+
+// MEM_OPT_EXPERIMENTAL-LABEL: @rsqrt_on_constant_bcast
+func.func @rsqrt_on_constant_bcast(%arg0 : tensor<?x?xf16>, %arg1 : tensor<2xindex>) -> tensor<?x?xf16> {
+  // MEM_OPT_EXPERIMENTAL: %[[T0:.*]] = mhlo.constant dense<7.070310e-01> : tensor<f16>
+  %0 = mhlo.constant dense<2.0> : tensor<f16>
+  // MEM_OPT_EXPERIMENTAL: %[[T1:.*]] = "mhlo.dynamic_broadcast_in_dim"(%[[T0]]
+  %1 = "mhlo.dynamic_broadcast_in_dim"(%0, %arg1) {broadcast_dimensions = dense<[]> : tensor<0xi64>} : (tensor<f16>, tensor<2xindex>) -> tensor<?x?xf16>
+  // MEM_OPT_EXPERIMENTAL-NOT: mhlo.rsqrt
+  %2 = mhlo.rsqrt %1 : tensor<?x?xf16>
+  // MEM_OPT_EXPERIMENTAL: return %[[T1]]
+  return %2 : tensor<?x?xf16>
 }

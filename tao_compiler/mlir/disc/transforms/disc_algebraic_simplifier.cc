@@ -20,6 +20,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "mlir/Transforms/Passes.h"
+#include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/PassDetail.h"
 #include "tensorflow/compiler/mlir/disc/transforms/disc_shape_optimization_utils.h"
 
@@ -484,9 +485,14 @@ void populateDiscAlgebraicSimplifierPatterns(RewritePatternSet& patterns) {
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastInDimOp>,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::BroadcastOp>,
     IdentityBroadCastInDimOpCanonicalizationPattern<mhlo::DynamicBroadcastInDimOp>,
-    SimplifierFromElementsPattern,
-    FoldBcastOfComputationOnConstantPattern
+    SimplifierFromElementsPattern
   >(patterns.getContext());
+
+  if (isMemIntensiveOptExperimentalEnabled()) {
+    // Will be enabled by default after a set of robustness testing.
+    patterns.insert<FoldBcastOfComputationOnConstantPattern>(
+        patterns.getContext());
+  }
 
   // zero tensor related patterns
   patterns.insert<

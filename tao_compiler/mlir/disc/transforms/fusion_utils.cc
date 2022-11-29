@@ -1454,6 +1454,7 @@ std::unique_ptr<FusionStrategy> makeNewDeviceStrategy(StringRef device,
     return std::make_unique<DotGpuFusionStrategy>(options);
   } else {
     assert(false && "not support fusion strategy");
+    return nullptr;
   }
 }
 

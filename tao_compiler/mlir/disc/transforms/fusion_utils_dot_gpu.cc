@@ -181,30 +181,6 @@ void getDirectProducerOpsInFusionPattern(Operation* op,
   }
 }
 
-void identifyJointPaths(const DenseSet<SmallVector<Operation*>>& paths_a,
-                        const DenseSet<SmallVector<Operation*>>& paths_b,
-                        DenseSet<SmallVector<Operation*>>& joint_paths) {
-  joint_paths.clear();
-  for (const auto& path_a : paths_a) {
-    for (const auto& path_b : paths_b) {
-      if (&path_a == &path_b) {
-        continue;
-      }
-      SmallVector<Operation*> joint;
-      for (int64_t i = 0; i < std::min(path_a.size(), path_b.size()); i++) {
-        if (path_a[i] == path_b[i]) {
-          joint.push_back(path_a[i]);
-        } else {
-          if (!joint.empty()) {
-            joint_paths.insert(joint);
-          }
-          continue;
-        }
-      }
-    }
-  }
-}
-
 }  // namespace
 
 bool DotGpuFusionStrategy::finalizeFusionPattern(

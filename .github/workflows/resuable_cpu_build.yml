@@ -32,7 +32,7 @@ on:
       runner_tag:
         required: false
         type: string
-        default: [self-hosted, cpu]
+        default: cpu
     secrets:
       ALIYUN_DOCKER_USERNAME:
         required: false

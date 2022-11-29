@@ -18,6 +18,7 @@ cc_library(
         "@local_config_cuda//cuda:cuda_headers",
     ]),
     copts = select({
+       "//:enable_rocm": ["-DTORCH_BLADE_USE_ROCM -DTORCH_BLADE_BUILD_WITH_CUDA "],
        "//:enable_cuda": ["-DTORCH_BLADE_BUILD_WITH_CUDA"],
        "//conditions:default": []}),
     alwayslink = True,
@@ -42,6 +43,7 @@ cc_library(
         "@local_org_torch//:libtorch",
     ],
     copts = select({
+       "//:enable_rocm": ["-DTORCH_BLADE_USE_ROCM -DTORCH_BLADE_BUILD_WITH_CUDA "],
        "//:enable_cuda": ["-DTORCH_BLADE_BUILD_WITH_CUDA"],
        "//conditions:default": []}),
     alwayslink = True,

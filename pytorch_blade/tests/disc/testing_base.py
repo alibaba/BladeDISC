@@ -182,7 +182,7 @@ class DiscPdlQuantizationTestCase(DiscPdlTestCase):
         super().setUp()
         self.is_quantization_available = is_quantization_available()
         if not is_quantization_available():
-            self.skipTest("Quantization support was not built")
+            self.skipTest("Pdl Quantization support is not built")
 
 
 class CPUDiscPdlCase(DiscPdlTestCase):
@@ -196,7 +196,7 @@ class GPUDiscPdlCase(DiscPdlTestCase):
     def setUp(self):
         super().setUp()
         if self.device != torch.device('cuda'):
-            self.skipTest("pdl test case only supports gpu platform")
+            self.skipTest("Pdl test case only supports gpu platform")
 
 
 class CPUDiscPdlQuantizationTestCase(DiscPdlQuantizationTestCase):

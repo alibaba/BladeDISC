@@ -49,6 +49,25 @@ gentbl_cc_library(
 )
 
 cc_library(
+    name = "disc_transform_utils",
+    srcs = [
+        "utils.cc",
+    ],
+    hdrs = [
+        "utils.h",
+    ],
+    deps = [
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:LinalgDialect",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_transform_ops",
     srcs = [
         "TransformOps/TransformOpsExt.cc",
@@ -59,6 +78,7 @@ cc_library(
         "TransformOps/TransformOpsExt.h",
     ],
     deps = [
+        ":disc_transform_utils",
         ":transform_ops_inc_gen",
         "@iree-dialects//:IREELinalgExtDialect",
         "@iree-dialects//:IREELinalgExtTransformOps",
@@ -205,6 +225,25 @@ cc_library(
 )
 
 cc_library(
+    name = "memref_copy_to_linalg",
+    srcs = ["transforms/memref_copy_to_linalg.cc"],
+    deps = [
+        ":pass_details",
+        ":disc_transform_utils",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:ArithDialect",
+        "@llvm-project//mlir:LinalgDialect",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "all_passes",
     hdrs = [
         "transforms/passes.h",
@@ -215,6 +254,7 @@ cc_library(
     ],
     deps = [
         ":legalize_lmhlo_fusion_to_linalg",
+        ":memref_copy_to_linalg",
         ":rewrite-payload-ir-for-ral",
         ":transform_dialect_interpreter",
         "@llvm-project//mlir:Pass",

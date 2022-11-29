@@ -39,3 +39,11 @@ def DiscRewritePayloadIRForRALPass : Pass<"disc-rewrite-payload-ir-for-ral", "Mo
             /*default=*/"false", "whether gpu is available.">,
   ];
 }
+
+def DiscMemrefCopyToLinalgPass : Pass<"disc-memref-copy-to-linalg", "func::FuncOp"> {
+  let summary = "Pass to convert memref.copy to linalg.";
+  let constructor = "createDiscMemrefCopyToLinalgPass()";
+  let dependentDialects = [
+      "linalg::LinalgDialect",
+  ];
+}

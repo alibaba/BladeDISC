@@ -134,6 +134,7 @@ LogicalResult DiscTransformLegalizeToLoopPass::runTransformPipeline(
   pm.addPass(createDiscLegalizeLmhloFusionToLinalgPass());
   pm.addPass(createDiscTransformDialectInterpreterPass(transformFileName_,
                                                        enableExpensiveChecks_));
+  pm.addNestedPass<func::FuncOp>(createDiscMemrefCopyToLinalgPass());
   pm.addPass(createDiscRewritePayloadIRForRALPass(gpuEnabled_));
   return pm.run(m);
 }

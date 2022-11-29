@@ -20,16 +20,26 @@
 #include "mlir/Conversion/LLVMCommon/Pattern.h"
 #include "mlir/Conversion/MathToLLVM/MathToLLVM.h"
 #include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
+#include "mlir/Conversion/VectorToLLVM/ConvertVectorToLLVM.h"
+#include "mlir/Dialect/AMX/AMXDialect.h"
+#include "mlir/Dialect/AMX/Transforms.h"
 #include "mlir/Dialect/Arith/Transforms/Passes.h"
+#include "mlir/Dialect/ArmNeon/ArmNeonDialect.h"
+#include "mlir/Dialect/ArmSVE/ArmSVEDialect.h"
+#include "mlir/Dialect/ArmSVE/Transforms.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
 #include "mlir/Dialect/LLVMIR/LLVMTypes.h"
 #include "mlir/Dialect/Math/IR/Math.h"
+#include "mlir/Dialect/Vector/Transforms/VectorRewritePatterns.h"
+#include "mlir/Dialect/X86Vector/Transforms.h"
+#include "mlir/Dialect/X86Vector/X86VectorDialect.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/Operation.h"
 #include "mlir/Transforms/DialectConversion.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
 #include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
@@ -1171,6 +1181,21 @@ class DiscToLLVMPass : public DiscToLLVMPassBase<DiscToLLVMPass> {
       return LLVM::LLVMPointerType::get(IntegerType::get(ctx, 8));
     });
 
+    // Run Vector -> Vector transformations ahead of conversion to LLVM.
+    {
+      RewritePatternSet patterns(&getContext());
+      vector::populateVectorToVectorCanonicalizationPatterns(patterns);
+      vector::populateVectorBroadcastLoweringPatterns(patterns);
+      vector::populateVectorContractLoweringPatterns(patterns);
+      vector::populateVectorMaskOpLoweringPatterns(patterns);
+      vector::populateVectorShapeCastLoweringPatterns(patterns);
+      vector::populateVectorTransposeLoweringPatterns(patterns);
+      if (failed(applyPatternsAndFoldGreedily(getOperation(),
+                                              std::move(patterns)))) {
+        return signalPassFailure();
+      }
+    }
+
     // Populate patterns.
     RewritePatternSet patterns(&getContext());
     mlir::arith::populateArithToLLVMConversionPatterns(type_converter,
@@ -1182,6 +1207,13 @@ class DiscToLLVMPass : public DiscToLLVMPassBase<DiscToLLVMPass> {
     cf::populateControlFlowToLLVMConversionPatterns(type_converter, patterns);
     populateDiscToLLVMConversionPatterns(&type_converter, &symbol_table,
                                          &patterns);
+    vector::populateVectorMaskMaterializationPatterns(
+        patterns, /*force32BitVectorIndices*/ true);
+    vector::populateVectorTransferLoweringPatterns(patterns);
+    populateVectorToLLVMMatrixConversionPatterns(type_converter, patterns);
+    populateVectorToLLVMConversionPatterns(type_converter, patterns,
+                                           /*reassociateFPReductions*/ true,
+                                           /*force32BitVectorIndices*/ true);
 
     // Set target.
     ConversionTarget target(*ctx);

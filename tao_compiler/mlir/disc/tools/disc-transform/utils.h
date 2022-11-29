@@ -13,57 +13,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-#ifndef DISC_TOOLS_DISC_TRANSFORM_TRANSFORMS_PASSDETAIL_H_
-#define DISC_TOOLS_DISC_TRANSFORM_TRANSFORMS_PASSDETAIL_H_
+#ifndef DISC_TOOLS_DISC_TRANSFORM_UTILS_H_
+#define DISC_TOOLS_DISC_TRANSFORM_UTILS_H_
 
-#include "mlir/Pass/Pass.h"
+#include "mlir/Dialect/MemRef/IR/MemRef.h"
 
 namespace mlir {
-
-class AffineDialect;
-
-namespace NVVM {
-class NVVMDialect;
-}
-
-namespace ROCDL {
-class ROCDLDialect;
-}
-
-namespace math {
-class MathDialect;
-}
-
-namespace memref {
-class MemRefDialect;
-}
-
-namespace scf {
-class SCFDialect;
-}
-
-namespace shape {
-class ShapeDialect;
-}
-
-namespace mhlo {
-class MhloDialect;
-}
-
-namespace arith {
-class ArithDialect;
-}
-
-namespace linalg {
-class LinalgDialect;
-}
-
 namespace disc_ral {
 
-#define GEN_PASS_CLASSES
-#include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/transform_passes.h.inc"
+/// Create a linalg::GenericOp version of an n-D copy that can further tile,
+/// lower to loops or vectorize, unlike the current implementation of
+/// memref::CopyOp.
+Operation* createLinalgCopyOp(OpBuilder& b, Location loc, Value from, Value to,
+                              ArrayRef<NamedAttribute> attributes = {});
 
 }  // namespace disc_ral
 }  // namespace mlir
 
-#endif  // DISC_TOOLS_DISC_TRANSFORM_TRANSFORMS_PASSDETAIL_H_
+#endif  // DISC_TOOLS_DISC_TRANSFORM_UTILS_H_

@@ -75,6 +75,7 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "aten::gelu",
       "aten::gelu_backward",
       "aten::glu",
+      // disable for performance problem
       // "aten::group_norm",
       "aten::hardsigmoid",
       "aten::hardswish",

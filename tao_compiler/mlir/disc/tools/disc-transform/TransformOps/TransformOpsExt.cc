@@ -128,6 +128,46 @@ OneShotBufferizationOptions getBufferizationOptions() {
   return options;
 }
 
+/// Pattern to convert tensor.empty to bufferizaiton::AllocTensorOp.
+struct EmptyTensorLoweringPattern : public OpRewritePattern<tensor::EmptyOp> {
+  using OpRewritePattern<tensor::EmptyOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::EmptyOp op,
+                                PatternRewriter& rewriter) const override {
+    rewriter.replaceOpWithNewOp<bufferization::AllocTensorOp>(
+        op, op.getType(), op.getDynamicSizes());
+    return success();
+  }
+};
+
+LogicalResult bufferizeTensorEmptyOps(
+    transform::TransformState& state, ModuleOp moduleOp,
+    const OneShotBufferizationOptions& options) {
+  /// 1, first convert tensor.emtpy -> TensorAlloc
+  RewritePatternSet patterns(moduleOp->getContext());
+  patterns.add<EmptyTensorLoweringPattern>(patterns.getContext());
+  TrackingListener listener(state);
+  GreedyRewriteConfig config;
+  LogicalResult result = applyPatternsAndFoldGreedily(
+      state.getTopLevel(), std::move(patterns), config, &listener);
+  LogicalResult listenerResult = listener.checkErrorState();
+  if (failed(result) || failed(listenerResult)) {
+    return moduleOp->emitError() << "failed to bufferize tensor.empty\n";
+  }
+  /// 2, some TensorAlloc can be folded. Try to do some optimizations in such
+  /// case.
+  IRRewriter rewriter(moduleOp->getContext());
+  OneShotAnalysisState oneShotState(moduleOp, options);
+  if (failed(bufferization::analyzeOp(moduleOp, oneShotState)) ||
+      failed(bufferization::insertSliceAnchoredAllocTensorEliminationStep(
+          rewriter, moduleOp, oneShotState))) {
+    return moduleOp->emitError()
+           << "failed to analyze the module for bufferization\n";
+  }
+
+  return success();
+}
+
 }  // namespace
 
 DiagnosedSilenceableFailure DISCBufferizeOp::apply(
@@ -140,6 +180,13 @@ DiagnosedSilenceableFailure DISCBufferizeOp::apply(
 
   auto moduleOp = cast<ModuleOp>(payload.front());
   auto options = getBufferizationOptions();
+
+  // Bufferize tensor.empty
+  if (failed(bufferizeTensorEmptyOps(state, moduleOp, options))) {
+    return mlir::emitDefiniteFailure(state.getTopLevel(),
+                                     "failed to bufferize tensor.empty.");
+  }
+
   if (failed(bufferization::runOneShotModuleBufferize(moduleOp, options)))
     return mlir::emitDefiniteFailure(state.getTopLevel(),
                                      "bufferization failed.");

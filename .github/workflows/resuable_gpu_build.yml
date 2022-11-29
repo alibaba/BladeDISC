@@ -71,7 +71,7 @@ jobs:
           -f docker/dev/Dockerfile .
 
     - name: Build And Test
-    if: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
+      if: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
       run: |
         set -e
         nvidia-docker run --rm -t --user $(id -u):$(id -g) \

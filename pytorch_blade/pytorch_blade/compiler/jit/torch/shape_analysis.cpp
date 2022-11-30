@@ -1496,6 +1496,34 @@ class ShapePropagator : public PropertyPropBase {
               return {};
             }};
 
+    static const register_formula_for autocast_ops{
+        {
+            "aten::_autocast_to_reduced_precision(Tensor self, bool cuda_enabled, bool cpu_enabled, ScalarType cuda_dtype, ScalarType cpu_dtype) -> Tensor"
+            "aten::_autocast_to_full_precision(Tensor self, bool cuda_enabled, bool cpu_enabled) -> Tensor",
+        },
+        [](Node* node) -> type_vec_t {
+          auto type = node->input(0)->type()->cast<TensorType>();
+          bool cuda_enabled = node->get<bool>(attr::cuda_enabled).value();
+          if (cuda_enabled) {
+            at::optional<IValue> maybe_cuda_dtype = node->get(attr::cuda_dtype);
+            if (maybe_cuda_dtype && !maybe_cuda_dtype->isNone()) {
+              return {type->withScalarType(maybe_cuda_dtype->toScalarType())};
+            }
+            return {type->withScalarType(at::kFloat)};
+          }
+          bool cpu_enabled = node->get<bool>(attr::cpu_enabled).value();
+          if (cpu_enabled) {
+            at::optional<IValue> maybe_cpu_dtype = node->get(attr::cuda_dtype);
+            if (maybe_cpu_dtype && !maybe_cpu_dtype->isNone()) {
+              return {type->withScalarType(maybe_cpu_dtype->toScalarType())};
+            }
+            return {type->withScalarType(at::kFloat)};
+          }
+          return {};
+          // }
+          // return {};
+        }};
+
     static const auto reduce_op_handler = [](Node* node,
                                              int64_t num_reduced_dim = 0,
                                              bool upcast_integer = false,

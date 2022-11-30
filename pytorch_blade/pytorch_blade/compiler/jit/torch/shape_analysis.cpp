@@ -1505,14 +1505,16 @@ class ShapePropagator : public PropertyPropBase {
           auto type = node->input(0)->type()->cast<TensorType>();
           bool cuda_enabled = node->get<bool>(attr::cuda_enabled).value();
           if (cuda_enabled) {
+            // reduced_precision
             if (node->hasNamedInput("cuda_dtype")) {
               at::optional<IValue> maybe_cuda_dtype =
                   node->get(attr::cuda_dtype);
               if (maybe_cuda_dtype && !maybe_cuda_dtype->isNone()) {
                 return {type->withScalarType(maybe_cuda_dtype->toScalarType())};
               }
+            } else {
+              return {type->withScalarType(at::kFloat)};
             }
-            return {type->withScalarType(at::kFloat)};
           }
           bool cpu_enabled = node->get<bool>(attr::cpu_enabled).value();
           if (cpu_enabled) {
@@ -1523,7 +1525,6 @@ class ShapePropagator : public PropertyPropBase {
                 return {type->withScalarType(maybe_cpu_dtype->toScalarType())};
               }
             }
-
             return {type->withScalarType(at::kFloat)};
           }
           return {};
@@ -2918,29 +2919,6 @@ class ShapePropagator : public PropertyPropBase {
         return true;
       }
       return false;
-    } else if (
-        node->matches(
-            "aten::_autocast_to_reduced_precision(Tensor(a) self, bool cuda_enabled, bool cpu_enabled, ScalarType cuda_dtype, ScalarType cpu_dtype) -> Tensor(a)")) {
-      auto type = node->input(0)->type()->cast<TensorType>();
-      bool cuda_enabled = node->get<bool>(attr::cuda_enabled).value();
-      if (cuda_enabled) {
-        node->output()->setType(
-            type->withScalarType(node->get(attr::cuda_dtype)->toScalarType()));
-        return true;
-      }
-      bool cpu_enabled = node->get<bool>(attr::cpu_enabled).value();
-      if (cpu_enabled) {
-        node->output()->setType(
-            type->withScalarType(node->get(attr::cpu_dtype)->toScalarType()));
-        return true;
-      }
-      return false;
-    } else if (
-        node->matches(
-            "aten::_autocast_to_full_precision(Tensor(a) self, bool cuda_enabled, bool cpu_enabled) -> Tensor(a)")) {
-      auto type = node->input(0)->type()->cast<TensorType>();
-      node->output()->setType(type->withScalarType(at::kFloat));
-      return true;
     }
     setUnshapedType(node);
     return false;

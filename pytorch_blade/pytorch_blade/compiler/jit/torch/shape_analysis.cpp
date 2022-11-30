@@ -1916,6 +1916,38 @@ class ShapePropagator : public PropertyPropBase {
           return {};
         }};
 
+#if PYTORCH_VERSION_GE(1, 12)
+    // refer to
+    // https://github.com/pytorch/pytorch/blob/master/torch/csrc/jit/codegen/cuda/type_inference.cpp#L494
+    static const register_formula_for autocast_ops{
+        {
+            "aten::_autocast_to_reduced_precision(Tensor(a) self, bool cuda_enabled, bool cpu_enabled, ScalarType cuda_dtype, ScalarType cpu_dtype) -> Tensor(a)",
+            "aten::_autocast_to_full_precision(Tensor(a) self, bool cuda_enabled, bool cpu_enabled) -> Tensor(a)",
+        },
+        [](Node* node) -> type_vec_t {
+          const auto in_type = node->input(0)->type()->cast<TensorType>();
+          const auto in_scalar_type = in_type->scalarType();
+
+          // reduced_precision
+          if (node->hasNamedInput("cuda_dtype")) {
+            if (in_scalar_type == at::ScalarType::Float) {
+              bool cuda_enabled = node->get<bool>(attr::cuda_enabled).value();
+              return {in_type->withScalarType(
+                  node->get(cuda_enabled ? attr::cuda_dtype : attr::cpu_dtype)
+                      ->toScalarType())};
+            }
+          }
+          // full_precision
+          else {
+            if (in_scalar_type == at::ScalarType::Half ||
+                in_scalar_type == at::ScalarType::BFloat16) {
+              return {in_type->withScalarType(at::ScalarType::Float)};
+            }
+          }
+          return {in_type};
+        }};
+#endif
+
     // First, try to match one of the registered formulas to their operator
     // sets.
     for (auto& entry : shape_formulas) {

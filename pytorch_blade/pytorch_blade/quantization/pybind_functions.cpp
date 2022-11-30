@@ -165,8 +165,8 @@ void replace_aten_fake_quant_with_custom_version(Module& model) {
         use_signed = insert_prim_constant<bool>(g, n, false, false);
         use_symmetric = insert_prim_constant<bool>(g, n, false, false);
       }
-      int num_bis_val = int(std::round(log2(quant_max_num - quant_min_num)));
-      Value* num_bits = insert_prim_constant<int>(g, n, false, num_bis_val);
+      int num_bits_val = int(std::round(log2(quant_max_num - quant_min_num)));
+      Value* num_bits = insert_prim_constant<int>(g, n, false, num_bits_val);
 
       // aten::fake_quant is aimed for static quantization.
       // So use_dynamic is set to false.

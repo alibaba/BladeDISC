@@ -33,6 +33,7 @@
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
 #include "mlir/Pass/PassManager.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/utils.h"
 
 namespace mlir {
 namespace disc_ral {
@@ -82,36 +83,6 @@ LogicalResult comprehensiveBufferizeDeallocationFn(OpBuilder& builder,
                                                    Location loc,
                                                    Value allocation) {
   return success();
-}
-
-/// Create a linalg::GenericOp version of an n-D copy that can further tile,
-/// lower to loops or vectorize, unlike the current implementation of
-/// memref::CopyOp.
-Operation* createLinalgCopyOp(OpBuilder& b, Location loc, Value from, Value to,
-                              ArrayRef<NamedAttribute> attributes = {}) {
-  auto memrefTypeFrom = from.getType().dyn_cast<MemRefType>();
-  auto memrefTypeTo = to.getType().dyn_cast<MemRefType>();
-  if (!memrefTypeFrom || !memrefTypeTo ||
-      memrefTypeFrom.getRank() != memrefTypeTo.getRank()) {
-    mlir::emitError(
-        loc, "unable to generate copy op within bufferization from type ")
-        << memrefTypeFrom << " to " << memrefTypeTo;
-    return nullptr;
-  }
-  AffineMap id =
-      AffineMap::getMultiDimIdentityMap(memrefTypeTo.getRank(), b.getContext());
-  SmallVector<StringRef> iteratorTypes(memrefTypeTo.getRank(),
-                                       getParallelIteratorTypeName());
-  return b.create<linalg::GenericOp>(
-      loc,
-      /*inputs=*/from,
-      /*outputs=*/to,
-      /*indexingMaps=*/llvm::makeArrayRef({id, id}),
-      /*iteratorTypes=*/iteratorTypes,
-      [](OpBuilder& b, Location loc, ValueRange args) {
-        b.create<linalg::YieldOp>(loc, args.front());
-      },
-      attributes);
 }
 
 LogicalResult comprehensiveBufferizeCopyFn(OpBuilder& builder, Location loc,

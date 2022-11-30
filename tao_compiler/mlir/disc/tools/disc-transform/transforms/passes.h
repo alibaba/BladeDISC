@@ -21,11 +21,14 @@ limitations under the License.
 
 namespace mlir {
 
-class FuncOp;
 class FunctionPass;
 class ModuleOp;
 class Operation;
 class Pass;
+
+namespace func {
+class FuncOp;
+}
 
 template <typename T>
 class OperationPass;
@@ -45,6 +48,9 @@ createDiscTransformDialectInterpreterPass(const std::string& fileName = "",
 // Converts the transformed payload IR to be suitable for RAL.
 std::unique_ptr<OperationPass<ModuleOp>> createDiscRewritePayloadIRForRALPass(
     bool gpuEnabled = false);
+
+// Converts a memref.copy op to its linalg equivalent
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscMemrefCopyToLinalgPass();
 
 }  // namespace disc_ral
 }  // namespace mlir

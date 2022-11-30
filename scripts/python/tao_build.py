@@ -205,7 +205,6 @@ def configure_bridge(root, args):
         ) = get_tf_info(python_bin)
         _opt("cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
         _opt("host_cxxopt", f"-D_GLIBCXX_USE_CXX11_ABI={tf_cxx11_abi}")
-        # quick solution, a little hacky
         _opt("cxxopt", f"-DTF_IS_DEEPREC={is_deeprec}")
         _opt("host_cxxopt", f"-DTF_IS_DEEPREC={is_deeprec}")
         _action_env("BLADE_WITH_TF", "1")

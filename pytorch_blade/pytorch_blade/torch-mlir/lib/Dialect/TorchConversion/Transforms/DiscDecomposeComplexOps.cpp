@@ -91,7 +91,7 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
   auto name = op.name();
   if (std::string("aten._autocast_to_reduced_precision") == name ||
       std::string("aten._autocast_to_full_precision") == name) {
-    //
+    // dtype has been infered in PropagateInputShapes pass
     auto inTy = op.getOperand(0).getType();
     auto outTy = op.getResult(0).getType();
     auto inDtype = outTy.template dyn_cast<BaseTensorType>().getDtype();

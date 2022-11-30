@@ -21,3 +21,6 @@ build:cxx11abi_1 --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=1
 
 # Disable NCCL since TF head may drop suuport for lower CUDA version. Also disable others not in need.
 build --config=nonccl --config=noaws --config=nogcp --config=nohdfs
+
+build:skip_compute_intensive_fusion --define skip_compute_intensive_fusion=true
+build:skip_compute_intensive_fusion --cxxopt=-DSKIP_COMPUTE_INTENSIVE_FUSION

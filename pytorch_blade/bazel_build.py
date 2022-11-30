@@ -141,6 +141,9 @@ class BazelBuild(TorchBladeBuild):
         if self.build_hie:
             self.configs += ["--config=hie"]
 
+        if self.skip_compute_intensive_fusion:
+            self.configs += ["--config=skip_compute_intensive_fusion"]
+
         if running_on_ci():
             self.configs += ["--config=ci_build"]
 

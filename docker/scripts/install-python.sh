@@ -35,7 +35,7 @@ function install_venv() {
   python3 -m virtualenv ${DISC_VENV}
   source ${DISC_VENV}/bin/activate
   if [[ ! -z "${DISC_HOST_TF_VERSION}" ]]; then
-    if [[ $"{DISC_HOST_TF_VERSION}" == "tensorflow-gpu==2.8" ]]; then
+    if [[ "${DISC_HOST_TF_VERSION}" == "tensorflow-gpu==2.8" ]]; then
       pip install -q protobuf==3.20.1
     fi
     echo "install TensorFlow: "${DISC_HOST_TF_VERSION} "..."

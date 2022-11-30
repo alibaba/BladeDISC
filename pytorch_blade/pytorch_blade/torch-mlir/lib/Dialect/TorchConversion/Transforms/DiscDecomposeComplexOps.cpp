@@ -19,6 +19,7 @@
 #include "torch-mlir/Dialect/TorchConversion/IR/TorchConversionOps.h"
 #include "torch-mlir/Dialect/TorchConversion/Transforms/BackendTypeConversion.h"
 
+#include <iostream>
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/ControlFlow/IR/ControlFlowOps.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
@@ -27,7 +28,6 @@
 #include "mlir/IR/Builders.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "stablehlo/dialect/ChloOps.h"
-
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
@@ -94,9 +94,9 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     // dtype has been infered in PropagateInputShapes pass
     auto inTy = op.getOperand(0).getType();
     auto outTy = op.getResult(0).getType();
-    auto inDtype = outTy.template dyn_cast<BaseTensorType>().getDtype();
-    auto outDtype = outTy.template dyn_cast<BaseTensorType>().getDtype();
-    if (inDtype != outDtype) {
+
+    if (inTy != outTy) {
+      auto outDtype = outTy.template dyn_cast<BaseTensorType>().getDtype();
       auto dtype = getDtypeIntValueForType(rewriter, loc, outDtype);
       Value constantNone = rewriter.create<ConstantNoneOp>(loc);
       Value constantTrue = rewriter.create<ConstantBoolOp>(loc, true);
@@ -108,7 +108,6 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
           /*non-blocking*/ constantTrue,
           /*copy*/ constantTrue,
           /*memomry format*/ constantNone);
-
     } else {
       rewriter.replaceOp(op, {op.getOperand(0)});
     }

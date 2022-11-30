@@ -13,7 +13,7 @@ import os
 import unittest
 
 import torch
-from tests.disc.testing_base import DiscPdlQuantizationTestCase
+from tests.disc.testing_base import CPUDiscPdlQuantizationTestCase
 from tests.quantization import zero_point_dtype
 from torch import nn
 from torch.nn import functional as F
@@ -25,7 +25,7 @@ TORCH_VERSION = torch_version_number()
 @unittest.skipIf(TORCH_VERSION < (1, 9),
                  "The patterns corresponding to pytorch before version "
                  "1.9.0 has not yet been implemented ")
-class TestLinear(DiscPdlQuantizationTestCase):
+class TestLinear(CPUDiscPdlQuantizationTestCase):
     #  weight -> fake-quant  \
     #  input  -> fake-quant -> linear -> fake-quant -> output
     def test_s8s8s8_per_channel(self):
@@ -108,7 +108,7 @@ module {
         self._test_torchscipte_to_mhlo(traced_model._c, expect_str, pdll_files, enable_int8=True)
 
 
-class TestFakeQuant(DiscPdlQuantizationTestCase):
+class TestFakeQuant(CPUDiscPdlQuantizationTestCase):
     def setUp(self):
         super().setUp()
         pdll_files = [

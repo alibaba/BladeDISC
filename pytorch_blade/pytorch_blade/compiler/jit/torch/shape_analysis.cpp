@@ -1498,25 +1498,32 @@ class ShapePropagator : public PropertyPropBase {
 
     static const register_formula_for autocast_ops{
         {
-            "aten::_autocast_to_reduced_precision(Tensor self, bool cuda_enabled, bool cpu_enabled, ScalarType cuda_dtype, ScalarType cpu_dtype) -> Tensor"
-            "aten::_autocast_to_full_precision(Tensor self, bool cuda_enabled, bool cpu_enabled) -> Tensor",
+            "aten::_autocast_to_reduced_precision(Tensor(a) self, bool cuda_enabled, bool cpu_enabled, ScalarType cuda_dtype, ScalarType cpu_dtype) -> Tensor(a)",
+            "aten::_autocast_to_full_precision(Tensor(a) self, bool cuda_enabled, bool cpu_enabled) -> Tensor(a)",
         },
         [](Node* node) -> type_vec_t {
           auto type = node->input(0)->type()->cast<TensorType>();
           bool cuda_enabled = node->get<bool>(attr::cuda_enabled).value();
           if (cuda_enabled) {
-            at::optional<IValue> maybe_cuda_dtype = node->get(attr::cuda_dtype);
-            if (maybe_cuda_dtype && !maybe_cuda_dtype->isNone()) {
-              return {type->withScalarType(maybe_cuda_dtype->toScalarType())};
+            if (node->hasNamedInput("cuda_dtype")) {
+              at::optional<IValue> maybe_cuda_dtype =
+                  node->get(attr::cuda_dtype);
+              if (maybe_cuda_dtype && !maybe_cuda_dtype->isNone()) {
+                return {type->withScalarType(maybe_cuda_dtype->toScalarType())};
+              }
             }
             return {type->withScalarType(at::kFloat)};
           }
           bool cpu_enabled = node->get<bool>(attr::cpu_enabled).value();
           if (cpu_enabled) {
-            at::optional<IValue> maybe_cpu_dtype = node->get(attr::cuda_dtype);
-            if (maybe_cpu_dtype && !maybe_cpu_dtype->isNone()) {
-              return {type->withScalarType(maybe_cpu_dtype->toScalarType())};
+            if (node->hasNamedInput("cpu_dtype")) {
+              at::optional<IValue> maybe_cpu_dtype =
+                  node->get(attr::cuda_dtype);
+              if (maybe_cpu_dtype && !maybe_cpu_dtype->isNone()) {
+                return {type->withScalarType(maybe_cpu_dtype->toScalarType())};
+              }
             }
+
             return {type->withScalarType(at::kFloat)};
           }
           return {};
@@ -2913,8 +2920,7 @@ class ShapePropagator : public PropertyPropBase {
       return false;
     } else if (
         node->matches(
-            "aten::_autocast_to_reduced_precision(Tensor self, bool cuda_enabled, bool cpu_enabled, ScalarType cuda_dtype, ScalarType cpu_dtype) -> Tensor",
-            /*const_inputs=*/{attr::cuda_enabled, attr::cpu_enabled})) {
+            "aten::_autocast_to_reduced_precision(Tensor(a) self, bool cuda_enabled, bool cpu_enabled, ScalarType cuda_dtype, ScalarType cpu_dtype) -> Tensor(a)")) {
       auto type = node->input(0)->type()->cast<TensorType>();
       bool cuda_enabled = node->get<bool>(attr::cuda_enabled).value();
       if (cuda_enabled) {
@@ -2931,8 +2937,7 @@ class ShapePropagator : public PropertyPropBase {
       return false;
     } else if (
         node->matches(
-            "aten::_autocast_to_full_precision(Tensor self, bool cuda_enabled, bool cpu_enabled) -> Tensor",
-            /*const_inputs=*/{attr::cuda_enabled, attr::cpu_enabled})) {
+            "aten::_autocast_to_full_precision(Tensor(a) self, bool cuda_enabled, bool cpu_enabled) -> Tensor(a)")) {
       auto type = node->input(0)->type()->cast<TensorType>();
       node->output()->setType(type->withScalarType(at::kFloat));
       return true;

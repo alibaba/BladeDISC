@@ -1,0 +1,12 @@
+// RUN: shape_analysis_tool --since 1.10.0 -f %s | FileCheck %s
+
+// CHECK-LABEL: graph
+graph(%self: Half(*, *, *, *)):
+  %cst0 : int = prim::Constant[value=0]()
+  %cst6 : int = prim::Constant[value=6]()
+  %cuda : Device = prim::Constant[value="cuda"]()
+  %none : NoneType = prim::Constant()
+  %false : bool = prim::Constant[value=0]()
+// CHECK: Float(*, *, *, *, device=cuda) = aten::_to_copy
+  %to_copy : Tensor = aten::_to_copy(%self, %cst6, %cst0, %cuda, %none, %false, %none)
+  return (%to_copy)

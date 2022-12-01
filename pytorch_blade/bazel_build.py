@@ -68,6 +68,7 @@ class BazelBuild(TorchBladeBuild):
             "//pytorch_blade:libtorch_blade.so",
             "//pytorch_blade:_torch_blade.so",
             "//tests/mhlo/torch-mlir-opt:torch-mlir-opt",
+            "//tests/torchscript:shape_analysis_tool",
             "//tests/torch-disc-pdll:torch-disc-pdll",
         ]
 

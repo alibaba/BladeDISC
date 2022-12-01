@@ -1,4 +1,4 @@
-// RUN: shape_analysis_tool <%s | FileCheck %s
+// RUN: shape_analysis_tool -f %s | FileCheck %s
 
 // CHECK-LABEL: graph
 graph(%p1 : Float(48, 128, 768, requires_grad=0),
@@ -45,4 +45,3 @@ graph(%p1 : Float(*, *, *, device=cuda:0),
 // CHECK: Float(*, *, *, device=cuda:0) = aten::tanh_backward(%p1, %p2)
   %1 : Tensor = aten::tanh_backward(%p1, %p2)
   return (%1)
-

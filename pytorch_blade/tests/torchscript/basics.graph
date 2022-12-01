@@ -25,22 +25,6 @@ graph(%p1 : Float(*, *, *, requires_grad=0),
   return (%1)
 
 // CHECK-LABEL: graph
-graph(%p1 : Float(*, *, *),
-      %p2 : Float(*, *, *),
-      %p3 : int):
-// CHECK: Float(*, *, *) = aten::rsub
-  %1 : Tensor = aten::rsub(%p1, %p2, %p3)
-  return (%1)
-
-// CHECK-LABEL: graph
-graph(%p1 : Float(*, *, *),
-      %p2 : int):
-  %cstFloat: int = prim::Constant[value=0.5]()
-// CHECK: Float(*, *, *) = aten::rsub
-  %1 : Tensor = aten::rsub(%p1, %cstFloat, %p2)
-  return (%1)
-
-// CHECK-LABEL: graph
 graph(%p1 : Float(*, *, requires_grad=0, device=cpu)):
   %1 : int = prim::Constant[value=0]()
   %2 : int = prim::Constant[value=1]()

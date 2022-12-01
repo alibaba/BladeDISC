@@ -25,10 +25,6 @@ on:
       runtime_base_image:
         required: false
         type: string
-      host_tf_version:
-        required: false
-        type: string
-        default: tensorflow==1.15.5
       runner_tag:
         required: false
         type: string
@@ -60,9 +56,7 @@ jobs:
         git submodule update --depth=1 --init --recursive
         docker build -t disc-dev-cpu \
           --build-arg BASEIMAGE=${{ inputs.develop_base_image }} \
-          --build-arg DISC_HOST_TF_VERSION="tensorflow==1.15.5" \
           --build-arg DEVICE=cpu \
-          --build-arg DISC_HOST_TF_VERSION="${{ inputs.host_tf_version }}" \
           ${{ inputs.extra_build_args }} \
           -f docker/dev/Dockerfile .
 

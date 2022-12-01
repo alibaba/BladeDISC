@@ -110,6 +110,9 @@ module {
         """
         self._test_torchscipte_to_mhlo(traced_model._c, expect_str, pdll_files, enable_int8=True)
 
+@unittest.skipIf(TORCH_VERSION < (1, 9),
+                 "The patterns corresponding to pytorch before version "
+                 "1.9.0 has not yet been implemented ")
 class TestGPULinear(GPUDiscPdlQuantizationTestCase):
     #  weight -> fake-quant  \
     #  input  -> fake-quant -> linear -> fake-quant -> output

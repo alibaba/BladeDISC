@@ -96,4 +96,23 @@ TEST(EpilogueTest, EpilogueMultiFusions) {
   unsetenv("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE");
 }
 
+// GEMM + transpose.
+TEST(EpilogueTest, EpilogueTransposeBMM0213) {
+  setenv("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE", "true", 1);
+  // compute-intensive fusion should be used along with stitch fusion.
+  setenv("DISC_ENABLE_STITCH", "true", 1);
+  setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "epilogue_fusion_transpose_bmm0213.mlir",
+      /*backend_types*/
+      {BackendType::kCuda},
+      /*num_inputs*/ 2,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"1x16x128x768xf16_X", "1x16x768x768xf16_X"},
+      /*output_descriptors*/ {"f16_X"}));
+  unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
+  unsetenv("DISC_ENABLE_STITCH");
+  unsetenv("DISC_ENABLE_COMPUTE_INTENSIVE_FUSE");
+}
+
 }  // namespace mlir_test

@@ -45,6 +45,52 @@ struct DenseMapInfo<SmallVector<mlir::Operation*>> {
 namespace mlir {
 namespace disc_ral {
 
+namespace {
+
+void getDirectConsumerOps(Operation* op, DenseSet<Operation*>& consumers) {
+  consumers.clear();
+  if (op == nullptr) {
+    return;
+  }
+  SmallVector<Value> affectedValues;
+  for (auto result : op->getResults()) {
+    affectedValues.push_back(result);
+  }
+  for (auto operand : op->getOperands()) {
+    if (IsOpWriteValue(op, operand)) {
+      affectedValues.push_back(operand);
+    }
+  }
+
+  for (auto value : affectedValues) {
+    for (auto user : value.getUsers()) {
+      if (user == op) {
+        continue;
+      }
+      consumers.insert(user);
+    }
+  }
+}
+
+void getDirectProducerOpsInFusionPattern(Operation* op,
+                                         FusionPattern& fusion_pattern,
+                                         DenseSet<Operation*>& producers) {
+  producers.clear();
+
+  auto& op_list = fusion_pattern.getOpList();
+  DenseSet<Operation*> op_set(op_list.begin(), op_list.end());
+
+  int64_t num_input_operand = op->getNumOperands() - getNumResultOperands(op);
+  for (Value value : op->getOperands().take_front(num_input_operand)) {
+    auto producer = fusion_pattern.findLastWriter(value);
+    if (op_set.contains(producer)) {
+      producers.insert(producer);
+    }
+  }
+}
+
+}  // namespace
+
 ////////////////////// Dot GPU FusionStrategy Implemenation ////////////
 ////////////////////////////////////////////////////////////////////////
 
@@ -94,11 +140,10 @@ bool DotGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
   /*
    * 1. Only one dot is supported per fusion, currently.
    * 2. Dot is the first op;
-   * 3. Other ops are supported by the CUDA source emitter;
-   * 4. Other ops' effective operands are not the operands of the fusion,
+   * 3. Other ops' effective operands are not the operands of the fusion,
    *    currently; otherwise this op should be scalar/splat constant.
    *
-   * The conditions 1 and 4 will be loosed in the future.
+   * The conditions 1 and 3 will be loosed in the future.
    */
 
   const auto& op_list = fusion_pattern.getOpList();
@@ -139,57 +184,95 @@ bool DotGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
     }
   }
 
+  // There should be at most 1 transpose op, meeting the following requirement:
+  // 1. all paths from roots to the dot op contains the transpose op;
+  // 2. the input dims of the transpose op are the same with that of the dot op.
+  // 3. currently, only support permutation of [0,2,1,3], for which dime-1
+  //    should be static-shaped.
+
+  // At most one transpose op.
+  Operation* transpose = nullptr;
+  for (auto op : op_list) {
+    if (isa<lmhlo::TransposeOp>(op)) {
+      if (transpose != nullptr) {
+        return false;
+      } else {
+        transpose = op;
+      }
+    }
+  }
+
+  if (transpose != nullptr) {
+    // Check all paths from dom to roots for transpose op.
+    SmallVector<SmallVector<Operation*>> all_paths_dom_to_roots;
+    DenseMap<Operation*, DenseSet<SmallVector<Operation*>>> path_dom_to_ops;
+    Operation* dom = fusion_pattern.getDominantOp();
+    DenseSet<SmallVector<Operation*>> path_to_dom{SmallVector<Operation*>{dom}};
+    path_dom_to_ops.try_emplace(dom, std::move(path_to_dom));
+    SmallVector<Operation*> worklist;
+    worklist.push_back(dom);
+    auto roots = fusion_pattern.getRootOps();
+    DenseSet<Operation*> op_set(op_list.begin(), op_list.end());
+    while (!worklist.empty()) {
+      auto curr = worklist.back();
+      worklist.pop_back();
+      const auto& path_curr = path_dom_to_ops[curr];
+      DenseSet<Operation*> consumers;
+      getDirectConsumerOps(curr, consumers);
+      for (auto consumer : consumers) {
+        if (!op_set.contains(consumer)) {
+          continue;
+        }
+        auto& path_consumer = path_dom_to_ops[consumer];
+        for (const auto& path : path_curr) {
+          SmallVector<Operation*> new_path = path;
+          new_path.push_back(consumer);
+          path_consumer.insert(std::move(new_path));
+        }
+        worklist.push_back(consumer);
+      }
+    }
+    for (auto root : roots) {
+      auto& path = path_dom_to_ops[root];
+      all_paths_dom_to_roots.insert(all_paths_dom_to_roots.end(), path.begin(),
+                                    path.end());
+    }
+    for (auto& path : all_paths_dom_to_roots) {
+      if (llvm::find(path, transpose) == path.end()) {
+        return false;
+      }
+    }
+
+    // Make sure that the input dims of the transpose op are the same with the
+    // output of the dot op.
+    if (!shapeAnalysis.isShapeEqual(dot_ops[0]->getOperand(2),
+                                    transpose->getOperand(0))) {
+      return false;
+    }
+
+    // Only support permutation of [0,2,1,3], and dim-1 is static-shaped.
+    auto perm_attr = dyn_cast<lmhlo::TransposeOp>(transpose)
+                         .getPermutation()
+                         .getValues<int64_t>();
+    SmallVector<int64_t> perm{perm_attr.begin(), perm_attr.end()};
+    if (!(perm[0] == 0 && perm[1] == 2 && perm[2] == 1 && perm[3] == 3)) {
+      return false;
+    }
+    auto memref_ty = dot_ops[0]->getOperand(2).getType().dyn_cast<ShapedType>();
+    if (!memref_ty) {
+      return false;
+    }
+    auto dim_1 = memref_ty.getDimSize(1);
+    if (dim_1 == ShapedType::kDynamicSize) {
+      return false;
+    }
+  }
+
   fusion_pattern.setFusionType(FusionType::kDot);
   fusion_pattern.setDominantOp(dot_ops[0]);
 
   return true;
 }
-
-namespace {
-
-void getDirectConsumerOps(Operation* op, DenseSet<Operation*>& consumers) {
-  consumers.clear();
-  if (op == nullptr) {
-    return;
-  }
-  SmallVector<Value> affectedValues;
-  for (auto result : op->getResults()) {
-    affectedValues.push_back(result);
-  }
-  for (auto operand : op->getOperands()) {
-    if (IsOpWriteValue(op, operand)) {
-      affectedValues.push_back(operand);
-    }
-  }
-
-  for (auto value : affectedValues) {
-    for (auto user : value.getUsers()) {
-      if (user == op) {
-        continue;
-      }
-      consumers.insert(user);
-    }
-  }
-}
-
-void getDirectProducerOpsInFusionPattern(Operation* op,
-                                         FusionPattern& fusion_pattern,
-                                         DenseSet<Operation*>& producers) {
-  producers.clear();
-
-  auto& op_list = fusion_pattern.getOpList();
-  DenseSet<Operation*> op_set(op_list.begin(), op_list.end());
-
-  int64_t num_input_operand = op->getNumOperands() - getNumResultOperands(op);
-  for (Value value : op->getOperands().take_front(num_input_operand)) {
-    auto producer = fusion_pattern.findLastWriter(value);
-    if (op_set.contains(producer)) {
-      producers.insert(producer);
-    }
-  }
-}
-
-}  // namespace
 
 bool DotGpuFusionStrategy::pruneFusionPattern(
     ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern,

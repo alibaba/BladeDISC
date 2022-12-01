@@ -160,8 +160,7 @@ bool __SpecializedGemmFusion__::run() {
   long long int batch_stride_B =
       static_cast<long long int>(k_) * static_cast<long long int>(n_);
   long long int batch_stride_C = 0;
-  long long int batch_stride_D =
-      static_cast<long long int>(m_) * static_cast<long long int>(n_);
+  long long int batch_stride_D = __BATCH_STRIDE_D__;
 
   int const lda = std::is_same<LayoutA, cutlass::layout::ColumnMajor>::value ? m_ : k_;
   int const ldb = std::is_same<LayoutB, cutlass::layout::ColumnMajor>::value ? k_ : n_;

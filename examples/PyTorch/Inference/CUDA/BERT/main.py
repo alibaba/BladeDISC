@@ -10,7 +10,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import argparse
 import os
 
 # Enable stitch fusion optimization.
@@ -248,6 +248,11 @@ def blade_trt_optimize(model, inputs, fp16: bool, is_static: bool,
 
 
 def run():
+    parser = argparse.ArgumentParser(prog = 'BladeDISC Bert example')
+    parser.add_argument('--disc-only', help = "Run BladeDISC only",
+                    action='store_true')  # on/off flag
+    args = parser.parse_args()
+
     batch = 1
     seq = 64
     bert_large = get_torch_bert_large_model(amp=False)
@@ -264,6 +269,9 @@ def run():
     disc_optimize(bert_large_amp, inputs, 'bert_large_amp.disc.pt')
     model = torch.jit.load('bert_large_amp.disc.pt').cuda().eval()
     evaluate_torch(model, inputs)
+
+    if args.disc_only:
+        return
 
     # Run TensorRT with `trtexec`. Static shape optimization.
     print("Official TensorRT Static Optimization.")

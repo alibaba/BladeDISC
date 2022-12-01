@@ -28,6 +28,8 @@
 #include "mlir/Transforms/DialectConversion.h"
 #include "stablehlo/dialect/ChloOps.h"
 
+#include <unordered_set>
+
 using namespace mlir;
 using namespace mlir::torch;
 using namespace mlir::torch::Torch;
@@ -89,7 +91,7 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   auto name = op.name();
-  if (std::string("aten._autocast_to_reduced_precision") == name) {
+  if ("aten._autocast_to_reduced_precision" == name) {
     auto outTy = op.getResult(0).getType();
     BaseTensorType tensorType = outTy.template dyn_cast<BaseTensorType>();
     auto dtype = getDtypeIntValueForType(rewriter, loc, tensorType.getDtype());
@@ -110,7 +112,28 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
         /*copy*/ constantTrue,
         /*memomry format*/ constantNone);
     return success();
+  } else if ("aten.add_inplace.Tensor" == name) {
+    auto outTy = op.getResult(0).getType();
+    rewriter.replaceOpWithNewOp<AtenAddTensorOp>(
+        op, outTy, op.getOperand(0), op.getOperand(1), op.getOperand(2));
+    return success();
+  } else if ("aten.sub_inplace.Tensor" == name) {
+    auto outTy = op.getResult(0).getType();
+    rewriter.replaceOpWithNewOp<AtenAddTensorOp>(
+        op, outTy, op.getOperand(0), op.getOperand(1), op.getOperand(2));
+    return success();
+  } else if ("aten.mul_inplace.Tensor" == name) {
+    auto outTy = op.getResult(0).getType();
+    rewriter.replaceOpWithNewOp<AtenMulTensorOp>(
+        op, outTy, op.getOperand(0), op.getOperand(1));
+    return success();
+  } else if ("aten.div_inplace.Tensor" == name) {
+    auto outTy = op.getResult(0).getType();
+    rewriter.replaceOpWithNewOp<AtenDivTensorOp>(
+        op, outTy, op.getOperand(0), op.getOperand(1));
+    return success();
   }
+
   return failure();
 }
 
@@ -327,7 +350,15 @@ class DiscDecomposeComplexOpsPass
 
     RewritePatternSet patterns(context);
     auto opIsDynamicallyLegal = [&](OperatorOp op) {
-      if (std::string("aten._autocast_to_reduced_precision") == op.name()) {
+      static std::unordered_set<std::string> illegalSet{
+          "aten._autocast_to_reduced_precision",
+          "aten.add_inplace.Tensor",
+          "aten.div_inplace.Tensor",
+          "aten.mul_inplace.Tensor",
+          "aten.sub_inplace.Tensor",
+      };
+
+      if (illegalSet.find(op.name().str()) != illegalSet.end()) {
         return false;
       }
       return true;

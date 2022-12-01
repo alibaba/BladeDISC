@@ -14,28 +14,6 @@ import torch_blade
 from torch_blade import pass_manager, tools, utils
 from torch_blade.logging import logger
 
-
-def _inline_node_with_subgraph(graph, old_node, subgraph):
-    value_map = dict()
-    for sbg_inp, inp in zip(subgraph.inputs(), old_node.inputs()):
-        value_map[sbg_inp] = inp
-
-    for sbg_node in utils.graph_node_topolist(subgraph):
-        new_node = graph.createClone(sbg_node, lambda x: value_map[x])
-        # append new node to graph
-        graph.appendNode(new_node)
-        new_node.moveBefore(old_node)
-        for sbg_out, out in zip(sbg_node.outputs(), new_node.outputs()):
-            value_map[sbg_out] = out
-    outputs = []
-    for sbg_out, grp_out in zip(subgraph.outputs(), old_node.outputs()):
-        grp_out.replaceAllUsesWith(value_map[sbg_out])
-        outputs.append(value_map[sbg_out])
-
-    old_node.destroy()
-    return outputs
-
-
 def replace_group_with_engine(
         graph,
         module_holder,
@@ -112,7 +90,7 @@ def _adapt_input_value(graph, consumer_node, value):
       %5 : Long() = aten::tensor(%x.1, %2, %2, %4)
       return (%5)"""
     subgraph = torch._C.parse_ir(gstr)
-    _inline_node_with_subgraph(graph, placeholder, subgraph)
+    utils._inline_node_with_subgraph(graph, placeholder, subgraph)
 
 
 def _adapt_output_value(graph, producer_node, value):
@@ -132,7 +110,7 @@ def _adapt_output_value(graph, producer_node, value):
       %3 : int = aten::Int(%2)
       return (%3)"""
     subgraph = torch._C.parse_ir(gstr)
-    _inline_node_with_subgraph(graph, placeholder, subgraph)
+    utils._inline_node_with_subgraph(graph, placeholder, subgraph)
 
 
 def _is_number(val):
@@ -267,7 +245,7 @@ def group_to_engine_conversion(
         if (node.kind() != 'prim::FusionGroup'):
             continue
         subgraph = node.g('Subgraph')
-        _inline_node_with_subgraph(graph, node, subgraph)
+        utils._inline_node_with_subgraph(graph, node, subgraph)
 
     # TODO: something like aten::detach will not be constfold but should be
     pass_manager._jit_pass_dce_during_lower_to_trt(module.forward.graph)

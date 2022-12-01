@@ -128,6 +128,10 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "prim::ListConstruct",
       "prim::ListUnpack",
       // Torch Blade custom ops follows:
+      "aten::add_inplace", // use aten namespace to work with PyTorch mutation pass
+      "aten::sub_inplace", // use aten namespace to work with PyTorch mutation pass
+      "aten::mul_inplace", // use aten namespace to work with PyTorch mutation pass
+      "aten::div_inplace", // use aten namespace to work with PyTorch mutation pass
       "torch_blade::fake_quant"
     };
 

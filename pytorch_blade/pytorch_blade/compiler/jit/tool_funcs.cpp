@@ -131,7 +131,21 @@ std::string node_schema_str(const torch::jit::Node& node) {
   if (schema) {
     return c10::toString(*schema);
   } else {
-    return "";
+    return node.kind().toQualString();
+  }
+}
+
+std::string node_overload_name(const torch::jit::Node& node) {
+  auto schema = node.maybeSchema();
+  if (schema) {
+    auto overload_name = schema->overload_name();
+    if (overload_name.empty()) {
+      return schema->name();
+    } else {
+      return schema->name() + "." + overload_name;
+    }
+  } else {
+    return node.kind().toQualString();
   }
 }
 
@@ -192,6 +206,5 @@ torch::jit::Node* create_prim_constant_with_val(
   constant_node->output()->setType(c10::BoolType::get());
   return constant_node;
 }
-
 } // namespace blade
 } // namespace torch

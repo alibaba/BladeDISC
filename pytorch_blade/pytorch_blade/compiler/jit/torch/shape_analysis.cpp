@@ -922,8 +922,6 @@ class ShapePropagator : public PropertyPropBase {
             "aten::masked_fill.Tensor(Tensor self, Tensor mask, Tensor value) -> Tensor",
             "aten::masked_fill_.Scalar(Tensor(a!) self, Tensor mask, Scalar value) -> Tensor(a!)",
             "aten::masked_fill_.Tensor(Tensor(a!) self, Tensor mask, Tensor value) -> Tensor(a!)",
-            "aten::floor_divide.Scalar(Tensor self, Scalar other) -> Tensor",
-            "aten::floor_divide_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)",
             "aten::relu(Tensor self) -> Tensor",
             "aten::relu_(Tensor self) -> Tensor",
             "aten::pow(Tensor self, Scalar exponent) -> Tensor",
@@ -1086,6 +1084,40 @@ class ShapePropagator : public PropertyPropBase {
         }};
 
     // Requirements:
+    //   dims           : preserved
+    //   scalar type    : preserved
+    //   device         : preserved
+    //   tensor inputs  : *
+    //   tensor outputs : 1
+    static const register_formula_for inplace_ops_arithmetic{
+        {
+            // Tensor-Tensor operators
+            "aten::add_(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
+            "aten::add_(Tensor self, Scalar other, Scalar alpha) -> Tensor",
+            "aten::sub_(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
+            "aten::sub_(Tensor self, Scalar other, Scalar alpha) -> Tensor",
+            "aten::mul_(Tensor self, Tensor other) -> Tensor",
+            "aten::mul_(Tensor self, Scalar other) -> Tensor",
+            "aten::div_(Tensor self, Tensor other) -> Tensor",
+            "aten::div_(Tensor self, Scalar other) -> Tensor",
+#if PYTORCH_VERSION_GE(1, 9)
+            "aten::div_.Tensor_mode(Tensor self, Tensor other, *, str? rounding_mode) -> Tensor",
+#endif // PYTORCH_VERSION_GE(1, 9)
+            "aten::floor_divide_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)",
+            "aten::floor_divide_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)",
+            "aten::add_inplace(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
+            "aten::sub_inplace(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
+            "aten::mul_inplace(Tensor self, Tensor other) -> Tensor",
+            "aten::div_inplace(Tensor self, Tensor other) -> Tensor",
+        },
+        [](Node* node) -> type_vec_t {
+          if (auto type = node->input(0)->type()->cast<TensorType>()) {
+            return {type};
+          }
+          return {};
+        }};
+
+    // Requirements:
     //   dims           : broadcast all tensor args
     //   scalar type    : promoted from input dtypes
     //   device         : always matching and preserved
@@ -1095,19 +1127,13 @@ class ShapePropagator : public PropertyPropBase {
         {
             // Tensor-Tensor operators
             "aten::add(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
-            "aten::add_(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
             "aten::sub(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
-            "aten::sub_(Tensor self, Tensor other, *, Scalar alpha) -> Tensor",
             "aten::mul(Tensor self, Tensor other) -> Tensor",
-            "aten::mul_(Tensor self, Tensor other) -> Tensor",
             "aten::div(Tensor self, Tensor other) -> Tensor",
-            "aten::div_(Tensor self, Tensor other) -> Tensor",
 #if PYTORCH_VERSION_GE(1, 9)
             "aten::div.Tensor_mode(Tensor self, Tensor other, *, str? rounding_mode) -> Tensor",
-            "aten::div_.Tensor_mode(Tensor self, Tensor other, *, str? rounding_mode) -> Tensor",
 #endif // PYTORCH_VERSION_GE(1, 9)
             "aten::floor_divide(Tensor self, Tensor other) -> Tensor",
-            "aten::floor_divide_.Tensor(Tensor(a!) self, Tensor other) -> Tensor(a!)",
         },
         [](Node* node) -> type_vec_t {
           if (auto maybe_tensor_types = gatherTensorTypes(node)) {
@@ -1192,13 +1218,10 @@ class ShapePropagator : public PropertyPropBase {
         {
             // Tensor-Scalar operators
             "aten::add(Tensor self, Scalar other, Scalar alpha) -> Tensor",
-            "aten::add_(Tensor self, Scalar other, Scalar alpha) -> Tensor",
             "aten::sub(Tensor self, Scalar other, Scalar alpha) -> Tensor",
-            "aten::sub_(Tensor self, Scalar other, Scalar alpha) -> Tensor",
             "aten::mul(Tensor self, Scalar other) -> Tensor",
-            "aten::mul_(Tensor self, Scalar other) -> Tensor",
             "aten::div(Tensor self, Scalar other) -> Tensor",
-            "aten::div_(Tensor self, Scalar other) -> Tensor",
+            "aten::floor_divide.Scalar(Tensor self, Scalar other) -> Tensor",
         },
         [this](Node* node) -> type_vec_t {
           if (auto maybe_tensor_types = gatherTensorTypes(node)) {

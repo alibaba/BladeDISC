@@ -24,6 +24,7 @@ cc_library(
     deps = [
         "//pytorch_blade/common_utils:torch_blade_common",
         "//pytorch_blade/compiler/backends:torch_blade_backends",
+        "//pytorch_blade/compiler/jit:aten_custom_ops",
         "//pytorch_blade/compiler/jit:torch_blade_jit",
         "//pytorch_blade/compiler/mlir:torch_blade_mlir",
         "@local_org_torch//:libtorch",

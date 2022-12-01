@@ -513,6 +513,16 @@ def DiscLowerQuantizeAndDequantizePass : Pass<"disc-lower-quantize-and-dequantiz
   ];
 }
 
+def DiscLowerGpuQuantizeAndDequantizePass : Pass<"disc-lower-gpu-quantize-and-dequantize", "mlir::func::FuncOp"> {
+  let summary = "Lower quantize and dequantize op to a bound of basic elementwise ops on GPU.";
+  let constructor = "createDiscLowerGpuQuantizeAndDequantizePass()";
+  let dependentDialects = [
+      "disc_shape::DISCShapeDialect",
+      "shape::ShapeDialect",
+      "mhlo::MhloDialect",
+  ];
+}
+
 def DiscBufferDeallocationPass : Pass<"disc-buffer-deallocation", "mlir::func::FuncOp"> {
   let summary = "Insert dealloc op for some disc specific ops (e.g. custom_call_v2 op).";
   let constructor = "createDiscBufferDeallocationPass()";

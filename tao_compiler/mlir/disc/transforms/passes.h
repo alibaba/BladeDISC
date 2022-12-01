@@ -263,6 +263,11 @@ std::unique_ptr<OperationPass<func::FuncOp>> createDiscConvertFakeQuantOpPass();
 std::unique_ptr<OperationPass<func::FuncOp>>
 createDiscLowerQuantizeAndDequantizePass();
 
+// Lowers quantize and dequantize ops to a bunch of basic elementwise ops on
+// gpu.
+std::unique_ptr<OperationPass<func::FuncOp>>
+createDiscLowerGpuQuantizeAndDequantizePass();
+
 // Convert mhlo.dynamic_slice to mhlo.real_dynamic_slice
 std::unique_ptr<OperationPass<FuncOp>> createDiscDynamicSliceConverterPass();
 

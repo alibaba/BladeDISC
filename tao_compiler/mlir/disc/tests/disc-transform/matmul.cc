@@ -22,6 +22,11 @@ namespace mlir_test {
 const std::string c_ft_path =
     "tensorflow/compiler/mlir/disc/tests/disc-transform/data/";
 
+static bool init_threads = []() {
+  setenv("OMP_NUM_THREADS", "1", 1);
+  return true;
+}();
+
 TEST(SimpleTest, MatMulF32_11x13x12) {
   EnvSetting setting = {{"DISC_TRANSFORM_SCHEDULE_FILE",
                          {c_ft_path + "matmul_nn_d_f32_schedule.mlir", false}},
@@ -74,6 +79,46 @@ TEST(SimpleTest, MatMulF32_1024x1024x1024) {
   EnvSetting setting = {
       {"DISC_TRANSFORM_SCHEDULE_FILE",
        {c_ft_path + "matmul_nn_d_f32_large_schedule.mlir", false}},
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", "false"}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", "false"}}};
+  EnvSettingContext ctx(setting);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "matmul_nn_d_f32.mlir",
+      /*backend_types*/ {BackendType::kAArch64},
+      /*num_inputs*/ 2,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"1024x1024xf32_X", "1024x1024xf32_X"},
+      /*output_descriptors*/ {"f32_X"},
+      /*input_vals*/ {},
+      /*expected_output_vals*/ {},
+      /*profiling*/ true));
+}
+
+TEST(SimpleTest, MatMulF32_304x1024x256_2) {
+  EnvSetting setting = {
+      {"DISC_TRANSFORM_SCHEDULE_FILE",
+       {c_ft_path + "matmul_nn_d_f32_large_schedule_2.mlir", false}},
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", "false"}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", "false"}}};
+  EnvSettingContext ctx(setting);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "matmul_nn_d_f32.mlir",
+      /*backend_types*/ {BackendType::kAArch64},
+      /*num_inputs*/ 2,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"304x256xf32_X", "256x1024xf32_X"},
+      /*output_descriptors*/ {"f32_X"},
+      /*input_vals*/ {},
+      /*expected_output_vals*/ {},
+      /*profiling*/ true));
+}
+
+TEST(SimpleTest, MatMulF32_1024x1024x1024_2) {
+  EnvSetting setting = {
+      {"DISC_TRANSFORM_SCHEDULE_FILE",
+       {c_ft_path + "matmul_nn_d_f32_large_schedule_2.mlir", false}},
       {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
       {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", "false"}},
       {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", "false"}}};

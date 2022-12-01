@@ -16,6 +16,7 @@
 #include "iree-dialects/Dialect/LinalgTransform/StructuredTransformOpsExt.h"
 #include "iree-dialects/Transforms/ListenerGreedyPatternRewriteDriver.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/Support/Debug.h"
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
@@ -28,10 +29,12 @@
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
 #include "mlir/Dialect/Linalg/TransformOps/LinalgTransformOps.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
+#include "mlir/Dialect/Linalg/Utils/Utils.h"
 #include "mlir/Dialect/MemRef/Transforms/Passes.h"
 #include "mlir/Dialect/PDL/IR/PDLTypes.h"
 #include "mlir/Dialect/Tensor/IR/Tensor.h"
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
+#include "mlir/Interfaces/DestinationStyleOpInterface.h"
 #include "mlir/Pass/PassManager.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/utils.h"
 
@@ -189,6 +192,312 @@ DiagnosedSilenceableFailure DISCBufferizeOp::apply(
     return DiagnosedSilenceableFailure::definiteFailure();
 
   return DiagnosedSilenceableFailure::success();
+}
+
+//===---------------------------------------------------------------------===//
+// ApplyPatternsOp
+//===---------------------------------------------------------------------===//
+
+namespace {
+
+bool allEquals(ArrayAttr attrs, int val) {
+  return llvm::all_of(attrs, [&](Attribute attr) {
+    return attr.cast<IntegerAttr>().getInt() == val;
+  });
+}
+
+bool allConstIndexValues(ValueRange vals, int val) {
+  return llvm::all_of(vals, [&](Value indexVal) {
+    auto constOp = indexVal.getDefiningOp<arith::ConstantIndexOp>();
+    return constOp && constOp.getValue().cast<IntegerAttr>().getInt() == val;
+  });
+}
+
+bool offsetAllZeros(tensor::ExtractSliceOp slice) {
+  return allEquals(slice.getStaticOffsets(), 0);
+}
+
+bool offsetAllZeros(tensor::InsertSliceOp slice) {
+  return allEquals(slice.getStaticOffsets(), 0);
+}
+
+bool strideAllOnes(tensor::ExtractSliceOp slice) {
+  auto strides = slice.getStaticStrides();
+  return allEquals(strides, 1);
+}
+
+bool strideAllOnes(tensor::InsertSliceOp slice) {
+  return allEquals(slice.getStaticStrides(), 1);
+}
+
+bool hasSameShape(ArrayRef<OpFoldResult> lhs, ArrayRef<OpFoldResult> rhs) {
+  for (const auto& z : llvm::zip(lhs, rhs)) {
+    auto lhsAttr = std::get<0>(z).dyn_cast<Attribute>();
+    auto rhsAttr = std::get<1>(z).dyn_cast<Attribute>();
+    if ((lhsAttr == nullptr) != (rhsAttr == nullptr)) return false;
+
+    if (lhsAttr) {
+      if (lhsAttr.cast<IntegerAttr>().getInt() !=
+          rhsAttr.cast<IntegerAttr>().getInt())
+        return false;
+    } else {
+      if (std::get<0>(z).dyn_cast<Value>() != std::get<0>(z).dyn_cast<Value>())
+        return false;
+    }
+  }
+  return true;
+}
+
+bool hasSameShape(tensor::ExtractSliceOp lhs, tensor::ExtractSliceOp rhs) {
+  return hasSameShape(lhs.getMixedSizes(), rhs.getMixedSizes());
+}
+
+Value mapResultToInitOperandOfDestinationStyleOp(Value result) {
+  auto dstOp = result.getDefiningOp<DestinationStyleOpInterface>();
+  if (!dstOp) return nullptr;
+  int resultNumber = result.cast<OpResult>().getResultNumber();
+  return dstOp.getDpsInitOperand(resultNumber)->get();
+}
+
+tensor::ExtractSliceOp getSliceProducer(Value result) {
+  if (!result) return nullptr;
+  if (auto slice = result.getDefiningOp<tensor::ExtractSliceOp>()) return slice;
+  return getSliceProducer(mapResultToInitOperandOfDestinationStyleOp(result));
+}
+
+/// Pattern to fold tensor.extract_slice of tensor.extract_slice.
+/// convert:
+///   %0 = tensor.extract_slice %arg0[%0, %t1][%s0, %s1][%c1, %c1]
+///   %1 = tensor.extract_slice %0[%t2, %0][%s2, %s3][%c1, %c1]
+/// to:
+///   %1 = tensor.extract_slice %0[%t2, %t1][%s2, %s3][%c1, %c1]
+struct FoldExtractSliceOfExtractSlicePattern
+    : public OpRewritePattern<tensor::ExtractSliceOp> {
+  using OpRewritePattern<tensor::ExtractSliceOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::ExtractSliceOp op,
+                                PatternRewriter& rewriter) const override {
+    auto producerOp = op.getSource().getDefiningOp<tensor::ExtractSliceOp>();
+    if (!strideAllOnes(op) || !producerOp || !strideAllOnes(producerOp))
+      return failure();
+
+    SmallVector<OpFoldResult> newOffsets;
+    for (const auto& z :
+         llvm::zip(op.getMixedOffsets(), producerOp.getMixedOffsets())) {
+      auto lhsAttr = std::get<0>(z).dyn_cast<Attribute>();
+      auto rhsAttr = std::get<1>(z).dyn_cast<Attribute>();
+      if (!lhsAttr && !rhsAttr) return failure();
+      IntegerAttr intLhsAttr, intRhsAttr;
+      if (lhsAttr) intLhsAttr = lhsAttr.cast<IntegerAttr>();
+      if (rhsAttr) intRhsAttr = rhsAttr.cast<IntegerAttr>();
+      if (intLhsAttr && intRhsAttr) {
+        newOffsets.push_back(IntegerAttr::get(
+            intLhsAttr.getType(), intLhsAttr.getInt() + intRhsAttr.getInt()));
+      } else if (intLhsAttr && intLhsAttr.getInt() == 0) {
+        newOffsets.push_back(std::get<1>(z));
+      } else if (intRhsAttr && intRhsAttr.getInt() == 0) {
+        newOffsets.push_back(std::get<0>(z));
+      } else {
+        return failure();
+      }
+    }
+
+    rewriter.replaceOpWithNewOp<tensor::ExtractSliceOp>(
+        op, producerOp.getSource(), newOffsets, op.getMixedSizes(),
+        op.getMixedStrides());
+    return success();
+  }
+};
+
+/// Fold a tensor.extract_slice op if we can know that it's a full select slice.
+///
+/// convert:
+///   %0 = tensor.extract_slice %arg0[%o0, %o1][%s0, %s1][1, 1]
+///   %1 = destination_style_op(%0)
+///   %2 = tensor.extract_slice %1[0, 0][%s0, %s1][1, 1] // full select
+///   use(%2)
+/// to:
+///   %0 = tensor.extract_slice %arg0[%o0, %o1][%s0, %s1][1, 1]
+///   %1 = destination_style_op(%0)
+///   use(%1)
+struct FoldFullSelectedExtractSlicePattern
+    : public OpRewritePattern<tensor::ExtractSliceOp> {
+  using OpRewritePattern<tensor::ExtractSliceOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::ExtractSliceOp op,
+                                PatternRewriter& rewriter) const override {
+    if (!offsetAllZeros(op) || !strideAllOnes(op)) return failure();
+
+    auto sliceOp = getSliceProducer(op.getSource());
+    if (!sliceOp || !hasSameShape(op, sliceOp)) return failure();
+    rewriter.replaceOp(op, op.getSource());
+    return success();
+  }
+};
+
+/// Fold a self assigned tensor.insert_slice op.
+///
+/// convert:
+///   %0 = tensor.extract_slice %arg0[%o0, %o1][%s0, %s1][1, 1]
+///   %1 = destination_style_op(%0)
+///   %2 = vector.transfer_write %vec, %1[%c0, %c0]
+///   %3 = tensor.insert_slice %2 into %1[0, 0] [%s0, %s1] [1, 1]
+///   use(%3)
+/// to:
+///   %0 = tensor.extract_slice %arg0[%o0, %o1][%s0, %s1][1, 1]
+///   %1 = destination_style_op(%0)
+///   %2 = vector.transfer_write %vec, %1[%c0, %c0]
+///   use(%2)
+struct FoldSelfInsertSlicePattern
+    : public OpRewritePattern<tensor::InsertSliceOp> {
+  using OpRewritePattern<tensor::InsertSliceOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(tensor::InsertSliceOp op,
+                                PatternRewriter& rewriter) const override {
+    if (!offsetAllZeros(op) || !strideAllOnes(op)) return failure();
+
+    auto sourceSliceOp = getSliceProducer(op.getSource());
+    auto destSliceOp = getSliceProducer(op.getDest());
+    if (!sourceSliceOp || !destSliceOp) return failure();
+    // 1, dest & source have the same shape
+    if (!hasSameShape(sourceSliceOp, destSliceOp)) return failure();
+    // 2, the inserted tile from source and the dest have the same shape.
+    if (!hasSameShape(sourceSliceOp.getMixedSizes(), op.getMixedSizes()))
+      return failure();
+
+    rewriter.replaceOp(op, op.getSource());
+    return success();
+  }
+};
+
+/// convert:
+///   %0 = tensor.extract_slice %arg0[0, 0] [%s0, %s1] [1, 1] : tensor<?x?xf32>
+///   to tensor<?x?xf32> %1 = linalg.fill ins(%cst : f32) outs(%0 :
+///   tensor<?x?xf32>) -> tensor<?x?xf32>
+///   %2 = vector.transfer_read %1[0, 0],
+///            %cst : tensor<?x?xf32>, vector<6x16xf32>
+/// to:
+///   %2 = vector.splat %cst : vector<6x16xf32>
+struct TransferReadOfFillOpPattern
+    : public OpRewritePattern<vector::TransferReadOp> {
+  using OpRewritePattern<vector::TransferReadOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(vector::TransferReadOp op,
+                                PatternRewriter& rewriter) const override {
+    // offsets are zeros.
+    if (!allConstIndexValues(op.getIndices(), 0)) return failure();
+
+    auto fillOp = op.getSource().getDefiningOp<linalg::FillOp>();
+    if (!fillOp || fillOp->getOperand(0) != op.getPadding()) return failure();
+    rewriter.replaceOpWithNewOp<vector::SplatOp>(op, op.getType(),
+                                                 op.getPadding());
+    return success();
+  }
+};
+
+/// convert:
+///   %0 = tensor.extract_slice %arg0[0, 0] [%s0, %s1] [1, 1] : tensor<?x?xf32>
+///   to tensor<?x?xf32> %1 = linalg.fill ins(%cst : f32) outs(%0 :
+///   tensor<?x?xf32>) -> tensor<?x?xf32>
+///   %2 = vector.transfer_write %result, %1[0, 0]
+///                     : vector<6x16xf32>, tensor<?x?xf32>
+/// to:
+///   %2 = vector.transfer_write %result, %0[0, 0] : vector<6x16xf32>
+/// iff:
+///   %1 has only one user
+///   %s0 < dim 0 of %result and %s1 < dim 1 of %result
+struct TransferWriteOfFillOpPattern
+    : public OpRewritePattern<vector::TransferWriteOp> {
+  using OpRewritePattern<vector::TransferWriteOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(vector::TransferWriteOp op,
+                                PatternRewriter& rewriter) const override {
+    // offsets are zeros.
+    if (!allConstIndexValues(op.getIndices(), 0)) return failure();
+
+    auto fillOp = op.getSource().getDefiningOp<linalg::FillOp>();
+    if (!fillOp || !fillOp.result().hasOneUse()) return failure();
+
+    auto sliceOp = fillOp.output().getDefiningOp<tensor::ExtractSliceOp>();
+    if (!sliceOp || !strideAllOnes(sliceOp)) return failure();
+
+    auto type = op.getVector().getType().cast<VectorType>();
+    for (const auto& z : llvm::zip(sliceOp.getMixedSizes(), type.getShape())) {
+      if (std::get<1>(z) == ShapedType::kDynamicSize) return failure();
+      if (auto attr = std::get<0>(z).dyn_cast<Attribute>()) {
+        if (attr.cast<IntegerAttr>().getInt() > std::get<1>(z))
+          return failure();
+      } else {
+        auto bound = linalg::getConstantUpperBoundForIndex(
+            std::get<0>(z).dyn_cast<Value>());
+        if (failed(bound) || *bound > std::get<1>(z)) return failure();
+      }
+    }
+
+    auto cloned = rewriter.clone(*op.getOperation());
+    cloned->setOperand(1, fillOp.output());
+    rewriter.replaceOp(op, cloned->getResults());
+    return success();
+  }
+};
+
+static void addAllRegisteredCanonicalizationPatterns(
+    RewritePatternSet& patterns) {
+  MLIRContext* ctx = patterns.getContext();
+  for (Dialect* dialect : ctx->getLoadedDialects())
+    dialect->getCanonicalizationPatterns(patterns);
+  for (RegisteredOperationName op : ctx->getRegisteredOperations())
+    op.getCanonicalizationPatterns(patterns, ctx);
+  memref::populateResolveShapedTypeResultDimsPatterns(patterns);
+  memref::populateResolveRankedShapeTypeResultDimsPatterns(patterns);
+  patterns.insert<FoldExtractSliceOfExtractSlicePattern>(ctx);
+  patterns.insert<FoldFullSelectedExtractSlicePattern>(ctx);
+  patterns.insert<FoldSelfInsertSlicePattern>(ctx);
+  patterns.insert<TransferReadOfFillOpPattern>(ctx);
+  patterns.insert<TransferWriteOfFillOpPattern>(ctx);
+}
+
+}  // namespace
+
+void ApplyPatternsOp::build(OpBuilder& builder, OperationState& result,
+                            Value target, bool canonicalization) {
+  MLIRContext* ctx = builder.getContext();
+  result.addOperands(target);
+  if (canonicalization) {
+    result.addAttribute(
+        ApplyPatternsOp::getCanonicalizationAttrName(result.name),
+        builder.getUnitAttr());
+  }
+  result.addTypes({pdl::OperationType::get(ctx)});
+}
+
+DiagnosedSilenceableFailure ApplyPatternsOp::applyToOne(
+    Operation* target, SmallVectorImpl<Operation*>& results,
+    transform::TransformState& state) {
+  if (!target->hasTrait<OpTrait::IsIsolatedFromAbove>()) {
+    return mlir::emitDefiniteFailure(
+        target,
+        "applies only to isolated-from-above targets because it needs to apply "
+        "patterns greedily");
+  }
+  MLIRContext* ctx = target->getContext();
+  RewritePatternSet patterns(ctx);
+  if (getCanonicalization()) addAllRegisteredCanonicalizationPatterns(patterns);
+
+  TrackingListener listener(state);
+  GreedyRewriteConfig config;
+  LogicalResult result = applyPatternsAndFoldGreedily(
+      target, std::move(patterns), config, &listener);
+  LogicalResult listenerResult = listener.checkErrorState();
+  if (failed(result)) {
+    return mlir::emitDefiniteFailure(target,
+                                     "greedy pattern application failed");
+  }
+  if (failed(listenerResult))
+    return mlir::emitDefiniteFailure(target, "listener tracking failed");
+
+  results.assign({target});
+  return DiagnosedSilenceableFailure(success());
 }
 
 }  // namespace transform_dialect

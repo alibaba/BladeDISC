@@ -31,6 +31,15 @@ cc_library(
 )
 
 cc_library(
+    name = "aten_custom_ops",
+    srcs = ["aten_custom_ops.cpp"],
+    deps = [
+        "@local_org_torch//:libtorch",
+    ],
+    alwayslink = True,
+)
+
+cc_library(
     name = "tool_funcs",
     srcs = ["tool_funcs.cpp"],
     hdrs = ["tool_funcs.h"],
@@ -72,6 +81,7 @@ cc_test(
     ],
     linkstatic = True,
     deps = [
+        ":aten_custom_ops",
         ":tool_funcs",
         ":torch_blade_jit",
         "//pytorch_blade/common_utils:torch_blade_common",

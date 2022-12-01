@@ -16,6 +16,7 @@ cc_binary(
         "-lm",
     ],
     deps = [
+        "//pytorch_blade/compiler/jit:aten_custom_ops",
 	"//pytorch_blade/compiler/jit/torch:shape_analysis",
     ] + if_quantization_enabled([
         "//pytorch_blade/quantization:quantization_op",

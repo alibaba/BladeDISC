@@ -116,6 +116,7 @@ void initToolsBindings(py::module& m) {
   tools.def("is_concrete_shape_tensor_type", is_concrete_shape_tensor_type);
   tools.def("set_value_type", set_value_type);
   tools.def("node_schema_str", node_schema_str);
+  tools.def("node_overload_name", node_overload_name);
   tools.def("cast_to_tensor_type", cast_to_tensor_type);
   tools.def("cast_to_i32_tensor_type", cast_to_i32_tensor_type);
 

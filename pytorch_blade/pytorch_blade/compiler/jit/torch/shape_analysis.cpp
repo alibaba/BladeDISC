@@ -1505,24 +1505,24 @@ class ShapePropagator : public PropertyPropBase {
         },
         [](Node* node) -> type_vec_t {
           const auto in_type = node->input(0)->type()->cast<TensorType>();
-          const auto in_scalar_type = in_type->scalarType();
+          // const auto in_scalar_type = in_type->scalarType();
 
           // reduced_precision
           if (node->hasNamedInput("cuda_dtype")) {
-            if (in_scalar_type == at::ScalarType::Float) {
-              bool cuda_enabled = node->get<bool>(attr::cuda_enabled).value();
+            // if (in_scalar_type == at::ScalarType::Float) {
+            bool cuda_enabled = node->get<bool>(attr::cuda_enabled).value();
 
-              return {in_type->withScalarType(
-                  node->get(cuda_enabled ? attr::cuda_dtype : attr::cpu_dtype)
-                      ->toScalarType())};
-            }
+            return {in_type->withScalarType(
+                node->get(cuda_enabled ? attr::cuda_dtype : attr::cpu_dtype)
+                    ->toScalarType())};
           }
+          // }
           // full_precision
           else {
-            if (in_scalar_type == at::ScalarType::Half ||
-                in_scalar_type == at::ScalarType::BFloat16) {
-              return {in_type->withScalarType(at::ScalarType::Float)};
-            }
+            // if (in_scalar_type == at::ScalarType::Half ||
+            //     in_scalar_type == at::ScalarType::BFloat16) {
+            return {in_type->withScalarType(at::ScalarType::Float)};
+            // }
           }
           return {in_type};
         }};

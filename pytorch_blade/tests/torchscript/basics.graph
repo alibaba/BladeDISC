@@ -1,4 +1,4 @@
-// RUN: shape_analysis_tool <%s | FileCheck %s
+// RUN: shape_analysis_tool -f %s | FileCheck %s
 
 // CHECK-LABEL: graph
 graph(%p1 : Float(48, 128, 768, requires_grad=0),
@@ -25,6 +25,22 @@ graph(%p1 : Float(*, *, *, requires_grad=0),
   return (%1)
 
 // CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *),
+      %p2 : Float(*, *, *),
+      %p3 : int):
+// CHECK: Float(*, *, *) = aten::rsub
+  %1 : Tensor = aten::rsub(%p1, %p2, %p3)
+  return (%1)
+
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *),
+      %p2 : int):
+  %cstFloat: int = prim::Constant[value=0.5]()
+// CHECK: Float(*, *, *) = aten::rsub
+  %1 : Tensor = aten::rsub(%p1, %cstFloat, %p2)
+  return (%1)
+
+// CHECK-LABEL: graph
 graph(%p1 : Float(*, *, requires_grad=0, device=cpu)):
   %1 : int = prim::Constant[value=0]()
   %2 : int = prim::Constant[value=1]()
@@ -45,4 +61,3 @@ graph(%p1 : Float(*, *, *, device=cuda:0),
 // CHECK: Float(*, *, *, device=cuda:0) = aten::tanh_backward(%p1, %p2)
   %1 : Tensor = aten::tanh_backward(%p1, %p2)
   return (%1)
-

@@ -10,11 +10,13 @@
 // limitations under the License.
 
 #include <algorithm>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 
 #include <torch/csrc/jit/ir/irparser.h>
 #include <torch/script.h>
+#include "pytorch_blade/common_utils/utils.h"
 #include "pytorch_blade/compiler/jit/torch/shape_analysis.h"
 
 // trim from start (in place)
@@ -44,10 +46,11 @@ static inline std::string trim(std::string s) {
   return s;
 }
 
-std::vector<std::shared_ptr<torch::jit::Graph>> parse_graphs() {
+std::vector<std::shared_ptr<torch::jit::Graph>> parse_graphs(
+    std::ifstream& ifs) {
   std::stringstream ss;
   std::vector<std::shared_ptr<torch::jit::Graph>> graphs;
-  for (std::string line; std::getline(std::cin, line);) {
+  for (std::string line; std::getline(ifs, line);) {
     std::string ltrim_line = ltrim(line);
     if (ltrim_line.find("//") == 0)
       continue;
@@ -71,10 +74,75 @@ std::vector<std::shared_ptr<torch::jit::Graph>> parse_graphs() {
   }
   return graphs;
 }
-int main() {
-  auto graphs = parse_graphs();
+
+char* getCmdOption(char** begin, char** end, const std::string& option) {
+  char** itr = std::find(begin, end, option);
+  if (itr != end && ++itr != end) {
+    return *itr;
+  }
+  return nullptr;
+}
+
+bool cmdOptionExists(char** begin, char** end, const std::string& option) {
+  return std::find(begin, end, option) != end;
+}
+
+void print_checks(std::ifstream& ifs) {
+  for (std::string line; std::getline(ifs, line);) {
+    std::string ltrim_line = ltrim(line);
+    if (ltrim_line.find("//") == 0)
+      std::cout << ltrim_line << std::endl;
+  }
+}
+
+int main(int argc, char* argv[]) {
+  if (cmdOptionExists(argv, argv + argc, "-h")) {
+    std::cout
+        << "Usage: ./shape_analysis_tool [-h] [--since x.y.z] <shape_test.graph"
+        << std::endl;
+    return 0;
+  }
+
+  char* filename = getCmdOption(argv, argv + argc, "-f");
+  if (filename == nullptr) {
+    std::cout
+        << "Usage: ./shape_analysis_tool [-h] [--since x.y.z] shape_test.graph"
+        << std::endl;
+    return 0;
+  }
+  std::ifstream ifs(filename, std::ifstream::in);
+  char* version = getCmdOption(argv, argv + argc, "--since");
+  if (version != nullptr) {
+    const auto& strs = ::torch::blade::split(version, ".");
+    if (strs.size() != 2 && strs.size() != 3) {
+      std::cout << "Illegal torch version " << version << std::endl;
+      return 0;
+    }
+    int major = std::stoi(strs[0]);
+    int minor = std::stoi(strs[1]);
+    if (major > PYTORCH_MAJOR_VERSION) {
+      std::cout << "// (" << major << ", " << minor << ") > ("
+                << PYTORCH_MAJOR_VERSION << ", " << PYTORCH_MINOR_VERSION << ")"
+                << std::endl;
+      print_checks(ifs);
+      ifs.close();
+      return 0;
+    }
+    if (major == PYTORCH_MAJOR_VERSION && minor > PYTORCH_MINOR_VERSION) {
+      std::cout << "// (" << major << ", " << minor << ") > ("
+                << PYTORCH_MAJOR_VERSION << ", " << PYTORCH_MINOR_VERSION << ")"
+                << std::endl;
+      print_checks(ifs);
+      ifs.close();
+      return 0;
+    }
+  }
+
+  auto graphs = parse_graphs(ifs);
   for (auto g : graphs) {
     torch::blade::PropagateInputShapes(g);
     std::cout << *g;
   }
+  ifs.close();
+  return 0;
 }

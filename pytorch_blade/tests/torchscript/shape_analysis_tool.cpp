@@ -120,15 +120,9 @@ int main(int argc, char* argv[]) {
     }
     int major = std::stoi(strs[0]);
     int minor = std::stoi(strs[1]);
-    if (major > PYTORCH_MAJOR_VERSION) {
-      std::cout << "// (" << major << ", " << minor << ") > ("
-                << PYTORCH_MAJOR_VERSION << ", " << PYTORCH_MINOR_VERSION << ")"
-                << std::endl;
-      print_checks(ifs);
-      ifs.close();
-      return 0;
-    }
-    if (major == PYTORCH_MAJOR_VERSION && minor > PYTORCH_MINOR_VERSION) {
+    bool should_skip_check = (major > PYTORCH_MAJOR_VERSION) ||
+        (major == PYTORCH_MAJOR_VERSION && minor > PYTORCH_MINOR_VERSION);
+    if (should_skip_check) {
       std::cout << "// (" << major << ", " << minor << ") > ("
                 << PYTORCH_MAJOR_VERSION << ", " << PYTORCH_MINOR_VERSION << ")"
                 << std::endl;

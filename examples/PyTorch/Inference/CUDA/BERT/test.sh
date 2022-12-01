@@ -14,9 +14,6 @@ script_dir=$(cd $(dirname "$0"); pwd)
 pushd $script_dir
 echo DIR: $(pwd)
 
-export PYTORCH_JIT_LOG_LEVEL=">>>mhlo_conversion.cpp"
-export TENSORRT_INSTALL_PATH=${TENSORRT_INSTALL_PATH:-/usr/local/TensorRT/}
-export LD_LIBRARY_PATH=${TENSORRT_INSTALL_PATH}/lib/:${TENSORRT_INSTALL_PATH}/lib64/:${CUDA_HOME}/lib64:$LD_LIBRARY_PATH
 pip3 install -r requirements.txt
 python3 main.py --disc-only
 popd

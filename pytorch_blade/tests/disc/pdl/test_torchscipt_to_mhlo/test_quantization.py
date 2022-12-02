@@ -159,8 +159,6 @@ class TestGPULinear(GPUDiscPdlQuantizationTestCase):
                     self.activation_quant_min, self.activation_quant_max
                 )
                 return x
-        if self.device != torch.device('cuda'):
-            return
         model = Model().eval().to(self.device)
         inp = torch.randn(1, 2, 128).to(self.device)
         traced_model = torch.jit.trace(model, inp)
@@ -258,8 +256,6 @@ module {
                     self.activation_quant_min, self.activation_quant_max
                 )
                 return x
-        if self.device != torch.device('cuda'):
-            return
         model = Model().eval().to(self.device)
         inp = torch.randn(1, 2, 128).to(self.device)
         traced_model = torch.jit.trace(model, inp)

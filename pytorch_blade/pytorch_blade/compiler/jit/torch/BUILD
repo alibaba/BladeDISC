@@ -4,11 +4,11 @@ load("@rules_cc//cc:defs.bzl", "cc_library", "cc_test")
 cc_library(
     name = "shape_analysis",
     srcs = ["shape_analysis.cpp",
-	    "operator_set.cpp",
+	    "schema_set.cpp",
 	    "op_registry.cpp",
     ],
     hdrs = ["shape_analysis.h",
-	    "operator_set.h",
+	    "schema_set.h",
 	    "op_registry.h",
     ],
     deps = [

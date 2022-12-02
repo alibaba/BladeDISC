@@ -16,7 +16,7 @@
 
 #include <torch/csrc/jit/ir/ir.h>
 #include <memory>
-#include "pytorch_blade/compiler/jit/torch/operator_set.h"
+#include "pytorch_blade/compiler/jit/torch/schema_set.h"
 
 namespace torch {
 namespace blade {
@@ -33,7 +33,7 @@ namespace blade {
 // NB: those ops (with slight adjustments) are good candidates for restarts.
 //     Knowing the type and device of weights or biases is usually enough to
 //     infer the output type.
-std::shared_ptr<OperatorSet> nn_ops_first_input_preserving();
+std::shared_ptr<SchemaSet> nn_ops_first_input_preserving();
 
 // Requirements:
 //   dims           : Changed from first argument
@@ -41,6 +41,6 @@ std::shared_ptr<OperatorSet> nn_ops_first_input_preserving();
 //   device         : always matching and preserved
 //   tensor inputs  : 1
 //   tensor outputs : 1
-std::shared_ptr<OperatorSet> ops_one_tensor_in_shape_transform();
+std::shared_ptr<SchemaSet> ops_one_tensor_in_shape_transform();
 } // namespace blade
 } // namespace torch

@@ -10,3 +10,16 @@ graph(%self: Half(*, *, *, *)):
 // CHECK: Float(*, *, *, *, device=cuda) = aten::_to_copy
   %to_copy : Tensor = aten::_to_copy(%self, %cst6, %cst0, %cuda, %none, %false, %none)
   return (%to_copy)
+
+// CHECK-LABEL: graph
+graph(%p1 : Half(*, *)):
+  %none : NoneType = prim::Constant()
+  %cst1: int = prim::Constant[value=1]()
+  %cst4: int = prim::Constant[value=4]()
+  %cst8: int = prim::Constant[value=8]()
+  %size: int[] = prim::ListConstruct(%cst8, %cst4) 
+  %strides: int[] = prim::ListConstruct(%cst1, %cst1) 
+// CHECK: Half(*, *) = aten::as_strided
+  %1 : Tensor = aten::as_strided(%p1, %size, %strides, %none)
+  return (%1)
+

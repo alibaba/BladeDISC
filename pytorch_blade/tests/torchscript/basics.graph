@@ -25,6 +25,22 @@ graph(%p1 : Float(*, *, *, requires_grad=0),
   return (%1)
 
 // CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *),
+      %p2 : Float(*, *, *),
+      %p3 : int):
+// CHECK: Float(*, *, *) = aten::rsub
+  %1 : Tensor = aten::rsub(%p1, %p2, %p3)
+  return (%1)
+
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *),
+      %p2 : int):
+  %cstFloat: int = prim::Constant[value=0.5]()
+// CHECK: Float(*, *, *) = aten::rsub
+  %1 : Tensor = aten::rsub(%p1, %cstFloat, %p2)
+  return (%1)
+
+// CHECK-LABEL: graph
 graph(%p1 : Float(*, *, requires_grad=0, device=cpu)):
   %1 : int = prim::Constant[value=0]()
   %2 : int = prim::Constant[value=1]()
@@ -35,7 +51,7 @@ graph(%p1 : Float(*, *, requires_grad=0, device=cpu)):
 // CHECK-LABEL: graph
 graph(%p1 : Float(8, 512, 768, device=cuda:0),
       %p2 : Float(8, 512, 768, device=cuda:0)):
-// CHECK: Float(*, *, *, device=cuda:0) = aten::tanh_backward(%p1, %p2)
+// CHECK: Float(8, 512, 768, device=cuda:0) = aten::tanh_backward(%p1, %p2)
   %1 : Tensor = aten::tanh_backward(%p1, %p2)
   return (%1)
 

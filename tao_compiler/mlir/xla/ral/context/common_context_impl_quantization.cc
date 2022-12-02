@@ -681,7 +681,7 @@ void ral_qgemm_onednn_s8_s8_s8_per_channel(
   int64_t k = tp_a ? input.sizes[0] : input.sizes[1];
   if (k != (tp_b ? weight.sizes[1] : weight.sizes[0])) {
     ctx->signalError(Context::FAILURE,
-                     "mismatch contraction dim for quantization gemm");
+                     "mismatch contraction dim for ral_qgemm_onednn_s8_s8_s8_per_channel");
     return;
   }
   int64_t n = (tp_b ? weight.sizes[0] : weight.sizes[1]);
@@ -732,11 +732,11 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
     MemRefType<int32_t, 0> inputZeroPoints, MemRefType<float, 1> weightScales,
     MemRefType<int32_t, 1> weightZeroPoints, MemRefType<float, 0> resultScales,
     MemRefType<int32_t, 0> resultZeroPoints, void* customAttrs) {
-  CpuTimer timer("ral_pdll_qgemm_acl_s8_s8_s8_f32_per_channel");
+  CpuTimer timer("ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel");
   int64_t resultSizes[2] = {0, 0};
   if (isEmptyMemref(input) || isEmptyMemref(weight) || isEmptyMemref(bias)) {
     TAO_VLOG(1)
-        << "ral_pdll_qgemm_acl_s8_s8_s8_f32_per_channel: early return for "
+        << "ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel: early return for "
            "empty tensor";
     return assignMemRef<int8_t, 2>(nullptr, resultSizes);
   }
@@ -754,22 +754,18 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
     }
   }
   auto attr = getOrParsePDLAttr(ctx, customAttrs,
-                                "ral_pdll_qgemm_acl_s8_s8_s8_f32_per_channel");
+                                "ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel");
   if (!attr) {
     ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
   }
   auto& dictAttr = attr->as<DictPDLAttr>();
   bool tp_a = dictAttr.get("transpose_a").as<BoolPDLAttr>().getValue();
   bool tp_b = dictAttr.get("transpose_b").as<BoolPDLAttr>().getValue();
-  if (tp_a || tp_b) {
-    ctx->signalError(Context::FAILURE,
-                     "not supported ral_qgemm with transpose");
-  }
   int64_t m = tp_a ? input.sizes[1] : input.sizes[0];
   int64_t k = tp_a ? input.sizes[0] : input.sizes[1];
   if (k != (tp_b ? weight.sizes[1] : weight.sizes[0])) {
     ctx->signalError(Context::FAILURE,
-                     "mismatch contraction dim for quantization gemm");
+                     "mismatch contraction dim for ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel");
   }
 
   int64_t n = (tp_b ? weight.sizes[0] : weight.sizes[1]);
@@ -828,10 +824,10 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_per_channel(
     MemRefType<float, 1> weightScales, MemRefType<int32_t, 1> weightZeroPoints,
     MemRefType<float, 0> resultScales, MemRefType<int32_t, 0> resultZeroPoints,
     void* customAttrs) {
-  CpuTimer timer("ral_pdll_qgemm_acl_s8_s8_s8_per_channel");
+  CpuTimer timer("ral_pdll_qgemm_onednn_s8_s8_s8_per_channel");
   int64_t resultSizes[2] = {0, 0};
   if (isEmptyMemref(input) || isEmptyMemref(weight)) {
-    TAO_VLOG(1) << "ral_pdll_qgemm_acl_s8_s8_s8_per_channel: early return for "
+    TAO_VLOG(1) << "ral_pdll_qgemm_onednn_s8_s8_s8_per_channel: early return for "
                    "empty tensor";
     return assignMemRef<int8_t, 2>(nullptr, resultSizes);
   }
@@ -846,22 +842,18 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_per_channel(
     }
   }
   auto attr = getOrParsePDLAttr(ctx, customAttrs,
-                                "ral_pdll_qgemm_acl_s8_s8_s8_per_channel");
+                                "ral_pdll_qgemm_onednn_s8_s8_s8_per_channel");
   if (!attr) {
     ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
   }
   auto& dictAttr = attr->as<DictPDLAttr>();
   bool tp_a = dictAttr.get("transpose_a").as<BoolPDLAttr>().getValue();
   bool tp_b = dictAttr.get("transpose_b").as<BoolPDLAttr>().getValue();
-  if (tp_a || tp_b) {
-    ctx->signalError(Context::FAILURE,
-                     "not supported ral_qgemm with transpose");
-  }
   int64_t m = tp_a ? input.sizes[1] : input.sizes[0];
   int64_t k = tp_a ? input.sizes[0] : input.sizes[1];
   if (k != (tp_b ? weight.sizes[1] : weight.sizes[0])) {
     ctx->signalError(Context::FAILURE,
-                     "mismatch contraction dim for quantization gemm");
+                     "mismatch contraction dim for ral_pdll_qgemm_onednn_s8_s8_s8_per_channel");
   }
 
   int64_t n = (tp_b ? weight.sizes[0] : weight.sizes[1]);

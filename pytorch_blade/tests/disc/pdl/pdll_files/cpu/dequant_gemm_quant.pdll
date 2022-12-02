@@ -73,7 +73,7 @@ Pattern TorchDequantLinearBiasQuantOp {
 
     /// 2. set attrs that are used by bladedisc.
     SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_qgemm_s8s8s8f32_pc\"">);
-    SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"h,h\"">);
+    SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"h,h,h,h,h,h,h,h,h\"">);
     SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"h\"">);
     SetAttr(infos.op, attr<"\"device\"">, attr<"\"h\"">);
     SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,BA,*,*,*,*,*,*,*\"">);
@@ -150,7 +150,7 @@ Pattern TorchDequantLinearQuantOp {
 
     /// 2. set attrs that are used by bladedisc.
     SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_qgemm_s8s8s8_pc\"">);
-    SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"h,h\"">);
+    SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"h,h,h,h,h,h,h,h\"">);
     SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"h\"">);
     SetAttr(infos.op, attr<"\"device\"">, attr<"\"h\"">);
     SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,BA,*,*,*,*,*,*\"">);

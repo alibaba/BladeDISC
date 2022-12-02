@@ -725,7 +725,7 @@ void ral_qgemm_onednn_s8_s8_s8_per_channel(
   timer.Stop();
 }
 
-MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_f32_per_channel(
+MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
     ExecutionContext* ctx, opaque_t /*stream_handle*/,
     MemRefType<int8_t, 2> input, MemRefType<int8_t, 2> weight,
     MemRefType<float, 1> bias, MemRefType<float, 0> inputScales,
@@ -821,7 +821,7 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_f32_per_channel(
   return result;
 }
 
-MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_per_channel(
+MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_per_channel(
     ExecutionContext* ctx, opaque_t /*stream_handle*/,
     MemRefType<int8_t, 2> input, MemRefType<int8_t, 2> weight,
     MemRefType<float, 0> inputScales, MemRefType<int32_t, 0> inputZeroPoints,
@@ -930,9 +930,9 @@ TAO_RAL_API("ral_pdll_qgemm", "cpu", ral_pdll_qgemm_acl_s8_s8_s8_per_channel);
 #if defined(TAO_X86)
 TAO_RAL_API("ral_qgemm", "cpu", ral_qgemm_onednn_s8_s8_s8_per_channel);
 TAO_RAL_API("ral_pdll_qgemm_s8s8s8f32_pc", "cpu",
-            ral_pdll_qgemm_acl_s8_s8_s8_f32_per_channel);
+            ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel);
 TAO_RAL_API("ral_pdll_qgemm_s8s8s8_pc", "cpu",
-            ral_pdll_qgemm_acl_s8_s8_s8_per_channel);
+            ral_pdll_qgemm_onednn_s8_s8_s8_per_channel);
 #endif  // TAO_X86
 
 }  // namespace ral

@@ -49,4 +49,56 @@ def DISCBufferizeOp : Op<Transform_Dialect, "disc.bufferize",
   let cppNamespace = "::mlir::disc_ral::transform_dialect";
 }
 
+def ApplyPatternsOp : Op<Transform_Dialect, "disc.apply_patterns",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Greedily applies patterns as specified by its attributes.
+
+    Must be applied to an op with trait IsolatedFromAbove since the
+    GreedyPatternRewriter asserts those.
+
+    Returns the IsolatedFromAbove op whose content it has modified for better
+    chaining APIs.
+
+    The following additive attributes can be set, they add patterns in an
+    unspecified order:
+      - canonicalization: adds all the canonicalization patterns of all
+      registered dialects and ops.
+
+    Return modes:
+    =============
+    This operation applies a number of patterns to rewrite vector IR into
+    distributed warp form. To apply these patterns, this operation must target
+    an operation that is isolated from above, otherwise the transform definitely
+    fails.
+
+    If the pattern application fails, or if the underlying listener fails to
+    capture op handles, the transformation definitely fails.
+
+    Otherwise the transformation is successful and no result is returned.
+  }];
+
+  let arguments = (ins PDL_Operation:$target,
+                       UnitAttr:$canonicalization);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = "$target attr-dict";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let builders = [
+    // TODO: Some bitvector to scale better than n-bools.
+    OpBuilder<(ins "Value":$target, "bool":$canonicalization)>
+  ];
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
 #endif // DISC_TRANSFORM_OPS_EXT

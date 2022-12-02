@@ -680,8 +680,9 @@ void ral_qgemm_onednn_s8_s8_s8_per_channel(
   int64_t m = tp_a ? input.sizes[1] : input.sizes[0];
   int64_t k = tp_a ? input.sizes[0] : input.sizes[1];
   if (k != (tp_b ? weight.sizes[1] : weight.sizes[0])) {
-    ctx->signalError(Context::FAILURE,
-                     "mismatch contraction dim for ral_qgemm_onednn_s8_s8_s8_per_channel");
+    ctx->signalError(
+        Context::FAILURE,
+        "mismatch contraction dim for ral_qgemm_onednn_s8_s8_s8_per_channel");
     return;
   }
   int64_t n = (tp_b ? weight.sizes[0] : weight.sizes[1]);
@@ -753,8 +754,8 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
       TAO_VLOG(0) << "bias[" << i << "] = " << static_cast<float>(bias.data[i]);
     }
   }
-  auto attr = getOrParsePDLAttr(ctx, customAttrs,
-                                "ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel");
+  auto attr = getOrParsePDLAttr(
+      ctx, customAttrs, "ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel");
   if (!attr) {
     ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
   }
@@ -765,7 +766,8 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel(
   int64_t k = tp_a ? input.sizes[0] : input.sizes[1];
   if (k != (tp_b ? weight.sizes[1] : weight.sizes[0])) {
     ctx->signalError(Context::FAILURE,
-                     "mismatch contraction dim for ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel");
+                     "mismatch contraction dim for "
+                     "ral_pdll_qgemm_onednn_s8_s8_s8_f32_per_channel");
   }
 
   int64_t n = (tp_b ? weight.sizes[0] : weight.sizes[1]);
@@ -827,8 +829,9 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_per_channel(
   CpuTimer timer("ral_pdll_qgemm_onednn_s8_s8_s8_per_channel");
   int64_t resultSizes[2] = {0, 0};
   if (isEmptyMemref(input) || isEmptyMemref(weight)) {
-    TAO_VLOG(1) << "ral_pdll_qgemm_onednn_s8_s8_s8_per_channel: early return for "
-                   "empty tensor";
+    TAO_VLOG(1)
+        << "ral_pdll_qgemm_onednn_s8_s8_s8_per_channel: early return for "
+           "empty tensor";
     return assignMemRef<int8_t, 2>(nullptr, resultSizes);
   }
   if (TAO_VLOG_IS_ON(1)) {
@@ -853,7 +856,8 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_onednn_s8_s8_s8_per_channel(
   int64_t k = tp_a ? input.sizes[0] : input.sizes[1];
   if (k != (tp_b ? weight.sizes[1] : weight.sizes[0])) {
     ctx->signalError(Context::FAILURE,
-                     "mismatch contraction dim for ral_pdll_qgemm_onednn_s8_s8_s8_per_channel");
+                     "mismatch contraction dim for "
+                     "ral_pdll_qgemm_onednn_s8_s8_s8_per_channel");
   }
 
   int64_t n = (tp_b ? weight.sizes[0] : weight.sizes[1]);

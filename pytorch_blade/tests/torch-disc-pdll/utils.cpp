@@ -38,6 +38,7 @@ const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Rewrite ConvertTorchConstantIntListToI64DenseElemsAttr(cst: Value) -> Attr;
   Rewrite ConvertTorchConstantIntToI64Attr(cst: Value) -> Attr;
   Rewrite ConvertTorchTensorElemType(old_type: Type, type_str: Attr) -> Type;
+  Rewrite GetTorchTensorType(v: Value) -> Type;
 )pdll";
 
 static LogicalResult checkTorchNone(
@@ -147,6 +148,14 @@ static LogicalResult checkTorchValueTensorLiteral(
   return success();
 }
 
+static void getTorchTensorType(
+    PatternRewriter& rewriter,
+    PDLResultList& results,
+    ArrayRef<PDLValue> values) {
+  auto type = values[0].cast<Value>().getType().cast<Torch::ValueTensorType>();
+  results.push_back(Type(type));
+}
+
 static void createTorchCustomCall(
     PatternRewriter& rewriter,
     PDLResultList& results,
@@ -247,6 +256,7 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns) {
       "ConvertTorchTensorElemType", convertTorchTensorElemType);
   pdlPatterns.registerRewriteFunction(
       "ConvertTorchConstantIntToI64Attr", convertTorchConstantIntToI64Attr);
+  pdlPatterns.registerRewriteFunction("GetTorchTensorType", getTorchTensorType);
 
   pdlPatterns.registerConstraintFunction("CheckTorchNone", checkTorchNone);
   pdlPatterns.registerConstraintFunction(

@@ -91,26 +91,28 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   auto name = op.name();
-  if ("aten._autocast_to_reduced_precision" == name) {
+  if (name.equals("aten._autocast_to_reduced_precision") ||
+      name.equals("aten._autocast_to_full_precision")) {
+    // dtype has been infered in PropagateInputShapes pass
+    auto inTy = op.getOperand(0).getType();
     auto outTy = op.getResult(0).getType();
-    BaseTensorType tensorType = outTy.template dyn_cast<BaseTensorType>();
-    auto dtype = getDtypeIntValueForType(rewriter, loc, tensorType.getDtype());
-    bool cudaEnable = false;
-    if (matchPattern(op.getOperand(1), m_TorchConstantBool(&cudaEnable)))
-      dtype = op.getOperand(3); // if cuda_enable, dtype = op.cuda_dtype()
-    bool cpuEnable = false;
-    if (matchPattern(op.getOperand(2), m_TorchConstantBool(&cpuEnable)))
-      dtype = op.getOperand(4); // if cpu_enable , dtype = op.cpu_dtype()
-    Value constantNone = rewriter.create<ConstantNoneOp>(loc);
-    Value constantTrue = rewriter.create<ConstantBoolOp>(loc, true);
-    rewriter.replaceOpWithNewOp<AtenToDtypeOp>(
-        op,
-        outTy,
-        op.getOperand(0),
-        dtype,
-        /*non-blocking*/ constantTrue,
-        /*copy*/ constantTrue,
-        /*memomry format*/ constantNone);
+
+    if (inTy != outTy) {
+      auto outDtype = outTy.template dyn_cast<BaseTensorType>().getDtype();
+      auto dtype = getDtypeIntValueForType(rewriter, loc, outDtype);
+      Value constantNone = rewriter.create<ConstantNoneOp>(loc);
+      Value constantTrue = rewriter.create<ConstantBoolOp>(loc, true);
+      rewriter.replaceOpWithNewOp<AtenToDtypeOp>(
+          op,
+          outTy,
+          op.getOperand(0),
+          dtype,
+          /*non-blocking*/ constantTrue,
+          /*copy*/ constantTrue,
+          /*memomry format*/ constantNone);
+    } else {
+      rewriter.replaceOp(op, {op.getOperand(0)});
+    }
     return success();
   } else if ("aten.add_inplace.Tensor" == name) {
     auto outTy = op.getResult(0).getType();
@@ -352,6 +354,7 @@ class DiscDecomposeComplexOpsPass
     auto opIsDynamicallyLegal = [&](OperatorOp op) {
       static std::unordered_set<std::string> illegalSet{
           "aten._autocast_to_reduced_precision",
+          "aten._autocast_to_full_precision",
           "aten.add_inplace.Tensor",
           "aten.div_inplace.Tensor",
           "aten.mul_inplace.Tensor",

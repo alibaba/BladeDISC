@@ -16,5 +16,7 @@ echo DIR: $(pwd)
 
 pip3 install -r requirements.txt
 python3 main.py
+python3 main.py --fp16
+python3 main.py --amp
 
 popd

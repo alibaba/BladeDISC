@@ -27,6 +27,7 @@ from transformers.onnx.utils import get_preprocessor
 from transformers.pipelines import (check_task, get_default_model_and_revision,
                                     get_task, infer_framework_load_model)
 from transformers.utils import TensorType
+from transformers.utils.generic import ModelOutput
 
 LOGGER = logging.getLogger(__name__)
 
@@ -181,12 +182,11 @@ def _default_device() -> torch.device:
     return torch.device('cuda:0') if torch.cuda.is_available() else torch.device('cpu')
 
 
-class BladeModel(torch.nn.Module):
+class BladeModel(PreTrainedModel):
     def __init__(self, opt_model: torch.jit.ScriptModule, info: ModelInfo) -> None:
-        super().__init__()
+        super().__init__(info.config)
 
         self.opt_model = opt_model
-        self.config = info.config
         self.info = info
 
     def forward(self, *args, **kwargs) -> Any:
@@ -194,7 +194,7 @@ class BladeModel(torch.nn.Module):
         model_args = list(args)
         model_args.extend(_kwargs_to_args(self.info.input_order, **kwargs))
         outputs = self.opt_model(*model_args)
-        return {k: v for k, v in zip(self.info.output_names, outputs)}
+        return ModelOutput({k: v for k, v in zip(self.info.output_names, outputs)})
 
 
 def create_model(task: Optional[str] = None, id_or_path: Optional[str] = None,
@@ -209,7 +209,7 @@ def create_model(task: Optional[str] = None, id_or_path: Optional[str] = None,
 def optimize(task: Optional[str] = None, id_or_path: Optional[str] = None,
              model: Optional[PreTrainedModel] = None,
              preprocessor: Optional[Preprocessor] = None,
-             only_jit: bool = False, amp: bool = False,
+             skip_compile: bool = False, amp: bool = False,
              device: Optional[torch.device] = None,
              model_kwargs: Dict[str, Any] = None) -> BladeModel:
     if device is None:
@@ -237,7 +237,7 @@ def optimize(task: Optional[str] = None, id_or_path: Optional[str] = None,
     traced = torch.jit.trace(tracable.eval(), _kwargs_to_args(
         info.input_order, **info.dummy_inputs), strict=False)
 
-    if only_jit:
+    if skip_compile:
         opt_model = traced
     else:
         # TODO(litan.ls): support custom blade config
@@ -259,7 +259,7 @@ def pipeline(
     use_fast: bool = True,
     device: Optional[torch.device] = None,
     model_kwargs: Dict[str, Any] = None,
-    only_jit: bool = False,
+    skip_compile: bool = False,
     **kwargs,
 ) -> Pipeline:
 
@@ -269,10 +269,10 @@ def pipeline(
     preprocessor = tokenizer or feature_extractor
     if isinstance(model, PreTrainedModel):
         blade_model = optimize(task=task, model=model, preprocessor=preprocessor,
-                               device=device, model_kwargs=model_kwargs, only_jit=only_jit)
+                               device=device, model_kwargs=model_kwargs, skip_compile=skip_compile)
     elif model is None or isinstance(model, str):
         blade_model = optimize(task=task, id_or_path=model, preprocessor=preprocessor,
-                               device=device, model_kwargs=model_kwargs, only_jit=only_jit)
+                               device=device, model_kwargs=model_kwargs, skip_compile=skip_compile)
     else:
         raise ValueError('model should be str|PretrainedModel|None')
 

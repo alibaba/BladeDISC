@@ -22,8 +22,16 @@ limitations under the License.
 #include "lhlo/transforms/map_lmhlo_to_scalar_op.h"
 #include "llvm/Support/Debug.h"
 #include "mhlo/transforms/map_mhlo_to_scalar_op.h"
+#include "mlir-hlo/Dialect/lhlo/IR/lhlo_ops.h"
+#include "mlir-hlo/Dialect/lhlo/transforms/map_lmhlo_to_scalar_op.h"
+#include "mlir-hlo/Dialect/mhlo/transforms/map_mhlo_to_scalar_op.h"
+#include "mlir/Conversion/LLVMCommon/MemRefBuilder.h"  // from @llvm-project
+#include "mlir/Conversion/LLVMCommon/Pattern.h"        // from @llvm-project
+#include "mlir/Conversion/MemRefToLLVM/MemRefToLLVM.h"
 #include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/GPU/IR/GPUDialect.h"
+#include "mlir/Dialect/LLVMIR/LLVMDialect.h"  // from @llvm-project
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
 #include "mlir/IR/Attributes.h"
@@ -920,7 +928,6 @@ Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder* b, Location loc,
   //     store 0 to output
   //   }
   //   return T0;
-
   auto out_idx = output_index[axis];
   SmallVector<scf::IfOp> if_inbound_ops(num_input_operands);
   for (int i = num_input_operands - 1; i >= 0; --i) {
@@ -960,6 +967,59 @@ Value elementalLower<lmhlo::ConcatenateOp>(OpBuilder* b, Location loc,
   Value result = *(if_inbound_ops[0].getResults().begin());
   mayCreateStore(b, loc, op.getOperation(), result, output_index, lower_config);
   return result;
+}
+
+template <>
+Value elementalLower<lmhlo_disc::ConcatenateOp>(OpBuilder* b, Location loc,
+                                                lmhlo_disc::ConcatenateOp op,
+                                                ValueRange output_index,
+                                                bool check_cache,
+                                                LowerConfig* lower_config) {
+  size_t axis = op.getDimension();
+  size_t rank = output_index.size();
+  MLIRContext* ctx = b->getContext();
+
+  auto num_input_operands = op.getNumOperands() - 2;
+  auto zero = b->create<arith::ConstantIndexOp>(loc, 0);
+
+  SmallVector<Value> axis_dim_ranges;
+  axis_dim_ranges.push_back(zero);
+  for (int i = 0; i < num_input_operands; ++i) {
+    axis_dim_ranges.push_back(b->create<arith::AddIOp>(
+        loc, getDimSizeValue(b, op.getOperand(i), axis),
+        axis_dim_ranges.back()));
+  }
+
+  // {inputs, input_ptr, out}
+  auto ptr_array = op.getOperand(op.getNumOperands() - 2);
+  auto out = op.getOperand(op.getNumOperands() - 1);
+
+  // TODO(yancey): load operand as index
+  auto input0_memref = op.getOperand(0);
+  Value inputNumel = b->create<arith::ConstantIndexOp>(loc, 1);
+  for (int i = 0; i < rank; ++i) {
+    inputNumel = b->create<arith::MulIOp>(loc, inputNumel,
+                                          getDimSizeValue(b, input0_memref, i));
+  }
+
+  auto output_shape = getShapeValues(b, out);
+  Value linear_index = calcLinearIndex(b, loc, output_index, output_shape);
+  auto operand_index = b->create<arith::FloorDivSIOp>(loc, b->getIndexType(),
+                                                      linear_index, inputNumel);
+  auto int_ptr =
+      b->create<memref::LoadOp>(loc, ptr_array, ValueRange{operand_index});
+  Type ptr_type = LLVM::LLVMPointerType::get(FloatType::getF32(ctx));
+  auto llvm_ptr = b->create<LLVM::IntToPtrOp>(loc, ptr_type, int_ptr);
+
+  // input_offset = linear_index - operand_index * input_numel
+  Value input_offset = b->create<arith::SubIOp>(
+      loc, linear_index,
+      b->create<arith::MulIOp>(loc, operand_index, inputNumel));
+  input_offset = b->create<arith::IndexCastOp>(loc, IntegerType::get(ctx, 32),
+                                               input_offset);
+  auto llvm_elem =
+      b->create<LLVM::GEPOp>(loc, ptr_type, llvm_ptr, input_offset);
+  return b->create<LLVM::LoadOp>(loc, llvm_elem);
 }
 
 // There is no 'identityOp' in std dialect, thus we provide a basic

@@ -280,6 +280,7 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(disc_ral::createDiscAlgebraicSimplifierPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscSplitLargeOpsPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscDotRewriterPass());
+  // pm.addNestedPass<FuncOp>(disc_ral::createDiscRngRewriterPass());
   if (enable_shape_constraint_ir) {
     // shape-related optimization
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());
@@ -419,6 +420,8 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addPass(mhlo_disc::createDiscLegalizeToLhloPass());
   pm.addPass(mhlo::createLegalizeToLhloPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
+  pm.addPass(mhlo_disc::createDiscLhloRewriterPass());
+  pm.addNestedPass<FuncOp>(createCanonicalizerPass());
 
   // Convert shape to std. Community ```convert-shape-to-std``` pass
   // lowers `shape.broadcast` using scf ops. However, our pass pipeline
@@ -511,7 +514,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
   pm.addNestedPass<FuncOp>(createCSEPass());
   pm.addNestedPass<FuncOp>(createCanonicalizerPass());
-
   pm.addNestedPass<FuncOp>(bufferization::createBufferDeallocationPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscBufferDeallocationPass());
 

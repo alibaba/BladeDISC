@@ -1333,6 +1333,35 @@ LogicalResult PrintfToLLVMPattern::matchAndRewrite(
   return success();
 }
 
+// Converts a ral.dispatch_op to its llvm format.
+struct GetPointerToLLVMPattern : public ConvertOpToLLVMPattern<GetPointerOp> {
+  GetPointerToLLVMPattern(LLVMTypeConverter& type_converter,
+                          SymbolTable& symbol_table)
+      : ConvertOpToLLVMPattern<GetPointerOp>(type_converter),
+        symbol_table_(symbol_table) {}
+
+  LogicalResult matchAndRewrite(
+      GetPointerOp op, OpAdaptor adaptor,
+      ConversionPatternRewriter& rewriter) const override;
+
+ private:
+  SymbolTable& symbol_table_;
+};
+
+LogicalResult GetPointerToLLVMPattern::matchAndRewrite(
+    GetPointerOp op, OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto input = adaptor.getOperands()[0];
+  auto loc = op.getLoc();
+  MemRefDescriptor memref(input);
+
+  Value allocated_bytes_ptr = rewriter.create<LLVM::PtrToIntOp>(
+      loc, getIndexType(), memref.allocatedPtr(rewriter, loc));
+  rewriter.replaceOpWithNewOp<LLVM::BitcastOp>(op, rewriter.getIntegerType(64),
+                                               allocated_bytes_ptr);
+  return success();
+}
+
 }  // namespace
 
 void populateDiscToLLVMConversionPatterns(LLVMTypeConverter* converter,
@@ -1346,7 +1375,8 @@ void populateDiscToLLVMConversionPatterns(LLVMTypeConverter* converter,
       ConvertMemRefDeallocOpToDispatchOpPattern,
       ConvertSourceCodeOpToDispatchOpPattern,
       DispatchOpToLLVMPattern,
-      PrintfToLLVMPattern
+      PrintfToLLVMPattern,
+      GetPointerToLLVMPattern
     >(*converter, *symbol_table);
   // clang-format on
   patterns->insert<RemoveUselessUnrealizedConversionCastOp>(*converter);

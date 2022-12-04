@@ -451,6 +451,27 @@ cc_library(
 
 
 cc_library(
+    name = "rng_rewriter",
+    srcs = ["transforms/rng_rewriter.cc"],
+    hdrs = ["transforms/passes.h"],
+    includes = [
+        "tensorflow/compiler/xla/mlir_hlo/include",
+        "."
+    ],
+    deps = [
+        ":disc_util",
+        ":pass_details",
+        "//tensorflow/compiler/mlir/disc:rng_uniform_custom_call",
+        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "quantized_dot_rewriter",
     srcs = ["transforms/quantized_dot_rewriter.cc"],
     hdrs = ["transforms/passes.h"],
@@ -896,6 +917,37 @@ cc_library(
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TensorDialect",
         "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
+    name = "disc_lhlo_rewriter",
+    srcs = ["transforms/disc_lhlo_rewriter.cc"],
+    hdrs = [
+        "transforms/passes.h",
+        "transforms/rewriters.h",
+    ],
+    deps = [
+        ":mhlo_disc",
+        ":lmhlo_disc",
+        ":disc_ral",
+        ":disc_map_hlo_to_lhlo_op",
+        ":pass_details",
+        ":placement_utils",
+        ":shape_utils",
+        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:ShapeDialect",
+        "@llvm-project//mlir:ShapeTransforms",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:Transforms",
+        "@llvm-project//mlir:SCFDialect",
     ],
     alwayslink = 1,
 )
@@ -1786,7 +1838,6 @@ cc_library(
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
         "@llvm-project//mlir:Pass",
-        "@llvm-project//mlir:ArithDialect",
         "@llvm-project//mlir:ShapeDialect",
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:TensorDialect",
@@ -2205,6 +2256,7 @@ cc_library(
         ":disc_gpu_kernel_to_blob",
         ":disc_gpu_source_to_lib",
         ":disc_hlo_legalize_to_lhlo",
+        ":disc_lhlo_rewriter",
         ":disc_hlo_to_std",
         ":disc_lhlo_legalize_roots_to_loops",
         ":disc_lower_tf",
@@ -2438,6 +2490,20 @@ cc_library(
 )
 
 cc_library(
+    name = "rng_uniform_custom_call_hdrs",
+    srcs = [
+        "IR/rng_uniform_custom_call_op_cfg.cpp",
+    ],
+    hdrs = [
+        "IR/rng_uniform_custom_call_op.h",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@llvm-project//llvm:Support",
+    ]
+)
+
+cc_library(
     name = "rng_uniform_custom_call",
     srcs = [
         "IR/rng_uniform_custom_call_op.cc",
@@ -2452,6 +2518,7 @@ cc_library(
         ":lmhlo_disc",
         ":mhlo_disc",
         ":placement_utils",
+        ":rng_uniform_custom_call_hdrs",
         "@llvm-project//llvm:Support",
         "@llvm-project//mlir:IR",
     ],

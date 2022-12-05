@@ -11,46 +11,25 @@
 
 #pragma once
 
+#include <ATen/core/function_schema.h>
 #include <ATen/core/interned_strings.h>
 #include <memory>
 #include <unordered_map>
 #include <vector>
 
-#if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 12
 namespace torch {
 namespace jit {
-struct OperatorSet;
 struct Node;
 } // namespace jit
 
 namespace blade {
-using ::torch::jit::OperatorSet;
-bool nodeIsMemberOf(const torch::jit::Node& node, const OperatorSet& os);
-} // namespace blade
-} // namespace torch
-#else
-namespace torch {
-namespace jit {
-class Operator;
-struct Node;
-} // namespace jit
-
-namespace blade {
-struct OperatorSet {
-  OperatorSet(std::initializer_list<const char*> sig_literals);
-  std::vector<std::shared_ptr<torch::jit::Operator>> getOps() const;
-  void insert(std::initializer_list<const char*> sig_literals);
-
+struct SchemaSet {
+  SchemaSet(std::initializer_list<const char*> sig_literals);
   bool hasMember(const torch::jit::Node& node) const;
 
  private:
   friend struct torch::jit::Node;
-  std::unordered_map<
-      ::c10::Symbol,
-      std::vector<std::shared_ptr<torch::jit::Operator>>>
-      ops;
+  std::unordered_map<::c10::Symbol, std::vector<c10::FunctionSchema>> ops;
 };
-bool nodeIsMemberOf(const torch::jit::Node& node, const OperatorSet& os);
 } // namespace blade
 } // namespace torch
-#endif

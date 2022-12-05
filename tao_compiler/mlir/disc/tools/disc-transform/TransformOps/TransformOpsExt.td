@@ -101,4 +101,42 @@ def ApplyPatternsOp : Op<Transform_Dialect, "disc.apply_patterns",
   }];
 }
 
+def FoldProducerExtractSliceOp : Op<Transform_Dialect, "disc.fold_producer_extract_slice",
+    [FunctionalStyleTransformOpTrait,
+     MemoryEffectsOpInterface,
+     TransformEachOpTrait,
+     TransformOpInterface]> {
+  let description = [{
+    Given a tensor.ExtractSliceOp, greedily fold its producers if they are also tensor.ExtractSliceOp.
+
+    Returns the folded new tensor.ExtractSliceOp.
+
+    The following additive attributes can be set:
+      - max_repeat_num: fold at most `max_repeat_num` times.
+
+    Return modes:
+    =============
+    This operation try to fold two tensor.ExtractSliceOp with def-use relationship at most
+    `max_repeat_num` times.
+  }];
+
+  let arguments = (ins PDL_Operation:$target,
+                       I64Attr:$max_repeat_num);
+  let results = (outs PDL_Operation:$result);
+
+  let assemblyFormat = "$target attr-dict";
+  let cppNamespace = "::mlir::disc_ral::transform_dialect";
+
+  let builders = [
+    OpBuilder<(ins "Value":$target, "int64_t":$max_repeat_num)>
+  ];
+
+  let extraClassDeclaration = [{
+    ::mlir::DiagnosedSilenceableFailure applyToOne(
+        ::mlir::Operation *target,
+        ::llvm::SmallVectorImpl<::mlir::Operation *> &results,
+        ::mlir::transform::TransformState &state);
+  }];
+}
+
 #endif // DISC_TRANSFORM_OPS_EXT

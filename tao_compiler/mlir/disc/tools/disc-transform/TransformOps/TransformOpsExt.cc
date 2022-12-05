@@ -396,9 +396,10 @@ struct TransferReadOfFillOpPattern
 };
 
 /// convert:
-///   %0 = tensor.extract_slice %arg0[0, 0] [%s0, %s1] [1, 1] : tensor<?x?xf32>
-///   to tensor<?x?xf32> %1 = linalg.fill ins(%cst : f32) outs(%0 :
-///   tensor<?x?xf32>) -> tensor<?x?xf32>
+///   %0 = tensor.extract_slice %arg0[0, 0] [%s0, %s1] [1, 1]
+///       : tensor<?x?xf32> to tensor<?x?xf32>
+///   %1 = linalg.fill ins(%cst : f32) outs(%0
+///       : tensor<?x?xf32>) -> tensor<?x?xf32>
 ///   %2 = vector.transfer_write %result, %1[0, 0]
 ///                     : vector<6x16xf32>, tensor<?x?xf32>
 /// to:
@@ -497,6 +498,80 @@ DiagnosedSilenceableFailure ApplyPatternsOp::applyToOne(
     return mlir::emitDefiniteFailure(target, "listener tracking failed");
 
   results.assign({target});
+  return DiagnosedSilenceableFailure(success());
+}
+
+//===---------------------------------------------------------------------===//
+// FoldProducerExtractSliceOp
+//===---------------------------------------------------------------------===//
+
+namespace {
+
+LogicalResult tryMergeExtractSliceOp(OpBuilder& b,
+                                     tensor::ExtractSliceOp& sliceOp,
+                                     tensor::ExtractSliceOp producerOp) {
+  if (!strideAllOnes(sliceOp) || !strideAllOnes(producerOp)) return failure();
+  Location loc = sliceOp->getLoc();
+  SmallVector<OpFoldResult> newOffsets;
+  for (const auto& z :
+       llvm::zip(sliceOp.getMixedOffsets(), producerOp.getMixedOffsets())) {
+    Value lhsValue = std::get<0>(z).dyn_cast<Value>();
+    Value rhsValue = std::get<1>(z).dyn_cast<Value>();
+    if (!lhsValue) {
+      lhsValue = b.create<arith::ConstantIndexOp>(
+          loc,
+          std::get<0>(z).dyn_cast<Attribute>().cast<IntegerAttr>().getInt());
+    }
+    if (!rhsValue) {
+      rhsValue = b.create<arith::ConstantIndexOp>(
+          loc,
+          std::get<1>(z).dyn_cast<Attribute>().cast<IntegerAttr>().getInt());
+    }
+    newOffsets.push_back(
+        b.create<arith::AddIOp>(loc, lhsValue, rhsValue).getResult());
+  }
+  sliceOp = b.create<tensor::ExtractSliceOp>(
+      loc, producerOp.getSource(), newOffsets, sliceOp.getMixedSizes(),
+      sliceOp.getMixedStrides());
+  return success();
+}
+
+}  // namespace
+
+void FoldProducerExtractSliceOp::build(OpBuilder& builder,
+                                       OperationState& result, Value target,
+                                       int64_t maxRepeatNum) {
+  MLIRContext* ctx = builder.getContext();
+  result.addOperands(target);
+  result.addAttribute(
+      FoldProducerExtractSliceOp::getMaxRepeatNumAttrName(result.name),
+      builder.getIntegerAttr(builder.getIntegerType(64), maxRepeatNum));
+  result.addTypes({pdl::OperationType::get(ctx)});
+}
+
+DiagnosedSilenceableFailure FoldProducerExtractSliceOp::applyToOne(
+    Operation* target, SmallVectorImpl<Operation*>& results,
+    transform::TransformState& state) {
+  auto sliceOp = dyn_cast<tensor::ExtractSliceOp>(target);
+  if (!sliceOp) {
+    return mlir::emitDefiniteFailure(target,
+                                     "applies only to tensor::ExtractSliceOp");
+  }
+  MLIRContext* ctx = target->getContext();
+
+  OpBuilder b(target);
+  for (int64_t i = 0; i < getMaxRepeatNum(); ++i) {
+    auto producerOp =
+        sliceOp.getSource().getDefiningOp<tensor::ExtractSliceOp>();
+    if (!producerOp || failed(tryMergeExtractSliceOp(b, sliceOp, producerOp)))
+      break;
+  }
+
+  if (sliceOp.getOperation() != target) {
+    target->getResult(0).replaceAllUsesWith(sliceOp.getResult());
+  }
+
+  results.assign({sliceOp.getOperation()});
   return DiagnosedSilenceableFailure(success());
 }
 

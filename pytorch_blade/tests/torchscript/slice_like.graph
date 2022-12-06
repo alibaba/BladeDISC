@@ -5,7 +5,17 @@ graph(%p1 : Float(8, 768, 512)):
   %cst0: int = prim::Constant[value=0]()
   %cst1: int = prim::Constant[value=1]()
   %int_max: int = prim::Constant[value=9223372036854775807]()
-// CHECK: Float(*, 768, 512) = aten::slice
-  %slice : Tensor = aten::slice(%p1, %cst0, %cst0, %int_max, %cst1) 
+// CHECK: Float(7, 768, 512) = aten::slice
+  %slice : Tensor = aten::slice(%p1, %cst0, %cst1, %int_max, %cst1) 
+  return (%slice)
+
+// CHECK-LABEL: graph
+graph(%p1 : Float(8, 768, 512)):
+  %cst0: int = prim::Constant[value=0]()
+  %cst1: int = prim::Constant[value=1]()
+  %cst_1: int = prim::Constant[value=-1]()
+  %int_max: int = prim::Constant[value=9223372036854775807]()
+// CHECK: Float(8, 768, 512) = aten::slice
+  %slice : Tensor = aten::slice(%p1, %cst_1, %cst0, %int_max, %cst1) 
   return (%slice)
 

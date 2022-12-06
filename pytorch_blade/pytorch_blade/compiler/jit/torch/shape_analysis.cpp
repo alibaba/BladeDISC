@@ -67,14 +67,14 @@ bool PropagateTensorShapeOnNode(Node* node, bool insert_expands);
 
 ShapeSymbol getSymDimSize(TensorTypePtr type, int64_t dim) {
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION >= 8
-  auto dimSize = type->symbolic_sizes()[dim];
-  if (dimSize.is_static())
-    return ShapeSymbol::fromStaticSize(dimSize.static_size());
-  else
-    return ShapeSymbol::newSymbol();
-#else
-  return ShapeSymbol::newSymbol();
+  if (auto rank = type->symbolic_sizes().rank()) {
+    dim = at::maybe_wrap_dim(dim, *rank, false);
+    auto dimSize = type->symbolic_sizes()[dim];
+    if (dimSize.is_static())
+      return ShapeSymbol::fromStaticSize(dimSize.static_size());
+  }
 #endif
+  return ShapeSymbol::newSymbol();
 }
 
 bool mergeTypes(
@@ -2192,17 +2192,20 @@ class ShapePropagator : public PropertyPropBase {
         auto dimOptional = node->get<int64_t>(attr::dim);
         if (!(sizesOptional && dimOptional))
           return false;
-        std::vector<ShapeSymbol> new_sizes = sizesOptional.value();
-        int64_t dim = dimOptional.value();
+
+        std::vector<c10::ShapeSymbol> new_sizes = sizesOptional.value();
+        int64_t input_rank = new_sizes.size();
+        int64_t dim =
+            at::maybe_wrap_dim(dimOptional.value(), input_rank, false);
 
         auto startOptional = node->get<IValue>(attr::start);
         auto endOptional = node->get<IValue>(attr::end);
         if (new_sizes[dim].is_static() && startOptional && endOptional) {
           int64_t start = startOptional.value() != c10::nullopt
-              ? node->get<int>(attr::start).value()
+              ? node->get<int64_t>(attr::start).value()
               : 0;
           int64_t end = endOptional.value() != c10::nullopt
-              ? node->get<int>(attr::end).value()
+              ? node->get<int64_t>(attr::end).value()
               : INT64_MAX;
           int64_t step = node->get<int64_t>(attr::step).value();
           if (end >= new_sizes[dim].static_size())

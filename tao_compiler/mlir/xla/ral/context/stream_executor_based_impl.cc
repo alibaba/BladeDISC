@@ -471,7 +471,7 @@ void ral_qgemm(
 }
 
 template <int N>
-MemRefType<int8_t, N> ral_pdll_qgemm_s8s8s8_biasadd_quant_per_tensor(
+MemRefType<int8_t, N> ral_pdll_qgemm_nt_s8s8s8_biasadd_quant_per_tensor(
     ExecutionContext* ctx, void* stream_handle, MemRefType<int8_t, N> input,
     MemRefType<int8_t, 2> weight, MemRefType<int8_t, 1> bias,
     MemRefType<float, 0> inputScales, MemRefType<int32_t, 0> inputZeroPoints,
@@ -491,7 +491,6 @@ MemRefType<int8_t, N> ral_pdll_qgemm_s8s8s8_biasadd_quant_per_tensor(
   if (isEmptyMemref(input) || isEmptyMemref(weight)) {
     TAO_VLOG(1) << "ral_qgemm: early return for empty tensor";
     return assignMemRef<int8_t, N>(nullptr, resultSizes);
-    ;
   }
 
   float input_scale, weight_scale, result_scale;
@@ -509,9 +508,7 @@ MemRefType<int8_t, N> ral_pdll_qgemm_s8s8s8_biasadd_quant_per_tensor(
     auto data =
         static_cast<int8_t*>(gpu_driver->alloc(ctx, m * n * sizeof(int8_t)));
     auto result = assignMemRef<int8_t, N>(data, resultSizes);
-    auto stream =
-        static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
-    void* s = stream->implementation()->GpuStreamHack();
+    void* s = gpu_driver->asCUStream(ctx, stream_handle);
     bladnn::Context bladnn_ctx{s};
     bladnn::Dtype in_dtype = toBlaDNNDtype<int8_t>();
     bladnn::Dtype out_dtype = toBlaDNNDtype<int8_t>();
@@ -1929,9 +1926,9 @@ TAO_RAL_API("ral_conv", "gpu",
 TAO_RAL_API("ral_qconv", "gpu",
             gpu::se_impl::gpu_conv_impl::ral_qconv<int8_t, 4>);
 TAO_RAL_API("ral_pdll_qgemm", "gpu",
-            gpu::se_impl::ral_pdll_qgemm_s8s8s8_biasadd_quant_per_tensor<2>);
+            gpu::se_impl::ral_pdll_qgemm_nt_s8s8s8_biasadd_quant_per_tensor<2>);
 TAO_RAL_API("ral_pdll_qgemm", "gpu",
-            gpu::se_impl::ral_pdll_qgemm_s8s8s8_biasadd_quant_per_tensor<3>);
+            gpu::se_impl::ral_pdll_qgemm_nt_s8s8s8_biasadd_quant_per_tensor<3>);
 
 // compute-intensive fusion
 TAO_RAL_API("ral_comp_intens_fusion", "gpu",

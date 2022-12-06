@@ -214,7 +214,8 @@ class GPUDiscPdlQuantizationTestCase(DiscPdlQuantizationTestCase):
 
     def _test_e2e(
             self, model, inp, pdll_files=None,
-            pdll_dirs=None, enable_int8=False
+            pdll_dirs=None, enable_int8=False,
+            diff_scale=1.0
     ):
         origin_output = model(inp)
         cfg = Config.get_current_context_or_new()
@@ -228,4 +229,4 @@ class GPUDiscPdlQuantizationTestCase(DiscPdlQuantizationTestCase):
         with set_env(**env_var), cfg:
             opt_model = optimize(model, True, inp)
         now_output = opt_model(inp)
-        self.assertTrue(torch.abs(now_output-origin_output).max() <= 0.3)
+        self.assertTrue(torch.allclose(now_output, origin_output, atol=1.0 * diff_scale))

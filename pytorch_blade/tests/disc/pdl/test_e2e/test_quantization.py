@@ -215,7 +215,7 @@ class TestGPULiner(GPUDiscPdlQuantizationE2ETestCase):
             os.path.join(self.device_pdll_dir, "dequant_gemm_quant.pdll")
         ]
         pdll_files = ",".join(pdll_files)
-        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, diff_scale=model.output_scale)
 
     def test_s8s8s8_f32bias_per_tensor_verify(self):
         class Model(nn.Module):
@@ -223,7 +223,7 @@ class TestGPULiner(GPUDiscPdlQuantizationE2ETestCase):
                 super().__init__()
                 self.input_scale = 0.1
                 self.input_zero_point = 0
-                self.output_scale = 0.2
+                self.output_scale = 0.05
                 self.output_zero_point = 0
                 self.weight_scale = 0.3
                 self.weight_zero_point = 0
@@ -263,7 +263,7 @@ class TestGPULiner(GPUDiscPdlQuantizationE2ETestCase):
             os.path.join(self.device_pdll_dir, "dequant_gemm_quant_bias_quant.pdll")
         ]
         pdll_files = ",".join(pdll_files)
-        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, diff_scale=model.output_scale)
     
     def test_s8s8s8_f32bias_per_tensor_three_rank_verify(self):
         class Model(nn.Module):
@@ -271,7 +271,7 @@ class TestGPULiner(GPUDiscPdlQuantizationE2ETestCase):
                 super().__init__()
                 self.input_scale = 0.1
                 self.input_zero_point = 0
-                self.output_scale = 0.2
+                self.output_scale = 0.1
                 self.output_zero_point = 0
                 self.weight_scale = 0.3
                 self.weight_zero_point = 0
@@ -311,7 +311,7 @@ class TestGPULiner(GPUDiscPdlQuantizationE2ETestCase):
             os.path.join(self.device_pdll_dir, "dequant_gemm_quant_bias_quant.pdll")
         ]
         pdll_files = ",".join(pdll_files)
-        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, diff_scale=model.output_scale)
 
 if __name__ == "__main__":
     unittest.main()

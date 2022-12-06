@@ -536,8 +536,12 @@ def internal_tao_bridge_dir():
 def link_dirs(dst_dir, src_dir):
     execute("rm -rf {0} && ln -s {1} {0}".format(dst_dir, src_dir))
 
-def try_import_from_platform_alibaba(module_name):
-    build_scripts_dir = os.path.join(internal_root_dir(), "platform_alibaba", "scripts", "python")
+def try_import_from_platform_alibaba(module_name, disc_root=None):
+    if disc_root is None:
+        root = internal_root_dir()
+    else:
+        root = os.path.join(disc_root, os.path.pardir)
+    build_scripts_dir = os.path.join(root, "platform_alibaba", "scripts", "python")
     sys.path.insert(0, build_scripts_dir)
     m = None
     try:
@@ -574,13 +578,13 @@ def configure_compiler_platform_alibaba(root, args):
     m.configure_compiler(root, args)
 
 def build_tao_compiler_add_flags_platform_alibaba(root, args, flag):
-    m = try_import_from_platform_alibaba("common_setup_internal")
+    m = try_import_from_platform_alibaba("common_setup_internal", root)
     if not m: return flag
     return m.build_tao_compiler_add_flags(root, args, flag)
 
 
 def test_tao_compiler_add_flags_platform_alibaba(root, args, flag):
-    m = try_import_from_platform_alibaba("common_setup_internal")
+    m = try_import_from_platform_alibaba("common_setup_internal", root)
     if not m: return flag
     return m.test_tao_compiler_add_flags(root, args, flag)
 

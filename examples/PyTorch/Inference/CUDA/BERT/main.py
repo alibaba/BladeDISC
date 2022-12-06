@@ -25,6 +25,7 @@ from transformers import BertModel, BertConfig, TFBertModel
 
 import torch_blade
 import torch_blade.tensorrt
+import torch_blade.utils as utils
 
 # Tools for profiling, to be removed in the final release.
 _cudart = ctypes.CDLL('libcudart.so')
@@ -263,6 +264,10 @@ def run():
     print("Naive PyTorch.")
     model = bert_large_amp
     evaluate_torch(model, inputs)
+
+    if utils.torch_version_number() >= utils.parse_version("1.14.0"):
+        print("BladeDISC PyTorch 2.0 Optimization.")
+        evaluate_torch(torch.compile(bert_large_amp, backend="disc"), inputs)
 
     # Run BladeDISC optimization.
     print("BladeDISC Optimization.")

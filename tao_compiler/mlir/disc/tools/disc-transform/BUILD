@@ -20,6 +20,129 @@ package_group(
     ],
 )
 
+td_library(
+    name = "LinalgExtTdFiles",
+    srcs = glob([
+        "LinalgExt/*.td",
+    ]),
+    deps = [
+        "@llvm-project//mlir:BuiltinDialectTdFiles",
+        "@llvm-project//mlir:InferTypeOpInterfaceTdFiles",
+        "@llvm-project//mlir:OpBaseTdFiles",
+        "@llvm-project//mlir:PDLDialectTdFiles",
+        "@llvm-project//mlir:SideEffectInterfacesTdFiles",
+        "@llvm-project//mlir:TransformDialectTdFiles",
+    ],
+)
+
+gentbl_cc_library(
+    name = "DISCLinalgExtIncGen",
+    tbl_outs = [
+        (
+            [
+                "--dialect=disc_linalg_ext",
+                "--gen-dialect-decls",
+            ],
+            "LinalgExt/LinalgExtDialect.h.inc",
+        ),
+        (
+            [
+                "--dialect=disc_linalg_ext",
+                "--gen-dialect-defs",
+            ],
+            "LinalgExt/LinalgExtDialect.cc.inc",
+        ),
+        (
+            ["--gen-op-decls"],
+            "LinalgExt/LinalgExtOps.h.inc",
+        ),
+        (
+            ["--gen-op-defs"],
+            "LinalgExt/LinalgExtOps.cc.inc",
+        ),
+        (
+            ["--gen-typedef-decls"],
+            "LinalgExt/LinalgExtTypes.h.inc",
+        ),
+        (
+            ["--gen-typedef-defs"],
+            "LinalgExt/LinalgExtTypes.cc.inc",
+        ),
+    ],
+    tblgen = "@llvm-project//mlir:mlir-tblgen",
+    td_file = "LinalgExt/LinalgExtOps.td",
+    deps = [
+        ":LinalgExtTdFiles",
+        "@llvm-project//mlir:CallInterfacesTdFiles",
+        "@llvm-project//mlir:ControlFlowInterfacesTdFiles",
+        "@llvm-project//mlir:InferTypeOpInterfaceTdFiles",
+        "@llvm-project//mlir:TilingInterfaceTdFiles",
+        "@llvm-project//mlir:ViewLikeInterfaceTdFiles",
+    ],
+)
+
+gentbl_cc_library(
+    name = "DISCLinalgExtInterfacesIncGen",
+    tbl_outs = [
+        (
+            ["--gen-op-interface-decls"],
+            "LinalgExt/LinalgExtOpInterfaces.h.inc",
+        ),
+        (
+            ["--gen-op-interface-defs"],
+            "LinalgExt/LinalgExtOpInterfaces.cc.inc",
+        ),
+        (
+            ["--gen-type-interface-decls"],
+            "LinalgExt/LinalgExtTypeInterfaces.h.inc",
+        ),
+        (
+            ["--gen-type-interface-defs"],
+            "LinalgExt/LinalgExtTypeInterfaces.cc.inc",
+        ),
+    ],
+    tblgen = "@llvm-project//mlir:mlir-tblgen",
+    td_file = "LinalgExt/LinalgExtInterfaces.td",
+    deps = [
+        ":LinalgExtTdFiles",
+    ],
+)
+
+cc_library(
+    name = "DISCLinalgExtDialect",
+    srcs = glob([
+        "LinalgExt/*.cc",
+    ]),
+    hdrs = glob([
+        "LinalgExt/*.h",
+    ]),
+    deps = [
+        ":DISCLinalgExtIncGen",
+        ":DISCLinalgExtInterfacesIncGen",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:AffineDialect",
+        "@llvm-project//mlir:AffineUtils",
+        "@llvm-project//mlir:ArithDialect",
+        "@llvm-project//mlir:ArithUtils",
+        "@llvm-project//mlir:ControlFlowInterfaces",
+        "@llvm-project//mlir:DialectUtils",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:InferTypeOpInterface",
+        "@llvm-project//mlir:LinalgDialect",
+        "@llvm-project//mlir:MathDialect",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:SideEffectInterfaces",
+        "@llvm-project//mlir:Support",
+        "@llvm-project//mlir:TensorDialect",
+        "@llvm-project//mlir:TensorUtils",
+        "@llvm-project//mlir:ViewLikeInterface",
+    ],
+    alwayslink = 1,
+)
+
 gentbl_cc_library(
     name = "transform_ops_inc_gen",
     compatible_with = get_compatible_with_cloud(),
@@ -78,6 +201,7 @@ cc_library(
         "TransformOps/TransformOpsExt.h",
     ],
     deps = [
+        ":DISCLinalgExtDialect",
         ":disc_transform_utils",
         ":transform_ops_inc_gen",
         "@iree-dialects//:IREELinalgExtDialect",

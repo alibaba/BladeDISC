@@ -14,7 +14,7 @@ import unittest
 
 import cpuinfo
 import torch
-from tests.disc.testing_base import CPUDiscPdlQuantizationTestCase
+from tests.disc.testing_base import CPUDiscPdlQuantizationTestCase, GPUDiscPdlQuantizationTestCase
 from tests.quantization import zero_point_dtype
 from torch import nn
 from torch.nn import functional as F
@@ -34,6 +34,15 @@ class CPUDiscPdlQuantizationE2ETestCase(CPUDiscPdlQuantizationTestCase):
         if not cpu_support_vnni():
             self.skipTest("Quantization x86 test case only works on cpu"
                           " with vnni")
+
+class GPUDiscPdlQuantizationE2ETestCase(GPUDiscPdlQuantizationTestCase):
+    def setUp(self):
+        super().setUp()
+        import os
+        bladnn_on = os.getenv('BLADE_GEMM_TUNE_JIT')
+        if bladnn_on != 'true' and bladnn_on != '1':
+            self.skipTest("Quantization cuda test case only works on gpu"
+                          " with bladnn library")
 
 
 @unittest.skipIf(TORCH_VERSION < (1, 9),
@@ -150,6 +159,159 @@ class TestCPULiner(CPUDiscPdlQuantizationE2ETestCase):
         model = Model().eval().to(self.device)
         self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True)
 
+@unittest.skipIf(TORCH_VERSION < (1, 9),
+                 "The patterns corresponding to pytorch before version "
+                 "1.9.0 has not yet been implemented ")
+class TestGPULiner(GPUDiscPdlQuantizationE2ETestCase):
+    #  weight -> fake-quant  \
+    #  input  -> fake-quant -> linear -> fake-quant -> output
+    def test_s8s8s8_s8bias_per_tensor_verify(self):
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.input_scale = 0.1
+                self.input_zero_point = 0
+                self.output_scale = 0.2
+                self.output_zero_point = 0
+                self.weight_scale = 0.3
+                self.weight_zero_point = 0
+                self.weight_quant_min = -128
+                self.weight_quant_max = 127
+                self.activation_quant_min = -128
+                self.activation_quant_max = 127
+                self.register_buffer("weight", torch.randn(512, 512))
+                self.register_buffer("bias", torch.randn(512))
+                self.bias_scale = 0.2
+                self.bias_zero_point = 0
+                # bias i8 quantization
+                self.bias_quant_min = -128
+                self.bias_quant_max = 127
+                self.ch_axis = 0
+
+            def forward(self, x):
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.input_scale, self.input_zero_point,
+                    self.activation_quant_min, self.activation_quant_max
+                )
+                weight = torch.fake_quantize_per_tensor_affine(
+                    self.weight, self.weight_scale, self.weight_zero_point,
+                    self.weight_quant_min, self.weight_quant_max
+                )
+                bias = torch.fake_quantize_per_tensor_affine(
+                    self.bias, self.bias_scale, self.bias_zero_point,
+                    self.bias_quant_min, self.bias_quant_max
+                )
+                x = F.linear(x, weight, bias=bias)
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.output_scale, self.output_zero_point,
+                    self.activation_quant_min, self.activation_quant_max
+                )
+                return x
+        model = Model().eval().to(self.device)
+        inp = torch.randn(512, 512).to(self.device)
+        traced_model = torch.jit.trace(model, inp)
+        pdll_files = [
+            os.path.join(self.common_pdll_dir, "fake_quant.pdll"),
+            os.path.join(self.device_pdll_dir, "dequant_gemm_quant.pdll")
+        ]
+        pdll_files = ",".join(pdll_files)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, diff_scale=model.output_scale)
+
+    def test_s8s8s8_f32bias_per_tensor_verify(self):
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.input_scale = 0.1
+                self.input_zero_point = 0
+                self.output_scale = 0.05
+                self.output_zero_point = 0
+                self.weight_scale = 0.3
+                self.weight_zero_point = 0
+                self.weight_quant_min = -128
+                self.weight_quant_max = 127
+                self.activation_quant_min = -128
+                self.activation_quant_max = 127
+                self.register_buffer("weight", torch.randn(512, 512))
+                self.register_buffer("bias", torch.randn(512))
+                self.bias_scale = 0.2
+                self.bias_zero_point = 0
+                # bias i8 quantization
+                self.bias_quant_min = -128
+                self.bias_quant_max = 127
+                self.ch_axis = 0
+
+            def forward(self, x):
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.input_scale, self.input_zero_point,
+                    self.activation_quant_min, self.activation_quant_max
+                )
+                weight = torch.fake_quantize_per_tensor_affine(
+                    self.weight, self.weight_scale, self.weight_zero_point,
+                    self.weight_quant_min, self.weight_quant_max
+                )
+                x = F.linear(x, weight, bias=self.bias)
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.output_scale, self.output_zero_point,
+                    self.activation_quant_min, self.activation_quant_max
+                )
+                return x
+        model = Model().eval().to(self.device)
+        inp = torch.randn(512, 512).to(self.device)
+        traced_model = torch.jit.trace(model, inp)
+        pdll_files = [
+            os.path.join(self.common_pdll_dir, "fake_quant.pdll"),
+            os.path.join(self.device_pdll_dir, "dequant_gemm_quant_bias_quant.pdll")
+        ]
+        pdll_files = ",".join(pdll_files)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, diff_scale=model.output_scale)
+    
+    def test_s8s8s8_f32bias_per_tensor_three_rank_verify(self):
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.input_scale = 0.1
+                self.input_zero_point = 0
+                self.output_scale = 0.1
+                self.output_zero_point = 0
+                self.weight_scale = 0.3
+                self.weight_zero_point = 0
+                self.weight_quant_min = -128
+                self.weight_quant_max = 127
+                self.activation_quant_min = -128
+                self.activation_quant_max = 127
+                self.register_buffer("weight", torch.randn(512, 512))
+                self.register_buffer("bias", torch.randn(512))
+                self.bias_scale = 0.2
+                self.bias_zero_point = 0
+                # bias i8 quantization
+                self.bias_quant_min = -128
+                self.bias_quant_max = 127
+                self.ch_axis = 0
+
+            def forward(self, x):
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.input_scale, self.input_zero_point,
+                    self.activation_quant_min, self.activation_quant_max
+                )
+                weight = torch.fake_quantize_per_tensor_affine(
+                    self.weight, self.weight_scale, self.weight_zero_point,
+                    self.weight_quant_min, self.weight_quant_max
+                )
+                x = F.linear(x, weight, bias=self.bias)
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.output_scale, self.output_zero_point,
+                    self.activation_quant_min, self.activation_quant_max
+                )
+                return x
+        model = Model().eval().to(self.device)
+        inp = torch.randn(8, 512, 512).to(self.device)
+        traced_model = torch.jit.trace(model, inp)
+        pdll_files = [
+            os.path.join(self.common_pdll_dir, "fake_quant.pdll"),
+            os.path.join(self.device_pdll_dir, "dequant_gemm_quant_bias_quant.pdll")
+        ]
+        pdll_files = ",".join(pdll_files)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, diff_scale=model.output_scale)
 
 if __name__ == "__main__":
     unittest.main()

@@ -415,6 +415,11 @@ def DiscDynamicSliceConverterPass : Pass<"disc-dynamic-slice-converter", "mlir::
   let constructor = "createDiscDynamicSliceConverterPass()";
 }
 
+def DiscSparseOpRewriterPass : Pass<"disc-sparse-op-rewriter", "mlir::func::FuncOp"> {
+  let summary = "Rewrite sparse op for possible fusion";
+  let constructor = "createDiscSparseOpRewriterPass()";
+}
+
 def DiscShapeOptimizationPass : Pass<"disc-shape-optimization", "ModuleOp"> {
   let summary = "apply some shape-related optimizations.";
   let constructor = "createDiscShapeOptimizationPass()";

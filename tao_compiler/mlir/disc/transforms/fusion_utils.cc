@@ -1159,9 +1159,9 @@ bool BaseCpuFusionStrategy::isFusible(Operation* op) {
   }
 
   // Do not fuse shape computation.
-  if (op->getAttr(kDiscShapeCalcAttr) != nullptr) {
-    return false;
-  }
+  // if (op->getAttr(kDiscShapeCalcAttr) != nullptr) {
+  //   return false;
+  // }
 
   return BaseFusionStrategy::isFusible(op);
 }
@@ -1346,9 +1346,9 @@ bool isStitchCpuSupported(Operation* op) {
   // TODO(disc): support fuse scalar const op.
 
   // Do not fuse shape computation.
-  if (op->getAttr(kDiscShapeCalcAttr) != nullptr) {
-    return false;
-  }
+  // if (op->getAttr(kDiscShapeCalcAttr) != nullptr) {
+  //   return false;
+  // }
 
   // All element ops are supported by the fusion codegen engine.
   if (isElementWise(op)) return true;

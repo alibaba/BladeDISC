@@ -271,6 +271,9 @@ createDiscLowerGpuQuantizeAndDequantizePass();
 // Convert mhlo.dynamic_slice to mhlo.real_dynamic_slice
 std::unique_ptr<OperationPass<FuncOp>> createDiscDynamicSliceConverterPass();
 
+// Rewrite sparse op for fusion
+std::unique_ptr<OperationPass<FuncOp>> createDiscSparseOpRewriterPass();
+
 // Inserts dealloc ops for some disc specific ops (e.g. custom_call_v2 op).
 std::unique_ptr<OperationPass<FuncOp>> createDiscBufferDeallocationPass();
 

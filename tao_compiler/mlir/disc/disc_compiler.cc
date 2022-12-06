@@ -271,6 +271,9 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
     pm.addNestedPass<FuncOp>(disc_ral::createDiscDotMergePass());
   }
 
+  pm.addNestedPass<mlir::func::FuncOp>(
+      mlir::disc_ral::createDiscSparseOpRewriterPass());
+
   if (enable_shape_constraint_ir) {
     // shape-related optimization
     pm.addPass(disc_ral::createDiscShapeOptimizationPass());

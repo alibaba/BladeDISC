@@ -1,0 +1,96 @@
+/// Pre-defined custom call prototypes
+///
+/// const std::string kDefaultHelperFunctionDeclarations = R"pdll(
+///   Rewrite PackValue_1(tag : Attr, v0 : Value) -> ValueRange;
+///   Rewrite PackValue_2(tag : Attr, v0 : Value, v1 : Value) -> ValueRange;
+///   Rewrite UnpackValue_1(v : ValueRange) -> (Value);
+///   Rewrite UnpackValue_2(v : ValueRange) -> (Value, Value);
+///   Rewrite CreateTorchCustomCall(tag : Attr, inputs : ValueRange, outputs : ValueRange) -> (op: Op, new_outputs : ValueRange);
+///   Rewrite SetAttr(op : Op, key : Attr, value : Attr);
+///   Rewrite SetCustomAttr(op : Op, key : Attr, value : Attr);
+/// )pdll";
+
+//     bias \                 bias + quant \
+// Dequant + gemm + quant ->                 qgemm
+
+// Need to attention that rewrited graph is not strictly equal to original graph.
+// It adds extra quantize node between bias and gemm to be meet the requirement
+// with gpu kernel implementation that source addition should be same type with
+// output.
+Pattern TorchDequantGemmQuantOp {
+  /// match phase: define the pattern
+  let input_dequantize_op = op<torch.operator>(
+    input: Value,
+    input_scale: Value,
+    input_zero_point: Value,
+    input_quant_min: Value,
+    input_quant_max: Value,
+    input_num_bits: Value,
+    input_axis: Value,
+    input_signed: Value,
+    input_symmetric: Value,
+    input_dynamic: Value,
+    input_per_channel: Value
+  ){ name = attr<"\"torch_blade.dequantize\"">};
+
+  let weight_dequantize_op = op<torch.operator>(
+    weight: Value,
+    weight_scale: Value,
+    weight_zero_point: Value,
+    weight_quant_min: Value,
+    weight_quant_max: Value,
+    weight_num_bits: Value,
+    weight_axis: Value,
+    weight_signed: Value,
+    weight_symmetric: Value,
+    weight_dynamic: Value,
+    weight_per_channel: Value
+  ){ name = attr<"\"torch_blade.dequantize\"">};
+
+  let gemm = op<torch.aten.linear>(
+      input_dequantize_op.0,
+      weight_dequantize_op.0,
+      bias: Value
+  );
+
+  let output_quantize_op = op<torch.operator>(
+      gemm.0,
+      output_scale: Value,
+      output_zero_point: Value,
+      output_quant_min: Value,
+      output_quant_max: Value,
+      output_num_bits: Value,
+      output_axis: Value,
+      output_signed: Value,
+      output_symmetric: Value,
+      output_dynamic: Value,
+      output_per_channel: Value
+   ){ name = attr<"\"torch_blade.quantize\"">};
+
+  /// rewrite phase
+  rewrite output_quantize_op with {
+    let bias_type = GetTorchTensorType(bias);
+    let bias_quantize_op = op<torch.aten.div.Tensor>(
+      bias,
+      output_scale
+    ) -> (bias_type);
+
+    /// 1. create custom call op
+    let inputs = PackValue_9(attr<"\"in\"">, input, weight, bias_quantize_op.0, input_scale, input_zero_point, weight_scale, weight_zero_point, output_scale, output_zero_point);
+    let outputs = PackValue_1(attr<"\"out\"">, output_quantize_op.0);
+    let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+
+    /// 2. set attrs that are used by bladedisc.
+    SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_qgemm\"">);
+    SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d,d,s,d,s,d,s\"">);
+    SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+    SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+    SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*,*,*,*,*,*,*\"">);
+    SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
+    SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,*,*,*,*,*,*,*,*\"">);
+    SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+
+    let rs = UnpackValue_1(infos.new_outputs);
+    replace output_quantize_op with rs;
+  };
+}

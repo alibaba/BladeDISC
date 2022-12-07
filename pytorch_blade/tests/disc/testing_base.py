@@ -229,4 +229,4 @@ class GPUDiscPdlQuantizationTestCase(DiscPdlQuantizationTestCase):
         with set_env(**env_var), cfg:
             opt_model = optimize(model, True, inp)
         now_output = opt_model(inp)
-        self.assertTrue(torch.allclose(now_output, origin_output, atol=(1.0 + 1e-4) * diff_scale))
+        self.assertTrue(torch.allclose(now_output, origin_output, atol=1.0 * diff_scale))

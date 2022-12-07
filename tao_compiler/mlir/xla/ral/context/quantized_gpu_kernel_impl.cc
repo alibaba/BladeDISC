@@ -45,7 +45,7 @@ struct CublasLtBiasParamsKey {
   bool transa;
   bool transb;
 
-  int8_t* bias;
+  void const* bias;
 
   bool operator==(const CublasLtBiasParamsKey& rhs) const {
     return m == rhs.m && k == rhs.k && n == rhs.n && lda == rhs.lda &&
@@ -136,8 +136,7 @@ void runCublasLtBiasForward(ExecutionContext* ctx, bool transa, bool transb,
                             tao::ral::TaoTypeNameHelper<int8_t>::Invoke();
   auto state = ctx->getOrCreateResource<CublasLtBiasState>(
       unique_name, []() { return new CublasLtBiasState; });
-  CublasLtBiasParamsKey key{m,   k,      n,      lda,          ldb,
-                            ldc, transa, transb, (int8_t*)bias};
+  CublasLtBiasParamsKey key{m, k, n, lda, ldb, ldc, transa, transb, bias};
   {
     std::lock_guard<std::mutex> l(state->mu);
 
@@ -184,14 +183,15 @@ struct GemmScaleState : public Context::Resource {
   std::unordered_map<GemmScaleKey, float, GemmScaleKeyHasher> cache;
 };
 
-template <int N>
-MemRefType<int8_t, N> ral_pdll_qgemm_nt_s8s8s8_biasadd_quant_per_tensor(
-    ExecutionContext* ctx, void* stream_handle, MemRefType<int8_t, N> input,
-    MemRefType<int8_t, 2> weight, MemRefType<int8_t, 1> bias,
-    MemRefType<float, 0> inputScales, MemRefType<int32_t, 0> inputZeroPoints,
-    MemRefType<float, 0> weightScales, MemRefType<int32_t, 0> weightZeroPoints,
-    MemRefType<float, 0> resultScales, MemRefType<int32_t, 0> resultZeroPoints,
-    void* customAttrs) {
+template <int N, typename T>
+MemRefType<int8_t, N> ral_pdll_qgemm(
+    ExecutionContext* ctx, void* stream_handle, MemRefType<int8_t, N>& input,
+    MemRefType<int8_t, 2>& weight, MemRefType<T, 1>& bias,
+    MemRefType<float, 0>& inputScales, MemRefType<int32_t, 0>& inputZeroPoints,
+    MemRefType<float, 0>& weightScales,
+    MemRefType<int32_t, 0>& weightZeroPoints,
+    MemRefType<float, 0>& resultScales,
+    MemRefType<int32_t, 0>& resultZeroPoints, bool bias_fp32) {
   int64_t m = 1;
   int64_t k = weight.sizes[1];
   int64_t n = weight.sizes[0];
@@ -259,13 +259,13 @@ MemRefType<int8_t, N> ral_pdll_qgemm_nt_s8s8s8_biasadd_quant_per_tensor(
     void* s = gpu_driver->asCUStream(ctx, stream_handle);
     bladnn::Context bladnn_ctx{s};
     bladnn::Dtype in_dtype = bladnn::Dtype::kS8;
-    ;
     bladnn::Dtype out_dtype = bladnn::Dtype::kS8;
-    ;
-    bool ret =
-        bladnn::gemm(&bladnn_ctx, in_dtype, 0, input.data, m, k, in_dtype, 1,
-                     weight.data, n, k, out_dtype, result.data, m, n, 1, false,
-                     false, &kernel_scale, &beta, bias.data);
+    bool ret = false;
+    if (bias_fp32 == false) {
+      ret = bladnn::gemm(&bladnn_ctx, in_dtype, 0, input.data, m, k, in_dtype,
+                         1, weight.data, n, k, out_dtype, result.data, m, n, 1,
+                         false, false, &kernel_scale, &beta, bias.data);
+    }
     if (ret) {
       return result;
     }
@@ -279,6 +279,32 @@ MemRefType<int8_t, N> ral_pdll_qgemm_nt_s8s8s8_biasadd_quant_per_tensor(
   return result;
 }
 
+template <int N>
+MemRefType<int8_t, N> ral_pdll_qgemm_nt_s8s8s8_biasadd_quant_per_tensor(
+    ExecutionContext* ctx, void* stream_handle, MemRefType<int8_t, N> input,
+    MemRefType<int8_t, 2> weight, MemRefType<int8_t, 1> bias,
+    MemRefType<float, 0> inputScales, MemRefType<int32_t, 0> inputZeroPoints,
+    MemRefType<float, 0> weightScales, MemRefType<int32_t, 0> weightZeroPoints,
+    MemRefType<float, 0> resultScales, MemRefType<int32_t, 0> resultZeroPoints,
+    void* customAttrs) {
+  return ral_pdll_qgemm<N, int8_t>(
+      ctx, stream_handle, input, weight, bias, inputScales, inputZeroPoints,
+      weightScales, weightZeroPoints, resultScales, resultZeroPoints, false);
+}
+
+template <int N>
+MemRefType<int8_t, N> ral_pdll_qgemm_nt_s8s8s8_biasadd_f32_quant_per_tensor(
+    ExecutionContext* ctx, void* stream_handle, MemRefType<int8_t, N> input,
+    MemRefType<int8_t, 2> weight, MemRefType<float, 1> bias,
+    MemRefType<float, 0> inputScales, MemRefType<int32_t, 0> inputZeroPoints,
+    MemRefType<float, 0> weightScales, MemRefType<int32_t, 0> weightZeroPoints,
+    MemRefType<float, 0> resultScales, MemRefType<int32_t, 0> resultZeroPoints,
+    void* customAttrs) {
+  return ral_pdll_qgemm<N, float>(
+      ctx, stream_handle, input, weight, bias, inputScales, inputZeroPoints,
+      weightScales, weightZeroPoints, resultScales, resultZeroPoints, true);
+}
+
 }  // namespace se_impl
 }  // namespace gpu
 
@@ -286,6 +312,12 @@ TAO_RAL_API("ral_pdll_qgemm", "gpu",
             gpu::se_impl::ral_pdll_qgemm_nt_s8s8s8_biasadd_quant_per_tensor<2>);
 TAO_RAL_API("ral_pdll_qgemm", "gpu",
             gpu::se_impl::ral_pdll_qgemm_nt_s8s8s8_biasadd_quant_per_tensor<3>);
+TAO_RAL_API(
+    "ral_pdll_qgemm", "gpu",
+    gpu::se_impl::ral_pdll_qgemm_nt_s8s8s8_biasadd_f32_quant_per_tensor<2>);
+TAO_RAL_API(
+    "ral_pdll_qgemm", "gpu",
+    gpu::se_impl::ral_pdll_qgemm_nt_s8s8s8_biasadd_f32_quant_per_tensor<3>);
 
 }  // namespace ral
 }  // namespace tao

@@ -38,11 +38,6 @@ class CPUDiscPdlQuantizationE2ETestCase(CPUDiscPdlQuantizationTestCase):
 class GPUDiscPdlQuantizationE2ETestCase(GPUDiscPdlQuantizationTestCase):
     def setUp(self):
         super().setUp()
-        import os
-        bladnn_on = os.getenv('BLADE_GEMM_TUNE_JIT')
-        if bladnn_on != 'true' and bladnn_on != '1':
-            self.skipTest("Quantization cuda test case only works on gpu"
-                          " with bladnn library")
 
 
 @unittest.skipIf(TORCH_VERSION < (1, 9),

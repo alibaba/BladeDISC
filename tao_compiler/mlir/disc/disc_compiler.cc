@@ -227,8 +227,6 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   // quantization related passes.
   pm.addNestedPass<FuncOp>(disc_ral::createDiscCustomCallRewriterPass());
   pm.addNestedPass<FuncOp>(disc_ral::createDiscConvertFakeQuantOpPass());
-  pm.addNestedPass<FuncOp>(
-      disc_ral::createDiscLowerQuantizeAndDequantizePass());
 
   if (gpu_enabled) {
     pm.addNestedPass<FuncOp>(

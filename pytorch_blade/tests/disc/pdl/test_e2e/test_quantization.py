@@ -38,6 +38,9 @@ class CPUDiscPdlQuantizationE2ETestCase(CPUDiscPdlQuantizationTestCase):
 class GPUDiscPdlQuantizationE2ETestCase(GPUDiscPdlQuantizationTestCase):
     def setUp(self):
         super().setUp()
+        if float(torch.version.cuda) <= 11.1:
+            self.skipTest("Quantization gpu test case only works on cuda"
+                          " version > 11.1")
 
 
 @unittest.skipIf(TORCH_VERSION < (1, 9),

@@ -12,6 +12,7 @@
 import torch
 from torch_blade.logging import logger
 from torch_blade.algorithm import UnionSet, NxGraph
+from torch_blade.config import Config
 
 
 class NoCycleFusedGraphBuilder(object):
@@ -189,7 +190,10 @@ def _cluster_by_union_find(graph_builder, support_info):
         return True
 
     graph_topolist = graph_builder.group_topolist()
-    max_iter_count = 10
+    # some graph unions may not converge in 10 iterations, provide customize setting from config
+    # TODO: refine cluster policy
+    cfg = Config.get_current_context_or_new()
+    max_iter_count = cfg.disc_cluster_max_iter_count
     while max_iter_count > 0:
         max_iter_count -= 1
         # TODO: merge brother group nodes that not construct a cycle

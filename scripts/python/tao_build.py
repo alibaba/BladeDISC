@@ -374,7 +374,8 @@ def test_tao_compiler(root, args):
         "//tensorflow/compiler/mlir/disc/tools/disc-source-emitter/tests/..."
     ]
     TARGET_DISC_TRANSFORM_DIALECT_TESTS = [
-        "//tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/tests/..."
+        "//tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/tests/...",
+        "//tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/tests/...",
     ]
 
     TARGET_DISC_REPLAY_TEST = "//tensorflow/compiler/mlir/disc/tools/disc-replay:disc-replay-test"
@@ -388,6 +389,7 @@ def test_tao_compiler(root, args):
         if targets is not None and target not in targets:
             return
         logger.info("Testing bazel target: " + target)
+        flag += " --experimental_ui_max_stdouterr_bytes=-1 "
         execute(" ".join([BAZEL_BUILD_CMD, flag, target]))
         execute(" ".join([BAZEL_TEST_CMD, flag + ' --test_env=TF_CPP_VMODULE=disc_compiler=1 --test_env=TF_ENABLE_ONEDNN_OPTS=0' , target]))
 

@@ -33,6 +33,7 @@ limitations under the License.
 #include "tensorflow/compiler/mlir/disc/IR/disc_shape_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/hlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/register_passes.h"
 #include "tensorflow/compiler/mlir/disc/transforms/register_passes.h"
@@ -56,6 +57,7 @@ int main(int argc, char** argv) {
   registry.insert<mlir::lmhlo_disc::LmhloDiscDialect>();
   registry.insert<mlir::lmhlo_gpu::LmhloGpuDialect>();
   registry.insert<mlir::disc_ral::RalDialect>();
+  registry.insert<mlir::disc_ral::disc_linalg_ext::DISCLinalgExtDialect>();
   registry.insert<mlir::TF::TensorFlowDialect>();
   registry.insert<mlir::disc_shape::DISCShapeDialect>();
   registry.insert<mlir::iree_compiler::IREE::LinalgExt::IREELinalgExtDialect,

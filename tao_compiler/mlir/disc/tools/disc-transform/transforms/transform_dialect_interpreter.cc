@@ -40,6 +40,7 @@
 #include "mlir/Pass/Pass.h"
 #include "mlir/Support/FileUtilities.h"
 #include "mlir/Transforms/Passes.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtDialect.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/TransformOps/TransformOpsExt.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/transforms/PassDetail.h"
 
@@ -91,6 +92,7 @@ struct DiscTransformDialectInterpreterPass
     registry.insert<arith::ArithDialect,
                     AffineDialect,
                     bufferization::BufferizationDialect,
+                    disc_ral::disc_linalg_ext::DISCLinalgExtDialect,
                     iree_compiler::IREE::LinalgExt::IREELinalgExtDialect,
                     func::FuncDialect,
                     linalg::LinalgDialect,

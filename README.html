@@ -3,7 +3,8 @@
 <!DOCTYPE html>
 <head>
   <meta charset="utf-8">
-  
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <title>BladeDISC Introduction &mdash; BladeDISC 1.0.0 documentation</title>
@@ -70,7 +71,7 @@
     
       <li><a href="index.html">Docs</a></li>
         
-      <li>BladeDISC Introduction</li>
+      <li>BladeDISC Introduction <!-- omit in toc --></li>
     
     
       <li class="breadcrumbs-aside">
@@ -107,12 +108,15 @@
                             
                                 <ul class="current">
 <li class="toctree-l1 current"><a class="current reference internal" href="#">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#what-s-new">What’s New</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#overview">Overview</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#api-quickview">API QuickView</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#setup-and-examples">Setup and Examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#publications">Publications</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#presentations-and-talks">Presentations and Talks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#building-status">Building Status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#faq">FAQ</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#contact-us">Contact Us</a></li>
 </ul>
@@ -125,6 +129,7 @@
 <li class="toctree-l1"><a class="reference internal" href="docs/build_from_source.html">Build from Source</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="docs/build_from_source.html#prerequisite">Prerequisite</a></li>
 <li class="toctree-l2"><a class="reference internal" href="docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="docs/build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
 <li class="toctree-l2"><a class="reference internal" href="docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
 <li class="toctree-l2"><a class="reference internal" href="docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
 </ul>
@@ -154,8 +159,8 @@
                     <div class="document">
                         
                             
-  <div class="section" id="bladedisc-introduction">
-<h1>BladeDISC Introduction<a class="headerlink" href="#bladedisc-introduction" title="Permalink to this headline">¶</a></h1>
+  <section id="bladedisc-introduction-omit-in-toc">
+<h1>BladeDISC Introduction <!-- omit in toc --><a class="headerlink" href="#bladedisc-introduction-omit-in-toc" title="Permalink to this heading">¶</a></h1>
 <ul class="simple">
 <li><p><a class="reference external" href="#overview">Overview</a></p>
 <ul>
@@ -182,7 +187,9 @@
 <li><p><a class="reference external" href="#setup-and-examples">Setup and Examples</a></p></li>
 <li><p><a class="reference external" href="#publications">Publications</a></p></li>
 <li><p><a class="reference external" href="#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></p></li>
+<li><p><a class="reference external" href="#presentations-and-talks">Presentations and Talks</a></p></li>
 <li><p><a class="reference external" href="#how-to-contribute">How to Contribute</a></p></li>
+<li><p><a class="reference external" href="#building-status">Building Status</a></p></li>
 <li><p><a class="reference external" href="#faq">FAQ</a></p>
 <ul>
 <li><p><a class="reference external" href="#roadmap-with-mlir-hlo-project">Roadmap with mlir-hlo Project</a></p></li>
@@ -190,8 +197,15 @@
 </li>
 <li><p><a class="reference external" href="#contact-us">Contact Us</a></p></li>
 </ul>
-<div class="section" id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this headline">¶</a></h2>
+<section id="what-s-new">
+<h2>What’s New<a class="headerlink" href="#what-s-new" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>[🔥 2022.12.08] BladeDISC v0.3.0:
+<a class="reference external" href="https://github.com/alibaba/BladeDISC/releases/tag/v0.3.0">Announce PyTorch 2.0 Compilation Support</a></p></li>
+</ul>
+</section>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading">¶</a></h2>
 <p>BladeDISC is an end-to-end <strong>DynamIc Shape Compiler</strong> project for machine
 learning workloads, which is one of the key components of Alibaba’s
 <a class="reference external" href="https://www.aliyun.com/activity/bigdata/blade">PAI-Blade</a>. BladeDISC provides
@@ -206,10 +220,10 @@ The project is based on <a class="reference external" href="https://mlir.llvm.or
 <p>Refer to <a class="reference external" href="https://alibaba.github.io/BladeDISC/">our website</a> for more
 information, including the setup tutorial, developer guide, demo examples and
 documents for developers.</p>
-<div class="section" id="features-and-roadmap">
-<h3>Features and Roadmap<a class="headerlink" href="#features-and-roadmap" title="Permalink to this headline">¶</a></h3>
-<div class="section" id="frontend-framework-support-matrix">
-<h4>Frontend Framework Support Matrix<a class="headerlink" href="#frontend-framework-support-matrix" title="Permalink to this headline">¶</a></h4>
+<section id="features-and-roadmap">
+<h3>Features and Roadmap<a class="headerlink" href="#features-and-roadmap" title="Permalink to this heading">¶</a></h3>
+<section id="frontend-framework-support-matrix">
+<h4>Frontend Framework Support Matrix<a class="headerlink" href="#frontend-framework-support-matrix" title="Permalink to this heading">¶</a></h4>
 <table border="1" class="docutils">
 <thead>
 <tr>
@@ -232,53 +246,45 @@ documents for developers.</p>
 </tbody>
 </table><p>[1] TensorFlow 1.12, 1.15, 2.4 &amp; 2.5 are supported and fully verified. For other
 versions some slight works on adaptation might be needed.</p>
-<p>[2] 1.6.0 &lt;= PyTorch version &lt; 1.9.0 has been fully verified.</p>
+<p>[2] PyTorch version &gt;= 1.6.0 has been fully verified.</p>
 <p>[3] Although supported, there’s much room for improvement on Op coverage for
 training workloads.</p>
-</div>
-<div class="section" id="backend-support-matrix">
-<h4>Backend Support Matrix<a class="headerlink" href="#backend-support-matrix" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="backend-support-matrix">
+<h4>Backend Support Matrix<a class="headerlink" href="#backend-support-matrix" title="Permalink to this heading">¶</a></h4>
 <table border="1" class="docutils">
 <thead>
 <tr>
 <th></th>
-<th>Memory Intensive Part</th>
-<th>Compute Intensive Part</th>
-<th>End-to-End Usability</th>
+<th>Status</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td>Nvidia GPU</td>
-<td>Yes</td>
-<td>Yes</td>
-<td>Yes</td>
+<td>Yes [1]</td>
 </tr>
 <tr>
 <td>AMD GPU</td>
-<td>Ongoing</td>
-<td>Ongoing</td>
-<td>No</td>
+<td>Yes</td>
 </tr>
 <tr>
 <td>Hygon DCU</td>
-<td>Yes</td>
-<td>Yes</td>
 <td>Yes</td>
 </tr>
 <tr>
 <td>X86</td>
 <td>Yes</td>
-<td>Not open-sourced yet [1]</td>
-<td>No</td>
+</tr>
+<tr>
+<td>AArch64</td>
+<td>Yes</td>
 </tr>
 </tbody>
-</table><p>[1] The compute-intensive part of the X86 backend is already supported on the
-internal version. The code decoupling is ongoing and will be open-sourced soon,
-same for the end-to-end usability.</p>
-</div>
-<div class="section" id="deployment-solutions">
-<h4>Deployment Solutions<a class="headerlink" href="#deployment-solutions" title="Permalink to this headline">¶</a></h4>
+</table><p>[1] Support for CUDA below 11.0 have been deprecated officially since Aug, 2022.</p>
+</section>
+<section id="deployment-solutions">
+<h4>Deployment Solutions<a class="headerlink" href="#deployment-solutions" title="Permalink to this heading">¶</a></h4>
 <ul class="simple">
 <li><p>Plugin Mode - BladeDISC works as a plugin of TensorFlow or PyTorch. Only the
 supported Ops are clustered and compiled, and the unsupported ones will be
@@ -288,16 +294,27 @@ to most of the users for its transparency and ease of use.</p></li>
 a binary that can be executed by it self, aka, does not rely on a TensorFlow
 or PyTorch runtime. In this mode all ops must be supported.</p></li>
 </ul>
-</div>
-</div>
-<div class="section" id="numbers-of-typical-workloads">
-<h3>Numbers of Typical Workloads<a class="headerlink" href="#numbers-of-typical-workloads" title="Permalink to this headline">¶</a></h3>
+</section>
+</section>
+<section id="numbers-of-typical-workloads">
+<h3>Numbers of Typical Workloads<a class="headerlink" href="#numbers-of-typical-workloads" title="Permalink to this heading">¶</a></h3>
 <p>By evaluating BladeDISC using a set of typical machine learning workloads for
-production purpose, DISC shows up to 3x speedup compared with
-TensorFlow/PyTorch.</p>
-<p><img alt="Numbers" src="_images/numbers.png" /></p>
-<div class="section" id="advantage-in-dynamic-shape-workloads">
-<h4>Advantage in Dynamic Shape Workloads<a class="headerlink" href="#advantage-in-dynamic-shape-workloads" title="Permalink to this headline">¶</a></h4>
+production purpose, BladeDISC shows up to 8.66x speedup compared with
+TensorFlow/PyTorch. Moreover, compared to static optimizing compilers (i.e.,
+XLA and TensorRT), DISC shows comparable or even better performance.</p>
+<figure align="center">
+<img src="./docs/pics/numbers.png" style="width:60%">
+<figcaption align = "center">
+<b>
+Fig.1 Performance speedup over framework.
+<i>Framework</i> means either TensorFlow or PyTorch.
+<i>FastSpeech2</i> is TensorFlow model and others are PyTorch models.
+The <i>static compiler</i> for TensorFlow is XLA and that for PyTorch is TensorRT.
+Note that <i>S2T</i> and <i>T5</i> have no TensorRT performance due to wrong result.
+</b>
+</figcaption>
+</figure><section id="advantage-in-dynamic-shape-workloads">
+<h4>Advantage in Dynamic Shape Workloads<a class="headerlink" href="#advantage-in-dynamic-shape-workloads" title="Permalink to this heading">¶</a></h4>
 <p>Specifically, for the BERT large inference on T4 we provide in the
 <a class="reference internal" href="docs/tutorials/tensorflow_inference_and_training.html"><span class="doc">examples</span></a>, static compiler
 optimization (XLA) shows severe performance degradation due to its compilation
@@ -322,19 +339,19 @@ overhead, while DISC shows a 1.75x speedup.</p>
 <td>1.75X</td>
 </tr>
 </tbody>
-</table></div>
-</div>
-</div>
-<div class="section" id="api-quickview">
-<h2>API QuickView<a class="headerlink" href="#api-quickview" title="Permalink to this headline">¶</a></h2>
-<div class="section" id="for-tensorflow-users">
-<h3>For TensorFlow Users<a class="headerlink" href="#for-tensorflow-users" title="Permalink to this headline">¶</a></h3>
+</table></section>
+</section>
+</section>
+<section id="api-quickview">
+<h2>API QuickView<a class="headerlink" href="#api-quickview" title="Permalink to this heading">¶</a></h2>
+<section id="for-tensorflow-users">
+<h3>For TensorFlow Users<a class="headerlink" href="#for-tensorflow-users" title="Permalink to this heading">¶</a></h3>
 <p>Only two lines of code are needed on native Tensorflow program as the following:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 <span class="kn">import</span> <span class="nn">tensorflow</span> <span class="k">as</span> <span class="nn">tf</span>
 
 <span class="c1">## enable BladeDISC on TensorFlow program</span>
-<span class="kn">import</span> <span class="nn">tensorflow_blade_disc</span> <span class="k">as</span> <span class="nn">disc</span>
+<span class="kn">import</span> <span class="nn">blade_disc_tf</span> <span class="k">as</span> <span class="nn">disc</span>
 <span class="n">disc</span><span class="o">.</span><span class="n">enable</span><span class="p">()</span>
 
 <span class="c1">## construct TensorFlow Graph and run it</span>
@@ -347,9 +364,9 @@ overhead, while DISC shows a 1.75x speedup.</p>
 </div>
 <p>For more information, please refer to <a class="reference internal" href="docs/quickstart.html#quickstart-for-tensorflow-users"><span class="std std-ref">QuickStart for TensorFlow
 Users</span></a></p>
-</div>
-<div class="section" id="for-pytorch-users">
-<h3>For PyTorch Users<a class="headerlink" href="#for-pytorch-users" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="for-pytorch-users">
+<h3>For PyTorch Users<a class="headerlink" href="#for-pytorch-users" title="Permalink to this heading">¶</a></h3>
 <p>PyTorch users only need the following few lines of code to enable
 BladeDISC:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch_blade</span>
@@ -357,7 +374,7 @@ BladeDISC:</p>
 <span class="k">class</span> <span class="nc">MyModule</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
     <span class="o">...</span>
 
-<span class="n">module</span> <span class="o">=</span> <span class="n">MyModule</span><span class="p">()</span>
+<span class="n">module</span> <span class="o">=</span> <span class="n">MyModule</span><span class="p">()</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
 
 <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
     <span class="c1"># blade_module is the optimized module by BladeDISC</span>
@@ -370,59 +387,135 @@ BladeDISC:</p>
 <p><code class="docutils literal notranslate"><span class="pre">torch_blade.optimize</span></code> accepts an <code class="docutils literal notranslate"><span class="pre">nn.Module</span></code> object and outputs the
 optimized module.  For more information, please refer to <a class="reference internal" href="docs/quickstart.html#quickstart-for-pytorch-users"><span class="std std-ref">Quickstart
 for PyTorch Users</span></a>.</p>
-</div>
-</div>
-<div class="section" id="setup-and-examples">
-<h2>Setup and Examples<a class="headerlink" href="#setup-and-examples" title="Permalink to this headline">¶</a></h2>
+</section>
+</section>
+<section id="setup-and-examples">
+<h2>Setup and Examples<a class="headerlink" href="#setup-and-examples" title="Permalink to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="docs/build_from_source.html"><span class="doc">How to Setup and Build from Source</span></a></p></li>
 <li><p><a class="reference internal" href="docs/tutorials/tensorflow_inference_and_training.html"><span class="doc">Use Case of TensorFlow Inference and Training</span></a></p></li>
 <li><p><a class="reference internal" href="docs/tutorials/torch_bert_inference.html"><span class="doc">Use Case of PyTorch Inference</span></a></p></li>
 </ul>
-</div>
-<div class="section" id="publications">
-<h2>Publications<a class="headerlink" href="#publications" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="publications">
+<h2>Publications<a class="headerlink" href="#publications" title="Permalink to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><a class="reference external" href="https://arxiv.org/pdf/2103.05288.pdf">DISC: A Dynamic Shape Compiler for Machine Learning
 Workloads</a></p></li>
 </ul>
-</div>
-<div class="section" id="tutorials-and-documents-for-developers">
-<h2>Tutorials and Documents for Developers<a class="headerlink" href="#tutorials-and-documents-for-developers" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="tutorials-and-documents-for-developers">
+<h2>Tutorials and Documents for Developers<a class="headerlink" href="#tutorials-and-documents-for-developers" title="Permalink to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="docs/developers/pass_pipeline.html"><span class="doc">Tutorial: A Walkthough of the BladeDISC Pass Pipeline</span></a></p></li>
 <li><p><a class="reference internal" href="docs/developers/runtime_abstraction_layer.html"><span class="doc">Introduction on Runtime Abstraction Layer</span></a></p></li>
 <li><p><a class="reference internal" href="docs/developers/bladedisc_torch_overview.html"><span class="doc">TorchBlade Overview</span></a></p></li>
-<li><p><a class="reference internal" href="docs/developers/torch_add_a_new_converter.html"><span class="doc">Tutorial: How to Add a New Torch Operator Converter</span></a></p></li>
+<li><p><a class="reference internal" href="docs/developers/torch_add_a_new_operator.html"><span class="doc">Tutorial: How to Add a New Torch Operator</span></a></p></li>
 </ul>
-</div>
-<div class="section" id="how-to-contribute">
-<h2>How to Contribute<a class="headerlink" href="#how-to-contribute" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="presentations-and-talks">
+<h2>Presentations and Talks<a class="headerlink" href="#presentations-and-talks" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/performance-optimization-practice.pdf">Performance optimization practice for dynamic shape AI workloads via a compiler-based approach</a></p></li>
+<li><p><a class="reference external" href="https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/BladeDISC%EF%BC%9A%E5%8A%A8%E6%80%81Shape%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E7%BC%96%E8%AF%91%E5%99%A8%E5%AE%9E%E8%B7%B5%E7%9A%84.pdf">2022/07/31 BladeDISC: A Practice of Dynamic Shape Deep Learning Compiler(Chinese)</a></p></li>
+<li><p><a class="reference external" href="https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/BladeDISC-and-TorchMLIR-Roadmap-tts.pptx">2022/07/07 BladeDISC and Torch-MLIR Roadmap Talk on Torch-MLIR Community</a></p></li>
+<li><p><a class="reference external" href="https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/GTC22%20S41073%2C%20Generalized%20and%20Transparent%20AI%20Optimization%20Solutions%20with%20AI%20Compilers%20from%20Cloud%20Service.pdf">GTC22-S41073, Generalized and Transparent AI Optimization Solutions with AI Compilers from Cloud Service</a></p></li>
+<li><p><a class="reference external" href="https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/GTC22-S41395%2C%20Easier-to-use%20and%20More%20Robust%20TensorRT%20via%20PAI-Blade.pdf">GTC22-S41395, Easier-to-use and More Robust TensorRT via PAI-Blade</a></p></li>
+</ul>
+</section>
+<section id="how-to-contribute">
+<h2>How to Contribute<a class="headerlink" href="#how-to-contribute" title="Permalink to this heading">¶</a></h2>
 <ul class="simple">
 <li><p><a class="reference internal" href="docs/contribution.html"><span class="doc">Contribute to BladeDISC</span></a></p></li>
 </ul>
-</div>
-<div class="section" id="faq">
-<h2>FAQ<a class="headerlink" href="#faq" title="Permalink to this headline">¶</a></h2>
-<div class="section" id="roadmap-with-mlir-hlo-project">
-<h3>Roadmap with mlir-hlo Project<a class="headerlink" href="#roadmap-with-mlir-hlo-project" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="building-status">
+<h2>Building Status<a class="headerlink" href="#building-status" title="Permalink to this heading">¶</a></h2>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th>Framework</th>
+<th>Device</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PyTorch1.6.0</td>
+<td>CPU</td>
+<td><a href="https://github.com/alibaba/BladeDISC/actions/workflows/pytorch160_cpu.yml"><img alt="pytorch160_cpu" src="https://github.com/alibaba/BladeDISC/actions/workflows/pytorch160_cpu.yml/badge.svg?branch=main" /></a></td>
+</tr>
+<tr>
+<td>PyTorch1.7.1</td>
+<td>GPU</td>
+<td><a href="https://github.com/alibaba/BladeDISC/actions/workflows/pytorch171_gpu.yml"><img alt="pytorch171_gpu" src="https://github.com/alibaba/BladeDISC/actions/workflows/pytorch171_gpu.yml/badge.svg?branch=main" /></a></td>
+</tr>
+<tr>
+<td>PyTorch1.8.1</td>
+<td>CPU</td>
+<td><a href="https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_cpu.yml"><img alt="pytorch181_cpu" src="https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_cpu.yml/badge.svg?branch=main" /></a></td>
+</tr>
+<tr>
+<td>PyTorch1.9.0</td>
+<td>GPU</td>
+<td><a href="https://github.com/alibaba/BladeDISC/actions/workflows/pytorch190_gpu.yml"><img alt="pytorch1.9.0_gpu" src="https://github.com/alibaba/BladeDISC/actions/workflows/pytorch190_gpu.yml/badge.svg?branch=main" /></a></td>
+</tr>
+<tr>
+<td>PyTorch1.12.0</td>
+<td>GPU</td>
+<td><a href="https://github.com/alibaba/BladeDISC/actions/workflows/pytorch112_gpu.yml"><img alt="pytorch112_gpu" src="https://github.com/alibaba/BladeDISC/actions/workflows/pytorch112_gpu.yml/badge.svg?branch=main" /></a></td>
+</tr>
+<tr>
+<td>PyTorch1.10.0</td>
+<td>AArch64</td>
+<td><a href="https://github.com/alibaba/BladeDISC/actions/workflows/pytorch110_aarch64.yml"><img alt="pytorch110_aarch64" src="https://github.com/alibaba/BladeDISC/actions/workflows/pytorch110_aarch64.yml/badge.svg?branch=main" /></a></td>
+</tr>
+<tr>
+<td>TensorFlow1.15</td>
+<td>CPU</td>
+<td><a href="https://github.com/alibaba/BladeDISC/actions/workflows/tf115_cpu.yml"><img alt="tf115_cpu" src="https://github.com/alibaba/BladeDISC/actions/workflows/tf115_cpu.yml/badge.svg?branch=main" /></a></td>
+</tr>
+<tr>
+<td>TensorFlow2.4</td>
+<td>GPU</td>
+<td><a href="https://github.com/alibaba/BladeDISC/actions/workflows/tf24_gpu.yml"><img alt="tf24_gpu" src="https://github.com/alibaba/BladeDISC/actions/workflows/tf24_gpu.yml/badge.svg?branch=main" /></a></td>
+</tr>
+<tr>
+<td>TensorFlow2.8</td>
+<td>AArch64</td>
+<td><a href="https://github.com/alibaba/BladeDISC/actions/workflows/tf280_aarch64.yml"><img alt="tf280_aarch64" src="https://github.com/alibaba/BladeDISC/actions/workflows/tf280_aarch64.yml/badge.svg?branch=main" /></a></td>
+</tr>
+</tbody>
+</table></section>
+<section id="faq">
+<h2>FAQ<a class="headerlink" href="#faq" title="Permalink to this heading">¶</a></h2>
+<section id="roadmap-with-mlir-hlo-project">
+<h3>Roadmap with mlir-hlo Project<a class="headerlink" href="#roadmap-with-mlir-hlo-project" title="Permalink to this heading">¶</a></h3>
 <p>BladeDISC is in a close relationship with
 <a class="reference external" href="https://github.com/tensorflow/mlir-hlo">mlir-hlo</a> project. Part of the building
 blocks, including the MHLO Op definitions, TF to MHLO conversions, and some
 general purpose passes have been upstreamed to mlir-hlo repository. We’ll
 continue to work in a close cooperative relationship with mlir-hlo project in
 the longer term.</p>
-</div>
-</div>
-<div class="section" id="contact-us">
-<h2>Contact Us<a class="headerlink" href="#contact-us" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="roadmap-with-torch-mlir-project">
+<h3>Roadmap with Torch-MLIR Project<a class="headerlink" href="#roadmap-with-torch-mlir-project" title="Permalink to this heading">¶</a></h3>
+<p>BladeDISC compiles PyTorch workloads based on <a class="reference external" href="https://github.com/llvm/torch-mlir/">Torch-MLIR</a>.
+The BladeDISC Dev Team is cooperating with the community to add Torch-To-Mhlo conversion
+to Torch-MLIR, especially fully dynamic shape features.
+See RFC: https://github.com/llvm/torch-mlir/issues/999.
+We appeal to the community developers interested in joining.</p>
+</section>
+</section>
+<section id="contact-us">
+<h2>Contact Us<a class="headerlink" href="#contact-us" title="Permalink to this heading">¶</a></h2>
 <ul class="simple">
 <li><p>Mailgroup: bladedisc-dev&#64;list.alibaba-inc.com</p></li>
 <li><p>DingTalk group for support and discussion:</p></li>
 </ul>
 <p><img alt="DingTalk" src="_images/dingtalk_support.png" /></p>
-</div>
-</div>
+</section>
+</section>
 
 
                         
@@ -439,7 +532,7 @@ the longer term.</p>
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'./',
             VERSION:'1.0.0',
-            LANGUAGE:'None',
+            LANGUAGE:'en',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true,
@@ -449,7 +542,9 @@ the longer term.</p>
     <script type="text/javascript" src="_static/documentation_options.js"></script>
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/sphinx_highlight.js"></script>
     <script type="text/javascript" src="_static/clipboard.min.js"></script>
     <script type="text/javascript" src="_static/copybutton.js"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
@@ -458,7 +553,7 @@ the longer term.</p>
     <div class="footer" role="contentinfo">
         <div class="container">
             &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
-        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
         </div>
     </div>  
 

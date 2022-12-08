@@ -3,7 +3,8 @@
 <!DOCTYPE html>
 <head>
   <meta charset="utf-8">
-  
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <title>Build BladeDISC from Source &mdash; BladeDISC 1.0.0 documentation</title>
@@ -112,7 +113,9 @@
 <li class="toctree-l2"><a class="reference internal" href="../README.html#setup-and-examples">Setup and Examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../README.html#publications">Publications</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../README.html#presentations-and-talks">Presentations and Talks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../README.html#building-status">Building Status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../README.html#faq">FAQ</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../README.html#contact-us">Contact Us</a></li>
 </ul>
@@ -125,6 +128,7 @@
 <li class="toctree-l1 current"><a class="current reference internal" href="#">Build from Source</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#prerequisite">Prerequisite</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#launch-a-development-docker-container">Launch a development Docker container</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
 <li class="toctree-l2"><a class="reference internal" href="#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
 </ul>
@@ -154,72 +158,96 @@
                     <div class="document">
                         
                             
-  <div class="section" id="build-bladedisc-from-source">
-<h1>Build BladeDISC from Source<a class="headerlink" href="#build-bladedisc-from-source" title="Permalink to this headline">¶</a></h1>
+  <section id="build-bladedisc-from-source">
+<h1>Build BladeDISC from Source<a class="headerlink" href="#build-bladedisc-from-source" title="Permalink to this heading">¶</a></h1>
 <p>This document introduces how to build BladeDISC from source,
 to make the installation and configuration easier, we provide a
 <a class="reference external" href="/docker/dev/Dockerfile">Dockerfile</a> that contains required software
 to build and test.</p>
-<div class="section" id="prerequisite">
-<h2>Prerequisite<a class="headerlink" href="#prerequisite" title="Permalink to this headline">¶</a></h2>
+<section id="prerequisite">
+<h2>Prerequisite<a class="headerlink" href="#prerequisite" title="Permalink to this heading">¶</a></h2>
 <ol class="simple">
 <li><p>Git for checking out the source code.</p></li>
-<li><p><a class="reference external" href="https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html">Nvidia Docker</a>
-to launch Docker container on Nvidia GPU host.</p></li>
+<li><p>(Optional)<a class="reference external" href="https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html">Nvidia Docker</a>
+to launch Docker container on Nvidia GPU host if you want to build BladeDISC for GPU backend.</p></li>
 </ol>
-</div>
-<div class="section" id="checkout-the-source">
-<h2>Checkout the Source<a class="headerlink" href="#checkout-the-source" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="checkout-the-source">
+<h2>Checkout the Source<a class="headerlink" href="#checkout-the-source" title="Permalink to this heading">¶</a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git clone git@github.com:alibaba/BladeDISC.git
 <span class="nb">cd</span> BladeDISC <span class="o">&amp;&amp;</span> git submodule update --init --recursive
 </pre></div>
 </div>
-</div>
-<div class="section" id="building-bladedisc-for-tensorflow-users">
-<h2>Building BladeDISC for TensorFlow Users<a class="headerlink" href="#building-bladedisc-for-tensorflow-users" title="Permalink to this headline">¶</a></h2>
-<ul>
-<li><p>step1: launch a development Docker container that runs a
-development Docker image.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker run --gpus all --rm -it -v <span class="nv">$PWD</span>:/disc bladedisc/bladedisc:latest-devel-cuda11.0 bash
+</section>
+<section id="launch-a-development-docker-container">
+<h2>Launch a development Docker container<a class="headerlink" href="#launch-a-development-docker-container" title="Permalink to this heading">¶</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># For GPU backend</span>
+docker run --gpus all --rm -it -v <span class="nv">$PWD</span>:/disc bladedisc/bladedisc:latest-devel-cuda11.0 bash
+
+<span class="c1"># For x86 CPU backend</span>
+docker run --rm -it -v <span class="nv">$PWD</span>:/disc bladedisc/bladedisc:latest-devel-cuda11.0 bash
+
+<span class="c1"># For AArch64 CPU backend</span>
+docker run --rm -it -v <span class="nv">$PWD</span>:/disc bladedisc/bladedisc:latest-devel-cpu-aarch64 bash
 </pre></div>
 </div>
-<p>please goto <a class="reference external" href="https://hub.docker.com/r/bladedisc/bladedisc/tags?page=1&amp;name=devel">this website</a> to
-find more images with various CUDA versions.</p>
-</li>
-<li><p>step2: build and test tensorflow_bladedisc with an all-in-on bash script.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>bash ./scripts/ci/build_and_test.sh
+<p>please goto <a class="reference external" href="https://hub.docker.com/r/bladedisc/bladedisc/tags?page=1&amp;name=devel">this website</a> to find more images with various CUDA versions.</p>
+<p><strong>Note that we use the same development docker images for both Nvidia GPU backend and X86 CPU backend. For X86 CPU backend, both the building phase and execution phase do not require CUDA available.</strong></p>
+</section>
+<section id="building-bladedisc-for-tensorflow-users">
+<h2>Building BladeDISC for TensorFlow Users<a class="headerlink" href="#building-bladedisc-for-tensorflow-users" title="Permalink to this heading">¶</a></h2>
+<p>build and test tensorflow_bladedisc with an all-in-on bash script.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># For GPU backend</span>
+bash ./scripts/ci/build_and_test.sh
+
+<span class="c1"># For x86 or AArch64 CPU backend</span>
+bash ./scripts/ci/build_and_test.sh --cpu-only
 </pre></div>
 </div>
 <p>the above command generates a wheel Python package on the path: <code class="docutils literal notranslate"><span class="pre">./build</span></code>,
 please free feel to install it with the <a class="reference external" href="https://pip.pypa.io/en/stable/installation/">pip</a>
 installation toolkit.</p>
-</li>
-</ul>
-</div>
-<div class="section" id="building-bladedisc-for-pytorch-users">
-<h2>Building BladeDISC for PyTorch Users<a class="headerlink" href="#building-bladedisc-for-pytorch-users" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="building-bladedisc-for-pytorch-users">
+<h2>Building BladeDISC for PyTorch Users<a class="headerlink" href="#building-bladedisc-for-pytorch-users" title="Permalink to this heading">¶</a></h2>
 <ul>
-<li><p>step1: launch a development Docker container that runs a
-development Docker image.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker run --gpus all --rm -it -v <span class="nv">$PWD</span>:/disc bladedisc/bladedisc:latest-devel-cuda11.0 bash
+<li><p>step1: build and test pytorch_blade with an all-in-one script:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># For GPU backend</span>
+<span class="nb">cd</span> pytorch_blade <span class="o">&amp;&amp;</span> bash ./scripts/build_pytorch_blade.sh
+
+<span class="c1"># For x86 CPU backend</span>
+<span class="nb">export</span> <span class="nv">TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT</span><span class="o">=</span>OFF
+<span class="nb">export</span> <span class="nv">TORCH_BLADE_CI_BUILD_TORCH_VERSION</span><span class="o">=</span><span class="m">1</span>.8.1+cpu
+<span class="nb">cd</span> pytorch_blade <span class="o">&amp;&amp;</span> bash ./scripts/build_pytorch_blade.sh
+
+<span class="c1"># For AArch64 CPU backend</span>
+<span class="nb">export</span> <span class="nv">TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT</span><span class="o">=</span>OFF
+<span class="nb">export</span> <span class="nv">TORCH_BLADE_CI_BUILD_TORCH_VERSION</span><span class="o">=</span><span class="m">1</span>.10.0+aarch64
+<span class="nb">cd</span> pytorch_blade <span class="o">&amp;&amp;</span> bash ./scripts/build_pytorch_blade.sh
 </pre></div>
 </div>
 </li>
-<li><p>step2: build and test pytorch_blade with an all-in-one script:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="nb">cd</span> pytorch_blade <span class="o">&amp;&amp;</span> bash ./ci_build/build_pytorch_blade.sh
-</pre></div>
-</div>
-</li>
-<li><p>step3: build the pytorch_blade Python wheel package.</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python setup.py bdist_wheel 
+<li><p>step2: build the pytorch_blade Python wheel package.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># For GPU backend</span>
+python setup.py bdist_wheel
+
+<span class="c1"># For x86 CPU backend</span>
+<span class="nb">export</span> <span class="nv">TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT</span><span class="o">=</span>OFF
+<span class="nb">export</span> <span class="nv">TORCH_BLADE_CI_BUILD_TORCH_VERSION</span><span class="o">=</span><span class="m">1</span>.8.1+cpu
+python setup.py bdist_wheel
+
+<span class="c1"># For AArch64 CPU backend</span>
+<span class="nb">export</span> <span class="nv">TORCH_BLADE_BUILD_WITH_CUDA_SUPPORT</span><span class="o">=</span>OFF
+<span class="nb">export</span> <span class="nv">TORCH_BLADE_CI_BUILD_TORCH_VERSION</span><span class="o">=</span><span class="m">1</span>.10.0+aarch64
+python setup.py bdist_wheel
 </pre></div>
 </div>
 <p>the above command generates a wheel Python package on the path: <code class="docutils literal notranslate"><span class="pre">pytorch_blade/dist/</span></code>,
 please install it with the pip installation toolkit.</p>
 </li>
 </ul>
-</div>
-</div>
+</section>
+</section>
 
 
                         
@@ -236,7 +264,7 @@ please install it with the pip installation toolkit.</p>
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../',
             VERSION:'1.0.0',
-            LANGUAGE:'None',
+            LANGUAGE:'en',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true,
@@ -246,7 +274,9 @@ please install it with the pip installation toolkit.</p>
     <script type="text/javascript" src="../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/sphinx_highlight.js"></script>
     <script type="text/javascript" src="../_static/clipboard.min.js"></script>
     <script type="text/javascript" src="../_static/copybutton.js"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
@@ -255,7 +285,7 @@ please install it with the pip installation toolkit.</p>
     <div class="footer" role="contentinfo">
         <div class="container">
             &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
-        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
         </div>
     </div>  
 

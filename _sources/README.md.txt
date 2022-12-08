@@ -1,22 +1,29 @@
-# BladeDISC Introduction
+# BladeDISC Introduction <!-- omit in toc -->
 
-* [Overview](#overview)
-  + [Features and Roadmap](#features-and-roadmap)
+- [Overview](#overview)
+  - [Features and Roadmap](#features-and-roadmap)
     - [Frontend Framework Support Matrix](#frontend-framework-support-matrix)
     - [Backend Support Matrix](#backend-support-matrix)
     - [Deployment Solutions](#deployment-solutions)
-  + [Numbers of Typical Workloads](#numbers-of-typical-workloads)
+  - [Numbers of Typical Workloads](#numbers-of-typical-workloads)
     - [Advantage in Dynamic Shape Workloads](#advantage-in-dynamic-shape-workloads)
-* [API QuickView](#api-quickview)
-  + [For TensorFlow Users](#for-tensorflow-users)
-  + [For PyTorch Users](#for-pytorch-users)
-* [Setup and Examples](#setup-and-examples)
-* [Publications](#publications)
-* [Tutorials and Documents for Developers](#tutorials-and-documents-for-developers)
-* [How to Contribute](#how-to-contribute)
-* [FAQ](#faq)
-  + [Roadmap with mlir-hlo Project](#roadmap-with-mlir-hlo-project)
-* [Contact Us](#contact-us)
+- [API QuickView](#api-quickview)
+  - [For TensorFlow Users](#for-tensorflow-users)
+  - [For PyTorch Users](#for-pytorch-users)
+- [Setup and Examples](#setup-and-examples)
+- [Publications](#publications)
+- [Tutorials and Documents for Developers](#tutorials-and-documents-for-developers)
+- [Presentations and Talks](#presentations-and-talks)
+- [How to Contribute](#how-to-contribute)
+- [Building Status](#building-status)
+- [FAQ](#faq)
+  - [Roadmap with mlir-hlo Project](#roadmap-with-mlir-hlo-project)
+- [Contact Us](#contact-us)
+
+## What's New
+
++ [🔥 2022.12.08] BladeDISC v0.3.0:
+ [Announce PyTorch 2.0 Compilation Support](https://github.com/alibaba/BladeDISC/releases/tag/v0.3.0)
 
 ## Overview
 
@@ -48,42 +55,53 @@ documents for developers.
 [1] TensorFlow 1.12, 1.15, 2.4 & 2.5 are supported and fully verified. For other
 versions some slight works on adaptation might be needed.
 
-[2] 1.6.0 <= PyTorch version < 1.9.0 has been fully verified.
+[2] PyTorch version >= 1.6.0 has been fully verified.
 
 [3] Although supported, there's much room for improvement on Op coverage for
 training workloads.
 
 #### Backend Support Matrix
 
-|    | Memory Intensive Part | Compute Intensive Part | End-to-End Usability |
-|----------- | ------------- | ---------------------- | -------------------- |
-| Nvidia GPU |    Yes        |    Yes                 |    Yes               |
-| AMD GPU    |  Ongoing      |  Ongoing               |     No               |
-| Hygon DCU  |    Yes        |    Yes                 |    Yes               |
-|  X86       |    Yes        |  Not open-sourced yet [1]  |     No           |
+|            |   Status      |
+|----------- | ------------- |
+| Nvidia GPU |    Yes [1]    |
+| AMD GPU    |    Yes        |
+| Hygon DCU  |    Yes        |
+|  X86       |    Yes        |
+| AArch64    |    Yes        |
 
-[1] The compute-intensive part of the X86 backend is already supported on the
-internal version. The code decoupling is ongoing and will be open-sourced soon,
-same for the end-to-end usability.
+[1] Support for CUDA below 11.0 have been deprecated officially since Aug, 2022.
 
 #### Deployment Solutions
 
 * Plugin Mode - BladeDISC works as a plugin of TensorFlow or PyTorch. Only the
   supported Ops are clustered and compiled, and the unsupported ones will be
   executed by the original TensorFlow or PyTorch runtime. We recommend this mode
-  to most of the users for its transparency and ease of use. 
+  to most of the users for its transparency and ease of use.
 
 * Standalone Mode - In Standalone mode, the input workload will be compiled into
   a binary that can be executed by it self, aka, does not rely on a TensorFlow
-  or PyTorch runtime. In this mode all ops must be supported. 
+  or PyTorch runtime. In this mode all ops must be supported.
 
 ### Numbers of Typical Workloads
 
 By evaluating BladeDISC using a set of typical machine learning workloads for
-production purpose, DISC shows up to 3x speedup compared with
-TensorFlow/PyTorch.
+production purpose, BladeDISC shows up to 8.66x speedup compared with
+TensorFlow/PyTorch. Moreover, compared to static optimizing compilers (i.e.,
+XLA and TensorRT), DISC shows comparable or even better performance.
 
-![Numbers](./docs/pics/numbers.png)
+<figure align="center">
+<img src="./docs/pics/numbers.png" style="width:60%">
+<figcaption align = "center">
+<b>
+Fig.1 Performance speedup over framework.
+<i>Framework</i> means either TensorFlow or PyTorch.
+<i>FastSpeech2</i> is TensorFlow model and others are PyTorch models.
+The <i>static compiler</i> for TensorFlow is XLA and that for PyTorch is TensorRT.
+Note that <i>S2T</i> and <i>T5</i> have no TensorRT performance due to wrong result.
+</b>
+</figcaption>
+</figure>
 
 #### Advantage in Dynamic Shape Workloads
 
@@ -108,7 +126,7 @@ import numpy as np
 import tensorflow as tf
 
 ## enable BladeDISC on TensorFlow program
-import tensorflow_blade_disc as disc
+import blade_disc_tf as disc
 disc.enable()
 
 ## construct TensorFlow Graph and run it
@@ -133,7 +151,7 @@ import torch_blade
 class MyModule(nn.Module):
     ...
 
-module = MyModule()
+module = MyModule().eval()
 
 with torch.no_grad():
     # blade_module is the optimized module by BladeDISC
@@ -163,11 +181,32 @@ for PyTorch Users](./docs/quickstart.md#quickstart-for-pytorch-users).
 * [Tutorial: A Walkthough of the BladeDISC Pass Pipeline](./docs/developers/pass_pipeline.md)
 * [Introduction on Runtime Abstraction Layer](./docs/developers/runtime_abstraction_layer.md)
 * [TorchBlade Overview](./docs/developers/bladedisc_torch_overview.md)
-* [Tutorial: How to Add a New Torch Operator Converter](./docs/developers/torch_add_a_new_converter.md)
+* [Tutorial: How to Add a New Torch Operator](./docs/developers/torch_add_a_new_operator.md)
+
+## Presentations and Talks
+* [Performance optimization practice for dynamic shape AI workloads via a compiler-based approach](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/performance-optimization-practice.pdf)
+* [2022/07/31 BladeDISC: A Practice of Dynamic Shape Deep Learning Compiler(Chinese)](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/BladeDISC%EF%BC%9A%E5%8A%A8%E6%80%81Shape%E6%B7%B1%E5%BA%A6%E5%AD%A6%E4%B9%A0%E7%BC%96%E8%AF%91%E5%99%A8%E5%AE%9E%E8%B7%B5%E7%9A%84.pdf)
+* [2022/07/07 BladeDISC and Torch-MLIR Roadmap Talk on Torch-MLIR Community](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/BladeDISC-and-TorchMLIR-Roadmap-tts.pptx)
+* [GTC22-S41073, Generalized and Transparent AI Optimization Solutions with AI Compilers from Cloud Service](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/GTC22%20S41073%2C%20Generalized%20and%20Transparent%20AI%20Optimization%20Solutions%20with%20AI%20Compilers%20from%20Cloud%20Service.pdf)
+* [GTC22-S41395, Easier-to-use and More Robust TensorRT via PAI-Blade](https://bladedisc.oss-cn-hangzhou.aliyuncs.com/docs/GTC22-S41395%2C%20Easier-to-use%20and%20More%20Robust%20TensorRT%20via%20PAI-Blade.pdf)
 
 ## How to Contribute
 
 * [Contribute to BladeDISC](./docs/contribution.md)
+
+## Building Status
+
+| Framework | Device| Status |
+| -- | -- | -- |
+| PyTorch1.6.0 | CPU | [![pytorch160_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch160_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch160_cpu.yml) |
+| PyTorch1.7.1 | GPU |  [![pytorch171_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch171_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch171_gpu.yml) |
+| PyTorch1.8.1 | CPU | [![pytorch181_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch181_cpu.yml) |
+| PyTorch1.9.0 | GPU | [![pytorch1.9.0_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch190_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch190_gpu.yml) |
+| PyTorch1.12.0 | GPU | [![pytorch112_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch112_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch112_gpu.yml) |
+| PyTorch1.10.0 | AArch64 |  [![pytorch110_aarch64](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch110_aarch64.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/pytorch110_aarch64.yml) |
+| TensorFlow1.15 | CPU| [![tf115_cpu](https://github.com/alibaba/BladeDISC/actions/workflows/tf115_cpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf115_cpu.yml) |
+| TensorFlow2.4 | GPU | [![tf24_gpu](https://github.com/alibaba/BladeDISC/actions/workflows/tf24_gpu.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf24_gpu.yml) |
+| TensorFlow2.8 | AArch64 | [![tf280_aarch64](https://github.com/alibaba/BladeDISC/actions/workflows/tf280_aarch64.yml/badge.svg?branch=main)](https://github.com/alibaba/BladeDISC/actions/workflows/tf280_aarch64.yml) |
 
 ## FAQ
 
@@ -180,9 +219,17 @@ general purpose passes have been upstreamed to mlir-hlo repository. We'll
 continue to work in a close cooperative relationship with mlir-hlo project in
 the longer term.
 
+### Roadmap with Torch-MLIR Project
+
+BladeDISC compiles PyTorch workloads based on [Torch-MLIR](https://github.com/llvm/torch-mlir/).
+The BladeDISC Dev Team is cooperating with the community to add Torch-To-Mhlo conversion
+to Torch-MLIR, especially fully dynamic shape features.
+See RFC: https://github.com/llvm/torch-mlir/issues/999.
+We appeal to the community developers interested in joining.
+
 ## Contact Us
 
-* Mailgroup: bladedisc-dev@list.alibaba-inc.com 
+* Mailgroup: bladedisc-dev@list.alibaba-inc.com
 
 * DingTalk group for support and discussion:
 

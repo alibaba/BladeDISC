@@ -3,7 +3,8 @@
 <!DOCTYPE html>
 <head>
   <meta charset="utf-8">
-  
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <title>Runtime Abstraction Layer Introduction &mdash; BladeDISC 1.0.0 documentation</title>
@@ -110,7 +111,9 @@
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#setup-and-examples">Setup and Examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#publications">Publications</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#presentations-and-talks">Presentations and Talks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#building-status">Building Status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#faq">FAQ</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#contact-us">Contact Us</a></li>
 </ul>
@@ -123,6 +126,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../build_from_source.html">Build from Source</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#prerequisite">Prerequisite</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
 </ul>
@@ -152,10 +156,10 @@
                     <div class="document">
                         
                             
-  <div class="section" id="runtime-abstraction-layer-introduction">
-<h1>Runtime Abstraction Layer Introduction<a class="headerlink" href="#runtime-abstraction-layer-introduction" title="Permalink to this headline">¶</a></h1>
-<div class="section" id="motivation">
-<h2>Motivation<a class="headerlink" href="#motivation" title="Permalink to this headline">¶</a></h2>
+  <section id="runtime-abstraction-layer-introduction">
+<h1>Runtime Abstraction Layer Introduction<a class="headerlink" href="#runtime-abstraction-layer-introduction" title="Permalink to this heading">¶</a></h1>
+<section id="motivation">
+<h2>Motivation<a class="headerlink" href="#motivation" title="Permalink to this heading">¶</a></h2>
 <p>BladeDISC is an MHLO based e2e compiler with the consideration of both the
 compiler and the associated runtime. For the runtime side, we have different
 targeting environments (e.g. TensorFlow, PyTorch, or sometimes even a standalone
@@ -172,15 +176,15 @@ whole lifetime of the context in order to achieve the best performance. Based on
 the initialization-free interfaces (for example, load the kernel if it has not
 been loaded and then launch) provided by RAL, the compiler side can focus on its
 core optimization logic and lets the RAL manage the resource status.</p>
-</div>
-<div class="section" id="design-overview">
-<h2>Design Overview<a class="headerlink" href="#design-overview" title="Permalink to this headline">¶</a></h2>
-<div class="section" id="from-the-perspective-of-compiler-side">
-<h3>From the Perspective of Compiler Side<a class="headerlink" href="#from-the-perspective-of-compiler-side" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="design-overview">
+<h2>Design Overview<a class="headerlink" href="#design-overview" title="Permalink to this heading">¶</a></h2>
+<section id="from-the-perspective-of-compiler-side">
+<h3>From the Perspective of Compiler Side<a class="headerlink" href="#from-the-perspective-of-compiler-side" title="Permalink to this heading">¶</a></h3>
 <p>In the compiler side, there is a set of transformation passes for RAL to make
 sure the compiled binary is suitable for the RAL runtime.</p>
-<div class="section" id="context-injection">
-<h4>Context Injection<a class="headerlink" href="#context-injection" title="Permalink to this headline">¶</a></h4>
+<section id="context-injection">
+<h4>Context Injection<a class="headerlink" href="#context-injection" title="Permalink to this heading">¶</a></h4>
 <p>As mentioned above, we prefer to simplify the design of the compiler side and
 let it focus on its core optimization logic. Thus, RAL provides a context object
 to hide all stateful operations behind the context. The context is passed as a
@@ -193,9 +197,9 @@ runtime behavior. Inside the dialect, we define a custom type
 disc_ral.RalExecutionContextType to represent the context type in the compiler
 side. Under the hood, the disc_ral.RalExecutionContextType will be lowered to a
 pointer type in LLVM IR.</p>
-</div>
-<div class="section" id="inputs-outputs-binding">
-<h4>Inputs/Outputs Binding<a class="headerlink" href="#inputs-outputs-binding" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="inputs-outputs-binding">
+<h4>Inputs/Outputs Binding<a class="headerlink" href="#inputs-outputs-binding" title="Permalink to this heading">¶</a></h4>
 <p>For the entry function, RAL also rewrites its inputs and outputs to make it
 suitable to interact with different host environments. To be concrete, all the
 original inputs and outputs of the entry function are received from and sent to
@@ -229,9 +233,9 @@ have the opportunity to adjust the placement of each recv_input and send_output
 API to achieve partial execution of a compiled binary before all its inputs are
 ready and sending some of the outputs to the context before all its outputs are
 ready.</p>
-</div>
-<div class="section" id="uniformed-type-erased-external-function-call-abi">
-<h4>Uniformed type-erased external function call ABI<a class="headerlink" href="#uniformed-type-erased-external-function-call-abi" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="uniformed-type-erased-external-function-call-abi">
+<h4>Uniformed type-erased external function call ABI<a class="headerlink" href="#uniformed-type-erased-external-function-call-abi" title="Permalink to this heading">¶</a></h4>
 <p>To make the compiled binary have stable and clean ABI, RAL provides a pass to
 rewrite all RAL function calls to a uniformed type-erased style.</p>
 <p>A RAL function is an ordinary c++ function that satisfies the following
@@ -303,12 +307,12 @@ TAO_RAL_API(&quot;ral_gemm&quot;, &quot;gpu&quot;, gemm&lt;half&gt;)
 <p>Thus, based on the mechanism in the compiler side and the mechanism in the c++
 side, users don’t need to worry about the details of c interface implementation
 and can use the c++ level API directly.</p>
-</div>
-</div>
-<div class="section" id="from-the-perspective-of-runtime-side">
-<h3>From the Perspective of Runtime Side<a class="headerlink" href="#from-the-perspective-of-runtime-side" title="Permalink to this headline">¶</a></h3>
-<div class="section" id="overview-of-the-runtime-side-of-ral">
-<h4>Overview of the Runtime Side of RAL<a class="headerlink" href="#overview-of-the-runtime-side-of-ral" title="Permalink to this headline">¶</a></h4>
+</section>
+</section>
+<section id="from-the-perspective-of-runtime-side">
+<h3>From the Perspective of Runtime Side<a class="headerlink" href="#from-the-perspective-of-runtime-side" title="Permalink to this heading">¶</a></h3>
+<section id="overview-of-the-runtime-side-of-ral">
+<h4>Overview of the Runtime Side of RAL<a class="headerlink" href="#overview-of-the-runtime-side-of-ral" title="Permalink to this heading">¶</a></h4>
 <p>The runtime side of the RAL can be divided into three major parts as shown in
 the following <img alt="diagram" src="../../_images/RAL.png" />.</p>
 <ul class="simple">
@@ -333,17 +337,17 @@ resources, and thus can be shared among different host environments since the
 RAL driver has already hidden the differences among different host
 environments.</p></li>
 </ul>
-</div>
-<div class="section" id="ral-context">
-<h4>RAL Context<a class="headerlink" href="#ral-context" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="ral-context">
+<h4>RAL Context<a class="headerlink" href="#ral-context" title="Permalink to this heading">¶</a></h4>
 <p>We provide different RAL Context implementations for different target host
 environments. The context implementation consists of the above three major
 parts. Currently, we have TF context implementation, which is used to be
 integrated with TensorFlow (both CPU &amp; GPU), and base context implementation,
 which is used to be integrated with PyTorch and sometimes the standalone binary.</p>
-</div>
-<div class="section" id="ral-execution-context">
-<h4>RAL Execution Context<a class="headerlink" href="#ral-execution-context" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="ral-execution-context">
+<h4>RAL Execution Context<a class="headerlink" href="#ral-execution-context" title="Permalink to this heading">¶</a></h4>
 <p>For a loaded compiled binary, we have one corresponding RAL context to manage
 the stateful resources and some bookkeeping stuff.  The context lifetime is the
 same as the loaded compiler binary. RAL execution context is a wrapper of RAL
@@ -352,10 +356,10 @@ binary. Whenever we call the compiled binary, we first create an execution
 context from the RAL context and then feed the execution context instead of the
 context to the entry function of the compiled binary. This design is more
 friendly and efficient for multi-thread execution situations.</p>
-</div>
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
+</section>
 
 
                         
@@ -372,7 +376,7 @@ friendly and efficient for multi-thread execution situations.</p>
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../../',
             VERSION:'1.0.0',
-            LANGUAGE:'None',
+            LANGUAGE:'en',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true,
@@ -382,7 +386,9 @@ friendly and efficient for multi-thread execution situations.</p>
     <script type="text/javascript" src="../../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/sphinx_highlight.js"></script>
     <script type="text/javascript" src="../../_static/clipboard.min.js"></script>
     <script type="text/javascript" src="../../_static/copybutton.js"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
@@ -391,7 +397,7 @@ friendly and efficient for multi-thread execution situations.</p>
     <div class="footer" role="contentinfo">
         <div class="container">
             &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
-        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
         </div>
     </div>  
 

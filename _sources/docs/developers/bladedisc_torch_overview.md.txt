@@ -9,14 +9,18 @@ In general, TorchBlade can be regarded as a compiler
 targeting a subset of Python language for deep learning.
 
 A PyTorch `nn.Module`'s forward method is first traced or scripted to
-TorchScript. After that, some passes are run to simplify the TorchScript graph,
+TorchScript (In PyTorch 2.0 we will leverage TorchDynamo).
+After that, some passes are run to simplify the TorchScript graph,
 making it closer to the SSA (Static Single Assignment) semantics. Then, the
 compilable subgraphs are converted to MHLO, which will finally be progressively
 optimized and lowered for different backends.
 
-TorchBlade only supports AOT compilation currently. While JIT's process should
-not differ too much. Go to
-["Pass Pipeline Walkthrough"](./pass_pipeline.md) for more
+## The Architecture of TorchBlade
+
+We now do the PyTorch program lowering with Torch-MLIR.
+![bladedisc_torch_architecture](./pics/bladedisc_torch_arch.png)
+
+Go to ["Pass Pipeline Walkthrough"](./pass_pipeline.md) for more
 details about the compilation phase after the TorchScript is converted to MHLO.
 
 ## Problems to be Resolved
@@ -83,20 +87,8 @@ fallback mechanism:
 
 ### IR Converters
 
-The IR converters are precisely the primary mechanism that supports converting
-and lowering from TorchScript to MHLO
-
-- Query if the conversion of a graph node can succeed under a certain conversion
-  context. It's required because some aten operators are ambiguous since their
-  semantics depend on their inputs. For example, `aten::convolution` can be used
-  to represent 'Conv1D', 'Conv2D', 'Conv3D', but a converter for 'Conv3D' is not
-  supported for now
-
-- Build an MHLO module by walking the TorchScript subgraph and converting each
-  TorchScipt operator to MHLO operator.
-
 To add a new converter from PyTorch to MHLO, please refer to
-["How To Add a New Torch Op Converter"](./torch_add_a_new_converter.md)
+["How To Add a New Torch Operator"](./torch_add_a_new_operator.md)
 
 ### Runtime(RAL, Runtime Abstraction Layer)
 

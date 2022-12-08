@@ -1,0 +1,941 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>CUTLASS Convolution &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../../../../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../../../../../../index.html">Docs</a></li>
+        
+      <li>CUTLASS Convolution</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../../../../../../_sources/tao_compiler/tensorflow/compiler/mlir/disc/cutlass/media/docs/implicit_gemm_convolution.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../../../../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../README.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#what-s-new">What’s New</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#presentations-and-talks">Presentations and Talks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#building-status">Building Status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../docs/quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <p><img alt="ALT" src="media/images/gemm-hierarchy-with-epilogue-no-labels.png" /></p>
+<p><a class="reference external" href="/README.md#documentation">README</a> &gt; <strong>Implicit GEMM Convolution</strong></p>
+<section id="cutlass-convolution">
+<h1>CUTLASS Convolution<a class="headerlink" href="#cutlass-convolution" title="Permalink to this heading">¶</a></h1>
+<p>Implicit GEMM is the formulation of a convolution operation as a GEMM (generalized matrix-matrix
+product). Convolution takes an activation tensor and applies a sliding filter on it to produce an
+output tensor.</p>
+<section id="introduction">
+<h2>Introduction<a class="headerlink" href="#introduction" title="Permalink to this heading">¶</a></h2>
+<p>This release of CUTLASS contains several artifacts related to convolution.</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="#implicit-gemm-algorithm"><span class="std std-ref">Implicit GEMM Algorithm</span></a></p></li>
+<li><p><a class="reference internal" href="#cutlass-convolution-implementation"><span class="std std-ref">CUTLASS Convolution Implementation</span></a></p></li>
+<li><p><a class="reference internal" href="#convolution-example"><span class="std std-ref">Convolution Examples</span></a></p></li>
+</ul>
+</section>
+</section>
+<section id="implicit-gemm-algorithm">
+<h1>Implicit GEMM Algorithm<a class="headerlink" href="#implicit-gemm-algorithm" title="Permalink to this heading">¶</a></h1>
+<p>2-D convolution may be mapped to matrix multiply by forming a <em>convolution matrix</em> containing
+elements of the activations tensor then multiplying this by a matrix formed from the filters tensor.
+The earliest form of this algorithm construct the convolution matrix explicitly via an operation
+conventionally referred to as <code class="docutils literal notranslate"><span class="pre">im2col</span></code>. The resulting matrix replicates each activation element by a factor
+equal to the filter size, consuming additional storage capacity and memory bandwidth.</p>
+<p>The <em>implicit GEMM</em> algorithm is a variation on the blocked, hierarchical GEMM computation in CUDA
+that instead forms tiles of the convolution matrix on the fly as data is loaded from global memory
+into Shared Memory by carefully updating pointers and predicates. Once the convolution matrix is
+formed in Shared Memory, the existing components computing warp-level GEMM accumulate the result of
+convolution and update the output tensor.</p>
+<p>This section describes the structure of an efficient Implicit GEMM Convolution CUDA kernel
+for Turing Tensor Cores.</p>
+<section id="mapping-convolution-to-gemm">
+<h2>Mapping Convolution to GEMM<a class="headerlink" href="#mapping-convolution-to-gemm" title="Permalink to this heading">¶</a></h2>
+<p>The forward convolutional layer computes an output tensor <em>y = conv(x, w)</em> where x(NHWC), w(KRSC), and y(NPQK)
+are 4-D tensors.</p>
+<p>This computation may be described by the following analytic function.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">y</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">sum_c</span><span class="p">(</span><span class="n">sum_r</span><span class="p">(</span><span class="n">sum_s</span><span class="p">(</span> <span class="n">x</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="n">f</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">r</span><span class="p">),</span> <span class="n">g</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">s</span><span class="p">),</span> <span class="n">c</span><span class="p">]</span> <span class="o">*</span> <span class="n">w</span><span class="p">[</span><span class="n">k</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">c</span><span class="p">]</span> <span class="p">)))</span>
+</pre></div>
+</div>
+<p>where functions <em>f</em> and <em>g</em> are defined as follows.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">f</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span> <span class="o">=</span> <span class="n">p</span> <span class="o">*</span> <span class="n">stride_h</span> <span class="o">+</span> <span class="n">R</span> <span class="o">-</span> <span class="n">r</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">pad_h</span>
+<span class="n">g</span><span class="p">(</span><span class="n">q</span><span class="p">,</span> <span class="n">s</span><span class="p">)</span> <span class="o">=</span> <span class="n">q</span> <span class="o">*</span> <span class="n">stride_w</span> <span class="o">+</span> <span class="n">S</span> <span class="o">-</span> <span class="n">s</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">+</span> <span class="n">pad_w</span>
+</pre></div>
+</div>
+<p>A <a class="reference external" href="/tools/util/include/cutlass/util/reference/host/convolution.h">host</a> and <a class="reference external" href="/tools/util/include/cutlass/util/reference/device/convolution.h">device</a>
+reference implementation are provided in the CUTLASS Utilities.</p>
+<p>This computation may be mapped to the elements of a matrix product as follows.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">C</span> <span class="o">=</span> <span class="n">gemm</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>where</p>
+<ul class="simple">
+<li><p>A is a row-major matrix of extent <em>NHW</em>-by-<em>RSC</em> containing activations</p></li>
+<li><p>B is a column-major matrix of extent <em>RSC</em>-by-<em>K</em> containing filters</p></li>
+<li><p>C is a row-major matrix of extent <em>NPQ</em>-by-<em>K</em> containing the output</p></li>
+</ul>
+<p>Each element of the output matrix <em>Cij</em> corresponds to an element in the output tensor y[n, p, q, k] according to
+the following relation.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">y</span><span class="p">[</span><span class="n">n</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">q</span><span class="p">,</span> <span class="n">k</span><span class="p">]</span> <span class="o">=</span> <span class="n">Cij</span>
+</pre></div>
+</div>
+<p>where</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">i</span> <span class="o">=</span> <span class="n">q</span> <span class="o">+</span> <span class="n">Q</span> <span class="o">*</span> <span class="p">(</span><span class="n">p</span> <span class="o">+</span> <span class="n">P</span> <span class="o">*</span> <span class="n">n</span><span class="p">)</span>
+<span class="n">j</span> <span class="o">=</span> <span class="n">k</span>
+</pre></div>
+</div>
+<p>These relations may be inverted as follows.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">k</span> <span class="o">=</span> <span class="n">j</span>
+
+<span class="n">n</span> <span class="o">=</span> <span class="n">i</span> <span class="o">/</span> <span class="p">(</span><span class="n">PQ</span><span class="p">)</span>
+<span class="n">residual</span> <span class="o">=</span> <span class="n">i</span> <span class="o">%</span> <span class="p">(</span><span class="n">PQ</span><span class="p">)</span>
+
+<span class="n">p</span> <span class="o">=</span> <span class="n">residual</span> <span class="o">/</span> <span class="n">Q</span>
+<span class="n">q</span> <span class="o">=</span> <span class="n">residual</span> <span class="o">%</span> <span class="n">Q</span>
+</pre></div>
+</div>
+<p>The triple loop nest iterating over CRS to accumulate the result may also be linearized and mapped to the inner
+GEMM <em>K</em> dimension (not to be confused with the filter tensor dimension <em>K</em>) by the following relations.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">gemm_k</span> <span class="o">=</span> <span class="n">s</span> <span class="o">+</span> <span class="n">S</span> <span class="o">*</span> <span class="p">(</span><span class="n">r</span> <span class="o">+</span> <span class="n">R</span> <span class="o">*</span> <span class="n">c</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>and inverse</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">c</span> <span class="o">=</span> <span class="n">gemm_k</span> <span class="o">/</span> <span class="p">(</span><span class="n">RS</span><span class="p">)</span>
+<span class="n">residual</span> <span class="o">=</span> <span class="n">gemm_k</span> <span class="o">%</span> <span class="p">(</span><span class="n">RS</span><span class="p">)</span>
+
+<span class="n">r</span> <span class="o">=</span> <span class="n">residual</span> <span class="o">/</span> <span class="n">S</span>
+<span class="n">s</span> <span class="o">=</span> <span class="n">residual</span> <span class="o">%</span> <span class="n">S</span>
+</pre></div>
+</div>
+<p>Given these equations, a GEMM triple loop nest could be augmented with tensor indexing as follows.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="kt">int</span><span class="w"> </span><span class="n">GEMM_M</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">N</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">P</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">Q</span><span class="p">;</span><span class="w"></span>
+<span class="kt">int</span><span class="w"> </span><span class="n">GEMM_N</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">K</span><span class="p">;</span><span class="w"></span>
+<span class="kt">int</span><span class="w"> </span><span class="n">GEMM_K</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">C</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">R</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">S</span><span class="p">;</span><span class="w"></span>
+
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">gemm_i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">gemm_i</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">GEMM_M</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">gemm_i</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">gemm_j</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">gemm_j</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">GEMM_N</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">gemm_j</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gemm_i</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="n">PQ</span><span class="p">);</span><span class="w"></span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">npq_residual</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gemm_i</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="p">(</span><span class="n">PQ</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">p</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">npq_residual</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">Q</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="kt">int</span><span class="w"> </span><span class="n">q</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">npq_residual</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">Q</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">Accumulator</span><span class="w"> </span><span class="n">accum</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">gemm_k</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">gemm_k</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">GEMM_K</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">gemm_k</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+
+<span class="w">      </span><span class="kt">int</span><span class="w"> </span><span class="n">k</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gemm_j</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">      </span><span class="kt">int</span><span class="w"> </span><span class="n">c</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gemm_k</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="n">RS</span><span class="p">);</span><span class="w"></span>
+<span class="w">      </span><span class="kt">int</span><span class="w"> </span><span class="n">crs_residual</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">gemm_k</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="p">(</span><span class="n">RS</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">      </span><span class="kt">int</span><span class="w"> </span><span class="n">r</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">crs_residual</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="n">S</span><span class="p">;</span><span class="w"></span>
+<span class="w">      </span><span class="kt">int</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">crs_residual</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="n">S</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">      </span><span class="kt">int</span><span class="w"> </span><span class="n">h</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">f</span><span class="p">(</span><span class="n">p</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="p">);</span><span class="w"></span>
+<span class="w">      </span><span class="kt">int</span><span class="w"> </span><span class="n">w</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">g</span><span class="p">(</span><span class="n">q</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">      </span><span class="n">ElementA</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tensor_A</span><span class="p">.</span><span class="n">at</span><span class="p">({</span><span class="n">n</span><span class="p">,</span><span class="w"> </span><span class="n">h</span><span class="p">,</span><span class="w"> </span><span class="n">w</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="p">});</span><span class="w"></span>
+<span class="w">      </span><span class="n">ElementB</span><span class="w"> </span><span class="n">b</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">tensor_B</span><span class="p">.</span><span class="n">at</span><span class="p">({</span><span class="n">k</span><span class="p">,</span><span class="w"> </span><span class="n">r</span><span class="p">,</span><span class="w"> </span><span class="n">s</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="p">});</span><span class="w"></span>
+
+<span class="w">      </span><span class="n">accum</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">a</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">b</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+
+<span class="w">    </span><span class="n">C</span><span class="p">[</span><span class="n">gemm_i</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">K</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">gemm_j</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">accum</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+<p>The <a class="reference external" href="/media/docs/efficient_gemm">CUTLASS GEMM implementation</a> explicitly iterates over tiles. Consequently,
+a tile iterator could be implemented to compute these functions analytically and load the appropriate
+elements. However, the resulting modulo arithmetic would be computationally intensive, and overhead would
+limit performance of a GEMM kernel targeting Turing Tensor Cores.</p>
+<p>The following section describes how an efficient implementation may be implemented within the structure of
+a hierarchical GEMM kernel targeting Tensor Cores.</p>
+</section>
+</section>
+<section id="cutlass-convolution-implementation">
+<h1>CUTLASS Convolution Implementation<a class="headerlink" href="#cutlass-convolution-implementation" title="Permalink to this heading">¶</a></h1>
+<p>To get the best performance, the following parameters are recommended.</p>
+<ul class="simple">
+<li><p>All tensors are 128-bit aligned NHWC tensors</p></li>
+<li><p>Channel count (C) is a multiple of 32 elements</p></li>
+<li><p>Filter count (K) is a multiple of 32 elements</p></li>
+</ul>
+<p>This enables 128-bit vector memory acceses which lead to efficient CUDA kernels. Smaller alignment is supported even on tensor cores by setting AlignmentA and AlignmentB in conv::kernel::DefaultConv2dFprop, but the performance is lower than 128-bit aligned tesnors.</p>
+</section>
+<section id="cutlass-device-level-convolution-operator">
+<h1>CUTLASS Device-level Convolution Operator<a class="headerlink" href="#cutlass-device-level-convolution-operator" title="Permalink to this heading">¶</a></h1>
+<p>CUTLASS defines CUDA C++ templates accepting numerous template arguments to specialize the resulting
+kernel by operation, data type, tile configuration, math instruction, and fused output operation.</p>
+<p>In <a class="reference external" href="/examples/09_turing_tensorop_conv2dfprop/turing_tensorop_conv2dfprop.cu">turing_tensorop_conv2dfprop.cu</a>, a convolution
+operation is defined as follows.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// Define an Implicit GEMM convolution forward propagation (fprop) kernel</span>
+<span class="k">using</span><span class="w"> </span><span class="n">Conv2dFpropKernel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">typename</span><span class="w"> </span><span class="nc">cutlass</span><span class="o">::</span><span class="n">conv</span><span class="o">::</span><span class="n">kernel</span><span class="o">::</span><span class="n">DefaultConv2dFprop</span><span class="o">&lt;</span><span class="w"></span>
+<span class="w">  </span><span class="n">ElementInputA</span><span class="p">,</span><span class="w">                                          </span><span class="c1">// data type of element a (mapped to activation for fprop)                         </span>
+<span class="w">  </span><span class="n">LayoutInputA</span><span class="p">,</span><span class="w">                                           </span><span class="c1">// layout of element a (mapped to activation for fprop)</span>
+<span class="w">  </span><span class="n">ElementInputB</span><span class="p">,</span><span class="w">                                          </span><span class="c1">// data type of element b (mapped to filters for fprop)  </span>
+<span class="w">  </span><span class="n">LayoutInputB</span><span class="p">,</span><span class="w">                                           </span><span class="c1">// layout of element b (mapped to filters for fprop)</span>
+<span class="w">  </span><span class="n">ElementC</span><span class="p">,</span><span class="w">                                               </span><span class="c1">// data type of element c (mapped to output for fprop)</span>
+<span class="w">  </span><span class="n">LayoutC</span><span class="p">,</span><span class="w">                                                </span><span class="c1">// layout of element c (mapped to output for fprop)</span>
+<span class="w">  </span><span class="n">ElementAccumulator</span><span class="p">,</span><span class="w">                                     </span><span class="c1">// data type of internal accumulation</span>
+<span class="w">  </span><span class="n">MMAOp</span><span class="p">,</span><span class="w">                                                  </span><span class="c1">// opcode class tag</span>
+<span class="w">  </span><span class="n">SmArch</span><span class="p">,</span><span class="w">                                                 </span><span class="c1">// target SM architecture</span>
+<span class="w">  </span><span class="n">ThreadblockShape</span><span class="p">,</span><span class="w">                                       </span><span class="c1">// shape of threadblock tile</span>
+<span class="w">  </span><span class="n">WarpShape</span><span class="p">,</span><span class="w">                                              </span><span class="c1">// shape of warp-level GEMM tile</span>
+<span class="w">  </span><span class="n">InstructionShape</span><span class="p">,</span><span class="w">                                       </span><span class="c1">// shape of target math instruction</span>
+<span class="w">  </span><span class="n">EpilogueOp</span><span class="p">,</span><span class="w">                                             </span><span class="c1">// epilogue operator </span>
+<span class="w">  </span><span class="n">SwizzleThreadBlock</span><span class="p">,</span><span class="w">                                     </span><span class="c1">// optional function to reorder threadblocks for locality</span>
+<span class="w">  </span><span class="n">NumStages</span><span class="p">,</span><span class="w">                                              </span><span class="c1">// number of pipeline stages in threadblock-scoped GEMM</span>
+<span class="w">  </span><span class="n">cutlass</span><span class="o">::</span><span class="n">arch</span><span class="o">::</span><span class="n">OpMultiplyAddSaturate</span><span class="p">,</span><span class="w">                   </span><span class="c1">// math operation on data of element a and b</span>
+<span class="w">  </span><span class="n">cutlass</span><span class="o">::</span><span class="n">conv</span><span class="o">::</span><span class="n">IteratorAlgorithm</span><span class="o">::</span><span class="n">kOptimized</span><span class="w">            </span><span class="c1">// globabl memory iterator algorithm  </span>
+<span class="o">&gt;::</span><span class="n">Kernel</span><span class="w"></span>
+</pre></div>
+</div>
+<p>This template is intended to be generic and cover all feasible configurations. The example specifies
+the following concrete data types, layouts, and tile sizes.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// Define an Implicit GEMM convolution forward propagation (fprop) kernel</span>
+<span class="k">using</span><span class="w"> </span><span class="n">Conv2dFpropKernel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="k">typename</span><span class="w"> </span><span class="nc">cutlass</span><span class="o">::</span><span class="n">conv</span><span class="o">::</span><span class="n">kernel</span><span class="o">::</span><span class="n">DefaultConv2dFprop</span><span class="o">&lt;</span><span class="w"></span>
+<span class="w">  </span><span class="n">cutlass</span><span class="o">::</span><span class="n">int4b_t</span><span class="p">,</span><span class="w">                                    </span><span class="c1">// data type of element a (mapped to activation for fprop)                         </span>
+<span class="w">  </span><span class="n">cutlass</span><span class="o">::</span><span class="n">layout</span><span class="o">::</span><span class="n">TensorNHWC</span><span class="p">,</span><span class="w">                         </span><span class="c1">// layout of element a (mapped to activation for fprop)</span>
+<span class="w">  </span><span class="n">cutlass</span><span class="o">::</span><span class="n">int4b_t</span><span class="p">,</span><span class="w">                                    </span><span class="c1">// data type of element b (mapped to filters for fprop)  </span>
+<span class="w">  </span><span class="n">cutlass</span><span class="o">::</span><span class="n">layout</span><span class="o">::</span><span class="n">TensorNHWC</span><span class="p">,</span><span class="w">                         </span><span class="c1">// layout of element b (mapped to filters for fprop)</span>
+<span class="w">  </span><span class="kt">int32_t</span><span class="p">,</span><span class="w">                                             </span><span class="c1">// data type of element c (mapped to output for fprop)</span>
+<span class="w">  </span><span class="n">cutlass</span><span class="o">::</span><span class="n">layout</span><span class="o">::</span><span class="n">TensorNHWC</span><span class="p">,</span><span class="w">                         </span><span class="c1">// layout of element c (mapped to output for fprop)</span>
+<span class="w">  </span><span class="kt">int32_t</span><span class="p">,</span><span class="w">                                             </span><span class="c1">// data type of internal accumulation</span>
+<span class="w">  </span><span class="n">cutlass</span><span class="o">::</span><span class="n">arch</span><span class="o">::</span><span class="n">OpClassTensorOp</span><span class="p">,</span><span class="w">                      </span><span class="c1">// opcode class tag</span>
+<span class="w">  </span><span class="n">cutlass</span><span class="o">::</span><span class="n">arch</span><span class="o">::</span><span class="n">Sm75</span><span class="p">,</span><span class="w">                                 </span><span class="c1">// target SM architecture</span>
+<span class="w">  </span><span class="n">cutlass</span><span class="o">::</span><span class="n">gemm</span><span class="o">::</span><span class="n">GemmShape</span><span class="o">&lt;</span><span class="mi">128</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="o">&gt;</span><span class="p">,</span><span class="w">             </span><span class="c1">// shape of threadblock tile</span>
+<span class="w">  </span><span class="n">cutlass</span><span class="o">::</span><span class="n">gemm</span><span class="o">::</span><span class="n">GemmShape</span><span class="o">&lt;</span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">64</span><span class="p">,</span><span class="w"> </span><span class="mi">128</span><span class="o">&gt;</span><span class="p">,</span><span class="w">               </span><span class="c1">// shape of warp-level GEMM tile</span>
+<span class="w">  </span><span class="n">cutlass</span><span class="o">::</span><span class="n">gemm</span><span class="o">::</span><span class="n">GemmShape</span><span class="o">&lt;</span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">8</span><span class="p">,</span><span class="w"> </span><span class="mi">32</span><span class="o">&gt;</span><span class="p">,</span><span class="w">                  </span><span class="c1">// shape of target math instruction</span>
+<span class="w">  </span><span class="n">cutlass</span><span class="o">::</span><span class="n">epilogue</span><span class="o">::</span><span class="kr">thread</span><span class="o">::</span><span class="n">LinearCombinationClamp</span><span class="o">&lt;</span><span class="w"></span>
+<span class="w">    </span><span class="kt">int32_t</span><span class="p">,</span><span class="w">                                           </span><span class="c1">// data type of output matrix</span>
+<span class="w">    </span><span class="mi">8</span><span class="p">,</span><span class="w">                                                 </span><span class="c1">// The number of elements per vectorized</span>
+<span class="w">                                                       </span><span class="c1">// memory access. This becomes the vector width of</span>
+<span class="w">                                                       </span><span class="c1">// math instructions in the epilogue too.</span>
+<span class="w">    </span><span class="kt">int32_t</span><span class="p">,</span><span class="w">                                           </span><span class="c1">// Data type of accumulator</span>
+<span class="w">    </span><span class="kt">float</span><span class="o">&gt;</span><span class="p">;</span><span class="w">    </span><span class="p">,</span><span class="w">                                       </span><span class="c1">// epilogue operator </span>
+<span class="w">  </span><span class="n">SwizzleThreadBlock</span><span class="p">,</span><span class="w">                                  </span><span class="c1">// optional function to reorder threadblocks for locality</span>
+<span class="w">  </span><span class="mi">2</span><span class="p">,</span><span class="w">                                                   </span><span class="c1">// number of pipeline stages in threadblock-scoped GEMM</span>
+<span class="w">  </span><span class="n">cutlass</span><span class="o">::</span><span class="n">arch</span><span class="o">::</span><span class="n">OpMultiplyAddSaturate</span><span class="p">,</span><span class="w">                </span><span class="c1">// math operation on data of element a and b</span>
+<span class="w">  </span><span class="n">cutlass</span><span class="o">::</span><span class="n">conv</span><span class="o">::</span><span class="n">IteratorAlgorithm</span><span class="o">::</span><span class="n">kOptimized</span><span class="w">         </span><span class="c1">// globabl memory iterator algorithm  </span>
+<span class="o">&gt;::</span><span class="n">Kernel</span><span class="w"></span>
+</pre></div>
+</div>
+<p>That is, this computes 2D convolutional forward propagation with 4-bit integer inputs and outputs (<code class="docutils literal notranslate"><span class="pre">cutlass::int4b_t</span></code>).
+Internal accumulation is performed using 32-bit integers (<code class="docutils literal notranslate"><span class="pre">int32_t</span></code>), and an elementwise linear combination operation
+is performed on the output in single-precision floating point (<code class="docutils literal notranslate"><span class="pre">float</span></code>).</p>
+<p>The threadblock and warp-level tile sizes refer to the hierarhically blocked GEMM computation
+<a class="reference external" href="/media/docs/gemm_api">described here</a>. Larger tiles achieve greater reuse of data loaded through shared memory
+but launch fewer CTAs and may not fully occupy the GPU for small problem sizes. Smaller tile configurations achieve
+lower peak utilizations but may better match the number of SMs within the GPU for real-world workloads.</p>
+<section id="launching-the-convolution">
+<h2>Launching the convolution<a class="headerlink" href="#launching-the-convolution" title="Permalink to this heading">¶</a></h2>
+<p>The following code collects the arguments for an implicit GEMM operation into a structure.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">//</span>
+<span class="c1">// Define arguments for CUTLASS Convolution</span>
+<span class="c1">//</span>
+
+<span class="c1">// mode (kCrossCorrelation or kConvolution)</span>
+<span class="n">cutlass</span><span class="o">::</span><span class="n">conv</span><span class="o">::</span><span class="n">Mode</span><span class="w"> </span><span class="n">mode</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">cutlass</span><span class="o">::</span><span class="n">conv</span><span class="o">::</span><span class="n">Mode</span><span class="o">::</span><span class="n">kCrossCorrelation</span><span class="p">;</span><span class="w"></span>
+
+<span class="c1">// Split K dimension into 1 partitions</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">split_k_slices</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"></span>
+
+<span class="n">cutlass</span><span class="o">::</span><span class="n">conv</span><span class="o">::</span><span class="n">Conv2dProblemSize</span><span class="w"> </span><span class="nf">problem_size</span><span class="p">(</span><span class="w">      </span>
+<span class="w">    </span><span class="n">options</span><span class="p">.</span><span class="n">input_size</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="n">options</span><span class="p">.</span><span class="n">filter_size</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="n">options</span><span class="p">.</span><span class="n">padding</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="n">options</span><span class="p">.</span><span class="n">conv_stride</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="n">options</span><span class="p">.</span><span class="n">dilation</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="n">options</span><span class="p">.</span><span class="n">output_size</span><span class="p">(),</span><span class="w"></span>
+<span class="w">    </span><span class="n">mode</span><span class="p">,</span><span class="w"></span>
+<span class="w">    </span><span class="n">split_k_slices</span><span class="p">);</span><span class="w"></span>
+
+<span class="k">typename</span><span class="w"> </span><span class="nc">ImplicitGemm</span><span class="o">::</span><span class="n">Arguments</span><span class="w"> </span><span class="n">arguments</span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="n">problem_size</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="n">tensor_a</span><span class="p">.</span><span class="n">device_ref</span><span class="p">(),</span><span class="w"></span>
+<span class="w">  </span><span class="n">tensor_b</span><span class="p">.</span><span class="n">device_ref</span><span class="p">(),</span><span class="w"></span>
+<span class="w">  </span><span class="n">tensor_c</span><span class="p">.</span><span class="n">device_ref</span><span class="p">(),</span><span class="w"></span>
+<span class="w">  </span><span class="n">tensor_c</span><span class="p">.</span><span class="n">device_ref</span><span class="p">(),</span><span class="w"></span>
+<span class="w">  </span><span class="p">{</span><span class="n">options</span><span class="p">.</span><span class="n">alpha</span><span class="p">,</span><span class="w"> </span><span class="n">options</span><span class="p">.</span><span class="n">beta</span><span class="p">},</span><span class="w"></span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">mode</span></code> flag indicates whether to compute cross correlation or convolution. The arguments
+<code class="docutils literal notranslate"><span class="pre">input_size</span></code>, <code class="docutils literal notranslate"><span class="pre">filter_size</span></code>, <code class="docutils literal notranslate"><span class="pre">padding</span></code>, <code class="docutils literal notranslate"><span class="pre">conv_stride</span></code>, and <code class="docutils literal notranslate"><span class="pre">dilation</span></code> specify the dimensions of the
+input and output tensors and characterize the problem size.</p>
+<p>The arguments <code class="docutils literal notranslate"><span class="pre">tensor_a.device_ref()</span></code>, <code class="docutils literal notranslate"><span class="pre">tensor_b.device_ref()</span></code>, and <code class="docutils literal notranslate"><span class="pre">tensor_c.device_ref()</span></code> are
+CUTLASS <code class="docutils literal notranslate"><span class="pre">TensorRef&lt;&gt;</span></code> objects containing a pointer to the tensor data in GPU device memory and stride values.</p>
+<p>The following code initializes and launches the Implicit GEMM operation on the device. After initializing
+the arguments structure, it is used to query device-side workspace requirements and allocate them
+in device memory if needed.</p>
+<p>Then, the Implicit GEMM object is initialized with the <code class="docutils literal notranslate"><span class="pre">arguments</span></code> structure and the workspace in
+device memory. This initialization step precomputes internal lookup tables used by the convolution kernel
+and may also clear the device-side workspace if needed.</p>
+<p>Finally, the initialized Implicit GEMM object is called, launching a kernel on the device. <code class="docutils literal notranslate"><span class="pre">tensor_c</span></code> now
+contains the result of the implicit GEMM.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">ImplicitGemm</span><span class="w"> </span><span class="n">implicit_gemm_op</span><span class="p">;</span><span class="w"></span>
+
+<span class="c1">// Query workspace size</span>
+<span class="kt">size_t</span><span class="w"> </span><span class="n">workspace_size</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">implicit_gemm_op</span><span class="p">.</span><span class="n">get_workspace_size</span><span class="p">(</span><span class="n">arguments</span><span class="p">);</span><span class="w"></span>
+
+<span class="c1">// Allocate workspace memory</span>
+<span class="n">cutlass</span><span class="o">::</span><span class="n">device_memory</span><span class="o">::</span><span class="n">allocation</span><span class="o">&lt;</span><span class="kt">uint8_t</span><span class="o">&gt;</span><span class="w"> </span><span class="n">workspace</span><span class="p">(</span><span class="n">workspace_size</span><span class="p">);</span><span class="w"></span>
+
+<span class="c1">// Initialize the Implicit GEMM object</span>
+<span class="n">cutlass</span><span class="o">::</span><span class="n">Status</span><span class="w"> </span><span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">implicit_gemm_op</span><span class="p">.</span><span class="n">initialize</span><span class="p">(</span><span class="n">arguments</span><span class="p">,</span><span class="w"> </span><span class="n">workspace</span><span class="p">.</span><span class="n">get</span><span class="p">());</span><span class="w"></span>
+
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">cutlass</span><span class="o">::</span><span class="n">Status</span><span class="o">::</span><span class="n">kSuccess</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="cm">/* error */</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+
+<span class="c1">//</span>
+<span class="c1">// Launch initialized CUTLASS kernel</span>
+<span class="c1">//</span>
+
+<span class="n">status</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">implicit_gemm_op</span><span class="p">();</span><span class="w"></span>
+
+<span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">status</span><span class="w"> </span><span class="o">!=</span><span class="w"> </span><span class="n">cutlass</span><span class="o">::</span><span class="n">Status</span><span class="o">::</span><span class="n">kSuccess</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="cm">/* error */</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+<p>The example demonstrates how the input and output tensors may be written to a file as CSV using
+<code class="docutils literal notranslate"><span class="pre">cutlass::HostTensor&lt;&gt;</span></code> defined in the <a class="reference external" href="/media/docs/utilities">CUTLASS Utilities</a>.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">ofstream</span><span class="w"> </span><span class="nf">output_workspace</span><span class="p">(</span><span class="n">ss</span><span class="p">.</span><span class="n">str</span><span class="p">());</span><span class="w"></span>
+
+<span class="w">  </span><span class="n">output_workspace</span><span class="w"> </span>
+<span class="w">    </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;Input = </span><span class="se">\n</span><span class="s">&quot;</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">tensor_a</span><span class="p">.</span><span class="n">host_view</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n\n</span><span class="s">&quot;</span><span class="w"></span>
+<span class="w">    </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;Filters = </span><span class="se">\n</span><span class="s">&quot;</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">tensor_b</span><span class="p">.</span><span class="n">host_view</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;</span><span class="se">\n\n</span><span class="s">&quot;</span><span class="p">;</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">// Copy device memory to host backing store</span>
+<span class="w">  </span><span class="n">tensor_c</span><span class="p">.</span><span class="n">sync_host</span><span class="p">();</span><span class="w"></span>
+
+<span class="w">  </span><span class="n">output_workspace</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="s">&quot;Computed = </span><span class="se">\n</span><span class="s">&quot;</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">tensor_c</span><span class="p">.</span><span class="n">host_view</span><span class="p">()</span><span class="w"> </span><span class="o">&lt;&lt;</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">endl</span><span class="p">;</span><span class="w"></span>
+</pre></div>
+</div>
+</section>
+<section id="cutlass-components">
+<h2>CUTLASS Components<a class="headerlink" href="#cutlass-components" title="Permalink to this heading">¶</a></h2>
+<p>CUTLASS defines the following CUDA C++ templates to implement Implicit GEMM Convolution which are described in greater detail in subsequent sections.</p>
+<p><strong>Activations tile iterators</strong> load the activations tile into registers. Two implementations are provided:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="/include/cutlass/conv/threadblock/conv2d_fprop_activation_tile_access_iterator_analytic.h">conv2d_fprop_activation_tile_access_iterator_analytic.h</a> computes pointer deltas and masks analytically</p></li>
+<li><p><a class="reference external" href="/include/cutlass/conv/threadblock/conv2d_fprop_activation_tile_access_iterator_optimized.h">conv2d_fprop_activation_tile_access_iterator_optimized.h</a> optimizes iterating over global memory and
+creating GEMM-A tile in shared memory.</p></li>
+</ul>
+<p><strong>Filter tile iterators</strong> load filters into registers. Similarly, two implementations are provided:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="/include/cutlass/conv/threadblock/conv2d_fprop_filter_tile_access_iterator_analytic.h">conv2d_fprop_filter_tile_access_iterator_analytic.h</a> computes pointer deltas and masks analytically</p></li>
+<li><p><a class="reference external" href="/include/cutlass/conv/threadblock/conv2d_fprop_filter_tile_access_iterator_optimized.h">conv2d_fprop_filter_tile_access_iterator_optimized.h</a> optimizes iterating over global memory and
+creating GEMM-B tile in shared memory.</p></li>
+</ul>
+<p>The improvements covered by optimized iterators are:</p>
+<ul class="simple">
+<li><p>(a) Precomputing kernel-invariant pointer deltas on the host</p></li>
+<li><p>(b) Computing cta-invariant mask predicates on device-side iterator ctors</p></li>
+<li><p>(c) Use of <a class="reference external" href="/include/cutlass/fast_math.h">fast divmod</a> to map GEMM dimenstions to convolution tensors.
+For example, <em>optimized</em> activation iterator uses fast divmod to map GEMM <em>M</em> to NPQ
+for activation iterator</p></li>
+</ul>
+<p><strong>Pipelined mainloop</strong> loads threadblock-scoped tiles from global memory into shared memory and then applies
+CUTLASS warp-level GEMM operations to load from Shared Memory and issue instructions to Turing Tensor Cores.</p>
+<ul class="simple">
+<li><p><a class="reference external" href="/include/cutlass/conv/threadblock/implicit_gemm_pipelined.h">mma_pipelined.h</a></p></li>
+</ul>
+<p>Operations for storing to shared memory and performing warp-wide matrix multiply operations using
+Turing Tensor Cores are applied directly from the CUTLASS GEMM components. These include the
+following components.</p>
+<p><strong>Regular Tile Iterator</strong> implemented in
+<a class="reference external" href="/include/cutlass/transform/threadblock/regular_tile_iterator.h">transform::threadblock::RegularTileIterator</a>
+stores register-backed fragments to Shared Memory in permuted layouts.</p>
+<p><strong>Warp-level GEMM</strong> defined in <a class="reference external" href="/include/cutlass/gemm/warp/mma_tensor_op.h">cutlass::gemm::warp::MmaTensorOp</a>
+defines tile iterators to load from Shared Memory and issue math instructions to Turing Tensor Cores.
+Further details are <a class="reference external" href="/media/docs/gemm_api.md#warp-level-matrix-multiply-api">described in here</a>.</p>
+<p><strong>Epilogue</strong> reorders accumulator elements among threads within a threadblock to efficiently update
+the output tensor. It is implemented in <a class="reference external" href="/include/cutlass/epilogue/threadblock/epilogue.h">epilogue::threadblock::Epilogue</a>.</p>
+<section id="loading-activations-and-filters">
+<h3>Loading Activations and Filters<a class="headerlink" href="#loading-activations-and-filters" title="Permalink to this heading">¶</a></h3>
+<p>The Implicit GEMM Convolution algorithm partitions the GEMM <em>K</em> dimension (of extent <em>CRS</em>) into
+threadblock tiles and assigning each threadblock tile to one filter position and an interval
+of channels. After iterating over all filter positions, the convolution algorithm advances to the
+next interval of channels and proceeds from filter <code class="docutils literal notranslate"><span class="pre">r=0,</span> <span class="pre">s=0</span></code>.</p>
+<p>The matrix product of one threadblock tile is computed per iteration of
+the mainloop as described in the <a class="reference external" href="/media/docs/efficient_gemm">CUTLASS GEMM implementation</a>. To
+summarize, the threadblock tile of activations and filters are loaded from tensors in global memory
+and stored to shared memory. Each thread within the threadblock loads one or more vectors and
+collectively span the entire tile.</p>
+<p>The following figure illustrates one particular iteration of the Implicit GEMM mainloop. Each
+thread within the threadblock is mapped to several vectors of elements in the Activations and
+Filters tensors. Each index in the GEMM <em>M</em> dimension corresponds to a unique <em>(N,P,Q)</em>
+index of the output tensor, and pointers may be computed based on this as well as
+filter position <em>(r,s)</em>.</p>
+<p><img alt="ALT" src="media/images/conv2d-fprop-int4.png" /></p>
+<p>The CUTLASS component that embodies this functionality is <a class="reference external" href="/include/cutlass/conv/threadblock/conv2d_fprop_activation_tile_access_iterator_analytic.h">Conv2dFpropFilterTileAccessIteratorAnalytic</a>.
+Its constructor computes the mapping of GEMM <em>M</em> to <em>(N, P, Q)</em>, the <code class="docutils literal notranslate"><span class="pre">at()</span></code> method maps the linear offset into the Activations
+tensor for each memory access the thread is to perform. Additionally, the method <code class="docutils literal notranslate"><span class="pre">valid()</span></code> computes the valided of the access
+for each filter position and for each memory access to indicate whether the memory access will be within the bounds of the
+tensor or out of bounds.</p>
+<p><code class="docutils literal notranslate"><span class="pre">operator++()</span></code> iterates over memory accesses performed by a thread in both contiguous and strided dimension.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">// cutlass/conv/threadblock/conv2d_fprop_activation_tile_access_iterator_analytic.h</span>
+
+<span class="c1">// Update iterator to thread&#39;s next contiguous, strided memory access</span>
+<span class="n">Conv2dFpropActivationTileAccessIteratorAnalytic</span><span class="w"> </span><span class="o">&amp;</span><span class="k">operator</span><span class="o">++</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="o">++</span><span class="n">iteration_contiguous_</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">iteration_contiguous_</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">ThreadMap</span><span class="o">::</span><span class="n">Iterations</span><span class="o">::</span><span class="n">kContiguous</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">*</span><span class="k">this</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="n">iteration_contiguous_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span>
+<span class="w">  </span><span class="o">++</span><span class="n">iteration_strided_</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">iteration_strided_</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">ThreadMap</span><span class="o">::</span><span class="n">Iterations</span><span class="o">::</span><span class="n">kStrided</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="o">*</span><span class="k">this</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="n">iteration_strided_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"></span>
+<span class="w"> </span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="o">*</span><span class="k">this</span><span class="p">;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+<p>After all accesses have been visited for the current threadblock tile, <code class="docutils literal notranslate"><span class="pre">advance()</span></code> updates the pointers to next tile.
+Offsets added to each pointer follows the traversal of filter positions, performing one of the
+following:</p>
+<ul class="simple">
+<li><p>advance from filter position <em>(r, s, c)</em> to filter position <em>(r, s+1, c)</em></p></li>
+<li><p>advance from filter position <em>(r, S-1, c)</em> to filter position <em>(r+1, 0, c)</em></p></li>
+<li><p>advance from filter position <em>(R-1, S-1, c)</em> to filter position <em>(0, 0, c+32)</em></p></li>
+</ul>
+<p>This logic within method <code class="docutils literal notranslate"><span class="pre">advance()</span></code>’s body computes the above three updates for the activation GEMM-A tile.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">// cutlass/conv/threadblock/conv2d_fprop_activation_tile_access_iterator_analytic.h</span>
+
+<span class="c1">// Advance to the next access</span>
+<span class="kt">void</span><span class="w"> </span><span class="nf">advance</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// moves to the next tile</span>
+<span class="w">  </span><span class="o">++</span><span class="n">filter_s_</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">filter_s_</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">problem_size_</span><span class="p">.</span><span class="n">S</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="n">filter_s_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span>
+<span class="w">  </span><span class="o">++</span><span class="n">filter_r_</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">filter_r_</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">problem_size_</span><span class="p">.</span><span class="n">R</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="k">return</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="n">filter_r_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span>
+<span class="w">  </span><span class="n">filter_c_</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">Shape</span><span class="o">::</span><span class="n">kRow</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">problem_size_</span><span class="p">.</span><span class="n">split_k_slices</span><span class="p">;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+<p>Similar logic holds for <a class="reference external" href="/include/cutlass/conv/threadblock/conv2d_fprop_filter_tile_access_iterator_analytic.h">Conv2dFpropFilterTileAccessIteratorAnalytic</a>.</p>
+<p>To reduce computational overhead in the mainloop body, the pointer offsets may be precomputed
+in host code and provided to the CUDA kernel as a lookup table in its <code class="docutils literal notranslate"><span class="pre">Params</span></code> structure.
+As shown in <a class="reference external" href="/include/cutlass/conv/threadblock/conv2d_fprop_activation_tile_access_iterator_optimized.h">Conv2dFpropFilterTileAccessIteratorOptimized</a>,
+the logic to compute offsets from filter position has been extracted to the <code class="docutils literal notranslate"><span class="pre">Params</span></code> constructor.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">// cutlass/conv/threadblock/conv2d_params.h</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">Conv2dFpropActivationIteratorOptimizedParams</span><span class="o">&lt;</span><span class="n">layout</span><span class="o">::</span><span class="n">TensorNHWC</span><span class="o">&gt;</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w"> </span><span class="p">...</span><span class="w"></span>
+<span class="c1">// next S</span>
+<span class="n">inc_next</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">conv_sign</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">(</span><span class="kt">int64_t</span><span class="p">(</span><span class="n">layout</span><span class="p">.</span><span class="n">stride</span><span class="p">()[</span><span class="mi">0</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">problem_size</span><span class="p">.</span><span class="n">dilation_w</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">element_size_bits</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">8</span><span class="p">;</span><span class="w"></span>
+
+<span class="c1">// next R</span>
+<span class="n">inc_next</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">conv_sign</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="p">(</span><span class="w"></span>
+<span class="w">    </span><span class="kt">int64_t</span><span class="p">(</span><span class="n">layout</span><span class="p">.</span><span class="n">stride</span><span class="p">()[</span><span class="mi">1</span><span class="p">])</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">problem_size</span><span class="p">.</span><span class="n">dilation_h</span><span class="w"></span>
+<span class="w">    </span><span class="o">-</span><span class="w"> </span><span class="p">(</span><span class="n">problem_size</span><span class="p">.</span><span class="n">S</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">layout</span><span class="p">.</span><span class="n">stride</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">problem_size</span><span class="p">.</span><span class="n">dilation_w</span><span class="w"></span>
+<span class="w">  </span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">element_size_bits</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">8</span><span class="p">;</span><span class="w"></span>
+
+<span class="c1">// next C</span>
+<span class="n">inc_next</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="w"></span>
+<span class="w">    </span><span class="n">threadblock_shape</span><span class="p">.</span><span class="n">column</span><span class="p">()</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">problem_size</span><span class="p">.</span><span class="n">split_k_slices</span><span class="w"></span>
+<span class="w">    </span><span class="o">-</span><span class="w"> </span><span class="n">conv_sign</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="kt">int64_t</span><span class="p">(</span><span class="n">problem_size</span><span class="p">.</span><span class="n">R</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">layout</span><span class="p">.</span><span class="n">stride</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">problem_size</span><span class="p">.</span><span class="n">dilation_h</span><span class="w"></span>
+<span class="w">    </span><span class="o">-</span><span class="w"> </span><span class="n">conv_sign</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="kt">int64_t</span><span class="p">(</span><span class="n">problem_size</span><span class="p">.</span><span class="n">S</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">layout</span><span class="p">.</span><span class="n">stride</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">problem_size</span><span class="p">.</span><span class="n">dilation_w</span><span class="w"></span>
+<span class="w">  </span><span class="p">)</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="n">element_size_bits</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">8</span><span class="p">;</span><span class="w"></span>
+
+<span class="w"> </span><span class="p">...</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+<p>This allows only a simple lookup from the <em>delta table</em> performed in device code in <code class="docutils literal notranslate"><span class="pre">Conv2dFpropActivationTileAccessIteratorOptimized::advance()</span></code></p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">// cutlass/conv/threadblock/conv2d_fprop_activation_tile_access_iterator_optimized.h</span>
+<span class="n">CUTLASS_HOST_DEVICE</span><span class="w"></span>
+<span class="kt">void</span><span class="w"> </span><span class="n">advance</span><span class="p">()</span><span class="w"> </span><span class="p">{</span><span class="w"> </span>
+
+<span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">next_idx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"></span>
+<span class="w"> </span>
+<span class="w">  </span><span class="c1">// moves to the next tile</span>
+<span class="w">  </span><span class="o">++</span><span class="n">filter_s_</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">filter_s_</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="n">problem_size_</span><span class="p">.</span><span class="n">S</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="n">filter_s_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="o">++</span><span class="n">filter_r_</span><span class="p">;</span><span class="w"></span>
+<span class="w"> </span>
+<span class="w">    </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">filter_r_</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">problem_size_</span><span class="p">.</span><span class="n">R</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="n">next_idx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="w">    </span><span class="k">else</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">      </span><span class="n">filter_r_</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"></span>
+<span class="w">      </span><span class="n">next_idx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">;</span><span class="w"></span>
+<span class="w">    </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="w">  </span>
+<span class="w">  </span><span class="n">add_byte_offset_</span><span class="p">(</span><span class="n">params_</span><span class="p">.</span><span class="n">inc_next</span><span class="p">[</span><span class="n">next_idx</span><span class="p">]);</span><span class="w"> </span><span class="c1">// in addition to Conv2dFpropActivationTileAccessIteratorAnalytic::advance()</span>
+
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">next_idx</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">  </span>
+<span class="w">    </span><span class="n">filter_c_</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">params_</span><span class="p">.</span><span class="n">filter_c_delta</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+</section>
+<section id="utilizing-tensor-cores">
+<h3>Utilizing Tensor Cores<a class="headerlink" href="#utilizing-tensor-cores" title="Permalink to this heading">¶</a></h3>
+<p>Turing Tensor Cores compute matrix multiply-accumulate operations efficiently by sharing data among all
+threads within a warp. The following operations are supported.</p>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th><strong>Shape</strong></th>
+<th><strong>A</strong></th>
+<th><strong>B</strong></th>
+<th><strong>C</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>8x8x32</td>
+<td>int4b_t</td>
+<td>int4b_t</td>
+<td>int32_t</td>
+</tr>
+<tr>
+<td>8x8x16</td>
+<td>int8b_t</td>
+<td>int8b_t</td>
+<td>int32_t</td>
+</tr>
+<tr>
+<td>16x8x8</td>
+<td>half</td>
+<td>half</td>
+<td>half</td>
+</tr>
+<tr>
+<td>16x8x8</td>
+<td>half</td>
+<td>half</td>
+<td>float</td>
+</tr>
+</tbody>
+</table><p>Functionally, the Turing 8x8x32 matrix multiply operation distributes the <em>A</em>, <em>B</em>, and <em>C</em> matrix across 32
+threads within a warp according to the following illustration.</p>
+<p><img alt="ALT" src="media/images/mma-8x8x32.png" /></p>
+<p>This Tensor Core operation is accessible to the CUDA programmer via the PTX instruction
+<a class="reference external" href="https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#warp-level-matrix-fragment-mma-8832"><code class="docutils literal notranslate"><span class="pre">mma.sync</span></code></a>.
+CUTLASS wraps inline PTX with device-side intrinsics defined in <a class="reference external" href="/include/cutlass/arch/mma_sm75.h"><code class="docutils literal notranslate"><span class="pre">cutlass/arch/mma_sm75.h</span></code></a>
+as in the following example.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="kt">unsigned</span><span class="w"> </span><span class="n">A</span><span class="p">;</span><span class="w">   </span><span class="c1">// eight packed 4-bit integer elements</span>
+<span class="kt">unsigned</span><span class="w"> </span><span class="n">B</span><span class="p">;</span><span class="w">   </span><span class="c1">// eight packed 4-bit integer elements</span>
+
+<span class="kt">int</span><span class="w"> </span><span class="n">C</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span><span class="w">     </span><span class="c1">// two 32-bit integer elements</span>
+<span class="kt">int</span><span class="w"> </span><span class="n">D</span><span class="p">[</span><span class="mi">2</span><span class="p">];</span><span class="w">     </span><span class="c1">// two 32-bit integer elements</span>
+
+<span class="k">asm</span><span class="w"> </span><span class="k">volatile</span><span class="p">(</span><span class="w"></span>
+<span class="w">  </span><span class="s">&quot;mma.sync.aligned.m8n8k32.row.col.s32.s4.s4.s32 {%0,%1}, {%2}, {%3}, {%4,%5};</span><span class="se">\n</span><span class="s">&quot;</span><span class="w"></span>
+<span class="w">  </span><span class="o">:</span><span class="w"> </span><span class="s">&quot;=r&quot;</span><span class="p">(</span><span class="n">D</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span><span class="w"> </span><span class="s">&quot;=r&quot;</span><span class="p">(</span><span class="n">D</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span><span class="w"></span>
+<span class="w">  </span><span class="o">:</span><span class="w"> </span><span class="s">&quot;r&quot;</span><span class="p">(</span><span class="n">A</span><span class="p">),</span><span class="w"> </span><span class="s">&quot;r&quot;</span><span class="p">(</span><span class="n">B</span><span class="p">),</span><span class="w"> </span><span class="s">&quot;r&quot;</span><span class="p">(</span><span class="n">C</span><span class="p">[</span><span class="mi">0</span><span class="p">]),</span><span class="w"> </span><span class="s">&quot;r&quot;</span><span class="p">(</span><span class="n">C</span><span class="p">[</span><span class="mi">1</span><span class="p">]));</span><span class="w"></span>
+</pre></div>
+</div>
+<p>To efficiently load data from Shared Memory into registers with the distribution among
+warps matching the above, the Turing GPU architecture introduces
+<a class="reference external" href="https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#warp-level-matrix-instructions-ldmatrix"><code class="docutils literal notranslate"><span class="pre">ldmatrix</span></code></a>.
+<code class="docutils literal notranslate"><span class="pre">ldmatrix</span></code> is the ultimate warp-cooperative instruction, as all threads contribute addresses to up to 32 row vectors of
+size 128-bits in length. These rows are fetched from Shared Memory and then distributed among groups of four threads
+per row.</p>
+<p>The arrangement of SMEM pointers and destination registers within threads is illustrated as follows. Thread 0 is highlighted
+in the illustration to emphasize the mapping.</p>
+<p><img alt="ALT" src="media/images/ldmatrix-8x128bx4.png" /></p>
+<p>The size of the Turing Tensor Core operation computing matrix multiply-accumulate on INT4 data is 8-by-8-by-32
+elements. <code class="docutils literal notranslate"><span class="pre">ldmatrix</span></code> fetches up to 32 rows (or columns) per operation. Sixteen Tensor Core operations may be issued
+to implement a 32-by-32-by-32 matrix product and perfectly consume all data loaded by two <code class="docutils literal notranslate"><span class="pre">ldmatrix</span></code> instructions
+as shown in the following figure. Larger tiles are possible by increasing the number of memory instructions
+and issuing more Tensor Core operations, up to warp-level matrix operations of size 64-by-64-by-32. The limit is
+the number of registers to hold the accumulator elements.</p>
+<p><img alt="ALT" src="media/images/ldmatrix-tensorop-32x32x32.png" /></p>
+</section>
+<section id="shared-memory-layouts">
+<h3>Shared Memory Layouts<a class="headerlink" href="#shared-memory-layouts" title="Permalink to this heading">¶</a></h3>
+<p>In the previous two sections, we have described how data may be loaded from activations and filters tensors
+in global memory to compute convolution, and we have described a composition of <code class="docutils literal notranslate"><span class="pre">ldmatrix</span></code> and <code class="docutils literal notranslate"><span class="pre">mma.sync</span></code>
+to fetch data from Shared Memory and issue Tensor Core operations.</p>
+<p>To ensure this data movement is efficient, care must be taken to ensure bank conflicts are avoided. CUTLASS
+uses a permuted Shared Memory layout to avoid bank conflicts when storing to Shared Memory and to efficiently
+load from Shared Memory using <code class="docutils literal notranslate"><span class="pre">ldmatrix</span></code>. The following figure illustrates the thread mapping used for
+the loading the activations and filters threadblock tiles from global memory and the permuted layout in
+Shared Memory.</p>
+<p><img alt="ALT" src="media/images/tensor-op-permuted-smem-layout-TN.png" /></p>
+<p>In the illustration, one warp-wide memory access is highlighted in blue, with individual threads
+loading one 128-bit vector. The tile in global memory could correspond either to the activations
+or filters and is assumed to be ‘strip-mined’ with four threads loading consecutive channels.</p>
+<p>Shared Memory is visualized as a ‘row-major’ matrix with eight columns representing
+the eight 128-bit banks.<br />As described in the CUTLASS GTC 2019 presentation <a class="reference external" href="https://developer.download.nvidia.com/video/gputechconf/gtc/2019/presentation/s9593-cutensor-high-performance-tensor-operations-in-cuda-v2.pdf">slides</a>,
+<a class="reference external" href="https://developer.nvidia.com/gtc/2019/video/S9593">recording</a>, an access to Shared Memory will be conflict-free if
+the following conditions are satisfied across each warp:</p>
+<ul class="simple">
+<li><p>{T0, T1, .., T7} do not access the same 128-bit bank</p></li>
+<li><p>{T8, T9, .., T15} do not access the same 128-bit bank</p></li>
+<li><p>{T16, T17, .., T23} do not access the same 128-bit bank</p></li>
+<li><p>{T24, T25, .., T31} do not access the same 128-bit bank</p></li>
+</ul>
+<p>To achieve conflict-free stores, the Shared Memory layout remaps the strip-mined arrangement to transpose
+the vectors and applies an XOR operation on the column index of each thread’s pointer. Specifically,</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="w">  </span><span class="kt">int</span><span class="w"> </span><span class="n">store_column</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="n">lane_id</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="mi">8</span><span class="p">)</span><span class="w"> </span><span class="o">^</span><span class="w"> </span><span class="p">(</span><span class="n">lane_id</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">8</span><span class="p">);</span><span class="w"></span>
+</pre></div>
+</div>
+<p>This transformation on the layout will be instrumental in reading slices of data from Shared Memory
+to compute the warp-level matrix multiply using Tensor Cores.</p>
+<p>The following figure shows how the first sixteen threads participating in an <code class="docutils literal notranslate"><span class="pre">ldmatrix</span></code> instruction
+logically map to the c=0..31 slice of a matrix in Shared Memory. This slice is known as a “k-group”
+within the code because it corresponds to the same K-index of a warp-level matrix multiply.</p>
+<p><img alt="ALT" src="media/images/tensor-op-permuted-smem-layout-TN-k0.png" /></p>
+<p>The lower half of the figure shows the physical arrangement in Shared Memory, with threads offset by row and column
+according to the XOR function. By inspection, we can observe there are no bank conflicts, as <em>T0 … T7</em> each access unique
+banks, as do <em>T8 … T15</em>. and beyond.</p>
+<p>To advance to the next “k-group” within Shared Memory, pointers are updated using an XOR operation according to
+the following sequence:</p>
+<ul class="simple">
+<li><p><strong>^1</strong> advances from <em>k=0</em> to <em>k=1</em></p></li>
+<li><p><strong>^3</strong> advances from <em>k=1</em> to <em>k=2</em></p></li>
+<li><p><strong>^1</strong> advances from <em>k=2</em> to <em>k=3</em></p></li>
+<li><p><strong>^3</strong> advances from <em>k=3</em> to <em>k=0</em></p></li>
+</ul>
+<p>The first of these transitions is shown below.
+<img alt="ALT" src="media/images/tensor-op-permuted-smem-layout-TN-k1.png" /></p>
+<p>The <a class="reference external" href="/media/docs/gemm_api.md#warp-level-matrix-multiply-api">CUTLASS warp-level GEMM API</a> defines templates for
+loading slices of data from permuted Shared Memory and issuing operations to Tensor Cores.</p>
+</section>
+<section id="updating-the-output-tensor">
+<h3>Updating the Output Tensor<a class="headerlink" href="#updating-the-output-tensor" title="Permalink to this heading">¶</a></h3>
+<p>After the mainloop terminates, the accumulator tile of the warp-level GEMM stores a warp’s contribution to the output
+tensor. However, the distribution of data among threads within the threadblock is specialized for efficient matrix multiply-accumulate
+operations using Tensor Cores and is not conducive to efficient, coalesced operations to Global Memory. A data rearrangement is
+needed.</p>
+<p>The <strong>Epilogue</strong> is the component for exchanging accumulator elements through Shared Memory, loading slices of the output
+matrix or tensor, applying an elementwise operation such as linear scaling or bias, and storing the result to the output tensor.
+CUTLASS structures this as several components:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="/include/cutlass/epilogue/threadblock/epilogue.h">cutlass::epilogue::threadblock::Epilogue</a> - the top-level component for looping over the entire threadblock tile</p></li>
+<li><p><a class="reference external" href="/include/cutlass/epilogue/warp/tile_iterator_tensor_op.h">cutlass::epilogue::warp::TileIteratorTensorOp</a> - a specialized component for storing accumulators for Tensor Core to Shared Memory</p></li>
+<li><p><a class="reference external" href="/include/cutlass/epilogue/threadblock/shared_load_iterator.h">cutlass::epilogue::threadblock::SharedLoadIterator</a> - a component for loading elements from a row-major arrangement in Shared Memory</p></li>
+<li><p><a class="reference external" href="/include/cutlass/epilogue/threadblock/predicated_tile_iterator.h">cutlass::epilogue::threadblock::PredicatedTileIterator</a> - a component for loading or storing matrix fragments to Global Memory (with bounds checks)</p></li>
+<li><p><a class="reference external" href="/include/cutlass/epilogue/thread/linear_combination.h">cutlass::epilogue::thread::LinearCombination</a> - an element-wise function computing <code class="docutils literal notranslate"><span class="pre">alpha</span> <span class="pre">*</span> <span class="pre">AB</span> <span class="pre">+</span> <span class="pre">beta</span> <span class="pre">*</span> <span class="pre">C</span></code> to compute the final output</p></li>
+</ul>
+</section>
+</section>
+<section id="unit-tests">
+<h2>Unit Tests<a class="headerlink" href="#unit-tests" title="Permalink to this heading">¶</a></h2>
+<p>Unit tests verify the functional behavior of each of the above components in a standalone CUDA kernel. This provides a
+convenient environment to (a.) inspect the template definition, (b.) showcase instantiation of use of these templates
+in device code, and (c.) assert functional correctness.</p>
+<p><strong>Convolution unit tests</strong></p>
+<ul class="simple">
+<li><p>Device-wide convolution operator: <a class="reference external" href="/test/unit/conv/device/conv2d_fprop_implicit_gemm_s4nhwc_s4nhwc_s32nhwc_tensor_op_s32_sm75.cu">conv2d_fprop_implicit_gemm_s4nhwc_s4nhwc_s32nhwc_tensor_op_s32_sm75.cu</a></p></li>
+</ul>
+<p><strong>GEMM unit tests</strong></p>
+<ul class="simple">
+<li><p>Warp-scoped matrix multiply for Turing Tensor Cores: <a class="reference external" href="/test/unit/gemm/warp/gemm_sm75.cu">gemm_sm75.cu</a></p></li>
+</ul>
+<p><strong>Epilogue unit tests</strong></p>
+<ul class="simple">
+<li><p>Epilogue for Turing Tensor Cores: <a class="reference external" href="/test/unit/epilogue/threadblock/epilogue_tensor_op.cu">epilogue_tensor_op.cu</a></p></li>
+</ul>
+</section>
+</section>
+<section id="convolution-example">
+<h1>Convolution Example<a class="headerlink" href="#convolution-example" title="Permalink to this heading">¶</a></h1>
+<p>This section describes the provided convolution example and is intended to orient the reader to the CUTLASS implementation
+of Implicit GEMM Convolution.</p>
+<section id="building-and-running-the-example">
+<h2>Building and Running the Example<a class="headerlink" href="#building-and-running-the-example" title="Permalink to this heading">¶</a></h2>
+<p>Example <code class="docutils literal notranslate"><span class="pre">09_turing_tensorop_conv2dfprop</span></code> computes a forward convolutional layer in which inputs and
+outputs are 4-b integers. The example source is visible in
+<a class="reference external" href="/examples/09_turing_tensorop_conv2dfprop/turing_tensorop_conv2dfprop.cu">examples/09_turing_tensorop_conv2dfprop/turing_tensorop_conv2dfprop.cu</a>.</p>
+<p>Before building the example, first perform the prerequisite steps for building any CUTLASS component <a class="reference external" href="/media/docs/quickstart">described here</a>.
+Compute capability 7.5 refers to the Turing architecture, and this work requires CUDA 10.2 Toolkit or later to target
+Turing Tensor Cores using the native <code class="docutils literal notranslate"><span class="pre">mma</span></code> <a class="reference external" href="https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#warp-level-matrix-fragment-mma-8832">PTX instruction</a>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ mkdir build <span class="o">&amp;&amp;</span> <span class="nb">cd</span> build
+
+$ cmake .. -DCUTLASS_NVCC_ARCHS<span class="o">=</span><span class="m">75</span>
+</pre></div>
+</div>
+<p>To build the example, execute <code class="docutils literal notranslate"><span class="pre">make</span> <span class="pre">09_turing_tensorop_conv2dfprop</span></code> from the build directory.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ make 09_turing_tensorop_conv2dfprop
+
+$ ls examples/09_turing_tensorop_conv2dfprop 
+examples/09_turing_tensorop_conv2dfprop
+</pre></div>
+</div>
+<p>This example provides a simple command line interface to specify the extents of 4D tensors of 4-bit integer elements (<code class="docutils literal notranslate"><span class="pre">cutlass::int4b_t</span></code>),
+initialize them to random values, and compute the result of a convolutional layer. Optionally, the input and output
+tensors may be saved to .csv files, and the CUTLASS host-side reference check may be executed to verify correctness.</p>
+<p>The complete usage statement is visible by running with <code class="docutils literal notranslate"><span class="pre">--help</span></code>:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ ./examples/09_turing_tensorop_conv2dfprop/09_turing_tensorop_conv2dfprop --help
+09_turing_tensorop_conv2dfprop example
+
+  This example uses Turing&#39;s Tensor Core operators on int4 data types to compute
+  forward convolution on tensors of layout NHWC.
+
+Options:
+
+  --help               If specified, displays this usage statement.
+
+  --n &lt;int&gt;            Input tensor extent N
+  --h &lt;int&gt;            Input tensor extent H
+  --w &lt;int&gt;            Input tensor extent W
+  --c &lt;int&gt;            Input tensor extent C
+  --k &lt;int&gt;            Filter extent K
+  --r &lt;int&gt;            Filter extent R
+  --s &lt;int&gt;            Filter extent S
+
+  --alpha &lt;float&gt;      Epilogue scalar alpha
+  --beta &lt;float&gt;       Epilogue scalar beta
+
+  --ref-check          If set (true), reference check on the host is computed
+  --perf-check         If set (true), performance is measured.
+  --benchmark          If set (true), performance benchmarking on several layers and batch-size.
+  --iterations &lt;int&gt;   Number of profiling iterations to perform.
+  --save-workspace     If set, workspace is written to a text file.
+  --tag &lt;string&gt;       String to replicate across the first column in the results table
+
+
+
+Examples:
+
+$ ./examples/09_turing_tensorop_conv2dfprop/09_turing_tensorop_conv2dfprop  --n=32 --h=224 --w=224 --c=128 --k=256 --r=1 --s=1
+
+$ ./examples/09_turing_tensorop_conv2dfprop/09_turing_tensorop_conv2dfprop  --n=1 --h=224 --w=224 --c=32 --k=32 --r=3 --s=3 --ref-check
+</pre></div>
+</div>
+<p><em>Note</em>, this example assumes all tensors are 128b aligned and in format <em>NHWC</em>. Consequently, dimension
+<em>C</em> must be divisible by 32 for activations, filters, and output.</p>
+<p>If the option <code class="docutils literal notranslate"><span class="pre">--benchmark</span></code> is passed, several layers from ResNet50 are profiled for various batch sizes.
+This sample output was computed on an NVIDIA RTX 2080 compiled with CUDA 10.2.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>build$ ./examples/09_turing_tensorop_conv2dfprop/09_turing_tensorop_conv2dfprop --benchmark
+</pre></div>
+</div>
+<p>Convolution can also be run by the CUTLASS Profiler.</p>
+</section>
+</section>
+<section id="copyright">
+<h1>Copyright<a class="headerlink" href="#copyright" title="Permalink to this heading">¶</a></h1>
+<p>Copyright (c) 2017 - 2022 NVIDIA CORPORATION &amp; AFFILIATES. All rights reserved.
+SPDX-License-Identifier: BSD-3-Clause</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>  <span class="n">Redistribution</span> <span class="ow">and</span> <span class="n">use</span> <span class="ow">in</span> <span class="n">source</span> <span class="ow">and</span> <span class="n">binary</span> <span class="n">forms</span><span class="p">,</span> <span class="k">with</span> <span class="ow">or</span> <span class="n">without</span>
+  <span class="n">modification</span><span class="p">,</span> <span class="n">are</span> <span class="n">permitted</span> <span class="n">provided</span> <span class="n">that</span> <span class="n">the</span> <span class="n">following</span> <span class="n">conditions</span> <span class="n">are</span> <span class="n">met</span><span class="p">:</span>
+
+  <span class="mf">1.</span> <span class="n">Redistributions</span> <span class="n">of</span> <span class="n">source</span> <span class="n">code</span> <span class="n">must</span> <span class="n">retain</span> <span class="n">the</span> <span class="n">above</span> <span class="n">copyright</span> <span class="n">notice</span><span class="p">,</span> <span class="n">this</span>
+  <span class="nb">list</span> <span class="n">of</span> <span class="n">conditions</span> <span class="ow">and</span> <span class="n">the</span> <span class="n">following</span> <span class="n">disclaimer</span><span class="o">.</span>
+
+  <span class="mf">2.</span> <span class="n">Redistributions</span> <span class="ow">in</span> <span class="n">binary</span> <span class="n">form</span> <span class="n">must</span> <span class="n">reproduce</span> <span class="n">the</span> <span class="n">above</span> <span class="n">copyright</span> <span class="n">notice</span><span class="p">,</span>
+  <span class="n">this</span> <span class="nb">list</span> <span class="n">of</span> <span class="n">conditions</span> <span class="ow">and</span> <span class="n">the</span> <span class="n">following</span> <span class="n">disclaimer</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">documentation</span>
+  <span class="ow">and</span><span class="o">/</span><span class="ow">or</span> <span class="n">other</span> <span class="n">materials</span> <span class="n">provided</span> <span class="k">with</span> <span class="n">the</span> <span class="n">distribution</span><span class="o">.</span>
+
+  <span class="mf">3.</span> <span class="n">Neither</span> <span class="n">the</span> <span class="n">name</span> <span class="n">of</span> <span class="n">the</span> <span class="n">copyright</span> <span class="n">holder</span> <span class="n">nor</span> <span class="n">the</span> <span class="n">names</span> <span class="n">of</span> <span class="n">its</span>
+  <span class="n">contributors</span> <span class="n">may</span> <span class="n">be</span> <span class="n">used</span> <span class="n">to</span> <span class="n">endorse</span> <span class="ow">or</span> <span class="n">promote</span> <span class="n">products</span> <span class="n">derived</span> <span class="kn">from</span>
+  <span class="nn">this</span> <span class="n">software</span> <span class="n">without</span> <span class="n">specific</span> <span class="n">prior</span> <span class="n">written</span> <span class="n">permission</span><span class="o">.</span>
+
+  <span class="n">THIS</span> <span class="n">SOFTWARE</span> <span class="n">IS</span> <span class="n">PROVIDED</span> <span class="n">BY</span> <span class="n">THE</span> <span class="n">COPYRIGHT</span> <span class="n">HOLDERS</span> <span class="n">AND</span> <span class="n">CONTRIBUTORS</span> <span class="s2">&quot;AS IS&quot;</span>
+  <span class="n">AND</span> <span class="n">ANY</span> <span class="n">EXPRESS</span> <span class="n">OR</span> <span class="n">IMPLIED</span> <span class="n">WARRANTIES</span><span class="p">,</span> <span class="n">INCLUDING</span><span class="p">,</span> <span class="n">BUT</span> <span class="n">NOT</span> <span class="n">LIMITED</span> <span class="n">TO</span><span class="p">,</span> <span class="n">THE</span>
+  <span class="n">IMPLIED</span> <span class="n">WARRANTIES</span> <span class="n">OF</span> <span class="n">MERCHANTABILITY</span> <span class="n">AND</span> <span class="n">FITNESS</span> <span class="n">FOR</span> <span class="n">A</span> <span class="n">PARTICULAR</span> <span class="n">PURPOSE</span> <span class="n">ARE</span>
+  <span class="n">DISCLAIMED</span><span class="o">.</span> <span class="n">IN</span> <span class="n">NO</span> <span class="n">EVENT</span> <span class="n">SHALL</span> <span class="n">THE</span> <span class="n">COPYRIGHT</span> <span class="n">HOLDER</span> <span class="n">OR</span> <span class="n">CONTRIBUTORS</span> <span class="n">BE</span> <span class="n">LIABLE</span>
+  <span class="n">FOR</span> <span class="n">ANY</span> <span class="n">DIRECT</span><span class="p">,</span> <span class="n">INDIRECT</span><span class="p">,</span> <span class="n">INCIDENTAL</span><span class="p">,</span> <span class="n">SPECIAL</span><span class="p">,</span> <span class="n">EXEMPLARY</span><span class="p">,</span> <span class="n">OR</span> <span class="n">CONSEQUENTIAL</span>
+  <span class="n">DAMAGES</span> <span class="p">(</span><span class="n">INCLUDING</span><span class="p">,</span> <span class="n">BUT</span> <span class="n">NOT</span> <span class="n">LIMITED</span> <span class="n">TO</span><span class="p">,</span> <span class="n">PROCUREMENT</span> <span class="n">OF</span> <span class="n">SUBSTITUTE</span> <span class="n">GOODS</span> <span class="n">OR</span>
+  <span class="n">SERVICES</span><span class="p">;</span> <span class="n">LOSS</span> <span class="n">OF</span> <span class="n">USE</span><span class="p">,</span> <span class="n">DATA</span><span class="p">,</span> <span class="n">OR</span> <span class="n">PROFITS</span><span class="p">;</span> <span class="n">OR</span> <span class="n">BUSINESS</span> <span class="n">INTERRUPTION</span><span class="p">)</span> <span class="n">HOWEVER</span>
+  <span class="n">CAUSED</span> <span class="n">AND</span> <span class="n">ON</span> <span class="n">ANY</span> <span class="n">THEORY</span> <span class="n">OF</span> <span class="n">LIABILITY</span><span class="p">,</span> <span class="n">WHETHER</span> <span class="n">IN</span> <span class="n">CONTRACT</span><span class="p">,</span> <span class="n">STRICT</span> <span class="n">LIABILITY</span><span class="p">,</span>
+  <span class="n">OR</span> <span class="n">TORT</span> <span class="p">(</span><span class="n">INCLUDING</span> <span class="n">NEGLIGENCE</span> <span class="n">OR</span> <span class="n">OTHERWISE</span><span class="p">)</span> <span class="n">ARISING</span> <span class="n">IN</span> <span class="n">ANY</span> <span class="n">WAY</span> <span class="n">OUT</span> <span class="n">OF</span> <span class="n">THE</span> <span class="n">USE</span>
+  <span class="n">OF</span> <span class="n">THIS</span> <span class="n">SOFTWARE</span><span class="p">,</span> <span class="n">EVEN</span> <span class="n">IF</span> <span class="n">ADVISED</span> <span class="n">OF</span> <span class="n">THE</span> <span class="n">POSSIBILITY</span> <span class="n">OF</span> <span class="n">SUCH</span> <span class="n">DAMAGE</span><span class="o">.</span>
+</pre></div>
+</div>
+</section>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../../../../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'en',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../../../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/sphinx_highlight.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
+        </div>
+    </div>  
+
+</body>
+</html>

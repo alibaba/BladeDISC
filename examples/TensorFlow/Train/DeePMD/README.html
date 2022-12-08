@@ -3,7 +3,8 @@
 <!DOCTYPE html>
 <head>
   <meta charset="utf-8">
-  
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <title>DISC optimization example for TensorFlow training. &mdash; BladeDISC 1.0.0 documentation</title>
@@ -110,7 +111,9 @@
 <li class="toctree-l2"><a class="reference internal" href="../../../../README.html#setup-and-examples">Setup and Examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../README.html#publications">Publications</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README.html#presentations-and-talks">Presentations and Talks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README.html#building-status">Building Status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../README.html#faq">FAQ</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../README.html#contact-us">Contact Us</a></li>
 </ul>
@@ -123,6 +126,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../../../../docs/build_from_source.html">Build from Source</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
 </ul>
@@ -152,12 +156,12 @@
                     <div class="document">
                         
                             
-  <div class="section" id="disc-optimization-example-for-tensorflow-training">
-<h1>DISC optimization example for TensorFlow training.<a class="headerlink" href="#disc-optimization-example-for-tensorflow-training" title="Permalink to this headline">¶</a></h1>
+  <section id="disc-optimization-example-for-tensorflow-training">
+<h1>DISC optimization example for TensorFlow training.<a class="headerlink" href="#disc-optimization-example-for-tensorflow-training" title="Permalink to this heading">¶</a></h1>
 <p>This repository provides a script showing how to optimize a DeePMD training
 model with DISC just-in-time.</p>
-<div class="section" id="run">
-<h2>Run<a class="headerlink" href="#run" title="Permalink to this headline">¶</a></h2>
+<section id="run">
+<h2>Run<a class="headerlink" href="#run" title="Permalink to this heading">¶</a></h2>
 <p>Install DeePMD-kit according to
 https://github.com/deepmodeling/deepmd-kit/blob/master/doc/install/install-from-source.md.
 Then execute the following commands.</p>
@@ -170,9 +174,9 @@ sh run.sh
 </div>
 <p>Note the dataset downloaded with <code class="docutils literal notranslate"><span class="pre">download_data.sh</span></code> is cloned from
 https://github.com/deepmodeling/deepmd-kit.git.</p>
-</div>
-<div class="section" id="performance-results">
-<h2>Performance results.<a class="headerlink" href="#performance-results" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="performance-results">
+<h2>Performance results.<a class="headerlink" href="#performance-results" title="Permalink to this heading">¶</a></h2>
 <p>We evaluate this example on V100 GPU. The execution time of 100 training steps
 is as following.</p>
 <table border="1" class="docutils">
@@ -189,8 +193,8 @@ is as following.</p>
 </tr>
 </tbody>
 </table><p>DISC shows a 1.24x speedup over TensorFlow.</p>
-</div>
-</div>
+</section>
+</section>
 
 
                         
@@ -207,7 +211,7 @@ is as following.</p>
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../../../../',
             VERSION:'1.0.0',
-            LANGUAGE:'None',
+            LANGUAGE:'en',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true,
@@ -217,7 +221,9 @@ is as following.</p>
     <script type="text/javascript" src="../../../../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../../../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../_static/sphinx_highlight.js"></script>
     <script type="text/javascript" src="../../../../_static/clipboard.min.js"></script>
     <script type="text/javascript" src="../../../../_static/copybutton.js"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
@@ -226,7 +232,7 @@ is as following.</p>
     <div class="footer" role="contentinfo">
         <div class="container">
             &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
-        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
         </div>
     </div>  
 

@@ -1,0 +1,706 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>CUTLASS Profiler &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../../../../index.html">Docs</a></li>
+        
+      <li>CUTLASS Profiler</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../../../../_sources/tao_compiler/mlir/disc/cutlass/media/docs/profiler.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../README.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#what-s-new">What’s New</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#presentations-and-talks">Presentations and Talks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#building-status">Building Status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../docs/quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <p><img alt="ALT" src="media/images/gemm-hierarchy-with-epilogue-no-labels.png" /></p>
+<p><a class="reference external" href="/README.md#documentation">README</a> &gt; <strong>CUTLASS Profiler</strong></p>
+<section id="cutlass-profiler">
+<h1>CUTLASS Profiler<a class="headerlink" href="#cutlass-profiler" title="Permalink to this heading">¶</a></h1>
+<p>The CUTLASS Profiler is a command-line driven test and profiling environment for CUTLASS computations
+defined in the CUTLASS Instance Library. The CUTLASS Profiler is capable of executing each GEMM, Sparse Gemm,
+Conv2d, and Conv3d kernel.</p>
+<p>The CUTLASS Profiler may be compiled with:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ make cutlass_profiler -j
+</pre></div>
+</div>
+<p>To limit compilation time, only one tile size (typically 128x128) is instantiated for each data type,
+math instruction, and layout. To instantiate all sizes, set the following environment variable when running CMake from an
+empty <code class="docutils literal notranslate"><span class="pre">build/</span></code> directory.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ cmake .. -DCUTLASS_NVCC_ARCHS<span class="o">=</span><span class="s2">&quot;70;75;80&quot;</span> -DCUTLASS_LIBRARY_KERNELS<span class="o">=</span>all  -DCUTLASS_UNITY_BUILD_ENABLED<span class="o">=</span>ON
+...
+$ make cutlass_profiler -j
+</pre></div>
+</div>
+<p>Enabling the unity build places multiple kernel instances in one compilation unit, thereby reducing size of the compiled
+binary and avoiding linker limitations on some platforms.</p>
+<p>The CUTLASS Profiler sources are stored in</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>tools/
+  profiler/
+</pre></div>
+</div>
+<p>The CUTLASS Profiler usage statement may be obtained by executing <code class="docutils literal notranslate"><span class="pre">cutlass_profiler</span> <span class="pre">--help</span></code> and appears as follows.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>CUTLASS Performance Tool
+usage:
+
+    cutlass_profiler <span class="o">[</span>options<span class="o">]</span>
+
+  --help
+
+  --mode<span class="o">=</span>&lt;string&gt;                                  Cutlass profiler execution mode.
+                                                    --mode<span class="o">=</span>profile    regular verification and profiling <span class="o">(</span>default<span class="o">)</span>
+                                                    --mode<span class="o">=</span>dry_run    no kernels are launched or workspaces allocated
+                                                    --mode<span class="o">=</span>enumerate  lists all operation kind and operations
+                                                    --mode<span class="o">=</span>trace      executes a single device-side computation with
+                                                                       no other kernel launches
+
+  --device-info                                    Prints information on all GPUs present <span class="k">in</span> the system
+
+  --operation<span class="o">=</span>&lt;operation_kind&gt;                     CUTLASS operation to profile.
+
+  --kernels<span class="o">=</span>&lt;string_list&gt;                          Filter operations by kernel names. For example, call all kernels with
+                                                   <span class="o">(</span><span class="s2">&quot;s1688&quot;</span> and <span class="s2">&quot;nt&quot;</span><span class="o">)</span> or <span class="o">(</span><span class="s2">&quot;s844&quot;</span> and <span class="s2">&quot;tn&quot;</span> and <span class="s2">&quot;align8&quot;</span><span class="o">)</span> <span class="k">in</span> their
+                                                   operation name using --kernels<span class="o">=</span><span class="s2">&quot;s1688*nt, s884*tn*align8&quot;</span>
+
+  --ignore-kernels<span class="o">=</span>&lt;string_list&gt;                   Excludes kernels whose names match anything <span class="k">in</span> this list.
+
+Device:
+  --device<span class="o">=</span>&lt;int&gt;                                   CUDA Device ID
+
+  --compute-capability<span class="o">=</span>&lt;int&gt;                       Override the compute capability.
+
+  --llc-capacity<span class="o">=</span>&lt;capacity <span class="k">in</span> KiB&gt;                 Capacity of last-level cache <span class="k">in</span> kilobytes. If this is non-zero,
+                                                   profiling phases cycle through different input tensors to induce
+                                                   capacity misses <span class="k">in</span> the L2.
+
+
+Initialization:
+  --initialization<span class="o">=</span>&lt;bool&gt;                          Enables initialization <span class="o">(</span>default: <span class="nb">true</span><span class="o">)</span>. If false, device memory is
+                                                   not initialized after allocation.
+
+  --initialization-provider<span class="o">=</span>&lt;provider&gt;             Selects initialization provider <span class="o">{</span>host, device*<span class="o">}</span>. <span class="o">(</span>default: <span class="s1">&#39;*&#39;</span><span class="o">)</span>
+
+  --dist<span class="o">=</span>&lt;distribution&gt;                            Data distribution of input tensors <span class="o">{</span>uniform*, gaussian, identity, sequential<span class="o">}</span>
+                                                    --dist<span class="o">=</span>uniform,min:&lt;double&gt;,max:&lt;double&gt;,scale:&lt;integer&gt;
+                                                    --dist<span class="o">=</span>gaussian,mean:&lt;double&gt;,stddev:&lt;double&gt;,scale:&lt;integer&gt;
+                                                    --dist<span class="o">=</span>sequential,start:&lt;double&gt;,delta:&lt;double&gt;,scale:&lt;integer&gt;
+                                                    --dist<span class="o">=</span>identity
+
+  --seed<span class="o">=</span>&lt;int&gt;                                     Random number generator seed. Used to enforce deterministic
+                                                   initialization.
+
+
+Library:
+  --library-algo-mode<span class="o">=</span>&lt;mode&gt;                       Indicates algorithm mode used to call libraries such as cuBLAS and cuDNN.
+                                                   <span class="nv">mode</span><span class="o">={</span>default*,matching,best<span class="o">}</span>
+
+  --library-algos<span class="o">=</span>&lt;range-list&gt;                     If --algorithm-mode<span class="o">=</span>best, permits specifying a selection of algorithms.
+
+
+Profiling:
+  --workspace-count<span class="o">=</span>&lt;workspace count&gt;              Number of discrete workspaces maintained to avoid cache-resident 
+                                                 If zero <span class="o">(</span>default<span class="o">)</span>, the amount is chosen <span class="k">for</span> each workload based on 
+                                                 capacity of the last-level cache.
+
+  --profiling-iterations<span class="o">=</span>&lt;iterations&gt;              Number of iterations to profile each kernel. If zero, kernels
+                                                   are launched up to the profiling duration.
+
+  --warmup-iterations<span class="o">=</span>&lt;iterations&gt;                 Number of iterations to execute each kernel prior to profiling.
+
+  --sleep-duration<span class="o">=</span>&lt;duration&gt;                      Number of ms to sleep between profiling periods <span class="o">(</span>ms<span class="o">)</span>.
+
+  --profiling-enabled<span class="o">=</span>&lt;bool&gt;                       If true, profiling is actually conducted.
+
+Verification:
+  --verification-enabled<span class="o">=</span>&lt;bool&gt;                    Whether to perform verification checks.
+
+  --epsilon<span class="o">=</span>&lt;error&gt;                                Error threshold. Setting to zero <span class="o">(</span>default<span class="o">)</span> requires
+                                                   bit-level equivalence.
+
+  --nonzero-floor<span class="o">=</span>&lt;floor&gt;                          Results whose absolute value is less than this quantity
+                                                   are treated as zero <span class="k">for</span> comparisons.
+
+  --save-workspace<span class="o">=</span>&lt;string&gt;                        Specifies when to save the GEMM inputs and results to the filesystem.
+                                                    --save-workspace<span class="o">=</span>never      never save workspace <span class="o">(</span>default<span class="o">)</span>
+                                                    --save-workspace<span class="o">=</span>incorrect  save workspace <span class="k">for</span> incorrect results
+                                                    --save-workspace<span class="o">=</span>always     always save workspace
+
+  --verification-providers<span class="o">=</span>&lt;providers&gt;             List of providers used to verify result. <span class="o">(</span>default: <span class="s1">&#39;*&#39;</span><span class="o">)</span>
+                                                   Gemm verification-providers <span class="o">{</span>cublas*<span class="o">}</span>
+                                                   Conv2d verification-providers <span class="o">{</span>cudnn*, device*, host<span class="o">}</span>
+
+
+Report:
+  --append<span class="o">=</span>&lt;bool&gt;                                  If true, result is appended to possibly existing file. Otherwise, 
+                                                   any existing file is overwritten.
+
+  --output<span class="o">=</span>&lt;path&gt;                                  Path to output file <span class="k">for</span> machine readable results. Operation kind and <span class="s1">&#39;.csv&#39;</span> is appended.
+
+  --junit-output<span class="o">=</span>&lt;path&gt;                            Path to junit output file <span class="k">for</span> result reporting. Operation kind and <span class="s1">&#39;.junit.xml&#39;</span> is appended.
+
+  --report-not-run<span class="o">=</span>&lt;bool&gt;                          If true, reports the status of all kernels including those that
+                                                   <span class="k">do</span> not satisfy the given arguments.
+
+  --tags<span class="o">=</span>&lt;column:tag,...&gt;                          Inserts leading columns <span class="k">in</span> output table and uniform values <span class="k">for</span> each
+                                                   column. Useful <span class="k">for</span> generating pivot tables.
+
+  --verbose<span class="o">=</span>&lt;bool&gt;                                 Prints human-readable text to stdout. If false, nothing is written to stdout.
+
+
+About:
+  --version                                        CUTLASS <span class="m">2</span>.4.0 built on Nov <span class="m">19</span> <span class="m">2020</span> at <span class="m">11</span>:59:00
+
+
+Operations:
+
+     gemm                                          General matrix-matrix product. <span class="nv">D</span> <span class="o">=</span> alpha * A*B + beta * C
+     spgemm                                        Structured sparse GEMM. <span class="nv">D</span> <span class="o">=</span> alpha * A*B + beta * C
+     conv2d                                        Conv2d operation. Output<span class="o">(</span>Tensor4D<span class="o">)</span> <span class="o">=</span> alpha * Input<span class="o">(</span>Tensor4D<span class="o">)</span> * Filter<span class="o">(</span>Tensor4D<span class="o">)</span> + beta * Input<span class="o">(</span>Tensor4D<span class="o">)</span>
+     conv3d                                        Conv3d operation. Output<span class="o">(</span>Tensor5D<span class="o">)</span> <span class="o">=</span> alpha * Input<span class="o">(</span>Tensor5D<span class="o">)</span> * Filter<span class="o">(</span>Tensor5D<span class="o">)</span> + beta * Input<span class="o">(</span>Tensor5D<span class="o">)</span>
+
+
+For details about a particular <span class="k">function</span>, specify the <span class="k">function</span> name with --help.
+
+Example:
+
+  $ cutlass_profiler --operation<span class="o">=</span>Gemm --help
+
+  $ cutlass_profiler --operation<span class="o">=</span>Conv3d --help
+
+  $ cutlass_profiler --operation<span class="o">=</span>Conv2d --help
+</pre></div>
+</div>
+</section>
+<section id="gemm">
+<h1>GEMM<a class="headerlink" href="#gemm" title="Permalink to this heading">¶</a></h1>
+<p>The CUTLASS Profiler is capable of executing GEMM and Sparse GEMM problems.</p>
+<p>The CUTLASS Profiler can be built with cuBLAS enabled to use as a reference implementation. If CMake detects
+the cuBLASS library available in the system, it is included as a dependency. This may be explicitly overridden
+with CMake flag <code class="docutils literal notranslate"><span class="pre">CUTLASS_ENABLE_CUBLAS</span></code>.</p>
+<section id="gemm-arguments">
+<h2>GEMM Arguments<a class="headerlink" href="#gemm-arguments" title="Permalink to this heading">¶</a></h2>
+<p>The complete set of arguments available to each operation may be viewed by specifying the operation name
+in addition to <code class="docutils literal notranslate"><span class="pre">--help</span></code>. The argument flags and their aliases usable for GEMM appear as follows.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ ./tools/profiler/cutlass_profiler --operation<span class="o">=</span>gemm --help
+
+GEMM
+
+  <span class="o">[</span>enum<span class="o">]</span>      --Gemm_kind                                       Variant of GEMM <span class="o">(</span>e.g. gemm, batched, ...<span class="o">)</span>
+  <span class="o">[</span>int<span class="o">]</span>       --m,--problem-size::m                             M dimension of the GEMM problem space
+  <span class="o">[</span>int<span class="o">]</span>       --n,--problem-size::n                             N dimension of the GEMM problem space
+  <span class="o">[</span>int<span class="o">]</span>       --k,--problem-size::k                             K dimension of the GEMM problem space
+  <span class="o">[</span>tensor<span class="o">]</span>    --A                                               Tensor storing the A operand
+  <span class="o">[</span>tensor<span class="o">]</span>    --B                                               Tensor storing the B operand
+  <span class="o">[</span>tensor<span class="o">]</span>    --C                                               Tensor storing the C operand
+  <span class="o">[</span>scalar<span class="o">]</span>    --alpha,--epilogue::alpha                         Epilogue scalar alpha
+  <span class="o">[</span>scalar<span class="o">]</span>    --beta,--epilogue::beta                           Epilogue scalar beta
+  <span class="o">[</span>int<span class="o">]</span>       --split_k_slices                                  Number of partitions of K dimension
+  <span class="o">[</span>int<span class="o">]</span>       --batch_count                                     Number of GEMMs computed <span class="k">in</span> one batch
+  <span class="o">[</span>enum<span class="o">]</span>      --op_class,--opcode-class                         Class of math instruction <span class="o">(</span>SIMT or TensorOp<span class="o">)</span>.
+  <span class="o">[</span>enum<span class="o">]</span>      --accum,--accumulator-type                        Math instruction accumulator data type.
+  <span class="o">[</span>int<span class="o">]</span>       --cta_m,--threadblock-shape::m                    Threadblock shape <span class="k">in</span> the M dimension.
+  <span class="o">[</span>int<span class="o">]</span>       --cta_n,--threadblock-shape::n                    Threadblock shape <span class="k">in</span> the N dimension.
+  <span class="o">[</span>int<span class="o">]</span>       --cta_k,--threadblock-shape::k                    Threadblock shape <span class="k">in</span> the K dimension.
+  <span class="o">[</span>int<span class="o">]</span>       --stages,--threadblock-stages                     Number of stages of threadblock-scoped matrix multiply.
+  <span class="o">[</span>int<span class="o">]</span>       --warps_m,--warp-count::m                         Number of warps within threadblock along the M dimension.
+  <span class="o">[</span>int<span class="o">]</span>       --warps_n,--warp-count::n                         Number of warps within threadblock along the N dimension.
+  <span class="o">[</span>int<span class="o">]</span>       --warps_k,--warp-count::k                         Number of warps within threadblock along the K dimension.
+  <span class="o">[</span>int<span class="o">]</span>       --inst_m,--instruction-shape::m                   Math instruction shape <span class="k">in</span> the M dimension.
+  <span class="o">[</span>int<span class="o">]</span>       --inst_n,--instruction-shape::n                   Math instruction shape <span class="k">in</span> the N dimension.
+  <span class="o">[</span>int<span class="o">]</span>       --inst_k,--instruction-shape::k                   Math instruction shape <span class="k">in</span> the K dimension.
+  <span class="o">[</span>int<span class="o">]</span>       --min_cc,--minimum-compute-capability             Minimum device compute capability.
+  <span class="o">[</span>int<span class="o">]</span>       --max_cc,--maximum-compute-capability             Maximum device compute capability.
+
+Examples:
+
+Profile a particular problem size:
+  $ ./tools/profiler/cutlass_profiler --operation<span class="o">=</span>Gemm --m<span class="o">=</span><span class="m">1024</span> --n<span class="o">=</span><span class="m">1024</span> --k<span class="o">=</span><span class="m">128</span>
+
+Schmoo over problem size and beta:
+  $ ./tools/profiler/cutlass_profiler --operation<span class="o">=</span>Gemm --m<span class="o">=</span><span class="m">1024</span>:4096:256 --n<span class="o">=</span><span class="m">1024</span>:4096:256 --k<span class="o">=</span><span class="m">128</span>:8192:128 --beta<span class="o">=</span><span class="m">0</span>,1,2
+
+Schmoo over accumulator types:
+  $ ./tools/profiler/cutlass_profiler --operation<span class="o">=</span>Gemm --accumulator-type<span class="o">=</span>f16,f32
+
+Run when A is f16 with column-major and B is any datatype with row-major 
+<span class="o">(</span>For column major, use column, col, or n. For row major use, row or t<span class="o">)</span>:
+
+  $ ./tools/profiler/cutlass_profiler --operation<span class="o">=</span>Gemm --A<span class="o">=</span>f16:column --B<span class="o">=</span>*:row
+
+Using various input value distribution:
+  $ ./tools/profiler/cutlass_profiler --operation<span class="o">=</span>Gemm --dist<span class="o">=</span>uniform,min:0,max:3
+  $ ./tools/profiler/cutlass_profiler --operation<span class="o">=</span>Gemm --dist<span class="o">=</span>gaussian,mean:0,stddev:3
+  $ ./tools/profiler/cutlass_profiler --operation<span class="o">=</span>Gemm --dist<span class="o">=</span>sequential,start:0,delta:1
+
+Run a kernel with cta tile size of 256x128x32 and save workspace <span class="k">if</span> results are incorrect 
+<span class="o">(</span>note that --cta-tile::k<span class="o">=</span><span class="m">32</span> is default cta-tile size<span class="o">)</span>:
+ $ ./tools/profiler/cutlass_profiler --operation<span class="o">=</span>Gemm --cta_m<span class="o">=</span><span class="m">256</span> --cta_n<span class="o">=</span><span class="m">128</span>  --cta_k<span class="o">=</span><span class="m">32</span> --save-workspace<span class="o">=</span>incorrect
+
+Test your changes to gemm kernels with a quick functional <span class="nb">test</span> and save results <span class="k">in</span> functional-test.csv:
+ $ ./tools/profiler/cutlass_profiler  --operation<span class="o">=</span>Gemm <span class="se">\</span>
+   --m<span class="o">=</span><span class="m">8</span>,56,120,136,256,264,512,520,1024,1032,4096,8192,16384 <span class="se">\</span>
+   --n<span class="o">=</span><span class="m">8</span>,56,120,136,256,264,512,520,1024,1032,4096,8192,16384 <span class="se">\</span>
+   --k<span class="o">=</span><span class="m">8</span>,16,32,64,128,256,288,384,504,512,520 <span class="se">\</span>
+   --beta<span class="o">=</span><span class="m">0</span>,1,2 --profiling-iterations<span class="o">=</span><span class="m">1</span> <span class="se">\</span>
+   --output<span class="o">=</span>functional-test.csv
+</pre></div>
+</div>
+</section>
+<section id="example-cuda-core-gemm-operation">
+<h2>Example CUDA Core GEMM Operation<a class="headerlink" href="#example-cuda-core-gemm-operation" title="Permalink to this heading">¶</a></h2>
+<p>Example command line for profiling SGEMM kernels is as follows:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ ./tools/profiler/cutlass_profiler --kernels<span class="o">=</span>sgemm --m<span class="o">=</span><span class="m">3456</span> --n<span class="o">=</span><span class="m">4096</span> --k<span class="o">=</span><span class="nv">4096</span>
+
+
+
+<span class="o">=============================</span>
+  Problem ID: <span class="m">1</span>
+
+        Provider: CUTLASS
+   OperationKind: gemm
+       Operation: cutlass_simt_sgemm_128x128_8x2_nn_align1
+
+          Status: Success
+    Verification: ON
+     Disposition: Passed
+
+          cuBLAS: Passed
+
+       Arguments: --m<span class="o">=</span><span class="m">3456</span> --n<span class="o">=</span><span class="m">4096</span> --k<span class="o">=</span><span class="m">4096</span> --A<span class="o">=</span>f32:column --B<span class="o">=</span>f32:column --C<span class="o">=</span>f32:column --alpha<span class="o">=</span><span class="m">1</span> --beta<span class="o">=</span><span class="m">0</span> --split_k_slices<span class="o">=</span><span class="m">1</span>  <span class="se">\</span>
+                  --batch_count<span class="o">=</span><span class="m">1</span> --op_class<span class="o">=</span>simt --accum<span class="o">=</span>f32 --cta_m<span class="o">=</span><span class="m">128</span> --cta_n<span class="o">=</span><span class="m">128</span> --cta_k<span class="o">=</span><span class="m">8</span> --stages<span class="o">=</span><span class="m">2</span> --warps_m<span class="o">=</span><span class="m">4</span>  <span class="se">\</span>
+                  --warps_n<span class="o">=</span><span class="m">2</span> --warps_k<span class="o">=</span><span class="m">1</span> --inst_m<span class="o">=</span><span class="m">1</span> --inst_n<span class="o">=</span><span class="m">1</span> --inst_k<span class="o">=</span><span class="m">1</span> --min_cc<span class="o">=</span><span class="m">50</span> --max_cc<span class="o">=</span><span class="m">1024</span>
+
+           Bytes: <span class="m">180355072</span>  bytes
+           FLOPs: <span class="m">115992428544</span>  flops
+
+         Runtime: <span class="m">6</span>.73655  ms
+          Memory: <span class="m">24</span>.934 GiB/s
+
+            Math: <span class="m">17218</span>.4 GFLOP/s
+</pre></div>
+</div>
+<p>Note, the arguments which appear in the output may be used as command line parameters for subsequent invocations.</p>
+</section>
+<section id="example-tensor-core-gemm-operations">
+<h2>Example Tensor Core GEMM Operations<a class="headerlink" href="#example-tensor-core-gemm-operations" title="Permalink to this heading">¶</a></h2>
+<p>To execute kernels targeting Tensor Core operations, supply the flag <code class="docutils literal notranslate"><span class="pre">--op_class=tensorop</span></code> in the command line.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ ./tools/profiler/cutlass_profiler --op_class<span class="o">=</span>tensorop --m<span class="o">=</span><span class="m">3456</span> --n<span class="o">=</span><span class="m">4096</span> --k<span class="o">=</span><span class="nv">8192</span>
+
+
+
+<span class="o">=============================</span>
+  Problem ID: <span class="m">1</span>
+
+        Provider: CUTLASS
+   OperationKind: gemm
+       Operation: cutlass_tensorop_s16816gemm_f16_256x128_32x3_nn_align8
+
+          Status: Success
+    Verification: ON
+     Disposition: Passed
+
+          cuBLAS: Passed
+
+       Arguments: --m<span class="o">=</span><span class="m">3456</span> --n<span class="o">=</span><span class="m">4096</span> --k<span class="o">=</span><span class="m">8192</span> --A<span class="o">=</span>f16:column --B<span class="o">=</span>f16:column --C<span class="o">=</span>f32:column --alpha<span class="o">=</span><span class="m">1</span> --beta<span class="o">=</span><span class="m">0</span> --split_k_slices<span class="o">=</span><span class="m">1</span>  <span class="se">\</span>
+                  --batch_count<span class="o">=</span><span class="m">1</span> --op_class<span class="o">=</span>tensorop --accum<span class="o">=</span>f32 --cta_m<span class="o">=</span><span class="m">256</span> --cta_n<span class="o">=</span><span class="m">128</span> --cta_k<span class="o">=</span><span class="m">32</span> --stages<span class="o">=</span><span class="m">3</span> --warps_m<span class="o">=</span><span class="m">4</span>  <span class="se">\</span>
+                  --warps_n<span class="o">=</span><span class="m">2</span> --warps_k<span class="o">=</span><span class="m">1</span> --inst_m<span class="o">=</span><span class="m">16</span> --inst_n<span class="o">=</span><span class="m">8</span> --inst_k<span class="o">=</span><span class="m">16</span> --min_cc<span class="o">=</span><span class="m">80</span> --max_cc<span class="o">=</span><span class="m">1024</span>
+
+           Bytes: <span class="m">180355072</span>  bytes
+           FLOPs: <span class="m">231956545536</span>  flops
+
+         Runtime: <span class="m">0</span>.98647  ms
+          Memory: <span class="m">170</span>.272 GiB/s
+
+            Math: <span class="m">235138</span> GFLOP/s
+</pre></div>
+</div>
+</section>
+<section id="covering-the-problem-space">
+<h2>Covering the problem space<a class="headerlink" href="#covering-the-problem-space" title="Permalink to this heading">¶</a></h2>
+<p>All arguments may have single values or comma-delimited set of values. Integers may also be specified
+as an inclusive range with the following syntax <code class="docutils literal notranslate"><span class="pre">start:end:increment</span></code> or simply <code class="docutils literal notranslate"><span class="pre">start:end</span></code>.</p>
+<p>For example, the following sweeps over the range of the GEMM K dimension from 8 to 4096 in increments
+of 8 elements.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ ./tools/profiler/cutlass_profiler --kernels<span class="o">=</span>cutlass_simt_sgemm_128x128_nn --m<span class="o">=</span><span class="m">4352</span> --n<span class="o">=</span><span class="m">4096</span> --k<span class="o">=</span><span class="m">8</span>:4096:8
+</pre></div>
+</div>
+</section>
+<section id="output">
+<h2>Output<a class="headerlink" href="#output" title="Permalink to this heading">¶</a></h2>
+<p>By default, runtime and computed GFLOP/s are reported for each operation and problem size. Additionally,
+a table of comma separated values are reported at the end of the execution. This may be output to a file
+with the <code class="docutils literal notranslate"><span class="pre">--output=&lt;filename.csv&gt;</span></code> command line option as shown:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ ./tools/profiler/cutlass_profiler --kernels<span class="o">=</span>cutlass_simt_sgemm_128x128_nn            <span class="se">\</span>
+                                    --m<span class="o">=</span><span class="m">3456</span> --n<span class="o">=</span><span class="m">4096</span> --k<span class="o">=</span><span class="m">8</span>:4096:8 --output<span class="o">=</span>report.csv
+</pre></div>
+</div>
+<p>To faclitate generation of pivot tables and charts, additional columns may be prepended with the
+<code class="docutils literal notranslate"><span class="pre">--tags=&lt;column&gt;:&lt;value&gt;</span></code> option. One or more tags may be specified using a comma-delimited list.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ ./tools/profiler/cutlass_profiler --kernels<span class="o">=</span>cutlass_simt_sgemm_128x128_nn            <span class="se">\</span>
+                                    --m<span class="o">=</span><span class="m">3456</span> --n<span class="o">=</span><span class="m">4096</span> --k<span class="o">=</span><span class="m">8</span>:4096:8 --output<span class="o">=</span>report.csv <span class="se">\</span>
+                                    --tags<span class="o">=</span>cutlass:2.2,date:2020-06-08
+</pre></div>
+</div>
+</section>
+</section>
+<section id="convolution">
+<h1>Convolution<a class="headerlink" href="#convolution" title="Permalink to this heading">¶</a></h1>
+<p>The CUTLASS Profiler is capable of executing 2-D and 3-D convolution problems for forwards and backwards
+operator variants.</p>
+<p>The CUTLASS Profiler can be built with cuDNN enabled to use as a reference implementation. If CMake detects
+the cuDNN library available in the system, it is included as a dependency. This may be explicitly overridden
+with CMake flag <code class="docutils literal notranslate"><span class="pre">CUTLASS_ENABLE_CUDNN</span></code>.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ cmake .. -DCUTLASS_LIBRARY_OPERATIONS<span class="o">=</span>conv2d -DCUTLASS_ENABLE_CUDNN<span class="o">=</span>OFF
+...
+$ make -j16 cutlass_profiler
+</pre></div>
+</div>
+<section id="convolution-arguments">
+<h2>Convolution Arguments<a class="headerlink" href="#convolution-arguments" title="Permalink to this heading">¶</a></h2>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ ./tools/profiler/cutlass_profiler --help --operation<span class="o">=</span>Conv2d
+
+Conv2d
+
+  <span class="o">[</span>enum<span class="o">]</span>      --conv_kind                                       Convolutional operator <span class="o">(</span>fprop, dgrad, wgrad<span class="o">)</span>
+  <span class="o">[</span>int<span class="o">]</span>       --n,--input_n                                     Input N dimension of the Conv2d problem space
+  <span class="o">[</span>int<span class="o">]</span>       --h,--input_h                                     Input H dimension of the Conv2d problem space
+  <span class="o">[</span>int<span class="o">]</span>       --w,--input_w                                     Input W dimension of the Conv2d problem space
+  <span class="o">[</span>int<span class="o">]</span>       --c,--input_c                                     Input C dimension of the Conv2d problem space
+  <span class="o">[</span>int<span class="o">]</span>       --k,--filter_k                                    Filter K dimension of the Conv2d problem space
+  <span class="o">[</span>int<span class="o">]</span>       --r,--filter_r                                    Filter R dimension of the Conv2d problem space
+  <span class="o">[</span>int<span class="o">]</span>       --s,--filter_s                                    Filter S dimension of the Conv2d problem space
+  <span class="o">[</span>int<span class="o">]</span>       --p,--output_p                                    Output P dimension of the Conv2d problem space
+  <span class="o">[</span>int<span class="o">]</span>       --q,--output_q                                    Output Q dimension of the Conv2d problem space
+  <span class="o">[</span>int<span class="o">]</span>       --pad_h                                           Padding <span class="k">in</span> H direction
+  <span class="o">[</span>int<span class="o">]</span>       --pad_w                                           Padding <span class="k">in</span> W direction
+  <span class="o">[</span>int<span class="o">]</span>       --stride_h                                        Stride <span class="k">in</span> H direction
+  <span class="o">[</span>int<span class="o">]</span>       --stride_w                                        Stride <span class="k">in</span> W direction
+  <span class="o">[</span>int<span class="o">]</span>       --dilation_h                                      Dilation <span class="k">in</span> H direction
+  <span class="o">[</span>int<span class="o">]</span>       --dilation_w                                      Dilation <span class="k">in</span> W direction
+  <span class="o">[</span>tensor<span class="o">]</span>    --Activation                                      Tensor storing the Activation operand
+  <span class="o">[</span>tensor<span class="o">]</span>    --Filter                                          Tensor storing the Filter operand
+  <span class="o">[</span>tensor<span class="o">]</span>    --Output                                          Tensor storing the Output operand
+  <span class="o">[</span>enum<span class="o">]</span>      --conv_mode                                       Convolution filter mode <span class="o">(</span>conv, cross<span class="o">)</span>
+  <span class="o">[</span>enum<span class="o">]</span>      --iterator_algorithm,--iterator_algo              Convolution iterator algorithm <span class="o">(</span>analytic, optimized<span class="o">)</span>
+  <span class="o">[</span>scalar<span class="o">]</span>    --alpha,--epilogue::alpha                         Epilogue scalar alpha
+  <span class="o">[</span>scalar<span class="o">]</span>    --beta,--epilogue::beta                           Epilogue scalar beta
+  <span class="o">[</span>enum<span class="o">]</span>      --split_k_mode,--split-k-mode                     SplitK mode <span class="k">for</span> serial or parallel reduction <span class="o">(</span>serial, parallel<span class="o">)</span>
+  <span class="o">[</span>int<span class="o">]</span>       --split_k_slices,--split-k-slices                 Number of partitions of K dimension
+  <span class="o">[</span>enum<span class="o">]</span>      --eq_gemm_provider,--eq-gemm-provider             Enable profiling equivalent gemm by the following providers <span class="o">(</span>cutlass<span class="o">)</span>
+  <span class="o">[</span>enum<span class="o">]</span>      --op_class,--opcode-class                         Class of math instruction <span class="o">(</span>simt, tensorop, wmmatensorop, wmma<span class="o">)</span>
+  <span class="o">[</span>enum<span class="o">]</span>      --accum,--accumulator-type                        Math instruction accumulator data <span class="nb">type</span>
+  <span class="o">[</span>int<span class="o">]</span>       --cta_m,--threadblock-shape::m                    Threadblock shape <span class="k">in</span> the M dimension
+  <span class="o">[</span>int<span class="o">]</span>       --cta_n,--threadblock-shape::n                    Threadblock shape <span class="k">in</span> the N dimension
+  <span class="o">[</span>int<span class="o">]</span>       --cta_k,--threadblock-shape::k                    Threadblock shape <span class="k">in</span> the K dimension
+  <span class="o">[</span>int<span class="o">]</span>       --stages,--threadblock-stages                     Number of stages of threadblock-scoped matrix multiply
+  <span class="o">[</span>int<span class="o">]</span>       --warps_m,--warp-count::m                         Number of warps within threadblock along the M dimension
+  <span class="o">[</span>int<span class="o">]</span>       --warps_n,--warp-count::n                         Number of warps within threadblock along the N dimension
+  <span class="o">[</span>int<span class="o">]</span>       --warps_k,--warp-count::k                         Number of warps within threadblock along the K dimension
+  <span class="o">[</span>int<span class="o">]</span>       --inst_m,--instruction-shape::m                   Math instruction shape <span class="k">in</span> the M dimension
+  <span class="o">[</span>int<span class="o">]</span>       --inst_n,--instruction-shape::n                   Math instruction shape <span class="k">in</span> the N dimension
+  <span class="o">[</span>int<span class="o">]</span>       --inst_k,--instruction-shape::k                   Math instruction shape <span class="k">in</span> the K dimension
+  <span class="o">[</span>int<span class="o">]</span>       --min_cc,--minimum-compute-capability             Minimum device compute capability
+  <span class="o">[</span>int<span class="o">]</span>       --max_cc,--maximum-compute-capability             Maximum device compute capability
+
+Examples:
+
+Profile a particular convolution <span class="o">(</span>specify all the convolution parameters<span class="o">)</span>:
+
+ $ cutlass_profiler --operation<span class="o">=</span>Conv2d --Activation<span class="o">=</span>f16:nhwc   <span class="se">\</span>
+  --Filter<span class="o">=</span>f16:nhwc --Output<span class="o">=</span>f16 --accumulator-type<span class="o">=</span>f32        <span class="se">\</span>
+  --n<span class="o">=</span><span class="m">32</span> --h<span class="o">=</span><span class="m">14</span> --w<span class="o">=</span><span class="m">14</span> --c<span class="o">=</span><span class="m">8</span> --k<span class="o">=</span><span class="m">64</span> --r<span class="o">=</span><span class="m">3</span> --s<span class="o">=</span><span class="m">3</span>                <span class="se">\</span>
+  --pad_h<span class="o">=</span><span class="m">1</span> --pad_w<span class="o">=</span><span class="m">1</span>                                          <span class="se">\</span>
+  --stride::h<span class="o">=</span><span class="m">1</span> --stride::w<span class="o">=</span><span class="m">1</span> --dilation::h<span class="o">=</span><span class="m">1</span> --dilation::w<span class="o">=</span><span class="m">1</span>
+</pre></div>
+</div>
+</section>
+<section id="example-cuda-core-convolution-operation">
+<h2>Example CUDA Core Convolution Operation<a class="headerlink" href="#example-cuda-core-convolution-operation" title="Permalink to this heading">¶</a></h2>
+<p>Example command line for profiling forward propagation convolution kernels on CUDA cores is as follows:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ ./tools/profiler/cutlass_profiler --kernels<span class="o">=</span>simt_sfprop  --verification-providers<span class="o">=</span>device --n<span class="o">=</span><span class="m">8</span> --h<span class="o">=</span><span class="m">224</span> --w<span class="o">=</span><span class="m">224</span> --c<span class="o">=</span><span class="m">128</span> --k<span class="o">=</span><span class="m">128</span> --r<span class="o">=</span><span class="m">3</span> --s<span class="o">=</span><span class="nv">3</span>
+
+
+<span class="o">=============================</span>
+  Problem ID: <span class="m">1</span>
+
+        Provider: CUTLASS
+   OperationKind: conv2d
+       Operation: cutlass_simt_sfprop_optimized_128x128_8x2_nhwc
+
+          Status: Success
+    Verification: ON
+     Disposition: Passed
+
+reference_device: Passed
+
+       Arguments: --conv_kind<span class="o">=</span>fprop --n<span class="o">=</span><span class="m">8</span> --h<span class="o">=</span><span class="m">224</span> --w<span class="o">=</span><span class="m">224</span> --c<span class="o">=</span><span class="m">128</span> --k<span class="o">=</span><span class="m">128</span> --r<span class="o">=</span><span class="m">3</span> --s<span class="o">=</span><span class="m">3</span> --p<span class="o">=</span><span class="m">224</span> --q<span class="o">=</span><span class="m">224</span> --pad_h<span class="o">=</span><span class="m">1</span> --pad_w<span class="o">=</span><span class="m">1</span>  <span class="se">\</span>
+                  --stride_h<span class="o">=</span><span class="m">1</span> --stride_w<span class="o">=</span><span class="m">1</span> --dilation_h<span class="o">=</span><span class="m">1</span> --dilation_w<span class="o">=</span><span class="m">1</span> --Activation<span class="o">=</span>f32:nhwc --Filter<span class="o">=</span>f32:nhwc --Output<span class="o">=</span>f32:nhwc  <span class="se">\</span>
+                  --conv_mode<span class="o">=</span>cross --iterator_algorithm<span class="o">=</span>optimized --alpha<span class="o">=</span><span class="m">1</span> --beta<span class="o">=</span><span class="m">0</span> --split_k_mode<span class="o">=</span>serial --split_k_slices<span class="o">=</span><span class="m">1</span>  <span class="se">\</span>
+                  --eq_gemm_provider<span class="o">=</span>none --op_class<span class="o">=</span>simt --accum<span class="o">=</span>f32 --cta_m<span class="o">=</span><span class="m">128</span> --cta_n<span class="o">=</span><span class="m">128</span> --cta_k<span class="o">=</span><span class="m">8</span> --stages<span class="o">=</span><span class="m">2</span> --warps_m<span class="o">=</span><span class="m">4</span>  <span class="se">\</span>
+                  --warps_n<span class="o">=</span><span class="m">2</span> --warps_k<span class="o">=</span><span class="m">1</span> --inst_m<span class="o">=</span><span class="m">1</span> --inst_n<span class="o">=</span><span class="m">1</span> --inst_k<span class="o">=</span><span class="m">1</span> --min_cc<span class="o">=</span><span class="m">50</span> --max_cc<span class="o">=</span><span class="m">1024</span>
+
+           Bytes: <span class="m">2055798784</span>  bytes
+           FLOPs: <span class="m">118482796544</span>  flops
+
+         Runtime: <span class="m">8</span>.13237  ms
+          Memory: <span class="m">235</span>.431 GiB/s
+
+            Math: <span class="m">14569</span>.3 GFLOP/s
+</pre></div>
+</div>
+</section>
+<section id="example-tensor-core-convolution-operation">
+<h2>Example Tensor Core Convolution Operation<a class="headerlink" href="#example-tensor-core-convolution-operation" title="Permalink to this heading">¶</a></h2>
+<p>Example command line for profiling forward propagation convolution kernels runing on Tensor Cores is as follows:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>$ ./tools/profiler/cutlass_profiler --kernels<span class="o">=</span>tensorop*fprop  --verification-providers<span class="o">=</span>device --n<span class="o">=</span><span class="m">8</span> --h<span class="o">=</span><span class="m">224</span> --w<span class="o">=</span><span class="m">224</span> --c<span class="o">=</span><span class="m">128</span> --k<span class="o">=</span><span class="m">128</span> --r<span class="o">=</span><span class="m">3</span> --s<span class="o">=</span><span class="nv">3</span> 
+
+
+
+<span class="o">=============================</span>
+  Problem ID: <span class="m">1</span>
+
+        Provider: CUTLASS
+   OperationKind: conv2d
+       Operation: cutlass_tensorop_s16816fprop_optimized_f16_128x128_64x4_nhwc
+
+          Status: Success
+    Verification: ON
+     Disposition: Passed
+
+reference_device: Passed
+
+       Arguments: --conv_kind<span class="o">=</span>fprop --n<span class="o">=</span><span class="m">8</span> --h<span class="o">=</span><span class="m">224</span> --w<span class="o">=</span><span class="m">224</span> --c<span class="o">=</span><span class="m">128</span> --k<span class="o">=</span><span class="m">128</span> --r<span class="o">=</span><span class="m">3</span> --s<span class="o">=</span><span class="m">3</span> --p<span class="o">=</span><span class="m">224</span> --q<span class="o">=</span><span class="m">224</span> --pad_h<span class="o">=</span><span class="m">1</span> --pad_w<span class="o">=</span><span class="m">1</span>  <span class="se">\</span>
+                  --stride_h<span class="o">=</span><span class="m">1</span> --stride_w<span class="o">=</span><span class="m">1</span> --dilation_h<span class="o">=</span><span class="m">1</span> --dilation_w<span class="o">=</span><span class="m">1</span> --Activation<span class="o">=</span>f16:nhwc --Filter<span class="o">=</span>f16:nhwc --Output<span class="o">=</span>f32:nhwc  <span class="se">\</span>
+                  --conv_mode<span class="o">=</span>cross --iterator_algorithm<span class="o">=</span>optimized --alpha<span class="o">=</span><span class="m">1</span> --beta<span class="o">=</span><span class="m">0</span> --split_k_mode<span class="o">=</span>serial --split_k_slices<span class="o">=</span><span class="m">1</span>  <span class="se">\</span>
+                  --eq_gemm_provider<span class="o">=</span>none --op_class<span class="o">=</span>tensorop --accum<span class="o">=</span>f32 --cta_m<span class="o">=</span><span class="m">128</span> --cta_n<span class="o">=</span><span class="m">128</span> --cta_k<span class="o">=</span><span class="m">64</span> --stages<span class="o">=</span><span class="m">4</span>  <span class="se">\</span>
+                  --warps_m<span class="o">=</span><span class="m">2</span> --warps_n<span class="o">=</span><span class="m">2</span> --warps_k<span class="o">=</span><span class="m">1</span> --inst_m<span class="o">=</span><span class="m">16</span> --inst_n<span class="o">=</span><span class="m">8</span> --inst_k<span class="o">=</span><span class="m">16</span> --min_cc<span class="o">=</span><span class="m">80</span> --max_cc<span class="o">=</span><span class="m">1024</span>
+
+           Bytes: <span class="m">1130659840</span>  bytes
+           FLOPs: <span class="m">118482796544</span>  flops
+
+         Runtime: <span class="m">0</span>.945071  ms
+          Memory: <span class="m">1114</span>.21 GiB/s
+
+            Math: <span class="m">125369</span> GFLOP/s
+</pre></div>
+</div>
+</section>
+</section>
+<section id="copyright">
+<h1>Copyright<a class="headerlink" href="#copyright" title="Permalink to this heading">¶</a></h1>
+<p>Copyright (c) 2017 - 2022 NVIDIA CORPORATION &amp; AFFILIATES. All rights reserved.
+SPDX-License-Identifier: BSD-3-Clause</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>  <span class="n">Redistribution</span> <span class="ow">and</span> <span class="n">use</span> <span class="ow">in</span> <span class="n">source</span> <span class="ow">and</span> <span class="n">binary</span> <span class="n">forms</span><span class="p">,</span> <span class="k">with</span> <span class="ow">or</span> <span class="n">without</span>
+  <span class="n">modification</span><span class="p">,</span> <span class="n">are</span> <span class="n">permitted</span> <span class="n">provided</span> <span class="n">that</span> <span class="n">the</span> <span class="n">following</span> <span class="n">conditions</span> <span class="n">are</span> <span class="n">met</span><span class="p">:</span>
+
+  <span class="mf">1.</span> <span class="n">Redistributions</span> <span class="n">of</span> <span class="n">source</span> <span class="n">code</span> <span class="n">must</span> <span class="n">retain</span> <span class="n">the</span> <span class="n">above</span> <span class="n">copyright</span> <span class="n">notice</span><span class="p">,</span> <span class="n">this</span>
+  <span class="nb">list</span> <span class="n">of</span> <span class="n">conditions</span> <span class="ow">and</span> <span class="n">the</span> <span class="n">following</span> <span class="n">disclaimer</span><span class="o">.</span>
+
+  <span class="mf">2.</span> <span class="n">Redistributions</span> <span class="ow">in</span> <span class="n">binary</span> <span class="n">form</span> <span class="n">must</span> <span class="n">reproduce</span> <span class="n">the</span> <span class="n">above</span> <span class="n">copyright</span> <span class="n">notice</span><span class="p">,</span>
+  <span class="n">this</span> <span class="nb">list</span> <span class="n">of</span> <span class="n">conditions</span> <span class="ow">and</span> <span class="n">the</span> <span class="n">following</span> <span class="n">disclaimer</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">documentation</span>
+  <span class="ow">and</span><span class="o">/</span><span class="ow">or</span> <span class="n">other</span> <span class="n">materials</span> <span class="n">provided</span> <span class="k">with</span> <span class="n">the</span> <span class="n">distribution</span><span class="o">.</span>
+
+  <span class="mf">3.</span> <span class="n">Neither</span> <span class="n">the</span> <span class="n">name</span> <span class="n">of</span> <span class="n">the</span> <span class="n">copyright</span> <span class="n">holder</span> <span class="n">nor</span> <span class="n">the</span> <span class="n">names</span> <span class="n">of</span> <span class="n">its</span>
+  <span class="n">contributors</span> <span class="n">may</span> <span class="n">be</span> <span class="n">used</span> <span class="n">to</span> <span class="n">endorse</span> <span class="ow">or</span> <span class="n">promote</span> <span class="n">products</span> <span class="n">derived</span> <span class="kn">from</span>
+  <span class="nn">this</span> <span class="n">software</span> <span class="n">without</span> <span class="n">specific</span> <span class="n">prior</span> <span class="n">written</span> <span class="n">permission</span><span class="o">.</span>
+
+  <span class="n">THIS</span> <span class="n">SOFTWARE</span> <span class="n">IS</span> <span class="n">PROVIDED</span> <span class="n">BY</span> <span class="n">THE</span> <span class="n">COPYRIGHT</span> <span class="n">HOLDERS</span> <span class="n">AND</span> <span class="n">CONTRIBUTORS</span> <span class="s2">&quot;AS IS&quot;</span>
+  <span class="n">AND</span> <span class="n">ANY</span> <span class="n">EXPRESS</span> <span class="n">OR</span> <span class="n">IMPLIED</span> <span class="n">WARRANTIES</span><span class="p">,</span> <span class="n">INCLUDING</span><span class="p">,</span> <span class="n">BUT</span> <span class="n">NOT</span> <span class="n">LIMITED</span> <span class="n">TO</span><span class="p">,</span> <span class="n">THE</span>
+  <span class="n">IMPLIED</span> <span class="n">WARRANTIES</span> <span class="n">OF</span> <span class="n">MERCHANTABILITY</span> <span class="n">AND</span> <span class="n">FITNESS</span> <span class="n">FOR</span> <span class="n">A</span> <span class="n">PARTICULAR</span> <span class="n">PURPOSE</span> <span class="n">ARE</span>
+  <span class="n">DISCLAIMED</span><span class="o">.</span> <span class="n">IN</span> <span class="n">NO</span> <span class="n">EVENT</span> <span class="n">SHALL</span> <span class="n">THE</span> <span class="n">COPYRIGHT</span> <span class="n">HOLDER</span> <span class="n">OR</span> <span class="n">CONTRIBUTORS</span> <span class="n">BE</span> <span class="n">LIABLE</span>
+  <span class="n">FOR</span> <span class="n">ANY</span> <span class="n">DIRECT</span><span class="p">,</span> <span class="n">INDIRECT</span><span class="p">,</span> <span class="n">INCIDENTAL</span><span class="p">,</span> <span class="n">SPECIAL</span><span class="p">,</span> <span class="n">EXEMPLARY</span><span class="p">,</span> <span class="n">OR</span> <span class="n">CONSEQUENTIAL</span>
+  <span class="n">DAMAGES</span> <span class="p">(</span><span class="n">INCLUDING</span><span class="p">,</span> <span class="n">BUT</span> <span class="n">NOT</span> <span class="n">LIMITED</span> <span class="n">TO</span><span class="p">,</span> <span class="n">PROCUREMENT</span> <span class="n">OF</span> <span class="n">SUBSTITUTE</span> <span class="n">GOODS</span> <span class="n">OR</span>
+  <span class="n">SERVICES</span><span class="p">;</span> <span class="n">LOSS</span> <span class="n">OF</span> <span class="n">USE</span><span class="p">,</span> <span class="n">DATA</span><span class="p">,</span> <span class="n">OR</span> <span class="n">PROFITS</span><span class="p">;</span> <span class="n">OR</span> <span class="n">BUSINESS</span> <span class="n">INTERRUPTION</span><span class="p">)</span> <span class="n">HOWEVER</span>
+  <span class="n">CAUSED</span> <span class="n">AND</span> <span class="n">ON</span> <span class="n">ANY</span> <span class="n">THEORY</span> <span class="n">OF</span> <span class="n">LIABILITY</span><span class="p">,</span> <span class="n">WHETHER</span> <span class="n">IN</span> <span class="n">CONTRACT</span><span class="p">,</span> <span class="n">STRICT</span> <span class="n">LIABILITY</span><span class="p">,</span>
+  <span class="n">OR</span> <span class="n">TORT</span> <span class="p">(</span><span class="n">INCLUDING</span> <span class="n">NEGLIGENCE</span> <span class="n">OR</span> <span class="n">OTHERWISE</span><span class="p">)</span> <span class="n">ARISING</span> <span class="n">IN</span> <span class="n">ANY</span> <span class="n">WAY</span> <span class="n">OUT</span> <span class="n">OF</span> <span class="n">THE</span> <span class="n">USE</span>
+  <span class="n">OF</span> <span class="n">THIS</span> <span class="n">SOFTWARE</span><span class="p">,</span> <span class="n">EVEN</span> <span class="n">IF</span> <span class="n">ADVISED</span> <span class="n">OF</span> <span class="n">THE</span> <span class="n">POSSIBILITY</span> <span class="n">OF</span> <span class="n">SUCH</span> <span class="n">DAMAGE</span><span class="o">.</span>
+</pre></div>
+</div>
+</section>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'en',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/sphinx_highlight.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
+        </div>
+    </div>  
+
+</body>
+</html>

@@ -1,0 +1,342 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Design Doc: Accelerate PyTorch training via BladeDISC and PyTorch Lazy Tensor Core &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a></li>
+        
+      <li>Design Doc: Accelerate PyTorch training via BladeDISC and PyTorch Lazy Tensor Core</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../_sources/docs/design/ltc_disc.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../README.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#presentations-and-talks">Presentations and Talks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#building-status">Building Status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <section id="design-doc-accelerate-pytorch-training-via-bladedisc-and-pytorch-lazy-tensor-core">
+<h1>Design Doc: Accelerate PyTorch training via BladeDISC and PyTorch Lazy Tensor Core<a class="headerlink" href="#design-doc-accelerate-pytorch-training-via-bladedisc-and-pytorch-lazy-tensor-core" title="Permalink to this heading">¶</a></h1>
+<p>BladeDISC is an end-to-end compiler that accelerates AI workload based on MLIR.
+PyTorch <a class="reference external" href="https://github.com/pytorch/pytorch/blob/lazy_tensor_staging/lazy_tensor_core/README.md">Lazy Tensor Core (LTC)</a>
+provides a infrastructure to connect to PyTorch to deep learning accelerators
+especial on training.  This design document aims to introduce how to extend
+PyTorch LTC to accelerate PyTorch training via BladeDISC.</p>
+<section id="overview">
+<h2>Overview<a class="headerlink" href="#overview" title="Permalink to this heading">¶</a></h2>
+<p>In PyTorch LTC world, TorchScript backend lowing Lazy Tensors into TorchScript
+and execute it with <code class="docutils literal notranslate"><span class="pre">torch::jit:GraphExecutor</span></code>.  To a new vender backend, LTC
+suggests implement <code class="docutils literal notranslate"><span class="pre">BackendImplInterface</span></code> and serval coordinates pieces, ref:
+<a class="reference external" href="https://github.com/pytorch/pytorch/tree/lazy_tensor_staging/lazy_tensor_core#adding-vendor-backends">adding vender backend</a>.
+But to BladeDISC, optimizing a sub-graph achieves higher
+<a class="reference external" href="https://en.wikipedia.org/wiki/Return_on_investment">ROI</a>, we can refuse most
+TorchScript symbols and runtime mechanism, so a better way is to extend
+TorchScript Backend(TSBackend in LTC) which only optimize a sub-graph of the
+whole TorchScript graph.</p>
+<p><img alt="overview" src="../../_images/ltc_disc_overview.png" /></p>
+<p>The above illustration shows the key process:</p>
+<ol class="simple">
+<li><p>traverse the whole graph and cluster the Disc compilable nodes into a
+sub-graph.</p></li>
+<li><p>convert TorchScript IR into mhlo IR.</p></li>
+<li><p>call the Disc compiling pipeline into an executable program.</p></li>
+<li><p>implement Disc <code class="docutils literal notranslate"><span class="pre">CustomClassHolder</span></code> to bind the executable program above.</p></li>
+<li><p>replace the disc cluster sub-graph on the origin graph with
+<code class="docutils literal notranslate"><span class="pre">prim::CallMethod</span></code> symbol to call Disc executable at runtime.</p></li>
+</ol>
+</section>
+<section id="implementation">
+<h2>Implementation<a class="headerlink" href="#implementation" title="Permalink to this heading">¶</a></h2>
+<section id="extend-ltc-torchscript-backend">
+<h3>Extend LTC TorchScript Backend<a class="headerlink" href="#extend-ltc-torchscript-backend" title="Permalink to this heading">¶</a></h3>
+<p>After reading PyTorch LTC source code, <code class="docutils literal notranslate"><span class="pre">BackendImplInterface</span></code> provides some
+important interface:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">[]ComputationPtr</span> <span class="pre">Compile(ComputationPtr[])</span></code>, takes a Computation object and
+returns a compiled graph, <code class="docutils literal notranslate"><span class="pre">Computation</span></code> object contains TorchScript runtime
+instance and some coordinates pieces.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">BackendDataPtr</span> <span class="pre">ExecuteComputation(Computation,</span> <span class="pre">BackendDataPtr[],</span> <span class="pre">BackendDevice)</span></code>,
+execute the TorchScript runtime with input Tensors and return
+the result Tensors.</p></li>
+</ul>
+<p>Disc compiler requires input Tensors contain <code class="docutils literal notranslate"><span class="pre">rank</span></code> and <code class="docutils literal notranslate"><span class="pre">dtype</span> </code> meta
+information, so we should do some shape inference with the input Tensors before
+calling the Disc compilation pipeline, that we decide to override
+<code class="docutils literal notranslate"><span class="pre">ExecuteComputation</span></code> as the following rough pseudocode:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">DISCBackendImpl</span><span class="o">::</span><span class="n">ExecuteComputation</span><span class="p">(...)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">graph_hash</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">HashData</span><span class="p">(</span><span class="n">graph</span><span class="p">);</span><span class="w"></span>
+<span class="w">  </span><span class="k">if</span><span class="w"> </span><span class="p">(</span><span class="n">cache</span><span class="o">-&gt;</span><span class="n">find</span><span class="p">(</span><span class="n">graph_hash</span><span class="p">))</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">    </span><span class="k">return</span><span class="w"> </span><span class="n">graph</span><span class="o">-&gt;</span><span class="n">get</span><span class="p">(</span><span class="n">graph_hash</span><span class="p">)</span><span class="o">-&gt;</span><span class="n">executable</span><span class="o">-&gt;</span><span class="n">Run</span><span class="p">(</span><span class="n">inputs</span><span class="p">);</span><span class="w"></span>
+<span class="w">  </span><span class="p">}</span><span class="w"></span>
+
+<span class="w">  </span><span class="n">ExecutablePtr</span><span class="w"> </span><span class="n">executable</span><span class="w"> </span><span class="o">=</span><span class="w"></span>
+<span class="w">        </span><span class="n">CompileToDiscExecutable</span><span class="p">(</span><span class="n">graph</span><span class="p">,</span><span class="w"> </span><span class="n">inputs</span><span class="p">);</span><span class="w"></span>
+<span class="w">  </span><span class="k">auto</span><span class="w"> </span><span class="n">result</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">executable</span><span class="o">-&gt;</span><span class="n">Run</span><span class="p">(</span><span class="n">inputs</span><span class="p">);</span><span class="w"></span>
+<span class="w">  </span><span class="n">cache</span><span class="o">-&gt;</span><span class="n">Add</span><span class="p">(</span><span class="n">graph_hash</span><span class="p">,</span><span class="w"> </span><span class="n">executable</span><span class="p">);</span><span class="w"></span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">results</span><span class="p">;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">CompileToDiscExecutable</span></code> takes a TorchScript graph and return the executable
+program with many pass functions:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="n">ExecutablePtr</span><span class="w"> </span><span class="nf">CompileToDiscExecutable</span><span class="p">(</span><span class="n">std</span><span class="o">::</span><span class="n">shared</span><span class="o">&lt;</span><span class="n">graph</span><span class="o">&gt;</span><span class="w"> </span><span class="n">graph</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="p">...</span><span class="w"></span>
+<span class="w">  </span><span class="n">ClusterDiscNodesPass</span><span class="p">(</span><span class="n">graph</span><span class="p">);</span><span class="w"></span>
+<span class="w">  </span><span class="n">torch</span><span class="o">::</span><span class="n">jit</span><span class="o">::</span><span class="n">EliminateDeadCode</span><span class="p">(</span><span class="n">graph</span><span class="p">);</span><span class="w"></span>
+<span class="w">  </span><span class="p">...</span><span class="w"></span>
+<span class="w">  </span><span class="n">RegisterDiscClassPass</span><span class="p">(</span><span class="n">graph</span><span class="p">);</span><span class="w"></span>
+<span class="w">  </span><span class="n">torch</span><span class="o">::</span><span class="n">jit</span><span class="o">::</span><span class="n">EliminateDeadCode</span><span class="p">(</span><span class="n">graph</span><span class="p">);</span><span class="w"></span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="n">std</span><span class="o">::</span><span class="n">make_shared</span><span class="o">&lt;</span><span class="n">Executable</span><span class="o">&gt;</span><span class="p">(</span><span class="n">graph</span><span class="p">);</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+</section>
+<section id="cluster-disc-compilable-nodes">
+<h3>Cluster Disc Compilable Nodes<a class="headerlink" href="#cluster-disc-compilable-nodes" title="Permalink to this heading">¶</a></h3>
+<p><code class="docutils literal notranslate"><span class="pre">ClusterDiscNodesPass</span></code> cluster Disc compilable nodes into a <code class="docutils literal notranslate"><span class="pre">SubGraph</span></code>, given an
+original TorchScript graph snippet as the following:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span><span class="p">(...)</span><span class="o">:</span><span class="w"></span>
+<span class="w">  </span><span class="o">%</span><span class="mi">4</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="kt">int</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">prim</span><span class="o">::</span><span class="n">Constant</span><span class="p">[</span><span class="n">value</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">]]()</span><span class="w"></span>
+<span class="w">  </span><span class="o">%</span><span class="mi">5</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Float</span><span class="p">(</span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">requires_grad</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">device</span><span class="o">=</span><span class="n">cpu</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">aten</span><span class="o">::</span><span class="n">reshape</span><span class="p">(</span><span class="o">%</span><span class="n">p2</span><span class="p">,</span><span class="w"> </span><span class="o">%</span><span class="mi">4</span><span class="p">)</span><span class="w"></span>
+<span class="w">  </span><span class="o">%</span><span class="mi">6</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Float</span><span class="p">(</span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">device</span><span class="o">=</span><span class="n">cpu</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">aten</span><span class="o">::</span><span class="n">add</span><span class="p">(</span><span class="o">%</span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="o">%</span><span class="n">p1</span><span class="p">,</span><span class="w"> </span><span class="o">%</span><span class="n">p0</span><span class="p">)</span><span class="w"></span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">(</span><span class="o">%</span><span class="mi">6</span><span class="p">)</span><span class="w"></span>
+</pre></div>
+</div>
+<p><code class="docutils literal notranslate"><span class="pre">aten::reshape</span></code> and <code class="docutils literal notranslate"><span class="pre">aten::add</span></code> operators are connected and they are all Disc
+compilable nodes, so we can cluster them into a Disc node, which is a
+<code class="docutils literal notranslate"><span class="pre">FusionGroup</span></code>:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span><span class="p">(...)</span><span class="o">:</span><span class="w"></span>
+<span class="w">  </span><span class="o">%</span><span class="mi">4</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="kt">int</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">prim</span><span class="o">::</span><span class="n">Constant</span><span class="p">[</span><span class="n">value</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">]]()</span><span class="w"></span>
+<span class="w">  </span><span class="o">%</span><span class="mi">6</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Float</span><span class="p">(</span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">device</span><span class="o">=</span><span class="n">cpu</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">prim</span><span class="o">::</span><span class="n">FusionGroup_0</span><span class="p">(</span><span class="o">%</span><span class="n">p2</span><span class="p">,</span><span class="w"> </span><span class="o">%</span><span class="n">p1</span><span class="p">,</span><span class="w"> </span><span class="o">%</span><span class="mi">4</span><span class="p">)</span><span class="w"></span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">(</span><span class="o">%</span><span class="mi">6</span><span class="p">)</span><span class="w"></span>
+<span class="n">with</span><span class="w"> </span><span class="n">prim</span><span class="o">::</span><span class="n">FusionGroup_0</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">graph</span><span class="p">(...)</span><span class="o">:</span><span class="w"></span>
+<span class="w">  </span><span class="o">%</span><span class="mi">5</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Float</span><span class="p">(</span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">requires_grad</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="n">device</span><span class="o">=</span><span class="n">cpu</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">aten</span><span class="o">::</span><span class="n">reshape</span><span class="p">(</span><span class="o">%</span><span class="n">p2_</span><span class="p">,</span><span class="w"> </span><span class="o">%</span><span class="n">p3_</span><span class="p">)</span><span class="w"></span>
+<span class="w">  </span><span class="o">%</span><span class="mi">6</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Float</span><span class="p">(</span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">device</span><span class="o">=</span><span class="n">cpu</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">aten</span><span class="o">::</span><span class="n">add</span><span class="p">(</span><span class="o">%</span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="o">%</span><span class="n">p1_</span><span class="p">,</span><span class="w"> </span><span class="o">%</span><span class="n">p0_</span><span class="p">)</span><span class="w"></span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">(</span><span class="o">%</span><span class="mi">6</span><span class="p">)</span><span class="w"></span>
+</pre></div>
+</div>
+</section>
+<section id="bind-disc-customclassholder">
+<h3>Bind Disc CustomClassHolder<a class="headerlink" href="#bind-disc-customclassholder" title="Permalink to this heading">¶</a></h3>
+<p><a class="reference internal" href="../developers/runtime_abstraction_layer.html"><span class="doc">BladeDISC RAL</span></a> is designed to unify
+difference runtime backend (TensorFlow, PyTorch or even standalone binary). To
+Execute the Disc executable program at TorchScript runtime, we will implement a
+<code class="docutils literal notranslate"><span class="pre">DiscClass</span></code> which is derived from <code class="docutils literal notranslate"><span class="pre">torch::CustomClassHolder</span></code> to bind RAL. For
+more details about how, please go to the PyTorch official website.</p>
+<p>Before that, we should compile each <code class="docutils literal notranslate"><span class="pre">prim::FusionGroup</span></code> as the above section to
+Disc executable program via <code class="docutils literal notranslate"><span class="pre">disc_compiler_main</span></code> binary. The <code class="docutils literal notranslate"><span class="pre">DiscClass</span></code> class
+is just like:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">DiscClass</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="k">public</span><span class="w"> </span><span class="n">torch</span><span class="o">::</span><span class="n">CustomClassHolder</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w"> </span><span class="k">public</span><span class="o">:</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// bind input Pytorch Tensor into context</span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">BindingInputs</span><span class="p">(</span><span class="w"></span>
+<span class="w">      </span><span class="k">const</span><span class="w"> </span><span class="n">torch</span><span class="o">::</span><span class="n">List</span><span class="o">&lt;</span><span class="n">torch</span><span class="o">::</span><span class="n">Tensor</span><span class="o">&gt;&amp;</span><span class="w"> </span><span class="n">inputs</span><span class="p">,</span><span class="w"></span>
+<span class="w">      </span><span class="n">tao</span><span class="o">::</span><span class="n">ral</span><span class="o">::</span><span class="n">ExecutionContext</span><span class="o">&amp;</span><span class="w"> </span><span class="n">exec_ctx</span><span class="p">)</span><span class="w"> </span><span class="k">const</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// bind output into execution context</span>
+<span class="w">  </span><span class="n">torch</span><span class="o">::</span><span class="n">List</span><span class="o">&lt;</span><span class="n">torch</span><span class="o">::</span><span class="n">Tensor</span><span class="o">&gt;</span><span class="w"> </span><span class="n">CreateAndBindingOutputs</span><span class="p">(</span><span class="w"></span>
+<span class="w">      </span><span class="n">tao</span><span class="o">::</span><span class="n">ral</span><span class="o">::</span><span class="n">ExecutionContext</span><span class="o">&amp;</span><span class="w"> </span><span class="n">exec_ctx</span><span class="p">)</span><span class="w"> </span><span class="k">const</span><span class="p">;</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// </span>
+<span class="w">  </span><span class="n">torch</span><span class="o">::</span><span class="n">List</span><span class="o">&lt;</span><span class="n">torch</span><span class="o">::</span><span class="n">Tensor</span><span class="o">&gt;</span><span class="w"> </span><span class="n">Run</span><span class="p">(</span><span class="k">const</span><span class="w"> </span><span class="n">torch</span><span class="o">::</span><span class="n">List</span><span class="o">&lt;</span><span class="n">torch</span><span class="o">::</span><span class="n">Tensor</span><span class="o">&gt;&amp;</span><span class="w"> </span><span class="n">inputs</span><span class="p">);</span><span class="w"></span>
+<span class="w"> </span><span class="k">private</span><span class="o">:</span><span class="w"></span>
+<span class="w">  </span><span class="n">std</span><span class="o">::</span><span class="n">unique_ptr</span><span class="o">&lt;</span><span class="n">tao</span><span class="o">::</span><span class="n">ral</span><span class="o">::</span><span class="n">BaseContext</span><span class="o">&gt;</span><span class="w"> </span><span class="n">ral_ctx_</span><span class="p">;</span><span class="w"></span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+<p>Finally, we should rewrite the graph, add <code class="docutils literal notranslate"><span class="pre">DiscClass</span></code> as the Graph input, and
+replace <code class="docutils literal notranslate"><span class="pre">prim::FusionGraph</span></code> with <code class="docutils literal notranslate"><span class="pre">prim::CallMethod</span></code> symbol to bind DiscClass:</p>
+<div class="highlight-cpp notranslate"><div class="highlight"><pre><span></span><span class="n">graph</span><span class="p">(...</span><span class="w"></span>
+<span class="w">      </span><span class="nl">disc_class_p0</span><span class="p">:</span><span class="w">  </span><span class="n">__torch__</span><span class="p">.</span><span class="n">torch</span><span class="p">.</span><span class="n">classes</span><span class="p">.</span><span class="n">torch_disc</span><span class="p">.</span><span class="n">DiscClass</span><span class="p">)</span><span class="o">:</span><span class="w"></span>
+<span class="w">  </span><span class="o">%</span><span class="mi">4</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="kt">int</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">prim</span><span class="o">::</span><span class="n">Constant</span><span class="p">[</span><span class="n">value</span><span class="o">=</span><span class="p">[</span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="mi">3</span><span class="p">]]()</span><span class="w"></span>
+<span class="w">  </span><span class="o">%</span><span class="mi">10</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Tensor</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">prim</span><span class="o">::</span><span class="n">ListConstruct</span><span class="p">(</span><span class="o">%</span><span class="n">p2</span><span class="p">,</span><span class="w"> </span><span class="o">%</span><span class="n">p1</span><span class="p">,</span><span class="w"> </span><span class="o">%</span><span class="mi">4</span><span class="p">)</span><span class="w"></span>
+<span class="w">  </span><span class="o">%</span><span class="mi">11</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Tensor</span><span class="p">[]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">prim</span><span class="o">::</span><span class="n">CallMethod</span><span class="p">[</span><span class="n">name</span><span class="o">=</span><span class="s">&quot;Run&quot;</span><span class="p">](</span><span class="o">%</span><span class="n">disc_class_p0</span><span class="p">,</span><span class="w"> </span><span class="o">%</span><span class="mi">10</span><span class="p">)</span><span class="w"></span>
+<span class="w">  </span><span class="o">%</span><span class="mi">13</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="n">Float</span><span class="p">(</span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="o">*</span><span class="p">,</span><span class="w"> </span><span class="n">device</span><span class="o">=</span><span class="n">cpu</span><span class="p">)</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">prim</span><span class="o">::</span><span class="n">ListUnpack</span><span class="p">(</span><span class="o">%</span><span class="mi">11</span><span class="p">)</span><span class="w"></span>
+<span class="w">  </span><span class="k">return</span><span class="w"> </span><span class="p">(</span><span class="o">%</span><span class="mi">13</span><span class="p">)</span><span class="w"></span>
+</pre></div>
+</div>
+</section>
+</section>
+</section>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'en',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/sphinx_highlight.js"></script>
+    <script type="text/javascript" src="../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
+        </div>
+    </div>  
+
+</body>
+</html>

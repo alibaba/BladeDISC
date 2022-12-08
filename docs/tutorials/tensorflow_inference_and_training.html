@@ -3,7 +3,8 @@
 <!DOCTYPE html>
 <head>
   <meta charset="utf-8">
-  
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <title>Tutorial: Optimize TensorFlow Models with BladeDISC &mdash; BladeDISC 1.0.0 documentation</title>
@@ -72,7 +73,7 @@
         
           <li><a href="index.html">Tutorials on Example Use Cases</a></li>
         
-      <li>Tutorial: Optimize TensorFlow Models with BladeDISC</li>
+      <li>Tutorial: Optimize TensorFlow Models with BladeDISC <!-- omit in toc --></li>
     
     
       <li class="breadcrumbs-aside">
@@ -114,7 +115,9 @@
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#setup-and-examples">Setup and Examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#publications">Publications</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#presentations-and-talks">Presentations and Talks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#building-status">Building Status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#faq">FAQ</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#contact-us">Contact Us</a></li>
 </ul>
@@ -127,6 +130,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../build_from_source.html">Build from Source</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#prerequisite">Prerequisite</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
 </ul>
@@ -156,8 +160,8 @@
                     <div class="document">
                         
                             
-  <div class="section" id="tutorial-optimize-tensorflow-models-with-bladedisc">
-<h1>Tutorial: Optimize TensorFlow Models with BladeDISC<a class="headerlink" href="#tutorial-optimize-tensorflow-models-with-bladedisc" title="Permalink to this headline">¶</a></h1>
+  <section id="tutorial-optimize-tensorflow-models-with-bladedisc-omit-in-toc">
+<h1>Tutorial: Optimize TensorFlow Models with BladeDISC <!-- omit in toc --><a class="headerlink" href="#tutorial-optimize-tensorflow-models-with-bladedisc-omit-in-toc" title="Permalink to this heading">¶</a></h1>
 <p>In this tutorial, we show how to optimize TensorFlow models with BladeDISC for
 both inference and training. Users only need to add two lines of code to
 optimize the model just-in-time for the examples in this tutorial.
@@ -165,45 +169,52 @@ Please refer to <a class="reference internal" href="../install_with_docker.html"
 for environment setup.</p>
 <p>The content of this tutorial is as following.</p>
 <ul class="simple">
-<li><p><a class="reference external" href="#bert-inference">BERT Inference</a></p>
+<li><p><a class="reference external" href="#bert-cuda-inference">BERT CUDA Inference</a></p>
 <ul>
 <li><p><a class="reference external" href="#prologue-download-frozen-model">Prologue: Download Frozen Model</a></p></li>
 <li><p><a class="reference external" href="#all-you-need-are-the-two-lines">All You Need Are the Two Lines!</a></p></li>
 <li><p><a class="reference external" href="#epilogue-normal-process-to-run-inference">Epilogue: Normal Process to Run Inference</a></p></li>
 </ul>
 </li>
-<li><p><a class="reference external" href="#deepmd-training">DeePMD training</a></p>
+<li><p><a class="reference external" href="#bert-cpu-inference">BERT CPU Inference</a></p>
+<ul>
+<li><p><a class="reference external" href="#prologue-download-frozen-model-for-cpu">Prologue: Download Frozen Model For CPU</a></p></li>
+<li><p><a class="reference external" href="#still-all-you-need-are-the-two-lines">Still, All You Need Are the Two Lines!</a></p></li>
+<li><p><a class="reference external" href="#epilogue-normal-process-to-run-inference-on-cpu">Epilogue: Normal Process to Run Inference on CPU</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="#deepmd-training">DeePMD Training</a></p>
 <ul>
 <li><p><a class="reference external" href="#prologue-install-deepmd-kit-and-download-data">Prologue: Install DeePMD-kit and Download Data</a></p></li>
-<li><p><a class="reference external" href="#still-all-you-need-are-the-two-lines">Still, All You Need Are the Two Lines!</a></p></li>
+<li><p><a class="reference external" href="#aagin-all-you-need-are-the-two-lines">Aagin, All You Need Are the Two Lines!</a></p></li>
 <li><p><a class="reference external" href="#epilogue-normal-process-to-run-md-training-with-deepmd-kit-api">Epilogue: Normal Process to Run MD Training with DeePMD-kit API</a></p></li>
 </ul>
 </li>
 </ul>
-<div class="section" id="bert-inference">
-<h2>BERT Inference<a class="headerlink" href="#bert-inference" title="Permalink to this headline">¶</a></h2>
+<section id="bert-cuda-inference">
+<h2>BERT CUDA Inference<a class="headerlink" href="#bert-cuda-inference" title="Permalink to this heading">¶</a></h2>
 <p>BERT models are usually feed with data of dynamic shapes in real production. The
 dynamic shape mainly comes from two aspects, one is varied batch-size, and the
 other is varied data shape of each sample (e.g., varied sequence lengths). The
 model we show in this tutorial has varied batch-size.</p>
-<div class="section" id="prologue-download-frozen-model">
-<h3>Prologue: Download Frozen Model<a class="headerlink" href="#prologue-download-frozen-model" title="Permalink to this headline">¶</a></h3>
+<section id="prologue-download-frozen-model">
+<h3>Prologue: Download Frozen Model<a class="headerlink" href="#prologue-download-frozen-model" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>!mkdir -p model
 !wget -P model http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/bladedisc_notebook_binaries/models/disc_bert_example/frozen.pb
 </pre></div>
 </div>
-</div>
-<div class="section" id="all-you-need-are-the-two-lines">
-<h3>All You Need Are the Two Lines!<a class="headerlink" href="#all-you-need-are-the-two-lines" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="all-you-need-are-the-two-lines">
+<h3>All You Need Are the Two Lines!<a class="headerlink" href="#all-you-need-are-the-two-lines" title="Permalink to this heading">¶</a></h3>
 <p>All you need to do to optimize the inference is to add the following two lines
 of code.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">blade_disc_tf</span> <span class="k">as</span> <span class="nn">disc</span>
 <span class="n">disc</span><span class="o">.</span><span class="n">enable</span><span class="p">()</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="epilogue-normal-process-to-run-inference">
-<h3>Epilogue: Normal Process to Run Inference<a class="headerlink" href="#epilogue-normal-process-to-run-inference" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="epilogue-normal-process-to-run-inference">
+<h3>Epilogue: Normal Process to Run Inference<a class="headerlink" href="#epilogue-normal-process-to-run-inference" title="Permalink to this heading">¶</a></h3>
 <p>After enabling BladeDISC with the two lines above, we can load and run the
 frozen model with normal process.</p>
 <p>First, we load the frozen model and configure the session.</p>
@@ -241,20 +252,86 @@ input data with varied batch-size to ease the setup.</p>
 </pre></div>
 </div>
 <p>The above code shows the complete process to optimize BERT inference model with
-BladeDISC. Please refer to <a class="reference external" href="https://github.com/alibaba/BladeDISC/tree/main/examples/TensorFlow/Inference/BERT">TensorFlow BERT Inference
+BladeDISC. Please refer to <a class="reference external" href="https://github.com/alibaba/BladeDISC/tree/main/examples/TensorFlow/Inference/CUDA/BERT">TensorFlow BERT Inference
 Example</a>
 for more scripts to compare the performance of BladeDISC optimization with naive
 TensorFlow and XLA.</p>
+</section>
+</section>
+<section id="bert-cpu-inference">
+<h2>BERT CPU Inference<a class="headerlink" href="#bert-cpu-inference" title="Permalink to this heading">¶</a></h2>
+<p>Similar to the CUDA example, The BERT model we show in this tutorial has varied
+batch-size.</p>
+<section id="prologue-download-frozen-model-for-cpu">
+<h3>Prologue: Download Frozen Model For CPU<a class="headerlink" href="#prologue-download-frozen-model-for-cpu" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span>!mkdir -p model
+!wget -P model http://pai-blade.oss-cn-zhangjiakou.aliyuncs.com/bladedisc_notebook_binaries/models/disc_bert_cpu_example/frozen.pb
+</pre></div>
 </div>
+</section>
+<section id="still-all-you-need-are-the-two-lines">
+<h3>Still, All You Need Are the Two Lines!<a class="headerlink" href="#still-all-you-need-are-the-two-lines" title="Permalink to this heading">¶</a></h3>
+<p>Similar to the CUDA example, all you need to optimize the inference is to
+add the following two lines of code with some settings that are specific to cpu.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">blade_disc_tf</span> <span class="k">as</span> <span class="nn">disc</span>
+<span class="n">disc</span><span class="o">.</span><span class="n">enable</span><span class="p">(</span>
+  <span class="n">disc_cpu</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="c1"># this enable cpu optimization</span>
+  <span class="n">num_intra_op_threads</span><span class="o">=</span><span class="mi">16</span> <span class="c1"># similar to TF_NUM_INTRAOP_THREADS</span>
+<span class="p">)</span>
+</pre></div>
 </div>
-<div class="section" id="deepmd-training">
-<h2>DeePMD Training<a class="headerlink" href="#deepmd-training" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="epilogue-normal-process-to-run-inference-on-cpu">
+<h3>Epilogue: Normal Process to Run Inference on CPU<a class="headerlink" href="#epilogue-normal-process-to-run-inference-on-cpu" title="Permalink to this heading">¶</a></h3>
+<p>After enabling BladeDISC with the two lines above, we can load and run the
+frozen model with normal process.</p>
+<p>First, we load the frozen model and configure the session.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">os</span>
+<span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">tensorflow.compat.v1</span> <span class="k">as</span> <span class="nn">tf</span>
+<span class="n">tf</span><span class="o">.</span><span class="n">disable_v2_behavior</span><span class="p">()</span>
+
+<span class="n">graph_def</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">GraphDef</span><span class="p">()</span>
+<span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s1">&#39;./model/frozen.pb&#39;</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+    <span class="n">graph_def</span><span class="o">.</span><span class="n">ParseFromString</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
+<span class="n">graph</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Graph</span><span class="p">()</span>
+<span class="k">with</span> <span class="n">graph</span><span class="o">.</span><span class="n">as_default</span><span class="p">():</span>
+    <span class="n">tf</span><span class="o">.</span><span class="n">import_graph_def</span><span class="p">(</span><span class="n">graph_def</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+<span class="n">graph</span> <span class="o">=</span> <span class="n">load_frozen_graph</span><span class="p">()</span>
+
+<span class="n">session_config</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">ConfigProto</span><span class="p">()</span>
+<span class="n">session_config</span><span class="o">.</span><span class="n">inter_op_parallelism_threads</span> <span class="o">=</span> <span class="mi">1</span>
+<span class="n">session_config</span><span class="o">.</span><span class="n">intra_op_parallelism_threads</span> <span class="o">=</span> <span class="mi">16</span>
+<span class="n">sess</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">Session</span><span class="p">(</span><span class="n">graph</span> <span class="o">=</span> <span class="n">graph</span><span class="p">,</span> <span class="n">config</span> <span class="o">=</span> <span class="n">session_config</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Finally, we prepare input data and run the session. In this example, we fake the
+input data with varied batch-size to ease the setup.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">fetch</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;loss/Softmax:0&quot;</span><span class="p">]</span>
+<span class="k">for</span> <span class="n">batch</span> <span class="ow">in</span> <span class="p">[</span><span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">8</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="mi">2</span><span class="p">]:</span>
+    <span class="n">feed_dict</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;input_ids_1:0&#39;</span> <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">batch</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span>
+        <span class="s1">&#39;segment_ids_1:0&#39;</span> <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">batch</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span>
+        <span class="s1">&#39;input_mask_1:0&#39;</span> <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="n">batch</span><span class="p">,</span> <span class="mi">128</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span>
+    <span class="p">}</span>
+    <span class="n">outs</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">fetch</span><span class="p">,</span> <span class="n">feed_dict</span> <span class="o">=</span> <span class="n">feed_dict</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The above code shows the complete process to optimize BERT inference model with
+BladeDISC. Please refer to <a class="reference external" href="https://github.com/alibaba/BladeDISC/tree/main/examples/TensorFlow/Inference/X86/BERT">TensorFlow BERT Inference
+Example on X86</a>, or <a class="reference external" href="https://github.com/alibaba/BladeDISC/tree/main/examples/TensorFlow/Inference/AArch64/BERT">TensorFlow BERT Inference Example on AArch64</a> for more scripts to compare the performance of BladeDISC optimization with naive
+TensorFlow and XLA.</p>
+</section>
+</section>
+<section id="deepmd-training">
+<h2>DeePMD Training<a class="headerlink" href="#deepmd-training" title="Permalink to this heading">¶</a></h2>
 <p>We take a deep learning based model for molecular dynamics (MD) to show how to
 optimize a training model with BladeDISC. Please refer to
 <a class="reference external" href="https://github.com/deepmodeling/deepmd-kit">DeePMD-kit</a> for more information
 about deep learning based MD.</p>
-<div class="section" id="prologue-install-deepmd-kit-and-download-data">
-<h3>Prologue: Install DeePMD-kit and Download Data<a class="headerlink" href="#prologue-install-deepmd-kit-and-download-data" title="Permalink to this headline">¶</a></h3>
+<section id="prologue-install-deepmd-kit-and-download-data">
+<h3>Prologue: Install DeePMD-kit and Download Data<a class="headerlink" href="#prologue-install-deepmd-kit-and-download-data" title="Permalink to this heading">¶</a></h3>
 <p>We need to install DeePMD-kit python interface to run the MD model.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span># Install DeePMD-kit according to https://github.com/deepmodeling/deepmd-kit/blob/master/doc/install/install-from-source.md#install-the-python-interface
 !git clone https://github.com/deepmodeling/deepmd-kit.git
@@ -265,18 +342,18 @@ about deep learning based MD.</p>
 !tar -xzvf data.tar.gz
 </pre></div>
 </div>
-</div>
-<div class="section" id="still-all-you-need-are-the-two-lines">
-<h3>Still, All You Need Are the Two Lines!<a class="headerlink" href="#still-all-you-need-are-the-two-lines" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="aagin-all-you-need-are-the-two-lines">
+<h3>Aagin, All You Need Are the Two Lines!<a class="headerlink" href="#aagin-all-you-need-are-the-two-lines" title="Permalink to this heading">¶</a></h3>
 <p>All you need to do to optimize the training is to add the following two lines of
 code.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">blade_disc_tf</span> <span class="k">as</span> <span class="nn">disc</span>
 <span class="n">disc</span><span class="o">.</span><span class="n">enable</span><span class="p">()</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="epilogue-normal-process-to-run-md-training-with-deepmd-kit-api">
-<h3>Epilogue: Normal Process to Run MD Training with DeePMD-kit API<a class="headerlink" href="#epilogue-normal-process-to-run-md-training-with-deepmd-kit-api" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="epilogue-normal-process-to-run-md-training-with-deepmd-kit-api">
+<h3>Epilogue: Normal Process to Run MD Training with DeePMD-kit API<a class="headerlink" href="#epilogue-normal-process-to-run-md-training-with-deepmd-kit-api" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">sys</span>
 <span class="c1"># The entry point of DeePMD-kit is `main` here.</span>
 <span class="kn">from</span> <span class="nn">deepmd.entrypoints.main</span> <span class="kn">import</span> <span class="n">main</span>
@@ -295,9 +372,9 @@ code.</p>
 BladeDISC. You can also refer to <a class="reference external" href="https://github.com/alibaba/BladeDISC/tree/main/examples/TensorFlow/Train/DeePMD">TensorFlow DeePMD Training
 Example</a>
 for all scripts to optimize MD model.</p>
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
 
 
                         
@@ -314,7 +391,7 @@ for all scripts to optimize MD model.</p>
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../../',
             VERSION:'1.0.0',
-            LANGUAGE:'None',
+            LANGUAGE:'en',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true,
@@ -324,7 +401,9 @@ for all scripts to optimize MD model.</p>
     <script type="text/javascript" src="../../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/sphinx_highlight.js"></script>
     <script type="text/javascript" src="../../_static/clipboard.min.js"></script>
     <script type="text/javascript" src="../../_static/copybutton.js"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
@@ -333,7 +412,7 @@ for all scripts to optimize MD model.</p>
     <div class="footer" role="contentinfo">
         <div class="container">
             &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
-        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
         </div>
     </div>  
 

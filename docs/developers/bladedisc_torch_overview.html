@@ -3,7 +3,8 @@
 <!DOCTYPE html>
 <head>
   <meta charset="utf-8">
-  
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <title>TorchBlade Overview &mdash; BladeDISC 1.0.0 documentation</title>
@@ -110,7 +111,9 @@
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#setup-and-examples">Setup and Examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#publications">Publications</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#presentations-and-talks">Presentations and Talks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#building-status">Building Status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#faq">FAQ</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#contact-us">Contact Us</a></li>
 </ul>
@@ -123,6 +126,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../build_from_source.html">Build from Source</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#prerequisite">Prerequisite</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
 </ul>
@@ -152,24 +156,28 @@
                     <div class="document">
                         
                             
-  <div class="section" id="torchblade-overview">
-<h1>TorchBlade Overview<a class="headerlink" href="#torchblade-overview" title="Permalink to this headline">¶</a></h1>
+  <section id="torchblade-overview">
+<h1>TorchBlade Overview<a class="headerlink" href="#torchblade-overview" title="Permalink to this heading">¶</a></h1>
 <p><img alt="bladedisc_torch_overview" src="../../_images/bladedisc_torch_overview.jpg" /></p>
 <p>The figure shows how a PyTorch <code class="docutils literal notranslate"><span class="pre">nn.Module</span></code> is compiled via TorchBlade, aka
 BladeDISC for PyTorch.</p>
 <p>In general, TorchBlade can be regarded as a compiler
 targeting a subset of Python language for deep learning.</p>
 <p>A PyTorch <code class="docutils literal notranslate"><span class="pre">nn.Module</span></code>’s forward method is first traced or scripted to
-TorchScript. After that, some passes are run to simplify the TorchScript graph,
+TorchScript (In PyTorch 2.0 we will leverage TorchDynamo).
+After that, some passes are run to simplify the TorchScript graph,
 making it closer to the SSA (Static Single Assignment) semantics. Then, the
 compilable subgraphs are converted to MHLO, which will finally be progressively
 optimized and lowered for different backends.</p>
-<p>TorchBlade only supports AOT compilation currently. While JIT’s process should
-not differ too much. Go to
-<a class="reference internal" href="pass_pipeline.html"><span class="doc">“Pass Pipeline Walkthrough”</span></a> for more
+<section id="the-architecture-of-torchblade">
+<h2>The Architecture of TorchBlade<a class="headerlink" href="#the-architecture-of-torchblade" title="Permalink to this heading">¶</a></h2>
+<p>We now do the PyTorch program lowering with Torch-MLIR.
+<img alt="bladedisc_torch_architecture" src="../../_images/bladedisc_torch_arch.png" /></p>
+<p>Go to <a class="reference internal" href="pass_pipeline.html"><span class="doc">“Pass Pipeline Walkthrough”</span></a> for more
 details about the compilation phase after the TorchScript is converted to MHLO.</p>
-<div class="section" id="problems-to-be-resolved">
-<h2>Problems to be Resolved<a class="headerlink" href="#problems-to-be-resolved" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="problems-to-be-resolved">
+<h2>Problems to be Resolved<a class="headerlink" href="#problems-to-be-resolved" title="Permalink to this heading">¶</a></h2>
 <p>The design principles of PyTorch emphasize simplicity and usability. PyTorch
 models are just Python programs under the full control of its user. The pythonic
 nature of PyTorch makes DSC(Domain Specific Compiler) suffering from <em>language
@@ -197,9 +205,9 @@ structures such as <code class="docutils literal notranslate"><span class="pre">
 </li>
 <li><p>The construction of end-to-end performant compiler stack for PyTorch</p></li>
 </ul>
-</div>
-<div class="section" id="how-torchblade-addresses-such-problems">
-<h2>How TorchBlade Addresses Such Problems<a class="headerlink" href="#how-torchblade-addresses-such-problems" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="how-torchblade-addresses-such-problems">
+<h2>How TorchBlade Addresses Such Problems<a class="headerlink" href="#how-torchblade-addresses-such-problems" title="Permalink to this heading">¶</a></h2>
 <p>TorchBlade is tailored for PyTorch and BladeDISC. It chooses MHLO as the tensor
 level “hub” IR with the considerations:</p>
 <ul class="simple">
@@ -209,8 +217,8 @@ mlir-hlo project</p></li>
 operators and lower level passes</p></li>
 <li><p>The support for dynamic shapes is well established by BladeDISC-TensorFlow</p></li>
 </ul>
-<div class="section" id="conversion-and-lowering">
-<h3>Conversion and Lowering<a class="headerlink" href="#conversion-and-lowering" title="Permalink to this headline">¶</a></h3>
+<section id="conversion-and-lowering">
+<h3>Conversion and Lowering<a class="headerlink" href="#conversion-and-lowering" title="Permalink to this heading">¶</a></h3>
 <p>The following conversions and optimizations are necessary before a PyTorch
 operator is converted MHLO operators:</p>
 <ul class="simple">
@@ -225,9 +233,9 @@ elimination</p></li>
 corresponding versions, since MHLO is an SSA IR and the in-place semantics
 have to be eliminated</p></li>
 </ul>
-</div>
-<div class="section" id="clustering-and-fallback">
-<h3>Clustering and Fallback<a class="headerlink" href="#clustering-and-fallback" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="clustering-and-fallback">
+<h3>Clustering and Fallback<a class="headerlink" href="#clustering-and-fallback" title="Permalink to this heading">¶</a></h3>
 <p>MHLO can only support a subset of operators of TorchScript where tensors are
 immutable values. TorchBlade addresses such issues with a clustering and
 fallback mechanism:</p>
@@ -240,32 +248,21 @@ avoid cyclic</p></li>
 <li><p>Finally, merge the clustered subgraph and convert it to MHLO; All the left
 nodes will fallback to PyTorch/TorchScript runtime</p></li>
 </ul>
-</div>
-<div class="section" id="ir-converters">
-<h3>IR Converters<a class="headerlink" href="#ir-converters" title="Permalink to this headline">¶</a></h3>
-<p>The IR converters are precisely the primary mechanism that supports converting
-and lowering from TorchScript to MHLO</p>
-<ul class="simple">
-<li><p>Query if the conversion of a graph node can succeed under a certain conversion
-context. It’s required because some aten operators are ambiguous since their
-semantics depend on their inputs. For example, <code class="docutils literal notranslate"><span class="pre">aten::convolution</span></code> can be used
-to represent ‘Conv1D’, ‘Conv2D’, ‘Conv3D’, but a converter for ‘Conv3D’ is not
-supported for now</p></li>
-<li><p>Build an MHLO module by walking the TorchScript subgraph and converting each
-TorchScipt operator to MHLO operator.</p></li>
-</ul>
+</section>
+<section id="ir-converters">
+<h3>IR Converters<a class="headerlink" href="#ir-converters" title="Permalink to this heading">¶</a></h3>
 <p>To add a new converter from PyTorch to MHLO, please refer to
-<a class="reference internal" href="torch_add_a_new_converter.html"><span class="doc">“How To Add a New Torch Op Converter”</span></a></p>
-</div>
-<div class="section" id="runtime-ral-runtime-abstraction-layer">
-<h3>Runtime(RAL, Runtime Abstraction Layer)<a class="headerlink" href="#runtime-ral-runtime-abstraction-layer" title="Permalink to this headline">¶</a></h3>
+<a class="reference internal" href="torch_add_a_new_operator.html"><span class="doc">“How To Add a New Torch Operator”</span></a></p>
+</section>
+<section id="runtime-ral-runtime-abstraction-layer">
+<h3>Runtime(RAL, Runtime Abstraction Layer)<a class="headerlink" href="#runtime-ral-runtime-abstraction-layer" title="Permalink to this heading">¶</a></h3>
 <p>The runtime of BladeDISC compiler,
 <a class="reference internal" href="runtime_abstraction_layer.html"><span class="doc">more details</span></a></p>
-</div>
-<div class="section" id="some-noteworthy-details">
-<h3>Some Noteworthy Details<a class="headerlink" href="#some-noteworthy-details" title="Permalink to this headline">¶</a></h3>
-<div class="section" id="relations-between-aten-tensor-and-mhlo-tensor">
-<h4>Relations Between <code class="docutils literal notranslate"><span class="pre">aten::Tensor</span></code> and <code class="docutils literal notranslate"><span class="pre">MHLO</span> <span class="pre">Tensor</span></code><a class="headerlink" href="#relations-between-aten-tensor-and-mhlo-tensor" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="some-noteworthy-details">
+<h3>Some Noteworthy Details<a class="headerlink" href="#some-noteworthy-details" title="Permalink to this heading">¶</a></h3>
+<section id="relations-between-aten-tensor-and-mhlo-tensor">
+<h4>Relations Between <code class="docutils literal notranslate"><span class="pre">aten::Tensor</span></code> and <code class="docutils literal notranslate"><span class="pre">MHLO</span> <span class="pre">Tensor</span></code><a class="headerlink" href="#relations-between-aten-tensor-and-mhlo-tensor" title="Permalink to this heading">¶</a></h4>
 <p>An <code class="docutils literal notranslate"><span class="pre">aten::Tensor</span></code> is a memory buffer with shapes that can be viewed and modified
 in place. However, <code class="docutils literal notranslate"><span class="pre">MHLO</span> <span class="pre">Tensor</span></code> is immutable. Any operations on <code class="docutils literal notranslate"><span class="pre">MHLO</span> <span class="pre">Tensors</span></code>
 will create new <code class="docutils literal notranslate"><span class="pre">MHLO</span> <span class="pre">Tensors</span></code>. The memory buffer does not exist in the IR until
@@ -273,9 +270,9 @@ the phrase lowers IR to LMHLO.</p>
 <p>To enlarge the supported region in TorchScript graph, TorchBlade tries to
 eliminate memory-write operations as much as possible and only clusters those
 graph nodes that will not cause data hazards.</p>
-</div>
-<div class="section" id="relations-between-scalar-and-0-rank-tensor">
-<h4>Relations Between <code class="docutils literal notranslate"><span class="pre">Scalar</span></code> and 0-Rank <code class="docutils literal notranslate"><span class="pre">Tensor</span></code><a class="headerlink" href="#relations-between-scalar-and-0-rank-tensor" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="relations-between-scalar-and-0-rank-tensor">
+<h4>Relations Between <code class="docutils literal notranslate"><span class="pre">Scalar</span></code> and 0-Rank <code class="docutils literal notranslate"><span class="pre">Tensor</span></code><a class="headerlink" href="#relations-between-scalar-and-0-rank-tensor" title="Permalink to this heading">¶</a></h4>
 <ul class="simple">
 <li><p>A torch <code class="docutils literal notranslate"><span class="pre">aten::Tensor</span></code> can be viewed, reshaped, sliced, and modified. But a
 torch <code class="docutils literal notranslate"><span class="pre">Scalar</span></code> can’t</p></li>
@@ -286,18 +283,18 @@ need</p></li>
 <li><p>In TorchBlade, torch <code class="docutils literal notranslate"><span class="pre">Scalar</span></code> was converted to mlir standard dialect operator
 <code class="docutils literal notranslate"><span class="pre">mlir::ConstantOp</span></code> since <code class="docutils literal notranslate"><span class="pre">Scalar</span></code> is immutable</p></li>
 </ul>
-</div>
-<div class="section" id="how-torchblade-converts-list-scalar-and-list-tensor">
-<h4>How TorchBlade Converts <code class="docutils literal notranslate"><span class="pre">List[Scalar]</span></code> and <code class="docutils literal notranslate"><span class="pre">List[Tensor]</span></code><a class="headerlink" href="#how-torchblade-converts-list-scalar-and-list-tensor" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="how-torchblade-converts-list-scalar-and-list-tensor">
+<h4>How TorchBlade Converts <code class="docutils literal notranslate"><span class="pre">List[Scalar]</span></code> and <code class="docutils literal notranslate"><span class="pre">List[Tensor]</span></code><a class="headerlink" href="#how-torchblade-converts-list-scalar-and-list-tensor" title="Permalink to this heading">¶</a></h4>
 <p>TorchBlade only converts <code class="docutils literal notranslate"><span class="pre">List</span></code> of <code class="docutils literal notranslate"><span class="pre">Scalars</span></code> and <code class="docutils literal notranslate"><span class="pre">Tensors</span></code> whose elements can be
 analyzed statically at conversion time for now. Once the elements are known, we
 will imitate the operations of <code class="docutils literal notranslate"><span class="pre">List</span></code> at conversion time, so there is no need to
 preserve <code class="docutils literal notranslate"><span class="pre">List</span></code> anymore. Otherwise, the <code class="docutils literal notranslate"><span class="pre">List</span></code> operations will be left
 unsupported and fall back to PyTorch runtime, so does <code class="docutils literal notranslate"><span class="pre">Dict</span></code>.</p>
-</div>
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
+</section>
 
 
                         
@@ -314,7 +311,7 @@ unsupported and fall back to PyTorch runtime, so does <code class="docutils lite
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../../',
             VERSION:'1.0.0',
-            LANGUAGE:'None',
+            LANGUAGE:'en',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true,
@@ -324,7 +321,9 @@ unsupported and fall back to PyTorch runtime, so does <code class="docutils lite
     <script type="text/javascript" src="../../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/sphinx_highlight.js"></script>
     <script type="text/javascript" src="../../_static/clipboard.min.js"></script>
     <script type="text/javascript" src="../../_static/copybutton.js"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
@@ -333,7 +332,7 @@ unsupported and fall back to PyTorch runtime, so does <code class="docutils lite
     <div class="footer" role="contentinfo">
         <div class="container">
             &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
-        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
         </div>
     </div>  
 

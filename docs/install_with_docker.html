@@ -3,7 +3,8 @@
 <!DOCTYPE html>
 <head>
   <meta charset="utf-8">
-  
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <title>Install BladeDISC With Docker &mdash; BladeDISC 1.0.0 documentation</title>
@@ -112,7 +113,9 @@
 <li class="toctree-l2"><a class="reference internal" href="../README.html#setup-and-examples">Setup and Examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../README.html#publications">Publications</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../README.html#presentations-and-talks">Presentations and Talks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../README.html#building-status">Building Status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../README.html#faq">FAQ</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../README.html#contact-us">Contact Us</a></li>
 </ul>
@@ -125,6 +128,7 @@
 <li class="toctree-l1"><a class="reference internal" href="build_from_source.html">Build from Source</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="build_from_source.html#prerequisite">Prerequisite</a></li>
 <li class="toctree-l2"><a class="reference internal" href="build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
 <li class="toctree-l2"><a class="reference internal" href="build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
 <li class="toctree-l2"><a class="reference internal" href="build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
 </ul>
@@ -154,8 +158,8 @@
                     <div class="document">
                         
                             
-  <div class="section" id="install-bladedisc-with-docker">
-<h1>Install BladeDISC With Docker<a class="headerlink" href="#install-bladedisc-with-docker" title="Permalink to this headline">¶</a></h1>
+  <section id="install-bladedisc-with-docker">
+<h1>Install BladeDISC With Docker<a class="headerlink" href="#install-bladedisc-with-docker" title="Permalink to this heading">¶</a></h1>
 <p><a class="reference external" href="https://www.docker.com/">Docker</a> is a light container system, it helps
 users to package software and isolate BladeDISC runtime environment from
 the rest of the system. BladeDISC CI system released BladeDISC with different
@@ -164,8 +168,8 @@ repository.</p>
 <p><a class="reference external" href="https://github.com/NVIDIA/nvidia-docker/blob/master/README.md#quickstart">Nvidia Container Toolkit</a>
 is an easy way to use GPU on Linux, please make sure you have installed it
 on your host.</p>
-<div class="section" id="download-a-bladedisc-docker-image">
-<h2>Download a BladeDISC Docker Image<a class="headerlink" href="#download-a-bladedisc-docker-image" title="Permalink to this headline">¶</a></h2>
+<section id="download-a-bladedisc-docker-image">
+<h2>Download a BladeDISC Docker Image<a class="headerlink" href="#download-a-bladedisc-docker-image" title="Permalink to this heading">¶</a></h2>
 <p>BladeDISC released TensorFlow and PyTorch frontend packages in separate Docker images
 on <a class="reference external" href="https://hub.docker.com/repository/docker/bladedisc/bladedisc/tags?page=1&amp;ordering=last_updated">bladedisc/bladedisc</a>.
 The released Image tag is as the following table:</p>
@@ -178,8 +182,12 @@ The released Image tag is as the following table:</p>
 </thead>
 <tbody>
 <tr>
-<td>latest-runtime-torch1.7.1</td>
+<td>latest-runtime-torch1.7.1-cu110</td>
 <td>latest release of BladeDISC, includes PyTorch 1.7.1 and CUDA 11.0</td>
+</tr>
+<tr>
+<td>latest-runtime-torch1.12.0-cu113</td>
+<td>latest release of BladeDISC, includes PyTorch 1.12.0 and CUDA 11.3</td>
 </tr>
 <tr>
 <td>latest-runtime-tensorflow1.15</td>
@@ -187,22 +195,34 @@ The released Image tag is as the following table:</p>
 </tr>
 <tr>
 <td>latest-runtime-tensorflow2.4</td>
-<td>latest release of BladeDISC, includes TensorFlow 1.15 and CUDA 11.0</td>
+<td>latest release of BladeDISC, includes TensorFlow 2.4 and CUDA 11.0</td>
 </tr>
 <tr>
-<td>latest-devel-cuda10.0</td>
+<td>latest-devel-cu110</td>
 <td>latest build of development environment, includes CUDA 11.0 and required development toolkit</td>
 </tr>
 <tr>
-<td>latest-devel-cuda11.0</td>
-<td>latest build of development environment, includes CUDA 11.0 and required development toolkit</td>
+<td>latest-devel-cu113</td>
+<td>latest build of development environment, includes CUDA 11.3 and required development toolkit</td>
+</tr>
+<tr>
+<td>latest-devel-cpu-aarch64</td>
+<td>latest build of development environment for AArch64 platform</td>
+</tr>
+<tr>
+<td>latest-runtime-tensorflow2.8-cpu-aarch64</td>
+<td>latest release of BladeDISC for TensorFlow 2.8 on AArch64 platform</td>
+</tr>
+<tr>
+<td>latest-runtime-torch1.10.0-cpu-aarch64</td>
+<td>latest release of BladeDISC for PyTorch 1.10.0 on AArch64 platform</td>
 </tr>
 </tbody>
 </table><p><strong>Note</strong>: Users located in China can use <code class="docutils literal notranslate"><span class="pre">registry.cn-shanghai.aliyuncs.com/bladedisc/bladedisc</span></code> to get
 higher download speed.</p>
-</div>
-<div class="section" id="start-a-docker-container">
-<h2>Start a Docker Container<a class="headerlink" href="#start-a-docker-container" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="start-a-docker-container">
+<h2>Start a Docker Container<a class="headerlink" href="#start-a-docker-container" title="Permalink to this heading">¶</a></h2>
 <p>To launch a BladeDISC Docker container with GPU support, you can use the
 following command:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>docker run --rm -it --gpus all -v <span class="o">[</span>host-src/container-desc<span class="o">]</span> bladedisc/bladedisc:<span class="o">[</span>tag<span class="o">]</span> <span class="o">[</span>command<span class="o">]</span>
@@ -214,11 +234,11 @@ following command:</p>
 <li><p><code class="docutils literal notranslate"><span class="pre">-v</span> <span class="pre">[host-src/container-dest]</span></code> mount a volume from host to container.</p></li>
 </ul>
 <p>An example to execute the <code class="docutils literal notranslate"><span class="pre">entry.py</span></code> PyTorch script with BladeDISC Docker:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>nvidia-docker run --rm -it -v <span class="nv">$PWD</span>:/work bladedisc/bladedisc:latest-runtime-torch1.7.1  python /work/entry.py
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>nvidia-docker run --rm -it -v <span class="nv">$PWD</span>:/work bladedisc/bladedisc:latest-runtime-torch1.7.1-cu110  python /work/entry.py
 </pre></div>
 </div>
-</div>
-</div>
+</section>
+</section>
 
 
                         
@@ -235,7 +255,7 @@ following command:</p>
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../',
             VERSION:'1.0.0',
-            LANGUAGE:'None',
+            LANGUAGE:'en',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true,
@@ -245,7 +265,9 @@ following command:</p>
     <script type="text/javascript" src="../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/sphinx_highlight.js"></script>
     <script type="text/javascript" src="../_static/clipboard.min.js"></script>
     <script type="text/javascript" src="../_static/copybutton.js"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
@@ -254,7 +276,7 @@ following command:</p>
     <div class="footer" role="contentinfo">
         <div class="container">
             &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
-        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
         </div>
     </div>  
 

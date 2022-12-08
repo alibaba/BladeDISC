@@ -1,0 +1,506 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Programming Guidelines &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../../../../index.html">Docs</a></li>
+        
+      <li>Programming Guidelines</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../../../../_sources/tao_compiler/mlir/disc/cutlass/media/docs/programming_guidelines.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../README.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#what-s-new">What’s New</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#presentations-and-talks">Presentations and Talks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#building-status">Building Status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../docs/quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <p><img alt="ALT" src="media/images/gemm-hierarchy-with-epilogue-no-labels.png" /></p>
+<p><a class="reference external" href="/README.md#documentation">README</a> &gt; <strong>Programming Guidelines</strong></p>
+<section id="programming-guidelines">
+<h1>Programming Guidelines<a class="headerlink" href="#programming-guidelines" title="Permalink to this heading">¶</a></h1>
+<section id="hierarchical-organization">
+<h2>Hierarchical Organization<a class="headerlink" href="#hierarchical-organization" title="Permalink to this heading">¶</a></h2>
+<p>CUTLASS embodies a design paradigm exemplified by the <a class="reference external" href="https://nvlabs.github.io/cub/">CUB library</a>
+for expressing collective operations. Objects expose an interface for a problem that is then decomposed
+into concurrent subtasks executed by cooperating threadblocks, warps, and threads. For example, a grid-level
+object may be constructed with base pointers to the start of a GEMM operation, add a threadblock-dependent
+offset to partition the problem, and then compute a per-threadblock GEMM. This in turn performs some
+operations as a collection of cooperating threads, while it may partition other parts of the task into
+warp-level subtasks.</p>
+<p>Consequently, CUTLASS components are organized by the computation then by the layer of
+the following hierarchy.</p>
+<ul class="simple">
+<li><p><em>device</em>: an operation is <em>device-wide</em> and may launch one or more kernels on the GPU</p></li>
+<li><p><em>kernel</em>: an operation is implemented by a CUDA kernel with definitions for <code class="docutils literal notranslate"><span class="pre">__shared__</span></code> memory and constant memory allocations</p></li>
+<li><p><em>threadblock</em>: an operation is collectivey executed by a threadblock; any component calling <code class="docutils literal notranslate"><span class="pre">__syncthreads()</span></code> is likely to be threadblock-scope</p></li>
+<li><p><em>warp</em>: an operation is collectively executed by a warp; threads within the context of a warp are referred to as <em>lane</em></p></li>
+<li><p><em>thread</em>: an operation is performed by an individual thread with no other data sharing or interaction with other threads</p></li>
+<li><p><em>instruction</em>: an operation corresponds to an individual hardware or PTX instruction</p></li>
+</ul>
+</section>
+<section id="design-patterns">
+<h2>Design Patterns<a class="headerlink" href="#design-patterns" title="Permalink to this heading">¶</a></h2>
+<p>CUTLASS strives to achieve the highest performance possible on NVIDIA GPUs while also offering a
+flexible composition that an be easily applied to solve new problems related to Deep Learning and
+linear algebra. Though we intend to make CUTLASS as simple and straightforward as possible, given
+a tradeoff between simplicity and performance, CUTLASS chooses performance. Consequently, several
+design patterns are necessary to yield a composable structure while also satisfying these performance
+objectives. This section is intended to provide more detail.</p>
+<section id="templates">
+<h3>Templates<a class="headerlink" href="#templates" title="Permalink to this heading">¶</a></h3>
+<p>CUDA C++ templates and modern generic programming techniques enable CUTLASS device code to span a large design space.</p>
+<p>This design space includes:</p>
+<ul class="simple">
+<li><p>Mixed precision arithmetic and data storage</p></li>
+<li><p>Kernels specialized for layout and problem size</p></li>
+<li><p>Support for kernel fusion</p></li>
+</ul>
+<p>Moreover, templates provided a structured approach to collecting compile-time constants such as tile dimensions. These
+must be template arguments to target static array allocation and take advantage of loop unrolling, constant folding,
+and function inlining.</p>
+</section>
+<section id="constant-memory">
+<h3>Constant Memory<a class="headerlink" href="#constant-memory" title="Permalink to this heading">¶</a></h3>
+<p>Several CUTLASS template classes exhibit a pattern in which problem-specific internal state is known at kernel
+launch time and remains invariant throughout the execution of a kernel. For example, tile iterators compute several
+offsets based on the strides of the input tensor that is added to an internal pointer when loading the elements
+of a tile. These are computed from the tensor stride and never updated; the per-thread internal state consists
+only of the internal global memory pointer.</p>
+<p>CUTLASS can take advantage of this CUDA grid-invariant property by constructing the object in host code and passing
+a composed parameters structure to the kernel. This confers two benefits: (1.) invariant state is held in constant
+memory, and (2.) there is no overhead to compute the initial state by each thread.</p>
+<p>The design pattern in CUTLASS is for classes with nontrivial constructors to define <code class="docutils literal notranslate"><span class="pre">struct</span> <span class="pre">Params</span></code> as an inner class
+which contains grid-invariant state. These should define a constructor and an <code class="docutils literal notranslate"><span class="pre">initialize()</span></code> method. The <code class="docutils literal notranslate"><span class="pre">Params</span></code>
+structure should also include a data member corresponding to each data member in the parent class, so these too can
+be properly constructed in host code. The parent class should define a constructor which accepts <code class="docutils literal notranslate"><span class="pre">Params</span> <span class="pre">const</span> <span class="pre">&amp;</span></code> as
+its first argument.</p>
+</section>
+<section id="composable-shared-memory">
+<h3>Composable Shared Memory<a class="headerlink" href="#composable-shared-memory" title="Permalink to this heading">¶</a></h3>
+<p>Shared memory requires explicit effort by the programmer to allocate and de-allocate. CUTLASS follows the paradigm
+introduced by <a class="reference external" href="https://nvlabs.github.io/cub/">CUB</a> to define composed structures for storing data intended to be held
+in shared memory. Any object requiring shared memory storage for itself or its data members should define a child
+structure called <code class="docutils literal notranslate"><span class="pre">SharedStorage</span></code>. This holds data needed by the class and also instantiates <code class="docutils literal notranslate"><span class="pre">SharedStorage</span></code>
+objects for each data member.</p>
+<p>To be consistent, this pattern defines a convention in which classes define internal shared memory storage requirements.
+Classes should consider all SharedStorage structures to be opaque other than their own child class. When the lifetimes
+of child objects are known to be non-overlapping, unions may be used to alias multiple SharedStorage objects to the same
+shared memory region and reduce overall SMEM capacity.</p>
+</section>
+<section id="loop-unrolling">
+<h3>Loop Unrolling<a class="headerlink" href="#loop-unrolling" title="Permalink to this heading">¶</a></h3>
+<p>CUTLASS requires tiles of data to be stored in registers for high-bandwidth access. Simultaneously, high-throughput math instructions
+must be issued concurrently with memory instructions to hide latency with relatively few concurrent threads. These objectives are
+achieved by unrolling loops whose iteration counts are known at compile time.</p>
+<p>Consequently, most loops within the CUTLASS GEMM implementation are specified by constant values and template arguments. The CUDA compiler
+is able to unroll the loop bodies, map array elements to registers, and construct an efficient instruction schedule.</p>
+<p>All loops expected to be unrolled should be annotated with <code class="docutils literal notranslate"><span class="pre">CUTLASS_PRAGMA_UNROLL</span></code> to explicitly direct the compiler
+to unroll them.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="kt">int</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="n">kN</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">8</span><span class="p">;</span><span class="w"></span>
+<span class="n">Array</span><span class="o">&lt;</span><span class="kt">float</span><span class="p">,</span><span class="w"> </span><span class="n">kN</span><span class="o">&gt;</span><span class="w"> </span><span class="n">x</span><span class="p">;</span><span class="w">                       </span><span class="c1">// Array we would like to store in registers</span>
+
+<span class="n">CUTLASS_PRAGMA_UNROLL</span><span class="w">                     </span><span class="c1">// Directs the CUDA compiler to unroll this loop.</span>
+<span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">idx</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">idx</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">kN</span><span class="p">;</span><span class="w"> </span><span class="o">++</span><span class="n">idx</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">      </span><span class="c1">// Loop has constant number of iterations.</span>
+
+<span class="w">  </span><span class="n">x</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kt">float</span><span class="p">(</span><span class="n">idx</span><span class="p">);</span><span class="w">                      </span><span class="c1">// Indirect access by induction variable results in </span>
+<span class="w">                                          </span><span class="c1">// direct register access.</span>
+<span class="p">}</span><span class="w"></span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="style">
+<h2>Style<a class="headerlink" href="#style" title="Permalink to this heading">¶</a></h2>
+<section id="c-style">
+<h3>C++ Style<a class="headerlink" href="#c-style" title="Permalink to this heading">¶</a></h3>
+<p>CUTLASS source code follows the
+<a class="reference external" href="https://google.github.io/styleguide/cppguide.html">Google C++ Style Guide</a> with exceptions and extensions.</p>
+<p>Design choices should be consistent with the
+<a class="reference external" href="https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md">CppCoreGuidelines</a> recommendations by Stroustrup and Sutter.</p>
+</section>
+<section id="cuda-built-in-variables">
+<h3>CUDA Built-in Variables<a class="headerlink" href="#cuda-built-in-variables" title="Permalink to this heading">¶</a></h3>
+<p>Avoid direct access to CUDA built-in variables <code class="docutils literal notranslate"><span class="pre">threadIdx</span></code>, <code class="docutils literal notranslate"><span class="pre">blockIdx</span></code>, <code class="docutils literal notranslate"><span class="pre">blockDim</span></code>, and <code class="docutils literal notranslate"><span class="pre">gridDim</span></code> within
+CUTLASS components except in special circumstances.</p>
+<p>Using built-in ‘global’ variables directly within resuable components necessitates that all components
+use them consistently which may not be possible if CUTLASS components are used in other contexts.</p>
+<p>Instead, components should accept a linear ID identifying threads, warps, and threadblocks from calling
+code. The top-level kernel may then decide how to map threads, warps, and blocks to the problem it is
+solving.</p>
+</section>
+<section id="use-cutlass-fundamental-types">
+<h3>Use CUTLASS Fundamental Types<a class="headerlink" href="#use-cutlass-fundamental-types" title="Permalink to this heading">¶</a></h3>
+<p>Use the <a class="reference internal" href="fundamental_types.html"><span class="doc">fundamental types</span></a> defined in CUTLASS consistently. Doing so contributes
+to a framework of interoperable, consistent components.</p>
+<p>In particular, be sure to use:</p>
+<ul class="simple">
+<li><p><a class="reference internal" href="fundamental_types.html#numeric-types"><span class="std std-ref">Numeric types</span></a> to represent numeric data in host and device code</p></li>
+<li><p><a class="reference internal" href="fundamental_types.html#containers"><span class="std std-ref">Containers</span></a> to store data in register-backed arrays</p></li>
+<li><p><a class="reference internal" href="fundamental_types.html#functional"><span class="std std-ref">functional.h</span></a> to perform numeric operations in generic code</p></li>
+<li><p><a class="reference internal" href="layout.html"><span class="doc">Layouts</span></a> to store stride and partially specialize template classes</p></li>
+<li><p><a class="reference internal" href="layout.html#tensorref"><span class="std std-ref">TensorRef and TensorView</span></a> to pass pointers and layout objects</p></li>
+</ul>
+<p>Avoid defining alternative implementations of the same functionality. Instead, prefer to enhance
+or extend additional components where it makes sense.</p>
+</section>
+<section id="classes-and-structs">
+<h3>Classes and Structs<a class="headerlink" href="#classes-and-structs" title="Permalink to this heading">¶</a></h3>
+<p>Type names use <code class="docutils literal notranslate"><span class="pre">CapitalLetters</span></code> except when implementations are a <em>perfect</em> drop-in replacement for
+Standard Library components.</p>
+<p>Follow the <a class="reference external" href="https://github.com/isocpp/CppCoreGuidelines/blob/master/CppCoreGuidelines.md#Rc-struct">CppCoreGuidelines</a>
+to decide whether to use <code class="docutils literal notranslate"><span class="pre">class</span></code> or <code class="docutils literal notranslate"><span class="pre">struct</span></code>. Namely,</p>
+<ul class="simple">
+<li><p>use <code class="docutils literal notranslate"><span class="pre">class</span></code> when the object must maintain an invariant. Data members related to the invariant should be private.</p></li>
+<li><p>use <code class="docutils literal notranslate"><span class="pre">struct</span></code> when the class has no invariant to maintain, and data members may vary arbitrarily.</p></li>
+</ul>
+</section>
+<section id="class-members">
+<h3>Class Members<a class="headerlink" href="#class-members" title="Permalink to this heading">¶</a></h3>
+<p>Methods and members are written using <code class="docutils literal notranslate"><span class="pre">snake_case</span></code>.</p>
+<p>Private data and function members have suffix <code class="docutils literal notranslate"><span class="pre">_</span></code>.</p>
+</section>
+<section id="constant-names">
+<h3>Constant names<a class="headerlink" href="#constant-names" title="Permalink to this heading">¶</a></h3>
+<p>CUTLASS makes extensive use of constants and compile-time evaluation. Constant variable names should have
+prefix <code class="docutils literal notranslate"><span class="pre">k</span></code> and use mixed case. True compile-time constsants should be defined as <code class="docutils literal notranslate"><span class="pre">constexpr</span></code> to enable
+dependent <code class="docutils literal notranslate"><span class="pre">constexpr</span></code> functions.</p>
+<p>CUTLASS uses <a class="reference external" href="http://slashslash.info/2018/02/a-foolish-consistency/">“East const”</a> style, placing <code class="docutils literal notranslate"><span class="pre">constexpr</span></code> keyword
+after the type name.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="kt">float</span><span class="w"> </span><span class="k">constexpr</span><span class="w"> </span><span class="n">kPi</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mf">3.14159f</span><span class="p">;</span><span class="w"></span>
+</pre></div>
+</div>
+</section>
+<section id="class-member-order">
+<h3>Class Member Order<a class="headerlink" href="#class-member-order" title="Permalink to this heading">¶</a></h3>
+<p>Members within classes and structures should be organized as follows:</p>
+<ol class="simple">
+<li><p>Type and constant definitions</p></li>
+<li><p>Data members</p></li>
+<li><p>Constructors</p></li>
+<li><p>Other methods</p></li>
+</ol>
+<p>This convention follows the <a class="reference external" href="https://nvlabs.github.io/cub/">CUB library</a> and is also described by
+<a class="reference external" href="https://howardhinnant.github.io/classdecl.html">Howard Hinnant</a>. Unsurprisingly, it approximates
+the usual ordering of chapters in a typical Systems and Controls textbook. That is,
+(1.) identify relevant constants, (2.) define a state-space representation of the dynamical system
+under study (i.e. the data members), and (3.) devote subsequent chapters to definining dynamical behavior
+of the system (i.e. the methods).</p>
+<p><em>Example</em>:</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="k">class</span><span class="w"> </span><span class="nc">A</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="k">public</span><span class="o">:</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// Type definitions</span>
+<span class="k">protected</span><span class="o">:</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// protected Type definitions</span>
+<span class="k">private</span><span class="o">:</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// private Type definitions</span>
+
+<span class="k">public</span><span class="o">:</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// Data members</span>
+<span class="k">protected</span><span class="o">:</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// protected data members</span>
+<span class="k">private</span><span class="o">:</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// private data members</span>
+
+<span class="k">public</span><span class="o">:</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// Methods</span>
+<span class="k">protected</span><span class="o">:</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// protected methods</span>
+<span class="k">private</span><span class="o">:</span><span class="w"></span>
+<span class="w">  </span><span class="c1">// private methods</span>
+
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+</section>
+<section id="file-names">
+<h3>File Names<a class="headerlink" href="#file-names" title="Permalink to this heading">¶</a></h3>
+<p>Files should be named using <code class="docutils literal notranslate"><span class="pre">snake_case</span></code> with extension <code class="docutils literal notranslate"><span class="pre">.h</span></code> for header files, <code class="docutils literal notranslate"><span class="pre">.cu</span></code> for CUDA sources,
+and <code class="docutils literal notranslate"><span class="pre">.cpp</span></code> for C++ host-only source files.</p>
+</section>
+<section id="use-scoped-enums">
+<h3>Use scoped enums<a class="headerlink" href="#use-scoped-enums" title="Permalink to this heading">¶</a></h3>
+<p>Use scoped enums added in C++11 for enumerated types. Use capital letters for the enumerated type name
+and prefix <code class="docutils literal notranslate"><span class="pre">k</span></code> for enumerators like other constants.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="k">enum</span><span class="w"> </span><span class="k">class</span><span class="w"> </span><span class="nc">MatrixOperation</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="n">kNone</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="n">kTranspose</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="n">kConjugate</span><span class="p">,</span><span class="w"></span>
+<span class="w">  </span><span class="n">kHermitian</span><span class="w"></span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+</section>
+<section id="namespaces">
+<h3>Namespaces<a class="headerlink" href="#namespaces" title="Permalink to this heading">¶</a></h3>
+<p>Namespaces are all lower case. The top-level namespace is <code class="docutils literal notranslate"><span class="pre">cutlass::</span></code>. The second nested namespace refers
+top the general category of operation performed by its members, and the third nested namespace refers to
+the CUDA execution model scope (if applicable).</p>
+<p>The bodies of namespace definitions should not be intented, and comments on the closing brace are welcome.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="k">namespace</span><span class="w"> </span><span class="nn">cutlass</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="k">namespace</span><span class="w"> </span><span class="nn">gemm</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="k">namespace</span><span class="w"> </span><span class="nn">warp</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+
+<span class="k">struct</span><span class="w"> </span><span class="nc">MmaTensorCore</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+
+<span class="p">};</span><span class="w"></span>
+
+<span class="p">}</span><span class="w"> </span><span class="c1">// namespace warp</span>
+<span class="p">}</span><span class="w"> </span><span class="c1">// namespace gemm</span>
+<span class="p">}</span><span class="w"> </span><span class="c1">// namespace cutlass</span>
+</pre></div>
+</div>
+</section>
+<section id="macros">
+<h3>Macros<a class="headerlink" href="#macros" title="Permalink to this heading">¶</a></h3>
+<p>Avoid defining macros except where preprocessing is obligatory. In particular,
+avoid using macros for constants.</p>
+<p>Several existing macros defined in <code class="docutils literal notranslate"><span class="pre">cutlass/cutlass.h</span></code> are useful for working around compiler-dependent
+behavior.</p>
+<p>Annotations for device code:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">CUTLASS_HOST_DEVICE</span></code> for functions running on the host and the device</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CUTLASS_DEVICE</span></code> for functions running on the device only</p></li>
+</ul>
+<p>Loop unrolling:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">CUTLASS_PRAGMA_UNROLL</span></code> for full unrolling of loops with constant trip counts</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">CUTLASS_PRAGMA_NO_UNROLL</span></code> to prevent unrolling</p></li>
+</ul>
+</section>
+<section id="pragma-once">
+<h3>#pragma once<a class="headerlink" href="#pragma-once" title="Permalink to this heading">¶</a></h3>
+<p>Use <code class="docutils literal notranslate"><span class="pre">#pragma</span> <span class="pre">once</span></code> to guard all headers.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="cm">/*!</span>
+
+<span class="cm">*/</span><span class="w"></span>
+
+<span class="cp">#pragma once</span>
+
+<span class="p">...</span><span class="w"></span>
+</pre></div>
+</div>
+</section>
+<section id="source-line-length">
+<h3>Source Line Length<a class="headerlink" href="#source-line-length" title="Permalink to this heading">¶</a></h3>
+<p>Avoid lines longer than 100 characters. These typically wrap unfavorably when viewed in
+Github’s pretty printer.</p>
+</section>
+</section>
+</section>
+<section id="copyright">
+<h1>Copyright<a class="headerlink" href="#copyright" title="Permalink to this heading">¶</a></h1>
+<p>Copyright (c) 2017 - 2022 NVIDIA CORPORATION &amp; AFFILIATES. All rights reserved.
+SPDX-License-Identifier: BSD-3-Clause</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>  <span class="n">Redistribution</span> <span class="ow">and</span> <span class="n">use</span> <span class="ow">in</span> <span class="n">source</span> <span class="ow">and</span> <span class="n">binary</span> <span class="n">forms</span><span class="p">,</span> <span class="k">with</span> <span class="ow">or</span> <span class="n">without</span>
+  <span class="n">modification</span><span class="p">,</span> <span class="n">are</span> <span class="n">permitted</span> <span class="n">provided</span> <span class="n">that</span> <span class="n">the</span> <span class="n">following</span> <span class="n">conditions</span> <span class="n">are</span> <span class="n">met</span><span class="p">:</span>
+
+  <span class="mf">1.</span> <span class="n">Redistributions</span> <span class="n">of</span> <span class="n">source</span> <span class="n">code</span> <span class="n">must</span> <span class="n">retain</span> <span class="n">the</span> <span class="n">above</span> <span class="n">copyright</span> <span class="n">notice</span><span class="p">,</span> <span class="n">this</span>
+  <span class="nb">list</span> <span class="n">of</span> <span class="n">conditions</span> <span class="ow">and</span> <span class="n">the</span> <span class="n">following</span> <span class="n">disclaimer</span><span class="o">.</span>
+
+  <span class="mf">2.</span> <span class="n">Redistributions</span> <span class="ow">in</span> <span class="n">binary</span> <span class="n">form</span> <span class="n">must</span> <span class="n">reproduce</span> <span class="n">the</span> <span class="n">above</span> <span class="n">copyright</span> <span class="n">notice</span><span class="p">,</span>
+  <span class="n">this</span> <span class="nb">list</span> <span class="n">of</span> <span class="n">conditions</span> <span class="ow">and</span> <span class="n">the</span> <span class="n">following</span> <span class="n">disclaimer</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">documentation</span>
+  <span class="ow">and</span><span class="o">/</span><span class="ow">or</span> <span class="n">other</span> <span class="n">materials</span> <span class="n">provided</span> <span class="k">with</span> <span class="n">the</span> <span class="n">distribution</span><span class="o">.</span>
+
+  <span class="mf">3.</span> <span class="n">Neither</span> <span class="n">the</span> <span class="n">name</span> <span class="n">of</span> <span class="n">the</span> <span class="n">copyright</span> <span class="n">holder</span> <span class="n">nor</span> <span class="n">the</span> <span class="n">names</span> <span class="n">of</span> <span class="n">its</span>
+  <span class="n">contributors</span> <span class="n">may</span> <span class="n">be</span> <span class="n">used</span> <span class="n">to</span> <span class="n">endorse</span> <span class="ow">or</span> <span class="n">promote</span> <span class="n">products</span> <span class="n">derived</span> <span class="kn">from</span>
+  <span class="nn">this</span> <span class="n">software</span> <span class="n">without</span> <span class="n">specific</span> <span class="n">prior</span> <span class="n">written</span> <span class="n">permission</span><span class="o">.</span>
+
+  <span class="n">THIS</span> <span class="n">SOFTWARE</span> <span class="n">IS</span> <span class="n">PROVIDED</span> <span class="n">BY</span> <span class="n">THE</span> <span class="n">COPYRIGHT</span> <span class="n">HOLDERS</span> <span class="n">AND</span> <span class="n">CONTRIBUTORS</span> <span class="s2">&quot;AS IS&quot;</span>
+  <span class="n">AND</span> <span class="n">ANY</span> <span class="n">EXPRESS</span> <span class="n">OR</span> <span class="n">IMPLIED</span> <span class="n">WARRANTIES</span><span class="p">,</span> <span class="n">INCLUDING</span><span class="p">,</span> <span class="n">BUT</span> <span class="n">NOT</span> <span class="n">LIMITED</span> <span class="n">TO</span><span class="p">,</span> <span class="n">THE</span>
+  <span class="n">IMPLIED</span> <span class="n">WARRANTIES</span> <span class="n">OF</span> <span class="n">MERCHANTABILITY</span> <span class="n">AND</span> <span class="n">FITNESS</span> <span class="n">FOR</span> <span class="n">A</span> <span class="n">PARTICULAR</span> <span class="n">PURPOSE</span> <span class="n">ARE</span>
+  <span class="n">DISCLAIMED</span><span class="o">.</span> <span class="n">IN</span> <span class="n">NO</span> <span class="n">EVENT</span> <span class="n">SHALL</span> <span class="n">THE</span> <span class="n">COPYRIGHT</span> <span class="n">HOLDER</span> <span class="n">OR</span> <span class="n">CONTRIBUTORS</span> <span class="n">BE</span> <span class="n">LIABLE</span>
+  <span class="n">FOR</span> <span class="n">ANY</span> <span class="n">DIRECT</span><span class="p">,</span> <span class="n">INDIRECT</span><span class="p">,</span> <span class="n">INCIDENTAL</span><span class="p">,</span> <span class="n">SPECIAL</span><span class="p">,</span> <span class="n">EXEMPLARY</span><span class="p">,</span> <span class="n">OR</span> <span class="n">CONSEQUENTIAL</span>
+  <span class="n">DAMAGES</span> <span class="p">(</span><span class="n">INCLUDING</span><span class="p">,</span> <span class="n">BUT</span> <span class="n">NOT</span> <span class="n">LIMITED</span> <span class="n">TO</span><span class="p">,</span> <span class="n">PROCUREMENT</span> <span class="n">OF</span> <span class="n">SUBSTITUTE</span> <span class="n">GOODS</span> <span class="n">OR</span>
+  <span class="n">SERVICES</span><span class="p">;</span> <span class="n">LOSS</span> <span class="n">OF</span> <span class="n">USE</span><span class="p">,</span> <span class="n">DATA</span><span class="p">,</span> <span class="n">OR</span> <span class="n">PROFITS</span><span class="p">;</span> <span class="n">OR</span> <span class="n">BUSINESS</span> <span class="n">INTERRUPTION</span><span class="p">)</span> <span class="n">HOWEVER</span>
+  <span class="n">CAUSED</span> <span class="n">AND</span> <span class="n">ON</span> <span class="n">ANY</span> <span class="n">THEORY</span> <span class="n">OF</span> <span class="n">LIABILITY</span><span class="p">,</span> <span class="n">WHETHER</span> <span class="n">IN</span> <span class="n">CONTRACT</span><span class="p">,</span> <span class="n">STRICT</span> <span class="n">LIABILITY</span><span class="p">,</span>
+  <span class="n">OR</span> <span class="n">TORT</span> <span class="p">(</span><span class="n">INCLUDING</span> <span class="n">NEGLIGENCE</span> <span class="n">OR</span> <span class="n">OTHERWISE</span><span class="p">)</span> <span class="n">ARISING</span> <span class="n">IN</span> <span class="n">ANY</span> <span class="n">WAY</span> <span class="n">OUT</span> <span class="n">OF</span> <span class="n">THE</span> <span class="n">USE</span>
+  <span class="n">OF</span> <span class="n">THIS</span> <span class="n">SOFTWARE</span><span class="p">,</span> <span class="n">EVEN</span> <span class="n">IF</span> <span class="n">ADVISED</span> <span class="n">OF</span> <span class="n">THE</span> <span class="n">POSSIBILITY</span> <span class="n">OF</span> <span class="n">SUCH</span> <span class="n">DAMAGE</span><span class="o">.</span>
+</pre></div>
+</div>
+</section>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'en',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/sphinx_highlight.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
+        </div>
+    </div>  
+
+</body>
+</html>

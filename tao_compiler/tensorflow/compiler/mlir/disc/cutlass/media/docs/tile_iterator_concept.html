@@ -1,0 +1,675 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Tile Iterator Concepts &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../../../../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../../../../../../index.html">Docs</a></li>
+        
+      <li>Tile Iterator Concepts</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../../../../../../_sources/tao_compiler/tensorflow/compiler/mlir/disc/cutlass/media/docs/tile_iterator_concept.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../../../../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../README.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#what-s-new">What’s New</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#presentations-and-talks">Presentations and Talks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#building-status">Building Status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../README.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../docs/quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <p><img alt="ALT" src="media/images/gemm-hierarchy-with-epilogue-no-labels.png" /></p>
+<p><a class="reference external" href="/README.md#documentation">README</a> &gt; <strong>Tile Iterator Concepts</strong></p>
+<section id="tile-iterator-concepts">
+<h1>Tile Iterator Concepts<a class="headerlink" href="#tile-iterator-concepts" title="Permalink to this heading">¶</a></h1>
+<p>CUTLASS 2.x implements generic algorithms on tiles of matrix or tensors of constant size. These may
+be considered as partitions of tensors of infinite size, with a range of partitions accessible
+by <em>tile iterators</em>.</p>
+<p>Various data structures may make operations such as random access to tiles inexpensive,
+while data structures may not offer random access at all. For example, iterating over a linked
+list of matrices requires sequential traversal. Algorithms implemented in terms of sequences of tiles
+should require only the minimum set of operators be defined for tile iterators.</p>
+<p>This document describes a set of C++ concepts which may be used to define tile iterators used
+by CUTLASS algorithms. Each concept specifies members and type definitions that a tile iterator
+must implement. Frequently, a tile iterator implements several concepts, and its members are
+the union of the members from each individual concept. These definitions were inspired by
+<a class="reference external" href="https://www.boost.org/doc/libs/1_40_0/libs/iterator/doc/new-iter-concepts.html">Boost “New style” iterator concepts</a>.</p>
+<p>The set of all possible combinations of these concepts is quite large, however most tile iterator
+templates can be described by one of several combinations. The section
+Frequently Used Tile Iterator Concepts describes several common interfaces used throughout CUTLASS.</p>
+<section id="definitions">
+<h2>Definitions<a class="headerlink" href="#definitions" title="Permalink to this heading">¶</a></h2>
+<p><strong><em>Base Tile Iterator Concept</em>.</strong> All tile iterators must describe an <em>Element</em> type as well as a <em>Shape</em>.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// Base concept for all tile iterators</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">TileIteratorConcept</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">Element</span><span class="p">;</span><span class="w">           </span><span class="c1">///&lt; Element type composing tile (concept: numeric type or Array&lt;&gt;)</span>
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">Shape</span><span class="p">;</span><span class="w">             </span><span class="c1">///&lt; Shape type describing extent of tile. The shape concept depends </span>
+<span class="w">                           </span><span class="c1">///  on iterator implementation.</span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+<p><strong><em>Contiguous Memory Tile Iterator Concept</em>.</strong> Iterators over tiles stored arbitrarily within
+a continuous block of data in memory. Linear offset in units of <em>Element</em> may be added to
+internally held pointers to ‘move’ the iterator in memory.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// Tile iterator over partitions of a tensor in contiguous memory which may be referenced via a</span>
+<span class="c1">/// TensorRef object.</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">ContiguousMemoryTileIterator</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="k">public</span><span class="w"> </span><span class="n">TileIteratorConcept</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">Index</span><span class="p">;</span><span class="w">            </span><span class="c1">///&lt; index type used to add pointer offsets</span>
+
+<span class="w">  </span><span class="c1">/// Adds a linear offset in units of Element to internal pointer(s) into tensor</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">add_pointer_offset</span><span class="p">(</span><span class="n">Index</span><span class="w"> </span><span class="n">pointer_offset</span><span class="p">);</span><span class="w"></span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+<p><strong><em>Readable Tile Iterator Concept</em>.</strong> Iterators that may be read from define a <code class="docutils literal notranslate"><span class="pre">Fragment</span></code> type holding
+each thread’s part of the data to be loaded. An explicit <code class="docutils literal notranslate"><span class="pre">load()</span></code> method reads the tile from memory,
+and places each thread’s part in its <code class="docutils literal notranslate"><span class="pre">Fragment</span></code> object.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// Tile iterator capable of loading tiles from memory into fragments</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">ReadableTileIteratorConcept</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span>
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">Fragment</span><span class="p">;</span><span class="w">              </span><span class="c1">///&lt; fragment object derived from cutlass::Array&lt;Element, N&gt;</span>
+
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">load</span><span class="p">(</span><span class="n">Fragment</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">);</span><span class="w">   </span><span class="c1">///&lt; loads a fragment from memory</span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+<p><strong><em>Readable Contiguous Tile Iterator Concept</em>.</strong> Iterators reading from contiguous memory
+support an optional pointer offset that is added to any internally managed pointers before
+performing the load. This provides a convenient method to fold an offset in with load
+operations.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// Union of the following tile iterator concepts:</span>
+<span class="c1">///</span>
+<span class="c1">///   - ReadableTileIteratorConcept</span>
+<span class="c1">///   - ContiguousMemoryTileIterator</span>
+<span class="c1">///</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">ReadableContiguousTileIteratorConcept</span><span class="w"> </span><span class="o">:</span><span class="w"> </span>
+<span class="w">  </span><span class="k">public</span><span class="w"> </span><span class="n">ReadableTileIteratorConcept</span><span class="p">,</span><span class="w"> </span>
+<span class="w">  </span><span class="k">public</span><span class="w"> </span><span class="n">ContiguousMemoryTileIterator</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">/// Loads a fragment from memory with additional logical offset</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">load_with_pointer_offset</span><span class="p">(</span><span class="w"></span>
+<span class="w">    </span><span class="n">Fragment</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">,</span><span class="w">                             </span><span class="c1">///&lt; fragment to load from the tensor</span>
+<span class="w">    </span><span class="n">Index</span><span class="w"> </span><span class="n">pointer_offset</span><span class="p">);</span><span class="w">                      </span><span class="c1">///&lt; loads a tile with a linear offset</span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+<p><strong><em>Writeable Tile Iterator Concept</em>.</strong> Iterators that may write to memory define a <code class="docutils literal notranslate"><span class="pre">Fragment</span></code> type holding
+each thread’s part of the data to be written. An explicit <code class="docutils literal notranslate"><span class="pre">store()</span></code> method writes the tile to memory.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// Tile iterator capable of storing tiles from memory</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">WriteableTileIteratorConcept</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">Fragment</span><span class="p">;</span><span class="w">                     </span><span class="c1">///&lt; fragment object derived from cutlass::Array&lt;Element, N&gt;</span>
+
+<span class="w">  </span><span class="c1">/// Stores a fragment to memory</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">store</span><span class="p">(</span><span class="n">Fragment</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">);</span><span class="w">             </span><span class="c1">///&lt; stores a fragment to memory</span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+<p><strong><em>Writeable Contiguous Tile Iterator Concept</em>.</strong> Iterators writing to contiguous memory
+support an optional pointer offset that is added to any internally managed pointers before
+performing the store operation. This provides a convenient method to fold an offset into the
+store.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// Union of the following tile iterator concepts:</span>
+<span class="c1">///</span>
+<span class="c1">///   - WriteableTileIteratorConcept</span>
+<span class="c1">///   - ContiguousMemoryTileIterator</span>
+<span class="c1">///</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">WriteableContiguousTileIteratorConcept</span><span class="w"> </span><span class="o">:</span><span class="w"> </span>
+<span class="w">  </span><span class="k">public</span><span class="w"> </span><span class="n">WriteableTileIteratorConcept</span><span class="p">,</span><span class="w"> </span>
+<span class="w">  </span><span class="k">public</span><span class="w"> </span><span class="n">ContiguousMemoryTileIterator</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">/// Loads a fragment from memory with additional logical offset</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">store_with_pointer_offset</span><span class="p">(</span><span class="w"></span>
+<span class="w">    </span><span class="n">Fragment</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">,</span><span class="w">                       </span><span class="c1">///&lt; fragment to store to the tensor</span>
+<span class="w">    </span><span class="n">Index</span><span class="w"> </span><span class="n">pointer_offset</span><span class="p">);</span><span class="w">                      </span><span class="c1">///&lt; stores a tile with a linear offset</span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+<p><strong><em>Forward Tile Iterator Concept</em>.</strong> This concept offers traversal “forward” by one tile in
+a pre-defined sequence. Often, this sequence is relevant to the context in which the iterator
+was defined, such as along the <em>K</em> dimension of a GEMM operation. Equality operators are defined
+to determine whether two iterators point to the same tile.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// Tile iterator that may be incremented along a traversal sequence.</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">ForwardTileIteratorConcept</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="k">operator</span><span class="o">==</span><span class="p">(</span><span class="n">TileIterator</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">it</span><span class="p">);</span><span class="w">        </span><span class="c1">///&lt; true if iterators point to same tile, false if otherwise</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="k">operator</span><span class="o">!=</span><span class="p">(</span><span class="n">TileIterator</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">it</span><span class="p">);</span><span class="w">        </span><span class="c1">///&lt; false if iterators point to same tile, true if otherwise</span>
+
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span><span class="n">ForwardTileIteratorConcept</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="k">operator</span><span class="o">++</span><span class="p">();</span><span class="w">      </span><span class="c1">///&lt; pre-increment - advance to next tile in sequence</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span><span class="n">ForwardTileIteratorConcept</span><span class="w"> </span><span class="k">operator</span><span class="o">++</span><span class="p">(</span><span class="kt">int</span><span class="p">);</span><span class="w">     </span><span class="c1">///&lt; post-increment - advance to next tile in sequence</span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+<p><strong><em>Bidirectional Tile Iterator Concept</em>.</strong> This concept permits traversal both forward and backward.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// Tile iterator which may be traverse in both directions along a defined sequence.</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">BidirectionalTileIteratorConcept</span><span class="w"> </span><span class="o">:</span><span class="w"> </span><span class="k">public</span><span class="w"> </span><span class="n">ForwardTileIteratorConcept</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="n">BidirectionalTileIteratorConcept</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="k">operator</span><span class="o">--</span><span class="p">();</span><span class="w">      </span><span class="c1">///&lt; pre-decrement - traverse to previous tile in sequence</span>
+
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="n">BidirectionalTileIteratorConcept</span><span class="w"> </span><span class="k">operator</span><span class="o">--</span><span class="p">(</span><span class="kt">int</span><span class="p">);</span><span class="w">     </span><span class="c1">///&lt; post-decrement - traverse to previous tile in sequence</span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+<p><strong><em>Random Access Tile Iterator Concept</em>.</strong> This iterator defines random access operations in the logical
+coordinate system of the underlying tensor. Thus, tensors must have a defined <em>Layout</em> with associated
+<em>TensorCoord</em> coordinate describing logical position within the tensor and <em>TensorRef</em> reference type.
+It may be advanced forward or backwards by an offset specified as units of whole tiles along each dimension.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// Tile iterator offering random access to tiles in contiguous memory.</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">RandomAccessTileIteratorConcept</span><span class="w"> </span><span class="o">:</span><span class="w"> </span>
+<span class="w">  </span><span class="k">public</span><span class="w"> </span><span class="n">BidirectionalTileIteratorConcept</span><span class="p">,</span><span class="w"> </span>
+<span class="w">  </span><span class="k">public</span><span class="w"> </span><span class="n">ContiguousMemoryTileIterator</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">Layout</span><span class="p">;</span><span class="w">           </span><span class="c1">///&lt; Layout object mapping </span>
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">TensorRef</span><span class="p">;</span><span class="w">        </span><span class="c1">///&lt; Tensor Reference object</span>
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">TensorCoord</span><span class="p">;</span><span class="w">      </span><span class="c1">///&lt; Logical coordinate in referenced tensor</span>
+
+<span class="w">  </span><span class="c1">///&lt; advances in units of whole tiles along the logical coordinate space of the tensor</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="n">RandomAccessTileIteratorConcept</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="n">add_tile_offset</span><span class="p">(</span><span class="n">TensorCoord</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tile_offset</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">///&lt; advances in units of whole tiles along the logical coordinate space of the tensor</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="n">RandomAccessTileIteratorConcept</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="k">operator</span><span class="o">+=</span><span class="p">(</span><span class="n">TensorCoord</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tile_offset</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">///&lt; advances in units of whole tiles along the logical coordinate space of the tensor</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="n">RandomAccessTileIteratorConcept</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="k">operator</span><span class="o">-=</span><span class="p">(</span><span class="n">TensorCoord</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tile_offset</span><span class="p">);</span><span class="w"></span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+<p><strong><em>Readable Random Access Tile Iterator Concept</em>.</strong> Readable random access iterators
+accept an additional tile offset in logical coordinate space when loading fragments.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// Loads a fragment with a logical coordinate offset in units of whole tiles.</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">ReadableRandomAccessTileIteratorConcept</span><span class="w"> </span><span class="o">:</span><span class="w"> </span>
+<span class="w">  </span><span class="k">public</span><span class="w"> </span><span class="n">RandomAccessTileIteratorConcept</span><span class="p">,</span><span class="w"> </span>
+<span class="w">  </span><span class="k">public</span><span class="w"> </span><span class="n">ReadableTileIteratorConcept</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">/// Loads a fragment from memory with logical offset in units of whole tiles.</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">load</span><span class="p">(</span><span class="w"></span>
+<span class="w">    </span><span class="n">Fragment</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">,</span><span class="w">                             </span><span class="c1">///&lt; fragment to load from the tensor</span>
+<span class="w">    </span><span class="n">TensorCoord</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tile_offset</span><span class="p">);</span><span class="w">            </span><span class="c1">///&lt; loads a tile with a logical offset in units of whole tiles</span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+<p><strong><em>Readable Random Access Contiguous Tile Iterator Concept</em>.</strong> Readable random access iterators
+accept an additional tile offset in logical coordinate space when loading fragments.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// Loads a fragment with a logical coordinate offset in units of whole tiles.</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">ReadableRandomAccessContiguousTileIteratorConcept</span><span class="w"> </span><span class="o">:</span><span class="w"> </span>
+<span class="w">  </span><span class="k">public</span><span class="w"> </span><span class="n">ReadableRandomAccessTileIteratorConcept</span><span class="p">,</span><span class="w"> </span>
+<span class="w">  </span><span class="n">ReadableContiguousTileIteratorConcept</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">/// Loads a fragment from memory with logical offset in units of whole tiles.</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">load</span><span class="p">(</span><span class="w"></span>
+<span class="w">    </span><span class="n">Fragment</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">,</span><span class="w">                             </span><span class="c1">///&lt; fragment to load from the tensor</span>
+<span class="w">    </span><span class="n">TensorCoord</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tile_offset</span><span class="p">,</span><span class="w">             </span><span class="c1">///&lt; loads a tile with a logical offset in units of whole tiles</span>
+<span class="w">    </span><span class="n">Index</span><span class="w"> </span><span class="n">pointer_offset</span><span class="p">);</span><span class="w">                      </span><span class="c1">///&lt; loads a tile with a logical offset AND a pointer offset</span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+<p><strong><em>Writeable Random Access Tile Iterator Concept</em>.</strong> Writeable random access iterators
+accept an additional tile offset in logical coordinate space when storing fragments.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// Stores a fragment with a logical coordinate offset in units of whole tiles.</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">WriteableRandomAccessTileIteratorConcept</span><span class="w"> </span><span class="o">:</span><span class="w"> </span>
+<span class="w">  </span><span class="k">public</span><span class="w"> </span><span class="n">RandomAccessTileIteratorConcept</span><span class="p">,</span><span class="w"> </span>
+<span class="w">  </span><span class="k">public</span><span class="w"> </span><span class="n">WriteableContiguousTileIteratorConcept</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+<span class="w">  </span>
+<span class="w">  </span><span class="c1">/// Stores a fragment from memory with logical offset in units of whole tiles.</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">store</span><span class="p">(</span><span class="w"></span>
+<span class="w">    </span><span class="n">Fragment</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">,</span><span class="w">                       </span><span class="c1">///&lt; fragment to store to the location pointed to by the tensor</span>
+<span class="w">    </span><span class="n">TensorCoord</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tile_offset</span><span class="p">);</span><span class="w">            </span><span class="c1">///&lt; stores a tile with a given offset from the current iterator</span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+<p><strong><em>Writeable Random Access Contiguous Tile Iterator Concept</em>.</strong> Writeable random access iterators
+accept an additional tile offset in logical coordinate space when storing fragments.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// Stores a fragment with a logical coordinate offset in units of whole tiles.</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">WriteableRandomAccessContiguousTileIteratorConcept</span><span class="w"> </span><span class="o">:</span><span class="w"> </span>
+<span class="w">  </span><span class="k">public</span><span class="w"> </span><span class="n">WriteableRandomAccessTileIteratorConcept</span><span class="p">,</span><span class="w"> </span>
+<span class="w">  </span><span class="k">public</span><span class="w"> </span><span class="n">WriteableContiguousTileIteratorConcept</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">/// Stores a fragment from memory with logical offset in units of whole tiles.</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">store</span><span class="p">(</span><span class="w"></span>
+<span class="w">    </span><span class="n">Fragment</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">,</span><span class="w">                       </span><span class="c1">///&lt; fragment to store to the location pointed to by the tensor</span>
+<span class="w">    </span><span class="n">TensorCoord</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tile_offset</span><span class="p">,</span><span class="w">             </span><span class="c1">///&lt; stores a tile with a logical offset in units of whole tiles</span>
+<span class="w">    </span><span class="n">Index</span><span class="w"> </span><span class="n">pointer_offset</span><span class="p">);</span><span class="w">                      </span><span class="c1">///&lt; stores a tile witha logical offset AND a pointer offset</span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+<p><strong><em>Masked Tile Iterator Concept</em>.</strong> Matrix and tensors may not always be multiples of whole tiles.
+Masked tile iterators define a <code class="docutils literal notranslate"><span class="pre">Mask</span></code> type which may be used to guard accesses to memory. The
+semantics and interface of this <code class="docutils literal notranslate"><span class="pre">Mask</span></code> are implementation-defined details of each tile iterator,
+but several convenience methods are defined for interacting with the mask such as efficiently
+clearing or enabling all guarded memory accesses.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// Supports iterating over tiles that are not &#39;whole&#39; in memory. Iterator maintains a mask object</span>
+<span class="c1">/// which guards against out-of-bounds access.</span>
+<span class="c1">///</span>
+<span class="c1">/// Note, this concept definition does not formally define operations on the mask or methods it</span>
+<span class="c1">/// supports. These remain implementation-dependent details of iterators implementing this concept.</span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">MaskedTileIteratorConcept</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">Mask</span><span class="p">;</span><span class="w">                                        </span><span class="c1">///&lt; mask object used to guard against acceses.</span>
+
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">clear_mask</span><span class="p">();</span><span class="w">                  </span><span class="c1">///&lt; efficiently disables all accesses guarded by mask</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">enable_mask</span><span class="p">();</span><span class="w">                 </span><span class="c1">///&lt; efficiently enables all accesses guarded by mask</span>
+
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">get_mask</span><span class="p">(</span><span class="n">Mask</span><span class="w"> </span><span class="o">&amp;</span><span class="n">mask</span><span class="p">);</span><span class="w">          </span><span class="c1">///&lt; gets the mask</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span><span class="kt">void</span><span class="w"> </span><span class="n">set_mask</span><span class="p">(</span><span class="n">Mask</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">mask</span><span class="p">);</span><span class="w">    </span><span class="c1">///&lt; sets the mask</span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+</section>
+<section id="frequently-used-tile-iterator-concepts">
+<h2>Frequently Used Tile Iterator Concepts<a class="headerlink" href="#frequently-used-tile-iterator-concepts" title="Permalink to this heading">¶</a></h2>
+<p>This section describes several frequently used compositions of the basic tile iterator concepts. They are
+listed here as complete type declarations for convenience of the reader.</p>
+<p><strong><em>Writeable, Readable, Forward, Contiguous Memory Tile Iterator Concept</em>.</strong>
+This combines several of the basic iterator concepts to
+yield a tile iterator capable of loading and storing tiles as well as advancing forward along a traversal sequence.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// This tile iterator embodies several of the above:</span>
+<span class="c1">///</span>
+<span class="c1">///   - ForwardTileIteratorConcept</span>
+<span class="c1">///   - ReadableContiguousTileIteratorConcept</span>
+<span class="c1">///   - WriteableContiguousTileIteratorConcept</span>
+<span class="c1">/// </span>
+<span class="c1">/// It is restated explicitly for convenience of the reader.</span>
+<span class="c1">/// </span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">WriteableReadableForwardContiguousTileIteratorConcept</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">//</span>
+<span class="w">  </span><span class="c1">// Data types</span>
+<span class="w">  </span><span class="c1">//</span>
+<span class="w">  </span>
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">Element</span><span class="p">;</span><span class="w">           </span><span class="c1">///&lt; Element type composing tile.</span>
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">Shape</span><span class="p">;</span><span class="w">             </span><span class="c1">///&lt; Shape type describing extent of tile. The shape concept depends </span>
+<span class="w">                           </span><span class="c1">///  on iterator implementation</span>
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">Index</span><span class="p">;</span><span class="w">             </span><span class="c1">///&lt; index type used as base for TensorCoord</span>
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">Fragment</span><span class="p">;</span><span class="w">          </span><span class="c1">///&lt; fragment object derived from cutlass::Array&lt;Element, N&gt;</span>
+
+<span class="w">  </span><span class="c1">//</span>
+<span class="w">  </span><span class="c1">// Methods</span>
+<span class="w">  </span><span class="c1">//</span>
+
+<span class="w">  </span><span class="c1">/// Adds a linear offset in units of Element to internal pointer(s) into tensor</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">add_pointer_offset</span><span class="p">(</span><span class="n">Index</span><span class="w"> </span><span class="n">offset</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">/// true if iterators point to same tile, false if otherwise</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="k">operator</span><span class="o">==</span><span class="p">(</span><span class="n">WriteableReadableForwardContiguousTileIteratorConcept</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">it</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">///&lt; false if iterators point to same tile, true if otherwise</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="k">operator</span><span class="o">!=</span><span class="p">(</span><span class="n">WriteableReadableForwardContiguousTileIteratorConcept</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">it</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">/// pre-increment - traverse to next tile in sequence</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="n">WriteableReadableForwardContiguousTileIteratorConcept</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span>
+<span class="w">  </span><span class="k">operator</span><span class="o">++</span><span class="p">();</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">///&lt; post-increment - traverse to next tile in sequence</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="n">WriteableReadableForwardContiguousTileIteratorConcept</span><span class="w"> </span>
+<span class="w">  </span><span class="k">operator</span><span class="o">++</span><span class="p">(</span><span class="kt">int</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">/// Loads a fragment from memory</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">load</span><span class="p">(</span><span class="n">Fragment</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">);</span><span class="w">                    </span><span class="c1">///&lt; fragment to be loaded from memory</span>
+
+<span class="w">  </span><span class="c1">/// Loads a fragment from memory with additional logical offset</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">load_with_pointer_offset</span><span class="p">(</span><span class="w"></span>
+<span class="w">    </span><span class="n">Fragment</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">,</span><span class="w">                             </span><span class="c1">///&lt; fragment to be loaded from memory</span>
+<span class="w">    </span><span class="n">Index</span><span class="w"> </span><span class="n">pointer_offset</span><span class="p">);</span><span class="w">                      </span><span class="c1">///&lt; linear offset (in units of Element) when loading</span>
+
+<span class="w">  </span><span class="c1">/// Stores a fragment to memory</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">store</span><span class="p">(</span><span class="n">Fragment</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">);</span><span class="w">             </span><span class="c1">///&lt; fragment to store to memory</span>
+
+<span class="w">  </span><span class="c1">/// Stores a fragment from memory with additional logical offset</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">store_with_pointer_offset</span><span class="p">(</span><span class="w"></span>
+<span class="w">    </span><span class="n">Fragment</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">,</span><span class="w">                       </span><span class="c1">///&lt; fragment to store to memory</span>
+<span class="w">    </span><span class="n">Index</span><span class="w"> </span><span class="n">pointer_offset</span><span class="p">);</span><span class="w">                      </span><span class="c1">///&lt; linear offset (in units of Element) when storing</span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+<p><strong><em>Writeable, Readable, Random Access, Contiguous Memory Tile Iterator Concept</em>.</strong>
+This combines several of the basic iterator concepts to
+yield a tile iterator with random access suitable for loading matrix operands for GEMM.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="c1">/// This tile iterator embodies several of the above:</span>
+<span class="c1">///</span>
+<span class="c1">///   - ReadableRandomAccessContiguousTileIteratorConcept</span>
+<span class="c1">///   - WriteableRandomAccessContiguousTileIteratorConcept</span>
+<span class="c1">/// </span>
+<span class="c1">/// It is restated explicitly for convenience of the reader.</span>
+<span class="c1">/// </span>
+<span class="k">struct</span><span class="w"> </span><span class="nc">WriteableReadableRandomAccessContiguousTileIteratorConcept</span><span class="w"> </span><span class="p">{</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">//</span>
+<span class="w">  </span><span class="c1">// Data types</span>
+<span class="w">  </span><span class="c1">//</span>
+<span class="w">  </span>
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">Element</span><span class="p">;</span><span class="w">           </span><span class="c1">///&lt; Element type composing tile.</span>
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">Shape</span><span class="p">;</span><span class="w">             </span><span class="c1">///&lt; Shape type describing extent of tile. The shape concept depends </span>
+<span class="w">                           </span><span class="c1">///  on iterator implementation</span>
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">Layout</span><span class="p">;</span><span class="w">            </span><span class="c1">///&lt; Layout object mapping </span>
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">TensorRef</span><span class="p">;</span><span class="w">         </span><span class="c1">///&lt; Tensor Reference object</span>
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">TensorCoord</span><span class="p">;</span><span class="w">       </span><span class="c1">///&lt; Logical coordinate in referenced tensor</span>
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">Index</span><span class="p">;</span><span class="w">             </span><span class="c1">///&lt; index type used as base for TensorCoord</span>
+<span class="w">  </span><span class="k">using</span><span class="w"> </span><span class="n">Fragment</span><span class="p">;</span><span class="w">          </span><span class="c1">///&lt; fragment object derived from cutlass::Array&lt;Element, N&gt;</span>
+
+<span class="w">  </span><span class="c1">//</span>
+<span class="w">  </span><span class="c1">// Methods</span>
+<span class="w">  </span><span class="c1">//</span>
+
+<span class="w">  </span><span class="c1">/// Adds a linear offset in units of Element to internal pointer(s) into tensor</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">add_pointer_offset</span><span class="p">(</span><span class="n">Index</span><span class="w"> </span><span class="n">pointer_offset</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">/// true if iterators point to same tile, false if otherwise</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="k">operator</span><span class="o">==</span><span class="p">(</span><span class="n">WriteableReadableRandomAccessContiguousTileIteratorConcept</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">it</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">///&lt; false if iterators point to same tile, true if otherwise</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span><span class="kt">bool</span><span class="w"> </span><span class="k">operator</span><span class="o">!=</span><span class="p">(</span><span class="n">WriteableReadableRandomAccessContiguousTileIteratorConcept</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">it</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">/// pre-increment - traverse to next tile in sequence</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="n">WriteableReadableRandomAccessContiguousTileIteratorConcept</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span>
+<span class="w">  </span><span class="k">operator</span><span class="o">++</span><span class="p">();</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">///&lt; post-increment - traverse to next tile in sequence</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="n">WriteableReadableRandomAccessContiguousTileIteratorConcept</span><span class="w"> </span>
+<span class="w">  </span><span class="k">operator</span><span class="o">++</span><span class="p">(</span><span class="kt">int</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">/// pre-decrement - traverse to previous tile in sequence</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="n">WriteableReadableRandomAccessContiguousTileIteratorConcept</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span>
+<span class="w">  </span><span class="k">operator</span><span class="o">--</span><span class="p">();</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">///&lt; post-decrement - traverse to previous tile in sequence</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="n">WriteableReadableRandomAccessContiguousTileIteratorConcept</span><span class="w"> </span>
+<span class="w">  </span><span class="k">operator</span><span class="o">--</span><span class="p">(</span><span class="kt">int</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">///&lt; advances in units of whole tiles along the logical coordinate space of the tensor</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="n">WriteableReadableRandomAccessContiguousTileIteratorConcept</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="k">operator</span><span class="o">+=</span><span class="p">(</span><span class="n">TensorCoord</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tile_offset</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">///&lt; advances in units of whole tiles along the logical coordinate space of the tensor</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="n">WriteableReadableRandomAccessContiguousTileIteratorConcept</span><span class="w"> </span><span class="o">&amp;</span><span class="w"> </span><span class="k">operator</span><span class="o">-=</span><span class="p">(</span><span class="n">TensorCoord</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tile_offset</span><span class="p">);</span><span class="w"></span>
+
+<span class="w">  </span><span class="c1">/// Loads a fragment from memory</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">load</span><span class="p">(</span><span class="n">Fragment</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">);</span><span class="w">                    </span><span class="c1">///&lt; fragment to be loaded from memory</span>
+
+<span class="w">  </span><span class="c1">/// Loads a fragment from memory with additional logical offset</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">load_with_pointer_offset</span><span class="p">(</span><span class="w"></span>
+<span class="w">    </span><span class="n">Fragment</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">,</span><span class="w">                             </span><span class="c1">///&lt; fragment to be loaded from memory</span>
+<span class="w">    </span><span class="n">Index</span><span class="w"> </span><span class="n">pointer_offset</span><span class="p">);</span><span class="w">                      </span><span class="c1">///&lt; linear offset (in units of Element) when loading</span>
+
+<span class="w">  </span><span class="c1">/// Loads a fragment from memory with logical offset in units of whole tiles.</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">load</span><span class="p">(</span><span class="w"></span>
+<span class="w">    </span><span class="n">Fragment</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">,</span><span class="w">                             </span><span class="c1">///&lt; fragment to be loaded from memory</span>
+<span class="w">    </span><span class="n">TensorCoord</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tile_offset</span><span class="p">);</span><span class="w">            </span><span class="c1">///&lt; loads a tile with a logical offset in units of whole tiles</span>
+
+<span class="w">  </span><span class="c1">/// Loads a fragment from memory with logical offset in units of whole tiles.</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">load</span><span class="p">(</span><span class="w"></span>
+<span class="w">    </span><span class="n">Fragment</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">,</span><span class="w">                             </span><span class="c1">///&lt; fragment to be loaded from memory</span>
+<span class="w">    </span><span class="n">TensorCoord</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tile_offset</span><span class="p">,</span><span class="w">             </span><span class="c1">///&lt; loads a tile with a logical offset in units of whole tiles</span>
+<span class="w">    </span><span class="n">Index</span><span class="w"> </span><span class="n">pointer_offset</span><span class="p">);</span><span class="w">                      </span><span class="c1">///&lt; loads a tile with a logical offset AND a pointer offset</span>
+
+<span class="w">  </span><span class="c1">/// Stores a fragment to memory</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">store</span><span class="p">(</span><span class="n">Fragment</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">);</span><span class="w">             </span><span class="c1">///&lt; fragment to store to memory</span>
+
+<span class="w">  </span><span class="c1">/// Loads a fragment from memory with additional logical offset</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"></span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">store_with_pointer_offset</span><span class="p">(</span><span class="w"></span>
+<span class="w">    </span><span class="n">Fragment</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">,</span><span class="w">                       </span><span class="c1">///&lt; fragment to store to memory</span>
+<span class="w">    </span><span class="n">Index</span><span class="w"> </span><span class="n">pointer_offset</span><span class="p">);</span><span class="w">                      </span><span class="c1">///&lt; linear offset (in units of Element) when loading</span>
+
+<span class="w">  </span><span class="c1">/// Stores a fragment from memory with logical offset in units of whole tiles.</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">store</span><span class="p">(</span><span class="w"></span>
+<span class="w">    </span><span class="n">Fragment</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">,</span><span class="w">                       </span><span class="c1">///&lt; fragment to store to memory</span>
+<span class="w">    </span><span class="n">TensorCoord</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tile_offset</span><span class="p">);</span><span class="w">            </span><span class="c1">///&lt; stores with logical offset in units of whole tiles</span>
+
+<span class="w">  </span><span class="c1">/// Stores a fragment from memory with logical offset in units of whole tiles.</span>
+<span class="w">  </span><span class="n">CUTLASS_DEVICE</span><span class="w"> </span>
+<span class="w">  </span><span class="kt">void</span><span class="w"> </span><span class="n">store</span><span class="p">(</span><span class="w"></span>
+<span class="w">    </span><span class="n">Fragment</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">frag</span><span class="p">,</span><span class="w">                       </span><span class="c1">///&lt; fragment to store to memory</span>
+<span class="w">    </span><span class="n">TensorCoord</span><span class="w"> </span><span class="k">const</span><span class="w"> </span><span class="o">&amp;</span><span class="n">tile_offset</span><span class="p">,</span><span class="w">             </span><span class="c1">///&lt; stores with logical offset in units of whole tiles</span>
+<span class="w">    </span><span class="n">Index</span><span class="w"> </span><span class="n">pointer_offset</span><span class="p">);</span><span class="w"></span>
+<span class="p">};</span><span class="w"></span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="copyright">
+<h1>Copyright<a class="headerlink" href="#copyright" title="Permalink to this heading">¶</a></h1>
+<p>Copyright (c) 2017 - 2022 NVIDIA CORPORATION &amp; AFFILIATES. All rights reserved.
+SPDX-License-Identifier: BSD-3-Clause</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>  <span class="n">Redistribution</span> <span class="ow">and</span> <span class="n">use</span> <span class="ow">in</span> <span class="n">source</span> <span class="ow">and</span> <span class="n">binary</span> <span class="n">forms</span><span class="p">,</span> <span class="k">with</span> <span class="ow">or</span> <span class="n">without</span>
+  <span class="n">modification</span><span class="p">,</span> <span class="n">are</span> <span class="n">permitted</span> <span class="n">provided</span> <span class="n">that</span> <span class="n">the</span> <span class="n">following</span> <span class="n">conditions</span> <span class="n">are</span> <span class="n">met</span><span class="p">:</span>
+
+  <span class="mf">1.</span> <span class="n">Redistributions</span> <span class="n">of</span> <span class="n">source</span> <span class="n">code</span> <span class="n">must</span> <span class="n">retain</span> <span class="n">the</span> <span class="n">above</span> <span class="n">copyright</span> <span class="n">notice</span><span class="p">,</span> <span class="n">this</span>
+  <span class="nb">list</span> <span class="n">of</span> <span class="n">conditions</span> <span class="ow">and</span> <span class="n">the</span> <span class="n">following</span> <span class="n">disclaimer</span><span class="o">.</span>
+
+  <span class="mf">2.</span> <span class="n">Redistributions</span> <span class="ow">in</span> <span class="n">binary</span> <span class="n">form</span> <span class="n">must</span> <span class="n">reproduce</span> <span class="n">the</span> <span class="n">above</span> <span class="n">copyright</span> <span class="n">notice</span><span class="p">,</span>
+  <span class="n">this</span> <span class="nb">list</span> <span class="n">of</span> <span class="n">conditions</span> <span class="ow">and</span> <span class="n">the</span> <span class="n">following</span> <span class="n">disclaimer</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">documentation</span>
+  <span class="ow">and</span><span class="o">/</span><span class="ow">or</span> <span class="n">other</span> <span class="n">materials</span> <span class="n">provided</span> <span class="k">with</span> <span class="n">the</span> <span class="n">distribution</span><span class="o">.</span>
+
+  <span class="mf">3.</span> <span class="n">Neither</span> <span class="n">the</span> <span class="n">name</span> <span class="n">of</span> <span class="n">the</span> <span class="n">copyright</span> <span class="n">holder</span> <span class="n">nor</span> <span class="n">the</span> <span class="n">names</span> <span class="n">of</span> <span class="n">its</span>
+  <span class="n">contributors</span> <span class="n">may</span> <span class="n">be</span> <span class="n">used</span> <span class="n">to</span> <span class="n">endorse</span> <span class="ow">or</span> <span class="n">promote</span> <span class="n">products</span> <span class="n">derived</span> <span class="kn">from</span>
+  <span class="nn">this</span> <span class="n">software</span> <span class="n">without</span> <span class="n">specific</span> <span class="n">prior</span> <span class="n">written</span> <span class="n">permission</span><span class="o">.</span>
+
+  <span class="n">THIS</span> <span class="n">SOFTWARE</span> <span class="n">IS</span> <span class="n">PROVIDED</span> <span class="n">BY</span> <span class="n">THE</span> <span class="n">COPYRIGHT</span> <span class="n">HOLDERS</span> <span class="n">AND</span> <span class="n">CONTRIBUTORS</span> <span class="s2">&quot;AS IS&quot;</span>
+  <span class="n">AND</span> <span class="n">ANY</span> <span class="n">EXPRESS</span> <span class="n">OR</span> <span class="n">IMPLIED</span> <span class="n">WARRANTIES</span><span class="p">,</span> <span class="n">INCLUDING</span><span class="p">,</span> <span class="n">BUT</span> <span class="n">NOT</span> <span class="n">LIMITED</span> <span class="n">TO</span><span class="p">,</span> <span class="n">THE</span>
+  <span class="n">IMPLIED</span> <span class="n">WARRANTIES</span> <span class="n">OF</span> <span class="n">MERCHANTABILITY</span> <span class="n">AND</span> <span class="n">FITNESS</span> <span class="n">FOR</span> <span class="n">A</span> <span class="n">PARTICULAR</span> <span class="n">PURPOSE</span> <span class="n">ARE</span>
+  <span class="n">DISCLAIMED</span><span class="o">.</span> <span class="n">IN</span> <span class="n">NO</span> <span class="n">EVENT</span> <span class="n">SHALL</span> <span class="n">THE</span> <span class="n">COPYRIGHT</span> <span class="n">HOLDER</span> <span class="n">OR</span> <span class="n">CONTRIBUTORS</span> <span class="n">BE</span> <span class="n">LIABLE</span>
+  <span class="n">FOR</span> <span class="n">ANY</span> <span class="n">DIRECT</span><span class="p">,</span> <span class="n">INDIRECT</span><span class="p">,</span> <span class="n">INCIDENTAL</span><span class="p">,</span> <span class="n">SPECIAL</span><span class="p">,</span> <span class="n">EXEMPLARY</span><span class="p">,</span> <span class="n">OR</span> <span class="n">CONSEQUENTIAL</span>
+  <span class="n">DAMAGES</span> <span class="p">(</span><span class="n">INCLUDING</span><span class="p">,</span> <span class="n">BUT</span> <span class="n">NOT</span> <span class="n">LIMITED</span> <span class="n">TO</span><span class="p">,</span> <span class="n">PROCUREMENT</span> <span class="n">OF</span> <span class="n">SUBSTITUTE</span> <span class="n">GOODS</span> <span class="n">OR</span>
+  <span class="n">SERVICES</span><span class="p">;</span> <span class="n">LOSS</span> <span class="n">OF</span> <span class="n">USE</span><span class="p">,</span> <span class="n">DATA</span><span class="p">,</span> <span class="n">OR</span> <span class="n">PROFITS</span><span class="p">;</span> <span class="n">OR</span> <span class="n">BUSINESS</span> <span class="n">INTERRUPTION</span><span class="p">)</span> <span class="n">HOWEVER</span>
+  <span class="n">CAUSED</span> <span class="n">AND</span> <span class="n">ON</span> <span class="n">ANY</span> <span class="n">THEORY</span> <span class="n">OF</span> <span class="n">LIABILITY</span><span class="p">,</span> <span class="n">WHETHER</span> <span class="n">IN</span> <span class="n">CONTRACT</span><span class="p">,</span> <span class="n">STRICT</span> <span class="n">LIABILITY</span><span class="p">,</span>
+  <span class="n">OR</span> <span class="n">TORT</span> <span class="p">(</span><span class="n">INCLUDING</span> <span class="n">NEGLIGENCE</span> <span class="n">OR</span> <span class="n">OTHERWISE</span><span class="p">)</span> <span class="n">ARISING</span> <span class="n">IN</span> <span class="n">ANY</span> <span class="n">WAY</span> <span class="n">OUT</span> <span class="n">OF</span> <span class="n">THE</span> <span class="n">USE</span>
+  <span class="n">OF</span> <span class="n">THIS</span> <span class="n">SOFTWARE</span><span class="p">,</span> <span class="n">EVEN</span> <span class="n">IF</span> <span class="n">ADVISED</span> <span class="n">OF</span> <span class="n">THE</span> <span class="n">POSSIBILITY</span> <span class="n">OF</span> <span class="n">SUCH</span> <span class="n">DAMAGE</span><span class="o">.</span>
+</pre></div>
+</div>
+</section>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../../../../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'en',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../../../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/sphinx_highlight.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../../../../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
+        </div>
+    </div>  
+
+</body>
+</html>

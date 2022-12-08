@@ -3,7 +3,8 @@
 <!DOCTYPE html>
 <head>
   <meta charset="utf-8">
-  
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <title>Contribute to BladeDISC &mdash; BladeDISC 1.0.0 documentation</title>
@@ -112,7 +113,9 @@
 <li class="toctree-l2"><a class="reference internal" href="../README.html#setup-and-examples">Setup and Examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../README.html#publications">Publications</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../README.html#presentations-and-talks">Presentations and Talks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../README.html#building-status">Building Status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../README.html#faq">FAQ</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../README.html#contact-us">Contact Us</a></li>
 </ul>
@@ -125,6 +128,7 @@
 <li class="toctree-l1"><a class="reference internal" href="build_from_source.html">Build from Source</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="build_from_source.html#prerequisite">Prerequisite</a></li>
 <li class="toctree-l2"><a class="reference internal" href="build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
 <li class="toctree-l2"><a class="reference internal" href="build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
 <li class="toctree-l2"><a class="reference internal" href="build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
 </ul>
@@ -154,14 +158,14 @@
                     <div class="document">
                         
                             
-  <div class="section" id="contribute-to-bladedisc">
-<h1>Contribute to BladeDISC<a class="headerlink" href="#contribute-to-bladedisc" title="Permalink to this headline">¶</a></h1>
+  <section id="contribute-to-bladedisc">
+<h1>Contribute to BladeDISC<a class="headerlink" href="#contribute-to-bladedisc" title="Permalink to this heading">¶</a></h1>
 <p>You’re welcome to contribute to BladeDISC!
 Please sign the <a class="reference external" href="https://cla-assistant.io/alibaba/BladeDISC">CLA</a>
 before contributing to BladeDISC community.  This document
 introduces how to prepare your local development environment and our workflow.</p>
-<div class="section" id="local-development-environment">
-<h2>Local Development Environment<a class="headerlink" href="#local-development-environment" title="Permalink to this headline">¶</a></h2>
+<section id="local-development-environment">
+<h2>Local Development Environment<a class="headerlink" href="#local-development-environment" title="Permalink to this heading">¶</a></h2>
 <p>Some software is required on your host:</p>
 <ul class="simple">
 <li><p><a class="reference external" href="https://docs.docker.com/get-docker/">Docker</a></p></li>
@@ -174,9 +178,9 @@ build and test your code:</p>
 </pre></div>
 </div>
 <p>you can also find more images on <a class="reference internal" href="install_with_docker.html#download-a-bladedisc-docker-image"><span class="std std-ref">install with docker</span></a>.</p>
-</div>
-<div class="section" id="submit-a-pull-request-to-bladedisc">
-<h2>Submit a Pull Request to BladeDISC<a class="headerlink" href="#submit-a-pull-request-to-bladedisc" title="Permalink to this headline">¶</a></h2>
+</section>
+<section id="submit-a-pull-request-to-bladedisc">
+<h2>Submit a Pull Request to BladeDISC<a class="headerlink" href="#submit-a-pull-request-to-bladedisc" title="Permalink to this heading">¶</a></h2>
 <p>BladeDISC uses <a class="reference external" href="https://nvie.com/posts/a-successful-git-branching-model/">git branching model</a>,
 the following steps guide the usual contribution.</p>
 <ol>
@@ -242,8 +246,8 @@ to close the issue when the pull request is merged.</p>
 your pull request page.</p>
 </li>
 </ol>
-</div>
-</div>
+</section>
+</section>
 
 
                         
@@ -260,7 +264,7 @@ your pull request page.</p>
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../',
             VERSION:'1.0.0',
-            LANGUAGE:'None',
+            LANGUAGE:'en',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true,
@@ -270,7 +274,9 @@ your pull request page.</p>
     <script type="text/javascript" src="../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../_static/jquery.js"></script>
     <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/sphinx_highlight.js"></script>
     <script type="text/javascript" src="../_static/clipboard.min.js"></script>
     <script type="text/javascript" src="../_static/copybutton.js"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
@@ -279,7 +285,7 @@ your pull request page.</p>
     <div class="footer" role="contentinfo">
         <div class="container">
             &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
-        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
         </div>
     </div>  
 

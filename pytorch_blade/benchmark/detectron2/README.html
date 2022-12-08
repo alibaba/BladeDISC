@@ -1,0 +1,677 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Performance Benchmarking &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a></li>
+        
+      <li>Performance Benchmarking</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../_sources/pytorch_blade/benchmark/detectron2/README.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../README.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#presentations-and-talks">Presentations and Talks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#building-status">Building Status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <section id="performance-benchmarking">
+<h1>Performance Benchmarking<a class="headerlink" href="#performance-benchmarking" title="Permalink to this heading">¶</a></h1>
+<p>This is a comprehensive Python benchmark suite to accelerate detectron2 models
+using TorchBlade.</p>
+<section id="prerequisite">
+<h2>Prerequisite<a class="headerlink" href="#prerequisite" title="Permalink to this heading">¶</a></h2>
+<p>Benchmark scripts depend on the following Python packages and
+<a class="reference external" href="../requirements.txt">requirements.txt</a> packages:</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://github.com/facebookresearch/detectron2">Detectron2</a></p></li>
+<li><p>Torch</p></li>
+<li><p>TorchBlade</p></li>
+</ul>
+</section>
+<section id="usage">
+<h2>Usage<a class="headerlink" href="#usage" title="Permalink to this heading">¶</a></h2>
+<p>To run the benchmark for a given model:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>python3 run_blade.py --model testRetinaNet
+</pre></div>
+</div>
+<p>To list all models supported in the script:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>$ python3 run_blade.py --help
+TorchBlade Detectron2 Benchmark
+
+optional arguments:
+  -h, --help            show this <span class="nb">help</span> message and <span class="nb">exit</span>
+  --model <span class="o">{</span>testCascadeRCNN,testMaskRCNNC4,testMaskRCNNFPN,testMaskRCNNFPN_b2,testMaskRCNNFPN_pproc,testRetinaNet,testRetinaNet_scripted<span class="o">}</span>
+</pre></div>
+</div>
+</section>
+<section id="about-detectron2-and-torchblade">
+<h2>About Detectron2 and TorchBlade<a class="headerlink" href="#about-detectron2-and-torchblade" title="Permalink to this heading">¶</a></h2>
+<p>Detectron2 can be
+<a class="reference external" href="https://detectron2.readthedocs.io/en/latest/tutorials/deployment.html#deployment-with-tracing-or-scripting">deployed with TorchScript</a>,
+by either tracing or scripting. The output model file can be loaded without
+detectron2 dependency in either Python or C++.</p>
+<p>TorchBlade provides PyTorch/TorchScript module optimization. With TorchScript
+exported from Detectron2, a model can be accelerated by TorchBlade with just a
+few lines of code:</p>
+<div class="highlight-python3 notranslate"><div class="highlight"><pre><span></span><span class="c1"># code snippet from run_blade.py</span>
+<span class="k">class</span> <span class="nc">TestDetectron2</span><span class="p">:</span>
+    <span class="o">...</span>
+
+    <span class="k">def</span> <span class="nf">_benchmark</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">func_name</span><span class="p">,</span>
+        <span class="n">wrapper</span><span class="p">,</span>
+        <span class="n">traced_model</span><span class="p">,</span>
+        <span class="n">inputs</span><span class="p">,</span>
+        <span class="n">small_inputs</span><span class="p">,</span>
+        <span class="n">large_inputs</span><span class="p">,</span>
+        <span class="n">batch</span><span class="p">,</span>
+        <span class="n">enable_fp16</span><span class="p">,</span>
+    <span class="p">):</span>
+        <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+            <span class="n">config</span> <span class="o">=</span> <span class="n">torch_blade</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">Config</span><span class="p">()</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">dynamic_tuning_shapes</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;min&quot;</span><span class="p">:</span> <span class="n">small_inputs</span><span class="p">,</span>
+                <span class="s2">&quot;max&quot;</span><span class="p">:</span> <span class="n">large_inputs</span><span class="p">,</span>
+                <span class="s2">&quot;opts&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">inputs</span><span class="p">],</span>
+            <span class="p">}</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">optimization_pipeline</span> <span class="o">=</span> <span class="n">torch_blade_trt</span><span class="o">.</span><span class="n">backend_name</span><span class="p">()</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">enable_fp16</span> <span class="o">=</span> <span class="n">enable_fp16</span>
+            <span class="n">config</span><span class="o">.</span><span class="n">enable_onnx_shape_white_list</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">with</span> <span class="n">config</span><span class="p">:</span>
+                <span class="n">blade_model</span> <span class="o">=</span> <span class="n">torch_blade</span><span class="o">.</span><span class="n">optimize</span><span class="p">(</span><span class="n">traced_model</span><span class="p">,</span> <span class="kc">False</span><span class="p">,</span> <span class="n">inputs</span><span class="p">)</span>
+
+            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">amp</span><span class="o">.</span><span class="n">autocast</span><span class="p">(</span><span class="n">enable_fp16</span><span class="p">):</span>
+                <span class="n">benchmark</span><span class="p">(</span><span class="n">func_name</span><span class="p">,</span> <span class="s2">&quot;Torch-Blade&quot;</span><span class="p">,</span> <span class="n">enable_fp16</span><span class="p">,</span> <span class="n">wrapper</span><span class="p">,</span> <span class="n">inputs</span><span class="p">,</span> <span class="n">batch</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="detectron2-torchblade-inference-optimization">
+<h2>Detectron2 TorchBlade Inference Optimization<a class="headerlink" href="#detectron2-torchblade-inference-optimization" title="Permalink to this heading">¶</a></h2>
+<p>Our benchmark shows accelerating detectron2 models with TensorRT via TorchBlade
+would improve performance up to 2.7x.</p>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th style="text-align: left;">Model(traced)</th>
+<th style="text-align: left;">Backend</th>
+<th style="text-align: left;">precision</th>
+<th style="text-align: right;">Median(FPS)</th>
+<th style="text-align: right;">Mean(FPS)</th>
+<th style="text-align: right;">Median(ms)</th>
+<th style="text-align: right;">Mean(ms)</th>
+<th style="text-align: right;">99th_p</th>
+<th style="text-align: right;">std_dev</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">CascadeRCNN</td>
+<td style="text-align: left;">Torch</td>
+<td style="text-align: left;">fp16</td>
+<td style="text-align: right;">19.6151</td>
+<td style="text-align: right;">19.0296</td>
+<td style="text-align: right;">0.0509812</td>
+<td style="text-align: right;">0.0534221</td>
+<td style="text-align: right;">0.0976605</td>
+<td style="text-align: right;">0.00884817</td>
+</tr>
+<tr>
+<td style="text-align: left;">CascadeRCNN</td>
+<td style="text-align: left;">TorchBlade</td>
+<td style="text-align: left;">fp16</td>
+<td style="text-align: right;">36.5378</td>
+<td style="text-align: right;">35.9904</td>
+<td style="text-align: right;">0.0273689</td>
+<td style="text-align: right;">0.0281801</td>
+<td style="text-align: right;">0.0435887</td>
+<td style="text-align: right;">0.00547062</td>
+</tr>
+<tr>
+<td style="text-align: left;">CascadeRCNN</td>
+<td style="text-align: left;">Torch</td>
+<td style="text-align: left;">fp32</td>
+<td style="text-align: right;">11.9749</td>
+<td style="text-align: right;">11.7929</td>
+<td style="text-align: right;">0.0835077</td>
+<td style="text-align: right;">0.0853493</td>
+<td style="text-align: right;">0.121567</td>
+<td style="text-align: right;">0.00910164</td>
+</tr>
+<tr>
+<td style="text-align: left;">CascadeRCNN</td>
+<td style="text-align: left;">TorchBlade</td>
+<td style="text-align: left;">fp32</td>
+<td style="text-align: right;">16.8001</td>
+<td style="text-align: right;">16.4923</td>
+<td style="text-align: right;">0.0595234</td>
+<td style="text-align: right;">0.0611271</td>
+<td style="text-align: right;">0.0946139</td>
+<td style="text-align: right;">0.00652134</td>
+</tr>
+</tbody>
+</table><table border="1" class="docutils">
+<thead>
+<tr>
+<th style="text-align: left;">Model(traced)</th>
+<th style="text-align: left;">Backend</th>
+<th style="text-align: left;">precision</th>
+<th style="text-align: right;">Median(FPS)</th>
+<th style="text-align: right;">Mean(FPS)</th>
+<th style="text-align: right;">Median(ms)</th>
+<th style="text-align: right;">Mean(ms)</th>
+<th style="text-align: right;">99th_p</th>
+<th style="text-align: right;">std_dev</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">MaskRCNNC4</td>
+<td style="text-align: left;">Torch</td>
+<td style="text-align: left;">fp16</td>
+<td style="text-align: right;">5.42709</td>
+<td style="text-align: right;">5.38309</td>
+<td style="text-align: right;">0.184261</td>
+<td style="text-align: right;">0.18593</td>
+<td style="text-align: right;">0.217443</td>
+<td style="text-align: right;">0.00584642</td>
+</tr>
+<tr>
+<td style="text-align: left;">MaskRCNNC4</td>
+<td style="text-align: left;">TorchBlade</td>
+<td style="text-align: left;">fp16</td>
+<td style="text-align: right;">14.7845</td>
+<td style="text-align: right;">14.4137</td>
+<td style="text-align: right;">0.0676383</td>
+<td style="text-align: right;">0.0701595</td>
+<td style="text-align: right;">0.123343</td>
+<td style="text-align: right;">0.00960248</td>
+</tr>
+<tr>
+<td style="text-align: left;">MaskRCNNC4</td>
+<td style="text-align: left;">Torch</td>
+<td style="text-align: left;">fp32</td>
+<td style="text-align: right;">2.28852</td>
+<td style="text-align: right;">2.28604</td>
+<td style="text-align: right;">0.436964</td>
+<td style="text-align: right;">0.437487</td>
+<td style="text-align: right;">0.446839</td>
+<td style="text-align: right;">0.00461236</td>
+</tr>
+<tr>
+<td style="text-align: left;">MaskRCNNC4</td>
+<td style="text-align: left;">TorchBlade</td>
+<td style="text-align: left;">fp32</td>
+<td style="text-align: right;">6.17004</td>
+<td style="text-align: right;">6.09966</td>
+<td style="text-align: right;">0.162073</td>
+<td style="text-align: right;">0.164303</td>
+<td style="text-align: right;">0.200569</td>
+<td style="text-align: right;">0.00830803</td>
+</tr>
+</tbody>
+</table><table border="1" class="docutils">
+<thead>
+<tr>
+<th style="text-align: left;">Model(traced)</th>
+<th style="text-align: left;">Backend</th>
+<th style="text-align: left;">precision</th>
+<th style="text-align: right;">Median(FPS)</th>
+<th style="text-align: right;">Mean(FPS)</th>
+<th style="text-align: right;">Median(ms)</th>
+<th style="text-align: right;">Mean(ms)</th>
+<th style="text-align: right;">99th_p</th>
+<th style="text-align: right;">std_dev</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">MaskRCNNFPN</td>
+<td style="text-align: left;">Torch</td>
+<td style="text-align: left;">fp16</td>
+<td style="text-align: right;">27.9353</td>
+<td style="text-align: right;">27.1975</td>
+<td style="text-align: right;">0.035797</td>
+<td style="text-align: right;">0.0379382</td>
+<td style="text-align: right;">0.100995</td>
+<td style="text-align: right;">0.0111086</td>
+</tr>
+<tr>
+<td style="text-align: left;">MaskRCNNFPN</td>
+<td style="text-align: left;">TorchBlade</td>
+<td style="text-align: left;">fp16</td>
+<td style="text-align: right;">55.3479</td>
+<td style="text-align: right;">52.4638</td>
+<td style="text-align: right;">0.0180675</td>
+<td style="text-align: right;">0.0205101</td>
+<td style="text-align: right;">0.0711264</td>
+<td style="text-align: right;">0.00936073</td>
+</tr>
+<tr>
+<td style="text-align: left;">MaskRCNNFPN</td>
+<td style="text-align: left;">Torch</td>
+<td style="text-align: left;">fp32</td>
+<td style="text-align: right;">17.4301</td>
+<td style="text-align: right;">16.9622</td>
+<td style="text-align: right;">0.057372</td>
+<td style="text-align: right;">0.0600043</td>
+<td style="text-align: right;">0.114071</td>
+<td style="text-align: right;">0.010588</td>
+</tr>
+<tr>
+<td style="text-align: left;">MaskRCNNFPN</td>
+<td style="text-align: left;">TorchBlade</td>
+<td style="text-align: left;">fp32</td>
+<td style="text-align: right;">24.6164</td>
+<td style="text-align: right;">24.0594</td>
+<td style="text-align: right;">0.0406234</td>
+<td style="text-align: right;">0.0422053</td>
+<td style="text-align: right;">0.0903505</td>
+<td style="text-align: right;">0.00732614</td>
+</tr>
+</tbody>
+</table><table border="1" class="docutils">
+<thead>
+<tr>
+<th style="text-align: left;">Model(traced)</th>
+<th style="text-align: left;">Backend</th>
+<th style="text-align: left;">precision</th>
+<th style="text-align: right;">Median(FPS)</th>
+<th style="text-align: right;">Mean(FPS)</th>
+<th style="text-align: right;">Median(ms)</th>
+<th style="text-align: right;">Mean(ms)</th>
+<th style="text-align: right;">99th_p</th>
+<th style="text-align: right;">std_dev</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">MaskRCNNFPN_b2</td>
+<td style="text-align: left;">Torch</td>
+<td style="text-align: left;">fp16</td>
+<td style="text-align: right;">37.1356</td>
+<td style="text-align: right;">37.0281</td>
+<td style="text-align: right;">0.0538567</td>
+<td style="text-align: right;">0.0541153</td>
+<td style="text-align: right;">0.0698256</td>
+<td style="text-align: right;">0.00272032</td>
+</tr>
+<tr>
+<td style="text-align: left;">MaskRCNNFPN_b2</td>
+<td style="text-align: left;">TorchBlade</td>
+<td style="text-align: left;">fp16</td>
+<td style="text-align: right;">54.0766</td>
+<td style="text-align: right;">52.9738</td>
+<td style="text-align: right;">0.0369846</td>
+<td style="text-align: right;">0.0383186</td>
+<td style="text-align: right;">0.0736446</td>
+<td style="text-align: right;">0.00629445</td>
+</tr>
+<tr>
+<td style="text-align: left;">MaskRCNNFPN_b2</td>
+<td style="text-align: left;">Torch</td>
+<td style="text-align: left;">fp32</td>
+<td style="text-align: right;">18.381</td>
+<td style="text-align: right;">18.2328</td>
+<td style="text-align: right;">0.108808</td>
+<td style="text-align: right;">0.109908</td>
+<td style="text-align: right;">0.140845</td>
+<td style="text-align: right;">0.00539663</td>
+</tr>
+<tr>
+<td style="text-align: left;">MaskRCNNFPN_b2</td>
+<td style="text-align: left;">TorchBlade</td>
+<td style="text-align: left;">fp32</td>
+<td style="text-align: right;">22.4722</td>
+<td style="text-align: right;">22.1447</td>
+<td style="text-align: right;">0.0889987</td>
+<td style="text-align: right;">0.0907318</td>
+<td style="text-align: right;">0.12361</td>
+<td style="text-align: right;">0.00677864</td>
+</tr>
+</tbody>
+</table><table border="1" class="docutils">
+<thead>
+<tr>
+<th style="text-align: left;">Model(traced)</th>
+<th style="text-align: left;">Backend</th>
+<th style="text-align: left;">precision</th>
+<th style="text-align: right;">Median(FPS)</th>
+<th style="text-align: right;">Mean(FPS)</th>
+<th style="text-align: right;">Median(ms)</th>
+<th style="text-align: right;">Mean(ms)</th>
+<th style="text-align: right;">99th_p</th>
+<th style="text-align: right;">std_dev</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">MaskRCNNFPN_pproc</td>
+<td style="text-align: left;">Torch</td>
+<td style="text-align: left;">fp16</td>
+<td style="text-align: right;">25.0847</td>
+<td style="text-align: right;">24.6139</td>
+<td style="text-align: right;">0.0398649</td>
+<td style="text-align: right;">0.0414263</td>
+<td style="text-align: right;">0.0999447</td>
+<td style="text-align: right;">0.0090731</td>
+</tr>
+<tr>
+<td style="text-align: left;">MaskRCNNFPN_pproc</td>
+<td style="text-align: left;">TorchBlade</td>
+<td style="text-align: left;">fp16</td>
+<td style="text-align: right;">38.3059</td>
+<td style="text-align: right;">37.7374</td>
+<td style="text-align: right;">0.0261057</td>
+<td style="text-align: right;">0.0268968</td>
+<td style="text-align: right;">0.0618138</td>
+<td style="text-align: right;">0.0049947</td>
+</tr>
+<tr>
+<td style="text-align: left;">MaskRCNNFPN_pproc</td>
+<td style="text-align: left;">Torch</td>
+<td style="text-align: left;">fp32</td>
+<td style="text-align: right;">16.3987</td>
+<td style="text-align: right;">16.0337</td>
+<td style="text-align: right;">0.0609803</td>
+<td style="text-align: right;">0.0637757</td>
+<td style="text-align: right;">0.130296</td>
+<td style="text-align: right;">0.0134555</td>
+</tr>
+<tr>
+<td style="text-align: left;">MaskRCNNFPN_pproc</td>
+<td style="text-align: left;">TorchBlade</td>
+<td style="text-align: left;">fp32</td>
+<td style="text-align: right;">22.5599</td>
+<td style="text-align: right;">22.1358</td>
+<td style="text-align: right;">0.0443265</td>
+<td style="text-align: right;">0.0460027</td>
+<td style="text-align: right;">0.0946874</td>
+<td style="text-align: right;">0.0086997</td>
+</tr>
+</tbody>
+</table><table border="1" class="docutils">
+<thead>
+<tr>
+<th style="text-align: left;">Model(traced)</th>
+<th style="text-align: left;">Backend</th>
+<th style="text-align: left;">precision</th>
+<th style="text-align: right;">Median(FPS)</th>
+<th style="text-align: right;">Mean(FPS)</th>
+<th style="text-align: right;">Median(ms)</th>
+<th style="text-align: right;">Mean(ms)</th>
+<th style="text-align: right;">99th_p</th>
+<th style="text-align: right;">std_dev</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">RetinaNet</td>
+<td style="text-align: left;">Torch</td>
+<td style="text-align: left;">fp16</td>
+<td style="text-align: right;">25.5776</td>
+<td style="text-align: right;">24.8496</td>
+<td style="text-align: right;">0.0390967</td>
+<td style="text-align: right;">0.0410799</td>
+<td style="text-align: right;">0.0893885</td>
+<td style="text-align: right;">0.0083293</td>
+</tr>
+<tr>
+<td style="text-align: left;">RetinaNet</td>
+<td style="text-align: left;">TorchBlade</td>
+<td style="text-align: left;">fp16</td>
+<td style="text-align: right;">57.5659</td>
+<td style="text-align: right;">55.9292</td>
+<td style="text-align: right;">0.0173714</td>
+<td style="text-align: right;">0.0187742</td>
+<td style="text-align: right;">0.0614159</td>
+<td style="text-align: right;">0.00762535</td>
+</tr>
+<tr>
+<td style="text-align: left;">RetinaNet</td>
+<td style="text-align: left;">Torch</td>
+<td style="text-align: left;">fp32</td>
+<td style="text-align: right;">20.2</td>
+<td style="text-align: right;">19.7936</td>
+<td style="text-align: right;">0.0495051</td>
+<td style="text-align: right;">0.051284</td>
+<td style="text-align: right;">0.0882284</td>
+<td style="text-align: right;">0.00893048</td>
+</tr>
+<tr>
+<td style="text-align: left;">RetinaNet</td>
+<td style="text-align: left;">TorchBlade</td>
+<td style="text-align: left;">fp32</td>
+<td style="text-align: right;">29.9236</td>
+<td style="text-align: right;">29.5097</td>
+<td style="text-align: right;">0.0334184</td>
+<td style="text-align: right;">0.0341761</td>
+<td style="text-align: right;">0.0490422</td>
+<td style="text-align: right;">0.00389048</td>
+</tr>
+</tbody>
+</table><table border="1" class="docutils">
+<thead>
+<tr>
+<th style="text-align: left;">Model(scripted)</th>
+<th style="text-align: left;">Backend</th>
+<th style="text-align: left;">precision</th>
+<th style="text-align: right;">Median(FPS)</th>
+<th style="text-align: right;">Mean(FPS)</th>
+<th style="text-align: right;">Median(ms)</th>
+<th style="text-align: right;">Mean(ms)</th>
+<th style="text-align: right;">99th_p</th>
+<th style="text-align: right;">std_dev</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">RetinaNet</td>
+<td style="text-align: left;">Torch</td>
+<td style="text-align: left;">fp16</td>
+<td style="text-align: right;">28.2023</td>
+<td style="text-align: right;">27.3567</td>
+<td style="text-align: right;">0.0354581</td>
+<td style="text-align: right;">0.0376919</td>
+<td style="text-align: right;">0.0870901</td>
+<td style="text-align: right;">0.00991941</td>
+</tr>
+<tr>
+<td style="text-align: left;">RetinaNet</td>
+<td style="text-align: left;">TorchBlade</td>
+<td style="text-align: left;">fp16</td>
+<td style="text-align: right;">56.5545</td>
+<td style="text-align: right;">55.3561</td>
+<td style="text-align: right;">0.0176821</td>
+<td style="text-align: right;">0.0184771</td>
+<td style="text-align: right;">0.0417752</td>
+<td style="text-align: right;">0.00427876</td>
+</tr>
+</tbody>
+</table></section>
+</section>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'en',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/sphinx_highlight.js"></script>
+    <script type="text/javascript" src="../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
+        </div>
+    </div>  
+
+</body>
+</html>

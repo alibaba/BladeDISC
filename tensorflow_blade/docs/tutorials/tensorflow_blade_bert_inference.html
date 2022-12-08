@@ -1,0 +1,317 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Tutorial: Optimize BERT Inference with TensorFlow-Blade &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../index.html">Docs</a></li>
+        
+      <li>Tutorial: Optimize BERT Inference with TensorFlow-Blade</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../_sources/tensorflow_blade/docs/tutorials/tensorflow_blade_bert_inference.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../README.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#presentations-and-talks">Presentations and Talks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#building-status">Building Status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../README.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <section id="tutorial-optimize-bert-inference-with-tensorflow-blade">
+<h1>Tutorial: Optimize BERT Inference with TensorFlow-Blade<a class="headerlink" href="#tutorial-optimize-bert-inference-with-tensorflow-blade" title="Permalink to this heading">¶</a></h1>
+<p>In this tutorial, we show how to optimize BERT model for inference with a few lines code to call TensorRT optimization pass from TensorFlow-Blade.</p>
+<p><strong>BERT</strong>, short for Bidirectional Encoder Representations from Transformers, is one of the most popular natural language processing (NLP) model in the world. BERT models and its many varieties have been widely used for language modelling tasks. <strong>However, with great model accuracy comes with a great amount of computations.</strong> The latency of BERT model is quite high, since it has both massive GEMM operations and element-wise operations with lots of redundancy memory accesses, making BERT model difficult to deploy for real-time applications.
+In this tutotial, we use a pre-trained “<strong>bert-base-cased</strong>” BERT model from <strong>Huggingface Transformers</strong>.</p>
+<p><strong>TensorRT</strong> is an SDK for deep learning inference powered by Nvidia, which includes a deep learning inference optimizer and runtime that delivers low latency and high throughput for inference applications.</p>
+<p>TensorFlow-Blade can do ahead-of-time optimization with <strong>TensorRT</strong> backend, providing a state-of-the-art inference performance on Nvidia GPGPUs.</p>
+<p>As for TF-TRT inside TensorFlow, since it is compiled with TensorRT 7.1.3, which does not support optimization for BERT-like models. Thus we only compare the optimized model from TensorFlow-Blade with the origin TensorFlow baseline.</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python3 -c <span class="s1">&#39;from tensorflow.python.compiler.tensorrt import trt_convert as trt;print(trt._pywrap_py_utils.get_linked_tensorrt_version())&#39;</span>
+
+<span class="o">(</span><span class="m">7</span>, <span class="m">1</span>, <span class="m">3</span><span class="o">)</span>
+</pre></div>
+</div>
+<p>The content of this tutorial is as following.</p>
+<ul class="simple">
+<li><p><a class="reference external" href="#prologue-prepare">Prologue: Prepare</a></p></li>
+<li><p><a class="reference external" href="#optimize-with-tensorflow-blade">Optimize with TensorFlow-Blade’s TensorRT backend</a></p></li>
+<li><p><a class="reference external" href="#epilogue-run-inference-for-origin-and-optimized-model">Epilogue: Run Inference for origin and optimized model</a></p></li>
+</ul>
+<section id="prologue-prepare">
+<h2>Prologue: Prepare<a class="headerlink" href="#prologue-prepare" title="Permalink to this heading">¶</a></h2>
+<section id="environment-setup">
+<h3>environment setup<a class="headerlink" href="#environment-setup" title="Permalink to this heading">¶</a></h3>
+<p>These packages are required:</p>
+<ul class="simple">
+<li><p>tensorflow-gpu == 2.4.0</p></li>
+<li><p>transformers</p></li>
+<li><p>tensorflow_blade</p></li>
+</ul>
+<p>To build and install <code class="docutils literal notranslate"><span class="pre">tensorflow_blade</span></code> package, please refer to
+<a class="reference internal" href="../build_from_source.html"><span class="doc">“Installation of TensorFlowBlade”</span></a> and
+<a class="reference external" href="../../docs/install_with_docker">“Install BladeDISC With Docker”</a> to get a pre-build tensorflow-runtime docker.</p>
+<p>The system environments and packages used in this tutorial:</p>
+<ul class="simple">
+<li><p>Docker Image: bladedisc/bladedisc:latest-runtime-tensorflow2.4</p></li>
+<li><p>Intel(R) Xeon(R) Platinum 8163 CPU &#64; 2.50GHz, 96CPU</p></li>
+<li><p>Nvidia Driver 470.57.02</p></li>
+<li><p>CUDA 11.0</p></li>
+<li><p>CuDNN 8.2.1</p></li>
+</ul>
+</section>
+<section id="get-a-pre-trained-bert-base-uncased-from-hugging-face-and-prepare-data">
+<h3>get a pre-trained BERT base-uncased from hugging face and prepare data<a class="headerlink" href="#get-a-pre-trained-bert-base-uncased-from-hugging-face-and-prepare-data" title="Permalink to this heading">¶</a></h3>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">model</span> <span class="o">=</span> <span class="n">TFBertModel</span><span class="o">.</span><span class="n">from_pretrained</span><span class="p">(</span><span class="s2">&quot;bert-base-cased&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Then get the tf.GraphDef and model fetched using functions from the <a class="reference external" href="../../examples/TensorFlow/Inference/CUDA/BERT/TensorRT/bert_inference_opt.py">tutorial scripts</a>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">origin_graph_def</span><span class="p">,</span> <span class="n">fetches</span> <span class="o">=</span> <span class="n">get_tf_graph_def</span><span class="p">()</span>
+<span class="n">model_outputs</span> <span class="o">=</span> <span class="p">[</span><span class="n">fetch</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">fetch</span> <span class="ow">in</span> <span class="n">fetches</span><span class="p">]</span>
+
+<span class="n">feed_dicts</span> <span class="o">=</span> <span class="nb">list</span><span class="p">()</span>
+<span class="n">feed_dicts</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+    <span class="s1">&#39;input_ids:0&#39;</span> <span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">((</span><span class="mi">1</span><span class="p">,</span> <span class="mi">5</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span>
+<span class="p">})</span>
+</pre></div>
+</div>
+</section>
+</section>
+<section id="optimize-model-with-tensorflow-blade">
+<h2>Optimize model with TensorFlow-Blade<a class="headerlink" href="#optimize-model-with-tensorflow-blade" title="Permalink to this heading">¶</a></h2>
+<p>We will use TensorFlow-Blade TensorRT optimization pass, which can be imported like this:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">tf_blade.gpu.tf_to_trt</span> <span class="kn">import</span> <span class="n">Tf2TrtOpt</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">opt_pass</span> <span class="o">=</span> <span class="n">Tf2TrtOpt</span><span class="p">()</span>
+
+<span class="n">opt_graph_def</span> <span class="o">=</span> <span class="n">opt_pass</span><span class="o">.</span><span class="n">optimize_graph_def</span><span class="p">(</span>
+    <span class="n">origin_graph_def</span><span class="p">,</span> <span class="n">model_outputs</span><span class="p">,</span> <span class="n">feed_dicts</span><span class="p">,</span> <span class="kc">True</span><span class="p">,</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="epilogue-run-inference-for-origin-optimized-model-and-compare-result">
+<h2>Epilogue: Run Inference for origin/optimized model and compare result<a class="headerlink" href="#epilogue-run-inference-for-origin-optimized-model-and-compare-result" title="Permalink to this heading">¶</a></h2>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="k">def</span> <span class="nf">run_benchmark</span><span class="p">(</span><span class="n">graph_def</span><span class="p">,</span> <span class="n">fetches</span><span class="p">,</span> <span class="n">feed_dict</span><span class="p">,</span> <span class="n">model_name</span><span class="p">):</span>
+    <span class="n">tf</span><span class="o">.</span><span class="n">compat</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">reset_default_graph</span><span class="p">()</span>
+    <span class="n">session_config</span> <span class="o">=</span> <span class="n">tf</span><span class="o">.</span><span class="n">compat</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">ConfigProto</span><span class="p">()</span>
+    <span class="n">session_config</span><span class="o">.</span><span class="n">allow_soft_placement</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="n">session_config</span><span class="o">.</span><span class="n">gpu_options</span><span class="o">.</span><span class="n">allow_growth</span> <span class="o">=</span> <span class="kc">True</span>
+    <span class="k">with</span> <span class="n">tf</span><span class="o">.</span><span class="n">compat</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">Session</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">session_config</span><span class="p">)</span> <span class="k">as</span> <span class="n">sess</span><span class="p">:</span>
+        <span class="n">sess</span><span class="o">.</span><span class="n">graph</span><span class="o">.</span><span class="n">as_default</span><span class="p">()</span>
+        <span class="n">tf</span><span class="o">.</span><span class="n">import_graph_def</span><span class="p">(</span><span class="n">graph_def</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+        <span class="n">output</span> <span class="o">=</span> <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">fetches</span><span class="p">,</span> <span class="n">feed_dict</span><span class="p">)</span>
+        <span class="c1"># Warmup!</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">100</span><span class="p">):</span>
+            <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">fetches</span><span class="p">,</span> <span class="n">feed_dict</span><span class="p">)</span>
+
+        <span class="c1"># Benchmark!</span>
+        <span class="n">num_runs</span> <span class="o">=</span> <span class="mi">300</span>
+        <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">num_runs</span><span class="p">):</span>
+            <span class="n">sess</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">fetches</span><span class="p">,</span> <span class="n">feed_dict</span><span class="p">)</span>
+        <span class="n">elapsed</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">-</span> <span class="n">start</span>
+        <span class="n">rt_ms</span> <span class="o">=</span> <span class="n">elapsed</span> <span class="o">/</span> <span class="n">num_runs</span> <span class="o">*</span> <span class="mf">1000.0</span>
+
+        <span class="c1"># Show the result!</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Latency of </span><span class="si">{}</span><span class="s2"> model: </span><span class="si">{:.2f}</span><span class="s2"> ms&quot;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">model_name</span><span class="p">,</span> <span class="n">rt_ms</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">output</span>
+</pre></div>
+</div>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">output_origin</span> <span class="o">=</span> <span class="n">run_benchmark</span><span class="p">(</span><span class="n">origin_graph_def</span><span class="p">,</span> <span class="n">fetches</span><span class="p">,</span> <span class="n">feed_dicts</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;origin&quot;</span><span class="p">)</span>
+<span class="n">output_opt</span> <span class="o">=</span> <span class="n">run_benchmark</span><span class="p">(</span><span class="n">opt_graph_def</span><span class="p">,</span> <span class="n">fetches</span><span class="p">,</span> <span class="n">feed_dicts</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;optimized&quot;</span><span class="p">)</span>
+<span class="k">assert</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">output_origin</span><span class="p">)</span> <span class="o">==</span> <span class="nb">len</span><span class="p">(</span><span class="n">output_opt</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">output_origin</span><span class="p">)):</span>
+    <span class="k">assert</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">allclose</span><span class="p">(</span><span class="n">output_origin</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">output_opt</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">rtol</span><span class="o">=</span><span class="mf">1e-6</span><span class="p">,</span> <span class="n">atol</span><span class="o">=</span><span class="mf">1e-3</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>And we can get the following result:</p>
+<div class="highlight-shell notranslate"><div class="highlight"><pre><span></span>Latency of origin model: <span class="m">12</span>.40ms
+Latency of optimized model: <span class="m">3</span>.39ms
+</pre></div>
+</div>
+<p>There we can see, using TensorRT’s fp32 optimization, we get a <strong>3.66X</strong> speedup for BERT model inference with acceptable numerical errors.</p>
+<p>The complete python scripts for this tutorial can be found at <a class="reference external" href="https://github.com/alibaba/BladeDISC/tree/main/examples/TensorFlow/Inference/CUDA/BERT/TensorRT">TensorFlow BERT Inference with TensorRT</a>.</p>
+</section>
+</section>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'en',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script type="text/javascript" src="../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../_static/sphinx_highlight.js"></script>
+    <script type="text/javascript" src="../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
+        </div>
+    </div>  
+
+</body>
+</html>

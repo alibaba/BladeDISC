@@ -1,0 +1,699 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>NVIDIA CUTLASS Changelog &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../../index.html">Docs</a></li>
+        
+      <li>NVIDIA CUTLASS Changelog</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../../_sources/tao_compiler/mlir/disc/cutlass/CHANGELOG.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../README.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README.html#presentations-and-talks">Presentations and Talks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README.html#building-status">Building Status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../README.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <section id="nvidia-cutlass-changelog">
+<h1>NVIDIA CUTLASS Changelog<a class="headerlink" href="#nvidia-cutlass-changelog" title="Permalink to this heading">¶</a></h1>
+<section id="id1">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v2.10.0">2.10.0</a> (2022-08-23)<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="/examples/40_cutlass_py">CUTLASS Python</a> now supports GEMM, CONV, Group GEMM for different data types as well as different epilogue flavours.</p></li>
+<li><p>Optimizations for CUTLASS’s <a class="reference external" href="examples/24_gemm_grouped/gemm_grouped.cu">Grouped GEMM</a> kernel.  Threadblock scheduling part is improved.  Some computation can be moved to the host side if applicable.  <a class="reference external" href="examples/38_syr2k_grouped/syr2k_grouped.cu">Grouped Syr2k</a> kernels are added, too.</p></li>
+<li><p>Optimizations for <a class="reference external" href="examples/35_gemm_softmax">GEMM+Softmax</a>.  All the reduction computation is fused into the previous GEMM.  More template arguments are provided to fine tune the performance.</p></li>
+<li><p><a class="reference external" href="examples/41_multi_head_attention">Grouped GEMM for Multihead Attention</a>.  This general group gemm based MHA does not require the sequence length of all GEMMs to be the same which makes it most useful for natural language processing.</p></li>
+<li><p><a class="reference external" href="examples/37_gemm_layernorm_gemm_fusion/">GEMM + Layer norm fusion for Ampere</a> splits the layernorm into two parts and both of them can be fused into the GEMMs before and after separately.  In addition to use square sum to compute variance of layernorm, <a class="reference external" href="https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Computing_shifted_data">Shift-K</a> is provided if square sum raise numerical issues.</p></li>
+<li><p><a class="reference external" href="examples/39_gemm_permute">GEMM Epilogue Permutation Fusion</a> can apply user provided permutation layout mapping in the GEMM epilogue.</p></li>
+<li><p><a class="reference external" href="test/unit/conv/device/group_conv2d_fprop_implicit_gemm_f16nhwc_f16nhwc_f16nhwc_tensor_op_f32_sm80.cu">Grouped convolution targeting implicit GEMM</a> introduces the first group convolution implementation to CUTLASS.  It is an Analytical implementation, not an Optimized.  The restrictions are: 1) input and output channel number should be multiple of group number. 2) split-K is not supported.  The implementation has 2 modes:</p>
+<ul>
+<li><p>kSingleGroup: output channel per group is multiple of Threadblock tile N.</p></li>
+<li><p>kMultipleGroup: Threadblock tile N is multiple of output channel per group.</p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="test/unit/conv/device/depthwise_fprop_implicit_gemm_f16nhwc_f16nhwc_f16nhwc_simt_f16_sm60.cu">Depthwise separable convolution</a> introduces the first depthwise convolution which is also Analytical for now.  The restrictions are: 1) SIMT only 2) No split-K 3) input channel equals to output channel equals to group number.</p></li>
+<li><p>Standalone <a class="reference external" href="/tools/util/include/cutlass/util/device_layernorm.h">Layernorm</a> and <a class="reference external" href="/tools/util/include/cutlass/util/device_nhwc_pooling.h">Pooling</a> kernels.</p></li>
+<li><p><a class="reference external" href="examples/13_two_tensor_op_fusion">Back-to-back GEMM/CONV</a> relaxes the requirement that the first GEMM K dimension needs to be the multiple of Threadblock Tile K dimension.</p></li>
+<li><p>Optimal performance using <a class="reference external" href="https://developer.nvidia.com/cuda-downloads"><strong>CUDA 11.6u2</strong></a></p></li>
+<li><p>Updates and bugfixes from the community (thanks!)</p></li>
+<li><p><strong>Deprecation announcement:</strong> CUTLASS plans to deprecate the following:</p>
+<ul>
+<li><p>Maxwell and Pascal GPU architectures</p></li>
+<li><p>Ubuntu 16.04</p></li>
+<li><p>CUDA 10.2</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="id2">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v2.9.0">2.9.0</a> (2022-04-21)<a class="headerlink" href="#id2" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="/test/unit/conv/device/conv2d_fprop_fixed_channels_f16nhwc_f16nhwc_f16nhwc_tensor_op_f32_sm80.cu">First layer Convolution kernels</a> specialized for small channel counts and reduced alignment</p>
+<ul>
+<li><p><a class="reference external" href="/include/cutlass/conv/threadblock/conv2d_fprop_activation_tile_access_iterator_few_channels.h">Few channels</a> specialization for reduced alignment capabilities</p></li>
+<li><p><a class="reference external" href="/include/cutlass/conv/threadblock/conv2d_fprop_activation_tile_access_iterator_fixed_channels.h">Fixed channels</a> further specialized when channel count perfectly matches the access vector size</p></li>
+<li><p><a class="reference external" href="/test/unit/conv/device/conv2d_fprop_few_channels_f16nhwc_f16nhwc_f16nhwc_tensor_op_f32_sm80.cu">Unit tests</a></p></li>
+<li><p><a class="reference external" href="/tools/library/scripts/generator.py">Python-based instance emitter</a> in the CUTLASS Library and support in the Profiler</p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="https://docs.nvidia.com/cuda/cublas/index.html#cublas-level-3-function-reference">BLAS3</a> operators accelerated by Tensor Cores</p>
+<ul>
+<li><p>Supported types: f32, cf32, f64, cf64, tf32x3, complex tf32x3</p></li>
+<li><p><a class="reference external" href="/test/unit/gemm/device/her2k_cf32h_cf32n_tensor_op_fast_f32_sm80.cu">HERK</a> with <a class="reference external" href="/tools/library/scripts/rank_k_operation.py">emitter</a></p></li>
+<li><p><a class="reference external" href="/test/unit/gemm/device/syrk_f32n_f32t_tensor_op_fast_f32_sm80.cu">SYRK</a> with <a class="reference external" href="/tools/library/scripts/rank_k_operation.py">emitter</a></p></li>
+<li><p><a class="reference external" href="/test/unit/gemm/device/symm_f32n_f32n_tensor_op_fast_f32_ls_sm80.cu">SYMM</a> with <a class="reference external" href="/tools/library/scripts/symm_operation.py">emitter</a></p></li>
+<li><p><a class="reference external" href="/test/unit/gemm/device/trmm_f32n_f32t_f32t_tensor_op_fast_f32_ls_sm80.cu">TRMM</a> with <a class="reference external" href="/tools/library/scripts/trmm_operation.py">emitter</a></p></li>
+<li><p><a class="reference external" href="/test/unit/gemm/device/testbed_rank_k_universal.h">Unit tests</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="/examples/40_cutlass_py">CUTLASS Python</a> demonstrating JIT compilation of CUTLASS kernels and a Python-based runtime using <a class="reference external" href="https://developer.nvidia.com/cuda-python">CUDA Python</a></p>
+<ul>
+<li><p><a class="reference external" href="/tools/library/scripts/rt.py">Python-based runtime</a> interoperable with existing emitters</p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="/examples/35_gemm_softmax">GEMM + Softmax example</a></p></li>
+<li><p><a class="reference external" href="/examples/36_gather_scatter_fusion">Gather and Scatter Fusion with GEMM</a> can gather inputs and scatters outputs based on indices vectors in the same GEMM kernel.</p>
+<ul>
+<li><p>It can select random rows in a row major matrix.</p></li>
+<li><p>It can select random columns in a column major matrix.</p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="examples/13_two_tensor_op_fusion">Back-to-back GEMM/CONV</a> fully supports buffering the first GEMM/CONV results in the shared memory for the latter one to use.  It can eliminate register spill when the tile size is big.  Additionally, bias vector add is supported in the first GEMM/CONV.</p>
+<ul>
+<li><p>Supported kernels: GEMM and CONV.</p></li>
+<li><p>Supported types: fp16 and int8.</p></li>
+<li><p>Supported architectures: Turing and Ampere.</p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="/examples/34_transposed_conv2d">Transposed Convolution</a> (a.k.a Deconvolution) support which reuses Dgrad implementation.</p></li>
+<li><p><a class="reference external" href="/tools/util/include/cutlass/util">Utility functions</a> that can pad NHWC and convert between NCHW and NHWC.</p></li>
+<li><p><a class="reference external" href="https://github.com/NVIDIA/cutlass/issues/242">Small alignment implicit gemm</a> support for Fprop/Dgrad/Wgrad so that padding is no longer mandated to use tensor cores in these kernels.</p></li>
+<li><p>Epilogue enhancement:</p>
+<ul>
+<li><p>Eliminate bank conflicts in int8 tensor core kernels.</p></li>
+<li><p>Half2 usage if epilogue compute type is fp16.</p></li>
+<li><p>More activation functions: Silu, Hardswish, Leaky Relu.</p></li>
+<li><p>New elementwise fusion pattern for <a class="reference external" href="/include/cutlass/epilogue/thread/linear_combination_residual_block.h">residual block</a>.</p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="/examples/24_gemm_grouped">Group GEMM</a> thread block number calculation fix which helps to launch the intended number of threadblocks to fully occupy the GPUs.</p></li>
+<li><p><a class="reference external" href="https://github.com/NVIDIA/cutlass/pull/277">Parallel GEMM splitk</a> support in the CUTLASS profiler.</p></li>
+<li><p>Optimal performance using <a class="reference external" href="https://developer.nvidia.com/cuda-downloads"><strong>CUDA 11.6u2</strong></a></p></li>
+<li><p>Updates and bugfixes from the community (thanks!)</p></li>
+</ul>
+</section>
+<section id="id3">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v2.8.0">2.8.0</a> (2021-11-19)<a class="headerlink" href="#id3" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><strong>TF32x3:</strong> emulated single-precision using Tensor Cores</p>
+<ul>
+<li><p>45+ TFLOPs on NVIDIA A100</p></li>
+<li><p><a class="reference external" href="/examples/27_ampere_3xtf32_fast_accurate_tensorop_gemm/27_ampere_3xtf32_fast_accurate_tensorop_gemm.cu">GEMM SDK example</a> (real)</p></li>
+<li><p><a class="reference external" href="/examples/29_ampere_3xtf32_fast_accurate_tensorop_complex_gemm/29_ampere_3xtf32_fast_accurate_tensorop_complex_gemm.cu">COMPLEX GEMM SDK example</a> (complex)</p></li>
+<li><p><a class="reference external" href="/examples/28_ampere_3xtf32_fast_accurate_tensorop_fprop/ampere_3xtf32_fast_accurate_tensorop_fprop.cu">Implicit GEMM Convolution SDK example</a></p></li>
+</ul>
+</li>
+<li><p><strong>Mainloop fusion for Convolution:</strong> convolution with fused per-channel scale-bias-relu</p>
+<ul>
+<li><p><a class="reference external" href="/examples/25_ampere_fprop_mainloop_fusion/ampere_fprop_mainloop_fusion.cu">Conv Fprop SDK example</a></p></li>
+<li><p><a class="reference external" href="/examples/26_ampere_wgrad_mainloop_fusion/ampere_wgrad_mainloop_fusion.cu">Conv WGrad SDK example</a></p></li>
+<li><p><a class="reference external" href="/include/cutlass/conv/device/implicit_gemm_convolution_fusion.h">cutlass::conv::device::ImplicitGemmConvolutionFusion</a></p></li>
+</ul>
+</li>
+<li><p><strong>Grouped GEMM:</strong> similar to batched GEMM with distinct problem size per group</p>
+<ul>
+<li><p><a class="reference external" href="/examples/24_gemm_grouped">SDK example</a> with performance comparison with Batched Strided GEMM</p></li>
+<li><p><a class="reference external" href="/include/cutlass/gemm/device/gemm_grouped.h">cutlass::gemm::device::GemmGrouped</a></p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="/examples/13_two_tensor_op_fusion/">Implicit GEMM Convolution fusion</a> supports staging 1st convolution’s output accumulator in the shared memory on Turing. This allows more flexible warp tile sizes and less regsiter pressue.</p></li>
+<li><p>Optimal performance using <a class="reference external" href="https://developer.nvidia.com/cuda-downloads"><strong>CUDA 11.5</strong></a></p></li>
+<li><p>Updates from the community (thanks!)</p></li>
+<li><p><strong>Deprecation announcement:</strong> CUTLASS plans to deprecate the following:</p>
+<ul>
+<li><p>Maxwell and Pascal GPU architectures</p></li>
+<li><p>Ubuntu 16.04</p></li>
+<li><p>CUDA 10.2</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="id4">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v2.7.0">2.7.0</a> (2021-09-24)<a class="headerlink" href="#id4" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Mainloop fusion for GEMM: <a class="reference external" href="/examples/23_ampere_gemm_operand_reduction_fusion/ampere_gemm_operand_reduction_fusion.cu">summation over A or B</a></p></li>
+<li><p><a class="reference external" href="/include/cutlass/conv/kernel/default_conv2d_dgrad.h">Strided DGRAD (optimized iterators)</a></p></li>
+<li><p><a class="reference external" href="/include/cutlass/epilogue/thread/activation.h#L196">Half-precision GELU_taylor activation functions</a></p>
+<ul>
+<li><p>Use these when accumulation and epilogue compute types are all <code class="docutils literal notranslate"><span class="pre">cutlass::half_t</span></code></p></li>
+</ul>
+</li>
+<li><p>Tuning and bug fixes to <a class="reference external" href="/examples/13_two_tensor_op_fusion/">fused GEMM + GEMM example</a></p></li>
+<li><p>Support for smaller than 128b aligned Convolutions: <a class="reference external" href="test/unit/conv/device/conv2d_fprop_implicit_gemm_f16nhwc_f16nhwc_f16nhwc_tensor_op_f16_sm80.cu#L272">see examples</a></p></li>
+<li><p>Caching of results to accelerate Convolution <a class="reference external" href="test/unit/conv/device/cache_testbed_output.h">unit tests</a></p>
+<ul>
+<li><p>Can be enabled or disabled by running <code class="docutils literal notranslate"><span class="pre">cmake</span> <span class="pre">..</span> <span class="pre">-DCUTLASS_TEST_ENABLE_CACHED_RESULTS=OFF</span></code></p></li>
+</ul>
+</li>
+<li><p>Corrections and bug fixes reported by the CUTLASS community</p>
+<ul>
+<li><p>Thank you for filing these issues!</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="id5">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v2.6.1">2.6.1</a> (2021-09-03)<a class="headerlink" href="#id5" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Arbitrary padding and striding for CUTLASS Strided DGRAD Convolution operator (Analytic Iterators)</p></li>
+<li><p>Tuning for GEMMs fused with partial reductions</p></li>
+<li><p>Corrections and bug fixes reported by the CUTLASS community</p>
+<ul>
+<li><p>Thank you for filing these issues!</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="id6">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v2.6.0">2.6.0</a> (2021-07-22)<a class="headerlink" href="#id6" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Optimal performance when compiled with the <a class="reference external" href="https://developer.nvidia.com/cuda-toolkit">CUDA 11.4 Toolkit</a></p>
+<ul>
+<li><p>Adopt the new L2 prefetch feature in <a class="reference external" href="/include/cutlass/arch/memory.h">cp.async</a> and <a class="reference external" href="/include/cutlass/arch/memory_sm80.h">global load</a></p></li>
+</ul>
+</li>
+<li><p>Fused operators with GEMM and Convolution</p>
+<ul>
+<li><p><a class="reference external" href="test/unit/gemm/device/gemm_with_broadcast_f16n_f16n_f16n_tensorop_f32_sm75.cu">Fused broadcast in epilogue</a></p></li>
+<li><p><a class="reference external" href="/test/unit/gemm/device/gemm_with_reduction_f16n_f16n_f16n_tensorop_f32_sm75.cu">Fused partial reduction in epilogue</a></p></li>
+</ul>
+</li>
+<li><p>64b tensor strides and leading dimensions support for GEMMs</p></li>
+<li><p>Affine rank=2 matrix layouts</p>
+<ul>
+<li><p>Row stride and column stride for matrices using <a class="reference external" href="/include/cutlass/layout/matrix.h">cutlass::layout::AffineRank2</a></p></li>
+<li><p>Support <a class="reference external" href="/examples/18_ampere_fp64_tensorop_affine2_gemm/ampere_fp64_tensorop_affine2_gemm.cu">FP64 tensor core</a> and SIMT GEMM.</p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="/test/unit/gemm/device/gemv.cu">Batched GEMV</a> preview implementation</p></li>
+<li><p><a class="reference external" href="test/unit/conv/device/conv2d_strided_dgrad_implicit_gemm_f16nhwc_f16nhwc_f32nhwc_tensor_op_f32_sm80.cu">New strided Dgrad</a> implementation</p>
+<ul>
+<li><p>Accelerates over previous implementation by cutting down redundant math by 4x</p></li>
+<li><p>Support using new <code class="docutils literal notranslate"><span class="pre">Dy</span></code> and <code class="docutils literal notranslate"><span class="pre">w</span></code> analytic iterators and existing <code class="docutils literal notranslate"><span class="pre">cutlass::conv::device::ImplicitGemmConvolution</span></code> interface</p></li>
+</ul>
+</li>
+<li><p>Quaternion-valued GEMM and Convolution in single- and double-precision (targeting CUDA Cores)</p>
+<ul>
+<li><p>Updates to <a class="reference external" href="/include/cutlass/quaternion.h">quaternion.h</a> and <a class="reference external" href="/include/cutlass/functional.h">functional.h</a></p></li>
+<li><p>SDK Example for <a class="reference external" href="/examples/21_quaternion_gemm/quaternion_gemm.cu">GEMM</a> and <a class="reference external" href="/examples/22_quaternion_gemm/quaternion_conv.cu">Convolution</a></p></li>
+<li><p><a class="reference external" href="/test/unit/gemm/device/simt_qgemm_nn_sm50.cu">Unit tests for GEMM</a> and <a class="reference external" href="/test/unit/conv/device/conv2d_fprop_implicit_gemm_qf32nhwc_qf32nhwc_qf32nhwc_simt_f32_sm50.cu">Convolution</a></p></li>
+</ul>
+</li>
+<li><p>Many improvements to the epilogue.</p>
+<ul>
+<li><p>Provide an <a class="reference external" href="/include/cutlass/epilogue/threadblock/epilogue.h">option</a> to not fully unroll the epilogue to reduce the code size and improve the performance when using complicated elementwise operations</p></li>
+<li><p>Performance improvement for FP16 tensor core kernels</p></li>
+<li><p>Bug fixes</p></li>
+</ul>
+</li>
+<li><p>Enhanced Clang support and the combination of Clang 13 and CUDA 11.4 can build and run kernels from Pascal and Ampere.</p></li>
+<li><p>Updated minimum CUDA Toolkit requirement to 10.2</p>
+<ul>
+<li><p><a class="reference external" href="https://developer.nvidia.com/cuda-toolkit">CUDA 11.4 Toolkit</a> recommended</p></li>
+</ul>
+</li>
+<li><p>Corrections and bug fixes reported by the CUTLASS community</p>
+<ul>
+<li><p>Thank you for filing these issues!</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="id7">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v2.5.0">2.5.0</a> (2021-02-26)<a class="headerlink" href="#id7" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Tensor reductions</p>
+<ul>
+<li><p><em>m</em>-to-<em>n</em> reductions of tensors with affine layout</p></li>
+<li><p><a class="reference external" href="/test/unit/reduction/device/tensor_reduce_contiguous.cu">Specializations</a> for reductions including contiguous dimension</p></li>
+<li><p><a class="reference external" href="/test/unit/reduction/device/tensor_reduce_strided.cu">Specializations</a> for reductions excluding contiguous dimension</p></li>
+<li><p>Custom reduction functors such as <code class="docutils literal notranslate"><span class="pre">cutlass::logical_and</span></code></p></li>
+<li><p>Large tensor support, up to 2^63 elements (however, each dimension is limited to an extent of 2^31)</p></li>
+</ul>
+</li>
+<li><p>Optimizations for 3-D convolution</p>
+<ul>
+<li><p><a class="reference external" href="include/cutlass/conv/threadblock/conv3d_fprop_activation_tile_access_iterator_optimized.h">Optimized tile iterators</a> using precomputed delta table for 3-D convolution</p></li>
+<li><p>Full coverage of <a class="reference external" href="test/unit/conv/device/conv3d_fprop_implicit_gemm_f16ndhwc_f16ndhwc_f32ndhwc_tensor_op_f32_sm80.cu">forward</a> and <a class="reference external" href="test/unit/conv/device/conv3d_dgrad_implicit_gemm_f16ndhwc_f16ndhwc_f32ndhwc_tensor_op_f32_sm80.cu">backwards</a> passes for 3D convolution</p></li>
+</ul>
+</li>
+<li><p><a class="reference external" href="/examples/13_two_tensor_op_fusion/README">Fused Convolution+Convolution example</a></p></li>
+<li><p>Corrections and bug fixes reported by the CUTLASS community</p>
+<ul>
+<li><p>Thank you for filing these issues!</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="id8">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v2.4.0">2.4.0</a> (2020-11-19)<a class="headerlink" href="#id8" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Implicit GEMM convolution kernels supporting CUDA and Tensor Cores on NVIDIA GPUs</p>
+<ul>
+<li><p>Operators: forward (Fprop), backward data gradient (Dgrad), and backward weight gradient (Wgrad) convolution</p></li>
+<li><p>Data type: FP32, complex<FP32>, Tensor Float 32 (TF32), BFloat16 (BF16), Float16, Int4, Int8, Int32</p></li>
+<li><p>Spatial dimensions: 1-D, 2-D, and 3-D</p></li>
+<li><p>Layout: NHWC, NCxHWx</p></li>
+</ul>
+</li>
+<li><p>Implicit GEMM convolution components:</p>
+<ul>
+<li><p>Global memory iterators supporting Fprop, Dgrad, and Wgrad</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">MmaMultistage</span></code> for implicit GEMM convolution for NVIDIA Ampere architecture</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">MmaPipeline</span></code> for implicit GEMM convolution for NVIDIA Volta and Turing architectures</p></li>
+<li><p><a class="reference external" href="/media/docs/implicit_gemm_convolution">Documentation</a> describing Implicit GEMM Convolution algorithm and implementation</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="id9">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v2.3.0">2.3.0</a> (2020-09-23)<a class="headerlink" href="#id9" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="https://devblogs.nvidia.com/nvidia-ampere-architecture-in-depth/">NVIDIA Ampere Architecture features</a></p>
+<ul>
+<li><p><a class="reference external" href="test/unit/gemm/device/gemm_f16n_f16n_f32t_tensor_op_f32_sparse_sm80.cu">Sparse Tensor Core GEMM kernels</a>:</p>
+<ul>
+<li><p>Direct access to Sparse Tensor Cores and maximum performance via <a class="reference external" href="https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#warp-level-matrix-instructions-mma-and-friends"><code class="docutils literal notranslate"><span class="pre">mma.sp.sync</span></code></a></p></li>
+</ul>
+</li>
+<li><p>Fast SGEMM targeting GeForce RTX 30-series CUDA Cores</p></li>
+</ul>
+</li>
+<li><p>Minor Features:</p>
+<ul>
+<li><p><a class="reference external" href="/include/cutlass/epilogue/thread/activation.h">Activation functions</a> such as <a class="reference external" href="/include/cutlass/epilogue/thread/linear_combination_gelu.h">GeLU</a> and <a class="reference external" href="/include/cutlass/epilogue/thread/linear_combination_sigmoid.h">Sigmoid</a></p></li>
+<li><p>Small <a class="reference external" href="/include/cutlass/matrix.h">matrix</a> and <a class="reference external" href="/include/cutlass/quaternion.h">quaternion</a> template classes in device code</p></li>
+<li><p><a class="reference external" href="/include/cutlass/constants.h">Floating-point constants</a></p></li>
+</ul>
+</li>
+<li><p>NVIDIA Ampere GPU Architecture examples and documentation:</p>
+<ul>
+<li><p><a class="reference external" href="/examples/14_ampere_tf32_tensorop_gemm/ampere_tf32_tensorop_gemm.cu">Tensor Float 32</a> and</p></li>
+<li><p><a class="reference external" href="/examples/15_ampere_sparse_tensorop_gemm/ampere_sparse_tensorop_gemm.cu">Sparse Tensor Cores</a></p></li>
+<li><p>Documentation added on CUTLASS <a class="reference external" href="/media/docs/gemm_api.md#efficient-epilogue">efficient row-major epilogue</a></p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="id10">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v2.2.0">2.2.0</a> (2020-06-08)<a class="headerlink" href="#id10" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p><a class="reference external" href="https://devblogs.nvidia.com/nvidia-ampere-architecture-in-depth/">NVIDIA Ampere Architecture features</a></p>
+<ul>
+<li><p>Fast Tensor Core operations:</p></li>
+<li><p>Maximum performance via <a class="reference external" href="https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#warp-level-matrix-instructions-mma-and-friends"><code class="docutils literal notranslate"><span class="pre">mma.sync</span></code></a></p></li>
+<li><p>Tensor Float 32, BFloat16, and double-precision data types</p></li>
+<li><p>Mixed integer data types (int8, int4, bin1)</p></li>
+<li><p>Asynchronous copy for deep software pipelines via <a class="reference external" href="https://docs.nvidia.com/cuda/parallel-thread-execution"><code class="docutils literal notranslate"><span class="pre">cp.async</span></code></a></p></li>
+<li><p>Described in <a class="reference external" href="https://developer.nvidia.com/gtc/2020/video/s21745">GTC 2020 Webinar (SR 21745)</a> (free registration required)</p></li>
+</ul>
+</li>
+<li><p>Features:</p>
+<ul>
+<li><p>SDK examples showing GEMM fused with bias+relu and fused GEMM+GEMM</p></li>
+<li><p>Complex-valued GEMMs targeting NVIDIA Ampere Tensor Cores in double-precision and Tensor Float 32</p></li>
+<li><p>Gaussian complex GEMMs using 3m complex multiply algorithm</p></li>
+<li><p>Universal GEMM kernel supporting two batch modes and two algorithms for parallel reductions</p></li>
+</ul>
+</li>
+<li><p>Policy updates:</p>
+<ul>
+<li><p><a class="reference external" href="https://developer.nvidia.com/cuda-toolkit">CUDA 11 Toolkit</a> needed to enable NVIDIA Ampere Architecture features</p></li>
+<li><p>Disabled F16C by default for compatibility - enable on cmake command line with <code class="docutils literal notranslate"><span class="pre">-DCUTLASS_ENABLE_F16C=ON</span></code></p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="id11">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v2.1.0">2.1.0</a> (2020-04-06)<a class="headerlink" href="#id11" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>BLAS-style host-side API added to <a class="reference external" href="/media/docs/quickstart.md#cutlass-library">CUTLASS Library</a></p>
+<ul>
+<li><p>API to launch compiled kernel instances for GEMM and planar complex GEMM</p></li>
+</ul>
+</li>
+<li><p>Planar Complex GEMM kernels targeting Volta and Turing Tensor Cores</p>
+<ul>
+<li><p>Computes complex matrix products on matrices stored as disjoint real and imaginary parts</p></li>
+<li><p><a class="reference external" href="/examples/10_planar_complex/planar_complex.cu">SDK Examples of Planar Complex GEMMs</a></p></li>
+</ul>
+</li>
+<li><p>Minor enhancements and bug fixes</p></li>
+</ul>
+</section>
+<section id="id12">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v2.0.0">2.0.0</a> (2019-11-19)<a class="headerlink" href="#id12" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Substantially refactored for</p>
+<ul>
+<li><p>Better performance, particularly for native Turing Tensor Cores</p></li>
+<li><p>Robust and durable templates spanning the design space</p></li>
+<li><p>Encapsulated functionality embodying modern C++11 programming techniques</p></li>
+<li><p>Optimized containers and data types for efficient, generic, portable device code</p></li>
+</ul>
+</li>
+<li><p>Updates to:</p>
+<ul>
+<li><p><a class="reference external" href="/media/docs/quickstart">Quick start guide</a></p></li>
+<li><p><a class="reference external" href="/README.md#documentation">Documentation</a></p></li>
+<li><p><a class="reference external" href="/media/docs/utilities">Utilities</a></p></li>
+<li><p><a class="reference external" href="/media/docs/profiler">CUTLASS Profiler</a></p></li>
+</ul>
+</li>
+<li><p>Native Turing Tensor Cores</p>
+<ul>
+<li><p>Efficient GEMM kernels targeting Turing Tensor Cores</p></li>
+<li><p>Mixed-precision floating point, 8-bit integer, 4-bit integer, and binarized operands</p></li>
+</ul>
+</li>
+<li><p>Coverage of existing CUTLASS functionality</p>
+<ul>
+<li><p>GEMM kernels targeting CUDA and Tensor Cores in NVIDIA GPUs</p></li>
+<li><p>Volta Tensor Cores through native mma.sync and through WMMA API</p></li>
+<li><p>Optimizations such as parallel reductions, threadblock rasterization, and intra-threadblock reductions</p></li>
+<li><p>Batched GEMM operations</p></li>
+<li><p>Complex-valued GEMMs</p></li>
+</ul>
+</li>
+<li><p><strong>Note: a host compiler supporting C++11 or greater is required.</strong></p></li>
+</ul>
+</section>
+</section>
+<section id="cutlass-1-x">
+<h1>CUTLASS 1.x<a class="headerlink" href="#cutlass-1-x" title="Permalink to this heading">¶</a></h1>
+<section id="id13">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v1.3.2">1.3.2</a> (2019-07-09)<a class="headerlink" href="#id13" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Performance improvement for Volta Tensor Cores TN and TT layouts.</p></li>
+</ul>
+</section>
+<section id="id14">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v1.3.1">1.3.1</a> (2019-04-09)<a class="headerlink" href="#id14" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Corrected NVRTC unit tests.</p></li>
+</ul>
+</section>
+<section id="id15">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v1.3.0">1.3.0</a> (2019-03-20)<a class="headerlink" href="#id15" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Efficient GEMM kernel targeting Volta Tensor Cores via <code class="docutils literal notranslate"><span class="pre">mma.sync</span></code> instruction added in CUDA 10.1.</p></li>
+</ul>
+</section>
+<section id="id16">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v1.2.0">1.2.0</a> (2018-10-26)<a class="headerlink" href="#id16" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Parallelized reductions across threadblocks (”Split-K”)</p>
+<ul>
+<li><p>Improved IGEMM performance</p></li>
+</ul>
+</li>
+<li><p>Batched strided WMMA GEMMs</p></li>
+</ul>
+</section>
+<section id="id17">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v1.1.0">1.1.0</a> (2018-09-19)<a class="headerlink" href="#id17" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Turing Features</p>
+<ul>
+<li><p>WMMA GEMM targeting TensorCores - INT8, INT4, 1-bit</p></li>
+</ul>
+</li>
+<li><p>Batched Strided GEMM</p></li>
+<li><p>Threadblock rasterization strategies</p>
+<ul>
+<li><p>Improved performance for adverse problem sizes and data layouts</p></li>
+</ul>
+</li>
+<li><p>Extended CUTLASS Core comonents</p>
+<ul>
+<li><p>Tensor views support arbitrary matrix and tensor layouts</p></li>
+<li><p>Zip iterators for structuring multiple data streams</p></li>
+</ul>
+</li>
+<li><p>Enhanced CUTLASS utilities</p>
+<ul>
+<li><p>Reference code for tensor operations in host and device code</p></li>
+<li><p>Added HostMatrix&lt;&gt; for simplified matrix creation</p></li>
+</ul>
+</li>
+<li><p>Examples</p>
+<ul>
+<li><p>Basic GEMM, tensor views, CUTLASS utilities, batched GEMM, WMMA GEMM</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="id18">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/releases/tag/v1.0.1">1.0.1</a> (2018-06-11)<a class="headerlink" href="#id18" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Intra-threadblock reduction added for small threadblock tile sizes</p>
+<ul>
+<li><p>sgemm_64x128x16, sgemm_128x128x16, sgemm_128x64x16, sgemm_128x32x16, sgemm_64x64x16, sgemm_64x32x16</p></li>
+<li><p>igemm_32x32x128</p></li>
+</ul>
+</li>
+<li><p>GEMM <em>K</em> residue handled during prologue prior to mainloop</p></li>
+<li><p>Replaced Google Test copy with submodule. Use <code class="docutils literal notranslate"><span class="pre">git</span> <span class="pre">submodule</span> <span class="pre">init</span> <span class="pre">--recursive</span> <span class="pre">--update</span></code></p></li>
+</ul>
+</section>
+<section id="id19">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/commit/2028ebe120aab22bfd0b2baf8902d4c9627eb33f">1.0.0</a> (2018-05-16)<a class="headerlink" href="#id19" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Substantial rewrite to accommodate new architecture</p></li>
+<li><p>Kernels: SGEMM, DGEMM, IGEMM, HGEMM, WMMA GEMM</p></li>
+<li><p>Unit and performance tests</p></li>
+</ul>
+</section>
+<section id="id20">
+<h2><a class="reference external" href="https://github.com/NVIDIA/cutlass/commit/d08ba8ac46e2fa3f745e070c390182edb56b2e91">0.0.1</a> (2017-12-04)<a class="headerlink" href="#id20" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>Initial release</p></li>
+</ul>
+</section>
+<section id="copyright">
+<h2>Copyright<a class="headerlink" href="#copyright" title="Permalink to this heading">¶</a></h2>
+<p>Copyright (c) 2017 - 2022 NVIDIA CORPORATION &amp; AFFILIATES. All rights reserved.
+SPDX-License-Identifier: BSD-3-Clause</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>  <span class="n">Redistribution</span> <span class="ow">and</span> <span class="n">use</span> <span class="ow">in</span> <span class="n">source</span> <span class="ow">and</span> <span class="n">binary</span> <span class="n">forms</span><span class="p">,</span> <span class="k">with</span> <span class="ow">or</span> <span class="n">without</span>
+  <span class="n">modification</span><span class="p">,</span> <span class="n">are</span> <span class="n">permitted</span> <span class="n">provided</span> <span class="n">that</span> <span class="n">the</span> <span class="n">following</span> <span class="n">conditions</span> <span class="n">are</span> <span class="n">met</span><span class="p">:</span>
+
+  <span class="mf">1.</span> <span class="n">Redistributions</span> <span class="n">of</span> <span class="n">source</span> <span class="n">code</span> <span class="n">must</span> <span class="n">retain</span> <span class="n">the</span> <span class="n">above</span> <span class="n">copyright</span> <span class="n">notice</span><span class="p">,</span> <span class="n">this</span>
+  <span class="nb">list</span> <span class="n">of</span> <span class="n">conditions</span> <span class="ow">and</span> <span class="n">the</span> <span class="n">following</span> <span class="n">disclaimer</span><span class="o">.</span>
+
+  <span class="mf">2.</span> <span class="n">Redistributions</span> <span class="ow">in</span> <span class="n">binary</span> <span class="n">form</span> <span class="n">must</span> <span class="n">reproduce</span> <span class="n">the</span> <span class="n">above</span> <span class="n">copyright</span> <span class="n">notice</span><span class="p">,</span>
+  <span class="n">this</span> <span class="nb">list</span> <span class="n">of</span> <span class="n">conditions</span> <span class="ow">and</span> <span class="n">the</span> <span class="n">following</span> <span class="n">disclaimer</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">documentation</span>
+  <span class="ow">and</span><span class="o">/</span><span class="ow">or</span> <span class="n">other</span> <span class="n">materials</span> <span class="n">provided</span> <span class="k">with</span> <span class="n">the</span> <span class="n">distribution</span><span class="o">.</span>
+
+  <span class="mf">3.</span> <span class="n">Neither</span> <span class="n">the</span> <span class="n">name</span> <span class="n">of</span> <span class="n">the</span> <span class="n">copyright</span> <span class="n">holder</span> <span class="n">nor</span> <span class="n">the</span> <span class="n">names</span> <span class="n">of</span> <span class="n">its</span>
+  <span class="n">contributors</span> <span class="n">may</span> <span class="n">be</span> <span class="n">used</span> <span class="n">to</span> <span class="n">endorse</span> <span class="ow">or</span> <span class="n">promote</span> <span class="n">products</span> <span class="n">derived</span> <span class="kn">from</span>
+  <span class="nn">this</span> <span class="n">software</span> <span class="n">without</span> <span class="n">specific</span> <span class="n">prior</span> <span class="n">written</span> <span class="n">permission</span><span class="o">.</span>
+
+  <span class="n">THIS</span> <span class="n">SOFTWARE</span> <span class="n">IS</span> <span class="n">PROVIDED</span> <span class="n">BY</span> <span class="n">THE</span> <span class="n">COPYRIGHT</span> <span class="n">HOLDERS</span> <span class="n">AND</span> <span class="n">CONTRIBUTORS</span> <span class="s2">&quot;AS IS&quot;</span>
+  <span class="n">AND</span> <span class="n">ANY</span> <span class="n">EXPRESS</span> <span class="n">OR</span> <span class="n">IMPLIED</span> <span class="n">WARRANTIES</span><span class="p">,</span> <span class="n">INCLUDING</span><span class="p">,</span> <span class="n">BUT</span> <span class="n">NOT</span> <span class="n">LIMITED</span> <span class="n">TO</span><span class="p">,</span> <span class="n">THE</span>
+  <span class="n">IMPLIED</span> <span class="n">WARRANTIES</span> <span class="n">OF</span> <span class="n">MERCHANTABILITY</span> <span class="n">AND</span> <span class="n">FITNESS</span> <span class="n">FOR</span> <span class="n">A</span> <span class="n">PARTICULAR</span> <span class="n">PURPOSE</span> <span class="n">ARE</span>
+  <span class="n">DISCLAIMED</span><span class="o">.</span> <span class="n">IN</span> <span class="n">NO</span> <span class="n">EVENT</span> <span class="n">SHALL</span> <span class="n">THE</span> <span class="n">COPYRIGHT</span> <span class="n">HOLDER</span> <span class="n">OR</span> <span class="n">CONTRIBUTORS</span> <span class="n">BE</span> <span class="n">LIABLE</span>
+  <span class="n">FOR</span> <span class="n">ANY</span> <span class="n">DIRECT</span><span class="p">,</span> <span class="n">INDIRECT</span><span class="p">,</span> <span class="n">INCIDENTAL</span><span class="p">,</span> <span class="n">SPECIAL</span><span class="p">,</span> <span class="n">EXEMPLARY</span><span class="p">,</span> <span class="n">OR</span> <span class="n">CONSEQUENTIAL</span>
+  <span class="n">DAMAGES</span> <span class="p">(</span><span class="n">INCLUDING</span><span class="p">,</span> <span class="n">BUT</span> <span class="n">NOT</span> <span class="n">LIMITED</span> <span class="n">TO</span><span class="p">,</span> <span class="n">PROCUREMENT</span> <span class="n">OF</span> <span class="n">SUBSTITUTE</span> <span class="n">GOODS</span> <span class="n">OR</span>
+  <span class="n">SERVICES</span><span class="p">;</span> <span class="n">LOSS</span> <span class="n">OF</span> <span class="n">USE</span><span class="p">,</span> <span class="n">DATA</span><span class="p">,</span> <span class="n">OR</span> <span class="n">PROFITS</span><span class="p">;</span> <span class="n">OR</span> <span class="n">BUSINESS</span> <span class="n">INTERRUPTION</span><span class="p">)</span> <span class="n">HOWEVER</span>
+  <span class="n">CAUSED</span> <span class="n">AND</span> <span class="n">ON</span> <span class="n">ANY</span> <span class="n">THEORY</span> <span class="n">OF</span> <span class="n">LIABILITY</span><span class="p">,</span> <span class="n">WHETHER</span> <span class="n">IN</span> <span class="n">CONTRACT</span><span class="p">,</span> <span class="n">STRICT</span> <span class="n">LIABILITY</span><span class="p">,</span>
+  <span class="n">OR</span> <span class="n">TORT</span> <span class="p">(</span><span class="n">INCLUDING</span> <span class="n">NEGLIGENCE</span> <span class="n">OR</span> <span class="n">OTHERWISE</span><span class="p">)</span> <span class="n">ARISING</span> <span class="n">IN</span> <span class="n">ANY</span> <span class="n">WAY</span> <span class="n">OUT</span> <span class="n">OF</span> <span class="n">THE</span> <span class="n">USE</span>
+  <span class="n">OF</span> <span class="n">THIS</span> <span class="n">SOFTWARE</span><span class="p">,</span> <span class="n">EVEN</span> <span class="n">IF</span> <span class="n">ADVISED</span> <span class="n">OF</span> <span class="n">THE</span> <span class="n">POSSIBILITY</span> <span class="n">OF</span> <span class="n">SUCH</span> <span class="n">DAMAGE</span><span class="o">.</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'en',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script type="text/javascript" src="../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../_static/sphinx_highlight.js"></script>
+    <script type="text/javascript" src="../../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
+        </div>
+    </div>  
+
+</body>
+</html>

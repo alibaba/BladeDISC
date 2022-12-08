@@ -1,0 +1,592 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Basics of PyCUTLASS &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../../../../../../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../../../../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../../../../../../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../../../../../../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../../../../../../../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../../../../../../../../../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../../../../../../../../../../../index.html">Docs</a></li>
+        
+      <li>Basics of PyCUTLASS</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../../../../../../../../../../../_sources/tao_compiler/tensorflow/compiler/mlir/disc/cutlass/tools/library/scripts/pycutlass/docs/source/md/basic_idea.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../../../../../../../../../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../../../../../../README.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../README.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../README.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../README.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../README.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../README.html#presentations-and-talks">Presentations and Talks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../README.html#building-status">Building Status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../README.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../README.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../../../../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../../../../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../docs/build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../../../../../../docs/quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../../../../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../../../../../../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../../../../../../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <section id="basics-of-pycutlass">
+<h1>Basics of PyCUTLASS<a class="headerlink" href="#basics-of-pycutlass" title="Permalink to this heading">¶</a></h1>
+<p>PyCUTLASS handles the following things when launch the CUTLASS kernels</p>
+<ul class="simple">
+<li><p>Memory management</p></li>
+<li><p>Operation Description</p></li>
+<li><p>Code emission and compilation</p></li>
+<li><p>Arguments preprocessing</p></li>
+<li><p>Kernel launching</p></li>
+<li><p>Result Synchronization</p></li>
+</ul>
+<section id="memory-management">
+<h2>Memory management<a class="headerlink" href="#memory-management" title="Permalink to this heading">¶</a></h2>
+<p>PyCUTLASS uses <a class="reference external" href="https://github.com/rapidsai/rmm">RMM</a> to manage device memory. At the begining of the program, call</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pycutlass</span><span class="o">.</span><span class="n">get_memory_pool</span><span class="p">({</span><span class="n">init_pool_size_in_bytes</span><span class="p">},</span> <span class="p">{</span><span class="n">max_pool_size_in_bytes</span><span class="p">})</span>
+</pre></div>
+</div>
+<p>We also provide functions to query the allocated size.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="nb">bytes</span> <span class="o">=</span> <span class="n">get_allocated_size</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="operation-description">
+<h2>Operation Description<a class="headerlink" href="#operation-description" title="Permalink to this heading">¶</a></h2>
+<p>PyCUTLASS provides operation description for GEMM, GEMM Grouped and Conv2d operations. These operation descriptions are assembled from four foundamental concepts</p>
+<ul class="simple">
+<li><p>Math Instruction: math instruction executed in GPU cores</p></li>
+<li><p>Tile Description: tiling sizes and pipeline stages</p></li>
+<li><p>Operand Description: data type, layout, memory alignment</p></li>
+<li><p>Epilogue Functor: epilogue function</p></li>
+</ul>
+<section id="math-instruction">
+<h3>Math Instruction<a class="headerlink" href="#math-instruction" title="Permalink to this heading">¶</a></h3>
+<p>The math instruction is defined as follows:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">math_inst</span> <span class="o">=</span> <span class="n">MathInstruction</span><span class="p">(</span>
+    <span class="p">{</span><span class="n">instruction_shape</span><span class="p">},</span> <span class="p">{</span><span class="n">element_a</span><span class="p">},</span> <span class="p">{</span><span class="n">element_b</span><span class="p">},</span>
+    <span class="p">{</span><span class="n">element_acc</span><span class="p">},</span> <span class="p">{</span><span class="n">opclass</span><span class="p">},</span> <span class="p">{</span><span class="n">math_operation</span><span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">{instruction_shape}</span></code> and <code class="docutils literal notranslate"><span class="pre">{opclass}</span></code> defines the instruction size and type. The table below lists valid combinations. <code class="docutils literal notranslate"><span class="pre">{element_a}</span></code>, <code class="docutils literal notranslate"><span class="pre">{element_b}</span></code> define the source operand data type for each instructions, and <code class="docutils literal notranslate"><span class="pre">{element_acc}</span></code> defines the accumulator type. The <code class="docutils literal notranslate"><span class="pre">{math_operation}</span></code> defines the math operation applied.</p>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th>Opclass</th>
+<th>element_a/element_b</th>
+<th>element_acc</th>
+<th>instruction_shape</th>
+<th>math_operation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>cutlass.OpClass.TensorOp</td>
+<td>cutlass.float64</td>
+<td>cutlass.float64</td>
+<td>[8, 8, 4]</td>
+<td>MathOperation.multiply_add</td>
+</tr>
+<tr>
+<td></td>
+<td>cutass.float32 cutlass.tfloat32, cutlass.float16 cutlass.bfloat16</td>
+<td>cutlass.float32</td>
+<td>[16, 8, 8]</td>
+<td>MathOperation.multiply_add MathOperation.multiply_add_fast_f32 MathOperation.multiply_add_fast_f16 MathOperation.multiply_add_fast_bf16</td>
+</tr>
+<tr>
+<td></td>
+<td>cutlass.float16</td>
+<td>cutlass.float16/cutlass.float32</td>
+<td>[16, 8, 16]</td>
+<td>MathOperation.multiply_add</td>
+</tr>
+<tr>
+<td></td>
+<td>cutlass.bfloat_16</td>
+<td>cutlass.float32</td>
+<td>[16, 8, 16]</td>
+<td>MathOperation.multiply_add</td>
+</tr>
+<tr>
+<td></td>
+<td>cutlass.int8</td>
+<td>cutlass.int32</td>
+<td>[16, 8, 32]</td>
+<td>MathOperation.multiply_add_saturate</td>
+</tr>
+<tr>
+<td>cutlass.OpClass.Simt</td>
+<td>cutlass.float64</td>
+<td>cutlass.float64</td>
+<td>[1, 1, 1]</td>
+<td>MathOperation.multiply_add</td>
+</tr>
+<tr>
+<td></td>
+<td>cutlass.float32</td>
+<td>cutlass.float32</td>
+<td>[1, 1, 1]</td>
+<td>MathOperation.multiply_add</td>
+</tr>
+</tbody>
+</table><p>The <code class="docutils literal notranslate"><span class="pre">cutlass.OpClass.TensorOp</span></code> indicates that the tensor core is used, while <code class="docutils literal notranslate"><span class="pre">cutlass.OpClass.Simt</span></code> uses the SIMT Core.</p>
+<p>The <code class="docutils literal notranslate"><span class="pre">multiply_add_fast_f32</span></code> emulates fast accurate SGEMM kernel which is accelerated
+using Ampere Tensor Cores. More details can be found in <a class="reference external" href="examples/27_ampere_3xtf32_fast_accurate_tensorop_gemm">examples/27_ampere_3xtf32_fast_accurate_tensorop_gemm</a>.</p>
+</section>
+<section id="tile-description">
+<h3>Tile Description<a class="headerlink" href="#tile-description" title="Permalink to this heading">¶</a></h3>
+<p>The tile description describes the threadblock and warp tiling sizes, as well as the pipeline stages.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">tile_description</span> <span class="o">=</span> <span class="n">TileDescription</span><span class="p">(</span>
+    <span class="p">{</span><span class="n">threadblock_shape</span><span class="p">},</span> <span class="p">{</span><span class="n">stages</span><span class="p">},</span> <span class="p">{</span><span class="n">warp_count</span><span class="p">},</span>
+    <span class="n">math_inst</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The <code class="docutils literal notranslate"><span class="pre">{threadblock_shape}</span></code> is a list of 3 integers <code class="docutils literal notranslate"><span class="pre">[Tile_M,</span> <span class="pre">Tile_N,</span> <span class="pre">Tile_K]</span></code> that defines the threadblock tiling size. <code class="docutils literal notranslate"><span class="pre">{stages}</span></code> defines the number of software pipeline stages (<a class="reference external" href="https://developer.nvidia.com/blog/controlling-data-movement-to-boost-performance-on-ampere-architecture/">detail</a>). <code class="docutils literal notranslate"><span class="pre">{warp_count}</span></code> defines the number of warps along <code class="docutils literal notranslate"><span class="pre">M</span></code>, <code class="docutils literal notranslate"><span class="pre">N</span></code>, and <code class="docutils literal notranslate"><span class="pre">K</span></code> dimension. I.e., with <code class="docutils literal notranslate"><span class="pre">{threadblock_shape}=[Tile_M,</span> <span class="pre">Tile_N,</span> <span class="pre">Tile_K]</span></code> and <code class="docutils literal notranslate"><span class="pre">{warp_count}=[W_M,</span> <span class="pre">W_N,</span> <span class="pre">W_K]</span></code>, the warp tile size would be <code class="docutils literal notranslate"><span class="pre">[Tile_M</span> <span class="pre">/</span> <span class="pre">W_M,</span> <span class="pre">Tile_N</span> <span class="pre">/</span> <span class="pre">W_N,</span> <span class="pre">Tile_K</span> <span class="pre">/</span> <span class="pre">W_K]</span></code>.</p>
+</section>
+<section id="operand-description">
+<h3>Operand Description<a class="headerlink" href="#operand-description" title="Permalink to this heading">¶</a></h3>
+<p>The Operand Description defines the data type, layout, and memory alignment of input tensor A, B, and C. The output D shares the same attributes with C. The description is as follows:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">A</span> <span class="o">=</span> <span class="n">TensorDescription</span><span class="p">(</span>
+    <span class="p">{</span><span class="n">element_a</span><span class="p">},</span> <span class="p">{</span><span class="n">layout_a</span><span class="p">},</span> <span class="p">{</span><span class="n">alignment_a</span><span class="p">}</span>
+<span class="p">)</span>
+
+<span class="n">B</span> <span class="o">=</span> <span class="n">TensorDescription</span><span class="p">(</span>
+    <span class="p">{</span><span class="n">element_b</span><span class="p">},</span> <span class="p">{</span><span class="n">layout_b</span><span class="p">},</span> <span class="p">{</span><span class="n">alignment_b</span><span class="p">}</span>
+<span class="p">)</span>
+
+<span class="n">C</span> <span class="o">=</span> <span class="n">TensorDescription</span><span class="p">(</span>
+    <span class="p">{</span><span class="n">element_c</span><span class="p">},</span> <span class="p">{</span><span class="n">layout_c</span><span class="p">},</span> <span class="p">{</span><span class="n">alignment_c</span><span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>The table below lists the supported layout and data types for each operation
+| Operation | data type | layout |
+| –        | –        | –     |
+| GEMM, GEMM Grouped     | cutlass.float64, cutlass.float32, cutlass.float16, cutlass.bfloat16 | cutlass.RowMajor, cutlass.ColumnMajor |
+|           | cutlass.int8 | cutlass.RowMajor, cutlass.ColumnMajor, cutlass.RowMajorInterleaved32, cutlass.ColumnMajorInterleaved32|
+| Conv2d Fprop, Dgrad, Wgrad | cutlass.float64, cutlass.float32, cutlass.float16, cutlass.bfloat16 | cutlass.TensorNHWC |
+| Conv2d Fprop | cutlass.int8 | cutlass.TensorNHWC, cutlass.TensorNC32HW32, cutlass.TensorC32RSK32|</p>
+</section>
+<section id="epilogue-functor">
+<h3>Epilogue Functor<a class="headerlink" href="#epilogue-functor" title="Permalink to this heading">¶</a></h3>
+<p>The epilogue functor defines the epilogue executed after mainloop.
+We expose the following epilogue functors.
+| Epilogue Functor | Remark |
+| –               | –     |
+| LinearCombination | $D=\alpha \times Accm + \beta \times C$ |
+| LinearCombinationClamp | $D=\alpha \times Accm + \beta \times C$, Output is clamped to the maximum value of the data type output |
+| FastLinearCombinationClamp | $D=\alpha \times Accm + \beta \times C$, only used for problem size $K\le 256$ for cutlass.int8, with accumulator data type <code class="docutils literal notranslate"><span class="pre">cutlass.int32</span></code> and epilogue compute data type <code class="docutils literal notranslate"><span class="pre">cutlass.float32</span></code> |
+| LinearCombinationGeneric | $D  = activation(\alpha \times Accm + \beta \times C)$, available activations include <code class="docutils literal notranslate"><span class="pre">relu</span></code>, <code class="docutils literal notranslate"><span class="pre">leaky_relu</span></code>, <code class="docutils literal notranslate"><span class="pre">tanh</span></code>, <code class="docutils literal notranslate"><span class="pre">sigmoid</span></code>, <code class="docutils literal notranslate"><span class="pre">silu</span></code>, <code class="docutils literal notranslate"><span class="pre">hardswish</span></code>, and <code class="docutils literal notranslate"><span class="pre">gelu</span></code> |</p>
+<p>The epilogue functors can be created as follows</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1"># LinearCombination</span>
+<span class="n">epilogue_functor</span> <span class="o">=</span> <span class="n">LinearCombination</span><span class="p">(</span>
+    <span class="n">element_C</span><span class="p">,</span> <span class="n">alignment_c</span><span class="p">,</span> <span class="n">element_acc</span><span class="p">,</span> <span class="n">element_epilogue_compute</span>
+<span class="p">)</span>
+
+<span class="c1"># LinearCombinationClamp</span>
+<span class="n">epilogue_functor</span> <span class="o">=</span> <span class="n">LinearCombinationClamp</span><span class="p">(</span>
+    <span class="n">element_C</span><span class="p">,</span> <span class="n">alignment_c</span><span class="p">,</span> <span class="n">element_acc</span><span class="p">,</span> <span class="n">element_epilogue_compute</span>
+<span class="p">)</span>
+
+<span class="c1"># FastLinearCombinationClamp</span>
+<span class="n">epilogue_functor</span> <span class="o">=</span> <span class="n">FastLinearCombinationClamp</span><span class="p">(</span>
+    <span class="n">element_C</span><span class="p">,</span> <span class="n">alignment_c</span>
+<span class="p">)</span>
+
+<span class="c1"># LinearCombinationGeneric</span>
+<span class="n">epilogue_functor</span> <span class="o">=</span> <span class="n">LinearCombinationGeneric</span><span class="p">(</span>
+    <span class="n">relu</span><span class="p">(</span><span class="n">element_epilogue_compute</span><span class="p">),</span> <span class="n">element_C</span><span class="p">,</span> <span class="n">alignment_c</span><span class="p">,</span> 
+    <span class="n">element_acc</span><span class="p">,</span> <span class="n">element_epilogue_compute</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<p>We also provides an experimental feature “Epilogue Visitor Tree” for GEMM operation. The details can be found in <a class="reference external" href="tools/library/scripts/pycutlass/docs/source/md/EpilogueVisitorTree">EpilogueVisitorTree</a>.</p>
+</section>
+<section id="gemm-operation">
+<h3>GEMM Operation<a class="headerlink" href="#gemm-operation" title="Permalink to this heading">¶</a></h3>
+<p>The GEMM Operation description can be created with</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">operation</span> <span class="o">=</span> <span class="n">GemmOperationUniversal</span><span class="p">(</span>
+    <span class="p">{</span><span class="n">compute_capability</span><span class="p">},</span> <span class="n">tile_description</span><span class="p">,</span>
+    <span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">epilogue_functor</span><span class="p">,</span> 
+    <span class="p">{</span><span class="n">swizzling_functor</span><span class="p">},</span> <span class="p">{</span><span class="n">visitor</span><span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">{compute_capability}</span></code> is an integer indicates the compute capability of the GPU. For A100, it is 80.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">{swizzling_functor}</span></code> describes how threadblocks are scheduled on GPU. This is used to improve the L2 Locality (<a class="reference external" href="https://developer.nvidia.com/blog/optimizing-compute-shaders-for-l2-locality-using-thread-group-id-swizzling/">detail</a>). Currently we support <code class="docutils literal notranslate"><span class="pre">cutlass.{IdentitySwizzle1|IdentitySwizzle2|IdentitySwizzle4|IdentitySwizzle8|BatchedIdentitySwizzle}</span></code>. The last one is used for batched or array GEMM.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">{visitor}</span></code>: a bool variable indicates whether the epilogue visitor tree is used.</p></li>
+</ul>
+</section>
+<section id="gemm-grouped-operation">
+<h3>GEMM Grouped Operation<a class="headerlink" href="#gemm-grouped-operation" title="Permalink to this heading">¶</a></h3>
+<p>The GEMM Grouped Operation description can be created with</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">operation</span> <span class="o">=</span> <span class="n">GemmOperationGrouped</span><span class="p">(</span>
+    <span class="n">compute_capability</span><span class="p">,</span> <span class="n">tile_description</span><span class="p">,</span>
+    <span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="n">epilogue_functor</span><span class="p">,</span> 
+    <span class="n">swizzling_functor</span><span class="p">,</span> <span class="p">{</span><span class="n">precompute_mode</span><span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">{precompute_mode}</span></code>: It could be <code class="docutils literal notranslate"><span class="pre">SchedulerMode.Host</span></code> or <code class="docutils literal notranslate"><span class="pre">SchedulerMode.Device</span></code>. See <a class="reference external" href="examples/24_gemm_grouped">examples/24_gemm_grouped</a> for more details.</p></li>
+</ul>
+</section>
+<section id="conv2d-operation">
+<h3>Conv2d Operation<a class="headerlink" href="#conv2d-operation" title="Permalink to this heading">¶</a></h3>
+<p>The Conv2d Operation description can be created with</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">operation</span> <span class="o">=</span> <span class="n">Conv2dOperation</span><span class="p">(</span>
+    <span class="p">{</span><span class="n">conv_kind</span><span class="p">},</span> <span class="p">{</span><span class="n">iterator_algorithm</span><span class="p">},</span>
+    <span class="n">compute_capability</span><span class="p">,</span> <span class="n">tile_description</span><span class="p">,</span>
+    <span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">,</span> <span class="n">C</span><span class="p">,</span> <span class="p">{</span><span class="n">stride_support</span><span class="p">},</span>
+    <span class="n">epilogue_functor</span><span class="p">,</span> <span class="n">swizzling_functor</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">{conv_kind}</span></code> defines which convolution is executed. Available options include <code class="docutils literal notranslate"><span class="pre">fprop</span></code>, <code class="docutils literal notranslate"><span class="pre">dgrad</span></code>, and <code class="docutils literal notranslate"><span class="pre">wgrad</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">{iterator_algorithm}</span></code> specifies the iterator algorithm used by the implicit GEMM in convolution. The options are as follows:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">analytic</span></code>: functionally correct in all cases but lower performance</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">optimized</span></code>: optimized for R &lt;= 32, S &lt;= 32 and unity-stride dgrad</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">fixed_channels</span></code>: analytic algorithm optimized for fixed channel count (C == AccessSize)</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">few_channels</span></code>: Analytic algorithm optimized for few channels (C divisible by AccessSize)</p></li>
+</ul>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">{stride_support}</span></code>: distinguishes among partial specializations that accelerate certain problems where convolution
+stride is unit.</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">strided</span></code>: arbitrary convolution stride</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">unity</span></code>: unit convolution stride</p></li>
+</ul>
+</li>
+</ul>
+</section>
+</section>
+<hr class="docutils" />
+<section id="code-emission-and-compilation">
+<h2>Code Emission and Compilation<a class="headerlink" href="#code-emission-and-compilation" title="Permalink to this heading">¶</a></h2>
+<p>After implementing the operation description, the related host and device code can be compiled with</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">pycutlass</span>
+
+<span class="n">pycutlass</span><span class="o">.</span><span class="n">compiler</span><span class="o">.</span><span class="n">add_module</span><span class="p">([</span><span class="n">operation</span><span class="p">,])</span>
+</pre></div>
+</div>
+<p>Several operations can be compiled togather. The <code class="docutils literal notranslate"><span class="pre">nvcc</span></code> at <code class="docutils literal notranslate"><span class="pre">$CUDA_INSTALL_PATH/bin</span></code> is used by default as the compiler backend. But you can also switch to <a class="reference external" href="https://nvidia.github.io/cuda-python/overview.html">CUDA Python</a>’s <code class="docutils literal notranslate"><span class="pre">nvrtc</span></code> with</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">pycutlass</span><span class="o">.</span><span class="n">compiler</span><span class="o">.</span><span class="n">nvrtc</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>We also have an internal compiled artifact manager that caches the compiled kernel in both memory and disk. The <code class="docutils literal notranslate"><span class="pre">compiled_cache.db</span></code> at your workspace is the database that contains the binary files. You can delete the file if you want to recompile the kernels.</p>
+</section>
+<hr class="docutils" />
+<section id="argument-processing">
+<h2>Argument Processing<a class="headerlink" href="#argument-processing" title="Permalink to this heading">¶</a></h2>
+<p>We provide argument wrapper to convert python tensors to the kernel parameters. Currently it supports <a class="reference external" href="https://pytorch.org/">torch.Tensor</a>, <a class="reference external" href="https://numpy.org/">numpy.ndarray</a>, and <a class="reference external" href="https://cupy.dev/">cupy.ndarray</a>.</p>
+<section id="gemm-arguments">
+<h3>GEMM Arguments<a class="headerlink" href="#gemm-arguments" title="Permalink to this heading">¶</a></h3>
+<p>The Gemm arguments can be created with</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">arguments</span> <span class="o">=</span> <span class="n">GemmArguments</span><span class="p">(</span>
+    <span class="n">operation</span><span class="o">=</span><span class="n">operation</span><span class="p">,</span> <span class="n">problem_size</span><span class="o">=</span><span class="p">{</span><span class="n">problem_size</span><span class="p">},</span>
+    <span class="n">A</span><span class="o">=</span><span class="p">{</span><span class="n">tensor_A</span><span class="p">},</span> <span class="n">B</span><span class="o">=</span><span class="p">{</span><span class="n">tensor_B</span><span class="p">},</span> <span class="n">C</span><span class="o">=</span><span class="p">{</span><span class="n">tensor_C</span><span class="p">},</span> <span class="n">D</span><span class="o">=</span><span class="p">{</span><span class="n">tensor_D</span><span class="p">},</span>
+    <span class="n">output_op</span><span class="o">=</span><span class="p">{</span><span class="n">output_op</span><span class="p">},</span>
+    <span class="n">gemm_mode</span><span class="o">=</span><span class="p">{</span><span class="n">gemm_mode</span><span class="p">},</span>
+    <span class="n">split_k_slices</span><span class="o">=</span><span class="p">{</span><span class="n">split_k_slices</span><span class="p">},</span> <span class="n">batch</span><span class="o">=</span><span class="p">{</span><span class="n">batch</span><span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">problem_size</span></code> is a <code class="docutils literal notranslate"><span class="pre">cutlass.gemm.GemmCoord(M,</span> <span class="pre">N,</span> <span class="pre">K)</span></code> object that defines $M\times N\times K$ matrix multiplication.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tensor_X</span></code>: user-provide tensors.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">output_op</span></code>: the params for the epilogue functor.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">gemm_mode</span></code>, <code class="docutils literal notranslate"><span class="pre">split_k_slices</span></code>, and <code class="docutils literal notranslate"><span class="pre">batch</span></code>:</p></li>
+</ul>
+<table border="1" class="docutils">
+<thead>
+<tr>
+<th>gemm_mode</th>
+<th>split_k_slices</th>
+<th>batch</th>
+<th>remark</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>cutlass.gemm.Mode.Gemm</td>
+<td>number of split-K slices</td>
+<td>-</td>
+<td>the ordinary GEMM or GEMM with serial split-K</td>
+</tr>
+<tr>
+<td>cutlass.gemm.Mode.GemmSplitKParallel</td>
+<td>number of split-K slices</td>
+<td>-</td>
+<td>GEMM Split-K Parallel</td>
+</tr>
+<tr>
+<td>cutlass.gemm.Mode.Batched</td>
+<td>-</td>
+<td>batch size</td>
+<td>Batched GEMM</td>
+</tr>
+<tr>
+<td>cutlass.gemm.Mode.Array</td>
+<td>-</td>
+<td>batch size</td>
+<td>Array GEMM</td>
+</tr>
+</tbody>
+</table></section>
+<section id="gemm-grouped-arguments">
+<h3>GEMM Grouped Arguments<a class="headerlink" href="#gemm-grouped-arguments" title="Permalink to this heading">¶</a></h3>
+<p>The GEMM grouped arguments can be created with</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">arguments</span> <span class="o">=</span> <span class="n">GemmGroupedArguments</span><span class="p">(</span>
+    <span class="n">operation</span><span class="p">,</span> <span class="p">{</span><span class="n">problem_sizes_coord</span><span class="p">},</span> <span class="p">{</span><span class="n">tensor_As</span><span class="p">},</span> <span class="p">{</span><span class="n">tensor_Bs</span><span class="p">},</span> <span class="p">{</span><span class="n">tensor_Cs</span><span class="p">},</span> <span class="p">{</span><span class="n">tensor_Ds</span><span class="p">},</span>
+    <span class="n">output_op</span><span class="o">=</span><span class="n">output_op</span><span class="p">)</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">problem_size_coord</span></code> is a list of <code class="docutils literal notranslate"><span class="pre">cutlass.gemm.GemmCoord(M,</span> <span class="pre">N,</span> <span class="pre">K)</span></code> for each problem size.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tensor_Xs</span></code> is a list of user-provide tensors.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">output_op</span></code>: the params of the epilogue functor</p></li>
+</ul>
+</section>
+<section id="conv2d-arguments">
+<h3>Conv2d Arguments<a class="headerlink" href="#conv2d-arguments" title="Permalink to this heading">¶</a></h3>
+<p>The Conv2d arguments can be created with</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">arguments</span> <span class="o">=</span> <span class="n">Conv2dArguments</span><span class="p">(</span>
+    <span class="n">operation</span><span class="p">,</span> <span class="p">{</span><span class="n">problem_size</span><span class="p">},</span> <span class="p">{</span><span class="n">tensor_A</span><span class="p">},</span>
+    <span class="p">{</span><span class="n">tensor_B</span><span class="p">},</span> <span class="p">{</span><span class="n">tensor_C</span><span class="p">},</span> <span class="p">{</span><span class="n">tensor_D</span><span class="p">},</span> 
+    <span class="p">{</span><span class="n">output_op</span><span class="p">},</span> 
+    <span class="p">{</span><span class="n">split_k_mode</span><span class="p">},</span>
+    <span class="p">{</span><span class="n">split_k_slices</span><span class="p">}</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">problem_size</span></code>: it can be constructed with</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">problem_size</span> <span class="o">=</span> <span class="n">cutlass</span><span class="o">.</span><span class="n">conv</span><span class="o">.</span><span class="n">Conv2dProblemSize</span><span class="p">(</span>
+    <span class="n">cutlass</span><span class="o">.</span><span class="n">Tensor4DCoord</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="n">H</span><span class="p">,</span> <span class="n">W</span><span class="p">,</span> <span class="n">C</span><span class="p">),</span>
+    <span class="n">cutlass</span><span class="o">.</span><span class="n">Tensor4DCoord</span><span class="p">(</span><span class="n">K</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">S</span><span class="p">,</span> <span class="n">C</span><span class="p">),</span>
+    <span class="n">cutlass</span><span class="o">.</span><span class="n">Tensor4DCoord</span><span class="p">(</span><span class="n">pad</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">pad</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">pad</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span> <span class="n">pad</span><span class="p">[</span><span class="mi">3</span><span class="p">]),</span>
+    <span class="n">cutlass</span><span class="o">.</span><span class="n">MatrixCoord</span><span class="p">(</span><span class="n">stride</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">stride</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+    <span class="n">cutlass</span><span class="o">.</span><span class="n">MatrixCoord</span><span class="p">(</span><span class="n">dilation</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dilation</span><span class="p">[</span><span class="mi">1</span><span class="p">]),</span>
+    <span class="n">cutlass</span><span class="o">.</span><span class="n">conv</span><span class="o">.</span><span class="n">Mode</span><span class="o">.</span><span class="n">cross_correlation</span><span class="p">,</span> 
+    <span class="n">split_k_slices</span><span class="p">,</span> <span class="mi">1</span>
+<span class="p">)</span>
+</pre></div>
+</div>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tensor_X</span></code> are user-provide tensors</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">output_op</span></code>: the params of the epilogue functor</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">split_k_mode</span></code>: currently we support <code class="docutils literal notranslate"><span class="pre">cutlass.conv.SplitKMode.Serial</span></code> and <code class="docutils literal notranslate"><span class="pre">cutlass.conv.SplitKMode.Parallel</span></code>.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">split_k_slice</span></code>: number of split-k slices</p></li>
+</ul>
+<p>For ordianry conv2d, just use <code class="docutils literal notranslate"><span class="pre">cutlass.conv.SplitKMode.Serial</span></code> with <code class="docutils literal notranslate"><span class="pre">split_k_slice=1</span></code>.</p>
+</section>
+<section id="getting-output-op">
+<h3>Getting output_op<a class="headerlink" href="#getting-output-op" title="Permalink to this heading">¶</a></h3>
+<p>The way to create output_op is listed below</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">output_op</span> <span class="o">=</span> <span class="n">operation</span><span class="o">.</span><span class="n">epilogue_type</span><span class="p">(</span><span class="o">*</span><span class="p">([</span><span class="n">alpha</span><span class="p">,</span> <span class="n">beta</span><span class="p">]</span> <span class="o">+</span> <span class="n">args</span><span class="o">.</span><span class="n">activation_args</span><span class="p">)),</span>
+</pre></div>
+</div>
+<p>It is a list of arguments start with the scaling factor <code class="docutils literal notranslate"><span class="pre">alpha</span></code> and <code class="docutils literal notranslate"><span class="pre">beta</span></code>.
+The <code class="docutils literal notranslate"><span class="pre">output_op</span></code> of EpilogueVisitorTree is slightly different. Please check <a class="reference external" href="tools/library/scripts/pycutlass/docs/source/md/EpilogueVisitorTree">EpilogueVisitorTree</a> for details.</p>
+</section>
+</section>
+<section id="kernel-launching">
+<h2>Kernel Launching<a class="headerlink" href="#kernel-launching" title="Permalink to this heading">¶</a></h2>
+<p>With the arguments and operations, the kernel can be launched simply with</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">operation</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">arguments</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+<section id="sync-results">
+<h2>Sync results<a class="headerlink" href="#sync-results" title="Permalink to this heading">¶</a></h2>
+<p>We also provide function to synchronize the kernel execution. If you use <code class="docutils literal notranslate"><span class="pre">numpy</span></code>, it will also copy the result back to host. To do that, run</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">arguments</span><span class="o">.</span><span class="n">sync</span><span class="p">()</span>
+</pre></div>
+</div>
+<p>If you use EpilogueVisitorTree, please call</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">output_op</span><span class="o">.</span><span class="n">sync</span><span class="p">()</span>
+</pre></div>
+</div>
+</section>
+<section id="reduction-kernel-behind-parallel-split-k">
+<h2>Reduction Kernel behind Parallel Split-K<a class="headerlink" href="#reduction-kernel-behind-parallel-split-k" title="Permalink to this heading">¶</a></h2>
+<p>If you use parallel-split-K in GEMM or Conv2d, an additional reduction kernel is required. Please check <a class="reference external" href="examples/40_cutlass_py">examples/40_cutlass_py</a> for detail.</p>
+</section>
+</section>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../../../../../../../../../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'en',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../../../../../../../../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../../../../../../../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../../../../../../../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../../../../../../../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script type="text/javascript" src="../../../../../../../../../../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../../../../../../../../../../_static/sphinx_highlight.js"></script>
+    <script type="text/javascript" src="../../../../../../../../../../../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../../../../../../../../../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../../../../../../../../../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
+        </div>
+    </div>  
+
+</body>
+</html>

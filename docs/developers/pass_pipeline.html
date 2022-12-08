@@ -3,7 +3,8 @@
 <!DOCTYPE html>
 <head>
   <meta charset="utf-8">
-  
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <title>A Walkthough of the BladeDISC Pass Pipeline &mdash; BladeDISC 1.0.0 documentation</title>
@@ -110,7 +111,9 @@
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#setup-and-examples">Setup and Examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#publications">Publications</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#presentations-and-talks">Presentations and Talks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#building-status">Building Status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#faq">FAQ</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#contact-us">Contact Us</a></li>
 </ul>
@@ -123,6 +126,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../build_from_source.html">Build from Source</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#prerequisite">Prerequisite</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
 </ul>
@@ -152,8 +156,8 @@
                     <div class="document">
                         
                             
-  <div class="section" id="a-walkthough-of-the-bladedisc-pass-pipeline">
-<h1>A Walkthough of the BladeDISC Pass Pipeline<a class="headerlink" href="#a-walkthough-of-the-bladedisc-pass-pipeline" title="Permalink to this headline">¶</a></h1>
+  <section id="a-walkthough-of-the-bladedisc-pass-pipeline">
+<h1>A Walkthough of the BladeDISC Pass Pipeline<a class="headerlink" href="#a-walkthough-of-the-bladedisc-pass-pipeline" title="Permalink to this heading">¶</a></h1>
 <ul class="simple">
 <li><p><a class="reference external" href="#abstract">Abstract</a></p></li>
 <li><p><a class="reference external" href="#pass-pipeline-walkthrough">Pass Pipeline Walkthrough</a></p>
@@ -205,8 +209,8 @@
 </ul>
 </li>
 </ul>
-<div class="section" id="abstract">
-<h2>Abstract<a class="headerlink" href="#abstract" title="Permalink to this headline">¶</a></h2>
+<section id="abstract">
+<h2>Abstract<a class="headerlink" href="#abstract" title="Permalink to this heading">¶</a></h2>
 <p>This tutorial will give a brief introduction for the compiler part of BladeDISC
 by walking through the backbone pass pipeline, hoping the readers can quickly
 build some intuitive understanding of the overall framework. We choose a small
@@ -241,7 +245,7 @@ named with DynamicSliceOp). These extended part has already been upstreamed into
 <p>mhlo.SliceOp:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>def HLO_SliceOp: HLO_Op&lt;
       &quot;slice&quot;,
-      [NoSideEffect, SameOperandsAndResultElementType,
+      [Pure, SameOperandsAndResultElementType,
        AllTypesMatch&lt;[&quot;start_indices&quot;, &quot;limit_indices&quot;, &quot;strides&quot;]&gt;,
        DeclareOpInterfaceMethods&lt;InferTypeOpInterface&gt;]&gt; {
   let arguments = (ins
@@ -261,7 +265,7 @@ named with DynamicSliceOp). These extended part has already been upstreamed into
 <p>mhlo.RealDynamicSliceOp:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>def HLO_RealDynamicSliceOp: HLO_ShapedInterfaceOp&lt;
       &quot;real_dynamic_slice&quot;,
-      [NoSideEffect, AllElementTypesMatch&lt;[&quot;operand&quot;, &quot;result&quot;]&gt;,
+      [Pure, AllElementTypesMatch&lt;[&quot;operand&quot;, &quot;result&quot;]&gt;,
        AllTypesMatch&lt;[&quot;start_indices&quot;, &quot;limit_indices&quot;, &quot;strides&quot;]&gt;]&gt; {
   let summary = &quot;Real Dynamic Slice operator&quot;;
   let description = [{
@@ -345,9 +349,9 @@ tutorial:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>!wget http://pai-blade.cn-hangzhou.oss.aliyun-inc.com/bladedisc_notebook_binaries/disc_compiler_main -O disc_compiler_main
 
 !wget http://pai-blade.cn-hangzhou.oss.aliyun-inc.com/bladedisc_notebook_binaries/tf-opt -O tf-opt
-    
+
 !wget http://pai-blade.cn-hangzhou.oss.aliyun-inc.com/bladedisc_notebook_binaries/disc-opt -O disc-opt
-    
+
 !wget http://pai-blade.cn-hangzhou.oss.aliyun-inc.com/bladedisc_notebook_binaries/tutorial.mlir -O tutorial.mlir
 
 !chmod +x disc_compiler_main
@@ -362,11 +366,11 @@ possible to demo the pass pipeline.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>!cat tutorial.mlir
 </pre></div>
 </div>
-</div>
-<div class="section" id="pass-pipeline-walkthrough">
-<h2>Pass Pipeline Walkthrough<a class="headerlink" href="#pass-pipeline-walkthrough" title="Permalink to this headline">¶</a></h2>
-<div class="section" id="tf-to-hlo-passes">
-<h3>TF-to-HLO Passes<a class="headerlink" href="#tf-to-hlo-passes" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="pass-pipeline-walkthrough">
+<h2>Pass Pipeline Walkthrough<a class="headerlink" href="#pass-pipeline-walkthrough" title="Permalink to this heading">¶</a></h2>
+<section id="tf-to-hlo-passes">
+<h3>TF-to-HLO Passes<a class="headerlink" href="#tf-to-hlo-passes" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>!./tf-opt -tf-standard-pipeline tutorial.mlir -o tutorial_tf_dialect.mlir
 
 !./disc-opt -disc-tf-revise-args-for-static-rank \
@@ -444,12 +448,12 @@ part of the shape calculation and more will be lowered in the following phases.<
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>!cat tutorial_mhlo.mlir
 </pre></div>
 </div>
-</div>
-<div class="section" id="hlo-graph-optimzation-placement-passes">
-<h3>HLO graph optimzation &amp; placement passes<a class="headerlink" href="#hlo-graph-optimzation-placement-passes" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="hlo-graph-optimzation-placement-passes">
+<h3>HLO graph optimzation &amp; placement passes<a class="headerlink" href="#hlo-graph-optimzation-placement-passes" title="Permalink to this heading">¶</a></h3>
 <p>The passes in this phase can be divided into a number of categories:</p>
-<div class="section" id="shapesimplifier-pass">
-<h4>ShapeSimplifier pass<a class="headerlink" href="#shapesimplifier-pass" title="Permalink to this headline">¶</a></h4>
+<section id="shapesimplifier-pass">
+<h4>ShapeSimplifier pass<a class="headerlink" href="#shapesimplifier-pass" title="Permalink to this heading">¶</a></h4>
 <p>When insert-tie-shape is set to false, it works as a reentrant pass to propagate
 some known shape information, to eliminate the unnecessary unknown dim sizes. In
 a very simple example:</p>
@@ -515,9 +519,9 @@ generation</p></li>
 <li><p>Simplify the index calculation in the instruction level, since the cost for
 var_a / var_b is usually higher than var_a / const_b.</p></li>
 </ol>
-</div>
-<div class="section" id="placement-passes">
-<h4>Placement Passes<a class="headerlink" href="#placement-passes" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="placement-passes">
+<h4>Placement Passes<a class="headerlink" href="#placement-passes" title="Permalink to this heading">¶</a></h4>
 <p>In the case of a host-device joint code generation, an explicit placement logic
 is necessary since some of the mhlo Ops are only for calculating shapes. In a
 common knowledge, for GPU backends these Ops is better to be placed on CPU since
@@ -528,14 +532,14 @@ separated into two passes: the DiscMarkShapeCalculationPass explicitly marks the
 shape calculating Op, and the PlaceOpsPass explicitly place the shape
 calculating Ops on CPU by adding an Attr, and insert a memcpy Op incase
 necessary.</p>
-</div>
-<div class="section" id="graph-optimization-passes-on-tensor-level">
-<h4>Graph Optimization Passes on Tensor Level<a class="headerlink" href="#graph-optimization-passes-on-tensor-level" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="graph-optimization-passes-on-tensor-level">
+<h4>Graph Optimization Passes on Tensor Level<a class="headerlink" href="#graph-optimization-passes-on-tensor-level" title="Permalink to this heading">¶</a></h4>
 <p>Although there aren’t many works here for now, it’s proper to have ordinary
 graph optimization passes such as algebraic simplifier here in this phase.</p>
-</div>
-<div class="section" id="misc-conversion-passes-that-prepare-for-further-lowering">
-<h4>Misc Conversion Passes that Prepare for Further Lowering<a class="headerlink" href="#misc-conversion-passes-that-prepare-for-further-lowering" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="misc-conversion-passes-that-prepare-for-further-lowering">
+<h4>Misc Conversion Passes that Prepare for Further Lowering<a class="headerlink" href="#misc-conversion-passes-that-prepare-for-further-lowering" title="Permalink to this heading">¶</a></h4>
 <p>All the other passes of this phase can be categorized into this group, which
 contains some miscellaneous conversions necessary for further lowering. For
 example, the RemoveShapeConstraintsPass removes the shape constraint Op in Shape
@@ -546,18 +550,18 @@ Refer to the comments of each pass for detailed information.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>!sed -n &#39;/After\ DiscShapeSimplifierPass/,/After\ Canonicalizer/p&#39; pass_pipeline.log | sed &#39;1d&#39; | sed -n &#39;/After\ DiscShapeSimplifierPass/,/After\ Canonicalizer/p&#39;
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="bufferize-passes">
-<h3>Bufferize Passes<a class="headerlink" href="#bufferize-passes" title="Permalink to this headline">¶</a></h3>
+</section>
+</section>
+<section id="bufferize-passes">
+<h3>Bufferize Passes<a class="headerlink" href="#bufferize-passes" title="Permalink to this heading">¶</a></h3>
 <p>BladeDISC does both host side and device side compilation. Thus the whole IR
 module will be lowered to an LLVM module eventually. The first step needed for
 this purpose is to go to the buffer world after finishing the high-level
 optimizations in the tensor world. The passes in this phase are responsible to
 do the bufferization by emitting logic for buffer allocation and deallocation
 explicitly.</p>
-<div class="section" id="hlo-to-lmhlo-conversion">
-<h4>HLO to LMHLO conversion<a class="headerlink" href="#hlo-to-lmhlo-conversion" title="Permalink to this headline">¶</a></h4>
+<section id="hlo-to-lmhlo-conversion">
+<h4>HLO to LMHLO conversion<a class="headerlink" href="#hlo-to-lmhlo-conversion" title="Permalink to this heading">¶</a></h4>
 <p>LMHLO dialect is the bufferized representation for MHLO dialect. Take <code class="docutils literal notranslate"><span class="pre">mhlo.abs</span></code>
 as an example:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span>// mhlo.abs
@@ -579,9 +583,9 @@ shape scenarios. Thanks to the shape inference interface
 be achieved in a modular way. Each mhlo op first inherits
 InferShapedTypeOpInterface and provides an implementation accordingly. Thus we
 can bufferize all mhlo ops in an uniformed way.</p>
-</div>
-<div class="section" id="shape-related-ops-bufferization">
-<h4>Shape Related Ops Bufferization<a class="headerlink" href="#shape-related-ops-bufferization" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="shape-related-ops-bufferization">
+<h4>Shape Related Ops Bufferization<a class="headerlink" href="#shape-related-ops-bufferization" title="Permalink to this heading">¶</a></h4>
 <p>Some tensor value represents a shape instead of data. Examples are the shape
 operands of some dynamic shape version mhlo ops. The shape tensor may be created
 from some scalar values using some basic ops in the mlir core repo. We mainly
@@ -606,9 +610,9 @@ the bufferization logic could be simplified under this constraint.</p>
 <span class="n">lmhlo</span><span class="o">.</span><span class="n">dynamic_reshape</span><span class="p">(</span><span class="o">%</span><span class="ow">in</span><span class="p">,</span> <span class="o">%</span><span class="n">target_shape</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="memory-space-assignment">
-<h4>Memory Space Assignment<a class="headerlink" href="#memory-space-assignment" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="memory-space-assignment">
+<h4>Memory Space Assignment<a class="headerlink" href="#memory-space-assignment" title="Permalink to this heading">¶</a></h4>
 <p>As mentioned above, BladeDISC does both host side and device side compilation at
 the same time. Thus, we need to find a way to seperate the host buffer from the
 device buffer. To this end, the DiscAssignMemorySpacePass explicitly assigns a
@@ -636,14 +640,14 @@ lowering the allocOp for host memory using host memory allocation API.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>!sed -n &#39;/After\ DiscAssignMemorySpacePass/,/After\ PromoteBuffersToStack/p&#39; pass_pipeline.log
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="lhlo-graph-optimization-passes">
-<h3>LHLO Graph Optimization Passes<a class="headerlink" href="#lhlo-graph-optimization-passes" title="Permalink to this headline">¶</a></h3>
+</section>
+</section>
+<section id="lhlo-graph-optimization-passes">
+<h3>LHLO Graph Optimization Passes<a class="headerlink" href="#lhlo-graph-optimization-passes" title="Permalink to this heading">¶</a></h3>
 <p>This phase contains some graph optimization passes that is better to be
 implemented on buffer level rather than tensor level.</p>
-<div class="section" id="fusion-pass">
-<h4>Fusion Pass<a class="headerlink" href="#fusion-pass" title="Permalink to this headline">¶</a></h4>
+<section id="fusion-pass">
+<h4>Fusion Pass<a class="headerlink" href="#fusion-pass" title="Permalink to this heading">¶</a></h4>
 <p>The most important graph optimization pass is the fusion pass, which provides a
 fusion strategy to separate the lmhlo ops into a number of lmhlo.fusion, as the
 readers can see in the output IRs. An lmhlo.fusion will be further lowered into
@@ -663,9 +667,9 @@ utilizing shared memories in GPU backend, or cache memories in CPU backend.
 GPU version is still ongoing for now, and thus is out of the scope of this
 tutorial. For those who are interested, please refer to the documents in the
 DiscFusionPass and the DiscStitchFusionPass.</p>
-</div>
-<div class="section" id="speculation-pass">
-<h4>Speculation Pass<a class="headerlink" href="#speculation-pass" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="speculation-pass">
+<h4>Speculation Pass<a class="headerlink" href="#speculation-pass" title="Permalink to this heading">¶</a></h4>
 <p>Another important optimization pass is the
 DiscSpecializeFusionWithSpeculationPass. “speculation” pass creates multiple
 copies of an lmhlo.fusion, with different hint attributes guiding the kernel
@@ -696,18 +700,18 @@ specialized into:</p>
 <div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">scf</span><span class="o">.</span><span class="k">if</span> <span class="o">%</span><span class="n">cond</span> <span class="p">{</span>
   <span class="s2">&quot;lmhlo.fusion&quot;</span><span class="p">()</span> <span class="p">(</span> <span class="p">{</span>
     <span class="o">...</span>
-  <span class="p">})</span> <span class="p">{</span><span class="n">disc</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;gpu&quot;</span><span class="p">,</span> <span class="n">disc</span><span class="o">.</span><span class="n">fusion</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;main_kRowReduction_reduce_0&quot;</span><span class="p">,</span> <span class="n">disc</span><span class="o">.</span><span class="n">fusion</span><span class="o">.</span><span class="n">tag</span> <span class="o">=</span> <span class="s2">&quot;1b1rX_vec2&quot;</span><span class="p">,</span> <span class="n">disc</span><span class="o">.</span><span class="n">fusion_type</span> <span class="o">=</span> <span class="s2">&quot;kRowReduction&quot;</span><span class="p">,</span> <span class="n">disc_row_reduction_schedule_hint</span> <span class="o">=</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">i32</span><span class="p">,</span> <span class="n">disc_thread_per_block_hint</span> <span class="o">=</span> <span class="mi">256</span> <span class="p">:</span> <span class="n">i32</span><span class="p">,</span> <span class="n">disc_vectorize_hint</span> <span class="o">=</span> <span class="mi">2</span> <span class="p">:</span> <span class="n">i32</span><span class="p">}</span> <span class="p">:</span> <span class="p">()</span> <span class="o">-&gt;</span> <span class="p">()</span>
+  <span class="p">})</span> <span class="p">{</span><span class="n">disc</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;gpu&quot;</span><span class="p">,</span> <span class="n">disc</span><span class="o">.</span><span class="n">fusion</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;main_kRowReduction_reduce_0&quot;</span><span class="p">,</span> <span class="n">disc</span><span class="o">.</span><span class="n">fusion</span><span class="o">.</span><span class="n">tag</span> <span class="o">=</span> <span class="s2">&quot;1b1rX_vectile2&quot;</span><span class="p">,</span> <span class="n">disc</span><span class="o">.</span><span class="n">fusion_type</span> <span class="o">=</span> <span class="s2">&quot;kRowReduction&quot;</span><span class="p">,</span> <span class="n">disc_row_reduction_schedule_hint</span> <span class="o">=</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">i32</span><span class="p">,</span> <span class="n">disc_thread_per_block_hint</span> <span class="o">=</span> <span class="mi">256</span> <span class="p">:</span> <span class="n">i32</span><span class="p">,</span> <span class="n">disc_vectorize_or_tile_hint</span> <span class="o">=</span> <span class="mi">2</span> <span class="p">:</span> <span class="n">i32</span><span class="p">}</span> <span class="p">:</span> <span class="p">()</span> <span class="o">-&gt;</span> <span class="p">()</span>
 <span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
   <span class="s2">&quot;lmhlo.fusion&quot;</span><span class="p">()</span> <span class="p">(</span> <span class="p">{</span>
     <span class="o">...</span>
-  <span class="p">})</span> <span class="p">{</span><span class="n">disc</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;gpu&quot;</span><span class="p">,</span> <span class="n">disc</span><span class="o">.</span><span class="n">fusion</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;main_kRowReduction_reduce_0&quot;</span><span class="p">,</span> <span class="n">disc</span><span class="o">.</span><span class="n">fusion</span><span class="o">.</span><span class="n">tag</span> <span class="o">=</span> <span class="s2">&quot;1b1rX_vec2X_no_vec&quot;</span><span class="p">,</span> <span class="n">disc</span><span class="o">.</span><span class="n">fusion_type</span> <span class="o">=</span> <span class="s2">&quot;kRowReduction&quot;</span><span class="p">,</span> <span class="n">disc_row_reduction_schedule_hint</span> <span class="o">=</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">i32</span><span class="p">,</span> <span class="n">disc_thread_per_block_hint</span> <span class="o">=</span> <span class="mi">256</span> <span class="p">:</span> <span class="n">i32</span><span class="p">,</span> <span class="n">disc_vectorize_hint</span> <span class="o">=</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">i32</span><span class="p">}</span> <span class="p">:</span> <span class="p">()</span> <span class="o">-&gt;</span> <span class="p">()</span>
+  <span class="p">})</span> <span class="p">{</span><span class="n">disc</span><span class="o">.</span><span class="n">device</span> <span class="o">=</span> <span class="s2">&quot;gpu&quot;</span><span class="p">,</span> <span class="n">disc</span><span class="o">.</span><span class="n">fusion</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s2">&quot;main_kRowReduction_reduce_0&quot;</span><span class="p">,</span> <span class="n">disc</span><span class="o">.</span><span class="n">fusion</span><span class="o">.</span><span class="n">tag</span> <span class="o">=</span> <span class="s2">&quot;1b1rX_vectile2X_no_vectile&quot;</span><span class="p">,</span> <span class="n">disc</span><span class="o">.</span><span class="n">fusion_type</span> <span class="o">=</span> <span class="s2">&quot;kRowReduction&quot;</span><span class="p">,</span> <span class="n">disc_row_reduction_schedule_hint</span> <span class="o">=</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">i32</span><span class="p">,</span> <span class="n">disc_thread_per_block_hint</span> <span class="o">=</span> <span class="mi">256</span> <span class="p">:</span> <span class="n">i32</span><span class="p">,</span> <span class="n">disc_vectorize_or_tile_hint</span> <span class="o">=</span> <span class="mi">1</span> <span class="p">:</span> <span class="n">i32</span><span class="p">}</span> <span class="p">:</span> <span class="p">()</span> <span class="o">-&gt;</span> <span class="p">()</span>
 </pre></div>
 </div>
-<p>The different “disc_vectorize_hint” attributes will guide the codegen passes to
+<p>The different “disc_vectorize_or_tile_hint” attributes will guide the codegen passes to
 generate different versions of kernels.</p>
-</div>
-<div class="section" id="memory-optimization-passes">
-<h4>Memory Optimization Passes<a class="headerlink" href="#memory-optimization-passes" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="memory-optimization-passes">
+<h4>Memory Optimization Passes<a class="headerlink" href="#memory-optimization-passes" title="Permalink to this heading">¶</a></h4>
 <p>The other two passes are related to memory optimization, which can also be
 regarded as part of bufferization.</p>
 <p>The PromoteBuffersToStack pass, reusing the building block in MLIR repo, promote
@@ -721,10 +725,10 @@ and library calls conversions now!</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>!sed -n &#39;/After\ BufferDeallocation/,/After\ RalInjectExecutionContextPass/p&#39; pass_pipeline.log
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="runtime-library-call-related-passes">
-<h3>Runtime &amp; Library Call Related Passes<a class="headerlink" href="#runtime-library-call-related-passes" title="Permalink to this headline">¶</a></h3>
+</section>
+</section>
+<section id="runtime-library-call-related-passes">
+<h3>Runtime &amp; Library Call Related Passes<a class="headerlink" href="#runtime-library-call-related-passes" title="Permalink to this heading">¶</a></h3>
 <p>BladeDISC relies on Runtime Abstraction Layer (RAL) to manage stateful stuff and
 isolate the difference among different targeting environments (e.g. TensorFlow,
 PyTorch, or even standalone execution). For detailed informations of RAL, please
@@ -770,9 +774,9 @@ value of const op as key and returns the runtime buffer for the const op.</p></l
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>!sed -n &#39;/After\ DiscConstToRALPass/,/After\ DiscLhloLegalizeRootsToParallelLoopsPass/p&#39; pass_pipeline.log
 </pre></div>
 </div>
-</div>
-<div class="section" id="codegen-passes">
-<h3>CodeGen Passes<a class="headerlink" href="#codegen-passes" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="codegen-passes">
+<h3>CodeGen Passes<a class="headerlink" href="#codegen-passes" title="Permalink to this heading">¶</a></h3>
 <p>The main goal of this phase is to lower the mhlo ops into loops. There are a few
 considerations on the design now that may need your attention:</p>
 <ul class="simple">
@@ -789,8 +793,8 @@ the HLO pattern will be lowered into loops in different ways.</p></li>
 strategies, aka “base” and “stitch”. The “stitch” mode is out of the scope of
 this tutorial.</p></li>
 </ul>
-<div class="section" id="backbone-codegen-passes">
-<h4>Backbone CodeGen Passes<a class="headerlink" href="#backbone-codegen-passes" title="Permalink to this headline">¶</a></h4>
+<section id="backbone-codegen-passes">
+<h4>Backbone CodeGen Passes<a class="headerlink" href="#backbone-codegen-passes" title="Permalink to this heading">¶</a></h4>
 <p>The two backbone passes of this phase are the
 DiscLhloLegalizeRootsToParallelLoopsPass and the InputInlineFusionPass. The
 first one expands the root ops in a fused func into a set of nested loops, and
@@ -863,9 +867,9 @@ Explicit disc_shape.linearize and disc_shape.delinearize Ops are brought in to
 solve this problem. The redundant linearize/delinearize Ops are optimized by the
 canonicalize pass and the remained ones are lower into index calculation Ops in
 Std Dialect in ConvertShapeToStandardPass pass.</p>
-</div>
-<div class="section" id="other-miscellaneous-purposed-passes">
-<h4>Other Miscellaneous Purposed Passes<a class="headerlink" href="#other-miscellaneous-purposed-passes" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="other-miscellaneous-purposed-passes">
+<h4>Other Miscellaneous Purposed Passes<a class="headerlink" href="#other-miscellaneous-purposed-passes" title="Permalink to this heading">¶</a></h4>
 <p>The std-expand pass and the UnhandledAtomicRMWConverterPass work in cooperation
 to support those atomic operations which are not directly supported by GPU via
 atomicCAS. The rest of the passes, including the FoldSubViewOpsPass,
@@ -877,10 +881,10 @@ for detailed information.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>!sed -n &#39;/After\ ConvertShapeToStandardPass/,/After\ Canonicalizer/p&#39; pass_pipeline.log 2&gt;&amp;1 | sed -n &#39;/main_kRowReduction_reduce_exponential__6_2_0/,/main_kRowReduction_reduce_exponential__6_2_0/p&#39;
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="loops-to-gpu-passes">
-<h3>Loops to GPU Passes<a class="headerlink" href="#loops-to-gpu-passes" title="Permalink to this headline">¶</a></h3>
+</section>
+</section>
+<section id="loops-to-gpu-passes">
+<h3>Loops to GPU Passes<a class="headerlink" href="#loops-to-gpu-passes" title="Permalink to this heading">¶</a></h3>
 <p>Most of the works in this phase are reused from the building blocks of the MLIR
 repository. The flow is basically the same as other applications on the GPU
 backend based on MLIR stack. Now let’s simply go through it.</p>
@@ -926,23 +930,23 @@ Dialect level:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>!sed -n &#39;/After\ ReviseGpuKernelOutliningPass/,/After\ Canonicalizer/p&#39; pass_pipeline.log
 </pre></div>
 </div>
-</div>
-<div class="section" id="gpu-module-to-cubin">
-<h3>GPU Module to CUBIN<a class="headerlink" href="#gpu-module-to-cubin" title="Permalink to this headline">¶</a></h3>
-<div class="section" id="lowering-structure-control-flow-ops">
-<h4>Lowering structure control flow ops<a class="headerlink" href="#lowering-structure-control-flow-ops" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="gpu-module-to-cubin">
+<h3>GPU Module to CUBIN<a class="headerlink" href="#gpu-module-to-cubin" title="Permalink to this heading">¶</a></h3>
+<section id="lowering-structure-control-flow-ops">
+<h4>Lowering structure control flow ops<a class="headerlink" href="#lowering-structure-control-flow-ops" title="Permalink to this heading">¶</a></h4>
 <p>This part is mainly based on community passes (e.g. the SCFToStandard pass and
 ConvertAffineToStandard pass). Structure control flow ops (e.g. <code class="docutils literal notranslate"><span class="pre">scf.for</span></code> and
 <code class="docutils literal notranslate"><span class="pre">scf.if</span></code>) will be lowered into low level CFG based control flow representations.</p>
-</div>
-<div class="section" id="lowering-gpu-dialect-ops-to-specific-gpu-vendor-ops">
-<h4>Lowering GPU Dialect ops to specific gpu vendor ops<a class="headerlink" href="#lowering-gpu-dialect-ops-to-specific-gpu-vendor-ops" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="lowering-gpu-dialect-ops-to-specific-gpu-vendor-ops">
+<h4>Lowering GPU Dialect ops to specific gpu vendor ops<a class="headerlink" href="#lowering-gpu-dialect-ops-to-specific-gpu-vendor-ops" title="Permalink to this heading">¶</a></h4>
 <p>The DiscLowerGpuOpsToNVVMOpsPass or DiscLowerGpuOpsToROCDLOpsPass will convert
 general gpu-like ops inside GPU Dialect to a more specific vendor gpu dialect
 (e.g. nvvm for CUDA GPU, or rocm for AMD GPU).</p>
-</div>
-<div class="section" id="compile-to-gpu-binary-code">
-<h4>Compile to GPU binary code<a class="headerlink" href="#compile-to-gpu-binary-code" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="compile-to-gpu-binary-code">
+<h4>Compile to GPU binary code<a class="headerlink" href="#compile-to-gpu-binary-code" title="Permalink to this heading">¶</a></h4>
 <p>After lowering the GPU Dialect to a specific gpu vendor dialect (e.g. cuda or
 rocm), we further export the MLIR IR to LLVM IR and then rely on the device
 compiler to compile the LLVM IR code to the gpu binary code. The compiled binary
@@ -953,10 +957,10 @@ binary ready for launch:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span>!sed -n &#39;/After\ GpuKernelToBlobPass/,/After/p&#39; pass_pipeline.log 2&gt;&amp;1 | sed -n &#39;/gpu.module\ @main_kernel_2/,/gpu.module/p&#39;
 </pre></div>
 </div>
-</div>
-</div>
-<div class="section" id="host-side-passes">
-<h3>Host Side Passes<a class="headerlink" href="#host-side-passes" title="Permalink to this headline">¶</a></h3>
+</section>
+</section>
+<section id="host-side-passes">
+<h3>Host Side Passes<a class="headerlink" href="#host-side-passes" title="Permalink to this heading">¶</a></h3>
 <p>Host side compilation can be roughly divided into two parts.</p>
 <ul class="simple">
 <li><p>CPU kernel-specific codegen. This part is very similar to device-side kernel
@@ -970,26 +974,26 @@ setting, data movement, synchronization, and buffer management. The
 scheduling logic will be lowered to LLVM IR and then be compiled into binary
 code eventually. We’ll expand this part in the following section.</p></li>
 </ul>
-<div class="section" id="id1">
-<h4>Lowering Structure Control Flow Ops<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h4>
+<section id="id1">
+<h4>Lowering Structure Control Flow Ops<a class="headerlink" href="#id1" title="Permalink to this heading">¶</a></h4>
 <p>Same as device-side This part is mainly based on community passes to lower
 structure control flow ops (e.g. <code class="docutils literal notranslate"><span class="pre">scf.for</span></code> and <code class="docutils literal notranslate"><span class="pre">scf.if</span></code>) to lower level CFG
 based control flow representations.</p>
-</div>
-<div class="section" id="lowering-to-llvm-dialect">
-<h4>Lowering to LLVM Dialect<a class="headerlink" href="#lowering-to-llvm-dialect" title="Permalink to this headline">¶</a></h4>
+</section>
+<section id="lowering-to-llvm-dialect">
+<h4>Lowering to LLVM Dialect<a class="headerlink" href="#lowering-to-llvm-dialect" title="Permalink to this heading">¶</a></h4>
 <p>All other Ops will be lowered into LLVM Dialect in the DiscToLLVMPass. In the
 current design, it can be divided into three parts.</p>
-<div class="section" id="allocop-and-deallocop-lowering">
-<h5>AllocOp and DeallocOp lowering<a class="headerlink" href="#allocop-and-deallocop-lowering" title="Permalink to this headline">¶</a></h5>
+<section id="allocop-and-deallocop-lowering">
+<h5>AllocOp and DeallocOp lowering<a class="headerlink" href="#allocop-and-deallocop-lowering" title="Permalink to this heading">¶</a></h5>
 <p>Device-specific alloc/dealloc op lowering. This includes two parts: a)
 device-agnostic logic to calcalution the bytes of a buffer, b) device-specific
 logic to materialize the allocation and dealloction to a RAL function call
 accordingly.  The RAL function itself is modeled by a <code class="docutils literal notranslate"><span class="pre">ral.dispatchOp</span></code> and will
 be handled uniformly later.</p>
-</div>
-<div class="section" id="cpu-gpu-kernel-launch-op-lowering">
-<h5>CPU/GPU Kernel Launch Op Lowering<a class="headerlink" href="#cpu-gpu-kernel-launch-op-lowering" title="Permalink to this headline">¶</a></h5>
+</section>
+<section id="cpu-gpu-kernel-launch-op-lowering">
+<h5>CPU/GPU Kernel Launch Op Lowering<a class="headerlink" href="#cpu-gpu-kernel-launch-op-lowering" title="Permalink to this heading">¶</a></h5>
 <p>For GPU kernel, we emit an LLVM global string object to hold the CUBIN and
 passed the CUBIN and all related args to a RAL function call, which in turn
 wraps a cuda launch driver API.</p>
@@ -1016,9 +1020,9 @@ args to a RAL function call, which in turn wraps a cpu multi-thread launch API.<
                    <span class="n">kRalCpuLaunch</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
 </pre></div>
 </div>
-</div>
-<div class="section" id="ral-dispatch-op-lowering">
-<h5>RAL Dispatch Op Lowering<a class="headerlink" href="#ral-dispatch-op-lowering" title="Permalink to this headline">¶</a></h5>
+</section>
+<section id="ral-dispatch-op-lowering">
+<h5>RAL Dispatch Op Lowering<a class="headerlink" href="#ral-dispatch-op-lowering" title="Permalink to this heading">¶</a></h5>
 <p>For a <code class="docutils literal notranslate"><span class="pre">ral.dispatchOp</span></code>, it will lowered into a uniform type-erased C language
 form. The basic idea is:</p>
 <ul class="simple">
@@ -1047,11 +1051,11 @@ array.</p></li>
 <p>After this phase, the LLVM Dialect will then be converted to LLVM IR, and sent
 to LLVM backend. By this step, we’ve got a binary, which is executable and will
 link different runtime libraries for different scenarios.</p>
-</div>
-</div>
-</div>
-</div>
-</div>
+</section>
+</section>
+</section>
+</section>
+</section>
 
 
                         
@@ -1068,7 +1072,7 @@ link different runtime libraries for different scenarios.</p>
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../../',
             VERSION:'1.0.0',
-            LANGUAGE:'None',
+            LANGUAGE:'en',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true,
@@ -1078,7 +1082,9 @@ link different runtime libraries for different scenarios.</p>
     <script type="text/javascript" src="../../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/sphinx_highlight.js"></script>
     <script type="text/javascript" src="../../_static/clipboard.min.js"></script>
     <script type="text/javascript" src="../../_static/copybutton.js"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
@@ -1087,7 +1093,7 @@ link different runtime libraries for different scenarios.</p>
     <div class="footer" role="contentinfo">
         <div class="container">
             &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
-        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
         </div>
     </div>  
 

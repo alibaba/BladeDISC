@@ -1,0 +1,433 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Efficient GEMM in CUDA &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../../../../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../../../../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../../../../../index.html">Docs</a></li>
+        
+      <li>Efficient GEMM in CUDA</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../../../../../_sources/tao_compiler/mlir/disc/cutlass/media/docs/efficient_gemm.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../../../../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../README.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#what-s-new">What’s New</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#presentations-and-talks">Presentations and Talks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#building-status">Building Status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../README.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../docs/install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../docs/build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../docs/quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../docs/contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../../../../docs/tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../../../../docs/tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <p><img alt="ALT" src="media/images/gemm-hierarchy-with-epilogue-no-labels.png" /></p>
+<p><a class="reference external" href="/README.md#documentation">README</a> &gt; <strong>Efficient GEMM in CUDA</strong></p>
+<section id="efficient-gemm-in-cuda">
+<h1>Efficient GEMM in CUDA<a class="headerlink" href="#efficient-gemm-in-cuda" title="Permalink to this heading">¶</a></h1>
+<p>CUTLASS implements the hierarchically blocked structure described in
+<a class="reference external" href="https://devblogs.nvidia.com/cutlass-linear-algebra-cuda/">CUTLASS: Fast Linear Algebra in CUDA C++</a>
+and the <a class="reference external" href="http://on-demand.gputechconf.com/gtc/2018/presentation/s8854-cutlass-software-primitives-for-dense-linear-algebra-at-all-levels-and-scales-within-cuda.pdf">CUTLASS GTC2018 talk</a>.</p>
+<section id="hierarchical-structure">
+<h2>Hierarchical Structure<a class="headerlink" href="#hierarchical-structure" title="Permalink to this heading">¶</a></h2>
+<p>The basic triple loop nest computing matrix multiply may be blocked and tiled to match
+concurrency in hardware, memory locality, and parallel programming models. In CUTLASS,
+GEMM is mapped to NVIDIA GPUs with the structure illustrated by the following loop nest.</p>
+<div class="highlight-c++ notranslate"><div class="highlight"><pre><span></span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">cta_n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">cta_n</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">GemmN</span><span class="p">;</span><span class="w"> </span><span class="n">cta_n</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">CtaTileN</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">                     </span><span class="c1">// for each threadblock_y           } threadblock-level concurrency</span>
+<span class="w">  </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">cta_m</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">cta_m</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">GemmM</span><span class="p">;</span><span class="w"> </span><span class="n">cta_m</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">CtaTileM</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">                   </span><span class="c1">//    for each threadblock_x        }</span>
+
+<span class="w">    </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">cta_k</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">cta_k</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">GemmK</span><span class="p">;</span><span class="w"> </span><span class="n">cta_k</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">CtaTileK</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">                 </span><span class="c1">//       &quot;GEMM mainloop&quot; - no unrolling </span>
+<span class="w">                                                                            </span><span class="c1">//                       - one iteration of this loop is one &quot;stage&quot;</span>
+<span class="w">                                                                            </span><span class="c1">//</span>
+<span class="w">      </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">warp_n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">warp_n</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">CtaTileN</span><span class="p">;</span><span class="w"> </span><span class="n">warp_n</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">WarpTileN</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">        </span><span class="c1">// for each warp_y                  } warp-level parallelism</span>
+<span class="w">        </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">warp_m</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">warp_m</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">CtaTileM</span><span class="p">;</span><span class="w"> </span><span class="n">warp_m</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">WarpTileM</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">      </span><span class="c1">//    for each warp_x               }</span>
+<span class="w">                                                                            </span><span class="c1">//</span>
+<span class="w">          </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">warp_k</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">warp_k</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">CtaTileK</span><span class="p">;</span><span class="w"> </span><span class="n">warp_k</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">WarpTileK</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">         </span><span class="c1">//       fully unroll across CtaTileK</span>
+<span class="w">                                                                            </span><span class="c1">//         - one iteration of this loop is one &quot;k Group&quot;</span>
+<span class="w">                                                                            </span><span class="c1">//</span>
+<span class="w">            </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">mma_k</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">mma_k</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">WarpTileK</span><span class="p">;</span><span class="w"> </span><span class="n">mma_k</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">MmaK</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">         </span><span class="c1">// for each mma instruction         } instruction-level parallelism</span>
+<span class="w">              </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">mma_n</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">mma_n</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">WarpTileN</span><span class="p">;</span><span class="w"> </span><span class="n">mma_n</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">MmaN</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">       </span><span class="c1">//    for each mma instruction      }</span>
+<span class="w">                </span><span class="k">for</span><span class="w"> </span><span class="p">(</span><span class="kt">int</span><span class="w"> </span><span class="n">mma_m</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">;</span><span class="w"> </span><span class="n">mma_m</span><span class="w"> </span><span class="o">&lt;</span><span class="w"> </span><span class="n">WarpTileM</span><span class="p">;</span><span class="w"> </span><span class="n">mma_m</span><span class="w"> </span><span class="o">+=</span><span class="w"> </span><span class="n">MmaM</span><span class="p">)</span><span class="w"> </span><span class="p">{</span><span class="w">     </span><span class="c1">//        for each mma instruction  }</span>
+<span class="w">                                                                            </span><span class="c1">// </span>
+<span class="w">                  </span><span class="n">mma_instruction</span><span class="p">(</span><span class="n">d</span><span class="p">,</span><span class="w"> </span><span class="n">a</span><span class="p">,</span><span class="w"> </span><span class="n">b</span><span class="p">,</span><span class="w"> </span><span class="n">c</span><span class="p">);</span><span class="w">                              </span><span class="c1">//            TensorCore matrix computation</span>
+
+<span class="w">                </span><span class="p">}</span><span class="w">   </span><span class="c1">// for mma_m</span>
+<span class="w">              </span><span class="p">}</span><span class="w">   </span><span class="c1">// for mma_n</span>
+<span class="w">            </span><span class="p">}</span><span class="w">   </span><span class="c1">// for mma_k</span>
+
+<span class="w">          </span><span class="p">}</span><span class="w">   </span><span class="c1">// for warp_k</span>
+<span class="w">        </span><span class="p">}</span><span class="w">   </span><span class="c1">// for warp_m</span>
+<span class="w">      </span><span class="p">}</span><span class="w">   </span><span class="c1">// for warp_n</span>
+
+<span class="w">    </span><span class="p">}</span><span class="w">   </span><span class="c1">// for cta_k</span>
+<span class="w">  </span><span class="p">}</span><span class="w">   </span><span class="c1">// for cta_m</span>
+<span class="p">}</span><span class="w">   </span><span class="c1">// for cta_n</span>
+</pre></div>
+</div>
+<p>This tiled loop nest targets concurrency among</p>
+<ul class="simple">
+<li><p>threadblocks</p></li>
+<li><p>warps</p></li>
+<li><p>CUDA and Tensor Cores</p></li>
+</ul>
+<p>and takes advantage of memory locality within</p>
+<ul class="simple">
+<li><p>shared memory</p></li>
+<li><p>registers</p></li>
+</ul>
+<p>The flow of data within this structure is illustrated below.
+This is the hierarchical GEMM computation embodied by CUTLASS. Each stage depicts a
+nested level of tiling which corresponds to a layer of concurrency within the CUDA execution model and to a
+level within the memory hierarchy, becoming increasingly finer moving left to right.</p>
+<p><img alt="ALT" src="media/images/gemm-hierarchy-with-epilogue.png" /></p>
+<section id="threadblock-level-gemm">
+<h3>Threadblock-level GEMM<a class="headerlink" href="#threadblock-level-gemm" title="Permalink to this heading">¶</a></h3>
+<p>Each threadblock computes its portion of the output GEMM by iteratively loading tiles of input
+matrices and computing an accumulated matrix product. At the threadblock level, data is loaded from
+global memory. The blocking strategy in general is key to achieving efficiency. However, there are
+multiple conflicting goals that a programmer aims to achieve to strike a reasonable compromise. A
+larger threadblock means fewer fetches from global memory, thereby ensuring that DRAM bandwidth
+does not become a bottleneck.</p>
+<p>However, large threadblock tiles may not match the dimensions of the problem well. If either the
+GEMM <em>M</em> or <em>N</em> dimension is small, some threads within the threadblock may not perform meaningful
+work, as the threadblock may be partially outside the bounds of the problem. If both <em>M</em> and <em>N</em>
+are small while <em>K</em> is large, this scheme may launch relatively few threadblocks and fail to
+fully utilize all multiprocessors within the GPU. Strategies to optimize performance for this case
+are described in the section <a class="reference internal" href="#parallelized-reductions"><span class="std std-ref">Parallelized Reductions</span></a>
+which partition the GEMM K dimension across multiple threadblocks or multiple warps. These compute
+matrix products in parallel which is then reduced to compute the result.</p>
+<p>In CUTLASS, the dimensions of the threadblock tile are specified as <code class="docutils literal notranslate"><span class="pre">ThreadblockShape::{kM,</span> <span class="pre">kN,</span> <span class="pre">kK}</span></code>
+and may be tuned to specialize the GEMM computation for the target processor and dimensions of
+the GEMM problem.</p>
+</section>
+<section id="warp-level-gemm">
+<h3>Warp-level GEMM<a class="headerlink" href="#warp-level-gemm" title="Permalink to this heading">¶</a></h3>
+<p>The warp-level GEMM maps to the warp-level parallelism within the CUDA execution model. Multiple
+warps within a threadblock fetch data from shared memory into registers and perform computations.
+Warp-level GEMMs may be implemented either by TensorCores issuing
+<a class="reference external" href="https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#warp-level-matrix-instructions-mma">mma.sync</a>
+or <a class="reference external" href="https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#warp-level-matrix-instructions-wmma-mma">wmma</a>
+instructions or by thread-level matrix computations issued to CUDA cores.
+For maximum performance, access to shared memory should be bank conflict free. To maximize data
+reuse within the warp, a large warp-level GEMM tile should be chosen.</p>
+</section>
+<section id="thread-level-gemm">
+<h3>Thread-level GEMM<a class="headerlink" href="#thread-level-gemm" title="Permalink to this heading">¶</a></h3>
+<p>At the lowest level of blocking, each thread is responsible for processing a certain number of
+elements. Threads cannot access each other’s registers so we choose an organization that enables
+values held in registers to be reused for multiple math instructions. This results in a 2D tiled
+structure within a thread, in which each thread issues a sequence of independent math instructions
+to the CUDA cores and computes an accumulated outer product.</p>
+<p>SGEMM, IGEMM, HGEMM, and DGEMM are computed by SIMT math instructions issued by thread-level matrix multiply
+procedures.</p>
+</section>
+</section>
+<section id="epilogue">
+<h2>Epilogue<a class="headerlink" href="#epilogue" title="Permalink to this heading">¶</a></h2>
+<p>The above code focuses only on the matrix multiply computation <strong>C = AB</strong> whose result is
+held in the registers of each thread within the threadblock. The mapping of logical elements
+in the output tile to each thread is chosen to maximize performance of the matrix multiply
+computation but does not result in efficient, coalesced loads and stores to global memory.</p>
+<p>The epilogue is a separate phase in which threads exchange data through shared memory then
+cooperatively access global memory using efficient striped access patterns. It is also
+the phase in which linear scaling and other elementwise operations may be conveniently
+computed using the matrix product results as inputs.</p>
+<p>CUTLASS defines several typical epilogue operations such as linear scaling and clamping,
+but other device-side function call operators may be used to perform custom operations.</p>
+</section>
+<section id="optimizations">
+<h2>Optimizations<a class="headerlink" href="#optimizations" title="Permalink to this heading">¶</a></h2>
+<p>The hierarchical structure described above yields an efficient mapping to the CUDA execution model and
+CUDA/TensorCores in NVIDIA GPUs. The following sections describe strategies for obtaining peak performance
+for all corners of the design space, maximizing parallelism and exploiting data locality wherever possible.</p>
+<section id="pipelining">
+<h3>Pipelining<a class="headerlink" href="#pipelining" title="Permalink to this heading">¶</a></h3>
+<p>The blocked structure demands a large storage allocation within the registers of each CUDA thread. The
+accumulator elements typically occupy at least half a thread’s total register budget. Consequently,
+occupancy – the number of concurrent threads, warps, and threadblocks – is relatively low compared
+to other classes of GPU workloads. This limits the GPUs ability to hide memory latency and other stalls
+by context switching to other concurrent threads within an SM.</p>
+<p>To mitigate the effects of memory latency, <em>software pipelining</em> is used to overlap memory accesses
+with other computation within a thread. In CUTLASS, this is achieved by double buffering at the
+following scopes</p>
+<ul class="simple">
+<li><p><strong>threadblock-scoped shared memory tiles:</strong> two tiles are allocated within shared memory; one is used
+load data for the current matrix operation, while the other tile is used to buffer data loaded from
+global memory for the next mainloop iteration</p></li>
+<li><p><strong>warp-scoped matrix fragments:</strong> two fragments are allocated within registers; one fragment is passed
+to CUDA and TensorCores during the current matrix computation, while the other is used to receive
+shared memory fetch returns for the next warp-level matrix operation</p></li>
+</ul>
+<p>The efficient, pipelined mainloop body used in CUTLASS GEMMs is illustrated as follows.</p>
+<p><img alt="ALT" src="media/images/software-pipeline.png" /></p>
+</section>
+<section id="threadblock-rasterization">
+<h3>Threadblock Rasterization<a class="headerlink" href="#threadblock-rasterization" title="Permalink to this heading">¶</a></h3>
+<p>To maximize reuse of data held in the last level cache, CUTLASS defines several functions to
+affect the mapping of threadblocks to logical partitions of the GEMM problem. These map
+consecutively launched threadblocks to packed two-dimensional regions of the partitioned GEMM
+problem to increase the probability that these will access the same tiles of global memory at
+approximately the same time.</p>
+<p>Several functions are defined in <a class="reference external" href="/include/cutlass/gemm/threadblock/threadblock_swizzle.h">cutlass/gemm/threadblock_swizzle.h</a>.</p>
+</section>
+<section id="parallelized-reductions">
+<h3>Parallelized Reductions<a class="headerlink" href="#parallelized-reductions" title="Permalink to this heading">¶</a></h3>
+<p><strong>Split K - reduction across threadblocks</strong></p>
+<p>Matrix product computations expose parallelism among <em>O(MN)</em> independent inner product
+computations. For sufficiently large problem sizes, a GEMM kernel in CUTLASS may approach
+the theoretical maximum computational throughput. For small problems, however, there are
+too few threadblocks to efficiently occupy the entire GPU.</p>
+<p>As a recourse, parallelizing the reduction performed during the inner product computation
+enables more threadblocks to execute concurrently while still taking advantage of the throughput
+benefits of large threadblock-level GEMM tiles.</p>
+<p>CUTLASS implements parallel reductions across threadblocks by partitioning the GEMM <em>K</em> dimension
+and launching an additional set of threadblocks for each partition. Consequently, we refer to
+this strategy within CUTLASS as “parallel reduction splitK.” The “parallel reduction splitK” in cutlass
+requires the execution of 2 kernels. The first one is called partitionedK GEMM. The second one is called
+batched reduction.</p>
+<p>The partitionedK GEMM is very similar to one flavor of batched strided GEMM. Instead of requiring users
+to specify the problem size of each batch, partitionedK GEMM asks for the overall problem size and the
+number of partition that will be applied along K dimension for operand A and B. For example, parameters o
+f m=128, n=128, k=4096 and partition=16 will result in 16 batched strided GEMMs with each batch of
+m=128, n=128, k=256. PartitionedK also allows scenario where k is not divisible by partition count.</p>
+<p>For example, parameters of m=128, n=128, k=4096 and partition=20 will result in 20 batched strided GEMMs
+with the first 19 batches of m=128, n=128, k=4096/20=204 and the last batch of m=128, n=128, k=220.</p>
+<p>The batched reduction kernel will further perform reduction along the K-dimension. Thus, the input of
+the batched reduction kernel is the output (C) of partitionedK GEMM. An workspace memory is managed by
+the users to store this intermediate results.</p>
+<p><strong>Sliced K - reduction across warps</strong></p>
+<p>Similar to the split-k scenario, sliced-k aims at improving the efficiency of kernels with smaller M, N,
+but large K dimensions. In general at the thread-block level, the parameters CtaTileN, CtaTileM expose parallelism
+by partitioning the the work the among warps, and larger warpTiles expose better ILP (Instruction
+level parallelism) and reuse, but it also limits the number of warps running per thread-block, which reduces efficiency.</p>
+<p>So in order to improve efficiency in such scenarios, partitioning the warpTiles also along ctaTileK helps improve the utilization
+of the underlying hardware by allowing more warps to run concurrently in a CTA.  Now, since sliced-k kernels breaks
+down a thread-blocks’s computation among participating warps not just among the CtaTileN, CtaTileM dimension,
+but also the CtaTileK dimension it entails a small cost in form of a reduction which has to happen at the end among the
+participating warps - since each warp now owns a partial sum (since they compute using only a “slice” of ctaTileK).</p>
+</section>
+</section>
+</section>
+<section id="resources">
+<h1>Resources<a class="headerlink" href="#resources" title="Permalink to this heading">¶</a></h1>
+<p>The following additional resources describe design and implementation details of GEMMs
+targeting NVIDIA GPUs.</p>
+<ul class="simple">
+<li><p><a class="reference external" href="https://www.nvidia.com/en-us/gtc">Developing CUDA Kernels to Push Tensor Cores to the Absolute Limit on NVIDIA A100.</a> (SR 21745)</p></li>
+<li><p><a class="reference external" href="https://devblogs.nvidia.com/cutlass-linear-algebra-cuda/">CUTLASS: Fast Linear Algebra in CUDA C++</a></p></li>
+<li><p><a class="reference external" href="https://on-demand-gtc.gputechconf.com/gtcnew/sessionview.php?sessionName=s8854-cutlass%3a+software+primitives+for+dense+linear+algebra+at+all+levels+and+scales+within+cuda">CUTLASS: SOFTWARE PRIMITIVES FOR DENSE LINEAR ALGEBRA AT ALL LEVELS AND SCALES WITHIN CUDA</a></p></li>
+<li><p><a class="reference external" href="https://developer.download.nvidia.com/video/gputechconf/gtc/2019/presentation/s9593-cutensor-high-performance-tensor-operations-in-cuda-v2.pdf">Programming Tensor Cores: NATIVE VOLTA TENSOR CORES WITH CUTLASS</a></p></li>
+<li><p><a class="reference external" href="https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#wmma">CUDA Programming Guide: warp matrix functions</a></p></li>
+<li><p><a class="reference external" href="https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#warp-level-matrix-instructions-mma">Matrix Multiply Accumulate Instructions</a></p></li>
+</ul>
+</section>
+<section id="copyright">
+<h1>Copyright<a class="headerlink" href="#copyright" title="Permalink to this heading">¶</a></h1>
+<p>Copyright (c) 2017 - 2022 NVIDIA CORPORATION &amp; AFFILIATES. All rights reserved.
+SPDX-License-Identifier: BSD-3-Clause</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>  <span class="n">Redistribution</span> <span class="ow">and</span> <span class="n">use</span> <span class="ow">in</span> <span class="n">source</span> <span class="ow">and</span> <span class="n">binary</span> <span class="n">forms</span><span class="p">,</span> <span class="k">with</span> <span class="ow">or</span> <span class="n">without</span>
+  <span class="n">modification</span><span class="p">,</span> <span class="n">are</span> <span class="n">permitted</span> <span class="n">provided</span> <span class="n">that</span> <span class="n">the</span> <span class="n">following</span> <span class="n">conditions</span> <span class="n">are</span> <span class="n">met</span><span class="p">:</span>
+
+  <span class="mf">1.</span> <span class="n">Redistributions</span> <span class="n">of</span> <span class="n">source</span> <span class="n">code</span> <span class="n">must</span> <span class="n">retain</span> <span class="n">the</span> <span class="n">above</span> <span class="n">copyright</span> <span class="n">notice</span><span class="p">,</span> <span class="n">this</span>
+  <span class="nb">list</span> <span class="n">of</span> <span class="n">conditions</span> <span class="ow">and</span> <span class="n">the</span> <span class="n">following</span> <span class="n">disclaimer</span><span class="o">.</span>
+
+  <span class="mf">2.</span> <span class="n">Redistributions</span> <span class="ow">in</span> <span class="n">binary</span> <span class="n">form</span> <span class="n">must</span> <span class="n">reproduce</span> <span class="n">the</span> <span class="n">above</span> <span class="n">copyright</span> <span class="n">notice</span><span class="p">,</span>
+  <span class="n">this</span> <span class="nb">list</span> <span class="n">of</span> <span class="n">conditions</span> <span class="ow">and</span> <span class="n">the</span> <span class="n">following</span> <span class="n">disclaimer</span> <span class="ow">in</span> <span class="n">the</span> <span class="n">documentation</span>
+  <span class="ow">and</span><span class="o">/</span><span class="ow">or</span> <span class="n">other</span> <span class="n">materials</span> <span class="n">provided</span> <span class="k">with</span> <span class="n">the</span> <span class="n">distribution</span><span class="o">.</span>
+
+  <span class="mf">3.</span> <span class="n">Neither</span> <span class="n">the</span> <span class="n">name</span> <span class="n">of</span> <span class="n">the</span> <span class="n">copyright</span> <span class="n">holder</span> <span class="n">nor</span> <span class="n">the</span> <span class="n">names</span> <span class="n">of</span> <span class="n">its</span>
+  <span class="n">contributors</span> <span class="n">may</span> <span class="n">be</span> <span class="n">used</span> <span class="n">to</span> <span class="n">endorse</span> <span class="ow">or</span> <span class="n">promote</span> <span class="n">products</span> <span class="n">derived</span> <span class="kn">from</span>
+  <span class="nn">this</span> <span class="n">software</span> <span class="n">without</span> <span class="n">specific</span> <span class="n">prior</span> <span class="n">written</span> <span class="n">permission</span><span class="o">.</span>
+
+  <span class="n">THIS</span> <span class="n">SOFTWARE</span> <span class="n">IS</span> <span class="n">PROVIDED</span> <span class="n">BY</span> <span class="n">THE</span> <span class="n">COPYRIGHT</span> <span class="n">HOLDERS</span> <span class="n">AND</span> <span class="n">CONTRIBUTORS</span> <span class="s2">&quot;AS IS&quot;</span>
+  <span class="n">AND</span> <span class="n">ANY</span> <span class="n">EXPRESS</span> <span class="n">OR</span> <span class="n">IMPLIED</span> <span class="n">WARRANTIES</span><span class="p">,</span> <span class="n">INCLUDING</span><span class="p">,</span> <span class="n">BUT</span> <span class="n">NOT</span> <span class="n">LIMITED</span> <span class="n">TO</span><span class="p">,</span> <span class="n">THE</span>
+  <span class="n">IMPLIED</span> <span class="n">WARRANTIES</span> <span class="n">OF</span> <span class="n">MERCHANTABILITY</span> <span class="n">AND</span> <span class="n">FITNESS</span> <span class="n">FOR</span> <span class="n">A</span> <span class="n">PARTICULAR</span> <span class="n">PURPOSE</span> <span class="n">ARE</span>
+  <span class="n">DISCLAIMED</span><span class="o">.</span> <span class="n">IN</span> <span class="n">NO</span> <span class="n">EVENT</span> <span class="n">SHALL</span> <span class="n">THE</span> <span class="n">COPYRIGHT</span> <span class="n">HOLDER</span> <span class="n">OR</span> <span class="n">CONTRIBUTORS</span> <span class="n">BE</span> <span class="n">LIABLE</span>
+  <span class="n">FOR</span> <span class="n">ANY</span> <span class="n">DIRECT</span><span class="p">,</span> <span class="n">INDIRECT</span><span class="p">,</span> <span class="n">INCIDENTAL</span><span class="p">,</span> <span class="n">SPECIAL</span><span class="p">,</span> <span class="n">EXEMPLARY</span><span class="p">,</span> <span class="n">OR</span> <span class="n">CONSEQUENTIAL</span>
+  <span class="n">DAMAGES</span> <span class="p">(</span><span class="n">INCLUDING</span><span class="p">,</span> <span class="n">BUT</span> <span class="n">NOT</span> <span class="n">LIMITED</span> <span class="n">TO</span><span class="p">,</span> <span class="n">PROCUREMENT</span> <span class="n">OF</span> <span class="n">SUBSTITUTE</span> <span class="n">GOODS</span> <span class="n">OR</span>
+  <span class="n">SERVICES</span><span class="p">;</span> <span class="n">LOSS</span> <span class="n">OF</span> <span class="n">USE</span><span class="p">,</span> <span class="n">DATA</span><span class="p">,</span> <span class="n">OR</span> <span class="n">PROFITS</span><span class="p">;</span> <span class="n">OR</span> <span class="n">BUSINESS</span> <span class="n">INTERRUPTION</span><span class="p">)</span> <span class="n">HOWEVER</span>
+  <span class="n">CAUSED</span> <span class="n">AND</span> <span class="n">ON</span> <span class="n">ANY</span> <span class="n">THEORY</span> <span class="n">OF</span> <span class="n">LIABILITY</span><span class="p">,</span> <span class="n">WHETHER</span> <span class="n">IN</span> <span class="n">CONTRACT</span><span class="p">,</span> <span class="n">STRICT</span> <span class="n">LIABILITY</span><span class="p">,</span>
+  <span class="n">OR</span> <span class="n">TORT</span> <span class="p">(</span><span class="n">INCLUDING</span> <span class="n">NEGLIGENCE</span> <span class="n">OR</span> <span class="n">OTHERWISE</span><span class="p">)</span> <span class="n">ARISING</span> <span class="n">IN</span> <span class="n">ANY</span> <span class="n">WAY</span> <span class="n">OUT</span> <span class="n">OF</span> <span class="n">THE</span> <span class="n">USE</span>
+  <span class="n">OF</span> <span class="n">THIS</span> <span class="n">SOFTWARE</span><span class="p">,</span> <span class="n">EVEN</span> <span class="n">IF</span> <span class="n">ADVISED</span> <span class="n">OF</span> <span class="n">THE</span> <span class="n">POSSIBILITY</span> <span class="n">OF</span> <span class="n">SUCH</span> <span class="n">DAMAGE</span><span class="o">.</span>
+</pre></div>
+</div>
+</section>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../../../../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'en',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../../../../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/sphinx_highlight.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../../../../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
+        </div>
+    </div>  
+
+</body>
+</html>

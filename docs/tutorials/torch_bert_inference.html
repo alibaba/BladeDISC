@@ -3,7 +3,8 @@
 <!DOCTYPE html>
 <head>
   <meta charset="utf-8">
-  
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <title>Tutorial: Optimize and Inference BERT with TorchBlade &mdash; BladeDISC 1.0.0 documentation</title>
@@ -113,7 +114,9 @@
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#setup-and-examples">Setup and Examples</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#publications">Publications</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#presentations-and-talks">Presentations and Talks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#building-status">Building Status</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#faq">FAQ</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../../README.html#contact-us">Contact Us</a></li>
 </ul>
@@ -126,6 +129,7 @@
 <li class="toctree-l1"><a class="reference internal" href="../build_from_source.html">Build from Source</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#prerequisite">Prerequisite</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
 <li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
 </ul>
@@ -155,8 +159,8 @@
                     <div class="document">
                         
                             
-  <div class="section" id="tutorial-optimize-and-inference-bert-with-torchblade">
-<h1>Tutorial: Optimize and Inference BERT with TorchBlade<a class="headerlink" href="#tutorial-optimize-and-inference-bert-with-torchblade" title="Permalink to this headline">¶</a></h1>
+  <section id="tutorial-optimize-and-inference-bert-with-torchblade">
+<h1>Tutorial: Optimize and Inference BERT with TorchBlade<a class="headerlink" href="#tutorial-optimize-and-inference-bert-with-torchblade" title="Permalink to this heading">¶</a></h1>
 <ul class="simple">
 <li><p><a class="reference external" href="#quick-tour">Quick Tour</a></p>
 <ul>
@@ -182,8 +186,8 @@ fully dynamic lengths of sequences and sizes of images.</p>
 inference. TorchBlade makes your transformers available to those optimizations
 while persists the ability of the module to forward dynamic inputs. Let’s show
 the example.</p>
-<div class="section" id="quick-tour">
-<h2>Quick Tour<a class="headerlink" href="#quick-tour" title="Permalink to this headline">¶</a></h2>
+<section id="quick-tour">
+<h2>Quick Tour<a class="headerlink" href="#quick-tour" title="Permalink to this heading">¶</a></h2>
 <p>These packages are required before going through the tour:</p>
 <ul class="simple">
 <li><p>torch &gt;= 1.6.0</p></li>
@@ -201,8 +205,8 @@ the example.</p>
 <li><p>CUDA 11.0</p></li>
 <li><p>CuDNN 8.2.1</p></li>
 </ul>
-<div class="section" id="load-the-pre-trained-bert-module-and-tokenizer-from-huggingface">
-<h3>Load the Pre-Trained BERT Module and Tokenizer From HuggingFace<a class="headerlink" href="#load-the-pre-trained-bert-module-and-tokenizer-from-huggingface" title="Permalink to this headline">¶</a></h3>
+<section id="load-the-pre-trained-bert-module-and-tokenizer-from-huggingface">
+<h3>Load the Pre-Trained BERT Module and Tokenizer From HuggingFace<a class="headerlink" href="#load-the-pre-trained-bert-module-and-tokenizer-from-huggingface" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="p">(</span>
  <span class="n">pipeline</span><span class="p">,</span>
@@ -243,7 +247,7 @@ the example.</p>
 
 <span class="k">for</span> <span class="n">inp_str</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">input_strs</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
   <span class="nb">print</span><span class="p">(</span><span class="n">inp_str</span><span class="p">)</span>
-  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; label: </span><span class="si">{result[&#39;label&#39;]}</span><span class="s2">, with a score: {round(result[&#39;score&#39;], 4)}&quot;</span><span class="p">)</span>
+  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; label: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, with a score: </span><span class="si">{</span><span class="nb">round</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;score&#39;</span><span class="p">],</span> <span class="mi">4</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>We are very happy to show you the story.
@@ -256,9 +260,9 @@ We hope you don&#39;t hate it.
 BERT base from <a class="reference external" href="https://huggingface.co/nlptown">NLP Town</a>. The full example can
 be found at from HuggingFace’s
 <a class="reference external" href="https://huggingface.co/docs/transformers/quicktour">Transformers Quick Tour</a>.</p>
-</div>
-<div class="section" id="optimize-the-module-with-torchblade">
-<h3>Optimize the Module With TorchBlade<a class="headerlink" href="#optimize-the-module-with-torchblade" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="optimize-the-module-with-torchblade">
+<h3>Optimize the Module With TorchBlade<a class="headerlink" href="#optimize-the-module-with-torchblade" title="Permalink to this heading">¶</a></h3>
 <p>Add a few lines of codes on the original scripts:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">torch_blade</span>
 
@@ -288,9 +292,9 @@ fails. Then it runs a clustering algorithm to find subgraphs and lower them to
 BladeDISC backbend.</p>
 <p>Finally, let’s serialize the script module that has been compiled into a file
 named with “opt.disc.pt”.</p>
-</div>
-<div class="section" id="benchmark-the-optimized-module">
-<h3>Benchmark the Optimized Module<a class="headerlink" href="#benchmark-the-optimized-module" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="benchmark-the-optimized-module">
+<h3>Benchmark the Optimized Module<a class="headerlink" href="#benchmark-the-optimized-module" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span> <span class="nn">time</span>
 
 <span class="nd">@torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">()</span>
@@ -311,10 +315,10 @@ named with “opt.disc.pt”.</p>
   <span class="n">avg_lantency_baseline</span> <span class="o">=</span> <span class="n">benchmark</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">inputs</span><span class="p">)</span>
   <span class="n">avg_lantency_bladedisc</span> <span class="o">=</span> <span class="n">benchmark</span><span class="p">(</span><span class="n">optimized_ts</span><span class="p">,</span> <span class="n">inputs</span><span class="p">)</span>
 
-  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Seqlen: {[len(s) for s in input_strs]}&quot;</span><span class="p">)</span>
-  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Baseline: </span><span class="si">{avg_lantency_baseline}</span><span class="s2"> ms&quot;</span><span class="p">)</span>
-  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;BladeDISC: </span><span class="si">{avg_lantency_bladedisc}</span><span class="s2"> ms&quot;</span><span class="p">)</span>
-  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;BladeDISC speedup: {avg_lantency_baseline/avg_lantency_bladedisc}&quot;</span><span class="p">)</span>
+  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Seqlen: </span><span class="si">{</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">s</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">input_strs</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Baseline: </span><span class="si">{</span><span class="n">avg_lantency_baseline</span><span class="si">}</span><span class="s2"> ms&quot;</span><span class="p">)</span>
+  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;BladeDISC: </span><span class="si">{</span><span class="n">avg_lantency_bladedisc</span><span class="si">}</span><span class="s2"> ms&quot;</span><span class="p">)</span>
+  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;BladeDISC speedup: </span><span class="si">{</span><span class="n">avg_lantency_baseline</span><span class="o">/</span><span class="n">avg_lantency_bladedisc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 
 <span class="n">input_strs</span> <span class="o">=</span> <span class="p">[</span>
@@ -331,9 +335,9 @@ BladeDISC speedup: 4.134677169331087
 </pre></div>
 </div>
 <p>The benchmark shows the speedup after compiled with BladeDISC.</p>
-</div>
-<div class="section" id="play-with-the-optimized-module">
-<h3>Play With the Optimized Module<a class="headerlink" href="#play-with-the-optimized-module" title="Permalink to this headline">¶</a></h3>
+</section>
+<section id="play-with-the-optimized-module">
+<h3>Play With the Optimized Module<a class="headerlink" href="#play-with-the-optimized-module" title="Permalink to this heading">¶</a></h3>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span> <span class="nn">transformers</span> <span class="kn">import</span> <span class="n">TextClassificationPipeline</span>
 
 <span class="n">optimized_ts</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">config</span>
@@ -347,7 +351,7 @@ BladeDISC speedup: 4.134677169331087
 <span class="n">results</span> <span class="o">=</span> <span class="n">blade_classifier</span><span class="p">(</span><span class="n">input_strs</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">inp_str</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">input_strs</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
   <span class="nb">print</span><span class="p">(</span><span class="n">inp_str</span><span class="p">)</span>
-  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; label: </span><span class="si">{result[&#39;label&#39;]}</span><span class="s2">, with a score: {round(result[&#39;score&#39;], 4)}&quot;</span><span class="p">)</span>
+  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; label: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, with a score: </span><span class="si">{</span><span class="nb">round</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;score&#39;</span><span class="p">],</span> <span class="mi">4</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>We are very happy to show you the story.
@@ -371,13 +375,13 @@ with a large dataset, refer to
 <span class="n">results</span> <span class="o">=</span> <span class="n">classifier</span><span class="p">(</span><span class="n">input_strs</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">inp_str</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">input_strs</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
   <span class="nb">print</span><span class="p">(</span><span class="n">inp_str</span><span class="p">)</span>
-  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; label: </span><span class="si">{result[&#39;label&#39;]}</span><span class="s2">, with a score: {round(result[&#39;score&#39;], 4)}&quot;</span><span class="p">)</span>
+  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; label: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, with a score: </span><span class="si">{</span><span class="nb">round</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;score&#39;</span><span class="p">],</span> <span class="mi">4</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Predict with BladeDISC optimized model:&quot;</span><span class="p">)</span>
 <span class="n">results</span> <span class="o">=</span> <span class="n">blade_classifier</span><span class="p">(</span><span class="n">input_strs</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">inp_str</span><span class="p">,</span> <span class="n">result</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">input_strs</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
   <span class="nb">print</span><span class="p">(</span><span class="n">inp_str</span><span class="p">)</span>
-  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; label: </span><span class="si">{result[&#39;label&#39;]}</span><span class="s2">, with a score: {round(result[&#39;score&#39;], 4)}&quot;</span><span class="p">)</span>
+  <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot; label: </span><span class="si">{</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;label&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">, with a score: </span><span class="si">{</span><span class="nb">round</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s1">&#39;score&#39;</span><span class="p">],</span> <span class="mi">4</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
 <div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Predict with Baseline PyTorch model:
@@ -402,10 +406,10 @@ It will be awesome if you give us feedback!
 </div>
 <p>Looks good! Next you may want to turn on mix-precision configuration
 <code class="docutils literal notranslate"><span class="pre">torch_config.enable_mlir_amp</span> <span class="pre">=</span> <span class="pre">True</span></code> and try it. Wish you have a good time.</p>
-</div>
-</div>
-<div class="section" id="deep-dive">
-<h2>Deep Dive<a class="headerlink" href="#deep-dive" title="Permalink to this headline">¶</a></h2>
+</section>
+</section>
+<section id="deep-dive">
+<h2>Deep Dive<a class="headerlink" href="#deep-dive" title="Permalink to this heading">¶</a></h2>
 <p>To have a glance at what TorchBlade has done during the optimization, one could
 print code of the forward method of the optimized model with the following
 example:</p>
@@ -471,8 +475,8 @@ out.2021_12_22-18_24_04.226587.so
 out.2021_12_22-18_24_04.226587.so.pbtxt
 </pre></div>
 </div>
-</div>
-</div>
+</section>
+</section>
 
 
                         
@@ -489,7 +493,7 @@ out.2021_12_22-18_24_04.226587.so.pbtxt
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'../../',
             VERSION:'1.0.0',
-            LANGUAGE:'None',
+            LANGUAGE:'en',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true,
@@ -499,7 +503,9 @@ out.2021_12_22-18_24_04.226587.so.pbtxt
     <script type="text/javascript" src="../../_static/documentation_options.js"></script>
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/sphinx_highlight.js"></script>
     <script type="text/javascript" src="../../_static/clipboard.min.js"></script>
     <script type="text/javascript" src="../../_static/copybutton.js"></script>
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
@@ -508,7 +514,7 @@ out.2021_12_22-18_24_04.226587.so.pbtxt
     <div class="footer" role="contentinfo">
         <div class="container">
             &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
-        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 4.3.2.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
         </div>
     </div>  
 

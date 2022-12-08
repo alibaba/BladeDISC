@@ -1,0 +1,547 @@
+
+
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Background &mdash; BladeDISC 1.0.0 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+
+  
+  
+    
+
+  
+
+  <link rel="stylesheet" href="../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/css/custom.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/css/theme.min.css" type="text/css" />
+  <link rel="stylesheet" href="../../_static/copybutton.css" type="text/css" />
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
+
+</head>
+
+<body>
+    <header>
+        <div class="container">
+            <a class="site-nav-toggle hidden-lg-up"><i class="icon-menu"></i></a>
+            <a class="site-title" href="../../index.html">
+                BladeDISC
+            </a>
+        </div>
+    </header>
+
+
+<div class="breadcrumbs-outer hidden-xs-down">
+    <div class="container">
+        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="breadcrumbs">
+    
+      <li><a href="../../index.html">Docs</a></li>
+        
+      <li>Background</li>
+    
+    
+      <li class="breadcrumbs-aside">
+        
+            
+            <a href="../../_sources/docs/design/shape_constraint_ir.md.txt" rel="nofollow"> View page source</a>
+          
+        
+      </li>
+    
+  </ul>
+</div>
+    </div>
+</div>
+    <div class="main-outer">
+        <div class="container">
+            <div class="row">
+                <div class="col-12 col-lg-3 site-nav">
+                    
+<div role="search">
+    <form class="search" action="../../search.html" method="get">
+        <div class="icon-input">
+            <input type="text" name="q" placeholder="Search" />
+            <span class="icon-search"></span>
+        </div>
+        <input type="submit" value="Go" class="d-hidden" />
+        <input type="hidden" name="check_keywords" value="yes" />
+        <input type="hidden" name="area" value="default" />
+    </form>
+</div>
+                    <div class="site-nav-tree">
+                        
+                            
+                            
+                                <ul>
+<li class="toctree-l1"><a class="reference internal" href="../../README.html">BladeDISC Overview</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#overview">Overview</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#api-quickview">API QuickView</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#setup-and-examples">Setup and Examples</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#publications">Publications</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#tutorials-and-documents-for-developers">Tutorials and Documents for Developers</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#presentations-and-talks">Presentations and Talks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#how-to-contribute">How to Contribute</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#building-status">Building Status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#faq">FAQ</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../README.html#contact-us">Contact Us</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../install_with_docker.html">Install with Docker</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../install_with_docker.html#download-a-bladedisc-docker-image">Download a BladeDISC Docker Image</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../install_with_docker.html#start-a-docker-container">Start a Docker Container</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../build_from_source.html">Build from Source</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#prerequisite">Prerequisite</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#checkout-the-source">Checkout the Source</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#launch-a-development-docker-container">Launch a development Docker container</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#building-bladedisc-for-tensorflow-users">Building BladeDISC for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../build_from_source.html#building-bladedisc-for-pytorch-users">Building BladeDISC for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../quickstart.html">Quickstart</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#quickstart-for-tensorflow-users">Quickstart for TensorFlow Users</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../quickstart.html#quickstart-for-pytorch-users">Quickstart for PyTorch Users</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../contribution.html">How to Contribute</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../contribution.html#local-development-environment">Local Development Environment</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../contribution.html#submit-a-pull-request-to-bladedisc">Submit a Pull Request to BladeDISC</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../tutorials/index.html">Tutorials on Example Use Cases</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/tensorflow_inference_and_training.html">Use case of TensorFlow Inference and Training</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../tutorials/torch_bert_inference.html">Use case of PyTorch Inference</a></li>
+</ul>
+</li>
+</ul>
+
+                            
+                        
+                    </div>
+                </div>
+                <div class="col-12 col-lg-9">
+                    <div class="document">
+                        
+                            
+  <section id="background">
+<h1>Background<a class="headerlink" href="#background" title="Permalink to this heading">¶</a></h1>
+<p>Dynamic shape problem is ubiquitous when deploying AI workloads. Almost all our in-house models have dynamic shape problem in some degree. Dynamic shape problem can be divided into two categories.</p>
+<ul class="simple">
+<li><p>Input shape of the model is dynamic</p>
+<ul>
+<li><p>different batch size in inference scenarios</p></li>
+<li><p>different image size, sequence length, etc</p></li>
+</ul>
+</li>
+<li><p>Shape is dynamic by design</p>
+<ul>
+<li><p>For seq2seq model, the number of decoding step is dynamic</p></li>
+<li><p>For CV detection model, the number of detected instants is dynamic</p></li>
+<li><p>For recommendation model, shape is affected by the value of its inputs (e.g. <code class="docutils literal notranslate"><span class="pre">tf.UniqueOp</span></code>).</p></li>
+</ul>
+</li>
+</ul>
+<p>To solve the above problem, BladeDISC, an e2e dynamic shape compiler, is proposed. We already have seen many advantages of using BladeDISC over the previous static-shape-based compiler (e.g. XLA) in many pratical scenarios. However, there are still many rooms for improvement, especially in terms of the performance. In dynamic shape semantics, the concrete shape is out of reach, making many optimization strategies used in static shape semantics invalid. According to our previous experience in optimizing dynamic shape AI workloads, we found that shape constraint, the relationship between different symbolic shape (or dimension size), is very helpful in terms of performance optimization. For example:</p>
+<ul class="simple">
+<li><p>(partial) shape inference, propagating some known information to make best use of the existing information.
+e.g. <code class="docutils literal notranslate"><span class="pre">mhlo.add(tensor&lt;?x10xf32&gt;,</span> <span class="pre">tensor&lt;10x?xf32&gt;)</span> <span class="pre">-&gt;</span> <span class="pre">tensor&lt;?x?xf32&gt;</span></code> can be simplifier to <code class="docutils literal notranslate"><span class="pre">mhlo.add(tensor&lt;10x10xf32&gt;,</span> <span class="pre">tensor&lt;10x10xf32&gt;)</span> <span class="pre">-&gt;</span> <span class="pre">tensor&lt;10x10xf32&gt;</span></code>.</p></li>
+<li><p>graph optimization. For example, removing redundant <code class="docutils literal notranslate"><span class="pre">mhlo.dynamic_broadcast_in_dim</span></code> op if we can infer that the output and input of the broadcast op have the same shape.</p></li>
+<li><p>layout optimization. For example, grouping shape-compatible ops, using same layout inside the group, saving redundant layout conversion between ops inside the groups.</p></li>
+<li><p>Fusion decision. Making use of the shape constraint information, we can do better fusion decision in dynamic shape semantics, e.g., only fusing shape-compatible ops into one kernel.</p></li>
+<li><p>Codegen optimization. For example, removing many redundant index calculation if we know some symbolic dimensions have the same size, which is crucial when the fusion pattern is relative large.</p></li>
+<li><p>and many others …</p></li>
+</ul>
+<p>In this design document, we will first give a brief introduction to the definition of the shape constraint we used in the document and where we can get the shape constraint information. Then, we will show the limitations of the current strategy of making use of the shape constraint information and why we need to use shape constraint IR. At last, we will describe the details of shape constraint IR design and the related optimizations.</p>
+</section>
+<section id="what-is-shape-constraint">
+<h1>What is shape constraint?<a class="headerlink" href="#what-is-shape-constraint" title="Permalink to this heading">¶</a></h1>
+<p>There are two kinds of shape constraint:</p>
+<ul class="simple">
+<li><p>Structure shape constraint, the predicate (relationship) between different symbolic dimensions.</p>
+<ul>
+<li><p>dimension size equality</p>
+<ul>
+<li><p>the size of one dimension of a tensor is equal to the size of one dimension of another tensor.</p></li>
+<li><p>the size of one dimension of a tensor is equal to the size of another dimension of the same tensor.</p></li>
+</ul>
+</li>
+<li><p>equality of the number of elements</p>
+<ul>
+<li><p>the number of elements of a tensor is equal to the number of elements of another tensor.</p></li>
+</ul>
+</li>
+<li><p>group multiplication equality</p>
+<ul>
+<li><p>e.g. <code class="docutils literal notranslate"><span class="pre">reshape([a,</span> <span class="pre">b,</span> <span class="pre">c,</span> <span class="pre">d])</span> <span class="pre">-&gt;</span> <span class="pre">[ab,</span> <span class="pre">cd]</span></code></p></li>
+</ul>
+</li>
+<li><p>and many others …</p></li>
+</ul>
+</li>
+<li><p>Shape distribution constraint</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">dim</span> <span class="pre">size</span> <span class="pre">%</span> <span class="pre">4</span> <span class="pre">=</span> <span class="pre">0</span></code>;</p></li>
+<li><p>Likely values of the symbolic dimension (shape);</p></li>
+<li><p>Possible shape ranges of the symbolic dimension (shape);</p></li>
+<li><p>and many others …</p></li>
+</ul>
+</li>
+</ul>
+</section>
+<section id="where-to-get-shape-constraint">
+<h1>Where to get shape constraint?<a class="headerlink" href="#where-to-get-shape-constraint" title="Permalink to this heading">¶</a></h1>
+<section id="semantics-of-the-definition-of-operation">
+<h2>Semantics of the definition of operation<a class="headerlink" href="#semantics-of-the-definition-of-operation" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>The inputs and outputs of an elementwise op of mhlo dialect should have same shape</p></li>
+<li><p>The input and output of a mhlo.dynamic_reshape op should have same number of elements</p></li>
+<li><p>The inputs and output of a mhlo.concat op should have same dim size for each non-concat dim</p></li>
+<li><p>and many others …</p></li>
+</ul>
+<p>An example for mhlo binary is shown as following. Note that the <code class="docutils literal notranslate"><span class="pre">SameOperandsAndResultShape</span></code> trait
+used in the op definition.</p>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>class HLO_BinaryElementwiseOpNoAssembly&lt;string mnemonic, list&lt;Trait&gt; traits&gt; :
+    HLO_Op&lt;mnemonic, traits # [InferShapedTypeOpInterface,
+    SameOperandsAndResultShape, Elementwise]&gt; {
+  let arguments = (ins
+    HLO_Tensor:$lhs,
+    HLO_Tensor:$rhs
+  );
+
+  let extraClassDeclaration = [{
+    ...
+  }];
+
+  let results = (outs HLO_Tensor:$result);
+}
+</pre></div>
+</div>
+</section>
+<section id="injected-by-frontend-converter">
+<h2>Injected by frontend converter<a class="headerlink" href="#injected-by-frontend-converter" title="Permalink to this heading">¶</a></h2>
+<p>BladeDISC frontend converter lowers a coarse grained op to a bunch of fine grained MHLO ops. Not only the data computation but also the shape constraint should be lowered during dialect conversions.
+For example, <code class="docutils literal notranslate"><span class="pre">tf.SplitOp</span></code> will be lowered into a series of <code class="docutils literal notranslate"><span class="pre">mho.RealDynamicSliceOp</span></code>. According to the definition of the <code class="docutils literal notranslate"><span class="pre">tf.SplitOp</span></code>, we can know that all the outputs of the split op should have same shape and <code class="docutils literal notranslate"><span class="pre">the</span> <span class="pre">split</span> <span class="pre">dimension</span> <span class="pre">of</span> <span class="pre">the</span> <span class="pre">input</span> <span class="pre">%</span> <span class="pre">(number</span> <span class="pre">of</span> <span class="pre">outputs)</span> <span class="pre">==</span> <span class="pre">0</span></code>.</p>
+<p><img alt="tf_split_op_example" src="../../_images/split_op_example.png" /></p>
+<p>In the current implementation, we only do data computation IR lowering, losing some shape constraint information, which in turn leads to losing some opportunities to do further optimizations.</p>
+</section>
+<section id="symbolic-shape-analysis">
+<h2>Symbolic Shape Analysis<a class="headerlink" href="#symbolic-shape-analysis" title="Permalink to this heading">¶</a></h2>
+<p>There are two kinds of symbolic shape analysis ways.</p>
+<ul class="simple">
+<li><p>Propagation existing shape constraint to find more shape constraint</p>
+<ul>
+<li><p>Input -&gt; output, input -&gt; input, output -&gt; input</p></li>
+</ul>
+</li>
+<li><p>Shape computation IR analysis</p>
+<ul>
+<li><p>As shown in the below example, we can know more about the dynamic reshape op by analyzing the shape computation IR (to be concrete, the IR used to calculate the target shape of the <code class="docutils literal notranslate"><span class="pre">dynamic_reshape</span></code> op).</p></li>
+</ul>
+</li>
+</ul>
+<p><img alt="symbolic shape analysis example" src="../../_images/symbolic_shape_analysis_example.png" /></p>
+</section>
+<section id="injected-at-jit-compilation-time">
+<h2>Injected at JIT compilation time<a class="headerlink" href="#injected-at-jit-compilation-time" title="Permalink to this heading">¶</a></h2>
+<p>The input shapes are actually known at JIT compilation time. We may choose to inject such information as likely shape values of the inputs of the graph and then propagate such information.</p>
+</section>
+<section id="provided-by-end-users">
+<h2>Provided by end users<a class="headerlink" href="#provided-by-end-users" title="Permalink to this heading">¶</a></h2>
+<p>User may provide more information about the distribution of the shape of inputs (e.g. shape range) or relationships of the shape of inputs (e.g. two inputs have same shape). And then, the compiler can make use of such information to do better optimizations.</p>
+</section>
+</section>
+<section id="why-shape-constraint-ir">
+<h1>Why shape constraint IR?<a class="headerlink" href="#why-shape-constraint-ir" title="Permalink to this heading">¶</a></h1>
+<p>Although we have already made use of the shape constraint in some degree, there are still many limitations of the current implementation. In the current implementation, The shape constraint information itself is not stored using IR and we obtains the shape constraint information by doing global analysis on the data computation IR each time we need it. The above design choice leads to following problems:</p>
+<ul class="simple">
+<li><p>shape constraint information loss during dialect conversion. During the whole optimization pipeline, the data computation IR is lowered many times (e.g. tf/torch dialect -&gt; mhlo, mhlo -&gt; lmhlo). For each lowering, we only do data computation IR lowering currently, losing some shape constraint information.
+the result of shape constraint analysis is not stable after IR mutation (e.g. after running canonicalization pass). Such inconsistent result may lead to wired behaviour when making use of shape constraint information across passes.</p></li>
+<li><p>doing analysis on the data computation IR globally to get shape constraint information is more challenging or even impossible after lowering to buffer level (e.g. lmhlo dialect). It’s very hard to do analysis by chasing a series of load/store ops, especially when there exists control flow ops.</p></li>
+<li><p>shape distribution constraint can not always be analyzed from the data computation IR. And we do not have a unify way to describe such information across different dialects.</p></li>
+</ul>
+<p>To solve the above problem, we propose using shape constraint IR to describe shape constraint information explicitly. We’ll give more details about the design in following sections.</p>
+</section>
+<section id="shape-constraint-ir-design">
+<h1>Shape constraint IR design<a class="headerlink" href="#shape-constraint-ir-design" title="Permalink to this heading">¶</a></h1>
+<section id="basic-idea">
+<h2>Basic idea<a class="headerlink" href="#basic-idea" title="Permalink to this heading">¶</a></h2>
+<ul class="simple">
+<li><p>using type instead of dedicated shape constraint op to encode shape constraint information into data computation IR.</p>
+<ul>
+<li><p>Type-based schema not introduce any other ops, which means most of the existing pattern-based passes (e.g. <code class="docutils literal notranslate"><span class="pre">matmul+BiadAdd</span> <span class="pre">-&gt;</span> <span class="pre">FusedMatmulBiasAdd</span></code>) not do need to take shape constraint ops into consideration.</p></li>
+</ul>
+</li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>// type-based encoding schema
+// each unique reference attribute (e.g. @S0, @S1) represents a unique symbolic dim.
+%2 = mhlo.add(%0, %1) : (tensor&lt;?x?xf32, [@S0, @S1]&gt;, tensor&lt;?x?xf32, [@S0, @S1]&gt;) -&gt; tensor&lt;?x?xf32, [@S0, @S1]&gt;
+
+// op-based encoding schema
+%d0 = tensor.dim %0, %c0 : tensor&lt;?x?xf32&gt;
+%d1 = tensor.dim %0, %c1 : tensor&lt;?x?xf32&gt;
+// explicitly binding each dimension size with the corresponding tensor
+%n0 = disc_shape.tie_shape(%0, %d0, %d1) : tensor&lt;?x?xf32&gt;
+%n1 =  disc_shape.tie_shape(%1, %d0, %d1) : tensor&lt;?x?xf32&gt;
+%2 = mhlo.add(%n1, %n2) : (tensor&lt;?x?xf32&gt;, tensor&lt;?x?xf32&gt;) -&gt; tensor&lt;?x?xf32&gt;
+%n2 =  disc_shape.tie_shape(%2, %d0, %d1) : tensor&lt;?x?xf32&gt;
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>Separating shape constraint IR and data computation IR.</p>
+<ul>
+<li><p>Some shape constraint information (e.g. shape distribution constraint) is not always possible to be bound with data computation IR.</p></li>
+<li><p>A unified way to describe shape constraint information, no matter what dialects the data computation IR used. And thus, the shape constraint information will no longer be lost when lowering data computation IR during the whole optimization pipeline.</p></li>
+</ul>
+</li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>func @main() {
+  ...
+  %0 = any_dialect.any_operation(...) : tensor&lt;?x?xf32, [@S0, @S1]&gt;
+  ...
+}
+
+disc_shape.SymbolDim @S0 {
+  range list : [[...], [...], ...]
+  likely_values : [...]
+  ...
+  symbolic_shape_graph: @shape_constraint_graph
+}
+
+disc_shape.SymbolDim @S1 {
+  range list : [[...], [...], ...]
+  likely_values : [...]
+  ...
+  symbolic_shape_graph: @shape_constraint_graph
+}
+
+// A separated function to store shape constraint predicates between different symbolic dimensions.
+// Each symbolic dim is either bound to a `disc_shape.dim` op or `disc_shape.bind_dim`
+func @shape_constraint_graph(...) {
+  %0 = disc_shape.dim() {ref: @S0} : index
+  %1 = disc_shape.dim() {ref: @S1} : index
+  disc_shape.tie_predicate_divisible(d0, d1) // d0 % d1 == 0
+
+  // other tie_* ops
+  //   disc_shape.tie_predicate_eq(d0, d1)  // d0 == d1
+  //   disc_shape.tie_predicate_lt(d0, d1)  // dim less than
+  //   disc_shape.tie_predicate_mul_eq(d0, d1, d2, ...) // d0 = d1 * d2 * ...
+  //   // d0 * d1 = s0 * s1
+  //   disc_shape.tie_predicate_group_mul_eq([d0, d1, ..], [s0, s1, ...])
+  //   // d0 = affine.apply(d1, d2, ...) {affine_attr = ...}
+  //   disc_shape.tie_predicate_affine_eq(d0, d1, d2, ...) {affine_attr = ...}
+}
+</pre></div>
+</div>
+<ul class="simple">
+<li><p>explicitly materialize all shape computation IR on tensor level instead of on buffer level. Currently, we only materialize all shape computation IR after bufferization (mhlo -&gt; lmhlo). It means we have to do some shape computation IR analysis and optimization on buffer level, which could be much difficult than doing same thing on tensor level since we have to chasing each load/store ops and buffer alias to do analysis.</p></li>
+</ul>
+</section>
+<section id="basic-flow">
+<h2>Basic flow<a class="headerlink" href="#basic-flow" title="Permalink to this heading">¶</a></h2>
+<p>Most logic is implemented inside the shape optimization pass which is shown as following diagram.
+The shape optimization pass is tensor-level only pass, and is reenterable. The whole pass can be divided into two stages.</p>
+<ul class="simple">
+<li><p>stage one: explicitly materialize shape computation IR on tensor level.</p></li>
+<li><p>stage two: shape constraint analysis and shape computation IR optimization on tensor level.</p></li>
+</ul>
+<p><img alt="shape optimization pass workflow" src="../../_images/shape-constraint-pass-workflow.png" /></p>
+<section id="stage-one-explicitly-materialize-shape-computation-ir-on-tensor-level">
+<h3>stage one: explicitly materialize shape computation IR on tensor level<a class="headerlink" href="#stage-one-explicitly-materialize-shape-computation-ir-on-tensor-level" title="Permalink to this heading">¶</a></h3>
+<p>It’s main functions:</p>
+<ul class="simple">
+<li><p>(partial) shape inference, (input -&gt; output only in the phase)</p>
+<ul>
+<li><p>no need to do shape inference manually anymore.</p></li>
+<li><p>taking advantage of existing canonicalize pattern &amp; cse pass</p></li>
+<li><p>example:</p>
+<ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">concat([tensor&lt;?x10xf32&gt;,</span> <span class="pre">tensor&lt;?x10xf32&gt;],</span> <span class="pre">axis=1)</span> <span class="pre">-&gt;</span> <span class="pre">tensor&lt;?x20xf32&gt;</span></code></p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>enable more opportunities to optimize shape computation IR</p>
+<ul>
+<li><p>again, taking advantage of existing canonicalize pattern &amp; cse pass</p></li>
+<li><p>examples:</p></li>
+</ul>
+</li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span> // An unified solution to handle partial known shape information
+ - mhlo.real_dynamic_slice:
+    - %out = %in[:,1:]
+ - mhlo.dynamic_conv
+    - if stride = 1, padding = kernel size, then output spatial size == input spatial size
+ - dynamic pad
+    - if only padding along some of the axes,
+    - then output and input have some size along the other axes
+ - ...
+
+ // take `mhlo.real_dynamicm_slice:  %out = %in[:,1:]` as an example
+ %d0 = %tensor.dim %in, %c0 : tensor&lt;?x?xf32&gt;
+ %d1 = %tensor.dim %in, %c1 : tensor&lt;?x?xf32&gt;
+ %begin = tensor.from_elements %c0, %c1 : tensor&lt;2xindex&gt;
+ %end = tensor.from_elements %d0, %d1 : tensor&lt;2xindex&gt;
+ %strides = tensor.from_elements %c1, %c1 : tensor&lt;2xindex&gt;
+ %out = mhlo.real_dynamic_slice(%in, %begin, %end, %strides)
+
+ // we only need to provide a `tensor.extract_elements + tensor.from_elements`
+ // rewrite pattern, and then we can know that the output and input have same
+ // dim size along the first axis by taking advantage of existing
+ // `canonicalize pattern &amp; cse pass`
+</pre></div>
+</div>
+<p>It’s basic flow:</p>
+<ul class="simple">
+<li><p>For a given data computation function (e.g. the main function), we insert a <code class="docutils literal notranslate"><span class="pre">disc_shape.tie_shape</span></code> for each value having <code class="docutils literal notranslate"><span class="pre">RankedTensorType</span></code> type. An example is shown as below.</p></li>
+</ul>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span>// before inserting tie_shape op
+func @main(%arg0 : tensor&lt;?xf32&gt;) -&gt; tensor&lt;?xf32&gt; {
+  %0 = &quot;mhlo.some_ops&quot;(%arg0) : tensor&lt;?xf32&gt;
+  return %0 : tensor&lt;?xf32&gt;
+}
+
+// after inserting tie_shape op
+func @main(%arg0 : tensor&lt;?xf32&gt;) -&gt; tensor&lt;?xf32&gt; {
+  %c0 = constant 0 : index
+  // insert tie_shape op for %arg0
+  %d0_arg0 = tensor.dim %arg0, %c0 : tensor&lt;?xf32&gt;
+  %new_arg0 = disc_shape.tie_shape(%arg0, %d0_arg0)
+
+  %result = &quot;mhlo.some_ops&quot;(%new_arg0) : tensor&lt;?xf32&gt;
+
+  // insert tie_shape op for %result
+  %d0_result = tensor.dim %result, %c0 : tensor&lt;?xf32&gt;
+  %new_result = disc_shape.tie_shape(%result, %d0_result)
+  return %new_result : tensor&lt;?xf32&gt;
+}
+recursively resolve tensor.dim/shape.shape_of op based on shape interface implementation. basic idea is shown as below.
+// take `tensor.dim` as an example, same to shape.shape_of
+
+for each tensor.dim op:
+  operand = dimOp.getOperand(0)
+  definingOp = operand.getDefiningOp()
+  if (definingOp has shape interface implementation)
+    materialize the shape interface implementation
+
+// reference implementation pass:
+// mlir/lib/Dialect/MemRef/Transforms/ResolveShapedTypeResultDims.cpp
+</pre></div>
+</div>
+</section>
+<section id="stage-two-shape-constraint-analysis-and-shape-computation-ir-optimization-on-tensor-level">
+<h3>stage two: shape constraint analysis and shape computation IR optimization on tensor level<a class="headerlink" href="#stage-two-shape-constraint-analysis-and-shape-computation-ir-optimization-on-tensor-level" title="Permalink to this heading">¶</a></h3>
+<p>It’s an iterative process and the whole process can be divided into five steps:</p>
+<ol class="simple">
+<li><p>canonicalization stage</p>
+<ul class="simple">
+<li><p>including normal canonicalization pattern &amp; CSE</p></li>
+<li><p>and a bunch of new rewrite patterns</p>
+<ul>
+<li><p>Scalarize shape computation IR whenever possible</p>
+<ul>
+<li><p>shape.shape_of -&gt; a bunch of tensor.dim ops</p></li>
+<li><p>shape.broadcast(shape_a, shape_b) -&gt; dim-wise broadcast + tensor.from_elements</p></li>
+</ul>
+</li>
+<li><p>bcast/reshape simplifier</p></li>
+<li><p>…</p></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>load existing shape constraint IR</p></li>
+<li><p>global shape analysis</p>
+<ul class="simple">
+<li><p>analysis shape computation IR -&gt; find more constraint</p></li>
+<li><p>inject shape constraint implied by mhlo op definition</p></li>
+<li><p>…</p></li>
+</ul>
+</li>
+<li><p>global shape optimization</p>
+<ul class="simple">
+<li><p>using same SSA value for symbolic equal dims</p></li>
+<li><p>refine types with partial known information globally</p></li>
+</ul>
+</li>
+<li><p>save the updated shape constraint information into IR</p></li>
+</ol>
+</section>
+</section>
+</section>
+
+
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>    
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'../../',
+            VERSION:'1.0.0',
+            LANGUAGE:'en',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true,
+            SOURCELINK_SUFFIX: '.txt'
+        };
+    </script>
+    <script type="text/javascript" src="../../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/_sphinx_javascript_frameworks_compat.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <script type="text/javascript" src="../../_static/sphinx_highlight.js"></script>
+    <script type="text/javascript" src="../../_static/clipboard.min.js"></script>
+    <script type="text/javascript" src="../../_static/copybutton.js"></script>
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script type="text/javascript" src="../../_static/js/theme.js"></script>
+  
+    <div class="footer" role="contentinfo">
+        <div class="container">
+            &#169; Copyright bladedisc-dev@list.alibaba-inc.com.
+        Created using <a href="http://sphinx-doc.org/">Sphinx</a> 5.3.0.
+        </div>
+    </div>  
+
+</body>
+</html>

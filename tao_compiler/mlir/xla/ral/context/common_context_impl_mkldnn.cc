@@ -651,7 +651,8 @@ void mkl_ral_gemm(ExecutionContext* ctx, void* stream_handle,
       unique_name, []() { return new MklGemmState; });
   opaque_t packed_weight;
   {
-    GEMMParamsKey key{m, n, k, 1, tp_a, tp_b, B.data, kDiscCpuDefaultThreadId};
+    GEMMParamsKey key{
+        m, n, k, 1, tp_a, tp_b, B.data, nullptr, kDiscCpuDefaultThreadId};
     std::lock_guard<std::mutex> l(state->mu);
     auto& cache = state->cache;
     auto it = cache.find(key);

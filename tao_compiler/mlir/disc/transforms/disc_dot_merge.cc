@@ -641,6 +641,7 @@ bool DotBatchMergeConverter::buildMergingShapeMap(
 }
 
 bool DotBatchMergeConverter::applyMerging(DotCluster& cluster) {
+  llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n";
   auto& ops = cluster.ops;
   auto loc = ops.front()->getLoc();
   auto foremost = ops.front();
@@ -660,6 +661,7 @@ bool DotBatchMergeConverter::applyMerging(DotCluster& cluster) {
     op->moveBefore(foremost);
     ArrangeOperandsInsertPointInBlock(op);
   }
+  llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n";
   auto last_dot = dyn_cast<mhlo::DotGeneralOp>(foremost);
   // We use the foremost dot to create the builder. Thus we only need to reorder
   // the operands of some newly created ops, rather users of them.
@@ -671,6 +673,7 @@ bool DotBatchMergeConverter::applyMerging(DotCluster& cluster) {
   SmallVector<Value, 4> rhs_operands;
   for (auto op : ops) {
     mhlo::DotGeneralOp dot = dyn_cast<mhlo::DotGeneralOp>(op);
+    dot.dump();
     auto lhs_expand = expandDim0(builder, loc, dot.getLhs());
     auto rhs_expand = expandDim0(builder, loc, dot.getRhs());
     if (!lhs_expand || !rhs_expand) {
@@ -714,6 +717,7 @@ bool DotBatchMergeConverter::applyMerging(DotCluster& cluster) {
       RankedTensorType::get(result_shapes, orig_dot_type.getElementType());
   // Build dot dimension numbers.
   auto dim_numbers = last_dot.getDotDimensionNumbers();
+  llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n";
 
   SmallVector<int64_t> lhs_batching_dims;
   auto lhs_batch = dim_numbers.getLhsBatchingDimensions();
@@ -740,14 +744,18 @@ bool DotBatchMergeConverter::applyMerging(DotCluster& cluster) {
     rhs_contracting_dims.push_back(val + 1);
   }
 
+  llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n";
   auto dot_dimension_attr = mhlo::DotDimensionNumbersAttr::get(
       builder.getContext(), lhs_batching_dims, rhs_batching_dims,
       lhs_contracting_dims, rhs_contracting_dims);
 
+  llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n";
   // Create batched dot.
   Value batched_dot = builder.create<mhlo::DotGeneralOp>(
       loc, result_type, lhs, rhs, dot_dimension_attr, nullptr);
+  batched_dot.dump();
 
+  llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n";
   Value one = builder.create<arith::ConstantIndexOp>(loc, 1);
   Value zero = builder.create<arith::ConstantIndexOp>(loc, 0);
   // Build slice and reshape op for each of the original dot op, and replace the
@@ -823,6 +831,7 @@ bool DotBatchMergeConverter::applyMerging(DotCluster& cluster) {
           loc, orig_dot_type, dyn_slice, reshape_shape);
       op->replaceAllUsesWith(dyn_reshape);
     }
+    llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n";
   }
 
   // No longer need the original dot ops.
@@ -830,6 +839,7 @@ bool DotBatchMergeConverter::applyMerging(DotCluster& cluster) {
     ops[i]->erase();
   }
 
+  llvm::dbgs() << __FILE__ << ":" << __LINE__ << "\n";
   return true;
 }
 

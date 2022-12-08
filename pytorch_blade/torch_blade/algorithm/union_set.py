@@ -17,7 +17,7 @@ class UnionSet:
 
     def same_group(self, x: int, y: int):
         pid_x = self.find(x)
-        pid_y = self.find(x)
+        pid_y = self.find(y)
 
         if (pid_x == pid_y):
             return True
@@ -64,3 +64,12 @@ class UnionSet:
 
         assert(self._num_sets == len(groups))
         return groups
+
+    def slow_get_group(self, idx: int):
+        pid = self.find(idx)
+        group = list()
+        for k in range(0, self._num_elems):
+            if pid == self.find(k):
+                group.append(k)
+        return group 
+

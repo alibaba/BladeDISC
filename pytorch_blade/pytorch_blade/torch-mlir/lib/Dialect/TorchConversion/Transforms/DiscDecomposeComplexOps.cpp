@@ -195,6 +195,135 @@ LogicalResult ConvertAtenOp<AtenMaskedFillTensorOp>::matchAndRewrite(
   return success();
 }
 
+// def slice_scatter(self: torch.Tensor, values: torch.Tensor, dim: int, start:
+// int, end: int, step: int):
+//     size = self.size(dim)
+//     indices = torch.arange(size)
+//     shift_indices = indices - start
+//     mask = shift_indices % step == 0
+//     start_mask = shift_indices >= 0
+//     end_mask = shift_indices < end
+//     mask = mask * start_mask
+//     mask = mask * end_mask
+//     sizes = list(self.size())
+//     rank = len(sizes)
+//     shape = [1] * rank
+//     shape[dim] = size
+//     mask = mask.view(shape)
+//     return torch.where(mask, values, self)
+template <>
+LogicalResult ConvertAtenOp<AtenSliceScatterOp>::matchAndRewrite(
+    AtenSliceScatterOp op,
+    OpAdaptor adaptor,
+    ConversionPatternRewriter& rewriter) const {
+  auto getOptionalVal = [&](Value val, Value defVal) -> Value {
+    if (val.getType().isa<Torch::NoneType>()) {
+      return defVal;
+    } else {
+      return val;
+    }
+  };
+
+  // llvm::errs() << __FILE__ << ":" << __LINE__ << "\n";
+  Value one = rewriter.create<Torch::ConstantIntOp>(
+      op.getLoc(), rewriter.getI64IntegerAttr(1));
+  Value zero = rewriter.create<Torch::ConstantIntOp>(
+      op.getLoc(), rewriter.getI64IntegerAttr(0));
+  Value none = rewriter.create<ConstantNoneOp>(op.getLoc());
+  Value dimSize =
+      rewriter.create<AtenSizeIntOp>(op.getLoc(), op.self(), op.dim());
+
+  Value start = getOptionalVal(op.start(), zero);
+  Value end = getOptionalVal(op.end(), dimSize);
+  Value step = getOptionalVal(op.step(), one);
+  // step 1. calculate indices mask
+  Type indicesType = ValueTensorType::get(
+      op.getContext(),
+      ArrayRef<int64_t>{ShapedType::kDynamicSize},
+      IntegerType::get(op.getContext(), 64));
+  Type maskType = ValueTensorType::get(
+      op.getContext(),
+      ArrayRef<int64_t>{ShapedType::kDynamicSize},
+      IntegerType::get(op.getContext(), 1));
+
+  auto indices = rewriter.create<AtenArangeOp>(
+      op.getLoc(), indicesType, dimSize, none, none, none, none);
+  auto shiftIndices = rewriter.create<AtenSubScalarOp>(
+      op.getLoc(), indices.getType(), indices, start, one);
+  auto stepRemainder = rewriter.create<AtenRemainderScalarOp>(
+      op.getLoc(), indices.getType(), shiftIndices, step);
+  Value mask = rewriter.create<AtenEqScalarOp>(
+      op.getLoc(), maskType, stepRemainder, zero);
+  auto maskStart = rewriter.create<AtenGeScalarOp>(
+      op.getLoc(), maskType, shiftIndices, zero);
+  auto maskEnd =
+      rewriter.create<AtenGeScalarOp>(op.getLoc(), maskType, indices, end);
+  mask = rewriter.create<AtenBitwiseAndTensorOp>(
+      op.getLoc(), maskType, mask, maskStart);
+  mask = rewriter.create<AtenBitwiseAndTensorOp>(
+      op.getLoc(), maskType, mask, maskEnd);
+
+  int64_t inputRank = getTensorRank(op.self());
+  int64_t dimInt = 0;
+  // llvm::errs() << __FILE__ << ":" << __LINE__ << "\n";
+  if (matchPattern(op.dim(), m_TorchConstantInt(&dimInt))) {
+    // llvm::errs() << __FILE__ << ":" << __LINE__ << "\n";
+    dimInt = toPositiveDim(dimInt, inputRank);
+    if (!isValidDim(dimInt, inputRank))
+      return rewriter.notifyMatchFailure(op, "dim is not a valid dim");
+  } else {
+    return rewriter.notifyMatchFailure(op, "dim must be constant");
+  }
+  // llvm::errs() << __FILE__ << ":" << __LINE__ << "\n";
+
+  // step 2. make mask broadcastable to self's shape
+  SmallVector<int64_t> maskViewShapeInt(inputRank, 1);
+  SmallVector<Value> maskViewShape(inputRank, one);
+  maskViewShape[dimInt] = dimSize;
+  maskViewShapeInt[dimInt] = ShapedType::kDynamicSize;
+  Value maskViewSizeList = rewriter.create<PrimListConstructOp>(
+      op.getLoc(), ListType::get(IntType::get(op.getContext())), maskViewShape);
+  Type maskDtype = mask.getType().cast<ValueTensorType>().getDtype();
+  Type maskViewType = ValueTensorType::get(
+      op.getContext(), llvm::makeArrayRef(maskViewShapeInt), maskDtype);
+  Value maskView = rewriter.create<AtenViewOp>(
+      op.getLoc(), maskViewType, mask, maskViewSizeList);
+
+  // step 3. make src broadcastable to self's shape
+  Value src = op.src();
+  BaseTensorType srcTensorType = src.getType().cast<BaseTensorType>();
+  // llvm::errs() << __FILE__ << ":" << __LINE__ << "\n";
+  if (!srcTensorType.hasSizes())
+    return rewriter.notifyMatchFailure(op, "src tensor must have size");
+
+  // llvm::errs() << __FILE__ << ":" << __LINE__ << "\n";
+  ArrayRef<int64_t> srcShape = srcTensorType.getSizes();
+
+  int64_t srcRank = srcShape.size();
+  if (srcRank != inputRank) {
+    if (srcRank + 1 == inputRank) {
+      SmallVector<int64_t> sizes;
+      sizes.append(srcShape.begin(), srcShape.end());
+      sizes.insert(sizes.begin() + dimInt, 1);
+      Type srcType = srcTensorType.getWithSizesAndDtype(
+          llvm::makeArrayRef(sizes), srcTensorType.getDtype());
+      src =
+          rewriter.create<AtenUnsqueezeOp>(op.getLoc(), srcType, src, op.dim());
+    } else {
+      return rewriter.notifyMatchFailure(op, "src's rank doesn't match");
+    }
+  }
+
+  // op->getParentOp()->dump();
+  // op->dump();
+  // llvm::errs() << __FILE__ << ":" << __LINE__ << "\n";
+  rewriter.replaceOpWithNewOp<AtenWhereSelfOp>(
+      op, op.getType(), maskView, src, op.self());
+  // op->getParentOp()->dump();
+  // llvm::errs() << __FILE__ << ":" << __LINE__ << "\n";
+  return success();
+}
+
 template <>
 LogicalResult ConvertAtenOp<AtenPowTensorScalarOp>::matchAndRewrite(
     AtenPowTensorScalarOp op,
@@ -383,6 +512,7 @@ class DiscDecomposeComplexOpsPass
     INSERT_ATENOP_PATTERN(AtenNativeDropoutOp);
     INSERT_ATENOP_PATTERN(AtenNllLossForwardOp);
     INSERT_ATENOP_PATTERN(AtenPowTensorScalarOp);
+    INSERT_ATENOP_PATTERN(AtenSliceScatterOp);
 
 #undef INSERT_ATENOP_PATTERN
 

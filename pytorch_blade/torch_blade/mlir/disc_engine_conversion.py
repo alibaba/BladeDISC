@@ -174,7 +174,6 @@ def _optimize_mlir(script_module):
                 fusion_block(blk)
 
         unsupported_nodes = _get_mlir_unsupported(block)
-
         _ = support_fusion_group.supported_node_fusion(
             graph, block, unsupported_nodes, support_number_ios=True
         )

@@ -28,11 +28,15 @@ from transformers import AutoModelForSequenceClassification
 from transformers import AutoTokenizer
 
 import torch._dynamo as torchdynamo
-import torch_blade.utils as utils
+import torch._inductor.config
+import torch._inductor as torchinductor
 import torch_blade.clustering.support_fusion_group as fusion
 import torch_blade.dynamo
 import ctypes
-
+import logging
+torchdynamo.config.log_level = logging.DEBUG
+torchdynamo.config.verbose = True
+# torchinductor.config.cudagraphs = False
 _cudart = ctypes.CDLL('libcudart.so')
 
 def cu_prof_start():
@@ -146,17 +150,15 @@ def model_training_evaluation(
             tot_iter += 1
             start_time = end_time
             batch = {k: v.to(device) for k, v in batch.items()}
-            optimizer.zero_grad()
-            if is_profiling and tot_iter == profiling_warmup:
-                torch.cuda.synchronize()
-                cu_prof_start()
-            with fusion.min_group_nodes(70):
+            # optimizer.zero_grad()
+            if is_profiling:
+              with torch.cuda.profiler.profile():
                 loss = opt_training_iter_fn(batch, model, optimizer, scaler)
-            if is_profiling and tot_iter == profiling_warmup:
                 torch.cuda.synchronize()
-                cu_prof_stop()
-            scaler.step(optimizer)
-            scaler.update()
+            else:
+                loss = opt_training_iter_fn(batch, model, optimizer, scaler)
+            # scaler.step(optimizer)
+            # scaler.update()
             running_loss += loss.item()
             if i % 100 == 99:
                 loss_history.append(running_loss / 100)
@@ -266,6 +268,10 @@ def main():
     else:
         optimizer = optimizer_cls(model.parameters(), lr=args.lr)
 
+    torch._C._jit_set_profiling_executor(False)
+    torch._C._jit_set_profiling_mode(False)
+    torch._C._jit_set_texpr_fuser_enabled(False)
+    torch._C._jit_set_nvfuser_enabled(False)
     native_start = time.time()
     if not args.prof_dynamo:
         ref_loss, accuracy = model_training_evaluation(

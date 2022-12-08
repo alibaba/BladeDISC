@@ -233,39 +233,30 @@ class TestGPULinear(GPUDiscPdlQuantizationTestCase):
         expect_str = """
 module {
   func.func @main(%arg0: !torch.nn.Module<"__torch__.___torch_mangle_11.Model"> [unknown], %arg1: tensor<1x2x128xf32> [unknown]) -> tensor<1x2x128xf32> attributes {tf.entry_function = {input_placements = "cpu,gpu", inputs = "self,x.1", output_placements = "gpu", outputs = "51"}} {
-    %0 = mhlo.constant dense<3.000000e-01> : tensor<f32> [unknown]
-    %1 = mhlo.constant dense<0> : tensor<i32> [unknown]
-    %2 = mhlo.constant dense<2.000000e-01> : tensor<f32> [unknown]
-    %3 = mhlo.constant dense<1.000000e-01> : tensor<f32> [unknown]
-    %4 = mhlo.constant dense_resource<__elided__> : tensor<128x128xf32> [unknown]
-    %5 = mhlo.constant dense_resource<__elided__> : tensor<128xf32> [unknown]
+    # CHECK: tensor<128xi8>
+    # CHECK: tensor<128x128xi8>
+    %0 = mhlo.constant dense_resource<__elided__> : tensor<128xi8>
+    %1 = mhlo.constant dense_resource<__elided__> : tensor<128x128xi8>
+    %2 = mhlo.constant dense<3.000000e-01> : tensor<f32>
+    %3 = mhlo.constant dense<0> : tensor<i32>
+    %4 = mhlo.constant dense<2.000000e-01> : tensor<f32>
+    %5 = mhlo.constant dense<1.000000e-01> : tensor<f32>
     # CHECK: mhlo_disc.quantize
     # CHECK-SAME: axis = dense<>
     # CHECK-SAME: quant_max = 127
     # CHECK-SAME: quant_min = -128
     # CHECK-SAME: use_symmetric = true
-    %6 = "mhlo_disc.quantize"(%arg1, %3, %1) {axis = dense<> : tensor<0xi64>, quant_max = 127 : i64, quant_min = -128 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<1x2x128xf32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>
-    # CHECK: mhlo_disc.quantize
-    # CHECK-SAME: dense<>
-    # CHECK-SAME: quant_max = 127
-    # CHECK-SAME: quant_min = -128
-    # CHECK-SAME: use_symmetric = true
-    %7 = "mhlo_disc.quantize"(%4, %0, %1) {axis = dense<> : tensor<0xi64>, quant_max = 127 : i64, quant_min = -128 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<128x128xf32>, tensor<f32>, tensor<i32>) -> tensor<128x128xi8>
-    # CHECK: mhlo_disc.quantize
-    # CHECK-SAME: dense<>
-    # CHECK-SAME: quant_max = 127
-    # CHECK-SAME: quant_min = -128
-    # CHECK-SAME: use_symmetric = true
-    %8 = "mhlo_disc.quantize"(%5, %2, %1) {axis = dense<> : tensor<0xi64>, quant_max = 127 : i64, quant_min = -128 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<128xf32>, tensor<f32>, tensor<i32>) -> tensor<128xi8>
+    %6 = "mhlo_disc.quantize"(%arg1, %5, %3) {axis = dense<> : tensor<0xi64>, quant_max = 127 : i64, quant_min = -128 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<1x2x128xf32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>
+    # CHECK-NOT: mhlo_disc.quantize
     # CHECK-NOT: mhlo_disc.dequantize
     # CHECK: mhlo_disc.custom_call_v2
     # CHECK-SAME: call_target_name = "ral_pdll_qgemm"
     # CHECK-SAME: custom_attrs = {}
-    %9 = "mhlo_disc.custom_call_v2"(%6, %7, %8, %3, %1, %0, %1, %2, %1) {call_target_name = "disc.custom_call.ral_pdll_qgemm", custom_attrs = {}, device = "d", expected_input_layouts = "*,*,*,*,*,*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,*,*,*,*,*,*,*,*", input_placements = "d,d,d,h,h,h,h,h,h", output_layouts = "*", output_placements = "d"} : (tensor<1x2x128xi8>, tensor<128x128xi8>, tensor<128xi8>, tensor<f32>, tensor<i32>, tensor<f32>, tensor<i32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>
+    %9 = "mhlo_disc.custom_call_v2"(%6, %1, %0, %5, %3, %2, %3, %4, %3) {call_target_name = "disc.custom_call.ral_pdll_qgemm", custom_attrs = {}, device = "d", expected_input_layouts = "*,*,*,*,*,*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,*,*,*,*,*,*,*,*", input_placements = "d,d,d,h,h,h,h,h,h", output_layouts = "*", output_placements = "d"} : (tensor<1x2x128xi8>, tensor<128x128xi8>, tensor<128xi8>, tensor<f32>, tensor<i32>, tensor<f32>, tensor<i32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>
     # CHECK-NOT: mhlo_disc.quantize
     # CHECK: mhlo_disc.dequantize
     # CHECK-SAME: use_symmetric = true
-    %10 = "mhlo_disc.dequantize"(%9, %2, %1) {axis = dense<> : tensor<0xi64>, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<1x2x128xi8>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xf32>
+    %10 = "mhlo_disc.dequantize"(%7, %4, %3) {axis = dense<> : tensor<0xi64>, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<1x2x128xi8>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xf32>
     return %10 : tensor<1x2x128xf32>
   }
 }
@@ -330,39 +321,30 @@ module {
         expect_str = """
 module {
   func.func @main(%arg0: !torch.nn.Module<"__torch__.___torch_mangle_11.Model"> [unknown], %arg1: tensor<1x2x128xf32> [unknown]) -> tensor<1x2x128xf32> attributes {tf.entry_function = {input_placements = "cpu,gpu", inputs = "self,x.1", output_placements = "gpu", outputs = "51"}} {
-    %0 = mhlo.constant dense<3.000000e-01> : tensor<f32> [unknown]
-    %1 = mhlo.constant dense<0> : tensor<i32> [unknown]
-    %2 = mhlo.constant dense<2.000000e-01> : tensor<f32> [unknown]
-    %3 = mhlo.constant dense<1.000000e-01> : tensor<f32> [unknown]
-    %4 = mhlo.constant dense_resource<__elided__> : tensor<128x128xf32> [unknown]
-    %5 = mhlo.constant dense_resource<__elided__> : tensor<128xf32> [unknown]
+    # CHECK: tensor<128xi8>
+    # CHECK: tensor<128x128xi8>
+    %0 = mhlo.constant dense_resource<__elided__> : tensor<128xi8>
+    %1 = mhlo.constant dense_resource<__elided__> : tensor<128x128xi8>
+    %2 = mhlo.constant dense<3.000000e-01> : tensor<f32>
+    %3 = mhlo.constant dense<0> : tensor<i32>
+    %4 = mhlo.constant dense<2.000000e-01> : tensor<f32>
+    %5 = mhlo.constant dense<1.000000e-01> : tensor<f32>
     # CHECK: mhlo_disc.quantize
     # CHECK-SAME: axis = dense<>
     # CHECK-SAME: quant_max = 127
     # CHECK-SAME: quant_min = -128
     # CHECK-SAME: use_symmetric = true
-    %6 = "mhlo_disc.quantize"(%arg1, %3, %1) {axis = dense<> : tensor<0xi64>, quant_max = 127 : i64, quant_min = -128 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<1x2x128xf32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>
-    # CHECK: mhlo_disc.quantize
-    # CHECK-SAME: dense<>
-    # CHECK-SAME: quant_max = 127
-    # CHECK-SAME: quant_min = -128
-    # CHECK-SAME: use_symmetric = true
-    %7 = "mhlo_disc.quantize"(%4, %0, %1) {axis = dense<> : tensor<0xi64>, quant_max = 127 : i64, quant_min = -128 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<128x128xf32>, tensor<f32>, tensor<i32>) -> tensor<128x128xi8>
-    # CHECK: mhlo_disc.quantize
-    # CHECK-SAME: dense<>
-    # CHECK-SAME: quant_max = 127
-    # CHECK-SAME: quant_min = -128
-    # CHECK-SAME: use_symmetric = true
-    %8 = "mhlo_disc.quantize"(%5, %2, %1) {axis = dense<> : tensor<0xi64>, quant_max = 127 : i64, quant_min = -128 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<128xf32>, tensor<f32>, tensor<i32>) -> tensor<128xi8>
+    %6 = "mhlo_disc.quantize"(%arg1, %5, %3) {axis = dense<> : tensor<0xi64>, quant_max = 127 : i64, quant_min = -128 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<1x2x128xf32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>
+    # CHECK-NOT: mhlo_disc.quantize
     # CHECK-NOT: mhlo_disc.dequantize
     # CHECK: mhlo_disc.custom_call_v2
     # CHECK-SAME: call_target_name = "ral_pdll_qgemm"
     # CHECK-SAME: custom_attrs = {}
-    %9 = "mhlo_disc.custom_call_v2"(%6, %7, %8, %3, %1, %0, %1, %2, %1) {call_target_name = "disc.custom_call.ral_pdll_qgemm", custom_attrs = {}, device = "d", expected_input_layouts = "*,*,*,*,*,*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,*,*,*,*,*,*,*,*", input_placements = "d,d,d,h,h,h,h,h,h", output_layouts = "*", output_placements = "d"} : (tensor<1x2x128xi8>, tensor<128x128xi8>, tensor<128xi8>, tensor<f32>, tensor<i32>, tensor<f32>, tensor<i32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>
+    %9 = "mhlo_disc.custom_call_v2"(%6, %1, %0, %5, %3, %2, %3, %4, %3) {call_target_name = "disc.custom_call.ral_pdll_qgemm", custom_attrs = {}, device = "d", expected_input_layouts = "*,*,*,*,*,*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,*,*,*,*,*,*,*,*", input_placements = "d,d,d,h,h,h,h,h,h", output_layouts = "*", output_placements = "d"} : (tensor<1x2x128xi8>, tensor<128x128xi8>, tensor<128xi8>, tensor<f32>, tensor<i32>, tensor<f32>, tensor<i32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>
     # CHECK-NOT: mhlo_disc.quantize
     # CHECK: mhlo_disc.dequantize
     # CHECK-SAME: use_symmetric = true
-    %10 = "mhlo_disc.dequantize"(%9, %2, %1) {axis = dense<> : tensor<0xi64>, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<1x2x128xi8>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xf32>
+    %10 = "mhlo_disc.dequantize"(%7, %4, %3) {axis = dense<> : tensor<0xi64>, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<1x2x128xi8>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xf32>
     return %10 : tensor<1x2x128xf32>
   }
 }

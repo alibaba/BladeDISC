@@ -19,6 +19,7 @@ const std::string c_ft_path =
     "tensorflow/compiler/mlir/disc/tests/regression/data/";
 
 TEST(WhereFusionTest, WhereFusionDynamicShape3DI64Test) {
+  setenv("DISC_ENABLE_STITCH", "true", 1);
   setenv("DISC_EXPECTED_KERNELS_IN_UT", "1", 1);
   EXPECT_TRUE(feature_test_main(
       /*mlir_file_path*/ c_ft_path + "where_fusion_d_3d_i64.mlir",
@@ -29,6 +30,7 @@ TEST(WhereFusionTest, WhereFusionDynamicShape3DI64Test) {
       /*output_descriptors*/ {"i64_X"},
       /*input_vals*/ {{0, 6, 0, 0, 8, 4, 4, 8, 0, 7, 6, 9,
                        6, 0, 8, 9, 0, 0, 0, 0, 0, 0, 9, 4}}));
+  unsetenv("DISC_ENABLE_STITCH");
   unsetenv("DISC_EXPECTED_KERNELS_IN_UT");
 }
 

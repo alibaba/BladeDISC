@@ -64,7 +64,8 @@ struct RewriteDynamicGatherOp : public OpRewritePattern<mhlo::DynamicGatherOp> {
     // TODO: check reshape with input (<?x1xi64>, <1xi64>) and output <?xi64>
 
     // find another gather that consumes reshape output
-    auto reshape_users = llvm::to_vector<4>(reshape_op->getResult(0).getUsers());
+    auto reshape_users =
+        llvm::to_vector<4>(reshape_op->getResult(0).getUsers());
     if (reshape_users.size() != 2) return failure();
     for (Operation* user : reshape_users) {
       if (!(user && isa<mhlo::DynamicGatherOp>(user))) {
@@ -120,8 +121,8 @@ struct RewriteDynamicGatherOp : public OpRewritePattern<mhlo::DynamicGatherOp> {
     Value idx_one = rewriter.create<arith::ConstantIndexOp>(loc, 1);
     Value num_output_elements = rewriter.create<arith::IndexCastOp>(
         loc, rewriter.getIndexType(),
-        rewriter.create<tensor::ExtractOp>(
-            loc, where_op->getResult(1), idx_zero));
+        rewriter.create<tensor::ExtractOp>(loc, where_op->getResult(1),
+                                           idx_zero));
 
     auto create_indices = [&](SmallVector<Value, 2> indices_values) {
       auto indices = rewriter.create<tensor::FromElementsOp>(
@@ -133,11 +134,15 @@ struct RewriteDynamicGatherOp : public OpRewritePattern<mhlo::DynamicGatherOp> {
     };
 
     auto create_slice_op = [&](Operation* gather) {
-      auto gather_input_rank = gather->getOperand(0).getType().dyn_cast<RankedTensorType>().getRank();
+      auto gather_input_rank = gather->getOperand(0)
+                                   .getType()
+                                   .dyn_cast<RankedTensorType>()
+                                   .getRank();
       Value gather_output = gather->getResult(0);
 
       SmallVector<Value, 2> start_values(gather_input_rank, idx_zero);
-      SmallVector<Value, 2> limit_values(gather_input_rank, num_output_elements);
+      SmallVector<Value, 2> limit_values(gather_input_rank,
+                                         num_output_elements);
       SmallVector<Value, 2> strides_values(gather_input_rank, idx_one);
       if (gather_input_rank == 2) {
         limit_values[1] = rewriter.create<tensor::DimOp>(loc, gather_output, 1);
@@ -148,13 +153,15 @@ struct RewriteDynamicGatherOp : public OpRewritePattern<mhlo::DynamicGatherOp> {
       auto strides_indices = create_indices(strides_values);
 
       SmallVector<int64_t, 2> output_slice_shape_values(gather_input_rank, -1);
-      auto slice_input_shape = gather_output.getType().dyn_cast<RankedTensorType>().getShape();
+      auto slice_input_shape =
+          gather_output.getType().dyn_cast<RankedTensorType>().getShape();
       if (gather_input_rank == 2) {
-          output_slice_shape_values[1] = slice_input_shape[1];
+        output_slice_shape_values[1] = slice_input_shape[1];
       }
       auto gather_slice_op = rewriter.create<mhlo::RealDynamicSliceOp>(
           loc,
-          RankedTensorType::get(output_slice_shape_values, rewriter.getI64Type()),
+          RankedTensorType::get(output_slice_shape_values,
+                                rewriter.getI64Type()),
           gather_output, start_indices, limit_indices, strides_indices);
       return gather_slice_op;
     };
@@ -192,8 +199,7 @@ struct SimplifySparseReshapeOp
 };
 
 struct DiscSparseOpRewriterPass
-    : public DiscSparseOpRewriterPassBase<
-          DiscSparseOpRewriterPass> {
+    : public DiscSparseOpRewriterPassBase<DiscSparseOpRewriterPass> {
   void runOnOperation() override;
 };
 
@@ -211,8 +217,7 @@ void DiscSparseOpRewriterPass::runOnOperation() {
   }
 }
 
-std::unique_ptr<OperationPass<func::FuncOp>>
-createDiscSparseOpRewriterPass() {
+std::unique_ptr<OperationPass<func::FuncOp>> createDiscSparseOpRewriterPass() {
   return std::make_unique<DiscSparseOpRewriterPass>();
 }
 

@@ -774,6 +774,22 @@ class TransformBasedCpuFusionStrategy : public FusionStrategy {
   }
 };
 
+class SparseOpCpuFusionStrategy : public FusionStrategy {
+ public:
+  SparseOpCpuFusionStrategy(const FusionOptions& options)
+      : FusionStrategy(options) {
+    llvm::dbgs() << "xtm \n";
+  }
+
+  virtual bool isFusible(Operation* op) override;
+  virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
+                                 FusionPattern& fused_pattern) override;
+  virtual bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
+                       FusionPattern& rhs, FusionPattern& target) override;
+
+  virtual StringRef getName() override { return "SparseOpCpuFusionStrategy"; }
+};
+
 }  // namespace disc_ral
 }  // namespace mlir
 

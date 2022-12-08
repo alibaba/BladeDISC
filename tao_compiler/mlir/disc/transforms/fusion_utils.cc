@@ -448,10 +448,6 @@ bool isFusible(Operation* op) {
   // All element ops are supported by the fusion codegen engine.
   if (isElementWise(op)) return true;
 
-  // lmhlo_disc.where is supported for fusion, fuse input element-wise ops like
-  // kInput fusion.
-  if (isa<lmhlo_disc::WhereOp>(op)) return true;
-
   // clang-format off
   return isa<
     lmhlo::BroadcastInDimOp,
@@ -695,6 +691,8 @@ FusionPattern::FusionPattern(lmhlo::FusionOp op, ShapeAnalysis* shape_analysis)
     strategyStr = "dot";
   } else if (fusionType == FusionType::kTransform) {
     strategyStr = "transform_based";
+  } else if (fusionType == FusionType::kWhere) {
+    strategyStr = "sparse_base";
   }
   FusionStrategy& strategy =
       getFusionStrategy(deviceAttr.getValue(), strategyStr);
@@ -1018,6 +1016,10 @@ bool FusionStrategy::tryFuseInplace(ShapeAnalysis& shapeAnalysis,
   }
   FusionPattern result = lhs.mergeWithoutInit(rhs);
   if (!tryFuse(shapeAnalysis, lhs, rhs, result)) {
+    llvm::dbgs() << "**********************shit************************ \n";
+    dumpFusionPattern(lhs);
+    dumpFusionPattern(rhs);
+    llvm::dbgs() << "**********************shit************************ \n \n";
     return false;
   }
   if (!initFusionPattern(shapeAnalysis, result)) {
@@ -1095,9 +1097,6 @@ bool BaseFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   // Here `compatible` means:
   // - if `to` and `from` are both kInput fusion, all output should have same
   // shape.
-  // - if `to` or `from` is kWhere fusion, there should be no constrains for
-  // output shape, since lmhlo_disc.where's output shape is determined by values
-  // from its input, which cannot be decided at compile-time.
   // - otherwise, all output should have same number of elements.
 
   // No outside users, these ops may be eliminated. We fused it here and let
@@ -1118,15 +1117,10 @@ bool BaseFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
       return false;
     }
   } else {
-    // TODO(lanbo.llb): make a more general rule for kWhere fusion
-    if ((target.getRootOps().size() != 1) ||
-        (target.getRootOps().size() == 1 &&
-         !isa<lmhlo_disc::WhereOp>(target.getRootOps()[0]))) {
-      // Currently we only support input-fusion like kWhere fusion
-      // with one root op, which should be mhlo_disc.where
-      return false;
-    }
+    // Do not handle kWhere fusion here.
+    return false;
   }
+
   LLVM_DEBUG(llvm::dbgs() << "BaseFusionStrategy::tryFuse success()\n");
   return true;
 }
@@ -1159,9 +1153,9 @@ bool BaseCpuFusionStrategy::isFusible(Operation* op) {
   }
 
   // Do not fuse shape computation.
-  // if (op->getAttr(kDiscShapeCalcAttr) != nullptr) {
-  //   return false;
-  // }
+  if (op->getAttr(kDiscShapeCalcAttr) != nullptr) {
+    return false;
+  }
 
   return BaseFusionStrategy::isFusible(op);
 }
@@ -1188,17 +1182,11 @@ bool BaseCpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
       // the fusion type to kLoop and dominant op to current op. This supposes
       // that the last op inside the block is a valid candidate dominant op if
       // the fusion pattern is a kLoop.
-      if (!isa<lmhlo_disc::WhereOp>(op)) {
-        if (inferredFusionType == FusionType::kNone ||
-            inferredFusionType == FusionType::kLoop) {
-          inferredFusionType = FusionType::kLoop;
-          inferredDominantOp = op;
-        }
-      } else {
-        inferredFusionType = FusionType::kWhere;
+      if (inferredFusionType == FusionType::kNone ||
+          inferredFusionType == FusionType::kLoop) {
+        inferredFusionType = FusionType::kLoop;
         inferredDominantOp = op;
       }
-
     } else if (!isa<lmhlo::TerminatorOp>(op)) {
       // Not a supported fusionOp, early stop.
       inferredFusionType = FusionType::kNone;
@@ -1346,9 +1334,9 @@ bool isStitchCpuSupported(Operation* op) {
   // TODO(disc): support fuse scalar const op.
 
   // Do not fuse shape computation.
-  // if (op->getAttr(kDiscShapeCalcAttr) != nullptr) {
-  //   return false;
-  // }
+  if (op->getAttr(kDiscShapeCalcAttr) != nullptr) {
+    return false;
+  }
 
   // All element ops are supported by the fusion codegen engine.
   if (isElementWise(op)) return true;
@@ -1438,6 +1426,8 @@ std::unique_ptr<FusionStrategy> makeNewDeviceStrategy(StringRef device,
     return std::make_unique<StitchCpuFusionStrategy>(options);
   } else if (device == placement_utils::kCpu && strategy == "transform_based") {
     return std::make_unique<TransformBasedCpuFusionStrategy>(options);
+  } else if (device == placement_utils::kCpu && strategy == "sparse_base") {
+    return std::make_unique<SparseOpCpuFusionStrategy>(options);
   } else if (device == placement_utils::kGpu && strategy == "stitch") {
     return std::make_unique<StitchGpuFusionStrategy>(options);
   } else if (device == placement_utils::kCpu && strategy == "stitch_base") {
@@ -1554,6 +1544,7 @@ bool PlacementAwareFusionStrategy::initFusionPattern(
     ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern) {
   if (fusion_pattern.getOpList().empty()) return true;
   FusionStrategy* strategy = getStrategy(fusion_pattern.getOpList()[0]);
+  llvm::dbgs() << "FUCK FusionStrategy name " << strategy->getName() << "\n";
   return strategy && strategy->initFusionPattern(shapeAnalysis, fusion_pattern);
 }
 

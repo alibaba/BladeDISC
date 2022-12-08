@@ -183,6 +183,11 @@ struct GemmScaleState : public Context::Resource {
   std::unordered_map<GemmScaleKey, float, GemmScaleKeyHasher> cache;
 };
 
+// Layout requirement:
+// input: m x k, row major
+// weight: n x k, col major
+// output: m x n, row major
+// bias: 1 x n
 template <int N, typename T>
 MemRefType<int8_t, N> ral_pdll_qgemm(
     ExecutionContext* ctx, void* stream_handle, MemRefType<int8_t, N>& input,

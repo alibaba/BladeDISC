@@ -221,6 +221,7 @@ def HLO_QuantizeOp: HLODISC_Op<"quantize", [Pure]> {
     DefaultValuedAttr<HLO_RoundModeEnum, "RoundModeEnum::RoundHalfAwayFromZero">:$round_mode
   );
   let results = (outs HLO_IntTensor:$result);
+  let hasFolder = 1;
 }
 
 def HLO_DequantizeOp: HLODISC_Op<"dequantize", [Pure]> {

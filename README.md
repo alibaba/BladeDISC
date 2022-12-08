@@ -20,6 +20,11 @@
   - [Roadmap with mlir-hlo Project](#roadmap-with-mlir-hlo-project)
 - [Contact Us](#contact-us)
 
+## What's New
+
++ [🔥 2022.12.08] BladeDISC v0.3.0:
+ [Announce PyTorch 2.0 Compilation Support](https://github.com/alibaba/BladeDISC/releases/tag/v0.3.0)
+
 ## Overview
 
 BladeDISC is an end-to-end **DynamIc Shape Compiler** project for machine

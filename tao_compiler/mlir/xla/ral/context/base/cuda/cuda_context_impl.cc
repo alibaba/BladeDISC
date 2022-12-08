@@ -74,7 +74,7 @@ const char* kRalBaseCudaContextState = "ral_base_cuda_context_state";
 buffer_t gpu_alloc(size_t bytes) {
   GpuDevicePtr ptr;
 #if TENSORFLOW_USE_ROCM
-  RETURN_ON_CUDA_ERROR(tensorflow::wrap::hipMalloc(&ptr, bytes), nullptr,
+  RETURN_ON_CUDA_ERROR(stream_executor::wrap::hipMalloc(&ptr, bytes), nullptr,
                        "hipMalloc failed");
 #else
   RETURN_ON_CUDA_ERROR(cuMemAlloc(&ptr, bytes), nullptr, "cuMemAlloc failed");
@@ -85,7 +85,7 @@ buffer_t gpu_alloc(size_t bytes) {
 void gpu_dealloc(buffer_t buffer) {
 #if TENSORFLOW_USE_ROCM
   RETURN_VOID_ON_CUDA_ERROR(
-      tensorflow::wrap::hipFree(absl::bit_cast<hipDeviceptr_t>(buffer)),
+      stream_executor::wrap::hipFree(absl::bit_cast<hipDeviceptr_t>(buffer)),
       "hipFree failed");
 #else
   RETURN_VOID_ON_CUDA_ERROR(cuMemFree(CUdeviceptr(buffer)), "cuMemFree failed");
@@ -139,7 +139,7 @@ struct BaseCudaContextState : public tao::ral::Context::Resource {
 
   void onContextFinish(Context* ctx) override {
 #if TENSORFLOW_USE_ROCM
-    reportErrorIfAny(tensorflow::wrap::hipStreamSynchronize(stream), ctx,
+    reportErrorIfAny(stream_executor::wrap::hipStreamSynchronize(stream), ctx,
                      "StreamSync");
 #else
     reportErrorIfAny(cuStreamSynchronize(stream), ctx, "StreamSync");
@@ -149,7 +149,7 @@ struct BaseCudaContextState : public tao::ral::Context::Resource {
     }
     for (auto& e : blobs) {
 #if TENSORFLOW_USE_ROCM
-      reportErrorIfAny(tensorflow::wrap::hipModuleUnload(e.second), ctx,
+      reportErrorIfAny(stream_executor::wrap::hipModuleUnload(e.second), ctx,
                        "ModuleUnload");
 #else
       reportErrorIfAny(cuModuleUnload(e.second), ctx, "ModuleUnload");
@@ -369,7 +369,7 @@ void ral_base_cuda_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
       if (blob_it == state->blobs.end()) {
         GpuModuleHandle module;
 #if TENSORFLOW_USE_ROCM
-        reportErrorIfAny(tensorflow::wrap::hipModuleLoadData(&module, blob),
+        reportErrorIfAny(stream_executor::wrap::hipModuleLoadData(&module, blob),
                          ctx, "ModuleLoad");
 #else
         reportErrorIfAny(cuModuleLoadFatBinary(&module, blob), ctx,
@@ -380,7 +380,7 @@ void ral_base_cuda_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
       auto module = blob_it->second;
       GpuFunctionHandle function;
 #if TENSORFLOW_USE_ROCM
-      reportErrorIfAny(tensorflow::wrap::hipModuleGetFunction(&function, module,
+      reportErrorIfAny(stream_executor::wrap::hipModuleGetFunction(&function, module,
                                                               kernel_name),
                        ctx, "GetFunction");
 #else
@@ -394,7 +394,7 @@ void ral_base_cuda_launch(ExecutionContext* ctx, void** blobs, size_t num_blobs,
   }
 
 #if TENSORFLOW_USE_ROCM
-  reportErrorIfAny(tensorflow::wrap::hipModuleLaunchKernel(
+  reportErrorIfAny(stream_executor::wrap::hipModuleLaunchKernel(
                        function, gridX, gridY, gridZ, blockX, blockY, blockZ,
                        smem, stream, params, nullptr),
                    ctx, "LaunchKernel");
@@ -451,7 +451,7 @@ void ral_base_cuda_d2d(ExecutionContext* ctx, stream_t sidx, buffer_t from,
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
 #if TENSORFLOW_USE_ROCM
   reportErrorIfAny(
-      tensorflow::wrap::hipMemcpyDtoDAsync(
+      stream_executor::wrap::hipMemcpyDtoDAsync(
           (hipDeviceptr_t)to, (hipDeviceptr_t)from, bytes, state->stream),
       ctx, "ModuleLoad");
 #else
@@ -470,7 +470,7 @@ void ral_base_cuda_sync_on_stream(ExecutionContext* ctx, stream_t sidx) {
   auto* state =
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
 #if TENSORFLOW_USE_ROCM
-  reportErrorIfAny(tensorflow::wrap::hipStreamSynchronize(state->stream), ctx,
+  reportErrorIfAny(stream_executor::wrap::hipStreamSynchronize(state->stream), ctx,
                    "StreamSync");
 #else
   reportErrorIfAny(cuStreamSynchronize(state->stream), ctx, "StreamSync");
@@ -598,7 +598,7 @@ void ral_base_cuda_h2d(ExecutionContext* ctx, void* stream_handle,
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
 #if TENSORFLOW_USE_ROCM
   reportErrorIfAny(
-      tensorflow::wrap::hipMemcpyHtoDAsync(
+      stream_executor::wrap::hipMemcpyHtoDAsync(
           (GpuDevicePtr)d_dst, const_cast<void*>(h_src), bytes, state->stream),
       ctx, "cuMemcpyHtoDAsync");
 #else
@@ -614,7 +614,7 @@ void ral_base_cuda_d2h(ExecutionContext* ctx, void* stream_handle,
       ctx->getResource<BaseCudaContextState>(kRalBaseCudaContextState);
 #if TENSORFLOW_USE_ROCM
   reportErrorIfAny(
-      tensorflow::wrap::hipMemcpyDtoHAsync(
+      stream_executor::wrap::hipMemcpyDtoHAsync(
           const_cast<void*>(h_dst), (GpuDevicePtr)d_src, bytes, state->stream),
       ctx, "cuMemcpyDtoHAsync");
 #else

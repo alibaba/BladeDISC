@@ -117,7 +117,6 @@ class BuildDepsCommand(CustomCommand):
         cmd = "python3 ../scripts/python/common_setup.py"
         if torch._C._GLIBCXX_USE_CXX11_ABI:
             cmd += " --cxx11_abi"
-
         if not build.cuda_available:
             cmd += " --cpu_only"
 
@@ -131,8 +130,12 @@ if custom_install_requires is not None:
     # package1,package2,package3, ....
     custom_install_requires = custom_install_requires.split(',')
     install_requires.extend(custom_install_requires)
-
-wheel_suffix = "" if build.cuda_available else "-cpu"
+if build.dcu_rocm_available:
+    wheel_suffix = "-dcu"
+elif build.cuda_available:
+    wheel_suffix = ""
+else:
+    wheel_suffix = "-cpu"
 
 torch_major_version, torch_minor_version = torch.__version__.split(".")[:2]
 torch_major_version = int(torch_major_version)

@@ -2308,6 +2308,7 @@ tf_cc_binary(
         "//tensorflow/compiler/xla/service/gpu/llvm_gpu_backend",
         "//tensorflow/compiler/xla/stream_executor/lib",
         "//tensorflow/core:lib",
+        "//tensorflow/stream_executor/rocm:rocm_driver",
         "@com_google_absl//absl/strings",
         "@llvm-project//llvm:Analysis",
         "@llvm-project//llvm:ARMCodeGen",  # fixdeps: keep

@@ -16,7 +16,6 @@ import subprocess
 import sys
 import torch
 import venv
-
 from common_setup import running_on_ci, remote_cache_token, which, num_make_jobs, is_aarch64
 from torch_blade_build import TorchBladeBuild, get_fullpath_or_create
 
@@ -121,6 +120,10 @@ class BazelBuild(TorchBladeBuild):
         ]
         if self.cuda_available:
             self.configs.append("--config=torch_cuda")
+
+        elif self.dcu_rocm_available:
+            self.configs.append("--config=torch_dcu_rocm")
+
         else:
             if is_aarch64():
                 self.configs += ["--config=torch_aarch64"]

@@ -98,6 +98,7 @@ struct GEMMParamsKey {
   bool transpose_a = false;
   bool transpose_b = false;
   opaque_t const_weight_ptr = nullptr;
+  opaque_t const_bias_ptr = nullptr;
   // We need this since the matmul primitive is not thead safe.
   // To enable large parallelism, we cache the primitive per-thread.
   std::thread::id tid;
@@ -105,7 +106,8 @@ struct GEMMParamsKey {
   bool operator==(const GEMMParamsKey& rhs) const {
     return m == rhs.m && n == rhs.n && k == rhs.k && batch == rhs.batch &&
            transpose_a == rhs.transpose_a && transpose_b == rhs.transpose_b &&
-           const_weight_ptr == rhs.const_weight_ptr && tid == rhs.tid;
+           const_weight_ptr == rhs.const_weight_ptr &&
+           const_bias_ptr == rhs.const_bias_ptr && tid == rhs.tid;
   }
 
   using Hasher = GEMMParamsKeyHasher;
@@ -120,6 +122,7 @@ struct GEMMParamsKeyHasher {
     hash_combine(seed, key.transpose_a);
     hash_combine(seed, key.transpose_b);
     hash_combine(seed, key.const_weight_ptr);
+    hash_combine(seed, key.const_bias_ptr);
     hash_combine(seed, key.tid);
     return seed;
   }
@@ -148,6 +151,20 @@ inline GEMMParamsKey makeGEMMParamsKey(const MemRefType<Tinput, NDims>& input,
   return key;
 }
 
+template <typename Tinput, typename Tbias, int NDims, int BiasDims,
+          typename Tfilter = Tinput, typename Toutput = Tinput>
+inline GEMMParamsKey makeGEMMWithBiasParamsKey(
+    const MemRefType<Tinput, NDims>& input,
+    const MemRefType<Tfilter, NDims>& weight,
+    const MemRefType<Tbias, BiasDims>& bias,
+    const MemRefType<Toutput, NDims>& result, bool tp_a, bool tp_b,
+    bool weight_is_const, bool bias_is_const, const std::thread::id& tid) {
+  auto key = makeGEMMParamsKey(input, weight, result, tp_a, tp_b,
+                               weight_is_const, tid);
+  key.const_bias_ptr = bias_is_const ? bias.data : nullptr;
+  return key;
+}
+
 template <typename Tinput, int NDims, typename Tfilter = Tinput,
           typename Toutput = Tinput>
 inline GEMMParamsKey makeDynamicShapeGEMMParamsKey(
@@ -166,6 +183,20 @@ inline GEMMParamsKey makeDynamicShapeGEMMParamsKey(
   key.transpose_a = tp_a;
   key.transpose_b = tp_b;
 
+  return key;
+}
+
+template <typename Tinput, typename Tbias, int NDims, int BiasDims,
+          typename Tfilter = Tinput, typename Toutput = Tinput>
+inline GEMMParamsKey makeDynamicShapeGEMMWithBiasParamsKey(
+    const MemRefType<Tinput, NDims>& input,
+    const MemRefType<Tfilter, NDims>& weight,
+    const MemRefType<Tbias, BiasDims>& bias,
+    const MemRefType<Toutput, NDims>& result, bool tp_a, bool tp_b,
+    bool weight_is_const, bool bias_is_const, const std::thread::id& tid) {
+  auto key = makeDynamicShapeGEMMParamsKey(input, weight, result, tp_a, tp_b,
+                                           weight_is_const, tid);
+  key.const_bias_ptr = bias_is_const ? bias.data : nullptr;
   return key;
 }
 
@@ -583,6 +614,7 @@ struct AclOpInfo {
   arm_compute::Tensor src;
   arm_compute::Tensor weights;
   arm_compute::Tensor dst;
+  arm_compute::Tensor bias;
   OpTy op;
 };
 

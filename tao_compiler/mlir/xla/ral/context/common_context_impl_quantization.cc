@@ -491,6 +491,194 @@ void ral_qgemm_acl_s8_s8_s8_per_channel(
   }
 }
 
+MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_channel(
+    ExecutionContext* ctx, opaque_t /*stream_handle*/,
+    MemRefType<int8_t, 2> input, MemRefType<int8_t, 2> weight,
+    MemRefType<int32_t, 1> bias, MemRefType<float, 0> inputScales,
+    MemRefType<int32_t, 0> inputZeroPoints, MemRefType<float, 1> weightScales,
+    MemRefType<int32_t, 1> weightZeroPoints, MemRefType<float, 0> resultScales,
+    MemRefType<int32_t, 0> resultZeroPoints, void* customAttrs) {
+  CpuTimer timer("ral_pdll_qgemm_acl_s8_s8_s8_s32_per_channel");
+  int64_t resultSizes[2] = {0, 0};
+  if (isEmptyMemref(input) || isEmptyMemref(weight) || isEmptyMemref(bias)) {
+    TAO_VLOG(1) << "ral_pdll_qgemm_acl_s8_s8_s8_s32_per_channel: early return "
+                   "for empty tensor";
+    return assignMemRef<int8_t, 2>(nullptr, resultSizes);
+  }
+
+  if (TAO_VLOG_IS_ON(1)) {
+    for (int i = 0; i < Size(input); ++i) {
+      TAO_VLOG(0) << "input[" << i
+                  << "] = " << static_cast<int32_t>(input.data[i]);
+    }
+    for (int i = 0; i < Size(weight); ++i) {
+      TAO_VLOG(0) << "weight[" << i
+                  << "] = " << static_cast<int32_t>(weight.data[i]);
+    }
+    for (int i = 0; i < Size(bias); ++i) {
+      TAO_VLOG(0) << "bias[" << i
+                  << "] = " << static_cast<int32_t>(bias.data[i]);
+    }
+  }
+
+  auto attr = getOrParsePDLAttr(ctx, customAttrs,
+                                "ral_pdll_qgemm_acl_s8_s8_s8_s32_per_channel");
+  if (!attr) {
+    ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
+  }
+
+  // ACL GEMM kernel does not support transpose.
+  // TODO(wyzero): use standalone ACL transpose kernel to imitate.
+  auto& dictAttr = attr->as<DictPDLAttr>();
+  bool tp_a = dictAttr.get("transpose_a").as<BoolPDLAttr>().getValue();
+  bool tp_b = dictAttr.get("transpose_b").as<BoolPDLAttr>().getValue();
+  bool weight_is_const =
+      dictAttr.get("weight_is_const").as<BoolPDLAttr>().getValue();
+  bool bias_is_const =
+      dictAttr.get("bias_is_const").as<BoolPDLAttr>().getValue();
+  if (tp_a || tp_b) {
+    ctx->signalError(Context::FAILURE,
+                     "not supported ral_qgemm with transpose");
+  }
+
+  // Make sure thread pool configuration is set.
+  applyACLThreadPoolConfigIfNotSet();
+
+  int64_t m = tp_a ? input.sizes[1] : input.sizes[0];
+  int64_t k = tp_a ? input.sizes[0] : input.sizes[1];
+  if (k != (tp_b ? weight.sizes[1] : weight.sizes[0])) {
+    ctx->signalError(Context::FAILURE, "mismatch contraction dim for gemm");
+  }
+  int64_t n = (tp_b ? weight.sizes[0] : weight.sizes[1]);
+
+  auto driver = ctx->getDriver<cpu::CPUDriver>(cpu::CPUDriver::name());
+  auto data = static_cast<int8_t*>(driver->alloc(ctx, m * n * sizeof(int8_t)));
+  resultSizes[0] = m;
+  resultSizes[1] = n;
+  auto result = assignMemRef<int8_t, 2>(data, resultSizes);
+  auto AclQGemmCreator = [&](const arm_compute::ITensorPack* pack) {
+    std::shared_ptr<AclQGemmInfo> info(new AclQGemmInfo);
+    auto src_shape = TensorShape(k, m);
+    auto weights_shape = TensorShape(n, k);
+    auto dst_shape = TensorShape(n, m);
+    auto bias_shape = TensorShape(n, 1);
+
+    DataType data_type = DataType::QASYMM8_SIGNED;
+    TensorInfo src_info = TensorInfo(src_shape, 1, data_type);
+    TensorInfo weights_info =
+        TensorInfo(weights_shape, 1, DataType::QSYMM8_PER_CHANNEL);
+    TensorInfo bias_info = TensorInfo(bias_shape, 1, DataType::S32);
+    TensorInfo dst_info = TensorInfo(dst_shape, 1, data_type);
+
+    src_info.set_quantization_info(
+        QuantizationInfo(*inputScales.data, *inputZeroPoints.data));
+    std::vector<float> scales(weightScales.data,
+                              weightScales.data + weightScales.sizes[0]);
+    std::vector<int32_t> zero_points(
+        weightZeroPoints.data,
+        weightZeroPoints.data + weightZeroPoints.sizes[0]);
+    weights_info.set_quantization_info(
+        QuantizationInfo(std::move(scales), std::move(zero_points)));
+    dst_info.set_quantization_info(
+        QuantizationInfo(*resultScales.data, *resultZeroPoints.data));
+
+    info->src.allocator()->init(src_info);
+    info->weights.allocator()->init(weights_info);
+    info->bias.allocator()->init(bias_info);
+    info->dst.allocator()->init(dst_info);
+    info->src.allocator()->import_memory(input.data);
+    info->weights.allocator()->import_memory(weight.data);
+    info->bias.allocator()->import_memory(bias.data);
+    info->dst.allocator()->import_memory(result.data);
+
+    arm_compute::GEMMLowpOutputStageInfo osInfo;
+    osInfo.type =
+        arm_compute::GEMMLowpOutputStageType::QUANTIZE_DOWN_FIXEDPOINT;
+    osInfo.gemmlowp_offset = *resultZeroPoints.data;
+    osInfo.output_data_type = data_type;
+    osInfo.is_quantized_per_channel = true;
+    arm_compute::quantization::calculate_quantized_multipliers(
+        src_info.quantization_info(), weights_info.quantization_info(),
+        dst_info.quantization_info(), osInfo);
+    arm_compute::GEMMInfo gemmInfo;
+    gemmInfo.set_gemmlowp_output_stage(osInfo);
+
+    auto status = info->op.validate(&src_info, &weights_info, &bias_info,
+                                    &dst_info, gemmInfo);
+    if (!status) {
+      ctx->signalError(Context::FAILURE,
+                       "fail to validate "
+                       "ral_pdll_qgemm_acl_s8_s8_s8_s32_per_channel conv: " +
+                           status.error_description());
+    } else {
+      info->op.configure(&info->src, &info->weights, &info->bias, &info->dst,
+                         gemmInfo);
+    }
+    if (pack) info->op.reuse_packed_weight(*pack);
+    info->op.prepare(&info->src, &info->weights, &info->bias, &info->dst);
+
+    return info;
+  };
+
+  std::shared_ptr<AclQGemmInfo> info;
+  std::shared_ptr<AclQGemmThreadSafeInfo> thread_safe_info;
+  if (isWeightPrePackingForMatMulEnabled() && weight_is_const) {
+    std::string unique_name =
+        "disc.ral_pdll_qgemm_acl_s8_s8_s8_s32_per_channel";
+    auto state = ctx->getOrCreateResource<AclQGemmState>(
+        unique_name, []() { return new AclQGemmState; });
+    auto key = makeGEMMWithBiasParamsKey(input, weight, bias, result, tp_a,
+                                         tp_b, weight_is_const, bias_is_const,
+                                         kDiscCpuDefaultThreadId);
+    auto dynamicKey = makeDynamicShapeGEMMWithBiasParamsKey(
+        input, weight, bias, result, tp_a, tp_b, weight_is_const, bias_is_const,
+        kDiscCpuDefaultThreadId);
+    thread_safe_info = state->getOrCreate(dynamicKey);
+    info = thread_safe_info->getOrCreate(key, AclQGemmCreator);
+  } else {
+    info = AclQGemmCreator(nullptr);
+  }
+
+  // TOOD(disc): re-import quantization info when online-quantization is
+  // supported.
+  info->src.allocator()->import_memory(input.data);
+  info->dst.allocator()->import_memory(result.data);
+  info->op.run(&info->src, &info->weights, &info->bias, &info->dst);
+
+  timer.Stop();
+
+  if (isProfilingEnabled()) {
+    int64_t bytes = sizeof(int8_t) * m * k + sizeof(int8_t) * k * n +
+                    sizeof(int8_t) * m * n;
+    TAO_VLOG(0) << "ral_pdll_qgemm_acl_s8_s8_s8_s32_per_channel:\n"
+                << "\tinput = " << input.data << "\n"
+                << "\tweight = " << weight.data << "\n"
+                << "\tbias = " << bias.data << "\n"
+                << "\toutput = " << result.data << "\n"
+                << "\tm = " << m << "\n"
+                << "\tn = " << n << "\n"
+                << "\tk = " << k << "\n"
+                << "\ttp_a = " << tp_a << "\n"
+                << "\ttp_b = " << tp_b << "\n"
+                << "\tweight_is_const = " << weight_is_const << "\n"
+                << "\tbias_is_const = " << weight_is_const << "\n"
+                << "\tMath Ops = " << 2 * m * n * k << "\n"
+                << "\tBytes = " << bytes << "\n"
+                << "\tBandwidth = "
+                << double(bytes) / double(timer.GetNanoSeconds()) << " GB\n"
+                << "\tGFLOPS = "
+                << double(2 * m * n * k) / double(timer.GetNanoSeconds())
+                << "\n";
+  }
+  if (TAO_VLOG_IS_ON(1)) {
+    for (int i = 0; i < Size(result); ++i) {
+      TAO_VLOG(0) << "output[" << i
+                  << "] = " << static_cast<int32_t>(result.data[i]);
+    }
+  }
+  return result;
+}
+
 MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_per_channel(
     ExecutionContext* ctx, opaque_t /*stream_handle*/,
     MemRefType<int8_t, 2> input, MemRefType<int8_t, 2> weight,
@@ -921,6 +1109,8 @@ TAO_RAL_API("ral_qconv", "cpu", ral_qconv_acl_s8_s8_s8_per_channel<4>);
 TAO_RAL_API("ral_qgemm", "cpu", ral_qgemm_acl_s8_s8_s8_per_channel);
 
 TAO_RAL_API("ral_pdll_qgemm", "cpu", ral_pdll_qgemm_acl_s8_s8_s8_per_channel);
+TAO_RAL_API("ral_pdll_qgemm_s8s8s8s32_pc", "cpu",
+            ral_pdll_qgemm_acl_s8_s8_s8_s32_per_channel);
 #endif  // TAO_AARCH64
 
 #if defined(TAO_X86)

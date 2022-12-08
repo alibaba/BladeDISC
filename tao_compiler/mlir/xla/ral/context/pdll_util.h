@@ -146,6 +146,44 @@ class DictPDLAttr : public PDLAttr {
   std::unordered_map<std::string, PDLAttrPtr> namedAttrs_;
 };
 
+class ArrayPDLAttr : public PDLAttr {
+ public:
+  using PDLAttr::PDLAttr;
+
+  PDLAttr& get(int64_t index) {
+    assert(index >= 0 && index < arrayAttr_.size());
+    return *(arrayAttr_[index]);
+  }
+
+  uint64_t size() { return arrayAttr_.size(); }
+
+  void push_back(PDLAttrPtr value) { arrayAttr_.push_back(std::move(value)); }
+
+  std::vector<PDLAttrPtr>& getValue() { return arrayAttr_; }
+
+ private:
+  std::vector<PDLAttrPtr> arrayAttr_;
+};
+
+class IntArrayPDLAttr : public PDLAttr {
+ public:
+  using PDLAttr::PDLAttr;
+
+  int64_t get(int64_t index) {
+    assert(index >= 0 && index < intArrayAttr_.size());
+    return intArrayAttr_[index];
+  }
+
+  uint64_t size() { return intArrayAttr_.size(); }
+
+  void push_back(int64_t val) { intArrayAttr_.push_back(val); }
+
+  std::vector<int64_t>& getValue() { return intArrayAttr_; }
+
+ private:
+  std::vector<int64_t> intArrayAttr_;
+};
+
 // Parse the serialized attr from buffer. Returns nullptr if failed.
 std::unique_ptr<PDLAttr> parsePDLAttr(uint8_t*& buffer);
 

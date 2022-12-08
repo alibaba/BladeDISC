@@ -16,6 +16,7 @@ limitations under the License.
 
 #include <cfenv>
 #include <cmath>
+#include <iostream>
 #include <mutex>
 #include <unordered_map>
 
@@ -288,15 +289,15 @@ OpFoldResult QuantizeOp::fold(ArrayRef<Attribute> operands) {
       for (int64_t i = 0; i < valNum; i++) {
         data[i] = static_cast<int32_t>(quantizedVal[i]);
       }
-      newOutput = DenseElementsAttr::get(
-          outType, llvm::makeArrayRef(data, buffer.size()));
+      newOutput =
+          DenseElementsAttr::get(outType, llvm::makeArrayRef(data, valNum));
     } else {
       auto data = (uint32_t*)buffer.data();
       for (int64_t i = 0; i < valNum; i++) {
         data[i] = static_cast<uint32_t>(quantizedVal[i]);
       }
-      newOutput = DenseElementsAttr::get(
-          outType, llvm::makeArrayRef(data, buffer.size()));
+      newOutput =
+          DenseElementsAttr::get(outType, llvm::makeArrayRef(data, valNum));
     }
   } else if (bitWidth == 16) {
     if (useSigned) {
@@ -304,15 +305,15 @@ OpFoldResult QuantizeOp::fold(ArrayRef<Attribute> operands) {
       for (int64_t i = 0; i < valNum; i++) {
         data[i] = static_cast<int16_t>(quantizedVal[i]);
       }
-      newOutput = DenseElementsAttr::get(
-          outType, llvm::makeArrayRef(data, buffer.size()));
+      newOutput =
+          DenseElementsAttr::get(outType, llvm::makeArrayRef(data, valNum));
     } else {
       auto data = (uint16_t*)buffer.data();
       for (int64_t i = 0; i < valNum; i++) {
         data[i] = static_cast<uint16_t>(quantizedVal[i]);
       }
-      newOutput = DenseElementsAttr::get(
-          outType, llvm::makeArrayRef(data, buffer.size()));
+      newOutput =
+          DenseElementsAttr::get(outType, llvm::makeArrayRef(data, valNum));
     }
   } else if (bitWidth == 8) {
     if (useSigned) {
@@ -320,15 +321,15 @@ OpFoldResult QuantizeOp::fold(ArrayRef<Attribute> operands) {
       for (int64_t i = 0; i < valNum; i++) {
         data[i] = static_cast<int8_t>(quantizedVal[i]);
       }
-      newOutput = DenseElementsAttr::get(
-          outType, llvm::makeArrayRef(data, buffer.size()));
+      newOutput =
+          DenseElementsAttr::get(outType, llvm::makeArrayRef(data, valNum));
     } else {
       auto data = (uint8_t*)buffer.data();
       for (int64_t i = 0; i < valNum; i++) {
         data[i] = static_cast<uint8_t>(quantizedVal[i]);
       }
-      newOutput = DenseElementsAttr::get(
-          outType, llvm::makeArrayRef(data, buffer.size()));
+      newOutput =
+          DenseElementsAttr::get(outType, llvm::makeArrayRef(data, valNum));
     }
   }
 

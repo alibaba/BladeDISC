@@ -38,9 +38,11 @@ class CPUDiscPdlQuantizationE2ETestCase(CPUDiscPdlQuantizationTestCase):
 class GPUDiscPdlQuantizationE2ETestCase(GPUDiscPdlQuantizationTestCase):
     def setUp(self):
         super().setUp()
-        if float(torch.version.cuda) <= 11.1:
-            self.skipTest("Quantization gpu test case only works on cuda"
-                          " version > 11.1")
+        support_cuda_version = ['11.3', '11.7']
+        if torch.version.cuda not in support_cuda_version:
+            self.skipTest("Currently, the correctness can be ensured on cuda"
+                          " version 11.3/11.7. Using other versions may cause"
+                          " correctness problem ")
 
 
 @unittest.skipIf(TORCH_VERSION < (1, 9),
@@ -202,7 +204,8 @@ class TestGPULiner(GPUDiscPdlQuantizationE2ETestCase):
         model = Model().eval().to(self.device)
         inp = torch.randn(512, 512).to(self.device)
         traced_model = torch.jit.trace(model, inp)
-        if torch.version.cuda=='11.3':
+        # only cuda version 11.3/11.7 can be ensured correctness
+        if torch.version.cuda == '11.3':
             qgemm_pdl_file = "dequant_gemm_quant_bias_quant.pdll"
         else:
             qgemm_pdl_file = "dequant_gemm_quant_bias_f32_quant.pdll"
@@ -254,6 +257,7 @@ class TestGPULiner(GPUDiscPdlQuantizationE2ETestCase):
         model = Model().eval().to(self.device)
         inp = torch.randn(8, 512, 512).to(self.device)
         traced_model = torch.jit.trace(model, inp)
+        # only cuda version 11.3/11.7 can be ensured correctness
         if torch.version.cuda == '11.3':
             qgemm_pdl_file = "dequant_gemm_quant_bias_quant.pdll"
         else:

@@ -16,7 +16,15 @@ import subprocess
 import sys
 import torch
 import venv
-from common_setup import running_on_ci, remote_cache_token, which, num_make_jobs, is_aarch64
+from common_setup import (
+    running_on_ci,
+    remote_cache_token,
+    which,
+    num_make_jobs,
+    is_aarch64,
+    build_tao_compiler_add_flags_platform_alibaba_cached,
+    test_tao_compiler_add_flags_platform_alibaba_cached,
+)
 from torch_blade_build import TorchBladeBuild, get_fullpath_or_create
 
 cwd = os.path.dirname(os.path.abspath(__file__))

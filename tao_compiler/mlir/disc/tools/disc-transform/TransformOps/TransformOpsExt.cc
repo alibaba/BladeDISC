@@ -36,6 +36,7 @@
 #include "mlir/Dialect/Transform/IR/TransformInterfaces.h"
 #include "mlir/Interfaces/DestinationStyleOpInterface.h"
 #include "mlir/Pass/PassManager.h"
+#include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h"
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/utils.h"
 
 namespace mlir {
@@ -56,6 +57,7 @@ CommonExtensions::CommonExtensions() {
 using bufferization::BufferizationOptions;
 using bufferization::OneShotAnalysisState;
 using bufferization::OneShotBufferizationOptions;
+using disc_linalg_ext::MultiLevelPackOp;
 
 namespace {
 
@@ -572,6 +574,309 @@ DiagnosedSilenceableFailure FoldProducerExtractSliceOp::applyToOne(
   }
 
   results.assign({sliceOp.getOperation()});
+  return DiagnosedSilenceableFailure(success());
+}
+
+//===---------------------------------------------------------------------===//
+// CacheReadOp
+//===---------------------------------------------------------------------===//
+
+namespace {
+
+// Suppose:
+//   - `di` is one dimension of the source tensor.
+//   - `dj` is one of the tiled dimension of `di`.
+// A dimension `dj` of the packed tensor is the inner most dim if
+//   - the tile level of `di` is 0, or
+//   - dj is corresponding to the last tile size of `di`.
+struct InnerMostDimsInfo {
+  // the dimension indices for the inner most dimensions.
+  SmallVector<int64_t> dims;
+  // the dimension sizes for the inner most dimensions.
+  SmallVector<int64_t> dimSizes;
+  // permutation for the inner most dimensions.
+  SmallVector<int64_t> permutation;
+  // reverse permutation for the inner most dimensions.
+  SmallVector<int64_t> reversePermutation;
+
+  // Returns true if the dimension `d` is the inner most.
+  bool isInnerMostDim(int d) { return llvm::find(dims, d) != dims.end(); }
+};
+
+void parseInnerMostDimsInfo(InnerMostDimsInfo& info, ShapedType sourceTy,
+                            ArrayRef<int64_t> tileLevelsVec,
+                            ArrayRef<int64_t> tileSizesVec,
+                            ArrayRef<int64_t> permutationVec) {
+  int64_t totalNumDims = -1;
+  for (const auto& en : llvm::enumerate(tileLevelsVec)) {
+    totalNumDims += en.value() + 1;
+    info.dims.push_back(totalNumDims);
+    if (en.value() == 0) {
+      info.dimSizes.push_back(sourceTy.getShape()[en.index()]);
+    } else {
+      info.dimSizes.push_back(tileSizesVec[totalNumDims - en.index() - 1]);
+    }
+  }
+
+  for (int64_t d : permutationVec) {
+    auto it = llvm::find(info.dims, d);
+    if (it == info.dims.end()) continue;
+    info.permutation.push_back(std::distance(info.dims.begin(), it));
+  }
+
+  info.reversePermutation = info.permutation;
+  for (int i = 0; i < tileLevelsVec.size(); ++i) {
+    info.reversePermutation[info.permutation[i]] = i;
+  }
+}
+
+linalg::GenericOp makeTransposeOp(OpBuilder& b, Location loc, Value inputTensor,
+                                  Value outputTensor,
+                                  ArrayRef<int64_t> transposeVector) {
+  auto resultTensorType = outputTensor.getType().cast<RankedTensorType>();
+  Type elementType = resultTensorType.getElementType();
+
+  // Compute the transpose and the indentity indexing maps.
+  SmallVector<AffineMap> indexingMaps = {
+      inversePermutation(AffineMap::getPermutationMap(
+          SmallVector<unsigned>(transposeVector.begin(), transposeVector.end()),
+          b.getContext())),
+      AffineMap::getMultiDimIdentityMap(transposeVector.size(),
+                                        b.getContext())};
+  SmallVector<llvm::StringRef> iteratorTypes(transposeVector.size(),
+                                             getParallelIteratorTypeName());
+
+  // Create a GenericOp to transpose `inputTensor` into `outputTensor`.
+  auto transposeOp = b.create<linalg::GenericOp>(
+      loc, resultTensorType, inputTensor, outputTensor,
+      b.getAffineMapArrayAttr(indexingMaps), b.getStrArrayAttr(iteratorTypes),
+      /*doc=*/nullptr,
+      /*library_call=*/nullptr);
+  Region& body = transposeOp.getRegion();
+  body.push_back(new Block());
+  body.front().addArguments({elementType, elementType}, {loc, loc});
+
+  // Create the body of the transpose operation.
+  OpBuilder::InsertionGuard g(b);
+  b.setInsertionPointToEnd(&body.front());
+  b.create<linalg::YieldOp>(loc,
+                            transposeOp.getRegion().front().getArgument(0));
+  return transposeOp;
+}
+
+LogicalResult readFromPackedValue(
+    OpBuilder& b, Location loc, Value packedValue, ShapedType targetTy,
+    ArrayRef<OpFoldResult> offsets, ArrayRef<int64_t> tileLevelsVec,
+    ArrayRef<int64_t> tileSizesVec, ArrayRef<int64_t> permutationVec,
+    InnerMostDimsInfo& info, Operation*& resultOp) {
+  auto packedTy = packedValue.getType().cast<ShapedType>();
+  int packedRank = packedTy.getRank();
+
+  auto const2IndexAttr = [&](int64_t val) {
+    return IntegerAttr::get(b.getIndexType(), val);
+  };
+
+  SmallVector<OpFoldResult> newOffsets(packedRank);
+  SmallVector<OpFoldResult> newSizes(packedRank);
+  SmallVector<OpFoldResult> newStrides(packedRank,
+                                       OpFoldResult{const2IndexAttr(1)});
+
+  AffineExpr s0, s1;
+  bindSymbols(b.getContext(), s0, s1);
+  AffineExpr floorDivExpr = s0.floorDiv(s1);
+  AffineExpr modExpr = s0 % s1;
+
+  int tileSizeIdx = 0;
+  int resultDimIdx = 0;
+  for (int dimIdx = 0; dimIdx < offsets.size(); ++dimIdx) {
+    int64_t level = tileLevelsVec[dimIdx];
+    OpFoldResult offset = offsets[dimIdx];
+    for (int localResultDimIdx = 0; localResultDimIdx <= level;
+         ++localResultDimIdx) {
+      int d = resultDimIdx + localResultDimIdx;
+      if (info.isInnerMostDim(d)) {
+        newOffsets[d] = const2IndexAttr(0);
+        newSizes[d] = const2IndexAttr(info.dimSizes[dimIdx]);
+      } else {
+        newSizes[d] = const2IndexAttr(1);
+        OpFoldResult tileSize =
+            const2IndexAttr(tileSizesVec[tileSizeIdx + localResultDimIdx]);
+        newOffsets[d] = makeComposedFoldedAffineApply(b, loc, floorDivExpr,
+                                                      {offset, tileSize});
+        offset =
+            makeComposedFoldedAffineApply(b, loc, modExpr, {offset, tileSize});
+      }
+    }
+    tileSizeIdx += level;
+    resultDimIdx += 1 + level;
+  }
+
+  if (!permutationVec.empty()) {
+    newOffsets =
+        disc_linalg_ext::interchange<OpFoldResult>(newOffsets, permutationVec);
+    newSizes =
+        disc_linalg_ext::interchange<OpFoldResult>(newSizes, permutationVec);
+  }
+
+  auto newShape = info.dimSizes;
+  newShape = disc_linalg_ext::interchange<int64_t>(newShape, info.permutation);
+  auto sliceTy = RankedTensorType::get(newShape, packedTy.getElementType());
+  auto sliceOp = b.create<tensor::ExtractSliceOp>(
+      loc, sliceTy, packedValue, newOffsets, newSizes, newStrides);
+  if (sliceTy != targetTy) {
+    Value emptyResult = b.create<tensor::EmptyOp>(loc, targetTy, ValueRange{});
+    resultOp =
+        makeTransposeOp(b, loc, sliceOp, emptyResult, info.reversePermutation);
+  } else {
+    resultOp = sliceOp.getOperation();
+  }
+  return success();
+}
+
+}  // namespace
+
+void CacheReadOp::build(OpBuilder& builder, OperationState& result,
+                        Value target, Value anchor,
+                        ArrayRef<int64_t> tileLevels,
+                        ArrayRef<int64_t> tileSizes, bool padded,
+                        ArrayRef<int64_t> permutation) {
+  SmallVector<int64_t> permutationVec;
+  int64_t expectedResultRank =
+      disc_linalg_ext::MultiLevelPackOp::getExpectedResultRank(tileLevels);
+  if (expectedResultRank > 0 && permutation.empty()) {
+    permutationVec = llvm::to_vector<>(
+        llvm::seq(static_cast<int64_t>(0), expectedResultRank));
+    permutation = permutationVec;
+  }
+  build(builder, result, pdl::OperationType::get(builder.getContext()), target,
+        anchor, builder.getI64ArrayAttr(tileLevels),
+        builder.getI64ArrayAttr(tileSizes),
+        builder.getI64ArrayAttr(permutation));
+  if (padded) {
+    result.addAttribute(CacheReadOp::getPaddedAttrName(result.name),
+                        builder.getUnitAttr());
+  }
+}
+
+void CacheReadOp::getEffects(
+    SmallVectorImpl<MemoryEffects::EffectInstance>& effects) {
+  transform::consumesHandle({this->getOperation()->getOperand(0)}, effects);
+  transform::onlyReadsHandle({this->getOperation()->getOperand(1)}, effects);
+  transform::producesHandle(this->getOperation()->getResults(), effects);
+  transform::modifiesPayload(effects);
+}
+
+DiagnosedSilenceableFailure CacheReadOp::apply(
+    transform::TransformResults& results, transform::TransformState& state) {
+  ArrayRef<Operation*> targetOps = state.getPayloadOps(getTarget());
+  if (targetOps.size() != 1)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect only one target op but got ")
+           << targetOps.size();
+
+  Operation* targetOp = targetOps[0];
+  tensor::ExtractSliceOp sliceOp;
+  Optional<Value> paddingValue;
+  if (getPadded()) {
+    auto padOp = dyn_cast<tensor::PadOp>(targetOp);
+    if (!padOp)
+      return mlir::emitDefiniteFailure(targetOp,
+                                       "expect target to be pad op when "
+                                       "`padded` attr is set, but got ")
+             << *targetOp;
+    sliceOp = padOp->getOperand(0).getDefiningOp<tensor::ExtractSliceOp>();
+    if (!sliceOp)
+      return mlir::emitDefiniteFailure(
+          targetOp,
+          "expect the source of pad is a slice op when `padded` attr is set");
+    if (padOp.getBody()->getOperations().size() != 1)
+      return mlir::emitDefiniteFailure(
+          targetOp, "expect the padding region of pad op only has one op\n");
+    paddingValue =
+        cast<tensor::YieldOp>(&padOp.getBody()->getOperations().front())
+            ->getOperand(0);
+  } else {
+    sliceOp = dyn_cast<tensor::ExtractSliceOp>(targetOp);
+    if (!sliceOp)
+      return mlir::emitDefiniteFailure(
+                 targetOp,
+                 "expect target to be extract_slice op when `padded` attr is "
+                 "not set, but got ")
+             << *targetOp;
+  }
+
+  if (!strideAllOnes(sliceOp))
+    return mlir::emitDefiniteFailure(
+        sliceOp.getOperation(),
+        "expect the strides of target slice op are all ones\n");
+
+  // verify the target op have static shape
+  auto targetTy = targetOp->getResult(0).getType().cast<ShapedType>();
+  if (!targetTy.hasStaticShape() || targetTy.getRank() == 0)
+    return mlir::emitDefiniteFailure(
+        targetOp, "expect the targetOp has static shape with rank > 0\n");
+
+  ArrayRef<Operation*> anchorOps = state.getPayloadOps(getAnchor());
+  if (anchorOps.size() != 1)
+    return mlir::emitDefiniteFailure(this->getOperation(),
+                                     "expect only one anchor op but got ")
+           << anchorOps.size();
+
+  Operation* anchorOp = anchorOps[0];
+  OpBuilder b(anchorOp);
+  Location loc = anchorOp->getLoc();
+  Value source = sliceOp.getSource();
+  auto sourceTy = source.getType().cast<ShapedType>();
+  auto tileLevelsVec =
+      MultiLevelPackOp::convertI64ArrayAttrToVec(getTileLevels());
+  auto tileSizesVec =
+      MultiLevelPackOp::convertI64ArrayAttrToVec(getTileSizes());
+  auto permutationVec =
+      MultiLevelPackOp::convertI64ArrayAttrToVec(getPermutation());
+  auto packedType = MultiLevelPackOp::getPackedType(
+      sourceTy, tileLevelsVec, tileSizesVec, permutationVec);
+  if (!packedType)
+    return mlir::emitDefiniteFailure(targetOp,
+                                     "failed to infer the packed type\n");
+
+  // Verify that: the inner most tile size (or the dim size if the dimension is
+  // not tiled at all) for each dimension equals to the dimension size of the
+  // (padded) slice correspondingly.
+  InnerMostDimsInfo innerMostDimsInfo;
+  parseInnerMostDimsInfo(innerMostDimsInfo, sourceTy, tileLevelsVec,
+                         tileSizesVec, permutationVec);
+  for (const auto& z :
+       llvm::zip(targetTy.getShape(), innerMostDimsInfo.dimSizes)) {
+    if (std::get<0>(z) != std::get<1>(z))
+      return mlir::emitDefiniteFailure(this->getOperation(),
+                                       "expect the inner most tile size match "
+                                       "the shape of the result of slice: ")
+             << std::get<0>(z) << " vs " << std::get<1>(z) << "\n";
+  }
+
+  SmallVector<OpFoldResult> sourceDims =
+      disc_linalg_ext::getDims(b, loc, source);
+  auto resultDims = MultiLevelPackOp::getResultShape(
+      b, loc, sourceDims, tileLevelsVec, tileSizesVec, permutationVec);
+  SmallVector<Value> resultDynDims;
+  for (auto r : resultDims)
+    if (auto v = r.dyn_cast<Value>()) resultDynDims.push_back(v);
+  auto empty = b.create<tensor::EmptyOp>(loc, packedType, resultDynDims);
+  auto packedOp =
+      b.create<MultiLevelPackOp>(loc, source, empty, tileLevelsVec,
+                                 tileSizesVec, permutationVec, paddingValue);
+
+  b.setInsertionPoint(targetOp);
+  Operation* resultOp;
+  if (failed(readFromPackedValue(b, loc, packedOp->getResult(0), targetTy,
+                                 sliceOp.getMixedOffsets(), tileLevelsVec,
+                                 tileSizesVec, permutationVec,
+                                 innerMostDimsInfo, resultOp)))
+    return mlir::emitDefiniteFailure(
+        this->getOperation(),
+        "failed to create new extract_slice op for the packed value\n");
+  targetOp->getResult(0).replaceAllUsesWith(resultOp->getResult(0));
+  results.set(getResult().cast<OpResult>(), {resultOp});
   return DiagnosedSilenceableFailure(success());
 }
 

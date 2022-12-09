@@ -25,4 +25,29 @@
 #define GET_OP_CLASSES
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.h.inc"
 
+namespace mlir {
+namespace disc_ral {
+namespace disc_linalg_ext {
+
+// Returns dimension value vector for `shapedTypeValue`.
+SmallVector<OpFoldResult> getDims(OpBuilder& builder, Location loc,
+                                  Value shapedTypeValue);
+
+/// Returns a vector that interchanges `elements` starting at offset `offset`
+/// based on the indexes in `interchangeVector`.
+template <typename T>
+SmallVector<T> interchange(ArrayRef<T> elements,
+                           ArrayRef<int64_t> interchangeVector,
+                           int offset = 0) {
+  SmallVector<T> vec = llvm::to_vector(elements);
+  for (auto en : llvm::enumerate(interchangeVector)) {
+    vec[en.index() + offset] = elements[en.value() + offset];
+  }
+  return vec;
+}
+
+}  // namespace disc_linalg_ext
+}  // namespace disc_ral
+}  // namespace mlir
+
 #endif  // DISC_TOOLS_DISC_TRANSFORM_LINALGEXT_OPS_EXT_

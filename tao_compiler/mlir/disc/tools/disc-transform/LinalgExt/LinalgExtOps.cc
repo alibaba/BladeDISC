@@ -94,19 +94,6 @@ SmallVector<OpFoldResult> getDims(OpBuilder& builder, Location loc,
       [&](int64_t dim) { return getDim(builder, loc, shapedTypeValue, dim); }));
 }
 
-/// Returns a vector that interchanges `elements` starting at offset `offset`
-/// based on the indexes in `interchangeVector`.
-template <typename T>
-SmallVector<T> interchange(ArrayRef<T> elements,
-                           ArrayRef<int64_t> interchangeVector,
-                           int offset = 0) {
-  SmallVector<T> vec = llvm::to_vector(elements);
-  for (auto en : llvm::enumerate(interchangeVector)) {
-    vec[en.index() + offset] = elements[en.value() + offset];
-  }
-  return vec;
-}
-
 //===----------------------------------------------------------------------===//
 // PackOp
 //===----------------------------------------------------------------------===//

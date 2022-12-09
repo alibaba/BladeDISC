@@ -82,6 +82,7 @@ def DISCLinalgExt_MultiLevelPackOp : DISCLinalgExt_Op<"multi_level_pack", [
     disc_linalg_ext.multi_level_pack %arg0 with padding_value(%pad : f32)
       tile_levels = [1, 1] tile_sizes = [8, 2] permutation = [0, 2, 1, 3]
       into %arg1 : (tensor<13x15xf32> tensor<2x8x8x2xf32>)
+    ```
 
     Example KC_to_KCc{1}k{1}k{2}c{2} with padding:
 

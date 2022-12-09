@@ -1,0 +1,69 @@
+/// Pre-defined custom call prototypes
+///
+/// const std::string kDefaultHelperFunctionDeclarations = R"pdll(
+///   Rewrite PackValue_1(tag : Attr, v0 : Value) -> ValueRange;
+///   Rewrite PackValue_2(tag : Attr, v0 : Value, v1 : Value) -> ValueRange;
+///   Rewrite UnpackValue_1(v : ValueRange) -> (Value);
+///   Rewrite UnpackValue_2(v : ValueRange) -> (Value, Value);
+///   Rewrite CreateTorchCustomCall(tag : Attr, inputs : ValueRange, outputs : ValueRange) -> (op: Op, new_outputs : ValueRange);
+///   Rewrite SetAttr(op : Op, key : Attr, value : Attr);
+///   Rewrite SetCustomAttr(op : Op, key : Attr, value : Attr);
+/// )pdll";
+
+Pattern ConvBiasOp {
+  /// match phase: define the pattern
+  /// conv+bias -> conv_biasadd fused kernel
+  let conv_op = op<torch.aten._convolution>(
+      input: Value, 
+      weight: Value, 
+      bias: Value, 
+      stride: Value, 
+      padding: Value, 
+      dilation: Value, 
+      transposed: Value, 
+      output_padding: Value, 
+      groups: Value, 
+      benchmark: Value, 
+      deterministic: Value, 
+      cudnn_enabled: Value, 
+      allowTF32: Value
+  );
+
+  CheckNotTorchNone(bias);
+  CheckTorchConstantIntList(stride);
+  CheckTorchConstantIntList(padding);
+  CheckTorchConstantIntList(dilation);
+  CheckTorchConstantInt(groups);
+
+  /// rewrite phase
+  rewrite conv_op with {
+    /// 1. create custom call op
+    let inputs = PackValue_3(attr<"\"in\"">, input, weight, bias);
+    let outputs = PackValue_1(attr<"\"out\"">, conv_op.0);
+    let infos = CreateTorchCustomCall(attr<"\"op\"">, inputs, outputs);
+
+    /// 2. set attrs that are used by bladedisc.
+    SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_conv_bias\"">);
+    SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d\"">);
+    SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
+    SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
+    SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"NCHW,OIHW,*\"">);
+    SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"NCHW\"">);
+    SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"NHWC,OHWI,*\"">);
+    SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"NHWC\"">);
+
+    /// 3. set attrs that are directly passed to the custom call kernel.
+    let stride_attr = ConvertTorchConstantIntListToI64DenseElemsAttr(stride);
+    let padding_attr = ConvertTorchConstantIntListToI64DenseElemsAttr(padding);
+    let dilation_attr = ConvertTorchConstantIntListToI64DenseElemsAttr(dilation);
+    let groups_attr = ConvertTorchConstantIntToI64Attr(groups);
+    SetCustomAttr(infos.op, attr<"\"stride\"">, stride_attr);
+    SetCustomAttr(infos.op, attr<"\"padding\"">, padding_attr);
+    SetCustomAttr(infos.op, attr<"\"dilation\"">, dilation_attr);
+    SetCustomAttr(infos.op, attr<"\"groups\"">, groups_attr);
+    SetCustomAttr(infos.op, attr<"\"data_format\"">, attr<"\"NHWC\"">);
+
+    let rs = UnpackValue_1(infos.new_outputs);
+    replace conv_op with rs;
+  };
+}

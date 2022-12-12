@@ -8,7 +8,8 @@ load(
     "if_platform_alibaba",
     "if_tensorrt_enabled",
     "if_ltc_disc_backend",
-    "if_quantization_enabled"
+    "if_quantization_enabled",
+    "if_neural_engine_enabled"
 )
 load("@pybind11_bazel//:build_defs.bzl", "pybind_extension", "pybind_library")
 
@@ -36,6 +37,8 @@ cc_library(
         "//pytorch_blade/platform_alibaba:torch_blade",
     ]) + if_quantization_enabled([
         "//pytorch_blade/quantization:quantization_op",
+    ]) + if_neural_engine_enabled([
+        "//pytorch_blade/compiler/neural_engine:torch_blade_neural_engine",
     ]),
 )
 
@@ -105,6 +108,8 @@ pybind_library(
         ["-DTORCH_BLADE_PLATFORM_ALIBABA=false"],
     ) + if_ltc_disc_backend([
         "-DTORCH_BLADE_ENABLE_LTC"
+    ]) + if_neural_engine_enabled([
+        "-DTORCH_BLADE_BUILD_NEURAL_ENGINE"
     ]),
     includes = ["."],
     linkstatic = 0,

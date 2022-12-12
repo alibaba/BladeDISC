@@ -171,6 +171,14 @@ class BazelBuild(TorchBladeBuild):
         if is_enable_quantization:
             self.torch_extra_opts.append("--config=torch_enable_quantization")
 
+        # ----------------------------------------------------------------------- #
+        # --------------------   Settings for Neural Engine   ------------------- #
+        # ----------------------------------------------------------------------- #
+        is_enable_neural_engine = os.getenv("TORCH_BLADE_ENABLE_NEURAL_ENGINE", None)
+        if is_enable_neural_engine is not None:
+            print("=================enable neural engine=============")
+            self.torch_extra_opts.append("--config=torch_enable_neural_engine")
+
         self.shell_setting = "set -e; set -o pipefail; "
         # Workaround: this venv ensure that $(/usr/bin/env python) is evaluated to python3
         venv.create(".bazel_pyenv", clear=True)

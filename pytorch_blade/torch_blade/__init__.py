@@ -40,6 +40,11 @@ try:
 except ImportError:
     pass
 
+try:
+    import torch_blade.neural_engine
+except ImportError as e:
+    pass
+
 _is_ltc_available = False
 try:
     from ._torch_blade import _ltc as ltc

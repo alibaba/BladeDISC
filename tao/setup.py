@@ -15,10 +15,8 @@
 
 import io
 import os
-import re
 
 import pkg_resources
-import subprocess
 from setuptools import find_packages, setup
 
 import tensorflow as tf

@@ -280,6 +280,57 @@ LogicalResult MultiLevelPackOp::reifyResultShapes(
   return success();
 }
 
+static SmallVector<uint64_t> delinearize(uint64_t idx,
+                                         ArrayRef<int64_t> shape) {
+  SmallVector<uint64_t> indices(shape.size());
+  for (int d = static_cast<int>(shape.size()) - 1; d >= 0; --d) {
+    indices[d] = idx % shape[d];
+    idx /= shape[d];
+  }
+  return indices;
+}
+
+LogicalResult MultiLevelPackOp::fold(ArrayRef<Attribute> operands,
+                                     SmallVectorImpl<OpFoldResult>& results) {
+  if (operands.size() < 1 || !operands[0]) return failure();
+  auto srcElemAtts = operands[0].dyn_cast<ElementsAttr>();
+  if (!srcElemAtts) return failure();
+
+  auto srcTy = srcElemAtts.getType();
+  int srcRank = srcTy.getRank();
+  auto dstTy = this->getOutputType();
+  if (!dstTy.hasStaticShape()) return failure();
+  int dstRank = dstTy.getRank();
+
+  auto tileLevelsVec = this->getTileLevelsVec();
+  auto tileSizesVec = this->getTileSizesVec();
+  auto permutationVec = this->getPermutationVec();
+  auto logicalDim2SrcDim =
+      this->getOutputLogicalDimToInputDimMapping(tileLevelsVec, tileSizesVec);
+  auto logicalDim2TileSize =
+      this->getOutputLogicalDimToTileSizeMapping(tileLevelsVec, tileSizesVec);
+
+  SmallVector<Attribute> dstAttrs;
+  for (uint64_t idx = 0; idx < dstTy.getNumElements(); ++idx) {
+    auto indices = delinearize(idx, dstTy.getShape());
+    SmallVector<uint64_t> srcIndices(srcRank, 0);
+    for (int dstIdx = 0; dstIdx < dstRank; ++dstIdx) {
+      int logicalIdx = permutationVec[dstIdx];
+      int srcIdx = logicalDim2SrcDim[logicalIdx];
+      srcIndices[srcIdx] += indices[dstIdx] * logicalDim2TileSize[logicalIdx];
+    }
+    if (srcElemAtts.isValidIndex(srcIndices)) {
+      dstAttrs.push_back(srcElemAtts.getValues<Attribute>()[srcIndices]);
+    } else {
+      if (operands.size() < 3 || !operands[2]) return failure();
+      dstAttrs.push_back(operands[2]);
+    }
+  }
+
+  results.push_back(DenseElementsAttr::get(dstTy, dstAttrs));
+  return success();
+}
+
 namespace {
 /// This is derived from mlir/lib/Dialect/Linalg/IR/LinalgOps.cpp without any
 /// changes.

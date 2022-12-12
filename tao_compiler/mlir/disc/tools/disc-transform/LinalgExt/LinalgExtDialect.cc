@@ -14,6 +14,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/TypeSwitch.h"
 #include "llvm/Support/SourceMgr.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
 #include "mlir/IR/Attributes.h"
 #include "mlir/IR/DialectImplementation.h"
 #include "mlir/IR/OpDefinition.h"
@@ -30,6 +31,13 @@ void DISCLinalgExtDialect::initialize() {
   addOperations<
 #include "tensorflow/compiler/mlir/disc/tools/disc-transform/LinalgExt/LinalgExtOps.cc.inc"
       >();
+}
+
+/// Materialize an integer or floating point constant.
+Operation* DISCLinalgExtDialect::materializeConstant(OpBuilder& builder,
+                                                     Attribute value, Type type,
+                                                     Location loc) {
+  return builder.create<arith::ConstantOp>(loc, value, type);
 }
 
 }  // namespace disc_linalg_ext

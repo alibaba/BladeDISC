@@ -211,10 +211,9 @@ def DISCLinalgExt_MultiLevelPackOp : DISCLinalgExt_Op<"multi_level_pack", [
       int logicalIdx = 0;
       DenseMap<int, int> dst2src;
       for (int i = 0; i < tileLevelsVec.size(); ++i) {
-        for (int j = 0; j < tileLevelsVec[i]; ++j) {
+        for (int j = 0; j <= tileLevelsVec[i]; ++j) {
           dst2src[logicalIdx++] = i;
         }
-        dst2src[logicalIdx++] = i;
       }
       return dst2src;
     }
@@ -242,7 +241,7 @@ def DISCLinalgExt_MultiLevelPackOp : DISCLinalgExt_Op<"multi_level_pack", [
       DenseSet<int> innerMostDims;
       for (int i = 0; i < tileLevelsVec.size(); ++i) {
         logicalIdx += tileLevelsVec[i];
-        innerMostDims.insert(logicalIdx);
+        innerMostDims.insert(logicalIdx++);
       }
       return innerMostDims;
     }

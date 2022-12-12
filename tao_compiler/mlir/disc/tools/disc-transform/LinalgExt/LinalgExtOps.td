@@ -121,6 +121,8 @@ def DISCLinalgExt_MultiLevelPackOp : DISCLinalgExt_Op<"multi_level_pack", [
       )>
   ];
 
+  let hasFolder = 1;
+
   let extraClassDeclaration = extraLinalgExtOpClassDeclaration # [{
 
     // Return the output operand.
@@ -200,6 +202,48 @@ def DISCLinalgExt_MultiLevelPackOp : DISCLinalgExt_Op<"multi_level_pack", [
     int64_t getExpectedResultRank() {
       auto vs = getTileLevelsVec();
       return getExpectedResultRank(vs);
+    }
+
+    // Returns the map: logical dim of output -> input dim
+    // Here the logical dim is the dim before transpose.
+    DenseMap<int, int> getOutputLogicalDimToInputDimMapping(
+        ArrayRef<int64_t> tileLevelsVec, ArrayRef<int64_t> tileSizesVec) {
+      int logicalIdx = 0;
+      DenseMap<int, int> dst2src;
+      for (int i = 0; i < tileLevelsVec.size(); ++i) {
+        for (int j = 0; j <= tileLevelsVec[i]; ++j) {
+          dst2src[logicalIdx++] = i;
+        }
+      }
+      return dst2src;
+    }
+
+    // Returns the map: logical dim of output -> tile size for each dim
+    // Here the logical dim is the dim before transpose.
+    DenseMap<int, int> getOutputLogicalDimToTileSizeMapping(
+        ArrayRef<int64_t> tileLevelsVec, ArrayRef<int64_t> tileSizesVec) {
+      int logicalIdx = 0;
+      int tileSizeIdx = 0;
+      DenseMap<int, int> logicalDim2TileSize;
+      for (int i = 0; i < tileLevelsVec.size(); ++i) {
+        for (int j = 0; j < tileLevelsVec[i]; ++j) {
+          logicalDim2TileSize[logicalIdx++] = tileSizesVec[tileSizeIdx++];
+        }
+        logicalDim2TileSize[logicalIdx++] = 1;
+      }
+      return logicalDim2TileSize;
+    }
+
+    // Returns the inner most dims
+    DenseSet<int> getOutputInnerMostDims(
+        ArrayRef<int64_t> tileLevelsVec, ArrayRef<int64_t> tileSizesVec) {
+      int logicalIdx = 0;
+      DenseSet<int> innerMostDims;
+      for (int i = 0; i < tileLevelsVec.size(); ++i) {
+        logicalIdx += tileLevelsVec[i];
+        innerMostDims.insert(logicalIdx++);
+      }
+      return innerMostDims;
     }
 
     // Method to get the shape of the result as `SmallVector<OpFoldResult>`.

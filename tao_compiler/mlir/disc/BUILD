@@ -2030,6 +2030,7 @@ disc_cc_library(
         ":lmhlo_disc",
         ":pass_details",
         "@llvm-project//mlir:Pass",
+        "//tensorflow/tsl/platform:cuda_libdevice_path",
         "//tensorflow/core:lib",
     ] + if_cuda_is_configured([
         ":compute_intensive_fusion_deps",

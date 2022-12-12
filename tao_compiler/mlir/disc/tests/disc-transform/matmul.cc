@@ -235,4 +235,84 @@ TEST(SimpleTest, MatMulF32_1024x1024x1024_3) {
       /*profiling*/ true));
 }
 
+TEST(SimpleTest, MatMulF32_304x1024x512_4) {
+  EnvSetting setting = {
+      {"DISC_TRANSFORM_SCHEDULE_FILE",
+       {c_ft_path + "matmul_nn_d_f32_large_schedule_4.mlir", false}},
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", "false"}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", "false"}}};
+  EnvSettingContext ctx(setting);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "matmul_nn_d_f32.mlir",
+      /*backend_types*/ {BackendType::kAArch64},
+      /*num_inputs*/ 2,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"304x512xf32_X", "512x1024xf32_X"},
+      /*output_descriptors*/ {"f32_X"},
+      /*input_vals*/ {},
+      /*expected_output_vals*/ {},
+      /*profiling*/ true));
+}
+
+TEST(SimpleTest, MatMulF32_1024x1024x1024_4) {
+  EnvSetting setting = {
+      {"DISC_TRANSFORM_SCHEDULE_FILE",
+       {c_ft_path + "matmul_nn_d_f32_large_schedule_4.mlir", false}},
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", "false"}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", "false"}}};
+  EnvSettingContext ctx(setting);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "matmul_nn_d_f32.mlir",
+      /*backend_types*/ {BackendType::kAArch64},
+      /*num_inputs*/ 2,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"1024x1024xf32_X", "1024x1024xf32_X"},
+      /*output_descriptors*/ {"f32_X"},
+      /*input_vals*/ {},
+      /*expected_output_vals*/ {},
+      /*profiling*/ true));
+}
+
+TEST(SimpleTest, MatMulF32_1026x1024x1024_4) {
+  EnvSetting setting = {
+      {"DISC_TRANSFORM_SCHEDULE_FILE",
+       {c_ft_path + "matmul_nn_d_f32_large_schedule_4.mlir", false}},
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", "false"}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", "false"}}};
+  EnvSettingContext ctx(setting);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "matmul_nn_d_f32.mlir",
+      /*backend_types*/ {BackendType::kAArch64},
+      /*num_inputs*/ 2,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"1026x1024xf32_X", "1024x1024xf32_X"},
+      /*output_descriptors*/ {"f32_X"},
+      /*input_vals*/ {},
+      /*expected_output_vals*/ {},
+      /*profiling*/ true));
+}
+
+TEST(SimpleTest, MatMulF32_304x1024x512_5) {
+  EnvSetting setting = {
+      {"DISC_TRANSFORM_SCHEDULE_FILE",
+       {c_ft_path + "matmul_nn_d_f32_large_schedule_5.mlir", false}},
+      {"DISC_ENABLE_TRANSFORM_SCHEDULE", {"1", false}},
+      {"DISC_ENABLE_SHAPE_CONSTRAINT_IR", {"1", "false"}},
+      {"DISC_MEM_INTENSIVE_OPT_EXPERIMENTAL", {"0", "false"}}};
+  EnvSettingContext ctx(setting);
+  EXPECT_TRUE(feature_test_main(
+      /*mlir_file_path*/ c_ft_path + "matmul_nn_d_f32.mlir",
+      /*backend_types*/ {BackendType::kAArch64},
+      /*num_inputs*/ 2,
+      /*num_outputs*/ 1,
+      /*input_descriptors*/ {"304x512xf32_X", "512x1024xf32_X"},
+      /*output_descriptors*/ {"f32_X"},
+      /*input_vals*/ {},
+      /*expected_output_vals*/ {},
+      /*profiling*/ true));
+}
+
 }  // namespace mlir_test

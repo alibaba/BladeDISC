@@ -158,8 +158,7 @@ static LogicalResult checkTorchTensorElemType(
 
   auto v = values[0].cast<Value>();
   auto tensorTy = v.getType().dyn_cast<Torch::ValueTensorType>();
-  if (!tensorTy)
-    return failure();
+  if (!tensorTy) return failure();
 
   auto type_str =
       values[1].cast<Attribute>().cast<StringAttr>().getValue().str();
@@ -181,8 +180,7 @@ static LogicalResult checkTorchTensorElemType(
 
   assert(typeconvert_dict.find(type_str) != typeconvert_dict.end());
 
-  return (tensorTy.getDtype() == typeconvert_dict[type_str]) ? success()
-                                                             : failure();
+  return (tensorTy.getDtype() == typeconvert_dict[type_str]) ? success() : failure();
 }
 
 static void getTorchTensorType(

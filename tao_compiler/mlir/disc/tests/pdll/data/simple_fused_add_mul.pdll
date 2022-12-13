@@ -27,6 +27,10 @@ Pattern TFFusedAddMul {
     SetCustomAttr(infos.op, attr<"\"int127\"">, attr<"127">);
     SetCustomAttr(infos.op, attr<"\"intNegative123456\"">, attr<"-123456">);
     SetCustomAttr(infos.op, attr<"\"float0_001\"">, attr<"0.001">);
+    SetCustomAttr(infos.op, attr<"\"intArray3int128intNegative32int0\"">, attr<"[128,-32,0]">);
+    SetCustomAttr(infos.op, attr<"\"array2strtest0strtest1\"">, attr<"[\"test0\",\"test1\"]">);
+    SetCustomAttr(infos.op, attr<"\"array3float0_001float23_0floatNegative0_5\"">, attr<"[0.001,23.0,-0.5]">);
+    SetCustomAttr(infos.op, attr<"\"array5intNegative5floatNegative0_5strtestint30float0_5\"">, attr<"[-5,-0.5,\"test\",30,0.5]">);
     SetCustomAttr(infos.op, attr<"\"rank0I64DenseAttr\"">, attr<"dense<1> : tensor<i64>">);
     SetCustomAttr(infos.op, attr<"\"rank1UI8DenseAttr\"">, attr<"dense<[1]> : tensor<1xui8>">);
     SetCustomAttr(infos.op, attr<"\"rank2Shape2x3SplatBoolDenseAttr\"">, attr<"dense<1> : tensor<2x3xi1>">);

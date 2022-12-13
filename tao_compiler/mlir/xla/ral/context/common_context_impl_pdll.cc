@@ -55,6 +55,45 @@ MemRefType<T, N> simple_test_fused_add_mul_kernel(ExecutionContext* ctx,
   // Note that `0.001` is safe to check exact match even for float type.
   TAO_CHECK(float0_001 == 0.001);
 
+  auto& int64ArrayAttr = dictAttr.get("intArray3int128intNegative32int0")
+                             .template as<IntArrayPDLAttr>();
+  TAO_CHECK(int64ArrayAttr.size() == 3);
+  TAO_CHECK(int64ArrayAttr.get(0) == 128);
+  TAO_CHECK(int64ArrayAttr.get(1) == -32);
+  TAO_CHECK(int64ArrayAttr.get(2) == 0);
+
+  auto& strArrayAttr =
+      dictAttr.get("array2strtest0strtest1").template as<ArrayPDLAttr>();
+  TAO_CHECK(strArrayAttr.size() == 2);
+  TAO_CHECK(strArrayAttr.get(0).template as<StrPDLAttr>().getValue() ==
+            "test0");
+  TAO_CHECK(strArrayAttr.get(1).template as<StrPDLAttr>().getValue() ==
+            "test1");
+
+  auto& floatArrayAttr =
+      dictAttr.get("array3float0_001float23_0floatNegative0_5")
+          .template as<ArrayPDLAttr>();
+  TAO_CHECK(floatArrayAttr.size() == 3);
+  TAO_CHECK(floatArrayAttr.get(0).template as<FloatPDLAttr>().getValue() ==
+            0.001);
+  TAO_CHECK(floatArrayAttr.get(1).template as<FloatPDLAttr>().getValue() ==
+            23.0);
+  TAO_CHECK(floatArrayAttr.get(2).template as<FloatPDLAttr>().getValue() ==
+            -0.5);
+
+  auto& mixedArrayAttr =
+      dictAttr.get("array5intNegative5floatNegative0_5strtestint30float0_5")
+          .template as<ArrayPDLAttr>();
+  TAO_CHECK(mixedArrayAttr.size() == 5);
+  TAO_CHECK(mixedArrayAttr.get(0).template as<IntPDLAttr>().getValue() == -5);
+  TAO_CHECK(mixedArrayAttr.get(1).template as<FloatPDLAttr>().getValue() ==
+            -0.5);
+  TAO_CHECK(mixedArrayAttr.get(2).template as<StrPDLAttr>().getValue() ==
+            "test");
+  TAO_CHECK(mixedArrayAttr.get(3).template as<IntPDLAttr>().getValue() == 30);
+  TAO_CHECK(mixedArrayAttr.get(4).template as<FloatPDLAttr>().getValue() ==
+            0.5);
+
   auto& rank0I64DenseAttr =
       dictAttr.get("rank0I64DenseAttr").template as<DenseElementsPDLAttr>();
   TAO_CHECK(rank0I64DenseAttr.getElementType() == "int");

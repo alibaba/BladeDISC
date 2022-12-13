@@ -117,6 +117,34 @@ std::unique_ptr<PDLAttr> parseDenseElementsAttr(uint8_t*& buffer) {
       type, elemTy, numBits, std::move(shape), std::move(rawData));
 }
 
+std::unique_ptr<PDLAttr> parseArrayAttr(uint8_t*& buffer) {
+  std::string type = parseStr(buffer);
+  assert(type == "array");
+  auto nElems = parsePOD<int64_t>(buffer);
+  TAO_VLOG(1) << "parseArrayAttr try to parse with " << nElems << " elements";
+  auto arrayAttr = std::make_unique<ArrayPDLAttr>(type);
+  for (uint64_t i = 0; i < nElems; ++i) {
+    auto attrPtr = parsePDLAttr(buffer);
+    if (!attrPtr) return attrPtr;
+    arrayAttr->push_back(std::move(attrPtr));
+  }
+  return arrayAttr;
+}
+
+std::unique_ptr<PDLAttr> parseIntArrayAttr(uint8_t*& buffer) {
+  std::string type = parseStr(buffer);
+  assert(type == "intArray");
+  auto nElems = parsePOD<int64_t>(buffer);
+  TAO_VLOG(1) << "parseIntArrayAttr try to parse with " << nElems
+              << " elements";
+  auto intArrayAttr = std::make_unique<IntArrayPDLAttr>(type);
+  for (uint64_t i = 0; i < nElems; ++i) {
+    int64_t val = parsePOD<int64_t>(buffer);
+    intArrayAttr->push_back(val);
+  }
+  return intArrayAttr;
+}
+
 std::unique_ptr<PDLAttr> parsePDLAttr(uint8_t*& buffer) {
   uint8_t* tryBuffer = buffer;
   std::string type = parseStr(tryBuffer);
@@ -133,6 +161,10 @@ std::unique_ptr<PDLAttr> parsePDLAttr(uint8_t*& buffer) {
     return parseFloatAttr(buffer);
   } else if (type == "denseElementsAttr") {
     return parseDenseElementsAttr(buffer);
+  } else if (type == "array") {
+    return parseArrayAttr(buffer);
+  } else if (type == "intArray") {
+    return parseIntArrayAttr(buffer);
   }
   return nullptr;
 }

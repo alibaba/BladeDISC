@@ -29,7 +29,7 @@ export TORCH_BLADE_RUN_EXAMPLES=${TORCH_BLADE_RUN_EXAMPLES:-OFF}
 
 function pip_install_deps() {
     # set TORCH_BLADE_CI_BUILD_TORCH_VERSION default to 1.7.1+cu110
-    TORCH_BLADE_CI_BUILD_TORCH_VERSION=${TORCH_BLADE_CI_BUILD_TORCH_VERSION:-1.7.1+cu110}
+    TORCH_BLADE_CI_BUILD_TORCH_VERSION=${TORCH_BLADE_CI_BUILD_TORCH_VERSION:-1.12.0+cu113}
     requirements=requirements-dev-${TORCH_BLADE_CI_BUILD_TORCH_VERSION}.txt
     python3 -m pip install --upgrade pip
     python3 -m pip install virtualenv

@@ -585,6 +585,66 @@ void ral_comp_intens_fusion(
   }
 }
 
+#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
+MemRefType<Eigen::half, 3> ral_pdll_mem_eff_attention(ExecutionContext* ctx,
+                                      void* stream_handle /*stream_handle*/,
+                                      MemRefType<Eigen::half, 3> query,
+                                      MemRefType<Eigen::half, 3> key,
+                                      MemRefType<Eigen::half, 4> value,
+                                      void* customAttrs) {
+  auto attr = getOrParsePDLAttr(ctx, customAttrs, "ral_pdll_mem_eff_attention");
+  if (!attr) {
+    ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
+  }
+  auto& dictAttr = attr->as<DictPDLAttr>();
+  float alpha_softmax = dictAttr.get("alpha").template as<Float32PDLAttr>().getValue();
+
+  auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
+  auto stream =
+      static_cast<se::Stream*>(gpu_driver->asSEStream(ctx, stream_handle));
+  void* s = stream->implementation()->GpuStreamHack();
+  Eigen::half* query_data = query.data;
+  Eigen::half* key_data = key.data;
+  Eigen::half* value_data = value.data;
+
+  int64_t batch_size = int64_t(value.sizes[0]);
+  int num_heads = value.sizes[1];
+  int seq_len = value.sizes[2];
+  int head_dim = value.sizes[3];
+
+  int64_t resultSizes[3] = {batch_size * num_heads,  seq_len, head_dim};
+
+  if (isEmptyMemref(query) || isEmptyMemref(key) || isEmptyMemref(value)) {
+    TAO_VLOG(1) << "ral_conv_biasadd: early return for empty tensor";
+    return assignMemRef<Eigen::half, 3>(nullptr, resultSizes);
+    ;
+  }
+
+  auto data =
+      static_cast<Eigen::half*>(gpu_driver->alloc(ctx, batch_size * num_heads * seq_len * head_dim * sizeof(Eigen::half)));
+  auto result = assignMemRef<Eigen::half, 3>(data, resultSizes);
+
+  auto data_acc =
+      static_cast<float*>(gpu_driver->alloc(ctx, batch_size * num_heads * seq_len * head_dim * sizeof(float)));
+  auto result_acc = assignMemRef<float, 3>(data_acc, resultSizes);
+
+  TAO_VLOG(0) << "begin to run kernel";
+
+  TAO_VLOG(0) << "batch_size: " << batch_size << "seq_len: " << seq_len << "num_heads: " << num_heads << "head_dim" << head_dim;
+
+  bool ret = bladnn::mem_eff_attention(result.data, query_data, key_data, value_data, result_acc.data, &batch_size, seq_len, seq_len,
+                    num_heads, head_dim, head_dim, 0.0f, alpha_softmax, false, s);
+  gpu_driver->syncOnStream(ctx, stream_handle);
+  TAO_VLOG(0) << "run kernel success";
+
+  if (!ret) {
+    ctx->signalError(Context::FAILURE, "bladnn fail");
+  }
+  return result;
+}
+#endif
+
+
 template <typename T, int N>
 int64_t GetBatchSize(MemRefType<T, N> memref) {
   int64_t batch = 1;
@@ -2083,6 +2143,8 @@ TAO_RAL_API("ral_pdll_conv_bias", "gpu",
             gpu::se_impl::gpu_conv_impl::ral_conv_biasadd<Eigen::half, 4>);
 TAO_RAL_API("ral_pdll_conv_bias", "gpu",
             gpu::se_impl::gpu_conv_impl::ral_conv_biasadd<float, 4>);
+TAO_RAL_API("ral_pdll_mem_eff_attention", "gpu",
+            gpu::se_impl::ral_pdll_mem_eff_attention);
 #endif
 
 // compute-intensive fusion

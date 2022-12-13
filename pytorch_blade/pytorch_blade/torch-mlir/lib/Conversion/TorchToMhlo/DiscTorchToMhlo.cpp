@@ -101,10 +101,10 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     ConversionPatternRewriter& rewriter) const {
   Location loc = op.getLoc();
   auto name = op.name();
-  if (std::string("aten.einsum") == name) {
-    auto outTy = getTypeConverter()
-                     ->convertType(op.getResult(0).getType())
-                     .dyn_cast<mlir::RankedTensorType>();
+  auto outTy = getTypeConverter()
+                   ->convertType(op.getResult(0).getType())
+                   .dyn_cast<mlir::RankedTensorType>();
+  if ("aten.einsum" == name) {
     SmallVector<Value> torchTensors;
     if (!getListConstructElements(op.getOperand(1), torchTensors))
       return rewriter.notifyMatchFailure(
@@ -145,7 +145,37 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
         rhs,
         mlir::StringAttr::get(rewriter.getContext(), equation));
     return success();
+  } else if ("prims.broadcast_in_dim" == name) {
+    auto shape = op.getOperand(1);
+    SmallVector<Value, 4> dimSizes;
+    getListConstructElements(shape, dimSizes);
+    // BladeDISC use i32 as shape
+    std::for_each(dimSizes.begin(), dimSizes.end(), [&](Value& dSize) {
+      dSize = rewriter.create<ToI64Op>(loc, dSize).getResult();
+      // dimSize: cast i64 -> i32
+      dSize =
+          rewriter.create<arith::TruncIOp>(loc, rewriter.getI32Type(), dSize);
+      return dSize;
+    });
+
+    SmallVector<int64_t> inputDims;
+    if (!matchPattern(op.getOperand(2), m_TorchConstantIntList(inputDims))) {
+      return rewriter.notifyMatchFailure(op, "non-int dim list unsupported");
+    }
+    SmallVector<Value> torchTensors{op.getOperand(0)};
+    auto builtinTensors = Torch::getTypeConvertedValues(
+        rewriter, op->getLoc(), getTypeConverter(), torchTensors);
+    auto mhloShape =
+        rewriter.create<mlir::tensor::FromElementsOp>(loc, dimSizes);
+    auto result = rewriter.replaceOpWithNewOp<mhlo::DynamicBroadcastInDimOp>(
+        op,
+        outTy,
+        builtinTensors[0],
+        mhloShape,
+        rewriter.getI64TensorAttr(inputDims));
+    return success();
   }
+
   return failure();
 }
 } // namespace
@@ -276,50 +306,6 @@ class ConvertAtenExtractOp : public OpConversionPattern<AtenOpT> {
 } // namespace
 
 namespace {
-template <>
-LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
-    OperatorOp op,
-    OpAdaptor adaptor,
-    ConversionPatternRewriter& rewriter) const {
-  Location loc = op.getLoc();
-  auto name = op.name();
-  auto outTy = getTypeConverter()
-                   ->convertType(op.getResult(0).getType())
-                   .dyn_cast<mlir::RankedTensorType>();
-
-  if (std::string("prims.broadcast_in_dim") == name) {
-    auto shape = op.getOperand(1);
-    SmallVector<Value, 4> dimSizes;
-    getListConstructElements(shape, dimSizes);
-    // BladeDISC use i32 as shape
-    std::for_each(dimSizes.begin(), dimSizes.end(), [&](Value& dSize) {
-      dSize = rewriter.create<ToI64Op>(loc, dSize).getResult();
-      // dimSize: cast i64 -> i32
-      dSize =
-          rewriter.create<arith::TruncIOp>(loc, rewriter.getI32Type(), dSize);
-      return dSize;
-    });
-
-    SmallVector<int64_t> inputDims;
-    if (!matchPattern(op.getOperand(2), m_TorchConstantIntList(inputDims))) {
-      return rewriter.notifyMatchFailure(op, "non-int dim list unsupported");
-    }
-    SmallVector<Value> torchTensors{op.getOperand(0)};
-    auto builtinTensors = Torch::getTypeConvertedValues(
-        rewriter, op->getLoc(), getTypeConverter(), torchTensors);
-    auto mhloShape =
-        rewriter.create<mlir::tensor::FromElementsOp>(loc, dimSizes);
-    auto result = rewriter.replaceOpWithNewOp<mhlo::DynamicBroadcastInDimOp>(
-        op,
-        outTy,
-        builtinTensors[0],
-        mhloShape,
-        rewriter.getI64TensorAttr(inputDims));
-    return success();
-  }
-  return failure();
-}
-
 template <>
 LogicalResult ConvertAtenOp<AtenArangeOp>::matchAndRewrite(
     AtenArangeOp op,

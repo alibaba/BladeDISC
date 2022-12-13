@@ -94,7 +94,6 @@ def disc(fx_g: fx.GraphModule, inps) -> Callable:
         with cfg:
             f = torch_blade.optimize(f, True, tuple(inps))
         return f
-    return fx_g
 
 @compilers.make_boxed_compiler
 def disc_compile_ts(fx_g: fx.GraphModule, inps, use_ts=False) -> Callable:

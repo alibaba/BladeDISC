@@ -10,15 +10,9 @@
 # limitations under the License.
 
 # type: ignore
-import subprocess
 import logging
 import sys
 import os
-import shlex
-import shutil
-import json
-import re
-from contextlib import contextmanager
 
 PY_VER = "{}.{}".format(sys.version_info.major, sys.version_info.minor)
 

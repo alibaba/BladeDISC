@@ -373,7 +373,6 @@ def _jit_pass_replace_inplace_name(graph):
 
     def _replace_inplace_name(graph):
         all_nodes = _collect_all_inplace_nodes(graph)
-        observers = []
         for idx, node in enumerate(all_nodes):
             new_op = graph.create(node.kind() + "inplace_")
             value = node.output()

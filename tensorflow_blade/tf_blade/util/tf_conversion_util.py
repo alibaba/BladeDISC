@@ -142,7 +142,6 @@ def get_subgraph_test_inputs_shapes(
                     logging.info(
                         f"Session run in get_subgraph_test_inputs_shapes has err:{err}!"
                     )
-                    pass
                 finally:
                     if res_tensors:
                         res_tensors_list[i] = res_tensors

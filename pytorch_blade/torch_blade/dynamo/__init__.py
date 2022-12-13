@@ -17,7 +17,7 @@ from functorch.compile import min_cut_rematerialization_partition
 import torch
 import torch_blade
 import torch.fx as fx
-from typing import Callable, Optional, Tuple, Union
+from typing import Callable
 
 
 def _disc_compile(fx_g: fx.GraphModule, inps, use_ts=False, is_training=True) -> Callable:

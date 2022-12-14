@@ -72,7 +72,6 @@ class PodPDLAttr : public PDLAttr {
 using BoolPDLAttr = PodPDLAttr<bool>;
 using IntPDLAttr = PodPDLAttr<int64_t>;
 using FloatPDLAttr = PodPDLAttr<double>;
-using Float32PDLAttr = PodPDLAttr<float>;
 
 class DenseElementsPDLAttr : public PDLAttr {
  public:

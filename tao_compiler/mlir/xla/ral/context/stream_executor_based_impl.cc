@@ -521,7 +521,8 @@ MemRefType<Eigen::half, 3> ral_pdll_mem_eff_attention(ExecutionContext* ctx,
     ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
   }
   auto& dictAttr = attr->as<DictPDLAttr>();
-  float alpha_softmax = dictAttr.get("alpha").template as<Float32PDLAttr>().getValue();
+  double alpha_softmax_double = dictAttr.get("alpha").template as<FloatPDLAttr>().getValue();
+  float alpha_softmax = float(alpha_softmax_double);
 
   auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
   auto stream =
@@ -532,9 +533,11 @@ MemRefType<Eigen::half, 3> ral_pdll_mem_eff_attention(ExecutionContext* ctx,
   Eigen::half* value_data = value.data;
 
   int64_t batch_size = int64_t(value.sizes[0]);
+  int seq_len = query.sizes[1];
+  int head_dim = query.sizes[2];
   int num_heads = value.sizes[1];
-  int seq_len = value.sizes[2];
-  int head_dim = value.sizes[3];
+  int seq_len_kv = value.sizes[2];
+  int head_dim_v = value.sizes[3];
 
   int64_t resultSizes[3] = {batch_size * num_heads,  seq_len, head_dim};
 
@@ -550,14 +553,14 @@ MemRefType<Eigen::half, 3> ral_pdll_mem_eff_attention(ExecutionContext* ctx,
 
   auto data_acc =
       static_cast<float*>(gpu_driver->alloc(ctx, batch_size * num_heads * seq_len * head_dim * sizeof(float)));
-  auto result_acc = assignMemRef<float, 3>(data_acc, resultSizes);
 
-  bool ret = bladnn::mem_eff_attention(result.data, query_data, key_data, value_data, result_acc.data, &batch_size, seq_len, seq_len,
-                    num_heads, head_dim, head_dim, 0.0f, alpha_softmax, false, s);
+  bool ret = bladnn::mem_eff_attention(result.data, query_data, key_data, value_data, data_acc, &batch_size, seq_len, seq_len_kv,
+                    num_heads, head_dim, head_dim_v, 0.0f, alpha_softmax, false, s);
 
   if (!ret) {
     ctx->signalError(Context::FAILURE, "bladnn fail");
   }
+  gpu_driver->dealloc(ctx, data_acc);
   return result;
 }
 #endif

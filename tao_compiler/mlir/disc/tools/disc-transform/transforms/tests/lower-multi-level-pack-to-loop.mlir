@@ -10,6 +10,8 @@ func.func @multi_level_pack(%arg0: tensor<?x?xf32>, %arg1: index, %arg2: index) 
   // CHECK:   %[[T1:.*]] = scf.for %[[IV1:.*]] = %c0 to %[[DIM1]] step %c32 iter_args(%[[V1:.*]] = %[[V0]]) -> (tensor<?x?x32x32xf32>) {
   // CHECK:     %[[SLICE:.*]] = tensor.extract_slice %[[ARG0]]
   // CHECK-SAME: %[[IV0]], %[[IV1]]
+  // CHECK-SAME: 32, 32
+  // CHECK-SAME: 1, 1
   // CHECK:     %[[UPDATE:.*]] = tensor.insert_slice %[[SLICE]] into %[[V1]]
   // CHECK:     scf.yield %[[UPDATE]] : tensor<?x?x32x32xf32>
   // CHECK:   scf.yield %[[T1]] : tensor<?x?x32x32xf32>

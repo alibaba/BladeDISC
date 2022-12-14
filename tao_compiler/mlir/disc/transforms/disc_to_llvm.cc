@@ -182,10 +182,10 @@ bool checkGlobalOpContent(GlobalOp globalOp, StringRef value) {
 // and returns the Loaded value of this global op.
 Value loadOrCreateGlobalString(PatternRewriter& rewriter,
                                SymbolTable& symbol_table, Operation* op,
-                               StringRef name, StringRef value) {
+                               StringRef name, StringRef value, bool useCache = true) {
   ModuleOp module = op->getParentOfType<ModuleOp>();
   GlobalOp globalOp = symbol_table.lookup<GlobalOp>(name);
-  if (!globalOp) {
+  if (!useCache || !globalOp) {
     OpBuilder::InsertionGuard guard(rewriter);
     OpBuilder::InsertPoint ip = rewriter.saveInsertionPoint();
     rewriter.setInsertionPointToStart(module.getBody());
@@ -309,7 +309,7 @@ Value DispatchOpToLLVMPattern::rewriteInsOutsOfDispatchOp(
     value.append(dispatch_op.backend_config());
     value.push_back('\0');
     arguments.push_back(loadOrCreateGlobalString(
-        rewriter, symbol_table_, dispatch_op, name.str(), value.str()));
+        rewriter, symbol_table_, dispatch_op, name.str(), value.str(), false));
   }
   SmallVector<Type, 4> argument_types;
   for (auto argument : arguments) argument_types.push_back(argument.getType());

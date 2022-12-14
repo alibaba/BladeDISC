@@ -182,8 +182,7 @@ bool checkGlobalOpContent(GlobalOp globalOp, StringRef value) {
 // and returns the Loaded value of this global op.
 Value loadOrCreateGlobalString(PatternRewriter& rewriter,
                                SymbolTable& symbol_table, Operation* op,
-                               StringRef name, StringRef value,
-                               bool useCache = true) {
+                               StringRef name, StringRef value, bool useCache = true) {
   ModuleOp module = op->getParentOfType<ModuleOp>();
   GlobalOp globalOp = symbol_table.lookup<GlobalOp>(name);
   if (!useCache || !globalOp) {

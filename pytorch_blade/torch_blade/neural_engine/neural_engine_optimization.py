@@ -23,8 +23,6 @@ def is_neural_engine_supported(onnx_proto):
     onnx_model = onnx.load_from_string(onnx_proto)
     for n in onnx_model.graph.node:
         op_type = n.op_type
-        if op_type == "Constant":
-            continue
         if not is_supported_onnx_node(op_type):
             return False
     return True

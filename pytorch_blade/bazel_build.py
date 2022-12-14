@@ -174,8 +174,7 @@ class BazelBuild(TorchBladeBuild):
         # ----------------------------------------------------------------------- #
         # --------------------   Settings for Neural Engine   ------------------- #
         # ----------------------------------------------------------------------- #
-        is_enable_neural_engine = os.getenv("TORCH_BLADE_ENABLE_NEURAL_ENGINE", None)
-        if is_enable_neural_engine is not None:
+        if self.build_neural_engine:
             print("=================enable neural engine=============")
             self.torch_extra_opts.append("--config=torch_enable_neural_engine")
 

@@ -594,6 +594,8 @@ struct InnerMostDimsInfo {
   SmallVector<int64_t> dims;
   // the dimension sizes for the inner most dimensions.
   SmallVector<int64_t> dimSizes;
+  // dimSizes after being transposed
+  SmallVector<int64_t> transposedDimSizes;
   // permutation for the inner most dimensions.
   SmallVector<int64_t> permutation;
   // reverse permutation for the inner most dimensions.
@@ -628,6 +630,9 @@ void parseInnerMostDimsInfo(InnerMostDimsInfo& info, ShapedType sourceTy,
   for (int i = 0; i < tileLevelsVec.size(); ++i) {
     info.reversePermutation[info.permutation[i]] = i;
   }
+
+  info.transposedDimSizes =
+      disc_linalg_ext::interchange<int64_t>(info.dimSizes, info.permutation);
 }
 
 linalg::GenericOp makeTransposeOp(OpBuilder& b, Location loc, Value inputTensor,
@@ -718,9 +723,8 @@ LogicalResult readFromPackedValue(
         disc_linalg_ext::interchange<OpFoldResult>(newSizes, permutationVec);
   }
 
-  auto newShape = info.dimSizes;
-  newShape = disc_linalg_ext::interchange<int64_t>(newShape, info.permutation);
-  auto sliceTy = RankedTensorType::get(newShape, packedTy.getElementType());
+  auto sliceTy =
+      RankedTensorType::get(info.transposedDimSizes, packedTy.getElementType());
   auto sliceOp = b.create<tensor::ExtractSliceOp>(
       loc, sliceTy, packedValue, newOffsets, newSizes, newStrides);
   if (sliceTy != targetTy) {
@@ -877,6 +881,147 @@ DiagnosedSilenceableFailure CacheReadOp::apply(
         "failed to create new extract_slice op for the packed value\n");
   targetOp->getResult(0).replaceAllUsesWith(resultOp->getResult(0));
   results.set(getResult().cast<OpResult>(), {resultOp});
+  return DiagnosedSilenceableFailure(success());
+}
+
+//===---------------------------------------------------------------------===//
+// LowerMultiLevelPackToLoopOp
+//===---------------------------------------------------------------------===//
+
+namespace {
+
+SmallVector<Value> getDimValues(OpBuilder& b, Location loc, Value v) {
+  auto ty = v.getType().cast<RankedTensorType>();
+  SmallVector<Value> vs;
+  for (int64_t i = 0; i < ty.getRank(); ++i)
+    vs.push_back(b.create<tensor::DimOp>(loc, v, i));
+  return vs;
+}
+
+Value buildMin(OpBuilder& b, Location loc, Value lhs, Value rhs) {
+  SmallVector<OpFoldResult> vals = {lhs, rhs};
+  auto result = makeComposedFoldedAffineMin(
+      b, loc, AffineMap::getMultiDimIdentityMap(vals.size(), loc.getContext()),
+      vals);
+  return getValueOrCreateConstantIndexOp(b, loc, result);
+}
+
+}  // namespace
+
+void LowerMultiLevelPackToLoopOp::build(OpBuilder& builder,
+                                        OperationState& result, Value target) {
+  MLIRContext* ctx = builder.getContext();
+  result.addOperands(target);
+  result.addTypes({pdl::OperationType::get(ctx)});
+}
+
+DiagnosedSilenceableFailure LowerMultiLevelPackToLoopOp::applyToOne(
+    Operation* target, SmallVectorImpl<Operation*>& results,
+    transform::TransformState& state) {
+  auto multiLevelPackOp = dyn_cast<MultiLevelPackOp>(target);
+  if (!multiLevelPackOp) {
+    return mlir::emitDefiniteFailure(
+        target, "applies only to disc_linalg_ext::MultiLevelPackOp");
+  }
+
+  OpBuilder b(target);
+  Location loc = target->getLoc();
+  MLIRContext* ctx = target->getContext();
+  auto tileLevelsVec = multiLevelPackOp.getTileLevelsVec();
+  auto tileSizesVec = multiLevelPackOp.getTileSizesVec();
+  auto permutationVec = multiLevelPackOp.getPermutationVec();
+
+  Value src = multiLevelPackOp.getInput();
+  auto srcTy = src.getType().cast<RankedTensorType>();
+  int64_t srcRank = srcTy.getRank();
+  Value dst = multiLevelPackOp.getOutput();
+  auto dstTy = dst.getType().cast<RankedTensorType>();
+  int64_t dstRank = dstTy.getRank();
+
+  Value zero = b.create<arith::ConstantIndexOp>(loc, 0);
+  Value one = b.create<arith::ConstantIndexOp>(loc, 1);
+  SmallVector<Value> srcOffsets(srcRank, zero);
+  SmallVector<Value> srcSizes = getDimValues(b, loc, src);
+  SmallVector<Value> srcStrides(srcRank, one);
+  SmallVector<Value> dstOffsets(dstRank, zero);
+  SmallVector<Value> dstSizes = getDimValues(b, loc, dst);
+  SmallVector<Value> dstStrides(dstRank, one);
+
+  InnerMostDimsInfo innerMostDimsInfo;
+  parseInnerMostDimsInfo(innerMostDimsInfo, srcTy, tileLevelsVec, tileSizesVec,
+                         permutationVec);
+  auto logicalDim2SrcDim =
+      multiLevelPackOp.getOutputLogicalDimToInputDimMapping(tileLevelsVec,
+                                                            tileSizesVec);
+  auto logicalDim2TileSize =
+      multiLevelPackOp.getOutputLogicalDimToTileSizeMapping(tileLevelsVec,
+                                                            tileSizesVec);
+
+  Value loopInitValue = dst;
+  SmallVector<scf::ForOp> forOps;
+  SmallVector<Value> srcDimUppers = srcSizes;
+  for (int dstIdx = 0; dstIdx < dstRank; ++dstIdx) {
+    int logicalIdx = permutationVec[dstIdx];
+    if (innerMostDimsInfo.isInnerMostDim(logicalIdx)) continue;
+    Value step =
+        b.create<arith::ConstantIndexOp>(loc, logicalDim2TileSize[logicalIdx]);
+    int srcIdx = logicalDim2SrcDim[logicalIdx];
+    Value upper = srcDimUppers[srcIdx];
+    auto forOp =
+        b.create<scf::ForOp>(loc, zero, upper, step, ValueRange{loopInitValue});
+    b.setInsertionPoint(forOp.getBody(), forOp.getBody()->begin());
+    Value iv = forOp.getInductionVar();
+    srcOffsets[srcIdx] = b.create<arith::AddIOp>(loc, srcOffsets[srcIdx], iv);
+    Value remaining = b.create<arith::SubIOp>(loc, upper, iv);
+    srcDimUppers[srcIdx] = buildMin(b, loc, remaining, step);
+    dstOffsets[dstIdx] = b.create<arith::DivSIOp>(loc, iv, step);
+    dstSizes[dstIdx] = one;
+    forOps.push_back(forOp);
+    loopInitValue = *forOp.getRegionIterArgs().begin();
+  }
+
+  Value srcSlice = b.create<tensor::ExtractSliceOp>(loc, src, srcOffsets,
+                                                    srcDimUppers, srcStrides);
+  if (Value paddingValue = multiLevelPackOp.getPaddingValue()) {
+    SmallVector<OpFoldResult> lowIndices(srcRank,
+                                         IntegerAttr::get(b.getIndexType(), 0));
+    SmallVector<OpFoldResult> highIndices;
+    for (const auto& z : llvm::zip(srcDimUppers, innerMostDimsInfo.dimSizes)) {
+      Value paddedSize = b.create<arith::ConstantIndexOp>(loc, std::get<1>(z));
+      highIndices.push_back(
+          b.create<arith::SubIOp>(loc, paddedSize, std::get<0>(z)).getResult());
+    }
+    srcSlice = b.create<tensor::PadOp>(
+        loc,
+        RankedTensorType::get(innerMostDimsInfo.dimSizes,
+                              srcTy.getElementType()),
+        srcSlice, lowIndices, highIndices, paddingValue);
+  }
+
+  // transpose srcSlice when needed.
+  auto sortedPermutation = innerMostDimsInfo.permutation;
+  llvm::sort(sortedPermutation);
+  if (sortedPermutation != innerMostDimsInfo.permutation) {
+    Value transposeDst = b.create<tensor::EmptyOp>(
+        loc, innerMostDimsInfo.transposedDimSizes, dstTy.getElementType());
+    srcSlice = makeTransposeOp(b, loc, srcSlice, transposeDst,
+                               innerMostDimsInfo.permutation)
+                   ->getResult(0);
+  }
+
+  Value updateDst =
+      b.create<tensor::InsertSliceOp>(loc, srcSlice, loopInitValue, dstOffsets,
+                                      dstSizes, dstStrides)
+          ->getResult(0);
+  b.create<scf::YieldOp>(loc, updateDst);
+  for (int i = static_cast<int>(forOps.size()) - 2; i >= 0; --i) {
+    b.setInsertionPointAfter(forOps[i + 1]);
+    b.create<scf::YieldOp>(loc, forOps[i + 1]->getResult(0));
+  }
+  assert(forOps.size() > 0);
+  target->getResult(0).replaceAllUsesWith(forOps[0]->getResult(0));
+
+  results.assign({forOps[0]});
   return DiagnosedSilenceableFailure(success());
 }
 

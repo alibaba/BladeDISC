@@ -1244,6 +1244,7 @@ class DiscConvertTorchToMhlo
     INSERT_UNARY_CONVERT_PATTERN(AtenContiguousOp);
     INSERT_UNARY_CONVERT_PATTERN(AtenToDtypeOp);
     INSERT_UNARY_CONVERT_PATTERN(AtenToDtypeLayoutOp);
+    INSERT_UNARY_CONVERT_PATTERN(AtenToPrimDeviceOp);
     INSERT_UNARY_CONVERT_PATTERN(AtenTypeAsOp);
 #undef INSERT_UNARY_CONVERT_PATTERN
 
@@ -1256,6 +1257,8 @@ class DiscConvertTorchToMhlo
     INSERT_UNARY_PATTERN(AtenCeilOp, mhlo::CeilOp)
     INSERT_UNARY_PATTERN(AtenItemOp, tensor::ExtractOp)
     INSERT_UNARY_PATTERN(AtenCopyOp, mhlo::CopyOp)
+    INSERT_UNARY_PATTERN(AtenCosOp, mhlo::CosineOp)
+    INSERT_UNARY_PATTERN(AtenSinOp, mhlo::SineOp)
 #undef INSERT_UNARY_PATTERN
 
 #define INSERT_EXTRACT_PATTERN(AtenOp) \

@@ -64,7 +64,14 @@ function ci_build() {
     export TORCH_BLADE_DEBUG_LOG=ON
     # disable tf32 on A100
     export NVIDIA_TF32_OVERRIDE=0
-    TORCH_DISC_USE_TORCH_MLIR=true pytest tests -v 2>&1 | tee -a py_test.out
+    # neural_engine is under development, the uts are only enabled
+    # when it is available.
+    if [ "$TORCH_BLADE_ENABLE_NEURAL_ENGINE" != "ON"  ]; then
+      PYTEST_EXCLUDED_TESTS="tests/neural_engine"
+    else
+      PYTEST_EXCLUDED_TESTS=""
+    fi
+    TORCH_DISC_USE_TORCH_MLIR=true pytest tests -v --ignore=$PYTEST_EXCLUDED_TESTS 2>&1 | tee -a py_test.out
     python3 setup.py bdist_wheel;
 }
 

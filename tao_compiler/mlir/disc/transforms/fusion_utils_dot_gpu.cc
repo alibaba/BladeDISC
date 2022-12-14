@@ -120,6 +120,14 @@ bool DotGpuFusionStrategy::initFusionPattern(ShapeAnalysis& shapeAnalysis,
     return false;
   }
 
+  // All ops are supported by CUDA source emitter. The checking is necessary
+  // because this function may called without the calling of isFusible.
+  for (auto op : mem_intensive_ops) {
+    if (!isFusible(op)) {
+      return false;
+    }
+  }
+
   // All the effective-operand of non-dot ops are not the operand of the fusion.
   DenseSet<Value> operand_set(operands.begin(), operands.end());
   for (auto op : mem_intensive_ops) {

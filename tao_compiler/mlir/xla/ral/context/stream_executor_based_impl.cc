@@ -628,14 +628,8 @@ MemRefType<Eigen::half, 3> ral_pdll_mem_eff_attention(ExecutionContext* ctx,
       static_cast<float*>(gpu_driver->alloc(ctx, batch_size * num_heads * seq_len * head_dim * sizeof(float)));
   auto result_acc = assignMemRef<float, 3>(data_acc, resultSizes);
 
-  TAO_VLOG(0) << "begin to run kernel";
-
-  TAO_VLOG(0) << "batch_size: " << batch_size << "seq_len: " << seq_len << "num_heads: " << num_heads << "head_dim" << head_dim;
-
   bool ret = bladnn::mem_eff_attention(result.data, query_data, key_data, value_data, result_acc.data, &batch_size, seq_len, seq_len,
                     num_heads, head_dim, head_dim, 0.0f, alpha_softmax, false, s);
-  gpu_driver->syncOnStream(ctx, stream_handle);
-  TAO_VLOG(0) << "run kernel success";
 
   if (!ret) {
     ctx->signalError(Context::FAILURE, "bladnn fail");

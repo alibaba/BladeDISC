@@ -297,8 +297,6 @@ class FusionPattern : public FusionPatternBase {
   // Create a new fusion pattern from the ops inside the lmhlo fusion op.
   explicit FusionPattern(lmhlo::FusionOp op, ShapeAnalysis* shape_analysis);
 
-  // Create a new fusion pattern with the ops inside the list.
-  explicit FusionPattern(SmallVectorImpl<Operation*>& op_list);
 
   // Do not allow to build a fusion pattern with only FusionOp.
   explicit FusionPattern(lmhlo::FusionOp op) = delete;
@@ -345,6 +343,9 @@ class FusionPattern : public FusionPatternBase {
   // pattern remains unmodified. The new merged pattern is uninitialized.
   FusionPattern mergeWithoutInit(FusionPattern& other);
 
+  // Create a new fusion pattern with the given op list, without init.
+  static FusionPattern createWithoutInit(SmallVectorImpl<Operation*>& op_list);
+
   DenseMap<Value, TileInfo>& getTilePlan() { return tile_plan_; }
   void setTilePlan(const DenseMap<Value, TileInfo>& tile_plan) {
     tile_plan_ = tile_plan;
@@ -372,6 +373,9 @@ class FusionPattern : public FusionPatternBase {
   DenseSet<Operation*>& getIrregularXroots() { return irregular_xroots_; }
 
  private:
+  // Create a new fusion pattern with the ops inside the list.
+  explicit FusionPattern(SmallVectorImpl<Operation*>& op_list);
+
   Operation* dominant_op_ = nullptr;
   FusionType fusion_type_ = FusionType::kNone;
   SmallVector<Operation*, 4> sub_root_ops_;
@@ -459,9 +463,9 @@ class FusionStrategy {
   virtual bool isFusible(FusionPattern& fusion_pattern);
   virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                  FusionPattern& fusion_pattern) = 0;
-  virtual bool finalizeFusionPattern(ShapeAnalysis& shapeAnalysis,
-                                     FusionPattern& fusion_pattern,
-                                     SmallVectorImpl<Operation*>& excluded_ops);
+  virtual bool pruneFusionPattern(ShapeAnalysis& shapeAnalysis,
+                                  FusionPattern& fusion_pattern,
+                                  SmallVectorImpl<Operation*>& excluded_ops);
   virtual bool tryFuseInplace(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
                               FusionPattern& rhs);
   virtual bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
@@ -489,7 +493,7 @@ class PlacementAwareFusionStrategy : public FusionStrategy {
                FusionPattern& rhs, FusionPattern& target) override;
   bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
                          FusionPattern& fusion_pattern) override;
-  virtual bool finalizeFusionPattern(
+  virtual bool pruneFusionPattern(
       ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern,
       SmallVectorImpl<Operation*>& excluded_ops) override;
   virtual StringRef getName() override {
@@ -805,7 +809,7 @@ class DotGpuFusionStrategy : public FusionStrategy {
   virtual bool isFusible(FusionPattern& fusion_pattern) override;
   virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                  FusionPattern& fusion_pattern) override;
-  virtual bool finalizeFusionPattern(
+  virtual bool pruneFusionPattern(
       ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern,
       SmallVectorImpl<Operation*>& excluded_ops) override;
 

@@ -18,6 +18,7 @@ limitations under the License.
 #include <algorithm>
 
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 
 namespace mlir {
@@ -339,9 +340,17 @@ std::vector<int32_t> GraphCycles::AllNodesInPostOrder() const {
 }
 
 bool GraphCycles::IsActivateNode(int32_t node) const {
-  llvm::DenseSet<int32_t> free_nodes_set(rep_->free_nodes.begin(),
-                                         rep_->free_nodes.end());
-  return !free_nodes_set.contains(node);
+  return llvm::find(rep_->free_nodes, node) == rep_->free_nodes.end();
+}
+
+bool GraphCycles::CanContractEdge(int from, int to) {
+  if (!HasEdge(from, to)) {
+    return false;
+  }
+  RemoveEdge(from, to);
+  bool reachable = IsReachable(from, to);
+  InsertEdge(from, to);
+  return !reachable;
 }
 
 }  // namespace mlir

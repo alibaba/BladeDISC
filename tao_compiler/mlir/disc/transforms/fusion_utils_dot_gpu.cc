@@ -191,7 +191,7 @@ void getDirectProducerOpsInFusionPattern(Operation* op,
 
 }  // namespace
 
-bool DotGpuFusionStrategy::finalizeFusionPattern(
+bool DotGpuFusionStrategy::pruneFusionPattern(
     ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern,
     SmallVectorImpl<Operation*>& excluded_ops) {
   if (fusion_pattern.getFusionType() != FusionType::kDot) {
@@ -299,7 +299,8 @@ bool DotGpuFusionStrategy::finalizeFusionPattern(
   }
   SmallVector<Operation*> effective_ops(effective_ops_set.begin(),
                                         effective_ops_set.end());
-  FusionPattern new_fusion_pattern(effective_ops);
+  FusionPattern new_fusion_pattern =
+      FusionPattern::createWithoutInit(effective_ops);
   initFusionPattern(shapeAnalysis, new_fusion_pattern);
   fusion_pattern = std::move(new_fusion_pattern);
 

@@ -722,6 +722,11 @@ FusionPattern FusionPattern::mergeWithoutInit(FusionPattern& other) {
   return new_fusion_pattern;
 }
 
+FusionPattern FusionPattern::createWithoutInit(
+    SmallVectorImpl<Operation*>& op_list) {
+  return FusionPattern(op_list);
+}
+
 void FusionPattern::findOpsOfSkeletonGroup(SkeletonGroup group,
                                            DenseSet<Operation*>& ops) {
   ops.clear();
@@ -1010,7 +1015,7 @@ bool FusionStrategy::isFusible(FusionPattern& fusion_pattern) {
   return true;
 }
 
-bool FusionStrategy::finalizeFusionPattern(
+bool FusionStrategy::pruneFusionPattern(
     ShapeAnalysis& shapeAnalysis, FusionPattern& fused_pattern,
     SmallVectorImpl<Operation*>& excluded_ops) {
   return true;
@@ -1536,7 +1541,7 @@ bool PlacementAwareFusionStrategy::initFusionPattern(
   return strategy && strategy->initFusionPattern(shapeAnalysis, fusion_pattern);
 }
 
-bool PlacementAwareFusionStrategy::finalizeFusionPattern(
+bool PlacementAwareFusionStrategy::pruneFusionPattern(
     ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern,
     SmallVectorImpl<Operation*>& excluded_ops) {
   if (fusion_pattern.getOpList().empty() ||
@@ -1545,8 +1550,8 @@ bool PlacementAwareFusionStrategy::finalizeFusionPattern(
     return true;
   }
   FusionStrategy* strategy = getStrategy(fusion_pattern.getOpList()[0]);
-  return strategy && strategy->finalizeFusionPattern(
-                         shapeAnalysis, fusion_pattern, excluded_ops);
+  return strategy && strategy->pruneFusionPattern(shapeAnalysis, fusion_pattern,
+                                                  excluded_ops);
 }
 
 std::unique_ptr<FusionStrategy> makeNewPlacementAwareFusionStrategy(

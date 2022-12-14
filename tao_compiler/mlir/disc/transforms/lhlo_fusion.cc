@@ -428,22 +428,6 @@ class FusionPlanner {
     return changed;
   }
 
-  bool CanContractEdge(int from, int to) {
-    assert(cycle_detector_->HasEdge(from, to));
-    cycle_detector_->RemoveEdge(from, to);
-    bool reachable = cycle_detector_->IsReachable(from, to);
-    cycle_detector_->InsertEdge(from, to);
-    return !reachable;
-  }
-
-  bool CanContractEdge(GraphCycles* cycle_detector, int from, int to) {
-    assert(cycle_detector->HasEdge(from, to));
-    cycle_detector->RemoveEdge(from, to);
-    bool reachable = cycle_detector->IsReachable(from, to);
-    cycle_detector->InsertEdge(from, to);
-    return !reachable;
-  }
-
   // This function check if fusing `from` with `to` is valid and if so perform
   // the merge. The validity is based on the operations in the clusters and
   // the compatibility of the shapes of the outputs of the would-be fused
@@ -453,7 +437,7 @@ class FusionPlanner {
     int from = cluster_from->cycles_graph_node_id();
     int to = cluster_to->cycles_graph_node_id();
 
-    if (!CanContractEdge(from, to)) {
+    if (!cycle_detector_->CanContractEdge(from, to)) {
       // cycle detected, recover the deleted edge.
       LLVM_DEBUG(llvm::dbgs()
                  << "Could not contract " << from << " -> " << to
@@ -545,7 +529,7 @@ class FusionPlanner {
         if (!cycle_detector->IsActivateNode(producer)) {
           continue;
         }
-        if (!CanContractEdge(cycle_detector, producer, curr_lead_id)) {
+        if (!cycle_detector->CanContractEdge(producer, curr_lead_id)) {
           continue;
         }
         auto optional_lead_id =
@@ -588,7 +572,7 @@ class FusionPlanner {
       Cluster* cluster = GetClusterForCyclesGraphNode(node);
       FusionPattern fusion_pattern = cluster->fused_pattern();
       SmallVector<Operation*> curr_excluded_ops;
-      if (!getFusionStrategy().finalizeFusionPattern(
+      if (!getFusionStrategy().pruneFusionPattern(
               *shape_analysis_, fusion_pattern, curr_excluded_ops)) {
         return false;
       }

@@ -154,6 +154,10 @@ class GraphCycles {
   // Return whether git given node is activate in the cycle graph.
   bool IsActivateNode(int32_t node) const;
 
+  // Check if it can contract edge between `from` and `to` without introducing
+  // cycle.
+  bool CanContractEdge(int from, int to);
+
   // ----------------------------------------------------
   struct Rep;
 

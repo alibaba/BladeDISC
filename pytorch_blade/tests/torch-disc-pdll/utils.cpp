@@ -40,7 +40,7 @@ const std::string kDefaultHelperFunctionDeclarations = R"pdll(
   Rewrite ConvertTorchConstantIntToI64Attr(cst: Value) -> Attr;
   Rewrite ConvertTorchTensorElemType(old_type: Type, type_str: Attr) -> Type;
   Rewrite GetTorchTensorType(v: Value) -> Type;
-  Rewrite ConvertTorchConstantFloat32ToFloat32Attr(cst: Value) -> Attr;
+  Rewrite ConvertTorchConstantFloatToFloatAttr(cst: Value) -> Attr;
 )pdll";
 
 static LogicalResult checkTorchNone(
@@ -218,7 +218,7 @@ static void createTorchCustomCall(
   results.push_back(ValueRange(vs));
 }
 
-static void convertTorchConstantFloat32ToFloat32Attr(
+static void convertTorchConstantFloatToFloatAttr(
     PatternRewriter& rewriter,
     PDLResultList& results,
     ArrayRef<PDLValue> values) {
@@ -229,7 +229,7 @@ static void convertTorchConstantFloat32ToFloat32Attr(
       matchPattern(values[0].cast<Value>(), Torch::m_TorchConstantFloat(&elem));
   assert(status);
 
-  results.push_back(rewriter.getF32FloatAttr(float(elem)));
+  results.push_back(rewriter.getF64FloatAttr(elem));
 }
 
 static void convertTorchConstantIntListToI64DenseElemsAttr(
@@ -306,7 +306,7 @@ void registerPredefinedHelperFunctions(PDLPatternModule& pdlPatterns) {
       "ConvertTorchConstantIntToI64Attr", convertTorchConstantIntToI64Attr);
   pdlPatterns.registerRewriteFunction("GetTorchTensorType", getTorchTensorType);
   pdlPatterns.registerRewriteFunction(
-      "ConvertTorchConstantFloat32ToFloat32Attr", convertTorchConstantFloat32ToFloat32Attr); 
+      "ConvertTorchConstantFloatToFloatAttr", convertTorchConstantFloatToFloatAttr); 
 
   pdlPatterns.registerConstraintFunction("CheckTorchNone", checkTorchNone);
   pdlPatterns.registerConstraintFunction(

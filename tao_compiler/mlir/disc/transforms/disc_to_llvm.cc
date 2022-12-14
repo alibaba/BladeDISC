@@ -311,10 +311,8 @@ Value DispatchOpToLLVMPattern::rewriteInsOutsOfDispatchOp(
     value.push_back('\0');
     // Not re-use the custom_attrs for different instance of the same custom
     // call.
-    arguments.push_back(
-        loadOrCreateGlobalString(rewriter, symbol_table_, dispatch_op,
-                                 name.str(), value.str()),
-        false);
+    arguments.push_back(loadOrCreateGlobalString(
+        rewriter, symbol_table_, dispatch_op, name.str(), value.str(), false));
   }
   SmallVector<Type, 4> argument_types;
   for (auto argument : arguments) argument_types.push_back(argument.getType());

@@ -297,7 +297,6 @@ class FusionPattern : public FusionPatternBase {
   // Create a new fusion pattern from the ops inside the lmhlo fusion op.
   explicit FusionPattern(lmhlo::FusionOp op, ShapeAnalysis* shape_analysis);
 
-
   // Do not allow to build a fusion pattern with only FusionOp.
   explicit FusionPattern(lmhlo::FusionOp op) = delete;
 

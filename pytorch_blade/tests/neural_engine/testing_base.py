@@ -9,18 +9,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-try:
-    from torch_blade._torch_blade._neural_engine import *
-    from torch_blade.config import OptPipelines
-    from torch_blade.neural_engine.neural_engine_optimization import \
-        optimize_neural_engine
-    _NEURAL_ENGINE_NAME = backend_name()
-    OptPipelines.register_pipeline(_NEURAL_ENGINE_NAME, optimize_neural_engine)
-    _is_available = True
-except ImportError:
-    _is_available = False
-    _NEURAL_ENGINE_NAME = "NeuralEngine"
+from torch_blade.neural_engine import is_available
+from torch_blade.testing.common_utils import TestCase
 
 
-def is_available():
-    return _is_available
+class NeuralEngineTestCase(TestCase):
+    def setUp(self):
+        super().setUp()
+        self.is_neural_engine_available = is_available()
+        if not self.is_neural_engine_available:
+            self.skipTest("Neural engine is not built")

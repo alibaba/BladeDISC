@@ -12,7 +12,7 @@
 
 import onnx
 from intel_extension_for_transformers.backends.neural_engine.compile.onnx_utils import \
-    is_supported_onnx_node
+    is_supported_onnx_graph
 from torch_blade.clustering.support_fusion_group import supported_node_fusion
 from torch_blade.onnx_backends import backend_testbed
 
@@ -21,11 +21,8 @@ _NEURAL_ENGINE_GROUP_NAME = "neural_engine_grp"
 
 def is_neural_engine_supported(onnx_proto):
     onnx_model = onnx.load_from_string(onnx_proto)
-    for n in onnx_model.graph.node:
-        op_type = n.op_type
-        if not is_supported_onnx_node(op_type):
-            return False
-    return True
+    graph = onnx_model.graph
+    return is_supported_onnx_graph(graph)
 
 
 def _get_unsupported_nodes(graph):

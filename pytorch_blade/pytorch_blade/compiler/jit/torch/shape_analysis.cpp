@@ -1292,7 +1292,7 @@ class ShapePropagator : public PropertyPropBase {
             auto ret = type;
             if (maybe_device_option && !maybe_device_option->isNone()) {
               auto device = maybe_device_option->toDevice();
-#if PYTORCH_VERSION_GE(1, 10)
+#if PYTORCH_VERSION_GE(1, 11)
               return {ret->withDevice(device)};
 #else
               return {TensorType::create(

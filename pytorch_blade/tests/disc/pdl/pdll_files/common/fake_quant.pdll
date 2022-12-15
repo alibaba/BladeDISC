@@ -39,7 +39,7 @@ Pattern TorchFakeQuantOp {
 
   /// rewrite phase
   rewrite fake_quant_op with {
-    let new_type = ConvertTorchTensorElemType(old_type, attr<"\"i8\"">);
+    let new_type = GetTorchQuantizedTensorType(old_type, num_bits, signed);
     let quantize_op = op<torch.operator>(
       input,
       scale,

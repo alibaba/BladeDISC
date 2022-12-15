@@ -613,8 +613,10 @@ template <typename OpTy>
 struct AclOpInfo {
   arm_compute::Tensor src;
   arm_compute::Tensor weights;
+  arm_compute::Tensor dst_s32;
   arm_compute::Tensor dst;
   arm_compute::Tensor bias;
+  arm_compute::NEGEMMLowpOutputStage gemmlowp_output_stage;
   OpTy op;
 };
 

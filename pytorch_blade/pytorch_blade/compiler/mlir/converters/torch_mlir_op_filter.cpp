@@ -46,6 +46,7 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "aten::addmm",
       "aten::arange",
       "aten::unbind",
+      "aten::baddbmm",
       "aten::batch_norm",
       "aten::bitwise_not",
       "aten::bmm",

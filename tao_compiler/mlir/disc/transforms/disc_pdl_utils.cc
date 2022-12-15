@@ -145,10 +145,7 @@ OwningOpRef<ModuleOp> compilePDLL(
       op->erase();
     }
   }
-  if (VLOG_IS_ON(1)) {
-    llvm::errs() << "/////// Parsed PDL module: \n"
-                 << pdlModule.get() << "\n\n";
-  }
+  LLVM_DEBUG(llvm::errs() << "/////// Parsed PDL module: \n" << pdlModule.get() << "\n\n");
   return pdlModule;
 }
 

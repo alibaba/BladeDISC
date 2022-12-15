@@ -156,9 +156,9 @@ class FusionPlanner {
       FusionPattern& fusion_pattern = cluster->fused_pattern();
       // Make sure the ops in a fusion pattern are in topological ordering.
       fusion_pattern.sortFusionOpListBy(op_to_node_id_);
-      if (!fusion_pattern.isFusible() ||
+      if (!fusion_pattern.isFusible() || fusion_pattern.effectiveSize() < 1 ||
           !fusion_pattern.isTransformBasedFusion() &&
-              fusion_pattern.effectiveSize() <= 1) {
+              fusion_pattern.effectiveSize() == 1) {
         continue;
       }
       plan.emplace_back(fusion_pattern);

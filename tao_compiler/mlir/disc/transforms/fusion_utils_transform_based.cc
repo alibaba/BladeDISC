@@ -18,10 +18,7 @@ namespace disc_ral {
 /////////// Transform based CPU FusionStrategy Implemenation ///////////
 ////////////////////////////////////////////////////////////////////////
 
-bool TransformBasedCpuFusionStrategy::isFusible(Operation* op) {
-  // Only support matmul a.t.m.
-  // TODO(wyzero): support const weight
-  // TODO(wyzero): support gemm + elemwise fusion
+bool isSupportedDot(Operation* op) {
   auto dotOp = dyn_cast<lmhlo::DotGeneralOp>(op);
   if (!dotOp) return false;
 
@@ -45,21 +42,49 @@ bool TransformBasedCpuFusionStrategy::isFusible(Operation* op) {
           rhsCntractingDims.size() == 1 && rhsCntractingDims[0] == 0);
 }
 
+bool TransformBasedCpuFusionStrategy::isFusible(Operation* op) {
+  return isSupportedDot(op) || isa<lmhlo::ConstantOp>(op);
+}
+
 bool TransformBasedCpuFusionStrategy::initFusionPattern(
     ShapeAnalysis& shapeAnalysis, FusionPattern& fusionPattern) {
-  Operation* inferredDominantOp = nullptr;
-  FusionType inferredFusionType = FusionType::kNone;
+  // firstly init the fusion kind to kNone
+  fusionPattern.setDominantOp(nullptr);
+  fusionPattern.setFusionType(FusionType::kNone);
 
-  // TODO(wyzero): support dot fusion
-  bool allSupported =
-      llvm::all_of(fusionPattern.getOpList(),
-                   [&](Operation* op) { return this->isFusible(op); });
-  if (allSupported && fusionPattern.getOpList().size() == 1) {
-    inferredDominantOp = fusionPattern.getOpList()[0];
-    inferredFusionType = FusionType::kTransform;
+  // special case for single operation.
+  if (fusionPattern.getOpList().size() == 1) {
+    Operation* op = *fusionPattern.getOpList().begin();
+    if (this->isFusible(op)) {
+      fusionPattern.setDominantOp(op);
+      fusionPattern.setFusionType(FusionType::kTransform);
+    }
+    return true;
   }
-  fusionPattern.setDominantOp(inferredDominantOp);
-  fusionPattern.setFusionType(inferredFusionType);
+
+  DenseSet<Value> dotWeights;
+  DenseSet<Operation*> supportedDotOps;
+  for (Operation* op : fusionPattern.getOpList()) {
+    // early return for the case where there are non supported ops.
+    if (!this->isFusible(op)) return true;
+    if (isSupportedDot(op)) {
+      supportedDotOps.insert(op);
+      dotWeights.insert(op->getOperand(1));
+    }
+  }
+
+  // Only support one gemm a.t.m.
+  if (supportedDotOps.size() != 1) return true;
+
+  // Only support fuse const ops that are used as weights for some dot ops.
+  for (Operation* op : fusionPattern.getOpList()) {
+    if (!isa<lmhlo::ConstantOp>(op)) continue;
+    if (llvm::find(dotWeights, op->getOperand(0)) == dotWeights.end())
+      return true;
+  }
+
+  fusionPattern.setDominantOp(*supportedDotOps.begin());
+  fusionPattern.setFusionType(FusionType::kTransform);
   return true;
 }
 

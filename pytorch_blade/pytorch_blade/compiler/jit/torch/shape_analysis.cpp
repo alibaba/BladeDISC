@@ -1298,7 +1298,8 @@ class ShapePropagator : public PropertyPropBase {
               return {TensorType::create(
                   ret->scalarType(),
                   device,
-                  ret->dim(),
+                  ret->sizes(),
+                  ret->strides(),
                   /*requires_grad=*/c10::nullopt)};
 #endif
             } else {

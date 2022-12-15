@@ -807,33 +807,15 @@ class ShapePropagator : public PropertyPropBase {
             "aten::masked_fill_.Tensor(Tensor(a!) self, Tensor mask, Tensor value) -> Tensor(a!)",
             "aten::index_put.hacked_twin(Tensor self, Tensor[] indices, Tensor values, bool accumulate=False) -> Tensor",
             "aten::scatter.value(Tensor self, int dim, Tensor index, Scalar value) -> Tensor",
-#if PYTORCH_VERSION_GE(1, 13)
-            "aten::select_scatter(Tensor self, Tensor src, int dim, int index) -> Tensor",
-            "aten::slice_scatter(Tensor self, Tensor src, int dim=0, SymInt? start=None, SymInt? end=None, SymInt step=1) -> Tensor",
-#elif PYTORCH_VERSION_GE(1, 11)
-            "aten::slice_scatter(Tensor self, Tensor src, int dim=0, int? start=None, int? end=None, int step=1) -> Tensor",
-#endif
             "aten::floor_divide.Scalar(Tensor self, Scalar other) -> Tensor",
             "aten::floor_divide_.Scalar(Tensor(a!) self, Scalar other) -> Tensor(a!)",
             "aten::relu(Tensor self) -> Tensor",
             "aten::relu_(Tensor self) -> Tensor",
             "aten::pow(Tensor self, Scalar exponent) -> Tensor",
-#if PYTORCH_VERSION_GE(1, 12)
-            "aten::gelu(Tensor self, *, str approximate='none') -> Tensor",
-#else
-            "aten::gelu(Tensor self) -> Tensor",
-#endif
-#if PYTORCH_VERSION_GE(1, 9)
-            "aten::relu6(Tensor self) -> Tensor",
-            "aten::relu6_(Tensor self) -> Tensor",
-#endif
             "aten::acos(Tensor self) -> Tensor",
             "aten::bitwise_not(Tensor self) -> Tensor",
             "aten::neg(Tensor self) -> Tensor",
             "aten::sigmoid(Tensor self) -> Tensor",
-#if PYTORCH_VERSION_GE(1, 7)
-            "aten::logit(Tensor self, float? eps=None) -> Tensor",
-#endif
             "aten::tanh(Tensor self) -> Tensor",
             "aten::asin(Tensor self) -> Tensor",
             "aten::atan(Tensor self) -> Tensor",
@@ -870,25 +852,17 @@ class ShapePropagator : public PropertyPropBase {
             "aten::hardtanh(Tensor self, Scalar min_val, Scalar max_val) -> Tensor",
             "aten::glu(Tensor self, int dim) -> Tensor",
             "aten::inverse(Tensor self) -> Tensor",
+            "aten::group_norm(Tensor input, int num_groups, Tensor? weight, Tensor? bias, float eps, bool cudnn_enabled) -> Tensor",
             "aten::leaky_relu(Tensor self, Scalar negative_slope) -> Tensor",
             "aten::leaky_relu_(Tensor self, Scalar negative_slope) -> Tensor",
             "aten::lgamma(Tensor self) -> Tensor",
             "aten::mvlgamma(Tensor self, int p) -> Tensor",
             "aten::normal(float mean, Tensor std, *, Generator? generator) -> Tensor",
             "aten::normal(Tensor mean, float std, *, Generator? generator) -> Tensor",
-#if PYTORCH_VERSION_GE(1, 12)
-            "aten::pin_memory(Tensor(a) self, Device? device=None) -> Tensor(a)",
-            "aten::gelu_backward(Tensor grad_output, Tensor self, *, str approximate='none') -> Tensor",
-            "aten::native_dropout_backward(Tensor grad_output, Tensor mask, float scale) -> Tensor",
-#endif
             "aten::pinverse(Tensor self, float rcond) -> Tensor",
             "aten::reciprocal(Tensor self) -> Tensor",
             "aten::relu(Tensor self) -> Tensor",
             "aten::relu_(Tensor self) -> Tensor",
-#if PYTORCH_VERSION_GE(1, 9)
-            "aten::relu6(Tensor self) -> Tensor",
-            "aten::relu6_(Tensor self) -> Tensor",
-#endif
             "aten::round(Tensor self) -> Tensor",
             "aten::rrelu(Tensor self, Scalar lower, Scalar upper, bool training, Generator? generator) -> Tensor",
             "aten::rsqrt(Tensor self) -> Tensor",
@@ -911,6 +885,32 @@ class ShapePropagator : public PropertyPropBase {
             "aten::alias(Tensor self) -> Tensor",
             "aten::zero_(Tensor self) -> Tensor",
             "aten::tanh_backward(Tensor grad_output, Tensor output) -> Tensor",
+#if PYTORCH_VERSION_GE(1, 7)
+            "aten::logit(Tensor self, float? eps=None) -> Tensor",
+#endif
+#if PYTORCH_VERSION_GE(1, 9)
+            "aten::relu6(Tensor self) -> Tensor",
+            "aten::relu6_(Tensor self) -> Tensor",
+#endif
+#if PYTORCH_VERSION_GE(1, 11)
+            "aten::div(Tensor self, Tensor other, *, str? rounding_mode) -> Tensor",
+            "aten::div_(Tensor self, Tensor other, *, str? rounding_mode) -> Tensor",
+#endif
+#if PYTORCH_VERSION_GE(1, 11) && PYTORCH_VERSION_GE(1, 12)
+            "aten::slice_scatter(Tensor self, Tensor src, int dim=0, int? start=None, int? end=None, int step=1) -> Tensor",
+#endif
+#if PYTORCH_VERSION_GE(1, 12)
+            "aten::pin_memory(Tensor(a) self, Device? device=None) -> Tensor(a)",
+            "aten::gelu(Tensor self, *, str approximate='none') -> Tensor",
+            "aten::gelu_backward(Tensor grad_output, Tensor self, *, str approximate='none') -> Tensor",
+            "aten::native_dropout_backward(Tensor grad_output, Tensor mask, float scale) -> Tensor",
+#else
+            "aten::gelu(Tensor self) -> Tensor",
+#endif
+#if PYTORCH_VERSION_GE(1, 13)
+            "aten::select_scatter(Tensor self, Tensor src, int dim, int index) -> Tensor",
+            "aten::slice_scatter(Tensor self, Tensor src, int dim=0, SymInt? start=None, SymInt? end=None, SymInt step=1) -> Tensor",
+#endif
 #ifdef TORCH_BLADE_BUILD_QUANTIZATION
             "torch_blade::fake_quant(Tensor _0, Tensor _1, Tensor _2, int _3, int _4, int _5, int[] _6, bool _7, bool _8, bool _9, bool _10) -> Tensor",
 #endif
@@ -1271,6 +1271,36 @@ class ShapePropagator : public PropertyPropBase {
             auto ret = type;
             if (maybe_dtype_option && !maybe_dtype_option->isNone()) {
               return {ret->withScalarType(maybe_dtype_option->toScalarType())};
+            } else {
+              return {ret};
+            }
+          }
+          return {};
+        }};
+
+    // Requirements:
+    //   device         : Device
+    //   tensor inputs  : 1
+    //   tensor outputs : 1
+    // Additionally:
+    //   - First input should be the only tensor input
+    static const register_formula_for aten_to_device{
+        {"aten::to.device(Tensor self, Device device, ScalarType dtype, bool non_blocking=False, bool copy=False, MemoryFormat? memory_format=None) -> Tensor"},
+        [](Node* node) -> type_vec_t {
+          at::optional<IValue> maybe_device_option = node->get(attr::device);
+          if (auto type = node->input(0)->type()->cast<TensorType>()) {
+            auto ret = type;
+            if (maybe_device_option && !maybe_device_option->isNone()) {
+              auto device = maybe_device_option->toDevice();
+#if PYTORCH_VERSION_GE(1, 10)
+              return {ret->withDevice(device)};
+#else
+              return {TensorType::create(
+                  ret->scalarType(),
+                  device,
+                  ret->dim(),
+                  /*requires_grad=*/c10::nullopt)};
+#endif
             } else {
               return {ret};
             }

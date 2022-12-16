@@ -1,6 +1,6 @@
-// RUN: disc-opt --disc-assign-memory-space -split-input-file %s | FileCheck %s
+// RUN: disc-opt -split-input-file --disc-assign-memory-space  %s | FileCheck %s
 
-// CHECK-LABEL: main
+// CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: memref<?xf32, "cpu">) -> memref<?xf32, "cpu">
 func.func @main(%arg0 : memref<?xf32>) -> memref<?xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "cpu", outputs = "output0"}}  {
   // CHECK: %[[T0:.*]] = memref.dim %[[ARG0]], %c0 : memref<?xf32, "cpu">
@@ -14,7 +14,7 @@ func.func @main(%arg0 : memref<?xf32>) -> memref<?xf32> attributes {tf.entry_fun
 
 // -----
 
-// CHECK-LABEL: main
+// CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: memref<?xf32, "cpu">) -> memref<?xf32, "gpu">
 func.func @main(%arg0 : memref<?xf32>) -> memref<?xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "gpu", outputs = "output0"}}  {
   // CHECK: %[[T0:.*]] = memref.dim %[[ARG0]], %c0 : memref<?xf32, "cpu">
@@ -28,7 +28,7 @@ func.func @main(%arg0 : memref<?xf32>) -> memref<?xf32> attributes {tf.entry_fun
 
 // -----
 
-// CHECK-LABEL: main
+// CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: memref<?x8xf32, "cpu">) -> memref<?x24xf32, "cpu">
 func.func @main(%arg0: memref<?x8xf32>) -> memref<?x24xf32> attributes {tf.entry_function = {input_placements = "cpu", inputs = "input0", output_placements = "cpu", outputs = "output0"}} {
   %c3 = arith.constant 3 : index
@@ -91,7 +91,7 @@ func.func @main(%arg0: memref<?x8xf32>) -> memref<?x24xf32> attributes {tf.entry
 
 // -----
 
-// CHECK-LABEL: main
+// CHECK-LABEL: @main
 // CHECK-SAME: (%[[ARG0:.*]]: memref<10x10xi32, "cpu">, %[[ARG1:.*]]: memref<10x10xi32, "gpu">) -> (memref<10xi32, "cpu">, memref<10xi32, "gpu">)
 func.func @main(%arg0: memref<10x10xi32>, %arg1: memref<10x10xi32>) -> (memref<10xi32>, memref<10xi32>) attributes {tf.entry_function = {input_placements = "cpu,gpu", inputs = "input0,input1", output_placements = "cpu,gpu", outputs = "output0,output1"}} {
   // CHECK: %[[T0:.*]] = memref.alloc({{.*}}) : memref<i32, "cpu">
@@ -119,4 +119,21 @@ func.func @main(%arg0: memref<10x10xi32>, %arg1: memref<10x10xi32>) -> (memref<1
     "lmhlo.terminator"() : () -> ()
   }) {dimensions = dense<0> : tensor<1xi64>, disc.device = "gpu"} : (memref<10x10xi32>, memref<i32>, memref<10xi32>) -> ()
   return %1, %2 : memref<10xi32>, memref<10xi32>
+}
+
+// -----
+
+// CHECK-LABEL: @main
+// CHECK-SAME: (%[[ARG0:.*]]: memref<?xf32, "gpu">)
+// CHECK-SAME: memref<?xf32, "gpu">
+func.func @main(%arg0: memref<?xf32>) -> (memref<?xf32>) attributes {tf.entry_function = {input_placements = "gpu", inputs = "input0", output_placements = "gpu", outputs = "output0"}} {
+  // CHECK: lmhlo_disc.custom_call_v2
+  // CHECK-SAME: %[[ARG0]]
+  // CHECK-SAME: (memref<?xf32, "gpu">) -> (memref<?xf32, "gpu">, memref<?xf32, "cpu">, memref<?xf32, "gpu">, memref<?xi32, "cpu">)
+  // CHECK-NEXT: %[[T0:.*]] = "lmhlo_disc.custom_call_v2"
+  // CHECK-SAME: (memref<?xf32, "gpu">, memref<?xf32, "cpu">, memref<?xf32, "gpu">, memref<?xi32, "cpu">) -> memref<?xf32, "gpu">
+  // CHECK: return %[[T0]]
+  %0:4 = "lmhlo_disc.custom_call_v2"(%arg0) {call_target_name = "test1", custom_attrs = {}, device = "d", disc.device = "gpu", expected_input_layouts = "*", expected_output_layouts = "*,*,*,*", has_side_effect = false, input_layouts = "*", input_placements = "d", output_layouts = "*,*,*,*", output_placements = "d,h,x,h"} : (memref<?xf32>) -> (memref<?xf32>, memref<?xf32>, memref<?xf32>, memref<?xi32>)
+  %1 = "lmhlo_disc.custom_call_v2"(%0#0, %0#1, %0#2, %0#3) {call_target_name = "test2", custom_attrs = {}, device = "d", disc.device = "gpu", expected_input_layouts = "*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,*,*,*", input_placements = "x,h,d,s", output_layouts = "*", output_placements = "d"} : (memref<?xf32>, memref<?xf32>, memref<?xf32>, memref<?xi32>) -> memref<?xf32>
+  return %1 : memref<?xf32>
 }

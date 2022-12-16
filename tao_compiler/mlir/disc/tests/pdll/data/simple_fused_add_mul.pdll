@@ -36,6 +36,18 @@ Pattern TFFusedAddMul {
     SetCustomAttr(infos.op, attr<"\"rank2Shape2x3SplatBoolDenseAttr\"">, attr<"dense<1> : tensor<2x3xi1>">);
     SetCustomAttr(infos.op, attr<"\"rank2Shape2x3SplatFloatDenseAttr\"">, attr<"dense<-0.01> : tensor<2x3xf32>">);
 
+    SetCustomAttr(infos.op, attr<"\"data_format_nhwc\"">, attr<"\"NHWC\"">);
+    SetCustomAttr(infos.op, attr<"\"data_format_nchw\"">, attr<"\"NCHW\"">);
+    SetCustomAttr(infos.op, attr<"\"padding_same\"">, attr<"\"SAME\"">);
+    SetCustomAttr(infos.op, attr<"\"padding_valid\"">, attr<"\"VALID\"">);
+
+    SetCustomAttr(infos.op, attr<"\"strides1\"">, attr<"[1]">);
+    SetCustomAttr(infos.op, attr<"\"strides22\"">, attr<"[2, 2]">);
+    SetCustomAttr(infos.op, attr<"\"strides1231\"">, attr<"[1,2,3,1]">);
+    SetCustomAttr(infos.op, attr<"\"dilations1\"">, attr<"[1]">);
+    SetCustomAttr(infos.op, attr<"\"dilations22\"">, attr<"[2, 2]">);
+    SetCustomAttr(infos.op, attr<"\"dilations1231\"">, attr<"[1,2,3,1]">);
+
     let rs = UnpackValue_1(infos.new_outputs);
     replace mul with rs;
   };

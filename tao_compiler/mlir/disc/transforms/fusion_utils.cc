@@ -722,6 +722,11 @@ FusionPattern FusionPattern::mergeWithoutInit(FusionPattern& other) {
   return new_fusion_pattern;
 }
 
+FusionPattern FusionPattern::createWithoutInit(
+    SmallVectorImpl<Operation*>& op_list) {
+  return FusionPattern(op_list);
+}
+
 void FusionPattern::findOpsOfSkeletonGroup(SkeletonGroup group,
                                            DenseSet<Operation*>& ops) {
   ops.clear();
@@ -1007,6 +1012,12 @@ bool FusionStrategy::isFusible(FusionPattern& fusion_pattern) {
   for (Operation* op : fusion_pattern.getOpList()) {
     if (!isFusible(op)) return false;
   }
+  return true;
+}
+
+bool FusionStrategy::pruneFusionPattern(
+    ShapeAnalysis& shapeAnalysis, FusionPattern& fused_pattern,
+    SmallVectorImpl<Operation*>& excluded_ops) {
   return true;
 }
 
@@ -1442,10 +1453,13 @@ std::unique_ptr<FusionStrategy> makeNewDeviceStrategy(StringRef device,
     return std::make_unique<StitchGpuFusionStrategy>(options);
   } else if (device == placement_utils::kCpu && strategy == "stitch_base") {
     return std::make_unique<StitchBaseCpuFusionStrategy>(options);
+  } else if (device == placement_utils::kGpu && strategy == "pre_dot") {
+    return std::make_unique<PreDotGpuFusionStrategy>(options);
   } else if (device == placement_utils::kGpu && strategy == "dot") {
     return std::make_unique<DotGpuFusionStrategy>(options);
   } else {
     assert(false && "not support fusion strategy");
+    return nullptr;
   }
 }
 
@@ -1469,44 +1483,6 @@ FusionStrategy& getFusionStrategy(StringRef device, StringRef strategy) {
   return *it->second;
 }
 
-using DeviceStrategyMap = DenseMap<StringRef, FusionStrategy*>;
-
-class PlacementAwareFusionStrategy : public FusionStrategy {
- public:
-  PlacementAwareFusionStrategy(const FusionOptions& options,
-                               StringRef defaultDevice,
-                               DeviceStrategyMap deviceStrategyMap)
-      : FusionStrategy(options),
-        deviceStrategyMap_(std::move(deviceStrategyMap)),
-        defaultDevice_(defaultDevice) {}
-
-  bool isFusible(Operation* op) override;
-  bool isFusible(FusionPattern& fusion_pattern) override;
-  bool tryFuse(ShapeAnalysis& shapeAnalysis, FusionPattern& lhs,
-               FusionPattern& rhs, FusionPattern& target) override;
-  bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
-                         FusionPattern& fusion_pattern) override;
-  virtual StringRef getName() override {
-    return "PlacementAwareFusionStrategy";
-  }
-
- private:
-  StringRef getPlacement(Operation* op);
-  StringRef getPlacement(FusionPattern& fusion_pattern) {
-    return getPlacement(fusion_pattern.getDominantOp());
-  }
-  FusionStrategy* getStrategy(StringRef placement);
-  FusionStrategy* getStrategy(Operation* op) {
-    return getStrategy(getPlacement(op));
-  }
-  FusionStrategy* getStrategy(FusionPattern& fusion_pattern) {
-    return getStrategy(getPlacement(fusion_pattern));
-  }
-
-  StringRef defaultDevice_;
-  DeviceStrategyMap deviceStrategyMap_;
-};
-
 StringRef PlacementAwareFusionStrategy::getPlacement(Operation* op) {
   if (!op) return "";
   auto attr = op->getAttrOfType<StringAttr>(kDiscPlaceAssignment);
@@ -1519,6 +1495,14 @@ StringRef PlacementAwareFusionStrategy::getPlacement(Operation* op) {
       return strAttr.getValue();
   }
   return defaultDevice_;
+}
+
+StringRef PlacementAwareFusionStrategy::getPlacement(
+    FusionPattern& fusion_pattern) {
+  auto op = !fusion_pattern.getRootOps().empty()
+                ? fusion_pattern.getRootOps()[0]
+                : nullptr;
+  return getPlacement(op);
 }
 
 FusionStrategy* PlacementAwareFusionStrategy::getStrategy(StringRef placement) {
@@ -1555,6 +1539,19 @@ bool PlacementAwareFusionStrategy::initFusionPattern(
   if (fusion_pattern.getOpList().empty()) return true;
   FusionStrategy* strategy = getStrategy(fusion_pattern.getOpList()[0]);
   return strategy && strategy->initFusionPattern(shapeAnalysis, fusion_pattern);
+}
+
+bool PlacementAwareFusionStrategy::pruneFusionPattern(
+    ShapeAnalysis& shapeAnalysis, FusionPattern& fusion_pattern,
+    SmallVectorImpl<Operation*>& excluded_ops) {
+  if (fusion_pattern.getOpList().empty() ||
+      fusion_pattern.getFusionType() == FusionType::kNone) {
+    // Do not deal with invalid fusion pattern.
+    return true;
+  }
+  FusionStrategy* strategy = getStrategy(fusion_pattern.getOpList()[0]);
+  return strategy && strategy->pruneFusionPattern(shapeAnalysis, fusion_pattern,
+                                                  excluded_ops);
 }
 
 std::unique_ptr<FusionStrategy> makeNewPlacementAwareFusionStrategy(

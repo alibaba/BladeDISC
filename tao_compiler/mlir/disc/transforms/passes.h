@@ -220,7 +220,7 @@ std::unique_ptr<OperationPass<FuncOp>> createLhloFusionInlinerPass();
 std::unique_ptr<OperationPass<FuncOp>> createDiscDotMergePass();
 
 // Apply some basic algebra simplification optimizations.
-std::unique_ptr<OperationPass<FuncOp>> createDiscAlgebraSimplifierPass();
+std::unique_ptr<OperationPass<FuncOp>> createDiscAlgebraicSimplifierPass();
 
 // apply some shape-related optimization.
 std::unique_ptr<OperationPass<ModuleOp>> createDiscShapeOptimizationPass(

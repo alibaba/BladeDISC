@@ -2014,7 +2014,7 @@ MemRefType<T, 4> bladnn_groupnorm(ExecutionContext* ctx, void* stream_handle,
   auto ptr = static_cast<T*>(driver->alloc(ctx, nElems * sizeof(T)));
   auto output = assignMemRef<T, 4>(ptr, input.sizes);
 
-  auto attr = getOrParsePDLAttr(ctx, customAttrs, "ral_conv_biasadd");
+  auto attr = getOrParsePDLAttr(ctx, customAttrs, "ral_groupnorm");
   if (!attr) {
     ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
   }

@@ -336,6 +336,39 @@ LogicalResult DiscAssignMemorySpacePass::processOperation(
     return status;
   }
 
+  if (auto customCallV2Op = dyn_cast<lmhlo_disc::CustomCallV2Op>(op)) {
+    auto parseAndApply = [&](StringRef s, ValueRange vs) {
+      SmallVector<StringRef, 4> parsedItems;
+      s.split(parsedItems, ',', /*MaxSplit=*/-1, /*KeepEmpty=*/false);
+      if (parsedItems.size() != vs.size()) return failure();
+      for (const auto& z : llvm::zip(parsedItems, vs)) {
+        auto placement = std::get<0>(z);
+        if (placement == "s" || placement == "h" ||
+            placement == "x" && !this->gpu_enabled_) {
+          if (failed(updateAssignment(assignment, std::get<1>(z),
+                                      placement_utils::kCpu, converged)))
+            return failure();
+        } else if (placement == "d" || placement == "x" && this->gpu_enabled_) {
+          if (failed(updateAssignment(assignment, std::get<1>(z),
+                                      placement_utils::kGpu, converged)))
+            return failure();
+        } else {
+          return failure();
+        }
+      }
+      return success();
+    };
+    if (failed(parseAndApply(customCallV2Op.getInputPlacements(),
+                             op->getOperands())))
+      return op->emitError()
+             << " failed to parse and apply the input placements\n";
+    if (failed(parseAndApply(customCallV2Op.getOutputPlacements(),
+                             op->getResults())))
+      return op->emitError()
+             << " failed to parse and apply the output placements\n";
+    return success();
+  }
+
   // process lmhlo ops
   if (isa<lmhlo::LmhloOp>(op)) {
     return processLmhloOperation(op, input_placements, output_placements,
@@ -387,9 +420,6 @@ LogicalResult DiscAssignMemorySpacePass::processLmhloOperation(
       return failure();
     }
   }
-
-  // CustomCallV2Op supports mix placements for not-shape-operands.
-  if (isa<lmhlo_disc::CustomCallV2Op>(op)) return success();
 
   // non-shape operands
   SmallVector<Value, 4> non_shape_operands;

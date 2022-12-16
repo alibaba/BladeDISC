@@ -412,7 +412,7 @@ int getReductionTileSizeOnCPU() {
 
 // Get ops that depends on the given op in the same block. It assumes the ops in
 // the block do not have regions.
-void getDependentOps(Operation* op, DenseSet<Operation*>& dependences) {
+void getDependentOpsInBlock(Operation* op, DenseSet<Operation*>& dependences) {
   SmallVector<Value> affectedValues;
   // TODO: deal with AssumeAlignmentOp.
   for (auto result : op->getResults()) {
@@ -424,23 +424,23 @@ void getDependentOps(Operation* op, DenseSet<Operation*>& dependences) {
     }
   }
 
-  // TODO: Looks buggy here. To test.
+  auto block = op->getBlock();
   for (auto value : affectedValues) {
     for (auto user : value.getUsers()) {
-      if (!user->isBeforeInBlock(op)) {
+      if (user == op || user->getBlock() != block ||
+          user->isBeforeInBlock(op)) {
         continue;
       }
-      DenseSet<Operation*> deps;
-      getDependentOps(user, deps);
-      dependences.insert(deps.begin(), deps.end());
+      dependences.insert(user);
+      getDependentOpsInBlock(user, dependences);
     }
   }
 }
 
 // Check whether a depends on b.
-bool dependsOn(Operation* a, Operation* b) {
+bool dependsOnInBlock(Operation* a, Operation* b) {
   DenseSet<Operation*> dependences;
-  getDependentOps(b, dependences);
+  getDependentOpsInBlock(b, dependences);
   return dependences.contains(a);
 }
 
@@ -545,13 +545,14 @@ LogicalResult generateUnrolledLoopMayInterleave(
   // Make sure `toMove` is after `toMoveAfter` when calling this lambda
   // function.
   auto canMoveAfter = [&](Block::iterator toMove, Block::iterator toMoveAfter) {
-    assert(toMove->getParentOp() == toMoveAfter->getParentOp());
-    // DominanceInfo dom(toMove->getParentOp());
+    if (toMove->getBlock() != toMoveAfter->getBlock() ||
+        !toMoveAfter->isBeforeInBlock(&(*toMove))) {
+      return false;
+    }
     bool canMove = true;
     for (auto iter = std::prev(toMove); iter != toMoveAfter;
          std::advance(iter, -1)) {
-      // if (dom.dominates(&(*iter), &(*toMove))) {
-      if (dependsOn(&(*toMove), &(*iter))) {
+      if (dependsOnInBlock(&(*toMove), &(*iter))) {
         canMove = false;
         break;
       }

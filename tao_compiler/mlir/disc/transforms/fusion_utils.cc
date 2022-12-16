@@ -552,7 +552,7 @@ FusionPatternBase::FusionPatternBase(SmallVectorImpl<Operation*>& op_list)
 // fusion pattern contains.
 int FusionPatternBase::effectiveSize() {
   return llvm::count_if(
-      op_list_, [](Operation* op) { return !matchPattern(op, m_Constant()); });
+      op_list_, [](Operation* op) { return !isa<lmhlo::ConstantOp>(op); });
 }
 
 // Sorts the ops inside the fusion pattern according to the keys provided.

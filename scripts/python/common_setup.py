@@ -541,7 +541,7 @@ def try_import_from_platform_alibaba(module_name, disc_root=None):
     if disc_root is None:
         root = internal_root_dir()
     else:
-        root = os.path.join(disc_root, os.path.pardir, "bladedisc")
+        root = os.path.join(disc_root, os.path.pardir)
     build_scripts_dir = os.path.join(root, "platform_alibaba", "scripts", "python")
     sys.path.insert(0, build_scripts_dir)
     m = None

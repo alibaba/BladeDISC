@@ -370,6 +370,8 @@ def _optimize_common(c_module):
 
     graph = c_module.forward.graph
     if cfg.optimization_pipeline == _DISC_NAME:
+        from torch_blade import jit_pass_propagate_input_shapes
+        jit_pass_propagate_input_shapes(graph)
         # The inplace op's output type has no promotion.
         #
         # Without this pass, the _jit_pass_remove_mutation

@@ -2432,8 +2432,24 @@ class ShapePropagator : public PropertyPropBase {
         int64_t dim =
             at::maybe_wrap_dim(dimOptional.value(), input_rank, false);
 
-        // set default to dynamic
-        new_sizes[dim] = ShapeSymbol::newSymbol();
+        auto startOptional = node->get<IValue>(attr::start);
+        auto endOptional = node->get<IValue>(attr::end);
+        if (new_sizes[dim].is_static() && startOptional && endOptional) {
+          int64_t start = startOptional.value() != c10::nullopt
+              ? node->get<int64_t>(attr::start).value()
+              : 0;
+          int64_t end = endOptional.value() != c10::nullopt
+              ? node->get<int64_t>(attr::end).value()
+              : INT64_MAX;
+          int64_t step = node->get<int64_t>(attr::step).value();
+          if (end >= new_sizes[dim].static_size())
+            end = new_sizes[dim].static_size();
+          int64_t len = end - start;
+          new_sizes[dim] = ShapeSymbol::fromStaticSize((len + step - 1) / step);
+        } else {
+          // set default to dynamic
+          new_sizes[dim] = ShapeSymbol::newSymbol();
+        }
         node->outputs()[0]->setType(type->withSymbolicShapes(new_sizes));
       }
       return true;
@@ -2536,6 +2552,8 @@ class ShapePropagator : public PropertyPropBase {
           node->matches(
               "aten::_convolution(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool benchmark, bool deterministic, bool cudnn_enabled, bool allow_tf32) -> Tensor") ||
 #endif
+          node->matches(
+              "aten::upsample_nearest2d(Tensor self, int[] output_size, float? scales_h, float? scales_w) -> Tensor") ||
           node->matches(
               "aten::convolution(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups) -> Tensor") ||
           node->matches(

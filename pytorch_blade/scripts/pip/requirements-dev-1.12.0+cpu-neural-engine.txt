@@ -2,6 +2,7 @@ cpython
 pyyaml
 typing_extensions
 numpy
+schema
 pytest
 networkx
 py-cpuinfo

@@ -21,7 +21,6 @@
 #include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
 #include "tensorflow/compiler/mlir/xla/ral/context/pdll_util.h"
 #include "tensorflow/compiler/mlir/xla/ral/device/gpu/gpu_driver.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/pdll_util.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_base.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_logging.h"
@@ -586,18 +585,17 @@ void ral_comp_intens_fusion(
 }
 
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
-MemRefType<Eigen::half, 3> ral_pdll_mem_eff_attention(ExecutionContext* ctx,
-                                      void* stream_handle /*stream_handle*/,
-                                      MemRefType<Eigen::half, 3> query,
-                                      MemRefType<Eigen::half, 3> key,
-                                      MemRefType<Eigen::half, 4> value,
-                                      void* customAttrs) {
+MemRefType<Eigen::half, 3> ral_pdll_mem_eff_attention(
+    ExecutionContext* ctx, void* stream_handle /*stream_handle*/,
+    MemRefType<Eigen::half, 3> query, MemRefType<Eigen::half, 3> key,
+    MemRefType<Eigen::half, 4> value, void* customAttrs) {
   auto attr = getOrParsePDLAttr(ctx, customAttrs, "ral_pdll_mem_eff_attention");
   if (!attr) {
     ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
   }
   auto& dictAttr = attr->as<DictPDLAttr>();
-  double alpha_softmax_double = dictAttr.get("alpha").template as<FloatPDLAttr>().getValue();
+  double alpha_softmax_double =
+      dictAttr.get("alpha").template as<FloatPDLAttr>().getValue();
   float alpha_softmax = float(alpha_softmax_double);
 
   auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
@@ -615,7 +613,7 @@ MemRefType<Eigen::half, 3> ral_pdll_mem_eff_attention(ExecutionContext* ctx,
   int seq_len_kv = value.sizes[2];
   int head_dim_v = value.sizes[3];
 
-  int64_t resultSizes[3] = {batch_size * num_heads,  seq_len, head_dim};
+  int64_t resultSizes[3] = {batch_size * num_heads, seq_len, head_dim};
 
   if (isEmptyMemref(query) || isEmptyMemref(key) || isEmptyMemref(value)) {
     TAO_VLOG(1) << "ral_conv_biasadd: early return for empty tensor";
@@ -623,15 +621,17 @@ MemRefType<Eigen::half, 3> ral_pdll_mem_eff_attention(ExecutionContext* ctx,
     ;
   }
 
-  auto data =
-      static_cast<Eigen::half*>(gpu_driver->alloc(ctx, batch_size * num_heads * seq_len * head_dim * sizeof(Eigen::half)));
+  auto data = static_cast<Eigen::half*>(gpu_driver->alloc(
+      ctx, batch_size * num_heads * seq_len * head_dim * sizeof(Eigen::half)));
   auto result = assignMemRef<Eigen::half, 3>(data, resultSizes);
 
-  auto data_acc =
-      static_cast<float*>(gpu_driver->alloc(ctx, batch_size * num_heads * seq_len * head_dim * sizeof(float)));
+  auto data_acc = static_cast<float*>(gpu_driver->alloc(
+      ctx, batch_size * num_heads * seq_len * head_dim * sizeof(float)));
 
-  bool ret = bladnn::mem_eff_attention(result.data, query_data, key_data, value_data, data_acc, &batch_size, seq_len, seq_len_kv,
-                    num_heads, head_dim, head_dim_v, 0.0f, alpha_softmax, false, s);
+  bool ret = bladnn::mem_eff_attention(
+      result.data, query_data, key_data, value_data, data_acc, &batch_size,
+      seq_len, seq_len_kv, num_heads, head_dim, head_dim_v, 0.0f, alpha_softmax,
+      false, s);
 
   if (!ret) {
     ctx->signalError(Context::FAILURE, "bladnn fail");
@@ -640,7 +640,6 @@ MemRefType<Eigen::half, 3> ral_pdll_mem_eff_attention(ExecutionContext* ctx,
   return result;
 }
 #endif
-
 
 template <typename T, int N>
 int64_t GetBatchSize(MemRefType<T, N> memref) {
@@ -2062,10 +2061,10 @@ namespace groupnorm_impl {
 
 // Pre-requirement: input has layout NHWC
 template <typename T>
-MemRefType<T, 4> bladnn_groupnorm(
-    ExecutionContext* ctx, void* stream_handle,
-    MemRefType<T, 4> input, MemRefType<T, 1> weight, MemRefType<T, 1> bias,
-    void* customAttrs) {
+MemRefType<T, 4> bladnn_groupnorm(ExecutionContext* ctx, void* stream_handle,
+                                  MemRefType<T, 4> input,
+                                  MemRefType<T, 1> weight,
+                                  MemRefType<T, 1> bias, void* customAttrs) {
   size_t nElems = Size(input);
   auto driver = ctx->getDriver<gpu::GPUDriver>(gpu::GPUDriver::name());
   TAO_CHECK(driver);
@@ -2077,14 +2076,15 @@ MemRefType<T, 4> bladnn_groupnorm(
     ctx->signalError(Context::FAILURE, "fail to parse custom_attrs\n");
   }
   auto& dictAttr = attr->as<DictPDLAttr>();
-  auto num_group = dictAttr.get("num_group").template as<IntPDLAttr>().getValue();
+  auto num_group =
+      dictAttr.get("num_group").template as<IntPDLAttr>().getValue();
   auto eps = dictAttr.get("eps").template as<FloatPDLAttr>().getValue();
   auto use_silu = dictAttr.get("silu").template as<BoolPDLAttr>().getValue();
   auto stream = driver->asCUStream(ctx, stream_handle);
-  bool ret = bladnn::groupnorm(
-      output.data, input.data, weight.data, bias.data,
-      input.sizes[0], input.sizes[1], input.sizes[2], input.sizes[3], num_group,
-      use_silu, eps, stream);
+  bool ret =
+      bladnn::groupnorm(output.data, input.data, weight.data, bias.data,
+                        input.sizes[0], input.sizes[1], input.sizes[2],
+                        input.sizes[3], num_group, use_silu, eps, stream);
   if (!ret) {
     ctx->signalError(Context::FAILURE, "fail to call bladnn::groupnorm\n");
   }
@@ -2142,14 +2142,13 @@ TAO_RAL_API("ral_pdll_conv_bias", "gpu",
             gpu::se_impl::gpu_conv_impl::ral_conv_biasadd<float, 4>);
 TAO_RAL_API("ral_pdll_mem_eff_attention", "gpu",
             gpu::se_impl::ral_pdll_mem_eff_attention);
+TAO_RAL_API("ral_pdll_group_norm", "gpu",
+            gpu::se_impl::groupnorm_impl::bladnn_groupnorm<Eigen::half>);
 #endif
 
 // compute-intensive fusion
 TAO_RAL_API("ral_comp_intens_fusion", "gpu",
             gpu::se_impl::ral_comp_intens_fusion);
-
-TAO_RAL_API("ral_pdll_group_norm", "gpu",
-            gpu::se_impl::groupnorm_impl::bladnn_groupnorm<Eigen::half>);
 
 }  // namespace ral
 }  // namespace tao

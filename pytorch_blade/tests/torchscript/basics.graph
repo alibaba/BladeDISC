@@ -61,3 +61,30 @@ graph(%p1 : Float(*, *, *, device=cuda:0),
 // CHECK: Float(*, *, *, device=cuda:0) = aten::tanh_backward(%p1, %p2)
   %1 : Tensor = aten::tanh_backward(%p1, %p2)
   return (%1)
+
+
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *, *, device=cuda:0),
+  %p2 : Float(*, *, *, *, device=cuda:0),
+  %p3 : Float(*, device=cuda:0)
+):
+  %3 : int[] = prim::Constant[value=[1, 1]]()
+  %4 : bool = prim::Constant[value=0]()
+  %5 : int[] = prim::Constant[value=[0, 0]]()
+  %6 : int = prim::Constant[value=1]()
+  // CHECK: Float(*, *, *, *, device=cuda:0) = aten::_convolution(%p1, %p2, %p3, %3, %3, %3, %4, %5, %6, %4, %4, %4, %4)
+  %7 : Tensor = aten::_convolution(%p1, %p2, %p3, %3, %3, %3, %4, %5, %6, %4, %4, %4, %4)
+  return (%7)
+
+// CHECK-LABEL: graph
+graph(%p1 : Float(*, *, *, *, device=cuda:0),
+  %p2 : Float(*, *, *, *, device=cuda:0),
+  %p3 : Float(*, device=cuda:0)
+):
+  %3 : int[] = prim::Constant[value=[1, 1]]()
+  %4 : bool = prim::Constant[value=0]()
+  %5 : int[] = prim::Constant[value=[0, 0]]()
+  %6 : int = prim::Constant[value=1]()
+  // CHECK: Float(*, *, *, *, device=cuda:0) = aten::convolution(%p1, %p2, %p3, %3, %3, %3, %4, %5, %6)
+  %7 : Tensor = aten::convolution(%p1, %p2, %p3, %3, %3, %3, %4, %5, %6)
+  return (%7)

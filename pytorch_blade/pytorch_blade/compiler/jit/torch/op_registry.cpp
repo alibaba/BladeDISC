@@ -46,6 +46,7 @@ std::shared_ptr<SchemaSet> nn_ops_first_input_preserving() {
 #if PYTORCH_MAJOR_VERSION == 1 && PYTORCH_MINOR_VERSION > 6
       "aten::_convolution(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool benchmark, bool deterministic, bool cudnn_enabled, bool allow_tf32) -> Tensor",
 #endif
+      "aten::convolution(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups) -> Tensor",
       "aten::_convolution(Tensor input, Tensor weight, Tensor? bias, int[] stride, int[] padding, int[] dilation, bool transposed, int[] output_padding, int groups, bool benchmark, bool deterministic, bool cudnn_enabled) -> Tensor",
       "aten::adaptive_avg_pool1d(Tensor self, int[] output_size) -> Tensor",
       "aten::adaptive_avg_pool2d(Tensor self, int[] output_size) -> Tensor",

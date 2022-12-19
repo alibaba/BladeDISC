@@ -930,6 +930,7 @@ class ShapePropagator : public PropertyPropBase {
             "aten::rrelu(Tensor self, Scalar lower, Scalar upper, bool training, Generator? generator) -> Tensor",
             "aten::rsqrt(Tensor self) -> Tensor",
             "aten::selu(Tensor self) -> Tensor",
+            "aten::selu_(Tensor self) -> Tensor",
             "aten::sigmoid(Tensor self) -> Tensor",
             "aten::sign(Tensor self) -> Tensor",
             "aten::sin(Tensor self) -> Tensor",
@@ -944,7 +945,6 @@ class ShapePropagator : public PropertyPropBase {
             "aten::triu(Tensor self, int diagonal) -> Tensor",
             "aten::trunc(Tensor self) -> Tensor",
             "aten::rot90(Tensor self, int k, int[] dims) -> Tensor",
-            "aten::narrow(Tensor self, int dim, int start, int length) -> Tensor",
             "aten::alias(Tensor self) -> Tensor",
             "aten::zero_(Tensor self) -> Tensor",
             "aten::tanh_backward(Tensor grad_output, Tensor output) -> Tensor",
@@ -968,8 +968,9 @@ class ShapePropagator : public PropertyPropBase {
     //   - First input should be the only tensor input
     static const register_formula_for simple_unary_ops{
         {
-            "aten::t(Tensor self) -> Tensor",
+            "aten::narrow(Tensor self, int dim, int start, int length) -> Tensor",
             "aten::permute(Tensor self, int[] dims) -> Tensor",
+            "aten::t(Tensor self) -> Tensor",
             "aten::transpose(Tensor self, int dim0, int dim1) -> Tensor",
         },
         [](Node* node) -> type_vec_t {
@@ -1435,11 +1436,13 @@ class ShapePropagator : public PropertyPropBase {
               return {};
             }};
 
-    static const auto reduce_op_handler = [](Node* node,
-                                             int64_t num_reduced_dim = 0,
-                                             bool upcast_integer = false,
-                                             c10::optional<IValue> opt_dtype =
-                                                 c10::nullopt) -> type_vec_t {
+    static const auto reduce_op_handler =
+        [](Node* node,
+           int64_t num_reduced_dim = 0,
+           bool upcast_integer = false,
+           c10::optional<IValue> opt_dtype = c10::nullopt,
+           c10::optional<c10::List<int64_t>> opt_dims =
+               c10::nullopt) -> type_vec_t {
       if (auto type = node->input(0)->type()->cast<TensorType>()) {
         if (!type->scalarType() || !type->dim()) {
           return {};
@@ -1453,7 +1456,16 @@ class ShapePropagator : public PropertyPropBase {
         if (*type->dim() >= num_reduced_dim && num_reduced_dim >= 0) {
           return {type->withDim(*type->dim() - num_reduced_dim)};
         } else {
-          return {type};
+          auto sizesOptional = type->symbolic_sizes().sizes();
+          if (opt_dims && sizesOptional) {
+            std::vector<ShapeSymbol> new_sizes = sizesOptional.value();
+            for (ssize_t k = 0; k < opt_dims->size(); ++k) {
+              new_sizes[k] = ShapeSymbol::fromStaticSize(1);
+            }
+            return {type->withSymbolicShapes(new_sizes)};
+          }
+
+          return {type->dimensionedOnly()};
         }
       }
       return {};
@@ -1463,7 +1475,9 @@ class ShapePropagator : public PropertyPropBase {
         [](Node* node,
            int64_t num_reduced_dim,
            bool upcast_integer,
-           c10::optional<IValue> opt_dtype = c10::nullopt) -> type_vec_t {
+           c10::optional<IValue> opt_dtype = c10::nullopt,
+           c10::optional<c10::List<int64_t>> opt_dims =
+               c10::nullopt) -> type_vec_t {
       auto maybe_keepdim = node->get<bool>(attr::keepdim);
       if (!maybe_keepdim)
         return {};
@@ -1471,7 +1485,8 @@ class ShapePropagator : public PropertyPropBase {
           node,
           *maybe_keepdim ? 0 : num_reduced_dim,
           upcast_integer,
-          opt_dtype);
+          opt_dtype,
+          opt_dims);
     };
 
     // Requirements:
@@ -1496,7 +1511,8 @@ class ShapePropagator : public PropertyPropBase {
 #endif
         },
         [](Node* node) -> type_vec_t {
-          auto num_reduced_dim = determineListSize(node->namedInput(attr::dim));
+          auto list = node->namedInput(attr::dim);
+          auto num_reduced_dim = determineListSize(list);
           if (!num_reduced_dim) {
             return {};
           }
@@ -1512,11 +1528,13 @@ class ShapePropagator : public PropertyPropBase {
 #else
           opt_dtype = node->get(attr::dtype);
 #endif // PYTORCH_VERSION_GE(1, 14)
+          auto dims = constant_as<c10::List<int64_t>>(list);
           return multidim_reduce_with_keepdim(
               node,
               /*num_reduced_dim=*/*num_reduced_dim,
               /*upcast_integer=*/true,
-              opt_dtype);
+              opt_dtype,
+              dims);
         }};
 
     // Requirements:

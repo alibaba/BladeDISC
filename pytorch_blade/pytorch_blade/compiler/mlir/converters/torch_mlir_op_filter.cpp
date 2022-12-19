@@ -109,6 +109,7 @@ const std::unordered_set<std::string> &GetTorchMlirWhiteList() {
       "aten::roll",
       "aten::rsqrt",
       "aten::select",
+      "aten::selu",
       "aten::sigmoid",
       "aten::silu",
       "aten::sin",

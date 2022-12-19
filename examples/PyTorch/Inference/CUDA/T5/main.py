@@ -97,10 +97,10 @@ def run():
     model = T5Model.from_pretrained("t5-base", torchscript=True).eval().cuda()
     traced_model_amp = trace_model(model, inputs, True).eval().cuda()
 
-    # # Run naive torch.
-    # print("Naive PyTorch.")
-    # model = traced_model_amp
-    # evaluate_torch(model, inputs)
+    # Run naive torch.
+    print("Naive PyTorch.")
+    model = traced_model_amp
+    evaluate_torch(model, inputs)
 
     # Run BladeDISC optimization.
     print("BladeDISC Optimization.")

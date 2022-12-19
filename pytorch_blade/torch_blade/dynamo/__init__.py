@@ -9,6 +9,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import torch_blade.dynamo.patch_user_defined
+
 from torch._dynamo.optimizations.training import aot_autograd
 from torch._dynamo.optimizations.backends import BACKENDS, create_backend
 from torch._dynamo.optimizations.subgraph import SubGraph

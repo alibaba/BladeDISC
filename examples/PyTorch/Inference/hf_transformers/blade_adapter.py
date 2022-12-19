@@ -49,29 +49,30 @@ class ModelInfo(NamedTuple):
 
 # pipeline task to model task mapping
 TASK_MAP = {
-    'audio-classification': 'sequence-classification',  # ?
+    'audio-classification': 'sequence-classification',
     'automatic-speech-recognition': 'speech2seq-lm',
-    'feature-extraction': 'default',  # ?
+    'feature-extraction': 'default',
     'text-classification': 'sequence-classification',
     'token-classification': 'token-classification',
     'question-answering': 'question-answering',
-    # 'table-question-answering': '',
-    # 'visual-question-answering': '',
-    # 'document-question-answering': '',
     'fill-mask': 'masked-lm',
     'summarization': 'seq2seq-lm',
     'translation': 'seq2seq-lm',
     'text2text-generation': 'seq2seq-lm',
     'text-generation': 'causal-lm',
     'zero-shot-classification': 'sequence-classification',
-    'zero-shot-image-classification': 'image-classification',  # ?
-    'conversational': 'seq2seq-lm',  # ?
+    'zero-shot-image-classification': 'image-classification',
+    'conversational': 'seq2seq-lm',
     'image-classification': 'image-classification',
     'image-segmentation': 'image-segmentation',
     'image-to-text': 'vision2seq-lm',
     'object-detection': 'object-detection',
-    'zero-shot-object-detection': 'object-detection',  # ?
+    'zero-shot-object-detection': 'object-detection',
+    # TODO(litan.ls): support more pipeline tasks as following:
     # 'depth-estimation': '',
+    # 'table-question-answering': '',
+    # 'visual-question-answering': '',
+    # 'document-question-answering': '',
 }
 
 
@@ -242,7 +243,6 @@ def optimize(task: Optional[str] = None, id_or_path: Optional[str] = None,
     else:
         # TODO(litan.ls): support custom blade config
         torch_config = torch_blade.config.Config()
-        torch_config.enable_mlir_amp = False  # disable mix-precision
         torch_config.customize_op_black_list = ['aten::arange']
         with torch.no_grad(), torch_config:
             opt_model = torch_blade.optimize(

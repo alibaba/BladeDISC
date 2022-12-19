@@ -9,7 +9,7 @@
 - Latest BladeDISC (torch_blade), pull docker image `bladedisc/bladedisc:latest-runtime-torch1.12.0-cu113`
 
 Please note that, you may need to build torch_blade from source if using difference torch and cuda versions.
-Refer to [build BladeDISC for PyTorch]().
+Refer to [build BladeDISC for PyTorch](../../../../docs/build_from_source.md).
 
 ## 2. High-level Concepts
 

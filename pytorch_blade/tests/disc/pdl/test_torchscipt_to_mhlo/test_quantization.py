@@ -88,9 +88,9 @@ module {
     %7 = "mhlo_disc.quantize"(%arg1, %3, %2) {axis = dense<> : tensor<0xi64>, quant_max = 127 : i64, quant_min = -128 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<1x2x128xf32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>
     # CHECK-NOT: mhlo_disc.dequantize
     # CHECK: mhlo_disc.custom_call_v2
-    # CHECK-SAME: call_target_name = "ral_pdll_qgemm_s8s8s8f32_pc"
+    # CHECK-SAME: call_target_name = "ral_pdll_qgemm"
     # CHECK-SAME: custom_attrs = {transpose_a = false, transpose_b = false}
-    %9 = "mhlo_disc.custom_call_v2"(%7, %0, %6, %3, %2, %4, %5, %1, %2) {call_target_name = "ral_pdll_qgemm_s8s8s8f32_pc", custom_attrs = {transpose_a = false, transpose_b = false}, device = "h", expected_input_layouts = "*,*,*,*,*,*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,*,*,*,*,*,*,*,*", input_placements = "h,h", output_layouts = "*", output_placements = "h"} : (tensor<1x2x128xi8>, tensor<128x128xi8>, tensor<128xf32>, tensor<f32>, tensor<i32>, tensor<128xf32>, tensor<128xi32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>
+    %9 = "mhlo_disc.custom_call_v2"(%7, %0, %6, %3, %2, %4, %5, %1, %2) {call_target_name = "ral_pdll_qgemm", custom_attrs = {transpose_a = false, transpose_b = false}, device = "h", expected_input_layouts = "*,*,*,*,*,*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,*,*,*,*,*,*,*,*", input_placements = "h,h", output_layouts = "*", output_placements = "h"} : (tensor<1x2x128xi8>, tensor<128x128xi8>, tensor<128xf32>, tensor<f32>, tensor<i32>, tensor<128xf32>, tensor<128xi32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>
     # CHECK-NOT: mhlo_disc.quantize
     # CHECK: mhlo_disc.dequantize
     # CHECK-SAME: use_symmetric = true
@@ -162,9 +162,9 @@ module {
     # CHECK-NOT: mhlo_disc.quantize
     # CHECK-NOT: mhlo_disc.dequantize
     # CHECK: mhlo_disc.custom_call_v2
-    # CHECK-SAME: call_target_name = "ral_pdll_qgemm_s8s8s8_pc"
-    # CHECK-SAME: custom_attrs = {transpose_a = false, transpose_b = false}
-    %8 = "mhlo_disc.custom_call_v2"(%6, %0, %3, %2, %4, %5, %1, %2) {call_target_name = "ral_pdll_qgemm_s8s8s8_pc", custom_attrs = {transpose_a = false, transpose_b = false}, device = "h", expected_input_layouts = "*,AB,*,*,*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,BA,*,*,*,*,*,*", input_placements = "h,h,h,h,h,h,h,h", output_layouts = "*", output_placements = "h"} : (tensor<1x2x128xi8>, tensor<128x128xi8>, tensor<f32>, tensor<i32>, tensor<128xf32>, tensor<128xi32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8> loc(#loc)
+    # CHECK-SAME: call_target_name = "ral_pdll_qgemm"
+    # CHECK-SAME: custom_attrs = {transpose_a = false, transpose_b = false, weight_is_const = true}
+    %8 = "mhlo_disc.custom_call_v2"(%6, %0, %3, %2, %4, %5, %1, %2) {call_target_name = "ral_pdll_qgemm", custom_attrs = {transpose_a = false, transpose_b = false}, device = "h", expected_input_layouts = "*,AB,*,*,*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,BA,*,*,*,*,*,*", input_placements = "h,h,h,h,h,h,h,h", output_layouts = "*", output_placements = "h"} : (tensor<1x2x128xi8>, tensor<128x128xi8>, tensor<f32>, tensor<i32>, tensor<128xf32>, tensor<128xi32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8> loc(#loc)
     %9 = "mhlo_disc.dequantize"(%8, %0, %1) {axis = dense<> : tensor<0xi64>, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<1x2x128xi8>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xf32> loc(#loc)
     return %9 : tensor<1x2x128xf32> loc(#loc)
   }

@@ -12,8 +12,8 @@ typically using 8 or fewer bits.
 
 A typical workflow of quantization is as following:
 - Step 0: Pre-train model
-- Step 1: [Optional] Fine-tune model with quantization constraints (QAT, Quantization Aware Training)
-- Step 2: Determine quantization parameters(e.g. scale, zero point) of each layer
+- Step 1: Calibrate quantization parameters(e.g. scal, zero point) by running forward on typical inputs.
+- Step 2: [Optional] Fine-tune model with quantization constraints (QAT, Quantization Aware Training)
 - Step 3: Convert original model to quantized model(e.g. convert conv/linear ops to quantized version)
 
 This toolkit helps you to perform step 1~3, so you can compress and accelerate PyTorch models using

@@ -1,3 +1,14 @@
+# Copyright 2022 The BladeDISC Authors. All rights reserved.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# http://www.apache.org/licenses/LICENSE-2.0
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import logging
 from abc import ABC, abstractmethod
 from typing import Any, NamedTuple, Tuple
@@ -99,6 +110,6 @@ class MinMaxObserver(Observer):
             self.scale.copy_(scale)
             self.zero_point.copy_(zero_point)
         if self.fake_quant:
-            return torch.fake_quantize_per_tensor_affine(x, self.scale, self.zero_point, 0, 255)
+            return torch.fake_quantize_per_tensor_affine(x, self.scale, self.zero_point, self.q_min, self.q_max)
         else:
             return x

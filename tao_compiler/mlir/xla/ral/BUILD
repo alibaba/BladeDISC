@@ -301,6 +301,7 @@ cc_library(
         "context/stream_executor_based_impl.cc",
     ]) + if_cuda([
         "context/cuda_impl_sparse.cc",
+        "context/quantized_gpu_kernel_impl.cc",
     ]) + if_patine([
         "context/common_context_impl_patine.cc",
     ]) + if_mkldnn([
@@ -657,6 +658,7 @@ cc_library(
         "context/stream_executor_based_impl.cc",
     ]) + if_cuda([
         "context/cuda_impl_sparse.cc",
+        "context/quantized_gpu_kernel_impl.cc",
     ]) + if_patine([
         "context/common_context_impl_patine.cc",
     ]) + if_mkldnn([

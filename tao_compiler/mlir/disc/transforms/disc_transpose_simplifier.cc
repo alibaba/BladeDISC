@@ -329,6 +329,24 @@ LogicalResult backwardBcastPermutation(Operation* op, ArrayRef<int64_t> perm,
   return success();
 }
 
+LogicalResult backwardTransposePermutation(
+    Operation* op, ArrayRef<int64_t> perm, SmallVector<int64_t>& operandPerm,
+    SmallVector<int64_t>& newPermutation) {
+  auto permutationAttr = op->getAttrOfType<DenseElementsAttr>("permutation");
+  assert(permutationAttr);
+  auto oldPerm = llvm::to_vector<>(permutationAttr.getValues<int64_t>());
+  operandPerm.resize(perm.size());
+  newPermutation.resize(perm.size());
+  for (int d = 0; d < perm.size(); ++d) {
+    // We always assign identity permutation for operand and create
+    // a new transpose op with new permutation since transpose'(transpose(x))
+    // can be folded to transpose''(x)
+    newPermutation[d] = oldPerm[perm[d]];
+    operandPerm[d] = d;
+  }
+  return success();
+}
+
 LogicalResult backwardPermutation(Operation* op, int operandIdx,
                                   const SmallVector<int64_t>& perm,
                                   SmallVector<int64_t>& operandPerm) {
@@ -352,10 +370,23 @@ LogicalResult backwardPermutation(Operation* op, int operandIdx,
     if (operandIdx > 0) return success();
     SmallVector<int64_t> bcastDims;
     return backwardBcastPermutation(op, perm, operandPerm, bcastDims);
+  } else if (auto transposeOp = dyn_cast<mhlo::TransposeOp>(op)) {
+    SmallVector<int64_t> newPerm;
+    return backwardTransposePermutation(op, perm, operandPerm, newPerm);
   }
 
   // unknown ops
   return failure();
+}
+
+LogicalResult backwardPermutation(
+    Operation* op, const SmallVector<int64_t>& perm,
+    DenseMap<int, SmallVector<int64_t>>& operandPermMap) {
+  operandPermMap.clear();
+  for (int i = 0; i < op->getNumOperands(); ++i)
+    if (failed(backwardPermutation(op, i, perm, operandPermMap[i])))
+      return failure();
+  return success();
 }
 
 bool TransposeSimpliferContext::dominates(
@@ -546,6 +577,15 @@ LogicalResult TransposeSimpliferContext::rewriteIntermediateOps(
       clonedOp->setAttr("broadcast_dimensions",
                         GetI64ElementsAttr(bcastDims, &b));
       replaceOpWith(clonedOp);
+    } else if (isa<mhlo::TransposeOp>(op)) {
+      SmallVector<int64_t> operandPerm;
+      SmallVector<int64_t> newPermutation;
+      if (failed(backwardTransposePermutation(op, perm, operandPerm,
+                                              newPermutation)))
+        return failure();
+      // T12 = T1(T2) // fuse T1 and T2
+      auto fusedOp = insertTranspose(op, op->getOperand(0), newPermutation, b);
+      replaceOpWith(fusedOp);
     } else {
       // unknown ops
       return failure();
@@ -882,6 +922,141 @@ LogicalResult reverseBinaryOpsIfBeneficial(Block* block, bool& changed) {
   return success();
 }
 
+// Calcucalte the benefit if we move up a given transpose op as far as possible
+// and apply the rewrite when it's beneficial.
+LogicalResult tryMoveUpTransposeGreedilyAndApplyIfBeneficial(Block* block,
+                                                             bool& changed) {
+  TransposeSimpliferContext ctx(block);
+  for (auto op : ctx.opList) {
+    auto transposeOp = dyn_cast<mhlo::TransposeOp>(op);
+    if (!transposeOp) continue;
+    LLVM_DEBUG(llvm::dbgs()
+               << "tryMoveUpTransposeGreedily for " << *op << "\n");
+
+    int numTransposeEliminated = 0;
+    DenseMap<Operation*, SmallVector<int64_t>> permMap;
+    DenseMap<Operation*, DenseSet<Operation*>> userMap;
+    std::priority_queue<std::pair<int, Operation*>> queue;
+    auto tryUpdate = [&](Operation* producer, Operation* consumer,
+                         const SmallVector<int64_t>& perm) {
+      // do not propagate transpose across block a.t.m.
+      if (!ctx.inTargetBlock(producer)) return true;
+      auto it = permMap.find(producer);
+      if (it != permMap.end()) {
+        if (!isa<mhlo::ConstantOp>(producer) && it->second != perm)
+          return false;
+        userMap[producer].insert(consumer);
+        return false;
+      } else {
+        permMap[producer] = perm;
+        userMap[producer].insert(consumer);
+        queue.emplace(
+            std::pair<int, Operation*>{ctx.op2Idx[producer], producer});
+        return true;
+      }
+    };
+    tryUpdate(
+        op->getOperand(0).getDefiningOp(), op,
+        llvm::to_vector<>(transposeOp.getPermutation().getValues<int64_t>()));
+
+    while (!queue.empty()) {
+      Operation* curOp = queue.top().second;
+      queue.pop();
+      LLVM_DEBUG(llvm::dbgs() << "\tcurOp: " << *curOp << "\n");
+      LLVM_DEBUG(llvm::dbgs() << "\tinit numTransposeEliminated for curOp: "
+                              << numTransposeEliminated << "\n");
+      // TODO(kevin.zwy): support op with more than one result.
+      if (curOp->getNumResults() > 1) continue;
+      // check if we can move up transpose op through this op.
+      DenseMap<int, SmallVector<int64_t>> operandPermMap;
+      if (failed(backwardPermutation(curOp, permMap[curOp], operandPermMap)))
+        continue;
+      LLVM_DEBUG(llvm::dbgs() << "\tpass backwardPermutation for curOp\n");
+
+      bool needReverse = false;
+      auto& transposedUsers = userMap[curOp];
+      LLVM_DEBUG(llvm::dbgs() << "\ttransposedUsers list of curOp ("
+                              << transposedUsers.size() << "):\n");
+      for (auto& transposedUser : transposedUsers) {
+        LLVM_DEBUG(llvm::dbgs()
+                   << "\t\t transposedUser: " << *transposedUser << "\n");
+      }
+      for (auto user : curOp->getResult(0).getUsers()) {
+        LLVM_DEBUG(llvm::dbgs() << "\tuser of curOp: " << *user << "\n");
+        if (isa<tensor::DimOp, shape::ShapeOfOp, mhlo::TransposeOp>(user))
+          continue;
+        if (transposedUsers.find(user) != transposedUsers.end()) continue;
+        needReverse = true;
+      }
+      if (!needReverse) {
+        ++numTransposeEliminated;
+        LLVM_DEBUG(llvm::dbgs()
+                   << "\t++numTransposeEliminated = " << numTransposeEliminated
+                   << " due to all the users of curOp are all transposed\n");
+        if (isa<mhlo::TransposeOp>(curOp)) {
+          SmallVector<int64_t> operandPerm;
+          SmallVector<int64_t> newPermutation;
+          if (failed(backwardTransposePermutation(curOp, permMap[curOp],
+                                                  operandPerm, newPermutation)))
+            return failure();
+          if (isIdentityPermutation(newPermutation)) {
+            ++numTransposeEliminated;
+            LLVM_DEBUG(llvm::dbgs() << "\t++numTransposeEliminated = "
+                                    << numTransposeEliminated
+                                    << " due to curOp is transpose op and can "
+                                       "be eliminated after folding\n");
+          }
+        }
+      }
+      LLVM_DEBUG(llvm::dbgs() << "\tpropagate transpose to operands of curOp ("
+                              << curOp->getNumOperands() << ")\n");
+      for (const auto& en : llvm::enumerate(curOp->getOperands())) {
+        LLVM_DEBUG(llvm::dbgs() << "\t\tcheck operand #" << en.index()
+                                << " with numTransposeEliminated = "
+                                << numTransposeEliminated << "\n");
+        auto& operandPerm = operandPermMap[en.index()];
+        if (isIdentityPermutation(operandPerm)) {
+          LLVM_DEBUG(llvm::dbgs()
+                     << "\t\tskip propagate for operand #" << en.index()
+                     << " due to operandPerm is identity\n");
+          continue;
+        }
+        auto operandDefiningOp = en.value().getDefiningOp();
+        // transpose can be folded for const op.
+        if (dyn_cast_or_null<mhlo::ConstantOp>(operandDefiningOp)) {
+          LLVM_DEBUG(llvm::dbgs()
+                     << "\t\tskip propagate for operand #" << en.index()
+                     << " due to operand op is const op\n");
+          continue;
+        }
+        bool needInsertTransposeOp =
+            tryUpdate(operandDefiningOp, curOp, operandPerm);
+        if (needInsertTransposeOp) {
+          --numTransposeEliminated;
+          LLVM_DEBUG(llvm::dbgs()
+                     << "\t\tinsert transpose for operand #" << en.index()
+                     << ", and --numTransposeEliminated = "
+                     << numTransposeEliminated << "\n");
+        }
+      }
+    }
+
+    if (numTransposeEliminated > 0) {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "numTransposeEliminated = " << numTransposeEliminated
+                 << ", try to apply the move up\n\n");
+      if (failed(ctx.rewriteIntermediateOps(permMap))) return failure();
+      changed = true;
+      return success();
+    } else {
+      LLVM_DEBUG(llvm::dbgs()
+                 << "numTransposeEliminated = " << numTransposeEliminated
+                 << ", skip to apply the move up\n\n");
+    }
+  }
+  return success();
+}
+
 struct TransposeSimplifierPass
     : public TransposeSimplifierPassBase<TransposeSimplifierPass> {
   void runOnOperation() override {
@@ -925,6 +1100,13 @@ LogicalResult TransposeSimplifierPass::runOnBlock(Block* block) {
 
     if (failed(reverseBinaryOpsIfBeneficial(block, changed))) {
       LLVM_DEBUG(llvm::dbgs() << "failed to pair mirrored transpose ops");
+      return failure();
+    }
+    if (changed) continue;
+
+    if (failed(
+            tryMoveUpTransposeGreedilyAndApplyIfBeneficial(block, changed))) {
+      LLVM_DEBUG(llvm::dbgs() << "failed to move up transpose greedily");
       return failure();
     }
     if (changed) continue;

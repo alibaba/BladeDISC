@@ -10,7 +10,6 @@
 // limitations under the License.
 
 #if defined(TAO_CPU_ONLY)
-#include <cmath>
 #include <thread>
 
 #include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_mkldnn.h"

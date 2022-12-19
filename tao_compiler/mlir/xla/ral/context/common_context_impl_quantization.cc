@@ -10,9 +10,9 @@
 // limitations under the License.
 
 #if defined(TAO_CPU_ONLY)
+#include <cmath>
 #include <iostream>
 #include <thread>
-#include <cmath>
 
 #include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl_mkldnn.h"
 #include "tensorflow/compiler/mlir/xla/ral/context/pdll_util.h"
@@ -555,7 +555,8 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
 
   auto driver = ctx->getDriver<cpu::CPUDriver>(cpu::CPUDriver::name());
   auto data = static_cast<int8_t*>(driver->alloc(ctx, m * n * sizeof(int8_t)));
-  auto data_s32 = static_cast<int8_t*>(driver->alloc(ctx, m * n * sizeof(int32_t)));
+  auto data_s32 =
+      static_cast<int8_t*>(driver->alloc(ctx, m * n * sizeof(int32_t)));
   resultSizes[0] = m;
   resultSizes[1] = n;
   auto result = assignMemRef<int8_t, 2>(data, resultSizes);
@@ -569,9 +570,8 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
     auto bias_shape = TensorShape(n, 1);
 
     DataType data_type = DataType::QASYMM8_SIGNED;
-    TensorInfo src_info = TensorInfo(src_shape , 1, data_type);
-    TensorInfo weights_info =
-        TensorInfo(weights_shape, 1, data_type);
+    TensorInfo src_info = TensorInfo(src_shape, 1, data_type);
+    TensorInfo weights_info = TensorInfo(weights_shape, 1, data_type);
     TensorInfo bias_info = TensorInfo(bias_shape, 1, DataType::S32);
     TensorInfo dst_s32_info = TensorInfo(dst_s32_shape, 1, DataType::S32);
     TensorInfo dst_info = TensorInfo(dst_shape, 1, data_type);
@@ -597,7 +597,7 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
     info->bias.allocator()->init(bias_info);
     info->dst.allocator()->init(dst_info);
     info->dst_s32.allocator()->init(dst_s32_info);
-    
+
     info->src.allocator()->import_memory(input.data);
     info->weights.allocator()->import_memory(weight.data);
     info->bias.allocator()->import_memory(bias.data);
@@ -612,29 +612,34 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
     arm_compute::quantization::calculate_quantized_multipliers(
         src_info.quantization_info(), weights_info.quantization_info(),
         dst_info.quantization_info(), osInfo);
-    
+
     // for (int i=0; i<osInfo.gemmlowp_multipliers.size(); i++) {
     //   TAO_VLOG(0) << "gemmlowp_multipliers[" << i
-    //               << "] = " << static_cast<float>(osInfo.gemmlowp_multipliers[i]);
+    //               << "] = " <<
+    //               static_cast<float>(osInfo.gemmlowp_multipliers[i]);
     // }
 
-    auto status = info->op.validate(&src_info, &weights_info, nullptr, &dst_s32_info);
+    auto status =
+        info->op.validate(&src_info, &weights_info, nullptr, &dst_s32_info);
     if (!status) {
       ctx->signalError(Context::FAILURE,
                        "fail to validate "
                        "ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor's QGemm: " +
                            status.error_description());
     }
-    auto status_output_stage = info->gemmlowp_output_stage.validate(&dst_s32_info, &bias_info, &dst_info, osInfo);
+    auto status_output_stage = info->gemmlowp_output_stage.validate(
+        &dst_s32_info, &bias_info, &dst_info, osInfo);
     if (!status_output_stage) {
       ctx->signalError(Context::FAILURE,
                        "fail to validate "
-                       "ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor's NEGEMMLowpOutputStage: " +
+                       "ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor's "
+                       "NEGEMMLowpOutputStage: " +
                            status.error_description());
     }
 
     info->op.configure(&info->src, &info->weights, nullptr, &info->dst_s32);
-    info->gemmlowp_output_stage.configure(&info->dst_s32, &info->bias, &info->dst, osInfo);
+    info->gemmlowp_output_stage.configure(&info->dst_s32, &info->bias,
+                                          &info->dst, osInfo);
 
     if (pack) info->op.reuse_packed_weight(*pack);
     info->op.prepare(&info->src, &info->weights, &info->bias, &info->dst);
@@ -644,8 +649,7 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
   std::shared_ptr<AclQGemmInfo> info;
   std::shared_ptr<AclQGemmThreadSafeInfo> thread_safe_info;
   if (isWeightPrePackingForMatMulEnabled() && weight_is_const) {
-    std::string unique_name =
-        "disc.ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor";
+    std::string unique_name = "disc.ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor";
     auto state = ctx->getOrCreateResource<AclQGemmState>(
         unique_name, []() { return new AclQGemmState; });
     auto key = makeGEMMWithBiasParamsKey(input, weight, bias, result, tp_a,
@@ -659,7 +663,7 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
   } else {
     info = AclQGemmCreator(nullptr);
   }
-  
+
   // TOOD(disc): re-import quantization info when online-quantization is
   // supported.
   info->src.allocator()->import_memory(input.data);
@@ -667,12 +671,11 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
   info->dst.allocator()->import_memory(result.data);
   info->op.run(&info->src, &info->weights, &info->bias, &info->dst_s32);
   for (int i = 0; i < Size(result_s32); ++i) {
-      TAO_VLOG(0) << "result_s32[" << i
-                  << "] = " << static_cast<int32_t>(result_s32.data[i]);
-    }
-  
-  info->gemmlowp_output_stage.run();
+    TAO_VLOG(0) << "result_s32[" << i
+                << "] = " << static_cast<int32_t>(result_s32.data[i]);
+  }
 
+  info->gemmlowp_output_stage.run();
 
   timer.Stop();
 
@@ -1153,7 +1156,8 @@ TAO_RAL_API("ral_qconv", "cpu", ral_qconv_acl_s8_s8_s8_per_channel<4>);
 
 TAO_RAL_API("ral_qgemm", "cpu", ral_qgemm_acl_s8_s8_s8_per_channel);
 
-TAO_RAL_API("ral_pdll_qgemm_s8s8s8_pc", "cpu", ral_pdll_qgemm_acl_s8_s8_s8_per_channel);
+TAO_RAL_API("ral_pdll_qgemm_s8s8s8_pc", "cpu",
+            ral_pdll_qgemm_acl_s8_s8_s8_per_channel);
 TAO_RAL_API("ral_pdll_qgemm", "cpu",
             ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor);
 #endif  // TAO_AARCH64

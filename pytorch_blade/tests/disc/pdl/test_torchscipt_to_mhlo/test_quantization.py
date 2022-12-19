@@ -89,13 +89,160 @@ module {
     # CHECK-NOT: mhlo_disc.dequantize
     # CHECK: mhlo_disc.custom_call_v2
     # CHECK-SAME: call_target_name = "ral_pdll_qgemm"
-    # CHECK-SAME: custom_attrs = {transpose_a = false, transpose_b = false}
+    # CHECK-SAME: custom_attrs = {transpose_a = false, transpose_b = false, weight_is_const = true}
     %9 = "mhlo_disc.custom_call_v2"(%7, %0, %6, %3, %2, %4, %5, %1, %2) {call_target_name = "ral_pdll_qgemm", custom_attrs = {transpose_a = false, transpose_b = false}, device = "h", expected_input_layouts = "*,*,*,*,*,*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,*,*,*,*,*,*,*,*", input_placements = "h,h", output_layouts = "*", output_placements = "h"} : (tensor<1x2x128xi8>, tensor<128x128xi8>, tensor<128xf32>, tensor<f32>, tensor<i32>, tensor<128xf32>, tensor<128xi32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>
     # CHECK-NOT: mhlo_disc.quantize
     # CHECK: mhlo_disc.dequantize
     # CHECK-SAME: use_symmetric = true
     %10 = "mhlo_disc.dequantize"(%9, %1, %5) {axis = dense<> : tensor<0xi64>, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<1x2x128xi8>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xf32> [unknown]
     return %10 : tensor<1x2x128xf32>
+  }
+}
+        """
+        self._test_torchscipte_to_mhlo(traced_model._c, expect_str, pdll_files, enable_int8=True)
+
+    def test_s8s8s8s32_per_tensor(self):
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.input_scale = 0.1
+                self.input_zero_point = 0
+                self.output_scale = 0.2
+                self.output_zero_point = 0
+                self.weight_scale = 0.3
+                self.weight_zero_point = 0
+                self.weight_quant_min = -128
+                self.weight_quant_max = 127
+                self.activation_quant_min = -128
+                self.activation_quant_max = 127
+                self.register_buffer("weight", torch.randn(128, 128))
+                self.register_buffer("bias", torch.randn(128))
+                self.bias_scale = self.input_scale * self.weight_scale
+
+            def forward(self, x):
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.input_scale, self.input_zero_point,
+                    self.activation_quant_min, self.activation_quant_max
+                )
+                weight = torch.fake_quantize_per_tensor_affine(
+                    self.weight, self.weight_scale, self.weight_zero_point,
+                    self.weight_quant_min, self.weight_quant_max
+                )
+                bias = torch.fake_quantize_per_tensor_affine(
+                    self.bias, self.bias_scale, self.weight_zero_point,
+                    -2 ** 31, 2 ** 31 - 1
+                )
+                x = F.linear(x, weight, bias=bias)
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.output_scale, self.output_zero_point,
+                    self.activation_quant_min, self.activation_quant_max
+                )
+                return x
+
+        model = Model().eval().to(self.device)
+        inp = torch.randn(1, 2, 128).to(self.device)
+        traced_model = torch.jit.trace(model, inp)
+        pdll_files = [
+            os.path.join(self.common_pdll_dir, "fake_quant.pdll"),
+            os.path.join(self.device_pdll_dir, "dequant_gemm_quant.pdll")
+        ]
+        pdll_files = ",".join(pdll_files)
+        expect_str = """
+module {
+  func.func @main(%arg1: tensor<1x2x128xf32>) -> tensor<1x2x128xf32> attributes {tf.entry_function = {inputs = "x.1", output_placements = "cpu", outputs = "40"}} {
+    # CHECK: tensor<128xi32>
+    # CHECK: tensor<128x128xi8>
+    %0 = mhlo.constant dense_resource<__elided__> : tensor<128xi32>
+    %1 = mhlo.constant dense_resource<__elided__> : tensor<128x128xi8>
+    %2 = mhlo.constant dense<3.000000e-01> : tensor<f32>
+    %3 = mhlo.constant dense<2.000000e-01> : tensor<f32>
+    %4 = mhlo.constant dense<0> : tensor<i32>
+    %5 = mhlo.constant dense<1.000000e-01> : tensor<f32>
+    # CHECK: mhlo_disc.quantize
+    # CHECK-SAME: axis = dense<>
+    # CHECK-SAME: quant_max = 127
+    # CHECK-SAME: quant_min = -128
+    # CHECK-SAME: use_symmetric = true
+    %6 = "mhlo_disc.quantize"(%arg1, %5, %4) {axis = dense<> : tensor<0xi64>, quant_max = 127 : i64, quant_min = -128 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<1x2x128xf32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>    # CHECK-NOT: mhlo_disc.dequantize
+    # CHECK-NOT: mhlo_disc.quantize
+    # CHECK: mhlo_disc.custom_call_v2
+    # CHECK-SAME: call_target_name = "ral_pdll_qgemm"
+    # CHECK-SAME: custom_attrs = {bias_is_const = true, transpose_a = false, transpose_b = false, weight_is_const = true}
+    %7 = "mhlo_disc.custom_call_v2"(%6, %1, %0, %5, %4, %2, %4, %3, %4) {call_target_name = "ral_pdll_qgemm", custom_attrs = {bias_is_const = true, transpose_a = false, transpose_b = false, weight_is_const = true}, device = "h", expected_input_layouts = "*,AB,*,*,*,*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,BA,*,*,*,*,*,*,*", input_placements = "h,h,h,h,h,h,h,h,h", output_layouts = "*", output_placements = "h"} : (tensor<1x2x128xi8>, tensor<128x128xi8>, tensor<128xi32>, tensor<f32>, tensor<i32>, tensor<f32>, tensor<i32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>
+    # CHECK-NOT: mhlo_disc.quantize
+    # CHECK: mhlo_disc.dequantize
+    # CHECK-SAME: use_symmetric = true
+    %8 = "mhlo_disc.dequantize"(%7, %3, %4) {axis = dense<> : tensor<0xi64>, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<1x2x128xi8>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xf32>
+    return %8 : tensor<1x2x128xf32>
+  }
+}
+        """
+        self._test_torchscipte_to_mhlo(traced_model._c, expect_str, pdll_files, enable_int8=True)
+
+    def test_s8s8s8_per_tensor(self):
+        class Model(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.input_scale = 0.1
+                self.input_zero_point = 0
+                self.output_scale = 0.2
+                self.output_zero_point = 0
+                self.weight_scale = 0.3
+                self.weight_zero_point = 0
+                self.weight_quant_min = -128
+                self.weight_quant_max = 127
+                self.activation_quant_min = -128
+                self.activation_quant_max = 127
+                self.register_buffer("weight", torch.randn(128, 128))
+
+            def forward(self, x):
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.input_scale, self.input_zero_point,
+                    self.activation_quant_min, self.activation_quant_max
+                )
+                weight = torch.fake_quantize_per_tensor_affine(
+                    self.weight, self.weight_scale, self.weight_zero_point,
+                    self.weight_quant_min, self.weight_quant_max
+                )
+                x = F.linear(x, weight, bias=None)
+                x = torch.fake_quantize_per_tensor_affine(
+                    x, self.output_scale, self.output_zero_point,
+                    self.activation_quant_min, self.activation_quant_max
+                )
+                return x
+
+        model = Model().eval().to(self.device)
+        inp = torch.randn(1, 2, 128).to(self.device)
+        traced_model = torch.jit.trace(model, inp)
+        pdll_files = [
+            os.path.join(self.common_pdll_dir, "fake_quant.pdll"),
+            os.path.join(self.device_pdll_dir, "dequant_gemm_quant.pdll")
+        ]
+        pdll_files = ",".join(pdll_files)
+        expect_str = """
+module {
+  func.func @main(%arg1: tensor<1x2x128xf32>) -> tensor<1x2x128xf32> attributes {tf.entry_function = {inputs = "x.1", output_placements = "cpu", outputs = "40"}} {
+    # CHECK: tensor<128x128xi8>
+    %0 = mhlo.constant dense_resource<__elided__> : tensor<128x128xi8>
+    %1 = mhlo.constant dense<3.000000e-01> : tensor<f32>
+    %2 = mhlo.constant dense<2.000000e-01> : tensor<f32>
+    %3 = mhlo.constant dense<0> : tensor<i32>
+    %4 = mhlo.constant dense<1.000000e-01> : tensor<f32>
+    # CHECK: mhlo_disc.quantize
+    # CHECK-SAME: axis = dense<>
+    # CHECK-SAME: quant_max = 127
+    # CHECK-SAME: quant_min = -128
+    # CHECK-SAME: use_symmetric = true
+    %5 = "mhlo_disc.quantize"(%arg1, %4, %3) {axis = dense<> : tensor<0xi64>, quant_max = 127 : i64, quant_min = -128 : i64, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<1x2x128xf32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>    # CHECK-NOT: mhlo_disc.dequantize
+    # CHECK-NOT: mhlo_disc.quantize
+    # CHECK: mhlo_disc.custom_call_v2
+    # CHECK-SAME: call_target_name = "ral_pdll_qgemm"
+    # CHECK-SAME: custom_attrs = {transpose_a = false, transpose_b = false, weight_is_const = true}
+    %6 = "mhlo_disc.custom_call_v2"(%5, %0, %4, %3, %1, %3, %2, %3) {call_target_name = "ral_pdll_qgemm", custom_attrs = {transpose_a = false, transpose_b = false, weight_is_const = true}, device = "h", expected_input_layouts = "*,AB,*,*,*,*,*,*", expected_output_layouts = "*", has_side_effect = false, input_layouts = "*,BA,*,*,*,*,*,*", input_placements = "h,h,h,h,h,h,h,h", output_layouts = "*", output_placements = "h"} : (tensor<1x2x128xi8>, tensor<128x128xi8>, tensor<f32>, tensor<i32>, tensor<f32>, tensor<i32>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xi8>     # CHECK-NOT: mhlo_disc.quantize
+    # CHECK: mhlo_disc.dequantize
+    # CHECK-SAME: use_symmetric = true
+    %7 = "mhlo_disc.dequantize"(%6, %2, %3) {axis = dense<> : tensor<0xi64>, round_mode = 1 : i64, use_dynamic = false, use_symmetric = true} : (tensor<1x2x128xi8>, tensor<f32>, tensor<i32>) -> tensor<1x2x128xf32>
+    return %7 : tensor<1x2x128xf32>
   }
 }
         """

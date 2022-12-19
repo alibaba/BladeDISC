@@ -173,8 +173,10 @@ Pattern TorchDequantLinearBiasQuantOp {
     SetAttr(infos.op, attr<"\"output_layouts\"">, attr<"\"*\"">);
     SetAttr(infos.op, attr<"\"expected_input_layouts\"">, attr<"\"*,AB,*,*,*,*,*,*,*\"">);
     SetAttr(infos.op, attr<"\"expected_output_layouts\"">, attr<"\"*\"">);
+
     SetCustomAttr(infos.op, attr<"\"transpose_a\"">, attr<"false">);
     SetCustomAttr(infos.op, attr<"\"transpose_b\"">, attr<"false">);
+    SetCustomAttr(infos.op, attr<"\"weight_is_const\"">, attr<"true">);
 
     let rs = UnpackValue_1(infos.new_outputs);
     replace output_quantize_op with rs;

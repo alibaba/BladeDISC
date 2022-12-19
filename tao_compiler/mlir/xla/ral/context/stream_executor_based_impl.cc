@@ -471,62 +471,6 @@ void ral_qgemm(
   ctx->signalError(Context::FAILURE, "Should turn on bladnn first.");
 }
 
-template <int N>
-MemRefType<int8_t, N> ral_pdll_qgemm_nt_s8s8s8_biasadd_quant_per_tensor(
-    ExecutionContext* ctx, void* stream_handle, MemRefType<int8_t, N> input,
-    MemRefType<int8_t, 2> weight, MemRefType<int8_t, 1> bias,
-    MemRefType<float, 0> inputScales, MemRefType<int32_t, 0> inputZeroPoints,
-    MemRefType<float, 0> weightScales, MemRefType<int32_t, 0> weightZeroPoints,
-    MemRefType<float, 0> resultScales, MemRefType<int32_t, 0> resultZeroPoints,
-    void* customAttrs) {
-  int64_t m = 1;
-  int64_t k = weight.sizes[1];
-  int64_t n = weight.sizes[0];
-  int64_t resultSizes[N];
-  for (int i = 0; i < N - 1; i += 1) {
-    m *= input.sizes[i];
-    resultSizes[i] = input.sizes[i];
-  }
-  resultSizes[N - 1] = n;
-
-  if (isEmptyMemref(input) || isEmptyMemref(weight)) {
-    TAO_VLOG(1) << "ral_qgemm: early return for empty tensor";
-    return assignMemRef<int8_t, N>(nullptr, resultSizes);
-  }
-
-  float input_scale, weight_scale, result_scale;
-
-  input_scale = inputScales.data[0];
-  weight_scale = weightScales.data[0];
-  result_scale = resultScales.data[0];
-
-  float kernel_scale = input_scale * weight_scale / result_scale;
-  float beta = 1.0f;
-
-#if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
-  {
-    auto gpu_driver = ctx->getDriver<GPUDriver>(GPUDriver::name());
-    auto data =
-        static_cast<int8_t*>(gpu_driver->alloc(ctx, m * n * sizeof(int8_t)));
-    auto result = assignMemRef<int8_t, N>(data, resultSizes);
-    void* s = gpu_driver->asCUStream(ctx, stream_handle);
-    bladnn::Context bladnn_ctx{s};
-    bladnn::Dtype in_dtype = toBlaDNNDtype<int8_t>();
-    bladnn::Dtype out_dtype = toBlaDNNDtype<int8_t>();
-    bool ret =
-        bladnn::gemm(&bladnn_ctx, in_dtype, 0, input.data, m, k, in_dtype, 1,
-                     weight.data, n, k, out_dtype, result.data, m, n, 1, false,
-                     false, &kernel_scale, &beta, bias.data);
-    if (ret) {
-      return result;
-    } else {
-      ctx->signalError(Context::FAILURE, "Bladnn gemm run fail.");
-    }
-  }
-#endif
-  ctx->signalError(Context::FAILURE, "Should turn on bladnn first.");
-}
-
 void ral_comp_intens_fusion(
     ExecutionContext* ctx,
     const char* kernel_name,  /* function name to call on host side */
@@ -2033,10 +1977,6 @@ TAO_RAL_API("ral_conv", "gpu",
             gpu::se_impl::gpu_conv_impl::ral_conv<Eigen::half, 3>);
 TAO_RAL_API("ral_qconv", "gpu",
             gpu::se_impl::gpu_conv_impl::ral_qconv<int8_t, 4>);
-TAO_RAL_API("ral_pdll_qgemm", "gpu",
-            gpu::se_impl::ral_pdll_qgemm_nt_s8s8s8_biasadd_quant_per_tensor<2>);
-TAO_RAL_API("ral_pdll_qgemm", "gpu",
-            gpu::se_impl::ral_pdll_qgemm_nt_s8s8s8_biasadd_quant_per_tensor<3>);
 
 #if defined(PLATFORM_ALIBABA) and defined(ENABLE_BLADE_GEMM)
 TAO_RAL_API("ral_pdll_conv_bias", "gpu",

@@ -92,7 +92,7 @@ Pattern TorchDequantGemmQuantOp {
 
     /// 2. set attrs that are used by bladedisc.
     SetAttr(infos.op, attr<"\"call_target_name\"">, attr<"\"ral_pdll_qgemm\"">);
-    SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d,s,s,s,s,s,s\"">);
+    SetAttr(infos.op, attr<"\"input_placements\"">, attr<"\"d,d,d,d,s,d,s,d,s\"">);
     SetAttr(infos.op, attr<"\"output_placements\"">, attr<"\"d\"">);
     SetAttr(infos.op, attr<"\"device\"">, attr<"\"d\"">);
     SetAttr(infos.op, attr<"\"input_layouts\"">, attr<"\"*,*,*,*,*,*,*,*,*\"">);

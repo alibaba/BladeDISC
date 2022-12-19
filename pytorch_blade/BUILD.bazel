@@ -33,3 +33,8 @@ config_setting(
     name = "enable_quantization",
     values = {"define": "enable_quantization=true"}
 )
+
+config_setting(
+    name = "enable_neural_engine",
+    values = {"define": "enable_neural_engine=true"}
+)

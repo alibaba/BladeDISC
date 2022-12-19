@@ -17,3 +17,4 @@ build:torch_cxx11abi_0 --config=cxx11abi_0 --action_env IF_CXX11_ABI=0
 build:torch_cxx11abi_1 --config=cxx11abi_1 --action_env IF_CXX11_ABI=1
 build:torch_ltc_disc_backend --define enable_ltc_disc_backend=true
 build:torch_enable_quantization --define enable_quantization=true  --copt=-DTORCH_BLADE_BUILD_QUANTIZATION
+build:torch_enable_neural_engine --define enable_neural_engine=true --copt=-DTORCH_BLADE_BUILD_NEURAL_ENGINE

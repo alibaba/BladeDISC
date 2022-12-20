@@ -134,6 +134,53 @@ LogicalResult ConvertAtenOp<OperatorOp>::matchAndRewrite(
     rewriter.replaceOpWithNewOp<AtenDivTensorOp>(
         op, outTy, op.getOperand(0), op.getOperand(1));
     return success();
+  } else if ("aten.split.Tensor" == name) {
+    int64_t splitSize;
+    if (!matchPattern(op.getOperand(1), m_TorchConstantInt(&splitSize)))
+      return rewriter.notifyMatchFailure(op, "unknown split_size");
+    int64_t dimInt;
+    auto dim = op.getOperand(2);
+    if (!matchPattern(dim, m_TorchConstantInt(&dimInt)))
+      return rewriter.notifyMatchFailure(op, "unknown dim");
+
+    if (splitSize <= 0) {
+      return failure();
+    }
+
+    auto self = op.getOperand(0);
+    auto selfTy = self.getType().dyn_cast<BaseTensorType>();
+    ArrayRef<int64_t> inputShape = selfTy.getSizes();
+
+    dimInt = toPositiveDim(dimInt, getTensorRank(self));
+    auto dimSize = inputShape[dimInt];
+    if (dimSize <= 0) {
+      return failure();
+    }
+
+    SmallVector<int64_t> sizes;
+    sizes.append(inputShape.begin(), inputShape.end());
+    sizes[dimInt] = kUnknownSize;
+    Type sliceTy = selfTy.getWithSizesAndDtype(
+        llvm::makeArrayRef(sizes), selfTy.getDtype());
+
+    Value one = rewriter.create<Torch::ConstantIntOp>(
+        loc, rewriter.getI64IntegerAttr(1));
+    SmallVector<Value, 4> slices;
+    int64_t chunks = (dimSize + splitSize - 1) / splitSize;
+    for (int64_t k = 0; k < chunks; ++k) {
+      int64_t startInt = k * splitSize;
+      int64_t endInt = startInt + splitSize;
+      Value start = rewriter.create<Torch::ConstantIntOp>(
+          loc, rewriter.getI64IntegerAttr(startInt));
+      Value end = rewriter.create<Torch::ConstantIntOp>(
+          loc, rewriter.getI64IntegerAttr(endInt));
+      Value slice = rewriter.create<AtenSliceTensorOp>(
+          loc, sliceTy, self, dim, start, end, one);
+      slices.emplace_back(slice);
+    }
+    rewriter.replaceOpWithNewOp<PrimListConstructOp>(
+        op, op.getResult(0).getType(), slices);
+    return success();
   }
 
   return failure();
@@ -359,6 +406,7 @@ class DiscDecomposeComplexOpsPass
           "aten.div_inplace.Tensor",
           "aten.mul_inplace.Tensor",
           "aten.sub_inplace.Tensor",
+          "aten.split.Tensor",
       };
 
       if (illegalSet.find(op.name().str()) != illegalSet.end()) {

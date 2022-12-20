@@ -97,7 +97,7 @@ class TestAArch64CPULinear(AArch64CPUDiscPdlQuantizationE2ETestCase):
         pdll_files = ",".join(pdll_files)
         inp = torch.randn(1, 64).to(self.device)
         model = Model().eval().to(self.device)
-        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, rtol=0.2)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, rtol=1.)
 
     def test_s8s8s8s32_per_tensor(self):
         class Model(nn.Module):
@@ -144,7 +144,7 @@ class TestAArch64CPULinear(AArch64CPUDiscPdlQuantizationE2ETestCase):
         pdll_files = ",".join(pdll_files)
         inp = torch.randn(1, 64).to(self.device)
         model = Model().eval().to(self.device)
-        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, rtol=0.2)
+        self._test_e2e(model, inp, pdll_files=pdll_files, enable_int8=True, rtol=1.)
 
 
 @unittest.skipIf(TORCH_VERSION < (1, 9),

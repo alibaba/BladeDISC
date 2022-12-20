@@ -703,7 +703,7 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_per_tensor(
     TAO_VLOG(1) << "ral_cpu_qgemm: early return for empty tensor";
     return assignMemRef<int8_t, 2>(nullptr, resultSizes);
   }
-  if (TAO_VLOG_IS_ON(0)) {
+  if (TAO_VLOG_IS_ON(1)) {
     for (int i = 0; i < Size(input); ++i) {
       TAO_VLOG(0) << "input[" << i
                   << "] = " << static_cast<int32_t>(input.data[i]);
@@ -864,7 +864,7 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_per_tensor(
                 << double(2 * m * n * k) / double(timer.GetNanoSeconds())
                 << "\n";
   }
-  if (TAO_VLOG_IS_ON(0)) {
+  if (TAO_VLOG_IS_ON(1)) {
     for (int i = 0; i < Size(result); ++i) {
       TAO_VLOG(0) << "output[" << i
                   << "] = " << static_cast<int32_t>(result.data[i]);

@@ -264,7 +264,14 @@ LogicalResult LowerHLOToLLVM(ModuleOp m, const DISCLoweringOptions& options) {
   // it to sparse if its meet condition.
   bool enable_sparse = false;
   tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_SPARSE", false, &enable_sparse);
-  if (!enable_sparse) {
+  // When `DISC_ENABLE_DOT_MERGE` is not disabled, it merges dot ops that either
+  // share the same operand or have the same shape. After more benchmarking of
+  // this flag, we will decide whether this flag should be default on or off.
+  bool enable_dot_merge = true;
+  tensorflow::ReadBoolFromEnvVar("DISC_ENABLE_DOT_MERGE", enable_dot_merge,
+                                 &enable_dot_merge);
+  enable_dot_merge &= !enable_sparse;
+  if (enable_dot_merge) {
     // Either merge dots to batched dot or merge dots sharing the same operand.
     pm.addNestedPass<FuncOp>(disc_ral::createDiscDotMergePass());
   }

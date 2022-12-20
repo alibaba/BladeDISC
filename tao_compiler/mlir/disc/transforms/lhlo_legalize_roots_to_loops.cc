@@ -4757,11 +4757,18 @@ LogicalResult lowerWithScheduleWhereOpCPU(
     ArrayRef<Operation*> root_ops, Operation* dominant_op,
     Block* parent = nullptr, bool non_fusion = false,
     const ShapeAnalysis* shape_analysis = nullptr) {
-  if (!(root_ops.size() == 1 && isa<lmhlo_disc::WhereOp>(root_ops[0]))) {
-    return dominant_op->emitError()
-           << "root_ops[0] is not a lmhlo_disc::WhereOp";
+  // if (!(root_ops.size() == 1 && isa<lmhlo_disc::WhereOp>(root_ops[0]))) {
+  //   return dominant_op->emitError()
+  //          << "root_ops[0] is not a lmhlo_disc::WhereOp";
+  // }
+  Operation* where_op;
+  for (Operation* root_op : root_ops) {
+    if (isa<lmhlo_disc::WhereOp>(root_op)) {
+      where_op = root_op;
+      break;
+    }
   }
-  auto where = dyn_cast<lmhlo_disc::WhereOp>(root_ops[0]);
+  auto where = dyn_cast<lmhlo_disc::WhereOp>(where_op);
   if (!where) {
     return dominant_op->emitError()
            << "can not cast root_ops[0] to lmhlo_disc::WhereOp";
@@ -4801,7 +4808,6 @@ LogicalResult lowerWithScheduleWhereOpCPU(
   // for (i = 0; i < num_element; ++i)
   llvm::SmallVector<Value, 2> lower, upper, step;
   llvm::SmallVector<Value, 4> multidim_index;
-  llvm::SmallVector<Value, 4> multidim_index_casted;
   for (int i = 0; i < input_rank; ++i) {
     lower.push_back(zero);
     upper.push_back(b.create<memref::DimOp>(loc, input, i));
@@ -4815,8 +4821,6 @@ LogicalResult lowerWithScheduleWhereOpCPU(
   for (int i = 0; i < input_rank; ++i) {
     Value loop_index = for_op.getInductionVars()[i];
     multidim_index.push_back(loop_index);
-    multidim_index_casted.push_back(
-        b.create<arith::IndexCastOp>(loc, output_elem_type, loop_index));
   }
   Value input_elem = b.create<memref::LoadOp>(loc, input, multidim_index);
   // if (input[i] != 0)
@@ -4843,6 +4847,12 @@ LogicalResult lowerWithScheduleWhereOpCPU(
                                         /*hasElseRegion*/ false);
   if_is_zero.getThenRegion().front().clear();
   b.setInsertionPointToStart(&if_is_zero.getThenRegion().front());
+  llvm::SmallVector<Value, 4> multidim_index_casted;
+  for (int i = 0; i < input_rank; ++i) {
+    Value loop_index = for_op.getInductionVars()[i];
+    multidim_index_casted.push_back(
+        b.create<arith::IndexCastOp>(loc, output_elem_type, loop_index));
+  }
   output_index_count = b.create<memref::LoadOp>(loc, temp_count);
   Value output_index_casted =
       b.create<arith::IndexCastOp>(loc, b.getIndexType(), output_index_count);
@@ -4867,7 +4877,7 @@ LogicalResult lowerWithScheduleWhereOpCPU(
     for (Operation* root_op : root_ops) root_op->erase();
   } else {
     assert(parent != nullptr && "Parent must be provided for fusion lowering");
-    cleanUnusedLhloOps(parent);
+    // cleanUnusedLhloOps(parent);
   }
   return success();
 }

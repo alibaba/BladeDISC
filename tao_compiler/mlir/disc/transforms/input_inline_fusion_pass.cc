@@ -84,6 +84,7 @@ void InputInlineFusion::runOnOperation() {
   std::vector<Operation*> to_be_removed;
   func.walk([&](FusionOp fusion) {
     if (isFusionType<FusionType::kStitch>(fusion.getOperation())) return;
+    if (isFusionType<FusionType::kWhere>(fusion.getOperation())) return;
     fusion.getRegion().walk([&](LmhloOp op) {
       if (isa<TerminatorOp>(op)) {
         return;

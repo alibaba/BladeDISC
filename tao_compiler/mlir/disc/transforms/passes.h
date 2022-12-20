@@ -140,6 +140,8 @@ std::unique_ptr<OperationPass<FuncOp>> createDiscConvertTensorToStandardPass();
 // has been expanded into loops in LhloLegalizeRootsToParallelLoops
 std::unique_ptr<OperationPass<FuncOp>> createDiscInputInlineFusionPass();
 
+std::unique_ptr<OperationPass<FuncOp>> createDiscOutputInlineFusionPass();
+
 // Remove all shape constraint ops.
 std::unique_ptr<OperationPass<FuncOp>> createDiscRemoveShapeConstraintsPass();
 

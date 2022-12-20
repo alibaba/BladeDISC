@@ -1108,6 +1108,31 @@ cc_library(
 )
 
 cc_library(
+    name = "output_inline_fusion",
+    srcs = ["transforms/output_inline_fusion_pass.cc"],
+    deps = [
+        ":disc_lhlo_elemental_utils",
+        ":disc_supported_list",
+        ":fusion_utils",
+        ":input_inline_fusion_pattern",
+        ":pass_details",
+        "//tensorflow/compiler/xla/mlir_hlo:mlir_hlo",
+        "//tensorflow/compiler/xla/mlir_hlo:lhlo",
+        "//tensorflow/compiler/xla/mlir_hlo:map_lmhlo_to_scalar_op",
+        "@com_google_absl//absl/memory",
+        "@llvm-project//llvm:Support",
+        "@llvm-project//mlir:Analysis",
+        "@llvm-project//mlir:FuncDialect",
+        "@llvm-project//mlir:IR",
+        "@llvm-project//mlir:MemRefDialect",
+        "@llvm-project//mlir:Pass",
+        "@llvm-project//mlir:SCFDialect",
+        "@llvm-project//mlir:Transforms",
+    ],
+    alwayslink = 1,
+)
+
+cc_library(
     name = "disc_remove_shape_constraints",
     srcs = ["transforms/remove_shape_constraints.cc"],
     hdrs = [
@@ -2148,6 +2173,7 @@ cc_library(
         ":element_type_converter",
         ":gpu_conv_padding",
         ":input_inline_fusion",
+        ":output_inline_fusion",
         ":lhlo_fusion_inliner",
         ":mhlo_decomp_rewriters",
         ":mhlo_mark_shape_calc",

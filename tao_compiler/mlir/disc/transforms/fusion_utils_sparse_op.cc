@@ -124,7 +124,6 @@ bool SparseOpCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   dumpFusionPattern(target);
   llvm::dbgs() << "*********************end*********************\n\n";
   return true;
-
 }
 
 }  // namespace disc_ral

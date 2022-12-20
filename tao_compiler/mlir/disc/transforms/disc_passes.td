@@ -230,6 +230,18 @@ def InputInlineFusionPass : Pass<"disc-input-inline-fusion", "mlir::func::FuncOp
   ];
 }
 
+def OutputInlineFusionPass : Pass<"disc-output-inline-fusion", "mlir::func::FuncOp"> {
+  let summary = "Fuse the rest of the lmhlo nodes into the parallel loops after the roots "
+    "has been expanded into loops in LhloLegalizeRootsToParallelLoops";
+  let constructor = "createDiscOutputInlineFusionPass()";
+  let dependentDialects = [
+    "scf::SCFDialect",
+    "memref::MemRefDialect",
+    "disc_shape::DISCShapeDialect",
+    "arith::ArithDialect"
+  ];
+}
+
 def RemoveShapeConstraintsPass : Pass<"disc-remove-shape-constraint", "mlir::func::FuncOp"> {
   let summary = "Pass to remove all shape constraint ops";
   let constructor = "createDiscRemoveShapeConstraintsPass()";

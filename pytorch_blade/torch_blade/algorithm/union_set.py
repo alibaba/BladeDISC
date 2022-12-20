@@ -17,7 +17,7 @@ class UnionSet:
 
     def same_group(self, x: int, y: int):
         pid_x = self.find(x)
-        pid_y = self.find(x)
+        pid_y = self.find(y)
 
         if (pid_x == pid_y):
             return True

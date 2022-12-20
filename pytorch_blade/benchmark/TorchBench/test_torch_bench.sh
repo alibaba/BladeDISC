@@ -26,7 +26,6 @@ JOB=$1; shift
 FIELDS=("$@")
 
 # setup for torchbenchmark
-# for CI git-lfs permission problems
 pushd $benchmark_repo_dir
 # cache venv in benchmark dir
 if [ $HARDWARE == "aarch64" ]; then
@@ -34,10 +33,11 @@ if [ $HARDWARE == "aarch64" ]; then
 fi
 python3 -m virtualenv venv --system-site-packages && source venv/bin/activate
 python3 -m pip install -q -r $script_dir/requirements_$HARDWARE.txt
+# fix for opacus_cifar10 install
+pip install opacus --no-deps
 # install dependencies
-git pull && git submodule update --init --recursive --depth 1 && python3 install.py --continue_on_fail
-# fix pycocotools after install
-python3 -m pip install -U numpy
+git pull && git checkout main  && git submodule update --init --recursive --depth 1 && python3 install.py --continue_on_fail
+
 pushd $script_dir # pytorch_blade/benchmark/TorchBench
 ln -s $benchmark_repo_dir torchbenchmark
 

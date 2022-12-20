@@ -21,6 +21,11 @@
 #include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_logging.h"
 
+//#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.h"
+#include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
+//#include "tensorflow/compiler/mlir/xla/ral/ral_base.h"
+//#include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
+
 using tao::ral::buffer_t;
 using tao::ral::Context;
 using tao::ral::ExecutionContext;
@@ -34,8 +39,8 @@ namespace ral {
 #if defined(GOOGLE_CUDA) || defined(TENSORFLOW_USE_ROCM)
 template <typename T, int N>
 void ral_transpose(ExecutionContext* ctx, void* stream_handle,
-                   MemRefType<T, 2> input, MemRefType<int, 1> permute_value,
-                   MemRefType<T, 2> output) {
+                   MemRefType<T, N> input, MemRefType<int, 1> permute_value,
+                   MemRefType<T, N> output) {
   T* d_in = input.data;
   T* d_out = output.data;
 
@@ -58,6 +63,8 @@ void ral_transpose(ExecutionContext* ctx, void* stream_handle,
 
 TAO_RAL_API("ral_transpose", "gpu", ral_transpose<float, 2>);
 TAO_RAL_API("ral_transpose", "gpu", ral_transpose<float, 3>);
+TAO_RAL_API("ral_transpose", "gpu", ral_transpose<Eigen::half, 2>);
+TAO_RAL_API("ral_transpose", "gpu", ral_transpose<Eigen::half, 3>);
 #endif
 
 }  //  namespace ral

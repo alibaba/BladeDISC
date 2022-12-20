@@ -770,6 +770,16 @@ class StitchGpuFusionStrategy : public FusionStrategy {
  public:
   StitchGpuFusionStrategy(const FusionOptions& options)
       : FusionStrategy(options) {}
+  virtual bool isFusible(Operation* op) override {
+    if (isa<lmhlo::TransposeOp>(op)) {
+      auto transpose = cast<lmhlo::TransposeOp>(op);
+      auto permutation = transpose.getPermutation().getValues<int64_t>();
+      Value out_value = transpose.getOutput();
+      int64_t rank = out_value.getType().cast<MemRefType>().getRank();
+      if (rank == 2 || rank == 3) return false;
+    }
+    return true;
+  }
 
   virtual bool initFusionPattern(ShapeAnalysis& shapeAnalysis,
                                  FusionPattern& fusion_pattern) override;

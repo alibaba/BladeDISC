@@ -27,6 +27,7 @@ limitations under the License.
 #include "mlir/IR/MLIRContext.h"  // TF:llvm-project
 #include "mlir/IR/Matchers.h"
 #include "mlir/Interfaces/ViewLikeInterface.h"
+#include "tensorflow/compiler/mlir/disc/IR/disc_ral_ops.h"
 #include "tensorflow/compiler/mlir/disc/IR/lhlo_disc_ops.h"
 #include "tensorflow/compiler/mlir/disc/disc_util.h"
 #include "tensorflow/compiler/mlir/disc/transforms/codegen_utils.h"
@@ -432,7 +433,7 @@ bool isRank2Transpose(Operation* op) {
   if (!transpose_op) return false;
 
   int rank = op->getOperand(0).getType().cast<MemRefType>().getRank();
-  return rank == 2;
+  return rank == 2 || rank == 3;
 }
 
 // Returns true if the op is supported by the downstreaming fusion codegen
@@ -1329,7 +1330,7 @@ bool BaseCpuFusionStrategy::tryFuse(ShapeAnalysis& shapeAnalysis,
   return true;
 }
 
-////////////////////// Base GPU FusionStrategy Implemenation /////////
+////////////////////// Base GPU FusionStrategy Implementation /////////
 //////////////////////////////////////////////////////////////////
 
 bool BaseGpuFusionStrategy::isFusible(Operation* op) {

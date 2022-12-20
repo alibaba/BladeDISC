@@ -460,7 +460,7 @@ tf_gpu_kernel_library(
     ],
     copts = if_cuda_is_configured([
         "-DGOOGLE_CUDA=1"
-    ]),
+    ]) + if_cuda_or_rocm(["-DTAO_RAL_USE_STREAM_EXECUTOR"]),
     deps = if_cuda_is_configured([
         "@cub_archive//:cub",
         "@local_config_cuda//cuda:cuda_headers",
@@ -496,7 +496,8 @@ cc_library(
     ]),
     copts = if_cuda_is_configured([
         "-DGOOGLE_CUDA=1"
-    ]),
+    ]) + if_cuda_or_rocm(["-DTAO_RAL_USE_STREAM_EXECUTOR"]),
+
     alwayslink = 1,
 )
 

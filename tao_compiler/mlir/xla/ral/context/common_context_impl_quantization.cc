@@ -655,7 +655,7 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_s32_per_tensor(
   info->op.run(&info->src, &info->weights, nullptr, &info->dst_s32);
 
   info->gemmlowp_output_stage.run();
-
+  driver->dealloc(ctx, data_s32);
   timer.Stop();
 
   if (isProfilingEnabled()) {
@@ -840,6 +840,7 @@ MemRefType<int8_t, 2> ral_pdll_qgemm_acl_s8_s8_s8_per_tensor(
   info->dst.allocator()->import_memory(result.data);
   info->op.run(&info->src, &info->weights, nullptr, &info->dst_s32);
   info->gemmlowp_output_stage.run();
+  driver->dealloc(ctx, data_s32);
 
   timer.Stop();
 

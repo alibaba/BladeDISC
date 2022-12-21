@@ -806,6 +806,7 @@ class ShapePropagator : public PropertyPropBase {
             "aten::masked_fill_.Scalar(Tensor(a!) self, Tensor mask, Scalar value) -> Tensor(a!)",
             "aten::masked_fill_.Tensor(Tensor(a!) self, Tensor mask, Tensor value) -> Tensor(a!)",
             "aten::index_put.hacked_twin(Tensor self, Tensor[] indices, Tensor values, bool accumulate=False) -> Tensor",
+            "aten::index_put_(Tensor(a!) self, Tensor?[] indices, Tensor values, bool accumulate=False) -> Tensor(a!)",
             "aten::scatter.value(Tensor self, int dim, Tensor index, Scalar value) -> Tensor",
 #if PYTORCH_VERSION_GE(1, 13)
             "aten::select_scatter(Tensor self, Tensor src, int dim, int index) -> Tensor",

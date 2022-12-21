@@ -16,6 +16,7 @@ import unittest
 
 import torch
 from torch.testing import FileCheck
+
 from torch_blade import mlir, optimize, utils
 from torch_blade.clustering import support_fusion_group
 from torch_blade.config import Config
@@ -160,7 +161,7 @@ class DiscPdlTestCase(TestCase):
 
     def _test_e2e(
             self, model, inp, pdll_files=None,
-            pdll_dirs=None, enable_int8=False
+            pdll_dirs=None, enable_int8=False, **kwargs
     ):
         origin_output = model(inp)
         cfg = Config.get_current_context_or_new()
@@ -174,7 +175,10 @@ class DiscPdlTestCase(TestCase):
         with set_env(**env_var), cfg:
             opt_model = optimize(model, True, inp)
         now_output = opt_model(inp)
-        self.assertTrue(torch.equal(origin_output, now_output))
+        if "atol" in kwargs or "rtol" in kwargs:
+            self.assertTrue(torch.allclose(origin_output, now_output, **kwargs))
+        else:
+            self.assertTrue(torch.equal(origin_output, now_output))
 
 
 class DiscPdlQuantizationTestCase(DiscPdlTestCase):

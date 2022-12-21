@@ -15,16 +15,12 @@
 
 #include "tensorflow/compiler/mlir/xla/ral/context/context_util.h"
 #include "tensorflow/compiler/mlir/xla/ral/context/custom_library/transpose.h"
+#include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
 #include "tensorflow/compiler/mlir/xla/ral/device/gpu/gpu_driver.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_context.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_driver.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
 #include "tensorflow/compiler/mlir/xla/ral/ral_logging.h"
-
-//#include "tensorflow/compiler/mlir/xla/ral/context/common_context_impl.h"
-#include "tensorflow/compiler/mlir/xla/ral/context/stream_executor_based_impl.h"
-//#include "tensorflow/compiler/mlir/xla/ral/ral_base.h"
-//#include "tensorflow/compiler/mlir/xla/ral/ral_helper.h"
 
 using tao::ral::buffer_t;
 using tao::ral::Context;

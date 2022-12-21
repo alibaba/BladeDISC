@@ -427,7 +427,7 @@ bool isRank2ColReduction(Operation* op) {
 }
 
 // Return true if this op is a rank-2 transpose
-bool isRank2Transpose(Operation* op) {
+bool isRank2or3Transpose(Operation* op) {
   auto transpose_op = dyn_cast<lmhlo::TransposeOp>(op);
   if (!transpose_op) return false;
 
@@ -1338,7 +1338,7 @@ bool BaseGpuFusionStrategy::isFusible(Operation* op) {
       (!isRank2RowReduction(op) && !isRank2ColReduction(op)))
     return false;
 
-  if (isa<lmhlo::TransposeOp>(op) && isRank2Transpose(op)) return false;
+  if (isa<lmhlo::TransposeOp>(op) && isRank2or3Transpose(op)) return false;
 
   return BaseFusionStrategy::isFusible(op);
 }

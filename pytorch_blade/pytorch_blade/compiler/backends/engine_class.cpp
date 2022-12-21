@@ -145,7 +145,7 @@ at::List<at::Tensor> EngineClass::Execute(const at::List<at::Tensor>& inputs) {
                     outputs[k], ref_outputs[k], accuracy_rtol, accuracy_atol);
             if (not all_close) {
               // if results is different then should do error fallback
-              LOG(WARNING) << "The " << k
+              LOG(WARNING) << "cluster " << attr_debug_name_ << ": the " << k
                            << "-th output tensor failed accuracy check";
               should_error_fallback_ = true;
               break;
